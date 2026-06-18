@@ -1,7 +1,7 @@
 import { estimateTokens } from "../diff-parsing.ts";
 import type { HarnessReviewRequest, ReviewInputCoverage } from "../models.ts";
 
-export const MAX_PROMPT_DIFF_TOKENS = 120_000;
+export const MAX_PROMPT_DIFF_TOKENS = 90_000;
 export const MAX_PROMPT_DIFF_FILE_TOKENS = 40_000;
 
 export interface PromptSizedDiffResult {
@@ -9,7 +9,9 @@ export interface PromptSizedDiffResult {
 	readonly inputCoverage: ReviewInputCoverage;
 }
 
-export function promptSizedDiff(localDiff: HarnessReviewRequest["target"]["localDiff"]): PromptSizedDiffResult {
+export function promptSizedDiff(
+	localDiff: HarnessReviewRequest["target"]["localDiff"],
+): PromptSizedDiffResult {
 	const fullDiffEstimatedTokens = estimateTokens(localDiff.diffText);
 	const omittedFiles: ReviewInputCoverage["omittedFiles"] = [];
 	const includedRawTexts: string[] = [];
@@ -49,7 +51,10 @@ export function promptSizedDiff(localDiff: HarnessReviewRequest["target"]["local
 	return { diffText: body.length === 0 ? header.trimEnd() : `${header}\n${body}`, inputCoverage };
 }
 
-function omittedReviewInputFile(file: HarnessReviewRequest["target"]["localDiff"]["files"][number], reason: ReviewInputCoverage["omittedFiles"][number]["reason"]): ReviewInputCoverage["omittedFiles"][number] {
+function omittedReviewInputFile(
+	file: HarnessReviewRequest["target"]["localDiff"]["files"][number],
+	reason: ReviewInputCoverage["omittedFiles"][number]["reason"],
+): ReviewInputCoverage["omittedFiles"][number] {
 	return {
 		path: file.path.trim() === "" ? "(unknown path)" : file.path,
 		changeKind: file.changeKind,

@@ -16,22 +16,29 @@ export async function resolveBranch(
 	if (requestedBranch !== undefined) {
 		const validation = validateBranchName(requestedBranch);
 		if (validation.type === "invalid") {
-			return failure("invalid_branch_name", `Invalid branch name ${JSON.stringify(requestedBranch)}: ${validation.reason}`);
+			return failure(
+				"invalid_branch_name",
+				`Invalid branch name ${JSON.stringify(requestedBranch)}: ${validation.reason}`,
+			);
 		}
 		return resolved(requestedBranch);
 	}
 
 	const current = await ctx.git.currentBranch({ cwd: ctx.cwd });
 	if (!current.ok) {
-		if (current.error.code === "detached_head") return failure("detached_head", options.detachedMessage);
+		if (current.error.code === "detached_head")
+			return failure("detached_head", options.detachedMessage);
 		return failure(current.error.code, current.error.message);
 	}
 	const validation = validateBranchName(current.value);
-	if (validation.type === "invalid") return failure("invalid_branch_name", `Invalid branch name ${JSON.stringify(current.value)}: ${validation.reason}`);
+	if (validation.type === "invalid")
+		return failure(
+			"invalid_branch_name",
+			`Invalid branch name ${JSON.stringify(current.value)}: ${validation.reason}`,
+		);
 	return resolved(current.value);
 }
 
 export function gatewayFailure(error: BrmemErrorInfo, prefix: string): ClinkrFailureExit {
 	return failure(error.code, `${prefix}: ${error.message}`);
 }
-

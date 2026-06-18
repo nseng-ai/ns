@@ -19,27 +19,42 @@ export interface BuildObjectiveBranchAttributionParams {
 export async function buildObjectiveBranchAttribution(
 	git: GitGateway,
 	params: BuildObjectiveBranchAttributionParams,
-): Promise<{ type: "ok"; value: ObjectiveBranchAttribution } | { type: "git-error"; error: GitErrorInfo }> {
+): Promise<
+	{ type: "ok"; value: ObjectiveBranchAttribution } | { type: "git-error"; error: GitErrorInfo }
+> {
 	if (params.slugs.size === 0) return { type: "ok", value: emptyAttribution(params.slugs) };
 
 	const tips = await git.listLocalBranchTips({ cwd: params.repoRoot });
 	if (!tips.ok) return { type: "git-error", error: tips.error };
 
-	const branches = tips.value.filter((tip) => tip.name !== params.trunkBranch).sort(compareBranchTips).map((tip) => tip.name);
+	const branches = tips.value
+		.filter((tip) => tip.name !== params.trunkBranch)
+		.sort(compareBranchTips)
+		.map((tip) => tip.name);
 	if (branches.length === 0) return { type: "ok", value: emptyAttribution(params.slugs) };
 
 	const objectiveRoot = activeRootRelativePath();
-	const treeOids = await git.treeOidsAtRefs({ cwd: params.repoRoot, refs: [params.trunkBranch, ...branches], relativePath: objectiveRoot });
+	const treeOids = await git.treeOidsAtRefs({
+		cwd: params.repoRoot,
+		refs: [params.trunkBranch, ...branches],
+		relativePath: objectiveRoot,
+	});
 	if (!treeOids.ok) return { type: "git-error", error: treeOids.error };
 
 	const trunkTreeOid = treeOids.value[params.trunkBranch] ?? null;
-	const changedBranches = branches.filter((branch) => (treeOids.value[branch] ?? null) !== trunkTreeOid);
+	const changedBranches = branches.filter(
+		(branch) => (treeOids.value[branch] ?? null) !== trunkTreeOid,
+	);
 	const maxBranchWalks = params.maxBranchWalks ?? MAX_UPDATED_BRANCH_ATTRIBUTION_WALKS;
 	const walkedBranches = changedBranches.slice(0, maxBranchWalks);
 	const bySlug = new Map<string, string[]>([...params.slugs].map((slug) => [slug, []]));
 
 	for (const branch of walkedBranches) {
-		const changedPaths = await git.changedPathsUnder({ cwd: params.repoRoot, revisionRange: `${params.trunkBranch}...${branch}`, relativePath: objectiveRoot });
+		const changedPaths = await git.changedPathsUnder({
+			cwd: params.repoRoot,
+			revisionRange: `${params.trunkBranch}...${branch}`,
+			relativePath: objectiveRoot,
+		});
 		if (!changedPaths.ok) return { type: "git-error", error: changedPaths.error };
 
 		for (const slug of objectiveSlugsFromPaths(changedPaths.value, params.slugs)) {
@@ -57,7 +72,10 @@ export async function buildObjectiveBranchAttribution(
 }
 
 function emptyAttribution(slugs: ReadonlySet<string>): ObjectiveBranchAttribution {
-	return { updatedBranchesBySlug: new Map([...slugs].map((slug) => [slug, []])), isTruncated: false };
+	return {
+		updatedBranchesBySlug: new Map([...slugs].map((slug) => [slug, []])),
+		isTruncated: false,
+	};
 }
 
 function objectiveSlugsFromPaths(paths: readonly string[], slugs: ReadonlySet<string>): string[] {
@@ -72,7 +90,8 @@ function objectiveSlugsFromPaths(paths: readonly string[], slugs: ReadonlySet<st
 function compareBranchTips(left: GitLocalBranchTip, right: GitLocalBranchTip): number {
 	const leftTime = parsedTime(left.headIso);
 	const rightTime = parsedTime(right.headIso);
-	if (leftTime !== null && rightTime !== null && leftTime !== rightTime) return rightTime - leftTime;
+	if (leftTime !== null && rightTime !== null && leftTime !== rightTime)
+		return rightTime - leftTime;
 	if (leftTime !== null && rightTime === null) return -1;
 	if (leftTime === null && rightTime !== null) return 1;
 	return left.name.localeCompare(right.name);
@@ -84,6 +103,8 @@ function parsedTime(iso: string | null): number | null {
 	return Number.isFinite(parsed) ? parsed : null;
 }
 
-function freezeAttributionMap(bySlug: ReadonlyMap<string, readonly string[]>): ReadonlyMap<string, readonly string[]> {
+function freezeAttributionMap(
+	bySlug: ReadonlyMap<string, readonly string[]>,
+): ReadonlyMap<string, readonly string[]> {
 	return new Map([...bySlug.entries()].map(([slug, branches]) => [slug, [...branches]]));
 }

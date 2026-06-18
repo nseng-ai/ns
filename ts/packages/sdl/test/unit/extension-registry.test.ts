@@ -5,7 +5,12 @@ import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { classifyExtensionDiagnosticsForInvocation, hasExtensionErrors, loadSdlCommandCatalog, loadSelectedSdlCommand } from "../../src/extension-registry.ts";
+import {
+	classifyExtensionDiagnosticsForInvocation,
+	hasExtensionErrors,
+	loadSdlCommandCatalog,
+	loadSelectedSdlCommand,
+} from "../../src/extension-registry.ts";
 
 const tempDirs: string[] = [];
 
@@ -29,7 +34,10 @@ function writeGlobalExtension(workspace: Workspace, fileName: string, source: st
 }
 
 function writeProjectManifest(workspace: Workspace, packageName: string, manifest: unknown): void {
-	writeFile(join(workspace.cwd, ".asdl", "extensions", packageName, "package.json"), JSON.stringify(manifest));
+	writeFile(
+		join(workspace.cwd, ".asdl", "extensions", packageName, "package.json"),
+		JSON.stringify(manifest),
+	);
 }
 
 function writeFile(path: string, source: string): void {
@@ -68,8 +76,14 @@ describe("extension registry", () => {
 		expect(loaded.commandInfos.map((info) => [info.name, info.description])).toEqual([
 			["changes", "Summarize outstanding worktree changes without committing."],
 			["cp", "Create a checkpoint commit for the current diff."],
-			["regenerate-pr", "Regenerate the current branch PR's title and description with the asdl PR-description prompt."],
-			["submit", "Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive."],
+			[
+				"regenerate-pr",
+				"Regenerate the current branch PR's title and description with the asdl PR-description prompt.",
+			],
+			[
+				"submit",
+				"Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.",
+			],
 		]);
 	});
 
@@ -82,9 +96,15 @@ describe("extension registry", () => {
 		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
-		expect(loaded.diagnostics.filter((diagnostic) => diagnostic.code === "extension_command_override")).toHaveLength(2);
-		expect(loaded.commandInfos.find((info) => info.name === "cp")?.description).toBe("Run SDL command entry 'cp'.");
-		expect(loaded.commandInfos.find((info) => info.name === "greet")?.description).toBe("Run SDL command entry 'greet'.");
+		expect(
+			loaded.diagnostics.filter((diagnostic) => diagnostic.code === "extension_command_override"),
+		).toHaveLength(2);
+		expect(loaded.commandInfos.find((info) => info.name === "cp")?.description).toBe(
+			"Run SDL command entry 'cp'.",
+		);
+		expect(loaded.commandInfos.find((info) => info.name === "greet")?.description).toBe(
+			"Run SDL command entry 'greet'.",
+		);
 
 		const selected = loaded.candidates.get("greet");
 		expect(selected).toBeDefined();
@@ -92,21 +112,42 @@ describe("extension registry", () => {
 		const command = await loadSelectedSdlCommand(selected);
 		expect(command.ok).toBe(true);
 		if (!command.ok) return;
-		const result = await command.command.run({
-			cwd: workspace.cwd,
-			env: {},
-			async exec() {
-				return { code: 0, stdout: "", stderr: "", killed: false };
+		const result = await command.command.run(
+			{
+				cwd: workspace.cwd,
+				env: {},
+				async exec() {
+					return { code: 0, stdout: "", stderr: "", killed: false };
+				},
+				model: {
+					async generateText() {
+						return { ok: true, text: "" };
+					},
+				},
 			},
-			model: { async generateText() { return { ok: true, text: "" }; } },
-		}, {});
+			{},
+		);
 		expect(result).toEqual({ ok: true, message: "project greet" });
 	});
 
 	test("manifest metadata customizes catalog help without importing command entries", async () => {
 		const workspace = await createWorkspace();
-		writeProjectManifest(workspace, "pkg", { asdl: { commands: [{ name: "hello", description: "Say hello.", fullDescription: "Say hello with details.", entry: "./src/hello.ts" }] } });
-		writeFile(join(workspace.cwd, ".asdl", "extensions", "pkg", "src", "hello.ts"), "throw new Error('should not import during discovery');\n");
+		writeProjectManifest(workspace, "pkg", {
+			asdl: {
+				commands: [
+					{
+						name: "hello",
+						description: "Say hello.",
+						fullDescription: "Say hello with details.",
+						entry: "./src/hello.ts",
+					},
+				],
+			},
+		});
+		writeFile(
+			join(workspace.cwd, ".asdl", "extensions", "pkg", "src", "hello.ts"),
+			"throw new Error('should not import during discovery');\n",
+		);
 
 		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
 
@@ -128,7 +169,9 @@ describe("extension registry", () => {
 				],
 			},
 		});
-		writeFile(join(workspace.cwd, ".asdl", "extensions", "pkg", "src", "commands.ts"), `
+		writeFile(
+			join(workspace.cwd, ".asdl", "extensions", "pkg", "src", "commands.ts"),
+			`
 import { defineExtension, ok } from "@asdl/sdl/sdk";
 
 export default defineExtension({
@@ -137,39 +180,61 @@ export default defineExtension({
 		{ name: "bye", description: "Say bye.", run() { return ok("bye"); } },
 	],
 });
-`);
+`,
+		);
 
 		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
-		expect([...loaded.candidates.keys()]).toEqual(["bye", "changes", "cp", "hello", "regenerate-pr", "submit"]);
+		expect([...loaded.candidates.keys()]).toEqual([
+			"bye",
+			"changes",
+			"cp",
+			"hello",
+			"regenerate-pr",
+			"submit",
+		]);
 		const selected = loaded.candidates.get("bye");
 		expect(selected).toBeDefined();
 		if (selected === undefined) return;
 		const command = await loadSelectedSdlCommand(selected);
 		expect(command.ok).toBe(true);
 		if (!command.ok) return;
-		const result = await command.command.run({
-			cwd: workspace.cwd,
-			env: {},
-			async exec() {
-				return { code: 0, stdout: "", stderr: "", killed: false };
+		const result = await command.command.run(
+			{
+				cwd: workspace.cwd,
+				env: {},
+				async exec() {
+					return { code: 0, stdout: "", stderr: "", killed: false };
+				},
+				model: {
+					async generateText() {
+						return { ok: true, text: "" };
+					},
+				},
 			},
-			model: { async generateText() { return { ok: true, text: "" }; } },
-		}, {});
+			{},
+		);
 		expect(result).toEqual({ ok: true, message: "bye" });
 	});
 
 	test("duplicate command names within one source level are errors", async () => {
 		const workspace = await createWorkspace();
 		writeProjectExtension(workspace, "one.ts", commandEntry("one", "one"));
-		writeProjectManifest(workspace, "pkg", { asdl: { commands: [{ name: "one", description: "One.", entry: "./src/one.ts" }] } });
-		writeFile(join(workspace.cwd, ".asdl", "extensions", "pkg", "src", "one.ts"), commandEntry("one", "pkg"));
+		writeProjectManifest(workspace, "pkg", {
+			asdl: { commands: [{ name: "one", description: "One.", entry: "./src/one.ts" }] },
+		});
+		writeFile(
+			join(workspace.cwd, ".asdl", "extensions", "pkg", "src", "one.ts"),
+			commandEntry("one", "pkg"),
+		);
 
 		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(true);
-		expect(loaded.diagnostics).toContainEqual(expect.objectContaining({ code: "extension_command_duplicate_in_level" }));
+		expect(loaded.diagnostics).toContainEqual(
+			expect.objectContaining({ code: "extension_command_duplicate_in_level" }),
+		);
 	});
 
 	test("invalid inferred command names and selected import failures are structured errors", async () => {
@@ -180,12 +245,17 @@ export default defineExtension({
 		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(true);
-		expect(loaded.diagnostics).toContainEqual(expect.objectContaining({ code: "extension_command_name_invalid", commandName: "Bad" }));
+		expect(loaded.diagnostics).toContainEqual(
+			expect.objectContaining({ code: "extension_command_name_invalid", commandName: "Bad" }),
+		);
 		const selected = loaded.candidates.get("throws");
 		expect(selected).toBeDefined();
 		if (selected === undefined) return;
 		const command = await loadSelectedSdlCommand(selected);
-		expect(command).toMatchObject({ ok: false, diagnostic: { code: "sdl_extension_contribution_import_failed", commandName: "throws" } });
+		expect(command).toMatchObject({
+			ok: false,
+			diagnostic: { code: "sdl_extension_contribution_import_failed", commandName: "throws" },
+		});
 	});
 
 	test("diagnostic classification treats unrelated selected-command diagnostics as warnings", () => {
@@ -198,17 +268,36 @@ export default defineExtension({
 		};
 
 		const classified = classifyExtensionDiagnosticsForInvocation({
-			diagnostics: [{ severity: "error", code: "broken", message: "broken hello", commandName: "hello", sourceLevel: "project" }],
+			diagnostics: [
+				{
+					severity: "error",
+					code: "broken",
+					message: "broken hello",
+					commandName: "hello",
+					sourceLevel: "project",
+				},
+			],
 			requestedCommandName: "cp",
 			selectedCandidate,
 		});
 
-		expect(classified).toEqual({ fatal: [], warnings: [expect.objectContaining({ commandName: "hello" })] });
+		expect(classified).toEqual({
+			fatal: [],
+			warnings: [expect.objectContaining({ commandName: "hello" })],
+		});
 	});
 
 	test("diagnostic classification makes selected same-level duplicates fatal", () => {
 		const classified = classifyExtensionDiagnosticsForInvocation({
-			diagnostics: [{ severity: "error", code: "extension_command_duplicate_in_level", message: "Duplicate cp", commandName: "cp", sourceLevel: "project" }],
+			diagnostics: [
+				{
+					severity: "error",
+					code: "extension_command_duplicate_in_level",
+					message: "Duplicate cp",
+					commandName: "cp",
+					sourceLevel: "project",
+				},
+			],
 			requestedCommandName: "cp",
 			selectedCandidate: {
 				name: "cp",
@@ -225,7 +314,15 @@ export default defineExtension({
 
 	test("diagnostic classification allows higher-precedence valid selected candidates", () => {
 		const classified = classifyExtensionDiagnosticsForInvocation({
-			diagnostics: [{ severity: "error", code: "broken", message: "broken global cp", commandName: "cp", sourceLevel: "global" }],
+			diagnostics: [
+				{
+					severity: "error",
+					code: "broken",
+					message: "broken global cp",
+					commandName: "cp",
+					sourceLevel: "global",
+				},
+			],
 			requestedCommandName: "cp",
 			selectedCandidate: {
 				name: "cp",
@@ -236,12 +333,23 @@ export default defineExtension({
 			},
 		});
 
-		expect(classified).toEqual({ fatal: [], warnings: [expect.objectContaining({ sourceLevel: "global" })] });
+		expect(classified).toEqual({
+			fatal: [],
+			warnings: [expect.objectContaining({ sourceLevel: "global" })],
+		});
 	});
 
 	test("diagnostic classification blocks fallback below a higher-precedence selected-name error", () => {
 		const classified = classifyExtensionDiagnosticsForInvocation({
-			diagnostics: [{ severity: "error", code: "broken", message: "broken project cp", commandName: "cp", sourceLevel: "project" }],
+			diagnostics: [
+				{
+					severity: "error",
+					code: "broken",
+					message: "broken project cp",
+					commandName: "cp",
+					sourceLevel: "project",
+				},
+			],
 			requestedCommandName: "cp",
 			selectedCandidate: {
 				name: "cp",

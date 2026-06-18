@@ -1,4 +1,13 @@
-import type { ChildrenOfResult, ParentOfResult, SlotGtGateway, StackGraphInfo, StackGraphResult, StackInfo, StackResult, TrunkResult } from "../gt.ts";
+import type {
+	ChildrenOfResult,
+	ParentOfResult,
+	SlotGtGateway,
+	StackGraphInfo,
+	StackGraphResult,
+	StackInfo,
+	StackResult,
+	TrunkResult,
+} from "../gt.ts";
 
 export type FakeSlotGtOperation =
 	| { type: "parent-of"; cwd: string }
@@ -68,50 +77,98 @@ export function fakeStackInfo(overrides: Partial<StackInfo> = {}): StackInfo {
 		ancestors: [...(overrides.ancestors ?? ["master"])],
 		descendants: [...(overrides.descendants ?? [])],
 		ancestorTermination: overrides.ancestorTermination ?? { type: "completed" },
-		descendantWalk: overrides.descendantWalk ?? { forks: [], childrenCorruptions: [], termination: { type: "completed" } },
+		descendantWalk: overrides.descendantWalk ?? {
+			forks: [],
+			childrenCorruptions: [],
+			termination: { type: "completed" },
+		},
 		trunkMarker: overrides.trunkMarker ?? { type: "clean" },
 	};
 }
 
 export function fakeStackGraphInfo(overrides: Partial<StackGraphInfo> = {}): StackGraphInfo {
 	return {
-		topology: overrides.topology ?? new Map([
-			["master", { branch: "master", parent: undefined, children: ["feature/current"], validationResult: "TRUNK", isTrunkMarked: true, childrenCorruption: undefined }],
-			["feature/current", { branch: "feature/current", parent: "master", children: [], validationResult: "VALID", isTrunkMarked: false, childrenCorruption: undefined }],
-		]),
+		topology:
+			overrides.topology ??
+			new Map([
+				[
+					"master",
+					{
+						branch: "master",
+						parent: undefined,
+						children: ["feature/current"],
+						validationResult: "TRUNK",
+						isTrunkMarked: true,
+						childrenCorruption: undefined,
+					},
+				],
+				[
+					"feature/current",
+					{
+						branch: "feature/current",
+						parent: "master",
+						children: [],
+						validationResult: "VALID",
+						isTrunkMarked: false,
+						childrenCorruption: undefined,
+					},
+				],
+			]),
 		diagnostics: overrides.diagnostics ?? { emptyBranchNameRows: 0, childrenCorruptions: [] },
 	};
 }
 
 function copyParentResult(result: ParentOfResult): ParentOfResult {
 	switch (result.type) {
-		case "parent": return { type: "parent", branch: result.branch };
-		case "no_parent": return { type: "no_parent" };
-		case "untracked_branch": return { type: "untracked_branch", message: result.message };
-		case "failure": return { type: "failure", failure: { ...result.failure } };
+		case "parent":
+			return { type: "parent", branch: result.branch };
+		case "no_parent":
+			return { type: "no_parent" };
+		case "untracked_branch":
+			return { type: "untracked_branch", message: result.message };
+		case "failure":
+			return { type: "failure", failure: { ...result.failure } };
 	}
 }
 
 function copyChildrenResult(result: ChildrenOfResult): ChildrenOfResult {
 	switch (result.type) {
-		case "children": return { type: "children", branches: [...result.branches] };
-		case "untracked_branch": return { type: "untracked_branch", message: result.message };
-		case "failure": return { type: "failure", failure: { ...result.failure } };
+		case "children":
+			return { type: "children", branches: [...result.branches] };
+		case "untracked_branch":
+			return { type: "untracked_branch", message: result.message };
+		case "failure":
+			return { type: "failure", failure: { ...result.failure } };
 	}
 }
 
 function copyTrunkResult(result: TrunkResult): TrunkResult {
-	return result.type === "trunk" ? { type: "trunk", branch: result.branch } : { type: "failure", failure: { ...result.failure } };
+	return result.type === "trunk"
+		? { type: "trunk", branch: result.branch }
+		: { type: "failure", failure: { ...result.failure } };
 }
 
 function copyStackResult(result: StackResult): StackResult {
-	if (result.type === "untracked_branch") return { type: "untracked_branch", message: result.message };
+	if (result.type === "untracked_branch")
+		return { type: "untracked_branch", message: result.message };
 	if (result.type === "failure") return { type: "failure", failure: { ...result.failure } };
 	return { type: "stack", stack: fakeStackInfo(result.stack) };
 }
 
 function copyStackGraphResult(result: StackGraphResult): StackGraphResult {
-	if (result.type === "git_common_dir_missing") return { type: "git_common_dir_missing", message: result.message };
+	if (result.type === "git_common_dir_missing")
+		return { type: "git_common_dir_missing", message: result.message };
 	if (result.type === "failure") return { type: "failure", failure: { ...result.failure } };
-	return { type: "graph", graph: fakeStackGraphInfo({ topology: new Map(result.graph.topology), diagnostics: { emptyBranchNameRows: result.graph.diagnostics.emptyBranchNameRows, childrenCorruptions: result.graph.diagnostics.childrenCorruptions.map((corruption) => ({ ...corruption })) } }) };
+	return {
+		type: "graph",
+		graph: fakeStackGraphInfo({
+			topology: new Map(result.graph.topology),
+			diagnostics: {
+				emptyBranchNameRows: result.graph.diagnostics.emptyBranchNameRows,
+				childrenCorruptions: result.graph.diagnostics.childrenCorruptions.map((corruption) => ({
+					...corruption,
+				})),
+			},
+		}),
+	};
 }

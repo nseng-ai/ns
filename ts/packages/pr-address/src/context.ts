@@ -1,4 +1,9 @@
-import { RealPrAddressGitGateway, RealPrAddressGitHubGateway, type PrAddressGitGateway, type PrAddressGitHubGateway } from "./gateways.ts";
+import {
+	RealPrAddressGitGateway,
+	RealPrAddressGitHubGateway,
+	type PrAddressGitGateway,
+	type PrAddressGitHubGateway,
+} from "./gateways.ts";
 
 export interface PrAddressContext {
 	github: PrAddressGitHubGateway;

@@ -27,8 +27,16 @@ export type StackMapEffect =
 	| { readonly type: "activate-choice" };
 
 export interface StackMapCmuxActivationExecutor {
-	focusTab(target: StackMapCmuxTabTarget): Promise<{ readonly type: "focused" } | { readonly type: "failed"; readonly message: string }>;
-	openNew(branch: string, slot?: StackMapSlotAssignment | undefined): Promise<{ readonly type: "opened"; readonly message: string } | { readonly type: "failed"; readonly message: string }>;
+	focusTab(
+		target: StackMapCmuxTabTarget,
+	): Promise<{ readonly type: "focused" } | { readonly type: "failed"; readonly message: string }>;
+	openNew(
+		branch: string,
+		slot?: StackMapSlotAssignment | undefined,
+	): Promise<
+		| { readonly type: "opened"; readonly message: string }
+		| { readonly type: "failed"; readonly message: string }
+	>;
 }
 
 export interface CreateStackMapCmuxActivationExecutorOptions {
@@ -48,7 +56,10 @@ export async function runStackMapEffect(
 	effect: StackMapEffect,
 	deps: TabModuleDeps,
 ): Promise<StackMapState> {
-	const executor = createStackMapCmuxActivationExecutor({ cwd: deps.cwd, runCommand: deps.runCommand });
+	const executor = createStackMapCmuxActivationExecutor({
+		cwd: deps.cwd,
+		runCommand: deps.runCommand,
+	});
 	if (effect.type === "activate-choice") {
 		if (state.mode.type !== "cmux-choice") return state;
 		return executeChoice(model, state, executor, state.mode.choices[state.mode.selectedIndex]);
@@ -56,12 +67,18 @@ export async function runStackMapEffect(
 
 	const plan = planStackMapCmuxActivation(model, state);
 	if (plan.type === "choose-tab") {
-		return reduceStackMapState(model, state, { type: "show-cmux-choice", branch: plan.branch, choices: choicesForCmuxActivationPlan(plan) });
+		return reduceStackMapState(model, state, {
+			type: "show-cmux-choice",
+			branch: plan.branch,
+			choices: choicesForCmuxActivationPlan(plan),
+		});
 	}
 	return executeActivationPlan(model, state, executor, plan);
 }
 
-export function createStackMapCmuxActivationExecutor(options: CreateStackMapCmuxActivationExecutorOptions = {}): StackMapCmuxActivationExecutor {
+export function createStackMapCmuxActivationExecutor(
+	options: CreateStackMapCmuxActivationExecutorOptions = {},
+): StackMapCmuxActivationExecutor {
 	const cwd = options.cwd ?? process.cwd();
 	const runCommand = options.runCommand ?? runRealCommand;
 	return {
@@ -71,29 +88,62 @@ export function createStackMapCmuxActivationExecutor(options: CreateStackMapCmux
 				workspace_id: target.workspaceRef,
 				window_id: target.windowRef,
 			});
-			const result = await runCommand("cmux", ["rpc", "surface.focus", params], { cwd, timeout: COMMAND_TIMEOUT_MS });
+			const result = await runCommand("cmux", ["rpc", "surface.focus", params], {
+				cwd,
+				timeout: COMMAND_TIMEOUT_MS,
+			});
 			if (result.code === 0) return { type: "focused" };
 			return { type: "failed", message: commandFailureMessage("cmux rpc surface.focus", result) };
 		},
 		async openNew(branch, slot) {
-			const checkout = slot?.worktreePath === undefined ? await checkoutSlot(runCommand, cwd, branch) : { type: "checked-out" as const, target: slotTargetFromAssignment(branch, slot) };
+			const checkout =
+				slot?.worktreePath === undefined
+					? await checkoutSlot(runCommand, cwd, branch)
+					: { type: "checked-out" as const, target: slotTargetFromAssignment(branch, slot) };
 			if (checkout.type === "failed") return checkout;
 
 			const target = checkout.target;
 			const description = `sdlcc cmux workspace for ${target.branchName}`;
-			const args = buildNewWorkspaceArgs({ branchName: target.branchName, worktreePath: target.worktreePath, description });
-			const result = await runCommand("cmux", args, { cwd: target.worktreePath, timeout: COMMAND_TIMEOUT_MS });
-			if (result.code === 0) return { type: "opened", message: `Opened cmux workspace for ${target.branchName} in ${target.slotName}.` };
+			const args = buildNewWorkspaceArgs({
+				branchName: target.branchName,
+				worktreePath: target.worktreePath,
+				description,
+			});
+			const result = await runCommand("cmux", args, {
+				cwd: target.worktreePath,
+				timeout: COMMAND_TIMEOUT_MS,
+			});
+			if (result.code === 0)
+				return {
+					type: "opened",
+					message: `Opened cmux workspace for ${target.branchName} in ${target.slotName}.`,
+				};
 			return { type: "failed", message: commandFailureMessage("cmux new-workspace", result) };
 		},
 	};
 }
 
-export function buildNewWorkspaceArgs(options: { readonly branchName: string; readonly worktreePath: string; readonly description: string }): readonly string[] {
-	return ["new-workspace", "--name", options.branchName, "--description", options.description, "--cwd", options.worktreePath, "--command", buildSdlccCmuxReportBootstrapCommand()];
+export function buildNewWorkspaceArgs(options: {
+	readonly branchName: string;
+	readonly worktreePath: string;
+	readonly description: string;
+}): readonly string[] {
+	return [
+		"new-workspace",
+		"--name",
+		options.branchName,
+		"--description",
+		options.description,
+		"--cwd",
+		options.worktreePath,
+		"--command",
+		buildSdlccCmuxReportBootstrapCommand(),
+	];
 }
 
-export function buildSdlccCmuxReportBootstrapCommand(cliEntrypointPath: string = SDLCC_CLI_ENTRYPOINT_PATH): string {
+export function buildSdlccCmuxReportBootstrapCommand(
+	cliEntrypointPath: string = SDLCC_CLI_ENTRYPOINT_PATH,
+): string {
 	return `bun ${shellQuote(cliEntrypointPath)} cmux report || true; exec ${"${SHELL:-/bin/zsh}"} -l`;
 }
 
@@ -104,11 +154,15 @@ async function executeChoice(
 	choice: StackMapCmuxChoice | undefined,
 ): Promise<StackMapState> {
 	if (choice === undefined) {
-		return reduceStackMapState(model, state, { type: "set-status", message: "No cmux chooser item is selected." });
+		return reduceStackMapState(model, state, {
+			type: "set-status",
+			message: "No cmux chooser item is selected.",
+		});
 	}
-	const plan: StackMapCmuxActivationPlan = choice.type === "tab"
-		? { type: "focus-tab", branch: state.selectedBranch, target: choice.target }
-		: openNewActivationPlan(choice.branch, choice.slot);
+	const plan: StackMapCmuxActivationPlan =
+		choice.type === "tab"
+			? { type: "focus-tab", branch: state.selectedBranch, target: choice.target }
+			: openNewActivationPlan(choice.branch, choice.slot);
 	return executeActivationPlan(model, state, executor, plan);
 }
 
@@ -122,19 +176,38 @@ async function executeActivationPlan(
 		return reduceStackMapState(model, state, { type: "set-status", message: plan.reason });
 	}
 
-	const result = plan.type === "focus-tab"
-		? await executor.focusTab(plan.target)
-		: await executor.openNew(plan.branch, plan.slot);
-	const message = result.type === "failed" ? result.message : result.type === "focused" ? `Focused cmux tab for ${plan.branch}.` : result.message;
+	const result =
+		plan.type === "focus-tab"
+			? await executor.focusTab(plan.target)
+			: await executor.openNew(plan.branch, plan.slot);
+	const message =
+		result.type === "failed"
+			? result.message
+			: result.type === "focused"
+				? `Focused cmux tab for ${plan.branch}.`
+				: result.message;
 	return reduceStackMapState(model, state, { type: "set-status", message });
 }
 
-async function checkoutSlot(runCommand: CommandRunner, cwd: string, branch: string): Promise<{ readonly type: "checked-out"; readonly target: SlotCheckoutTarget } | { readonly type: "failed"; readonly message: string }> {
+async function checkoutSlot(
+	runCommand: CommandRunner,
+	cwd: string,
+	branch: string,
+): Promise<
+	| { readonly type: "checked-out"; readonly target: SlotCheckoutTarget }
+	| { readonly type: "failed"; readonly message: string }
+> {
 	const args = ["checkout", branch, "--format", "json", "--no-clipboard"];
 	const result = await runCommand("slot", args, { cwd, timeout: SLOT_CHECKOUT_TIMEOUT_MS });
-	if (result.code !== 0) return { type: "failed", message: commandFailureMessage("slot checkout", result) };
+	if (result.code !== 0)
+		return { type: "failed", message: commandFailureMessage("slot checkout", result) };
 	const target = parseSlotCheckoutTarget(result.stdout);
-	if (target === undefined) return { type: "failed", message: "slot checkout returned unreadable JSON; expected slot_name, branch_name, and worktree_path." };
+	if (target === undefined)
+		return {
+			type: "failed",
+			message:
+				"slot checkout returned unreadable JSON; expected slot_name, branch_name, and worktree_path.",
+		};
 	return { type: "checked-out", target };
 }
 
@@ -149,15 +222,22 @@ function parseSlotCheckoutTarget(stdout: string): SlotCheckoutTarget | undefined
 	const slotName = stringField(parsed.data, "slot_name");
 	const branchName = stringField(parsed.data, "branch_name");
 	const worktreePath = stringField(parsed.data, "worktree_path");
-	if (slotName === undefined || branchName === undefined || worktreePath === undefined) return undefined;
+	if (slotName === undefined || branchName === undefined || worktreePath === undefined)
+		return undefined;
 	return { slotName, branchName, worktreePath };
 }
 
-function openNewActivationPlan(branch: string, slot: StackMapSlotAssignment | undefined): StackMapCmuxActivationPlan {
+function openNewActivationPlan(
+	branch: string,
+	slot: StackMapSlotAssignment | undefined,
+): StackMapCmuxActivationPlan {
 	return slot === undefined ? { type: "open-new", branch } : { type: "open-new", branch, slot };
 }
 
-function slotTargetFromAssignment(branch: string, slot: StackMapSlotAssignment): SlotCheckoutTarget {
+function slotTargetFromAssignment(
+	branch: string,
+	slot: StackMapSlotAssignment,
+): SlotCheckoutTarget {
 	return {
 		slotName: slot.slotName,
 		branchName: branch,

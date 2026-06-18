@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
 
-import { resolvePiInvocation, dispatchRunnerSubagentProcess } from "../src/runner-subagent/subagent-process.ts";
+import {
+	resolvePiInvocation,
+	dispatchRunnerSubagentProcess,
+} from "../src/runner-subagent/subagent-process.ts";
 import type {
 	RunnerSubagentContext,
 	RunnerSubagentOptions,
@@ -8,7 +11,12 @@ import type {
 	RunnerSubagentTerminalToolDefinition,
 	RunnerSubagentUpdate,
 } from "../src/runner-subagent.ts";
-import { createFakeRunnerSubagentDispatcher, jsonLine, sessionMessageLine, waitForSpawn } from "./runner-subagent-fakes.ts";
+import {
+	createFakeRunnerSubagentDispatcher,
+	jsonLine,
+	sessionMessageLine,
+	waitForSpawn,
+} from "./runner-subagent-fakes.ts";
 
 const ctx: RunnerSubagentContext = { cwd: "/repo" };
 const pi: RunnerSubagentPi = {};
@@ -27,11 +35,22 @@ const blockedTool: RunnerSubagentTerminalToolDefinition = {
 	parameters: { type: "object", properties: { reason: { type: "string" } }, required: ["reason"] },
 };
 
-function options(overrides: Partial<RunnerSubagentOptions> = {}): RunnerSubagentOptions {
+interface TerminalOptionsOverrides {
+	title?: string;
+	cwd?: string;
+	model?: string;
+	signal?: AbortSignal;
+	terminalTools?: readonly RunnerSubagentTerminalToolDefinition[];
+}
+
+function options(overrides: TerminalOptionsOverrides = {}): RunnerSubagentOptions {
 	return {
 		prompt: "Do the delegated task.",
-		terminalTools: [completionTool],
-		...overrides,
+		terminalTools: overrides.terminalTools ?? [completionTool],
+		...(overrides.title === undefined ? {} : { title: overrides.title }),
+		...(overrides.cwd === undefined ? {} : { cwd: overrides.cwd }),
+		...(overrides.model === undefined ? {} : { model: overrides.model }),
+		...(overrides.signal === undefined ? {} : { signal: overrides.signal }),
 	};
 }
 
@@ -47,7 +66,11 @@ function finalTextOptions(
 	return {
 		prompt: "Do the delegated task.",
 		returnMode: "final-text",
-		...overrides,
+		...(overrides.title === undefined ? {} : { title: overrides.title }),
+		...(overrides.cwd === undefined ? {} : { cwd: overrides.cwd }),
+		...(overrides.model === undefined ? {} : { model: overrides.model }),
+		...(overrides.signal === undefined ? {} : { signal: overrides.signal }),
+		...(overrides.terminalTools === undefined ? {} : { terminalTools: overrides.terminalTools }),
 	};
 }
 
@@ -112,8 +135,15 @@ describe("runner subagent process dispatcher", () => {
 	});
 
 	test("spawns Pi in JSON print mode with cwd, prompt, and explicit session path", async () => {
-		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: "/tmp/runner-subagent.jsonl" });
-		const running = dispatchRunnerSubagentProcess(pi, ctx, options({ cwd: "/repo/packages/example" }), runner.dependencies);
+		const runner = createFakeRunnerSubagentDispatcher({
+			sessionFile: "/tmp/runner-subagent.jsonl",
+		});
+		const running = dispatchRunnerSubagentProcess(
+			pi,
+			ctx,
+			options({ cwd: "/repo/packages/example" }),
+			runner.dependencies,
+		);
 		const call = await waitForSpawn(runner.calls);
 
 		expect(call.command).toBe("pi");
@@ -128,9 +158,15 @@ describe("runner subagent process dispatcher", () => {
 			"/tmp/runner-subagent.jsonl",
 			"Do the delegated task.",
 		]);
-		expect(call.options).toEqual({ cwd: "/repo/packages/example", shell: false, stdio: ["ignore", "pipe", "pipe"] });
+		expect(call.options).toEqual({
+			cwd: "/repo/packages/example",
+			shell: false,
+			stdio: ["ignore", "pipe", "pipe"],
+		});
 
-		call.process.emitStdout(jsonLine({ type: "session", version: 3, id: "child", cwd: "/repo/packages/example" }));
+		call.process.emitStdout(
+			jsonLine({ type: "session", version: 3, id: "child", cwd: "/repo/packages/example" }),
+		);
 		call.process.close(0);
 		const result = await running;
 
@@ -139,8 +175,15 @@ describe("runner subagent process dispatcher", () => {
 	});
 
 	test("passes optional model before runtime extension in terminal mode", async () => {
-		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: "/tmp/runner-subagent.jsonl" });
-		const running = dispatchRunnerSubagentProcess(pi, ctx, options({ model: "haiku" }), runner.dependencies);
+		const runner = createFakeRunnerSubagentDispatcher({
+			sessionFile: "/tmp/runner-subagent.jsonl",
+		});
+		const running = dispatchRunnerSubagentProcess(
+			pi,
+			ctx,
+			options({ model: "haiku" }),
+			runner.dependencies,
+		);
 		const call = await waitForSpawn(runner.calls);
 
 		expect(call.args).toEqual([
@@ -164,7 +207,9 @@ describe("runner subagent process dispatcher", () => {
 	});
 
 	test("passes inherited model and non-off thinking to child Pi and progress metadata", async () => {
-		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: "/tmp/runner-subagent.jsonl" });
+		const runner = createFakeRunnerSubagentDispatcher({
+			sessionFile: "/tmp/runner-subagent.jsonl",
+		});
 		const running = dispatchRunnerSubagentProcess(
 			{ getThinkingLevel: () => "medium" },
 			{ cwd: "/repo", model: { provider: "anthropic", id: "claude-sonnet-4-5" } },
@@ -202,11 +247,17 @@ describe("runner subagent process dispatcher", () => {
 	});
 
 	test("omits the thinking flag for off while preserving off launch metadata", async () => {
-		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: "/tmp/runner-subagent.jsonl" });
+		const runner = createFakeRunnerSubagentDispatcher({
+			sessionFile: "/tmp/runner-subagent.jsonl",
+		});
 		const running = dispatchRunnerSubagentProcess(
 			pi,
 			ctx,
-			{ prompt: "Do the delegated task.", returnMode: "final-text", launch: { thinkingLevel: "off" } },
+			{
+				prompt: "Do the delegated task.",
+				returnMode: "final-text",
+				launch: { thinkingLevel: "off" },
+			},
 			runner.dependencies,
 		);
 		const call = await waitForSpawn(runner.calls);
@@ -234,18 +285,46 @@ describe("runner subagent process dispatcher", () => {
 
 	test("returns stopped-without-terminal for clean subagent completion", async () => {
 		let now = 1_000;
-		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: "/tmp/runner-subagent.jsonl", now: () => now });
-		const running = dispatchRunnerSubagentProcess(pi, ctx, options({ title: "Subagent task" }), runner.dependencies);
+		const runner = createFakeRunnerSubagentDispatcher({
+			sessionFile: "/tmp/runner-subagent.jsonl",
+			now: () => now,
+		});
+		const running = dispatchRunnerSubagentProcess(
+			pi,
+			ctx,
+			options({ title: "Subagent task" }),
+			runner.dependencies,
+		);
 		const call = await waitForSpawn(runner.calls);
 
 		call.process.emitStdout(jsonLine({ type: "session", version: 3, id: "child", cwd: "/repo" }));
 		call.process.emitStdout(jsonLine({ type: "agent_start" }));
 		call.process.emitStdout(jsonLine({ type: "turn_start" }));
-		call.process.emitStdout(jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "read", args: {} }));
-		call.process.emitStdout(jsonLine({ type: "tool_execution_end", toolCallId: "tool-1", toolName: "read", result: {}, isError: false }));
-		call.process.emitStdout(jsonLine({ type: "message_end", message: { role: "assistant", content: [], stopReason: "end" } }));
+		call.process.emitStdout(
+			jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "read", args: {} }),
+		);
+		call.process.emitStdout(
+			jsonLine({
+				type: "tool_execution_end",
+				toolCallId: "tool-1",
+				toolName: "read",
+				result: {},
+				isError: false,
+			}),
+		);
+		call.process.emitStdout(
+			jsonLine({
+				type: "message_end",
+				message: { role: "assistant", content: [], stopReason: "end" },
+			}),
+		);
 		now = 1_345;
-		call.process.emitStdout(jsonLine({ type: "agent_end", messages: [{ role: "assistant", content: [], stopReason: "end" }] }));
+		call.process.emitStdout(
+			jsonLine({
+				type: "agent_end",
+				messages: [{ role: "assistant", content: [], stopReason: "end" }],
+			}),
+		);
 		call.process.close(0);
 
 		const result = await running;
@@ -268,7 +347,8 @@ describe("runner subagent process dispatcher", () => {
 				source: "child-session-file",
 				sessionFile: "/tmp/runner-subagent.jsonl",
 				reason: "no-assistant-usage",
-				diagnostic: "Subagent child session did not contain assistant messages with usable usage metadata.",
+				diagnostic:
+					"Subagent child session did not contain assistant messages with usable usage metadata.",
 			},
 			diagnostic: "Subagent Pi stopped without terminal capture.",
 			stopReason: "end",
@@ -276,8 +356,15 @@ describe("runner subagent process dispatcher", () => {
 	});
 
 	test("passes optional model to child Pi args in final-text mode", async () => {
-		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: "/tmp/runner-subagent.jsonl" });
-		const running = dispatchRunnerSubagentProcess(pi, ctx, finalTextOptions({ model: "haiku" }), runner.dependencies);
+		const runner = createFakeRunnerSubagentDispatcher({
+			sessionFile: "/tmp/runner-subagent.jsonl",
+		});
+		const running = dispatchRunnerSubagentProcess(
+			pi,
+			ctx,
+			finalTextOptions({ model: "haiku" }),
+			runner.dependencies,
+		);
 		const call = await waitForSpawn(runner.calls);
 
 		expect(call.args).toEqual([
@@ -292,7 +379,12 @@ describe("runner subagent process dispatcher", () => {
 			"Do the delegated task.",
 		]);
 
-		call.process.emitStdout(jsonLine({ type: "message_end", message: { role: "assistant", content: [{ type: "text", text: "Done." }] } }));
+		call.process.emitStdout(
+			jsonLine({
+				type: "message_end",
+				message: { role: "assistant", content: [{ type: "text", text: "Done." }] },
+			}),
+		);
 		call.process.close(0);
 		const result = await running;
 
@@ -300,7 +392,9 @@ describe("runner subagent process dispatcher", () => {
 	});
 
 	test("passes inherited provider with an unqualified requested model pattern", async () => {
-		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: "/tmp/runner-subagent.jsonl" });
+		const runner = createFakeRunnerSubagentDispatcher({
+			sessionFile: "/tmp/runner-subagent.jsonl",
+		});
 		const running = dispatchRunnerSubagentProcess(
 			{ getThinkingLevel: () => "high" },
 			{ cwd: "/repo", model: { provider: "openai-codex", id: "gpt-5.5" } },
@@ -323,7 +417,12 @@ describe("runner subagent process dispatcher", () => {
 			"Do the delegated task.",
 		]);
 
-		call.process.emitStdout(jsonLine({ type: "message_end", message: { role: "assistant", content: [{ type: "text", text: "Done." }] } }));
+		call.process.emitStdout(
+			jsonLine({
+				type: "message_end",
+				message: { role: "assistant", content: [{ type: "text", text: "Done." }] },
+			}),
+		);
 		call.process.close(0);
 		const result = await running;
 
@@ -337,7 +436,9 @@ describe("runner subagent process dispatcher", () => {
 	});
 
 	test("does not inherit parent thinking when caller provides a model pattern", async () => {
-		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: "/tmp/runner-subagent.jsonl" });
+		const runner = createFakeRunnerSubagentDispatcher({
+			sessionFile: "/tmp/runner-subagent.jsonl",
+		});
 		const running = dispatchRunnerSubagentProcess(
 			{ getThinkingLevel: () => "high" },
 			{ cwd: "/repo", model: { provider: "openai-codex", id: "gpt-5.5" } },
@@ -358,7 +459,12 @@ describe("runner subagent process dispatcher", () => {
 			"Do the delegated task.",
 		]);
 
-		call.process.emitStdout(jsonLine({ type: "message_end", message: { role: "assistant", content: [{ type: "text", text: "Done." }] } }));
+		call.process.emitStdout(
+			jsonLine({
+				type: "message_end",
+				message: { role: "assistant", content: [{ type: "text", text: "Done." }] },
+			}),
+		);
 		call.process.close(0);
 		const result = await running;
 
@@ -372,8 +478,16 @@ describe("runner subagent process dispatcher", () => {
 
 	test("returns final assistant text for clean subagent completion in final-text mode", async () => {
 		let now = 1_000;
-		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: "/tmp/runner-subagent.jsonl", now: () => now });
-		const running = dispatchRunnerSubagentProcess(pi, ctx, finalTextOptions({ title: "Subagent task" }), runner.dependencies);
+		const runner = createFakeRunnerSubagentDispatcher({
+			sessionFile: "/tmp/runner-subagent.jsonl",
+			now: () => now,
+		});
+		const running = dispatchRunnerSubagentProcess(
+			pi,
+			ctx,
+			finalTextOptions({ title: "Subagent task" }),
+			runner.dependencies,
+		);
 		const call = await waitForSpawn(runner.calls);
 
 		expect(call.args).toEqual([
@@ -421,7 +535,8 @@ describe("runner subagent process dispatcher", () => {
 				source: "child-session-file",
 				sessionFile: "/tmp/runner-subagent.jsonl",
 				reason: "no-assistant-usage",
-				diagnostic: "Subagent child session did not contain assistant messages with usable usage metadata.",
+				diagnostic:
+					"Subagent child session did not contain assistant messages with usable usage metadata.",
 			},
 			finalText: "Done.\nEvidence: tests passed.",
 			stopReason: "stop",
@@ -433,7 +548,12 @@ describe("runner subagent process dispatcher", () => {
 			sessionFile: "/tmp/runner-subagent.jsonl",
 			sessionFileText: sessionUsageJsonl(),
 		});
-		const running = dispatchRunnerSubagentProcess(pi, ctx, finalTextOptions({ title: "Usage task" }), runner.dependencies);
+		const running = dispatchRunnerSubagentProcess(
+			pi,
+			ctx,
+			finalTextOptions({ title: "Usage task" }),
+			runner.dependencies,
+		);
 		const call = await waitForSpawn(runner.calls);
 
 		call.process.emitStdout(finalTextMessage("Done."));
@@ -464,7 +584,9 @@ describe("runner subagent process dispatcher", () => {
 	});
 
 	test("session read failure is nonfatal for final text results", async () => {
-		const runner = createFakeRunnerSubagentDispatcher({ sessionFileReadError: new Error("EACCES: permission denied") });
+		const runner = createFakeRunnerSubagentDispatcher({
+			sessionFileReadError: new Error("EACCES: permission denied"),
+		});
 		const running = dispatchRunnerSubagentProcess(pi, ctx, finalTextOptions(), runner.dependencies);
 		const call = await waitForSpawn(runner.calls);
 
@@ -501,7 +623,9 @@ describe("runner subagent process dispatcher", () => {
 	});
 
 	test("no assistant usage is nonfatal and unavailable", async () => {
-		const runner = createFakeRunnerSubagentDispatcher({ sessionFileText: sessionMessageLine({ role: "user", content: [] }) });
+		const runner = createFakeRunnerSubagentDispatcher({
+			sessionFileText: sessionMessageLine({ role: "user", content: [] }),
+		});
 		const running = dispatchRunnerSubagentProcess(pi, ctx, finalTextOptions(), runner.dependencies);
 		const call = await waitForSpawn(runner.calls);
 
@@ -528,13 +652,18 @@ describe("runner subagent process dispatcher", () => {
 		const result = await running;
 
 		expect(result.status).toBe("error");
-		expect(result.usage).toEqual(expect.objectContaining({ status: "available", assistantMessageCount: 2 }));
+		expect(result.usage).toEqual(
+			expect.objectContaining({ status: "available", assistantMessageCount: 2 }),
+		);
 	});
 
 	test("emits progress and UI-only activity while parsing child JSONL", async () => {
 		let now = 1_000;
 		const updates: RunnerSubagentUpdate[] = [];
-		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: "/tmp/runner-subagent.jsonl", now: () => now });
+		const runner = createFakeRunnerSubagentDispatcher({
+			sessionFile: "/tmp/runner-subagent.jsonl",
+			now: () => now,
+		});
 		const running = dispatchRunnerSubagentProcess(
 			pi,
 			ctx,
@@ -569,7 +698,12 @@ describe("runner subagent process dispatcher", () => {
 			}),
 		);
 		call.process.emitStdout(
-			jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "read", args: { path: "README.md" } }),
+			jsonLine({
+				type: "tool_execution_start",
+				toolCallId: "tool-1",
+				toolName: "read",
+				args: { path: "README.md" },
+			}),
 		);
 		call.process.emitStdout(
 			jsonLine({
@@ -583,17 +717,29 @@ describe("runner subagent process dispatcher", () => {
 		call.process.emitStdout(
 			jsonLine({
 				type: "message_end",
-				message: { role: "assistant", content: [{ type: "text", text: "Done." }], stopReason: "stop" },
+				message: {
+					role: "assistant",
+					content: [{ type: "text", text: "Done." }],
+					stopReason: "stop",
+				},
 			}),
 		);
 		now = 1_250;
 		call.process.close(0);
 		const result = await running;
 
-		expect(updates.some((update) => update.progress.state === "running" && update.progress.turnCount === 1)).toBe(true);
-		expect(updates.some((update) => update.activity.assistantPreview === "Working through it.")).toBe(true);
+		expect(
+			updates.some(
+				(update) => update.progress.state === "running" && update.progress.turnCount === 1,
+			),
+		).toBe(true);
+		expect(
+			updates.some((update) => update.activity.assistantPreview === "Working through it."),
+		).toBe(true);
 		expect(updates.some((update) => update.progress.currentTool === "read")).toBe(true);
-		expect(updates.some((update) => update.activity.currentToolInputPreview === '{"path":"README.md"}')).toBe(true);
+		expect(
+			updates.some((update) => update.activity.currentToolInputPreview === '{"path":"README.md"}'),
+		).toBe(true);
 		expect(
 			updates.some(
 				(update) =>
@@ -642,7 +788,11 @@ describe("runner subagent process dispatcher", () => {
 		call.process.emitStdout(
 			jsonLine({
 				type: "message_end",
-				message: { role: "assistant", content: [{ type: "text", text: "Still done." }], stopReason: "stop" },
+				message: {
+					role: "assistant",
+					content: [{ type: "text", text: "Still done." }],
+					stopReason: "stop",
+				},
 			}),
 		);
 		call.process.close(0);
@@ -659,7 +809,14 @@ describe("runner subagent process dispatcher", () => {
 		const call = await waitForSpawn(runner.calls);
 
 		call.process.emitStdout(
-			jsonLine({ type: "message_end", message: { role: "assistant", content: [{ type: "text", text: "   " }], stopReason: "stop" } }),
+			jsonLine({
+				type: "message_end",
+				message: {
+					role: "assistant",
+					content: [{ type: "text", text: "   " }],
+					stopReason: "stop",
+				},
+			}),
 		);
 		call.process.close(0);
 		const result = await running;
@@ -711,7 +868,10 @@ describe("runner subagent process dispatcher", () => {
 
 	test("maps nonzero exit and bounded stderr to error in final-text mode", async () => {
 		const runner = createFakeRunnerSubagentDispatcher();
-		const running = dispatchRunnerSubagentProcess(pi, ctx, finalTextOptions(), { ...runner.dependencies, stderrLimitBytes: 30 });
+		const running = dispatchRunnerSubagentProcess(pi, ctx, finalTextOptions(), {
+			...runner.dependencies,
+			stderrLimitBytes: 30,
+		});
 		const call = await waitForSpawn(runner.calls);
 
 		call.process.emitStderr("first diagnostic line\nsecond diagnostic line\n");
@@ -728,7 +888,12 @@ describe("runner subagent process dispatcher", () => {
 	test("kills the subagent and returns cancelled on parent abort in final-text mode", async () => {
 		const controller = new AbortController();
 		const runner = createFakeRunnerSubagentDispatcher();
-		const running = dispatchRunnerSubagentProcess(pi, ctx, finalTextOptions({ signal: controller.signal }), runner.dependencies);
+		const running = dispatchRunnerSubagentProcess(
+			pi,
+			ctx,
+			finalTextOptions({ signal: controller.signal }),
+			runner.dependencies,
+		);
 		const call = await waitForSpawn(runner.calls);
 
 		controller.abort("user cancelled");
@@ -761,12 +926,19 @@ describe("runner subagent process dispatcher", () => {
 
 		call.process.emitStdout(jsonLine({ type: "agent_start" }));
 		call.process.emitStdout(jsonLine({ type: "turn_start" }));
-		call.process.emitStdout(jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "read", args: {} }));
+		call.process.emitStdout(
+			jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "read", args: {} }),
+		);
 		controller.abort("user cancelled");
 		call.process.close(null, "SIGTERM");
 		const result = await running;
 
-		expect(updates.some((update) => update.progress.state === "terminating" && update.progress.currentTool === "read")).toBe(true);
+		expect(
+			updates.some(
+				(update) =>
+					update.progress.state === "terminating" && update.progress.currentTool === "read",
+			),
+		).toBe(true);
 		expect(updates.at(-1)?.progress.state).toBe("stopped");
 		expect(result.status).toBe("cancelled");
 	});
@@ -803,7 +975,17 @@ describe("runner subagent process dispatcher", () => {
 		const running = dispatchRunnerSubagentProcess(pi, ctx, options(), runner.dependencies);
 		const call = await waitForSpawn(runner.calls);
 
-		call.process.emitStdout(jsonLine({ type: "message_end", message: { role: "assistant", content: [], stopReason: "error", errorMessage: "model failed" } }));
+		call.process.emitStdout(
+			jsonLine({
+				type: "message_end",
+				message: {
+					role: "assistant",
+					content: [],
+					stopReason: "error",
+					errorMessage: "model failed",
+				},
+			}),
+		);
 		call.process.close(0);
 		const result = await running;
 
@@ -823,17 +1005,38 @@ describe("runner subagent process dispatcher", () => {
 				input: { summary: "done" },
 			},
 		});
-		const running = dispatchRunnerSubagentProcess<{ summary: string }>(pi, ctx, options(), runner.dependencies);
+		const running = dispatchRunnerSubagentProcess<{ summary: string }>(
+			pi,
+			ctx,
+			options(),
+			runner.dependencies,
+		);
 		const call = await waitForSpawn(runner.calls);
 
 		call.process.emitStdout(jsonLine({ type: "turn_start" }));
 		call.process.emitStdout(
-			jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "complete_runner_subagent", args: {} }),
+			jsonLine({
+				type: "tool_execution_start",
+				toolCallId: "tool-1",
+				toolName: "complete_runner_subagent",
+				args: {},
+			}),
 		);
 		call.process.emitStdout(
-			jsonLine({ type: "tool_execution_end", toolCallId: "tool-1", toolName: "complete_runner_subagent", result: {}, isError: false }),
+			jsonLine({
+				type: "tool_execution_end",
+				toolCallId: "tool-1",
+				toolName: "complete_runner_subagent",
+				result: {},
+				isError: false,
+			}),
 		);
-		call.process.emitStdout(jsonLine({ type: "message_end", message: { role: "assistant", content: [], stopReason: "aborted" } }));
+		call.process.emitStdout(
+			jsonLine({
+				type: "message_end",
+				message: { role: "assistant", content: [], stopReason: "aborted" },
+			}),
+		);
 		call.process.close(0);
 		const result = await running;
 
@@ -911,7 +1114,12 @@ describe("runner subagent process dispatcher", () => {
 
 		call.process.emitStdout(jsonLine({ type: "turn_start" }));
 		call.process.emitStdout(
-			jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "complete_runner_subagent", args: {} }),
+			jsonLine({
+				type: "tool_execution_start",
+				toolCallId: "tool-1",
+				toolName: "complete_runner_subagent",
+				args: {},
+			}),
 		);
 		call.process.close(0);
 		const result = await running;
@@ -948,10 +1156,21 @@ describe("runner subagent process dispatcher", () => {
 
 		call.process.emitStdout(jsonLine({ type: "turn_start" }));
 		call.process.emitStdout(
-			jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "complete_runner_subagent", args: {} }),
+			jsonLine({
+				type: "tool_execution_start",
+				toolCallId: "tool-1",
+				toolName: "complete_runner_subagent",
+				args: {},
+			}),
 		);
 		call.process.emitStdout(
-			jsonLine({ type: "tool_execution_end", toolCallId: "tool-1", toolName: "complete_runner_subagent", result: {}, isError: true }),
+			jsonLine({
+				type: "tool_execution_end",
+				toolCallId: "tool-1",
+				toolName: "complete_runner_subagent",
+				result: {},
+				isError: true,
+			}),
 		);
 		call.process.close(0);
 		const result = await running;
@@ -976,9 +1195,16 @@ describe("runner subagent process dispatcher", () => {
 
 		call.process.emitStdout(jsonLine({ type: "turn_start" }));
 		call.process.emitStdout(
-			jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "complete_runner_subagent", args: {} }),
+			jsonLine({
+				type: "tool_execution_start",
+				toolCallId: "tool-1",
+				toolName: "complete_runner_subagent",
+				args: {},
+			}),
 		);
-		call.process.emitStdout(jsonLine({ type: "tool_execution_start", toolCallId: "tool-2", toolName: "bash", args: {} }));
+		call.process.emitStdout(
+			jsonLine({ type: "tool_execution_start", toolCallId: "tool-2", toolName: "bash", args: {} }),
+		);
 		call.process.close(0);
 		const result = await running;
 
@@ -1019,7 +1245,10 @@ describe("runner subagent process dispatcher", () => {
 
 	test("maps nonzero exit and bounded stderr to error", async () => {
 		const runner = createFakeRunnerSubagentDispatcher();
-		const running = dispatchRunnerSubagentProcess(pi, ctx, options(), { ...runner.dependencies, stderrLimitBytes: 30 });
+		const running = dispatchRunnerSubagentProcess(pi, ctx, options(), {
+			...runner.dependencies,
+			stderrLimitBytes: 30,
+		});
 		const call = await waitForSpawn(runner.calls);
 
 		call.process.emitStderr("first diagnostic line\nsecond diagnostic line\n");
@@ -1052,7 +1281,12 @@ describe("runner subagent process dispatcher", () => {
 	test("kills the subagent and returns cancelled on parent abort", async () => {
 		const controller = new AbortController();
 		const runner = createFakeRunnerSubagentDispatcher();
-		const running = dispatchRunnerSubagentProcess(pi, ctx, options({ signal: controller.signal }), runner.dependencies);
+		const running = dispatchRunnerSubagentProcess(
+			pi,
+			ctx,
+			options({ signal: controller.signal }),
+			runner.dependencies,
+		);
 		const call = await waitForSpawn(runner.calls);
 
 		controller.abort("user cancelled");

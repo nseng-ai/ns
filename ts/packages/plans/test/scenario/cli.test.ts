@@ -38,8 +38,8 @@ const LIST_HELP = [
 	"Options:",
 	"  --plan-store-root <value>  Plan store root directory (relative paths resolve",
 	"                             against cwd).",
-	"  --format <format>          Output format. (choices: \"human\", \"json\",",
-	"                             \"markdown\", \"md\", default: \"human\")",
+	'  --format <format>          Output format. (choices: "human", "json",',
+	'                             "markdown", "md", default: "human")',
 	"  --shell-exit-code          Use shell-visible Clinkr semantic exit codes;",
 	"                             negative exits 1 instead of 0.",
 	"  --json-schema              Print the JSON Schema for this command's",
@@ -71,8 +71,8 @@ const SAVE_HELP = [
 	"  --summary <value>       Optional saved-plan summary.",
 	"  --stdin                 Read plan content from stdin.",
 	"  --content-file <value>  Read plan content from this file path.",
-	"  --format <format>       Output format. (choices: \"human\", \"json\", \"markdown\",",
-	"                          \"md\", default: \"human\")",
+	'  --format <format>       Output format. (choices: "human", "json", "markdown",',
+	'                          "md", default: "human")',
 	"  --shell-exit-code       Use shell-visible Clinkr semantic exit codes; negative",
 	"                          exits 1 instead of 0.",
 	"  --json-schema           Print the JSON Schema for this command's input/output",
@@ -89,8 +89,8 @@ const RESOLVE_HELP = [
 	"  path               Absolute, @-prefixed, or home-relative plan file path.",
 	"",
 	"Options:",
-	"  --format <format>  Output format. (choices: \"human\", \"json\", \"markdown\", \"md\",",
-	"                     default: \"human\")",
+	'  --format <format>  Output format. (choices: "human", "json", "markdown", "md",',
+	'                     default: "human")',
 	"  --shell-exit-code  Use shell-visible Clinkr semantic exit codes; negative",
 	"                     exits 1 instead of 0.",
 	"  --json-schema      Print the JSON Schema for this command's input/output and",
@@ -126,7 +126,10 @@ interface RunWithFakesOptions {
 	git?: GitGateway;
 }
 
-async function runWithFakes(args: readonly string[], options: RunWithFakesOptions = {}): Promise<CliRun> {
+async function runWithFakes(
+	args: readonly string[],
+	options: RunWithFakesOptions = {},
+): Promise<CliRun> {
 	const cwd = options.cwd ?? (await makeTempDir());
 	const stdout: string[] = [];
 	const stderr: string[] = [];
@@ -135,7 +138,9 @@ async function runWithFakes(args: readonly string[], options: RunWithFakesOption
 		stderr,
 		exit: runCli(args, {
 			cwd,
-			git: options.git ?? new InMemoryGitGateway({ repoRoot: cwd, originUrl: ORIGIN, currentBranch: SOURCE_BRANCH }),
+			git:
+				options.git ??
+				new InMemoryGitGateway({ repoRoot: cwd, originUrl: ORIGIN, currentBranch: SOURCE_BRANCH }),
 			commands: unusedCommands,
 			stdin: options.stdin,
 			stdout: (text) => stdout.push(text),
@@ -150,7 +155,13 @@ async function makeFixture(): Promise<Fixture> {
 	const planStoreRoot = await makeTempDir();
 	const repoKey = buildRepoPlanStoreKey(repoRoot, ORIGIN);
 	const branchKey = encodeBranchForPlanPath(SOURCE_BRANCH);
-	return { repoRoot, planStoreRoot, repoKey, branchKey, git: new InMemoryGitGateway({ repoRoot, originUrl: ORIGIN, currentBranch: SOURCE_BRANCH }) };
+	return {
+		repoRoot,
+		planStoreRoot,
+		repoKey,
+		branchKey,
+		git: new InMemoryGitGateway({ repoRoot, originUrl: ORIGIN, currentBranch: SOURCE_BRANCH }),
+	};
 }
 
 async function makeTempDir(prefix = "plans-cli-scenario-"): Promise<string> {
@@ -161,7 +172,11 @@ async function makeHomeTempDir(): Promise<string> {
 	return tempDirs.makeHomeTempDir(".plans-cli-scenario-");
 }
 
-async function writePlanFile(fixture: Fixture, fileName: string, modifiedTimeMs = MODIFIED_TIME_MS): Promise<string> {
+async function writePlanFile(
+	fixture: Fixture,
+	fileName: string,
+	modifiedTimeMs = MODIFIED_TIME_MS,
+): Promise<string> {
 	const directory = join(fixture.planStoreRoot, fixture.repoKey, fixture.branchKey);
 	await mkdir(directory, { recursive: true });
 	const filePath = join(directory, fileName);
@@ -261,7 +276,10 @@ describe("plans list CLI pins", () => {
 	test.each([
 		[["list", "--bogus"], "error: unknown option '--bogus'\n"],
 		[["list", "--format"], "error: option '--format <format>' argument missing\n"],
-		[["list", "--format", "yaml"], "error: option '--format <format>' argument 'yaml' is invalid. Allowed choices are human, json, markdown, md.\n"],
+		[
+			["list", "--format", "yaml"],
+			"error: option '--format <format>' argument 'yaml' is invalid. Allowed choices are human, json, markdown, md.\n",
+		],
 		[["list", "--plan-store-root"], "error: option '--plan-store-root <value>' argument missing\n"],
 	])("prints raw usage error for %j", async (args, message) => {
 		const run = await runWithFakes(args);
@@ -285,14 +303,19 @@ describe("plans list CLI pins", () => {
 
 		expect(await run.exit).toBe(2);
 		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toBe("error: option '--format <format>' argument 'yaml' is invalid. Allowed choices are human, json, markdown, md.\n");
+		expect(run.stderr.join("")).toBe(
+			"error: option '--format <format>' argument 'yaml' is invalid. Allowed choices are human, json, markdown, md.\n",
+		);
 		// PINNED CLINKR SEMANTICS: usage errors are raw stderr, never JSON-enveloped.
 	});
 
 	test("prints one-plan JSON and human list byte-exactly", async () => {
 		const fixture = await makeFixture();
 		const filePath = await writePlanFile(fixture, "first-useful-saved-plan.md");
-		const json = await runWithFakes(["list", "--format", "json", "--plan-store-root", fixture.planStoreRoot], { cwd: fixture.repoRoot, git: fixture.git });
+		const json = await runWithFakes(
+			["list", "--format", "json", "--plan-store-root", fixture.planStoreRoot],
+			{ cwd: fixture.repoRoot, git: fixture.git },
+		);
 
 		expect(await json.exit).toBe(0);
 		expect(json.stdout.join("")).toBe(
@@ -316,7 +339,10 @@ describe("plans list CLI pins", () => {
 			})}\n`,
 		);
 
-		const human = await runWithFakes(["list", "--plan-store-root", fixture.planStoreRoot], { cwd: fixture.repoRoot, git: fixture.git });
+		const human = await runWithFakes(["list", "--plan-store-root", fixture.planStoreRoot], {
+			cwd: fixture.repoRoot,
+			git: fixture.git,
+		});
 		expect(await human.exit).toBe(0);
 		expect(human.stdout.join("")).toBe(
 			[
@@ -334,9 +360,15 @@ describe("plans list CLI pins", () => {
 		const fixture = await makeFixture();
 		const relativeRoot = "relative-store";
 		const absoluteRoot = join(fixture.repoRoot, relativeRoot);
-		const filePath = await writePlanFile({ ...fixture, planStoreRoot: absoluteRoot }, "relative-root-plan-file.md");
+		const filePath = await writePlanFile(
+			{ ...fixture, planStoreRoot: absoluteRoot },
+			"relative-root-plan-file.md",
+		);
 
-		const run = await runWithFakes(["list", "--format", "json", "--plan-store-root", relativeRoot], { cwd: fixture.repoRoot, git: fixture.git });
+		const run = await runWithFakes(
+			["list", "--format", "json", "--plan-store-root", relativeRoot],
+			{ cwd: fixture.repoRoot, git: fixture.git },
+		);
 
 		expect(await run.exit).toBe(0);
 		expect(parseJson(run)).toEqual({
@@ -348,7 +380,12 @@ describe("plans list CLI pins", () => {
 					modified_time_ms: MODIFIED_TIME_MS,
 					path: filePath,
 					file_name: "relative-root-plan-file.md",
-					repo: { root: fixture.repoRoot, key: fixture.repoKey, identity_source: "origin-url", plan_store_path: join(absoluteRoot, fixture.repoKey) },
+					repo: {
+						root: fixture.repoRoot,
+						key: fixture.repoKey,
+						identity_source: "origin-url",
+						plan_store_path: join(absoluteRoot, fixture.repoKey),
+					},
 				},
 			],
 		});
@@ -360,29 +397,57 @@ describe("plans exec save pins", () => {
 		const missingHuman = await runWithFakes(["exec", "save", "--stdin"]);
 		expect(await missingHuman.exit).toBe(2);
 		expect(missingHuman.stdout.join("")).toBe("");
-		expect(missingHuman.stderr.join("")).toBe("error: --slug: Invalid input: expected string, received undefined\n");
+		expect(missingHuman.stderr.join("")).toBe(
+			"error: --slug: Invalid input: expected string, received undefined\n",
+		);
 
 		const missingJson = await runWithFakes(["exec", "save", "--stdin", "--format", "json"]);
 		expect(await missingJson.exit).toBe(2);
 		expect(missingJson.stdout.join("")).toBe("");
-		expect(missingJson.stderr.join("")).toBe("error: --slug: Invalid input: expected string, received undefined\n");
+		expect(missingJson.stderr.join("")).toBe(
+			"error: --slug: Invalid input: expected string, received undefined\n",
+		);
 
-		const both = await runWithFakes(["exec", "save", "--slug", "specific-branch-saved-plan", "--stdin", "--content-file", "plan.md"]);
+		const both = await runWithFakes([
+			"exec",
+			"save",
+			"--slug",
+			"specific-branch-saved-plan",
+			"--stdin",
+			"--content-file",
+			"plan.md",
+		]);
 		expect(await both.exit).toBe(2);
-		expect(both.stderr.join("")).toBe("error: Pass exactly one of --stdin or --content-file <path>.\n");
+		expect(both.stderr.join("")).toBe(
+			"error: Pass exactly one of --stdin or --content-file <path>.\n",
+		);
 
 		const neither = await runWithFakes(["exec", "save", "--slug", "specific-branch-saved-plan"]);
 		expect(await neither.exit).toBe(2);
-		expect(neither.stderr.join("")).toBe("error: Pass exactly one of --stdin or --content-file <path>.\n");
+		expect(neither.stderr.join("")).toBe(
+			"error: Pass exactly one of --stdin or --content-file <path>.\n",
+		);
 
-		const neitherJson = await runWithFakes(["exec", "save", "--slug", "specific-branch-saved-plan", "--format", "json"]);
+		const neitherJson = await runWithFakes([
+			"exec",
+			"save",
+			"--slug",
+			"specific-branch-saved-plan",
+			"--format",
+			"json",
+		]);
 		expect(await neitherJson.exit).toBe(2);
-		expect(neitherJson.stdout.join("")).toBe(jsonFailure("Pass exactly one of --stdin or --content-file <path>."));
+		expect(neitherJson.stdout.join("")).toBe(
+			jsonFailure("Pass exactly one of --stdin or --content-file <path>."),
+		);
 	});
 
 	test.each([
 		["specific-plan-name.md", "Pass the slug without the .md suffix."],
-		["Not-Kebab-Case", "Slug must be lowercase kebab-case using only a-z, 0-9, and single hyphens."],
+		[
+			"Not-Kebab-Case",
+			"Slug must be lowercase kebab-case using only a-z, 0-9, and single hyphens.",
+		],
 		["two-words", "Slug must contain at least 3 words."],
 		["one-two-three-four-five-six-seven-eight", "Slug must contain at most 7 words."],
 		["2026-06-10", "Slug must not be a date."],
@@ -396,23 +461,43 @@ describe("plans exec save pins", () => {
 	});
 
 	test("accepts single-dash flag value before slug validation fails", async () => {
-		const run = await runWithFakes(["exec", "save", "--slug", "-leading-dash", "--stdin", "--format", "json"]);
+		const run = await runWithFakes([
+			"exec",
+			"save",
+			"--slug",
+			"-leading-dash",
+			"--stdin",
+			"--format",
+			"json",
+		]);
 
 		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe(jsonFailure("Invalid saved plan slug: Slug must be lowercase kebab-case using only a-z, 0-9, and single hyphens."));
+		expect(run.stdout.join("")).toBe(
+			jsonFailure(
+				"Invalid saved plan slug: Slug must be lowercase kebab-case using only a-z, 0-9, and single hyphens.",
+			),
+		);
 		// PINNED QUIRK (clinkr-migration): parseFlagValue rejects --values but accepts single-dash values.
 	});
 
 	test("writes stdin content with exact JSON and human bytes", async () => {
 		const fixture = await makeFixture();
 		const slug = "specific-branch-saved-plan";
-		const expectedPath = join(fixture.planStoreRoot, fixture.repoKey, fixture.branchKey, `${slug}.md`);
-		const json = await runWithFakes(["exec", "save", "--slug", slug, "--summary", "Save it", "--stdin", "--format", "json"], {
-			cwd: fixture.repoRoot,
-			git: fixture.git,
-			planStoreRoot: fixture.planStoreRoot,
-			stdin: async () => "# Plan\n\nDo it.\n",
-		});
+		const expectedPath = join(
+			fixture.planStoreRoot,
+			fixture.repoKey,
+			fixture.branchKey,
+			`${slug}.md`,
+		);
+		const json = await runWithFakes(
+			["exec", "save", "--slug", slug, "--summary", "Save it", "--stdin", "--format", "json"],
+			{
+				cwd: fixture.repoRoot,
+				git: fixture.git,
+				planStoreRoot: fixture.planStoreRoot,
+				stdin: async () => "# Plan\n\nDo it.\n",
+			},
+		);
 
 		expect(await json.exit).toBe(0);
 		expect(json.stdout.join("")).toBe(
@@ -431,23 +516,34 @@ describe("plans exec save pins", () => {
 		expect(await readFile(expectedPath, "utf8")).toBe("# Plan\n\nDo it.\n");
 
 		const noSummaryFixture = await makeFixture();
-		const noSummary = await runWithFakes(["exec", "save", "--slug", "specific-branch-other-plan", "--stdin", "--format", "json"], {
-			cwd: noSummaryFixture.repoRoot,
-			git: noSummaryFixture.git,
-			planStoreRoot: noSummaryFixture.planStoreRoot,
-			stdin: async () => "# Plan\n",
-		});
+		const noSummary = await runWithFakes(
+			["exec", "save", "--slug", "specific-branch-other-plan", "--stdin", "--format", "json"],
+			{
+				cwd: noSummaryFixture.repoRoot,
+				git: noSummaryFixture.git,
+				planStoreRoot: noSummaryFixture.planStoreRoot,
+				stdin: async () => "# Plan\n",
+			},
+		);
 		expect(await noSummary.exit).toBe(0);
 		expect(parseJson(noSummary)).not.toHaveProperty("summary");
 
 		const humanFixture = await makeFixture();
-		const humanPath = join(humanFixture.planStoreRoot, humanFixture.repoKey, humanFixture.branchKey, `${slug}.md`);
-		const human = await runWithFakes(["exec", "save", "--slug", slug, "--summary", "Save it", "--stdin"], {
-			cwd: humanFixture.repoRoot,
-			git: humanFixture.git,
-			planStoreRoot: humanFixture.planStoreRoot,
-			stdin: async () => "# Plan\n",
-		});
+		const humanPath = join(
+			humanFixture.planStoreRoot,
+			humanFixture.repoKey,
+			humanFixture.branchKey,
+			`${slug}.md`,
+		);
+		const human = await runWithFakes(
+			["exec", "save", "--slug", slug, "--summary", "Save it", "--stdin"],
+			{
+				cwd: humanFixture.repoRoot,
+				git: humanFixture.git,
+				planStoreRoot: humanFixture.planStoreRoot,
+				stdin: async () => "# Plan\n",
+			},
+		);
 		expect(await human.exit).toBe(0);
 		expect(human.stdout.join("")).toBe(
 			[
@@ -469,29 +565,66 @@ describe("plans exec save pins", () => {
 		const fixture = await makeFixture();
 		const contentFile = join(await makeTempDir(), "input.md");
 		await writeFile(contentFile, "# From file\n", "utf8");
-		const run = await runWithFakes(["exec", "save", "--slug", "specific-file-saved-plan", "--content-file", contentFile, "--format", "json"], {
-			cwd: fixture.repoRoot,
-			git: fixture.git,
-			planStoreRoot: fixture.planStoreRoot,
-		});
+		const run = await runWithFakes(
+			[
+				"exec",
+				"save",
+				"--slug",
+				"specific-file-saved-plan",
+				"--content-file",
+				contentFile,
+				"--format",
+				"json",
+			],
+			{
+				cwd: fixture.repoRoot,
+				git: fixture.git,
+				planStoreRoot: fixture.planStoreRoot,
+			},
+		);
 		expect(await run.exit).toBe(0);
 		expect(await readFile(String(parseJson(run).file_path), "utf8")).toBe("# From file\n");
 
-		const missingHuman = await runWithFakes(["exec", "save", "--slug", "specific-file-saved-plan", "--content-file", join(fixture.repoRoot, "missing.md")], {
-			cwd: fixture.repoRoot,
-			git: fixture.git,
-			planStoreRoot: fixture.planStoreRoot,
-		});
+		const missingHuman = await runWithFakes(
+			[
+				"exec",
+				"save",
+				"--slug",
+				"specific-file-saved-plan",
+				"--content-file",
+				join(fixture.repoRoot, "missing.md"),
+			],
+			{
+				cwd: fixture.repoRoot,
+				git: fixture.git,
+				planStoreRoot: fixture.planStoreRoot,
+			},
+		);
 		expect(await missingHuman.exit).toBe(2);
 		expect(missingHuman.stderr.join("")).toContain("ENOENT");
 
-		const missingJson = await runWithFakes(["exec", "save", "--slug", "specific-file-saved-plan", "--content-file", join(fixture.repoRoot, "missing.md"), "--format", "json"], {
-			cwd: fixture.repoRoot,
-			git: fixture.git,
-			planStoreRoot: fixture.planStoreRoot,
-		});
+		const missingJson = await runWithFakes(
+			[
+				"exec",
+				"save",
+				"--slug",
+				"specific-file-saved-plan",
+				"--content-file",
+				join(fixture.repoRoot, "missing.md"),
+				"--format",
+				"json",
+			],
+			{
+				cwd: fixture.repoRoot,
+				git: fixture.git,
+				planStoreRoot: fixture.planStoreRoot,
+			},
+		);
 		expect(await missingJson.exit).toBe(2);
-		expect(parseJson(missingJson)).toMatchObject({ success: false, error: { code: "plans_error" } });
+		expect(parseJson(missingJson)).toMatchObject({
+			success: false,
+			error: { code: "plans_error" },
+		});
 		expect(JSON.stringify(parseJson(missingJson))).toContain("ENOENT");
 	});
 });
@@ -499,32 +632,64 @@ describe("plans exec save pins", () => {
 describe("plans exec resolve pins", () => {
 	test("pins parse and path validation failures", async () => {
 		const fixture = await makeFixture();
-		const twoPositionals = await runWithFakes(["exec", "resolve", "/tmp/one.md", "/tmp/two.md", "--format", "json"], { cwd: fixture.repoRoot, git: fixture.git });
+		const twoPositionals = await runWithFakes(
+			["exec", "resolve", "/tmp/one.md", "/tmp/two.md", "--format", "json"],
+			{ cwd: fixture.repoRoot, git: fixture.git },
+		);
 		expect(await twoPositionals.exit).toBe(2);
 		expect(twoPositionals.stdout.join("")).toBe("");
-		expect(twoPositionals.stderr.join("")).toBe("error: too many arguments for 'resolve'. Expected 1 argument but got 2.\n");
+		expect(twoPositionals.stderr.join("")).toBe(
+			"error: too many arguments for 'resolve'. Expected 1 argument but got 2.\n",
+		);
 
-		const unknown = await runWithFakes(["exec", "resolve", "--bogus"], { cwd: fixture.repoRoot, git: fixture.git });
+		const unknown = await runWithFakes(["exec", "resolve", "--bogus"], {
+			cwd: fixture.repoRoot,
+			git: fixture.git,
+		});
 		expect(await unknown.exit).toBe(2);
 		expect(unknown.stderr.join("")).toBe("error: unknown option '--bogus'\n");
 
-		const relativePath = await runWithFakes(["exec", "resolve", "relative-plan.md", "--format", "json"], { cwd: fixture.repoRoot, git: fixture.git });
+		const relativePath = await runWithFakes(
+			["exec", "resolve", "relative-plan.md", "--format", "json"],
+			{ cwd: fixture.repoRoot, git: fixture.git },
+		);
 		expect(await relativePath.exit).toBe(2);
-		expect(relativePath.stdout.join("")).toBe(jsonFailure("Plan file path must be absolute or home-relative; got relative-plan.md."));
+		expect(relativePath.stdout.join("")).toBe(
+			jsonFailure("Plan file path must be absolute or home-relative; got relative-plan.md."),
+		);
 
-		const missing = await runWithFakes(["exec", "resolve", join(fixture.repoRoot, "missing.md"), "--format", "json"], { cwd: fixture.repoRoot, git: fixture.git });
+		const missing = await runWithFakes(
+			["exec", "resolve", join(fixture.repoRoot, "missing.md"), "--format", "json"],
+			{ cwd: fixture.repoRoot, git: fixture.git },
+		);
 		expect(await missing.exit).toBe(2);
-		expect(missing.stdout.join("")).toBe(jsonFailure(`Plan file does not exist or is not accessible: ${join(fixture.repoRoot, "missing.md")}`));
+		expect(missing.stdout.join("")).toBe(
+			jsonFailure(
+				`Plan file does not exist or is not accessible: ${join(fixture.repoRoot, "missing.md")}`,
+			),
+		);
 
-		const directory = await runWithFakes(["exec", "resolve", fixture.repoRoot, "--format", "json"], { cwd: fixture.repoRoot, git: fixture.git });
+		const directory = await runWithFakes(
+			["exec", "resolve", fixture.repoRoot, "--format", "json"],
+			{ cwd: fixture.repoRoot, git: fixture.git },
+		);
 		expect(await directory.exit).toBe(2);
-		expect(directory.stdout.join("")).toBe(jsonFailure(`Plan file must be a regular file: ${fixture.repoRoot}`));
+		expect(directory.stdout.join("")).toBe(
+			jsonFailure(`Plan file must be a regular file: ${fixture.repoRoot}`),
+		);
 
 		const insidePath = join(fixture.repoRoot, "inside-plan.md");
 		await writeFile(insidePath, "# Inside\n", "utf8");
-		const inside = await runWithFakes(["exec", "resolve", insidePath, "--format", "json"], { cwd: fixture.repoRoot, git: fixture.git });
+		const inside = await runWithFakes(["exec", "resolve", insidePath, "--format", "json"], {
+			cwd: fixture.repoRoot,
+			git: fixture.git,
+		});
 		expect(await inside.exit).toBe(2);
-		expect(inside.stdout.join("")).toBe(jsonFailure(`Plan file must be outside the repository; got ${insidePath} inside ${fixture.repoRoot}.`));
+		expect(inside.stdout.join("")).toBe(
+			jsonFailure(
+				`Plan file must be outside the repository; got ${insidePath} inside ${fixture.repoRoot}.`,
+			),
+		);
 	});
 
 	test("resolves explicit absolute, @-prefixed, and home-relative paths", async () => {
@@ -534,32 +699,60 @@ describe("plans exec resolve pins", () => {
 		await writeFile(explicitPlan, "# Explicit\n", "utf8");
 		const realExplicit = await realpath(explicitPlan);
 
-		const explicitJson = await runWithFakes(["exec", "resolve", explicitPlan, "--format", "json"], { cwd: fixture.repoRoot, git: fixture.git });
+		const explicitJson = await runWithFakes(["exec", "resolve", explicitPlan, "--format", "json"], {
+			cwd: fixture.repoRoot,
+			git: fixture.git,
+		});
 		expect(await explicitJson.exit).toBe(0);
-		expect(explicitJson.stdout.join("")).toBe(`${JSON.stringify({ success: true, source: "explicit", file_path: realExplicit })}\n`);
+		expect(explicitJson.stdout.join("")).toBe(
+			`${JSON.stringify({ success: true, source: "explicit", file_path: realExplicit })}\n`,
+		);
 
-		const explicitHuman = await runWithFakes(["exec", "resolve", explicitPlan], { cwd: fixture.repoRoot, git: fixture.git });
+		const explicitHuman = await runWithFakes(["exec", "resolve", explicitPlan], {
+			cwd: fixture.repoRoot,
+			git: fixture.git,
+		});
 		expect(await explicitHuman.exit).toBe(0);
-		expect(explicitHuman.stdout.join("")).toBe(`Resolved explicit plan file.\nPath: ${realExplicit}\n`);
+		expect(explicitHuman.stdout.join("")).toBe(
+			`Resolved explicit plan file.\nPath: ${realExplicit}\n`,
+		);
 
-		const atPath = await runWithFakes(["exec", "resolve", `@${explicitPlan}`, "--format", "json"], { cwd: fixture.repoRoot, git: fixture.git });
+		const atPath = await runWithFakes(["exec", "resolve", `@${explicitPlan}`, "--format", "json"], {
+			cwd: fixture.repoRoot,
+			git: fixture.git,
+		});
 		expect(await atPath.exit).toBe(0);
-		expect(parseJson(atPath)).toEqual({ success: true, source: "explicit", file_path: realExplicit });
+		expect(parseJson(atPath)).toEqual({
+			success: true,
+			source: "explicit",
+			file_path: realExplicit,
+		});
 
 		const homeDir = await makeHomeTempDir();
 		const homePlan = join(homeDir, "home-relative.md");
 		await writeFile(homePlan, "# Home\n", "utf8");
 		const homeArg = `~/${relative(homedir(), homePlan)}`;
-		const homePath = await runWithFakes(["exec", "resolve", homeArg, "--format", "json"], { cwd: fixture.repoRoot, git: fixture.git });
+		const homePath = await runWithFakes(["exec", "resolve", homeArg, "--format", "json"], {
+			cwd: fixture.repoRoot,
+			git: fixture.git,
+		});
 		expect(await homePath.exit).toBe(0);
-		expect(parseJson(homePath)).toEqual({ success: true, source: "explicit", file_path: await realpath(homePlan) });
+		expect(parseJson(homePath)).toEqual({
+			success: true,
+			source: "explicit",
+			file_path: await realpath(homePlan),
+		});
 	});
 
 	test("resolves latest plan JSON and human output byte-exactly", async () => {
 		const fixture = await makeFixture();
 		await writePlanFile(fixture, "older-saved-plan-file.md", 1_000);
 		const newer = await writePlanFile(fixture, "newer-saved-plan-file.md", 2_000);
-		const json = await runWithFakes(["exec", "resolve", "--format", "json"], { cwd: fixture.repoRoot, git: fixture.git, planStoreRoot: fixture.planStoreRoot });
+		const json = await runWithFakes(["exec", "resolve", "--format", "json"], {
+			cwd: fixture.repoRoot,
+			git: fixture.git,
+			planStoreRoot: fixture.planStoreRoot,
+		});
 
 		expect(await json.exit).toBe(0);
 		expect(json.stdout.join("")).toBe(
@@ -579,7 +772,11 @@ describe("plans exec resolve pins", () => {
 			})}\n`,
 		);
 
-		const human = await runWithFakes(["exec", "resolve"], { cwd: fixture.repoRoot, git: fixture.git, planStoreRoot: fixture.planStoreRoot });
+		const human = await runWithFakes(["exec", "resolve"], {
+			cwd: fixture.repoRoot,
+			git: fixture.git,
+			planStoreRoot: fixture.planStoreRoot,
+		});
 		expect(await human.exit).toBe(0);
 		expect(human.stdout.join("")).toBe(
 			[
@@ -599,7 +796,11 @@ describe("plans exec resolve pins", () => {
 
 	test("empty latest store reports saved-plan-file guidance", async () => {
 		const fixture = await makeFixture();
-		const run = await runWithFakes(["exec", "resolve", "--format", "json"], { cwd: fixture.repoRoot, git: fixture.git, planStoreRoot: fixture.planStoreRoot });
+		const run = await runWithFakes(["exec", "resolve", "--format", "json"], {
+			cwd: fixture.repoRoot,
+			git: fixture.git,
+			planStoreRoot: fixture.planStoreRoot,
+		});
 		const directory = join(fixture.planStoreRoot, fixture.repoKey, fixture.branchKey);
 
 		expect(await run.exit).toBe(2);

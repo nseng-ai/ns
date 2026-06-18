@@ -2,19 +2,40 @@ import { InMemoryGitGateway } from "@asdl/core/git/testing";
 import { describe, expect, test } from "vitest";
 
 import type { AregCliContext } from "../../src/context.ts";
-import { FakeAregGithubGateway, FakeAregHostGateway, FakeAregNpxSkillsGateway, FakeAregProjectGateway, FakeAregPromptGateway, type FakeAregProjectOperation, type FakeAregSkillKindSkillOptions } from "../../src/fake-gateways.ts";
+import {
+	FakeAregGithubGateway,
+	FakeAregHostGateway,
+	FakeAregNpxSkillsGateway,
+	FakeAregProjectGateway,
+	FakeAregPromptGateway,
+	type FakeAregProjectOperation,
+	type FakeAregSkillKindSkillOptions,
+} from "../../src/fake-gateways.ts";
 import { runSkillKindApply } from "../../src/operations/skill-kind.ts";
 import { runScenario } from "../support/run-scenario.ts";
 
-function skill(name: string, skillMd = `---\nname: ${name}\ndescription: ${name}\n---\n`, options: Partial<FakeAregSkillKindSkillOptions> = {}): FakeAregSkillKindSkillOptions {
+function skill(
+	name: string,
+	skillMd = `---\nname: ${name}\ndescription: ${name}\n---\n`,
+	options: Partial<FakeAregSkillKindSkillOptions> = {},
+): FakeAregSkillKindSkillOptions {
 	return { name, skillMd, ...options };
 }
 
-function contextWithProject(project: FakeAregProjectGateway, prompt = new FakeAregPromptGateway()): AregCliContext {
+function contextWithProject(
+	project: FakeAregProjectGateway,
+	prompt = new FakeAregPromptGateway(),
+): AregCliContext {
 	return {
 		host: new FakeAregHostGateway(),
 		github: new FakeAregGithubGateway(),
-		skillxWorkspace: { installIntoWorkspace: async () => ({ type: "error", error: { code: "not-used", message: "not used" } }), cleanupWorkspace: async () => ({ ok: true, value: undefined }) },
+		skillxWorkspace: {
+			installIntoWorkspace: async () => ({
+				type: "error",
+				error: { code: "not-used", message: "not used" },
+			}),
+			cleanupWorkspace: async () => ({ ok: true, value: undefined }),
+		},
 		project,
 		git: new InMemoryGitGateway(),
 		npxSkills: new FakeAregNpxSkillsGateway(),
@@ -24,22 +45,33 @@ function contextWithProject(project: FakeAregProjectGateway, prompt = new FakeAr
 	};
 }
 
-function mutationOperations(operations: readonly FakeAregProjectOperation[]): readonly FakeAregProjectOperation[] {
-	return operations.filter((operation) => operation.type === "write-text-file" || operation.type === "delete-file" || operation.type === "remove-empty-dir");
+function mutationOperations(
+	operations: readonly FakeAregProjectOperation[],
+): readonly FakeAregProjectOperation[] {
+	return operations.filter(
+		(operation) =>
+			operation.type === "write-text-file" ||
+			operation.type === "delete-file" ||
+			operation.type === "remove-empty-dir",
+	);
 }
 
 describe("areg skill apply CLI", () => {
 	test("apply invoke-only writes frontmatter and Codex sidecar", async () => {
-		const run = runScenario(["skill", "apply", "invoke-only", "demo"], { project: { localSkills: [skill("demo")] } });
+		const run = runScenario(["skill", "apply", "invoke-only", "demo"], {
+			project: { localSkills: [skill("demo")] },
+		});
 
 		expect(await run.exit).toBe(0);
 		expect(run.stderr.join("")).toBe("");
-		expect(run.stdout.join("")).toContain([
-			"Applying invoke-only to demo...",
-			"Wrote skills/demo/SKILL.md",
-			"Wrote skills/demo/agents/openai.yaml",
-			"Skipped .pi/settings.json: -skills/demo absent",
-		].join("\n"));
+		expect(run.stdout.join("")).toContain(
+			[
+				"Applying invoke-only to demo...",
+				"Wrote skills/demo/SKILL.md",
+				"Wrote skills/demo/agents/openai.yaml",
+				"Skipped .pi/settings.json: -skills/demo absent",
+			].join("\n"),
+		);
 	});
 
 	test("dry-run plans command-backed without writing or prompting", async () => {
@@ -60,7 +92,9 @@ describe("areg skill apply CLI", () => {
 	});
 
 	test("command-backed missing replacement fails before mutation", async () => {
-		const run = runScenario(["skill", "apply", "command-backed", "demo-skill"], { project: { localSkills: [skill("demo-skill")] } });
+		const run = runScenario(["skill", "apply", "command-backed", "demo-skill"], {
+			project: { localSkills: [skill("demo-skill")] },
+		});
 
 		expect(await run.exit).toBe(2);
 		expect(run.stderr.join("")).toContain("would hide /skill:demo-skill in Pi");
@@ -70,14 +104,22 @@ describe("areg skill apply CLI", () => {
 	test("normal requires confirmation before deleting managed artifacts", async () => {
 		const managed = "---\nname: demo\ndisable-model-invocation: true\n---\n";
 		const declined = runScenario(["skill", "apply", "normal", "demo"], {
-			project: { localSkills: [skill("demo", managed, { openaiPolicy: "policy:\n  allow_implicit_invocation: false\n" })] },
+			project: {
+				localSkills: [
+					skill("demo", managed, { openaiPolicy: "policy:\n  allow_implicit_invocation: false\n" }),
+				],
+			},
 			prompt: { responses: [false] },
 		});
 		expect(await declined.exit).toBe(0);
 		expect(declined.stdout.join("")).toContain("Declined to apply normal to demo.");
 
 		const accepted = runScenario(["skill", "apply", "--yes", "normal", "demo"], {
-			project: { localSkills: [skill("demo", managed, { openaiPolicy: "policy:\n  allow_implicit_invocation: false\n" })] },
+			project: {
+				localSkills: [
+					skill("demo", managed, { openaiPolicy: "policy:\n  allow_implicit_invocation: false\n" }),
+				],
+			},
 		});
 		expect(await accepted.exit).toBe(0);
 		expect(accepted.stdout.join("")).toContain("Deleted skills/demo/agents/openai.yaml");
@@ -86,7 +128,9 @@ describe("areg skill apply CLI", () => {
 
 	test("apply rejects non-managed sidecar content even with yes", async () => {
 		const run = runScenario(["skill", "apply", "--yes", "normal", "demo"], {
-			project: { localSkills: [skill("demo", "---\nname: demo\n---\n", { openaiPolicy: "custom: true\n" })] },
+			project: {
+				localSkills: [skill("demo", "---\nname: demo\n---\n", { openaiPolicy: "custom: true\n" })],
+			},
 		});
 
 		expect(await run.exit).toBe(2);
@@ -95,11 +139,20 @@ describe("areg skill apply CLI", () => {
 
 	test("apply rejects duplicate SKILL.md frontmatter keys before writing", async () => {
 		const run = runScenario(["skill", "apply", "invoke-only", "demo"], {
-			project: { localSkills: [skill("demo", "---\nname: demo\ndisable-model-invocation: false\ndisable-model-invocation: true\n---\n")] },
+			project: {
+				localSkills: [
+					skill(
+						"demo",
+						"---\nname: demo\ndisable-model-invocation: false\ndisable-model-invocation: true\n---\n",
+					),
+				],
+			},
 		});
 
 		expect(await run.exit).toBe(2);
-		expect(run.stderr.join("")).toContain('skills/demo/SKILL.md duplicate frontmatter key: "disable-model-invocation"');
+		expect(run.stderr.join("")).toContain(
+			'skills/demo/SKILL.md duplicate frontmatter key: "disable-model-invocation"',
+		);
 		expect(run.stdout.join("")).toBe("");
 	});
 
@@ -109,7 +162,13 @@ describe("areg skill apply CLI", () => {
 			preflightFailures: { "skills/beta/SKILL.md": { code: "blocked", message: "beta blocked" } },
 		});
 
-		const result = await runSkillKindApply(contextWithProject(project), { path: ".", kind: "invoke-only", skills: ["alpha", "beta"], dry_run: false, yes: false });
+		const result = await runSkillKindApply(contextWithProject(project), {
+			path: ".",
+			kind: "invoke-only",
+			skills: ["alpha", "beta"],
+			dry_run: false,
+			yes: false,
+		});
 
 		expect(result.type).toBe("shell-negative");
 		expect(project.text("skills/alpha/SKILL.md")).toBeUndefined();
@@ -117,18 +176,29 @@ describe("areg skill apply CLI", () => {
 		expect(result).toMatchObject({
 			data: {
 				mutation_failed: true,
-				operations: expect.arrayContaining([expect.objectContaining({ type: "write", path: "skills/beta/SKILL.md", status: "failed" })]),
+				operations: expect.arrayContaining([
+					expect.objectContaining({
+						type: "write",
+						path: "skills/beta/SKILL.md",
+						status: "failed",
+					}),
+				]),
 			},
 		});
 	});
 
 	test("JSON preflight failure exposes mutation evidence through CLI envelope", async () => {
-		const run = runScenario(["skill", "apply", "invoke-only", "alpha", "beta", "--format", "json"], {
-			project: {
-				localSkills: [skill("alpha"), skill("beta")],
-				preflightFailures: { "skills/beta/SKILL.md": { code: "blocked", message: "beta blocked" } },
+		const run = runScenario(
+			["skill", "apply", "invoke-only", "alpha", "beta", "--format", "json"],
+			{
+				project: {
+					localSkills: [skill("alpha"), skill("beta")],
+					preflightFailures: {
+						"skills/beta/SKILL.md": { code: "blocked", message: "beta blocked" },
+					},
+				},
 			},
-		});
+		);
 
 		expect(await run.exit).toBe(1);
 		const output = JSON.parse(run.stdout.join(""));
@@ -139,8 +209,21 @@ describe("areg skill apply CLI", () => {
 				project_dir: "/repo",
 				kind: "invoke-only",
 				dry_run: false,
-				operations: expect.arrayContaining([expect.objectContaining({ type: "write", path: "skills/beta/SKILL.md", status: "failed" })]),
-				skills: expect.arrayContaining([expect.objectContaining({ skill: "beta", operations: expect.arrayContaining([expect.objectContaining({ path: "skills/beta/SKILL.md", status: "failed" })]) })]),
+				operations: expect.arrayContaining([
+					expect.objectContaining({
+						type: "write",
+						path: "skills/beta/SKILL.md",
+						status: "failed",
+					}),
+				]),
+				skills: expect.arrayContaining([
+					expect.objectContaining({
+						skill: "beta",
+						operations: expect.arrayContaining([
+							expect.objectContaining({ path: "skills/beta/SKILL.md", status: "failed" }),
+						]),
+					}),
+				]),
 			},
 		});
 	});
@@ -151,7 +234,13 @@ describe("areg skill apply CLI", () => {
 			mutationFailures: { "skills/beta/SKILL.md": { code: "blocked", message: "beta blocked" } },
 		});
 
-		const result = await runSkillKindApply(contextWithProject(project), { path: ".", kind: "invoke-only", skills: ["alpha", "beta"], dry_run: false, yes: false });
+		const result = await runSkillKindApply(contextWithProject(project), {
+			path: ".",
+			kind: "invoke-only",
+			skills: ["alpha", "beta"],
+			dry_run: false,
+			yes: false,
+		});
 
 		expect(result.type).toBe("shell-negative");
 		expect(project.text("skills/alpha/SKILL.md")).toContain("disable-model-invocation: true");
@@ -159,11 +248,20 @@ describe("areg skill apply CLI", () => {
 		expect(result).toMatchObject({
 			data: {
 				skills: [
-					expect.objectContaining({ operations: expect.arrayContaining([expect.objectContaining({ path: "skills/alpha/SKILL.md", status: "applied" })]) }),
-					expect.objectContaining({ operations: expect.arrayContaining([
-						expect.objectContaining({ path: "skills/beta/SKILL.md", status: "failed" }),
-						expect.objectContaining({ path: "skills/beta/agents/openai.yaml", status: "not_attempted" }),
-					]) }),
+					expect.objectContaining({
+						operations: expect.arrayContaining([
+							expect.objectContaining({ path: "skills/alpha/SKILL.md", status: "applied" }),
+						]),
+					}),
+					expect.objectContaining({
+						operations: expect.arrayContaining([
+							expect.objectContaining({ path: "skills/beta/SKILL.md", status: "failed" }),
+							expect.objectContaining({
+								path: "skills/beta/agents/openai.yaml",
+								status: "not_attempted",
+							}),
+						]),
+					}),
 				],
 			},
 		});
@@ -175,38 +273,83 @@ describe("areg skill apply CLI", () => {
 			localSkills: [skill("foo-alpha"), skill("foo-beta")],
 		});
 
-		const result = await runSkillKindApply(contextWithProject(project), { path: ".", kind: "command-backed", skills: ["foo-alpha", "foo-beta"], dry_run: false, yes: false });
+		const result = await runSkillKindApply(contextWithProject(project), {
+			path: ".",
+			kind: "command-backed",
+			skills: ["foo-alpha", "foo-beta"],
+			dry_run: false,
+			yes: false,
+		});
 
 		expect(result.type).toBe("ok");
-		expect(project.text(".pi/settings.json")).toBe(`${JSON.stringify({ skills: ["-skills/foo-alpha", "-skills/foo-beta"] }, null, 2)}\n`);
+		expect(project.text(".pi/settings.json")).toBe(
+			`${JSON.stringify({ skills: ["-skills/foo-alpha", "-skills/foo-beta"] }, null, 2)}\n`,
+		);
 	});
 
 	test("declining any deletion confirmation happens before preflight or mutation", async () => {
 		const managed = "---\nname: demo\ndisable-model-invocation: true\n---\n";
 		const project = new FakeAregProjectGateway({
 			localSkills: [
-				skill("alpha", managed.replace("demo", "alpha"), { openaiPolicy: "policy:\n  allow_implicit_invocation: false\n" }),
-				skill("beta", managed.replace("demo", "beta"), { openaiPolicy: "policy:\n  allow_implicit_invocation: false\n" }),
+				skill("alpha", managed.replace("demo", "alpha"), {
+					openaiPolicy: "policy:\n  allow_implicit_invocation: false\n",
+				}),
+				skill("beta", managed.replace("demo", "beta"), {
+					openaiPolicy: "policy:\n  allow_implicit_invocation: false\n",
+				}),
 			],
 		});
 		const prompt = new FakeAregPromptGateway({ responses: [true, false] });
 
-		const result = await runSkillKindApply(contextWithProject(project, prompt), { path: ".", kind: "normal", skills: ["alpha", "beta"], dry_run: false, yes: false });
+		const result = await runSkillKindApply(contextWithProject(project, prompt), {
+			path: ".",
+			kind: "normal",
+			skills: ["alpha", "beta"],
+			dry_run: false,
+			yes: false,
+		});
 
-		expect(result).toMatchObject({ type: "negative", message: "Declined to apply normal to beta." });
+		expect(result).toMatchObject({
+			type: "negative",
+			message: "Declined to apply normal to beta.",
+		});
 		expect(prompt.operations()).toHaveLength(2);
-		expect(project.operations().some((operation) => operation.type.startsWith("preflight-") || mutationOperations([operation]).length > 0)).toBe(false);
+		expect(
+			project
+				.operations()
+				.some(
+					(operation) =>
+						operation.type.startsWith("preflight-") || mutationOperations([operation]).length > 0,
+				),
+		).toBe(false);
 	});
 
 	test("dry-run remains non-mutating and does not prompt", async () => {
 		const managed = "---\nname: demo\ndisable-model-invocation: true\n---\n";
-		const project = new FakeAregProjectGateway({ localSkills: [skill("demo", managed, { openaiPolicy: "policy:\n  allow_implicit_invocation: false\n" })] });
+		const project = new FakeAregProjectGateway({
+			localSkills: [
+				skill("demo", managed, { openaiPolicy: "policy:\n  allow_implicit_invocation: false\n" }),
+			],
+		});
 		const prompt = new FakeAregPromptGateway({ responses: [false] });
 
-		const result = await runSkillKindApply(contextWithProject(project, prompt), { path: ".", kind: "normal", skills: ["demo"], dry_run: true, yes: false });
+		const result = await runSkillKindApply(contextWithProject(project, prompt), {
+			path: ".",
+			kind: "normal",
+			skills: ["demo"],
+			dry_run: true,
+			yes: false,
+		});
 
 		expect(result.type).toBe("ok");
 		expect(prompt.operations()).toEqual([]);
-		expect(project.operations().some((operation) => operation.type.startsWith("preflight-") || mutationOperations([operation]).length > 0)).toBe(false);
+		expect(
+			project
+				.operations()
+				.some(
+					(operation) =>
+						operation.type.startsWith("preflight-") || mutationOperations([operation]).length > 0,
+				),
+		).toBe(false);
 	});
 });

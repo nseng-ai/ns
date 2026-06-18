@@ -52,7 +52,9 @@ export function createGitWorldExec(options: GitWorldExecOptions = {}): {
 				return ok("/repo\n");
 			}
 			if (command === "git" && args[0] === "symbolic-ref") {
-				return options.isDetachedHead === true ? fail("not a symbolic ref") : ok(`${sourceBranch}\n`);
+				return options.isDetachedHead === true
+					? fail("not a symbolic ref")
+					: ok(`${sourceBranch}\n`);
 			}
 			if (command === "git" && args[0] === "status") {
 				statusCalls += 1;
@@ -78,13 +80,17 @@ export function createGitWorldExec(options: GitWorldExecOptions = {}): {
 			}
 			if (command === "git" && args[0] === "stash" && args[1] === "push") {
 				stashMessage = args.at(-1) ?? "";
-				return options.shouldStashPushFail === true ? fail("stash push failed") : ok("Saved working directory\n");
+				return options.shouldStashPushFail === true
+					? fail("stash push failed")
+					: ok("Saved working directory\n");
 			}
 			if (command === "git" && args[0] === "stash" && args[1] === "list") {
 				if (options.shouldStashListFail === true) {
 					return fail("stash list failed");
 				}
-				return options.isStashRefMissing === true ? ok(`stash@{0}\0On ${sourceBranch}: unrelated stash\n`) : ok(`stash@{0}\0On ${sourceBranch}: ${stashMessage}\n`);
+				return options.isStashRefMissing === true
+					? ok(`stash@{0}\0On ${sourceBranch}: unrelated stash\n`)
+					: ok(`stash@{0}\0On ${sourceBranch}: ${stashMessage}\n`);
 			}
 			if (command === "git" && args[0] === "stash" && args[1] === "pop") {
 				return options.shouldStashPopFail === true ? fail("stash conflict") : ok("restored\n");
@@ -126,7 +132,9 @@ export function createGitWorldExec(options: GitWorldExecOptions = {}): {
 				return ok(`origin/${sourceBranch}\n`);
 			}
 			if (command === "git" && args[0] === "merge-base") {
-				return upstreamMode === "contains" ? ok() : { code: 1, stdout: "", stderr: "", killed: false };
+				return upstreamMode === "contains"
+					? ok()
+					: { code: 1, stdout: "", stderr: "", killed: false };
 			}
 			if (command === "git" && args[0] === "rev-list") {
 				return ok("abc123def456 parent987654\n");
@@ -146,7 +154,9 @@ export function createGitWorldExec(options: GitWorldExecOptions = {}): {
 				return ok();
 			}
 			if (command === "pi") {
-				return options.piResult === undefined ? ok("generated-branch\n") : { ...options.piResult, killed: options.piResult.killed ?? false };
+				return options.piResult === undefined
+					? ok("generated-branch\n")
+					: { ...options.piResult, killed: options.piResult.killed ?? false };
 			}
 			return ok();
 		},

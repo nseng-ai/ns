@@ -21,7 +21,9 @@ export interface CreateRealRoasterContextOptions {
 	readonly harness?: HarnessGateway | undefined;
 }
 
-export function createRealRoasterContext(options: CreateRealRoasterContextOptions = {}): RoasterContext {
+export function createRealRoasterContext(
+	options: CreateRealRoasterContextOptions = {},
+): RoasterContext {
 	const execApi = options.execApi ?? new NodeCommandExecApi();
 	const gitGateway = options.gitGateway ?? new RealGitGateway(execApi);
 	return {

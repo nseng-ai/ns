@@ -6,7 +6,11 @@ import { describe, expect, test } from "vitest";
 import { InMemoryGitGateway } from "@asdl/core/git/testing";
 import { ScriptedCommandExecApi } from "@asdl/core/testing";
 
-import { FakeLocalDiffGateway, formatGitDiffDisplayCommand, RealLocalDiffGateway } from "../../src/gateways/local-diff.ts";
+import {
+	FakeLocalDiffGateway,
+	formatGitDiffDisplayCommand,
+	RealLocalDiffGateway,
+} from "../../src/gateways/local-diff.ts";
 import { createLocalDiff } from "../../src/models.ts";
 
 const SAMPLE_DIFF =
@@ -35,9 +39,16 @@ describe("RealLocalDiffGateway", () => {
 	test("uses explicit base ref, config excludes, and parses changed paths", async () => {
 		const repoRoot = await mkdtemp(join(tmpdir(), "roaster-local-diff-"));
 		await mkdir(repoRoot, { recursive: true });
-		await writeFile(join(repoRoot, "asdl.toml"), '[roaster.diff]\nexclude = [".agents/skills/**/*.py"]\n', "utf8");
+		await writeFile(
+			join(repoRoot, "asdl.toml"),
+			'[roaster.diff]\nexclude = [".agents/skills/**/*.py"]\n',
+			"utf8",
+		);
 		const execApi = new ScriptedCommandExecApi([{ stdout: SAMPLE_DIFF }]);
-		const gateway = new RealLocalDiffGateway({ execApi, gitGateway: new InMemoryGitGateway({ repoRoot, trunkBranch: "trunk" }) });
+		const gateway = new RealLocalDiffGateway({
+			execApi,
+			gitGateway: new InMemoryGitGateway({ repoRoot, trunkBranch: "trunk" }),
+		});
 
 		const result = await gateway.loadDiff({ cwd: repoRoot, baseRef: "main" });
 
@@ -71,7 +82,10 @@ describe("RealLocalDiffGateway", () => {
 		const repoRoot = await mkdtemp(join(tmpdir(), "roaster-local-diff-failure-"));
 		await mkdir(repoRoot, { recursive: true });
 		const execApi = new ScriptedCommandExecApi([{ stderr: "fatal: bad revision", code: 128 }]);
-		const gateway = new RealLocalDiffGateway({ execApi, gitGateway: new InMemoryGitGateway({ repoRoot, trunkBranch: "trunk" }) });
+		const gateway = new RealLocalDiffGateway({
+			execApi,
+			gitGateway: new InMemoryGitGateway({ repoRoot, trunkBranch: "trunk" }),
+		});
 
 		const result = await gateway.loadDiff({ cwd: repoRoot });
 

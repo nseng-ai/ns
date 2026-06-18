@@ -55,6 +55,8 @@ describe("resolveClaudeCliDraftModel", () => {
 	});
 
 	test("uses a trimmed override verbatim", () => {
-		expect(resolveClaudeCliDraftModel({ [DRAFT_MODEL_ENV]: "  claude-sonnet-4-6  " })).toBe("claude-sonnet-4-6");
+		expect(resolveClaudeCliDraftModel({ [DRAFT_MODEL_ENV]: "  claude-sonnet-4-6  " })).toBe(
+			"claude-sonnet-4-6",
+		);
 	});
 });

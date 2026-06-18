@@ -6,7 +6,11 @@ const CMUX_TIMEOUT_MS = 10_000;
 const MAX_ERROR_CHARS = 4_000;
 
 export interface CmuxExecHost {
-	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number; signal?: AbortSignal }): Promise<ExecResult>;
+	exec(
+		command: string,
+		args: string[],
+		options?: { cwd?: string; timeout?: number; signal?: AbortSignal },
+	): Promise<ExecResult>;
 }
 
 export interface CmuxCallerContext {
@@ -45,21 +49,33 @@ interface CmuxExecOptions {
 export async function identifyCmuxCaller(
 	host: CmuxExecHost,
 	cwd: string,
-): Promise<{ type: "identified"; caller: CmuxCallerContext } | { type: "failed"; message: string }> {
+): Promise<
+	{ type: "identified"; caller: CmuxCallerContext } | { type: "failed"; message: string }
+> {
 	const commandArgs = ["identify", "--json", "--id-format", "both"];
 	let result: ExecResult;
 	try {
 		result = await host.exec("cmux", commandArgs, { cwd, timeout: CMUX_TIMEOUT_MS });
 	} catch (error) {
-		return { type: "failed", message: formatStartupFailure(formatCommand("cmux", commandArgs), error) };
+		return {
+			type: "failed",
+			message: formatStartupFailure(formatCommand("cmux", commandArgs), error),
+		};
 	}
 	if (result.code !== 0 || result.killed) {
-		return { type: "failed", message: formatExecFailure(formatCommand("cmux", commandArgs), result) };
+		return {
+			type: "failed",
+			message: formatExecFailure(formatCommand("cmux", commandArgs), result),
+		};
 	}
 
 	const parsed = parseCmuxCallerContext(result.stdout);
 	if (parsed === undefined) {
-		return { type: "failed", message: "cmux identify did not return a caller workspace and pane; are you running inside cmux?" };
+		return {
+			type: "failed",
+			message:
+				"cmux identify did not return a caller workspace and pane; are you running inside cmux?",
+		};
 	}
 	return { type: "identified", caller: parsed };
 }
@@ -90,7 +106,9 @@ export interface CreateCmuxSurfaceOptions {
 	signal: AbortSignal | undefined;
 }
 
-export async function createCmuxSurface(options: CreateCmuxSurfaceOptions): Promise<{ type: "created"; surface: CmuxCreatedSurface } | { type: "failed"; message: string }> {
+export async function createCmuxSurface(
+	options: CreateCmuxSurfaceOptions,
+): Promise<{ type: "created"; surface: CmuxCreatedSurface } | { type: "failed"; message: string }> {
 	const commandArgs = [
 		"--json",
 		"new-surface",
@@ -109,16 +127,29 @@ export async function createCmuxSurface(options: CreateCmuxSurfaceOptions): Prom
 
 	let result: ExecResult;
 	try {
-		result = await options.host.exec("cmux", commandArgs, cmuxExecOptions(options.cwd, options.signal));
+		result = await options.host.exec(
+			"cmux",
+			commandArgs,
+			cmuxExecOptions(options.cwd, options.signal),
+		);
 	} catch (error) {
-		return { type: "failed", message: formatStartupFailure(formatCommand("cmux", commandArgs), error) };
+		return {
+			type: "failed",
+			message: formatStartupFailure(formatCommand("cmux", commandArgs), error),
+		};
 	}
 	if (result.code !== 0 || result.killed) {
-		return { type: "failed", message: formatExecFailure(formatCommand("cmux", commandArgs), result) };
+		return {
+			type: "failed",
+			message: formatExecFailure(formatCommand("cmux", commandArgs), result),
+		};
 	}
 	const surface = parseCreatedCmuxSurface(result.stdout);
 	if (surface === undefined) {
-		return { type: "failed", message: "cmux new-surface did not return a surface identifier; no launch command was sent." };
+		return {
+			type: "failed",
+			message: "cmux new-surface did not return a surface identifier; no launch command was sent.",
+		};
 	}
 	return { type: "created", surface };
 }
@@ -133,7 +164,10 @@ export function parseCreatedCmuxSurface(stdout: string): CmuxCreatedSurface | un
 	if (!isRecord(parsed)) {
 		return undefined;
 	}
-	const surfaceId = stringField(parsed, "surface_id") ?? stringField(parsed, "surface_ref") ?? stringField(parsed, "id");
+	const surfaceId =
+		stringField(parsed, "surface_id") ??
+		stringField(parsed, "surface_ref") ??
+		stringField(parsed, "id");
 	if (surfaceId === undefined) {
 		return undefined;
 	}
@@ -158,7 +192,13 @@ export async function renameCmuxTab(
 	if (options.windowId !== undefined) {
 		commandArgs.push("--window", options.windowId);
 	}
-	return runCmuxMutation({ host, cwd, commandArgs, signal: options.signal, successType: "renamed" });
+	return runCmuxMutation({
+		host,
+		cwd,
+		commandArgs,
+		signal: options.signal,
+		successType: "renamed",
+	});
 }
 
 export async function sendCmuxText(
@@ -189,7 +229,9 @@ export type FocusedCmuxTabLaunchResult =
 	| { type: "launched"; tabTitle: string; surfaceId: string; workspaceId: string; command: string }
 	| { type: "failed"; message: string; surfaceId?: string; workspaceId?: string };
 
-export async function launchFocusedCmuxTab(options: LaunchFocusedCmuxTabOptions): Promise<FocusedCmuxTabLaunchResult> {
+export async function launchFocusedCmuxTab(
+	options: LaunchFocusedCmuxTabOptions,
+): Promise<FocusedCmuxTabLaunchResult> {
 	const { host, cwd, tabTitle, command, signal } = options;
 
 	options.onStage?.("identify");
@@ -206,18 +248,31 @@ export async function launchFocusedCmuxTab(options: LaunchFocusedCmuxTabOptions)
 
 	const surfaceId = created.surface.surfaceId;
 	const workspaceId = created.surface.workspaceId ?? identified.caller.workspaceId;
-	const windowIdEntry = identified.caller.windowId === undefined ? {} : { windowId: identified.caller.windowId };
+	const windowIdEntry =
+		identified.caller.windowId === undefined ? {} : { windowId: identified.caller.windowId };
 	const recoveryMessage = (failureMessage: string): string =>
 		`${failureMessage}\n\nCreated cmux surface: ${surfaceId}\nManual recovery: run ${command}`;
 
 	options.onStage?.("rename");
-	const renamed = await renameCmuxTab(host, cwd, { workspaceId, surfaceId, tabTitle, signal, ...windowIdEntry });
+	const renamed = await renameCmuxTab(host, cwd, {
+		workspaceId,
+		surfaceId,
+		tabTitle,
+		signal,
+		...windowIdEntry,
+	});
 	if (renamed.type === "failed") {
 		return { type: "failed", surfaceId, workspaceId, message: recoveryMessage(renamed.message) };
 	}
 
 	options.onStage?.("send");
-	const sent = await sendCmuxText(host, cwd, { workspaceId, surfaceId, text: `${command}\n`, signal, ...windowIdEntry });
+	const sent = await sendCmuxText(host, cwd, {
+		workspaceId,
+		surfaceId,
+		text: `${command}\n`,
+		signal,
+		...windowIdEntry,
+	});
 	if (sent.type === "failed") {
 		return { type: "failed", surfaceId, workspaceId, message: recoveryMessage(sent.message) };
 	}
@@ -233,15 +288,27 @@ interface RunCmuxMutationOptions<TType extends "renamed" | "sent"> {
 	successType: TType;
 }
 
-async function runCmuxMutation<TType extends "renamed" | "sent">(options: RunCmuxMutationOptions<TType>): Promise<{ type: TType } | { type: "failed"; message: string }> {
+async function runCmuxMutation<TType extends "renamed" | "sent">(
+	options: RunCmuxMutationOptions<TType>,
+): Promise<{ type: TType } | { type: "failed"; message: string }> {
 	let result: ExecResult;
 	try {
-		result = await options.host.exec("cmux", options.commandArgs, cmuxExecOptions(options.cwd, options.signal));
+		result = await options.host.exec(
+			"cmux",
+			options.commandArgs,
+			cmuxExecOptions(options.cwd, options.signal),
+		);
 	} catch (error) {
-		return { type: "failed", message: formatStartupFailure(formatCommand("cmux", options.commandArgs), error) };
+		return {
+			type: "failed",
+			message: formatStartupFailure(formatCommand("cmux", options.commandArgs), error),
+		};
 	}
 	if (result.code !== 0 || result.killed) {
-		return { type: "failed", message: formatExecFailure(formatCommand("cmux", options.commandArgs), result) };
+		return {
+			type: "failed",
+			message: formatExecFailure(formatCommand("cmux", options.commandArgs), result),
+		};
 	}
 	return { type: options.successType };
 }
@@ -251,14 +318,20 @@ function cmuxExecOptions(cwd: string, signal: AbortSignal | undefined): CmuxExec
 }
 
 function formatExecFailure(commandDisplay: string, result: ExecResult): string {
-	const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
+	const status = result.killed
+		? `exit code ${result.code}; process was killed or timed out`
+		: `exit code ${result.code}`;
 	const stdout = result.stdout.trimEnd() || "(empty)";
 	const stderr = result.stderr.trimEnd() || "(empty)";
-	return truncateError(`command failed (${status}).\n\n$ ${commandDisplay}\n\nstdout:\n${stdout}\n\nstderr:\n${stderr}`);
+	return truncateError(
+		`command failed (${status}).\n\n$ ${commandDisplay}\n\nstdout:\n${stdout}\n\nstderr:\n${stderr}`,
+	);
 }
 
 function formatStartupFailure(commandDisplay: string, error: unknown): string {
-	return truncateError(`command failed before completion.\n\n$ ${commandDisplay}\n\nerror:\n${formatErrorMessage(error)}`);
+	return truncateError(
+		`command failed before completion.\n\n$ ${commandDisplay}\n\nerror:\n${formatErrorMessage(error)}`,
+	);
 }
 
 function truncateError(message: string): string {

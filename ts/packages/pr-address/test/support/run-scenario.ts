@@ -18,7 +18,10 @@ export interface ScenarioRun {
 }
 
 /** Drive the CLI in process against in-memory fakes. */
-export function runScenario(args: readonly string[], options: ScenarioRunOptions = {}): ScenarioRun {
+export function runScenario(
+	args: readonly string[],
+	options: ScenarioRunOptions = {},
+): ScenarioRun {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const overrides: Partial<PrAddressContext> = {};

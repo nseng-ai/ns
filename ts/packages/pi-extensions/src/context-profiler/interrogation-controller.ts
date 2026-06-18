@@ -1,13 +1,27 @@
 import type { Api, Model } from "@earendil-works/pi-ai";
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 import type { PersistedBundle } from "./bundle.ts";
-import { buildInterrogationSystemPrompt, buildInterrogationUserMessage, scopesEqual, type InterrogationScope } from "./interrogation-prompt.ts";
+import {
+	buildInterrogationSystemPrompt,
+	buildInterrogationUserMessage,
+	scopesEqual,
+	type InterrogationScope,
+} from "./interrogation-prompt.ts";
 import type { InterrogationSession, InterrogationSessionFactory } from "./interrogation-session.ts";
-import { appendNotice, appendUser, applyInterrogationEvent, createTranscript, setStreaming, type TranscriptState } from "./interrogation-transcript.ts";
+import {
+	appendNotice,
+	appendUser,
+	applyInterrogationEvent,
+	createTranscript,
+	setStreaming,
+	type TranscriptState,
+} from "./interrogation-transcript.ts";
 
 type InterrogationAvailability = { ok: true } | { ok: false; reason: string };
 
-export type InterrogationAttachment = { type: "ready"; port: InterrogationViewPort } | { type: "degraded"; reason: string };
+export type InterrogationAttachment =
+	| { type: "ready"; port: InterrogationViewPort }
+	| { type: "degraded"; reason: string };
 
 export interface InterrogationViewPort {
 	readonly state: TranscriptState;
@@ -113,10 +127,12 @@ export class InterrogationController implements InterrogationViewPort {
 		this.lastScope = scope;
 		this.transcript = setStreaming(appendUser(this.transcript, trimmed), true);
 		this.onTranscriptChange();
-		const result = await session.ask(buildInterrogationUserMessage({ question: trimmed, scope, includeScopePreamble })).finally(() => {
-			this.transcript = setStreaming(this.transcript, false);
-			this.onTranscriptChange();
-		});
+		const result = await session
+			.ask(buildInterrogationUserMessage({ question: trimmed, scope, includeScopePreamble }))
+			.finally(() => {
+				this.transcript = setStreaming(this.transcript, false);
+				this.onTranscriptChange();
+			});
 		if (!result.ok) this.emitNotice(`prompt failed: ${result.error.message}`);
 	}
 

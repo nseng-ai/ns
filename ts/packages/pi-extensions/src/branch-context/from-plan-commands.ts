@@ -1,4 +1,7 @@
-import { formatBranchContextUpAndImplFollowUpFlow, runBranchContextUpAndImplLaunch } from "@asdl/ccc/branch-context-up-and-impl";
+import {
+	formatBranchContextUpAndImplFollowUpFlow,
+	runBranchContextUpAndImplLaunch,
+} from "@asdl/ccc/branch-context-up-and-impl";
 import {
 	BRANCH_CONTEXT_NAMESPACE,
 	buildBranchContextOutputMessage,
@@ -19,14 +22,24 @@ import {
 	type ExistingBranchContextReuse,
 	type PlanContentSlugEvidence,
 } from "@asdl/branch-context";
-import { NoSavedPlanAvailableError, type RepoIdentitySource, type SelectedSavedPlanFile } from "@asdl/plans";
+import {
+	NoSavedPlanAvailableError,
+	type RepoIdentitySource,
+	type SelectedSavedPlanFile,
+} from "@asdl/plans";
 import { formatErrorMessage } from "@asdl/core/primitives";
 import {
 	resolveBranchContextDefaultCreation,
 	resolveBranchContextOperations,
 	resolvePlanStoreRootOption,
 } from "./options.ts";
-import type { BranchContextExtensionOptions, BranchContextOperations, CommandContext, ExtensionAPI, NotifyLevel } from "./host-types.ts";
+import type {
+	BranchContextExtensionOptions,
+	BranchContextOperations,
+	CommandContext,
+	ExtensionAPI,
+	NotifyLevel,
+} from "./host-types.ts";
 
 export const CREATE_BRANCH_CONTEXT_COMMAND_NAME = "branch-context:from-plan";
 export const UP_AND_IMPL_COMMAND_NAME = "branch-context:upstack-impl-session";
@@ -105,7 +118,9 @@ interface StoredCreateBranchContextPreview extends CreateBranchContextPreviewBas
 	modifiedTimeMs?: number;
 }
 
-export type CreateBranchContextPreview = ExplicitCreateBranchContextPreview | StoredCreateBranchContextPreview;
+export type CreateBranchContextPreview =
+	| ExplicitCreateBranchContextPreview
+	| StoredCreateBranchContextPreview;
 
 interface BranchContextTargetBranch {
 	targetBranch: string;
@@ -189,7 +204,10 @@ export function parseCreateBranchContextArgs(rawArgs: string): CreateBranchConte
 	return parsed;
 }
 
-function setBranchCreation(args: CreateBranchContextArgs, branchCreation: BranchCreationMethod): void {
+function setBranchCreation(
+	args: CreateBranchContextArgs,
+	branchCreation: BranchCreationMethod,
+): void {
 	if (args.branchCreation !== undefined && args.branchCreation !== branchCreation) {
 		throw new CreateBranchContextUsageError("Cannot pass both --graphite and --plain-git.");
 	}
@@ -213,7 +231,10 @@ export async function deriveCreateBranchContextPreview(
 	options: BranchContextExtensionOptions = {},
 ): Promise<CreateBranchContextPreview> {
 	const selectedFile = selectedSavedPlanFileInfo(selected);
-	const slugEvidence = await derivePlanContentSlug(pi, { filePath: selectedFile.filePath, cwd: ctx.cwd });
+	const slugEvidence = await derivePlanContentSlug(pi, {
+		filePath: selectedFile.filePath,
+		cwd: ctx.cwd,
+	});
 	const branchCreation = args.branchCreation ?? resolveBranchContextDefaultCreation(options);
 	const target = deriveBranchContextTargetBranch(args, slugEvidence.slug, options);
 	const planKey = buildBranchContextPlanKey(slugEvidence.slug);
@@ -224,7 +245,9 @@ export async function deriveCreateBranchContextPreview(
 		fileName: selectedFile.fileName,
 		planKey,
 		targetBranch: target.targetBranch,
-		...(target.branchNameForCreation === undefined ? {} : { branchNameForCreation: target.branchNameForCreation }),
+		...(target.branchNameForCreation === undefined
+			? {}
+			: { branchNameForCreation: target.branchNameForCreation }),
 		isExplicitTargetBranch: target.isExplicitTargetBranch,
 		branchCreation,
 		slugEvidence,
@@ -243,7 +266,9 @@ export async function deriveCreateBranchContextPreview(
 		sourceBranch: selected.plan.sourceBranch,
 		branchKey: selected.plan.branchKey,
 		modifiedTimeMs: selected.plan.modifiedTimeMs,
-		...(selected.type === "session" && selected.plan.summary !== undefined ? { summary: selected.plan.summary } : {}),
+		...(selected.type === "session" && selected.plan.summary !== undefined
+			? { summary: selected.plan.summary }
+			: {}),
 	};
 }
 
@@ -289,7 +314,6 @@ export function formatCreateBranchContextPreview(preview: CreateBranchContextPre
 	return lines.join("\n");
 }
 
-
 export async function handleImplBranchContextCommand(
 	pi: ExtensionAPI,
 	args: string,
@@ -312,7 +336,13 @@ export async function handleImplBranchContextCommand(
 			planStoreRoot: resolvePlanStoreRootOption(options),
 			sessionEntries: ctx.sessionManager?.getBranch?.() ?? [],
 		});
-		presentBranchContextMessage(pi, ctx, formatLoadedAttachedPlanEvidence(plan), { status: "loaded-plan" }, "info");
+		presentBranchContextMessage(
+			pi,
+			ctx,
+			formatLoadedAttachedPlanEvidence(plan),
+			{ status: "loaded-plan" },
+			"info",
+		);
 		pi.sendUserMessage(buildImplBranchContextPrompt(plan));
 	} catch (error) {
 		presentBranchContextFailure(pi, ctx, "Failed to load branch-context plan.", error);
@@ -334,7 +364,13 @@ export async function handleCreateBranchContextCommand(
 		args = parseCreateBranchContextArgs(rawArgs);
 	} catch (error) {
 		if (error instanceof CreateBranchContextUsageError) {
-			presentBranchContextMessage(pi, ctx, `Usage error: ${error.message}\n\n${CREATE_BRANCH_CONTEXT_USAGE}`, { status: "usage" }, "error");
+			presentBranchContextMessage(
+				pi,
+				ctx,
+				`Usage error: ${error.message}\n\n${CREATE_BRANCH_CONTEXT_USAGE}`,
+				{ status: "usage" },
+				"error",
+			);
 			return;
 		}
 		throw error;
@@ -350,7 +386,12 @@ export async function handleCreateBranchContextCommand(
 	try {
 		selected = await resolveCreateBranchContextPlanFile(pi, args, ctx, options);
 	} catch (error) {
-		presentBranchContextFailure(pi, ctx, "Failed to resolve saved plan file or derive branch slug.", error);
+		presentBranchContextFailure(
+			pi,
+			ctx,
+			"Failed to resolve saved plan file or derive branch slug.",
+			error,
+		);
 		return;
 	}
 
@@ -359,7 +400,12 @@ export async function handleCreateBranchContextCommand(
 	try {
 		preview = await deriveCreateBranchContextPreview(pi, args, ctx, selected, options);
 	} catch (error) {
-		presentBranchContextFailure(pi, ctx, "Failed to resolve saved plan file or derive branch slug.", error);
+		presentBranchContextFailure(
+			pi,
+			ctx,
+			"Failed to resolve saved plan file or derive branch slug.",
+			error,
+		);
 		return;
 	} finally {
 		ctx.ui.setStatus(BRANCH_CONTEXT_STATUS_KEY, undefined);
@@ -379,10 +425,26 @@ export async function handleCreateBranchContextCommand(
 
 	ctx.ui.setStatus(BRANCH_CONTEXT_STATUS_KEY, "creating branch and attaching plan…");
 	try {
-		const evidence = await createBranchContextFromPreview({ pi, preview, ctx, operations: resolveBranchContextOperations(options) });
-		presentBranchContextMessage(pi, ctx, formatBranchContextEvidence(evidence), { status: "success", evidence }, "info");
+		const evidence = await createBranchContextFromPreview({
+			pi,
+			preview,
+			ctx,
+			operations: resolveBranchContextOperations(options),
+		});
+		presentBranchContextMessage(
+			pi,
+			ctx,
+			formatBranchContextEvidence(evidence),
+			{ status: "success", evidence },
+			"info",
+		);
 	} catch (error) {
-		presentBranchContextFailure(pi, ctx, "Failed to create branch context and attach the plan.", error);
+		presentBranchContextFailure(
+			pi,
+			ctx,
+			"Failed to create branch context and attach the plan.",
+			error,
+		);
 	} finally {
 		ctx.ui.setStatus(BRANCH_CONTEXT_STATUS_KEY, undefined);
 	}
@@ -401,7 +463,13 @@ export async function handleUpAndImplCommand(
 		args = parseCreateBranchContextArgs(rawArgs);
 	} catch (error) {
 		if (error instanceof CreateBranchContextUsageError) {
-			presentBranchContextMessage(pi, ctx, `Usage error: ${error.message}\n\n${UP_AND_IMPL_USAGE}`, { status: "usage" }, "error");
+			presentBranchContextMessage(
+				pi,
+				ctx,
+				`Usage error: ${error.message}\n\n${UP_AND_IMPL_USAGE}`,
+				{ status: "usage" },
+				"error",
+			);
 			return;
 		}
 		throw error;
@@ -412,7 +480,10 @@ export async function handleUpAndImplCommand(
 		return;
 	}
 
-	const previewOptions: BranchContextExtensionOptions = { ...options, branchContextDefaultCreation: "graphite" };
+	const previewOptions: BranchContextExtensionOptions = {
+		...options,
+		branchContextDefaultCreation: "graphite",
+	};
 	let selected: SelectedSavedPlanFile;
 	ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, "finding saved plan…");
 	try {
@@ -420,7 +491,12 @@ export async function handleUpAndImplCommand(
 	} catch (error) {
 		ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, undefined);
 		if (!(error instanceof NoSavedPlanAvailableError)) {
-			presentBranchContextFailure(pi, ctx, "Failed to resolve saved plan file or derive branch slug.", error);
+			presentBranchContextFailure(
+				pi,
+				ctx,
+				"Failed to resolve saved plan file or derive branch slug.",
+				error,
+			);
 			return;
 		}
 		await handleUpAndImplExistingReuse({ pi, args, ctx, originalError: error });
@@ -433,7 +509,12 @@ export async function handleUpAndImplCommand(
 		preview = await deriveCreateBranchContextPreview(pi, args, ctx, selected, previewOptions);
 	} catch (error) {
 		ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, undefined);
-		presentBranchContextFailure(pi, ctx, "Failed to resolve saved plan file or derive branch slug.", error);
+		presentBranchContextFailure(
+			pi,
+			ctx,
+			"Failed to resolve saved plan file or derive branch slug.",
+			error,
+		);
 		return;
 	} finally {
 		ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, undefined);
@@ -443,7 +524,11 @@ export async function handleUpAndImplCommand(
 		presentBranchContextMessage(
 			pi,
 			ctx,
-			formatUpAndImplDryRunMessage(formatCreateBranchContextPreview(preview), preview.targetBranch, preview.planKey),
+			formatUpAndImplDryRunMessage(
+				formatCreateBranchContextPreview(preview),
+				preview.targetBranch,
+				preview.planKey,
+			),
 			{ status: "dry-run", targetBranch: preview.targetBranch, key: preview.planKey },
 			"info",
 		);
@@ -453,10 +538,20 @@ export async function handleUpAndImplCommand(
 	ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, "creating branch and attaching plan…");
 	let evidence: BranchContextEvidence;
 	try {
-		evidence = await createBranchContextFromPreview({ pi, preview, ctx, operations: resolveBranchContextOperations(options) });
+		evidence = await createBranchContextFromPreview({
+			pi,
+			preview,
+			ctx,
+			operations: resolveBranchContextOperations(options),
+		});
 	} catch (error) {
 		ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, undefined);
-		presentBranchContextFailure(pi, ctx, "Failed to create branch context and attach the plan.", error);
+		presentBranchContextFailure(
+			pi,
+			ctx,
+			"Failed to create branch context and attach the plan.",
+			error,
+		);
 		return;
 	}
 
@@ -484,7 +579,9 @@ interface HandleUpAndImplExistingReuseOptions {
 	originalError: unknown;
 }
 
-async function handleUpAndImplExistingReuse(options: HandleUpAndImplExistingReuseOptions): Promise<void> {
+async function handleUpAndImplExistingReuse(
+	options: HandleUpAndImplExistingReuseOptions,
+): Promise<void> {
 	const { pi, args, ctx, originalError } = options;
 	let reuse: ExistingBranchContextReuse;
 	ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, "finding existing branch context…");
@@ -492,7 +589,9 @@ async function handleUpAndImplExistingReuse(options: HandleUpAndImplExistingReus
 		const sessionEntries = ctx.sessionManager?.getBranch?.() ?? [];
 		reuse = await resolveExistingBranchContextReuse(
 			pi,
-			args.branchName === undefined ? { sessionEntries } : { explicitBranch: args.branchName, sessionEntries },
+			args.branchName === undefined
+				? { sessionEntries }
+				: { explicitBranch: args.branchName, sessionEntries },
 			{ cwd: ctx.cwd, context: createBranchContextContext(pi) },
 		);
 	} catch (reuseError) {
@@ -512,7 +611,11 @@ async function handleUpAndImplExistingReuse(options: HandleUpAndImplExistingReus
 		presentBranchContextMessage(
 			pi,
 			ctx,
-			formatUpAndImplDryRunMessage(formatExistingBranchContextReuse(reuse), reuse.branch, reuse.key),
+			formatUpAndImplDryRunMessage(
+				formatExistingBranchContextReuse(reuse),
+				reuse.branch,
+				reuse.key,
+			),
 			{ status: "dry-run", targetBranch: reuse.branch, key: reuse.key },
 			"info",
 		);
@@ -535,7 +638,13 @@ async function createBranchContextFromPreview({
 	ctx,
 	operations,
 }: CreateBranchContextFromPreviewOptions): Promise<BranchContextEvidence> {
-	const params: { slug: string; filePath: string; branchCreation: BranchCreationMethod; branchName?: string; summary?: string } = {
+	const params: {
+		slug: string;
+		filePath: string;
+		branchCreation: BranchCreationMethod;
+		branchName?: string;
+		summary?: string;
+	} = {
 		slug: preview.slug,
 		filePath: preview.filePath,
 		branchCreation: preview.branchCreation,
@@ -547,7 +656,10 @@ async function createBranchContextFromPreview({
 		params.summary = preview.summary;
 	}
 
-	return operations.createBranchContextFromFile(pi, params, { cwd: ctx.cwd, context: createBranchContextContext(pi) });
+	return operations.createBranchContextFromFile(pi, params, {
+		cwd: ctx.cwd,
+		context: createBranchContextContext(pi),
+	});
 }
 
 function formatExistingReuseFailureMessage(originalError: unknown, reuseError: unknown): string {
@@ -577,7 +689,12 @@ async function runUpAndImplLaunchTail(options: UpAndImplLaunchTailOptions): Prom
 	const { pi, ctx, mode, target } = options;
 	presentBranchContextMessage(pi, ctx, options.successBody, options.outputDetails, "info");
 
-	const launchResult = await runBranchContextUpAndImplLaunch({ host: pi, ctx, statusKey: UP_AND_IMPL_STATUS_KEY, target });
+	const launchResult = await runBranchContextUpAndImplLaunch({
+		host: pi,
+		ctx,
+		statusKey: UP_AND_IMPL_STATUS_KEY,
+		target,
+	});
 	if (launchResult.type === "launched") {
 		return;
 	}
@@ -592,14 +709,22 @@ async function runUpAndImplLaunchTail(options: UpAndImplLaunchTailOptions): Prom
 		return;
 	}
 
-	presentBranchContextFailure(pi, ctx, formatUpAndImplLaunchFailureTitle(mode, launchResult.phase), launchResult.message);
+	presentBranchContextFailure(
+		pi,
+		ctx,
+		formatUpAndImplLaunchFailureTitle(mode, launchResult.phase),
+		launchResult.message,
+	);
 }
 
 function formatUpAndImplDryRunMessage(body: string, branch: string, key: string): string {
 	return `Dry run: no branch would be created, no plan would be attached, no checkout would happen, no new session would be started, and no implementation prompt would be sent.\n\n${body}\n\nNew-session implementation flow:\n${formatBranchContextUpAndImplFollowUpFlow(branch, key)}`;
 }
 
-function formatUpAndImplLaunchFailureTitle(mode: UpAndImplMode, phase: "checkout" | "new-session"): string {
+function formatUpAndImplLaunchFailureTitle(
+	mode: UpAndImplMode,
+	phase: "checkout" | "new-session",
+): string {
 	if (mode === "created") {
 		return phase === "checkout"
 			? "Created branch context and attached the plan, but failed to check out the branch context."
@@ -618,7 +743,6 @@ function formatUpAndImplCancelledMessage(mode: UpAndImplMode, branch: string, ke
 	return `Reused existing branch context, verified the attached plan, and checked out ${branch}, but starting the implementation session was cancelled. Run ${command} to continue.`;
 }
 
-
 async function resolveSelectedSavedPlanFile(
 	pi: ExtensionAPI,
 	args: CreateBranchContextArgs,
@@ -635,7 +759,10 @@ async function resolveSelectedSavedPlanFile(
 	});
 }
 
-function selectedSavedPlanFileInfo(selected: SelectedSavedPlanFile): { filePath: string; fileName: string } {
+function selectedSavedPlanFileInfo(selected: SelectedSavedPlanFile): {
+	filePath: string;
+	fileName: string;
+} {
 	if (selected.type === "explicit") {
 		return { filePath: selected.filePath, fileName: selected.fileName };
 	}
@@ -661,9 +788,20 @@ function deriveBranchContextTargetBranch(
 	return { targetBranch: deriveTargetBranch(undefined, slug), isExplicitTargetBranch: false };
 }
 
-function presentBranchContextFailure(pi: ExtensionAPI, ctx: CommandContext, title: string, error: unknown): void {
+function presentBranchContextFailure(
+	pi: ExtensionAPI,
+	ctx: CommandContext,
+	title: string,
+	error: unknown,
+): void {
 	const message = error instanceof Error ? error.message : String(error);
-	presentBranchContextMessage(pi, ctx, `${title}\n\n${message}`, { status: "failure", error: message }, "error");
+	presentBranchContextMessage(
+		pi,
+		ctx,
+		`${title}\n\n${message}`,
+		{ status: "failure", error: message },
+		"error",
+	);
 }
 
 function presentBranchContextMessage(
@@ -695,12 +833,14 @@ export function registerBranchContextCommands(
 	options: BranchContextExtensionOptions = {},
 ): void {
 	pi.registerCommand(CREATE_BRANCH_CONTEXT_COMMAND_NAME, {
-		description: "Create a branch context using a content-derived slug, then attach the saved plan in Branch Memory.",
+		description:
+			"Create a branch context using a content-derived slug, then attach the saved plan in Branch Memory.",
 		handler: async (args, ctx) => handleCreateBranchContextCommand(pi, args, ctx, options),
 	});
 
 	pi.registerCommand(UP_AND_IMPL_COMMAND_NAME, {
-		description: "Stack a branch context on the current branch with Graphite, check it out, and implement the attached plan in a fresh Pi session.",
+		description:
+			"Stack a branch context on the current branch with Graphite, check it out, and implement the attached plan in a fresh Pi session.",
 		handler: async (args, ctx) => handleUpAndImplCommand(pi, args, ctx, options),
 	});
 

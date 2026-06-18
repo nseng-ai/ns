@@ -27,7 +27,12 @@ describe("RealSlotGitGateway", () => {
 	it("emits labeled command diagnostics when a sink is injected", async () => {
 		const execApi = new ScriptedExecApi({ stdout: "/repo\n", stderr: "", code: 0, killed: false });
 		const diagnosticSink = new InMemoryDiagnosticSink();
-		const gateway = new RealSlotGitGateway({ cwd: "/repo", env: { PATH: "/fake/bin" }, execApi, diagnosticSink });
+		const gateway = new RealSlotGitGateway({
+			cwd: "/repo",
+			env: { PATH: "/fake/bin" },
+			execApi,
+			diagnosticSink,
+		});
 
 		await expect(gateway.getRepositoryRoot("/repo/subdir")).resolves.toBe("/repo");
 		expect(diagnosticSink.events()).toEqual([
@@ -58,11 +63,29 @@ describe("RealSlotGitGateway", () => {
 		const fixture = createWorktreeFixture({ gitdir: "absolute" });
 		try {
 			writeMarker(fixture.adminDir, markerPath);
-			const execApi = new ScriptedExecApi({ stdout: worktreeListOutput(fixture.worktreePath, "feature/a"), stderr: "", code: 0, killed: false });
-			const gateway = new RealSlotGitGateway({ cwd: fixture.worktreePath, env: { PATH: "/fake/bin" }, execApi });
+			const execApi = new ScriptedExecApi({
+				stdout: worktreeListOutput(fixture.worktreePath, "feature/a"),
+				stderr: "",
+				code: 0,
+				killed: false,
+			});
+			const gateway = new RealSlotGitGateway({
+				cwd: fixture.worktreePath,
+				env: { PATH: "/fake/bin" },
+				execApi,
+			});
 
-			expect(await gateway.listBranchOccupancies()).toEqual([{ path: fixture.worktreePath, branch: "feature/a", operation }]);
-			expect(execApi.calls()).toEqual([{ command: "git", args: ["worktree", "list", "--porcelain"], cwd: fixture.worktreePath, timeout: 10_000 }]);
+			expect(await gateway.listBranchOccupancies()).toEqual([
+				{ path: fixture.worktreePath, branch: "feature/a", operation },
+			]);
+			expect(execApi.calls()).toEqual([
+				{
+					command: "git",
+					args: ["worktree", "list", "--porcelain"],
+					cwd: fixture.worktreePath,
+					timeout: 10_000,
+				},
+			]);
 		} finally {
 			fixture.cleanup();
 		}
@@ -72,10 +95,21 @@ describe("RealSlotGitGateway", () => {
 		const fixture = createWorktreeFixture({ gitdir: "relative" });
 		try {
 			writeMarker(fixture.adminDir, "REVERT_HEAD");
-			const execApi = new ScriptedExecApi({ stdout: worktreeListOutput(fixture.worktreePath, "feature/relative"), stderr: "", code: 0, killed: false });
-			const gateway = new RealSlotGitGateway({ cwd: fixture.worktreePath, env: { PATH: "/fake/bin" }, execApi });
+			const execApi = new ScriptedExecApi({
+				stdout: worktreeListOutput(fixture.worktreePath, "feature/relative"),
+				stderr: "",
+				code: 0,
+				killed: false,
+			});
+			const gateway = new RealSlotGitGateway({
+				cwd: fixture.worktreePath,
+				env: { PATH: "/fake/bin" },
+				execApi,
+			});
 
-			expect(await gateway.listBranchOccupancies()).toEqual([{ path: fixture.worktreePath, branch: "feature/relative", operation: "revert" }]);
+			expect(await gateway.listBranchOccupancies()).toEqual([
+				{ path: fixture.worktreePath, branch: "feature/relative", operation: "revert" },
+			]);
 		} finally {
 			fixture.cleanup();
 		}
@@ -85,10 +119,21 @@ describe("RealSlotGitGateway", () => {
 		const fixture = createWorktreeFixture({ gitdir: "directory" });
 		try {
 			writeMarker(fixture.adminDir, "BISECT_LOG");
-			const execApi = new ScriptedExecApi({ stdout: worktreeListOutput(fixture.worktreePath, "feature/main"), stderr: "", code: 0, killed: false });
-			const gateway = new RealSlotGitGateway({ cwd: fixture.worktreePath, env: { PATH: "/fake/bin" }, execApi });
+			const execApi = new ScriptedExecApi({
+				stdout: worktreeListOutput(fixture.worktreePath, "feature/main"),
+				stderr: "",
+				code: 0,
+				killed: false,
+			});
+			const gateway = new RealSlotGitGateway({
+				cwd: fixture.worktreePath,
+				env: { PATH: "/fake/bin" },
+				execApi,
+			});
 
-			expect(await gateway.listBranchOccupancies()).toEqual([{ path: fixture.worktreePath, branch: "feature/main", operation: "bisect" }]);
+			expect(await gateway.listBranchOccupancies()).toEqual([
+				{ path: fixture.worktreePath, branch: "feature/main", operation: "bisect" },
+			]);
 		} finally {
 			fixture.cleanup();
 		}
@@ -97,10 +142,21 @@ describe("RealSlotGitGateway", () => {
 	it("treats missing or malformed .git files as checked out", async () => {
 		const fixture = createWorktreeFixture({ gitdir: "malformed" });
 		try {
-			const execApi = new ScriptedExecApi({ stdout: worktreeListOutput(fixture.worktreePath, "feature/clean"), stderr: "", code: 0, killed: false });
-			const gateway = new RealSlotGitGateway({ cwd: fixture.worktreePath, env: { PATH: "/fake/bin" }, execApi });
+			const execApi = new ScriptedExecApi({
+				stdout: worktreeListOutput(fixture.worktreePath, "feature/clean"),
+				stderr: "",
+				code: 0,
+				killed: false,
+			});
+			const gateway = new RealSlotGitGateway({
+				cwd: fixture.worktreePath,
+				env: { PATH: "/fake/bin" },
+				execApi,
+			});
 
-			expect(await gateway.listBranchOccupancies()).toEqual([{ path: fixture.worktreePath, branch: "feature/clean", operation: "checked-out" }]);
+			expect(await gateway.listBranchOccupancies()).toEqual([
+				{ path: fixture.worktreePath, branch: "feature/clean", operation: "checked-out" },
+			]);
 		} finally {
 			fixture.cleanup();
 		}
@@ -150,15 +206,21 @@ interface WorktreeFixture {
 	cleanup: () => void;
 }
 
-function createWorktreeFixture(options: { gitdir: "absolute" | "relative" | "directory" | "malformed" }): WorktreeFixture {
+function createWorktreeFixture(options: {
+	gitdir: "absolute" | "relative" | "directory" | "malformed";
+}): WorktreeFixture {
 	const root = mkdtempSync(join(tmpdir(), "slot-real-git-"));
 	const worktreePath = join(root, "worktree");
-	const adminDir = options.gitdir === "directory" ? join(worktreePath, ".git") : join(root, "admin");
+	const adminDir =
+		options.gitdir === "directory" ? join(worktreePath, ".git") : join(root, "admin");
 	mkdirSync(worktreePath, { recursive: true });
 	mkdirSync(adminDir, { recursive: true });
-	if (options.gitdir === "absolute") writeFileSync(join(worktreePath, ".git"), `gitdir: ${adminDir}\n`);
-	if (options.gitdir === "relative") writeFileSync(join(worktreePath, ".git"), "gitdir: ../admin\n");
-	if (options.gitdir === "malformed") writeFileSync(join(worktreePath, ".git"), "not a gitdir pointer\n");
+	if (options.gitdir === "absolute")
+		writeFileSync(join(worktreePath, ".git"), `gitdir: ${adminDir}\n`);
+	if (options.gitdir === "relative")
+		writeFileSync(join(worktreePath, ".git"), "gitdir: ../admin\n");
+	if (options.gitdir === "malformed")
+		writeFileSync(join(worktreePath, ".git"), "not a gitdir pointer\n");
 	return { worktreePath, adminDir, cleanup: () => rmSync(root, { recursive: true, force: true }) };
 }
 
@@ -172,5 +234,10 @@ function writeMarker(adminDir: string, markerPath: string): void {
 }
 
 function worktreeListOutput(path: string, branch: string): string {
-	return [`worktree ${path}`, "HEAD 1111111111111111111111111111111111111111", `branch refs/heads/${branch}`, ""].join("\n");
+	return [
+		`worktree ${path}`,
+		"HEAD 1111111111111111111111111111111111111111",
+		`branch refs/heads/${branch}`,
+		"",
+	].join("\n");
 }

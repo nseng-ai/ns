@@ -1,6 +1,10 @@
 export { buildCli, runCli, VERSION, type CliDeps } from "./cli.ts";
 export { createRealObjectiveContext, type ObjectiveCliContext } from "./context.ts";
-export { FakeObjectiveStorageGateway, type FakeObjectiveRecordOptions, type FakeObjectiveStorageGatewayOptions } from "./fake-storage.ts";
+export {
+	FakeObjectiveStorageGateway,
+	type FakeObjectiveRecordOptions,
+	type FakeObjectiveStorageGatewayOptions,
+} from "./fake-storage.ts";
 export { RealObjectiveStorageGateway } from "./real-storage.ts";
 export {
 	ACTIVE_OBJECTIVE_ROOT,

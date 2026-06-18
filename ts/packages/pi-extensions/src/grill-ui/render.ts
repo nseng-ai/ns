@@ -1,6 +1,12 @@
 import type { GrillAskRemainingEstimate, NormalizedGrillAskInput } from "../grill-ui.ts";
 import type { GrillAskProgress } from "./progress.ts";
-import { choiceDetailLines, footerText, rowRecommendationTag, type GrillAskMode, type GrillAskRow } from "./view.ts";
+import {
+	choiceDetailLines,
+	footerText,
+	rowRecommendationTag,
+	type GrillAskMode,
+	type GrillAskRow,
+} from "./view.ts";
 
 export interface GrillAskRenderTheme {
 	fg?(color: string, text: string): string;
@@ -35,7 +41,13 @@ export function renderGrillAskInlineUi(
 	const add = (line = "") => lines.push(line);
 
 	add(style(theme, "accent", bold(theme, "grill_ask")));
-	add(renderProgressLine(state.progress ?? { source: "unavailable" }, input.estimatedRemaining, theme));
+	add(
+		renderProgressLine(
+			state.progress ?? { source: "unavailable" },
+			input.estimatedRemaining,
+			theme,
+		),
+	);
 	add("");
 	renderReadZone(input, renderWidth, theme, primitives).forEach(add);
 	add("");
@@ -46,13 +58,28 @@ export function renderGrillAskInlineUi(
 	return lines.map((line) => truncate(line, renderWidth, primitives));
 }
 
-function renderProgressLine(progress: GrillAskProgress, estimate: GrillAskRemainingEstimate | undefined, theme: GrillAskRenderTheme): string {
-	return [renderQuestionAndAnswerProgress(progress, theme), renderRemainingProgress(estimate, theme)].join(style(theme, "muted", " • "));
+function renderProgressLine(
+	progress: GrillAskProgress,
+	estimate: GrillAskRemainingEstimate | undefined,
+	theme: GrillAskRenderTheme,
+): string {
+	return [
+		renderQuestionAndAnswerProgress(progress, theme),
+		renderRemainingProgress(estimate, theme),
+	].join(style(theme, "muted", " • "));
 }
 
-function renderQuestionAndAnswerProgress(progress: GrillAskProgress, theme: GrillAskRenderTheme): string {
+function renderQuestionAndAnswerProgress(
+	progress: GrillAskProgress,
+	theme: GrillAskRenderTheme,
+): string {
 	if (progress.answeredQuestions === undefined) {
-		return [`Question `, style(theme, "accent", "unknown"), ` • Answered `, style(theme, "success", "unknown")].join("");
+		return [
+			`Question `,
+			style(theme, "accent", "unknown"),
+			` • Answered `,
+			style(theme, "success", "unknown"),
+		].join("");
 	}
 	return [
 		`Question `,
@@ -62,16 +89,37 @@ function renderQuestionAndAnswerProgress(progress: GrillAskProgress, theme: Gril
 	].join("");
 }
 
-function renderRemainingProgress(estimate: GrillAskRemainingEstimate | undefined, theme: GrillAskRenderTheme): string {
-	if (estimate === undefined) return [`Remaining `, style(theme, "warning", "unknown"), ` `, style(theme, "dim", "(estimate not supplied)")].join("");
+function renderRemainingProgress(
+	estimate: GrillAskRemainingEstimate | undefined,
+	theme: GrillAskRenderTheme,
+): string {
+	if (estimate === undefined)
+		return [
+			`Remaining `,
+			style(theme, "warning", "unknown"),
+			` `,
+			style(theme, "dim", "(estimate not supplied)"),
+		].join("");
 
 	switch (estimate.kind) {
 		case "exact":
-			return [`Remaining `, style(theme, "warning", String(estimate.count)), renderBasis(estimate.basis, "basis", theme)].join("");
+			return [
+				`Remaining `,
+				style(theme, "warning", String(estimate.count)),
+				renderBasis(estimate.basis, "basis", theme),
+			].join("");
 		case "range":
-			return [`Remaining `, style(theme, "warning", `${estimate.min}–${estimate.max}`), renderBasis(estimate.basis, "rough", theme)].join("");
+			return [
+				`Remaining `,
+				style(theme, "warning", `${estimate.min}–${estimate.max}`),
+				renderBasis(estimate.basis, "rough", theme),
+			].join("");
 		case "unknown":
-			return [`Remaining `, style(theme, "warning", "unknown"), renderBasis(estimate.basis, "why", theme)].join("");
+			return [
+				`Remaining `,
+				style(theme, "warning", "unknown"),
+				renderBasis(estimate.basis, "why", theme),
+			].join("");
 		default: {
 			const exhaustive: never = estimate;
 			return exhaustive;
@@ -92,14 +140,38 @@ function renderReadZone(
 ): string[] {
 	const lines: string[] = [];
 
-	appendStyledRichText(lines, input.question, width, (line) => style(theme, "text", bold(theme, line)), primitives);
+	appendStyledRichText(
+		lines,
+		input.question,
+		width,
+		(line) => style(theme, "text", bold(theme, line)),
+		primitives,
+	);
 	if (input.context !== undefined) {
-		appendStyledRichText(lines, input.context, width, (line) => style(theme, "dim", line), primitives);
+		appendStyledRichText(
+			lines,
+			input.context,
+			width,
+			(line) => style(theme, "dim", line),
+			primitives,
+		);
 	}
 	if (input.recommended.optionValue === undefined) {
-		appendStyledRichText(lines, `Recommended: ${input.recommended.answer}`, width, (line) => style(theme, "text", line), primitives);
+		appendStyledRichText(
+			lines,
+			`Recommended: ${input.recommended.answer}`,
+			width,
+			(line) => style(theme, "text", line),
+			primitives,
+		);
 		if (input.recommended.rationale !== undefined) {
-			appendStyledRichText(lines, `Why: ${input.recommended.rationale}`, width, (line) => style(theme, "dim", line), primitives);
+			appendStyledRichText(
+				lines,
+				`Why: ${input.recommended.rationale}`,
+				width,
+				(line) => style(theme, "dim", line),
+				primitives,
+			);
 		}
 	}
 
@@ -137,10 +209,14 @@ function renderChoicesStacked(
 		const selected = index === state.focusIndex;
 		lines.push(renderRow(row, selected, width, theme, primitives));
 		if (row.kind === "choice") {
-			renderChoiceDetails(input, row, selected, width, theme, primitives).forEach((line) => lines.push(line));
+			renderChoiceDetails(input, row, selected, width, theme, primitives).forEach((line) =>
+				lines.push(line),
+			);
 		}
 		if (selected && state.mode === "freeform" && row.kind === "freeform") {
-			renderFreeformEditor(state.editorLines ?? [], width, theme, primitives).forEach((line) => lines.push(line));
+			renderFreeformEditor(state.editorLines ?? [], width, theme, primitives).forEach((line) =>
+				lines.push(line),
+			);
 		}
 	}
 
@@ -191,18 +267,32 @@ function renderRow(
 	theme: GrillAskRenderTheme,
 	primitives: GrillAskRenderPrimitives,
 ): string {
-	const plain = row.kind === "choice" ? renderChoiceRowText(row, selected, width, primitives) : renderExceptionalRowText(row, selected, width, primitives);
-	const styled = selected ? focusStyle(theme, plain) : style(theme, row.kind === "end_grill" ? "warning" : "text", plain);
+	const plain =
+		row.kind === "choice"
+			? renderChoiceRowText(row, selected, width, primitives)
+			: renderExceptionalRowText(row, selected, width, primitives);
+	const styled = selected
+		? focusStyle(theme, plain)
+		: style(theme, row.kind === "end_grill" ? "warning" : "text", plain);
 	return truncate(styled, width, primitives);
 }
 
-function renderChoiceRowText(row: Extract<GrillAskRow, { kind: "choice" }>, selected: boolean, width: number, primitives: GrillAskRenderPrimitives): string {
+function renderChoiceRowText(
+	row: Extract<GrillAskRow, { kind: "choice" }>,
+	selected: boolean,
+	width: number,
+	primitives: GrillAskRenderPrimitives,
+): string {
 	const prefix = `${selected ? "❯" : " "} ${row.index}  `;
 	const label = singleLine(row.option.label);
 	const tag = rowRecommendationTag(row);
 	if (tag !== undefined) {
 		const gap = "  ";
-		const labelWidth = width - visibleWidth(prefix, primitives) - visibleWidth(gap, primitives) - visibleWidth(tag, primitives);
+		const labelWidth =
+			width -
+			visibleWidth(prefix, primitives) -
+			visibleWidth(gap, primitives) -
+			visibleWidth(tag, primitives);
 		if (labelWidth >= 4) {
 			const labelText = padToWidth(truncate(label, labelWidth, primitives), labelWidth, primitives);
 			return `${prefix}${labelText}${gap}${tag}`;
@@ -213,7 +303,12 @@ function renderChoiceRowText(row: Extract<GrillAskRow, { kind: "choice" }>, sele
 	return selected ? padToWidth(line, width, primitives) : line;
 }
 
-function renderExceptionalRowText(row: Exclude<GrillAskRow, { kind: "choice" }>, selected: boolean, width: number, primitives: GrillAskRenderPrimitives): string {
+function renderExceptionalRowText(
+	row: Exclude<GrillAskRow, { kind: "choice" }>,
+	selected: boolean,
+	width: number,
+	primitives: GrillAskRenderPrimitives,
+): string {
 	let glyph: string;
 	let label: string;
 	switch (row.kind) {
@@ -234,14 +329,24 @@ function renderExceptionalRowText(row: Exclude<GrillAskRow, { kind: "choice" }>,
 			return exhaustive;
 		}
 	}
-	const line = truncate(`${selected ? "❯" : " "} ${row.index}  ${glyph} ${label}`, width, primitives);
+	const line = truncate(
+		`${selected ? "❯" : " "} ${row.index}  ${glyph} ${label}`,
+		width,
+		primitives,
+	);
 	return selected ? padToWidth(line, width, primitives) : line;
 }
 
-function renderRichText(text: string, width: number, primitives: GrillAskRenderPrimitives): string[] {
+function renderRichText(
+	text: string,
+	width: number,
+	primitives: GrillAskRenderPrimitives,
+): string[] {
 	if (primitives.renderMarkdown !== undefined) {
 		try {
-			return primitives.renderMarkdown(text, width).flatMap((line) => wrap(line, width, primitives));
+			return primitives
+				.renderMarkdown(text, width)
+				.flatMap((line) => wrap(line, width, primitives));
 		} catch {
 			// Fall through to plain wrapping if the runtime Markdown renderer rejects the input/theme.
 		}
@@ -252,7 +357,8 @@ function renderRichText(text: string, width: number, primitives: GrillAskRenderP
 function wrap(text: string, width: number, primitives: GrillAskRenderPrimitives): string[] {
 	const safeWidth = Math.max(1, width);
 	if (text.trim().length === 0) return [""];
-	if (primitives.wrapTextWithAnsi !== undefined) return primitives.wrapTextWithAnsi(text, safeWidth);
+	if (primitives.wrapTextWithAnsi !== undefined)
+		return primitives.wrapTextWithAnsi(text, safeWidth);
 
 	const words = text.split(/\s+/);
 	const lines: string[] = [];

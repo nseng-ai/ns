@@ -63,7 +63,9 @@ export interface BasePiSurfaceParity {
 	 * are excluded from stale-record checks but do not satisfy missing exact live
 	 * surfaces.
 	 */
-	readonly matching?: { readonly type: "exact" } | { readonly type: "dynamic-family"; readonly rationale: string };
+	readonly matching?:
+		| { readonly type: "exact" }
+		| { readonly type: "dynamic-family"; readonly rationale: string };
 }
 
 export interface FullPiSurfaceParity extends BasePiSurfaceParity {
@@ -88,7 +90,9 @@ export function definePiSurfaceParity<const T extends readonly PiSurfaceParity[]
 	return records;
 }
 
-export function piSurfaceParityMatching(record: PiSurfaceParity): NonNullable<PiSurfaceParity["matching"]> {
+export function piSurfaceParityMatching(
+	record: PiSurfaceParity,
+): NonNullable<PiSurfaceParity["matching"]> {
 	return record.matching ?? { type: "exact" };
 }
 

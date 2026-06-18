@@ -35,7 +35,11 @@ function envelope(data: unknown): string {
 describe("objectiveTabModule.loadModel", () => {
 	test("loads and parses a valid objective list envelope", async () => {
 		const calls: CommandCall[] = [];
-		const runCommand = async (command: string, args: readonly string[], options: CommandOptions = {}): Promise<CommandOutput> => {
+		const runCommand = async (
+			command: string,
+			args: readonly string[],
+			options: CommandOptions = {},
+		): Promise<CommandOutput> => {
 			calls.push({ command, args: [...args], options });
 			return {
 				code: 0,
@@ -44,7 +48,14 @@ describe("objectiveTabModule.loadModel", () => {
 					rootPath: ".asdl/objectives",
 					statusFilter: "active",
 					namesOnly: false,
-					records: [{ slug: "alpha", status: "open", latestUpdateIso: "2026-06-01T00:00:00Z", hasOutstandingChanges: false }],
+					records: [
+						{
+							slug: "alpha",
+							status: "open",
+							latestUpdateIso: "2026-06-01T00:00:00Z",
+							hasOutstandingChanges: false,
+						},
+					],
 				}),
 				stderr: "",
 				killed: false,
@@ -52,20 +63,40 @@ describe("objectiveTabModule.loadModel", () => {
 		};
 
 		const model = await objectiveTabModule.loadModel(depsWith(runCommand));
-		expect(model.records).toEqual([{ slug: "alpha", status: "open", latestUpdateIso: "2026-06-01T00:00:00Z" }]);
+		expect(model.records).toEqual([
+			{ slug: "alpha", status: "open", latestUpdateIso: "2026-06-01T00:00:00Z" },
+		]);
 		expect(calls).toEqual([
-			{ command: "objective", args: ["list", "--minimal", "--format", "json"], options: { cwd: "/repo", timeout: 10_000 } },
+			{
+				command: "objective",
+				args: ["list", "--minimal", "--format", "json"],
+				options: { cwd: "/repo", timeout: 10_000 },
+			},
 		]);
 	});
 
 	test("throws when the objective CLI exits non-zero", async () => {
-		const runCommand = async (): Promise<CommandOutput> => ({ code: 3, stdout: "", stderr: "not in a repo", killed: false });
-		await expect(objectiveTabModule.loadModel(depsWith(runCommand))).rejects.toThrow(/objective list failed with exit code 3.*not in a repo/);
+		const runCommand = async (): Promise<CommandOutput> => ({
+			code: 3,
+			stdout: "",
+			stderr: "not in a repo",
+			killed: false,
+		});
+		await expect(objectiveTabModule.loadModel(depsWith(runCommand))).rejects.toThrow(
+			/objective list failed with exit code 3.*not in a repo/,
+		);
 	});
 
 	test("throws when the envelope payload is invalid", async () => {
-		const runCommand = async (): Promise<CommandOutput> => ({ code: 0, stdout: envelope({ trunk_branch: "master" }), stderr: "", killed: false });
-		await expect(objectiveTabModule.loadModel(depsWith(runCommand))).rejects.toThrow(/Invalid objective list JSON/);
+		const runCommand = async (): Promise<CommandOutput> => ({
+			code: 0,
+			stdout: envelope({ trunk_branch: "master" }),
+			stderr: "",
+			killed: false,
+		});
+		await expect(objectiveTabModule.loadModel(depsWith(runCommand))).rejects.toThrow(
+			/Invalid objective list JSON/,
+		);
 	});
 });
 
@@ -75,25 +106,44 @@ describe("objectiveTabModule state", () => {
 	});
 
 	test("selects nothing when the list is empty", () => {
-		expect(objectiveTabModule.createInitialState({ ...LIST, records: [] })).toEqual({ selectedSlug: undefined });
+		expect(objectiveTabModule.createInitialState({ ...LIST, records: [] })).toEqual({
+			selectedSlug: undefined,
+		});
 	});
 
 	test("move-selection moves down and wraps around the end", () => {
-		const down = objectiveTabModule.reduce(LIST, { selectedSlug: "alpha" }, { type: "move-selection", delta: 1 });
+		const down = objectiveTabModule.reduce(
+			LIST,
+			{ selectedSlug: "alpha" },
+			{ type: "move-selection", delta: 1 },
+		);
 		expect(down).toEqual({ selectedSlug: "beta" });
 
-		const wrap = objectiveTabModule.reduce(LIST, { selectedSlug: "gamma" }, { type: "move-selection", delta: 1 });
+		const wrap = objectiveTabModule.reduce(
+			LIST,
+			{ selectedSlug: "gamma" },
+			{ type: "move-selection", delta: 1 },
+		);
 		expect(wrap).toEqual({ selectedSlug: "alpha" });
 	});
 
 	test("move-selection wraps backward past the start", () => {
-		const up = objectiveTabModule.reduce(LIST, { selectedSlug: "alpha" }, { type: "move-selection", delta: -1 });
+		const up = objectiveTabModule.reduce(
+			LIST,
+			{ selectedSlug: "alpha" },
+			{ type: "move-selection", delta: -1 },
+		);
 		expect(up).toEqual({ selectedSlug: "gamma" });
 	});
 
 	test("move-selection is a no-op on an empty list", () => {
 		const state: ObjectiveTabState = { selectedSlug: undefined };
-		expect(objectiveTabModule.reduce({ ...LIST, records: [] }, state, { type: "move-selection", delta: 1 })).toBe(state);
+		expect(
+			objectiveTabModule.reduce({ ...LIST, records: [] }, state, {
+				type: "move-selection",
+				delta: 1,
+			}),
+		).toBe(state);
 	});
 });
 
@@ -101,10 +151,22 @@ describe("objectiveTabModule.interpretKey", () => {
 	const state: ObjectiveTabState = { selectedSlug: "alpha" };
 
 	test("maps navigation keys to move-selection", () => {
-		expect(objectiveTabModule.interpretKey(state, { name: "down" })).toEqual({ type: "action", action: { type: "move-selection", delta: 1 } });
-		expect(objectiveTabModule.interpretKey(state, { name: "j" })).toEqual({ type: "action", action: { type: "move-selection", delta: 1 } });
-		expect(objectiveTabModule.interpretKey(state, { name: "up" })).toEqual({ type: "action", action: { type: "move-selection", delta: -1 } });
-		expect(objectiveTabModule.interpretKey(state, { name: "k" })).toEqual({ type: "action", action: { type: "move-selection", delta: -1 } });
+		expect(objectiveTabModule.interpretKey(state, { name: "down" })).toEqual({
+			type: "action",
+			action: { type: "move-selection", delta: 1 },
+		});
+		expect(objectiveTabModule.interpretKey(state, { name: "j" })).toEqual({
+			type: "action",
+			action: { type: "move-selection", delta: 1 },
+		});
+		expect(objectiveTabModule.interpretKey(state, { name: "up" })).toEqual({
+			type: "action",
+			action: { type: "move-selection", delta: -1 },
+		});
+		expect(objectiveTabModule.interpretKey(state, { name: "k" })).toEqual({
+			type: "action",
+			action: { type: "move-selection", delta: -1 },
+		});
 	});
 
 	test("maps q and escape to quit", () => {
@@ -113,7 +175,9 @@ describe("objectiveTabModule.interpretKey", () => {
 	});
 
 	test("ignores modified and unknown keys", () => {
-		expect(objectiveTabModule.interpretKey(state, { name: "j", ctrl: true })).toEqual({ type: "none" });
+		expect(objectiveTabModule.interpretKey(state, { name: "j", ctrl: true })).toEqual({
+			type: "none",
+		});
 		expect(objectiveTabModule.interpretKey(state, { name: "x" })).toEqual({ type: "none" });
 	});
 });

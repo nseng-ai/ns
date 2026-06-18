@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { buildSlotInventory, findByBranch, findBySlot, lowestAvailable, poolSize, slotStatus } from "../../src/inventory.ts";
+import {
+	buildSlotInventory,
+	findByBranch,
+	findBySlot,
+	lowestAvailable,
+	poolSize,
+	slotStatus,
+} from "../../src/inventory.ts";
 import { FakeSlotGitGateway } from "../../src/gateways/fakes/git.ts";
 
 describe("slot inventory", () => {
@@ -25,14 +32,25 @@ describe("slot inventory", () => {
 	it("uses non-checked-out occupancy as operation state", async () => {
 		const git = new FakeSlotGitGateway({
 			worktrees: [{ path: "/slots/repos/repo/worktrees/slot-03", branch: "feature/rebase" }],
-			branchOccupancies: [{ path: "/slots/repos/repo/worktrees/slot-03", branch: "feature/rebase", operation: "rebase" }],
+			branchOccupancies: [
+				{
+					path: "/slots/repos/repo/worktrees/slot-03",
+					branch: "feature/rebase",
+					operation: "rebase",
+				},
+			],
 		});
 		const inventory = await buildSlotInventory(git);
 		expect(inventory.records[0]).toMatchObject({ branch: "feature/rebase", operation: "rebase" });
 	});
 
 	it("finds branch and slot matches", async () => {
-		const git = new FakeSlotGitGateway({ worktrees: [{ path: "/repo", branch: "master" }, { path: "/slots/repos/repo/worktrees/slot-01", branch: "feature/a" }] });
+		const git = new FakeSlotGitGateway({
+			worktrees: [
+				{ path: "/repo", branch: "master" },
+				{ path: "/slots/repos/repo/worktrees/slot-01", branch: "feature/a" },
+			],
+		});
 		const inventory = await buildSlotInventory(git, { mainRepoRoot: "/repo" });
 		expect(findByBranch(inventory, "feature/a")?.kind).toBe("slot");
 		expect(findByBranch(inventory, "master")?.kind).toBe("main");

@@ -40,7 +40,10 @@ export async function runList(ctx: SlotCliContext, _request: ListRequest) {
 	});
 }
 
-export function renderList(result: ListResult, caps: RenderCapabilities = { canEmitAnsi: false }): string {
+export function renderList(
+	result: ListResult,
+	caps: RenderCapabilities = { canEmitAnsi: false },
+): string {
 	if (result.rows.length === 0) return `No slots initialized for ${result.repo_name}.`;
 	return renderTextTable({
 		columns: [
@@ -50,7 +53,13 @@ export function renderList(result: ListResult, caps: RenderCapabilities = { canE
 			{ header: "OPERATION" },
 			{ header: "WORKTREE", style: "dim" },
 		],
-		rows: result.rows.map((row) => [row.slot_name, row.status, row.branch ?? "—", row.operation === null ? "—" : `${row.operation} in progress`, row.worktree_path]),
+		rows: result.rows.map((row) => [
+			row.slot_name,
+			row.status,
+			row.branch ?? "—",
+			row.operation === null ? "—" : `${row.operation} in progress`,
+			row.worktree_path,
+		]),
 		canEmitAnsi: caps.canEmitAnsi,
 		shouldDrawRule: true,
 		headerStyle: "bold-cyan",

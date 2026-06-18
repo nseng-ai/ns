@@ -18,7 +18,16 @@ describe("brmem CLI shape", () => {
 		const run = runScenario(["--help"]);
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
-		for (const command of ["put", "get", "delete", "list", "check", "copy", "export", "setup-git"]) {
+		for (const command of [
+			"put",
+			"get",
+			"delete",
+			"list",
+			"check",
+			"copy",
+			"export",
+			"setup-git",
+		]) {
 			expect(help).toContain(command);
 		}
 		expect(help).not.toContain("resolve-prompt");
@@ -27,6 +36,9 @@ describe("brmem CLI shape", () => {
 	it("keeps hidden exec resolve-prompt invocable", async () => {
 		const run = runScenario(["exec", "resolve-prompt", "some", "--format", "json"]);
 		expect(await run.exit).toBe(2);
-		expect(JSON.parse(run.stdout.join(""))).toMatchObject({ exit_code: 2, error_type: "prompt-not-found" });
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
+			exit_code: 2,
+			error_type: "prompt-not-found",
+		});
 	});
 });

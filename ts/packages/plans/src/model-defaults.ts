@@ -3,7 +3,10 @@ export interface ParsedModelRef {
 	modelId: string;
 }
 
-export const DEFAULT_FAST_MODEL: ParsedModelRef = { provider: "openai-codex", modelId: "gpt-5.4-mini" };
+export const DEFAULT_FAST_MODEL: ParsedModelRef = {
+	provider: "openai-codex",
+	modelId: "gpt-5.4-mini",
+};
 export const DEFAULT_FAST_MODEL_REF = `${DEFAULT_FAST_MODEL.provider}/${DEFAULT_FAST_MODEL.modelId}`;
 
 export type ModelRefResolution = { ok: true; value: ParsedModelRef } | { ok: false; error: string };

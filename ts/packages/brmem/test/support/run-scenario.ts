@@ -31,14 +31,18 @@ export interface ScenarioRun {
 	stderr: string[];
 }
 
-export function runScenario(args: readonly string[], options: ScenarioRunOptions = {}): ScenarioRun {
+export function runScenario(
+	args: readonly string[],
+	options: ScenarioRunOptions = {},
+): ScenarioRun {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const stdin = options.stdin;
 	const cwd = options.cwd ?? "/repo";
 	const context: BrmemCliContext = {
 		gateway: options.gateway ?? new FakeBrmemGateway(options.fake),
-		promptResolver: options.promptResolver ??
+		promptResolver:
+			options.promptResolver ??
 			new ScenarioPromptResolver({
 				cwd,
 				repoRoot: options.repoRoot,
@@ -49,7 +53,14 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 		cwd,
 		env: options.env ?? { PATH: "/fake/bin" },
 		stdin: async () => stringFromStdin(stdin),
-		sourceReader: options.sourceReader ?? new ScenarioSourceReader({ cwd, stdin, files: options.files, unreadableFiles: options.unreadableFiles }),
+		sourceReader:
+			options.sourceReader ??
+			new ScenarioSourceReader({
+				cwd,
+				stdin,
+				files: options.files,
+				unreadableFiles: options.unreadableFiles,
+			}),
 	};
 	const deps: CliDeps = {
 		context,
@@ -83,7 +94,9 @@ class ScenarioPromptResolver implements BrmemPromptResolver {
 		this.repoRootValue = options.repoRoot ?? "/repo";
 		this.homeRootValue = options.homeRoot ?? "/home/tester";
 		this.isInGitRepo = options.isInGitRepo ?? true;
-		this.promptFiles = new Set((options.promptFiles ?? []).map((path) => normalizePath(path, options.cwd)));
+		this.promptFiles = new Set(
+			(options.promptFiles ?? []).map((path) => normalizePath(path, options.cwd)),
+		);
 	}
 
 	async repositoryRoot(options: { cwd: string }): Promise<BrmemResult<string>> {
@@ -148,12 +161,25 @@ async function valueFromStdin(stdin: ScenarioRunOptions["stdin"]): Promise<strin
 	return stdin ?? "";
 }
 
-function buildByteMap(values: Record<string, string | Uint8Array>, cwd: string): ReadonlyMap<string, Uint8Array> {
-	return new Map(Object.entries(values).flatMap(([path, value]) => [[path, bytesFromValue(value)], [normalizePath(path, cwd), bytesFromValue(value)]]));
+function buildByteMap(
+	values: Record<string, string | Uint8Array>,
+	cwd: string,
+): ReadonlyMap<string, Uint8Array> {
+	return new Map(
+		Object.entries(values).flatMap(([path, value]) => [
+			[path, bytesFromValue(value)],
+			[normalizePath(path, cwd), bytesFromValue(value)],
+		]),
+	);
 }
 
 function buildStringMap(values: Record<string, string>, cwd: string): ReadonlyMap<string, string> {
-	return new Map(Object.entries(values).flatMap(([path, value]) => [[path, value], [normalizePath(path, cwd), value]]));
+	return new Map(
+		Object.entries(values).flatMap(([path, value]) => [
+			[path, value],
+			[normalizePath(path, cwd), value],
+		]),
+	);
 }
 
 function normalizePath(path: string, cwd: string): string {

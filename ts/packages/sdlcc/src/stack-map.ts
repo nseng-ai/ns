@@ -55,12 +55,21 @@ export type StackMapScopeFilter = "all" | "cmux";
 
 export type StackMapCmuxChoice =
 	| { readonly type: "tab"; readonly target: StackMapCmuxTabTarget }
-	| { readonly type: "open-new"; readonly branch: string; readonly slot?: StackMapSlotAssignment | undefined };
+	| {
+			readonly type: "open-new";
+			readonly branch: string;
+			readonly slot?: StackMapSlotAssignment | undefined;
+	  };
 
 export type StackMapMode =
 	| { readonly type: "rows" }
 	| { readonly type: "query" }
-	| { readonly type: "cmux-choice"; readonly branch: string; readonly choices: readonly StackMapCmuxChoice[]; readonly selectedIndex: number };
+	| {
+			readonly type: "cmux-choice";
+			readonly branch: string;
+			readonly choices: readonly StackMapCmuxChoice[];
+			readonly selectedIndex: number;
+	  };
 
 export interface StackMapState {
 	readonly selectedBranch: string;
@@ -80,15 +89,29 @@ export type StackMapAction =
 	| { readonly type: "clear-query" }
 	| { readonly type: "accept-query" }
 	| { readonly type: "toggle-diagnostics" }
-	| { readonly type: "show-cmux-choice"; readonly branch: string; readonly choices: readonly StackMapCmuxChoice[] }
+	| {
+			readonly type: "show-cmux-choice";
+			readonly branch: string;
+			readonly choices: readonly StackMapCmuxChoice[];
+	  }
 	| { readonly type: "move-choice"; readonly delta: number }
 	| { readonly type: "cancel-choice" }
 	| { readonly type: "set-status"; readonly message: string };
 
 export type StackMapCmuxActivationPlan =
-	| { readonly type: "open-new"; readonly branch: string; readonly slot?: StackMapSlotAssignment | undefined }
+	| {
+			readonly type: "open-new";
+			readonly branch: string;
+			readonly slot?: StackMapSlotAssignment | undefined;
+	  }
 	| { readonly type: "focus-tab"; readonly branch: string; readonly target: StackMapCmuxTabTarget }
-	| { readonly type: "choose-tab"; readonly branch: string; readonly targets: readonly StackMapCmuxTabTarget[]; readonly includeOpenNew: true; readonly slot?: StackMapSlotAssignment | undefined }
+	| {
+			readonly type: "choose-tab";
+			readonly branch: string;
+			readonly targets: readonly StackMapCmuxTabTarget[];
+			readonly includeOpenNew: true;
+			readonly slot?: StackMapSlotAssignment | undefined;
+	  }
 	| { readonly type: "unavailable"; readonly branch?: string | undefined; readonly reason: string };
 
 export interface StackMapVisibleRow {
@@ -154,7 +177,12 @@ export function reduceStackMapState(
 		case "show-cmux-choice":
 			return {
 				...state,
-				mode: { type: "cmux-choice", branch: action.branch, choices: action.choices, selectedIndex: 0 },
+				mode: {
+					type: "cmux-choice",
+					branch: action.branch,
+					choices: action.choices,
+					selectedIndex: 0,
+				},
 				statusMessage: `Choose a cmux tab for ${action.branch}.`,
 			};
 		case "move-choice":
@@ -166,7 +194,10 @@ export function reduceStackMapState(
 	}
 }
 
-export function buildVisibleStackMapRows(model: StackMapModel, state: StackMapState): readonly StackMapVisibleRow[] {
+export function buildVisibleStackMapRows(
+	model: StackMapModel,
+	state: StackMapState,
+): readonly StackMapVisibleRow[] {
 	return buildGtLsTopologyRows(model, state).map((row) => {
 		const isCurrent = row.branch.name === model.currentBranch;
 		const branchLabel = isCurrent ? `${row.branch.name} ← current` : row.branch.name;
@@ -198,7 +229,9 @@ export function renderStackMapFrame(model: StackMapModel, state: StackMapState):
 		for (const diagnostic of model.diagnostics) lines.push(`- ${diagnostic}`);
 	}
 	lines.push("");
-	lines.push(`${"".padEnd(2)}${"TOPO".padEnd(topoWidth)}  ${formatStackMapTableHeader(tableWidths)}`);
+	lines.push(
+		`${"".padEnd(2)}${"TOPO".padEnd(topoWidth)}  ${formatStackMapTableHeader(tableWidths)}`,
+	);
 	lines.push(`${"".padEnd(2)}${"─".repeat(topoWidth)}──${formatStackMapTableRule(tableWidths)}`);
 
 	if (rows.length === 0) {
@@ -206,7 +239,9 @@ export function renderStackMapFrame(model: StackMapModel, state: StackMapState):
 	} else {
 		for (const row of rows) {
 			const cursor = row.isSelected ? "› " : "  ";
-			lines.push(`${cursor}${row.topo.padEnd(topoWidth)}  ${formatStackMapTableRow(row, tableWidths)}`);
+			lines.push(
+				`${cursor}${row.topo.padEnd(topoWidth)}  ${formatStackMapTableRow(row, tableWidths)}`,
+			);
 		}
 	}
 
@@ -222,27 +257,47 @@ export function renderStackMapFrame(model: StackMapModel, state: StackMapState):
 	return lines.join("\n");
 }
 
-export function getSelectedStackMapBranch(model: StackMapModel, state: StackMapState): StackMapBranchNode | undefined {
-	return buildVisibleStackMapRows(model, state).find((row) => row.branch.name === state.selectedBranch)?.branch;
+export function getSelectedStackMapBranch(
+	model: StackMapModel,
+	state: StackMapState,
+): StackMapBranchNode | undefined {
+	return buildVisibleStackMapRows(model, state).find(
+		(row) => row.branch.name === state.selectedBranch,
+	)?.branch;
 }
 
-export function planStackMapCmuxActivation(model: StackMapModel, state: StackMapState): StackMapCmuxActivationPlan {
+export function planStackMapCmuxActivation(
+	model: StackMapModel,
+	state: StackMapState,
+): StackMapCmuxActivationPlan {
 	const branch = getSelectedStackMapBranch(model, state);
-	if (branch === undefined) return { type: "unavailable", reason: "No selected branch is visible under the current scope/query." };
+	if (branch === undefined)
+		return {
+			type: "unavailable",
+			reason: "No selected branch is visible under the current scope/query.",
+		};
 
 	const targets = branch.cmuxTabs ?? [];
 	const slot = branch.slots?.[0];
 	if (targets.length === 0) return openNewPlan(branch.name, slot);
 	if (targets.length === 1) {
 		const target = targets[0];
-		return target === undefined ? { type: "unavailable", branch: branch.name, reason: "Selected branch has an unreadable cmux tab target." } : { type: "focus-tab", branch: branch.name, target };
+		return target === undefined
+			? {
+					type: "unavailable",
+					branch: branch.name,
+					reason: "Selected branch has an unreadable cmux tab target.",
+				}
+			: { type: "focus-tab", branch: branch.name, target };
 	}
 	return slot === undefined
 		? { type: "choose-tab", branch: branch.name, targets, includeOpenNew: true }
 		: { type: "choose-tab", branch: branch.name, targets, includeOpenNew: true, slot };
 }
 
-export function choicesForCmuxActivationPlan(plan: StackMapCmuxActivationPlan): readonly StackMapCmuxChoice[] {
+export function choicesForCmuxActivationPlan(
+	plan: StackMapCmuxActivationPlan,
+): readonly StackMapCmuxChoice[] {
 	if (plan.type !== "choose-tab") return [];
 	return [
 		...plan.targets.map((target): StackMapCmuxChoice => ({ type: "tab", target })),
@@ -250,11 +305,17 @@ export function choicesForCmuxActivationPlan(plan: StackMapCmuxActivationPlan): 
 	];
 }
 
-function openNewPlan(branch: string, slot: StackMapSlotAssignment | undefined): StackMapCmuxActivationPlan {
+function openNewPlan(
+	branch: string,
+	slot: StackMapSlotAssignment | undefined,
+): StackMapCmuxActivationPlan {
 	return slot === undefined ? { type: "open-new", branch } : { type: "open-new", branch, slot };
 }
 
-function openNewChoice(branch: string, slot: StackMapSlotAssignment | undefined): StackMapCmuxChoice {
+function openNewChoice(
+	branch: string,
+	slot: StackMapSlotAssignment | undefined,
+): StackMapCmuxChoice {
 	return slot === undefined ? { type: "open-new", branch } : { type: "open-new", branch, slot };
 }
 
@@ -268,7 +329,10 @@ export function matchCmuxTabsToBranches(options: {
 
 function attachTargets(
 	branch: StackMapBranchNode,
-	options: { readonly slots: readonly StackMapSlotAssignment[]; readonly tabs: readonly StackMapParsedCmuxTab[] },
+	options: {
+		readonly slots: readonly StackMapSlotAssignment[];
+		readonly tabs: readonly StackMapParsedCmuxTab[];
+	},
 ): StackMapBranchNode {
 	const matched = options.tabs.flatMap((tab) => {
 		const target = targetForBranch(tab, branch.name, options.slots);
@@ -281,16 +345,26 @@ function attachTargets(
 	};
 }
 
-function targetForBranch(tab: StackMapParsedCmuxTab, branch: string, slots: readonly StackMapSlotAssignment[]): StackMapCmuxTabTarget | undefined {
+function targetForBranch(
+	tab: StackMapParsedCmuxTab,
+	branch: string,
+	slots: readonly StackMapSlotAssignment[],
+): StackMapCmuxTabTarget | undefined {
 	if (tab.explicitBranch === branch) {
 		return { ...tab, match: { type: "explicit-branch", branch } };
 	}
 
 	const tabWorktree = normalizedPath(tab.explicitWorktreePath);
 	if (tabWorktree === undefined) return undefined;
-	const slot = slots.find((assignment) => assignment.branch === branch && normalizedPath(assignment.worktreePath) === tabWorktree);
+	const slot = slots.find(
+		(assignment) =>
+			assignment.branch === branch && normalizedPath(assignment.worktreePath) === tabWorktree,
+	);
 	if (slot?.worktreePath !== undefined) {
-		return { ...tab, match: { type: "slot-worktree", slotName: slot.slotName, worktreePath: slot.worktreePath } };
+		return {
+			...tab,
+			match: { type: "slot-worktree", slotName: slot.slotName, worktreePath: slot.worktreePath },
+		};
 	}
 	return undefined;
 }
@@ -308,14 +382,26 @@ function formatStackMapTableHeader(widths: StackMapTableWidths): string {
 }
 
 function formatStackMapTableRule(widths: StackMapTableWidths): string {
-	return ["─".repeat(widths.branch), "─".repeat(widths.graphite), "─".repeat(widths.cmux)].join("─┼─");
+	return ["─".repeat(widths.branch), "─".repeat(widths.graphite), "─".repeat(widths.cmux)].join(
+		"─┼─",
+	);
 }
 
 function formatStackMapTableRow(row: StackMapVisibleRow, widths: StackMapTableWidths): string {
-	return formatStackMapTableCells({ branch: row.branchLabel, graphite: row.graphiteLabel, cmux: row.cmuxLabel, widths });
+	return formatStackMapTableCells({
+		branch: row.branchLabel,
+		graphite: row.graphiteLabel,
+		cmux: row.cmuxLabel,
+		widths,
+	});
 }
 
-function formatStackMapTableCells(options: { readonly branch: string; readonly graphite: string; readonly cmux: string; readonly widths: StackMapTableWidths }): string {
+function formatStackMapTableCells(options: {
+	readonly branch: string;
+	readonly graphite: string;
+	readonly cmux: string;
+	readonly widths: StackMapTableWidths;
+}): string {
 	return `${options.branch.padEnd(options.widths.branch)} │ ${options.graphite.padEnd(options.widths.graphite)} │ ${options.cmux.padEnd(options.widths.cmux)}`;
 }
 
@@ -359,20 +445,32 @@ function keepSelectedVisible(model: StackMapModel, state: StackMapState): StackM
 	};
 }
 
-function buildGtLsTopologyRows(model: StackMapModel, state: StackMapState): readonly GtLsTopologyRow[] {
+function buildGtLsTopologyRows(
+	model: StackMapModel,
+	state: StackMapState,
+): readonly GtLsTopologyRow[] {
 	const laneResults = sortBranchesByName(model.trunk.children ?? [])
 		.map((branch) => buildFilteredLaneRows(branch, state))
 		.filter((result) => result.hasRealMatch);
 	const rows: GtLsTopologyRow[] = [];
 	laneResults.forEach((result, laneIndex) => {
 		for (const row of result.rows) {
-			rows.push({ ...row, laneIndex, topo: `${"│ ".repeat(laneIndex)}${branchMarker(row.branch, model.currentBranch)}` });
+			rows.push({
+				...row,
+				laneIndex,
+				topo: `${"│ ".repeat(laneIndex)}${branchMarker(row.branch, model.currentBranch)}`,
+			});
 		}
 	});
 
 	const isTrunkMatchingFilters = branchMatchesFilters(model.trunk, state);
 	if (!isTrunkMatchingFilters && laneResults.length === 0) return rows;
-	rows.push({ branch: model.trunk, topo: trunkTopo(model.trunk, model.currentBranch, laneResults.length), laneIndex: laneResults.length, isTrunkJoin: laneResults.length > 0 });
+	rows.push({
+		branch: model.trunk,
+		topo: trunkTopo(model.trunk, model.currentBranch, laneResults.length),
+		laneIndex: laneResults.length,
+		isTrunkJoin: laneResults.length > 0,
+	});
 	return rows;
 }
 
@@ -380,7 +478,9 @@ function buildFilteredLaneRows(
 	branch: StackMapBranchNode,
 	state: StackMapState,
 ): { readonly rows: readonly GtLsTopologyRow[]; readonly hasRealMatch: boolean } {
-	const childResults = sortBranchesByName(branch.children ?? []).map((child) => buildFilteredLaneRows(child, state));
+	const childResults = sortBranchesByName(branch.children ?? []).map((child) =>
+		buildFilteredLaneRows(child, state),
+	);
 	const visibleChildResults = childResults.filter((result) => result.hasRealMatch);
 	const rows = visibleChildResults.flatMap((result) => result.rows);
 	const isRealMatch = branchMatchesFilters(branch, state);
@@ -403,7 +503,9 @@ function branchMarker(branch: StackMapBranchNode, currentBranch: string): string
 	return branch.name === currentBranch ? "◉" : "◯";
 }
 
-function sortBranchesByName(branches: readonly StackMapBranchNode[]): readonly StackMapBranchNode[] {
+function sortBranchesByName(
+	branches: readonly StackMapBranchNode[],
+): readonly StackMapBranchNode[] {
 	return [...branches].sort((left, right) => left.name.localeCompare(right.name));
 }
 
@@ -428,7 +530,8 @@ function formatTabLabel(tab: StackMapCmuxTabTarget): string {
 	else badges.push("○");
 	if (tab.isHere) badges.push("◎");
 	badges.push(tab.workspaceTitle || tab.workspaceRef);
-	if (tab.tabTitle.length > 0 && tab.tabTitle !== tab.workspaceTitle) badges.push(`/ ${tab.tabTitle}`);
+	if (tab.tabTitle.length > 0 && tab.tabTitle !== tab.workspaceTitle)
+		badges.push(`/ ${tab.tabTitle}`);
 	return badges.join(" ");
 }
 
@@ -438,15 +541,18 @@ function renderSelectedBranchState(
 	visibleCount: number,
 ): string {
 	const queryState = state.query.length === 0 ? "" : `; query=${JSON.stringify(state.query)}`;
-	const stateLine = branch === undefined
-		? `State: scope=${state.scope}${queryState}; visibleBranches=${visibleCount}; selected=<none>`
-		: `State: scope=${state.scope}${queryState}; visibleBranches=${visibleCount}; selected=${branch.name}`;
+	const stateLine =
+		branch === undefined
+			? `State: scope=${state.scope}${queryState}; visibleBranches=${visibleCount}; selected=<none>`
+			: `State: scope=${state.scope}${queryState}; visibleBranches=${visibleCount}; selected=${branch.name}`;
 	if (branch === undefined) {
 		return [
 			stateLine,
 			"Action: c unavailable; no visible branch is selected",
 			state.statusMessage === undefined ? undefined : `Status: ${state.statusMessage}`,
-		].filter((line): line is string => line !== undefined).join("\n");
+		]
+			.filter((line): line is string => line !== undefined)
+			.join("\n");
 	}
 
 	return [
@@ -454,13 +560,19 @@ function renderSelectedBranchState(
 		`Selected details: graphite=${branch.graphiteNote ?? ""}; slots=${formatSlotAssignments(branch.slots ?? []) || "none"}; cmux=${formatCmuxColumn(branch) || "none"}`,
 		`Action: ${cmuxActionHint(branch)}`,
 		state.statusMessage === undefined ? undefined : `Status: ${state.statusMessage}`,
-	].filter((line): line is string => line !== undefined).join("\n");
+	]
+		.filter((line): line is string => line !== undefined)
+		.join("\n");
 }
 
-function renderCmuxChooser(mode: Extract<StackMapMode, { type: "cmux-choice" }>): readonly string[] {
+function renderCmuxChooser(
+	mode: Extract<StackMapMode, { type: "cmux-choice" }>,
+): readonly string[] {
 	return [
 		`Cmux chooser for ${mode.branch}:`,
-		...mode.choices.map((choice, index) => `${index === mode.selectedIndex ? "›" : " "} ${formatCmuxChoice(choice)}`),
+		...mode.choices.map(
+			(choice, index) => `${index === mode.selectedIndex ? "›" : " "} ${formatCmuxChoice(choice)}`,
+		),
 	];
 }
 
@@ -473,12 +585,16 @@ function formatCmuxChoice(choice: StackMapCmuxChoice): string {
 		choice.target.surfaceRef,
 		choice.target.isActive ? "active" : undefined,
 		choice.target.isHere ? "here" : undefined,
-	].filter((part): part is string => part !== undefined && part.length > 0).join("  ");
+	]
+		.filter((part): part is string => part !== undefined && part.length > 0)
+		.join("  ");
 }
 
 function renderFooter(state: StackMapState, diagnosticCount: number): string {
-	if (state.mode.type === "cmux-choice") return "Keys: ↑/k previous  ↓/j next  Enter activate  Esc cancel chooser  q quit";
-	if (state.mode.type === "query") return "Filter: type branch text  Backspace edit  Enter accept  Esc clear";
+	if (state.mode.type === "cmux-choice")
+		return "Keys: ↑/k previous  ↓/j next  Enter activate  Esc cancel chooser  q quit";
+	if (state.mode.type === "query")
+		return "Filter: type branch text  Backspace edit  Enter accept  Esc clear";
 	return `Keys: ↑/k previous  ↓/j next  / filter  c cmux  o all/cmux  ${diagnosticsHint(state, diagnosticCount)}  q/Esc quit`;
 }
 
@@ -493,7 +609,9 @@ function cmuxActionHint(branch: StackMapBranchNode): string {
 	if (tabs.length === 0) return "c: open cmux workspace";
 	if (tabs.length === 1) {
 		const tab = tabs[0];
-		return tab === undefined ? "c: cmux unavailable" : `c: focus cmux tab ${tab.workspaceTitle || tab.workspaceRef}/${tab.tabTitle || tab.tabRef}`;
+		return tab === undefined
+			? "c: cmux unavailable"
+			: `c: focus cmux tab ${tab.workspaceTitle || tab.workspaceRef}/${tab.tabTitle || tab.tabRef}`;
 	}
 	return `c: choose among ${tabs.length} cmux tabs`;
 }

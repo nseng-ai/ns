@@ -7,7 +7,11 @@ import {
 } from "@asdl/core/exec";
 import { GRAPHITE_METADATA_DB_NAME } from "@asdl/core/graphite-metadata";
 import { formatErrorMessage } from "@asdl/core/primitives";
-import { MAX_COMMAND_STREAM_OUTPUT_LINES, MAX_OUTPUT_TAIL_CHARS, MAX_OUTPUT_TAIL_LINES } from "./constants.ts";
+import {
+	MAX_COMMAND_STREAM_OUTPUT_LINES,
+	MAX_OUTPUT_TAIL_CHARS,
+	MAX_OUTPUT_TAIL_LINES,
+} from "./constants.ts";
 import type { CommandStreamFinish, LandStackExtensionAPI } from "./types.ts";
 
 export interface CheckedOutElsewhere {
@@ -45,14 +49,27 @@ export async function execRaw(
 	}
 }
 
-export function normalizeCommandFinish(command: string, args: string[], result: ExecResult): CommandStreamFinish {
+export function normalizeCommandFinish(
+	command: string,
+	args: string[],
+	result: ExecResult,
+): CommandStreamFinish {
 	const deleteBranch = command === "gt" && args[0] === "delete" ? args[1] : undefined;
-	if (deleteBranch && result.code !== 0 && !result.killed && isGtDeleteMissingBranch(result, deleteBranch)) {
+	if (
+		deleteBranch &&
+		result.code !== 0 &&
+		!result.killed &&
+		isGtDeleteMissingBranch(result, deleteBranch)
+	) {
 		return { result: { ...result, code: 0 }, note: `branch ${deleteBranch} already absent` };
 	}
 	// /sdl:code:land reads Graphite topology from Graphite's metadata database;
 	// avoid labeling unrelated sqlite3 commands just because the binary matches.
-	if (command === "sqlite3" && result.code === 0 && args.some((arg) => arg.endsWith(GRAPHITE_METADATA_DB_NAME))) {
+	if (
+		command === "sqlite3" &&
+		result.code === 0 &&
+		args.some((arg) => arg.endsWith(GRAPHITE_METADATA_DB_NAME))
+	) {
 		return { result, note: "read Graphite stack topology" };
 	}
 	return { result };
@@ -74,8 +91,18 @@ export function formatCommandDetails(result: ExecResult, commandDisplay?: string
 		lines.push(`$ ${commandDisplay}`);
 	}
 	lines.push(`exit ${result.code}${killed}`);
-	lines.push(formatOutputSection("stdout", result.stdout, { maxLines: MAX_OUTPUT_TAIL_LINES, maxChars: MAX_OUTPUT_TAIL_CHARS }));
-	lines.push(formatOutputSection("stderr", result.stderr, { maxLines: MAX_OUTPUT_TAIL_LINES, maxChars: MAX_OUTPUT_TAIL_CHARS }));
+	lines.push(
+		formatOutputSection("stdout", result.stdout, {
+			maxLines: MAX_OUTPUT_TAIL_LINES,
+			maxChars: MAX_OUTPUT_TAIL_CHARS,
+		}),
+	);
+	lines.push(
+		formatOutputSection("stderr", result.stderr, {
+			maxLines: MAX_OUTPUT_TAIL_LINES,
+			maxChars: MAX_OUTPUT_TAIL_CHARS,
+		}),
+	);
 	return lines.join("\n");
 }
 
@@ -92,7 +119,9 @@ export function isGtDeleteMissingBranch(result: ExecResult, branch: string): boo
 
 export function parseGitCheckedOutElsewhere(result: ExecResult): CheckedOutElsewhere | undefined {
 	const output = stripAnsi(`${result.stderr}\n${result.stdout}`);
-	const match = output.match(/fatal:\s*['"]([^'"]+)['"] is already checked out at ['"]([^'"]+)['"]/i);
+	const match = output.match(
+		/fatal:\s*['"]([^'"]+)['"] is already checked out at ['"]([^'"]+)['"]/i,
+	);
 	if (!match) return undefined;
 	const branch = match[1];
 	const path = match[2];

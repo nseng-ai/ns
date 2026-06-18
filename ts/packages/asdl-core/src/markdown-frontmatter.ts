@@ -20,7 +20,9 @@ export function splitMarkdownFrontmatter(text: string): MarkdownFrontmatterSplit
 	if (linesWithEndings.length === 0) return { type: "not_found" };
 	if (stripLineEnding(linesWithEndings[0] ?? "") !== "---") return { type: "not_found" };
 
-	const closingIndex = linesWithEndings.findIndex((line, index) => index > 0 && stripLineEnding(line) === "---");
+	const closingIndex = linesWithEndings.findIndex(
+		(line, index) => index > 0 && stripLineEnding(line) === "---",
+	);
 	if (closingIndex === -1) return { type: "missing_closing_fence" };
 
 	const frontmatterLinesWithEndings = linesWithEndings.slice(1, closingIndex);

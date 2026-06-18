@@ -1,8 +1,19 @@
 import { describe, expect, test } from "vitest";
 
-import { buildHandoffLaunchRequest, runHandoffCreateCommand, type HandoffLaunchPromptCopy } from "../src/handoff/launch-flow.ts";
+import {
+	buildHandoffLaunchRequest,
+	runHandoffCreateCommand,
+	type HandoffLaunchPromptCopy,
+} from "../src/handoff/launch-flow.ts";
 import { createHandoffStartMessage, type HandoffStartMessages } from "../src/handoff/shared.ts";
-import { BRANCH, FakePi, branchStep, createContext, skillCommandInfo, withTempSkill } from "./handoff-test-fakes.ts";
+import {
+	BRANCH,
+	FakePi,
+	branchStep,
+	createContext,
+	skillCommandInfo,
+	withTempSkill,
+} from "./handoff-test-fakes.ts";
 
 const START_MESSAGES = {
 	ready: "Starting test handoff flow…",
@@ -22,7 +33,9 @@ const PROMPT_COPY = {
 
 describe("handoff launch flow helpers", () => {
 	test("buildHandoffLaunchRequest trims and validates continuation focus", () => {
-		expect(buildHandoffLaunchRequest({ branch: "feature/handoff", focus: "  continue auth work  " })).toEqual({
+		expect(
+			buildHandoffLaunchRequest({ branch: "feature/handoff", focus: "  continue auth work  " }),
+		).toEqual({
 			type: "valid",
 			request: { branch: "feature/handoff", focus: "continue auth work" },
 		});
@@ -45,7 +58,9 @@ describe("handoff launch flow helpers", () => {
 
 			pi.assertDone();
 			expect(context.waitForIdleCalls()).toBe(1);
-			expect(context.notifications).toEqual([{ message: "Starting test handoff flow…", level: "info" }]);
+			expect(context.notifications).toEqual([
+				{ message: "Starting test handoff flow…", level: "info" },
+			]);
 			expect(pi.sentUserMessages).toHaveLength(1);
 			const prompt = pi.sentUserMessages[0] ?? "";
 			expect(prompt).toContain(`<skill name="handoff-create" location="${skillPath}">`);
@@ -61,12 +76,17 @@ describe("handoff launch flow helpers", () => {
 		expect(
 			createHandoffStartMessage(
 				START_MESSAGES,
-				{ name: "handoff-create", commandName: "skill:handoff-create", path: "/skill", baseDir: "/", body: "# skill", block: "# skill" },
+				{
+					name: "handoff-create",
+					commandName: "skill:handoff-create",
+					path: "/skill",
+					baseDir: "/",
+					body: "# skill",
+					block: "# skill",
+				},
 				undefined,
 			),
-		).toBe(
-			"Starting test handoff flow…",
-		);
+		).toBe("Starting test handoff flow…");
 		expect(createHandoffStartMessage(START_MESSAGES, undefined, "read failed")).toBe(
 			"Could not read handoff-create skill; using fallback test handoff fallback. read failed",
 		);

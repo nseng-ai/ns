@@ -22,12 +22,16 @@ describe("setup-git operation", () => {
 	});
 
 	it("adds default push preservation, Branch Memory push, and non-force Branch Memory fetch for fresh config", async () => {
-		const gateway = new FakeBrmemGateway({ remotes: { origin: { push: [], fetch: ["+refs/heads/*:refs/remotes/origin/*"] } } });
+		const gateway = new FakeBrmemGateway({
+			remotes: { origin: { push: [], fetch: ["+refs/heads/*:refs/remotes/origin/*"] } },
+		});
 		const run = runScenario(["setup-git"], { gateway });
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain("Configured Git remote origin for Branch Memory Snapshot Refs.");
-		
+		expect(run.stdout.join("")).toContain(
+			"Configured Git remote origin for Branch Memory Snapshot Refs.",
+		);
+
 		const updated = await gateway.getRemoteConfig("origin");
 		expect(updated.type).toBe("found");
 		if (updated.type === "found") {
@@ -38,7 +42,12 @@ describe("setup-git operation", () => {
 
 	it("preserves existing custom push config without adding HEAD", async () => {
 		const gateway = new FakeBrmemGateway({
-			remotes: { origin: { push: ["refs/heads/main:refs/heads/main"], fetch: ["+refs/heads/*:refs/remotes/origin/*"] } },
+			remotes: {
+				origin: {
+					push: ["refs/heads/main:refs/heads/main"],
+					fetch: ["+refs/heads/*:refs/remotes/origin/*"],
+				},
+			},
 		});
 		const run = runScenario(["setup-git"], { gateway });
 
@@ -53,13 +62,20 @@ describe("setup-git operation", () => {
 
 	it("does not duplicate already-configured Branch Memory refspecs", async () => {
 		const gateway = new FakeBrmemGateway({
-			remotes: { origin: { push: ["HEAD", brmemRefspec], fetch: ["+refs/heads/*:refs/remotes/origin/*", brmemRefspec] } },
+			remotes: {
+				origin: {
+					push: ["HEAD", brmemRefspec],
+					fetch: ["+refs/heads/*:refs/remotes/origin/*", brmemRefspec],
+				},
+			},
 		});
 		const run = runScenario(["setup-git"], { gateway });
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toBe("Git remote origin is already configured for Branch Memory Snapshot Refs.\n");
-		
+		expect(run.stdout.join("")).toBe(
+			"Git remote origin is already configured for Branch Memory Snapshot Refs.\n",
+		);
+
 		const updated = await gateway.getRemoteConfig("origin");
 		expect(updated.type).toBe("found");
 		if (updated.type === "found") {
@@ -69,14 +85,16 @@ describe("setup-git operation", () => {
 	});
 
 	it("reports dry-run additions without mutating Git config", async () => {
-		const gateway = new FakeBrmemGateway({ remotes: { origin: { push: [], fetch: ["+refs/heads/*:refs/remotes/origin/*"] } } });
+		const gateway = new FakeBrmemGateway({
+			remotes: { origin: { push: [], fetch: ["+refs/heads/*:refs/remotes/origin/*"] } },
+		});
 		const run = runScenario(["setup-git", "--dry-run"], { gateway });
 
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
 		expect(output).toContain("Would configure Git remote origin for Branch Memory Snapshot Refs.");
 		expect(output).toContain("Would add:");
-		
+
 		const updated = await gateway.getRemoteConfig("origin");
 		expect(updated.type).toBe("found");
 		if (updated.type === "found") {
@@ -86,7 +104,10 @@ describe("setup-git operation", () => {
 
 	it("supports custom remotes and JSON output", async () => {
 		const gateway = new FakeBrmemGateway({ remotes: { upstream: { push: [], fetch: [] } } });
-		const run = runScenario(["setup-git", "--remote", "upstream", "--dry-run", "--format", "json"], { gateway });
+		const run = runScenario(
+			["setup-git", "--remote", "upstream", "--dry-run", "--format", "json"],
+			{ gateway },
+		);
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
@@ -105,7 +126,7 @@ describe("setup-git operation", () => {
 				],
 			},
 		});
-		
+
 		const updated = await gateway.getRemoteConfig("upstream");
 		expect(updated.type).toBe("found");
 		if (updated.type === "found") {
@@ -118,7 +139,10 @@ describe("setup-git operation", () => {
 			fake: { remotes: { origin: { push: [], fetch: [] } } },
 		});
 		expect(await missing.exit).toBe(2);
-		expect(parseJsonOutput(missing)).toMatchObject({ exit_code: 2, error_type: "remote_not_found" });
+		expect(parseJsonOutput(missing)).toMatchObject({
+			exit_code: 2,
+			error_type: "remote_not_found",
+		});
 
 		const invalid = runScenario(["setup-git", "--remote", "", "--format", "json"]);
 		expect(await invalid.exit).toBe(2);

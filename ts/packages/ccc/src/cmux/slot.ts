@@ -49,7 +49,8 @@ export async function openBranchInCmuxSlot(
 	const target = await checkoutBranchCmuxSlot(options);
 	if ("error" in target) return target;
 	onStatus?.("opening cmux workspace…");
-	const workspaceDescription = description ?? (await getWorktreeDescription(pi, target.worktreePath, target.branchName));
+	const workspaceDescription =
+		description ?? (await getWorktreeDescription(pi, target.worktreePath, target.branchName));
 	const workspaceOptions: OpenCmuxWorkspaceOptions = {
 		description: workspaceDescription,
 		failureHeading: "Checked out the branch slot, but failed to open the cmux workspace.",
@@ -64,7 +65,10 @@ export async function openBranchInCmuxSlot(
 		return launched;
 	}
 
-	notify(successMessage?.(target) ?? `Opened cmux workspace for branch: ${target.branchName}`, "info");
+	notify(
+		successMessage?.(target) ?? `Opened cmux workspace for branch: ${target.branchName}`,
+		"info",
+	);
 	return target;
 }
 
@@ -74,7 +78,10 @@ export async function openCmuxWorkspace(
 	options: OpenCmuxWorkspaceOptions,
 ): Promise<{ ok: true } | { error: string }> {
 	const args = buildNewWorkspaceArgs(target, options);
-	const result = await pi.exec("cmux", args, { cwd: target.worktreePath, timeout: CMUX_TIMEOUT_MS });
+	const result = await pi.exec("cmux", args, {
+		cwd: target.worktreePath,
+		timeout: CMUX_TIMEOUT_MS,
+	});
 	if (result.code === 0 && !result.killed) {
 		return { ok: true };
 	}
@@ -121,8 +128,15 @@ function formatCmuxWorkspaceFailure(
 	return lines.filter((line) => line.length > 0).join("\n");
 }
 
-function formatCommandFailure(title: string, command: string, args: string[], result: ExecResult): string {
-	const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
+function formatCommandFailure(
+	title: string,
+	command: string,
+	args: string[],
+	result: ExecResult,
+): string {
+	const status = result.killed
+		? `exit code ${result.code}; process was killed or timed out`
+		: `exit code ${result.code}`;
 	const sections = [
 		`${title} (${status})`,
 		`Command: ${formatCommand(command, args)}`,

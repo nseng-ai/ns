@@ -40,7 +40,8 @@ export interface AutoslotFlowInput extends AutobranchFlowInput {
 
 export function registerAutoslotCommand(pi: AutoslotExtensionAPI): void {
 	pi.registerCommand(COMMAND_NAME, {
-		description: "Create a Graphite branch from current work, then move it into a managed slot worktree",
+		description:
+			"Create a Graphite branch from current work, then move it into a managed slot worktree",
 		handler: async (args, ctx) => {
 			await createAutoslot(pi, ctx, parseAutobranchArgs(args));
 		},
@@ -75,7 +76,10 @@ export async function createAutoslotFlow(input: AutoslotFlowInput): Promise<void
 	try {
 		const slot = await checkoutSlot(input.slotExec, input.cwd, { kind: "current" });
 		if (!slot.ok) {
-			input.notify([`Autoslot created ${branchName}, but slot checkout failed.`, "", slot.error].join("\n"), "error");
+			input.notify(
+				[`Autoslot created ${branchName}, but slot checkout failed.`, "", slot.error].join("\n"),
+				"error",
+			);
 			return;
 		}
 
@@ -97,7 +101,11 @@ function parseCreatedBranchName(summary: string): string {
 	return firstLine.replace(/^New branch: /, "").replace(/ \(base slug .*\)$/, "");
 }
 
-async function createAutoslot(pi: AutoslotExtensionAPI, ctx: AutobranchCommandContext, args: ParsedAutobranchArgs): Promise<void> {
+async function createAutoslot(
+	pi: AutoslotExtensionAPI,
+	ctx: AutobranchCommandContext,
+	args: ParsedAutobranchArgs,
+): Promise<void> {
 	ctx.ui.notify(
 		"Starting /sdl:code:autoslot — runs once Pi finishes its current response, then creates a branch and moves it to a slot. Interrupt Pi to run it now.",
 		"info",
@@ -113,10 +121,12 @@ async function createAutoslot(pi: AutoslotExtensionAPI, ctx: AutobranchCommandCo
 			cwd: ctx.cwd,
 			args,
 			exec: (command, commandArgs, cwd, timeout) => pi.exec(command, commandArgs, { cwd, timeout }),
-			prepareCheckpointMessage: (snapshot) => prepareAutobranchCheckpointMessage(snapshot, process.env),
+			prepareCheckpointMessage: (snapshot) =>
+				prepareAutobranchCheckpointMessage(snapshot, process.env),
 			commitPreparedCheckpointMessage: (message) =>
 				commitAutobranchCheckpointMessage(
-					(command, commandArgs, commandCwd, timeout) => pi.exec(command, commandArgs, { cwd: commandCwd, timeout }),
+					(command, commandArgs, commandCwd, timeout) =>
+						pi.exec(command, commandArgs, { cwd: commandCwd, timeout }),
 					ctx.cwd,
 					message,
 				),

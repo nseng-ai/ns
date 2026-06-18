@@ -27,7 +27,9 @@ function createHarness(results: Record<string, WorktreeCommandResult>) {
 	return { calls, execGit };
 }
 
-function successfulResults(overrides: Partial<Record<string, WorktreeCommandResult>> = {}): Record<string, WorktreeCommandResult> {
+function successfulResults(
+	overrides: Partial<Record<string, WorktreeCommandResult>> = {},
+): Record<string, WorktreeCommandResult> {
 	return {
 		"rev-parse --show-toplevel": ok("/repo\n"),
 		"symbolic-ref --short HEAD": ok("feature\n"),
@@ -74,29 +76,61 @@ describe("loadPendingWorktreeSnapshot", () => {
 	});
 
 	test("rev-parse failure returns not_git_repo and stops", async () => {
-		const harness = createHarness(successfulResults({ "rev-parse --show-toplevel": fail("not a git repository") }));
+		const harness = createHarness(
+			successfulResults({ "rev-parse --show-toplevel": fail("not a git repository") }),
+		);
 
 		const result = await loadPendingWorktreeSnapshot({ cwd: "/repo", execGit: harness.execGit });
 
-		expect(result).toEqual({ ok: false, error: { kind: "not_git_repo", message: "Not inside a git repository.", result: fail("not a git repository") } });
-		expect(harness.calls.map((call) => commandKey(call.args))).toEqual(["rev-parse --show-toplevel"]);
+		expect(result).toEqual({
+			ok: false,
+			error: {
+				kind: "not_git_repo",
+				message: "Not inside a git repository.",
+				result: fail("not a git repository"),
+			},
+		});
+		expect(harness.calls.map((call) => commandKey(call.args))).toEqual([
+			"rev-parse --show-toplevel",
+		]);
 	});
 
 	test("symbolic-ref failure returns detached_head", async () => {
-		const harness = createHarness(successfulResults({ "symbolic-ref --short HEAD": fail("not a symbolic ref") }));
+		const harness = createHarness(
+			successfulResults({ "symbolic-ref --short HEAD": fail("not a symbolic ref") }),
+		);
 
 		const result = await loadPendingWorktreeSnapshot({ cwd: "/repo", execGit: harness.execGit });
 
-		expect(result).toEqual({ ok: false, error: { kind: "detached_head", message: "Detached HEAD.", result: fail("not a symbolic ref") } });
-		expect(harness.calls.map((call) => commandKey(call.args))).toEqual(["rev-parse --show-toplevel", "symbolic-ref --short HEAD"]);
+		expect(result).toEqual({
+			ok: false,
+			error: {
+				kind: "detached_head",
+				message: "Detached HEAD.",
+				result: fail("not a symbolic ref"),
+			},
+		});
+		expect(harness.calls.map((call) => commandKey(call.args))).toEqual([
+			"rev-parse --show-toplevel",
+			"symbolic-ref --short HEAD",
+		]);
 	});
 
 	test("status failure returns status_failed", async () => {
-		const harness = createHarness(successfulResults({ "status --porcelain=v1": fail("status failed") }));
+		const harness = createHarness(
+			successfulResults({ "status --porcelain=v1": fail("status failed") }),
+		);
 
 		const result = await loadPendingWorktreeSnapshot({ cwd: "/repo", execGit: harness.execGit });
 
-		expect(result).toEqual({ ok: false, error: { kind: "status_failed", message: "Could not read git status.", result: fail("status failed") } });
+		expect(result).toEqual({
+			ok: false,
+			error: {
+				kind: "status_failed",
+				message: "Could not read git status.",
+				result: fail("status failed"),
+			},
+		});
 		expect(harness.calls.map((call) => commandKey(call.args))).toEqual([
 			"rev-parse --show-toplevel",
 			"symbolic-ref --short HEAD",
@@ -105,11 +139,20 @@ describe("loadPendingWorktreeSnapshot", () => {
 	});
 
 	test("diff failure returns diff_failed", async () => {
-		const harness = createHarness(successfulResults({ "diff HEAD --no-ext-diff": fail("diff failed") }));
+		const harness = createHarness(
+			successfulResults({ "diff HEAD --no-ext-diff": fail("diff failed") }),
+		);
 
 		const result = await loadPendingWorktreeSnapshot({ cwd: "/repo", execGit: harness.execGit });
 
-		expect(result).toEqual({ ok: false, error: { kind: "diff_failed", message: "Could not read git diff.", result: fail("diff failed") } });
+		expect(result).toEqual({
+			ok: false,
+			error: {
+				kind: "diff_failed",
+				message: "Could not read git diff.",
+				result: fail("diff failed"),
+			},
+		});
 		expect(harness.calls.map((call) => commandKey(call.args))).toEqual([
 			"rev-parse --show-toplevel",
 			"symbolic-ref --short HEAD",
@@ -121,10 +164,21 @@ describe("loadPendingWorktreeSnapshot", () => {
 
 describe("formatPendingWorktreeCommandDetails", () => {
 	test("uses stderr before stdout and marks killed commands", () => {
-		expect(formatPendingWorktreeCommandDetails({ code: 2, stdout: "stdout detail", stderr: "stderr detail" })).toBe("exit 2: stderr detail");
-		expect(formatPendingWorktreeCommandDetails({ code: 124, stdout: "stdout detail", stderr: "", killed: true })).toBe(
-			"exit 124 (killed or timed out): stdout detail",
-		);
+		expect(
+			formatPendingWorktreeCommandDetails({
+				code: 2,
+				stdout: "stdout detail",
+				stderr: "stderr detail",
+			}),
+		).toBe("exit 2: stderr detail");
+		expect(
+			formatPendingWorktreeCommandDetails({
+				code: 124,
+				stdout: "stdout detail",
+				stderr: "",
+				killed: true,
+			}),
+		).toBe("exit 124 (killed or timed out): stdout detail");
 		expect(formatPendingWorktreeCommandDetails({ code: 1, stdout: "", stderr: "" })).toBe("exit 1");
 	});
 });

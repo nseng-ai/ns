@@ -3,8 +3,19 @@ import { renderTextTable } from "@asdl/core/text-table";
 import { z } from "zod";
 
 import type { BrmemCliContext } from "../context.ts";
-import { BASE_NAMESPACE, namespaceDisplayLabel, normalizeNamespaceOption, type EntryRef } from "../ref-layout.ts";
-import { firstFailure, validateBranchName, validateEntryKey, validateNamespaceName, validationMessage } from "../validation.ts";
+import {
+	BASE_NAMESPACE,
+	namespaceDisplayLabel,
+	normalizeNamespaceOption,
+	type EntryRef,
+} from "../ref-layout.ts";
+import {
+	firstFailure,
+	validateBranchName,
+	validateEntryKey,
+	validateNamespaceName,
+	validationMessage,
+} from "../validation.ts";
 import { gatewayFailure, resolveCurrentBranch } from "./shared.ts";
 
 const ALL_NAMESPACES_SCOPE = "all";
@@ -41,16 +52,33 @@ export async function runList(ctx: BrmemCliContext, request: ListRequest) {
 		return failure("base_and_namespace_conflict", "--base and --namespace are mutually exclusive.");
 	}
 	if (request.branch !== undefined && request.all_branches) {
-		return failure("branch_and_all_branches_conflict", "--branch and --all-branches are mutually exclusive.");
+		return failure(
+			"branch_and_all_branches_conflict",
+			"--branch and --all-branches are mutually exclusive.",
+		);
 	}
 	const shouldListAllNamespaces = !request.base && request.namespace === undefined;
-	const scopeNamespace = request.base ? BASE_NAMESPACE : normalizeNamespaceOption(request.namespace);
+	const scopeNamespace = request.base
+		? BASE_NAMESPACE
+		: normalizeNamespaceOption(request.namespace);
 	const validationFailure = firstFailure(
-		["invalid_namespace", shouldListAllNamespaces ? undefined : validationMessage("namespace", scopeNamespace, validateNamespaceName(scopeNamespace))],
-		["invalid_key", request.key === undefined ? undefined : validationMessage("key", request.key, validateEntryKey(request.key))],
+		[
+			"invalid_namespace",
+			shouldListAllNamespaces
+				? undefined
+				: validationMessage("namespace", scopeNamespace, validateNamespaceName(scopeNamespace)),
+		],
+		[
+			"invalid_key",
+			request.key === undefined
+				? undefined
+				: validationMessage("key", request.key, validateEntryKey(request.key)),
+		],
 		[
 			"invalid_branch_name",
-			request.branch === undefined ? undefined : validationMessage("branch name", request.branch, validateBranchName(request.branch)),
+			request.branch === undefined
+				? undefined
+				: validationMessage("branch name", request.branch, validateBranchName(request.branch)),
 		],
 	);
 	if (validationFailure !== undefined) return failure(validationFailure[0], validationFailure[1]);
@@ -77,17 +105,38 @@ export async function runList(ctx: BrmemCliContext, request: ListRequest) {
 	});
 }
 
-export function renderList(result: ListResult, caps: RenderCapabilities = { canEmitAnsi: false }): string {
+export function renderList(
+	result: ListResult,
+	caps: RenderCapabilities = { canEmitAnsi: false },
+): string {
 	if (result.entries.length === 0) return "";
 	return renderTextTable({
-		columns: [{ header: "NAMESPACE", style: "bold-cyan" }, { header: "ENTRY KEY" }, { header: "BRANCH" }],
-		rows: result.entries.map((entry) => [namespaceDisplayLabel(entry.namespace), entry.key, entry.branch]),
+		columns: [
+			{ header: "NAMESPACE", style: "bold-cyan" },
+			{ header: "ENTRY KEY" },
+			{ header: "BRANCH" },
+		],
+		rows: result.entries.map((entry) => [
+			namespaceDisplayLabel(entry.namespace),
+			entry.key,
+			entry.branch,
+		]),
 		canEmitAnsi: caps.canEmitAnsi,
 		shouldDrawRule: true,
 		headerStyle: "bold-cyan",
 	});
 }
 
-function entryJson(entry: EntryRef): { namespace: string; key: string; branch: string; ref_name: string } {
-	return { namespace: entry.namespace, key: entry.key, branch: entry.branch, ref_name: entry.entryLocator };
+function entryJson(entry: EntryRef): {
+	namespace: string;
+	key: string;
+	branch: string;
+	ref_name: string;
+} {
+	return {
+		namespace: entry.namespace,
+		key: entry.key,
+		branch: entry.branch,
+		ref_name: entry.entryLocator,
+	};
 }

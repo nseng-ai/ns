@@ -30,7 +30,12 @@ describe("branch-context session artifact", () => {
 	});
 
 	test("builds canonical branch-context output messages", () => {
-		expect(buildBranchContextOutputMessage("Created branch context.", { status: "success", evidence: EVIDENCE })).toEqual({
+		expect(
+			buildBranchContextOutputMessage("Created branch context.", {
+				status: "success",
+				evidence: EVIDENCE,
+			}),
+		).toEqual({
 			customType: BRANCH_CONTEXT_OUTPUT_MESSAGE_TYPE,
 			content: "Created branch context.",
 			display: true,
@@ -39,7 +44,9 @@ describe("branch-context session artifact", () => {
 	});
 
 	test("extracts success evidence from output details", () => {
-		expect(extractBranchContextEvidence({ status: "success", evidence: EVIDENCE })).toEqual(EVIDENCE);
+		expect(extractBranchContextEvidence({ status: "success", evidence: EVIDENCE })).toEqual(
+			EVIDENCE,
+		);
 	});
 
 	test("accepts but strips unknown output detail and evidence keys", () => {
@@ -55,9 +62,18 @@ describe("branch-context session artifact", () => {
 
 	test("rejects non-success and malformed output details", () => {
 		expect(extractBranchContextEvidence({ status: "dry-run", evidence: EVIDENCE })).toBeUndefined();
-		expect(extractBranchContextEvidence({ status: "success", evidence: { ...EVIDENCE, branchCreation: "hg" } })).toBeUndefined();
-		expect(extractBranchContextEvidence({ status: "success", evidence: { ...EVIDENCE, commit: "" } })).toBeUndefined();
-		expect(extractBranchContextEvidence({ status: "success", evidence: { ...EVIDENCE, summary: 123 } })).toBeUndefined();
+		expect(
+			extractBranchContextEvidence({
+				status: "success",
+				evidence: { ...EVIDENCE, branchCreation: "hg" },
+			}),
+		).toBeUndefined();
+		expect(
+			extractBranchContextEvidence({ status: "success", evidence: { ...EVIDENCE, commit: "" } }),
+		).toBeUndefined();
+		expect(
+			extractBranchContextEvidence({ status: "success", evidence: { ...EVIDENCE, summary: 123 } }),
+		).toBeUndefined();
 	});
 
 	test("extracts evidence from a wrapped session history entry", () => {
@@ -87,7 +103,11 @@ describe("branch-context session artifact", () => {
 
 	test("finds the latest branch-context evidence with the canonical namespace", () => {
 		const older = { ...EVIDENCE, branch: "branch-contexts/older" };
-		const wrongNamespace = { ...EVIDENCE, branch: "branch-contexts/wrong-namespace", namespace: "other" };
+		const wrongNamespace = {
+			...EVIDENCE,
+			branch: "branch-contexts/wrong-namespace",
+			namespace: "other",
+		};
 		const latest = { ...EVIDENCE, branch: "branch-contexts/latest" };
 		const entryWith = (evidence: BranchContextEvidence): unknown => ({
 			type: "message",
@@ -100,18 +120,37 @@ describe("branch-context session artifact", () => {
 			},
 		});
 
-		expect(findLatestBranchContextEvidence([entryWith(older), entryWith(latest), entryWith(wrongNamespace)])).toEqual(latest);
+		expect(
+			findLatestBranchContextEvidence([
+				entryWith(older),
+				entryWith(latest),
+				entryWith(wrongNamespace),
+			]),
+		).toEqual(latest);
 	});
 
 	test("rejects entries that are not branch-context output messages", () => {
 		expect(extractBranchContextEvidenceFromSessionEntry(undefined)).toBeUndefined();
 		expect(extractBranchContextEvidenceFromSessionEntry(null)).toBeUndefined();
-		expect(extractBranchContextEvidenceFromSessionEntry("Created branch context and attached plan.")).toBeUndefined();
-		expect(extractBranchContextEvidenceFromSessionEntry({ type: "message", message: "prose, not a record" })).toBeUndefined();
+		expect(
+			extractBranchContextEvidenceFromSessionEntry("Created branch context and attached plan."),
+		).toBeUndefined();
 		expect(
 			extractBranchContextEvidenceFromSessionEntry({
 				type: "message",
-				message: { role: "custom", customType: "other-output", display: true, content: "x", details: { status: "success", evidence: EVIDENCE } },
+				message: "prose, not a record",
+			}),
+		).toBeUndefined();
+		expect(
+			extractBranchContextEvidenceFromSessionEntry({
+				type: "message",
+				message: {
+					role: "custom",
+					customType: "other-output",
+					display: true,
+					content: "x",
+					details: { status: "success", evidence: EVIDENCE },
+				},
 			}),
 		).toBeUndefined();
 		expect(
@@ -126,15 +165,26 @@ describe("branch-context session artifact", () => {
 	test("rejects branch-context output entries whose details are not full success evidence", () => {
 		const entryWith = (details: unknown): unknown => ({
 			type: "message",
-			message: { role: "custom", customType: BRANCH_CONTEXT_OUTPUT_MESSAGE_TYPE, display: true, content: "x", details },
+			message: {
+				role: "custom",
+				customType: BRANCH_CONTEXT_OUTPUT_MESSAGE_TYPE,
+				display: true,
+				content: "x",
+				details,
+			},
 		});
 
 		expect(extractBranchContextEvidenceFromSessionEntry(entryWith(undefined))).toBeUndefined();
-		expect(extractBranchContextEvidenceFromSessionEntry(entryWith({ status: "failure", error: "boom" }))).toBeUndefined();
+		expect(
+			extractBranchContextEvidenceFromSessionEntry(entryWith({ status: "failure", error: "boom" })),
+		).toBeUndefined();
 		// Reuse-shaped success details carry only branch/key/source — intentionally not evidence-bearing.
 		expect(
 			extractBranchContextEvidenceFromSessionEntry(
-				entryWith({ status: "success", reuse: { branch: EVIDENCE.branch, key: EVIDENCE.key, source: "current-branch" } }),
+				entryWith({
+					status: "success",
+					reuse: { branch: EVIDENCE.branch, key: EVIDENCE.key, source: "current-branch" },
+				}),
 			),
 		).toBeUndefined();
 	});

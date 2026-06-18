@@ -84,7 +84,11 @@ const fetchFailureSchema = z.object({
 	tmp_dir: z.null(),
 });
 
-export const skillxFetchResultSchema = z.union([fetchSelectedSuccessSchema, fetchSelectionSuccessSchema, fetchFailureSchema]);
+export const skillxFetchResultSchema = z.union([
+	fetchSelectedSuccessSchema,
+	fetchSelectionSuccessSchema,
+	fetchFailureSchema,
+]);
 
 const cleanupSuccessSchema = z.object({
 	success: z.literal(true),
@@ -151,22 +155,30 @@ export function parseSkillInput(raw: string): SkillxParseResult {
 	if (urlResult !== undefined) return urlResult;
 	const parts = input.split(/\s+/u);
 	const [repo, second, third, ...rest] = parts;
-	if (repo === undefined || !isRepo(repo)) return parseError(`Could not extract owner/repo from input: ${JSON.stringify(input)}`);
+	if (repo === undefined || !isRepo(repo))
+		return parseError(`Could not extract owner/repo from input: ${JSON.stringify(input)}`);
 	if ((second === "--skill" || second === "-s") && third !== undefined && rest.length === 0) {
 		return { success: true, repo, skill: third, format: "skill_flag" };
 	}
 	if (second === undefined) return { success: true, repo, skill: null, format: "repo_only" };
-	if (third === undefined && isSkillName(second)) return { success: true, repo, skill: second, format: "plain" };
+	if (third === undefined && isSkillName(second))
+		return { success: true, repo, skill: second, format: "plain" };
 	return parseError(`Could not extract owner/repo from input: ${JSON.stringify(input)}`);
 }
 
-export async function runSkillxParse(_ctx: AregCliContext, request: SkillxParseRequest): Promise<ClinkrExit<SkillxParseResult>> {
+export async function runSkillxParse(
+	_ctx: AregCliContext,
+	request: SkillxParseRequest,
+): Promise<ClinkrExit<SkillxParseResult>> {
 	const result = parseSkillInput(request.inputText);
 	if (result.success) return ok(result);
 	return negative(result.error, result);
 }
 
-export async function runSkillxList(ctx: AregCliContext, request: SkillxListRequest): Promise<ClinkrExit<SkillxListResult>> {
+export async function runSkillxList(
+	ctx: AregCliContext,
+	request: SkillxListRequest,
+): Promise<ClinkrExit<SkillxListResult>> {
 	const tool = await ctx.host.checkTool({ tool: "gh", cwd: ctx.cwd, env: ctx.env });
 	if (tool.type === "missing") return failure("missing-tool", tool.message);
 	const result = await ctx.github.listSkillDirectoryNames({ repo: request.repo, env: ctx.env });
@@ -187,7 +199,10 @@ export async function runSkillxList(ctx: AregCliContext, request: SkillxListRequ
 	return failure("github_gateway_failed", result.error.message);
 }
 
-export async function runSkillxFetch(ctx: AregCliContext, request: SkillxFetchRequest): Promise<ClinkrExit<SkillxFetchResult>> {
+export async function runSkillxFetch(
+	ctx: AregCliContext,
+	request: SkillxFetchRequest,
+): Promise<ClinkrExit<SkillxFetchResult>> {
 	const tool = await ctx.host.checkTool({ tool: "npx", cwd: ctx.cwd, env: ctx.env });
 	if (tool.type === "missing") return failure("missing-tool", tool.message);
 	const install = await ctx.skillxWorkspace.installIntoWorkspace({
@@ -213,7 +228,10 @@ export async function runSkillxFetch(ctx: AregCliContext, request: SkillxFetchRe
 			available_skills: installedSkills.map((skill) => skill.name),
 		});
 	}
-	const selected = request.skill === undefined ? installedSkills[0] : installedSkills.find((skill) => skill.name === request.skill);
+	const selected =
+		request.skill === undefined
+			? installedSkills[0]
+			: installedSkills.find((skill) => skill.name === request.skill);
 	if (selected === undefined) {
 		await ctx.skillxWorkspace.cleanupWorkspace({ workspaceRoot });
 		const base = `Skill '${request.skill}' was not found in installed skills`;
@@ -231,7 +249,10 @@ export async function runSkillxFetch(ctx: AregCliContext, request: SkillxFetchRe
 	});
 }
 
-export async function runSkillxCleanup(ctx: AregCliContext, request: SkillxCleanupRequest): Promise<ClinkrExit<SkillxCleanupResult>> {
+export async function runSkillxCleanup(
+	ctx: AregCliContext,
+	request: SkillxCleanupRequest,
+): Promise<ClinkrExit<SkillxCleanupResult>> {
 	const cleanup = await ctx.skillxWorkspace.cleanupWorkspace({ workspaceRoot: request.dir });
 	if (cleanup.ok) return ok({ success: true, removed: request.dir });
 	return failure("cleanup_failed", cleanup.error.message);
@@ -249,7 +270,8 @@ function parseGithubUrl(input: string): z.infer<typeof parseSuccessSchema> | und
 	const segments = url.pathname.split("/").filter((part) => part.length > 0);
 	const owner = segments[0];
 	const repoName = segments[1];
-	if (owner === undefined || repoName === undefined || !isRepo(`${owner}/${repoName}`)) return undefined;
+	if (owner === undefined || repoName === undefined || !isRepo(`${owner}/${repoName}`))
+		return undefined;
 	const skillsIndex = segments.indexOf("skills");
 	const skill = skillsIndex === -1 ? null : (segments[skillsIndex + 1] ?? null);
 	return { success: true, repo: `${owner}/${repoName}`, skill, format: "url" };
@@ -271,7 +293,9 @@ function fetchNegative(error: string): ClinkrExit<SkillxFetchResult> {
 	return negative(error, { success: false, error, tmp_dir: null });
 }
 
-function sortedInstalledSkills(skills: readonly AregSkillxInstalledSkill[]): AregSkillxInstalledSkill[] {
+function sortedInstalledSkills(
+	skills: readonly AregSkillxInstalledSkill[],
+): AregSkillxInstalledSkill[] {
 	return skills
 		.map((skill) => ({ ...skill, relativeFiles: sortStrings(skill.relativeFiles) }))
 		.sort((left, right) => left.name.localeCompare(right.name));

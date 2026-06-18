@@ -17,7 +17,15 @@ function resultEvent(extra: Record<string, unknown> = {}): Record<string, unknow
 	return {
 		type: "result",
 		structured_output: {
-			findings: [{ path: "src/app.ts", line: 12, severity: "warning", summary: "Check this", details: "A concrete issue." }],
+			findings: [
+				{
+					path: "src/app.ts",
+					line: 12,
+					severity: "warning",
+					summary: "Check this",
+					details: "A concrete issue.",
+				},
+			],
 		},
 		total_cost_usd: 0.01,
 		duration_ms: 123,
@@ -34,18 +42,28 @@ function resultEvent(extra: Record<string, unknown> = {}): Record<string, unknow
 
 describe("Claude Code review output parsing", () => {
 	test("parses a single result object with structured findings and usage", () => {
-		const parsed = parseClaudeCodeReviewOutput({ stdout: JSON.stringify(resultEvent()), inputCoverage: coverage });
+		const parsed = parseClaudeCodeReviewOutput({
+			stdout: JSON.stringify(resultEvent()),
+			inputCoverage: coverage,
+		});
 
 		expect(parsed.type).toBe("ok");
 		if (parsed.type === "ok") {
 			expect(parsed.value.payload).toMatchObject({ format: "findings", count: 1 });
-			expect(parsed.value.usage).toMatchObject({ inputTokens: 10, outputTokens: 5, totalCostUsd: 0.01 });
+			expect(parsed.value.usage).toMatchObject({
+				inputTokens: 10,
+				outputTokens: 5,
+				totalCostUsd: 0.01,
+			});
 			expect(parsed.value.inputCoverage).toEqual(coverage);
 		}
 	});
 
 	test("parses an array of events by selecting the result event", () => {
-		const parsed = parseClaudeCodeReviewOutput({ stdout: JSON.stringify([{ type: "system" }, resultEvent()]), inputCoverage: null });
+		const parsed = parseClaudeCodeReviewOutput({
+			stdout: JSON.stringify([{ type: "system" }, resultEvent()]),
+			inputCoverage: null,
+		});
 
 		expect(parsed.type).toBe("ok");
 	});
@@ -53,8 +71,14 @@ describe("Claude Code review output parsing", () => {
 	test.each([
 		{ stdout: "", failureType: "review_execution_empty_output" },
 		{ stdout: "not json", failureType: "review_execution_invalid_json" },
-		{ stdout: JSON.stringify(["bad-event", resultEvent()]), failureType: "review_execution_invalid_response" },
-		{ stdout: JSON.stringify([{ type: "system" }]), failureType: "review_execution_invalid_response" },
+		{
+			stdout: JSON.stringify(["bad-event", resultEvent()]),
+			failureType: "review_execution_invalid_response",
+		},
+		{
+			stdout: JSON.stringify([{ type: "system" }]),
+			failureType: "review_execution_invalid_response",
+		},
 		{ stdout: JSON.stringify(7), failureType: "review_execution_invalid_response" },
 	])("maps malformed output to $failureType", ({ stdout, failureType }) => {
 		const parsed = parseClaudeCodeReviewOutput({ stdout, inputCoverage: null });
@@ -66,7 +90,10 @@ describe("Claude Code review output parsing", () => {
 	});
 
 	test("reports prose result with schema guidance when structured output is missing", () => {
-		const parsed = parseClaudeCodeReviewOutput({ stdout: JSON.stringify({ type: "result", result: "x".repeat(600) }), inputCoverage: null });
+		const parsed = parseClaudeCodeReviewOutput({
+			stdout: JSON.stringify({ type: "result", result: "x".repeat(600) }),
+			inputCoverage: null,
+		});
 
 		expect(parsed.type).toBe("error");
 		if (parsed.type === "error") {
@@ -77,7 +104,10 @@ describe("Claude Code review output parsing", () => {
 	});
 
 	test("malformed usage degrades to null without failing findings", () => {
-		const parsed = parseClaudeCodeReviewOutput({ stdout: JSON.stringify(resultEvent({ usage: { input_tokens: "bad" } })), inputCoverage: null });
+		const parsed = parseClaudeCodeReviewOutput({
+			stdout: JSON.stringify(resultEvent({ usage: { input_tokens: "bad" } })),
+			inputCoverage: null,
+		});
 
 		expect(parsed.type).toBe("ok");
 		if (parsed.type === "ok") {
@@ -87,7 +117,16 @@ describe("Claude Code review output parsing", () => {
 	});
 
 	test("invalid structured findings return invalid findings", () => {
-		const parsed = parseClaudeCodeReviewOutput({ stdout: JSON.stringify(resultEvent({ structured_output: { findings: [{ path: "", line: null, severity: "warning", summary: "x", details: "y" }] } })), inputCoverage: null });
+		const parsed = parseClaudeCodeReviewOutput({
+			stdout: JSON.stringify(
+				resultEvent({
+					structured_output: {
+						findings: [{ path: "", line: null, severity: "warning", summary: "x", details: "y" }],
+					},
+				}),
+			),
+			inputCoverage: null,
+		});
 
 		expect(parsed.type).toBe("error");
 		if (parsed.type === "error") {

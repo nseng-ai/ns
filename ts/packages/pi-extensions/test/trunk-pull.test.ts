@@ -1,6 +1,11 @@
 import { describe, expect, test } from "vitest";
 
-import trunkPullExtension, { runTrunkPull, type CommandContext, type ExecResult, type ExtensionAPI } from "../src/trunk-pull.ts";
+import trunkPullExtension, {
+	runTrunkPull,
+	type CommandContext,
+	type ExecResult,
+	type ExtensionAPI,
+} from "../src/trunk-pull.ts";
 
 type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
 
@@ -12,7 +17,11 @@ interface ScriptedExec {
 
 class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
-	readonly execCalls: Array<{ command: string; args: string[]; options: { cwd?: string; timeout?: number } | undefined }> = [];
+	readonly execCalls: Array<{
+		command: string;
+		args: string[];
+		options: { cwd?: string; timeout?: number } | undefined;
+	}> = [];
 	private readonly script: ScriptedExec[];
 
 	constructor(script: ScriptedExec[] = []) {
@@ -23,20 +32,29 @@ class FakePi implements ExtensionAPI {
 		this.commands.set(name, command);
 	}
 
-	async exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult> {
+	async exec(
+		command: string,
+		args: string[],
+		options?: { cwd?: string; timeout?: number },
+	): Promise<ExecResult> {
 		this.execCalls.push({ command, args: [...args], options });
 		const next = this.script.shift();
 		if (next === undefined) {
 			throw new Error(`unexpected exec: ${command} ${args.join(" ")}`);
 		}
 		if (next.command !== command || !sameArgs(next.args, args)) {
-			throw new Error(`expected ${next.command} ${next.args.join(" ")}, got ${command} ${args.join(" ")}`);
+			throw new Error(
+				`expected ${next.command} ${next.args.join(" ")}, got ${command} ${args.join(" ")}`,
+			);
 		}
 		return { stdout: "", stderr: "", code: 0, killed: false, ...next.result };
 	}
 }
 
-function createContext(): CommandContext & { notifications: Array<{ message: string; level: string | undefined }>; idleCalls: number } {
+function createContext(): CommandContext & {
+	notifications: Array<{ message: string; level: string | undefined }>;
+	idleCalls: number;
+} {
 	const ctx = {
 		cwd: "/repo",
 		notifications: [] as Array<{ message: string; level: string | undefined }>,
@@ -81,13 +99,17 @@ describe("sdl:code:pull-trunk", () => {
 		trunkPullExtension(pi);
 
 		expect([...pi.commands.keys()]).toEqual(["sdl:code:pull-trunk"]);
-		expect(pi.commands.get("sdl:code:pull-trunk")?.description).toBe("Pull Graphite trunk without running full gt sync");
+		expect(pi.commands.get("sdl:code:pull-trunk")?.description).toBe(
+			"Pull Graphite trunk without running full gt sync",
+		);
 	});
 
 	test("fetches only the resolved Graphite trunk branch when it is not checked out", async () => {
 		const pi = new FakePi([
 			step("gt", ["trunk", "--no-interactive"], { stdout: "main\n" }),
-			step("git", ["worktree", "list", "--porcelain"], { stdout: "worktree /repo\nHEAD abc123\nbranch refs/heads/feature\n" }),
+			step("git", ["worktree", "list", "--porcelain"], {
+				stdout: "worktree /repo\nHEAD abc123\nbranch refs/heads/feature\n",
+			}),
 			step("git", ["fetch", "origin", "refs/heads/main:refs/heads/main"], { stdout: "updated\n" }),
 		]);
 		const ctx = createContext();
@@ -101,9 +123,13 @@ describe("sdl:code:pull-trunk", () => {
 			["git", ["worktree", "list", "--porcelain"]],
 			["git", ["fetch", "origin", "refs/heads/main:refs/heads/main"]],
 		]);
-		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "sync")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "sync")).toBe(
+			false,
+		);
 		expect(ctx.notifications[0]).toMatchObject({ level: "info" });
-		expect(ctx.notifications[0]?.message).toContain("Pulled local Graphite trunk branch `main` only.");
+		expect(ctx.notifications[0]?.message).toContain(
+			"Pulled local Graphite trunk branch `main` only.",
+		);
 		expect(ctx.notifications[0]?.message).toContain("No full `gt sync` was run.");
 	});
 
@@ -123,7 +149,9 @@ describe("sdl:code:pull-trunk", () => {
 			["git", ["worktree", "list", "--porcelain"], "/repo"],
 			["git", ["pull", "--ff-only", "origin", "master"], "/Users/schrockn/code/asdl-tools"],
 		]);
-		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "sync")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "sync")).toBe(
+			false,
+		);
 		expect(ctx.notifications[0]).toMatchObject({ level: "info" });
 		expect(ctx.notifications[0]?.message).toContain("Command: git pull --ff-only origin master");
 		expect(ctx.notifications[0]?.message).toContain("Cwd: /Users/schrockn/code/asdl-tools");
@@ -143,7 +171,9 @@ describe("sdl:code:pull-trunk", () => {
 	});
 
 	test("reports Graphite trunk lookup failures without fetching", async () => {
-		const pi = new FakePi([step("gt", ["trunk", "--no-interactive"], { code: 1, stderr: "no trunk\n" })]);
+		const pi = new FakePi([
+			step("gt", ["trunk", "--no-interactive"], { code: 1, stderr: "no trunk\n" }),
+		]);
 		const ctx = createContext();
 
 		const updated = await runTrunkPull(pi, ctx, "");
@@ -158,8 +188,13 @@ describe("sdl:code:pull-trunk", () => {
 	test("reports fetch failures", async () => {
 		const pi = new FakePi([
 			step("gt", ["trunk", "--no-interactive"], { stdout: "master\n" }),
-			step("git", ["worktree", "list", "--porcelain"], { stdout: "worktree /repo\nHEAD abc123\nbranch refs/heads/feature\n" }),
-			step("git", ["fetch", "origin", "refs/heads/master:refs/heads/master"], { code: 1, stderr: "fetch failed\n" }),
+			step("git", ["worktree", "list", "--porcelain"], {
+				stdout: "worktree /repo\nHEAD abc123\nbranch refs/heads/feature\n",
+			}),
+			step("git", ["fetch", "origin", "refs/heads/master:refs/heads/master"], {
+				code: 1,
+				stderr: "fetch failed\n",
+			}),
 		]);
 		const ctx = createContext();
 
@@ -167,7 +202,9 @@ describe("sdl:code:pull-trunk", () => {
 
 		expect(updated).toBe(false);
 		expect(ctx.notifications[0]).toMatchObject({ level: "error" });
-		expect(ctx.notifications[0]?.message).toContain("Could not update local trunk branch `master`.");
+		expect(ctx.notifications[0]?.message).toContain(
+			"Could not update local trunk branch `master`.",
+		);
 		expect(ctx.notifications[0]?.message).toContain("fetch failed");
 	});
 });

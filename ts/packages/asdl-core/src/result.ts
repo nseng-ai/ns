@@ -5,7 +5,9 @@ export interface ErrorInfo {
 	displayCommand?: string;
 }
 
-export type Result<T, E extends ErrorInfo = ErrorInfo> = { ok: true; value: T } | { ok: false; error: E };
+export type Result<T, E extends ErrorInfo = ErrorInfo> =
+	| { ok: true; value: T }
+	| { ok: false; error: E };
 
 export function resultOk<T>(value: T): Result<T> {
 	return { ok: true, value };

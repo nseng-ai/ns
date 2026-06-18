@@ -36,7 +36,9 @@ describe("Objective storage", () => {
 		expect(archiveRootRelativePath()).toBe(".asdl/objective-archive");
 		expect(archivedRecordRelativePath("alpha")).toBe(".asdl/objective-archive/alpha");
 		expect(archiveSourceRelativePath("alpha", "archive")).toBe(".asdl/objectives/alpha");
-		expect(archiveDestinationRelativePath("alpha", "archive")).toBe(".asdl/objective-archive/alpha");
+		expect(archiveDestinationRelativePath("alpha", "archive")).toBe(
+			".asdl/objective-archive/alpha",
+		);
 		expect(archiveSourceRelativePath("alpha", "unarchive")).toBe(".asdl/objective-archive/alpha");
 		expect(archiveDestinationRelativePath("alpha", "unarchive")).toBe(".asdl/objectives/alpha");
 		expect(archiveEmptySourceRelativePath("archive")).toBe(".asdl/objectives");
@@ -45,7 +47,11 @@ describe("Objective storage", () => {
 
 	test("checkout inventory includes direct child directories sorted and detects direct closed marker", async () => {
 		const fake = new FakeObjectiveStorageGateway({
-			directories: [".asdl/objectives/zeta", ".asdl/objectives/alpha", ".asdl/objective-archive/archived"],
+			directories: [
+				".asdl/objectives/zeta",
+				".asdl/objectives/alpha",
+				".asdl/objective-archive/archived",
+			],
 			files: {
 				".asdl/objectives/alpha/closed.md": "closed\n",
 				".asdl/objectives/zeta/updates/closed.md": "not a marker\n",
@@ -65,8 +71,15 @@ describe("Objective storage", () => {
 	});
 
 	test("missing or non-directory active root returns empty inventory", async () => {
-		await expect(storage(new FakeObjectiveStorageGateway()).checkoutInventory()).resolves.toEqual({ ok: true, value: { records: [] } });
-		await expect(storage(new FakeObjectiveStorageGateway({ files: { ".asdl/objectives": "not a directory\n" } })).checkoutInventory()).resolves.toEqual({
+		await expect(storage(new FakeObjectiveStorageGateway()).checkoutInventory()).resolves.toEqual({
+			ok: true,
+			value: { records: [] },
+		});
+		await expect(
+			storage(
+				new FakeObjectiveStorageGateway({ files: { ".asdl/objectives": "not a directory\n" } }),
+			).checkoutInventory(),
+		).resolves.toEqual({
 			ok: true,
 			value: { records: [] },
 		});
@@ -95,7 +108,9 @@ describe("Objective storage", () => {
 			value: { objectiveMd: true, roadmapMd: true, updatesDir: true, closedMd: true },
 		});
 		if (!presence.ok) throw new Error("unexpected storage failure");
-		expect(renderFilePresence(presence.value)).toBe("objective.md:yes, roadmap.md:yes, updates/:yes, closed.md:yes");
+		expect(renderFilePresence(presence.value)).toBe(
+			"objective.md:yes, roadmap.md:yes, updates/:yes, closed.md:yes",
+		);
 		await expect(objectiveStorage.listUpdateFiles(recordPath)).resolves.toEqual({
 			ok: true,
 			value: [
@@ -107,12 +122,22 @@ describe("Objective storage", () => {
 
 	test("reads markdown files as raw text and treats missing directories as missing", async () => {
 		const objectiveStorage = storage(
-			new FakeObjectiveStorageGateway({ directories: ["directory"], files: { "objective.md": "# hello\n" } }),
+			new FakeObjectiveStorageGateway({
+				directories: ["directory"],
+				files: { "objective.md": "# hello\n" },
+			}),
 		);
 
-		await expect(objectiveStorage.readMarkdownFile("objective.md")).resolves.toEqual({ type: "ok", content: "# hello\n" });
-		await expect(objectiveStorage.readMarkdownFile("missing.md")).resolves.toEqual({ type: "missing" });
-		await expect(objectiveStorage.readMarkdownFile("directory")).resolves.toEqual({ type: "missing" });
+		await expect(objectiveStorage.readMarkdownFile("objective.md")).resolves.toEqual({
+			type: "ok",
+			content: "# hello\n",
+		});
+		await expect(objectiveStorage.readMarkdownFile("missing.md")).resolves.toEqual({
+			type: "missing",
+		});
+		await expect(objectiveStorage.readMarkdownFile("directory")).resolves.toEqual({
+			type: "missing",
+		});
 	});
 
 	test("moves Objective record directories and creates destination parent", async () => {
@@ -120,11 +145,26 @@ describe("Objective storage", () => {
 		const objectiveStorage = storage(fake);
 		const paths = objectiveStorage.movePaths("alpha", "archive");
 
-		await expect(objectiveStorage.moveRecord(paths)).resolves.toEqual({ ok: true, value: undefined });
-		await expect(fake.pathKind(".asdl/objectives/alpha")).resolves.toEqual({ ok: true, value: "missing" });
-		await expect(fake.pathKind(".asdl/objective-archive")).resolves.toEqual({ ok: true, value: "directory" });
-		await expect(fake.pathKind(".asdl/objective-archive/alpha")).resolves.toEqual({ ok: true, value: "directory" });
-		await expect(fake.readTextFile(".asdl/objective-archive/alpha/objective.md")).resolves.toEqual({ type: "ok", content: "# alpha\n" });
+		await expect(objectiveStorage.moveRecord(paths)).resolves.toEqual({
+			ok: true,
+			value: undefined,
+		});
+		await expect(fake.pathKind(".asdl/objectives/alpha")).resolves.toEqual({
+			ok: true,
+			value: "missing",
+		});
+		await expect(fake.pathKind(".asdl/objective-archive")).resolves.toEqual({
+			ok: true,
+			value: "directory",
+		});
+		await expect(fake.pathKind(".asdl/objective-archive/alpha")).resolves.toEqual({
+			ok: true,
+			value: "directory",
+		});
+		await expect(fake.readTextFile(".asdl/objective-archive/alpha/objective.md")).resolves.toEqual({
+			type: "ok",
+			content: "# alpha\n",
+		});
 	});
 
 	test("fake move refuses destination collisions without merging", async () => {
@@ -140,8 +180,14 @@ describe("Objective storage", () => {
 		const moved = await objectiveStorage.moveRecord(objectiveStorage.movePaths("alpha", "archive"));
 
 		expect(moved.ok).toBe(false);
-		await expect(fake.readTextFile(".asdl/objectives/alpha/objective.md")).resolves.toEqual({ type: "ok", content: "active sentinel\n" });
-		await expect(fake.readTextFile(".asdl/objective-archive/alpha/objective.md")).resolves.toEqual({ type: "ok", content: "archived sentinel\n" });
+		await expect(fake.readTextFile(".asdl/objectives/alpha/objective.md")).resolves.toEqual({
+			type: "ok",
+			content: "active sentinel\n",
+		});
+		await expect(fake.readTextFile(".asdl/objective-archive/alpha/objective.md")).resolves.toEqual({
+			type: "ok",
+			content: "archived sentinel\n",
+		});
 	});
 
 	test("extracts Objective slugs from active record child paths only", () => {

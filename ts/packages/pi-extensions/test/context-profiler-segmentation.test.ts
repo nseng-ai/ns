@@ -16,10 +16,19 @@ import { MAX_DELEGATIONS } from "../src/context-profiler/model.ts";
 import { makeProfile, makeTurn, makeTurns, sequentialTurns } from "./context-profiler-fakes.ts";
 
 function makeStart(startTurn: number, overrides: Partial<LmEpisodeStart> = {}): LmEpisodeStart {
-	return { startTurn, label: `episode ${startTurn}`, kind: "explore", outcome: "completed", ...overrides };
+	return {
+		startTurn,
+		label: `episode ${startTurn}`,
+		kind: "explore",
+		outcome: "completed",
+		...overrides,
+	};
 }
 
-function makeDelegation(turn: number, overrides: Partial<LmDelegationClaim> = {}): LmDelegationClaim {
+function makeDelegation(
+	turn: number,
+	overrides: Partial<LmDelegationClaim> = {},
+): LmDelegationClaim {
 	return { turn, label: `delegation ${turn}`, confidence: "high", ...overrides };
 }
 
@@ -57,13 +66,17 @@ describe("parseSegmentationResponseText", () => {
 			{ startTurn: 5, label: "the fix", kind: "edit", outcome: "active" },
 		]);
 		expect(result.value.summary).toBe("A session that explored and then fixed something.");
-		expect(result.value.delegations).toEqual([{ turn: 4, label: "ask a helper", confidence: "high" }]);
+		expect(result.value.delegations).toEqual([
+			{ turn: 4, label: "ask a helper", confidence: "high" },
+		]);
 	});
 
 	test("parses fenced and prose-wrapped JSON", () => {
 		const fenced = parseSegmentationResponseText("```json\n" + VALID_RESPONSE + "\n```");
 		expect(fenced.ok).toBe(true);
-		const proseWrapped = parseSegmentationResponseText(`Here is the segmentation you asked for:\n${VALID_RESPONSE}\nHope that helps!`);
+		const proseWrapped = parseSegmentationResponseText(
+			`Here is the segmentation you asked for:\n${VALID_RESPONSE}\nHope that helps!`,
+		);
 		expect(proseWrapped.ok).toBe(true);
 	});
 
@@ -102,11 +115,18 @@ describe("parseSegmentationResponseText", () => {
 
 	test("coerces unknown kind and outcome values instead of failing", () => {
 		const result = parseSegmentationResponseText(
-			JSON.stringify({ episodes: [{ startTurn: 3, label: "odd", kind: "rummaging", outcome: "victorious" }] }),
+			JSON.stringify({
+				episodes: [{ startTurn: 3, label: "odd", kind: "rummaging", outcome: "victorious" }],
+			}),
 		);
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
-		expect(result.value.episodes[0]).toEqual({ startTurn: 3, label: "odd", kind: "uncategorized", outcome: "unknown" });
+		expect(result.value.episodes[0]).toEqual({
+			startTurn: 3,
+			label: "odd",
+			kind: "uncategorized",
+			outcome: "unknown",
+		});
 	});
 
 	test("parses lenient delegation claims without allowing LM-inferred confidence", () => {
@@ -168,7 +188,10 @@ describe("repairEpisodes", () => {
 
 	test("dedups starts that snap to the same turn, first claim wins", () => {
 		const turns = sequentialTurns(6);
-		const episodes = repairEpisodes([makeStart(3, { label: "winner" }), makeStart(3.2, { label: "loser" })], turns);
+		const episodes = repairEpisodes(
+			[makeStart(3, { label: "winner" }), makeStart(3.2, { label: "loser" })],
+			turns,
+		);
 		expect(episodes.map((episode) => episode.label)).toEqual(["uncategorized", "winner"]);
 	});
 
@@ -194,7 +217,11 @@ describe("repairEpisodes", () => {
 	test("demotes active outcomes on non-final episodes only", () => {
 		const turns = sequentialTurns(9);
 		const episodes = repairEpisodes(
-			[makeStart(1, { outcome: "active" }), makeStart(4, { outcome: "completed" }), makeStart(7, { outcome: "active" })],
+			[
+				makeStart(1, { outcome: "active" }),
+				makeStart(4, { outcome: "completed" }),
+				makeStart(7, { outcome: "active" }),
+			],
 			turns,
 		);
 		expect(episodes.map((episode) => episode.outcome)).toEqual(["unknown", "completed", "active"]);
@@ -202,7 +229,10 @@ describe("repairEpisodes", () => {
 
 	test("splits an episode crossing the elision seam into included-turn runs", () => {
 		const turns = makeTurns(cappedSeamIndices());
-		const episodes = repairEpisodes([makeStart(1, { label: "the work", kind: "edit", outcome: "active" })], turns);
+		const episodes = repairEpisodes(
+			[makeStart(1, { label: "the work", kind: "edit", outcome: "active" })],
+			turns,
+		);
 		expect(episodes).toEqual([
 			// Label and kind carry over to both pieces; "active" survives only on the truly last piece.
 			{ label: "the work", kind: "edit", outcome: "unknown", turnRange: { start: 1, end: 16 } },
@@ -219,7 +249,10 @@ describe("repairEpisodes", () => {
 	test("seam-splitting only affects the episode whose run crosses the seam", () => {
 		const turns = makeTurns(cappedSeamIndices());
 		const episodes = repairEpisodes(
-			[makeStart(1, { label: "early", kind: "explore", outcome: "completed" }), makeStart(150, { label: "late", kind: "edit", outcome: "active" })],
+			[
+				makeStart(1, { label: "early", kind: "explore", outcome: "completed" }),
+				makeStart(150, { label: "late", kind: "edit", outcome: "active" }),
+			],
 			turns,
 		);
 		expect(episodes.map((episode) => episode.turnRange)).toEqual([
@@ -229,7 +262,11 @@ describe("repairEpisodes", () => {
 		]);
 		expect(episodes.map((episode) => episode.label)).toEqual(["early", "early", "late"]);
 		expect(episodes.map((episode) => episode.kind)).toEqual(["explore", "explore", "edit"]);
-		expect(episodes.map((episode) => episode.outcome)).toEqual(["completed", "completed", "active"]);
+		expect(episodes.map((episode) => episode.outcome)).toEqual([
+			"completed",
+			"completed",
+			"active",
+		]);
 	});
 });
 
@@ -255,7 +292,10 @@ describe("repairDelegations", () => {
 
 	test("caps repaired delegation claims", () => {
 		const turns = sequentialTurns(MAX_DELEGATIONS + 5);
-		const repaired = repairDelegations(turns.map((turn) => makeDelegation(turn.index)), turns);
+		const repaired = repairDelegations(
+			turns.map((turn) => makeDelegation(turn.index)),
+			turns,
+		);
 		expect(repaired).toHaveLength(MAX_DELEGATIONS);
 		expect(repaired[repaired.length - 1]?.turn).toBe(MAX_DELEGATIONS);
 	});
@@ -264,24 +304,37 @@ describe("repairDelegations", () => {
 describe("computeSegmentationFingerprint", () => {
 	test("is stable for an unchanged snapshot", () => {
 		const profile = makeProfile(sequentialTurns(5));
-		expect(computeSegmentationFingerprint(profile)).toBe(computeSegmentationFingerprint(makeProfile(sequentialTurns(5))));
+		expect(computeSegmentationFingerprint(profile)).toBe(
+			computeSegmentationFingerprint(makeProfile(sequentialTurns(5))),
+		);
 	});
 
 	test("changes with live source, turn count, and last-turn identity", () => {
 		const base = computeSegmentationFingerprint(makeProfile(sequentialTurns(5)));
-		const otherSource = computeSegmentationFingerprint(makeProfile(sequentialTurns(5), { liveSource: "branch-fallback" }));
+		const otherSource = computeSegmentationFingerprint(
+			makeProfile(sequentialTurns(5), { liveSource: "branch-fallback" }),
+		);
 		expect(otherSource).not.toBe(base);
 		const moreTurns = computeSegmentationFingerprint(makeProfile(sequentialTurns(6)));
 		expect(moreTurns).not.toBe(base);
-		const editedLastTurn = makeProfile([...sequentialTurns(4), makeTurn(5, { excerpt: "different ending" })]);
+		const editedLastTurn = makeProfile([
+			...sequentialTurns(4),
+			makeTurn(5, { excerpt: "different ending" }),
+		]);
 		expect(computeSegmentationFingerprint(editedLastTurn)).not.toBe(base);
 	});
 });
 
 describe("buildSegmentationPayload", () => {
 	test("serializes exactly the capped turn list with the documented field shape", () => {
-		const turns = [makeTurn(1, { role: "assistant", toolNames: ["bash"], excerpt: "ran a command" }), makeTurn(2), makeTurn(3)];
-		const profile = makeProfile(turns, { cap: { originalCount: 120, includedCount: 3, elidedMiddleTurns: 117 } });
+		const turns = [
+			makeTurn(1, { role: "assistant", toolNames: ["bash"], excerpt: "ran a command" }),
+			makeTurn(2),
+			makeTurn(3),
+		];
+		const profile = makeProfile(turns, {
+			cap: { originalCount: 120, includedCount: 3, elidedMiddleTurns: 117 },
+		});
 		const payload = buildSegmentationPayload(profile);
 		expect(payload.includedTurnCount).toBe(3);
 		expect(payload.wasTruncatedForPayload).toBe(false);
@@ -291,19 +344,30 @@ describe("buildSegmentationPayload", () => {
 		expect(request.usage).toBeNull();
 		expect(request.turnCount).toBe(120);
 		expect(request.capped).toEqual({ includedTurnCount: 3, elidedMiddleTurns: 117 });
-		expect((request.turns as unknown[])[0]).toEqual({ turn: 1, role: "assistant", tokens: 4, tools: ["bash"], excerpt: "ran a command" });
+		expect((request.turns as unknown[])[0]).toEqual({
+			turn: 1,
+			role: "assistant",
+			tokens: 4,
+			tools: ["bash"],
+			excerpt: "ran a command",
+		});
 	});
 
 	test("drops middle turns to honor the payload char cap and flags truncation", () => {
 		const longExcerpt = "x".repeat(110);
 		// 500 turns × >110-char excerpts serialize well past the 60k cap.
-		const oversized = Array.from({ length: 500 }, (_unused, position) => makeTurn(position + 1, { excerpt: `${longExcerpt} ${position + 1}` }));
+		const oversized = Array.from({ length: 500 }, (_unused, position) =>
+			makeTurn(position + 1, { excerpt: `${longExcerpt} ${position + 1}` }),
+		);
 		const profile = makeProfile(oversized);
 		const payload = buildSegmentationPayload(profile);
 		expect(payload.json.length).toBeLessThanOrEqual(SEGMENTATION_PAYLOAD_MAX_CHARS);
 		expect(payload.wasTruncatedForPayload).toBe(true);
 		expect(payload.includedTurnCount).toBeLessThan(oversized.length);
-		const request = JSON.parse(payload.json) as { capped: { includedTurnCount: number; elidedMiddleTurns: number }; turns: { turn: number }[] };
+		const request = JSON.parse(payload.json) as {
+			capped: { includedTurnCount: number; elidedMiddleTurns: number };
+			turns: { turn: number }[];
+		};
 		expect(request.capped.includedTurnCount).toBe(payload.includedTurnCount);
 		expect(request.capped.elidedMiddleTurns).toBe(oversized.length - payload.includedTurnCount);
 		// First and last turns are preserved; the middle is dropped.

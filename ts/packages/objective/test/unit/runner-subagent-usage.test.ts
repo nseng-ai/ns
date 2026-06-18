@@ -4,7 +4,10 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { summarizeRunnerSubagentSessionFile, summarizeRunnerSubagentUsage } from "../../src/operations/runner-subagent-usage.ts";
+import {
+	summarizeRunnerSubagentSessionFile,
+	summarizeRunnerSubagentUsage,
+} from "../../src/operations/runner-subagent-usage.ts";
 
 describe("runner subagent usage summaries", () => {
 	test("summarizes multiple assistant usage messages", async () => {
@@ -55,7 +58,9 @@ describe("runner subagent usage summaries", () => {
 		expect(summary.peakObservedTotalTokens).toBe(237);
 		expect(summary.peakObservedPromptTokens).toBe(207);
 		expect(summary.configuredContextWindowTokens).toBeNull();
-		expect(summary.models).toEqual([{ provider: "openai-codex", api: "responses", model: "gpt-5.5" }]);
+		expect(summary.models).toEqual([
+			{ provider: "openai-codex", api: "responses", model: "gpt-5.5" },
+		]);
 	});
 
 	test("ignores non-assistant messages and assistant messages without usage", async () => {
@@ -97,30 +102,60 @@ describe("runner subagent usage summaries", () => {
 		const directoryPath = join(root, "directory");
 		await mkdir(directoryPath);
 		const invalidJsonPath = join(root, "broken.jsonl");
-		await writeFile(invalidJsonPath, `${JSON.stringify(assistantRecord({ inputTokens: 100, totalTokens: 100 }))}\n\n{not json}\n`, "utf8");
+		await writeFile(
+			invalidJsonPath,
+			`${JSON.stringify(assistantRecord({ inputTokens: 100, totalTokens: 100 }))}\n\n{not json}\n`,
+			"utf8",
+		);
 		const noUsagePath = join(root, "no-usage.jsonl");
-		await writeJsonlAt(noUsagePath, { message: { role: "user", content: "hello" } }, { message: { role: "assistant", content: "hello" } }, { event: "unknown" });
+		await writeJsonlAt(
+			noUsagePath,
+			{ message: { role: "user", content: "hello" } },
+			{ message: { role: "assistant", content: "hello" } },
+			{ event: "unknown" },
+		);
 
 		const missing = await summarizeRunnerSubagentSessionFile(join(root, "missing.jsonl"));
 		const directory = await summarizeRunnerSubagentSessionFile(directoryPath);
 		const invalidJson = await summarizeRunnerSubagentSessionFile(invalidJsonPath);
 		const noUsage = await summarizeRunnerSubagentSessionFile(noUsagePath);
 
-		expect(missing).toMatchObject({ status: "missing", assistantResponseCount: 0, tokens: { totalTokens: 0 }, cost: { totalUsd: 0 } });
-		expect(directory).toMatchObject({ status: "not_file", assistantResponseCount: 0, tokens: { totalTokens: 0 } });
+		expect(missing).toMatchObject({
+			status: "missing",
+			assistantResponseCount: 0,
+			tokens: { totalTokens: 0 },
+			cost: { totalUsd: 0 },
+		});
+		expect(directory).toMatchObject({
+			status: "not_file",
+			assistantResponseCount: 0,
+			tokens: { totalTokens: 0 },
+		});
 		expect(invalidJson.status).toBe("invalid_json");
 		expect(invalidJson.errorLine).toBe(3);
 		expect(invalidJson.error).toContain("invalid JSON");
 		expect(invalidJson.assistantResponseCount).toBe(0);
-		expect(noUsage).toMatchObject({ status: "no_usage", assistantResponseCount: 0, tokens: { totalTokens: 0 } });
+		expect(noUsage).toMatchObject({
+			status: "no_usage",
+			assistantResponseCount: 0,
+			tokens: { totalTokens: 0 },
+		});
 		expect(noUsage.peakObservedTotalTokens).toBeNull();
 		expect(noUsage.peakObservedPromptTokens).toBeNull();
 	});
 
 	test("aggregates only ok sessions", async () => {
-		const okFile = await writeJsonl("ok.jsonl", assistantRecord({ inputTokens: 40, outputTokens: 5, cacheReadTokens: 9, totalTokens: 54 }));
-		const noUsageFile = await writeJsonl("no-usage.jsonl", { message: { role: "assistant", content: "no usage" } });
-		const missingFile = join(await mkdtemp(join(tmpdir(), "objective-runner-usage-missing-")), "missing.jsonl");
+		const okFile = await writeJsonl(
+			"ok.jsonl",
+			assistantRecord({ inputTokens: 40, outputTokens: 5, cacheReadTokens: 9, totalTokens: 54 }),
+		);
+		const noUsageFile = await writeJsonl("no-usage.jsonl", {
+			message: { role: "assistant", content: "no usage" },
+		});
+		const missingFile = join(
+			await mkdtemp(join(tmpdir(), "objective-runner-usage-missing-")),
+			"missing.jsonl",
+		);
 
 		const result = await summarizeRunnerSubagentUsage([okFile, noUsageFile, missingFile]);
 

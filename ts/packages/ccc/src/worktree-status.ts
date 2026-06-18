@@ -2,7 +2,15 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 import { resolveBrmemCommandCandidates, runBrmemCandidate } from "@asdl/core/brmem-cli";
-import { execApiToCommandRunner, formatCommand, normalizeExecResult, piExecApiToCommandExecApi, tailText, type ExecOptions, type PiExecResultLike } from "@asdl/core/exec";
+import {
+	execApiToCommandRunner,
+	formatCommand,
+	normalizeExecResult,
+	piExecApiToCommandExecApi,
+	tailText,
+	type ExecOptions,
+	type PiExecResultLike,
+} from "@asdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@asdl/core/git";
 import { runGitHubCli } from "@asdl/core/github-cli";
 import {
@@ -51,7 +59,9 @@ interface GitPaths {
 	headPath: string;
 }
 
-type GitFileParseResult = { type: "found"; paths: GitPaths | undefined } | { type: "not-gitdir-file" };
+type GitFileParseResult =
+	| { type: "found"; paths: GitPaths | undefined }
+	| { type: "not-gitdir-file" };
 
 export type GtCommitStatus =
 	| { type: "count"; count: number }
@@ -71,7 +81,9 @@ export interface GraphiteMetadataLoaderOptions {
 	onDiagnostic?: ((diagnostic: GraphiteMetadataWorkerDiagnostic) => void) | undefined;
 }
 
-export type GraphiteMetadataLoader = (options: GraphiteMetadataLoaderOptions) => Promise<GraphiteMetadataStatus>;
+export type GraphiteMetadataLoader = (
+	options: GraphiteMetadataLoaderOptions,
+) => Promise<GraphiteMetadataStatus>;
 
 export interface LoadGtStatusOptions {
 	pi: ExecGateway;
@@ -182,12 +194,22 @@ export async function loadWorktreeGhStatus(
 	return loadGhStatus(pi, cwd, { identity, signal: options.signal });
 }
 
-export function combineWorktreeStatus(local: LocalWorktreeStatus, gh: WorktreeGhStatus): WorktreeStatus {
+export function combineWorktreeStatus(
+	local: LocalWorktreeStatus,
+	gh: WorktreeGhStatus,
+): WorktreeStatus {
 	return { ...local, gh };
 }
 
-export function sameWorktreeStatusIdentity(left: WorktreeStatusIdentity, right: WorktreeStatusIdentity): boolean {
-	return left.cwd === right.cwd && sameHeadIdentity(left.head, right.head) && left.headOid === right.headOid;
+export function sameWorktreeStatusIdentity(
+	left: WorktreeStatusIdentity,
+	right: WorktreeStatusIdentity,
+): boolean {
+	return (
+		left.cwd === right.cwd &&
+		sameHeadIdentity(left.head, right.head) &&
+		left.headOid === right.headOid
+	);
 }
 
 export async function loadGtStatus(options: LoadGtStatusOptions): Promise<GtStatus> {
@@ -209,7 +231,11 @@ export async function loadGtStatus(options: LoadGtStatusOptions): Promise<GtStat
 	return { down, up, commits, dirty };
 }
 
-async function loadBrmemStatus(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<string | undefined> {
+async function loadBrmemStatus(
+	pi: ExecGateway,
+	cwd: string,
+	signal?: AbortSignal,
+): Promise<string | undefined> {
 	for (const candidate of resolveBrmemCommandCandidates(cwd)) {
 		if (signal?.aborted) return undefined;
 
@@ -290,7 +316,9 @@ function displayScopeFromEntry(entry: BrmemEntry): { namespace: string; key: str
 	return topLevelKey.length > 0 ? { namespace: entry.namespace, key: topLevelKey } : undefined;
 }
 
-async function loadCurrentGraphiteMetadataStatusAsync(options: GraphiteMetadataLoaderOptions): Promise<GraphiteMetadataStatus> {
+async function loadCurrentGraphiteMetadataStatusAsync(
+	options: GraphiteMetadataLoaderOptions,
+): Promise<GraphiteMetadataStatus> {
 	const gitPaths = findGitPaths(options.cwd);
 	if (gitPaths === undefined) return { type: "unavailable", reason: "not-a-git-repo" };
 
@@ -301,10 +329,16 @@ async function loadCurrentGraphiteMetadataStatusAsync(options: GraphiteMetadataL
 		signal: options.signal,
 		onDiagnostic: options.onDiagnostic,
 	};
-	return loadGraphiteMetadataStatusInWorker({ commonGitDir: gitPaths.commonGitDir, currentBranch }, workerOptions);
+	return loadGraphiteMetadataStatusInWorker(
+		{ commonGitDir: gitPaths.commonGitDir, currentBranch },
+		workerOptions,
+	);
 }
 
-function loadDownBranch(metadata: GraphiteMetadataStatus, signal?: AbortSignal): string | undefined {
+function loadDownBranch(
+	metadata: GraphiteMetadataStatus,
+	signal?: AbortSignal,
+): string | undefined {
 	if (signal?.aborted) return "-";
 	// Metadata is the only passive source used here; falling back to @{-1} produced misleading bases
 	// when users had merely checked out an unrelated branch previously.
@@ -345,11 +379,17 @@ async function loadHasCommits(
 	}
 }
 
-async function loadDirty(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<"yes" | "no"> {
+async function loadDirty(
+	pi: ExecGateway,
+	cwd: string,
+	signal?: AbortSignal,
+): Promise<"yes" | "no"> {
 	if (signal?.aborted) return "no";
 
 	try {
-		const result = normalizeExecResult(await pi.exec("git", ["status", "--porcelain=v1"], execOptions(cwd, signal)));
+		const result = normalizeExecResult(
+			await pi.exec("git", ["status", "--porcelain=v1"], execOptions(cwd, signal)),
+		);
 		return result.stdout.trim().length > 0 ? "yes" : "no";
 	} catch {
 		return "no";
@@ -362,14 +402,19 @@ export async function loadWorktreeStatusIdentity(
 	signal?: AbortSignal,
 ): Promise<WorktreeStatusIdentity> {
 	const gitPaths = findGitPaths(cwd);
-	const head = gitPaths === undefined ? { type: "unknown" as const } : currentHeadIdentity(gitPaths);
+	const head =
+		gitPaths === undefined ? { type: "unknown" as const } : currentHeadIdentity(gitPaths);
 	const git = gitGatewayFromExecGateway(pi);
 	const headOid = await loadHeadOid(git, cwd, signal);
 	const identity: WorktreeStatusIdentity = { cwd: resolve(cwd), head };
 	return headOid === undefined ? identity : { ...identity, headOid };
 }
 
-async function loadHeadOid(git: GitGateway, cwd: string, signal?: AbortSignal): Promise<string | undefined> {
+async function loadHeadOid(
+	git: GitGateway,
+	cwd: string,
+	signal?: AbortSignal,
+): Promise<string | undefined> {
 	if (signal?.aborted) return undefined;
 	const result = await git.headCommit({ cwd, signal });
 	return result.ok ? result.value : undefined;
@@ -386,7 +431,11 @@ async function loadGhStatus(
 
 	const git = gitGatewayFromExecGateway(pi);
 	const repository = await loadGitHubRepositoryIdentity(git, cwd, signal);
-	if (repository === undefined) return { type: "unavailable", message: "could not identify GitHub repository from origin remote" };
+	if (repository === undefined)
+		return {
+			type: "unavailable",
+			message: "could not identify GitHub repository from origin remote",
+		};
 
 	const args = githubWorktreePrStatusArgs({ ...repository, headRefName: identity.head.name });
 	const result = await runGitHubCli({
@@ -396,15 +445,21 @@ async function loadGhStatus(
 		timeoutMs: COMMAND_TIMEOUT_MS,
 		args,
 	});
-	if (result.type === "startup_error") return { type: "unavailable", message: compactErrorMessage(result.message) };
+	if (result.type === "startup_error")
+		return { type: "unavailable", message: compactErrorMessage(result.message) };
 	if (result.result.code !== 0) {
-		return { type: "unavailable", message: compactCommandFailureMessage(compactGithubCommandName(args), result.result) };
+		return {
+			type: "unavailable",
+			message: compactCommandFailureMessage(compactGithubCommandName(args), result.result),
+		};
 	}
 
 	const prs = parseGithubWorktreePrStatusJson(result.result.stdout);
-	if (prs === undefined) return { type: "unavailable", message: "could not parse gh worktree status output" };
+	if (prs === undefined)
+		return { type: "unavailable", message: "could not parse gh worktree status output" };
 	if (prs.length === 0) return { type: "no-pr" };
-	if (identity.headOid === undefined) return { type: "unavailable", message: "could not verify local HEAD" };
+	if (identity.headOid === undefined)
+		return { type: "unavailable", message: "could not verify local HEAD" };
 
 	const pr = prs.find((candidate) => candidate.headRefOid === identity.headOid);
 	if (pr === undefined) return { type: "head-mismatch" };
@@ -447,7 +502,10 @@ function currentBranchName(gitPaths: GitPaths): string | undefined {
 	return head.type === "branch" ? head.name : undefined;
 }
 
-function sameHeadIdentity(left: WorktreeStatusIdentity["head"], right: WorktreeStatusIdentity["head"]): boolean {
+function sameHeadIdentity(
+	left: WorktreeStatusIdentity["head"],
+	right: WorktreeStatusIdentity["head"],
+): boolean {
 	if (left.type !== right.type) return false;
 	if (left.type !== "branch" || right.type !== "branch") return true;
 	return left.name === right.name;
@@ -493,13 +551,19 @@ export function renderWorktreeStatusMessage(
 		render(width: number): string[] {
 			return content
 				.split("\n")
-				.map((line) => theme.fg(worktreeStatusLineColor(line), renderWorktreeStatusLine(line, prLinks, width)));
+				.map((line) =>
+					theme.fg(worktreeStatusLineColor(line), renderWorktreeStatusLine(line, prLinks, width)),
+				);
 		},
 		invalidate(): void {},
 	};
 }
 
-function renderWorktreeStatusLine(line: string, prLinks: ReadonlyMap<number, string>, width: number): string {
+function renderWorktreeStatusLine(
+	line: string,
+	prLinks: ReadonlyMap<number, string>,
+	width: number,
+): string {
 	const truncated = truncateDisplayLine(line, width);
 	if (prLinks.size === 0) return truncated;
 	return linkifyPrReferences(truncated, prLinks);
@@ -524,7 +588,10 @@ export function formatWorktreeStatus(status: WorktreeStatus, theme?: StatusTheme
 	return lines;
 }
 
-export function formatWorktreeStatusForFooter(status: WorktreeStatus, theme?: StatusTheme): string[] {
+export function formatWorktreeStatusForFooter(
+	status: WorktreeStatus,
+	theme?: StatusTheme,
+): string[] {
 	const lines: string[] = [];
 	if (status.brmem !== undefined) {
 		lines.push(formatStatusSegment(`[brmem] ${status.brmem}`, theme));
@@ -536,7 +603,9 @@ export function formatWorktreeStatusForFooter(status: WorktreeStatus, theme?: St
 function formatWorktreeStatusForFooterTail(status: WorktreeStatus, theme?: StatusTheme): string[] {
 	const lines: string[] = [formatGhStatus(status.gh, theme)];
 	if (status.gtMetadataDiagnostic !== undefined) {
-		lines.push(formatStatusSegment(formatGraphiteMetadataDiagnostic(status.gtMetadataDiagnostic), theme));
+		lines.push(
+			formatStatusSegment(formatGraphiteMetadataDiagnostic(status.gtMetadataDiagnostic), theme),
+		);
 	}
 	return lines;
 }
@@ -586,9 +655,11 @@ export function formatGhStatus(status: WorktreeGhStatus, theme?: StatusTheme): s
 function formatGhStatusLine(status: WorktreeGhStatus, theme?: StatusTheme): string | undefined {
 	if (status.type === "pending") return undefined;
 	if (status.type === "no-pr") return formatColoredSegment("[gh] no PR", "dim", theme);
-	if (status.type === "head-mismatch") return formatColoredSegment("[gh] local ahead of PR", "warning", theme);
+	if (status.type === "head-mismatch")
+		return formatColoredSegment("[gh] local ahead of PR", "warning", theme);
 	if (status.type === "unavailable") {
-		const detail = status.message === undefined ? "" : formatColoredSegment(`: ${status.message}`, "dim", theme);
+		const detail =
+			status.message === undefined ? "" : formatColoredSegment(`: ${status.message}`, "dim", theme);
 		return `${formatColoredSegment("[gh] unavailable", "warning", theme)}${detail}`;
 	}
 
@@ -604,7 +675,10 @@ function formatGhStatusLine(status: WorktreeGhStatus, theme?: StatusTheme): stri
 		...formatActionBucketSegments(status.checks, theme),
 	];
 	if (isGhStatusLandable(status)) {
-		pieces.push(formatColoredSegment(" · ", "dim", theme), formatColoredSegment("landable", "accent", theme));
+		pieces.push(
+			formatColoredSegment(" · ", "dim", theme),
+			formatColoredSegment("landable", "accent", theme),
+		);
 	}
 	return pieces.join("");
 }
@@ -632,9 +706,12 @@ function formatActionBucketSegments(checks: GithubCheckTally, theme?: StatusThem
 	if (hasNoBlockingChecks(checks)) {
 		buckets.push(formatColoredSegment(`${checks.passing}✓`, "accent", theme));
 	} else {
-		if (checks.pending > 0) buckets.push(formatColoredSegment(`${checks.pending}⏳`, "warning", theme));
-		if (checks.failing > 0) buckets.push(formatColoredSegment(`${checks.failing}✗`, "error", theme));
-		if (checks.unknown > 0) buckets.push(formatColoredSegment(`${checks.unknown}?`, "warning", theme));
+		if (checks.pending > 0)
+			buckets.push(formatColoredSegment(`${checks.pending}⏳`, "warning", theme));
+		if (checks.failing > 0)
+			buckets.push(formatColoredSegment(`${checks.failing}✗`, "error", theme));
+		if (checks.unknown > 0)
+			buckets.push(formatColoredSegment(`${checks.unknown}?`, "warning", theme));
 	}
 	if (hasMoreStatusChecks(checks)) buckets.push(formatColoredSegment("+", "warning", theme));
 	return intersperseActionBucketSpaces(buckets, theme);
@@ -692,6 +769,8 @@ function gitPathsFromGitFile(repoDir: string, gitPath: string): GitFileParseResu
 	if (!existsSync(headPath)) return { type: "found", paths: undefined };
 
 	const commonDirPath = join(gitDir, "commondir");
-	const commonGitDir = existsSync(commonDirPath) ? resolve(gitDir, readFileSync(commonDirPath, "utf8").trim()) : gitDir;
+	const commonGitDir = existsSync(commonDirPath)
+		? resolve(gitDir, readFileSync(commonDirPath, "utf8").trim())
+		: gitDir;
 	return { type: "found", paths: { repoDir, gitDir, commonGitDir, headPath } };
 }

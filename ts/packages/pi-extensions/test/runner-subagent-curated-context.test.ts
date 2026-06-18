@@ -6,7 +6,10 @@ import { describe, expect, test } from "vitest";
 
 import type { ExecResult } from "@asdl/core/exec";
 
-import { buildCuratedRunnerSubagentContext, type CuratedContextExecGit } from "../src/runner-subagent/curated-context.ts";
+import {
+	buildCuratedRunnerSubagentContext,
+	type CuratedContextExecGit,
+} from "../src/runner-subagent/curated-context.ts";
 
 function tempRepo(): string {
 	const root = mkdtempSync(join(tmpdir(), "runner-subagent-context-"));
@@ -22,7 +25,9 @@ function gitUnavailable(): CuratedContextExecGit {
 	return () => Promise.resolve(execResult({ code: 127, startupError: "git unavailable" }));
 }
 
-function scriptedGit(options: { status?: string | ExecResult; diffStat?: string | ExecResult } = {}): CuratedContextExecGit {
+function scriptedGit(
+	options: { status?: string | ExecResult; diffStat?: string | ExecResult } = {},
+): CuratedContextExecGit {
 	return (args) => {
 		const command = args.join(" ");
 		if (command === "status --short") return Promise.resolve(scriptedResult(options.status));
@@ -39,11 +44,16 @@ function scriptedResult(value: string | ExecResult | undefined): ExecResult {
 describe("runner subagent curated context", () => {
 	test("renders manifest-first context with task focus, repo facts, included sources, and omissions", async () => {
 		const cwd = tempRepo();
-		writeFileSync(join(cwd, "src", "example.ts"), "export function example(): string {\n\treturn 'ok';\n}\n", "utf8");
+		writeFileSync(
+			join(cwd, "src", "example.ts"),
+			"export function example(): string {\n\treturn 'ok';\n}\n",
+			"utf8",
+		);
 
 		const context = await buildCuratedRunnerSubagentContext({
 			title: "Inspect src/example.ts",
-			prompt: "Use `src/example.ts`, mention missing `missing.ts`, and ignore `/tmp/outside-secret.txt`.",
+			prompt:
+				"Use `src/example.ts`, mention missing `missing.ts`, and ignore `/tmp/outside-secret.txt`.",
 			cwd,
 			execGit: scriptedGit(),
 		});
@@ -102,7 +112,12 @@ describe("runner subagent curated context", () => {
 
 	test("continues when git evidence is unavailable", async () => {
 		const cwd = join(tmpdir(), "runner-subagent-context-missing-cwd");
-		const context = await buildCuratedRunnerSubagentContext({ title: "No repo", prompt: "Classify this task.", cwd, execGit: gitUnavailable() });
+		const context = await buildCuratedRunnerSubagentContext({
+			title: "No repo",
+			prompt: "Classify this task.",
+			cwd,
+			execGit: gitUnavailable(),
+		});
 
 		expect(context.audit.isGitAvailable).toBe(false);
 		expect(context.markdown).toContain("Git evidence unavailable");
@@ -144,7 +159,8 @@ describe("runner subagent curated context", () => {
 		for (let index = 0; index < 80; index += 1) {
 			const path = `src/file-${index.toString().padStart(2, "0")}-${"x".repeat(120)}.ts`;
 			statusLines.push(` M ${path}`);
-			if (index < 30) writeFileSync(join(cwd, path), `export const value${index} = ${index};\n`, "utf8");
+			if (index < 30)
+				writeFileSync(join(cwd, path), `export const value${index} = ${index};\n`, "utf8");
 		}
 
 		const context = await buildCuratedRunnerSubagentContext({
@@ -159,7 +175,11 @@ describe("runner subagent curated context", () => {
 		expect(context.audit.includedPaths).toHaveLength(6);
 		expect(context.audit.omittedPaths.length).toBeGreaterThan(0);
 		expect(context.audit.omittedPaths.length).toBeLessThanOrEqual(24);
-		expect(context.audit.omittedPaths.length + context.audit.includedPaths.length + context.audit.unreadablePaths.length).toBeLessThanOrEqual(30);
+		expect(
+			context.audit.omittedPaths.length +
+				context.audit.includedPaths.length +
+				context.audit.unreadablePaths.length,
+		).toBeLessThanOrEqual(30);
 		expect(context.markdown).toContain("Omitted ");
 		expect(context.markdown).toContain("candidate(s)");
 	});

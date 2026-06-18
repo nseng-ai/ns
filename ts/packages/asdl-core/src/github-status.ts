@@ -50,7 +50,10 @@ const githubGraphqlErrorsSchema = z.object({ errors: z.array(z.unknown()).option
 const githubReviewThreadConnectionSchema = z
 	.object({
 		totalCount: z.number().int().nonnegative().optional(),
-		pageInfo: z.object({ hasNextPage: z.boolean().default(false) }).loose().default({ hasNextPage: false }),
+		pageInfo: z
+			.object({ hasNextPage: z.boolean().default(false) })
+			.loose()
+			.default({ hasNextPage: false }),
 		nodes: z.array(z.object({ isResolved: z.boolean() }).loose()).default([]),
 	})
 	.loose();
@@ -72,7 +75,10 @@ const githubWorktreePrStatusResponseSchema = z
 										.object({
 											contexts: z
 												.object({
-													pageInfo: z.object({ hasNextPage: z.boolean().default(false) }).loose().default({ hasNextPage: false }),
+													pageInfo: z
+														.object({ hasNextPage: z.boolean().default(false) })
+														.loose()
+														.default({ hasNextPage: false }),
 													nodes: z.array(z.unknown()).default([]),
 												})
 												.loose()
@@ -100,7 +106,13 @@ const FAILING_CHECK_RUN_CONCLUSIONS = new Set([
 	"STALE",
 	"TIMED_OUT",
 ]);
-const PENDING_CHECK_RUN_STATUSES = new Set(["QUEUED", "IN_PROGRESS", "WAITING", "REQUESTED", "PENDING"]);
+const PENDING_CHECK_RUN_STATUSES = new Set([
+	"QUEUED",
+	"IN_PROGRESS",
+	"WAITING",
+	"REQUESTED",
+	"PENDING",
+]);
 const FAILING_STATUS_CONTEXT_STATES = new Set(["ERROR", "FAILURE"]);
 
 export function githubWorktreePrStatusArgs(identity: GithubWorktreePrStatusArgs): string[] {
@@ -118,7 +130,10 @@ export function githubWorktreePrStatusArgs(identity: GithubWorktreePrStatusArgs)
 	];
 }
 
-export function githubPrIdentityFromUrl(url: string, expectedNumber?: number): GithubPrIdentity | undefined {
+export function githubPrIdentityFromUrl(
+	url: string,
+	expectedNumber?: number,
+): GithubPrIdentity | undefined {
 	let parsed: URL;
 	try {
 		parsed = new URL(url);
@@ -132,7 +147,8 @@ export function githubPrIdentityFromUrl(url: string, expectedNumber?: number): G
 	if (!Number.isInteger(number) || number <= 0) return undefined;
 	if (expectedNumber !== undefined && number !== expectedNumber) return undefined;
 	const [owner, repo] = parts;
-	if (owner === undefined || repo === undefined || owner.length === 0 || repo.length === 0) return undefined;
+	if (owner === undefined || repo === undefined || owner.length === 0 || repo.length === 0)
+		return undefined;
 	return { owner, repo, number };
 }
 
@@ -148,7 +164,9 @@ export function normalizeGitRemoteUrl(rawUrl: string): string {
 	return stripGitSuffix(stripTrailingSlashes(candidate));
 }
 
-export function githubRepositoryIdentityFromNormalizedRemoteUrl(normalizedUrl: string): GithubRepositoryIdentity | undefined {
+export function githubRepositoryIdentityFromNormalizedRemoteUrl(
+	normalizedUrl: string,
+): GithubRepositoryIdentity | undefined {
 	let parsed: URL;
 	try {
 		parsed = new URL(normalizedUrl);
@@ -161,12 +179,16 @@ export function githubRepositoryIdentityFromNormalizedRemoteUrl(normalizedUrl: s
 	return repositoryIdentityFromParts(parts[0], parts[1]);
 }
 
-export function githubRepositoryIdentityFromRemoteUrl(url: string): GithubRepositoryIdentity | undefined {
+export function githubRepositoryIdentityFromRemoteUrl(
+	url: string,
+): GithubRepositoryIdentity | undefined {
 	const normalized = normalizeGitRemoteUrl(url);
 	return githubRepositoryIdentityFromNormalizedRemoteUrl(normalized);
 }
 
-export function parseGithubWorktreePrStatusJson(stdout: string): GithubWorktreePrStatus[] | undefined {
+export function parseGithubWorktreePrStatusJson(
+	stdout: string,
+): GithubWorktreePrStatus[] | undefined {
 	const parsed = parseGraphqlJson(stdout);
 	if (parsed === undefined) return undefined;
 
@@ -180,7 +202,9 @@ export function parseGithubWorktreePrStatusJson(stdout: string): GithubWorktreeP
 			headRefName: node.headRefName,
 			headRefOid: node.headRefOid,
 			threads: reviewThreadCountsFromConnection(node.reviewThreads),
-			checks: tallyGithubStatusChecks(contexts?.nodes ?? [], { hasMore: contexts?.pageInfo.hasNextPage ?? false }),
+			checks: tallyGithubStatusChecks(contexts?.nodes ?? [], {
+				hasMore: contexts?.pageInfo.hasNextPage ?? false,
+			}),
 		};
 	});
 }
@@ -206,8 +230,17 @@ export function tallyGithubStatusChecks(
 	return tally;
 }
 
-function repositoryIdentityFromParts(owner: string | undefined, repoWithSuffix: string | undefined): GithubRepositoryIdentity | undefined {
-	if (owner === undefined || repoWithSuffix === undefined || owner.length === 0 || repoWithSuffix.length === 0) return undefined;
+function repositoryIdentityFromParts(
+	owner: string | undefined,
+	repoWithSuffix: string | undefined,
+): GithubRepositoryIdentity | undefined {
+	if (
+		owner === undefined ||
+		repoWithSuffix === undefined ||
+		owner.length === 0 ||
+		repoWithSuffix.length === 0
+	)
+		return undefined;
 	const repo = stripGitSuffix(repoWithSuffix);
 	if (repo.length === 0 || repo.includes("/")) return undefined;
 	return { owner, repo };
@@ -248,7 +281,9 @@ function stripGitSuffix(value: string): string {
 	return value.replace(/\.git$/i, "");
 }
 
-function reviewThreadCountsFromConnection(connection: z.infer<typeof githubReviewThreadConnectionSchema>): GithubReviewThreadCounts {
+function reviewThreadCountsFromConnection(
+	connection: z.infer<typeof githubReviewThreadConnectionSchema>,
+): GithubReviewThreadCounts {
 	const hasMore = connection.pageInfo.hasNextPage;
 	const totalCount = connection.totalCount ?? connection.nodes.length;
 	return {
@@ -263,7 +298,8 @@ function parseGraphqlJson(text: string): unknown | undefined {
 	if (parsed === undefined) return undefined;
 	const errorsResult = githubGraphqlErrorsSchema.safeParse(parsed);
 	if (!errorsResult.success) return undefined;
-	if (errorsResult.data.errors !== undefined && errorsResult.data.errors.length > 0) return undefined;
+	if (errorsResult.data.errors !== undefined && errorsResult.data.errors.length > 0)
+		return undefined;
 	return parsed;
 }
 

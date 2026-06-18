@@ -2,10 +2,18 @@ import { failure, ok } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../context.ts";
-import { installMarkerBlock, rcPathForShell, resolveRequestedShell, type SupportedShell } from "./rc-install.ts";
+import {
+	installMarkerBlock,
+	rcPathForShell,
+	resolveRequestedShell,
+	type SupportedShell,
+} from "./rc-install.ts";
 
 export const markerSurfaceShowRequestSchema = z.object({
-	shell: z.string().optional().describe("Shell to render output for (zsh or bash). Defaults from $SHELL, then zsh."),
+	shell: z
+		.string()
+		.optional()
+		.describe("Shell to render output for (zsh or bash). Defaults from $SHELL, then zsh."),
 });
 
 export const markerSurfaceInstallRequestSchema = markerSurfaceShowRequestSchema;
@@ -42,16 +50,27 @@ export function buildMarkerInstallSurface(config: MarkerInstallSurfaceConfig) {
 		installResultSchema: markerSurfaceInstallResultSchema,
 		async runShow(ctx: SlotCliContext, request: MarkerSurfaceShowRequest) {
 			const selected = resolveRequestedShell(request.shell, ctx.env);
-			if (selected.type === "failure") return failure(selected.failure.type, selected.failure.message);
+			if (selected.type === "failure")
+				return failure(selected.failure.type, selected.failure.message);
 			return ok({ shell: selected.shell, script: config.renderPayload(selected.shell) });
 		},
 		async runInstall(ctx: SlotCliContext, request: MarkerSurfaceInstallRequest) {
 			const selected = resolveRequestedShell(request.shell, ctx.env);
-			if (selected.type === "failure") return failure(selected.failure.type, selected.failure.message);
+			if (selected.type === "failure")
+				return failure(selected.failure.type, selected.failure.message);
 			const payload = config.renderPayload(selected.shell);
 			const rcPath = rcPathForShell(selected.shell, ctx.env);
-			const installed = await installMarkerBlock({ rcPath, beginMarker: config.beginMarker, payload, endMarker: config.endMarker });
-			return ok({ shell: selected.shell, rc_path: installed.rcPath, is_already_installed: installed.isAlreadyInstalled });
+			const installed = await installMarkerBlock({
+				rcPath,
+				beginMarker: config.beginMarker,
+				payload,
+				endMarker: config.endMarker,
+			});
+			return ok({
+				shell: selected.shell,
+				rc_path: installed.rcPath,
+				is_already_installed: installed.isAlreadyInstalled,
+			});
 		},
 		renderShow(result: MarkerSurfaceShowResult): string {
 			return result.script;

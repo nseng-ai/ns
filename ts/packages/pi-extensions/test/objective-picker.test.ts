@@ -14,11 +14,15 @@ import {
 
 describe("parseObjectiveDiffChangedSlugs", () => {
 	test("modified Objective path produces a slug", () => {
-		expect(parseObjectiveDiffChangedSlugs("M\t.asdl/objectives/alpha/objective.md\n")).toEqual(["alpha"]);
+		expect(parseObjectiveDiffChangedSlugs("M\t.asdl/objectives/alpha/objective.md\n")).toEqual([
+			"alpha",
+		]);
 	});
 
 	test("deleted Objective path produces a slug", () => {
-		expect(parseObjectiveDiffChangedSlugs("D\t.asdl/objectives/alpha/roadmap.md\n")).toEqual(["alpha"]);
+		expect(parseObjectiveDiffChangedSlugs("D\t.asdl/objectives/alpha/roadmap.md\n")).toEqual([
+			"alpha",
+		]);
 	});
 
 	test("rename includes old and new slugs", () => {
@@ -62,19 +66,27 @@ describe("parseObjectiveDiffChangedSlugs", () => {
 
 describe("parseObjectiveStatusChangedSlugs", () => {
 	test("modified Objective path produces a slug", () => {
-		expect(parseObjectiveStatusChangedSlugs(" M .asdl/objectives/alpha/objective.md\0")).toEqual(["alpha"]);
+		expect(parseObjectiveStatusChangedSlugs(" M .asdl/objectives/alpha/objective.md\0")).toEqual([
+			"alpha",
+		]);
 	});
 
 	test("deleted Objective path produces a slug", () => {
-		expect(parseObjectiveStatusChangedSlugs(" D .asdl/objectives/alpha/roadmap.md\0")).toEqual(["alpha"]);
+		expect(parseObjectiveStatusChangedSlugs(" D .asdl/objectives/alpha/roadmap.md\0")).toEqual([
+			"alpha",
+		]);
 	});
 
 	test("untracked Objective file produces a slug", () => {
-		expect(parseObjectiveStatusChangedSlugs("?? .asdl/objectives/bravo/objective.md\0")).toEqual(["bravo"]);
+		expect(parseObjectiveStatusChangedSlugs("?? .asdl/objectives/bravo/objective.md\0")).toEqual([
+			"bravo",
+		]);
 	});
 
 	test("archive-root paths are ignored", () => {
-		expect(parseObjectiveStatusChangedSlugs(" M .asdl/objective-archive/alpha/objective.md\0")).toEqual([]);
+		expect(
+			parseObjectiveStatusChangedSlugs(" M .asdl/objective-archive/alpha/objective.md\0"),
+		).toEqual([]);
 	});
 
 	test("unrelated paths are ignored", () => {
@@ -93,7 +105,8 @@ describe("parseObjectiveStatusChangedSlugs", () => {
 	});
 
 	test("rename includes old and new slugs", () => {
-		const stdout = "R  .asdl/objectives/new-name/objective.md\0.asdl/objectives/old-name/objective.md\0";
+		const stdout =
+			"R  .asdl/objectives/new-name/objective.md\0.asdl/objectives/old-name/objective.md\0";
 
 		expect(parseObjectiveStatusChangedSlugs(stdout)).toEqual(["new-name", "old-name"]);
 	});
@@ -107,11 +120,15 @@ describe("parseObjectiveStatusChangedSlugs", () => {
 
 describe("Objective picker policy", () => {
 	test("changedActiveObjectiveSelection returns undefined when there are no changed active records", () => {
-		expect(changedActiveObjectiveSelection(objectiveList(["alpha"]), "master", ["bravo"])).toBeUndefined();
+		expect(
+			changedActiveObjectiveSelection(objectiveList(["alpha"]), "master", ["bravo"]),
+		).toBeUndefined();
 	});
 
 	test("changedActiveObjectiveSelection returns selection when changed slugs intersect active records", () => {
-		expect(changedActiveObjectiveSelection(objectiveList(["alpha", "bravo"]), "master", ["bravo"])).toEqual({
+		expect(
+			changedActiveObjectiveSelection(objectiveList(["alpha", "bravo"]), "master", ["bravo"]),
+		).toEqual({
 			trunkBranch: "master",
 			changeBasisLabel: "changed vs master",
 			allChangedSlugs: ["bravo"],
@@ -130,15 +147,17 @@ describe("Objective picker policy", () => {
 	});
 
 	test("changed slugs not present in active records do not produce suggestions", () => {
-		const selection = changedActiveObjectiveSelection(objectiveList(["alpha", "bravo"]), "master", ["closed"]);
+		const selection = changedActiveObjectiveSelection(objectiveList(["alpha", "bravo"]), "master", [
+			"closed",
+		]);
 
 		expect(selection).toBeUndefined();
 	});
 
 	test("ordinary label uses checkout-local status and latest update", () => {
-		expect(formatObjectiveChoice(record("alpha", { latestUpdateIso: "2026-05-20T10:00:00Z" }))).toBe(
-			"alpha — open — latest update 2026-05-20T10:00:00Z",
-		);
+		expect(
+			formatObjectiveChoice(record("alpha", { latestUpdateIso: "2026-05-20T10:00:00Z" })),
+		).toBe("alpha — open — latest update 2026-05-20T10:00:00Z");
 	});
 
 	test("ordinary label renders missing latest update as an em dash", () => {
@@ -169,9 +188,10 @@ describe("Objective picker policy", () => {
 		const records = [record("alpha"), record("bravo"), record("charlie"), record("delta")];
 
 		expect(
-			objectiveRecordsWithChangedFirst(records, selection(["charlie", "alpha"], ["charlie", "alpha"])).map(
-				(item) => item.slug,
-			),
+			objectiveRecordsWithChangedFirst(
+				records,
+				selection(["charlie", "alpha"], ["charlie", "alpha"]),
+			).map((item) => item.slug),
 		).toEqual(["alpha", "charlie", "bravo", "delta"]);
 	});
 
@@ -202,14 +222,26 @@ function objectiveList(slugs: string[]): ObjectiveList {
 	};
 }
 
-function record(slug: string, options: { status?: string; latestUpdateIso?: string | null } = {}): ObjectiveListRecord {
+function record(
+	slug: string,
+	options: { status?: string; latestUpdateIso?: string | null } = {},
+): ObjectiveListRecord {
 	return {
 		slug,
 		status: options.status ?? "open",
-		latestUpdateIso: "latestUpdateIso" in options ? options.latestUpdateIso ?? null : "2026-05-20T10:00:00Z",
+		latestUpdateIso:
+			"latestUpdateIso" in options ? (options.latestUpdateIso ?? null) : "2026-05-20T10:00:00Z",
 	};
 }
 
-function selection(allChangedSlugs: string[], changedActiveSlugs: string[]): ObjectiveDiffSelection {
-	return { trunkBranch: "master", changeBasisLabel: "changed vs master", allChangedSlugs, changedActiveSlugs };
+function selection(
+	allChangedSlugs: string[],
+	changedActiveSlugs: string[],
+): ObjectiveDiffSelection {
+	return {
+		trunkBranch: "master",
+		changeBasisLabel: "changed vs master",
+		allChangedSlugs,
+		changedActiveSlugs,
+	};
 }

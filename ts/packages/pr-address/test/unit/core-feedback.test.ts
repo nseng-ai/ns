@@ -2,7 +2,11 @@ import { describe, expect, test } from "vitest";
 
 import { fetchFeedbackSnapshot, reviewsForRequest } from "../../src/core/feedback-snapshot.ts";
 import { isAutomationLikeDiscussionComment } from "../../src/core/feedback-summary.ts";
-import { InMemoryPrAddressGitHubGateway, discussionComment, review } from "../support/in-memory-pr-address-gateways.ts";
+import {
+	InMemoryPrAddressGitHubGateway,
+	discussionComment,
+	review,
+} from "../support/in-memory-pr-address-gateways.ts";
 
 const GATEWAY_OPTIONS = { cwd: "/repo" };
 
@@ -18,7 +22,10 @@ describe("pr-address core feedback helpers", () => {
 			false,
 		);
 
-		expect(filtered.map((item) => item.id)).toEqual(["changes-requested-empty", "approved-with-body"]);
+		expect(filtered.map((item) => item.id)).toEqual([
+			"changes-requested-empty",
+			"approved-with-body",
+		]);
 	});
 
 	test("returns gateway-shaped failures when snapshot collection fails", async () => {
@@ -41,7 +48,15 @@ describe("pr-address core feedback helpers", () => {
 	});
 
 	test("identifies automation-like discussion comments", () => {
-		expect(isAutomationLikeDiscussionComment(discussionComment({ author: "vercel[bot]", body: "[vc]: deployment ready" }))).toBe(true);
-		expect(isAutomationLikeDiscussionComment(discussionComment({ author: "octocat", body: "Could you take another look?" }))).toBe(false);
+		expect(
+			isAutomationLikeDiscussionComment(
+				discussionComment({ author: "vercel[bot]", body: "[vc]: deployment ready" }),
+			),
+		).toBe(true);
+		expect(
+			isAutomationLikeDiscussionComment(
+				discussionComment({ author: "octocat", body: "Could you take another look?" }),
+			),
+		).toBe(false);
 	});
 });

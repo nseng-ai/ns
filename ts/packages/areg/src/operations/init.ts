@@ -17,7 +17,11 @@ import {
 	type ProjectMutationOperationStatusRecord,
 } from "./project-mutations.ts";
 
-export { parseAsdlAregAgents, parseLegacyAregJsonAgents, resolveProjectAgents } from "./project-agents.ts";
+export {
+	parseAsdlAregAgents,
+	parseLegacyAregJsonAgents,
+	resolveProjectAgents,
+} from "./project-agents.ts";
 
 const BOOTSTRAP_REPO = "dagster-io/asdl-tools";
 const BOOTSTRAP_SKILLS = ["skill-management", "skillx"] as const;
@@ -40,7 +44,8 @@ export const AGENTS_BLOCK = [
 	AGENTS_BLOCK_END,
 ].join("\n");
 
-const CLAUDE_NOTE = "Claude Code discovers installed skills from `.claude/skills/`, which symlinks into `.agents/skills/`. Use Claude's skill invocation UI for installed skills when available. Use `skill-management` for persistent skill changes and `skillx` for transient GitHub skill execution.";
+const CLAUDE_NOTE =
+	"Claude Code discovers installed skills from `.claude/skills/`, which symlinks into `.agents/skills/`. Use Claude's skill invocation UI for installed skills when available. Use `skill-management` for persistent skill changes and `skillx` for transient GitHub skill execution.";
 
 export const SETTINGS_LOCAL_JSON = `{
   "permissions": {
@@ -54,8 +59,14 @@ export const SETTINGS_LOCAL_JSON = `{
 export const initRequestSchema = z.object({
 	target: z.string().default(".").describe("Project directory to initialize."),
 	agent: z.array(z.string()).default([]).describe("Agent to install skills for; repeatable."),
-	yes: z.boolean().default(false).describe("Approve adding or updating areg-managed instruction blocks without prompting."),
-	append: z.boolean().default(true).describe("Do not modify existing AGENTS.md or CLAUDE.md prose files."),
+	yes: z
+		.boolean()
+		.default(false)
+		.describe("Approve adding or updating areg-managed instruction blocks without prompting."),
+	append: z
+		.boolean()
+		.default(true)
+		.describe("Do not modify existing AGENTS.md or CLAUDE.md prose files."),
 });
 
 const skippedFileSchema = z.object({
@@ -115,13 +126,18 @@ function initMutationFailure(options: InitMutationFailureOptions): ClinkrExit<In
 		agents: [...options.agents],
 		bootstrap_repo: BOOTSTRAP_REPO,
 		bootstrap_skills: [...BOOTSTRAP_SKILLS],
-		written_files: options.operations.filter((operation) => operation.type === "write" && operation.status === "applied").map((operation) => operation.path),
+		written_files: options.operations
+			.filter((operation) => operation.type === "write" && operation.status === "applied")
+			.map((operation) => operation.path),
 		skipped_files: options.textPlan.skippedFiles.map((skipped) => ({ ...skipped })),
 		operations: options.operations.map((operation) => ({ ...operation })),
 	});
 }
 
-function npxSkillsAddOperation(status: ProjectMutationOperationStatusRecord["status"], error?: ProjectMutationOperationStatusRecord["error"]): ProjectMutationOperationStatusRecord {
+function npxSkillsAddOperation(
+	status: ProjectMutationOperationStatusRecord["status"],
+	error?: ProjectMutationOperationStatusRecord["error"],
+): ProjectMutationOperationStatusRecord {
 	return {
 		type: "external",
 		path: "npx skills add",
@@ -131,7 +147,10 @@ function npxSkillsAddOperation(status: ProjectMutationOperationStatusRecord["sta
 	};
 }
 
-export async function runInit(ctx: AregCliContext, request: InitRequest): Promise<ClinkrExit<InitResult>> {
+export async function runInit(
+	ctx: AregCliContext,
+	request: InitRequest,
+): Promise<ClinkrExit<InitResult>> {
 	const noAppend = !request.append;
 	if (request.yes && noAppend) {
 		return failure("invalid_request", "--yes and --no-append cannot be used together.");
@@ -141,13 +160,18 @@ export async function runInit(ctx: AregCliContext, request: InitRequest): Promis
 	if (tool.type === "missing") return failure("missing_tool", tool.message);
 
 	const inspection = await inspectInitProject(ctx, request.target);
-	if (inspection.projectPathState.type === "missing") return failure("invalid_project", `Target ${inspection.projectDir} does not exist.`);
-	if (inspection.projectPathState.type !== "directory") return failure("invalid_project", `${inspection.projectDir} is not a directory.`);
+	if (inspection.projectPathState.type === "missing")
+		return failure("invalid_project", `Target ${inspection.projectDir} does not exist.`);
+	if (inspection.projectPathState.type !== "directory")
+		return failure("invalid_project", `${inspection.projectDir} is not a directory.`);
 
 	const repoRoot = await ctx.git.optionalRepoRoot({ cwd: inspection.projectDir });
 	if (repoRoot.type === "error") return failure("git_error", repoRoot.error.message);
 	if (repoRoot.type === "missing") {
-		return failure("invalid_project", `Target ${inspection.projectDir} must be a Git worktree root. Run git init first.`);
+		return failure(
+			"invalid_project",
+			`Target ${inspection.projectDir} must be a Git worktree root. Run git init first.`,
+		);
 	}
 	if (repoRoot.value !== inspection.projectDir) {
 		return failure(
@@ -156,15 +180,29 @@ export async function runInit(ctx: AregCliContext, request: InitRequest): Promis
 		);
 	}
 
-	const agentsResult = resolveProjectAgents({ explicitAgents: request.agent, asdlToml: inspection.asdlToml, aregJson: inspection.aregJson });
+	const agentsResult = resolveProjectAgents({
+		explicitAgents: request.agent,
+		asdlToml: inspection.asdlToml,
+		aregJson: inspection.aregJson,
+	});
 	if (!agentsResult.ok) return failure("agent_resolution_failed", agentsResult.error.message);
 	const agents = agentsResult.value;
 
-	const planResult = await buildInitTextPlan(ctx, inspection, { agents, yes: request.yes, noAppend });
+	const planResult = await buildInitTextPlan(ctx, inspection, {
+		agents,
+		yes: request.yes,
+		noAppend,
+	});
 	if (!planResult.ok) return failure("write_plan_failed", planResult.error.message);
 	const textPlan = planResult.value;
 
-	const preflight = await applyProjectMutationPlan({ ctx, projectDir: inspection.projectDir, policy: "init", writes: textPlan.writes, execute: false });
+	const preflight = await applyProjectMutationPlan({
+		ctx,
+		projectDir: inspection.projectDir,
+		policy: "init",
+		writes: textPlan.writes,
+		execute: false,
+	});
 	if (!preflight.ok) {
 		return initMutationFailure({
 			message: `Cannot initialize areg: ${preflight.error.message}`,
@@ -188,14 +226,16 @@ export async function runInit(ctx: AregCliContext, request: InitRequest): Promis
 			projectDir: inspection.projectDir,
 			agents,
 			textPlan,
-			operations: [
-				npxSkillsAddOperation("failed", install.error),
-				...preflight.operationStatuses,
-			],
+			operations: [npxSkillsAddOperation("failed", install.error), ...preflight.operationStatuses],
 		});
 	}
 
-	const apply = await applyProjectMutationPlan({ ctx, projectDir: inspection.projectDir, policy: "init", writes: textPlan.writes });
+	const apply = await applyProjectMutationPlan({
+		ctx,
+		projectDir: inspection.projectDir,
+		policy: "init",
+		writes: textPlan.writes,
+	});
 	if (!apply.ok) {
 		return initMutationFailure({
 			message: `Cannot finish areg init: ${apply.error.message}`,
@@ -237,14 +277,30 @@ export function replaceOrAppendAregSection(content: string, agents: readonly str
 	const end = tomlSectionEnd(lines, start);
 	let replacement = renderAregSection(agents);
 	if (end < lines.length) replacement += "\n";
-	lines.splice(start, end - start, ...replacement.match(/.*(?:\n|$)/gu)?.filter((line) => line.length > 0) ?? []);
+	lines.splice(
+		start,
+		end - start,
+		...(replacement.match(/.*(?:\n|$)/gu)?.filter((line) => line.length > 0) ?? []),
+	);
 	return lines.join("");
 }
 
-export function managedBlockBounds(content: string, markers: ManagedMarkers, pathLabel: string): Result<{ start: number; end: number } | null> {
-	const bounds = managedRegionBounds({ text: content, startMarker: markers.start, endMarker: markers.end });
+export function managedBlockBounds(
+	content: string,
+	markers: ManagedMarkers,
+	pathLabel: string,
+): Result<{ start: number; end: number } | null> {
+	const bounds = managedRegionBounds({
+		text: content,
+		startMarker: markers.start,
+		endMarker: markers.end,
+	});
 	if (bounds.type === "missing") return { ok: true, value: null };
-	if (bounds.type === "malformed") return resultErr({ code: "managed_block_malformed", message: `${pathLabel} has a malformed areg-managed block. Fix the markers manually.` });
+	if (bounds.type === "malformed")
+		return resultErr({
+			code: "managed_block_malformed",
+			message: `${pathLabel} has a malformed areg-managed block. Fix the markers manually.`,
+		});
 	return { ok: true, value: { start: bounds.start, end: bounds.end } };
 }
 
@@ -290,7 +346,10 @@ async function buildInitTextPlan(
 	});
 	if (!agents.ok) return agents;
 
-	const claude = await planClaudeMd(ctx, inspection.projectDir, inspection.claudeMd, { yes: options.yes, noAppend: options.noAppend });
+	const claude = await planClaudeMd(ctx, inspection.projectDir, inspection.claudeMd, {
+		yes: options.yes,
+		noAppend: options.noAppend,
+	});
 	if (!claude.ok) return claude;
 
 	const settings = planSettings(inspection.claudeDir, inspection.claudeSettings);
@@ -306,12 +365,25 @@ async function buildInitTextPlan(
 	};
 }
 
-function planAsdlToml(state: AregTextFileState, agents: readonly string[]): Result<AregInitTextWritePlan> {
-	if (state.type === "missing") return { ok: true, value: writePlan("asdl.toml", renderAregSection(agents), "asdl.toml") };
-	if (state.type !== "file") return rejectTextState({ pathLabel: "asdl.toml", state, description: "asdl.toml", action: "manage it" });
+function planAsdlToml(
+	state: AregTextFileState,
+	agents: readonly string[],
+): Result<AregInitTextWritePlan> {
+	if (state.type === "missing")
+		return { ok: true, value: writePlan("asdl.toml", renderAregSection(agents), "asdl.toml") };
+	if (state.type !== "file")
+		return rejectTextState({
+			pathLabel: "asdl.toml",
+			state,
+			description: "asdl.toml",
+			action: "manage it",
+		});
 	const parsed = parseAsdlAregAgents(state.text, "asdl.toml");
 	if (!parsed.ok) return parsed;
-	return { ok: true, value: writePlan("asdl.toml", replaceOrAppendAregSection(state.text, agents), "asdl.toml") };
+	return {
+		ok: true,
+		value: writePlan("asdl.toml", replaceOrAppendAregSection(state.text, agents), "asdl.toml"),
+	};
 }
 
 async function planClaudeMd(
@@ -322,7 +394,11 @@ async function planClaudeMd(
 ): Promise<Result<AregInitTextWritePlan | SkippedFile>> {
 	let includeAgentsRef = true;
 	if (state.type === "file") {
-		const outside = contentWithoutManagedBlock(state.text, { start: CLAUDE_BLOCK_START, end: CLAUDE_BLOCK_END }, "CLAUDE.md");
+		const outside = contentWithoutManagedBlock(
+			state.text,
+			{ start: CLAUDE_BLOCK_START, end: CLAUDE_BLOCK_END },
+			"CLAUDE.md",
+		);
 		if (!outside.ok) return outside;
 		includeAgentsRef = !outside.value.includes("@AGENTS.md");
 	}
@@ -354,42 +430,113 @@ async function planManagedBlock(
 		updatePrompt: string;
 	},
 ): Promise<Result<AregInitTextWritePlan | SkippedFile>> {
-	if (input.state.type === "missing") return { ok: true, value: writePlan(input.path, input.newFileContent, input.path) };
-	if (input.state.type !== "file") return rejectTextState({ pathLabel: input.path, state: input.state, description: input.path, action: "manage it" });
+	if (input.state.type === "missing")
+		return { ok: true, value: writePlan(input.path, input.newFileContent, input.path) };
+	if (input.state.type !== "file")
+		return rejectTextState({
+			pathLabel: input.path,
+			state: input.state,
+			description: input.path,
+			action: "manage it",
+		});
 	const bounds = managedBlockBounds(input.state.text, input.markers, input.path);
 	if (!bounds.ok) return bounds;
 	if (bounds.value === null) {
-		if (input.noAppend) return { ok: true, value: { path: input.path, reason: "--no-append skips existing file without managed block" } };
-		if (!input.yes && !(await ctx.prompt.confirm({ message: input.appendPrompt, defaultValue: false }))) {
-			return { ok: true, value: { path: input.path, reason: "user declined adding managed block" } };
+		if (input.noAppend)
+			return {
+				ok: true,
+				value: {
+					path: input.path,
+					reason: "--no-append skips existing file without managed block",
+				},
+			};
+		if (
+			!input.yes &&
+			!(await ctx.prompt.confirm({ message: input.appendPrompt, defaultValue: false }))
+		) {
+			return {
+				ok: true,
+				value: { path: input.path, reason: "user declined adding managed block" },
+			};
 		}
-		return { ok: true, value: writePlan(input.path, appendBlock(input.state.text, input.block), input.path) };
+		return {
+			ok: true,
+			value: writePlan(input.path, appendBlock(input.state.text, input.block), input.path),
+		};
 	}
 	const currentBlock = input.state.text.slice(bounds.value.start, bounds.value.end);
-	if (currentBlock === input.block) return { ok: true, value: { path: input.path, reason: "managed block is already current" } };
-	if (input.noAppend) return { ok: true, value: { path: input.path, reason: "--no-append skips existing managed block replacement" } };
-	if (!input.yes && !(await ctx.prompt.confirm({ message: input.updatePrompt, defaultValue: false }))) {
-		return { ok: true, value: { path: input.path, reason: "user declined replacing managed block" } };
+	if (currentBlock === input.block)
+		return { ok: true, value: { path: input.path, reason: "managed block is already current" } };
+	if (input.noAppend)
+		return {
+			ok: true,
+			value: { path: input.path, reason: "--no-append skips existing managed block replacement" },
+		};
+	if (
+		!input.yes &&
+		!(await ctx.prompt.confirm({ message: input.updatePrompt, defaultValue: false }))
+	) {
+		return {
+			ok: true,
+			value: { path: input.path, reason: "user declined replacing managed block" },
+		};
 	}
 	return {
 		ok: true,
-		value: writePlan(input.path, `${input.state.text.slice(0, bounds.value.start)}${input.block}${input.state.text.slice(bounds.value.end)}`, input.path),
+		value: writePlan(
+			input.path,
+			`${input.state.text.slice(0, bounds.value.start)}${input.block}${input.state.text.slice(bounds.value.end)}`,
+			input.path,
+		),
 	};
 }
 
-function contentWithoutManagedBlock(content: string, markers: ManagedMarkers, pathLabel: string): Result<string> {
+function contentWithoutManagedBlock(
+	content: string,
+	markers: ManagedMarkers,
+	pathLabel: string,
+): Result<string> {
 	const bounds = managedBlockBounds(content, markers, pathLabel);
 	if (!bounds.ok) return bounds;
 	if (bounds.value === null) return { ok: true, value: content };
-	return { ok: true, value: `${content.slice(0, bounds.value.start)}${content.slice(bounds.value.end)}` };
+	return {
+		ok: true,
+		value: `${content.slice(0, bounds.value.start)}${content.slice(bounds.value.end)}`,
+	};
 }
 
-function planSettings(claudeDirState: AregPathState, settingsState: AregTextFileState): Result<AregInitTextWritePlan | SkippedFile> {
-	const claudeDir = validateOptionalDirectoryState({ pathLabel: ".claude", state: claudeDirState, action: "manage it", symlinkSubject: ".claude at .claude" });
+function planSettings(
+	claudeDirState: AregPathState,
+	settingsState: AregTextFileState,
+): Result<AregInitTextWritePlan | SkippedFile> {
+	const claudeDir = validateOptionalDirectoryState({
+		pathLabel: ".claude",
+		state: claudeDirState,
+		action: "manage it",
+		symlinkSubject: ".claude at .claude",
+	});
 	if (!claudeDir.ok) return claudeDir;
-	if (settingsState.type === "missing") return { ok: true, value: writePlan(".claude/settings.local.json", SETTINGS_LOCAL_JSON, "settings.local.json", true) };
-	if (settingsState.type !== "file") return rejectTextState({ pathLabel: ".claude/settings.local.json", state: settingsState, description: "settings.local.json", action: "manage it" });
-	return { ok: true, value: { path: ".claude/settings.local.json", reason: "existing settings file is preserved" } };
+	if (settingsState.type === "missing")
+		return {
+			ok: true,
+			value: writePlan(
+				".claude/settings.local.json",
+				SETTINGS_LOCAL_JSON,
+				"settings.local.json",
+				true,
+			),
+		};
+	if (settingsState.type !== "file")
+		return rejectTextState({
+			pathLabel: ".claude/settings.local.json",
+			state: settingsState,
+			description: "settings.local.json",
+			action: "manage it",
+		});
+	return {
+		ok: true,
+		value: { path: ".claude/settings.local.json", reason: "existing settings file is preserved" },
+	};
 }
 
 function isTextWritePlan(plan: AregInitTextWritePlan | SkippedFile): plan is AregInitTextWritePlan {
@@ -400,7 +547,12 @@ function isSkippedFile(plan: AregInitTextWritePlan | SkippedFile): plan is Skipp
 	return !("relativePath" in plan);
 }
 
-function writePlan(relativePath: AregInitTextWritePlan["relativePath"], content: string, description: string, createParent = false): AregInitTextWritePlan {
+function writePlan(
+	relativePath: AregInitTextWritePlan["relativePath"],
+	content: string,
+	description: string,
+	createParent = false,
+): AregInitTextWritePlan {
 	return { relativePath, content, description, createParent };
 }
 
@@ -437,4 +589,3 @@ function tomlTableName(line: string): string | null {
 	if (closingIndex < 0) return null;
 	return stripped.slice(1, closingIndex).trim();
 }
-

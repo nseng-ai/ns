@@ -36,7 +36,9 @@ describe("pr-address CLI", () => {
 
 		const runtime = runScenario(["--runtime"]);
 		expect(await runtime.exit).toBe(0);
-		expect(runtime.stdout.join("")).toBe("runtime: typescript\nentry_point: @asdl/pr-address bin pr-address -> ts/packages/pr-address/src/cli.ts\n");
+		expect(runtime.stdout.join("")).toBe(
+			"runtime: typescript\nentry_point: @asdl/pr-address bin pr-address -> ts/packages/pr-address/src/cli.ts\n",
+		);
 	});
 
 	test("hides the exec subgroup from top-level help while keeping it invocable", async () => {
@@ -89,23 +91,42 @@ describe("pr-address CLI", () => {
 				},
 			},
 		});
-		const run = runScenario(["exec", "echo-json", "--format", "json"], { operations: [echoOperation], stdin: async () => '{"ok":true}' });
+		const run = runScenario(["exec", "echo-json", "--format", "json"], {
+			operations: [echoOperation],
+			stdin: async () => '{"ok":true}',
+		});
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join("")).data).toEqual({ ok: true });
 	});
 
 	test("maps managed Clinkr envelope exits to process exit codes", async () => {
 		const operations = [envelopeOperation()];
-		const negativeRun = runScenario(["exec", "envelope", "negative", "--format", "json"], { operations });
+		const negativeRun = runScenario(["exec", "envelope", "negative", "--format", "json"], {
+			operations,
+		});
 		expect(await negativeRun.exit).toBe(0);
-		expect(JSON.parse(negativeRun.stdout.join(""))).toEqual({ exit_code: 1, message: "not valid", data: { valid: false } });
+		expect(JSON.parse(negativeRun.stdout.join(""))).toEqual({
+			exit_code: 1,
+			message: "not valid",
+			data: { valid: false },
+		});
 
-		const failureRun = runScenario(["exec", "envelope", "failure", "--format", "json"], { operations });
+		const failureRun = runScenario(["exec", "envelope", "failure", "--format", "json"], {
+			operations,
+		});
 		expect(await failureRun.exit).toBe(2);
-		expect(JSON.parse(failureRun.stdout.join(""))).toEqual({ exit_code: 2, error_type: "invalid_request", message: "bad input" });
+		expect(JSON.parse(failureRun.stdout.join(""))).toEqual({
+			exit_code: 2,
+			error_type: "invalid_request",
+			message: "bad input",
+		});
 
 		expect(exitCodeForExit(ok({}))).toBe(0);
-		expect(toMachineEnvelope(failure("invalid_request", "bad input"))).toEqual({ exit_code: 2, error_type: "invalid_request", message: "bad input" });
+		expect(toMachineEnvelope(failure("invalid_request", "bad input"))).toEqual({
+			exit_code: 2,
+			error_type: "invalid_request",
+			message: "bad input",
+		});
 	});
 });
 

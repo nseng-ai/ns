@@ -4,7 +4,9 @@ import { truncateTextHead, truncateTextHeadTail } from "../src/text-truncation.t
 
 describe("truncateTextHeadTail", () => {
 	test("keeps unbounded values unchanged", () => {
-		expect(truncateTextHeadTail({ value: "abc", maxChars: 3, headRatio: 0.5, buildMarker: () => "..." })).toBe("abc");
+		expect(
+			truncateTextHeadTail({ value: "abc", maxChars: 3, headRatio: 0.5, buildMarker: () => "..." }),
+		).toBe("abc");
 	});
 
 	test("builds a marker-bounded head and tail excerpt", () => {
@@ -38,7 +40,14 @@ describe("truncateTextHeadTail", () => {
 
 describe("truncateTextHead", () => {
 	test("keeps unbounded values unchanged after optional input trimming", () => {
-		expect(truncateTextHead({ value: " abc \n", maxChars: 3, shouldTrimInput: true, buildMarker: () => "..." })).toBe("abc");
+		expect(
+			truncateTextHead({
+				value: " abc \n",
+				maxChars: 3,
+				shouldTrimInput: true,
+				buildMarker: () => "...",
+			}),
+		).toBe("abc");
 	});
 
 	test("recomputes omitted characters after marker length changes", () => {

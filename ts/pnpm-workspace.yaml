@@ -1,4 +1,28 @@
 packages:
   - packages/*
+
+allowBuilds:
+  '@google/genai': set this to true or false
+  protobufjs: set this to true or false
+
+catalog:
+  '@earendil-works/pi-ai': 0.79.1
+  '@earendil-works/pi-coding-agent': 0.79.1
+  '@earendil-works/pi-tui': 0.79.1
+  '@opentui/core': 0.4.1
+  '@pierre/diffs': ^1.2.10
+  '@types/node': ^24.0.0
+  '@typescript/native-preview': 7.0.0-dev.20260617.2
+  commander: ^14.0.0
+  jiti: 2.7.0
+  oxfmt: ^0.55.0
+  oxlint: ^1.70.0
+  smol-toml: ^1.6.1
+  syncpack: ^15.3.2
+  typescript: ^6.0.3
+  vitest: ^4.1.8
+  yaml: ^2.9.0
+  zod: ^4.4.3
+
 patchedDependencies:
   '@earendil-works/pi-ai@0.79.1': patches/@earendil-works%2Fpi-ai@0.79.1.patch

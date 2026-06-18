@@ -6,7 +6,9 @@
     ".": "./src/index.ts",
     "./identity": "./src/identity.ts"
   },
-  "files": ["src"],
+  "files": [
+    "src"
+  ],
   "bin": {
     "handoff": "./src/cli.ts"
   },
@@ -18,6 +20,6 @@
     "@asdl/brmem": "workspace:*",
     "@asdl/clinkr": "workspace:*",
     "@asdl/core": "workspace:*",
-    "zod": "^4.4.3"
+    "zod": "catalog:"
   }
 }

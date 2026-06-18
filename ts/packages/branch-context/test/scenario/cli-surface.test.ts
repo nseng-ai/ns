@@ -3,7 +3,16 @@ import { join } from "node:path";
 import { writeFile } from "node:fs/promises";
 
 import { BRANCH_CONTEXT_NAMESPACE } from "../../src/constants.ts";
-import { PLAN_KEY, PLAN_SLUG, START_POINT, expectNoGitOrBrmemCalls, jsonFailure, makeTempDir, parseJson, runWithFakes } from "../support/cli-harness.ts";
+import {
+	PLAN_KEY,
+	PLAN_SLUG,
+	START_POINT,
+	expectNoGitOrBrmemCalls,
+	jsonFailure,
+	makeTempDir,
+	parseJson,
+	runWithFakes,
+} from "../support/cli-harness.ts";
 
 const TOP_LEVEL_HELP = [
 	"Usage: branch-context [options] [command]",
@@ -83,7 +92,6 @@ const LOAD_PLAN_HELP = [
 	"",
 ].join("\n");
 
-
 describe("branch-context CLI help, version, and dispatch pins", () => {
 	test.each([[[]], [["-h"]], [["--help"]]])("pins top-level help for %j", async (args) => {
 		const repoRoot = await makeTempDir();
@@ -154,7 +162,6 @@ describe("branch-context CLI help, version, and dispatch pins", () => {
 	});
 });
 
-
 describe("branch-context CLI parse failures", () => {
 	test("reports missing flag values as raw stderr without running commands", async () => {
 		const repoRoot = await makeTempDir();
@@ -168,11 +175,15 @@ describe("branch-context CLI parse failures", () => {
 
 	test("missing flag value before --format json consumes the next flag", async () => {
 		const repoRoot = await makeTempDir();
-		const run = runWithFakes(["exec", "from-plan", "--slug", "--format", "json"], { cwd: repoRoot });
+		const run = runWithFakes(["exec", "from-plan", "--slug", "--format", "json"], {
+			cwd: repoRoot,
+		});
 
 		expect(await run.exit).toBe(2);
 		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toBe("error: too many arguments for 'from-plan'. Expected 0 arguments but got 1.\n");
+		expect(run.stderr.join("")).toBe(
+			"error: too many arguments for 'from-plan'. Expected 0 arguments but got 1.\n",
+		);
 		expect(run.commands.execCalls).toEqual([]);
 		// PINNED QUIRK (clinkr-migration): commander consumes "--format" as the --slug
 		// value, leaving "json" as an excess positional; usage errors stay raw stderr.
@@ -212,19 +223,34 @@ describe("branch-context CLI parse failures", () => {
 
 	test("pins invalid branch context slug failures in human and JSON modes", async () => {
 		const repoRoot = await makeTempDir();
-		const message = "Invalid branch context slug: Slug must be lowercase kebab-case using only a-z, 0-9, and single hyphens.";
-		const human = runWithFakes(["exec", "from-plan", "--slug", "Not-Kebab-Case", "--plan-file", "/tmp/plan.md"], { cwd: repoRoot });
+		const message =
+			"Invalid branch context slug: Slug must be lowercase kebab-case using only a-z, 0-9, and single hyphens.";
+		const human = runWithFakes(
+			["exec", "from-plan", "--slug", "Not-Kebab-Case", "--plan-file", "/tmp/plan.md"],
+			{ cwd: repoRoot },
+		);
 		expect(await human.exit).toBe(2);
 		expect(human.stdout.join("")).toBe("");
 		expect(human.stderr.join("")).toBe(`error: ${message}\n`);
 
-		const json = runWithFakes(["exec", "from-plan", "--slug", "Not-Kebab-Case", "--plan-file", "/tmp/plan.md", "--format", "json"], { cwd: repoRoot });
+		const json = runWithFakes(
+			[
+				"exec",
+				"from-plan",
+				"--slug",
+				"Not-Kebab-Case",
+				"--plan-file",
+				"/tmp/plan.md",
+				"--format",
+				"json",
+			],
+			{ cwd: repoRoot },
+		);
 		expect(await json.exit).toBe(2);
 		expect(json.stdout.join("")).toBe(jsonFailure(message));
 		expect(json.stderr.join("")).toBe("");
 	});
 });
-
 
 describe("branch-context CLI surface pinning", () => {
 	test("accepts inline equals syntax for create flags", async () => {
@@ -232,13 +258,21 @@ describe("branch-context CLI surface pinning", () => {
 		const outsideDir = await makeTempDir();
 		const planFile = join(outsideDir, "plan.md");
 		await writeFile(planFile, "# Plan\n", "utf8");
-		const run = runWithFakes(["exec", "from-plan", `--slug=${PLAN_SLUG}`, `--plan-file=${planFile}`, "--format=json"], {
-			cwd: repoRoot,
-			git: { headCommit: START_POINT },
-		});
+		const run = runWithFakes(
+			["exec", "from-plan", `--slug=${PLAN_SLUG}`, `--plan-file=${planFile}`, "--format=json"],
+			{
+				cwd: repoRoot,
+				git: { headCommit: START_POINT },
+			},
+		);
 
 		expect(await run.exit).toBe(0);
-		expect(parseJson(run)).toMatchObject({ success: true, slug: PLAN_SLUG, branch: PLAN_SLUG, source_file: planFile });
+		expect(parseJson(run)).toMatchObject({
+			success: true,
+			slug: PLAN_SLUG,
+			branch: PLAN_SLUG,
+			source_file: planFile,
+		});
 		// PINNED CLINKR SEMANTICS: commander accepts --flag=value syntax.
 	});
 
@@ -248,7 +282,18 @@ describe("branch-context CLI surface pinning", () => {
 		const planFile = join(outsideDir, "plan.md");
 		await writeFile(planFile, "# Plan\n", "utf8");
 		const run = runWithFakes(
-			["exec", "from-plan", "--slug", "first-branch-plan", "--slug", PLAN_SLUG, "--plan-file", planFile, "--format", "json"],
+			[
+				"exec",
+				"from-plan",
+				"--slug",
+				"first-branch-plan",
+				"--slug",
+				PLAN_SLUG,
+				"--plan-file",
+				planFile,
+				"--format",
+				"json",
+			],
 			{ cwd: repoRoot, git: { headCommit: START_POINT } },
 		);
 
@@ -270,15 +315,42 @@ describe("branch-context CLI surface pinning", () => {
 
 	test("pins invalid branch-creation as a raw commander choices error in human and JSON modes", async () => {
 		const repoRoot = await makeTempDir();
-		const message = "error: option '--branch-creation <value>' argument 'bogus' is invalid. Allowed choices are plain-git, graphite.\n";
-		const human = runWithFakes(["exec", "from-plan", "--slug", PLAN_SLUG, "--plan-file", "/tmp/plan.md", "--branch-creation", "bogus"], { cwd: repoRoot });
+		const message =
+			"error: option '--branch-creation <value>' argument 'bogus' is invalid. Allowed choices are plain-git, graphite.\n";
+		const human = runWithFakes(
+			[
+				"exec",
+				"from-plan",
+				"--slug",
+				PLAN_SLUG,
+				"--plan-file",
+				"/tmp/plan.md",
+				"--branch-creation",
+				"bogus",
+			],
+			{ cwd: repoRoot },
+		);
 		expect(await human.exit).toBe(2);
 		expect(human.stdout.join("")).toBe("");
 		expect(human.stderr.join("")).toBe(message);
 
-		const json = runWithFakes(["exec", "from-plan", "--slug", PLAN_SLUG, "--plan-file", "/tmp/plan.md", "--branch-creation", "bogus", "--format", "json"], {
-			cwd: repoRoot,
-		});
+		const json = runWithFakes(
+			[
+				"exec",
+				"from-plan",
+				"--slug",
+				PLAN_SLUG,
+				"--plan-file",
+				"/tmp/plan.md",
+				"--branch-creation",
+				"bogus",
+				"--format",
+				"json",
+			],
+			{
+				cwd: repoRoot,
+			},
+		);
 		expect(await json.exit).toBe(2);
 		expect(json.stdout.join("")).toBe("");
 		expect(json.stderr.join("")).toBe(message);
@@ -366,10 +438,14 @@ describe("branch-context CLI surface pinning", () => {
 			source: "attached",
 		});
 
-		const duplicate = runWithFakes(["exec", "load", PLAN_KEY, "other-plan", "--format", "json"], { cwd: repoRoot });
+		const duplicate = runWithFakes(["exec", "load", PLAN_KEY, "other-plan", "--format", "json"], {
+			cwd: repoRoot,
+		});
 		expect(await duplicate.exit).toBe(2);
 		expect(duplicate.stdout.join("")).toBe("");
-		expect(duplicate.stderr.join("")).toBe("error: too many arguments for 'load'. Expected 1 argument but got 2.\n");
+		expect(duplicate.stderr.join("")).toBe(
+			"error: too many arguments for 'load'. Expected 1 argument but got 2.\n",
+		);
 		// PINNED CLINKR SEMANTICS: excess positionals are a raw commander usage error, never JSON-enveloped.
 	});
 });

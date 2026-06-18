@@ -31,12 +31,18 @@ describe("handoff:self extension", () => {
 		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
 		const context = createContext();
 
-		const commandPromise = Promise.resolve(command.handler("finish the self handoff workflow", context.ctx));
+		const commandPromise = Promise.resolve(
+			command.handler("finish the self handoff workflow", context.ctx),
+		);
 		await waitForSentUserMessage(pi);
 
 		expect(context.waitForIdleCalls()).toBe(1);
-		expect(pi.execCalls.map((call) => [call.command, call.args])).toEqual([["git", ["branch", "--show-current"]]]);
-		expect(context.notifications).toEqual([{ message: "Starting handoff:self workflow with content-derived slug…", level: "info" }]);
+		expect(pi.execCalls.map((call) => [call.command, call.args])).toEqual([
+			["git", ["branch", "--show-current"]],
+		]);
+		expect(context.notifications).toEqual([
+			{ message: "Starting handoff:self workflow with content-derived slug…", level: "info" },
+		]);
 		expect(pi.sentUserMessages).toHaveLength(1);
 		const prompt = pi.sentUserMessages[0] ?? "";
 		const workflowId = extractWorkflowId(prompt);
@@ -48,12 +54,22 @@ describe("handoff:self extension", () => {
 		expect(prompt).toContain(`workflow_id: ${workflowId}`);
 		expect(prompt).toContain("After `brmem put` succeeds, call handoff_self_queue_pickup");
 		expect(prompt).toContain("do not clear context or pick up the handoff");
-		expect(prompt).toContain("Do not queue slash commands such as /handoff:self-resume, /handoff:self-pickup, or /new as user messages.");
-		expect(prompt).toContain("After saving and verification, the command will replace this session");
+		expect(prompt).toContain(
+			"Do not queue slash commands such as /handoff:self-resume, /handoff:self-pickup, or /new as user messages.",
+		);
+		expect(prompt).toContain(
+			"After saving and verification, the command will replace this session",
+		);
 		expect(prompt).not.toContain(`/handoff:pickup --branch ${BRANCH} <returned-slug>`);
 		expect(prompt).toContain(formatHandoffSelfKickoffPrompt(BRANCH, "<returned-slug>"));
 
-		await tool.execute("tool-call-1", { branch: BRANCH, slug: "finish-widget", workflow_id: workflowId }, undefined, undefined, context.ctx);
+		await tool.execute(
+			"tool-call-1",
+			{ branch: BRANCH, slug: "finish-widget", workflow_id: workflowId },
+			undefined,
+			undefined,
+			context.ctx,
+		);
 		await commandPromise;
 		pi.assertDone();
 	});
@@ -97,7 +113,13 @@ describe("handoff:self extension", () => {
 		const workflowId = extractWorkflowId(pi.sentUserMessages[0] ?? "");
 
 		expect(context.newSessionCalls).toEqual([]);
-		const result = await tool.execute("tool-call-1", { branch: BRANCH, slug: "finish-widget", workflow_id: workflowId }, undefined, undefined, context.ctx);
+		const result = await tool.execute(
+			"tool-call-1",
+			{ branch: BRANCH, slug: "finish-widget", workflow_id: workflowId },
+			undefined,
+			undefined,
+			context.ctx,
+		);
 
 		expect(result.isError).toBeUndefined();
 		expect(result.terminate).toBe(true);
@@ -136,7 +158,13 @@ describe("handoff:self extension", () => {
 		const commandPromise = Promise.resolve(command.handler("finish widget", context.ctx));
 		await waitForSentUserMessage(pi);
 		const workflowId = extractWorkflowId(pi.sentUserMessages[0] ?? "");
-		const result = await tool.execute("tool-call-1", { branch: BRANCH, slug: "finish-widget", workflow_id: workflowId }, undefined, undefined, context.ctx);
+		const result = await tool.execute(
+			"tool-call-1",
+			{ branch: BRANCH, slug: "finish-widget", workflow_id: workflowId },
+			undefined,
+			undefined,
+			context.ctx,
+		);
 		await commandPromise;
 
 		expect(result.isError).toBeUndefined();
@@ -144,13 +172,22 @@ describe("handoff:self extension", () => {
 		expect(context.newSessionCalls).toEqual([{ parentSession: undefined }]);
 		expect(context.replacementUserMessages).toEqual([]);
 		expect(pi.sentUserMessageCalls).toHaveLength(1);
-		expect(context.statuses).toEqual(["verifying saved handoff…", undefined, "clearing context…", undefined]);
+		expect(context.statuses).toEqual([
+			"verifying saved handoff…",
+			undefined,
+			"clearing context…",
+			undefined,
+		]);
 		const recoveryNotification = context.notifications.at(-1);
 		expect(recoveryNotification?.level).toBe("warning");
-		expect(recoveryNotification?.message).toContain("handoff:self saved and verified handoff finish-widget");
+		expect(recoveryNotification?.message).toContain(
+			"handoff:self saved and verified handoff finish-widget",
+		);
 		expect(recoveryNotification?.message).toContain("session replacement was cancelled");
 		expect(recoveryNotification?.message).toContain("Context was not cleared");
-		expect(recoveryNotification?.message).toContain(formatHandoffSelfKickoffPrompt(BRANCH, "finish-widget"));
+		expect(recoveryNotification?.message).toContain(
+			formatHandoffSelfKickoffPrompt(BRANCH, "finish-widget"),
+		);
 		pi.assertDone();
 	});
 
@@ -164,7 +201,13 @@ describe("handoff:self extension", () => {
 		const commandPromise = Promise.resolve(command.handler("finish widget", context.ctx));
 		await waitForSentUserMessage(pi);
 		const workflowId = extractWorkflowId(pi.sentUserMessages[0] ?? "");
-		const result = await tool.execute("tool-call-1", { branch: BRANCH, slug: "finish-widget", workflow_id: workflowId }, undefined, undefined, context.ctx);
+		const result = await tool.execute(
+			"tool-call-1",
+			{ branch: BRANCH, slug: "finish-widget", workflow_id: workflowId },
+			undefined,
+			undefined,
+			context.ctx,
+		);
 		await commandPromise;
 
 		expect(result.isError).toBeUndefined();
@@ -172,14 +215,23 @@ describe("handoff:self extension", () => {
 		expect(context.newSessionCalls).toEqual([{ parentSession: undefined }]);
 		expect(context.replacementUserMessages).toEqual([]);
 		expect(pi.sentUserMessageCalls).toHaveLength(1);
-		expect(context.statuses).toEqual(["verifying saved handoff…", undefined, "clearing context…", undefined]);
+		expect(context.statuses).toEqual([
+			"verifying saved handoff…",
+			undefined,
+			"clearing context…",
+			undefined,
+		]);
 		const recoveryNotification = context.notifications.at(-1);
 		expect(recoveryNotification?.level).toBe("error");
-		expect(recoveryNotification?.message).toContain("handoff:self saved and verified handoff finish-widget");
+		expect(recoveryNotification?.message).toContain(
+			"handoff:self saved and verified handoff finish-widget",
+		);
 		expect(recoveryNotification?.message).toContain("session replacement failed");
 		expect(recoveryNotification?.message).toContain("new session boom");
 		expect(recoveryNotification?.message).toContain("Context was not cleared");
-		expect(recoveryNotification?.message).toContain(formatHandoffSelfKickoffPrompt(BRANCH, "finish-widget"));
+		expect(recoveryNotification?.message).toContain(
+			formatHandoffSelfKickoffPrompt(BRANCH, "finish-widget"),
+		);
 		pi.assertDone();
 	});
 
@@ -202,7 +254,13 @@ describe("handoff:self extension", () => {
 		const commandPromise = Promise.resolve(command.handler("finish widget", supportedContext.ctx));
 		await waitForSentUserMessage(pi);
 		const workflowId = extractWorkflowId(pi.sentUserMessages[0] ?? "");
-		await tool.execute("tool-call-1", { branch: BRANCH, slug: "finish-widget", workflow_id: workflowId }, undefined, undefined, supportedContext.ctx);
+		await tool.execute(
+			"tool-call-1",
+			{ branch: BRANCH, slug: "finish-widget", workflow_id: workflowId },
+			undefined,
+			undefined,
+			supportedContext.ctx,
+		);
 		await commandPromise;
 
 		pi.assertDone();
@@ -215,7 +273,13 @@ describe("handoff:self extension", () => {
 		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
 		const context = createContext();
 
-		const result = await tool.execute("tool-call-1", { branch: BRANCH, slug: "finish-widget", workflow_id: "not-active" }, undefined, undefined, context.ctx);
+		const result = await tool.execute(
+			"tool-call-1",
+			{ branch: BRANCH, slug: "finish-widget", workflow_id: "not-active" },
+			undefined,
+			undefined,
+			context.ctx,
+		);
 
 		expect(result.isError).toBe(true);
 		expect(result.content[0]?.text).toContain("no active /handoff:self workflow");
@@ -234,7 +298,13 @@ describe("handoff:self extension", () => {
 
 			const commandPromise = Promise.resolve(command.handler("finish widget", context.ctx));
 			await waitForSentUserMessageWithFakeTimers(pi);
-			const result = await tool.execute("tool-call-1", { branch: BRANCH, slug: "finish-widget", workflow_id: "wrong" }, undefined, undefined, context.ctx);
+			const result = await tool.execute(
+				"tool-call-1",
+				{ branch: BRANCH, slug: "finish-widget", workflow_id: "wrong" },
+				undefined,
+				undefined,
+				context.ctx,
+			);
 
 			expect(result.isError).toBe(true);
 			expect(result.content[0]?.text).toContain("wrong workflow_id");
@@ -260,10 +330,18 @@ describe("handoff:self extension", () => {
 			const commandPromise = Promise.resolve(command.handler("finish widget", context.ctx));
 			await waitForSentUserMessageWithFakeTimers(pi);
 			const workflowId = extractWorkflowId(pi.sentUserMessages[0] ?? "");
-			const result = await tool.execute("tool-call-1", { branch: BRANCH, slug: "missing", workflow_id: workflowId }, undefined, undefined, context.ctx);
+			const result = await tool.execute(
+				"tool-call-1",
+				{ branch: BRANCH, slug: "missing", workflow_id: workflowId },
+				undefined,
+				undefined,
+				context.ctx,
+			);
 
 			expect(result.isError).toBe(true);
-			expect(result.content[0]?.text).toBe(`No handoff missing found on branch ${BRANCH}; context was not cleared.`);
+			expect(result.content[0]?.text).toBe(
+				`No handoff missing found on branch ${BRANCH}; context was not cleared.`,
+			);
 			expect(context.newSessionCalls).toEqual([]);
 
 			await vi.advanceTimersByTimeAsync(1);
@@ -292,11 +370,18 @@ describe("handoff:self extension", () => {
 
 			expect(context.newSessionCalls).toEqual([]);
 			expect(context.notifications.at(-1)).toEqual({
-				message: "handoff:self timed out waiting for handoff_self_queue_pickup; context was not cleared because the saved handoff was not verified.",
+				message:
+					"handoff:self timed out waiting for handoff_self_queue_pickup; context was not cleared because the saved handoff was not verified.",
 				level: "error",
 			});
 
-			const lateResult = await tool.execute("tool-call-1", { branch: BRANCH, slug: "finish-widget", workflow_id: workflowId }, undefined, undefined, context.ctx);
+			const lateResult = await tool.execute(
+				"tool-call-1",
+				{ branch: BRANCH, slug: "finish-widget", workflow_id: workflowId },
+				undefined,
+				undefined,
+				context.ctx,
+			);
 			expect(lateResult.isError).toBe(true);
 			expect(lateResult.content[0]?.text).toContain("no active /handoff:self workflow");
 			expect(context.newSessionCalls).toEqual([]);
@@ -318,10 +403,20 @@ describe("handoff:self extension", () => {
 		await command.handler("second focus", context.ctx);
 
 		expect(pi.sentUserMessages).toHaveLength(1);
-		expect(context.notifications.some((notification) => notification.message.includes("already waiting"))).toBe(true);
+		expect(
+			context.notifications.some((notification) =>
+				notification.message.includes("already waiting"),
+			),
+		).toBe(true);
 
 		const workflowId = extractWorkflowId(pi.sentUserMessages[0] ?? "");
-		await tool.execute("tool-call-1", { branch: BRANCH, slug: "finish-widget", workflow_id: workflowId }, undefined, undefined, context.ctx);
+		await tool.execute(
+			"tool-call-1",
+			{ branch: BRANCH, slug: "finish-widget", workflow_id: workflowId },
+			undefined,
+			undefined,
+			context.ctx,
+		);
 		await firstPromise;
 		pi.assertDone();
 	});
@@ -337,17 +432,26 @@ describe("handoff:self pure helpers", () => {
 		expect(prompt).toContain("# handoff-create skill");
 		expect(prompt).toContain("This is a /handoff:self request.");
 		expect(prompt).toContain("workflow_id: <workflow-id>");
-		expect(prompt).toContain("If it exists, stop; do not overwrite and do not clear context or pick up the handoff.");
+		expect(prompt).toContain(
+			"If it exists, stop; do not overwrite and do not clear context or pick up the handoff.",
+		);
 		expect(prompt).toContain("After `brmem put` succeeds, call handoff_self_queue_pickup");
-		expect(prompt).toContain("Do not queue slash commands such as /handoff:self-resume, /handoff:self-pickup, or /new as user messages.");
-		expect(prompt).toContain("After saving and verification, the command will replace this session");
+		expect(prompt).toContain(
+			"Do not queue slash commands such as /handoff:self-resume, /handoff:self-pickup, or /new as user messages.",
+		);
+		expect(prompt).toContain(
+			"After saving and verification, the command will replace this session",
+		);
 		expect(prompt).toContain(formatHandoffSelfKickoffPrompt(BRANCH, "<returned-slug>"));
 		expect(prompt).not.toContain(`/handoff:pickup --branch ${BRANCH} <returned-slug>`);
 	});
 });
 
 function registerSelfOnly(pi: FakePi, timeoutMs: number): void {
-	const workflow = createHandoffSelfWorkflow(pi, { timeoutMs, skillLoader: fakeHandoffCreateSkillLoader() });
+	const workflow = createHandoffSelfWorkflow(pi, {
+		timeoutMs,
+		skillLoader: fakeHandoffCreateSkillLoader(),
+	});
 	pi.registerTool?.(workflow.buildTool());
 	pi.registerCommand("handoff:self", {
 		description: "Create a handoff, clear context, and pick it up in this Pi session.",

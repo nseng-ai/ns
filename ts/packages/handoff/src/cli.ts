@@ -6,9 +6,20 @@ import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
 import { createRealHandoffContext, type HandoffCliContext } from "./context.ts";
-import { deleteRequestSchema, deleteResultSchema, renderDelete, runDelete } from "./operations/delete.ts";
+import {
+	deleteRequestSchema,
+	deleteResultSchema,
+	renderDelete,
+	runDelete,
+} from "./operations/delete.ts";
 import { gcRequestSchema, gcResultSchema, renderGc, runGc } from "./operations/gc.ts";
-import { listRequestSchema, listResultSchema, renderList, renderListMarkdown, runList } from "./operations/list.ts";
+import {
+	listRequestSchema,
+	listResultSchema,
+	renderList,
+	renderListMarkdown,
+	runList,
+} from "./operations/list.ts";
 
 export const VERSION = "0.1.0";
 
@@ -42,7 +53,8 @@ export function buildCli(): ClinkrGroup<HandoffCliContext> {
 	});
 	root.command({
 		name: "list",
-		description: "List handoffs. Defaults to the current branch. Pass --all to list across active branches or --include-deleted to include deleted local branches.",
+		description:
+			"List handoffs. Defaults to the current branch. Pass --all to list across active branches or --include-deleted to include deleted local branches.",
 		schema: listRequestSchema,
 		resultSchema: listResultSchema,
 		handler: runList,

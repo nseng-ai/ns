@@ -10,5 +10,6 @@ describeNodeRuntimeCliEntrypoint({
 		{ type: "contains", text: "--runtime" },
 		{ type: "contains", text: "list" },
 	],
-	runtimeDiagnostics: "runtime: typescript\nentry_point: @asdl/plans bin enriched-plan -> ts/packages/plans/src/cli.ts\n",
+	runtimeDiagnostics:
+		"runtime: typescript\nentry_point: @asdl/plans bin enriched-plan -> ts/packages/plans/src/cli.ts\n",
 });

@@ -7,11 +7,21 @@ import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
 import { createRealAregContext, type AregCliContext } from "./context.ts";
-import { checkRequestSchema, checkResultSchema, renderCheck, runCheck } from "./operations/check.ts";
+import {
+	checkRequestSchema,
+	checkResultSchema,
+	renderCheck,
+	runCheck,
+} from "./operations/check.ts";
 import { initRequestSchema, initResultSchema, renderInit, runInit } from "./operations/init.ts";
 import { buildSkillGroup } from "./operations/skill-kind.ts";
 import { buildSkillxGroup } from "./operations/skillx.ts";
-import { renderUpdateSkills, runUpdateSkills, updateSkillsRequestSchema, updateSkillsResultSchema } from "./operations/update-skills.ts";
+import {
+	renderUpdateSkills,
+	runUpdateSkills,
+	updateSkillsRequestSchema,
+	updateSkillsResultSchema,
+} from "./operations/update-skills.ts";
 
 export const VERSION = readPackageVersion();
 
@@ -80,8 +90,15 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 }
 
 function readPackageVersion(): string {
-	const packageJson: unknown = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
-	if (typeof packageJson !== "object" || packageJson === null || !("version" in packageJson) || typeof packageJson.version !== "string") {
+	const packageJson: unknown = JSON.parse(
+		readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+	);
+	if (
+		typeof packageJson !== "object" ||
+		packageJson === null ||
+		!("version" in packageJson) ||
+		typeof packageJson.version !== "string"
+	) {
 		throw new Error("@asdl/areg package.json must declare a string version");
 	}
 	return packageJson.version;

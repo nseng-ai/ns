@@ -6,7 +6,12 @@ import type { CommandResult } from "@asdl/sdl/checkpoint-flow";
 import type { PendingWorktreeSnapshot } from "@asdl/sdl/pending-worktree";
 
 import { chooseAvailableBranchName } from "./branch-name.ts";
-import { buildBranchSlugPrompt, deriveBranchSlug, MAX_DIFF_CHARS, prepareRequestedBranchSlug } from "./slug.ts";
+import {
+	buildBranchSlugPrompt,
+	deriveBranchSlug,
+	MAX_DIFF_CHARS,
+	prepareRequestedBranchSlug,
+} from "./slug.ts";
 import { sanitizeBranchName } from "@asdl/pi-extension-runtime/branch-slug";
 
 const GIT_TIMEOUT_MS = 30_000;
@@ -31,7 +36,9 @@ export interface AutobranchPreparationInput {
 	args: ParsedAutobranchArgs;
 	snapshot: PendingWorktreeSnapshot;
 	exec: (command: string, args: string[], cwd: string, timeout: number) => Promise<CommandResult>;
-	prepareCheckpointMessage: (snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">) => Promise<{ ok: true; message: string } | { ok: false; error: string }>;
+	prepareCheckpointMessage: (
+		snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">,
+	) => Promise<{ ok: true; message: string } | { ok: false; error: string }>;
 	readFile?: (path: string) => Promise<Uint8Array | string>;
 	stat?: (path: string) => Promise<FileStat>;
 }
@@ -56,7 +63,9 @@ export type AutobranchPreparationResult =
 	| { ok: false; kind: "branch_name_unavailable"; baseSlug: string }
 	| { ok: false; kind: "checkpoint_prepare_failed"; error: string };
 
-export async function prepareAutobranchPlan(input: AutobranchPreparationInput): Promise<AutobranchPreparationResult> {
+export async function prepareAutobranchPlan(
+	input: AutobranchPreparationInput,
+): Promise<AutobranchPreparationResult> {
 	const warnings: AutobranchPreparationWarning[] = [];
 	const slug = await prepareBaseSlug(input);
 	if (!slug.ok) {
@@ -90,8 +99,16 @@ export async function prepareAutobranchPlan(input: AutobranchPreparationInput): 
 }
 
 type PreparedBaseSlugResult =
-	| { ok: true; baseSlug: string; source: AutobranchPlan["slugSource"]; warning?: AutobranchPreparationWarning }
-	| Extract<AutobranchPreparationResult, { kind: "invalid_requested_slug" | "slug_generation_failed" }>;
+	| {
+			ok: true;
+			baseSlug: string;
+			source: AutobranchPlan["slugSource"];
+			warning?: AutobranchPreparationWarning;
+	  }
+	| Extract<
+			AutobranchPreparationResult,
+			{ kind: "invalid_requested_slug" | "slug_generation_failed" }
+	  >;
 
 async function prepareBaseSlug(input: AutobranchPreparationInput): Promise<PreparedBaseSlugResult> {
 	const requested = prepareRequestedBranchSlug(input.args.slug);
@@ -106,8 +123,16 @@ async function prepareBaseSlug(input: AutobranchPreparationInput): Promise<Prepa
 	return generateSlugFromChanges(input, { ...input.snapshot, untracked });
 }
 
-async function readUntrackedSnippets(input: AutobranchPreparationInput, root: string): Promise<string> {
-	const listed = await input.exec("git", ["ls-files", "--others", "--exclude-standard", "-z"], input.cwd, GIT_TIMEOUT_MS);
+async function readUntrackedSnippets(
+	input: AutobranchPreparationInput,
+	root: string,
+): Promise<string> {
+	const listed = await input.exec(
+		"git",
+		["ls-files", "--others", "--exclude-standard", "-z"],
+		input.cwd,
+		GIT_TIMEOUT_MS,
+	);
 	if (listed.code !== 0 || listed.stdout.length === 0) {
 		return "";
 	}
@@ -136,7 +161,9 @@ async function readUntrackedSnippets(input: AutobranchPreparationInput, root: st
 			}
 			const text = buffer.toString("utf8");
 			const isTruncated = text.length > MAX_UNTRACKED_FILE_CHARS;
-			snippets.push(`## ${file}\n${text.slice(0, MAX_UNTRACKED_FILE_CHARS)}${isTruncated ? "\n...[truncated]" : ""}`);
+			snippets.push(
+				`## ${file}\n${text.slice(0, MAX_UNTRACKED_FILE_CHARS)}${isTruncated ? "\n...[truncated]" : ""}`,
+			);
 		} catch (error) {
 			snippets.push(`## ${file}\n[could not read: ${formatErrorMessage(error)}]`);
 		}
@@ -144,7 +171,10 @@ async function readUntrackedSnippets(input: AutobranchPreparationInput, root: st
 	return snippets.join("\n\n");
 }
 
-async function generateSlugFromChanges(input: AutobranchPreparationInput, snapshot: AutobranchSnapshot): Promise<PreparedBaseSlugResult> {
+async function generateSlugFromChanges(
+	input: AutobranchPreparationInput,
+	snapshot: AutobranchSnapshot,
+): Promise<PreparedBaseSlugResult> {
 	const prompt = buildSlugPrompt(snapshot);
 	const result = await deriveBranchSlug({ cwd: input.cwd, prompt, exec: input.exec });
 	if (result.ok) {
@@ -153,10 +183,19 @@ async function generateSlugFromChanges(input: AutobranchPreparationInput, snapsh
 
 	const fallbackSlug = fallbackSlugFromSnapshot(snapshot);
 	if (fallbackSlug) {
-		return { ok: true, baseSlug: fallbackSlug, source: "fallback", warning: { kind: "slug_model_failed", fallbackSlug } };
+		return {
+			ok: true,
+			baseSlug: fallbackSlug,
+			source: "fallback",
+			warning: { kind: "slug_model_failed", fallbackSlug },
+		};
 	}
 
-	return { ok: false, kind: "slug_generation_failed", error: `Could not derive a branch slug.\n${result.formattedFailure}` };
+	return {
+		ok: false,
+		kind: "slug_generation_failed",
+		error: `Could not derive a branch slug.\n${result.formattedFailure}`,
+	};
 }
 
 function buildSlugPrompt(snapshot: AutobranchSnapshot): string {
@@ -165,8 +204,21 @@ function buildSlugPrompt(snapshot: AutobranchSnapshot): string {
 		inference: "Infer the actual code, docs, or product change from the diff contents.",
 		evidenceSections: [
 			{ heading: "git status --porcelain", content: snapshot.status, emptyText: "(clean)" },
-			{ heading: "git diff HEAD", content: snapshot.diff, emptyText: "(no tracked diff)", maxChars: MAX_DIFF_CHARS },
-			...(snapshot.untracked ? [{ heading: "untracked file contents", content: snapshot.untracked, maxChars: MAX_DIFF_CHARS }] : []),
+			{
+				heading: "git diff HEAD",
+				content: snapshot.diff,
+				emptyText: "(no tracked diff)",
+				maxChars: MAX_DIFF_CHARS,
+			},
+			...(snapshot.untracked
+				? [
+						{
+							heading: "untracked file contents",
+							content: snapshot.untracked,
+							maxChars: MAX_DIFF_CHARS,
+						},
+					]
+				: []),
 		],
 	});
 }

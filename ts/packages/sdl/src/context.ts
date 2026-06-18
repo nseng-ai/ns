@@ -15,7 +15,9 @@ export function createTextGenerationGateway(): TextGenerationGateway {
 	return new PiTextGenerationGateway();
 }
 
-export function createRealSdlCommandContext(options: RealSdlCommandContextOptions = {}): SdlContext {
+export function createRealSdlCommandContext(
+	options: RealSdlCommandContextOptions = {},
+): SdlContext {
 	const cwd = options.cwd ?? process.cwd();
 	const env = options.env ?? process.env;
 	const model = createTextGenerationGateway();

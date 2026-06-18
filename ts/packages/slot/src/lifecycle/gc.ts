@@ -3,11 +3,27 @@ import type { PrState, PrSummary } from "../gateways/pr.ts";
 import { prFailureMessage } from "../gateways/pr.ts";
 import { buildSlotInventory, type SlotRecord } from "../inventory.ts";
 import { slotOperationMessage, type LifecycleResult } from "./common.ts";
-import { executeReleaseCleanup, planReleaseCleanup, type SlotFreeCleanupAction, type SlotFreeCleanupResult } from "./release-cleanup.ts";
+import {
+	executeReleaseCleanup,
+	planReleaseCleanup,
+	type SlotFreeCleanupAction,
+	type SlotFreeCleanupResult,
+} from "./release-cleanup.ts";
 import { detachFailureMessage } from "./free.ts";
-import { releaseAssignedSlotTarget, type FreedSlot, type ReleaseTargetFailure } from "./release-target.ts";
+import {
+	releaseAssignedSlotTarget,
+	type FreedSlot,
+	type ReleaseTargetFailure,
+} from "./release-target.ts";
 
-export type SlotGcAction = "freed" | "would_free" | "kept_open_pr" | "kept_no_pr" | "skipped_dirty" | "skipped_operation" | "error";
+export type SlotGcAction =
+	| "freed"
+	| "would_free"
+	| "kept_open_pr"
+	| "kept_no_pr"
+	| "skipped_dirty"
+	| "skipped_operation"
+	| "error";
 
 export interface SlotGcEntry {
 	slot_name: string;
@@ -38,26 +54,60 @@ export interface SlotGcOutcome {
 
 export async function planGc(ctx: RepoSlotContext): Promise<LifecycleResult<SlotGcPlan>> {
 	const inventory = await buildSlotInventory(ctx.git, { mainRepoRoot: ctx.repo.mainRepoRoot });
-	if (inventory.records.length === 0) return { type: "failure", failure: { error_type: "pool_empty", message: "No managed slots configured. Run `slot init --size N` first." } };
-	const prRecords = inventory.records.filter((record) => record.branch !== null && record.operation === null);
-	const prBranches = prRecords.flatMap((record) => record.branch === null ? [] : [record.branch]);
+	if (inventory.records.length === 0)
+		return {
+			type: "failure",
+			failure: {
+				error_type: "pool_empty",
+				message: "No managed slots configured. Run `slot init --size N` first.",
+			},
+		};
+	const prRecords = inventory.records.filter(
+		(record) => record.branch !== null && record.operation === null,
+	);
+	const prBranches = prRecords.flatMap((record) => (record.branch === null ? [] : [record.branch]));
 	const prLookup = await ctx.pr.getPrsForBranches(prBranches);
-	if (prLookup.type === "failure") return { type: "failure", failure: { error_type: "pr_lookup_failed", message: prFailureMessage(prLookup.failure, "gh api graphql exited") } };
+	if (prLookup.type === "failure")
+		return {
+			type: "failure",
+			failure: {
+				error_type: "pr_lookup_failed",
+				message: prFailureMessage(prLookup.failure, "gh api graphql exited"),
+			},
+		};
 	const entries: SlotGcEntry[] = [];
 	let wouldFreeCount = 0;
 	for (const record of inventory.records) {
 		if (record.branch === null) continue;
 		if (record.operation !== null) {
-			entries.push(entryFromRecord(record, "skipped_operation", { message: slotOperationMessage(record, { action: "running slot gc" }) }));
+			entries.push(
+				entryFromRecord(record, "skipped_operation", {
+					message: slotOperationMessage(record, { action: "running slot gc" }),
+				}),
+			);
 			continue;
 		}
 		const lookup = prLookup.resultsByBranch.get(record.branch);
-		if (lookup === undefined) return { type: "failure", failure: { error_type: "pr_lookup_failed", message: `PR lookup did not return a result for ${record.branch}` } };
+		if (lookup === undefined)
+			return {
+				type: "failure",
+				failure: {
+					error_type: "pr_lookup_failed",
+					message: `PR lookup did not return a result for ${record.branch}`,
+				},
+			};
 		if (lookup.type === "miss") {
 			entries.push(entryFromRecord(record, "kept_no_pr"));
 			continue;
 		}
-		if (lookup.type === "failure") return { type: "failure", failure: { error_type: "pr_lookup_failed", message: prFailureMessage(lookup.failure, "gh api graphql exited") } };
+		if (lookup.type === "failure")
+			return {
+				type: "failure",
+				failure: {
+					error_type: "pr_lookup_failed",
+					message: prFailureMessage(lookup.failure, "gh api graphql exited"),
+				},
+			};
 		if (lookup.pr.state === "OPEN") {
 			entries.push(entryFromRecord(record, "kept_open_pr", { pr: lookup.pr }));
 			continue;
@@ -68,13 +118,26 @@ export async function planGc(ctx: RepoSlotContext): Promise<LifecycleResult<Slot
 	return { type: "ok", outcome: { entries, would_free_count: wouldFreeCount } };
 }
 
-export async function planGcCleanup(ctx: RepoSlotContext, plan: SlotGcPlan, cleanupActions: readonly SlotFreeCleanupAction[]): Promise<readonly SlotFreeCleanupResult[]> {
+export async function planGcCleanup(
+	ctx: RepoSlotContext,
+	plan: SlotGcPlan,
+	cleanupActions: readonly SlotFreeCleanupAction[],
+): Promise<readonly SlotFreeCleanupResult[]> {
 	const targets = gcFreeTargets(plan.entries);
 	if (targets.length === 0 || cleanupActions.length === 0) return [];
-	return await planReleaseCleanup({ ctx, targets, cleanupActions, trunkBranch: await ctx.git.getTrunkBranch() });
+	return await planReleaseCleanup({
+		ctx,
+		targets,
+		cleanupActions,
+		trunkBranch: await ctx.git.getTrunkBranch(),
+	});
 }
 
-export async function executeGcPlan(ctx: RepoSlotContext, plan: SlotGcPlan, options: { cleanupActions?: readonly SlotFreeCleanupAction[] | undefined } = {}): Promise<SlotGcOutcome> {
+export async function executeGcPlan(
+	ctx: RepoSlotContext,
+	plan: SlotGcPlan,
+	options: { cleanupActions?: readonly SlotFreeCleanupAction[] | undefined } = {},
+): Promise<SlotGcOutcome> {
 	const inventory = await buildSlotInventory(ctx.git, { mainRepoRoot: ctx.repo.mainRepoRoot });
 	const trunk = await ctx.git.getTrunkBranch();
 	let entries: SlotGcEntry[] = [];
@@ -84,7 +147,12 @@ export async function executeGcPlan(ctx: RepoSlotContext, plan: SlotGcPlan, opti
 			entries.push(entry);
 			continue;
 		}
-		const result = await releaseAssignedSlotTarget({ git: ctx.git, inventory, target: freedSlotFromGcEntry(entry), trunkBranch: trunk });
+		const result = await releaseAssignedSlotTarget({
+			git: ctx.git,
+			inventory,
+			target: freedSlotFromGcEntry(entry),
+			trunkBranch: trunk,
+		});
 		if ("reason" in result) {
 			entries.push(entryFromReleaseFailure(entry, result));
 			continue;
@@ -95,18 +163,33 @@ export async function executeGcPlan(ctx: RepoSlotContext, plan: SlotGcPlan, opti
 	}
 	const cleanupActions = options.cleanupActions ?? [];
 	if (cleanupActions.length > 0 && freedEntries.length > 0) {
-		const cleanup = await executeReleaseCleanup({ ctx, targets: gcFreeTargets(freedEntries), cleanupActions, trunkBranch: trunk });
+		const cleanup = await executeReleaseCleanup({
+			ctx,
+			targets: gcFreeTargets(freedEntries),
+			cleanupActions,
+			trunkBranch: trunk,
+		});
 		entries = withCleanupBySlot(entries, cleanup);
 	}
 	return outcomeFromEntries(entries, false);
 }
 
-export function outcomeFromGcPlan(plan: SlotGcPlan, options: { isDryRun: boolean; cleanup?: readonly SlotFreeCleanupResult[] | undefined }): SlotGcOutcome {
-	const entries = options.cleanup === undefined || options.cleanup.length === 0 ? plan.entries : withCleanupBySlot(plan.entries, options.cleanup);
+export function outcomeFromGcPlan(
+	plan: SlotGcPlan,
+	options: { isDryRun: boolean; cleanup?: readonly SlotFreeCleanupResult[] | undefined },
+): SlotGcOutcome {
+	const entries =
+		options.cleanup === undefined || options.cleanup.length === 0
+			? plan.entries
+			: withCleanupBySlot(plan.entries, options.cleanup);
 	return outcomeFromEntries(entries, options.isDryRun);
 }
 
-function entryFromRecord(record: SlotRecord, action: SlotGcAction, options: { pr?: PrSummary | undefined; message?: string | undefined } = {}): SlotGcEntry {
+function entryFromRecord(
+	record: SlotRecord,
+	action: SlotGcAction,
+	options: { pr?: PrSummary | undefined; message?: string | undefined } = {},
+): SlotGcEntry {
 	if (record.branch === null) throw new Error(`gc record ${record.slotName} is not assigned`);
 	return {
 		slot_name: record.slotName,
@@ -122,34 +205,79 @@ function entryFromRecord(record: SlotRecord, action: SlotGcAction, options: { pr
 }
 
 function entryFromReleaseFailure(entry: SlotGcEntry, failure: ReleaseTargetFailure): SlotGcEntry {
-	if (failure.reason === "slot_not_assigned") return withAction(entry, "error", `slot ${entry.slot_name} was not assigned to ${entry.branch_name} during free (state changed between plan and execute).`);
-	if (failure.reason === "operation_in_progress") return withAction(entry, "skipped_operation", `${failure.slot_name} holds '${failure.branch_name}' with a ${failure.operation ?? "operation"} in progress at ${failure.worktree_path}; cannot continue running slot gc.`);
-	if (failure.reason === "dirty_worktree") return withAction(entry, "skipped_dirty", `worktree has uncommitted changes at ${failure.worktree_path}`);
+	if (failure.reason === "slot_not_assigned")
+		return withAction(
+			entry,
+			"error",
+			`slot ${entry.slot_name} was not assigned to ${entry.branch_name} during free (state changed between plan and execute).`,
+		);
+	if (failure.reason === "operation_in_progress")
+		return withAction(
+			entry,
+			"skipped_operation",
+			`${failure.slot_name} holds '${failure.branch_name}' with a ${failure.operation ?? "operation"} in progress at ${failure.worktree_path}; cannot continue running slot gc.`,
+		);
+	if (failure.reason === "dirty_worktree")
+		return withAction(
+			entry,
+			"skipped_dirty",
+			`worktree has uncommitted changes at ${failure.worktree_path}`,
+		);
 	return withAction(entry, "error", detachFailureMessage(failure));
 }
 
-function withAction(entry: SlotGcEntry, action: SlotGcAction, message: string | null = null): SlotGcEntry {
+function withAction(
+	entry: SlotGcEntry,
+	action: SlotGcAction,
+	message: string | null = null,
+): SlotGcEntry {
 	return { ...entry, action, message };
 }
 
 function freedSlotFromGcEntry(entry: SlotGcEntry): FreedSlot {
-	return { slot_name: entry.slot_name, branch_name: entry.branch_name, worktree_path: entry.worktree_path };
+	return {
+		slot_name: entry.slot_name,
+		branch_name: entry.branch_name,
+		worktree_path: entry.worktree_path,
+	};
 }
 
 function gcFreeTargets(entries: readonly SlotGcEntry[]): readonly FreedSlot[] {
-	return entries.filter((entry) => entry.action === "would_free" || entry.action === "freed").map(freedSlotFromGcEntry);
+	return entries
+		.filter((entry) => entry.action === "would_free" || entry.action === "freed")
+		.map(freedSlotFromGcEntry);
 }
 
-function withCleanupBySlot(entries: readonly SlotGcEntry[], cleanup: readonly SlotFreeCleanupResult[]): SlotGcEntry[] {
-	return entries.map((entry) => ({ ...entry, cleanup: cleanup.filter((result) => result.slot_name === entry.slot_name && result.branch_name === entry.branch_name) }));
+function withCleanupBySlot(
+	entries: readonly SlotGcEntry[],
+	cleanup: readonly SlotFreeCleanupResult[],
+): SlotGcEntry[] {
+	return entries.map((entry) => ({
+		...entry,
+		cleanup: cleanup.filter(
+			(result) => result.slot_name === entry.slot_name && result.branch_name === entry.branch_name,
+		),
+	}));
 }
 
 function outcomeFromEntries(entries: readonly SlotGcEntry[], isDryRun: boolean): SlotGcOutcome {
 	const counts = countGcActions(entries);
-	return { entries, ...counts, dry_run: isDryRun, cleanup_error_count: entries.flatMap((entry) => entry.cleanup).filter((result) => result.status === "error").length };
+	return {
+		entries,
+		...counts,
+		dry_run: isDryRun,
+		cleanup_error_count: entries
+			.flatMap((entry) => entry.cleanup)
+			.filter((result) => result.status === "error").length,
+	};
 }
 
-function countGcActions(entries: readonly SlotGcEntry[]): { freed_count: number; kept_count: number; skipped_count: number; error_count: number } {
+function countGcActions(entries: readonly SlotGcEntry[]): {
+	freed_count: number;
+	kept_count: number;
+	skipped_count: number;
+	error_count: number;
+} {
 	let freedCount = 0;
 	let keptCount = 0;
 	let skippedCount = 0;
@@ -160,5 +288,10 @@ function countGcActions(entries: readonly SlotGcEntry[]): { freed_count: number;
 		if (entry.action === "skipped_dirty" || entry.action === "skipped_operation") skippedCount += 1;
 		if (entry.action === "error") errorCount += 1;
 	}
-	return { freed_count: freedCount, kept_count: keptCount, skipped_count: skippedCount, error_count: errorCount };
+	return {
+		freed_count: freedCount,
+		kept_count: keptCount,
+		skipped_count: skippedCount,
+		error_count: errorCount,
+	};
 }

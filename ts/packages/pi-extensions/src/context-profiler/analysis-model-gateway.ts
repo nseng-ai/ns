@@ -6,8 +6,16 @@
  * segmentation.ts and analysis.ts.
  */
 
-import { callPiModelText, type CompleteSimpleFunction, type PiModelRegistryLike } from "../pi-model-call.ts";
-import { EPISODE_ANALYSIS_SYSTEM_PROMPT, parseEpisodeAnalysisResponseText, type EpisodeAnalysis } from "./analysis.ts";
+import {
+	callPiModelText,
+	type CompleteSimpleFunction,
+	type PiModelRegistryLike,
+} from "../pi-model-call.ts";
+import {
+	EPISODE_ANALYSIS_SYSTEM_PROMPT,
+	parseEpisodeAnalysisResponseText,
+	type EpisodeAnalysis,
+} from "./analysis.ts";
 import {
 	parseSegmentationResponseText,
 	SEGMENTATION_MODEL,
@@ -27,7 +35,12 @@ const SEGMENTATION_MAX_TOKENS = 2_048;
 /** Bounded output: a verdict pair plus a 4–8 line opinionated summary. */
 const EPISODE_ANALYSIS_MAX_TOKENS = 1_024;
 
-export type AnalysisModelErrorCode = "model-unavailable" | "auth" | "request-failed" | "invalid-response" | "aborted";
+export type AnalysisModelErrorCode =
+	| "model-unavailable"
+	| "auth"
+	| "request-failed"
+	| "invalid-response"
+	| "aborted";
 
 export interface AnalysisModelError {
 	code: AnalysisModelErrorCode;
@@ -54,8 +67,14 @@ export interface EpisodeAnalysisRequest {
 
 export interface AnalysisModelGateway {
 	readonly analysisModel: string;
-	segmentTurns(request: SegmentationRequest, options: { signal: AbortSignal }): Promise<SegmentationCallResult>;
-	analyzeEpisode(request: EpisodeAnalysisRequest, options: { signal: AbortSignal }): Promise<EpisodeAnalysisCallResult>;
+	segmentTurns(
+		request: SegmentationRequest,
+		options: { signal: AbortSignal },
+	): Promise<SegmentationCallResult>;
+	analyzeEpisode(
+		request: EpisodeAnalysisRequest,
+		options: { signal: AbortSignal },
+	): Promise<EpisodeAnalysisCallResult>;
 }
 
 export function createCodexAnalysisModelGateway(
@@ -102,7 +121,9 @@ interface CallAnalysisModelOptions<T> {
 	parse: (text: string) => { ok: true; value: T } | { ok: false; error: string };
 }
 
-async function callAnalysisModel<T>(options: CallAnalysisModelOptions<T>): Promise<{ ok: true; value: T } | { ok: false; error: AnalysisModelError }> {
+async function callAnalysisModel<T>(
+	options: CallAnalysisModelOptions<T>,
+): Promise<{ ok: true; value: T } | { ok: false; error: AnalysisModelError }> {
 	const response = await callPiModelText({
 		registry: options.registry,
 		provider: ANALYSIS_MODEL_PROVIDER,
@@ -112,7 +133,9 @@ async function callAnalysisModel<T>(options: CallAnalysisModelOptions<T>): Promi
 		maxTokens: options.maxTokens,
 		reasoning: "minimal",
 		signal: options.signal,
-		...(options.overrides.completeFn === undefined ? {} : { completeFn: options.overrides.completeFn }),
+		...(options.overrides.completeFn === undefined
+			? {}
+			: { completeFn: options.overrides.completeFn }),
 	});
 	if (!response.ok) return mapModelFailure(response, options.abortedMessage);
 	const parsed = options.parse(response.text);
@@ -126,11 +149,17 @@ function mapModelFailure(
 ): { ok: false; error: AnalysisModelError } {
 	switch (response.reason) {
 		case "model-unavailable":
-			return failure("model-unavailable", `${ANALYSIS_MODEL_PROVIDER}/${ANALYSIS_MODEL_ID} is not available`);
+			return failure(
+				"model-unavailable",
+				`${ANALYSIS_MODEL_PROVIDER}/${ANALYSIS_MODEL_ID} is not available`,
+			);
 		case "auth":
 			return failure("auth", response.message ?? "analysis model auth failed");
 		case "empty-auth":
-			return failure("auth", `no ${ANALYSIS_MODEL_PROVIDER} auth found; run /login or configure Pi auth`);
+			return failure(
+				"auth",
+				`no ${ANALYSIS_MODEL_PROVIDER} auth found; run /login or configure Pi auth`,
+			);
 		case "aborted":
 			return failure("aborted", abortedMessage);
 		case "request-failed":
@@ -138,6 +167,9 @@ function mapModelFailure(
 	}
 }
 
-function failure(code: AnalysisModelErrorCode, message: string): { ok: false; error: AnalysisModelError } {
+function failure(
+	code: AnalysisModelErrorCode,
+	message: string,
+): { ok: false; error: AnalysisModelError } {
 	return { ok: false, error: { code, message } };
 }

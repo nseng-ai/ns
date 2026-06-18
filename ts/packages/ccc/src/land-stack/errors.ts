@@ -21,11 +21,16 @@ export interface LandStackFailure {
 	suggestedAction: string | undefined;
 }
 
-export type LandStackResult<T> = { type: "success"; value: T } | { type: "failure"; failure: LandStackFailure };
+export type LandStackResult<T> =
+	| { type: "success"; value: T }
+	| { type: "failure"; failure: LandStackFailure };
 
 export type LandStackOutcome = LandStackResult<void>;
 
-export function landStackFailure(message: string, options: LandStackFailureOptions = {}): LandStackFailure {
+export function landStackFailure(
+	message: string,
+	options: LandStackFailureOptions = {},
+): LandStackFailure {
 	return {
 		type: "land_stack_failure",
 		level: options.level ?? "error",
@@ -50,7 +55,9 @@ export function completed(): LandStackOutcome {
 	return success(undefined);
 }
 
-export function isFailure<T>(result: LandStackResult<T>): result is Extract<LandStackResult<T>, { type: "failure" }> {
+export function isFailure<T>(
+	result: LandStackResult<T>,
+): result is Extract<LandStackResult<T>, { type: "failure" }> {
 	return result.type === "failure";
 }
 

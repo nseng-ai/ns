@@ -1,7 +1,17 @@
 import { formatErrorMessage } from "@asdl/core/primitives";
-import { executeStackLanding, landArgumentCompletions, parseArgs, registerLandStackRenderer } from "./land-stack.ts";
+import {
+	executeStackLanding,
+	landArgumentCompletions,
+	parseArgs,
+	registerLandStackRenderer,
+} from "./land-stack.ts";
 import { AUTO_CHUNK_LANDING_THRESHOLD } from "./land-stack/constants.ts";
-import { formatFailure, formatFailureNotification, presentBrief, usage } from "./land-stack/presentation.ts";
+import {
+	formatFailure,
+	formatFailureNotification,
+	presentBrief,
+	usage,
+} from "./land-stack/presentation.ts";
 import { loadLandingShape } from "./land-stack/stack-facts.ts";
 import type {
 	AutocompleteItem,
@@ -43,8 +53,15 @@ export interface LandExtensionAPI {
 		},
 	): void;
 	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
-	sendMessage?(message: CustomMessage, options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" }): void;
-	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult>;
+	sendMessage?(
+		message: CustomMessage,
+		options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" },
+	): void;
+	exec(
+		command: string,
+		args: string[],
+		options?: { cwd?: string; timeout?: number },
+	): Promise<ExecResult>;
 }
 
 const COMMAND_NAME = "sdl:code:land";
@@ -72,7 +89,12 @@ export function registerLandCommand(pi: LandExtensionAPI): void {
 
 			const args = parseArgs(rawArgs);
 			if (args.type === "failure") {
-				presentBrief(ctx, args.failure.message, args.failure.level, formatFailureNotification(args.failure));
+				presentBrief(
+					ctx,
+					args.failure.message,
+					args.failure.level,
+					formatFailureNotification(args.failure),
+				);
 				return;
 			}
 			if (args.value.help) {
@@ -82,11 +104,19 @@ export function registerLandCommand(pi: LandExtensionAPI): void {
 
 			const shape = await loadLandingShape(pi, ctx.cwd);
 			if (shape.type === "failure") {
-				presentBrief(ctx, formatFailure(shape.failure, []), shape.failure.level, formatFailureNotification(shape.failure));
+				presentBrief(
+					ctx,
+					formatFailure(shape.failure, []),
+					shape.failure.level,
+					formatFailureNotification(shape.failure),
+				);
 				return;
 			}
 
-			if (shape.value.stack.actualCurrentBranch === shape.value.stack.trunk || shape.value.stack.landingBranches.length === 0) {
+			if (
+				shape.value.stack.actualCurrentBranch === shape.value.stack.trunk ||
+				shape.value.stack.landingBranches.length === 0
+			) {
 				presentBrief(
 					ctx,
 					`Current branch is ${shape.value.stack.actualCurrentBranch}, which is trunk or has no PR path to land. Nothing to do.`,
@@ -106,10 +136,16 @@ export function registerLandCommand(pi: LandExtensionAPI): void {
 				return;
 			}
 
-			const confirmed = await confirmStackModeIfNeeded(ctx, shape.value, { dryRun: args.value.dryRun, yes: args.value.yes });
+			const confirmed = await confirmStackModeIfNeeded(ctx, shape.value, {
+				dryRun: args.value.dryRun,
+				yes: args.value.yes,
+			});
 			if (!confirmed) return;
 
-			await executeStackLanding(pi, ctx, args.value, { skipMainConfirmation: true, initialShape: shape.value });
+			await executeStackLanding(pi, ctx, args.value, {
+				skipMainConfirmation: true,
+				initialShape: shape.value,
+			});
 		},
 	});
 }
@@ -141,7 +177,12 @@ async function confirmStackModeIfNeeded(
 
 	const confirmed = await ctx.ui.confirm("Land stack?", formatUpfrontStackConfirmation(shape));
 	if (!confirmed) {
-		presentBrief(ctx, "Cancelled before merge; no PRs were landed.", "info", "Cancelled before merge; no PRs were landed.");
+		presentBrief(
+			ctx,
+			"Cancelled before merge; no PRs were landed.",
+			"info",
+			"Cancelled before merge; no PRs were landed.",
+		);
 		return false;
 	}
 	return true;
@@ -150,9 +191,13 @@ async function confirmStackModeIfNeeded(
 function formatUpfrontStackConfirmation(shape: LandingShape): string {
 	const stack = shape.stack;
 	const bottomBranch = stack.landingBranches[0] ?? stack.actualCurrentBranch;
-	const lines = [`Land ${stack.landingBranches.length} PRs from ${bottomBranch} through ${stack.actualCurrentBranch} into ${stack.trunk}?`];
+	const lines = [
+		`Land ${stack.landingBranches.length} PRs from ${bottomBranch} through ${stack.actualCurrentBranch} into ${stack.trunk}?`,
+	];
 	if (stack.descendantBranches.length > 0) {
-		lines.push(`Descendants above ${stack.actualCurrentBranch} will not be merged; this command will try to maintain them after landing.`);
+		lines.push(
+			`Descendants above ${stack.actualCurrentBranch} will not be merged; this command will try to maintain them after landing.`,
+		);
 	}
 	return lines.join("\n");
 }
@@ -224,21 +269,31 @@ function notify(ctx: LandCommandContext, message: string, level: NotifyLevel): v
 	ctx.ui.notify(message, level);
 }
 
-export async function loadPullRequest(pi: Pick<LandExtensionAPI, "exec">, cwd: string): Promise<ValidPullRequestView | { error: string }> {
+export async function loadPullRequest(
+	pi: Pick<LandExtensionAPI, "exec">,
+	cwd: string,
+): Promise<ValidPullRequestView | { error: string }> {
 	const result = await pi.exec("gh", ["pr", "view", "--json", PR_VIEW_FIELDS], {
 		cwd,
 		timeout: PR_VIEW_TIMEOUT_MS,
 	});
 	if (result.code !== 0) {
 		const output = [result.stdout.trim(), result.stderr.trim()].filter(Boolean).join("\n");
-		return { error: output.length > 0 ? output : `gh pr view failed with exit code ${result.code}. Merge not attempted.` };
+		return {
+			error:
+				output.length > 0
+					? output
+					: `gh pr view failed with exit code ${result.code}. Merge not attempted.`,
+		};
 	}
 
 	let raw: unknown;
 	try {
 		raw = JSON.parse(result.stdout);
 	} catch (error) {
-		return { error: `Failed to parse gh pr view output: ${formatErrorMessage(error)}. Merge not attempted.` };
+		return {
+			error: `Failed to parse gh pr view output: ${formatErrorMessage(error)}. Merge not attempted.`,
+		};
 	}
 
 	return parsePullRequestView(raw);
@@ -249,7 +304,8 @@ export function parsePullRequestView(value: unknown): ValidPullRequestView | { e
 		return { error: "gh pr view did not return a PR object. Merge not attempted." };
 	}
 
-	const number = typeof value.number === "number" && Number.isFinite(value.number) ? value.number : undefined;
+	const number =
+		typeof value.number === "number" && Number.isFinite(value.number) ? value.number : undefined;
 	const headRefName = nonEmptyString(value.headRefName) ? value.headRefName : undefined;
 	const baseRefName = nonEmptyString(value.baseRefName) ? value.baseRefName : undefined;
 	const title = nonEmptyString(value.title) ? value.title : undefined;
@@ -269,7 +325,9 @@ export function parsePullRequestView(value: unknown): ValidPullRequestView | { e
 		title === undefined ||
 		headRefOid === undefined
 	) {
-		return { error: `gh pr view did not return required field(s): ${missingFields.join(", ")}. Merge not attempted.` };
+		return {
+			error: `gh pr view did not return required field(s): ${missingFields.join(", ")}. Merge not attempted.`,
+		};
 	}
 
 	const body = value.body;
@@ -277,7 +335,14 @@ export function parsePullRequestView(value: unknown): ValidPullRequestView | { e
 		return { error: "gh pr view returned a non-string body. Merge not attempted." };
 	}
 
-	return { number, headRefName, baseRefName, title, body: typeof body === "string" ? body : "", headRefOid };
+	return {
+		number,
+		headRefName,
+		baseRefName,
+		title,
+		body: typeof body === "string" ? body : "",
+		headRefOid,
+	};
 }
 
 function nonEmptyString(value: unknown): value is string {

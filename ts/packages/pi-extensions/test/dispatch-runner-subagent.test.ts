@@ -21,7 +21,12 @@ import dispatchRunnerSubagentExtension, {
 	type ToolDefinition,
 	type ToolResult,
 } from "../src/dispatch-runner-subagent.ts";
-import { createFakeRunnerSubagentDispatcher, jsonLine, sessionMessageLine, waitForSpawn } from "./runner-subagent-fakes.ts";
+import {
+	createFakeRunnerSubagentDispatcher,
+	jsonLine,
+	sessionMessageLine,
+	waitForSpawn,
+} from "./runner-subagent-fakes.ts";
 
 const ROOT = "/repo";
 const SESSION_FILE = "/tmp/text-child.jsonl";
@@ -40,7 +45,11 @@ interface FakeExecCall {
 	options?: ExecOptions;
 }
 
-type FakeExecHandler = (command: string, args: string[], options?: ExecOptions) => Promise<ExecResult> | ExecResult;
+type FakeExecHandler = (
+	command: string,
+	args: string[],
+	options?: ExecOptions,
+) => Promise<ExecResult> | ExecResult;
 
 class FakePi implements ExtensionAPI, RunnerSubagentPi {
 	readonly tools = new Map<string, ToolDefinition>();
@@ -50,7 +59,10 @@ class FakePi implements ExtensionAPI, RunnerSubagentPi {
 	[key: string]: unknown;
 	private readonly thinkingLevel: ThinkingLevel;
 
-	constructor(dependencies?: RunnerSubagentDispatcherDependencies, options: { thinkingLevel?: ThinkingLevel } = {}) {
+	constructor(
+		dependencies?: RunnerSubagentDispatcherDependencies,
+		options: { thinkingLevel?: ThinkingLevel } = {},
+	) {
 		if (dependencies) this[RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES] = dependencies;
 		this.thinkingLevel = options.thinkingLevel ?? "off";
 	}
@@ -60,7 +72,11 @@ class FakePi implements ExtensionAPI, RunnerSubagentPi {
 	}
 
 	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
-		this.execCalls.push({ command, args: [...args], ...(options === undefined ? {} : { options }) });
+		this.execCalls.push({
+			command,
+			args: [...args],
+			...(options === undefined ? {} : { options }),
+		});
 		return this.execHandler(command, args, options);
 	}
 
@@ -81,7 +97,9 @@ class OneShotThinkingPi extends FakePi {
 	override getThinkingLevel(): ThinkingLevel {
 		this.getThinkingLevelCallCount += 1;
 		if (this.getThinkingLevelCallCount > 1) {
-			throw new Error("getThinkingLevel should only be used while resolving the dispatch launch once.");
+			throw new Error(
+				"getThinkingLevel should only be used while resolving the dispatch launch once.",
+			);
 		}
 		return this.oneShotThinkingLevel;
 	}
@@ -154,6 +172,12 @@ function updateTexts(updates: readonly ToolResult[]): string {
 	return updates.map((update) => update.content[0]?.text ?? "").join("\n---\n");
 }
 
+function firstUpdateDetails(updates: readonly ToolResult[]): Record<string, unknown> {
+	const details = updates[0]?.details;
+	expect(details).toBeDefined();
+	return details as Record<string, unknown>;
+}
+
 interface RunnerDefinitionOverrides {
 	toolName?: string;
 	label?: string;
@@ -222,19 +246,26 @@ describe("dispatch_runner_subagent extension", () => {
 		expect(Object.keys(schema.properties ?? {}).sort()).toEqual(["model", "prompt", "title"]);
 		expect(schema.required).toEqual(["title", "prompt"]);
 		expect(schema.additionalProperties).toBe(false);
-		expect(tool.promptGuidelines).toEqual(["Use dispatch_runner_subagent according to the Markdown definition."]);
+		expect(tool.promptGuidelines).toEqual([
+			"Use dispatch_runner_subagent according to the Markdown definition.",
+		]);
 	});
 
 	test("fails fast when runner.md declares a different toolName", () => {
 		const pi = new FakePi();
 		const definitionRoot = createRunnerDefinitionRoot({ toolName: "other_runner_tool" });
 
-		expect(() => dispatchRunnerSubagentExtension(pi, { cwd: definitionRoot })).toThrow(/declares toolName.*expected/);
+		expect(() => dispatchRunnerSubagentExtension(pi, { cwd: definitionRoot })).toThrow(
+			/declares toolName.*expected/,
+		);
 		expect(pi.tools.size).toBe(0);
 	});
 
 	test("passes explicit title, composed prompt, cwd, model, and thinking to dispatchRunnerSubagent without a runtime extension", async () => {
-		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE, sessionFileText: sessionUsageJsonl() });
+		const runner = createFakeRunnerSubagentDispatcher({
+			sessionFile: SESSION_FILE,
+			sessionFileText: sessionUsageJsonl(),
+		});
 		const pi = new FakePi(runner.dependencies, { thinkingLevel: "medium" });
 		const tool = registerTool({ pi });
 		const updates: ToolResult[] = [];
@@ -267,15 +298,18 @@ describe("dispatch_runner_subagent extension", () => {
 		const childPrompt = call.args.at(-1) ?? "";
 		expect(childPrompt.startsWith(composedFixturePrompt("Do focused work."))).toBe(true);
 		expect(childPrompt).toContain("Treat it as orientation, not ground truth");
-		expect(childPrompt.indexOf("## Auto-curated context")).toBeGreaterThan(childPrompt.indexOf("## Delegated task"));
+		expect(childPrompt.indexOf("## Auto-curated context")).toBeGreaterThan(
+			childPrompt.indexOf("## Delegated task"),
+		);
 		expect(call.args).not.toContain("--extension");
-		expect(((updates[0]?.details as Record<string, unknown>).progress as Record<string, unknown>).launch).toEqual({
+		const launchDetails = firstUpdateDetails(updates);
+		expect((launchDetails.progress as Record<string, unknown>).launch).toEqual({
 			model: { provider: "anthropic", id: "claude-sonnet-4-5" },
 			thinkingLevel: "medium",
 			hasModelArg: true,
 			hasThinkingArg: true,
 		});
-		expect((updates[0]?.details as Record<string, unknown>).curatedContext).toEqual(
+		expect(launchDetails.curatedContext).toEqual(
 			expect.objectContaining({ markdownChars: expect.any(Number) }),
 		);
 
@@ -295,8 +329,12 @@ describe("dispatch_runner_subagent extension", () => {
 			hasModelArg: true,
 			hasThinkingArg: true,
 		});
-		expect(details.usage).toEqual(expect.objectContaining({ status: "available", assistantMessageCount: 2 }));
-		expect(details.curatedContext).toEqual(expect.objectContaining({ markdownChars: expect.any(Number) }));
+		expect(details.usage).toEqual(
+			expect.objectContaining({ status: "available", assistantMessageCount: 2 }),
+		);
+		expect(details.curatedContext).toEqual(
+			expect.objectContaining({ markdownChars: expect.any(Number) }),
+		);
 	});
 
 	test("threads cwd and abort signal through curated git evidence collection", async () => {
@@ -328,7 +366,9 @@ describe("dispatch_runner_subagent extension", () => {
 
 		call.process.emitStdout(finalTextMessage("Done."));
 		call.process.close(0);
-		await expect(running).resolves.toEqual(expect.objectContaining({ details: expect.objectContaining({ status: "final-text" }) }));
+		await expect(running).resolves.toEqual(
+			expect.objectContaining({ details: expect.objectContaining({ status: "final-text" }) }),
+		);
 	});
 
 	test("uses the resolved launch metadata without re-resolving it as launch options", async () => {
@@ -336,10 +376,16 @@ describe("dispatch_runner_subagent extension", () => {
 		const pi = new OneShotThinkingPi(runner.dependencies, "medium");
 		const tool = registerTool({ pi });
 
-		const running = tool.execute("tool-1", { title: "Slice subagent", prompt: "Do focused work." }, undefined, undefined, {
-			cwd: ROOT,
-			model: { provider: "anthropic", id: "claude-sonnet-4-5" },
-		});
+		const running = tool.execute(
+			"tool-1",
+			{ title: "Slice subagent", prompt: "Do focused work." },
+			undefined,
+			undefined,
+			{
+				cwd: ROOT,
+				model: { provider: "anthropic", id: "claude-sonnet-4-5" },
+			},
+		);
 		const call = await waitForSpawn(runner.calls);
 
 		expect(pi.getThinkingLevelCallCount).toBe(1);
@@ -348,7 +394,9 @@ describe("dispatch_runner_subagent extension", () => {
 
 		call.process.emitStdout(finalTextMessage("Done."));
 		call.process.close(0);
-		await expect(running).resolves.toEqual(expect.objectContaining({ details: expect.objectContaining({ status: "final-text" }) }));
+		await expect(running).resolves.toEqual(
+			expect.objectContaining({ details: expect.objectContaining({ status: "final-text" }) }),
+		);
 		expect(pi.getThinkingLevelCallCount).toBe(1);
 	});
 
@@ -360,7 +408,11 @@ describe("dispatch_runner_subagent extension", () => {
 
 		const running = tool.execute(
 			"tool-1",
-			{ title: "Cheap classifier", prompt: "Classify feedback.", model: " openai-codex/gpt-5.4-mini:medium " },
+			{
+				title: "Cheap classifier",
+				prompt: "Classify feedback.",
+				model: " openai-codex/gpt-5.4-mini:medium ",
+			},
 			undefined,
 			(partial) => updates.push(partial),
 			{ cwd: ROOT, model: { provider: "openai-codex", id: "gpt-5.5" } },
@@ -378,14 +430,17 @@ describe("dispatch_runner_subagent extension", () => {
 			SESSION_FILE,
 		]);
 		expect(call.args.at(-1)).toContain(composedFixturePrompt("Classify feedback."));
-		expect(((updates[0]?.details as Record<string, unknown>).progress as Record<string, unknown>).launch).toEqual({
+		const launchDetails = firstUpdateDetails(updates);
+		expect((launchDetails.progress as Record<string, unknown>).launch).toEqual({
 			requestedModel: "openai-codex/gpt-5.4-mini:medium",
 			thinkingLevel: "off",
 			hasModelArg: true,
 			hasThinkingArg: false,
 		});
 
-		call.process.emitStdout(jsonLine({ type: "model_change", provider: "openai-codex", modelId: "gpt-5.4-mini" }));
+		call.process.emitStdout(
+			jsonLine({ type: "model_change", provider: "openai-codex", modelId: "gpt-5.4-mini" }),
+		);
 		call.process.emitStdout(jsonLine({ type: "thinking_level_change", thinkingLevel: "medium" }));
 		expect(updateTexts(updates)).toContain("Model: openai-codex/gpt-5.4-mini; Thinking: medium");
 		call.process.emitStdout(finalTextMessage("Done."));
@@ -437,7 +492,10 @@ describe("dispatch_runner_subagent extension", () => {
 
 	test("streams parsed subagent progress through partial updates and UI without changing final result", async () => {
 		let now = 1_000;
-		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE, now: () => now });
+		const runner = createFakeRunnerSubagentDispatcher({
+			sessionFile: SESSION_FILE,
+			now: () => now,
+		});
 		const pi = new FakePi(runner.dependencies);
 		const tool = registerTool({ pi });
 		const updates: ToolResult[] = [];
@@ -456,7 +514,11 @@ describe("dispatch_runner_subagent extension", () => {
 					setStatus(key: string, value: string | undefined): void {
 						statuses.push({ key, value });
 					},
-					setWidget(key: string, value: string[] | undefined, options?: { placement?: "aboveEditor" | "belowEditor" }): void {
+					setWidget(
+						key: string,
+						value: string[] | undefined,
+						options?: { placement?: "aboveEditor" | "belowEditor" },
+					): void {
 						widgets.push({ key, value, ...(options === undefined ? {} : { options }) });
 					},
 				},
@@ -469,11 +531,19 @@ describe("dispatch_runner_subagent extension", () => {
 		call.process.emitStdout(
 			jsonLine({
 				type: "message_update",
-				message: { role: "assistant", content: [{ type: "text", text: "Assistant preview unique." }] },
+				message: {
+					role: "assistant",
+					content: [{ type: "text", text: "Assistant preview unique." }],
+				},
 			}),
 		);
 		call.process.emitStdout(
-			jsonLine({ type: "tool_execution_start", toolCallId: "tool-a", toolName: "read", args: { path: "secret-input.txt" } }),
+			jsonLine({
+				type: "tool_execution_start",
+				toolCallId: "tool-a",
+				toolName: "read",
+				args: { path: "secret-input.txt" },
+			}),
 		);
 		call.process.emitStdout(
 			jsonLine({
@@ -509,11 +579,21 @@ describe("dispatch_runner_subagent extension", () => {
 			expect(details.activity).toBeUndefined();
 		}
 		expect(statuses).toEqual([]);
-		expect(widgets.some((widget) => widget.value?.includes("Model: default (not specified)"))).toBe(true);
+		expect(widgets.some((widget) => widget.value?.includes("Model: default (not specified)"))).toBe(
+			true,
+		);
 		expect(widgets.some((widget) => widget.value?.includes("Thinking: off"))).toBe(true);
-		expect(widgets.some((widget) => widget.value?.includes("Assistant: Assistant preview unique."))).toBe(true);
-		expect(widgets.some((widget) => widget.value?.includes('Input: {"path":"secret-input.txt"}'))).toBe(true);
-		expect(widgets.some((widget) => widget.value?.includes("Last result (read): tool result preview unique"))).toBe(true);
+		expect(
+			widgets.some((widget) => widget.value?.includes("Assistant: Assistant preview unique.")),
+		).toBe(true);
+		expect(
+			widgets.some((widget) => widget.value?.includes('Input: {"path":"secret-input.txt"}')),
+		).toBe(true);
+		expect(
+			widgets.some((widget) =>
+				widget.value?.includes("Last result (read): tool result preview unique"),
+			),
+		).toBe(true);
 		expect(widgets.some((widget) => widget.value?.includes("Tool: read"))).toBe(true);
 		expect(widgets.some((widget) => widget.options?.placement === "aboveEditor")).toBe(true);
 		expect(widgets.at(-1)).toEqual({
@@ -528,7 +608,9 @@ describe("dispatch_runner_subagent extension", () => {
 		expect(finalText).not.toContain("Assistant preview unique.");
 		expect(finalText).not.toContain("secret-input.txt");
 		expect(finalText).not.toContain("tool result preview unique");
-		expect(((result.details as Record<string, unknown>).progress as Record<string, unknown>).launch).toEqual({
+		expect(
+			((result.details as Record<string, unknown>).progress as Record<string, unknown>).launch,
+		).toEqual({
 			thinkingLevel: "off",
 			hasModelArg: false,
 			hasThinkingArg: false,
@@ -538,7 +620,10 @@ describe("dispatch_runner_subagent extension", () => {
 
 	test("returns final text, status, session path, progress, and details as an ordinary tool result", async () => {
 		let now = 1_000;
-		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE, now: () => now });
+		const runner = createFakeRunnerSubagentDispatcher({
+			sessionFile: SESSION_FILE,
+			now: () => now,
+		});
 		const pi = new FakePi(runner.dependencies);
 		const tool = registerTool({ pi });
 
@@ -551,8 +636,18 @@ describe("dispatch_runner_subagent extension", () => {
 		);
 		const call = await waitForSpawn(runner.calls);
 		call.process.emitStdout(jsonLine({ type: "turn_start" }));
-		call.process.emitStdout(jsonLine({ type: "tool_execution_start", toolCallId: "tool-a", toolName: "read", args: {} }));
-		call.process.emitStdout(jsonLine({ type: "tool_execution_end", toolCallId: "tool-a", toolName: "read", result: {}, isError: false }));
+		call.process.emitStdout(
+			jsonLine({ type: "tool_execution_start", toolCallId: "tool-a", toolName: "read", args: {} }),
+		);
+		call.process.emitStdout(
+			jsonLine({
+				type: "tool_execution_end",
+				toolCallId: "tool-a",
+				toolName: "read",
+				result: {},
+				isError: false,
+			}),
+		);
 		call.process.emitStdout(finalTextMessage("Subagent final answer.\nEvidence: test fixture."));
 		now = 2_250;
 		call.process.close(0);
@@ -572,7 +667,9 @@ describe("dispatch_runner_subagent extension", () => {
 		expect(details.finalTextChars).toBe("Subagent final answer.\nEvidence: test fixture.".length);
 		expect(details.finalTextTruncated).toBe(false);
 		expect(details.progress).toEqual(expect.objectContaining({ turnCount: 1, toolCount: 1 }));
-		expect(details.usage).toEqual(expect.objectContaining({ status: "unavailable", reason: "no-assistant-usage" }));
+		expect(details.usage).toEqual(
+			expect.objectContaining({ status: "unavailable", reason: "no-assistant-usage" }),
+		);
 		expect(details.activity).toBeUndefined();
 	});
 
@@ -581,7 +678,13 @@ describe("dispatch_runner_subagent extension", () => {
 		const pi = new FakePi(runner.dependencies);
 		const tool = registerTool({ pi });
 
-		const running = tool.execute("tool-1", { title: "Blank subagent", prompt: "Report back." }, undefined, undefined, { cwd: ROOT });
+		const running = tool.execute(
+			"tool-1",
+			{ title: "Blank subagent", prompt: "Report back." },
+			undefined,
+			undefined,
+			{ cwd: ROOT },
+		);
 		const call = await waitForSpawn(runner.calls);
 		call.process.emitStdout(finalTextMessage("   "));
 		call.process.close(0);
@@ -592,7 +695,9 @@ describe("dispatch_runner_subagent extension", () => {
 
 		expect(text).toContain("Status: stopped-without-useful-text");
 		expect(text).toContain("Diagnostic: Subagent Pi stopped without useful final assistant text.");
-		expect(text).toContain("Inspect the session file before treating this delegated task as complete.");
+		expect(text).toContain(
+			"Inspect the session file before treating this delegated task as complete.",
+		);
 		expect(details.status).toBe("stopped-without-useful-text");
 		expect(details.diagnostic).toBe("Subagent Pi stopped without useful final assistant text.");
 	});
@@ -641,10 +746,16 @@ describe("dispatch_runner_subagent extension", () => {
 			const text = formatDispatchRunnerSubagentResult(result);
 			expect(text).toContain(`Status: ${result.status}`);
 			expect(text).not.toContain("Final text:");
-			expect(text).toContain("Inspect the session file before treating this delegated task as complete.");
+			expect(text).toContain(
+				"Inspect the session file before treating this delegated task as complete.",
+			);
 		}
-		expect(formatDispatchRunnerSubagentResult(completed)).toContain("completed with a terminal capture instead of final assistant text");
-		expect(formatDispatchRunnerSubagentResult(blocked)).toContain("blocked with a terminal capture instead of final assistant text");
+		expect(formatDispatchRunnerSubagentResult(completed)).toContain(
+			"completed with a terminal capture instead of final assistant text",
+		);
+		expect(formatDispatchRunnerSubagentResult(blocked)).toContain(
+			"blocked with a terminal capture instead of final assistant text",
+		);
 	});
 
 	test("preserves subagent error statuses as ordinary diagnostic tool results", async () => {
@@ -652,7 +763,13 @@ describe("dispatch_runner_subagent extension", () => {
 		const pi = new FakePi(runner.dependencies);
 		const tool = registerTool({ pi });
 
-		const running = tool.execute("tool-1", { title: "Error subagent", prompt: "Report back." }, undefined, undefined, { cwd: ROOT });
+		const running = tool.execute(
+			"tool-1",
+			{ title: "Error subagent", prompt: "Report back." },
+			undefined,
+			undefined,
+			{ cwd: ROOT },
+		);
 		const call = await waitForSpawn(runner.calls);
 		call.process.emitStderr("subagent failed\n");
 		call.process.close(2);
@@ -666,7 +783,11 @@ describe("dispatch_runner_subagent extension", () => {
 		expect(text).toContain("subagent failed");
 		expect(details.status).toBe("error");
 		expect(details.sessionFile).toBe(SESSION_FILE);
-		expect(details.error).toEqual(expect.objectContaining({ message: expect.stringContaining("Subagent Pi exited with exit code 2") }));
+		expect(details.error).toEqual(
+			expect.objectContaining({
+				message: expect.stringContaining("Subagent Pi exited with exit code 2"),
+			}),
+		);
 	});
 
 	test("does not require UI", async () => {
@@ -709,7 +830,11 @@ describe("dispatch_runner_subagent extension", () => {
 					setStatus(key: string, value: string | undefined): void {
 						statuses.push({ key, value });
 					},
-					setWidget(key: string, value: string[] | undefined, options?: { placement?: "aboveEditor" | "belowEditor" }): void {
+					setWidget(
+						key: string,
+						value: string[] | undefined,
+						options?: { placement?: "aboveEditor" | "belowEditor" },
+					): void {
 						widgets.push({ key, value, ...(options === undefined ? {} : { options }) });
 					},
 				},
@@ -736,13 +861,23 @@ describe("dispatch_runner_subagent extension", () => {
 		const tool = registerTool({ pi });
 
 		await expect(
-			tool.execute("tool-1", { title: "   ", prompt: "Do focused work." }, undefined, undefined, { cwd: ROOT }),
+			tool.execute("tool-1", { title: "   ", prompt: "Do focused work." }, undefined, undefined, {
+				cwd: ROOT,
+			}),
 		).rejects.toThrow("non-empty title");
-		await expect(tool.execute("tool-2", { title: "Slice subagent", prompt: "\n\t" }, undefined, undefined, { cwd: ROOT })).rejects.toThrow(
-			"non-empty prompt",
-		);
 		await expect(
-			tool.execute("tool-3", { title: "Slice subagent", prompt: "Do focused work.", model: "   " }, undefined, undefined, { cwd: ROOT }),
+			tool.execute("tool-2", { title: "Slice subagent", prompt: "\n\t" }, undefined, undefined, {
+				cwd: ROOT,
+			}),
+		).rejects.toThrow("non-empty prompt");
+		await expect(
+			tool.execute(
+				"tool-3",
+				{ title: "Slice subagent", prompt: "Do focused work.", model: "   " },
+				undefined,
+				undefined,
+				{ cwd: ROOT },
+			),
 		).rejects.toThrow(/model.*non-empty/);
 		expect(runner.calls).toEqual([]);
 	});
@@ -753,7 +888,13 @@ describe("dispatch_runner_subagent extension", () => {
 		const tool = registerTool({ pi });
 		const longText = `${"x".repeat(MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS + 5)}END_UNIQUE`;
 
-		const running = tool.execute("tool-1", { title: "Long subagent", prompt: "Return a long answer." }, undefined, undefined, { cwd: ROOT });
+		const running = tool.execute(
+			"tool-1",
+			{ title: "Long subagent", prompt: "Return a long answer." },
+			undefined,
+			undefined,
+			{ cwd: ROOT },
+		);
 		const call = await waitForSpawn(runner.calls);
 		call.process.emitStdout(finalTextMessage(longText));
 		call.process.close(0);
@@ -764,7 +905,9 @@ describe("dispatch_runner_subagent extension", () => {
 
 		expect(text).toContain("Status: final-text");
 		expect(text).toContain("Final text truncated");
-		expect(text).toContain(`${MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS} of ${longText.length} characters`);
+		expect(text).toContain(
+			`${MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS} of ${longText.length} characters`,
+		);
 		expect(text).toContain(SESSION_FILE);
 		expect(text).not.toContain("END_UNIQUE");
 		expect(details.finalTextChars).toBe(longText.length);

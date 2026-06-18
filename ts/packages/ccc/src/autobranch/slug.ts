@@ -1,7 +1,12 @@
 import type { CommandResult } from "@asdl/sdl/checkpoint-flow";
 
 import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "@asdl/pi-extension-runtime/branch-slug";
-import { deriveSlugWithModel, formatSlugModelFailure, SLUG_MODEL_TIMEOUT_MS, type SlugModelFailure } from "@asdl/plans";
+import {
+	deriveSlugWithModel,
+	formatSlugModelFailure,
+	SLUG_MODEL_TIMEOUT_MS,
+	type SlugModelFailure,
+} from "@asdl/plans";
 import { truncateText } from "./shared.ts";
 
 export const MAX_DIFF_CHARS = 24_000;
@@ -63,21 +68,31 @@ export function buildBranchSlugPrompt(input: BranchSlugPromptInput): string {
 	for (const section of input.evidenceSections) {
 		const trimmedContent = section.content.trim();
 		const content = trimmedContent.length > 0 ? trimmedContent : (section.emptyText ?? "");
-		lines.push(`## ${section.heading}`, section.maxChars === undefined ? content : truncateText(content, section.maxChars));
+		lines.push(
+			`## ${section.heading}`,
+			section.maxChars === undefined ? content : truncateText(content, section.maxChars),
+		);
 	}
 	return lines.join("\n");
 }
 
-export async function deriveBranchSlug(input: BranchSlugDerivationInput): Promise<BranchSlugModelResult> {
+export async function deriveBranchSlug(
+	input: BranchSlugDerivationInput,
+): Promise<BranchSlugModelResult> {
 	const result = await deriveSlugWithModel({
 		cwd: input.cwd,
 		prompt: input.prompt,
 		slugKind: "branch slug",
 		normalizeOutput: sanitizeBranchName,
-		exec: (command, args, options) => input.exec(command, args, options.cwd ?? input.cwd, options.timeout ?? SLUG_MODEL_TIMEOUT_MS),
+		exec: (command, args, options) =>
+			input.exec(command, args, options.cwd ?? input.cwd, options.timeout ?? SLUG_MODEL_TIMEOUT_MS),
 	});
 	if (result.ok) {
 		return { ok: true, baseSlug: result.evidence.slug, source: "model" };
 	}
-	return { ok: false, failure: result.failure, formattedFailure: formatSlugModelFailure(result.failure) };
+	return {
+		ok: false,
+		failure: result.failure,
+		formattedFailure: formatSlugModelFailure(result.failure),
+	};
 }

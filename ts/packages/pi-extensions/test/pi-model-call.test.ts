@@ -1,7 +1,11 @@
 import { describe, expect, test } from "vitest";
 
 import type * as PiAi from "@earendil-works/pi-ai";
-import { callPiModelText, type CompleteSimpleFunction, type PiModelRegistryLike } from "../src/pi-model-call.ts";
+import {
+	callPiModelText,
+	type CompleteSimpleFunction,
+	type PiModelRegistryLike,
+} from "../src/pi-model-call.ts";
 
 const MODEL_TOKEN = { id: "fake-model" };
 
@@ -16,7 +20,9 @@ const ZERO_USAGE: PiAi.Usage = {
 
 interface FakeRegistryState {
 	hasModel?: boolean;
-	auth?: { ok: true; apiKey?: string; headers?: Record<string, string> } | { ok: false; error: string };
+	auth?:
+		| { ok: true; apiKey?: string; headers?: Record<string, string> }
+		| { ok: false; error: string };
 }
 
 function makeRegistry(state: FakeRegistryState = {}): PiModelRegistryLike {
@@ -33,7 +39,9 @@ function makeRegistry(state: FakeRegistryState = {}): PiModelRegistryLike {
 	};
 }
 
-function makeResponse(overrides: Partial<Pick<PiAi.AssistantMessage, "stopReason" | "errorMessage" | "content">>): PiAi.AssistantMessage {
+function makeResponse(
+	overrides: Partial<Pick<PiAi.AssistantMessage, "stopReason" | "errorMessage" | "content">>,
+): PiAi.AssistantMessage {
 	return {
 		role: "assistant",
 		api: "fake-api",
@@ -51,7 +59,9 @@ function completeWith(response: PiAi.AssistantMessage): CompleteSimpleFunction {
 	return (() => Promise.resolve(response)) as CompleteSimpleFunction;
 }
 
-function baseOptions(overrides: Partial<Parameters<typeof callPiModelText>[0]> = {}): Parameters<typeof callPiModelText>[0] {
+function baseOptions(
+	overrides: Partial<Parameters<typeof callPiModelText>[0]> = {},
+): Parameters<typeof callPiModelText>[0] {
 	return {
 		registry: makeRegistry(),
 		provider: "provider",
@@ -67,66 +77,106 @@ function baseOptions(overrides: Partial<Parameters<typeof callPiModelText>[0]> =
 
 describe("callPiModelText", () => {
 	test("maps registry miss, auth failure, and missing key", async () => {
-		await expect(callPiModelText(baseOptions({ registry: makeRegistry({ hasModel: false }) })))
-			.resolves.toEqual({ ok: false, reason: "model-unavailable", message: null });
-		await expect(callPiModelText(baseOptions({ registry: makeRegistry({ auth: { ok: false, error: "login expired" } }) })))
-			.resolves.toEqual({ ok: false, reason: "auth", message: "login expired" });
-		await expect(callPiModelText(baseOptions({ registry: makeRegistry({ auth: { ok: true, apiKey: "" } }) })))
-			.resolves.toEqual({ ok: false, reason: "empty-auth", message: null });
+		await expect(
+			callPiModelText(baseOptions({ registry: makeRegistry({ hasModel: false }) })),
+		).resolves.toEqual({ ok: false, reason: "model-unavailable", message: null });
+		await expect(
+			callPiModelText(
+				baseOptions({ registry: makeRegistry({ auth: { ok: false, error: "login expired" } }) }),
+			),
+		).resolves.toEqual({ ok: false, reason: "auth", message: "login expired" });
+		await expect(
+			callPiModelText(baseOptions({ registry: makeRegistry({ auth: { ok: true, apiKey: "" } }) })),
+		).resolves.toEqual({ ok: false, reason: "empty-auth", message: null });
 	});
 
 	test("maps error and aborted stop reasons", async () => {
-		await expect(callPiModelText(baseOptions({ completeFn: completeWith(makeResponse({ stopReason: "error", errorMessage: "rate limited" })) })))
-			.resolves.toEqual({ ok: false, reason: "request-failed", message: "rate limited" });
-		await expect(callPiModelText(baseOptions({ completeFn: completeWith(makeResponse({ stopReason: "aborted" })) })))
-			.resolves.toEqual({ ok: false, reason: "aborted", message: null });
+		await expect(
+			callPiModelText(
+				baseOptions({
+					completeFn: completeWith(
+						makeResponse({ stopReason: "error", errorMessage: "rate limited" }),
+					),
+				}),
+			),
+		).resolves.toEqual({ ok: false, reason: "request-failed", message: "rate limited" });
+		await expect(
+			callPiModelText(
+				baseOptions({ completeFn: completeWith(makeResponse({ stopReason: "aborted" })) }),
+			),
+		).resolves.toEqual({ ok: false, reason: "aborted", message: null });
 	});
 
 	test("maps thrown errors, using aborted when the signal is already aborted", async () => {
 		const throwing = (() => Promise.reject(new Error("socket hang up"))) as CompleteSimpleFunction;
-		await expect(callPiModelText(baseOptions({ completeFn: throwing })))
-			.resolves.toEqual({ ok: false, reason: "request-failed", message: "socket hang up" });
+		await expect(callPiModelText(baseOptions({ completeFn: throwing }))).resolves.toEqual({
+			ok: false,
+			reason: "request-failed",
+			message: "socket hang up",
+		});
 
 		const controller = new AbortController();
 		controller.abort();
-		await expect(callPiModelText(baseOptions({ completeFn: throwing, signal: controller.signal })))
-			.resolves.toEqual({ ok: false, reason: "aborted", message: null });
+		await expect(
+			callPiModelText(baseOptions({ completeFn: throwing, signal: controller.signal })),
+		).resolves.toEqual({ ok: false, reason: "aborted", message: null });
 	});
 
 	test("joins multiple text parts", async () => {
-		const result = await callPiModelText(baseOptions({
-			completeFn: completeWith(makeResponse({
-				content: [
-					{ type: "text", text: "first" },
-					{ type: "thinking", thinking: "hidden" },
-					{ type: "text", text: "second" },
-				],
-			})),
-		}));
+		const result = await callPiModelText(
+			baseOptions({
+				completeFn: completeWith(
+					makeResponse({
+						content: [
+							{ type: "text", text: "first" },
+							{ type: "thinking", thinking: "hidden" },
+							{ type: "text", text: "second" },
+						],
+					}),
+				),
+			}),
+		);
 		expect(result).toEqual({ ok: true, text: "first\nsecond" });
 	});
 
 	test("passes context and options through", async () => {
 		const controller = new AbortController();
-		const seen: { model?: unknown; context?: PiAi.Context; options?: PiAi.SimpleStreamOptions } = {};
-		const completeFn = ((model: unknown, context: PiAi.Context, options?: PiAi.SimpleStreamOptions) => {
+		const seen: { model?: unknown; context?: PiAi.Context; options?: PiAi.SimpleStreamOptions } =
+			{};
+		const completeFn = ((
+			model: unknown,
+			context: PiAi.Context,
+			options?: PiAi.SimpleStreamOptions,
+		) => {
 			seen.model = model;
 			seen.context = context;
 			if (options !== undefined) seen.options = options;
 			return Promise.resolve(makeResponse({ content: [{ type: "text", text: "ok" }] }));
 		}) as CompleteSimpleFunction;
 
-		const result = await callPiModelText(baseOptions({
-			registry: makeRegistry({ auth: { ok: true, apiKey: "key", headers: { "x-h": "1" } } }),
-			completeFn,
-			reasoning: "low",
-			signal: controller.signal,
-			timeoutMs: 123,
-		}));
+		const result = await callPiModelText(
+			baseOptions({
+				registry: makeRegistry({ auth: { ok: true, apiKey: "key", headers: { "x-h": "1" } } }),
+				completeFn,
+				reasoning: "low",
+				signal: controller.signal,
+				timeoutMs: 123,
+			}),
+		);
 
 		expect(result).toEqual({ ok: true, text: "ok" });
 		expect(seen.model).toBe(MODEL_TOKEN);
-		expect(seen.context).toMatchObject({ systemPrompt: "system", messages: [{ role: "user", content: [{ type: "text", text: "user" }] }] });
-		expect(seen.options).toMatchObject({ apiKey: "key", headers: { "x-h": "1" }, maxTokens: 12, reasoning: "low", signal: controller.signal, timeoutMs: 123 });
+		expect(seen.context).toMatchObject({
+			systemPrompt: "system",
+			messages: [{ role: "user", content: [{ type: "text", text: "user" }] }],
+		});
+		expect(seen.options).toMatchObject({
+			apiKey: "key",
+			headers: { "x-h": "1" },
+			maxTokens: 12,
+			reasoning: "low",
+			signal: controller.signal,
+			timeoutMs: 123,
+		});
 	});
 });

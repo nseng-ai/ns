@@ -21,8 +21,12 @@ export type InterrogationEvent =
 	| { type: "retry"; attempt: number; maxAttempts: number; message: string }
 	| { type: "turn-end" };
 
-export type AskResult = { ok: true } | { ok: false; error: { code: "prompt-failed"; message: string } };
-export type CreateInterrogationSessionResult = { ok: true; value: InterrogationSession } | { ok: false; error: { code: "spawn-failed"; message: string } };
+export type AskResult =
+	| { ok: true }
+	| { ok: false; error: { code: "prompt-failed"; message: string } };
+export type CreateInterrogationSessionResult =
+	| { ok: true; value: InterrogationSession }
+	| { ok: false; error: { code: "spawn-failed"; message: string } };
 
 export interface InterrogationSession {
 	subscribe(listener: (event: InterrogationEvent) => void): () => void;
@@ -43,16 +47,27 @@ export interface InterrogationSessionFactory {
 export function mapAgentSessionEvent(event: AgentSessionEvent): InterrogationEvent | null {
 	switch (event.type) {
 		case "message_update":
-			if (event.assistantMessageEvent.type === "text_delta") return { type: "assistant-delta", text: event.assistantMessageEvent.delta };
+			if (event.assistantMessageEvent.type === "text_delta")
+				return { type: "assistant-delta", text: event.assistantMessageEvent.delta };
 			return null;
 		case "message_end":
 			return event.message.role === "assistant" ? { type: "assistant-end" } : null;
 		case "tool_execution_start":
 			return { type: "tool-start", name: event.toolName, summary: summarizeToolArgs(event.args) };
 		case "tool_execution_end":
-			return { type: "tool-end", name: event.toolName, summary: summarizeToolArgs(event.result), isError: event.isError };
+			return {
+				type: "tool-end",
+				name: event.toolName,
+				summary: summarizeToolArgs(event.result),
+				isError: event.isError,
+			};
 		case "auto_retry_start":
-			return { type: "retry", attempt: event.attempt, maxAttempts: event.maxAttempts, message: event.errorMessage };
+			return {
+				type: "retry",
+				attempt: event.attempt,
+				maxAttempts: event.maxAttempts,
+				message: event.errorMessage,
+			};
 		case "turn_end":
 			return { type: "turn-end" };
 		default:

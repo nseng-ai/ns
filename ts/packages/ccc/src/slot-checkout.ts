@@ -41,7 +41,11 @@ export async function checkoutSlot(
 	if (target === undefined) {
 		return {
 			ok: false,
-			error: formatSlotCheckoutUnreadableFailure(result, args, `Malformed ${slotCheckoutLabel(ref)}: expected slot_name, branch_name, worktree_path, and cd_command data fields.`),
+			error: formatSlotCheckoutUnreadableFailure(
+				result,
+				args,
+				`Malformed ${slotCheckoutLabel(ref)}: expected slot_name, branch_name, worktree_path, and cd_command data fields.`,
+			),
 		};
 	}
 	return { ok: true, target };
@@ -78,7 +82,10 @@ function coerceSlotCheckoutTarget(data: Record<string, unknown>): SlotCheckoutTa
 	};
 }
 
-function formatSlotCheckoutCliFailure(commandName: string, failure: { exitCode: number; errorType?: string; cliMessage?: string }): string {
+function formatSlotCheckoutCliFailure(
+	commandName: string,
+	failure: { exitCode: number; errorType?: string; cliMessage?: string },
+): string {
 	const status = failure.errorType === undefined ? "" : ` (${failure.errorType})`;
 	if (failure.cliMessage !== undefined) {
 		return `${commandName} failed${status}: ${failure.cliMessage}`;
@@ -86,16 +93,28 @@ function formatSlotCheckoutCliFailure(commandName: string, failure: { exitCode: 
 	return `${commandName} failed with exit_code ${failure.exitCode}${status}.`;
 }
 
-function formatSlotCheckoutUnreadableFailure(result: ExecResult, args: readonly string[], parseError: string): string {
+function formatSlotCheckoutUnreadableFailure(
+	result: ExecResult,
+	args: readonly string[],
+	parseError: string,
+): string {
 	return [
 		`slot checkout failed with unreadable JSON output (${formatSlotCheckoutStatus(result)}).`,
 		parseError,
 		`Command: ${formatCommand("slot", args)}`,
-		formatOutputSection("stdout", result.stdout, { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES }),
-		formatOutputSection("stderr", result.stderr, { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES }),
+		formatOutputSection("stdout", result.stdout, {
+			maxChars: MAX_ERROR_CHARS,
+			maxLines: MAX_ERROR_LINES,
+		}),
+		formatOutputSection("stderr", result.stderr, {
+			maxChars: MAX_ERROR_CHARS,
+			maxLines: MAX_ERROR_LINES,
+		}),
 	].join("\n\n");
 }
 
 function formatSlotCheckoutStatus(result: ExecResult): string {
-	return result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
+	return result.killed
+		? `exit code ${result.code}; process was killed or timed out`
+		: `exit code ${result.code}`;
 }

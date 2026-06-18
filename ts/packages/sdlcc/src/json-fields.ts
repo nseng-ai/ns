@@ -7,7 +7,10 @@ export function stringField(record: Record<string, unknown>, key: string): strin
 	return typeof value === "string" ? value : undefined;
 }
 
-export function optionalStringField(record: Record<string, unknown>, key: string): string | undefined {
+export function optionalStringField(
+	record: Record<string, unknown>,
+	key: string,
+): string | undefined {
 	const value = stringField(record, key);
 	return value === undefined || value.length === 0 ? undefined : value;
 }
@@ -17,7 +20,10 @@ export function booleanField(record: Record<string, unknown>, key: string): bool
 	return typeof value === "boolean" ? value : undefined;
 }
 
-export function stringArrayField(record: Record<string, unknown>, key: string): readonly string[] | undefined {
+export function stringArrayField(
+	record: Record<string, unknown>,
+	key: string,
+): readonly string[] | undefined {
 	const value = record[key];
 	if (!Array.isArray(value)) return undefined;
 	return value.every((item): item is string => typeof item === "string") ? value : undefined;

@@ -1,6 +1,16 @@
 import { describe, expect, test } from "vitest";
-import { createAutobranchCheckpointFlow, type AutobranchFlowInput } from "../src/autobranch/flow.ts";
-import { createGitWorldExec, eventIndex, fail, type CommandResult, type PendingWorktreeSnapshot, type UpstreamMode } from "./autobranch-test-helpers.ts";
+import {
+	createAutobranchCheckpointFlow,
+	type AutobranchFlowInput,
+} from "../src/autobranch/flow.ts";
+import {
+	createGitWorldExec,
+	eventIndex,
+	fail,
+	type CommandResult,
+	type PendingWorktreeSnapshot,
+	type UpstreamMode,
+} from "./autobranch-test-helpers.ts";
 
 interface HarnessOptions {
 	args?: AutobranchFlowInput["args"];
@@ -22,7 +32,10 @@ function createHarness(options: HarnessOptions = {}) {
 	const world = createGitWorldExec(options);
 	const events: string[] = world.events;
 	const preparedSnapshots: Array<Pick<PendingWorktreeSnapshot, "status" | "diff">> = [];
-	const prepareResult = options.prepareResult ?? { ok: true, message: `[cp] Update checkpoint tests\n\n- Add coverage` };
+	const prepareResult = options.prepareResult ?? {
+		ok: true,
+		message: `[cp] Update checkpoint tests\n\n- Add coverage`,
+	};
 	const commitResult = options.commitResult ?? { summary: "abc123 [cp] Update checkpoint tests" };
 
 	const input: AutobranchFlowInput = {
@@ -49,7 +62,9 @@ function expectError(result: Awaited<ReturnType<typeof createAutobranchCheckpoin
 	return result.ok ? "" : result.error;
 }
 
-function expectSuccess(result: Awaited<ReturnType<typeof createAutobranchCheckpointFlow>>): Extract<typeof result, { ok: true }> {
+function expectSuccess(
+	result: Awaited<ReturnType<typeof createAutobranchCheckpointFlow>>,
+): Extract<typeof result, { ok: true }> {
 	expect(result.ok).toBe(true);
 	if (!result.ok) {
 		throw new Error(result.error);
@@ -59,7 +74,9 @@ function expectSuccess(result: Awaited<ReturnType<typeof createAutobranchCheckpo
 
 describe("createAutobranchCheckpointFlow", () => {
 	test("message preparation failure happens before stash or Graphite branch creation", async () => {
-		const harness = createHarness({ prepareResult: { ok: false, error: "checkpoint prep failed" } });
+		const harness = createHarness({
+			prepareResult: { ok: false, error: "checkpoint prep failed" },
+		});
 
 		const result = await createAutobranchCheckpointFlow(harness.input);
 
@@ -83,7 +100,9 @@ describe("createAutobranchCheckpointFlow", () => {
 		expect(eventIndex(harness.events, "git rev-list --parents -n 1 HEAD")).toBeGreaterThan(-1);
 		expect(eventIndex(harness.events, "git reset --hard parent987654")).toBeGreaterThan(-1);
 		expect(eventIndex(harness.events, "gt create test-branch")).toBeGreaterThan(-1);
-		expect(eventIndex(harness.events, "git reset --hard abc123def456")).toBeGreaterThan(eventIndex(harness.events, "gt create test-branch"));
+		expect(eventIndex(harness.events, "git reset --hard abc123def456")).toBeGreaterThan(
+			eventIndex(harness.events, "gt create test-branch"),
+		);
 	});
 
 	test("detached HEAD reports harness-neutral checkout guidance", async () => {
@@ -92,7 +111,9 @@ describe("createAutobranchCheckpointFlow", () => {
 		const result = await createAutobranchCheckpointFlow(harness.input);
 
 		expect(harness.events).not.toContain("prepare");
-		expect(expectError(result)).toContain("Detached HEAD; check out a branch before autobranching.");
+		expect(expectError(result)).toContain(
+			"Detached HEAD; check out a branch before autobranching.",
+		);
 	});
 
 	test("dirty worktree creates a branch for the dirty checkpoint without upstream inspection", async () => {
@@ -144,14 +165,18 @@ describe("createAutobranchCheckpointFlow", () => {
 		const commit = eventIndex(harness.events, "commit");
 		expect(eventIndex(harness.events, "git rev-parse")).toBeLessThan(prepare);
 		expect(eventIndex(harness.events, "git check-ref-format")).toBeLessThan(prepare);
-		expect(harness.events.slice(0, stash)).not.toContain("git rev-parse --abbrev-ref --symbolic-full-name @{u}");
+		expect(harness.events.slice(0, stash)).not.toContain(
+			"git rev-parse --abbrev-ref --symbolic-full-name @{u}",
+		);
 		expect(harness.events.slice(0, stash)).not.toContain("git merge-base --is-ancestor HEAD @{u}");
 		expect(prepare).toBeLessThan(stash);
 		expect(stash).toBeLessThan(create);
 		expect(create).toBeLessThan(restore);
 		expect(restore).toBeLessThan(commit);
 		expect(harness.preparedSnapshots.at(0)?.status).toBe(" M file.ts\n");
-		expect(harness.preparedSnapshots.at(0)?.diff).toBe("diff --git a/file.ts b/file.ts\n+pending\n");
+		expect(harness.preparedSnapshots.at(0)?.diff).toBe(
+			"diff --git a/file.ts b/file.ts\n+pending\n",
+		);
 		expect(result.summary).toContain("Commit: abc123 [cp] Update checkpoint tests");
 	});
 
@@ -160,7 +185,9 @@ describe("createAutobranchCheckpointFlow", () => {
 
 		const result = expectSuccess(await createAutobranchCheckpointFlow(harness.input));
 
-		expect(result.warnings).toEqual(["Slug model failed; using fallback branch name update-file-ts."]);
+		expect(result.warnings).toEqual([
+			"Slug model failed; using fallback branch name update-file-ts.",
+		]);
 		expect(result.summary).toContain("New branch: update-file-ts");
 	});
 
@@ -172,7 +199,9 @@ describe("createAutobranchCheckpointFlow", () => {
 		expect(eventIndex(harness.events, "git stash push")).toBeGreaterThan(-1);
 		expect(harness.events.some((event) => event.startsWith("gt create"))).toBe(false);
 		expect(harness.events).not.toContain("commit");
-		expect(expectError(result)).toContain("Failed to stash pending changes before branch creation.");
+		expect(expectError(result)).toContain(
+			"Failed to stash pending changes before branch creation.",
+		);
 		expect(expectError(result)).toContain("stash push failed");
 	});
 
@@ -181,10 +210,14 @@ describe("createAutobranchCheckpointFlow", () => {
 
 		const result = await createAutobranchCheckpointFlow(harness.input);
 
-		expect(eventIndex(harness.events, "git stash list")).toBeGreaterThan(eventIndex(harness.events, "git stash push"));
+		expect(eventIndex(harness.events, "git stash list")).toBeGreaterThan(
+			eventIndex(harness.events, "git stash push"),
+		);
 		expect(harness.events.some((event) => event.startsWith("gt create"))).toBe(false);
 		expect(harness.events).not.toContain("commit");
-		expect(expectError(result)).toContain("Stashed pending changes, but could not find the new stash entry");
+		expect(expectError(result)).toContain(
+			"Stashed pending changes, but could not find the new stash entry",
+		);
 		expect(expectError(result)).toContain("Inspect `git stash list` before continuing.");
 	});
 
@@ -194,7 +227,9 @@ describe("createAutobranchCheckpointFlow", () => {
 		const result = await createAutobranchCheckpointFlow(harness.input);
 
 		expect(eventIndex(harness.events, "gt create")).toBeGreaterThan(-1);
-		expect(eventIndex(harness.events, "git stash pop")).toBeGreaterThan(eventIndex(harness.events, "gt create"));
+		expect(eventIndex(harness.events, "git stash pop")).toBeGreaterThan(
+			eventIndex(harness.events, "gt create"),
+		);
 		expect(harness.events).not.toContain("commit");
 		expect(expectError(result)).toContain("Failed to create Graphite branch test-branch");
 	});
@@ -204,7 +239,9 @@ describe("createAutobranchCheckpointFlow", () => {
 
 		const result = await createAutobranchCheckpointFlow(harness.input);
 
-		expect(eventIndex(harness.events, "git stash pop")).toBeGreaterThan(eventIndex(harness.events, "gt create"));
+		expect(eventIndex(harness.events, "git stash pop")).toBeGreaterThan(
+			eventIndex(harness.events, "gt create"),
+		);
 		expect(harness.events).not.toContain("commit");
 		const error = expectError(result);
 		expect(error).toContain("Failed to create Graphite branch test-branch");
@@ -230,7 +267,9 @@ describe("createAutobranchCheckpointFlow", () => {
 
 		expect(harness.events).toContain("commit");
 		const error = expectError(result);
-		expect(error).toContain("Branch test-branch exists, but checkpoint commit failed. Pending changes remain on that branch.");
+		expect(error).toContain(
+			"Branch test-branch exists, but checkpoint commit failed. Pending changes remain on that branch.",
+		);
 		expect(error).toContain("commit failed");
 	});
 });

@@ -1,6 +1,15 @@
 import { resolve } from "node:path";
 
-import type { BranchCreateOptions, BranchDeleteOptions, CurrentBranchResult, GitCommandFailure, LocalBranchTip, SlotGitGateway, WorktreeInfo, WorktreeOccupancy } from "../git.ts";
+import type {
+	BranchCreateOptions,
+	BranchDeleteOptions,
+	CurrentBranchResult,
+	GitCommandFailure,
+	LocalBranchTip,
+	SlotGitGateway,
+	WorktreeInfo,
+	WorktreeOccupancy,
+} from "../git.ts";
 
 export type FakeSlotGitOperation =
 	| { type: "add-detached-worktree"; path: string; ref: string }
@@ -48,14 +57,26 @@ export class FakeSlotGitGateway implements SlotGitGateway {
 
 	constructor(options: FakeSlotGitGatewayOptions = {}) {
 		this.existingPaths = new Set(options.existingPaths ?? ["/repo"]);
-		this.gitCommonDirValue = options.gitCommonDir === undefined ? "/repo/.git" : options.gitCommonDir;
+		this.gitCommonDirValue =
+			options.gitCommonDir === undefined ? "/repo/.git" : options.gitCommonDir;
 		this.repositoryRootValue = options.repositoryRoot ?? "/repo";
 		this.worktrees = (options.worktrees ?? [{ path: "/repo", branch: "master" }]).map(copyWorktree);
-		this.branchOccupancies = (options.branchOccupancies ?? this.worktrees.flatMap((worktree) => worktree.branch === null ? [] : [{ path: worktree.path, branch: worktree.branch, operation: "checked-out" }])).map(copyOccupancy);
+		this.branchOccupancies = (
+			options.branchOccupancies ??
+			this.worktrees.flatMap((worktree) =>
+				worktree.branch === null
+					? []
+					: [{ path: worktree.path, branch: worktree.branch, operation: "checked-out" }],
+			)
+		).map(copyOccupancy);
 		this.dirtyPaths = new Set(options.dirtyPaths ?? []);
 		this.trunkBranch = options.trunkBranch ?? "master";
-		this.localBranches = new Set(options.localBranches ?? deriveLocalBranches(this.worktrees, this.trunkBranch));
-		this.localBranchTips = (options.localBranchTips ?? [...this.localBranches].map((name) => ({ name, headIso: null }))).map(copyLocalBranchTip);
+		this.localBranches = new Set(
+			options.localBranches ?? deriveLocalBranches(this.worktrees, this.trunkBranch),
+		);
+		this.localBranchTips = (
+			options.localBranchTips ?? [...this.localBranches].map((name) => ({ name, headIso: null }))
+		).map(copyLocalBranchTip);
 		this.previousBranches = new Map(Object.entries(options.previousBranches ?? {}));
 		this.currentBranchFailures = options.currentBranchFailures ?? {};
 		this.checkoutFailures = options.checkoutFailures ?? {};
@@ -66,7 +87,11 @@ export class FakeSlotGitGateway implements SlotGitGateway {
 
 	async pathExists(path: string): Promise<boolean> {
 		const normalized = resolve(path);
-		return this.existingPaths.has(path) || this.existingPaths.has(normalized) || this.worktrees.some((worktree) => resolve(worktree.path) === normalized);
+		return (
+			this.existingPaths.has(path) ||
+			this.existingPaths.has(normalized) ||
+			this.worktrees.some((worktree) => resolve(worktree.path) === normalized)
+		);
 	}
 
 	async getGitCommonDir(_cwd: string): Promise<string | null> {
@@ -117,7 +142,11 @@ export class FakeSlotGitGateway implements SlotGitGateway {
 		return this.localBranches.has(branch);
 	}
 
-	async createBranch(branch: string, startPoint: string, options: BranchCreateOptions): Promise<GitCommandFailure | null> {
+	async createBranch(
+		branch: string,
+		startPoint: string,
+		options: BranchCreateOptions,
+	): Promise<GitCommandFailure | null> {
 		this.log.push({ type: "create-branch", branch, startPoint, shouldForce: options.shouldForce });
 		const failure = this.createBranchFailures[branch];
 		if (failure !== undefined) return { ...failure };
@@ -125,7 +154,10 @@ export class FakeSlotGitGateway implements SlotGitGateway {
 		return null;
 	}
 
-	async deleteLocalBranch(branch: string, options: BranchDeleteOptions): Promise<GitCommandFailure | null> {
+	async deleteLocalBranch(
+		branch: string,
+		options: BranchDeleteOptions,
+	): Promise<GitCommandFailure | null> {
 		this.log.push({ type: "delete-local-branch", branch, shouldForce: options.shouldForce });
 		const failure = this.deleteBranchFailures[branch];
 		if (failure !== undefined) return { ...failure };
@@ -205,7 +237,10 @@ function copyLocalBranchTip(tip: LocalBranchTip): LocalBranchTip {
 	return { name: tip.name, headIso: tip.headIso };
 }
 
-function deriveLocalBranches(worktrees: readonly WorktreeInfo[], trunkBranch: string): readonly string[] {
+function deriveLocalBranches(
+	worktrees: readonly WorktreeInfo[],
+	trunkBranch: string,
+): readonly string[] {
 	const branches = new Set<string>([trunkBranch]);
 	for (const worktree of worktrees) {
 		if (worktree.branch !== null) branches.add(worktree.branch);

@@ -8,7 +8,25 @@ describe("RealSlotPrGateway", () => {
 	it("looks up multiple branch PRs with one GraphQL batch request", async () => {
 		const execApi = new ScriptedCommandExecApi([
 			{ stdout: JSON.stringify({ nameWithOwner: "dagster-io/asdl-tools" }) },
-			{ stdout: JSON.stringify({ data: { repository: { b0: { nodes: [{ number: 1, state: "MERGED", url: "https://github.example/pr/1", headRefName: "feature/done" }] }, b1: { nodes: [] } } } }) },
+			{
+				stdout: JSON.stringify({
+					data: {
+						repository: {
+							b0: {
+								nodes: [
+									{
+										number: 1,
+										state: "MERGED",
+										url: "https://github.example/pr/1",
+										headRefName: "feature/done",
+									},
+								],
+							},
+							b1: { nodes: [] },
+						},
+					},
+				}),
+			},
 		]);
 		const gateway = new RealSlotPrGateway({ cwd: "/repo", env: { PATH: "/fake/bin" }, execApi });
 
@@ -17,7 +35,18 @@ describe("RealSlotPrGateway", () => {
 		expect(result).toMatchObject({ type: "ok" });
 		if (result.type !== "ok") return;
 		expect([...result.resultsByBranch.entries()]).toEqual([
-			["feature/done", { type: "found", pr: { number: 1, state: "MERGED", url: "https://github.example/pr/1", headRefName: "feature/done" } }],
+			[
+				"feature/done",
+				{
+					type: "found",
+					pr: {
+						number: 1,
+						state: "MERGED",
+						url: "https://github.example/pr/1",
+						headRefName: "feature/done",
+					},
+				},
+			],
 			["feature/no-pr", { type: "miss" }],
 		]);
 		const calls = execApi.calls();
@@ -36,7 +65,12 @@ describe("RealSlotPrGateway", () => {
 			{ stdout: JSON.stringify({ data: { repository: { b0: { nodes: [] } } } }) },
 		]);
 		const diagnosticSink = new InMemoryDiagnosticSink();
-		const gateway = new RealSlotPrGateway({ cwd: "/repo", env: { PATH: "/fake/bin" }, execApi, diagnosticSink });
+		const gateway = new RealSlotPrGateway({
+			cwd: "/repo",
+			env: { PATH: "/fake/bin" },
+			execApi,
+			diagnosticSink,
+		});
 
 		expect(await gateway.getPrsForBranches(["feature/no-pr"])).toMatchObject({ type: "ok" });
 		expect(diagnosticSink.events()).toEqual([
@@ -71,7 +105,10 @@ describe("RealSlotPrGateway", () => {
 		]);
 		const gateway = new RealSlotPrGateway({ cwd: "/repo", env: { PATH: "/fake/bin" }, execApi });
 
-		expect(await gateway.getPrsForBranches(["feature/a"])).toMatchObject({ type: "failure", failure: { message: expect.stringContaining("GitHub GraphQL returned errors") } });
+		expect(await gateway.getPrsForBranches(["feature/a"])).toMatchObject({
+			type: "failure",
+			failure: { message: expect.stringContaining("GitHub GraphQL returned errors") },
+		});
 	});
 });
 

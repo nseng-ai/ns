@@ -1,7 +1,12 @@
 import { FakeBrmemGateway } from "@asdl/brmem";
 import { describe, expect, test } from "vitest";
 
-import { getEntryContent, parseJsonOutput, putHandoffEntry, runScenario } from "../support/run-scenario.ts";
+import {
+	getEntryContent,
+	parseJsonOutput,
+	putHandoffEntry,
+	runScenario,
+} from "../support/run-scenario.ts";
 
 describe("handoff delete", () => {
 	test("force deletes current branch handoff", async () => {
@@ -31,13 +36,20 @@ describe("handoff delete", () => {
 	test("explicit deleted branch works in detached head", async () => {
 		const gateway = new FakeBrmemGateway();
 		await putHandoffEntry(gateway, { key: "stale.md", branch: "feat/deleted", content: "stale" });
-		const run = runScenario(["delete", "--branch", "feat/deleted", "--force", "stale", "--format", "json"], {
-			brmem: gateway,
-			gitState: { currentBranch: { type: "detached" }, existingBranches: [] },
-		});
+		const run = runScenario(
+			["delete", "--branch", "feat/deleted", "--force", "stale", "--format", "json"],
+			{
+				brmem: gateway,
+				gitState: { currentBranch: { type: "detached" }, existingBranches: [] },
+			},
+		);
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({ data: { branch: "feat/deleted", slug: "stale", deleted: true } });
-		expect(await getEntryContent(gateway, { key: "stale.md", branch: "feat/deleted" })).toBeUndefined();
+		expect(parseJsonOutput(run)).toMatchObject({
+			data: { branch: "feat/deleted", slug: "stale", deleted: true },
+		});
+		expect(
+			await getEntryContent(gateway, { key: "stale.md", branch: "feat/deleted" }),
+		).toBeUndefined();
 	});
 
 	test("prompt accepts and declines with prompts on stderr in JSON mode", async () => {
@@ -47,15 +59,24 @@ describe("handoff delete", () => {
 		expect(await accepted.exit).toBe(0);
 		expect(accepted.stderr.join("")).toContain("Delete handoff `alpha` on branch `feat/x`? [y/N]");
 		expect(accepted.stdout.join("")).toContain("Deleted handoff `alpha` on branch `feat/x`.");
-		expect(await getEntryContent(acceptedGateway, { key: "alpha.md", branch: "feat/x" })).toBeUndefined();
+		expect(
+			await getEntryContent(acceptedGateway, { key: "alpha.md", branch: "feat/x" }),
+		).toBeUndefined();
 
 		const declinedGateway = new FakeBrmemGateway();
 		await putHandoffEntry(declinedGateway, { key: "alpha.md", branch: "feat/x", content: "alpha" });
-		const declined = runScenario(["delete", "alpha", "--format", "json"], { brmem: declinedGateway, stdin: "no\n" });
+		const declined = runScenario(["delete", "alpha", "--format", "json"], {
+			brmem: declinedGateway,
+			stdin: "no\n",
+		});
 		expect(await declined.exit).toBe(0);
 		expect(declined.stderr.join("")).toContain("Delete handoff `alpha` on branch `feat/x`? [y/N]");
-		expect(parseJsonOutput(declined)).toMatchObject({ data: { deleted: false, cancelled: true, commit: null } });
-		expect(await getEntryContent(declinedGateway, { key: "alpha.md", branch: "feat/x" })).toBe("alpha");
+		expect(parseJsonOutput(declined)).toMatchObject({
+			data: { deleted: false, cancelled: true, commit: null },
+		});
+		expect(await getEntryContent(declinedGateway, { key: "alpha.md", branch: "feat/x" })).toBe(
+			"alpha",
+		);
 	});
 
 	test("validates slug, branch, not-found, and detached head", async () => {
@@ -80,9 +101,14 @@ describe("handoff delete", () => {
 
 		const missing = runScenario(["delete", "--force", "missing", "--format", "json"]);
 		expect(await missing.exit).toBe(2);
-		expect(parseJsonOutput(missing)).toMatchObject({ error_type: "handoff_not_found", message: "No handoff `missing` found on branch `feat/x`." });
+		expect(parseJsonOutput(missing)).toMatchObject({
+			error_type: "handoff_not_found",
+			message: "No handoff `missing` found on branch `feat/x`.",
+		});
 
-		const detached = runScenario(["delete", "alpha", "--format", "json"], { gitState: { currentBranch: { type: "detached" } } });
+		const detached = runScenario(["delete", "alpha", "--format", "json"], {
+			gitState: { currentBranch: { type: "detached" } },
+		});
 		expect(await detached.exit).toBe(2);
 		expect(parseJsonOutput(detached)).toMatchObject({ error_type: "detached_head" });
 	});

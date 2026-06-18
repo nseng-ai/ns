@@ -103,7 +103,9 @@ export class InMemoryBranchContextBrmemGateway implements BranchContextBrmemGate
 	get attachedPlans(): readonly InMemoryAttachedPlanState[] {
 		return [...this.entries.values()]
 			.map((entry) => ({ ...entry }))
-			.sort((left, right) => `${left.branch}/${left.key}`.localeCompare(`${right.branch}/${right.key}`));
+			.sort((left, right) =>
+				`${left.branch}/${left.key}`.localeCompare(`${right.branch}/${right.key}`),
+			);
 	}
 
 	async attachmentPresence(params: BrmemAttachmentParams): Promise<BrmemAttachmentPresenceResult> {
@@ -112,19 +114,33 @@ export class InMemoryBranchContextBrmemGateway implements BranchContextBrmemGate
 			return { type: "error", error: this.presenceFailure };
 		}
 		if (this.entries.has(entryKey(params.branch, params.key))) {
-			return { type: "present", displayCommand: `brmem check ${params.key} --namespace ${BRANCH_CONTEXT_NAMESPACE} --branch ${params.branch} --format json` };
+			return {
+				type: "present",
+				displayCommand: `brmem check ${params.key} --namespace ${BRANCH_CONTEXT_NAMESPACE} --branch ${params.branch} --format json`,
+			};
 		}
 		return { type: "absent" };
 	}
 
 	async attachPlan(params: BrmemAttachPlanParams): Promise<BrmemResult<BrmemPutData>> {
-		this.attachPlanLog.push({ cwd: params.cwd, branch: params.branch, key: params.key, sourceFile: params.sourceFile });
+		this.attachPlanLog.push({
+			cwd: params.cwd,
+			branch: params.branch,
+			key: params.key,
+			sourceFile: params.sourceFile,
+		});
 		if (this.attachFailure !== undefined) {
 			return { ok: false, error: this.attachFailure };
 		}
 		const key = entryKey(params.branch, params.key);
 		if (this.entries.has(key)) {
-			return { ok: false, error: { code: "brmem_entry_exists", message: `Attached plan already exists: ${params.branch}/${params.key}` } };
+			return {
+				ok: false,
+				error: {
+					code: "brmem_entry_exists",
+					message: `Attached plan already exists: ${params.branch}/${params.key}`,
+				},
+			};
 		}
 
 		const stored: StoredAttachedPlan = {
@@ -139,14 +155,21 @@ export class InMemoryBranchContextBrmemGateway implements BranchContextBrmemGate
 		return { ok: true, value: putData(stored) };
 	}
 
-	async listAttachedPlans(params: BrmemCwdParams & { branch: string }): Promise<BrmemResult<AttachedPlanEntry[]>> {
+	async listAttachedPlans(
+		params: BrmemCwdParams & { branch: string },
+	): Promise<BrmemResult<AttachedPlanEntry[]>> {
 		this.listAttachedPlansLog.push({ cwd: params.cwd, branch: params.branch });
 		if (this.listFailure !== undefined) {
 			return { ok: false, error: this.listFailure };
 		}
 		const entries = [...this.entries.values()]
 			.filter((entry) => entry.branch === params.branch)
-			.map((entry) => ({ namespace: BRANCH_CONTEXT_NAMESPACE, key: entry.key, branch: entry.branch, refName: entry.refName }))
+			.map((entry) => ({
+				namespace: BRANCH_CONTEXT_NAMESPACE,
+				key: entry.key,
+				branch: entry.branch,
+				refName: entry.refName,
+			}))
 			.sort((left, right) => left.key.localeCompare(right.key));
 		return { ok: true, value: entries };
 	}
@@ -158,7 +181,13 @@ export class InMemoryBranchContextBrmemGateway implements BranchContextBrmemGate
 		}
 		const entry = this.entries.get(entryKey(params.branch, params.key));
 		if (entry === undefined) {
-			return { ok: false, error: { code: "brmem_entry_missing", message: `Attached plan not found: ${params.branch}/${params.key}` } };
+			return {
+				ok: false,
+				error: {
+					code: "brmem_entry_missing",
+					message: `Attached plan not found: ${params.branch}/${params.key}`,
+				},
+			};
 		}
 		return { ok: true, value: { content: entry.content, refName: entry.refName } };
 	}

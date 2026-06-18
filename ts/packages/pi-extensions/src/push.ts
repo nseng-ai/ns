@@ -1,5 +1,9 @@
 import { definePiSurfaceParity } from "./parity.ts";
-import { customMessageText, truncateDisplayLine, type CustomMessageContent } from "./terminal-presentation.ts";
+import {
+	customMessageText,
+	truncateDisplayLine,
+	type CustomMessageContent,
+} from "./terminal-presentation.ts";
 
 const COMMAND_NAME = "sdl:code:push";
 const PUSH_TIMEOUT_MS = 2 * 60 * 1000;
@@ -11,11 +15,13 @@ export const pushParity = definePiSurfaceParity([
 		surface: COMMAND_NAME,
 		workflow: "Push already-committed work from the current branch",
 		parity: "PARTIAL",
-		trackedGap: "cross-harness-parity roadmap: decide whether /sdl:code:push needs a thin skill documenting clean-worktree git push or should be treated as primitive git usage.",
+		trackedGap:
+			"cross-harness-parity roadmap: decide whether /sdl:code:push needs a thin skill documenting clean-worktree git push or should be treated as primitive git usage.",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@asdl/pi-extensions",
 		sourceModule: "push",
-		notes: "Pi command exposes the SDL code-lifecycle surface with a clean-worktree guard and message rendering around git push; non-Pi agents can run git status and git push directly, but no installed skill owns the guarded workflow yet.",
+		notes:
+			"Pi command exposes the SDL code-lifecycle surface with a clean-worktree guard and message rendering around git push; non-Pi agents can run git status and git push directly, but no installed skill owns the guarded workflow yet.",
 	},
 ] as const);
 
@@ -53,7 +59,11 @@ interface RenderComponent {
 	invalidate(): void;
 }
 
-type MessageRenderer = (message: CustomMessage, options: { expanded: boolean }, theme: RenderTheme) => RenderComponent;
+type MessageRenderer = (
+	message: CustomMessage,
+	options: { expanded: boolean },
+	theme: RenderTheme,
+) => RenderComponent;
 
 export interface ExtensionAPI {
 	registerCommand(
@@ -63,7 +73,11 @@ export interface ExtensionAPI {
 			handler(args: string, ctx: CommandContext): Promise<void> | void;
 		},
 	): void;
-	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult>;
+	exec(
+		command: string,
+		args: string[],
+		options?: { cwd?: string; timeout?: number },
+	): Promise<ExecResult>;
 	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
 	sendMessage?(message: CustomMessage): void;
 }
@@ -87,9 +101,14 @@ export default function pushExtension(pi: ExtensionAPI): void {
 	});
 }
 
-export async function runCodePush(pi: Pick<ExtensionAPI, "exec" | "sendMessage">, ctx: CommandContext, args: string): Promise<boolean> {
+export async function runCodePush(
+	pi: Pick<ExtensionAPI, "exec" | "sendMessage">,
+	ctx: CommandContext,
+	args: string,
+): Promise<boolean> {
 	if (args.trim().length > 0) {
-		const content = "`/sdl:code:push` does not accept arguments. Run `/sdl:code:push` with no text after the command.";
+		const content =
+			"`/sdl:code:push` does not accept arguments. Run `/sdl:code:push` with no text after the command.";
 		emitPushMessage(pi, ctx, {
 			content,
 			headline: "`/sdl:code:push` does not accept arguments.",
@@ -114,13 +133,20 @@ export async function runCodePush(pi: Pick<ExtensionAPI, "exec" | "sendMessage">
 			command: "git status --porcelain",
 			cwd: ctx.cwd,
 			result: statusResult,
-			guidance: "Inspect the Git output, fix the repository state, or use `/sdl:submit` for the normal Graphite flow.",
+			guidance:
+				"Inspect the Git output, fix the repository state, or use `/sdl:submit` for the normal Graphite flow.",
 		});
 		emitPushMessage(pi, ctx, {
 			content,
 			headline: "Could not inspect worktree status for `/sdl:code:push`.",
 			level: "error",
-			details: buildDetails({ args: ["status", "--porcelain"], cwd: ctx.cwd, phase: "status", level: "error", result: statusResult }),
+			details: buildDetails({
+				args: ["status", "--porcelain"],
+				cwd: ctx.cwd,
+				phase: "status",
+				level: "error",
+				result: statusResult,
+			}),
 		});
 		return false;
 	}
@@ -131,7 +157,13 @@ export async function runCodePush(pi: Pick<ExtensionAPI, "exec" | "sendMessage">
 			content,
 			headline: "`/sdl:code:push` requires a clean worktree.",
 			level: "warning",
-			details: buildDetails({ args: ["status", "--porcelain"], cwd: ctx.cwd, phase: "dirty", level: "warning", result: statusResult }),
+			details: buildDetails({
+				args: ["status", "--porcelain"],
+				cwd: ctx.cwd,
+				phase: "dirty",
+				level: "warning",
+				result: statusResult,
+			}),
 		});
 		return false;
 	}
@@ -148,13 +180,20 @@ export async function runCodePush(pi: Pick<ExtensionAPI, "exec" | "sendMessage">
 			content,
 			headline: "`git push` completed successfully.",
 			level: "info",
-			details: buildDetails({ args: ["push"], cwd: ctx.cwd, phase: "push", level: "info", result: pushResult }),
+			details: buildDetails({
+				args: ["push"],
+				cwd: ctx.cwd,
+				phase: "push",
+				level: "info",
+				result: pushResult,
+			}),
 		});
 		return true;
 	}
 
 	const content = formatPushEvidence({
-		intro: "`git push` failed. The branch is likely out of sync or needs the Graphite submit flow. Use `/sdl:submit`.",
+		intro:
+			"`git push` failed. The branch is likely out of sync or needs the Graphite submit flow. Use `/sdl:submit`.",
 		command: "git push",
 		cwd: ctx.cwd,
 		result: pushResult,
@@ -163,7 +202,13 @@ export async function runCodePush(pi: Pick<ExtensionAPI, "exec" | "sendMessage">
 		content,
 		headline: "`git push` failed; use `/sdl:submit`.",
 		level: "error",
-		details: buildDetails({ args: ["push"], cwd: ctx.cwd, phase: "push", level: "error", result: pushResult }),
+		details: buildDetails({
+			args: ["push"],
+			cwd: ctx.cwd,
+			phase: "push",
+			level: "error",
+			result: pushResult,
+		}),
 	});
 	return false;
 }
@@ -177,7 +222,11 @@ export function renderPushOutputMessage(
 	const level = pushMessageLevel(message.details);
 	return {
 		render(width: number): string[] {
-			return content.split("\n").map((line, index) => stylePushOutputLine(truncateDisplayLine(line, width), index, level, theme));
+			return content
+				.split("\n")
+				.map((line, index) =>
+					stylePushOutputLine(truncateDisplayLine(line, width), index, level, theme),
+				);
 		},
 		invalidate(): void {},
 	};
@@ -206,7 +255,12 @@ export function formatPushEvidence(options: FormatPushEvidenceOptions): string {
 	if (options.guidance !== undefined) {
 		sections.push(options.guidance);
 	}
-	sections.push("stdout:", formatOutput(options.result.stdout), "stderr:", formatOutput(options.result.stderr));
+	sections.push(
+		"stdout:",
+		formatOutput(options.result.stdout),
+		"stderr:",
+		formatOutput(options.result.stderr),
+	);
 	return sections.join("\n");
 }
 
@@ -228,7 +282,11 @@ interface EmitPushMessageOptions {
 	details: PushOutputDetails;
 }
 
-function emitPushMessage(pi: Pick<ExtensionAPI, "sendMessage">, ctx: CommandContext, options: EmitPushMessageOptions): void {
+function emitPushMessage(
+	pi: Pick<ExtensionAPI, "sendMessage">,
+	ctx: CommandContext,
+	options: EmitPushMessageOptions,
+): void {
 	if (pi.sendMessage !== undefined) {
 		pi.sendMessage({
 			customType: PUSH_OUTPUT_MESSAGE_TYPE,
@@ -270,7 +328,12 @@ function formatOutput(output: string): string {
 	return output.endsWith("\n") ? output.trimEnd() : output;
 }
 
-function stylePushOutputLine(line: string, index: number, level: NotifyLevel, theme: RenderTheme): string {
+function stylePushOutputLine(
+	line: string,
+	index: number,
+	level: NotifyLevel,
+	theme: RenderTheme,
+): string {
 	if (line === "") return line;
 	if (index === 0 && level === "error") return theme.fg("error", line);
 	if (index === 0 && level === "warning") return theme.fg("warning", line);

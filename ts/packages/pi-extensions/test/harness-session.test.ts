@@ -1,6 +1,11 @@
 import { describe, expect, test } from "vitest";
 
-import { registerHarnessSessionExtension, shellSingleQuote, type ExtensionAPI, type ToolCallResult } from "../src/harness-session.ts";
+import {
+	registerHarnessSessionExtension,
+	shellSingleQuote,
+	type ExtensionAPI,
+	type ToolCallResult,
+} from "../src/harness-session.ts";
 
 interface TestSessionContext {
 	sessionManager: {
@@ -10,7 +15,10 @@ interface TestSessionContext {
 }
 
 type SessionStartHandler = (event: unknown, ctx: TestSessionContext) => Promise<void> | void;
-type ToolCallHandler = (event: { toolName: string; input: unknown }, ctx: unknown) => ToolCallResult | void | Promise<ToolCallResult | void>;
+type ToolCallHandler = (
+	event: { toolName: string; input: unknown },
+	ctx: unknown,
+) => ToolCallResult | void | Promise<ToolCallResult | void>;
 
 interface FakeEntry {
 	type: "custom";
@@ -34,14 +42,20 @@ class FakePi implements ExtensionAPI {
 		this.entries.push({ type: "custom", customType, data });
 	}
 
-	async emitSessionStart(options: { sessionFile?: string | undefined; entries?: readonly unknown[] | undefined } = {}): Promise<void> {
-		if (this.sessionStartHandler === undefined) throw new Error("session_start handler not registered");
-		await this.sessionStartHandler({}, {
-			sessionManager: {
-				getSessionFile: () => options.sessionFile,
-				getEntries: () => options.entries ?? this.entries,
+	async emitSessionStart(
+		options: { sessionFile?: string | undefined; entries?: readonly unknown[] | undefined } = {},
+	): Promise<void> {
+		if (this.sessionStartHandler === undefined)
+			throw new Error("session_start handler not registered");
+		await this.sessionStartHandler(
+			{},
+			{
+				sessionManager: {
+					getSessionFile: () => options.sessionFile,
+					getEntries: () => options.entries ?? this.entries,
+				},
 			},
-		});
+		);
 	}
 
 	async emitBash(command: string): Promise<{ command: string; result: ToolCallResult | void }> {
@@ -70,7 +84,9 @@ describe("harness session extension", () => {
 		const bash = await pi.emitBash("pr-address exec get-feedback 123 --format json");
 
 		expect(state.harnessSessionId).toBe("pi-session-file-29e67821bedc391a811d7fd8fcdf12be");
-		expect(bash.command).toBe("export HARNESS_SESSION_ID='pi-session-file-29e67821bedc391a811d7fd8fcdf12be'\npr-address exec get-feedback 123 --format json");
+		expect(bash.command).toBe(
+			"export HARNESS_SESSION_ID='pi-session-file-29e67821bedc391a811d7fd8fcdf12be'\npr-address exec get-feedback 123 --format json",
+		);
 		expect(bash.result).toBeUndefined();
 	});
 
@@ -80,7 +96,13 @@ describe("harness session extension", () => {
 
 		await pi.emitSessionStart({
 			sessionFile: "/tmp/new-session.jsonl",
-			entries: [{ type: "custom", customType: "asdl-harness-session-id", data: { harnessSessionId: "restored-id" } }],
+			entries: [
+				{
+					type: "custom",
+					customType: "asdl-harness-session-id",
+					data: { harnessSessionId: "restored-id" },
+				},
+			],
 		});
 		const bash = await pi.emitBash("echo ok");
 
@@ -95,8 +117,16 @@ describe("harness session extension", () => {
 		const bash = await pi.emitBash("echo ephemeral");
 
 		expect(state.harnessSessionId).toBe("pi-ephemeral-1234-abc123");
-		expect(pi.entries).toEqual([{ type: "custom", customType: "asdl-harness-session-id", data: { harnessSessionId: "pi-ephemeral-1234-abc123" } }]);
-		expect(bash.command).toBe("export HARNESS_SESSION_ID='pi-ephemeral-1234-abc123'\necho ephemeral");
+		expect(pi.entries).toEqual([
+			{
+				type: "custom",
+				customType: "asdl-harness-session-id",
+				data: { harnessSessionId: "pi-ephemeral-1234-abc123" },
+			},
+		]);
+		expect(bash.command).toBe(
+			"export HARNESS_SESSION_ID='pi-ephemeral-1234-abc123'\necho ephemeral",
+		);
 	});
 
 	test("does not double-prefix commands that already set HARNESS_SESSION_ID", async () => {
@@ -104,11 +134,15 @@ describe("harness session extension", () => {
 		register(pi);
 		await pi.emitSessionStart({ sessionFile: "/tmp/session.jsonl" });
 
-		await expect(pi.emitBash("HARNESS_SESSION_ID=manual pr-address exec get-feedback 123")).resolves.toEqual({
+		await expect(
+			pi.emitBash("HARNESS_SESSION_ID=manual pr-address exec get-feedback 123"),
+		).resolves.toEqual({
 			command: "HARNESS_SESSION_ID=manual pr-address exec get-feedback 123",
 			result: undefined,
 		});
-		await expect(pi.emitBash("export HARNESS_SESSION_ID=manual\npr-address exec get-feedback 123")).resolves.toEqual({
+		await expect(
+			pi.emitBash("export HARNESS_SESSION_ID=manual\npr-address exec get-feedback 123"),
+		).resolves.toEqual({
 			command: "export HARNESS_SESSION_ID=manual\npr-address exec get-feedback 123",
 			result: undefined,
 		});
@@ -120,7 +154,8 @@ describe("harness session extension", () => {
 		await pi.emitSessionStart({ sessionFile: "/tmp/session.jsonl" });
 
 		await expect(pi.emitBash("echo HARNESS_SESSION_ID=manual")).resolves.toEqual({
-			command: "export HARNESS_SESSION_ID='pi-session-file-29e67821bedc391a811d7fd8fcdf12be'\necho HARNESS_SESSION_ID=manual",
+			command:
+				"export HARNESS_SESSION_ID='pi-session-file-29e67821bedc391a811d7fd8fcdf12be'\necho HARNESS_SESSION_ID=manual",
 			result: undefined,
 		});
 	});
@@ -132,7 +167,10 @@ describe("harness session extension", () => {
 		const bash = await pi.emitBash("echo blocked");
 
 		expect(bash.command).toBe("echo blocked");
-		expect(bash.result).toEqual({ block: true, reason: "HARNESS_SESSION_ID has not been initialized for this Pi session." });
+		expect(bash.result).toEqual({
+			block: true,
+			reason: "HARNESS_SESSION_ID has not been initialized for this Pi session.",
+		});
 	});
 
 	test("ignores non-Bash tool calls", async () => {

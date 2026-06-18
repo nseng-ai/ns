@@ -16,10 +16,16 @@ describe("slot selectors", () => {
 	});
 
 	it("rejects invalid worktree names", () => {
-		expect(resolveWt("repo")).toEqual({ type: "error", message: "--wt 'repo' is not a valid slot name (e.g. 'slot-01')." });
+		expect(resolveWt("repo")).toEqual({
+			type: "error",
+			message: "--wt 'repo' is not a valid slot name (e.g. 'slot-01').",
+		});
 	});
 
 	it("resolves current cwd by basename", () => {
-		expect(resolveCurrent("/slots/repos/repo/worktrees/slot-09")).toEqual({ type: "ok", slotName: "slot-09" });
+		expect(resolveCurrent("/slots/repos/repo/worktrees/slot-09")).toEqual({
+			type: "ok",
+			slotName: "slot-09",
+		});
 	});
 });

@@ -1,26 +1,26 @@
 {
-	"name": "@asdl/roaster",
-	"version": "0.1.0",
-	"type": "module",
-	"exports": {
-		".": "./src/index.ts"
-	},
-	"files": [
-		"src"
-	],
-	"bin": {
-		"roaster": "./src/cli.ts"
-	},
-	"scripts": {
-		"check": "tsc --noEmit -p tsconfig.json",
-		"test": "cd ../.. && vitest run --config vitest.config.ts packages/roaster/test"
-	},
-	"dependencies": {
-		"@asdl/clinkr": "workspace:*",
-		"@asdl/core": "workspace:*",
-		"@pierre/diffs": "^1.2.10",
-		"smol-toml": "^1.6.1",
-		"yaml": "^2.9.0",
-		"zod": "^4.4.3"
-	}
+  "name": "@asdl/roaster",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "bin": {
+    "roaster": "./src/cli.ts"
+  },
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "test": "cd ../.. && vitest run --config vitest.config.ts packages/roaster/test"
+  },
+  "dependencies": {
+    "@asdl/clinkr": "workspace:*",
+    "@asdl/core": "workspace:*",
+    "@pierre/diffs": "catalog:",
+    "smol-toml": "catalog:",
+    "yaml": "catalog:",
+    "zod": "catalog:"
+  }
 }

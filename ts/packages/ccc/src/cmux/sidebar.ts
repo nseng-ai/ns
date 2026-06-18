@@ -11,7 +11,14 @@ import {
 	slotSlugFromCwd,
 } from "./objective-sidebar.ts";
 import { formatErrorMessage } from "@asdl/core/primitives";
-import type { AgentEndContext, CommandContext, ExtensionAPI, ModelInfo, NotifyLevel, ThinkingLevel } from "./types.ts";
+import type {
+	AgentEndContext,
+	CommandContext,
+	ExtensionAPI,
+	ModelInfo,
+	NotifyLevel,
+	ThinkingLevel,
+} from "./types.ts";
 
 const SESSION_SIDEBAR_COMMAND_NAME = "ccc:sidebar:session-summary";
 const BRANCH_STATE_SIDEBAR_COMMAND_NAME = "ccc:sidebar:branch-state-summary";
@@ -59,7 +66,6 @@ export function createCccSidebarController(pi: ExtensionAPI): CccSidebarControll
 		async handleObjectiveCommand(args, ctx): Promise<void> {
 			await handleDeterministicObjectiveSidebar(pi, args, ctx);
 		},
-
 	};
 }
 
@@ -73,7 +79,8 @@ export function registerCccSidebarCommands(
 	});
 
 	pi.registerCommand(BRANCH_STATE_SIDEBAR_COMMAND_NAME, {
-		description: "Summarize the current branch state versus its parent into the caller cmux sidebar.",
+		description:
+			"Summarize the current branch state versus its parent into the caller cmux sidebar.",
 		handler: async (_args, ctx) => controller.handleBranchStateCommand(ctx),
 	});
 
@@ -153,7 +160,11 @@ asdl exec cmux-workspace-summary \\
 The command clears the old cmux status pill. Do not assign shell variables. Do not pass --workspace. Do not run raw cmux commands.`;
 }
 
-async function handleDeterministicObjectiveSidebar(pi: ExtensionAPI, args: string, ctx: CommandContext): Promise<void> {
+async function handleDeterministicObjectiveSidebar(
+	pi: ExtensionAPI,
+	args: string,
+	ctx: CommandContext,
+): Promise<void> {
 	await ctx.waitForIdle();
 
 	const workspaceId = getCallerWorkspaceId();
@@ -198,7 +209,11 @@ async function handleDeterministicObjectiveSidebar(pi: ExtensionAPI, args: strin
 	}
 }
 
-async function resolveObjectiveSidebarSlug(pi: ExtensionAPI, args: string, ctx: CommandContext): Promise<string | undefined> {
+async function resolveObjectiveSidebarSlug(
+	pi: ExtensionAPI,
+	args: string,
+	ctx: CommandContext,
+): Promise<string | undefined> {
 	if (args.trim().length > 0) {
 		const selector = resolveObjectiveSelector(args, ctx.cwd);
 		if (selector.type === "invalid") {
@@ -227,7 +242,9 @@ async function resolveObjectiveSidebarSlug(pi: ExtensionAPI, args: string, ctx: 
 		}
 
 		const choices = objectiveChoiceMap(choicesResult.records);
-		const selected = await ctx.ui.select("Select an active Objective for cmux sidebar", [...choices.keys()]);
+		const selected = await ctx.ui.select("Select an active Objective for cmux sidebar", [
+			...choices.keys(),
+		]);
 		if (!selected) {
 			notify(ctx, "Objective selection cancelled.", "info");
 			return undefined;
@@ -318,12 +335,19 @@ async function expandSidebarSkillBlock(ctx: CommandContext): Promise<string | un
 	try {
 		return (await expandRepoSkillBlock({ cwd: ctx.cwd, skillName: SKILL_NAME })).block;
 	} catch (error) {
-		notify(ctx, `Could not read cmux sidebar skill; using fallback prompt: ${formatErrorMessage(error)}`, "warning");
+		notify(
+			ctx,
+			`Could not read cmux sidebar skill; using fallback prompt: ${formatErrorMessage(error)}`,
+			"warning",
+		);
 		return undefined;
 	}
 }
 
-async function switchToFastSidebarModel(pi: ExtensionAPI, ctx: CommandContext): Promise<RestoreState | undefined> {
+async function switchToFastSidebarModel(
+	pi: ExtensionAPI,
+	ctx: CommandContext,
+): Promise<RestoreState | undefined> {
 	const resolution = resolveModelRef(process.env, SIDEBAR_MODEL_ENV, DEFAULT_FAST_MODEL_REF);
 	if (!resolution.ok) {
 		notify(ctx, `${resolution.error} Using current model.`, "warning");
@@ -354,7 +378,11 @@ async function switchToFastSidebarModel(pi: ExtensionAPI, ctx: CommandContext): 
 	return restoreState;
 }
 
-async function restoreModelState(pi: ExtensionAPI, ctx: AgentEndContext, restoreState: RestoreState): Promise<void> {
+async function restoreModelState(
+	pi: ExtensionAPI,
+	ctx: AgentEndContext,
+	restoreState: RestoreState,
+): Promise<void> {
 	if (restoreState.model !== undefined) {
 		const restored = await pi.setModel(restoreState.model);
 		if (!restored) {

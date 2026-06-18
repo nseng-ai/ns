@@ -30,7 +30,9 @@ export interface AregCliContext {
 	env: NodeJS.ProcessEnv;
 }
 
-export function createRealAregContext(options: { cwd?: string | undefined; env?: NodeJS.ProcessEnv | undefined } = {}): AregCliContext {
+export function createRealAregContext(
+	options: { cwd?: string | undefined; env?: NodeJS.ProcessEnv | undefined } = {},
+): AregCliContext {
 	const cwd = options.cwd ?? process.cwd();
 	const env = options.env ?? process.env;
 	const npxSkills = new RealAregNpxSkillsGateway();

@@ -37,7 +37,8 @@ export const worktreeStatusParity = definePiSurfaceParity([
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@asdl/pi-extensions",
 		sourceModule: "worktree-status",
-		notes: "This command is Pi-native status UI over CCC-owned observability loaders, not a portable workflow surface.",
+		notes:
+			"This command is Pi-native status UI over CCC-owned observability loaders, not a portable workflow surface.",
 	},
 ] as const);
 
@@ -141,7 +142,11 @@ interface RenderComponent {
 	invalidate(): void;
 }
 
-type MessageRenderer = (message: CustomMessage, options: { expanded: boolean }, theme: RenderTheme) => RenderComponent;
+type MessageRenderer = (
+	message: CustomMessage,
+	options: { expanded: boolean },
+	theme: RenderTheme,
+) => RenderComponent;
 
 interface RegisteredCommand {
 	description: string;
@@ -149,7 +154,10 @@ interface RegisteredCommand {
 }
 
 export interface ExtensionAPI {
-	on(event: "session_start", handler: (event: unknown, ctx: ExtensionContext) => Promise<void> | void): void;
+	on(
+		event: "session_start",
+		handler: (event: unknown, ctx: ExtensionContext) => Promise<void> | void,
+	): void;
 	on(event: "session_shutdown", handler: () => Promise<void> | void): void;
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
 	registerCommand?(name: string, options: RegisteredCommand): void;
@@ -230,7 +238,10 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 		const localStatus = session.localStatus;
 		if (localStatus === undefined) return undefined;
 		const ghSnapshot = session.ghStatusSnapshot;
-		if (ghSnapshot === undefined || !sameWorktreeStatusIdentity(localStatus.identity, ghSnapshot.identity)) {
+		if (
+			ghSnapshot === undefined ||
+			!sameWorktreeStatusIdentity(localStatus.identity, ghSnapshot.identity)
+		) {
 			return combineWorktreeStatus(localStatus, { type: "pending" });
 		}
 		return combineWorktreeStatus(localStatus, ghSnapshot.status);
@@ -246,34 +257,54 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 		if (renderSessionLines(session, lines)) lastLinesKey = linesKey;
 	}
 
-	async function refreshLocalNowWithIdentity(session: ActiveSession, identity?: WorktreeStatusIdentity): Promise<void> {
+	async function refreshLocalNowWithIdentity(
+		session: ActiveSession,
+		identity?: WorktreeStatusIdentity,
+	): Promise<void> {
 		if (!session.hasUI || !isActiveSession(session)) return;
 
 		const previousIdentity = session.localStatus?.identity;
-		let status = await loadLocalWorktreeStatus(pi, session.cwd, { identity, signal: session.abortController.signal });
+		let status = await loadLocalWorktreeStatus(pi, session.cwd, {
+			identity,
+			signal: session.abortController.signal,
+		});
 		if (!isActiveSession(session)) return;
 
-		const sharedIdentityStale = identity !== undefined && !isSharedIdentityStillCurrent(session.cwd, identity);
+		const sharedIdentityStale =
+			identity !== undefined && !isSharedIdentityStillCurrent(session.cwd, identity);
 		if (sharedIdentityStale) {
-			status = await loadLocalWorktreeStatus(pi, session.cwd, { signal: session.abortController.signal });
+			status = await loadLocalWorktreeStatus(pi, session.cwd, {
+				signal: session.abortController.signal,
+			});
 			if (!isActiveSession(session)) return;
 		}
 
-		const identityChanged = previousIdentity !== undefined && !sameWorktreeStatusIdentity(previousIdentity, status.identity);
+		const identityChanged =
+			previousIdentity !== undefined &&
+			!sameWorktreeStatusIdentity(previousIdentity, status.identity);
 		session.localStatus = status;
 		if (identityChanged || sharedIdentityStale) session.ghStatusSnapshot = undefined;
 		renderSessionStatus(session);
 	}
 
-	async function refreshRemoteNowWithIdentity(session: ActiveSession, identity?: WorktreeStatusIdentity): Promise<void> {
+	async function refreshRemoteNowWithIdentity(
+		session: ActiveSession,
+		identity?: WorktreeStatusIdentity,
+	): Promise<void> {
 		if (!session.hasUI || !isActiveSession(session)) return;
 
 		const fetchIdentity = identity ?? session.localStatus?.identity;
 		if (fetchIdentity === undefined) return;
-		const status = await loadWorktreeGhStatus(pi, session.cwd, { identity: fetchIdentity, signal: session.abortController.signal });
+		const status = await loadWorktreeGhStatus(pi, session.cwd, {
+			identity: fetchIdentity,
+			signal: session.abortController.signal,
+		});
 		if (!isActiveSession(session)) return;
 		const currentIdentity = session.localStatus?.identity;
-		if (currentIdentity !== undefined && !sameWorktreeStatusIdentity(currentIdentity, fetchIdentity)) {
+		if (
+			currentIdentity !== undefined &&
+			!sameWorktreeStatusIdentity(currentIdentity, fetchIdentity)
+		) {
 			renderSessionStatus(session);
 			return;
 		}
@@ -329,14 +360,24 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 	async function refreshAllImmediately(session: ActiveSession): Promise<void> {
 		if (!session.hasUI || !isActiveSession(session)) return;
 
-		const identity = await loadWorktreeStatusIdentity(pi, session.cwd, session.abortController.signal);
+		const identity = await loadWorktreeStatusIdentity(
+			pi,
+			session.cwd,
+			session.abortController.signal,
+		);
 		if (!isActiveSession(session)) return;
-		await Promise.all([refreshLocalNowWithIdentity(session, identity), refreshRemoteNowWithIdentity(session, identity)]);
+		await Promise.all([
+			refreshLocalNowWithIdentity(session, identity),
+			refreshRemoteNowWithIdentity(session, identity),
+		]);
 		if (!isActiveSession(session)) return;
 
 		const localIdentity = session.localStatus?.identity;
 		const remoteIdentity = session.ghStatusSnapshot?.identity;
-		if (localIdentity !== undefined && (remoteIdentity === undefined || !sameWorktreeStatusIdentity(localIdentity, remoteIdentity))) {
+		if (
+			localIdentity !== undefined &&
+			(remoteIdentity === undefined || !sameWorktreeStatusIdentity(localIdentity, remoteIdentity))
+		) {
 			await refreshRemoteNowWithIdentity(session, localIdentity);
 		}
 	}
@@ -480,7 +521,9 @@ function isSharedIdentityStillCurrent(cwd: string, identity: WorktreeStatusIdent
 	if (currentBranch !== identity.head.name) return false;
 
 	const currentOid = currentBranchLooseOid(gitPaths, identity.head.name);
-	return currentOid === undefined || identity.headOid === undefined || currentOid === identity.headOid;
+	return (
+		currentOid === undefined || identity.headOid === undefined || currentOid === identity.headOid
+	);
 }
 
 function currentBranchLooseOid(gitPaths: GitPaths, branch: string): string | undefined {
@@ -493,5 +536,3 @@ function currentBranchLooseOid(gitPaths: GitPaths, branch: string): string | und
 		return undefined;
 	}
 }
-
-

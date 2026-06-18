@@ -221,7 +221,9 @@ export class ClinkrGroup<TContext> {
 			command.addCommand(buildLeafCommand({ registered, context, io, state }));
 		}
 		for (const child of this.subgroups) {
-			command.addCommand(child.buildCommand({ context, io, state, isRoot: false }), { hidden: child.isHidden });
+			command.addCommand(child.buildCommand({ context, io, state, isRoot: false }), {
+				hidden: child.isHidden,
+			});
 		}
 		return command;
 	}
@@ -255,9 +257,15 @@ function executionOf<TContext, S extends z.ZodObject, T>(
 		// Erase the command generics once; zod re-establishes the request shape
 		// at parse time, so the cast is backed by a runtime guarantee.
 		handler: spec.handler as (ctx: TContext, request: unknown) => Promise<ClinkrExit<unknown>>,
-		renderHuman: spec.renderHuman as ((data: unknown, caps: RenderCapabilities) => string) | undefined,
-		renderMarkdown: spec.renderMarkdown as ((data: unknown, caps: RenderCapabilities) => string) | undefined,
-		legacyMachine: spec.legacyMachine as ((exit: ClinkrExit<unknown>) => LegacyMachineOutput) | undefined,
+		renderHuman: spec.renderHuman as
+			| ((data: unknown, caps: RenderCapabilities) => string)
+			| undefined,
+		renderMarkdown: spec.renderMarkdown as
+			| ((data: unknown, caps: RenderCapabilities) => string)
+			| undefined,
+		legacyMachine: spec.legacyMachine as
+			| ((exit: ClinkrExit<unknown>) => LegacyMachineOutput)
+			| undefined,
 	};
 }
 
@@ -269,7 +277,8 @@ function commandAtPath(program: Command, path: readonly string[]): Command {
 	let current = program;
 	for (const name of path) {
 		const child = current.commands.find((candidate) => candidate.name() === name);
-		if (child === undefined) throw new Error(`clinkr: built command tree is missing group '${name}'`);
+		if (child === undefined)
+			throw new Error(`clinkr: built command tree is missing group '${name}'`);
 		current = child;
 	}
 	return current;
@@ -464,7 +473,9 @@ function accumulateValue(value: string, previous: string[] | undefined): string[
 function formatUsageError(error: z.ZodError, plan: SurfacePlan): string {
 	const lines = error.issues.map((issue) => {
 		const surface = surfaceNameForIssue(plan, issue);
-		return surface === undefined ? `error: ${issue.message}` : `error: ${surface}: ${issue.message}`;
+		return surface === undefined
+			? `error: ${issue.message}`
+			: `error: ${surface}: ${issue.message}`;
 	});
 	return `${lines.join("\n")}\n`;
 }

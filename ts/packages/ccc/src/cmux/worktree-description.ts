@@ -21,7 +21,10 @@ export async function getGitRepositoryName(
 	pi: ExecRuntime,
 	cwd: string,
 ): Promise<string | undefined> {
-	const remote = await pi.exec("git", ["remote", "get-url", "origin"], { cwd, timeout: GIT_TIMEOUT_MS });
+	const remote = await pi.exec("git", ["remote", "get-url", "origin"], {
+		cwd,
+		timeout: GIT_TIMEOUT_MS,
+	});
 	if (remote.code === 0) {
 		const repoName = repositoryNameFromPath(remote.stdout.trim());
 		if (repoName) {
@@ -29,10 +32,14 @@ export async function getGitRepositoryName(
 		}
 	}
 
-	const commonDir = await pi.exec("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], {
-		cwd,
-		timeout: GIT_TIMEOUT_MS,
-	});
+	const commonDir = await pi.exec(
+		"git",
+		["rev-parse", "--path-format=absolute", "--git-common-dir"],
+		{
+			cwd,
+			timeout: GIT_TIMEOUT_MS,
+		},
+	);
 	if (commonDir.code !== 0) {
 		return undefined;
 	}

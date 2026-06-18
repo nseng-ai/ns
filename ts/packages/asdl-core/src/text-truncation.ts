@@ -25,7 +25,10 @@ export function truncateTextHeadTail(input: HeadTailTextTruncationOptions): stri
 	const headChars = splitHeadChars(remainingChars, input.headRatio, input.headRounding ?? "floor");
 	const tailChars = remainingChars - headChars;
 	const head = maybeTrimEnd(input.value.slice(0, headChars), input.shouldTrimHead === true);
-	const tail = maybeTrimStart(tailChars === 0 ? "" : input.value.slice(input.value.length - tailChars), input.shouldTrimTail === true);
+	const tail = maybeTrimStart(
+		tailChars === 0 ? "" : input.value.slice(input.value.length - tailChars),
+		input.shouldTrimTail === true,
+	);
 	return `${head}${marker}${tail}`;
 }
 
@@ -42,9 +45,14 @@ export function truncateTextHead(input: HeadTextTruncationOptions): string {
 	return `${head}${marker}`;
 }
 
-function splitHeadChars(remainingChars: number, headRatio: number, headRounding: "floor" | "ceil"): number {
+function splitHeadChars(
+	remainingChars: number,
+	headRatio: number,
+	headRounding: "floor" | "ceil",
+): number {
 	const rawHeadChars = remainingChars * headRatio;
-	const roundedHeadChars = headRounding === "ceil" ? Math.ceil(rawHeadChars) : Math.floor(rawHeadChars);
+	const roundedHeadChars =
+		headRounding === "ceil" ? Math.ceil(rawHeadChars) : Math.floor(rawHeadChars);
 	return Math.max(0, Math.min(remainingChars, roundedHeadChars));
 }
 

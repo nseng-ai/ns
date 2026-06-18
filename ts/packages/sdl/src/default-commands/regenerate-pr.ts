@@ -15,7 +15,12 @@ import { failed, ok, z, type SdlCommand, type SdlContext } from "../sdk.ts";
 import { createSdlCommandRunner, SdlCommandExecApi } from "./command-runner.ts";
 
 const regeneratePrSchema = z.object({
-	force: z.boolean().default(false).describe("Compatibility flag from older guarded PR regeneration workflows; regenerate-pr now always replaces the PR body."),
+	force: z
+		.boolean()
+		.default(false)
+		.describe(
+			"Compatibility flag from older guarded PR regeneration workflows; regenerate-pr now always replaces the PR body.",
+		),
 });
 
 export const defaultRegeneratePrCommand = {
@@ -59,7 +64,9 @@ The command owns its output and exit code. It does not support --format.`,
 			return failed("", 1);
 		}
 		if (decision.kind === "skip") {
-			ctx.stdout?.(`PR description is already up to date.\nPR: #${pr.value.number} ${pr.value.url}\n`);
+			ctx.stdout?.(
+				`PR description is already up to date.\nPR: #${pr.value.number} ${pr.value.url}\n`,
+			);
 			return ok("");
 		}
 

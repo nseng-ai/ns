@@ -10,11 +10,13 @@ export const landParity = definePiSurfaceParity([
 		surface: "sdl:code:land",
 		workflow: "Land the current PR or Graphite stack into trunk",
 		parity: "PARTIAL",
-		trackedGap: "cross-harness-parity roadmap: add a clinkr-based CLI entry and skill for the unified /sdl:code:land orchestration.",
+		trackedGap:
+			"cross-harness-parity roadmap: add a clinkr-based CLI entry and skill for the unified /sdl:code:land orchestration.",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@asdl/pi-extensions",
 		sourceModule: "land",
-		notes: "Pi command exposes the SDL code-lifecycle surface and delegates to CCC land orchestration; no bin or installed skill currently makes the unified workflow reachable outside Pi.",
+		notes:
+			"Pi command exposes the SDL code-lifecycle surface and delegates to CCC land orchestration; no bin or installed skill currently makes the unified workflow reachable outside Pi.",
 	},
 ] as const);
 

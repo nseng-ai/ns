@@ -7,7 +7,10 @@ import type { RoasterContext } from "../../src/context.ts";
 import { FakeHarnessGateway, type HarnessGateway } from "../../src/gateways/harness.ts";
 import { FakeRoasterGitHubGateway, type RoasterGitHubGateway } from "../../src/gateways/github.ts";
 import { FakeLocalDiffGateway, type LocalDiffGateway } from "../../src/gateways/local-diff.ts";
-import { FakeReviewCatalogGateway, type ReviewCatalogGateway } from "../../src/gateways/review-catalog.ts";
+import {
+	FakeReviewCatalogGateway,
+	type ReviewCatalogGateway,
+} from "../../src/gateways/review-catalog.ts";
 
 export interface FakeRoasterContextOptions {
 	readonly execApi?: CommandExecApi | undefined;

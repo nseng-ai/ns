@@ -8,11 +8,19 @@ export interface GrillAskProgress {
 }
 
 const GRILL_ASK_TOOL_NAME = "grill_ask";
-const GRILL_UI_KICKOFF_MARKERS = ["<structured-grill-question-ui-contract>", "<plan-or-design-to-grill>"] as const;
+const GRILL_UI_KICKOFF_MARKERS = [
+	"<structured-grill-question-ui-contract>",
+	"<plan-or-design-to-grill>",
+] as const;
 const COMPACT_BASIS_MAX_LENGTH = 64;
 
-export function formatGrillAskProgressLine(progress: GrillAskProgress, estimate: GrillAskRemainingEstimate | undefined): string {
-	return [formatQuestionProgress(progress), formatRemainingEstimate(estimate, "compact")].join(" • ");
+export function formatGrillAskProgressLine(
+	progress: GrillAskProgress,
+	estimate: GrillAskRemainingEstimate | undefined,
+): string {
+	return [formatQuestionProgress(progress), formatRemainingEstimate(estimate, "compact")].join(
+		" • ",
+	);
 }
 
 export function formatRemainingEstimate(
@@ -25,7 +33,12 @@ export function formatRemainingEstimate(
 		case "exact":
 			return appendBasis(`Remaining ${estimate.count}`, estimate.basis, "basis", basisMode);
 		case "range":
-			return appendBasis(`Remaining ${estimate.min}–${estimate.max}`, estimate.basis, "rough", basisMode);
+			return appendBasis(
+				`Remaining ${estimate.min}–${estimate.max}`,
+				estimate.basis,
+				"rough",
+				basisMode,
+			);
 		case "unknown":
 			return appendBasis("Remaining unknown", estimate.basis, "why", basisMode);
 		default: {
@@ -40,7 +53,12 @@ function formatQuestionProgress(progress: GrillAskProgress): string {
 	return `Question ${progress.answeredQuestions + 1} • Answered ${progress.answeredQuestions}`;
 }
 
-function appendBasis(value: string, basis: string | undefined, label: string, basisMode: "compact" | "full"): string {
+function appendBasis(
+	value: string,
+	basis: string | undefined,
+	label: string,
+	basisMode: "compact" | "full",
+): string {
 	if (basis === undefined) return value;
 	const renderedBasis = basisMode === "compact" ? compactBasis(basis) : basis;
 	return `${value} (${label}: ${renderedBasis})`;

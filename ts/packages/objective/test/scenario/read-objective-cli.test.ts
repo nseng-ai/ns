@@ -6,7 +6,9 @@ describe("objective exec read-objective", () => {
 	test("returns TS-native JSON facts and Markdown files for a complete open record", async () => {
 		const run = runScenario(["exec", "read-objective", "alpha", "--format", "json"], {
 			fake: {
-				records: [{ slug: "alpha", updates: { "second.md": "# Second\n", "first.md": "# First\n" } }],
+				records: [
+					{ slug: "alpha", updates: { "second.md": "# Second\n", "first.md": "# First\n" } },
+				],
 			},
 		});
 
@@ -103,7 +105,9 @@ describe("objective exec read-objective", () => {
 		expect(output).toContain("# Raw Objective\nbody sentinel");
 		expect(output).toContain("## roadmap.md");
 		expect(output).toContain("# Raw Roadmap\n- [ ] roadmap sentinel");
-		expect(output.indexOf("## updates/a-earlier.md")).toBeLessThan(output.indexOf("## updates/b-later.md"));
+		expect(output.indexOf("## updates/a-earlier.md")).toBeLessThan(
+			output.indexOf("## updates/b-later.md"),
+		);
 		expect(output).toContain("# Earlier\nearlier sentinel");
 		expect(output).toContain("# Later\nlater sentinel");
 		expect(output).not.toContain("not markdown");
@@ -174,7 +178,12 @@ describe("objective exec read-objective", () => {
 	});
 });
 
-function emptyReadData(options: { status: string; error: string; slug?: string | null | undefined; path?: string | null | undefined }) {
+function emptyReadData(options: {
+	status: string;
+	error: string;
+	slug?: string | null | undefined;
+	path?: string | null | undefined;
+}) {
 	return {
 		status: options.status,
 		error: options.error,

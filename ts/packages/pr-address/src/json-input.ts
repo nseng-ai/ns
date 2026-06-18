@@ -7,7 +7,9 @@ export interface JsonInputError {
 	message: string;
 }
 
-export type JsonInputResult<T> = { type: "ok"; value: T } | { type: "error"; error: JsonInputError };
+export type JsonInputResult<T> =
+	| { type: "ok"; value: T }
+	| { type: "error"; error: JsonInputError };
 
 export interface ReadJsonInputTextOptions {
 	optionValue: string | undefined;
@@ -24,9 +26,12 @@ export interface LoadJsonInputOptions<T> extends ReadJsonInputTextOptions {
 	schema: z.ZodType<T>;
 }
 
-async function readJsonInputText(options: ReadJsonInputTextOptions): Promise<JsonInputResult<string>> {
+async function readJsonInputText(
+	options: ReadJsonInputTextOptions,
+): Promise<JsonInputResult<string>> {
 	const canReadStdin = options.canReadStdin ?? true;
-	const sourceCount = Number(options.optionValue !== undefined) + Number(options.filePath !== undefined);
+	const sourceCount =
+		Number(options.optionValue !== undefined) + Number(options.filePath !== undefined);
 	if (sourceCount > 1) {
 		return {
 			type: "error",
@@ -40,7 +45,11 @@ async function readJsonInputText(options: ReadJsonInputTextOptions): Promise<Jso
 	const rawPayloadResult = await readRawPayload(options, canReadStdin);
 	if (rawPayloadResult.type === "error") return rawPayloadResult;
 
-	const sourceDescription = describeSources(options.optionName, options.fileOptionName, canReadStdin);
+	const sourceDescription = describeSources(
+		options.optionName,
+		options.fileOptionName,
+		canReadStdin,
+	);
 	if (rawPayloadResult.value.trim() === "") {
 		return {
 			type: "error",
@@ -53,7 +62,9 @@ async function readJsonInputText(options: ReadJsonInputTextOptions): Promise<Jso
 	return rawPayloadResult;
 }
 
-export async function loadJsonInput<T>(options: LoadJsonInputOptions<T>): Promise<JsonInputResult<T>> {
+export async function loadJsonInput<T>(
+	options: LoadJsonInputOptions<T>,
+): Promise<JsonInputResult<T>> {
 	const textResult = await readJsonInputText(options);
 	if (textResult.type === "error") return textResult;
 
@@ -65,7 +76,10 @@ export async function loadJsonInput<T>(options: LoadJsonInputOptions<T>): Promis
 	});
 }
 
-async function readRawPayload(options: ReadJsonInputTextOptions, canReadStdin: boolean): Promise<JsonInputResult<string>> {
+async function readRawPayload(
+	options: ReadJsonInputTextOptions,
+	canReadStdin: boolean,
+): Promise<JsonInputResult<string>> {
 	if (options.optionValue !== undefined) return { type: "ok", value: options.optionValue };
 	if (options.filePath !== undefined) {
 		return await readJsonInputFile({
@@ -93,7 +107,9 @@ interface ReadJsonInputFileOptions {
 	fileOptionNameValue: string | undefined;
 }
 
-async function readJsonInputFile(options: ReadJsonInputFileOptions): Promise<JsonInputResult<string>> {
+async function readJsonInputFile(
+	options: ReadJsonInputFileOptions,
+): Promise<JsonInputResult<string>> {
 	try {
 		return { type: "ok", value: await readFile(options.filePath, "utf8") };
 	} catch {
@@ -107,7 +123,11 @@ async function readJsonInputFile(options: ReadJsonInputFileOptions): Promise<Jso
 	}
 }
 
-function describeSources(optionName: string, fileOptionNameValue: string | undefined, canReadStdin: boolean): string {
+function describeSources(
+	optionName: string,
+	fileOptionNameValue: string | undefined,
+	canReadStdin: boolean,
+): string {
 	const sources: string[] = [];
 	if (canReadStdin) sources.push("stdin");
 	sources.push(optionName);
@@ -147,10 +167,18 @@ function parseJsonWithSchema<T>(options: JsonSchemaParseOptions<T>): JsonInputRe
 		};
 	}
 
-	return parseJsonValueWithSchema({ value: parsedJson, schema: options.schema, schemaDescription: options.schemaDescription });
+	return parseJsonValueWithSchema({
+		value: parsedJson,
+		schema: options.schema,
+		schemaDescription: options.schemaDescription,
+	});
 }
 
-function parseJsonValueWithSchema<T>(options: { value: unknown; schema: z.ZodType<T>; schemaDescription: string }): JsonInputResult<T> {
+function parseJsonValueWithSchema<T>(options: {
+	value: unknown;
+	schema: z.ZodType<T>;
+	schemaDescription: string;
+}): JsonInputResult<T> {
 	const parseResult = options.schema.safeParse(options.value);
 	if (!parseResult.success) {
 		return {

@@ -118,9 +118,36 @@ interface ParserCase {
 }
 
 const PARSER_CASES: readonly ParserCase[] = [
-	{ diffText: MODIFY_DIFF, changeKind: "modified", path: "app.py", oldPath: null, isBinary: false, addedLines: 2, removedLines: 1, hunkCount: 1 },
-	{ diffText: ADD_DIFF, changeKind: "added", path: "new.py", oldPath: null, isBinary: false, addedLines: 2, removedLines: 0, hunkCount: 1 },
-	{ diffText: DELETE_DIFF, changeKind: "deleted", path: "old.py", oldPath: null, isBinary: false, addedLines: 0, removedLines: 2, hunkCount: 1 },
+	{
+		diffText: MODIFY_DIFF,
+		changeKind: "modified",
+		path: "app.py",
+		oldPath: null,
+		isBinary: false,
+		addedLines: 2,
+		removedLines: 1,
+		hunkCount: 1,
+	},
+	{
+		diffText: ADD_DIFF,
+		changeKind: "added",
+		path: "new.py",
+		oldPath: null,
+		isBinary: false,
+		addedLines: 2,
+		removedLines: 0,
+		hunkCount: 1,
+	},
+	{
+		diffText: DELETE_DIFF,
+		changeKind: "deleted",
+		path: "old.py",
+		oldPath: null,
+		isBinary: false,
+		addedLines: 0,
+		removedLines: 2,
+		hunkCount: 1,
+	},
 	{
 		diffText: PURE_RENAME_DIFF,
 		changeKind: "renamed",
@@ -141,7 +168,16 @@ const PARSER_CASES: readonly ParserCase[] = [
 		removedLines: 1,
 		hunkCount: 1,
 	},
-	{ diffText: COPY_DIFF, changeKind: "copied", path: "generated.py", oldPath: "template.py", isBinary: false, addedLines: 0, removedLines: 0, hunkCount: 0 },
+	{
+		diffText: COPY_DIFF,
+		changeKind: "copied",
+		path: "generated.py",
+		oldPath: "template.py",
+		isBinary: false,
+		addedLines: 0,
+		removedLines: 0,
+		hunkCount: 0,
+	},
 	{
 		diffText: COPY_WITH_CONTENT_DIFF,
 		changeKind: "copied",
@@ -172,7 +208,16 @@ const PARSER_CASES: readonly ParserCase[] = [
 		removedLines: 0,
 		hunkCount: 0,
 	},
-	{ diffText: BINARY_DIFF, changeKind: "added", path: "image.png", oldPath: null, isBinary: true, addedLines: 0, removedLines: 0, hunkCount: 0 },
+	{
+		diffText: BINARY_DIFF,
+		changeKind: "added",
+		path: "image.png",
+		oldPath: null,
+		isBinary: true,
+		addedLines: 0,
+		removedLines: 0,
+		hunkCount: 0,
+	},
 	{
 		diffText: QUOTED_PATH_DIFF,
 		changeKind: "modified",
@@ -260,9 +305,12 @@ describe("parseUnifiedDiff", () => {
 		expect(files[0]?.rawText).toBe(diffText);
 	});
 
-	test.each(["", "\n", "  \n\t"])("returns no files for empty or whitespace input %#", (diffText) => {
-		expect(parseUnifiedDiff(diffText)).toEqual([]);
-	});
+	test.each(["", "\n", "  \n\t"])(
+		"returns no files for empty or whitespace input %#",
+		(diffText) => {
+			expect(parseUnifiedDiff(diffText)).toEqual([]);
+		},
+	);
 
 	test("returns no files for unexpected non-git segments", () => {
 		expect(parseUnifiedDiff("not a git diff\n+but still text\n")).toEqual([]);

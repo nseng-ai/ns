@@ -17,7 +17,10 @@ export function getPiLaunchOptions(
 	return { model: ctx.model, thinkingLevel };
 }
 
-export function buildPiLaunchCommand(initialArgument: string, launchOptions: PiLaunchOptions): string {
+export function buildPiLaunchCommand(
+	initialArgument: string,
+	launchOptions: PiLaunchOptions,
+): string {
 	const args = ["pi"];
 	if (launchOptions.model !== undefined) {
 		args.push("--provider", launchOptions.model.provider, "--model", launchOptions.model.id);

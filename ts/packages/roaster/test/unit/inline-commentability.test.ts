@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
 
-import { classifyInlineFindings, commentableRightSideLines } from "../../src/inline-commentability.ts";
+import {
+	classifyInlineFindings,
+	commentableRightSideLines,
+} from "../../src/inline-commentability.ts";
 import type { PRChangedFile, ReviewFinding } from "../../src/models.ts";
 
 describe("commentableRightSideLines", () => {
@@ -11,10 +14,16 @@ describe("commentableRightSideLines", () => {
 	});
 
 	test("handles new files, deleted files, single-line hunks, multi-hunks, no-newline markers, and pre-hunk text", () => {
-		expect([...commentableRightSideLines("@@ -0,0 +1,3 @@\n+one\n+two\n+three\n")]).toEqual([1, 2, 3]);
+		expect([...commentableRightSideLines("@@ -0,0 +1,3 @@\n+one\n+two\n+three\n")]).toEqual([
+			1, 2, 3,
+		]);
 		expect([...commentableRightSideLines("@@ -1,3 +0,0 @@\n-one\n-two\n-three\n")]).toEqual([]);
 		expect([...commentableRightSideLines("@@ -7 +8 @@\n+new\n")]).toEqual([8]);
-		expect([...commentableRightSideLines("+pre\n@@ -1 +1 @@\n one\n@@ -9 +10 @@\n+two\n\\ No newline at end of file\n")]).toEqual([1, 10]);
+		expect([
+			...commentableRightSideLines(
+				"+pre\n@@ -1 +1 @@\n one\n@@ -9 +10 @@\n+two\n\\ No newline at end of file\n",
+			),
+		]).toEqual([1, 10]);
 	});
 
 	test("returns an empty set for null patches", () => {

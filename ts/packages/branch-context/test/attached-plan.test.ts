@@ -10,8 +10,17 @@ import {
 	normalizeRequestedBranchContextKey,
 	selectAttachedPlanKey,
 } from "../src/attached-plan.ts";
-import { parseBrmemGetContent, parseBrmemListEntries, type AttachedPlanEntry, type BranchContextBrmemGateway } from "../src/brmem-gateway.ts";
-import { BRANCH_CONTEXT_NAMESPACE, createBranchContextContext, type BranchContextContext } from "@asdl/branch-context";
+import {
+	parseBrmemGetContent,
+	parseBrmemListEntries,
+	type AttachedPlanEntry,
+	type BranchContextBrmemGateway,
+} from "../src/brmem-gateway.ts";
+import {
+	BRANCH_CONTEXT_NAMESPACE,
+	createBranchContextContext,
+	type BranchContextContext,
+} from "@asdl/branch-context";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
 import type { GitGateway } from "@asdl/core/git";
 import { buildPlanFileName, buildRepoPlanStoreKey, encodeBranchForPlanPath } from "@asdl/plans";
@@ -106,11 +115,16 @@ function gitRootStep(root: string = ROOT): ScriptedExec {
 	return step("git", ["rev-parse", "--show-toplevel"], { stdout: `${root}\n` });
 }
 
-function gitCurrentBranchStep(branch: string = PLAN_BRANCH, result: Partial<ExecResult> = {}): ScriptedExec {
+function gitCurrentBranchStep(
+	branch: string = PLAN_BRANCH,
+	result: Partial<ExecResult> = {},
+): ScriptedExec {
 	return step("git", ["branch", "--show-current"], { stdout: `${branch}\n`, ...result });
 }
 
-function gitDefaultBranchStep(result: Partial<ExecResult> = { stdout: "origin/master\n" }): ScriptedExec {
+function gitDefaultBranchStep(
+	result: Partial<ExecResult> = { stdout: "origin/master\n" },
+): ScriptedExec {
 	return step("git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], result);
 }
 
@@ -118,21 +132,37 @@ function gitBranchPresenceStep(branch: string, result: Partial<ExecResult> = {})
 	return step("git", ["rev-parse", "--verify", `refs/heads/${branch}`], result);
 }
 
-function gitDefaultBranchProbeSteps(result: Partial<ExecResult> = { stdout: "origin/master\n" }): ScriptedExec[] {
+function gitDefaultBranchProbeSteps(
+	result: Partial<ExecResult> = { stdout: "origin/master\n" },
+): ScriptedExec[] {
 	const stdout = result.stdout ?? "origin/master\n";
-	const candidate = stdout.trim().startsWith("origin/") ? stdout.trim().slice("origin/".length) : stdout.trim();
+	const candidate = stdout.trim().startsWith("origin/")
+		? stdout.trim().slice("origin/".length)
+		: stdout.trim();
 	if ((result.code ?? 0) === 0 && candidate.length > 0) {
 		return [gitDefaultBranchStep(result), gitBranchPresenceStep(candidate)];
 	}
-	return [gitDefaultBranchStep(result), gitBranchPresenceStep("main", { code: 1, stderr: "missing" }), gitBranchPresenceStep("master", { code: 1, stderr: "missing" })];
+	return [
+		gitDefaultBranchStep(result),
+		gitBranchPresenceStep("main", { code: 1, stderr: "missing" }),
+		gitBranchPresenceStep("master", { code: 1, stderr: "missing" }),
+	];
 }
 
 function brmemListStep(branch: string, result: Partial<ExecResult>): ScriptedExec {
-	return step("brmem", ["list", "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", branch, "--format", "json"], result);
+	return step(
+		"brmem",
+		["list", "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", branch, "--format", "json"],
+		result,
+	);
 }
 
 function brmemGetStep(branch: string, key: string, result: Partial<ExecResult>): ScriptedExec {
-	return step("brmem", ["get", key, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", branch, "--format", "json"], result);
+	return step(
+		"brmem",
+		["get", key, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", branch, "--format", "json"],
+		result,
+	);
 }
 
 function listEnvelope(
@@ -152,14 +182,22 @@ function listEnvelope(
 					namespace: entry.namespace ?? BRANCH_CONTEXT_NAMESPACE,
 					key: entry.key,
 					branch: entryBranch,
-					ref_name: entry.refName ?? `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${entryBranch.replaceAll("/", "---")}:${entry.key}`,
+					ref_name:
+						entry.refName ??
+						`refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${entryBranch.replaceAll("/", "---")}:${entry.key}`,
 				};
 			}),
 		},
 	});
 }
 
-function getEnvelope(input: { key: string; branch: string; content: string; refName?: string; namespace?: string }): string {
+function getEnvelope(input: {
+	key: string;
+	branch: string;
+	content: string;
+	refName?: string;
+	namespace?: string;
+}): string {
 	return JSON.stringify({
 		exit_code: 0,
 		data: {
@@ -167,26 +205,36 @@ function getEnvelope(input: { key: string; branch: string; content: string; refN
 			key: input.key,
 			branch: input.branch,
 			content: input.content,
-			ref_name: input.refName ?? `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${input.branch.replaceAll("/", "---")}:${input.key}`,
-			target: input.refName ?? `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${input.branch.replaceAll("/", "---")}:${input.key}`,
+			ref_name:
+				input.refName ??
+				`refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${input.branch.replaceAll("/", "---")}:${input.key}`,
+			target:
+				input.refName ??
+				`refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${input.branch.replaceAll("/", "---")}:${input.key}`,
 			at: null,
 		},
 	});
 }
 
-function successfulLoadScript(input: {
-	branch?: string;
-	key?: string;
-	entries?: Array<{ key: string; branch?: string; namespace?: string; refName?: string }>;
-	content?: string;
-	refName?: string;
-	defaultBranchResult?: Partial<ExecResult>;
-} = {}): ScriptedExec[] {
+function successfulLoadScript(
+	input: {
+		branch?: string;
+		key?: string;
+		entries?: Array<{ key: string; branch?: string; namespace?: string; refName?: string }>;
+		content?: string;
+		refName?: string;
+		defaultBranchResult?: Partial<ExecResult>;
+	} = {},
+): ScriptedExec[] {
 	const branch = input.branch ?? PLAN_BRANCH;
 	const key = input.key ?? PLAN_KEY;
-	const entries = input.entries ?? (input.refName === undefined ? [{ key }] : [{ key, refName: input.refName }]);
+	const entries =
+		input.entries ?? (input.refName === undefined ? [{ key }] : [{ key, refName: input.refName }]);
 	const content = input.content ?? PLAN_CONTENT;
-	const getStdout = input.refName === undefined ? getEnvelope({ branch, key, content }) : getEnvelope({ branch, key, content, refName: input.refName });
+	const getStdout =
+		input.refName === undefined
+			? getEnvelope({ branch, key, content })
+			: getEnvelope({ branch, key, content, refName: input.refName });
 	return [
 		gitRootStep(),
 		gitCurrentBranchStep(branch),
@@ -252,7 +300,10 @@ function fakeGitGateway(branch: string = PLAN_BRANCH): GitGateway {
 	};
 }
 
-function branchContext(pi: CommandExecApi, overrides: Partial<BranchContextContext> = {}): BranchContextContext {
+function branchContext(
+	pi: CommandExecApi,
+	overrides: Partial<BranchContextContext> = {},
+): BranchContextContext {
 	return { ...createBranchContextContext(pi), ...overrides };
 }
 
@@ -262,16 +313,25 @@ function emptyBrmemGateway(): BranchContextBrmemGateway {
 			return { type: "absent" };
 		},
 		async attachPlan() {
-			return { ok: false, error: { code: "unexpected", message: "attachPlan should not be called" } };
+			return {
+				ok: false,
+				error: { code: "unexpected", message: "attachPlan should not be called" },
+			};
 		},
 		async listAttachedPlans() {
 			return { ok: true, value: [] };
 		},
 		async getAttachedPlan() {
-			return { ok: false, error: { code: "unexpected", message: "getAttachedPlan should not be called" } };
+			return {
+				ok: false,
+				error: { code: "unexpected", message: "getAttachedPlan should not be called" },
+			};
 		},
 		async deleteEntry() {
-			return { ok: false, error: { code: "unexpected", message: "deleteEntry should not be called" } };
+			return {
+				ok: false,
+				error: { code: "unexpected", message: "deleteEntry should not be called" },
+			};
 		},
 	};
 }
@@ -288,8 +348,31 @@ describe("loadAttachedPlan", () => {
 			{ command: "git", args: ["branch", "--show-current"] },
 			{ command: "git", args: ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"] },
 			{ command: "git", args: ["rev-parse", "--verify", "refs/heads/master"] },
-			{ command: "brmem", args: ["list", "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", PLAN_BRANCH, "--format", "json"] },
-			{ command: "brmem", args: ["get", PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", PLAN_BRANCH, "--format", "json"] },
+			{
+				command: "brmem",
+				args: [
+					"list",
+					"--namespace",
+					BRANCH_CONTEXT_NAMESPACE,
+					"--branch",
+					PLAN_BRANCH,
+					"--format",
+					"json",
+				],
+			},
+			{
+				command: "brmem",
+				args: [
+					"get",
+					PLAN_KEY,
+					"--namespace",
+					BRANCH_CONTEXT_NAMESPACE,
+					"--branch",
+					PLAN_BRANCH,
+					"--format",
+					"json",
+				],
+			},
 		]);
 		expect(plan).toEqual({
 			branch: PLAN_BRANCH,
@@ -314,7 +397,11 @@ describe("loadAttachedPlan", () => {
 
 	test("loads an explicit exact key", async () => {
 		const exactPi = new FakePi(successfulLoadScript());
-		const exactPlan = await loadAttachedPlan(exactPi, { requestedKey: PLAN_KEY }, { cwd: ROOT, context: branchContext(exactPi) });
+		const exactPlan = await loadAttachedPlan(
+			exactPi,
+			{ requestedKey: PLAN_KEY },
+			{ cwd: ROOT, context: branchContext(exactPi) },
+		);
 		exactPi.assertDone();
 		expect(exactPlan.selectedKey).toBe(PLAN_KEY);
 	});
@@ -325,7 +412,9 @@ describe("loadAttachedPlan", () => {
 				branch: "branch-contexts/no-match",
 				entries: [attachedPlanEntry("beta.md"), attachedPlanEntry("alpha.md")],
 			}),
-		).toThrow(/Multiple branch-context entries[\s\S]*Pass an explicit branch-context key[\s\S]*- alpha\.md[\s\S]*- beta\.md/);
+		).toThrow(
+			/Multiple branch-context entries[\s\S]*Pass an explicit branch-context key[\s\S]*- alpha\.md[\s\S]*- beta\.md/,
+		);
 	});
 
 	test("reports missing requested key with available keys", () => {
@@ -352,7 +441,11 @@ describe("loadAttachedPlan", () => {
 			brmemListStep(PLAN_BRANCH, { stdout: listEnvelope(PLAN_BRANCH, []) }),
 		]);
 
-		await expect(loadAttachedPlan(pi, {}, { cwd: ROOT, context: branchContext(pi) })).rejects.toThrow(/No branch-context entries[\s\S]*enriched-plan exec save[\s\S]*branch-context exec from-plan/);
+		await expect(
+			loadAttachedPlan(pi, {}, { cwd: ROOT, context: branchContext(pi) }),
+		).rejects.toThrow(
+			/No branch-context entries[\s\S]*enriched-plan exec save[\s\S]*branch-context exec from-plan/,
+		);
 
 		pi.assertDone();
 	});
@@ -362,7 +455,11 @@ describe("loadAttachedPlan", () => {
 		tempDirs.push(planStoreRoot);
 		const savedSlug = "saved-plan-fallback-content";
 		const fileName = buildPlanFileName(savedSlug);
-		const directory = join(planStoreRoot, buildRepoPlanStoreKey(ROOT, "git@github.com:asdl/asdl-tools.git"), encodeBranchForPlanPath(PLAN_BRANCH));
+		const directory = join(
+			planStoreRoot,
+			buildRepoPlanStoreKey(ROOT, "git@github.com:asdl/asdl-tools.git"),
+			encodeBranchForPlanPath(PLAN_BRANCH),
+		);
 		const filePath = join(directory, fileName);
 		await mkdir(directory, { recursive: true });
 		await writeFile(filePath, "# Real file should not be read\n", "utf8");
@@ -370,15 +467,19 @@ describe("loadAttachedPlan", () => {
 		const readPaths: string[] = [];
 		const pi = new FakePi();
 
-		const plan = await loadBranchContextPlan(pi, {}, {
-			cwd: ROOT,
-			context: branchContext(pi, { git: fakeGitGateway(), brmem: emptyBrmemGateway() }),
-			planStoreRoot,
-			async readTextFile(path) {
-				readPaths.push(path);
-				return fakeContent;
+		const plan = await loadBranchContextPlan(
+			pi,
+			{},
+			{
+				cwd: ROOT,
+				context: branchContext(pi, { git: fakeGitGateway(), brmem: emptyBrmemGateway() }),
+				planStoreRoot,
+				async readTextFile(path) {
+					readPaths.push(path);
+					return fakeContent;
+				},
 			},
-		});
+		);
 
 		pi.assertDone();
 		expect(readPaths).toEqual([filePath]);
@@ -396,9 +497,14 @@ describe("loadAttachedPlan", () => {
 	});
 
 	test("refuses detached HEAD before Branch Memory reads", async () => {
-		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep("", { code: 1, stderr: "fatal: ref HEAD is not a symbolic ref" })]);
+		const pi = new FakePi([
+			gitRootStep(),
+			gitCurrentBranchStep("", { code: 1, stderr: "fatal: ref HEAD is not a symbolic ref" }),
+		]);
 
-		await expect(loadAttachedPlan(pi, {}, { cwd: ROOT, context: branchContext(pi) })).rejects.toThrow("detached HEAD");
+		await expect(
+			loadAttachedPlan(pi, {}, { cwd: ROOT, context: branchContext(pi) }),
+		).rejects.toThrow("detached HEAD");
 
 		pi.assertDone();
 		expect(pi.execCalls.some((call) => call.command === "brmem")).toBe(false);
@@ -409,10 +515,14 @@ describe("loadAttachedPlan", () => {
 			const pi = new FakePi([
 				gitRootStep(),
 				gitCurrentBranchStep(branch),
-				...gitDefaultBranchProbeSteps({ stdout: branch === "develop" ? "origin/develop\n" : "origin/main\n" }),
+				...gitDefaultBranchProbeSteps({
+					stdout: branch === "develop" ? "origin/develop\n" : "origin/main\n",
+				}),
 			]);
 
-			await expect(loadAttachedPlan(pi, {}, { cwd: ROOT, context: branchContext(pi) })).rejects.toThrow(
+			await expect(
+				loadAttachedPlan(pi, {}, { cwd: ROOT, context: branchContext(pi) }),
+			).rejects.toThrow(
 				`Refusing to implement directly on trunk (\`${branch}\`). Check out a feature branch first.`,
 			);
 
@@ -422,7 +532,9 @@ describe("loadAttachedPlan", () => {
 	});
 
 	test("continues when default branch lookup fails on a feature branch", async () => {
-		const pi = new FakePi(successfulLoadScript({ defaultBranchResult: { code: 1, stderr: "no origin" } }));
+		const pi = new FakePi(
+			successfulLoadScript({ defaultBranchResult: { code: 1, stderr: "no origin" } }),
+		);
 
 		const plan = await loadAttachedPlan(pi, {}, { cwd: ROOT, context: branchContext(pi) });
 
@@ -438,7 +550,9 @@ describe("loadAttachedPlan", () => {
 			brmemListStep(PLAN_BRANCH, { code: 2, stderr: "list failed" }),
 		]);
 
-		await expect(loadAttachedPlan(pi, {}, { cwd: ROOT, context: branchContext(pi) })).rejects.toThrow(/brmem list failed[\s\S]*Command: brmem list/);
+		await expect(
+			loadAttachedPlan(pi, {}, { cwd: ROOT, context: branchContext(pi) }),
+		).rejects.toThrow(/brmem list failed[\s\S]*Command: brmem list/);
 
 		pi.assertDone();
 	});
@@ -451,10 +565,14 @@ describe("loadAttachedPlan", () => {
 			brmemListStep(PLAN_BRANCH, { code: 127, stderr: "brmem: command not found" }),
 		]);
 
-		await expect(loadAttachedPlan(pi, {}, { cwd: ROOT, context: branchContext(pi) })).rejects.toThrow("No brmem command available");
+		await expect(
+			loadAttachedPlan(pi, {}, { cwd: ROOT, context: branchContext(pi) }),
+		).rejects.toThrow("No brmem command available");
 
 		pi.assertDone();
-		expect(pi.execCalls.some((call) => call.command === "brmem" && call.args[0] === "get")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "brmem" && call.args[0] === "get")).toBe(
+			false,
+		);
 	});
 
 	test("formats brmem get process failures", async () => {
@@ -466,7 +584,9 @@ describe("loadAttachedPlan", () => {
 			brmemGetStep(PLAN_BRANCH, PLAN_KEY, { code: 2, stderr: "get failed" }),
 		]);
 
-		await expect(loadAttachedPlan(pi, {}, { cwd: ROOT, context: branchContext(pi) })).rejects.toThrow(/brmem get failed[\s\S]*Command: brmem get/);
+		await expect(
+			loadAttachedPlan(pi, {}, { cwd: ROOT, context: branchContext(pi) }),
+		).rejects.toThrow(/brmem get failed[\s\S]*Command: brmem get/);
 
 		pi.assertDone();
 	});
@@ -474,12 +594,15 @@ describe("loadAttachedPlan", () => {
 
 describe("attached-plan JSON parsers", () => {
 	test("rejects malformed list JSON, missing entries, and mismatched entries", () => {
-		expect(() => parseBrmemListEntries("{", { namespace: BRANCH_CONTEXT_NAMESPACE, branch: PLAN_BRANCH })).toThrow(
-			"Malformed brmem list JSON",
-		);
-		expect(() => parseBrmemListEntries(JSON.stringify({ exit_code: 0, data: {} }), { namespace: BRANCH_CONTEXT_NAMESPACE, branch: PLAN_BRANCH })).toThrow(
-			"expected data.entries array",
-		);
+		expect(() =>
+			parseBrmemListEntries("{", { namespace: BRANCH_CONTEXT_NAMESPACE, branch: PLAN_BRANCH }),
+		).toThrow("Malformed brmem list JSON");
+		expect(() =>
+			parseBrmemListEntries(JSON.stringify({ exit_code: 0, data: {} }), {
+				namespace: BRANCH_CONTEXT_NAMESPACE,
+				branch: PLAN_BRANCH,
+			}),
+		).toThrow("expected data.entries array");
 		expect(() =>
 			parseBrmemListEntries(listEnvelope(PLAN_BRANCH, [{ key: PLAN_KEY, namespace: "other" }]), {
 				namespace: BRANCH_CONTEXT_NAMESPACE,
@@ -489,22 +612,35 @@ describe("attached-plan JSON parsers", () => {
 	});
 
 	test("rejects malformed get JSON, missing content, and mismatched data", () => {
-		expect(() => parseBrmemGetContent("{", { namespace: BRANCH_CONTEXT_NAMESPACE, branch: PLAN_BRANCH, key: PLAN_KEY })).toThrow(
-			"Malformed brmem get JSON",
-		);
 		expect(() =>
-			parseBrmemGetContent(JSON.stringify({ exit_code: 0, data: { namespace: BRANCH_CONTEXT_NAMESPACE, key: PLAN_KEY, branch: PLAN_BRANCH } }), {
+			parseBrmemGetContent("{", {
 				namespace: BRANCH_CONTEXT_NAMESPACE,
 				branch: PLAN_BRANCH,
 				key: PLAN_KEY,
 			}),
+		).toThrow("Malformed brmem get JSON");
+		expect(() =>
+			parseBrmemGetContent(
+				JSON.stringify({
+					exit_code: 0,
+					data: { namespace: BRANCH_CONTEXT_NAMESPACE, key: PLAN_KEY, branch: PLAN_BRANCH },
+				}),
+				{
+					namespace: BRANCH_CONTEXT_NAMESPACE,
+					branch: PLAN_BRANCH,
+					key: PLAN_KEY,
+				},
+			),
 		).toThrow("expected string fields");
 		expect(() =>
-			parseBrmemGetContent(getEnvelope({ key: "other.md", branch: PLAN_BRANCH, content: PLAN_CONTENT }), {
-				namespace: BRANCH_CONTEXT_NAMESPACE,
-				branch: PLAN_BRANCH,
-				key: PLAN_KEY,
-			}),
+			parseBrmemGetContent(
+				getEnvelope({ key: "other.md", branch: PLAN_BRANCH, content: PLAN_CONTENT }),
+				{
+					namespace: BRANCH_CONTEXT_NAMESPACE,
+					branch: PLAN_BRANCH,
+					key: PLAN_KEY,
+				},
+			),
 		).toThrow("expected requested data");
 	});
 });
@@ -522,7 +658,9 @@ describe("buildImplBranchContextPrompt", () => {
 			source: "attached",
 		});
 
-		expect(prompt).toContain("The attached branch-context plan has been loaded by the planning-layer reader.");
+		expect(prompt).toContain(
+			"The attached branch-context plan has been loaded by the planning-layer reader.",
+		);
 		expect(prompt).toContain(`Branch: ${PLAN_BRANCH}`);
 		expect(prompt).toContain(`Namespace: ${BRANCH_CONTEXT_NAMESPACE}`);
 		expect(prompt).toContain(`Selected key: ${PLAN_KEY}`);
@@ -538,6 +676,8 @@ describe("buildImplBranchContextPrompt", () => {
 		expect(prompt).toContain("A branch name recorded inside plan provenance");
 		expect(prompt).toContain("STOP report shape: observed vs expected");
 		expect(prompt).toContain("intentional executor edits outside scope are a failure");
-		expect(prompt).toContain(`----- BEGIN ATTACHED PLAN -----\n${PLAN_CONTENT}\n----- END ATTACHED PLAN -----`);
+		expect(prompt).toContain(
+			`----- BEGIN ATTACHED PLAN -----\n${PLAN_CONTENT}\n----- END ATTACHED PLAN -----`,
+		);
 	});
 });

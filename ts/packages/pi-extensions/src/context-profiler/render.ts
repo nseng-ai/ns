@@ -77,7 +77,15 @@ export interface OverviewRowCells {
 	health: Health;
 }
 
-export type RowSegmentRole = "label" | "barFilled" | "barEmpty" | "tokens" | "percent" | "status" | "text" | "gap";
+export type RowSegmentRole =
+	| "label"
+	| "barFilled"
+	| "barEmpty"
+	| "tokens"
+	| "percent"
+	| "status"
+	| "text"
+	| "gap";
 
 export interface RowSegment {
 	role: RowSegmentRole;
@@ -87,7 +95,12 @@ export interface RowSegment {
 export function overviewLabelWidth(innerWidth: number): number {
 	return Math.max(
 		MIN_LABEL_WIDTH,
-		innerWidth - BAR_WIDTH - TOKENS_COLUMN_WIDTH - PERCENT_COLUMN_WIDTH - STATUS_COLUMN_WIDTH - OVERVIEW_ROW_SEPARATOR_WIDTH,
+		innerWidth -
+			BAR_WIDTH -
+			TOKENS_COLUMN_WIDTH -
+			PERCENT_COLUMN_WIDTH -
+			STATUS_COLUMN_WIDTH -
+			OVERVIEW_ROW_SEPARATOR_WIDTH,
 	);
 }
 
@@ -98,11 +111,16 @@ export interface OverviewRowCellsOptions {
 	hasDelegation?: boolean;
 }
 
-export function buildOverviewRowCells(source: OverviewRowSource, options: OverviewRowCellsOptions): OverviewRowCells {
+export function buildOverviewRowCells(
+	source: OverviewRowSource,
+	options: OverviewRowCellsOptions,
+): OverviewRowCells {
 	const { maxTokens, totalTokens, innerWidth } = options;
 	const region = source.region;
 	const { filled, empty } = meterParts(region.tokens.value, maxTokens, BAR_WIDTH);
-	const percentValue = Math.round((Math.max(0, region.tokens.value) / Math.max(1, totalTokens)) * 100);
+	const percentValue = Math.round(
+		(Math.max(0, region.tokens.value) / Math.max(1, totalTokens)) * 100,
+	);
 	return {
 		label: fitToWidth(regionRowLabel(source), overviewLabelWidth(innerWidth)),
 		barFilled: filled,
@@ -144,10 +162,12 @@ function regionRowLabel(source: OverviewRowSource): string {
 function rowStatus(source: OverviewRowSource, hasDelegation: boolean): string {
 	if (source.type === "base") return "";
 	const region = source.region;
-	const base = region.outcome === null
-		? `${region.isCurrent ? "●" : "·"} ${EPISODE_KIND_ABBREV[region.kind]}`
-		: `${EPISODE_OUTCOME_GLYPH[region.outcome]} ${EPISODE_KIND_ABBREV[region.kind]}`;
-	const withRelevance = region.relevance === undefined ? base : `${base} ${RELEVANCE_ABBREV[region.relevance]}`;
+	const base =
+		region.outcome === null
+			? `${region.isCurrent ? "●" : "·"} ${EPISODE_KIND_ABBREV[region.kind]}`
+			: `${EPISODE_OUTCOME_GLYPH[region.outcome]} ${EPISODE_KIND_ABBREV[region.kind]}`;
+	const withRelevance =
+		region.relevance === undefined ? base : `${base} ${RELEVANCE_ABBREV[region.relevance]}`;
 	return hasDelegation ? `${withRelevance} ⇄` : withRelevance;
 }
 
@@ -202,14 +222,25 @@ export interface UsageBarSegmentsOptions {
 	innerWidth: number;
 }
 
-export function buildUsageBarSegments(usage: ContextUsage | undefined, options: UsageBarSegmentsOptions): UsageBarSegments {
+export function buildUsageBarSegments(
+	usage: ContextUsage | undefined,
+	options: UsageBarSegmentsOptions,
+): UsageBarSegments {
 	const { baseTokens, liveTokens, innerWidth } = options;
 	const estimated = baseTokens + liveTokens;
 	const contextWindow = usage?.contextWindow ?? 0;
 	const total = Math.max(1, contextWindow > 0 ? contextWindow : estimated);
 	const used = clamp(usage?.tokens ?? estimated, 0, total);
-	const baseWidth = clamp(Math.round((Math.min(baseTokens, used) / total) * innerWidth), 0, innerWidth);
-	const liveWidth = clamp(Math.round((used / total) * innerWidth) - baseWidth, 0, innerWidth - baseWidth);
+	const baseWidth = clamp(
+		Math.round((Math.min(baseTokens, used) / total) * innerWidth),
+		0,
+		innerWidth,
+	);
+	const liveWidth = clamp(
+		Math.round((used / total) * innerWidth) - baseWidth,
+		0,
+		innerWidth - baseWidth,
+	);
 	return {
 		baseWidth,
 		liveWidth,
@@ -223,8 +254,14 @@ export function buildUsageBarSegments(usage: ContextUsage | undefined, options: 
 export const BASE_SECTION_HEADER = "BASE · system prompt";
 
 export function liveSectionHeader(cap: TurnCapInfo, segmentationStatus?: string | null): string {
-	const elided = cap.elidedMiddleTurns > 0 ? ` · ${cap.elidedMiddleTurns.toLocaleString()} middle turns elided` : "";
-	const status = segmentationStatus === undefined || segmentationStatus === null ? "" : ` · ${segmentationStatus}`;
+	const elided =
+		cap.elidedMiddleTurns > 0
+			? ` · ${cap.elidedMiddleTurns.toLocaleString()} middle turns elided`
+			: "";
+	const status =
+		segmentationStatus === undefined || segmentationStatus === null
+			? ""
+			: ` · ${segmentationStatus}`;
 	return `LIVE · ${cap.includedCount.toLocaleString()}/${cap.originalCount.toLocaleString()} turns${elided}${status}`;
 }
 
@@ -283,14 +320,21 @@ export function turnListClaim(region: LiveRegion, options: TurnListClaimOptions 
 		const delegationCount = options.delegationCount ?? 0;
 		const efficiency = region.efficiency ?? "unanalyzed";
 		const relevance = region.relevance ?? "unanalyzed";
-		const status = analysisStatus === undefined || analysisStatus === null ? "" : ` · ${analysisStatus}`;
-		const delegations = delegationCount === 0 ? "" : ` · delegations=${delegationCount.toLocaleString()}`;
+		const status =
+			analysisStatus === undefined || analysisStatus === null ? "" : ` · ${analysisStatus}`;
+		const delegations =
+			delegationCount === 0 ? "" : ` · delegations=${delegationCount.toLocaleString()}`;
 		return `LM claim: kind=${region.kind} · outcome=${region.outcome ?? "unknown"} · efficiency=${efficiency} · relevance=${relevance}${status}${delegations} · turns ${region.turnRange.start}–${region.turnRange.end} · ⏎ views turn content`;
 	}
 	return `turns ${region.turnRange.start}–${region.turnRange.end} of this span, in order · ⏎ views turn content`;
 }
 
-export function scrollNote(firstVisible: number, lastVisible: number, total: number, unit: "rows" | "lines"): string {
+export function scrollNote(
+	firstVisible: number,
+	lastVisible: number,
+	total: number,
+	unit: "rows" | "lines",
+): string {
 	return `${unit} ${firstVisible.toLocaleString()}–${lastVisible.toLocaleString()} of ${total.toLocaleString()}`;
 }
 
@@ -302,7 +346,11 @@ export interface ListRowCells {
 	text: string;
 }
 
-export function buildListRowCells(tokens: TokenCount, text: string, maxTokens: number): ListRowCells {
+export function buildListRowCells(
+	tokens: TokenCount,
+	text: string,
+	maxTokens: number,
+): ListRowCells {
 	const { filled, empty } = meterParts(tokens.value, maxTokens, BAR_WIDTH);
 	return {
 		barFilled: filled,
@@ -361,7 +409,8 @@ export function contentSourceForMember(member: BaseMember): ContentSource {
 		title: member.name,
 		meta: formatTokenCountLong(member.tokens),
 		note: "estimate only — raw text not captured",
-		text: member.note ?? "This member's size is estimated; its raw text is not captured separately.",
+		text:
+			member.note ?? "This member's size is estimated; its raw text is not captured separately.",
 	};
 }
 
@@ -407,8 +456,16 @@ export function formatCompactNumber(value: number): string {
 	return value.toLocaleString();
 }
 
-export function meterParts(value: number, maxValue: number, width: number): { filled: string; empty: string } {
-	const filledCount = clamp(Math.round((Math.max(0, value) / Math.max(1, maxValue)) * width), 0, width);
+export function meterParts(
+	value: number,
+	maxValue: number,
+	width: number,
+): { filled: string; empty: string } {
+	const filledCount = clamp(
+		Math.round((Math.max(0, value) / Math.max(1, maxValue)) * width),
+		0,
+		width,
+	);
 	return { filled: "█".repeat(filledCount), empty: "░".repeat(width - filledCount) };
 }
 
@@ -422,7 +479,12 @@ export function padRight(text: string, width: number): string {
 	return text + " ".repeat(missing);
 }
 
-export function reconcileScroll(options: { scroll: number; anchor: number; areaHeight: number; totalLines: number }): number {
+export function reconcileScroll(options: {
+	scroll: number;
+	anchor: number;
+	areaHeight: number;
+	totalLines: number;
+}): number {
 	const anchored = clamp(options.scroll, options.anchor - options.areaHeight + 1, options.anchor);
 	return clamp(anchored, 0, Math.max(0, options.totalLines - options.areaHeight));
 }

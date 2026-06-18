@@ -5,8 +5,18 @@
  */
 
 import type { BundleSnapshot } from "../src/context-profiler/bundle.ts";
-import type { BundleStore, PersistBundleResult, WriteEpisodesFileResult } from "../src/context-profiler/bundle-store.ts";
-import type { InterrogationSession, InterrogationSessionFactory, InterrogationEvent, AskResult, CreateInterrogationSessionResult } from "../src/context-profiler/interrogation-session.ts";
+import type {
+	BundleStore,
+	PersistBundleResult,
+	WriteEpisodesFileResult,
+} from "../src/context-profiler/bundle-store.ts";
+import type {
+	InterrogationSession,
+	InterrogationSessionFactory,
+	InterrogationEvent,
+	AskResult,
+	CreateInterrogationSessionResult,
+} from "../src/context-profiler/interrogation-session.ts";
 import type { LiveTurn, ProfileSnapshot } from "../src/context-profiler/model.ts";
 import { normalizeMessage } from "../src/context-profiler/model.ts";
 import type {
@@ -38,7 +48,10 @@ export function sequentialTurns(count: number): LiveTurn[] {
 	return makeTurns(Array.from({ length: count }, (_unused, position) => position + 1));
 }
 
-export function makeProfile(turns: readonly LiveTurn[], overrides: Partial<ProfileSnapshot> = {}): ProfileSnapshot {
+export function makeProfile(
+	turns: readonly LiveTurn[],
+	overrides: Partial<ProfileSnapshot> = {},
+): ProfileSnapshot {
 	const originalCount = overrides.cap?.originalCount ?? turns.length;
 	return {
 		cwd: "/repo",
@@ -48,7 +61,11 @@ export function makeProfile(turns: readonly LiveTurn[], overrides: Partial<Profi
 		liveTurns: [...turns],
 		liveRegions: [],
 		liveSource: "context-event",
-		cap: { originalCount, includedCount: turns.length, elidedMiddleTurns: originalCount - turns.length },
+		cap: {
+			originalCount,
+			includedCount: turns.length,
+			elidedMiddleTurns: originalCount - turns.length,
+		},
 		openedAt: "12:00:00",
 		...overrides,
 	};
@@ -67,7 +84,10 @@ export class FakeBundleStore implements BundleStore {
 	private readonly persistLog: BundleSnapshot[] = [];
 	private readonly episodesLog: Array<{ bundleDir: string; json: string }> = [];
 
-	constructor(options: { persistResult: PersistBundleResult; writeResult?: WriteEpisodesFileResult }) {
+	constructor(options: {
+		persistResult: PersistBundleResult;
+		writeResult?: WriteEpisodesFileResult;
+	}) {
 		this.persistResult = options.persistResult;
 		this.writeResult = options.writeResult ?? { ok: true, isAlreadyPresent: false };
 	}
@@ -85,7 +105,10 @@ export class FakeBundleStore implements BundleStore {
 		return this.persistResult;
 	}
 
-	async writeEpisodesFile(options: { bundleDir: string; json: string }): Promise<WriteEpisodesFileResult> {
+	async writeEpisodesFile(options: {
+		bundleDir: string;
+		json: string;
+	}): Promise<WriteEpisodesFileResult> {
 		this.episodesLog.push({ ...options });
 		return this.writeResult;
 	}
@@ -100,7 +123,13 @@ export class FakeInterrogationSession implements InterrogationSession {
 	private readonly asks: string[] = [];
 	private aborts = 0;
 
-	constructor(options: { events?: readonly InterrogationEvent[]; askResult?: AskResult; gate?: Promise<void> } = {}) {
+	constructor(
+		options: {
+			events?: readonly InterrogationEvent[];
+			askResult?: AskResult;
+			gate?: Promise<void>;
+		} = {},
+	) {
 		this.events = [...(options.events ?? [])];
 		this.askResult = options.askResult ?? { ok: true };
 		this.gate = options.gate ?? null;
@@ -162,7 +191,9 @@ export class FakeInterrogationSessionFactory implements InterrogationSessionFact
 		return this.calls.map((call) => ({ ...call }));
 	}
 
-	async create(options: Parameters<InterrogationSessionFactory["create"]>[0]): Promise<CreateInterrogationSessionResult> {
+	async create(
+		options: Parameters<InterrogationSessionFactory["create"]>[0],
+	): Promise<CreateInterrogationSessionResult> {
 		this.calls.push({ bundleDir: options.bundleDir, systemPrompt: options.systemPrompt });
 		if (this.gate !== null) await this.gate;
 		return this.result;
@@ -179,7 +210,10 @@ export class FakeSegmentationGateway implements AnalysisModelGateway {
 
 	constructor(options: FakeSegmentationGatewayOptions) {
 		this.result = options.result;
-		this.analysisResult = options.analysisResult ?? { ok: true, value: { efficiency: "efficient", relevance: "load-bearing", summary: null } };
+		this.analysisResult = options.analysisResult ?? {
+			ok: true,
+			value: { efficiency: "efficient", relevance: "load-bearing", summary: null },
+		};
 		this.gate = options.gate ?? null;
 	}
 
@@ -193,7 +227,10 @@ export class FakeSegmentationGateway implements AnalysisModelGateway {
 		return [...this.analysisLog];
 	}
 
-	async segmentTurns(request: SegmentationRequest, options: { signal: AbortSignal }): Promise<SegmentationCallResult> {
+	async segmentTurns(
+		request: SegmentationRequest,
+		options: { signal: AbortSignal },
+	): Promise<SegmentationCallResult> {
 		this.segmentationLog.push(request);
 		if (this.gate !== null) await this.gate;
 		if (options.signal.aborted) {
@@ -202,7 +239,10 @@ export class FakeSegmentationGateway implements AnalysisModelGateway {
 		return this.result;
 	}
 
-	async analyzeEpisode(request: EpisodeAnalysisRequest, options: { signal: AbortSignal }): Promise<EpisodeAnalysisCallResult> {
+	async analyzeEpisode(
+		request: EpisodeAnalysisRequest,
+		options: { signal: AbortSignal },
+	): Promise<EpisodeAnalysisCallResult> {
 		this.analysisLog.push(request);
 		if (this.gate !== null) await this.gate;
 		if (options.signal.aborted) {

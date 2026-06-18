@@ -89,7 +89,8 @@ export interface InvokeRepoSkillPromptTurnOptions {
 function stripSkillFrontmatter(markdown: string): string {
 	const split = splitMarkdownFrontmatter(markdown);
 	if (split.type === "not_found") return markdown.trim();
-	if (split.type === "missing_closing_fence") throw new Error('Skill Markdown frontmatter is missing a closing "---" fence.');
+	if (split.type === "missing_closing_fence")
+		throw new Error('Skill Markdown frontmatter is missing a closing "---" fence.');
 	return split.block.body.trim();
 }
 
@@ -147,7 +148,9 @@ export async function resolveRepoSkillPath(options: RepoSkillPathResolveOptions)
 			const resolvedSkillPath = resolve(skillPath);
 			const resolvedRepoRoot = resolve(current);
 			if (!isPathInside(resolvedSkillPath, resolvedRepoRoot)) {
-				throw new Error(`Backing skill path ${skillPath} resolves outside repository root ${current}.`);
+				throw new Error(
+					`Backing skill path ${skillPath} resolves outside repository root ${current}.`,
+				);
 			}
 			return skillPath;
 		}
@@ -159,7 +162,9 @@ export async function resolveRepoSkillPath(options: RepoSkillPathResolveOptions)
 	}
 }
 
-export async function expandRepoSkillBlock(options: RepoSkillExpansionOptions): Promise<ExpandedSkillBlock> {
+export async function expandRepoSkillBlock(
+	options: RepoSkillExpansionOptions,
+): Promise<ExpandedSkillBlock> {
 	const skillPath = await resolveRepoSkillPath({ cwd: options.cwd, skillName: options.skillName });
 	return expandSkillBlockFromPath({
 		skillName: options.skillName,
@@ -168,7 +173,9 @@ export async function expandRepoSkillBlock(options: RepoSkillExpansionOptions): 
 	});
 }
 
-export async function expandSkillBlockFromPath(options: SkillPathExpansionOptions): Promise<ExpandedSkillBlock> {
+export async function expandSkillBlockFromPath(
+	options: SkillPathExpansionOptions,
+): Promise<ExpandedSkillBlock> {
 	const readTextFile = options.readTextFile ?? ((path: string) => readFile(path, "utf8"));
 	const body = stripSkillFrontmatter(await readTextFile(options.skillPath));
 	const baseDir = dirname(options.skillPath);
@@ -194,9 +201,10 @@ export async function invokeSkillPromptTurn(options: InvokeSkillPromptTurnOption
 
 	const skill = await expandSkillBlock(host, skillName);
 	if (ctx.hasUI === true) {
-		const message = skill === undefined
-			? fallbackMessage
-			: skillPromptTurnSuccessMessage(options.successMessage, skill);
+		const message =
+			skill === undefined
+				? fallbackMessage
+				: skillPromptTurnSuccessMessage(options.successMessage, skill);
 		const level = skill === undefined ? "warning" : "info";
 		ctx.ui.notify(message, level);
 	}
@@ -204,7 +212,9 @@ export async function invokeSkillPromptTurn(options: InvokeSkillPromptTurnOption
 	await host.sendUserMessage(buildPrompt(skill?.block));
 }
 
-export async function invokeRepoSkillPromptTurn(options: InvokeRepoSkillPromptTurnOptions): Promise<void> {
+export async function invokeRepoSkillPromptTurn(
+	options: InvokeRepoSkillPromptTurnOptions,
+): Promise<void> {
 	const { host, ctx, skillName, fallbackMessage, buildPrompt } = options;
 	await ctx.waitForIdle();
 
@@ -222,14 +232,18 @@ export async function invokeRepoSkillPromptTurn(options: InvokeRepoSkillPromptTu
 		});
 	} catch {
 		if (options.host.getCommands !== undefined) {
-			skill = await expandSkillBlock({ getCommands: () => options.host.getCommands?.() ?? [] }, skillName);
+			skill = await expandSkillBlock(
+				{ getCommands: () => options.host.getCommands?.() ?? [] },
+				skillName,
+			);
 		}
 	}
 
 	if (ctx.hasUI === true) {
-		const message = skill === undefined
-			? fallbackMessage
-			: skillPromptTurnSuccessMessage(options.successMessage, skill);
+		const message =
+			skill === undefined
+				? fallbackMessage
+				: skillPromptTurnSuccessMessage(options.successMessage, skill);
 		const level = skill === undefined ? "warning" : "info";
 		ctx.ui.notify(message, level);
 	}
@@ -238,7 +252,10 @@ export async function invokeRepoSkillPromptTurn(options: InvokeRepoSkillPromptTu
 }
 
 export function buildFencedTextBlock(content: string, language = "text"): string {
-	const longestBacktickRun = Math.max(0, ...Array.from(content.matchAll(/`+/g), (match) => match[0]?.length ?? 0));
+	const longestBacktickRun = Math.max(
+		0,
+		...Array.from(content.matchAll(/`+/g), (match) => match[0]?.length ?? 0),
+	);
 	const fence = "`".repeat(Math.max(3, longestBacktickRun + 1));
 	return `${fence}${language}\n${content}\n${fence}`;
 }
@@ -268,5 +285,9 @@ async function fileExists(
 function isPathInside(path: string, parent: string): boolean {
 	const normalizedPath = resolve(path);
 	const normalizedParent = resolve(parent);
-	return normalizedPath === normalizedParent || normalizedPath.startsWith(`${normalizedParent}/`) || (isAbsolute(normalizedParent) && normalizedPath.startsWith(`${normalizedParent}\\`));
+	return (
+		normalizedPath === normalizedParent ||
+		normalizedPath.startsWith(`${normalizedParent}/`) ||
+		(isAbsolute(normalizedParent) && normalizedPath.startsWith(`${normalizedParent}\\`))
+	);
 }

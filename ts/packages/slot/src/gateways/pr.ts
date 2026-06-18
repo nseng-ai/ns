@@ -2,7 +2,11 @@ import { NodeCommandExecApi, type CommandExecApi, type ExecResult } from "@asdl/
 import { runGitHubCliAsExecResult } from "@asdl/core/github-cli";
 import { z } from "zod";
 
-import { createDiagnosticCommandRunner, createSlotDiagnosticSinkFromEnv, type SlotDiagnosticSink } from "../diagnostics.ts";
+import {
+	createDiagnosticCommandRunner,
+	createSlotDiagnosticSinkFromEnv,
+	type SlotDiagnosticSink,
+} from "../diagnostics.ts";
 
 const SLOT_PR_TIMEOUT_MS = 10_000;
 const PR_BATCH_PAGE_SIZE = 20;
@@ -56,7 +60,9 @@ const graphQlPullRequestsSchema = z.object({
 });
 
 const graphQlBatchSchema = z.object({
-	data: z.object({ repository: z.record(z.string(), graphQlPullRequestsSchema).nullable() }).optional(),
+	data: z
+		.object({ repository: z.record(z.string(), graphQlPullRequestsSchema).nullable() })
+		.optional(),
 	errors: z.unknown().optional(),
 });
 
@@ -66,7 +72,12 @@ export class RealSlotPrGateway implements SlotPrGateway {
 	private readonly execApi: CommandExecApi;
 	private readonly diagnosticSink: SlotDiagnosticSink | undefined;
 
-	constructor(options: { cwd: string; env?: NodeJS.ProcessEnv | undefined; execApi?: CommandExecApi | undefined; diagnosticSink?: SlotDiagnosticSink | undefined }) {
+	constructor(options: {
+		cwd: string;
+		env?: NodeJS.ProcessEnv | undefined;
+		execApi?: CommandExecApi | undefined;
+		diagnosticSink?: SlotDiagnosticSink | undefined;
+	}) {
 		this.cwd = options.cwd;
 		this.env = options.env ?? process.env;
 		this.execApi = options.execApi ?? new NodeCommandExecApi();
@@ -74,15 +85,29 @@ export class RealSlotPrGateway implements SlotPrGateway {
 	}
 
 	async getPrForBranch(branch: string): Promise<PrLookupResult> {
-		const result = await this.runGh(["pr", "view", branch, "--json", "number,state,url,headRefName"], "slot.pr.view_branch");
+		const result = await this.runGh(
+			["pr", "view", branch, "--json", "number,state,url,headRefName"],
+			"slot.pr.view_branch",
+		);
 		if (result.code !== 0 || result.killed) {
 			if (isPrLookupMiss(result.stdout, result.stderr)) return { type: "miss" };
-			return { type: "failure", failure: failureFromExec(result.stdout, result.stderr, result.code) };
+			return {
+				type: "failure",
+				failure: failureFromExec(result.stdout, result.stderr, result.code),
+			};
 		}
 		const parsedJson = parseJsonObject(result.stdout);
-		if (parsedJson.type === "failure") return { type: "failure", failure: failureFromExec(result.stdout, parsedJson.message, result.code) };
+		if (parsedJson.type === "failure")
+			return {
+				type: "failure",
+				failure: failureFromExec(result.stdout, parsedJson.message, result.code),
+			};
 		const parsed = prSummarySchema.safeParse(parsedJson.value);
-		if (!parsed.success) return { type: "failure", failure: failureFromExec(result.stdout, parsed.error.message, result.code) };
+		if (!parsed.success)
+			return {
+				type: "failure",
+				failure: failureFromExec(result.stdout, parsed.error.message, result.code),
+			};
 		return { type: "found", pr: parsed.data };
 	}
 
@@ -93,21 +118,64 @@ export class RealSlotPrGateway implements SlotPrGateway {
 		if (repo.type === "failure") return { type: "failure", failure: repo.failure };
 		const aliases = uniqueBranches.map((branch, index) => ({ alias: `b${index}`, branch }));
 		const query = buildPrBatchQuery({ owner: repo.owner, name: repo.name, aliases });
-		const result = await this.runGh(["api", "graphql", "-F", `query=${query}`], "slot.pr.batch_lookup");
-		if (result.code !== 0 || result.killed) return { type: "failure", failure: failureFromExec(result.stdout, result.stderr, result.code) };
+		const result = await this.runGh(
+			["api", "graphql", "-F", `query=${query}`],
+			"slot.pr.batch_lookup",
+		);
+		if (result.code !== 0 || result.killed)
+			return {
+				type: "failure",
+				failure: failureFromExec(result.stdout, result.stderr, result.code),
+			};
 		const parsedJson = parseJsonObject(result.stdout);
-		if (parsedJson.type === "failure") return { type: "failure", failure: failureFromExec(result.stdout, parsedJson.message, result.code) };
+		if (parsedJson.type === "failure")
+			return {
+				type: "failure",
+				failure: failureFromExec(result.stdout, parsedJson.message, result.code),
+			};
 		const parsed = graphQlBatchSchema.safeParse(parsedJson.value);
-		if (!parsed.success) return { type: "failure", failure: failureFromExec(result.stdout, parsed.error.message, result.code) };
-		if (parsed.data.errors !== undefined) return { type: "failure", failure: failureFromExec(result.stdout, graphQlErrorsMessage(parsed.data.errors), result.code) };
+		if (!parsed.success)
+			return {
+				type: "failure",
+				failure: failureFromExec(result.stdout, parsed.error.message, result.code),
+			};
+		if (parsed.data.errors !== undefined)
+			return {
+				type: "failure",
+				failure: failureFromExec(
+					result.stdout,
+					graphQlErrorsMessage(parsed.data.errors),
+					result.code,
+				),
+			};
 		const repository = parsed.data.data?.repository;
-		if (repository === undefined || repository === null) return { type: "failure", failure: failureFromExec(result.stdout, "GitHub GraphQL response did not include repository data", result.code) };
+		if (repository === undefined || repository === null)
+			return {
+				type: "failure",
+				failure: failureFromExec(
+					result.stdout,
+					"GitHub GraphQL response did not include repository data",
+					result.code,
+				),
+			};
 		const results = new Map<string, PrLookupResult>();
 		for (const { alias, branch } of aliases) {
 			const connection = repository[alias];
-			if (connection === undefined) return { type: "failure", failure: failureFromExec(result.stdout, `GitHub GraphQL response did not include alias ${alias} for ${branch}`, result.code) };
+			if (connection === undefined)
+				return {
+					type: "failure",
+					failure: failureFromExec(
+						result.stdout,
+						`GitHub GraphQL response did not include alias ${alias} for ${branch}`,
+						result.code,
+					),
+				};
 			const resultForBranch = prLookupResultFromNodes(branch, connection.nodes);
-			if (resultForBranch.type === "failure") return { type: "failure", failure: failureFromExec(result.stdout, resultForBranch.message, result.code) };
+			if (resultForBranch.type === "failure")
+				return {
+					type: "failure",
+					failure: failureFromExec(result.stdout, resultForBranch.message, result.code),
+				};
 			results.set(branch, resultForBranch.result);
 		}
 		return { type: "ok", resultsByBranch: results };
@@ -119,24 +187,52 @@ export class RealSlotPrGateway implements SlotPrGateway {
 		return { type: "failure", failure: failureFromExec(result.stdout, result.stderr, result.code) };
 	}
 
-	private async resolveRepository(): Promise<{ type: "ok"; owner: string; name: string } | { type: "failure"; failure: PrGatewayFailure }> {
-		const result = await this.runGh(["repo", "view", "--json", "nameWithOwner"], "slot.pr.resolve_repository");
-		if (result.code !== 0 || result.killed) return { type: "failure", failure: failureFromExec(result.stdout, result.stderr, result.code) };
+	private async resolveRepository(): Promise<
+		{ type: "ok"; owner: string; name: string } | { type: "failure"; failure: PrGatewayFailure }
+	> {
+		const result = await this.runGh(
+			["repo", "view", "--json", "nameWithOwner"],
+			"slot.pr.resolve_repository",
+		);
+		if (result.code !== 0 || result.killed)
+			return {
+				type: "failure",
+				failure: failureFromExec(result.stdout, result.stderr, result.code),
+			};
 		const parsedJson = parseJsonObject(result.stdout);
-		if (parsedJson.type === "failure") return { type: "failure", failure: failureFromExec(result.stdout, parsedJson.message, result.code) };
+		if (parsedJson.type === "failure")
+			return {
+				type: "failure",
+				failure: failureFromExec(result.stdout, parsedJson.message, result.code),
+			};
 		const parsed = ghRepoViewSchema.safeParse(parsedJson.value);
-		if (!parsed.success) return { type: "failure", failure: failureFromExec(result.stdout, parsed.error.message, result.code) };
+		if (!parsed.success)
+			return {
+				type: "failure",
+				failure: failureFromExec(result.stdout, parsed.error.message, result.code),
+			};
 		const [owner, ...nameParts] = parsed.data.nameWithOwner.split("/");
 		const name = nameParts.join("/");
 		if (owner === undefined || owner.length === 0 || name.length === 0 || nameParts.length !== 1) {
-			return { type: "failure", failure: failureFromExec(result.stdout, `Unexpected gh repo view nameWithOwner: ${parsed.data.nameWithOwner}`, result.code) };
+			return {
+				type: "failure",
+				failure: failureFromExec(
+					result.stdout,
+					`Unexpected gh repo view nameWithOwner: ${parsed.data.nameWithOwner}`,
+					result.code,
+				),
+			};
 		}
 		return { type: "ok", owner, name };
 	}
 
 	private async runGh(args: readonly string[], operation: string): Promise<ExecResult> {
 		return await runGitHubCliAsExecResult({
-			runner: createDiagnosticCommandRunner({ execApi: this.execApi, operation, diagnosticSink: this.diagnosticSink }),
+			runner: createDiagnosticCommandRunner({
+				execApi: this.execApi,
+				operation,
+				diagnosticSink: this.diagnosticSink,
+			}),
 			args,
 			cwd: this.cwd,
 			env: this.env,
@@ -150,17 +246,34 @@ interface PrBatchAlias {
 	branch: string;
 }
 
-function buildPrBatchQuery(options: { owner: string; name: string; aliases: readonly PrBatchAlias[] }): string {
-	const fields = options.aliases.map(({ alias, branch }) => `${alias}: pullRequests(headRefName: ${JSON.stringify(branch)}, first: ${PR_BATCH_PAGE_SIZE}, orderBy: {field: UPDATED_AT, direction: DESC}) { nodes { number state url headRefName } }`).join("\n");
+function buildPrBatchQuery(options: {
+	owner: string;
+	name: string;
+	aliases: readonly PrBatchAlias[];
+}): string {
+	const fields = options.aliases
+		.map(
+			({ alias, branch }) =>
+				`${alias}: pullRequests(headRefName: ${JSON.stringify(branch)}, first: ${PR_BATCH_PAGE_SIZE}, orderBy: {field: UPDATED_AT, direction: DESC}) { nodes { number state url headRefName } }`,
+		)
+		.join("\n");
 	return `query { repository(owner: ${JSON.stringify(options.owner)}, name: ${JSON.stringify(options.name)}) {\n${fields}\n} }`;
 }
 
-function prLookupResultFromNodes(branch: string, nodes: readonly PrSummary[]): { type: "ok"; result: PrLookupResult } | { type: "failure"; message: string } {
+function prLookupResultFromNodes(
+	branch: string,
+	nodes: readonly PrSummary[],
+): { type: "ok"; result: PrLookupResult } | { type: "failure"; message: string } {
 	if (nodes.length === 0) return { type: "ok", result: { type: "miss" } };
 	const exact = nodes.filter((node) => node.headRefName === branch);
-	if (exact.length === 0) return { type: "failure", message: `GitHub GraphQL returned PR nodes for ${branch} without an exact headRefName match` };
+	if (exact.length === 0)
+		return {
+			type: "failure",
+			message: `GitHub GraphQL returned PR nodes for ${branch} without an exact headRefName match`,
+		};
 	const pr = exact[0];
-	if (pr === undefined) return { type: "failure", message: `GitHub GraphQL returned no exact PR match for ${branch}` };
+	if (pr === undefined)
+		return { type: "failure", message: `GitHub GraphQL returned no exact PR match for ${branch}` };
 	// The query orders by UPDATED_AT descending, so the first exact match is deterministic when historical PRs share a branch name.
 	return { type: "ok", result: { type: "found", pr } };
 }
@@ -169,7 +282,9 @@ function uniqueStrings(values: readonly string[]): readonly string[] {
 	return [...new Set(values)];
 }
 
-function parseJsonObject(text: string): { type: "ok"; value: unknown } | { type: "failure"; message: string } {
+function parseJsonObject(
+	text: string,
+): { type: "ok"; value: unknown } | { type: "failure"; message: string } {
 	try {
 		return { type: "ok", value: JSON.parse(text) };
 	} catch (error) {
@@ -179,19 +294,32 @@ function parseJsonObject(text: string): { type: "ok"; value: unknown } | { type:
 
 function isPrLookupMiss(stdout: string, stderr: string): boolean {
 	const text = `${stderr}\n${stdout}`.toLowerCase();
-	return text.includes("no pull requests found") || text.includes("could not find any pull requests") || text.includes("not found");
+	return (
+		text.includes("no pull requests found") ||
+		text.includes("could not find any pull requests") ||
+		text.includes("not found")
+	);
 }
 
 function graphQlErrorsMessage(errors: unknown): string {
-	if (Array.isArray(errors) && errors.length === 0) return "GitHub GraphQL returned an empty errors list";
+	if (Array.isArray(errors) && errors.length === 0)
+		return "GitHub GraphQL returned an empty errors list";
 	return `GitHub GraphQL returned errors: ${JSON.stringify(errors)}`;
 }
 
 export function prFailureMessage(failure: PrGatewayFailure, fallbackPrefix = "gh exited"): string {
-	return failure.stderr.trim() || failure.stdout.trim() || `${fallbackPrefix} ${failure.returnCode ?? "unknown"}`;
+	return (
+		failure.stderr.trim() ||
+		failure.stdout.trim() ||
+		`${fallbackPrefix} ${failure.returnCode ?? "unknown"}`
+	);
 }
 
-function failureFromExec(stdout: string, stderr: string, returnCode: number | null): PrGatewayFailure {
+function failureFromExec(
+	stdout: string,
+	stderr: string,
+	returnCode: number | null,
+): PrGatewayFailure {
 	const message = stderr.trim() || stdout.trim() || `gh exited ${returnCode ?? "unknown"}`;
 	return { stdout, stderr, returnCode, message };
 }

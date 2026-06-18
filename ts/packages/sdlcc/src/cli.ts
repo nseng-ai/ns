@@ -6,7 +6,11 @@ import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
 import { rawCommand } from "@asdl/clinkr/raw";
 
 import { runRealCommand, type CommandRunner } from "./command-runner.ts";
-import { formatSdlccCmuxReportHuman, formatSdlccCmuxReportJson, runSdlccCmuxReport } from "./cmux-report.ts";
+import {
+	formatSdlccCmuxReportHuman,
+	formatSdlccCmuxReportJson,
+	runSdlccCmuxReport,
+} from "./cmux-report.ts";
 
 const VERSION = "0.1.0";
 
@@ -45,10 +49,17 @@ export function buildCli(): ClinkrGroup<SdlccCliContext> {
 			description: "Report the current git worktree identity to the current cmux surface.",
 			summary: "Report branch/worktree identity into cmux surface resume metadata.",
 			schema: z.object({
-				json: z.boolean().default(false).describe("Emit machine-readable JSON on stdout, including failures."),
+				json: z
+					.boolean()
+					.default(false)
+					.describe("Emit machine-readable JSON on stdout, including failures."),
 			}),
 			run: async (ctx, request) => {
-				const result = await runSdlccCmuxReport({ cwd: ctx.cwd, env: ctx.env, runCommand: ctx.runCommand });
+				const result = await runSdlccCmuxReport({
+					cwd: ctx.cwd,
+					env: ctx.env,
+					runCommand: ctx.runCommand,
+				});
 				if (request.json) {
 					ctx.stdout(formatSdlccCmuxReportJson(result));
 					return result.type === "reported" ? 0 : 1;
@@ -66,7 +77,10 @@ export function buildCli(): ClinkrGroup<SdlccCliContext> {
 	return root;
 }
 
-export async function runSdlccCli(args: readonly string[], deps: SdlccCliDeps = {}): Promise<number> {
+export async function runSdlccCli(
+	args: readonly string[],
+	deps: SdlccCliDeps = {},
+): Promise<number> {
 	const stdout = deps.stdout ?? ((text: string) => process.stdout.write(text));
 	const stderr = deps.stderr ?? ((text: string) => process.stderr.write(text));
 	const cwd = deps.cwd ?? process.cwd();

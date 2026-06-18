@@ -22,10 +22,19 @@ interface ExecCall {
 
 class FakeSlugPi implements CommandExecApi {
 	readonly calls: ExecCall[] = [];
-	private readonly behavior: { result?: Partial<ExecResult>; results?: Partial<ExecResult>[]; error?: Error };
+	private readonly behavior: {
+		result?: Partial<ExecResult>;
+		results?: Partial<ExecResult>[];
+		error?: Error;
+	};
 
-	constructor(behavior: { result?: Partial<ExecResult>; results?: Partial<ExecResult>[]; error?: Error }) {
-		this.behavior = behavior.results === undefined ? behavior : { ...behavior, results: [...behavior.results] };
+	constructor(behavior: {
+		result?: Partial<ExecResult>;
+		results?: Partial<ExecResult>[];
+		error?: Error;
+	}) {
+		this.behavior =
+			behavior.results === undefined ? behavior : { ...behavior, results: [...behavior.results] };
 	}
 
 	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
@@ -61,7 +70,10 @@ afterEach(async () => {
 	await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
 });
 
-async function makePlanFile(fileName = "where-would-we-host-mossy-lampson.md", content = PLAN_CONTENT): Promise<string> {
+async function makePlanFile(
+	fileName = "where-would-we-host-mossy-lampson.md",
+	content = PLAN_CONTENT,
+): Promise<string> {
 	const dir = await mkdtemp(join(tmpdir(), "branch-context-plan-content-slug-"));
 	tempDirs.push(dir);
 	const filePath = join(dir, fileName);
@@ -71,8 +83,12 @@ async function makePlanFile(fileName = "where-would-we-host-mossy-lampson.md", c
 
 function expectNoFallback(error: unknown): void {
 	expect(error).toBeInstanceOf(Error);
-	expect((error as Error).message).toContain("Failed to derive branch-context slug from plan content.");
-	expect((error as Error).message).toContain("No filename or deterministic fallback was attempted.");
+	expect((error as Error).message).toContain(
+		"Failed to derive branch-context slug from plan content.",
+	);
+	expect((error as Error).message).toContain(
+		"No filename or deterministic fallback was attempted.",
+	);
 }
 
 describe("derivePlanContentSlug", () => {
@@ -80,7 +96,10 @@ describe("derivePlanContentSlug", () => {
 		const filePath = await makePlanFile();
 		const pi = new FakeSlugPi({ result: { stdout: "add-docs-portal-site\n" } });
 
-		const evidence: PlanContentSlugEvidence = await derivePlanContentSlug(pi, { filePath, cwd: CWD });
+		const evidence: PlanContentSlugEvidence = await derivePlanContentSlug(pi, {
+			filePath,
+			cwd: CWD,
+		});
 
 		expect(evidence).toEqual({
 			slug: "add-docs-portal-site",
@@ -118,7 +137,9 @@ describe("derivePlanContentSlug", () => {
 
 	test("markdown and code-fenced output is normalized when it yields a valid slug", async () => {
 		const filePath = await makePlanFile();
-		const pi = new FakeSlugPi({ result: { stdout: "```markdown\nAdd Docs Portal Site!!!\n```\n" } });
+		const pi = new FakeSlugPi({
+			result: { stdout: "```markdown\nAdd Docs Portal Site!!!\n```\n" },
+		});
 
 		const evidence = await derivePlanContentSlug(pi, { filePath, cwd: CWD });
 
@@ -176,7 +197,9 @@ describe("derivePlanContentSlug", () => {
 			throw new Error("expected slug derivation to fail");
 		} catch (error) {
 			expectNoFallback(error);
-			expect((error as Error).message).toContain("Pi slug model command failed (exit code 143; process was killed or timed out).");
+			expect((error as Error).message).toContain(
+				"Pi slug model command failed (exit code 143; process was killed or timed out).",
+			);
 		}
 		expect(pi.calls).toHaveLength(2);
 	});

@@ -17,16 +17,22 @@ describe("terminal presentation helpers", () => {
 	});
 
 	test("strips OSC 8 hyperlinks terminated by BEL", () => {
-		expect(stripTerminalEscapes("\x1B]8;;https://github.example/pull/101\x07#101\x1B]8;;\x07")).toBe("#101");
+		expect(
+			stripTerminalEscapes("\x1B]8;;https://github.example/pull/101\x07#101\x1B]8;;\x07"),
+		).toBe("#101");
 	});
 
 	test("strips OSC 8 hyperlinks terminated by ST", () => {
-		expect(stripTerminalEscapes("\x1B]8;;https://github.example/pull/101\x1B\\#101\x1B]8;;\x1B\\")).toBe("#101");
+		expect(
+			stripTerminalEscapes("\x1B]8;;https://github.example/pull/101\x1B\\#101\x1B]8;;\x1B\\"),
+		).toBe("#101");
 	});
 
 	test("sanitizes terminal hyperlink URLs", () => {
 		expect(sanitizeTerminalHyperlinkUrl("http://example.com/path")).toBe("http://example.com/path");
-		expect(sanitizeTerminalHyperlinkUrl("https://example.com/a b")).toBe("https://example.com/a%20b");
+		expect(sanitizeTerminalHyperlinkUrl("https://example.com/a b")).toBe(
+			"https://example.com/a%20b",
+		);
 		expect(sanitizeTerminalHyperlinkUrl("javascript:alert(1)")).toBeUndefined();
 		expect(sanitizeTerminalHyperlinkUrl("not a url")).toBeUndefined();
 		expect(sanitizeTerminalHyperlinkUrl("https://example.com/\x07bad")).toBeUndefined();

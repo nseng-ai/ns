@@ -5,7 +5,11 @@ import process from "node:process";
 
 import { formatErrorMessage } from "@asdl/core/primitives";
 import { formatElapsedMs } from "@asdl/core/time-format";
-import { customMessageText, truncateDisplayLine, type CustomMessageContent } from "./terminal-presentation.ts";
+import {
+	customMessageText,
+	truncateDisplayLine,
+	type CustomMessageContent,
+} from "./terminal-presentation.ts";
 
 const CLI_COMMAND_BRIDGE_VERSION = "above-editor-live-stream-trace-v3";
 const TRACE_ENV = "ASDL_PI_CLI_TRACE";
@@ -44,7 +48,11 @@ interface RenderComponent {
 	invalidate(): void;
 }
 
-type MessageRenderer = (message: CustomMessage, options: { expanded: boolean }, theme: RenderTheme) => RenderComponent;
+type MessageRenderer = (
+	message: CustomMessage,
+	options: { expanded: boolean },
+	theme: RenderTheme,
+) => RenderComponent;
 
 export interface CliCommandInfo {
 	name: string;
@@ -53,7 +61,10 @@ export interface CliCommandInfo {
 	startMessage?: string;
 }
 
-export type CliCommandConfirmPrompt = (title: string, message: string) => Promise<boolean> | boolean;
+export type CliCommandConfirmPrompt = (
+	title: string,
+	message: string,
+) => Promise<boolean> | boolean;
 
 export interface CliCommandRunDeps {
 	cwd: string;
@@ -87,7 +98,11 @@ export interface CommandContext {
 		confirm?(title: string, message: string): Promise<boolean> | boolean;
 		setEditorText?(text: string): void;
 		setStatus?(key: string, value: string | undefined): void;
-		setWidget?(key: string, value: string[] | undefined, options?: { placement?: CommandWidgetPlacement }): void;
+		setWidget?(
+			key: string,
+			value: string[] | undefined,
+			options?: { placement?: CommandWidgetPlacement },
+		): void;
 	};
 	waitForIdle(): Promise<void>;
 }
@@ -133,7 +148,9 @@ export function selectCliCommands<TCommand extends CliCommandInfo>(options: {
 	names: readonly string[];
 	missingCommandLabel: string;
 }): TCommand[] {
-	const commandsByName = new Map(options.availableCommands.map((command) => [command.name, command]));
+	const commandsByName = new Map(
+		options.availableCommands.map((command) => [command.name, command]),
+	);
 	return options.names.map((name) => {
 		const command = commandsByName.get(name);
 		if (command === undefined) {
@@ -259,7 +276,12 @@ export function formatCliCommandOutput(details: CliCommandOutputDetails): string
 		return formatSuccessfulOutput(sourceCommand, details.stdout, details.stderr);
 	}
 
-	return formatFailedOutput({ sourceCommand, exitCode: details.exitCode, stdout: details.stdout, stderr: details.stderr });
+	return formatFailedOutput({
+		sourceCommand,
+		exitCode: details.exitCode,
+		stdout: details.stdout,
+		stderr: details.stderr,
+	});
 }
 
 export function renderCliCommandOutputMessage(
@@ -308,7 +330,12 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 
 	const parsed = parseCliCommandArgs(rawArgs);
 	if (!parsed.ok) {
-		const restored = restoreCommandInvocationToEditor({ ctx, piCommandName, rawArgs, reason: `Could not parse /${piCommandName}: ${parsed.error}` });
+		const restored = restoreCommandInvocationToEditor({
+			ctx,
+			piCommandName,
+			rawArgs,
+			reason: `Could not parse /${piCommandName}: ${parsed.error}`,
+		});
 		traceCliCommand("parse_error", {
 			commandName: command.name,
 			error: parsed.error,
@@ -432,7 +459,11 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 		} catch (error) {
 			const message = formatErrorMessage(error);
 			const exceptionOutput = `Unhandled ${spec.cliName} command error: ${message}\n`;
-			traceCliCommand("runner_exception", { commandName: command.name, error: message, piCommandName });
+			traceCliCommand("runner_exception", {
+				commandName: command.name,
+				error: message,
+				piCommandName,
+			});
 			stderr += exceptionOutput;
 			progress.appendOutput("stderr", exceptionOutput);
 		}
@@ -464,7 +495,12 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 	});
 	emitCliCommandOutput(pi, ctx, details);
 	if (isCliUsageError(details)) {
-		const restored = restoreCommandInvocationToEditor({ ctx, piCommandName, rawArgs, reason: `Restored /${piCommandName} after a CLI usage error.` });
+		const restored = restoreCommandInvocationToEditor({
+			ctx,
+			piCommandName,
+			rawArgs,
+			reason: `Restored /${piCommandName} after a CLI usage error.`,
+		});
 		traceCliCommand("usage_error_restored", { commandName: command.name, piCommandName, restored });
 	}
 }
@@ -530,11 +566,18 @@ function formatPiCommandInvocation(piCommandName: string, rawArgs: string): stri
 }
 
 function piCommandNameForCommand(spec: CliCommandExtensionSpec, command: CliCommandInfo): string {
-	return spec.piCommandAliases?.[command.name] ?? spec.piCommandNameForCommand?.(command) ?? `${spec.piNamespace}:${command.name}`;
+	return (
+		spec.piCommandAliases?.[command.name] ??
+		spec.piCommandNameForCommand?.(command) ??
+		`${spec.piNamespace}:${command.name}`
+	);
 }
 
 function isCliUsageError(details: CliCommandOutputDetails): boolean {
-	return details.exitCode === 2 && (details.stderr.startsWith("Error:") || details.stderr.startsWith("error:"));
+	return (
+		details.exitCode === 2 &&
+		(details.stderr.startsWith("Error:") || details.stderr.startsWith("error:"))
+	);
 }
 
 interface LiveCommandProgressOptions {
@@ -635,8 +678,13 @@ class LiveCommandProgress {
 		if (this.target === "none" || this.isClosed) return;
 
 		const elapsed = formatElapsedMs(Date.now() - this.startedAt);
-		this.ctx.ui.setStatus?.(LIVE_PROGRESS_STATUS_ID, `/${this.options.piCommandName} ${this.phase} (${elapsed})`);
-		this.ctx.ui.setWidget?.(LIVE_PROGRESS_WIDGET_ID, this.widgetLines(elapsed), { placement: "aboveEditor" });
+		this.ctx.ui.setStatus?.(
+			LIVE_PROGRESS_STATUS_ID,
+			`/${this.options.piCommandName} ${this.phase} (${elapsed})`,
+		);
+		this.ctx.ui.setWidget?.(LIVE_PROGRESS_WIDGET_ID, this.widgetLines(elapsed), {
+			placement: "aboveEditor",
+		});
 	}
 
 	private widgetLines(elapsed: string): string[] {
@@ -714,11 +762,22 @@ function truncateLiveProgressLine(text: string): string {
 	return `${text.slice(0, LIVE_PROGRESS_MAX_LINE_CHARS - 1)}…`;
 }
 
-function emitCliCommandOutput(pi: ExtensionAPI, ctx: CommandContext, details: CliCommandOutputDetails): void {
+function emitCliCommandOutput(
+	pi: ExtensionAPI,
+	ctx: CommandContext,
+	details: CliCommandOutputDetails,
+): void {
 	const displayText = formatCliCommandOutput(details);
 	const sendMessage = pi.sendMessage;
-	const canSendRenderedMessage = ctx.hasUI && sendMessage !== undefined && pi.registerMessageRenderer !== undefined;
-	const target = canSendRenderedMessage ? "custom_message" : ctx.hasUI ? "notify" : details.level === "info" ? "stdout" : "stderr";
+	const canSendRenderedMessage =
+		ctx.hasUI && sendMessage !== undefined && pi.registerMessageRenderer !== undefined;
+	const target = canSendRenderedMessage
+		? "custom_message"
+		: ctx.hasUI
+			? "notify"
+			: details.level === "info"
+				? "stdout"
+				: "stderr";
 	traceCliCommand("emit_output", {
 		commandName: details.commandName,
 		displayChars: displayText.length,
@@ -877,7 +936,9 @@ function assertValidCommandSpec(spec: CliCommandExtensionSpec): void {
 		throw new Error(`CLI command extension for ${spec.cliName} requires a non-empty piNamespace.`);
 	}
 	if (spec.piCommandAliases !== undefined && spec.piCommandNameForCommand !== undefined) {
-		throw new Error(`CLI command extension for ${spec.cliName} cannot configure both piCommandAliases and piCommandNameForCommand.`);
+		throw new Error(
+			`CLI command extension for ${spec.cliName} cannot configure both piCommandAliases and piCommandNameForCommand.`,
+		);
 	}
 
 	const seenNames = new Set<string>();
@@ -893,7 +954,9 @@ function assertValidCommandSpec(spec: CliCommandExtensionSpec): void {
 
 		const piCommandName = piCommandNameForCommand(spec, command);
 		if (piCommandName.trim() === "") {
-			throw new Error(`CLI command extension for ${spec.cliName} resolved an empty Pi command name for ${command.name}.`);
+			throw new Error(
+				`CLI command extension for ${spec.cliName} resolved an empty Pi command name for ${command.name}.`,
+			);
 		}
 		if (seenPiCommandNames.has(piCommandName)) {
 			throw new Error(`Duplicate ${spec.cliName} Pi command name: ${piCommandName}`);

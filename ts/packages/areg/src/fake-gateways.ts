@@ -118,14 +118,19 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 
 	constructor(options: FakeAregProjectGatewayOptions = {}) {
 		this.projectDir = options.projectDir ?? "/repo";
-		this.projectPathState = copyPathState(options.projectPathState ?? options.targetPathState ?? { type: "directory" });
+		this.projectPathState = copyPathState(
+			options.projectPathState ?? options.targetPathState ?? { type: "directory" },
+		);
 		this.files = new Map([
 			["skills-lock.json", normalizeTextFileState(options.lockfile ?? { version: 1, skills: {} })],
 			["asdl.toml", normalizeTextFileState(options.asdlToml ?? { type: "missing" })],
 			["areg.json", normalizeTextFileState(options.aregJson ?? { type: "missing" })],
 			["AGENTS.md", normalizeTextFileState(options.agentsMd ?? { type: "missing" })],
 			["CLAUDE.md", normalizeTextFileState(options.claudeMd ?? { type: "missing" })],
-			[".claude/settings.local.json", normalizeTextFileState(options.claudeSettings ?? { type: "missing" })],
+			[
+				".claude/settings.local.json",
+				normalizeTextFileState(options.claudeSettings ?? { type: "missing" }),
+			],
 			[".pi/settings.json", normalizeTextFileState(options.piSettings ?? { type: "missing" })],
 		]);
 		this.claudeDir = copyPathState(options.claudeDir ?? { type: "missing" });
@@ -138,14 +143,35 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 		this.checkSkills = (options.checkSkills ?? []).map(copyFakeCheckSkill);
 		this.localSkills = (options.localSkills ?? []).map(copyFakeSkillKindSkill);
 		this.pairingDirectories = (options.pairingDirectories ?? []).map(copyPairingDirectory);
-		this.resolveFailures = new Map(Object.entries(options.resolveFailures ?? {}).map(([key, value]) => [key, copyErrorInfo(value)]));
-		this.preflightFailures = new Map(Object.entries(options.preflightFailures ?? {}).map(([key, value]) => [key, copyErrorInfo(value)]));
-		const mutationFailures = options.applyFailure === undefined ? options.mutationFailures : { ...(options.mutationFailures ?? {}), "*": options.applyFailure };
-		this.mutationFailures = new Map(Object.entries(mutationFailures ?? {}).map(([key, value]) => [key, copyErrorInfo(value)]));
+		this.resolveFailures = new Map(
+			Object.entries(options.resolveFailures ?? {}).map(([key, value]) => [
+				key,
+				copyErrorInfo(value),
+			]),
+		);
+		this.preflightFailures = new Map(
+			Object.entries(options.preflightFailures ?? {}).map(([key, value]) => [
+				key,
+				copyErrorInfo(value),
+			]),
+		);
+		const mutationFailures =
+			options.applyFailure === undefined
+				? options.mutationFailures
+				: { ...options.mutationFailures, "*": options.applyFailure };
+		this.mutationFailures = new Map(
+			Object.entries(mutationFailures ?? {}).map(([key, value]) => [key, copyErrorInfo(value)]),
+		);
 	}
 
-	async inspectProjectBase(request: AregProjectInspectionRequest): Promise<AregProjectBaseInspection> {
-		this.log.push({ type: "inspect-project-base", cwd: request.cwd, projectPath: request.projectPath });
+	async inspectProjectBase(
+		request: AregProjectInspectionRequest,
+	): Promise<AregProjectBaseInspection> {
+		this.log.push({
+			type: "inspect-project-base",
+			cwd: request.cwd,
+			projectPath: request.projectPath,
+		});
 		return {
 			projectDir: this.projectDir,
 			projectPathState: copyPathState(this.projectPathState),
@@ -185,18 +211,30 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 	}
 
 	async inspectCheckSkill(request: AregSkillInspectionRequest): Promise<AregCheckSkillInspection> {
-		this.log.push({ type: "inspect-check-skill", projectDir: request.projectDir, skillName: request.skillName });
+		this.log.push({
+			type: "inspect-check-skill",
+			projectDir: request.projectDir,
+			skillName: request.skillName,
+		});
 		const skill = this.checkSkills.find((candidate) => candidate.name === request.skillName);
 		return skill === undefined ? missingCheckSkill(request.skillName) : copyCheckSkill(skill);
 	}
 
-	async inspectLocalSkill(request: AregSkillInspectionRequest): Promise<AregSkillKindSkillInspection> {
-		this.log.push({ type: "inspect-local-skill", projectDir: request.projectDir, skillName: request.skillName });
+	async inspectLocalSkill(
+		request: AregSkillInspectionRequest,
+	): Promise<AregSkillKindSkillInspection> {
+		this.log.push({
+			type: "inspect-local-skill",
+			projectDir: request.projectDir,
+			skillName: request.skillName,
+		});
 		const skill = this.localSkills.find((candidate) => candidate.name === request.skillName);
 		return skill === undefined ? missingLocalSkill(request.skillName) : copySkillKindSkill(skill);
 	}
 
-	async inspectPairingDirectories(request: AregProjectDirRequest): Promise<readonly AregCheckPairingDirectory[]> {
+	async inspectPairingDirectories(
+		request: AregProjectDirRequest,
+	): Promise<readonly AregCheckPairingDirectory[]> {
 		this.log.push({ type: "inspect-pairing-directories", projectDir: request.projectDir });
 		return this.pairingDirectories.map(copyPairingDirectory);
 	}
@@ -206,21 +244,65 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 		return [...this.excludedSkillNames];
 	}
 
-	async resolveLocalSkillSpec(request: AregSkillKindResolveRequest): Promise<AregSkillKindResolveResult> {
-		this.log.push({ type: "resolve-local-skill-spec", projectDir: request.projectDir, spec: request.spec, cwd: request.cwd });
+	async resolveLocalSkillSpec(
+		request: AregSkillKindResolveRequest,
+	): Promise<AregSkillKindResolveResult> {
+		this.log.push({
+			type: "resolve-local-skill-spec",
+			projectDir: request.projectDir,
+			spec: request.spec,
+			cwd: request.cwd,
+		});
 		const failure = this.resolveFailures.get(request.spec);
 		if (failure !== undefined) return { type: "error", error: copyErrorInfo(failure) };
 		const skillName = fakeResolveSkillName(request.spec);
 		const skill = this.localSkills.find((candidate) => candidate.name === skillName);
-		if (skill === undefined) return { type: "error", error: { code: "skill-kind-missing-skill", message: `Local skill not found: ${request.spec}` } };
-		if (skill.skillDir.type === "symlink") return { type: "error", error: { code: "skill-kind-symlink-skill-dir", message: `skills/${skillName} is a symlink but should be a real directory (canonical source)` } };
-		if (skill.skillDir.type !== "directory") return { type: "error", error: { code: "skill-kind-missing-skill", message: `Local skill not found: ${request.spec}` } };
-		if (skill.skillMd.type === "symlink") return { type: "error", error: { code: "skill-kind-symlink-skill-md", message: `skills/${skillName}/SKILL.md is a symlink but should be a real file (canonical source)` } };
-		if (skill.skillMd.type !== "file") return { type: "error", error: { code: "skill-kind-missing-skill-md", message: `skills/${skillName}/SKILL.md does not exist` } };
+		if (skill === undefined)
+			return {
+				type: "error",
+				error: {
+					code: "skill-kind-missing-skill",
+					message: `Local skill not found: ${request.spec}`,
+				},
+			};
+		if (skill.skillDir.type === "symlink")
+			return {
+				type: "error",
+				error: {
+					code: "skill-kind-symlink-skill-dir",
+					message: `skills/${skillName} is a symlink but should be a real directory (canonical source)`,
+				},
+			};
+		if (skill.skillDir.type !== "directory")
+			return {
+				type: "error",
+				error: {
+					code: "skill-kind-missing-skill",
+					message: `Local skill not found: ${request.spec}`,
+				},
+			};
+		if (skill.skillMd.type === "symlink")
+			return {
+				type: "error",
+				error: {
+					code: "skill-kind-symlink-skill-md",
+					message: `skills/${skillName}/SKILL.md is a symlink but should be a real file (canonical source)`,
+				},
+			};
+		if (skill.skillMd.type !== "file")
+			return {
+				type: "error",
+				error: {
+					code: "skill-kind-missing-skill-md",
+					message: `skills/${skillName}/SKILL.md does not exist`,
+				},
+			};
 		return { type: "ok", skillName };
 	}
 
-	async preflightWriteTextFile(request: AregProjectTextWriteRequest): Promise<AregProjectMutationResult> {
+	async preflightWriteTextFile(
+		request: AregProjectTextWriteRequest,
+	): Promise<AregProjectMutationResult> {
 		this.log.push({
 			type: "preflight-write-text-file",
 			projectDir: request.projectDir,
@@ -234,14 +316,30 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 		return failure === undefined ? { ok: true } : { ok: false, error: failure };
 	}
 
-	async preflightDeleteFile(request: AregProjectFileDeleteRequest): Promise<AregProjectMutationResult> {
-		this.log.push({ type: "preflight-delete-file", projectDir: request.projectDir, relativePath: request.relativePath, description: request.description, policy: request.policy });
+	async preflightDeleteFile(
+		request: AregProjectFileDeleteRequest,
+	): Promise<AregProjectMutationResult> {
+		this.log.push({
+			type: "preflight-delete-file",
+			projectDir: request.projectDir,
+			relativePath: request.relativePath,
+			description: request.description,
+			policy: request.policy,
+		});
 		const failure = this.preflightFailure(request.relativePath);
 		return failure === undefined ? { ok: true } : { ok: false, error: failure };
 	}
 
-	async preflightRemoveEmptyDir(request: AregProjectRemoveEmptyDirRequest): Promise<AregProjectMutationResult> {
-		this.log.push({ type: "preflight-remove-empty-dir", projectDir: request.projectDir, relativePath: request.relativePath, description: request.description, policy: request.policy });
+	async preflightRemoveEmptyDir(
+		request: AregProjectRemoveEmptyDirRequest,
+	): Promise<AregProjectMutationResult> {
+		this.log.push({
+			type: "preflight-remove-empty-dir",
+			projectDir: request.projectDir,
+			relativePath: request.relativePath,
+			description: request.description,
+			policy: request.policy,
+		});
 		const failure = this.preflightFailure(request.relativePath);
 		return failure === undefined ? { ok: true } : { ok: false, error: failure };
 	}
@@ -260,23 +358,40 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 		if (failure !== undefined) return { ok: false, error: failure };
 		this.files.set(request.relativePath, { type: "file", text: request.content });
 		const skill = skillForRelativePath(this.localSkills, request.relativePath);
-		if (skill !== undefined && request.relativePath.endsWith("/SKILL.md")) skill.skillMd = { type: "file", text: request.content };
-		if (skill !== undefined && request.relativePath.endsWith("/agents/openai.yaml")) skill.openaiPolicy = { type: "file", text: request.content };
+		if (skill !== undefined && request.relativePath.endsWith("/SKILL.md"))
+			skill.skillMd = { type: "file", text: request.content };
+		if (skill !== undefined && request.relativePath.endsWith("/agents/openai.yaml"))
+			skill.openaiPolicy = { type: "file", text: request.content };
 		return { ok: true };
 	}
 
 	async deleteFile(request: AregProjectFileDeleteRequest): Promise<AregProjectMutationResult> {
-		this.log.push({ type: "delete-file", projectDir: request.projectDir, relativePath: request.relativePath, description: request.description, policy: request.policy });
+		this.log.push({
+			type: "delete-file",
+			projectDir: request.projectDir,
+			relativePath: request.relativePath,
+			description: request.description,
+			policy: request.policy,
+		});
 		const failure = this.mutationFailure(request.relativePath);
 		if (failure !== undefined) return { ok: false, error: failure };
 		this.files.set(request.relativePath, { type: "missing" });
 		const skill = skillForRelativePath(this.localSkills, request.relativePath);
-		if (skill !== undefined && request.relativePath.endsWith("/agents/openai.yaml")) skill.openaiPolicy = { type: "missing" };
+		if (skill !== undefined && request.relativePath.endsWith("/agents/openai.yaml"))
+			skill.openaiPolicy = { type: "missing" };
 		return { ok: true };
 	}
 
-	async removeEmptyDir(request: AregProjectRemoveEmptyDirRequest): Promise<AregProjectRemoveEmptyDirResult> {
-		this.log.push({ type: "remove-empty-dir", projectDir: request.projectDir, relativePath: request.relativePath, description: request.description, policy: request.policy });
+	async removeEmptyDir(
+		request: AregProjectRemoveEmptyDirRequest,
+	): Promise<AregProjectRemoveEmptyDirResult> {
+		this.log.push({
+			type: "remove-empty-dir",
+			projectDir: request.projectDir,
+			relativePath: request.relativePath,
+			description: request.description,
+			policy: request.policy,
+		});
 		const failure = this.mutationFailure(request.relativePath);
 		if (failure !== undefined) return { ok: false, error: failure };
 		return { ok: true, removed: true };
@@ -317,13 +432,24 @@ export class FakeAregHostGateway implements AregHostGateway {
 	private readonly log: FakeAregHostOperation[] = [];
 
 	constructor(options: FakeAregHostGatewayOptions = {}) {
-		this.tools = new Map(Object.entries(options.tools ?? {}) as Array<[AregHostToolName, string | null]>);
+		this.tools = new Map(
+			Object.entries(options.tools ?? {}) as Array<[AregHostToolName, string | null]>,
+		);
 	}
 
-	async checkTool(options: { tool: AregHostToolName; cwd: string; env: NodeJS.ProcessEnv }): Promise<AregToolCheckResult> {
+	async checkTool(options: {
+		tool: AregHostToolName;
+		cwd: string;
+		env: NodeJS.ProcessEnv;
+	}): Promise<AregToolCheckResult> {
 		this.log.push({ type: "check-tool", tool: options.tool, cwd: options.cwd });
 		const path = this.tools.get(options.tool);
-		if (path === null) return { type: "missing", tool: options.tool, message: `Required host tool is missing: ${options.tool}` };
+		if (path === null)
+			return {
+				type: "missing",
+				tool: options.tool,
+				message: `Required host tool is missing: ${options.tool}`,
+			};
 		return { type: "found", tool: options.tool, path: path ?? `/fake/bin/${options.tool}` };
 	}
 
@@ -332,25 +458,40 @@ export class FakeAregHostGateway implements AregHostGateway {
 	}
 }
 
-export type FakeAregGithubOperation = { type: "list-skill-directory-names"; repo: string; ref?: string | undefined };
+export type FakeAregGithubOperation = {
+	type: "list-skill-directory-names";
+	repo: string;
+	ref?: string | undefined;
+};
 
 export interface FakeAregGithubGatewayOptions {
 	repos?: Record<string, readonly string[] | "missing" | "auth-error" | AregErrorInfo> | undefined;
 }
 
 export class FakeAregGithubGateway implements AregGithubGateway {
-	private readonly repos: ReadonlyMap<string, readonly string[] | "missing" | "auth-error" | AregErrorInfo>;
+	private readonly repos: ReadonlyMap<
+		string,
+		readonly string[] | "missing" | "auth-error" | AregErrorInfo
+	>;
 	private readonly log: FakeAregGithubOperation[] = [];
 
 	constructor(options: FakeAregGithubGatewayOptions = {}) {
-		this.repos = new Map(Object.entries(options.repos ?? {}).map(([repo, value]) => [repo, copyGithubState(value)]));
+		this.repos = new Map(
+			Object.entries(options.repos ?? {}).map(([repo, value]) => [repo, copyGithubState(value)]),
+		);
 	}
 
-	async listSkillDirectoryNames(options: { repo: string; ref?: string | undefined; env: NodeJS.ProcessEnv }): Promise<AregGithubSkillListResult> {
+	async listSkillDirectoryNames(options: {
+		repo: string;
+		ref?: string | undefined;
+		env: NodeJS.ProcessEnv;
+	}): Promise<AregGithubSkillListResult> {
 		this.log.push({ type: "list-skill-directory-names", repo: options.repo, ref: options.ref });
 		const state = this.repos.get(options.repo);
-		if (state === undefined || state === "missing") return { type: "missing", message: `Skill source not found: ${options.repo}` };
-		if (state === "auth-error") return { type: "auth-error", message: `GitHub authentication failed for ${options.repo}` };
+		if (state === undefined || state === "missing")
+			return { type: "missing", message: `Skill source not found: ${options.repo}` };
+		if (state === "auth-error")
+			return { type: "auth-error", message: `GitHub authentication failed for ${options.repo}` };
 		if (isReadonlyStringArray(state)) return { type: "ok", skillNames: [...state] };
 		return { type: "error", error: copyErrorInfo(state) };
 	}
@@ -360,7 +501,10 @@ export class FakeAregGithubGateway implements AregGithubGateway {
 	}
 }
 
-export type FakeAregNpxSkillsOperation = { type: "add-skills" } & Omit<AregNpxSkillsAddRequest, "env">;
+export type FakeAregNpxSkillsOperation = { type: "add-skills" } & Omit<
+	AregNpxSkillsAddRequest,
+	"env"
+>;
 
 export interface FakeAregNpxSkillsGatewayOptions {
 	failure?: AregErrorInfo | undefined;
@@ -374,7 +518,9 @@ export class FakeAregNpxSkillsGateway implements AregNpxSkillsGateway {
 
 	constructor(options: FakeAregNpxSkillsGatewayOptions = {}) {
 		this.failure = options.failure === undefined ? undefined : copyErrorInfo(options.failure);
-		this.failures = new Map(Object.entries(options.failures ?? {}).map(([key, value]) => [key, copyErrorInfo(value)]));
+		this.failures = new Map(
+			Object.entries(options.failures ?? {}).map(([key, value]) => [key, copyErrorInfo(value)]),
+		);
 	}
 
 	async addSkills(request: AregNpxSkillsAddRequest): Promise<AregNpxSkillsAddResult> {
@@ -392,11 +538,20 @@ export class FakeAregNpxSkillsGateway implements AregNpxSkillsGateway {
 	}
 
 	operations(): readonly FakeAregNpxSkillsOperation[] {
-		return this.log.map((operation) => ({ ...operation, skillNames: [...operation.skillNames], targetAgents: [...operation.targetAgents] }));
+		return this.log.map((operation) => ({
+			...operation,
+			skillNames: [...operation.skillNames],
+			targetAgents: [...operation.targetAgents],
+		}));
 	}
 }
 
-export type FakeAregPromptOperation = { type: "confirm"; message: string; defaultValue: boolean; response: boolean };
+export type FakeAregPromptOperation = {
+	type: "confirm";
+	message: string;
+	defaultValue: boolean;
+	response: boolean;
+};
 
 export interface FakeAregPromptGatewayOptions {
 	responses?: readonly boolean[] | undefined;
@@ -415,7 +570,12 @@ export class FakeAregPromptGateway implements AregPromptGateway {
 
 	async confirm(request: { message: string; defaultValue: boolean }): Promise<boolean> {
 		const response = this.responses.shift() ?? this.shouldConfirmByDefault;
-		this.log.push({ type: "confirm", message: request.message, defaultValue: request.defaultValue, response });
+		this.log.push({
+			type: "confirm",
+			message: request.message,
+			defaultValue: request.defaultValue,
+			response,
+		});
 		return response;
 	}
 
@@ -446,11 +606,17 @@ export class FakeAregSkillxWorkspaceGateway implements AregSkillxWorkspaceGatewa
 		this.workspaceRoot = options.workspaceRoot ?? "/tmp/areg-skillx";
 		this.installedSkills = (options.installedSkills ?? []).map(copyInstalledSkill);
 		this.failure = options.failure === undefined ? undefined : copyErrorInfo(options.failure);
-		this.cleanupFailure = options.cleanupFailure === undefined ? undefined : copyErrorInfo(options.cleanupFailure);
+		this.cleanupFailure =
+			options.cleanupFailure === undefined ? undefined : copyErrorInfo(options.cleanupFailure);
 	}
 
 	async installIntoWorkspace(request: AregSkillxInstallRequest): Promise<AregSkillxInstallResult> {
-		this.log.push({ type: "install-into-workspace", sourceRepo: request.sourceRepo, skillName: request.skillName, cwd: request.cwd });
+		this.log.push({
+			type: "install-into-workspace",
+			sourceRepo: request.sourceRepo,
+			skillName: request.skillName,
+			cwd: request.cwd,
+		});
 		if (this.failure !== undefined) return { type: "error", error: copyErrorInfo(this.failure) };
 		return {
 			type: "ok",
@@ -501,11 +667,15 @@ function copyFakeCheckSkill(skill: FakeAregCheckSkillOptions): AregCheckSkillIns
 	};
 }
 
-function copyFakeSkillKindSkill(skill: FakeAregSkillKindSkillOptions): AregSkillKindSkillInspection {
+function copyFakeSkillKindSkill(
+	skill: FakeAregSkillKindSkillOptions,
+): AregSkillKindSkillInspection {
 	return {
 		name: skill.name,
 		skillDir: copyPathState(skill.skillDir ?? { type: "directory" }),
-		skillMd: normalizeTextFileState(skill.skillMd ?? `---\nname: ${skill.name}\ndescription: ${skill.name}\n---\n`),
+		skillMd: normalizeTextFileState(
+			skill.skillMd ?? `---\nname: ${skill.name}\ndescription: ${skill.name}\n---\n`,
+		),
 		openaiPolicy: normalizeTextFileState(skill.openaiPolicy ?? { type: "missing" }),
 	};
 }
@@ -533,7 +703,15 @@ function copySkillKindSkill(skill: AregSkillKindSkillInspection): AregSkillKindS
 
 function missingCheckSkill(name: string): AregCheckSkillInspection {
 	const missing = { type: "missing" as const };
-	return { name, skillsPath: missing, agentsPath: missing, claudePath: missing, localSkillMd: missing, remoteSkillMd: missing, openaiPolicy: missing };
+	return {
+		name,
+		skillsPath: missing,
+		agentsPath: missing,
+		claudePath: missing,
+		localSkillMd: missing,
+		remoteSkillMd: missing,
+		openaiPolicy: missing,
+	};
 }
 
 function missingLocalSkill(name: string): AregSkillKindSkillInspection {
@@ -543,7 +721,9 @@ function missingLocalSkill(name: string): AregSkillKindSkillInspection {
 
 function fakeResolveSkillName(spec: string): string {
 	const normalized = spec.replaceAll("\\", "/");
-	const withoutSkillMd = normalized.endsWith("/SKILL.md") ? normalized.slice(0, -"/SKILL.md".length) : normalized;
+	const withoutSkillMd = normalized.endsWith("/SKILL.md")
+		? normalized.slice(0, -"/SKILL.md".length)
+		: normalized;
 	const parts = withoutSkillMd.split("/").filter((part) => part.length > 0);
 	const skillsIndex = parts.lastIndexOf("skills");
 	const skillPart = skillsIndex === -1 ? undefined : parts[skillsIndex + 1];
@@ -551,7 +731,10 @@ function fakeResolveSkillName(spec: string): string {
 	return parts.at(-1) ?? spec;
 }
 
-function skillForRelativePath(skills: readonly AregSkillKindSkillInspection[], relativePath: string): AregSkillKindSkillInspection | undefined {
+function skillForRelativePath(
+	skills: readonly AregSkillKindSkillInspection[],
+	relativePath: string,
+): AregSkillKindSkillInspection | undefined {
 	const parts = relativePath.split("/");
 	if (parts[0] !== "skills") return undefined;
 	const skillName = parts[1];
@@ -582,13 +765,17 @@ function copyPairingDirectory(directory: AregCheckPairingDirectory): AregCheckPa
 	};
 }
 
-function copyGithubState(value: readonly string[] | "missing" | "auth-error" | AregErrorInfo): readonly string[] | "missing" | "auth-error" | AregErrorInfo {
+function copyGithubState(
+	value: readonly string[] | "missing" | "auth-error" | AregErrorInfo,
+): readonly string[] | "missing" | "auth-error" | AregErrorInfo {
 	if (isReadonlyStringArray(value)) return [...value];
 	if (value === "missing" || value === "auth-error") return value;
 	return copyErrorInfo(value);
 }
 
-function isReadonlyStringArray(value: readonly string[] | "missing" | "auth-error" | AregErrorInfo): value is readonly string[] {
+function isReadonlyStringArray(
+	value: readonly string[] | "missing" | "auth-error" | AregErrorInfo,
+): value is readonly string[] {
 	return Array.isArray(value);
 }
 
@@ -602,5 +789,7 @@ function copyInstalledSkill(skill: AregSkillxInstalledSkill): AregSkillxInstalle
 }
 
 function copyErrorInfo(error: AregErrorInfo): AregErrorInfo {
-	return error.displayCommand === undefined ? { code: error.code, message: error.message } : { code: error.code, message: error.message, displayCommand: error.displayCommand };
+	return error.displayCommand === undefined
+		? { code: error.code, message: error.message }
+		: { code: error.code, message: error.message, displayCommand: error.displayCommand };
 }

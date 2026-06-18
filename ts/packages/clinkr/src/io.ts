@@ -28,8 +28,13 @@ export function resolveIo(overrides: ClinkrIoOverrides = {}): ClinkrIo {
 	const base = createProcessIo();
 	// A caller-supplied stdout is an unknown, redirected sink (tests, pipes), so ANSI output defaults
 	// off unless the caller asks for it. With no override we are writing to the real terminal.
-	const canEmitAnsi = overrides.canEmitAnsi ?? (overrides.stdout === undefined ? base.canEmitAnsi === true : false);
-	return { stdout: overrides.stdout ?? base.stdout, stderr: overrides.stderr ?? base.stderr, canEmitAnsi };
+	const canEmitAnsi =
+		overrides.canEmitAnsi ?? (overrides.stdout === undefined ? base.canEmitAnsi === true : false);
+	return {
+		stdout: overrides.stdout ?? base.stdout,
+		stderr: overrides.stderr ?? base.stderr,
+		canEmitAnsi,
+	};
 }
 
 function resolveProcessColor(): boolean {

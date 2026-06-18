@@ -1,4 +1,8 @@
-import { appendGeneratedMarker, resolvePrDescriptionGeneration, type PrDescriptionGenerationResolution } from "./pr-description.ts";
+import {
+	appendGeneratedMarker,
+	resolvePrDescriptionGeneration,
+	type PrDescriptionGenerationResolution,
+} from "./pr-description.ts";
 import { applyGeneratedDescription, decidePrBodyOverwrite } from "./pr-description-apply.ts";
 import { formatItemCount } from "./format.ts";
 import type { SubmitPrLink } from "./gt-output.ts";
@@ -7,7 +11,13 @@ import type { PreparedSubmitPrMetadata } from "./submit-pr-metadata-prewrite.ts"
 import type { SubmitPrDescriptionOptions } from "./submit.ts";
 
 export type SubmitPrDescriptionGenerationResult =
-	| { ok: true; generated: SubmitPrLink[]; skipped: SubmitPrLink[]; prewritten: SubmitPrLink[]; prewriteFallbacks: SubmitPrLink[] }
+	| {
+			ok: true;
+			generated: SubmitPrLink[];
+			skipped: SubmitPrLink[];
+			prewritten: SubmitPrLink[];
+			prewriteFallbacks: SubmitPrLink[];
+	  }
 	| { ok: false; failures: PrDescriptionFailure[] };
 
 export interface PrDescriptionFailure {
@@ -28,13 +38,17 @@ export async function generateSubmitPrDescriptions(input: {
 	const prewritten: SubmitPrLink[] = [];
 	const prewriteFallbacks: SubmitPrLink[] = [];
 	const failures: PrDescriptionFailure[] = [];
-	const prewrittenByBranch = new Map((input.prewrittenMetadata ?? []).map((metadata) => [metadata.branch, metadata]));
+	const prewrittenByBranch = new Map(
+		(input.prewrittenMetadata ?? []).map((metadata) => [metadata.branch, metadata]),
+	);
 	let generation: Extract<PrDescriptionGenerationResolution, { ok: true }> | undefined;
 
 	if (input.prLinks.length === 0) {
 		input.onProgress?.("no PR links available for description generation");
 	} else {
-		input.onProgress?.(`preparing descriptions for ${formatItemCount(input.prLinks.length, "PR", "PRs")}`);
+		input.onProgress?.(
+			`preparing descriptions for ${formatItemCount(input.prLinks.length, "PR", "PRs")}`,
+		);
 	}
 
 	// Intentionally sequential: deterministic output ordering and gentler on gh/API rate limits.
@@ -75,11 +89,13 @@ export async function generateSubmitPrDescriptions(input: {
 		if (generation === undefined) {
 			input.onProgress?.("resolving PR description prompt and model");
 		}
-		const resolvedGeneration = generation ?? await resolvePrDescriptionGeneration({
-			cwd: input.cwd,
-			env: input.prDescription.env,
-			git: input.prDescription.git,
-		});
+		const resolvedGeneration =
+			generation ??
+			(await resolvePrDescriptionGeneration({
+				cwd: input.cwd,
+				env: input.prDescription.env,
+				git: input.prDescription.git,
+			}));
 		if (!resolvedGeneration.ok) {
 			failures.push({ link, number, reason: resolvedGeneration.error });
 			continue;
@@ -132,12 +148,17 @@ export async function generateSubmitPrDescriptions(input: {
 	return { ok: true, generated, skipped, prewritten, prewriteFallbacks };
 }
 
-export function formatPrDescriptionFailureText(prLinks: readonly SubmitPrLink[], failures: readonly PrDescriptionFailure[]): string {
+export function formatPrDescriptionFailureText(
+	prLinks: readonly SubmitPrLink[],
+	failures: readonly PrDescriptionFailure[],
+): string {
 	const lines = [
 		"PRs were submitted; description generation failed.",
 		"",
 		"Submitted PRs:",
-		...(prLinks.length > 0 ? prLinks.map(formatPrLinkTextRow) : ["• (no PR URLs detected in submit output)"]),
+		...(prLinks.length > 0
+			? prLinks.map(formatPrLinkTextRow)
+			: ["• (no PR URLs detected in submit output)"]),
 		"",
 		"Description failures:",
 		...failures.map(formatPrDescriptionFailureRow),
@@ -156,7 +177,9 @@ async function reconcilePrewrittenPr(input: {
 	body: string;
 	prewrittenMetadata: PreparedSubmitPrMetadata;
 	onProgress?: (message: string) => void;
-}): Promise<{ kind: "matched" } | { kind: "updated" } | { kind: "failed"; failure: PrDescriptionFailure }> {
+}): Promise<
+	{ kind: "matched" } | { kind: "updated" } | { kind: "failed"; failure: PrDescriptionFailure }
+> {
 	if (prMetadataMatches(input.title, input.body, input.prewrittenMetadata)) {
 		return { kind: "matched" };
 	}
@@ -180,11 +203,14 @@ async function reconcilePrewrittenPr(input: {
 	};
 }
 
-function prMetadataMatches(title: string, body: string, metadata: PreparedSubmitPrMetadata): boolean {
+function prMetadataMatches(
+	title: string,
+	body: string,
+	metadata: PreparedSubmitPrMetadata,
+): boolean {
 	return title.trim() === metadata.title.trim() && body.trim() === metadata.body.trim();
 }
 
 function formatPrDescriptionFailureRow(failure: PrDescriptionFailure): string {
 	return `${formatPrLinkTextRow(failure.link)}: ${failure.reason}`;
 }
-

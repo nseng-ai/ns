@@ -1,4 +1,11 @@
-import { buildObjectiveSkillPrompt, chooseActiveObjectiveSlug, objectiveSelectionContextFromCommandContext, type ObjectiveSelectionContext, type ObjectiveSelectionHost, type ObjectiveSelectionSpec } from "@asdl/pi-extension-runtime/objective-selection";
+import {
+	buildObjectiveSkillPrompt,
+	chooseActiveObjectiveSlug,
+	objectiveSelectionContextFromCommandContext,
+	type ObjectiveSelectionContext,
+	type ObjectiveSelectionHost,
+	type ObjectiveSelectionSpec,
+} from "@asdl/pi-extension-runtime/objective-selection";
 import { invokeRepoSkillPromptTurn } from "@asdl/pi-extension-runtime/skill-expansion";
 import type { CommandDefinition } from "./cmux/types.ts";
 
@@ -18,7 +25,8 @@ export interface ObjectiveStackImplHost extends ObjectiveSelectionHost {
 const OBJECTIVE_STACK_IMPL_COMMAND: ObjectiveStackImplCommandSpec = {
 	commandName: "objective:stack-impl",
 	skillName: "objective-stack-impl",
-	description: "Pick an active Objective, then invoke the portable Objective stack implementation skill for the selected slug.",
+	description:
+		"Pick an active Objective, then invoke the portable Objective stack implementation skill for the selected slug.",
 	statusKey: "objective:stack-impl",
 	selectionTitle: "Select an active Objective for stack implementation",
 	compactDiffSuggestion: true,
@@ -47,7 +55,9 @@ interface InvokeObjectiveStackImplSkillOptions {
 	objective: string;
 }
 
-async function invokeObjectiveStackImplSkill(options: InvokeObjectiveStackImplSkillOptions): Promise<void> {
+async function invokeObjectiveStackImplSkill(
+	options: InvokeObjectiveStackImplSkillOptions,
+): Promise<void> {
 	const { host, ctx, spec, objective } = options;
 	await invokeRepoSkillPromptTurn({
 		host,
@@ -66,7 +76,9 @@ interface HandleObjectiveStackImplCommandOptions {
 	ctx: ObjectiveSelectionContext;
 }
 
-async function handleObjectiveStackImplCommand(options: HandleObjectiveStackImplCommandOptions): Promise<void> {
+async function handleObjectiveStackImplCommand(
+	options: HandleObjectiveStackImplCommandOptions,
+): Promise<void> {
 	const { host, spec, args, ctx } = options;
 	const explicitObjective = args.trim();
 	try {

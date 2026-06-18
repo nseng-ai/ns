@@ -1,8 +1,14 @@
 import { shortSha } from "./short-sha.ts";
 import type { LatestCommitPreparationResult } from "./latest-commit-preparation.ts";
-import type { CreatedBranchRecovery, LatestCommitTransactionResult, SourceResetFailureRecovery } from "./latest-commit-transaction.ts";
+import type {
+	CreatedBranchRecovery,
+	LatestCommitTransactionResult,
+	SourceResetFailureRecovery,
+} from "./latest-commit-transaction.ts";
 
-export function formatLatestCommitPreparationFailure(result: Extract<LatestCommitPreparationResult, { ok: false }>): string {
+export function formatLatestCommitPreparationFailure(
+	result: Extract<LatestCommitPreparationResult, { ok: false }>,
+): string {
 	switch (result.kind) {
 		case "trunk_lookup_failed":
 			return `Could not resolve Graphite trunk; refusing to move latest commit.\n${result.error}`;
@@ -37,20 +43,31 @@ export function formatLatestCommitPreparationFailure(result: Extract<LatestCommi
 	}
 }
 
-export function formatLatestCommitTransactionFailure(result: Extract<LatestCommitTransactionResult, { ok: false }>): string {
+export function formatLatestCommitTransactionFailure(
+	result: Extract<LatestCommitTransactionResult, { ok: false }>,
+): string {
 	switch (result.kind) {
 		case "backup_branch_name_unavailable":
 			return `Could not find an available recovery branch name for ${result.sourceBranch}; refusing to move latest commit.`;
 		case "backup_create_failed":
-			return ["Failed to create recovery branch before moving latest commit.", result.error].join("\n");
+			return ["Failed to create recovery branch before moving latest commit.", result.error].join(
+				"\n",
+			);
 		case "source_reset_failed":
-			return ["Failed to reset source branch before Graphite branch creation.", `Recovery branch: ${result.backupBranch}`, result.error, formatSourceResetCleanup(result)].join("\n");
+			return [
+				"Failed to reset source branch before Graphite branch creation.",
+				`Recovery branch: ${result.backupBranch}`,
+				result.error,
+				formatSourceResetCleanup(result),
+			].join("\n");
 		case "graphite_create_failed":
 			return [
 				"Failed to create Graphite branch after resetting source branch.",
 				`Recovery branch: ${result.backupBranch}`,
 				result.createError,
-				result.restored ? "Restored source branch to the original HEAD." : `Could not restore source branch: ${result.restoreError}`,
+				result.restored
+					? "Restored source branch to the original HEAD."
+					: `Could not restore source branch: ${result.restoreError}`,
 				formatCreatedBranchCleanup(result),
 			].join("\n");
 		case "transaction_upstream_check_failed":
@@ -62,7 +79,9 @@ export function formatLatestCommitTransactionFailure(result: Extract<LatestCommi
 				`Created Graphite branch ${result.branchName}, but failed to move it to the original commit.`,
 				`Recovery branch: ${result.backupBranch}`,
 				result.resetError,
-				result.restored ? "Restored source branch to the original HEAD." : `Could not restore source branch: ${result.restoreError}`,
+				result.restored
+					? "Restored source branch to the original HEAD."
+					: `Could not restore source branch: ${result.restoreError}`,
 				formatCreatedBranchCleanup(result),
 			].join("\n");
 		case "head_verify_failed":
@@ -70,7 +89,9 @@ export function formatLatestCommitTransactionFailure(result: Extract<LatestCommi
 				`Created Graphite branch ${result.branchName}, but HEAD verification failed after moving it.`,
 				`Expected original commit, found: ${result.actualHead}`,
 				`Recovery branch: ${result.backupBranch}`,
-				result.restored ? "Restored source branch to the original HEAD." : `Could not restore source branch: ${result.restoreError}`,
+				result.restored
+					? "Restored source branch to the original HEAD."
+					: `Could not restore source branch: ${result.restoreError}`,
 				formatCreatedBranchCleanup(result),
 			].join("\n");
 	}
@@ -87,7 +108,9 @@ function formatSourceResetCleanup(result: SourceResetFailureRecovery): string {
 	}
 }
 
-export function formatCreatedBranchCleanup(result: CreatedBranchRecovery & { branchName: string }): string {
+export function formatCreatedBranchCleanup(
+	result: CreatedBranchRecovery & { branchName: string },
+): string {
 	if (result.createdBranchDeleted) {
 		return `Deleted incomplete branch ${result.branchName}.`;
 	}

@@ -1,5 +1,9 @@
 import { definePiSurfaceParity } from "../parity.ts";
-import { buildDeriveHandoffSlugTool, buildHandoffTabLaunchTool, handleHandoffTabCommand } from "./tab.ts";
+import {
+	buildDeriveHandoffSlugTool,
+	buildHandoffTabLaunchTool,
+	handleHandoffTabCommand,
+} from "./tab.ts";
 import { createHandoffSelfWorkflow } from "./self.ts";
 import { handleCreateHandoffCommand } from "./create.ts";
 import { handleListHandoffCommand, handlePickupHandoffCommand } from "./pickup-list.ts";
@@ -24,7 +28,8 @@ export const handoffParity = definePiSurfaceParity([
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@asdl/pi-extensions",
 		sourceModule: "handoff",
-		notes: "Pi command expands the portable handoff-create skill and stores through Branch Memory only after model confirmation.",
+		notes:
+			"Pi command expands the portable handoff-create skill and stores through Branch Memory only after model confirmation.",
 	},
 	{
 		kind: "command",
@@ -36,7 +41,8 @@ export const handoffParity = definePiSurfaceParity([
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@asdl/pi-extensions",
 		sourceModule: "handoff",
-		notes: "Pi command reads Branch Memory handoff artifacts and expands the same portable pickup workflow.",
+		notes:
+			"Pi command reads Branch Memory handoff artifacts and expands the same portable pickup workflow.",
 	},
 	{
 		kind: "command",
@@ -55,22 +61,27 @@ export const handoffParity = definePiSurfaceParity([
 		surface: HANDOFF_TAB_COMMAND_NAME,
 		workflow: "Create a handoff and open a focused cmux tab to pick it up",
 		parity: "WAIVED",
-		fallback: "Create the handoff with handoff-create, then manually open the target harness/session and pick it up with handoff-pickup.",
+		fallback:
+			"Create the handoff with handoff-create, then manually open the target harness/session and pick it up with handoff-pickup.",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@asdl/pi-extensions",
 		sourceModule: "handoff",
-		notes: "Focused cmux tab launch is a Pi/cmux session primitive; storage and pickup are separately portable.",
+		notes:
+			"Focused cmux tab launch is a Pi/cmux session primitive; storage and pickup are separately portable.",
 	},
 	{
 		kind: "command",
 		surface: HANDOFF_SELF_COMMAND_NAME,
-		workflow: "Create a handoff, replace the current Pi session, and pick it up in the fresh session",
+		workflow:
+			"Create a handoff, replace the current Pi session, and pick it up in the fresh session",
 		parity: "WAIVED",
-		fallback: "Create the handoff with handoff-create, start a new Pi session manually, then run handoff-pickup for the saved artifact.",
+		fallback:
+			"Create the handoff with handoff-create, start a new Pi session manually, then run handoff-pickup for the saved artifact.",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@asdl/pi-extensions",
 		sourceModule: "handoff",
-		notes: "Self handoff stores through the portable handoff workflow, waits for the verified handoff_self_queue_pickup tool result, then uses Pi command-context session replacement to send a natural-language pickup prompt.",
+		notes:
+			"Self handoff stores through the portable handoff workflow, waits for the verified handoff_self_queue_pickup tool result, then uses Pi command-context session replacement to send a natural-language pickup prompt.",
 	},
 ] as const);
 

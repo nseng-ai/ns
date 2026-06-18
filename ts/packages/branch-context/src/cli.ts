@@ -45,15 +45,24 @@ const createRequestSchema = z.object({
 	slug: z.string().describe("Branch context slug."),
 	plan_file: z.string().describe("Plan file path (must live outside the repository)."),
 	branch: z.string().optional().describe("Branch name (defaults to the slug)."),
-	branch_creation: z.enum(BRANCH_CREATION_METHODS).default(DEFAULT_BRANCH_CREATION_METHOD).describe("Branch creation method."),
+	branch_creation: z
+		.enum(BRANCH_CREATION_METHODS)
+		.default(DEFAULT_BRANCH_CREATION_METHOD)
+		.describe("Branch creation method."),
 	summary: z.string().optional().describe("Optional plan summary."),
 });
 
 const loadRequestSchema = z.object({
 	key: z.string().optional().describe("Branch-context key (defaults to the only attached entry)."),
 	prompt_file: z.string().optional().describe("Write the implementation prompt to this file."),
-	include_content: z.boolean().optional().describe("Include the branch-context entry content in JSON output."),
-	include_prompt: z.boolean().optional().describe("Include the implementation prompt in JSON output."),
+	include_content: z
+		.boolean()
+		.optional()
+		.describe("Include the branch-context entry content in JSON output."),
+	include_prompt: z
+		.boolean()
+		.optional()
+		.describe("Include the implementation prompt in JSON output."),
 });
 
 const attachRequestSchema = z.object({
@@ -178,7 +187,10 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 	return buildCli().run(args, { context, io });
 }
 
-async function handleCreate(ctx: BranchContextCliContext, request: CreateRequest): Promise<LegacyPayload> {
+async function handleCreate(
+	ctx: BranchContextCliContext,
+	request: CreateRequest,
+): Promise<LegacyPayload> {
 	const slugError = validatePlanSlug(request.slug);
 	if (slugError !== undefined) throw new Error(`Invalid branch context slug: ${slugError}`);
 	const evidence = await createBranchContextFromFile(
@@ -195,41 +207,85 @@ async function handleCreate(ctx: BranchContextCliContext, request: CreateRequest
 	return { machine: branchContextJson(evidence), human: formatBranchContextEvidence(evidence) };
 }
 
-async function handleLoad(ctx: BranchContextCliContext, request: LoadRequest): Promise<LegacyPayload> {
+async function handleLoad(
+	ctx: BranchContextCliContext,
+	request: LoadRequest,
+): Promise<LegacyPayload> {
 	const requestedKey = request.key;
-	const plan = await loadBranchContextPlan(ctx.context.commands, requestedKey === undefined ? {} : { requestedKey }, operationOptions(ctx));
-	const promptFile = request.prompt_file === undefined ? undefined : normalizePlanFilePath(request.prompt_file);
+	const plan = await loadBranchContextPlan(
+		ctx.context.commands,
+		requestedKey === undefined ? {} : { requestedKey },
+		operationOptions(ctx),
+	);
+	const promptFile =
+		request.prompt_file === undefined ? undefined : normalizePlanFilePath(request.prompt_file);
 	if (promptFile !== undefined) {
 		await writeFile(promptFile, buildImplBranchContextPrompt(plan), "utf8");
 	}
 	const machine = loadedPlanJson(plan, {
 		promptFile,
 		attachedPlanContent: request.include_content === true ? plan.content : undefined,
-		implementationPrompt: request.include_prompt === true ? buildImplBranchContextPrompt(plan) : undefined,
+		implementationPrompt:
+			request.include_prompt === true ? buildImplBranchContextPrompt(plan) : undefined,
 	});
 	return { machine, human: formatLoadPlanHuman(plan, promptFile) };
 }
 
-async function handleAttach(ctx: BranchContextCliContext, request: AttachRequest): Promise<LegacyPayload> {
-	const evidence = await attachBranchContextEntry(ctx.context.commands, { key: request.key, filePath: request.file, planSlug: request.plan, branch: request.branch }, operationOptions(ctx));
+async function handleAttach(
+	ctx: BranchContextCliContext,
+	request: AttachRequest,
+): Promise<LegacyPayload> {
+	const evidence = await attachBranchContextEntry(
+		ctx.context.commands,
+		{ key: request.key, filePath: request.file, planSlug: request.plan, branch: request.branch },
+		operationOptions(ctx),
+	);
 	return { machine: attachJson(evidence), human: formatAttachEvidence(evidence) };
 }
 
-async function handleList(ctx: BranchContextCliContext, request: ListRequest): Promise<LegacyPayload> {
-	const list = await listBranchContextEntries(ctx.context.commands, { branch: request.branch }, operationOptions(ctx));
+async function handleList(
+	ctx: BranchContextCliContext,
+	request: ListRequest,
+): Promise<LegacyPayload> {
+	const list = await listBranchContextEntries(
+		ctx.context.commands,
+		{ branch: request.branch },
+		operationOptions(ctx),
+	);
 	return {
-		machine: { entries: list.entries.map((entry) => ({ namespace: entry.namespace, key: entry.key, branch: entry.branch, ref_name: entry.refName })) },
+		machine: {
+			entries: list.entries.map((entry) => ({
+				namespace: entry.namespace,
+				key: entry.key,
+				branch: entry.branch,
+				ref_name: entry.refName,
+			})),
+		},
 		human: formatListEvidence(list.branch, list.entries),
 	};
 }
 
-async function handleCheck(ctx: BranchContextCliContext, request: KeyRequest): Promise<LegacyPayload> {
-	const evidence = await checkBranchContextEntry(ctx.context.commands, request, operationOptions(ctx));
+async function handleCheck(
+	ctx: BranchContextCliContext,
+	request: KeyRequest,
+): Promise<LegacyPayload> {
+	const evidence = await checkBranchContextEntry(
+		ctx.context.commands,
+		request,
+		operationOptions(ctx),
+	);
 	return { machine: checkJson(evidence), human: formatCheckEvidence(evidence) };
 }
 
-async function handleDelete(ctx: BranchContextCliContext, request: KeyRequest): Promise<LegacyPayload> {
-	const evidence = await deleteBranchContextEntry(ctx.context.commands, request, operationOptions(ctx));
+async function handleDelete(
+	ctx: BranchContextCliContext,
+	request: KeyRequest,
+): Promise<LegacyPayload> {
+	const evidence = await deleteBranchContextEntry(
+		ctx.context.commands,
+		request,
+		operationOptions(ctx),
+	);
 	return { machine: deleteJson(evidence), human: formatDeleteEvidence(evidence) };
 }
 
@@ -282,14 +338,27 @@ function attachJson(evidence: BranchContextAttachEvidence): Record<string, unkno
 }
 
 function checkJson(evidence: BranchContextCheckEvidence): Record<string, unknown> {
-	return { branch: evidence.branch, namespace: evidence.namespace, key: evidence.key, present: evidence.present };
+	return {
+		branch: evidence.branch,
+		namespace: evidence.namespace,
+		key: evidence.key,
+		present: evidence.present,
+	};
 }
 
 function deleteJson(evidence: BranchContextDeleteEvidence): Record<string, unknown> {
-	return { branch: evidence.branch, namespace: evidence.namespace, key: evidence.key, deleted: evidence.deleted };
+	return {
+		branch: evidence.branch,
+		namespace: evidence.namespace,
+		key: evidence.key,
+		deleted: evidence.deleted,
+	};
 }
 
-function loadedPlanJson(plan: LoadedAttachedPlan, options: LoadedPlanJsonOptions = {}): Record<string, unknown> {
+function loadedPlanJson(
+	plan: LoadedAttachedPlan,
+	options: LoadedPlanJsonOptions = {},
+): Record<string, unknown> {
 	return {
 		branch: plan.branch,
 		namespace: plan.namespace,
@@ -300,8 +369,12 @@ function loadedPlanJson(plan: LoadedAttachedPlan, options: LoadedPlanJsonOptions
 		source: plan.source,
 		...(plan.sourceFile === undefined ? {} : { source_file: plan.sourceFile }),
 		...(options.promptFile === undefined ? {} : { implementation_prompt_file: options.promptFile }),
-		...(options.attachedPlanContent === undefined ? {} : { attached_plan_content: options.attachedPlanContent }),
-		...(options.implementationPrompt === undefined ? {} : { implementation_prompt: options.implementationPrompt }),
+		...(options.attachedPlanContent === undefined
+			? {}
+			: { attached_plan_content: options.attachedPlanContent }),
+		...(options.implementationPrompt === undefined
+			? {}
+			: { implementation_prompt: options.implementationPrompt }),
 	};
 }
 

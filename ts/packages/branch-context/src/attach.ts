@@ -1,6 +1,14 @@
-import { BRANCH_CONTEXT_LEGACY_PLAN_KEY, BRANCH_CONTEXT_NAMESPACE, buildBranchContextPlanKey } from "./constants.ts";
+import {
+	BRANCH_CONTEXT_LEGACY_PLAN_KEY,
+	BRANCH_CONTEXT_NAMESPACE,
+	buildBranchContextPlanKey,
+} from "./constants.ts";
 import { normalizeRequestedBranchContextKey } from "./attached-plan.ts";
-import { type AttachedPlanEntry, type BranchContextBrmemGateway, type BrmemPutData } from "./brmem-gateway.ts";
+import {
+	type AttachedPlanEntry,
+	type BranchContextBrmemGateway,
+	type BrmemPutData,
+} from "./brmem-gateway.ts";
 import type { BranchContextContext } from "./context.ts";
 import type { CommandExecApi } from "@asdl/core/exec";
 import type { GitGateway } from "@asdl/core/git";
@@ -63,7 +71,13 @@ export async function attachBranchContextEntry(
 ): Promise<BranchContextAttachEvidence> {
 	const context = await resolveBranchContextPrimitiveResolution(options, params.branch);
 	const source = await resolveAttachSource(pi, params, options);
-	await assertBrmemEntryAbsent(context.brmem, options.cwd, context.branch, source.key, options.signal);
+	await assertBrmemEntryAbsent(
+		context.brmem,
+		options.cwd,
+		context.branch,
+		source.key,
+		options.signal,
+	);
 	const data = await attachBranchContext({
 		brmem: context.brmem,
 		cwd: options.cwd,
@@ -81,7 +95,11 @@ export async function listBranchContextEntries(
 	options: BranchContextPrimitiveOptions,
 ): Promise<BranchContextListEvidence> {
 	const context = await resolveBranchContextPrimitiveResolution(options, params.branch);
-	const list = await context.brmem.listAttachedPlans({ cwd: options.cwd, branch: context.branch, signal: options.signal });
+	const list = await context.brmem.listAttachedPlans({
+		cwd: options.cwd,
+		branch: context.branch,
+		signal: options.signal,
+	});
 	if (!list.ok) throw new Error(list.error.message);
 	return { branch: context.branch, entries: list.value };
 }
@@ -93,9 +111,19 @@ export async function checkBranchContextEntry(
 ): Promise<BranchContextCheckEvidence> {
 	const context = await resolveBranchContextPrimitiveResolution(options, params.branch);
 	const key = normalizeRequestedBranchContextKey(params.key);
-	const presence = await context.brmem.attachmentPresence({ cwd: options.cwd, branch: context.branch, key, signal: options.signal });
+	const presence = await context.brmem.attachmentPresence({
+		cwd: options.cwd,
+		branch: context.branch,
+		key,
+		signal: options.signal,
+	});
 	if (presence.type === "error") throw new Error(presence.error.message);
-	return { branch: context.branch, namespace: BRANCH_CONTEXT_NAMESPACE, key, present: presence.type === "present" };
+	return {
+		branch: context.branch,
+		namespace: BRANCH_CONTEXT_NAMESPACE,
+		key,
+		present: presence.type === "present",
+	};
 }
 
 export async function deleteBranchContextEntry(
@@ -105,7 +133,12 @@ export async function deleteBranchContextEntry(
 ): Promise<BranchContextDeleteEvidence> {
 	const context = await resolveBranchContextPrimitiveResolution(options, params.branch);
 	const key = normalizeRequestedBranchContextKey(params.key);
-	const deleted = await context.brmem.deleteEntry({ cwd: options.cwd, branch: context.branch, key, signal: options.signal });
+	const deleted = await context.brmem.deleteEntry({
+		cwd: options.cwd,
+		branch: context.branch,
+		key,
+		signal: options.signal,
+	});
 	if (!deleted.ok) throw new Error(deleted.error.message);
 	return { branch: context.branch, namespace: BRANCH_CONTEXT_NAMESPACE, key, deleted: true };
 }
@@ -135,7 +168,9 @@ export async function assertBrmemEntryAbsent(
 	throw new Error(check.error.message);
 }
 
-export async function attachBranchContext(options: AttachBranchContextOptions): Promise<BrmemPutData> {
+export async function attachBranchContext(
+	options: AttachBranchContextOptions,
+): Promise<BrmemPutData> {
 	const attach = await options.brmem.attachPlan({
 		cwd: options.cwd,
 		branch: options.branch,
@@ -179,18 +214,33 @@ export function formatListEvidence(branch: string, entries: readonly AttachedPla
 		return lines.join("\n");
 	}
 	for (const entry of entries) {
-		const label = entry.key === BRANCH_CONTEXT_LEGACY_PLAN_KEY ? " (legacy plan)" : entry.key.endsWith(".md") ? " (plan)" : "";
+		const label =
+			entry.key === BRANCH_CONTEXT_LEGACY_PLAN_KEY
+				? " (legacy plan)"
+				: entry.key.endsWith(".md")
+					? " (plan)"
+					: "";
 		lines.push(`- ${entry.key}${label}`);
 	}
 	return lines.join("\n");
 }
 
 export function formatCheckEvidence(evidence: BranchContextCheckEvidence): string {
-	return [`Branch: ${evidence.branch}`, `Namespace: ${evidence.namespace}`, `Key: ${evidence.key}`, `Present: ${evidence.present}`].join("\n");
+	return [
+		`Branch: ${evidence.branch}`,
+		`Namespace: ${evidence.namespace}`,
+		`Key: ${evidence.key}`,
+		`Present: ${evidence.present}`,
+	].join("\n");
 }
 
 export function formatDeleteEvidence(evidence: BranchContextDeleteEvidence): string {
-	return [`Deleted branch-context entry.`, `Branch: ${evidence.branch}`, `Namespace: ${evidence.namespace}`, `Key: ${evidence.key}`].join("\n");
+	return [
+		`Deleted branch-context entry.`,
+		`Branch: ${evidence.branch}`,
+		`Namespace: ${evidence.namespace}`,
+		`Key: ${evidence.key}`,
+	].join("\n");
 }
 
 async function resolveAttachSource(
@@ -205,20 +255,42 @@ async function resolveAttachSource(
 		const available = await listSavedPlans(pi, planStoreOptions(options));
 		const matches = available.filter((plan) => plan.slug === params.planSlug);
 		if (matches.length === 0) {
-			throw new Error([`No saved plan found for slug \`${params.planSlug}\`.`, "", "Available slugs:", ...available.map((plan) => `- ${plan.slug}`)].join("\n"));
+			throw new Error(
+				[
+					`No saved plan found for slug \`${params.planSlug}\`.`,
+					"",
+					"Available slugs:",
+					...available.map((plan) => `- ${plan.slug}`),
+				].join("\n"),
+			);
 		}
 		if (matches.length > 1) {
-			throw new Error([`Multiple saved plans found for slug \`${params.planSlug}\`; choose a file explicitly.`, "", ...matches.map((plan) => `- ${plan.branchKey}: ${plan.filePath}`)].join("\n"));
+			throw new Error(
+				[
+					`Multiple saved plans found for slug \`${params.planSlug}\`; choose a file explicitly.`,
+					"",
+					...matches.map((plan) => `- ${plan.branchKey}: ${plan.filePath}`),
+				].join("\n"),
+			);
 		}
 		const match = matches[0]!;
-		return { key: buildBranchContextPlanKey(match.slug), sourceFile: match.filePath, planSlug: match.slug };
+		return {
+			key: buildBranchContextPlanKey(match.slug),
+			sourceFile: match.filePath,
+			planSlug: match.slug,
+		};
 	}
 	if (params.key === undefined || params.filePath === undefined) {
 		throw new Error("Attach requires either --plan <slug> or <key> --file <path>.");
 	}
 	return {
 		key: normalizeRequestedBranchContextKey(params.key),
-		sourceFile: await resolvePlanSourceFile(pi, { cwd: options.cwd, rawFilePath: params.filePath, signal: options.signal, git: options.context.git }),
+		sourceFile: await resolvePlanSourceFile(pi, {
+			cwd: options.cwd,
+			rawFilePath: params.filePath,
+			signal: options.signal,
+			git: options.context.git,
+		}),
 	};
 }
 
@@ -230,12 +302,22 @@ async function resolveBranchContextPrimitiveResolution(
 	return { git: options.context.git, brmem: options.context.brmem, branch };
 }
 
-async function resolveAttachBranch(git: GitGateway, options: BranchContextPrimitiveOptions, requestedBranch: string | undefined): Promise<string> {
+async function resolveAttachBranch(
+	git: GitGateway,
+	options: BranchContextPrimitiveOptions,
+	requestedBranch: string | undefined,
+): Promise<string> {
 	const branch = requestedBranch?.trim();
 	if (branch !== undefined && branch.length > 0) return branch;
 	const current = await git.currentBranch({ cwd: options.cwd, signal: options.signal });
 	if (!current.ok) {
-		throw new Error(["Cannot default branch-context operation from detached HEAD. Pass --branch explicitly.", "", current.error.message].join("\n"));
+		throw new Error(
+			[
+				"Cannot default branch-context operation from detached HEAD. Pass --branch explicitly.",
+				"",
+				current.error.message,
+			].join("\n"),
+		);
 	}
 	return current.value;
 }
@@ -249,7 +331,10 @@ function planStoreOptions(options: BranchContextPrimitiveOptions): PlanStoreOpti
 	};
 }
 
-function attachEvidence(data: BrmemPutData, planSlug: string | undefined): BranchContextAttachEvidence {
+function attachEvidence(
+	data: BrmemPutData,
+	planSlug: string | undefined,
+): BranchContextAttachEvidence {
 	return {
 		...data,
 		...(planSlug === undefined ? {} : { planSlug }),

@@ -12,7 +12,11 @@ export interface TempGitRepo {
 export function createTempGitRepo(): TempGitRepo {
 	const path = mkdtempSync(join(tmpdir(), "brmem-ts-test-"));
 	const runGit = (args: readonly string[], options: { input?: string | undefined } = {}) => {
-		const result = spawnSync("git", [...args], { cwd: path, input: options.input, encoding: "utf8" });
+		const result = spawnSync("git", [...args], {
+			cwd: path,
+			input: options.input,
+			encoding: "utf8",
+		});
 		if (result.status !== 0) {
 			throw new Error(`git ${args.join(" ")} failed: ${result.stderr || result.stdout}`);
 		}

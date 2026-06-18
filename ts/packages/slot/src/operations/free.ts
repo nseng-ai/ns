@@ -5,7 +5,12 @@ import { deduplicateOrderedStrings } from "../collections.ts";
 import type { RepoSlotContext, SlotCliContext } from "../context.ts";
 import { buildSlotInventory, findByBranch, poolSize, type SlotInventory } from "../inventory.ts";
 import { executeFreePlan, planFreeSlots } from "../lifecycle/free.ts";
-import { executeReleaseCleanup, planReleaseCleanup, SLOT_RELEASE_ALL_CLEANUP_ACTIONS, type SlotFreeCleanupResult } from "../lifecycle/release-cleanup.ts";
+import {
+	executeReleaseCleanup,
+	planReleaseCleanup,
+	SLOT_RELEASE_ALL_CLEANUP_ACTIONS,
+	type SlotFreeCleanupResult,
+} from "../lifecycle/release-cleanup.ts";
 import type { FreedSlot } from "../lifecycle/release-target.ts";
 import { resolveCurrent, resolveNum, resolveWt } from "../selectors.ts";
 import { cleanupErrorCount, renderCleanupLines } from "./cleanup-rendering.ts";
@@ -36,66 +41,149 @@ export type FreeResult = z.infer<typeof freeResultSchema>;
 export async function runFree(ctx: SlotCliContext, request: FreeRequest) {
 	if (ctx.repo.type !== "repo") return failure(ctx.repo.errorType, ctx.repo.message);
 	const repoCtx: RepoSlotContext = { ...ctx, repo: ctx.repo };
-	const inventory = await buildSlotInventory(repoCtx.git, { mainRepoRoot: repoCtx.repo.mainRepoRoot });
-	if (poolSize(inventory) === 0) return failure("pool_empty", "No managed slots configured. Run `slot init --size N` first.");
+	const inventory = await buildSlotInventory(repoCtx.git, {
+		mainRepoRoot: repoCtx.repo.mainRepoRoot,
+	});
+	if (poolSize(inventory) === 0)
+		return failure("pool_empty", "No managed slots configured. Run `slot init --size N` first.");
 	const resolved = resolveTargets(repoCtx, request, inventory);
-	if (resolved.slotNames.length === 0 && resolved.errors.length === 0) return failure("missing_slot_arg", "Pass one of -n/--num, -w/--wt, -b/--branch, or -c/--current to identify the slot.");
+	if (resolved.slotNames.length === 0 && resolved.errors.length === 0)
+		return failure(
+			"missing_slot_arg",
+			"Pass one of -n/--num, -w/--wt, -b/--branch, or -c/--current to identify the slot.",
+		);
 	const cleanupActions = request.all ? SLOT_RELEASE_ALL_CLEANUP_ACTIONS : [];
-	const plan = await planFreeSlots(repoCtx, resolved.slotNames, { preflightErrors: resolved.errors });
+	const plan = await planFreeSlots(repoCtx, resolved.slotNames, {
+		preflightErrors: resolved.errors,
+	});
 	if (plan.type === "failure") return failure(plan.failure.error_type, plan.failure.message);
-	const previewCleanup = await planReleaseCleanup({ ctx: repoCtx, targets: plan.outcome.targets, cleanupActions, trunkBranch: plan.outcome.trunk_branch });
-	if (request.dry_run) return ok(buildFreeResult({ wouldFree: plan.outcome.targets, cleanup: previewCleanup, skipped: resolved.skipped, isDryRun: true, isCancelled: false }));
+	const previewCleanup = await planReleaseCleanup({
+		ctx: repoCtx,
+		targets: plan.outcome.targets,
+		cleanupActions,
+		trunkBranch: plan.outcome.trunk_branch,
+	});
+	if (request.dry_run)
+		return ok(
+			buildFreeResult({
+				wouldFree: plan.outcome.targets,
+				cleanup: previewCleanup,
+				skipped: resolved.skipped,
+				isDryRun: true,
+				isCancelled: false,
+			}),
+		);
 	if (request.all && plan.outcome.targets.length > 0 && !request.yes) {
-		if (!ctx.shouldWriteCdDirective) return failure("confirmation_required", "Destructive free --all requires --yes in JSON mode (or use --dry-run first).");
-		const confirmed = await confirmFromStdin({ stdin: repoCtx.stdin, stderr: repoCtx.stderr, prompt: `Free ${plan.outcome.targets.length} slot(s), close matching PRs, and delete local branches? [y/N]: `, defaultAnswer: "no" });
+		if (!ctx.shouldWriteCdDirective)
+			return failure(
+				"confirmation_required",
+				"Destructive free --all requires --yes in JSON mode (or use --dry-run first).",
+			);
+		const confirmed = await confirmFromStdin({
+			stdin: repoCtx.stdin,
+			stderr: repoCtx.stderr,
+			prompt: `Free ${plan.outcome.targets.length} slot(s), close matching PRs, and delete local branches? [y/N]: `,
+			defaultAnswer: "no",
+		});
 		if (typeof confirmed !== "string") return confirmed;
-		if (confirmed === "no") return ok(buildFreeResult({ wouldFree: plan.outcome.targets, cleanup: previewCleanup, skipped: resolved.skipped, isDryRun: false, isCancelled: true }));
+		if (confirmed === "no")
+			return ok(
+				buildFreeResult({
+					wouldFree: plan.outcome.targets,
+					cleanup: previewCleanup,
+					skipped: resolved.skipped,
+					isDryRun: false,
+					isCancelled: true,
+				}),
+			);
 	}
 	const executed = await executeFreePlan(repoCtx, plan.outcome);
-	if (executed.type === "failure") return failure(executed.failure.error_type, executed.failure.message);
-	const cleanup = await executeReleaseCleanup({ ctx: repoCtx, targets: executed.outcome.freed, cleanupActions, trunkBranch: plan.outcome.trunk_branch });
-	const result = buildFreeResult({ freed: executed.outcome.freed, cleanup, skipped: resolved.skipped, isDryRun: false, isCancelled: false });
-	if (cleanupErrorCount(result.cleanup) > 0) return negative("Slot free completed with cleanup errors.", result);
+	if (executed.type === "failure")
+		return failure(executed.failure.error_type, executed.failure.message);
+	const cleanup = await executeReleaseCleanup({
+		ctx: repoCtx,
+		targets: executed.outcome.freed,
+		cleanupActions,
+		trunkBranch: plan.outcome.trunk_branch,
+	});
+	const result = buildFreeResult({
+		freed: executed.outcome.freed,
+		cleanup,
+		skipped: resolved.skipped,
+		isDryRun: false,
+		isCancelled: false,
+	});
+	if (cleanupErrorCount(result.cleanup) > 0)
+		return negative("Slot free completed with cleanup errors.", result);
 	return ok(result);
 }
 
 export function renderFree(result: FreeResult): string {
 	if (result.cancelled) return "Cancelled slot free.";
 	const lines: string[] = [];
-	for (const slot of result.dry_run ? result.would_free : result.freed) lines.push(`${result.dry_run ? "Would free" : "Freed"} ${slot.slot_name} -> ${slot.branch_name}`);
+	for (const slot of result.dry_run ? result.would_free : result.freed)
+		lines.push(
+			`${result.dry_run ? "Would free" : "Freed"} ${slot.slot_name} -> ${slot.branch_name}`,
+		);
 	lines.push(...result.skipped);
 	lines.push(...renderCleanupLines(result.cleanup));
 	if (lines.length === 0) return result.dry_run ? "No slots would be freed." : "No slots freed.";
 	return lines.join("\n");
 }
 
-function resolveTargets(ctx: RepoSlotContext, request: FreeRequest, inventory: SlotInventory): { slotNames: readonly string[]; errors: readonly string[]; skipped: readonly string[] } {
+function resolveTargets(
+	ctx: RepoSlotContext,
+	request: FreeRequest,
+	inventory: SlotInventory,
+): { slotNames: readonly string[]; errors: readonly string[]; skipped: readonly string[] } {
 	const slotNames: string[] = [];
 	const errors: string[] = [];
 	const skipped: string[] = [];
 	for (const raw of request.num) {
 		const parsed = /^\d+$/.test(raw) ? Number(raw) : null;
-		const result = parsed === null ? { type: "error" as const, message: `--num must be an integer (got ${raw}).` } : resolveNum(parsed, poolSize(inventory));
-		if (result.type === "ok") slotNames.push(result.slotName); else errors.push(result.message);
+		const result =
+			parsed === null
+				? { type: "error" as const, message: `--num must be an integer (got ${raw}).` }
+				: resolveNum(parsed, poolSize(inventory));
+		if (result.type === "ok") slotNames.push(result.slotName);
+		else errors.push(result.message);
 	}
 	for (const wt of request.wt) {
 		const result = resolveWt(wt);
-		if (result.type === "ok") slotNames.push(result.slotName); else errors.push(result.message);
+		if (result.type === "ok") slotNames.push(result.slotName);
+		else errors.push(result.message);
 	}
 	for (const branch of request.branch) {
 		const match = findByBranch(inventory, branch);
 		if (match?.kind === "slot") slotNames.push(match.record.slotName);
-		else if (match?.kind === "main") skipped.push(`Branch '${branch}' is checked out in the main worktree at ${match.worktree.path}; nothing to free.`);
+		else if (match?.kind === "main")
+			skipped.push(
+				`Branch '${branch}' is checked out in the main worktree at ${match.worktree.path}; nothing to free.`,
+			);
 		else skipped.push(`Branch '${branch}' is not assigned to a managed slot; nothing to free.`);
 	}
 	if (request.current) {
 		const result = resolveCurrent(ctx.cwd);
-		if (result.type === "ok") slotNames.push(result.slotName); else errors.push(result.message);
+		if (result.type === "ok") slotNames.push(result.slotName);
+		else errors.push(result.message);
 	}
 	return { slotNames: deduplicateOrderedStrings(slotNames), errors, skipped };
 }
 
-function buildFreeResult(options: { freed?: readonly FreedSlot[] | undefined; wouldFree?: readonly FreedSlot[] | undefined; cleanup: readonly SlotFreeCleanupResult[]; skipped: readonly string[]; isDryRun: boolean; isCancelled: boolean }): FreeResult {
-	return { freed: [...(options.freed ?? [])], would_free: [...(options.wouldFree ?? [])], cleanup: [...options.cleanup], skipped: [...options.skipped], dry_run: options.isDryRun, cancelled: options.isCancelled };
+function buildFreeResult(options: {
+	freed?: readonly FreedSlot[] | undefined;
+	wouldFree?: readonly FreedSlot[] | undefined;
+	cleanup: readonly SlotFreeCleanupResult[];
+	skipped: readonly string[];
+	isDryRun: boolean;
+	isCancelled: boolean;
+}): FreeResult {
+	return {
+		freed: [...(options.freed ?? [])],
+		would_free: [...(options.wouldFree ?? [])],
+		cleanup: [...options.cleanup],
+		skipped: [...options.skipped],
+		dry_run: options.isDryRun,
+		cancelled: options.isCancelled,
+	};
 }
-

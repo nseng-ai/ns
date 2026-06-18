@@ -7,7 +7,11 @@ import { describe, expect, test } from "vitest";
 
 import { InMemoryGitGateway } from "@asdl/core/git/testing";
 
-import type { AregNpxSkillsAddRequest, AregNpxSkillsAddResult, AregNpxSkillsGateway } from "../../src/gateways.ts";
+import type {
+	AregNpxSkillsAddRequest,
+	AregNpxSkillsAddResult,
+	AregNpxSkillsGateway,
+} from "../../src/gateways.ts";
 import { derivePiReplacementCommand } from "../../src/operations/pi-replacement.ts";
 import {
 	buildNpxSkillsAddArgs,
@@ -21,13 +25,22 @@ import { ScriptedCommandRunner, step } from "../support/scripted-command-runner.
 
 describe("real areg gateways", () => {
 	test("mirrored replacement surfaces cover backing skill command surfaces without importing the leaf package", async () => {
-		const tsRoot = path.basename(process.cwd()) === "ts" ? process.cwd() : path.join(process.cwd(), "ts");
-		const aregSource = await readFile(path.join(tsRoot, "packages", "areg", "src", "real-gateways.ts"), "utf8");
-		const backingSkillCommandsSource = await readFile(path.join(tsRoot, "packages", "pi-extensions", "src", "backing-skill-commands.ts"), "utf8");
+		const tsRoot =
+			path.basename(process.cwd()) === "ts" ? process.cwd() : path.join(process.cwd(), "ts");
+		const aregSource = await readFile(
+			path.join(tsRoot, "packages", "areg", "src", "real-gateways.ts"),
+			"utf8",
+		);
+		const backingSkillCommandsSource = await readFile(
+			path.join(tsRoot, "packages", "pi-extensions", "src", "backing-skill-commands.ts"),
+			"utf8",
+		);
 		const aregSurfaces = readConstStringArray(aregSource, "AREG_VISIBLE_REPLACEMENT_SURFACES");
 
 		expect(new Set(aregSurfaces).size).toBe(aregSurfaces.length);
-		expect(aregSurfaces).toEqual(expect.arrayContaining([...expectedBackingSkillCommandSurfaces(backingSkillCommandsSource)]));
+		expect(aregSurfaces).toEqual(
+			expect.arrayContaining([...expectedBackingSkillCommandSurfaces(backingSkillCommandsSource)]),
+		);
 	});
 
 	test("check project inspection resolves relative path, symlink targets, excludes, and prunes pairing traversal", async () => {
@@ -38,24 +51,56 @@ describe("real areg gateways", () => {
 			await mkdir(path.join(project, ".agents", "skills"), { recursive: true });
 			await mkdir(path.join(project, ".claude", "skills"), { recursive: true });
 			await mkdir(path.join(project, ".git", "info"), { recursive: true });
-			await writeFile(path.join(project, "skills-lock.json"), JSON.stringify({ version: 1, skills: { demo: { source: "skills/demo", sourceType: "local", computedHash: "a".repeat(64) } } }));
+			await writeFile(
+				path.join(project, "skills-lock.json"),
+				JSON.stringify({
+					version: 1,
+					skills: {
+						demo: { source: "skills/demo", sourceType: "local", computedHash: "a".repeat(64) },
+					},
+				}),
+			);
 			await writeFile(path.join(project, "skills", "demo", "SKILL.md"), "---\nname: demo\n---\n");
 			await writeFile(path.join(project, "skills", "demo", "agents", "openai.yaml"), "policy:\n");
 			await writeFile(path.join(project, ".git", "info", "exclude"), ".agents/skills/local-only\n");
-			await symlink(path.join("..", "..", "skills", "demo"), path.join(project, ".agents", "skills", "demo"));
-			await symlink(path.join("..", "..", ".agents", "skills", "demo"), path.join(project, ".claude", "skills", "demo"));
+			await symlink(
+				path.join("..", "..", "skills", "demo"),
+				path.join(project, ".agents", "skills", "demo"),
+			);
+			await symlink(
+				path.join("..", "..", ".agents", "skills", "demo"),
+				path.join(project, ".claude", "skills", "demo"),
+			);
 			await writeFile(path.join(project, "AGENTS.md"), "# Agents\n");
 			await writeFile(path.join(project, "CLAUDE.md"), "# Claude\n\n@AGENTS.md\n");
 			await mkdir(path.join(project, ".agents", "skills", "ignored"), { recursive: true });
-			await writeFile(path.join(project, ".agents", "skills", "ignored", "CLAUDE.md"), "# ignored\n");
+			await writeFile(
+				path.join(project, ".agents", "skills", "ignored", "CLAUDE.md"),
+				"# ignored\n",
+			);
 
-			const git = new InMemoryGitGateway({ gitPaths: { "info/exclude": path.join(project, ".git", "info", "exclude") } });
+			const git = new InMemoryGitGateway({
+				gitPaths: { "info/exclude": path.join(project, ".git", "info", "exclude") },
+			});
 			const gateway = new RealAregProjectGateway({ git });
 			const base = await gateway.inspectProjectBase({ cwd: root, projectPath: "project", env: {} });
-			const inventory = await gateway.inspectSkillNameInventory({ projectDir: base.projectDir, env: {} });
-			const excludedSkillNames = await gateway.readLocallyExcludedSkillNames({ projectDir: base.projectDir, env: {} });
-			const skill = await gateway.inspectCheckSkill({ projectDir: base.projectDir, skillName: "demo", env: {} });
-			const pairingDirectories = await gateway.inspectPairingDirectories({ projectDir: base.projectDir, env: {} });
+			const inventory = await gateway.inspectSkillNameInventory({
+				projectDir: base.projectDir,
+				env: {},
+			});
+			const excludedSkillNames = await gateway.readLocallyExcludedSkillNames({
+				projectDir: base.projectDir,
+				env: {},
+			});
+			const skill = await gateway.inspectCheckSkill({
+				projectDir: base.projectDir,
+				skillName: "demo",
+				env: {},
+			});
+			const pairingDirectories = await gateway.inspectPairingDirectories({
+				projectDir: base.projectDir,
+				env: {},
+			});
 
 			expect(base.projectDir).toBe(project);
 			expect(base.lockfile).toMatchObject({ type: "file" });
@@ -68,7 +113,14 @@ describe("real areg gateways", () => {
 				claudePath: { type: "symlink", target: "../../.agents/skills/demo" },
 				openaiPolicy: { type: "file", text: "policy:\n" },
 			});
-			expect(pairingDirectories).toEqual([{ relativeDir: "", hasAgents: true, hasClaude: true, claudeText: "# Claude\n\n@AGENTS.md\n" }]);
+			expect(pairingDirectories).toEqual([
+				{
+					relativeDir: "",
+					hasAgents: true,
+					hasClaude: true,
+					claudeText: "# Claude\n\n@AGENTS.md\n",
+				},
+			]);
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
@@ -83,11 +135,16 @@ describe("real areg gateways", () => {
 			await mkdir(project);
 			await mkdir(path.dirname(excludePath), { recursive: true });
 			await writeFile(path.join(project, ".git"), `gitdir: ${actualGitDir}\n`);
-			await writeFile(excludePath, "# local excludes\n.claude/skills/linked-only\n.agents/skills/agents-only\n\n");
+			await writeFile(
+				excludePath,
+				"# local excludes\n.claude/skills/linked-only\n.agents/skills/agents-only\n\n",
+			);
 			const git = new InMemoryGitGateway({ gitPaths: { "info/exclude": excludePath } });
 			const gateway = new RealAregProjectGateway({ git });
 
-			expect(await gateway.readLocallyExcludedSkillNames({ projectDir: project, env: {} })).toEqual(["agents-only", "linked-only"]);
+			expect(await gateway.readLocallyExcludedSkillNames({ projectDir: project, env: {} })).toEqual(
+				["agents-only", "linked-only"],
+			);
 			expect(git.gitPathCalls).toEqual([{ cwd: project, relativePath: "info/exclude" }]);
 		} finally {
 			await rm(root, { recursive: true, force: true });
@@ -102,7 +159,9 @@ describe("real areg gateways", () => {
 			const git = new InMemoryGitGateway({ gitPaths: { "info/exclude": { type: "failure" } } });
 			const gateway = new RealAregProjectGateway({ git });
 
-			expect(await gateway.readLocallyExcludedSkillNames({ projectDir: project, env: {} })).toEqual([]);
+			expect(await gateway.readLocallyExcludedSkillNames({ projectDir: project, env: {} })).toEqual(
+				[],
+			);
 			expect(git.gitPathCalls).toEqual([{ cwd: project, relativePath: "info/exclude" }]);
 		} finally {
 			await rm(root, { recursive: true, force: true });
@@ -116,31 +175,83 @@ describe("real areg gateways", () => {
 			await mkdir(path.join(project, "skills", "demo", "agents"), { recursive: true });
 			await mkdir(path.join(project, ".agents", "skills"), { recursive: true });
 			await mkdir(path.join(project, ".pi", "extensions"), { recursive: true });
-			await mkdir(path.join(project, "ts", "packages", "pi-extensions", "src"), { recursive: true });
+			await mkdir(path.join(project, "ts", "packages", "pi-extensions", "src"), {
+				recursive: true,
+			});
 			await writeFile(path.join(project, "skills", "demo", "SKILL.md"), "---\nname: demo\n---\n");
 			await writeFile(path.join(project, "skills", "demo", "README.md"), "nested docs\n");
-			await writeFile(path.join(project, "skills", "demo", "agents", "openai.yaml"), "policy:\n  allow_implicit_invocation: false\n");
-			await writeFile(path.join(project, ".pi", "settings.json"), JSON.stringify({ skills: ["-skills/demo"] }));
-			await writeFile(path.join(project, ".pi", "extensions", "backing-skill-commands.ts"), "export {};\n");
-			await writeFile(path.join(project, "ts", "packages", "pi-extensions", "src", "backing-skill-commands.ts"), "export {};\n");
-			await symlink(path.join("..", "..", "skills", "demo"), path.join(project, ".agents", "skills", "demo"));
+			await writeFile(
+				path.join(project, "skills", "demo", "agents", "openai.yaml"),
+				"policy:\n  allow_implicit_invocation: false\n",
+			);
+			await writeFile(
+				path.join(project, ".pi", "settings.json"),
+				JSON.stringify({ skills: ["-skills/demo"] }),
+			);
+			await writeFile(
+				path.join(project, ".pi", "extensions", "backing-skill-commands.ts"),
+				"export {};\n",
+			);
+			await writeFile(
+				path.join(project, "ts", "packages", "pi-extensions", "src", "backing-skill-commands.ts"),
+				"export {};\n",
+			);
+			await symlink(
+				path.join("..", "..", "skills", "demo"),
+				path.join(project, ".agents", "skills", "demo"),
+			);
 
 			const gateway = new RealAregProjectGateway();
 			const base = await gateway.inspectProjectBase({ cwd: root, projectPath: "project", env: {} });
-			const piArtifacts = await gateway.inspectPiArtifacts({ projectDir: base.projectDir, env: {} });
-			const inventory = await gateway.inspectSkillNameInventory({ projectDir: base.projectDir, env: {} });
-			const skill = await gateway.inspectLocalSkill({ projectDir: base.projectDir, skillName: "demo", env: {} });
+			const piArtifacts = await gateway.inspectPiArtifacts({
+				projectDir: base.projectDir,
+				env: {},
+			});
+			const inventory = await gateway.inspectSkillNameInventory({
+				projectDir: base.projectDir,
+				env: {},
+			});
+			const skill = await gateway.inspectLocalSkill({
+				projectDir: base.projectDir,
+				skillName: "demo",
+				env: {},
+			});
 
 			expect(base).toMatchObject({ projectDir: project, projectPathState: { type: "directory" } });
 			expect(piArtifacts).toMatchObject({
 				piDir: { type: "directory" },
 				piSettings: { type: "file", text: JSON.stringify({ skills: ["-skills/demo"] }) },
-				replacement: { verifiedSurfaces: expect.arrayContaining(["objective:next", "code:just-fix", "sdl:code:submit"]) },
+				replacement: {
+					verifiedSurfaces: expect.arrayContaining([
+						"objective:next",
+						"code:just-fix",
+						"sdl:code:submit",
+					]),
+				},
 			});
 			expect(inventory.localSkillKindNames).toEqual(["demo"]);
-			expect(skill).toMatchObject({ name: "demo", skillDir: { type: "directory" }, skillMd: { type: "file", text: "---\nname: demo\n---\n" }, openaiPolicy: { type: "file" } });
-			expect(await gateway.resolveLocalSkillSpec({ projectDir: project, spec: path.join(project, ".agents", "skills", "demo"), cwd: project, env: {} })).toEqual({ type: "ok", skillName: "demo" });
-			expect(await gateway.resolveLocalSkillSpec({ projectDir: project, spec: path.join(project, "skills", "demo", "README.md"), cwd: project, env: {} })).toMatchObject({ type: "error", error: { code: "skill-kind-nested-spec" } });
+			expect(skill).toMatchObject({
+				name: "demo",
+				skillDir: { type: "directory" },
+				skillMd: { type: "file", text: "---\nname: demo\n---\n" },
+				openaiPolicy: { type: "file" },
+			});
+			expect(
+				await gateway.resolveLocalSkillSpec({
+					projectDir: project,
+					spec: path.join(project, ".agents", "skills", "demo"),
+					cwd: project,
+					env: {},
+				}),
+			).toEqual({ type: "ok", skillName: "demo" });
+			expect(
+				await gateway.resolveLocalSkillSpec({
+					projectDir: project,
+					spec: path.join(project, "skills", "demo", "README.md"),
+					cwd: project,
+					env: {},
+				}),
+			).toMatchObject({ type: "error", error: { code: "skill-kind-nested-spec" } });
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
@@ -154,19 +265,65 @@ describe("real areg gateways", () => {
 			await writeFile(path.join(project, "skills", "demo", "SKILL.md"), "---\nname: demo\n---\n");
 			const gateway = new RealAregProjectGateway();
 
-			const firstWrite = await gateway.writeTextFile({ projectDir: project, relativePath: "skills/demo/SKILL.md", content: "---\nname: demo\ndisable-model-invocation: true\n---\n", description: "SKILL.md", createParent: false, policy: "skill-kind", env: {} });
-			const secondWrite = await gateway.writeTextFile({ projectDir: project, relativePath: "skills/demo/agents/openai.yaml", content: "policy:\n  allow_implicit_invocation: false\n", description: "Codex openai.yaml", createParent: true, policy: "skill-kind", env: {} });
-			const thirdWrite = await gateway.writeTextFile({ projectDir: project, relativePath: ".pi/settings.json", content: "{\n  \"skills\": [\n    \"-skills/demo\"\n  ]\n}\n", description: "Pi settings", createParent: true, policy: "skill-kind", env: {} });
+			const firstWrite = await gateway.writeTextFile({
+				projectDir: project,
+				relativePath: "skills/demo/SKILL.md",
+				content: "---\nname: demo\ndisable-model-invocation: true\n---\n",
+				description: "SKILL.md",
+				createParent: false,
+				policy: "skill-kind",
+				env: {},
+			});
+			const secondWrite = await gateway.writeTextFile({
+				projectDir: project,
+				relativePath: "skills/demo/agents/openai.yaml",
+				content: "policy:\n  allow_implicit_invocation: false\n",
+				description: "Codex openai.yaml",
+				createParent: true,
+				policy: "skill-kind",
+				env: {},
+			});
+			const thirdWrite = await gateway.writeTextFile({
+				projectDir: project,
+				relativePath: ".pi/settings.json",
+				content: '{\n  "skills": [\n    "-skills/demo"\n  ]\n}\n',
+				description: "Pi settings",
+				createParent: true,
+				policy: "skill-kind",
+				env: {},
+			});
 
-			expect([firstWrite, secondWrite, thirdWrite]).toEqual([{ ok: true }, { ok: true }, { ok: true }]);
-			expect(await readFile(path.join(project, "skills", "demo", "SKILL.md"), "utf8")).toContain("disable-model-invocation: true");
-			expect(await readFile(path.join(project, ".pi", "settings.json"), "utf8")).toContain("-skills/demo");
+			expect([firstWrite, secondWrite, thirdWrite]).toEqual([
+				{ ok: true },
+				{ ok: true },
+				{ ok: true },
+			]);
+			expect(await readFile(path.join(project, "skills", "demo", "SKILL.md"), "utf8")).toContain(
+				"disable-model-invocation: true",
+			);
+			expect(await readFile(path.join(project, ".pi", "settings.json"), "utf8")).toContain(
+				"-skills/demo",
+			);
 
-			const deleted = await gateway.deleteFile({ projectDir: project, relativePath: "skills/demo/agents/openai.yaml", description: "Codex openai.yaml", policy: "skill-kind", env: {} });
-			const removed = await gateway.removeEmptyDir({ projectDir: project, relativePath: "skills/demo/agents", description: "empty skill agents directory", policy: "skill-kind", env: {} });
+			const deleted = await gateway.deleteFile({
+				projectDir: project,
+				relativePath: "skills/demo/agents/openai.yaml",
+				description: "Codex openai.yaml",
+				policy: "skill-kind",
+				env: {},
+			});
+			const removed = await gateway.removeEmptyDir({
+				projectDir: project,
+				relativePath: "skills/demo/agents",
+				description: "empty skill agents directory",
+				policy: "skill-kind",
+				env: {},
+			});
 			expect(deleted).toEqual({ ok: true });
 			expect(removed).toEqual({ ok: true, removed: true });
-			await expect(lstat(path.join(project, "skills", "demo", "agents"))).rejects.toMatchObject({ code: "ENOENT" });
+			await expect(lstat(path.join(project, "skills", "demo", "agents"))).rejects.toMatchObject({
+				code: "ENOENT",
+			});
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
@@ -177,10 +334,17 @@ describe("real areg gateways", () => {
 		try {
 			const project = path.join(root, "project");
 			await mkdir(project);
-			await writeFile(path.join(project, "skills-lock.json"), JSON.stringify({ version: 1, skills: {} }));
+			await writeFile(
+				path.join(project, "skills-lock.json"),
+				JSON.stringify({ version: 1, skills: {} }),
+			);
 			await writeFile(path.join(project, "asdl.toml"), '[areg]\nagents = ["codex"]\n');
 
-			const result = await new RealAregProjectGateway().inspectProjectBase({ cwd: root, projectPath: "project", env: {} });
+			const result = await new RealAregProjectGateway().inspectProjectBase({
+				cwd: root,
+				projectPath: "project",
+				env: {},
+			});
 
 			expect(result).toMatchObject({
 				projectDir: project,
@@ -204,50 +368,127 @@ describe("real areg gateways", () => {
 			await chmod(executable, 0o755);
 			const host = new RealAregHostGateway();
 
-			expect(await host.checkTool({ tool: "gh", cwd: root, env: { PATH: bin } })).toEqual({ type: "found", tool: "gh", path: executable });
-			expect(await host.checkTool({ tool: "npx", cwd: root, env: { PATH: "" } })).toMatchObject({ type: "missing", tool: "npx" });
+			expect(await host.checkTool({ tool: "gh", cwd: root, env: { PATH: bin } })).toEqual({
+				type: "found",
+				tool: "gh",
+				path: executable,
+			});
+			expect(await host.checkTool({ tool: "npx", cwd: root, env: { PATH: "" } })).toMatchObject({
+				type: "missing",
+				tool: "npx",
+			});
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
 	});
 
 	test("github gateway parses success and classifies gh failures", async () => {
-		const success = new ScriptedCommandRunner([step("gh", ["api", "repos/owner/repo/contents/skills", "--jq", ".[].name"], { stdout: "zeta\nalpha\n" })]);
-		expect(await new RealAregGithubGateway({ runner: success.runner }).listSkillDirectoryNames({ repo: "owner/repo", env: {} })).toEqual({
+		const success = new ScriptedCommandRunner([
+			step("gh", ["api", "repos/owner/repo/contents/skills", "--jq", ".[].name"], {
+				stdout: "zeta\nalpha\n",
+			}),
+		]);
+		expect(
+			await new RealAregGithubGateway({ runner: success.runner }).listSkillDirectoryNames({
+				repo: "owner/repo",
+				env: {},
+			}),
+		).toEqual({
 			type: "ok",
 			skillNames: ["zeta", "alpha"],
 		});
 		success.assertDone();
 
-		const missing = new ScriptedCommandRunner([step("gh", ["api", "repos/owner/repo/contents/skills", "--jq", ".[].name"], { exitCode: 1, stderr: "HTTP 404" })]);
-		expect(await new RealAregGithubGateway({ runner: missing.runner }).listSkillDirectoryNames({ repo: "owner/repo", env: {} })).toMatchObject({ type: "missing" });
+		const missing = new ScriptedCommandRunner([
+			step("gh", ["api", "repos/owner/repo/contents/skills", "--jq", ".[].name"], {
+				exitCode: 1,
+				stderr: "HTTP 404",
+			}),
+		]);
+		expect(
+			await new RealAregGithubGateway({ runner: missing.runner }).listSkillDirectoryNames({
+				repo: "owner/repo",
+				env: {},
+			}),
+		).toMatchObject({ type: "missing" });
 
-		const auth = new ScriptedCommandRunner([step("gh", ["api", "repos/owner/repo/contents/skills", "--jq", ".[].name"], { exitCode: 1, stderr: "HTTP 403" })]);
-		expect(await new RealAregGithubGateway({ runner: auth.runner }).listSkillDirectoryNames({ repo: "owner/repo", env: {} })).toMatchObject({ type: "auth-error" });
+		const auth = new ScriptedCommandRunner([
+			step("gh", ["api", "repos/owner/repo/contents/skills", "--jq", ".[].name"], {
+				exitCode: 1,
+				stderr: "HTTP 403",
+			}),
+		]);
+		expect(
+			await new RealAregGithubGateway({ runner: auth.runner }).listSkillDirectoryNames({
+				repo: "owner/repo",
+				env: {},
+			}),
+		).toMatchObject({ type: "auth-error" });
 
-		const generic = new ScriptedCommandRunner([step("gh", ["api", "repos/owner/repo/contents/skills", "--jq", ".[].name"], { exitCode: 2, stderr: "network down" })]);
-		expect(await new RealAregGithubGateway({ runner: generic.runner }).listSkillDirectoryNames({ repo: "owner/repo", env: {} })).toMatchObject({
+		const generic = new ScriptedCommandRunner([
+			step("gh", ["api", "repos/owner/repo/contents/skills", "--jq", ".[].name"], {
+				exitCode: 2,
+				stderr: "network down",
+			}),
+		]);
+		expect(
+			await new RealAregGithubGateway({ runner: generic.runner }).listSkillDirectoryNames({
+				repo: "owner/repo",
+				env: {},
+			}),
+		).toMatchObject({
 			type: "error",
-			error: { code: "gh-failed", displayCommand: "gh api repos/owner/repo/contents/skills --jq '.[].name'" },
+			error: {
+				code: "gh-failed",
+				displayCommand: "gh api repos/owner/repo/contents/skills --jq '.[].name'",
+			},
 		});
 	});
 
 	test("npx gateway builds selected-skill and install-all commands", async () => {
-		expect(buildNpxSkillsAddArgs({ sourceRepo: "owner/repo", skillNames: [], targetAgents: ["codex"], cwd: "/repo", env: {} })).toEqual([
-			"skills",
-			"add",
-			"owner/repo",
-			"--agent",
-			"codex",
-			"-y",
+		expect(
+			buildNpxSkillsAddArgs({
+				sourceRepo: "owner/repo",
+				skillNames: [],
+				targetAgents: ["codex"],
+				cwd: "/repo",
+				env: {},
+			}),
+		).toEqual(["skills", "add", "owner/repo", "--agent", "codex", "-y"]);
+		const runner = new ScriptedCommandRunner([
+			step(
+				"npx",
+				["skills", "add", "owner/repo", "--skill", "a", "--skill", "b", "--agent", "codex", "-y"],
+				{ stdout: "ok\n" },
+			),
 		]);
-		const runner = new ScriptedCommandRunner([step("npx", ["skills", "add", "owner/repo", "--skill", "a", "--skill", "b", "--agent", "codex", "-y"], { stdout: "ok\n" })]);
 		const gateway = new RealAregNpxSkillsGateway({ runner: runner.runner });
-		expect(await gateway.addSkills({ sourceRepo: "owner/repo", skillNames: ["a", "b"], targetAgents: ["codex"], cwd: "/repo", env: {} })).toEqual({ type: "ok" });
+		expect(
+			await gateway.addSkills({
+				sourceRepo: "owner/repo",
+				skillNames: ["a", "b"],
+				targetAgents: ["codex"],
+				cwd: "/repo",
+				env: {},
+			}),
+		).toEqual({ type: "ok" });
 		runner.assertDone();
 
-		const failing = new ScriptedCommandRunner([step("npx", ["skills", "add", "owner/repo", "--agent", "codex", "-y"], { exitCode: 1, stderr: "failed" })]);
-		expect(await new RealAregNpxSkillsGateway({ runner: failing.runner }).addSkills({ sourceRepo: "owner/repo", skillNames: [], targetAgents: ["codex"], cwd: "/repo", env: {} })).toMatchObject({
+		const failing = new ScriptedCommandRunner([
+			step("npx", ["skills", "add", "owner/repo", "--agent", "codex", "-y"], {
+				exitCode: 1,
+				stderr: "failed",
+			}),
+		]);
+		expect(
+			await new RealAregNpxSkillsGateway({ runner: failing.runner }).addSkills({
+				sourceRepo: "owner/repo",
+				skillNames: [],
+				targetAgents: ["codex"],
+				cwd: "/repo",
+				env: {},
+			}),
+		).toMatchObject({
 			type: "error",
 			error: { code: "npx-failed" },
 		});
@@ -256,7 +497,12 @@ describe("real areg gateways", () => {
 	test("skillx workspace gateway installs, inspects sorted files, and cleans malformed installs", async () => {
 		const npx = new MutatingNpxSkillsGateway({ skillsToCreate: ["demo"] });
 		const gateway = new RealAregSkillxWorkspaceGateway({ npxSkills: npx });
-		const install = await gateway.installIntoWorkspace({ sourceRepo: "owner/repo", skillName: "demo", cwd: "/repo", env: {} });
+		const install = await gateway.installIntoWorkspace({
+			sourceRepo: "owner/repo",
+			skillName: "demo",
+			cwd: "/repo",
+			env: {},
+		});
 		expect(install).toMatchObject({ type: "ok" });
 		if (install.type !== "ok") return;
 		expect(path.basename(install.workspace.workspaceRoot).startsWith("skillx.")).toBe(true);
@@ -264,24 +510,46 @@ describe("real areg gateways", () => {
 			{
 				name: "demo",
 				directory: path.join(install.workspace.workspaceRoot, ".agents", "skills", "demo"),
-				skillFile: path.join(install.workspace.workspaceRoot, ".agents", "skills", "demo", "SKILL.md"),
+				skillFile: path.join(
+					install.workspace.workspaceRoot,
+					".agents",
+					"skills",
+					"demo",
+					"SKILL.md",
+				),
 				relativeFiles: ["SKILL.md", "nested/a.txt", "z.txt"],
 			},
 		]);
-		expect(await gateway.cleanupWorkspace({ workspaceRoot: install.workspace.workspaceRoot })).toEqual({ ok: true, value: undefined });
+		expect(
+			await gateway.cleanupWorkspace({ workspaceRoot: install.workspace.workspaceRoot }),
+		).toEqual({ ok: true, value: undefined });
 
-		const malformedGateway = new RealAregSkillxWorkspaceGateway({ npxSkills: new MutatingNpxSkillsGateway({ skillsToCreate: [] }) });
-		const malformed = await malformedGateway.installIntoWorkspace({ sourceRepo: "owner/repo", cwd: "/repo", env: {} });
+		const malformedGateway = new RealAregSkillxWorkspaceGateway({
+			npxSkills: new MutatingNpxSkillsGateway({ skillsToCreate: [] }),
+		});
+		const malformed = await malformedGateway.installIntoWorkspace({
+			sourceRepo: "owner/repo",
+			cwd: "/repo",
+			env: {},
+		});
 		expect(malformed).toMatchObject({ type: "error", error: { code: "skillx-no-skills" } });
 	});
 
 	test("skillx cleanup refuses unsafe paths and removes valid temp workspaces", async () => {
-		const gateway = new RealAregSkillxWorkspaceGateway({ npxSkills: new MutatingNpxSkillsGateway({ skillsToCreate: [] }) });
-		expect(await gateway.cleanupWorkspace({ workspaceRoot: path.join(os.tmpdir(), "not-skillx-demo") })).toMatchObject({
+		const gateway = new RealAregSkillxWorkspaceGateway({
+			npxSkills: new MutatingNpxSkillsGateway({ skillsToCreate: [] }),
+		});
+		expect(
+			await gateway.cleanupWorkspace({ workspaceRoot: path.join(os.tmpdir(), "not-skillx-demo") }),
+		).toMatchObject({
 			ok: false,
 			error: { code: "skillx-cleanup-refused" },
 		});
-		expect(await gateway.cleanupWorkspace({ workspaceRoot: path.join(os.tmpdir(), "skillx.missing-demo") })).toMatchObject({
+		expect(
+			await gateway.cleanupWorkspace({
+				workspaceRoot: path.join(os.tmpdir(), "skillx.missing-demo"),
+			}),
+		).toMatchObject({
 			ok: false,
 			error: { code: "skillx-cleanup-missing" },
 		});
@@ -289,7 +557,10 @@ describe("real areg gateways", () => {
 		const nonDirectory = path.join(os.tmpdir(), `skillx.file-${randomUUID()}`);
 		await writeFile(nonDirectory, "not a directory");
 		try {
-			expect(await gateway.cleanupWorkspace({ workspaceRoot: nonDirectory })).toMatchObject({ ok: false, error: { code: "skillx-cleanup-not-directory" } });
+			expect(await gateway.cleanupWorkspace({ workspaceRoot: nonDirectory })).toMatchObject({
+				ok: false,
+				error: { code: "skillx-cleanup-not-directory" },
+			});
 		} finally {
 			await rm(nonDirectory, { force: true });
 		}
@@ -297,7 +568,10 @@ describe("real areg gateways", () => {
 		const symlinkPath = path.join(os.tmpdir(), `skillx.symlink-${randomUUID()}`);
 		await symlink(os.tmpdir(), symlinkPath);
 		try {
-			expect(await gateway.cleanupWorkspace({ workspaceRoot: symlinkPath })).toMatchObject({ ok: false, error: { code: "skillx-cleanup-symlink" } });
+			expect(await gateway.cleanupWorkspace({ workspaceRoot: symlinkPath })).toMatchObject({
+				ok: false,
+				error: { code: "skillx-cleanup-symlink" },
+			});
 		} finally {
 			await rm(symlinkPath, { force: true });
 		}
@@ -305,13 +579,19 @@ describe("real areg gateways", () => {
 		const outside = path.join(process.cwd(), `skillx.outside-${randomUUID()}`);
 		await mkdir(outside);
 		try {
-			expect(await gateway.cleanupWorkspace({ workspaceRoot: outside })).toMatchObject({ ok: false, error: { code: "skillx-cleanup-outside-temp" } });
+			expect(await gateway.cleanupWorkspace({ workspaceRoot: outside })).toMatchObject({
+				ok: false,
+				error: { code: "skillx-cleanup-outside-temp" },
+			});
 		} finally {
 			await rm(outside, { recursive: true, force: true });
 		}
 
 		const removable = await mkdtemp(path.join(os.tmpdir(), "skillx.cleanup."));
-		expect(await gateway.cleanupWorkspace({ workspaceRoot: removable })).toEqual({ ok: true, value: undefined });
+		expect(await gateway.cleanupWorkspace({ workspaceRoot: removable })).toEqual({
+			ok: true,
+			value: undefined,
+		});
 		await expect(lstat(removable)).rejects.toMatchObject({ code: "ENOENT" });
 	});
 
@@ -327,7 +607,10 @@ describe("real areg gateways", () => {
 			const gateway = new RealAregProjectGateway();
 
 			const base = await gateway.inspectProjectBase({ cwd: root, projectPath: "project", env: {} });
-			const inspection = await gateway.inspectInstructionFiles({ projectDir: base.projectDir, env: {} });
+			const inspection = await gateway.inspectInstructionFiles({
+				projectDir: base.projectDir,
+				env: {},
+			});
 
 			expect({ ...base, ...inspection }).toMatchObject({
 				projectDir: project,
@@ -372,7 +655,9 @@ describe("real areg gateways", () => {
 				env: {},
 			});
 			expect(symlinkedParent).toMatchObject({ ok: false, error: { code: "init-parent-symlink" } });
-			await expect(lstat(path.join(outside, "settings.local.json"))).rejects.toMatchObject({ code: "ENOENT" });
+			await expect(lstat(path.join(outside, "settings.local.json"))).rejects.toMatchObject({
+				code: "ENOENT",
+			});
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
@@ -404,7 +689,9 @@ describe("real areg gateways", () => {
 });
 
 function expectedBackingSkillCommandSurfaces(source: string): readonly string[] {
-	const namespaces = [...readConstStringArray(source, "KNOWN_PI_COMMAND_NAMESPACES")].sort((left, right) => right.length - left.length);
+	const namespaces = [...readConstStringArray(source, "KNOWN_PI_COMMAND_NAMESPACES")].sort(
+		(left, right) => right.length - left.length,
+	);
 	const skillNames = readConstStringArray(source, "COMMAND_STYLE_LOCAL_SKILLS");
 	const specialized = readConstStringMap(source, "SPECIALIZED_SKILL_REPLACEMENTS");
 	const specializedSurfaces = new Set(Object.values(specialized));
@@ -418,15 +705,26 @@ function expectedBackingSkillCommandSurfaces(source: string): readonly string[] 
 }
 
 function readConstStringArray(source: string, name: string): readonly string[] {
-	const match = new RegExp(`(?:export\\s+)?const ${name} = \\[([\\s\\S]*?)\\] as const;`).exec(source);
+	const match = new RegExp(`(?:export\\s+)?const ${name} = \\[([\\s\\S]*?)\\] as const;`).exec(
+		source,
+	);
 	if (match?.[1] === undefined) throw new Error(`Could not find const string array ${name}`);
-	return [...match[1].matchAll(/"([^"]+)"/g)].map((stringMatch) => stringMatch[1]).filter((value) => value !== undefined);
+	return [...match[1].matchAll(/"([^"]+)"/g)]
+		.map((stringMatch) => stringMatch[1])
+		.filter((value) => value !== undefined);
 }
 
 function readConstStringMap(source: string, name: string): Readonly<Record<string, string>> {
-	const match = new RegExp(`(?:export\\s+)?const ${name} = \\{([\\s\\S]*?)\\} as const`).exec(source);
+	const match = new RegExp(`(?:export\\s+)?const ${name} = \\{([\\s\\S]*?)\\} as const`).exec(
+		source,
+	);
 	if (match?.[1] === undefined) throw new Error(`Could not find const string map ${name}`);
-	return Object.fromEntries([...match[1].matchAll(/"([^"]+)": "([^"]+)"/g)].map((stringMatch) => [stringMatch[1], stringMatch[2]]));
+	return Object.fromEntries(
+		[...match[1].matchAll(/"([^"]+)": "([^"]+)"/g)].map((stringMatch) => [
+			stringMatch[1],
+			stringMatch[2],
+		]),
+	);
 }
 
 class MutatingNpxSkillsGateway implements AregNpxSkillsGateway {
@@ -439,7 +737,8 @@ class MutatingNpxSkillsGateway implements AregNpxSkillsGateway {
 	}
 
 	async addSkills(request: AregNpxSkillsAddRequest): Promise<AregNpxSkillsAddResult> {
-		if (this.failure) return { type: "error", error: { code: "npx-failed", message: "npx failed" } };
+		if (this.failure)
+			return { type: "error", error: { code: "npx-failed", message: "npx failed" } };
 		for (const skillName of this.skillsToCreate) {
 			const skillRoot = path.join(request.cwd, ".agents", "skills", skillName);
 			await mkdir(path.join(skillRoot, "nested"), { recursive: true });

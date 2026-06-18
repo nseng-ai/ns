@@ -3,7 +3,11 @@ import { basename, isAbsolute, join, resolve } from "node:path";
 import process from "node:process";
 
 import type { GitGateway } from "../git/index.ts";
-import { parseManagedRegion, replaceMalformedManagedRegionFromBegin, replaceManagedRegion } from "../managed-region.ts";
+import {
+	parseManagedRegion,
+	replaceMalformedManagedRegionFromBegin,
+	replaceManagedRegion,
+} from "../managed-region.ts";
 import { formatErrorMessage, sha256Digest } from "../primitives.ts";
 import { truncateTextHeadTail } from "../text-truncation.ts";
 import { prepareRepairedText } from "../text-repair.ts";
@@ -20,7 +24,14 @@ export const MANAGED_BODY_END_MARKER = "<!-- asdl-pr-description:end -->";
 export const PR_DESCRIPTION_GENERATOR_VERSION = "asdl-pr-description-v2";
 export const MAX_DIFF_CHARS = 1_000_000;
 
-const LOCKFILE_BASENAMES = new Set(["pnpm-lock.yaml", "package-lock.json", "yarn.lock", "uv.lock", "poetry.lock", "Cargo.lock"]);
+const LOCKFILE_BASENAMES = new Set([
+	"pnpm-lock.yaml",
+	"package-lock.json",
+	"yarn.lock",
+	"uv.lock",
+	"poetry.lock",
+	"Cargo.lock",
+]);
 
 export const DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT = `You are a pull request description generator. Analyze the provided git diff and return ONLY a PR title and body.
 
@@ -90,7 +101,10 @@ Analyze the diff following these principles:
 - Maximum 5 key changes
 - Only include Critical Notes if necessary`;
 
-export type PromptSource = { type: "env"; path: string } | { type: "repo"; path: string } | { type: "builtin" };
+export type PromptSource =
+	| { type: "env"; path: string }
+	| { type: "repo"; path: string }
+	| { type: "builtin" };
 
 export type PromptResolutionResult =
 	| { ok: true; text: string; source: PromptSource }
@@ -100,7 +114,9 @@ export type PrDescriptionGenerationResolution =
 	| { ok: true; modelRef: string; promptText: string; promptSource: PromptSource }
 	| { ok: false; error: string; exitCode?: number };
 
-export type PrDescriptionPromptContext = ExistingPrDescriptionPromptContext | LocalPrDescriptionPromptContext;
+export type PrDescriptionPromptContext =
+	| ExistingPrDescriptionPromptContext
+	| LocalPrDescriptionPromptContext;
 
 export interface ExistingPrDescriptionPromptContext {
 	kind: "github";
@@ -135,7 +151,13 @@ export interface PrDescriptionFingerprintMetadata {
 }
 
 export type ManagedGeneratedRegionParseResult =
-	| { type: "found"; metadata: PrDescriptionFingerprintMetadata; body: string; start: number; end: number }
+	| {
+			type: "found";
+			metadata: PrDescriptionFingerprintMetadata;
+			body: string;
+			start: number;
+			end: number;
+	  }
 	| { type: "missing" }
 	| { type: "malformed"; reason: string };
 
@@ -161,9 +183,21 @@ export function hashPrDescriptionPrompt(promptText: string): string {
 	return `sha256:${sha256Digest(promptText)}`;
 }
 
-export function formatManagedGeneratedRegion(body: string, metadata: PrDescriptionFingerprintMetadata): string {
+export function formatManagedGeneratedRegion(
+	body: string,
+	metadata: PrDescriptionFingerprintMetadata,
+): string {
 	const begin = `${MANAGED_BODY_BEGIN_MARKER} version=${metadata.version} patch-id=${metadata.patchId} prompt=${metadata.promptHash} generator=${metadata.generator} -->`;
-	return [begin, "<details open>", "<summary>Generated PR description</summary>", "", body.trim(), "", "</details>", MANAGED_BODY_END_MARKER].join("\n");
+	return [
+		begin,
+		"<details open>",
+		"<summary>Generated PR description</summary>",
+		"",
+		body.trim(),
+		"",
+		"</details>",
+		MANAGED_BODY_END_MARKER,
+	].join("\n");
 }
 
 export function parseManagedGeneratedRegion(body: string): ManagedGeneratedRegionParseResult {
@@ -183,14 +217,27 @@ export function parseManagedGeneratedRegion(body: string): ManagedGeneratedRegio
 	};
 }
 
-export function replaceOrInsertGeneratedRegion(existingBody: string, generatedBody: string, metadata: PrDescriptionFingerprintMetadata): string {
+export function replaceOrInsertGeneratedRegion(
+	existingBody: string,
+	generatedBody: string,
+	metadata: PrDescriptionFingerprintMetadata,
+): string {
 	const region = formatManagedGeneratedRegion(generatedBody, metadata);
 	const parsed = parseManagedGeneratedRegion(existingBody);
 	if (parsed.type === "found") {
-		return replaceManagedRegion({ text: existingBody, replacement: region, start: parsed.start, end: parsed.end });
+		return replaceManagedRegion({
+			text: existingBody,
+			replacement: region,
+			start: parsed.start,
+			end: parsed.end,
+		});
 	}
 	if (parsed.type === "malformed") {
-		return replaceMalformedManagedRegionFromBegin({ text: existingBody, beginPrefix: MANAGED_BODY_BEGIN_MARKER, replacement: region });
+		return replaceMalformedManagedRegionFromBegin({
+			text: existingBody,
+			beginPrefix: MANAGED_BODY_BEGIN_MARKER,
+			replacement: region,
+		});
 	}
 	if (existingBody.includes(GENERATED_BODY_MARKER)) {
 		return region;
@@ -199,7 +246,10 @@ export function replaceOrInsertGeneratedRegion(existingBody: string, generatedBo
 	return trimmedExisting === "" ? region : `${region}\n\n${trimmedExisting}`;
 }
 
-export function isCommitMessagePrefillBody(body: string, commits: readonly PrCommitMessage[]): boolean {
+export function isCommitMessagePrefillBody(
+	body: string,
+	commits: readonly PrCommitMessage[],
+): boolean {
 	const trimmedBody = body.trim();
 	// Empty bodies are owned by the existing empty-body overwrite check.
 	if (trimmedBody === "") return false;
@@ -226,7 +276,12 @@ export async function resolvePrDescriptionGeneration(input: {
 		return { ok: false, error: prompt.error, exitCode: 2 };
 	}
 
-	return { ok: true, modelRef: selectPrDescriptionModelRef(input.env), promptText: prompt.text, promptSource: prompt.source };
+	return {
+		ok: true,
+		modelRef: selectPrDescriptionModelRef(input.env),
+		promptText: prompt.text,
+		promptSource: prompt.source,
+	};
 }
 
 export async function resolvePrDescriptionPrompt(input: {
@@ -240,14 +295,22 @@ export async function resolvePrDescriptionPrompt(input: {
 		try {
 			return { ok: true, text: await readFile(path, "utf8"), source: { type: "env", path } };
 		} catch (error) {
-			return { ok: false, error: `Could not read ${PR_DESCRIPTION_PROMPT_ENV} prompt file at ${path}: ${formatErrorMessage(error)}`, source: { type: "env", path } };
+			return {
+				ok: false,
+				error: `Could not read ${PR_DESCRIPTION_PROMPT_ENV} prompt file at ${path}: ${formatErrorMessage(error)}`,
+				source: { type: "env", path },
+			};
 		}
 	}
 
 	if (input.repoRoot !== undefined) {
 		const repoPath = join(input.repoRoot, REPO_PR_DESCRIPTION_PROMPT_PATH);
 		if (await isReadableFile(repoPath)) {
-			return { ok: true, text: await readFile(repoPath, "utf8"), source: { type: "repo", path: repoPath } };
+			return {
+				ok: true,
+				text: await readFile(repoPath, "utf8"),
+				source: { type: "repo", path: repoPath },
+			};
 		}
 	}
 
@@ -268,7 +331,10 @@ export function buildPrDescriptionUserPrompt(input: PrDescriptionPromptContext):
 	if (commitMessages !== "") {
 		sections.push(`## Commit Messages\n\n${commitMessages}`);
 	}
-	sections.push(`## Diff\n\n\`\`\`diff\n${diff.trimEnd()}\n\`\`\``, "Generate a PR title and body for this diff:");
+	sections.push(
+		`## Diff\n\n\`\`\`diff\n${diff.trimEnd()}\n\`\`\``,
+		"Generate a PR title and body for this diff:",
+	);
 	return `${sections.join("\n\n")}\n`;
 }
 
@@ -276,12 +342,14 @@ export function parsePrDescriptionOutput(text: string): PrDescriptionValidationR
 	const normalized = stripOuterCodeFence(trimOuterBlankLines(text.replace(/\r/g, "")));
 	const lines = normalized.split("\n");
 	const titleIndex = lines.findIndex((line) => line.trim() !== "");
-	const title = titleIndex === -1 ? "" : lines[titleIndex]?.trim() ?? "";
+	const title = titleIndex === -1 ? "" : (lines[titleIndex]?.trim() ?? "");
 	const body = titleIndex === -1 ? "" : trimOuterBlankLines(lines.slice(titleIndex + 1).join("\n"));
 	return validatePrDescription({ title, body });
 }
 
-export function validatePrDescription(description: ParsedPrDescription): PrDescriptionValidationResult {
+export function validatePrDescription(
+	description: ParsedPrDescription,
+): PrDescriptionValidationResult {
 	const issues: PrDescriptionValidationIssue[] = [];
 	if (description.title.trim() === "") {
 		issues.push({ type: "empty_title" });
@@ -300,10 +368,15 @@ export function validatePrDescription(description: ParsedPrDescription): PrDescr
 	if (issues.length > 0) {
 		return { ok: false, issues };
 	}
-	return { ok: true, description: { title: description.title.trim(), body: description.body.trim() } };
+	return {
+		ok: true,
+		description: { title: description.title.trim(), body: description.body.trim() },
+	};
 }
 
-export function formatPrDescriptionValidationFeedback(issues: readonly PrDescriptionValidationIssue[]): string {
+export function formatPrDescriptionValidationFeedback(
+	issues: readonly PrDescriptionValidationIssue[],
+): string {
 	return issues.map(formatPrDescriptionValidationIssue).join("\n");
 }
 
@@ -318,7 +391,8 @@ export async function preparePrDescription(input: {
 	const prepared = await prepareRepairedText({
 		noun: "PR description",
 		initialPrompt: firstPrompt,
-		generate: (prompt) => generatePrDescriptionText(input.textGeneration, input.modelRef, input.promptText, prompt),
+		generate: (prompt) =>
+			generatePrDescriptionText(input.textGeneration, input.modelRef, input.promptText, prompt),
 		validate: (text) => {
 			const validation = parsePrDescriptionOutput(text);
 			if (validation.ok) return { ok: true, value: validation.description };
@@ -329,10 +403,14 @@ export async function preparePrDescription(input: {
 		onProgress: (event) => {
 			switch (event.type) {
 				case "attempt_started":
-					input.onProgress?.(`generating PR metadata (attempt ${event.attempt}/${event.maxAttempts})`);
+					input.onProgress?.(
+						`generating PR metadata (attempt ${event.attempt}/${event.maxAttempts})`,
+					);
 					break;
 				case "attempt_waiting":
-					input.onProgress?.(`still generating PR metadata (${formatElapsedMs(event.elapsedMs)} elapsed)`);
+					input.onProgress?.(
+						`still generating PR metadata (${formatElapsedMs(event.elapsedMs)} elapsed)`,
+					);
 					break;
 				case "attempt_invalid":
 					input.onProgress?.("PR metadata draft failed validation; requesting repair");
@@ -369,7 +447,10 @@ function formatPrContextLines(input: PrDescriptionPromptContext): string[] {
 		case "github":
 			return [`- PR: #${input.number} (${input.url})`, `- Current PR title: ${input.title}`];
 		case "local":
-			return ["- PR: not yet created; generate initial metadata for Graphite submit", `- Title source (commit headline): ${input.title}`];
+			return [
+				"- PR: not yet created; generate initial metadata for Graphite submit",
+				`- Title source (commit headline): ${input.title}`,
+			];
 	}
 }
 
@@ -392,13 +473,21 @@ function parseManagedRegionMetadata(comment: string): PrDescriptionFingerprintMe
 	const patchId = fields.get("patch-id");
 	const promptHash = fields.get("prompt");
 	const generator = fields.get("generator");
-	if (version !== "2" || patchId === undefined || promptHash === undefined || generator === undefined) return undefined;
+	if (
+		version !== "2" ||
+		patchId === undefined ||
+		promptHash === undefined ||
+		generator === undefined
+	)
+		return undefined;
 	return { version, patchId, promptHash, generator };
 }
 
 function extractManagedRegionBody(regionContents: string): string {
 	const normalized = regionContents.replace(/\r/g, "");
-	const match = normalized.match(/<details open>\n<summary>Generated PR description<\/summary>\n\n([\s\S]*?)\n\n<\/details>/);
+	const match = normalized.match(
+		/<details open>\n<summary>Generated PR description<\/summary>\n\n([\s\S]*?)\n\n<\/details>/,
+	);
 	return match?.[1]?.trim() ?? normalized.trim();
 }
 
@@ -433,7 +522,11 @@ function stripOuterCodeFence(text: string): string {
 	return trimmed;
 }
 
-function resolvePromptPath(path: string, repoRoot: string | undefined, cwd: string | undefined): string {
+function resolvePromptPath(
+	path: string,
+	repoRoot: string | undefined,
+	cwd: string | undefined,
+): string {
 	if (isAbsolute(path)) return path;
 	return resolve(repoRoot ?? cwd ?? process.cwd(), path);
 }

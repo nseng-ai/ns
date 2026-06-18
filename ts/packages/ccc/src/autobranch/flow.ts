@@ -21,8 +21,12 @@ export interface AutobranchFlowInput {
 	cwd: string;
 	args: ParsedAutobranchArgs;
 	exec: (command: string, args: string[], cwd: string, timeout: number) => Promise<CommandResult>;
-	prepareCheckpointMessage: (snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">) => Promise<{ ok: true; message: string } | { ok: false; error: string }>;
-	commitPreparedCheckpointMessage: (message: string) => Promise<{ summary: string } | { error: string }>;
+	prepareCheckpointMessage: (
+		snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">,
+	) => Promise<{ ok: true; message: string } | { ok: false; error: string }>;
+	commitPreparedCheckpointMessage: (
+		message: string,
+	) => Promise<{ summary: string } | { error: string }>;
 	readFile?: (path: string) => Promise<Uint8Array | string>;
 	stat?: (path: string) => Promise<FileStat>;
 	now?: (() => number) | undefined;
@@ -32,7 +36,9 @@ export type AutobranchFlowResult =
 	| { ok: true; summary: string; warnings: string[] }
 	| { ok: false; error: string };
 
-export async function createAutobranchCheckpointFlow(input: AutobranchFlowInput): Promise<AutobranchFlowResult> {
+export async function createAutobranchCheckpointFlow(
+	input: AutobranchFlowInput,
+): Promise<AutobranchFlowResult> {
 	const loaded = await loadPendingWorktreeSnapshot({
 		cwd: input.cwd,
 		execGit: (args, timeout) => input.exec("git", args, input.cwd, timeout),
@@ -55,7 +61,10 @@ export async function createAutobranchCheckpointFlow(input: AutobranchFlowInput)
 	return runDirtyAutobranchFlow(input, snapshot);
 }
 
-async function runDirtyAutobranchFlow(input: AutobranchFlowInput, snapshot: PendingWorktreeSnapshot): Promise<AutobranchFlowResult> {
+async function runDirtyAutobranchFlow(
+	input: AutobranchFlowInput,
+	snapshot: PendingWorktreeSnapshot,
+): Promise<AutobranchFlowResult> {
 	const prepared = await prepareAutobranchPlan({
 		cwd: input.cwd,
 		args: input.args,
@@ -79,12 +88,22 @@ async function runDirtyAutobranchFlow(input: AutobranchFlowInput, snapshot: Pend
 		now: input.now,
 	});
 	if (!transaction.ok) {
-		return { ok: false, error: formatAutobranchTransactionFailure(transaction, prepared.plan.branchName) };
+		return {
+			ok: false,
+			error: formatAutobranchTransactionFailure(transaction, prepared.plan.branchName),
+		};
 	}
 
-	const cleanliness = await input.exec("git", ["status", "--porcelain=v1"], input.cwd, GIT_TIMEOUT_MS);
+	const cleanliness = await input.exec(
+		"git",
+		["status", "--porcelain=v1"],
+		input.cwd,
+		GIT_TIMEOUT_MS,
+	);
 	const isClean = cleanliness.code === 0 && cleanliness.stdout.trim().length === 0;
-	const suffix = prepared.plan.hasSuffix ? ` (base slug ${prepared.plan.baseSlug} was unavailable)` : "";
+	const suffix = prepared.plan.hasSuffix
+		? ` (base slug ${prepared.plan.baseSlug} was unavailable)`
+		: "";
 
 	return {
 		ok: true,
@@ -92,7 +111,9 @@ async function runDirtyAutobranchFlow(input: AutobranchFlowInput, snapshot: Pend
 			`New branch: ${prepared.plan.branchName}${suffix}`,
 			`Stacked on: ${snapshot.branch}`,
 			`Commit: ${transaction.commitSummary}`,
-			isClean ? "Working directory is clean." : "Warning: working directory is not clean after checkpoint.",
+			isClean
+				? "Working directory is clean."
+				: "Warning: working directory is not clean after checkpoint.",
 		].join("\n"),
 		warnings,
 	};
@@ -133,7 +154,10 @@ function formatAutobranchPreparationWarning(warning: AutobranchPreparationWarnin
 
 type AutobranchTransactionFailure = Extract<AutobranchTransactionResult, { ok: false }>;
 
-function formatAutobranchTransactionFailure(result: AutobranchTransactionFailure, branchName: string): string {
+function formatAutobranchTransactionFailure(
+	result: AutobranchTransactionFailure,
+	branchName: string,
+): string {
 	if (result.kind === "stash_failed") {
 		return [`Failed to stash pending changes before branch creation.`, result.error].join("\n");
 	}
@@ -148,7 +172,9 @@ function formatAutobranchTransactionFailure(result: AutobranchTransactionFailure
 		return [
 			`Failed to create Graphite branch ${branchName}.`,
 			result.createError,
-			result.restored ? "Restored pending changes to the original branch." : `Could not restore pending changes: ${result.restoreError}`,
+			result.restored
+				? "Restored pending changes to the original branch."
+				: `Could not restore pending changes: ${result.restoreError}`,
 		].join("\n");
 	}
 	if (result.kind === "restore_failed_after_branch_create") {

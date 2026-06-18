@@ -31,8 +31,17 @@ export async function runClaim(ctx: SlotCliContext, request: ClaimRequest) {
 
 export function renderClaim(result: ClaimResult): string {
 	if (result.already_current) return `${result.slot_name} already has ${result.branch_name}`;
-	const source = result.source_slot_name !== null && result.main_checkout_branch === null ? ` from ${result.source_slot_name}` : "";
-	const replaced = result.replaced_branch_name !== null && result.main_checkout_branch === null ? ` (replaced ${result.replaced_branch_name})` : "";
-	const mainCheckout = result.main_checkout_branch === null ? "" : `; checked out ${result.main_checkout_branch} in main worktree`;
+	const source =
+		result.source_slot_name !== null && result.main_checkout_branch === null
+			? ` from ${result.source_slot_name}`
+			: "";
+	const replaced =
+		result.replaced_branch_name !== null && result.main_checkout_branch === null
+			? ` (replaced ${result.replaced_branch_name})`
+			: "";
+	const mainCheckout =
+		result.main_checkout_branch === null
+			? ""
+			: `; checked out ${result.main_checkout_branch} in main worktree`;
 	return `Claimed ${result.slot_name} -> ${result.branch_name}${source}${replaced}${mainCheckout}`;
 }

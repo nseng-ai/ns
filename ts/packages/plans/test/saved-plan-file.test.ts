@@ -95,7 +95,11 @@ describe("writeSavedPlanFile", () => {
 		const git = new FakeGitGateway({ currentBranch: sourceBranch, originUrl: origin });
 
 		await expect(
-			writeSavedPlanFile(unusedPi, { slug: PLAN_SLUG, content: "# New Plan\n" }, { cwd: ROOT, planStoreRoot, git }),
+			writeSavedPlanFile(
+				unusedPi,
+				{ slug: PLAN_SLUG, content: "# New Plan\n" },
+				{ cwd: ROOT, planStoreRoot, git },
+			),
 		).rejects.toThrow("refusing to overwrite");
 
 		expect(await readFile(filePath, "utf8")).toBe("# Existing Plan\n");
@@ -106,7 +110,11 @@ describe("writeSavedPlanFile", () => {
 		const git = new FakeGitGateway();
 
 		await expect(
-			writeSavedPlanFile(unusedPi, { slug: "Bad Slug", content: "# Test Plan\n" }, { cwd: ROOT, planStoreRoot, git }),
+			writeSavedPlanFile(
+				unusedPi,
+				{ slug: "Bad Slug", content: "# Test Plan\n" },
+				{ cwd: ROOT, planStoreRoot, git },
+			),
 		).rejects.toThrow("Invalid saved plan slug");
 		expect(git.calls).toEqual([]);
 	});
@@ -116,7 +124,11 @@ describe("writeSavedPlanFile", () => {
 		const git = new FakeGitGateway({ currentBranch: undefined });
 
 		await expect(
-			writeSavedPlanFile(unusedPi, { slug: PLAN_SLUG, content: "# Test Plan\n" }, { cwd: ROOT, planStoreRoot, git }),
+			writeSavedPlanFile(
+				unusedPi,
+				{ slug: PLAN_SLUG, content: "# Test Plan\n" },
+				{ cwd: ROOT, planStoreRoot, git },
+			),
 		).rejects.toThrow("check out a named branch");
 
 		expect(git.calls).toEqual(["repoRoot", "currentBranch"]);
@@ -139,8 +151,12 @@ class FakeGitGateway implements GitGateway {
 
 	constructor(options: FakeGitOptions = {}) {
 		this.repoRootValue = options.repoRoot ?? ROOT;
-		this.currentBranchValue = Object.hasOwn(options, "currentBranch") ? options.currentBranch : "main";
-		this.originUrlValue = Object.hasOwn(options, "originUrl") ? options.originUrl : "git@github.com:owner/repo.git";
+		this.currentBranchValue = Object.hasOwn(options, "currentBranch")
+			? options.currentBranch
+			: "main";
+		this.originUrlValue = Object.hasOwn(options, "originUrl")
+			? options.originUrl
+			: "git@github.com:owner/repo.git";
 	}
 
 	async repoRoot(_params: GitCwdParams): Promise<GitResult<string>> {
@@ -204,17 +220,23 @@ class FakeGitGateway implements GitGateway {
 		return { ok: true, value: false };
 	}
 
-	async listLocalBranchTips(_params: GitCwdParams): Promise<GitResult<readonly GitLocalBranchTip[]>> {
+	async listLocalBranchTips(
+		_params: GitCwdParams,
+	): Promise<GitResult<readonly GitLocalBranchTip[]>> {
 		this.calls.push("listLocalBranchTips");
 		return { ok: true, value: [] };
 	}
 
-	async treeOidsAtRefs(params: GitRefsPathParams): Promise<GitResult<Readonly<Record<string, string | null>>>> {
+	async treeOidsAtRefs(
+		params: GitRefsPathParams,
+	): Promise<GitResult<Readonly<Record<string, string | null>>>> {
 		this.calls.push("treeOidsAtRefs");
 		return { ok: true, value: Object.fromEntries(params.refs.map((ref) => [ref, null])) };
 	}
 
-	async changedPathsUnder(_params: GitRevisionRangePathParams): Promise<GitResult<readonly string[]>> {
+	async changedPathsUnder(
+		_params: GitRevisionRangePathParams,
+	): Promise<GitResult<readonly string[]>> {
 		this.calls.push("changedPathsUnder");
 		return { ok: true, value: [] };
 	}

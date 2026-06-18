@@ -1,5 +1,10 @@
 import { formatCommand, formatOutputSection } from "@asdl/core/exec";
-import { DEFAULT_FAST_MODEL, DEFAULT_FAST_MODEL_REF, resolveModelRef, type ParsedModelRef } from "./model-defaults.ts";
+import {
+	DEFAULT_FAST_MODEL,
+	DEFAULT_FAST_MODEL_REF,
+	resolveModelRef,
+	type ParsedModelRef,
+} from "./model-defaults.ts";
 
 export const SLUG_MODEL_ENV = "ASDL_SLUG_MODEL";
 export const SLUG_MODEL_THINKING = "minimal";
@@ -46,12 +51,22 @@ export interface DeriveSlugWithModelInput {
 	slugKind: string;
 	env?: Record<string, string | undefined>;
 	normalizeOutput(output: string): string | undefined;
-	exec(command: string, args: string[], options: SlugModelExecOptions): Promise<SlugModelCommandResult>;
+	exec(
+		command: string,
+		args: string[],
+		options: SlugModelExecOptions,
+	): Promise<SlugModelCommandResult>;
 	signal?: AbortSignal;
 }
 
-export async function deriveSlugWithModel(input: DeriveSlugWithModelInput): Promise<SlugModelDerivationResult> {
-	const resolution = resolveModelRef(input.env ?? process.env, SLUG_MODEL_ENV, DEFAULT_FAST_MODEL_REF);
+export async function deriveSlugWithModel(
+	input: DeriveSlugWithModelInput,
+): Promise<SlugModelDerivationResult> {
+	const resolution = resolveModelRef(
+		input.env ?? process.env,
+		SLUG_MODEL_ENV,
+		DEFAULT_FAST_MODEL_REF,
+	);
 	if (!resolution.ok) {
 		return { ok: false, failure: { lines: [resolution.error] } };
 	}
@@ -89,10 +104,16 @@ interface RunSlugModelAttemptInput {
 	hasRetriedKilledResult: boolean;
 }
 
-async function runSlugModelAttempt(options: RunSlugModelAttemptInput): Promise<SlugModelAttemptOutcome> {
+async function runSlugModelAttempt(
+	options: RunSlugModelAttemptInput,
+): Promise<SlugModelAttemptOutcome> {
 	let result: SlugModelCommandResult;
 	try {
-		result = await options.input.exec("pi", options.args, execOptions(options.input.cwd, options.input.signal));
+		result = await options.input.exec(
+			"pi",
+			options.args,
+			execOptions(options.input.cwd, options.input.signal),
+		);
 	} catch (error) {
 		return {
 			type: "terminal",
@@ -114,7 +135,9 @@ async function runSlugModelAttempt(options: RunSlugModelAttemptInput): Promise<S
 	}
 
 	if (result.code !== 0 || result.killed) {
-		const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
+		const status = result.killed
+			? `exit code ${result.code}; process was killed or timed out`
+			: `exit code ${result.code}`;
 		return {
 			type: "terminal",
 			result: {
@@ -122,10 +145,18 @@ async function runSlugModelAttempt(options: RunSlugModelAttemptInput): Promise<S
 				failure: {
 					lines: [
 						`Pi slug model command failed (${status}).`,
-						...(options.hasRetriedKilledResult ? ["Retried once after a killed/timeout result."] : []),
+						...(options.hasRetriedKilledResult
+							? ["Retried once after a killed/timeout result."]
+							: []),
 						`Command: ${options.displayCommand}`,
-						formatOutputSection("stdout", result.stdout ?? "", { maxChars: MAX_ERROR_CHARS, maxLines: 80 }),
-						formatOutputSection("stderr", result.stderr ?? "", { maxChars: MAX_ERROR_CHARS, maxLines: 80 }),
+						formatOutputSection("stdout", result.stdout ?? "", {
+							maxChars: MAX_ERROR_CHARS,
+							maxLines: 80,
+						}),
+						formatOutputSection("stderr", result.stderr ?? "", {
+							maxChars: MAX_ERROR_CHARS,
+							maxLines: 80,
+						}),
 					],
 				},
 			},
@@ -170,7 +201,10 @@ async function runSlugModelAttempt(options: RunSlugModelAttemptInput): Promise<S
 	};
 }
 
-export function buildSlugModelArgs(prompt: string, model: ParsedModelRef = DEFAULT_FAST_MODEL): string[] {
+export function buildSlugModelArgs(
+	prompt: string,
+	model: ParsedModelRef = DEFAULT_FAST_MODEL,
+): string[] {
 	return [
 		"--provider",
 		model.provider,
@@ -203,6 +237,10 @@ function execOptions(cwd: string, signal: AbortSignal | undefined): SlugModelExe
 	return options;
 }
 
-function shouldRetryKilledSlugModelResult(result: SlugModelCommandResult, signal: AbortSignal | undefined, attempt: number): boolean {
+function shouldRetryKilledSlugModelResult(
+	result: SlugModelCommandResult,
+	signal: AbortSignal | undefined,
+	attempt: number,
+): boolean {
 	return result.killed === true && signal?.aborted !== true && attempt < SLUG_MODEL_MAX_ATTEMPTS;
 }

@@ -26,8 +26,10 @@ const shellSurface = buildMarkerInstallSurface({
 	beginMarker: shellIntegrationBeginMarker,
 	endMarker: shellIntegrationEndMarker,
 	renderPayload: () => renderShellWrapperScript(),
-	alreadyInstalledMessage: (result) => `slot shell integration already installed in ${result.rc_path}`,
-	installedMessage: (result) => `Installed slot shell integration for ${result.shell} in ${result.rc_path}`,
+	alreadyInstalledMessage: (result) =>
+		`slot shell integration already installed in ${result.rc_path}`,
+	installedMessage: (result) =>
+		`Installed slot shell integration for ${result.shell} in ${result.rc_path}`,
 });
 
 export async function runShellShow(ctx: SlotCliContext, request: ShellShowRequest) {

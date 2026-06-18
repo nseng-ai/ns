@@ -3,9 +3,20 @@ import { ScriptedCommandExecApi } from "@asdl/core/testing";
 
 import { FakeHarnessGateway, RealHarnessGateway } from "../../src/gateways/harness.ts";
 import { buildClaudeDiffFindingsJsonSchema } from "../../src/gateways/harness-output.ts";
-import { createFindingsReview, createLocalDiff, type HarnessReviewRequest, type ReviewExecutionResponse } from "../../src/models.ts";
+import {
+	createFindingsReview,
+	createLocalDiff,
+	type HarnessReviewRequest,
+	type ReviewExecutionResponse,
+} from "../../src/models.ts";
 
-function request(options: { readonly model?: string; readonly reviewName?: string; readonly diffText?: string } = {}): HarnessReviewRequest {
+function request(
+	options: {
+		readonly model?: string;
+		readonly reviewName?: string;
+		readonly diffText?: string;
+	} = {},
+): HarnessReviewRequest {
 	const diffText = options.diffText ?? "diff --git a/src/app.ts b/src/app.ts\n+change\n";
 	return {
 		model: options.model ?? "haiku",
@@ -62,14 +73,25 @@ describe("FakeHarnessGateway", () => {
 
 	test("returns configured results by review name without sharing mutable response state", async () => {
 		const configured: ReviewExecutionResponse = {
-			payload: createFindingsReview([{ path: "src/app.ts", line: 1, severity: "info", summary: "A", details: "B" }]),
+			payload: createFindingsReview([
+				{ path: "src/app.ts", line: 1, severity: "info", summary: "A", details: "B" },
+			]),
 			usage: null,
 			inputCoverage: null,
 		};
-		const gateway = new FakeHarnessGateway({ resultsByReviewName: { custom: { type: "ok", value: configured } } });
+		const gateway = new FakeHarnessGateway({
+			resultsByReviewName: { custom: { type: "ok", value: configured } },
+		});
 
 		const first = await gateway.runReview(request({ reviewName: "custom" }), { cwd: "/repo" });
-		if (first.type === "ok") first.value.payload.findings.push({ path: "other.ts", line: null, severity: "warning", summary: "C", details: "D" });
+		if (first.type === "ok")
+			first.value.payload.findings.push({
+				path: "other.ts",
+				line: null,
+				severity: "warning",
+				summary: "C",
+				details: "D",
+			});
 		const second = await gateway.runReview(request({ reviewName: "custom" }), { cwd: "/repo" });
 
 		expect(second.type).toBe("ok");
@@ -79,8 +101,16 @@ describe("FakeHarnessGateway", () => {
 	});
 
 	test("accepts configured results from Map input", async () => {
-		const configured: ReviewExecutionResponse = { payload: createFindingsReview([{ path: "src/app.ts", line: 1, severity: "info", summary: "A", details: "B" }]), usage: null, inputCoverage: null };
-		const gateway = new FakeHarnessGateway({ resultsByReviewName: new Map([["custom", { type: "ok", value: configured }]]) });
+		const configured: ReviewExecutionResponse = {
+			payload: createFindingsReview([
+				{ path: "src/app.ts", line: 1, severity: "info", summary: "A", details: "B" },
+			]),
+			usage: null,
+			inputCoverage: null,
+		};
+		const gateway = new FakeHarnessGateway({
+			resultsByReviewName: new Map([["custom", { type: "ok", value: configured }]]),
+		});
 
 		const result = await gateway.runReview(request({ reviewName: "custom" }), { cwd: "/repo" });
 
@@ -109,7 +139,16 @@ describe("RealHarnessGateway", () => {
 		expect(resolved).toEqual(["claude"]);
 		const call = execApi.calls()[0];
 		expect(call?.command).toBe("claude");
-		expect(call?.args.slice(0, 8)).toEqual(["-p", "--output-format", "json", "--bare", "--tools", "Bash,Read", "--model", "haiku"]);
+		expect(call?.args.slice(0, 8)).toEqual([
+			"-p",
+			"--output-format",
+			"json",
+			"--bare",
+			"--tools",
+			"Bash,Read",
+			"--model",
+			"haiku",
+		]);
 		expect(call?.args[6]).toBe("--model");
 		expect(call?.args).toContain("--system-prompt");
 		expect(call?.args).toContain("--json-schema");
@@ -151,7 +190,9 @@ describe("RealHarnessGateway", () => {
 	});
 
 	test("non-zero exit maps to harness_execution_failed with stderr precedence", async () => {
-		const execApi = new ScriptedCommandExecApi([{ stdout: "last stdout line", stderr: "stderr wins", code: 2, killed: false }]);
+		const execApi = new ScriptedCommandExecApi([
+			{ stdout: "last stdout line", stderr: "stderr wins", code: 2, killed: false },
+		]);
 		const gateway = new RealHarnessGateway({ execApi, binaryResolver: () => "/usr/bin/claude" });
 
 		const result = await gateway.runReview(request(), { cwd: "/repo" });
@@ -171,7 +212,11 @@ describe("RealHarnessGateway", () => {
 
 		expect(result.type).toBe("ok");
 		if (result.type === "ok") {
-			expect(result.value.inputCoverage).toMatchObject({ changedPathCount: 1, includedFileCount: 1, omittedFileCount: 0 });
+			expect(result.value.inputCoverage).toMatchObject({
+				changedPathCount: 1,
+				includedFileCount: 1,
+				omittedFileCount: 0,
+			});
 		}
 	});
 });

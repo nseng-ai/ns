@@ -6,7 +6,14 @@ import { join } from "node:path";
 import type { CommandExecApi, ExecOptions } from "@asdl/core/exec";
 import type { GitGateway } from "@asdl/core/git";
 import { InMemoryGitGateway } from "@asdl/core/git/testing";
-import { buildRepoPlanStoreKey, encodeBranchForPlanPath, listSavedPlans, normalizeRepoOriginUrl, runCli, sanitizePlanPathSegment } from "../src/index.ts";
+import {
+	buildRepoPlanStoreKey,
+	encodeBranchForPlanPath,
+	listSavedPlans,
+	normalizeRepoOriginUrl,
+	runCli,
+	sanitizePlanPathSegment,
+} from "../src/index.ts";
 
 const ORIGIN = "git@github.com:Owner/Repo.git";
 const SOURCE_BRANCH = "feature/source-plan";
@@ -36,12 +43,33 @@ describe("listSavedPlans", () => {
 		const fixture = await makeFixture();
 		const featureBranchKey = encodeBranchForPlanPath("feature/source-plan");
 		const otherBranchKey = encodeBranchForPlanPath("bugfix/other-plan");
-		const olderPath = await writePlanFile({ fixture, branchKey: featureBranchKey, fileName: "first-useful-saved-plan.md", modifiedTimeMs: 1_700_000_000_000 });
-		const newerPath = await writePlanFile({ fixture, branchKey: otherBranchKey, fileName: "second-useful-saved-plan.md", modifiedTimeMs: 1_800_000_000_000 });
-		await writePlanFile({ fixture, branchKey: otherBranchKey, fileName: "ignore.txt", modifiedTimeMs: 1_900_000_000_000 });
-		await mkdir(join(fixture.planStoreRoot, fixture.repoKey, otherBranchKey, "directory-saved-plan.md"));
+		const olderPath = await writePlanFile({
+			fixture,
+			branchKey: featureBranchKey,
+			fileName: "first-useful-saved-plan.md",
+			modifiedTimeMs: 1_700_000_000_000,
+		});
+		const newerPath = await writePlanFile({
+			fixture,
+			branchKey: otherBranchKey,
+			fileName: "second-useful-saved-plan.md",
+			modifiedTimeMs: 1_800_000_000_000,
+		});
+		await writePlanFile({
+			fixture,
+			branchKey: otherBranchKey,
+			fileName: "ignore.txt",
+			modifiedTimeMs: 1_900_000_000_000,
+		});
+		await mkdir(
+			join(fixture.planStoreRoot, fixture.repoKey, otherBranchKey, "directory-saved-plan.md"),
+		);
 
-		const plans = await listSavedPlans(unusedCommands, { cwd: fixture.repoRoot, git: fixture.git, planStoreRoot: fixture.planStoreRoot });
+		const plans = await listSavedPlans(unusedCommands, {
+			cwd: fixture.repoRoot,
+			git: fixture.git,
+			planStoreRoot: fixture.planStoreRoot,
+		});
 
 		expect(plans).toMatchObject([
 			{
@@ -141,7 +169,12 @@ describe("plans list CLI", () => {
 	test("prints default text without kind", async () => {
 		const fixture = await makeFixture();
 		const branchKey = encodeBranchForPlanPath("feature/source-plan");
-		const filePath = await writePlanFile({ fixture, branchKey, fileName: "first-useful-saved-plan.md", modifiedTimeMs: 1_700_000_000_000 });
+		const filePath = await writePlanFile({
+			fixture,
+			branchKey,
+			fileName: "first-useful-saved-plan.md",
+			modifiedTimeMs: 1_700_000_000_000,
+		});
 		const output = createOutputCapture();
 
 		const exitCode = await runCli(["list", "--plan-store-root", fixture.planStoreRoot], {
@@ -164,16 +197,24 @@ describe("plans list CLI", () => {
 	test("prints JSON with snake_case fields", async () => {
 		const fixture = await makeFixture();
 		const branchKey = encodeBranchForPlanPath("feature/source-plan");
-		const filePath = await writePlanFile({ fixture, branchKey, fileName: "first-useful-saved-plan.md", modifiedTimeMs: 1_700_000_000_000 });
+		const filePath = await writePlanFile({
+			fixture,
+			branchKey,
+			fileName: "first-useful-saved-plan.md",
+			modifiedTimeMs: 1_700_000_000_000,
+		});
 		const output = createOutputCapture();
 
-		const exitCode = await runCli(["list", "--format", "json", "--plan-store-root", fixture.planStoreRoot], {
-			cwd: fixture.repoRoot,
-			git: fixture.git,
-			commands: unusedCommands,
-			stdout: output.stdout,
-			stderr: output.stderr,
-		});
+		const exitCode = await runCli(
+			["list", "--format", "json", "--plan-store-root", fixture.planStoreRoot],
+			{
+				cwd: fixture.repoRoot,
+				git: fixture.git,
+				commands: unusedCommands,
+				stdout: output.stdout,
+				stderr: output.stderr,
+			},
+		);
 
 		expect(exitCode).toBe(0);
 		const payload = parseJsonListPayload(output.stdoutText());
@@ -201,15 +242,28 @@ describe("plans exec CLI", () => {
 		const fixture = await makeFixture();
 		const output = createOutputCapture();
 
-		const exitCode = await runCli(["exec", "save", "--slug", "branch-scoped-plan", "--summary", "Save it", "--stdin", "--format", "json"], {
-			cwd: fixture.repoRoot,
-			git: fixture.git,
-			commands: unusedCommands,
-			stdin: () => Promise.resolve("# Plan\n\nDo it.\n"),
-			stdout: output.stdout,
-			stderr: output.stderr,
-			planStoreRoot: fixture.planStoreRoot,
-		});
+		const exitCode = await runCli(
+			[
+				"exec",
+				"save",
+				"--slug",
+				"branch-scoped-plan",
+				"--summary",
+				"Save it",
+				"--stdin",
+				"--format",
+				"json",
+			],
+			{
+				cwd: fixture.repoRoot,
+				git: fixture.git,
+				commands: unusedCommands,
+				stdin: () => Promise.resolve("# Plan\n\nDo it.\n"),
+				stdout: output.stdout,
+				stderr: output.stderr,
+				planStoreRoot: fixture.planStoreRoot,
+			},
+		);
 
 		expect(exitCode).toBe(0);
 		expect(output.stderrText()).toBe("");
@@ -222,7 +276,9 @@ describe("plans exec CLI", () => {
 			branch_key: encodeBranchForPlanPath("feature/source-plan"),
 			summary: "Save it",
 		});
-		expect(String(payload.file_path)).toContain(`${fixture.planStoreRoot}/gh--owner--repo/${encodeBranchForPlanPath("feature/source-plan")}/branch-scoped-plan.md`);
+		expect(String(payload.file_path)).toContain(
+			`${fixture.planStoreRoot}/gh--owner--repo/${encodeBranchForPlanPath("feature/source-plan")}/branch-scoped-plan.md`,
+		);
 		expect(await readFile(String(payload.file_path), "utf8")).toBe("# Plan\n\nDo it.\n");
 	});
 
@@ -241,11 +297,25 @@ describe("plans exec CLI", () => {
 			stderr: explicitOutput.stderr,
 		});
 		expect(explicitExitCode).toBe(0);
-		expect(JSON.parse(explicitOutput.stdoutText())).toMatchObject({ success: true, source: "explicit", file_path: await realpath(explicitPlan) });
+		expect(JSON.parse(explicitOutput.stdoutText())).toMatchObject({
+			success: true,
+			source: "explicit",
+			file_path: await realpath(explicitPlan),
+		});
 
 		const branchKey = encodeBranchForPlanPath("feature/source-plan");
-		const older = await writePlanFile({ fixture, branchKey, fileName: "older-plan-file.md", modifiedTimeMs: 1_000 });
-		const newer = await writePlanFile({ fixture, branchKey, fileName: "newer-plan-file.md", modifiedTimeMs: 2_000 });
+		const older = await writePlanFile({
+			fixture,
+			branchKey,
+			fileName: "older-plan-file.md",
+			modifiedTimeMs: 1_000,
+		});
+		const newer = await writePlanFile({
+			fixture,
+			branchKey,
+			fileName: "newer-plan-file.md",
+			modifiedTimeMs: 2_000,
+		});
 		void older;
 
 		const latestOutput = createOutputCapture();
@@ -258,7 +328,12 @@ describe("plans exec CLI", () => {
 			planStoreRoot: fixture.planStoreRoot,
 		});
 		expect(latestExitCode).toBe(0);
-		expect(JSON.parse(latestOutput.stdoutText())).toMatchObject({ success: true, source: "latest", slug: "newer-plan-file", file_path: newer });
+		expect(JSON.parse(latestOutput.stdoutText())).toMatchObject({
+			success: true,
+			source: "latest",
+			slug: "newer-plan-file",
+			file_path: newer,
+		});
 	});
 });
 
@@ -287,7 +362,12 @@ function parseJsonListPayload(text: string): JsonListPayload {
 }
 
 function isJsonListPayload(value: unknown): value is JsonListPayload {
-	return isRecord(value) && value.success === true && Array.isArray(value.plans) && value.plans.every(isJsonListPlan);
+	return (
+		isRecord(value) &&
+		value.success === true &&
+		Array.isArray(value.plans) &&
+		value.plans.every(isJsonListPlan)
+	);
 }
 
 function isJsonListPlan(value: unknown): value is JsonListPlan {
@@ -302,7 +382,12 @@ async function makeFixture(): Promise<Fixture> {
 	const repoRoot = await makeTempDir();
 	const planStoreRoot = await makeTempDir();
 	const repoKey = buildRepoPlanStoreKey(repoRoot, ORIGIN);
-	return { repoRoot, planStoreRoot, repoKey, git: new InMemoryGitGateway({ repoRoot, originUrl: ORIGIN, currentBranch: SOURCE_BRANCH }) };
+	return {
+		repoRoot,
+		planStoreRoot,
+		repoKey,
+		git: new InMemoryGitGateway({ repoRoot, originUrl: ORIGIN, currentBranch: SOURCE_BRANCH }),
+	};
 }
 
 async function makeTempDir(): Promise<string> {
@@ -328,7 +413,12 @@ async function writePlanFile(options: WritePlanFileOptions): Promise<string> {
 	return filePath;
 }
 
-function createOutputCapture(): { stdout: (text: string) => void; stderr: (text: string) => void; stdoutText: () => string; stderrText: () => string } {
+function createOutputCapture(): {
+	stdout: (text: string) => void;
+	stderr: (text: string) => void;
+	stdoutText: () => string;
+	stderrText: () => string;
+} {
 	let stdout = "";
 	let stderr = "";
 	return {
@@ -351,4 +441,3 @@ const unusedCommands: CommandExecApi = {
 		throw new Error("Unexpected command execution in test.");
 	},
 };
-

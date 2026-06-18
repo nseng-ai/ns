@@ -75,7 +75,9 @@ export class InMemoryGitGateway implements GitGateway {
 	private readonly branches: Set<string>;
 	private readonly invalidBranchRefs: Set<string>;
 	private readonly localBranchPresenceFailure: BranchPresenceFailureState | undefined;
-	private readonly localBranchPresenceFailures: Readonly<Record<string, BranchPresenceFailureState>>;
+	private readonly localBranchPresenceFailures: Readonly<
+		Record<string, BranchPresenceFailureState>
+	>;
 	private readonly createBranchFailure: GitErrorInfo | undefined;
 	private readonly dirtyPaths: ReadonlySet<string>;
 	private readonly dirtyPathFailures: Readonly<Record<string, GitErrorInfo>>;
@@ -105,20 +107,33 @@ export class InMemoryGitGateway implements GitGateway {
 		this.trunkBranchState = state.trunkBranch ?? "main";
 		this.originUrlState = state.originUrl ?? "git@github.com:Owner/Repo.git\n";
 		this.headCommitState = state.headCommit ?? "0123456789abcdef0123456789abcdef01234567";
-		this.gitPathStates = { ...(state.gitPaths ?? {}) };
+		this.gitPathStates = { ...state.gitPaths };
 		this.branches = new Set(state.existingBranches ?? []);
 		this.invalidBranchRefs = new Set(state.invalidBranchRefs ?? []);
 		this.localBranchPresenceFailure = state.localBranchPresenceFailure;
-		this.localBranchPresenceFailures = { ...(state.localBranchPresenceFailures ?? {}) };
+		this.localBranchPresenceFailures = { ...state.localBranchPresenceFailures };
 		this.createBranchFailure = state.createBranchFailure;
 		this.dirtyPaths = new Set((state.dirtyPaths ?? []).map(normalizeGitTestingRelativePath));
 		this.dirtyPathFailures = Object.fromEntries(
-			Object.entries(state.dirtyPathFailures ?? {}).map(([path, error]) => [normalizeGitTestingRelativePath(path), { ...error }]),
+			Object.entries(state.dirtyPathFailures ?? {}).map(([path, error]) => [
+				normalizeGitTestingRelativePath(path),
+				{ ...error },
+			]),
 		);
 		this.localBranchTipsState = (state.localBranchTips ?? []).map(normalizeBranchTip);
 		this.localBranchTipsFailure = state.localBranchTipsFailure;
-		this.treeOids = new Map(Object.entries(state.treeOids ?? {}).map(([key, value]) => [normalizeRefPathKey(key), cloneTreeOidValue(value)]));
-		this.changedPaths = new Map(Object.entries(state.changedPaths ?? {}).map(([key, value]) => [normalizeRefPathKey(key), cloneChangedPathsValue(value)]));
+		this.treeOids = new Map(
+			Object.entries(state.treeOids ?? {}).map(([key, value]) => [
+				normalizeRefPathKey(key),
+				cloneTreeOidValue(value),
+			]),
+		);
+		this.changedPaths = new Map(
+			Object.entries(state.changedPaths ?? {}).map(([key, value]) => [
+				normalizeRefPathKey(key),
+				cloneChangedPathsValue(value),
+			]),
+		);
 	}
 
 	get repoRootCalls(): readonly GitCall[] {
@@ -183,12 +198,20 @@ export class InMemoryGitGateway implements GitGateway {
 
 	async repoRoot(params: GitCwdParams): Promise<GitResult<string>> {
 		this.repoRootLog.push(callFromParams(params));
-		return valueResult(this.repoRootState, "repo_root_failed", "Could not resolve git repository root.");
+		return valueResult(
+			this.repoRootState,
+			"repo_root_failed",
+			"Could not resolve git repository root.",
+		);
 	}
 
 	async optionalRepoRoot(params: GitCwdParams): Promise<GitOptionalResult<string>> {
 		this.optionalRepoRootLog.push(callFromParams(params));
-		return optionalValueResult(this.optionalRepoRootState, "repo_root_failed", "Could not resolve git repository root.");
+		return optionalValueResult(
+			this.optionalRepoRootState,
+			"repo_root_failed",
+			"Could not resolve git repository root.",
+		);
 	}
 
 	async currentBranch(params: GitCwdParams): Promise<GitResult<string>> {
@@ -198,39 +221,61 @@ export class InMemoryGitGateway implements GitGateway {
 				ok: false,
 				error: {
 					code: "detached_head",
-					message: "git branch --show-current returned no current branch.\nCommand: git branch --show-current",
+					message:
+						"git branch --show-current returned no current branch.\nCommand: git branch --show-current",
 					displayCommand: "git branch --show-current",
 				},
 			};
 		}
-		return valueResult(this.currentBranchState, "current_branch_failed", "Could not resolve current branch.");
+		return valueResult(
+			this.currentBranchState,
+			"current_branch_failed",
+			"Could not resolve current branch.",
+		);
 	}
 
 	async trunkBranch(params: GitCwdParams): Promise<GitOptionalResult<string>> {
 		this.trunkBranchLog.push(callFromParams(params));
-		return optionalValueResult(this.trunkBranchState, "trunk_branch_failed", "Could not resolve trunk branch.");
+		return optionalValueResult(
+			this.trunkBranchState,
+			"trunk_branch_failed",
+			"Could not resolve trunk branch.",
+		);
 	}
 
 	async originUrl(params: GitCwdParams): Promise<GitOptionalResult<string>> {
 		this.originUrlLog.push(callFromParams(params));
-		return optionalValueResult(this.originUrlState, "origin_url_failed", "Could not resolve origin URL.");
+		return optionalValueResult(
+			this.originUrlState,
+			"origin_url_failed",
+			"Could not resolve origin URL.",
+		);
 	}
 
 	async headCommit(params: GitCwdParams): Promise<GitResult<string>> {
 		this.headCommitLog.push(callFromParams(params));
-		return valueResult(this.headCommitState, "head_commit_failed", "Could not resolve HEAD commit.");
+		return valueResult(
+			this.headCommitState,
+			"head_commit_failed",
+			"Could not resolve HEAD commit.",
+		);
 	}
 
 	async gitPath(params: GitPathParams): Promise<GitResult<string>> {
 		this.gitPathLog.push(pathCallFromParams(params));
-		const state = this.gitPathStates[params.relativePath] ?? defaultGitPath(this.repoRootState, params.relativePath);
+		const state =
+			this.gitPathStates[params.relativePath] ??
+			defaultGitPath(this.repoRootState, params.relativePath);
 		return valueResult(state, "git_path_failed", "Could not resolve git path.");
 	}
 
 	async validateBranchRef(params: GitBranchParams): Promise<GitOperationResult> {
 		this.validateBranchRefLog.push(branchCallFromParams(params));
 		if (this.invalidBranchRefs.has(params.branch)) {
-			return { ok: false, error: { code: "branch_ref_invalid", message: `Invalid branch ref: ${params.branch}` } };
+			return {
+				ok: false,
+				error: { code: "branch_ref_invalid", message: `Invalid branch ref: ${params.branch}` },
+			};
 		}
 		return { ok: true };
 	}
@@ -269,25 +314,34 @@ export class InMemoryGitGateway implements GitGateway {
 		return { ok: true, value: this.dirtyPaths.has(path) };
 	}
 
-	async listLocalBranchTips(params: GitCwdParams): Promise<GitResult<readonly GitLocalBranchTip[]>> {
+	async listLocalBranchTips(
+		params: GitCwdParams,
+	): Promise<GitResult<readonly GitLocalBranchTip[]>> {
 		this.listLocalBranchTipsLog.push(callFromParams(params));
-		if (this.localBranchTipsFailure !== undefined) return { ok: false, error: { ...this.localBranchTipsFailure } };
+		if (this.localBranchTipsFailure !== undefined)
+			return { ok: false, error: { ...this.localBranchTipsFailure } };
 		return { ok: true, value: this.localBranchTipsState.map((branch) => ({ ...branch })) };
 	}
 
-	async treeOidsAtRefs(params: GitRefsPathParams): Promise<GitResult<Readonly<Record<string, string | null>>>> {
+	async treeOidsAtRefs(
+		params: GitRefsPathParams,
+	): Promise<GitResult<Readonly<Record<string, string | null>>>> {
 		this.treeOidsAtRefsLog.push(refsPathCallFromParams(params));
 		const values: Record<string, string | null> = {};
 		for (const ref of params.refs) {
 			const key = refPathKey(ref, params.relativePath);
 			const value = this.treeOids.get(key);
 			if (isGitErrorInfo(value)) return { ok: false, error: { ...value } };
-			values[ref] = this.treeOids.has(key) ? (value ?? null) : `${ref}:${normalizeGitTestingRelativePath(params.relativePath)}:tree`;
+			values[ref] = this.treeOids.has(key)
+				? (value ?? null)
+				: `${ref}:${normalizeGitTestingRelativePath(params.relativePath)}:tree`;
 		}
 		return { ok: true, value: values };
 	}
 
-	async changedPathsUnder(params: GitRevisionRangePathParams): Promise<GitResult<readonly string[]>> {
+	async changedPathsUnder(
+		params: GitRevisionRangePathParams,
+	): Promise<GitResult<readonly string[]>> {
 		this.changedPathsUnderLog.push(revisionRangePathCallFromParams(params));
 		const value = this.changedPaths.get(refPathKey(params.revisionRange, params.relativePath));
 		if (isGitErrorInfo(value)) return { ok: false, error: { ...value } };
@@ -295,14 +349,22 @@ export class InMemoryGitGateway implements GitGateway {
 	}
 }
 
-function valueResult<T>(state: ValueState<T>, defaultCode: string, defaultMessage: string): GitResult<T> {
+function valueResult<T>(
+	state: ValueState<T>,
+	defaultCode: string,
+	defaultMessage: string,
+): GitResult<T> {
 	if (isFailureState(state)) {
 		return { ok: false, error: state.error ?? { code: defaultCode, message: defaultMessage } };
 	}
 	return { ok: true, value: state };
 }
 
-function optionalValueResult<T>(state: OptionalValueState<T>, defaultCode: string, defaultMessage: string): GitOptionalResult<T> {
+function optionalValueResult<T>(
+	state: OptionalValueState<T>,
+	defaultCode: string,
+	defaultMessage: string,
+): GitOptionalResult<T> {
 	if (isMissingState(state)) {
 		return { type: "missing" };
 	}
@@ -315,7 +377,10 @@ function optionalValueResult<T>(state: OptionalValueState<T>, defaultCode: strin
 function branchPresenceFailureResult(state: BranchPresenceFailureState): GitBranchPresenceResult {
 	return {
 		type: "error",
-		error: state.error ?? { code: "branch_presence_failed", message: "Could not determine local branch presence." },
+		error: state.error ?? {
+			code: "branch_presence_failed",
+			message: "Could not determine local branch presence.",
+		},
 	};
 }
 
@@ -328,7 +393,9 @@ function isMissingState(value: unknown): value is { type: "missing" } {
 }
 
 function isDetachedState(value: unknown): value is { type: "detached" } {
-	return typeof value === "object" && value !== null && "type" in value && value.type === "detached";
+	return (
+		typeof value === "object" && value !== null && "type" in value && value.type === "detached"
+	);
 }
 
 function callFromParams(params: GitCwdParams): GitCall {
@@ -347,7 +414,9 @@ function refsPathCallFromParams(params: GitRefsPathParams): GitRefsPathCall {
 	return { ...pathCallFromParams(params), refs: [...params.refs] };
 }
 
-function revisionRangePathCallFromParams(params: GitRevisionRangePathParams): GitRevisionRangePathCall {
+function revisionRangePathCallFromParams(
+	params: GitRevisionRangePathParams,
+): GitRevisionRangePathCall {
 	return { ...pathCallFromParams(params), revisionRange: params.revisionRange };
 }
 
@@ -361,7 +430,9 @@ function cloneTreeOidValue(value: string | null | GitErrorInfo): string | null |
 	return value;
 }
 
-function cloneChangedPathsValue(value: readonly string[] | GitErrorInfo): readonly string[] | GitErrorInfo {
+function cloneChangedPathsValue(
+	value: readonly string[] | GitErrorInfo,
+): readonly string[] | GitErrorInfo {
 	if (isGitErrorInfo(value)) return { ...value };
 	return [...value];
 }
@@ -386,7 +457,10 @@ export function normalizeGitTestingRelativePath(path: string): string {
 	return normalized === "" ? "." : normalized;
 }
 
-function defaultGitPath(repoRootState: ValueState<string>, relativePath: string): ValueState<string> {
+function defaultGitPath(
+	repoRootState: ValueState<string>,
+	relativePath: string,
+): ValueState<string> {
 	if (isFailureState(repoRootState)) return { type: "failure", error: repoRootState.error };
 	return `${repoRootState}/.git/${relativePath}`;
 }
@@ -407,6 +481,8 @@ function copyRefsPathCalls(calls: readonly GitRefsPathCall[]): GitRefsPathCall[]
 	return calls.map((call) => ({ ...call, refs: [...call.refs] }));
 }
 
-function copyRevisionRangePathCalls(calls: readonly GitRevisionRangePathCall[]): GitRevisionRangePathCall[] {
+function copyRevisionRangePathCalls(
+	calls: readonly GitRevisionRangePathCall[],
+): GitRevisionRangePathCall[] {
 	return calls.map((call) => ({ ...call }));
 }

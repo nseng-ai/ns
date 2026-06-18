@@ -19,8 +19,12 @@ describe("areg source CLI shim rendering", () => {
 		const outputPath = join(tempRoot, "areg-shim");
 		const canonicalCheckout = join(tempRoot, "checkout with spaces & pipes | back\\slash ' quote");
 		const installHint = "just install-areg or just install-tools";
-		const renderScriptPath = fileURLToPath(new URL("../../../../scripts/render-cli-shim.py", import.meta.url));
-		const templatePath = fileURLToPath(new URL("../../../../scripts/source-cli-shim-template", import.meta.url));
+		const renderScriptPath = fileURLToPath(
+			new URL("../../../../scripts/render-cli-shim.py", import.meta.url),
+		);
+		const templatePath = fileURLToPath(
+			new URL("../../../../scripts/source-cli-shim-template", import.meta.url),
+		);
 
 		const render = spawnSync("python", [renderScriptPath], {
 			env: {

@@ -68,12 +68,16 @@ class FakePi implements ExtensionAPI {
 	readonly sentUserMessages: string[] = [];
 	private readonly script: ScriptedExec[];
 	private readonly commandInfos: ReturnType<ExtensionAPI["getCommands"]>;
-	private readonly eventHandlers: Record<EventName, Array<AgentEndHandler | SessionStartHandler>> = {
-		agent_end: [],
-		session_start: [],
-	};
+	private readonly eventHandlers: Record<EventName, Array<AgentEndHandler | SessionStartHandler>> =
+		{
+			agent_end: [],
+			session_start: [],
+		};
 
-	constructor(script: ScriptedExec[] = [], commandInfos: ReturnType<ExtensionAPI["getCommands"]> = []) {
+	constructor(
+		script: ScriptedExec[] = [],
+		commandInfos: ReturnType<ExtensionAPI["getCommands"]> = [],
+	) {
 		this.script = [...script];
 		this.commandInfos = [...commandInfos];
 	}
@@ -151,7 +155,14 @@ function step(command: string, args: string[], result?: Partial<ExecResult>): Sc
 	return { command, args, result };
 }
 
-function createContext(options: { cancelSelect?: boolean; cwd?: string; selectIndex?: number; selectIndices?: number[] } = {}): {
+function createContext(
+	options: {
+		cancelSelect?: boolean;
+		cwd?: string;
+		selectIndex?: number;
+		selectIndices?: number[];
+	} = {},
+): {
 	ctx: CommandContext;
 	notifications: Notification[];
 	selections: Selection[];
@@ -227,7 +238,12 @@ async function withTempSkill<T>(
 	}
 }
 
-type ObjectiveCommandContextOptions = { cancelSelect?: boolean; selectIndex?: number; selectIndices?: number[]; cwd?: string };
+type ObjectiveCommandContextOptions = {
+	cancelSelect?: boolean;
+	selectIndex?: number;
+	selectIndices?: number[];
+	cwd?: string;
+};
 
 async function runObjectiveStackImpl(
 	args: string,
@@ -297,7 +313,10 @@ async function runObjectiveCommand(
 	return { pi, ...context };
 }
 
-async function runObjectiveList(args: string, script: ScriptedExec[] = []): Promise<{
+async function runObjectiveList(
+	args: string,
+	script: ScriptedExec[] = [],
+): Promise<{
 	pi: FakePi;
 	notifications: Notification[];
 	selections: Selection[];
@@ -331,7 +350,9 @@ function expectPromptSelectsObjective(
 ): void {
 	expect(prompt).toContain(ACTION_PROMPTS[commandName]);
 	expect(prompt).toContain(`\`\`\`text\n${objective}\n\`\`\``);
-	expect(prompt).toContain("Treat this as an explicit user selection. Do not auto-select a different Objective.");
+	expect(prompt).toContain(
+		"Treat this as an explicit user selection. Do not auto-select a different Objective.",
+	);
 }
 
 function objectiveList(slugs: string[], trunkBranch: string = TRUNK): string {
@@ -366,7 +387,9 @@ function objectiveListFromRecords(
 }
 
 function listStep(slugs: string[], trunkBranch: string = TRUNK): ScriptedExec {
-	return step("objective", ["list", "--minimal", "--format", "json"], { stdout: objectiveList(slugs, trunkBranch) });
+	return step("objective", ["list", "--minimal", "--format", "json"], {
+		stdout: objectiveList(slugs, trunkBranch),
+	});
 }
 
 function objectiveCandidatesFromRecords(records: Array<{ slug: string; status: string }>): string {
@@ -406,7 +429,10 @@ async function objectiveCommandCompletions(
 	commandName: ObjectiveCommandName,
 	prefix: string,
 	script: ScriptedExec[],
-): Promise<{ pi: FakePi; items: Awaited<ReturnType<NonNullable<RegisteredCommand["getArgumentCompletions"]>>> }> {
+): Promise<{
+	pi: FakePi;
+	items: Awaited<ReturnType<NonNullable<RegisteredCommand["getArgumentCompletions"]>>>;
+}> {
 	const pi = new FakePi(script);
 	objectiveExtension(pi);
 	await pi.emitSessionStart(createContext().ctx);
@@ -419,7 +445,10 @@ async function objectiveCommandCompletions(
 	return { pi, items };
 }
 
-function expectInvalidObjectiveListArgs(result: ReturnType<typeof parseObjectiveListArgs>, pattern: RegExp): void {
+function expectInvalidObjectiveListArgs(
+	result: ReturnType<typeof parseObjectiveListArgs>,
+	pattern: RegExp,
+): void {
 	expect(result.type).toBe("invalid");
 	if (result.type === "invalid") {
 		expect(result.message).toMatch(pattern);
@@ -451,23 +480,42 @@ describe("objective:list command", () => {
 				help: false,
 			},
 		});
-		expect(parseObjectiveListArgs("--help")).toEqual({ type: "valid", args: { args: [], help: true } });
+		expect(parseObjectiveListArgs("--help")).toEqual({
+			type: "valid",
+			args: { args: [], help: true },
+		});
 	});
 
 	test("rejects removed and unsupported list arguments", () => {
-		expectInvalidObjectiveListArgs(parseObjectiveListArgs("--current"), /--current is no longer supported/);
-		expectInvalidObjectiveListArgs(parseObjectiveListArgs("--view detail"), /--view is no longer supported/);
+		expectInvalidObjectiveListArgs(
+			parseObjectiveListArgs("--current"),
+			/--current is no longer supported/,
+		);
+		expectInvalidObjectiveListArgs(
+			parseObjectiveListArgs("--view detail"),
+			/--view is no longer supported/,
+		);
 		expectInvalidObjectiveListArgs(
 			parseObjectiveListArgs("--status in-flight"),
 			/Unsupported --status value: in-flight/,
 		);
-		expectInvalidObjectiveListArgs(parseObjectiveListArgs("--format json"), /--format is controlled/);
-		expectInvalidObjectiveListArgs(parseObjectiveListArgs("--json-schema"), /--json-schema is not supported/);
+		expectInvalidObjectiveListArgs(
+			parseObjectiveListArgs("--format json"),
+			/--format is controlled/,
+		);
+		expectInvalidObjectiveListArgs(
+			parseObjectiveListArgs("--json-schema"),
+			/--json-schema is not supported/,
+		);
 	});
 
 	test("forwards accepted status arguments with markdown format controlled by the extension", async () => {
 		const result = await runObjectiveList("--names --minimal --status all", [
-			step("objective", ["list", "--names", "--minimal", "--status", "all", "--format", "markdown"], { stdout: "alpha\n" }),
+			step(
+				"objective",
+				["list", "--names", "--minimal", "--status", "all", "--format", "markdown"],
+				{ stdout: "alpha\n" },
+			),
 		]);
 
 		result.pi.assertDone();
@@ -510,29 +558,37 @@ describe("objective:stack-impl command", () => {
 	});
 
 	test("explicit slug bypasses objective list, git evidence, and recursive slash dispatch", async () => {
-		await withTempSkill("objective-stack-impl", STACK_SKILL_MARKDOWN, async (skillPath, skillDir) => {
-			const result = await runObjectiveStackImpl("  bravo  ", [], {}, [
-				skillCommandInfo("objective-stack-impl", skillPath, skillDir),
-			]);
+		await withTempSkill(
+			"objective-stack-impl",
+			STACK_SKILL_MARKDOWN,
+			async (skillPath, skillDir) => {
+				const result = await runObjectiveStackImpl("  bravo  ", [], {}, [
+					skillCommandInfo("objective-stack-impl", skillPath, skillDir),
+				]);
 
-			result.pi.assertDone();
-			expect(result.pi.execCalls).toEqual([]);
-			expect(result.selections).toEqual([]);
-			expect(result.waitForIdleCalls()).toBe(1);
-			expect(result.pi.sentUserMessages).toHaveLength(1);
-			expect(result.pi.sentUserMessages[0]).toContain(`<skill name="objective-stack-impl" location="${skillPath}">`);
-			expect(result.pi.sentUserMessages[0]).toContain("# Test Objective Stack Skill\n\nUse the selected Objective.");
-			expect(result.pi.sentUserMessages[0]).not.toContain("hidden-frontmatter-token");
-			expect(result.pi.sentUserMessages[0]).toContain(
-				"Run objective-stack-impl for this explicitly selected Objective slug or path:",
-			);
-			expect(result.pi.sentUserMessages[0]).toContain("```text\nbravo\n```");
-			expect(result.pi.sentUserMessages[0]?.startsWith("/objective:stack-impl")).toBe(false);
-			expect(result.notifications).toContainEqual({
-				message: "Invoking objective:stack-impl for bravo.",
-				level: "info",
-			});
-		});
+				result.pi.assertDone();
+				expect(result.pi.execCalls).toEqual([]);
+				expect(result.selections).toEqual([]);
+				expect(result.waitForIdleCalls()).toBe(1);
+				expect(result.pi.sentUserMessages).toHaveLength(1);
+				expect(result.pi.sentUserMessages[0]).toContain(
+					`<skill name="objective-stack-impl" location="${skillPath}">`,
+				);
+				expect(result.pi.sentUserMessages[0]).toContain(
+					"# Test Objective Stack Skill\n\nUse the selected Objective.",
+				);
+				expect(result.pi.sentUserMessages[0]).not.toContain("hidden-frontmatter-token");
+				expect(result.pi.sentUserMessages[0]).toContain(
+					"Run objective-stack-impl for this explicitly selected Objective slug or path:",
+				);
+				expect(result.pi.sentUserMessages[0]).toContain("```text\nbravo\n```");
+				expect(result.pi.sentUserMessages[0]?.startsWith("/objective:stack-impl")).toBe(false);
+				expect(result.notifications).toContainEqual({
+					message: "Invoking objective:stack-impl for bravo.",
+					level: "info",
+				});
+			},
+		);
 	});
 
 	test("explicit slug falls back when the portable skill is unavailable", async () => {
@@ -540,7 +596,9 @@ describe("objective:stack-impl command", () => {
 
 		result.pi.assertDone();
 		expect(result.pi.execCalls).toEqual([]);
-		expect(result.pi.sentUserMessages[0]).toContain("The objective-stack-impl skill was not found among loaded Pi skills.");
+		expect(result.pi.sentUserMessages[0]).toContain(
+			"The objective-stack-impl skill was not found among loaded Pi skills.",
+		);
 		expect(result.pi.sentUserMessages[0]).toContain("```text\nbravo\n```");
 		expect(result.notifications).toContainEqual({
 			message: "objective-stack-impl skill was not found; using fallback prompt.",
@@ -549,79 +607,92 @@ describe("objective:stack-impl command", () => {
 	});
 
 	test("empty args load active candidates with objective list json and git evidence", async () => {
-		await withTempSkill("objective-stack-impl", STACK_SKILL_MARKDOWN, async (skillPath, skillDir) => {
-			const result = await runObjectiveStackImpl(
-				"",
-				[listStep(["alpha", "bravo"]), diffStep(""), statusStep("")],
-				{},
-				[skillCommandInfo("objective-stack-impl", skillPath, skillDir)],
-			);
+		await withTempSkill(
+			"objective-stack-impl",
+			STACK_SKILL_MARKDOWN,
+			async (skillPath, skillDir) => {
+				const result = await runObjectiveStackImpl(
+					"",
+					[listStep(["alpha", "bravo"]), diffStep(""), statusStep("")],
+					{},
+					[skillCommandInfo("objective-stack-impl", skillPath, skillDir)],
+				);
 
-			result.pi.assertDone();
-			expectListActiveObjectivesCall(result);
-			expect(result.pi.execCalls[1]).toEqual({
-				command: "git",
-				args: ["diff", "--name-status", "-M", "master...HEAD", "--", ".asdl/objectives"],
-				options: { cwd: ROOT, timeout: 30_000 },
-			});
-			expect(result.pi.execCalls[2]).toEqual({
-				command: "git",
-				args: ["status", "--porcelain=v1", "-z", "--", ".asdl/objectives"],
-				options: { cwd: ROOT, timeout: 30_000 },
-			});
-			expect(result.waitForIdleCalls()).toBe(2);
-			expect(result.pi.sentUserMessages[0]).toContain("```text\nalpha\n```");
-		});
+				result.pi.assertDone();
+				expectListActiveObjectivesCall(result);
+				expect(result.pi.execCalls[1]).toEqual({
+					command: "git",
+					args: ["diff", "--name-status", "-M", "master...HEAD", "--", ".asdl/objectives"],
+					options: { cwd: ROOT, timeout: 30_000 },
+				});
+				expect(result.pi.execCalls[2]).toEqual({
+					command: "git",
+					args: ["status", "--porcelain=v1", "-z", "--", ".asdl/objectives"],
+					options: { cwd: ROOT, timeout: 30_000 },
+				});
+				expect(result.waitForIdleCalls()).toBe(2);
+				expect(result.pi.sentUserMessages[0]).toContain("```text\nalpha\n```");
+			},
+		);
 	});
 
 	test("changed Objective grouping matches objective-next", async () => {
-		await withTempSkill("objective-stack-impl", STACK_SKILL_MARKDOWN, async (skillPath, skillDir) => {
-			const result = await runObjectiveStackImpl(
-				"",
-				[
-					listStep(["alpha", "bravo", "charlie"]),
-					diffStep("M\t.asdl/objectives/bravo/objective.md\n"),
-					statusStep(""),
-				],
-				{},
-				[skillCommandInfo("objective-stack-impl", skillPath, skillDir)],
-			);
+		await withTempSkill(
+			"objective-stack-impl",
+			STACK_SKILL_MARKDOWN,
+			async (skillPath, skillDir) => {
+				const result = await runObjectiveStackImpl(
+					"",
+					[
+						listStep(["alpha", "bravo", "charlie"]),
+						diffStep("M\t.asdl/objectives/bravo/objective.md\n"),
+						statusStep(""),
+					],
+					{},
+					[skillCommandInfo("objective-stack-impl", skillPath, skillDir)],
+				);
 
-			result.pi.assertDone();
-			expect(result.selections[0]).toEqual({
-				title: "Select an active Objective for stack implementation (only Objective changed vs master)",
-				items: [
-					"bravo — suggested: only Objective changed vs master — open — latest update 2026-01-02T00:00:00Z",
-					"View other active Objectives…",
-				],
-			});
-			expect(result.pi.sentUserMessages[0]).toContain("```text\nbravo\n```");
-		});
+				result.pi.assertDone();
+				expect(result.selections[0]).toEqual({
+					title:
+						"Select an active Objective for stack implementation (only Objective changed vs master)",
+					items: [
+						"bravo — suggested: only Objective changed vs master — open — latest update 2026-01-02T00:00:00Z",
+						"View other active Objectives…",
+					],
+				});
+				expect(result.pi.sentUserMessages[0]).toContain("```text\nbravo\n```");
+			},
+		);
 	});
 
 	test("View other active Objectives opens a second picker and sends the selected other slug", async () => {
-		await withTempSkill("objective-stack-impl", STACK_SKILL_MARKDOWN, async (skillPath, skillDir) => {
-			const result = await runObjectiveStackImpl(
-				"",
-				[
-					listStep(["alpha", "bravo", "charlie"]),
-					diffStep("M\t.asdl/objectives/bravo/objective.md\n"),
-					statusStep(""),
-				],
-				{ selectIndices: [1, 1] },
-				[skillCommandInfo("objective-stack-impl", skillPath, skillDir)],
-			);
+		await withTempSkill(
+			"objective-stack-impl",
+			STACK_SKILL_MARKDOWN,
+			async (skillPath, skillDir) => {
+				const result = await runObjectiveStackImpl(
+					"",
+					[
+						listStep(["alpha", "bravo", "charlie"]),
+						diffStep("M\t.asdl/objectives/bravo/objective.md\n"),
+						statusStep(""),
+					],
+					{ selectIndices: [1, 1] },
+					[skillCommandInfo("objective-stack-impl", skillPath, skillDir)],
+				);
 
-			result.pi.assertDone();
-			expect(result.selections[1]).toEqual({
-				title: "Select an active Objective for stack implementation (other active Objectives)",
-				items: [
-					"alpha — open — latest update 2026-01-01T00:00:00Z",
-					"charlie — open — latest update 2026-01-03T00:00:00Z",
-				],
-			});
-			expect(result.pi.sentUserMessages[0]).toContain("```text\ncharlie\n```");
-		});
+				result.pi.assertDone();
+				expect(result.selections[1]).toEqual({
+					title: "Select an active Objective for stack implementation (other active Objectives)",
+					items: [
+						"alpha — open — latest update 2026-01-01T00:00:00Z",
+						"charlie — open — latest update 2026-01-03T00:00:00Z",
+					],
+				});
+				expect(result.pi.sentUserMessages[0]).toContain("```text\ncharlie\n```");
+			},
+		);
 	});
 
 	test("picker cancellation sends no prompt", async () => {
@@ -632,7 +703,9 @@ describe("objective:stack-impl command", () => {
 		);
 
 		result.pi.assertDone();
-		expect(result.notifications).toEqual([{ message: "Objective selection cancelled.", level: "info" }]);
+		expect(result.notifications).toEqual([
+			{ message: "Objective selection cancelled.", level: "info" },
+		]);
 		expect(result.pi.sentUserMessages).toEqual([]);
 	});
 
@@ -658,7 +731,8 @@ describe("objective picker suggestion", () => {
 
 		result.pi.assertDone();
 		expect(result.selections[0]).toEqual({
-			title: "Select an active Objective for next work or execution preview (only Objective changed vs master)",
+			title:
+				"Select an active Objective for next work or execution preview (only Objective changed vs master)",
 			items: [
 				"bravo — suggested: only Objective changed vs master — open — latest update 2026-01-02T00:00:00Z",
 				"View other active Objectives…",
@@ -666,9 +740,11 @@ describe("objective picker suggestion", () => {
 		});
 		expect(result.selections).toHaveLength(1);
 		expect(result.pi.sentUserMessages[0]).toContain("bravo");
-		expect(result.notifications.some((notification) => notification.message === "Suggested bravo from objective diff vs master.")).toBe(
-			false,
-		);
+		expect(
+			result.notifications.some(
+				(notification) => notification.message === "Suggested bravo from objective diff vs master.",
+			),
+		).toBe(false);
 	});
 
 	test("dirty-only single active Objective is suggested with checkout wording", async () => {
@@ -680,7 +756,8 @@ describe("objective picker suggestion", () => {
 
 		result.pi.assertDone();
 		expect(result.selections[0]).toEqual({
-			title: "Select an active Objective for next work or execution preview (only Objective changed in checkout or vs master)",
+			title:
+				"Select an active Objective for next work or execution preview (only Objective changed in checkout or vs master)",
 			items: [
 				"bravo — suggested: only Objective changed in checkout or vs master — open — latest update 2026-01-02T00:00:00Z",
 				"View other active Objectives…",
@@ -698,7 +775,8 @@ describe("objective picker suggestion", () => {
 		result.pi.assertDone();
 		expect(result.pi.execCalls.map((call) => call.args[0])).toEqual(["list", "status"]);
 		expect(result.selections[0]).toEqual({
-			title: "Select an active Objective for next work or execution preview (only Objective changed in checkout)",
+			title:
+				"Select an active Objective for next work or execution preview (only Objective changed in checkout)",
 			items: [
 				"bravo — suggested: only Objective changed in checkout — open — latest update 2026-01-02T00:00:00Z",
 				"View other active Objectives…",
@@ -715,7 +793,8 @@ describe("objective picker suggestion", () => {
 
 		result.pi.assertDone();
 		expect(result.selections[0]).toEqual({
-			title: "Select an active Objective for next work or execution preview (changed Objectives in checkout or vs master)",
+			title:
+				"Select an active Objective for next work or execution preview (changed Objectives in checkout or vs master)",
 			items: [
 				"alpha — changed in checkout or vs master — open — latest update 2026-01-01T00:00:00Z",
 				"charlie — changed in checkout or vs master — open — latest update 2026-01-03T00:00:00Z",
@@ -753,7 +832,8 @@ describe("objective picker suggestion", () => {
 
 		result.pi.assertDone();
 		expect(result.selections[1]).toEqual({
-			title: "Select an active Objective for next work or execution preview (other active Objectives)",
+			title:
+				"Select an active Objective for next work or execution preview (other active Objectives)",
 			items: [
 				"alpha — open — latest update 2026-01-01T00:00:00Z",
 				"charlie — open — latest update 2026-01-03T00:00:00Z",
@@ -765,16 +845,18 @@ describe("objective picker suggestion", () => {
 	test("shows changed active Objectives before offering the rest", async () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo", "charlie", "delta"]),
-			diffStep([
-				"M\t.asdl/objectives/alpha/objective.md",
-				"M\t.asdl/objectives/charlie/roadmap.md",
-			].join("\n")),
+			diffStep(
+				["M\t.asdl/objectives/alpha/objective.md", "M\t.asdl/objectives/charlie/roadmap.md"].join(
+					"\n",
+				),
+			),
 			statusStep(""),
 		]);
 
 		result.pi.assertDone();
 		expect(result.selections[0]).toEqual({
-			title: "Select an active Objective for next work or execution preview (changed Objectives vs master)",
+			title:
+				"Select an active Objective for next work or execution preview (changed Objectives vs master)",
 			items: [
 				"alpha — changed vs master — open — latest update 2026-01-01T00:00:00Z",
 				"charlie — changed vs master — open — latest update 2026-01-03T00:00:00Z",
@@ -790,10 +872,11 @@ describe("objective picker suggestion", () => {
 			"",
 			[
 				listStep(["alpha", "bravo", "charlie", "delta"]),
-				diffStep([
-					"M\t.asdl/objectives/alpha/objective.md",
-					"M\t.asdl/objectives/charlie/roadmap.md",
-				].join("\n")),
+				diffStep(
+					["M\t.asdl/objectives/alpha/objective.md", "M\t.asdl/objectives/charlie/roadmap.md"].join(
+						"\n",
+					),
+				),
 				statusStep(""),
 			],
 			{ selectIndices: [2, 1] },
@@ -801,7 +884,8 @@ describe("objective picker suggestion", () => {
 
 		result.pi.assertDone();
 		expect(result.selections[1]).toEqual({
-			title: "Select an active Objective for next work or execution preview (other active Objectives)",
+			title:
+				"Select an active Objective for next work or execution preview (other active Objectives)",
 			items: [
 				"bravo — open — latest update 2026-01-02T00:00:00Z",
 				"delta — open — latest update 2026-01-04T00:00:00Z",
@@ -813,13 +897,18 @@ describe("objective picker suggestion", () => {
 	test("omits the View other choice when all active Objectives changed", async () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo"]),
-			diffStep(["M\t.asdl/objectives/alpha/objective.md", "M\t.asdl/objectives/bravo/objective.md"].join("\n")),
+			diffStep(
+				["M\t.asdl/objectives/alpha/objective.md", "M\t.asdl/objectives/bravo/objective.md"].join(
+					"\n",
+				),
+			),
 			statusStep(""),
 		]);
 
 		result.pi.assertDone();
 		expect(result.selections[0]).toEqual({
-			title: "Select an active Objective for next work or execution preview (changed Objectives vs master)",
+			title:
+				"Select an active Objective for next work or execution preview (changed Objectives vs master)",
 			items: [
 				"alpha — changed vs master — open — latest update 2026-01-01T00:00:00Z",
 				"bravo — changed vs master — open — latest update 2026-01-02T00:00:00Z",
@@ -847,10 +936,12 @@ describe("objective picker suggestion", () => {
 	test("filters inactive changed Objective slugs before diff suggestions", async () => {
 		const result = await runObjectiveNext("", [
 			listStep(["pi-extension-deepening"]),
-			diffStep([
-				"A\t.asdl/objectives/pi-extension-architecture-deepening/closed.md",
-				"M\t.asdl/objectives/pi-extension-deepening/objective.md",
-			].join("\n")),
+			diffStep(
+				[
+					"A\t.asdl/objectives/pi-extension-architecture-deepening/closed.md",
+					"M\t.asdl/objectives/pi-extension-deepening/objective.md",
+				].join("\n"),
+			),
 			statusStep(""),
 		]);
 
@@ -867,16 +958,19 @@ describe("objective picker suggestion", () => {
 	test("does not claim only Objective changed when a changed slug is not active", async () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo", "charlie"]),
-			diffStep([
-				"M\t.asdl/objectives/bravo/objective.md",
-				"M\t.asdl/objectives/closed-objective/objective.md",
-			].join("\n")),
+			diffStep(
+				[
+					"M\t.asdl/objectives/bravo/objective.md",
+					"M\t.asdl/objectives/closed-objective/objective.md",
+				].join("\n"),
+			),
 			statusStep(""),
 		]);
 
 		result.pi.assertDone();
 		expect(result.selections[0]).toEqual({
-			title: "Select an active Objective for next work or execution preview (changed Objectives vs master)",
+			title:
+				"Select an active Objective for next work or execution preview (changed Objectives vs master)",
 			items: [
 				"bravo — changed vs master — open — latest update 2026-01-02T00:00:00Z",
 				"View other active Objectives…",
@@ -903,7 +997,8 @@ describe("objective picker suggestion", () => {
 
 		result.pi.assertDone();
 		expect(result.selections[0]).toEqual({
-			title: "Select an active Objective for next work or execution preview (only Objective changed vs master)",
+			title:
+				"Select an active Objective for next work or execution preview (only Objective changed vs master)",
 			items: [
 				"bravo — suggested: only Objective changed vs master — open — latest update 2026-01-02T00:00:00Z",
 				"View other active Objectives…",
@@ -920,7 +1015,8 @@ describe("objective picker suggestion", () => {
 
 		result.pi.assertDone();
 		expect(result.selections[0]).toEqual({
-			title: "Select an active Objective for next work or execution preview (only Objective changed in checkout or vs master)",
+			title:
+				"Select an active Objective for next work or execution preview (only Objective changed in checkout or vs master)",
 			items: [
 				"bravo — suggested: only Objective changed in checkout or vs master — open — latest update 2026-01-02T00:00:00Z",
 				"View other active Objectives…",
@@ -945,7 +1041,9 @@ describe("objective picker suggestion", () => {
 			"alpha — open — latest update 2026-01-01T00:00:00Z",
 			"bravo — open — latest update 2026-01-02T00:00:00Z",
 		]);
-		expect(result.notifications).toEqual([{ message: "Objective selection cancelled.", level: "info" }]);
+		expect(result.notifications).toEqual([
+			{ message: "Objective selection cancelled.", level: "info" },
+		]);
 		expect(result.pi.sentUserMessages).toEqual([]);
 	});
 });
@@ -1010,7 +1108,10 @@ describe("objective command shared selection policy", () => {
 
 	test("slug completions fail quietly for candidate command failures", async () => {
 		const { pi, items } = await objectiveCommandCompletions("objective:next", "", [
-			step("objective", ["exec", "list-candidates", "--format", "json"], { code: 1, stderr: "failed" }),
+			step("objective", ["exec", "list-candidates", "--format", "json"], {
+				code: 1,
+				stderr: "failed",
+			}),
 		]);
 
 		pi.assertDone();
@@ -1174,7 +1275,9 @@ Use the selected Objective.
 			expect(prompt).toContain(`References are relative to ${skillDir}.`);
 			expect(prompt).toContain("# Objective Next Skill\n\nUse the selected Objective.");
 			expect(prompt).not.toContain("hidden-frontmatter-token");
-			expect(prompt).toContain("Run objective-next for this explicitly selected Objective slug or path:");
+			expect(prompt).toContain(
+				"Run objective-next for this explicitly selected Objective slug or path:",
+			);
 			expect(prompt).toContain("```text\nbravo\n```");
 			expect(result.notifications).toContainEqual({
 				message: "Invoking objective-next for bravo.",

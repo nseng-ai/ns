@@ -4,8 +4,13 @@ export function cleanupErrorCount(cleanup: readonly SlotFreeCleanupResult[]): nu
 	return cleanup.filter((result) => result.status === "error").length;
 }
 
-export function renderCleanupLines(cleanup: readonly SlotFreeCleanupResult[], options: { isDryRun?: boolean | undefined } = {}): readonly string[] {
-	return cleanup.map((result) => options.isDryRun === true ? cleanupPreviewLine(result) : cleanupResultLine(result));
+export function renderCleanupLines(
+	cleanup: readonly SlotFreeCleanupResult[],
+	options: { isDryRun?: boolean | undefined } = {},
+): readonly string[] {
+	return cleanup.map((result) =>
+		options.isDryRun === true ? cleanupPreviewLine(result) : cleanupResultLine(result),
+	);
 }
 
 export function cleanupPreviewLine(result: SlotFreeCleanupResult): string {
@@ -13,7 +18,8 @@ export function cleanupPreviewLine(result: SlotFreeCleanupResult): string {
 		if (result.action === "pr") return `PR: close #${result.pr_number}`;
 		return `local branch: force-delete ${result.branch_name}`;
 	}
-	if (result.status === "skipped") return `${cleanupSubject(result)}: skipped (${result.message ?? "already complete"})`;
+	if (result.status === "skipped")
+		return `${cleanupSubject(result)}: skipped (${result.message ?? "already complete"})`;
 	return `${cleanupSubject(result)}: error: ${result.message ?? "failed"}`;
 }
 

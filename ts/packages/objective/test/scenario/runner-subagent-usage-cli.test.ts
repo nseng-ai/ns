@@ -76,7 +76,9 @@ describe("objective exec runner-subagent-usage", () => {
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
 		expect(output).toContain("# Runner Subagent Usage");
-		expect(output).toContain("| session | status | responses | model(s) | input | output | cache read |");
+		expect(output).toContain(
+			"| session | status | responses | model(s) | input | output | cache read |",
+		);
 		expect(output).toContain(sessionFile);
 		expect(output).toContain("openai-codex/responses/gpt-5.5");
 		expect(output).toContain("| 100 | 20 | 30 | 0 | 150 | 150 | 130 | $0.006000 |");
@@ -93,14 +95,21 @@ describe("objective exec runner-subagent-usage", () => {
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
 			exit_code: 1,
-			message: "Missing session file (missing_session_file). Pass at least one Pi runner subagent JSONL file.",
+			message:
+				"Missing session file (missing_session_file). Pass at least one Pi runner subagent JSONL file.",
 			data: {
 				sessions: [],
 				aggregate: {
 					sessionCount: 0,
 					okSessionCount: 0,
 					usageResponseCount: 0,
-					tokens: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, totalTokens: 0 },
+					tokens: {
+						inputTokens: 0,
+						outputTokens: 0,
+						cacheReadTokens: 0,
+						cacheWriteTokens: 0,
+						totalTokens: 0,
+					},
 					cost: { inputUsd: 0, outputUsd: 0, cacheReadUsd: 0, cacheWriteUsd: 0, totalUsd: 0 },
 					peakObservedTotalTokens: null,
 					peakObservedPromptTokens: null,

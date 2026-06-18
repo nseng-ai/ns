@@ -51,7 +51,10 @@ export interface PiReplacementVerification {
 	surface?: string | undefined;
 }
 
-export function derivePiReplacementCommand(skillName: string, namespaces: readonly string[] = KNOWN_PI_COMMAND_NAMESPACES): string | undefined {
+export function derivePiReplacementCommand(
+	skillName: string,
+	namespaces: readonly string[] = KNOWN_PI_COMMAND_NAMESPACES,
+): string | undefined {
 	for (const namespace of [...namespaces].sort((left, right) => right.length - left.length)) {
 		const prefix = `${namespace}-`;
 		if (skillName.startsWith(prefix)) return `${namespace}:${skillName.slice(prefix.length)}`;
@@ -61,7 +64,10 @@ export function derivePiReplacementCommand(skillName: string, namespaces: readon
 	return `${skillName.slice(0, firstHyphen)}:${skillName.slice(firstHyphen + 1)}`;
 }
 
-export function verifyPiReplacement(skillName: string, facts: PiReplacementFacts): PiReplacementVerification {
+export function verifyPiReplacement(
+	skillName: string,
+	facts: PiReplacementFacts,
+): PiReplacementVerification {
 	const specialized = SPECIALIZED_SKILL_REPLACEMENTS[skillName];
 	const surface = specialized ?? derivePiReplacementCommand(skillName);
 	if (surface === undefined) return { verified: false };

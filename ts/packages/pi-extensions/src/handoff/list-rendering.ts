@@ -32,17 +32,26 @@ export function renderHandoffListMessage(
 
 	return {
 		render(width: number): string[] {
-			return formatHandoffListLines(details).map((line, index) => styleHandoffListLine(truncateDisplayLine(line, width), index, theme));
+			return formatHandoffListLines(details).map((line, index) =>
+				styleHandoffListLine(truncateDisplayLine(line, width), index, theme),
+			);
 		},
 		invalidate(): void {},
 	};
 }
 
-export function formatHandoffPickupCommand(item: HandoffListMessageItem, mode: HandoffListMode): string {
-	return mode === "all-branches" ? `/${PICKUP_HANDOFF_COMMAND_NAME} --branch ${item.branch} ${item.slug}` : `/${PICKUP_HANDOFF_COMMAND_NAME} ${item.slug}`;
+export function formatHandoffPickupCommand(
+	item: HandoffListMessageItem,
+	mode: HandoffListMode,
+): string {
+	return mode === "all-branches"
+		? `/${PICKUP_HANDOFF_COMMAND_NAME} --branch ${item.branch} ${item.slug}`
+		: `/${PICKUP_HANDOFF_COMMAND_NAME} ${item.slug}`;
 }
 
-export function groupHandoffListItemsByBranch(items: HandoffListMessageItem[]): HandoffListBranchGroup[] {
+export function groupHandoffListItemsByBranch(
+	items: HandoffListMessageItem[],
+): HandoffListBranchGroup[] {
 	const groups: HandoffListBranchGroup[] = [];
 	const branchGroups = new Map<string, HandoffListBranchGroup>();
 
@@ -61,7 +70,9 @@ export function groupHandoffListItemsByBranch(items: HandoffListMessageItem[]): 
 
 function formatHandoffListLines(details: HandoffListMessageDetails): string[] {
 	const branch = details.branch ?? details.items[0]?.branch ?? "current branch";
-	const lines = [details.mode === "all-branches" ? "Handoffs across branches" : `Handoffs on ${branch}`];
+	const lines = [
+		details.mode === "all-branches" ? "Handoffs across branches" : `Handoffs on ${branch}`,
+	];
 	if (details.items.length === 0) {
 		return lines;
 	}
@@ -86,7 +97,12 @@ function formatHandoffListLines(details: HandoffListMessageDetails): string[] {
 	return lines;
 }
 
-function appendHandoffListCard(lines: string[], index: number, item: HandoffListMessageItem, mode: HandoffListMode): void {
+function appendHandoffListCard(
+	lines: string[],
+	index: number,
+	item: HandoffListMessageItem,
+	mode: HandoffListMode,
+): void {
 	lines.push(`  ${index}. ${item.slug}`);
 	lines.push(`     ${item.preview}`);
 	lines.push(`     → ${formatHandoffPickupCommand(item, mode)}`);
@@ -107,7 +123,13 @@ function parseHandoffListMessageDetails(details: unknown): HandoffListMessageDet
 
 	const items: HandoffListMessageItem[] = [];
 	for (const item of details.items) {
-		if (!isRecord(item) || typeof item.branch !== "string" || typeof item.key !== "string" || typeof item.slug !== "string" || typeof item.preview !== "string") {
+		if (
+			!isRecord(item) ||
+			typeof item.branch !== "string" ||
+			typeof item.key !== "string" ||
+			typeof item.slug !== "string" ||
+			typeof item.preview !== "string"
+		) {
 			return undefined;
 		}
 		items.push({ branch: item.branch, key: item.key, slug: item.slug, preview: item.preview });

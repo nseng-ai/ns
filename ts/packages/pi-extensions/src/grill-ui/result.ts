@@ -1,5 +1,9 @@
 import type { GrillAskRemainingEstimate, ToolResult } from "../grill-ui.ts";
-import { formatRemainingEstimate, type GrillAskProgress, type GrillAskProgressSource } from "./progress.ts";
+import {
+	formatRemainingEstimate,
+	type GrillAskProgress,
+	type GrillAskProgressSource,
+} from "./progress.ts";
 import type { GrillAskChoiceRow } from "./view.ts";
 
 export type GrillAskDetails =
@@ -45,7 +49,10 @@ export type GrillAskDetails =
 export const CANCELLED_GRILL_MESSAGE =
 	"User cancelled the structured grill question. Do not silently continue grilling as though an answer was provided; summarize what is known or ask whether to continue.";
 
-export function freeformAnswerResult(question: string, answer: string): ToolResult<GrillAskDetails> {
+export function freeformAnswerResult(
+	question: string,
+	answer: string,
+): ToolResult<GrillAskDetails> {
 	const trimmedAnswer = answer.trim();
 	return textResult(`User provided a freeform answer: ${trimmedAnswer}`, {
 		action: "answer",
@@ -62,14 +69,19 @@ export function endGrillResult(question: string): ToolResult<GrillAskDetails> {
 	);
 }
 
-export function selectedChoiceResult(question: string, selectedEntry: GrillAskChoiceRow): ToolResult<GrillAskDetails> {
+export function selectedChoiceResult(
+	question: string,
+	selectedEntry: GrillAskChoiceRow,
+): ToolResult<GrillAskDetails> {
 	const details: GrillAskDetails = {
 		action: "answer",
 		kind: "choice",
 		question,
 		value: selectedEntry.option.value,
 		label: selectedEntry.option.label,
-		...(selectedEntry.option.description === undefined ? {} : { description: selectedEntry.option.description }),
+		...(selectedEntry.option.description === undefined
+			? {}
+			: { description: selectedEntry.option.description }),
 		recommended: selectedEntry.recommended,
 	};
 	return textResult(
@@ -117,7 +129,9 @@ export function statusRequestResult(
 		{
 			action: "status_request",
 			question,
-			...(progress.answeredQuestions === undefined ? {} : { answeredQuestions: progress.answeredQuestions }),
+			...(progress.answeredQuestions === undefined
+				? {}
+				: { answeredQuestions: progress.answeredQuestions }),
 			progressSource: progress.source,
 			...(estimate === undefined ? {} : { estimatedRemaining: estimate }),
 		},
@@ -134,7 +148,10 @@ export function invalidToolInputResult(errors: string[]): ToolResult<GrillAskDet
 	);
 }
 
-export function cancelledResult(question: string, text: string = CANCELLED_GRILL_MESSAGE): ToolResult<GrillAskDetails> {
+export function cancelledResult(
+	question: string,
+	text: string = CANCELLED_GRILL_MESSAGE,
+): ToolResult<GrillAskDetails> {
 	return textResult(text, { action: "cancelled", question });
 }
 
@@ -147,7 +164,10 @@ function formatAnsweredCount(progress: GrillAskProgress): string {
 	return `${progress.answeredQuestions} answered grill ${noun} so far from the current Pi session branch (best effort; no /pi:grill-me kickoff marker found).`;
 }
 
-export function textResult<Details extends GrillAskDetails>(text: string, details: Details): ToolResult<Details> {
+export function textResult<Details extends GrillAskDetails>(
+	text: string,
+	details: Details,
+): ToolResult<Details> {
 	return {
 		content: [{ type: "text", text }],
 		details,

@@ -108,14 +108,23 @@ export async function createDefaultRunnerSubagentRuntimeFiles(
 	const configPath = join(runtimeDir, "config.json");
 	const resultPath = join(runtimeDir, "result.json");
 	const extensionPath = join(runtimeDir, "runtime-extension.ts");
-	const runtimeFactoryPath = fileURLToPath(new URL("./subagent-runtime-extension.ts", import.meta.url));
+	const runtimeFactoryPath = fileURLToPath(
+		new URL("./subagent-runtime-extension.ts", import.meta.url),
+	);
 
 	try {
-		await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
-		await writeFile(extensionPath, generatedRuntimeExtensionSource(runtimeFactoryPath, configPath, resultPath), {
+		await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, {
 			encoding: "utf8",
 			mode: 0o600,
 		});
+		await writeFile(
+			extensionPath,
+			generatedRuntimeExtensionSource(runtimeFactoryPath, configPath, resultPath),
+			{
+				encoding: "utf8",
+				mode: 0o600,
+			},
+		);
 	} catch (error) {
 		await rm(runtimeDir, { recursive: true, force: true });
 		throw error;
@@ -179,7 +188,10 @@ export function parseRuntimeConfigJsonResult(raw: string): RuntimeConfigParseRes
 	try {
 		value = JSON.parse(raw);
 	} catch (error) {
-		return invalidConfig(`Invalid runner subagent runtime config JSON: ${formatErrorMessage(error)}`, error);
+		return invalidConfig(
+			`Invalid runner subagent runtime config JSON: ${formatErrorMessage(error)}`,
+			error,
+		);
 	}
 	return parseRuntimeConfigValueResult(value);
 }
@@ -216,7 +228,10 @@ export function parseRuntimeResultJsonResult(raw: string): RuntimeResultParseRes
 	try {
 		value = JSON.parse(raw);
 	} catch (error) {
-		return invalidResult(`Invalid runner subagent runtime result JSON: ${formatErrorMessage(error)}`, error);
+		return invalidResult(
+			`Invalid runner subagent runtime result JSON: ${formatErrorMessage(error)}`,
+			error,
+		);
 	}
 	return parseRuntimeResultValueResult(value);
 }
@@ -277,7 +292,9 @@ export function validateTerminalToolDefinitions(
 	terminalTools: readonly unknown[],
 ): RuntimeConfigV1["terminalTools"] {
 	if (terminalTools.length === 0) {
-		throw new RuntimeConfigValidationError("At least one runner subagent terminal tool must be provided.");
+		throw new RuntimeConfigValidationError(
+			"At least one runner subagent terminal tool must be provided.",
+		);
 	}
 
 	const names = new Set<string>();
@@ -286,7 +303,9 @@ export function validateTerminalToolDefinitions(
 			throw new RuntimeConfigValidationError(`Terminal tool at index ${index} must be an object.`);
 		}
 		if (typeof tool.name !== "string" || tool.name.length === 0) {
-			throw new RuntimeConfigValidationError(`Terminal tool at index ${index} must have a non-empty name.`);
+			throw new RuntimeConfigValidationError(
+				`Terminal tool at index ${index} must have a non-empty name.`,
+			);
 		}
 		if (!TOOL_NAME_PATTERN.test(tool.name)) {
 			throw new RuntimeConfigValidationError(
@@ -301,12 +320,19 @@ export function validateTerminalToolDefinitions(
 			throw new RuntimeConfigValidationError(`Terminal tool "${tool.name}" has invalid status.`);
 		}
 		if (typeof tool.description !== "string" || tool.description.length === 0) {
-			throw new RuntimeConfigValidationError(`Terminal tool "${tool.name}" must have a non-empty description.`);
+			throw new RuntimeConfigValidationError(
+				`Terminal tool "${tool.name}" must have a non-empty description.`,
+			);
 		}
 		if (!isRecord(tool.parameters)) {
-			throw new RuntimeConfigValidationError(`Terminal tool "${tool.name}" parameters must be an object.`);
+			throw new RuntimeConfigValidationError(
+				`Terminal tool "${tool.name}" parameters must be an object.`,
+			);
 		}
-		const parameters = cloneJsonSerializable(tool.parameters, `Terminal tool "${tool.name}" parameters`);
+		const parameters = cloneJsonSerializable(
+			tool.parameters,
+			`Terminal tool "${tool.name}" parameters`,
+		);
 		return {
 			name: tool.name,
 			status: tool.status,
@@ -324,7 +350,11 @@ function invalidResult(message: string, cause?: unknown): RuntimeResultParseResu
 	return { type: "invalid", failure: { message, ...(cause === undefined ? {} : { cause }) } };
 }
 
-function generatedRuntimeExtensionSource(runtimeFactoryPath: string, configPath: string, resultPath: string): string {
+function generatedRuntimeExtensionSource(
+	runtimeFactoryPath: string,
+	configPath: string,
+	resultPath: string,
+): string {
 	return [
 		`import { createRunnerSubagentRuntimeExtension } from ${JSON.stringify(runtimeFactoryPath)};`,
 		"",
@@ -341,7 +371,9 @@ function cloneJsonSerializable(value: unknown, label: string): TypeBoxLikeSchema
 	try {
 		raw = JSON.stringify(value);
 	} catch (error) {
-		throw new RuntimeConfigValidationError(`${label} must be JSON-serializable: ${formatErrorMessage(error)}`);
+		throw new RuntimeConfigValidationError(
+			`${label} must be JSON-serializable: ${formatErrorMessage(error)}`,
+		);
 	}
 	if (raw === undefined) {
 		throw new RuntimeConfigValidationError(`${label} must be JSON-serializable.`);
@@ -357,7 +389,9 @@ function isTerminalStatus(value: unknown): value is RunnerSubagentTerminalStatus
 	return value === "completed" || value === "blocked";
 }
 
-function isRuntimeErrorCode(value: unknown): value is Extract<RuntimeResultV1, { kind: "runtime-error" }>["code"] {
+function isRuntimeErrorCode(
+	value: unknown,
+): value is Extract<RuntimeResultV1, { kind: "runtime-error" }>["code"] {
 	return value === "tool-collision" || value === "config-error" || value === "write-error";
 }
 

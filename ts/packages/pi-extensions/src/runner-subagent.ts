@@ -1,6 +1,9 @@
 import type { ModelInfo, ThinkingLevel } from "./cmux/types.ts";
 import type { RunnerSubagentUpdate } from "./runner-subagent/activity.ts";
-import { dispatchRunnerSubagentProcess, type RunnerSubagentDispatcherDependencies } from "./runner-subagent/subagent-process.ts";
+import {
+	dispatchRunnerSubagentProcess,
+	type RunnerSubagentDispatcherDependencies,
+} from "./runner-subagent/subagent-process.ts";
 
 export type { RunnerSubagentActivity, RunnerSubagentUpdate } from "./runner-subagent/activity.ts";
 
@@ -16,7 +19,10 @@ export type RunnerSubagentFailureStatus =
 	| "cancelled"
 	| "error"
 	| "protocol-error";
-export type RunnerSubagentStatus = RunnerSubagentTerminalStatus | RunnerSubagentFinalTextStatus | RunnerSubagentFailureStatus;
+export type RunnerSubagentStatus =
+	| RunnerSubagentTerminalStatus
+	| RunnerSubagentFinalTextStatus
+	| RunnerSubagentFailureStatus;
 
 export interface RunnerSubagentTerminalToolDefinition<TInput = unknown> {
 	name: string;
@@ -145,11 +151,15 @@ interface RunnerSubagentResultBase<TStatus extends RunnerSubagentStatus> {
 	usage?: RunnerSubagentUsageMetadata;
 }
 
-export interface RunnerSubagentCompletedResult<TInput = unknown> extends RunnerSubagentResultBase<"completed"> {
+export interface RunnerSubagentCompletedResult<
+	TInput = unknown,
+> extends RunnerSubagentResultBase<"completed"> {
 	terminal: RunnerSubagentTerminalCapture<TInput, "completed">;
 }
 
-export interface RunnerSubagentBlockedResult<TInput = unknown> extends RunnerSubagentResultBase<"blocked"> {
+export interface RunnerSubagentBlockedResult<
+	TInput = unknown,
+> extends RunnerSubagentResultBase<"blocked"> {
 	terminal: RunnerSubagentTerminalCapture<TInput, "blocked">;
 }
 
@@ -158,7 +168,9 @@ export interface RunnerSubagentFinalTextResult extends RunnerSubagentResultBase<
 	stopReason?: string;
 }
 
-interface RunnerSubagentFailureResultBase<TStatus extends RunnerSubagentFailureStatus> extends RunnerSubagentResultBase<TStatus> {
+interface RunnerSubagentFailureResultBase<
+	TStatus extends RunnerSubagentFailureStatus,
+> extends RunnerSubagentResultBase<TStatus> {
 	diagnostic: string;
 }
 
@@ -199,7 +211,9 @@ export type RunnerSubagentResult<TInput = unknown> =
 	| RunnerSubagentErrorResult
 	| RunnerSubagentProtocolErrorResult;
 
-export const RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES = Symbol("dispatchRunnerSubagentDispatcherDependencies");
+export const RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES = Symbol(
+	"dispatchRunnerSubagentDispatcherDependencies",
+);
 
 export interface RunnerSubagentPi {
 	[RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES]?: RunnerSubagentDispatcherDependencies;
@@ -218,5 +232,10 @@ export async function dispatchRunnerSubagent<TTerminalInput = unknown>(
 	ctx: RunnerSubagentContext,
 	options: RunnerSubagentOptions,
 ): Promise<RunnerSubagentResult<TTerminalInput>> {
-	return await dispatchRunnerSubagentProcess<TTerminalInput>(pi, ctx, options, pi[RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES]);
+	return await dispatchRunnerSubagentProcess<TTerminalInput>(
+		pi,
+		ctx,
+		options,
+		pi[RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES],
+	);
 }

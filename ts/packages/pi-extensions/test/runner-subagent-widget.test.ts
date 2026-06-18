@@ -140,6 +140,12 @@ describe("runner subagent activity widget", () => {
 				},
 				{ fallbackTitle: "(untitled)", includeElapsed: false },
 			),
-		).toEqual(["Subagent: (untitled)", "State: starting", "Model: default (not specified)", "Thinking: off", "Turns/tools: 0/0"]);
+		).toEqual([
+			"Subagent: (untitled)",
+			"State: starting",
+			"Model: default (not specified)",
+			"Thinking: off",
+			"Turns/tools: 0/0",
+		]);
 	});
 });

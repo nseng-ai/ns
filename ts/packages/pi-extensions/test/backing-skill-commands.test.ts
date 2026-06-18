@@ -13,7 +13,10 @@ import {
 
 type RegisteredCommand = Parameters<typeof registerCommand>[1];
 
-function registerCommand(_name: string, _command: { handler(args: string, ctx: BackingSkillCommandContext): Promise<void> | void }): void {}
+function registerCommand(
+	_name: string,
+	_command: { handler(args: string, ctx: BackingSkillCommandContext): Promise<void> | void },
+): void {}
 
 class FakeBackingSkillHost {
 	readonly commands = new Map<string, RegisteredCommand>();
@@ -28,7 +31,9 @@ class FakeBackingSkillHost {
 	}
 }
 
-function commandContext(cwd: string): BackingSkillCommandContext & { notifications: Array<{ message: string; level: string | undefined }> } {
+function commandContext(cwd: string): BackingSkillCommandContext & {
+	notifications: Array<{ message: string; level: string | undefined }>;
+} {
 	const notifications: Array<{ message: string; level: string | undefined }> = [];
 	return {
 		cwd,
@@ -78,7 +83,11 @@ describe("registerBackingSkillCommands", () => {
 		try {
 			const skillDir = join(repo, "skills", "pr-address");
 			await mkdir(skillDir, { recursive: true });
-			await writeFile(join(skillDir, "SKILL.md"), "---\nname: pr-address\n---\n\n# PR Address\n", "utf8");
+			await writeFile(
+				join(skillDir, "SKILL.md"),
+				"---\nname: pr-address\n---\n\n# PR Address\n",
+				"utf8",
+			);
 
 			const host = new FakeBackingSkillHost();
 			registerBackingSkillCommands(host);
@@ -88,7 +97,9 @@ describe("registerBackingSkillCommands", () => {
 			await command?.handler("fix ```this``` please", commandContext(repo));
 
 			expect(host.sentMessages).toHaveLength(1);
-			expect(host.sentMessages[0]).toContain(`<skill name="pr-address" location="${join(skillDir, "SKILL.md")}">`);
+			expect(host.sentMessages[0]).toContain(
+				`<skill name="pr-address" location="${join(skillDir, "SKILL.md")}">`,
+			);
 			expect(host.sentMessages[0]).toContain("# PR Address");
 			expect(host.sentMessages[0]).toContain("````text\nfix ```this``` please\n````");
 		} finally {

@@ -1,8 +1,24 @@
 import { describe, expect, test } from "vitest";
 
-import { buildBundleSnapshot, buildEpisodesFileJson, computeBundleContentHash } from "../src/context-profiler/bundle.ts";
-import { captureCurrentState, createProfilerState, createSegmentationCacheCell, startBundlePersist, startProfilerWork, type ProfilerState } from "../src/context-profiler/runtime.ts";
-import { FakeBundleStore, FakeSegmentationGateway, makeProfile, sequentialTurns } from "./context-profiler-fakes.ts";
+import {
+	buildBundleSnapshot,
+	buildEpisodesFileJson,
+	computeBundleContentHash,
+} from "../src/context-profiler/bundle.ts";
+import {
+	captureCurrentState,
+	createProfilerState,
+	createSegmentationCacheCell,
+	startBundlePersist,
+	startProfilerWork,
+	type ProfilerState,
+} from "../src/context-profiler/runtime.ts";
+import {
+	FakeBundleStore,
+	FakeSegmentationGateway,
+	makeProfile,
+	sequentialTurns,
+} from "./context-profiler-fakes.ts";
 
 const PERSISTED_BUNDLE = {
 	ordinal: 1,
@@ -10,7 +26,14 @@ const PERSISTED_BUNDLE = {
 	byteSize: 1,
 	sessionTotalBytes: 1,
 	isReused: false,
-	manifest: { version: 1, contentHash: "abc", sessionId: "sid", model: "p/m", turnCount: 5, capturedAt: "now" },
+	manifest: {
+		version: 1,
+		contentHash: "abc",
+		sessionId: "sid",
+		model: "p/m",
+		turnCount: 5,
+		capturedAt: "now",
+	},
 } as const;
 
 function stateWithConversation(): ProfilerState {
@@ -41,7 +64,10 @@ describe("context-profiler bundle", () => {
 			liveSource: "branch-fallback",
 		});
 
-		expect(result).toEqual({ ok: false, error: { code: "empty-context", message: "no conversation context to bundle yet" } });
+		expect(result).toEqual({
+			ok: false,
+			error: { code: "empty-context", message: "no conversation context to bundle yet" },
+		});
 	});
 
 	test("refuses to persist an empty conversation context", () => {
@@ -56,11 +82,17 @@ describe("context-profiler bundle", () => {
 			liveSource: "session-context",
 		});
 
-		expect(result).toEqual({ ok: false, error: { code: "empty-context", message: "no conversation context to bundle yet" } });
+		expect(result).toEqual({
+			ok: false,
+			error: { code: "empty-context", message: "no conversation context to bundle yet" },
+		});
 	});
 
 	test("serializes one verbatim JSON message per line", () => {
-		const messages = [{ role: "user", content: "hello\n世界" }, { role: "assistant", content: [{ type: "text", text: "ok" }] }];
+		const messages = [
+			{ role: "user", content: "hello\n世界" },
+			{ role: "assistant", content: [{ type: "text", text: "ok" }] },
+		];
 		const result = buildBundleSnapshot({
 			messages,
 			systemPrompt: "system prompt",
@@ -75,9 +107,22 @@ describe("context-profiler bundle", () => {
 
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
-		expect(result.value.messagesJsonl.split("\n").slice(0, -1).map((line) => JSON.parse(line) as unknown)).toEqual(messages);
-		expect(result.value.manifest).toMatchObject({ sessionId: "sid", cwd: "/repo", model: "p/m", turnCount: 2, capturedAt: "2026-01-02T03:04:05.000Z" });
-		expect(result.value.manifest.contentHash).toBe(computeBundleContentHash(result.value.messagesJsonl));
+		expect(
+			result.value.messagesJsonl
+				.split("\n")
+				.slice(0, -1)
+				.map((line) => JSON.parse(line) as unknown),
+		).toEqual(messages);
+		expect(result.value.manifest).toMatchObject({
+			sessionId: "sid",
+			cwd: "/repo",
+			model: "p/m",
+			turnCount: 2,
+			capturedAt: "2026-01-02T03:04:05.000Z",
+		});
+		expect(result.value.manifest.contentHash).toBe(
+			computeBundleContentHash(result.value.messagesJsonl),
+		);
 	});
 
 	test("fails the whole bundle when a message is unserializable", () => {
@@ -126,12 +171,25 @@ describe("context-profiler bundle", () => {
 					byteSize: 1,
 					sessionTotalBytes: 1,
 					isReused: false,
-					manifest: { version: 1, contentHash: "abc", sessionId: "sid", model: "p/m", turnCount: 1, capturedAt: "now" },
+					manifest: {
+						version: 1,
+						contentHash: "abc",
+						sessionId: "sid",
+						model: "p/m",
+						turnCount: 1,
+						capturedAt: "now",
+					},
 				},
 			},
 		});
 
-		const result = startBundlePersist({ store, state, profile, sessionId: "sid", onUpdate: () => {} });
+		const result = startBundlePersist({
+			store,
+			state,
+			profile,
+			sessionId: "sid",
+			onUpdate: () => {},
+		});
 
 		expect(result.initial).toEqual({ type: "pending" });
 		expect(await result.whenPersisted).toMatchObject({ ordinal: 1 });
@@ -153,7 +211,13 @@ describe("context-profiler bundle", () => {
 			persistResult: { ok: false, error: { code: "io-error", message: "should not persist" } },
 		});
 
-		const result = startBundlePersist({ store, state, profile, sessionId: "sid", onUpdate: () => {} });
+		const result = startBundlePersist({
+			store,
+			state,
+			profile,
+			sessionId: "sid",
+			onUpdate: () => {},
+		});
 
 		expect(result.initial).toEqual({ type: "skipped", reason: "empty-context" });
 		expect(await result.whenPersisted).toBeNull();
@@ -183,7 +247,11 @@ describe("context-profiler bundle", () => {
 		const gateway = new FakeSegmentationGateway({
 			result: {
 				ok: true,
-				value: { episodes: [{ startTurn: 1, label: "work", kind: "edit", outcome: "active" }], summary: null, delegations: [] },
+				value: {
+					episodes: [{ startTurn: 1, label: "work", kind: "edit", outcome: "active" }],
+					summary: null,
+					delegations: [],
+				},
 			},
 		});
 
@@ -202,12 +270,18 @@ describe("context-profiler bundle", () => {
 
 		expect(work.initialPersistence).toEqual({ type: "pending" });
 		expect(store.episodesWrites).toHaveLength(1);
-		expect(JSON.parse(store.episodesWrites[0]?.json ?? "{}").analysisModel).toBe(gateway.analysisModel);
+		expect(JSON.parse(store.episodesWrites[0]?.json ?? "{}").analysisModel).toBe(
+			gateway.analysisModel,
+		);
 	});
 
 	test("startProfilerWork skips episodes write when persistence is skipped", async () => {
-		const store = new FakeBundleStore({ persistResult: { ok: false, error: { code: "io-error", message: "should not persist" } } });
-		const gateway = new FakeSegmentationGateway({ result: { ok: true, value: { episodes: [], summary: null, delegations: [] } } });
+		const store = new FakeBundleStore({
+			persistResult: { ok: false, error: { code: "io-error", message: "should not persist" } },
+		});
+		const gateway = new FakeSegmentationGateway({
+			result: { ok: true, value: { episodes: [], summary: null, delegations: [] } },
+		});
 
 		const work = startProfilerWork({
 			store,
@@ -233,7 +307,9 @@ describe("context-profiler bundle", () => {
 			persistResult: { ok: true, value: PERSISTED_BUNDLE },
 			writeResult: { ok: false, error: { code: "io-error", message: "disk full" } },
 		});
-		const gateway = new FakeSegmentationGateway({ result: { ok: true, value: { episodes: [], summary: null, delegations: [] } } });
+		const gateway = new FakeSegmentationGateway({
+			result: { ok: true, value: { episodes: [], summary: null, delegations: [] } },
+		});
 
 		startProfilerWork({
 			store,
@@ -262,7 +338,11 @@ describe("context-profiler bundle", () => {
 		const gateway = new FakeSegmentationGateway({
 			result: {
 				ok: true,
-				value: { episodes: [{ startTurn: 1, label: "work", kind: "edit", outcome: "active" }], summary: null, delegations: [] },
+				value: {
+					episodes: [{ startTurn: 1, label: "work", kind: "edit", outcome: "active" }],
+					summary: null,
+					delegations: [],
+				},
 			},
 			gate,
 		});

@@ -13,7 +13,10 @@ import {
 	type RuntimeResultV1,
 } from "../src/runner-subagent/subagent-runtime.ts";
 import { createRunnerSubagentRuntimeExtension } from "../src/runner-subagent/subagent-runtime-extension.ts";
-import type { RunnerSubagentTerminalStatus, RunnerSubagentTerminalToolDefinition } from "../src/runner-subagent.ts";
+import type {
+	RunnerSubagentTerminalStatus,
+	RunnerSubagentTerminalToolDefinition,
+} from "../src/runner-subagent.ts";
 
 const completionTool: RunnerSubagentTerminalToolDefinition<{ summary: string }> = {
 	name: "complete_runner_subagent",
@@ -41,7 +44,10 @@ const blockedTool: RunnerSubagentTerminalToolDefinition<{ reason: string }> = {
 
 // Builds a tool with an intentionally invalid runtime status to exercise validation.
 // A single narrow field-level cast keeps the invalid value explicit without a double cast.
-function withInvalidStatus(tool: RunnerSubagentTerminalToolDefinition, status: string): RunnerSubagentTerminalToolDefinition {
+function withInvalidStatus(
+	tool: RunnerSubagentTerminalToolDefinition,
+	status: string,
+): RunnerSubagentTerminalToolDefinition {
 	return { ...tool, status: status as RunnerSubagentTerminalStatus };
 }
 
@@ -57,7 +63,10 @@ interface RegisteredTool {
 	): Promise<{ terminate?: boolean }>;
 }
 
-type Handler = (event: Record<string, unknown>, ctx: { abort?: () => void }) => unknown | Promise<unknown>;
+type Handler = (
+	event: Record<string, unknown>,
+	ctx: { abort?: () => void },
+) => unknown | Promise<unknown>;
 
 class FakePi {
 	readonly tools: RegisteredTool[] = [];
@@ -82,7 +91,11 @@ class FakePi {
 		return [...this.initialTools, ...this.tools.map((tool) => ({ name: tool.name }))];
 	}
 
-	async emit(event: string, payload: Record<string, unknown> = {}, ctx: { abort?: () => void } = {}): Promise<unknown[]> {
+	async emit(
+		event: string,
+		payload: Record<string, unknown> = {},
+		ctx: { abort?: () => void } = {},
+	): Promise<unknown[]> {
 		const results: unknown[] = [];
 		for (const handler of this.handlers.get(event) ?? []) {
 			results.push(await handler(payload, ctx));
@@ -102,7 +115,9 @@ async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
 
 describe("runner subagent runtime config and result helpers", () => {
 	test("validates terminal tool definitions before spawn", () => {
-		expect(() => createRuntimeConfig({ terminalTools: [] })).toThrow("At least one runner subagent terminal tool");
+		expect(() => createRuntimeConfig({ terminalTools: [] })).toThrow(
+			"At least one runner subagent terminal tool",
+		);
 		expect(() =>
 			createRuntimeConfig({
 				terminalTools: [completionTool, { ...blockedTool, name: completionTool.name }],
@@ -149,7 +164,9 @@ describe("runner subagent runtime config and result helpers", () => {
 			await writeFile(resultPath, "{bad json", "utf8");
 			expect(await readRuntimeResultFile(resultPath)).toEqual({
 				type: "invalid",
-				failure: expect.objectContaining({ message: expect.stringContaining("Invalid runner subagent runtime result JSON") }),
+				failure: expect.objectContaining({
+					message: expect.stringContaining("Invalid runner subagent runtime result JSON"),
+				}),
 			});
 
 			const capture: RuntimeResultV1 = {
@@ -166,7 +183,10 @@ describe("runner subagent runtime config and result helpers", () => {
 	});
 
 	test("creates a private runtime config and generated extension shim", async () => {
-		const files = await createDefaultRunnerSubagentRuntimeFiles({ title: "Runner Subagent", terminalTools: [completionTool] });
+		const files = await createDefaultRunnerSubagentRuntimeFiles({
+			title: "Runner Subagent",
+			terminalTools: [completionTool],
+		});
 		try {
 			expect(parseRuntimeConfigJsonResult(await readFile(files.configPath, "utf8"))).toEqual({
 				type: "valid",
@@ -204,7 +224,10 @@ describe("runner subagent runtime config and result helpers", () => {
 
 			expect(writeRuntimeResultFileSync(resultPath, first)).toBe(true);
 			expect(writeRuntimeResultFileSync(resultPath, second)).toBe(false);
-			expect(parseRuntimeResultJsonResult(await readFile(resultPath, "utf8"))).toEqual({ type: "valid", result: first });
+			expect(parseRuntimeResultJsonResult(await readFile(resultPath, "utf8"))).toEqual({
+				type: "valid",
+				result: first,
+			});
 		});
 	});
 });
@@ -214,7 +237,11 @@ describe("runner subagent runtime extension", () => {
 		await withTempDir(async (dir) => {
 			const configPath = join(dir, "config.json");
 			const resultPath = join(dir, "result.json");
-			await writeFile(configPath, JSON.stringify(createRuntimeConfig({ terminalTools: [completionTool] })), "utf8");
+			await writeFile(
+				configPath,
+				JSON.stringify(createRuntimeConfig({ terminalTools: [completionTool] })),
+				"utf8",
+			);
 			const fakePi = new FakePi();
 			createRunnerSubagentRuntimeExtension({ configPath, resultPath })(fakePi as never);
 
@@ -224,11 +251,17 @@ describe("runner subagent runtime extension", () => {
 			]);
 
 			let abortCount = 0;
-			const result = await fakePi.tools[0]!.execute("tool-1", { summary: "done" }, undefined, undefined, {
-				abort: () => {
-					abortCount += 1;
+			const result = await fakePi.tools[0]!.execute(
+				"tool-1",
+				{ summary: "done" },
+				undefined,
+				undefined,
+				{
+					abort: () => {
+						abortCount += 1;
+					},
 				},
-			});
+			);
 
 			expect(result.terminate).toBe(true);
 			expect(abortCount).toBe(1);
@@ -250,7 +283,11 @@ describe("runner subagent runtime extension", () => {
 		await withTempDir(async (dir) => {
 			const configPath = join(dir, "config.json");
 			const resultPath = join(dir, "result.json");
-			await writeFile(configPath, JSON.stringify(createRuntimeConfig({ terminalTools: [completionTool] })), "utf8");
+			await writeFile(
+				configPath,
+				JSON.stringify(createRuntimeConfig({ terminalTools: [completionTool] })),
+				"utf8",
+			);
 			const fakePi = new FakePi([{ name: "complete_runner_subagent" }]);
 			createRunnerSubagentRuntimeExtension({ configPath, resultPath })(fakePi as never);
 
@@ -295,7 +332,11 @@ describe("runner subagent runtime extension", () => {
 		await withTempDir(async (dir) => {
 			const configPath = join(dir, "config.json");
 			const resultPath = join(dir, "result.json");
-			await writeFile(configPath, JSON.stringify(createRuntimeConfig({ terminalTools: [completionTool] })), "utf8");
+			await writeFile(
+				configPath,
+				JSON.stringify(createRuntimeConfig({ terminalTools: [completionTool] })),
+				"utf8",
+			);
 			const fakePi = new FakePi();
 			createRunnerSubagentRuntimeExtension({ configPath, resultPath })(fakePi as never);
 			await fakePi.emit("session_start");
@@ -306,7 +347,8 @@ describe("runner subagent runtime extension", () => {
 			expect(results).toEqual([
 				{
 					block: true,
-					reason: "A runner subagent terminal capture has already been recorded; no further non-terminal tools may run.",
+					reason:
+						"A runner subagent terminal capture has already been recorded; no further non-terminal tools may run.",
 				},
 			]);
 		});

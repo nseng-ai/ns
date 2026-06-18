@@ -1,4 +1,10 @@
-import { brmemError, brmemOk, mustEntryLocator, type BrmemGateway, type BrmemResult } from "@asdl/brmem";
+import {
+	brmemError,
+	brmemOk,
+	mustEntryLocator,
+	type BrmemGateway,
+	type BrmemResult,
+} from "@asdl/brmem";
 import type { GitGateway } from "@asdl/core/git";
 
 import {
@@ -35,7 +41,10 @@ export async function listHandoffSummaries(
 	deps: HandoffStorageDeps,
 	options: ListHandoffSummariesOptions,
 ): Promise<BrmemResult<readonly HandoffSummary[]>> {
-	const entries = await deps.brmem.listEntries({ namespace: HANDOFF_NAMESPACE, branch: options.branch });
+	const entries = await deps.brmem.listEntries({
+		namespace: HANDOFF_NAMESPACE,
+		branch: options.branch,
+	});
 	if (entries.type === "error") {
 		return brmemError(entries.error.code, `Failed to list handoffs: ${entries.error.message}`);
 	}
@@ -64,9 +73,9 @@ export async function listHandoffSummaries(
 
 	handoffs.sort(
 		(a, b) =>
-			a.summary.branch.localeCompare(b.summary.branch)
-			|| b.updatedTime - a.updatedTime
-			|| a.summary.slug.localeCompare(b.summary.slug),
+			a.summary.branch.localeCompare(b.summary.branch) ||
+			b.updatedTime - a.updatedTime ||
+			a.summary.slug.localeCompare(b.summary.slug),
 	);
 	return brmemOk(handoffs.map((item) => item.summary));
 }
@@ -81,7 +90,11 @@ export async function prepareHandoffDeletion(
 	}
 
 	const target = deletionTarget({ branch: options.branch, key: key.value });
-	const existing = await deps.brmem.checkEntry({ namespace: HANDOFF_NAMESPACE, key: target.key, branch: target.branch });
+	const existing = await deps.brmem.checkEntry({
+		namespace: HANDOFF_NAMESPACE,
+		key: target.key,
+		branch: target.branch,
+	});
 	if (existing.type === "error") {
 		return brmemError(existing.error.code, `Failed to check handoff: ${existing.error.message}`);
 	}
@@ -96,7 +109,11 @@ export async function deleteHandoffArtifact(
 	options: { branch: string; key: string },
 ): Promise<BrmemResult<DeleteHandoffArtifactResult>> {
 	const target = deletionTarget(options);
-	const deleted = await deps.brmem.deleteEntry({ namespace: HANDOFF_NAMESPACE, key: target.key, branch: target.branch });
+	const deleted = await deps.brmem.deleteEntry({
+		namespace: HANDOFF_NAMESPACE,
+		key: target.key,
+		branch: target.branch,
+	});
 	if (deleted.type === "error") {
 		if (deleted.error.code === "key_not_found") {
 			return brmemError("handoff_not_found", notFoundMessage(target));
@@ -134,4 +151,3 @@ function deletionTarget(options: { branch: string; key: string }): HandoffDeleti
 function notFoundMessage(target: HandoffDeletionTarget): string {
 	return `No handoff \`${target.slug}\` found on branch \`${target.branch}\`.`;
 }
-

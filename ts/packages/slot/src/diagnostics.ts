@@ -1,6 +1,12 @@
 import { appendFile } from "node:fs/promises";
 
-import { formatCommand, type CommandExecApi, type CommandRunner, type ExecOptions, type ExecResult } from "@asdl/core/exec";
+import {
+	formatCommand,
+	type CommandExecApi,
+	type CommandRunner,
+	type ExecOptions,
+	type ExecResult,
+} from "@asdl/core/exec";
 
 export const SLOT_DIAGNOSTIC_LOG_ENV = "ASDL_SLOT_DIAGNOSTIC_LOG";
 
@@ -52,13 +58,17 @@ class JsonlSlotDiagnosticSink implements SlotDiagnosticSink {
 	}
 }
 
-export function createSlotDiagnosticSinkFromEnv(env: NodeJS.ProcessEnv): SlotDiagnosticSink | undefined {
+export function createSlotDiagnosticSinkFromEnv(
+	env: NodeJS.ProcessEnv,
+): SlotDiagnosticSink | undefined {
 	const path = env[SLOT_DIAGNOSTIC_LOG_ENV]?.trim();
 	if (path === undefined || path.length === 0) return undefined;
 	return new JsonlSlotDiagnosticSink(path);
 }
 
-export function createDiagnosticCommandRunner(options: DiagnosticCommandRunnerOptions): CommandRunner {
+export function createDiagnosticCommandRunner(
+	options: DiagnosticCommandRunnerOptions,
+): CommandRunner {
 	return async (command, args, execOptions) =>
 		await runDiagnosticCommand({
 			execApi: options.execApi,
@@ -70,10 +80,16 @@ export function createDiagnosticCommandRunner(options: DiagnosticCommandRunnerOp
 		});
 }
 
-export async function runDiagnosticCommand(options: RunDiagnosticCommandOptions): Promise<ExecResult> {
+export async function runDiagnosticCommand(
+	options: RunDiagnosticCommandOptions,
+): Promise<ExecResult> {
 	const startedAt = new Date();
 	const startedNs = process.hrtime.bigint();
-	const result = await options.execApi.exec(options.command, [...options.args], options.execOptions);
+	const result = await options.execApi.exec(
+		options.command,
+		[...options.args],
+		options.execOptions,
+	);
 	const finishedNs = process.hrtime.bigint();
 	await options.diagnosticSink?.recordCommand({
 		type: "slot.command",
@@ -82,7 +98,9 @@ export async function runDiagnosticCommand(options: RunDiagnosticCommandOptions)
 		args: [...options.args],
 		displayCommand: formatCommand(options.command, options.args),
 		...(options.execOptions.cwd === undefined ? {} : { cwd: options.execOptions.cwd }),
-		...(options.execOptions.timeout === undefined ? {} : { timeoutMs: options.execOptions.timeout }),
+		...(options.execOptions.timeout === undefined
+			? {}
+			: { timeoutMs: options.execOptions.timeout }),
 		startedAt: startedAt.toISOString(),
 		durationMs: Number(finishedNs - startedNs) / 1_000_000,
 		exitCode: result.code,

@@ -4,7 +4,17 @@ import { join } from "node:path";
 
 import { encodeBranchForPlanPath } from "@asdl/plans";
 import { BRANCH_CONTEXT_NAMESPACE } from "../../src/constants.ts";
-import { PLAN_KEY, PLAN_SLUG, SOURCE_BRANCH, START_POINT, jsonFailure, makeTempDir, parseJson, runWithFakes, writeSavedPlan } from "../support/cli-harness.ts";
+import {
+	PLAN_KEY,
+	PLAN_SLUG,
+	SOURCE_BRANCH,
+	START_POINT,
+	jsonFailure,
+	makeTempDir,
+	parseJson,
+	runWithFakes,
+	writeSavedPlan,
+} from "../support/cli-harness.ts";
 
 describe("branch-context exec", () => {
 	test("create makes a plain git branch and attaches the plan in the branch-context namespace", async () => {
@@ -14,7 +24,20 @@ describe("branch-context exec", () => {
 		await writeFile(planFile, "# Plan\n", "utf8");
 		const branch = "branch-contexts/branch-scoped-plan";
 		const run = runWithFakes(
-			["exec", "from-plan", "--slug", PLAN_SLUG, "--plan-file", planFile, "--branch", branch, "--summary", "Create it", "--format", "json"],
+			[
+				"exec",
+				"from-plan",
+				"--slug",
+				PLAN_SLUG,
+				"--plan-file",
+				planFile,
+				"--branch",
+				branch,
+				"--summary",
+				"Create it",
+				"--format",
+				"json",
+			],
 			{ cwd: repoRoot, git: { headCommit: START_POINT } },
 		);
 
@@ -32,7 +55,9 @@ describe("branch-context exec", () => {
 			summary: "Create it",
 		});
 		expect(run.brmem.attachmentPresenceCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY }]);
-		expect(run.brmem.attachPlanCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY, sourceFile: planFile }]);
+		expect(run.brmem.attachPlanCalls).toEqual([
+			{ cwd: repoRoot, branch, key: PLAN_KEY, sourceFile: planFile },
+		]);
 		expect(run.graphite.checkBranchTrackedCalls).toEqual([]);
 		expect(run.graphite.trackBranchCalls).toEqual([]);
 		expect(run.brmem.attachedPlans).toContainEqual({
@@ -81,9 +106,15 @@ describe("branch-context exec", () => {
 			key: PLAN_KEY,
 			source_file: planFile,
 		});
-		expect(run.graphite.checkBranchTrackedCalls).toEqual([{ cwd: repoRoot, branch: SOURCE_BRANCH }]);
-		expect(run.graphite.trackBranchCalls).toEqual([{ cwd: repoRoot, branch, parentBranch: SOURCE_BRANCH }]);
-		expect(run.brmem.attachPlanCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY, sourceFile: planFile }]);
+		expect(run.graphite.checkBranchTrackedCalls).toEqual([
+			{ cwd: repoRoot, branch: SOURCE_BRANCH },
+		]);
+		expect(run.graphite.trackBranchCalls).toEqual([
+			{ cwd: repoRoot, branch, parentBranch: SOURCE_BRANCH },
+		]);
+		expect(run.brmem.attachPlanCalls).toEqual([
+			{ cwd: repoRoot, branch, key: PLAN_KEY, sourceFile: planFile },
+		]);
 	});
 
 	test("untracked Graphite parents fail before creating a branch or attaching Branch Memory", async () => {
@@ -122,13 +153,17 @@ describe("branch-context exec", () => {
 		const payload = parseJson(run);
 		expect(payload.success).toBe(false);
 		const message = String((payload.error as { message: string }).message);
-		expect(message).toContain("Current branch is not tracked by Graphite; refusing to stack a branch context on it.");
+		expect(message).toContain(
+			"Current branch is not tracked by Graphite; refusing to stack a branch context on it.",
+		);
 		expect(message).toContain(`Parent branch: ${SOURCE_BRANCH}`);
 		expect(message).toContain("No branch was created and no plan was attached.");
 		expect(message).toContain("ERROR: Cannot perform this operation on untracked branch");
 		expect(run.git.existingBranches).not.toContain(branch);
 		expect(run.git.createBranchAtHeadCalls).toEqual([]);
-		expect(run.graphite.checkBranchTrackedCalls).toEqual([{ cwd: repoRoot, branch: SOURCE_BRANCH }]);
+		expect(run.graphite.checkBranchTrackedCalls).toEqual([
+			{ cwd: repoRoot, branch: SOURCE_BRANCH },
+		]);
 		expect(run.graphite.trackBranchCalls).toEqual([]);
 		expect(run.brmem.attachPlanCalls).toEqual([]);
 	});
@@ -157,7 +192,12 @@ describe("branch-context exec", () => {
 			{
 				cwd: repoRoot,
 				git: { headCommit: START_POINT },
-				graphite: { trackFailure: { code: "graphite_track_failed", message: "gt track failed (exit code 2)." } },
+				graphite: {
+					trackFailure: {
+						code: "graphite_track_failed",
+						message: "gt track failed (exit code 2).",
+					},
+				},
 			},
 		);
 
@@ -165,13 +205,21 @@ describe("branch-context exec", () => {
 		run.commands.assertDone();
 		const payload = parseJson(run);
 		expect(payload.success).toBe(false);
-		expect(String((payload.error as { message: string }).message)).toContain("Created local Git branch but failed to track it with Graphite.");
+		expect(String((payload.error as { message: string }).message)).toContain(
+			"Created local Git branch but failed to track it with Graphite.",
+		);
 		expect(String((payload.error as { message: string }).message)).toContain(`Branch: ${branch}`);
-		expect(String((payload.error as { message: string }).message)).toContain("No attached plan was stored.");
+		expect(String((payload.error as { message: string }).message)).toContain(
+			"No attached plan was stored.",
+		);
 		expect(String((payload.error as { message: string }).message)).toContain("gt track failed");
 		expect(run.git.existingBranches).toContain(branch);
-		expect(run.graphite.checkBranchTrackedCalls).toEqual([{ cwd: repoRoot, branch: SOURCE_BRANCH }]);
-		expect(run.graphite.trackBranchCalls).toEqual([{ cwd: repoRoot, branch, parentBranch: SOURCE_BRANCH }]);
+		expect(run.graphite.checkBranchTrackedCalls).toEqual([
+			{ cwd: repoRoot, branch: SOURCE_BRANCH },
+		]);
+		expect(run.graphite.trackBranchCalls).toEqual([
+			{ cwd: repoRoot, branch, parentBranch: SOURCE_BRANCH },
+		]);
 		expect(run.brmem.attachPlanCalls).toEqual([]);
 	});
 
@@ -205,7 +253,11 @@ describe("branch-context exec", () => {
 	test("load falls back to the latest saved source-branch plan when no plan is attached", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
-		const planDirectory = join(planStoreRoot, "gh--owner--repo", encodeBranchForPlanPath(SOURCE_BRANCH));
+		const planDirectory = join(
+			planStoreRoot,
+			"gh--owner--repo",
+			encodeBranchForPlanPath(SOURCE_BRANCH),
+		);
 		await mkdir(planDirectory, { recursive: true });
 		const planFile = join(planDirectory, PLAN_KEY);
 		const content = "# Saved Plan\n\n- Implement directly from the saved plan.\n";
@@ -265,11 +317,14 @@ describe("branch-context exec", () => {
 		const repoRoot = await makeTempDir();
 		const branch = "branch-contexts/branch-scoped-plan";
 		const content = "# Attached Plan\n\n- Implement from this.\n";
-		const run = runWithFakes(["exec", "load", "--include-content", "--include-prompt", "--format", "json"], {
-			cwd: repoRoot,
-			git: { currentBranch: branch, trunkBranch: "main" },
-			brmem: { entries: [{ branch, key: PLAN_KEY, content }] },
-		});
+		const run = runWithFakes(
+			["exec", "load", "--include-content", "--include-prompt", "--format", "json"],
+			{
+				cwd: repoRoot,
+				git: { currentBranch: branch, trunkBranch: "main" },
+				brmem: { entries: [{ branch, key: PLAN_KEY, content }] },
+			},
+		);
 
 		expect(await run.exit).toBe(0);
 		run.commands.assertDone();
@@ -284,7 +339,9 @@ describe("branch-context exec", () => {
 			attached_plan_content: content,
 		});
 		expect(String(payload.implementation_prompt)).toContain("# branch-context implementation");
-		expect(String(payload.implementation_prompt)).toContain("----- BEGIN ATTACHED PLAN -----\n# Attached Plan");
+		expect(String(payload.implementation_prompt)).toContain(
+			"----- BEGIN ATTACHED PLAN -----\n# Attached Plan",
+		);
 		expect(run.brmem.listAttachedPlansCalls).toEqual([{ cwd: repoRoot, branch }]);
 		expect(run.brmem.getAttachedPlanCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY }]);
 	});
@@ -298,7 +355,10 @@ describe("branch-context exec", () => {
 			git: { currentBranch: branch, trunkBranch: "main" },
 			brmem: { entries: [{ branch, key: PLAN_KEY, content }] },
 		};
-		const withFlags = runWithFakes(["exec", "load", "--include-content", "--include-prompt"], fakes);
+		const withFlags = runWithFakes(
+			["exec", "load", "--include-content", "--include-prompt"],
+			fakes,
+		);
 		expect(await withFlags.exit).toBe(0);
 		expect(withFlags.stderr.join("")).toBe("");
 		expect(withFlags.stdout.join("")).toContain(`Selected key: ${PLAN_KEY}`);
@@ -317,14 +377,25 @@ describe("branch-context exec", () => {
 		const sourceFile = join(outsideDir, "notes.md");
 		await writeFile(sourceFile, "# Notes\n", "utf8");
 		const branch = "branch-contexts/manual-context";
-		const run = runWithFakes(["exec", "attach", "notes", "--file", sourceFile, "--format", "json"], {
-			cwd: repoRoot,
-			git: { currentBranch: branch },
-		});
+		const run = runWithFakes(
+			["exec", "attach", "notes", "--file", sourceFile, "--format", "json"],
+			{
+				cwd: repoRoot,
+				git: { currentBranch: branch },
+			},
+		);
 
 		expect(await run.exit).toBe(0);
-		expect(parseJson(run)).toMatchObject({ success: true, branch, namespace: BRANCH_CONTEXT_NAMESPACE, key: "notes", source_file: sourceFile });
-		expect(run.brmem.attachPlanCalls).toEqual([{ cwd: repoRoot, branch, key: "notes", sourceFile }]);
+		expect(parseJson(run)).toMatchObject({
+			success: true,
+			branch,
+			namespace: BRANCH_CONTEXT_NAMESPACE,
+			key: "notes",
+			source_file: sourceFile,
+		});
+		expect(run.brmem.attachPlanCalls).toEqual([
+			{ cwd: repoRoot, branch, key: "notes", sourceFile },
+		]);
 	});
 
 	test("attach --plan stores a saved plan as a named key and reports the plan slug", async () => {
@@ -348,7 +419,9 @@ describe("branch-context exec", () => {
 			plan_slug: PLAN_SLUG,
 		});
 		expect(run.brmem.attachmentPresenceCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY }]);
-		expect(run.brmem.attachPlanCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY, sourceFile }]);
+		expect(run.brmem.attachPlanCalls).toEqual([
+			{ cwd: repoRoot, branch, key: PLAN_KEY, sourceFile },
+		]);
 	});
 
 	test("attach --plan rejects key and file arguments", async () => {
@@ -357,7 +430,10 @@ describe("branch-context exec", () => {
 		const sourceFile = join(outsideDir, "notes.md");
 		await writeFile(sourceFile, "# Notes\n", "utf8");
 		const message = "Pass either --plan <slug> or <key> --file <path>, not both.";
-		const run = runWithFakes(["exec", "attach", "notes", "--file", sourceFile, "--plan", PLAN_SLUG, "--format", "json"], { cwd: repoRoot });
+		const run = runWithFakes(
+			["exec", "attach", "notes", "--file", sourceFile, "--plan", PLAN_SLUG, "--format", "json"],
+			{ cwd: repoRoot },
+		);
 
 		expect(await run.exit).toBe(2);
 		expect(run.stdout.join("")).toBe(jsonFailure(message));
@@ -402,7 +478,9 @@ describe("branch-context exec", () => {
 		const payload = parseJson(run);
 		expect(payload.success).toBe(false);
 		const message = String((payload.error as { message: string }).message);
-		expect(message).toContain(`Multiple saved plans found for slug \`${PLAN_SLUG}\`; choose a file explicitly.`);
+		expect(message).toContain(
+			`Multiple saved plans found for slug \`${PLAN_SLUG}\`; choose a file explicitly.`,
+		);
 		expect(message).toContain(first);
 		expect(message).toContain(second);
 		expect(run.brmem.attachmentPresenceCalls).toEqual([]);
@@ -425,16 +503,27 @@ describe("branch-context exec", () => {
 		const planStoreRoot = await makeTempDir();
 		const sourceFile = await writeSavedPlan(planStoreRoot);
 		const branch = "branch-contexts/override";
-		const run = runWithFakes(["exec", "attach", "--plan", PLAN_SLUG, "--branch", branch, "--format", "json"], {
-			cwd: repoRoot,
-			planStoreRoot,
-			git: { repoRoot, currentBranch: { type: "detached" } },
-		});
+		const run = runWithFakes(
+			["exec", "attach", "--plan", PLAN_SLUG, "--branch", branch, "--format", "json"],
+			{
+				cwd: repoRoot,
+				planStoreRoot,
+				git: { repoRoot, currentBranch: { type: "detached" } },
+			},
+		);
 
 		expect(await run.exit).toBe(0);
-		expect(parseJson(run)).toMatchObject({ success: true, branch, key: PLAN_KEY, source_file: sourceFile, plan_slug: PLAN_SLUG });
+		expect(parseJson(run)).toMatchObject({
+			success: true,
+			branch,
+			key: PLAN_KEY,
+			source_file: sourceFile,
+			plan_slug: PLAN_SLUG,
+		});
 		expect(run.git.currentBranchCalls).toEqual([]);
-		expect(run.brmem.attachPlanCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY, sourceFile }]);
+		expect(run.brmem.attachPlanCalls).toEqual([
+			{ cwd: repoRoot, branch, key: PLAN_KEY, sourceFile },
+		]);
 	});
 
 	test("attach --plan fails on detached HEAD without --branch", async () => {
@@ -450,7 +539,9 @@ describe("branch-context exec", () => {
 		expect(await run.exit).toBe(2);
 		const payload = parseJson(run);
 		expect(payload.success).toBe(false);
-		expect(String((payload.error as { message: string }).message)).toContain("Cannot default branch-context operation from detached HEAD. Pass --branch explicitly.");
+		expect(String((payload.error as { message: string }).message)).toContain(
+			"Cannot default branch-context operation from detached HEAD. Pass --branch explicitly.",
+		);
 		expect(run.brmem.attachmentPresenceCalls).toEqual([]);
 		expect(run.brmem.attachPlanCalls).toEqual([]);
 	});
@@ -461,7 +552,12 @@ describe("branch-context exec", () => {
 		const run = runWithFakes(["exec", "list"], {
 			cwd: repoRoot,
 			git: { currentBranch: branch },
-			brmem: { entries: [{ branch, key: PLAN_KEY }, { branch, key: "notes" }] },
+			brmem: {
+				entries: [
+					{ branch, key: PLAN_KEY },
+					{ branch, key: "notes" },
+				],
+			},
 		});
 
 		expect(await run.exit).toBe(0);
@@ -472,10 +568,19 @@ describe("branch-context exec", () => {
 	test("check exits successfully for absent entries", async () => {
 		const repoRoot = await makeTempDir();
 		const branch = "branch-contexts/manual-context";
-		const run = runWithFakes(["exec", "check", "missing", "--format", "json"], { cwd: repoRoot, git: { currentBranch: branch } });
+		const run = runWithFakes(["exec", "check", "missing", "--format", "json"], {
+			cwd: repoRoot,
+			git: { currentBranch: branch },
+		});
 
 		expect(await run.exit).toBe(0);
-		expect(parseJson(run)).toMatchObject({ success: true, branch, namespace: BRANCH_CONTEXT_NAMESPACE, key: "missing", present: false });
+		expect(parseJson(run)).toMatchObject({
+			success: true,
+			branch,
+			namespace: BRANCH_CONTEXT_NAMESPACE,
+			key: "missing",
+			present: false,
+		});
 	});
 
 	test("delete removes an explicit branch-context key", async () => {
@@ -488,8 +593,13 @@ describe("branch-context exec", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(parseJson(run)).toMatchObject({ success: true, branch, namespace: BRANCH_CONTEXT_NAMESPACE, key: "notes", deleted: true });
+		expect(parseJson(run)).toMatchObject({
+			success: true,
+			branch,
+			namespace: BRANCH_CONTEXT_NAMESPACE,
+			key: "notes",
+			deleted: true,
+		});
 		expect(run.brmem.deleteEntryCalls).toEqual([{ cwd: repoRoot, branch, key: "notes" }]);
 	});
 });
-

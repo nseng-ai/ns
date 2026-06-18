@@ -13,7 +13,11 @@ import {
 	type SdlCommandSourceInfo,
 	type SdlCommandSourceLevel,
 } from "./command-registry.ts";
-import { discoverExtensionsInRoot, type DiscoveredExtensionCommand, type ExtensionDiscoveryDiagnostic } from "./extension-discovery.ts";
+import {
+	discoverExtensionsInRoot,
+	type DiscoveredExtensionCommand,
+	type ExtensionDiscoveryDiagnostic,
+} from "./extension-discovery.ts";
 import { loadSdlExtensionContribution, type ExtensionLoadDiagnostic } from "./extension-loader.ts";
 import type { SdlCommand } from "./sdk.ts";
 
@@ -66,14 +70,26 @@ interface LoadSdlCommandCatalogOptions {
 	homeDir?: string | undefined;
 }
 
-const ORDERED_SOURCE_LEVELS = ["built-in", "global", "project"] as const satisfies readonly ExtensionSourceLevel[];
+const ORDERED_SOURCE_LEVELS = [
+	"built-in",
+	"global",
+	"project",
+] as const satisfies readonly ExtensionSourceLevel[];
 
-export async function loadSdlCommandCatalog(options: LoadSdlCommandCatalogOptions): Promise<SdlCommandCatalog> {
+export async function loadSdlCommandCatalog(
+	options: LoadSdlCommandCatalogOptions,
+): Promise<SdlCommandCatalog> {
 	const diagnostics: ExtensionDiagnostic[] = [];
 	const builtInCandidates = listBuiltInSdlCommandCandidates();
 	const home = options.homeDir ?? homedir();
-	const globalCandidates = loadRootCandidates({ level: "global", rootDir: join(home, ".asdl", "extensions") });
-	const projectCandidates = loadRootCandidates({ level: "project", rootDir: join(options.cwd, ".asdl", "extensions") });
+	const globalCandidates = loadRootCandidates({
+		level: "global",
+		rootDir: join(home, ".asdl", "extensions"),
+	});
+	const projectCandidates = loadRootCandidates({
+		level: "project",
+		rootDir: join(options.cwd, ".asdl", "extensions"),
+	});
 	diagnostics.push(...globalCandidates.diagnostics, ...projectCandidates.diagnostics);
 
 	const candidatesByLevel = {
@@ -103,24 +119,39 @@ export async function loadSdlCommandCatalog(options: LoadSdlCommandCatalogOption
 		}
 	}
 
-	const sortedCandidates = [...merged.values()].sort((left, right) => left.name.localeCompare(right.name));
+	const sortedCandidates = [...merged.values()].sort((left, right) =>
+		left.name.localeCompare(right.name),
+	);
 	return {
 		candidates: new Map(sortedCandidates.map((candidate) => [candidate.name, candidate])),
-		commandInfos: sortedCandidates.map((candidate) => ({ name: candidate.name, description: candidate.description, fullDescription: candidate.fullDescription })),
+		commandInfos: sortedCandidates.map((candidate) => ({
+			name: candidate.name,
+			description: candidate.description,
+			fullDescription: candidate.fullDescription,
+		})),
 		diagnostics,
 	};
 }
 
-export async function loadSelectedSdlCommand(candidate: ExtensionCommandCandidate): Promise<SelectedSdlCommandLoadResult> {
+export async function loadSelectedSdlCommand(
+	candidate: ExtensionCommandCandidate,
+): Promise<SelectedSdlCommandLoadResult> {
 	if (isBuiltInCandidate(candidate)) {
 		return { ok: true, command: candidate.command, source: candidate.source };
 	}
 
 	const loaded = await loadSdlExtensionContribution(candidate.entryPath);
 	if (!loaded.ok) {
-		return { ok: false, diagnostic: fromLoadDiagnostic(loaded.diagnostic, candidate.source.level, candidate.name) };
+		return {
+			ok: false,
+			diagnostic: fromLoadDiagnostic(loaded.diagnostic, candidate.source.level, candidate.name),
+		};
 	}
-	const validation = validateSdlExtensionContribution(loaded.defaultExport, candidate.name, formatSource(candidate.source));
+	const validation = validateSdlExtensionContribution(
+		loaded.defaultExport,
+		candidate.name,
+		formatSource(candidate.source),
+	);
 	if (!validation.ok) {
 		return {
 			ok: false,
@@ -151,7 +182,9 @@ export function classifyExtensionDiagnosticsForInvocation(options: {
 	requestedCommandName: string | undefined;
 	selectedCandidate: ExtensionCommandCandidate | undefined;
 }): DiagnosticClassification {
-	const errorDiagnostics = options.diagnostics.filter((diagnostic): diagnostic is ExtensionErrorDiagnostic => diagnostic.severity === "error");
+	const errorDiagnostics = options.diagnostics.filter(
+		(diagnostic): diagnostic is ExtensionErrorDiagnostic => diagnostic.severity === "error",
+	);
 	if (options.requestedCommandName === undefined) {
 		return { fatal: [], warnings: errorDiagnostics };
 	}
@@ -176,34 +209,58 @@ export function hasExtensionErrors(diagnostics: readonly ExtensionDiagnostic[]):
 	return diagnostics.some((diagnostic) => diagnostic.severity === "error");
 }
 
-export function formatExtensionErrorDiagnostics(diagnostics: readonly ExtensionDiagnostic[]): string {
-	return formatExtensionDiagnosticMessages(diagnostics.filter((diagnostic): diagnostic is ExtensionErrorDiagnostic => diagnostic.severity === "error"));
+export function formatExtensionErrorDiagnostics(
+	diagnostics: readonly ExtensionDiagnostic[],
+): string {
+	return formatExtensionDiagnosticMessages(
+		diagnostics.filter(
+			(diagnostic): diagnostic is ExtensionErrorDiagnostic => diagnostic.severity === "error",
+		),
+	);
 }
 
-export function formatExtensionWarningDiagnostics(diagnostics: readonly ExtensionErrorDiagnostic[]): string {
+export function formatExtensionWarningDiagnostics(
+	diagnostics: readonly ExtensionErrorDiagnostic[],
+): string {
 	return formatExtensionDiagnosticMessages(diagnostics, { prefix: "Warning: " });
 }
 
-function formatExtensionDiagnosticMessages(diagnostics: readonly ExtensionErrorDiagnostic[], options: { prefix?: string | undefined } = {}): string {
+function formatExtensionDiagnosticMessages(
+	diagnostics: readonly ExtensionErrorDiagnostic[],
+	options: { prefix?: string | undefined } = {},
+): string {
 	const prefix = options.prefix ?? "";
 	return diagnostics.map((diagnostic) => `${prefix}${diagnostic.message}`).join("\n");
 }
 
-function isFatalForSelectedCandidate(diagnostic: ExtensionErrorDiagnostic, selectedCandidate: ExtensionCommandCandidate | undefined): boolean {
+function isFatalForSelectedCandidate(
+	diagnostic: ExtensionErrorDiagnostic,
+	selectedCandidate: ExtensionCommandCandidate | undefined,
+): boolean {
 	if (selectedCandidate === undefined) return true;
 	if (diagnostic.sourceLevel === undefined) return true;
 	return sourceLevelRank(diagnostic.sourceLevel) >= sourceLevelRank(selectedCandidate.source.level);
 }
 
-function loadRootCandidates(options: { level: "global" | "project"; rootDir: string }): { diagnostics: readonly ExtensionDiagnostic[]; candidates: readonly ExtensionCommandCandidate[] } {
+function loadRootCandidates(options: { level: "global" | "project"; rootDir: string }): {
+	diagnostics: readonly ExtensionDiagnostic[];
+	candidates: readonly ExtensionCommandCandidate[];
+} {
 	const discovered = discoverExtensionsInRoot(options.rootDir);
 	return {
-		diagnostics: discovered.diagnostics.map((diagnostic) => fromDiscoveryDiagnostic(diagnostic, options.level)),
-		candidates: discovered.commands.map((command) => externalCandidateForLevel(command, options.level)),
+		diagnostics: discovered.diagnostics.map((diagnostic) =>
+			fromDiscoveryDiagnostic(diagnostic, options.level),
+		),
+		candidates: discovered.commands.map((command) =>
+			externalCandidateForLevel(command, options.level),
+		),
 	};
 }
 
-function externalCandidateForLevel(command: DiscoveredExtensionCommand, level: "global" | "project"): ExternalSdlCommandCandidate {
+function externalCandidateForLevel(
+	command: DiscoveredExtensionCommand,
+	level: "global" | "project",
+): ExternalSdlCommandCandidate {
 	return {
 		name: command.name,
 		description: command.description,
@@ -216,7 +273,10 @@ function externalCandidateForLevel(command: DiscoveredExtensionCommand, level: "
 function validateLevelCandidates(
 	level: ExtensionSourceLevel,
 	candidates: readonly ExtensionCommandCandidate[],
-): { candidates: readonly ExtensionCommandCandidate[]; diagnostics: readonly ExtensionDiagnostic[] } {
+): {
+	candidates: readonly ExtensionCommandCandidate[];
+	diagnostics: readonly ExtensionDiagnostic[];
+} {
 	const diagnostics: ExtensionDiagnostic[] = [];
 	const validated: ExtensionCommandCandidate[] = [];
 	for (const candidate of candidates) {
@@ -240,7 +300,11 @@ function validateLevelCandidates(
 		candidatesByName.set(candidate.name, [...existing, candidate]);
 	}
 
-	const duplicateNames = new Set([...candidatesByName.entries()].filter(([, matches]) => matches.length > 1).map(([name]) => name));
+	const duplicateNames = new Set(
+		[...candidatesByName.entries()]
+			.filter(([, matches]) => matches.length > 1)
+			.map(([name]) => name),
+	);
 	for (const name of duplicateNames) {
 		const matches = candidatesByName.get(name) ?? [];
 		diagnostics.push({
@@ -251,7 +315,10 @@ function validateLevelCandidates(
 			commandName: name,
 		});
 	}
-	return { candidates: validated.filter((candidate) => !duplicateNames.has(candidate.name)), diagnostics };
+	return {
+		candidates: validated.filter((candidate) => !duplicateNames.has(candidate.name)),
+		diagnostics,
+	};
 }
 
 function sourceLevelRank(level: ExtensionSourceLevel): number {
@@ -262,15 +329,24 @@ function sourceLevelRank(level: ExtensionSourceLevel): number {
 	return rank;
 }
 
-function isBuiltInCandidate(candidate: ExtensionCommandCandidate): candidate is BuiltInSdlCommandCandidate {
+function isBuiltInCandidate(
+	candidate: ExtensionCommandCandidate,
+): candidate is BuiltInSdlCommandCandidate {
 	return candidate.source.level === "built-in";
 }
 
-function fromDiscoveryDiagnostic(diagnostic: ExtensionDiscoveryDiagnostic, sourceLevel: ExtensionSourceLevel): ExtensionErrorDiagnostic {
+function fromDiscoveryDiagnostic(
+	diagnostic: ExtensionDiscoveryDiagnostic,
+	sourceLevel: ExtensionSourceLevel,
+): ExtensionErrorDiagnostic {
 	return { ...diagnostic, sourceLevel };
 }
 
-function fromLoadDiagnostic(diagnostic: ExtensionLoadDiagnostic, sourceLevel: ExtensionSourceLevel, commandName: string): ExtensionErrorDiagnostic {
+function fromLoadDiagnostic(
+	diagnostic: ExtensionLoadDiagnostic,
+	sourceLevel: ExtensionSourceLevel,
+	commandName: string,
+): ExtensionErrorDiagnostic {
 	return { ...diagnostic, sourceLevel, commandName };
 }
 

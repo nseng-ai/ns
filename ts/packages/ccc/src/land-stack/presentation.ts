@@ -1,7 +1,16 @@
 import { formatCommand } from "@asdl/core/exec";
-import { linkifyPrReferences, prLinksFromDetails, truncateDisplayLine } from "@asdl/pi-extension-runtime/terminal-presentation";
+import {
+	linkifyPrReferences,
+	prLinksFromDetails,
+	truncateDisplayLine,
+} from "@asdl/pi-extension-runtime/terminal-presentation";
 import { formatCommandDetails, shortSha } from "./command-exec.ts";
-import { AUTO_CHUNK_LANDING_SIZE, AUTO_CHUNK_LANDING_THRESHOLD, COMMAND_NAME, STATUS_KEY } from "./constants.ts";
+import {
+	AUTO_CHUNK_LANDING_SIZE,
+	AUTO_CHUNK_LANDING_THRESHOLD,
+	COMMAND_NAME,
+	STATUS_KEY,
+} from "./constants.ts";
 import { emptyResult, type LandStackFailure } from "./errors.ts";
 import { restackForSubmitArgs, restackTargetForSubmit, submitUpdateArgs } from "./landing-plan.ts";
 import { formatPrSubmitRequirement } from "./pr-facts.ts";
@@ -26,7 +35,9 @@ export function formatPlan(plan: LandingPlan): string {
 
 	lines.push(`Land Graphite stack path: ${[stack.trunk, ...stack.landingBranches].join(" -> ")}`);
 	if (stack.remainingLandingBranches.length > 0) {
-		lines.push(`Full remaining path after this bounded landing scope: ${[stack.trunk, ...stack.landingBranches, ...stack.remainingLandingBranches].join(" -> ")}`);
+		lines.push(
+			`Full remaining path after this bounded landing scope: ${[stack.trunk, ...stack.landingBranches, ...stack.remainingLandingBranches].join(" -> ")}`,
+		);
 	}
 	lines.push("");
 	lines.push(`Current branch: ${stack.actualCurrentBranch}`);
@@ -36,7 +47,11 @@ export function formatPlan(plan: LandingPlan): string {
 	lines.push("Will merge, in order:");
 	branchPlans.forEach((planEntry, index) => {
 		const currentLabel = planEntry.branch === stack.actualCurrentBranch ? " Current branch" : "";
-		const targetLabel = planEntry.branch === stack.landingTargetBranch && planEntry.branch !== stack.actualCurrentBranch ? " Landing target" : "";
+		const targetLabel =
+			planEntry.branch === stack.landingTargetBranch &&
+			planEntry.branch !== stack.actualCurrentBranch
+				? " Landing target"
+				: "";
 		const labels = `${currentLabel}${targetLabel}`;
 		lines.push(
 			`  ${index + 1}. #${planEntry.pr.number} ${planEntry.branch} ${shortSha(planEntry.localSha)} ${planEntry.pr.title}${labels}`,
@@ -62,7 +77,9 @@ export function formatPlan(plan: LandingPlan): string {
 
 	lines.push("");
 	if (managedSlotConflicts.length > 0) {
-		lines.push("Before merging, this command will ask before freeing these landing-branch slots only:");
+		lines.push(
+			"Before merging, this command will ask before freeing these landing-branch slots only:",
+		);
 		for (const conflict of managedSlotConflicts) {
 			lines.push(`  - ${formatSlotConflict(conflict)}`);
 		}
@@ -110,7 +127,10 @@ export function formatPlan(plan: LandingPlan): string {
 }
 
 export function formatChunkedPlan(plan: LandingPlan, chunkSize: number): string {
-	const fullLandingBranches = [...plan.stack.landingBranches, ...plan.stack.remainingLandingBranches];
+	const fullLandingBranches = [
+		...plan.stack.landingBranches,
+		...plan.stack.remainingLandingBranches,
+	];
 	const chunks = chunkBranches(fullLandingBranches, chunkSize);
 	const lines = [
 		`Land ${fullLandingBranches.length} PRs in ${chunks.length} chunks.`,
@@ -195,9 +215,13 @@ export function formatSuccessSummary(
 	const lines = [`Landed ${landed.length} PR${landed.length === 1 ? "" : "s"}: ${landedText}.`];
 	if (descendantMaintenance.kind === "auto" && descendantMaintenance.branches.length > 0) {
 		if (hasDescendantMaintenanceDeferral(noteEntries)) {
-			lines.push(`Left open; restack/update deferred: ${descendantMaintenance.branches.join(", ")}.`);
+			lines.push(
+				`Left open; restack/update deferred: ${descendantMaintenance.branches.join(", ")}.`,
+			);
 		} else if (hasDescendantMaintenanceWarning(warningEntries)) {
-			lines.push(`Left open; restack/update needs follow-up: ${descendantMaintenance.branches.join(", ")}.`);
+			lines.push(
+				`Left open; restack/update needs follow-up: ${descendantMaintenance.branches.join(", ")}.`,
+			);
 		} else {
 			lines.push(`Left open/restacked: ${descendantMaintenance.branches.join(", ")}.`);
 		}
@@ -208,13 +232,20 @@ export function formatSuccessSummary(
 	lines.push("", "Remaining cleanup:");
 	lines.push("  - Remote branches were not deleted.");
 	for (const retained of cleanup.retainedLocalBranches) {
-		lines.push(`  - Local branch ${retained.branch} was kept (still checked out at ${retained.path}); delete it manually or run gt sync.`);
+		lines.push(
+			`  - Local branch ${retained.branch} was kept (still checked out at ${retained.path}); delete it manually or run gt sync.`,
+		);
 	}
 	if (cleanup.retainedLocalBranches.length === 0) {
-		lines.push("  - Clean up any remaining local branches manually, for example by running `gt sync` or deleting branches directly.");
+		lines.push(
+			"  - Clean up any remaining local branches manually, for example by running `gt sync` or deleting branches directly.",
+		);
 	}
 	if (warningEntries.length > 0) {
-		lines.push("", `Completed with ${warningEntries.length} warning${warningEntries.length === 1 ? "" : "s"}:`);
+		lines.push(
+			"",
+			`Completed with ${warningEntries.length} warning${warningEntries.length === 1 ? "" : "s"}:`,
+		);
 		for (const warning of warningEntries) {
 			lines.push(...formatLandingWarning(warning));
 		}
@@ -251,9 +282,13 @@ export function formatChunkedSuccessSummary(
 ): string {
 	const landed = chunks.flatMap((chunk) => chunk.landed);
 	const baseSummary = formatSuccessSummary(landed, descendantMaintenance, warnings, cleanup);
-	const lines = [`Landed ${landed.length} PR${landed.length === 1 ? "" : "s"} across ${chunks.length} chunks:`];
+	const lines = [
+		`Landed ${landed.length} PR${landed.length === 1 ? "" : "s"} across ${chunks.length} chunks:`,
+	];
 	for (const chunk of chunks) {
-		lines.push(`  - Chunk ${chunk.index} through ${chunk.landingTargetBranch}: ${formatLandedEntries(chunk.landed)}`);
+		lines.push(
+			`  - Chunk ${chunk.index} through ${chunk.landingTargetBranch}: ${formatLandedEntries(chunk.landed)}`,
+		);
 	}
 	lines.push("", ...baseSummary.split("\n").slice(1));
 	return lines.join("\n");
@@ -266,7 +301,12 @@ function formatLandedEntries(landed: readonly LandedPr[]): string {
 export function formatLandingWarning(warning: LandingWarning): string[] {
 	const lines = [`- ${warning.message}`];
 	if (warning.commandDisplay || warning.result) {
-		lines.push(...indentLines(formatCommandDetails(warning.result ?? emptyResult(), warning.commandDisplay), "  "));
+		lines.push(
+			...indentLines(
+				formatCommandDetails(warning.result ?? emptyResult(), warning.commandDisplay),
+				"  ",
+			),
+		);
 	}
 	if (warning.suggestedAction) {
 		lines.push(`  Suggested next action: ${warning.suggestedAction}`);
@@ -278,23 +318,40 @@ export function indentLines(text: string, prefix: string): string[] {
 	return text.split("\n").map((line) => `${prefix}${line}`);
 }
 
-export function formatRestackFailureMessage(previousPrNumber: number, branch: string, beforeAnotherMerge: boolean): string {
+export function formatRestackFailureMessage(
+	previousPrNumber: number,
+	branch: string,
+	beforeAnotherMerge: boolean,
+): string {
 	if (beforeAnotherMerge) {
 		return `Restack failed after merging #${previousPrNumber}; stopping before merging ${branch}.`;
 	}
 	return `Restack failed after merging #${previousPrNumber}; descendant branch ${branch} was left for manual restack/update.`;
 }
 
-export function formatSubmitFailureMessage(previousPrNumber: number, branch: string, beforeAnotherMerge: boolean): string {
+export function formatSubmitFailureMessage(
+	previousPrNumber: number,
+	branch: string,
+	beforeAnotherMerge: boolean,
+): string {
 	if (beforeAnotherMerge) {
 		return `Submit/update failed after merging #${previousPrNumber}; stopping before merging ${branch}.`;
 	}
 	return `Submit/update failed after merging #${previousPrNumber}; descendant branch ${branch} was left for manual PR update.`;
 }
 
-export function formatFailure(failure: LandStackFailure, landed: readonly LandedPr[], landedChunks: readonly LandedChunk[] = []): string {
+export function formatFailure(
+	failure: LandStackFailure,
+	landed: readonly LandedPr[],
+	landedChunks: readonly LandedChunk[] = [],
+): string {
 	const simple =
-		landed.length === 0 && landedChunks.length === 0 && !failure.commandDisplay && !failure.failedBranch && !failure.failedPr && !failure.suggestedAction;
+		landed.length === 0 &&
+		landedChunks.length === 0 &&
+		!failure.commandDisplay &&
+		!failure.failedBranch &&
+		!failure.failedPr &&
+		!failure.suggestedAction;
 	if (simple) {
 		return failure.message;
 	}
@@ -303,9 +360,14 @@ export function formatFailure(failure: LandStackFailure, landed: readonly Landed
 	if (landedChunks.length > 0) {
 		lines.push("", "Already landed by chunk:");
 		for (const chunk of landedChunks) {
-			lines.push(`  - Chunk ${chunk.index} through ${chunk.landingTargetBranch}: ${formatLandedEntries(chunk.landed)}`);
+			lines.push(
+				`  - Chunk ${chunk.index} through ${chunk.landingTargetBranch}: ${formatLandedEntries(chunk.landed)}`,
+			);
 		}
-		lines.push("", "Fix the reported issue, then rerun /sdl:code:land from the desired branch. Already-landed PRs will not be retried automatically.");
+		lines.push(
+			"",
+			"Fix the reported issue, then rerun /sdl:code:land from the desired branch. Already-landed PRs will not be retried automatically.",
+		);
 	} else if (landed.length > 0) {
 		lines.push("", "Already landed:");
 		for (const entry of landed) {
@@ -337,7 +399,10 @@ export interface FormatSuccessNotificationOptions {
 	warnings?: readonly LandingWarning[] | undefined;
 }
 
-export function formatSuccessNotification(message: string, options: FormatSuccessNotificationOptions = {}): string {
+export function formatSuccessNotification(
+	message: string,
+	options: FormatSuccessNotificationOptions = {},
+): string {
 	const { details, warnings = [] } = options;
 	const warningNotification = formatWarningSuccessNotification(warnings, details);
 	if (warningNotification !== undefined) return warningNotification;
@@ -390,7 +455,12 @@ export function present(ctx: LandStackCommandContext, message: string, level: No
 	presentBrief(ctx, message, level, message);
 }
 
-export function presentBrief(ctx: LandStackCommandContext, fullMessage: string, level: NotifyLevel, uiMessage: string): void {
+export function presentBrief(
+	ctx: LandStackCommandContext,
+	fullMessage: string,
+	level: NotifyLevel,
+	uiMessage: string,
+): void {
 	if (ctx.hasUI) {
 		ctx.ui.notify(uiMessage, level);
 		return;
@@ -409,5 +479,8 @@ export function setStatus(ctx: LandStackCommandContext, message: string | undefi
 }
 
 function firstNonEmptyLine(output: string): string | undefined {
-	return output.split("\n").map((line) => line.trim()).find(Boolean);
+	return output
+		.split("\n")
+		.map((line) => line.trim())
+		.find(Boolean);
 }

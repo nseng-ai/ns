@@ -32,7 +32,10 @@ function convertExecOptions(options: ExecOptions | undefined): SdlExecOptions | 
 	};
 }
 
-function validateSdlExecCwd(ctx: SdlContext, options: ExecOptions | undefined): ExecResult | undefined {
+function validateSdlExecCwd(
+	ctx: SdlContext,
+	options: ExecOptions | undefined,
+): ExecResult | undefined {
 	if (options?.cwd === undefined || options.cwd === ctx.cwd) return undefined;
 	return {
 		code: 2,

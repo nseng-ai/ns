@@ -60,7 +60,9 @@ describe("objective archive", () => {
 
 	test("archives active record with stable JSON and filesystem move", async () => {
 		const fake = new FakeObjectiveStorageGateway({ records: [{ slug: "alpha" }] });
-		const run = runScenario(["archive", "alpha", "--format", "json"], { context: contextFor(fake) });
+		const run = runScenario(["archive", "alpha", "--format", "json"], {
+			context: contextFor(fake),
+		});
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
@@ -77,22 +79,37 @@ describe("objective archive", () => {
 				hasMoved: true,
 			}),
 		});
-		await expect(fake.pathKind(".asdl/objectives/alpha")).resolves.toEqual({ ok: true, value: "missing" });
-		await expect(fake.pathKind(".asdl/objective-archive/alpha")).resolves.toEqual({ ok: true, value: "directory" });
-		await expect(fake.readTextFile(".asdl/objective-archive/alpha/objective.md")).resolves.toEqual({ type: "ok", content: "# alpha\n" });
+		await expect(fake.pathKind(".asdl/objectives/alpha")).resolves.toEqual({
+			ok: true,
+			value: "missing",
+		});
+		await expect(fake.pathKind(".asdl/objective-archive/alpha")).resolves.toEqual({
+			ok: true,
+			value: "directory",
+		});
+		await expect(fake.readTextFile(".asdl/objective-archive/alpha/objective.md")).resolves.toEqual({
+			type: "ok",
+			content: "# alpha\n",
+		});
 	});
 
 	test("human success output starts with archived sentence and moved paths", async () => {
 		const run = runScenario(["archive", "alpha"], { fake: { records: [{ slug: "alpha" }] } });
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toBe("Archived Objective `alpha`.\n\nMoved:\n  .asdl/objectives/alpha\n  -> .asdl/objective-archive/alpha\n");
+		expect(run.stdout.join("")).toBe(
+			"Archived Objective `alpha`.\n\nMoved:\n  .asdl/objectives/alpha\n  -> .asdl/objective-archive/alpha\n",
+		);
 		expect(run.stderr).toEqual([]);
 	});
 
 	test("unarchives archived record with stable JSON and filesystem move", async () => {
-		const fake = new FakeObjectiveStorageGateway({ files: { ".asdl/objective-archive/alpha/objective.md": "# alpha\n" } });
-		const run = runScenario(["archive", "alpha", "--unarchive", "--format", "json"], { context: contextFor(fake) });
+		const fake = new FakeObjectiveStorageGateway({
+			files: { ".asdl/objective-archive/alpha/objective.md": "# alpha\n" },
+		});
+		const run = runScenario(["archive", "alpha", "--unarchive", "--format", "json"], {
+			context: contextFor(fake),
+		});
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
@@ -109,8 +126,14 @@ describe("objective archive", () => {
 				hasMoved: true,
 			}),
 		});
-		await expect(fake.pathKind(".asdl/objective-archive/alpha")).resolves.toEqual({ ok: true, value: "missing" });
-		await expect(fake.pathKind(".asdl/objectives/alpha")).resolves.toEqual({ ok: true, value: "directory" });
+		await expect(fake.pathKind(".asdl/objective-archive/alpha")).resolves.toEqual({
+			ok: true,
+			value: "missing",
+		});
+		await expect(fake.pathKind(".asdl/objectives/alpha")).resolves.toEqual({
+			ok: true,
+			value: "directory",
+		});
 	});
 
 	test("human unarchive output starts with unarchived sentence and moved paths", async () => {
@@ -119,13 +142,17 @@ describe("objective archive", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toBe("Unarchived Objective `alpha`.\n\nMoved:\n  .asdl/objective-archive/alpha\n  -> .asdl/objectives/alpha\n");
+		expect(run.stdout.join("")).toBe(
+			"Unarchived Objective `alpha`.\n\nMoved:\n  .asdl/objective-archive/alpha\n  -> .asdl/objectives/alpha\n",
+		);
 		expect(run.stderr).toEqual([]);
 	});
 
 	test("missing active source returns negative JSON without creating destination", async () => {
 		const fake = new FakeObjectiveStorageGateway();
-		const run = runScenario(["archive", "ghost", "--format", "json"], { context: contextFor(fake) });
+		const run = runScenario(["archive", "ghost", "--format", "json"], {
+			context: contextFor(fake),
+		});
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
@@ -143,7 +170,10 @@ describe("objective archive", () => {
 				hasMoved: false,
 			}),
 		});
-		await expect(fake.pathKind(".asdl/objective-archive/ghost")).resolves.toEqual({ ok: true, value: "missing" });
+		await expect(fake.pathKind(".asdl/objective-archive/ghost")).resolves.toEqual({
+			ok: true,
+			value: "missing",
+		});
 	});
 
 	test("destination collision fails without mutation", async () => {
@@ -154,12 +184,15 @@ describe("objective archive", () => {
 				".asdl/objective-archive/alpha/objective.md": "archived sentinel\n",
 			},
 		});
-		const run = runScenario(["archive", "alpha", "--format", "json"], { context: contextFor(fake) });
+		const run = runScenario(["archive", "alpha", "--format", "json"], {
+			context: contextFor(fake),
+		});
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
 			exit_code: 1,
-			message: "Destination already exists for slug 'alpha': .asdl/objective-archive/alpha. Refusing to merge or overwrite.",
+			message:
+				"Destination already exists for slug 'alpha': .asdl/objective-archive/alpha. Refusing to merge or overwrite.",
 			data: archiveData({
 				status: "destination_exists",
 				error: "destination_exists",
@@ -172,12 +205,20 @@ describe("objective archive", () => {
 				hasMoved: false,
 			}),
 		});
-		await expect(fake.readTextFile(".asdl/objectives/alpha/objective.md")).resolves.toEqual({ type: "ok", content: "active sentinel\n" });
-		await expect(fake.readTextFile(".asdl/objective-archive/alpha/objective.md")).resolves.toEqual({ type: "ok", content: "archived sentinel\n" });
+		await expect(fake.readTextFile(".asdl/objectives/alpha/objective.md")).resolves.toEqual({
+			type: "ok",
+			content: "active sentinel\n",
+		});
+		await expect(fake.readTextFile(".asdl/objective-archive/alpha/objective.md")).resolves.toEqual({
+			type: "ok",
+			content: "archived sentinel\n",
+		});
 	});
 
 	test("invalid and missing slugs return stable negative envelopes", async () => {
-		const invalid = runScenario(["archive", "foo/bar", "--format", "json"], { fake: { records: [{ slug: "alpha" }] } });
+		const invalid = runScenario(["archive", "foo/bar", "--format", "json"], {
+			fake: { records: [{ slug: "alpha" }] },
+		});
 		expect(await invalid.exit).toBe(0);
 		expect(parseJsonOutput(invalid)).toEqual({
 			exit_code: 1,
@@ -239,12 +280,16 @@ describe("objective archive", () => {
 	});
 
 	test("archived records are excluded from active list after fake move", async () => {
-		const fake = new FakeObjectiveStorageGateway({ records: [{ slug: "alpha" }, { slug: "bravo" }] });
+		const fake = new FakeObjectiveStorageGateway({
+			records: [{ slug: "alpha" }, { slug: "bravo" }],
+		});
 		const context = contextFor(fake);
 		const archive = runScenario(["archive", "alpha", "--format", "json"], { context });
 		expect(await archive.exit).toBe(0);
 
-		const list = runScenario(["list", "--minimal", "--format", "json", "--status", "all"], { context });
+		const list = runScenario(["list", "--minimal", "--format", "json", "--status", "all"], {
+			context,
+		});
 		expect(await list.exit).toBe(0);
 		expect(parseJsonOutput(list)).toEqual({
 			exit_code: 0,
@@ -253,7 +298,9 @@ describe("objective archive", () => {
 				rootPath: ".asdl/objectives",
 				statusFilter: "all",
 				namesOnly: false,
-				records: [{ slug: "bravo", status: "open", latestUpdateIso: null, hasOutstandingChanges: false }],
+				records: [
+					{ slug: "bravo", status: "open", latestUpdateIso: null, hasOutstandingChanges: false },
+				],
 			},
 		});
 	});

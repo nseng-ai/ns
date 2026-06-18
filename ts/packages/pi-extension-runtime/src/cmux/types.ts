@@ -6,7 +6,14 @@ export type { ExecResult } from "@asdl/core/exec";
 export type NotifyLevel = "info" | "warning" | "error" | "success";
 export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
 
-const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"] as const satisfies readonly ThinkingLevel[];
+const THINKING_LEVELS = [
+	"off",
+	"minimal",
+	"low",
+	"medium",
+	"high",
+	"xhigh",
+] as const satisfies readonly ThinkingLevel[];
 const THINKING_LEVEL_SET: ReadonlySet<unknown> = new Set(THINKING_LEVELS);
 
 export function isThinkingLevel(value: unknown): value is ThinkingLevel {
@@ -44,7 +51,13 @@ export interface AutocompleteProvider {
 		cursorCol: number,
 		options: AutocompleteOptions,
 	): Promise<AutocompleteSuggestions | null> | AutocompleteSuggestions | null;
-	applyCompletion(lines: string[], cursorLine: number, cursorCol: number, item: AutocompleteItem, prefix: string): unknown;
+	applyCompletion(
+		lines: string[],
+		cursorLine: number,
+		cursorCol: number,
+		item: AutocompleteItem,
+		prefix: string,
+	): unknown;
 	shouldTriggerFileCompletion?(lines: string[], cursorLine: number, cursorCol: number): boolean;
 }
 
@@ -82,7 +95,9 @@ export interface SessionStartContext extends BaseContext {}
 export interface CommandDefinition {
 	description?: string;
 	argumentHint?: string;
-	getArgumentCompletions?: (prefix: string) => Promise<AutocompleteItem[] | null> | AutocompleteItem[] | null;
+	getArgumentCompletions?: (
+		prefix: string,
+	) => Promise<AutocompleteItem[] | null> | AutocompleteItem[] | null;
 	handler(args: string, ctx: CommandContext): Promise<void> | void;
 }
 
@@ -100,14 +115,23 @@ export interface ExecOptions {
 }
 
 export interface ExtensionAPI {
-	on(event: "agent_end", handler: (_event: unknown, ctx: AgentEndContext) => Promise<void> | void): void;
-	on(event: "session_start", handler: (_event: unknown, ctx: SessionStartContext) => Promise<void> | void): void;
+	on(
+		event: "agent_end",
+		handler: (_event: unknown, ctx: AgentEndContext) => Promise<void> | void,
+	): void;
+	on(
+		event: "session_start",
+		handler: (_event: unknown, ctx: SessionStartContext) => Promise<void> | void,
+	): void;
 	registerCommand(name: string, options: CommandDefinition): void;
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
 	getCommands(): readonly SkillCommandInfo[];
 	getThinkingLevel(): ThinkingLevel;
 	setThinkingLevel(level: ThinkingLevel): void;
 	setModel(model: ModelInfo): Promise<boolean>;
-	sendMessage?(message: CustomMessage, options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" }): void;
+	sendMessage?(
+		message: CustomMessage,
+		options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" },
+	): void;
 	sendUserMessage(content: string): void;
 }

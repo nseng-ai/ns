@@ -39,14 +39,21 @@ import {
 	type RuntimeResultV1,
 } from "./subagent-runtime.ts";
 import { emptyRunnerSubagentActivity } from "./activity.ts";
-import { createRunnerSubagentJsonEventParser, type RunnerSubagentJsonEventParserSnapshot } from "./json-events.ts";
+import {
+	createRunnerSubagentJsonEventParser,
+	type RunnerSubagentJsonEventParserSnapshot,
+} from "./json-events.ts";
 import { runnerSubagentSessionFile } from "./presentation.ts";
-import { readRunnerSubagentUsageFromSessionFile, type ReadRunnerSubagentSessionFile } from "./usage.ts";
+import {
+	readRunnerSubagentUsageFromSessionFile,
+	type ReadRunnerSubagentSessionFile,
+} from "./usage.ts";
 
 const DEFAULT_STDERR_LIMIT_BYTES = 8 * 1024;
 const DEFAULT_KILL_TIMEOUT_MS = 5_000;
 const STOPPED_WITHOUT_TERMINAL_DIAGNOSTIC = "Subagent Pi stopped without terminal capture.";
-const STOPPED_WITHOUT_USEFUL_TEXT_DIAGNOSTIC = "Subagent Pi stopped without useful final assistant text.";
+const STOPPED_WITHOUT_USEFUL_TEXT_DIAGNOSTIC =
+	"Subagent Pi stopped without useful final assistant text.";
 
 export interface PiInvocation {
 	command: string;
@@ -75,17 +82,26 @@ export interface SpawnedChildProcess {
 	stdout?: ReadableDataStreamLike | null;
 	stderr?: ReadableDataStreamLike | null;
 	kill(signal?: NodeJS.Signals | number): boolean;
-	on(event: "close", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown;
+	on(
+		event: "close",
+		listener: (code: number | null, signal: NodeJS.Signals | null) => void,
+	): unknown;
 	on(event: "error", listener: (error: Error) => void): unknown;
 }
 
-export type SpawnChildProcess = (command: string, args: string[], options: SpawnChildProcessOptions) => SpawnedChildProcess;
+export type SpawnChildProcess = (
+	command: string,
+	args: string[],
+	options: SpawnChildProcessOptions,
+) => SpawnedChildProcess;
 
 export type CreateRunnerSubagentRuntimeFiles = (
 	input: CreateRunnerSubagentRuntimeFilesInput,
 ) => RunnerSubagentRuntimeFiles | Promise<RunnerSubagentRuntimeFiles>;
 
-export type ReadRunnerSubagentRuntimeResult = (resultPath: string) => RuntimeResultReadResult | Promise<RuntimeResultReadResult>;
+export type ReadRunnerSubagentRuntimeResult = (
+	resultPath: string,
+) => RuntimeResultReadResult | Promise<RuntimeResultReadResult>;
 
 export interface RunnerSubagentDispatcherDependencies {
 	spawn?: SpawnChildProcess;
@@ -118,7 +134,12 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 	const updateEmitter = createUpdateEmitter(options.onProgress);
 
 	if (abortSignals.some((signal) => signal.aborted)) {
-		const progress = stoppedProgress({ title, now, startTimeMs, ...(launch === undefined ? {} : { launch }) });
+		const progress = stoppedProgress({
+			title,
+			now,
+			startTimeMs,
+			...(launch === undefined ? {} : { launch }),
+		});
 		updateEmitter.emit(updateFromProgress(progress), { force: true });
 		return cancelledResult(title, progress, abortReason(abortSignals));
 	}
@@ -128,15 +149,26 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 	let runtimeFiles: RunnerSubagentRuntimeFiles | undefined;
 	if (returnMode === "terminal" || terminalTools.length > 0) {
 		try {
-			const createRuntimeFiles = dependencies.createRuntimeFiles ?? createDefaultRunnerSubagentRuntimeFiles;
+			const createRuntimeFiles =
+				dependencies.createRuntimeFiles ?? createDefaultRunnerSubagentRuntimeFiles;
 			runtimeFiles = await createRuntimeFiles({
 				...(title === undefined ? {} : { title }),
 				terminalTools,
 			});
 		} catch (error) {
-			const progress = stoppedProgress({ title, now, startTimeMs, ...(launch === undefined ? {} : { launch }) });
+			const progress = stoppedProgress({
+				title,
+				now,
+				startTimeMs,
+				...(launch === undefined ? {} : { launch }),
+			});
 			updateEmitter.emit(updateFromProgress(progress), { force: true });
-			return errorResult(title, progress, `Invalid subagent terminal runtime configuration: ${formatErrorMessage(error)}`, error);
+			return errorResult(
+				title,
+				progress,
+				`Invalid subagent terminal runtime configuration: ${formatErrorMessage(error)}`,
+				error,
+			);
 		}
 	}
 
@@ -145,9 +177,19 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		sessionFile = await createSessionFile(cwd, title, dependencies);
 	} catch (error) {
 		await cleanupRuntimeFiles(runtimeFiles);
-		const progress = stoppedProgress({ title, now, startTimeMs, ...(launch === undefined ? {} : { launch }) });
+		const progress = stoppedProgress({
+			title,
+			now,
+			startTimeMs,
+			...(launch === undefined ? {} : { launch }),
+		});
 		updateEmitter.emit(updateFromProgress(progress), { force: true });
-		return errorResult(title, progress, `Failed to create subagent session file: ${formatErrorMessage(error)}`, error);
+		return errorResult(
+			title,
+			progress,
+			`Failed to create subagent session file: ${formatErrorMessage(error)}`,
+			error,
+		);
 	}
 
 	const terminalToolNames = terminalTools.map((tool) => tool.name);
@@ -164,7 +206,9 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 	const childArgs = buildChildPiArgs({
 		prompt: options.prompt,
 		sessionFile,
-		...(runtimeFiles?.extensionPath === undefined ? {} : { runtimeExtensionPath: runtimeFiles.extensionPath }),
+		...(runtimeFiles?.extensionPath === undefined
+			? {}
+			: { runtimeExtensionPath: runtimeFiles.extensionPath }),
 		...(options.model === undefined ? {} : { model: options.model }),
 		...(launch === undefined ? {} : { launch }),
 	});
@@ -187,7 +231,12 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		parser.markStopped();
 		updateEmitter.emit(updateFromSnapshot(parser.getSnapshot()), { force: true });
 		await cleanupRuntimeFiles(runtimeFiles);
-		return errorResult(title, parser.getProgress(), `Failed to spawn subagent Pi process: ${formatErrorMessage(error)}`, error);
+		return errorResult(
+			title,
+			parser.getProgress(),
+			`Failed to spawn subagent Pi process: ${formatErrorMessage(error)}`,
+			error,
+		);
 	}
 
 	return await new Promise<RunnerSubagentResult<TTerminalInput>>((resolve) => {
@@ -248,7 +297,14 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		child.on("error", (error) => {
 			parser.markStopped();
 			updateEmitter.emit(updateFromSnapshot(parser.getSnapshot()), { force: true });
-			finish(errorResult(title, parser.getProgress(), `Failed to spawn subagent Pi process: ${error.message}`, error));
+			finish(
+				errorResult(
+					title,
+					parser.getProgress(),
+					`Failed to spawn subagent Pi process: ${error.message}`,
+					error,
+				),
+			);
 		});
 
 		child.on("close", (code, closeSignal) => {
@@ -269,12 +325,23 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 				readRuntimeResult: dependencies.readRuntimeResult ?? readRuntimeResultFile,
 				returnMode,
 				...(runtimeFiles === undefined ? {} : { runtimeFiles }),
-				terminalToolStatuses: new Map(terminalTools.map((tool) => [tool.name, tool.status] as const)),
+				terminalToolStatuses: new Map(
+					terminalTools.map((tool) => [tool.name, tool.status] as const),
+				),
 			})
-				.then((result) => withRunnerSubagentUsage(result, dependencies.readSessionFile ?? defaultReadSessionFile))
+				.then((result) =>
+					withRunnerSubagentUsage(result, dependencies.readSessionFile ?? defaultReadSessionFile),
+				)
 				.then(finish, (error: unknown) => {
 					const progress = parser.getProgress();
-					finish(errorResult(title, progress, `Failed to resolve subagent result: ${formatErrorMessage(error)}`, error));
+					finish(
+						errorResult(
+							title,
+							progress,
+							`Failed to resolve subagent result: ${formatErrorMessage(error)}`,
+							error,
+						),
+					);
 				});
 		});
 	});
@@ -294,7 +361,8 @@ export function buildChildPiArgs(input: BuildChildPiArgsInput): string[] {
 		args.push("--thinking", input.launch.thinkingLevel);
 	}
 	args.push("--no-extensions");
-	if (input.runtimeExtensionPath !== undefined) args.push("--extension", input.runtimeExtensionPath);
+	if (input.runtimeExtensionPath !== undefined)
+		args.push("--extension", input.runtimeExtensionPath);
 	args.push("--session", input.sessionFile, input.prompt);
 	return args;
 }
@@ -303,7 +371,9 @@ function runnerSubagentReturnMode(options: RunnerSubagentOptions): RunnerSubagen
 	return options.returnMode ?? "terminal";
 }
 
-function runnerSubagentTerminalTools(options: RunnerSubagentOptions): readonly RunnerSubagentTerminalToolDefinition[] {
+function runnerSubagentTerminalTools(
+	options: RunnerSubagentOptions,
+): readonly RunnerSubagentTerminalToolDefinition[] {
 	return options.terminalTools ?? [];
 }
 
@@ -314,13 +384,21 @@ export function resolveRunnerSubagentLaunch(
 ): RunnerSubagentLaunchMetadata | undefined {
 	const requestedModel = options.model;
 	const inheritedModel = options.launch?.model ?? ctx.model;
-	const model = requestedModel === undefined ? inheritedModel : inheritedProviderModelForRequestedModel(requestedModel, inheritedModel);
+	const model =
+		requestedModel === undefined
+			? inheritedModel
+			: inheritedProviderModelForRequestedModel(requestedModel, inheritedModel);
 	const hasExplicitThinking = options.launch?.thinkingLevel !== undefined;
-	const hasInheritedThinkingSource = requestedModel === undefined && pi.getThinkingLevel !== undefined;
+	const hasInheritedThinkingSource =
+		requestedModel === undefined && pi.getThinkingLevel !== undefined;
 	const hasThinkingSource = hasExplicitThinking || hasInheritedThinkingSource;
 	if (requestedModel === undefined && model === undefined && !hasThinkingSource) return undefined;
-	const thinkingLevel = options.launch?.thinkingLevel ?? (requestedModel === undefined ? pi.getThinkingLevel?.() : undefined) ?? "off";
-	const hasThinkingArg = thinkingLevel !== "off" && (hasExplicitThinking || requestedModel === undefined);
+	const thinkingLevel =
+		options.launch?.thinkingLevel ??
+		(requestedModel === undefined ? pi.getThinkingLevel?.() : undefined) ??
+		"off";
+	const hasThinkingArg =
+		thinkingLevel !== "off" && (hasExplicitThinking || requestedModel === undefined);
 	return {
 		...(model === undefined ? {} : { model }),
 		...(requestedModel === undefined ? {} : { requestedModel }),
@@ -333,12 +411,22 @@ export function resolveRunnerSubagentLaunch(
 function shouldPassInheritedProviderForRequestedModel(
 	requestedModel: string,
 	launch: RunnerSubagentLaunchMetadata | undefined,
-): launch is RunnerSubagentLaunchMetadata & { model: NonNullable<RunnerSubagentLaunchMetadata["model"]> } {
-	return !hasExplicitProviderInModelPattern(requestedModel) && launch?.requestedModel === requestedModel && launch.model !== undefined;
+): launch is RunnerSubagentLaunchMetadata & {
+	model: NonNullable<RunnerSubagentLaunchMetadata["model"]>;
+} {
+	return (
+		!hasExplicitProviderInModelPattern(requestedModel) &&
+		launch?.requestedModel === requestedModel &&
+		launch.model !== undefined
+	);
 }
 
-function inheritedProviderModelForRequestedModel(requestedModel: string, inheritedModel: ModelInfo | undefined): ModelInfo | undefined {
-	if (inheritedModel === undefined || hasExplicitProviderInModelPattern(requestedModel)) return undefined;
+function inheritedProviderModelForRequestedModel(
+	requestedModel: string,
+	inheritedModel: ModelInfo | undefined,
+): ModelInfo | undefined {
+	if (inheritedModel === undefined || hasExplicitProviderInModelPattern(requestedModel))
+		return undefined;
 	return { provider: inheritedModel.provider, id: requestedModel };
 }
 
@@ -390,7 +478,10 @@ function updateSignature(update: RunnerSubagentUpdate): string {
 	].join("\0");
 }
 
-export function resolvePiInvocation(args: string[], dependencies: RunnerSubagentDispatcherDependencies = {}): PiInvocation {
+export function resolvePiInvocation(
+	args: string[],
+	dependencies: RunnerSubagentDispatcherDependencies = {},
+): PiInvocation {
 	const processArgv = dependencies.processArgv ?? process.argv;
 	const processExecPath = dependencies.processExecPath ?? process.execPath;
 	const existsSync = dependencies.existsSync ?? nodeExistsSync;
@@ -450,11 +541,20 @@ async function resolveClosedRunnerSubagentResult<TTerminalInput>(
 	}
 
 	if (snapshot.protocolError) {
-		return protocolErrorResult(title, progress, snapshot.protocolError.message, snapshot.protocolError.event);
+		return protocolErrorResult(
+			title,
+			progress,
+			snapshot.protocolError.message,
+			snapshot.protocolError.event,
+		);
 	}
 
 	if (input.code !== 0) {
-		return errorResult(title, progress, nonzeroExitDiagnostic(input.code, input.closeSignal, input.stderr));
+		return errorResult(
+			title,
+			progress,
+			nonzeroExitDiagnostic(input.code, input.closeSignal, input.stderr),
+		);
 	}
 
 	if (runtimeRead.failure) {
@@ -475,7 +575,10 @@ async function resolveClosedRunnerSubagentResult<TTerminalInput>(
 	}
 
 	if (runtimeRead.result?.kind === "terminal-capture") {
-		const protocolDiagnostic = validateTerminalCapture(runtimeRead.result, input.terminalToolStatuses);
+		const protocolDiagnostic = validateTerminalCapture(
+			runtimeRead.result,
+			input.terminalToolStatuses,
+		);
 		if (protocolDiagnostic) {
 			return protocolErrorResult(title, progress, protocolDiagnostic, runtimeRead.result);
 		}
@@ -483,12 +586,18 @@ async function resolveClosedRunnerSubagentResult<TTerminalInput>(
 	}
 
 	if (snapshot.stopReason === "error" || snapshot.stopReason === "aborted") {
-		const message = snapshot.errorMessage ?? `Subagent stopped with stopReason ${snapshot.stopReason}.`;
+		const message =
+			snapshot.errorMessage ?? `Subagent stopped with stopReason ${snapshot.stopReason}.`;
 		return errorResult(title, progress, message, new Error(message));
 	}
 
 	if (snapshot.terminalExecutionError) {
-		return protocolErrorResult(title, progress, snapshot.terminalExecutionError.message, snapshot.terminalExecutionError.event);
+		return protocolErrorResult(
+			title,
+			progress,
+			snapshot.terminalExecutionError.message,
+			snapshot.terminalExecutionError.event,
+		);
 	}
 
 	if (snapshot.terminalAttempted) {
@@ -535,7 +644,8 @@ function validateTerminalCapture(
 	terminalToolStatuses: ReadonlyMap<string, "completed" | "blocked">,
 ): string | undefined {
 	const expectedStatus = terminalToolStatuses.get(capture.toolName);
-	if (!expectedStatus) return `Subagent runtime captured unknown terminal tool: ${capture.toolName}.`;
+	if (!expectedStatus)
+		return `Subagent runtime captured unknown terminal tool: ${capture.toolName}.`;
 	if (expectedStatus !== capture.status) {
 		return `Subagent runtime captured terminal tool ${capture.toolName} with unexpected status ${capture.status}; expected ${expectedStatus}.`;
 	}
@@ -573,7 +683,11 @@ function terminalCaptureResult<TTerminalInput>(
 	};
 }
 
-async function createSessionFile(cwd: string, title: string | undefined, dependencies: RunnerSubagentDispatcherDependencies): Promise<string> {
+async function createSessionFile(
+	cwd: string,
+	title: string | undefined,
+	dependencies: RunnerSubagentDispatcherDependencies,
+): Promise<string> {
 	if (dependencies.createSessionFile) {
 		return await dependencies.createSessionFile({ cwd, ...(title === undefined ? {} : { title }) });
 	}
@@ -587,7 +701,11 @@ async function createDefaultSessionFile(): Promise<string> {
 	return join(dir, `${randomUUID()}.jsonl`);
 }
 
-function defaultSpawnChildProcess(command: string, args: string[], options: SpawnChildProcessOptions): SpawnedChildProcess {
+function defaultSpawnChildProcess(
+	command: string,
+	args: string[],
+	options: SpawnChildProcessOptions,
+): SpawnedChildProcess {
 	return nodeSpawn(command, args, options);
 }
 
@@ -717,7 +835,9 @@ function protocolErrorResult(
 	};
 }
 
-async function cleanupRuntimeFiles(runtimeFiles: RunnerSubagentRuntimeFiles | undefined): Promise<void> {
+async function cleanupRuntimeFiles(
+	runtimeFiles: RunnerSubagentRuntimeFiles | undefined,
+): Promise<void> {
 	if (runtimeFiles === undefined) return;
 	try {
 		await runtimeFiles.cleanup?.();
@@ -754,7 +874,11 @@ function errorPayload(error: unknown, fallbackMessage: string): RunnerSubagentEr
 	};
 }
 
-function nonzeroExitDiagnostic(code: number | null, signal: NodeJS.Signals | null, stderr: string): string {
+function nonzeroExitDiagnostic(
+	code: number | null,
+	signal: NodeJS.Signals | null,
+	stderr: string,
+): string {
 	const exitText = code === null ? "without an exit code" : `with exit code ${code}`;
 	const signalText = signal ? ` after signal ${signal}` : "";
 	const stderrText = stderr.trim().length > 0 ? `\n\nstderr:\n${stderr}` : "";
@@ -782,7 +906,10 @@ function abortReason(signals: readonly AbortSignal[]): string | undefined {
 function isSafelyDiscoverablePiScript(scriptPath: string): boolean {
 	if (scriptPath.startsWith("/$bunfs/root/")) return false;
 	const scriptName = basename(scriptPath).toLowerCase();
-	return /^(pi|pi-coding-agent)(\.[cm]?[jt]s)?$/.test(scriptName) || scriptPath.includes("pi-coding-agent");
+	return (
+		/^(pi|pi-coding-agent)(\.[cm]?[jt]s)?$/.test(scriptName) ||
+		scriptPath.includes("pi-coding-agent")
+	);
 }
 
 class BoundedTextBuffer {

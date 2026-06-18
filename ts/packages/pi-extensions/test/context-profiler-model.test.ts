@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import type { BuildSystemPromptOptions, SessionEntry, Skill } from "@earendil-works/pi-coding-agent";
+import type {
+	BuildSystemPromptOptions,
+	SessionEntry,
+	Skill,
+} from "@earendil-works/pi-coding-agent";
 import {
 	buildBaseRegions,
 	buildLiveRegions,
@@ -39,7 +43,12 @@ function makeSkill(overrides: Partial<Skill> = {}): Skill {
 		description: "first skill",
 		filePath: "skills/alpha/SKILL.md",
 		baseDir: "skills/alpha",
-		sourceInfo: { path: "skills/alpha/SKILL.md", source: "test", scope: "project", origin: "top-level" },
+		sourceInfo: {
+			path: "skills/alpha/SKILL.md",
+			source: "test",
+			scope: "project",
+			origin: "top-level",
+		},
 		disableModelInvocation: false,
 		...overrides,
 	};
@@ -68,11 +77,30 @@ function makeOptions(): BuildSystemPromptOptions {
 }
 
 function knownCharsOf(options: BuildSystemPromptOptions): number {
-	const fileChars = (options.contextFiles ?? []).reduce((total, file) => total + file.content.length, 0);
-	const skillChars = (options.skills ?? []).reduce((total, skill) => total + skillPromptChars(skill), 0);
-	const toolChars = (options.selectedTools ?? []).reduce((total, tool) => total + tool.length + (options.toolSnippets?.[tool]?.length ?? 0), 0);
-	const guidelineChars = (options.promptGuidelines ?? []).reduce((total, guideline) => total + guideline.length + 3, 0);
-	return fileChars + skillChars + toolChars + (options.customPrompt?.length ?? 0) + (options.appendSystemPrompt?.length ?? 0) + guidelineChars;
+	const fileChars = (options.contextFiles ?? []).reduce(
+		(total, file) => total + file.content.length,
+		0,
+	);
+	const skillChars = (options.skills ?? []).reduce(
+		(total, skill) => total + skillPromptChars(skill),
+		0,
+	);
+	const toolChars = (options.selectedTools ?? []).reduce(
+		(total, tool) => total + tool.length + (options.toolSnippets?.[tool]?.length ?? 0),
+		0,
+	);
+	const guidelineChars = (options.promptGuidelines ?? []).reduce(
+		(total, guideline) => total + guideline.length + 3,
+		0,
+	);
+	return (
+		fileChars +
+		skillChars +
+		toolChars +
+		(options.customPrompt?.length ?? 0) +
+		(options.appendSystemPrompt?.length ?? 0) +
+		guidelineChars
+	);
 }
 
 function makeTurns(count: number, tokensEach = 4): LiveTurn[] {
@@ -133,7 +161,12 @@ describe("buildBaseRegions", () => {
 		const systemPrompt = "S".repeat(known + 40);
 		const regions = buildBaseRegions(options, systemPrompt);
 
-		expect(regions.map((region) => region.id)).toEqual(["base-instructions", "base-context-files", "base-skills", "base-tools"]);
+		expect(regions.map((region) => region.id)).toEqual([
+			"base-instructions",
+			"base-context-files",
+			"base-skills",
+			"base-tools",
+		]);
 
 		const instructions = regions[0];
 		// scaffold 40 + custom 6 + append 7 + guidelines (2+3)*2 chars.
@@ -161,7 +194,10 @@ describe("buildBaseRegions", () => {
 		expect(tools?.members[1]?.content).toBeNull();
 		expect(tools?.members[1]?.note).toContain("no prompt snippet captured");
 
-		const allCounts = regions.flatMap((region) => [region.tokens, ...region.members.map((member) => member.tokens)]);
+		const allCounts = regions.flatMap((region) => [
+			region.tokens,
+			...region.members.map((member) => member.tokens),
+		]);
 		expect(allCounts.every((count) => count.provenance === "estimated")).toBe(true);
 	});
 
@@ -172,7 +208,10 @@ describe("buildBaseRegions", () => {
 	});
 
 	test("defaults selected tools to the snippet keys when absent", () => {
-		const options: BuildSystemPromptOptions = { cwd: "/repo", toolSnippets: { grep: "find things" } };
+		const options: BuildSystemPromptOptions = {
+			cwd: "/repo",
+			toolSnippets: { grep: "find things" },
+		};
 		const regions = buildBaseRegions(options, "");
 		expect(regions[3]?.members.map((member) => member.name)).toEqual(["grep"]);
 	});
@@ -262,8 +301,13 @@ describe("normalizeMessage", () => {
 	});
 
 	test("turns unknown record parts into opaque JSON and skips non-record parts", () => {
-		const normalized = normalizeMessage({ role: "assistant", content: [{ type: "mystery", payload: 1 }, 42] });
-		expect(normalized.parts).toEqual([{ kind: "opaque", json: JSON.stringify({ type: "mystery", payload: 1 }, null, 2) }]);
+		const normalized = normalizeMessage({
+			role: "assistant",
+			content: [{ type: "mystery", payload: 1 }, 42],
+		});
+		expect(normalized.parts).toEqual([
+			{ kind: "opaque", json: JSON.stringify({ type: "mystery", payload: 1 }, null, 2) },
+		]);
 	});
 
 	test("keeps an empty message with only a toolName free of parts", () => {
@@ -275,11 +319,17 @@ describe("normalizeMessage", () => {
 
 	test("represents a fully empty message as one opaque part of its own JSON", () => {
 		const bare = { role: "custom" };
-		expect(normalizeMessage(bare).parts).toEqual([{ kind: "opaque", json: JSON.stringify(bare, null, 2) }]);
+		expect(normalizeMessage(bare).parts).toEqual([
+			{ kind: "opaque", json: JSON.stringify(bare, null, 2) },
+		]);
 	});
 
 	test("pretty-prints details when present", () => {
-		const normalized = normalizeMessage({ role: "toolResult", content: "out", details: { exitCode: 0 } });
+		const normalized = normalizeMessage({
+			role: "toolResult",
+			content: "out",
+			details: { exitCode: 0 },
+		});
 		expect(normalized.detailsJson).toBe(JSON.stringify({ exitCode: 0 }, null, 2));
 	});
 });
@@ -290,13 +340,25 @@ describe("buildTurnsFromEntries", () => {
 		// Test fixture: only the fields the derivation reads are populated.
 		const entries: SessionEntry[] = [
 			makeMessageEntry(),
-			{ ...base, type: "custom_message", customType: "note", content: "remember", display: true, details: { a: 1 } },
+			{
+				...base,
+				type: "custom_message",
+				customType: "note",
+				content: "remember",
+				display: true,
+				details: { a: 1 },
+			},
 			{ ...base, type: "compaction", summary: "squashed", firstKeptEntryId: "e", tokensBefore: 9 },
 			{ ...base, type: "branch_summary", fromId: "e", summary: "branched" },
 			{ ...base, type: "model_change", provider: "anthropic", modelId: "m" },
 		];
 		const turns = buildTurnsFromEntries(entries);
-		expect(turns.map((turn) => turn.role)).toEqual(["user", "custom", "compaction", "branch_summary"]);
+		expect(turns.map((turn) => turn.role)).toEqual([
+			"user",
+			"custom",
+			"compaction",
+			"branch_summary",
+		]);
 		expect(turns.map((turn) => turn.index)).toEqual([1, 2, 3, 4]);
 		expect(turns[2]?.excerpt).toBe("squashed");
 		expect(turns[3]?.excerpt).toBe("branched");
@@ -331,45 +393,57 @@ describe("delegation helpers", () => {
 			makeTurnWithTools(4, ["spawn_agent"]),
 			makeTurnWithTools(5, ["bash"]),
 			makeTurnWithTools(6, ["taskmaster"]),
-			...Array.from({ length: MAX_DELEGATIONS }, (_unused, position) => makeTurnWithTools(position + 7, [`dispatch_${position}`])),
+			...Array.from({ length: MAX_DELEGATIONS }, (_unused, position) =>
+				makeTurnWithTools(position + 7, [`dispatch_${position}`]),
+			),
 		];
 		expect(inferredDelegations(turns)).toEqual([
 			{ turn: 2, label: "dispatch_runner_subagent", confidence: "inferred" },
 			{ turn: 3, label: "task", confidence: "inferred" },
 			{ turn: 4, label: "spawn_agent", confidence: "inferred" },
 			{ turn: 6, label: "taskmaster", confidence: "inferred" },
-			...Array.from({ length: MAX_DELEGATIONS - 4 }, (_unused, position) => ({ turn: position + 7, label: `dispatch_${position}`, confidence: "inferred" as const })),
+			...Array.from({ length: MAX_DELEGATIONS - 4 }, (_unused, position) => ({
+				turn: position + 7,
+				label: `dispatch_${position}`,
+				confidence: "inferred" as const,
+			})),
 		]);
 	});
 
 	test("filters delegations inclusively by span", () => {
-		expect(delegationsInSpan([
-			{ turn: 2, label: "before", confidence: "high" },
-			{ turn: 3, label: "start", confidence: "low" },
-			{ turn: 5, label: "end", confidence: "inferred" },
-			{ turn: 6, label: "after", confidence: "high" },
-		], { start: 3, end: 5 })).toEqual([
+		expect(
+			delegationsInSpan(
+				[
+					{ turn: 2, label: "before", confidence: "high" },
+					{ turn: 3, label: "start", confidence: "low" },
+					{ turn: 5, label: "end", confidence: "inferred" },
+					{ turn: 6, label: "after", confidence: "high" },
+				],
+				{ start: 3, end: 5 },
+			),
+		).toEqual([
 			{ turn: 3, label: "start", confidence: "low" },
 			{ turn: 5, label: "end", confidence: "inferred" },
 		]);
 	});
-
 });
 
 describe("renderNormalizedMessageText", () => {
 	test("emits semantic part headers", () => {
-		const text = renderNormalizedMessageText(makeMessage({
-			role: "toolResult",
-			toolName: "bash",
-			parts: [
-				{ kind: "text", text: "stdout here" },
-				{ kind: "thinking", text: "hmm" },
-				{ kind: "toolCall", name: "read", argsJson: JSON.stringify({ path: "/x" }, null, 2) },
-				{ kind: "image" },
-				{ kind: "opaque", json: '{\n  "type": "mystery"\n}' },
-			],
-			detailsJson: JSON.stringify({ exitCode: 0 }, null, 2),
-		}));
+		const text = renderNormalizedMessageText(
+			makeMessage({
+				role: "toolResult",
+				toolName: "bash",
+				parts: [
+					{ kind: "text", text: "stdout here" },
+					{ kind: "thinking", text: "hmm" },
+					{ kind: "toolCall", name: "read", argsJson: JSON.stringify({ path: "/x" }, null, 2) },
+					{ kind: "image" },
+					{ kind: "opaque", json: '{\n  "type": "mystery"\n}' },
+				],
+				detailsJson: JSON.stringify({ exitCode: 0 }, null, 2),
+			}),
+		);
 		expect(text).toContain("⏺ tool result · bash");
 		expect(text).toContain("stdout here");
 		expect(text).toContain("[thinking]\nhmm");
@@ -387,13 +461,19 @@ describe("renderNormalizedMessageText", () => {
 describe("deriveLiveTurns", () => {
 	test("treats the context event as authoritative once received, even when empty", () => {
 		const branchEntries: SessionEntry[] = [makeMessageEntry()];
-		const live = deriveLiveTurns({ context: { messages: [], source: "context-event" }, branchEntries });
+		const live = deriveLiveTurns({
+			context: { messages: [], source: "context-event" },
+			branchEntries,
+		});
 		expect(live.source).toBe("context-event");
 		expect(live.turns).toHaveLength(0);
 	});
 
 	test("uses session-context provenance for reconstructed reload snapshots", () => {
-		const live = deriveLiveTurns({ context: { messages: [{ role: "user", content: "hi" }], source: "session-context" }, branchEntries: [] });
+		const live = deriveLiveTurns({
+			context: { messages: [{ role: "user", content: "hi" }], source: "session-context" },
+			branchEntries: [],
+		});
 		expect(live.source).toBe("session-context");
 		expect(live.turns).toHaveLength(1);
 	});
@@ -443,8 +523,20 @@ describe("buildLiveRegions", () => {
 			isCurrent: false,
 			source: "annotation",
 		});
-		expect(regions[1]).toMatchObject({ kind: "uncategorized", outcome: null, turnRange: { start: 5, end: 6 }, tokens: { value: 8 }, source: "deterministic" });
-		expect(regions[2]).toMatchObject({ kind: "edit", outcome: "active", turnRange: { start: 7, end: 10 }, tokens: { value: 16 }, isCurrent: true });
+		expect(regions[1]).toMatchObject({
+			kind: "uncategorized",
+			outcome: null,
+			turnRange: { start: 5, end: 6 },
+			tokens: { value: 8 },
+			source: "deterministic",
+		});
+		expect(regions[2]).toMatchObject({
+			kind: "edit",
+			outcome: "active",
+			turnRange: { start: 7, end: 10 },
+			tokens: { value: 16 },
+			isCurrent: true,
+		});
 	});
 
 	test("skips the elision-seam gap between episodes instead of emitting a ghost region", () => {
@@ -464,7 +556,9 @@ describe("buildLiveRegions", () => {
 
 	test("clamps annotation ranges to real turn indices", () => {
 		const turns = makeTurns(4, 4);
-		const regions = buildLiveRegions(turns, [{ label: "everything", kind: "chat", outcome: "active", turnRange: { start: 0, end: 99 } }]);
+		const regions = buildLiveRegions(turns, [
+			{ label: "everything", kind: "chat", outcome: "active", turnRange: { start: 0, end: 99 } },
+		]);
 		expect(regions).toHaveLength(1);
 		expect(regions[0]?.turnRange).toEqual({ start: 1, end: 4 });
 		expect(regions[0]?.tokens.value).toBe(16);
@@ -474,12 +568,31 @@ describe("buildLiveRegions", () => {
 	test("carries optional episode verdicts and episode indices into live regions", () => {
 		const turns = makeTurns(4, 4);
 		const regions = buildLiveRegions(turns, [
-			{ label: "setup", kind: "explore", outcome: "completed", turnRange: { start: 1, end: 2 }, efficiency: "mixed", relevance: "still-useful" },
-			{ label: "fix", kind: "edit", outcome: "active", turnRange: { start: 3, end: 4 }, efficiency: "efficient", relevance: "load-bearing", analysisSummary: "t3-t4 land the fix directly." },
+			{
+				label: "setup",
+				kind: "explore",
+				outcome: "completed",
+				turnRange: { start: 1, end: 2 },
+				efficiency: "mixed",
+				relevance: "still-useful",
+			},
+			{
+				label: "fix",
+				kind: "edit",
+				outcome: "active",
+				turnRange: { start: 3, end: 4 },
+				efficiency: "efficient",
+				relevance: "load-bearing",
+				analysisSummary: "t3-t4 land the fix directly.",
+			},
 		]);
 		expect(regions.map((region) => region.episodeIndex)).toEqual([0, 1]);
 		expect(regions[0]).toMatchObject({ efficiency: "mixed", relevance: "still-useful" });
 		expect(regions[0]).not.toHaveProperty("analysisSummary");
-		expect(regions[1]).toMatchObject({ efficiency: "efficient", relevance: "load-bearing", analysisSummary: "t3-t4 land the fix directly." });
+		expect(regions[1]).toMatchObject({
+			efficiency: "efficient",
+			relevance: "load-bearing",
+			analysisSummary: "t3-t4 land the fix directly.",
+		});
 	});
 });

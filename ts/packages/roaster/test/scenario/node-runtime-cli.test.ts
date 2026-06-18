@@ -17,7 +17,8 @@ describeNodeRuntimeCliEntrypoint({
 		{ type: "contains", text: "--runtime" },
 		{ type: "not_contains", text: "exec" },
 	],
-	runtimeDiagnostics: "runtime: typescript\nentry_point: @asdl/roaster bin roaster -> ts/packages/roaster/src/cli.ts\n",
+	runtimeDiagnostics:
+		"runtime: typescript\nentry_point: @asdl/roaster bin roaster -> ts/packages/roaster/src/cli.ts\n",
 });
 
 test("prints the package version", () => {

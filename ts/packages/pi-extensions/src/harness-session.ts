@@ -24,8 +24,17 @@ interface ToolCallEvent {
 }
 
 export interface ExtensionAPI {
-	on(event: "session_start", handler: (event: unknown, ctx: SessionContext) => Promise<void> | void): void;
-	on(event: "tool_call", handler: (event: ToolCallEvent, ctx: unknown) => Promise<ToolCallResult | void> | ToolCallResult | void): void;
+	on(
+		event: "session_start",
+		handler: (event: unknown, ctx: SessionContext) => Promise<void> | void,
+	): void;
+	on(
+		event: "tool_call",
+		handler: (
+			event: ToolCallEvent,
+			ctx: unknown,
+		) => Promise<ToolCallResult | void> | ToolCallResult | void,
+	): void;
 	appendEntry(customType: string, data?: unknown): Promise<void> | void;
 }
 
@@ -50,7 +59,10 @@ export default function harnessSessionExtension(pi: ExtensionAPI): void {
 	});
 }
 
-export function registerHarnessSessionExtension(pi: ExtensionAPI, deps: HarnessSessionDeps): HarnessSessionState {
+export function registerHarnessSessionExtension(
+	pi: ExtensionAPI,
+	deps: HarnessSessionDeps,
+): HarnessSessionState {
 	const state: HarnessSessionState = { harnessSessionId: null };
 
 	pi.on("session_start", async (_event, ctx) => {
@@ -60,7 +72,10 @@ export function registerHarnessSessionExtension(pi: ExtensionAPI, deps: HarnessS
 	pi.on("tool_call", (event) => {
 		if (!isBashToolCall(event)) return;
 		if (state.harnessSessionId === null) {
-			return { block: true, reason: `${HARNESS_SESSION_ENV} has not been initialized for this Pi session.` };
+			return {
+				block: true,
+				reason: `${HARNESS_SESSION_ENV} has not been initialized for this Pi session.`,
+			};
 		}
 		if (commandSetsHarnessSessionId(event.input.command)) return;
 		event.input.command = `${exportHarnessSessionCommand(state.harnessSessionId)}\n${event.input.command}`;
@@ -79,15 +94,23 @@ function exportHarnessSessionCommand(harnessSessionId: string): string {
 
 function commandSetsHarnessSessionId(command: string): boolean {
 	const trimmed = command.trimStart();
-	return trimmed.startsWith(`${HARNESS_SESSION_ENV}=`) || trimmed.startsWith(`export ${HARNESS_SESSION_ENV}=`);
+	return (
+		trimmed.startsWith(`${HARNESS_SESSION_ENV}=`) ||
+		trimmed.startsWith(`export ${HARNESS_SESSION_ENV}=`)
+	);
 }
 
-async function resolveHarnessSessionId(pi: ExtensionAPI, sessionManager: SessionManager, deps: HarnessSessionDeps): Promise<string> {
+async function resolveHarnessSessionId(
+	pi: ExtensionAPI,
+	sessionManager: SessionManager,
+	deps: HarnessSessionDeps,
+): Promise<string> {
 	const restored = restoreHarnessSessionId(sessionManager.getEntries());
 	if (restored !== null) return restored;
 
 	const sessionFile = sessionManager.getSessionFile();
-	if (sessionFile !== undefined && sessionFile !== "") return sessionFileHarnessSessionId(sessionFile);
+	if (sessionFile !== undefined && sessionFile !== "")
+		return sessionFileHarnessSessionId(sessionFile);
 
 	const generated = `pi-ephemeral-${deps.nowMs()}-${deps.entropy()}`;
 	await pi.appendEntry(HARNESS_SESSION_ENTRY_TYPE, { harnessSessionId: generated });
@@ -112,10 +135,23 @@ function restoreHarnessSessionId(entries: readonly unknown[]): string | null {
 }
 
 function isCustomSessionEntry(value: unknown): value is CustomSessionEntry {
-	return typeof value === "object" && value !== null && "type" in value && "customType" in value && (value as { type?: unknown }).type === "custom";
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		"type" in value &&
+		"customType" in value &&
+		(value as { type?: unknown }).type === "custom"
+	);
 }
 
-function isBashToolCall(event: ToolCallEvent): event is ToolCallEvent & { input: { command: string } } {
+function isBashToolCall(
+	event: ToolCallEvent,
+): event is ToolCallEvent & { input: { command: string } } {
 	if (event.toolName !== "bash") return false;
-	return typeof event.input === "object" && event.input !== null && "command" in event.input && typeof (event.input as { command?: unknown }).command === "string";
+	return (
+		typeof event.input === "object" &&
+		event.input !== null &&
+		"command" in event.input &&
+		typeof (event.input as { command?: unknown }).command === "string"
+	);
 }

@@ -9,7 +9,10 @@ import type { GitGateway } from "@asdl/core/git";
 import { resolveSelectedSavedPlanFile } from "@asdl/plans";
 import type { BranchContextContext } from "./context.ts";
 
-const BRANCH_CONTEXT_IMPL_PROMPT_TEMPLATE = readFileSync(new URL("./prompts/branch-context-impl.md", import.meta.url), "utf8").trimEnd();
+const BRANCH_CONTEXT_IMPL_PROMPT_TEMPLATE = readFileSync(
+	new URL("./prompts/branch-context-impl.md", import.meta.url),
+	"utf8",
+).trimEnd();
 
 export type LoadedPlanSource = "attached" | "saved";
 
@@ -103,7 +106,9 @@ export async function loadBranchContextPlan(
 	}
 }
 
-function isSavedPlanFallbackEligibleError(error: unknown): error is NoAttachedBranchContextEntriesError {
+function isSavedPlanFallbackEligibleError(
+	error: unknown,
+): error is NoAttachedBranchContextEntriesError {
 	return error instanceof NoAttachedBranchContextEntriesError;
 }
 
@@ -112,8 +117,16 @@ export async function loadAttachedPlan(
 	params: LoadAttachedPlanParams,
 	options: LoadAttachedPlanOptions,
 ): Promise<LoadedAttachedPlan> {
-	const branch = await resolveSafeImplementationBranch(options.context.git, options.cwd, options.signal);
-	const list = await options.context.brmem.listAttachedPlans({ cwd: options.cwd, branch, signal: options.signal });
+	const branch = await resolveSafeImplementationBranch(
+		options.context.git,
+		options.cwd,
+		options.signal,
+	);
+	const list = await options.context.brmem.listAttachedPlans({
+		cwd: options.cwd,
+		branch,
+		signal: options.signal,
+	});
 	if (!list.ok) {
 		throw new Error(list.error.message);
 	}
@@ -123,9 +136,17 @@ export async function loadAttachedPlan(
 		throw new NoAttachedBranchContextEntriesError(branch);
 	}
 
-	const selectionInput = params.requestedKey === undefined ? { branch, entries } : { branch, requestedKey: params.requestedKey, entries };
+	const selectionInput =
+		params.requestedKey === undefined
+			? { branch, entries }
+			: { branch, requestedKey: params.requestedKey, entries };
 	const selectedKey = selectAttachedPlanKey(selectionInput);
-	const get = await options.context.brmem.getAttachedPlan({ cwd: options.cwd, branch, key: selectedKey, signal: options.signal });
+	const get = await options.context.brmem.getAttachedPlan({
+		cwd: options.cwd,
+		branch,
+		key: selectedKey,
+		signal: options.signal,
+	});
 	if (!get.ok) {
 		throw new Error(get.error.message);
 	}
@@ -176,7 +197,9 @@ function defaultReadTextFile(path: string): Promise<string> {
 	return readFile(path, "utf8");
 }
 
-function selectedSavedPlanFileInfo(selected: Awaited<ReturnType<typeof resolveSelectedSavedPlanFile>>): { filePath: string; fileName: string } {
+function selectedSavedPlanFileInfo(
+	selected: Awaited<ReturnType<typeof resolveSelectedSavedPlanFile>>,
+): { filePath: string; fileName: string } {
 	if (selected.type === "explicit") {
 		return { filePath: selected.filePath, fileName: selected.fileName };
 	}
@@ -197,7 +220,11 @@ export function normalizeRequestedBranchContextKey(requestedKey: string): string
 	return trimmed;
 }
 
-export function selectAttachedPlanKey(input: { branch: string; requestedKey?: string; entries: AttachedPlanEntry[] }): string {
+export function selectAttachedPlanKey(input: {
+	branch: string;
+	requestedKey?: string;
+	entries: AttachedPlanEntry[];
+}): string {
 	const availableKeys = sortedUniqueKeys(input.entries);
 	const available = new Set(availableKeys);
 	if (input.requestedKey === undefined) {
@@ -227,7 +254,9 @@ export function selectAttachedPlanKey(input: { branch: string; requestedKey?: st
 export function buildImplBranchContextPrompt(plan: LoadedAttachedPlan): string {
 	const isSavedPlan = plan.source === "saved";
 	return renderTemplate(BRANCH_CONTEXT_IMPL_PROMPT_TEMPLATE, {
-		loaded_plan_description: isSavedPlan ? "saved branch-context plan from the local plan store" : "attached branch-context plan",
+		loaded_plan_description: isSavedPlan
+			? "saved branch-context plan from the local plan store"
+			: "attached branch-context plan",
 		plan_label: isSavedPlan ? "SAVED PLAN" : "ATTACHED PLAN",
 		branch: plan.branch,
 		namespace: plan.namespace,
@@ -247,7 +276,9 @@ function renderTemplate(template: string, values: Record<string, string>): strin
 }
 
 export function loadedPlanTitle(plan: Pick<LoadedAttachedPlan, "source">): string {
-	return plan.source === "saved" ? "Loaded saved branch-context plan from local plan store." : "Loaded attached branch-context plan.";
+	return plan.source === "saved"
+		? "Loaded saved branch-context plan from local plan store."
+		: "Loaded attached branch-context plan.";
 }
 
 export function formatLoadedAttachedPlanEvidence(plan: LoadedAttachedPlan): string {
@@ -261,22 +292,38 @@ export function formatLoadedAttachedPlanEvidence(plan: LoadedAttachedPlan): stri
 	].join("\n");
 }
 
-async function resolveSafeImplementationBranch(git: GitGateway, cwd: string, signal: AbortSignal | undefined): Promise<string> {
+async function resolveSafeImplementationBranch(
+	git: GitGateway,
+	cwd: string,
+	signal: AbortSignal | undefined,
+): Promise<string> {
 	const repoRoot = await git.repoRoot({ cwd, signal });
 	if (!repoRoot.ok) {
-		throw new Error(["Cannot load attached plan: not in a Git repository.", "", repoRoot.error.message].join("\n"));
+		throw new Error(
+			["Cannot load attached plan: not in a Git repository.", "", repoRoot.error.message].join(
+				"\n",
+			),
+		);
 	}
 
 	const branchResult = await git.currentBranch({ cwd, signal });
 	if (!branchResult.ok) {
-		throw new Error(["Cannot load attached plan from detached HEAD. Check out a feature branch first.", "", branchResult.error.message].join("\n"));
+		throw new Error(
+			[
+				"Cannot load attached plan from detached HEAD. Check out a feature branch first.",
+				"",
+				branchResult.error.message,
+			].join("\n"),
+		);
 	}
 	const branch = branchResult.value;
 
 	const trunkBranch = await git.trunkBranch({ cwd, signal });
 	const trunkBranchValue = trunkBranch.type === "found" ? trunkBranch.value : undefined;
 	if (branch === "main" || branch === "master" || branch === trunkBranchValue) {
-		throw new Error(`Refusing to implement directly on trunk (\`${branch}\`). Check out a feature branch first.`);
+		throw new Error(
+			`Refusing to implement directly on trunk (\`${branch}\`). Check out a feature branch first.`,
+		);
 	}
 
 	return branch;
@@ -289,4 +336,3 @@ function sortedUniqueKeys(entries: AttachedPlanEntry[]): string[] {
 function formatAvailableKeys(keys: string[]): string {
 	return keys.length > 0 ? keys.map((key) => `- ${key}`).join("\n") : "(none)";
 }
-

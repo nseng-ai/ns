@@ -26,18 +26,33 @@ interface BaseApplyProjectMutationPlanRequest {
 }
 
 type ApplyProjectMutationPlanRequest =
-	| (BaseApplyProjectMutationPlanRequest & { policy: Exclude<AregProjectMutationPolicy, "skill-kind"> })
 	| (BaseApplyProjectMutationPlanRequest & {
-		policy: "skill-kind";
-		deletes: readonly ProjectDeletePlan[];
-		removeEmptyDirs: readonly ProjectRemoveEmptyDirPlan[];
-	});
+			policy: Exclude<AregProjectMutationPolicy, "skill-kind">;
+	  })
+	| (BaseApplyProjectMutationPlanRequest & {
+			policy: "skill-kind";
+			deletes: readonly ProjectDeletePlan[];
+			removeEmptyDirs: readonly ProjectRemoveEmptyDirPlan[];
+	  });
 
-export const PROJECT_FILE_MUTATION_OPERATION_TYPES = ["write", "delete", "remove_empty_dir"] as const;
-export const PROJECT_MUTATION_OPERATION_TYPES = [...PROJECT_FILE_MUTATION_OPERATION_TYPES, "external"] as const;
-export const PROJECT_MUTATION_OPERATION_STATUSES = ["applied", "failed", "not_attempted", "skipped"] as const;
+export const PROJECT_FILE_MUTATION_OPERATION_TYPES = [
+	"write",
+	"delete",
+	"remove_empty_dir",
+] as const;
+export const PROJECT_MUTATION_OPERATION_TYPES = [
+	...PROJECT_FILE_MUTATION_OPERATION_TYPES,
+	"external",
+] as const;
+export const PROJECT_MUTATION_OPERATION_STATUSES = [
+	"applied",
+	"failed",
+	"not_attempted",
+	"skipped",
+] as const;
 
-export type ProjectFileMutationOperationType = (typeof PROJECT_FILE_MUTATION_OPERATION_TYPES)[number];
+export type ProjectFileMutationOperationType =
+	(typeof PROJECT_FILE_MUTATION_OPERATION_TYPES)[number];
 export type ProjectMutationOperationType = (typeof PROJECT_MUTATION_OPERATION_TYPES)[number];
 export type ProjectMutationOperationStatus = (typeof PROJECT_MUTATION_OPERATION_STATUSES)[number];
 
@@ -83,7 +98,9 @@ export type ApplyProjectMutationPlanResult =
 	| ({ ok: true } & ApplyProjectMutationPlanSuccessFields)
 	| ({ ok: false; error: AregErrorInfo } & ApplyProjectMutationPlanSuccessFields);
 
-export async function applyProjectMutationPlan(request: ApplyProjectMutationPlanRequest): Promise<ApplyProjectMutationPlanResult> {
+export async function applyProjectMutationPlan(
+	request: ApplyProjectMutationPlanRequest,
+): Promise<ApplyProjectMutationPlanResult> {
 	const operations = flattenProjectMutationPlan(request);
 	const preflightStatuses: ProjectMutationOperationStatusRecord[] = [];
 	let firstPreflightError: AregErrorInfo | undefined;
@@ -101,7 +118,13 @@ export async function applyProjectMutationPlan(request: ApplyProjectMutationPlan
 		return emptyFailure(firstPreflightError, preflightStatuses);
 	}
 	if (request.execute === false) {
-		return { ok: true, writtenRelativePaths: [], deletedRelativePaths: [], removedEmptyDirRelativePaths: [], operationStatuses: preflightStatuses };
+		return {
+			ok: true,
+			writtenRelativePaths: [],
+			deletedRelativePaths: [],
+			removedEmptyDirRelativePaths: [],
+			operationStatuses: preflightStatuses,
+		};
 	}
 
 	const writtenRelativePaths: string[] = [];
@@ -114,8 +137,16 @@ export async function applyProjectMutationPlan(request: ApplyProjectMutationPlan
 		const result = await applyOperation(request, operation);
 		if (!result.ok) {
 			operationStatuses.push(operationStatus(operation, "failed", result.error));
-			for (const remaining of operations.slice(index + 1)) operationStatuses.push(operationStatus(remaining, "not_attempted"));
-			return { ok: false, error: result.error, writtenRelativePaths, deletedRelativePaths, removedEmptyDirRelativePaths, operationStatuses };
+			for (const remaining of operations.slice(index + 1))
+				operationStatuses.push(operationStatus(remaining, "not_attempted"));
+			return {
+				ok: false,
+				error: result.error,
+				writtenRelativePaths,
+				deletedRelativePaths,
+				removedEmptyDirRelativePaths,
+				operationStatuses,
+			};
 		}
 		if (operation.type === "write") {
 			writtenRelativePaths.push(operation.relativePath);
@@ -131,18 +162,50 @@ export async function applyProjectMutationPlan(request: ApplyProjectMutationPlan
 		}
 	}
 
-	return { ok: true, writtenRelativePaths, deletedRelativePaths, removedEmptyDirRelativePaths, operationStatuses };
+	return {
+		ok: true,
+		writtenRelativePaths,
+		deletedRelativePaths,
+		removedEmptyDirRelativePaths,
+		operationStatuses,
+	};
 }
 
-function flattenProjectMutationPlan(request: ApplyProjectMutationPlanRequest): ProjectMutationOperation[] {
-	const writes = request.writes.map((plan): WriteOperation => ({ type: "write", relativePath: plan.relativePath, description: plan.description, plan }));
+function flattenProjectMutationPlan(
+	request: ApplyProjectMutationPlanRequest,
+): ProjectMutationOperation[] {
+	const writes = request.writes.map(
+		(plan): WriteOperation => ({
+			type: "write",
+			relativePath: plan.relativePath,
+			description: plan.description,
+			plan,
+		}),
+	);
 	if (request.policy !== "skill-kind") return writes;
-	const deletes = request.deletes.map((plan): DeleteOperation => ({ type: "delete", relativePath: plan.relativePath, description: plan.description, plan }));
-	const removeEmptyDirs = request.removeEmptyDirs.map((plan): RemoveEmptyDirOperation => ({ type: "remove_empty_dir", relativePath: plan.relativePath, description: plan.description, plan }));
+	const deletes = request.deletes.map(
+		(plan): DeleteOperation => ({
+			type: "delete",
+			relativePath: plan.relativePath,
+			description: plan.description,
+			plan,
+		}),
+	);
+	const removeEmptyDirs = request.removeEmptyDirs.map(
+		(plan): RemoveEmptyDirOperation => ({
+			type: "remove_empty_dir",
+			relativePath: plan.relativePath,
+			description: plan.description,
+			plan,
+		}),
+	);
 	return [...writes, ...deletes, ...removeEmptyDirs];
 }
 
-async function preflightOperation(request: ApplyProjectMutationPlanRequest, operation: ProjectMutationOperation): Promise<{ ok: true } | { ok: false; error: AregErrorInfo }> {
+async function preflightOperation(
+	request: ApplyProjectMutationPlanRequest,
+	operation: ProjectMutationOperation,
+): Promise<{ ok: true } | { ok: false; error: AregErrorInfo }> {
 	switch (operation.type) {
 		case "write":
 			return await request.ctx.project.preflightWriteTextFile({
@@ -173,7 +236,10 @@ async function preflightOperation(request: ApplyProjectMutationPlanRequest, oper
 	}
 }
 
-async function applyOperation(request: ApplyProjectMutationPlanRequest, operation: ProjectMutationOperation): Promise<{ ok: true; removed?: boolean | undefined } | { ok: false; error: AregErrorInfo }> {
+async function applyOperation(
+	request: ApplyProjectMutationPlanRequest,
+	operation: ProjectMutationOperation,
+): Promise<{ ok: true; removed?: boolean | undefined } | { ok: false; error: AregErrorInfo }> {
 	switch (operation.type) {
 		case "write":
 			return await request.ctx.project.writeTextFile({
@@ -206,7 +272,10 @@ async function applyOperation(request: ApplyProjectMutationPlanRequest, operatio
 	}
 }
 
-function emptyFailure(error: AregErrorInfo, operationStatuses: readonly ProjectMutationOperationStatusRecord[]): ApplyProjectMutationPlanResult {
+function emptyFailure(
+	error: AregErrorInfo,
+	operationStatuses: readonly ProjectMutationOperationStatusRecord[],
+): ApplyProjectMutationPlanResult {
 	return {
 		ok: false,
 		error,
@@ -217,7 +286,11 @@ function emptyFailure(error: AregErrorInfo, operationStatuses: readonly ProjectM
 	};
 }
 
-function operationStatus(operation: ProjectMutationOperation, status: ProjectMutationOperationStatus, error?: AregErrorInfo | undefined): ProjectMutationOperationStatusRecord {
+function operationStatus(
+	operation: ProjectMutationOperation,
+	status: ProjectMutationOperationStatus,
+	error?: AregErrorInfo | undefined,
+): ProjectMutationOperationStatusRecord {
 	return {
 		type: operation.type,
 		path: operation.relativePath,

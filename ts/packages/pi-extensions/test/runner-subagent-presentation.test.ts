@@ -95,7 +95,12 @@ describe("runner subagent presentation helpers", () => {
 			elapsedMs: 1_250,
 			sessionFile: "/tmp/progress.jsonl",
 		};
-		expect(formatRunnerSubagentProgressWidgetLines(progressWithoutTitle, { fallbackTitle: "(untitled)", includeElapsed: false })).toEqual([
+		expect(
+			formatRunnerSubagentProgressWidgetLines(progressWithoutTitle, {
+				fallbackTitle: "(untitled)",
+				includeElapsed: false,
+			}),
+		).toEqual([
 			"Subagent: (untitled)",
 			"State: running",
 			"Tool: read",

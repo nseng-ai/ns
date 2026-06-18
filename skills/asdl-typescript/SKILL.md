@@ -1,6 +1,6 @@
 ---
 name: asdl-typescript
-description: "Project-specific TypeScript overlay for asdl-tools. Use when editing or reviewing TypeScript in this repo: tsconfig baseline, pnpm/Vitest/dprint commands, relative .ts imports, workspace subpath exports, exactOptionalPropertyTypes spread idiom, and the as unknown as hard ban."
+description: "Project-specific TypeScript overlay for asdl-tools. Use when editing or reviewing TypeScript in this repo: tsconfig baseline, pnpm/Vitest/oxlint/oxfmt/tsgo commands, relative .ts imports, workspace subpath exports, exactOptionalPropertyTypes spread idiom, and the as unknown as hard ban."
 references:
   - references/internal-import-alternatives
 ---
@@ -14,17 +14,22 @@ Load this after `typescript-style` whenever the task touches TypeScript in this 
 
 ## Toolchain baseline
 
-- Package manager: pnpm 10.14 in `ts/`.
+- Package manager: pnpm 11 in `ts/`.
 - Runtime: Node 24.12 or newer.
+- Dependency governance: pnpm catalog plus Syncpack via `just ts-deps-check`.
 - Tests: Vitest 4 via `pnpm --dir ts run test` or `just ts-test`.
-- Typecheck: `pnpm --dir ts run check` or `just ts-check`.
-- Formatting: dprint via `dprint check` / `just dprint-check`; autofix with `just dprint-fix`.
-- No TypeScript linter is configured; enforce local invariants with small explicit guards when needed.
+- Primary typecheck: native TypeScript preview / `tsgo` via `pnpm --dir ts run check` or `just ts-check`.
+- Legacy fallback typecheck: stock `tsc` via `pnpm --dir ts run check:legacy` or `just ts-check-legacy`.
+- Formatting: oxfmt via `pnpm --dir ts run fmt:check` / `just ts-format-check`; autofix with `pnpm --dir ts run fmt` / `just ts-format-fix`.
+- Linting: oxlint via `pnpm --dir ts run lint` / `just ts-lint`; autofix with `pnpm --dir ts run lint:fix` / `just ts-lint-fix`.
+- Repo Markdown/TOML formatting remains dprint via `dprint check` / `just dprint-check`; autofix with `just dprint-fix`.
 
 ## Compiler baseline
 
 `ts/tsconfig.json` is intentionally strict and strip-only. Treat these settings as the project contract:
 
+- `target: "ES2024"`
+- `lib: ["ES2024"]`
 - `strict: true`
 - `noUncheckedIndexedAccess: true`
 - `exactOptionalPropertyTypes: true`
@@ -40,6 +45,7 @@ Load this after `typescript-style` whenever the task touches TypeScript in this 
 - `noUncheckedSideEffectImports: true`
 - `noUnusedLocals: true`
 - `noUnusedParameters: true`
+- `forceConsistentCasingInFileNames: true`
 
 The unused-local and unused-parameter flags are deliberately stricter than many WIP workflows. Prefer
 small, complete changes that leave no dead scaffolding.
@@ -87,8 +93,14 @@ Preferred fixes:
 - add a narrow runtime assertion at the boundary;
 - isolate a single library-forced cast with a comment only when the external type truly requires it.
 
-Run the project guard before declaring TypeScript work done:
+Run the TypeScript validation gates before declaring TypeScript work done:
 
 ```bash
+just ts-deps-check
+just ts-format-check
+just ts-lint
+just ts-check
+just ts-check-legacy
+just ts-test
 just ts-guard
 ```

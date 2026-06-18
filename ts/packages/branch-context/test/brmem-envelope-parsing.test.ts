@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import { parseBrmemGetContent, parseBrmemListEntries, parseBrmemPutData } from "../src/brmem-gateway.ts";
+import {
+	parseBrmemGetContent,
+	parseBrmemListEntries,
+	parseBrmemPutData,
+} from "../src/brmem-gateway.ts";
 import { BRANCH_CONTEXT_NAMESPACE } from "../src/constants.ts";
 
 const BRANCH = "branch-contexts/branch-scoped-plan";
@@ -103,37 +107,72 @@ describe("Branch Memory machine envelope parsing", () => {
 		for (const parser of PARSER_CASES) {
 			expect(() => parser.parse("{")).toThrow(new RegExp(`Malformed ${parser.name} JSON`));
 			expect(() => parser.parse("[]")).toThrow(/expected an envelope object/);
-			expect(() => parser.parse(JSON.stringify({ data: parser.validData }))).toThrow(/expected numeric exit_code/);
-			expect(() => parser.parse(envelope(parser.validData, { exit_code: "0" }))).toThrow(/expected numeric exit_code/);
-			expect(() => parser.parse(envelope({}, { exit_code: 2, message: "failed" }))).toThrow(/exit_code 2: failed/);
-			expect(() => parser.parse(JSON.stringify({ exit_code: 0 }))).toThrow(/expected a data object/);
-			expect(() => parser.parse(JSON.stringify({ exit_code: 0, data: [] }))).toThrow(/expected a data object/);
+			expect(() => parser.parse(JSON.stringify({ data: parser.validData }))).toThrow(
+				/expected numeric exit_code/,
+			);
+			expect(() => parser.parse(envelope(parser.validData, { exit_code: "0" }))).toThrow(
+				/expected numeric exit_code/,
+			);
+			expect(() => parser.parse(envelope({}, { exit_code: 2, message: "failed" }))).toThrow(
+				/exit_code 2: failed/,
+			);
+			expect(() => parser.parse(JSON.stringify({ exit_code: 0 }))).toThrow(
+				/expected a data object/,
+			);
+			expect(() => parser.parse(JSON.stringify({ exit_code: 0, data: [] }))).toThrow(
+				/expected a data object/,
+			);
 		}
 	});
 
 	test("keeps put body validation after the shared envelope parse", () => {
-		expect(() => parseBrmemPutData(envelope({ ...VALID_PUT_DATA, source_file: undefined }))).toThrow(/expected string fields/);
+		expect(() =>
+			parseBrmemPutData(envelope({ ...VALID_PUT_DATA, source_file: undefined })),
+		).toThrow(/expected string fields/);
 	});
 
 	test("keeps list body validation after the shared envelope parse", () => {
-		expect(() => parseBrmemListEntries(envelope({}), EXPECTED_LIST)).toThrow(/expected data.entries array/);
-		expect(() => parseBrmemListEntries(envelope({ entries: "not an array" }), EXPECTED_LIST)).toThrow(/expected data.entries array/);
-		expect(() => parseBrmemListEntries(envelope({ entries: [null] }), EXPECTED_LIST)).toThrow(/expected data.entries\[0\] object/);
-		expect(() => parseBrmemListEntries(envelope({ entries: [{ ...VALID_LIST_ENTRY, ref_name: undefined }] }), EXPECTED_LIST)).toThrow(
-			/expected string fields/,
+		expect(() => parseBrmemListEntries(envelope({}), EXPECTED_LIST)).toThrow(
+			/expected data.entries array/,
 		);
-		expect(() => parseBrmemListEntries(envelope({ entries: [{ ...VALID_LIST_ENTRY, namespace: "other" }] }), EXPECTED_LIST)).toThrow(
-			/expected canonical entry/,
+		expect(() =>
+			parseBrmemListEntries(envelope({ entries: "not an array" }), EXPECTED_LIST),
+		).toThrow(/expected data.entries array/);
+		expect(() => parseBrmemListEntries(envelope({ entries: [null] }), EXPECTED_LIST)).toThrow(
+			/expected data.entries\[0\] object/,
 		);
-		expect(() => parseBrmemListEntries(envelope({ entries: [{ ...VALID_LIST_ENTRY, branch: "other" }] }), EXPECTED_LIST)).toThrow(
-			/expected canonical entry/,
-		);
+		expect(() =>
+			parseBrmemListEntries(
+				envelope({ entries: [{ ...VALID_LIST_ENTRY, ref_name: undefined }] }),
+				EXPECTED_LIST,
+			),
+		).toThrow(/expected string fields/);
+		expect(() =>
+			parseBrmemListEntries(
+				envelope({ entries: [{ ...VALID_LIST_ENTRY, namespace: "other" }] }),
+				EXPECTED_LIST,
+			),
+		).toThrow(/expected canonical entry/);
+		expect(() =>
+			parseBrmemListEntries(
+				envelope({ entries: [{ ...VALID_LIST_ENTRY, branch: "other" }] }),
+				EXPECTED_LIST,
+			),
+		).toThrow(/expected canonical entry/);
 	});
 
 	test("keeps get body validation after the shared envelope parse", () => {
-		expect(() => parseBrmemGetContent(envelope({ ...VALID_GET_DATA, content: undefined }), EXPECTED_GET)).toThrow(/expected string fields/);
-		expect(() => parseBrmemGetContent(envelope({ ...VALID_GET_DATA, namespace: "other" }), EXPECTED_GET)).toThrow(/expected requested data/);
-		expect(() => parseBrmemGetContent(envelope({ ...VALID_GET_DATA, branch: "other" }), EXPECTED_GET)).toThrow(/expected requested data/);
-		expect(() => parseBrmemGetContent(envelope({ ...VALID_GET_DATA, key: "other.md" }), EXPECTED_GET)).toThrow(/expected requested data/);
+		expect(() =>
+			parseBrmemGetContent(envelope({ ...VALID_GET_DATA, content: undefined }), EXPECTED_GET),
+		).toThrow(/expected string fields/);
+		expect(() =>
+			parseBrmemGetContent(envelope({ ...VALID_GET_DATA, namespace: "other" }), EXPECTED_GET),
+		).toThrow(/expected requested data/);
+		expect(() =>
+			parseBrmemGetContent(envelope({ ...VALID_GET_DATA, branch: "other" }), EXPECTED_GET),
+		).toThrow(/expected requested data/);
+		expect(() =>
+			parseBrmemGetContent(envelope({ ...VALID_GET_DATA, key: "other.md" }), EXPECTED_GET),
+		).toThrow(/expected requested data/);
 	});
 });

@@ -6,15 +6,36 @@
  * help layer. The snapshot on screen is frozen; only `r` swaps it.
  */
 
-import { Editor, Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import {
+	Editor,
+	Key,
+	matchesKey,
+	truncateToWidth,
+	visibleWidth,
+	wrapTextWithAnsi,
+} from "@earendil-works/pi-tui";
 import type { Component, TUI } from "@earendil-works/pi-tui";
 import { getSelectListTheme, type Theme } from "@earendil-works/pi-coding-agent";
 import type { BundlePersistenceState } from "./bundle.ts";
 import type { InterrogationAttachment } from "./interrogation-controller.ts";
-import { chatFrameMeta, chatHint, chatScrollWindow, buildChatLines, type ChatLine } from "./interrogation-render.ts";
+import {
+	chatFrameMeta,
+	chatHint,
+	chatScrollWindow,
+	buildChatLines,
+	type ChatLine,
+} from "./interrogation-render.ts";
 import { scopeForRegion, type InterrogationScope } from "./interrogation-prompt.ts";
 import type { TranscriptState } from "./interrogation-transcript.ts";
-import type { BaseMember, BaseRegion, DelegationClaim, LiveRegion, LiveTurn, ProfileSnapshot, TokenCount } from "./model.ts";
+import type {
+	BaseMember,
+	BaseRegion,
+	DelegationClaim,
+	LiveRegion,
+	LiveTurn,
+	ProfileSnapshot,
+	TokenCount,
+} from "./model.ts";
 import { buildLiveRegions, delegationsInSpan, inferredDelegations, turnsInRange } from "./model.ts";
 import type { EpisodeAnalysisStatus, SegmentationState } from "./segmentation.ts";
 import {
@@ -110,7 +131,11 @@ export interface ProfilerViewOptions {
 	onClose: () => void;
 	onOpenInterrogation: (scope: InterrogationScope) => InterrogationAttachment;
 	/** Re-snapshot for `r`; the returned pair replaces the frozen one. */
-	onRefresh: () => { profile: ProfileSnapshot; segmentation: SegmentationState; persistence: BundlePersistenceState };
+	onRefresh: () => {
+		profile: ProfileSnapshot;
+		segmentation: SegmentationState;
+		persistence: BundlePersistenceState;
+	};
 }
 
 export class ProfilerView implements Component {
@@ -118,7 +143,11 @@ export class ProfilerView implements Component {
 	private readonly theme: Theme;
 	private readonly onClose: () => void;
 	private readonly onOpenInterrogation: (scope: InterrogationScope) => InterrogationAttachment;
-	private readonly onRefresh: () => { profile: ProfileSnapshot; segmentation: SegmentationState; persistence: BundlePersistenceState };
+	private readonly onRefresh: () => {
+		profile: ProfileSnapshot;
+		segmentation: SegmentationState;
+		persistence: BundlePersistenceState;
+	};
 	private profile: ProfileSnapshot;
 	private segmentation: SegmentationState;
 	private persistence: BundlePersistenceState;
@@ -167,7 +196,12 @@ export class ProfilerView implements Component {
 		const height = Math.max(8, this.terminalRows());
 		const frame = this.topFrame();
 		const body = this.renderFrameBody(frame, width, height);
-		return this.boxed({ title: this.breadcrumbTitle(), meta: this.frameMeta(frame), body, width }).map((line) => fitToWidth(line, width));
+		return this.boxed({
+			title: this.breadcrumbTitle(),
+			meta: this.frameMeta(frame),
+			body,
+			width,
+		}).map((line) => fitToWidth(line, width));
 	}
 
 	handleInput(data: string): void {
@@ -260,7 +294,9 @@ export class ProfilerView implements Component {
 	private replaceFrame(previous: ViewFrame, next: ViewFrame): void {
 		const index = this.frames.lastIndexOf(previous);
 		if (index === -1) throw new Error("profiler frame is no longer on the stack");
-		this.frames = this.frames.map((candidate, candidateIndex) => candidateIndex === index ? next : candidate);
+		this.frames = this.frames.map((candidate, candidateIndex) =>
+			candidateIndex === index ? next : candidate,
+		);
 	}
 
 	private overviewRows(): OverviewRowSource[] {
@@ -285,11 +321,15 @@ export class ProfilerView implements Component {
 	}
 
 	private currentDelegations(): DelegationClaim[] {
-		return this.segmentation.type === "ready" ? [...this.segmentation.delegations] : inferredDelegations(this.profile.liveTurns);
+		return this.segmentation.type === "ready"
+			? [...this.segmentation.delegations]
+			: inferredDelegations(this.profile.liveTurns);
 	}
 
 	private resolveTurnList(frame: TurnListFrame): { region: LiveRegion; turns: LiveTurn[] } {
-		const region = this.liveRegions().find((candidate) => candidate.id === frame.pushedRegion.id) ?? frame.pushedRegion;
+		const region =
+			this.liveRegions().find((candidate) => candidate.id === frame.pushedRegion.id) ??
+			frame.pushedRegion;
 		return { region, turns: turnsInRange(this.profile.liveTurns, region.turnRange) };
 	}
 
@@ -335,7 +375,11 @@ export class ProfilerView implements Component {
 			case "content":
 				return frame.source.meta;
 			case "chat":
-				return chatFrameMeta({ ordinal: frame.interrogation.type === "ready" ? frame.interrogation.port.bundleOrdinal : null, scope: frame.scope });
+				return chatFrameMeta({
+					ordinal:
+						frame.interrogation.type === "ready" ? frame.interrogation.port.bundleOrdinal : null,
+					scope: frame.scope,
+				});
 		}
 	}
 
@@ -348,7 +392,9 @@ export class ProfilerView implements Component {
 			case "base-detail":
 				return this.composeListBody({
 					claim: BASE_DETAIL_CLAIM,
-					rows: frame.members.map((member): ListRow => ({ tokens: member.tokens, text: member.name })),
+					rows: frame.members.map(
+						(member): ListRow => ({ tokens: member.tokens, text: member.name }),
+					),
 					state: frame,
 					onReconcile: (next) => this.replaceFrame(frame, { ...frame, ...next }),
 					emptyText: "no base members captured",
@@ -360,12 +406,23 @@ export class ProfilerView implements Component {
 				const delegations = delegationsInSpan(this.currentDelegations(), region.turnRange);
 				const delegatingTurns = new Set(delegations.map((claim) => claim.turn));
 				return this.composeListBody({
-					claim: turnListClaim(region, { analysisStatus: this.analysisStatusTextForRegion(region), delegationCount: delegations.length }),
+					claim: turnListClaim(region, {
+						analysisStatus: this.analysisStatusTextForRegion(region),
+						delegationCount: delegations.length,
+					}),
 					// The opinionated summary renders in full (prompt-steered length, no
 					// renderer truncation); the turn rows scroll beneath it.
-					summaryLines: region.analysisSummary === undefined ? [] : wrapTextWithAnsi(region.analysisSummary, innerWidth),
+					summaryLines:
+						region.analysisSummary === undefined
+							? []
+							: wrapTextWithAnsi(region.analysisSummary, innerWidth),
 					headerLines: delegations.length === 0 ? [] : [delegationSummaryLine(delegations)],
-					rows: turns.map((turn): ListRow => ({ tokens: turn.tokens, text: turnListRowText(turn, delegatingTurns.has(turn.index)) })),
+					rows: turns.map(
+						(turn): ListRow => ({
+							tokens: turn.tokens,
+							text: turnListRowText(turn, delegatingTurns.has(turn.index)),
+						}),
+					),
 					state: frame,
 					onReconcile: (next) => this.replaceFrame(frame, { ...frame, ...next }),
 					emptyText: "no turns in this span",
@@ -380,68 +437,137 @@ export class ProfilerView implements Component {
 		}
 	}
 
-	private renderOverviewBody(frame: OverviewFrame, innerWidth: number, bodyHeight: number): string[] {
+	private renderOverviewBody(
+		frame: OverviewFrame,
+		innerWidth: number,
+		bodyHeight: number,
+	): string[] {
 		const rows = this.overviewRows();
 		// Async segmentation arrival can shrink/grow the row set between input
 		// and render, so the selection is re-clamped here against the rows
 		// actually drawn (input-time clamps only cover synchronous changes).
 		const selection = clamp(frame.selection, 0, Math.max(0, rows.length - 1));
 		const liveRegions = this.liveRegions();
-		const baseTokens = this.profile.baseRegions.reduce((total, region) => total + Math.max(0, region.tokens.value), 0);
-		const liveTokens = liveRegions.reduce((total, region) => total + Math.max(0, region.tokens.value), 0);
+		const baseTokens = this.profile.baseRegions.reduce(
+			(total, region) => total + Math.max(0, region.tokens.value),
+			0,
+		);
+		const liveTokens = liveRegions.reduce(
+			(total, region) => total + Math.max(0, region.tokens.value),
+			0,
+		);
 		const totalTokens = Math.max(1, baseTokens + liveTokens);
 		const maxTokens = Math.max(1, ...rows.map((row) => row.region.tokens.value));
 		const lines: string[] = [];
 		let selectedLine = 0;
 		lines.push(...this.renderUsageBar(baseTokens, liveTokens, innerWidth));
-		lines.push(this.theme.fg("dim", truncateToWidth(bundlePersistenceLine(this.persistence), innerWidth, "…", true)));
+		lines.push(
+			this.theme.fg(
+				"dim",
+				truncateToWidth(bundlePersistenceLine(this.persistence), innerWidth, "…", true),
+			),
+		);
 		lines.push("");
 		lines.push(this.sectionHeader(BASE_SECTION_HEADER, innerWidth));
 		rows.forEach((row, index) => {
 			if (row.type !== "base") return;
 			if (index === selection) selectedLine = lines.length;
-			lines.push(this.renderOverviewRow(row, { isSelected: index === selection, maxTokens, totalTokens, innerWidth }));
+			lines.push(
+				this.renderOverviewRow(row, {
+					isSelected: index === selection,
+					maxTokens,
+					totalTokens,
+					innerWidth,
+				}),
+			);
 		});
 		lines.push("");
-		lines.push(this.sectionHeader(liveSectionHeader(this.profile.cap, segmentationStatusText(this.segmentation)), innerWidth));
+		lines.push(
+			this.sectionHeader(
+				liveSectionHeader(this.profile.cap, segmentationStatusText(this.segmentation)),
+				innerWidth,
+			),
+		);
 		if (this.segmentation.type === "ready" && this.segmentation.summary !== null) {
 			for (const line of wrapTextWithAnsi(this.segmentation.summary, innerWidth)) {
 				lines.push(this.theme.fg("dim", line));
 			}
 		}
-		if (liveRegions.length === 0) lines.push(this.theme.fg("dim", "no live conversation turns yet"));
+		if (liveRegions.length === 0)
+			lines.push(this.theme.fg("dim", "no live conversation turns yet"));
 		rows.forEach((row, index) => {
 			if (row.type !== "live") return;
 			if (index === selection) selectedLine = lines.length;
-			lines.push(this.renderOverviewRow(row, { isSelected: index === selection, maxTokens, totalTokens, innerWidth }));
+			lines.push(
+				this.renderOverviewRow(row, {
+					isSelected: index === selection,
+					maxTokens,
+					totalTokens,
+					innerWidth,
+				}),
+			);
 		});
 		if (this.isHelpVisible) {
 			lines.push("");
-			lines.push(this.theme.fg("dim", "≈ sizes are chars/4 estimates and need not sum to the measured total."));
-			lines.push(this.theme.fg("dim", "⇄ marks delegation claims; (inferred) marks the deterministic tool-name heuristic."));
-			lines.push(this.theme.fg("dim", `opened ${this.profile.openedAt} · source ${this.profile.liveSource} · model ${this.profile.model}`));
-			lines.push(this.theme.fg("dim", "bars are scaled to the largest visible row; ⏎ zooms one level into the selection; p asks about the frozen bundle."));
+			lines.push(
+				this.theme.fg(
+					"dim",
+					"≈ sizes are chars/4 estimates and need not sum to the measured total.",
+				),
+			);
+			lines.push(
+				this.theme.fg(
+					"dim",
+					"⇄ marks delegation claims; (inferred) marks the deterministic tool-name heuristic.",
+				),
+			);
+			lines.push(
+				this.theme.fg(
+					"dim",
+					`opened ${this.profile.openedAt} · source ${this.profile.liveSource} · model ${this.profile.model}`,
+				),
+			);
+			lines.push(
+				this.theme.fg(
+					"dim",
+					"bars are scaled to the largest visible row; ⏎ zooms one level into the selection; p asks about the frozen bundle.",
+				),
+			);
 		}
 		const areaHeight = Math.max(1, bodyHeight - 1);
 		// Scroll is reconciled at render time because it depends on layout. The
 		// whole heterogeneous body scrolls as one window; anchoring the first
 		// row to line 0 keeps the usage bar and headers visible at the top.
 		const anchorLine = selection === 0 ? 0 : selectedLine;
-		const scroll = reconcileScroll({ scroll: frame.scroll, anchor: anchorLine, areaHeight, totalLines: lines.length });
+		const scroll = reconcileScroll({
+			scroll: frame.scroll,
+			anchor: anchorLine,
+			areaHeight,
+			totalLines: lines.length,
+		});
 		this.replaceFrame(frame, { ...frame, selection, scroll });
 		const visible = lines.slice(scroll, scroll + areaHeight);
-		const note = lines.length > areaHeight
-			? `${scrollNote(scroll + 1, Math.min(lines.length, scroll + areaHeight), lines.length, "lines")} · `
-			: "";
-		const hint = this.theme.fg("dim", `${note}↑↓/jk select · ⏎ zoom · p ask · r refresh · ? ${this.isHelpVisible ? "hide help" : "help"} · esc/q close`);
+		const note =
+			lines.length > areaHeight
+				? `${scrollNote(scroll + 1, Math.min(lines.length, scroll + areaHeight), lines.length, "lines")} · `
+				: "";
+		const hint = this.theme.fg(
+			"dim",
+			`${note}↑↓/jk select · ⏎ zoom · p ask · r refresh · ? ${this.isHelpVisible ? "hide help" : "help"} · esc/q close`,
+		);
 		return pinFooter(visible, hint, bodyHeight);
 	}
 
 	private renderUsageBar(baseTokens: number, liveTokens: number, innerWidth: number): string[] {
-		const segments = buildUsageBarSegments(this.profile.usage, { baseTokens, liveTokens, innerWidth });
-		const bar = this.theme.fg("muted", "█".repeat(segments.baseWidth))
-			+ this.theme.fg("accent", "█".repeat(segments.liveWidth))
-			+ this.theme.fg("dim", "░".repeat(segments.freeWidth));
+		const segments = buildUsageBarSegments(this.profile.usage, {
+			baseTokens,
+			liveTokens,
+			innerWidth,
+		});
+		const bar =
+			this.theme.fg("muted", "█".repeat(segments.baseWidth)) +
+			this.theme.fg("accent", "█".repeat(segments.liveWidth)) +
+			this.theme.fg("dim", "░".repeat(segments.freeWidth));
 		const legend = [
 			this.theme.fg("muted", "█") + this.theme.fg("dim", ` ${segments.baseLegend}`),
 			this.theme.fg("accent", "█") + this.theme.fg("dim", ` ${segments.liveLegend}`),
@@ -454,14 +580,26 @@ export class ProfilerView implements Component {
 		return this.theme.bold(this.theme.fg("muted", truncateToWidth(text, innerWidth, "…", true)));
 	}
 
-	private renderOverviewRow(source: OverviewRowSource, options: { isSelected: boolean; maxTokens: number; totalTokens: number; innerWidth: number }): string {
+	private renderOverviewRow(
+		source: OverviewRowSource,
+		options: { isSelected: boolean; maxTokens: number; totalTokens: number; innerWidth: number },
+	): string {
 		const { isSelected, maxTokens, totalTokens, innerWidth } = options;
-		const hasDelegation = source.type === "live" && delegationsInSpan(this.currentDelegations(), source.region.turnRange).length > 0;
-		const cells = buildOverviewRowCells(source, { maxTokens, totalTokens, innerWidth, hasDelegation });
+		const hasDelegation =
+			source.type === "live" &&
+			delegationsInSpan(this.currentDelegations(), source.region.turnRange).length > 0;
+		const cells = buildOverviewRowCells(source, {
+			maxTokens,
+			totalTokens,
+			innerWidth,
+			hasDelegation,
+		});
 		if (isSelected) {
 			return this.theme.bg("selectedBg", fitToWidth(composeOverviewRowText(cells), innerWidth));
 		}
-		return this.renderRowSegments("  ", overviewRowSegments(cells), (role) => overviewColorForRole(role, cells));
+		return this.renderRowSegments("  ", overviewRowSegments(cells), (role) =>
+			overviewColorForRole(role, cells),
+		);
 	}
 
 	private composeListBody(options: {
@@ -478,26 +616,51 @@ export class ProfilerView implements Component {
 	}): string[] {
 		const summaryLines = options.summaryLines ?? [];
 		const headerLines = options.headerLines ?? [];
-		const areaHeight = Math.max(1, options.bodyHeight - 3 - summaryLines.length - headerLines.length);
+		const areaHeight = Math.max(
+			1,
+			options.bodyHeight - 3 - summaryLines.length - headerLines.length,
+		);
 		const count = options.rows.length;
 		// Derived row counts can shrink between input and render, so mirror the overview's render-time reclamp.
 		const selection = clamp(options.state.selection, 0, Math.max(0, count - 1));
-		const scroll = reconcileScroll({ scroll: options.state.scroll, anchor: selection, areaHeight, totalLines: count });
+		const scroll = reconcileScroll({
+			scroll: options.state.scroll,
+			anchor: selection,
+			areaHeight,
+			totalLines: count,
+		});
 		options.onReconcile({ selection, scroll, lastAreaHeight: areaHeight });
 		const maxTokens = Math.max(1, ...options.rows.map((row) => row.tokens.value));
-		const visible = options.rows
-			.slice(scroll, scroll + areaHeight)
-			.map((row, offset) =>
-				this.renderListRow(row, { isSelected: scroll + offset === selection, maxTokens, innerWidth: options.innerWidth }));
+		const visible = options.rows.slice(scroll, scroll + areaHeight).map((row, offset) =>
+			this.renderListRow(row, {
+				isSelected: scroll + offset === selection,
+				maxTokens,
+				innerWidth: options.innerWidth,
+			}),
+		);
 		const body = visible.length === 0 ? [this.theme.fg("dim", options.emptyText)] : visible;
 		const proseSummaryLines = summaryLines.map((line) => this.theme.fg("text", line));
-		const dimHeaderLines = headerLines.map((line) => this.theme.fg("dim", truncateToWidth(line, options.innerWidth, "…", true)));
-		const lines = [this.theme.fg("dim", truncateToWidth(options.claim, options.innerWidth, "…", true)), ...proseSummaryLines, ...dimHeaderLines, "", ...body];
-		const note = count > areaHeight ? `${scrollNote(scroll + 1, Math.min(count, scroll + areaHeight), count, "rows")} · ` : "";
+		const dimHeaderLines = headerLines.map((line) =>
+			this.theme.fg("dim", truncateToWidth(line, options.innerWidth, "…", true)),
+		);
+		const lines = [
+			this.theme.fg("dim", truncateToWidth(options.claim, options.innerWidth, "…", true)),
+			...proseSummaryLines,
+			...dimHeaderLines,
+			"",
+			...body,
+		];
+		const note =
+			count > areaHeight
+				? `${scrollNote(scroll + 1, Math.min(count, scroll + areaHeight), count, "rows")} · `
+				: "";
 		return pinFooter(lines, this.theme.fg("dim", `${note}${LIST_HINT}`), options.bodyHeight);
 	}
 
-	private renderListRow(row: ListRow, options: { isSelected: boolean; maxTokens: number; innerWidth: number }): string {
+	private renderListRow(
+		row: ListRow,
+		options: { isSelected: boolean; maxTokens: number; innerWidth: number },
+	): string {
 		const { isSelected, maxTokens, innerWidth } = options;
 		const cells = buildListRowCells(row.tokens, row.text, maxTokens);
 		if (isSelected) {
@@ -506,50 +669,93 @@ export class ProfilerView implements Component {
 		return this.renderRowSegments(" ", listRowSegments(cells), listColorForRole);
 	}
 
-	private renderRowSegments(marker: string, segments: readonly RowSegment[], colorFor: (role: RowSegmentRole) => ProfilerThemeColor | null): string {
-		return marker + segments
-			.map((segment) => {
-				const color = colorFor(segment.role);
-				return color === null ? segment.text : this.theme.fg(color, segment.text);
-			})
-			.join("");
+	private renderRowSegments(
+		marker: string,
+		segments: readonly RowSegment[],
+		colorFor: (role: RowSegmentRole) => ProfilerThemeColor | null,
+	): string {
+		return (
+			marker +
+			segments
+				.map((segment) => {
+					const color = colorFor(segment.role);
+					return color === null ? segment.text : this.theme.fg(color, segment.text);
+				})
+				.join("")
+		);
 	}
 
-	private composeContentBody(frame: ContentFrame, innerWidth: number, bodyHeight: number): string[] {
+	private composeContentBody(
+		frame: ContentFrame,
+		innerWidth: number,
+		bodyHeight: number,
+	): string[] {
 		const areaHeight = Math.max(1, bodyHeight - 3);
-		const wrapped = frame.source.text.trim().length === 0 ? [this.theme.fg("dim", "(empty)")] : wrapTextWithAnsi(frame.source.text, innerWidth);
+		const wrapped =
+			frame.source.text.trim().length === 0
+				? [this.theme.fg("dim", "(empty)")]
+				: wrapTextWithAnsi(frame.source.text, innerWidth);
 		const maxScroll = Math.max(0, wrapped.length - areaHeight);
 		// Scroll is reconciled at render time because it depends on layout (wrap width / area height).
 		const scroll = clamp(frame.scroll, 0, maxScroll);
 		this.replaceFrame(frame, { ...frame, scroll });
 		const visible = wrapped.slice(scroll, scroll + areaHeight);
-		const lines = [this.theme.fg("dim", truncateToWidth(frame.source.note, innerWidth, "…", true)), "", ...visible];
-		const note = maxScroll > 0 ? `${scrollNote(scroll + 1, Math.min(wrapped.length, scroll + areaHeight), wrapped.length, "lines")} · ` : "";
+		const lines = [
+			this.theme.fg("dim", truncateToWidth(frame.source.note, innerWidth, "…", true)),
+			"",
+			...visible,
+		];
+		const note =
+			maxScroll > 0
+				? `${scrollNote(scroll + 1, Math.min(wrapped.length, scroll + areaHeight), wrapped.length, "lines")} · `
+				: "";
 		return pinFooter(lines, this.theme.fg("dim", `${note}${CONTENT_HINT}`), bodyHeight);
 	}
 
 	private composeChatBody(frame: ChatFrame, innerWidth: number, bodyHeight: number): string[] {
 		const editor = this.ensureChatEditor();
-		const state = frame.interrogation.type === "ready" ? frame.interrogation.port.state : unavailableTranscript(frame.interrogation.reason);
+		const state =
+			frame.interrogation.type === "ready"
+				? frame.interrogation.port.state
+				: unavailableTranscript(frame.interrogation.reason);
 		editor.disableSubmit = state.isStreaming || frame.interrogation.type === "degraded";
 		const editorLines = editor.render(innerWidth);
 		const transcriptHeight = Math.max(1, bodyHeight - editorLines.length - 2);
 		const allLines = buildChatLines(state, innerWidth);
-		const window = chatScrollWindow({ lines: allLines, height: transcriptHeight, scrollFromBottom: frame.scrollFromBottom });
+		const window = chatScrollWindow({
+			lines: allLines,
+			height: transcriptHeight,
+			scrollFromBottom: frame.scrollFromBottom,
+		});
 		this.replaceFrame(frame, { ...frame, scrollFromBottom: window.scrollFromBottom });
 		const visible = window.lines.map((line) => this.renderChatLine(line, innerWidth));
 		const separator = this.theme.fg("dim", "─".repeat(innerWidth));
-		return pinFooter([...visible, separator, ...editorLines], this.theme.fg("dim", chatHint({ isStreaming: state.isStreaming, isDegraded: frame.interrogation.type === "degraded" })), bodyHeight);
+		return pinFooter(
+			[...visible, separator, ...editorLines],
+			this.theme.fg(
+				"dim",
+				chatHint({
+					isStreaming: state.isStreaming,
+					isDegraded: frame.interrogation.type === "degraded",
+				}),
+			),
+			bodyHeight,
+		);
 	}
 
 	private renderChatLine(line: ChatLine, innerWidth: number): string {
-		const color: ProfilerThemeColor = line.role === "assistant" ? "text" : line.role === "user" ? "accent" : "dim";
+		const color: ProfilerThemeColor =
+			line.role === "assistant" ? "text" : line.role === "user" ? "accent" : "dim";
 		return this.theme.fg(color, truncateToWidth(line.text, innerWidth, "…", true));
 	}
 
 	private ensureChatEditor(): Editor {
 		if (this.chatEditor !== null) return this.chatEditor;
-		const editor = new Editor(this.tui, { borderColor: (text) => this.theme.fg("border", text), selectList: getSelectListTheme() }, { paddingX: 0 });
+		const editor = new Editor(
+			this.tui,
+			{ borderColor: (text) => this.theme.fg("border", text), selectList: getSelectListTheme() },
+			{ paddingX: 0 },
+		);
 		editor.onSubmit = (text) => {
 			const frame = this.topFrame();
 			if (frame.type !== "chat" || frame.interrogation.type !== "ready") return;
@@ -564,30 +770,48 @@ export class ProfilerView implements Component {
 		return editor;
 	}
 
-	private boxed(options: { title: string; meta: string; body: readonly string[]; width: number }): string[] {
+	private boxed(options: {
+		title: string;
+		meta: string;
+		body: readonly string[];
+		width: number;
+	}): string[] {
 		const boxWidth = Math.max(24, options.width);
 		const innerWidth = boxWidth - 4;
 		const border = (text: string) => this.theme.fg("border", text);
 		const title = truncateToWidth(` ${options.title} `, Math.max(4, innerWidth - 8), "…");
 		const metaBudget = Math.max(0, boxWidth - 4 - visibleWidth(title) - 2);
-		const meta = options.meta.length === 0 ? "" : truncateToWidth(` ${options.meta} `, metaBudget, "…");
+		const meta =
+			options.meta.length === 0 ? "" : truncateToWidth(` ${options.meta} `, metaBudget, "…");
 		const fillerWidth = Math.max(0, boxWidth - 4 - visibleWidth(title) - visibleWidth(meta));
-		const top = border("╭─") + this.theme.fg("accent", this.theme.bold(title)) + border("─".repeat(fillerWidth)) + this.theme.fg("muted", meta)
-			+ border("─╮");
+		const top =
+			border("╭─") +
+			this.theme.fg("accent", this.theme.bold(title)) +
+			border("─".repeat(fillerWidth)) +
+			this.theme.fg("muted", meta) +
+			border("─╮");
 		const bottom = border(`╰${"─".repeat(boxWidth - 2)}╯`);
-		const rows = options.body.map((line) => border("│ ") + fitToWidth(line, innerWidth) + border(" │"));
+		const rows = options.body.map(
+			(line) => border("│ ") + fitToWidth(line, innerWidth) + border(" │"),
+		);
 		return [top, ...rows, bottom];
 	}
 
 	private handleOverviewInput(data: string, frame: OverviewFrame): void {
 		const rows = this.overviewRows();
 		if (matchesKey(data, Key.up) || data === "k") {
-			this.replaceFrame(frame, { ...frame, selection: clamp(frame.selection - 1, 0, Math.max(0, rows.length - 1)) });
+			this.replaceFrame(frame, {
+				...frame,
+				selection: clamp(frame.selection - 1, 0, Math.max(0, rows.length - 1)),
+			});
 			this.requestRender();
 			return;
 		}
 		if (matchesKey(data, Key.down) || data === "j") {
-			this.replaceFrame(frame, { ...frame, selection: clamp(frame.selection + 1, 0, Math.max(0, rows.length - 1)) });
+			this.replaceFrame(frame, {
+				...frame,
+				selection: clamp(frame.selection + 1, 0, Math.max(0, rows.length - 1)),
+			});
 			this.requestRender();
 			return;
 		}
@@ -611,10 +835,14 @@ export class ProfilerView implements Component {
 		const { data, selection, count, onEnter, onSelectionChange } = options;
 		const page = options.lastAreaHeight ?? this.listAreaHeight();
 		const maxSelection = Math.max(0, count - 1);
-		if (matchesKey(data, Key.up) || data === "k") onSelectionChange(clamp(selection - 1, 0, maxSelection));
-		else if (matchesKey(data, Key.down) || data === "j") onSelectionChange(clamp(selection + 1, 0, maxSelection));
-		else if (matchesKey(data, Key.pageUp)) onSelectionChange(clamp(selection - page, 0, maxSelection));
-		else if (matchesKey(data, Key.pageDown)) onSelectionChange(clamp(selection + page, 0, maxSelection));
+		if (matchesKey(data, Key.up) || data === "k")
+			onSelectionChange(clamp(selection - 1, 0, maxSelection));
+		else if (matchesKey(data, Key.down) || data === "j")
+			onSelectionChange(clamp(selection + 1, 0, maxSelection));
+		else if (matchesKey(data, Key.pageUp))
+			onSelectionChange(clamp(selection - page, 0, maxSelection));
+		else if (matchesKey(data, Key.pageDown))
+			onSelectionChange(clamp(selection + page, 0, maxSelection));
 		else if (matchesKey(data, Key.enter)) onEnter();
 		else return;
 		this.requestRender();
@@ -622,10 +850,14 @@ export class ProfilerView implements Component {
 
 	private handleContentInput(data: string, frame: ContentFrame): void {
 		const page = this.listAreaHeight();
-		if (matchesKey(data, Key.up) || data === "k") this.replaceFrame(frame, { ...frame, scroll: Math.max(0, frame.scroll - 1) });
-		else if (matchesKey(data, Key.down) || data === "j") this.replaceFrame(frame, { ...frame, scroll: frame.scroll + 1 });
-		else if (matchesKey(data, Key.pageUp)) this.replaceFrame(frame, { ...frame, scroll: Math.max(0, frame.scroll - page) });
-		else if (matchesKey(data, Key.pageDown)) this.replaceFrame(frame, { ...frame, scroll: frame.scroll + page });
+		if (matchesKey(data, Key.up) || data === "k")
+			this.replaceFrame(frame, { ...frame, scroll: Math.max(0, frame.scroll - 1) });
+		else if (matchesKey(data, Key.down) || data === "j")
+			this.replaceFrame(frame, { ...frame, scroll: frame.scroll + 1 });
+		else if (matchesKey(data, Key.pageUp))
+			this.replaceFrame(frame, { ...frame, scroll: Math.max(0, frame.scroll - page) });
+		else if (matchesKey(data, Key.pageDown))
+			this.replaceFrame(frame, { ...frame, scroll: frame.scroll + page });
 		else return;
 		this.requestRender();
 	}
@@ -642,12 +874,18 @@ export class ProfilerView implements Component {
 			return;
 		}
 		if (matchesKey(data, Key.pageUp)) {
-			this.replaceFrame(frame, { ...frame, scrollFromBottom: frame.scrollFromBottom + CHAT_PAGE_LINES });
+			this.replaceFrame(frame, {
+				...frame,
+				scrollFromBottom: frame.scrollFromBottom + CHAT_PAGE_LINES,
+			});
 			this.requestRender();
 			return;
 		}
 		if (matchesKey(data, Key.pageDown)) {
-			this.replaceFrame(frame, { ...frame, scrollFromBottom: Math.max(0, frame.scrollFromBottom - CHAT_PAGE_LINES) });
+			this.replaceFrame(frame, {
+				...frame,
+				scrollFromBottom: Math.max(0, frame.scrollFromBottom - CHAT_PAGE_LINES),
+			});
 			this.requestRender();
 			return;
 		}
@@ -658,8 +896,17 @@ export class ProfilerView implements Component {
 
 	private pushRowFrame(row: OverviewRowSource): void {
 		if (row.type === "base") {
-			const members = [...row.region.members].sort((left, right) => right.tokens.value - left.tokens.value);
-			this.frames.push({ type: "base-detail", region: row.region, members, selection: 0, scroll: 0, lastAreaHeight: null });
+			const members = [...row.region.members].sort(
+				(left, right) => right.tokens.value - left.tokens.value,
+			);
+			this.frames.push({
+				type: "base-detail",
+				region: row.region,
+				members,
+				selection: 0,
+				scroll: 0,
+				lastAreaHeight: null,
+			});
 			return;
 		}
 		this.frames.push({
@@ -727,7 +974,10 @@ function pinFooter(lines: readonly string[], footer: string, bodyHeight: number)
 	return [...clipped, ...padding, footer];
 }
 
-function overviewColorForRole(role: RowSegmentRole, cells: OverviewRowCells): ProfilerThemeColor | null {
+function overviewColorForRole(
+	role: RowSegmentRole,
+	cells: OverviewRowCells,
+): ProfilerThemeColor | null {
 	if (role === "gap") return null;
 	if (role === "barEmpty") return "dim";
 	if (role === "tokens" || role === "percent") return "muted";

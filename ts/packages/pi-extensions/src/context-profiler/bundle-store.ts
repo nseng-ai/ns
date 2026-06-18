@@ -25,7 +25,10 @@ export interface BundleStore {
 	writeEpisodesFile(options: { bundleDir: string; json: string }): Promise<WriteEpisodesFileResult>;
 }
 
-export function createFsBundleStore(options: { sessionDir: string; sessionId: string }): BundleStore {
+export function createFsBundleStore(options: {
+	sessionDir: string;
+	sessionId: string;
+}): BundleStore {
 	return new FsBundleStore(options.sessionDir, options.sessionId);
 }
 
@@ -49,19 +52,28 @@ class FsBundleStore implements BundleStore {
 		return this.enqueue(() => this.persistBundleNow(snapshot));
 	}
 
-	async writeEpisodesFile(options: { bundleDir: string; json: string }): Promise<WriteEpisodesFileResult> {
+	async writeEpisodesFile(options: {
+		bundleDir: string;
+		json: string;
+	}): Promise<WriteEpisodesFileResult> {
 		try {
 			const manifestPath = path.join(options.bundleDir, MANIFEST_FILE_NAME);
 			const manifestText = await fs.readFile(manifestPath, "utf8");
 			if (!bundleManifestReadSchema.safeParse(JSON.parse(manifestText)).success) {
-				return { ok: false, error: { code: "not-committed", message: "bundle manifest is invalid" } };
+				return {
+					ok: false,
+					error: { code: "not-committed", message: "bundle manifest is invalid" },
+				};
 			}
 		} catch (error) {
 			return { ok: false, error: { code: "not-committed", message: errorMessage(error) } };
 		}
 
 		const finalPath = path.join(options.bundleDir, EPISODES_FILE_NAME);
-		const tempPath = path.join(options.bundleDir, `.episodes.${process.pid}.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`);
+		const tempPath = path.join(
+			options.bundleDir,
+			`.episodes.${process.pid}.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`,
+		);
 		try {
 			await fs.writeFile(tempPath, options.json, "utf8");
 			try {
@@ -118,19 +130,29 @@ class FsBundleStore implements BundleStore {
 
 			const ordinal = (numericOrdinals.at(-1) ?? 0) + 1;
 			const dir = path.join(this.rootDir, String(ordinal));
-			const tempDir = path.join(this.rootDir, `.tmp-${ordinal}-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+			const tempDir = path.join(
+				this.rootDir,
+				`.tmp-${ordinal}-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+			);
 			const manifestJson = `${JSON.stringify(snapshot.manifest, null, 2)}\n`;
 			await fs.mkdir(tempDir, { recursive: false });
 			try {
 				await fs.writeFile(path.join(tempDir, MESSAGES_FILE_NAME), snapshot.messagesJsonl, "utf8");
-				await fs.writeFile(path.join(tempDir, SYSTEM_PROMPT_FILE_NAME), snapshot.systemPrompt, "utf8");
+				await fs.writeFile(
+					path.join(tempDir, SYSTEM_PROMPT_FILE_NAME),
+					snapshot.systemPrompt,
+					"utf8",
+				);
 				await fs.writeFile(path.join(tempDir, MANIFEST_FILE_NAME), manifestJson, "utf8");
 				await fs.rename(tempDir, dir);
 			} catch (error) {
 				await fs.rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
 				throw error;
 			}
-			const byteSize = Buffer.byteLength(snapshot.messagesJsonl) + Buffer.byteLength(snapshot.systemPrompt) + Buffer.byteLength(manifestJson);
+			const byteSize =
+				Buffer.byteLength(snapshot.messagesJsonl) +
+				Buffer.byteLength(snapshot.systemPrompt) +
+				Buffer.byteLength(manifestJson);
 			return {
 				ok: true,
 				value: {
@@ -148,10 +170,12 @@ class FsBundleStore implements BundleStore {
 	}
 
 	private async listNumericOrdinals(): Promise<number[]> {
-		const entries = await fs.readdir(this.rootDir, { withFileTypes: true }).catch((error: unknown) => {
-			if (isNotFound(error)) return [];
-			throw error;
-		});
+		const entries = await fs
+			.readdir(this.rootDir, { withFileTypes: true })
+			.catch((error: unknown) => {
+				if (isNotFound(error)) return [];
+				throw error;
+			});
 		return entries
 			.filter((entry) => entry.isDirectory() && /^\d+$/.test(entry.name))
 			.map((entry) => Number.parseInt(entry.name, 10))
@@ -182,7 +206,12 @@ async function readManifest(manifestPath: string): Promise<BundleManifestSummary
 }
 
 async function committedBundleByteSize(dir: string): Promise<number> {
-	const files = [MESSAGES_FILE_NAME, SYSTEM_PROMPT_FILE_NAME, MANIFEST_FILE_NAME, EPISODES_FILE_NAME];
+	const files = [
+		MESSAGES_FILE_NAME,
+		SYSTEM_PROMPT_FILE_NAME,
+		MANIFEST_FILE_NAME,
+		EPISODES_FILE_NAME,
+	];
 	let total = 0;
 	for (const file of files) {
 		try {

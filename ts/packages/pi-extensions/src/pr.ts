@@ -2,7 +2,10 @@ import { formatZodError } from "@asdl/core/primitives";
 import { z } from "zod";
 
 import { parseCliCommandArgs } from "./cli-command-extension.ts";
-import { parseMachineEnvelopeData, type MachineEnvelopeDataParseResult } from "./machine-envelope.ts";
+import {
+	parseMachineEnvelopeData,
+	type MachineEnvelopeDataParseResult,
+} from "./machine-envelope.ts";
 import { definePiSurfaceParity } from "./parity.ts";
 
 export const PR_DOWNLOAD_FEEDBACK_COMMAND_NAME = "pr:download-feedback";
@@ -72,13 +75,15 @@ export const prExtensionParity = definePiSurfaceParity([
 	{
 		kind: "command",
 		surface: PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME,
-		workflow: "Download every PR's feedback from the current Graphite stack into the Pi editor as one triage prompt",
+		workflow:
+			"Download every PR's feedback from the current Graphite stack into the Pi editor as one triage prompt",
 		parity: "FULL",
 		cli: "slot gt exec stack-branches + pr-address exec map-branch-prs + pr-address exec download-feedback",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@asdl/pi-extensions",
 		sourceModule: "pr",
-		notes: "Pi orchestrates stack discovery and editor prefill; slot owns Graphite stack discovery and pr-address owns PR feedback collection/Markdown rendering.",
+		notes:
+			"Pi orchestrates stack discovery and editor prefill; slot owns Graphite stack discovery and pr-address owns PR feedback collection/Markdown rendering.",
 	},
 ] as const);
 
@@ -124,14 +129,19 @@ export default function prExtension(pi: ExtensionAPI): void {
 		},
 	});
 	pi.registerCommand(PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME, {
-		description: "Download feedback from every PR in the current Graphite stack into the editor as a triage prompt.",
+		description:
+			"Download feedback from every PR in the current Graphite stack into the editor as a triage prompt.",
 		handler: async (rawArgs, ctx) => {
 			await runPrDownloadStackFeedbackCommand(pi, rawArgs, ctx);
 		},
 	});
 }
 
-async function runPrDownloadFeedbackCommand(pi: ExtensionAPI, rawArgs: string, ctx: ExtensionContext): Promise<void> {
+async function runPrDownloadFeedbackCommand(
+	pi: ExtensionAPI,
+	rawArgs: string,
+	ctx: ExtensionContext,
+): Promise<void> {
 	const parsedArgs = parseDownloadFeedbackArgs(rawArgs);
 	if (parsedArgs.type === "invalid") {
 		notify(ctx, parsedArgs.message, "error");
@@ -153,14 +163,21 @@ async function runPrDownloadFeedbackCommand(pi: ExtensionAPI, rawArgs: string, c
 			return;
 		}
 
-		const message = result.code === 0 ? "Downloaded PR feedback into the editor. Review/edit, then press Enter." : "Downloaded PR feedback report into the editor. Review/edit, then press Enter.";
+		const message =
+			result.code === 0
+				? "Downloaded PR feedback into the editor. Review/edit, then press Enter."
+				: "Downloaded PR feedback report into the editor. Review/edit, then press Enter.";
 		prefillEditor(ctx, parsed.value.markdown, message);
 	} finally {
 		ctx.ui?.setStatus?.(DOWNLOAD_FEEDBACK_STATUS_KEY, undefined);
 	}
 }
 
-async function runPrDownloadStackFeedbackCommand(pi: ExtensionAPI, rawArgs: string, ctx: ExtensionContext): Promise<void> {
+async function runPrDownloadStackFeedbackCommand(
+	pi: ExtensionAPI,
+	rawArgs: string,
+	ctx: ExtensionContext,
+): Promise<void> {
 	const parsedArgs = parseNoArgs(rawArgs, "Usage: /pr:download-stack-feedback");
 	if (parsedArgs.type === "invalid") {
 		notify(ctx, parsedArgs.message, "error");
@@ -179,7 +196,10 @@ async function runPrDownloadStackFeedbackCommand(pi: ExtensionAPI, rawArgs: stri
 			return;
 		}
 
-		ctx.ui?.setStatus?.(DOWNLOAD_STACK_FEEDBACK_STATUS_KEY, `PR stack feedback: mapping ${stackBranches.branches.length} branches…`);
+		ctx.ui?.setStatus?.(
+			DOWNLOAD_STACK_FEEDBACK_STATUS_KEY,
+			`PR stack feedback: mapping ${stackBranches.branches.length} branches…`,
+		);
 		const mapped = await mapStackBranchesToPrs(pi, ctx, stackBranches.branches);
 		if (mapped.type === "error") {
 			notify(ctx, mapped.message, "error");
@@ -192,7 +212,10 @@ async function runPrDownloadStackFeedbackCommand(pi: ExtensionAPI, rawArgs: stri
 
 		const downloads: StackFeedbackDownload[] = [];
 		for (const [index, entry] of mapped.entries.entries()) {
-			ctx.ui?.setStatus?.(DOWNLOAD_STACK_FEEDBACK_STATUS_KEY, `PR stack feedback: downloading ${index + 1}/${mapped.entries.length} (#${entry.pr_number})…`);
+			ctx.ui?.setStatus?.(
+				DOWNLOAD_STACK_FEEDBACK_STATUS_KEY,
+				`PR stack feedback: downloading ${index + 1}/${mapped.entries.length} (#${entry.pr_number})…`,
+			);
 			const downloaded = await downloadFeedbackForPr(pi, ctx, entry);
 			if (downloaded.type === "error") {
 				notify(ctx, downloaded.message, "error");
@@ -202,13 +225,19 @@ async function runPrDownloadStackFeedbackCommand(pi: ExtensionAPI, rawArgs: stri
 		}
 
 		const markdown = buildStackDownloadFeedbackMarkdown(downloads);
-		prefillEditor(ctx, markdown, "Downloaded PR stack feedback into the editor. Review/edit, then press Enter.");
+		prefillEditor(
+			ctx,
+			markdown,
+			"Downloaded PR stack feedback into the editor. Review/edit, then press Enter.",
+		);
 	} finally {
 		ctx.ui?.setStatus?.(DOWNLOAD_STACK_FEEDBACK_STATUS_KEY, undefined);
 	}
 }
 
-type ParsedDownloadFeedbackArgs = { type: "valid"; args: string[] } | { type: "invalid"; message: string };
+type ParsedDownloadFeedbackArgs =
+	| { type: "valid"; args: string[] }
+	| { type: "invalid"; message: string };
 
 type CommandResult<T> = { type: "ok"; value: T } | { type: "error"; message: string };
 
@@ -216,11 +245,15 @@ function parseDownloadFeedbackArgs(rawArgs: string): ParsedDownloadFeedbackArgs 
 	const parsed = parseCliCommandArgs(rawArgs);
 	if (!parsed.ok) return { type: "invalid", message: parsed.error };
 	if (parsed.args.length === 0) return { type: "valid", args: [] };
-	if (parsed.args.length === 1 && isPositiveIntegerToken(parsed.args[0] ?? "")) return { type: "valid", args: ["--pr-number", parsed.args[0] ?? ""] };
+	if (parsed.args.length === 1 && isPositiveIntegerToken(parsed.args[0] ?? ""))
+		return { type: "valid", args: ["--pr-number", parsed.args[0] ?? ""] };
 	return { type: "invalid", message: "Usage: /pr:download-feedback [pr-number]" };
 }
 
-function parseNoArgs(rawArgs: string, usage: string): { type: "valid" } | { type: "invalid"; message: string } {
+function parseNoArgs(
+	rawArgs: string,
+	usage: string,
+): { type: "valid" } | { type: "invalid"; message: string } {
 	const parsed = parseCliCommandArgs(rawArgs);
 	if (!parsed.ok) return { type: "invalid", message: parsed.error };
 	if (parsed.args.length === 0) return { type: "valid" };
@@ -233,8 +266,14 @@ function isPositiveIntegerToken(value: string): boolean {
 	return Number.isSafeInteger(number) && number > 0;
 }
 
-async function loadStackBranches(pi: ExtensionAPI, ctx: ExtensionContext): Promise<{ type: "ok"; branches: string[] } | { type: "error"; message: string }> {
-	const result = await pi.exec("slot", ["gt", "exec", "stack-branches", "--format", "json"], { cwd: ctx.cwd, timeout: STACK_DISCOVERY_TIMEOUT_MS });
+async function loadStackBranches(
+	pi: ExtensionAPI,
+	ctx: ExtensionContext,
+): Promise<{ type: "ok"; branches: string[] } | { type: "error"; message: string }> {
+	const result = await pi.exec("slot", ["gt", "exec", "stack-branches", "--format", "json"], {
+		cwd: ctx.cwd,
+		timeout: STACK_DISCOVERY_TIMEOUT_MS,
+	});
 	const parsed = parseEnvelopeWithSchema({
 		label: "slot gt exec stack-branches",
 		result,
@@ -245,9 +284,17 @@ async function loadStackBranches(pi: ExtensionAPI, ctx: ExtensionContext): Promi
 	return { type: "ok", branches: parsed.value.branches };
 }
 
-async function mapStackBranchesToPrs(pi: ExtensionAPI, ctx: ExtensionContext, branches: readonly string[]): Promise<{ type: "ok"; entries: BranchPrEntry[] } | { type: "error"; message: string }> {
+async function mapStackBranchesToPrs(
+	pi: ExtensionAPI,
+	ctx: ExtensionContext,
+	branches: readonly string[],
+): Promise<{ type: "ok"; entries: BranchPrEntry[] } | { type: "error"; message: string }> {
 	const branchesJson = JSON.stringify({ branches });
-	const result = await pi.exec("pr-address", ["exec", "map-branch-prs", "--branches-json", branchesJson, "--format", "json"], { cwd: ctx.cwd, timeout: COMMAND_TIMEOUT_MS });
+	const result = await pi.exec(
+		"pr-address",
+		["exec", "map-branch-prs", "--branches-json", branchesJson, "--format", "json"],
+		{ cwd: ctx.cwd, timeout: COMMAND_TIMEOUT_MS },
+	);
 	const parsed = parseEnvelopeWithSchema({
 		label: "pr-address map-branch-prs",
 		result,
@@ -257,8 +304,16 @@ async function mapStackBranchesToPrs(pi: ExtensionAPI, ctx: ExtensionContext, br
 	return { type: "ok", entries: parsed.value.branch_prs };
 }
 
-async function downloadFeedbackForPr(pi: ExtensionAPI, ctx: ExtensionContext, entry: BranchPrEntry): Promise<CommandResult<StackFeedbackDownload>> {
-	const result = await pi.exec("pr-address", ["exec", "download-feedback", "--pr-number", String(entry.pr_number), "--format", "json"], { cwd: ctx.cwd, timeout: COMMAND_TIMEOUT_MS });
+async function downloadFeedbackForPr(
+	pi: ExtensionAPI,
+	ctx: ExtensionContext,
+	entry: BranchPrEntry,
+): Promise<CommandResult<StackFeedbackDownload>> {
+	const result = await pi.exec(
+		"pr-address",
+		["exec", "download-feedback", "--pr-number", String(entry.pr_number), "--format", "json"],
+		{ cwd: ctx.cwd, timeout: COMMAND_TIMEOUT_MS },
+	);
 	const parsed = parseEnvelopeWithSchema({
 		label: `pr-address download-feedback #${entry.pr_number}`,
 		result,
@@ -266,7 +321,10 @@ async function downloadFeedbackForPr(pi: ExtensionAPI, ctx: ExtensionContext, en
 		allowFailureData: true,
 	});
 	if (parsed.type === "error") return parsed;
-	return { type: "ok", value: { entry, markdown: parsed.value.markdown, counts: parsed.value.counts } };
+	return {
+		type: "ok",
+		value: { entry, markdown: parsed.value.markdown, counts: parsed.value.counts },
+	};
 }
 
 interface EnvelopeWithSchemaOptions<T> {
@@ -277,16 +335,23 @@ interface EnvelopeWithSchemaOptions<T> {
 }
 
 function parseEnvelopeWithSchema<T>(options: EnvelopeWithSchemaOptions<T>): CommandResult<T> {
-	const parsed = parseMachineEnvelopeData(options.result.stdout, { label: options.label, stdoutTail: { maxLines: 20, maxChars: 2000 } });
+	const parsed = parseMachineEnvelopeData(options.result.stdout, {
+		label: options.label,
+		stdoutTail: { maxLines: 20, maxChars: 2000 },
+	});
 	const data = envelopeData(parsed, options);
 	if (data.type === "error") return data;
 
 	const schemaResult = options.schema.safeParse(data.value);
-	if (!schemaResult.success) return { type: "error", message: schemaError(options.label, schemaResult.error) };
+	if (!schemaResult.success)
+		return { type: "error", message: schemaError(options.label, schemaResult.error) };
 	return { type: "ok", value: schemaResult.data };
 }
 
-function envelopeData(parsed: MachineEnvelopeDataParseResult, options: EnvelopeWithSchemaOptions<unknown>): CommandResult<Record<string, unknown>> {
+function envelopeData(
+	parsed: MachineEnvelopeDataParseResult,
+	options: EnvelopeWithSchemaOptions<unknown>,
+): CommandResult<Record<string, unknown>> {
 	if (parsed.type === "valid") return { type: "ok", value: parsed.data };
 	if (options.allowFailureData === true) {
 		const failureData = failureEnvelopeData(options.result.stdout);
@@ -313,7 +378,9 @@ function buildStackDownloadFeedbackMarkdown(downloads: readonly StackFeedbackDow
 		"Downloaded PR feedback for the current Graphite stack is below. Review the summary and instructions at the bottom before responding.",
 		"",
 		"## Stack PRs",
-		...downloads.map(({ entry }) => `- #${entry.pr_number} ${entry.branch}: ${entry.title} (${entry.url})`),
+		...downloads.map(
+			({ entry }) => `- #${entry.pr_number} ${entry.branch}: ${entry.title} (${entry.url})`,
+		),
 		"",
 		"## Feedback by PR",
 		...downloads.flatMap(({ entry, markdown }) => [
@@ -338,7 +405,9 @@ function renderStackDownloadFeedbackSummary(downloads: readonly StackFeedbackDow
 		`Downloaded feedback for ${downloads.length} ${downloads.length === 1 ? "PR" : "PRs"} in the current Graphite stack.`,
 		"",
 		"Stack PRs:",
-		...downloads.map(({ entry }) => `- #${entry.pr_number} ${entry.branch}: ${entry.title} (${entry.url})`),
+		...downloads.map(
+			({ entry }) => `- #${entry.pr_number} ${entry.branch}: ${entry.title} (${entry.url})`,
+		),
 		"",
 		"Totals:",
 		`- Unresolved review threads included: ${totals.included_review_threads}`,
@@ -350,15 +419,22 @@ function renderStackDownloadFeedbackSummary(downloads: readonly StackFeedbackDow
 	];
 }
 
-function sumDownloadFeedbackCounts(downloads: readonly StackFeedbackDownload[]): DownloadFeedbackCounts {
+function sumDownloadFeedbackCounts(
+	downloads: readonly StackFeedbackDownload[],
+): DownloadFeedbackCounts {
 	return downloads.reduce<DownloadFeedbackCounts>(
 		(totals, download) => ({
-			included_review_threads: totals.included_review_threads + download.counts.included_review_threads,
+			included_review_threads:
+				totals.included_review_threads + download.counts.included_review_threads,
 			included_reviews: totals.included_reviews + download.counts.included_reviews,
-			included_discussion_comments: totals.included_discussion_comments + download.counts.included_discussion_comments,
-			excluded_resolved_threads: totals.excluded_resolved_threads + download.counts.excluded_resolved_threads,
-			excluded_empty_reviews: totals.excluded_empty_reviews + download.counts.excluded_empty_reviews,
-			excluded_automation_comments: totals.excluded_automation_comments + download.counts.excluded_automation_comments,
+			included_discussion_comments:
+				totals.included_discussion_comments + download.counts.included_discussion_comments,
+			excluded_resolved_threads:
+				totals.excluded_resolved_threads + download.counts.excluded_resolved_threads,
+			excluded_empty_reviews:
+				totals.excluded_empty_reviews + download.counts.excluded_empty_reviews,
+			excluded_automation_comments:
+				totals.excluded_automation_comments + download.counts.excluded_automation_comments,
 		}),
 		{
 			included_review_threads: 0,

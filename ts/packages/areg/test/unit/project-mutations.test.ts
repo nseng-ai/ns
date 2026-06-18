@@ -39,8 +39,18 @@ describe("applyProjectMutationPlan", () => {
 			projectDir: "/repo",
 			policy: "skill-kind",
 			writes: [
-				{ relativePath: "skills/demo/SKILL.md", content: "demo", description: "SKILL.md", createParent: false },
-				{ relativePath: "skills/demo/agents/openai.yaml", content: "policy", description: "Codex openai.yaml", createParent: true },
+				{
+					relativePath: "skills/demo/SKILL.md",
+					content: "demo",
+					description: "SKILL.md",
+					createParent: false,
+				},
+				{
+					relativePath: "skills/demo/agents/openai.yaml",
+					content: "policy",
+					description: "Codex openai.yaml",
+					createParent: true,
+				},
 			],
 			deletes: [{ relativePath: ".pi/settings.json", description: "Pi settings" }],
 			removeEmptyDirs: [],
@@ -54,7 +64,12 @@ describe("applyProjectMutationPlan", () => {
 			removedEmptyDirRelativePaths: [],
 			operationStatuses: [
 				{ type: "write", path: "skills/demo/SKILL.md", status: "not_attempted" },
-				{ type: "write", path: "skills/demo/agents/openai.yaml", status: "failed", error: { code: "preflight-denied" } },
+				{
+					type: "write",
+					path: "skills/demo/agents/openai.yaml",
+					status: "failed",
+					error: { code: "preflight-denied" },
+				},
 				{ type: "delete", path: ".pi/settings.json", status: "not_attempted" },
 			],
 		});
@@ -78,8 +93,18 @@ describe("applyProjectMutationPlan", () => {
 			projectDir: "/repo",
 			policy: "skill-kind",
 			writes: [
-				{ relativePath: "skills/demo/SKILL.md", content: "demo", description: "SKILL.md", createParent: false },
-				{ relativePath: "skills/demo/agents/openai.yaml", content: "policy", description: "Codex openai.yaml", createParent: true },
+				{
+					relativePath: "skills/demo/SKILL.md",
+					content: "demo",
+					description: "SKILL.md",
+					createParent: false,
+				},
+				{
+					relativePath: "skills/demo/agents/openai.yaml",
+					content: "policy",
+					description: "Codex openai.yaml",
+					createParent: true,
+				},
 			],
 			deletes: [{ relativePath: ".pi/settings.json", description: "Pi settings" }],
 			removeEmptyDirs: [],
@@ -93,7 +118,12 @@ describe("applyProjectMutationPlan", () => {
 			removedEmptyDirRelativePaths: [],
 			operationStatuses: [
 				{ type: "write", path: "skills/demo/SKILL.md", status: "applied" },
-				{ type: "write", path: "skills/demo/agents/openai.yaml", status: "failed", error: { code: "write-failed" } },
+				{
+					type: "write",
+					path: "skills/demo/agents/openai.yaml",
+					status: "failed",
+					error: { code: "write-failed" },
+				},
 				{ type: "delete", path: ".pi/settings.json", status: "not_attempted" },
 			],
 		});

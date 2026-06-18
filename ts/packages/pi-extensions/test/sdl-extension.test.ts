@@ -117,13 +117,21 @@ describe("sdl Pi extension", () => {
 		expect(pi.commands.has("code:push")).toBe(false);
 		expect(pi.commands.has("code:pr-regen")).toBe(false);
 		expect(pi.commands.has("sdl:regenerate-pr")).toBe(false);
-		expect(pi.commands.get("sdl:changes")?.description).toBe("sdl changes: Summarize outstanding worktree changes without committing.");
-		expect(pi.commands.get("sdl:cp")?.description).toBe("sdl cp: Create a checkpoint commit for the current diff.");
+		expect(pi.commands.get("sdl:changes")?.description).toBe(
+			"sdl changes: Summarize outstanding worktree changes without committing.",
+		);
+		expect(pi.commands.get("sdl:cp")?.description).toBe(
+			"sdl cp: Create a checkpoint commit for the current diff.",
+		);
 		expect(pi.commands.get("sdl:submit")?.description).toBe(
 			"sdl submit: Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.",
 		);
-		expect(pi.commands.get("sdl:code:changes")?.description).toBe("sdl changes: Summarize outstanding worktree changes without committing.");
-		expect(pi.commands.get("sdl:code:checkpoint")?.description).toBe("sdl cp: Create a checkpoint commit for the current diff.");
+		expect(pi.commands.get("sdl:code:changes")?.description).toBe(
+			"sdl changes: Summarize outstanding worktree changes without committing.",
+		);
+		expect(pi.commands.get("sdl:code:checkpoint")?.description).toBe(
+			"sdl cp: Create a checkpoint commit for the current diff.",
+		);
 		expect(pi.commands.get("sdl:code:submit")?.description).toBe(
 			"sdl submit: Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.",
 		);
@@ -131,9 +139,13 @@ describe("sdl Pi extension", () => {
 			"ccc autobranch: Create a Graphite branch from dirty worktree changes or the latest unpushed commit.",
 		);
 		expect(pi.commands.get("sdl:code:autoslot")?.description).toContain("managed slot worktree");
-		expect(pi.commands.get("sdl:code:land")?.description).toBe("Land the current PR or Graphite stack into trunk");
+		expect(pi.commands.get("sdl:code:land")?.description).toBe(
+			"Land the current PR or Graphite stack into trunk",
+		);
 		expect(pi.commands.get("sdl:code:push")?.description).toContain("git push");
-		expect(pi.commands.get("sdl:code:pull-trunk")?.description).toBe("Pull Graphite trunk without running full gt sync");
+		expect(pi.commands.get("sdl:code:pull-trunk")?.description).toBe(
+			"Pull Graphite trunk without running full gt sync",
+		);
 		expect(pi.commands.get("sdl:code:regenerate-pr")?.description).toBe(
 			"sdl regenerate-pr: Regenerate the current branch PR's title and description with the asdl PR-description prompt.",
 		);

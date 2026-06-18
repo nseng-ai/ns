@@ -1,4 +1,8 @@
-import { parseObjectiveList, type ObjectiveList, type ObjectiveListRecord } from "@asdl/pi-extension-runtime/objective-list";
+import {
+	parseObjectiveList,
+	type ObjectiveList,
+	type ObjectiveListRecord,
+} from "@asdl/pi-extension-runtime/objective-list";
 
 import { keyNameFromInput } from "./tabs/key-input.ts";
 import type { TabIntent, TabKeyInput, TabModule, TabModuleDeps } from "./tabs/tab-module.ts";
@@ -14,7 +18,12 @@ export interface ObjectiveTabState {
 	readonly selectedSlug: string | undefined;
 }
 
-export type ObjectiveTabModule = TabModule<ObjectiveList, ObjectiveTabState, ObjectiveTabAction, never>;
+export type ObjectiveTabModule = TabModule<
+	ObjectiveList,
+	ObjectiveTabState,
+	ObjectiveTabAction,
+	never
+>;
 
 export const objectiveTabModule: ObjectiveTabModule = {
 	id: "objectives",
@@ -27,9 +36,14 @@ export const objectiveTabModule: ObjectiveTabModule = {
 };
 
 async function loadModel(deps: TabModuleDeps): Promise<ObjectiveList> {
-	const result = await deps.runCommand("objective", ["list", "--minimal", "--format", "json"], { cwd: deps.cwd, timeout: COMMAND_TIMEOUT_MS });
+	const result = await deps.runCommand("objective", ["list", "--minimal", "--format", "json"], {
+		cwd: deps.cwd,
+		timeout: COMMAND_TIMEOUT_MS,
+	});
 	if (result.code !== 0) {
-		throw new Error(`objective list failed with exit code ${result.code}. ${result.stderr.trim() || result.stdout.trim() || "(no output)"}`);
+		throw new Error(
+			`objective list failed with exit code ${result.code}. ${result.stderr.trim() || result.stdout.trim() || "(no output)"}`,
+		);
 	}
 	const parsed = parseObjectiveList(result.stdout);
 	if (parsed.type === "invalid") throw new Error(parsed.message);
@@ -40,7 +54,11 @@ function createInitialState(model: ObjectiveList): ObjectiveTabState {
 	return { selectedSlug: model.records[0]?.slug };
 }
 
-function reduce(model: ObjectiveList, state: ObjectiveTabState, action: ObjectiveTabAction): ObjectiveTabState {
+function reduce(
+	model: ObjectiveList,
+	state: ObjectiveTabState,
+	action: ObjectiveTabAction,
+): ObjectiveTabState {
 	const records = model.records;
 	if (records.length === 0) return state;
 
@@ -52,7 +70,10 @@ function reduce(model: ObjectiveList, state: ObjectiveTabState, action: Objectiv
 	return { selectedSlug: nextRecord.slug };
 }
 
-function interpretKey(_state: ObjectiveTabState, key: TabKeyInput): TabIntent<ObjectiveTabAction, never> {
+function interpretKey(
+	_state: ObjectiveTabState,
+	key: TabKeyInput,
+): TabIntent<ObjectiveTabAction, never> {
 	switch (keyNameFromInput(key)) {
 		case "up":
 		case "k":
@@ -111,18 +132,35 @@ function header(widths: ObjectiveTableWidths): string {
 }
 
 function rule(widths: ObjectiveTableWidths): string {
-	return ["─".repeat(widths.slug), "─".repeat(widths.status), "─".repeat("LATEST UPDATE".length)].join("─┼─");
+	return [
+		"─".repeat(widths.slug),
+		"─".repeat(widths.status),
+		"─".repeat("LATEST UPDATE".length),
+	].join("─┼─");
 }
 
 function row(record: ObjectiveListRecord, widths: ObjectiveTableWidths): string {
-	return cells({ slug: record.slug, status: record.status, latest: formatLatestUpdate(record.latestUpdateIso), widths });
+	return cells({
+		slug: record.slug,
+		status: record.status,
+		latest: formatLatestUpdate(record.latestUpdateIso),
+		widths,
+	});
 }
 
-function cells(options: { readonly slug: string; readonly status: string; readonly latest: string; readonly widths: ObjectiveTableWidths }): string {
+function cells(options: {
+	readonly slug: string;
+	readonly status: string;
+	readonly latest: string;
+	readonly widths: ObjectiveTableWidths;
+}): string {
 	return `${options.slug.padEnd(options.widths.slug)} │ ${options.status.padEnd(options.widths.status)} │ ${options.latest}`;
 }
 
-function renderSelectedDetail(records: readonly ObjectiveListRecord[], selectedSlug: string | undefined): string {
+function renderSelectedDetail(
+	records: readonly ObjectiveListRecord[],
+	selectedSlug: string | undefined,
+): string {
 	const selected = records.find((record) => record.slug === selectedSlug);
 	if (selected === undefined) return "Selected: <none>";
 	return `Selected: ${selected.slug} — status=${selected.status}; latest update=${formatLatestUpdate(selected.latestUpdateIso)}`;

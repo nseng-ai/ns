@@ -2,7 +2,10 @@ import * as path from "node:path";
 
 import { formatCommand, formatOutputSection, tailText, type ExecResult } from "@asdl/core/exec";
 import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
-import { parseObjectiveList, type ObjectiveListRecord } from "@asdl/pi-extension-runtime/objective-list";
+import {
+	parseObjectiveList,
+	type ObjectiveListRecord,
+} from "@asdl/pi-extension-runtime/objective-list";
 import { formatErrorMessage } from "@asdl/core/primitives";
 import type { ExtensionAPI } from "./types.ts";
 
@@ -73,14 +76,19 @@ export type BranchSlugReadResult =
 			message: string;
 	  };
 
-export function resolveObjectiveSelector(selector: string, cwd: string): ObjectiveSelectorParseResult {
+export function resolveObjectiveSelector(
+	selector: string,
+	cwd: string,
+): ObjectiveSelectorParseResult {
 	const trimmed = selector.trim();
 	if (trimmed.length === 0) {
 		return invalidSelector("Pass an Objective slug or .asdl/objectives/<slug> path.");
 	}
 
 	if (trimmed.includes("\\")) {
-		return invalidSelector("Objective selector must be a slug or a .asdl/objectives/<slug> path using forward slashes.");
+		return invalidSelector(
+			"Objective selector must be a slug or a .asdl/objectives/<slug> path using forward slashes.",
+		);
 	}
 
 	if (path.isAbsolute(trimmed)) {
@@ -113,7 +121,12 @@ export async function listObjectiveSidebarChoices(
 	if (result.killed || result.code !== 0) {
 		return {
 			type: "failed",
-			message: formatFailedEnvelopeOrExecFailure("Could not list active Objectives.", commandDisplay, result, "objective list JSON"),
+			message: formatFailedEnvelopeOrExecFailure(
+				"Could not list active Objectives.",
+				commandDisplay,
+				result,
+				"objective list JSON",
+			),
 		};
 	}
 
@@ -145,11 +158,19 @@ export async function validateObjectiveSidebarSlug(
 	if (result.killed || result.code !== 0) {
 		return {
 			type: "failed",
-			message: formatFailedEnvelopeOrExecFailure("Could not read Objective.", commandDisplay, result, "objective read JSON"),
+			message: formatFailedEnvelopeOrExecFailure(
+				"Could not read Objective.",
+				commandDisplay,
+				result,
+				"objective read JSON",
+			),
 		};
 	}
 
-	const parsed = parseMachineEnvelopeData(result.stdout, { label: "objective read JSON", stdoutTail: { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES } });
+	const parsed = parseMachineEnvelopeData(result.stdout, {
+		label: "objective read JSON",
+		stdoutTail: { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES },
+	});
 	if (parsed.type !== "valid") {
 		return { type: "failed", message: parsed.message };
 	}
@@ -168,7 +189,12 @@ export async function readCurrentBranchSlug(
 	} catch (error) {
 		return {
 			type: "failed",
-			message: formatStartupFailure("Could not read current branch for cmux Objective sidebar.", "git", args, error),
+			message: formatStartupFailure(
+				"Could not read current branch for cmux Objective sidebar.",
+				"git",
+				args,
+				error,
+			),
 		};
 	}
 
@@ -176,13 +202,21 @@ export async function readCurrentBranchSlug(
 	if (result.killed || result.code !== 0) {
 		return {
 			type: "failed",
-			message: formatExecFailure("Could not read current branch for cmux Objective sidebar.", commandDisplay, result),
+			message: formatExecFailure(
+				"Could not read current branch for cmux Objective sidebar.",
+				commandDisplay,
+				result,
+			),
 		};
 	}
 
 	const branchSlug = result.stdout.trim();
 	if (branchSlug.length === 0) {
-		return { type: "failed", message: "Could not read current branch for cmux Objective sidebar: detached HEAD or blank branch name." };
+		return {
+			type: "failed",
+			message:
+				"Could not read current branch for cmux Objective sidebar: detached HEAD or blank branch name.",
+		};
 	}
 
 	return { type: "loaded", branchSlug };
@@ -228,7 +262,12 @@ export async function applyObjectiveSidebarFields(
 	if (result.killed || result.code !== 0) {
 		return {
 			type: "failed",
-			message: formatFailedEnvelopeOrExecFailure("Could not apply cmux Objective sidebar.", commandDisplay, result, "cmux workspace summary JSON"),
+			message: formatFailedEnvelopeOrExecFailure(
+				"Could not apply cmux Objective sidebar.",
+				commandDisplay,
+				result,
+				"cmux workspace summary JSON",
+			),
 		};
 	}
 
@@ -250,7 +289,10 @@ export async function applyObjectiveSidebarFields(
 	return { type: "applied" };
 }
 
-function resolveAbsoluteObjectiveSelector(selector: string, cwd: string): ObjectiveSelectorParseResult {
+function resolveAbsoluteObjectiveSelector(
+	selector: string,
+	cwd: string,
+): ObjectiveSelectorParseResult {
 	const normalizedSelector = path.resolve(selector);
 	const activeRoot = path.resolve(cwd, ACTIVE_OBJECTIVE_ROOT);
 	const relative = path.relative(activeRoot, normalizedSelector);
@@ -258,7 +300,9 @@ function resolveAbsoluteObjectiveSelector(selector: string, cwd: string): Object
 		return invalidSelector("Pass an Objective slug or path below .asdl/objectives/<slug>.");
 	}
 	if (relative.startsWith("..") || path.isAbsolute(relative)) {
-		return invalidSelector("Objective path must be inside the current repo's .asdl/objectives directory.");
+		return invalidSelector(
+			"Objective path must be inside the current repo's .asdl/objectives directory.",
+		);
 	}
 
 	const slug = relative.split(path.sep)[0];
@@ -267,8 +311,13 @@ function resolveAbsoluteObjectiveSelector(selector: string, cwd: string): Object
 
 function resolveRepoRelativeObjectiveSelector(selector: string): ObjectiveSelectorParseResult {
 	const normalized = path.posix.normalize(selector);
-	if (normalized === ARCHIVE_OBJECTIVE_ROOT || normalized.startsWith(`${ARCHIVE_OBJECTIVE_ROOT}/`)) {
-		return invalidSelector("Archived Objective paths are not supported; pass an active .asdl/objectives/<slug> path.");
+	if (
+		normalized === ARCHIVE_OBJECTIVE_ROOT ||
+		normalized.startsWith(`${ARCHIVE_OBJECTIVE_ROOT}/`)
+	) {
+		return invalidSelector(
+			"Archived Objective paths are not supported; pass an active .asdl/objectives/<slug> path.",
+		);
 	}
 	if (normalized === ACTIVE_OBJECTIVE_ROOT) {
 		return invalidSelector("Pass an Objective slug or path below .asdl/objectives/<slug>.");
@@ -284,7 +333,9 @@ function resolveRepoRelativeObjectiveSelector(selector: string): ObjectiveSelect
 
 function validSlugSelector(slug: string): ObjectiveSelectorParseResult {
 	if (!isValidObjectiveSlug(slug)) {
-		return invalidSelector("Objective selector must be a single slug, not '.', '..', or a nested path.");
+		return invalidSelector(
+			"Objective selector must be a single slug, not '.', '..', or a nested path.",
+		);
 	}
 	return { type: "valid", slug };
 }
@@ -294,10 +345,15 @@ function invalidSelector(message: string): ObjectiveSelectorParseResult {
 }
 
 function isValidObjectiveSlug(slug: string): boolean {
-	return slug.length > 0 && slug !== "." && slug !== ".." && !slug.includes("/") && !slug.includes("\\");
+	return (
+		slug.length > 0 && slug !== "." && slug !== ".." && !slug.includes("/") && !slug.includes("\\")
+	);
 }
 
-function parseObjectiveSidebarValidation(data: Record<string, unknown>, expectedSlug: string): ObjectiveSidebarValidationResult {
+function parseObjectiveSidebarValidation(
+	data: Record<string, unknown>,
+	expectedSlug: string,
+): ObjectiveSidebarValidationResult {
 	if (data.status !== "ok" || data.slug !== expectedSlug) {
 		return {
 			type: "failed",
@@ -308,13 +364,29 @@ function parseObjectiveSidebarValidation(data: Record<string, unknown>, expected
 	return { type: "validated" };
 }
 
-function formatStartupFailure(summary: string, command: string, args: readonly string[], error: unknown): string {
-	return tailText(`${summary}\nCommand: ${formatCommand(command, args)}\nError: ${formatErrorMessage(error)}`, { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES });
+function formatStartupFailure(
+	summary: string,
+	command: string,
+	args: readonly string[],
+	error: unknown,
+): string {
+	return tailText(
+		`${summary}\nCommand: ${formatCommand(command, args)}\nError: ${formatErrorMessage(error)}`,
+		{ maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES },
+	);
 }
 
-function formatFailedEnvelopeOrExecFailure(summary: string, commandDisplay: string, result: ExecResult, label: string): string {
+function formatFailedEnvelopeOrExecFailure(
+	summary: string,
+	commandDisplay: string,
+	result: ExecResult,
+	label: string,
+): string {
 	if (result.stdout.trim().length > 0) {
-		const parsed = parseMachineEnvelopeData(result.stdout, { label, stdoutTail: { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES } });
+		const parsed = parseMachineEnvelopeData(result.stdout, {
+			label,
+			stdoutTail: { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES },
+		});
 		if (parsed.type !== "valid") {
 			return `${summary}\nCommand: ${commandDisplay}\n${parsed.message}`;
 		}
@@ -328,8 +400,14 @@ function formatExecFailure(summary: string, commandDisplay: string, result: Exec
 		`Command: ${commandDisplay}`,
 		`Exit code: ${result.code}`,
 		`Killed: ${result.killed ? "yes" : "no"}`,
-		formatOutputSection("stdout", result.stdout, { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES }),
-		formatOutputSection("stderr", result.stderr, { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES }),
+		formatOutputSection("stdout", result.stdout, {
+			maxChars: MAX_ERROR_CHARS,
+			maxLines: MAX_ERROR_LINES,
+		}),
+		formatOutputSection("stderr", result.stderr, {
+			maxChars: MAX_ERROR_CHARS,
+			maxLines: MAX_ERROR_LINES,
+		}),
 	];
 	return tailText(lines.join("\n"), { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES });
 }

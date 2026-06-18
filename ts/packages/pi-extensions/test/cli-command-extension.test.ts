@@ -114,7 +114,11 @@ function createContext(
 	}
 	if (options.setWidget ?? true) {
 		ui.setWidget = (key, lines, widgetOptions): void => {
-			widgets.push({ key, lines: lines === undefined ? undefined : [...lines], placement: widgetOptions?.placement });
+			widgets.push({
+				key,
+				lines: lines === undefined ? undefined : [...lines],
+				placement: widgetOptions?.placement,
+			});
 		};
 	}
 	if (options.confirm !== undefined) {
@@ -141,7 +145,10 @@ function createContext(
 	};
 }
 
-function commandFor(pi: { commands: ReadonlyMap<string, RegisteredCommand> }, name: string): RegisteredCommand {
+function commandFor(
+	pi: { commands: ReadonlyMap<string, RegisteredCommand> },
+	name: string,
+): RegisteredCommand {
 	const command = pi.commands.get(name);
 	if (command === undefined) {
 		throw new Error(`Expected command to be registered: ${name}`);
@@ -160,7 +167,9 @@ function registerFakeCli(
 	registerCliCommandExtension(pi, {
 		cliName: "fake-cli",
 		piNamespace: "dev",
-		commands: options.commands ?? [{ name: "preview-status", description: "Print a preview status." }],
+		commands: options.commands ?? [
+			{ name: "preview-status", description: "Print a preview status." },
+		],
 		runCli: options.runCli ?? (() => 0),
 		...(options.env === undefined ? {} : { env: options.env }),
 	});
@@ -192,7 +201,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
 }
 
-function expectSingleCliOutputMessage(pi: FakePi, content: string, level: "info" | "error" = "info"): CustomMessage {
+function expectSingleCliOutputMessage(
+	pi: FakePi,
+	content: string,
+	level: "info" | "error" = "info",
+): CustomMessage {
 	expect(pi.sentMessages).toHaveLength(1);
 	const message = pi.sentMessages[0];
 	if (message === undefined) {
@@ -290,7 +303,9 @@ describe("cli command extension helper", () => {
 		await commandFor(pi, "dev:checkpoint").handler("--message test", ctx);
 
 		expect([...pi.commands.keys()]).toEqual(["dev:checkpoint"]);
-		expect(calls).toEqual([{ args: ["cp", "--message", "test"], cwd: "/repo", env: { SAMPLE: "1" } }]);
+		expect(calls).toEqual([
+			{ args: ["cp", "--message", "test"], cwd: "/repo", env: { SAMPLE: "1" } },
+		]);
 		expectSingleCliOutputMessage(pi, "ok\n");
 	});
 
@@ -334,7 +349,10 @@ describe("cli command extension helper", () => {
 			},
 		]);
 		expect(notifications).toEqual([]);
-		expectSingleCliOutputMessage(pi, "stdout:\nhttps://preview.example\n\nstderr:\nwarning from cli\n");
+		expectSingleCliOutputMessage(
+			pi,
+			"stdout:\nhttps://preview.example\n\nstderr:\nwarning from cli\n",
+		);
 	});
 
 	test("emits configured start feedback before waiting for idle", async () => {
@@ -344,7 +362,13 @@ describe("cli command extension helper", () => {
 			releaseWait = resolve;
 		});
 		registerFakeCli(pi, {
-			commands: [{ name: "preview-status", description: "Print a preview status.", startMessage: "Starting preview status lookup." }],
+			commands: [
+				{
+					name: "preview-status",
+					description: "Print a preview status.",
+					startMessage: "Starting preview status lookup.",
+				},
+			],
 			runCli: (_args, deps) => {
 				deps.stdout("done\n");
 				return 0;
@@ -422,7 +446,8 @@ describe("cli command extension helper", () => {
 		expect(statuses.at(-1)?.value).toContain("waiting for confirmation");
 		expect(widgets.at(-1)?.lines?.join("\n")).toContain("waiting for confirmation");
 
-		if (finishConfirm === undefined) throw new Error("Expected confirm resolver to be initialized.");
+		if (finishConfirm === undefined)
+			throw new Error("Expected confirm resolver to be initialized.");
 		finishConfirm();
 		await commandPromise;
 
@@ -502,7 +527,11 @@ describe("cli command extension helper", () => {
 		await commandFor(pi, "dev:preview-status").handler("--json", ctx);
 
 		expect(notifications).toEqual([]);
-		expectSingleCliOutputMessage(pi, "fake-cli preview-status exited with code 17.\n\nstderr:\nnot found\n", "error");
+		expectSingleCliOutputMessage(
+			pi,
+			"fake-cli preview-status exited with code 17.\n\nstderr:\nnot found\n",
+			"error",
+		);
 	});
 
 	test("reports argument tokenization errors without invoking the runner", async () => {
@@ -519,7 +548,11 @@ describe("cli command extension helper", () => {
 		await commandFor(pi, "dev:preview-status").handler('--branch "unterminated', ctx);
 
 		expect(runnerCalled).toBe(false);
-		expectSingleCliOutputMessage(pi, "fake-cli preview-status exited with code 2.\n\nstderr:\nError: Unterminated double quote.\n", "error");
+		expectSingleCliOutputMessage(
+			pi,
+			"fake-cli preview-status exited with code 2.\n\nstderr:\nError: Unterminated double quote.\n",
+			"error",
+		);
 	});
 
 	test("restores prose-looking command tails without waiting or invoking the CLI", async () => {
@@ -561,7 +594,11 @@ describe("cli command extension helper", () => {
 
 		await commandFor(pi, "dev:preview-status").handler("--json words", ctx);
 
-		expectSingleCliOutputMessage(pi, "fake-cli preview-status exited with code 2.\n\nstderr:\nError: Unexpected argument: words\n", "error");
+		expectSingleCliOutputMessage(
+			pi,
+			"fake-cli preview-status exited with code 2.\n\nstderr:\nError: Unexpected argument: words\n",
+			"error",
+		);
 		expect(editorTexts).toEqual(["/dev:preview-status --json words"]);
 	});
 
@@ -577,7 +614,11 @@ describe("cli command extension helper", () => {
 
 		await commandFor(pi, "dev:preview-status").handler("--bogus", ctx);
 
-		expectSingleCliOutputMessage(pi, "fake-cli preview-status exited with code 2.\n\nstderr:\nerror: unknown option '--bogus'\n", "error");
+		expectSingleCliOutputMessage(
+			pi,
+			"fake-cli preview-status exited with code 2.\n\nstderr:\nerror: unknown option '--bogus'\n",
+			"error",
+		);
 		expect(editorTexts).toEqual(["/dev:preview-status --bogus"]);
 	});
 
@@ -597,7 +638,9 @@ describe("cli command extension helper", () => {
 
 		await commandFor(pi, "dev:echo").handler("hello world", ctx);
 
-		expect(calls).toEqual([{ args: ["echo", "hello", "world"], cwd: "/repo", env: { SAMPLE: "1" } }]);
+		expect(calls).toEqual([
+			{ args: ["echo", "hello", "world"], cwd: "/repo", env: { SAMPLE: "1" } },
+		]);
 		expect(editorTexts).toEqual([]);
 		expectSingleCliOutputMessage(pi, "ok\n");
 	});
@@ -626,7 +669,9 @@ describe("cli command extension helper", () => {
 				return 0;
 			},
 		});
-		const { ctx, notifications, editorTexts, statuses, widgets } = createContext([], { hasUI: false });
+		const { ctx, notifications, editorTexts, statuses, widgets } = createContext([], {
+			hasUI: false,
+		});
 
 		const writes = await captureProcessWrites(async () => {
 			await commandFor(pi, "dev:preview-status").handler("", ctx);
@@ -648,7 +693,9 @@ describe("cli command extension helper", () => {
 				return 17;
 			},
 		});
-		const { ctx, notifications, editorTexts, statuses, widgets } = createContext([], { hasUI: false });
+		const { ctx, notifications, editorTexts, statuses, widgets } = createContext([], {
+			hasUI: false,
+		});
 
 		const writes = await captureProcessWrites(async () => {
 			await commandFor(pi, "dev:preview-status").handler("--json", ctx);
@@ -675,7 +722,9 @@ describe("cli command extension helper", () => {
 				return 0;
 			},
 		});
-		const { ctx, notifications, editorTexts, statuses, widgets } = createContext(order, { hasUI: false });
+		const { ctx, notifications, editorTexts, statuses, widgets } = createContext(order, {
+			hasUI: false,
+		});
 
 		const writes = await captureProcessWrites(async () => {
 			await commandFor(pi, "dev:preview-status").handler("broke in this pr", ctx);
@@ -742,7 +791,10 @@ describe("cli command extension helper", () => {
 	});
 
 	test("falls back to UI notifications when custom rendering is unavailable", async () => {
-		const cases = [new FakePi({ registerMessageRenderer: false }), new FakePi({ sendMessage: false })];
+		const cases = [
+			new FakePi({ registerMessageRenderer: false }),
+			new FakePi({ sendMessage: false }),
+		];
 		for (const pi of cases) {
 			registerFakeCli(pi, {
 				runCli: (_args, deps) => {
@@ -775,7 +827,9 @@ describe("cli command extension helper", () => {
 		const rendered = component.render(120).join("\n");
 		expect(rendered).toContain("<text>15bd4fc4 [cp] Update submit command description</text>");
 		expect(rendered).toContain("<text>- Adjust code extension test for new submit wording</text>");
-		expect(rendered).toContain("<text>- Describe checkpointing outstanding changes before submit</text>");
+		expect(rendered).toContain(
+			"<text>- Describe checkpointing outstanding changes before submit</text>",
+		);
 		expect(rendered).not.toContain("<dim>");
 		expect(rendered).not.toContain("<muted>");
 	});
@@ -817,7 +871,11 @@ describe("cli command extension helper", () => {
 		await commandPromise;
 
 		expect(statuses.at(-1)).toEqual({ key: "asdl-cli-command", value: undefined });
-		expect(widgets.at(-1)).toEqual({ key: "asdl-cli-command-output", lines: undefined, placement: undefined });
+		expect(widgets.at(-1)).toEqual({
+			key: "asdl-cli-command-output",
+			lines: undefined,
+			placement: undefined,
+		});
 		expect(notifications).toEqual([]);
 		expectSingleCliOutputMessage(pi, "stdout:\nstarted\n\nstderr:\nfinished\n");
 	});
@@ -865,12 +923,22 @@ describe("cli command extension helper", () => {
 			ok: true,
 			args: ["--branch", "feature/x", "--json"],
 		});
-		expect(parseCliCommandArgs("--branch 'feature with spaces' --project asdl\\ tools --label \"say \\\"hi\\\"\"")).toEqual({
+		expect(
+			parseCliCommandArgs(
+				'--branch \'feature with spaces\' --project asdl\\ tools --label "say \\"hi\\""',
+			),
+		).toEqual({
 			ok: true,
 			args: ["--branch", "feature with spaces", "--project", "asdl tools", "--label", 'say "hi"'],
 		});
-		expect(parseCliCommandArgs('--branch "unterminated')).toEqual({ ok: false, error: "Unterminated double quote." });
-		expect(parseCliCommandArgs("--branch dangling\\")).toEqual({ ok: false, error: "Trailing backslash escape." });
+		expect(parseCliCommandArgs('--branch "unterminated')).toEqual({
+			ok: false,
+			error: "Unterminated double quote.",
+		});
+		expect(parseCliCommandArgs("--branch dangling\\")).toEqual({
+			ok: false,
+			error: "Trailing backslash escape.",
+		});
 	});
 
 	test("rejects duplicate command names before registering suffix-prone collisions", () => {
@@ -917,7 +985,9 @@ describe("cli command extension helper", () => {
 				piCommandNameForCommand: () => "dev:checkpoint",
 				runCli: () => 0,
 			});
-		}).toThrow("CLI command extension for fake-dev cannot configure both piCommandAliases and piCommandNameForCommand.");
+		}).toThrow(
+			"CLI command extension for fake-dev cannot configure both piCommandAliases and piCommandNameForCommand.",
+		);
 		expect(pi.commands.size).toBe(0);
 	});
 });

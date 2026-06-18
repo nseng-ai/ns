@@ -32,7 +32,8 @@ export type { HandoffTabLaunchResult };
 export const HANDOFF_TAB_PROMPT_COPY = {
 	commandName: HANDOFF_TAB_COMMAND_NAME,
 	toolName: HANDOFF_TAB_LAUNCH_TOOL_NAME,
-	intentSentence: "Create a directed handoff artifact for the current session, then launch a pickup Pi in a new cmux tab.",
+	intentSentence:
+		"Create a directed handoff artifact for the current session, then launch a pickup Pi in a new cmux tab.",
 	abortClause: "do not open a cmux tab",
 	previewHeading: "The pickup tab will run:",
 	previewBody(branch: string): string {
@@ -47,11 +48,17 @@ const HANDOFF_TAB_START_MESSAGES = {
 
 export const buildHandoffTabRequest = buildHandoffLaunchRequest;
 
-export function buildHandoffTabPrompt(options: Parameters<typeof buildHandoffLaunchPrompt>[1]): string {
+export function buildHandoffTabPrompt(
+	options: Parameters<typeof buildHandoffLaunchPrompt>[1],
+): string {
 	return buildHandoffLaunchPrompt(HANDOFF_TAB_PROMPT_COPY, options);
 }
 
-export async function handleHandoffTabCommand(pi: ExtensionAPI, args: string, ctx: CommandContext): Promise<void> {
+export async function handleHandoffTabCommand(
+	pi: ExtensionAPI,
+	args: string,
+	ctx: CommandContext,
+): Promise<void> {
 	await runHandoffCreateCommand(pi, args, ctx, {
 		statusKey: HANDOFF_TAB_STATUS_KEY,
 		promptCopy: HANDOFF_TAB_PROMPT_COPY,
@@ -76,7 +83,8 @@ export function buildDeriveHandoffSlugTool(pi: ExtensionAPI): ToolDefinition {
 		name: DERIVE_HANDOFF_SLUG_TOOL_NAME,
 		label: "Derive Handoff Slug",
 		description: "Derive a flat semantic handoff slug from final Markdown handoff content.",
-		promptSnippet: "Derive a flat semantic handoff slug from the final Markdown handoff content before checking or writing Branch Memory.",
+		promptSnippet:
+			"Derive a flat semantic handoff slug from the final Markdown handoff content before checking or writing Branch Memory.",
 		promptGuidelines: [
 			`Use ${DERIVE_HANDOFF_SLUG_TOOL_NAME} after composing the final Markdown handoff artifact content.`,
 			"Do not derive the handoff entry name from the raw continuation focus when this tool is available.",
@@ -98,10 +106,16 @@ export function buildDeriveHandoffSlugTool(pi: ExtensionAPI): ToolDefinition {
 				return handoffLaunchToolFailure(content.message);
 			}
 
-			onUpdate?.({ content: [{ type: "text", text: "Deriving handoff slug from final artifact content…" }] });
+			onUpdate?.({
+				content: [{ type: "text", text: "Deriving handoff slug from final artifact content…" }],
+			});
 			setStatus(ctx, HANDOFF_TAB_STATUS_KEY, "deriving handoff slug…");
 			try {
-				const evidence = await deriveHandoffContentSlug(pi, { content: content.content, cwd: ctx.cwd, signal });
+				const evidence = await deriveHandoffContentSlug(pi, {
+					content: content.content,
+					cwd: ctx.cwd,
+					signal,
+				});
 				const key = handoffSlugToKey(evidence.slug);
 				return {
 					content: [{ type: "text", text: [`Slug: ${evidence.slug}`, `Entry: ${key}`].join("\n") }],
@@ -128,7 +142,8 @@ export function buildHandoffTabLaunchTool(pi: ExtensionAPI): ToolDefinition {
 		label: "Launch Handoff Tab",
 		description:
 			"Verify a saved handoff exists, then open a focused cmux terminal tab in the current workspace and launch Pi to pick up that handoff.",
-		promptSnippet: "Open a focused cmux tab to pick up a saved handoff after the handoff has been saved successfully.",
+		promptSnippet:
+			"Open a focused cmux tab to pick up a saved handoff after the handoff has been saved successfully.",
 		promptGuidelines: [
 			`Use ${HANDOFF_TAB_LAUNCH_TOOL_NAME} only after a /${HANDOFF_TAB_COMMAND_NAME} prompt has saved the requested handoff successfully.`,
 			`${HANDOFF_TAB_LAUNCH_TOOL_NAME} verifies the handoff exists before opening cmux; do not call it before brmem put succeeds.`,
@@ -136,7 +151,8 @@ export function buildHandoffTabLaunchTool(pi: ExtensionAPI): ToolDefinition {
 		statusKey: HANDOFF_TAB_STATUS_KEY,
 		verifyStatus: () => "verifying saved handoff…",
 		verifyUpdate: "Verifying saved handoff…",
-		missingMessage: (params) => `No handoff ${params.slug} found on branch ${params.branch}; no cmux tab was opened.`,
+		missingMessage: (params) =>
+			`No handoff ${params.slug} found on branch ${params.branch}; no cmux tab was opened.`,
 		verifyFailureDetails(message, params): HandoffTabLaunchResult {
 			return { type: "failed", branch: params.branch, slug: params.slug, message };
 		},
@@ -163,13 +179,21 @@ export function buildHandoffTabLaunchTool(pi: ExtensionAPI): ToolDefinition {
 	});
 }
 
-function parseDeriveHandoffSlugParams(params: unknown): { type: "valid"; content: string } | { type: "invalid"; message: string } {
+function parseDeriveHandoffSlugParams(
+	params: unknown,
+): { type: "valid"; content: string } | { type: "invalid"; message: string } {
 	if (!isRecord(params)) {
-		return { type: "invalid", message: `${DERIVE_HANDOFF_SLUG_TOOL_NAME} parameters must be an object.` };
+		return {
+			type: "invalid",
+			message: `${DERIVE_HANDOFF_SLUG_TOOL_NAME} parameters must be an object.`,
+		};
 	}
 	const content = stringField(params, "content");
 	if (content === undefined || content.trim().length === 0) {
-		return { type: "invalid", message: `${DERIVE_HANDOFF_SLUG_TOOL_NAME} requires non-empty final Markdown content.` };
+		return {
+			type: "invalid",
+			message: `${DERIVE_HANDOFF_SLUG_TOOL_NAME} requires non-empty final Markdown content.`,
+		};
 	}
 	return { type: "valid", content };
 }

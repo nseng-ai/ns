@@ -66,7 +66,11 @@ class FakePi {
 		this.commands.set(name, options);
 	}
 
-	async exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult> {
+	async exec(
+		command: string,
+		args: string[],
+		options?: { cwd?: string; timeout?: number },
+	): Promise<ExecResult> {
 		this.execCalls.push({ command, args: [...args], options });
 		return this.execResult;
 	}
@@ -126,7 +130,9 @@ function skillCommandInfo(skillPath: string, baseDir: string): SkillCommandInfo 
 }
 
 async function loadJustFixExtension(): Promise<JustFixExtension> {
-	const module = (await import(new URL("../../../../.pi/extensions/just-fix.ts", import.meta.url).href)) as {
+	const module = (await import(
+		new URL("../../../../.pi/extensions/just-fix.ts", import.meta.url).href
+	)) as {
 		default: JustFixExtension;
 	};
 	return module.default;
@@ -153,9 +159,10 @@ Repair the failed just run.
 		);
 
 		try {
-			const pi = new FakePi(execResult({ code: 1, stdout: "unit failed\n", stderr: "lint failed\n" }), [
-				skillCommandInfo(skillPath, skillDir),
-			]);
+			const pi = new FakePi(
+				execResult({ code: 1, stdout: "unit failed\n", stderr: "lint failed\n" }),
+				[skillCommandInfo(skillPath, skillDir)],
+			);
 			const justFixExtension = await loadJustFixExtension();
 			justFixExtension(pi);
 			const command = pi.commands.get("just");
@@ -168,7 +175,9 @@ Repair the failed just run.
 			await command.handler("", context.ctx);
 
 			expect(context.waitForIdleCalls()).toBe(1);
-			expect(pi.execCalls).toEqual([{ command: "just", args: [], options: { cwd: dir, timeout: JUST_TIMEOUT_MS } }]);
+			expect(pi.execCalls).toEqual([
+				{ command: "just", args: [], options: { cwd: dir, timeout: JUST_TIMEOUT_MS } },
+			]);
 			expect(context.statuses).toEqual([
 				{ key: "just", value: "running just…" },
 				{ key: "just", value: undefined },

@@ -14,7 +14,10 @@ import { createSdlCommandRunner, SdlCommandExecApi } from "./command-runner.ts";
 
 const submitSchema = z.object({
 	restack: z.boolean().default(false).describe("Run gt restack before submitting when required."),
-	verbose: z.boolean().default(false).describe("Stream raw Graphite/subprocess output while submitting."),
+	verbose: z
+		.boolean()
+		.default(false)
+		.describe("Stream raw Graphite/subprocess output while submitting."),
 });
 
 export const defaultSubmitCommand = {
@@ -34,7 +37,10 @@ The command owns its output and exit code. It does not support --format.`,
 		const runner = createSdlCommandRunner(ctx);
 		const liveOutput = createSubmitLiveOutput(ctx);
 		emitSubmitProgress(liveOutput, "sdl submit");
-		emitSubmitProgress(liveOutput, "• Checking worktree and checkpointing pending changes if needed…");
+		emitSubmitProgress(
+			liveOutput,
+			"• Checking worktree and checkpointing pending changes if needed…",
+		);
 		const checkpoint = await runCheckpointIfPending({
 			cwd: ctx.cwd,
 			env: ctx.env,
@@ -43,7 +49,11 @@ The command owns its output and exit code. It does not support --format.`,
 		});
 		if (checkpoint.kind === "failed") {
 			const checkpointFailure = await maybeFormatUnknownSubmitFailureWithModel(
-				{ stdout: "", stderr: formatCheckpointBeforeSubmitFailure(checkpoint.output.stderr), exitCode: checkpoint.output.exitCode },
+				{
+					stdout: "",
+					stderr: formatCheckpointBeforeSubmitFailure(checkpoint.output.stderr),
+					exitCode: checkpoint.output.exitCode,
+				},
 				ctx,
 			);
 			ctx.stderr?.(checkpointFailure.stderr);
@@ -70,7 +80,8 @@ The command owns its output and exit code. It does not support --format.`,
 			...(ctx.confirm === undefined
 				? {}
 				: {
-						confirmRestack: (prompt: SubmitRestackConfirmationPrompt) => ctx.confirm?.(prompt.title, prompt.message) ?? false,
+						confirmRestack: (prompt: SubmitRestackConfirmationPrompt) =>
+							ctx.confirm?.(prompt.title, prompt.message) ?? false,
 					}),
 		});
 		const interpretedResult = await maybeFormatUnknownSubmitFailureWithModel(result, ctx);
@@ -79,7 +90,9 @@ The command owns its output and exit code. It does not support --format.`,
 	},
 } satisfies SdlCommand<typeof submitSchema>;
 
-function createSubmitLiveOutput(ctx: Pick<SdlContext, "onOutput" | "stdout" | "stderr">): ((stream: "stdout" | "stderr", text: string) => void) | undefined {
+function createSubmitLiveOutput(
+	ctx: Pick<SdlContext, "onOutput" | "stdout" | "stderr">,
+): ((stream: "stdout" | "stderr", text: string) => void) | undefined {
 	if (ctx.onOutput !== undefined) return ctx.onOutput;
 	if (ctx.stdout === undefined && ctx.stderr === undefined) return undefined;
 	return (stream, text) => {
@@ -91,11 +104,17 @@ function createSubmitLiveOutput(ctx: Pick<SdlContext, "onOutput" | "stdout" | "s
 	};
 }
 
-function emitSubmitProgress(liveOutput: ((stream: "stdout" | "stderr", text: string) => void) | undefined, message: string): void {
+function emitSubmitProgress(
+	liveOutput: ((stream: "stdout" | "stderr", text: string) => void) | undefined,
+	message: string,
+): void {
 	liveOutput?.("stderr", `${message}\n`);
 }
 
-function writeCommandResultOutput(result: { stdout: string; stderr: string }, ctx: Pick<SdlContext, "stdout" | "stderr">): void {
+function writeCommandResultOutput(
+	result: { stdout: string; stderr: string },
+	ctx: Pick<SdlContext, "stdout" | "stderr">,
+): void {
 	if (result.stdout !== "") {
 		ctx.stdout?.(result.stdout);
 	}
@@ -106,6 +125,9 @@ function writeCommandResultOutput(result: { stdout: string; stderr: string }, ct
 
 function formatCheckpointBeforeSubmitFailure(stderr: string): string {
 	const trimmed = stderr.trimEnd();
-	const message = trimmed === "" ? "Checkpoint before submit failed. Submission was not attempted." : `Checkpoint before submit failed. Submission was not attempted.\n\n${trimmed}`;
+	const message =
+		trimmed === ""
+			? "Checkpoint before submit failed. Submission was not attempted."
+			: `Checkpoint before submit failed. Submission was not attempted.\n\n${trimmed}`;
 	return `${message}\n`;
 }

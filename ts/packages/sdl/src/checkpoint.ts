@@ -1,5 +1,9 @@
 import { runCommand, type CommandRunner, type ExecResult } from "@asdl/core/exec";
-import { createCommitWithPreparedMessage, prepareCheckpointMessage, type CommandResult } from "./checkpoint-flow.ts";
+import {
+	createCommitWithPreparedMessage,
+	prepareCheckpointMessage,
+	type CommandResult,
+} from "./checkpoint-flow.ts";
 import {
 	formatPendingWorktreeCommandDetails,
 	loadPendingWorktreeSnapshot,
@@ -13,13 +17,16 @@ export interface CheckpointGateway {
 		| {
 				ok: true;
 				snapshot: PendingWorktreeSnapshot;
-			}
+		  }
 		| {
 				ok: false;
 				error: PendingWorktreeError;
-			}
+		  }
 	>;
-	createCommitWithPreparedMessage(params: { cwd: string; message: string }): Promise<{ summary: string } | { error: string }>;
+	createCommitWithPreparedMessage(params: {
+		cwd: string;
+		message: string;
+	}): Promise<{ summary: string } | { error: string }>;
 }
 
 export interface CheckpointCommandResult {
@@ -59,11 +66,11 @@ export class RealCheckpointGateway implements CheckpointGateway {
 		| {
 				ok: true;
 				snapshot: PendingWorktreeSnapshot;
-			}
+		  }
 		| {
 				ok: false;
 				error: PendingWorktreeError;
-			}
+		  }
 	> {
 		return loadPendingWorktreeSnapshot({
 			cwd: params.cwd,
@@ -71,7 +78,10 @@ export class RealCheckpointGateway implements CheckpointGateway {
 		});
 	}
 
-	async createCommitWithPreparedMessage(params: { cwd: string; message: string }): Promise<{ summary: string } | { error: string }> {
+	async createCommitWithPreparedMessage(params: {
+		cwd: string;
+		message: string;
+	}): Promise<{ summary: string } | { error: string }> {
 		return createCommitWithPreparedMessage({
 			cwd: params.cwd,
 			message: params.message,
@@ -79,13 +89,20 @@ export class RealCheckpointGateway implements CheckpointGateway {
 		});
 	}
 
-	private async exec(command: string, args: string[], cwd: string, timeout: number): Promise<CommandResult> {
+	private async exec(
+		command: string,
+		args: string[],
+		cwd: string,
+		timeout: number,
+	): Promise<CommandResult> {
 		const result = await this.runner(command, args, { cwd, timeout });
 		return toCheckpointCommandResult(result);
 	}
 }
 
-export async function runCheckpointIfPending(options: RunCheckpointCommandOptions): Promise<CheckpointIfPendingResult> {
+export async function runCheckpointIfPending(
+	options: RunCheckpointCommandOptions,
+): Promise<CheckpointIfPendingResult> {
 	const loaded = await options.gateway.loadPendingWorktreeSnapshot({ cwd: options.cwd });
 	if (!loaded.ok) {
 		return { kind: "failed", output: failure(2, formatCheckpointSnapshotError(loaded.error)) };
@@ -96,10 +113,20 @@ export async function runCheckpointIfPending(options: RunCheckpointCommandOption
 		return { kind: "clean" };
 	}
 	if (snapshot.branch === "main" || snapshot.branch === "master") {
-		return { kind: "failed", output: failure(1, `Refusing to create checkpoint commit on trunk branch: ${snapshot.branch}`) };
+		return {
+			kind: "failed",
+			output: failure(
+				1,
+				`Refusing to create checkpoint commit on trunk branch: ${snapshot.branch}`,
+			),
+		};
 	}
 
-	const output = await createCheckpointFromSnapshot(options, snapshot, selectCheckpointModelRef(options.env));
+	const output = await createCheckpointFromSnapshot(
+		options,
+		snapshot,
+		selectCheckpointModelRef(options.env),
+	);
 	return output.exitCode === 0 ? { kind: "checkpointed", output } : { kind: "failed", output };
 }
 
@@ -118,7 +145,10 @@ async function createCheckpointFromSnapshot(
 		return failure(2, prepared.error);
 	}
 
-	const committed = await options.gateway.createCommitWithPreparedMessage({ cwd: options.cwd, message: prepared.message });
+	const committed = await options.gateway.createCommitWithPreparedMessage({
+		cwd: options.cwd,
+		message: prepared.message,
+	});
 	if ("error" in committed) {
 		return failure(2, committed.error);
 	}

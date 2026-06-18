@@ -4,7 +4,11 @@ import { join } from "node:path";
 
 import { truncateTextHead, truncateTextHeadTail } from "@asdl/core/text-truncation";
 
-import { formatCheckpointMessage, formatCheckpointValidationFeedback, validateCheckpointMessage } from "./checkpoint-message.ts";
+import {
+	formatCheckpointMessage,
+	formatCheckpointValidationFeedback,
+	validateCheckpointMessage,
+} from "./checkpoint-message.ts";
 import type { TextGenerationGateway } from "./text-generation.ts";
 import { prepareRepairedText } from "./text-repair.ts";
 
@@ -104,8 +108,16 @@ export function buildCheckpointUserPrompt(input: CheckpointPromptInput): string 
 	if (!input.previousDraft || !input.validationFeedback) {
 		return base;
 	}
-	const previousDraft = compactPromptText(input.previousDraft, CHECKPOINT_REPAIR_PREVIOUS_DRAFT_CHAR_LIMIT, "previous invalid draft");
-	const validationFeedback = compactPromptText(input.validationFeedback, CHECKPOINT_REPAIR_FEEDBACK_CHAR_LIMIT, "validation feedback");
+	const previousDraft = compactPromptText(
+		input.previousDraft,
+		CHECKPOINT_REPAIR_PREVIOUS_DRAFT_CHAR_LIMIT,
+		"previous invalid draft",
+	);
+	const validationFeedback = compactPromptText(
+		input.validationFeedback,
+		CHECKPOINT_REPAIR_FEEDBACK_CHAR_LIMIT,
+		"validation feedback",
+	);
 	return `${base}\n## previous invalid draft\n\n${previousDraft}\n\n## validation feedback\n\n${validationFeedback}\n\nRewrite the checkpoint message so it satisfies every validation rule. Return only the corrected commit message.\n`;
 }
 
@@ -131,7 +143,9 @@ export async function createCommitWithPreparedMessage(input: {
 
 		const log = await input.exec("git", ["log", "-1", "--oneline"], input.cwd, 5_000);
 		if (log.code !== 0) {
-			return { error: formatCommandError("Created checkpoint commit, but failed to read it back.", log) };
+			return {
+				error: formatCommandError("Created checkpoint commit, but failed to read it back.", log),
+			};
 		}
 
 		return { summary: log.stdout.trim() };
@@ -161,7 +175,12 @@ function buildCheckpointDiffPromptSection(input: {
 	}
 
 	return {
-		text: buildFileSectionCompactedDiff({ diff: trimmedDiff, fileSections, maxChars, perFileExcerptChars }),
+		text: buildFileSectionCompactedDiff({
+			diff: trimmedDiff,
+			fileSections,
+			maxChars,
+			perFileExcerptChars,
+		}),
 		isCompacted: true,
 	};
 }
@@ -196,7 +215,10 @@ function buildFileSectionCompactedDiff(input: FileSectionCompactedDiffInput): st
 		const finalReserve = CHECKPOINT_FINAL_SUMMARY_RESERVE_CHARS;
 		const remainingChars = input.maxChars - output.length - finalReserve;
 		const blockOverhead = `\n### ${section.path}\n\n\`\`\`diff\n\n\`\`\`\n`.length + 80;
-		const availableExcerptChars = Math.min(input.perFileExcerptChars, remainingChars - blockOverhead);
+		const availableExcerptChars = Math.min(
+			input.perFileExcerptChars,
+			remainingChars - blockOverhead,
+		);
 		if (availableExcerptChars <= 0) {
 			omittedFileSections += 1;
 			omittedCharacters += section.text.length;
@@ -206,7 +228,10 @@ function buildFileSectionCompactedDiff(input: FileSectionCompactedDiffInput): st
 		const omittedFromSection = section.text.length - excerpt.length;
 		omittedCharacters += omittedFromSection;
 		includedFileSections += 1;
-		const omission = omittedFromSection > 0 ? `\n[... omitted ${omittedFromSection} chars from this file ...]` : "";
+		const omission =
+			omittedFromSection > 0
+				? `\n[... omitted ${omittedFromSection} chars from this file ...]`
+				: "";
 		output += `\n### ${section.path}\n\n\`\`\`diff\n${excerpt}${omission}\n\`\`\`\n`;
 	}
 
@@ -291,5 +316,10 @@ async function generateCheckpointText(
 function formatCommandError(summary: string, result: CommandResult): string {
 	const details = result.stderr.trim() || result.stdout.trim();
 	const killed = result.killed ? " (killed or timed out)" : "";
-	return [summary, details ? `exit ${result.code}${killed}: ${details}` : `exit ${result.code}${killed}`].filter(Boolean).join("\n");
+	return [
+		summary,
+		details ? `exit ${result.code}${killed}: ${details}` : `exit ${result.code}${killed}`,
+	]
+		.filter(Boolean)
+		.join("\n");
 }

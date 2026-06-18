@@ -2,7 +2,12 @@ import { describe, expect, test } from "vitest";
 
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { normalizeMessage } from "../src/context-profiler/model.ts";
-import type { BaseRegion, LiveRegion, LiveTurn, TokenCount } from "../src/context-profiler/model.ts";
+import type {
+	BaseRegion,
+	LiveRegion,
+	LiveTurn,
+	TokenCount,
+} from "../src/context-profiler/model.ts";
 import {
 	BAR_WIDTH,
 	BASE_DETAIL_CLAIM,
@@ -104,8 +109,12 @@ describe("formatTokenCount", () => {
 describe("formatUsage", () => {
 	test("covers pending and measured usage", () => {
 		expect(formatUsage(undefined)).toBe("usage pending");
-		expect(formatUsage({ tokens: null, contextWindow: 200_000, percent: null })).toBe("usage pending / 200k");
-		expect(formatUsage({ tokens: 100_000, contextWindow: 200_000, percent: 50 })).toBe("100k / 200k (50.0%)");
+		expect(formatUsage({ tokens: null, contextWindow: 200_000, percent: null })).toBe(
+			"usage pending / 200k",
+		);
+		expect(formatUsage({ tokens: 100_000, contextWindow: 200_000, percent: 50 })).toBe(
+			"100k / 200k (50.0%)",
+		);
 	});
 });
 
@@ -118,16 +127,31 @@ describe("bundle persistence text", () => {
 			byteSize: 1_536,
 			sessionTotalBytes: 2_048,
 			isReused: true,
-			manifest: { version: 1, contentHash: "abc", sessionId: "sid", model: "p/m", turnCount: 3, capturedAt: "now" },
+			manifest: {
+				version: 1,
+				contentHash: "abc",
+				sessionId: "sid",
+				model: "p/m",
+				turnCount: 3,
+				capturedAt: "now",
+			},
 		} as const;
 
 		expect(formatByteSize(1_536)).toBe("2 KB");
 		expect(bundlePersistenceLine({ type: "pending" })).toBe("bundle: writing…");
 		expect(bundleStatusBarText({ type: "pending" })).toBe("ctx profile · bundle writing");
-		expect(bundlePersistenceLine({ type: "skipped", reason: "empty-context" })).toBe("bundle: skipped · no conversation yet");
-		expect(bundleStatusBarText({ type: "skipped", reason: "empty-context" })).toBe("ctx profile · no conversation yet");
-		expect(bundlePersistenceLine({ type: "failed", message: "disk full" })).toBe("bundle: unavailable · disk full");
-		expect(bundleStatusBarText({ type: "failed", message: "disk full" })).toBe("ctx profile · bundle unavailable");
+		expect(bundlePersistenceLine({ type: "skipped", reason: "empty-context" })).toBe(
+			"bundle: skipped · no conversation yet",
+		);
+		expect(bundleStatusBarText({ type: "skipped", reason: "empty-context" })).toBe(
+			"ctx profile · no conversation yet",
+		);
+		expect(bundlePersistenceLine({ type: "failed", message: "disk full" })).toBe(
+			"bundle: unavailable · disk full",
+		);
+		expect(bundleStatusBarText({ type: "failed", message: "disk full" })).toBe(
+			"ctx profile · bundle unavailable",
+		);
 		expect(bundlePersistenceLine(persisted)).toBe("bundle: #2 · 2 KB · session 2 KB · reused");
 		expect(bundleStatusBarText(persisted)).toBe("ctx profile · bundle #2");
 	});
@@ -136,7 +160,11 @@ describe("bundle persistence text", () => {
 describe("buildOverviewRowCells", () => {
 	test("emits exact-width cells and a composed row matching the inner width", () => {
 		const source: OverviewRowSource = { type: "base", region: makeBaseRegion() };
-		const cells = buildOverviewRowCells(source, { maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH });
+		const cells = buildOverviewRowCells(source, {
+			maxTokens: 2_000,
+			totalTokens: 3_000,
+			innerWidth: INNER_WIDTH,
+		});
 		expect(visibleWidth(cells.label)).toBe(overviewLabelWidth(INNER_WIDTH));
 		expect(visibleWidth(cells.barFilled) + visibleWidth(cells.barEmpty)).toBe(BAR_WIDTH);
 		expect(visibleWidth(cells.tokens)).toBe(TOKENS_COLUMN_WIDTH);
@@ -146,7 +174,10 @@ describe("buildOverviewRowCells", () => {
 	});
 
 	test("lists overview row segments in display order and preserves selected text", () => {
-		const cells = buildOverviewRowCells({ type: "base", region: makeBaseRegion() }, { maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH });
+		const cells = buildOverviewRowCells(
+			{ type: "base", region: makeBaseRegion() },
+			{ maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH },
+		);
 		expect(overviewRowSegments(cells).map((segment) => segment.role)).toEqual([
 			"label",
 			"gap",
@@ -161,17 +192,34 @@ describe("buildOverviewRowCells", () => {
 	});
 
 	test("renders identical widths across renders for differing values (no jitter)", () => {
-		const small = buildOverviewRowCells({ type: "base", region: makeBaseRegion({ tokens: estimated(3) }) }, { maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH });
-		const large = buildOverviewRowCells({ type: "base", region: makeBaseRegion({ tokens: estimated(1_999_999) }) }, { maxTokens: 2_000_000, totalTokens: 3_000_000, innerWidth: INNER_WIDTH });
-		expect(visibleWidth(composeOverviewRowText(small))).toBe(visibleWidth(composeOverviewRowText(large)));
+		const small = buildOverviewRowCells(
+			{ type: "base", region: makeBaseRegion({ tokens: estimated(3) }) },
+			{ maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH },
+		);
+		const large = buildOverviewRowCells(
+			{ type: "base", region: makeBaseRegion({ tokens: estimated(1_999_999) }) },
+			{ maxTokens: 2_000_000, totalTokens: 3_000_000, innerWidth: INNER_WIDTH },
+		);
+		expect(visibleWidth(composeOverviewRowText(small))).toBe(
+			visibleWidth(composeOverviewRowText(large)),
+		);
 	});
 
 	test("scales the bar to the largest visible row", () => {
-		const full = buildOverviewRowCells({ type: "base", region: makeBaseRegion({ tokens: estimated(2_000) }) }, { maxTokens: 2_000, totalTokens: 4_000, innerWidth: INNER_WIDTH });
+		const full = buildOverviewRowCells(
+			{ type: "base", region: makeBaseRegion({ tokens: estimated(2_000) }) },
+			{ maxTokens: 2_000, totalTokens: 4_000, innerWidth: INNER_WIDTH },
+		);
 		expect(full.barFilled).toBe("█".repeat(BAR_WIDTH));
-		const half = buildOverviewRowCells({ type: "base", region: makeBaseRegion({ tokens: estimated(1_000) }) }, { maxTokens: 2_000, totalTokens: 4_000, innerWidth: INNER_WIDTH });
+		const half = buildOverviewRowCells(
+			{ type: "base", region: makeBaseRegion({ tokens: estimated(1_000) }) },
+			{ maxTokens: 2_000, totalTokens: 4_000, innerWidth: INNER_WIDTH },
+		);
 		expect(half.barFilled).toBe("█".repeat(BAR_WIDTH / 2));
-		const empty = buildOverviewRowCells({ type: "base", region: makeBaseRegion({ tokens: estimated(0) }) }, { maxTokens: 2_000, totalTokens: 4_000, innerWidth: INNER_WIDTH });
+		const empty = buildOverviewRowCells(
+			{ type: "base", region: makeBaseRegion({ tokens: estimated(0) }) },
+			{ maxTokens: 2_000, totalTokens: 4_000, innerWidth: INNER_WIDTH },
+		);
 		expect(empty.barFilled).toBe("");
 		expect(empty.barEmpty).toBe("░".repeat(BAR_WIDTH));
 	});
@@ -181,21 +229,33 @@ describe("buildOverviewRowCells", () => {
 	});
 
 	test("computes the percent column against the combined total", () => {
-		const cells = buildOverviewRowCells({ type: "base", region: makeBaseRegion({ tokens: estimated(600) }) }, { maxTokens: 2_000, totalTokens: 900, innerWidth: INNER_WIDTH });
+		const cells = buildOverviewRowCells(
+			{ type: "base", region: makeBaseRegion({ tokens: estimated(600) }) },
+			{ maxTokens: 2_000, totalTokens: 900, innerWidth: INNER_WIDTH },
+		);
 		expect(cells.percent).toBe("  67%");
 	});
 
 	test("composes the status column from outcome glyph and kind abbrev", () => {
-		const base = buildOverviewRowCells({ type: "base", region: makeBaseRegion() }, { maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH });
+		const base = buildOverviewRowCells(
+			{ type: "base", region: makeBaseRegion() },
+			{ maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH },
+		);
 		expect(base.status).toBe(" ".repeat(STATUS_COLUMN_WIDTH));
 		expect(base.health).toBe("neutral");
 
-		const current = buildOverviewRowCells({ type: "live", region: makeLiveRegion() }, { maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH });
+		const current = buildOverviewRowCells(
+			{ type: "live", region: makeLiveRegion() },
+			{ maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH },
+		);
 		expect(current.status).toBe(fitToWidth("● chat", STATUS_COLUMN_WIDTH));
 		expect(current.health).toBe("accent");
 
 		const explore = buildOverviewRowCells(
-			{ type: "live", region: makeLiveRegion({ kind: "explore", isCurrent: false, source: "annotation" }) },
+			{
+				type: "live",
+				region: makeLiveRegion({ kind: "explore", isCurrent: false, source: "annotation" }),
+			},
 			{ maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH },
 		);
 		expect(explore.status).toBe(fitToWidth("· exp", STATUS_COLUMN_WIDTH));
@@ -219,7 +279,10 @@ describe("buildOverviewRowCells", () => {
 		] as const;
 		for (const { outcome, glyph, health } of cases) {
 			const cells = buildOverviewRowCells(
-				{ type: "live", region: makeLiveRegion({ kind: "edit", outcome, isCurrent: false, source: "annotation" }) },
+				{
+					type: "live",
+					region: makeLiveRegion({ kind: "edit", outcome, isCurrent: false, source: "annotation" }),
+				},
 				{ maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH },
 			);
 			expect(cells.status).toBe(fitToWidth(`${glyph} edit`, STATUS_COLUMN_WIDTH));
@@ -230,14 +293,32 @@ describe("buildOverviewRowCells", () => {
 
 	test("appends relevance abbreviations and lets relevance drive row health", () => {
 		const staleCompleted = buildOverviewRowCells(
-			{ type: "live", region: makeLiveRegion({ kind: "edit", outcome: "completed", relevance: "stale", isCurrent: false, source: "annotation" }) },
+			{
+				type: "live",
+				region: makeLiveRegion({
+					kind: "edit",
+					outcome: "completed",
+					relevance: "stale",
+					isCurrent: false,
+					source: "annotation",
+				}),
+			},
 			{ maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH },
 		);
 		expect(staleCompleted.status).toBe(fitToWidth("✓ edit sta", STATUS_COLUMN_WIDTH));
 		expect(staleCompleted.health).toBe("warning");
 
 		const loadBearing = buildOverviewRowCells(
-			{ type: "live", region: makeLiveRegion({ kind: "review", outcome: "unknown", relevance: "load-bearing", isCurrent: false, source: "annotation" }) },
+			{
+				type: "live",
+				region: makeLiveRegion({
+					kind: "review",
+					outcome: "unknown",
+					relevance: "load-bearing",
+					isCurrent: false,
+					source: "annotation",
+				}),
+			},
 			{ maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH },
 		);
 		expect(loadBearing.status).toBe(fitToWidth("? rev ldb", STATUS_COLUMN_WIDTH));
@@ -246,7 +327,16 @@ describe("buildOverviewRowCells", () => {
 
 	test("appends the delegation glyph in the exact-width status column", () => {
 		const cells = buildOverviewRowCells(
-			{ type: "live", region: makeLiveRegion({ kind: "chat", outcome: "completed", relevance: "load-bearing", isCurrent: false, source: "annotation" }) },
+			{
+				type: "live",
+				region: makeLiveRegion({
+					kind: "chat",
+					outcome: "completed",
+					relevance: "load-bearing",
+					isCurrent: false,
+					source: "annotation",
+				}),
+			},
 			{ maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH, hasDelegation: true },
 		);
 		expect(cells.status).toBe("✓ chat ldb ⇄");
@@ -254,14 +344,20 @@ describe("buildOverviewRowCells", () => {
 	});
 
 	test("labels live rows with their turn range", () => {
-		const cells = buildOverviewRowCells({ type: "live", region: makeLiveRegion() }, { maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH });
+		const cells = buildOverviewRowCells(
+			{ type: "live", region: makeLiveRegion() },
+			{ maxTokens: 2_000, totalTokens: 3_000, innerWidth: INNER_WIDTH },
+		);
 		expect(cells.label.trimEnd()).toBe("conversation turns · 1–12");
 	});
 });
 
 describe("buildUsageBarSegments", () => {
 	test("splits the bar into base, live, and free against the context window", () => {
-		const segments = buildUsageBarSegments({ tokens: 100_000, contextWindow: 200_000, percent: 50 }, { baseTokens: 60_000, liveTokens: 30_000, innerWidth: 40 });
+		const segments = buildUsageBarSegments(
+			{ tokens: 100_000, contextWindow: 200_000, percent: 50 },
+			{ baseTokens: 60_000, liveTokens: 30_000, innerWidth: 40 },
+		);
 		expect(segments.baseWidth).toBe(12);
 		expect(segments.liveWidth).toBe(8);
 		expect(segments.freeWidth).toBe(20);
@@ -272,7 +368,11 @@ describe("buildUsageBarSegments", () => {
 	});
 
 	test("falls back to estimated totals when usage is unavailable", () => {
-		const segments = buildUsageBarSegments(undefined, { baseTokens: 30_000, liveTokens: 10_000, innerWidth: 40 });
+		const segments = buildUsageBarSegments(undefined, {
+			baseTokens: 30_000,
+			liveTokens: 10_000,
+			innerWidth: 40,
+		});
 		expect(segments.baseWidth + segments.liveWidth + segments.freeWidth).toBe(40);
 		expect(segments.freeWidth).toBe(0);
 	});
@@ -280,8 +380,12 @@ describe("buildUsageBarSegments", () => {
 
 describe("section headers and claims", () => {
 	test("liveSectionHeader includes counts and the elided middle", () => {
-		expect(liveSectionHeader({ originalCount: 10, includedCount: 10, elidedMiddleTurns: 0 })).toBe("LIVE · 10/10 turns");
-		expect(liveSectionHeader({ originalCount: 92, includedCount: 80, elidedMiddleTurns: 12 })).toBe("LIVE · 80/92 turns · 12 middle turns elided");
+		expect(liveSectionHeader({ originalCount: 10, includedCount: 10, elidedMiddleTurns: 0 })).toBe(
+			"LIVE · 10/10 turns",
+		);
+		expect(liveSectionHeader({ originalCount: 92, includedCount: 80, elidedMiddleTurns: 12 })).toBe(
+			"LIVE · 80/92 turns · 12 middle turns elided",
+		);
 	});
 
 	test("liveSectionHeader appends the segmentation status only when present", () => {
@@ -292,9 +396,19 @@ describe("section headers and claims", () => {
 
 	test("segmentationStatusText surfaces loading and error states only", () => {
 		expect(segmentationStatusText({ type: "idle" })).toBeNull();
-		expect(segmentationStatusText({ type: "ready", episodes: [], summary: null, delegations: [], analysis: [] })).toBeNull();
+		expect(
+			segmentationStatusText({
+				type: "ready",
+				episodes: [],
+				summary: null,
+				delegations: [],
+				analysis: [],
+			}),
+		).toBeNull();
 		expect(segmentationStatusText({ type: "loading" })).toBe("symbolizing…");
-		expect(segmentationStatusText({ type: "error", message: "no API key" })).toBe("no symbols: no API key");
+		expect(segmentationStatusText({ type: "error", message: "no API key" })).toBe(
+			"no symbols: no API key",
+		);
 	});
 
 	test("claim lines state what the view shows and what ⏎ does", () => {
@@ -306,8 +420,17 @@ describe("section headers and claims", () => {
 	});
 
 	test("annotation regions claim their LM provenance in the turn list", () => {
-		const claim = turnListClaim(makeLiveRegion({ source: "annotation", kind: "debug", outcome: "errored", turnRange: { start: 4, end: 8 } }));
-		expect(claim).toBe("LM claim: kind=debug · outcome=errored · efficiency=unanalyzed · relevance=unanalyzed · turns 4–8 · ⏎ views turn content");
+		const claim = turnListClaim(
+			makeLiveRegion({
+				source: "annotation",
+				kind: "debug",
+				outcome: "errored",
+				turnRange: { start: 4, end: 8 },
+			}),
+		);
+		expect(claim).toBe(
+			"LM claim: kind=debug · outcome=errored · efficiency=unanalyzed · relevance=unanalyzed · turns 4–8 · ⏎ views turn content",
+		);
 	});
 
 	test("scrollNote formats the visible window", () => {
@@ -317,18 +440,29 @@ describe("section headers and claims", () => {
 
 	test("annotation claim lines include verdicts, analysis status, and delegation counts", () => {
 		const claim = turnListClaim(
-			makeLiveRegion({ source: "annotation", efficiency: "mixed", relevance: "stale", turnRange: { start: 4, end: 8 } }),
+			makeLiveRegion({
+				source: "annotation",
+				efficiency: "mixed",
+				relevance: "stale",
+				turnRange: { start: 4, end: 8 },
+			}),
 			{ analysisStatus: "analysis failed: invalid JSON", delegationCount: 2 },
 		);
-		expect(claim).toContain("efficiency=mixed · relevance=stale · analysis failed: invalid JSON · delegations=2");
+		expect(claim).toContain(
+			"efficiency=mixed · relevance=stale · analysis failed: invalid JSON · delegations=2",
+		);
 	});
 
 	test("formats delegation drill-down summaries with inferred suffixes", () => {
-		expect(delegationClaimText({ turn: 3, label: "run subtask", confidence: "inferred" })).toBe("t3 run subtask (inferred)");
-		expect(delegationSummaryLine([
-			{ turn: 3, label: "run subtask", confidence: "inferred" },
-			{ turn: 8, label: "review result", confidence: "high" },
-		])).toBe("delegations: t3 run subtask (inferred) · t8 review result");
+		expect(delegationClaimText({ turn: 3, label: "run subtask", confidence: "inferred" })).toBe(
+			"t3 run subtask (inferred)",
+		);
+		expect(
+			delegationSummaryLine([
+				{ turn: 3, label: "run subtask", confidence: "inferred" },
+				{ turn: 8, label: "review result", confidence: "high" },
+			]),
+		).toBe("delegations: t3 run subtask (inferred) · t8 review result");
 	});
 });
 
@@ -342,12 +476,22 @@ describe("list rows", () => {
 
 	test("lists row segments in display order and composes selected text", () => {
 		const cells = buildListRowCells(estimated(500), "member name", 1_000);
-		expect(listRowSegments(cells).map((segment) => segment.role)).toEqual(["barFilled", "barEmpty", "tokens", "gap", "text"]);
-		expect(composeListRowText(cells)).toBe(`▌${cells.barFilled}${cells.barEmpty}${cells.tokens}  member name`);
+		expect(listRowSegments(cells).map((segment) => segment.role)).toEqual([
+			"barFilled",
+			"barEmpty",
+			"tokens",
+			"gap",
+			"text",
+		]);
+		expect(composeListRowText(cells)).toBe(
+			`▌${cells.barFilled}${cells.barEmpty}${cells.tokens}  member name`,
+		);
 	});
 
 	test("turnListRowText includes index, role, tools, excerpt, and delegation prefix", () => {
-		expect(turnListRowText(makeTurn({ toolNames: ["read", "bash"] }))).toBe("t3 assistant [read,bash] · doing things");
+		expect(turnListRowText(makeTurn({ toolNames: ["read", "bash"] }))).toBe(
+			"t3 assistant [read,bash] · doing things",
+		);
 		expect(turnListRowText(makeTurn())).toBe("t3 assistant · doing things");
 		expect(turnListRowText(makeTurn(), true)).toBe("⇄ t3 assistant · doing things");
 	});
@@ -359,10 +503,20 @@ describe("verbatim content", () => {
 	});
 
 	test("contentSourceForMember distinguishes captured text from estimate-only members", () => {
-		const captured = contentSourceForMember({ name: "AGENTS.md", tokens: estimated(100), content: "body", note: "verbatim file" });
+		const captured = contentSourceForMember({
+			name: "AGENTS.md",
+			tokens: estimated(100),
+			content: "body",
+			note: "verbatim file",
+		});
 		expect(captured.text).toBe("body");
 		expect(captured.note).toBe("verbatim file");
-		const estimateOnly = contentSourceForMember({ name: "bash", tokens: estimated(1), content: null, note: null });
+		const estimateOnly = contentSourceForMember({
+			name: "bash",
+			tokens: estimated(1),
+			content: null,
+			note: null,
+		});
 		expect(estimateOnly.note).toBe("estimate only — raw text not captured");
 	});
 

@@ -24,7 +24,11 @@ export interface GrillAskEndGrillRow {
 	index: number;
 }
 
-export type GrillAskRow = GrillAskChoiceRow | GrillAskFreeformRow | GrillAskStatusRow | GrillAskEndGrillRow;
+export type GrillAskRow =
+	| GrillAskChoiceRow
+	| GrillAskFreeformRow
+	| GrillAskStatusRow
+	| GrillAskEndGrillRow;
 
 export function buildGrillAskRows(input: NormalizedGrillAskInput): GrillAskRow[] {
 	const rows: GrillAskRow[] = input.options.map((option, optionIndex) => ({
@@ -45,7 +49,10 @@ export function buildGrillAskRows(input: NormalizedGrillAskInput): GrillAskRow[]
 	return rows;
 }
 
-export function defaultGrillAskRowIndex(input: NormalizedGrillAskInput, rows: readonly GrillAskRow[]): number {
+export function defaultGrillAskRowIndex(
+	input: NormalizedGrillAskInput,
+	rows: readonly GrillAskRow[],
+): number {
 	if (input.recommended.optionValue !== undefined) {
 		const recommendedIndex = rows.findIndex(
 			(row) => row.kind === "choice" && row.option.value === input.recommended.optionValue,
@@ -118,7 +125,8 @@ export function rowSelectDisplay(row: GrillAskRow): string {
 	switch (row.kind) {
 		case "choice": {
 			const marker = row.recommended ? "★ " : "";
-			const description = row.option.description === undefined ? "" : ` — ${singleLine(row.option.description)}`;
+			const description =
+				row.option.description === undefined ? "" : ` — ${singleLine(row.option.description)}`;
 			return `${row.index}. ${marker}${singleLine(row.option.label)}${description}`;
 		}
 		case "freeform":

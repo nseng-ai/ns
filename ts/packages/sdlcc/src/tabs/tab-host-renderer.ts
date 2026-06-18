@@ -1,4 +1,10 @@
-import { BoxRenderable, createCliRenderer, TextRenderable, type CliRenderer, type KeyEvent } from "@opentui/core";
+import {
+	BoxRenderable,
+	createCliRenderer,
+	TextRenderable,
+	type CliRenderer,
+	type KeyEvent,
+} from "@opentui/core";
 
 import type { TabController } from "./tab-controller.ts";
 import type { TabModuleDeps } from "./tab-module.ts";
@@ -15,7 +21,8 @@ interface MountedTabHostScreen {
 
 export async function startTabHostTui(options: StartTabHostTuiOptions): Promise<void> {
 	const controllers = options.controllers;
-	if (controllers.length === 0) throw new Error("startTabHostTui requires at least one tab controller.");
+	if (controllers.length === 0)
+		throw new Error("startTabHostTui requires at least one tab controller.");
 
 	let activeIndex = 0;
 	let renderer: CliRenderer | undefined;
@@ -137,7 +144,11 @@ function mountTabHostScreen(renderer: CliRenderer): MountedTabHostScreen {
 }
 
 export function renderTabBar(controllers: readonly TabController[], activeIndex: number): string {
-	return controllers.map((controller, index) => (index === activeIndex ? `[${controller.label}]` : ` ${controller.label} `)).join(" ");
+	return controllers
+		.map((controller, index) =>
+			index === activeIndex ? `[${controller.label}]` : ` ${controller.label} `,
+		)
+		.join(" ");
 }
 
 function wrapIndex(index: number, length: number): number {

@@ -30,8 +30,15 @@ test("scripted command helpers record calls and validate expected steps", async 
 	runner.assertDone();
 
 	const execApi = new ScriptedCommandExecApi([{ stdout: "ok" }]);
-	expect(await execApi.exec("gh", ["pr", "view"], { cwd: "/repo", stdin: "payload" })).toEqual({ stdout: "ok", stderr: "", code: 0, killed: false });
-	expect(execApi.calls()).toEqual([{ command: "gh", args: ["pr", "view"], options: { cwd: "/repo", stdin: "payload" } }]);
+	expect(await execApi.exec("gh", ["pr", "view"], { cwd: "/repo", stdin: "payload" })).toEqual({
+		stdout: "ok",
+		stderr: "",
+		code: 0,
+		killed: false,
+	});
+	expect(execApi.calls()).toEqual([
+		{ command: "gh", args: ["pr", "view"], options: { cwd: "/repo", stdin: "payload" } },
+	]);
 });
 
 test("temp dir tracker removes tracked directories", async () => {

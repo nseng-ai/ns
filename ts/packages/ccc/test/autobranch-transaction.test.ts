@@ -1,5 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { runAutobranchTransaction, type AutobranchTransactionInput } from "../src/autobranch/transaction.ts";
+import {
+	runAutobranchTransaction,
+	type AutobranchTransactionInput,
+} from "../src/autobranch/transaction.ts";
 import { eventIndex, fail, ok } from "./autobranch-test-helpers.ts";
 
 interface HarnessOptions {
@@ -23,10 +26,14 @@ function createHarness(options: HarnessOptions = {}) {
 			events.push(`exec:${command} ${args.join(" ")}`);
 			if (command === "git" && args[0] === "stash" && args[1] === "push") {
 				stashMessage = args.at(-1) ?? "";
-				return options.shouldStashPushFail ? fail("stash push failed") : ok("Saved working directory\n");
+				return options.shouldStashPushFail
+					? fail("stash push failed")
+					: ok("Saved working directory\n");
 			}
 			if (command === "git" && args[0] === "stash" && args[1] === "list") {
-				return options.isStashRefMissing ? ok("stash@{0}\0On base-branch: unrelated stash\n") : ok(`stash@{0}\0On base-branch: ${stashMessage}\n`);
+				return options.isStashRefMissing
+					? ok("stash@{0}\0On base-branch: unrelated stash\n")
+					: ok(`stash@{0}\0On base-branch: ${stashMessage}\n`);
 			}
 			if (command === "git" && args[0] === "stash" && args[1] === "pop") {
 				return options.shouldStashPopFail ? fail("stash conflict") : ok("restored\n");
@@ -51,10 +58,18 @@ describe("runAutobranchTransaction", () => {
 		const result = await runAutobranchTransaction(harness.input);
 
 		expect(result).toEqual({ ok: true, commitSummary: "abc123 [cp] Update checkpoint tests" });
-		expect(eventIndex(harness.events, "exec:git stash push")).toBeLessThan(eventIndex(harness.events, "exec:git stash list"));
-		expect(eventIndex(harness.events, "exec:git stash list")).toBeLessThan(eventIndex(harness.events, "exec:gt create"));
-		expect(eventIndex(harness.events, "exec:gt create")).toBeLessThan(eventIndex(harness.events, "exec:git stash pop"));
-		expect(eventIndex(harness.events, "exec:git stash pop")).toBeLessThan(eventIndex(harness.events, "commit:"));
+		expect(eventIndex(harness.events, "exec:git stash push")).toBeLessThan(
+			eventIndex(harness.events, "exec:git stash list"),
+		);
+		expect(eventIndex(harness.events, "exec:git stash list")).toBeLessThan(
+			eventIndex(harness.events, "exec:gt create"),
+		);
+		expect(eventIndex(harness.events, "exec:gt create")).toBeLessThan(
+			eventIndex(harness.events, "exec:git stash pop"),
+		);
+		expect(eventIndex(harness.events, "exec:git stash pop")).toBeLessThan(
+			eventIndex(harness.events, "commit:"),
+		);
 	});
 
 	test("stash failure returns stash_failed and does not call Graphite", async () => {
@@ -87,8 +102,15 @@ describe("runAutobranchTransaction", () => {
 
 		const result = await runAutobranchTransaction(harness.input);
 
-		expect(result).toEqual({ ok: false, kind: "graphite_create_failed", createError: "exit 1: gt create failed", restored: true });
-		expect(eventIndex(harness.events, "exec:git stash pop")).toBeGreaterThan(eventIndex(harness.events, "exec:gt create"));
+		expect(result).toEqual({
+			ok: false,
+			kind: "graphite_create_failed",
+			createError: "exit 1: gt create failed",
+			restored: true,
+		});
+		expect(eventIndex(harness.events, "exec:git stash pop")).toBeGreaterThan(
+			eventIndex(harness.events, "exec:gt create"),
+		);
 		expect(harness.events.some((event) => event.startsWith("commit:"))).toBe(false);
 	});
 
@@ -112,8 +134,14 @@ describe("runAutobranchTransaction", () => {
 
 		const result = await runAutobranchTransaction(harness.input);
 
-		expect(result).toEqual({ ok: false, kind: "restore_failed_after_branch_create", restoreError: "exit 1: stash conflict" });
-		expect(eventIndex(harness.events, "exec:git stash pop")).toBeGreaterThan(eventIndex(harness.events, "exec:gt create"));
+		expect(result).toEqual({
+			ok: false,
+			kind: "restore_failed_after_branch_create",
+			restoreError: "exit 1: stash conflict",
+		});
+		expect(eventIndex(harness.events, "exec:git stash pop")).toBeGreaterThan(
+			eventIndex(harness.events, "exec:gt create"),
+		);
 		expect(harness.events.some((event) => event.startsWith("commit:"))).toBe(false);
 	});
 
@@ -122,7 +150,13 @@ describe("runAutobranchTransaction", () => {
 
 		const result = await runAutobranchTransaction(harness.input);
 
-		expect(result).toEqual({ ok: false, kind: "commit_failed_after_branch_create", commitError: "commit failed" });
-		expect(eventIndex(harness.events, "commit:")).toBeGreaterThan(eventIndex(harness.events, "exec:git stash pop"));
+		expect(result).toEqual({
+			ok: false,
+			kind: "commit_failed_after_branch_create",
+			commitError: "commit failed",
+		});
+		expect(eventIndex(harness.events, "commit:")).toBeGreaterThan(
+			eventIndex(harness.events, "exec:git stash pop"),
+		);
 	});
 });

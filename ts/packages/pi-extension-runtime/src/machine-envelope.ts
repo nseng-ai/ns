@@ -25,7 +25,10 @@ export interface MachineEnvelopeDataParseInvalid {
 	message: string;
 }
 
-export type MachineEnvelopeDataParseResult = MachineEnvelopeDataParseValid | MachineEnvelopeDataParseFailure | MachineEnvelopeDataParseInvalid;
+export type MachineEnvelopeDataParseResult =
+	| MachineEnvelopeDataParseValid
+	| MachineEnvelopeDataParseFailure
+	| MachineEnvelopeDataParseInvalid;
 
 export function parseMachineEnvelopeData(
 	stdout: string,
@@ -48,7 +51,12 @@ export function parseMachineEnvelopeData(
 	}
 
 	if (envelopeExitCode !== 0) {
-		return failureMachineEnvelope({ stdout, options, envelope: parsed, exitCode: envelopeExitCode });
+		return failureMachineEnvelope({
+			stdout,
+			options,
+			envelope: parsed,
+			exitCode: envelopeExitCode,
+		});
 	}
 
 	const data = parsed.data;
@@ -64,7 +72,10 @@ function invalidMachineEnvelope(
 	options: MachineEnvelopeParseOptions,
 	reason: string,
 ): MachineEnvelopeDataParseInvalid {
-	return { type: "invalid", message: formatEnvelopeMessage(stdout, options, `Malformed ${options.label}: ${reason}.`) };
+	return {
+		type: "invalid",
+		message: formatEnvelopeMessage(stdout, options, `Malformed ${options.label}: ${reason}.`),
+	};
 }
 
 interface FailureMachineEnvelopeOptions {
@@ -80,7 +91,10 @@ function failureMachineEnvelope({
 	envelope,
 	exitCode,
 }: FailureMachineEnvelopeOptions): MachineEnvelopeDataParseFailure {
-	const errorType = typeof envelope.error_type === "string" && envelope.error_type.length > 0 ? envelope.error_type : undefined;
+	const errorType =
+		typeof envelope.error_type === "string" && envelope.error_type.length > 0
+			? envelope.error_type
+			: undefined;
 	const cliMessage = envelopeStatusText(envelope);
 	const details = [
 		`exit_code ${exitCode}`,
@@ -92,7 +106,11 @@ function failureMachineEnvelope({
 		exitCode,
 		...(errorType === undefined ? {} : { errorType }),
 		...(cliMessage === undefined ? {} : { cliMessage }),
-		message: formatEnvelopeMessage(stdout, options, `${options.label} reported failure: ${formatSentence(details.join(": "))}`),
+		message: formatEnvelopeMessage(
+			stdout,
+			options,
+			`${options.label} reported failure: ${formatSentence(details.join(": "))}`,
+		),
 	};
 }
 
@@ -100,7 +118,11 @@ function formatSentence(text: string): string {
 	return /[.!?]$/.test(text) ? text : `${text}.`;
 }
 
-function formatEnvelopeMessage(stdout: string, options: MachineEnvelopeParseOptions, firstLine: string): string {
+function formatEnvelopeMessage(
+	stdout: string,
+	options: MachineEnvelopeParseOptions,
+	firstLine: string,
+): string {
 	const lines = [firstLine];
 	if (options.stdoutTail !== undefined && options.stdoutTail !== false) {
 		lines.push("", "stdout tail:", tailText(stdout, options.stdoutTail));

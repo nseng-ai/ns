@@ -17,13 +17,23 @@ describe("export operation", () => {
 		const help = runScenario(["export", "-h"]);
 		expect(await help.exit).toBe(0);
 		const text = help.stdout.join("");
-		for (const flag of ["--output-dir", "--namespace", "--branch", "--overwrite", "--dry-run", "--format", "--json-schema"]) {
+		for (const flag of [
+			"--output-dir",
+			"--namespace",
+			"--branch",
+			"--overwrite",
+			"--dry-run",
+			"--format",
+			"--json-schema",
+		]) {
 			expect(text).toContain(flag);
 		}
 		expect(text).not.toContain("--all-branches");
 		expect(text).not.toContain("[output-dir]");
 
-		const schema = runScenario(["export", "--json-schema"], { fake: { currentBranch: { type: "detached" } } });
+		const schema = runScenario(["export", "--json-schema"], {
+			fake: { currentBranch: { type: "detached" } },
+		});
 		expect(await schema.exit).toBe(0);
 		const document = JSON.parse(schema.stdout.join(""));
 		expect(document).toHaveProperty("input_json_schema");
@@ -37,8 +47,20 @@ describe("export operation", () => {
 			const run = runScenario(["export", "--output-dir", outputDir], {
 				fake: {
 					entries: [
-						{ namespace: "base", branch: "main", key: "plan.md", content: "plan\n", headSha: "head-plan" },
-						{ namespace: "base", branch: "main", key: "nested/body.md", content: "body\n", headSha: "head-body" },
+						{
+							namespace: "base",
+							branch: "main",
+							key: "plan.md",
+							content: "plan\n",
+							headSha: "head-plan",
+						},
+						{
+							namespace: "base",
+							branch: "main",
+							key: "nested/body.md",
+							content: "body\n",
+							headSha: "head-body",
+						},
 						{ namespace: "scratch", branch: "main", key: "private.md", content: "private\n" },
 					],
 				},
@@ -64,26 +86,55 @@ describe("export operation", () => {
 			const namedDir = join(root, "named");
 			const fake = {
 				entries: [
-					{ namespace: "base", branch: "main", key: "base.md", content: "base", headSha: "head-base" },
+					{
+						namespace: "base",
+						branch: "main",
+						key: "base.md",
+						content: "base",
+						headSha: "head-base",
+					},
 					{ namespace: "scratch", branch: "main", key: "a.md", content: "A", headSha: "head-a" },
 					{ namespace: "scratch", branch: "main", key: "b.md", content: "B", headSha: "head-b" },
 				],
 			};
-			const base = runScenario(["export", "--namespace", "base", "--output-dir", baseDir, "--format", "json"], { fake });
+			const base = runScenario(
+				["export", "--namespace", "base", "--output-dir", baseDir, "--format", "json"],
+				{ fake },
+			);
 			expect(await base.exit).toBe(0);
 			expect(parseJsonOutput(base)).toMatchObject({
 				exit_code: 0,
-				data: { namespace: "base", branch: "main", output_dir: baseDir, overwrite: false, dry_run: false, exported: [{ key: "base.md" }] },
+				data: {
+					namespace: "base",
+					branch: "main",
+					output_dir: baseDir,
+					overwrite: false,
+					dry_run: false,
+					exported: [{ key: "base.md" }],
+				},
 			});
 
-			const named = runScenario(["export", "--namespace", "scratch", "--output-dir", namedDir, "--format", "json"], { fake });
+			const named = runScenario(
+				["export", "--namespace", "scratch", "--output-dir", namedDir, "--format", "json"],
+				{ fake },
+			);
 			expect(await named.exit).toBe(0);
 			expect(parseJsonOutput(named)).toMatchObject({
 				data: {
 					namespace: "scratch",
 					exported: [
-						{ key: "a.md", path: join(namedDir, "a.md"), ref_name: "refs/brmem/ns/scratch/main:a.md", size_bytes: 1 },
-						{ key: "b.md", path: join(namedDir, "b.md"), ref_name: "refs/brmem/ns/scratch/main:b.md", size_bytes: 1 },
+						{
+							key: "a.md",
+							path: join(namedDir, "a.md"),
+							ref_name: "refs/brmem/ns/scratch/main:a.md",
+							size_bytes: 1,
+						},
+						{
+							key: "b.md",
+							path: join(namedDir, "b.md"),
+							ref_name: "refs/brmem/ns/scratch/main:b.md",
+							size_bytes: 1,
+						},
 					],
 				},
 			});
@@ -96,27 +147,53 @@ describe("export operation", () => {
 	it("handles explicit branch override and detached HEAD", async () => {
 		const root = await makeTempDir();
 		try {
-			const explicit = runScenario(["export", "--branch", "feat/other", "--output-dir", join(root, "explicit"), "--format", "json"], {
-				fake: {
-					currentBranch: { type: "detached" },
-					entries: [{ namespace: "base", branch: "feat/other", key: "note.md", content: "note" }],
+			const explicit = runScenario(
+				[
+					"export",
+					"--branch",
+					"feat/other",
+					"--output-dir",
+					join(root, "explicit"),
+					"--format",
+					"json",
+				],
+				{
+					fake: {
+						currentBranch: { type: "detached" },
+						entries: [{ namespace: "base", branch: "feat/other", key: "note.md", content: "note" }],
+					},
+				},
+			);
+			expect(await explicit.exit).toBe(0);
+			expect(parseJsonOutput(explicit)).toMatchObject({
+				data: {
+					branch: "feat/other",
+					exported: [{ ref_name: "refs/brmem/base/feat---other:note.md" }],
 				},
 			});
-			expect(await explicit.exit).toBe(0);
-			expect(parseJsonOutput(explicit)).toMatchObject({ data: { branch: "feat/other", exported: [{ ref_name: "refs/brmem/base/feat---other:note.md" }] } });
 
-			const detached = runScenario(["export", "--output-dir", join(root, "detached"), "--format", "json"], { fake: { currentBranch: { type: "detached" } } });
+			const detached = runScenario(
+				["export", "--output-dir", join(root, "detached"), "--format", "json"],
+				{ fake: { currentBranch: { type: "detached" } } },
+			);
 			expect(await detached.exit).toBe(2);
-			expect(parseJsonOutput(detached)).toMatchObject({ exit_code: 2, error_type: "detached_head" });
+			expect(parseJsonOutput(detached)).toMatchObject({
+				exit_code: 2,
+				error_type: "detached_head",
+			});
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
 	});
 
 	it("creates a fresh temp output directory when --output-dir is omitted", async () => {
-		const run = runScenario(["export", "--format", "json"], { fake: { entries: [{ namespace: "base", branch: "main", key: "temp.md", content: "temp" }] } });
+		const run = runScenario(["export", "--format", "json"], {
+			fake: { entries: [{ namespace: "base", branch: "main", key: "temp.md", content: "temp" }] },
+		});
 		expect(await run.exit).toBe(0);
-		const parsed = parseJsonOutput(run) as { data: { output_dir: string; exported: readonly { path: string }[] } };
+		const parsed = parseJsonOutput(run) as {
+			data: { output_dir: string; exported: readonly { path: string }[] };
+		};
 		const [exported] = parsed.data.exported;
 		expect(exported).toBeDefined();
 		try {
@@ -136,7 +213,9 @@ describe("export operation", () => {
 			});
 			expect(await run.exit).toBe(0);
 			const outputDir = join(root, "relative", "export");
-			expect(parseJsonOutput(run)).toMatchObject({ data: { output_dir: outputDir, exported: [{ path: join(outputDir, "rel.md") }] } });
+			expect(parseJsonOutput(run)).toMatchObject({
+				data: { output_dir: outputDir, exported: [{ path: join(outputDir, "rel.md") }] },
+			});
 			expect(await readFile(join(outputDir, "rel.md"), "utf8")).toBe("rel");
 		} finally {
 			await rm(root, { recursive: true, force: true });
@@ -148,18 +227,33 @@ describe("export operation", () => {
 		try {
 			const outputDir = join(root, "empty");
 			const run = runScenario(["export", "--output-dir", outputDir, "--format", "json"], {
-				fake: { entries: [{ namespace: "scratch", branch: "main", key: "other.md", content: "other" }] },
+				fake: {
+					entries: [{ namespace: "scratch", branch: "main", key: "other.md", content: "other" }],
+				},
 			});
 			expect(await run.exit).toBe(0);
-			expect(parseJsonOutput(run)).toMatchObject({ exit_code: 1, message: "No base Entries found on Branch main.", data: { exported: [], output_dir: outputDir } });
+			expect(parseJsonOutput(run)).toMatchObject({
+				exit_code: 1,
+				message: "No base Entries found on Branch main.",
+				data: { exported: [], output_dir: outputDir },
+			});
 			await expect(readFile(outputDir, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
 
 			const namedOutputDir = join(root, "named-empty");
-			const named = runScenario(["export", "--namespace", "scratch", "--output-dir", namedOutputDir, "--format", "json"], {
-				fake: { entries: [{ namespace: "base", branch: "main", key: "base.md", content: "base" }] },
-			});
+			const named = runScenario(
+				["export", "--namespace", "scratch", "--output-dir", namedOutputDir, "--format", "json"],
+				{
+					fake: {
+						entries: [{ namespace: "base", branch: "main", key: "base.md", content: "base" }],
+					},
+				},
+			);
 			expect(await named.exit).toBe(0);
-			expect(parseJsonOutput(named)).toMatchObject({ exit_code: 1, message: "No Entries found on Branch main in Namespace scratch.", data: { exported: [], output_dir: namedOutputDir } });
+			expect(parseJsonOutput(named)).toMatchObject({
+				exit_code: 1,
+				message: "No Entries found on Branch main in Namespace scratch.",
+				data: { exported: [], output_dir: namedOutputDir },
+			});
 			await expect(readFile(namedOutputDir, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
 		} finally {
 			await rm(root, { recursive: true, force: true });
@@ -170,11 +264,19 @@ describe("export operation", () => {
 		const root = await makeTempDir();
 		try {
 			const outputDir = join(root, "empty-shell");
-			const run = runScenario(["export", "--output-dir", outputDir, "--format", "json", "--shell-exit-code"], {
-				fake: { entries: [{ namespace: "scratch", branch: "main", key: "other.md", content: "other" }] },
-			});
+			const run = runScenario(
+				["export", "--output-dir", outputDir, "--format", "json", "--shell-exit-code"],
+				{
+					fake: {
+						entries: [{ namespace: "scratch", branch: "main", key: "other.md", content: "other" }],
+					},
+				},
+			);
 			expect(await run.exit).toBe(1);
-			expect(parseJsonOutput(run)).toMatchObject({ exit_code: 1, message: "No base Entries found on Branch main." });
+			expect(parseJsonOutput(run)).toMatchObject({
+				exit_code: 1,
+				message: "No base Entries found on Branch main.",
+			});
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
@@ -187,24 +289,39 @@ describe("export operation", () => {
 			await mkdir(conflictDir);
 			await writeFile(join(conflictDir, "a.md"), "old", "utf8");
 			const conflict = runScenario(["export", "--output-dir", conflictDir, "--format", "json"], {
-				fake: { entries: [{ namespace: "base", branch: "main", key: "a.md", content: "new" }, { namespace: "base", branch: "main", key: "b.md", content: "sibling" }] },
+				fake: {
+					entries: [
+						{ namespace: "base", branch: "main", key: "a.md", content: "new" },
+						{ namespace: "base", branch: "main", key: "b.md", content: "sibling" },
+					],
+				},
 			});
 			expect(await conflict.exit).toBe(2);
 			expect(parseJsonOutput(conflict)).toMatchObject({ error_type: "target_exists" });
 			expect(await readFile(join(conflictDir, "a.md"), "utf8")).toBe("old");
-			await expect(readFile(join(conflictDir, "b.md"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
-
-			const overwrite = runScenario(["export", "--output-dir", conflictDir, "--overwrite", "--format", "json"], {
-				fake: { entries: [{ namespace: "base", branch: "main", key: "a.md", content: "new" }] },
+			await expect(readFile(join(conflictDir, "b.md"), "utf8")).rejects.toMatchObject({
+				code: "ENOENT",
 			});
+
+			const overwrite = runScenario(
+				["export", "--output-dir", conflictDir, "--overwrite", "--format", "json"],
+				{
+					fake: { entries: [{ namespace: "base", branch: "main", key: "a.md", content: "new" }] },
+				},
+			);
 			expect(await overwrite.exit).toBe(0);
 			expect(await readFile(join(conflictDir, "a.md"), "utf8")).toBe("new");
 
 			await mkdir(join(root, "dir-target"));
 			await mkdir(join(root, "dir-target", "target.md"));
-			const dirTarget = runScenario(["export", "--output-dir", join(root, "dir-target"), "--format", "json"], {
-				fake: { entries: [{ namespace: "base", branch: "main", key: "target.md", content: "new" }] },
-			});
+			const dirTarget = runScenario(
+				["export", "--output-dir", join(root, "dir-target"), "--format", "json"],
+				{
+					fake: {
+						entries: [{ namespace: "base", branch: "main", key: "target.md", content: "new" }],
+					},
+				},
+			);
 			expect(await dirTarget.exit).toBe(2);
 			expect(parseJsonOutput(dirTarget)).toMatchObject({ error_type: "target_is_directory" });
 
@@ -224,25 +341,38 @@ describe("export operation", () => {
 		const root = await makeTempDir();
 		try {
 			const safeDir = join(root, "safe");
-			const safe = runScenario(["export", "--output-dir", safeDir, "--dry-run", "--format", "json"], {
-				fake: { entries: [{ namespace: "base", branch: "main", key: "dry.md", content: "dry" }] },
-			});
+			const safe = runScenario(
+				["export", "--output-dir", safeDir, "--dry-run", "--format", "json"],
+				{
+					fake: { entries: [{ namespace: "base", branch: "main", key: "dry.md", content: "dry" }] },
+				},
+			);
 			expect(await safe.exit).toBe(0);
-			expect(parseJsonOutput(safe)).toMatchObject({ data: { dry_run: true, exported: [{ key: "dry.md" }] } });
-			await expect(readFile(join(safeDir, "dry.md"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+			expect(parseJsonOutput(safe)).toMatchObject({
+				data: { dry_run: true, exported: [{ key: "dry.md" }] },
+			});
+			await expect(readFile(join(safeDir, "dry.md"), "utf8")).rejects.toMatchObject({
+				code: "ENOENT",
+			});
 
 			const conflictDir = join(root, "conflict");
 			await mkdir(conflictDir);
 			await writeFile(join(conflictDir, "dry.md"), "old", "utf8");
-			const conflict = runScenario(["export", "--output-dir", conflictDir, "--dry-run", "--format", "json"], {
-				fake: { entries: [{ namespace: "base", branch: "main", key: "dry.md", content: "new" }] },
-			});
+			const conflict = runScenario(
+				["export", "--output-dir", conflictDir, "--dry-run", "--format", "json"],
+				{
+					fake: { entries: [{ namespace: "base", branch: "main", key: "dry.md", content: "new" }] },
+				},
+			);
 			expect(await conflict.exit).toBe(2);
 			expect(parseJsonOutput(conflict)).toMatchObject({ error_type: "target_exists" });
 
-			const overwrite = runScenario(["export", "--output-dir", conflictDir, "--dry-run", "--overwrite"], {
-				fake: { entries: [{ namespace: "base", branch: "main", key: "dry.md", content: "new" }] },
-			});
+			const overwrite = runScenario(
+				["export", "--output-dir", conflictDir, "--dry-run", "--overwrite"],
+				{
+					fake: { entries: [{ namespace: "base", branch: "main", key: "dry.md", content: "new" }] },
+				},
+			);
 			expect(await overwrite.exit).toBe(0);
 			expect(overwrite.stdout.join("")).toContain("Would export");
 			expect(await readFile(join(conflictDir, "dry.md"), "utf8")).toBe("old");
@@ -274,9 +404,14 @@ describe("export operation", () => {
 			const parentFileDir = join(root, "parent-file");
 			await mkdir(parentFileDir);
 			await writeFile(join(parentFileDir, "parent"), "file", "utf8");
-			const parentFile = runScenario(["export", "--output-dir", parentFileDir, "--format", "json"], {
-				fake: { entries: [{ namespace: "base", branch: "main", key: "parent/x.md", content: "x" }] },
-			});
+			const parentFile = runScenario(
+				["export", "--output-dir", parentFileDir, "--format", "json"],
+				{
+					fake: {
+						entries: [{ namespace: "base", branch: "main", key: "parent/x.md", content: "x" }],
+					},
+				},
+			);
 			expect(await parentFile.exit).toBe(2);
 			expect(parseJsonOutput(parentFile)).toMatchObject({ error_type: "parent_not_directory" });
 
@@ -284,9 +419,14 @@ describe("export operation", () => {
 			await mkdir(parentLinkDir);
 			await mkdir(join(root, "real-parent"));
 			await symlink(join(root, "real-parent"), join(parentLinkDir, "parent"));
-			const parentLink = runScenario(["export", "--output-dir", parentLinkDir, "--format", "json"], {
-				fake: { entries: [{ namespace: "base", branch: "main", key: "parent/x.md", content: "x" }] },
-			});
+			const parentLink = runScenario(
+				["export", "--output-dir", parentLinkDir, "--format", "json"],
+				{
+					fake: {
+						entries: [{ namespace: "base", branch: "main", key: "parent/x.md", content: "x" }],
+					},
+				},
+			);
 			expect(await parentLink.exit).toBe(2);
 			expect(parseJsonOutput(parentLink)).toMatchObject({ error_type: "unsafe_parent_path" });
 		} finally {
@@ -303,7 +443,9 @@ describe("export operation", () => {
 			await writeFile(regularTarget, "file", "utf8");
 			await symlink(regularTarget, join(outputDir, "parent"));
 			const run = runScenario(["export", "--output-dir", outputDir, "--format", "json"], {
-				fake: { entries: [{ namespace: "base", branch: "main", key: "parent/x.md", content: "x" }] },
+				fake: {
+					entries: [{ namespace: "base", branch: "main", key: "parent/x.md", content: "x" }],
+				},
 			});
 			expect(await run.exit).toBe(2);
 			expect(parseJsonOutput(run)).toMatchObject({ error_type: "unsafe_parent_path" });
@@ -315,29 +457,51 @@ describe("export operation", () => {
 	it("reports unsafe keys, duplicate targets, missing diagnostics, missing content, and gateway failures", async () => {
 		const root = await makeTempDir();
 		try {
-			const unsafe = runScenario(["export", "--output-dir", join(root, "unsafe"), "--format", "json"], {
-				fake: { entries: [{ namespace: "base", branch: "main", key: "a/./b.md", content: "x" }] },
-			});
+			const unsafe = runScenario(
+				["export", "--output-dir", join(root, "unsafe"), "--format", "json"],
+				{
+					fake: { entries: [{ namespace: "base", branch: "main", key: "a/./b.md", content: "x" }] },
+				},
+			);
 			expect(await unsafe.exit).toBe(2);
 			expect(parseJsonOutput(unsafe)).toMatchObject({ error_type: "unsafe_key" });
 
-			const duplicate = runScenario(["export", "--output-dir", join(root, "duplicate"), "--format", "json"], { gateway: new DuplicateListGateway() });
+			const duplicate = runScenario(
+				["export", "--output-dir", join(root, "duplicate"), "--format", "json"],
+				{ gateway: new DuplicateListGateway() },
+			);
 			expect(await duplicate.exit).toBe(2);
 			expect(parseJsonOutput(duplicate)).toMatchObject({ error_type: "duplicate_target_path" });
 
-			const missingDiagnostic = runScenario(["export", "--output-dir", join(root, "missing-diagnostic"), "--format", "json"], { gateway: new MissingCheckGateway() });
+			const missingDiagnostic = runScenario(
+				["export", "--output-dir", join(root, "missing-diagnostic"), "--format", "json"],
+				{ gateway: new MissingCheckGateway() },
+			);
 			expect(await missingDiagnostic.exit).toBe(2);
-			expect(parseJsonOutput(missingDiagnostic)).toMatchObject({ error_type: "entry_diagnostic_missing" });
-
-			const missingContent = runScenario(["export", "--output-dir", join(root, "missing-content"), "--format", "json"], { gateway: new MissingGetGateway() });
-			expect(await missingContent.exit).toBe(2);
-			expect(parseJsonOutput(missingContent)).toMatchObject({ error_type: "entry_content_missing" });
-
-			const listFailure = runScenario(["export", "--output-dir", join(root, "list-failure"), "--format", "json"], {
-				fake: { operationErrors: { list: { code: "git_failure", message: "boom" } } },
+			expect(parseJsonOutput(missingDiagnostic)).toMatchObject({
+				error_type: "entry_diagnostic_missing",
 			});
+
+			const missingContent = runScenario(
+				["export", "--output-dir", join(root, "missing-content"), "--format", "json"],
+				{ gateway: new MissingGetGateway() },
+			);
+			expect(await missingContent.exit).toBe(2);
+			expect(parseJsonOutput(missingContent)).toMatchObject({
+				error_type: "entry_content_missing",
+			});
+
+			const listFailure = runScenario(
+				["export", "--output-dir", join(root, "list-failure"), "--format", "json"],
+				{
+					fake: { operationErrors: { list: { code: "git_failure", message: "boom" } } },
+				},
+			);
 			expect(await listFailure.exit).toBe(2);
-			expect(parseJsonOutput(listFailure)).toMatchObject({ error_type: "git_failure", message: "boom" });
+			expect(parseJsonOutput(listFailure)).toMatchObject({
+				error_type: "git_failure",
+				message: "boom",
+			});
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
@@ -348,14 +512,39 @@ describe("export operation", () => {
 		const root = await makeTempDir();
 		try {
 			const gateway = new RealGitBrmemGateway(repo.path);
-			expect((await gateway.putEntry({ namespace: "base", branch: "source", key: "base.md", content: "base\n" })).type).toBe("ok");
-			expect((await gateway.putEntry({ namespace: "scratch", branch: "source", key: "scratch.md", content: "scratch\n" })).type).toBe("ok");
+			expect(
+				(
+					await gateway.putEntry({
+						namespace: "base",
+						branch: "source",
+						key: "base.md",
+						content: "base\n",
+					})
+				).type,
+			).toBe("ok");
+			expect(
+				(
+					await gateway.putEntry({
+						namespace: "scratch",
+						branch: "source",
+						key: "scratch.md",
+						content: "scratch\n",
+					})
+				).type,
+			).toBe("ok");
 			const outputDir = join(root, "real");
-			const run = runScenario(["export", "--branch", "source", "--output-dir", outputDir, "--format", "json"], { gateway, cwd: repo.path });
+			const run = runScenario(
+				["export", "--branch", "source", "--output-dir", outputDir, "--format", "json"],
+				{ gateway, cwd: repo.path },
+			);
 			expect(await run.exit).toBe(0);
-			expect(parseJsonOutput(run)).toMatchObject({ data: { exported: [{ key: "base.md", ref_name: "refs/brmem/base/source:base.md" }] } });
+			expect(parseJsonOutput(run)).toMatchObject({
+				data: { exported: [{ key: "base.md", ref_name: "refs/brmem/base/source:base.md" }] },
+			});
 			expect(await readFile(join(outputDir, "base.md"), "utf8")).toBe("base\n");
-			await expect(readFile(join(outputDir, "scratch.md"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+			await expect(readFile(join(outputDir, "scratch.md"), "utf8")).rejects.toMatchObject({
+				code: "ENOENT",
+			});
 		} finally {
 			repo.cleanup();
 			await rm(root, { recursive: true, force: true });
@@ -368,28 +557,49 @@ class DuplicateListGateway extends FakeBrmemGateway {
 		super({ entries: [{ namespace: "base", branch: "main", key: "same.md", content: "same" }] });
 	}
 
-	override async listEntries(_options: { namespace: string; key?: string | undefined; branch?: string | undefined }) {
-		const entry = { ...mustEntryRef("base", "same.md", "main"), updatedAt: "2026-01-01T00:00:01+00:00" };
+	override async listEntries(_options: {
+		namespace: string;
+		key?: string | undefined;
+		branch?: string | undefined;
+	}) {
+		const entry = {
+			...mustEntryRef("base", "same.md", "main"),
+			updatedAt: "2026-01-01T00:00:01+00:00",
+		};
 		return brmemOk<readonly ListedEntry[]>([entry, entry]);
 	}
 }
 
 class MissingCheckGateway extends FakeBrmemGateway {
 	constructor() {
-		super({ entries: [{ namespace: "base", branch: "main", key: "missing.md", content: "missing" }] });
+		super({
+			entries: [{ namespace: "base", branch: "main", key: "missing.md", content: "missing" }],
+		});
 	}
 
-	override async checkEntry(_options: { namespace: string; key: string; branch: string; at?: string | undefined }) {
+	override async checkEntry(_options: {
+		namespace: string;
+		key: string;
+		branch: string;
+		at?: string | undefined;
+	}) {
 		return brmemMissing<EntryDiagnostic>();
 	}
 }
 
 class MissingGetGateway extends FakeBrmemGateway {
 	constructor() {
-		super({ entries: [{ namespace: "base", branch: "main", key: "missing.md", content: "missing" }] });
+		super({
+			entries: [{ namespace: "base", branch: "main", key: "missing.md", content: "missing" }],
+		});
 	}
 
-	override async getEntry(_options: { namespace: string; key: string; branch: string; at?: string | undefined }) {
+	override async getEntry(_options: {
+		namespace: string;
+		key: string;
+		branch: string;
+		at?: string | undefined;
+	}) {
 		return brmemMissing<EntryContent>();
 	}
 }

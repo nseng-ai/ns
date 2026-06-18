@@ -8,7 +8,9 @@ export type TextRepairProgressEvent =
 	| { type: "attempt_waiting"; attempt: number; maxAttempts: number; elapsedMs: number }
 	| { type: "attempt_invalid"; attempt: number; maxAttempts: number; feedback: string };
 
-export type ValidateGeneratedTextResult<T> = { ok: true; value: T } | { ok: false; feedback: string };
+export type ValidateGeneratedTextResult<T> =
+	| { ok: true; value: T }
+	| { ok: false; feedback: string };
 
 export type PrepareRepairedTextResult<T> =
 	| { ok: true; value: T; source: "model" | "repaired_model"; feedback?: string }
@@ -19,12 +21,18 @@ export interface PrepareRepairedTextOptions<T> {
 	initialPrompt: string;
 	generate: (prompt: string) => Promise<TextGenerationResult>;
 	validate: (text: string) => ValidateGeneratedTextResult<T>;
-	buildRepairPrompt: (input: { initialPrompt: string; previousDraft: string; feedback: string }) => string;
+	buildRepairPrompt: (input: {
+		initialPrompt: string;
+		previousDraft: string;
+		feedback: string;
+	}) => string;
 	onProgress?: (event: TextRepairProgressEvent) => void;
 	progressHeartbeatMs?: number;
 }
 
-export async function prepareRepairedText<T>(options: PrepareRepairedTextOptions<T>): Promise<PrepareRepairedTextResult<T>> {
+export async function prepareRepairedText<T>(
+	options: PrepareRepairedTextOptions<T>,
+): Promise<PrepareRepairedTextResult<T>> {
 	let prompt = options.initialPrompt;
 	let firstFeedback: string | undefined;
 	let latestFeedback = "";
@@ -53,8 +61,17 @@ export async function prepareRepairedText<T>(options: PrepareRepairedTextOptions
 		latestFeedback = validation.feedback;
 		firstFeedback ??= validation.feedback;
 		if (attempt < MAX_ATTEMPTS) {
-			options.onProgress?.({ type: "attempt_invalid", attempt, maxAttempts: MAX_ATTEMPTS, feedback: validation.feedback });
-			prompt = options.buildRepairPrompt({ initialPrompt: options.initialPrompt, previousDraft: generated.text, feedback: validation.feedback });
+			options.onProgress?.({
+				type: "attempt_invalid",
+				attempt,
+				maxAttempts: MAX_ATTEMPTS,
+				feedback: validation.feedback,
+			});
+			prompt = options.buildRepairPrompt({
+				initialPrompt: options.initialPrompt,
+				previousDraft: generated.text,
+				feedback: validation.feedback,
+			});
 		}
 	}
 
@@ -64,7 +81,11 @@ export async function prepareRepairedText<T>(options: PrepareRepairedTextOptions
 	};
 }
 
-function startAttemptProgressHeartbeat<T>(options: PrepareRepairedTextOptions<T>, attempt: number, maxAttempts: number): (() => void) | undefined {
+function startAttemptProgressHeartbeat<T>(
+	options: PrepareRepairedTextOptions<T>,
+	attempt: number,
+	maxAttempts: number,
+): (() => void) | undefined {
 	if (options.onProgress === undefined) return undefined;
 	const heartbeatMs = options.progressHeartbeatMs ?? DEFAULT_ATTEMPT_PROGRESS_HEARTBEAT_MS;
 	if (heartbeatMs <= 0) return undefined;

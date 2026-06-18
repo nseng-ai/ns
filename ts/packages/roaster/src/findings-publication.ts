@@ -1,4 +1,8 @@
-import { buildFailureMachineEnvelopeSchema, buildSuccessMachineEnvelopeSchema, machineEnvelopeSchema } from "@asdl/clinkr";
+import {
+	buildFailureMachineEnvelopeSchema,
+	buildSuccessMachineEnvelopeSchema,
+	machineEnvelopeSchema,
+} from "@asdl/clinkr";
 import { formatZodError, truncatedSha256Digest } from "@asdl/core/primitives";
 import { z } from "zod";
 
@@ -59,16 +63,26 @@ export interface ParsedFindingsCommentBody {
 	readonly body: string;
 }
 
-export type FindingsPayloadParseResult = { readonly type: "ok"; readonly payload: FindingsPayload } | { readonly type: "error"; readonly error: FindingsPayloadParseError };
-export type InlinePostingStatusParseResult = { readonly type: "ok"; readonly status: InlinePostingStatus } | { readonly type: "error"; readonly error: InlinePostingStatusParseError };
-export type FindingsCommentBodyParseResult = { readonly type: "ok"; readonly parsed: ParsedFindingsCommentBody } | { readonly type: "error"; readonly error: FindingsCommentBodyParseError };
+export type FindingsPayloadParseResult =
+	| { readonly type: "ok"; readonly payload: FindingsPayload }
+	| { readonly type: "error"; readonly error: FindingsPayloadParseError };
+export type InlinePostingStatusParseResult =
+	| { readonly type: "ok"; readonly status: InlinePostingStatus }
+	| { readonly type: "error"; readonly error: InlinePostingStatusParseError };
+export type FindingsCommentBodyParseResult =
+	| { readonly type: "ok"; readonly parsed: ParsedFindingsCommentBody }
+	| { readonly type: "error"; readonly error: FindingsCommentBodyParseError };
 
-export function parseFindingsPayloadResult(raw: string, options: { readonly fallbackReviewName?: string; readonly fallbackBaseRef?: string } = {}): FindingsPayloadParseResult {
+export function parseFindingsPayloadResult(
+	raw: string,
+	options: { readonly fallbackReviewName?: string; readonly fallbackBaseRef?: string } = {},
+): FindingsPayloadParseResult {
 	const fallbackReviewName = options.fallbackReviewName ?? "unknown";
 	const fallbackBaseRef = options.fallbackBaseRef ?? "unknown";
 	const data = parseJson(raw);
 	if (data.type === "error") return payloadError(data.message);
-	if (!machineEnvelopeSchema.safeParse(data.value).success) return payloadError("expected a clinkr envelope with top-level 'exit_code'");
+	if (!machineEnvelopeSchema.safeParse(data.value).success)
+		return payloadError("expected a clinkr envelope with top-level 'exit_code'");
 
 	const success = reviewRunSuccessEnvelopeSchema.safeParse(data.value);
 	if (success.success) {
@@ -121,16 +135,26 @@ export function parseInlinePostingStatusResult(raw: string): InlinePostingStatus
 	};
 }
 
-export function renderFindingsComment(payload: FindingsPayload, options: { readonly inlineStatus?: InlinePostingStatus | null | undefined } = {}): string {
-	const lines = [summaryMarkerForReview(payload.reviewName), `## roaster · \`${payload.reviewName}\``, ""];
+export function renderFindingsComment(
+	payload: FindingsPayload,
+	options: { readonly inlineStatus?: InlinePostingStatus | null | undefined } = {},
+): string {
+	const lines = [
+		summaryMarkerForReview(payload.reviewName),
+		`## roaster · \`${payload.reviewName}\``,
+		"",
+	];
 	if (options.inlineStatus !== undefined && options.inlineStatus !== null) {
 		lines.push(...renderInlinePostingStatus(options.inlineStatus), "");
 	}
 	if (payload.errorType !== null) {
 		lines.push(...renderErrorBody(payload));
 	} else {
-		if (payload.inputCoverage !== null) lines.push(...renderInputCoverage(payload.inputCoverage), "");
-		lines.push(...(payload.count === 0 ? renderNoFindingsBody(payload) : renderFindingsBody(payload)));
+		if (payload.inputCoverage !== null)
+			lines.push(...renderInputCoverage(payload.inputCoverage), "");
+		lines.push(
+			...(payload.count === 0 ? renderNoFindingsBody(payload) : renderFindingsBody(payload)),
+		);
 	}
 	return lines.join("\n");
 }
@@ -143,12 +167,20 @@ export function parseFindingsCommentBody(raw: string): FindingsCommentBodyParseR
 	const firstLine = raw.split(/\r?\n/u)[0];
 	if (firstLine === undefined || firstLine === "") return commentBodyError("input body is empty");
 	const match = SUMMARY_MARKER_RE.exec(firstLine.trimEnd());
-	if (match === null) return commentBodyError("first line of body must be a `<!-- roaster:<key> -->` marker");
+	if (match === null)
+		return commentBodyError("first line of body must be a `<!-- roaster:<key> -->` marker");
 	return { type: "ok", parsed: { marker: `<!-- ${match[1]} -->`, body: raw } };
 }
 
 export function inlineMarkerForFinding(reviewName: string, finding: ReviewFinding): string {
-	const digestInput = [reviewName, finding.path ?? "", finding.line === null ? "" : String(finding.line), finding.severity, finding.summary, finding.details].join("\0");
+	const digestInput = [
+		reviewName,
+		finding.path ?? "",
+		finding.line === null ? "" : String(finding.line),
+		finding.severity,
+		finding.summary,
+		finding.details,
+	].join("\0");
 	const digest = truncatedSha256Digest(digestInput).slice(0, 16);
 	return `<!-- ${INLINE_MARKER_PREFIX}:${reviewName}:${digest} -->`;
 }
@@ -160,7 +192,11 @@ export function extractInlineMarkers(body: string): readonly string[] {
 		.filter((line) => line.startsWith(`<!-- ${INLINE_MARKER_PREFIX}:`) && line.endsWith(" -->"));
 }
 
-export function renderInlineBody(marker: string, finding: ReviewFinding, options: { readonly reviewName: string }): string {
+export function renderInlineBody(
+	marker: string,
+	finding: ReviewFinding,
+	options: { readonly reviewName: string },
+): string {
 	return [
 		marker,
 		`**${finding.severity}: ${finding.summary}**`,
@@ -172,9 +208,21 @@ export function renderInlineBody(marker: string, finding: ReviewFinding, options
 	].join("\n");
 }
 
-export function preserveActivityLog(existingBody: string, newBody: string, runSummary: string): string {
+export function preserveActivityLog(
+	existingBody: string,
+	newBody: string,
+	runSummary: string,
+): string {
 	const entries = [...extractActivityLogEntries(existingBody), runSummary].slice(-ACTIVITY_LOG_CAP);
-	return [stripActivityLog(newBody).trimEnd(), "", ACTIVITY_LOG_HEADING, "", ...entries.map((entry) => `- ${entry}`)].join("\n") + "\n";
+	return (
+		[
+			stripActivityLog(newBody).trimEnd(),
+			"",
+			ACTIVITY_LOG_HEADING,
+			"",
+			...entries.map((entry) => `- ${entry}`),
+		].join("\n") + "\n"
+	);
 }
 
 function renderInlinePostingStatus(status: InlinePostingStatus): string[] {
@@ -190,7 +238,12 @@ function renderInlinePostingStatus(status: InlinePostingStatus): string[] {
 }
 
 function renderErrorBody(payload: FindingsPayload): string[] {
-	return [`**Roaster failed** against base \`${payload.baseRef}\`. ⚠️`, "", `- **Error type:** \`${payload.errorType ?? "unknown"}\``, `- **Message:** ${payload.errorMessage ?? "(none)"}`];
+	return [
+		`**Roaster failed** against base \`${payload.baseRef}\`. ⚠️`,
+		"",
+		`- **Error type:** \`${payload.errorType ?? "unknown"}\``,
+		`- **Message:** ${payload.errorMessage ?? "(none)"}`,
+	];
 }
 
 function renderInputCoverage(coverage: ReviewInputCoverage): string[] {
@@ -201,28 +254,54 @@ function renderInputCoverage(coverage: ReviewInputCoverage): string[] {
 		`- **Filtered diff estimate:** ~${coverage.fullDiffEstimatedTokens} tokens`,
 		`- **Prompt caps:** ${coverage.promptDiffTokenCap} diff tokens total; ${coverage.promptDiffFileTokenCap} tokens per file diff`,
 	];
-	if (coverage.omittedFileCount === 0) return [...lines, "", "Bounded prompt input included all files in the filtered diff after configured roaster exclusions."];
-	lines.push("", "Review completed with bounded prompt input. The following filtered-diff file segments were not supplied in prompt input after configured roaster exclusions:");
+	if (coverage.omittedFileCount === 0)
+		return [
+			...lines,
+			"",
+			"Bounded prompt input included all files in the filtered diff after configured roaster exclusions.",
+		];
+	lines.push(
+		"",
+		"Review completed with bounded prompt input. The following filtered-diff file segments were not supplied in prompt input after configured roaster exclusions:",
+	);
 	for (const file of coverage.omittedFiles.slice(0, OMITTED_INPUT_FILES_RENDER_LIMIT)) {
-		lines.push(`- \`${file.path}\` (${file.changeKind}, ${file.byteSize} bytes, ~${file.estimatedTokens} tokens, +${file.addedLines}/-${file.removedLines}; ${file.reason.replaceAll("_", " ")})`);
+		lines.push(
+			`- \`${file.path}\` (${file.changeKind}, ${file.byteSize} bytes, ~${file.estimatedTokens} tokens, +${file.addedLines}/-${file.removedLines}; ${file.reason.replaceAll("_", " ")})`,
+		);
 	}
-	const remaining = coverage.omittedFileCount - Math.min(coverage.omittedFiles.length, OMITTED_INPUT_FILES_RENDER_LIMIT);
+	const remaining =
+		coverage.omittedFileCount -
+		Math.min(coverage.omittedFiles.length, OMITTED_INPUT_FILES_RENDER_LIMIT);
 	if (remaining > 0) lines.push(`- …and ${remaining} more omitted file diff(s).`);
 	return lines;
 }
 
 function renderNoFindingsBody(payload: FindingsPayload): string[] {
-	if (payload.inputCoverage !== null && payload.inputCoverage.omittedFileCount > 0) return [`**No findings in the reviewed bounded input** against base \`${payload.baseRef}\`. ✅`];
+	if (payload.inputCoverage !== null && payload.inputCoverage.omittedFileCount > 0)
+		return [
+			`**No findings in the reviewed bounded input** against base \`${payload.baseRef}\`. ✅`,
+		];
 	return [`**No findings** against base \`${payload.baseRef}\`. ✅`];
 }
 
 function renderFindingsBody(payload: FindingsPayload): string[] {
 	const noun = payload.count === 1 ? "finding" : "findings";
-	const lines = [`**${payload.count} ${noun}** against base \`${payload.baseRef}\`.`, "", "| Severity | File | Line | Summary |", "| --- | --- | --- | --- |"];
+	const lines = [
+		`**${payload.count} ${noun}** against base \`${payload.baseRef}\`.`,
+		"",
+		"| Severity | File | Line | Summary |",
+		"| --- | --- | --- | --- |",
+	];
 	lines.push(...payload.findings.map(findingTableRow));
 	lines.push("", "<details>", "<summary>Details</summary>", "");
 	for (const finding of payload.findings) {
-		lines.push(`### \`${findingLocation(finding)}\` — ${finding.severity}`, `**${finding.summary}**`, "", finding.details, "");
+		lines.push(
+			`### \`${findingLocation(finding)}\` — ${finding.severity}`,
+			`**${finding.summary}**`,
+			"",
+			finding.details,
+			"",
+		);
 	}
 	lines.push("</details>", "", FOOTER);
 	return lines;
@@ -258,13 +337,18 @@ function stripActivityLog(body: string): string {
 	return headingIndex === -1 ? body : lines.slice(0, headingIndex).join("\n");
 }
 
-type JsonResult = { readonly type: "ok"; readonly value: unknown } | { readonly type: "error"; readonly message: string };
+type JsonResult =
+	| { readonly type: "ok"; readonly value: unknown }
+	| { readonly type: "error"; readonly message: string };
 
 function parseJson(raw: string): JsonResult {
 	try {
 		return { type: "ok", value: JSON.parse(raw) };
 	} catch (caught) {
-		return { type: "error", message: `input is not valid JSON: ${caught instanceof Error ? caught.message : String(caught)}` };
+		return {
+			type: "error",
+			message: `input is not valid JSON: ${caught instanceof Error ? caught.message : String(caught)}`,
+		};
 	}
 }
 

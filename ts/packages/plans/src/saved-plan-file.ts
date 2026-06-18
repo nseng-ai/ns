@@ -5,7 +5,10 @@ import { basename, dirname, join, resolve } from "node:path";
 
 import type { CommandExecApi } from "@asdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@asdl/core/git";
-import { githubRepositoryIdentityFromNormalizedRemoteUrl, normalizeGitRemoteUrl } from "@asdl/core/github-status";
+import {
+	githubRepositoryIdentityFromNormalizedRemoteUrl,
+	normalizeGitRemoteUrl,
+} from "@asdl/core/github-status";
 import { normalizeSummary, validatePlanSlug } from "./plan-persistence.ts";
 import { isRecord } from "@asdl/core/primitives";
 
@@ -81,7 +84,11 @@ export class NoSavedPlanAvailableError extends Error {
 	readonly reason: NoSavedPlanAvailableReason;
 	readonly directoryPath: string;
 
-	constructor(params: { reason: NoSavedPlanAvailableReason; directoryPath: string; message: string }) {
+	constructor(params: {
+		reason: NoSavedPlanAvailableReason;
+		directoryPath: string;
+		message: string;
+	}) {
 		super(params.message);
 		this.name = "NoSavedPlanAvailableError";
 		this.reason = params.reason;
@@ -169,7 +176,11 @@ export async function resolvePlanStoreRepoDirectory(
 ): Promise<PlanStoreRepoEvidence> {
 	const git = options.git ?? new RealGitGateway(pi);
 	const repoRoot = await resolveRequiredGitRepoRoot(git, options.cwd, options.signal);
-	const repoIdentity = await resolveRepoIdentity(git, { cwd: options.cwd, repoRoot, signal: options.signal });
+	const repoIdentity = await resolveRepoIdentity(git, {
+		cwd: options.cwd,
+		repoRoot,
+		signal: options.signal,
+	});
 	const repoKey = buildRepoPlanStoreKey(repoRoot, repoIdentity.identity);
 	const planStoreRoot = options.planStoreRoot ?? defaultPlanStoreRoot();
 
@@ -188,7 +199,11 @@ export async function resolvePlanStoreDirectory(
 	const git = options.git ?? new RealGitGateway(pi);
 	const repoRoot = await resolveRequiredGitRepoRoot(git, options.cwd, options.signal);
 	const sourceBranch = await resolveCurrentBranch(git, options.cwd, options.signal);
-	const repoIdentity = await resolveRepoIdentity(git, { cwd: options.cwd, repoRoot, signal: options.signal });
+	const repoIdentity = await resolveRepoIdentity(git, {
+		cwd: options.cwd,
+		repoRoot,
+		signal: options.signal,
+	});
 	const repoKey = buildRepoPlanStoreKey(repoRoot, repoIdentity.identity);
 	const branchKey = encodeBranchForPlanPath(sourceBranch);
 	const planStoreRoot = options.planStoreRoot ?? defaultPlanStoreRoot();
@@ -204,7 +219,10 @@ export async function resolvePlanStoreDirectory(
 	};
 }
 
-export async function listSavedPlans(pi: CommandExecApi, options: PlanStoreOptions): Promise<SavedPlanListItem[]> {
+export async function listSavedPlans(
+	pi: CommandExecApi,
+	options: PlanStoreOptions,
+): Promise<SavedPlanListItem[]> {
 	const repoDirectory = await resolvePlanStoreRepoDirectory(pi, options);
 	const branchEntries = await readDirectoryIfExists(repoDirectory.repoDirectoryPath);
 	const plans: SavedPlanListItem[] = [];
@@ -277,7 +295,9 @@ export async function findLatestSavedPlanFile(
 
 	const latest = candidates.sort(compareLatestSavedPlanCandidates)[0];
 	if (latest === undefined) {
-		throw new Error(`No ${PLAN_FILE_DISPLAY_NAME} files exist in the local plan store directory ${directory.directoryPath}.`);
+		throw new Error(
+			`No ${PLAN_FILE_DISPLAY_NAME} files exist in the local plan store directory ${directory.directoryPath}.`,
+		);
 	}
 
 	return {
@@ -346,7 +366,11 @@ function parseSavedPlanFileParams(params: unknown): SavedPlanFileParams {
 	return { slug, content, summary };
 }
 
-async function resolveRequiredGitRepoRoot(git: GitGateway, cwd: string, signal: AbortSignal | undefined): Promise<string> {
+async function resolveRequiredGitRepoRoot(
+	git: GitGateway,
+	cwd: string,
+	signal: AbortSignal | undefined,
+): Promise<string> {
 	const root = await git.repoRoot({ cwd, signal });
 	if (!root.ok) {
 		throw new Error(root.error.message);
@@ -354,11 +378,17 @@ async function resolveRequiredGitRepoRoot(git: GitGateway, cwd: string, signal: 
 	return realpathIfPossible(root.value);
 }
 
-async function resolveCurrentBranch(git: GitGateway, cwd: string, signal: AbortSignal | undefined): Promise<string> {
+async function resolveCurrentBranch(
+	git: GitGateway,
+	cwd: string,
+	signal: AbortSignal | undefined,
+): Promise<string> {
 	const branch = await git.currentBranch({ cwd, signal });
 	if (!branch.ok) {
 		if (branch.error.code === "detached_head") {
-			throw new Error("Current git checkout is detached or unnamed; check out a named branch before creating a saved plan file.");
+			throw new Error(
+				"Current git checkout is detached or unnamed; check out a named branch before creating a saved plan file.",
+			);
 		}
 		throw new Error(branch.error.message);
 	}
@@ -371,7 +401,10 @@ interface RepoIdentityOptions {
 	signal?: AbortSignal | undefined;
 }
 
-async function resolveRepoIdentity(git: GitGateway, options: RepoIdentityOptions): Promise<RepoIdentity> {
+async function resolveRepoIdentity(
+	git: GitGateway,
+	options: RepoIdentityOptions,
+): Promise<RepoIdentity> {
 	const origin = await git.originUrl({ cwd: options.cwd, signal: options.signal });
 	if (origin.type === "error") {
 		throw new Error(origin.error.message);
@@ -462,7 +495,9 @@ async function writeExclusiveFile(filePath: string, content: string): Promise<vo
 		await file.writeFile(content, "utf8");
 	} catch (error) {
 		if (isNodeError(error) && error.code === "EEXIST") {
-			throw new Error(`Saved plan file already exists in the local plan store; refusing to overwrite.\nPath: ${filePath}`);
+			throw new Error(
+				`Saved plan file already exists in the local plan store; refusing to overwrite.\nPath: ${filePath}`,
+			);
 		}
 		throw error;
 	} finally {

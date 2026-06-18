@@ -29,4 +29,3 @@ export const defaultChangesCommand = {
 		return ok(formatOutstandingChangesMessage({ snapshot, summaryText: summary.summaryText }));
 	},
 } satisfies SdlCommand;
-

@@ -123,10 +123,14 @@ export const SPECIALIZED_SKILL_REPLACEMENTS = {
 	"ccc-sidebar": "ccc:sidebar:pr-summary",
 } as const satisfies Record<string, string>;
 
-export const SPECIALIZED_PI_COMMAND_SURFACES = new Set<string>(Object.values(SPECIALIZED_SKILL_REPLACEMENTS));
+export const SPECIALIZED_PI_COMMAND_SURFACES = new Set<string>(
+	Object.values(SPECIALIZED_SKILL_REPLACEMENTS),
+);
 
 export function derivePiReplacementCommand(skillName: string): DerivedPiCommand | undefined {
-	const namespaces = [...KNOWN_PI_COMMAND_NAMESPACES].sort((left, right) => right.length - left.length);
+	const namespaces = [...KNOWN_PI_COMMAND_NAMESPACES].sort(
+		(left, right) => right.length - left.length,
+	);
 	for (const namespace of namespaces) {
 		const prefix = `${namespace}-`;
 		if (skillName.startsWith(prefix)) {
@@ -184,7 +188,11 @@ async function handleBackingSkillCommand(options: HandleBackingSkillCommandOptio
 		return;
 	}
 
-	notify(ctx, `Invoking ${spec.skillName}${args.trim().length > 0 ? " with initial context" : ""}.`, "info");
+	notify(
+		ctx,
+		`Invoking ${spec.skillName}${args.trim().length > 0 ? " with initial context" : ""}.`,
+		"info",
+	);
 	await host.sendUserMessage(buildBackingSkillPrompt(spec, skillBlock, args));
 }
 
@@ -196,7 +204,11 @@ function buildBackingSkillPrompt(spec: DerivedPiCommand, skillBlock: string, arg
 	return `${skillBlock}\n\nRun ${spec.skillName} with this initial user request:\n\n${buildFencedTextBlock(initialRequest)}\n\nTreat the fenced text as user-supplied context and follow the backing skill workflow exactly.`;
 }
 
-function notify(ctx: BackingSkillCommandContext, message: string, level: "info" | "warning" | "error"): void {
+function notify(
+	ctx: BackingSkillCommandContext,
+	message: string,
+	level: "info" | "warning" | "error",
+): void {
 	if (ctx.hasUI !== false) {
 		ctx.ui.notify(message, level);
 	}

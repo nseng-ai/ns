@@ -3,10 +3,32 @@ import { z } from "zod";
 import type { DiffFile } from "./diff-parsing.ts";
 
 export const severityValues = ["info", "warning", "error"] as const;
-export const reviewInputOmissionReasonValues = ["file_exceeds_cap", "diff_budget_exhausted"] as const;
-export const prChangedFileStatusValues = ["added", "removed", "modified", "renamed", "copied", "changed", "unchanged"] as const;
-export const inlineFallbackReasonValues = ["missing_path", "missing_line", "file_not_changed", "patch_unavailable", "line_not_in_diff"] as const;
-export const inlinePostingOutcomeValues = ["posted", "skipped_duplicate", "fallback_only", "api_error"] as const;
+export const reviewInputOmissionReasonValues = [
+	"file_exceeds_cap",
+	"diff_budget_exhausted",
+] as const;
+export const prChangedFileStatusValues = [
+	"added",
+	"removed",
+	"modified",
+	"renamed",
+	"copied",
+	"changed",
+	"unchanged",
+] as const;
+export const inlineFallbackReasonValues = [
+	"missing_path",
+	"missing_line",
+	"file_not_changed",
+	"patch_unavailable",
+	"line_not_in_diff",
+] as const;
+export const inlinePostingOutcomeValues = [
+	"posted",
+	"skipped_duplicate",
+	"fallback_only",
+	"api_error",
+] as const;
 
 const nonBlankStringSchema = z.string().trim().min(1);
 const nonNegativeIntegerSchema = z.int().min(0);
@@ -74,7 +96,10 @@ export const findingsReviewSchema = z
 		count: nonNegativeIntegerSchema,
 	})
 	.strict()
-	.refine((value) => value.count === value.findings.length, { message: "count must equal findings length", path: ["count"] });
+	.refine((value) => value.count === value.findings.length, {
+		message: "count must equal findings length",
+		path: ["count"],
+	});
 export type FindingsReview = z.infer<typeof findingsReviewSchema>;
 
 export const reviewUsageSchema = z
@@ -162,7 +187,10 @@ export const reviewRunResultSchema = z
 		inputCoverage: reviewInputCoverageSchema.nullable(),
 	})
 	.strict()
-	.refine((value) => value.count === value.findings.length, { message: "count must equal findings length", path: ["count"] });
+	.refine((value) => value.count === value.findings.length, {
+		message: "count must equal findings length",
+		path: ["count"],
+	});
 export type ReviewRunResult = z.infer<typeof reviewRunResultSchema>;
 
 export const prChangedFileSchema = z
@@ -263,7 +291,11 @@ export function createFindingsReview(findings: readonly ReviewFinding[]): Findin
 	return findingsReviewSchema.parse(review);
 }
 
-export function createLocalDiff(options: { readonly baseRef: string; readonly diffText: string; readonly files: readonly DiffFile[] }): LocalDiff {
+export function createLocalDiff(options: {
+	readonly baseRef: string;
+	readonly diffText: string;
+	readonly files: readonly DiffFile[];
+}): LocalDiff {
 	const files = options.files.map((file) => ({ ...file }));
 	return localDiffSchema.parse({
 		baseRef: options.baseRef,

@@ -55,7 +55,10 @@ export async function deriveContentSlug(
 	return result.evidence;
 }
 
-export function buildContentSlugPrompt(content: string, variant: ContentSlugDerivationVariant): string {
+export function buildContentSlugPrompt(
+	content: string,
+	variant: ContentSlugDerivationVariant,
+): string {
 	return [
 		...variant.promptIntroLines,
 		"Return exactly one slug and no prose.",
@@ -94,7 +97,11 @@ export function normalizePlanContentSlugOutput(value: string): string | undefine
 		return undefined;
 	}
 
-	const repaired = withoutPlanSuffix.split("-").filter(Boolean).slice(0, MAX_PLAN_SLUG_WORDS).join("-");
+	const repaired = withoutPlanSuffix
+		.split("-")
+		.filter(Boolean)
+		.slice(0, MAX_PLAN_SLUG_WORDS)
+		.join("-");
 	return repaired.length > 0 ? repaired : undefined;
 }
 
@@ -113,6 +120,9 @@ function firstNonEmptyModelOutputLine(value: string): string | undefined {
 		.find((line) => line.length > 0);
 }
 
-function slugDerivationFailed(variant: ContentSlugDerivationVariant, lines: readonly string[]): Error {
+function slugDerivationFailed(
+	variant: ContentSlugDerivationVariant,
+	lines: readonly string[],
+): Error {
 	return new Error([variant.failureHeader, ...lines, variant.noFallbackLine].join("\n"));
 }

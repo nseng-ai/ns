@@ -1,6 +1,13 @@
 import { describe, expect, test } from "vitest";
 
-import { InMemoryPrAddressGitGateway, InMemoryPrAddressGitHubGateway, discussionComment, prSummary, review, reviewThread } from "../support/in-memory-pr-address-gateways.ts";
+import {
+	InMemoryPrAddressGitGateway,
+	InMemoryPrAddressGitHubGateway,
+	discussionComment,
+	prSummary,
+	review,
+	reviewThread,
+} from "../support/in-memory-pr-address-gateways.ts";
 import { runScenario } from "../support/run-scenario.ts";
 
 function parseEnvelope(stdout: readonly string[]): Record<string, unknown> {
@@ -10,27 +17,76 @@ function parseEnvelope(stdout: readonly string[]): Record<string, unknown> {
 function dataFrom(runStdout: readonly string[]): Record<string, unknown> {
 	const envelope = parseEnvelope(runStdout);
 	const data = envelope.data;
-	if (typeof data !== "object" || data === null || Array.isArray(data)) throw new Error("expected envelope data object");
+	if (typeof data !== "object" || data === null || Array.isArray(data))
+		throw new Error("expected envelope data object");
 	return data as Record<string, unknown>;
 }
 
 function defaultGithub(): InMemoryPrAddressGitHubGateway {
-	const pr = prSummary({ number: 42, title: "Add primitive", url: "https://example.test/pr/42", head_ref_name: "feature/demo", base_ref_name: "main" });
+	const pr = prSummary({
+		number: 42,
+		title: "Add primitive",
+		url: "https://example.test/pr/42",
+		head_ref_name: "feature/demo",
+		base_ref_name: "main",
+	});
 	return new InMemoryPrAddressGitHubGateway({
 		prs: [pr],
 		reviews: {
-			42: [review({ id: "R_human", body: "Please explain the migration path.", state: "COMMENTED" }), review({ id: "R_empty", body: "", state: "APPROVED" })],
+			42: [
+				review({ id: "R_human", body: "Please explain the migration path.", state: "COMMENTED" }),
+				review({ id: "R_empty", body: "", state: "APPROVED" }),
+			],
 		},
 		reviewThreads: {
 			42: [
-				reviewThread({ id: "RT_open", path: "src/app.ts", line: 12, comments: [{ id: 1, body: "Please add tests.", author: "alice", path: "src/app.ts", line: 12, start_line: null, created_at: "2026-06-01T00:00:00Z" }] }),
-				reviewThread({ id: "RT_resolved", is_resolved: true, comments: [{ id: 2, body: "Resolved nit.", author: "bob", path: "src/app.ts", line: 20, start_line: null, created_at: "2026-06-01T00:00:00Z" }] }),
+				reviewThread({
+					id: "RT_open",
+					path: "src/app.ts",
+					line: 12,
+					comments: [
+						{
+							id: 1,
+							body: "Please add tests.",
+							author: "alice",
+							path: "src/app.ts",
+							line: 12,
+							start_line: null,
+							created_at: "2026-06-01T00:00:00Z",
+						},
+					],
+				}),
+				reviewThread({
+					id: "RT_resolved",
+					is_resolved: true,
+					comments: [
+						{
+							id: 2,
+							body: "Resolved nit.",
+							author: "bob",
+							path: "src/app.ts",
+							line: 20,
+							start_line: null,
+							created_at: "2026-06-01T00:00:00Z",
+						},
+					],
+				}),
 			],
 		},
 		discussionComments: {
 			42: [
-				discussionComment({ id: 10, body: "Can we document this?", author: "human", url: "https://example.test/comment/10" }),
-				discussionComment({ id: 11, body: "<!-- roaster: finding -->", author: "github-actions[bot]", url: "https://example.test/comment/11" }),
+				discussionComment({
+					id: 10,
+					body: "Can we document this?",
+					author: "human",
+					url: "https://example.test/comment/10",
+				}),
+				discussionComment({
+					id: 11,
+					body: "<!-- roaster: finding -->",
+					author: "github-actions[bot]",
+					url: "https://example.test/comment/11",
+				}),
 			],
 		},
 	});
@@ -46,7 +102,12 @@ describe("pr-address exec download-feedback", () => {
 		expect(await run.exit).toBe(0);
 		const data = dataFrom(run.stdout);
 		expect(data.found).toBe(true);
-		expect(data.target).toMatchObject({ pr_number: 42, branch: "feature/demo", title: "Add primitive", url: "https://example.test/pr/42" });
+		expect(data.target).toMatchObject({
+			pr_number: 42,
+			branch: "feature/demo",
+			title: "Add primitive",
+			url: "https://example.test/pr/42",
+		});
 		expect(data.counts).toEqual({
 			included_review_threads: 1,
 			included_reviews: 1,
@@ -58,14 +119,28 @@ describe("pr-address exec download-feedback", () => {
 		const markdown = data.markdown;
 		if (typeof markdown !== "string") throw new Error("expected markdown string");
 		expect(markdown).toContain("# PR feedback triage request");
-		expect(markdown).toContain("Downloaded PR feedback is below. Review the summary and instructions at the bottom before responding.");
-		expect(markdown.indexOf("Triage and group the feedback above")).toBeGreaterThan(markdown.indexOf("## Instructions before responding"));
-		expect(markdown.indexOf("## Summary")).toBeGreaterThan(markdown.indexOf("## Discussion comments"));
-		expect(markdown.indexOf("## Instructions before responding")).toBeGreaterThan(markdown.indexOf("## Summary"));
-		expect(markdown.indexOf("Triage and group the feedback above")).toBeGreaterThan(markdown.indexOf("## Summary"));
+		expect(markdown).toContain(
+			"Downloaded PR feedback is below. Review the summary and instructions at the bottom before responding.",
+		);
+		expect(markdown.indexOf("Triage and group the feedback above")).toBeGreaterThan(
+			markdown.indexOf("## Instructions before responding"),
+		);
+		expect(markdown.indexOf("## Summary")).toBeGreaterThan(
+			markdown.indexOf("## Discussion comments"),
+		);
+		expect(markdown.indexOf("## Instructions before responding")).toBeGreaterThan(
+			markdown.indexOf("## Summary"),
+		);
+		expect(markdown.indexOf("Triage and group the feedback above")).toBeGreaterThan(
+			markdown.indexOf("## Summary"),
+		);
 		expect(markdown.indexOf("Triage and group the feedback below")).toBe(-1);
-		expect(markdown.indexOf("Do not edit files yet")).toBeGreaterThan(markdown.indexOf("## Instructions before responding"));
-		expect(markdown.trim()).toMatch(/Do not edit files yet; propose a plan and wait for human confirmation\. Do not resolve or reply to GitHub threads from this prompt\.$/u);
+		expect(markdown.indexOf("Do not edit files yet")).toBeGreaterThan(
+			markdown.indexOf("## Instructions before responding"),
+		);
+		expect(markdown.trim()).toMatch(
+			/Do not edit files yet; propose a plan and wait for human confirmation\. Do not resolve or reply to GitHub threads from this prompt\.$/u,
+		);
 		expect(markdown).toContain("Downloaded feedback for PR #42: Add primitive");
 		expect(markdown).toContain("- URL: https://example.test/pr/42");
 		expect(markdown).toContain("- Branch: feature/demo");
@@ -85,10 +160,13 @@ describe("pr-address exec download-feedback", () => {
 	});
 
 	test("accepts an explicit PR number without a current branch", async () => {
-		const run = runScenario(["exec", "download-feedback", "--pr-number", "42", "--format", "json"], {
-			git: new InMemoryPrAddressGitGateway({ currentBranch: null }),
-			github: defaultGithub(),
-		});
+		const run = runScenario(
+			["exec", "download-feedback", "--pr-number", "42", "--format", "json"],
+			{
+				git: new InMemoryPrAddressGitGateway({ currentBranch: null }),
+				github: defaultGithub(),
+			},
+		);
 
 		expect(await run.exit).toBe(0);
 		const data = dataFrom(run.stdout);
@@ -131,7 +209,11 @@ describe("pr-address exec download-feedback", () => {
 
 		expect(await run.exit).toBe(0);
 		const data = dataFrom(run.stdout);
-		expect(data.counts).toMatchObject({ included_review_threads: 0, included_reviews: 0, included_discussion_comments: 0 });
+		expect(data.counts).toMatchObject({
+			included_review_threads: 0,
+			included_reviews: 0,
+			included_discussion_comments: 0,
+		});
 		expect(data.markdown).toContain("No unresolved/human feedback was found");
 		expect(data.markdown).toContain("## Summary");
 		expect(data.markdown).toContain("Downloaded feedback for PR #7: Quiet PR");

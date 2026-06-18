@@ -5,7 +5,12 @@
  * imports from pi-coding-agent are the boundary.
  */
 
-import type { BuildSystemPromptOptions, ContextUsage, SessionEntry, Skill } from "@earendil-works/pi-coding-agent";
+import type {
+	BuildSystemPromptOptions,
+	ContextUsage,
+	SessionEntry,
+	Skill,
+} from "@earendil-works/pi-coding-agent";
 
 /**
  * Every count carries provenance even though all per-item counts start as
@@ -68,12 +73,26 @@ export interface LiveTurn {
 }
 
 /** Runtime value list kept alongside the type so Zod enums can derive from it. */
-export const EPISODE_KIND_VALUES = ["explore", "edit", "debug", "test", "review", "chat", "uncategorized"] as const;
+export const EPISODE_KIND_VALUES = [
+	"explore",
+	"edit",
+	"debug",
+	"test",
+	"review",
+	"chat",
+	"uncategorized",
+] as const;
 
 export type EpisodeKind = (typeof EPISODE_KIND_VALUES)[number];
 
 /** Runtime value list kept alongside the type so Zod enums can derive from it. */
-export const EPISODE_OUTCOME_VALUES = ["active", "completed", "abandoned", "errored", "unknown"] as const;
+export const EPISODE_OUTCOME_VALUES = [
+	"active",
+	"completed",
+	"abandoned",
+	"errored",
+	"unknown",
+] as const;
 
 export type EpisodeOutcome = (typeof EPISODE_OUTCOME_VALUES)[number];
 
@@ -101,7 +120,8 @@ export interface DelegationClaim {
 
 export const MAX_DELEGATIONS = 24;
 
-const INFERRED_DELEGATION_TOOL_PATTERN = /(^|[_-])(sub)?agent($|[_-])|subagent|task|dispatch|spawn/i;
+const INFERRED_DELEGATION_TOOL_PATTERN =
+	/(^|[_-])(sub)?agent($|[_-])|subagent|task|dispatch|spawn/i;
 
 export interface TurnRange {
 	start: number;
@@ -184,7 +204,10 @@ export function sumTurnTokens(turns: readonly LiveTurn[]): number {
 	return turns.reduce((total, turn) => total + turn.tokens.value, 0);
 }
 
-export function buildBaseRegions(options: BuildSystemPromptOptions | null, systemPrompt: string | null): BaseRegion[] {
+export function buildBaseRegions(
+	options: BuildSystemPromptOptions | null,
+	systemPrompt: string | null,
+): BaseRegion[] {
 	if (options === null) {
 		return [
 			{
@@ -227,17 +250,24 @@ export function buildBaseRegions(options: BuildSystemPromptOptions | null, syste
 			name: tool,
 			tokens: estimateTokensFromChars(tool.length + (snippet?.length ?? 0)),
 			content: snippet ?? null,
-			note: snippet === undefined ? "no prompt snippet captured for this tool; size covers the tool name only" : "verbatim tool prompt snippet",
+			note:
+				snippet === undefined
+					? "no prompt snippet captured for this tool; size covers the tool name only"
+					: "verbatim tool prompt snippet",
 		};
 	});
 
 	const fileChars = contextFiles.reduce((total, file) => total + file.content.length, 0);
 	const skillChars = skills.reduce((total, skill) => total + skillPromptChars(skill), 0);
-	const toolChars = tools.reduce((total, tool) => total + tool.length + (toolSnippets[tool]?.length ?? 0), 0);
+	const toolChars = tools.reduce(
+		(total, tool) => total + tool.length + (toolSnippets[tool]?.length ?? 0),
+		0,
+	);
 	const guidelineChars = guidelines.reduce((total, guideline) => total + guideline.length + 3, 0);
 	const customChars = options.customPrompt?.length ?? 0;
 	const appendChars = options.appendSystemPrompt?.length ?? 0;
-	const knownChars = fileChars + skillChars + toolChars + appendChars + customChars + guidelineChars;
+	const knownChars =
+		fileChars + skillChars + toolChars + appendChars + customChars + guidelineChars;
 	const scaffoldChars = Math.max(0, (systemPrompt?.length ?? 0) - knownChars);
 
 	const instructionMembers: BaseMember[] = [
@@ -251,19 +281,29 @@ export function buildBaseRegions(options: BuildSystemPromptOptions | null, syste
 			name: "custom prompt",
 			tokens: estimateTokensFromChars(customChars),
 			content: options.customPrompt ?? null,
-			note: options.customPrompt === undefined ? "no custom prompt set" : "verbatim custom system prompt",
+			note:
+				options.customPrompt === undefined
+					? "no custom prompt set"
+					: "verbatim custom system prompt",
 		},
 		{
 			name: "appended system prompt",
 			tokens: estimateTokensFromChars(appendChars),
 			content: options.appendSystemPrompt ?? null,
-			note: options.appendSystemPrompt === undefined ? "no appended system prompt set" : "verbatim appended system prompt",
+			note:
+				options.appendSystemPrompt === undefined
+					? "no appended system prompt set"
+					: "verbatim appended system prompt",
 		},
 		{
 			name: `${guidelines.length.toLocaleString()} extra guideline bullets`,
 			tokens: estimateTokensFromChars(guidelineChars),
-			content: guidelines.length === 0 ? null : guidelines.map((guideline) => `• ${guideline}`).join("\n"),
-			note: guidelines.length === 0 ? "no extra guideline bullets" : "verbatim guideline bullets appended to the default guidelines",
+			content:
+				guidelines.length === 0 ? null : guidelines.map((guideline) => `• ${guideline}`).join("\n"),
+			note:
+				guidelines.length === 0
+					? "no extra guideline bullets"
+					: "verbatim guideline bullets appended to the default guidelines",
 		},
 	];
 
@@ -346,9 +386,11 @@ export function buildTurnsFromMessages(messages: readonly unknown[]): LiveTurn[]
 export function buildTurnsFromEntries(entries: readonly SessionEntry[]): LiveTurn[] {
 	const messages = entries.flatMap((entry): unknown[] => {
 		if (entry.type === "message") return [entry.message];
-		if (entry.type === "custom_message") return [{ role: "custom", content: entry.content, details: entry.details }];
+		if (entry.type === "custom_message")
+			return [{ role: "custom", content: entry.content, details: entry.details }];
 		if (entry.type === "compaction") return [{ role: "compaction", content: entry.summary }];
-		if (entry.type === "branch_summary") return [{ role: "branch_summary", content: entry.summary }];
+		if (entry.type === "branch_summary")
+			return [{ role: "branch_summary", content: entry.summary }];
 		return [];
 	});
 	return buildTurnsFromMessages(messages);
@@ -362,10 +404,17 @@ export function capTurns(turns: readonly LiveTurn[]): { turns: LiveTurn[]; cap: 
 			cap: { originalCount: turns.length, includedCount: turns.length, elidedMiddleTurns: 0 },
 		};
 	}
-	const capped = [...turns.slice(0, CAP_FIRST_TURNS), ...turns.slice(turns.length - CAP_LAST_TURNS)];
+	const capped = [
+		...turns.slice(0, CAP_FIRST_TURNS),
+		...turns.slice(turns.length - CAP_LAST_TURNS),
+	];
 	return {
 		turns: capped,
-		cap: { originalCount: turns.length, includedCount: capped.length, elidedMiddleTurns: turns.length - maxTurns },
+		cap: {
+			originalCount: turns.length,
+			includedCount: capped.length,
+			elidedMiddleTurns: turns.length - maxTurns,
+		},
 	};
 }
 
@@ -378,7 +427,10 @@ export function capTurns(turns: readonly LiveTurn[]): { turns: LiveTurn[]; cap: 
  * elision seam — contains no real turns and is skipped, never rendered as a
  * ghost zero-token row.
  */
-export function buildLiveRegions(turns: readonly LiveTurn[], episodes?: readonly EpisodeAnnotation[]): LiveRegion[] {
+export function buildLiveRegions(
+	turns: readonly LiveTurn[],
+	episodes?: readonly EpisodeAnnotation[],
+): LiveRegion[] {
 	if (turns.length === 0) return [];
 	const firstIndex = turns[0]?.index ?? 1;
 	const lastIndex = turns[turns.length - 1]?.index ?? firstIndex;
@@ -399,13 +451,15 @@ export function buildLiveRegions(turns: readonly LiveTurn[], episodes?: readonly
 	}
 
 	const clamped = episodes
-		.map((episode): EpisodeAnnotation => ({
-			...episode,
-			turnRange: {
-				start: Math.max(firstIndex, Math.min(lastIndex, episode.turnRange.start)),
-				end: Math.max(firstIndex, Math.min(lastIndex, episode.turnRange.end)),
-			},
-		}))
+		.map(
+			(episode): EpisodeAnnotation => ({
+				...episode,
+				turnRange: {
+					start: Math.max(firstIndex, Math.min(lastIndex, episode.turnRange.start)),
+					end: Math.max(firstIndex, Math.min(lastIndex, episode.turnRange.end)),
+				},
+			}),
+		)
 		.filter((episode) => episode.turnRange.start <= episode.turnRange.end)
 		.sort((left, right) => left.turnRange.start - right.turnRange.start);
 
@@ -437,7 +491,10 @@ export function buildLiveRegions(turns: readonly LiveTurn[], episodes?: readonly
 			kind: episode.kind,
 			outcome: episode.outcome,
 			turnRange: episode.turnRange,
-			tokens: { value: sumTurnTokens(turnsInRange(turns, episode.turnRange)), provenance: "estimated" },
+			tokens: {
+				value: sumTurnTokens(turnsInRange(turns, episode.turnRange)),
+				provenance: "estimated",
+			},
 			isCurrent: episode.turnRange.end >= lastIndex,
 			source: "annotation",
 			episodeIndex: position,
@@ -458,13 +515,18 @@ export function turnsInRange(turns: readonly LiveTurn[], range: TurnRange): Live
 export function inferredDelegations(turns: readonly LiveTurn[]): DelegationClaim[] {
 	return turns
 		.flatMap((turn): DelegationClaim[] => {
-			const label = turn.toolNames.find((toolName) => INFERRED_DELEGATION_TOOL_PATTERN.test(toolName));
+			const label = turn.toolNames.find((toolName) =>
+				INFERRED_DELEGATION_TOOL_PATTERN.test(toolName),
+			);
 			return label === undefined ? [] : [{ turn: turn.index, label, confidence: "inferred" }];
 		})
 		.slice(0, MAX_DELEGATIONS);
 }
 
-export function delegationsInSpan(claims: readonly DelegationClaim[], turnRange: TurnRange): DelegationClaim[] {
+export function delegationsInSpan(
+	claims: readonly DelegationClaim[],
+	turnRange: TurnRange,
+): DelegationClaim[] {
 	return claims.filter((claim) => claim.turn >= turnRange.start && claim.turn <= turnRange.end);
 }
 
@@ -531,13 +593,23 @@ export function normalizeMessage(message: unknown): NormalizedMessage {
 }
 
 function normalizeContent(content: unknown): MessagePart[] {
-	if (typeof content === "string") return content.length === 0 ? [] : [{ kind: "text", text: content }];
+	if (typeof content === "string")
+		return content.length === 0 ? [] : [{ kind: "text", text: content }];
 	if (!Array.isArray(content)) return [];
 	return content.flatMap((part): MessagePart[] => {
 		if (!isRecord(part)) return [];
-		if (part.type === "text" && typeof part.text === "string") return [{ kind: "text", text: part.text }];
-		if (part.type === "thinking" && typeof part.thinking === "string") return [{ kind: "thinking", text: part.thinking }];
-		if (part.type === "toolCall") return [{ kind: "toolCall", name: stringField(part, "name") ?? "tool", argsJson: stableJsonPretty(part.arguments) ?? "" }];
+		if (part.type === "text" && typeof part.text === "string")
+			return [{ kind: "text", text: part.text }];
+		if (part.type === "thinking" && typeof part.thinking === "string")
+			return [{ kind: "thinking", text: part.thinking }];
+		if (part.type === "toolCall")
+			return [
+				{
+					kind: "toolCall",
+					name: stringField(part, "name") ?? "tool",
+					argsJson: stableJsonPretty(part.arguments) ?? "",
+				},
+			];
 		if (part.type === "image") return [{ kind: "image" }];
 		return opaqueParts(part);
 	});
@@ -550,7 +622,9 @@ function opaqueParts(value: unknown): MessagePart[] {
 
 function turnToolNames(message: NormalizedMessage): string[] {
 	const direct = message.toolName === null ? [] : [message.toolName];
-	const fromParts = message.parts.flatMap((part): string[] => (part.kind === "toolCall" ? [part.name] : []));
+	const fromParts = message.parts.flatMap((part): string[] =>
+		part.kind === "toolCall" ? [part.name] : [],
+	);
 	return [...new Set([...direct, ...fromParts])];
 }
 
@@ -574,7 +648,10 @@ function partChars(part: MessagePart): number {
 }
 
 function excerptOf(message: NormalizedMessage): string {
-	const joined = message.parts.map(partExcerpt).filter((text) => text.length > 0).join(" ");
+	const joined = message.parts
+		.map(partExcerpt)
+		.filter((text) => text.length > 0)
+		.join(" ");
 	if (joined.length > 0) return collapseToExcerpt(joined);
 	if (message.toolName !== null) return collapseToExcerpt(message.toolName);
 	return "";

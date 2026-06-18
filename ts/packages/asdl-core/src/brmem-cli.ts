@@ -75,7 +75,9 @@ export interface BrmemCommandErrorInfo {
 	displayCommand?: string;
 }
 
-export type BrmemCommandResult<T> = { ok: true; value: T } | { ok: false; error: BrmemCommandErrorInfo };
+export type BrmemCommandResult<T> =
+	| { ok: true; value: T }
+	| { ok: false; error: BrmemCommandErrorInfo };
 
 export interface RunAvailableBrmemCommandOptions {
 	gateway: BrmemExecGateway;
@@ -133,13 +135,17 @@ export function resolveBrmemCommandCandidates(
 	return [{ command: "brmem", prefixArgs: [] }];
 }
 
-export async function runBrmemCandidate(options: RunBrmemCandidateOptions): Promise<BrmemCandidateRun> {
+export async function runBrmemCandidate(
+	options: RunBrmemCandidateOptions,
+): Promise<BrmemCandidateRun> {
 	const { gateway, cwd, candidate, brmemArgs, timeoutMs, signal } = options;
 	const args = [...candidate.prefixArgs, ...brmemArgs];
 	const displayCommand = formatCommand(candidate.command, args);
 
 	try {
-		const result = normalizeExecResult(await gateway.exec(candidate.command, args, execOptions(cwd, timeoutMs, signal)));
+		const result = normalizeExecResult(
+			await gateway.exec(candidate.command, args, execOptions(cwd, timeoutMs, signal)),
+		);
 		if (isLikelyCommandNotFound(result)) {
 			return {
 				type: "unavailable",
@@ -147,7 +153,11 @@ export async function runBrmemCandidate(options: RunBrmemCandidateOptions): Prom
 				command: candidate.command,
 				args,
 				displayCommand,
-				failure: formatCommandFailure("brmem command candidate was unavailable", displayCommand, result),
+				failure: formatCommandFailure(
+					"brmem command candidate was unavailable",
+					displayCommand,
+					result,
+				),
 			};
 		}
 
@@ -196,22 +206,43 @@ export async function runAvailableBrmemCommand(
 		signal: options.signal,
 	});
 	if (run.type === "unavailable") {
-		return { ok: false, error: { code: "brmem_unavailable", message: formatBrmemUnavailableMessage(run.failures) } };
+		return {
+			ok: false,
+			error: { code: "brmem_unavailable", message: formatBrmemUnavailableMessage(run.failures) },
+		};
 	}
 	return { ok: true, value: run };
 }
 
-export async function checkBrmemEntry(options: CheckBrmemEntryOptions): Promise<BrmemEntryPresenceResult> {
+export async function checkBrmemEntry(
+	options: CheckBrmemEntryOptions,
+): Promise<BrmemEntryPresenceResult> {
 	const run = await runAvailableBrmemCommand({
 		gateway: options.gateway,
 		cwd: options.cwd,
-		brmemArgs: ["check", options.key, "--namespace", options.namespace, "--branch", options.branch, "--format", "json"],
+		brmemArgs: [
+			"check",
+			options.key,
+			"--namespace",
+			options.namespace,
+			"--branch",
+			options.branch,
+			"--format",
+			"json",
+		],
 		...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
 		signal: options.signal,
 	});
 	if (!run.ok) return { type: "error", error: run.error };
 	if (run.value.result.killed) {
-		return { type: "error", error: brmemCommandFailure("brmem_check_killed", "brmem check timed out or was killed", run.value) };
+		return {
+			type: "error",
+			error: brmemCommandFailure(
+				"brmem_check_killed",
+				"brmem check timed out or was killed",
+				run.value,
+			),
+		};
 	}
 	if (run.value.result.code === 0) {
 		try {
@@ -229,10 +260,15 @@ export async function checkBrmemEntry(options: CheckBrmemEntryOptions): Promise<
 			};
 		}
 	}
-	return { type: "error", error: brmemCommandFailure("brmem_check_failed", "brmem check failed", run.value) };
+	return {
+		type: "error",
+		error: brmemCommandFailure("brmem_check_failed", "brmem check failed", run.value),
+	};
 }
 
-export async function putBrmemEntryFromFile(options: PutBrmemEntryFromFileOptions): Promise<BrmemCommandResult<BrmemPutData>> {
+export async function putBrmemEntryFromFile(
+	options: PutBrmemEntryFromFileOptions,
+): Promise<BrmemCommandResult<BrmemPutData>> {
 	const run = await runAvailableBrmemCommand({
 		gateway: options.gateway,
 		cwd: options.cwd,
@@ -253,14 +289,27 @@ export async function putBrmemEntryFromFile(options: PutBrmemEntryFromFileOption
 	});
 	if (!run.ok) return run;
 	if (run.value.result.code !== 0 || run.value.result.killed) {
-		return { ok: false, error: brmemCommandFailure("brmem_put_failed", "brmem put failed", run.value) };
+		return {
+			ok: false,
+			error: brmemCommandFailure("brmem_put_failed", "brmem put failed", run.value),
+		};
 	}
 
 	try {
 		const data = parseBrmemPutData(run.value.result.stdout);
 		const mismatches = expectedMismatches(
-			{ namespace: data.namespace, key: data.key, branch: data.branch, source_file: data.sourceFile },
-			{ namespace: options.namespace, key: options.key, branch: options.branch, source_file: options.sourceFile },
+			{
+				namespace: data.namespace,
+				key: data.key,
+				branch: data.branch,
+				source_file: data.sourceFile,
+			},
+			{
+				namespace: options.namespace,
+				key: options.key,
+				branch: options.branch,
+				source_file: options.sourceFile,
+			},
 		);
 		if (mismatches.length > 0) {
 			return {
@@ -285,8 +334,16 @@ export async function putBrmemEntryFromFile(options: PutBrmemEntryFromFileOption
 	}
 }
 
-export function brmemCommandFailure(code: string, title: string, run: CompletedBrmemRun): BrmemCommandErrorInfo {
-	return { code, message: formatCommandFailure(title, run.displayCommand, run.result), displayCommand: run.displayCommand };
+export function brmemCommandFailure(
+	code: string,
+	title: string,
+	run: CompletedBrmemRun,
+): BrmemCommandErrorInfo {
+	return {
+		code,
+		message: formatCommandFailure(title, run.displayCommand, run.result),
+		displayCommand: run.displayCommand,
+	};
 }
 
 function parseBrmemCheckData(stdout: string): BrmemCheckData {
@@ -300,10 +357,14 @@ function parseBrmemCheckData(stdout: string): BrmemCheckData {
 
 export function parseBrmemPutData(stdout: string): BrmemPutData {
 	const data = parseBrmemMachineEnvelopeData(stdout, "brmem put JSON");
-	const fields = requireBrmemStringFields(data, ["namespace", "key", "branch", "ref_name", "commit", "source_file"], {
-		commandName: "brmem put",
-		stdout,
-	});
+	const fields = requireBrmemStringFields(
+		data,
+		["namespace", "key", "branch", "ref_name", "commit", "source_file"],
+		{
+			commandName: "brmem put",
+			stdout,
+		},
+	);
 
 	return {
 		namespace: fields.namespace,
@@ -340,7 +401,11 @@ export function readOptionalBrmemBooleanField(
 	const value = data[field];
 	if (value === undefined) return undefined;
 	if (typeof value !== "boolean") {
-		throw malformedBrmemEnvelope(context.commandName, context.stdout, `expected boolean field ${fieldPath(context, field)}`);
+		throw malformedBrmemEnvelope(
+			context.commandName,
+			context.stdout,
+			`expected boolean field ${fieldPath(context, field)}`,
+		);
 	}
 	return value;
 }
@@ -362,13 +427,20 @@ export function requireBrmemStringFields<const Field extends string>(
 	}
 
 	if (invalidFields.length > 0) {
-		throw malformedBrmemEnvelope(context.commandName, context.stdout, `expected string fields ${formatFieldList(invalidFields)}`);
+		throw malformedBrmemEnvelope(
+			context.commandName,
+			context.stdout,
+			`expected string fields ${formatFieldList(invalidFields)}`,
+		);
 	}
 
 	return values;
 }
 
-export function parseBrmemMachineEnvelopeData(stdout: string, label: string): Record<string, unknown> {
+export function parseBrmemMachineEnvelopeData(
+	stdout: string,
+	label: string,
+): Record<string, unknown> {
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(stdout);
@@ -388,7 +460,11 @@ export function parseBrmemMachineEnvelopeData(stdout: string, label: string): Re
 	if (envelopeExitCode !== 0) {
 		const statusText = envelopeStatusText(parsed);
 		const suffix = statusText === undefined ? "" : `: ${statusText}`;
-		throw malformedMachineEnvelope(stdout, label, `expected envelope exit_code 0, got exit_code ${envelopeExitCode}${suffix}`);
+		throw malformedMachineEnvelope(
+			stdout,
+			label,
+			`expected envelope exit_code 0, got exit_code ${envelopeExitCode}${suffix}`,
+		);
 	}
 
 	const data = parsed.data;
@@ -409,18 +485,27 @@ function formatFieldList(fields: readonly string[]): string {
 }
 
 function malformedMachineEnvelope(stdout: string, label: string, reason: string): Error {
-	return new Error(`Malformed ${label}: ${reason}.\n\nstdout tail:\n${tailText(stdout, { maxChars: MAX_ERROR_CHARS, maxLines: 80 })}`);
+	return new Error(
+		`Malformed ${label}: ${reason}.\n\nstdout tail:\n${tailText(stdout, { maxChars: MAX_ERROR_CHARS, maxLines: 80 })}`,
+	);
 }
 
 function malformedBrmemEnvelope(commandName: string, stdout: string, reason: string): Error {
-	return new Error(`Malformed ${commandName} JSON: ${reason}.\n\nstdout tail:\n${tailText(stdout, { maxChars: MAX_ERROR_CHARS, maxLines: 80 })}`);
+	return new Error(
+		`Malformed ${commandName} JSON: ${reason}.\n\nstdout tail:\n${tailText(stdout, { maxChars: MAX_ERROR_CHARS, maxLines: 80 })}`,
+	);
 }
 
-function expectedMismatches(actual: Record<string, string>, expected: Record<string, string>): string[] {
+function expectedMismatches(
+	actual: Record<string, string>,
+	expected: Record<string, string>,
+): string[] {
 	const mismatches: string[] = [];
 	for (const [field, expectedValue] of Object.entries(expected)) {
 		if (actual[field] !== expectedValue) {
-			mismatches.push(`${field} ${JSON.stringify(actual[field])} != ${JSON.stringify(expectedValue)}`);
+			mismatches.push(
+				`${field} ${JSON.stringify(actual[field])} != ${JSON.stringify(expectedValue)}`,
+			);
 		}
 	}
 	return mismatches;
@@ -456,5 +541,9 @@ function isLikelyCommandNotFound(result: ExecResult): boolean {
 	}
 
 	const output = `${result.stderr}\n${result.stdout}`.toLowerCase();
-	return output.includes("command not found") || output.includes("not found") || output.includes("no such file");
+	return (
+		output.includes("command not found") ||
+		output.includes("not found") ||
+		output.includes("no such file")
+	);
 }

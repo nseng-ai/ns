@@ -22,7 +22,10 @@ export interface ScenarioRun {
 	context: HandoffCliContext;
 }
 
-export function runScenario(args: readonly string[], options: ScenarioRunOptions = {}): ScenarioRun {
+export function runScenario(
+	args: readonly string[],
+	options: ScenarioRunOptions = {},
+): ScenarioRun {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const cwd = options.cwd ?? "/repo";
@@ -31,7 +34,13 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 	const context: HandoffCliContext = {
 		cwd,
 		env: options.env ?? { PATH: "/fake/bin" },
-		git: options.git ?? new InMemoryGitGateway({ currentBranch: "feat/x", existingBranches: ["feat/x"], ...(options.gitState ?? {}) }),
+		git:
+			options.git ??
+			new InMemoryGitGateway({
+				currentBranch: "feat/x",
+				existingBranches: ["feat/x"],
+				...options.gitState,
+			}),
 		brmem: options.brmem ?? new FakeBrmemGateway(options.fake),
 		stdin: async () => {
 			if (typeof stdin === "function") return await stdin();
@@ -57,7 +66,12 @@ export async function putHandoffEntry(
 	gateway: FakeBrmemGateway,
 	options: { namespace?: string | undefined; key: string; branch: string; content: string },
 ): Promise<string> {
-	const result = await gateway.putEntry({ namespace: options.namespace ?? "handoff", key: options.key, branch: options.branch, content: options.content });
+	const result = await gateway.putEntry({
+		namespace: options.namespace ?? "handoff",
+		key: options.key,
+		branch: options.branch,
+		content: options.content,
+	});
 	if (result.type === "error") throw new Error(result.error.message);
 	return result.value.commitSha;
 }
@@ -66,7 +80,11 @@ export async function getEntryContent(
 	gateway: FakeBrmemGateway,
 	options: { namespace?: string | undefined; key: string; branch: string },
 ): Promise<string | undefined> {
-	const result = await gateway.getEntry({ namespace: options.namespace ?? "handoff", key: options.key, branch: options.branch });
+	const result = await gateway.getEntry({
+		namespace: options.namespace ?? "handoff",
+		key: options.key,
+		branch: options.branch,
+	});
 	if (result.type === "error") throw new Error(result.error.message);
 	if (result.type === "missing") return undefined;
 	return result.value.content;

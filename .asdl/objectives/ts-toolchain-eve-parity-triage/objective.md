@@ -32,13 +32,13 @@ Gaps to triage, drawn from the Eve report:
   `noImplicitOverride`, `noUnusedLocals`, `noUnusedParameters`,
   `noFallthroughCasesInSwitch`, `useUnknownInCatchVariables`,
   `noUncheckedSideEffectImports`, `forceConsistentCasingInFileNames`,
-  `resolveJsonModule`. Six of those flags have since landed in
-  `ts/tsconfig.json` (`moduleDetection: force`, `noImplicitOverride`,
-  `noUnusedLocals`, `noUnusedParameters`, `noFallthroughCasesInSwitch`,
-  `noUncheckedSideEffectImports`), so this gap now requires both retroactive
-  verdict/rationale for the landed flags and explicit decisions for the
-  remaining flags. (`ts/` is conversely stricter on one axis Eve does not list:
-  `exactOptionalPropertyTypes`.)
+  `resolveJsonModule`. This gap is now decision-complete: keep the six
+  already-landed explicit flags in `ts/tsconfig.json`; rely on TypeScript's
+  current `strict`/NodeNext defaults for `useUnknownInCatchVariables` and
+  `resolveJsonModule`; and adopt `forceConsistentCasingInFileNames` explicitly
+  in a separate follow-up because cross-filesystem casing safety is worth the
+  small config cost. (`ts/` is conversely stricter on one axis Eve does not
+  list: `exactOptionalPropertyTypes`.)
 - **Dependency governance** — Eve uses a pnpm `catalog:` version
   source-of-truth, syncpack lint/fix, `minimumReleaseAge` supply-chain aging,
   and an `allowBuilds` install-script allowlist; `ts/` has plain per-package
@@ -47,7 +47,8 @@ Gaps to triage, drawn from the Eve report:
   ratcheting rules) enforces conventions a linter can't; `ts/` has no
   equivalent and relies on AGENTS.md prose + code review.
 - **Compiler & target** — Eve uses `tsgo` (`@typescript/native-preview`) and
-  targets ES2024; `ts/` uses stock `tsc ^5.9.0` and targets ES2022.
+  targets ES2024; when this Objective was created, `ts/` used stock
+  `tsc ^5.9.0` and targeted ES2022.
 - **Test tiering** — Eve has four Vitest tiers (unit/integration/scenario/e2e)
   with per-tier configs; `ts/` has a single flat `vitest.config.ts`.
 
@@ -85,8 +86,8 @@ Gaps to triage, drawn from the Eve report:
 - The Eve report accurately reflects Eve's toolchain as of 2026-06-17. Decisions
   that lean on a specific Eve detail should be re-checked against Eve directly if
   that detail is challenged.
-- A single tool (biome) could collapse the linter and formatter decisions into
-  one; if biome is rejected in favor of oxlint+oxfmt, they remain two tracks.
+- The linter and formatter decisions intentionally adopt Eve's Oxc-family split:
+  oxlint for linting and oxfmt for formatting.
 
 **Risks**
 
@@ -101,16 +102,41 @@ Gaps to triage, drawn from the Eve report:
   internal toolkit does not need. The default posture is skeptical adoption,
   not parity for its own sake.
 - *Implementation-before-decision drift* — part of the `tsconfig` strictness
-  delta landed before this triage record captured a verdict. Treat the landed
-  flags as evidence to reconcile, not as a substitute for the Objective's
-  adopt/defer/reject decision record.
+  delta landed before this triage record captured a verdict. This is reconciled
+  for the `tsconfig` gap by the 2026-06-18 strictness verdict update; keep the
+  risk active for other gaps so future implementation does not substitute for a
+  recorded adopt/defer/reject decision.
 
 ## Open Questions
 
-- Should the linter and formatter be one decision (biome) or two (oxlint +
-  oxfmt, matching Eve)?
-- Is there real appetite for an asdl-specific mechanical invariant guard, or are
-  AGENTS.md prose plus code-review enough for the conventions it would encode
-  (hidden `exec` subgroups, naming-from-path, no `__init__`-style re-export)?
-- Where do adopted items land — as follow-up rows appended to this Objective, or
-  as new dedicated Objectives per adopted tool?
+Resolved by the 2026-06-18 bulk verdict update:
+
+- Linter and formatter: oxlint + oxfmt, not Biome.
+- Compiler: adopt `tsgo` / `@typescript/native-preview` as the primary check,
+  while keeping stock `tsc` as an explicit fallback command.
+- Mechanical invariant guard: defer Eve-scale bespoke guard work; retain and
+  grow the existing narrow `just ts-guard` pattern only after more urgent
+  toolchain governance lands.
+- Adopted-item landing spot: consolidate implementable adopt-now decisions into
+  a single follow-up Objective/branch named `ts-toolchain-governance-rollout`.
+
+## Closure
+
+Outcome: completed. Every Eve parity gap listed in Scope now has an adopt-now,
+defer, or reject verdict recorded in the roadmap and Semantic Updates.
+
+Adopt-now decisions were intentionally consolidated into one implementation
+landing spot, `ts-toolchain-governance-rollout`: oxlint/oxfmt for `ts/`, pnpm
+catalog + syncpack enforcement, `@typescript/native-preview` / `tsgo` as the
+primary typechecker with stock `tsc` retained as a fallback, `forceConsistentCasingInFileNames:
+true`, and an ES2024 `target`/`lib` bump. A later user correction changed the
+posture from conservative to aggressive, so the rollout was implemented in this
+branch rather than left as only a parked follow-up.
+
+Deferred decisions are `minimumReleaseAge`, build-script allowlisting, Eve-scale
+bespoke invariant guards, and pre-commit hooks. Rejected decisions are Eve's
+multi-tier Vitest config split and publish-only machinery such as rolldown
+builds, `#compiled/*` vendoring, the `eve-source` condition, Changesets, and
+Eve's single-runtime-dependency policy. These can be reopened by a future
+Objective only if the `ts/` subtree stops being unpublished/run-from-source or
+concrete rollout evidence invalidates the assumptions above.

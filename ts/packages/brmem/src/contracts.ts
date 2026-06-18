@@ -15,7 +15,11 @@ export function brmemOk<T>(value: T): BrmemResult<T> {
 	return { type: "ok", value };
 }
 
-export function brmemError<T = never>(code: string, message: string, displayCommand?: string): BrmemResult<T> {
+export function brmemError<T = never>(
+	code: string,
+	message: string,
+	displayCommand?: string,
+): BrmemResult<T> {
 	const error: BrmemErrorInfo = { code, message };
 	if (displayCommand !== undefined) error.displayCommand = displayCommand;
 	return { type: "error", error };

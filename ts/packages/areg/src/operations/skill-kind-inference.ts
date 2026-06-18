@@ -3,12 +3,26 @@ import { err, type Result } from "@asdl/core/result";
 import type { AregSkillKindSkillInspection } from "../gateways.ts";
 import { sortStrings } from "../sort.ts";
 import { parseSkillFrontmatterBlock, type SkillFrontmatterData } from "./frontmatter.ts";
-import { formatReplacementLabel, replacementAdvice, verifyPiReplacement, type PiReplacementVerification } from "./pi-replacement.ts";
+import {
+	formatReplacementLabel,
+	replacementAdvice,
+	verifyPiReplacement,
+	type PiReplacementVerification,
+} from "./pi-replacement.ts";
 import { parsePiSettings } from "./pi-settings.ts";
 import type { AregSkillKindProjectInspection } from "./project-inspection.ts";
 
-export const SKILL_INVOCATION_KINDS = ["normal", "invoke-only", "command-backed", "ambient-only"] as const;
-export const INFERRED_SKILL_INVOCATION_KINDS = [...SKILL_INVOCATION_KINDS, "mixed", "inconsistent"] as const;
+export const SKILL_INVOCATION_KINDS = [
+	"normal",
+	"invoke-only",
+	"command-backed",
+	"ambient-only",
+] as const;
+export const INFERRED_SKILL_INVOCATION_KINDS = [
+	...SKILL_INVOCATION_KINDS,
+	"mixed",
+	"inconsistent",
+] as const;
 export const MODEL_INVOCATION_STATUSES = ["enabled", "disabled", "mixed"] as const;
 export const NATIVE_DIRECT_STATUSES = ["enabled", "partial", "mixed"] as const;
 export const PI_EXTENSION_STATUSES = ["n/a", "enabled", "missing"] as const;
@@ -51,9 +65,16 @@ export interface SkillKindRecord {
 export type SkillKindProjectInspection = AregSkillKindProjectInspection;
 export type FrontmatterInspection = SkillFrontmatterData;
 
-export function inspectSkillFrontmatter(text: string, pathLabel: string): Result<FrontmatterInspection> {
+export function inspectSkillFrontmatter(
+	text: string,
+	pathLabel: string,
+): Result<FrontmatterInspection> {
 	const parsed = parseSkillFrontmatterBlock(text);
-	if (!parsed.ok) return { ok: false, error: { ...parsed.error, message: `${pathLabel} ${parsed.error.message}` } };
+	if (!parsed.ok)
+		return {
+			ok: false,
+			error: { ...parsed.error, message: `${pathLabel} ${parsed.error.message}` },
+		};
 	return parsed;
 }
 
@@ -64,9 +85,13 @@ export function inferSkillKindRecord(options: {
 	isPiExcluded: boolean;
 	replacement: PiReplacementVerification;
 }): SkillKindRecord {
-	const isModelInvocationDisabled = truthyFrontmatterValue(options.frontmatter.fields[DISABLE_MODEL_INVOCATION_KEY]);
+	const isModelInvocationDisabled = truthyFrontmatterValue(
+		options.frontmatter.fields[DISABLE_MODEL_INVOCATION_KEY],
+	);
 	const hasUserInvocableKey = options.frontmatter.keys.has(USER_INVOCABLE_KEY);
-	const isUserInvocableFalse = falsyFrontmatterValue(options.frontmatter.fields[USER_INVOCABLE_KEY]);
+	const isUserInvocableFalse = falsyFrontmatterValue(
+		options.frontmatter.fields[USER_INVOCABLE_KEY],
+	);
 	const artifacts: SkillKindArtifactFacts = {
 		isModelInvocationDisabled,
 		hasCodexSidecar: options.hasCodexSidecar,
@@ -80,7 +105,9 @@ export function inferSkillKindRecord(options: {
 		surface: options.replacement.surface,
 		label: formatReplacementLabel(options.replacement),
 		evidence: options.replacement.verified ? replacementEvidence(options.replacement) : undefined,
-		advice: options.replacement.verified ? undefined : replacementAdvice(options.skillName, options.replacement.surface),
+		advice: options.replacement.verified
+			? undefined
+			: replacementAdvice(options.skillName, options.replacement.surface),
 	};
 	return {
 		skill: options.skillName,
@@ -99,42 +126,101 @@ export function inferSkillKindRecord(options: {
 	};
 }
 
-export function buildSkillKindRecords(inspection: SkillKindProjectInspection): Result<readonly SkillKindRecord[]> {
+export function buildSkillKindRecords(
+	inspection: SkillKindProjectInspection,
+): Result<readonly SkillKindRecord[]> {
 	const piSettings = parsePiSettings(inspection.piDir, inspection.piSettings);
 	if (!piSettings.ok) return piSettings;
 	const records: SkillKindRecord[] = [];
 	for (const skill of sortSkills(inspection.skills)) {
 		const readiness = validateInspectableSkill(skill);
 		if (!readiness.ok) return readiness;
-		if (skill.skillMd.type !== "file") return err({ code: "skill_not_found", message: `skills/${skill.name}/SKILL.md does not exist` });
-		const frontmatter = inspectSkillFrontmatter(skill.skillMd.text, `skills/${skill.name}/SKILL.md`);
+		if (skill.skillMd.type !== "file")
+			return err({
+				code: "skill_not_found",
+				message: `skills/${skill.name}/SKILL.md does not exist`,
+			});
+		const frontmatter = inspectSkillFrontmatter(
+			skill.skillMd.text,
+			`skills/${skill.name}/SKILL.md`,
+		);
 		if (!frontmatter.ok) return frontmatter;
 		const replacement = verifyPiReplacement(skill.name, inspection.replacement);
-		records.push(inferSkillKindRecord({
-			skillName: skill.name,
-			frontmatter: frontmatter.value,
-			hasCodexSidecar: skill.openaiPolicy.type === "file",
-			isPiExcluded: piSettings.value.exclusions.includes(`-skills/${skill.name}`),
-			replacement,
-		}));
+		records.push(
+			inferSkillKindRecord({
+				skillName: skill.name,
+				frontmatter: frontmatter.value,
+				hasCodexSidecar: skill.openaiPolicy.type === "file",
+				isPiExcluded: piSettings.value.exclusions.includes(`-skills/${skill.name}`),
+				replacement,
+			}),
+		);
 	}
 	return { ok: true, value: records };
 }
 
 export function validateInspectableSkill(skill: AregSkillKindSkillInspection): Result<undefined> {
-	if (skill.skillDir.type === "symlink") return err({ code: "path_symlink", message: `skills/${skill.name} is a symlink but should be a real directory (canonical source)` });
-	if (skill.skillDir.type !== "directory") return err({ code: "skill_not_found", message: `Local skill missing canonical source: skills/${skill.name}/ does not exist` });
-	if (skill.skillMd.type === "symlink") return err({ code: "path_symlink", message: `skills/${skill.name}/SKILL.md is a symlink but should be a real file (canonical source)` });
-	if (skill.skillMd.type !== "file") return err({ code: "skill_not_found", message: `skills/${skill.name}/SKILL.md does not exist` });
+	if (skill.skillDir.type === "symlink")
+		return err({
+			code: "path_symlink",
+			message: `skills/${skill.name} is a symlink but should be a real directory (canonical source)`,
+		});
+	if (skill.skillDir.type !== "directory")
+		return err({
+			code: "skill_not_found",
+			message: `Local skill missing canonical source: skills/${skill.name}/ does not exist`,
+		});
+	if (skill.skillMd.type === "symlink")
+		return err({
+			code: "path_symlink",
+			message: `skills/${skill.name}/SKILL.md is a symlink but should be a real file (canonical source)`,
+		});
+	if (skill.skillMd.type !== "file")
+		return err({
+			code: "skill_not_found",
+			message: `skills/${skill.name}/SKILL.md does not exist`,
+		});
 	return { ok: true, value: undefined };
 }
 
-function inferKind(artifacts: SkillKindArtifactFacts, replacement: PiReplacementVerification): InferredSkillInvocationKind {
-	if (artifacts.isModelInvocationDisabled && artifacts.hasCodexSidecar && artifacts.isPiExcluded && replacement.verified && !artifacts.hasUserInvocableKey) return "command-backed";
-	if (artifacts.isModelInvocationDisabled && artifacts.hasCodexSidecar && !artifacts.isPiExcluded && !artifacts.hasUserInvocableKey) return "invoke-only";
-	if (artifacts.isUserInvocableFalse && !artifacts.isModelInvocationDisabled && !artifacts.hasCodexSidecar && !artifacts.isPiExcluded) return "ambient-only";
-	if (!artifacts.isModelInvocationDisabled && !artifacts.hasCodexSidecar && !artifacts.hasUserInvocableKey && !artifacts.isPiExcluded) return "normal";
-	if (artifacts.hasUserInvocableKey && (artifacts.isModelInvocationDisabled || artifacts.hasCodexSidecar || artifacts.isPiExcluded)) return "mixed";
+function inferKind(
+	artifacts: SkillKindArtifactFacts,
+	replacement: PiReplacementVerification,
+): InferredSkillInvocationKind {
+	if (
+		artifacts.isModelInvocationDisabled &&
+		artifacts.hasCodexSidecar &&
+		artifacts.isPiExcluded &&
+		replacement.verified &&
+		!artifacts.hasUserInvocableKey
+	)
+		return "command-backed";
+	if (
+		artifacts.isModelInvocationDisabled &&
+		artifacts.hasCodexSidecar &&
+		!artifacts.isPiExcluded &&
+		!artifacts.hasUserInvocableKey
+	)
+		return "invoke-only";
+	if (
+		artifacts.isUserInvocableFalse &&
+		!artifacts.isModelInvocationDisabled &&
+		!artifacts.hasCodexSidecar &&
+		!artifacts.isPiExcluded
+	)
+		return "ambient-only";
+	if (
+		!artifacts.isModelInvocationDisabled &&
+		!artifacts.hasCodexSidecar &&
+		!artifacts.hasUserInvocableKey &&
+		!artifacts.isPiExcluded
+	)
+		return "normal";
+	if (
+		artifacts.hasUserInvocableKey &&
+		(artifacts.isModelInvocationDisabled || artifacts.hasCodexSidecar || artifacts.isPiExcluded)
+	)
+		return "mixed";
 	return "inconsistent";
 }
 
@@ -144,14 +230,20 @@ function modelInvocationStatus(artifacts: SkillKindArtifactFacts): ModelInvocati
 	return "enabled";
 }
 
-function nativeDirectStatus(kind: InferredSkillInvocationKind, artifacts: SkillKindArtifactFacts): NativeDirectStatus {
+function nativeDirectStatus(
+	kind: InferredSkillInvocationKind,
+	artifacts: SkillKindArtifactFacts,
+): NativeDirectStatus {
 	if (kind === "normal" || kind === "invoke-only") return "enabled";
 	if (kind === "command-backed" || kind === "ambient-only") return "partial";
 	if (artifacts.hasUserInvocableKey || artifacts.isPiExcluded) return "mixed";
 	return "enabled";
 }
 
-function piExtensionStatus(artifacts: SkillKindArtifactFacts, replacement: PiReplacementVerification): PiExtensionStatus {
+function piExtensionStatus(
+	artifacts: SkillKindArtifactFacts,
+	replacement: PiReplacementVerification,
+): PiExtensionStatus {
 	if (!artifacts.isPiExcluded) return "n/a";
 	return replacement.verified ? "enabled" : "missing";
 }
@@ -163,14 +255,28 @@ function buildNotes(options: {
 	replacement: PiReplacementVerification;
 }): readonly string[] {
 	const notes: string[] = [];
-	if (options.artifacts.isModelInvocationDisabled && !options.artifacts.hasCodexSidecar) notes.push("disable-model-invocation is present but agents/openai.yaml is missing.");
-	if (options.artifacts.hasCodexSidecar && !options.artifacts.isModelInvocationDisabled) notes.push("agents/openai.yaml is present but disable-model-invocation is absent.");
-	if (options.artifacts.hasUserInvocableKey && !options.artifacts.isUserInvocableFalse) notes.push(`user-invocable is present with value ${JSON.stringify(options.userInvocableValue ?? "")}, not false.`);
-	if (options.artifacts.isUserInvocableFalse && (options.artifacts.isModelInvocationDisabled || options.artifacts.hasCodexSidecar || options.artifacts.isPiExcluded)) {
+	if (options.artifacts.isModelInvocationDisabled && !options.artifacts.hasCodexSidecar)
+		notes.push("disable-model-invocation is present but agents/openai.yaml is missing.");
+	if (options.artifacts.hasCodexSidecar && !options.artifacts.isModelInvocationDisabled)
+		notes.push("agents/openai.yaml is present but disable-model-invocation is absent.");
+	if (options.artifacts.hasUserInvocableKey && !options.artifacts.isUserInvocableFalse)
+		notes.push(
+			`user-invocable is present with value ${JSON.stringify(options.userInvocableValue ?? "")}, not false.`,
+		);
+	if (
+		options.artifacts.isUserInvocableFalse &&
+		(options.artifacts.isModelInvocationDisabled ||
+			options.artifacts.hasCodexSidecar ||
+			options.artifacts.isPiExcluded)
+	) {
 		notes.push("user-invocable:false is mixed with explicit-only or Pi-exclusion artifacts.");
 	}
-	if (options.artifacts.isPiExcluded && !options.replacement.verified) notes.push("Pi skill exclusion is present without a verified replacement command.");
-	if (options.kind === "ambient-only") notes.push("ambient-only disables Claude native direct invocation; Pi and Codex native direct invocation are not enforced.");
+	if (options.artifacts.isPiExcluded && !options.replacement.verified)
+		notes.push("Pi skill exclusion is present without a verified replacement command.");
+	if (options.kind === "ambient-only")
+		notes.push(
+			"ambient-only disables Claude native direct invocation; Pi and Codex native direct invocation are not enforced.",
+		);
 	return notes;
 }
 
@@ -186,7 +292,11 @@ function replacementEvidence(replacement: PiReplacementVerification): string | u
 	return replacement.surface === undefined ? "replacement verified" : `/${replacement.surface}`;
 }
 
-function sortSkills(skills: readonly AregSkillKindSkillInspection[]): readonly AregSkillKindSkillInspection[] {
+function sortSkills(
+	skills: readonly AregSkillKindSkillInspection[],
+): readonly AregSkillKindSkillInspection[] {
 	const byName = new Map(skills.map((skill) => [skill.name, skill]));
-	return sortStrings([...byName.keys()]).map((name) => byName.get(name)).filter((skill): skill is AregSkillKindSkillInspection => skill !== undefined);
+	return sortStrings([...byName.keys()])
+		.map((name) => byName.get(name))
+		.filter((skill): skill is AregSkillKindSkillInspection => skill !== undefined);
 }

@@ -30,7 +30,11 @@ export interface ExecOptions {
 	onStderr?: (text: string) => void;
 }
 
-export type CommandRunner = (executable: string, args: readonly string[], options?: ExecOptions) => Promise<ExecResult>;
+export type CommandRunner = (
+	executable: string,
+	args: readonly string[],
+	options?: ExecOptions,
+) => Promise<ExecResult>;
 
 export interface CommandExecApi {
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
@@ -78,7 +82,11 @@ export class NodeCommandExecApi implements CommandExecApi {
 	}
 }
 
-export async function runCommand(command: string, args: readonly string[], options: ExecOptions = {}): Promise<ExecResult> {
+export async function runCommand(
+	command: string,
+	args: readonly string[],
+	options: ExecOptions = {},
+): Promise<ExecResult> {
 	return new Promise((resolve) => {
 		let stdout = "";
 		let stderr = "";
@@ -219,14 +227,24 @@ export function tailText(text: string, options: TailTextOptions): string {
 	return tail;
 }
 
-export function formatOutputSection(name: "stdout" | "stderr", output: string, options: TailTextOptions): string {
+export function formatOutputSection(
+	name: "stdout" | "stderr",
+	output: string,
+	options: TailTextOptions,
+): string {
 	const normalizedOutput = stripTerminalEscapes(output).replace(/\r/g, "\n").trimEnd();
 	const tail = normalizedOutput.length > 0 ? tailText(normalizedOutput, options) : "";
 	return [`----- ${name} tail -----`, tail.length > 0 ? tail : "(empty)"].join("\n");
 }
 
-export function formatCommandFailure(title: string, displayCommand: string, result: ExecResult): string {
-	const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
+export function formatCommandFailure(
+	title: string,
+	displayCommand: string,
+	result: ExecResult,
+): string {
+	const status = result.killed
+		? `exit code ${result.code}; process was killed or timed out`
+		: `exit code ${result.code}`;
 	return tailText(
 		[
 			`${title} (${status}).`,
@@ -238,8 +256,14 @@ export function formatCommandFailure(title: string, displayCommand: string, resu
 	);
 }
 
-export function formatCommandStartupFailure(title: string, displayCommand: string, error: unknown): string {
-	const message = stripTerminalEscapes(error instanceof Error ? error.message : String(error)).replace(/\r/g, "\n").trimEnd();
+export function formatCommandStartupFailure(
+	title: string,
+	displayCommand: string,
+	error: unknown,
+): string {
+	const message = stripTerminalEscapes(error instanceof Error ? error.message : String(error))
+		.replace(/\r/g, "\n")
+		.trimEnd();
 	return tailText(
 		[
 			`${title} (failed before completion).`,
@@ -268,7 +292,10 @@ export function defaultCommandResolver(name: string): string | undefined {
 	return undefined;
 }
 
-function applyLineLimit(text: string, maxLines: number | undefined): { text: string; omittedLines: number } {
+function applyLineLimit(
+	text: string,
+	maxLines: number | undefined,
+): { text: string; omittedLines: number } {
 	if (maxLines === undefined) {
 		return { text, omittedLines: 0 };
 	}

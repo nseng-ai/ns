@@ -24,7 +24,10 @@ describe("enriched-plan-commands", () => {
 			"enriched-plan:grill-and-save",
 			"enriched-plan:save",
 		]);
-		expect([...pi.commands.keys()].filter((name) => name.startsWith("enriched-plan:"))).toEqual(["enriched-plan:save", "enriched-plan:grill-and-save"]);
+		expect([...pi.commands.keys()].filter((name) => name.startsWith("enriched-plan:"))).toEqual([
+			"enriched-plan:save",
+			"enriched-plan:grill-and-save",
+		]);
 		expect(pi.tools.has("write_saved_plan_file")).toBe(true);
 		expect([...pi.tools.keys()]).toEqual(["write_saved_plan_file"]);
 	});
@@ -44,7 +47,9 @@ describe("enriched-plan-commands", () => {
 		expect(events[0]).toBe("wait");
 		expect(events.at(-1)).toBe("send");
 		expect(pi.execCalls).toEqual([]);
-		expect(pi.sentUserMessages).toEqual([buildWriteGrilledPlanPrompt("plan the grilled command variant")]);
+		expect(pi.sentUserMessages).toEqual([
+			buildWriteGrilledPlanPrompt("plan the grilled command variant"),
+		]);
 		expect(pi.sentUserMessages[0]).toContain("grill_ask");
 		expect(pi.sentUserMessages[0]).toContain("write_saved_plan_file");
 		expect(context.notifications).toEqual([
@@ -87,14 +92,20 @@ describe("enriched-plan-commands", () => {
 			},
 		]);
 		expect(pi.sentUserMessages).toHaveLength(1);
-		expect(pi.sentUserMessages[0]).toBe(buildWritePlanPrompt("add a tiny docs note plan for testing"));
+		expect(pi.sentUserMessages[0]).toBe(
+			buildWritePlanPrompt("add a tiny docs note plan for testing"),
+		);
 		expect(pi.sentUserMessages[0]).toContain("write_saved_plan_file");
-		expect(pi.sentUserMessages[0]).toContain("~/.asdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md");
+		expect(pi.sentUserMessages[0]).toContain(
+			"~/.asdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md",
+		);
 		expect(pi.sentUserMessages[0]).toContain("completely fresh downstream implementation session");
 		expect(pi.sentUserMessages[0]).toContain("External research/context contract");
 		expect(pi.sentUserMessages[0]).not.toContain("create_brmem_plan_branch_from_file");
 		expect(pi.sentUserMessages[0]).not.toContain("branchCreation");
-		expect(context.notifications).toEqual([{ message: "Starting /enriched-plan:save planning turn…", level: "info" }]);
+		expect(context.notifications).toEqual([
+			{ message: "Starting /enriched-plan:save planning turn…", level: "info" },
+		]);
 	});
 
 	test("enriched-plan:save with empty args still sends a prompt with none steering", async () => {
@@ -119,13 +130,19 @@ describe("enriched-plan-commands", () => {
 		await command?.handler("customize this", context.ctx);
 
 		pi.assertDone();
-		expect(pi.sentUserMessages).toEqual([buildWritePlanPrompt("customize this", "Custom plan body\n")]);
-		expect(context.notifications).toEqual([{ message: "Starting /enriched-plan:save planning turn…", level: "info" }]);
+		expect(pi.sentUserMessages).toEqual([
+			buildWritePlanPrompt("customize this", "Custom plan body\n"),
+		]);
+		expect(context.notifications).toEqual([
+			{ message: "Starting /enriched-plan:save planning turn…", level: "info" },
+		]);
 	});
 
 	test("enriched-plan:save falls back and warns when resolver fails", async () => {
 		const pi = new FakePi([
-			resolveWritePlanPromptStep({ result: { code: 1, stdout: "", stderr: "prompt_not_found: missing" } }),
+			resolveWritePlanPromptStep({
+				result: { code: 1, stdout: "", stderr: "prompt_not_found: missing" },
+			}),
 		]);
 		registerBranchContextExtension(pi);
 		const command = pi.commands.get("enriched-plan:save");

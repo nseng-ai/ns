@@ -105,7 +105,11 @@ export function createFakeRunnerSubagentDispatcher(
 			createRuntimeConfig(input);
 			return runtimeFiles;
 		},
-		readRuntimeResult: () => options.runtimeResultRead ?? (options.runtimeResult ? { type: "loaded", result: options.runtimeResult } : { type: "missing" }),
+		readRuntimeResult: () =>
+			options.runtimeResultRead ??
+			(options.runtimeResult
+				? { type: "loaded", result: options.runtimeResult }
+				: { type: "missing" }),
 		readSessionFile: () => {
 			if (options.sessionFileReadError !== undefined) throw options.sessionFileReadError;
 			return options.sessionFileText ?? "";

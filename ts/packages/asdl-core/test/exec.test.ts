@@ -61,7 +61,15 @@ describe("exec presentation helpers", () => {
 			code: 2,
 			killed: false,
 		});
-		expect(normalizeExecResult({ stdout: "out", stderr: "err", code: 9, killed: true, startupError: "spawn missing" })).toEqual({
+		expect(
+			normalizeExecResult({
+				stdout: "out",
+				stderr: "err",
+				code: 9,
+				killed: true,
+				startupError: "spawn missing",
+			}),
+		).toEqual({
 			stdout: "out",
 			stderr: "err",
 			code: 9,
@@ -71,7 +79,11 @@ describe("exec presentation helpers", () => {
 	});
 
 	test("adapts pi-like exec APIs to CommandExecApi with normalized results", async () => {
-		const calls: Array<{ readonly command: string; readonly args: readonly string[]; readonly cwd: string | undefined }> = [];
+		const calls: Array<{
+			readonly command: string;
+			readonly args: readonly string[];
+			readonly cwd: string | undefined;
+		}> = [];
 		const commandExecApi = piExecApiToCommandExecApi({
 			async exec(command, args, options) {
 				calls.push({ command, args: [...args], cwd: options?.cwd });
@@ -93,14 +105,18 @@ describe("exec presentation helpers", () => {
 
 	test("formats command displays with shell quoting", () => {
 		expect(formatCommand("gt", ["delete", "feature/foo", "-f"])).toBe("gt delete feature/foo -f");
-		expect(formatCommand("gh", ["pr", "view", "branch name", "can't"])).toBe("gh pr view 'branch name' 'can'\\''t'");
+		expect(formatCommand("gh", ["pr", "view", "branch name", "can't"])).toBe(
+			"gh pr view 'branch name' 'can'\\''t'",
+		);
 		expect(formatShellArg("safe:value")).toBe("safe:value");
 		expect(shellQuote("can't")).toBe("'can'\\''t'");
 	});
 
 	test("strips terminal ANSI and OSC escapes", () => {
 		expect(stripTerminalEscapes("\u001b[31mred\u001b[0m")).toBe("red");
-		expect(stripTerminalEscapes("\u001b]8;;https://github.example/pull/101\u0007#101\u001b]8;;\u0007")).toBe("#101");
+		expect(
+			stripTerminalEscapes("\u001b]8;;https://github.example/pull/101\u0007#101\u001b]8;;\u0007"),
+		).toBe("#101");
 	});
 
 	test("tailText returns full text under limits", () => {
@@ -110,7 +126,9 @@ describe("exec presentation helpers", () => {
 	test("tailText keeps the last lines with an omitted-line prefix", () => {
 		const lines = Array.from({ length: 5 }, (_, index) => `line ${index + 1}`).join("\n");
 
-		expect(tailText(lines, { maxLines: 2, maxChars: 100 })).toBe("… 3 earlier line(s) omitted\nline 4\nline 5");
+		expect(tailText(lines, { maxLines: 2, maxChars: 100 })).toBe(
+			"… 3 earlier line(s) omitted\nline 4\nline 5",
+		);
 	});
 
 	test("tailText keeps final chars with an ellipsis when char-limited", () => {
@@ -118,14 +136,27 @@ describe("exec presentation helpers", () => {
 	});
 
 	test("formatOutputSection strips escapes, normalizes carriage returns, and labels empty output", () => {
-		expect(formatOutputSection("stdout", "\u001b[31mfirst\rsecond\u001b[0m\n", { maxLines: 10, maxChars: 100 })).toBe(
-			"----- stdout tail -----\nfirst\nsecond",
+		expect(
+			formatOutputSection("stdout", "\u001b[31mfirst\rsecond\u001b[0m\n", {
+				maxLines: 10,
+				maxChars: 100,
+			}),
+		).toBe("----- stdout tail -----\nfirst\nsecond");
+		expect(formatOutputSection("stderr", "\n", { maxLines: 10, maxChars: 100 })).toBe(
+			"----- stderr tail -----\n(empty)",
 		);
-		expect(formatOutputSection("stderr", "\n", { maxLines: 10, maxChars: 100 })).toBe("----- stderr tail -----\n(empty)");
 	});
 
 	test("formatCommandStartupFailure uses the command failure dialect", () => {
-		expect(formatCommandStartupFailure("objective command failed", "objective list", new Error("missing")).startsWith("objective command failed (failed before completion).\n\nCommand: objective list")).toBe(true);
+		expect(
+			formatCommandStartupFailure(
+				"objective command failed",
+				"objective list",
+				new Error("missing"),
+			).startsWith(
+				"objective command failed (failed before completion).\n\nCommand: objective list",
+			),
+		).toBe(true);
 	});
 });
 
@@ -159,7 +190,12 @@ process.stdin.on("end", () => {
 
 		const result = await runCommand(process.execPath, [script], { stdin: "hello from stdin" });
 
-		expect(result).toMatchObject({ stdout: "received:hello from stdin", stderr: "", code: 0, killed: false });
+		expect(result).toMatchObject({
+			stdout: "received:hello from stdin",
+			stderr: "",
+			code: 0,
+			killed: false,
+		});
 	});
 
 	test("no stdin option preserves ignored stdin behavior", async () => {
@@ -222,7 +258,10 @@ setTimeout(() => process.exit(88), 5_000);
 setInterval(() => {}, 1_000);
 `);
 
-		const result = await runCommand(process.execPath, [script], { timeout: 500, timeoutKillGraceMs: 100 });
+		const result = await runCommand(process.execPath, [script], {
+			timeout: 500,
+			timeoutKillGraceMs: 100,
+		});
 
 		expect(result.killed).toBe(true);
 		expect(result.code).toBe(124);
@@ -239,7 +278,10 @@ setInterval(() => {}, 1_000);
 `);
 
 		const startedAt = Date.now();
-		const result = await runCommand(process.execPath, [script], { timeout: 500, timeoutKillGraceMs: 100 });
+		const result = await runCommand(process.execPath, [script], {
+			timeout: 500,
+			timeoutKillGraceMs: 100,
+		});
 		const elapsedMs = Date.now() - startedAt;
 
 		expect(elapsedMs).toBeLessThan(4_000);

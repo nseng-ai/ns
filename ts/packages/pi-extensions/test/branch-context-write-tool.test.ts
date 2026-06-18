@@ -27,7 +27,9 @@ describe("write_saved_plan_file tool", () => {
 			additionalProperties?: boolean;
 		};
 
-		expect(tool.description).toContain("~/.asdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md");
+		expect(tool.description).toContain(
+			"~/.asdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md",
+		);
 		expect(tool.description).toContain("refuses to overwrite");
 		expect(tool.description).toContain("does not create branches or write Branch Memory");
 		expect(tool.description).toContain("self-contained");
@@ -66,10 +68,16 @@ describe("write_saved_plan_file tool", () => {
 		expect(pi.execCalls[0]?.command).toBe("pi");
 		expect(pi.execCalls[0]?.args).toEqual(savedPlanSlugArgs(content));
 		expect(pi.execCalls[0]?.options).toMatchObject({ cwd: ROOT, timeout: 60_000 });
-		expect(fakes.writePlanCalls[0]?.[1]).toEqual({ slug: PLAN_SLUG, content, summary: "Plan the local plan store file." });
+		expect(fakes.writePlanCalls[0]?.[1]).toEqual({
+			slug: PLAN_SLUG,
+			content,
+			summary: "Plan the local plan store file.",
+		});
 		expect(fakes.writePlanCalls[0]?.[2]).toMatchObject({ cwd: ROOT });
 		expect(result.content[0]?.text).toContain(`Slug: ${PLAN_SLUG}`);
-		expect(result.content[0]?.text).toContain(`Slug model: ${DEFAULT_FAST_MODEL.provider}/${DEFAULT_FAST_MODEL.modelId}`);
+		expect(result.content[0]?.text).toContain(
+			`Slug model: ${DEFAULT_FAST_MODEL.provider}/${DEFAULT_FAST_MODEL.modelId}`,
+		);
 		expect(result.details).toMatchObject({
 			slug: PLAN_SLUG,
 			filePath: `/tmp/${PLAN_SLUG}.md`,
@@ -95,8 +103,12 @@ describe("write_saved_plan_file tool", () => {
 		);
 
 		const updateTexts = updates.flatMap((update) => update.content ?? []).map((item) => item.text);
-		const validationIndex = updateTexts.findIndex((text) => text.includes("Validating saved plan input"));
-		const slugIndex = updateTexts.findIndex((text) => text.includes("Deriving saved-plan filename slug with Codex"));
+		const validationIndex = updateTexts.findIndex((text) =>
+			text.includes("Validating saved plan input"),
+		);
+		const slugIndex = updateTexts.findIndex((text) =>
+			text.includes("Deriving saved-plan filename slug with Codex"),
+		);
 		const writingIndex = updateTexts.findIndex((text) => text.includes("Writing plan file"));
 
 		pi.assertDone();
@@ -106,18 +118,36 @@ describe("write_saved_plan_file tool", () => {
 		expect(updateTexts.join("\n")).toContain(PLAN_SLUG);
 		expect(updates.map((update) => update.details)).toContainEqual({ phase: "validating" });
 		expect(updates.map((update) => update.details)).toContainEqual({ phase: "deriving-slug" });
-		expect(updates.map((update) => update.details)).toContainEqual({ phase: "writing-file", slug: PLAN_SLUG });
-		expect(toolContext.statuses).toContainEqual({ key: "enriched-plan:save", value: "Validating saved plan input…" });
-		expect(toolContext.statuses).toContainEqual({ key: "enriched-plan:save", value: "Deriving saved-plan filename slug with Codex…" });
+		expect(updates.map((update) => update.details)).toContainEqual({
+			phase: "writing-file",
+			slug: PLAN_SLUG,
+		});
+		expect(toolContext.statuses).toContainEqual({
+			key: "enriched-plan:save",
+			value: "Validating saved plan input…",
+		});
+		expect(toolContext.statuses).toContainEqual({
+			key: "enriched-plan:save",
+			value: "Deriving saved-plan filename slug with Codex…",
+		});
 		expect(toolContext.statuses).toContainEqual({
 			key: "enriched-plan:save",
 			value: `Derived slug ${PLAN_SLUG}; resolving repo/branch and writing plan file…`,
 		});
-		expect(toolContext.statuses).toContainEqual({ key: "enriched-plan:save", value: "Writing plan file…" });
+		expect(toolContext.statuses).toContainEqual({
+			key: "enriched-plan:save",
+			value: "Writing plan file…",
+		});
 		expect(toolContext.statuses.at(-1)).toEqual({ key: "enriched-plan:save", value: undefined });
 		expect(result.content[0]?.text).toContain(`Slug: ${PLAN_SLUG}`);
-		expect(result.content[0]?.text).toContain(`Slug model: ${DEFAULT_FAST_MODEL.provider}/${DEFAULT_FAST_MODEL.modelId}`);
-		expect(fakes.writePlanCalls[0]?.[1]).toEqual({ slug: PLAN_SLUG, content, summary: "Plan the local plan store file." });
+		expect(result.content[0]?.text).toContain(
+			`Slug model: ${DEFAULT_FAST_MODEL.provider}/${DEFAULT_FAST_MODEL.modelId}`,
+		);
+		expect(fakes.writePlanCalls[0]?.[1]).toEqual({
+			slug: PLAN_SLUG,
+			content,
+			summary: "Plan the local plan store file.",
+		});
 		expect(result.details).toMatchObject({
 			slug: PLAN_SLUG,
 			filePath: `/tmp/${PLAN_SLUG}.md`,
@@ -131,7 +161,13 @@ describe("write_saved_plan_file tool", () => {
 		const tool = registeredTool(pi, "write_saved_plan_file");
 
 		await expect(
-			tool.execute("tool-call", { slug: PLAN_SLUG, content: DEFAULT_PLAN_CONTENT }, undefined, undefined, { cwd: ROOT }),
+			tool.execute(
+				"tool-call",
+				{ slug: PLAN_SLUG, content: DEFAULT_PLAN_CONTENT },
+				undefined,
+				undefined,
+				{ cwd: ROOT },
+			),
 		).rejects.toThrow("derives `slug` from content through Codex");
 		expect(pi.execCalls).toEqual([]);
 	});
@@ -142,9 +178,9 @@ describe("write_saved_plan_file tool", () => {
 		const tool = registeredTool(pi, "write_saved_plan_file");
 		const toolContext = createToolContext({ hasUI: true });
 
-		await expect(tool.execute("tool-call", { content: 42 }, undefined, undefined, toolContext.ctx)).rejects.toThrow(
-			"requires string parameter `content`",
-		);
+		await expect(
+			tool.execute("tool-call", { content: 42 }, undefined, undefined, toolContext.ctx),
+		).rejects.toThrow("requires string parameter `content`");
 
 		expect(pi.execCalls).toEqual([]);
 		expect(toolContext.statuses).toEqual([
@@ -166,9 +202,18 @@ describe("write_saved_plan_file tool", () => {
 
 		const distinctivePlanBody = "SECRET_PLAN_BODY_SHOULD_NOT_RENDER";
 		const content = `# Plan\n\n${distinctivePlanBody}\n\n${"Details ".repeat(1_800)}`;
-		const missingContent = renderCall({}, undefined, { executionStarted: false, argsComplete: false });
-		const receivingContent = renderCall({ content }, undefined, { executionStarted: false, argsComplete: false });
-		const savingContent = renderCall({ content }, undefined, { executionStarted: true, argsComplete: true });
+		const missingContent = renderCall({}, undefined, {
+			executionStarted: false,
+			argsComplete: false,
+		});
+		const receivingContent = renderCall({ content }, undefined, {
+			executionStarted: false,
+			argsComplete: false,
+		});
+		const savingContent = renderCall({ content }, undefined, {
+			executionStarted: true,
+			argsComplete: true,
+		});
 
 		const missingText = missingContent.render(100).join("\n");
 		const receivingText = receivingContent.render(100).join("\n");
@@ -203,11 +248,17 @@ describe("write_saved_plan_file tool", () => {
 			undefined,
 			undefined,
 		);
-		const final = renderResult({ content: [{ type: "text", text: "Path: /tmp/plan.md" }] }, { isPartial: false }, undefined, undefined);
+		const final = renderResult(
+			{ content: [{ type: "text", text: "Path: /tmp/plan.md" }] },
+			{ isPartial: false },
+			undefined,
+			undefined,
+		);
 
 		expect(partial.render(100).join("\n")).toContain("Saving branch-context plan…");
-		expect(partial.render(100).join("\n")).toContain("Deriving saved-plan filename slug with Codex…");
+		expect(partial.render(100).join("\n")).toContain(
+			"Deriving saved-plan filename slug with Codex…",
+		);
 		expect(final.render(100).join("\n").trimEnd()).toBe("Path: /tmp/plan.md");
 	});
 });
-

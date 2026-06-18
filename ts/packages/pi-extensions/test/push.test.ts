@@ -45,7 +45,10 @@ class FakePi implements ExtensionAPI {
 	readonly sendMessage?: (message: CustomMessage) => void;
 	private readonly script: ScriptedExec[];
 
-	constructor(script: ScriptedExec[] = [], options: { sendMessage?: boolean; registerMessageRenderer?: boolean; events?: string[] } = {}) {
+	constructor(
+		script: ScriptedExec[] = [],
+		options: { sendMessage?: boolean; registerMessageRenderer?: boolean; events?: string[] } = {},
+	) {
 		this.script = [...script];
 		this.events = options.events ?? [];
 		if (options.registerMessageRenderer ?? true) {
@@ -184,13 +187,17 @@ describe("sdl:code:push", () => {
 		pi.assertDone();
 		expect(pi.calls).toEqual([]);
 		expect(waitForIdleCalls()).toBe(0);
-		expect(notifications).toEqual([{ message: "`/sdl:code:push` does not accept arguments.", level: "error" }]);
+		expect(notifications).toEqual([
+			{ message: "`/sdl:code:push` does not accept arguments.", level: "error" },
+		]);
 		expect(messageText(pi.sentMessages[0])).toContain("does not accept arguments");
 	});
 
 	test("calls waitForIdle before git commands", async () => {
 		const events: string[] = [];
-		const pi = new FakePi([step("git", ["status", "--porcelain"]), step("git", ["push"])], { events });
+		const pi = new FakePi([step("git", ["status", "--porcelain"]), step("git", ["push"])], {
+			events,
+		});
 		const command = registeredPushCommand(pi);
 		const { ctx } = createContext(events);
 
@@ -201,7 +208,9 @@ describe("sdl:code:push", () => {
 	});
 
 	test("dirty status blocks push after git status", async () => {
-		const pi = new FakePi([step("git", ["status", "--porcelain"], { stdout: " M src/file.ts\n?? new-file.ts\n" })]);
+		const pi = new FakePi([
+			step("git", ["status", "--porcelain"], { stdout: " M src/file.ts\n?? new-file.ts\n" }),
+		]);
 		const command = registeredPushCommand(pi);
 		const { ctx, notifications } = createContext();
 
@@ -209,8 +218,14 @@ describe("sdl:code:push", () => {
 
 		pi.assertDone();
 		expect(pi.calls).toHaveLength(1);
-		expect(pi.calls[0]).toEqual({ command: "git", args: ["status", "--porcelain"], options: { cwd: ROOT } });
-		expect(notifications).toEqual([{ message: "`/sdl:code:push` requires a clean worktree.", level: "warning" }]);
+		expect(pi.calls[0]).toEqual({
+			command: "git",
+			args: ["status", "--porcelain"],
+			options: { cwd: ROOT },
+		});
+		expect(notifications).toEqual([
+			{ message: "`/sdl:code:push` requires a clean worktree.", level: "warning" },
+		]);
 		const content = messageText(pi.sentMessages[0]);
 		expect(content).toContain("did not run `git push`");
 		expect(content).toContain(" M src/file.ts");
@@ -218,7 +233,10 @@ describe("sdl:code:push", () => {
 	});
 
 	test("clean status runs git push with a two-minute timeout", async () => {
-		const pi = new FakePi([step("git", ["status", "--porcelain"]), step("git", ["push"], { stdout: "Everything up-to-date\n" })]);
+		const pi = new FakePi([
+			step("git", ["status", "--porcelain"]),
+			step("git", ["push"], { stdout: "Everything up-to-date\n" }),
+		]);
 		const command = registeredPushCommand(pi);
 		const { ctx } = createContext();
 
@@ -232,14 +250,19 @@ describe("sdl:code:push", () => {
 	});
 
 	test("successful push emits a success notification and evidence message", async () => {
-		const pi = new FakePi([step("git", ["status", "--porcelain"]), step("git", ["push"], { stdout: "To github.com:repo/project.git\n" })]);
+		const pi = new FakePi([
+			step("git", ["status", "--porcelain"]),
+			step("git", ["push"], { stdout: "To github.com:repo/project.git\n" }),
+		]);
 		const command = registeredPushCommand(pi);
 		const { ctx, notifications } = createContext();
 
 		await command.handler("", ctx);
 
 		pi.assertDone();
-		expect(notifications).toEqual([{ message: "`git push` completed successfully.", level: "info" }]);
+		expect(notifications).toEqual([
+			{ message: "`git push` completed successfully.", level: "info" },
+		]);
 		const content = messageText(pi.sentMessages[0]);
 		expect(content).toContain("`git push` completed successfully.");
 		expect(content).toContain("Command: git push");
@@ -260,27 +283,38 @@ describe("sdl:code:push", () => {
 		await command.handler("", ctx);
 
 		pi.assertDone();
-		expect(notifications).toEqual([{ message: "`git push` failed; use `/sdl:submit`.", level: "error" }]);
+		expect(notifications).toEqual([
+			{ message: "`git push` failed; use `/sdl:submit`.", level: "error" },
+		]);
 		const content = messageText(pi.sentMessages[0]);
-		expect(content).toContain("The branch is likely out of sync or needs the Graphite submit flow. Use `/sdl:submit`.");
+		expect(content).toContain(
+			"The branch is likely out of sync or needs the Graphite submit flow. Use `/sdl:submit`.",
+		);
 		expect(content).toContain("stdout:\nrejected update");
 		expect(content).toContain("stderr:\nnon-fast-forward");
 	});
 
 	test("killed push is a failure even with exit code zero", async () => {
-		const pi = new FakePi([step("git", ["status", "--porcelain"]), step("git", ["push"], { code: 0, killed: true, stderr: "timed out\n" })]);
+		const pi = new FakePi([
+			step("git", ["status", "--porcelain"]),
+			step("git", ["push"], { code: 0, killed: true, stderr: "timed out\n" }),
+		]);
 		const command = registeredPushCommand(pi);
 		const { ctx, notifications } = createContext();
 
 		await command.handler("", ctx);
 
 		pi.assertDone();
-		expect(notifications).toEqual([{ message: "`git push` failed; use `/sdl:submit`.", level: "error" }]);
+		expect(notifications).toEqual([
+			{ message: "`git push` failed; use `/sdl:submit`.", level: "error" },
+		]);
 		expect(messageText(pi.sentMessages[0])).toContain("Killed: true");
 	});
 
 	test("status failure does not run push", async () => {
-		const pi = new FakePi([step("git", ["status", "--porcelain"], { code: 128, stderr: "not a git repository\n" })]);
+		const pi = new FakePi([
+			step("git", ["status", "--porcelain"], { code: 128, stderr: "not a git repository\n" }),
+		]);
 		const command = registeredPushCommand(pi);
 		const { ctx, notifications } = createContext();
 
@@ -288,15 +322,23 @@ describe("sdl:code:push", () => {
 
 		pi.assertDone();
 		expect(pi.calls).toHaveLength(1);
-		expect(notifications).toEqual([{ message: "Could not inspect worktree status for `/sdl:code:push`.", level: "error" }]);
+		expect(notifications).toEqual([
+			{ message: "Could not inspect worktree status for `/sdl:code:push`.", level: "error" },
+		]);
 		expect(messageText(pi.sentMessages[0])).toContain("Could not inspect the worktree status");
 		expect(messageText(pi.sentMessages[0])).toContain("not a git repository");
 	});
 
 	test("falls back to a useful notification when sendMessage is unavailable", async () => {
-		const pi = new FakePi([step("git", ["status", "--porcelain"]), step("git", ["push"], { stdout: "Everything up-to-date\n" })], {
-			sendMessage: false,
-		});
+		const pi = new FakePi(
+			[
+				step("git", ["status", "--porcelain"]),
+				step("git", ["push"], { stdout: "Everything up-to-date\n" }),
+			],
+			{
+				sendMessage: false,
+			},
+		);
 		const command = registeredPushCommand(pi);
 		const { ctx, notifications } = createContext();
 
@@ -315,29 +357,53 @@ describe("sdl:code:push", () => {
 describe("push output renderer", () => {
 	test("styles headline and output labels by message level", () => {
 		const info = renderPushOutputMessage(
-			{ customType: PUSH_OUTPUT_MESSAGE_TYPE, content: "ok\nstdout:\nvalue", display: true, details: { level: "info" } },
+			{
+				customType: PUSH_OUTPUT_MESSAGE_TYPE,
+				content: "ok\nstdout:\nvalue",
+				display: true,
+				details: { level: "info" },
+			},
 			{ expanded: false },
 			taggedTheme(),
 		);
 		const warning = renderPushOutputMessage(
-			{ customType: PUSH_OUTPUT_MESSAGE_TYPE, content: "dirty", display: true, details: { level: "warning" } },
+			{
+				customType: PUSH_OUTPUT_MESSAGE_TYPE,
+				content: "dirty",
+				display: true,
+				details: { level: "warning" },
+			},
 			{ expanded: false },
 			taggedTheme(),
 		);
 		const error = renderPushOutputMessage(
-			{ customType: PUSH_OUTPUT_MESSAGE_TYPE, content: "failed", display: true, details: { level: "error" } },
+			{
+				customType: PUSH_OUTPUT_MESSAGE_TYPE,
+				content: "failed",
+				display: true,
+				details: { level: "error" },
+			},
 			{ expanded: false },
 			taggedTheme(),
 		);
 
-		expect(info.render(120)).toEqual(["<accent><bold>ok</bold></accent>", "<muted>stdout:</muted>", "value"]);
+		expect(info.render(120)).toEqual([
+			"<accent><bold>ok</bold></accent>",
+			"<muted>stdout:</muted>",
+			"value",
+		]);
 		expect(warning.render(120)[0]).toBe("<warning>dirty</warning>");
 		expect(error.render(120)[0]).toBe("<error>failed</error>");
 	});
 
 	test("truncates rendered lines to the available width", () => {
 		const component = renderPushOutputMessage(
-			{ customType: PUSH_OUTPUT_MESSAGE_TYPE, content: "A very long rendered line", display: true, details: { level: "info" } },
+			{
+				customType: PUSH_OUTPUT_MESSAGE_TYPE,
+				content: "A very long rendered line",
+				display: true,
+				details: { level: "info" },
+			},
 			{ expanded: false },
 			noopTheme(),
 		);

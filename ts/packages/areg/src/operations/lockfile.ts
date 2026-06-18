@@ -44,13 +44,26 @@ const skillsLockfileSchema: z.ZodType<SkillsLockfileData> = z.object({
 
 export function parseLockfileData(data: unknown): Result<SkillsLockfile> {
 	const result = skillsLockfileSchema.safeParse(data);
-	if (!result.success) return invalidLockfile(formatZodIssue(result.error.issues[0], { rootPath: "$", pathPrefix: "$.", fallback: "invalid lockfile" }));
+	if (!result.success)
+		return invalidLockfile(
+			formatZodIssue(result.error.issues[0], {
+				rootPath: "$",
+				pathPrefix: "$.",
+				fallback: "invalid lockfile",
+			}),
+		);
 	const lockfileData = result.data as SkillsLockfileData;
 	const skills: LockfileSkill[] = [];
 	for (const name of sortStrings(Object.keys(lockfileData.skills))) {
 		const skill = lockfileData.skills[name];
 		if (skill === undefined) continue;
-		skills.push({ name, source: skill.source, sourceType: skill.sourceType, computedHash: skill.computedHash, skillPath: skill.skillPath });
+		skills.push({
+			name,
+			source: skill.source,
+			sourceType: skill.sourceType,
+			computedHash: skill.computedHash,
+			skillPath: skill.skillPath,
+		});
 	}
 	return { ok: true, value: { version: 1, skills } };
 }
@@ -60,7 +73,10 @@ export function parseLockfileText(text: string): Result<SkillsLockfile> {
 	try {
 		data = JSON.parse(text);
 	} catch (error) {
-		return resultErr({ code: "lockfile_invalid_json", message: `Invalid JSON in skills-lock.json: ${formatErrorMessage(error)}` });
+		return resultErr({
+			code: "lockfile_invalid_json",
+			message: `Invalid JSON in skills-lock.json: ${formatErrorMessage(error)}`,
+		});
 	}
 	return parseLockfileData(data);
 }
@@ -69,7 +85,11 @@ export function parseInspectedLockfile(input: {
 	projectDir: string;
 	lockfile: AregTextFileState;
 }): Result<SkillsLockfile> {
-	if (input.lockfile.type !== "file") return resultErr({ code: "lockfile_missing", message: `skills-lock.json not found in ${input.projectDir}. Is this an areg project?` });
+	if (input.lockfile.type !== "file")
+		return resultErr({
+			code: "lockfile_missing",
+			message: `skills-lock.json not found in ${input.projectDir}. Is this an areg project?`,
+		});
 	return parseLockfileText(input.lockfile.text);
 }
 

@@ -13,7 +13,14 @@ import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";
 
-const runnerSubagentUsageStatusSchema = z.enum(["ok", "missing", "not_file", "invalid_json", "read_error", "no_usage"]);
+const runnerSubagentUsageStatusSchema = z.enum([
+	"ok",
+	"missing",
+	"not_file",
+	"invalid_json",
+	"read_error",
+	"no_usage",
+]);
 
 export const runnerSubagentCostTotalsSchema = z.object({
 	inputUsd: z.number(),
@@ -68,7 +75,10 @@ export const runnerSubagentUsageResultSchema = z.object({
 });
 
 export const runnerSubagentUsageRequestSchema = z.object({
-	session_files: z.array(z.string()).default([]).describe("Pi runner subagent JSONL session files."),
+	session_files: z
+		.array(z.string())
+		.default([])
+		.describe("Pi runner subagent JSONL session files."),
 });
 
 export type RunnerSubagentUsageStatus = z.infer<typeof runnerSubagentUsageStatusSchema>;
@@ -86,29 +96,40 @@ export async function runRunnerSubagentUsage(
 ): Promise<ClinkrExit<RunnerSubagentUsageResult>> {
 	const result = await summarizeRunnerSubagentUsage(request.session_files);
 	if (request.session_files.length === 0) {
-		return negative("Missing session file (missing_session_file). Pass at least one Pi runner subagent JSONL file.", result);
+		return negative(
+			"Missing session file (missing_session_file). Pass at least one Pi runner subagent JSONL file.",
+			result,
+		);
 	}
 	return ok(result);
 }
 
-export async function summarizeRunnerSubagentUsage(sessionFiles: readonly string[]): Promise<RunnerSubagentUsageResult> {
-	const sessions = await Promise.all(sessionFiles.map((sessionFile) => summarizeRunnerSubagentSessionFile(sessionFile)));
+export async function summarizeRunnerSubagentUsage(
+	sessionFiles: readonly string[],
+): Promise<RunnerSubagentUsageResult> {
+	const sessions = await Promise.all(
+		sessionFiles.map((sessionFile) => summarizeRunnerSubagentSessionFile(sessionFile)),
+	);
 	return {
 		sessions,
 		aggregate: buildAggregate(sessions),
 	};
 }
 
-export async function summarizeRunnerSubagentSessionFile(sessionFile: string): Promise<RunnerSubagentUsageSummary> {
+export async function summarizeRunnerSubagentSessionFile(
+	sessionFile: string,
+): Promise<RunnerSubagentUsageSummary> {
 	let fileStat;
 	try {
 		fileStat = await stat(sessionFile);
 	} catch (error) {
 		const nodeError = error as NodeJS.ErrnoException;
-		if (nodeError.code === "ENOENT") return emptySummary(sessionFile, { status: "missing", error: "session file does not exist" });
+		if (nodeError.code === "ENOENT")
+			return emptySummary(sessionFile, { status: "missing", error: "session file does not exist" });
 		return emptySummary(sessionFile, { status: "read_error", error: errorMessage(error) });
 	}
-	if (!fileStat.isFile()) return emptySummary(sessionFile, { status: "not_file", error: "path is not a file" });
+	if (!fileStat.isFile())
+		return emptySummary(sessionFile, { status: "not_file", error: "path is not a file" });
 
 	let content: string;
 	try {
@@ -119,7 +140,11 @@ export async function summarizeRunnerSubagentSessionFile(sessionFile: string): P
 
 	const parsed = parseRunnerSubagentUsageJsonl(content);
 	if (parsed.type === "invalid-json") {
-		return emptySummary(sessionFile, { status: "invalid_json", error: `invalid JSON: ${parsed.message}`, errorLine: parsed.line });
+		return emptySummary(sessionFile, {
+			status: "invalid_json",
+			error: `invalid JSON: ${parsed.message}`,
+			errorLine: parsed.line,
+		});
 	}
 
 	return summaryFromRecords(sessionFile, parsed.records);
@@ -148,8 +173,15 @@ export function renderRunnerSubagentUsageMarkdown(result: RunnerSubagentUsageRes
 	return parts.join("\n");
 }
 
-function summaryFromRecords(sessionFile: string, records: readonly RunnerSubagentUsageRecord[]): RunnerSubagentUsageSummary {
-	if (records.length === 0) return emptySummary(sessionFile, { status: "no_usage", error: "no assistant usage records found" });
+function summaryFromRecords(
+	sessionFile: string,
+	records: readonly RunnerSubagentUsageRecord[],
+): RunnerSubagentUsageSummary {
+	if (records.length === 0)
+		return emptySummary(sessionFile, {
+			status: "no_usage",
+			error: "no assistant usage records found",
+		});
 
 	let tokens = zeroRuntimeTokens();
 	let cost = zeroRuntimeCost();
@@ -161,11 +193,22 @@ function summaryFromRecords(sessionFile: string, records: readonly RunnerSubagen
 	for (const record of records) {
 		tokens = addRunnerSubagentUsageTotals(tokens, record.tokens);
 		cost = addRunnerSubagentUsageCostTotals(cost, record.cost);
-		peakObservedTotalTokens = maxOptional(peakObservedTotalTokens, Math.trunc(record.peakTotalTokens));
-		peakObservedPromptTokens = maxOptional(peakObservedPromptTokens, Math.trunc(record.peakPromptTokens));
+		peakObservedTotalTokens = maxOptional(
+			peakObservedTotalTokens,
+			Math.trunc(record.peakTotalTokens),
+		);
+		peakObservedPromptTokens = maxOptional(
+			peakObservedPromptTokens,
+			Math.trunc(record.peakPromptTokens),
+		);
 
 		const modelKey = `${record.model.provider ?? ""}\u0000${record.model.api ?? ""}\u0000${record.model.model ?? ""}`;
-		if ((record.model.provider !== null || record.model.api !== null || record.model.model !== null) && !seenModelKeys.has(modelKey)) {
+		if (
+			(record.model.provider !== null ||
+				record.model.api !== null ||
+				record.model.model !== null) &&
+			!seenModelKeys.has(modelKey)
+		) {
 			seenModelKeys.add(modelKey);
 			models.push(record.model);
 		}
@@ -186,7 +229,9 @@ function summaryFromRecords(sessionFile: string, records: readonly RunnerSubagen
 	};
 }
 
-function buildAggregate(sessions: readonly RunnerSubagentUsageSummary[]): RunnerSubagentUsageAggregate {
+function buildAggregate(
+	sessions: readonly RunnerSubagentUsageSummary[],
+): RunnerSubagentUsageAggregate {
 	let tokens = zeroObjectiveTokens();
 	let cost = zeroObjectiveCost();
 	let usageResponseCount = 0;
@@ -199,7 +244,10 @@ function buildAggregate(sessions: readonly RunnerSubagentUsageSummary[]): Runner
 		cost = addObjectiveCost(cost, session.cost);
 		usageResponseCount += session.assistantResponseCount;
 		peakObservedTotalTokens = maxOptional(peakObservedTotalTokens, session.peakObservedTotalTokens);
-		peakObservedPromptTokens = maxOptional(peakObservedPromptTokens, session.peakObservedPromptTokens);
+		peakObservedPromptTokens = maxOptional(
+			peakObservedPromptTokens,
+			session.peakObservedPromptTokens,
+		);
 	}
 
 	return {
@@ -216,7 +264,11 @@ function buildAggregate(sessions: readonly RunnerSubagentUsageSummary[]): Runner
 
 function emptySummary(
 	sessionFile: string,
-	options: { readonly status: RunnerSubagentUsageStatus; readonly error: string | null; readonly errorLine?: number | undefined },
+	options: {
+		readonly status: RunnerSubagentUsageStatus;
+		readonly error: string | null;
+		readonly errorLine?: number | undefined;
+	},
 ): RunnerSubagentUsageSummary {
 	return {
 		sessionFile,
@@ -242,14 +294,23 @@ function zeroRuntimeCost(): RuntimeRunnerSubagentUsageCostTotals {
 }
 
 function zeroObjectiveTokens(): RunnerSubagentTokenTotals {
-	return { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, totalTokens: 0 };
+	return {
+		inputTokens: 0,
+		outputTokens: 0,
+		cacheReadTokens: 0,
+		cacheWriteTokens: 0,
+		totalTokens: 0,
+	};
 }
 
 function zeroObjectiveCost(): RunnerSubagentCostTotals {
 	return { inputUsd: 0, outputUsd: 0, cacheReadUsd: 0, cacheWriteUsd: 0, totalUsd: 0 };
 }
 
-function addObjectiveTokens(left: RunnerSubagentTokenTotals, right: RunnerSubagentTokenTotals): RunnerSubagentTokenTotals {
+function addObjectiveTokens(
+	left: RunnerSubagentTokenTotals,
+	right: RunnerSubagentTokenTotals,
+): RunnerSubagentTokenTotals {
 	return {
 		inputTokens: left.inputTokens + right.inputTokens,
 		outputTokens: left.outputTokens + right.outputTokens,
@@ -259,7 +320,10 @@ function addObjectiveTokens(left: RunnerSubagentTokenTotals, right: RunnerSubage
 	};
 }
 
-function addObjectiveCost(left: RunnerSubagentCostTotals, right: RunnerSubagentCostTotals): RunnerSubagentCostTotals {
+function addObjectiveCost(
+	left: RunnerSubagentCostTotals,
+	right: RunnerSubagentCostTotals,
+): RunnerSubagentCostTotals {
 	return {
 		inputUsd: left.inputUsd + right.inputUsd,
 		outputUsd: left.outputUsd + right.outputUsd,
@@ -301,7 +365,8 @@ function renderSessionRow(session: RunnerSubagentUsageSummary): string {
 
 function statusText(session: RunnerSubagentUsageSummary): string {
 	if (session.error === null) return session.status;
-	if (session.errorLine !== null) return `${session.status} (line ${session.errorLine}: ${session.error})`;
+	if (session.errorLine !== null)
+		return `${session.status} (line ${session.errorLine}: ${session.error})`;
 	return `${session.status} (${session.error})`;
 }
 
@@ -311,7 +376,9 @@ function modelsText(models: readonly RunnerSubagentModelRef[]): string {
 }
 
 function modelText(modelRef: RunnerSubagentModelRef): string {
-	const parts = [modelRef.provider, modelRef.api, modelRef.model].filter((part): part is string => part !== null && part !== "");
+	const parts = [modelRef.provider, modelRef.api, modelRef.model].filter(
+		(part): part is string => part !== null && part !== "",
+	);
 	return parts.length === 0 ? "—" : parts.join("/");
 }
 
@@ -320,7 +387,10 @@ function formatSessionInt(session: RunnerSubagentUsageSummary, value: number): s
 	return formatInt(value);
 }
 
-function formatSessionOptionalInt(session: RunnerSubagentUsageSummary, value: number | null): string {
+function formatSessionOptionalInt(
+	session: RunnerSubagentUsageSummary,
+	value: number | null,
+): string {
 	if (session.status !== "ok" || value === null) return "—";
 	return formatInt(value);
 }

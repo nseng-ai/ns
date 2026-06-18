@@ -43,7 +43,11 @@ describe("fs bundle store", () => {
 		const duplicate = await store.persistBundle(snapshot("one"));
 		const second = await store.persistBundle(snapshot("two"));
 
-		expect(first.ok && first.value).toMatchObject({ ordinal: 1, isReused: false, manifest: { sessionId: "sid", model: "p/m", turnCount: 1 } });
+		expect(first.ok && first.value).toMatchObject({
+			ordinal: 1,
+			isReused: false,
+			manifest: { sessionId: "sid", model: "p/m", turnCount: 1 },
+		});
 		expect(duplicate.ok && duplicate.value).toMatchObject({ ordinal: 1, isReused: true });
 		expect(second.ok && second.value).toMatchObject({ ordinal: 2, isReused: false });
 	});
@@ -51,7 +55,11 @@ describe("fs bundle store", () => {
 	test("invalid manifest directories still reserve ordinals but do not dedupe", async () => {
 		const root = await tempRoot();
 		await mkdir(join(root, "context-profiles", "sid", "1"), { recursive: true });
-		await writeFile(join(root, "context-profiles", "sid", "1", "manifest.json"), "not json", "utf8");
+		await writeFile(
+			join(root, "context-profiles", "sid", "1", "manifest.json"),
+			"not json",
+			"utf8",
+		);
 		const store = createFsBundleStore({ sessionDir: root, sessionId: "sid" });
 
 		const result = await store.persistBundle(snapshot("one"));
@@ -66,7 +74,10 @@ describe("fs bundle store", () => {
 		if (!persisted.ok) throw new Error(persisted.error.message);
 
 		const first = await store.writeEpisodesFile({ bundleDir: persisted.value.dir, json: "{}\n" });
-		const second = await store.writeEpisodesFile({ bundleDir: persisted.value.dir, json: "{\"different\":true}\n" });
+		const second = await store.writeEpisodesFile({
+			bundleDir: persisted.value.dir,
+			json: '{"different":true}\n',
+		});
 
 		expect(first).toEqual({ ok: true, isAlreadyPresent: false });
 		expect(second).toEqual({ ok: true, isAlreadyPresent: true });

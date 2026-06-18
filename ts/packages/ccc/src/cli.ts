@@ -17,10 +17,14 @@ import { createAutobranchCheckpointFlow, type AutobranchFlowInput } from "./auto
 import type { ParsedAutobranchArgs } from "./autobranch/preparation.ts";
 
 const VERSION = "0.1.0";
-export const AUTOBRANCH_SUMMARY = "Create a Graphite branch from dirty worktree changes or the latest unpushed commit.";
+export const AUTOBRANCH_SUMMARY =
+	"Create a Graphite branch from dirty worktree changes or the latest unpushed commit.";
 
 type AutobranchSeamOverrides = Partial<
-	Pick<AutobranchFlowInput, "prepareCheckpointMessage" | "commitPreparedCheckpointMessage" | "readFile" | "stat" | "now">
+	Pick<
+		AutobranchFlowInput,
+		"prepareCheckpointMessage" | "commitPreparedCheckpointMessage" | "readFile" | "stat" | "now"
+	>
 >;
 
 export interface CccCliDeps {
@@ -42,7 +46,10 @@ export interface CccCliContext {
 }
 
 const autobranchRequestSchema = z.object({
-	slug: z.string().optional().describe("Branch slug to use instead of deriving one from the worktree or latest commit."),
+	slug: z
+		.string()
+		.optional()
+		.describe("Branch slug to use instead of deriving one from the worktree or latest commit."),
 });
 
 type AutobranchRequest = z.infer<typeof autobranchRequestSchema>;
@@ -77,12 +84,16 @@ Dirty worktree mode stashes pending changes, creates a Graphite branch, restores
 }
 
 export async function runCli(args: readonly string[], deps: CccCliDeps = {}): Promise<number> {
-	const stdout = deps.stdout ?? ((text: string) => {
-		process.stdout.write(text);
-	});
-	const stderr = deps.stderr ?? ((text: string) => {
-		process.stderr.write(text);
-	});
+	const stdout =
+		deps.stdout ??
+		((text: string) => {
+			process.stdout.write(text);
+		});
+	const stderr =
+		deps.stderr ??
+		((text: string) => {
+			process.stderr.write(text);
+		});
 	const commands = deps.commands ?? new NodeCommandExecApi();
 	const env = deps.env ?? process.env;
 	const cwd = deps.cwd ?? process.cwd();
@@ -105,13 +116,17 @@ async function handleAutobranch(ctx: CccCliContext, request: AutobranchRequest):
 	const result = await createAutobranchCheckpointFlow({
 		cwd: ctx.cwd,
 		args,
-		exec: (command, commandArgs, cwd, timeout) => ctx.commands.exec(command, commandArgs, { cwd, timeout, env: ctx.env }),
-		prepareCheckpointMessage: autobranch.prepareCheckpointMessage ?? ((snapshot) => prepareAutobranchCheckpointMessage(snapshot, ctx.env)),
+		exec: (command, commandArgs, cwd, timeout) =>
+			ctx.commands.exec(command, commandArgs, { cwd, timeout, env: ctx.env }),
+		prepareCheckpointMessage:
+			autobranch.prepareCheckpointMessage ??
+			((snapshot) => prepareAutobranchCheckpointMessage(snapshot, ctx.env)),
 		commitPreparedCheckpointMessage:
 			autobranch.commitPreparedCheckpointMessage ??
 			((message) =>
 				commitAutobranchCheckpointMessage(
-					(command, commandArgs, commandCwd, timeout) => ctx.commands.exec(command, commandArgs, { cwd: commandCwd, timeout, env: ctx.env }),
+					(command, commandArgs, commandCwd, timeout) =>
+						ctx.commands.exec(command, commandArgs, { cwd: commandCwd, timeout, env: ctx.env }),
 					ctx.cwd,
 					message,
 				)),

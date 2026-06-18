@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
 
-import { InMemoryPrAddressGitHubGateway, prSummary } from "../support/in-memory-pr-address-gateways.ts";
+import {
+	InMemoryPrAddressGitHubGateway,
+	prSummary,
+} from "../support/in-memory-pr-address-gateways.ts";
 import { runScenario } from "../support/run-scenario.ts";
 
 interface MachineEnvelope {
@@ -11,7 +14,14 @@ interface MachineEnvelope {
 }
 
 interface MapBranchPrsData {
-	branch_prs: Array<{ branch: string; pr_number: number; title: string; url: string; head_ref_name: string; base_ref_name: string }>;
+	branch_prs: Array<{
+		branch: string;
+		pr_number: number;
+		title: string;
+		url: string;
+		head_ref_name: string;
+		base_ref_name: string;
+	}>;
 	missing_branches: string[];
 	ambiguous_branches: Array<{ branch: string; candidates: Array<{ pr_number: number }> }>;
 	summary: { requested: number; matched: number; missing: number; ambiguous: number };
@@ -20,8 +30,20 @@ interface MapBranchPrsData {
 function stackedGithub(): InMemoryPrAddressGitHubGateway {
 	return new InMemoryPrAddressGitHubGateway({
 		prs: [
-			prSummary({ number: 11, head_ref_name: "feature-a", base_ref_name: "master", title: "A", url: "https://github.example/pr/11" }),
-			prSummary({ number: 12, head_ref_name: "feature-b", base_ref_name: "feature-a", title: "B", url: "https://github.example/pr/12" }),
+			prSummary({
+				number: 11,
+				head_ref_name: "feature-a",
+				base_ref_name: "master",
+				title: "A",
+				url: "https://github.example/pr/11",
+			}),
+			prSummary({
+				number: 12,
+				head_ref_name: "feature-b",
+				base_ref_name: "feature-a",
+				title: "B",
+				url: "https://github.example/pr/12",
+			}),
 			prSummary({ number: 13, head_ref_name: "feature-merged", state: "MERGED" }),
 		],
 	});
@@ -45,8 +67,22 @@ describe("pr-address exec map-branch-prs", () => {
 		const envelope = parseEnvelope(run);
 		expect(envelope.exit_code).toBe(0);
 		expect(envelope.data?.branch_prs).toEqual([
-			{ branch: "feature-b", pr_number: 12, title: "B", url: "https://github.example/pr/12", head_ref_name: "feature-b", base_ref_name: "feature-a" },
-			{ branch: "feature-a", pr_number: 11, title: "A", url: "https://github.example/pr/11", head_ref_name: "feature-a", base_ref_name: "master" },
+			{
+				branch: "feature-b",
+				pr_number: 12,
+				title: "B",
+				url: "https://github.example/pr/12",
+				head_ref_name: "feature-b",
+				base_ref_name: "feature-a",
+			},
+			{
+				branch: "feature-a",
+				pr_number: 11,
+				title: "A",
+				url: "https://github.example/pr/11",
+				head_ref_name: "feature-a",
+				base_ref_name: "master",
+			},
 		]);
 		expect(envelope.data?.missing_branches).toEqual([]);
 		expect(envelope.data?.ambiguous_branches).toEqual([]);
@@ -69,9 +105,12 @@ describe("pr-address exec map-branch-prs", () => {
 	});
 
 	test("accepts the payload via --branches-json", async () => {
-		const run = runScenario(mapArgs(["--branches-json", JSON.stringify({ branches: ["feature-a"] })]), {
-			github: stackedGithub(),
-		});
+		const run = runScenario(
+			mapArgs(["--branches-json", JSON.stringify({ branches: ["feature-a"] })]),
+			{
+				github: stackedGithub(),
+			},
+		);
 		expect(await run.exit).toBe(0);
 		expect(parseEnvelope(run).data?.branch_prs.map((entry) => entry.branch)).toEqual(["feature-a"]);
 	});
@@ -93,7 +132,13 @@ describe("pr-address exec map-branch-prs", () => {
 		expect(envelope.message).toBe("Multiple open PRs found for branches: feature-shared");
 		expect(envelope.data?.branch_prs).toEqual([]);
 		expect(envelope.data?.ambiguous_branches).toEqual([
-			{ branch: "feature-shared", candidates: expect.arrayContaining([expect.objectContaining({ pr_number: 30 }), expect.objectContaining({ pr_number: 21 })]) },
+			{
+				branch: "feature-shared",
+				candidates: expect.arrayContaining([
+					expect.objectContaining({ pr_number: 30 }),
+					expect.objectContaining({ pr_number: 21 }),
+				]),
+			},
 		]);
 		expect(envelope.data?.summary).toEqual({ requested: 1, matched: 0, missing: 0, ambiguous: 1 });
 	});
@@ -126,7 +171,9 @@ describe("pr-address exec map-branch-prs", () => {
 			stdin: JSON.stringify({ branches: ["feature-a", "  "] }),
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseEnvelope(run).message).toBe("map-branch-prs requires every branch to be non-empty.");
+		expect(parseEnvelope(run).message).toBe(
+			"map-branch-prs requires every branch to be non-empty.",
+		);
 	});
 
 	test("rejects empty stdin with invalid_request", async () => {
@@ -144,15 +191,25 @@ describe("pr-address exec map-branch-prs", () => {
 	test("rejects an unexpected positional argument with a commander usage error", async () => {
 		// PINNED CLINKR SEMANTICS: excess arguments are a raw commander usage
 		// error (stderr, exit 2), never a machine envelope.
-		const run = runScenario(["exec", "map-branch-prs", "extra", "--format", "json"], { github: stackedGithub() });
+		const run = runScenario(["exec", "map-branch-prs", "extra", "--format", "json"], {
+			github: stackedGithub(),
+		});
 		expect(await run.exit).toBe(2);
 		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toBe("error: too many arguments for 'map-branch-prs'. Expected 0 arguments but got 1.\n");
+		expect(run.stderr.join("")).toBe(
+			"error: too many arguments for 'map-branch-prs'. Expected 0 arguments but got 1.\n",
+		);
 	});
 
 	test("maps a gh listing failure to pr_gateway_failure", async () => {
 		const github = new InMemoryPrAddressGitHubGateway({
-			listOpenPrsFailure: { code: "gateway_failed", message: "gh: network down", stderr: "gh: network down", stdout: "", returncode: 1 },
+			listOpenPrsFailure: {
+				code: "gateway_failed",
+				message: "gh: network down",
+				stderr: "gh: network down",
+				stdout: "",
+				returncode: 1,
+			},
 		});
 		const run = runScenario(mapArgs(), {
 			github,
@@ -163,5 +220,4 @@ describe("pr-address exec map-branch-prs", () => {
 		expect(envelope.error_type).toBe("pr_gateway_failure");
 		expect(envelope.message).toBe("Failed to list open PRs: gh: network down");
 	});
-
 });

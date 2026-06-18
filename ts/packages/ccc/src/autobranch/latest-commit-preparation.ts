@@ -2,7 +2,12 @@ import type { CommandResult } from "@asdl/sdl/checkpoint-flow";
 import type { PendingWorktreeSnapshot } from "@asdl/sdl/pending-worktree";
 
 import { chooseAvailableBranchName } from "./branch-name.ts";
-import { buildBranchSlugPrompt, deriveBranchSlug, MAX_DIFF_CHARS, prepareRequestedBranchSlug } from "./slug.ts";
+import {
+	buildBranchSlugPrompt,
+	deriveBranchSlug,
+	MAX_DIFF_CHARS,
+	prepareRequestedBranchSlug,
+} from "./slug.ts";
 import { formatCommandDetails } from "./shared.ts";
 import { inspectUpstreamHeadState } from "./upstream.ts";
 import type { ParsedAutobranchArgs } from "./preparation.ts";
@@ -69,13 +74,17 @@ type LatestCommitFactsFailure = Extract<
 	}
 >;
 
-export type LatestCommitFactsResult = { ok: true; facts: LatestCommitFacts } | LatestCommitFactsFailure;
+export type LatestCommitFactsResult =
+	| { ok: true; facts: LatestCommitFacts }
+	| LatestCommitFactsFailure;
 
 type PreparedLatestCommitSlugResult =
 	| { ok: true; baseSlug: string; source: LatestCommitAutobranchPlan["slugSource"] }
 	| Extract<LatestCommitPreparationResult, { kind: "slug_generation_failed" }>;
 
-export async function prepareLatestCommitAutobranchPlan(input: LatestCommitPreparationInput): Promise<LatestCommitPreparationResult> {
+export async function prepareLatestCommitAutobranchPlan(
+	input: LatestCommitPreparationInput,
+): Promise<LatestCommitPreparationResult> {
 	const requested = prepareRequestedBranchSlug(input.args.slug);
 	if (requested.kind === "invalid_requested_slug") {
 		return { ok: false, kind: "invalid_requested_slug", requestedSlug: requested.requestedSlug };
@@ -86,7 +95,10 @@ export async function prepareLatestCommitAutobranchPlan(input: LatestCommitPrepa
 		return facts;
 	}
 
-	const slug = requested.kind === "slug" ? { ok: true as const, baseSlug: requested.baseSlug, source: requested.source } : await prepareLatestCommitSlug(input, facts.facts);
+	const slug =
+		requested.kind === "slug"
+			? { ok: true as const, baseSlug: requested.baseSlug, source: requested.source }
+			: await prepareLatestCommitSlug(input, facts.facts);
 	if (!slug.ok) {
 		return slug;
 	}
@@ -108,12 +120,18 @@ export async function prepareLatestCommitAutobranchPlan(input: LatestCommitPrepa
 	};
 }
 
-export async function loadLatestCommitFacts(input: Pick<LatestCommitPreparationInput, "cwd" | "exec" | "snapshot">): Promise<LatestCommitFactsResult> {
+export async function loadLatestCommitFacts(
+	input: Pick<LatestCommitPreparationInput, "cwd" | "exec" | "snapshot">,
+): Promise<LatestCommitFactsResult> {
 	const trunk = await input.exec("gt", ["trunk", "--no-interactive"], input.cwd, GT_TIMEOUT_MS);
 	if (trunk.code !== 0) {
 		return { ok: false, kind: "trunk_lookup_failed", error: formatCommandDetails(trunk) };
 	}
-	const trunkBranch = trunk.stdout.trim().split("\n").find((line) => line.trim().length > 0)?.trim();
+	const trunkBranch = trunk.stdout
+		.trim()
+		.split("\n")
+		.find((line) => line.trim().length > 0)
+		?.trim();
 	if (!trunkBranch) {
 		return { ok: false, kind: "trunk_lookup_failed", error: "gt trunk returned no branch name." };
 	}
@@ -137,13 +155,22 @@ export async function loadLatestCommitFacts(input: Pick<LatestCommitPreparationI
 		return { ok: false, kind: "child_branch_refusal", children: children.children };
 	}
 
-	const parents = await input.exec("git", ["rev-list", "--parents", "-n", "1", "HEAD"], input.cwd, GIT_TIMEOUT_MS);
+	const parents = await input.exec(
+		"git",
+		["rev-list", "--parents", "-n", "1", "HEAD"],
+		input.cwd,
+		GIT_TIMEOUT_MS,
+	);
 	if (parents.code !== 0) {
 		return { ok: false, kind: "commit_parent_lookup_failed", error: formatCommandDetails(parents) };
 	}
 	const [headSha, ...parentShas] = parents.stdout.trim().split(/\s+/).filter(Boolean);
 	if (!headSha) {
-		return { ok: false, kind: "commit_parent_lookup_failed", error: "git rev-list returned no HEAD commit." };
+		return {
+			ok: false,
+			kind: "commit_parent_lookup_failed",
+			error: "git rev-list returned no HEAD commit.",
+		};
 	}
 	if (parentShas.length === 0) {
 		return { ok: false, kind: "root_commit_refusal", headSha };
@@ -180,8 +207,15 @@ export async function loadLatestCommitFacts(input: Pick<LatestCommitPreparationI
 	};
 }
 
-async function inspectGraphiteChildBranches(input: Pick<LatestCommitPreparationInput, "cwd" | "exec">): Promise<{ ok: true; children: string[] } | { ok: false; error: string }> {
-	const children = await input.exec("gt", ["children", "--no-interactive"], input.cwd, GT_TIMEOUT_MS);
+async function inspectGraphiteChildBranches(
+	input: Pick<LatestCommitPreparationInput, "cwd" | "exec">,
+): Promise<{ ok: true; children: string[] } | { ok: false; error: string }> {
+	const children = await input.exec(
+		"gt",
+		["children", "--no-interactive"],
+		input.cwd,
+		GT_TIMEOUT_MS,
+	);
 	if (children.code !== 0) {
 		return { ok: false, error: formatCommandDetails(children) };
 	}
@@ -195,8 +229,15 @@ function nonEmptyLines(value: string): string[] {
 		.filter((line) => line.length > 0);
 }
 
-async function prepareLatestCommitSlug(input: Pick<LatestCommitPreparationInput, "cwd" | "exec">, facts: LatestCommitFacts): Promise<PreparedLatestCommitSlugResult> {
-	const result = await deriveBranchSlug({ cwd: input.cwd, prompt: buildLatestCommitSlugPrompt(facts), exec: input.exec });
+async function prepareLatestCommitSlug(
+	input: Pick<LatestCommitPreparationInput, "cwd" | "exec">,
+	facts: LatestCommitFacts,
+): Promise<PreparedLatestCommitSlugResult> {
+	const result = await deriveBranchSlug({
+		cwd: input.cwd,
+		prompt: buildLatestCommitSlugPrompt(facts),
+		exec: input.exec,
+	});
 	if (result.ok) {
 		return { ok: true, baseSlug: result.baseSlug, source: result.source };
 	}
@@ -212,8 +253,17 @@ function buildLatestCommitSlugPrompt(facts: LatestCommitFacts): string {
 		intro: "Generate a concise git branch slug for the latest commit below.",
 		inference: "Infer the actual code, docs, or product change from the commit and diff contents.",
 		evidenceSections: [
-			{ heading: "commit message", content: facts.commitMessage, emptyText: "(empty commit message)" },
-			{ heading: "git diff HEAD^ HEAD", content: facts.commitDiff, emptyText: "(no diff)", maxChars: MAX_DIFF_CHARS },
+			{
+				heading: "commit message",
+				content: facts.commitMessage,
+				emptyText: "(empty commit message)",
+			},
+			{
+				heading: "git diff HEAD^ HEAD",
+				content: facts.commitDiff,
+				emptyText: "(no diff)",
+				maxChars: MAX_DIFF_CHARS,
+			},
 		],
 	});
 }

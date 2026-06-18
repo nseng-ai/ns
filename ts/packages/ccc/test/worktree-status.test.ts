@@ -88,7 +88,9 @@ class OrderlessFakePi {
 
 	async exec(command: string, args: string[]): Promise<ExecResult> {
 		this.calls.push({ command, args: [...args] });
-		const index = this.script.findIndex((expected) => expected.command === command && sameArgs(expected.args, args));
+		const index = this.script.findIndex(
+			(expected) => expected.command === command && sameArgs(expected.args, args),
+		);
 		if (index === -1) {
 			const message = `unexpected exec: ${command} ${args.join(" ")}`;
 			this.errors.push(message);
@@ -130,7 +132,10 @@ function dirtyStep(stdout = ""): ScriptedExec {
 	return step("git", ["status", "--porcelain=v1"], { stdout });
 }
 
-async function loadFormattedStatus(script: ScriptedExec[], root: string): Promise<{ pi: FakePi; formatted: string }> {
+async function loadFormattedStatus(
+	script: ScriptedExec[],
+	root: string,
+): Promise<{ pi: FakePi; formatted: string }> {
 	const pi = new FakePi(script);
 	const status = await loadGtStatus({ pi, cwd: root });
 	return { pi, formatted: formatGtStatus(status) };
@@ -142,7 +147,10 @@ async function loadComposedWorktreeStatus(
 	options?: LoadLocalWorktreeStatusOptions,
 ): Promise<WorktreeStatus> {
 	const local = await loadLocalWorktreeStatus(pi, cwd, options);
-	const gh = await loadWorktreeGhStatus(pi, cwd, { identity: local.identity, signal: options?.signal });
+	const gh = await loadWorktreeGhStatus(pi, cwd, {
+		identity: local.identity,
+		signal: options?.signal,
+	});
 	return combineWorktreeStatus(local, gh);
 }
 
@@ -286,7 +294,11 @@ describe("worktree status message rendering", () => {
 			{
 				customType: "worktree-status",
 				content: "[gh] #489 · comments 0/0 · actions 12✓ · landable",
-				details: { prLinks: [{ number: 489, url: "https://app.graphite.com/github/pr/dagster-io/asdl-tools/489" }] },
+				details: {
+					prLinks: [
+						{ number: 489, url: "https://app.graphite.com/github/pr/dagster-io/asdl-tools/489" },
+					],
+				},
 			},
 			{ expanded: false },
 			{ fg: (_color, text) => text },
@@ -314,75 +326,134 @@ describe("worktree status message rendering", () => {
 
 describe("worktree status formatting", () => {
 	test("formats the empty branch icon for zero branch-local commits", () => {
-		expect(formatGtStatus({ down: "main", up: "-", commits: { type: "count", count: 0 }, dirty: "no" })).toBe("[gt] ↓ main · ↑ - · 0 commits");
+		expect(
+			formatGtStatus({ down: "main", up: "-", commits: { type: "count", count: 0 }, dirty: "no" }),
+		).toBe("[gt] ↓ main · ↑ - · 0 commits");
 	});
 
 	test("formats commits, unknown commits, and dirty state", () => {
-		expect(formatGtStatus({ down: "main", up: "-", commits: { type: "count", count: 1 }, dirty: "no" })).toBe(
-			"[gt] ↓ main · ↑ - · 1 commit",
-		);
-		expect(formatGtStatus({ down: "main", up: "-", commits: { type: "unknown" }, dirty: "no" })).toBe(
-			"[gt] ↓ main · ↑ - · commits ?",
-		);
-		expect(formatGtStatus({ down: "main", up: "-", commits: { type: "count", count: 0 }, dirty: "yes" })).toBe(
-			"[gt] ↓ main · ↑ - · 0 commits · ✗",
-		);
+		expect(
+			formatGtStatus({ down: "main", up: "-", commits: { type: "count", count: 1 }, dirty: "no" }),
+		).toBe("[gt] ↓ main · ↑ - · 1 commit");
+		expect(
+			formatGtStatus({ down: "main", up: "-", commits: { type: "unknown" }, dirty: "no" }),
+		).toBe("[gt] ↓ main · ↑ - · commits ?");
+		expect(
+			formatGtStatus({ down: "main", up: "-", commits: { type: "count", count: 0 }, dirty: "yes" }),
+		).toBe("[gt] ↓ main · ↑ - · 0 commits · ✗");
 	});
 
 	test("omits downstack and commit marker when no downstack branch applies", () => {
-		expect(formatGtStatus({ down: undefined, up: "<multiple>", commits: { type: "not-applicable" }, dirty: "no" })).toBe(
-			"[gt] ↑ <multiple>",
-		);
+		expect(
+			formatGtStatus({
+				down: undefined,
+				up: "<multiple>",
+				commits: { type: "not-applicable" },
+				dirty: "no",
+			}),
+		).toBe("[gt] ↑ <multiple>");
 	});
 
 	test("formats gh landability from unresolved comments and condensed action buckets", () => {
-		expect(formatGhStatus({ type: "available", prNumber: 1736, threads: { unresolved: 0, total: 8, hasMore: false }, checks: { passing: 16, pending: 0, failing: 0, unknown: 0 } })).toBe(
-			"[gh] #1736 · comments 8/8 · actions 16✓ · landable",
-		);
-		expect(formatGhStatus({ type: "available", prNumber: 1736, threads: { unresolved: 18, total: 18, hasMore: false }, checks: { passing: 16, pending: 0, failing: 0, unknown: 0 } })).toBe(
-			"[gh] #1736 · comments 0/18 · actions 16✓",
-		);
-		expect(formatGhStatus({ type: "available", prNumber: 1736, threads: { unresolved: 0, total: 100, hasMore: true }, checks: { passing: 16, pending: 0, failing: 0, unknown: 0 } })).toBe(
-			"[gh] #1736 · comments 100/100+ · actions 16✓",
-		);
-		expect(formatGhStatus({ type: "available", prNumber: 1736, threads: { unresolved: 0, total: 8, hasMore: false }, checks: { passing: 16, pending: 0, failing: 0, unknown: 0, hasMore: true } })).toBe(
-			"[gh] #1736 · comments 8/8 · actions 16✓ +",
-		);
-		expect(formatGhStatus({ type: "available", prNumber: 1736, threads: { unresolved: 2, total: 100, hasMore: true }, checks: { passing: 16, pending: 3, failing: 1, unknown: 0 } })).toBe(
-			"[gh] #1736 · comments 98/100+ · actions 3⏳ 1✗",
-		);
-		expect(formatGhStatus({ type: "available", prNumber: 1736, threads: { unresolved: 0, total: 8, hasMore: false }, checks: { passing: 16, pending: 0, failing: 0, unknown: 2 } })).toBe(
-			"[gh] #1736 · comments 8/8 · actions 2?",
-		);
-		expect(formatGhStatus({ type: "available", prNumber: 1736, threads: { unresolved: 0, total: 0, hasMore: false }, checks: { passing: 0, pending: 0, failing: 0, unknown: 0 } })).toBe(
-			"[gh] #1736 · comments 0/0 · actions 0✓ · landable",
-		);
+		expect(
+			formatGhStatus({
+				type: "available",
+				prNumber: 1736,
+				threads: { unresolved: 0, total: 8, hasMore: false },
+				checks: { passing: 16, pending: 0, failing: 0, unknown: 0 },
+			}),
+		).toBe("[gh] #1736 · comments 8/8 · actions 16✓ · landable");
+		expect(
+			formatGhStatus({
+				type: "available",
+				prNumber: 1736,
+				threads: { unresolved: 18, total: 18, hasMore: false },
+				checks: { passing: 16, pending: 0, failing: 0, unknown: 0 },
+			}),
+		).toBe("[gh] #1736 · comments 0/18 · actions 16✓");
+		expect(
+			formatGhStatus({
+				type: "available",
+				prNumber: 1736,
+				threads: { unresolved: 0, total: 100, hasMore: true },
+				checks: { passing: 16, pending: 0, failing: 0, unknown: 0 },
+			}),
+		).toBe("[gh] #1736 · comments 100/100+ · actions 16✓");
+		expect(
+			formatGhStatus({
+				type: "available",
+				prNumber: 1736,
+				threads: { unresolved: 0, total: 8, hasMore: false },
+				checks: { passing: 16, pending: 0, failing: 0, unknown: 0, hasMore: true },
+			}),
+		).toBe("[gh] #1736 · comments 8/8 · actions 16✓ +");
+		expect(
+			formatGhStatus({
+				type: "available",
+				prNumber: 1736,
+				threads: { unresolved: 2, total: 100, hasMore: true },
+				checks: { passing: 16, pending: 3, failing: 1, unknown: 0 },
+			}),
+		).toBe("[gh] #1736 · comments 98/100+ · actions 3⏳ 1✗");
+		expect(
+			formatGhStatus({
+				type: "available",
+				prNumber: 1736,
+				threads: { unresolved: 0, total: 8, hasMore: false },
+				checks: { passing: 16, pending: 0, failing: 0, unknown: 2 },
+			}),
+		).toBe("[gh] #1736 · comments 8/8 · actions 2?");
+		expect(
+			formatGhStatus({
+				type: "available",
+				prNumber: 1736,
+				threads: { unresolved: 0, total: 0, hasMore: false },
+				checks: { passing: 0, pending: 0, failing: 0, unknown: 0 },
+			}),
+		).toBe("[gh] #1736 · comments 0/0 · actions 0✓ · landable");
 		expect(formatGhStatus({ type: "no-pr" })).toBe("[gh] no PR");
 		expect(formatGhStatus({ type: "head-mismatch" })).toBe("[gh] local ahead of PR");
 		expect(formatGhStatus({ type: "unavailable" })).toBe("[gh] unavailable");
-		expect(formatGhStatus({ type: "unavailable", message: "gh api graphql exited 1: timeout" })).toBe(
-			"[gh] unavailable: gh api graphql exited 1: timeout",
-		);
+		expect(
+			formatGhStatus({ type: "unavailable", message: "gh api graphql exited 1: timeout" }),
+		).toBe("[gh] unavailable: gh api graphql exited 1: timeout");
 	});
 
 	test("colors gh landability by state without changing stripped text", () => {
-		const blocked = formatGhStatus({ type: "available", prNumber: 1736, threads: { unresolved: 2, total: 100, hasMore: true }, checks: { passing: 16, pending: 3, failing: 1, unknown: 0 } }, MARKER_THEME);
+		const blocked = formatGhStatus(
+			{
+				type: "available",
+				prNumber: 1736,
+				threads: { unresolved: 2, total: 100, hasMore: true },
+				checks: { passing: 16, pending: 3, failing: 1, unknown: 0 },
+			},
+			MARKER_THEME,
+		);
 		expect(blocked).toContain("<dim>[gh]</dim>");
 		expect(blocked).toContain("<accent>#1736</accent>");
 		expect(blocked).toContain("<warning>98/100+</warning>");
 		expect(blocked).toContain("<warning>3⏳</warning>");
 		expect(blocked).toContain("<error>1✗</error>");
 
-		const landable = formatGhStatus({ type: "available", prNumber: 1736, threads: { unresolved: 0, total: 8, hasMore: false }, checks: { passing: 16, pending: 0, failing: 0, unknown: 0 } }, MARKER_THEME);
+		const landable = formatGhStatus(
+			{
+				type: "available",
+				prNumber: 1736,
+				threads: { unresolved: 0, total: 8, hasMore: false },
+				checks: { passing: 16, pending: 0, failing: 0, unknown: 0 },
+			},
+			MARKER_THEME,
+		);
 		expect(landable).toContain("<accent>16✓</accent>");
 		expect(landable).toContain("<accent>landable</accent>");
 		expect(formatGhStatus({ type: "no-pr" }, MARKER_THEME)).toBe("<dim>[gh] no PR</dim>");
-		expect(formatGhStatus({ type: "head-mismatch" }, MARKER_THEME)).toBe("<warning>[gh] local ahead of PR</warning>");
+		expect(formatGhStatus({ type: "head-mismatch" }, MARKER_THEME)).toBe(
+			"<warning>[gh] local ahead of PR</warning>",
+		);
 		expect(formatGhStatus({ type: "unavailable", message: "timeout" }, MARKER_THEME)).toBe(
 			"<warning>[gh] unavailable</warning><dim>: timeout</dim>",
 		);
 	});
-
 });
 
 describe("composed local and gh worktree status loading", () => {
@@ -398,7 +469,12 @@ describe("composed local and gh worktree status loading", () => {
 			pi.assertDone();
 			expectNoGtCalls(pi);
 			expect(status.brmem).toBe("unavailable");
-			expect(status.gt).toEqual({ down: "main", up: "-", commits: { type: "count", count: 1 }, dirty: "no" });
+			expect(status.gt).toEqual({
+				down: "main",
+				up: "-",
+				commits: { type: "count", count: 1 },
+				dirty: "no",
+			});
 		});
 	});
 
@@ -452,7 +528,10 @@ describe("composed local and gh worktree status loading", () => {
 							entries: [
 								{ namespace: "handoff", key: "resume-resource-audit-session.md" },
 								{ namespace: "handoffs", key: "resume-resource-audit-session.md" },
-								{ namespace: "session-artifacts", key: "handoffs/resume-resource-audit-session.md" },
+								{
+									namespace: "session-artifacts",
+									key: "handoffs/resume-resource-audit-session.md",
+								},
 								{ namespace: "session-artifacts", key: "logs/run-123.md" },
 								{ namespace: "objectives-archive", key: "closed/objective.md" },
 							],
@@ -475,7 +554,9 @@ describe("composed local and gh worktree status loading", () => {
 	test("does not fall back to Python candidates after PATH brmem returns a nonzero envelope", async () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new OrderlessFakePi([
-				brmemListStep({ stdout: JSON.stringify({ exit_code: 2, message: "candidate failed", data: {} }) }),
+				brmemListStep({
+					stdout: JSON.stringify({ exit_code: 2, message: "candidate failed", data: {} }),
+				}),
 				...basicGitStatusScript(),
 			]);
 
@@ -511,12 +592,17 @@ describe("composed local and gh worktree status loading", () => {
 		expect(status.gtMetadataDiagnostic).toEqual({ type: "worker-timeout", timeoutMs: 7 });
 		expect(diagnostics).toEqual([{ type: "worker-timeout", timeoutMs: 7 }]);
 		const fullStatus = combineWorktreeStatus(status, { type: "no-pr" });
-		expect(formatWorktreeStatus(fullStatus).at(-1)).toBe("[gt] metadata worker timed out after 7ms");
+		expect(formatWorktreeStatus(fullStatus).at(-1)).toBe(
+			"[gt] metadata worker timed out after 7ms",
+		);
 	});
 
 	test("degrades malformed brmem JSON output nonfatally", async () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
-			const pi = new OrderlessFakePi([brmemListStep({ stdout: "not json" }), ...basicGitStatusScript()]);
+			const pi = new OrderlessFakePi([
+				brmemListStep({ stdout: "not json" }),
+				...basicGitStatusScript(),
+			]);
 
 			const status = await loadLocalWorktreeStatus(pi, root);
 
@@ -576,7 +662,18 @@ describe("composed local and gh worktree status loading", () => {
 			const pi = new OrderlessFakePi([
 				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
 				remoteOriginStep(),
-				ghWorktreePrStep({ nodes: [{ number: 1736, passingChecks: 4, pendingChecks: 2, failingChecks: 1, unresolvedThreads: 3, totalThreads: 5 }] }),
+				ghWorktreePrStep({
+					nodes: [
+						{
+							number: 1736,
+							passingChecks: 4,
+							pendingChecks: 2,
+							failingChecks: 1,
+							unresolvedThreads: 3,
+							totalThreads: 5,
+						},
+					],
+				}),
 				...basicGitStatusScript(),
 			]);
 
@@ -591,7 +688,7 @@ describe("composed local and gh worktree status loading", () => {
 				threads: { unresolved: 3, total: 5, hasMore: false },
 				checks: { passing: 4, pending: 2, failing: 1, unknown: 0 },
 			});
-				expect(formatWorktreeStatus(status)).toContain("[gh] #1736 · comments 2/5 · actions 2⏳ 1✗");
+			expect(formatWorktreeStatus(status)).toContain("[gh] #1736 · comments 2/5 · actions 2⏳ 1✗");
 		});
 	});
 
@@ -600,7 +697,17 @@ describe("composed local and gh worktree status loading", () => {
 			const pi = new OrderlessFakePi([
 				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
 				remoteOriginStep(),
-				ghWorktreePrStep({ nodes: [{ number: 1736, headOid: "different", passingChecks: 4, unresolvedThreads: 0, totalThreads: 0 }] }),
+				ghWorktreePrStep({
+					nodes: [
+						{
+							number: 1736,
+							headOid: "different",
+							passingChecks: 4,
+							unresolvedThreads: 0,
+							totalThreads: 0,
+						},
+					],
+				}),
 				...basicGitStatusScript(),
 			]);
 
@@ -619,7 +726,17 @@ describe("composed local and gh worktree status loading", () => {
 			const pi = new OrderlessFakePi([
 				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
 				remoteOriginStep(),
-				ghWorktreePrStep({ nodes: [{ number: 1736, passingChecks: 4, unknownChecks: 1, unresolvedThreads: 0, totalThreads: 0 }] }),
+				ghWorktreePrStep({
+					nodes: [
+						{
+							number: 1736,
+							passingChecks: 4,
+							unknownChecks: 1,
+							unresolvedThreads: 0,
+							totalThreads: 0,
+						},
+					],
+				}),
 				...basicGitStatusScript(),
 			]);
 
@@ -645,7 +762,12 @@ describe("composed local and gh worktree status loading", () => {
 
 			pi.assertDone();
 			expect(pi.calls.some((call) => call.command === "gh")).toBe(false);
-			expect(status.gt).toEqual({ down: "main", up: "-", commits: { type: "count", count: 1 }, dirty: "no" });
+			expect(status.gt).toEqual({
+				down: "main",
+				up: "-",
+				commits: { type: "count", count: 1 },
+				dirty: "no",
+			});
 		});
 	});
 
@@ -662,21 +784,35 @@ describe("composed local and gh worktree status loading", () => {
 
 			pi.assertDone();
 			expect(status.identity.headOid).toBeUndefined();
-			expect(status.gt).toEqual({ down: "main", up: "-", commits: { type: "count", count: 1 }, dirty: "no" });
+			expect(status.gt).toEqual({
+				down: "main",
+				up: "-",
+				commits: { type: "count", count: 1 },
+				dirty: "no",
+			});
 		});
 	});
 
 	test("degrades gh status nonfatally when the origin URL is missing", async () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
-			const pi = new OrderlessFakePi([step("git", ["config", "--get", "remote.origin.url"], { code: 1 })]);
+			const pi = new OrderlessFakePi([
+				step("git", ["config", "--get", "remote.origin.url"], { code: 1 }),
+			]);
 
 			const status = await loadWorktreeGhStatus(pi, root, {
-				identity: { cwd: root, head: { type: "branch", name: "feature/current" }, headOid: HEAD_OID },
+				identity: {
+					cwd: root,
+					head: { type: "branch", name: "feature/current" },
+					headOid: HEAD_OID,
+				},
 			});
 
 			pi.assertDone();
 			expect(pi.calls.some((call) => call.command === "gh")).toBe(false);
-			expect(status).toEqual({ type: "unavailable", message: "could not identify GitHub repository from origin remote" });
+			expect(status).toEqual({
+				type: "unavailable",
+				message: "could not identify GitHub repository from origin remote",
+			});
 		});
 	});
 
@@ -687,12 +823,19 @@ describe("composed local and gh worktree status loading", () => {
 			]);
 
 			const status = await loadWorktreeGhStatus(pi, root, {
-				identity: { cwd: root, head: { type: "branch", name: "feature/current" }, headOid: HEAD_OID },
+				identity: {
+					cwd: root,
+					head: { type: "branch", name: "feature/current" },
+					headOid: HEAD_OID,
+				},
 			});
 
 			pi.assertDone();
 			expect(pi.calls.some((call) => call.command === "gh")).toBe(false);
-			expect(status).toEqual({ type: "unavailable", message: "could not identify GitHub repository from origin remote" });
+			expect(status).toEqual({
+				type: "unavailable",
+				message: "could not identify GitHub repository from origin remote",
+			});
 		});
 	});
 
@@ -723,8 +866,13 @@ describe("composed local and gh worktree status loading", () => {
 			const status = await loadComposedWorktreeStatus(pi, root);
 
 			pi.assertDone();
-			expect(status.gh).toEqual({ type: "unavailable", message: "gh api graphql exited 1: HTTP 401: Bad credentials" });
-			expect(formatWorktreeStatus(status)).toContain("[gh] unavailable: gh api graphql exited 1: HTTP 401: Bad credentials");
+			expect(status.gh).toEqual({
+				type: "unavailable",
+				message: "gh api graphql exited 1: HTTP 401: Bad credentials",
+			});
+			expect(formatWorktreeStatus(status)).toContain(
+				"[gh] unavailable: gh api graphql exited 1: HTTP 401: Bad credentials",
+			);
 		});
 	});
 
@@ -733,7 +881,10 @@ describe("composed local and gh worktree status loading", () => {
 			const pi = new OrderlessFakePi([
 				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
 				remoteOriginStep(),
-				ghWorktreePrStep({ nodes: [], result: { code: 1, stderr: "GraphQL: API rate limit exceeded" } }),
+				ghWorktreePrStep({
+					nodes: [],
+					result: { code: 1, stderr: "GraphQL: API rate limit exceeded" },
+				}),
 				...basicGitStatusScript(),
 			]);
 
@@ -741,8 +892,13 @@ describe("composed local and gh worktree status loading", () => {
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
-			expect(status.gh).toEqual({ type: "unavailable", message: "gh api graphql exited 1: GraphQL: API rate limit exceeded" });
-			expect(formatWorktreeStatus(status)).toContain("[gh] unavailable: gh api graphql exited 1: GraphQL: API rate limit exceeded");
+			expect(status.gh).toEqual({
+				type: "unavailable",
+				message: "gh api graphql exited 1: GraphQL: API rate limit exceeded",
+			});
+			expect(formatWorktreeStatus(status)).toContain(
+				"[gh] unavailable: gh api graphql exited 1: GraphQL: API rate limit exceeded",
+			);
 		});
 	});
 });
@@ -774,7 +930,11 @@ describe("loadGtStatus", () => {
 		const onDiagnostic = (diagnostic: GraphiteMetadataWorkerDiagnostic): void => {
 			diagnostics.push(diagnostic);
 		};
-		const metadataLoader: GraphiteMetadataLoader = async ({ cwd, signal, onDiagnostic: actualOnDiagnostic }) => {
+		const metadataLoader: GraphiteMetadataLoader = async ({
+			cwd,
+			signal,
+			onDiagnostic: actualOnDiagnostic,
+		}) => {
 			expect(cwd).toBe(ROOT);
 			expect(signal).toBeUndefined();
 			expect(actualOnDiagnostic).toBe(onDiagnostic);
@@ -814,7 +974,10 @@ describe("loadGtStatus", () => {
 
 	test("uses Graphite metadata parent and shows the empty icon for zero commits", async () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
-			const { pi, formatted } = await loadFormattedStatus([revListStep("main", 0), dirtyStep()], root);
+			const { pi, formatted } = await loadFormattedStatus(
+				[revListStep("main", 0), dirtyStep()],
+				root,
+			);
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
@@ -824,7 +987,10 @@ describe("loadGtStatus", () => {
 
 	test("uses Graphite metadata parent and shows commits when branch-local commits exist", async () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
-			const { pi, formatted } = await loadFormattedStatus([revListStep("main", 2), dirtyStep()], root);
+			const { pi, formatted } = await loadFormattedStatus(
+				[revListStep("main", 2), dirtyStep()],
+				root,
+			);
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
@@ -841,14 +1007,21 @@ describe("loadGtStatus", () => {
 			expectNoGtCalls(pi);
 			expect(formatted).toBe("[gt] ↓ - · ↑ - · commits ?");
 			expect(formatted).not.toContain("∅");
-			expect(pi.calls).not.toContainEqual({ command: "git", args: ["rev-parse", "--symbolic-full-name", "@{-1}"] });
+			expect(pi.calls).not.toContainEqual({
+				command: "git",
+				args: ["rev-parse", "--symbolic-full-name", "@{-1}"],
+			});
 		});
 	});
 
 	test("omits downstack and skips previous-checkout fallback on Graphite trunk", async () => {
 		await withTempRoot(
 			makeGraphiteRepo("master", [
-				{ branchName: "master", children: ["feature/one", "feature/two"], validationResult: "TRUNK" },
+				{
+					branchName: "master",
+					children: ["feature/one", "feature/two"],
+					validationResult: "TRUNK",
+				},
 				{ branchName: "feature/one", parentBranchName: "master" },
 				{ branchName: "feature/two", parentBranchName: "master" },
 			]),
@@ -861,25 +1034,40 @@ describe("loadGtStatus", () => {
 				expect(formatted).not.toContain("(↓:");
 				expect(formatted).not.toContain("commits");
 				expect(formatted).not.toContain("∅");
-				expect(pi.calls).not.toContainEqual({ command: "git", args: ["rev-parse", "--symbolic-full-name", "@{-1}"] });
-				expect(pi.calls.some((call) => call.command === "git" && call.args[0] === "rev-list")).toBe(false);
+				expect(pi.calls).not.toContainEqual({
+					command: "git",
+					args: ["rev-parse", "--symbolic-full-name", "@{-1}"],
+				});
+				expect(pi.calls.some((call) => call.command === "git" && call.args[0] === "rev-list")).toBe(
+					false,
+				);
 			},
 		);
 	});
 
 	test("formats multiple metadata children as multiple upstack branches", async () => {
-		await withTempRoot(makeGraphiteRepo("feature/current", [
-			{ branchName: "main", children: ["feature/current"], validationResult: "TRUNK" },
-			{ branchName: "feature/current", parentBranchName: "main", children: ["feature/one", "feature/two"] },
-			{ branchName: "feature/one", parentBranchName: "feature/current" },
-			{ branchName: "feature/two", parentBranchName: "feature/current" },
-		]), async (root) => {
-			const { pi, formatted } = await loadFormattedStatus([revListStep("main", 1), dirtyStep()], root);
+		await withTempRoot(
+			makeGraphiteRepo("feature/current", [
+				{ branchName: "main", children: ["feature/current"], validationResult: "TRUNK" },
+				{
+					branchName: "feature/current",
+					parentBranchName: "main",
+					children: ["feature/one", "feature/two"],
+				},
+				{ branchName: "feature/one", parentBranchName: "feature/current" },
+				{ branchName: "feature/two", parentBranchName: "feature/current" },
+			]),
+			async (root) => {
+				const { pi, formatted } = await loadFormattedStatus(
+					[revListStep("main", 1), dirtyStep()],
+					root,
+				);
 
-			pi.assertDone();
-			expectNoGtCalls(pi);
-			expect(formatted).toBe("[gt] ↓ main · ↑ <multiple> · 1 commit");
-		});
+				pi.assertDone();
+				expectNoGtCalls(pi);
+				expect(formatted).toBe("[gt] ↓ main · ↑ <multiple> · 1 commit");
+			},
+		);
 	});
 
 	test("uses an unknown base when current branch is untracked by metadata", async () => {
@@ -895,7 +1083,10 @@ describe("loadGtStatus", () => {
 				expectNoGtCalls(pi);
 				expect(formatted).toBe("[gt] ↓ - · ↑ - · commits ?");
 				expect(formatted).not.toContain("∅");
-				expect(pi.calls).not.toContainEqual({ command: "git", args: ["rev-parse", "--symbolic-full-name", "@{-1}"] });
+				expect(pi.calls).not.toContainEqual({
+					command: "git",
+					args: ["rev-parse", "--symbolic-full-name", "@{-1}"],
+				});
 			},
 		);
 	});
@@ -911,7 +1102,10 @@ describe("loadGtStatus", () => {
 			writeFileSync(join(worktreeGitDir, "commondir"), `${commonGitDir}\n`);
 			writeGraphiteMetadataDb(commonGitDir, standardGraphiteRows());
 
-			const { pi, formatted } = await loadFormattedStatus([revListStep("main", 1), dirtyStep()], root);
+			const { pi, formatted } = await loadFormattedStatus(
+				[revListStep("main", 1), dirtyStep()],
+				root,
+			);
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
@@ -921,7 +1115,10 @@ describe("loadGtStatus", () => {
 
 	test("combines dirty state with empty state", async () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
-			const { pi, formatted } = await loadFormattedStatus([revListStep("main", 0), dirtyStep(" M file.txt\n")], root);
+			const { pi, formatted } = await loadFormattedStatus(
+				[revListStep("main", 0), dirtyStep(" M file.txt\n")],
+				root,
+			);
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
@@ -931,7 +1128,10 @@ describe("loadGtStatus", () => {
 
 	test("does not load passive PR status from gt branch info", async () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
-			const { pi, formatted } = await loadFormattedStatus([revListStep("main", 1), dirtyStep()], root);
+			const { pi, formatted } = await loadFormattedStatus(
+				[revListStep("main", 1), dirtyStep()],
+				root,
+			);
 
 			pi.assertDone();
 			expectNoGtCalls(pi);

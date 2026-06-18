@@ -15,7 +15,9 @@ interface PackageJson {
 describe("areg package metadata", () => {
 	test("declares the standalone areg workspace package", async () => {
 		const packageJsonUrl = new URL("../../package.json", import.meta.url);
-		const packageJson = JSON.parse(await readFile(fileURLToPath(packageJsonUrl), "utf8")) as PackageJson;
+		const packageJson = JSON.parse(
+			await readFile(fileURLToPath(packageJsonUrl), "utf8"),
+		) as PackageJson;
 
 		expect(packageJson.name).toBe("@asdl/areg");
 		expect(packageJson.version).toBe(VERSION);

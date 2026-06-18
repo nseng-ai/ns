@@ -5,7 +5,10 @@ import type { BranchContextContext } from "./context.ts";
 import { BRANCH_CONTEXT_NAMESPACE } from "./constants.ts";
 import { extractBranchContextEvidenceFromSessionEntry } from "./session-artifact.ts";
 
-export type ExistingBranchContextReuseSource = "explicit-branch" | "session-output" | "current-branch";
+export type ExistingBranchContextReuseSource =
+	| "explicit-branch"
+	| "session-output"
+	| "current-branch";
 
 export interface ExistingBranchContextReuse {
 	branch: string;
@@ -34,7 +37,9 @@ type ReuseVerificationFailure =
 	| { type: "candidate"; candidate: ExistingBranchContextCandidate; message: string }
 	| { type: "current-branch-resolution"; message: string };
 
-type CandidateVerification = { type: "verified"; reuse: ExistingBranchContextReuse } | { type: "failure"; message: string };
+type CandidateVerification =
+	| { type: "verified"; reuse: ExistingBranchContextReuse }
+	| { type: "failure"; message: string };
 
 export async function resolveExistingBranchContextReuse(
 	_pi: CommandExecApi,
@@ -46,7 +51,10 @@ export async function resolveExistingBranchContextReuse(
 
 	const explicitBranch = params.explicitBranch;
 	if (explicitBranch !== undefined) {
-		const candidate: ExistingBranchContextCandidate = { branch: explicitBranch, source: "explicit-branch" };
+		const candidate: ExistingBranchContextCandidate = {
+			branch: explicitBranch,
+			source: "explicit-branch",
+		};
 		const result = await verifyCandidate(brmem, options, candidate);
 		if (result.type === "verified") {
 			return result.reuse;
@@ -76,9 +84,15 @@ export async function resolveExistingBranchContextReuse(
 		failures.push({ type: "candidate", candidate: sessionCandidate, message: result.message });
 	}
 
-	const branch = await options.context.git.currentBranch({ cwd: options.cwd, signal: options.signal });
+	const branch = await options.context.git.currentBranch({
+		cwd: options.cwd,
+		signal: options.signal,
+	});
 	if (branch.ok) {
-		const candidate: ExistingBranchContextCandidate = { branch: branch.value, source: "current-branch" };
+		const candidate: ExistingBranchContextCandidate = {
+			branch: branch.value,
+			source: "current-branch",
+		};
 		const result = await verifyCandidate(brmem, options, candidate);
 		if (result.type === "verified") {
 			return result.reuse;
@@ -98,9 +112,17 @@ async function verifyCandidate(
 ): Promise<CandidateVerification> {
 	if (candidate.requestedKey !== undefined) {
 		const key = candidate.requestedKey;
-		const presence = await brmem.attachmentPresence({ cwd: options.cwd, branch: candidate.branch, key, signal: options.signal });
+		const presence = await brmem.attachmentPresence({
+			cwd: options.cwd,
+			branch: candidate.branch,
+			key,
+			signal: options.signal,
+		});
 		if (presence.type === "present") {
-			return { type: "verified", reuse: { branch: candidate.branch, key, source: candidate.source } };
+			return {
+				type: "verified",
+				reuse: { branch: candidate.branch, key, source: candidate.source },
+			};
 		}
 		if (presence.type === "absent") {
 			return { type: "failure", message: `Branch-context key \`${key}\` is absent.` };
@@ -108,7 +130,11 @@ async function verifyCandidate(
 		return { type: "failure", message: presence.error.message };
 	}
 
-	const list = await brmem.listAttachedPlans({ cwd: options.cwd, branch: candidate.branch, signal: options.signal });
+	const list = await brmem.listAttachedPlans({
+		cwd: options.cwd,
+		branch: candidate.branch,
+		signal: options.signal,
+	});
 	if (!list.ok) {
 		return { type: "failure", message: list.error.message };
 	}
@@ -127,8 +153,17 @@ function collectSessionCandidates(entries: readonly unknown[]): ExistingBranchCo
 		if (evidence === undefined || evidence.namespace !== BRANCH_CONTEXT_NAMESPACE) {
 			continue;
 		}
-		const candidate = { branch: evidence.branch, requestedKey: evidence.key, source: "session-output" } as const;
-		if (!candidates.some((existing) => existing.branch === candidate.branch && existing.requestedKey === candidate.requestedKey)) {
+		const candidate = {
+			branch: evidence.branch,
+			requestedKey: evidence.key,
+			source: "session-output",
+		} as const;
+		if (
+			!candidates.some(
+				(existing) =>
+					existing.branch === candidate.branch && existing.requestedKey === candidate.requestedKey,
+			)
+		) {
 			candidates.push(candidate);
 		}
 	}
@@ -168,7 +203,10 @@ function formatExistingReuseSource(source: ExistingBranchContextReuseSource): st
 }
 
 function formatCandidateListItem(candidate: ExistingBranchContextCandidate): string {
-	const keyPart = candidate.requestedKey === undefined ? "attached key: auto-select" : `attached key: ${candidate.requestedKey}`;
+	const keyPart =
+		candidate.requestedKey === undefined
+			? "attached key: auto-select"
+			: `attached key: ${candidate.requestedKey}`;
 	return `- ${candidate.branch} (${keyPart}; source: ${formatExistingReuseSource(candidate.source)})`;
 }
 

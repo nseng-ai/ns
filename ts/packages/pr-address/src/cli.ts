@@ -22,7 +22,9 @@ export interface CliDeps {
 	stderr?: ((text: string) => void) | undefined;
 }
 
-export function buildCli(operations: readonly ExecOperation[] = EXEC_OPERATIONS): ClinkrGroup<PrAddressExecContext> {
+export function buildCli(
+	operations: readonly ExecOperation[] = EXEC_OPERATIONS,
+): ClinkrGroup<PrAddressExecContext> {
 	const root = new ClinkrGroup<PrAddressExecContext>({
 		name: "pr-address",
 		description: "PR review address operations.",

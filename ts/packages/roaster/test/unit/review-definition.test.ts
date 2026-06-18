@@ -1,7 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 
-import { parseReviewDefinition, type ReviewDefinition, type ReviewDefinitionParseErrorCode } from "../../src/review-definition.ts";
+import {
+	parseReviewDefinition,
+	type ReviewDefinition,
+	type ReviewDefinitionParseErrorCode,
+} from "../../src/review-definition.ts";
 import type { ReviewApplicability } from "../../src/review-applicability.ts";
 
 interface RealReviewCase {
@@ -22,7 +26,10 @@ const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
 		path: "../../../../../reviews/asdl-typescript-style.md",
 		name: "asdl-typescript-style",
 		expectedModel: "haiku",
-		expectedApplicability: { include: ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"], exclude: [] },
+		expectedApplicability: {
+			include: ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"],
+			exclude: [],
+		},
 	},
 	{
 		path: "../../../../../reviews/duplicative-abstractions.md",
@@ -88,13 +95,20 @@ describe("parseReviewDefinition", () => {
 			),
 		);
 
-		expect(definition.applicability).toEqual({ include: ["**/*.py"], exclude: ["**/tests/**/*.py"] });
+		expect(definition.applicability).toEqual({
+			include: ["**/*.py"],
+			exclude: ["**/tests/**/*.py"],
+		});
 	});
 
 	test("allows missing default model", () => {
 		const definition = expectOk(
 			parseReviewDefinition(
-				"---\n" + "description: Review Python diffs for style violations.\n" + "---\n" + "\n" + "Flag concrete issues in the diff.\n",
+				"---\n" +
+					"description: Review Python diffs for style violations.\n" +
+					"---\n" +
+					"\n" +
+					"Flag concrete issues in the diff.\n",
 				{ name: "dignified-python" },
 			),
 		);
@@ -105,10 +119,26 @@ describe("parseReviewDefinition", () => {
 
 	test.each([
 		["Review definition is empty.", "", "empty_source"],
-		["frontmatter fence", "# Dignified Python\n\nSome prose without frontmatter.\n", "missing_open_fence"],
-		["closing", "---\ndescription: Review Python diffs for style violations.\n\nFlag concrete issues in the diff.\n", "missing_close_fence"],
-		["description", "---\ndefault_model: sonnet\n---\n\nFlag concrete issues in the diff.\n", "invalid_description"],
-		["instructions", "---\ndescription: Review Python diffs for style violations.\n---\n", "invalid_instructions"],
+		[
+			"frontmatter fence",
+			"# Dignified Python\n\nSome prose without frontmatter.\n",
+			"missing_open_fence",
+		],
+		[
+			"closing",
+			"---\ndescription: Review Python diffs for style violations.\n\nFlag concrete issues in the diff.\n",
+			"missing_close_fence",
+		],
+		[
+			"description",
+			"---\ndefault_model: sonnet\n---\n\nFlag concrete issues in the diff.\n",
+			"invalid_description",
+		],
+		[
+			"instructions",
+			"---\ndescription: Review Python diffs for style violations.\n---\n",
+			"invalid_instructions",
+		],
 	] as const)("rejects invalid definition: %s", (message, source, code) => {
 		const error = expectError(parseReviewDefinition(source, { name: "dignified-python" }));
 
@@ -117,16 +147,54 @@ describe("parseReviewDefinition", () => {
 	});
 
 	test("requires exact first-line frontmatter fences", () => {
-		expect(expectError(parseReviewDefinition("\n---\ndescription: Review Python diffs for style violations.\n---\n\nFlag concrete issues in the diff.\n", { name: "dignified-python" })).code).toBe("missing_open_fence");
-		expect(expectError(parseReviewDefinition(" ---\ndescription: Review Python diffs for style violations.\n---\n\nFlag concrete issues in the diff.\n", { name: "dignified-python" })).code).toBe("missing_open_fence");
-		expect(expectError(parseReviewDefinition("--- \ndescription: Review Python diffs for style violations.\n---\n\nFlag concrete issues in the diff.\n", { name: "dignified-python" })).code).toBe("missing_open_fence");
-		expect(expectError(parseReviewDefinition("---\ndescription: Review Python diffs for style violations.\n ---\n\nFlag concrete issues in the diff.\n", { name: "dignified-python" })).code).toBe("missing_close_fence");
-		expect(expectError(parseReviewDefinition("---\ndescription: Review Python diffs for style violations.\n--- \n\nFlag concrete issues in the diff.\n", { name: "dignified-python" })).code).toBe("missing_close_fence");
+		expect(
+			expectError(
+				parseReviewDefinition(
+					"\n---\ndescription: Review Python diffs for style violations.\n---\n\nFlag concrete issues in the diff.\n",
+					{ name: "dignified-python" },
+				),
+			).code,
+		).toBe("missing_open_fence");
+		expect(
+			expectError(
+				parseReviewDefinition(
+					" ---\ndescription: Review Python diffs for style violations.\n---\n\nFlag concrete issues in the diff.\n",
+					{ name: "dignified-python" },
+				),
+			).code,
+		).toBe("missing_open_fence");
+		expect(
+			expectError(
+				parseReviewDefinition(
+					"--- \ndescription: Review Python diffs for style violations.\n---\n\nFlag concrete issues in the diff.\n",
+					{ name: "dignified-python" },
+				),
+			).code,
+		).toBe("missing_open_fence");
+		expect(
+			expectError(
+				parseReviewDefinition(
+					"---\ndescription: Review Python diffs for style violations.\n ---\n\nFlag concrete issues in the diff.\n",
+					{ name: "dignified-python" },
+				),
+			).code,
+		).toBe("missing_close_fence");
+		expect(
+			expectError(
+				parseReviewDefinition(
+					"---\ndescription: Review Python diffs for style violations.\n--- \n\nFlag concrete issues in the diff.\n",
+					{ name: "dignified-python" },
+				),
+			).code,
+		).toBe("missing_close_fence");
 	});
 
 	test("requires non-empty name", () => {
 		const error = expectError(
-			parseReviewDefinition("---\ndescription: Review Python diffs for style violations.\n---\n\nFlag concrete issues in the diff.\n", { name: "   " }),
+			parseReviewDefinition(
+				"---\ndescription: Review Python diffs for style violations.\n---\n\nFlag concrete issues in the diff.\n",
+				{ name: "   " },
+			),
 		);
 
 		expect(error.code).toBe("invalid_name");
@@ -154,16 +222,19 @@ describe("parseReviewDefinition", () => {
 		expect(error.message).toContain("Allowed fields:");
 	});
 
-	test.each(["sonnet", "opus", "haiku", "claude-sonnet-4-6", "gpt-5-mini"])("accepts default model %s", (model) => {
-		const definition = expectOk(
-			parseReviewDefinition(
-				`---\ndescription: Review Python diffs for style violations.\ndefault_model: ${model}\n---\n\nFlag concrete issues in the diff.\n`,
-				{ name: "dignified-python" },
-			),
-		);
+	test.each(["sonnet", "opus", "haiku", "claude-sonnet-4-6", "gpt-5-mini"])(
+		"accepts default model %s",
+		(model) => {
+			const definition = expectOk(
+				parseReviewDefinition(
+					`---\ndescription: Review Python diffs for style violations.\ndefault_model: ${model}\n---\n\nFlag concrete issues in the diff.\n`,
+					{ name: "dignified-python" },
+				),
+			);
 
-		expect(definition.defaultModel).toBe(model);
-	});
+			expect(definition.defaultModel).toBe(model);
+		},
+	);
 
 	test.each(["", "   ", "[]", "123"])("rejects invalid default model %#", (defaultModel) => {
 		const error = expectError(
@@ -217,7 +288,10 @@ function expectOk(result: ParseResult): ReviewDefinition {
 	return result.definition;
 }
 
-function expectError(result: ParseResult): { readonly code: ReviewDefinitionParseErrorCode; readonly message: string } {
+function expectError(result: ParseResult): {
+	readonly code: ReviewDefinitionParseErrorCode;
+	readonly message: string;
+} {
 	if (result.type === "ok") throw new Error("Expected review definition parse to fail.");
 	return result.error;
 }

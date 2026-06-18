@@ -1,9 +1,19 @@
 import { z } from "zod";
 
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
-import { fetchFeedbackSnapshot, reviewsForRequest, type FeedbackSnapshot } from "./core/feedback-snapshot.ts";
+import {
+	fetchFeedbackSnapshot,
+	reviewsForRequest,
+	type FeedbackSnapshot,
+} from "./core/feedback-snapshot.ts";
 import { isAutomationLikeDiscussionComment } from "./core/feedback-summary.ts";
-import { defineExecOperation, gatewayFailureExit, gatewayFailureMessage, gatewayOptions, type PrAddressExecContext } from "./exec-operation.ts";
+import {
+	defineExecOperation,
+	gatewayFailureExit,
+	gatewayFailureMessage,
+	gatewayOptions,
+	type PrAddressExecContext,
+} from "./exec-operation.ts";
 import type { PRDiscussionComment, PRReview, PRReviewThread, PRSummary } from "./gateways.ts";
 
 const downloadFeedbackParseSchema = z.object({
@@ -58,11 +68,17 @@ export const downloadFeedbackOperation = defineExecOperation({
 	},
 });
 
-async function runDownloadFeedbackOperation(ctx: PrAddressExecContext, request: DownloadFeedbackRequest): Promise<ClinkrExit<unknown>> {
+async function runDownloadFeedbackOperation(
+	ctx: PrAddressExecContext,
+	request: DownloadFeedbackRequest,
+): Promise<ClinkrExit<unknown>> {
 	const targetResult = await resolveTargetPr(ctx, request);
 	if (targetResult.type === "failure") return targetResult.exit;
 	if (targetResult.type === "miss") {
-		return negative(targetResult.message, buildMissingPrResult(targetResult.target, targetResult.message));
+		return negative(
+			targetResult.message,
+			buildMissingPrResult(targetResult.target, targetResult.message),
+		);
 	}
 
 	const snapshotResult = await fetchFeedbackSnapshot({
@@ -73,7 +89,8 @@ async function runDownloadFeedbackOperation(ctx: PrAddressExecContext, request: 
 		shouldIncludeEmptyReviews: true,
 		shouldCountAllReviewThreads: true,
 	});
-	if (snapshotResult.type === "failure") return gatewayFailureExit(snapshotResult.message, snapshotResult.failure);
+	if (snapshotResult.type === "failure")
+		return gatewayFailureExit(snapshotResult.message, snapshotResult.failure);
 
 	const included = selectIncludedFeedback(snapshotResult.snapshot, request);
 	const target = targetFromPr(targetResult.pr, targetResult.branch);
@@ -81,7 +98,11 @@ async function runDownloadFeedbackOperation(ctx: PrAddressExecContext, request: 
 		found: true,
 		target,
 		counts: included.counts,
-		markdown: buildDownloadFeedbackMarkdown({ target, counts: included.counts, feedback: included }),
+		markdown: buildDownloadFeedbackMarkdown({
+			target,
+			counts: included.counts,
+			feedback: included,
+		}),
 	} satisfies DownloadFeedbackResult);
 }
 
@@ -90,11 +111,21 @@ type TargetPrResult =
 	| { type: "miss"; target: DownloadFeedbackTarget; message: string }
 	| { type: "failure"; exit: ClinkrExit<unknown> };
 
-async function resolveTargetPr(ctx: PrAddressExecContext, request: DownloadFeedbackRequest): Promise<TargetPrResult> {
+async function resolveTargetPr(
+	ctx: PrAddressExecContext,
+	request: DownloadFeedbackRequest,
+): Promise<TargetPrResult> {
 	const github = ctx.context.github;
 	if (request.pr_number !== undefined) {
 		const lookupResult = await github.getPr(request.pr_number, gatewayOptions(ctx));
-		if (lookupResult.type === "failure") return { type: "failure", exit: failure("pr_gateway_failure", gatewayFailureMessage(`Failed to look up PR ${request.pr_number}`, lookupResult.failure)) };
+		if (lookupResult.type === "failure")
+			return {
+				type: "failure",
+				exit: failure(
+					"pr_gateway_failure",
+					gatewayFailureMessage(`Failed to look up PR ${request.pr_number}`, lookupResult.failure),
+				),
+			};
 		if (lookupResult.type === "miss") {
 			return {
 				type: "miss",
@@ -106,13 +137,33 @@ async function resolveTargetPr(ctx: PrAddressExecContext, request: DownloadFeedb
 	}
 
 	const branchResult = await ctx.context.git.getCurrentBranch(gatewayOptions(ctx));
-	if (branchResult.type === "failure") return { type: "failure", exit: gatewayFailureExit("Failed to determine current branch", branchResult.failure) };
+	if (branchResult.type === "failure")
+		return {
+			type: "failure",
+			exit: gatewayFailureExit("Failed to determine current branch", branchResult.failure),
+		};
 	if (branchResult.type === "detached") {
-		return { type: "failure", exit: failure("detached_head", "Detached HEAD: download-feedback requires a checked-out branch or --pr-number.") };
+		return {
+			type: "failure",
+			exit: failure(
+				"detached_head",
+				"Detached HEAD: download-feedback requires a checked-out branch or --pr-number.",
+			),
+		};
 	}
 
 	const lookupResult = await github.getPrForBranch(branchResult.branch, gatewayOptions(ctx));
-	if (lookupResult.type === "failure") return { type: "failure", exit: failure("pr_gateway_failure", gatewayFailureMessage(`Failed to look up PR for branch ${branchResult.branch}`, lookupResult.failure)) };
+	if (lookupResult.type === "failure")
+		return {
+			type: "failure",
+			exit: failure(
+				"pr_gateway_failure",
+				gatewayFailureMessage(
+					`Failed to look up PR for branch ${branchResult.branch}`,
+					lookupResult.failure,
+				),
+			),
+		};
 	if (lookupResult.type === "miss") {
 		return {
 			type: "miss",
@@ -123,10 +174,19 @@ async function resolveTargetPr(ctx: PrAddressExecContext, request: DownloadFeedb
 	return { type: "found", pr: lookupResult.pr, branch: branchResult.branch };
 }
 
-function selectIncludedFeedback(snapshot: FeedbackSnapshot, request: DownloadFeedbackRequest): IncludedFeedback {
-	const reviews = request.include_empty_reviews ? snapshot.reviews : reviewsForRequest(snapshot.reviews, false);
-	const discussionComments = request.include_automation ? snapshot.discussion_comments : snapshot.discussion_comments.filter((comment) => !isAutomationLikeDiscussionComment(comment));
-	const resolvedThreads = snapshot.counted_review_threads.filter((thread) => thread.is_resolved).length;
+function selectIncludedFeedback(
+	snapshot: FeedbackSnapshot,
+	request: DownloadFeedbackRequest,
+): IncludedFeedback {
+	const reviews = request.include_empty_reviews
+		? snapshot.reviews
+		: reviewsForRequest(snapshot.reviews, false);
+	const discussionComments = request.include_automation
+		? snapshot.discussion_comments
+		: snapshot.discussion_comments.filter((comment) => !isAutomationLikeDiscussionComment(comment));
+	const resolvedThreads = snapshot.counted_review_threads.filter(
+		(thread) => thread.is_resolved,
+	).length;
 	return {
 		reviewThreads: snapshot.review_threads,
 		reviews,
@@ -136,23 +196,40 @@ function selectIncludedFeedback(snapshot: FeedbackSnapshot, request: DownloadFee
 			included_reviews: reviews.length,
 			included_discussion_comments: discussionComments.length,
 			excluded_resolved_threads: request.include_resolved ? 0 : resolvedThreads,
-			excluded_empty_reviews: request.include_empty_reviews ? 0 : snapshot.reviews.length - reviews.length,
-			excluded_automation_comments: request.include_automation ? 0 : snapshot.discussion_comments.length - discussionComments.length,
+			excluded_empty_reviews: request.include_empty_reviews
+				? 0
+				: snapshot.reviews.length - reviews.length,
+			excluded_automation_comments: request.include_automation
+				? 0
+				: snapshot.discussion_comments.length - discussionComments.length,
 		},
 	};
 }
 
-function buildMissingPrResult(target: DownloadFeedbackTarget, message: string): DownloadFeedbackResult {
+function buildMissingPrResult(
+	target: DownloadFeedbackTarget,
+	message: string,
+): DownloadFeedbackResult {
 	const counts = zeroCounts();
 	return {
 		found: false,
 		target,
 		counts,
-		markdown: ["# PR feedback triage request", "", message, "", "No GitHub PR was found for this target. Check out a branch with an open PR or run with `--pr-number <number>`."].join("\n"),
+		markdown: [
+			"# PR feedback triage request",
+			"",
+			message,
+			"",
+			"No GitHub PR was found for this target. Check out a branch with an open PR or run with `--pr-number <number>`.",
+		].join("\n"),
 	};
 }
 
-function buildDownloadFeedbackMarkdown(options: { target: DownloadFeedbackTarget; counts: DownloadFeedbackCounts; feedback: IncludedFeedback }): string {
+function buildDownloadFeedbackMarkdown(options: {
+	target: DownloadFeedbackTarget;
+	counts: DownloadFeedbackCounts;
+	feedback: IncludedFeedback;
+}): string {
 	return [
 		"# PR feedback triage request",
 		"",
@@ -165,7 +242,9 @@ function buildDownloadFeedbackMarkdown(options: { target: DownloadFeedbackTarget
 		`- Branch: ${formatNullable(options.target.branch)}`,
 		`- Head: ${formatNullable(options.target.head_ref_name)}`,
 		`- Base: ${formatNullable(options.target.base_ref_name)}`,
-		...(hasNoIncludedFeedback(options.counts) ? ["", "No unresolved/human feedback was found for this PR with the current filters."] : []),
+		...(hasNoIncludedFeedback(options.counts)
+			? ["", "No unresolved/human feedback was found for this PR with the current filters."]
+			: []),
 		"",
 		"## Unresolved review threads",
 		...renderReviewThreads(options.feedback.reviewThreads),
@@ -182,7 +261,10 @@ function buildDownloadFeedbackMarkdown(options: { target: DownloadFeedbackTarget
 	].join("\n");
 }
 
-function renderDownloadFeedbackSummary(target: DownloadFeedbackTarget, counts: DownloadFeedbackCounts): string[] {
+function renderDownloadFeedbackSummary(
+	target: DownloadFeedbackTarget,
+	counts: DownloadFeedbackCounts,
+): string[] {
 	return [
 		"## Summary",
 		`Downloaded feedback for PR #${formatNullableNumber(target.pr_number)}: ${formatNullable(target.title)}`,
@@ -264,7 +346,11 @@ function blockquote(text: string): string[] {
 }
 
 function hasNoIncludedFeedback(counts: DownloadFeedbackCounts): boolean {
-	return counts.included_review_threads === 0 && counts.included_reviews === 0 && counts.included_discussion_comments === 0;
+	return (
+		counts.included_review_threads === 0 &&
+		counts.included_reviews === 0 &&
+		counts.included_discussion_comments === 0
+	);
 }
 
 function targetFromPr(pr: PRSummary, branch: string | null): DownloadFeedbackTarget {
@@ -279,7 +365,10 @@ function targetFromPr(pr: PRSummary, branch: string | null): DownloadFeedbackTar
 	};
 }
 
-function emptyTarget(options: { prNumber?: number | undefined; branch?: string | undefined }): DownloadFeedbackTarget {
+function emptyTarget(options: {
+	prNumber?: number | undefined;
+	branch?: string | undefined;
+}): DownloadFeedbackTarget {
 	return {
 		kind: "github_pr",
 		pr_number: options.prNumber ?? null,

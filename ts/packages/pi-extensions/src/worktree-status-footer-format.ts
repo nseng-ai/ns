@@ -115,11 +115,15 @@ export function formatWorktreeFooterIdentity(options: WorktreeFooterIdentityOpti
 	});
 	const segments = buildFooterIdentitySegments(identity, options.gt);
 	const rawFullIdentity = rawFooterIdentity(segments);
-	if (visibleWidth(rawFullIdentity) <= options.width) return colorFooterIdentitySegments(segments, options.theme);
+	if (visibleWidth(rawFullIdentity) <= options.width)
+		return colorFooterIdentitySegments(segments, options.theme);
 	return options.theme.fg("dim", truncateToWidth(rawFullIdentity, options.width, "..."));
 }
 
-function buildFooterIdentitySegments(identity: FooterIdentityParts, gt: GtStatus | undefined): FooterIdentitySegment[] {
+function buildFooterIdentitySegments(
+	identity: FooterIdentityParts,
+	gt: GtStatus | undefined,
+): FooterIdentitySegment[] {
 	const segments: FooterIdentitySegment[] = [
 		{ text: "[wt]", color: "dim" },
 		{ text: " ", color: "dim" },
@@ -164,7 +168,10 @@ function rawFooterIdentity(segments: readonly FooterIdentitySegment[]): string {
 	return segments.map((segment) => segment.text).join("");
 }
 
-function colorFooterIdentitySegments(segments: readonly FooterIdentitySegment[], theme: StatusTheme): string {
+function colorFooterIdentitySegments(
+	segments: readonly FooterIdentitySegment[],
+	theme: StatusTheme,
+): string {
 	return segments.map((segment) => theme.fg(segment.color, segment.text)).join("");
 }
 
@@ -183,7 +190,12 @@ function footerIdentityParts(options: FooterIdentityPartsOptions): FooterIdentit
 	const slotInfo = slotInfoFromCwd(options.cwd);
 	if (slotInfo !== undefined) {
 		const relativePath = relative(slotInfo.worktreeRoot, resolve(options.cwd));
-		return { repo: slotInfo.repo, slot: slotInfo.slot, branch: options.branch, relativePath: relativePath.length > 0 ? relativePath : "." };
+		return {
+			repo: slotInfo.repo,
+			slot: slotInfo.slot,
+			branch: options.branch,
+			relativePath: relativePath.length > 0 ? relativePath : ".",
+		};
 	}
 	return {
 		repo: options.fallbackRepo,
@@ -193,14 +205,22 @@ function footerIdentityParts(options: FooterIdentityPartsOptions): FooterIdentit
 	};
 }
 
-function slotInfoFromCwd(cwd: string): { repo: string; slot: string; worktreeRoot: string } | undefined {
+function slotInfoFromCwd(
+	cwd: string,
+): { repo: string; slot: string; worktreeRoot: string } | undefined {
 	const resolvedCwd = resolve(cwd);
 	const parts = resolvedCwd.split(sep);
 	for (let index = 0; index < parts.length - 4; index++) {
-		if (parts[index] !== ".slots" || parts[index + 1] !== "repos" || parts[index + 3] !== "worktrees") continue;
+		if (
+			parts[index] !== ".slots" ||
+			parts[index + 1] !== "repos" ||
+			parts[index + 3] !== "worktrees"
+		)
+			continue;
 		const repo = parts[index + 2];
 		const slot = parts[index + 4];
-		if (repo === undefined || repo.length === 0 || slot === undefined || slot.length === 0) return undefined;
+		if (repo === undefined || repo.length === 0 || slot === undefined || slot.length === 0)
+			return undefined;
 		return { repo, slot, worktreeRoot: pathFromParts(parts.slice(0, index + 5)) };
 	}
 	return undefined;
@@ -219,7 +239,9 @@ function formatFooterCwd(cwd: string, home: string | undefined): string {
 	const relativeToHome = relative(resolvedHome, resolvedCwd);
 	const isInsideHome =
 		relativeToHome === "" ||
-		(relativeToHome !== ".." && !relativeToHome.startsWith(`..${sep}`) && !isAbsolute(relativeToHome));
+		(relativeToHome !== ".." &&
+			!relativeToHome.startsWith(`..${sep}`) &&
+			!isAbsolute(relativeToHome));
 
 	if (!isInsideHome) return cwd;
 	return relativeToHome === "" ? "~" : `~${sep}${relativeToHome}`;
@@ -250,11 +272,16 @@ export function renderStatusFooter(options: StatusFooterRenderOptions): string[]
 	return lines;
 }
 
-function formatStructuredFooterWorktreeLines(status: WorktreeStatus | undefined, theme: StatusTheme): string[] {
+function formatStructuredFooterWorktreeLines(
+	status: WorktreeStatus | undefined,
+	theme: StatusTheme,
+): string[] {
 	return status === undefined ? [] : formatWorktreeStatusForFooter(status, theme);
 }
 
-function formatFooterStats(options: Pick<StatusFooterRenderOptions, "ctx" | "footerData" | "theme" | "width">): string {
+function formatFooterStats(
+	options: Pick<StatusFooterRenderOptions, "ctx" | "footerData" | "theme" | "width">,
+): string {
 	const { ctx, footerData, theme, width } = options;
 	const totals = totalAssistantUsage(ctx.sessionManager?.getEntries() ?? []);
 	const statsParts: string[] = [];
@@ -264,7 +291,8 @@ function formatFooterStats(options: Pick<StatusFooterRenderOptions, "ctx" | "foo
 	if (totals.cacheWrite) statsParts.push(`W${formatFooterTokens(totals.cacheWrite)}`);
 
 	const model = ctx.model;
-	const usingSubscription = model !== undefined && (ctx.modelRegistry?.isUsingOAuth(model) ?? false);
+	const usingSubscription =
+		model !== undefined && (ctx.modelRegistry?.isUsingOAuth(model) ?? false);
 	if (totals.cost.total || usingSubscription) {
 		statsParts.push(`$${totals.cost.total.toFixed(3)}${usingSubscription ? " (sub)" : ""}`);
 	}
@@ -280,12 +308,16 @@ function formatFooterStats(options: Pick<StatusFooterRenderOptions, "ctx" | "foo
 	let rightSide = model?.id ?? "no-model";
 	if (footerData.getAvailableProviderCount() > 1 && model?.provider) {
 		const providerRightSide = `(${model.provider}) ${rightSide}`;
-		if (statsLeftWidth + 2 + visibleWidth(providerRightSide) <= width) rightSide = providerRightSide;
+		if (statsLeftWidth + 2 + visibleWidth(providerRightSide) <= width)
+			rightSide = providerRightSide;
 	}
 
 	const rightSideWidth = visibleWidth(rightSide);
 	if (statsLeftWidth + 2 + rightSideWidth <= width) {
-		return theme.fg("dim", statsLeft) + theme.fg("dim", " ".repeat(width - statsLeftWidth - rightSideWidth) + rightSide);
+		return (
+			theme.fg("dim", statsLeft) +
+			theme.fg("dim", " ".repeat(width - statsLeftWidth - rightSideWidth) + rightSide)
+		);
 	}
 
 	const availableForRight = width - statsLeftWidth - 2;
@@ -297,7 +329,13 @@ function formatFooterStats(options: Pick<StatusFooterRenderOptions, "ctx" | "foo
 }
 
 function totalAssistantUsage(entries: readonly StatusSessionEntry[]): StatusUsage {
-	const totals: StatusUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: { total: 0 } };
+	const totals: StatusUsage = {
+		input: 0,
+		output: 0,
+		cacheRead: 0,
+		cacheWrite: 0,
+		cost: { total: 0 },
+	};
 	for (const entry of entries) {
 		const message = entry.message;
 		if (entry.type !== "message" || message?.role !== "assistant") continue;
@@ -314,7 +352,10 @@ function formatContextUsage(ctx: StatusFooterRenderContext, theme: StatusTheme):
 	const contextUsage = readContextUsage(ctx);
 	const contextWindow = contextUsage?.contextWindow ?? ctx.model?.contextWindow ?? 0;
 	const percent = contextUsage?.percent;
-	const display = percent == null ? `?/${formatFooterTokens(contextWindow)} (auto)` : `${percent.toFixed(1)}%/${formatFooterTokens(contextWindow)} (auto)`;
+	const display =
+		percent == null
+			? `?/${formatFooterTokens(contextWindow)} (auto)`
+			: `${percent.toFixed(1)}%/${formatFooterTokens(contextWindow)} (auto)`;
 	if ((percent ?? 0) > 90) return theme.fg("error", display);
 	if ((percent ?? 0) > 70) return theme.fg("warning", display);
 	return display;
@@ -337,11 +378,15 @@ function formatFooterTokens(count: number): string {
 	return `${Math.round(count / 1000000)}M`;
 }
 
-function formatFooterExtensionStatusLines(extensionStatuses: ReadonlyMap<string, string>): FooterExtensionStatusLines {
+function formatFooterExtensionStatusLines(
+	extensionStatuses: ReadonlyMap<string, string>,
+): FooterExtensionStatusLines {
 	const activity: string[] = [];
 	let compactActivityParts: string[] = [];
 
-	for (const [key, text] of Array.from(extensionStatuses.entries()).sort(([a], [b]) => a.localeCompare(b))) {
+	for (const [key, text] of Array.from(extensionStatuses.entries()).sort(([a], [b]) =>
+		a.localeCompare(b),
+	)) {
 		const sanitizedLines = sanitizeStatusLines(text);
 		if (key === WORKTREE_STATUS_UI_KEY) continue;
 
