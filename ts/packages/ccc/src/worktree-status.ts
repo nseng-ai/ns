@@ -3,6 +3,7 @@ import { dirname, join, resolve } from "node:path";
 
 import { resolveBrmemCommandCandidates, runBrmemCandidate } from "@asdl/core/brmem-cli";
 import { execApiToCommandRunner, formatCommand, normalizeExecResult, tailText, type CommandExecApi, type ExecOptions, type PiExecResultLike } from "@asdl/core/exec";
+import { RealGitGateway, type GitGateway } from "@asdl/core/git";
 import { runGitHubCli } from "@asdl/core/github-cli";
 import {
 	githubRepositoryIdentityFromRemoteUrl,
@@ -124,6 +125,11 @@ export interface WorktreeStatus extends LocalWorktreeStatus {
 	gh: WorktreeGhStatus;
 }
 
+interface LoadGhStatusInternalOptions {
+	readonly identity: WorktreeStatusIdentity;
+	readonly signal?: AbortSignal | undefined;
+}
+
 interface CustomMessage {
 	customType: string;
 	content: CustomMessageContent;
@@ -173,7 +179,7 @@ export async function loadWorktreeGhStatus(
 	options: LoadWorktreeGhStatusOptions = {},
 ): Promise<WorktreeGhStatus> {
 	const identity = options.identity ?? (await loadWorktreeStatusIdentity(pi, cwd, options.signal));
-	return loadGhStatus(pi, cwd, identity, options.signal);
+	return loadGhStatus(pi, cwd, { identity, signal: options.signal });
 }
 
 export function combineWorktreeStatus(local: LocalWorktreeStatus, gh: WorktreeGhStatus): WorktreeStatus {
@@ -357,38 +363,34 @@ export async function loadWorktreeStatusIdentity(
 ): Promise<WorktreeStatusIdentity> {
 	const gitPaths = findGitPaths(cwd);
 	const head = gitPaths === undefined ? { type: "unknown" as const } : currentHeadIdentity(gitPaths);
-	const headOid = await loadHeadOid(pi, cwd, signal);
+	const git = gitGatewayFromExecGateway(pi);
+	const headOid = await loadHeadOid(git, cwd, signal);
 	const identity: WorktreeStatusIdentity = { cwd: resolve(cwd), head };
 	return headOid === undefined ? identity : { ...identity, headOid };
 }
 
-async function loadHeadOid(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<string | undefined> {
+async function loadHeadOid(git: GitGateway, cwd: string, signal?: AbortSignal): Promise<string | undefined> {
 	if (signal?.aborted) return undefined;
-	try {
-		const result = normalizeExecResult(await pi.exec("git", ["rev-parse", "--verify", "HEAD"], execOptions(cwd, signal)));
-		if (result.code !== 0) return undefined;
-		const oid = result.stdout.trim();
-		return oid.length > 0 ? oid : undefined;
-	} catch {
-		return undefined;
-	}
+	const result = await git.headCommit({ cwd, signal });
+	return result.ok ? result.value : undefined;
 }
 
 async function loadGhStatus(
 	pi: ExecGateway,
 	cwd: string,
-	identity: WorktreeStatusIdentity,
-	signal?: AbortSignal,
+	options: LoadGhStatusInternalOptions,
 ): Promise<WorktreeGhStatus> {
+	const { identity, signal } = options;
 	if (signal?.aborted) return { type: "unavailable", message: "request aborted" };
 	if (identity.head.type !== "branch") return { type: "unavailable", message: "not on a branch" };
 
-	const repository = await loadGitHubRepositoryIdentity(pi, cwd, signal);
+	const git = gitGatewayFromExecGateway(pi);
+	const repository = await loadGitHubRepositoryIdentity(git, cwd, signal);
 	if (repository === undefined) return { type: "unavailable", message: "could not identify GitHub repository from origin remote" };
 
 	const args = githubWorktreePrStatusArgs({ ...repository, headRefName: identity.head.name });
 	const result = await runGitHubCli({
-		runner: execApiToCommandRunner(githubCliExecApi(pi)),
+		runner: execApiToCommandRunner(commandExecApiFromExecGateway(pi)),
 		cwd,
 		signal,
 		timeoutMs: COMMAND_TIMEOUT_MS,
@@ -416,18 +418,14 @@ async function loadGhStatus(
 }
 
 async function loadGitHubRepositoryIdentity(
-	pi: ExecGateway,
+	git: GitGateway,
 	cwd: string,
 	signal?: AbortSignal,
 ): Promise<{ owner: string; repo: string } | undefined> {
 	if (signal?.aborted) return undefined;
-	try {
-		const result = normalizeExecResult(await pi.exec("git", ["config", "--get", "remote.origin.url"], execOptions(cwd, signal)));
-		if (result.code !== 0) return undefined;
-		return githubRepositoryIdentityFromRemoteUrl(result.stdout);
-	} catch {
-		return undefined;
-	}
+	const origin = await git.originUrl({ cwd, signal });
+	if (origin.type !== "found") return undefined;
+	return githubRepositoryIdentityFromRemoteUrl(origin.value);
 }
 
 function currentHeadIdentity(gitPaths: GitPaths): WorktreeStatusIdentity["head"] {
@@ -461,7 +459,11 @@ function execOptions(cwd: string, signal?: AbortSignal) {
 		: { cwd, signal, timeout: COMMAND_TIMEOUT_MS };
 }
 
-function githubCliExecApi(pi: ExecGateway): CommandExecApi {
+function gitGatewayFromExecGateway(pi: ExecGateway): GitGateway {
+	return new RealGitGateway(commandExecApiFromExecGateway(pi));
+}
+
+function commandExecApiFromExecGateway(pi: ExecGateway): CommandExecApi {
 	return {
 		async exec(command, args, options) {
 			return normalizeExecResult(await pi.exec(command, args, options));

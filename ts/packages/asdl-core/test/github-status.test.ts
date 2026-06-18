@@ -3,9 +3,11 @@ import { describe, expect, test } from "vitest";
 import {
 	classifyGithubStatusCheck,
 	githubPrIdentityFromUrl,
+	githubRepositoryIdentityFromNormalizedRemoteUrl,
 	githubRepositoryIdentityFromRemoteUrl,
 	githubWorktreePrStatusArgs,
 	githubWorktreePrStatusQuery,
+	normalizeGitRemoteUrl,
 	parseGithubWorktreePrStatusJson,
 	tallyGithubStatusChecks,
 } from "@asdl/core/github-status";
@@ -88,12 +90,28 @@ describe("GitHub status boundary parsing", () => {
 		expect(parseGithubWorktreePrStatusJson(JSON.stringify({ data: { repository: {} } }))).toBeUndefined();
 	});
 
+	test("normalizes git remote URLs host-agnostically", () => {
+		expect(normalizeGitRemoteUrl("git@github.com:owner/repo.git")).toBe("ssh://git@github.com/owner/repo");
+		expect(normalizeGitRemoteUrl("HTTPS://github.com/Owner/Repo.git")).toBe("https://github.com/Owner/Repo");
+		expect(normalizeGitRemoteUrl("https://github.com/owner/repo.git///")).toBe("https://github.com/owner/repo");
+		expect(normalizeGitRemoteUrl("git@gitlab.com:Owner/Repo.git")).toBe("ssh://git@gitlab.com/Owner/Repo");
+		expect(normalizeGitRemoteUrl("not-a-url.git///")).toBe("not-a-url");
+		expect(normalizeGitRemoteUrl("  ")).toBe("");
+	});
+
 	test("parses common GitHub remote URL forms", () => {
 		expect(githubRepositoryIdentityFromRemoteUrl("https://github.com/dagster-io/asdl-tools.git")).toEqual({ owner: "dagster-io", repo: "asdl-tools" });
 		expect(githubRepositoryIdentityFromRemoteUrl("https://github.com/dagster-io/asdl-tools")).toEqual({ owner: "dagster-io", repo: "asdl-tools" });
 		expect(githubRepositoryIdentityFromRemoteUrl("git@github.com:dagster-io/asdl-tools.git")).toEqual({ owner: "dagster-io", repo: "asdl-tools" });
 		expect(githubRepositoryIdentityFromRemoteUrl("ssh://git@github.com/dagster-io/asdl-tools.git")).toEqual({ owner: "dagster-io", repo: "asdl-tools" });
 		expect(githubRepositoryIdentityFromRemoteUrl("https://example.com/dagster-io/asdl-tools.git")).toBeUndefined();
+		expect(githubRepositoryIdentityFromRemoteUrl("https://github.com/dagster-io/asdl-tools/extra")).toBeUndefined();
+	});
+
+	test("parses GitHub identity from normalized remotes only", () => {
+		expect(githubRepositoryIdentityFromNormalizedRemoteUrl("ssh://git@github.com/dagster-io/asdl-tools")).toEqual({ owner: "dagster-io", repo: "asdl-tools" });
+		expect(githubRepositoryIdentityFromNormalizedRemoteUrl("ssh://git@gitlab.com/dagster-io/asdl-tools")).toBeUndefined();
+		expect(githubRepositoryIdentityFromNormalizedRemoteUrl("not-a-url")).toBeUndefined();
 	});
 });
 

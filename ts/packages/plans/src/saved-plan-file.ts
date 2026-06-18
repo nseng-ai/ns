@@ -5,6 +5,7 @@ import { basename, dirname, join, resolve } from "node:path";
 
 import type { CommandExecApi } from "@asdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@asdl/core/git";
+import { githubRepositoryIdentityFromNormalizedRemoteUrl, normalizeGitRemoteUrl } from "@asdl/core/github-status";
 import { normalizeSummary, validatePlanSlug } from "./plan-persistence.ts";
 import { isRecord } from "@asdl/core/primitives";
 
@@ -93,24 +94,12 @@ export function defaultPlanStoreRoot(): string {
 }
 
 export function normalizeRepoOriginUrl(rawUrl: string): string {
-	const trimmed = rawUrl.trim();
-	if (trimmed.length === 0) {
-		return "";
-	}
-
-	const scpLike = parseScpLikeRemote(trimmed);
-	const candidate = scpLike ?? trimmed;
-	const normalizedUrl = normalizeAsUrl(candidate);
-	if (normalizedUrl !== undefined) {
-		return normalizedUrl;
-	}
-
-	return stripGitSuffix(stripTrailingSlashes(candidate));
+	return normalizeGitRemoteUrl(rawUrl);
 }
 
 export function buildRepoPlanStoreKey(repoRoot: string, normalizedIdentity: string): string {
 	const identity = normalizeRepoOriginUrl(normalizedIdentity);
-	const githubIdentity = parseGitHubRepoIdentity(identity);
+	const githubIdentity = githubRepositoryIdentityFromNormalizedRemoteUrl(identity);
 	if (githubIdentity !== undefined) {
 		const owner = sanitizePlanPathSegment(githubIdentity.owner.toLowerCase(), "owner");
 		const repo = sanitizePlanPathSegment(githubIdentity.repo.toLowerCase(), "repo");
@@ -479,76 +468,6 @@ async function writeExclusiveFile(filePath: string, content: string): Promise<vo
 	} finally {
 		await file?.close();
 	}
-}
-
-function normalizeAsUrl(value: string): string | undefined {
-	let url: URL;
-	try {
-		url = new URL(value);
-	} catch {
-		return undefined;
-	}
-
-	const protocol = url.protocol.toLowerCase();
-	const host = url.hostname.toLowerCase();
-	const username = url.username ? `${url.username}@` : "";
-	const port = url.port ? `:${url.port}` : "";
-	const path = stripGitSuffix(stripTrailingSlashes(url.pathname.replace(/^\/+/, "")));
-	if (path.length === 0) {
-		return `${protocol}//${username}${host}${port}`;
-	}
-	return `${protocol}//${username}${host}${port}/${path}`;
-}
-
-interface GitHubRepoIdentity {
-	owner: string;
-	repo: string;
-}
-
-function parseGitHubRepoIdentity(normalizedIdentity: string): GitHubRepoIdentity | undefined {
-	let url: URL;
-	try {
-		url = new URL(normalizedIdentity);
-	} catch {
-		return undefined;
-	}
-
-	if (url.hostname.toLowerCase() !== "github.com") {
-		return undefined;
-	}
-
-	const pathSegments = stripGitSuffix(stripTrailingSlashes(url.pathname))
-		.replace(/^\/+/, "")
-		.split("/")
-		.filter((segment) => segment.length > 0);
-	const [owner, repo] = pathSegments;
-	if (owner === undefined || repo === undefined) {
-		return undefined;
-	}
-
-	return { owner, repo };
-}
-
-function parseScpLikeRemote(value: string): string | undefined {
-	if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(value)) {
-		return undefined;
-	}
-
-	const match = /^(?<user>[^@/:]+@)?(?<host>[^:/]+):(?<path>.+)$/.exec(value);
-	if (!match?.groups) {
-		return undefined;
-	}
-
-	const user = match.groups.user ?? "";
-	return `ssh://${user}${match.groups.host}/${match.groups.path}`;
-}
-
-function stripTrailingSlashes(value: string): string {
-	return value.replace(/\/+$/g, "");
-}
-
-function stripGitSuffix(value: string): string {
-	return value.replace(/\.git$/i, "");
 }
 
 async function realpathIfPossible(path: string): Promise<string> {
