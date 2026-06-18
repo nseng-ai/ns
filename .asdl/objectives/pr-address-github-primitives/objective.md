@@ -14,6 +14,7 @@ The primitives should reduce systemic complexity by making small GitHub operatio
 - Keep GraphQL text, `gh` invocation details, pagination, response parsing, and malformed-response handling in tested TypeScript source rather than in agent prompts or shell snippets.
 - Preserve arbitrary agent composition above the primitive layer: callers should be able to combine the primitives into single-PR download, stack download, remediation, or follow-up flows without depending on a monolithic workflow API.
 - Capture evidence about whether primitive-shaped CLI/API pushdown reduces repeated agent reasoning and systemic complexity, so a later Objective can evolve the CLI-pushdown documentation from evidence rather than preference.
+- Keep Objective evidence self-contained: external PRs, review threads, transcripts, or issues may be cited as provenance breadcrumbs, but the durable Objective should inline the facts, mechanics, and decisions needed by a future implementation session without requiring readers to open those links.
 
 ## Non-Goals
 
@@ -33,6 +34,7 @@ The primitives should reduce systemic complexity by making small GitHub operatio
 - `download-feedback` behavior remains compatible with its current single-PR use cases, and the resulting primitive shape can support a stack variant without duplicating GraphQL mechanics.
 - Tests cover the new primitive layer, PR-address adapter behavior, and at least one evidence-producing composition path relevant to single-PR or stack feedback.
 - Completion notes record concrete evidence about whether the primitive approach reduced duplicated command/query logic or simplified agent composition, and park any CLI-pushdown documentation follow-up with that evidence.
+- Objective updates and completion notes that cite motivating PRs or external discussions inline enough context that those references serve as provenance rather than required reading.
 
 ## Assumptions and Risks
 
@@ -43,6 +45,7 @@ Assumptions:
 - Existing `pr-address` gateway types can be adapted incrementally without forcing a full package rewrite.
 - A primitive API can stay small if it is shaped around current concrete operations rather than a comprehensive GitHub GraphQL client.
 - PR review-thread triage commonly needs separate primitives for replying to a thread and resolving it; a workflow may compose those primitives, but the core layer should not collapse them into one PR-address-specific remediation workflow.
+- The motivating review-thread mutation case is representative: an agent may need to reply to several inline review threads with different per-thread bodies, then resolve each thread. The core primitive layer should expose the individual mutation operations and their typed results, while leaving batching, classification, and “accept vs defer” policy to the caller.
 
 Risks:
 
@@ -50,6 +53,7 @@ Risks:
 - Moving logic into `@asdl/core` may create unwanted dependency gravity if package-specific PR-address concepts leak downward.
 - A stack feedback variant may need composition concerns that are not visible from `download-feedback` alone; the first primitive cut must leave room for arbitrary caller composition.
 - Evidence about reduced systemic complexity may be too anecdotal unless completion notes explicitly compare before/after duplication, prompt burden, and test seams.
+- If Objective evidence is recorded only as PR numbers or external links, future agents will have to rediscover the context manually and may miss the intended primitive shape; mitigate by inlining the observed mechanics and decisions in Objective prose.
 
 ## Open Questions
 
