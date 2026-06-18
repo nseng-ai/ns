@@ -2,7 +2,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 import { resolveBrmemCommandCandidates, runBrmemCandidate } from "@asdl/core/brmem-cli";
-import { execApiToCommandRunner, formatCommand, normalizeExecResult, tailText, type CommandExecApi, type ExecOptions, type PiExecResultLike } from "@asdl/core/exec";
+import { execApiToCommandRunner, formatCommand, normalizeExecResult, piExecApiToCommandExecApi, tailText, type ExecOptions, type PiExecResultLike } from "@asdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@asdl/core/git";
 import { runGitHubCli } from "@asdl/core/github-cli";
 import {
@@ -390,7 +390,7 @@ async function loadGhStatus(
 
 	const args = githubWorktreePrStatusArgs({ ...repository, headRefName: identity.head.name });
 	const result = await runGitHubCli({
-		runner: execApiToCommandRunner(commandExecApiFromExecGateway(pi)),
+		runner: execApiToCommandRunner(piExecApiToCommandExecApi(pi)),
 		cwd,
 		signal,
 		timeoutMs: COMMAND_TIMEOUT_MS,
@@ -460,15 +460,7 @@ function execOptions(cwd: string, signal?: AbortSignal) {
 }
 
 function gitGatewayFromExecGateway(pi: ExecGateway): GitGateway {
-	return new RealGitGateway(commandExecApiFromExecGateway(pi));
-}
-
-function commandExecApiFromExecGateway(pi: ExecGateway): CommandExecApi {
-	return {
-		async exec(command, args, options) {
-			return normalizeExecResult(await pi.exec(command, args, options));
-		},
-	};
+	return new RealGitGateway(piExecApiToCommandExecApi(pi));
 }
 
 function compactGithubCommandName(args: readonly string[]): string {

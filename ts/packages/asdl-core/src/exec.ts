@@ -48,6 +48,18 @@ export interface PiExecResultLike {
 	startupError?: string;
 }
 
+export interface PiExecApiLike {
+	exec(command: string, args: string[], options?: ExecOptions): Promise<PiExecResultLike>;
+}
+
+export function piExecApiToCommandExecApi(execApi: PiExecApiLike): CommandExecApi {
+	return {
+		async exec(command, args, options) {
+			return normalizeExecResult(await execApi.exec(command, args, options));
+		},
+	};
+}
+
 export interface TailTextOptions {
 	maxChars: number;
 	maxLines?: number;
