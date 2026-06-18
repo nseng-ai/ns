@@ -1,12 +1,13 @@
 import { failure, ok } from "@asdl/clinkr";
-import type { GraphiteBranchTopology, GraphiteChildrenCorruption, GraphiteTopology, GraphiteTopologyParseDiagnostics } from "@asdl/core/graphite-metadata";
+import type { GraphiteBranchTopology, GraphiteTopology, GraphiteTopologyParseDiagnostics } from "@asdl/core/graphite-metadata";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../../../context.ts";
 import type { LocalBranchTip } from "../../../gateways/git.ts";
-import type { StackInfo, TrunkMarkerStatus, WalkTermination } from "../../../gateways/gt.ts";
+import type { StackInfo } from "../../../gateways/gt.ts";
 import { buildSlotInventory, type SlotRecord } from "../../../inventory.ts";
 import { resolveRepoAndCurrentBranch } from "../shared.ts";
+import { renderChildrenCorruption, renderTrunkMarkerWarnings, renderWalkTerminationWarning } from "./metadata-warnings.ts";
 
 const STACK_MAP_SCOPE = "stack-map";
 const BAD_PARENT_NAME_VALIDATION_RESULT = "BAD_PARENT_NAME";
@@ -148,8 +149,12 @@ function selectVisibleBranches(options: {
 	}
 	for (const branch of [...selected]) {
 		if (!options.topology.has(branch)) continue;
-		addAncestors(branch, selected, options.topology, warnings);
-		addDescendants(branch, selected, options.topology, warnings);
+		const ancestors = collectAncestors({ branch, topology: options.topology });
+		for (const selectedBranch of ancestors.branches) selected.add(selectedBranch);
+		warnings.push(...ancestors.warnings);
+		const descendants = collectDescendants({ branch, topology: options.topology });
+		for (const selectedBranch of descendants.branches) selected.add(selectedBranch);
+		warnings.push(...descendants.warnings);
 	}
 	return {
 		selected: new Set([...selected].filter((branch) => options.topology.has(branch) && options.localBranches.has(branch))),
@@ -157,30 +162,35 @@ function selectVisibleBranches(options: {
 	};
 }
 
-function addAncestors(branch: string, selected: Set<string>, topology: GraphiteTopology, warnings: string[]): void {
+function collectAncestors(options: { readonly branch: string; readonly topology: GraphiteTopology }): { readonly branches: readonly string[]; readonly warnings: readonly string[] } {
+	const branches: string[] = [];
+	const warnings: string[] = [];
 	const visited = new Set<string>();
-	let cursor: string | undefined = branch;
+	let cursor: string | undefined = options.branch;
 	while (cursor !== undefined) {
 		if (visited.has(cursor)) {
 			warnings.push(`cycle detected in Graphite parent metadata at ${cursor}; ancestor selection stopped`);
-			return;
+			return { branches, warnings };
 		}
 		visited.add(cursor);
-		const row = topology.get(cursor);
+		const row = options.topology.get(cursor);
 		if (row === undefined) {
 			warnings.push(`parent branch ${cursor} is missing from Graphite metadata; ancestor selection stopped`);
-			return;
+			return { branches, warnings };
 		}
-		selected.add(cursor);
+		branches.push(cursor);
 		cursor = row.parent;
 	}
+	return { branches, warnings };
 }
 
-function addDescendants(branch: string, selected: Set<string>, topology: GraphiteTopology, warnings: string[]): void {
-	const root = topology.get(branch);
-	if (root === undefined) return;
+function collectDescendants(options: { readonly branch: string; readonly topology: GraphiteTopology }): { readonly branches: readonly string[]; readonly warnings: readonly string[] } {
+	const branches: string[] = [];
+	const warnings: string[] = [];
+	const root = options.topology.get(options.branch);
+	if (root === undefined) return { branches, warnings };
 	const pending = [...root.children];
-	const visited = new Set<string>([branch]);
+	const visited = new Set<string>([options.branch]);
 	while (pending.length > 0) {
 		const child = pending.pop();
 		if (child === undefined) continue;
@@ -189,14 +199,15 @@ function addDescendants(branch: string, selected: Set<string>, topology: Graphit
 			continue;
 		}
 		visited.add(child);
-		const row = topology.get(child);
+		const row = options.topology.get(child);
 		if (row === undefined) {
 			warnings.push(`child branch ${child} is missing from Graphite metadata; descendant selection stopped`);
 			continue;
 		}
-		selected.add(child);
+		branches.push(child);
 		pending.push(...row.children);
 	}
+	return { branches, warnings };
 }
 
 function branchResults(topology: GraphiteTopology, selected: ReadonlySet<string>): StackMapBranch[] {
@@ -233,37 +244,12 @@ function renderGraphWarnings(diagnostics: GraphiteTopologyParseDiagnostics): str
 function renderStackWarnings(stack: StackInfo): string[] {
 	const warnings: string[] = [];
 	for (const corruption of stack.descendantWalk.childrenCorruptions) warnings.push(renderChildrenCorruption(corruption));
-	const ancestorProblem = renderWalkTermination("ancestor", stack.ancestorTermination, "walk");
+	const ancestorProblem = renderWalkTerminationWarning({ kind: "ancestor", termination: stack.ancestorTermination, label: "walk" });
 	if (ancestorProblem !== null) warnings.push(ancestorProblem);
 	for (const fork of stack.descendantWalk.forks) warnings.push(`branch ${fork.branch} has ${fork.children.length} Graphite children; descendants follow the first child only`);
-	const descendantProblem = renderWalkTermination("descendant", stack.descendantWalk.termination, "walk");
+	const descendantProblem = renderWalkTerminationWarning({ kind: "descendant", termination: stack.descendantWalk.termination, label: "walk" });
 	if (descendantProblem !== null) warnings.push(descendantProblem);
 	warnings.push(...renderTrunkMarkerWarnings(stack.trunkMarker));
-	return warnings;
-}
-
-function renderWalkTermination(kind: "ancestor" | "descendant", termination: WalkTermination, label: "walk" | "selection"): string | null {
-	if (termination.type === "completed") return null;
-	if (termination.type === "cycle") return `cycle detected in Graphite ${kind === "ancestor" ? "parent" : "children"} metadata at ${termination.branch}; ${kind} ${label} stopped`;
-	return `${kind === "ancestor" ? "parent" : "child"} branch ${termination.branch} is missing from Graphite metadata; ${kind} ${label} stopped`;
-}
-
-function renderChildrenCorruption(corruption: GraphiteChildrenCorruption): string {
-	switch (corruption.kind) {
-		case "not_text": return `children metadata for ${corruption.branch} is not JSON text; treating as no children`;
-		case "invalid_json": return `children metadata for ${corruption.branch} is not valid JSON; treating as no children`;
-		case "not_list": return `children metadata for ${corruption.branch} is not a JSON list; treating as no children`;
-		case "non_string": return `children metadata for ${corruption.branch} contains non-string entries`;
-	}
-}
-
-function renderTrunkMarkerWarnings(marker: TrunkMarkerStatus): string[] {
-	if (marker.type === "clean") return [];
-	if (marker.terminusState === "row_missing") return ["trunk row marker missing"];
-	const warnings: string[] = [];
-	if (marker.terminusState === "unmarked") warnings.push("trunk row marker missing");
-	if (marker.markedTrunks.length > 1) warnings.push("multiple Graphite metadata rows are marked as trunk");
-	if (marker.markedTrunks.length > 0 && !marker.markedTrunks.includes(marker.terminus)) warnings.push(`Graphite metadata trunk marker differs from ancestor-walk terminus: ${marker.markedTrunks[0]} != ${marker.terminus}`);
 	return warnings;
 }
 
