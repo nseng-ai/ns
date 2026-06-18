@@ -3,33 +3,37 @@ import { formatOutputSection, tailText, type ExecOptions, type ExecResult } from
 import { buildFencedTextBlock, expandRepoSkillBlock } from "./skill-expansion.ts";
 import { definePiSurfaceParity } from "./parity.ts";
 
-export const SMART_RESTACK_COMMAND_NAME = "gt-smart-restack";
+export const SMART_RESTACK_COMMAND_NAME = "code:gt-restack-resolve";
 
 export const smartRestackParity = definePiSurfaceParity([
 	{
 		kind: "command",
 		surface: SMART_RESTACK_COMMAND_NAME,
-		workflow: "Deterministically try gt restack before offering LM-assisted conflict resolution",
+		workflow: "Run deterministic gt restack before falling through to LM-assisted conflict resolution",
 		parity: "WAIVED",
-		fallback: "Run `gt restack`; if it conflicts, run `/code:gt-restack-resolve` or abort the rebase manually.",
+		fallback: "Claude Code, Codex, and other non-Pi users should invoke the portable `code-gt-restack-resolve` skill directly; it runs the same Graphite restack workflow from the current repository state.",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@asdl/pi-extensions",
 		sourceModule: "smart-restack",
-		notes: "This is a Pi-native fast path that intentionally avoids an LM turn unless the user confirms after a failed restack.",
+		notes: "This Pi-native command is a turn-saving UI wrapper over the portable code-gt-restack-resolve skill; the skill remains the cross-harness workflow contract.",
 	},
 ] as const);
 
 const GT_RESTACK_TIMEOUT_MS = 10 * 60 * 1_000;
+const GIT_STATUS_TIMEOUT_MS = 60_000;
 const GIT_ABORT_TIMEOUT_MS = 60_000;
 const COMMAND_OUTPUT_TAIL_OPTIONS = { maxChars: 4_000, maxLines: 20 } as const;
 const RESTACK_RESOLVE_SKILL_NAME = "code-gt-restack-resolve";
+const START_RESOLVER_OPTION = "Start LM resolver";
+const LEAVE_STOPPED_OPTION = "Leave rebase stopped";
+const ABORT_REBASE_OPTION = "Abort rebase";
 
 interface CommandContext {
 	cwd: string;
 	hasUI?: boolean;
 	ui: {
 		notify(message: string, level?: "info" | "warning" | "error"): void;
-		confirm?(title: string, message: string): Promise<boolean> | boolean;
+		select?(title: string, options: string[]): Promise<string | undefined> | string | undefined;
 	};
 	waitForIdle?(): Promise<void>;
 }
@@ -46,9 +50,27 @@ export interface SmartRestackExtensionAPI {
 	sendUserMessage?(content: string): Promise<void> | void;
 }
 
+type ResolverPromptContext =
+	| { type: "interrupted-restack" }
+	| { type: "failed-fast-path" };
+
+interface HandleRestackFailureOptions {
+	pi: SmartRestackExtensionAPI;
+	ctx: CommandContext;
+	args: string;
+	restack: ExecResult;
+}
+
+interface InvokeLmResolverOptions {
+	pi: SmartRestackExtensionAPI;
+	ctx: CommandContext;
+	args: string;
+	promptContext: ResolverPromptContext;
+}
+
 export default function smartRestackExtension(pi: SmartRestackExtensionAPI): void {
 	pi.registerCommand(SMART_RESTACK_COMMAND_NAME, {
-		description: "Run gt restack first; only offer LM-assisted conflict resolution if it fails",
+		description: "Run gt restack first; fall through to LM-assisted conflict resolution if needed",
 		argumentHint: "[context for resolver if needed]",
 		handler: async (args, ctx) => {
 			await ctx.waitForIdle?.();
@@ -58,6 +80,18 @@ export default function smartRestackExtension(pi: SmartRestackExtensionAPI): voi
 }
 
 export async function runSmartRestack(pi: SmartRestackExtensionAPI, ctx: CommandContext, args: string): Promise<void> {
+	const status = await pi.exec("git", ["status"], { cwd: ctx.cwd, timeout: GIT_STATUS_TIMEOUT_MS });
+	if (status.code !== 0) {
+		notify(ctx, `Cannot inspect repository state with git status; not starting gt restack.\n\n${formatCommandOutput(status)}`, "error");
+		return;
+	}
+
+	if (isRebaseInProgress(status)) {
+		notify(ctx, "Rebase/restack already in progress; starting LM-driven code-gt-restack-resolve from the current repository state.", "info");
+		await invokeLmResolver({ pi, ctx, args, promptContext: { type: "interrupted-restack" } });
+		return;
+	}
+
 	notify(ctx, "Running deterministic fast path: gt restack", "info");
 	const restack = await pi.exec("gt", ["restack"], { cwd: ctx.cwd, timeout: GT_RESTACK_TIMEOUT_MS });
 	if (restack.code === 0) {
@@ -65,25 +99,41 @@ export async function runSmartRestack(pi: SmartRestackExtensionAPI, ctx: Command
 		return;
 	}
 
+	await handleRestackFailure({ pi, ctx, args, restack });
+}
+
+async function handleRestackFailure(options: HandleRestackFailureOptions): Promise<void> {
+	const { pi, ctx, args, restack } = options;
 	const failureMessage = formatRestackFailureMessage(restack);
-	if (ctx.hasUI !== false && ctx.ui.confirm !== undefined) {
-		const shouldInvokeLm = await ctx.ui.confirm(
-			"gt restack needs help",
-			`${failureMessage}\n\nChoose Yes to start the LM-driven ${RESTACK_RESOLVE_SKILL_NAME} workflow. Choose No to abort the rebase now with git rebase --abort.`,
+	if (ctx.hasUI === false || ctx.ui.select === undefined) {
+		notify(
+			ctx,
+			`${failureMessage}\n\nNo selection UI is available, so no LM turn was started and no abort was run. Run /code:gt-restack-resolve to resolve from the stopped repository state, leave it for manual handling, or run git rebase --abort to abort.`,
+			"warning",
 		);
-		if (shouldInvokeLm) {
-			await invokeLmResolver(pi, ctx, args);
-			return;
-		}
-		await abortRebase(pi, ctx);
 		return;
 	}
 
-	notify(
-		ctx,
-		`${failureMessage}\n\nNo confirmation UI is available, so no LM turn was started and no abort was run. Run /code:gt-restack-resolve to resolve, or git rebase --abort to abort.`,
-		"warning",
-	);
+	const selected = await ctx.ui.select("gt restack needs help", [START_RESOLVER_OPTION, LEAVE_STOPPED_OPTION, ABORT_REBASE_OPTION]);
+	switch (selected) {
+		case START_RESOLVER_OPTION:
+			await invokeLmResolver({ pi, ctx, args, promptContext: { type: "failed-fast-path" } });
+			return;
+		case LEAVE_STOPPED_OPTION:
+		case undefined:
+			notify(ctx, `${failureMessage}\n\nRebase left stopped for manual handling.`, "warning");
+			return;
+		case ABORT_REBASE_OPTION:
+			await abortRebase(pi, ctx);
+			return;
+		default:
+			notify(ctx, `${failureMessage}\n\nUnrecognized selection; rebase left stopped for manual handling.`, "warning");
+	}
+}
+
+function isRebaseInProgress(result: ExecResult): boolean {
+	const output = `${result.stdout}\n${result.stderr}`;
+	return output.includes("rebase in progress") || output.includes("You are currently rebasing") || output.includes("interactive rebase in progress");
 }
 
 function formatCleanRestackMessage(result: ExecResult): string {
@@ -104,7 +154,8 @@ function formatCommandOutput(result: ExecResult): string {
 	return parts.join("\n\n");
 }
 
-async function invokeLmResolver(pi: SmartRestackExtensionAPI, ctx: CommandContext, args: string): Promise<void> {
+async function invokeLmResolver(options: InvokeLmResolverOptions): Promise<void> {
+	const { pi, ctx, args, promptContext } = options;
 	if (pi.sendUserMessage === undefined) {
 		notify(ctx, `Cannot start ${RESTACK_RESOLVE_SKILL_NAME}: this Pi host does not expose sendUserMessage.`, "error");
 		return;
@@ -120,12 +171,16 @@ async function invokeLmResolver(pi: SmartRestackExtensionAPI, ctx: CommandContex
 	}
 
 	notify(ctx, `Starting LM-driven ${RESTACK_RESOLVE_SKILL_NAME}.`, "info");
-	await pi.sendUserMessage(buildResolverPrompt(skillBlock, args));
+	await pi.sendUserMessage(buildResolverPrompt(skillBlock, args, promptContext));
 }
 
-function buildResolverPrompt(skillBlock: string, args: string): string {
+function buildResolverPrompt(skillBlock: string, args: string, promptContext: ResolverPromptContext): string {
 	const trimmedArgs = args.trim();
-	const base = `${skillBlock}\n\nA deterministic gt-smart-restack fast path already ran \`gt restack\` and it did not complete cleanly. Continue from the current repository state and run ${RESTACK_RESOLVE_SKILL_NAME} now. Follow the backing skill workflow exactly.`;
+	const contextMessage =
+		promptContext.type === "interrupted-restack"
+			? `A Graphite restack/rebase is already in progress. Continue from the current repository state and run ${RESTACK_RESOLVE_SKILL_NAME} now. Follow the backing skill workflow exactly.`
+			: `A deterministic /code:gt-restack-resolve fast path already ran \`gt restack\` and it did not complete cleanly. Continue from the current repository state and run ${RESTACK_RESOLVE_SKILL_NAME} now. Follow the backing skill workflow exactly.`;
+	const base = `${skillBlock}\n\n${contextMessage}`;
 	if (trimmedArgs.length === 0) return base;
 	return `${base}\n\nAdditional user-supplied context:\n\n${buildFencedTextBlock(trimmedArgs)}`;
 }

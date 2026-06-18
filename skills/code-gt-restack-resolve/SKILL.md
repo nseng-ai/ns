@@ -22,6 +22,17 @@ below. Do not restate or improvise per-file resolution policy here.
 It also defers to **`graphite`** for the `gt` mental model, stack navigation,
 and the "Recovering from Interrupted Rebase" section.
 
+## Harness entry points
+
+- **Pi users:** `/code:gt-restack-resolve` is the single command entry point.
+  The Pi command is a thin deterministic wrapper: it checks for an interrupted
+  rebase, runs plain `gt restack` when safe, and invokes this skill only when
+  conflict resolution is needed.
+- **Claude Code, Codex, and other harnesses:** invoke this skill directly. Do
+  not depend on the Pi wrapper. Follow the workflow below from the current
+  repository state: if no rebase is in progress, start the selected restack;
+  if a restack/rebase is already interrupted, resume from that state.
+
 ## Engine parameters
 
 When the engine's Driver contract asks for overrides, use:
