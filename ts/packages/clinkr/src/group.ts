@@ -1,7 +1,7 @@
 import { Argument, Command, CommanderError, InvalidArgumentError, Option } from "commander";
 import { z } from "zod";
 
-import { emitExit, type LegacyMachineOutput } from "./emit.ts";
+import { emitExit, type LegacyMachineOutput, type RenderCapabilities } from "./emit.ts";
 import type { ClinkrExit } from "./exit.ts";
 import { clinkrFormatFromOption } from "./format.ts";
 import { ClinkrFailure } from "./failure.ts";
@@ -37,9 +37,9 @@ export interface ClinkrCommandSpec<TContext, S extends z.ZodObject, T> {
 	 */
 	schemaDocument?: () => JsonSchemaDocument;
 	/** Human rendering for the ok variant; default is indented JSON of the data. */
-	renderHuman?: (data: T) => string;
+	renderHuman?: (data: T, caps: RenderCapabilities) => string;
 	/** Markdown rendering for the ok variant; falls back to human rendering when absent. */
-	renderMarkdown?: (data: T) => string;
+	renderMarkdown?: (data: T, caps: RenderCapabilities) => string;
 	/**
 	 * Deprecated-from-birth escape hatch: routes the whole exit union through a
 	 * legacy machine shape under `--format json` so migrated commands keep their
@@ -101,8 +101,8 @@ interface RenderedExecution<TContext> {
 	type: "rendered";
 	resultSchema: z.ZodType | undefined;
 	handler: (ctx: TContext, request: unknown) => Promise<ClinkrExit<unknown>>;
-	renderHuman: ((data: unknown) => string) | undefined;
-	renderMarkdown: ((data: unknown) => string) | undefined;
+	renderHuman: ((data: unknown, caps: RenderCapabilities) => string) | undefined;
+	renderMarkdown: ((data: unknown, caps: RenderCapabilities) => string) | undefined;
 	legacyMachine: ((exit: ClinkrExit<unknown>) => LegacyMachineOutput) | undefined;
 }
 
@@ -255,8 +255,8 @@ function executionOf<TContext, S extends z.ZodObject, T>(
 		// Erase the command generics once; zod re-establishes the request shape
 		// at parse time, so the cast is backed by a runtime guarantee.
 		handler: spec.handler as (ctx: TContext, request: unknown) => Promise<ClinkrExit<unknown>>,
-		renderHuman: spec.renderHuman as ((data: unknown) => string) | undefined,
-		renderMarkdown: spec.renderMarkdown as ((data: unknown) => string) | undefined,
+		renderHuman: spec.renderHuman as ((data: unknown, caps: RenderCapabilities) => string) | undefined,
+		renderMarkdown: spec.renderMarkdown as ((data: unknown, caps: RenderCapabilities) => string) | undefined,
 		legacyMachine: spec.legacyMachine as ((exit: ClinkrExit<unknown>) => LegacyMachineOutput) | undefined,
 	};
 }

@@ -34,6 +34,6 @@ export { clinkrFormatFromArgs, clinkrFormatFromOption, isClinkrHumanOutputInvoca
 export { createProcessIo, resolveIo } from "./io.ts";
 export type { ClinkrIo, ClinkrIoOverrides } from "./io.ts";
 export { emitExit } from "./emit.ts";
-export type { ClinkrFormat, EmitExitOptions, LegacyMachineOutput, LegacyMachineSerialization } from "./emit.ts";
+export type { ClinkrFormat, EmitExitOptions, LegacyMachineOutput, LegacyMachineSerialization, RenderCapabilities } from "./emit.ts";
 export type { JsonSchemaDocument } from "./json-schema.ts";
 export type { OptionSpec, PositionalSpec } from "./surface.ts";

@@ -2,7 +2,40 @@ import { InMemoryGitGateway } from "@asdl/core/git/testing";
 import { describe, expect, test } from "vitest";
 
 import { buildObjectiveBranchAttribution } from "../../src/operations/list-branch-attribution.ts";
-import { latestUpdateIsoFromUpdateNames, matchesStatusFilter } from "../../src/operations/list-objectives.ts";
+import { latestUpdateIsoFromUpdateNames, matchesStatusFilter, type ObjectiveListResult, renderObjectiveListHuman } from "../../src/operations/list-objectives.ts";
+
+const SAMPLE_RESULT: ObjectiveListResult = {
+	trunkBranch: "master",
+	rootPath: ".asdl/objectives",
+	statusFilter: "active",
+	namesOnly: false,
+	updatedBranchesIncluded: true,
+	records: [{ slug: "alpha", status: "open", latestUpdateIso: "2026-06-13T09:10:00Z", updatedBranches: ["feat/alpha"], hasOutstandingChanges: false }],
+};
+
+describe("renderObjectiveListHuman", () => {
+	const esc = String.fromCharCode(0x1b);
+
+	test("draws a header rule and stays plain when color is disabled", () => {
+		const output = renderObjectiveListHuman(SAMPLE_RESULT, { color: false });
+		expect(output).not.toContain(esc);
+		expect(output).toContain("OBJECTIVE");
+		const lines = output.split("\n");
+		const headerIndex = lines.findIndex((line) => line.startsWith("OBJECTIVE"));
+		expect(lines[headerIndex + 1]?.startsWith("─")).toBe(true); // SIMPLE_HEAD rule under the header
+	});
+
+	test("defaults to no color when capabilities are omitted", () => {
+		expect(renderObjectiveListHuman(SAMPLE_RESULT)).not.toContain(esc);
+	});
+
+	test("emits bold-cyan header and slug plus dim timestamp when color is enabled", () => {
+		const output = renderObjectiveListHuman(SAMPLE_RESULT, { color: true });
+		expect(output).toContain(`${esc}[1;36mOBJECTIVE${esc}[0m`);
+		expect(output).toContain(`${esc}[1;36malpha${esc}[0m`);
+		expect(output).toContain(`${esc}[2m2026-06-13T09:10:00Z${esc}[0m`);
+	});
+});
 
 describe("objective list helpers", () => {
 	test("matches checkout-local status filters", () => {

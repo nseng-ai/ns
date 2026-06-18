@@ -1,7 +1,8 @@
-import { failure, ok, type ClinkrExit } from "@asdl/clinkr";
+import { failure, ok, type ClinkrExit, type RenderCapabilities } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { GitGateway } from "@asdl/core/git";
+import { renderTextTable, type TextTableColumn } from "@asdl/core/text-table";
 
 import type { ObjectiveCliContext } from "../context.ts";
 import { activeRecordRelativePath, activeRootRelativePath, type ObjectiveRecordStatus, type ObjectiveStorage } from "../storage.ts";
@@ -106,7 +107,7 @@ export async function buildObjectiveListResult(
 	};
 }
 
-export function renderObjectiveListHuman(result: ObjectiveListResult): string {
+export function renderObjectiveListHuman(result: ObjectiveListResult, caps: RenderCapabilities = { color: false }): string {
 	if (result.namesOnly) return renderSlugs(result.records);
 
 	const parts = [
@@ -119,10 +120,18 @@ export function renderObjectiveListHuman(result: ObjectiveListResult): string {
 		parts.push(`${emptyMessage(result.statusFilter)}\n`);
 		return removeOneTrailingNewline(parts.join(""));
 	}
-	parts.push(humanTableHeader(result));
-	for (const record of result.records) {
-		parts.push(...humanRecordRows(record, result.updatedBranchesIncluded === true));
-	}
+	const includeUpdatedBranches = result.updatedBranchesIncluded === true;
+	parts.push(
+		`${
+			renderTextTable({
+				columns: humanTableColumns(includeUpdatedBranches),
+				rows: result.records.map((record) => humanRecordCells(record, includeUpdatedBranches)),
+				color: caps.color,
+				rule: true,
+				headerStyle: "bold-cyan",
+			})
+		}\n`,
+	);
 	if (result.updatedBranchesTruncated === true) {
 		parts.push(`Updated branch attribution limited to newest ${MAX_UPDATED_BRANCH_ATTRIBUTION_WALKS} changed local branches.\n`);
 	}
@@ -244,21 +253,22 @@ function formatLatestUpdate(record: ObjectiveListRecord): string {
 	return formatted;
 }
 
-function humanTableHeader(result: ObjectiveListResult): string {
-	if (result.updatedBranchesIncluded === true) return "Objective | Status | Latest update | Updated branches\n--- | --- | --- | ---\n";
-	return "Objective | Status | Latest update\n--- | --- | ---\n";
+function humanTableColumns(shouldIncludeUpdatedBranches: boolean): TextTableColumn[] {
+	const columns: TextTableColumn[] = [{ header: "OBJECTIVE", style: "bold-cyan" }, { header: "STATUS" }, { header: "LATEST UPDATE", style: "dim" }];
+	if (shouldIncludeUpdatedBranches) columns.push({ header: "UPDATED BRANCHES" });
+	return columns;
 }
 
-function humanRecordRows(record: ObjectiveListRecord, shouldIncludeUpdatedBranches: boolean): string[] {
-	const core = `${record.slug} | ${statusLabel(record.status)} | ${formatLatestUpdate(record)}`;
-	if (!shouldIncludeUpdatedBranches) return [`${core}\n`];
+function humanRecordCells(record: ObjectiveListRecord, shouldIncludeUpdatedBranches: boolean): string[] {
+	const cells = [record.slug, statusLabel(record.status), formatLatestUpdate(record)];
+	if (shouldIncludeUpdatedBranches) cells.push(humanUpdatedBranchesCell(record));
+	return cells;
+}
+
+function humanUpdatedBranchesCell(record: ObjectiveListRecord): string {
 	const branches = record.updatedBranches ?? [];
-	if (branches.length === 0) return [`${core} | —\n`];
-	return branches.map((branch, index) => {
-		const line = formatBranchLine(index + 1, branches.length, branch);
-		if (index === 0) return `${core} | ${line}\n`;
-		return ` |  |  | ${line}\n`;
-	});
+	if (branches.length === 0) return "—";
+	return branches.map((branch, index) => formatBranchLine(index + 1, branches.length, branch)).join("\n");
 }
 
 function markdownTableHeader(result: ObjectiveListResult): string {

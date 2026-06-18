@@ -151,7 +151,7 @@ describe("objective list", () => {
 				records: [{ slug: "alpha", status: "open", latestUpdateIso: null, hasOutstandingChanges: true }],
 			},
 		});
-		expect(human.stdout.join("")).toContain("alpha | ○ open | (x) — | —");
+		expect(human.stdout.join("")).toMatch(/alpha\s+○ open\s+\(x\) —\s+—/);
 		expect(markdown.stdout.join("")).toContain("| alpha | ○ open | (x) — | — |");
 	});
 
@@ -199,8 +199,8 @@ describe("objective list", () => {
 				],
 			},
 		});
-		expect(human.stdout.join("")).toContain("Updated branches");
-		expect(human.stdout.join("")).toContain("alpha | ○ open | — | └ feat/alpha");
+		expect(human.stdout.join("")).toContain("UPDATED BRANCHES");
+		expect(human.stdout.join("")).toMatch(/alpha\s+○ open\s+—\s+└ feat\/alpha/);
 		expect(markdown.stdout.join("")).toContain("| objective | status | latest update | updated branches |");
 		expect(markdown.stdout.join("")).toContain("| beta | ○ open | — | feat/beta |");
 	});

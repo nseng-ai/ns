@@ -4,6 +4,7 @@ import { resolveIo } from "../src/io.ts";
 
 afterEach(() => {
 	vi.restoreAllMocks();
+	vi.unstubAllEnvs();
 });
 
 describe("resolveIo", () => {
@@ -48,5 +49,24 @@ describe("resolveIo", () => {
 		io.stderr("err text");
 		expect(stdoutSpy).toHaveBeenCalledWith("out text");
 		expect(stderrSpy).toHaveBeenCalledWith("err text");
+	});
+
+	test("a custom stdout sink disables color by default (redirected output)", () => {
+		expect(resolveIo({ stdout: () => {} }).color).toBe(false);
+	});
+
+	test("an explicit color override wins over sink detection", () => {
+		expect(resolveIo({ stdout: () => {}, color: true }).color).toBe(true);
+	});
+
+	test("NO_COLOR disables color even on a TTY", () => {
+		vi.stubEnv("NO_COLOR", "1");
+		const original = process.stdout.isTTY;
+		Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
+		try {
+			expect(resolveIo().color).toBe(false);
+		} finally {
+			Object.defineProperty(process.stdout, "isTTY", { value: original, configurable: true });
+		}
 	});
 });
