@@ -1,5 +1,5 @@
 import { NodeCommandExecApi, type CommandExecApi, type ExecResult } from "@asdl/core/exec";
-import { runGitHubCli } from "@asdl/core/github-cli";
+import { runGitHubCliAsExecResult } from "@asdl/core/github-cli";
 import { z } from "zod";
 
 const SLOT_PR_TIMEOUT_MS = 10_000;
@@ -70,9 +70,7 @@ export class RealSlotPrGateway implements SlotPrGateway {
 	}
 
 	private async runGh(args: readonly string[]): Promise<ExecResult> {
-		const result = await runGitHubCli({ execApi: this.execApi, args, cwd: this.cwd, env: this.env, timeoutMs: SLOT_PR_TIMEOUT_MS });
-		if (result.type === "completed") return result.result;
-		return { stdout: "", stderr: result.message, code: 127, killed: false };
+		return await runGitHubCliAsExecResult({ execApi: this.execApi, args, cwd: this.cwd, env: this.env, timeoutMs: SLOT_PR_TIMEOUT_MS });
 	}
 }
 

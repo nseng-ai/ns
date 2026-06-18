@@ -40,6 +40,12 @@ export async function runGitHubCli(options: RunGitHubCliOptions): Promise<RunGit
 	}
 }
 
+export async function runGitHubCliAsExecResult(options: RunGitHubCliOptions): Promise<ExecResult> {
+	const result = await runGitHubCli(options);
+	if (result.type === "completed") return result.result;
+	return { stdout: "", stderr: result.message, code: 127, killed: false };
+}
+
 function githubCliExecOptions(options: RunGitHubCliOptions): ExecOptions {
 	return {
 		cwd: options.cwd,

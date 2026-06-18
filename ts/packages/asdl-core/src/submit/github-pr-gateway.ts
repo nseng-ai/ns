@@ -1,5 +1,5 @@
 import { runCommand, type CommandExecApi, type CommandRunner, type ExecOptions, type ExecResult } from "../exec.ts";
-import { GITHUB_CLI_TIMEOUT_MS, runGitHubCli } from "../github-cli.ts";
+import { GITHUB_CLI_TIMEOUT_MS, runGitHubCliAsExecResult } from "../github-cli.ts";
 import { isRecord } from "../primitives.ts";
 import { withTemporaryFile } from "../temp-files.ts";
 
@@ -107,7 +107,7 @@ export class RealGithubPrGateway implements GithubPrGateway {
 		if (!diff.ok) return diff;
 
 		const args = ["patch-id", "--stable"];
-		const result = await this.runner("git", args, { cwd: params.cwd, timeout: PATCH_ID_TIMEOUT_MS, stdin: diff.value });
+		const result = await this.runGit(args, params.cwd, PATCH_ID_TIMEOUT_MS, { stdin: diff.value });
 		const failure = commandFailure({
 			command: "git",
 			args,
@@ -164,7 +164,7 @@ export class RealGithubPrGateway implements GithubPrGateway {
 		}
 
 		const args = ["diff", `${baseRefName}...${headRefName}`];
-		const result = await this.runner("git", args, { cwd: params.cwd, timeout: DIFF_TIMEOUT_MS });
+		const result = await this.runGit(args, params.cwd, DIFF_TIMEOUT_MS);
 		const failure = commandFailure({
 			command: "git",
 			args,
@@ -177,11 +177,16 @@ export class RealGithubPrGateway implements GithubPrGateway {
 	}
 
 	private async runGh(args: readonly string[], cwd: string, timeoutMs: number): Promise<ExecResult> {
-		const result = await runGitHubCli({ execApi: commandRunnerExecApi(this.runner), args, cwd, timeoutMs });
-		if (result.type === "completed") return result.result;
-		return { stdout: "", stderr: result.message, code: 127, killed: false };
+		return await runGitHubCliAsExecResult({ execApi: commandRunnerExecApi(this.runner), args, cwd, timeoutMs });
 	}
 
+	private async runGit(args: readonly string[], cwd: string, timeoutMs: number, options: { readonly stdin?: string | undefined } = {}): Promise<ExecResult> {
+		return await this.runner("git", args, {
+			cwd,
+			timeout: timeoutMs,
+			...(options.stdin === undefined ? {} : { stdin: options.stdin }),
+		});
+	}
 }
 
 function commandRunnerExecApi(runner: CommandRunner): CommandExecApi {

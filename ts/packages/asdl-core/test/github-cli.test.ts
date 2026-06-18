@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
-import { GITHUB_CLI_TIMEOUT_MS, runGitHubCli } from "@asdl/core/github-cli";
+import { GITHUB_CLI_TIMEOUT_MS, runGitHubCli, runGitHubCliAsExecResult } from "@asdl/core/github-cli";
 
 describe("runGitHubCli", () => {
 	test("runs gh with default timeout and returns command metadata", async () => {
@@ -52,6 +52,37 @@ describe("runGitHubCli", () => {
 			command: ["gh", "pr", "view", "12"],
 			displayCommand: "gh pr view 12",
 			message: "gh crashed",
+		});
+	});
+
+	test("returns completed ExecResult unchanged", async () => {
+		const calls: Array<{ readonly command: string; readonly args: readonly string[]; readonly options?: ExecOptions | undefined }> = [];
+		const completedResult: ExecResult = { stdout: "ok", stderr: "", code: 0, killed: false };
+		const execApi: CommandExecApi = {
+			async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
+				calls.push({ command, args: [...args], options });
+				return completedResult;
+			},
+		};
+
+		const result = await runGitHubCliAsExecResult({ execApi, args: ["pr", "view", "12"], cwd: "/repo" });
+
+		expect(result).toBe(completedResult);
+		expect(calls).toEqual([{ command: "gh", args: ["pr", "view", "12"], options: { cwd: "/repo", timeout: GITHUB_CLI_TIMEOUT_MS } }]);
+	});
+
+	test("converts startup errors to ExecResult failures", async () => {
+		const execApi: CommandExecApi = {
+			async exec(): Promise<ExecResult> {
+				throw new Error("gh crashed");
+			},
+		};
+
+		expect(await runGitHubCliAsExecResult({ execApi, args: ["pr", "view", "12"], cwd: "/repo" })).toEqual({
+			stdout: "",
+			stderr: "gh crashed",
+			code: 127,
+			killed: false,
 		});
 	});
 });
