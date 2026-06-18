@@ -11,8 +11,8 @@ It demonstrates the core workflow with:
 - generated `vibechk/<run-id>` result branches
 - the default local `vibechk` store
 
-The commands below assume you are testing from this repository with `uv run vibechk`.
-If `vibechk` is installed as a command, replace `uv run vibechk` with `vibechk`.
+The commands below assume you have installed `vibechk` via `just install-vibechk`.
+For in-checkout development, replace `vibechk` with `node ts/packages/vibechk/src/cli.ts`.
 
 ## 1. Preflight
 
@@ -21,7 +21,7 @@ Run from a clean repo where creating two temporary branches is okay.
 ```bash
 git branch --show-current
 git status --short
-uv run vibechk --version
+vibechk --version
 command -v claude
 ```
 
@@ -83,7 +83,7 @@ MD
 ```bash
 git switch vibechk-e2e-baseline
 
-uv run vibechk run \
+vibechk run \
   --plan /tmp/vibechk-serial-demo/plan.md \
   --workdir . \
   --runner claude
@@ -114,7 +114,7 @@ baseline default context worked
 ```bash
 git switch vibechk-e2e-treatment
 
-uv run vibechk run \
+vibechk run \
   --plan /tmp/vibechk-serial-demo/plan.md \
   --workdir . \
   --runner claude
@@ -145,7 +145,7 @@ treatment branch context worked
 List recent runs:
 
 ```bash
-uv run vibechk runs
+vibechk runs
 ```
 
 If you lost a run ID, use this list to find it by timestamp, starting branch, and workdir.
@@ -153,7 +153,7 @@ If you lost a run ID, use this list to find it by timestamp, starting branch, an
 Generate a comparison report:
 
 ```bash
-uv run vibechk diff BASELINE_RUN_ID TREATMENT_RUN_ID \
+vibechk diff BASELINE_RUN_ID TREATMENT_RUN_ID \
   > /tmp/vibechk-serial-demo/comparison.md
 
 open /tmp/vibechk-serial-demo/comparison.md

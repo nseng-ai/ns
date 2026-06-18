@@ -216,6 +216,16 @@ Risks:
 
 ## Open Questions
 
-- After the TS-default cutover, should the remaining `vibechk-v1` work continue in the existing Objective or be split into focused follow-up Objectives for `publish` and additional runners?
-- Does implementation-time caller inventory discover any real installed-tool consumer that justifies adding `install-vibechk` to `install-tools`, or should it remain opt-in?
-- Should a later post-cutover cleanup add a package context file for `@asdl/vibechk`, replacing the planned Python `packages/vibechk/CONTEXT.md` entry in `CONTEXT-MAP.md`?
+- Resolved for this migration: remaining `vibechk-v1` work stays outside this port and should resume through the existing `vibechk-v1` Objective or narrower follow-up Objectives after the TypeScript cutover lands.
+- Resolved for this migration: no implementation-time caller inventory justified adding `install-vibechk` to `install-tools`; `just install-vibechk` remains opt-in.
+- Deferred to a dedicated context rebaseline: a later cleanup may add a package context file for `@asdl/vibechk` and update `CONTEXT-MAP.md`; this implementation branch intentionally did not edit domain-language metadata.
+
+## Closure
+
+Completed by the `vibechk-ts/*` Graphite stack. The TypeScript workspace now contains standalone `@asdl/vibechk` with a `vibechk` bin and coverage for the already-implemented Python surface: `run`, `runs`, `show`, `diff`, the `claude` runner adapter, schema-version-1 bundle compatibility, local bundle storage, Markdown reports, and local result branch safety.
+
+The cutover made TypeScript the documented default through `ts/packages/vibechk/README.md`, `ts/packages/vibechk/MANUAL_E2E.md`, and the opt-in `just install-vibechk` source shim. `install-tools` intentionally does not include `install-vibechk` because no active installed-tool consumer evidence required it. The Python package at `packages/vibechk` and its root workspace/build/test/publish wiring were retired; rollback/reference evidence is in-repo commit `25c748681`, the last stack commit before Python deletion.
+
+Validation evidence: targeted `@asdl/vibechk` check/tests, full TypeScript check/tests, `uv lock --check`, `just ts-guard`, `just dprint-check`, `just python-check`, `just test`, and a clean rerun of full `just check` passed. A stale-reference grep found no active `uv run vibechk`, Python `vibechk.cli`, Python import, or active `packages/vibechk` workspace/config reference outside the TypeScript README rollback note and historical Objective records.
+
+Remaining product work is deliberately not part of this closed migration Objective: `publish`, `codex`, `pi`, and real publish smoke evidence remain parked in `vibechk-v1`.

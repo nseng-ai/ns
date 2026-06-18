@@ -42,12 +42,26 @@ Until `publish` exists, generate a report with `vibechk diff` and paste it into 
 
 ## Prerequisites
 
-- A checkout of this repo. From the workspace, run commands as `uv run vibechk ...`.
+- A checkout of this repo with `vibechk` installed via `just install-vibechk`.
 - `git` on `PATH`.
 - For real runs today, `claude` on `PATH` and authenticated/configured for non-interactive use.
 - One or two clean git workdirs checked out on named branches. Detached HEAD is rejected.
 
-If you install `vibechk` as a normal console script later, drop the `uv run` prefix from the examples.
+### Installation
+
+From the asdl-tools checkout, install the `vibechk` source shim:
+
+```bash
+just install-vibechk
+```
+
+This creates `~/.local/bin/vibechk` that invokes the TypeScript CLI from source. Ensure `~/.local/bin` is on your `PATH`.
+
+For in-checkout development without installation, run directly:
+
+```bash
+node ts/packages/vibechk/src/cli.ts <command>
+```
 
 ## Prepare workdirs
 
@@ -58,7 +72,7 @@ For a comparison:
 - `BASELINE_WORKDIR` should contain the old context.
 - `TREATMENT_WORKDIR` should contain the new context you are evaluating.
 
-Use absolute paths so you can run `uv run vibechk` from this workspace:
+Use absolute paths:
 
 ```bash
 BASELINE_WORKDIR="/absolute/path/to/myproject-baseline"
@@ -120,7 +134,7 @@ Run the baseline first:
 ```bash
 set -o pipefail
 
-uv run vibechk run \
+vibechk run \
   --plan "$PLAN" \
   --workdir "$BASELINE_WORKDIR" \
   --runner claude \
@@ -134,7 +148,7 @@ echo "$BASELINE_ID"
 Run the treatment with the same plan:
 
 ```bash
-uv run vibechk run \
+vibechk run \
   --plan "$PLAN" \
   --workdir "$TREATMENT_WORKDIR" \
   --runner claude \
@@ -164,25 +178,25 @@ If the runner exits non-zero, `vibechk` still writes a failed bundle with whatev
 List local bundles:
 
 ```bash
-uv run vibechk runs --store "$STORE"
+vibechk runs --store "$STORE"
 ```
 
 Machine-readable listing:
 
 ```bash
-uv run vibechk runs --store "$STORE" --format json
+vibechk runs --store "$STORE" --format json
 ```
 
 Render one run:
 
 ```bash
-uv run vibechk show "$BASELINE_ID" --store "$STORE" > baseline-report.md
+vibechk show "$BASELINE_ID" --store "$STORE" > baseline-report.md
 ```
 
 Run ids can be abbreviated to a unique prefix:
 
 ```bash
-uv run vibechk show "${BASELINE_ID:0:4}" --store "$STORE"
+vibechk show "${BASELINE_ID:0:4}" --store "$STORE"
 ```
 
 ## Compare two runs
@@ -190,7 +204,7 @@ uv run vibechk show "${BASELINE_ID:0:4}" --store "$STORE"
 Generate a Markdown comparison:
 
 ```bash
-uv run vibechk diff "$BASELINE_ID" "$TREATMENT_ID" --store "$STORE" > vibechk-report.md
+vibechk diff "$BASELINE_ID" "$TREATMENT_ID" --store "$STORE" > vibechk-report.md
 ```
 
 The report includes:
@@ -231,7 +245,7 @@ git -C "$TREATMENT_WORKDIR" push origin "vibechk/$TREATMENT_ID"
 You can also capture one run and render a single-run report:
 
 ```bash
-uv run vibechk run \
+vibechk run \
   --plan "$PLAN" \
   --workdir "$TREATMENT_WORKDIR" \
   --runner claude \
@@ -239,7 +253,7 @@ uv run vibechk run \
   | tee single-run-vibechk.log
 
 RUN_ID=$(awk '/Run ID:/ {print $3}' single-run-vibechk.log)
-uv run vibechk show "$RUN_ID" --store "$STORE" > vibechk-run.md
+vibechk show "$RUN_ID" --store "$STORE" > vibechk-run.md
 ```
 
 ## Troubleshooting
@@ -271,3 +285,7 @@ which claude
 ### `No run matches prefix` or `Run prefix is ambiguous`
 
 Use `vibechk runs --store "$STORE"` to find the full run id, then retry with the full id or a longer unique prefix.
+
+## Legacy Python implementation
+
+The Python implementation has been retired. For reference or rollback documentation, see in-repo commit `25c748681`, the last stack commit before `packages/vibechk/` was deleted.

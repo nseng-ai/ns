@@ -3,14 +3,12 @@ members = [
   "packages/asdl-core",
   "packages/aretro",
   "packages/packagechk",
-  "packages/vibechk",
 ]
 
 [tool.uv.sources]
 asdl-core = { workspace = true }
 aretro = { workspace = true }
 packagechk = { workspace = true }
-vibechk = { workspace = true }
 
 [project]
 name = "asdl-tools"
@@ -37,7 +35,6 @@ dev = [
   "asdl-core",
   "aretro",
   "packagechk",
-  "vibechk",
   "ty>=0.0.1a7",
 ]
 
@@ -56,7 +53,6 @@ src = [
   "packages/asdl-core/src",
   "packages/aretro/src",
   "packages/packagechk/src",
-  "packages/vibechk/src",
 ]
 exclude = [".git/", ".claude/", ".agents/skills/"]
 force-exclude = true
@@ -76,7 +72,6 @@ known-first-party = [
   "asdl_core",
   "aretro",
   "packagechk",
-  "vibechk",
 ]
 
 [tool.ty.src]
@@ -85,7 +80,6 @@ include = [
   "packages/asdl-core/src",
   "packages/aretro/src",
   "packages/packagechk/src",
-  "packages/vibechk/src",
 ]
 exclude = [".agents/skills/", ".claude/skills/"]
 
@@ -104,5 +98,4 @@ testpaths = [
   "packages/asdl-core/tests",
   "packages/aretro/tests",
   "packages/packagechk/tests",
-  "packages/vibechk/tests",
 ]

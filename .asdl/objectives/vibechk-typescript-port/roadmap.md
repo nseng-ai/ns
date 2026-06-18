@@ -17,19 +17,19 @@
   - Add workflow execution, run-id allocation, injected clock/id generator, runner registry/default `claude`, transcript streaming, bundle writing, diff capture, result branch creation, switch-back behavior, and failure-bundle persistence.
   - Use package-local domain gateways and constructor-state fakes; add focused real-git tests for non-git, dirty, detached, diff, result branch, and switch-back behavior.
   - Evidence: TypeScript `run` now writes schema-version-1 bundles, preserves failed-runner bundles and exit codes, implements the `claude` runner boundary, uses package-local fake and real git gateways, and covers the run/show/diff walking skeleton, failed runner persistence, no-change runs, dirty workdir rejection, and real temp-git result-branch switch-back behavior. Targeted package validation and full TS validation passed.
-- [ ] Make TypeScript `vibechk` the documented default invocation.
+- [x] Make TypeScript `vibechk` the documented default invocation.
   - Policy: direct execution after preview; ask before adding `install-vibechk` to `install-tools`.
   - Update README/manual E2E examples away from `uv run vibechk` toward the chosen TypeScript invocation. Add `just install-vibechk` as an opt-in source shim if PATH execution is accepted, and remove or avoid stale `.venv/bin/vibechk` shadowing.
-  - Evidence: docs and justfile consistently describe the TypeScript path; `dprint check` passes for edited Markdown.
-- [ ] Retire the Python fallback and workspace wiring.
+  - Evidence: `ts/packages/vibechk/README.md` and `MANUAL_E2E.md` document `vibechk` through the opt-in `just install-vibechk` TypeScript source shim or direct Node source invocation for in-checkout development; `install-tools` deliberately does not include `install-vibechk`; `just dprint-check` and full `just check` passed.
+- [x] Retire the Python fallback and workspace wiring.
   - Policy: direct execution only after TypeScript parity and docs/caller cleanup are complete in the same stack; stop if active callers still require Python.
   - Remove `packages/vibechk`, root Python workspace/dependency/source/test/build/publish references, and lockfile entries. Record rollback/reference evidence before deletion.
   - Keep `vibechk-v1` open and paused for missing product features rather than implementing them during retirement.
-  - Evidence: grep for active `packages/vibechk`, `uv run vibechk`, and Python entry point references shows only historical/Objective/rollback mentions or none.
-- [ ] Record migration outcome in umbrella Objective and playbook.
+  - Evidence: `packages/vibechk` is deleted; root `pyproject.toml`, `uv.lock`, and `justfile` no longer treat Python `vibechk` as an active workspace/build/test/publish package; active-reference grep found no `uv run vibechk`, `vibechk.cli`, Python import, or active `packages/vibechk` reference outside the TypeScript README rollback note. In-repo rollback/reference evidence is commit `25c748681`, the last stack commit before Python deletion.
+- [x] Record migration outcome in umbrella Objective and playbook.
   - Policy: direct execution after the TypeScript default is proven.
   - Update `.asdl/objectives/port-asdl-toolkit-to-typescript/` ledger/roadmap with `vibechk` status, rollback/reference evidence, and reusable lessons about local bundle compatibility, runner adapters, and git workdir mutation.
-  - Add a Semantic Update to this Objective with validation evidence and any accepted divergences.
+  - Evidence: the umbrella migration ledger, roadmap, porting playbook, and Semantic Updates record the `vibechk` cutover outcome and lessons.
 
 ## Suggested Stack Boundaries
 
