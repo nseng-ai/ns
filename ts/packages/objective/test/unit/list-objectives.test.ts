@@ -16,8 +16,46 @@ const SAMPLE_RESULT: ObjectiveListResult = {
 describe("renderObjectiveListHuman", () => {
 	const esc = String.fromCharCode(0x1b);
 
+	test("renders the full human table with branch attribution continuations", () => {
+		const result: ObjectiveListResult = {
+			trunkBranch: "master",
+			rootPath: ".asdl/objectives",
+			statusFilter: "all",
+			namesOnly: false,
+			updatedBranchesIncluded: true,
+			records: [
+				{
+					slug: "alpha",
+					status: "open",
+					latestUpdateIso: "2026-06-13T09:10:00Z",
+					updatedBranches: ["feat/alpha", "feat/beta"],
+					hasOutstandingChanges: false,
+				},
+				{
+					slug: "bravo-objective",
+					status: "closed",
+					latestUpdateIso: null,
+					updatedBranches: [],
+					hasOutstandingChanges: true,
+				},
+			],
+		};
+
+		expect(renderObjectiveListHuman(result, { canEmitAnsi: false }).split("\n")).toEqual([
+			"Objective records in this checkout",
+			"Root: .asdl/objectives",
+			"Status filter: all",
+			"",
+			"OBJECTIVE        STATUS    LATEST UPDATE         UPDATED BRANCHES",
+			"───────────────  ────────  ────────────────────  ────────────────",
+			"alpha            ○ open    2026-06-13T09:10:00Z  ├ 1/2 feat/alpha",
+			"                                                 └ 2/2 feat/beta",
+			"bravo-objective  ✓ closed  (x) —                 —",
+		]);
+	});
+
 	test("draws a header rule and stays plain when color is disabled", () => {
-		const output = renderObjectiveListHuman(SAMPLE_RESULT, { color: false });
+		const output = renderObjectiveListHuman(SAMPLE_RESULT, { canEmitAnsi: false });
 		expect(output).not.toContain(esc);
 		expect(output).toContain("OBJECTIVE");
 		const lines = output.split("\n");
@@ -30,7 +68,7 @@ describe("renderObjectiveListHuman", () => {
 	});
 
 	test("emits bold-cyan header and slug plus dim timestamp when color is enabled", () => {
-		const output = renderObjectiveListHuman(SAMPLE_RESULT, { color: true });
+		const output = renderObjectiveListHuman(SAMPLE_RESULT, { canEmitAnsi: true });
 		expect(output).toContain(`${esc}[1;36mOBJECTIVE${esc}[0m`);
 		expect(output).toContain(`${esc}[1;36malpha${esc}[0m`);
 		expect(output).toContain(`${esc}[2m2026-06-13T09:10:00Z${esc}[0m`);

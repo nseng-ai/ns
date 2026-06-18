@@ -49,14 +49,14 @@ export async function runList(ctx: HandoffCliContext, request: ListRequest) {
 	} satisfies ListResult);
 }
 
-export function renderList(result: ListResult, caps: RenderCapabilities = { color: false }): string {
+export function renderList(result: ListResult, caps: RenderCapabilities = { canEmitAnsi: false }): string {
 	if (result.handoffs.length === 0) return emptyMessage(result);
 	if (result.scope === "all-branches") {
 		const table = renderTextTable({
 			columns: [{ header: "BRANCH", style: "bold-cyan" }, { header: "STATE" }, { header: "HANDOFF" }, { header: "UPDATED", style: "dim" }],
 			rows: result.handoffs.map((handoff) => [handoff.branch, handoff.branch_state, handoff.slug, handoff.updated_at]),
-			color: caps.color,
-			rule: true,
+			canEmitAnsi: caps.canEmitAnsi,
+			shouldDrawRule: true,
 			headerStyle: "bold-cyan",
 		});
 		return [allBranchesTitle(result), "", table].join("\n");
@@ -64,8 +64,8 @@ export function renderList(result: ListResult, caps: RenderCapabilities = { colo
 	const table = renderTextTable({
 		columns: [{ header: "HANDOFF", style: "bold-cyan" }, { header: "UPDATED", style: "dim" }],
 		rows: result.handoffs.map((handoff) => [handoff.slug, handoff.updated_at]),
-		color: caps.color,
-		rule: true,
+		canEmitAnsi: caps.canEmitAnsi,
+		shouldDrawRule: true,
 		headerStyle: "bold-cyan",
 	});
 	return [`Handoffs on ${result.branch}`, "", table].join("\n");

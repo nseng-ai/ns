@@ -32,6 +32,18 @@ describe("renderTextTable", () => {
 		);
 	});
 
+	test("keeps wide and combining cells aligned by display width", () => {
+		const rendered = renderTextTable({
+			columns: [{ header: "NAME" }, { header: "VALUE" }],
+			rows: [
+				["short", "中文"],
+				["longer", "é"],
+			],
+		});
+
+		expect(rendered).toBe(["NAME    VALUE", "short   中文", "longer  é"].join("\n"));
+	});
+
 	test("right-aligns numeric columns including the header", () => {
 		const rendered = renderTextTable({
 			columns: [{ header: "name" }, { header: "count", align: "right" }],
@@ -48,7 +60,7 @@ describe("renderTextTable", () => {
 		const rendered = renderTextTable({
 			columns: [{ header: "NAME" }, { header: "VALUE" }],
 			rows: [["alpha", "1"]],
-			rule: true,
+			shouldDrawRule: true,
 		});
 
 		expect(rendered.split("\n")).toEqual(["NAME   VALUE", "─────  ─────", "alpha  1"]);
@@ -59,11 +71,11 @@ describe("renderTextTable", () => {
 		const columns = [{ header: "OBJECTIVE", style: "bold-cyan" as const }, { header: "LATEST", style: "dim" as const }];
 		const rows = [["alpha", "2026-06-13"]];
 
-		const plain = renderTextTable({ columns, rows, headerStyle: "bold-cyan", color: false });
+		const plain = renderTextTable({ columns, rows, headerStyle: "bold-cyan", canEmitAnsi: false });
 		expect(plain).not.toContain(esc);
 		expect(plain.split("\n")).toEqual(["OBJECTIVE  LATEST", "alpha      2026-06-13"]);
 
-		const colored = renderTextTable({ columns, rows, headerStyle: "bold-cyan", color: true });
+		const colored = renderTextTable({ columns, rows, headerStyle: "bold-cyan", canEmitAnsi: true });
 		expect(colored).toContain(`${esc}[1;36mOBJECTIVE${esc}[0m`); // header bold cyan
 		expect(colored).toContain(`${esc}[1;36malpha${esc}[0m`); // first column bold cyan
 		expect(colored).toContain(`${esc}[2m2026-06-13${esc}[0m`); // dim column
@@ -72,12 +84,28 @@ describe("renderTextTable", () => {
 		expect(coloredLine).toContain(`${esc}[1;36malpha${esc}[0m      `); // 6 trailing pad spaces, same as plain
 	});
 
+	test("supports custom gaps and per-column header style overrides", () => {
+		const esc = String.fromCharCode(0x1b);
+		const rendered = renderTextTable({
+			columns: [{ header: "NAME", headerStyle: "bold-cyan" }, { header: "VALUE" }],
+			rows: [["alpha", "one"]],
+			gap: " | ",
+			canEmitAnsi: true,
+			headerStyle: "dim",
+		});
+
+		expect(rendered.split("\n")).toEqual([
+			`${esc}[1;36mNAME${esc}[0m  | ${esc}[2mVALUE${esc}[0m`,
+			"alpha | one",
+		]);
+	});
+
 	test("does not wrap empty continuation cells in escape codes", () => {
 		const esc = String.fromCharCode(0x1b);
 		const rendered = renderTextTable({
 			columns: [{ header: "A", style: "bold-cyan" }, { header: "B", style: "dim" }],
 			rows: [["x\ny", "one"]],
-			color: true,
+			canEmitAnsi: true,
 		});
 		const lines = rendered.split("\n");
 		// Continuation line: column A has "y"; column B is empty, so it must not emit dim escape codes
@@ -102,10 +130,12 @@ describe("displayWidth", () => {
 		expect(displayWidth("ＡＢ")).toBe(4); // fullwidth Latin
 	});
 
-	test("ignores ANSI color escape sequences so colorized cells stay aligned", () => {
+	test("ignores terminal escape sequences so styled cells stay aligned", () => {
 		const esc = String.fromCharCode(0x1b);
 		const colored = `${esc}[32m○ open${esc}[0m`;
+		const hyperlink = `${esc}]8;;https://github.example/pull/101\u0007#101${esc}]8;;\u0007`;
 		expect(displayWidth(colored)).toBe(6);
+		expect(displayWidth(hyperlink)).toBe(4);
 		expect(displayWidth("○ open")).toBe(6);
 	});
 

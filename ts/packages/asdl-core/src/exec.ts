@@ -3,12 +3,14 @@ import { accessSync, constants } from "node:fs";
 import { delimiter, join } from "node:path";
 import process from "node:process";
 
+import { stripTerminalEscapes } from "./terminal-escapes.ts";
+
+export { stripTerminalEscapes } from "./terminal-escapes.ts";
+
 const DEFAULT_TIMEOUT_KILL_GRACE_MS = 5_000;
 const TIMEOUT_EXIT_CODE = 124;
 const STARTUP_FAILURE_EXIT_CODE = 127;
 export const MAX_ERROR_CHARS = 4_000;
-const TERMINAL_ESCAPE_PATTERN = /\x1B(?:\](?:[^\x07\x1B]|\x1B(?!\\))*?(?:\x07|\x1B\\)|[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
-
 export interface ExecResult {
 	stdout: string;
 	stderr: string;
@@ -187,10 +189,6 @@ export function formatShellArg(value: string): string {
 
 export function shellQuote(value: string): string {
 	return `'${value.replaceAll("'", `'\\''`)}'`;
-}
-
-export function stripTerminalEscapes(value: string): string {
-	return value.replace(TERMINAL_ESCAPE_PATTERN, "");
 }
 
 export function tailText(text: string, options: TailTextOptions): string {

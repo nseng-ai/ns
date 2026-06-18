@@ -107,7 +107,7 @@ export async function buildObjectiveListResult(
 	};
 }
 
-export function renderObjectiveListHuman(result: ObjectiveListResult, caps: RenderCapabilities = { color: false }): string {
+export function renderObjectiveListHuman(result: ObjectiveListResult, caps: RenderCapabilities = { canEmitAnsi: false }): string {
 	if (result.namesOnly) return renderSlugs(result.records);
 
 	const parts = [
@@ -126,8 +126,8 @@ export function renderObjectiveListHuman(result: ObjectiveListResult, caps: Rend
 			renderTextTable({
 				columns: humanTableColumns(includeUpdatedBranches),
 				rows: result.records.map((record) => humanRecordCells(record, includeUpdatedBranches)),
-				color: caps.color,
-				rule: true,
+				canEmitAnsi: caps.canEmitAnsi,
+				shouldDrawRule: true,
 				headerStyle: "bold-cyan",
 			})
 		}\n`,

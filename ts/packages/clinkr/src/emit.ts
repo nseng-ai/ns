@@ -6,7 +6,7 @@ export type ClinkrFormat = "human" | "json" | "markdown";
 /** Capabilities of the output sink, passed to human/markdown renderers. */
 export interface RenderCapabilities {
 	/** Whether the renderer may emit ANSI styling. */
-	color: boolean;
+	canEmitAnsi: boolean;
 }
 
 export type LegacyMachineSerialization = "indent2" | "compact";
@@ -62,7 +62,7 @@ export function emitExit<T>(exit: ClinkrExit<T>, options: EmitExitOptions<T>): n
 }
 
 function renderOkData<T>(data: T, options: EmitExitOptions<T>): string {
-	const caps: RenderCapabilities = { color: options.io.color === true };
+	const caps: RenderCapabilities = { canEmitAnsi: options.io.canEmitAnsi === true };
 	if (options.format === "markdown" && options.renderMarkdown !== undefined) {
 		return options.renderMarkdown(data, caps);
 	}

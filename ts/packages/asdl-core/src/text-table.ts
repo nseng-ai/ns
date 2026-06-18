@@ -1,3 +1,5 @@
+import { stripTerminalEscapes } from "./terminal-escapes.ts";
+
 export type TextTableAlign = "left" | "right";
 
 export type TextTableStyle = "bold" | "dim" | "cyan" | "bold-cyan" | "green" | "yellow" | "red";
@@ -5,7 +7,7 @@ export type TextTableStyle = "bold" | "dim" | "cyan" | "bold-cyan" | "green" | "
 export interface TextTableColumn {
 	header: string;
 	align?: TextTableAlign;
-	/** ANSI style applied to this column's data cells when color is enabled. */
+	/** ANSI style applied to this column's data cells when ANSI output is enabled. */
 	style?: TextTableStyle;
 	/** ANSI style for this column's header; falls back to the table-wide headerStyle. */
 	headerStyle?: TextTableStyle;
@@ -22,9 +24,9 @@ export interface RenderTextTableOptions {
 	/** Column separator. Defaults to two spaces. */
 	gap?: string;
 	/** When true, emit ANSI styling for headers and styled columns. Resolved from the output sink. */
-	color?: boolean;
+	canEmitAnsi?: boolean;
 	/** When true, draw a rule of box-drawing dashes under the header (Rich SIMPLE_HEAD look). */
-	rule?: boolean;
+	shouldDrawRule?: boolean;
 	/** Default ANSI style for every header cell; per-column headerStyle overrides it. */
 	headerStyle?: TextTableStyle;
 }
@@ -44,24 +46,19 @@ const STYLE_CODES: Record<TextTableStyle, string> = {
 	red: "31",
 };
 
-// ANSI escape sequences (SGR color/style, cursor control). Stripped before measuring so colorized cells
-// keep their alignment — the escape bytes occupy no terminal columns. Built from the ESC code point to
-// avoid embedding a raw control character in source.
-const ANSI_PATTERN = new RegExp(`${ESC}\\[[0-9;?]*[ -/]*[@-~]`, "g");
-
 /**
  * Render an aligned, border-less plain-text table for terminal output. Column widths are derived from
  * display width (not code-unit length) so rows carrying wide or combining glyphs stay aligned. Trailing
  * padding is trimmed from every line, so the rightmost column never emits dangling spaces.
  *
- * With `color`, headers and styled columns gain ANSI styling; with `rule`, a dashed rule is drawn under
+ * With `canEmitAnsi`, headers and styled columns gain ANSI styling; with `shouldDrawRule`, a dashed rule is drawn under
  * the header. Styling is applied after width measurement, so colorized cells stay aligned. This is for
  * human terminal output only — Markdown output consumed by a Markdown renderer keeps emitting pipe
  * tables instead.
  */
 export function renderTextTable(options: RenderTextTableOptions): string {
 	const gap = options.gap ?? DEFAULT_GAP;
-	const color = options.color === true;
+	const canEmitAnsi = options.canEmitAnsi === true;
 	const columnCount = options.columns.length;
 	for (const row of options.rows) {
 		if (row.length !== columnCount) {
@@ -72,14 +69,14 @@ export function renderTextTable(options: RenderTextTableOptions): string {
 	const cellLinesByRow = options.rows.map((row) => row.map((cell) => cell.split("\n")));
 	const widths = computeColumnWidths(options.columns, cellLinesByRow);
 
-	const headerCells = options.columns.map((column) => styled(column.header, column.headerStyle ?? options.headerStyle, color));
-	const lines = [composeLine(headerCells, options.columns, widths, gap)];
-	if (options.rule === true) lines.push(composeRule(widths, gap));
+	const headerCells = options.columns.map((column) => styled(column.header, column.headerStyle ?? options.headerStyle, canEmitAnsi));
+	const lines = [composeLine({ cells: headerCells, columns: options.columns, widths, gap })];
+	if (options.shouldDrawRule === true) lines.push(composeRule(widths, gap));
 	for (const rowCellLines of cellLinesByRow) {
 		const height = Math.max(1, ...rowCellLines.map((cellLines) => cellLines.length));
 		for (let lineIndex = 0; lineIndex < height; lineIndex += 1) {
-			const cells = options.columns.map((column, columnIndex) => styled(rowCellLines[columnIndex]?.[lineIndex] ?? "", column.style, color));
-			lines.push(composeLine(cells, options.columns, widths, gap));
+			const cells = options.columns.map((column, columnIndex) => styled(rowCellLines[columnIndex]?.[lineIndex] ?? "", column.style, canEmitAnsi));
+			lines.push(composeLine({ cells, columns: options.columns, widths, gap }));
 		}
 	}
 	return lines.join("\n");
@@ -97,9 +94,16 @@ function computeColumnWidths(columns: readonly TextTableColumn[], cellLinesByRow
 	return widths;
 }
 
-function composeLine(cells: readonly string[], columns: readonly TextTableColumn[], widths: readonly number[], gap: string): string {
-	const padded = cells.map((cell, columnIndex) => padCell(cell, widths[columnIndex] ?? 0, columns[columnIndex]?.align ?? "left"));
-	return padded.join(gap).trimEnd();
+interface ComposeLineOptions {
+	cells: readonly string[];
+	columns: readonly TextTableColumn[];
+	widths: readonly number[];
+	gap: string;
+}
+
+function composeLine(options: ComposeLineOptions): string {
+	const padded = options.cells.map((cell, columnIndex) => padCell(cell, options.widths[columnIndex] ?? 0, options.columns[columnIndex]?.align ?? "left"));
+	return padded.join(options.gap).trimEnd();
 }
 
 function composeRule(widths: readonly number[], gap: string): string {
@@ -111,8 +115,8 @@ function padCell(value: string, width: number, align: TextTableAlign): string {
 	return align === "right" ? `${padding}${value}` : `${value}${padding}`;
 }
 
-function styled(value: string, style: TextTableStyle | undefined, color: boolean): string {
-	if (!color || style === undefined || value === "") return value;
+function styled(value: string, style: TextTableStyle | undefined, canEmitAnsi: boolean): string {
+	if (!canEmitAnsi || style === undefined || value === "") return value;
 	return `${ESC}[${STYLE_CODES[style]}m${value}${RESET}`;
 }
 
@@ -121,10 +125,11 @@ function styled(value: string, style: TextTableStyle | undefined, color: boolean
  * zero-width code points count as 0, East Asian wide / fullwidth and most emoji count as 2, everything
  * else counts as 1. Grapheme clusters built from ZWJ sequences are not collapsed, so exotic emoji
  * sequences can over-count; that is acceptable for the slug/status/timestamp content these tables carry.
+ * Keep this local to asdl-core rather than depending on a TUI package for core CLI rendering.
  */
 export function displayWidth(value: string): number {
 	let width = 0;
-	for (const char of value.replace(ANSI_PATTERN, "")) {
+	for (const char of stripTerminalEscapes(value)) {
 		width += codePointWidth(char.codePointAt(0) ?? 0);
 	}
 	return width;
