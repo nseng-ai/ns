@@ -50,6 +50,21 @@ describe("RealSubmitGateway", () => {
 		runner.assertDone();
 	});
 
+	test("checkSubmitReadiness classifies trunk-out-of-date dry-run output", async () => {
+		const runner = new ScriptedCommandRunner([
+			step("gt", ["submit", "-nps", "--no-ai", "--no-interactive", "--no-view", "--no-web", "--dry-run"], {
+				exitCode: 1,
+				stderr: "ERROR: Aborting submit because trunk branch is out of date and could not be updated.\n",
+			}),
+		]);
+		const gateway = new RealSubmitGateway(runner.runner);
+
+		const result = await gateway.checkSubmitReadiness({ cwd: "/repo" });
+
+		expect(result).toMatchObject({ kind: "failed", cause: "trunk_out_of_date" });
+		runner.assertDone();
+	});
+
 	test("restackCurrentStack reports conflicts from git conflict facts", async () => {
 		const runner = new ScriptedCommandRunner([
 			step("gt", ["restack", "--no-interactive"], { exitCode: 1, stderr: "CONFLICT (content): merge conflict\n" }),

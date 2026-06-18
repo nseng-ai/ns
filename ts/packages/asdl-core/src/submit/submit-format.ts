@@ -104,6 +104,18 @@ export function formatPreflightFailureOutput(output: SubmitCommandOutput): strin
 		.join("\n");
 }
 
+export function formatTrunkOutOfDatePreflightOutput(_output: SubmitCommandOutput): string {
+	return [
+		"Graphite could not update the trunk branch before submit.",
+		"Submission was not attempted.",
+		"",
+		"What to do next:",
+		"- Update or repair your local Graphite trunk checkout, then rerun `sdl submit`.",
+		"- If Graphite reports a specific trunk-update problem, resolve that first.",
+		"- To inspect the raw Graphite dry-run output, rerun with `sdl submit --verbose` or run `gt submit -nps --no-ai --no-interactive --dry-run` manually.",
+	].join("\n");
+}
+
 export function formatRestackRequiredOutput(output: SubmitCommandOutput): string {
 	return [
 		"Graphite requires a restack before submission.",

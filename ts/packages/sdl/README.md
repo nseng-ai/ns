@@ -175,14 +175,16 @@ Behavior:
 - skips model regeneration and `gh pr edit` for unchanged PR descriptions when the stored managed-region fingerprint matches the current GitHub PR diff patch id, prompt hash, and generator version;
 - when regeneration is needed, updates the PR title and replaces only the machine-owned generated body region, preserving human text outside it;
 - prompts through `ctx.confirm` when Graphite reports a required restack, or runs restack directly with `--restack`;
-- asks the configured model to append a concise interpretation and recommended next steps to failed submit output when model access is available;
+- uses deterministic hand-written guidance for known Graphite failures such as required restacks and stale trunk preflight failures;
+- for unknown submit failures, asks the configured model for the primary concise failure explanation and writes the complete raw stdout/stderr transcript to a local temp log file whose path is printed;
 - exposes the Pi mirror as `/sdl:submit` from SDL command metadata.
 
 Environment:
 
 - `ASDL_DEV_PR_DESCRIPTION_MODEL`: model reference for generated PR descriptions.
 - `ASDL_DEV_PR_DESCRIPTION_PROMPT`: optional custom PR-description prompt file.
-- `SDL_SUBMIT_FAILURE_MODEL`: model reference for failed submit output interpretation.
+- `SDL_SUBMIT_FAILURE_MODEL`: model reference for unknown submit failure interpretation.
+- `SDL_SUBMIT_FAILURE_LOG_DIR`: optional directory under which unknown-failure raw log directories are created.
 
 `submit` is a built-in SDL command, not a legacy repo-local `.asdl/commands/submit.ts` module. It can be overridden through an SDL command entry or manifest descriptor under `.asdl/extensions`. Legacy submit surfaces are not retained as compatibility surfaces.
 

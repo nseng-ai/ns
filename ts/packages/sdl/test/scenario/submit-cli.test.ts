@@ -1,3 +1,5 @@
+import { mkdtemp, readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { afterEach, describe, expect, test, vi } from "vitest";
@@ -115,6 +117,7 @@ describe("sdl submit CLI", () => {
 		expect(help).toContain("--verbose");
 		expect(help).toContain("ASDL_DEV_PR_DESCRIPTION_MODEL");
 		expect(help).toContain("ASDL_DEV_PR_DESCRIPTION_PROMPT");
+		expect(help).toContain("SDL_SUBMIT_FAILURE_LOG_DIR");
 		expect(help).not.toContain("\n  --format");
 		expect(helpRun.context.execCalls).toEqual([]);
 
@@ -417,8 +420,10 @@ describe("sdl submit CLI", () => {
 	});
 
 	test("checkpoint failure aborts before Graphite submit", async () => {
+		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
 		const run = runWithFakes({
 			args: ["submit"],
+			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
 			state: {
 				exec: [
 					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
@@ -426,14 +431,22 @@ describe("sdl submit CLI", () => {
 					{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n" } },
 					{ match: "git diff HEAD --no-ext-diff", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" } },
 				],
-				textGeneration: [{ ok: false, error: "model unavailable" }],
+				textGeneration: [
+					{ ok: false, error: "model unavailable" },
+					{ ok: false, error: "submit failure interpretation unavailable" },
+				],
 			},
 		});
 
 		expect(await run.exit).toBe(2);
-		expect(run.stderr.join("")).toContain("Checkpoint before submit failed. Submission was not attempted.");
-		expect(run.stderr.join("")).toContain("model unavailable");
+		const error = run.stderr.join("");
+		expect(error).toContain("sdl submit failed, and the failure could not be interpreted automatically.");
+		expect(error).toContain("Raw logs:");
+		expect(error).not.toContain("model unavailable");
 		expect(formattedExecCalls(run.context).some((call) => call.startsWith("gt submit"))).toBe(false);
+		const rawPath = error.match(/Raw logs: (?<path>\S+)/u)?.groups?.path;
+		expect(await readFile(rawPath ?? "", "utf8")).toContain("Checkpoint before submit failed. Submission was not attempted.");
+		expect(await readFile(rawPath ?? "", "utf8")).toContain("model unavailable");
 	});
 
 	test("restack-required dry-run stops with guidance when no flag or confirmation is available", async () => {
@@ -450,6 +463,89 @@ describe("sdl submit CLI", () => {
 		expect(await run.exit).toBe(1);
 		expect(run.stderr.join("")).toContain("Graphite requires a restack before submission.");
 		expect(formattedExecCalls(run.context)).not.toContain("gt restack --no-interactive");
+	});
+
+	test("trunk-out-of-date dry-run failure is deterministic and skips model interpretation", async () => {
+		const run = runWithFakes({
+			args: ["submit"],
+			state: {
+				exec: [
+					...cleanCheckpointResponses(),
+					{
+						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run",
+						result: { code: 1, stdout: "Running submit in 'dry-run' mode...\n", stderr: "ERROR: Aborting submit because trunk branch is out of date and could not be updated.\n" },
+					},
+				],
+				textGeneration: [{ ok: true, text: "This should not be used." }],
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		const error = run.stderr.join("");
+		expect(error).toContain("Graphite could not update the trunk branch before submit.");
+		expect(error).toContain("Update or repair your local Graphite trunk checkout");
+		expect(error).not.toContain("----- AI interpretation (model-generated) -----");
+		expect(error).not.toContain("----- stdout -----");
+		expect(error).not.toContain("This should not be used.");
+		expect(run.context.modelCalls).toHaveLength(0);
+	});
+
+	test("unknown dry-run failure uses model-primary message and writes a raw log", async () => {
+		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
+		const run = runWithFakes({
+			args: ["submit"],
+			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
+			state: {
+				exec: [
+					...cleanCheckpointResponses(),
+					{
+						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run",
+						result: { code: 1, stdout: "full stdout details\nsecond line\n", stderr: "mystery graphite failure\n" },
+					},
+				],
+				textGeneration: [{ ok: true, text: "## What happened\nGraphite failed during dry-run.\n\n## Recommended next steps\nInspect the raw log and rerun the dry-run command." }],
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		const error = run.stderr.join("");
+		expect(error).toContain("## Submit failed");
+		expect(error).toContain("Graphite failed during dry-run.");
+		expect(error).toContain("Raw logs:");
+		expect(error).not.toContain("----- stdout -----");
+		expect(error).not.toContain("mystery graphite failure");
+
+		const rawPath = error.match(/Raw logs: (?<path>\S+)/u)?.groups?.path;
+		expect(rawPath?.startsWith(logRoot)).toBe(true);
+		expect(await readFile(rawPath ?? "", "utf8")).toContain("full stdout details\nsecond line");
+		expect(await readFile(rawPath ?? "", "utf8")).toContain("mystery graphite failure");
+		expect(run.context.modelCalls).toHaveLength(1);
+		expect(run.context.modelCalls[0]?.prompt).toContain("Truncation: transcript was not truncated.");
+		expect(run.context.modelCalls[0]?.prompt).toContain("Raw log path:");
+	});
+
+	test("unknown dry-run failure falls back to raw log path when model generation fails", async () => {
+		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
+		const run = runWithFakes({
+			args: ["submit"],
+			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
+			state: {
+				exec: [
+					...cleanCheckpointResponses(),
+					{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { code: 1, stdout: "raw stdout\n", stderr: "raw stderr\n" } },
+				],
+				textGeneration: [{ ok: false, error: "model unavailable" }],
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		const error = run.stderr.join("");
+		expect(error).toContain("sdl submit failed, and the failure could not be interpreted automatically.");
+		expect(error).toContain("Raw logs:");
+		expect(error).not.toContain("raw stderr");
+		const rawPath = error.match(/Raw logs: (?<path>\S+)/u)?.groups?.path;
+		expect(rawPath?.startsWith(logRoot)).toBe(true);
+		expect(await readFile(rawPath ?? "", "utf8")).toContain("raw stderr");
 	});
 
 	test("confirmation threads through SdlContext and runs restack before submit", async () => {
@@ -586,9 +682,11 @@ describe("sdl submit CLI", () => {
 		expect(run.context.modelCalls).toHaveLength(0);
 	});
 
-	test("empty-branch post-submit failure names the branch and fences model interpretation", async () => {
+	test("empty-branch post-submit failure uses model-primary output and raw log path", async () => {
+		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
 		const run = runWithFakes({
 			args: ["submit"],
+			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -620,11 +718,15 @@ describe("sdl submit CLI", () => {
 
 		expect(await run.exit).toBe(1);
 		const error = run.stderr.join("");
-		expect(error).toContain("because branch sdl-extension-api-followup-stack is empty");
-		expect(error).toContain("----- AI interpretation (model-generated) -----");
+		expect(error).toContain("## Submit failed");
 		expect(error).toContain("Branch `sdl-extension-api-followup-stack` is empty.");
-		expect(error).toContain("----- end AI interpretation -----");
+		expect(error).toContain("Raw logs:");
+		expect(error).not.toContain("----- AI interpretation (model-generated) -----");
+		expect(error).not.toContain("----- stdout -----");
 		expect(run.context.modelCalls[0]?.prompt).toContain("because branch sdl-extension-api-followup-stack is empty");
+		const rawPath = error.match(/Raw logs: (?<path>\S+)/u)?.groups?.path;
+		expect(rawPath?.startsWith(logRoot)).toBe(true);
+		expect(await readFile(rawPath ?? "", "utf8")).toContain("because branch sdl-extension-api-followup-stack is empty");
 	});
 
 	test("description edit failure keeps submitted PR links visible", async () => {
