@@ -1,3 +1,5 @@
+import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
+
 import {
 	matchCmuxTabsToBranches,
 	type StackMapBranchNode,
@@ -8,7 +10,7 @@ import {
 	type StackMapSlotStatus,
 } from "./stack-map.ts";
 import { runRealCommand, type CommandOptions, type CommandOutput, type CommandRunner } from "./command-runner.ts";
-import { booleanField, isRecord, optionalEntry, optionalStringField, stringArrayField, stringField } from "./json-fields.ts";
+import { booleanField, isRecord, optionalEntry, optionalStringField, parseJsonObject, stringArrayField, stringField } from "./json-fields.ts";
 
 export type { CommandOptions, CommandOutput, CommandRunner } from "./command-runner.ts";
 
@@ -104,19 +106,15 @@ export function buildStackMapModelFromGraph(
 }
 
 export function parseCmuxTreeTabs(stdout: string): { type: "success"; tabs: readonly StackMapParsedCmuxTab[] } | { type: "failure"; message: string } {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(stdout.trim() || "{}");
-	} catch (error) {
-		return { type: "failure", message: `cmux tree JSON was invalid: ${error instanceof Error ? error.message : String(error)}` };
-	}
-	return parseCmuxTreeData(parsed);
+	const parsed = parseJsonObject(stdout, "cmux tree");
+	if (parsed.type === "failure") return parsed;
+	return parseCmuxTreeData(parsed.data);
 }
 
 async function loadStackMapGraph(runCommand: CommandRunner, cwd: string): Promise<{ type: "success"; data: StackMapGraphData } | { type: "failure"; message: string }> {
 	const result = await runCommand("slot", ["gt", "exec", "stack-map-branches", "--format", "json"], { cwd, timeout: COMMAND_TIMEOUT_MS });
-	const parsed = parseMachineEnvelopeData(result.stdout, "slot gt exec stack-map-branches JSON");
-	if (parsed.type === "failure") {
+	const parsed = parseMachineEnvelopeData(result.stdout, { label: "slot gt exec stack-map-branches JSON" });
+	if (parsed.type !== "valid") {
 		return { type: "failure", message: `${parsed.message}${result.stderr.trim() ? ` ${result.stderr.trim()}` : ""}` };
 	}
 	const data = parseStackMapGraphData(parsed.data);
@@ -130,20 +128,6 @@ async function loadCmuxTabs(runCommand: CommandRunner, cwd: string): Promise<{ t
 	const parsed = parseCmuxTreeTabs(result.stdout);
 	if (parsed.type === "failure") return { type: "failure", message: `Could not load cmux tab inventory: ${parsed.message}` };
 	return parsed;
-}
-
-function parseMachineEnvelopeData(stdout: string, label: string): { type: "success"; data: unknown } | { type: "failure"; message: string } {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(stdout);
-	} catch (error) {
-		return { type: "failure", message: `${label} was not valid JSON: ${error instanceof Error ? error.message : String(error)}` };
-	}
-	if (!isRecord(parsed)) return { type: "failure", message: `${label} was not a JSON object.` };
-	const exitCode = parsed.exit_code;
-	if (exitCode !== 0) return { type: "failure", message: `${label} reported failure exit_code ${String(exitCode)}: ${stringField(parsed, "message") ?? "no message"}` };
-	if (!("data" in parsed)) return { type: "failure", message: `${label} did not include data.` };
-	return { type: "success", data: parsed.data };
 }
 
 function parseStackMapGraphData(data: unknown): { type: "success"; data: StackMapGraphData } | { type: "failure"; message: string } {

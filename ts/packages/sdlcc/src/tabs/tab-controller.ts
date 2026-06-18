@@ -1,4 +1,7 @@
-import type { TabKeyInput, TabModule, TabModuleDeps } from "./tab-module.ts";
+import type { StyledText } from "@opentui/core";
+
+import { styledLines } from "../frame-style.ts";
+import type { TabKeyInput, TabModule, TabModuleDeps, TabViewport } from "./tab-module.ts";
 
 export type TabKeyOutcome =
 	| { readonly type: "quit" }
@@ -8,13 +11,16 @@ export type TabKeyOutcome =
 export interface TabController {
 	readonly id: string;
 	readonly label: string;
+	readonly refreshMs?: number | undefined;
 	// Idempotent: loads the module model once and caches it plus the initial state.
 	ensureLoaded(deps: TabModuleDeps): Promise<void>;
-	// True while a runEffect is in flight; the host blocks tab switches while busy.
+	// True while a runEffect or refresh is in flight; the host blocks tab switches while busy.
 	isBusy(): boolean;
 	// Renders the loading / error / loaded frame for the current lifecycle.
-	render(): readonly string[];
-	// Routes a key through interpretKey -> reduce / runEffect; onChange() re-renders.
+	render(viewport: TabViewport): StyledText;
+	// Reloads the current module model and updates state through refreshState/createInitialState.
+	refresh(deps: TabModuleDeps, onChange: () => void): Promise<void>;
+	// Routes a key through interpretKey -> reduce / runEffect / refresh; onChange() re-renders.
 	handleKey(key: TabKeyInput, deps: TabModuleDeps, onChange: () => void): Promise<TabKeyOutcome>;
 }
 
@@ -48,16 +54,34 @@ export function createTabController<Model, State, Action, Effect>(
 		return loadPromise;
 	}
 
-	function render(): readonly string[] {
+	function render(viewport: TabViewport): StyledText {
 		switch (lifecycle.type) {
 			case "unloaded":
 			case "loading":
-				return [`Loading ${module.label}…`];
+				return styledLines([`Loading ${module.label}…`]);
 			case "error":
-				return [`Failed to load ${module.label}.`, lifecycle.message];
+				return styledLines([`Failed to load ${module.label}.`, lifecycle.message]);
 			case "loaded":
-				return module.render(lifecycle.model, lifecycle.state);
+				return module.render(lifecycle.model, lifecycle.state, viewport);
 		}
+	}
+
+	async function refresh(deps: TabModuleDeps, onChange: () => void): Promise<void> {
+		if (lifecycle.type !== "loaded") return;
+		if (isBusy) return;
+		const previousModel = lifecycle.model;
+		const previousState = lifecycle.state;
+		isBusy = true;
+		try {
+			const nextModel = await module.loadModel(deps);
+			const nextState = module.refreshState?.(previousModel, previousState, nextModel) ?? module.createInitialState(nextModel);
+			lifecycle = { type: "loaded", model: nextModel, state: nextState };
+		} catch (error) {
+			lifecycle = { type: "error", message: errorMessage(error) };
+		} finally {
+			isBusy = false;
+		}
+		onChange();
 	}
 
 	async function handleKey(key: TabKeyInput, deps: TabModuleDeps, onChange: () => void): Promise<TabKeyOutcome> {
@@ -70,6 +94,9 @@ export function createTabController<Model, State, Action, Effect>(
 				return { type: "ignored" };
 			case "quit":
 				return { type: "quit" };
+			case "refresh":
+				await refresh(deps, onChange);
+				return { type: "handled" };
 			case "action": {
 				const next = module.reduce(lifecycle.model, lifecycle.state, intent.action);
 				if (next !== lifecycle.state) {
@@ -84,7 +111,7 @@ export function createTabController<Model, State, Action, Effect>(
 				isBusy = true;
 				try {
 					const next = await runEffect(lifecycle.model, lifecycle.state, intent.effect, deps);
-					// lifecycle stays loaded across the await (only ensureLoaded mutates it, and it is idempotent once loaded).
+					// lifecycle stays loaded across the await unless a programmer adds a future mutator; guard anyway.
 					if (lifecycle.type === "loaded") lifecycle = { ...lifecycle, state: next };
 				} finally {
 					isBusy = false;
@@ -98,9 +125,11 @@ export function createTabController<Model, State, Action, Effect>(
 	return {
 		id: module.id,
 		label: module.label,
+		refreshMs: module.refreshMs,
 		ensureLoaded,
 		isBusy: () => isBusy,
 		render,
+		refresh,
 		handleKey,
 	};
 }

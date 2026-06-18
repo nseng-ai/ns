@@ -5,6 +5,7 @@ import type { ObjectiveList } from "@asdl/pi-extension-runtime/objective-list";
 import { objectiveTabModule, type ObjectiveTabState } from "../../src/objective-tab.ts";
 import type { CommandOptions, CommandOutput } from "../../src/command-runner.ts";
 import type { TabModuleDeps } from "../../src/tabs/tab-module.ts";
+import { styledTextContent } from "./styled-text.ts";
 
 const LIST: ObjectiveList = {
 	trunkBranch: "master",
@@ -120,8 +121,8 @@ describe("objectiveTabModule.interpretKey", () => {
 
 describe("objectiveTabModule.render", () => {
 	test("renders a cursor on the selected row and a detail line", () => {
-		const lines = objectiveTabModule.render(LIST, { selectedSlug: "beta" });
-		const joined = lines.join("\n");
+		const joined = styledTextContent(objectiveTabModule.render(LIST, { selectedSlug: "beta" }, { width: 80, height: 24 }));
+		const lines = joined.split("\n");
 		expect(joined).toContain("Objectives (status=active)");
 		expect(lines.some((line) => line.startsWith("› ") && line.includes("beta"))).toBe(true);
 		expect(lines.some((line) => line.startsWith("  ") && line.includes("alpha"))).toBe(true);
@@ -130,7 +131,7 @@ describe("objectiveTabModule.render", () => {
 	});
 
 	test("renders an empty-state message when there are no records", () => {
-		const lines = objectiveTabModule.render({ ...LIST, records: [] }, { selectedSlug: undefined });
-		expect(lines.join("\n")).toContain("No Objective records in this checkout.");
+		const frame = styledTextContent(objectiveTabModule.render({ ...LIST, records: [] }, { selectedSlug: undefined }, { width: 80, height: 24 }));
+		expect(frame).toContain("No Objective records in this checkout.");
 	});
 });

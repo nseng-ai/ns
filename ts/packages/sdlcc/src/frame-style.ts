@@ -36,6 +36,11 @@ export function highlightRow(chunks: readonly TextChunk[]): TextChunk[] {
 	return chunks.map((chunk) => bg(PALETTE.selectionBg)(chunk));
 }
 
+/** Join plain lines into a single newline-separated `StyledText`. */
+export function styledLines(lines: readonly string[]): StyledText {
+	return new StyledText(lines.flatMap((line, index): TextChunk[] => index === 0 ? [plain(line)] : [plain("\n"), plain(line)]));
+}
+
 /** Join per-line chunk arrays into a single newline-separated `StyledText`. */
 export function joinLines(lines: readonly (readonly TextChunk[])[]): StyledText {
 	const chunks: TextChunk[] = [];

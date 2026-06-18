@@ -95,6 +95,21 @@ describe("loadStackMapModel", () => {
 		expect(model.trunk.children?.[0]?.slots?.[0]?.slotName).toBe("slot-04");
 		expect(model.trunk.children?.[0]?.cmuxTabs?.[0]?.match).toEqual({ type: "slot-worktree", slotName: "slot-04", worktreePath: "/repo/worktrees/slot-04" });
 	});
+
+	test("surfaces shared machine-envelope parse failures as unavailable diagnostics", async () => {
+		const model = await loadStackMapModel({
+			cwd: "/repo",
+			runCommand: async (command: string): Promise<CommandOutput> => {
+				if (command === "slot") return successJson({ exit_code: 2, message: "graph failed", data: {} });
+				if (command === "cmux") return successJson({ windows: [] });
+				return { code: 2, stdout: "", stderr: `unexpected command ${command}`, killed: false };
+			},
+		});
+
+		expect(model.currentBranch).toBe("stack-unavailable");
+		expect(model.diagnostics.join("\n")).toContain("slot gt exec stack-map-branches JSON reported failure");
+		expect(model.diagnostics.join("\n")).toContain("graph failed");
+	});
 });
 
 describe("parseCmuxTreeTabs", () => {
@@ -115,6 +130,14 @@ describe("parseCmuxTreeTabs", () => {
 			tty: "ttys000",
 			explicitWorktreePath: "/repo/worktrees/slot-04",
 		});
+	});
+
+	test("reports invalid raw cmux JSON through the shared object parser", () => {
+		expect(parseCmuxTreeTabs("not json")).toMatchObject({
+			type: "failure",
+			message: expect.stringContaining("cmux tree was invalid JSON"),
+		});
+		expect(parseCmuxTreeTabs("[]")).toEqual({ type: "failure", message: "cmux tree was not a JSON object." });
 	});
 });
 

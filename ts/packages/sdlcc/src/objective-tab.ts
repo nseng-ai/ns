@@ -1,5 +1,6 @@
 import { parseObjectiveList, type ObjectiveList, type ObjectiveListRecord } from "@asdl/pi-extension-runtime/objective-list";
 
+import { styledLines } from "./frame-style.ts";
 import { keyNameFromInput } from "./tabs/key-input.ts";
 import type { TabIntent, TabKeyInput, TabModule, TabModuleDeps } from "./tabs/tab-module.ts";
 
@@ -68,7 +69,7 @@ function interpretKey(_state: ObjectiveTabState, key: TabKeyInput): TabIntent<Ob
 	}
 }
 
-function render(model: ObjectiveList, state: ObjectiveTabState): readonly string[] {
+function render(model: ObjectiveList, state: ObjectiveTabState) {
 	const records = model.records;
 	const lines: string[] = [`Objectives (status=${model.statusFilter})`, ""];
 
@@ -76,7 +77,7 @@ function render(model: ObjectiveList, state: ObjectiveTabState): readonly string
 		lines.push("No Objective records in this checkout.");
 		lines.push("");
 		lines.push(renderFooter());
-		return lines;
+		return styledLines(lines);
 	}
 
 	const widths = columnWidths(records);
@@ -91,7 +92,7 @@ function render(model: ObjectiveList, state: ObjectiveTabState): readonly string
 	lines.push(renderSelectedDetail(records, state.selectedSlug));
 	lines.push("");
 	lines.push(renderFooter());
-	return lines;
+	return styledLines(lines);
 }
 
 interface ObjectiveTableWidths {

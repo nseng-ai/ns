@@ -1,3 +1,5 @@
+import { stringToStyledText } from "@opentui/core";
+
 import { runStackMapEffect, type StackMapEffect } from "./stack-map-effects.ts";
 import { loadStackMapModel } from "./stack-map-model-loader.ts";
 import {
@@ -23,7 +25,7 @@ export const stackMapTabModule: StackMapTabModule = {
 	loadModel: (deps: TabModuleDeps): Promise<StackMapModel> => loadStackMapModel({ cwd: deps.cwd, runCommand: deps.runCommand }),
 	createInitialState: createInitialStackMapState,
 	reduce: reduceStackMapState,
-	render: (model, state) => renderStackMapFrame(model, state).split("\n"),
+	render: (model, state) => stringToStyledText(renderStackMapFrame(model, state)),
 	interpretKey: interpretStackMapKey,
 	runEffect: runStackMapEffect,
 };

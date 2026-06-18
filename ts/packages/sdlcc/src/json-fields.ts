@@ -26,3 +26,14 @@ export function stringArrayField(record: Record<string, unknown>, key: string): 
 export function optionalEntry<T>(key: string, value: T | undefined): Record<string, T> {
 	return value === undefined ? {} : { [key]: value };
 }
+
+export function parseJsonObject(stdout: string, label: string): { readonly type: "success"; readonly data: Record<string, unknown> } | { readonly type: "failure"; readonly message: string } {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(stdout.trim() || "{}");
+	} catch (error) {
+		return { type: "failure", message: `${label} was invalid JSON: ${error instanceof Error ? error.message : String(error)}` };
+	}
+	if (!isRecord(parsed)) return { type: "failure", message: `${label} was not a JSON object.` };
+	return { type: "success", data: parsed };
+}

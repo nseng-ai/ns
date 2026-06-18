@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { stackMapTabModule } from "../../src/stack-map-tab.ts";
 import { createInitialStackMapState, type StackMapModel, type StackMapState } from "../../src/stack-map.ts";
+import { styledTextContent } from "./styled-text.ts";
 
 const MODEL: StackMapModel = {
 	title: "stack map",
@@ -45,10 +46,9 @@ describe("stackMapTabModule.interpretKey mapping", () => {
 		expect(stackMapTabModule.interpretKey(rowsState(), { name: "z" })).toEqual({ type: "none" });
 	});
 
-	test("renders the stack-map frame split into lines", () => {
-		const lines = stackMapTabModule.render(MODEL, rowsState());
-		expect(Array.isArray(lines)).toBe(true);
-		expect(lines[0]).toBe("stack map");
-		expect(lines.some((line) => line.includes("feature/current"))).toBe(true);
+	test("renders the stack-map frame as styled text", () => {
+		const frame = styledTextContent(stackMapTabModule.render(MODEL, rowsState(), { width: 80, height: 24 }));
+		expect(frame.split("\n")[0]).toBe("stack map");
+		expect(frame).toContain("feature/current");
 	});
 });

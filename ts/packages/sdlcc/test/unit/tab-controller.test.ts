@@ -1,7 +1,9 @@
 import { describe, expect, test } from "vitest";
 
+import { styledLines } from "../../src/frame-style.ts";
 import { createTabController } from "../../src/tabs/tab-controller.ts";
 import type { TabIntent, TabModule, TabModuleDeps } from "../../src/tabs/tab-module.ts";
+import { styledTextContent } from "./styled-text.ts";
 
 interface FakeModel {
 	readonly label: string;
@@ -24,6 +26,7 @@ interface FakeModuleOptions {
 	readonly loadModel?: (deps: TabModuleDeps) => Promise<FakeModel>;
 	readonly interpretKey?: (state: FakeState, key: { readonly name?: string | undefined }) => TabIntent<FakeAction, FakeEffect>;
 	readonly runEffect?: ((model: FakeModel, state: FakeState, effect: FakeEffect) => Promise<FakeState>) | undefined;
+	readonly refreshState?: ((previousModel: FakeModel, previousState: FakeState, nextModel: FakeModel) => FakeState) | undefined;
 	readonly omitRunEffect?: boolean;
 }
 
@@ -34,7 +37,8 @@ function createFakeModule(options: FakeModuleOptions = {}): TabModule<FakeModel,
 		loadModel: options.loadModel ?? (async () => ({ label: "loaded" })),
 		createInitialState: () => ({ count: 0 }),
 		reduce: (_model, state, action) => (action.type === "increment" ? { count: state.count + 1 } : state),
-		render: (model, state) => [`${model.label}:${state.count}`],
+		...(options.refreshState === undefined ? {} : { refreshState: options.refreshState }),
+		render: (model, state) => styledLines([`${model.label}:${state.count}`]),
 		interpretKey: options.interpretKey ?? (() => ({ type: "none" })),
 		runEffect: options.runEffect ?? (async (_model, state, effect) => ({ count: state.count + effect.by })),
 	};
@@ -60,21 +64,21 @@ describe("createTabController lifecycle", () => {
 		const load = deferred<FakeModel>();
 		const controller = createTabController(createFakeModule({ loadModel: () => load.promise }));
 
-		expect(controller.render()).toEqual(["Loading fake…"]);
+		expect(styledTextContent(controller.render({ width: 80, height: 24 }))).toBe("Loading fake…");
 
 		const loaded = controller.ensureLoaded(DEPS);
-		expect(controller.render()).toEqual(["Loading fake…"]);
+		expect(styledTextContent(controller.render({ width: 80, height: 24 }))).toBe("Loading fake…");
 
 		load.resolve({ label: "ready" });
 		await loaded;
-		expect(controller.render()).toEqual(["ready:0"]);
+		expect(styledTextContent(controller.render({ width: 80, height: 24 }))).toBe("ready:0");
 	});
 
 	test("renders an error frame when loadModel throws", async () => {
 		const controller = createTabController(createFakeModule({ loadModel: async () => { throw new Error("boom"); } }));
 
 		await controller.ensureLoaded(DEPS);
-		expect(controller.render()).toEqual(["Failed to load fake.", "boom"]);
+		expect(styledTextContent(controller.render({ width: 80, height: 24 }))).toBe("Failed to load fake.\nboom");
 	});
 
 	test("ensureLoaded is idempotent and loads only once", async () => {
@@ -108,7 +112,7 @@ describe("createTabController routing", () => {
 		const outcome = await controller.handleKey({ name: "x" }, DEPS, () => { changes += 1; });
 		expect(outcome).toEqual({ type: "handled" });
 		expect(changes).toBe(1);
-		expect(controller.render()).toEqual(["loaded:1"]);
+		expect(styledTextContent(controller.render({ width: 80, height: 24 }))).toBe("loaded:1");
 	});
 
 	test("does not re-render when reduce returns the same state", async () => {
@@ -135,7 +139,7 @@ describe("createTabController routing", () => {
 		const outcome = await controller.handleKey({ name: "e" }, DEPS, () => {});
 		expect(outcome).toEqual({ type: "handled" });
 		expect(controller.isBusy()).toBe(false);
-		expect(controller.render()).toEqual(["loaded:5"]);
+		expect(styledTextContent(controller.render({ width: 80, height: 24 }))).toBe("loaded:5");
 	});
 
 	test("busy guard blocks concurrent keys while an effect is in flight", async () => {
@@ -155,7 +159,7 @@ describe("createTabController routing", () => {
 		effect.resolve({ count: 9 });
 		expect(await inFlight).toEqual({ type: "handled" });
 		expect(controller.isBusy()).toBe(false);
-		expect(controller.render()).toEqual(["loaded:9"]);
+		expect(styledTextContent(controller.render({ width: 80, height: 24 }))).toBe("loaded:9");
 	});
 
 	test("ignores effect intents when the module has no runEffect", async () => {
@@ -166,5 +170,62 @@ describe("createTabController routing", () => {
 		await controller.ensureLoaded(DEPS);
 
 		expect(await controller.handleKey({ name: "e" }, DEPS, () => {})).toEqual({ type: "ignored" });
+	});
+
+	test("refresh reloads the model and uses module refreshState", async () => {
+		let loadCount = 0;
+		let changes = 0;
+		const controller = createTabController(createFakeModule({
+			loadModel: async () => {
+				loadCount += 1;
+				return { label: `model-${loadCount}` };
+			},
+			interpretKey: () => ({ type: "refresh" }),
+			refreshState: (_previousModel, previousState) => ({ count: previousState.count + 10 }),
+		}));
+		await controller.ensureLoaded(DEPS);
+
+		expect(await controller.handleKey({ name: "r" }, DEPS, () => { changes += 1; })).toEqual({ type: "handled" });
+		expect(changes).toBe(1);
+		expect(styledTextContent(controller.render({ width: 80, height: 24 }))).toBe("model-2:10");
+	});
+
+	test("refresh falls back to a fresh initial state when no refreshState is provided", async () => {
+		let loadCount = 0;
+		const controller = createTabController(createFakeModule({
+			loadModel: async () => {
+				loadCount += 1;
+				return { label: `model-${loadCount}` };
+			},
+			interpretKey: () => ({ type: "action", action: { type: "increment" } }),
+		}));
+		await controller.ensureLoaded(DEPS);
+		await controller.handleKey({ name: "x" }, DEPS, () => {});
+
+		await controller.refresh(DEPS, () => {});
+
+		expect(styledTextContent(controller.render({ width: 80, height: 24 }))).toBe("model-2:0");
+	});
+
+	test("refresh is ignored while an effect is in flight", async () => {
+		const effect = deferred<FakeState>();
+		let loadCount = 0;
+		const controller = createTabController(createFakeModule({
+			loadModel: async () => {
+				loadCount += 1;
+				return { label: `model-${loadCount}` };
+			},
+			interpretKey: () => ({ type: "effect", effect: { type: "bump", by: 1 } }),
+			runEffect: () => effect.promise,
+		}));
+		await controller.ensureLoaded(DEPS);
+
+		const inFlight = controller.handleKey({ name: "e" }, DEPS, () => {});
+		await controller.refresh(DEPS, () => {});
+		effect.resolve({ count: 3 });
+		await inFlight;
+
+		expect(loadCount).toBe(1);
+		expect(styledTextContent(controller.render({ width: 80, height: 24 }))).toBe("model-1:3");
 	});
 });

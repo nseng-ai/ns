@@ -1,11 +1,17 @@
-import { BoxRenderable, createCliRenderer, TextRenderable, type CliRenderer, type KeyEvent } from "@opentui/core";
+import { BoxRenderable, createCliRenderer, StyledText, TextRenderable, type CliRenderer, type KeyEvent, type TextChunk } from "@opentui/core";
 
+import { bold, dim, fg, PALETTE, plain } from "../frame-style.ts";
 import type { TabController } from "./tab-controller.ts";
-import type { TabModuleDeps } from "./tab-module.ts";
+import type { TabModuleDeps, TabViewport } from "./tab-module.ts";
+
+// Border (top + bottom) + padding (top + bottom) + tab-bar line. Stack map ignored height in v1, so
+// an approximate chrome budget is fine; modules that honor height get a sane floor.
+const HOST_CHROME_ROWS = 5;
 
 export interface StartTabHostTuiOptions {
 	readonly controllers: readonly TabController[];
 	readonly deps: TabModuleDeps;
+	readonly initialTabId?: string | undefined;
 }
 
 interface MountedTabHostScreen {
@@ -17,24 +23,44 @@ export async function startTabHostTui(options: StartTabHostTuiOptions): Promise<
 	const controllers = options.controllers;
 	if (controllers.length === 0) throw new Error("startTabHostTui requires at least one tab controller.");
 
-	let activeIndex = 0;
+	let activeIndex = initialTabIndex(controllers, options.initialTabId);
 	let renderer: CliRenderer | undefined;
+	let refreshTimer: ReturnType<typeof setInterval> | undefined;
+	let isShuttingDown = false;
+
+	const clearRefreshTimer = (): void => {
+		if (refreshTimer === undefined) return;
+		clearInterval(refreshTimer);
+		refreshTimer = undefined;
+	};
 
 	try {
 		renderer = await createCliRenderer({ exitOnCtrlC: true });
 		const activeRenderer = renderer;
 		const screen = mountTabHostScreen(activeRenderer);
 		const reRender = (): void => {
+			if (isShuttingDown || activeRenderer.isDestroyed) return;
 			const active = controllers[activeIndex];
 			if (active === undefined) return;
 			screen.tabBar.content = renderTabBar(controllers, activeIndex);
-			screen.content.content = active.render().join("\n");
+			screen.content.content = active.render(viewportFor(activeRenderer));
 			activeRenderer.requestRender();
 		};
+		const scheduleActiveRefresh = (): void => {
+			clearRefreshTimer();
+			const active = controllers[activeIndex];
+			const refreshMs = active?.refreshMs;
+			if (active === undefined || refreshMs === undefined) return;
+			refreshTimer = setInterval(() => {
+				if (isShuttingDown || activeRenderer.isDestroyed) return;
+				void active.refresh(options.deps, reRender);
+			}, refreshMs);
+		};
 
-		// Preserve today's stack-map startup behavior: load the initially active tab before first paint.
+		// Preserve today's startup behavior: load the initially active tab before first paint.
 		await controllers[activeIndex]?.ensureLoaded(options.deps);
 		reRender();
+		scheduleActiveRefresh();
 
 		activeRenderer.keyInput.on("keypress", (key: KeyEvent) => {
 			void handleHostKey({
@@ -47,6 +73,8 @@ export async function startTabHostTui(options: StartTabHostTuiOptions): Promise<
 				},
 				renderer: activeRenderer,
 				reRender,
+				clearRefreshTimer,
+				scheduleActiveRefresh,
 			});
 		});
 
@@ -58,6 +86,10 @@ export async function startTabHostTui(options: StartTabHostTuiOptions): Promise<
 	} catch (error) {
 		if (renderer !== undefined && !renderer.isDestroyed) renderer.destroy();
 		throw error;
+	} finally {
+		isShuttingDown = true;
+		clearRefreshTimer();
+		if (renderer !== undefined && !renderer.isDestroyed) renderer.destroy();
 	}
 }
 
@@ -69,6 +101,8 @@ async function handleHostKey(options: {
 	readonly setActiveIndex: (index: number) => void;
 	readonly renderer: CliRenderer;
 	readonly reRender: () => void;
+	readonly clearRefreshTimer: () => void;
+	readonly scheduleActiveRefresh: () => void;
 }): Promise<void> {
 	const { key, controllers } = options;
 	const activeIndex = options.getActiveIndex();
@@ -81,10 +115,12 @@ async function handleHostKey(options: {
 		const delta = key.shift ? -1 : 1;
 		const nextIndex = wrapIndex(activeIndex + delta, controllers.length);
 		if (nextIndex === activeIndex) return;
+		options.clearRefreshTimer();
 		options.setActiveIndex(nextIndex);
 		options.reRender();
 		await controllers[nextIndex]?.ensureLoaded(options.deps);
 		options.reRender();
+		options.scheduleActiveRefresh();
 		return;
 	}
 
@@ -100,7 +136,7 @@ function mountTabHostScreen(renderer: CliRenderer): MountedTabHostScreen {
 		flexDirection: "column",
 		border: true,
 		borderStyle: "rounded",
-		borderColor: "#7aa2f7",
+		borderColor: PALETTE.accent,
 		backgroundColor: "#111827",
 		padding: 1,
 		title: "sdlcc",
@@ -111,7 +147,7 @@ function mountTabHostScreen(renderer: CliRenderer): MountedTabHostScreen {
 	const tabBar = new TextRenderable(renderer, {
 		id: "sdlcc-tab-bar",
 		content: "",
-		fg: "#f9e2af",
+		fg: PALETTE.yellow,
 		width: "100%",
 		height: 1,
 		flexShrink: 0,
@@ -122,7 +158,7 @@ function mountTabHostScreen(renderer: CliRenderer): MountedTabHostScreen {
 	const content = new TextRenderable(renderer, {
 		id: "sdlcc-tab-content",
 		content: "",
-		fg: "#cdd6f4",
+		fg: PALETTE.text,
 		width: "100%",
 		flexGrow: 1,
 		flexShrink: 1,
@@ -136,9 +172,30 @@ function mountTabHostScreen(renderer: CliRenderer): MountedTabHostScreen {
 	return { tabBar, content };
 }
 
-export function renderTabBar(controllers: readonly TabController[], activeIndex: number): string {
-	return controllers.map((controller, index) => (index === activeIndex ? `[${controller.label}]` : ` ${controller.label} `)).join(" ");
+export function renderTabBar(controllers: readonly TabController[], activeIndex: number): StyledText {
+	const chunks: TextChunk[] = [];
+	controllers.forEach((controller, index) => {
+		if (index > 0) chunks.push(plain("    "));
+		const text = `${index === activeIndex ? "●" : "○"} ${controller.label}`;
+		chunks.push(index === activeIndex ? bold(fg(PALETTE.mauve)(text)) : dim(fg(PALETTE.muted)(text)));
+	});
+	return new StyledText(chunks);
 }
+
+function viewportFor(renderer: CliRenderer): TabViewport {
+	return {
+		width: renderer.terminalWidth,
+		height: Math.max(1, renderer.terminalHeight - HOST_CHROME_ROWS),
+	};
+}
+
+function initialTabIndex(controllers: readonly TabController[], initialTabId: string | undefined): number {
+	if (initialTabId === undefined) return 0;
+	const index = controllers.findIndex((controller) => controller.id === initialTabId);
+	if (index !== -1) return index;
+	throw new Error(`startTabHostTui initialTabId ${JSON.stringify(initialTabId)} did not match any controller id.`);
+}
+
 
 function wrapIndex(index: number, length: number): number {
 	return ((index % length) + length) % length;
