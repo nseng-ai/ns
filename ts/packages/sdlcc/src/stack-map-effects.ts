@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 
-import { runRealCommand, type StackMapCommandOutput, type StackMapCommandRunner } from "./command-runner.ts";
+import { runRealCommand, type CommandOutput, type CommandRunner } from "./command-runner.ts";
 import { isRecord, stringField } from "./json-fields.ts";
 import {
 	choicesForCmuxActivationPlan,
@@ -33,7 +33,7 @@ export interface StackMapCmuxActivationExecutor {
 
 export interface CreateStackMapCmuxActivationExecutorOptions {
 	readonly cwd?: string | undefined;
-	readonly runCommand?: StackMapCommandRunner | undefined;
+	readonly runCommand?: CommandRunner | undefined;
 }
 
 interface SlotCheckoutTarget {
@@ -71,7 +71,7 @@ export function createStackMapCmuxActivationExecutor(options: CreateStackMapCmux
 				workspace_id: target.workspaceRef,
 				window_id: target.windowRef,
 			});
-			const result = await runCommand("cmux", ["rpc", "surface.focus", params], { cwd, timeoutMs: COMMAND_TIMEOUT_MS });
+			const result = await runCommand("cmux", ["rpc", "surface.focus", params], { cwd, timeout: COMMAND_TIMEOUT_MS });
 			if (result.code === 0) return { type: "focused" };
 			return { type: "failed", message: commandFailureMessage("cmux rpc surface.focus", result) };
 		},
@@ -82,7 +82,7 @@ export function createStackMapCmuxActivationExecutor(options: CreateStackMapCmux
 			const target = checkout.target;
 			const description = `sdlcc cmux workspace for ${target.branchName}`;
 			const args = buildNewWorkspaceArgs({ branchName: target.branchName, worktreePath: target.worktreePath, description });
-			const result = await runCommand("cmux", args, { cwd: target.worktreePath, timeoutMs: COMMAND_TIMEOUT_MS });
+			const result = await runCommand("cmux", args, { cwd: target.worktreePath, timeout: COMMAND_TIMEOUT_MS });
 			if (result.code === 0) return { type: "opened", message: `Opened cmux workspace for ${target.branchName} in ${target.slotName}.` };
 			return { type: "failed", message: commandFailureMessage("cmux new-workspace", result) };
 		},
@@ -129,9 +129,9 @@ async function executeActivationPlan(
 	return reduceStackMapState(model, state, { type: "set-status", message });
 }
 
-async function checkoutSlot(runCommand: StackMapCommandRunner, cwd: string, branch: string): Promise<{ readonly type: "checked-out"; readonly target: SlotCheckoutTarget } | { readonly type: "failed"; readonly message: string }> {
+async function checkoutSlot(runCommand: CommandRunner, cwd: string, branch: string): Promise<{ readonly type: "checked-out"; readonly target: SlotCheckoutTarget } | { readonly type: "failed"; readonly message: string }> {
 	const args = ["checkout", branch, "--format", "json", "--no-clipboard"];
-	const result = await runCommand("slot", args, { cwd, timeoutMs: SLOT_CHECKOUT_TIMEOUT_MS });
+	const result = await runCommand("slot", args, { cwd, timeout: SLOT_CHECKOUT_TIMEOUT_MS });
 	if (result.code !== 0) return { type: "failed", message: commandFailureMessage("slot checkout", result) };
 	const target = parseSlotCheckoutTarget(result.stdout);
 	if (target === undefined) return { type: "failed", message: "slot checkout returned unreadable JSON; expected slot_name, branch_name, and worktree_path." };
@@ -165,7 +165,7 @@ function slotTargetFromAssignment(branch: string, slot: StackMapSlotAssignment):
 	};
 }
 
-function commandFailureMessage(commandName: string, result: StackMapCommandOutput): string {
+function commandFailureMessage(commandName: string, result: CommandOutput): string {
 	return `${commandName} failed with exit code ${result.code}. stdout: ${result.stdout.trim() || "(empty)"} stderr: ${result.stderr.trim() || "(empty)"}`;
 }
 

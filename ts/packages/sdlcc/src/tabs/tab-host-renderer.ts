@@ -1,11 +1,7 @@
 import { BoxRenderable, createCliRenderer, TextRenderable, type CliRenderer, type KeyEvent } from "@opentui/core";
 
 import type { TabController } from "./tab-controller.ts";
-import type { TabModuleDeps, TabViewport } from "./tab-module.ts";
-
-// Border (top + bottom) + padding (top + bottom) + tab-bar line. Stack map ignored height in v1, so
-// an approximate chrome budget is fine; modules that honor height get a sane floor.
-const HOST_CHROME_ROWS = 5;
+import type { TabModuleDeps } from "./tab-module.ts";
 
 export interface StartTabHostTuiOptions {
 	readonly controllers: readonly TabController[];
@@ -32,7 +28,7 @@ export async function startTabHostTui(options: StartTabHostTuiOptions): Promise<
 			const active = controllers[activeIndex];
 			if (active === undefined) return;
 			screen.tabBar.content = renderTabBar(controllers, activeIndex);
-			screen.content.content = active.render(viewportFor(activeRenderer)).join("\n");
+			screen.content.content = active.render().join("\n");
 			activeRenderer.requestRender();
 		};
 
@@ -142,13 +138,6 @@ function mountTabHostScreen(renderer: CliRenderer): MountedTabHostScreen {
 
 export function renderTabBar(controllers: readonly TabController[], activeIndex: number): string {
 	return controllers.map((controller, index) => (index === activeIndex ? `[${controller.label}]` : ` ${controller.label} `)).join(" ");
-}
-
-function viewportFor(renderer: CliRenderer): TabViewport {
-	return {
-		width: renderer.terminalWidth,
-		height: Math.max(1, renderer.terminalHeight - HOST_CHROME_ROWS),
-	};
 }
 
 function wrapIndex(index: number, length: number): number {

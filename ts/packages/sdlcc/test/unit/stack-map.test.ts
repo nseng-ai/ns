@@ -4,11 +4,12 @@ import {
 	buildStackMapModelFromGraph,
 	loadStackMapModel,
 	parseCmuxTreeTabs,
-	type StackMapCommandOptions,
-	type StackMapCommandOutput,
+	type CommandOptions,
+	type CommandOutput,
 } from "../../src/stack-map-model-loader.ts";
 import { buildNewWorkspaceArgs, buildSdlccCmuxReportBootstrapCommand, createStackMapCmuxActivationExecutor } from "../../src/stack-map-effects.ts";
-import { interpretStackMapKey, printableCharacterFromStackMapKey } from "../../src/stack-map-tab.ts";
+import { printableCharacterFromInput } from "../../src/tabs/key-input.ts";
+import { interpretStackMapKey } from "../../src/stack-map-tab.ts";
 import {
 	buildVisibleStackMapRows,
 	choicesForCmuxActivationPlan,
@@ -78,11 +79,11 @@ describe("loadStackMapModel", () => {
 		const calls: string[] = [];
 		const model = await loadStackMapModel({
 			cwd: "/repo",
-			runCommand: async (command: string, args: readonly string[], options: StackMapCommandOptions): Promise<StackMapCommandOutput> => {
+			runCommand: async (command: string, args: readonly string[], options: CommandOptions = {}): Promise<CommandOutput> => {
 				calls.push(`${options.cwd}$ ${command} ${args.join(" ")}`);
 				if (command === "slot") return successJson({ exit_code: 0, data: stackMapGraphFixture() });
 				if (command === "cmux") return successJson(cmuxTreeFixture({ includeExplicitWorktree: true }));
-				return { code: 2, stdout: "", stderr: `unexpected command ${command}` };
+				return { code: 2, stdout: "", stderr: `unexpected command ${command}`, killed: false };
 			},
 		});
 
@@ -195,9 +196,9 @@ describe("createStackMapCmuxActivationExecutor", () => {
 		const calls: string[] = [];
 		const executor = createStackMapCmuxActivationExecutor({
 			cwd: "/repo",
-			runCommand: async (command, args, options) => {
+			runCommand: async (command, args, options = {}) => {
 				calls.push(`${options.cwd}$ ${command} ${args.join(" ")}`);
-				return { code: 0, stdout: "{}", stderr: "" };
+				return { code: 0, stdout: "{}", stderr: "", killed: false };
 			},
 		});
 
@@ -211,9 +212,9 @@ describe("createStackMapCmuxActivationExecutor", () => {
 		const calls: string[] = [];
 		const executor = createStackMapCmuxActivationExecutor({
 			cwd: "/repo",
-			runCommand: async (command, args, options) => {
+			runCommand: async (command, args, options = {}) => {
 				calls.push(`${options.cwd}$ ${command} ${args.join(" ")}`);
-				return { code: 0, stdout: "{}", stderr: "" };
+				return { code: 0, stdout: "{}", stderr: "", killed: false };
 			},
 		});
 
@@ -331,7 +332,7 @@ describe("interpretStackMapKey", () => {
 		expect(interpretStackMapKey(state, { name: "/", sequence: "/" })).toEqual({ type: "action", action: { type: "start-query" } });
 		expect(interpretStackMapKey(state, { sequence: "/" })).toEqual({ type: "action", action: { type: "start-query" } });
 		expect(interpretStackMapKey(state, { name: "o", sequence: "o" })).toEqual({ type: "action", action: { type: "toggle-scope" } });
-		expect(interpretStackMapKey(state, { name: "c", sequence: "c" })).toEqual({ type: "activate-cmux" });
+		expect(interpretStackMapKey(state, { name: "c", sequence: "c" })).toEqual({ type: "effect", effect: { type: "activate-cmux" } });
 		expect(interpretStackMapKey(state, { name: "q", sequence: "q" })).toEqual({ type: "quit" });
 	});
 
@@ -342,8 +343,8 @@ describe("interpretStackMapKey", () => {
 		expect(interpretStackMapKey(state, { name: "backspace", sequence: "\x7F" })).toEqual({ type: "action", action: { type: "delete-query-char" } });
 		expect(interpretStackMapKey(state, { name: "enter", sequence: "\r" })).toEqual({ type: "action", action: { type: "accept-query" } });
 		expect(interpretStackMapKey(state, { name: "escape", sequence: "\x1B" })).toEqual({ type: "action", action: { type: "clear-query" } });
-		expect(printableCharacterFromStackMapKey({ sequence: " " })).toBe(" ");
-		expect(printableCharacterFromStackMapKey({ ctrl: true, sequence: "a" })).toBeUndefined();
+		expect(printableCharacterFromInput({ sequence: " " })).toBe(" ");
+		expect(printableCharacterFromInput({ ctrl: true, sequence: "a" })).toBeUndefined();
 	});
 });
 
@@ -492,6 +493,6 @@ function tableSeparatorIndexes(line: string): readonly number[] {
 	return [...line.matchAll(/ │ /g)].map((match) => match.index);
 }
 
-function successJson(value: unknown): StackMapCommandOutput {
-	return { code: 0, stdout: JSON.stringify(value), stderr: "" };
+function successJson(value: unknown): CommandOutput {
+	return { code: 0, stdout: JSON.stringify(value), stderr: "", killed: false };
 }

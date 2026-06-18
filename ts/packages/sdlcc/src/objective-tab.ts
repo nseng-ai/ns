@@ -1,5 +1,6 @@
 import { parseObjectiveList, type ObjectiveList, type ObjectiveListRecord } from "@asdl/pi-extension-runtime/objective-list";
 
+import { keyNameFromInput } from "./tabs/key-input.ts";
 import type { TabIntent, TabKeyInput, TabModule, TabModuleDeps } from "./tabs/tab-module.ts";
 
 const COMMAND_TIMEOUT_MS = 10_000;
@@ -26,7 +27,7 @@ export const objectiveTabModule: ObjectiveTabModule = {
 };
 
 async function loadModel(deps: TabModuleDeps): Promise<ObjectiveList> {
-	const result = await deps.runCommand("objective", ["list", "--minimal", "--format", "json"], { cwd: deps.cwd, timeoutMs: COMMAND_TIMEOUT_MS });
+	const result = await deps.runCommand("objective", ["list", "--minimal", "--format", "json"], { cwd: deps.cwd, timeout: COMMAND_TIMEOUT_MS });
 	if (result.code !== 0) {
 		throw new Error(`objective list failed with exit code ${result.code}. ${result.stderr.trim() || result.stdout.trim() || "(no output)"}`);
 	}
@@ -52,8 +53,7 @@ function reduce(model: ObjectiveList, state: ObjectiveTabState, action: Objectiv
 }
 
 function interpretKey(_state: ObjectiveTabState, key: TabKeyInput): TabIntent<ObjectiveTabAction, never> {
-	if (key.ctrl || key.meta) return { type: "none" };
-	switch (key.name) {
+	switch (keyNameFromInput(key)) {
 		case "up":
 		case "k":
 			return { type: "action", action: { type: "move-selection", delta: -1 } };

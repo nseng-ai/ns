@@ -17,7 +17,7 @@ type FakeEffect = { readonly type: "bump"; readonly by: number };
 const DEPS: TabModuleDeps = {
 	cwd: "/repo",
 	env: {},
-	runCommand: async () => ({ code: 0, stdout: "", stderr: "" }),
+	runCommand: async () => ({ code: 0, stdout: "", stderr: "", killed: false }),
 };
 
 interface FakeModuleOptions {
@@ -60,21 +60,21 @@ describe("createTabController lifecycle", () => {
 		const load = deferred<FakeModel>();
 		const controller = createTabController(createFakeModule({ loadModel: () => load.promise }));
 
-		expect(controller.render({ width: 80, height: 24 })).toEqual(["Loading fake…"]);
+		expect(controller.render()).toEqual(["Loading fake…"]);
 
 		const loaded = controller.ensureLoaded(DEPS);
-		expect(controller.render({ width: 80, height: 24 })).toEqual(["Loading fake…"]);
+		expect(controller.render()).toEqual(["Loading fake…"]);
 
 		load.resolve({ label: "ready" });
 		await loaded;
-		expect(controller.render({ width: 80, height: 24 })).toEqual(["ready:0"]);
+		expect(controller.render()).toEqual(["ready:0"]);
 	});
 
 	test("renders an error frame when loadModel throws", async () => {
 		const controller = createTabController(createFakeModule({ loadModel: async () => { throw new Error("boom"); } }));
 
 		await controller.ensureLoaded(DEPS);
-		expect(controller.render({ width: 80, height: 24 })).toEqual(["Failed to load fake.", "boom"]);
+		expect(controller.render()).toEqual(["Failed to load fake.", "boom"]);
 	});
 
 	test("ensureLoaded is idempotent and loads only once", async () => {
@@ -108,7 +108,7 @@ describe("createTabController routing", () => {
 		const outcome = await controller.handleKey({ name: "x" }, DEPS, () => { changes += 1; });
 		expect(outcome).toEqual({ type: "handled" });
 		expect(changes).toBe(1);
-		expect(controller.render({ width: 80, height: 24 })).toEqual(["loaded:1"]);
+		expect(controller.render()).toEqual(["loaded:1"]);
 	});
 
 	test("does not re-render when reduce returns the same state", async () => {
@@ -135,7 +135,7 @@ describe("createTabController routing", () => {
 		const outcome = await controller.handleKey({ name: "e" }, DEPS, () => {});
 		expect(outcome).toEqual({ type: "handled" });
 		expect(controller.isBusy()).toBe(false);
-		expect(controller.render({ width: 80, height: 24 })).toEqual(["loaded:5"]);
+		expect(controller.render()).toEqual(["loaded:5"]);
 	});
 
 	test("busy guard blocks concurrent keys while an effect is in flight", async () => {
@@ -155,7 +155,7 @@ describe("createTabController routing", () => {
 		effect.resolve({ count: 9 });
 		expect(await inFlight).toEqual({ type: "handled" });
 		expect(controller.isBusy()).toBe(false);
-		expect(controller.render({ width: 80, height: 24 })).toEqual(["loaded:9"]);
+		expect(controller.render()).toEqual(["loaded:9"]);
 	});
 
 	test("ignores effect intents when the module has no runEffect", async () => {

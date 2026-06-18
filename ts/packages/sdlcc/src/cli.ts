@@ -5,7 +5,7 @@ import { z } from "zod";
 import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
 import { rawCommand } from "@asdl/clinkr/raw";
 
-import { runRealCommand, type StackMapCommandRunner } from "./command-runner.ts";
+import { runRealCommand, type CommandRunner } from "./command-runner.ts";
 import { formatSdlccCmuxReportHuman, formatSdlccCmuxReportJson, runSdlccCmuxReport } from "./cmux-report.ts";
 
 const VERSION = "0.1.0";
@@ -13,7 +13,7 @@ const VERSION = "0.1.0";
 export interface SdlccCliDeps {
 	readonly cwd?: string | undefined;
 	readonly env?: Record<string, string | undefined> | undefined;
-	readonly runCommand?: StackMapCommandRunner | undefined;
+	readonly runCommand?: CommandRunner | undefined;
 	readonly stdout?: ((text: string) => void) | undefined;
 	readonly stderr?: ((text: string) => void) | undefined;
 	readonly startTui?: (() => Promise<void> | void) | undefined;
@@ -22,7 +22,7 @@ export interface SdlccCliDeps {
 interface SdlccCliContext {
 	readonly cwd: string;
 	readonly env: Record<string, string | undefined>;
-	readonly runCommand: StackMapCommandRunner;
+	readonly runCommand: CommandRunner;
 	readonly stdout: (text: string) => void;
 	readonly stderr: (text: string) => void;
 }
@@ -93,14 +93,12 @@ function runtimeInfo(): string {
 }
 
 async function startDefaultTui(context: SdlccCliContext): Promise<void> {
-	const [{ startTabHostTui }, { createTabController }, { tabModules }] = await Promise.all([
+	const [{ startTabHostTui }, { tabControllers }] = await Promise.all([
 		import("./tabs/tab-host-renderer.ts"),
-		import("./tabs/tab-controller.ts"),
 		import("./tabs/registry.ts"),
 	]);
-	const controllers = tabModules.map(createTabController);
 	await startTabHostTui({
-		controllers,
+		controllers: tabControllers,
 		deps: { cwd: context.cwd, env: context.env, runCommand: context.runCommand },
 	});
 }
