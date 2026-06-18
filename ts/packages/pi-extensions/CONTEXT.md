@@ -33,11 +33,11 @@ The neutral helper layer, implemented in `@asdl/pi-extension-runtime`, for comma
 *Avoid*: shell executor, workflow owner, subprocess policy, test fake.
 
 **CCC cmux command suite**:
-The project-local CCC Pi command family registered by `.pi/extensions/ccc.ts`: `/ccc:sidebar:pr-summary`, `/ccc:sidebar:objective-summary`, `/ccc:workspace:dispatch-plan`, `/ccc:workspace:open-branch`, and `/ccc:workspace:dispatch-prompt`. The commands intentionally have no `/cmux:*` compatibility aliases; use `cmux` only for the external workspace tool they operate.
+The project-local CCC Pi command family registered by `.pi/extensions/ccc.ts`: `/ccc:sidebar:pr-summary`, `/ccc:sidebar:objective-summary`, `/ccc:workspace:dispatch-plan`, `/ccc:surface:dispatch-plan`, `/ccc:workspace:open-branch`, and `/ccc:workspace:dispatch-prompt`. The commands intentionally have no `/cmux:*` compatibility aliases; use `cmux` only for the external workspace/surface tool they operate.
 *Avoid*: user-local cmux commands, cmux CLI, sidebar skill alone, `/cmux:*` alias.
 
 **cmux workspace-opening command**:
-A cmux command suite entrypoint that creates a new cmux workspace after preparing a branch, plan, or prompt: `/ccc:workspace:open-branch`, `/ccc:workspace:dispatch-plan`, or `/ccc:workspace:dispatch-prompt`. `open` only opens a workspace; `dispatch` opens a workspace and starts child Pi execution immediately.
+A cmux command suite entrypoint that creates a new cmux workspace after preparing a branch, plan, or prompt: `/ccc:workspace:open-branch`, `/ccc:workspace:dispatch-plan`, or `/ccc:workspace:dispatch-prompt`. `open` only opens a workspace; `dispatch` opens a workspace and starts child Pi execution immediately. `/ccc:surface:dispatch-plan` is the focused-surface sibling: it prepares the same branch context and slot checkout, but launches child Pi in a new cmux surface in the caller workspace instead of creating a workspace.
 *Avoid*: workspace metadata refresh, summary-only command, current workspace rename.
 
 **cmux sidebar command**:
