@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 
+import { focusCmuxSurface } from "./cmux-surface-focus.ts";
 import { runRealCommand, type CommandOutput, type CommandRunner } from "./command-runner.ts";
 import { isRecord, stringField } from "./json-fields.ts";
 import {
@@ -66,14 +67,7 @@ export function createStackMapCmuxActivationExecutor(options: CreateStackMapCmux
 	const runCommand = options.runCommand ?? runRealCommand;
 	return {
 		async focusTab(target) {
-			const params = JSON.stringify({
-				surface_id: target.surfaceRef,
-				workspace_id: target.workspaceRef,
-				window_id: target.windowRef,
-			});
-			const result = await runCommand("cmux", ["rpc", "surface.focus", params], { cwd, timeout: COMMAND_TIMEOUT_MS });
-			if (result.code === 0) return { type: "focused" };
-			return { type: "failed", message: commandFailureMessage("cmux rpc surface.focus", result) };
+			return await focusCmuxSurface({ cwd, runCommand, target, timeout: COMMAND_TIMEOUT_MS });
 		},
 		async openNew(branch, slot) {
 			const checkout = slot?.worktreePath === undefined ? await checkoutSlot(runCommand, cwd, branch) : { type: "checked-out" as const, target: slotTargetFromAssignment(branch, slot) };

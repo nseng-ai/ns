@@ -37,17 +37,24 @@ function parsePane(windowRef: string, workspaceRef: string, raw: unknown): reado
 	const ref = stringField(raw, "ref");
 	const surfacesRaw = raw.surfaces;
 	if (ref === undefined || !Array.isArray(surfacesRaw)) return [];
-	const surfaces = surfacesRaw.flatMap((surface) => parseSurface(windowRef, workspaceRef, ref, surface));
+	const surfaces = surfacesRaw.flatMap((surface) => parseSurface({ windowRef, workspaceRef, paneRef: ref, raw: surface }));
 	return [{ ref, active: booleanField(raw, "active"), focused: booleanField(raw, "focused"), selectedSurfaceRef: optionalStringField(raw, "selected_surface_ref"), surfaces }];
 }
 
-function parseSurface(windowRef: string, workspaceRef: string, paneRef: string, raw: unknown): readonly DashboardSurface[] {
-	if (!isRecord(raw)) return [];
-	const ref = stringField(raw, "ref");
-	const title = stringField(raw, "title");
-	const type = optionalStringField(raw, "type") ?? "unknown";
+interface ParseSurfaceOptions {
+	readonly windowRef: string;
+	readonly workspaceRef: string;
+	readonly paneRef: string;
+	readonly raw: unknown;
+}
+
+function parseSurface(options: ParseSurfaceOptions): readonly DashboardSurface[] {
+	if (!isRecord(options.raw)) return [];
+	const ref = stringField(options.raw, "ref");
+	const title = stringField(options.raw, "title");
+	const type = optionalStringField(options.raw, "type") ?? "unknown";
 	if (ref === undefined || title === undefined) return [];
-	return [{ ref, title, type, tty: optionalStringField(raw, "tty"), active: booleanField(raw, "active"), focused: booleanField(raw, "focused"), here: booleanField(raw, "here"), selected: booleanField(raw, "selected"), selectedInPane: booleanField(raw, "selected_in_pane"), branch: optionalStringField(raw, "branch"), worktreePath: optionalStringField(raw, "worktree_path"), workspaceRef, windowRef, paneRef }];
+	return [{ ref, title, type, tty: optionalStringField(options.raw, "tty"), active: booleanField(options.raw, "active"), focused: booleanField(options.raw, "focused"), here: booleanField(options.raw, "here"), selected: booleanField(options.raw, "selected"), selectedInPane: booleanField(options.raw, "selected_in_pane"), branch: optionalStringField(options.raw, "branch"), worktreePath: optionalStringField(options.raw, "worktree_path"), workspaceRef: options.workspaceRef, windowRef: options.windowRef, paneRef: options.paneRef }];
 }
 
 function buildStatusBuckets(rawWorkspace: Record<string, unknown>, panes: readonly DashboardPane[], surfaces: readonly DashboardSurface[]): DashboardWorkspace["statusBuckets"] {

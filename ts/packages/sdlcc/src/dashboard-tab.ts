@@ -1,3 +1,4 @@
+import { focusCmuxSurface } from "./cmux-surface-focus.ts";
 import { loadDashboardModel } from "./dashboard-model-loader.ts";
 import {
 	createInitialDashboardState,
@@ -64,15 +65,8 @@ async function activateCmux(model: DashboardModel, state: DashboardState, deps: 
 	const plan = planDashboardActivation(model, state);
 	if (plan.type === "focus-surface") {
 		const focusing = reduceDashboardState(model, state, { type: "set-status", message: "Focusing cmux surface…" });
-		const params = JSON.stringify({
-			surface_id: plan.target.surfaceRef,
-			workspace_id: plan.target.workspaceRef,
-			window_id: plan.target.windowRef,
-		});
-		const result = await deps.runCommand("cmux", ["rpc", "surface.focus", params], { cwd: deps.cwd, timeout: DASHBOARD_COMMAND_TIMEOUT_MS });
-		const message = result.code === 0
-			? "Focused cmux surface."
-			: `cmux rpc surface.focus failed with exit code ${result.code}. stdout: ${result.stdout.trim() || "(empty)"} stderr: ${result.stderr.trim() || "(empty)"}`;
+		const result = await focusCmuxSurface({ cwd: deps.cwd, runCommand: deps.runCommand, target: plan.target, timeout: DASHBOARD_COMMAND_TIMEOUT_MS });
+		const message = result.type === "focused" ? "Focused cmux surface." : result.message;
 		return reduceDashboardState(model, focusing, { type: "set-status", message });
 	}
 	if (plan.type === "choose-surface") {
