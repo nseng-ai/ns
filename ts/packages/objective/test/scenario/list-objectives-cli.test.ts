@@ -173,8 +173,8 @@ describe("objective list", () => {
 				"feat/same-tree|.asdl/objectives": "trunk-tree",
 			},
 			changedPaths: {
-				"master..feat/beta|.asdl/objectives": [".asdl/objectives/beta/roadmap.md", ".asdl/objectives/closed-one/objective.md"],
-				"master..feat/alpha|.asdl/objectives": [".asdl/objectives/alpha/objective.md"],
+				"master...feat/beta|.asdl/objectives": [".asdl/objectives/beta/roadmap.md", ".asdl/objectives/closed-one/objective.md"],
+				"master...feat/alpha|.asdl/objectives": [".asdl/objectives/alpha/objective.md"],
 			},
 		};
 		const json = runScenario(["list", "--format", "json", "--status", "all"], { fake, git });
@@ -217,7 +217,7 @@ describe("objective list", () => {
 				["master|.asdl/objectives", "trunk-tree"],
 				...branches.map((branch) => [`${branch.name}|.asdl/objectives`, `${branch.name}-tree`]),
 			]),
-			changedPaths: Object.fromEntries(branches.map((branch) => [`master..${branch.name}|.asdl/objectives`, [".asdl/objectives/alpha/objective.md"]])),
+			changedPaths: Object.fromEntries(branches.map((branch) => [`master...${branch.name}|.asdl/objectives`, [".asdl/objectives/alpha/objective.md"]])),
 		};
 		const run = runScenario(["list", "--format", "json"], { fake: { records: [{ slug: "alpha" }] }, git });
 		const human = runScenario(["list"], { fake: { records: [{ slug: "alpha" }] }, git });
