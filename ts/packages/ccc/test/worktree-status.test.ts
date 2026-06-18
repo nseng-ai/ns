@@ -4,7 +4,6 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { stripTerminalEscapes } from "@asdl/core/exec";
 import { githubWorktreePrStatusQuery } from "@asdl/core/github-status";
 import type { GraphiteMetadataWorkerDiagnostic } from "@asdl/ccc/worktree-status/graphite-metadata";
 import {
@@ -274,16 +273,6 @@ function worktreePrNode(options: {
 		},
 	};
 }
-
-const TEST_THEME: StatusTheme = {
-	fg(color, value) {
-		const code = color === "accent" ? "36" : "90";
-		return `\x1B[${code}m${value}\x1B[39m`;
-	},
-	underline(value) {
-		return `\x1B[4m${value}\x1B[24m`;
-	},
-};
 
 const MARKER_THEME: StatusTheme = {
 	fg(color, value) {

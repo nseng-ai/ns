@@ -25,11 +25,6 @@ const OBJECTIVE_SKILLS_BY_COMMAND: Record<ObjectiveCommandName, ObjectiveSkillNa
 	"objective:update": "objective-update",
 };
 
-const SELECTION_TITLES: Record<ObjectiveCommandName, string> = {
-	"objective:next": "Select an active Objective for next work or execution preview",
-	"objective:update": "Select an active Objective to update",
-};
-
 const ACTION_PROMPTS: Record<ObjectiveCommandName, string> = {
 	"objective:next": "Run objective-next for this explicitly selected Objective slug or path:",
 	"objective:update": "Run objective-update for this explicitly selected Objective slug or path:",

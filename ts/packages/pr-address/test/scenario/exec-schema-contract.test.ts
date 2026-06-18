@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, test } from "vitest";
 
 import { buildSurfacePlan } from "../../../clinkr/src/surface.ts";
 import { EXEC_OPERATIONS } from "../../src/exec-commands.ts";

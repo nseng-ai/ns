@@ -1,5 +1,4 @@
 import { describe, expect, test } from "vitest";
-import { join } from "node:path";
 
 import { DEFAULT_FAST_MODEL } from "@asdl/plans";
 import registerBranchContextExtension from "../src/branch-context-extension.ts";

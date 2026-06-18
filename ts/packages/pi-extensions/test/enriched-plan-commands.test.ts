@@ -1,77 +1,17 @@
 import { describe, expect, test } from "vitest";
-import { join, resolve } from "node:path";
 
-import { BRANCH_CONTEXT_NAMESPACE, formatImplBranchContextCommand } from "@asdl/branch-context";
-import { NoSavedPlanAvailableError } from "@asdl/plans";
 import registerBranchContextExtension, {
-	CREATE_BRANCH_CONTEXT_USAGE,
 	buildWriteGrilledPlanPrompt,
 	buildWritePlanPrompt,
 } from "../src/branch-context-extension.ts";
 
 import {
-	DEFAULT_PLAN_CONTENT,
 	FakePi,
-	IMPL_BRANCH,
-	IMPL_PLAN_CONTENT,
-	IMPL_REF,
-	PLAN_KEY,
-	PLAN_SLUG,
 	ROOT,
-	SOURCE_BRANCH,
-	attachedPlan,
-	brmemListAttachedPlansStep,
-	createBranchContextOperationFakes,
 	createContext,
-	gitCheckoutStep,
-	gitCurrentBranchStep,
-	gitOriginStep,
-	gitRootStep,
-	makeNamedPlanFile,
-	makeTempDir,
-	planSlugExecCall,
-	planSlugStep,
-	planStoreDirectory,
-	branchContextEvidence,
-	branchContextOutputMessageEntry,
 	resolveWritePlanPromptStep,
-	savedPlanFileContent,
-	sourcePlanEvidence,
-	sourcePlanToolResultEntry,
-	step,
-	writePlanStoreFile,
 } from "./branch-context-extension-support.ts";
 
-const CUSTOM_PLAN_KEY = "custom-plan.md";
-const DEFAULT_IMPL_COMMAND = formatImplBranchContextCommand(PLAN_KEY);
-const CUSTOM_IMPL_COMMAND = formatImplBranchContextCommand(CUSTOM_PLAN_KEY);
-
-function missingPlanStoreError(): Error {
-	return new NoSavedPlanAvailableError({
-		reason: "missing-directory",
-		directoryPath: "/missing/plans/owner/repo/source-branch",
-		message: [
-			"No local plan store directory exists for the current repository and branch.",
-			"Plan store directory: /missing/plans/owner/repo/source-branch",
-			"Repo key: gh--owner--repo",
-			"Source branch: source-branch",
-			"Branch path segment: source-branch",
-			"Create a saved plan first, or pass an explicit absolute or home-relative plan file path.",
-		].join("\n"),
-	});
-}
-
-function emptyPlanStoreError(): Error {
-	return new NoSavedPlanAvailableError({
-		reason: "no-plan-files",
-		directoryPath: "/plans/owner/repo/source-branch",
-		message: [
-			"No Markdown saved plan files exist in the local plan store for the current repository and branch.",
-			"Plan store directory: /plans/owner/repo/source-branch",
-			"Create a saved plan first, or pass an explicit absolute or home-relative plan file path.",
-		].join("\n"),
-	});
-}
 describe("enriched-plan-commands", () => {
 	test("registers plans write commands, branch-context workflow commands, and write tool", () => {
 		const pi = new FakePi();

@@ -10,7 +10,7 @@ import { formatPickupHandoffCommand } from "../handoff/identity.ts";
 import type { HandoffStartMessages } from "../handoff/shared.ts";
 import type { BaseRuntimeContext, CommandContext, ExtensionAPI, RenderComponent, ToolDefinition } from "../handoff/runtime-types.ts";
 import { definePiSurfaceParity } from "../parity.ts";
-import type { InteractiveClaudeInvocation, InteractiveClaudeRunResult, RunInteractiveClaude } from "./interactive-claude.ts";
+import type { InteractiveClaudeRunResult, RunInteractiveClaude } from "./interactive-claude.ts";
 
 export type { InteractiveClaudeInvocation, InteractiveClaudeRunResult, RunInteractiveClaude } from "./interactive-claude.ts";
 

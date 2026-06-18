@@ -480,7 +480,7 @@ describe("grill_ask execution", () => {
 			{
 				hasUI: true,
 				ui: {
-					custom: async <T>() => {
+					custom: async () => {
 						throw new Error("inline UI runner test should not invoke fake custom directly");
 					},
 					select: async () => {
@@ -506,7 +506,7 @@ describe("grill_ask execution", () => {
 			{
 				hasUI: true,
 				ui: {
-					custom: async <T>() => {
+					custom: async () => {
 						throw new Error("inline UI runner test should not invoke fake custom directly");
 					},
 					editor: async () => {
@@ -534,7 +534,7 @@ describe("grill_ask execution", () => {
 			{
 				hasUI: true,
 				ui: {
-					custom: async <T>() => {
+					custom: async () => {
 						throw new Error("inline UI runner test should not invoke fake custom directly");
 					},
 				},
@@ -560,7 +560,7 @@ describe("grill_ask execution", () => {
 			{
 				hasUI: true,
 				ui: {
-					custom: async <T>() => {
+					custom: async () => {
 						throw new Error("inline UI runner test should not invoke fake custom directly");
 					},
 				},
@@ -578,7 +578,7 @@ describe("grill_ask execution", () => {
 			{
 				hasUI: true,
 				ui: {
-					custom: async <T>() => {
+					custom: async () => {
 						throw new Error("inline UI runtime unavailable");
 					},
 					select: async (_title, options) => options[0],

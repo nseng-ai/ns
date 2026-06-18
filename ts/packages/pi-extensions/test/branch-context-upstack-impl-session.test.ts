@@ -1,46 +1,28 @@
 import { describe, expect, test } from "vitest";
-import { join, resolve } from "node:path";
 
 import { BRANCH_CONTEXT_NAMESPACE, formatImplBranchContextCommand } from "@asdl/branch-context";
 import { NoSavedPlanAvailableError } from "@asdl/plans";
-import registerBranchContextExtension, {
-	CREATE_BRANCH_CONTEXT_USAGE,
-	buildWriteGrilledPlanPrompt,
-	buildWritePlanPrompt,
-} from "../src/branch-context-extension.ts";
+import registerBranchContextExtension from "../src/branch-context-extension.ts";
 
 import {
 	DEFAULT_PLAN_CONTENT,
 	FakePi,
 	IMPL_BRANCH,
-	IMPL_PLAN_CONTENT,
-	IMPL_REF,
 	PLAN_KEY,
 	PLAN_SLUG,
-	ROOT,
 	SOURCE_BRANCH,
-	attachedPlan,
 	brmemCheckEnvelope,
 	brmemListAttachedPlansStep,
 	createBranchContextOperationFakes,
 	createContext,
 	gitCheckoutStep,
 	gitCurrentBranchStep,
-	gitOriginStep,
-	gitRootStep,
 	makeNamedPlanFile,
-	makeTempDir,
 	planSlugExecCall,
 	planSlugStep,
-	planStoreDirectory,
 	branchContextEvidence,
 	branchContextOutputMessageEntry,
-	resolveWritePlanPromptStep,
-	savedPlanFileContent,
-	sourcePlanEvidence,
-	sourcePlanToolResultEntry,
 	step,
-	writePlanStoreFile,
 } from "./branch-context-extension-support.ts";
 
 const CUSTOM_PLAN_KEY = "custom-plan.md";

@@ -72,8 +72,7 @@ function expectInvalidHandoffParse(result: InvalidHandoffParseResult, pattern: R
 
 describe("handoff extension", () => {
 	test("registers core handoff commands and list renderer without tool support", () => {
-		const pi = new FakePi();
-		(pi as unknown as { registerTool?: undefined }).registerTool = undefined;
+		const pi = new FakePi([], [], { registerTool: false });
 
 		handoffExtension(pi);
 

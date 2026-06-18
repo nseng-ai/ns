@@ -55,17 +55,17 @@ const inlineFinding = {
 } as const;
 
 class ThrowingCreateReviewGateway extends FakeRoasterGitHubGateway {
-	async createPrReview(_prNumber: number, _comments: readonly PRInlineCommentInput[], _options: GitHubGatewayOptions): Promise<never> {
+	override async createPrReview(_prNumber: number, _comments: readonly PRInlineCommentInput[], _options: GitHubGatewayOptions): Promise<never> {
 		throw new Error("validation failed");
 	}
 }
 
 class UnexpectedInlineQueryGateway extends FakeRoasterGitHubGateway {
-	async getPrChangedFiles(_prNumber: number, _options: GitHubGatewayOptions): Promise<never> {
+	override async getPrChangedFiles(_prNumber: number, _options: GitHubGatewayOptions): Promise<never> {
 		throw new Error("changed files should not be queried");
 	}
 
-	async getPrReviewComments(_prNumber: number, _options: GitHubGatewayOptions): Promise<never> {
+	override async getPrReviewComments(_prNumber: number, _options: GitHubGatewayOptions): Promise<never> {
 		throw new Error("review comments should not be queried");
 	}
 }

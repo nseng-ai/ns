@@ -20,7 +20,6 @@ import {
 	mustSnapshotRef,
 	parseSnapshotRef,
 	snapshotRefPrefixes,
-	type EntryRef,
 } from "./ref-layout.ts";
 import { normalizeBrmemTimestamp } from "./timestamps.ts";
 import { validateBranchName, validateEntryKey, validateKeyGlob, validateNamespaceName } from "./validation.ts";

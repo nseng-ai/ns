@@ -8,7 +8,7 @@ import { z } from "zod";
 import type { AregCliContext } from "../context.ts";
 import type { AregInitTextWritePlan, AregPathState, AregTextFileState } from "../gateways.ts";
 import { rejectTextState, validateOptionalDirectoryState } from "./file-state.ts";
-import { parseAsdlAregAgents, parseLegacyAregJsonAgents, resolveProjectAgents } from "./project-agents.ts";
+import { parseAsdlAregAgents, resolveProjectAgents } from "./project-agents.ts";
 import { inspectInitProject } from "./project-inspection.ts";
 import {
 	applyProjectMutationPlan,

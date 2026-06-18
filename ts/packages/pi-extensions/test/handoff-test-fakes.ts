@@ -62,13 +62,14 @@ export class FakePi implements ExtensionAPI {
 	readonly sentUserMessageCalls: SentUserMessageCall[] = [];
 	readonly registerMessageRenderer?: (customType: string, renderer: MessageRenderer) => void;
 	readonly sendMessage?: (message: CustomMessage) => void;
+	readonly registerTool?: (tool: RegisteredTool) => void;
 	private readonly script: ScriptedExec[];
 	private readonly commandInfos: CommandInfo[];
 
 	constructor(
 		script: ScriptedExec[] = [],
 		commandInfos: CommandInfo[] = [],
-		options: { registerMessageRenderer?: boolean; sendMessage?: boolean } = {},
+		options: { registerMessageRenderer?: boolean; sendMessage?: boolean; registerTool?: boolean } = {},
 	) {
 		this.script = [...script];
 		this.commandInfos = [...commandInfos];
@@ -82,14 +83,15 @@ export class FakePi implements ExtensionAPI {
 				this.sentMessages.push(message);
 			};
 		}
+		if (options.registerTool ?? true) {
+			this.registerTool = (tool: RegisteredTool): void => {
+				this.tools.set(tool.name, tool);
+			};
+		}
 	}
 
 	registerCommand(name: string, options: RegisteredCommand): void {
 		this.commands.set(name, options);
-	}
-
-	registerTool(tool: RegisteredTool): void {
-		this.tools.set(tool.name, tool);
 	}
 
 	async exec(command: string, args: string[], options?: { cwd?: string; timeout?: number; signal?: AbortSignal }): Promise<ExecResult> {
@@ -404,7 +406,7 @@ interface RunExtensionCommandOptions {
 		newSessionError?: Error;
 	};
 	commandInfos?: CommandInfo[];
-	piOptions?: { registerMessageRenderer?: boolean; sendMessage?: boolean };
+	piOptions?: { registerMessageRenderer?: boolean; sendMessage?: boolean; registerTool?: boolean };
 }
 
 export async function runExtensionCommand(options: RunExtensionCommandOptions): Promise<{
@@ -433,7 +435,7 @@ export async function runCommand(
 	script: ScriptedExec[] = [],
 	contextOptions: RunExtensionCommandOptions["contextOptions"] = {},
 	commandInfos: CommandInfo[] = [],
-	piOptions: { registerMessageRenderer?: boolean; sendMessage?: boolean } = {},
+	piOptions: { registerMessageRenderer?: boolean; sendMessage?: boolean; registerTool?: boolean } = {},
 ): Promise<{
 	pi: FakePi;
 	notifications: Notification[];

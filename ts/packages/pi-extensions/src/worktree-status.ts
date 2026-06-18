@@ -12,7 +12,6 @@ import {
 	renderWorktreeStatusMessage,
 	sameWorktreeStatusIdentity,
 	WORKTREE_STATUS_UI_KEY,
-	type ExecGateway,
 	type ExecResult,
 	type LocalWorktreeStatus,
 	type StatusTheme,
