@@ -17,6 +17,7 @@
     "@asdl/ccc": "workspace:*",
     "@asdl/plans": "workspace:*",
     "@asdl/sdl": "workspace:*",
+    "@asdl/slot": "workspace:*",
     "@types/node": "^24.0.0",
     "sdlcc": "workspace:*",
     "typescript": "^5.9.0",

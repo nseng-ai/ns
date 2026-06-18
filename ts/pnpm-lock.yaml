@@ -28,6 +28,9 @@ importers:
       '@asdl/sdl':
         specifier: workspace:*
         version: link:packages/sdl
+      '@asdl/slot':
+        specifier: workspace:*
+        version: link:packages/slot
       '@types/node':
         specifier: ^24.0.0
         version: 24.13.1
