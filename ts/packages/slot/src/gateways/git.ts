@@ -2,7 +2,7 @@ import { existsSync, readFileSync, statSync, type Stats } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 
 import { NodeCommandExecApi, type CommandExecApi } from "@asdl/core/exec";
-import { parseGitWorktreePorcelain } from "@asdl/core/git";
+import { parseGitWorktreePorcelain, RealGitGateway, type GitGateway } from "@asdl/core/git";
 
 import { createSlotDiagnosticSinkFromEnv, runDiagnosticCommand, type SlotDiagnosticSink } from "../diagnostics.ts";
 
@@ -74,12 +74,14 @@ export class RealSlotGitGateway implements SlotGitGateway {
 	private readonly cwd: string;
 	private readonly env: NodeJS.ProcessEnv;
 	private readonly execApi: CommandExecApi;
+	private readonly coreGit: GitGateway;
 	private readonly diagnosticSink: SlotDiagnosticSink | undefined;
 
 	constructor(options: { cwd: string; env?: NodeJS.ProcessEnv | undefined; execApi?: CommandExecApi | undefined; diagnosticSink?: SlotDiagnosticSink | undefined }) {
 		this.cwd = options.cwd;
 		this.env = options.env ?? process.env;
 		this.execApi = options.execApi ?? new NodeCommandExecApi();
+		this.coreGit = new RealGitGateway(this.execApi);
 		this.diagnosticSink = options.diagnosticSink ?? createSlotDiagnosticSinkFromEnv(this.env);
 	}
 
@@ -119,8 +121,9 @@ export class RealSlotGitGateway implements SlotGitGateway {
 	}
 
 	async listLocalBranchTips(): Promise<readonly LocalBranchTip[]> {
-		const result = await this.git(["for-each-ref", "--format=%(refname:short)%09%(committerdate:iso-strict)", "refs/heads"], this.cwd, { operation: "slot.git.list_local_branch_tips" });
-		return parseLocalBranchTips(result.stdout);
+		const result = await this.coreGit.listLocalBranchTips({ cwd: this.cwd });
+		if (result.ok) return result.value;
+		throw new Error(result.error.message);
 	}
 
 	async hasUncommittedChanges(path: string): Promise<boolean> {
@@ -234,17 +237,6 @@ interface CommandResult {
 function failureFromResult(result: CommandResult): GitCommandFailure {
 	const output = result.stderr.trim() || result.stdout.trim() || (result.killed ? "git command was killed" : "git command failed");
 	return { message: output };
-}
-
-function parseLocalBranchTips(stdout: string): readonly LocalBranchTip[] {
-	const tips: LocalBranchTip[] = [];
-	for (const line of stdout.split(/\r?\n/)) {
-		if (line.trim().length === 0) continue;
-		const [name, headIso] = line.split("\t", 2);
-		if (name === undefined || name.length === 0) continue;
-		tips.push({ name, headIso: headIso === undefined || headIso.trim().length === 0 ? null : headIso.trim() });
-	}
-	return tips;
 }
 
 function resolveWorktreeAdminDir(worktreePath: string): string | null {

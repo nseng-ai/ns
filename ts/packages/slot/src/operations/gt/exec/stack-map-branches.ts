@@ -1,13 +1,15 @@
 import { failure, ok } from "@asdl/clinkr";
-import type { GraphiteBranchTopology, GraphiteTopology, GraphiteTopologyParseDiagnostics } from "@asdl/core/graphite-metadata";
+import type { GraphiteBranchTopology, GraphiteTopology, GraphiteTopologyParseDiagnostics, GraphiteWalkTermination } from "@asdl/core/graphite-metadata";
 import { z } from "zod";
 
+import { deduplicateOrderedStrings } from "../../../collections.ts";
 import type { SlotCliContext } from "../../../context.ts";
 import type { LocalBranchTip } from "../../../gateways/git.ts";
 import type { StackInfo } from "../../../gateways/gt.ts";
 import { buildSlotInventory, type SlotRecord } from "../../../inventory.ts";
 import { resolveRepoAndCurrentBranch } from "../shared.ts";
-import { renderChildrenCorruption, renderTrunkMarkerWarnings, renderWalkTerminationWarning } from "./metadata-warnings.ts";
+import { collectGraphiteTopologyAncestors, collectGraphiteTopologyDescendants } from "../stack-walk.ts";
+import { renderChildrenCorruption, type GraphiteWalkKind, renderTrunkMarkerWarnings, renderWalkTerminationWarning } from "./metadata-warnings.ts";
 
 const STACK_MAP_SCOPE = "stack-map";
 const BAD_PARENT_NAME_VALIDATION_RESULT = "BAD_PARENT_NAME";
@@ -77,11 +79,11 @@ export async function runGtStackMapBranches(ctx: SlotCliContext, request: GtStac
 		recentBranches,
 		localBranches,
 	});
-	const warnings = dedupeWarnings([
+	const warnings = [...deduplicateOrderedStrings([
 		...renderGraphWarnings(graphResult.graph.diagnostics),
 		...renderStackWarnings(stackResult.stack),
 		...selection.warnings,
-	]);
+	])];
 	if (ctx.shouldWriteCdDirective) {
 		for (const warning of warnings) ctx.stderr(`${warning}\n`);
 	}
@@ -149,12 +151,12 @@ function selectVisibleBranches(options: {
 	}
 	for (const branch of [...selected]) {
 		if (!options.topology.has(branch)) continue;
-		const ancestors = collectAncestors({ branch, topology: options.topology });
+		const ancestors = collectGraphiteTopologyAncestors({ branch, topology: options.topology });
 		for (const selectedBranch of ancestors.branches) selected.add(selectedBranch);
-		warnings.push(...ancestors.warnings);
-		const descendants = collectDescendants({ branch, topology: options.topology });
+		warnings.push(...renderSelectionWarnings("ancestor", ancestors.problems));
+		const descendants = collectGraphiteTopologyDescendants({ branch, topology: options.topology });
 		for (const selectedBranch of descendants.branches) selected.add(selectedBranch);
-		warnings.push(...descendants.warnings);
+		warnings.push(...renderSelectionWarnings("descendant", descendants.problems));
 	}
 	return {
 		selected: new Set([...selected].filter((branch) => options.topology.has(branch) && options.localBranches.has(branch))),
@@ -162,52 +164,11 @@ function selectVisibleBranches(options: {
 	};
 }
 
-function collectAncestors(options: { readonly branch: string; readonly topology: GraphiteTopology }): { readonly branches: readonly string[]; readonly warnings: readonly string[] } {
-	const branches: string[] = [];
-	const warnings: string[] = [];
-	const visited = new Set<string>();
-	let cursor: string | undefined = options.branch;
-	while (cursor !== undefined) {
-		if (visited.has(cursor)) {
-			warnings.push(`cycle detected in Graphite parent metadata at ${cursor}; ancestor selection stopped`);
-			return { branches, warnings };
-		}
-		visited.add(cursor);
-		const row = options.topology.get(cursor);
-		if (row === undefined) {
-			warnings.push(`parent branch ${cursor} is missing from Graphite metadata; ancestor selection stopped`);
-			return { branches, warnings };
-		}
-		branches.push(cursor);
-		cursor = row.parent;
-	}
-	return { branches, warnings };
-}
-
-function collectDescendants(options: { readonly branch: string; readonly topology: GraphiteTopology }): { readonly branches: readonly string[]; readonly warnings: readonly string[] } {
-	const branches: string[] = [];
-	const warnings: string[] = [];
-	const root = options.topology.get(options.branch);
-	if (root === undefined) return { branches, warnings };
-	const pending = [...root.children];
-	const visited = new Set<string>([options.branch]);
-	while (pending.length > 0) {
-		const child = pending.pop();
-		if (child === undefined) continue;
-		if (visited.has(child)) {
-			warnings.push(`cycle detected in Graphite children metadata at ${child}; descendant selection stopped`);
-			continue;
-		}
-		visited.add(child);
-		const row = options.topology.get(child);
-		if (row === undefined) {
-			warnings.push(`child branch ${child} is missing from Graphite metadata; descendant selection stopped`);
-			continue;
-		}
-		branches.push(child);
-		pending.push(...row.children);
-	}
-	return { branches, warnings };
+function renderSelectionWarnings(kind: GraphiteWalkKind, problems: readonly GraphiteWalkTermination[]): string[] {
+	return problems.flatMap((termination) => {
+		const warning = renderWalkTerminationWarning({ kind, termination, label: "selection" });
+		return warning === null ? [] : [warning];
+	});
 }
 
 function branchResults(topology: GraphiteTopology, selected: ReadonlySet<string>): StackMapBranch[] {
@@ -251,15 +212,4 @@ function renderStackWarnings(stack: StackInfo): string[] {
 	if (descendantProblem !== null) warnings.push(descendantProblem);
 	warnings.push(...renderTrunkMarkerWarnings(stack.trunkMarker));
 	return warnings;
-}
-
-function dedupeWarnings(warnings: readonly string[]): string[] {
-	const seen = new Set<string>();
-	const deduped: string[] = [];
-	for (const warning of warnings) {
-		if (seen.has(warning)) continue;
-		seen.add(warning);
-		deduped.push(warning);
-	}
-	return deduped;
 }
