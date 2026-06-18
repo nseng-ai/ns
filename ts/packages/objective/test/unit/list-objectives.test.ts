@@ -43,8 +43,8 @@ describe("objective list helpers", () => {
 				"feat/same-tree|.asdl/objectives": "trunk-tree",
 			},
 			changedPaths: {
-				"master..feat/newer|.asdl/objectives": [".asdl/objectives/alpha/objective.md"],
-				"master..feat/older|.asdl/objectives": [".asdl/objectives/alpha/roadmap.md", ".asdl/objectives/branch-only/objective.md"],
+				"master...feat/newer|.asdl/objectives": [".asdl/objectives/alpha/objective.md"],
+				"master...feat/older|.asdl/objectives": [".asdl/objectives/alpha/roadmap.md", ".asdl/objectives/branch-only/objective.md"],
 			},
 		});
 
@@ -57,6 +57,33 @@ describe("objective list helpers", () => {
 		expect(result.type).toBe("ok");
 		if (result.type !== "ok") return;
 		expect(result.value.updatedBranchesBySlug.get("alpha")).toEqual(["feat/newer", "feat/older"]);
-		expect(git.changedPathsUnderCalls.map((call) => call.revisionRange)).toEqual(["master..feat/newer", "master..feat/older"]);
+		expect(git.changedPathsUnderCalls.map((call) => call.revisionRange)).toEqual(["master...feat/newer", "master...feat/older"]);
+	});
+
+	test("attributes branch-authored objective changes instead of trunk-only drift", async () => {
+		const git = new InMemoryGitGateway({
+			localBranchTips: [
+				{ name: "master", headIso: "2026-05-01T00:00:00Z" },
+				{ name: "feat/stale", headIso: "2026-05-02T00:00:00Z" },
+			],
+			treeOids: {
+				"master|.asdl/objectives": "newer-trunk-tree",
+				"feat/stale|.asdl/objectives": "older-branch-tree",
+			},
+			changedPaths: {
+				"master...feat/stale|.asdl/objectives": [],
+			},
+		});
+
+		const result = await buildObjectiveBranchAttribution(git, {
+			repoRoot: "/repo",
+			trunkBranch: "master",
+			slugs: new Set(["alpha"]),
+		});
+
+		expect(result.type).toBe("ok");
+		if (result.type !== "ok") return;
+		expect(result.value.updatedBranchesBySlug.get("alpha")).toEqual([]);
+		expect(git.changedPathsUnderCalls.map((call) => call.revisionRange)).toEqual(["master...feat/stale"]);
 	});
 });

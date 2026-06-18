@@ -39,7 +39,7 @@ export async function buildObjectiveBranchAttribution(
 	const bySlug = new Map<string, string[]>([...params.slugs].map((slug) => [slug, []]));
 
 	for (const branch of walkedBranches) {
-		const changedPaths = await git.changedPathsUnder({ cwd: params.repoRoot, revisionRange: `${params.trunkBranch}..${branch}`, relativePath: objectiveRoot });
+		const changedPaths = await git.changedPathsUnder({ cwd: params.repoRoot, revisionRange: `${params.trunkBranch}...${branch}`, relativePath: objectiveRoot });
 		if (!changedPaths.ok) return { type: "git-error", error: changedPaths.error };
 
 		for (const slug of objectiveSlugsFromPaths(changedPaths.value, params.slugs)) {
