@@ -14,6 +14,7 @@ import { gcRequestSchema, gcResultSchema, renderGc, runGc } from "./operations/g
 import { gtDownRequestSchema, gtDownResultSchema, renderGtNavigation as renderGtDownNavigation, runGtDown } from "./operations/gt/down.ts";
 import { gtFreeStackRequestSchema, gtFreeStackResultSchema, renderGtFreeStack, runGtFreeStack } from "./operations/gt/free-stack.ts";
 import { gtStackBranchesRequestSchema, gtStackBranchesResultSchema, renderStackBranches, runGtStackBranches } from "./operations/gt/exec/stack-branches.ts";
+import { gtStackMapBranchesRequestSchema, gtStackMapBranchesResultSchema, renderStackMapBranches, runGtStackMapBranches } from "./operations/gt/exec/stack-map-branches.ts";
 import { gtNavigationResultSchema, gtUpRequestSchema, renderGtNavigation as renderGtUpNavigation, runGtUp } from "./operations/gt/up.ts";
 import { gotoRequestSchema, gotoResultSchema, renderGoto, runGoto } from "./operations/goto.ts";
 import { initRequestSchema, initResultSchema, renderInit, runInit } from "./operations/init.ts";
@@ -215,6 +216,14 @@ function buildGtGroup(): ClinkrGroup<SlotCliContext> {
 		resultSchema: gtStackBranchesResultSchema,
 		handler: runGtStackBranches,
 		renderHuman: renderStackBranches,
+	});
+	exec.command({
+		name: "stack-map-branches",
+		description: "Emit a Graphite branch graph and slot rows for stack-map skill/agent invocation.",
+		schema: gtStackMapBranchesRequestSchema,
+		resultSchema: gtStackMapBranchesResultSchema,
+		handler: runGtStackMapBranches,
+		renderHuman: renderStackMapBranches,
 	});
 	gt.group(exec);
 	return gt;

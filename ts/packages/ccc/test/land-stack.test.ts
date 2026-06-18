@@ -742,7 +742,7 @@ function topologyOf(entries: Record<string, { parent?: string; children?: string
 	return new Map(
 		Object.entries(entries).map(([branch, entry]) => [
 			branch,
-			{ branch, parent: entry.parent, children: entry.children ?? [], isTrunkMarked: entry.trunk ?? false, childrenCorruption: undefined },
+			{ branch, parent: entry.parent, children: entry.children ?? [], validationResult: entry.trunk ? "TRUNK" : undefined, isTrunkMarked: entry.trunk ?? false, childrenCorruption: undefined },
 		]),
 	);
 }

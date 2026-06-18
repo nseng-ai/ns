@@ -13,6 +13,7 @@ import {
 	type GraphiteChildrenCorruption,
 	type GraphiteChildrenCorruptionKind,
 	type GraphiteFork,
+	type GraphiteTopologyParseDiagnostics,
 	type GraphiteTrunkMarkerStatus,
 	type GraphiteTopology,
 	type GraphiteWalkTermination,
@@ -50,6 +51,11 @@ export type StackResult =
 	| { type: "untracked_branch"; message: string }
 	| { type: "failure"; failure: GtCommandFailure };
 
+export type StackGraphResult =
+	| { type: "graph"; graph: StackGraphInfo }
+	| { type: "git_common_dir_missing"; message: string }
+	| { type: "failure"; failure: GtCommandFailure };
+
 export type WalkTermination = GraphiteWalkTermination;
 export type ChildrenCorruptionKind = GraphiteChildrenCorruptionKind;
 export type ChildrenCorruption = GraphiteChildrenCorruption;
@@ -73,11 +79,17 @@ export interface StackInfo {
 	trunkMarker: TrunkMarkerStatus;
 }
 
+export interface StackGraphInfo {
+	topology: GraphiteTopology;
+	diagnostics: GraphiteTopologyParseDiagnostics;
+}
+
 export interface SlotGtGateway {
 	parentOf(cwd: string): Promise<ParentOfResult>;
 	childrenOf(cwd: string): Promise<ChildrenOfResult>;
 	trunk(cwd: string): Promise<TrunkResult>;
 	stack(cwd: string): Promise<StackResult>;
+	stackGraph(cwd: string): Promise<StackGraphResult>;
 }
 
 export interface SqliteJsonRunnerResult {
@@ -140,6 +152,16 @@ export class RealSlotGtGateway implements SlotGtGateway {
 		if (current.type === "failure") return { type: "failure", failure: current.failure };
 		if (current.type === "detached") return { type: "failure", failure: { message: `HEAD at ${cwd} is detached. Check out a branch first.`, returnCode: null } };
 		return readStackFromMetadataDb(graphiteMetadataDbPath(commonDir), current.branch, this.sqliteRunner);
+	}
+
+	async stackGraph(cwd: string): Promise<StackGraphResult> {
+		const commonDir = await this.git.getGitCommonDir(cwd);
+		if (commonDir === null) return { type: "git_common_dir_missing", message: "Could not resolve Git common dir for Graphite metadata." };
+		const dbPath = graphiteMetadataDbPath(commonDir);
+		if (!existsSync(dbPath)) return { type: "failure", failure: { message: `Graphite metadata store not found at ${dbPath}`, returnCode: null } };
+		const loaded = loadBranchMetadata(dbPath, this.sqliteRunner);
+		if (loaded.type === "failure") return loaded;
+		return { type: "graph", graph: { topology: loaded.topology, diagnostics: loaded.diagnostics } };
 	}
 
 	private async resolveCurrentBranch(cwd: string): Promise<{ type: "branch"; branch: string } | { type: "detached" } | { type: "failure"; failure: GtCommandFailure }> {
@@ -210,7 +232,7 @@ function readStackFromMetadataDb(dbPath: string, currentBranch: string, sqliteRu
 	};
 }
 
-function loadBranchMetadata(dbPath: string, sqliteRunner: SqliteJsonRunner): { type: "ok"; topology: GraphiteTopology } | { type: "failure"; failure: GtCommandFailure } {
+function loadBranchMetadata(dbPath: string, sqliteRunner: SqliteJsonRunner): { type: "ok"; topology: GraphiteTopology; diagnostics: GraphiteTopologyParseDiagnostics } | { type: "failure"; failure: GtCommandFailure } {
 	const schemaRows = runSqliteJsonQuery(sqliteRunner, dbPath, GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY);
 	if (schemaRows.type === "failure") return schemaRows;
 	if (!hasExpectedGraphiteBranchMetadataSchema(schemaRows.data)) return { type: "failure", failure: { message: "Graphite metadata schema mismatch: branch_metadata missing required column", returnCode: null } };
@@ -218,7 +240,7 @@ function loadBranchMetadata(dbPath: string, sqliteRunner: SqliteJsonRunner): { t
 	if (result.type === "failure") return result;
 	const parsed = parseGraphiteBranchMetadataRows(result.data);
 	if (parsed.type === "not_array") return { type: "failure", failure: { message: "Graphite metadata sqlite output was not an array", returnCode: null } };
-	return { type: "ok", topology: parsed.topology };
+	return { type: "ok", topology: parsed.topology, diagnostics: parsed.diagnostics };
 }
 
 function runSqliteJsonQuery(sqliteRunner: SqliteJsonRunner, dbPath: string, query: string): { type: "ok"; data: unknown } | { type: "failure"; failure: GtCommandFailure } {
