@@ -194,9 +194,11 @@ export interface ExtensionAPI {
 }
 
 export const FALLBACK_GRILL_UI_SKILL_BLOCK = `<skill name="${GRILL_UI_SKILL_NAME}" fallback="true">
+This fallback is the Pi structured-UI complement to the portable grilling loop. It is self-contained; do not rely on a separate /grilling skill expansion for core behavior.
+
 Interview the user relentlessly about every aspect of the plan or design until reaching shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one by one. For each question, provide your recommended answer.
 
-Ask the questions one at a time.
+Ask exactly one user-facing question at a time. Use grill_ask for user-facing grill questions when available, with 2-5 affirmative mutually exclusive options, a recommendation and rationale, estimatedRemaining, freeform/status/end paths, and status-request handling that re-asks the same pending question.
 
 If a question can be answered by exploring the codebase, explore the codebase instead.
 
@@ -204,11 +206,13 @@ Do not ask routine validation-scope or test-coverage questions; defer ordinary v
 </skill>`;
 
 export const FALLBACK_GRILL_WITH_DOCS_UI_SKILL_BLOCK = `<skill name="${GRILL_WITH_DOCS_UI_SKILL_NAME}" fallback="true">
-This is the Pi structured-UI complement to grill-with-docs. Interview the user relentlessly about the plan or design while challenging it against the repository's documented domain language.
+This fallback is the Pi structured-UI complement to portable grilling plus domain-modeling. It is self-contained; do not rely on separate /grilling or /domain-modeling skill expansion for core behavior.
+
+Interview the user relentlessly about the plan or design while challenging it against the repository's documented domain language.
 
 Before the first user-facing question, do a bounded docs-first preflight: check CONTEXT-MAP.md if present, check root or relevant CONTEXT.md files, check relevant docs/adr/ records, and inspect code only when the target names a concrete area or a claim needs verification.
 
-Ask one question at a time. Use grill_ask for user-facing grill questions when available. Explore the codebase instead of asking when the answer can be discovered.
+Ask exactly one user-facing question at a time. Use grill_ask for user-facing grill questions when available, with 2-5 affirmative mutually exclusive options, a recommendation and rationale, estimatedRemaining, freeform/status/end paths, and status-request handling that re-asks the same pending question. Explore the codebase instead of asking when the answer can be discovered.
 
 Do not ask routine validation-scope or test-coverage questions; defer ordinary validation coverage to the implementing agent's project policy and changed-file judgment. Only ask about validation when it is a product/design requirement, release gate, or user-visible compatibility promise.
 

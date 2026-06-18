@@ -26,6 +26,7 @@ Start here before broad documentation searches. This directory collects cross-pa
 - [refactor-swarm-workflow](refactor-swarm-workflow.md): the multi-agent `Workflow`-tool engine for applying a file-local change across many files (distinct from the `refactor-swarm` skill).
 - [Subagent pushdown](subagent-pushdown.md): guidelines for using subagents as bounded semantic subroutines while keeping deterministic JSON contracts at CLI/tool boundaries.
 - [Harness skill/command/prompt invocation mechanics](harness-skill-invocation.md): how Claude Code, Codex, and Pi discover, surface, and gate skills/commands — invocation-control flags, ambient context cost, read roots, and namespacing — input to `areg` command conversion.
+- [Matt Pocock Skills upstream adaptation](agents/matt-pocock-skills.md): imported Matt-sourced skills, ASDL-owned overlays, invocation semantics, and future update checklist.
 - [Conflict resolution by thesis reapplication](thesis-reapplication.md): how to land a branch whose history can no longer be replayed by re-applying its intent against the current baseline, instead of rebasing or resolving conflicts.
 - [Roaster and `@pierre/diffs`](roaster-pierre-diffs.md): the roaster diff-parser integration boundary, Pierre APIs used, APIs deliberately not used, and accepted semantic changes from delegating to Pierre.
 

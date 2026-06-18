@@ -25,8 +25,10 @@ Default goal: preserve behavior while deleting prompt burden.
 2. Check frontmatter and trigger surface.
 3. Audit for token waste, guardrail gaps, progressive-disclosure gaps, and
    large CLI push-down wins.
-4. Edit only when requested or clearly implied.
-5. Verify symlinks/install state if skill was added, moved, or renamed.
+4. Apply the Skill Predictability Lens when invocation mode, trigger wording,
+   context load, decomposition, or upstream adaptation is in scope.
+5. Edit only when requested or clearly implied.
+6. Verify symlinks/install state if skill was added, moved, or renamed.
 
 ## Frontmatter
 
@@ -96,6 +98,24 @@ If a rule affects safety or correctness, keep it explicit even if verbose.
 
 Non-obvious or surprising rules earn a one-line rationale; wrong agent choices
 cost more than a few tokens.
+
+## Skill Predictability Lens
+
+Load `references/writing-great-skills-adaptation.md` when auditing invocation
+mode, decomposition, trigger quality, context load, completion criteria, or
+whether a Matt upstream change should be copied, forked, wrapped, or rejected.
+
+Use these concepts inline:
+
+- Predictability means same process, not same output.
+- Model-invoked vs. user-invoked maps to ASDL's ambient-discoverable vs.
+  explicitly-invoked behavior, with harness caveats.
+- Context load competes with human cognitive load; use routers only when they
+  reduce the combined cost.
+- Descriptions are context pointers, not summaries.
+- Single source of truth, duplication, sediment, sprawl, no-op, and premature
+  completion are concrete audit failure modes.
+- Leading words should match project vocabulary and guide model behavior.
 
 ## Progressive Disclosure
 
