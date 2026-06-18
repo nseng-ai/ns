@@ -1,7 +1,7 @@
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 
-import { readStdin } from "@asdl/core/stdin";
+import { readStdinLine } from "@asdl/core/stdin";
 
 import { RealClipboardGateway, type ClipboardGateway } from "./gateways/clipboard.ts";
 import { RealSlotGitGateway, type SlotGitGateway } from "./gateways/git.ts";
@@ -18,7 +18,7 @@ export interface SlotCliContext {
 	storage: SlotStorageGateway;
 	clipboard: ClipboardGateway;
 	cwd: string;
-	stdin: () => Promise<string>;
+	stdin: () => Promise<string | null>;
 	stderr: (text: string) => void;
 	env: NodeJS.ProcessEnv;
 	slotsRoot: string;
@@ -40,7 +40,7 @@ export async function createRealSlotContext(options: { cwd: string; env?: NodeJS
 		storage: new RealSlotStorageGateway(),
 		clipboard: new RealClipboardGateway({ env }),
 		cwd: options.cwd,
-		stdin: readStdin,
+		stdin: readStdinLine,
 		stderr: (text) => process.stderr.write(text),
 		env,
 		slotsRoot,
