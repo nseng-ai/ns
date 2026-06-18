@@ -18,6 +18,7 @@
   "dependencies": {
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
+    "@sdl/pi-command-surfaces": "workspace:*",
     "smol-toml": "catalog:",
     "zod": "catalog:"
   }

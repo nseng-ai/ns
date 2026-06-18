@@ -7,6 +7,10 @@ import { piExecApiToCommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@sdl/core/git";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import {
+	WRITE_GRILLED_PLAN_COMMAND_NAME as SHARED_WRITE_GRILLED_PLAN_COMMAND_NAME,
+	WRITE_PLAN_COMMAND_NAME as SHARED_WRITE_PLAN_COMMAND_NAME,
+} from "@sdl/pi-command-surfaces";
+import {
 	WRITE_SAVED_PLAN_FILE_TOOL_NAME,
 	deriveSavedPlanContentSlug,
 	formatSavedPlanFileEvidence,
@@ -26,9 +30,9 @@ import type {
 	ToolUpdateHandler,
 } from "./host-types.ts";
 
-export const WRITE_PLAN_COMMAND_NAME = "sdl:plan:save";
-export const WRITE_GRILLED_PLAN_COMMAND_NAME = "sdl:plan:grill-and-save";
-const WRITE_PLAN_TOOL_STATUS_KEY = "sdl:plan:save";
+export const WRITE_PLAN_COMMAND_NAME = SHARED_WRITE_PLAN_COMMAND_NAME;
+export const WRITE_GRILLED_PLAN_COMMAND_NAME = SHARED_WRITE_GRILLED_PLAN_COMMAND_NAME;
+const WRITE_PLAN_TOOL_STATUS_KEY = WRITE_PLAN_COMMAND_NAME;
 
 interface WriteSavedPlanFileToolParams {
 	content: string;
@@ -125,7 +129,7 @@ export function buildWritePlanPrompt(
 	steering: string,
 	promptBody = DEFAULT_WRITE_PLAN_PROMPT_BODY,
 ): string {
-	return `This is a /sdl:plan:save request. Write a detailed implementation plan and save it in the local plan store.
+	return `This is a /${WRITE_PLAN_COMMAND_NAME} request. Write a detailed implementation plan and save it in the local plan store.
 
 ${formatSteeringBlock(steering)}
 
@@ -133,7 +137,7 @@ ${promptBody}`;
 }
 
 export function buildWriteGrilledPlanPrompt(steering: string): string {
-	return `This is a /sdl:plan:grill-and-save request. Write a detailed implementation plan and save it in the local plan store after structured requirements grilling.
+	return `This is a /${WRITE_GRILLED_PLAN_COMMAND_NAME} request. Write a detailed implementation plan and save it in the local plan store after structured requirements grilling.
 
 ${formatSteeringBlock(steering)}
 
@@ -188,7 +192,7 @@ function fallbackWritePlanPromptBody(reason: string): WritePlanPromptBodyResolut
 	return {
 		type: "fallback",
 		body: DEFAULT_WRITE_PLAN_PROMPT_BODY,
-		warning: `Falling back to built-in /sdl:plan:save prompt body because ${reason}`,
+		warning: `Falling back to built-in /${WRITE_PLAN_COMMAND_NAME} prompt body because ${reason}`,
 	};
 }
 
@@ -254,7 +258,7 @@ export async function handleWritePlanCommand(
 	await ctx.waitForIdle();
 	const steering = args.trim();
 	if (ctx.hasUI) {
-		ctx.ui.notify("Starting /sdl:plan:save planning turn…", "info");
+		ctx.ui.notify(`Starting /${WRITE_PLAN_COMMAND_NAME} planning turn…`, "info");
 	}
 	const promptBody = await resolveWritePlanPromptBody(pi, ctx.cwd);
 	if (promptBody.type === "fallback" && ctx.hasUI) {
@@ -271,7 +275,7 @@ export async function handleWriteGrilledPlanCommand(
 	await ctx.waitForIdle();
 	const steering = args.trim();
 	if (ctx.hasUI) {
-		ctx.ui.notify("Starting /sdl:plan:grill-and-save planning grill…", "info");
+		ctx.ui.notify(`Starting /${WRITE_GRILLED_PLAN_COMMAND_NAME} planning grill…`, "info");
 	}
 	pi.sendUserMessage(buildWriteGrilledPlanPrompt(steering));
 }
@@ -288,7 +292,7 @@ export function buildWriteSavedPlanFileTool(
 		promptSnippet:
 			"Create a reviewed, self-contained Markdown implementation plan file in the XDG local plan store under `$XDG_STATE_HOME/sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md` (default `$HOME/.local/state/sdl/enriched-plan/...`).",
 		promptGuidelines: [
-			"Use write_saved_plan_file for `/sdl:plan:save` and `/sdl:plan:grill-and-save` after producing a reviewed final Markdown plan.",
+			`Use write_saved_plan_file for \`/${WRITE_PLAN_COMMAND_NAME}\` and \`/${WRITE_GRILLED_PLAN_COMMAND_NAME}\` after producing a reviewed final Markdown plan.`,
 			"Do not generate or pass a saved-plan filename slug; write_saved_plan_file derives it from content through the Codex-backed slug model.",
 			"write_saved_plan_file writes the XDG local plan store under `$XDG_STATE_HOME/sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md` (default `$HOME/.local/state/sdl/enriched-plan/...`); it does not create branches or write Branch Memory.",
 			"write_saved_plan_file content should be self-contained for a completely fresh downstream implementation session, including relevant context discovered during planning.",

@@ -10,6 +10,7 @@
     "@sdl/core": "workspace:*",
     "@sdl/ccc": "workspace:*",
     "@sdl/handoff": "workspace:*",
+    "@sdl/pi-command-surfaces": "workspace:*",
     "@sdl/pi-extension-runtime": "workspace:*",
     "@sdl/branch-context": "workspace:*",
     "@sdl/plans": "workspace:*",

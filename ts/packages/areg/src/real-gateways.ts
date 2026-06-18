@@ -27,6 +27,7 @@ import {
 import { RealGitGateway, type GitGateway } from "@sdl/core/git";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { resultErr, resultOk } from "@sdl/core/result";
+import { deriveVisiblePiReplacementSurfaces } from "@sdl/pi-command-surfaces";
 
 import type {
 	AregCheckPairingDirectory,
@@ -65,50 +66,10 @@ const COMMAND_TIMEOUT_MS = 60_000;
 const PI_GENERIC_REPLACEMENT_ADAPTER_RELATIVE_PATH = ".pi/extensions/backing-skill-commands.ts";
 const PI_GENERIC_REPLACEMENT_PACKAGE_MODULE_RELATIVE_PATH =
 	"ts/packages/pi-extensions/src/backing-skill-commands.ts";
-// Keep this mirror covering pi-extensions replacement command surfaces, including
-// backing skill commands and direct extension aliases used as skill replacements.
 // AREG intentionally does not import @sdl/pi-extensions: pi-extensions is a leaf
-// package for project-local Pi adapters, so shared packages must not depend on it.
-const AREG_VISIBLE_REPLACEMENT_SURFACES = [
-	"sdl:branch-context:from-plan",
-	"sdl:branch-context:impl-attached-plan",
-	"sdl:plan:save",
-	"handoff:create",
-	"handoff:pickup",
-	"objective:create",
-	"objective:next",
-	"objective:stack-impl",
-	"objective:update",
-	"pi:grill-me",
-	"pi:grill-with-docs",
-	"sdl:code:autobranch",
-	"sdl:code:checkpoint",
-	"code:just-fix",
-	"sdl:code:submit",
-	"sdl:submit",
-	"ccc:sidebar:pr-summary",
-	"branch:retro",
-	"changelog:update",
-	"cli:push-down",
-	"code:gh",
-	"code:gt-restack-resolve",
-	"code:resolve-merge-conflicts",
-	"code:workflows",
-	"context:bundle-analysis",
-	"create:bun-typescript-project",
-	"create:python-dev-cli",
-	"create:python-package",
-	"dignified:python",
-	"objective:close",
-	"pr:address",
-	"python:fake-driven-test-layout",
-	"python:fake-driven-testing",
-	"refactor:swarm",
-	"skill:audit",
-	"skill:management",
-	"typescript:fake-driven-testing",
-	"typescript:style",
-] as const;
+// package for project-local Pi adapters, so shared command surfaces live in the
+// neutral @sdl/pi-command-surfaces package instead.
+const AREG_VISIBLE_REPLACEMENT_SURFACES = deriveVisiblePiReplacementSurfaces();
 
 interface ResolveAllowedTargetOptions {
 	projectRoot: string;
