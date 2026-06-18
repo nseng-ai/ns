@@ -88,6 +88,12 @@ export interface CliCommandExtensionSpec {
 	piNamespace: string;
 	commands: readonly CliCommandInfo[];
 	runCli(args: readonly string[], deps: CliCommandRunDeps): Promise<number> | number;
+	/**
+	 * Narrow CLI-adapter completion hook for awaited, adapter-local side effects
+	 * such as refreshing Pi worktree status after slash-command execution.
+	 * This is intentionally not routed through pi.events: current consumers need
+	 * ordered completion rather than transient inter-extension pub/sub.
+	 */
 	afterCommandComplete?: (details: CliCommandOutputDetails) => Promise<void> | void;
 	env?: Record<string, string | undefined>;
 	piCommandAliases?: Readonly<Record<string, string>>;
