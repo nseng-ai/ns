@@ -13,6 +13,12 @@ import {
 	runArchiveObjective,
 } from "./operations/archive-objective.ts";
 import {
+	checkObjectiveRequestSchema,
+	checkObjectiveResultSchema,
+	renderCheckObjective,
+	runCheckObjective,
+} from "./operations/check-objective.ts";
+import {
 	listCandidatesRequestSchema,
 	listCandidatesResultSchema,
 	renderListCandidates,
@@ -63,6 +69,15 @@ export function buildCli(): ClinkrGroup<ObjectiveCliContext> {
 		positionals: { slug: { position: 0 } },
 		handler: runArchiveObjective,
 		renderHuman: renderArchiveObjective,
+	});
+	root.command({
+		name: "check",
+		description: "Check one Objective record for required files and Markdown headings.",
+		schema: checkObjectiveRequestSchema,
+		resultSchema: checkObjectiveResultSchema,
+		positionals: { slug: { position: 0 } },
+		handler: runCheckObjective,
+		renderHuman: renderCheckObjective,
 	});
 	root.command({
 		name: "list",

@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";
 import { pythonStringRepr, removeOneTrailingNewline } from "./format.ts";
+import { handleObjectiveSlugValidationErrors } from "./slug-validation-errors.ts";
 import {
 	activeRecordRelativePath,
 	activeRootRelativePath,
@@ -116,15 +117,8 @@ export async function runReadObjective(
 ): Promise<ClinkrExit<ReadObjectiveResult>> {
 	const result = await readObjective(ctx.storage, request.slug);
 	if (result.type === "storage-error") return failure(result.error.code, result.error.message);
-	if (result.value.status === "missing_slug") {
-		return negative("Missing Objective slug. Pass an explicit slug.", result.value);
-	}
-	if (result.value.status === "invalid_slug") {
-		return negative(
-			`Invalid Objective slug ${pythonStringRepr(request.slug ?? "")}. Pass a single slug, not a path.`,
-			result.value,
-		);
-	}
+	const slugValidationError = handleObjectiveSlugValidationErrors(result.value, request.slug);
+	if (slugValidationError !== null) return slugValidationError;
 	if (result.value.status === "not_found") {
 		return negative(
 			`No Objective record found for slug ${pythonStringRepr(result.value.slug ?? "")}.`,
