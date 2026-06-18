@@ -89,6 +89,10 @@ jobs:
           cache-dependency-path: ts/pnpm-lock.yaml
       - name: Install TypeScript dependencies
         run: pnpm --dir ts install --frozen-lockfile
+      - name: Use vendored just
+        run: echo "$GITHUB_WORKSPACE/.github/bin" >> "$GITHUB_PATH"
+      - name: Run TypeScript guard
+        run: just ts-guard
       - name: Run TypeScript typecheck
         run: pnpm --dir ts run check
       - name: Run TypeScript tests

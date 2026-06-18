@@ -54,7 +54,7 @@ export interface RunnerSubagentJsonEventParserSnapshot {
 
 export class RunnerSubagentJsonEventParserError extends Error {
 	readonly line: string;
-	readonly cause: unknown;
+	override readonly cause: unknown;
 
 	constructor(message: string, line: string, cause: unknown) {
 		super(message);

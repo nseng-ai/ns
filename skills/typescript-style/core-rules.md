@@ -78,6 +78,9 @@ Full reasoning: `references/type-system.md`.
   signatures and use conditional types to expose only legal config for that tag.
 - **Use `satisfies` for object literals.** It checks shape without widening away useful literal
   inference. Use `as const satisfies T` for config tables.
+- **Do not launder types through `as unknown as T`.** A double-cast hides the exact boundary that needs
+  modeling. Build a complete value, derive the type from the source of truth, add a narrow runtime
+  assertion, or isolate a single justified library seam instead.
 - **Use Zod-first validation at external boundaries.** External, HTTP, model, tool, and config input
   should be parsed by a Zod schema. Derive static types from schemas with `z.infer`; do not hand-write
   duplicate mirror types for values that already have a schema.
@@ -103,6 +106,13 @@ Full reasoning + examples: `references/type-system.md`.
   once, then read flags. Avoid scattered name checks like `if (backend.includes("x"))`.
 - **Use dependency injection at boundaries.** Pass collaborators (`Clock`, `FileSystem`, `Shell`,
   `Logger`, `Transport`, `Renderer`) as interfaces or option objects instead of reaching for globals.
+- **Wrap third-party dependencies behind project-owned seams.** Keep runtime dependency surfaces small:
+  translate external SDK/client/library shapes at the boundary, expose a project-owned contract inward,
+  and avoid letting optional dependencies, transport details, or vendor error types spread through core
+  logic.
+- **Derive, don't author, redundant identity.** When a name, slug, type, schema, or registry key can be
+  derived from a single source of truth, derive it there instead of hand-maintaining parallel strings or
+  mirror types that can drift.
 - **Cast generic to concrete once, behind a runtime assertion.** Registry storage often erases generic
   detail; recover it in one wrapper that first checks the tag.
 - **Separate planning from execution.** Pure planning functions return a plan that can be tested and

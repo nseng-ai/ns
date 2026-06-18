@@ -146,9 +146,10 @@ CLI commands intended for skill/agent invocation rather than interactive humans 
 
 ### TypeScript Style
 
-When writing, reviewing, or refactoring TypeScript, strictly follow the `typescript-style` skill (`.agents/skills/typescript-style/SKILL.md`).
+When writing, reviewing, or refactoring TypeScript, strictly follow the `typescript-style` skill (`.agents/skills/typescript-style/SKILL.md`) and the repo-specific `asdl-typescript` overlay (`.agents/skills/asdl-typescript/SKILL.md`).
 
 - Load the skill before TypeScript work and read `.agents/skills/typescript-style/core-rules.md` before implementation.
+- Load `.agents/skills/asdl-typescript/SKILL.md` for asdl-tools' TypeScript toolchain, import, compiler-baseline, and local-ban rules.
 - Use `.agents/skills/typescript-style/idioms.md` for coding idioms and `.agents/skills/typescript-style/checklist.md` before declaring TypeScript work complete.
 - Load the relevant `.agents/skills/typescript-style/references/` document before designing TypeScript abstractions covered by the skill, including backend/provider boundaries, error handling, plugin/extension APIs, stateful workflow/context code, or TUI code.
 - Treat the skill as the default TypeScript authority while still honoring the skill's precedence rules for explicit project tooling, public API compatibility, and established local conventions.

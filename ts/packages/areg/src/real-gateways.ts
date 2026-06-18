@@ -14,7 +14,7 @@ import {
 	type CommandRunner,
 } from "@asdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@asdl/core/git";
-import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
+import { formatErrorMessage } from "@asdl/core/primitives";
 import { resultErr, resultOk } from "@asdl/core/result";
 
 import type {
@@ -508,12 +508,6 @@ async function cleanupSkillxWorkspace(workspaceRoot: string): Promise<AregOperat
 	}
 }
 
-async function inspectSkills(projectDir: string, skillNames: readonly string[]): Promise<AregCheckSkillInspection[]> {
-	const inspected: AregCheckSkillInspection[] = [];
-	for (const name of skillNames) inspected.push(await inspectCheckSkill(projectDir, name));
-	return inspected;
-}
-
 async function inspectCheckSkill(projectDir: string, name: string): Promise<AregCheckSkillInspection> {
 	return {
 		name,
@@ -543,12 +537,6 @@ async function listLocalSkillKindNames(projectDir: string): Promise<string[]> {
 		if (isNodeErrorCode(error, "ENOENT")) return [];
 		return [];
 	}
-}
-
-async function inspectSkillKindSkills(projectDir: string, skillNames: readonly string[]): Promise<readonly AregSkillKindSkillInspection[]> {
-	const inspected: AregSkillKindSkillInspection[] = [];
-	for (const name of skillNames) inspected.push(await inspectSkillKindSkill(projectDir, name));
-	return inspected;
 }
 
 async function inspectSkillKindSkill(projectDir: string, name: string): Promise<AregSkillKindSkillInspection> {
@@ -640,18 +628,6 @@ async function listChildNames(directory: string): Promise<string[]> {
 		return sortStrings(entries.filter((entry) => entry !== ".DS_Store"));
 	} catch (error) {
 		if (isNodeErrorCode(error, "ENOENT")) return [];
-		return [];
-	}
-}
-
-function extractLockfileSkillNames(text: string): string[] {
-	try {
-		const data: unknown = JSON.parse(text);
-		if (!isRecord(data)) return [];
-		const skills = data.skills;
-		if (!isRecord(skills)) return [];
-		return sortStrings(Object.keys(skills));
-	} catch {
 		return [];
 	}
 }

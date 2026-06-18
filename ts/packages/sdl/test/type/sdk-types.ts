@@ -35,8 +35,11 @@ const extension = defineExtension({
 			schema: z.object({ fourth: z.boolean() }),
 			run(_ctx, request) {
 				type Request = typeof request;
-				type _NotAny = Assert<IsAny<Request> extends false ? true : false>;
-				type _Exact = Assert<IsEqual<Request, { fourth: boolean }>>;
+				const checks: [
+					Assert<IsAny<Request> extends false ? true : false>,
+					Assert<IsEqual<Request, { fourth: boolean }>>,
+				] = [true, true];
+				void checks;
 				// @ts-expect-error missing is not part of the fourth command schema
 				request.missing;
 				return ok(request.fourth ? "yes" : "no");
@@ -48,8 +51,11 @@ const extension = defineExtension({
 			schema: z.object({ fifth: z.string() }),
 			run(_ctx, request) {
 				type Request = typeof request;
-				type _NotAny = Assert<IsAny<Request> extends false ? true : false>;
-				type _Exact = Assert<IsEqual<Request, { fifth: string }>>;
+				const checks: [
+					Assert<IsAny<Request> extends false ? true : false>,
+					Assert<IsEqual<Request, { fifth: string }>>,
+				] = [true, true];
+				void checks;
 				// @ts-expect-error missing is not part of the fifth command schema
 				request.missing;
 				return ok(request.fifth);

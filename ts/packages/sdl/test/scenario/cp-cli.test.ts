@@ -8,7 +8,6 @@ import { afterEach, describe, expect, test } from "vitest";
 import { listSdlCommands } from "@asdl/sdl/cli";
 
 import {
-	execResult,
 	formatExecCall,
 	parseJsonOutput,
 	runCliWithFakes,

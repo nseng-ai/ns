@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "vitest";
-import { mkdir, readFile, realpath, stat, utimes, writeFile } from "node:fs/promises";
+import { mkdir, readFile, realpath, utimes, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, relative } from "node:path";
 

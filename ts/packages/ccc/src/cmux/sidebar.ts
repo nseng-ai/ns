@@ -293,7 +293,7 @@ async function queueModelAssistedSidebar(
 	setStatus(ctx, options.status);
 	let restoreState: RestoreState | undefined;
 	try {
-		const skillBlock = await expandSidebarSkillBlock(pi, ctx);
+		const skillBlock = await expandSidebarSkillBlock(ctx);
 		restoreState = await switchToFastSidebarModel(pi, ctx);
 		if (restoreState !== undefined) {
 			setPendingRestore(restoreState);
@@ -314,7 +314,7 @@ async function queueModelAssistedSidebar(
 	}
 }
 
-async function expandSidebarSkillBlock(pi: ExtensionAPI, ctx: CommandContext): Promise<string | undefined> {
+async function expandSidebarSkillBlock(ctx: CommandContext): Promise<string | undefined> {
 	try {
 		return (await expandRepoSkillBlock({ cwd: ctx.cwd, skillName: SKILL_NAME })).block;
 	} catch (error) {

@@ -374,10 +374,6 @@ function escapeFence(value: string): string {
 	return value.replaceAll("```", "`\u200b``");
 }
 
-function lines(value: string): string[] {
-	return value.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
-}
-
 function toPosixPath(value: string): string {
 	return sep === "/" ? value : value.split(sep).join("/");
 }

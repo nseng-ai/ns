@@ -209,6 +209,27 @@ class ConfigError extends Error {
 }
 ```
 
+## Indexed access under `noUncheckedIndexedAccess`
+
+With `noUncheckedIndexedAccess`, `array[index]` and `record[key]` are `T | undefined`. Guard after the
+lookup and keep the narrowed value in a local variable.
+
+```ts
+const item = items[index];
+if (item === undefined) return err({ code: "missing-item", message: `No item at ${index}` });
+return ok(processItem(item));
+```
+
+```ts
+const handler = handlers[event.type];
+if (handler === undefined) {
+  return err({ code: "unsupported-event", message: `Unsupported event: ${event.type}` });
+}
+await handler(event);
+```
+
+Avoid repeating the index expression after the guard; the local variable is the narrowed fact.
+
 ## Class with explicit fields + change callbacks
 
 ```ts

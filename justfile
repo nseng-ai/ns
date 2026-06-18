@@ -7,9 +7,9 @@ pbcopy-source-activate:
     @printf 'source %s/.venv/bin/activate' "{{justfile_directory()}}" | pbcopy
     @echo "Copied to clipboard — paste and press enter to activate."
 
-check: agent-instructions-check python-check dprint-check ts-check js-test python-test
+check: agent-instructions-check python-check dprint-check ts-guard ts-check js-test python-test
 
-ci: agent-instructions-check python-check dprint-check ts-check js-test python-test-all
+ci: agent-instructions-check python-check dprint-check ts-guard ts-check js-test python-test-all
 
 lint:
     uv run ruff check
@@ -44,6 +44,9 @@ ts-install:
 
 ts-check: ts-install
     pnpm --dir {{justfile_directory()}}/ts run check
+
+ts-guard:
+    node {{justfile_directory()}}/ts/scripts/guard-no-as-unknown-as.mjs
 
 ts-test: ts-install
     pnpm --dir {{justfile_directory()}}/ts run test

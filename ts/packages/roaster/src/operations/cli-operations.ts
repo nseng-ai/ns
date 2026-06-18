@@ -14,8 +14,6 @@ import {
 	preserveActivityLog,
 	renderFindingsComment,
 	renderInlineBody,
-	summaryMarkerForReview,
-	type FindingsPayload,
 } from "../findings-publication.ts";
 import { classifyInlineFindings } from "../inline-commentability.ts";
 import {

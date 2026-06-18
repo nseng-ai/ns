@@ -1,6 +1,11 @@
 {
   "version": 1,
   "skills": {
+    "asdl-typescript": {
+      "source": "skills/asdl-typescript",
+      "sourceType": "local",
+      "computedHash": "7f5ae181ab4cfc8e44d49f5da0eabb63f17d5c9ea027ec7f2ab1e231691b8a33"
+    },
     "branch-context": {
       "source": "skills/branch-context",
       "sourceType": "local",
@@ -337,7 +342,7 @@
     "typescript-style": {
       "source": "skills/typescript-style",
       "sourceType": "local",
-      "computedHash": "3ccb68bc62fdf060b686a2bce37122059e4a0c21d58a2dd77e2852465e9150ed"
+      "computedHash": "314c32ed33349af246789f3343e058b13ea762fe473d6e214c7398e71a443c2e"
     }
   }
 }

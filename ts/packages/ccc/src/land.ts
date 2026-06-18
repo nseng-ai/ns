@@ -1,7 +1,6 @@
 import { formatErrorMessage } from "@asdl/core/primitives";
 import { executeStackLanding, landArgumentCompletions, parseArgs, registerLandStackRenderer } from "./land-stack.ts";
 import { AUTO_CHUNK_LANDING_THRESHOLD } from "./land-stack/constants.ts";
-import { landStackFailure } from "./land-stack/errors.ts";
 import { formatFailure, formatFailureNotification, presentBrief, usage } from "./land-stack/presentation.ts";
 import { loadLandingShape } from "./land-stack/stack-facts.ts";
 import type {
@@ -11,7 +10,6 @@ import type {
 	LandingShape,
 	MessageRenderer,
 	NotifyLevel,
-	RenderTheme,
 	StackSnapshot,
 } from "./land-stack/types.ts";
 

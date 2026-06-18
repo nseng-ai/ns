@@ -7,7 +7,7 @@ import {
 	type StackMapSlotAssignment,
 	type StackMapSlotStatus,
 } from "./stack-map.ts";
-import { runRealCommand, type CommandOptions, type CommandOutput, type CommandRunner } from "./command-runner.ts";
+import { runRealCommand, type CommandRunner } from "./command-runner.ts";
 import { booleanField, isRecord, optionalEntry, optionalStringField, stringArrayField, stringField } from "./json-fields.ts";
 
 export type { CommandOptions, CommandOutput, CommandRunner } from "./command-runner.ts";

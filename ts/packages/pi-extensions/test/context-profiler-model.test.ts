@@ -21,6 +21,18 @@ import {
 } from "../src/context-profiler/model.ts";
 import { makeTurns as makeTurnsAtIndices } from "./context-profiler-fakes.ts";
 
+// Minimal but fully-typed SessionEntry message fixture: the derivation reads only
+// `type` and the message role/content, but the literal still satisfies SessionEntry.
+function makeMessageEntry(id = "e"): SessionEntry {
+	return {
+		id,
+		parentId: null,
+		timestamp: "2026-01-01T00:00:00Z",
+		type: "message",
+		message: { role: "user", content: "hi", timestamp: 0 },
+	};
+}
+
 function makeSkill(overrides: Partial<Skill> = {}): Skill {
 	return {
 		name: "alpha",
@@ -276,13 +288,13 @@ describe("buildTurnsFromEntries", () => {
 	test("maps message entries and synthesizes compaction/branch_summary/custom turns", () => {
 		const base = { id: "e", parentId: null, timestamp: "2026-01-01T00:00:00Z" };
 		// Test fixture: only the fields the derivation reads are populated.
-		const entries = [
-			{ ...base, type: "message", message: { role: "user", content: "hi" } },
+		const entries: SessionEntry[] = [
+			makeMessageEntry(),
 			{ ...base, type: "custom_message", customType: "note", content: "remember", display: true, details: { a: 1 } },
 			{ ...base, type: "compaction", summary: "squashed", firstKeptEntryId: "e", tokensBefore: 9 },
 			{ ...base, type: "branch_summary", fromId: "e", summary: "branched" },
 			{ ...base, type: "model_change", provider: "anthropic", modelId: "m" },
-		] as unknown as SessionEntry[];
+		];
 		const turns = buildTurnsFromEntries(entries);
 		expect(turns.map((turn) => turn.role)).toEqual(["user", "custom", "compaction", "branch_summary"]);
 		expect(turns.map((turn) => turn.index)).toEqual([1, 2, 3, 4]);
@@ -374,15 +386,7 @@ describe("renderNormalizedMessageText", () => {
 
 describe("deriveLiveTurns", () => {
 	test("treats the context event as authoritative once received, even when empty", () => {
-		const branchEntries = [
-			{
-				id: "e",
-				parentId: null,
-				timestamp: "2026-01-01T00:00:00Z",
-				type: "message",
-				message: { role: "user", content: "hi" },
-			},
-		] as unknown as SessionEntry[];
+		const branchEntries: SessionEntry[] = [makeMessageEntry()];
 		const live = deriveLiveTurns({ context: { messages: [], source: "context-event" }, branchEntries });
 		expect(live.source).toBe("context-event");
 		expect(live.turns).toHaveLength(0);
@@ -395,15 +399,7 @@ describe("deriveLiveTurns", () => {
 	});
 
 	test("falls back to branch entries before any message list exists", () => {
-		const branchEntries = [
-			{
-				id: "e",
-				parentId: null,
-				timestamp: "2026-01-01T00:00:00Z",
-				type: "message",
-				message: { role: "user", content: "hi" },
-			},
-		] as unknown as SessionEntry[];
+		const branchEntries: SessionEntry[] = [makeMessageEntry()];
 		const live = deriveLiveTurns({ context: null, branchEntries });
 		expect(live.source).toBe("branch-fallback");
 		expect(live.turns).toHaveLength(1);

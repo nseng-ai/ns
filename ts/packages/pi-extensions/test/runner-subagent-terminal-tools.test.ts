@@ -13,7 +13,7 @@ import {
 	type RuntimeResultV1,
 } from "../src/runner-subagent/subagent-runtime.ts";
 import { createRunnerSubagentRuntimeExtension } from "../src/runner-subagent/subagent-runtime-extension.ts";
-import type { RunnerSubagentTerminalToolDefinition } from "../src/runner-subagent.ts";
+import type { RunnerSubagentTerminalStatus, RunnerSubagentTerminalToolDefinition } from "../src/runner-subagent.ts";
 
 const completionTool: RunnerSubagentTerminalToolDefinition<{ summary: string }> = {
 	name: "complete_runner_subagent",
@@ -38,6 +38,12 @@ const blockedTool: RunnerSubagentTerminalToolDefinition<{ reason: string }> = {
 		additionalProperties: false,
 	},
 };
+
+// Builds a tool with an intentionally invalid runtime status to exercise validation.
+// A single narrow field-level cast keeps the invalid value explicit without a double cast.
+function withInvalidStatus(tool: RunnerSubagentTerminalToolDefinition, status: string): RunnerSubagentTerminalToolDefinition {
+	return { ...tool, status: status as RunnerSubagentTerminalStatus };
+}
 
 interface RegisteredTool {
 	name: string;
@@ -109,7 +115,7 @@ describe("runner subagent runtime config and result helpers", () => {
 		).toThrow("non-empty name");
 		expect(() =>
 			createRuntimeConfig({
-				terminalTools: [{ ...completionTool, status: "done" } as unknown as RunnerSubagentTerminalToolDefinition],
+				terminalTools: [withInvalidStatus(completionTool, "done")],
 			}),
 		).toThrow("invalid status");
 	});

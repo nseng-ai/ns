@@ -348,7 +348,7 @@ describe("handoff:self pure helpers", () => {
 
 function registerSelfOnly(pi: FakePi, timeoutMs: number): void {
 	const workflow = createHandoffSelfWorkflow(pi, { timeoutMs, skillLoader: fakeHandoffCreateSkillLoader() });
-	pi.registerTool(workflow.buildTool());
+	pi.registerTool?.(workflow.buildTool());
 	pi.registerCommand("handoff:self", {
 		description: "Create a handoff, clear context, and pick it up in this Pi session.",
 		handler: async (args, ctx) => workflow.handleCommand(args, ctx),

@@ -23,6 +23,13 @@ export interface RunnerSubagentTerminalToolDefinition<TInput = unknown> {
 	status: RunnerSubagentTerminalStatus;
 	description: string;
 	parameters: TypeBoxLikeSchema;
+	/**
+	 * Phantom marker recording the tool's parsed-input type for callers that pass a type argument
+	 * (e.g. `RunnerSubagentTerminalToolDefinition<CompletionInput>`). Never populated at runtime;
+	 * it exists only so the type parameter participates structurally without constraining `parameters`,
+	 * which must stay assignable from arbitrary schema objects.
+	 */
+	readonly __input?: TInput;
 }
 
 export interface RunnerSubagentLaunchMetadata {

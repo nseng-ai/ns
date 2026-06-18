@@ -61,9 +61,9 @@ describe("slot list CLI", () => {
 		expect(output).toMatch(/^slot-03\s+assigned\s+feature\/rebase\s+rebase in progress\s+\/slots\/repos\/repo\/worktrees\/slot-03$/mu);
 	});
 
-	it("propagates color capability to the list table renderer", () => {
-		const colorOutput = renderList(sampleListResult, { color: true });
-		const plainOutput = renderList(sampleListResult, { color: false });
+	it("propagates ANSI capability to the list table renderer", () => {
+		const colorOutput = renderList(sampleListResult, { canEmitAnsi: true });
+		const plainOutput = renderList(sampleListResult, { canEmitAnsi: false });
 		expect(colorOutput).toContain(String.fromCharCode(0x1b));
 		expect(plainOutput).not.toContain(String.fromCharCode(0x1b));
 	});
