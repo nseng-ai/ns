@@ -30,7 +30,11 @@ export interface ExecuteReleaseCleanupOptions {
 	trunkBranch?: string | undefined;
 }
 
-interface CleanupForTargetsOptions extends PlanReleaseCleanupOptions {
+interface CleanupForTargetsOptions {
+	ctx: RepoSlotContext;
+	targets: readonly FreedSlot[];
+	cleanupActions: readonly SlotFreeCleanupAction[];
+	trunkBranch?: string | undefined;
 	shouldExecute: boolean;
 }
 
@@ -64,7 +68,7 @@ async function cleanupForTargets(options: CleanupForTargetsOptions): Promise<rea
 	const results: SlotFreeCleanupResult[] = [];
 	for (const target of options.targets) {
 		for (const action of options.cleanupActions) {
-			const result = action === "pr" ? await cleanupPr(options.ctx, target, options.shouldExecute) : await cleanupLocalBranch({ ctx: options.ctx, target, trunkBranch: trunkBranch ?? "", shouldExecute: options.shouldExecute });
+			const result = action === "pr" ? await cleanupPr(options.ctx, target, options.shouldExecute) : await cleanupLocalBranch({ ctx: options.ctx, target, trunkBranch: requireTrunkBranch(trunkBranch), shouldExecute: options.shouldExecute });
 			results.push(result);
 			if (result.status === "error") return results;
 		}
@@ -95,6 +99,11 @@ async function cleanupLocalBranch(options: CleanupLocalBranchOptions): Promise<S
 
 function cleanupResult(options: CleanupResultOptions): SlotFreeCleanupResult {
 	return { slot_name: options.target.slot_name, branch_name: options.target.branch_name, action: options.action, status: options.status, pr_number: options.prNumber ?? null, message: options.message ?? null };
+}
+
+function requireTrunkBranch(trunkBranch: string | null): string {
+	if (trunkBranch === null) throw new Error("local branch cleanup requires a resolved trunk branch");
+	return trunkBranch;
 }
 
 function isMissingLocalBranchFailure(message: string, branch: string): boolean {

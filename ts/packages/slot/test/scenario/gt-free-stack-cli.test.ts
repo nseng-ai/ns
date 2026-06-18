@@ -11,7 +11,7 @@ describe("slot gt free-stack CLI", () => {
 		});
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({ data: { current_branch: "master", trunk_branch: "master", freed: [], noop_reason: "on_trunk" } });
-		expect(run.gt?.operations()).toEqual([{ type: "trunk", cwd: "/repo" }]);
+		expect(run.gt.operations()).toEqual([{ type: "trunk", cwd: "/repo" }]);
 	});
 
 	it("frees assigned stack branches except current and trunk", async () => {

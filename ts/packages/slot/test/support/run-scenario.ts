@@ -22,7 +22,7 @@ export interface ScenarioRun {
 	stdout: string[];
 	stderr: string[];
 	git: FakeSlotGitGateway;
-	gt: FakeSlotGtGateway | undefined;
+	gt: FakeSlotGtGateway;
 	pr: FakeSlotPrGateway;
 	storage: FakeSlotStorageGateway;
 	context: SlotCliContext;
@@ -33,7 +33,7 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 	const stderr: string[] = [];
 	const cwd = options.cwd ?? "/repo";
 	const git = new FakeSlotGitGateway(options.git);
-	const gt = options.gt === undefined ? undefined : new FakeSlotGtGateway(options.gt);
+	const gt = new FakeSlotGtGateway(options.gt ?? {});
 	const pr = new FakeSlotPrGateway(options.pr);
 	const storage = new FakeSlotStorageGateway();
 	const stdin = options.stdin;

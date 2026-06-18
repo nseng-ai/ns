@@ -3,14 +3,12 @@ import { z } from "zod";
 
 import type { RepoSlotContext, SlotCliContext } from "../context.ts";
 import { buildSlotInventory, findByBranch, poolSize, type SlotInventory } from "../inventory.ts";
-import { SLOT_RELEASE_ALL_CLEANUP_ACTIONS, type SlotFreeCleanupResult } from "../lifecycle/release-cleanup.ts";
-import { executeFreeRelease, planFreeRelease } from "../lifecycle/release.ts";
+import { executeFreePlan, planFreeSlots } from "../lifecycle/free.ts";
+import { executeReleaseCleanup, planReleaseCleanup, SLOT_RELEASE_ALL_CLEANUP_ACTIONS, type SlotFreeCleanupResult } from "../lifecycle/release-cleanup.ts";
 import type { FreedSlot } from "../lifecycle/release-target.ts";
 import { resolveCurrent, resolveNum, resolveWt } from "../selectors.ts";
 import { cleanupErrorCount, renderCleanupLines } from "./cleanup-rendering.ts";
-
-const freedSlotSchema = z.object({ slot_name: z.string(), branch_name: z.string(), worktree_path: z.string() });
-const cleanupSchema = z.object({ slot_name: z.string(), branch_name: z.string(), action: z.union([z.literal("pr"), z.literal("local_branch")]), status: z.union([z.literal("planned"), z.literal("success"), z.literal("skipped"), z.literal("error")]), pr_number: z.number().int().nullable(), message: z.string().nullable() });
+import { cleanupSchema, freedSlotSchema } from "./result-schemas.ts";
 
 export const freeRequestSchema = z.object({
 	num: z.array(z.string()).default([]).describe("Slot number. May be repeated."),
@@ -42,18 +40,20 @@ export async function runFree(ctx: SlotCliContext, request: FreeRequest) {
 	const resolved = resolveTargets(repoCtx, request, inventory);
 	if (resolved.slotNames.length === 0 && resolved.errors.length === 0) return failure("missing_slot_arg", "Pass one of -n/--num, -w/--wt, -b/--branch, or -c/--current to identify the slot.");
 	const cleanupActions = request.all ? SLOT_RELEASE_ALL_CLEANUP_ACTIONS : [];
-	const preview = await planFreeRelease(repoCtx, resolved.slotNames, { preflightErrors: resolved.errors, cleanupActions });
-	if (preview.type === "failure") return failure(preview.failure.error_type, preview.failure.message);
-	if (request.dry_run) return ok(buildFreeResult({ wouldFree: preview.outcome.plan.targets, cleanup: preview.outcome.cleanup, skipped: resolved.skipped, isDryRun: true, isCancelled: false }));
-	if (request.all && preview.outcome.plan.targets.length > 0 && !request.yes) {
+	const plan = await planFreeSlots(repoCtx, resolved.slotNames, { preflightErrors: resolved.errors });
+	if (plan.type === "failure") return failure(plan.failure.error_type, plan.failure.message);
+	const previewCleanup = await planReleaseCleanup({ ctx: repoCtx, targets: plan.outcome.targets, cleanupActions, trunkBranch: plan.outcome.trunk_branch });
+	if (request.dry_run) return ok(buildFreeResult({ wouldFree: plan.outcome.targets, cleanup: previewCleanup, skipped: resolved.skipped, isDryRun: true, isCancelled: false }));
+	if (request.all && plan.outcome.targets.length > 0 && !request.yes) {
 		if (!ctx.shouldWriteCdDirective) return failure("confirmation_required", "Destructive free --all requires --yes in JSON mode (or use --dry-run first).");
-		const confirmed = await confirmFromStdin({ stdin: repoCtx.stdin, stderr: repoCtx.stderr, prompt: `Free ${preview.outcome.plan.targets.length} slot(s), close matching PRs, and delete local branches? [y/N]: `, defaultAnswer: "no" });
+		const confirmed = await confirmFromStdin({ stdin: repoCtx.stdin, stderr: repoCtx.stderr, prompt: `Free ${plan.outcome.targets.length} slot(s), close matching PRs, and delete local branches? [y/N]: `, defaultAnswer: "no" });
 		if (typeof confirmed !== "string") return confirmed;
-		if (confirmed === "no") return ok(buildFreeResult({ wouldFree: preview.outcome.plan.targets, cleanup: preview.outcome.cleanup, skipped: resolved.skipped, isDryRun: false, isCancelled: true }));
+		if (confirmed === "no") return ok(buildFreeResult({ wouldFree: plan.outcome.targets, cleanup: previewCleanup, skipped: resolved.skipped, isDryRun: false, isCancelled: true }));
 	}
-	const executed = await executeFreeRelease(repoCtx, preview.outcome.plan, cleanupActions);
+	const executed = await executeFreePlan(repoCtx, plan.outcome);
 	if (executed.type === "failure") return failure(executed.failure.error_type, executed.failure.message);
-	const result = buildFreeResult({ freed: executed.outcome.outcome.freed, cleanup: executed.outcome.cleanup, skipped: resolved.skipped, isDryRun: false, isCancelled: false });
+	const cleanup = await executeReleaseCleanup({ ctx: repoCtx, targets: executed.outcome.freed, cleanupActions, trunkBranch: plan.outcome.trunk_branch });
+	const result = buildFreeResult({ freed: executed.outcome.freed, cleanup, skipped: resolved.skipped, isDryRun: false, isCancelled: false });
 	if (cleanupErrorCount(result.cleanup) > 0) return negative("Slot free completed with cleanup errors.", result);
 	return ok(result);
 }

@@ -4,9 +4,8 @@ import { z } from "zod";
 import type { RepoSlotContext, SlotCliContext } from "../../context.ts";
 import { buildSlotInventory, findByBranch, poolSize } from "../../inventory.ts";
 import { executeFreePlan, planFreeSlots } from "../../lifecycle/free.ts";
+import { freedSlotSchema } from "../result-schemas.ts";
 import { collectStackBranches } from "./stack-walk.ts";
-
-const freedSlotSchema = z.object({ slot_name: z.string(), branch_name: z.string(), worktree_path: z.string() });
 
 export const gtFreeStackRequestSchema = z.object({
 	downstack: z.boolean().default(false).describe("Free only ancestor/downstack slots."),
@@ -25,7 +24,6 @@ export type GtFreeStackResult = z.infer<typeof gtFreeStackResultSchema>;
 
 export async function runGtFreeStack(ctx: SlotCliContext, request: GtFreeStackRequest) {
 	if (ctx.repo.type !== "repo") return failure(ctx.repo.errorType, ctx.repo.message);
-	if (ctx.gt === undefined) return failure("gt_gateway_missing", "Graphite gateway is not available for slot gt commands.");
 	const repoCtx: RepoSlotContext = { ...ctx, repo: ctx.repo };
 	const currentResult = await repoCtx.git.getCurrentBranch(repoCtx.repo.root);
 	if (currentResult.type === "failure") return failure("git_current_branch_failed", currentResult.failure.message);

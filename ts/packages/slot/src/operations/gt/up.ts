@@ -24,7 +24,6 @@ export type GtUpRequest = z.infer<typeof gtUpRequestSchema>;
 
 export async function runGtUp(ctx: SlotCliContext, request: GtUpRequest) {
 	if (ctx.repo.type !== "repo") return failure(ctx.repo.errorType, ctx.repo.message);
-	if (ctx.gt === undefined) return failure("gt_gateway_missing", "Graphite gateway is not available for slot gt commands.");
 	const currentResult = await ctx.git.getCurrentBranch(ctx.repo.root);
 	if (currentResult.type === "failure") return failure("git_current_branch_failed", currentResult.failure.message);
 	if (currentResult.type === "detached") return failure("detached_head", `HEAD at ${ctx.repo.root} is detached. Check out a branch first.`);

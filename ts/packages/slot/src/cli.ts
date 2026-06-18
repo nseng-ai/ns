@@ -6,7 +6,6 @@ import { ClinkrGroup, isClinkrHumanOutputInvocation, resolveIo } from "@asdl/cli
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
 import { createRealSlotContext, type SlotCliContext } from "./context.ts";
-import { RealSlotGtGateway } from "./gateways/gt.ts";
 import { checkoutRequestSchema, checkoutResultSchema, renderCheckout, runCheckout } from "./operations/checkout.ts";
 import { claimRequestSchema, claimResultSchema, renderClaim, runClaim } from "./operations/claim.ts";
 import { freeRequestSchema, freeResultSchema, renderFree, runFree } from "./operations/free.ts";
@@ -133,7 +132,7 @@ export function buildCli(): ClinkrGroup<SlotCliContext> {
 }
 
 function buildGtGroup(): ClinkrGroup<SlotCliContext> {
-	const gt = new ClinkrGroup<SlotCliContext>({ name: "gt", description: "Navigate and free Graphite-aware slot stacks." });
+	const gt = new ClinkrGroup<SlotCliContext>({ name: "gt", description: "Navigate and free Graphite-aware slot stacks; metadata-backed stack commands require the sqlite3 CLI." });
 	gt.command({
 		name: "up",
 		description: "Print/copy a cd command for the immediate upstack Graphite branch.",
@@ -176,8 +175,7 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 	const cwd = deps.cwd ?? process.cwd();
 	const env = deps.env ?? process.env;
 	const context = deps.context ?? await createRealSlotContext({ cwd, env });
-	const gt = args[0] === "gt" ? context.gt ?? new RealSlotGtGateway({ env, git: context.git }) : context.gt;
-	const runContext: SlotCliContext = { ...context, gt, cwd, env: deps.env ?? context.env, stdin: deps.stdin ?? context.stdin, stderr: deps.stderr ?? context.stderr, shouldWriteCdDirective: isClinkrHumanOutputInvocation(args) };
+	const runContext: SlotCliContext = { ...context, cwd, env: deps.env ?? context.env, stdin: deps.stdin ?? context.stdin, stderr: deps.stderr ?? context.stderr, shouldWriteCdDirective: isClinkrHumanOutputInvocation(args) };
 	return await buildCli().run(args, { context: runContext, io });
 }
 
