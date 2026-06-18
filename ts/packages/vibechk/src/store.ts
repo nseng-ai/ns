@@ -1,14 +1,15 @@
-import { readdir, readFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { LoadedBundle, RunBundle } from "./models.ts";
 import { parseRunBundle } from "./models.ts";
 
-const RUNS_DIR_NAME = "runs";
-const BUNDLE_FILE_NAME = "bundle.json";
-const PLAN_FILE_NAME = "plan.md";
-const TRANSCRIPT_FILE_NAME = "transcript.txt";
-const DIFF_FILE_NAME = "diff.patch";
+export const RUNS_DIR_NAME = "runs";
+export const BUNDLE_FILE_NAME = "bundle.json";
+export const PLAN_FILE_NAME = "plan.md";
+export const TRANSCRIPT_FILE_NAME = "transcript.txt";
+export const DIFF_FILE_NAME = "diff.patch";
+export const ARTIFACTS_DIR_NAME = "artifacts";
 
 export class VibechkError extends Error {
 	constructor(message: string) {
@@ -176,4 +177,69 @@ async function readOptionalFile(path: string): Promise<string> {
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
 	return error instanceof Error && "code" in error;
+}
+
+export async function createRunDir(
+	storeRoot: string,
+	idGenerator: () => string,
+): Promise<{ runId: string; runDir: string }> {
+	const runsDir = join(storeRoot, RUNS_DIR_NAME);
+	await mkdir(runsDir, { recursive: true });
+
+	for (let attempt = 0; attempt < 100; attempt++) {
+		const runId = idGenerator().toLowerCase();
+		const runDir = join(runsDir, runId);
+
+		try {
+			await mkdir(runDir, { recursive: false });
+			const artifactsDir = join(runDir, ARTIFACTS_DIR_NAME);
+			await mkdir(artifactsDir, { recursive: true });
+			return { runId, runDir };
+		} catch (error: unknown) {
+			if (isNodeError(error) && error.code === "EEXIST") {
+				continue;
+			}
+			throw error;
+		}
+	}
+
+	throw new VibechkError("Failed to allocate a unique run ID after 100 attempts.");
+}
+
+export async function writeBundle(runDir: string, bundle: RunBundle): Promise<void> {
+	const bundlePath = join(runDir, BUNDLE_FILE_NAME);
+	const tempPath = join(runDir, `${BUNDLE_FILE_NAME}.tmp`);
+
+	const snakeCaseBundle = {
+		schema_version: bundle.schemaVersion,
+		run_id: bundle.runId,
+		status: bundle.status,
+		started_at: bundle.startedAt.toISOString(),
+		finished_at: bundle.finishedAt.toISOString(),
+		runner: bundle.runner,
+		runner_version: bundle.runnerVersion,
+		model: bundle.model,
+		plan_source: bundle.planSource,
+		workdir: bundle.workdir,
+		git: {
+			repo_root: bundle.git.repoRoot,
+			starting_branch: bundle.git.startingBranch,
+			starting_commit: bundle.git.startingCommit,
+			remotes: bundle.git.remotes,
+		},
+		metrics: {
+			wall_time_seconds: bundle.metrics.wallTimeSeconds,
+			input_tokens: bundle.metrics.inputTokens,
+			output_tokens: bundle.metrics.outputTokens,
+			total_tokens: bundle.metrics.totalTokens,
+			cost_usd: bundle.metrics.costUsd,
+		},
+		result_branch: bundle.resultBranch,
+		branch_created: bundle.branchCreated,
+		runner_exit_code: bundle.runnerExitCode,
+		error: bundle.error,
+	};
+
+	await writeFile(tempPath, JSON.stringify(snakeCaseBundle, null, 2) + "\n", "utf-8");
+	await rename(tempPath, bundlePath);
 }

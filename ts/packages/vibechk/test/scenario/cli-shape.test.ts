@@ -25,10 +25,8 @@ describe("vibechk CLI shape", () => {
 		}
 	});
 
-	it("rejects the run command as not yet implemented", async () => {
-		const run = runScenario(["run", "plan.md"]);
-		expect(await run.exit).toBe(2);
-		expect(run.stderr.join("")).toContain("not yet implemented");
-		expect(run.stderr.join("")).toContain("Use the Python version");
+	it("requires --plan option for run command", async () => {
+		const run = runScenario(["run"]);
+		expect(await run.exit).not.toBe(0);
 	});
 });

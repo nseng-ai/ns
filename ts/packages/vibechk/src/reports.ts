@@ -22,7 +22,7 @@ const RUNS_TABLE_HEADERS = [
 
 export function renderRunReport(loaded: LoadedBundle): string {
 	const bundle = loaded.bundle;
-	const resultBranch = bundle.resultBranch ?? "none";
+	const resultBranch = bundle.resultBranch ?? "null";
 	const diffPatch = diffBody(loaded.diffPatch);
 	const transcript = loaded.transcript || "_No transcript captured._";
 

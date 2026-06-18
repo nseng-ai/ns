@@ -2,7 +2,8 @@
 
 import process from "node:process";
 
-import { ClinkrGroup, ok, failure, resolveIo } from "@asdl/clinkr";
+import { ClinkrGroup, ok, resolveIo } from "@asdl/clinkr";
+import { rawCommand } from "@asdl/clinkr/raw";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 import { z } from "zod";
 
@@ -14,6 +15,11 @@ import {
 	runListEntryToJson,
 } from "./reports.ts";
 import { listBundles, readBundle, resolveStoreRoot, VibechkError } from "./store.ts";
+import type { GitGateway } from "./git.ts";
+import { RealGitGateway } from "./git.ts";
+import { buildProductionRunnerRegistry, type RunnerRegistry } from "./runners.ts";
+import { generateRunId } from "./ids.ts";
+import { executeRun } from "./workflow.ts";
 
 export const VERSION = "0.1.0";
 
@@ -22,11 +28,23 @@ export interface CliDeps {
 	env?: NodeJS.ProcessEnv | undefined;
 	stdout?: ((text: string) => void) | undefined;
 	stderr?: ((text: string) => void) | undefined;
+	runnerRegistry?: RunnerRegistry | undefined;
+	gitGatewayFactory?: ((workdir: string) => GitGateway) | undefined;
+	clock?: (() => Date) | undefined;
+	idGenerator?: (() => string) | undefined;
+	defaultRunnerName?: string | undefined;
 }
 
 interface VibechkCliContext {
 	cwd: string;
 	env: NodeJS.ProcessEnv;
+	runnerRegistry: RunnerRegistry;
+	gitGatewayFactory: (workdir: string) => GitGateway;
+	clock: () => Date;
+	idGenerator: () => string;
+	defaultRunnerName: string;
+	stdout: (text: string) => void;
+	stderr: (text: string) => void;
 }
 
 const runsRequestSchema = z.object({
@@ -92,16 +110,14 @@ export function buildCli(): ClinkrGroup<VibechkCliContext> {
 		renderHuman: renderDiff,
 	});
 
-	root.command({
-		name: "run",
-		description:
-			"Run a plan in a clean git workdir and persist a local run bundle. (Not yet implemented in TypeScript)",
-		schema: runRequestSchema,
-		positionals: {
-			plan: { position: 0 },
-		},
-		handler: runRun,
-	});
+	root.command(
+		rawCommand({
+			name: "run",
+			description: "Run a plan in a clean git workdir and persist a local run bundle.",
+			schema: runRequestSchema,
+			run: runRun,
+		}),
+	);
 
 	return root;
 }
@@ -156,18 +172,61 @@ function renderDiff(result: DiffResult): string {
 	return renderComparisonReport(result.baseline, result.treatment);
 }
 
-async function runRun(_ctx: VibechkCliContext, _request: RunRequest) {
-	return failure(
-		"not_implemented",
-		"The 'run' command is not yet implemented in the TypeScript port. Use the Python version for now: uv run vibechk run",
-	);
+async function runRun(ctx: VibechkCliContext, request: RunRequest): Promise<number> {
+	try {
+		const runnerName = request.runner ?? ctx.defaultRunnerName;
+		const runner = ctx.runnerRegistry.get(runnerName);
+		const gitGateway = ctx.gitGatewayFactory(request.workdir);
+
+		const result = await executeRun({
+			planPath: request.plan,
+			workdir: request.workdir,
+			runnerName,
+			model: request.model ?? null,
+			store: request.store,
+			env: ctx.env,
+			deps: {
+				runner,
+				gitGateway,
+				clock: ctx.clock,
+				idGenerator: ctx.idGenerator,
+				stdout: ctx.stdout,
+			},
+		});
+
+		ctx.stdout(`Run ID: ${result.runId}\n`);
+		return result.exitCode;
+	} catch (error: unknown) {
+		if (error instanceof VibechkError) {
+			ctx.stderr(`Error: ${error.message}\n`);
+			return 1;
+		}
+		throw error;
+	}
 }
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
 	const io = resolveIo({ stdout: deps.stdout, stderr: deps.stderr });
 	const cwd = deps.cwd ?? process.cwd();
 	const env = deps.env ?? process.env;
-	const context: VibechkCliContext = { cwd, env };
+	const runnerRegistry = deps.runnerRegistry ?? buildProductionRunnerRegistry();
+	const gitGatewayFactory =
+		deps.gitGatewayFactory ?? ((workdir: string) => new RealGitGateway(workdir));
+	const clock = deps.clock ?? (() => new Date());
+	const idGenerator = deps.idGenerator ?? generateRunId;
+	const defaultRunnerName = deps.defaultRunnerName ?? "claude";
+
+	const context: VibechkCliContext = {
+		cwd,
+		env,
+		runnerRegistry,
+		gitGatewayFactory,
+		clock,
+		idGenerator,
+		defaultRunnerName,
+		stdout: io.stdout,
+		stderr: io.stderr,
+	};
 
 	try {
 		return await buildCli().run(normalizeRunsFormatArgs(args), { context, io });
