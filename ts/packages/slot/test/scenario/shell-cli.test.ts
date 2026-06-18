@@ -21,6 +21,7 @@ describe("slot shell CLI", () => {
 		const output = run.stdout.join("");
 		expect(output).toContain("SLOT_CD_DIRECTIVE_FILE");
 		expect(output).toContain("command slot \"$@\"");
+		expect(output).toContain("IFS= read -r _slot_destination < \"$_slot_cd_directive_file\" || true");
 		expect(output).toContain("cd -- \"$_slot_destination\"");
 		expect(output).toContain("rm -f \"$_slot_cd_directive_file\"");
 	});

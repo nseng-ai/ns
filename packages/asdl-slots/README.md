@@ -1,7 +1,12 @@
 # asdl-slots
 
+> Legacy Python fallback for the slot port. The default active CLI is the TypeScript
+> `@asdl/slot` package under `ts/packages/slot`, installed by the `just install-slot`
+> source shim. This package remains in the repository as a dormant fallback artifact
+> until the explicit fallback-retirement/deletion row runs.
+
 Work on multiple branches in parallel without stashing, losing your
-place, or waiting for a clean working tree. `asdl-slots` gives each
+place, or waiting for a clean working tree. The legacy `asdl-slots` package gives each
 in-flight branch its own dedicated directory, so switching contexts is
 just `cd` — your editor, terminal, running processes, and uncommitted
 changes all stay exactly where you left them on every other branch.
@@ -132,7 +137,7 @@ binary with `SLOT_CD_DIRECTIVE_FILE=<temp> command slot "$@"` so the
 function does not recursively call itself. On successful navigation,
 `slot` writes only the raw destination path to that file; the wrapper
 reads the path and performs `cd -- <path>` in the parent shell. The
-Python command never emits shell code for the wrapper to `eval`, and the
+command never emits shell code for the wrapper to `eval`, and the
 directive file is removed after each invocation.
 
 The directive-file navigation surface is `slot checkout` / `slot co`,
@@ -162,9 +167,9 @@ use `--format json`.
 - If `slot shell ... --shell fish` fails, that shell is unsupported for
   automatic parent-shell cd today. Use `zsh`/`bash`, or keep using the
   printed/copied fallback in other shells.
-- If the wrapper says `slot: command not found`, make sure the real
-  `slot` console script is on `PATH`; the wrapper deliberately uses
-  `command slot "$@"` to bypass the shell function and avoid recursion.
+- If the wrapper says `slot: command not found`, make sure the active
+  TypeScript `slot` source shim is on `PATH`; the wrapper deliberately
+  uses `command slot "$@"` to bypass the shell function and avoid recursion.
 - If you need to prevent directory changes for one command, call
   `command slot ...` or use `--format json`. `--no-clipboard` only
   disables clipboard writes.
@@ -272,15 +277,13 @@ with `git worktree list` from inside the main repo, or with
 
 ## CLI surface
 
-This package provides:
+This package no longer advertises active entry points. The active standalone
+CLI is the TypeScript `@asdl/slot` command installed by `just install-slot`.
+There is no TypeScript `asdl.plugins` analog, so the legacy `asdl slot ...`
+plugin surface is parked rather than exposed from this fallback package.
 
-- Standalone CLI: `slot` console script (declared in `pyproject.toml`).
-- ASDL plugin: `asdl slot ...` via the `asdl.plugins` entry point.
-- Shell integration subgroup: `slot shell ...`.
-- Graphite-aware subgroup: `slot gt ...`.
-
-Run `slot --help` for the full command list and `slot <cmd> --help` for
-per-command flags.
+Use `slot --help` from the TypeScript CLI for the current command list and
+`slot <cmd> --help` for per-command flags.
 
 ## How it works
 

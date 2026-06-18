@@ -6,7 +6,6 @@ requires-python = ">=3.11"
 members = [
     "aretro",
     "asdl-core",
-    "asdl-slots",
     "asdl-tools",
     "packagechk",
     "vibechk",
@@ -54,21 +53,6 @@ requires-dist = [
 ]
 
 [[package]]
-name = "asdl-slots"
-version = "0.1.0"
-source = { editable = "packages/asdl-slots" }
-dependencies = [
-    { name = "asdl-core" },
-    { name = "click" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "asdl-core", editable = "packages/asdl-core" },
-    { name = "click", specifier = ">=8.1.7" },
-]
-
-[[package]]
 name = "asdl-tools"
 version = "0.1.0"
 source = { editable = "." }
@@ -77,16 +61,10 @@ dependencies = [
     { name = "click" },
 ]
 
-[package.optional-dependencies]
-plugins = [
-    { name = "asdl-slots" },
-]
-
 [package.dev-dependencies]
 dev = [
     { name = "aretro" },
     { name = "asdl-core" },
-    { name = "asdl-slots" },
     { name = "packagechk" },
     { name = "pytest" },
     { name = "pytest-xdist" },
@@ -98,16 +76,13 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "asdl-core", editable = "packages/asdl-core" },
-    { name = "asdl-slots", marker = "extra == 'plugins'", editable = "packages/asdl-slots" },
     { name = "click", specifier = ">=8.1.7" },
 ]
-provides-extras = ["plugins"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "aretro", editable = "packages/aretro" },
     { name = "asdl-core", editable = "packages/asdl-core" },
-    { name = "asdl-slots", editable = "packages/asdl-slots" },
     { name = "packagechk", editable = "packages/packagechk" },
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },

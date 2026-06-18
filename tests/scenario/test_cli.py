@@ -3,13 +3,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
 from click.testing import CliRunner
 
 from asdl_core.clinkr.context import build_clinkr_context_object
 from asdl_core.gh.pr_testing import FakePRGateway
 from asdl_core.gh.types import PRReviewComment, PRReviewThread
-from asdl_slots.repo_context import NoRepoSentinel
 from asdl_tools.cli.cli import build_cli
 from asdl_tools.cli.plugins import PluginEntryPointSource
 from asdl_tools.cmux.gateway import CmuxCommandFailure
@@ -479,24 +477,3 @@ def test_cmux_workspace_summary_exec_reports_cmux_command_failure() -> None:
         "stdout": "",
         "stderr": "workspace not found",
     }
-
-
-def test_top_level_cli_installs_plugin_context_for_slot_commands(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    runner = CliRunner()
-    slot_plugin = FakePluginEntryPoint(
-        name="slots",
-        value="asdl_slots.cli.plugin:build_slot_plugin",
-    )
-    monkeypatch.setattr(
-        "asdl_slots.cli.plugin.build_slots_context",
-        lambda: NoRepoSentinel(message="Not inside a git repository"),
-    )
-    cli = build_cli(source=_entry_point_source(slot_plugin))
-
-    result = runner.invoke(cli, ["slot", "free", "--num", "1"])
-
-    assert result.exit_code == 2
-    assert "Not inside a git repository" in result.output
-    assert "ClinkrContextObject" not in result.output

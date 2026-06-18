@@ -57,7 +57,7 @@ export function renderShellWrapperScript(): string {
   _slot_status=$?
 
   if [ $_slot_status -eq 0 ] && [ -s "$_slot_cd_directive_file" ]; then
-    IFS= read -r _slot_destination < "$_slot_cd_directive_file"
+    IFS= read -r _slot_destination < "$_slot_cd_directive_file" || true
     rm -f "$_slot_cd_directive_file"
     cd -- "$_slot_destination"
     return $?
