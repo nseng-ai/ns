@@ -8,10 +8,16 @@ import { checkoutBranch } from "../../lifecycle/checkout.ts";
 import { buildNavigationResultFields, renderNavigationFooter, writeNavigationCdDirective, type NavigationResultFields } from "../../navigation-result.ts";
 import { extractSlotNumber } from "../../naming.ts";
 
-export interface GtNavigationResult extends NavigationResultFields {
+export interface GtNavigationResult {
 	slot_name: string | null;
 	branch_name: string;
-	already_assigned: boolean;
+	is_already_assigned: boolean;
+	worktree_path: string;
+	cd_command: string;
+	was_clipboard_copied: boolean;
+	was_clipboard_skipped: boolean;
+	clipboard_failure_reason: "backend_missing" | "subprocess_error" | null;
+	clipboard_failure_detail: string | null;
 }
 
 interface WorktreeTarget {
@@ -22,35 +28,56 @@ interface WorktreeTarget {
 
 interface WorktreeResolution {
 	target: WorktreeTarget;
-	alreadyAssigned: boolean;
+	isAlreadyAssigned: boolean;
 }
 
 export type WorktreeResolutionResult = { type: "ok"; resolution: WorktreeResolution } | ClinkrFailureExit;
 
 export async function resolveOrCheckoutWorktreeForBranch(ctx: SlotCliContext, branch: string): Promise<WorktreeResolutionResult> {
 	const existing = await findWorktreeForBranch(ctx, branch);
-	if (existing !== null) return { type: "ok", resolution: { target: existing, alreadyAssigned: true } };
+	if (existing !== null) return { type: "ok", resolution: { target: existing, isAlreadyAssigned: true } };
 	const result = await checkoutBranch(ctx, branch, { shouldCreateBranch: false, base: null });
 	if (result.type === "failure") return failure(result.failure.error_type, result.failure.message);
 	return {
 		type: "ok",
-		resolution: { target: { slotName: result.outcome.slot_name.length === 0 ? null : result.outcome.slot_name, branchName: result.outcome.branch_name, worktreePath: result.outcome.worktree_path }, alreadyAssigned: result.outcome.already_assigned },
+		resolution: { target: { slotName: result.outcome.slot_name.length === 0 ? null : result.outcome.slot_name, branchName: result.outcome.branch_name, worktreePath: result.outcome.worktree_path }, isAlreadyAssigned: result.outcome.already_assigned },
 	};
 }
 
 export async function buildGtNavigationResult(ctx: SlotCliContext, resolution: WorktreeResolution, options: { shouldSkipClipboard: boolean }): Promise<GtNavigationResult> {
 	await writeNavigationCdDirective(ctx, resolution.target.worktreePath);
 	const navigation = await buildNavigationResultFields(ctx, { worktreePath: resolution.target.worktreePath, shouldSkipClipboard: options.shouldSkipClipboard });
-	return { slot_name: resolution.target.slotName, branch_name: resolution.target.branchName, already_assigned: resolution.alreadyAssigned, ...navigation };
+	return {
+		slot_name: resolution.target.slotName,
+		branch_name: resolution.target.branchName,
+		is_already_assigned: resolution.isAlreadyAssigned,
+		worktree_path: navigation.worktree_path,
+		cd_command: navigation.cd_command,
+		was_clipboard_copied: navigation.clipboard_copied,
+		was_clipboard_skipped: navigation.clipboard_skipped,
+		clipboard_failure_reason: navigation.clipboard_failure_reason,
+		clipboard_failure_detail: navigation.clipboard_failure_detail,
+	};
 }
 
 export function renderGtNavigation(result: GtNavigationResult): string {
 	const lines: string[] = [];
 	if (result.slot_name === null) lines.push(`${result.branch_name} is checked out at ${result.worktree_path}`);
-	else if (result.already_assigned) lines.push(`${result.slot_name} -> ${result.branch_name}`);
+	else if (result.is_already_assigned) lines.push(`${result.slot_name} -> ${result.branch_name}`);
 	else lines.push(`Checked out ${result.slot_name} -> ${result.branch_name}`);
-	lines.push(...renderNavigationFooter(result));
+	lines.push(...renderNavigationFooter(toNavigationResultFields(result)));
 	return lines.join("\n");
+}
+
+function toNavigationResultFields(result: GtNavigationResult): NavigationResultFields {
+	return {
+		worktree_path: result.worktree_path,
+		cd_command: result.cd_command,
+		clipboard_copied: result.was_clipboard_copied,
+		clipboard_skipped: result.was_clipboard_skipped,
+		clipboard_failure_reason: result.clipboard_failure_reason,
+		clipboard_failure_detail: result.clipboard_failure_detail,
+	};
 }
 
 async function findWorktreeForBranch(ctx: SlotCliContext, branch: string): Promise<WorktreeTarget | null> {
