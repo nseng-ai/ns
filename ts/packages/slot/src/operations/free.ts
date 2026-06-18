@@ -1,7 +1,6 @@
 import { failure, negative, ok } from "@sdl/clinkr";
+import { deduplicateOrderedStrings } from "@sdl/core/collections";
 import { z } from "zod";
-
-import { deduplicateOrderedStrings } from "../collections.ts";
 import type { RepoSlotContext, SlotCliContext } from "../context.ts";
 import { buildSlotInventory, findByBranch, poolSize, type SlotInventory } from "../inventory.ts";
 import { executeFreePlan, planFreeSlots } from "../lifecycle/free.ts";

@@ -1,3 +1,7 @@
+import { deduplicateOrderedStrings } from "@sdl/core/collections";
+import { splitMarkdownFrontmatter } from "@sdl/core/markdown-frontmatter";
+import { isLowercaseKebabCaseToken } from "@sdl/core/text-identifiers";
+
 export interface SavedPlanMetadata {
 	tags: readonly string[];
 }
@@ -6,7 +10,9 @@ export type MergePlanTagsResult =
 	| { type: "ok"; content: string; tags: readonly string[] }
 	| { type: "invalid-tags"; message: string };
 
-const TAG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+export type NormalizePlanTagsResult =
+	| { type: "ok"; tags: readonly string[] }
+	| { type: "invalid"; tag: string; message: string };
 
 export function validatePlanTag(tag: string): string | undefined {
 	const trimmed = tag.trim();
@@ -16,10 +22,20 @@ export function validatePlanTag(tag: string): string | undefined {
 	if (trimmed !== tag) {
 		return "Tag must not include leading or trailing whitespace.";
 	}
-	if (!TAG_PATTERN.test(trimmed)) {
+	if (!isLowercaseKebabCaseToken(trimmed)) {
 		return "Tag must be lowercase kebab-case using only a-z, 0-9, and single hyphens.";
 	}
 	return undefined;
+}
+
+export function normalizePlanTags(tags: readonly string[]): NormalizePlanTagsResult {
+	for (const tag of tags) {
+		const error = validatePlanTag(tag);
+		if (error !== undefined) {
+			return { type: "invalid", tag, message: error };
+		}
+	}
+	return { type: "ok", tags: deduplicateOrderedStrings(tags) };
 }
 
 export function parseSavedPlanTags(content: string): readonly string[] {
@@ -35,13 +51,11 @@ export function parseSavedPlanTags(content: string): readonly string[] {
 }
 
 export function mergeSavedPlanTags(content: string, suppliedTags: readonly string[]): MergePlanTagsResult {
-	const supplied = dedupeTags(suppliedTags);
-	for (const tag of supplied) {
-		const error = validatePlanTag(tag);
-		if (error !== undefined) {
-			return { type: "invalid-tags", message: `Invalid saved-plan tag \`${tag}\`: ${error}` };
-		}
+	const normalizedSupplied = normalizePlanTags(suppliedTags);
+	if (normalizedSupplied.type === "invalid") {
+		return { type: "invalid-tags", message: `Invalid saved-plan tag \`${normalizedSupplied.tag}\`: ${normalizedSupplied.message}` };
 	}
+	const supplied = normalizedSupplied.tags;
 	if (supplied.length === 0) {
 		return { type: "ok", content, tags: parseSavedPlanTags(content) };
 	}
@@ -57,12 +71,15 @@ export function mergeSavedPlanTags(content: string, suppliedTags: readonly strin
 		return { type: "invalid-tags", message: "Existing frontmatter has malformed tags metadata." };
 	}
 
-	const mergedTags = dedupeTags([...existingTags.tags, ...supplied]);
-	const frontmatter = replaceOrInsertTagsBlock(parsed.frontmatter, formatTagsBlock(mergedTags));
+	const mergedTags = normalizePlanTags([...existingTags.tags, ...supplied]);
+	if (mergedTags.type === "invalid") {
+		return { type: "invalid-tags", message: "Existing frontmatter has malformed tags metadata." };
+	}
+	const frontmatter = replaceOrInsertTagsBlock(parsed.frontmatter, formatTagsBlock(mergedTags.tags));
 	return {
 		type: "ok",
 		content: `---\n${frontmatter}---${parsed.body}`,
-		tags: mergedTags,
+		tags: mergedTags.tags,
 	};
 }
 
@@ -74,24 +91,20 @@ interface FrontmatterParseResult {
 type TagsParseResult = { type: "ok"; tags: readonly string[] } | { type: "invalid" };
 
 function parseFrontmatter(content: string): FrontmatterParseResult | undefined {
-	if (!content.startsWith("---\n") && content !== "---") {
+	const split = splitMarkdownFrontmatter(content);
+	if (split.type !== "found") {
 		return undefined;
 	}
-	const closingIndex = content.indexOf("\n---", 4);
-	if (closingIndex === -1) {
-		return undefined;
-	}
-	const afterClosingIndex = closingIndex + "\n---".length;
-	const closingSuffix = content.slice(afterClosingIndex, afterClosingIndex + 1);
-	if (closingSuffix !== "" && closingSuffix !== "\n" && closingSuffix !== "\r") {
-		return undefined;
-	}
+	const closingLine = split.block.linesWithEndings[split.block.closingIndex] ?? "---";
+	const closingLineEnding = closingLine.endsWith("\r\n") || closingLine.endsWith("\n") ? "\n" : "";
 	return {
-		frontmatter: content.slice(4, closingIndex + 1),
-		body: content.slice(afterClosingIndex),
+		frontmatter: normalizeMarkdownLineEndings(split.block.frontmatterText),
+		body: `${closingLineEnding}${normalizeMarkdownLineEndings(split.block.body)}`,
 	};
 }
 
+// Saved-plan tags intentionally support a tiny frontmatter subset instead of full YAML:
+// a lowercase kebab-case string list under `tags:`.
 function parseTagsBlock(frontmatter: string): TagsParseResult {
 	const lines = frontmatter.split("\n");
 	const malformedTagsLine = lines.find((line) => line.trim().startsWith("tags:") && line.trim() !== "tags:");
@@ -113,13 +126,14 @@ function parseTagsBlock(frontmatter: string): TagsParseResult {
 			break;
 		}
 		const tag = line.replace(/^\s*-\s*/, "");
-		if (validatePlanTag(tag) !== undefined) {
-			return { type: "invalid" };
-		}
 		tags.push(tag);
 	}
 
-	return { type: "ok", tags: dedupeTags(tags) };
+	const normalized = normalizePlanTags(tags);
+	if (normalized.type === "invalid") {
+		return { type: "invalid" };
+	}
+	return normalized;
 }
 
 function replaceOrInsertTagsBlock(frontmatter: string, tagsBlock: string): string {
@@ -147,16 +161,6 @@ function formatTagsBlock(tags: readonly string[]): string {
 	return `tags:\n${tags.map((tag) => `  - ${tag}`).join("\n")}\n`;
 }
 
-function dedupeTags(tags: readonly string[]): readonly string[] {
-	const seen = new Set<string>();
-	const deduped: string[] = [];
-	for (const tag of tags) {
-		const trimmed = tag.trim();
-		if (seen.has(trimmed)) {
-			continue;
-		}
-		seen.add(trimmed);
-		deduped.push(trimmed);
-	}
-	return deduped;
+function normalizeMarkdownLineEndings(text: string): string {
+	return text.replaceAll("\r\n", "\n");
 }

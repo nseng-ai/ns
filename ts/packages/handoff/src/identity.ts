@@ -1,9 +1,8 @@
 import { brmemError, brmemOk, validateEntryKey, type BrmemResult } from "@sdl/brmem";
+import { isLowercaseKebabCaseToken } from "@sdl/core/text-identifiers";
 
 export const HANDOFF_NAMESPACE = "handoff";
 export const HANDOFF_KEY_SUFFIX = ".md";
-
-const FLAT_HANDOFF_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export type FlatHandoffSlugParseResult =
 	| { type: "valid"; slug: string }
@@ -41,7 +40,7 @@ export function parseFlatHandoffSlug(
 	if (slug.includes("/")) {
 		return { type: "invalid", message: `${label} must be flat and must not contain '/'.` };
 	}
-	if (!FLAT_HANDOFF_SLUG_PATTERN.test(slug)) {
+	if (!isLowercaseKebabCaseToken(slug)) {
 		return {
 			type: "invalid",
 			message: `${label} must use lowercase letters, numbers, and single interior dashes only.`,

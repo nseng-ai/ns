@@ -41,9 +41,11 @@ export {
 } from "./plan-persistence.ts";
 export {
 	mergeSavedPlanTags,
+	normalizePlanTags,
 	parseSavedPlanTags,
 	validatePlanTag,
 	type MergePlanTagsResult,
+	type NormalizePlanTagsResult,
 	type SavedPlanMetadata,
 } from "./saved-plan-metadata.ts";
 export {

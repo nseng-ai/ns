@@ -120,6 +120,16 @@ describe("writeSavedPlanFile", () => {
 		expect(git.calls).toEqual([]);
 	});
 
+	test("rejects invalid tags before git commands or filesystem writes", async () => {
+		const planStoreRoot = await makeTempDir("source-plan-store-");
+		const git = new FakeGitGateway();
+
+		await expect(
+			writeSavedPlanFile(unusedPi, { slug: PLAN_SLUG, content: "# Test Plan\n", tags: ["Follow-Up"] }, { cwd: ROOT, planStoreRoot, git }),
+		).rejects.toThrow("writeSavedPlanFile parameter `tags` contains invalid tag `Follow-Up`");
+		expect(git.calls).toEqual([]);
+	});
+
 	test("rejects detached HEAD with a clear named-branch message", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
 		const git = new FakeGitGateway({ currentBranch: undefined });

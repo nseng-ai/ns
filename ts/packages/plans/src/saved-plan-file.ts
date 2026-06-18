@@ -9,9 +9,9 @@ import {
 	githubRepositoryIdentityFromNormalizedRemoteUrl,
 	normalizeGitRemoteUrl,
 } from "@sdl/core/github-status";
-import { normalizeSummary, validatePlanSlug } from "./plan-persistence.ts";
 import { isRecord } from "@sdl/core/primitives";
-import { mergeSavedPlanTags, parseSavedPlanTags } from "./saved-plan-metadata.ts";
+import { normalizeSummary, validatePlanSlug } from "./plan-persistence.ts";
+import { mergeSavedPlanTags, normalizePlanTags, parseSavedPlanTags } from "./saved-plan-metadata.ts";
 
 const MAX_SEGMENT_LENGTH = 120;
 const PLAN_FILE_SUFFIX = ".md";
@@ -376,12 +376,16 @@ function parseSavedPlanFileParams(params: unknown): SavedPlanFileParams {
 	if (tags !== undefined && (!Array.isArray(tags) || !tags.every((tag) => typeof tag === "string"))) {
 		throw new Error("writeSavedPlanFile parameter `tags` must be an array of strings when provided.");
 	}
+	const normalizedTags = tags === undefined ? undefined : normalizePlanTags(tags);
+	if (normalizedTags?.type === "invalid") {
+		throw new Error(`writeSavedPlanFile parameter \`tags\` contains invalid tag \`${normalizedTags.tag}\`: ${normalizedTags.message}`);
+	}
 
 	return {
 		slug,
 		content,
 		...(summary === undefined ? {} : { summary }),
-		...(tags === undefined ? {} : { tags }),
+		...(normalizedTags === undefined ? {} : { tags: normalizedTags.tags }),
 	};
 }
 

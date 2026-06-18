@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { deduplicateOrderedStrings } from "../../src/collections.ts";
+import { deduplicateOrderedStrings } from "@sdl/core/collections";
 import { collectStackBranches, collectStackEdges } from "../../src/operations/gt/stack-walk.ts";
 import { fakeStackInfo } from "../../src/gateways/fakes/gt.ts";
 

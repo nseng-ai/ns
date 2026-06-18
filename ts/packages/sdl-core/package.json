@@ -11,6 +11,7 @@
     "./text-table": "./src/text-table.ts",
     "./terminal-escapes": "./src/terminal-escapes.ts",
     "./text-truncation": "./src/text-truncation.ts",
+    "./text-identifiers": "./src/text-identifiers.ts",
     "./time-format": "./src/time-format.ts",
     "./clock": "./src/clock.ts",
     "./timers": "./src/timers.ts",
@@ -25,6 +26,7 @@
     "./git": "./src/git/index.ts",
     "./git/testing": "./src/git/testing.ts",
     "./brmem-cli": "./src/brmem-cli.ts",
+    "./collections": "./src/collections.ts",
     "./testing": "./src/testing/index.ts",
     "./submit": "./src/submit/index.ts",
     "./text-repair": "./src/text-repair.ts"

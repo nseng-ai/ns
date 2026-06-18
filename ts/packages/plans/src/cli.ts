@@ -17,7 +17,7 @@ import {
 	resolvePlanSourceFile,
 	validatePlanSlug,
 } from "./plan-persistence.ts";
-import { validatePlanTag } from "./saved-plan-metadata.ts";
+import { normalizePlanTags } from "./saved-plan-metadata.ts";
 import {
 	findLatestSavedPlanFile,
 	formatSavedPlanFileEvidence,
@@ -322,19 +322,11 @@ function formatLatestSavedPlanFileEvidence(evidence: LatestSavedPlanFileEvidence
 }
 
 function validateTagInputs(tags: readonly string[], role: "filter" | "save"): readonly string[] {
-	const deduped: string[] = [];
-	const seen = new Set<string>();
-	for (const tag of tags) {
-		const error = validatePlanTag(tag);
-		if (error !== undefined) {
-			throw new Error(`Invalid saved-plan ${role} tag \`${tag}\`: ${error}`);
-		}
-		if (!seen.has(tag)) {
-			seen.add(tag);
-			deduped.push(tag);
-		}
+	const normalized = normalizePlanTags(tags);
+	if (normalized.type === "invalid") {
+		throw new Error(`Invalid saved-plan ${role} tag \`${normalized.tag}\`: ${normalized.message}`);
 	}
-	return deduped;
+	return normalized.tags;
 }
 
 function filterPlansByTags(plans: readonly SavedPlanListItem[], tagFilters: readonly string[]): readonly SavedPlanListItem[] {

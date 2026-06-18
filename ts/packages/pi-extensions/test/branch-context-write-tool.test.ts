@@ -97,7 +97,7 @@ describe("write_saved_plan_file tool", () => {
 		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
 		const tool = registeredTool(pi, "write_saved_plan_file");
 
-		await tool.execute("tool-call", { content, tags: ["follow-up", "architecture"] }, undefined, undefined, { cwd: ROOT });
+		await tool.execute("tool-call", { content, tags: ["follow-up", "architecture", "follow-up"] }, undefined, undefined, { cwd: ROOT });
 
 		pi.assertDone();
 		expect(fakes.writePlanCalls[0]?.[1]).toEqual({ slug: PLAN_SLUG, content, tags: ["follow-up", "architecture"] });

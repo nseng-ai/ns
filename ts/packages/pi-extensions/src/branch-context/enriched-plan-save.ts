@@ -10,7 +10,7 @@ import {
 	WRITE_SAVED_PLAN_FILE_TOOL_NAME,
 	deriveSavedPlanContentSlug,
 	formatSavedPlanFileEvidence,
-	validatePlanTag,
+	normalizePlanTags,
 	type SavedPlanContentSlugEvidence,
 	type SavedPlanFileEvidence,
 } from "@sdl/plans";
@@ -498,19 +498,15 @@ function parseWriteSavedPlanFileToolParamsForName(
 	if (tags !== undefined && (!Array.isArray(tags) || !tags.every((tag) => typeof tag === "string"))) {
 		throw new Error(`${toolName} parameter \`tags\` must be an array of strings when provided.`);
 	}
-	if (Array.isArray(tags)) {
-		for (const tag of tags) {
-			const error = validatePlanTag(tag);
-			if (error !== undefined) {
-				throw new Error(`${toolName} parameter \`tags\` contains invalid tag \`${tag}\`: ${error}`);
-			}
-		}
+	const normalizedTags = tags === undefined ? undefined : normalizePlanTags(tags);
+	if (normalizedTags?.type === "invalid") {
+		throw new Error(`${toolName} parameter \`tags\` contains invalid tag \`${normalizedTags.tag}\`: ${normalizedTags.message}`);
 	}
 
 	return {
 		content,
 		...(summary === undefined ? {} : { summary }),
-		...(tags === undefined ? {} : { tags }),
+		...(normalizedTags === undefined ? {} : { tags: normalizedTags.tags }),
 	};
 }
 

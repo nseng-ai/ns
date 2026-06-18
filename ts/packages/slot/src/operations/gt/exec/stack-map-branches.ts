@@ -1,4 +1,5 @@
 import { failure, ok } from "@sdl/clinkr";
+import { deduplicateOrderedStrings } from "@sdl/core/collections";
 import type {
 	GraphiteBranchTopology,
 	GraphiteTopology,
@@ -6,8 +7,6 @@ import type {
 	GraphiteWalkTermination,
 } from "@sdl/core/graphite-metadata";
 import { z } from "zod";
-
-import { deduplicateOrderedStrings } from "../../../collections.ts";
 import type { SlotCliContext } from "../../../context.ts";
 import type { LocalBranchTip } from "../../../gateways/git.ts";
 import type { StackInfo } from "../../../gateways/gt.ts";

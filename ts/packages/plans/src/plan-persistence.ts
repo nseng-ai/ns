@@ -5,6 +5,7 @@ import { isAbsolute, join, resolve } from "node:path";
 import type { CommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@sdl/core/git";
 import { isPathInside } from "@sdl/core/primitives";
+import { isLowercaseKebabCaseToken } from "@sdl/core/text-identifiers";
 
 export { isPathInside } from "@sdl/core/primitives";
 
@@ -20,7 +21,6 @@ const GENERIC_SLUG_WORDS = new Set([
 	"update",
 	"updates",
 ]);
-
 export function validatePlanSlug(slug: string): string | undefined {
 	const normalized = slug.trim();
 	if (normalized.length === 0) {
@@ -31,7 +31,7 @@ export function validatePlanSlug(slug: string): string | undefined {
 		return "Pass the slug without the .md suffix.";
 	}
 
-	if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(normalized)) {
+	if (!isLowercaseKebabCaseToken(normalized)) {
 		return "Slug must be lowercase kebab-case using only a-z, 0-9, and single hyphens.";
 	}
 
