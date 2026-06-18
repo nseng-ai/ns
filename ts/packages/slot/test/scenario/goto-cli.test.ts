@@ -46,6 +46,21 @@ describe("slot goto CLI", () => {
 		expect(parseJsonOutput(run)).toMatchObject({ data: { operation: "rebase" } });
 	});
 
+	it("treats clipboard failure as non-fatal and still emits the cd command", async () => {
+		const run = runScenario(["goto", "-n", "1", "--format", "json"], {
+			clipboardResult: { type: "failure", reason: "backend_missing", detail: "missing pbcopy" },
+			git: { worktrees: [slotWorktree("slot-01", "feature/a")], localBranches: ["feature/a"] },
+		});
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({ data: { cd_command: "cd /slots/repos/repo/worktrees/slot-01", clipboard_copied: false, clipboard_skipped: false, clipboard_failure_reason: "backend_missing", clipboard_failure_detail: "missing pbcopy" } });
+	});
+
+	it("marks clipboard as skipped with --no-clipboard", async () => {
+		const run = runScenario(["goto", "-n", "1", "--no-clipboard", "--format", "json"], { git: { worktrees: [slotWorktree("slot-01", "feature/a")], localBranches: ["feature/a"] } });
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({ data: { clipboard_copied: false, clipboard_skipped: true, clipboard_failure_reason: null, clipboard_failure_detail: null } });
+	});
+
 	it("writes the shell cd directive for human output", async () => {
 		const directivePath = await makeDirectivePath();
 		const run = runScenario(["goto", "-n", "1"], { env: { PATH: "/fake/bin", [SLOT_CD_DIRECTIVE_FILE]: directivePath }, git: { worktrees: [slotWorktree("slot-01", "feature/a")], localBranches: ["feature/a"] } });

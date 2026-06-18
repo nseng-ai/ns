@@ -14,8 +14,8 @@ export const gtNavigationResultSchema = z.object({
 	worktree_path: z.string(),
 	cd_command: z.string(),
 	is_already_assigned: z.boolean(),
-	was_clipboard_copied: z.boolean(),
-	was_clipboard_skipped: z.boolean(),
+	is_clipboard_copied: z.boolean(),
+	is_clipboard_skipped: z.boolean(),
 	clipboard_failure_reason: z.union([z.literal("backend_missing"), z.literal("subprocess_error")]).nullable(),
 	clipboard_failure_detail: z.string().nullable(),
 });

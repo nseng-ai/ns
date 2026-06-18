@@ -8,6 +8,7 @@ import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 import { createRealSlotContext, type SlotCliContext } from "./context.ts";
 import { checkoutRequestSchema, checkoutResultSchema, renderCheckout, runCheckout } from "./operations/checkout.ts";
 import { claimRequestSchema, claimResultSchema, renderClaim, runClaim } from "./operations/claim.ts";
+import { completionInstallRequestSchema, completionInstallResultSchema, completionShowRequestSchema, completionShowResultSchema, renderCompletionInstall, renderCompletionShow, runCompletionInstall, runCompletionShow } from "./operations/completion.ts";
 import { freeRequestSchema, freeResultSchema, renderFree, runFree } from "./operations/free.ts";
 import { gcRequestSchema, gcResultSchema, renderGc, runGc } from "./operations/gc.ts";
 import { gtDownRequestSchema, gtDownResultSchema, renderGtNavigation as renderGtDownNavigation, runGtDown } from "./operations/gt/down.ts";
@@ -18,6 +19,7 @@ import { gotoRequestSchema, gotoResultSchema, renderGoto, runGoto } from "./oper
 import { initRequestSchema, initResultSchema, renderInit, runInit } from "./operations/init.ts";
 import { listRequestSchema, listResultSchema, renderList, runList } from "./operations/list.ts";
 import { renderResize, resizeRequestSchema, resizeResultSchema, runResize } from "./operations/resize.ts";
+import { renderShellInstall, renderShellShow, runShellInstall, runShellShow, shellInstallRequestSchema, shellInstallResultSchema, shellShowRequestSchema, shellShowResultSchema } from "./operations/shell.ts";
 
 export const VERSION = "0.1.0";
 
@@ -127,8 +129,56 @@ export function buildCli(): ClinkrGroup<SlotCliContext> {
 		handler: runResize,
 		renderHuman: renderResize,
 	});
+	root.group(buildShellGroup());
+	root.group(buildCompletionGroup());
 	root.group(buildGtGroup());
 	return root;
+}
+
+function buildShellGroup(): ClinkrGroup<SlotCliContext> {
+	const shell = new ClinkrGroup<SlotCliContext>({ name: "shell", description: "Show or install parent-shell integration." });
+	shell.command({
+		name: "show",
+		description: "Print the parent-shell wrapper script.",
+		schema: shellShowRequestSchema,
+		options: { shell: {} },
+		resultSchema: shellShowResultSchema,
+		handler: runShellShow,
+		renderHuman: renderShellShow,
+	});
+	shell.command({
+		name: "install",
+		description: "Install the parent-shell wrapper in the detected or selected rc file.",
+		schema: shellInstallRequestSchema,
+		options: { shell: {} },
+		resultSchema: shellInstallResultSchema,
+		handler: runShellInstall,
+		renderHuman: renderShellInstall,
+	});
+	return shell;
+}
+
+function buildCompletionGroup(): ClinkrGroup<SlotCliContext> {
+	const completion = new ClinkrGroup<SlotCliContext>({ name: "completion", description: "Show or install shell completion." });
+	completion.command({
+		name: "show",
+		description: "Print the shell completion script.",
+		schema: completionShowRequestSchema,
+		options: { shell: {} },
+		resultSchema: completionShowResultSchema,
+		handler: runCompletionShow,
+		renderHuman: renderCompletionShow,
+	});
+	completion.command({
+		name: "install",
+		description: "Install shell completion in the detected or selected rc file.",
+		schema: completionInstallRequestSchema,
+		options: { shell: {} },
+		resultSchema: completionInstallResultSchema,
+		handler: runCompletionInstall,
+		renderHuman: renderCompletionInstall,
+	});
+	return completion;
 }
 
 function buildGtGroup(): ClinkrGroup<SlotCliContext> {

@@ -1,6 +1,6 @@
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import type { SlotCliContext } from "../../src/context.ts";
-import { FakeClipboardGateway } from "../../src/gateways/clipboard.ts";
+import { FakeClipboardGateway, type ClipboardCopyResult } from "../../src/gateways/clipboard.ts";
 import { FakeSlotGitGateway, type FakeSlotGitGatewayOptions } from "../../src/gateways/fakes/git.ts";
 import { FakeSlotGtGateway, type FakeSlotGtGatewayOptions } from "../../src/gateways/fakes/gt.ts";
 import { FakeSlotPrGateway, type FakeSlotPrGatewayOptions } from "../../src/gateways/fakes/pr.ts";
@@ -15,6 +15,7 @@ export interface ScenarioRunOptions {
 	stdin?: string | (() => Promise<string>) | undefined;
 	env?: NodeJS.ProcessEnv | undefined;
 	repo?: RepoContext | { type: "no_repo"; errorType: "not_in_repo"; message: string } | undefined;
+	clipboardResult?: ClipboardCopyResult | undefined;
 }
 
 export interface ScenarioRun {
@@ -44,7 +45,7 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 		gt,
 		pr,
 		storage,
-		clipboard: new FakeClipboardGateway(),
+		clipboard: new FakeClipboardGateway(options.clipboardResult),
 		cwd,
 		stdin: async () => (typeof stdin === "function" ? await stdin() : stdin ?? ""),
 		stderr: (text) => stderr.push(text),
