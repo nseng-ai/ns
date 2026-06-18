@@ -1,11 +1,5 @@
 import { z } from "zod";
 
-export interface GithubPrStatusView {
-	number: number;
-	url: string;
-	statusCheckRollup: readonly unknown[];
-}
-
 export interface GithubPrIdentity {
 	owner: string;
 	repo: string;
@@ -48,19 +42,8 @@ export interface GithubWorktreePrStatus {
 	checks: GithubCheckTally;
 }
 
-export const githubReviewThreadCountsQuery =
-	"query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){reviewThreads(first:100){totalCount pageInfo{hasNextPage} nodes{isResolved}}}}}";
-
 export const githubWorktreePrStatusQuery =
 	"query($owner:String!,$repo:String!,$headRefName:String!){repository(owner:$owner,name:$repo){pullRequests(first:2,states:OPEN,headRefName:$headRefName,orderBy:{field:UPDATED_AT,direction:DESC}){nodes{number url headRefName headRefOid statusCheckRollup{contexts(first:100){pageInfo{hasNextPage} nodes{__typename ... on CheckRun{status conclusion} ... on StatusContext{state}}}} reviewThreads(first:100){totalCount pageInfo{hasNextPage} nodes{isResolved}}}}}}";
-
-const githubPrStatusViewSchema = z
-	.object({
-		number: z.number().int().positive(),
-		url: z.string(),
-		statusCheckRollup: z.array(z.unknown()).catch([]),
-	})
-	.loose();
 
 const githubGraphqlErrorsSchema = z.object({ errors: z.array(z.unknown()).optional() }).loose();
 
@@ -69,18 +52,6 @@ const githubReviewThreadConnectionSchema = z
 		totalCount: z.number().int().nonnegative().optional(),
 		pageInfo: z.object({ hasNextPage: z.boolean().default(false) }).loose().default({ hasNextPage: false }),
 		nodes: z.array(z.object({ isResolved: z.boolean() }).loose()).default([]),
-	})
-	.loose();
-
-const githubReviewThreadCountsResponseSchema = z
-	.object({
-		data: z.object({
-			repository: z.object({
-				pullRequest: z.object({
-					reviewThreads: githubReviewThreadConnectionSchema,
-				}),
-			}),
-		}),
 	})
 	.loose();
 
@@ -132,21 +103,6 @@ const FAILING_CHECK_RUN_CONCLUSIONS = new Set([
 const PENDING_CHECK_RUN_STATUSES = new Set(["QUEUED", "IN_PROGRESS", "WAITING", "REQUESTED", "PENDING"]);
 const FAILING_STATUS_CONTEXT_STATES = new Set(["ERROR", "FAILURE"]);
 
-export function githubReviewThreadCountsArgs(identity: GithubPrIdentity): string[] {
-	return [
-		"api",
-		"graphql",
-		"-f",
-		`query=${githubReviewThreadCountsQuery}`,
-		"-f",
-		`owner=${identity.owner}`,
-		"-f",
-		`repo=${identity.repo}`,
-		"-F",
-		`number=${identity.number}`,
-	];
-}
-
 export function githubWorktreePrStatusArgs(identity: GithubWorktreePrStatusArgs): string[] {
 	return [
 		"api",
@@ -160,18 +116,6 @@ export function githubWorktreePrStatusArgs(identity: GithubWorktreePrStatusArgs)
 		"-f",
 		`headRefName=${identity.headRefName}`,
 	];
-}
-
-export function parseGithubPrStatusViewJson(stdout: string): GithubPrStatusView | undefined {
-	const parsed = parseJson(stdout);
-	if (parsed === undefined) return undefined;
-	const result = githubPrStatusViewSchema.safeParse(parsed);
-	if (!result.success) return undefined;
-	return {
-		number: result.data.number,
-		url: result.data.url,
-		statusCheckRollup: result.data.statusCheckRollup,
-	};
 }
 
 export function githubPrIdentityFromUrl(url: string, expectedNumber?: number): GithubPrIdentity | undefined {
@@ -209,15 +153,6 @@ export function githubRepositoryIdentityFromRemoteUrl(url: string): GithubReposi
 	const parts = parsed.pathname.split("/").filter((part) => part.length > 0);
 	if (parts.length !== 2) return undefined;
 	return repositoryIdentityFromParts(parts[0], parts[1]);
-}
-
-export function parseGithubReviewThreadCountsJson(stdout: string): GithubReviewThreadCounts | undefined {
-	const parsed = parseGraphqlJson(stdout);
-	if (parsed === undefined) return undefined;
-
-	const result = githubReviewThreadCountsResponseSchema.safeParse(parsed);
-	if (!result.success) return undefined;
-	return reviewThreadCountsFromConnection(result.data.data.repository.pullRequest.reviewThreads);
 }
 
 export function parseGithubWorktreePrStatusJson(stdout: string): GithubWorktreePrStatus[] | undefined {

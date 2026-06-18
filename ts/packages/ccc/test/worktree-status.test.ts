@@ -369,6 +369,7 @@ describe("worktree status formatting", () => {
 			"[gh] #1736 · comments 0/0 · actions 0✓ · landable",
 		);
 		expect(formatGhStatus({ type: "no-pr" })).toBe("[gh] no PR");
+		expect(formatGhStatus({ type: "head-mismatch" })).toBe("[gh] local ahead of PR");
 		expect(formatGhStatus({ type: "unavailable" })).toBe("[gh] unavailable");
 		expect(formatGhStatus({ type: "unavailable", message: "gh api graphql exited 1: timeout" })).toBe(
 			"[gh] unavailable: gh api graphql exited 1: timeout",
@@ -387,6 +388,7 @@ describe("worktree status formatting", () => {
 		expect(landable).toContain("<accent>16✓</accent>");
 		expect(landable).toContain("<accent>landable</accent>");
 		expect(formatGhStatus({ type: "no-pr" }, MARKER_THEME)).toBe("<dim>[gh] no PR</dim>");
+		expect(formatGhStatus({ type: "head-mismatch" }, MARKER_THEME)).toBe("<warning>[gh] local ahead of PR</warning>");
 		expect(formatGhStatus({ type: "unavailable", message: "timeout" }, MARKER_THEME)).toBe(
 			"<warning>[gh] unavailable</warning><dim>: timeout</dim>",
 		);
@@ -604,7 +606,7 @@ describe("composed local and gh worktree status loading", () => {
 		});
 	});
 
-	test("treats a PR head OID mismatch as unavailable", async () => {
+	test("treats a PR head OID mismatch as local ahead of PR", async () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new OrderlessFakePi([
 				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
@@ -616,8 +618,10 @@ describe("composed local and gh worktree status loading", () => {
 			const status = await loadComposedWorktreeStatus(pi, root);
 
 			pi.assertDone();
-			expect(status.gh).toEqual({ type: "unavailable", message: "PR head differs from local HEAD" });
+			expect(status.gh).toEqual({ type: "head-mismatch" });
+			expect(formatWorktreeStatus(status)).toContain("[gh] local ahead of PR");
 			expect(formatWorktreeStatus(status).join("\n")).not.toContain("landable");
+			expect(formatWorktreeStatus(status).join("\n")).not.toContain("#1736");
 		});
 	});
 

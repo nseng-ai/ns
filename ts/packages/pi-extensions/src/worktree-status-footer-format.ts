@@ -1,9 +1,12 @@
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
+
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
 import {
-	formatWorktreeFooterIdentity,
 	formatWorktreeStatusForFooter,
 	WORKTREE_STATUS_UI_KEY,
+	type GtCommitStatus,
+	type GtStatus,
 	type StatusTheme,
 	type WorktreeStatus,
 } from "@asdl/ccc/worktree-status";
@@ -72,6 +75,139 @@ interface FooterExtensionStatusLines {
 	activity: string[];
 }
 
+export interface WorktreeFooterIdentityOptions {
+	readonly cwd: string;
+	readonly branch: string;
+	readonly fallbackRepo: string;
+	readonly home?: string | undefined;
+	readonly width: number;
+	readonly gt?: GtStatus | undefined;
+	readonly theme: StatusTheme;
+}
+
+interface FooterIdentityParts {
+	repo: string;
+	slot: string;
+	branch: string;
+	relativePath: string;
+}
+
+type FooterIdentityColor = "dim" | "accent" | "warning" | "error";
+
+interface FooterIdentitySegment {
+	text: string;
+	color: FooterIdentityColor;
+}
+
+export function formatWorktreeFooterIdentity(options: WorktreeFooterIdentityOptions): string {
+	const identity = footerIdentityParts(options.cwd, options.branch, options.fallbackRepo, options.home);
+	const segments = buildFooterIdentitySegments(identity, options.gt);
+	const rawFullIdentity = rawFooterIdentity(segments);
+	if (visibleWidth(rawFullIdentity) <= options.width) return colorFooterIdentitySegments(segments, options.theme);
+	return options.theme.fg("dim", truncateToWidth(rawFullIdentity, options.width, "..."));
+}
+
+function buildFooterIdentitySegments(identity: FooterIdentityParts, gt: GtStatus | undefined): FooterIdentitySegment[] {
+	const segments: FooterIdentitySegment[] = [
+		{ text: "[wt]", color: "dim" },
+		{ text: " ", color: "dim" },
+		{ text: "repo:", color: "dim" },
+		{ text: identity.repo, color: "accent" },
+		{ text: " ", color: "dim" },
+		{ text: "wt:", color: "dim" },
+		{ text: identity.slot, color: "accent" },
+		{ text: " ", color: "dim" },
+		{ text: "pwd:", color: "dim" },
+		{ text: identity.relativePath, color: "accent" },
+	];
+	if (gt?.dirty === "yes") {
+		segments.push(
+			{ text: " (", color: "dim" },
+			{ text: "✗", color: "error" },
+			{ text: ")", color: "dim" },
+		);
+	}
+	segments.push(
+		{ text: " | ", color: "dim" },
+		{ text: "br:", color: "dim" },
+		{ text: identity.branch, color: "warning" },
+	);
+	if (gt !== undefined) {
+		segments.push(
+			{ text: " ", color: "dim" },
+			{ text: "↓:", color: "dim" },
+			{ text: gt.down ?? "-", color: "accent" },
+			{ text: " ", color: "dim" },
+			{ text: "commits:", color: "dim" },
+			{ text: footerCommitCount(gt.commits), color: "accent" },
+			{ text: " ", color: "dim" },
+			{ text: "↑:", color: "dim" },
+			{ text: gt.up, color: "accent" },
+		);
+	}
+	return segments;
+}
+
+function rawFooterIdentity(segments: readonly FooterIdentitySegment[]): string {
+	return segments.map((segment) => segment.text).join("");
+}
+
+function colorFooterIdentitySegments(segments: readonly FooterIdentitySegment[], theme: StatusTheme): string {
+	return segments.map((segment) => theme.fg(segment.color, segment.text)).join("");
+}
+
+function footerCommitCount(commits: GtCommitStatus): string {
+	switch (commits.type) {
+		case "count":
+			return commits.count.toString();
+		case "unknown":
+			return "?";
+		case "not-applicable":
+			return "-";
+	}
+}
+
+function footerIdentityParts(cwd: string, branch: string, fallbackRepo: string, home: string | undefined): FooterIdentityParts {
+	const slotInfo = slotInfoFromCwd(cwd);
+	if (slotInfo !== undefined) {
+		const relativePath = relative(slotInfo.worktreeRoot, resolve(cwd));
+		return { repo: slotInfo.repo, slot: slotInfo.slot, branch, relativePath: relativePath.length > 0 ? relativePath : "." };
+	}
+	return { repo: fallbackRepo, slot: "no-slot", branch, relativePath: formatFooterCwd(cwd, home) };
+}
+
+function slotInfoFromCwd(cwd: string): { repo: string; slot: string; worktreeRoot: string } | undefined {
+	const resolvedCwd = resolve(cwd);
+	const parts = resolvedCwd.split(sep);
+	for (let index = 0; index < parts.length - 4; index++) {
+		if (parts[index] !== ".slots" || parts[index + 1] !== "repos" || parts[index + 3] !== "worktrees") continue;
+		const repo = parts[index + 2];
+		const slot = parts[index + 4];
+		if (repo === undefined || repo.length === 0 || slot === undefined || slot.length === 0) return undefined;
+		return { repo, slot, worktreeRoot: pathFromParts(parts.slice(0, index + 5)) };
+	}
+	return undefined;
+}
+
+function pathFromParts(parts: readonly string[]): string {
+	if (parts[0] === "") return `${sep}${join(...parts.slice(1))}`;
+	return join(...parts);
+}
+
+function formatFooterCwd(cwd: string, home: string | undefined): string {
+	if (!home) return cwd;
+
+	const resolvedCwd = resolve(cwd);
+	const resolvedHome = resolve(home);
+	const relativeToHome = relative(resolvedHome, resolvedCwd);
+	const isInsideHome =
+		relativeToHome === "" ||
+		(relativeToHome !== ".." && !relativeToHome.startsWith(`..${sep}`) && !isAbsolute(relativeToHome));
+
+	if (!isInsideHome) return cwd;
+	return relativeToHome === "" ? "~" : `~${sep}${relativeToHome}`;
+}
+
 export function renderStatusFooter(options: StatusFooterRenderOptions): string[] {
 	const { ctx, footerData, theme, width, cwd, branch, fallbackRepo, worktreeStatus } = options;
 	const identity = formatWorktreeFooterIdentity({
@@ -80,7 +216,7 @@ export function renderStatusFooter(options: StatusFooterRenderOptions): string[]
 		fallbackRepo,
 		home: process.env.HOME || process.env.USERPROFILE,
 		width,
-		status: worktreeStatus,
+		gt: worktreeStatus?.gt,
 		theme,
 	});
 

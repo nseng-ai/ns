@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 import { resolveBrmemCommandCandidates, runBrmemCandidate } from "@asdl/core/brmem-cli";
 import { execApiToCommandRunner, formatCommand, normalizeExecResult, tailText, type CommandExecApi, type ExecOptions, type PiExecResultLike } from "@asdl/core/exec";
@@ -82,6 +82,7 @@ export interface LoadGtStatusOptions {
 
 export interface LoadLocalWorktreeStatusOptions {
 	signal?: AbortSignal | undefined;
+	identity?: WorktreeStatusIdentity | undefined;
 	metadataLoader?: GraphiteMetadataLoader | undefined;
 	onDiagnostic?: ((diagnostic: GraphiteMetadataWorkerDiagnostic) => void) | undefined;
 }
@@ -109,6 +110,7 @@ export type WorktreeGhStatus =
 	| GhStatus
 	| { type: "pending" }
 	| { type: "no-pr" }
+	| { type: "head-mismatch" }
 	| { type: "unavailable"; message?: string | undefined };
 
 export interface LocalWorktreeStatus {
@@ -147,6 +149,7 @@ export async function loadLocalWorktreeStatus(
 		gtMetadataDiagnostic = diagnostic;
 		options.onDiagnostic?.(diagnostic);
 	};
+	const identityPromise = options.identity ?? loadWorktreeStatusIdentity(pi, cwd, options.signal);
 	const [brmem, gt, identity] = await Promise.all([
 		loadBrmemStatus(pi, cwd, options.signal),
 		loadGtStatus({
@@ -156,7 +159,7 @@ export async function loadLocalWorktreeStatus(
 			metadataLoader: options.metadataLoader,
 			onDiagnostic,
 		}),
-		loadWorktreeStatusIdentity(pi, cwd, options.signal),
+		identityPromise,
 	]);
 
 	const status: LocalWorktreeStatus = { identity, brmem, gt };
@@ -347,7 +350,7 @@ async function loadDirty(pi: ExecGateway, cwd: string, signal?: AbortSignal): Pr
 	}
 }
 
-async function loadWorktreeStatusIdentity(
+export async function loadWorktreeStatusIdentity(
 	pi: ExecGateway,
 	cwd: string,
 	signal?: AbortSignal,
@@ -402,7 +405,7 @@ async function loadGhStatus(
 	if (identity.headOid === undefined) return { type: "unavailable", message: "could not verify local HEAD" };
 
 	const pr = prs.find((candidate) => candidate.headRefOid === identity.headOid);
-	if (pr === undefined) return { type: "unavailable", message: "PR head differs from local HEAD" };
+	if (pr === undefined) return { type: "head-mismatch" };
 	return {
 		type: "available",
 		prNumber: pr.number,
@@ -589,6 +592,7 @@ export function formatGhStatus(status: WorktreeGhStatus, theme?: StatusTheme): s
 function formatGhStatusLine(status: WorktreeGhStatus, theme?: StatusTheme): string | undefined {
 	if (status.type === "pending") return undefined;
 	if (status.type === "no-pr") return formatColoredSegment("[gh] no PR", "dim", theme);
+	if (status.type === "head-mismatch") return formatColoredSegment("[gh] local ahead of PR", "warning", theme);
 	if (status.type === "unavailable") {
 		const detail = status.message === undefined ? "" : formatColoredSegment(`: ${status.message}`, "dim", theme);
 		return `${formatColoredSegment("[gh] unavailable", "warning", theme)}${detail}`;
@@ -657,144 +661,6 @@ function formatStatusSegment(text: string, theme: StatusTheme | undefined): stri
 
 function formatColoredSegment(text: string, color: string, theme: StatusTheme | undefined): string {
 	return theme ? theme.fg(color, text) : text;
-}
-
-export interface WorktreeFooterIdentityOptions {
-	readonly cwd: string;
-	readonly branch: string;
-	readonly fallbackRepo: string;
-	readonly home?: string | undefined;
-	readonly width: number;
-	readonly status?: WorktreeStatus | undefined;
-	readonly theme: StatusTheme;
-}
-
-interface FooterIdentityParts {
-	repo: string;
-	slot: string;
-	branch: string;
-	relativePath: string;
-}
-
-interface FooterIdentitySegment {
-	text: string;
-	color: string;
-}
-
-export function formatWorktreeFooterIdentity(options: WorktreeFooterIdentityOptions): string {
-	const identity = footerIdentityParts(options.cwd, options.branch, options.fallbackRepo, options.home);
-	const segments = buildFooterIdentitySegments(identity, options.status?.gt);
-	const rawFullIdentity = rawFooterIdentity(segments);
-	if (rawFullIdentity.length <= options.width) return colorFooterIdentitySegments(segments, options.theme);
-	return options.theme.fg("dim", truncateFooterIdentity(rawFullIdentity, options.width));
-}
-
-function buildFooterIdentitySegments(identity: FooterIdentityParts, gt: GtStatus | undefined): FooterIdentitySegment[] {
-	const segments: FooterIdentitySegment[] = [
-		{ text: "[wt]", color: "dim" },
-		{ text: " ", color: "dim" },
-		{ text: "repo:", color: "dim" },
-		{ text: identity.repo, color: "accent" },
-		{ text: " ", color: "dim" },
-		{ text: "wt:", color: "dim" },
-		{ text: identity.slot, color: "accent" },
-		{ text: " ", color: "dim" },
-		{ text: "pwd:", color: "dim" },
-		{ text: identity.relativePath, color: "accent" },
-	];
-	if (gt?.dirty === "yes") {
-		segments.push(
-			{ text: " (", color: "dim" },
-			{ text: "✗", color: "error" },
-			{ text: ")", color: "dim" },
-		);
-	}
-	segments.push(
-		{ text: " | ", color: "dim" },
-		{ text: "br:", color: "dim" },
-		{ text: identity.branch, color: "warning" },
-	);
-	if (gt !== undefined) {
-		segments.push(
-			{ text: " ", color: "dim" },
-			{ text: "↓:", color: "dim" },
-			{ text: gt.down ?? "-", color: "accent" },
-			{ text: " ", color: "dim" },
-			{ text: "commits:", color: "dim" },
-			{ text: footerCommitCount(gt.commits), color: "accent" },
-			{ text: " ", color: "dim" },
-			{ text: "↑:", color: "dim" },
-			{ text: gt.up, color: "accent" },
-		);
-	}
-	return segments;
-}
-
-function rawFooterIdentity(segments: readonly FooterIdentitySegment[]): string {
-	return segments.map((segment) => segment.text).join("");
-}
-
-function colorFooterIdentitySegments(segments: readonly FooterIdentitySegment[], theme: StatusTheme): string {
-	return segments.map((segment) => theme.fg(segment.color, segment.text)).join("");
-}
-
-function footerCommitCount(commits: GtCommitStatus): string {
-	switch (commits.type) {
-		case "count":
-			return commits.count.toString();
-		case "unknown":
-			return "?";
-		case "not-applicable":
-			return "-";
-	}
-}
-
-function footerIdentityParts(cwd: string, branch: string, fallbackRepo: string, home: string | undefined): FooterIdentityParts {
-	const slotInfo = slotInfoFromCwd(cwd);
-	if (slotInfo !== undefined) {
-		const relativePath = relative(slotInfo.worktreeRoot, resolve(cwd));
-		return { repo: slotInfo.repo, slot: slotInfo.slot, branch, relativePath: relativePath.length > 0 ? relativePath : "." };
-	}
-	return { repo: fallbackRepo, slot: "no-slot", branch, relativePath: formatFooterCwd(cwd, home) };
-}
-
-function slotInfoFromCwd(cwd: string): { repo: string; slot: string; worktreeRoot: string } | undefined {
-	const resolvedCwd = resolve(cwd);
-	const parts = resolvedCwd.split(sep);
-	for (let index = 0; index < parts.length - 4; index++) {
-		if (parts[index] !== ".slots" || parts[index + 1] !== "repos" || parts[index + 3] !== "worktrees") continue;
-		const repo = parts[index + 2];
-		const slot = parts[index + 4];
-		if (repo === undefined || repo.length === 0 || slot === undefined || slot.length === 0) return undefined;
-		return { repo, slot, worktreeRoot: pathFromParts(parts.slice(0, index + 5)) };
-	}
-	return undefined;
-}
-
-function pathFromParts(parts: readonly string[]): string {
-	if (parts[0] === "") return `${sep}${join(...parts.slice(1))}`;
-	return join(...parts);
-}
-
-function formatFooterCwd(cwd: string, home: string | undefined): string {
-	if (!home) return cwd;
-
-	const resolvedCwd = resolve(cwd);
-	const resolvedHome = resolve(home);
-	const relativeToHome = relative(resolvedHome, resolvedCwd);
-	const isInsideHome =
-		relativeToHome === "" ||
-		(relativeToHome !== ".." && !relativeToHome.startsWith(`..${sep}`) && !isAbsolute(relativeToHome));
-
-	if (!isInsideHome) return cwd;
-	return relativeToHome === "" ? "~" : `~${sep}${relativeToHome}`;
-}
-
-function truncateFooterIdentity(text: string, width: number): string {
-	if (width <= 0) return "";
-	if (text.length <= width) return text;
-	if (width <= 3) return ".".repeat(width);
-	return `${text.slice(0, width - 3)}...`;
 }
 
 function findGitPaths(cwd: string): GitPaths | undefined {
