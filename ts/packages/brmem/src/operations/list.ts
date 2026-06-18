@@ -1,4 +1,5 @@
-import { failure, ok } from "@asdl/clinkr";
+import { failure, ok, type RenderCapabilities } from "@asdl/clinkr";
+import { renderTextTable } from "@asdl/core/text-table";
 import { z } from "zod";
 
 import type { BrmemCliContext } from "../context.ts";
@@ -76,10 +77,15 @@ export async function runList(ctx: BrmemCliContext, request: ListRequest) {
 	});
 }
 
-export function renderList(result: ListResult): string {
-	return result.entries
-		.map((entry) => `${namespaceDisplayLabel(entry.namespace)} | Entry Key ${entry.key} | Branch ${entry.branch}`)
-		.join("\n");
+export function renderList(result: ListResult, caps: RenderCapabilities = { color: false }): string {
+	if (result.entries.length === 0) return "";
+	return renderTextTable({
+		columns: [{ header: "NAMESPACE", style: "bold-cyan" }, { header: "ENTRY KEY" }, { header: "BRANCH" }],
+		rows: result.entries.map((entry) => [namespaceDisplayLabel(entry.namespace), entry.key, entry.branch]),
+		color: caps.color,
+		rule: true,
+		headerStyle: "bold-cyan",
+	});
 }
 
 function entryJson(entry: EntryRef): { namespace: string; key: string; branch: string; ref_name: string } {

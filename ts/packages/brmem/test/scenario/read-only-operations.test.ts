@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { FakeBrmemGateway } from "../../src/fake-gateway.ts";
+import { renderList, type ListResult } from "../../src/operations/list.ts";
 import { runScenario } from "../support/run-scenario.ts";
 
 const seededEntries = [
@@ -8,6 +9,18 @@ const seededEntries = [
 	{ namespace: "notes", branch: "feat/x", key: "plan/body.md", content: "named content", headSha: "head-notes", blobSha: "blob-notes" },
 	{ namespace: "notes", branch: "other", key: "other.md", content: "other" },
 ];
+
+const sampleListResult: ListResult = {
+	namespace_scope: "all",
+	key: null,
+	branch: "feat/x",
+	base: false,
+	all_branches: false,
+	entries: [
+		{ namespace: "base", key: "scratch", branch: "feat/x", ref_name: "refs/brmem/ns/base/feat---x:scratch" },
+		{ namespace: "notes", key: "plan/body.md", branch: "feat/x", ref_name: "refs/brmem/ns/notes/feat---x:plan/body.md" },
+	],
+};
 
 describe("read-only brmem operations", () => {
 	it("get human output prints stored content only", async () => {
@@ -96,12 +109,24 @@ describe("read-only brmem operations", () => {
 
 		const baseHuman = runScenario(["list", "--base"], { fake: { currentBranch: "feat/x", entries: seededEntries } });
 		expect(await baseHuman.exit).toBe(0);
-		expect(baseHuman.stdout.join("")).toContain("Base Namespace | Entry Key scratch | Branch feat/x");
+		const baseOutput = baseHuman.stdout.join("");
+		expect(baseOutput).toContain("NAMESPACE");
+		expect(baseOutput).toContain("ENTRY KEY");
+		expect(baseOutput).toContain("BRANCH");
+		expect(baseOutput).toMatch(/^─/mu);
+		expect(baseOutput).toMatch(/^Base Namespace\s+scratch\s+feat\/x$/mu);
 
 		const conflict = runScenario(["list", "--base", "--namespace", "notes", "--format", "json"], {
 			fake: { currentBranch: "feat/x", entries: seededEntries },
 		});
 		expect(await conflict.exit).toBe(2);
 		expect(JSON.parse(conflict.stdout.join(""))).toMatchObject({ exit_code: 2, error_type: "base_and_namespace_conflict" });
+	});
+
+	it("propagates color capability to the list table renderer", () => {
+		const colorOutput = renderList(sampleListResult, { color: true });
+		const plainOutput = renderList(sampleListResult, { color: false });
+		expect(colorOutput).toContain(String.fromCharCode(0x1b));
+		expect(plainOutput).not.toContain(String.fromCharCode(0x1b));
 	});
 });

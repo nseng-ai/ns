@@ -80,8 +80,10 @@ describe("delete operation", () => {
 		expect(getB.stdout.join("")).toBe("b\n");
 		const list = runScenario(["list", "--namespace", "scratch"], { gateway });
 		expect(await list.exit).toBe(0);
-		expect(list.stdout.join("")).not.toContain("plan/a.md");
-		expect(list.stdout.join("")).toContain("Entry Key plan/b.md");
+		const listOutput = list.stdout.join("");
+		expect(listOutput).not.toContain("plan/a.md");
+		expect(listOutput).toContain("ENTRY KEY");
+		expect(listOutput).toMatch(/^Namespace scratch\s+plan\/b\.md\s+feat\/x$/mu);
 	});
 
 	it("supports Base Namespace deletion and base normalization", async () => {

@@ -1,4 +1,5 @@
-import { failure, ok } from "@asdl/clinkr";
+import { failure, ok, type RenderCapabilities } from "@asdl/clinkr";
+import { renderTextTable } from "@asdl/core/text-table";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../context.ts";
@@ -39,7 +40,19 @@ export async function runList(ctx: SlotCliContext, _request: ListRequest) {
 	});
 }
 
-export function renderList(result: ListResult): string {
+export function renderList(result: ListResult, caps: RenderCapabilities = { color: false }): string {
 	if (result.rows.length === 0) return `No slots initialized for ${result.repo_name}.`;
-	return result.rows.map((row) => `${row.slot_name}\t${row.status}\t${row.branch ?? ""}\t${row.operation === null ? "" : `${row.operation} in progress`}\t${row.worktree_path}`).join("\n");
+	return renderTextTable({
+		columns: [
+			{ header: "SLOT", style: "bold-cyan" },
+			{ header: "STATUS" },
+			{ header: "BRANCH" },
+			{ header: "OPERATION" },
+			{ header: "WORKTREE", style: "dim" },
+		],
+		rows: result.rows.map((row) => [row.slot_name, row.status, row.branch ?? "—", row.operation === null ? "—" : `${row.operation} in progress`, row.worktree_path]),
+		color: caps.color,
+		rule: true,
+		headerStyle: "bold-cyan",
+	});
 }

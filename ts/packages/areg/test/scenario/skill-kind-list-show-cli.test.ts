@@ -1,11 +1,34 @@
 import { describe, expect, test } from "vitest";
 
 import type { FakeAregSkillKindSkillOptions } from "../../src/fake-gateways.ts";
+import { renderSkillKindList, type SkillKindListResult } from "../../src/operations/skill-kind.ts";
 import { runScenario } from "../support/run-scenario.ts";
 
 const BASE_SKILL = "---\nname: demo\ndescription: Demo\n---\n";
 const INVOKE_ONLY_SKILL = "---\nname: invoke\ndisable-model-invocation: true\n---\n";
 const AMBIENT_ONLY_SKILL = "---\nname: ambient\nuser-invocable: false\n---\n";
+
+const sampleSkillKindListResult: SkillKindListResult = {
+	project_dir: "/repo",
+	skills: [
+		{
+			skill: "normal",
+			kind: "normal",
+			model_invocation: "enabled",
+			native_direct: "enabled",
+			pi_extension: "n/a",
+			artifacts: {
+				disable_model_invocation: false,
+				codex_sidecar: false,
+				user_invocable_key_present: false,
+				user_invocable_false: false,
+				pi_excluded: false,
+			},
+			replacement: { verified: false, label: "replacement-missing" },
+			notes: ["diagnostic note"],
+		},
+	],
+};
 
 function skill(name: string, skillMd = `---\nname: ${name}\ndescription: ${name}\n---\n`, options: Partial<FakeAregSkillKindSkillOptions> = {}): FakeAregSkillKindSkillOptions {
 	return { name, skillMd, ...options };
@@ -49,13 +72,25 @@ describe("areg skill list/show CLI", () => {
 
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
-		expect(output).toContain("Skill\tKind\tModel\tNative\tPi\tNotes");
-		expect(output).toContain("ambient\tambient-only\tenabled\tpartial\tn/a");
-		expect(output).toContain("command-skill\tcommand-backed\tdisabled\tpartial\tenabled");
-		expect(output).toContain("invoke\tinvoke-only\tdisabled\tenabled\tn/a");
-		expect(output).toContain("normal\tnormal\tenabled\tenabled\tn/a");
-		expect(output).toContain("broken\tinconsistent\tmixed\tmixed\tmissing");
-		expect(output).toContain("disable-model-invocation is present but agents/openai.yaml is missing.");
+		expect(output).toContain("SKILL");
+		expect(output).toContain("KIND");
+		expect(output).toContain("MODEL");
+		expect(output).toContain("NATIVE");
+		expect(output).toContain("PI");
+		expect(output).toContain("NOTES");
+		expect(output).toMatch(/^─/mu);
+		expect(output).toMatch(/^ambient\s+ambient-only\s+enabled\s+partial\s+n\/a\s+.*ambient-only disables Claude native direct invocation/mu);
+		expect(output).toMatch(/^command-skill\s+command-backed\s+disabled\s+partial\s+enabled$/mu);
+		expect(output).toMatch(/^invoke\s+invoke-only\s+disabled\s+enabled\s+n\/a$/mu);
+		expect(output).toMatch(/^normal\s+normal\s+enabled\s+enabled\s+n\/a$/mu);
+		expect(output).toMatch(/^broken\s+inconsistent\s+mixed\s+mixed\s+missing\s+.*disable-model-invocation is present but agents\/openai\.yaml is missing\./mu);
+	});
+
+	test("list renderer propagates color capability", () => {
+		const colorOutput = renderSkillKindList(sampleSkillKindListResult, { color: true });
+		const plainOutput = renderSkillKindList(sampleSkillKindListResult, { color: false });
+		expect(colorOutput).toContain(String.fromCharCode(0x1b));
+		expect(plainOutput).not.toContain(String.fromCharCode(0x1b));
 	});
 
 	test("list JSON uses snake_case boundary fields", async () => {
