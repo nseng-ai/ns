@@ -23,6 +23,7 @@ and conventions as the baseline; this checklist catches design drift.
       when they fit the model.
 - [ ] Extensible registries use `Known* | (string & {})` when custom identifiers are allowed.
 - [ ] Object literals use `satisfies` or `as const satisfies T` instead of broad casts.
+- [ ] No value is laundered through `as unknown as T`; any cast is narrow, justified, and boundary-local.
 - [ ] External/HTTP/model/tool boundaries parse input with Zod schemas, and static types use `z.infer`
       rather than hand-written mirror types.
 - [ ] Generic tags are carried through APIs so callers only see legal config for the selected tag.
@@ -35,6 +36,9 @@ and conventions as the baseline; this checklist catches design drift.
 - [ ] Backend-specific behavior is behind adapters, capability flags, or translation functions.
 - [ ] Runtime sniffing and substring checks are not scattered through call sites.
 - [ ] Collaborators are injected through interfaces/options instead of hidden globals.
+- [ ] Third-party dependencies are wrapped at project-owned seams instead of leaking vendor shapes
+      through core logic.
+- [ ] Redundant identity is derived from one source of truth rather than hand-authored in parallel.
 - [ ] Generic-to-concrete casts happen once behind a runtime assertion.
 - [ ] Planning is separated from execution where the operation is multi-step or side-effectful.
 
@@ -72,6 +76,7 @@ and conventions as the baseline; this checklist catches design drift.
 
 - [ ] Generated files were not hand-edited.
 - [ ] TODOs are absent or match the repository's tracking convention.
+- [ ] Public APIs that callers rely on have a doc comment and at least one test covering the contract.
 - [ ] Comments explain why, contracts, or edge cases rather than mechanics.
 - [ ] `@ts-expect-error` has a reason; `@ts-ignore` is absent.
 - [ ] Empty catches explain why ignoring the failure is safe.

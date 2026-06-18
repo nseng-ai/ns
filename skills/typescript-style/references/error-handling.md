@@ -130,6 +130,30 @@ function normalizeStorageError(error: unknown): StorageError {
 }
 ```
 
+When integrating with a third-party library that throws, normalize at the boundary by walking the
+`cause` chain and classifying the result into the action the caller can take, such as retryable,
+recoverable, or terminal. Keep that classification at the seam; do not replace ordinary
+errors-as-values inside project-owned logic with a throw-and-classify style.
+
+```ts
+type BoundaryFailure =
+  | { type: "retryable"; message: string; cause?: unknown }
+  | { type: "recoverable"; message: string; cause?: unknown }
+  | { type: "terminal"; message: string; cause?: unknown };
+
+function normalizeVendorFailure(error: unknown): BoundaryFailure {
+  for (let current: unknown = error; current instanceof Error; current = current.cause) {
+    if (current.name === "TimeoutError") {
+      return { type: "retryable", message: current.message, cause: error };
+    }
+    if (current.name === "AuthError") {
+      return { type: "terminal", message: current.message, cause: error };
+    }
+  }
+  return { type: "recoverable", message: error instanceof Error ? error.message : String(error), cause: error };
+}
+```
+
 ## Cancellation
 
 Cancellation is not exceptional from the user's point of view. Thread `AbortSignal` through every

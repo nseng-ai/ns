@@ -18,11 +18,12 @@ references:
 
 # typescript-style
 
-An opinionated TypeScript style guide for strict, maintainable projects. It is toolchain-neutral about
-package managers, formatters, linters, test runners, and import suffixes, while making code-level
-defaults: erasable TypeScript, Zod-first boundary validation, honest types, and small architecture.
-Follow the local repository's runtime and public API constraints first; use this guide for design
-defaults that are not already settled.
+An opinionated TypeScript style guide for strict, maintainable projects. It sets portable code-level
+and compiler-level defaults: erasable TypeScript, Zod-first boundary validation, honest types, strict
+indexed access, errors-as-values, and small architecture. Project-specific choices such as package
+managers, formatters, CI wiring, test runners, and import suffixes belong in the local repository or a
+project overlay skill. Follow the local repository's runtime and public API constraints first; use this
+guide for design defaults that are not already settled.
 
 The examples are motivating patterns, not dependencies on a particular codebase. Adapt names, import
 suffixes, formatter settings, and package layout to the project in front of you; keep Zod as the default
