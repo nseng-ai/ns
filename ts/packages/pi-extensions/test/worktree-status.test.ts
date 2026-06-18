@@ -4,6 +4,8 @@ import { basename, join } from "node:path";
 
 import { describe, expect, test, vi } from "vitest";
 
+import { visibleWidth } from "@earendil-works/pi-tui";
+
 import { stripTerminalEscapes } from "@asdl/core/exec";
 import { githubWorktreePrStatusQuery } from "@asdl/core/github-status";
 import { makeGraphiteRepo, withTempRoot } from "./worktree-status-fixtures.ts";
@@ -333,6 +335,57 @@ describe("worktree status extension registration", () => {
 		});
 	});
 
+	test("initial refresh starts remote work before full local status completes", async () => {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
+			const dirtyResult = deferred<Partial<ExecResult>>();
+			const ghStarted = deferred<void>();
+			const pi = new LifecycleFakePi([
+				headOidStep(),
+				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+				revListStep("main", 1),
+				step("git", ["status", "--porcelain=v1"], dirtyResult.promise),
+				remoteOriginStep(),
+				{
+					...step(
+						"gh",
+						[
+							"api",
+							"graphql",
+							"-f",
+							`query=${githubWorktreePrStatusQuery}`,
+							"-f",
+							"owner=dagster-io",
+							"-f",
+							"repo=asdl-tools",
+							"-f",
+							"headRefName=feature/current",
+						],
+						{ stdout: JSON.stringify({ data: { repository: { pullRequests: { nodes: [] } } } }) },
+					),
+					onCall: () => ghStarted.resolve(),
+				},
+			]);
+			const ctx: ExtensionContext = {
+				cwd: root,
+				hasUI: true,
+				ui: {
+					theme: TEST_THEME,
+					setStatus() {},
+					setWidget() {},
+				},
+			};
+
+			worktreeStatusExtension(pi as ExtensionAPI);
+			const sessionStart = pi.sessionStart?.({}, ctx);
+			await ghStarted.promise;
+			dirtyResult.resolve({ stdout: "" });
+			await sessionStart;
+
+			pi.assertDone();
+			await pi.sessionShutdown?.();
+		});
+	});
+
 	test("identity-changing local refresh clears stale gh and refreshes immediately", async () => {
 		vi.useFakeTimers();
 		try {
@@ -564,7 +617,7 @@ describe("worktree status extension registration", () => {
 		const tempRoot = mkdtempSync(join(tmpdir(), "worktree-status-slots-"));
 		await withTempRoot(tempRoot, async (root) => {
 			const worktreeRoot = join(root, ".slots", "repos", "asdl-tools", "worktrees", "slot-02");
-			const nestedCwd = join(worktreeRoot, "ts", "packages", "pi-extensions");
+			const nestedCwd = join(worktreeRoot, "ts", "界面", "pi-extensions");
 			mkdirSync(join(worktreeRoot, ".git"), { recursive: true });
 			mkdirSync(nestedCwd, { recursive: true });
 			writeFileSync(join(worktreeRoot, ".git", "HEAD"), "ref: refs/heads/feature/slot-identity\n");
@@ -631,18 +684,21 @@ describe("worktree status extension registration", () => {
 			);
 
 			const wideFooterRaw = footer.render(200)[0] ?? "";
-			expect(wideFooterRaw).not.toContain("\x1B[38;2");
+			const truecolorPrefix = "\x1B[38;" + "2";
+			expect(wideFooterRaw).not.toContain(truecolorPrefix);
 			expect(wideFooterRaw).toContain("\x1B[36masdl-tools\x1B[39m");
 			expect(wideFooterRaw).toContain("\x1B[36mslot-02\x1B[39m");
-			expect(wideFooterRaw).toContain("\x1B[36mts/packages/pi-extensions\x1B[39m");
+			expect(wideFooterRaw).toContain("\x1B[36mts/界面/pi-extensions\x1B[39m");
 			expect(wideFooterRaw).toContain("\x1B[31m✗\x1B[39m");
 			const wideFooterLines = [wideFooterRaw].map(stripTerminalEscapes);
-			expect(wideFooterLines[0]).toBe("[wt] repo:asdl-tools wt:slot-02 pwd:ts/packages/pi-extensions (✗) | br:feature/slot-identity ↓:- commits:? ↑:-");
+			expect(wideFooterLines[0]).toBe("[wt] repo:asdl-tools wt:slot-02 pwd:ts/界面/pi-extensions (✗) | br:feature/slot-identity ↓:- commits:? ↑:-");
 			expect(wideFooterLines[0]).not.toContain("hidden-session-name");
 			expect(wideFooterLines[0]).not.toContain("stale-branch");
-			const narrowIdentity = footer.render(46).map(stripTerminalEscapes)[0] ?? "";
+			const narrowIdentityRaw = footer.render(46)[0] ?? "";
+			const narrowIdentity = stripTerminalEscapes(narrowIdentityRaw);
 			expect(narrowIdentity).toContain("[wt] repo:asdl-tools wt:slot-02");
 			expect(narrowIdentity).toContain("...");
+			expect(visibleWidth(narrowIdentityRaw)).toBeLessThanOrEqual(46);
 			await pi.sessionShutdown?.();
 		});
 	});

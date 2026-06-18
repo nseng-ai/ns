@@ -8,6 +8,7 @@ import {
 	formatWorktreeStatus,
 	loadLocalWorktreeStatus,
 	loadWorktreeGhStatus,
+	loadWorktreeStatusIdentity,
 	renderWorktreeStatusMessage,
 	sameWorktreeStatusIdentity,
 	WORKTREE_STATUS_UI_KEY,
@@ -189,7 +190,6 @@ interface ActiveSession {
 
 interface RefreshChannel {
 	run(session: ActiveSession): Promise<void>;
-	markPendingIfInFlight(session: ActiveSession): boolean;
 	clearSession(session: ActiveSession): void;
 	clearPending(): void;
 }
@@ -265,44 +265,59 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 	}
 
 	async function refreshLocalNow(session: ActiveSession): Promise<void> {
+		await refreshLocalNowWithIdentity(session);
+	}
+
+	async function refreshLocalNowWithIdentity(
+		session: ActiveSession,
+		identity?: WorktreeStatusIdentity,
+		options: { scheduleRemoteOnIdentityChange?: boolean } = {},
+	): Promise<void> {
 		if (!session.hasUI || !isActiveSession(session)) return;
 
 		const previousIdentity = session.localStatus?.identity;
-		const status = await loadLocalWorktreeStatus(pi, session.cwd, { signal: session.abortController.signal });
+		let status = await loadLocalWorktreeStatus(pi, session.cwd, { identity, signal: session.abortController.signal });
 		if (!isActiveSession(session)) return;
+
+		const sharedIdentityStale = identity !== undefined && !isSharedIdentityStillCurrent(session.cwd, identity);
+		if (sharedIdentityStale) {
+			status = await loadLocalWorktreeStatus(pi, session.cwd, { signal: session.abortController.signal });
+			if (!isActiveSession(session)) return;
+		}
 
 		const identityChanged = previousIdentity !== undefined && !sameWorktreeStatusIdentity(previousIdentity, status.identity);
 		session.localStatus = status;
-		if (identityChanged) {
+		if (identityChanged || sharedIdentityStale) {
 			session.ghStatusSnapshot = undefined;
 			renderSessionStatus(session);
-			void remoteRefreshChannel.run(session);
+			if (sharedIdentityStale || options.scheduleRemoteOnIdentityChange !== false) void remoteRefreshChannel.run(session);
 			return;
 		}
 		renderSessionStatus(session);
 	}
 
 	async function refreshRemoteNow(session: ActiveSession): Promise<void> {
+		await refreshRemoteNowWithIdentity(session);
+	}
+
+	async function refreshRemoteNowWithIdentity(session: ActiveSession, identity?: WorktreeStatusIdentity): Promise<void> {
 		if (!session.hasUI || !isActiveSession(session)) return;
 
-		const identity = session.localStatus?.identity;
-		if (identity === undefined) return;
-		const status = await loadWorktreeGhStatus(pi, session.cwd, { identity, signal: session.abortController.signal });
+		const fetchIdentity = identity ?? session.localStatus?.identity;
+		if (fetchIdentity === undefined) return;
+		const status = await loadWorktreeGhStatus(pi, session.cwd, { identity: fetchIdentity, signal: session.abortController.signal });
 		if (!isActiveSession(session)) return;
 		const currentIdentity = session.localStatus?.identity;
-		if (currentIdentity === undefined || !sameWorktreeStatusIdentity(currentIdentity, identity)) {
+		if (currentIdentity !== undefined && !sameWorktreeStatusIdentity(currentIdentity, fetchIdentity)) {
 			renderSessionStatus(session);
 			return;
 		}
 
-		session.ghStatusSnapshot = { identity, status, fetchedAtMs: Date.now() };
+		session.ghStatusSnapshot = { identity: fetchIdentity, status, fetchedAtMs: Date.now() };
 		renderSessionStatus(session);
 	}
 
-	function makeRefreshChannel(
-		work: (session: ActiveSession) => Promise<void>,
-		onPending: (session: ActiveSession, run: (session: ActiveSession) => Promise<void>) => void,
-	): RefreshChannel {
+	function makeRefreshChannel(work: (session: ActiveSession) => Promise<void>): RefreshChannel {
 		let inFlightSession: ActiveSession | undefined;
 		let pendingSession: ActiveSession | undefined;
 
@@ -329,18 +344,13 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 				if (inFlightSession === session) inFlightSession = undefined;
 				if (pendingSession === session) {
 					pendingSession = undefined;
-					if (isActiveSession(session)) onPending(session, run);
+					if (isActiveSession(session)) void run(session);
 				}
 			}
 		}
 
 		return {
 			run,
-			markPendingIfInFlight(session) {
-				if (inFlightSession !== session) return false;
-				pendingSession = session;
-				return true;
-			},
 			clearSession(session) {
 				if (inFlightSession === session) inFlightSession = undefined;
 				if (pendingSession === session) pendingSession = undefined;
@@ -351,15 +361,12 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 		};
 	}
 
-	const localRefreshChannel = makeRefreshChannel(refreshLocalNow, scheduleLocalRefresh);
-	const remoteRefreshChannel = makeRefreshChannel(refreshRemoteNow, (session, run) => {
-		void run(session);
-	});
+	const localRefreshChannel = makeRefreshChannel(refreshLocalNow);
+	const remoteRefreshChannel = makeRefreshChannel(refreshRemoteNow);
 
 	function scheduleLocalRefresh(session: ActiveSession): void {
 		if (!session.hasUI || !isActiveSession(session)) return;
 		if (localRefreshTimer !== undefined) return;
-		if (localRefreshChannel.markPendingIfInFlight(session)) return;
 
 		localRefreshTimer = setTimeout(() => {
 			localRefreshTimer = undefined;
@@ -372,8 +379,14 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 			clearTimeout(localRefreshTimer);
 			localRefreshTimer = undefined;
 		}
-		await localRefreshChannel.run(session);
-		await remoteRefreshChannel.run(session);
+		if (!session.hasUI || !isActiveSession(session)) return;
+
+		const identity = await loadWorktreeStatusIdentity(pi, session.cwd, session.abortController.signal);
+		if (!isActiveSession(session)) return;
+		await Promise.all([
+			refreshLocalNowWithIdentity(session, identity, { scheduleRemoteOnIdentityChange: false }),
+			refreshRemoteNowWithIdentity(session, identity),
+		]);
 	}
 
 	function stopRefreshTimers(): void {
@@ -706,6 +719,28 @@ function currentBranchName(gitPaths: GitPaths): string | undefined {
 
 		const branch = head.slice(refPrefix.length).trim();
 		return branch.length > 0 ? branch : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+function isSharedIdentityStillCurrent(cwd: string, identity: WorktreeStatusIdentity): boolean {
+	const gitPaths = findGitPaths(cwd);
+	if (gitPaths === undefined) return identity.head.type === "unknown";
+	const currentBranch = currentBranchName(gitPaths);
+	if (identity.head.type !== "branch") return currentBranch === undefined;
+	if (currentBranch !== identity.head.name) return false;
+
+	const currentOid = currentBranchLooseOid(gitPaths, identity.head.name);
+	return currentOid === undefined || identity.headOid === undefined || currentOid === identity.headOid;
+}
+
+function currentBranchLooseOid(gitPaths: GitPaths, branch: string): string | undefined {
+	const refPath = join(gitPaths.commonGitDir, "refs", "heads", ...branch.split("/"));
+	if (!existsSync(refPath)) return undefined;
+	try {
+		const oid = readFileSync(refPath, "utf8").trim();
+		return oid.length > 0 ? oid : undefined;
 	} catch {
 		return undefined;
 	}
