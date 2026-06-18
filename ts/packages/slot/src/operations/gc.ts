@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { RepoSlotContext, SlotCliContext } from "../context.ts";
 import { outcomeFromGcPlan, planGc, planGcCleanup, executeGcPlan, type SlotGcOutcome } from "../lifecycle/gc.ts";
 import type { SlotFreeCleanupAction } from "../lifecycle/release-cleanup.ts";
-import { cleanupPreviewLine, cleanupResultLine } from "./cleanup-rendering.ts";
+import { renderCleanupLines } from "./cleanup-rendering.ts";
 import { cleanupSchema } from "./result-schemas.ts";
 const gcEntrySchema = z.object({
 	slot_name: z.string(),
@@ -72,7 +72,7 @@ export function renderGc(result: GcResult): string {
 		const pr = entry.pr_number === null ? "" : ` ${ansi("dim", `PR #${entry.pr_number} ${entry.pr_state}`)}`;
 		lines.push(`${actionLabel(entry.action)} ${ansi("boldCyan", entry.slot_name)} (${ansi("yellow", entry.branch_name)})${pr}`);
 		if (entry.message !== null) lines.push(`    ${ansi("dim", entry.message)}`);
-		for (const cleanup of entry.cleanup) lines.push(`    ${result.dry_run ? cleanupPreviewLine(cleanup) : cleanupResultLine(cleanup)}`);
+		for (const cleanup of renderCleanupLines(entry.cleanup, { isDryRun: result.dry_run })) lines.push(`    ${cleanup}`);
 	}
 	const verb = result.dry_run ? "Would free" : "Freed";
 	let summary = `\n${ansi("bold", `${verb} ${result.freed_count}`)}; kept ${result.kept_count}; skipped ${result.skipped_count}; errors ${result.error_count}`;

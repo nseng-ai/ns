@@ -1,6 +1,6 @@
 import { appendFile } from "node:fs/promises";
 
-import { formatCommand, type CommandExecApi, type ExecOptions, type ExecResult } from "@asdl/core/exec";
+import { formatCommand, type CommandExecApi, type CommandRunner, type ExecOptions, type ExecResult } from "@asdl/core/exec";
 
 export const SLOT_DIAGNOSTIC_LOG_ENV = "ASDL_SLOT_DIAGNOSTIC_LOG";
 
@@ -34,6 +34,12 @@ export interface RunDiagnosticCommandOptions {
 	readonly diagnosticSink?: SlotDiagnosticSink | undefined;
 }
 
+export interface DiagnosticCommandRunnerOptions {
+	readonly execApi: CommandExecApi;
+	readonly operation: string;
+	readonly diagnosticSink?: SlotDiagnosticSink | undefined;
+}
+
 class JsonlSlotDiagnosticSink implements SlotDiagnosticSink {
 	private readonly path: string;
 
@@ -50,6 +56,18 @@ export function createSlotDiagnosticSinkFromEnv(env: NodeJS.ProcessEnv): SlotDia
 	const path = env[SLOT_DIAGNOSTIC_LOG_ENV]?.trim();
 	if (path === undefined || path.length === 0) return undefined;
 	return new JsonlSlotDiagnosticSink(path);
+}
+
+export function createDiagnosticCommandRunner(options: DiagnosticCommandRunnerOptions): CommandRunner {
+	return async (command, args, execOptions) =>
+		await runDiagnosticCommand({
+			execApi: options.execApi,
+			command,
+			args,
+			execOptions: execOptions ?? {},
+			operation: options.operation,
+			diagnosticSink: options.diagnosticSink,
+		});
 }
 
 export async function runDiagnosticCommand(options: RunDiagnosticCommandOptions): Promise<ExecResult> {

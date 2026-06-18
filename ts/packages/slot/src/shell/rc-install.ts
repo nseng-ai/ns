@@ -3,6 +3,8 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { homedir } from "node:os";
 
+import { managedRegionBounds } from "@asdl/core/managed-region";
+
 export const SUPPORTED_SHELLS = ["zsh", "bash"] as const;
 export type SupportedShell = typeof SUPPORTED_SHELLS[number];
 
@@ -46,7 +48,8 @@ export function buildMarkerBlock(options: { beginMarker: string; payload: string
 
 export async function installMarkerBlock(options: InstallMarkerBlockOptions): Promise<InstallMarkerBlockResult> {
 	const existing = existsSync(options.rcPath) ? await readFile(options.rcPath, "utf8") : "";
-	if (existing.includes(options.beginMarker)) return { rcPath: options.rcPath, isAlreadyInstalled: true };
+	const bounds = managedRegionBounds({ text: existing, startMarker: options.beginMarker, endMarker: options.endMarker });
+	if (bounds.type !== "missing") return { rcPath: options.rcPath, isAlreadyInstalled: true };
 	await mkdir(dirname(options.rcPath), { recursive: true });
 	const block = buildMarkerBlock(options);
 	const separator = existing.length > 0 && !existing.endsWith("\n") ? "\n" : "";

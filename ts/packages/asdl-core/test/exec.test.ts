@@ -5,6 +5,7 @@ import { join } from "node:path";
 import process from "node:process";
 
 import {
+	execApiToCommandRunner,
 	formatCommand,
 	formatCommandStartupFailure,
 	formatOutputSection,
@@ -33,6 +34,24 @@ afterEach(() => {
 });
 
 describe("exec presentation helpers", () => {
+	test("adapts CommandExecApi to CommandRunner without exposing caller-owned args", async () => {
+		const calls: Array<{ readonly command: string; readonly args: readonly string[] }> = [];
+		const execApi = {
+			async exec(command: string, args: string[]) {
+				calls.push({ command, args });
+				args.push("mutated");
+				return { stdout: "ok", stderr: "", code: 0, killed: false };
+			},
+		};
+		const sourceArgs = ["pr", "view"];
+
+		const result = await execApiToCommandRunner(execApi)("gh", sourceArgs);
+
+		expect(result).toEqual({ stdout: "ok", stderr: "", code: 0, killed: false });
+		expect(calls).toEqual([{ command: "gh", args: ["pr", "view", "mutated"] }]);
+		expect(sourceArgs).toEqual(["pr", "view"]);
+	});
+
 	test("normalizes optional pi exec fields", () => {
 		expect(normalizeExecResult({ code: 2 })).toEqual({
 			stdout: "",

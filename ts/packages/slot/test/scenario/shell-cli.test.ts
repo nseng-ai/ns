@@ -43,7 +43,7 @@ describe("slot shell CLI", () => {
 		const home = await makeHome();
 		const run = runScenario(["shell", "install", "--shell", "zsh", "--format", "json"], { env: { PATH: "/fake/bin", HOME: home } });
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({ data: { shell: "zsh", rc_path: join(home, ".zshrc"), already_installed: false } });
+		expect(parseJsonOutput(run)).toMatchObject({ data: { shell: "zsh", rc_path: join(home, ".zshrc"), is_already_installed: false } });
 		const rc = await readFile(join(home, ".zshrc"), "utf8");
 		expect(rc).toContain(shellIntegrationBeginMarker);
 		expect(rc).toContain("SLOT_CD_DIRECTIVE_FILE");
@@ -54,7 +54,7 @@ describe("slot shell CLI", () => {
 		const home = await makeHome();
 		const run = runScenario(["shell", "install", "--shell", "bash", "--format", "json"], { env: { PATH: "/fake/bin", HOME: home } });
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({ data: { shell: "bash", rc_path: join(home, ".bashrc"), already_installed: false } });
+		expect(parseJsonOutput(run)).toMatchObject({ data: { shell: "bash", rc_path: join(home, ".bashrc"), is_already_installed: false } });
 		await expect(readFile(join(home, ".bashrc"), "utf8")).resolves.toContain(shellIntegrationBeginMarker);
 	});
 
@@ -64,7 +64,7 @@ describe("slot shell CLI", () => {
 		expect(await first.exit).toBe(0);
 		const second = runScenario(["shell", "install", "--shell", "zsh", "--format", "json"], { env: { PATH: "/fake/bin", HOME: home } });
 		expect(await second.exit).toBe(0);
-		expect(parseJsonOutput(second)).toMatchObject({ data: { already_installed: true } });
+		expect(parseJsonOutput(second)).toMatchObject({ data: { is_already_installed: true } });
 		const rc = await readFile(join(home, ".zshrc"), "utf8");
 		expect(countOccurrences(rc, shellIntegrationBeginMarker)).toBe(1);
 	});

@@ -34,6 +34,10 @@ export interface CommandExecApi {
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
 }
 
+export function execApiToCommandRunner(execApi: CommandExecApi): CommandRunner {
+	return async (command, args, options) => await execApi.exec(command, [...args], options);
+}
+
 export interface PiExecResultLike {
 	stdout?: string;
 	stderr?: string;

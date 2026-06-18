@@ -2,7 +2,7 @@ import { NodeCommandExecApi, type CommandExecApi, type ExecResult } from "@asdl/
 import { runGitHubCliAsExecResult } from "@asdl/core/github-cli";
 import { z } from "zod";
 
-import { createSlotDiagnosticSinkFromEnv, runDiagnosticCommand, type SlotDiagnosticSink } from "../diagnostics.ts";
+import { createDiagnosticCommandRunner, createSlotDiagnosticSinkFromEnv, type SlotDiagnosticSink } from "../diagnostics.ts";
 
 const SLOT_PR_TIMEOUT_MS = 10_000;
 const PR_BATCH_PAGE_SIZE = 20;
@@ -136,15 +136,7 @@ export class RealSlotPrGateway implements SlotPrGateway {
 
 	private async runGh(args: readonly string[], operation: string): Promise<ExecResult> {
 		return await runGitHubCliAsExecResult({
-			runner: (command, commandArgs, options) =>
-				runDiagnosticCommand({
-					execApi: this.execApi,
-					command,
-					args: commandArgs,
-					execOptions: options ?? {},
-					operation,
-					diagnosticSink: this.diagnosticSink,
-				}),
+			runner: createDiagnosticCommandRunner({ execApi: this.execApi, operation, diagnosticSink: this.diagnosticSink }),
 			args,
 			cwd: this.cwd,
 			env: this.env,
