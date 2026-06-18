@@ -169,6 +169,10 @@ export function normalizeExecResult(result: PiExecResultLike): ExecResult {
 	};
 }
 
+export function isSuccessfulExecResult(result: ExecResult): boolean {
+	return result.code === 0 && !result.killed;
+}
+
 export function formatCommand(command: string, args: readonly string[]): string {
 	return [command, ...args].map(formatShellArg).join(" ");
 }

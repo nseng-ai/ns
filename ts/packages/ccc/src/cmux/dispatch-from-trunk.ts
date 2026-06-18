@@ -1,3 +1,6 @@
+import { formatCommand, formatCommandFailure, isSuccessfulExecResult } from "@asdl/core/exec";
+import { planLocalBranchRefreshFromWorktrees, type LocalBranchRefreshPlan } from "@asdl/core/git";
+
 import {
 	buildBrmemPayloadPiLaunchCommand,
 	buildLaunchPrompt,
@@ -14,6 +17,7 @@ import { openBranchInCmuxSlot } from "./slot.ts";
 import type { CommandContext, ExtensionAPI } from "./types.ts";
 
 const COMMAND_NAME = "ccc:workspace:dispatch-from-trunk";
+const GIT_TRUNK_REFRESH_TIMEOUT_MS = 2 * 60 * 1000;
 const TRUNK_DISPATCH_CONTEXT_NOTE =
 	"This branch was created from refreshed Graphite trunk and is intentionally unrelated to the caller's current stack.";
 
@@ -109,14 +113,7 @@ export async function createTrackedBranchFromTrunkForPrompt(options: {
 	}
 
 	notify?.("Refreshing Graphite trunk…");
-	const refresh = await runText(pi, cwd, "gt", [
-		"get",
-		trunkBranch,
-		"--no-restack",
-		"--no-checkout",
-		"--force",
-		"--no-interactive",
-	]);
+	const refresh = await refreshLocalTrunkBranch({ pi, cwd, trunkBranch });
 	if (!refresh.ok) {
 		return {
 			error: [
@@ -141,6 +138,40 @@ export async function createTrackedBranchFromTrunkForPrompt(options: {
 		startRef: trunkBranch,
 		createFailureContext: `from refreshed trunk ${trunkBranch}`,
 	});
+}
+
+async function refreshLocalTrunkBranch(options: {
+	pi: Pick<ExtensionAPI, "exec">;
+	cwd: string;
+	trunkBranch: string;
+}): Promise<{ ok: true } | { ok: false; message: string }> {
+	const { pi, cwd, trunkBranch } = options;
+	const worktrees = await pi.exec("git", ["worktree", "list", "--porcelain"], {
+		cwd,
+		timeout: GIT_TRUNK_REFRESH_TIMEOUT_MS,
+	});
+	if (!isSuccessfulExecResult(worktrees)) {
+		return {
+			ok: false,
+			message: formatCommandFailure("Could not inspect Git worktrees.", "git worktree list --porcelain", worktrees),
+		};
+	}
+
+	const plan = planLocalBranchRefreshFromWorktrees({ branch: trunkBranch, cwd, worktreePorcelain: worktrees.stdout });
+	const refresh = await pi.exec("git", plan.args, { cwd: plan.cwd, timeout: GIT_TRUNK_REFRESH_TIMEOUT_MS });
+	if (isSuccessfulExecResult(refresh)) return { ok: true };
+	return {
+		ok: false,
+		message: formatCommandFailure(formatTrunkRefreshFailureTitle(plan, trunkBranch), formatCommand("git", plan.args), refresh),
+	};
+}
+
+function formatTrunkRefreshFailureTitle(plan: LocalBranchRefreshPlan, trunkBranch: string): string {
+	if (plan.type === "pull-checked-out-branch") {
+		return `Could not pull checked-out trunk branch ${trunkBranch}.`;
+	}
+
+	return `Could not fetch trunk branch ${trunkBranch}.`;
 }
 
 function firstNonEmptyLine(text: string): string | undefined {
