@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync, watch } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 
 import type { CustomMessageContent } from "@asdl/pi-extension-runtime/terminal-presentation";
@@ -25,6 +25,8 @@ import { definePiSurfaceParity } from "./parity.ts";
 import { renderStatusFooter } from "./worktree-status-footer-format.ts";
 
 export const WORKTREE_STATUS_REFRESH_COMMAND_NAME = "pi:worktree-status-refresh";
+
+const GIT_STATUS_WATCH_DEBOUNCE_MS = 100;
 
 export const worktreeStatusParity = definePiSurfaceParity([
 	{
@@ -177,6 +179,20 @@ interface GhStatusSnapshot {
 	readonly fetchedAtMs: number;
 }
 
+export interface WatchHandle {
+	close(): void;
+}
+
+interface WorktreeStatusWatcher {
+	close(): void;
+}
+
+export interface WorktreeStatusExtensionDependencies {
+	watchPath?: ((path: string, callback: () => void) => WatchHandle | undefined) | undefined;
+	setTimeout?: ((callback: () => void, ms: number) => ReturnType<typeof setTimeout>) | undefined;
+	clearTimeout?: ((timeout: ReturnType<typeof setTimeout>) => void) | undefined;
+}
+
 interface ActiveSession {
 	id: number;
 	ctx: ExtensionContext;
@@ -186,6 +202,7 @@ interface ActiveSession {
 	closed: boolean;
 	localStatus?: LocalWorktreeStatus | undefined;
 	ghStatusSnapshot?: GhStatusSnapshot | undefined;
+	watcher?: WorktreeStatusWatcher | undefined;
 }
 
 interface RefreshChannel {
@@ -193,7 +210,7 @@ interface RefreshChannel {
 	clearSession(session: ActiveSession): void;
 }
 
-export default function worktreeStatusExtension(pi: ExtensionAPI) {
+export default function worktreeStatusExtension(pi: ExtensionAPI, dependencies: WorktreeStatusExtensionDependencies = {}) {
 	pi.registerMessageRenderer?.(WORKTREE_STATUS_UI_KEY, renderWorktreeStatusMessage);
 
 	let nextSessionId = 0;
@@ -221,6 +238,7 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 		if (session !== undefined) {
 			session.closed = true;
 			session.abortController.abort();
+			session.watcher?.close();
 			session.ctx.ui.setFooter?.(undefined);
 			fullRefreshChannel.clearSession(session);
 		}
@@ -436,6 +454,14 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 	pi.on("session_start", async (_event, ctx) => {
 		const session = activateSession(ctx);
 		installStatusFooter(session);
+		session.watcher = startGitStatusWatcher(session, {
+			watchPath: dependencies.watchPath ?? watchExistingPath,
+			setTimeout: dependencies.setTimeout ?? setTimeout,
+			clearTimeout: dependencies.clearTimeout ?? clearTimeout,
+			onChange: () => {
+				void fullRefreshChannel.run(session);
+			},
+		});
 		await fullRefreshChannel.run(session);
 	});
 
@@ -462,6 +488,93 @@ function fallbackRepoName(cwd: string): string {
 function renderLines(ctx: ExtensionContext, lines: string[]): void {
 	ctx.ui.setWidget(WORKTREE_STATUS_UI_KEY, undefined);
 	ctx.ui.setStatus(WORKTREE_STATUS_UI_KEY, lines.join("\n"));
+}
+
+interface StartGitStatusWatcherOptions {
+	watchPath(path: string, callback: () => void): WatchHandle | undefined;
+	setTimeout(callback: () => void, ms: number): ReturnType<typeof setTimeout>;
+	clearTimeout(timeout: ReturnType<typeof setTimeout>): void;
+	onChange(): void;
+}
+
+function startGitStatusWatcher(session: ActiveSession, options: StartGitStatusWatcherOptions): WorktreeStatusWatcher | undefined {
+	const paths = watchedGitStatusPaths(session.cwd);
+	if (paths.length === 0) return undefined;
+
+	const handles: WatchHandle[] = [];
+	let pending: ReturnType<typeof setTimeout> | undefined;
+	let isClosed = false;
+
+	function flush(): void {
+		pending = undefined;
+		if (isClosed || !isActiveSessionForWatcher(session)) return;
+		options.onChange();
+	}
+
+	function schedule(): void {
+		if (isClosed || pending !== undefined) return;
+		pending = options.setTimeout(flush, GIT_STATUS_WATCH_DEBOUNCE_MS);
+		unrefTimer(pending);
+	}
+
+	for (const path of paths) {
+		const handle = options.watchPath(path, schedule);
+		if (handle !== undefined) handles.push(handle);
+	}
+
+	if (handles.length === 0) return undefined;
+	return {
+		close() {
+			isClosed = true;
+			if (pending !== undefined) {
+				options.clearTimeout(pending);
+				pending = undefined;
+			}
+			for (const handle of handles) handle.close();
+		},
+	};
+}
+
+function isActiveSessionForWatcher(session: ActiveSession): boolean {
+	return !session.closed && !session.abortController.signal.aborted;
+}
+
+function watchExistingPath(path: string, callback: () => void): WatchHandle | undefined {
+	if (!existsSync(path)) return undefined;
+	try {
+		const watcher = watch(path, { persistent: false }, callback);
+		watcher.on("error", () => watcher.close());
+		return watcher;
+	} catch {
+		return undefined;
+	}
+}
+
+function watchedGitStatusPaths(cwd: string): string[] {
+	const gitPaths = findGitPaths(cwd);
+	if (gitPaths === undefined) return [];
+
+	const paths = new Set<string>([
+		gitPaths.headPath,
+		join(gitPaths.gitDir, "index"),
+		join(gitPaths.commonGitDir, "packed-refs"),
+		join(gitPaths.commonGitDir, "logs", "HEAD"),
+	]);
+	const currentBranch = currentBranchName(gitPaths);
+	if (currentBranch !== undefined) {
+		const refPath = join(gitPaths.commonGitDir, "refs", "heads", ...currentBranch.split("/"));
+		paths.add(refPath);
+		paths.add(dirname(refPath));
+		paths.add(join(gitPaths.commonGitDir, "logs", "refs", "heads", ...currentBranch.split("/")));
+	}
+
+	return [...paths].filter((path) => existsSync(path));
+}
+
+function unrefTimer(timer: ReturnType<typeof setTimeout>): void {
+	if (typeof timer !== "object" || timer === null || !("unref" in timer)) return;
+	const unref = timer.unref;
+	if (typeof unref === "function") unref.call(timer);
 }
 
 function findGitPaths(cwd: string): GitPaths | undefined {

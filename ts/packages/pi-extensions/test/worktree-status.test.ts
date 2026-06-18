@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
 import { visibleWidth } from "@earendil-works/pi-tui";
 
@@ -410,6 +410,70 @@ describe("worktree status extension registration", () => {
 
 			pi.assertDone();
 			await pi.sessionShutdown?.();
+		});
+	});
+
+	test("git metadata watcher refreshes stale dirty marker after checkpoint commit", async () => {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
+			vi.useFakeTimers();
+			try {
+				const watched: Array<{ path: string; callback: () => void }> = [];
+				const closed: string[] = [];
+				const secondDirtyChecked = deferred<void>();
+				const pi = new LifecycleFakePi([
+					brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+					...ghNoPrSteps(),
+					...basicGitStatusScript("main", 1, " M file.txt\n", "abc123"),
+					brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+					...ghNoPrSteps(),
+					...ghNoPrSteps(),
+					revListStep("main", 2),
+					{ ...dirtyStep(), onCall: () => secondDirtyChecked.resolve() },
+					headOidStep("def456"),
+				]);
+				const statuses = new Map<string, string | undefined>();
+				const ctx: ExtensionContext = {
+					cwd: root,
+					hasUI: true,
+					ui: {
+						theme: TEST_THEME,
+						setStatus(key, value) {
+							statuses.set(key, value);
+						},
+						setWidget() {},
+					},
+				};
+
+				worktreeStatusExtension(pi as ExtensionAPI, {
+					watchPath(path, callback) {
+						watched.push({ path, callback });
+						return {
+							close() {
+								closed.push(path);
+							},
+						};
+					},
+				});
+				await pi.sessionStart?.({}, ctx);
+				expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
+					"[gt] ↓ main · ↑ - · 1 commit · ✗\n[gh] no PR",
+				);
+
+				expect(watched.some((entry) => entry.path.endsWith("HEAD"))).toBe(true);
+				watched[0]?.callback();
+				await vi.advanceTimersByTimeAsync(100);
+				await secondDirtyChecked.promise;
+				await flushPromises();
+
+				expect(pi.errors).toEqual([]);
+				const refreshedStatus = stripTerminalEscapes(statuses.get("worktree-status") ?? "");
+				expect(refreshedStatus).toContain("[gt] ↓ main · ↑ - · 2 commits");
+				expect(refreshedStatus).not.toContain("✗");
+				await pi.sessionShutdown?.();
+				expect(closed.length).toBeGreaterThan(0);
+			} finally {
+				vi.useRealTimers();
+			}
 		});
 	});
 
