@@ -1,6 +1,7 @@
+import { InMemoryGitGateway } from "@asdl/core/git/testing";
+
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import type { AretroCliContext } from "../../src/context.ts";
-import { FakeAretroGitGateway } from "../../src/gateways/git-fake.ts";
 import { FakeSessionSource } from "../../src/sessions/source-fake.ts";
 
 export interface ScenarioRunOptions {
@@ -25,7 +26,7 @@ export function runScenario(
 	const context: AretroCliContext = options.context ?? {
 		cwd,
 		env: options.env ?? { PATH: "/fake/bin" },
-		git: new FakeAretroGitGateway(),
+		git: new InMemoryGitGateway(),
 		sessionSource: new FakeSessionSource(),
 	};
 	const deps: CliDeps = {

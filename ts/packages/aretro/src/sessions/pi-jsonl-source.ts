@@ -17,7 +17,7 @@ import type {
 	SessionUsage,
 	SessionWarning,
 } from "./types.ts";
-import type { SessionSource } from "./source.ts";
+import { limitSessions, type SessionSource } from "./source.ts";
 
 const PI_SOURCE_INFO: SessionSourceInfo = {
 	harness: "pi",
@@ -30,15 +30,6 @@ const TOOL_CALL_TYPES = new Set(["toolCall", "tool_call", "tool_use"]);
 
 interface JsonObject {
 	[key: string]: unknown;
-}
-
-interface MutableMessageCounts {
-	user: number;
-	assistant: number;
-	tool_result: number;
-	command_execution: number;
-	system: number;
-	other: number;
 }
 
 interface JsonObjectDecodeResult {
@@ -172,7 +163,7 @@ function parsePiJsonlSession(path: string, repoRoot: string | null): ParsedSessi
 		started_at_iso: startedAtIso,
 		ended_at_iso: latestTimestamp,
 		association: buildAssociation({ repoRoot, cwd }),
-		message_counts: freezeMessageCounts(counts),
+		message_counts: counts,
 		model_events: modelEvents,
 		tool_calls: toolCalls,
 		tool_results: toolResults,
@@ -245,13 +236,6 @@ export class PiJsonlSessionSource implements SessionSource {
 			warnings: allWarnings,
 		};
 	}
-}
-
-function limitSessions(sessions: ParsedSession[], maxSessions: number): ParsedSession[] {
-	if (maxSessions <= 0) {
-		return [];
-	}
-	return sessions.slice(0, maxSessions);
 }
 
 function warningResult(opts: { code: string; message: string; path: string }): SessionQueryResult {
@@ -699,14 +683,14 @@ function adapterWarning(opts: {
 	};
 }
 
-function emptyMessageCounts(): MutableMessageCounts {
+function emptyMessageCounts(): SessionMessageCounts {
 	return { user: 0, assistant: 0, tool_result: 0, command_execution: 0, system: 0, other: 0 };
 }
 
 function addMessageCounts(
-	left: MutableMessageCounts,
+	left: SessionMessageCounts,
 	right: SessionMessageCounts,
-): MutableMessageCounts {
+): SessionMessageCounts {
 	return {
 		user: left.user + right.user,
 		assistant: left.assistant + right.assistant,
@@ -714,17 +698,6 @@ function addMessageCounts(
 		command_execution: left.command_execution + right.command_execution,
 		system: left.system + right.system,
 		other: left.other + right.other,
-	};
-}
-
-function freezeMessageCounts(counts: MutableMessageCounts): SessionMessageCounts {
-	return {
-		user: counts.user,
-		assistant: counts.assistant,
-		tool_result: counts.tool_result,
-		command_execution: counts.command_execution,
-		system: counts.system,
-		other: counts.other,
 	};
 }
 

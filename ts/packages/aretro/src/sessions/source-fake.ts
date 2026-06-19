@@ -5,7 +5,7 @@ import type {
 	SessionSourceInfo,
 	SessionWarning,
 } from "./types.ts";
-import type { SessionSource } from "./source.ts";
+import { limitSessions, type SessionSource } from "./source.ts";
 
 export interface FakeSessionSourceState {
 	sourceInfo?: SessionSourceInfo | undefined;
@@ -31,8 +31,7 @@ export class FakeSessionSource implements SessionSource {
 
 	async query(query: SessionQuery): Promise<SessionQueryResult> {
 		this.queries.push({ ...query, session_root: query.session_root });
-		const limitedSessions =
-			query.max_sessions <= 0 ? [] : this.sessions.slice(0, query.max_sessions);
+		const limitedSessions = limitSessions(this.sessions, query.max_sessions);
 		return {
 			source_info: this.sourceInfo,
 			sessions: [...limitedSessions],

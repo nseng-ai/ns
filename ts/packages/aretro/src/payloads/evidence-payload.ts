@@ -83,7 +83,7 @@ export const toolResultDetailDtoSchema = z.object({
 	has_error_message: z.boolean(),
 	text_length: z.number().nullable(),
 	line_count: z.number().nullable(),
-	truncated: z.boolean().nullable(),
+	is_truncated: z.boolean().nullable(),
 	source_ref: payloadSourceRefDtoSchema.nullable(),
 });
 
@@ -93,8 +93,8 @@ export const commandExecutionDetailDtoSchema = z.object({
 	command_subject: z.string(),
 	command_metadata: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])),
 	exit_code: z.number().nullable(),
-	cancelled: z.boolean().nullable(),
-	truncated: z.boolean().nullable(),
+	is_cancelled: z.boolean().nullable(),
+	is_truncated: z.boolean().nullable(),
 	output_length: z.number().nullable(),
 	line_count: z.number().nullable(),
 	source_ref: payloadSourceRefDtoSchema.nullable(),
@@ -332,7 +332,7 @@ function toolResultDetail(options: {
 		has_error_message: options.result.error_message !== null,
 		text_length: options.result.text_length,
 		line_count: options.result.line_count,
-		truncated: options.result.truncated,
+		is_truncated: options.result.truncated,
 		source_ref: optionalSourceRefToDto(options.result.source_ref),
 	};
 }
@@ -351,8 +351,8 @@ function commandExecutionDetail(options: {
 		command_subject: bounded.subject,
 		command_metadata: bounded.metadata,
 		exit_code: options.execution.exit_code,
-		cancelled: options.execution.cancelled,
-		truncated: options.execution.truncated,
+		is_cancelled: options.execution.cancelled,
+		is_truncated: options.execution.truncated,
 		output_length: options.execution.output_length,
 		line_count: options.execution.line_count,
 		source_ref: optionalSourceRefToDto(options.execution.source_ref),
