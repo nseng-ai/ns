@@ -6,6 +6,8 @@ Implement `vibechk` as a lightweight, ephemeral evaluation CLI for measuring the
 
 The source implementation spec is GitHub issue #434: <https://github.com/dagster-io/asdl-tools/issues/434>. The Objective should track the v1 behavior and validation from that issue while leaving v1.5/v2 ideas parked.
 
+Migration pause: remaining unimplemented v1 feature work is paused while `.asdl/objectives/vibechk-typescript-port/` ports the already-implemented Python surface to TypeScript. This Objective remains the product source for the full v1 behavior after that migration; the port Objective owns the language cutover and should not expand scope into the missing v1 features.
+
 ## Scope
 
 ### Source Spec Anchors
@@ -28,7 +30,7 @@ Design choices from the issue should not be accidentally reversed during impleme
 ### Implementation Scope
 
 - Create a standalone workspace package at `packages/vibechk` exposing the CLI command `vibechk`.
-- Implement v1 in Python, following this repository's Python package and fake-driven testing conventions.
+- Historical/current implementation baseline: v1 began as a Python package following this repository's Python package and fake-driven testing conventions. Further product feature work in Python is paused while the TypeScript port Objective migrates the already-implemented surface.
 - Implement the v1 commands: `run`, `show`, `diff`, `publish`, and `runs`.
 - Support a user-level bundle store with `--store DIR`, `$VIBECHK_HOME`, and an XDG-style default location.
 - Persist run bundles containing the plan snapshot, transcript, metrics, metadata, and diff patch.
@@ -49,7 +51,7 @@ Design choices from the issue should not be accidentally reversed during impleme
 - Importing bundles from PRs, tamper detection, verification, or reconstructing evidence from published reports.
 - Building runner-specific product surfaces or making Pi a special SDK-native v1 path; `claude`, `codex`, and `pi` should enter through the same Python runner contract.
 - Requiring live execution of `claude`, `codex`, or `pi` as a closure gate; fake-driven automated tests are required, and live runner smokes are optional evidence.
-- Writing the v1 CLI in JS/TS or depending on the Pi SDK at runtime; a Pi-native SDK/extension experience is parked for later.
+- Implementing the remaining v1 product features in Python while the TypeScript migration is active; `publish`, `codex`, `pi`, and real publish smoke evidence should resume after the already-implemented surface is TS-default.
 - Treating the exact module tree suggested in issue #434 as mandatory when a repo-conventional layout is cleaner.
 
 ## Completion Criteria
