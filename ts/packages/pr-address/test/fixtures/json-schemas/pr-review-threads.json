@@ -3,19 +3,19 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
-      "pr_number": {
+      "prNumber": {
         "type": "integer",
         "minimum": -9007199254740991,
         "maximum": 9007199254740991
       },
-      "include_resolved": {
+      "includeResolved": {
+        "default": false,
         "type": "boolean"
       }
     },
     "required": [
-      "pr_number"
-    ],
-    "additionalProperties": false
+      "prNumber"
+    ]
   },
   "output_json_schema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",

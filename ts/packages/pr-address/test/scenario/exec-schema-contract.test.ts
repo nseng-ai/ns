@@ -62,7 +62,7 @@ function schemaKeysForOperation(
 	const surface = buildSurfacePlan({ commandName: operationName, schema });
 	const parseKeys = new Set(surface.options.map((option) => option.key));
 
-	const document = buildOperationSchemaDocument(operationName);
+	const document = buildOperationSchemaDocument(operationName, schema);
 	if (document === undefined) {
 		throw new Error(`No schema document builder for operation '${operationName}'`);
 	}
