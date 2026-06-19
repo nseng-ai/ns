@@ -123,11 +123,49 @@ This Objective is designed for autonomous stack execution after a human preview 
 - Validation before keeping work should include targeted package checks/tests for the slice. TypeScript implementation slices should normally run package-focused checks plus `pnpm --dir ts run check` and `pnpm --dir ts run test`; deletion/root-config slices should run affected Python lock/build/test/docs checks and enough repo validation to prove stale Python references are gone.
 - After meaningful progress, run `objective-update` for `aretro-typescript-port` before starting a materially new stack or claiming the Objective is ready for closure. When the cutover completes, also update `port-asdl-toolkit-to-typescript` with the outcome and playbook lessons.
 
+## Single Invocation Stack Defaults
+
+The current contract inventory has enough information for one `objective-stack-impl` invocation to preview and execute the full port as a small Graphite stack without asking further design questions, unless implementation evidence contradicts these defaults.
+
+Default stack shape:
+
+1. `aretro-ts-contract-and-shell` — create `@asdl/aretro`, codify the locked CLI/JSON/payload contract, and expose root/hidden-`exec` command shells with scenario tests over fakes.
+2. `aretro-ts-compact-evidence` — port repo/branch resolution, Pi session-source parsing/querying, compact DTO conversion, deterministic evidence aggregation, warnings, and privacy-preserving compact output.
+3. `aretro-ts-payload-detail` — port schema-version-1 sanitized payload artifacts, payload store/lookup helpers, long command-subject bounding, supporting pointers, and `read-evidence-detail` JSON Pointer validation.
+4. `aretro-ts-skill-distribution-cutover` — make the `branch-retro` runner prefer the TypeScript CLI for repo-local use, add an opt-in `just install-aretro` source shim, audit checkout-free/prod use, and update active docs away from Python/default `asdl aretro` examples.
+5. `aretro-ts-retire-python` — only after prior parity and cutover gates pass, remove Python package/workspace/build/test/publish wiring, preserve rollback/reference evidence, grep for stale active references, and update the umbrella TypeScript migration Objective/playbook.
+
+Default decisions for the implementation runner:
+
+- Treat `asdl aretro` as stale unless caller evidence proves a live plugin requirement. The current skill and plugin smoke test evidence point to standalone `aretro`, not a parent `asdl aretro` plugin.
+- Keep TypeScript session-source, evidence-aggregation, and payload-store seams package-local in `ts/packages/aretro` for this port. Promote them to `@asdl/core` only if a second consumer or already-existing exported TypeScript seam proves reuse during implementation.
+- Use `@asdl/clinkr` for command construction and `@asdl/core/cli-entry` for direct invocation detection; do not deep-import another package's `src/` tree.
+- Add `just install-aretro` as an opt-in source shim if PATH execution remains useful. Do not add it to `install-tools` unless the cutover audit finds active installed-tool consumers that need the bundled install target.
+- Prefer repo-local TypeScript source execution for in-checkout skill use. Retire `ASDL_ARETRO_MODE=prod` / `uvx --from aretro==0.1.0` only after the cutover audit finds no required checkout-free consumer; if a real consumer exists, stop before Python deletion and ask how to preserve or replace that distribution path.
+- Preserve the privacy boundary as a hard gate: compact and payload outputs must not expose raw transcript text, prompts, assistant prose, tool output, command output, or raw failed-tool error text.
+
+Stop and ask only when a previewed stack would change the evidence/diagnosis boundary, add evidence kinds, publish or require an external registry package, preserve checkout-free execution through a new package, add `aretro` to `install-tools` without caller evidence, delete Python while active prod/`uvx` consumers remain unresolved, or keep changes after validation/privacy evidence is ambiguous.
+
 ## Implementation Notes
+
+### Locked contract inventory
+
+A post-Objective inventory associated with PR #1820 inspected the current Python source/tests, `docs/aretro.md`, docs-site `aretro` and `branch-retro` pages, `skills/branch-retro/SKILL.md`, `skills/branch-retro/scripts/aretro-run`, root workspace/build config, plugin smoke tests, `asdl-core.sessions`, `asdl-core.payloads`, and current TypeScript CLI conventions.
+
+Treat these findings as the locked compatibility baseline for the TypeScript port unless implementation-time tests prove a correction is needed:
+
+- The durable public boundary is standalone `aretro`, especially `aretro exec collect-evidence --format json` and `aretro exec read-evidence-detail --format json`; `exec` is hidden from root help but invocable.
+- `--runtime` should deliberately change from Python diagnostics to TypeScript diagnostics after cutover; incidental Click help wrapping does not need byte-for-byte parity.
+- `collect-evidence` must preserve request options, default values, branch-source values, success/error data shape, compact DTO field names, and negative-result data for non-git, git-root, current-branch, and detached-HEAD failures.
+- Missing session roots and missing repo session dirs are successful results with warnings, not command failures.
+- Deterministic evidence kinds and thresholds come from the current session aggregation layer: tool usage, failed tool results, repeated file reads, repeated shell commands, token usage observed, and large output observed.
+- Payload mode must preserve descriptor `aretro-collect-evidence`, raw Clinkr payload artifacts, schema version 1 detail data, `/data`-scoped locator hints, sanitized detail records, and `read-evidence-detail` validation of raw successful envelopes before pointer reads.
+- The current docs-site `asdl aretro --help` example is stale by default: the branch-retro skill says not to use `asdl aretro`, and the plugin smoke test asserts stale `aretro.plugin:build_aretro_plugin` is not mounted.
+- Current active Python references to remove during retirement include root `pyproject.toml` workspace/source/dev/Ruff/ty/pytest entries, `just publish --package aretro`, `uv.lock`, `packages/aretro/**`, Python install docs, and `uv run`/`uvx` runner paths. `packages/packagechk` fixture references to `@asdl-io/aretro` are unrelated package-name examples and are not an `aretro` CLI runtime dependency.
 
 ### Current Python contract seed
 
-Start the implementation-time contract inventory from these observed facts, then verify them against source and tests before relying on them:
+These observed facts seeded the locked inventory and remain useful source pointers for implementation:
 
 - Python package: `packages/aretro`, console script `aretro = "aretro.main:main"`, depends on `asdl-core` and Click.
 - CLI root: `build_aretro_group()` creates `ClinkrGroup(name="aretro", help="Branch session retrospective evidence operations.")` and mounts hidden `exec`.
@@ -208,11 +246,11 @@ Stop before the retirement slice if TypeScript parity is incomplete, privacy bou
 
 Assumptions:
 
-- The active user-facing value is the `branch-retro` skill plus standalone `aretro exec` evidence commands, not a parent `asdl aretro` plugin.
+- The active user-facing value is the `branch-retro` skill plus standalone `aretro exec` evidence commands, not a parent `asdl aretro` plugin. The completed inventory found the docs-site `asdl aretro --help` example stale by default.
 - The deterministic evidence/semantic-interpretation split remains correct: `aretro` emits observations; the model-backed skill writes recommendations.
-- Repo-local TypeScript source execution plus a source shim is likely sufficient for current in-checkout consumers, matching recent toolkit cutovers, but the current `uvx` prod runner requires explicit caller evidence before it can be removed safely.
-- Existing Python scenario/unit tests, `docs/aretro.md`, docs-site pages, and `branch-retro` skill instructions are sufficient to seed the contract inventory.
-- Shared TypeScript foundations already cover enough command runtime behavior via `@asdl/clinkr`; session/payload seams may still need package-local TypeScript work.
+- Repo-local TypeScript source execution plus an opt-in source shim is the default for current in-checkout consumers, matching recent toolkit cutovers. The current `uvx` prod runner must be audited before Python deletion, but it does not block TypeScript parity work.
+- Existing Python scenario/unit tests, `docs/aretro.md`, docs-site pages, and `branch-retro` skill instructions are sufficient to seed and test the compatibility contract.
+- Shared TypeScript foundations already cover enough command runtime behavior via `@asdl/clinkr`; session, evidence, and payload seams should remain package-local until repeated consumers prove shared extraction.
 
 Risks:
 
@@ -227,6 +265,4 @@ Risks:
 ## Open Questions
 
 - Does implementation-time caller inventory find any real required `ASDL_ARETRO_MODE=prod` or checkout-free `uvx --from aretro==0.1.0` consumer? If yes, preserve or replace that path before Python deletion; if no, retire or narrow it explicitly.
-- Should `just install-aretro` be included in `install-tools`, or remain opt-in like `vibechk`? Decide from active installed-tool consumer evidence during the distribution cutover slice.
-- Is docs-site's current `asdl aretro --help` install example stale, historical, or evidence of a real plugin expectation? Current skill guidance says not to use `asdl aretro`; resolve this during contract inventory/docs cleanup.
-- Are TypeScript session-source and payload-store seams reusable enough to belong in `@asdl/core`, or should they remain package-local until a second consumer appears?
+- Does the distribution cutover audit find active installed-tool consumers that need `just install-aretro` included in `install-tools`? Default is opt-in only.
