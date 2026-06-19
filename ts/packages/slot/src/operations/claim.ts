@@ -50,9 +50,7 @@ export function renderClaim(result: ClaimResult): string {
 function mainRedirectSuffix(result: ClaimResult): string {
 	const note = result.main_redirect_note === null ? "" : ` (${result.main_redirect_note})`;
 	if (result.main_redirect_action === "checkout_branch") {
-		const ref = result.main_redirect_ref ?? result.main_checkout_branch;
-		if (ref === null) return `${note}`;
-		return `; checked out ${ref} in main worktree${note}`;
+		return `; checked out ${result.main_redirect_ref} in main worktree${note}`;
 	}
 	if (result.main_redirect_action === "detach_head") {
 		if (result.main_redirect_ref === null) return `; detached main worktree${note}`;
