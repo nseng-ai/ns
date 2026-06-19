@@ -129,7 +129,8 @@ export function formatTrunkOutOfDatePreflightOutput(_output: SubmitCommandOutput
 export function formatRestackRequiredOutput(output: SubmitCommandOutput): string {
 	return [
 		"Graphite requires a restack before submission.",
-		"Run `gt restack`, resolve any conflicts, then run `sdl submit` again, or rerun with `--restack` to let sdl submit run `gt restack --no-interactive`.",
+		"Plain `sdl submit` normally runs `gt restack --no-interactive` automatically when required; this output means automatic restack was disabled or unavailable.",
+		"Run `gt restack`, resolve any conflicts, then run `sdl submit` again.",
 		"Submission was not attempted.",
 		"",
 		"$ gt submit -nps --no-ai --no-interactive --dry-run",
@@ -169,7 +170,7 @@ export function formatRestackConfirmationPrompt(
 export function formatRestackDeclinedOutput(output: SubmitCommandOutput): string {
 	return [
 		"Restack was not run. Submission was not attempted.",
-		"Run `gt restack`, resolve any conflicts, then run `sdl submit` again, or rerun with `--restack` to skip the prompt.",
+		"Run `gt restack`, resolve any conflicts, then run `sdl submit` again.",
 		"",
 		"$ gt submit -nps --no-ai --no-interactive --dry-run",
 		"",
