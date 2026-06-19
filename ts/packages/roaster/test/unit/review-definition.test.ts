@@ -46,7 +46,15 @@ const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
 		expectedModel: "sonnet",
 		expectedApplicability: {
 			include: ["**/*.ts", "**/*.tsx", "**/*.py"],
-			exclude: ["**/tests/**", "**/test/**", "**/*.test.ts", "**/test_*.py", ".agents/skills/**", ".claude/skills/**", "skills/**"],
+			exclude: [
+				"**/tests/**",
+				"**/test/**",
+				"**/*.test.ts",
+				"**/test_*.py",
+				".agents/skills/**",
+				".claude/skills/**",
+				"skills/**",
+			],
 		},
 	},
 ];

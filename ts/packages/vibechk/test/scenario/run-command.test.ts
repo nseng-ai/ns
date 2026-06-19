@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -19,6 +19,9 @@ describe("vibechk run command", () => {
 	beforeEach(async () => {
 		tmpRoot = await mkdtemp(join(tmpdir(), "vibechk-run-test-"));
 		storeRoot = join(tmpRoot, "store");
+		await mkdir(join(tmpRoot, "workdir"), { recursive: true });
+		await mkdir(join(tmpRoot, "baseline"), { recursive: true });
+		await mkdir(join(tmpRoot, "treatment"), { recursive: true });
 	});
 
 	afterEach(async () => {
@@ -57,7 +60,7 @@ describe("vibechk run command", () => {
 				"--plan",
 				planPath,
 				"--workdir",
-				"/tmp/workdir",
+				join(tmpRoot, "workdir"),
 				"--runner",
 				"fake",
 				"--store",
@@ -120,7 +123,7 @@ describe("vibechk run command", () => {
 				"--plan",
 				planPath,
 				"--workdir",
-				"/tmp/workdir",
+				join(tmpRoot, "workdir"),
 				"--runner",
 				"fake",
 				"--store",
@@ -172,7 +175,7 @@ describe("vibechk run command", () => {
 				"--plan",
 				planPath,
 				"--workdir",
-				"/tmp/workdir",
+				join(tmpRoot, "workdir"),
 				"--runner",
 				"fake",
 				"--store",
@@ -263,7 +266,7 @@ describe("vibechk run command", () => {
 				"--plan",
 				planPath,
 				"--workdir",
-				"/tmp/workdir",
+				join(tmpRoot, "workdir"),
 				"--runner",
 				"fake",
 				"--store",
@@ -326,7 +329,7 @@ describe("vibechk run command", () => {
 					"--plan",
 					planPath,
 					"--workdir",
-					"/tmp/baseline",
+					join(tmpRoot, "baseline"),
 					"--runner",
 					"fake",
 					"--store",
@@ -360,7 +363,7 @@ describe("vibechk run command", () => {
 					"--plan",
 					planPath,
 					"--workdir",
-					"/tmp/treatment",
+					join(tmpRoot, "treatment"),
 					"--runner",
 					"fake",
 					"--store",

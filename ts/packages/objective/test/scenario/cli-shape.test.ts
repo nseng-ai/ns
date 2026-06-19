@@ -25,6 +25,7 @@ describe("objective CLI shape", () => {
 		expect(topLevelHelp).toContain("Usage: objective");
 		expect(topLevelHelp).toContain("Work with checked-in Objective records.");
 		expect(topLevelHelp).toContain("--runtime");
+		expect(topLevelHelp).toContain("check");
 		expect(topLevelHelp).not.toContain("exec");
 
 		const execHelp = runScenario(["exec", "--help"]);

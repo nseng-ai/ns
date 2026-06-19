@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";
 import { pythonStringRepr } from "./format.ts";
+import { handleObjectiveSlugValidationErrors } from "./slug-validation-errors.ts";
 import {
 	archiveEmptyDestinationRelativePath,
 	archiveEmptySourceRelativePath,
@@ -46,15 +47,8 @@ export async function runArchiveObjective(
 ): Promise<ClinkrExit<ArchiveObjectiveResult>> {
 	const result = await archiveObjective(ctx.storage, request);
 	if (result.type === "storage-error") return failure(result.error.code, result.error.message);
-	if (result.value.status === "missing_slug") {
-		return negative("Missing Objective slug. Pass an explicit slug.", result.value);
-	}
-	if (result.value.status === "invalid_slug") {
-		return negative(
-			`Invalid Objective slug ${pythonStringRepr(request.slug ?? "")}. Pass a single slug, not a path.`,
-			result.value,
-		);
-	}
+	const slugValidationError = handleObjectiveSlugValidationErrors(result.value, request.slug);
+	if (slugValidationError !== null) return slugValidationError;
 	if (result.value.status === "source_not_found") {
 		return negative(
 			sourceNotFoundMessage(
