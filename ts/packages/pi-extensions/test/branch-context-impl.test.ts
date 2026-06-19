@@ -145,6 +145,9 @@ describe("branch-context-impl", () => {
 			"Refusing to implement directly on trunk (`main`)",
 		);
 		expect(pi.execCalls).toEqual([]);
-		expect(context.statuses.at(-1)).toEqual({ key: "sdl:branch-context:impl-attached-plan", value: undefined });
+		expect(context.statuses.at(-1)).toEqual({
+			key: "sdl:branch-context:impl-attached-plan",
+			value: undefined,
+		});
 	});
 });

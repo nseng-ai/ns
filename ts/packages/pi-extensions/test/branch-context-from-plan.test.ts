@@ -76,7 +76,10 @@ describe("branch-context-from-plan", () => {
 		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${PLAN_SLUG}`);
 		expect(pi.sentMessages[0]?.content).toContain(`Branch Memory key: ${PLAN_KEY}`);
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: plain-git");
-		expect(context.statuses.at(-1)).toEqual({ key: "sdl:branch-context:from-plan", value: undefined });
+		expect(context.statuses.at(-1)).toEqual({
+			key: "sdl:branch-context:from-plan",
+			value: undefined,
+		});
 	});
 
 	test("sdl:branch-context:from-plan dry-run prefers session-created plan over newer disk mtime", async () => {

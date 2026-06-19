@@ -30,12 +30,8 @@ describe("enriched-plan-commands", () => {
 			"sdl:plan:save",
 			"sdl:plan:grill-and-save",
 		]);
-		expect([...pi.commands.keys()].some((name) => name.startsWith("enriched-plan:"))).toBe(
-			false,
-		);
-		expect([...pi.commands.keys()].some((name) => name.startsWith("branch-context:"))).toBe(
-			false,
-		);
+		expect([...pi.commands.keys()].some((name) => name.startsWith("enriched-plan:"))).toBe(false);
+		expect([...pi.commands.keys()].some((name) => name.startsWith("branch-context:"))).toBe(false);
 		expect(pi.tools.has("write_saved_plan_file")).toBe(true);
 		expect([...pi.tools.keys()]).toEqual(["write_saved_plan_file"]);
 	});

@@ -114,7 +114,11 @@ export function derivePiReplacementCommand(skillName: string): DerivedPiCommand 
 	);
 	for (const namespace of namespaces) {
 		const prefix = `${namespace}-`;
-		if (skillName.startsWith(prefix)) return buildDerivedPiCommand({ skillName, surface: `${namespace}:${skillName.slice(prefix.length)}` });
+		if (skillName.startsWith(prefix))
+			return buildDerivedPiCommand({
+				skillName,
+				surface: `${namespace}:${skillName.slice(prefix.length)}`,
+			});
 	}
 
 	const firstHyphen = skillName.indexOf("-");
@@ -122,10 +126,16 @@ export function derivePiReplacementCommand(skillName: string): DerivedPiCommand 
 		return undefined;
 	}
 
-	return buildDerivedPiCommand({ skillName, surface: `${skillName.slice(0, firstHyphen)}:${skillName.slice(firstHyphen + 1)}` });
+	return buildDerivedPiCommand({
+		skillName,
+		surface: `${skillName.slice(0, firstHyphen)}:${skillName.slice(firstHyphen + 1)}`,
+	});
 }
 
-function buildDerivedPiCommand(options: { skillName: string; surface: string }): DerivedPiCommand | undefined {
+function buildDerivedPiCommand(options: {
+	skillName: string;
+	surface: string;
+}): DerivedPiCommand | undefined {
 	const { skillName, surface } = options;
 	const separator = surface.indexOf(":");
 	if (separator <= 0 || separator === surface.length - 1) return undefined;
