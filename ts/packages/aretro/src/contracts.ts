@@ -114,6 +114,20 @@ export const evidenceItemDtoSchema = z.object({
 
 export type EvidenceItemDto = z.infer<typeof evidenceItemDtoSchema>;
 
+export const payloadReferenceSchema = z.object({
+	payload_path: z.string(),
+	session_id: z.string(),
+	descriptor: z.string(),
+	role: z.enum(["raw", "summary", "log"]),
+	created_at_utc: z.string(),
+	sequence: z.number(),
+	payload_bytes: z.number(),
+	content_type: z.string(),
+	extension: z.enum(["json", "txt"]),
+});
+
+export type PayloadReference = z.infer<typeof payloadReferenceSchema>;
+
 export const collectEvidenceResultSchema = z.object({
 	success: z.boolean(),
 	error: collectEvidenceErrorSchema.nullable(),
@@ -124,6 +138,9 @@ export const collectEvidenceResultSchema = z.object({
 	sessions: z.array(sessionSummaryDtoSchema),
 	warnings: z.array(sessionWarningDtoSchema),
 	evidence_items: z.array(evidenceItemDtoSchema),
+	payload_mode: z.enum(["inline", "payload"]).optional(),
+	payload_reference: payloadReferenceSchema.optional(),
+	detail_locator_hints: z.array(z.string()).optional(),
 });
 
 export type CollectEvidenceResult = z.infer<typeof collectEvidenceResultSchema>;

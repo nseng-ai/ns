@@ -1,3 +1,7 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { parseJsonOutput, runScenario } from "../support/run-scenario.ts";
@@ -43,7 +47,8 @@ describe("aretro CLI shape", () => {
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
 		expect(help).toContain("read-evidence-detail");
-		expect(help).toContain("pointer");
+		expect(help).toContain("--payload-path");
+		expect(help).toContain("--json-pointer");
 		// format is automatically added by clinkr
 	});
 });
@@ -107,21 +112,92 @@ describe("aretro exec collect-evidence", () => {
 });
 
 describe("aretro exec read-evidence-detail", () => {
-	it("returns not-yet-implemented error as JSON", async () => {
-		const run = runScenario(["exec", "read-evidence-detail", "some-pointer", "--format", "json"]);
-		expect(await run.exit).toBe(2);
-		const result = parseJsonOutput(run);
-		expect(result).toMatchObject({
-			exit_code: 2,
-			error_type: "not-yet-implemented",
-			message: expect.stringContaining("Not yet implemented"),
-		});
+	it("requires --payload-path and --json-pointer options", async () => {
+		const run = runScenario(["exec", "read-evidence-detail", "--format", "json"]);
+		expect(await run.exit).not.toBe(0);
+		const stderr = run.stderr.join("");
+		expect(stderr).toContain("--payload-path");
+		expect(stderr).toContain("--json-pointer");
 	});
 
-	it("returns not-yet-implemented error as human text", async () => {
-		const run = runScenario(["exec", "read-evidence-detail", "some-pointer", "--format", "human"]);
+	it("rejects invalid payload path", async () => {
+		const run = runScenario([
+			"exec",
+			"read-evidence-detail",
+			"--payload-path",
+			"/nonexistent/path.raw.json",
+			"--json-pointer",
+			"/data",
+			"--format",
+			"json",
+		]);
 		expect(await run.exit).toBe(2);
-		// failure messages go to stderr in human mode
-		expect(run.stderr.join("")).toContain("Not yet implemented");
+		const result = parseJsonOutput(run) as { exit_code: number; error_type: string };
+		expect(result.exit_code).toBe(2);
+		expect(result.error_type).toBe("payload_lookup_failed");
+	});
+
+	it("rejects pointers outside payload data", async () => {
+		const run = runScenario([
+			"exec",
+			"read-evidence-detail",
+			"--payload-path",
+			"/nonexistent/path.raw.json",
+			"--json-pointer",
+			"/not-data",
+			"--format",
+			"json",
+		]);
+		expect(await run.exit).toBe(2);
+		const result = parseJsonOutput(run) as { exit_code: number; error_type: string };
+		expect(result.exit_code).toBe(2);
+		expect(result.error_type).toBe("invalid_request");
+	});
+
+	it("rejects non-success and unsupported-schema payload envelopes", async () => {
+		const nonSuccessPath = writePayloadEnvelope({ exit_code: 1, message: "nope" }, "non-success");
+		const nonSuccess = runScenario([
+			"exec",
+			"read-evidence-detail",
+			"--payload-path",
+			nonSuccessPath,
+			"--json-pointer",
+			"/data",
+			"--format",
+			"json",
+		]);
+		expect(await nonSuccess.exit).toBe(2);
+		expect(parseJsonOutput(nonSuccess)).toMatchObject({
+			exit_code: 2,
+			error_type: "payload_lookup_failed",
+		});
+
+		const unsupportedSchemaPath = writePayloadEnvelope(
+			{ exit_code: 0, data: { schema_version: 2 } },
+			"unsupported-schema",
+		);
+		const unsupportedSchema = runScenario([
+			"exec",
+			"read-evidence-detail",
+			"--payload-path",
+			unsupportedSchemaPath,
+			"--json-pointer",
+			"/data",
+			"--format",
+			"json",
+		]);
+		expect(await unsupportedSchema.exit).toBe(2);
+		expect(parseJsonOutput(unsupportedSchema)).toMatchObject({
+			exit_code: 2,
+			error_type: "payload_lookup_failed",
+		});
 	});
 });
+
+function writePayloadEnvelope(envelope: unknown, descriptor: string): string {
+	const payloadDir = join(tmpdir(), `aretro-${descriptor}`, "sessions", "smoke", "payloads");
+	mkdirSync(payloadDir, { recursive: true });
+	const payloadPath = join(payloadDir, `20260101t000000z-0001-${descriptor}.raw.json`);
+	writeFileSync(payloadPath, `${JSON.stringify(envelope, null, 2)}\n`);
+	return payloadPath;
+}

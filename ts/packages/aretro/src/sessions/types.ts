@@ -36,12 +36,13 @@ export interface SessionMessageCounts {
 }
 
 export interface SessionModelEvent {
-	provider: string;
-	model: string;
+	provider: string | null;
+	model: string | null;
+	source_ref?: SessionSourceRef | null;
 }
 
 export interface SessionToolCall {
-	call_id: string;
+	call_id: string | null;
 	tool_name: string;
 	argument_keys: readonly string[];
 	source_ref: SessionSourceRef | null;
@@ -50,7 +51,7 @@ export interface SessionToolCall {
 }
 
 export interface SessionToolResult {
-	tool_call_id: string;
+	tool_call_id: string | null;
 	tool_name: string | null;
 	is_error: boolean;
 	error_message: string | null;

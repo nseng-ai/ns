@@ -56,7 +56,6 @@ export function buildCli(): ClinkrGroup<AretroCliContext> {
 		name: "read-evidence-detail",
 		description: "Read evidence detail from a payload pointer.",
 		schema: readEvidenceDetailRequestSchema,
-		positionals: { pointer: { position: 0 } },
 		resultSchema: readEvidenceDetailResultSchema,
 		handler: runReadEvidenceDetail,
 		renderHuman: renderReadEvidenceDetail,

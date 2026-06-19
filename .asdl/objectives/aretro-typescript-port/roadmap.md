@@ -20,11 +20,11 @@
   - Scenario/unit tests cover explicit/current/detached/unresolved branch behavior, non-git and git-failure results, session-source warnings, empty sessions, privacy-preserving summaries, and current evidence item kinds.
   - Evidence: compact JSON output remains privacy-preserving and skill-compatible; targeted `@asdl/aretro` check/tests and full TypeScript check/tests passed.
 
-- [ ] Port sanitized payload detail mode and targeted detail reads.
-  - Policy: direct execution after preview; preserve schema-version-1 compatibility unless a recorded compatibility decision changes it.
-  - Implement `--payload-mode payload`, `--payload-session-id`, payload artifact writing, `payload_reference`, `detail_locator_hints`, schema-version-1 detail data, source-ref pointer indexing, long command-subject bounding, and `read-evidence-detail` pointer validation.
-  - Tests should cover payload artifact creation, no raw tool/command output leakage, invalid non-`/data` pointers, malformed/missing payload files, non-success raw envelopes, unsupported schema versions, and valid targeted reads.
-  - Evidence: payload-mode scenario tests and pointer/unit tests pass; detail artifacts remain sanitized.
+- [x] Port sanitized payload detail mode and targeted detail reads.
+  - Policy: completed by the `aretro-ts/payload-detail` branch against Graphite parent `aretro-ts/compact-evidence`.
+  - Added package-local payload store/lookup helpers, `--payload-mode payload`, explicit/environment session-id handling, raw Clinkr payload artifact writing, `payload_reference`, `/data` detail locator hints, schema-version-1 detail data, source-ref pointer indexing, long command-subject bounding, and `read-evidence-detail` pointer validation.
+  - Tests cover payload artifact creation, no raw tool/command output leakage, invalid non-`/data` pointers, missing/non-success/unsupported-schema payloads, JSON Pointer resolution, and valid targeted reads.
+  - Evidence: targeted `@asdl/aretro` formatting/check/tests and full TypeScript check/tests passed.
 
 - [x] Prove real-adapter smoke behavior without leaking raw transcript contents.
   - Policy: completed by the `aretro-ts/compact-evidence` branch using sanitized human output only.
@@ -63,9 +63,8 @@ Completed branch thesis:
 
 Remaining default branch theses:
 
-1. `aretro-ts-payload-detail` — payload-mode artifacts, schema-version-1 detail data, command subject bounding, and `read-evidence-detail`.
-2. `aretro-ts-skill-distribution-cutover` — `branch-retro` runner, source shim/install decision, docs cleanup, and external/prod runner audit.
-3. `aretro-ts-retire-python` — Python package deletion, root config/lock cleanup, stale-reference sweep, rollback evidence, and umbrella Objective update.
+1. `aretro-ts-skill-distribution-cutover` — `branch-retro` runner, source shim/install decision, docs cleanup, and external/prod runner audit.
+2. `aretro-ts-retire-python` — Python package deletion, root config/lock cleanup, stale-reference sweep, rollback evidence, and umbrella Objective update.
 
 Split further by thesis if a branch becomes too broad. Stop before branch 5 if parity, privacy, or distribution evidence is unresolved.
 
