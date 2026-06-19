@@ -2,6 +2,7 @@ import type { RenderCapabilities } from "@asdl/clinkr";
 import { renderTextTable, type TextTableColumn } from "@asdl/core/text-table";
 
 import type { LoadedBundle } from "./models.ts";
+import { encodeMetrics } from "./models.ts";
 
 type MetricRow = [string, keyof LoadedBundle["bundle"]["metrics"]];
 
@@ -112,13 +113,7 @@ export function runListEntryToJson(loaded: LoadedBundle): Record<string, unknown
 		result_branch: bundle.resultBranch,
 		branch_created: bundle.branchCreated,
 		runner_exit_code: bundle.runnerExitCode,
-		metrics: {
-			wall_time_seconds: bundle.metrics.wallTimeSeconds,
-			input_tokens: bundle.metrics.inputTokens,
-			output_tokens: bundle.metrics.outputTokens,
-			total_tokens: bundle.metrics.totalTokens,
-			cost_usd: bundle.metrics.costUsd,
-		},
+		metrics: encodeMetrics(bundle.metrics),
 		run_dir: loaded.runDir,
 	};
 }

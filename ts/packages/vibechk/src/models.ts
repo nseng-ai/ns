@@ -79,6 +79,44 @@ const runBundleSchema = z.object({
 	error: z.string().nullable(),
 });
 
+export type RunBundleJson = z.input<typeof runBundleSchema>;
+
+export function encodeMetrics(metrics: Metrics): z.input<typeof metricsSchema> {
+	return {
+		wall_time_seconds: metrics.wallTimeSeconds,
+		input_tokens: metrics.inputTokens,
+		output_tokens: metrics.outputTokens,
+		total_tokens: metrics.totalTokens,
+		cost_usd: metrics.costUsd,
+	};
+}
+
+export function encodeRunBundle(bundle: RunBundle): RunBundleJson {
+	return {
+		schema_version: bundle.schemaVersion,
+		run_id: bundle.runId,
+		status: bundle.status,
+		started_at: bundle.startedAt.toISOString(),
+		finished_at: bundle.finishedAt.toISOString(),
+		runner: bundle.runner,
+		runner_version: bundle.runnerVersion,
+		model: bundle.model,
+		plan_source: bundle.planSource,
+		workdir: bundle.workdir,
+		git: {
+			repo_root: bundle.git.repoRoot,
+			starting_branch: bundle.git.startingBranch,
+			starting_commit: bundle.git.startingCommit,
+			remotes: bundle.git.remotes,
+		},
+		metrics: encodeMetrics(bundle.metrics),
+		result_branch: bundle.resultBranch,
+		branch_created: bundle.branchCreated,
+		runner_exit_code: bundle.runnerExitCode,
+		error: bundle.error,
+	};
+}
+
 export function parseRunBundle(data: unknown): RunBundle {
 	const parsed = runBundleSchema.parse(data);
 	return {
