@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { runCli } from "../../src/cli.ts";
+import type { RoasterContext } from "../../src/context.ts";
 import type { RoasterResult } from "../../src/failures.ts";
 import {
 	FakeRoasterGitHubGateway,
@@ -13,7 +14,7 @@ import type {
 	PRInlineCommentInput,
 	PRReviewComment,
 } from "../../src/models.ts";
-import { fakeRoasterGateways } from "../support/fake-roaster-gateways.ts";
+import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
 
 interface RunResult {
 	readonly exitCode: number;
@@ -27,14 +28,13 @@ async function runRoaster(
 ): Promise<RunResult> {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
-	const exitCode = await runCli(args, {
-		gateways: fakeRoasterGateways({ github: options.github }),
-		cwd: "/repo",
-		env: {},
+	const context: RoasterContext = fakeRoasterContext({
+		github: options.github,
 		stdin: async () => options.stdin ?? "",
 		stdout: (text) => stdout.push(text),
 		stderr: (text) => stderr.push(text),
 	});
+	const exitCode = await runCli(args, { context });
 	return { exitCode, stdout: stdout.join(""), stderr: stderr.join("") };
 }
 

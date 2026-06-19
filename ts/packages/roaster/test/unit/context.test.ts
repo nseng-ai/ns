@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { createRoasterContext } from "../../src/context.ts";
+import { createRoasterRuntime } from "../../src/context.ts";
 import type { RoasterResult } from "../../src/failures.ts";
 import type { HarnessGateway, RunReviewOptions } from "../../src/gateways/harness.ts";
 import type {
@@ -22,7 +22,7 @@ import {
 	type ReviewDefinition,
 	type ReviewExecutionResponse,
 } from "../../src/models.ts";
-import { fakeRoasterGateways } from "../support/fake-roaster-gateways.ts";
+import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
 
 const sampleReviewDefinition: ReviewDefinition = {
 	name: "typescript-style",
@@ -133,17 +133,28 @@ class RecordingGitHubGateway implements RoasterGitHubGateway {
 	}
 }
 
-describe("createRoasterContext", () => {
-	test("captures cwd, env, and signal while exposing work-shaped gateway calls", async () => {
+describe("createRoasterRuntime", () => {
+	test("derives operation capabilities from the full CLI context", async () => {
 		const localDiff = new RecordingLocalDiffGateway();
 		const reviewCatalog = new RecordingReviewCatalogGateway();
 		const github = new RecordingGitHubGateway();
 		const harness = new RecordingHarnessGateway();
 		const env = { ROASTER_TEST: "1" };
 		const signal = new AbortController().signal;
-		const gateways = fakeRoasterGateways({ localDiff, reviewCatalog, github, harness });
+		const stderr: string[] = [];
+		const context = fakeRoasterContext({
+			localDiff,
+			reviewCatalog,
+			github,
+			harness,
+			cwd: "/repo",
+			env,
+			signal,
+			stdin: async () => "envelope",
+			stderr: (text) => stderr.push(text),
+		});
 
-		const ctx = createRoasterContext(gateways, { cwd: "/repo", env, signal });
+		const ctx = createRoasterRuntime(context);
 
 		await ctx.localDiff.loadDiff({ baseRef: "origin/main" });
 		await ctx.reviewCatalog.listReviewKeys();
@@ -164,6 +175,15 @@ describe("createRoasterContext", () => {
 		await ctx.github.addPrDiscussionComment(47, "body");
 		await ctx.github.updatePrDiscussionComment(1, "body");
 
+		ctx.stderr("diagnostic");
+		expect(await ctx.stdin()).toBe("envelope");
+		expect(stderr).toEqual(["diagnostic"]);
+		expect("execApi" in ctx).toBe(false);
+		expect("gitGateway" in ctx).toBe(false);
+		expect("cwd" in ctx).toBe(false);
+		expect("env" in ctx).toBe(false);
+		expect("signal" in ctx).toBe(false);
+		expect("stdout" in ctx).toBe(false);
 		expect(localDiff.calls[0]).toMatchObject({ cwd: "/repo", baseRef: "origin/main" });
 		expect(localDiff.calls[0]?.env).toBe(env);
 		expect(localDiff.calls[0]?.signal).toBe(signal);

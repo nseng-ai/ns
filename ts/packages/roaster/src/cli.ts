@@ -8,9 +8,10 @@ import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 import { readStdin } from "@asdl/core/stdin";
 
 import {
-	createRealRoasterGateways,
-	createRoasterContext,
-	type RoasterGateways,
+	createRealRoasterContext,
+	createRoasterRuntime,
+	type RoasterContext,
+	type RoasterRuntime,
 } from "./context.ts";
 import {
 	publishFindingsRequestSchema,
@@ -22,14 +23,13 @@ import {
 	runPublishFindings,
 	runReviewByKey,
 	runReviewList,
-	type RoasterCliContext,
 } from "./operations/cli-operations.ts";
 import { reviewRunResultSchema } from "./models.ts";
 
 const VERSION = "0.1.0";
 
 export interface CliDeps {
-	gateways?: RoasterGateways | undefined;
+	context?: RoasterContext | undefined;
 	cwd?: string | undefined;
 	env?: NodeJS.ProcessEnv | undefined;
 	signal?: AbortSignal | undefined;
@@ -38,14 +38,14 @@ export interface CliDeps {
 	stderr?: ((text: string) => void) | undefined;
 }
 
-export function buildCli(): ClinkrGroup<RoasterCliContext> {
-	const root = new ClinkrGroup<RoasterCliContext>({
+export function buildCli(): ClinkrGroup<RoasterRuntime> {
+	const root = new ClinkrGroup<RoasterRuntime>({
 		name: "roaster",
 		description: "PR-diff findings runner.",
 		version: VERSION,
 		runtimeInfo,
 	});
-	const reviewGroup = new ClinkrGroup<RoasterCliContext>({
+	const reviewGroup = new ClinkrGroup<RoasterRuntime>({
 		name: "review",
 		description: "Review catalog and runner operations.",
 	});
@@ -76,7 +76,7 @@ export function buildCli(): ClinkrGroup<RoasterCliContext> {
 	});
 	root.group(reviewGroup);
 
-	const execGroup = new ClinkrGroup<RoasterCliContext>({
+	const execGroup = new ClinkrGroup<RoasterRuntime>({
 		name: "exec",
 		description: "Operations for roaster automation.",
 		isHidden: true,
@@ -94,22 +94,22 @@ export function buildCli(): ClinkrGroup<RoasterCliContext> {
 }
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
+	const context = deps.context ?? createDefaultContext(deps);
+	const io = resolveIo({ stdout: context.stdout, stderr: context.stderr });
+	const runtime = createRoasterRuntime(context);
+	return await buildCli().run(args, { context: runtime, io });
+}
+
+function createDefaultContext(deps: CliDeps): RoasterContext {
 	const io = resolveIo({ stdout: deps.stdout, stderr: deps.stderr });
-	const cwd = deps.cwd ?? process.cwd();
-	const env = deps.env ?? process.env;
-	const gateways = deps.gateways ?? createRealRoasterGateways();
-	const context = createRoasterContext(gateways, {
-		cwd,
-		env,
-		...(deps.signal === undefined ? {} : { signal: deps.signal }),
-	});
-	const cliContext: RoasterCliContext = {
-		...context,
+	return createRealRoasterContext({
+		cwd: deps.cwd ?? process.cwd(),
+		env: deps.env ?? process.env,
 		stdin: deps.stdin ?? readStdin,
 		stdout: io.stdout,
 		stderr: io.stderr,
-	};
-	return await buildCli().run(args, { context: cliContext, io });
+		...(deps.signal === undefined ? {} : { signal: deps.signal }),
+	});
 }
 
 function runtimeInfo(): string {

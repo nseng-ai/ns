@@ -3,7 +3,7 @@ import type { GitGateway } from "@asdl/core/git";
 import { InMemoryGitGateway } from "@asdl/core/git/testing";
 import { ScriptedCommandExecApi } from "@asdl/core/testing";
 
-import type { RoasterGateways } from "../../src/context.ts";
+import type { RoasterContext } from "../../src/context.ts";
 import { FakeHarnessGateway, type HarnessGateway } from "../../src/gateways/harness.ts";
 import { FakeRoasterGitHubGateway, type RoasterGitHubGateway } from "../../src/gateways/github.ts";
 import { FakeLocalDiffGateway, type LocalDiffGateway } from "../../src/gateways/local-diff.ts";
@@ -12,16 +12,22 @@ import {
 	type ReviewCatalogGateway,
 } from "../../src/gateways/review-catalog.ts";
 
-export interface FakeRoasterGatewaysOptions {
+export interface FakeRoasterContextOptions {
 	readonly execApi?: CommandExecApi | undefined;
 	readonly gitGateway?: GitGateway | undefined;
 	readonly localDiff?: LocalDiffGateway | undefined;
 	readonly reviewCatalog?: ReviewCatalogGateway | undefined;
 	readonly github?: RoasterGitHubGateway | undefined;
 	readonly harness?: HarnessGateway | undefined;
+	readonly cwd?: string | undefined;
+	readonly env?: NodeJS.ProcessEnv | undefined;
+	readonly signal?: AbortSignal | undefined;
+	readonly stdin?: (() => Promise<string>) | undefined;
+	readonly stdout?: ((text: string) => void) | undefined;
+	readonly stderr?: ((text: string) => void) | undefined;
 }
 
-export function fakeRoasterGateways(options: FakeRoasterGatewaysOptions = {}): RoasterGateways {
+export function fakeRoasterContext(options: FakeRoasterContextOptions = {}): RoasterContext {
 	const execApi = options.execApi ?? new ScriptedCommandExecApi();
 	const gitGateway =
 		options.gitGateway ??
@@ -41,5 +47,11 @@ export function fakeRoasterGateways(options: FakeRoasterGatewaysOptions = {}): R
 		reviewCatalog: options.reviewCatalog ?? new FakeReviewCatalogGateway(),
 		github: options.github ?? new FakeRoasterGitHubGateway(),
 		harness: options.harness ?? new FakeHarnessGateway(),
+		cwd: options.cwd ?? "/repo",
+		env: options.env ?? {},
+		...(options.signal === undefined ? {} : { signal: options.signal }),
+		stdin: options.stdin ?? (async () => ""),
+		stdout: options.stdout ?? (() => undefined),
+		stderr: options.stderr ?? (() => undefined),
 	};
 }
