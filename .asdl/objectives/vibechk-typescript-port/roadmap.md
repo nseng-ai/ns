@@ -12,11 +12,11 @@
   - Add `ts/packages/vibechk` package wiring, `vibechk` bin, `src/cli.ts`, package-local models/schemas, store loading, report rendering, and tests for `runs`, `show`, and `diff` over fixture bundles.
   - Preserve schema-version-1 bundle reading, snake_case bundle JSON keys, unique-prefix resolution, missing-store behavior, sorted `runs` output, `null` metrics, plan mismatch warning, and Markdown report structure.
   - Evidence: targeted `@asdl/vibechk` unit/scenario tests passed; `pnpm --dir ts run check`, `pnpm --dir ts run test`, `just ts-guard`, and `just dprint-check` passed after the read-only package shell was added.
-- [ ] Port `run`, `claude`, fake runner, and git/result-branch behavior.
+- [x] Port `run`, `claude`, fake runner, and git/result-branch behavior.
   - Policy: direct execution after preview, but stop and ask before changing safety semantics or dropping Python parity for bundle writing.
   - Add workflow execution, run-id allocation, injected clock/id generator, runner registry/default `claude`, transcript streaming, bundle writing, diff capture, result branch creation, switch-back behavior, and failure-bundle persistence.
   - Use package-local domain gateways and constructor-state fakes; add focused real-git tests for non-git, dirty, detached, diff, result branch, and switch-back behavior.
-  - Evidence: scenario coverage for the current run/show/diff walking skeleton, failed runner persistence, no-change runs, and dirty workdir rejection passes.
+  - Evidence: TypeScript `run` now writes schema-version-1 bundles, preserves failed-runner bundles and exit codes, implements the `claude` runner boundary, uses package-local fake and real git gateways, and covers the run/show/diff walking skeleton, failed runner persistence, no-change runs, dirty workdir rejection, and real temp-git result-branch switch-back behavior. Targeted package validation and full TS validation passed.
 - [ ] Make TypeScript `vibechk` the documented default invocation.
   - Policy: direct execution after preview; ask before adding `install-vibechk` to `install-tools`.
   - Update README/manual E2E examples away from `uv run vibechk` toward the chosen TypeScript invocation. Add `just install-vibechk` as an opt-in source shim if PATH execution is accepted, and remove or avoid stale `.venv/bin/vibechk` shadowing.
