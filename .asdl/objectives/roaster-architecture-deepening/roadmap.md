@@ -2,11 +2,12 @@
 
 ## Work
 
-- [ ] Collapse the findings-publication pipeline into one end-to-end `publishFindings` workflow (candidate 1, top recommendation).
-      Current ground truth already has `src/findings-publication.ts` helpers and tests for the individual exec commands. The remaining work is to parse the run envelope once; classify + post inline findings; render the summary with inline status threaded in memory; and post/update the findings comment through one tested operation. Prefer one thin `roaster exec publish` adapter, or keep the three existing exec commands as compatibility wrappers over the new operation. Shrink the CI bash in `.github/workflows/roaster.yml` and remove the temp-file round-trip/double envelope parse.
-      Evidence: end-to-end test exercising the whole publication workflow through one interface; full TS validation passing; a real-PR roaster CI run renders findings as before.
-- [ ] Unify the duplicated DTO definitions into one source of truth each (candidate 2).
-      Make the Zod schemas in `src/models.ts` canonical for `ReviewDefinition`, `ReviewApplicability`, and `DiffFile`/`DiffChangeKind`; infer the types; import them in `review-definition.ts`, `review-applicability.ts`, `diff-parsing.ts`. Delete the hand-written twins and the manual re-wrap spread in `cli-operations.ts`. Diff the two shapes field-by-field first to catch silent drift.
+- [x] Collapse the findings-publication pipeline into one end-to-end `publishFindings` workflow (candidate 1).
+      Shipped on branch `roaster-findings-publication-workflow`: `src/findings-publication.ts` owns one `publishFindings` operation, `roaster exec publish-findings` is the single adapter, and `.github/workflows/roaster.yml` streams the review envelope directly into it instead of round-tripping through temp files and three exec commands. The branch removed the old hidden exec commands rather than keeping compatibility wrappers; this is accepted for the unreleased/private hidden exec surface.
+      Evidence: scenario tests exercise the combined publish command, duplicate handling, fallback-only findings, and failure handling; PR #1823 TypeScript CI passed; PR #1823 roaster comments rendered summary bodies, inline posting status, and activity-log updates against a real PR.
+- [x] Unify the duplicated DTO definitions into one source of truth each (candidate 2).
+      Shipped on branch `roaster-dto-schema-type-unification`: `src/models.ts` owns canonical schema-inferred `ReviewDefinition`, `ReviewApplicability`, `DiffFile`, and `DiffChangeKind` types. `review-definition.ts`, `review-applicability.ts`, and `diff-parsing.ts` now import canonical model types and keep behavior only; `cli-operations.ts` passes the parsed canonical definition directly instead of manually re-wrapping applicability arrays.
+      Evidence: field-by-field shape comparison found no semantic DTO mismatch beyond readonly-array type decoration; targeted roaster tests passed; full TypeScript format, lint, check, and test gates passed.
 - [ ] Bind the execution environment into the roaster context (candidate 3).
       Bind `cwd`/`env` once at `runCli`, decide whether cancellation should be part
       of that same bound run environment, and flatten

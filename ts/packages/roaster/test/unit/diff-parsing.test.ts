@@ -1,7 +1,8 @@
 import { Buffer } from "node:buffer";
 import { describe, expect, test } from "vitest";
 
-import { estimateTokens, parseUnifiedDiff, type DiffChangeKind } from "../../src/diff-parsing.ts";
+import type { DiffChangeKind } from "../../src/models.ts";
+import { estimateTokens, parseUnifiedDiff } from "../../src/diff-parsing.ts";
 
 const MODIFY_DIFF =
 	"diff --git a/app.py b/app.py\n" +

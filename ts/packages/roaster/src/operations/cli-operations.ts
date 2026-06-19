@@ -6,12 +6,13 @@ import { failureMessage, type RoasterFailure } from "../failures.ts";
 import { publishFindings, type PublishFindingsResult } from "../findings-publication.ts";
 import {
 	reviewRunResultSchema,
+	type ReviewDefinition,
 	type ReviewExecutionResponse,
 	type ReviewRunResult,
 	type ReviewUsage,
 } from "../models.ts";
 import { applicableReviewKeys } from "../review-applicability.ts";
-import { parseReviewDefinition, type ReviewDefinition } from "../review-definition.ts";
+import { parseReviewDefinition } from "../review-definition.ts";
 
 export interface RoasterCliContext {
 	readonly context: RoasterContext;
@@ -150,13 +151,7 @@ export async function runReviewByKey(
 	const response = await ctx.context.harness.runReview(
 		{
 			model,
-			reviewDefinition: {
-				...parsed.definition,
-				applicability: {
-					include: [...parsed.definition.applicability.include],
-					exclude: [...parsed.definition.applicability.exclude],
-				},
-			},
+			reviewDefinition: parsed.definition,
 			target: { localDiff: diff.value },
 		},
 		{ cwd: ctx.cwd, env: ctx.env },
