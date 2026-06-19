@@ -15,7 +15,8 @@
     "fmt:check": "oxfmt --check 'packages/**/*.ts' '*.ts'",
     "lint": "oxlint .",
     "lint:fix": "oxlint . --fix",
-    "test": "vitest run --config vitest.config.ts"
+    "test": "vitest run --config vitest.config.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "devDependencies": {
     "@asdl/branch-context": "workspace:*",

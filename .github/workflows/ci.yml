@@ -102,6 +102,25 @@ jobs:
       - name: Run TypeScript tests
         run: just ts-test
 
+  typescript-integration:
+    if: github.event.pull_request.draft != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.8.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.12.0
+          cache: pnpm
+          cache-dependency-path: ts/pnpm-lock.yaml
+      - name: Use vendored just
+        run: echo "$GITHUB_WORKSPACE/.github/bin" >> "$GITHUB_PATH"
+      - name: Run TypeScript integration tests
+        run: just ts-test-integration
+
   docs-build:
     if: github.event.pull_request.draft != true
     runs-on: ubuntu-latest

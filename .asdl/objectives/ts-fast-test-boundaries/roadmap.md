@@ -2,9 +2,8 @@
 
 ## Work
 
-- [ ] Decide and document the TypeScript integration-test layout, command contract, deterministic-time convention, and performance-proof standard.
-  - Capture the folder or filename convention, the default Vitest include/exclude behavior, the intentional integration command, and when time-based tests should use a manual clock instead of sleeping.
-  - Define how each speedup-claiming slice proves improvement: measured command, comparable baseline and post-change timings, repetition/noise notes, and whether the cost was eliminated from the default path or moved into the integration path.
+- [x] Decide and document the TypeScript integration-test layout, command contract, deterministic-time convention, and performance-proof standard.
+  - Evidence: `ts/TESTING.md` documents package-local `test/integration/**/*.test.ts`, default Vitest integration excludes, the intentional `test:integration` command, deterministic `Clock`/`TimerScheduler` test guidance, and the required `Performance evidence` block.
 - [x] Add the minimal TypeScript clock/timer seams in `@asdl/core`.
   - Evidence: local branch adds `@asdl/core/clock` with `Clock`/`systemClock`, `@asdl/core/timers` with one-shot cancellable `TimerScheduler`/`systemTimerScheduler`, and `@asdl/core/testing` manual clock/timer helpers.
   - Production code receives only the production seam shapes; manual controls remain in the testing subpath.
@@ -16,14 +15,14 @@
   - Default `test/gateways` coverage should mock or inject Git command execution.
   - Real `createTempGitRepo` / `RealGitBrmemGateway` subprocess coverage should move to the integration suite.
   - Completion evidence should include before/after timing for the affected default TypeScript test command plus confirmation that real Git coverage remains in the integration command.
-- [ ] Move Node runtime import and CLI smoke tests into the integration suite.
-  - Keep coverage for cold Node package exports and CLI entrypoints, but exclude it from default local tests.
-  - Completion evidence should include before/after timing for the affected default command and the measured integration-command cost for the moved smoke coverage.
+- [~] Move Node runtime import and CLI smoke tests into the integration suite.
+  - Evidence: `packages/branch-context/test/scenario/node-runtime-cli.test.ts` moved to `packages/branch-context/test/integration/node-runtime-cli.test.ts` as the seed CLI runtime smoke test; `pnpm --dir ts run test:integration` runs it intentionally.
+  - Remaining work: migrate broader pi-extensions/package Node runtime import and CLI smoke coverage in later slices with their own performance evidence.
 - [ ] Move sqlite-backed Graphite/worktree-status coverage into the integration suite or replace default-path sqlite setup with injected fakes.
   - Preserve representative real sqlite coverage intentionally.
   - Completion evidence should include before/after timing for the affected default command and explicit accounting for retained sqlite-backed coverage.
-- [ ] Add CI wiring for the separated TypeScript integration suite.
-  - Evidence should include default TypeScript tests and the new integration command passing in the intended environments.
+- [x] Add CI wiring for the separated TypeScript integration suite.
+  - Evidence: `.github/workflows/ci.yml` has a separate non-draft `typescript-integration` job that runs `just ts-test-integration`; local `pnpm --dir ts run test:integration` passes for the seeded suite.
 
 ## Parked
 
