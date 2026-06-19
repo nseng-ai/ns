@@ -45,6 +45,7 @@ describe("areg source CLI shim rendering", () => {
 		const rendered = await readFile(outputPath, "utf8");
 		expect(rendered).not.toContain("@@ASDL_");
 		expect(rendered).toContain("tool=areg\n");
+		expect(rendered).toContain("fallback_mode=literal\n");
 		expect(rendered).toContain("canonical_checkout='");
 		expect(rendered).toContain("'\"'\"'");
 		expect(rendered).not.toContain(`canonical_checkout=${canonicalCheckout}\n`);
@@ -63,5 +64,35 @@ describe("areg source CLI shim rendering", () => {
 		expect(run.stderr).toContain(canonicalCheckout);
 		expect(run.stderr).toContain("ts/packages/areg/src/cli.ts");
 		expect(run.stderr).toContain(installHint);
+	});
+
+	test("rejects unknown fallback modes", async () => {
+		const tempRoot = await tempDirs.makeTempDir("areg-shim-render-invalid-");
+		const outputPath = join(tempRoot, "areg-shim");
+		const renderScriptPath = fileURLToPath(
+			new URL("../../../../scripts/render-cli-shim.py", import.meta.url),
+		);
+		const templatePath = fileURLToPath(
+			new URL("../../../../scripts/source-cli-shim-template", import.meta.url),
+		);
+
+		const render = spawnSync("python", [renderScriptPath], {
+			env: {
+				...process.env,
+				ASDL_TEMPLATE: templatePath,
+				ASDL_OUTPUT: outputPath,
+				ASDL_TOOL: "areg",
+				ASDL_CANONICAL_CHECKOUT: tempRoot,
+				ASDL_CLI_REL_PATH: "ts/packages/areg/src/cli.ts",
+				ASDL_INSTALL_HINT: "just install-areg",
+				ASDL_FALLBACK_MODE: "surprise",
+			},
+			encoding: "utf8",
+		});
+
+		expect(render.status).toBe(2);
+		expect(render.stdout).toBe("");
+		expect(render.stderr).toContain("invalid ASDL_FALLBACK_MODE 'surprise'");
+		expect(render.stderr).toContain("literal, script-checkout");
 	});
 });
