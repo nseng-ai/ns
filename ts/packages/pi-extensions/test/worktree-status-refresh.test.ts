@@ -1,6 +1,7 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "vitest";
 
 import { stripTerminalEscapes } from "@asdl/core/exec";
+import { createManualTimerHarness } from "@asdl/core/testing";
 import type { LocalWorktreeStatus } from "@asdl/ccc/worktree-status";
 import {
 	deferred,
@@ -20,40 +21,41 @@ import worktreeStatusExtension, {
 
 describe("worktree status refresh lifecycle", () => {
 	test("background timer limits GitHub refreshes to every fifteen seconds", async () => {
-		vi.useFakeTimers();
-		try {
-			const refreshBeforeInterval = deferred<void>();
-			const refreshAfterInterval = deferred<void>();
-			const pi = new LifecycleFakePi([]);
-			const loaders = fakeWorktreeStatusLoaders({
-				localStatuses: [
-					queued(localStatus()),
-					queued(localStatus(), () => refreshBeforeInterval.resolve()),
-					queued(localStatus(), () => refreshAfterInterval.resolve()),
-				],
-				ghStatuses: [queued({ type: "no-pr" }), queued({ type: "no-pr" })],
-			});
-			const ctx = testContext();
+		const harness = createManualTimerHarness();
+		const refreshBeforeInterval = deferred<void>();
+		const refreshAfterInterval = deferred<void>();
+		const pi = new LifecycleFakePi([]);
+		const loaders = fakeWorktreeStatusLoaders({
+			localStatuses: [
+				queued(localStatus()),
+				queued(localStatus(), () => refreshBeforeInterval.resolve()),
+				queued(localStatus(), () => refreshAfterInterval.resolve()),
+			],
+			ghStatuses: [queued({ type: "no-pr" }), queued({ type: "no-pr" })],
+		});
+		const ctx = testContext();
 
-			worktreeStatusExtension(pi as ExtensionAPI, { ...loaders, refreshIntervalMs: 10_000 });
-			await pi.sessionStart?.({}, ctx);
-			expect(loaders.ghCalls).toHaveLength(1);
+		worktreeStatusExtension(pi as ExtensionAPI, {
+			...loaders,
+			timers: harness.timers,
+			clock: harness.clock,
+			refreshIntervalMs: 10_000,
+		});
+		await pi.sessionStart?.({}, ctx);
+		expect(loaders.ghCalls).toHaveLength(1);
 
-			await vi.advanceTimersByTimeAsync(10_000);
-			await refreshBeforeInterval.promise;
-			await flushPromises();
-			expect(loaders.ghCalls).toHaveLength(1);
+		harness.advanceMs(10_000);
+		await refreshBeforeInterval.promise;
+		await flushPromises();
+		expect(loaders.ghCalls).toHaveLength(1);
 
-			await vi.advanceTimersByTimeAsync(10_000);
-			await refreshAfterInterval.promise;
-			await flushPromises();
-			expect(loaders.ghCalls).toHaveLength(2);
+		harness.advanceMs(10_000);
+		await refreshAfterInterval.promise;
+		await flushPromises();
+		expect(loaders.ghCalls).toHaveLength(2);
 
-			pi.assertDone();
-			await pi.sessionShutdown?.();
-		} finally {
-			vi.useRealTimers();
-		}
+		pi.assertDone();
+		await pi.sessionShutdown?.();
 	});
 
 	test("mutating tool completion refreshes dirty footer state", async () => {

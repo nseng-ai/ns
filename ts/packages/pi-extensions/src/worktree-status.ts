@@ -25,8 +25,12 @@ import {
 } from "@asdl/ccc/worktree-status";
 import { shutdownGraphiteMetadataWorker } from "@asdl/ccc/worktree-status/graphite-metadata";
 
+import { systemClock, type Clock } from "@asdl/core/clock";
+import type { TimerScheduler } from "@asdl/core/timers";
+
 import { isRecord } from "./cmux/primitives.ts";
 import { definePiSurfaceParity } from "./parity.ts";
+import { unrefTimerScheduler } from "./timers.ts";
 import {
 	createWorktreeStatusActivityController,
 	type WorktreeStatusActivityController,
@@ -253,8 +257,8 @@ export type WorktreeStatusFooterBranchReader = (
 ) => string | null;
 
 export interface WorktreeStatusExtensionDependencies {
-	setTimeout?: ((callback: () => void, ms: number) => ReturnType<typeof setTimeout>) | undefined;
-	clearTimeout?: ((timeout: ReturnType<typeof setTimeout>) => void) | undefined;
+	timers?: TimerScheduler | undefined;
+	clock?: Clock | undefined;
 	refreshIntervalMs?: number | undefined;
 	loadIdentity?: WorktreeStatusIdentityLoader | undefined;
 	loadLocalStatus?: LocalWorktreeStatusLoader | undefined;
@@ -295,6 +299,8 @@ export default function worktreeStatusExtension(
 		isIdentityCurrent: dependencies.isIdentityCurrent ?? isWorktreeStatusIdentityStillCurrent,
 		readFooterBranch: dependencies.readFooterBranch ?? currentFooterBranch,
 	};
+	const timers = dependencies.timers ?? unrefTimerScheduler;
+	const clock = dependencies.clock ?? systemClock;
 
 	let nextSessionId = 0;
 	let activeSession: ActiveSession | undefined;
@@ -329,20 +335,14 @@ export default function worktreeStatusExtension(
 
 	function installSessionControllers(session: ActiveSession): void {
 		session.refreshTimer = createWorktreeStatusRefreshTimer({
-			dependencies: {
-				setTimeout: dependencies.setTimeout ?? setTimeout,
-				clearTimeout: dependencies.clearTimeout ?? clearTimeout,
-			},
+			timers,
 			isActive: () => isActiveSession(session),
 			onTick: () => fullRefreshChannel.run(session),
 			intervalMs: dependencies.refreshIntervalMs ?? WORKTREE_STATUS_ACTIVE_REFRESH_INTERVAL_MS,
 		});
 		session.activityController = createWorktreeStatusActivityController({
-			dependencies: {
-				setTimeout: dependencies.setTimeout ?? setTimeout,
-				clearTimeout: dependencies.clearTimeout ?? clearTimeout,
-				now: Date.now,
-			},
+			timers,
+			clock,
 			isActive: () => isActiveSession(session),
 			isBusy: () => isSessionBusy(session),
 			onDormantChange: (isDormant) => {
@@ -462,7 +462,7 @@ export default function worktreeStatusExtension(
 			return;
 		}
 
-		session.ghStatusSnapshot = { identity: fetchIdentity, status, fetchedAtMs: Date.now() };
+		session.ghStatusSnapshot = { identity: fetchIdentity, status, fetchedAtMs: clock.nowMs() };
 		renderSessionStatus(session);
 	}
 
@@ -475,7 +475,7 @@ export default function worktreeStatusExtension(
 		const snapshot = session.ghStatusSnapshot;
 		if (snapshot === undefined) return false;
 		if (!sameWorktreeStatusIdentity(snapshot.identity, identity)) return false;
-		return Date.now() - snapshot.fetchedAtMs < GH_STATUS_BACKGROUND_REFRESH_MIN_INTERVAL_MS;
+		return clock.nowMs() - snapshot.fetchedAtMs < GH_STATUS_BACKGROUND_REFRESH_MIN_INTERVAL_MS;
 	}
 
 	async function refreshAllImmediately(

@@ -1,4 +1,4 @@
-import { unrefTimer } from "./timers.ts";
+import type { ScheduledTimer, TimerScheduler } from "@asdl/core/timers";
 
 export const WORKTREE_STATUS_ACTIVE_REFRESH_INTERVAL_MS = 30_000;
 
@@ -8,18 +8,13 @@ export interface WorktreeStatusRefreshTimer {
 	close(): void;
 }
 
-interface WorktreeStatusRefreshTimerDependencies {
-	setTimeout(callback: () => void, ms: number): ReturnType<typeof setTimeout>;
-	clearTimeout(timeout: ReturnType<typeof setTimeout>): void;
-}
-
 export function createWorktreeStatusRefreshTimer(options: {
-	dependencies: WorktreeStatusRefreshTimerDependencies;
+	timers: TimerScheduler;
 	isActive(): boolean;
 	onTick(): Promise<void>;
 	intervalMs: number;
 }): WorktreeStatusRefreshTimer {
-	let pending: ReturnType<typeof setTimeout> | undefined;
+	let pending: ScheduledTimer | undefined;
 	let isResumed = false;
 	let isClosed = false;
 	let isRunning = false;
@@ -44,16 +39,15 @@ export function createWorktreeStatusRefreshTimer(options: {
 
 	function scheduleNextTick(): void {
 		if (pending !== undefined || isClosed || !isResumed || !options.isActive()) return;
-		pending = options.dependencies.setTimeout(() => {
+		pending = options.timers.setTimeout(() => {
 			pending = undefined;
 			void runTick();
 		}, options.intervalMs);
-		unrefTimer(pending);
 	}
 
 	function clearPending(): void {
 		if (pending === undefined) return;
-		options.dependencies.clearTimeout(pending);
+		pending.cancel();
 		pending = undefined;
 	}
 
