@@ -52,15 +52,15 @@ interface BrmemEntry {
 	key: string;
 }
 
-interface GitPaths {
-	repoDir: string;
-	gitDir: string;
-	commonGitDir: string;
-	headPath: string;
+export interface WorktreeStatusGitPaths {
+	readonly repoDir: string;
+	readonly gitDir: string;
+	readonly commonGitDir: string;
+	readonly headPath: string;
 }
 
 type GitFileParseResult =
-	| { type: "found"; paths: GitPaths | undefined }
+	| { type: "found"; paths: WorktreeStatusGitPaths | undefined }
 	| { type: "not-gitdir-file" };
 
 export type GtCommitStatus =
@@ -212,6 +212,22 @@ export function sameWorktreeStatusIdentity(
 	);
 }
 
+export function isWorktreeStatusIdentityStillCurrent(
+	cwd: string,
+	identity: WorktreeStatusIdentity,
+): boolean {
+	const gitPaths = findWorktreeStatusGitPaths(cwd);
+	if (gitPaths === undefined) return identity.head.type === "unknown";
+	const currentBranch = currentWorktreeStatusBranchName(gitPaths);
+	if (identity.head.type !== "branch") return currentBranch === undefined;
+	if (currentBranch !== identity.head.name) return false;
+
+	const currentOid = currentBranchLooseOid(gitPaths, identity.head.name);
+	return (
+		currentOid === undefined || identity.headOid === undefined || currentOid === identity.headOid
+	);
+}
+
 export async function loadGtStatus(options: LoadGtStatusOptions): Promise<GtStatus> {
 	const { pi, cwd, signal } = options;
 	const metadataLoader = options.metadataLoader ?? loadCurrentGraphiteMetadataStatusAsync;
@@ -319,10 +335,10 @@ function displayScopeFromEntry(entry: BrmemEntry): { namespace: string; key: str
 async function loadCurrentGraphiteMetadataStatusAsync(
 	options: GraphiteMetadataLoaderOptions,
 ): Promise<GraphiteMetadataStatus> {
-	const gitPaths = findGitPaths(options.cwd);
+	const gitPaths = findWorktreeStatusGitPaths(options.cwd);
 	if (gitPaths === undefined) return { type: "unavailable", reason: "not-a-git-repo" };
 
-	const currentBranch = currentBranchName(gitPaths);
+	const currentBranch = currentWorktreeStatusBranchName(gitPaths);
 	if (currentBranch === undefined) return { type: "unavailable", reason: "no-current-branch" };
 
 	const workerOptions: LoadGraphiteMetadataStatusInWorkerOptions = {
@@ -401,7 +417,7 @@ export async function loadWorktreeStatusIdentity(
 	cwd: string,
 	signal?: AbortSignal,
 ): Promise<WorktreeStatusIdentity> {
-	const gitPaths = findGitPaths(cwd);
+	const gitPaths = findWorktreeStatusGitPaths(cwd);
 	const head =
 		gitPaths === undefined ? { type: "unknown" as const } : currentHeadIdentity(gitPaths);
 	const git = gitGatewayFromExecGateway(pi);
@@ -483,7 +499,7 @@ async function loadGitHubRepositoryIdentity(
 	return githubRepositoryIdentityFromRemoteUrl(origin.value);
 }
 
-function currentHeadIdentity(gitPaths: GitPaths): WorktreeStatusIdentity["head"] {
+function currentHeadIdentity(gitPaths: WorktreeStatusGitPaths): WorktreeStatusIdentity["head"] {
 	try {
 		const head = readFileSync(gitPaths.headPath, "utf8").trim();
 		const refPrefix = "ref: refs/heads/";
@@ -497,7 +513,9 @@ function currentHeadIdentity(gitPaths: GitPaths): WorktreeStatusIdentity["head"]
 	}
 }
 
-function currentBranchName(gitPaths: GitPaths): string | undefined {
+export function currentWorktreeStatusBranchName(
+	gitPaths: WorktreeStatusGitPaths,
+): string | undefined {
 	const head = currentHeadIdentity(gitPaths);
 	return head.type === "branch" ? head.name : undefined;
 }
@@ -509,6 +527,20 @@ function sameHeadIdentity(
 	if (left.type !== right.type) return false;
 	if (left.type !== "branch" || right.type !== "branch") return true;
 	return left.name === right.name;
+}
+
+function currentBranchLooseOid(
+	gitPaths: WorktreeStatusGitPaths,
+	branch: string,
+): string | undefined {
+	const refPath = join(gitPaths.commonGitDir, "refs", "heads", ...branch.split("/"));
+	if (!existsSync(refPath)) return undefined;
+	try {
+		const oid = readFileSync(refPath, "utf8").trim();
+		return oid.length > 0 ? oid : undefined;
+	} catch {
+		return undefined;
+	}
 }
 
 function execOptions(cwd: string, signal?: AbortSignal) {
@@ -734,7 +766,7 @@ function formatColoredSegment(text: string, color: string, theme: StatusTheme | 
 	return theme ? theme.fg(color, text) : text;
 }
 
-function findGitPaths(cwd: string): GitPaths | undefined {
+export function findWorktreeStatusGitPaths(cwd: string): WorktreeStatusGitPaths | undefined {
 	let dir = resolve(cwd);
 	for (;;) {
 		const gitPath = join(dir, ".git");

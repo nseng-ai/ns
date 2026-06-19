@@ -23,11 +23,10 @@ import worktreeStatusExtension, {
 } from "../src/worktree-status.ts";
 
 describe("worktree status refresh lifecycle", () => {
-	test("git metadata watcher limits background GitHub refreshes to every fifteen seconds", async () => {
+	test("background timer limits GitHub refreshes to every fifteen seconds", async () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			vi.useFakeTimers();
 			try {
-				const watched: Array<{ path: string; callback: () => void }> = [];
 				const refreshBeforeIntervalDirty = deferred<void>();
 				const refreshAfterIntervalDirty = deferred<void>();
 				const emptyBrmem = { stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) };
@@ -42,9 +41,9 @@ describe("worktree status refresh lifecycle", () => {
 					brmemListStep(emptyBrmem),
 					...ghNoPrSteps(),
 					...basicGitStatusScript(),
-					// Watcher refresh before the throttle interval refreshes local status only.
+					// First timer tick before the throttle interval refreshes local status only.
 					...localRefreshSteps(() => refreshBeforeIntervalDirty.resolve()),
-					// Watcher refresh after the throttle interval may fetch GitHub again.
+					// Later timer tick at/after the throttle interval may fetch GitHub again.
 					brmemListStep(emptyBrmem),
 					...ghNoPrSteps(),
 					revListStep("main", 1),
@@ -61,26 +60,17 @@ describe("worktree status refresh lifecycle", () => {
 					},
 				};
 
-				worktreeStatusExtension(pi as ExtensionAPI, {
-					watchPath(path, callback) {
-						watched.push({ path, callback });
-						return { close() {} };
-					},
-				});
+				worktreeStatusExtension(pi as ExtensionAPI, { refreshIntervalMs: 10_000 });
 				await pi.sessionStart?.({}, ctx);
 				const ghCount = (): number => pi.calls.filter((call) => call.command === "gh").length;
 				expect(ghCount()).toBe(1);
 
-				watched[0]?.callback();
-				await vi.advanceTimersByTimeAsync(100);
+				await vi.advanceTimersByTimeAsync(10_000);
 				await refreshBeforeIntervalDirty.promise;
 				await flushPromises();
 				expect(ghCount()).toBe(1);
 
-				await vi.advanceTimersByTimeAsync(250);
-				await vi.advanceTimersByTimeAsync(15_000);
-				watched[0]?.callback();
-				await vi.advanceTimersByTimeAsync(100);
+				await vi.advanceTimersByTimeAsync(10_000);
 				await refreshAfterIntervalDirty.promise;
 				await flushPromises();
 				expect(ghCount()).toBe(2);

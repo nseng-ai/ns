@@ -4,7 +4,10 @@ import type { CustomMessageContent } from "@asdl/pi-extension-runtime/terminal-p
 
 import {
 	combineWorktreeStatus,
+	currentWorktreeStatusBranchName,
+	findWorktreeStatusGitPaths,
 	formatWorktreeStatus,
+	isWorktreeStatusIdentityStillCurrent,
 	loadLocalWorktreeStatus,
 	loadWorktreeGhStatus,
 	loadWorktreeStatusIdentity,
@@ -27,18 +30,14 @@ import {
 	type WorktreeStatusActivityOptions,
 } from "./worktree-status-activity.ts";
 import {
-	createWorktreeStatusGitWatcher,
-	currentBranchName,
-	findGitPaths,
-	isSharedIdentityStillCurrent,
-	watchExistingPath,
-	type WatchHandle,
-	type WorktreeStatusGitWatcher,
-} from "./worktree-status-git-watcher.ts";
-import {
 	createWorktreeStatusRefreshChannel,
 	type WorktreeStatusRefreshOptions,
 } from "./worktree-status-refresh-channel.ts";
+import {
+	createWorktreeStatusRefreshTimer,
+	WORKTREE_STATUS_ACTIVE_REFRESH_INTERVAL_MS,
+	type WorktreeStatusRefreshTimer,
+} from "./worktree-status-refresh-timer.ts";
 import {
 	formatWorktreeStatusDormantLine,
 	renderStatusFooter,
@@ -224,9 +223,9 @@ interface GhStatusSnapshot {
 }
 
 export interface WorktreeStatusExtensionDependencies {
-	watchPath?: ((path: string, callback: () => void) => WatchHandle | undefined) | undefined;
 	setTimeout?: ((callback: () => void, ms: number) => ReturnType<typeof setTimeout>) | undefined;
 	clearTimeout?: ((timeout: ReturnType<typeof setTimeout>) => void) | undefined;
+	refreshIntervalMs?: number | undefined;
 }
 
 interface ActiveSession {
@@ -239,9 +238,9 @@ interface ActiveSession {
 	isDormant: boolean;
 	activityUnsubscribe?: (() => void) | undefined;
 	activityController?: WorktreeStatusActivityController | undefined;
+	refreshTimer?: WorktreeStatusRefreshTimer | undefined;
 	localStatus?: LocalWorktreeStatus | undefined;
 	ghStatusSnapshot?: GhStatusSnapshot | undefined;
-	gitWatcher?: WorktreeStatusGitWatcher | undefined;
 }
 
 interface RefreshRemoteOptions extends WorktreeStatusRefreshOptions {
@@ -286,15 +285,14 @@ export default function worktreeStatusExtension(
 	}
 
 	function installSessionControllers(session: ActiveSession): void {
-		session.gitWatcher = createWorktreeStatusGitWatcher({
-			cwd: session.cwd,
+		session.refreshTimer = createWorktreeStatusRefreshTimer({
 			dependencies: {
-				watchPath: dependencies.watchPath ?? watchExistingPath,
 				setTimeout: dependencies.setTimeout ?? setTimeout,
 				clearTimeout: dependencies.clearTimeout ?? clearTimeout,
 			},
 			isActive: () => isActiveSession(session),
-			onChange: () => fullRefreshChannel.run(session),
+			onTick: () => fullRefreshChannel.run(session),
+			intervalMs: dependencies.refreshIntervalMs ?? WORKTREE_STATUS_ACTIVE_REFRESH_INTERVAL_MS,
 		});
 		session.activityController = createWorktreeStatusActivityController({
 			dependencies: {
@@ -306,8 +304,8 @@ export default function worktreeStatusExtension(
 			isBusy: () => isSessionBusy(session),
 			onDormantChange: (isDormant) => {
 				session.isDormant = isDormant;
-				if (isDormant) session.gitWatcher?.pause();
-				else session.gitWatcher?.resume(session.localStatus?.identity);
+				if (isDormant) session.refreshTimer?.pause();
+				else session.refreshTimer?.resume();
 				renderSessionStatus(session);
 			},
 			onWakeRefresh: () => {
@@ -321,8 +319,8 @@ export default function worktreeStatusExtension(
 		if (session !== undefined) {
 			session.closed = true;
 			session.abortController.abort();
-			session.gitWatcher?.close();
-			session.gitWatcher = undefined;
+			session.refreshTimer?.close();
+			session.refreshTimer = undefined;
 			session.activityController?.close();
 			session.activityController = undefined;
 			session.activityUnsubscribe?.();
@@ -379,7 +377,7 @@ export default function worktreeStatusExtension(
 		if (!isActiveSession(session)) return;
 
 		const sharedIdentityStale =
-			identity !== undefined && !isSharedIdentityStillCurrent(session.cwd, identity);
+			identity !== undefined && !isWorktreeStatusIdentityStillCurrent(session.cwd, identity);
 		if (sharedIdentityStale) {
 			status = await loadLocalWorktreeStatus(pi, session.cwd, {
 				signal: session.abortController.signal,
@@ -391,7 +389,6 @@ export default function worktreeStatusExtension(
 			previousIdentity !== undefined &&
 			!sameWorktreeStatusIdentity(previousIdentity, status.identity);
 		session.localStatus = status;
-		session.gitWatcher?.update(status.identity);
 		if (identityChanged || sharedIdentityStale) session.ghStatusSnapshot = undefined;
 		renderSessionStatus(session);
 	}
@@ -451,7 +448,6 @@ export default function worktreeStatusExtension(
 			session.abortController.signal,
 		);
 		if (!isActiveSession(session)) return;
-		session.gitWatcher?.update(identity);
 		await Promise.all([
 			refreshLocalNowWithIdentity(session, identity),
 			refreshRemoteNowWithIdentity(session, { ...options, identity }),
@@ -554,8 +550,8 @@ export default function worktreeStatusExtension(
 		const session = activateSession(ctx);
 		installStatusFooter(session);
 		installActivityTracking(session);
-		session.gitWatcher?.resume(undefined);
 		await fullRefreshChannel.run(session, { shouldForceRemote: true });
+		if (isActiveSession(session)) session.refreshTimer?.resume();
 	});
 
 	pi.on("session_shutdown", async () => {
@@ -564,16 +560,16 @@ export default function worktreeStatusExtension(
 }
 
 function currentFooterBranch(cwd: string, footerData: StatusFooterData): string | null {
-	const gitPaths = findGitPaths(cwd);
+	const gitPaths = findWorktreeStatusGitPaths(cwd);
 	if (gitPaths !== undefined) {
-		const branch = currentBranchName(gitPaths);
+		const branch = currentWorktreeStatusBranchName(gitPaths);
 		if (branch !== undefined) return branch;
 	}
 	return footerData.getGitBranch();
 }
 
 function fallbackRepoName(cwd: string): string {
-	const gitPaths = findGitPaths(cwd);
+	const gitPaths = findWorktreeStatusGitPaths(cwd);
 	if (gitPaths !== undefined) return basename(gitPaths.repoDir);
 	return basename(resolve(cwd)) || "unknown";
 }

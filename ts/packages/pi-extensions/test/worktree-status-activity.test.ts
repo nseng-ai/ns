@@ -25,8 +25,6 @@ describe("worktree status activity lifecycle", () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			vi.useFakeTimers();
 			try {
-				const watched: Array<{ path: string; callback: () => void }> = [];
-				const closed: string[] = [];
 				const pi = new LifecycleFakePi([
 					brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
 					...ghNoPrSteps(),
@@ -48,18 +46,8 @@ describe("worktree status activity lifecycle", () => {
 					},
 				};
 
-				worktreeStatusExtension(pi as ExtensionAPI, {
-					watchPath(path, callback) {
-						watched.push({ path, callback });
-						return {
-							close() {
-								closed.push(path);
-							},
-						};
-					},
-				});
+				worktreeStatusExtension(pi as ExtensionAPI, { refreshIntervalMs: 300_000 });
 				await pi.sessionStart?.({}, ctx);
-				expect(watched.length).toBeGreaterThan(0);
 				expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
 					"[gt] ↓ main · ↑ - · 1 commit\n[gh] no PR",
 				);
@@ -67,13 +55,11 @@ describe("worktree status activity lifecycle", () => {
 				await vi.advanceTimersByTimeAsync(120_000);
 				await flushPromises();
 
-				expect(closed.length).toBeGreaterThan(0);
 				expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
 					"[gt] ↓ main · ↑ - · 1 commit\n[gh] no PR\n[wt] dormant after 2m idle",
 				);
 
-				watched[0]?.callback();
-				await vi.advanceTimersByTimeAsync(100);
+				await vi.advanceTimersByTimeAsync(60_000);
 				await flushPromises();
 
 				pi.assertDone();
@@ -90,7 +76,6 @@ describe("worktree status activity lifecycle", () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			vi.useFakeTimers();
 			try {
-				const watched: Array<{ path: string; callback: () => void }> = [];
 				const wakeDirtyChecked = deferred<void>();
 				let terminalInput: ((data: string) => unknown) | undefined;
 				const pi = new LifecycleFakePi([
@@ -125,12 +110,7 @@ describe("worktree status activity lifecycle", () => {
 					},
 				};
 
-				worktreeStatusExtension(pi as ExtensionAPI, {
-					watchPath(path, callback) {
-						watched.push({ path, callback });
-						return { close() {} };
-					},
-				});
+				worktreeStatusExtension(pi as ExtensionAPI, { refreshIntervalMs: 300_000 });
 				await pi.sessionStart?.({}, ctx);
 				await vi.advanceTimersByTimeAsync(120_000);
 				await flushPromises();
@@ -143,7 +123,6 @@ describe("worktree status activity lifecycle", () => {
 				await flushPromises();
 
 				pi.assertDone();
-				expect(watched.length).toBeGreaterThan(1);
 				expect(pi.calls.filter((call) => call.command === "brmem")).toHaveLength(2);
 				expect(pi.calls.filter((call) => call.command === "gh")).toHaveLength(2);
 				expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
@@ -184,7 +163,7 @@ describe("worktree status activity lifecycle", () => {
 					},
 				};
 
-				worktreeStatusExtension(pi as ExtensionAPI);
+				worktreeStatusExtension(pi as ExtensionAPI, { refreshIntervalMs: 300_000 });
 				const command = pi.commands.get(WORKTREE_STATUS_REFRESH_COMMAND_NAME);
 				expect(command).toBeDefined();
 				if (command === undefined) throw new Error("expected manual refresh command");
