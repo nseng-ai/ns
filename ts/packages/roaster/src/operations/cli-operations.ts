@@ -255,7 +255,7 @@ function renderPublishFindingsDiagnostics(
 	const apiError = result.inlineStatus.apiError?.replace(/\s+/gu, " ") ?? "none";
 	return [
 		`inline findings: posted=${result.inlineStatus.postedCount} skipped_duplicate=${result.inlineStatus.skippedDuplicateCount} fallback_only=${result.inlineStatus.fallbackOnlyCount} api_error=${apiError}`,
-		`${result.summaryAction} findings comment`,
+		`${result.summaryStatus.type} findings comment`,
 		"",
 	].join("\n");
 }

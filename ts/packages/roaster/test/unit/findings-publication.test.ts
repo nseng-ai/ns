@@ -1,17 +1,27 @@
 import { describe, expect, test } from "vitest";
 
+import { createRoasterRuntime } from "../../src/context.ts";
+import type { RoasterResult } from "../../src/failures.ts";
 import {
 	extractInlineMarkers,
 	inlineMarkerForFinding,
 	parseFindingsCommentBody,
 	parseFindingsPayloadResult,
 	preserveActivityLog,
+	publishFindings,
 	renderFindingsComment,
 	renderInlineBody,
 	summaryMarkerForReview,
 	type FindingsPayload,
 } from "../../src/findings-publication.ts";
-import type { ReviewFinding, ReviewInputCoverage } from "../../src/models.ts";
+import { FakeRoasterGitHubGateway, type GitHubGatewayOptions } from "../../src/gateways/github.ts";
+import type {
+	PRDiscussionComment,
+	PRInlineCommentInput,
+	ReviewFinding,
+	ReviewInputCoverage,
+} from "../../src/models.ts";
+import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
 
 const WARNING_FINDING: ReviewFinding = {
 	path: "src/app.ts",
@@ -231,6 +241,47 @@ describe("payload parsers", () => {
 	});
 });
 
+describe("publishFindings", () => {
+	test("reports summary write as a fatal summary phase", async () => {
+		const runtime = createRoasterRuntime(
+			fakeRoasterContext({ github: new FailingDiscussionGateway() }),
+		);
+		const result = await publishFindings(runtime, { prNumber: 47, envelope: findingsEnvelope([]) });
+
+		expect(result.type).toBe("error");
+		if (result.type === "error") {
+			expect(result.fatalFailurePhase).toBe("summary_write");
+			expect(result.reason).toBe("github_write_failed");
+			expect(result.message).toBe("discussion write failed");
+		}
+	});
+
+	test("keeps inline failures non-fatal and reports summary status", async () => {
+		const runtime = createRoasterRuntime(
+			fakeRoasterContext({
+				github: new InlineFailureGateway({
+					changedFilesByPr: new Map([
+						[47, [{ path: "src/app.ts", status: "modified", patch: "@@ -12 +12 @@\n+new" }]],
+					]),
+				}),
+			}),
+		);
+		const result = await publishFindings(runtime, {
+			prNumber: 47,
+			envelope: findingsEnvelope([WARNING_FINDING]),
+		});
+
+		expect(result.type).toBe("ok");
+		if (result.type === "ok") {
+			expect(result.inlineStatus.apiError).toBe("inline validation failed");
+			expect(result.summaryStatus).toEqual({
+				type: "posted",
+				marker: "<!-- roaster:typescript-style -->",
+			});
+		}
+	});
+});
+
 describe("preserveActivityLog", () => {
 	test("extracts, strips, appends, caps at ten, and terminates with newline", () => {
 		const existing = `${summaryMarkerForReview("review")}\nbody\n\n### Activity Log\n\n${Array.from({ length: 10 }, (_value, index) => `- old ${index}`).join("\n")}\n`;
@@ -247,6 +298,49 @@ describe("preserveActivityLog", () => {
 		expect(merged.endsWith("\n")).toBe(true);
 	});
 });
+
+function findingsEnvelope(findings: readonly ReviewFinding[]): string {
+	return JSON.stringify({
+		exit_code: 0,
+		data: {
+			reviewName: "typescript-style",
+			reviewPath: "reviews/typescript-style.md",
+			model: "haiku",
+			baseRef: "main",
+			format: "findings",
+			count: findings.length,
+			findings,
+			usage: null,
+			inputCoverage: null,
+		},
+	});
+}
+
+class FailingDiscussionGateway extends FakeRoasterGitHubGateway {
+	override async addPrDiscussionComment(
+		_prNumber: number,
+		_body: string,
+		_options: GitHubGatewayOptions,
+	): Promise<RoasterResult<PRDiscussionComment>> {
+		return {
+			type: "error",
+			error: { type: "github_cli_failed", message: "discussion write failed" },
+		};
+	}
+}
+
+class InlineFailureGateway extends FakeRoasterGitHubGateway {
+	override async createPrReview(
+		_prNumber: number,
+		_comments: readonly PRInlineCommentInput[],
+		_options: GitHubGatewayOptions,
+	): Promise<RoasterResult<void>> {
+		return {
+			type: "error",
+			error: { type: "github_response_invalid", message: "inline validation failed" },
+		};
+	}
+}
 
 function payload(overrides: Partial<FindingsPayload>): FindingsPayload {
 	return {
