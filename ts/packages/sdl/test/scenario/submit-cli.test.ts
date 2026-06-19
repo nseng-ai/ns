@@ -695,7 +695,10 @@ describe("sdl submit CLI", () => {
 		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
 		const run = runWithFakes({
 			args: ["submit"],
-			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
+			env: {
+				SDL_SUBMIT_FAILURE_LOG_DIR: logRoot,
+				SDL_SUBMIT_FAILURE_MODEL: "openai-codex/submit-summary",
+			},
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -733,6 +736,7 @@ describe("sdl submit CLI", () => {
 		expect(await readFile(rawPath ?? "", "utf8")).toContain("full stdout details\nsecond line");
 		expect(await readFile(rawPath ?? "", "utf8")).toContain("mystery graphite failure");
 		expect(run.context.modelCalls).toHaveLength(1);
+		expect(run.context.modelCalls[0]?.modelRef).toBe("openai-codex/submit-summary");
 		expect(run.context.modelCalls[0]?.prompt).toContain(
 			"Truncation: transcript was not truncated.",
 		);

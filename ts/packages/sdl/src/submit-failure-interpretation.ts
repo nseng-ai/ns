@@ -2,15 +2,14 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { DEFAULT_FAST_MODEL_REF } from "@asdl/plans";
 import type { SubmitFailurePresentation, SubmitFailureTranscript } from "@asdl/core/submit";
 
 import type { SdlContext } from "./sdk.ts";
+import { selectSubmitFailureModelRef } from "./text-generation.ts";
 
 // Keep the optional model-based failure explanation in one file so deleting this
 // feature is mostly removing this import and the two call sites in `submit.ts`.
 const SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS = 12_000;
-const SUBMIT_FAILURE_MODEL_ENV = "SDL_SUBMIT_FAILURE_MODEL";
 const SUBMIT_FAILURE_LOG_DIR_ENV = "SDL_SUBMIT_FAILURE_LOG_DIR";
 
 export interface SubmitFailureInterpretationInput {
@@ -71,11 +70,6 @@ async function generateSubmitFailureInterpretation(input: {
 	} catch {
 		return { ok: false };
 	}
-}
-
-function selectSubmitFailureModelRef(env: Record<string, string | undefined>): string {
-	const modelRef = env[SUBMIT_FAILURE_MODEL_ENV]?.trim();
-	return modelRef === undefined || modelRef === "" ? DEFAULT_FAST_MODEL_REF : modelRef;
 }
 
 function buildSubmitFailureInterpretationPrompt(input: {
