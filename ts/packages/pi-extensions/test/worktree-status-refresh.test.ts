@@ -83,6 +83,60 @@ describe("worktree status refresh lifecycle", () => {
 		});
 	});
 
+	test("mutating tool completion refreshes dirty footer state", async () => {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
+			const toolRefreshDirtyChecked = deferred<void>();
+			const pi = new LifecycleFakePi([
+				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+				...ghNoPrSteps(),
+				...basicGitStatusScript("main", 1, "", "abc123"),
+				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+				revListStep("main", 1),
+				{ ...dirtyStep(" M file.txt\n"), onCall: () => toolRefreshDirtyChecked.resolve() },
+				headOidStep("abc123"),
+			]);
+			const statuses = new Map<string, string | undefined>();
+			const ctx: ExtensionContext = {
+				cwd: root,
+				hasUI: true,
+				ui: {
+					theme: TEST_THEME,
+					setStatus(key, value) {
+						statuses.set(key, value);
+					},
+					setWidget() {},
+				},
+			};
+
+			worktreeStatusExtension(pi as ExtensionAPI, { refreshIntervalMs: 60_000 });
+			await pi.sessionStart?.({}, ctx);
+			expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
+				"[gt] ↓ main · ↑ - · 1 commit\n[gh] no PR",
+			);
+
+			await pi.emit(
+				"tool_execution_end",
+				{
+					type: "tool_execution_end",
+					toolCallId: "tool-1",
+					toolName: "write",
+					result: {},
+					isError: false,
+				},
+				ctx,
+			);
+			await toolRefreshDirtyChecked.promise;
+			await flushPromises();
+
+			pi.assertDone();
+			expect(pi.calls.filter((call) => call.command === "gh")).toHaveLength(1);
+			expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
+				"[gt] ↓ main · ↑ - · 1 commit · ✗\n[gh] no PR",
+			);
+			await pi.sessionShutdown?.();
+		});
+	});
+
 	test("manual refresh reruns full local and remote status", async () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new LifecycleFakePi([

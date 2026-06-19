@@ -66,6 +66,7 @@ export type RegisteredEventName =
 
 type SessionStartHandler = (event: unknown, ctx: ExtensionContext) => Promise<void> | void;
 type SessionShutdownHandler = () => Promise<void> | void;
+type RegisteredEventHandler = (event: unknown, ctx: ExtensionContext) => Promise<void> | void;
 
 interface RegisteredCommand {
 	description: string;
@@ -96,6 +97,7 @@ export class RegistrationFakePi {
 
 export class LifecycleFakePi extends OrderlessFakePi {
 	readonly commands = new Map<string, RegisteredCommand>();
+	readonly eventHandlers = new Map<RegisteredEventName, RegisteredEventHandler[]>();
 	sessionStart: SessionStartHandler | undefined;
 	sessionShutdown: SessionShutdownHandler | undefined;
 
@@ -103,9 +105,15 @@ export class LifecycleFakePi extends OrderlessFakePi {
 		this.commands.set(name, command);
 	}
 
-	on(event: RegisteredEventName, handler: unknown): void {
+	on(event: RegisteredEventName, handler: RegisteredEventHandler): void {
 		if (event === "session_start") this.sessionStart = handler as SessionStartHandler;
 		if (event === "session_shutdown") this.sessionShutdown = handler as SessionShutdownHandler;
+		const handlers = this.eventHandlers.get(event) ?? [];
+		this.eventHandlers.set(event, [...handlers, handler]);
+	}
+
+	async emit(event: RegisteredEventName, payload: unknown, ctx: ExtensionContext): Promise<void> {
+		for (const handler of this.eventHandlers.get(event) ?? []) await handler(payload, ctx);
 	}
 }
 
