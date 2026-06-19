@@ -1,5 +1,4 @@
-import { existsSync, readFileSync, statSync, watch } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, resolve } from "node:path";
 
 import type { CustomMessageContent } from "@asdl/pi-extension-runtime/terminal-presentation";
 
@@ -22,7 +21,24 @@ import {
 import { shutdownGraphiteMetadataWorker } from "@asdl/ccc/worktree-status/graphite-metadata";
 
 import { definePiSurfaceParity } from "./parity.ts";
-import { unrefTimer } from "./timers.ts";
+import {
+	createWorktreeStatusActivityController,
+	type WorktreeStatusActivityController,
+	type WorktreeStatusActivityOptions,
+} from "./worktree-status-activity.ts";
+import {
+	createWorktreeStatusGitWatcher,
+	currentBranchName,
+	findGitPaths,
+	isSharedIdentityStillCurrent,
+	watchExistingPath,
+	type WatchHandle,
+	type WorktreeStatusGitWatcher,
+} from "./worktree-status-git-watcher.ts";
+import {
+	createWorktreeStatusRefreshChannel,
+	type WorktreeStatusRefreshOptions,
+} from "./worktree-status-refresh-channel.ts";
 import {
 	formatWorktreeStatusDormantLine,
 	renderStatusFooter,
@@ -30,13 +46,7 @@ import {
 
 export const WORKTREE_STATUS_REFRESH_COMMAND_NAME = "pi:worktree-status-refresh";
 
-const GIT_STATUS_WATCH_DEBOUNCE_MS = 100;
-// Quiet window enforced after each watcher-driven refresh. Bounds the worst-case refresh
-// rate to one per (refresh duration + cooldown) even if a refresh ever re-trips a watched
-// path, so a feedback loop can never storm the host event loop.
-const GIT_STATUS_WATCH_COOLDOWN_MS = 250;
 const GH_STATUS_BACKGROUND_REFRESH_MIN_INTERVAL_MS = 15_000;
-const WORKTREE_STATUS_DORMANT_AFTER_MS = 120_000;
 
 const WORKTREE_STATUS_ACTIVITY_EVENTS = [
 	"input",
@@ -207,25 +217,10 @@ export interface ExtensionAPI {
 	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
 }
 
-interface GitPaths {
-	repoDir: string;
-	gitDir: string;
-	commonGitDir: string;
-	headPath: string;
-}
-
 interface GhStatusSnapshot {
 	readonly identity: WorktreeStatusIdentity;
 	readonly status: WorktreeGhStatus;
 	readonly fetchedAtMs: number;
-}
-
-export interface WatchHandle {
-	close(): void;
-}
-
-interface WorktreeStatusWatcher {
-	close(): void;
 }
 
 export interface WorktreeStatusExtensionDependencies {
@@ -241,30 +236,16 @@ interface ActiveSession {
 	hasUI: boolean;
 	abortController: AbortController;
 	closed: boolean;
-	lastActivityAtMs: number;
 	isDormant: boolean;
 	activityUnsubscribe?: (() => void) | undefined;
-	dormancyTimer?: ReturnType<typeof setTimeout> | undefined;
+	activityController?: WorktreeStatusActivityController | undefined;
 	localStatus?: LocalWorktreeStatus | undefined;
 	ghStatusSnapshot?: GhStatusSnapshot | undefined;
-	watcher?: WorktreeStatusWatcher | undefined;
+	gitWatcher?: WorktreeStatusGitWatcher | undefined;
 }
 
-interface RefreshOptions {
-	readonly shouldForceRemote?: boolean;
-}
-
-interface RefreshRemoteOptions extends RefreshOptions {
+interface RefreshRemoteOptions extends WorktreeStatusRefreshOptions {
 	readonly identity?: WorktreeStatusIdentity | undefined;
-}
-
-interface ActivityOptions {
-	readonly shouldRefreshOnWake?: boolean;
-}
-
-interface RefreshChannel {
-	run(session: ActiveSession, options?: RefreshOptions): Promise<void>;
-	clearSession(session: ActiveSession): void;
 }
 
 export default function worktreeStatusExtension(
@@ -277,6 +258,15 @@ export default function worktreeStatusExtension(
 	let activeSession: ActiveSession | undefined;
 	let lastLinesKey: string | undefined;
 
+	function isActiveSession(session: ActiveSession): boolean {
+		return activeSession === session && !session.closed && !session.abortController.signal.aborted;
+	}
+
+	const fullRefreshChannel = createWorktreeStatusRefreshChannel<ActiveSession>({
+		isActive: isActiveSession,
+		work: refreshAllImmediately,
+	});
+
 	function activateSession(ctx: ExtensionContext): ActiveSession {
 		closeActiveSession();
 
@@ -287,12 +277,43 @@ export default function worktreeStatusExtension(
 			hasUI: ctx.hasUI,
 			abortController: new AbortController(),
 			closed: false,
-			lastActivityAtMs: Date.now(),
 			isDormant: false,
 		};
 		activeSession = session;
 		lastLinesKey = undefined;
+		installSessionControllers(session);
 		return session;
+	}
+
+	function installSessionControllers(session: ActiveSession): void {
+		session.gitWatcher = createWorktreeStatusGitWatcher({
+			cwd: session.cwd,
+			dependencies: {
+				watchPath: dependencies.watchPath ?? watchExistingPath,
+				setTimeout: dependencies.setTimeout ?? setTimeout,
+				clearTimeout: dependencies.clearTimeout ?? clearTimeout,
+			},
+			isActive: () => isActiveSession(session),
+			onChange: () => fullRefreshChannel.run(session),
+		});
+		session.activityController = createWorktreeStatusActivityController({
+			dependencies: {
+				setTimeout: dependencies.setTimeout ?? setTimeout,
+				clearTimeout: dependencies.clearTimeout ?? clearTimeout,
+				now: Date.now,
+			},
+			isActive: () => isActiveSession(session),
+			isBusy: () => isSessionBusy(session),
+			onDormantChange: (isDormant) => {
+				session.isDormant = isDormant;
+				if (isDormant) session.gitWatcher?.pause();
+				else session.gitWatcher?.resume(session.localStatus?.identity);
+				renderSessionStatus(session);
+			},
+			onWakeRefresh: () => {
+				void fullRefreshChannel.run(session, { shouldForceRemote: true });
+			},
+		});
 	}
 
 	function closeActiveSession(): void {
@@ -300,11 +321,12 @@ export default function worktreeStatusExtension(
 		if (session !== undefined) {
 			session.closed = true;
 			session.abortController.abort();
-			session.watcher?.close();
-			session.watcher = undefined;
+			session.gitWatcher?.close();
+			session.gitWatcher = undefined;
+			session.activityController?.close();
+			session.activityController = undefined;
 			session.activityUnsubscribe?.();
 			session.activityUnsubscribe = undefined;
-			clearDormancyTimer(session);
 			session.ctx.ui.setFooter?.(undefined);
 			fullRefreshChannel.clearSession(session);
 		}
@@ -312,10 +334,6 @@ export default function worktreeStatusExtension(
 		activeSession = undefined;
 		shutdownGraphiteMetadataWorker();
 		lastLinesKey = undefined;
-	}
-
-	function isActiveSession(session: ActiveSession): boolean {
-		return activeSession === session && !session.closed && !session.abortController.signal.aborted;
 	}
 
 	function combinedSessionStatus(session: ActiveSession): WorktreeStatus | undefined {
@@ -373,6 +391,7 @@ export default function worktreeStatusExtension(
 			previousIdentity !== undefined &&
 			!sameWorktreeStatusIdentity(previousIdentity, status.identity);
 		session.localStatus = status;
+		session.gitWatcher?.update(status.identity);
 		if (identityChanged || sharedIdentityStale) session.ghStatusSnapshot = undefined;
 		renderSessionStatus(session);
 	}
@@ -410,7 +429,7 @@ export default function worktreeStatusExtension(
 	function shouldUseCachedGhStatus(
 		session: ActiveSession,
 		identity: WorktreeStatusIdentity,
-		options: RefreshOptions,
+		options: WorktreeStatusRefreshOptions,
 	): boolean {
 		if (options.shouldForceRemote === true) return false;
 		const snapshot = session.ghStatusSnapshot;
@@ -419,72 +438,9 @@ export default function worktreeStatusExtension(
 		return Date.now() - snapshot.fetchedAtMs < GH_STATUS_BACKGROUND_REFRESH_MIN_INTERVAL_MS;
 	}
 
-	function makeRefreshChannel(
-		work: (session: ActiveSession, options: RefreshOptions) => Promise<void>,
-	): RefreshChannel {
-		let inFlightSession: ActiveSession | undefined;
-		let inFlight: Promise<void> | undefined;
-		let pendingSession: ActiveSession | undefined;
-		let pendingOptions: RefreshOptions | undefined;
-
-		function run(session: ActiveSession, options: RefreshOptions = {}): Promise<void> {
-			if (!isActiveSession(session)) return Promise.resolve();
-			if (inFlightSession !== undefined) {
-				pendingSession = session;
-				pendingOptions = combineRefreshOptions(pendingOptions, options);
-				return inFlight ?? Promise.resolve();
-			}
-
-			inFlightSession = session;
-			inFlight = drain(session, options);
-			return inFlight;
-		}
-
-		async function drain(session: ActiveSession, options: RefreshOptions): Promise<void> {
-			let nextOptions = options;
-			try {
-				for (;;) {
-					pendingSession = undefined;
-					pendingOptions = undefined;
-					try {
-						await work(session, nextOptions);
-					} catch {
-						// Background status refresh must never crash pi.
-					}
-					if (pendingSession !== session || !isActiveSession(session)) return;
-					nextOptions = pendingOptions ?? {};
-				}
-			} finally {
-				if (inFlightSession === session) inFlightSession = undefined;
-				if (inFlightSession === undefined) inFlight = undefined;
-				if (pendingSession === session) pendingSession = undefined;
-			}
-		}
-
-		return {
-			run,
-			clearSession(session) {
-				if (inFlightSession === session) inFlightSession = undefined;
-				if (pendingSession === session) {
-					pendingSession = undefined;
-					pendingOptions = undefined;
-				}
-			},
-		};
-	}
-
-	function combineRefreshOptions(
-		left: RefreshOptions | undefined,
-		right: RefreshOptions,
-	): RefreshOptions {
-		return left?.shouldForceRemote === true || right.shouldForceRemote === true
-			? { shouldForceRemote: true }
-			: {};
-	}
-
 	async function refreshAllImmediately(
 		session: ActiveSession,
-		options: RefreshOptions,
+		options: WorktreeStatusRefreshOptions,
 	): Promise<void> {
 		if (!session.hasUI || !isActiveSession(session)) return;
 		if (session.isDormant && options.shouldForceRemote !== true) return;
@@ -495,6 +451,7 @@ export default function worktreeStatusExtension(
 			session.abortController.signal,
 		);
 		if (!isActiveSession(session)) return;
+		session.gitWatcher?.update(identity);
 		await Promise.all([
 			refreshLocalNowWithIdentity(session, identity),
 			refreshRemoteNowWithIdentity(session, { ...options, identity }),
@@ -510,8 +467,6 @@ export default function worktreeStatusExtension(
 			await refreshRemoteNowWithIdentity(session, { ...options, identity: localIdentity });
 		}
 	}
-
-	const fullRefreshChannel = makeRefreshChannel(refreshAllImmediately);
 
 	function renderSessionLines(session: ActiveSession, lines: string[]): boolean {
 		if (!isActiveSession(session) || !session.hasUI) return false;
@@ -554,16 +509,6 @@ export default function worktreeStatusExtension(
 		});
 	}
 
-	function ensureGitStatusWatcher(session: ActiveSession): void {
-		if (session.watcher !== undefined || session.isDormant) return;
-		session.watcher = startGitStatusWatcher(session, {
-			watchPath: dependencies.watchPath ?? watchExistingPath,
-			setTimeout: dependencies.setTimeout ?? setTimeout,
-			clearTimeout: dependencies.clearTimeout ?? clearTimeout,
-			onChange: () => fullRefreshChannel.run(session),
-		});
-	}
-
 	function installActivityTracking(session: ActiveSession): void {
 		const unsubscribe = session.ctx.ui.onTerminalInput?.(() => {
 			recordSessionActivity(session);
@@ -578,72 +523,17 @@ export default function worktreeStatusExtension(
 		recordSessionActivity(session);
 	}
 
-	function recordSessionActivity(session: ActiveSession, options: ActivityOptions = {}): void {
-		if (!isActiveSession(session)) return;
-		session.lastActivityAtMs = Date.now();
-		if (session.isDormant) {
-			session.isDormant = false;
-			ensureGitStatusWatcher(session);
-			renderSessionStatus(session);
-			if (options.shouldRefreshOnWake !== false)
-				void fullRefreshChannel.run(session, { shouldForceRemote: true });
-		}
-		scheduleDormancyCheck(session);
-	}
-
-	function scheduleDormancyCheck(session: ActiveSession): void {
-		clearDormancyTimer(session);
-		if (!isActiveSession(session)) return;
-		const delayMs = Math.max(
-			0,
-			session.lastActivityAtMs + WORKTREE_STATUS_DORMANT_AFTER_MS - Date.now(),
-		);
-		session.dormancyTimer = (dependencies.setTimeout ?? setTimeout)(() => {
-			checkSessionDormancy(session);
-		}, delayMs);
-		unrefTimer(session.dormancyTimer);
-	}
-
-	function clearDormancyTimer(session: ActiveSession): void {
-		if (session.dormancyTimer === undefined) return;
-		(dependencies.clearTimeout ?? clearTimeout)(session.dormancyTimer);
-		session.dormancyTimer = undefined;
-	}
-
-	function checkSessionDormancy(session: ActiveSession): void {
-		session.dormancyTimer = undefined;
-		if (!isActiveSession(session)) return;
-		if (isSessionBusy(session)) {
-			session.lastActivityAtMs = Date.now();
-			scheduleDormancyCheck(session);
-			return;
-		}
-
-		const idleMs = Date.now() - session.lastActivityAtMs;
-		if (idleMs < WORKTREE_STATUS_DORMANT_AFTER_MS) {
-			scheduleDormancyCheck(session);
-			return;
-		}
-
-		enterDormantMode(session);
+	function recordSessionActivity(
+		session: ActiveSession,
+		options: WorktreeStatusActivityOptions = {},
+	): void {
+		session.activityController?.recordActivity(options);
 	}
 
 	function isSessionBusy(session: ActiveSession): boolean {
-		try {
-			if (session.ctx.isIdle?.() === false) return true;
-			if (session.ctx.hasPendingMessages?.() === true) return true;
-		} catch {
-			return false;
-		}
+		if (session.ctx.isIdle?.() === false) return true;
+		if (session.ctx.hasPendingMessages?.() === true) return true;
 		return false;
-	}
-
-	function enterDormantMode(session: ActiveSession): void {
-		if (!isActiveSession(session) || session.isDormant) return;
-		session.isDormant = true;
-		session.watcher?.close();
-		session.watcher = undefined;
-		renderSessionStatus(session);
 	}
 
 	pi.registerCommand?.(WORKTREE_STATUS_REFRESH_COMMAND_NAME, {
@@ -664,8 +554,7 @@ export default function worktreeStatusExtension(
 		const session = activateSession(ctx);
 		installStatusFooter(session);
 		installActivityTracking(session);
-		ensureGitStatusWatcher(session);
-		scheduleDormancyCheck(session);
+		session.gitWatcher?.resume(undefined);
 		await fullRefreshChannel.run(session, { shouldForceRemote: true });
 	});
 
@@ -692,201 +581,4 @@ function fallbackRepoName(cwd: string): string {
 function renderLines(ctx: ExtensionContext, lines: string[]): void {
 	ctx.ui.setWidget(WORKTREE_STATUS_UI_KEY, undefined);
 	ctx.ui.setStatus(WORKTREE_STATUS_UI_KEY, lines.join("\n"));
-}
-
-interface StartGitStatusWatcherOptions {
-	watchPath(path: string, callback: () => void): WatchHandle | undefined;
-	setTimeout(callback: () => void, ms: number): ReturnType<typeof setTimeout>;
-	clearTimeout(timeout: ReturnType<typeof setTimeout>): void;
-	onChange(): Promise<void>;
-}
-
-function startGitStatusWatcher(
-	session: ActiveSession,
-	options: StartGitStatusWatcherOptions,
-): WorktreeStatusWatcher | undefined {
-	const paths = watchedGitStatusPaths(session.cwd);
-	if (paths.length === 0) return undefined;
-
-	const handles: WatchHandle[] = [];
-	let pending: ReturnType<typeof setTimeout> | undefined;
-	let cooldown: ReturnType<typeof setTimeout> | undefined;
-	let isRunning = false;
-	let shouldRerun = false;
-	let isClosed = false;
-
-	// Watch events that arrive while a refresh is in flight, or during the cooldown that
-	// follows one, collapse into a single follow-up refresh. This keeps a burst of writes
-	// (e.g. `gt pr` rewriting many refs) — or any stray self-triggered event — from
-	// spawning a refresh per file and saturating the host event loop.
-	function flush(): void {
-		pending = undefined;
-		if (isClosed || !isActiveSessionForWatcher(session)) return;
-		if (isRunning || cooldown !== undefined) {
-			shouldRerun = true;
-			return;
-		}
-		void runRefresh();
-	}
-
-	async function runRefresh(): Promise<void> {
-		isRunning = true;
-		try {
-			await options.onChange();
-		} finally {
-			isRunning = false;
-			if (!isClosed) {
-				cooldown = options.setTimeout(endCooldown, GIT_STATUS_WATCH_COOLDOWN_MS);
-				unrefTimer(cooldown);
-			}
-		}
-	}
-
-	function endCooldown(): void {
-		cooldown = undefined;
-		if (isClosed || !isActiveSessionForWatcher(session)) return;
-		if (shouldRerun) {
-			shouldRerun = false;
-			void runRefresh();
-		}
-	}
-
-	function schedule(): void {
-		if (isClosed || pending !== undefined) return;
-		pending = options.setTimeout(flush, GIT_STATUS_WATCH_DEBOUNCE_MS);
-		unrefTimer(pending);
-	}
-
-	for (const path of paths) {
-		const handle = options.watchPath(path, schedule);
-		if (handle !== undefined) handles.push(handle);
-	}
-
-	if (handles.length === 0) return undefined;
-	return {
-		close() {
-			isClosed = true;
-			shouldRerun = false;
-			if (pending !== undefined) {
-				options.clearTimeout(pending);
-				pending = undefined;
-			}
-			if (cooldown !== undefined) {
-				options.clearTimeout(cooldown);
-				cooldown = undefined;
-			}
-			for (const handle of handles) handle.close();
-		},
-	};
-}
-
-function isActiveSessionForWatcher(session: ActiveSession): boolean {
-	return !session.closed && !session.abortController.signal.aborted;
-}
-
-function watchExistingPath(path: string, callback: () => void): WatchHandle | undefined {
-	if (!existsSync(path)) return undefined;
-	try {
-		const watcher = watch(path, { persistent: false }, callback);
-		watcher.on("error", () => watcher.close());
-		return watcher;
-	} catch {
-		// File watching is best-effort: path races or permission failures should not block status rendering.
-		return undefined;
-	}
-}
-
-// Only watch paths that signal a commit or ref update *and* are never written by
-// our own status refresh. `git status` (run on every refresh) rewrites `.git/index`,
-// and `logs/*` churn on every git operation; watching either turns the refresh into a
-// self-triggering feedback loop that storms the host event loop. HEAD and the current
-// branch ref capture checkpoint commits and ref updates without that hazard.
-function watchedGitStatusPaths(cwd: string): string[] {
-	const gitPaths = findGitPaths(cwd);
-	if (gitPaths === undefined) return [];
-
-	const paths = new Set<string>([gitPaths.headPath, join(gitPaths.commonGitDir, "packed-refs")]);
-	const currentBranch = currentBranchName(gitPaths);
-	if (currentBranch !== undefined) {
-		const refPath = join(gitPaths.commonGitDir, "refs", "heads", ...currentBranch.split("/"));
-		paths.add(refPath);
-		// Watch the containing directory too: a ref update writes the ref via temp-file
-		// rename, which can detach a file-level watch after the first commit.
-		paths.add(dirname(refPath));
-	}
-
-	return [...paths].filter((path) => existsSync(path));
-}
-
-function findGitPaths(cwd: string): GitPaths | undefined {
-	let dir = resolve(cwd);
-	for (;;) {
-		const gitPath = join(dir, ".git");
-		if (existsSync(gitPath)) {
-			try {
-				const stat = statSync(gitPath);
-				if (stat.isFile()) {
-					const content = readFileSync(gitPath, "utf8").trim();
-					if (content.startsWith("gitdir: ")) {
-						const gitDir = resolve(dir, content.slice(8).trim());
-						const headPath = join(gitDir, "HEAD");
-						if (!existsSync(headPath)) return undefined;
-
-						const commonDirPath = join(gitDir, "commondir");
-						const commonGitDir = existsSync(commonDirPath)
-							? resolve(gitDir, readFileSync(commonDirPath, "utf8").trim())
-							: gitDir;
-						return { repoDir: dir, gitDir, commonGitDir, headPath };
-					}
-				} else if (stat.isDirectory()) {
-					const headPath = join(gitPath, "HEAD");
-					if (!existsSync(headPath)) return undefined;
-					return { repoDir: dir, gitDir: gitPath, commonGitDir: gitPath, headPath };
-				}
-			} catch {
-				return undefined;
-			}
-		}
-
-		const parent = dirname(dir);
-		if (parent === dir) return undefined;
-		dir = parent;
-	}
-}
-
-function currentBranchName(gitPaths: GitPaths): string | undefined {
-	try {
-		const head = readFileSync(gitPaths.headPath, "utf8").trim();
-		const refPrefix = "ref: refs/heads/";
-		if (!head.startsWith(refPrefix)) return undefined;
-
-		const branch = head.slice(refPrefix.length).trim();
-		return branch.length > 0 ? branch : undefined;
-	} catch {
-		return undefined;
-	}
-}
-
-function isSharedIdentityStillCurrent(cwd: string, identity: WorktreeStatusIdentity): boolean {
-	const gitPaths = findGitPaths(cwd);
-	if (gitPaths === undefined) return identity.head.type === "unknown";
-	const currentBranch = currentBranchName(gitPaths);
-	if (identity.head.type !== "branch") return currentBranch === undefined;
-	if (currentBranch !== identity.head.name) return false;
-
-	const currentOid = currentBranchLooseOid(gitPaths, identity.head.name);
-	return (
-		currentOid === undefined || identity.headOid === undefined || currentOid === identity.headOid
-	);
-}
-
-function currentBranchLooseOid(gitPaths: GitPaths, branch: string): string | undefined {
-	const refPath = join(gitPaths.commonGitDir, "refs", "heads", ...branch.split("/"));
-	if (!existsSync(refPath)) return undefined;
-	try {
-		const oid = readFileSync(refPath, "utf8").trim();
-		return oid.length > 0 ? oid : undefined;
-	} catch {
-		return undefined;
-	}
 }
