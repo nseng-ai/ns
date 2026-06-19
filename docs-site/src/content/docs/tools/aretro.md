@@ -20,10 +20,11 @@ skill, not in a raw log dump.
 
 ## Install
 
+Install the TypeScript source shim from an asdl checkout:
+
 ```bash
-uv tool install aretro
+just install-aretro
 aretro --help
-asdl aretro --help
 ```
 
 ## Common commands

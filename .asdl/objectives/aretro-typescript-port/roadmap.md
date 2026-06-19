@@ -31,14 +31,12 @@
   - The TypeScript CLI resolved this checkout's real git branch and Pi session source with `pnpm --dir ts exec node packages/aretro/src/cli.ts exec collect-evidence --max-sessions 1 --format human`.
   - Durable evidence intentionally records only the command and high-level pass result, not raw payload artifacts or transcript-derived compact JSON.
 
-- [ ] Cut over `branch-retro` skill runner and active docs to the TypeScript default.
-  - Policy: direct execution after preview; ask before preserving checkout-free execution through a new external package or adding `aretro` to `install-tools` without caller evidence.
-  - Update `skills/branch-retro/scripts/aretro-run` to prefer the repo-local TypeScript CLI once `ts/packages/aretro` exists.
-  - Update `skills/branch-retro/SKILL.md` only as needed to keep public skill instructions accurate and implementation-path-agnostic.
-  - Add `just install-aretro` as the default opt-in PATH shim if source-shim execution is useful; include it in `install-tools` only if active installed-tool consumer evidence justifies that broader target.
-  - Audit `ASDL_ARETRO_MODE=prod`, `uvx --from aretro==0.1.0`, active install docs, and checkout-free skill use before Python deletion. Preserve, replace, or explicitly retire that behavior based on evidence.
-  - Update docs/docs-site examples away from Python `uv tool install aretro`, `uv run aretro`, and stale `asdl aretro` claims when TypeScript becomes default.
-  - Evidence: skill runner invokes TypeScript for repo-local use; distribution decision is recorded; docs/skill references align with the selected model.
+- [x] Cut over `branch-retro` skill runner and active docs to the TypeScript default.
+  - Policy: completed by the `aretro-ts/skill-distribution-cutover` branch against Graphite parent `aretro-ts/payload-detail`.
+  - Updated `skills/branch-retro/scripts/aretro-run` to prefer the repo-local TypeScript CLI when `ts/packages/aretro/src/cli.ts` is present, while preserving `ASDL_ARETRO_MODE=local` and `ASDL_ARETRO_MODE=prod` fallbacks.
+  - Added opt-in `just install-aretro` source shim without adding it to the broad `install-tools` target because the audit found no active installed-tool consumer requiring that broader install.
+  - Updated active docs-site install/tool pages away from Python `uv tool install aretro` and stale `asdl aretro` defaults; the skill's negative `do not use asdl aretro` guidance remains intentional.
+  - Evidence: runner `--runtime` reports TypeScript in repo-local mode, Python local override still works, docs formatting passed, and active-reference grep found no required checkout-free/prod consumer outside the preserved runner fallback.
 
 - [ ] Retire the Python `packages/aretro` fallback and active workspace wiring.
   - Policy: direct execution only after TypeScript parity, skill/docs cutover, distribution decision, and rollback/reference evidence are complete; stop if active callers still require Python or PyPI `uvx` behavior.
@@ -61,10 +59,9 @@ Completed branch thesis:
 
 - `aretro-ts-contract-and-shell` — contract inventory plus `@asdl/aretro` package shell, root/hidden-exec command shape, runtime/help/version, and initial scenario tests.
 
-Remaining default branch theses:
+Remaining default branch thesis:
 
-1. `aretro-ts-skill-distribution-cutover` — `branch-retro` runner, source shim/install decision, docs cleanup, and external/prod runner audit.
-2. `aretro-ts-retire-python` — Python package deletion, root config/lock cleanup, stale-reference sweep, rollback evidence, and umbrella Objective update.
+1. `aretro-ts-retire-python` — Python package deletion, root config/lock cleanup, stale-reference sweep, rollback evidence, and umbrella Objective update.
 
 Split further by thesis if a branch becomes too broad. Stop before branch 5 if parity, privacy, or distribution evidence is unresolved.
 

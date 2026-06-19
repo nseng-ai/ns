@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Dispatch `aretro` to either a local asdl checkout (`uv run`) or an
-# ephemeral install from PyPI (`uvx`). See docs/aretro.md.
+# Dispatch `aretro` to TypeScript source in asdl checkouts, Python source for
+# ASDL_ARETRO_MODE=local, or PyPI ephemeral install for ASDL_ARETRO_MODE=prod.
+# See docs/aretro.md.
 set -euo pipefail
 
 # Bump ASDL_ARETRO_VERSION to roll out a new aretro release to skill consumers.
@@ -21,6 +22,10 @@ case "${ASDL_ARETRO_MODE:-}" in
 esac
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -n "$repo_root" && -f "$repo_root/ts/packages/aretro/src/cli.ts" ]]; then
+  exec node --experimental-strip-types "$repo_root/ts/packages/aretro/src/cli.ts" "$@"
+fi
+
 if [[ -n "$repo_root" && -f "$repo_root/packages/aretro/pyproject.toml" ]]; then
   exec uv run --project "$repo_root" aretro "$@"
 fi
