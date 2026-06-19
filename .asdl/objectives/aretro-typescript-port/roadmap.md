@@ -67,11 +67,11 @@ Completed branch theses:
 - `aretro-typescript-cleanup-source-ref-sha256` — shared SHA-256 digest adoption and payload-store naming cleanup.
 - `aretro-ts/stack-feedback-cleanup` — shared `@asdl/core/git` adoption, reusable session limiting, and payload boolean DTO naming cleanup.
 
-Remaining default branch thesis:
+Completed final branch thesis:
 
-1. `aretro-ts-retire-python` — Python package deletion, root config/lock cleanup, stale-reference sweep, rollback evidence, and umbrella Objective update.
+1. `retire-python-aretro-record-typescript-cutover` — Python package deletion, root config/lock cleanup, stale-reference sweep, rollback evidence, and umbrella Objective update.
 
-Split further by thesis if a branch becomes too broad. Stop before branch 5 if parity, privacy, or distribution evidence is unresolved.
+No active implementation branch thesis remains. Future work in this area should start from the parked ideas below or a new Objective if product evidence changes the scope.
 
 ## Parked
 
