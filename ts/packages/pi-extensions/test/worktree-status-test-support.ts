@@ -1,8 +1,18 @@
 import { expect } from "vitest";
 
 import { githubWorktreePrStatusQuery } from "@asdl/core/github-status";
-import type { ExecResult, StatusTheme } from "@asdl/ccc/worktree-status";
-import type { ExtensionContext } from "../src/worktree-status.ts";
+import type {
+	ExecResult,
+	GtStatus,
+	LocalWorktreeStatus,
+	StatusTheme,
+	WorktreeGhStatus,
+	WorktreeStatusIdentity,
+} from "@asdl/ccc/worktree-status";
+import type {
+	ExtensionContext,
+	WorktreeStatusExtensionDependencies,
+} from "../src/worktree-status.ts";
 
 export interface ExecCall {
 	command: string;
@@ -218,3 +228,110 @@ export const TEST_THEME: StatusTheme = {
 		return `\x1B[4m${value}\x1B[24m`;
 	},
 };
+
+const DEFAULT_CWD = "/repo";
+const DEFAULT_HEAD_OID = "abc123";
+
+export interface QueuedLoaderResult<T> {
+	readonly value: T | Promise<T>;
+	onCall?: (() => void) | undefined;
+}
+
+export interface FakeWorktreeStatusLoaders extends WorktreeStatusExtensionDependencies {
+	readonly identityCalls: Array<{ cwd: string }>;
+	readonly localCalls: Array<{ cwd: string; identity: WorktreeStatusIdentity | undefined }>;
+	readonly ghCalls: Array<{ cwd: string; identity: WorktreeStatusIdentity | undefined }>;
+}
+
+export interface FakeWorktreeStatusLoaderOptions {
+	identities?: readonly QueuedLoaderResult<WorktreeStatusIdentity>[] | undefined;
+	localStatuses?: readonly QueuedLoaderResult<LocalWorktreeStatus>[] | undefined;
+	ghStatuses?: readonly QueuedLoaderResult<WorktreeGhStatus>[] | undefined;
+	identityCurrent?: readonly boolean[] | boolean | undefined;
+	footerBranch?: string | null | undefined;
+}
+
+export function worktreeIdentity(
+	overrides: Partial<WorktreeStatusIdentity> = {},
+): WorktreeStatusIdentity {
+	return {
+		cwd: overrides.cwd ?? DEFAULT_CWD,
+		head: overrides.head ?? { type: "branch", name: "feature/current" },
+		...(overrides.headOid === undefined
+			? { headOid: DEFAULT_HEAD_OID }
+			: { headOid: overrides.headOid }),
+	};
+}
+
+export function gtStatus(overrides: Partial<GtStatus> = {}): GtStatus {
+	return {
+		down: Object.hasOwn(overrides, "down") ? overrides.down : "main",
+		up: overrides.up ?? "-",
+		commits: overrides.commits ?? { type: "count", count: 1 },
+		dirty: overrides.dirty ?? "no",
+	};
+}
+
+export function localStatus(overrides: Partial<LocalWorktreeStatus> = {}): LocalWorktreeStatus {
+	const status: LocalWorktreeStatus = {
+		identity: overrides.identity ?? worktreeIdentity(),
+		brmem: overrides.brmem,
+		gt: overrides.gt ?? gtStatus(),
+	};
+	if (overrides.gtMetadataDiagnostic !== undefined)
+		status.gtMetadataDiagnostic = overrides.gtMetadataDiagnostic;
+	return status;
+}
+
+export function queued<T>(
+	value: T | Promise<T>,
+	onCall?: (() => void) | undefined,
+): QueuedLoaderResult<T> {
+	return onCall === undefined ? { value } : { value, onCall };
+}
+
+export function fakeWorktreeStatusLoaders(
+	options: FakeWorktreeStatusLoaderOptions = {},
+): FakeWorktreeStatusLoaders {
+	const identityQueue = [...(options.identities ?? [])];
+	const localQueue = [...(options.localStatuses ?? [])];
+	const ghQueue = [...(options.ghStatuses ?? [])];
+	const identityCurrentQueue = Array.isArray(options.identityCurrent)
+		? [...options.identityCurrent]
+		: undefined;
+	const identityCalls: Array<{ cwd: string }> = [];
+	const localCalls: Array<{ cwd: string; identity: WorktreeStatusIdentity | undefined }> = [];
+	const ghCalls: Array<{ cwd: string; identity: WorktreeStatusIdentity | undefined }> = [];
+	const loaders: FakeWorktreeStatusLoaders = {
+		identityCalls,
+		localCalls,
+		ghCalls,
+		async loadIdentity(_pi, cwd) {
+			identityCalls.push({ cwd });
+			const next = identityQueue.shift();
+			next?.onCall?.();
+			return next === undefined ? worktreeIdentity({ cwd }) : next.value;
+		},
+		async loadLocalStatus(_pi, cwd, loadOptions) {
+			localCalls.push({ cwd, identity: loadOptions?.identity });
+			const next = localQueue.shift();
+			next?.onCall?.();
+			if (next !== undefined) return next.value;
+			return localStatus({ identity: loadOptions?.identity ?? worktreeIdentity({ cwd }) });
+		},
+		async loadGhStatus(_pi, cwd, loadOptions) {
+			ghCalls.push({ cwd, identity: loadOptions?.identity });
+			const next = ghQueue.shift();
+			next?.onCall?.();
+			return next === undefined ? { type: "no-pr" } : next.value;
+		},
+		isIdentityCurrent() {
+			if (identityCurrentQueue !== undefined) return identityCurrentQueue.shift() ?? true;
+			return options.identityCurrent ?? true;
+		},
+		readFooterBranch() {
+			return options.footerBranch ?? "feature/current";
+		},
+	};
+	return loaders;
+}

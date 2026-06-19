@@ -15,6 +15,8 @@ import {
 	sameWorktreeStatusIdentity,
 	WORKTREE_STATUS_UI_KEY,
 	type ExecResult,
+	type LoadLocalWorktreeStatusOptions,
+	type LoadWorktreeGhStatusOptions,
 	type LocalWorktreeStatus,
 	type StatusTheme,
 	type WorktreeGhStatus,
@@ -222,10 +224,43 @@ interface GhStatusSnapshot {
 	readonly fetchedAtMs: number;
 }
 
+export type WorktreeStatusIdentityLoader = (
+	pi: ExtensionAPI,
+	cwd: string,
+	signal?: AbortSignal,
+) => Promise<WorktreeStatusIdentity>;
+
+export type LocalWorktreeStatusLoader = (
+	pi: ExtensionAPI,
+	cwd: string,
+	options?: LoadLocalWorktreeStatusOptions,
+) => Promise<LocalWorktreeStatus>;
+
+export type WorktreeGhStatusLoader = (
+	pi: ExtensionAPI,
+	cwd: string,
+	options?: LoadWorktreeGhStatusOptions,
+) => Promise<WorktreeGhStatus>;
+
+export type WorktreeStatusIdentityCurrentChecker = (
+	cwd: string,
+	identity: WorktreeStatusIdentity,
+) => boolean;
+
+export type WorktreeStatusFooterBranchReader = (
+	cwd: string,
+	footerData: StatusFooterData,
+) => string | null;
+
 export interface WorktreeStatusExtensionDependencies {
 	setTimeout?: ((callback: () => void, ms: number) => ReturnType<typeof setTimeout>) | undefined;
 	clearTimeout?: ((timeout: ReturnType<typeof setTimeout>) => void) | undefined;
 	refreshIntervalMs?: number | undefined;
+	loadIdentity?: WorktreeStatusIdentityLoader | undefined;
+	loadLocalStatus?: LocalWorktreeStatusLoader | undefined;
+	loadGhStatus?: WorktreeGhStatusLoader | undefined;
+	isIdentityCurrent?: WorktreeStatusIdentityCurrentChecker | undefined;
+	readFooterBranch?: WorktreeStatusFooterBranchReader | undefined;
 }
 
 interface ActiveSession {
@@ -252,6 +287,14 @@ export default function worktreeStatusExtension(
 	dependencies: WorktreeStatusExtensionDependencies = {},
 ) {
 	pi.registerMessageRenderer?.(WORKTREE_STATUS_UI_KEY, renderWorktreeStatusMessage);
+
+	const loaders = {
+		loadIdentity: dependencies.loadIdentity ?? loadWorktreeStatusIdentity,
+		loadLocalStatus: dependencies.loadLocalStatus ?? loadLocalWorktreeStatus,
+		loadGhStatus: dependencies.loadGhStatus ?? loadWorktreeGhStatus,
+		isIdentityCurrent: dependencies.isIdentityCurrent ?? isWorktreeStatusIdentityStillCurrent,
+		readFooterBranch: dependencies.readFooterBranch ?? currentFooterBranch,
+	};
 
 	let nextSessionId = 0;
 	let activeSession: ActiveSession | undefined;
@@ -370,16 +413,16 @@ export default function worktreeStatusExtension(
 		if (!session.hasUI || !isActiveSession(session)) return;
 
 		const previousIdentity = session.localStatus?.identity;
-		let status = await loadLocalWorktreeStatus(pi, session.cwd, {
+		let status = await loaders.loadLocalStatus(pi, session.cwd, {
 			identity,
 			signal: session.abortController.signal,
 		});
 		if (!isActiveSession(session)) return;
 
 		const sharedIdentityStale =
-			identity !== undefined && !isWorktreeStatusIdentityStillCurrent(session.cwd, identity);
+			identity !== undefined && !loaders.isIdentityCurrent(session.cwd, identity);
 		if (sharedIdentityStale) {
-			status = await loadLocalWorktreeStatus(pi, session.cwd, {
+			status = await loaders.loadLocalStatus(pi, session.cwd, {
 				signal: session.abortController.signal,
 			});
 			if (!isActiveSession(session)) return;
@@ -405,7 +448,7 @@ export default function worktreeStatusExtension(
 			renderSessionStatus(session);
 			return;
 		}
-		const status = await loadWorktreeGhStatus(pi, session.cwd, {
+		const status = await loaders.loadGhStatus(pi, session.cwd, {
 			identity: fetchIdentity,
 			signal: session.abortController.signal,
 		});
@@ -442,11 +485,7 @@ export default function worktreeStatusExtension(
 		if (!session.hasUI || !isActiveSession(session)) return;
 		if (session.isDormant && options.shouldForceRemote !== true) return;
 
-		const identity = await loadWorktreeStatusIdentity(
-			pi,
-			session.cwd,
-			session.abortController.signal,
-		);
+		const identity = await loaders.loadIdentity(pi, session.cwd, session.abortController.signal);
 		if (!isActiveSession(session)) return;
 		await Promise.all([
 			refreshLocalNowWithIdentity(session, identity),
@@ -486,7 +525,7 @@ export default function worktreeStatusExtension(
 				invalidate() {},
 				render(width) {
 					const cwd = session.ctx.sessionManager?.getCwd() ?? session.ctx.cwd;
-					const branch = currentFooterBranch(cwd, footerData) ?? "unknown";
+					const branch = loaders.readFooterBranch(cwd, footerData) ?? "unknown";
 					return isActiveSession(session)
 						? renderStatusFooter({
 								ctx: session.ctx,
