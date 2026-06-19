@@ -3,7 +3,7 @@ import type { GitGateway } from "@asdl/core/git";
 import { InMemoryGitGateway } from "@asdl/core/git/testing";
 import { ScriptedCommandExecApi } from "@asdl/core/testing";
 
-import type { RoasterContext } from "../../src/context.ts";
+import type { RoasterGateways } from "../../src/context.ts";
 import { FakeHarnessGateway, type HarnessGateway } from "../../src/gateways/harness.ts";
 import { FakeRoasterGitHubGateway, type RoasterGitHubGateway } from "../../src/gateways/github.ts";
 import { FakeLocalDiffGateway, type LocalDiffGateway } from "../../src/gateways/local-diff.ts";
@@ -12,7 +12,7 @@ import {
 	type ReviewCatalogGateway,
 } from "../../src/gateways/review-catalog.ts";
 
-export interface FakeRoasterContextOptions {
+export interface FakeRoasterGatewaysOptions {
 	readonly execApi?: CommandExecApi | undefined;
 	readonly gitGateway?: GitGateway | undefined;
 	readonly localDiff?: LocalDiffGateway | undefined;
@@ -21,7 +21,7 @@ export interface FakeRoasterContextOptions {
 	readonly harness?: HarnessGateway | undefined;
 }
 
-export function fakeRoasterContext(options: FakeRoasterContextOptions = {}): RoasterContext {
+export function fakeRoasterGateways(options: FakeRoasterGatewaysOptions = {}): RoasterGateways {
 	const execApi = options.execApi ?? new ScriptedCommandExecApi();
 	const gitGateway =
 		options.gitGateway ??

@@ -1,7 +1,7 @@
 import { failure, ok, type ClinkrExit } from "@asdl/clinkr";
 import { z } from "zod";
 
-import type { RoasterRunContext } from "../context.ts";
+import type { RoasterContext } from "../context.ts";
 import { failureMessage, type RoasterFailure } from "../failures.ts";
 import { publishFindings, type PublishFindingsResult } from "../findings-publication.ts";
 import {
@@ -14,7 +14,7 @@ import {
 import { applicableReviewKeys } from "../review-applicability.ts";
 import { parseReviewDefinition } from "../review-definition.ts";
 
-export interface RoasterCliContext extends RoasterRunContext {
+export interface RoasterCliContext extends RoasterContext {
 	readonly stdin: () => Promise<string>;
 	readonly stdout: (text: string) => void;
 	readonly stderr: (text: string) => void;

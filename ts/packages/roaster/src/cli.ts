@@ -7,7 +7,7 @@ import { rawCommand } from "@asdl/clinkr/raw";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 import { readStdin } from "@asdl/core/stdin";
 
-import { bindRoasterContext, createRealRoasterContext, type RoasterContext } from "./context.ts";
+import { bindRoasterContext, createRealRoasterGateways, type RoasterGateways } from "./context.ts";
 import {
 	publishFindingsRequestSchema,
 	renderReviewList,
@@ -25,7 +25,7 @@ import { reviewRunResultSchema } from "./models.ts";
 const VERSION = "0.1.0";
 
 export interface CliDeps {
-	context?: RoasterContext | undefined;
+	gateways?: RoasterGateways | undefined;
 	cwd?: string | undefined;
 	env?: NodeJS.ProcessEnv | undefined;
 	signal?: AbortSignal | undefined;
@@ -93,19 +93,19 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 	const io = resolveIo({ stdout: deps.stdout, stderr: deps.stderr });
 	const cwd = deps.cwd ?? process.cwd();
 	const env = deps.env ?? process.env;
-	const rawContext = deps.context ?? createRealRoasterContext();
-	const runContext = bindRoasterContext(rawContext, {
+	const gateways = deps.gateways ?? createRealRoasterGateways();
+	const context = bindRoasterContext(gateways, {
 		cwd,
 		env,
 		...(deps.signal === undefined ? {} : { signal: deps.signal }),
 	});
-	const context: RoasterCliContext = {
-		...runContext,
+	const cliContext: RoasterCliContext = {
+		...context,
 		stdin: deps.stdin ?? readStdin,
 		stdout: io.stdout,
 		stderr: io.stderr,
 	};
-	return await buildCli().run(args, { context, io });
+	return await buildCli().run(args, { context: cliContext, io });
 }
 
 function runtimeInfo(): string {

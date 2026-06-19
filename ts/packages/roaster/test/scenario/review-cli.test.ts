@@ -11,7 +11,7 @@ import {
 	type ReviewExecutionResponse,
 	type ReviewFinding,
 } from "../../src/models.ts";
-import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
+import { fakeRoasterGateways } from "../support/fake-roaster-gateways.ts";
 
 const REVIEW_KEY = "dignified-python";
 
@@ -24,14 +24,14 @@ interface RunResult {
 async function runRoaster(
 	args: readonly string[],
 	options: {
-		readonly context?: ReturnType<typeof fakeRoasterContext>;
+		readonly gateways?: ReturnType<typeof fakeRoasterGateways>;
 		readonly stdin?: string;
 	} = {},
 ): Promise<RunResult> {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const exitCode = await runCli(args, {
-		context: options.context ?? fakeRoasterContext(),
+		gateways: options.gateways ?? fakeRoasterGateways(),
 		cwd: "/repo",
 		env: {},
 		stdin: async () => options.stdin ?? "",
@@ -94,7 +94,7 @@ function applicableSources(): Record<string, string> {
 	};
 }
 
-function contextWithCatalog(
+function gatewaysWithCatalog(
 	options: {
 		readonly sources: Record<string, string>;
 		readonly keys?: readonly string[];
@@ -102,7 +102,7 @@ function contextWithCatalog(
 		readonly response?: ReviewExecutionResponse;
 	} = { sources: { [REVIEW_KEY]: sampleSource() } },
 ) {
-	return fakeRoasterContext({
+	return fakeRoasterGateways({
 		reviewCatalog: new FakeReviewCatalogGateway({
 			reviewSourcesByKey: options.sources,
 			reviewKeys: options.keys,
@@ -134,7 +134,7 @@ describe("roaster review CLI", () => {
 
 	test("review list renders human output", async () => {
 		const run = await runRoaster(["review", "list"], {
-			context: contextWithCatalog({
+			gateways: gatewaysWithCatalog({
 				sources: applicableSources(),
 				keys: ["dignified-python", "typescript-style"],
 			}),
@@ -147,7 +147,7 @@ describe("roaster review CLI", () => {
 
 	test("review list JSON includes keys and count", async () => {
 		const run = await runRoaster(["review", "list", "--format", "json"], {
-			context: contextWithCatalog({
+			gateways: gatewaysWithCatalog({
 				sources: applicableSources(),
 				keys: ["dignified-python", "typescript-style"],
 			}),
@@ -161,7 +161,7 @@ describe("roaster review CLI", () => {
 
 	test("review ls aliases review list", async () => {
 		const run = await runRoaster(["review", "ls", "--format", "json"], {
-			context: contextWithCatalog({
+			gateways: gatewaysWithCatalog({
 				sources: { [REVIEW_KEY]: sampleSource() },
 				keys: [REVIEW_KEY],
 			}),
@@ -174,7 +174,7 @@ describe("roaster review CLI", () => {
 		const run = await runRoaster(
 			["review", "list", "--applicable", "--base-ref", "master", "--format", "json"],
 			{
-				context: contextWithCatalog({
+				gateways: gatewaysWithCatalog({
 					sources: applicableSources(),
 					keys: ["dignified-python", "typescript-style"],
 					diff: diffForPath("src/app.ts"),
@@ -187,7 +187,7 @@ describe("roaster review CLI", () => {
 
 	test("review list fails on invalid review definition", async () => {
 		const run = await runRoaster(["review", "list", "--format", "json"], {
-			context: contextWithCatalog({ sources: { bad: "not frontmatter" }, keys: ["bad"] }),
+			gateways: gatewaysWithCatalog({ sources: { bad: "not frontmatter" }, keys: ["bad"] }),
 		});
 		expect(run.exitCode).toBe(2);
 		const envelope = JSON.parse(run.stdout);
@@ -205,7 +205,7 @@ describe("roaster review CLI", () => {
 		const run = await runRoaster(
 			["review", "run", REVIEW_KEY, "--model", "opus", "--format", "json"],
 			{
-				context: contextWithCatalog({
+				gateways: gatewaysWithCatalog({
 					sources: { [REVIEW_KEY]: sampleSource() },
 					response: { payload: createFindingsReview([finding]), usage: null, inputCoverage: null },
 				}),
@@ -227,13 +227,13 @@ describe("roaster review CLI", () => {
 
 	test("review run uses default model and fails when no model is available", async () => {
 		const success = await runRoaster(["review", "run", REVIEW_KEY, "--format", "json"], {
-			context: contextWithCatalog({ sources: { [REVIEW_KEY]: sampleSource() } }),
+			gateways: gatewaysWithCatalog({ sources: { [REVIEW_KEY]: sampleSource() } }),
 		});
 		expect(success.exitCode).toBe(0);
 		expect(JSON.parse(success.stdout).data.model).toBe("sonnet");
 
 		const failure = await runRoaster(["review", "run", REVIEW_KEY, "--format", "json"], {
-			context: contextWithCatalog({
+			gateways: gatewaysWithCatalog({
 				sources: { [REVIEW_KEY]: sampleSource({ defaultModel: null }) },
 			}),
 		});

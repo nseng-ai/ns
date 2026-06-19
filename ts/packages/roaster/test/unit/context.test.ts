@@ -22,7 +22,7 @@ import {
 	type ReviewDefinition,
 	type ReviewExecutionResponse,
 } from "../../src/models.ts";
-import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
+import { fakeRoasterGateways } from "../support/fake-roaster-gateways.ts";
 
 const sampleReviewDefinition: ReviewDefinition = {
 	name: "typescript-style",
@@ -141,9 +141,9 @@ describe("bindRoasterContext", () => {
 		const harness = new RecordingHarnessGateway();
 		const env = { ROASTER_TEST: "1" };
 		const signal = new AbortController().signal;
-		const rawContext = fakeRoasterContext({ localDiff, reviewCatalog, github, harness });
+		const gateways = fakeRoasterGateways({ localDiff, reviewCatalog, github, harness });
 
-		const ctx = bindRoasterContext(rawContext, { cwd: "/repo", env, signal });
+		const ctx = bindRoasterContext(gateways, { cwd: "/repo", env, signal });
 
 		await ctx.localDiff.loadDiff({ baseRef: "origin/main" });
 		await ctx.reviewCatalog.listReviewKeys();
