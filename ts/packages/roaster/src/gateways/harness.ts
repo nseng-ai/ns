@@ -110,7 +110,6 @@ export class RealHarnessGateway implements HarnessGateway {
 			return harnessError({
 				type: "model_not_supported_by_harness",
 				message: `Model is not supported by the Claude Code harness: ${request.model}`,
-				model: request.model,
 			});
 		}
 
@@ -161,8 +160,6 @@ export class RealHarnessGateway implements HarnessGateway {
 			return harnessError({
 				type: "harness_execution_failed",
 				message: harnessExecutionMessage(result),
-				stderr: result.stderr,
-				code: result.code,
 			});
 		}
 

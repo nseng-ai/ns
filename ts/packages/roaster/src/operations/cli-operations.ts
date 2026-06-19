@@ -2,7 +2,7 @@ import { failure, ok, type ClinkrExit } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { RoasterRuntime } from "../context.ts";
-import { failureMessage, type RoasterFailure } from "../failures.ts";
+import type { RoasterFailure } from "../failures.ts";
 import { publishFindings, type PublishFindingsResult } from "../findings-publication.ts";
 import {
 	reviewRunResultSchema,
@@ -203,7 +203,6 @@ async function loadDefinitions(
 				type: "error",
 				error: {
 					type: "review_definition_invalid",
-					reviewKey: source.value.key,
 					message: parsed.error.message,
 				},
 			};
@@ -247,7 +246,7 @@ function totalInputTokens(usage: ReviewUsage): number {
 }
 
 function failureFromRoaster(error: RoasterFailure): ClinkrExit<never> {
-	return failure(error.type, failureMessage(error));
+	return failure(error.type, error.message);
 }
 
 function renderPublishFindingsDiagnostics(

@@ -1,118 +1,56 @@
-export type RoasterFailure =
-	| ReviewDefinitionFailure
-	| ReviewCatalogFailure
-	| LocalDiffFailure
-	| HarnessFailure
-	| GitHubGatewayFailure
-	| PublicationFailure
-	| InlineClassificationFailure;
+export type ReviewDefinitionFailureType = "review_definition_invalid";
+
+export type ReviewCatalogFailureType =
+	| "reviews_dir_missing"
+	| "reviews_dir_not_directory"
+	| "review_key_invalid"
+	| "review_definition_not_found"
+	| "review_definition_not_file"
+	| "review_definition_read_failed";
+
+export type LocalDiffFailureType =
+	| "base_ref_unavailable"
+	| "repo_root_unavailable"
+	| "git_invocation_failed"
+	| "git_diff_failed"
+	| "project_config_invalid";
+
+export type HarnessFailureType =
+	| "model_not_provided"
+	| "harness_binary_missing"
+	| "harness_invocation_failed"
+	| "harness_execution_failed"
+	| "model_not_supported_by_harness"
+	| "review_execution_empty_output"
+	| "review_execution_invalid_json"
+	| "review_execution_invalid_response"
+	| "review_execution_invalid_findings";
+
+export type GitHubGatewayFailureType =
+	| "github_cli_failed"
+	| "github_json_invalid"
+	| "github_response_invalid";
+
+export type RoasterFailureType =
+	| ReviewDefinitionFailureType
+	| ReviewCatalogFailureType
+	| LocalDiffFailureType
+	| HarnessFailureType
+	| GitHubGatewayFailureType;
+
+export interface RoasterFailure {
+	readonly type: RoasterFailureType;
+	readonly message: string;
+}
 
 export type RoasterResult<T> =
 	| { readonly type: "ok"; readonly value: T }
 	| { readonly type: "error"; readonly error: RoasterFailure };
 
-export interface ReviewDefinitionFailure {
-	readonly type: "review_definition_invalid";
-	readonly message: string;
-	readonly reviewKey?: string;
-}
-
-export type ReviewCatalogFailure =
-	| { readonly type: "reviews_dir_missing"; readonly message: string }
-	| { readonly type: "reviews_dir_not_directory"; readonly message: string }
-	| { readonly type: "review_key_invalid"; readonly message: string; readonly reviewKey: string }
-	| {
-			readonly type: "review_definition_not_found";
-			readonly message: string;
-			readonly reviewKey: string;
-			readonly path: string;
-	  }
-	| {
-			readonly type: "review_definition_not_file";
-			readonly message: string;
-			readonly reviewKey: string;
-			readonly path: string;
-	  }
-	| {
-			readonly type: "review_definition_read_failed";
-			readonly message: string;
-			readonly reviewKey: string;
-			readonly path: string;
-	  };
-
-export type LocalDiffFailure =
-	| { readonly type: "base_ref_unavailable"; readonly message: string }
-	| { readonly type: "repo_root_unavailable"; readonly message: string; readonly cwd: string }
-	| {
-			readonly type: "git_invocation_failed";
-			readonly message: string;
-			readonly command: readonly string[];
-	  }
-	| {
-			readonly type: "git_diff_failed";
-			readonly message: string;
-			readonly command: readonly string[];
-			readonly stderr: string;
-			readonly code: number | null;
-	  }
-	| { readonly type: "project_config_invalid"; readonly message: string; readonly path: string };
-
-export type HarnessFailure =
-	| { readonly type: "model_not_provided"; readonly message: string }
-	| { readonly type: "harness_binary_missing"; readonly message: string }
-	| { readonly type: "harness_invocation_failed"; readonly message: string }
-	| {
-			readonly type: "harness_execution_failed";
-			readonly message: string;
-			readonly stderr: string;
-			readonly code: number | null;
-	  }
-	| {
-			readonly type: "model_not_supported_by_harness";
-			readonly message: string;
-			readonly model: string;
-	  }
-	| { readonly type: "review_execution_empty_output"; readonly message: string }
-	| { readonly type: "review_execution_invalid_json"; readonly message: string }
-	| { readonly type: "review_execution_invalid_response"; readonly message: string }
-	| { readonly type: "review_execution_invalid_findings"; readonly message: string };
-
-export type GitHubGatewayFailure =
-	| {
-			readonly type: "github_cli_failed";
-			readonly message: string;
-			readonly command: readonly string[];
-			readonly stderr: string;
-			readonly code: number | null;
-	  }
-	| {
-			readonly type: "github_json_invalid";
-			readonly message: string;
-			readonly command: readonly string[];
-	  }
-	| {
-			readonly type: "github_response_invalid";
-			readonly message: string;
-			readonly command: readonly string[];
-	  };
-
-export type PublicationFailure =
-	| { readonly type: "findings_payload_invalid"; readonly message: string }
-	| { readonly type: "inline_posting_status_invalid"; readonly message: string }
-	| { readonly type: "findings_comment_body_invalid"; readonly message: string };
-
-export interface InlineClassificationFailure {
-	readonly type: "inline_classification_invalid";
-	readonly message: string;
-}
-
-export function isFailureOfType<TFailure extends RoasterFailure["type"]>(
-	failure: RoasterFailure,
-	type: TFailure,
-): failure is Extract<RoasterFailure, { readonly type: TFailure }> {
-	return failure.type === type;
-}
-
-export function failureMessage(failure: RoasterFailure): string {
-	return failure.message;
-}
+export type ReviewDefinitionFailure = RoasterFailure & {
+	readonly type: ReviewDefinitionFailureType;
+};
+export type ReviewCatalogFailure = RoasterFailure & { readonly type: ReviewCatalogFailureType };
+export type LocalDiffFailure = RoasterFailure & { readonly type: LocalDiffFailureType };
+export type HarnessFailure = RoasterFailure & { readonly type: HarnessFailureType };
+export type GitHubGatewayFailure = RoasterFailure & { readonly type: GitHubGatewayFailureType };
