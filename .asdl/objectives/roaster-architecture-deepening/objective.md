@@ -2,7 +2,7 @@
 
 ## Thesis
 
-The roaster TypeScript CLI (`ts/packages/roaster`) has a deep, well-tested review-run surface (`review list`, `review run`). The friction concentrates downstream of it. An architecture-deepening pass surfaced four candidates, all framed in the deepening vocabulary (module, interface, seam, depth, leverage, locality) from `.claude/skills/improve-codebase-architecture/LANGUAGE.md`:
+The roaster TypeScript CLI (`ts/packages/roaster`) has a deep, well-tested review-run surface (`review list`, `review run`). The friction concentrates downstream of it. An architecture-deepening pass surfaced four candidates, all framed in the deepening vocabulary (module, interface, seam, depth, leverage, locality) from the `codebase-design` skill (`.claude/skills/codebase-design/SKILL.md`), which the `improve-codebase-architecture` skill now routes to for its architecture vocabulary:
 
 1. The **findings-publication** workflow now has a pure helper module and tests for the individual `exec` commands, but the end-to-end CI publication path is still glued across three commands by a temp file and a doubly-parsed run envelope. The remaining depth opportunity is to make one in-process publication workflow the tested interface.
 2. Three core DTOs (`ReviewDefinition`, `ReviewApplicability`, `DiffFile`) each exist twice — a hand-written interface and a Zod schema — kept in sync by hand and bridged by a manual spread at a call site.
