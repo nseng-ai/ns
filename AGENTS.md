@@ -71,7 +71,7 @@ Edit CONTEXT files deliberately, never incidentally: only when the task is expli
 ## Ground Rules
 
 - **Never use raw `pip install`**. Always use `uv`.
-- **Never commit directly to `main`**. Create a feature branch first.
+- **Never commit directly to `main` or `master`**. Treat either trunk branch as a hard stop for commit creation: switch to or create a feature branch first, and do not run `git commit`, `gt modify`, or any equivalent command while checked out there.
 - Prefer LBYL (look before you leap) over EAFP (easier to ask forgiveness).
 - Use frozen dataclasses or Pydantic models for data. Avoid mutable state where possible.
 - Use modern Python type syntax (`str | None`, not `Optional[str]`).
