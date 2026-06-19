@@ -16,7 +16,8 @@
 
 - [x] Port compact evidence collection over fake-driven git and session-source seams.
   - Policy: completed by the `aretro-ts/compact-evidence` branch against Graphite parent `aretro-ts/contract-and-shell`.
-  - Added package-local TypeScript git and session-source seams, fake gateways, a real Pi JSONL session source, compact DTO conversion, aggregate metrics, warnings, and deterministic factual evidence aggregation for the existing evidence kinds.
+  - Added TypeScript git and session-source seams, fake gateways, a real Pi JSONL session source, compact DTO conversion, aggregate metrics, warnings, and deterministic factual evidence aggregation for the existing evidence kinds.
+  - Post-parity cleanup replaced the package-local git gateway/fake with shared `@asdl/core/git`; session-source, evidence, and payload seams remain package-local.
   - Scenario/unit tests cover explicit/current/detached/unresolved branch behavior, non-git and git-failure results, session-source warnings, empty sessions, privacy-preserving summaries, and current evidence item kinds.
   - Evidence: compact JSON output remains privacy-preserving and skill-compatible; targeted `@asdl/aretro` check/tests and full TypeScript check/tests passed.
 
@@ -55,9 +56,16 @@
 
 A future `objective-stack-impl` invocation can preview and execute the remaining migration as one small Graphite stack using these defaults. It should stop only if the implementation discovers a real unresolved prod/`uvx` consumer, privacy ambiguity, evidence-boundary change, registry publishing requirement, or validation failure that needs product/design input.
 
-Completed branch thesis:
+Completed branch theses:
 
-- `aretro-ts-contract-and-shell` — contract inventory plus `@asdl/aretro` package shell, root/hidden-exec command shape, runtime/help/version, and initial scenario tests.
+- `add-aretro-typescript-port` — Objective creation and contract inventory baseline.
+- `aretro-ts/contract-and-shell` — `@asdl/aretro` package shell, root/hidden-exec command shape, runtime/help/version, and initial scenario tests.
+- `aretro-ts/compact-evidence` — compact evidence collection, repo/branch resolution, session-source parsing, fake-driven coverage, and real-adapter smoke evidence.
+- `aretro-ts/payload-detail` — payload artifact writing, schema-version-1 sanitized detail data, and targeted `/data` detail reads.
+- `aretro-ts/skill-distribution-cutover` — TypeScript repo-local runner default, `just install-aretro`, active docs cutover, and prod/`uvx` caller audit.
+- `aretro-evidence-parity-payload-cleanup` — evidence/payload implementation cleanup without changing the durable evidence boundary.
+- `aretro-typescript-cleanup-source-ref-sha256` — shared SHA-256 digest adoption and payload-store naming cleanup.
+- `aretro-ts/stack-feedback-cleanup` — shared `@asdl/core/git` adoption, reusable session limiting, and payload boolean DTO naming cleanup.
 
 Remaining default branch thesis:
 
