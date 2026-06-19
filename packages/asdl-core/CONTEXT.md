@@ -50,6 +50,18 @@ The frozen invocation wrapper installed at `click.Context.obj` to hold the lazy 
 The app-specific context object that an Operation loads when it needs gateways or services for the invocation. It is produced lazily so help/schema paths do not construct runtime dependencies.
 *Avoid*: app context, request context.
 
+**CLI Context**:
+A package-specific dependency bag assembled for one CLI invocation. It may contain raw collaborators, invocation facts, CLI I/O callbacks, derived facts, and behavior flags that are needed to construct narrower operation-facing interfaces.
+*Avoid*: Runtime, Gateway group, service locator.
+
+**Runtime**:
+A smaller operation-facing interface derived from a **CLI Context**. It exposes work-shaped methods to command Operations while hiding raw collaborators and ambient invocation facts.
+*Avoid*: CLI Context, raw dependency bag, adapter bundle.
+
+**Gateway**:
+An individual adapter interface for external I/O or host interaction. Use Gateway for the seam itself, not as the name for a group of unrelated dependencies.
+*Avoid*: helper, service, dependency group.
+
 **Request type**:
 The Pydantic model that defines an Operation's input surface and from which Click arguments/options are derived. Authors change this model when the CLI input contract changes.
 *Avoid*: "params" (collides with `click.Parameter`), "input," "args."

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { bindRoasterContext } from "../../src/context.ts";
+import { createRoasterContext } from "../../src/context.ts";
 import type { RoasterResult } from "../../src/failures.ts";
 import type { HarnessGateway, RunReviewOptions } from "../../src/gateways/harness.ts";
 import type {
@@ -133,8 +133,8 @@ class RecordingGitHubGateway implements RoasterGitHubGateway {
 	}
 }
 
-describe("bindRoasterContext", () => {
-	test("binds cwd, env, and signal while exposing work-shaped gateway calls", async () => {
+describe("createRoasterContext", () => {
+	test("captures cwd, env, and signal while exposing work-shaped gateway calls", async () => {
 		const localDiff = new RecordingLocalDiffGateway();
 		const reviewCatalog = new RecordingReviewCatalogGateway();
 		const github = new RecordingGitHubGateway();
@@ -143,7 +143,7 @@ describe("bindRoasterContext", () => {
 		const signal = new AbortController().signal;
 		const gateways = fakeRoasterGateways({ localDiff, reviewCatalog, github, harness });
 
-		const ctx = bindRoasterContext(gateways, { cwd: "/repo", env, signal });
+		const ctx = createRoasterContext(gateways, { cwd: "/repo", env, signal });
 
 		await ctx.localDiff.loadDiff({ baseRef: "origin/main" });
 		await ctx.reviewCatalog.listReviewKeys();

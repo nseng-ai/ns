@@ -42,22 +42,22 @@ export interface RoasterRunEnvironment {
 	readonly signal?: AbortSignal | undefined;
 }
 
-export interface BoundLocalDiffGateway {
+export interface RoasterLocalDiff {
 	loadDiff(options?: {
 		readonly baseRef?: string | null | undefined;
 	}): Promise<RoasterResult<LocalDiff>>;
 }
 
-export interface BoundReviewCatalogGateway {
+export interface RoasterReviewCatalog {
 	listReviewKeys(): Promise<RoasterResult<ReviewCatalog>>;
 	loadReviewSource(options: { readonly key: string }): Promise<RoasterResult<ReviewSource>>;
 }
 
-export interface BoundHarnessGateway {
+export interface RoasterHarness {
 	runReview(request: HarnessReviewRequest): Promise<RoasterResult<ReviewExecutionResponse>>;
 }
 
-export interface BoundRoasterGitHubGateway {
+export interface RoasterGitHub {
 	getPrChangedFiles(prNumber: number): Promise<RoasterResult<readonly PRChangedFile[]>>;
 	getPrReviewComments(prNumber: number): Promise<RoasterResult<readonly PRReviewComment[]>>;
 	createPrReview(
@@ -80,10 +80,10 @@ export interface BoundRoasterGitHubGateway {
 }
 
 export interface RoasterContext {
-	readonly localDiff: BoundLocalDiffGateway;
-	readonly reviewCatalog: BoundReviewCatalogGateway;
-	readonly github: BoundRoasterGitHubGateway;
-	readonly harness: BoundHarnessGateway;
+	readonly localDiff: RoasterLocalDiff;
+	readonly reviewCatalog: RoasterReviewCatalog;
+	readonly github: RoasterGitHub;
+	readonly harness: RoasterHarness;
 }
 
 export function createRealRoasterGateways(
@@ -101,7 +101,7 @@ export function createRealRoasterGateways(
 	};
 }
 
-export function bindRoasterContext(
+export function createRoasterContext(
 	gateways: RoasterGateways,
 	environment: RoasterRunEnvironment,
 ): RoasterContext {
