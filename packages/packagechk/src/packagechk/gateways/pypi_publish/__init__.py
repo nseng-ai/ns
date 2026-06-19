@@ -1,1 +1,0 @@
-"""PyPI publishing gateways."""

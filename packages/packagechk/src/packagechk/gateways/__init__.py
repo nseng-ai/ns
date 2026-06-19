@@ -1,1 +1,0 @@
-"""Gateway implementations for packagechk."""

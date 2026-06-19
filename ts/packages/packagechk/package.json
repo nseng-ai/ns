@@ -1,0 +1,22 @@
+{
+  "name": "@asdl/packagechk",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "bin": {
+    "packagechk": "./src/cli.ts"
+  },
+  "scripts": {
+    "check": "tsgo -p tsconfig.json",
+    "test": "cd ../.. && vitest run --config vitest.config.ts packages/packagechk/test"
+  },
+  "dependencies": {
+    "@asdl/core": "workspace:*",
+    "commander": "catalog:"
+  }
+}
