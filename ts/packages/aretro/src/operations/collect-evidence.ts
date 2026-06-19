@@ -52,10 +52,6 @@ export async function runCollectEvidence(
 	context: AretroCliContext,
 	request: CollectEvidenceRequest,
 ) {
-	const cwd = context.cwd;
-	const repoInput = request.repo ?? cwd;
-	const sourceInfo = context.sessionSource.sourceInfo;
-
 	if (request.payload_mode === "payload") {
 		let payloadStore: PayloadStore;
 		try {
@@ -71,92 +67,21 @@ export async function runCollectEvidence(
 				code: payloadError?.errorType ?? "payload_mode_failed",
 				message: payloadError?.message ?? String(error),
 			};
-			const result = emptyResult({
-				request,
-				cwd,
+			return collectFailure(context, request, {
 				repoRoot: null,
 				branch: request.branch ?? null,
 				branchSource: branchSourceForUnresolvedRepo(request),
-				sourceInfo,
 				error: collectError,
 				warnings: [],
 			});
-			return shellNegative(collectError.message, result);
 		}
 
-		const gitCommonDir = await context.git.getGitCommonDir({ cwd: repoInput });
-		if (gitCommonDir === null) {
-			const error: CollectEvidenceError = {
-				code: "not_a_git_repo",
-				message: `Not a git repository: ${repoInput}. Pass --repo with a git repository path.`,
-			};
-			const result = emptyResult({
-				request,
-				cwd,
-				repoRoot: null,
-				branch: request.branch ?? null,
-				branchSource: branchSourceForUnresolvedRepo(request),
-				sourceInfo,
-				error,
-				warnings: [],
-			});
-			return shellNegative(error.message, result);
-		}
-
-		const repoRootResult = await context.git.getRepositoryRoot({ cwd: repoInput });
-		if (!repoRootResult.ok) {
-			const error: CollectEvidenceError = {
-				code: repoRootResult.error.code,
-				message: repoRootResult.error.message,
-			};
-			const result = emptyResult({
-				request,
-				cwd,
-				repoRoot: null,
-				branch: request.branch ?? null,
-				branchSource: branchSourceForUnresolvedRepo(request),
-				sourceInfo,
-				error,
-				warnings: [],
-			});
-			return shellNegative(error.message, result);
-		}
-		const repoRoot = repoRootResult.value;
-
-		const resolvedBranch = await resolveBranch(context, repoRoot, request.branch);
-		if (resolvedBranch.error !== null) {
-			const result = emptyResult({
-				request,
-				cwd,
-				repoRoot,
-				branch: resolvedBranch.branch,
-				branchSource: resolvedBranch.branchSource,
-				sourceInfo,
-				error: resolvedBranch.error,
-				warnings: [],
-			});
-			return shellNegative(resolvedBranch.error.message, result);
-		}
-
-		const repo: RepoContextDto = {
-			repo_root: repoRoot,
-			cwd,
-			branch: resolvedBranch.branch,
-			branch_source: resolvedBranch.branchSource,
-		};
-
-		const query: SessionQuery = {
-			repo_root: repoRoot,
-			session_root: request.session_root ?? null,
-			max_sessions: request.max_sessions,
-		};
-
-		const queryResult = await context.sessionSource.query(query);
-		const compactResult = resultFromQueryResult(request, repo, queryResult);
+		const resolved = await resolveRepoAndQuery(context, request);
+		if (!resolved.ok) return resolved.negative;
 
 		const payloadData = buildEvidencePayloadData({
-			compactResult,
-			sessions: queryResult.sessions,
+			compactResult: resolved.compactResult,
+			sessions: resolved.queryResult.sessions,
 		});
 
 		let payloadReference: PayloadReference;
@@ -172,21 +97,17 @@ export async function runCollectEvidence(
 				code: payloadError?.errorType ?? "payload_write_failed",
 				message: payloadError?.message ?? String(error),
 			};
-			const result = emptyResult({
-				request,
-				cwd,
-				repoRoot,
-				branch: resolvedBranch.branch,
-				branchSource: resolvedBranch.branchSource,
-				sourceInfo,
+			return collectFailure(context, request, {
+				repoRoot: resolved.repo.repo_root,
+				branch: resolved.resolvedBranch.branch,
+				branchSource: resolved.resolvedBranch.branchSource,
 				error: collectError,
-				warnings: [...queryResult.warnings],
+				warnings: resolved.compactResult.warnings,
 			});
-			return shellNegative(collectError.message, result);
 		}
 
 		const payloadResult: CollectEvidenceResult = {
-			...compactResult,
+			...resolved.compactResult,
 			payload_mode: "payload",
 			payload_reference: payloadReference,
 			detail_locator_hints: [
@@ -202,13 +123,44 @@ export async function runCollectEvidence(
 		return ok(payloadResult);
 	}
 
-	const gitCommonDir = await context.git.getGitCommonDir({ cwd: repoInput });
-	if (gitCommonDir === null) {
+	const resolved = await resolveRepoAndQuery(context, request);
+	if (!resolved.ok) return resolved.negative;
+	return ok(resolved.compactResult);
+}
+
+export function renderCollectEvidence(_result: CollectEvidenceResult): string {
+	const branch = _result.repo.branch ?? "<unresolved>";
+	const sessionCount = _result.aggregate_metrics.session_count;
+	const harness = _result.source.harness;
+	const adapterName = _result.source.adapter_name;
+	const warningCount = _result.aggregate_metrics.warning_count;
+	return (
+		`Collected ${sessionCount} session(s) from ${harness}/${adapterName} for branch ${branch}.\n` +
+		`Warnings: ${warningCount}\n` +
+		`Run with --format json for the skill-facing evidence envelope.`
+	);
+}
+
+async function resolveRepoAndQuery(context: AretroCliContext, request: CollectEvidenceRequest) {
+	const cwd = context.cwd;
+	const repoInput = request.repo ?? cwd;
+
+	const isGitRepository = await context.git.isGitRepository({ cwd: repoInput });
+	if (!isGitRepository) {
 		const error: CollectEvidenceError = {
 			code: "not_a_git_repo",
 			message: `Not a git repository: ${repoInput}. Pass --repo with a git repository path.`,
 		};
-		return shellNegativeBeforeResolution({ request, cwd, sourceInfo, error });
+		return {
+			ok: false as const,
+			negative: collectFailure(context, request, {
+				repoRoot: null,
+				branch: request.branch ?? null,
+				branchSource: branchSourceForUnresolvedRepo(request),
+				error,
+				warnings: [],
+			}),
+		};
 	}
 
 	const repoRootResult = await context.git.getRepositoryRoot({ cwd: repoInput });
@@ -217,23 +169,31 @@ export async function runCollectEvidence(
 			code: repoRootResult.error.code,
 			message: repoRootResult.error.message,
 		};
-		return shellNegativeBeforeResolution({ request, cwd, sourceInfo, error });
+		return {
+			ok: false as const,
+			negative: collectFailure(context, request, {
+				repoRoot: null,
+				branch: request.branch ?? null,
+				branchSource: branchSourceForUnresolvedRepo(request),
+				error,
+				warnings: [],
+			}),
+		};
 	}
 	const repoRoot = repoRootResult.value;
 
 	const resolvedBranch = await resolveBranch(context, repoRoot, request.branch);
 	if (resolvedBranch.error !== null) {
-		const result = emptyResult({
-			request,
-			cwd,
-			repoRoot,
-			branch: resolvedBranch.branch,
-			branchSource: resolvedBranch.branchSource,
-			sourceInfo,
-			error: resolvedBranch.error,
-			warnings: [],
-		});
-		return shellNegative(resolvedBranch.error.message, result);
+		return {
+			ok: false as const,
+			negative: collectFailure(context, request, {
+				repoRoot,
+				branch: resolvedBranch.branch,
+				branchSource: resolvedBranch.branchSource,
+				error: resolvedBranch.error,
+				warnings: [],
+			}),
+		};
 	}
 
 	const repo: RepoContextDto = {
@@ -252,20 +212,37 @@ export async function runCollectEvidence(
 	const queryResult = await context.sessionSource.query(query);
 	const compactResult = resultFromQueryResult(request, repo, queryResult);
 
-	return ok(compactResult);
+	return {
+		ok: true as const,
+		repo,
+		resolvedBranch,
+		queryResult,
+		compactResult,
+	};
 }
 
-export function renderCollectEvidence(_result: CollectEvidenceResult): string {
-	const branch = _result.repo.branch ?? "<unresolved>";
-	const sessionCount = _result.aggregate_metrics.session_count;
-	const harness = _result.source.harness;
-	const adapterName = _result.source.adapter_name;
-	const warningCount = _result.aggregate_metrics.warning_count;
-	return (
-		`Collected ${sessionCount} session(s) from ${harness}/${adapterName} for branch ${branch}.\n` +
-		`Warnings: ${warningCount}\n` +
-		`Run with --format json for the skill-facing evidence envelope.`
-	);
+function collectFailure(
+	context: AretroCliContext,
+	request: CollectEvidenceRequest,
+	options: {
+		repoRoot: string | null;
+		branch: string | null;
+		branchSource: BranchSource;
+		error: CollectEvidenceError;
+		warnings: readonly SessionWarningDto[];
+	},
+) {
+	const result = emptyResult({
+		request,
+		cwd: context.cwd,
+		repoRoot: options.repoRoot,
+		branch: options.branch,
+		branchSource: options.branchSource,
+		sourceInfo: context.sessionSource.sourceInfo,
+		error: options.error,
+		warnings: [...options.warnings],
+	});
+	return shellNegative(options.error.message, result);
 }
 
 interface ResolvedBranch {
@@ -335,27 +312,6 @@ function resultFromQueryResult(
 		warnings,
 		evidence_items: evidenceItems,
 	};
-}
-
-function shellNegativeBeforeResolution(options: {
-	request: CollectEvidenceRequest;
-	cwd: string;
-	sourceInfo: SessionSourceInfo;
-	error: CollectEvidenceError;
-}) {
-	return shellNegative(
-		options.error.message,
-		emptyResult({
-			request: options.request,
-			cwd: options.cwd,
-			repoRoot: null,
-			branch: options.request.branch ?? null,
-			branchSource: branchSourceForUnresolvedRepo(options.request),
-			sourceInfo: options.sourceInfo,
-			error: options.error,
-			warnings: [],
-		}),
-	);
 }
 
 function emptyResult(options: {

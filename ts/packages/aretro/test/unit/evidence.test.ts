@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { describe, expect, it } from "vitest";
 
 import { collectSessionEvidence } from "../../src/sessions/evidence.ts";
@@ -134,6 +136,111 @@ describe("collectSessionEvidence", () => {
 			count: 2,
 			session_count: 1,
 		});
+	});
+
+	it("uses real sha256 prefix metadata for bounded repeated shell commands", () => {
+		const command = `echo ${"secret-token ".repeat(60)}`;
+		const sessions: ParsedSession[] = [
+			session({
+				command_executions: [
+					{
+						command,
+						exit_code: 0,
+						cancelled: null,
+						truncated: null,
+						output_length: null,
+						line_count: null,
+						source_ref: null,
+					},
+					{
+						command,
+						exit_code: 0,
+						cancelled: null,
+						truncated: null,
+						output_length: null,
+						line_count: null,
+						source_ref: null,
+					},
+				],
+			}),
+		];
+
+		const items = collectSessionEvidence(sessions);
+		const repeatedCommand = items.find((item) => item.kind === "repeated_shell_command");
+		if (repeatedCommand === undefined) throw new Error("repeatedCommand is undefined");
+		const expectedPrefix = createHash("sha256").update(command, "utf-8").digest("hex").slice(0, 16);
+		expect(repeatedCommand.metadata.command_sha256_prefix).toBe(expectedPrefix);
+		expect(repeatedCommand.metadata.subject_truncated).toBe(true);
+	});
+
+	it("sorts same-kind evidence by count before maximum output size", () => {
+		const sessions: ParsedSession[] = [
+			session({
+				tool_results: [
+					{
+						tool_call_id: "read-1",
+						tool_name: "read",
+						is_error: false,
+						error_message: null,
+						text_length: 2_000_000,
+						line_count: null,
+						truncated: null,
+						source_ref: null,
+					},
+				],
+				command_executions: [
+					{
+						command: "just test",
+						exit_code: 0,
+						cancelled: null,
+						truncated: null,
+						output_length: 20_000,
+						line_count: null,
+						source_ref: null,
+					},
+					{
+						command: "just test",
+						exit_code: 0,
+						cancelled: null,
+						truncated: null,
+						output_length: 20_000,
+						line_count: null,
+						source_ref: null,
+					},
+				],
+			}),
+		];
+
+		const largeOutputs = collectSessionEvidence(sessions).filter(
+			(item) => item.kind === "large_output_observed",
+		);
+		expect(largeOutputs.map((item) => item.subject)).toEqual([
+			"command_execution",
+			"tool_result:read",
+		]);
+	});
+
+	it("keeps kind order ahead of very large counts", () => {
+		const failedResults = Array.from({ length: 1_500 }, (_, index) => ({
+			tool_call_id: `failed-${index}`,
+			tool_name: "bash",
+			is_error: true,
+			error_message: "failed",
+			text_length: null,
+			line_count: null,
+			truncated: null,
+			source_ref: null,
+		}));
+		const sessions: ParsedSession[] = [
+			session({
+				tool_calls: [{ call_id: "read-1", tool_name: "read", argument_keys: [], source_ref: null }],
+				tool_results: failedResults,
+			}),
+		];
+
+		const items = collectSessionEvidence(sessions);
+		expect(items[0]?.kind).toBe("tool_usage_count");
+		expect(items[0]?.subject).toBe("read");
 	});
 
 	it("collects token_usage_observed evidence with aggregated metrics", () => {

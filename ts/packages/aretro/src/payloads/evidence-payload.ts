@@ -2,9 +2,9 @@
  * Sanitized payload detail document construction for aretro evidence.
  */
 
-import { createHash } from "node:crypto";
-
 import { z } from "zod";
+
+import { sha256HexPrefix } from "../sha256.ts";
 
 import type {
 	AggregateMetricsDto,
@@ -30,9 +30,13 @@ const MAX_COMMAND_SUBJECT_LENGTH = 500;
 const COMMAND_SUBJECT_PREFIX_LENGTH = 120;
 const COMMAND_HASH_PREFIX_LENGTH = 16;
 
-type JsonObject = Record<string, unknown>;
 type CommandMetadata = Record<string, string | number | boolean | null>;
 type SourceRefKey = readonly [string | null, string | null, number | null];
+type SourceRefValue = {
+	path: string | null;
+	uri: string | null;
+	line_number: number | null;
+};
 
 export const payloadSourceRefDtoSchema = z.object({
 	path: z.string().nullable(),
@@ -158,41 +162,31 @@ export function buildEvidencePayloadData(options: {
 	compactResult: CompactResult;
 	sessions: readonly ParsedSession[];
 }): AretroEvidencePayloadData {
-	const compactData: JsonObject = {
-		repo: options.compactResult.repo,
-		query: options.compactResult.query,
-		source: options.compactResult.source,
-		aggregate_metrics: options.compactResult.aggregate_metrics,
-		sessions: options.compactResult.sessions,
-		warnings: options.compactResult.warnings,
-		evidence_items: options.compactResult.evidence_items,
-	};
 	const pointerIndex = new Map<string, string[]>();
 	const detailSessions = options.sessions.map((session, sessionIndex) =>
 		sessionDetail({
 			session,
 			sessionIndex,
-			compactSession: jsonObjectAt(compactData, "sessions", sessionIndex),
+			compactSession: { ...(options.compactResult.sessions[sessionIndex] ?? {}) },
 			pointerIndex,
 		}),
 	);
-	const evidenceItems = jsonObjects(compactData, "evidence_items").map(
-		(compactItem, evidenceIndex) =>
-			evidenceDetailItem({
-				evidenceIndex,
-				compactItem,
-				pointerIndex,
-			}),
+	const evidenceItems = options.compactResult.evidence_items.map((compactItem, evidenceIndex) =>
+		evidenceDetailItem({
+			evidenceIndex,
+			compactItem,
+			pointerIndex,
+		}),
 	);
 
 	return {
 		schema_version: 1,
-		repo: jsonObject(compactData, "repo"),
-		query: jsonObject(compactData, "query"),
-		source: jsonObject(compactData, "source"),
-		aggregate_metrics: jsonObject(compactData, "aggregate_metrics"),
+		repo: { ...options.compactResult.repo },
+		query: { ...options.compactResult.query },
+		source: { ...options.compactResult.source },
+		aggregate_metrics: { ...options.compactResult.aggregate_metrics },
 		sessions: detailSessions,
-		warnings: [...warningsFromJson(compactData)],
+		warnings: options.compactResult.warnings.map((warning) => payloadWarningFromDto(warning)),
 		evidence_items: evidenceItems,
 	};
 }
@@ -205,10 +199,7 @@ export function commandSubjectForPayload(command: string): {
 		return { subject: command, metadata: {} };
 	}
 
-	const sha256Prefix = createHash("sha256")
-		.update(command, "utf-8")
-		.digest("hex")
-		.slice(0, COMMAND_HASH_PREFIX_LENGTH);
+	const sha256Prefix = sha256HexPrefix(command, COMMAND_HASH_PREFIX_LENGTH);
 	const subject = `${command.slice(0, COMMAND_SUBJECT_PREFIX_LENGTH)}…[sha256:${sha256Prefix}]`;
 	return {
 		subject,
@@ -223,7 +214,7 @@ export function commandSubjectForPayload(command: string): {
 function sessionDetail(options: {
 	session: ParsedSession;
 	sessionIndex: number;
-	compactSession: JsonObject;
+	compactSession: Record<string, unknown>;
 	pointerIndex: Map<string, string[]>;
 }): SessionDetailDto {
 	const { session, sessionIndex, compactSession, pointerIndex } = options;
@@ -401,13 +392,13 @@ function sessionWarningDetail(options: {
 
 function evidenceDetailItem(options: {
 	evidenceIndex: number;
-	compactItem: JsonObject;
+	compactItem: EvidenceItemDto;
 	pointerIndex: Map<string, string[]>;
 }): EvidenceDetailItemDto {
 	const supportingEventPointers: string[] = [];
 	const seenPointers = new Set<string>();
-	for (const sourceRef of sourceRefsFromItem(options.compactItem)) {
-		const key = sourceRefKeyToString(sourceRef);
+	for (const sourceRef of options.compactItem.source_refs) {
+		const key = sourceRefKeyToString(sourceRefKey(sourceRef));
 		const pointers = options.pointerIndex.get(key) ?? [];
 		for (const pointer of pointers) {
 			if (!seenPointers.has(pointer)) {
@@ -418,7 +409,7 @@ function evidenceDetailItem(options: {
 	}
 	return {
 		evidence_index: options.evidenceIndex,
-		item: options.compactItem,
+		item: evidenceItemToPayloadObject(options.compactItem),
 		supporting_event_pointers: supportingEventPointers,
 	};
 }
@@ -439,35 +430,12 @@ function indexSourceRef(
 	}
 }
 
-function sourceRefKey(sourceRef: SessionSourceRef): SourceRefKey {
+function sourceRefKey(sourceRef: SourceRefValue): SourceRefKey {
 	return [sourceRef.path, sourceRef.uri, sourceRef.line_number];
 }
 
 function sourceRefKeyToString(key: SourceRefKey): string {
 	return JSON.stringify(key);
-}
-
-function sourceRefJsonKey(sourceRef: JsonObject): SourceRefKey {
-	const path = sourceRef.path;
-	const uri = sourceRef.uri;
-	const lineNumber = sourceRef.line_number;
-	return [
-		typeof path === "string" ? path : null,
-		typeof uri === "string" ? uri : null,
-		typeof lineNumber === "number" ? lineNumber : null,
-	];
-}
-
-function sourceRefsFromItem(item: JsonObject): readonly SourceRefKey[] {
-	const sourceRefs = item.source_refs;
-	if (!Array.isArray(sourceRefs)) {
-		return [];
-	}
-	return sourceRefs
-		.filter(
-			(sourceRef): sourceRef is JsonObject => typeof sourceRef === "object" && sourceRef !== null,
-		)
-		.map((sourceRef) => sourceRefJsonKey(sourceRef));
 }
 
 function warningToDto(warning: SessionWarning): PayloadWarningDto {
@@ -480,26 +448,30 @@ function warningToDto(warning: SessionWarning): PayloadWarningDto {
 	};
 }
 
-function warningFromJson(warning: JsonObject): PayloadWarningDto {
-	const sourceRef = warning.source_ref;
+function payloadWarningFromDto(warning: SessionWarningDto): PayloadWarningDto {
 	return {
-		code: String(warning.code ?? ""),
-		message: String(warning.message ?? ""),
-		source_ref:
-			typeof sourceRef === "object" && sourceRef !== null
-				? sourceRefFromJson(sourceRef as JsonObject)
-				: null,
-		harness: optionalString(warning.harness),
-		adapter_name: optionalString(warning.adapter_name),
+		code: warning.code,
+		message: warning.message,
+		source_ref: warning.source_ref === null ? null : payloadSourceRefFromValue(warning.source_ref),
+		harness: warning.harness,
+		adapter_name: warning.adapter_name,
+	};
+}
+
+function evidenceItemToPayloadObject(item: EvidenceItemDto): Record<string, unknown> {
+	return {
+		kind: item.kind,
+		subject: item.subject,
+		summary: item.summary,
+		count: item.count,
+		session_count: item.session_count,
+		source_refs: item.source_refs.map((sourceRef) => payloadSourceRefFromValue(sourceRef)),
+		metadata: { ...item.metadata },
 	};
 }
 
 function sourceRefToDto(sourceRef: SessionSourceRef): PayloadSourceRefDto {
-	return {
-		path: sourceRef.path,
-		uri: sourceRef.uri,
-		line_number: sourceRef.line_number,
-	};
+	return payloadSourceRefFromValue(sourceRef);
 }
 
 function optionalSourceRefToDto(sourceRef: SessionSourceRef | null): PayloadSourceRefDto | null {
@@ -509,60 +481,10 @@ function optionalSourceRefToDto(sourceRef: SessionSourceRef | null): PayloadSour
 	return sourceRefToDto(sourceRef);
 }
 
-function sourceRefFromJson(sourceRef: JsonObject): PayloadSourceRefDto {
-	const path = sourceRef.path;
-	const uri = sourceRef.uri;
-	const lineNumber = sourceRef.line_number;
+function payloadSourceRefFromValue(sourceRef: SourceRefValue): PayloadSourceRefDto {
 	return {
-		path: typeof path === "string" ? path : null,
-		uri: typeof uri === "string" ? uri : null,
-		line_number: typeof lineNumber === "number" ? lineNumber : null,
+		path: sourceRef.path,
+		uri: sourceRef.uri,
+		line_number: sourceRef.line_number,
 	};
-}
-
-function warningsFromJson(data: JsonObject): readonly PayloadWarningDto[] {
-	const warnings = data.warnings;
-	if (!Array.isArray(warnings)) {
-		return [];
-	}
-	return warnings
-		.filter((warning): warning is JsonObject => typeof warning === "object" && warning !== null)
-		.map((warning) => warningFromJson(warning));
-}
-
-function jsonObject(data: JsonObject, key: string): JsonObject {
-	const value = data[key];
-	if (typeof value === "object" && value !== null && !Array.isArray(value)) {
-		return value as JsonObject;
-	}
-	return {};
-}
-
-function jsonObjects(data: JsonObject, key: string): readonly JsonObject[] {
-	const value = data[key];
-	if (!Array.isArray(value)) {
-		return [];
-	}
-	return value.filter(
-		(item): item is JsonObject => typeof item === "object" && item !== null && !Array.isArray(item),
-	);
-}
-
-function jsonObjectAt(data: JsonObject, key: string, index: number): JsonObject {
-	const value = data[key];
-	if (!Array.isArray(value) || index >= value.length) {
-		return {};
-	}
-	const item = value[index];
-	if (typeof item === "object" && item !== null && !Array.isArray(item)) {
-		return item as JsonObject;
-	}
-	return {};
-}
-
-function optionalString(value: unknown): string | null {
-	if (typeof value === "string") {
-		return value;
-	}
-	return null;
 }

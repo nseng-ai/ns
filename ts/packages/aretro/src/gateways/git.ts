@@ -6,10 +6,9 @@ export interface AretroGitParams {
 
 export interface AretroGitGateway {
 	/**
-	 * Get the git common directory (usually .git or .git/worktrees/<name>).
-	 * Returns null if cwd is not in a git repository.
+	 * Return whether cwd is inside a git repository.
 	 */
-	getGitCommonDir(params: AretroGitParams): Promise<string | null>;
+	isGitRepository(params: AretroGitParams): Promise<boolean>;
 
 	/**
 	 * Get the repository root (top-level working directory).

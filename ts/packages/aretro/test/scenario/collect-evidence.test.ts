@@ -126,7 +126,7 @@ describe("aretro exec collect-evidence", () => {
 
 	it("returns negative result for non-git repo", async () => {
 		const git = new FakeAretroGitGateway({
-			gitCommonDir: null,
+			isGitRepo: false,
 			repoRoot: { code: "repo_root_failed", message: "Not a git repo" },
 		});
 		const sessionSource = new FakeSessionSource();
@@ -248,6 +248,10 @@ describe("aretro exec collect-evidence", () => {
 		const result = parseJsonOutput(run) as { data: Record<string, unknown> };
 		expect(result.data.success).toBe(false);
 		expect((result.data.error as Record<string, unknown>).code).toBe("payload_session_required");
+		expect(git.calls.isGitRepository).toEqual([]);
+		expect(git.calls.getRepositoryRoot).toEqual([]);
+		expect(git.calls.getCurrentBranch).toEqual([]);
+		expect(sessionSource.queries).toEqual([]);
 	});
 
 	it("writes sanitized payload detail and reads a targeted pointer", async () => {

@@ -6,10 +6,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import { PayloadError } from "./errors.ts";
+import { PAYLOAD_FILENAME_PATTERN } from "./filename.ts";
 import { isSafeSegment } from "./segments.ts";
-
-const PAYLOAD_FILENAME_PATTERN =
-	/^(\d{8}t\d{6}z)-(\d+)-([a-z0-9][a-z0-9._-]{0,127})\.(?<role>raw|summary|log)\.(?<extension>json|txt)$/;
 
 const DEFAULT_JSON_PAYLOAD_ROLES = new Set(["raw", "summary"]);
 

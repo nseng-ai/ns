@@ -1,3 +1,5 @@
+import { sha256HexPrefix } from "../sha256.ts";
+
 import type { ParsedSession, SessionSourceRef, SessionUsage } from "./types.ts";
 
 export type EvidenceMetadataValue = string | number | boolean | null;
@@ -107,7 +109,11 @@ export function collectSessionEvidence(
 	);
 
 	return items.sort(
-		(a, b) => evidenceSortKey(a) - evidenceSortKey(b) || a.subject.localeCompare(b.subject),
+		(a, b) =>
+			kindIndex(a.kind) - kindIndex(b.kind) ||
+			(b.count ?? 0) - (a.count ?? 0) ||
+			metadataInt(b.metadata, "max_output_length") - metadataInt(a.metadata, "max_output_length") ||
+			a.subject.localeCompare(b.subject),
 	);
 }
 
@@ -533,16 +539,7 @@ function boundedCommandSubject(command: string): {
 	if (command.length <= MAX_SUBJECT_LENGTH) {
 		return { subject: command, metadata: {} };
 	}
-	// Simple hash using string content for deterministic prefix
-	let hash = 0;
-	for (let i = 0; i < command.length; i++) {
-		hash = (hash << 5) - hash + command.charCodeAt(i);
-		hash = hash & hash; // Convert to 32bit integer
-	}
-	const digest = Math.abs(hash)
-		.toString(16)
-		.padStart(HASH_PREFIX_LENGTH, "0")
-		.slice(0, HASH_PREFIX_LENGTH);
+	const digest = sha256HexPrefix(command, HASH_PREFIX_LENGTH);
 	const subject = `${command.slice(0, MAX_SUBJECT_LENGTH)}…`;
 	return {
 		subject,
@@ -577,13 +574,6 @@ function plural(noun: string, count: number): string {
 function kindIndex(kind: string): number {
 	const index = EVIDENCE_KIND_ORDER.indexOf(kind);
 	return index === -1 ? EVIDENCE_KIND_ORDER.length : index;
-}
-
-function evidenceSortKey(item: SessionEvidenceItem): number {
-	const count = item.count ?? 0;
-	const size = metadataInt(item.metadata, "max_output_length");
-	// Sort by kind index, then by count descending, then by size descending
-	return kindIndex(item.kind) * 1_000_000 - count * 1_000 - size;
 }
 
 function metadataInt(

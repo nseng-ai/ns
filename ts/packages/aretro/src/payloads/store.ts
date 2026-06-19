@@ -6,12 +6,10 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import { PayloadError } from "./errors.ts";
+import { PAYLOAD_FILENAME_PATTERN } from "./filename.ts";
 import type { PayloadExtension, PayloadReference, PayloadRole } from "./models.ts";
 import { resolvePayloadRoot, resolvePayloadSessionId } from "./root.ts";
 import { isSafeSegment, requireSafeSegment } from "./segments.ts";
-
-const PAYLOAD_FILENAME_PATTERN =
-	/^(\d{8}t\d{6}z)-(?<sequence>\d+)-(?<descriptor>[a-z0-9][a-z0-9._-]{0,127})\.(?<role>raw|summary|log)\.(?<extension>json|txt)$/;
 
 export type JsonPayloadRole = "raw" | "summary";
 export type LogPayloadRole = "log";

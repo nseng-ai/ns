@@ -10,10 +10,9 @@ export class RealAretroGitGateway implements AretroGitGateway {
 		this.git = new RealGitGateway(execApi);
 	}
 
-	async getGitCommonDir(params: AretroGitParams): Promise<string | null> {
+	async isGitRepository(params: AretroGitParams): Promise<boolean> {
 		const result = await this.git.gitPath({ cwd: params.cwd, relativePath: "." });
-		if (!result.ok) return null;
-		return result.value;
+		return result.ok;
 	}
 
 	async getRepositoryRoot(params: AretroGitParams): Promise<GitResult<string>> {
