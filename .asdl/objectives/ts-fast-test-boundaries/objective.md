@@ -50,14 +50,14 @@ The TypeScript test suite should make the fast local/default path mostly fake-dr
 Assumptions:
 
 - Vitest configuration can express a default suite and an integration suite without fighting the existing pnpm workspace layout.
-- Existing real-adapter tests have enough gateway seams to convert default-path coverage to fake-driven tests without large production rewrites.
+- Existing real-adapter tests have enough gateway seams to convert default-path coverage to fake-driven tests without large production rewrites. Evidence from the brmem, CCC/Pi, and Slot slices supports this assumption for the known real Git/sqlite boundary tests migrated so far.
 - A minimal wall-clock seam is enough for expiry-style tests; timeout scheduling tests may use a separate one-shot timer scheduler seam when they need to drive parent-side scheduled callbacks deterministically. Elapsed/performance timing does not yet require a separate monotonic abstraction.
 - CI can run an additional TypeScript integration step without unacceptable maintenance overhead.
 - Local and CI timing measurements are stable enough to prove directional improvements when captured with explicit commands, comparable environments, and small repeated samples rather than single anecdotal runs.
 
 Risks:
 
-- Moving tests may accidentally reduce coverage if integration equivalents are not preserved or if default-path fake tests do not assert the same contracts.
+- Moving tests may accidentally reduce coverage if integration equivalents are not preserved or if default-path fake tests do not assert the same contracts. This risk is reduced for the completed brmem, CCC/Pi, Node runtime, and Slot slices by retained integration smoke tests plus default fake-driven protocol/semantic coverage.
 - Path/name conventions may be applied inconsistently across packages unless documented clearly.
 - Some current tests mix unit assertions with real subprocess setup; splitting them may require careful reshaping rather than simple file moves.
 - The clock seam could become a dumping ground if timer, sleep, scheduler, or monotonic concerns are added before concrete call sites require them; current evidence supports only a separate one-shot timer scheduler for `runCommand` timeout handling, not intervals, sleeps, or monotonic time.
@@ -66,6 +66,4 @@ Risks:
 
 ## Open Questions
 
-- What exact folder/name convention should be adopted for TypeScript integration tests: `test/integration/`, `test/gateways/integration/`, `*.integration.test.ts`, or another convention?
-- Should CI run integration tests on every PR or only in selected workflows?
 - Which existing timeout-sensitive tests beyond `packages/asdl-core/test/exec.test.ts`, if any, should adopt the clock or timer seam in this Objective rather than wait for later touched-feature work?
