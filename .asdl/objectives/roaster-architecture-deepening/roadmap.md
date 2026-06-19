@@ -11,8 +11,9 @@
 - [x] Capture the execution environment in the roaster context (candidate 3).
       Shipped through the candidate-3 stack and refined on branch `roaster-context-runtime-vocabulary-refactor`: `runCli` creates or accepts a full `RoasterContext` with raw gateway dependencies, `cwd`, `env`, optional `signal`, stdin, stdout, and stderr, then derives the operation-facing `RoasterRuntime` through `createRoasterRuntime(context)`. Operation handlers depend on the runtime capability surface and work-shaped methods; raw gateway interfaces stay intact behind the context.
       Evidence: stale-term checks found no `ctx.context`, `ctx.cwd`, `ctx.env`, or `githubOptions()` in roaster operation/publication source; `context.test.ts` covers forwarding of `cwd`, `env`, and `signal`; branch-local diff and PR #1837 show the final context/runtime vocabulary and fake-context support. Earlier candidate-3 slices passed targeted roaster tests and full TypeScript deps, format, lint, check, legacy check, test, and guard gates.
-- [ ] Decide and resolve the failure-union depth mismatch (candidate 4, speculative).
-      First confirm whether `RoasterFailure`'s unread structured fields are consumed anywhere or are forward-room. Then either shrink toward `{ type, message }` or deepen the seam to consume the structure (structured envelopes, exit codes from `code`, diagnostics). Record the decision as an update; if "deepen" is rejected in favor of keeping fields untouched, capture the reasoning (ADR if it would otherwise be re-suggested).
+- [x] Decide and resolve the failure-union depth mismatch (candidate 4).
+      Shipped on branch `shrink-roaster-failure-consumed-shape`: `src/failures.ts` now exposes a single consumed `RoasterFailure` shape with `type` and `message`, keeps semantic failure-code aliases for source categories, and removes unused structured payload fields from gateway and operation failures. The old `failureMessage` and `isFailureOfType` helpers were deleted because callers now consume the shape directly.
+      Evidence: local branch diff against Graphite parent `roaster-context-runtime-vocabulary-refactor`; branch commit `151a0c37e`; targeted failure/scenario test updates; `pnpm --dir ts run check`; `pnpm --dir ts run test`.
 
 ## Parked
 
