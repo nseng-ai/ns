@@ -9,6 +9,12 @@ export function formatErrorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }
 
+export function errorCodeFromUnknown(value: unknown): string | number | undefined {
+	if (!isRecord(value)) return undefined;
+	const code = value.code;
+	return typeof code === "string" || typeof code === "number" ? code : undefined;
+}
+
 export interface ZodIssueLike {
 	readonly path: readonly unknown[];
 	readonly message: string;

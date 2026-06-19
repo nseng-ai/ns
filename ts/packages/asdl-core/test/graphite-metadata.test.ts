@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import {
+	classifySqliteJsonResult,
 	detectGraphiteForkViolations,
 	graphiteTrunkMarkerStatus,
 	hasExpectedGraphiteBranchMetadataSchema,
@@ -24,6 +25,45 @@ function parseRows(rows: unknown[]): GraphiteTopology {
 }
 
 describe("Graphite metadata core", () => {
+	test("classifies sqlite JSON results as Result values", () => {
+		expect(classifySqliteJsonResult({ stdout: "", stderr: "", status: 0 })).toEqual({
+			ok: true,
+			value: [],
+		});
+		expect(classifySqliteJsonResult({ stdout: '{"x":1}', stderr: "", status: 0 })).toEqual({
+			ok: true,
+			value: { x: 1 },
+		});
+		expect(
+			classifySqliteJsonResult({ stdout: "", stderr: "", status: 0, error: { code: "ENOENT" } }),
+		).toEqual({
+			ok: false,
+			error: {
+				type: "command-missing",
+				code: "sqlite-command-missing",
+				message: "sqlite3 command not found",
+			},
+		});
+		expect(classifySqliteJsonResult({ stdout: "", stderr: "bad db", status: 2 })).toEqual({
+			ok: false,
+			error: {
+				type: "nonzero-exit",
+				code: "sqlite-nonzero-exit",
+				message: "sqlite3 exited with a nonzero status",
+				status: 2,
+				stderr: "bad db",
+			},
+		});
+		expect(classifySqliteJsonResult({ stdout: "not json", stderr: "", status: 0 })).toEqual({
+			ok: false,
+			error: {
+				type: "invalid-json",
+				code: "sqlite-invalid-json",
+				message: "sqlite3 output was not valid JSON",
+			},
+		});
+	});
+
 	test("validates required branch_metadata schema columns", () => {
 		expect(
 			hasExpectedGraphiteBranchMetadataSchema(

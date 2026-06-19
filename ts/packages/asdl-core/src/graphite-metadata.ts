@@ -1,7 +1,8 @@
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 
-import { isRecord } from "./primitives.ts";
+import { errorCodeFromUnknown, isRecord } from "./primitives.ts";
+import { resultErr, type Result } from "./result.ts";
 
 export const GRAPHITE_METADATA_SQLITE_QUERY_TIMEOUT_MS = 1_000;
 
@@ -42,31 +43,67 @@ export function createGraphiteSqliteJsonRunner(
  * variant to their own domain failure type; the spawn + branching kernel is
  * shared so it cannot drift between consumers.
  */
-export type SqliteJsonOutcome =
-	| { readonly type: "success"; readonly data: unknown }
-	| { readonly type: "command-missing" }
-	| { readonly type: "exec-error"; readonly error: unknown }
-	| { readonly type: "nonzero-exit"; readonly status: number | null; readonly stderr: string }
-	| { readonly type: "invalid-json" };
+export type SqliteJsonError =
+	| {
+			readonly type: "command-missing";
+			readonly code: "sqlite-command-missing";
+			readonly message: string;
+	  }
+	| {
+			readonly type: "exec-error";
+			readonly code: "sqlite-exec-error";
+			readonly message: string;
+			readonly error: unknown;
+	  }
+	| {
+			readonly type: "nonzero-exit";
+			readonly code: "sqlite-nonzero-exit";
+			readonly message: string;
+			readonly status: number | null;
+			readonly stderr: string;
+	  }
+	| {
+			readonly type: "invalid-json";
+			readonly code: "sqlite-invalid-json";
+			readonly message: string;
+	  };
+
+export type SqliteJsonOutcome = Result<unknown, SqliteJsonError>;
 
 export function classifySqliteJsonResult(result: SqliteJsonRunResult): SqliteJsonOutcome {
 	if (result.error !== undefined && result.error !== null) {
-		return sqliteErrorCode(result.error) === "ENOENT"
-			? { type: "command-missing" }
-			: { type: "exec-error", error: result.error };
+		return errorCodeFromUnknown(result.error) === "ENOENT"
+			? resultErr({
+					type: "command-missing",
+					code: "sqlite-command-missing",
+					message: "sqlite3 command not found",
+				})
+			: resultErr({
+					type: "exec-error",
+					code: "sqlite-exec-error",
+					message: "sqlite3 execution failed",
+					error: result.error,
+				});
 	}
 	if (result.status !== 0) {
-		return { type: "nonzero-exit", status: result.status, stderr: result.stderr };
+		return resultErr({
+			type: "nonzero-exit",
+			code: "sqlite-nonzero-exit",
+			message: "sqlite3 exited with a nonzero status",
+			status: result.status,
+			stderr: result.stderr,
+		});
 	}
 	try {
-		return { type: "success", data: JSON.parse(result.stdout.trim() || "[]") };
+		const stdout = result.stdout.trim();
+		return { ok: true, value: JSON.parse(stdout === "" ? "[]" : stdout) };
 	} catch {
-		return { type: "invalid-json" };
+		return resultErr({
+			type: "invalid-json",
+			code: "sqlite-invalid-json",
+			message: "sqlite3 output was not valid JSON",
+		});
 	}
-}
-
-function sqliteErrorCode(value: unknown): string | undefined {
-	return isRecord(value) && typeof value.code === "string" ? value.code : undefined;
 }
 
 const GRAPHITE_TRUNK_VALIDATION_RESULT = "TRUNK";
