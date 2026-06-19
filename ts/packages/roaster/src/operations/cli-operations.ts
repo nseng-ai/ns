@@ -1,34 +1,17 @@
-import { readFile } from "node:fs/promises";
-
 import { failure, ok, type ClinkrExit } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { RoasterContext } from "../context.ts";
 import { failureMessage, type RoasterFailure } from "../failures.ts";
+import { publishFindings, type PublishFindingsResult } from "../findings-publication.ts";
 import {
-	extractInlineMarkers,
-	inlineMarkerForFinding,
-	parseFindingsCommentBody,
-	parseFindingsPayloadResult,
-	parseInlinePostingStatusResult,
-	preserveActivityLog,
-	renderFindingsComment,
-	renderInlineBody,
-} from "../findings-publication.ts";
-import { classifyInlineFindings } from "../inline-commentability.ts";
-import {
-	postInlineFindingsResultSchema,
 	reviewRunResultSchema,
-	type InlinePostingStatus,
-	type PostInlineFindingsResult,
 	type ReviewExecutionResponse,
 	type ReviewRunResult,
 	type ReviewUsage,
 } from "../models.ts";
 import { applicableReviewKeys } from "../review-applicability.ts";
 import { parseReviewDefinition, type ReviewDefinition } from "../review-definition.ts";
-
-const BOT_LOGIN = "github-actions[bot]";
 
 export interface RoasterCliContext {
 	readonly context: RoasterContext;
@@ -73,19 +56,11 @@ export const reviewRunRequestSchema = z.object({
 
 export type ReviewRunRequest = z.infer<typeof reviewRunRequestSchema>;
 
-export const postInlineFindingsRequestSchema = z.object({
-	pr_number: z.int().positive().describe("Pull request number."),
-});
-
-export const formatFindingsCommentRequestSchema = z.object({
-	inline_result_file: z.string().optional().describe("Path to post-inline-findings JSON output."),
-	review_name: z.string().optional().describe("Fallback review key for failed run envelopes."),
-	base_ref: z.string().optional().describe("Fallback base ref for failed run envelopes."),
-});
-
-export const postFindingsCommentRequestSchema = z.object({
+export const publishFindingsRequestSchema = z.object({
 	pr_number: z.int().positive().describe("Pull request number."),
 	run_url: z.string().optional().describe("GitHub Actions run URL to include in the activity log."),
+	review_name: z.string().optional().describe("Fallback review key for failed run envelopes."),
+	base_ref: z.string().optional().describe("Fallback base ref for failed run envelopes."),
 });
 
 export async function runReviewList(
@@ -215,144 +190,23 @@ export function renderReviewRun(result: ReviewRunResult): string {
 	return lines.join("\n");
 }
 
-export async function runPostInlineFindings(
+export async function runPublishFindings(
 	ctx: RoasterCliContext,
-	request: z.infer<typeof postInlineFindingsRequestSchema>,
+	request: z.infer<typeof publishFindingsRequestSchema>,
 ): Promise<number> {
-	const raw = await ctx.stdin();
-	const parsed = parseFindingsPayloadResult(raw);
-	if (parsed.type === "error")
-		return stderrFailure(ctx, `post-inline-findings: ${parsed.error.message}\n`);
-
-	if (parsed.payload.errorType !== null || parsed.payload.count === 0) {
-		writeInlineStatus(ctx, emptyInlineResult());
-		return 0;
-	}
-
-	const changedFiles = await ctx.context.github.getPrChangedFiles(request.pr_number, {
-		cwd: ctx.cwd,
-		env: ctx.env,
-	});
-	if (changedFiles.type === "error") {
-		writeInlineStatus(ctx, { ...emptyInlineResult(), apiError: changedFiles.error.message });
-		return 0;
-	}
-
-	const reviewComments = await ctx.context.github.getPrReviewComments(request.pr_number, {
-		cwd: ctx.cwd,
-		env: ctx.env,
-	});
-	if (reviewComments.type === "error") {
-		writeInlineStatus(ctx, { ...emptyInlineResult(), apiError: reviewComments.error.message });
-		return 0;
-	}
-
-	const classified = classifyInlineFindings(parsed.payload.findings, changedFiles.value);
-	const existingMarkers = new Set(
-		reviewComments.value
-			.filter((comment) => comment.author === BOT_LOGIN)
-			.flatMap((comment) => extractInlineMarkers(comment.body)),
-	);
-	const fallbackOnly = classified.fallbackOnly.map((item) => ({
-		finding: item.finding,
-		reason: item.reason,
-	}));
-	const comments = [];
-	let skippedDuplicateCount = 0;
-
-	for (const item of classified.inlineable) {
-		const marker = inlineMarkerForFinding(parsed.payload.reviewName, item.finding);
-		if (existingMarkers.has(marker)) {
-			skippedDuplicateCount += 1;
-			continue;
-		}
-		comments.push({
-			path: item.target.path,
-			line: item.target.line,
-			body: renderInlineBody(marker, item.finding, { reviewName: parsed.payload.reviewName }),
-		});
-	}
-
-	let apiError: string | null = null;
-	let postedCount = 0;
-	if (comments.length > 0) {
-		try {
-			const posted = await ctx.context.github.createPrReview(request.pr_number, comments, {
-				cwd: ctx.cwd,
-				env: ctx.env,
-			});
-			if (posted.type === "error") apiError = posted.error.message;
-			else postedCount = comments.length;
-		} catch (caught) {
-			apiError = caught instanceof Error ? caught.message : String(caught);
-		}
-	}
-
-	writeInlineStatus(ctx, {
-		postedCount,
-		skippedDuplicateCount,
-		fallbackOnlyCount: fallbackOnly.length,
-		apiError,
-		fallbackOnly,
-	});
-	return 0;
-}
-
-export async function runFormatFindingsComment(
-	ctx: RoasterCliContext,
-	request: z.infer<typeof formatFindingsCommentRequestSchema>,
-): Promise<number> {
-	const raw = await ctx.stdin();
-	const payload = parseFindingsPayloadResult(raw, fallbackPayloadOptions(request));
-	if (payload.type === "error")
-		return stderrFailure(ctx, `format-findings-comment: ${payload.error.message}\n`);
-
-	const inlineStatus = await loadInlineStatus(request.inline_result_file);
-	if (inlineStatus.type === "error")
-		return stderrFailure(ctx, `format-findings-comment: ${inlineStatus.message}\n`);
-
-	ctx.stdout(renderFindingsComment(payload.payload, { inlineStatus: inlineStatus.status }));
-	return 0;
-}
-
-export async function runPostFindingsComment(
-	ctx: RoasterCliContext,
-	request: z.infer<typeof postFindingsCommentRequestSchema>,
-): Promise<number> {
-	const body = await ctx.stdin();
-	const parsed = parseFindingsCommentBody(body);
-	if (parsed.type === "error")
-		return stderrFailure(ctx, `post-findings-comment: ${parsed.error.message}\n`);
-
-	const existing = await ctx.context.github.findPrDiscussionCommentByMarker({
+	const envelope = await ctx.stdin();
+	const result = await publishFindings(ctx.context, {
 		prNumber: request.pr_number,
-		marker: parsed.parsed.marker,
-		authorLogin: BOT_LOGIN,
+		envelope,
+		...(request.run_url === undefined ? {} : { runUrl: request.run_url }),
+		...(request.review_name === undefined ? {} : { fallbackReviewName: request.review_name }),
+		...(request.base_ref === undefined ? {} : { fallbackBaseRef: request.base_ref }),
 		cwd: ctx.cwd,
 		env: ctx.env,
 	});
-	if (existing.type === "error")
-		return stderrFailure(ctx, `post-findings-comment: ${existing.error.message}\n`);
+	if (result.type === "error") return stderrFailure(ctx, `publish-findings: ${result.message}\n`);
 
-	const runSummary = activityLogEntry(request.run_url);
-	const nextBody =
-		existing.value === null
-			? preserveActivityLog("", parsed.parsed.body, runSummary)
-			: preserveActivityLog(existing.value.body, parsed.parsed.body, runSummary);
-	const written =
-		existing.value === null
-			? await ctx.context.github.addPrDiscussionComment(request.pr_number, nextBody, {
-					cwd: ctx.cwd,
-					env: ctx.env,
-				})
-			: await ctx.context.github.updatePrDiscussionComment(existing.value.id, nextBody, {
-					cwd: ctx.cwd,
-					env: ctx.env,
-				});
-	if (written.type === "error")
-		return stderrFailure(ctx, `post-findings-comment: ${written.error.message}\n`);
-
-	ctx.stderr(existing.value === null ? "posted findings comment\n" : "updated findings comment\n");
+	ctx.stderr(renderPublishFindingsDiagnostics(result));
 	return 0;
 }
 
@@ -426,55 +280,18 @@ function failureFromRoaster(error: RoasterFailure): ClinkrExit<never> {
 	return failure(error.type, failureMessage(error));
 }
 
-type InlineResult = PostInlineFindingsResult;
-
-function emptyInlineResult(): InlineResult {
-	return {
-		postedCount: 0,
-		skippedDuplicateCount: 0,
-		fallbackOnlyCount: 0,
-		apiError: null,
-		fallbackOnly: [],
-	};
-}
-
-function writeInlineStatus(ctx: RoasterCliContext, status: InlineResult): void {
-	ctx.stdout(`${JSON.stringify(postInlineFindingsResultSchema.parse(status))}\n`);
-}
-
-type InlineStatusLoadResult =
-	| { readonly type: "ok"; readonly status: InlinePostingStatus | null }
-	| { readonly type: "error"; readonly message: string };
-
-async function loadInlineStatus(path: string | undefined): Promise<InlineStatusLoadResult> {
-	if (path === undefined) return { type: "ok", status: null };
-	let source: string;
-	try {
-		source = await readFile(path, "utf8");
-	} catch (caught) {
-		return { type: "error", message: caught instanceof Error ? caught.message : String(caught) };
-	}
-	const parsed = parseInlinePostingStatusResult(source);
-	if (parsed.type === "error") return { type: "error", message: parsed.error.message };
-	return { type: "ok", status: parsed.status };
+function renderPublishFindingsDiagnostics(
+	result: Extract<PublishFindingsResult, { readonly type: "ok" }>,
+): string {
+	const apiError = result.inlineStatus.apiError?.replace(/\s+/gu, " ") ?? "none";
+	return [
+		`inline findings: posted=${result.inlineStatus.postedCount} skipped_duplicate=${result.inlineStatus.skippedDuplicateCount} fallback_only=${result.inlineStatus.fallbackOnlyCount} api_error=${apiError}`,
+		`${result.summaryAction} findings comment`,
+		"",
+	].join("\n");
 }
 
 function stderrFailure(ctx: RoasterCliContext, message: string): number {
 	ctx.stderr(message);
 	return 1;
-}
-
-function fallbackPayloadOptions(request: z.infer<typeof formatFindingsCommentRequestSchema>): {
-	readonly fallbackReviewName?: string;
-	readonly fallbackBaseRef?: string;
-} {
-	return {
-		...(request.review_name === undefined ? {} : { fallbackReviewName: request.review_name }),
-		...(request.base_ref === undefined ? {} : { fallbackBaseRef: request.base_ref }),
-	};
-}
-
-function activityLogEntry(runUrl: string | undefined): string {
-	const timestamp = new Date().toISOString();
-	return runUrl === undefined || runUrl.trim() === "" ? timestamp : `${timestamp} · ${runUrl}`;
 }

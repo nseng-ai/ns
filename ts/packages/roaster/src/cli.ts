@@ -9,17 +9,13 @@ import { readStdin } from "@asdl/core/stdin";
 
 import { createRealRoasterContext, type RoasterContext } from "./context.ts";
 import {
-	formatFindingsCommentRequestSchema,
-	postFindingsCommentRequestSchema,
-	postInlineFindingsRequestSchema,
+	publishFindingsRequestSchema,
 	renderReviewList,
 	renderReviewRun,
 	reviewListRequestSchema,
 	reviewListResultSchema,
 	reviewRunRequestSchema,
-	runFormatFindingsComment,
-	runPostFindingsComment,
-	runPostInlineFindings,
+	runPublishFindings,
 	runReviewByKey,
 	runReviewList,
 	type RoasterCliContext,
@@ -82,26 +78,10 @@ export function buildCli(): ClinkrGroup<RoasterCliContext> {
 	});
 	execGroup.command(
 		rawCommand({
-			name: "post-inline-findings",
-			description: "Post inline findings from a roaster run envelope on stdin.",
-			schema: postInlineFindingsRequestSchema,
-			run: runPostInlineFindings,
-		}),
-	);
-	execGroup.command(
-		rawCommand({
-			name: "format-findings-comment",
-			description: "Render a summary findings comment from a roaster run envelope on stdin.",
-			schema: formatFindingsCommentRequestSchema,
-			run: runFormatFindingsComment,
-		}),
-	);
-	execGroup.command(
-		rawCommand({
-			name: "post-findings-comment",
-			description: "Create or update the roaster summary findings discussion comment.",
-			schema: postFindingsCommentRequestSchema,
-			run: runPostFindingsComment,
+			name: "publish-findings",
+			description: "Publish inline and summary findings from a roaster run envelope on stdin.",
+			schema: publishFindingsRequestSchema,
+			run: runPublishFindings,
 		}),
 	);
 	root.group(execGroup);

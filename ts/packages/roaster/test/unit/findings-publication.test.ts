@@ -5,7 +5,6 @@ import {
 	inlineMarkerForFinding,
 	parseFindingsCommentBody,
 	parseFindingsPayloadResult,
-	parseInlinePostingStatusResult,
 	preserveActivityLog,
 	renderFindingsComment,
 	renderInlineBody,
@@ -123,7 +122,7 @@ describe("renderFindingsComment", () => {
 });
 
 describe("payload parsers", () => {
-	test("parses ok findings envelopes and bare inline status results", () => {
+	test("parses ok findings envelopes", () => {
 		const payloadResult = parseFindingsPayloadResult(
 			JSON.stringify({
 				exit_code: 0,
@@ -140,19 +139,8 @@ describe("payload parsers", () => {
 				},
 			}),
 		);
-		const statusResult = parseInlinePostingStatusResult(
-			JSON.stringify({
-				postedCount: 1,
-				skippedDuplicateCount: 0,
-				fallbackOnlyCount: 0,
-				apiError: null,
-				fallbackOnly: [],
-			}),
-		);
-
 		expect(payloadResult.type).toBe("ok");
 		if (payloadResult.type === "ok") expect(payloadResult.payload.count).toBe(1);
-		expect(statusResult.type).toBe("ok");
 	});
 
 	test("rejects old nested and snake case success envelopes", () => {
