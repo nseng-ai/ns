@@ -15,20 +15,15 @@ require Node 24 or newer and workspace dependencies installed with `just ts-inst
 or `pnpm --dir ts install` when needed:
 
 ```bash
+just install-aretro
 just install-slot
 just install-objective
 just install-pr-address
 just install-roaster
 ```
 
-Python package tools can be installed with `uv tool install`:
-
-```bash
-uv tool install aretro
-```
-
-Each tool provides its own console script, such as `slot`, `objective`,
-`pr-address`, `roaster`, or `aretro`.
+Each tool provides its own console script, such as `aretro`, `slot`, `objective`,
+`pr-address`, or `roaster`.
 
 ## Umbrella command
 

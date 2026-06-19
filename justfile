@@ -118,6 +118,11 @@ install-areg: (_install-ts-shim "areg" "ts/packages/areg/src/cli.ts" "just insta
     rm -f "{{justfile_directory()}}/.venv/bin/areg"
     @echo "removed stale project venv areg script if present"
 
+# Install the aretro shim to ~/.local/bin so `aretro` on PATH runs the
+# TypeScript CLI from source: the enclosing checkout's sources when invoked
+# inside an asdl checkout, this checkout's sources everywhere else.
+install-aretro: (_install-ts-shim "aretro" "ts/packages/aretro/src/cli.ts" "just install-aretro")
+
 # Install the objective shim to ~/.local/bin so `objective` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
 # inside an asdl checkout, this checkout's sources everywhere else.
