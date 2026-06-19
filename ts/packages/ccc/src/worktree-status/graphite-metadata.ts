@@ -1,8 +1,9 @@
-import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { Worker as ThreadWorker } from "node:worker_threads";
 
 import {
+	classifySqliteJsonResult,
+	createGraphiteSqliteJsonRunner,
 	GRAPHITE_BRANCH_METADATA_QUERY,
 	GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY,
 	graphiteMetadataDbPath,
@@ -89,7 +90,6 @@ export interface LoadGraphiteMetadataStatusOptions {
 }
 
 const GRAPHITE_METADATA_LOOKUP_TIMEOUT_MS = 1_000;
-const SQLITE_QUERY_TIMEOUT_MS = 1_000;
 
 interface CachedGraphiteMetadataWorker {
 	worker: GraphiteMetadataWorkerHandle;
@@ -400,28 +400,18 @@ const defaultGraphiteMetadataDbAccess: GraphiteMetadataDbAccess = {
 	},
 };
 
+const graphiteSqliteJsonRunner = createGraphiteSqliteJsonRunner();
+
 function runSqliteJsonQuery(dbPath: string, query: string): GraphiteMetadataJsonQueryResult {
-	const result = spawnSync("sqlite3", ["-json", dbPath, query], {
-		encoding: "utf8",
-		timeout: SQLITE_QUERY_TIMEOUT_MS,
-	});
-
-	if (result.error !== undefined) {
-		const errorCode = errorCodeFromValue(result.error);
-		return {
-			type: "failure",
-			reason: errorCode === "ENOENT" ? "sqlite-unavailable" : "read-failed",
-		};
+	const outcome = classifySqliteJsonResult(graphiteSqliteJsonRunner.run(dbPath, query));
+	switch (outcome.type) {
+		case "success":
+			return { type: "success", data: outcome.data };
+		case "command-missing":
+			return { type: "failure", reason: "sqlite-unavailable" };
+		case "exec-error":
+		case "nonzero-exit":
+		case "invalid-json":
+			return { type: "failure", reason: "read-failed" };
 	}
-	if (result.status !== 0) return { type: "failure", reason: "read-failed" };
-
-	try {
-		return { type: "success", data: JSON.parse(result.stdout.trim() || "[]") };
-	} catch {
-		return { type: "failure", reason: "read-failed" };
-	}
-}
-
-function errorCodeFromValue(value: unknown): string | undefined {
-	return isRecord(value) && typeof value.code === "string" ? value.code : undefined;
 }
