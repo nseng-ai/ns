@@ -8,11 +8,11 @@
   - Durable decisions: standalone `aretro exec` is the command boundary; docs-site `asdl aretro --help` is stale by default; TypeScript session/evidence/payload seams should start package-local; `just install-aretro` is opt-in by default; checkout-free `uvx`/prod use is an audit gate before Python deletion, not a blocker for TypeScript parity.
   - Evidence to preserve: Semantic Update `20260619-0247-contract-inventory-locked.md` records the durable/incidental split, stop conditions, and single-invocation defaults.
 
-- [ ] Create `@asdl/aretro` with CLI shell and contract tests.
-  - Policy: direct execution after preview.
-  - Add `ts/packages/aretro` package wiring, `aretro` bin, `src/cli.ts`, context injection, command models/schemas, root help/version/runtime behavior, hidden `exec` group, and operation shells for `collect-evidence` and `read-evidence-detail`.
-  - Scenario tests should verify top-level help hides `exec`, `exec` help is invocable, command help lists expected options, `--runtime` reports TypeScript, and JSON envelopes have the intended Clinkr shape.
-  - Evidence: targeted `@asdl/aretro` tests/checks pass; package is wired into the TS workspace without using `as unknown as`, non-erasable TypeScript, or deep imports into another package's `src/` tree.
+- [x] Create `@asdl/aretro` with CLI shell and contract tests.
+  - Policy: completed by the `aretro-ts/contract-and-shell` branch against Graphite parent `add-aretro-typescript-port`.
+  - Added `ts/packages/aretro` package wiring, `aretro` bin, `src/cli.ts`, context injection, command models/schemas, root help/version/runtime behavior, hidden `exec` group, and operation shells for `collect-evidence` and `read-evidence-detail`.
+  - Scenario tests verify top-level help hides `exec`, `exec` help is invocable, command help lists expected options, `--runtime` reports TypeScript, and JSON envelopes have the intended Clinkr shape.
+  - Evidence: local branch diff against `add-aretro-typescript-port`; targeted `@asdl/aretro` check and test commands passed; PR evidence was not required because local committed branch evidence was sufficient.
 
 - [ ] Port compact evidence collection over fake-driven git and session-source seams.
   - Policy: direct execution after preview; stop before changing evidence kinds or exposing raw session contents.
@@ -56,15 +56,18 @@
 
 ## Suggested Stack Boundaries
 
-A future `objective-stack-impl` invocation can preview and execute the full remaining migration as one small Graphite stack using these defaults. It should stop only if the implementation discovers a real unresolved prod/`uvx` consumer, privacy ambiguity, evidence-boundary change, registry publishing requirement, or validation failure that needs product/design input.
+A future `objective-stack-impl` invocation can preview and execute the remaining migration as one small Graphite stack using these defaults. It should stop only if the implementation discovers a real unresolved prod/`uvx` consumer, privacy ambiguity, evidence-boundary change, registry publishing requirement, or validation failure that needs product/design input.
 
-Default branch theses:
+Completed branch thesis:
 
-1. `aretro-ts-contract-and-shell` — contract inventory plus `@asdl/aretro` package shell, root/hidden-exec command shape, runtime/help/version, and initial scenario tests.
-2. `aretro-ts-compact-evidence` — git/session-source fakes, compact evidence DTOs, aggregate metrics, warnings, factual evidence items, and privacy-preserving JSON output.
-3. `aretro-ts-payload-detail` — payload-mode artifacts, schema-version-1 detail data, command subject bounding, and `read-evidence-detail`.
-4. `aretro-ts-skill-distribution-cutover` — `branch-retro` runner, source shim/install decision, docs cleanup, and external/prod runner audit.
-5. `aretro-ts-retire-python` — Python package deletion, root config/lock cleanup, stale-reference sweep, rollback evidence, and umbrella Objective update.
+- `aretro-ts-contract-and-shell` — contract inventory plus `@asdl/aretro` package shell, root/hidden-exec command shape, runtime/help/version, and initial scenario tests.
+
+Remaining default branch theses:
+
+1. `aretro-ts-compact-evidence` — git/session-source fakes, compact evidence DTOs, aggregate metrics, warnings, factual evidence items, and privacy-preserving JSON output.
+2. `aretro-ts-payload-detail` — payload-mode artifacts, schema-version-1 detail data, command subject bounding, and `read-evidence-detail`.
+3. `aretro-ts-skill-distribution-cutover` — `branch-retro` runner, source shim/install decision, docs cleanup, and external/prod runner audit.
+4. `aretro-ts-retire-python` — Python package deletion, root config/lock cleanup, stale-reference sweep, rollback evidence, and umbrella Objective update.
 
 Split further by thesis if a branch becomes too broad. Stop before branch 5 if parity, privacy, or distribution evidence is unresolved.
 
