@@ -4,22 +4,22 @@
 
 An advisory audit of `ts/packages/pr-address` (improve skill, standard depth,
 commit `80dbd8b75`) surfaced 14 findings across security, correctness, tests,
-and tech debt. Most of them live in the orchestration / payload-store / session
-machinery that the open `pr-address-strangler-rewrite` Objective is freezing and
-will eventually delete — fixing those is throwaway work. This Objective tracks
-the findings that still exist in the current salvaged `core/`/downloader surface
-(gateways and feedback collection/normalization) and therefore survive the
+and tech debt. Most of them lived in the orchestration / payload-store / session
+machinery that the `pr-address-strangler-rewrite` Objective (now **closed /
+completed**, 2026-06-18) has already frozen and deleted — fixing those would have
+been throwaway work, and that code no longer exists. This Objective tracks the
+findings that still exist in the current salvaged `core/`/downloader surface
+(gateways and feedback collection/normalization) and therefore survived the
 rewrite. These are real defects — including a local file-read primitive and a
 silent data-loss path on the feature's core input — worth fixing on trunk now
-rather than waiting for the strangler to finish. The Objective has been
+that the strangler has landed its downloader-only surface. The Objective has been
 rebaselined against the current downloader-only ground truth: `read-feedback-detail`
 and the payload-store/session surface are no longer present, so their historical
 audit finding is not active scope here.
 
 The legacy-zone findings are deliberately **not** in scope: they are recorded
-under "Non-Goals" as pointers to the strangler rewrite and its planned
-mutation-parity follow-up, so they are not re-audited and not patched in code
-that is scheduled for deletion.
+under "Non-Goals" as pointers to the (now-completed) strangler rewrite, which
+already deleted that code, so they are not re-audited and not patched.
 
 ## Scope
 
@@ -53,21 +53,26 @@ gateway fakes (no mocks), per the repo's fake-driven testing architecture.
 
 ## Non-Goals
 
-Explicitly deferred to `pr-address-strangler-rewrite` and its follow-ups, and
-**not** to be patched in this Objective because the code is being frozen/deleted:
+These findings targeted code that the now-completed `pr-address-strangler-rewrite`
+(closed `completed`, 2026-06-18) has already deleted, so they are **not** active
+work here:
 
 - Batch and single-op resolve idempotency on replay (audit findings #2, #4) and
   their characterization tests (#3 `continue_on_error: true` branch, #5
-  post-mutation write-failure branch) — owned by the strangler's planned
-  "dangerous mutation parity" follow-up Objective.
+  post-mutation write-failure branch) — the resolve/mutation helpers they
+  targeted are gone from the current surface. No "dangerous mutation parity"
+  follow-up Objective exists; the strangler's closeout parks any future
+  addressing workflow as a fresh Objective to be created on demand.
 - Checkpoint-missing detection coupled to a human-readable message prefix (#7)
   and the untested checkpoint-recovery branches + orphaned fixture (#14) — the
-  session machinery they live in is being removed by the strangler.
+  session/checkpoint machinery they lived in has been removed by the strangler.
 - `payload-store.ts` god-module split (#10) and the `PayloadReference`-defined-3×
-  consolidation (#11) — `payload-store` is in the strangler's `legacy/`
-  deletion target.
+  consolidation (#11) — `payload-store` was deleted by the strangler.
 - Operation-result schema drift between runtime types and `--json-schema` docs
-  (#6) — the `exec` doc-schema surface is replaced by the new RunEngine contract.
+  (#6) — the workflow `exec` surface this drift lived in was retired by the
+  strangler's download-only cutover (there is no RunEngine contract); any
+  residual schema concern on the surviving `operation-schemas` would belong to a
+  fresh Objective.
 
 Also out of scope: the strangler rewrite itself, any new RunEngine/zone work,
 performance tuning, dependency upgrades, and pushing or opening PRs.
@@ -92,8 +97,8 @@ performance tuning, dependency upgrades, and pushing or opening PRs.
 **Assumptions**
 
 - The current downloader-only `pr-address` surface is the durable target for
-  this Objective. If the strangler reshapes or deletes more of that surface,
-  revalidate this Objective before implementation.
+  this Objective. The strangler is now closed/completed, so this surface is
+  stable; no further strangler-driven reshaping is expected.
 - `read-feedback-detail`, payload-store/session machinery, and the raw
   `--payload-path` surface are absent from current ground truth; the historical
   containment-bypass finding is treated as already retired with that surface,
@@ -104,11 +109,11 @@ performance tuning, dependency upgrades, and pushing or opening PRs.
 
 **Risks**
 
-- The strangler rewrite (`pr-address-strangler-rewrite`, open, actively
-  updated) is moving the same files. Landing these fixes on trunk can create
-  rebase/merge friction with that branch. Mitigation: keep each fix a small,
-  self-contained diff scoped to a single concern, and coordinate sequencing with
-  the strangler branch owner. Not yet de-risked.
+- **(Retired)** The strangler rewrite (`pr-address-strangler-rewrite`) was
+  previously open and moving the same files, which created rebase/merge-friction
+  risk for these fixes. It is now **closed / completed** and its download-only
+  deletion has landed, so the target surface is stable on trunk and this risk is
+  retired. Keep each fix a small, self-contained diff regardless.
 - Removing the `gateways.ts` re-export barrel touches every consumer importing
   gateway types from `gateways.ts`; the change is type-checked but has broad
   fan-out. Low risk (pure import-path movement) but broad blast radius.

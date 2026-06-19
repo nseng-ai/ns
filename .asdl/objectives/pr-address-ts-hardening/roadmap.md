@@ -28,12 +28,18 @@
       containment bypass: current downloader-only ground truth no longer has
       `read-feedback-detail`, payload-store/session code, or raw `.raw.json` path
       reads, so this historical audit finding is not active scope here.
-- [ ] (Deferred to strangler mutation-parity follow-up) Batch/single-op resolve
-      idempotency on replay + characterization tests (audit findings #2/#3/#4/#5).
-- [ ] (Deferred to strangler — session machinery removal) Checkpoint-missing
+- [ ] (Retired with deleted surface — strangler completed 2026-06-18) Batch/single-op
+      resolve idempotency on replay + characterization tests (audit findings
+      #2/#3/#4/#5): the resolve/mutation helpers are gone; no mutation-parity
+      follow-up Objective exists.
+- [ ] (Retired with deleted surface — strangler completed) Checkpoint-missing
       detection coupled to a message prefix and untested checkpoint-recovery
-      branches + orphaned fixture (#7/#14).
-- [ ] (Deferred to strangler — `legacy/` deletion) `payload-store.ts` god-module
-      split and `PayloadReference`-defined-3× consolidation (#10/#11).
-- [ ] (Deferred to strangler — RunEngine contract) Operation-result schema drift
-      between runtime types and `--json-schema` docs (#6).
+      branches + orphaned fixture (#7/#14): the session/checkpoint machinery was
+      removed.
+- [ ] (Retired with deleted surface — strangler completed) `payload-store.ts`
+      god-module split and `PayloadReference`-defined-3× consolidation (#10/#11):
+      `payload-store` was deleted.
+- [ ] (Retired — strangler download-only cutover; no RunEngine) Operation-result
+      schema drift between runtime types and `--json-schema` docs (#6): the
+      workflow `exec` surface was retired; any residual concern on the surviving
+      `operation-schemas` would need a fresh Objective.
