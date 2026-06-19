@@ -12,6 +12,8 @@
     "./terminal-escapes": "./src/terminal-escapes.ts",
     "./text-truncation": "./src/text-truncation.ts",
     "./time-format": "./src/time-format.ts",
+    "./clock": "./src/clock.ts",
+    "./timers": "./src/timers.ts",
     "./cli-entry": "./src/cli-entry.ts",
     "./exec": "./src/exec.ts",
     "./github-cli": "./src/github-cli.ts",

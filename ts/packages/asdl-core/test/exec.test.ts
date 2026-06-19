@@ -18,6 +18,7 @@ import {
 	stripTerminalEscapes,
 	tailText,
 } from "@asdl/core/exec";
+import { createManualTimerScheduler } from "@asdl/core/testing";
 
 const tempDirs: string[] = [];
 
@@ -251,17 +252,33 @@ setTimeout(() => process.exit(0), 30);
 	test("timeout resolves when the child handles SIGTERM", async () => {
 		const script = writeChildScript(`
 process.on("SIGTERM", () => {
-	console.error("received sigterm");
-	setTimeout(() => process.exit(0), 10);
+	process.stderr.write("received sigterm\\n", () => process.exit(0));
 });
-setTimeout(() => process.exit(88), 5_000);
+process.stderr.write("ready\\n");
 setInterval(() => {}, 1_000);
 `);
-
-		const result = await runCommand(process.execPath, [script], {
-			timeout: 500,
-			timeoutKillGraceMs: 100,
+		const manualTimers = createManualTimerScheduler();
+		let resolveReady: () => void = () => {};
+		const ready = new Promise<void>((resolve) => {
+			resolveReady = resolve;
 		});
+
+		const resultPromise = runCommand(
+			process.execPath,
+			[script],
+			{
+				timeout: 500,
+				timeoutKillGraceMs: 100,
+				onStderr(text) {
+					if (text.includes("ready")) resolveReady();
+				},
+			},
+			{ timers: manualTimers.timers },
+		);
+
+		await ready;
+		manualTimers.advanceMs(500);
+		const result = await resultPromise;
 
 		expect(result.killed).toBe(true);
 		expect(result.code).toBe(124);
@@ -271,20 +288,41 @@ setInterval(() => {}, 1_000);
 	test("timeout escalates to SIGKILL when the child ignores SIGTERM", async () => {
 		const script = writeChildScript(`
 process.on("SIGTERM", () => {
-	console.error("ignored sigterm");
+	process.stderr.write("ignored sigterm\\n");
 });
-setTimeout(() => process.exit(88), 5_000);
+process.stderr.write("ready\\n");
 setInterval(() => {}, 1_000);
 `);
-
-		const startedAt = Date.now();
-		const result = await runCommand(process.execPath, [script], {
-			timeout: 500,
-			timeoutKillGraceMs: 100,
+		const manualTimers = createManualTimerScheduler();
+		let resolveReady: () => void = () => {};
+		let resolveIgnoredSigterm: () => void = () => {};
+		const ready = new Promise<void>((resolve) => {
+			resolveReady = resolve;
 		});
-		const elapsedMs = Date.now() - startedAt;
+		const ignoredSigterm = new Promise<void>((resolve) => {
+			resolveIgnoredSigterm = resolve;
+		});
 
-		expect(elapsedMs).toBeLessThan(4_000);
+		const resultPromise = runCommand(
+			process.execPath,
+			[script],
+			{
+				timeout: 500,
+				timeoutKillGraceMs: 100,
+				onStderr(text) {
+					if (text.includes("ready")) resolveReady();
+					if (text.includes("ignored sigterm")) resolveIgnoredSigterm();
+				},
+			},
+			{ timers: manualTimers.timers },
+		);
+
+		await ready;
+		manualTimers.advanceMs(500);
+		await ignoredSigterm;
+		manualTimers.advanceMs(100);
+		const result = await resultPromise;
+
 		expect(result.killed).toBe(true);
 		expect(result.code).toBe(124);
 		expect(result.stderr).toContain("ignored sigterm");

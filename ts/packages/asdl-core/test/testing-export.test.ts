@@ -1,7 +1,11 @@
 import { readFile, stat } from "node:fs/promises";
 
+import { systemClock } from "@asdl/core/clock";
+import { systemTimerScheduler } from "@asdl/core/timers";
 import {
 	brmemCheckJson,
+	createManualClock,
+	createManualTimerScheduler,
 	createTempDirTracker,
 	describeNodeRuntimeCliEntrypoint,
 	ScriptedCommandExecApi,
@@ -14,11 +18,19 @@ import { expect, test } from "vitest";
 test("exports testing helpers through the package testing subpath", () => {
 	expect(typeof describeNodeRuntimeCliEntrypoint).toBe("function");
 	expect(typeof createTempDirTracker).toBe("function");
+	expect(typeof createManualClock).toBe("function");
+	expect(typeof createManualTimerScheduler).toBe("function");
 	expect(typeof withTempRepoSkill).toBe("function");
 	expect(typeof ScriptedCommandRunner).toBe("function");
 	expect(typeof ScriptedCommandExecApi).toBe("function");
 	expect(typeof step).toBe("function");
 	expect(brmemCheckJson(true)).toBe(JSON.stringify({ exit_code: 0, data: { present: true } }));
+});
+
+test("exports clock and timer seams through package subpaths", () => {
+	expect(typeof systemClock.nowMs()).toBe("number");
+	const timer = systemTimerScheduler.setTimeout(() => {}, 1_000);
+	timer.cancel();
 });
 
 test("scripted command helpers record calls and validate expected steps", async () => {
