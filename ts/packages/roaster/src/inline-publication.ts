@@ -1,4 +1,6 @@
-import { environmentOptions, type RoasterRunScope } from "./context.ts";
+import { formatErrorMessage } from "@asdl/core/primitives";
+
+import { environmentOptions, ROASTER_BOT_LOGIN, type RoasterRunScope } from "./context.ts";
 import type { FindingsPayload } from "./findings-comment.ts";
 import {
 	extractInlineMarkers,
@@ -8,8 +10,6 @@ import {
 import type { RoasterGitHubGateway } from "./gateways/github.ts";
 import { classifyInlineFindings } from "./inline-commentability.ts";
 import { type PRInlineCommentInput, type PostInlineFindingsResult } from "./models.ts";
-
-const BOT_LOGIN = "github-actions[bot]";
 
 export interface PostInlineFindingsOptions {
 	readonly prNumber: number;
@@ -28,7 +28,7 @@ export async function postInlineFindings(
 	try {
 		changedFilesResult = await ctx.github.getPrChangedFiles(options.prNumber, githubOptions);
 	} catch (caught) {
-		return { ...emptyInlineResult(), apiError: caughtMessage(caught) };
+		return { ...emptyInlineResult(), apiError: formatErrorMessage(caught) };
 	}
 	if (changedFilesResult.type === "error") {
 		return { ...emptyInlineResult(), apiError: changedFilesResult.error.message };
@@ -38,7 +38,7 @@ export async function postInlineFindings(
 	try {
 		reviewCommentsResult = await ctx.github.getPrReviewComments(options.prNumber, githubOptions);
 	} catch (caught) {
-		return { ...emptyInlineResult(), apiError: caughtMessage(caught) };
+		return { ...emptyInlineResult(), apiError: formatErrorMessage(caught) };
 	}
 	if (reviewCommentsResult.type === "error") {
 		return { ...emptyInlineResult(), apiError: reviewCommentsResult.error.message };
@@ -47,7 +47,7 @@ export async function postInlineFindings(
 	const classified = classifyInlineFindings(payload.findings, changedFilesResult.value);
 	const existingMarkers = new Set(
 		reviewCommentsResult.value
-			.filter((comment) => comment.author === BOT_LOGIN)
+			.filter((comment) => comment.author === ROASTER_BOT_LOGIN)
 			.flatMap((comment) => extractInlineMarkers(comment.body)),
 	);
 	const comments: PRInlineCommentInput[] = [];
@@ -74,7 +74,7 @@ export async function postInlineFindings(
 			if (posted.type === "error") apiError = posted.error.message;
 			else postedCount = comments.length;
 		} catch (caught) {
-			apiError = caughtMessage(caught);
+			apiError = formatErrorMessage(caught);
 		}
 	}
 
@@ -95,8 +95,4 @@ function emptyInlineResult(): PostInlineFindingsResult {
 		apiError: null,
 		fallbackOnly: [],
 	};
-}
-
-function caughtMessage(caught: unknown): string {
-	return caught instanceof Error ? caught.message : String(caught);
 }

@@ -67,10 +67,7 @@ export async function runReviewList(
 
 	let selectedKeys = catalog.value.keys;
 	if (request.applicable) {
-		const diff = await ctx.localDiff.loadDiff({
-			...environmentOptions(ctx.runScope),
-			...(request.base_ref === undefined ? {} : { baseRef: request.base_ref }),
-		});
+		const diff = await loadDiffFromRequest(ctx, request.base_ref);
 		if (diff.type === "error") return failureFromRoaster(diff.error);
 		selectedKeys = applicableReviewKeys(
 			new Map(loaded.value.map((item) => [item.key, item.definition])),
@@ -127,10 +124,7 @@ export async function runReviewByKey(
 			"No model was provided. Pass --model or set default_model in the review definition.",
 		);
 
-	const diff = await ctx.localDiff.loadDiff({
-		...environmentOptions(ctx.runScope),
-		...(request.base_ref === undefined ? {} : { baseRef: request.base_ref }),
-	});
+	const diff = await loadDiffFromRequest(ctx, request.base_ref);
 	if (diff.type === "error") return failureFromRoaster(diff.error);
 
 	ctx.stderr(
@@ -186,9 +180,10 @@ export async function runPublishFindings(
 		...(request.review_name === undefined ? {} : { fallbackReviewName: request.review_name }),
 		...(request.base_ref === undefined ? {} : { fallbackBaseRef: request.base_ref }),
 	});
-	if (result.type === "error") return stderrFailure(ctx, `publish-findings: ${result.message}\n`);
+	if (result.type === "error")
+		return stderrFailure(ctx, `publish-findings: ${result.error.message}\n`);
 
-	ctx.stderr(renderPublishFindingsDiagnostics(result));
+	ctx.stderr(renderPublishFindingsDiagnostics(result.value));
 	return 0;
 }
 
@@ -264,8 +259,18 @@ function failureFromRoaster(error: RoasterFailure): ClinkrExit<never> {
 	return failure(error.type, error.message);
 }
 
+function loadDiffFromRequest(
+	ctx: RoasterRuntime,
+	baseRef: string | undefined,
+): ReturnType<RoasterRuntime["localDiff"]["loadDiff"]> {
+	return ctx.localDiff.loadDiff({
+		...environmentOptions(ctx.runScope),
+		...(baseRef === undefined ? {} : { baseRef }),
+	});
+}
+
 function renderPublishFindingsDiagnostics(
-	result: Extract<PublishFindingsResult, { readonly type: "ok" }>,
+	result: Extract<PublishFindingsResult, { readonly type: "ok" }>["value"],
 ): string {
 	const apiError = result.inlineStatus.apiError?.replace(/\s+/gu, " ") ?? "none";
 	return [

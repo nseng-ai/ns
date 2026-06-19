@@ -10,6 +10,8 @@ import {
 import { RealLocalDiffGateway, type LocalDiffGateway } from "./gateways/local-diff.ts";
 import { RealReviewCatalogGateway, type ReviewCatalogGateway } from "./gateways/review-catalog.ts";
 
+export const ROASTER_BOT_LOGIN = "github-actions[bot]";
+
 export interface RoasterContext {
 	readonly execApi: CommandExecApi;
 	readonly gitGateway: GitGateway;
@@ -86,9 +88,8 @@ export function createRoasterRuntime(context: RoasterContext): RoasterRuntime {
 
 export function environmentOptions(scope: RoasterRunScope): GitHubGatewayOptions {
 	return {
-		cwd: scope.cwd,
+		...catalogOptions(scope),
 		env: scope.env,
-		...(scope.signal === undefined ? {} : { signal: scope.signal }),
 	};
 }
 

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import process from "node:process";
 
 import {
+	commandFailureReason,
 	execApiToCommandRunner,
 	formatCommand,
 	formatCommandStartupFailure,
@@ -101,6 +102,18 @@ describe("exec presentation helpers", () => {
 		expect(isSuccessfulExecResult({ stdout: "", stderr: "", code: 0, killed: false })).toBe(true);
 		expect(isSuccessfulExecResult({ stdout: "", stderr: "", code: 1, killed: false })).toBe(false);
 		expect(isSuccessfulExecResult({ stdout: "", stderr: "", code: 0, killed: true })).toBe(false);
+	});
+
+	test("formats concise command failure reasons", () => {
+		expect(
+			commandFailureReason({ stdout: "", stderr: "  fatal: nope\n", code: 128, killed: false }),
+		).toBe("fatal: nope");
+		expect(commandFailureReason({ stdout: "", stderr: "", code: 9, killed: false })).toBe(
+			"exit code 9",
+		);
+		expect(commandFailureReason({ stdout: "", stderr: "", code: 124, killed: true })).toBe(
+			"exit code 124 (killed)",
+		);
 	});
 
 	test("formats command displays with shell quoting", () => {

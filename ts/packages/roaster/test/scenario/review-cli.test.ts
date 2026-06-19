@@ -155,6 +155,20 @@ describe("roaster review CLI", () => {
 		expect(topStdout).toEqual([]);
 	});
 
+	test("default context supplies top-level CLI I/O", async () => {
+		const stdout: string[] = [];
+		const stderr: string[] = [];
+
+		const exitCode = await runCli(["--help"], {
+			stdout: (text) => stdout.push(text),
+			stderr: (text) => stderr.push(text),
+		});
+
+		expect(exitCode).toBe(0);
+		expect(stdout.join("")).toContain("review");
+		expect(stderr).toEqual([]);
+	});
+
 	test("review list renders human output", async () => {
 		const run = await runRoaster(["review", "list"], {
 			context: contextWithCatalog({
