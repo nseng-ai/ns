@@ -101,6 +101,11 @@
       "sourceType": "local",
       "computedHash": "85feaff839e3eb38bda634d58e1cbbb1ae5f5d451f3f72eb8bfeeda13e3cecb9"
     },
+    "code-thermostack": {
+      "source": "skills/code-thermostack",
+      "sourceType": "local",
+      "computedHash": "aaadc10d685616994e102374eb957d1e347aedbe1ab3cb78ce5f6b12a6555881"
+    },
     "code-workflows": {
       "source": "skills/code-workflows",
       "sourceType": "local",
