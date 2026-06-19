@@ -31,9 +31,11 @@ export class FakeSessionSource implements SessionSource {
 
 	async query(query: SessionQuery): Promise<SessionQueryResult> {
 		this.queries.push({ ...query, session_root: query.session_root });
+		const limitedSessions =
+			query.max_sessions <= 0 ? [] : this.sessions.slice(0, query.max_sessions);
 		return {
 			source_info: this.sourceInfo,
-			sessions: [...this.sessions],
+			sessions: [...limitedSessions],
 			warnings: [...this.warnings],
 		};
 	}
