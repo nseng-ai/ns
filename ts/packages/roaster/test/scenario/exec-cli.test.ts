@@ -13,7 +13,7 @@ import type {
 	PRInlineCommentInput,
 	PRReviewComment,
 } from "../../src/models.ts";
-import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
+import { fakeRoasterGateways } from "../support/fake-roaster-gateways.ts";
 
 interface RunResult {
 	readonly exitCode: number;
@@ -28,7 +28,7 @@ async function runRoaster(
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const exitCode = await runCli(args, {
-		context: fakeRoasterContext({ github: options.github }),
+		gateways: fakeRoasterGateways({ github: options.github }),
 		cwd: "/repo",
 		env: {},
 		stdin: async () => options.stdin ?? "",

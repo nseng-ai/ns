@@ -21,7 +21,7 @@ import type {
 	ReviewExecutionResponse,
 } from "./models.ts";
 
-export interface RoasterContext {
+export interface RoasterGateways {
 	readonly execApi: CommandExecApi;
 	readonly gitGateway: GitGateway;
 	readonly localDiff: LocalDiffGateway;
@@ -30,7 +30,7 @@ export interface RoasterContext {
 	readonly harness: HarnessGateway;
 }
 
-export interface CreateRealRoasterContextOptions {
+export interface CreateRealRoasterGatewaysOptions {
 	readonly execApi?: CommandExecApi | undefined;
 	readonly gitGateway?: GitGateway | undefined;
 	readonly harness?: HarnessGateway | undefined;
@@ -79,16 +79,16 @@ export interface BoundRoasterGitHubGateway {
 	): Promise<RoasterResult<PRDiscussionComment>>;
 }
 
-export interface RoasterRunContext {
+export interface RoasterContext {
 	readonly localDiff: BoundLocalDiffGateway;
 	readonly reviewCatalog: BoundReviewCatalogGateway;
 	readonly github: BoundRoasterGitHubGateway;
 	readonly harness: BoundHarnessGateway;
 }
 
-export function createRealRoasterContext(
-	options: CreateRealRoasterContextOptions = {},
-): RoasterContext {
+export function createRealRoasterGateways(
+	options: CreateRealRoasterGatewaysOptions = {},
+): RoasterGateways {
 	const execApi = options.execApi ?? new NodeCommandExecApi();
 	const gitGateway = options.gitGateway ?? new RealGitGateway(execApi);
 	return {
@@ -102,13 +102,13 @@ export function createRealRoasterContext(
 }
 
 export function bindRoasterContext(
-	context: RoasterContext,
+	gateways: RoasterGateways,
 	environment: RoasterRunEnvironment,
-): RoasterRunContext {
+): RoasterContext {
 	return {
 		localDiff: {
 			async loadDiff(options = {}) {
-				return await context.localDiff.loadDiff({
+				return await gateways.localDiff.loadDiff({
 					...environmentOptions(environment),
 					...(options.baseRef === undefined ? {} : { baseRef: options.baseRef }),
 				});
@@ -116,10 +116,10 @@ export function bindRoasterContext(
 		},
 		reviewCatalog: {
 			async listReviewKeys() {
-				return await context.reviewCatalog.listReviewKeys(catalogOptions(environment));
+				return await gateways.reviewCatalog.listReviewKeys(catalogOptions(environment));
 			},
 			async loadReviewSource(options) {
-				return await context.reviewCatalog.loadReviewSource({
+				return await gateways.reviewCatalog.loadReviewSource({
 					...catalogOptions(environment),
 					key: options.key,
 				});
@@ -127,25 +127,25 @@ export function bindRoasterContext(
 		},
 		harness: {
 			async runReview(request) {
-				return await context.harness.runReview(request, environmentOptions(environment));
+				return await gateways.harness.runReview(request, environmentOptions(environment));
 			},
 		},
 		github: {
 			async getPrChangedFiles(prNumber) {
-				return await context.github.getPrChangedFiles(prNumber, environmentOptions(environment));
+				return await gateways.github.getPrChangedFiles(prNumber, environmentOptions(environment));
 			},
 			async getPrReviewComments(prNumber) {
-				return await context.github.getPrReviewComments(prNumber, environmentOptions(environment));
+				return await gateways.github.getPrReviewComments(prNumber, environmentOptions(environment));
 			},
 			async createPrReview(prNumber, comments) {
-				return await context.github.createPrReview(
+				return await gateways.github.createPrReview(
 					prNumber,
 					comments,
 					environmentOptions(environment),
 				);
 			},
 			async findPrDiscussionCommentByMarker(options) {
-				return await context.github.findPrDiscussionCommentByMarker({
+				return await gateways.github.findPrDiscussionCommentByMarker({
 					...environmentOptions(environment),
 					prNumber: options.prNumber,
 					marker: options.marker,
@@ -153,14 +153,14 @@ export function bindRoasterContext(
 				});
 			},
 			async addPrDiscussionComment(prNumber, body) {
-				return await context.github.addPrDiscussionComment(
+				return await gateways.github.addPrDiscussionComment(
 					prNumber,
 					body,
 					environmentOptions(environment),
 				);
 			},
 			async updatePrDiscussionComment(commentId, body) {
-				return await context.github.updatePrDiscussionComment(
+				return await gateways.github.updatePrDiscussionComment(
 					commentId,
 					body,
 					environmentOptions(environment),
