@@ -127,8 +127,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 	dependencies: RunnerSubagentDispatcherDependencies = {},
 ): Promise<RunnerSubagentResult<TTerminalInput>> {
 	const clock = dependencies.clock ?? systemClock;
-	const now = () => clock.nowMs();
-	const startTimeMs = now();
+	const startTimeMs = clock.nowMs();
 	const cwd = options.cwd ?? ctx.cwd;
 	const title = options.title;
 	const launch = options.preResolvedLaunch ?? resolveRunnerSubagentLaunch(pi, ctx, options);
@@ -138,7 +137,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 	if (abortSignals.some((signal) => signal.aborted)) {
 		const progress = stoppedProgress({
 			title,
-			now,
+			clock,
 			startTimeMs,
 			...(launch === undefined ? {} : { launch }),
 		});
@@ -160,7 +159,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		} catch (error) {
 			const progress = stoppedProgress({
 				title,
-				now,
+				clock,
 				startTimeMs,
 				...(launch === undefined ? {} : { launch }),
 			});
@@ -181,7 +180,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		await cleanupRuntimeFiles(runtimeFiles);
 		const progress = stoppedProgress({
 			title,
-			now,
+			clock,
 			startTimeMs,
 			...(launch === undefined ? {} : { launch }),
 		});
@@ -847,12 +846,12 @@ async function cleanupRuntimeFiles(
 
 function stoppedProgress(input: {
 	title: string | undefined;
-	now: () => number;
+	clock: Clock;
 	startTimeMs: number;
 	sessionFile?: string;
 	launch?: RunnerSubagentLaunchMetadata;
 }): RunnerSubagentProgress {
-	const elapsedMs = Math.max(0, input.now() - input.startTimeMs);
+	const elapsedMs = Math.max(0, input.clock.nowMs() - input.startTimeMs);
 	return {
 		...(input.title === undefined ? {} : { title: input.title }),
 		state: "stopped",
