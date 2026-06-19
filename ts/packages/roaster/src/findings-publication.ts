@@ -6,7 +6,7 @@ import {
 import { formatZodError, truncatedSha256Digest } from "@asdl/core/primitives";
 import { z } from "zod";
 
-import type { BoundRoasterGitHubGateway } from "./context.ts";
+import type { RoasterGitHub } from "./context.ts";
 import { classifyInlineFindings } from "./inline-commentability.ts";
 import {
 	reviewRunResultSchema,
@@ -132,7 +132,7 @@ export type PublishFindingsResult =
 	| { readonly type: "error"; readonly message: string };
 
 export async function publishFindings(
-	ctx: { readonly github: BoundRoasterGitHubGateway },
+	ctx: { readonly github: RoasterGitHub },
 	options: PublishFindingsOptions,
 ): Promise<PublishFindingsResult> {
 	const parsed = parseFindingsPayloadResult(options.envelope, fallbackPayloadOptions(options));
@@ -259,13 +259,13 @@ export function preserveActivityLog(
 }
 
 async function postInlineFindings(
-	ctx: { readonly github: BoundRoasterGitHubGateway },
+	ctx: { readonly github: RoasterGitHub },
 	payload: FindingsPayload,
 	options: PublishFindingsOptions,
 ): Promise<PostInlineFindingsResult> {
 	if (payload.errorType !== null || payload.count === 0) return emptyInlineResult();
 
-	let changedFilesResult: Awaited<ReturnType<BoundRoasterGitHubGateway["getPrChangedFiles"]>>;
+	let changedFilesResult: Awaited<ReturnType<RoasterGitHub["getPrChangedFiles"]>>;
 	try {
 		changedFilesResult = await ctx.github.getPrChangedFiles(options.prNumber);
 	} catch (caught) {
@@ -275,7 +275,7 @@ async function postInlineFindings(
 		return { ...emptyInlineResult(), apiError: changedFilesResult.error.message };
 	}
 
-	let reviewCommentsResult: Awaited<ReturnType<BoundRoasterGitHubGateway["getPrReviewComments"]>>;
+	let reviewCommentsResult: Awaited<ReturnType<RoasterGitHub["getPrReviewComments"]>>;
 	try {
 		reviewCommentsResult = await ctx.github.getPrReviewComments(options.prNumber);
 	} catch (caught) {

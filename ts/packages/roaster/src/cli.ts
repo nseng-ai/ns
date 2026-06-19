@@ -7,7 +7,11 @@ import { rawCommand } from "@asdl/clinkr/raw";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 import { readStdin } from "@asdl/core/stdin";
 
-import { bindRoasterContext, createRealRoasterGateways, type RoasterGateways } from "./context.ts";
+import {
+	createRealRoasterGateways,
+	createRoasterContext,
+	type RoasterGateways,
+} from "./context.ts";
 import {
 	publishFindingsRequestSchema,
 	renderReviewList,
@@ -94,7 +98,7 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 	const cwd = deps.cwd ?? process.cwd();
 	const env = deps.env ?? process.env;
 	const gateways = deps.gateways ?? createRealRoasterGateways();
-	const context = bindRoasterContext(gateways, {
+	const context = createRoasterContext(gateways, {
 		cwd,
 		env,
 		...(deps.signal === undefined ? {} : { signal: deps.signal }),
