@@ -63,3 +63,15 @@ The explicit directory-move workflow that moves an Objective record between the 
 **Closure Marker**:
 A lightweight `closed.md` file whose existence lets tools identify closed objectives without language-model interpretation.
 *Avoid*: Hidden status, archive state, deletion
+
+## Architecture Boundaries
+
+These terms are general across the codebase. The canonical definitions are replicated here for discoverability; the `typescript-fake-driven-testing` skill carries the fuller mechanics.
+
+**Gateway**:
+The canonical interface to an external or non-deterministic capability — process execution, Git, GitHub, filesystem, network, the system clock, and timers. Business logic depends on a Gateway rather than on the raw capability, so the Gateway is the single seam where real I/O is replaced by an in-memory fake in tests. External-service boundaries carry the `Gateway` suffix (`ExecGateway`, `GitGateway`, `PRGateway`); small runtime primitives are Gateways by category but named bare (`Clock`, `TimerScheduler`).
+*Avoid*: port, generic service locator, dependency-injection bag
+
+**Domain logic**:
+Deterministic code that consumes one or more **Gateways** to produce or transform domain values, such as assembling a worktree's status from several `ExecGateway` calls. It is not a seam to the outside world: substituting domain logic in a test fakes logic you own, so prefer faking the **Gateway** beneath it. Name domain logic with a domain-specific verb (`load`, `read`, `resolve`, `assemble`, …, chosen for the domain action, not a mandated prefix); do not mint `…Loader` noun-types or a `loaders`/`…Dependencies` collection that dresses stateless functions up as a stateful collaborator.
+*Avoid*: business logic, application logic, loader, `…Loader` type, `…Dependencies` injection bag
