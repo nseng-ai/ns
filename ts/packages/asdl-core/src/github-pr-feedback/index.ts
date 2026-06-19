@@ -1,10 +1,4 @@
 export { RealGithubPrFeedbackGateway } from "./gateway.ts";
-export {
-	replyToReviewThreadMutation,
-	resolveReviewThreadMutation,
-	reviewThreadCommentsQuery,
-	reviewThreadsQuery,
-} from "./queries.ts";
 export type {
 	GithubPrDiscussionComment,
 	GithubPrFeedbackFailure,

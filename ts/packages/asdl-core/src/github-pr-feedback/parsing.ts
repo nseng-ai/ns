@@ -10,7 +10,7 @@ import type { GithubPrFeedbackFailure, GithubPrFeedbackOperation } from "./types
 export function parseJson<T>(
 	text: string,
 	schema: z.ZodType<T>,
-	context: FailureContext,
+	context: GithubPrFeedbackFailureContext,
 ): Result<T, GithubPrFeedbackFailure> {
 	let parsed: unknown;
 	try {
@@ -51,7 +51,7 @@ export function parseJson<T>(
 export function parseGraphqlJson<T>(
 	text: string,
 	schema: z.ZodType<T>,
-	context: FailureContext,
+	context: GithubPrFeedbackFailureContext,
 ): Result<T, GithubPrFeedbackFailure> {
 	const base = parseJson(text, ghGraphqlErrorsSchema, context);
 	if (!base.ok) return base;
@@ -100,7 +100,7 @@ export function requireEndCursor(options: {
 	);
 }
 
-interface FailureContext {
+export interface GithubPrFeedbackFailureContext {
 	readonly operation: GithubPrFeedbackOperation;
 	readonly run: Extract<RunGitHubCliResult, { readonly type: "completed" }>;
 	readonly prNumber?: number | undefined;
