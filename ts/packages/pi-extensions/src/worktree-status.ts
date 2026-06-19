@@ -4,7 +4,10 @@ import type { CustomMessageContent } from "@asdl/pi-extension-runtime/terminal-p
 
 import {
 	combineWorktreeStatus,
+	currentWorktreeStatusBranchName,
+	findWorktreeStatusGitPaths,
 	formatWorktreeStatus,
+	isWorktreeStatusIdentityStillCurrent,
 	loadLocalWorktreeStatus,
 	loadWorktreeGhStatus,
 	loadWorktreeStatusIdentity,
@@ -26,11 +29,6 @@ import {
 	type WorktreeStatusActivityController,
 	type WorktreeStatusActivityOptions,
 } from "./worktree-status-activity.ts";
-import {
-	currentBranchName,
-	findGitPaths,
-	isSharedIdentityStillCurrent,
-} from "./worktree-status-git-paths.ts";
 import {
 	createWorktreeStatusRefreshChannel,
 	type WorktreeStatusRefreshOptions,
@@ -379,7 +377,7 @@ export default function worktreeStatusExtension(
 		if (!isActiveSession(session)) return;
 
 		const sharedIdentityStale =
-			identity !== undefined && !isSharedIdentityStillCurrent(session.cwd, identity);
+			identity !== undefined && !isWorktreeStatusIdentityStillCurrent(session.cwd, identity);
 		if (sharedIdentityStale) {
 			status = await loadLocalWorktreeStatus(pi, session.cwd, {
 				signal: session.abortController.signal,
@@ -562,16 +560,16 @@ export default function worktreeStatusExtension(
 }
 
 function currentFooterBranch(cwd: string, footerData: StatusFooterData): string | null {
-	const gitPaths = findGitPaths(cwd);
+	const gitPaths = findWorktreeStatusGitPaths(cwd);
 	if (gitPaths !== undefined) {
-		const branch = currentBranchName(gitPaths);
+		const branch = currentWorktreeStatusBranchName(gitPaths);
 		if (branch !== undefined) return branch;
 	}
 	return footerData.getGitBranch();
 }
 
 function fallbackRepoName(cwd: string): string {
-	const gitPaths = findGitPaths(cwd);
+	const gitPaths = findWorktreeStatusGitPaths(cwd);
 	if (gitPaths !== undefined) return basename(gitPaths.repoDir);
 	return basename(resolve(cwd)) || "unknown";
 }

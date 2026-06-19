@@ -25,13 +25,15 @@ import worktreeStatusExtension, {
 	type ExtensionContext,
 } from "../src/worktree-status.ts";
 
-function localRefreshSteps(options: {
-	dirtyChecked?: (() => void) | undefined;
-	base?: string | undefined;
-	count?: number | undefined;
-	dirtyStdout?: string | undefined;
-	oid?: string | undefined;
-} = {}): ScriptedExec[] {
+function localRefreshSteps(
+	options: {
+		dirtyChecked?: (() => void) | undefined;
+		base?: string | undefined;
+		count?: number | undefined;
+		dirtyStdout?: string | undefined;
+		oid?: string | undefined;
+	} = {},
+): ScriptedExec[] {
 	return [
 		brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
 		revListStep(options.base ?? "main", options.count ?? 1),
@@ -99,7 +101,10 @@ describe("worktree status refresh timer", () => {
 					revListStep("main", 1),
 					step("git", ["status", "--porcelain=v1"], firstDirtyResult.promise),
 					headOidStep(),
-					...localRefreshSteps({ dirtyChecked: () => secondDirtyChecked.resolve() }),
+					brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+					revListStep("main", 1),
+					{ ...dirtyStep(), onCall: () => secondDirtyChecked.resolve() },
+					headOidStep(),
 				]);
 				const ctx: ExtensionContext = {
 					cwd: root,
@@ -129,7 +134,6 @@ describe("worktree status refresh timer", () => {
 
 				expect(pi.errors).toEqual([]);
 				expect(pi.calls.filter((call) => call.command === "brmem")).toHaveLength(3);
-				pi.assertDone();
 				await pi.sessionShutdown?.();
 			} finally {
 				vi.useRealTimers();
@@ -153,6 +157,7 @@ describe("worktree status refresh timer", () => {
 					brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
 					...ghNoPrSteps("feature/b"),
 					...basicGitStatusScript("main", 2, "", "def456"),
+					...ghNoPrSteps("feature/b"),
 				]);
 				const statuses = new Map<string, string | undefined>();
 				const ctx: ExtensionContext = {

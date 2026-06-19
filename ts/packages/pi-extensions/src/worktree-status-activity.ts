@@ -26,15 +26,15 @@ export function createWorktreeStatusActivityController(options: {
 	onWakeRefresh(): void;
 }): WorktreeStatusActivityController {
 	let lastActivityAtMs = options.dependencies.now();
-	let dormant = false;
-	let closed = false;
+	let isDormant = false;
+	let isClosed = false;
 	let dormancyTimer: ReturnType<typeof setTimeout> | undefined;
 
 	function recordActivity(activityOptions: WorktreeStatusActivityOptions = {}): void {
-		if (closed || !options.isActive()) return;
+		if (isClosed || !options.isActive()) return;
 		lastActivityAtMs = options.dependencies.now();
-		if (dormant) {
-			dormant = false;
+		if (isDormant) {
+			isDormant = false;
 			options.onDormantChange(false);
 			if (activityOptions.shouldRefreshOnWake !== false) options.onWakeRefresh();
 		}
@@ -43,7 +43,7 @@ export function createWorktreeStatusActivityController(options: {
 
 	function scheduleDormancyCheck(): void {
 		clearDormancyTimer();
-		if (closed || !options.isActive()) return;
+		if (isClosed || !options.isActive()) return;
 		const delayMs = Math.max(
 			0,
 			lastActivityAtMs + WORKTREE_STATUS_DORMANT_AFTER_MS - options.dependencies.now(),
@@ -60,7 +60,7 @@ export function createWorktreeStatusActivityController(options: {
 
 	function checkDormancy(): void {
 		dormancyTimer = undefined;
-		if (closed || !options.isActive()) return;
+		if (isClosed || !options.isActive()) return;
 		if (isBusySafely()) {
 			lastActivityAtMs = options.dependencies.now();
 			scheduleDormancyCheck();
@@ -85,13 +85,13 @@ export function createWorktreeStatusActivityController(options: {
 	}
 
 	function enterDormantMode(): void {
-		if (closed || dormant || !options.isActive()) return;
-		dormant = true;
+		if (isClosed || isDormant || !options.isActive()) return;
+		isDormant = true;
 		options.onDormantChange(true);
 	}
 
 	function close(): void {
-		closed = true;
+		isClosed = true;
 		clearDormancyTimer();
 	}
 
@@ -100,7 +100,7 @@ export function createWorktreeStatusActivityController(options: {
 	return {
 		recordActivity,
 		isDormant() {
-			return dormant;
+			return isDormant;
 		},
 		close,
 	};
