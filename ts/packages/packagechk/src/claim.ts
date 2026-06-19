@@ -32,7 +32,7 @@ export function moduleNameFromPackage(packageName: string): string {
 	return moduleName;
 }
 
-export function renderClaimPyproject(spec: ClaimProjectSpec): string {
+function renderClaimPyproject(spec: ClaimProjectSpec): string {
 	const packagePath = `src/${spec.moduleName}`;
 	return `[build-system]
 requires = ["hatchling"]
@@ -50,7 +50,7 @@ packages = [${formatTomlString(packagePath)}]
 `;
 }
 
-export function renderClaimInitPy(version: string): string {
+function renderClaimInitPy(version: string): string {
 	return `"""Claimed package name."""
 
 __version__ = ${formatTomlString(version)}
@@ -67,11 +67,7 @@ export function buildClaimProjectFiles(spec: ClaimProjectSpec): readonly ClaimPr
 	];
 }
 
-export function writeClaimProjectFiles(projectDir: string, spec: ClaimProjectSpec): void {
-	writeClaimFiles(projectDir, buildClaimProjectFiles(spec));
-}
-
-export function renderNpmPackageJson(spec: NpmClaimProjectSpec): string {
+function renderNpmPackageJson(spec: NpmClaimProjectSpec): string {
 	return `${JSON.stringify(
 		{
 			name: spec.packageName,
@@ -86,11 +82,11 @@ export function renderNpmPackageJson(spec: NpmClaimProjectSpec): string {
 	)}\n`;
 }
 
-export function renderNpmReadme(spec: NpmClaimProjectSpec): string {
+function renderNpmReadme(spec: NpmClaimProjectSpec): string {
 	return `# ${spec.packageName}\n\nThis npm package name is claimed.\n`;
 }
 
-export function renderNpmIndexJs(): string {
+function renderNpmIndexJs(): string {
 	return "// Claimed package name placeholder.\n";
 }
 
@@ -100,10 +96,6 @@ export function buildNpmClaimProjectFiles(spec: NpmClaimProjectSpec): readonly C
 		{ relativePath: "README.md", contents: renderNpmReadme(spec) },
 		{ relativePath: "index.js", contents: renderNpmIndexJs() },
 	];
-}
-
-export function writeNpmClaimProjectFiles(projectDir: string, spec: NpmClaimProjectSpec): void {
-	writeClaimFiles(projectDir, buildNpmClaimProjectFiles(spec));
 }
 
 export function writeClaimFiles(projectDir: string, files: readonly ClaimProjectFile[]): void {
@@ -119,5 +111,6 @@ export function writeClaimFiles(projectDir: string, files: readonly ClaimProject
 }
 
 function formatTomlString(value: string): string {
+	// packagechk only emits TOML basic strings for scalar fields; this is not a general TOML serializer.
 	return JSON.stringify(value);
 }

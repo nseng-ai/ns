@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { readdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-import { formatError } from "./error-format.ts";
+import { formatErrorMessage } from "@asdl/core/primitives";
 
 export interface PypiPublishGateway {
 	ensurePublishToolsAvailable(): string | null;
@@ -68,7 +68,7 @@ export class RealPypiPublishGateway implements PypiPublishGateway {
 				return buildFailure("uv build did not produce any artifacts in dist/");
 			return { artifacts };
 		} catch (error) {
-			return buildFailure(`uv build failed to start: ${formatError(error)}`);
+			return buildFailure(`uv build failed to start: ${formatErrorMessage(error)}`);
 		}
 	}
 
@@ -79,7 +79,7 @@ export class RealPypiPublishGateway implements PypiPublishGateway {
 			const result = this.commandRunner(command, projectDir);
 			return result.returnCode === 0 ? null : formatCommandFailure(command, result);
 		} catch (error) {
-			return `${formatCommand(command)} failed to start: ${formatError(error)}`;
+			return `${formatCommand(command)} failed to start: ${formatErrorMessage(error)}`;
 		}
 	}
 }
@@ -157,7 +157,7 @@ export class RealNpmPublishGateway implements NpmPublishGateway {
 			const result = this.commandRunner(command, projectDir);
 			return result.returnCode === 0 ? null : formatCommandFailure(command, result);
 		} catch (error) {
-			return `${formatCommand(command)} failed to start: ${formatError(error)}`;
+			return `${formatCommand(command)} failed to start: ${formatErrorMessage(error)}`;
 		}
 	}
 }

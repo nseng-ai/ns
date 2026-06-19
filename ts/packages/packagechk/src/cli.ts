@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
 import process from "node:process";
-import { createInterface } from "node:readline";
 
 import { ClinkrGroup, resolveIo as resolveClinkrIo } from "@asdl/clinkr";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
+import { readStdinLine } from "@asdl/core/stdin";
 import { z } from "zod";
 
 import {
@@ -105,7 +105,7 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 	const io: ClaimCommandIo = {
 		stdout: clinkrIo.stdout,
 		stderr: clinkrIo.stderr,
-		stdin: deps.stdin ?? readProcessStdin,
+		stdin: deps.stdin ?? (async () => (await readStdinLine()) ?? ""),
 	};
 	const context: PackagechkCliContext = {
 		registryGateway: deps.registryGateway ?? new RealPackageRegistryGateway(),
@@ -122,34 +122,18 @@ async function runCheck(ctx: PackagechkCliContext, request: CheckRequest): Promi
 		ctx.io.stderr(`${selectedRegistries}\n`);
 		return 2;
 	}
-	return await runCheckCommand({
-		name: request.name,
-		registryOptions: selectedRegistries,
-		jsonOutput: request.json === true,
-		registryGateway: ctx.registryGateway,
-		io: ctx.io,
-	});
-}
-
-async function runCheckCommand(options: {
-	name: string;
-	registryOptions: readonly Registry[];
-	jsonOutput: boolean;
-	registryGateway: PackageRegistryGateway;
-	io: ClaimCommandIo;
-}): Promise<number> {
 	const report = await checkPackageName({
-		packageName: options.name,
-		registries: registrySelection(options.registryOptions),
-		registryGateway: options.registryGateway,
+		packageName: request.name,
+		registries: registrySelection(selectedRegistries),
+		registryGateway: ctx.registryGateway,
 	});
 	const exitCode = reportExitCode(report);
-	if (options.jsonOutput) {
-		options.io.stdout(`${renderJson(report)}\n`);
+	if (request.json === true) {
+		ctx.io.stdout(`${renderJson(report)}\n`);
 	} else if (exitCode === 2) {
-		options.io.stderr(`${renderHuman(report)}\n`);
+		ctx.io.stderr(`${renderHuman(report)}\n`);
 	} else {
-		options.io.stdout(`${renderHuman(report)}\n`);
+		ctx.io.stdout(`${renderHuman(report)}\n`);
 	}
 	return exitCode;
 }
@@ -165,17 +149,6 @@ function parseRegistryOptions(options: readonly string[]): Registry[] | string {
 
 function isRegistry(value: string): value is Registry {
 	return REGISTRIES.includes(value as Registry);
-}
-
-async function readProcessStdin(): Promise<string> {
-	const readline = createInterface({ input: process.stdin, crlfDelay: Infinity });
-	try {
-		const iterator = readline[Symbol.asyncIterator]();
-		const result = await iterator.next();
-		return result.done === true ? "" : result.value;
-	} finally {
-		readline.close();
-	}
 }
 
 function runtimeInfo(): string {
