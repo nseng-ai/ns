@@ -10,7 +10,8 @@ Use for TypeScript testing architecture when code touches external systems such 
 ## Core model
 
 - Define semantic gateway types for external capabilities.
-- Keep application logic above gateways and inject a small context object manually.
+- A gateway is the canonical interface to an external **or non-deterministic** capability: process execution, git, gh, filesystem, network, plus the system clock and timers. External-service boundaries carry the `Gateway` suffix (`ExecGateway`, `GitGateway`); bare runtime primitives (`Clock`, `TimerScheduler`) are gateways by category but named without the suffix.
+- Keep domain logic above gateways and inject a small context object manually. Name domain logic with a domain-specific verb (`load`/`read`/`resolve`/`assemble`, chosen for the action); do not mint `…Loader` noun-types or a `loaders`/`…Dependencies` injection bag, which dress stateless functions up as a stateful collaborator. Fake the gateway beneath domain logic, never the domain logic itself.
 - Implement real adapters at the edge; they own subprocess, filesystem, HTTP, env parsing, and wire-format parsing.
 - Implement in-memory fakes as true alternate implementations of the gateway types.
 - Prefer result unions for expected external failures; reserve throws for programmer errors.
@@ -38,9 +39,9 @@ Avoid mechanism-shaped gateways:
 - `SubprocessGateway`
 - `ShellRunner`
 - `HttpClientGateway`
-- gateway methods that return raw stdout for application logic to parse
+- gateway methods that return raw stdout for domain logic to parse
 
-Also avoid gateways that are too high-level, such as `getPreviewUrl(...)`, when selection policy belongs in application logic.
+Also avoid gateways that are too high-level, such as `getPreviewUrl(...)`, when selection policy belongs in domain logic.
 
 ## Fake style
 
@@ -81,7 +82,7 @@ export type ErrorInfo = { code: string; message: string; details?: Record<string
 export type GatewayResult<T> = { ok: true; value: T } | { ok: false; error: ErrorInfo };
 ```
 
-Application logic decides whether a gateway failure is fatal, recoverable, or a warning.
+Domain logic decides whether a gateway failure is fatal, recoverable, or a warning.
 
 Two companion shapes cover the remaining method kinds:
 
