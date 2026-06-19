@@ -17,6 +17,7 @@ import {
 	type SessionSummaryDto,
 	type AggregateMetricsDto,
 	type EvidenceItemDto,
+	type PayloadReference,
 } from "../contracts.ts";
 import type {
 	ParsedSession,
@@ -29,6 +30,9 @@ import type {
 	SessionMessageCounts,
 } from "../sessions/types.ts";
 import { collectSessionEvidence } from "../sessions/evidence.ts";
+import { PayloadError } from "../payloads/errors.ts";
+import { buildEvidencePayloadData } from "../payloads/evidence-payload.ts";
+import { PayloadStore } from "../payloads/store.ts";
 
 export const collectEvidenceRequestSchema = z.object({
 	repo: z.string().optional(),
@@ -53,11 +57,149 @@ export async function runCollectEvidence(
 	const sourceInfo = context.sessionSource.sourceInfo;
 
 	if (request.payload_mode === "payload") {
-		const error: CollectEvidenceError = {
-			code: "payload_mode_not_implemented",
-			message: "Payload mode is not yet implemented in the TypeScript port.",
+		let payloadStore: PayloadStore;
+		try {
+			payloadStore = PayloadStore.fromEnvironment({
+				...(request.payload_session_id !== undefined && {
+					explicitSessionId: request.payload_session_id,
+				}),
+				...(context.env !== undefined && { env: context.env }),
+			});
+		} catch (error) {
+			const payloadError = error instanceof PayloadError ? error : null;
+			const collectError: CollectEvidenceError = {
+				code: payloadError?.errorType ?? "payload_mode_failed",
+				message: payloadError?.message ?? String(error),
+			};
+			const result = emptyResult({
+				request,
+				cwd,
+				repoRoot: null,
+				branch: request.branch ?? null,
+				branchSource: branchSourceForUnresolvedRepo(request),
+				sourceInfo,
+				error: collectError,
+				warnings: [],
+			});
+			return shellNegative(collectError.message, result);
+		}
+
+		const gitCommonDir = await context.git.getGitCommonDir({ cwd: repoInput });
+		if (gitCommonDir === null) {
+			const error: CollectEvidenceError = {
+				code: "not_a_git_repo",
+				message: `Not a git repository: ${repoInput}. Pass --repo with a git repository path.`,
+			};
+			const result = emptyResult({
+				request,
+				cwd,
+				repoRoot: null,
+				branch: request.branch ?? null,
+				branchSource: branchSourceForUnresolvedRepo(request),
+				sourceInfo,
+				error,
+				warnings: [],
+			});
+			return shellNegative(error.message, result);
+		}
+
+		const repoRootResult = await context.git.getRepositoryRoot({ cwd: repoInput });
+		if (!repoRootResult.ok) {
+			const error: CollectEvidenceError = {
+				code: repoRootResult.error.code,
+				message: repoRootResult.error.message,
+			};
+			const result = emptyResult({
+				request,
+				cwd,
+				repoRoot: null,
+				branch: request.branch ?? null,
+				branchSource: branchSourceForUnresolvedRepo(request),
+				sourceInfo,
+				error,
+				warnings: [],
+			});
+			return shellNegative(error.message, result);
+		}
+		const repoRoot = repoRootResult.value;
+
+		const resolvedBranch = await resolveBranch(context, repoRoot, request.branch);
+		if (resolvedBranch.error !== null) {
+			const result = emptyResult({
+				request,
+				cwd,
+				repoRoot,
+				branch: resolvedBranch.branch,
+				branchSource: resolvedBranch.branchSource,
+				sourceInfo,
+				error: resolvedBranch.error,
+				warnings: [],
+			});
+			return shellNegative(resolvedBranch.error.message, result);
+		}
+
+		const repo: RepoContextDto = {
+			repo_root: repoRoot,
+			cwd,
+			branch: resolvedBranch.branch,
+			branch_source: resolvedBranch.branchSource,
 		};
-		return shellNegativeBeforeResolution({ request, cwd, sourceInfo, error });
+
+		const query: SessionQuery = {
+			repo_root: repoRoot,
+			session_root: request.session_root ?? null,
+			max_sessions: request.max_sessions,
+		};
+
+		const queryResult = await context.sessionSource.query(query);
+		const compactResult = resultFromQueryResult(request, repo, queryResult);
+
+		const payloadData = buildEvidencePayloadData({
+			compactResult,
+			sessions: queryResult.sessions,
+		});
+
+		let payloadReference: PayloadReference;
+		try {
+			payloadReference = payloadStore.writeJsonArtifact({
+				descriptor: "aretro-collect-evidence",
+				role: "raw",
+				payload: { exit_code: 0, data: payloadData },
+			});
+		} catch (error) {
+			const payloadError = error instanceof PayloadError ? error : null;
+			const collectError: CollectEvidenceError = {
+				code: payloadError?.errorType ?? "payload_write_failed",
+				message: payloadError?.message ?? String(error),
+			};
+			const result = emptyResult({
+				request,
+				cwd,
+				repoRoot,
+				branch: resolvedBranch.branch,
+				branchSource: resolvedBranch.branchSource,
+				sourceInfo,
+				error: collectError,
+				warnings: [...queryResult.warnings],
+			});
+			return shellNegative(collectError.message, result);
+		}
+
+		const payloadResult: CollectEvidenceResult = {
+			...compactResult,
+			payload_mode: "payload",
+			payload_reference: payloadReference,
+			detail_locator_hints: [
+				"/data/repo",
+				"/data/query",
+				"/data/source",
+				"/data/aggregate_metrics",
+				"/data/sessions",
+				"/data/warnings",
+				"/data/evidence_items",
+			],
+		};
+		return ok(payloadResult);
 	}
 
 	const gitCommonDir = await context.git.getGitCommonDir({ cwd: repoInput });

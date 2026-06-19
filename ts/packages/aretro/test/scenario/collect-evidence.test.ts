@@ -1,3 +1,7 @@
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import type { AretroCliContext } from "../../src/context.ts";
@@ -226,7 +230,7 @@ describe("aretro exec collect-evidence", () => {
 		expect(warning.code).toBe("session_root_missing");
 	});
 
-	it("rejects payload mode as not yet implemented", async () => {
+	it("rejects payload mode without session id", async () => {
 		const git = new FakeAretroGitGateway({ repoRoot: "/repo", currentBranch: "main" });
 		const sessionSource = new FakeSessionSource();
 		const context: AretroCliContext = {
@@ -243,9 +247,60 @@ describe("aretro exec collect-evidence", () => {
 		expect(await run.exit).toBe(1);
 		const result = parseJsonOutput(run) as { data: Record<string, unknown> };
 		expect(result.data.success).toBe(false);
-		expect((result.data.error as Record<string, unknown>).code).toBe(
-			"payload_mode_not_implemented",
+		expect((result.data.error as Record<string, unknown>).code).toBe("payload_session_required");
+	});
+
+	it("writes sanitized payload detail and reads a targeted pointer", async () => {
+		const payloadRoot = mkdtempSync(join(tmpdir(), "aretro-payload-test-"));
+		const git = new FakeAretroGitGateway({ repoRoot: "/repo", currentBranch: "feature/retro" });
+		const sessionSource = new FakeSessionSource({ sessions: [evidenceSession("/repo")] });
+		const context: AretroCliContext = {
+			cwd: "/repo",
+			env: { ASDL_PAYLOAD_ROOT: payloadRoot },
+			git,
+			sessionSource,
+		};
+
+		const run = runScenario(
+			[
+				"exec",
+				"collect-evidence",
+				"--payload-mode",
+				"payload",
+				"--payload-session-id",
+				"smoke",
+				"--format",
+				"json",
+			],
+			{ context },
 		);
+		expect(await run.exit).toBe(0);
+		const result = parseJsonOutput(run) as { data: Record<string, unknown> };
+		expect(result.data.payload_mode).toBe("payload");
+		expect(result.data.detail_locator_hints).toContain("/data/sessions");
+		const payloadReference = result.data.payload_reference as Record<string, unknown>;
+		expect(payloadReference.descriptor).toBe("aretro-collect-evidence");
+		expect(payloadReference.role).toBe("raw");
+		const payloadPath = payloadReference.payload_path;
+		if (typeof payloadPath !== "string") throw new Error("payload_path should be string");
+
+		const payloadText = readFileSync(payloadPath, "utf-8");
+		expect(payloadText).not.toContain("SECRET_TOOL_OUTPUT_TEXT");
+		expect(payloadText).not.toContain("SECRET_COMMAND_OUTPUT");
+
+		const detailRun = runScenario([
+			"exec",
+			"read-evidence-detail",
+			"--payload-path",
+			payloadPath,
+			"--json-pointer",
+			"/data/schema_version",
+			"--format",
+			"json",
+		]);
+		expect(await detailRun.exit).toBe(0);
+		const detailResult = parseJsonOutput(detailRun) as { data: { value: unknown } };
+		expect(detailResult.data.value).toBe(1);
 	});
 
 	it("returns human-readable output when format is human", async () => {
