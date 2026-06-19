@@ -1,12 +1,10 @@
 import { defineConfig } from "vitest/config";
 
+import { sharedTestConfig } from "./vitest.shared.ts";
+
 export default defineConfig({
 	test: {
-		environment: "node",
-		fileParallelism: true,
-		isolate: false,
-		maxWorkers: 2,
-		globals: false,
+		...sharedTestConfig,
 		include: ["packages/*/test/integration/**/*.test.ts"],
 	},
 });

@@ -1,5 +1,7 @@
 import { describe, expect, test } from "vitest";
 
+import { createManualClock } from "@asdl/core/testing";
+
 import { createRunnerSubagentJsonEventParser } from "../src/runner-subagent/json-events.ts";
 
 function jsonLine(value: unknown): string {
@@ -8,11 +10,11 @@ function jsonLine(value: unknown): string {
 
 describe("runner subagent JSON event parser", () => {
 	test("parses chunked JSONL and captures the session header", () => {
-		let now = 1_000;
+		const manualClock = createManualClock(1_000);
 		const parser = createRunnerSubagentJsonEventParser({
 			title: "Child",
 			sessionFile: "/tmp/child.jsonl",
-			clock: { nowMs: () => now },
+			clock: manualClock.clock,
 		});
 		const header = {
 			type: "session",
@@ -25,7 +27,7 @@ describe("runner subagent JSON event parser", () => {
 
 		parser.pushChunk(line.slice(0, 14));
 		parser.pushChunk(line.slice(14));
-		now = 1_250;
+		manualClock.setMs(1_250);
 
 		const snapshot = parser.getSnapshot();
 		expect(snapshot.sessionHeader).toEqual(header);
@@ -81,15 +83,15 @@ describe("runner subagent JSON event parser", () => {
 	});
 
 	test("tracks agent, turn, tool, elapsed, and stop-reason progress", () => {
-		let now = 10;
-		const parser = createRunnerSubagentJsonEventParser({ clock: { nowMs: () => now } });
+		const manualClock = createManualClock(10);
+		const parser = createRunnerSubagentJsonEventParser({ clock: manualClock.clock });
 
 		parser.pushChunk(jsonLine({ type: "agent_start" }));
 		parser.pushChunk(jsonLine({ type: "turn_start" }));
 		parser.pushChunk(
 			jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "bash", args: {} }),
 		);
-		now = 35;
+		manualClock.setMs(35);
 		expect(parser.getSnapshot().progress).toEqual({
 			state: "running",
 			currentTool: "bash",
@@ -122,7 +124,7 @@ describe("runner subagent JSON event parser", () => {
 				toolResults: [],
 			}),
 		);
-		now = 60;
+		manualClock.setMs(60);
 		parser.pushChunk(
 			jsonLine({
 				type: "agent_end",

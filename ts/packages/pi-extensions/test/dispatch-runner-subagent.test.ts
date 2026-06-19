@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import type { ExecOptions, ExecResult } from "@asdl/core/exec";
+import { createManualClock } from "@asdl/core/testing";
 
 import type { ThinkingLevel } from "../src/cmux/types.ts";
 import {
@@ -491,10 +492,10 @@ describe("dispatch_runner_subagent extension", () => {
 	});
 
 	test("streams parsed subagent progress through partial updates and UI without changing final result", async () => {
-		let now = 1_000;
+		const manualClock = createManualClock(1_000);
 		const runner = createFakeRunnerSubagentDispatcher({
 			sessionFile: SESSION_FILE,
-			clock: { nowMs: () => now },
+			clock: manualClock.clock,
 		});
 		const pi = new FakePi(runner.dependencies);
 		const tool = registerTool({ pi });
@@ -555,7 +556,7 @@ describe("dispatch_runner_subagent extension", () => {
 			}),
 		);
 		call.process.emitStdout(finalTextMessage("Subagent final answer."));
-		now = 2_250;
+		manualClock.setMs(2_250);
 		call.process.close(0);
 
 		const result = await running;
@@ -619,10 +620,10 @@ describe("dispatch_runner_subagent extension", () => {
 	});
 
 	test("returns final text, status, session path, progress, and details as an ordinary tool result", async () => {
-		let now = 1_000;
+		const manualClock = createManualClock(1_000);
 		const runner = createFakeRunnerSubagentDispatcher({
 			sessionFile: SESSION_FILE,
-			clock: { nowMs: () => now },
+			clock: manualClock.clock,
 		});
 		const pi = new FakePi(runner.dependencies);
 		const tool = registerTool({ pi });
@@ -649,7 +650,7 @@ describe("dispatch_runner_subagent extension", () => {
 			}),
 		);
 		call.process.emitStdout(finalTextMessage("Subagent final answer.\nEvidence: test fixture."));
-		now = 2_250;
+		manualClock.setMs(2_250);
 		call.process.close(0);
 
 		const result = await running;

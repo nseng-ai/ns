@@ -2,6 +2,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY } from "@asdl/core/graphite-metadata";
 import {
 	RealSlotGtGateway,
 	type GraphiteMetadataDbAccess,
@@ -393,7 +394,7 @@ function failureResult(
 }
 
 class FakeGraphiteMetadataDbAccess implements GraphiteMetadataDbAccess {
-	private readonly doesDbExist: boolean;
+	private readonly hasMetadataDb: boolean;
 	private readonly schema: GraphiteMetadataJsonQueryResult;
 	private readonly rows: GraphiteMetadataJsonQueryResult;
 
@@ -402,17 +403,17 @@ class FakeGraphiteMetadataDbAccess implements GraphiteMetadataDbAccess {
 		schema: GraphiteMetadataJsonQueryResult;
 		rows: GraphiteMetadataJsonQueryResult;
 	}) {
-		this.doesDbExist = options.exists;
+		this.hasMetadataDb = options.exists;
 		this.schema = options.schema;
 		this.rows = options.rows;
 	}
 
 	exists(_dbPath: string): boolean {
-		return this.doesDbExist;
+		return this.hasMetadataDb;
 	}
 
 	queryJson(_dbPath: string, query: string): GraphiteMetadataJsonQueryResult {
-		if (query.startsWith("PRAGMA table_info")) return this.schema;
+		if (query === GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY) return this.schema;
 		return this.rows;
 	}
 }

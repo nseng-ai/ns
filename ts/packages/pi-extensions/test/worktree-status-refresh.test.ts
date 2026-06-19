@@ -11,12 +11,11 @@ import {
 	LifecycleFakePi,
 	localStatus,
 	queued,
-	TEST_THEME,
+	testContext,
 } from "./worktree-status-test-support.ts";
 import worktreeStatusExtension, {
 	WORKTREE_STATUS_REFRESH_COMMAND_NAME,
 	type ExtensionAPI,
-	type ExtensionContext,
 } from "../src/worktree-status.ts";
 
 describe("worktree status refresh lifecycle", () => {
@@ -257,17 +256,3 @@ describe("worktree status refresh lifecycle", () => {
 		await pi.sessionShutdown?.();
 	});
 });
-
-function testContext(statuses?: Map<string, string | undefined>): ExtensionContext {
-	return {
-		cwd: "/repo",
-		hasUI: true,
-		ui: {
-			theme: TEST_THEME,
-			setStatus(key, value) {
-				statuses?.set(key, value);
-			},
-			setWidget() {},
-		},
-	};
-}

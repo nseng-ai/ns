@@ -6,15 +6,12 @@ describe("manual clock", () => {
 	test("sets and advances wall-clock time deterministically", () => {
 		const manual = createManualClock(10);
 
-		expect(manual.nowMs()).toBe(10);
 		expect(manual.clock.nowMs()).toBe(10);
 
 		manual.setMs(25);
-		expect(manual.nowMs()).toBe(25);
 		expect(manual.clock.nowMs()).toBe(25);
 
 		manual.advanceMs(5);
-		expect(manual.nowMs()).toBe(30);
 		expect(manual.clock.nowMs()).toBe(30);
 	});
 });

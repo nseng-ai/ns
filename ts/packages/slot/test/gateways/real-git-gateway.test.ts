@@ -4,28 +4,22 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
+import type { ExecResult } from "@asdl/core/exec";
+import { ScriptedCommandExecApi } from "@asdl/core/testing";
 import type { SlotCommandDiagnosticEvent, SlotDiagnosticSink } from "../../src/diagnostics.ts";
 import { RealSlotGitGateway } from "../../src/gateways/git.ts";
 
 describe("RealSlotGitGateway", () => {
 	it("runs git commands through the injected shared command exec API", async () => {
-		const execApi = new ScriptedExecApi({ stdout: "/repo\n", stderr: "", code: 0, killed: false });
+		const execApi = scriptedExecApi({ stdout: "/repo\n", stderr: "", code: 0, killed: false });
 		const gateway = new RealSlotGitGateway({ cwd: "/repo", env: { PATH: "/fake/bin" }, execApi });
 
 		await expect(gateway.getRepositoryRoot("/repo/subdir")).resolves.toBe("/repo");
-		expect(execApi.calls()).toEqual([
-			{
-				command: "git",
-				args: ["rev-parse", "--show-toplevel"],
-				cwd: "/repo/subdir",
-				timeout: 10_000,
-			},
-		]);
+		expect(execApi.calls()).toEqual([gitCall(["rev-parse", "--show-toplevel"], "/repo/subdir")]);
 	});
 
 	it("maps branch existence from git show-ref exit codes", async () => {
-		const execApi = new ScriptedExecApi([
+		const execApi = scriptedExecApi([
 			{ stdout: "", stderr: "", code: 0, killed: false },
 			{ stdout: "", stderr: "missing", code: 1, killed: false },
 		]);
@@ -34,23 +28,13 @@ describe("RealSlotGitGateway", () => {
 		await expect(gateway.branchExists("master")).resolves.toBe(true);
 		await expect(gateway.branchExists("feature/a")).resolves.toBe(false);
 		expect(execApi.calls()).toEqual([
-			{
-				command: "git",
-				args: ["show-ref", "--verify", "--quiet", "refs/heads/master"],
-				cwd: "/repo",
-				timeout: 10_000,
-			},
-			{
-				command: "git",
-				args: ["show-ref", "--verify", "--quiet", "refs/heads/feature/a"],
-				cwd: "/repo",
-				timeout: 10_000,
-			},
+			gitCall(["show-ref", "--verify", "--quiet", "refs/heads/master"], "/repo"),
+			gitCall(["show-ref", "--verify", "--quiet", "refs/heads/feature/a"], "/repo"),
 		]);
 	});
 
 	it("creates branches with normal and force command arguments", async () => {
-		const execApi = new ScriptedExecApi([
+		const execApi = scriptedExecApi([
 			{ stdout: "", stderr: "", code: 0, killed: false },
 			{ stdout: "", stderr: "", code: 0, killed: false },
 		]);
@@ -63,23 +47,13 @@ describe("RealSlotGitGateway", () => {
 			gateway.createBranch("feature/b", "master", { shouldForce: true }),
 		).resolves.toBeNull();
 		expect(execApi.calls()).toEqual([
-			{
-				command: "git",
-				args: ["branch", "feature/a", "HEAD"],
-				cwd: "/repo",
-				timeout: 10_000,
-			},
-			{
-				command: "git",
-				args: ["branch", "-f", "feature/b", "master"],
-				cwd: "/repo",
-				timeout: 10_000,
-			},
+			gitCall(["branch", "feature/a", "HEAD"], "/repo"),
+			gitCall(["branch", "-f", "feature/b", "master"], "/repo"),
 		]);
 	});
 
 	it("emits checkout, previous-branch, and detach command arguments", async () => {
-		const execApi = new ScriptedExecApi([
+		const execApi = scriptedExecApi([
 			{ stdout: "", stderr: "", code: 0, killed: false },
 			{ stdout: "master\n", stderr: "", code: 0, killed: false },
 			{ stdout: "", stderr: "", code: 0, killed: false },
@@ -90,29 +64,14 @@ describe("RealSlotGitGateway", () => {
 		await expect(gateway.getPreviousBranch("/repo/worktree")).resolves.toBe("master");
 		await expect(gateway.detachHead("/repo/worktree", "master")).resolves.toBeNull();
 		expect(execApi.calls()).toEqual([
-			{
-				command: "git",
-				args: ["checkout", "feature/a"],
-				cwd: "/repo/worktree",
-				timeout: 10_000,
-			},
-			{
-				command: "git",
-				args: ["rev-parse", "--abbrev-ref", "@{-1}"],
-				cwd: "/repo/worktree",
-				timeout: 10_000,
-			},
-			{
-				command: "git",
-				args: ["checkout", "--detach", "master"],
-				cwd: "/repo/worktree",
-				timeout: 10_000,
-			},
+			gitCall(["checkout", "feature/a"], "/repo/worktree"),
+			gitCall(["rev-parse", "--abbrev-ref", "@{-1}"], "/repo/worktree"),
+			gitCall(["checkout", "--detach", "master"], "/repo/worktree"),
 		]);
 	});
 
 	it("returns movement command failures without throwing", async () => {
-		const execApi = new ScriptedExecApi({
+		const execApi = scriptedExecApi({
 			stdout: "",
 			stderr: "fatal: branch already exists\n",
 			code: 128,
@@ -126,7 +85,7 @@ describe("RealSlotGitGateway", () => {
 	});
 
 	it("emits labeled command diagnostics when a sink is injected", async () => {
-		const execApi = new ScriptedExecApi({ stdout: "/repo\n", stderr: "", code: 0, killed: false });
+		const execApi = scriptedExecApi({ stdout: "/repo\n", stderr: "", code: 0, killed: false });
 		const diagnosticSink = new InMemoryDiagnosticSink();
 		const gateway = new RealSlotGitGateway({
 			cwd: "/repo",
@@ -164,7 +123,7 @@ describe("RealSlotGitGateway", () => {
 		const fixture = createWorktreeFixture({ gitdir: "absolute" });
 		try {
 			writeMarker(fixture.adminDir, markerPath);
-			const execApi = new ScriptedExecApi({
+			const execApi = scriptedExecApi({
 				stdout: worktreeListOutput(fixture.worktreePath, "feature/a"),
 				stderr: "",
 				code: 0,
@@ -180,12 +139,7 @@ describe("RealSlotGitGateway", () => {
 				{ path: fixture.worktreePath, branch: "feature/a", operation },
 			]);
 			expect(execApi.calls()).toEqual([
-				{
-					command: "git",
-					args: ["worktree", "list", "--porcelain"],
-					cwd: fixture.worktreePath,
-					timeout: 10_000,
-				},
+				gitCall(["worktree", "list", "--porcelain"], fixture.worktreePath),
 			]);
 		} finally {
 			fixture.cleanup();
@@ -196,7 +150,7 @@ describe("RealSlotGitGateway", () => {
 		const fixture = createWorktreeFixture({ gitdir: "relative" });
 		try {
 			writeMarker(fixture.adminDir, "REVERT_HEAD");
-			const execApi = new ScriptedExecApi({
+			const execApi = scriptedExecApi({
 				stdout: worktreeListOutput(fixture.worktreePath, "feature/relative"),
 				stderr: "",
 				code: 0,
@@ -220,7 +174,7 @@ describe("RealSlotGitGateway", () => {
 		const fixture = createWorktreeFixture({ gitdir: "directory" });
 		try {
 			writeMarker(fixture.adminDir, "BISECT_LOG");
-			const execApi = new ScriptedExecApi({
+			const execApi = scriptedExecApi({
 				stdout: worktreeListOutput(fixture.worktreePath, "feature/main"),
 				stderr: "",
 				code: 0,
@@ -243,7 +197,7 @@ describe("RealSlotGitGateway", () => {
 	it("treats missing or malformed .git files as checked out", async () => {
 		const fixture = createWorktreeFixture({ gitdir: "malformed" });
 		try {
-			const execApi = new ScriptedExecApi({
+			const execApi = scriptedExecApi({
 				stdout: worktreeListOutput(fixture.worktreePath, "feature/clean"),
 				stderr: "",
 				code: 0,
@@ -264,11 +218,14 @@ describe("RealSlotGitGateway", () => {
 	});
 });
 
-interface ExecCall {
-	command: string;
-	args: readonly string[];
-	cwd: string | undefined;
-	timeout: number | undefined;
+interface ExpectedExecCall {
+	readonly command: string;
+	readonly args: readonly string[];
+	readonly options: {
+		readonly cwd: string;
+		readonly env: { readonly PATH: string };
+		readonly timeout: number;
+	};
 }
 
 class InMemoryDiagnosticSink implements SlotDiagnosticSink {
@@ -283,25 +240,18 @@ class InMemoryDiagnosticSink implements SlotDiagnosticSink {
 	}
 }
 
-class ScriptedExecApi implements CommandExecApi {
-	private readonly results: ExecResult[];
-	private readonly log: ExecCall[] = [];
-	private nextIndex = 0;
+function scriptedExecApi(
+	results: Partial<ExecResult> | readonly Partial<ExecResult>[],
+): ScriptedCommandExecApi {
+	return new ScriptedCommandExecApi(Array.isArray(results) ? results : [results]);
+}
 
-	constructor(result: ExecResult | readonly ExecResult[]) {
-		this.results = Array.isArray(result) ? result.map((entry) => ({ ...entry })) : [{ ...result }];
-	}
-
-	async exec(command: string, args: string[], options: ExecOptions = {}): Promise<ExecResult> {
-		this.log.push({ command, args: [...args], cwd: options.cwd, timeout: options.timeout });
-		const result = this.results[this.nextIndex] ?? this.results.at(-1) ?? emptyExecResult();
-		this.nextIndex += 1;
-		return { ...result };
-	}
-
-	calls(): readonly ExecCall[] {
-		return this.log.map((call) => ({ ...call, args: [...call.args] }));
-	}
+function gitCall(args: readonly string[], cwd: string): ExpectedExecCall {
+	return {
+		command: "git",
+		args: [...args],
+		options: { cwd, env: { PATH: "/fake/bin" }, timeout: 10_000 },
+	};
 }
 
 interface WorktreeFixture {
@@ -335,10 +285,6 @@ function writeMarker(adminDir: string, markerPath: string): void {
 		return;
 	}
 	writeFileSync(fullPath, "marker\n");
-}
-
-function emptyExecResult(): ExecResult {
-	return { stdout: "", stderr: "", code: 0, killed: false };
 }
 
 function worktreeListOutput(path: string, branch: string): string {

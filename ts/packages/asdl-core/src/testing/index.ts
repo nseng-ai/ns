@@ -56,7 +56,6 @@ export interface ResultFields {
 
 export interface ManualClock {
 	readonly clock: Clock;
-	nowMs(): number;
 	setMs(nowMs: number): void;
 	advanceMs(deltaMs: number): void;
 }
@@ -194,9 +193,6 @@ export function createManualClock(startMs: number): ManualClock {
 
 	return {
 		clock,
-		nowMs() {
-			return currentMs;
-		},
 		setMs(nowMs) {
 			currentMs = validateFiniteMs(nowMs, "nowMs");
 		},
