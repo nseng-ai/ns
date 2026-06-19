@@ -128,6 +128,13 @@ install-objective: (_install-ts-shim "objective" "ts/packages/objective/src/cli.
     rm -f "{{justfile_directory()}}/.venv/bin/objective"
     @echo "removed stale project venv objective script if present"
 
+# Install the vibechk shim to ~/.local/bin so `vibechk` on PATH runs the
+# TypeScript CLI from source: the enclosing checkout's sources when invoked
+# inside an asdl checkout, this checkout's sources everywhere else.
+install-vibechk: (_install-ts-shim "vibechk" "ts/packages/vibechk/src/cli.ts" "just install-vibechk")
+    rm -f "{{justfile_directory()}}/.venv/bin/vibechk"
+    @echo "removed stale project venv vibechk script if present"
+
 _install-ts-shim tool cli_rel_path install_hint: ts-install
     mkdir -p "$HOME/.local/bin"
     rm -f "$HOME/.local/bin/{{tool}}"
@@ -175,5 +182,5 @@ clean:
     find . -type f -name "*.pyc" -delete || true
 
 publish: clean check
-    uv build --package asdl-tools --package asdl-core --package aretro --package vibechk
+    uv build --package asdl-tools --package asdl-core --package aretro
     uv publish

@@ -1,6 +1,6 @@
 # TypeScript Capability Porting Playbook
 
-Reusable guidance extracted from the completed `pr-address`, `brmem`, `handoff`, `areg`, `objective`, and `slot` TypeScript cutovers. This is evidence from production migrations, not a framework-first template: later capability subobjectives should apply the shape deliberately and record any divergence.
+Reusable guidance extracted from the completed `pr-address`, `brmem`, `handoff`, `areg`, `objective`, `slot`, and `vibechk` TypeScript cutovers. This is evidence from production migrations, not a framework-first template: later capability subobjectives should apply the shape deliberately and record any divergence.
 
 ## 1. Inventory public contracts before porting internals
 
@@ -24,6 +24,8 @@ For git-backed state capabilities, storage contracts outrank Python module shape
 `objective` showed the same pattern for checked-in Markdown state: durable contracts were active/archive Objective roots, closure marker semantics, hidden `objective exec` skill commands, first-party Pi/CCC JSON consumers, and the standalone `objective` command. The `asdl objective` plugin path was retired rather than ported after inventory found no active callers. Objective-local legacy machine-output projections were acceptable short-lived migration debt during Python deletion, but once consumers were coordinated, Objective moved to TS-native camelCase JSON and canonical Clinkr result schemas directly.
 
 `slot` added the first OS/worktree/shell-coupled inventory. Ports with host state must inventory filesystem layout and ambient environment alongside command bytes: `~/.slots` repo/worktree paths, parent-shell `SLOT_CD_DIRECTIVE_FILE` protocol, rc-block markers and idempotency, clipboard tri-state outcomes, hidden exec JSON surfaces, Graphite boundary rules, and host shell behavior. Treat these as durable contracts when installed wrappers or live skill/agent consumers depend on them, even if the Python package layout disappears.
+
+`vibechk` added a local-bundle/runner/git-mutation inventory. Durable contracts included schema-version-1 bundle layout, snake_case `bundle.json` keys, nullable unavailable metrics, run-id prefix resolution, `runs --format table|json`, no-push/no-PR guarantees, failed-runner bundle persistence, `claude` subprocess invocation, transcript streaming, `git add -N` diff capture, and result-branch switch-back behavior. Clinkr parser details could diverge only when the invocation contract remained preserved, as with the internal `output_format` field behind user-facing `vibechk runs --format` normalization.
 
 ## 2. Port in vertical slices
 
@@ -58,6 +60,8 @@ Do not framework-first a capability port. Add package-local runtime, payload/ref
 
 `slot` kept git-worktree, shell-integration, rc-block, and clipboard seams package-local even though they are substantial. Do not promote a shared `@asdl/core` git-worktree or shell-integration abstraction from one OS-coupled port alone; record second-consumer criteria instead. Plain `slot` commands also stayed Graphite-free, while `slot gt` and hidden `slot gt exec` may use Graphite because the command path names that dependency explicitly.
 
+`vibechk` kept bundle schemas, report rendering, runner registry, `claude` adapter, and git result-branch gateway package-local. Even though git and subprocess seams may look reusable, one local-evaluation tool is not enough evidence for shared runner or git-workdir foundations; preserve a clean local boundary and wait for another consumer before promotion.
+
 ## 4. Use fake-driven gateways and parity evidence
 
 External boundaries should be gateway-shaped and fake-testable before real adapters become load-bearing.
@@ -73,6 +77,8 @@ Prefer:
 `pr-address` preserved byte parity for payload artifacts and stable machine envelopes, but accepted structured parity or deliberate divergence for some schema/help/usage surfaces. `brmem` combined fake tests, real-git tests, and temporary cross-language parity probes; those probes were valid migration evidence and were deleted once TypeScript became default and the Python reference was deleted. `handoff` combined fake gateway scenarios with limited real `brmem`/real-git smoke tests to prove the consumer CLI still worked against actual Branch Memory refs after the Python fallback disappeared. `areg` used fake-driven gateways for host-tool checks, GitHub listing, `npx skills`, project inspection, filesystem mutation plans, prompts, and skill-artifact reconciliation, plus focused real-adapter tests for symlink/path revalidation; project-file mutation should not become default until both fake behavior and targeted real safety facts are covered.
 
 `slot` showed the extra evidence needed for shell-installed CLIs. Tests for shell/completion install must redirect `HOME`, rc files, and directive files so validation never mutates the operator's real shell. Real-shell parity belongs in a deliberate throwaway harness, not ordinary test setup. JSON mode must suppress parent-shell `cd`, including hidden/directive-file side effects. Static TypeScript completion can intentionally diverge from Click `_SLOT_COMPLETE` when there is no TS analog, but marker/idempotency/user-visible completion behavior must be preserved and the divergence must be documented.
+
+`vibechk` showed the extra evidence needed before deleting a tool that mutates arbitrary user workdirs. Fake-driven CLI tests covered bundle/report outcomes, runner failure persistence, no-change runs, and dirty-workdir rejection; a focused real temp-git scenario proved result-branch creation and switch-back. Keep real-git coverage narrow and throwaway, but require it for safety-critical branch mutation before retiring the reference implementation.
 
 ## 5. Retire fallback intentionally
 
@@ -93,6 +99,8 @@ Before deletion:
 
 `slot` added deletion evidence for a port that previously had host-installed shell behavior and a Python editable-tool fallback. Deletion must include source-shim distribution evidence (`just install-slot` / `install-tools`), stale editable-tool removal or absence, docs and active config cleanup, live hidden-exec consumer support, and a rollback/reference commit; for `slot`, the deleted `packages/asdl-slots` reference is commit `9164ef9ea562`.
 
+`vibechk` added deletion evidence for a local-only evaluation CLI with no installed-tool consumer. Deletion should preserve active docs by moving them to the TypeScript package, update examples away from `uv run`, scrub Python workspace/build/test/publish wiring, keep `vibechk-v1` open for unimplemented product features, and record rollback/reference evidence before deleting the Python package; for `vibechk`, the deleted `packages/vibechk` reference is commit `25c748681`.
+
 ## 6. Treat distribution as a product decision
 
 Do not inherit either the old Python `uvx` distribution model or `pr-address`'s run-from-source shim by default. Decide distribution from actual consumers.
@@ -112,6 +120,8 @@ For `areg`, repo-local TypeScript source invocation plus the `install-areg` shim
 For `objective`, the same source-shim model now covers a formerly Python-only standalone CLI with checked-in Markdown storage. `just install-objective` installs the TypeScript shim and removes stale project-venv `objective` scripts so an activated Python development environment cannot shadow the TypeScript command; `install-tools` depends on that shim instead of installing `packages/asdl-objectives` as an editable uv tool.
 
 For `slot`, source-shim distribution was accepted only after shell/completion and parent-shell navigation parity were proven. The deletion window confirmed `just install-slot` / `install-tools` route through the TypeScript source shim, active `uv tool install asdl-slots` references were removed, and stale Python fallback paths were scrubbed or documented as historical provenance.
+
+For `vibechk`, actual consumers did not justify adding the shim to `install-tools`. The accepted distribution is an opt-in `just install-vibechk` source shim plus direct Node source invocation for in-checkout development; stale project-venv `vibechk` scripts are removed by the opt-in recipe, and external/npm-style distribution remains a future product decision rather than a reason to keep Python alive.
 
 ## 7. Record Semantic Updates at decision points
 
