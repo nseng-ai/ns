@@ -7,10 +7,11 @@ The TypeScript test suite should make the fast local/default path mostly fake-dr
 ## Scope
 
 - Establish a clear TypeScript test layout for separating unit/fake-driven tests from integration tests.
-- Move or reclassify slow real-adapter tests that currently run in the default Vitest suite, especially:
-  - `packages/brmem/test/gateways/real-git-gateway.test.ts` real Git subprocess coverage.
+- Move or reclassify slow real-adapter tests that currently run in the default Vitest suite, especially the tracked slow-test inventory from the latest default-suite evidence:
+  - `packages/brmem/test/scenario/copy-operation.test.ts`, `packages/brmem/test/scenario/export-operation.test.ts`, `packages/brmem/test/gateways/real-git-gateway.test.ts`, and `packages/brmem/test/gateways/prompt-resolution.test.ts` real Git / Branch Memory subprocess coverage.
   - `packages/pi-extensions/test/node-runtime-imports.test.ts` and package `node-runtime-cli.test.ts` smoke tests that spawn cold Node processes.
-  - `packages/slot/test/gateways/real-gt-gateway.test.ts` and worktree-status sqlite fixture coverage.
+  - `packages/pi-extensions/test/worktree-status.test.ts`, `packages/ccc/test/worktree-status.test.ts`, `packages/ccc/test/worktree-status-graphite-metadata.test.ts`, `packages/slot/test/gateways/real-git-gateway-movement.test.ts`, `packages/slot/test/gateways/real-gt-gateway.test.ts`, and `packages/sdl/test/scenario/cp-cli.test.ts` worktree-status / sqlite / Git / Graphite subprocess coverage.
+  - `packages/asdl-core/test/exec.test.ts` timeout/process execution coverage when it remains materially slow after the existing timer-seam migration.
 - Refactor gateway tests that remain under normal gateway/unit paths to mock or inject command/sqlite/process seams instead of spawning real commands.
 - Add minimal shared `@asdl/core` time seams for testable time-dependent logic:
   - `Clock` with `nowMs(): number` and `systemClock` in an explicit `@asdl/core/clock` subpath export.
