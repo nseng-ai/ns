@@ -1,3 +1,4 @@
+import { systemClock, type Clock } from "@asdl/core/clock";
 import { formatErrorMessage } from "@asdl/core/primitives";
 import { isThinkingLevel } from "../cmux/types.ts";
 import type { RunnerSubagentLaunchMetadata, RunnerSubagentProgress } from "../runner-subagent.ts";
@@ -12,7 +13,7 @@ import {
 export interface RunnerSubagentJsonEventParserOptions {
 	title?: string;
 	sessionFile?: string;
-	now?: () => number;
+	clock?: Clock;
 	startTimeMs?: number;
 	terminalToolNames?: Iterable<string>;
 	launch?: RunnerSubagentLaunchMetadata;
@@ -77,7 +78,7 @@ const MAX_LAUNCH_METADATA_TEXT_CHARS = 160;
 
 export class RunnerSubagentJsonEventParser {
 	private readonly title: string | undefined;
-	private readonly now: () => number;
+	private readonly clock: Clock;
 	private readonly startTimeMs: number;
 	private readonly terminalToolNames: Set<string>;
 	private launch: RunnerSubagentLaunchMetadata | undefined;
@@ -101,8 +102,8 @@ export class RunnerSubagentJsonEventParser {
 
 	constructor(options: RunnerSubagentJsonEventParserOptions = {}) {
 		this.title = options.title;
-		this.now = options.now ?? Date.now;
-		this.startTimeMs = options.startTimeMs ?? this.now();
+		this.clock = options.clock ?? systemClock;
+		this.startTimeMs = options.startTimeMs ?? this.clock.nowMs();
 		this.terminalToolNames = new Set(options.terminalToolNames ?? []);
 		this.launch = options.launch;
 		this.sessionFile = options.sessionFile;
@@ -437,7 +438,7 @@ export class RunnerSubagentJsonEventParser {
 	}
 
 	private elapsedMs(): number {
-		return Math.max(0, this.now() - this.startTimeMs);
+		return Math.max(0, this.clock.nowMs() - this.startTimeMs);
 	}
 }
 

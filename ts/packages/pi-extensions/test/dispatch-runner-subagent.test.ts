@@ -494,7 +494,7 @@ describe("dispatch_runner_subagent extension", () => {
 		let now = 1_000;
 		const runner = createFakeRunnerSubagentDispatcher({
 			sessionFile: SESSION_FILE,
-			now: () => now,
+			clock: { nowMs: () => now },
 		});
 		const pi = new FakePi(runner.dependencies);
 		const tool = registerTool({ pi });
@@ -622,7 +622,7 @@ describe("dispatch_runner_subagent extension", () => {
 		let now = 1_000;
 		const runner = createFakeRunnerSubagentDispatcher({
 			sessionFile: SESSION_FILE,
-			now: () => now,
+			clock: { nowMs: () => now },
 		});
 		const pi = new FakePi(runner.dependencies);
 		const tool = registerTool({ pi });

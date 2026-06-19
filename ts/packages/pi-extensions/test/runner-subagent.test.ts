@@ -220,7 +220,7 @@ describe("dispatchRunnerSubagent local contract", () => {
 	test("returns a deterministic stopped-without-terminal result through the injectable runner", async () => {
 		const runner = createFakeRunnerSubagentDispatcher({
 			sessionFile: "/tmp/contract-runner-subagent.jsonl",
-			now: () => 0,
+			clock: { nowMs: () => 0 },
 		});
 		const pi: RunnerSubagentPi = { [RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES]: runner.dependencies };
 		const ctx: RunnerSubagentContext = { cwd: "/repo" };

@@ -1,5 +1,7 @@
 import { describe, expect, test } from "vitest";
 
+import { createManualClock, createManualTimerScheduler } from "@asdl/core/testing";
+
 import {
 	resolvePiInvocation,
 	dispatchRunnerSubagentProcess,
@@ -284,10 +286,10 @@ describe("runner subagent process dispatcher", () => {
 	});
 
 	test("returns stopped-without-terminal for clean subagent completion", async () => {
-		let now = 1_000;
+		const manualClock = createManualClock(1_000);
 		const runner = createFakeRunnerSubagentDispatcher({
 			sessionFile: "/tmp/runner-subagent.jsonl",
-			now: () => now,
+			clock: manualClock.clock,
 		});
 		const running = dispatchRunnerSubagentProcess(
 			pi,
@@ -318,7 +320,7 @@ describe("runner subagent process dispatcher", () => {
 				message: { role: "assistant", content: [], stopReason: "end" },
 			}),
 		);
-		now = 1_345;
+		manualClock.setMs(1_345);
 		call.process.emitStdout(
 			jsonLine({
 				type: "agent_end",
@@ -477,10 +479,10 @@ describe("runner subagent process dispatcher", () => {
 	});
 
 	test("returns final assistant text for clean subagent completion in final-text mode", async () => {
-		let now = 1_000;
+		const manualClock = createManualClock(1_000);
 		const runner = createFakeRunnerSubagentDispatcher({
 			sessionFile: "/tmp/runner-subagent.jsonl",
-			now: () => now,
+			clock: manualClock.clock,
 		});
 		const running = dispatchRunnerSubagentProcess(
 			pi,
@@ -513,7 +515,7 @@ describe("runner subagent process dispatcher", () => {
 				},
 			}),
 		);
-		now = 1_345;
+		manualClock.setMs(1_345);
 		call.process.close(0);
 		const result = await running;
 
@@ -658,11 +660,11 @@ describe("runner subagent process dispatcher", () => {
 	});
 
 	test("emits progress and UI-only activity while parsing child JSONL", async () => {
-		let now = 1_000;
+		const manualClock = createManualClock(1_000);
 		const updates: RunnerSubagentUpdate[] = [];
 		const runner = createFakeRunnerSubagentDispatcher({
 			sessionFile: "/tmp/runner-subagent.jsonl",
-			now: () => now,
+			clock: manualClock.clock,
 		});
 		const running = dispatchRunnerSubagentProcess(
 			pi,
@@ -724,7 +726,7 @@ describe("runner subagent process dispatcher", () => {
 				},
 			}),
 		);
-		now = 1_250;
+		manualClock.setMs(1_250);
 		call.process.close(0);
 		const result = await running;
 
@@ -905,6 +907,62 @@ describe("runner subagent process dispatcher", () => {
 		if (result.status !== "cancelled") return;
 		expect(result.reason).toBe("user cancelled");
 		expect(result.sessionFile).toBe("/tmp/pi-runner-subagent.jsonl");
+	});
+
+	test("cancels the kill grace timer when an aborted child closes", async () => {
+		const controller = new AbortController();
+		const manualTimers = createManualTimerScheduler();
+		const runner = createFakeRunnerSubagentDispatcher({
+			timers: manualTimers.timers,
+		});
+		const running = dispatchRunnerSubagentProcess(
+			pi,
+			ctx,
+			finalTextOptions({ signal: controller.signal }),
+			{ ...runner.dependencies, killTimeoutMs: 25 },
+		);
+		const call = await waitForSpawn(runner.calls);
+
+		controller.abort("user cancelled");
+		expect(call.process.killSignals).toEqual(["SIGTERM"]);
+		expect(manualTimers.pendingTimerCount()).toBe(1);
+
+		call.process.close(null, "SIGTERM");
+		const result = await running;
+		manualTimers.advanceMs(25);
+
+		expect(result.status).toBe("cancelled");
+		expect(manualTimers.pendingTimerCount()).toBe(0);
+		expect(call.process.killSignals).toEqual(["SIGTERM"]);
+	});
+
+	test("sends SIGKILL after the kill grace timer fires", async () => {
+		const controller = new AbortController();
+		const manualTimers = createManualTimerScheduler();
+		const runner = createFakeRunnerSubagentDispatcher({
+			timers: manualTimers.timers,
+		});
+		const running = dispatchRunnerSubagentProcess(
+			pi,
+			ctx,
+			finalTextOptions({ signal: controller.signal }),
+			{ ...runner.dependencies, killTimeoutMs: 25 },
+		);
+		const call = await waitForSpawn(runner.calls);
+
+		controller.abort("user cancelled");
+		expect(call.process.killSignals).toEqual(["SIGTERM"]);
+
+		manualTimers.advanceMs(24);
+		expect(call.process.killSignals).toEqual(["SIGTERM"]);
+
+		manualTimers.advanceMs(1);
+		expect(call.process.killSignals).toEqual(["SIGTERM", "SIGKILL"]);
+
+		call.process.close(null, "SIGKILL");
+		const result = await running;
+
+		expect(result.status).toBe("cancelled");
 	});
 
 	test("emits terminating progress before cancelled result on parent abort", async () => {

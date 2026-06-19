@@ -31,7 +31,7 @@ export interface ExecOptions {
 	onStderr?: (text: string) => void;
 }
 
-export interface RunCommandDependencies {
+export interface RunCommandOptions extends ExecOptions {
 	readonly timers?: TimerScheduler;
 }
 
@@ -90,11 +90,10 @@ export class NodeCommandExecApi implements CommandExecApi {
 export async function runCommand(
 	command: string,
 	args: readonly string[],
-	options: ExecOptions = {},
-	dependencies: RunCommandDependencies = {},
+	options: RunCommandOptions = {},
 ): Promise<ExecResult> {
 	return new Promise((resolve) => {
-		const timers = dependencies.timers ?? systemTimerScheduler;
+		const timers = options.timers ?? systemTimerScheduler;
 		let stdout = "";
 		let stderr = "";
 		let hasSettled = false;

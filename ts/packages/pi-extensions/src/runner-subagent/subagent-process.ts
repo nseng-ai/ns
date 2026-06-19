@@ -5,7 +5,9 @@ import { mkdir, mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
+import { systemClock, type Clock } from "@asdl/core/clock";
 import { formatErrorMessage } from "@asdl/core/primitives";
+import { systemTimerScheduler, type ScheduledTimer, type TimerScheduler } from "@asdl/core/timers";
 import { parseModelRef } from "@asdl/plans";
 
 import type { ModelInfo } from "../cmux/types.ts";
@@ -105,7 +107,7 @@ export type ReadRunnerSubagentRuntimeResult = (
 
 export interface RunnerSubagentDispatcherDependencies {
 	spawn?: SpawnChildProcess;
-	now?: () => number;
+	clock?: Clock;
 	createSessionFile?: (input: { cwd: string; title?: string }) => string | Promise<string>;
 	createRuntimeFiles?: CreateRunnerSubagentRuntimeFiles;
 	readRuntimeResult?: ReadRunnerSubagentRuntimeResult;
@@ -113,8 +115,7 @@ export interface RunnerSubagentDispatcherDependencies {
 	processArgv?: readonly string[];
 	processExecPath?: string;
 	existsSync?: (path: string) => boolean;
-	setTimeout?: (callback: () => void, ms: number) => ReturnType<typeof setTimeout>;
-	clearTimeout?: (timeout: ReturnType<typeof setTimeout>) => void;
+	timers?: TimerScheduler;
 	killTimeoutMs?: number;
 	stderrLimitBytes?: number;
 }
@@ -125,7 +126,8 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 	options: RunnerSubagentOptions,
 	dependencies: RunnerSubagentDispatcherDependencies = {},
 ): Promise<RunnerSubagentResult<TTerminalInput>> {
-	const now = dependencies.now ?? Date.now;
+	const clock = dependencies.clock ?? systemClock;
+	const now = () => clock.nowMs();
 	const startTimeMs = now();
 	const cwd = options.cwd ?? ctx.cwd;
 	const title = options.title;
@@ -196,7 +198,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 	const parser = createRunnerSubagentJsonEventParser({
 		...(title === undefined ? {} : { title }),
 		sessionFile,
-		now,
+		clock,
 		startTimeMs,
 		terminalToolNames,
 		...(launch === undefined ? {} : { launch }),
@@ -214,10 +216,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 	});
 	const invocation = resolvePiInvocation(childArgs, dependencies);
 	const spawn = dependencies.spawn ?? defaultSpawnChildProcess;
-	const timers = {
-		setTimeout: dependencies.setTimeout ?? setTimeout,
-		clearTimeout: dependencies.clearTimeout ?? clearTimeout,
-	};
+	const timers = dependencies.timers ?? systemTimerScheduler;
 	const killTimeoutMs = dependencies.killTimeoutMs ?? DEFAULT_KILL_TIMEOUT_MS;
 
 	let child: SpawnedChildProcess;
@@ -244,14 +243,14 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		let closed = false;
 		let cancelled = false;
 		let killRequested = false;
-		let killTimer: ReturnType<typeof setTimeout> | undefined;
+		let killTimer: ScheduledTimer | undefined;
 		const removeAbortListeners: Array<() => void> = [];
 
 		const finish = (result: RunnerSubagentResult<TTerminalInput>) => {
 			if (settled) return;
 			settled = true;
 			for (const remove of removeAbortListeners) remove();
-			if (killTimer !== undefined) timers.clearTimeout(killTimer);
+			killTimer?.cancel();
 			void cleanupRuntimeFiles(runtimeFiles).finally(() => resolve(result));
 		};
 
@@ -309,7 +308,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 
 		child.on("close", (code, closeSignal) => {
 			closed = true;
-			if (killTimer !== undefined) timers.clearTimeout(killTimer);
+			killTimer?.cancel();
 			parser.finish();
 			const snapshot = parser.getSnapshot();
 			updateEmitter.emit(updateFromSnapshot(snapshot), { force: true });

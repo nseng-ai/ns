@@ -1,5 +1,8 @@
 import { EventEmitter } from "node:events";
 
+import type { Clock } from "@asdl/core/clock";
+import type { TimerScheduler } from "@asdl/core/timers";
+
 import type {
 	RunnerSubagentDispatcherDependencies,
 	SpawnChildProcessOptions,
@@ -77,7 +80,8 @@ export class FakeSpawnedChildProcess implements SpawnedChildProcess {
 export function createFakeRunnerSubagentDispatcher(
 	options: {
 		sessionFile?: string;
-		now?: () => number;
+		clock?: Clock;
+		timers?: TimerScheduler;
 		runtimeFiles?: RunnerSubagentRuntimeFiles;
 		runtimeResult?: RuntimeResultV1;
 		runtimeResultRead?: RuntimeResultReadResult;
@@ -99,7 +103,8 @@ export function createFakeRunnerSubagentDispatcher(
 		cleanup: () => undefined,
 	};
 	const dependencies: RunnerSubagentDispatcherDependencies = {
-		...(options.now === undefined ? {} : { now: options.now }),
+		...(options.clock === undefined ? {} : { clock: options.clock }),
+		...(options.timers === undefined ? {} : { timers: options.timers }),
 		createSessionFile: () => sessionFile,
 		createRuntimeFiles: (input) => {
 			createRuntimeConfig(input);

@@ -276,18 +276,14 @@ setInterval(() => {}, 1_000);
 			resolveReady = resolve;
 		});
 
-		const resultPromise = runCommand(
-			process.execPath,
-			[script],
-			{
-				timeout: 500,
-				timeoutKillGraceMs: 100,
-				onStderr(text) {
-					if (text.includes("ready")) resolveReady();
-				},
+		const resultPromise = runCommand(process.execPath, [script], {
+			timeout: 500,
+			timeoutKillGraceMs: 100,
+			timers: manualTimers.timers,
+			onStderr(text) {
+				if (text.includes("ready")) resolveReady();
 			},
-			{ timers: manualTimers.timers },
-		);
+		});
 
 		await ready;
 		manualTimers.advanceMs(500);
@@ -316,19 +312,15 @@ setInterval(() => {}, 1_000);
 			resolveIgnoredSigterm = resolve;
 		});
 
-		const resultPromise = runCommand(
-			process.execPath,
-			[script],
-			{
-				timeout: 500,
-				timeoutKillGraceMs: 100,
-				onStderr(text) {
-					if (text.includes("ready")) resolveReady();
-					if (text.includes("ignored sigterm")) resolveIgnoredSigterm();
-				},
+		const resultPromise = runCommand(process.execPath, [script], {
+			timeout: 500,
+			timeoutKillGraceMs: 100,
+			timers: manualTimers.timers,
+			onStderr(text) {
+				if (text.includes("ready")) resolveReady();
+				if (text.includes("ignored sigterm")) resolveIgnoredSigterm();
 			},
-			{ timers: manualTimers.timers },
-		);
+		});
 
 		await ready;
 		manualTimers.advanceMs(500);
