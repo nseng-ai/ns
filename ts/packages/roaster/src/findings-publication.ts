@@ -102,32 +102,57 @@ export interface PublishFindingsOptions {
 	readonly fallbackBaseRef?: string | undefined;
 }
 
+export type PublicationFailurePhase =
+	| "payload_parse"
+	| "comment_body_parse"
+	| "summary_lookup"
+	| "summary_write";
+
+export type PublicationFailureReason =
+	| "invalid_payload"
+	| "invalid_comment_body"
+	| "github_lookup_failed"
+	| "github_write_failed";
+
+export interface SummaryPublicationStatus {
+	readonly type: "posted" | "updated";
+	readonly marker: string;
+}
+
 export type PublishFindingsResult =
 	| {
 			readonly type: "ok";
 			readonly inlineStatus: PostInlineFindingsResult;
-			readonly summaryAction: "posted" | "updated";
+			readonly summaryStatus: SummaryPublicationStatus;
 	  }
-	| { readonly type: "error"; readonly message: string };
+	| {
+			readonly type: "error";
+			readonly fatalFailurePhase: PublicationFailurePhase;
+			readonly reason: PublicationFailureReason;
+			readonly message: string;
+	  };
 
 export async function publishFindings(
 	ctx: { readonly github: RoasterGitHub },
 	options: PublishFindingsOptions,
 ): Promise<PublishFindingsResult> {
 	const parsed = parseFindingsPayloadResult(options.envelope, fallbackPayloadOptions(options));
-	if (parsed.type === "error") return publicationError(parsed.error.message);
+	if (parsed.type === "error")
+		return publicationError("payload_parse", "invalid_payload", parsed.error.message);
 
 	const inlineStatus = await postInlineFindings(ctx, parsed.payload, options);
 	const renderedBody = renderFindingsComment(parsed.payload, { inlineStatus });
 	const parsedBody = parseFindingsCommentBody(renderedBody);
-	if (parsedBody.type === "error") return publicationError(parsedBody.error.message);
+	if (parsedBody.type === "error")
+		return publicationError("comment_body_parse", "invalid_comment_body", parsedBody.error.message);
 
 	const existing = await ctx.github.findPrDiscussionCommentByMarker({
 		prNumber: options.prNumber,
 		marker: parsedBody.parsed.marker,
 		authorLogin: BOT_LOGIN,
 	});
-	if (existing.type === "error") return publicationError(existing.error.message);
+	if (existing.type === "error")
+		return publicationError("summary_lookup", "github_lookup_failed", existing.error.message);
 
 	const nextBody = preserveActivityLog(
 		existing.value?.body ?? "",
@@ -138,12 +163,16 @@ export async function publishFindings(
 		existing.value === null
 			? await ctx.github.addPrDiscussionComment(options.prNumber, nextBody)
 			: await ctx.github.updatePrDiscussionComment(existing.value.id, nextBody);
-	if (written.type === "error") return publicationError(written.error.message);
+	if (written.type === "error")
+		return publicationError("summary_write", "github_write_failed", written.error.message);
 
 	return {
 		type: "ok",
 		inlineStatus,
-		summaryAction: existing.value === null ? "posted" : "updated",
+		summaryStatus: {
+			type: existing.value === null ? "posted" : "updated",
+			marker: parsedBody.parsed.marker,
+		},
 	};
 }
 
@@ -188,8 +217,12 @@ function activityLogEntry(runUrl: string | undefined): string {
 	return runUrl === undefined || runUrl.trim() === "" ? timestamp : `${timestamp} · ${runUrl}`;
 }
 
-function publicationError(message: string): PublishFindingsResult {
-	return { type: "error", message };
+function publicationError(
+	fatalFailurePhase: PublicationFailurePhase,
+	reason: PublicationFailureReason,
+	message: string,
+): PublishFindingsResult {
+	return { type: "error", fatalFailurePhase, reason, message };
 }
 
 type JsonResult =
