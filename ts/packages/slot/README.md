@@ -50,7 +50,7 @@ A full pool fails with `pool_full`; run `slot free` or `slot resize` first.
 
 ### `slot claim BRANCH`
 
-Moves an existing local branch into a managed slot worktree. From the main worktree, it can check out an unassigned local branch into the lowest available clean detached slot. From a managed slot, it can move the branch into the current slot after detaching a source slot when safe.
+Moves an existing local branch into a managed slot worktree. From the main worktree, it moves the current clean branch into the lowest available clean detached slot. If the current branch is trunk, the main worktree is left detached at the trunk tip so the trunk branch can be checked out in the slot. When claiming trunk while the main worktree is on a different branch, `slot claim trunk` checks trunk out in main and moves the current branch into a slot. From a managed slot, it can move the branch into the current slot after detaching a source slot when safe.
 
 ### `slot goto -n N` / `slot goto -w slot-XX`
 

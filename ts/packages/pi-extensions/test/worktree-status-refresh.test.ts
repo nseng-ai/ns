@@ -4,18 +4,30 @@ import { stripTerminalEscapes } from "@asdl/core/exec";
 import { createManualTimerHarness } from "@asdl/core/testing";
 import type { LocalWorktreeStatus } from "@asdl/ccc/worktree-status";
 import {
+	makeGraphiteRepo,
+	withTempRoot,
+} from "../../ccc/test/integration/worktree-status-fixtures.ts";
+import {
+	basicGitStatusScript,
+	brmemListStep,
 	deferred,
+	dirtyStep,
 	fakeWorktreeStatusLoaders,
 	flushPromises,
+	ghNoPrSteps,
 	gtStatus,
+	headOidStep,
 	LifecycleFakePi,
 	localStatus,
 	queued,
+	revListStep,
+	TEST_THEME,
 	testContext,
 } from "./worktree-status-test-support.ts";
 import worktreeStatusExtension, {
 	WORKTREE_STATUS_REFRESH_COMMAND_NAME,
 	type ExtensionAPI,
+	type ExtensionContext,
 } from "../src/worktree-status.ts";
 
 describe("worktree status refresh lifecycle", () => {

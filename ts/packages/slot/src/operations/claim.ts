@@ -18,6 +18,11 @@ export const claimResultSchema = z.object({
 	already_current: z.boolean(),
 	main_worktree_path: z.string().nullable(),
 	main_checkout_branch: z.string().nullable(),
+	main_redirect_action: z
+		.union([z.literal("checkout_branch"), z.literal("detach_head")])
+		.nullable(),
+	main_redirect_ref: z.string().nullable(),
+	main_redirect_note: z.string().nullable(),
 });
 
 export type ClaimRequest = z.infer<typeof claimRequestSchema>;
@@ -39,9 +44,17 @@ export function renderClaim(result: ClaimResult): string {
 		result.replaced_branch_name !== null && result.main_checkout_branch === null
 			? ` (replaced ${result.replaced_branch_name})`
 			: "";
-	const mainCheckout =
-		result.main_checkout_branch === null
-			? ""
-			: `; checked out ${result.main_checkout_branch} in main worktree`;
-	return `Claimed ${result.slot_name} -> ${result.branch_name}${source}${replaced}${mainCheckout}`;
+	return `Claimed ${result.slot_name} -> ${result.branch_name}${source}${replaced}${mainRedirectSuffix(result)}`;
+}
+
+function mainRedirectSuffix(result: ClaimResult): string {
+	const note = result.main_redirect_note === null ? "" : ` (${result.main_redirect_note})`;
+	if (result.main_redirect_action === "checkout_branch") {
+		return `; checked out ${result.main_redirect_ref} in main worktree${note}`;
+	}
+	if (result.main_redirect_action === "detach_head") {
+		if (result.main_redirect_ref === null) return `; detached main worktree${note}`;
+		return `; detached main worktree at ${result.main_redirect_ref}${note}`;
+	}
+	return note;
 }

@@ -30,6 +30,9 @@ export interface SlotClaimOutcome {
 	already_current: boolean;
 	main_worktree_path: string | null;
 	main_checkout_branch: string | null;
+	main_redirect_action: "checkout_branch" | "detach_head" | null;
+	main_redirect_ref: string | null;
+	main_redirect_note: string | null;
 }
 
 export type SlotClaimResult = LifecycleResult<SlotClaimOutcome>;
@@ -185,8 +188,6 @@ async function planClaimFromMainWorktree(
 			);
 		if (currentBranch.type === "detached" || currentBranch.branch !== branchName)
 			return notCurrentSlotFailure(ctx);
-		if (branchName === (await ctx.git.getTrunkBranch()))
-			return trunkInMainWorktreeFailure(ctx, branchName);
 		const target = await lowestAvailable(inventory, ctx.git);
 		if (target === null)
 			return {
@@ -205,10 +206,13 @@ async function planClaimFromMainWorktree(
 			slotCheckoutBranch: branchName,
 			source: null,
 			isAlreadyCurrent: false,
-			callerRedirect: await planCurrentWtRedirect(ctx.git, {
-				cwd: ctx.repo.root,
-				movingBranch: branchName,
-			}),
+			callerRedirect:
+				branchName === trunkBranch
+					? { action: { type: "detach_head", ref: branchName }, note: null }
+					: await planCurrentWtRedirect(ctx.git, {
+							cwd: ctx.repo.root,
+							movingBranch: branchName,
+						}),
 			mainRedirect: null,
 		});
 	}
@@ -245,7 +249,7 @@ async function planTrunkClaimFromMainWorktree(
 			`Failed to determine current branch at ${ctx.repo.root}: ${currentBranch.failure.message}`,
 		);
 	if (currentBranch.type === "detached") return null;
-	if (currentBranch.branch === trunkBranch) return trunkInMainWorktreeFailure(ctx, trunkBranch);
+	if (currentBranch.branch === trunkBranch) return null;
 	if (await ctx.git.hasUncommittedChanges(ctx.repo.root))
 		return failure(
 			"dirty_current_worktree",
@@ -307,16 +311,6 @@ function notCurrentSlotFailure(ctx: RepoSlotContext): LifecycleResult<ClaimPlan>
 	);
 }
 
-function trunkInMainWorktreeFailure(
-	ctx: RepoSlotContext,
-	branchName: string,
-): LifecycleResult<ClaimPlan> {
-	return failure(
-		"trunk_in_main_worktree",
-		`Branch '${branchName}' is the trunk branch and is checked out in the main worktree at ${ctx.repo.root}. Refusing to move trunk out of the main worktree; check out a different branch first or claim a branch that is not currently checked out there.`,
-	);
-}
-
 async function currentSlotDirtyFailure(
 	ctx: RepoSlotContext,
 	current: SlotRecord,
@@ -361,7 +355,7 @@ async function detachSourceSlot(
 function outcomeFromPlan(ctx: RepoSlotContext, plan: ClaimPlan): SlotClaimOutcome {
 	const replacedBranchName =
 		plan.target.branch === plan.slotCheckoutBranch ? null : plan.target.branch;
-	const mainCheckoutBranch = mainCheckoutBranchOf(plan);
+	const mainRedirect = mainRedirectOf(plan);
 	return {
 		slot_name: plan.target.slotName,
 		branch_name: plan.slotCheckoutBranch,
@@ -370,14 +364,27 @@ function outcomeFromPlan(ctx: RepoSlotContext, plan: ClaimPlan): SlotClaimOutcom
 		source_slot_name: plan.source?.slotName ?? null,
 		source_worktree_path: plan.source?.path ?? null,
 		already_current: plan.isAlreadyCurrent,
-		main_worktree_path: mainCheckoutBranch === null ? null : ctx.repo.root,
-		main_checkout_branch: mainCheckoutBranch,
+		main_worktree_path: mainRedirect === null ? null : ctx.repo.root,
+		main_checkout_branch: mainCheckoutBranchOf(mainRedirect),
+		main_redirect_action: mainRedirect?.action.type ?? null,
+		main_redirect_ref: mainRedirectRefOf(mainRedirect),
+		main_redirect_note: mainRedirect?.note ?? null,
 	};
 }
 
-function mainCheckoutBranchOf(plan: ClaimPlan): string | null {
-	if (plan.mainRedirect?.action.type !== "checkout_branch") return null;
-	return plan.mainRedirect.action.branch;
+function mainRedirectOf(plan: ClaimPlan): CurrentWorktreeRedirect | null {
+	return plan.mainRedirect ?? plan.callerRedirect;
+}
+
+function mainCheckoutBranchOf(redirect: CurrentWorktreeRedirect | null): string | null {
+	if (redirect?.action.type !== "checkout_branch") return null;
+	return redirect.action.branch;
+}
+
+function mainRedirectRefOf(redirect: CurrentWorktreeRedirect | null): string | null {
+	if (redirect === null) return null;
+	if (redirect.action.type === "checkout_branch") return redirect.action.branch;
+	return redirect.action.ref;
 }
 
 function ok(outcome: SlotClaimOutcome): SlotClaimResult {

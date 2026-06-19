@@ -64,7 +64,14 @@ describe("slot claim CLI", () => {
 		});
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
-			data: { slot_name: "slot-01", branch_name: "feature/main" },
+			data: {
+				slot_name: "slot-01",
+				branch_name: "feature/main",
+				main_worktree_path: "/repo",
+				main_checkout_branch: "master",
+				main_redirect_action: "checkout_branch",
+				main_redirect_ref: "master",
+			},
 		});
 		expect(run.git.operations()).toEqual([
 			{ type: "checkout-branch", path: "/repo", branch: "master" },
@@ -86,6 +93,8 @@ describe("slot claim CLI", () => {
 				branch_name: "feature/main",
 				main_worktree_path: "/repo",
 				main_checkout_branch: "master",
+				main_redirect_action: "checkout_branch",
+				main_redirect_ref: "master",
 			},
 		});
 		expect(run.git.operations()).toEqual([
@@ -94,15 +103,59 @@ describe("slot claim CLI", () => {
 		]);
 	});
 
-	it("refuses trunk already current in main", async () => {
+	it("from main claiming current trunk detaches main and checks trunk out into the lowest slot", async () => {
 		const run = runScenario(["claim", "master", "--format", "json"], {
+			git: {
+				localBranches: ["master"],
+				worktrees: [
+					{ path: "/repo", branch: "master" },
+					slotWorktree("slot-01"),
+					slotWorktree("slot-02"),
+				],
+			},
+		});
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({
+			data: {
+				slot_name: "slot-01",
+				branch_name: "master",
+				main_worktree_path: "/repo",
+				main_checkout_branch: null,
+				main_redirect_action: "detach_head",
+				main_redirect_ref: "master",
+				main_redirect_note: null,
+			},
+		});
+		expect(run.git.operations()).toEqual([
+			{ type: "detach-head", path: "/repo", ref: "master" },
+			{ type: "checkout-branch", path: slot1Path, branch: "master" },
+		]);
+	});
+
+	it("from main claiming current trunk detaches instead of checking out a previous branch", async () => {
+		const run = runScenario(["claim", "master", "--format", "json"], {
+			git: {
+				localBranches: ["master", "feature/previous"],
+				worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01")],
+				previousBranches: { "/repo": "feature/previous" },
+			},
+		});
+		expect(await run.exit).toBe(0);
+		expect(run.git.operations()).toEqual([
+			{ type: "detach-head", path: "/repo", ref: "master" },
+			{ type: "checkout-branch", path: slot1Path, branch: "master" },
+		]);
+	});
+
+	it("reports main detach in human output", async () => {
+		const run = runScenario(["claim", "master"], {
 			git: {
 				localBranches: ["master"],
 				worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01")],
 			},
 		});
-		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ error_type: "trunk_in_main_worktree" });
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("\n")).toContain("detached main worktree at master");
 	});
 
 	it("refuses dirty source slot before mutation", async () => {
