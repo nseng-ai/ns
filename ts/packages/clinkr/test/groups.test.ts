@@ -99,11 +99,11 @@ describe("default raw commands", () => {
 	function buildDefaultTree(): ClinkrGroup<ProbeContext> {
 		const root = new ClinkrGroup<ProbeContext>({
 			name: "root",
+			description: "Root group with a default action.",
 			version: "1.2.3",
 			runtimeInfo: () => "runtime: test\n",
 		});
 		root.defaultCommand({
-			description: "Run the default action.",
 			schema: z.object({
 				name: z.string(),
 				registry: z.array(z.string()).optional(),
@@ -154,6 +154,7 @@ describe("default raw commands", () => {
 		const help = await runForTest(buildDefaultTree(), ["--help"], { context: { calls: [] } });
 		expect(help.exitCode).toBe(0);
 		expect(help.stdout).toContain("Usage:");
+		expect(help.stdout).toContain("Root group with a default action.");
 		expect(help.stdout).toContain("--registry");
 		expect(help.stdout).toContain("sub");
 		expect(help.stderr).toBe("");

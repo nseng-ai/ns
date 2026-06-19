@@ -73,10 +73,11 @@ export interface RawCommandSpec<TContext, S extends z.ZodObject> {
 
 export interface DefaultRawCommandSpec<TContext, S extends z.ZodObject> extends Omit<
 	RawCommandSpec<TContext, S>,
-	"name" | "summary"
+	"name" | "summary" | "description"
 > {
 	name?: never;
 	summary?: never;
+	description?: never;
 }
 
 export interface ClinkrGroupOptions {
@@ -197,7 +198,7 @@ export class ClinkrGroup<TContext> {
 		});
 		this.defaultRegisteredCommand = {
 			name: this.name,
-			description: spec.description,
+			description: undefined,
 			summary: undefined,
 			schema: spec.schema,
 			schemaDocument: undefined,
@@ -369,7 +370,6 @@ function configureCommandExecution<TContext>(
 	options: ConfigureCommandExecutionOptions<TContext>,
 ): void {
 	const { command, registered, context, io, state } = options;
-	if (registered.description !== undefined) command.description(registered.description);
 	for (const positional of registered.plan.positionals) {
 		command.addArgument(buildCommanderArgument(positional));
 	}
