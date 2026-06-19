@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { runCli } from "../../src/cli.ts";
+import type { RoasterContext } from "../../src/context.ts";
 import { FakeHarnessGateway } from "../../src/gateways/harness.ts";
 import { FakeLocalDiffGateway } from "../../src/gateways/local-diff.ts";
 import { FakeReviewCatalogGateway } from "../../src/gateways/review-catalog.ts";
@@ -11,7 +12,7 @@ import {
 	type ReviewExecutionResponse,
 	type ReviewFinding,
 } from "../../src/models.ts";
-import { fakeRoasterGateways } from "../support/fake-roaster-gateways.ts";
+import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
 
 const REVIEW_KEY = "dignified-python";
 
@@ -24,20 +25,20 @@ interface RunResult {
 async function runRoaster(
 	args: readonly string[],
 	options: {
-		readonly gateways?: ReturnType<typeof fakeRoasterGateways>;
+		readonly context?: RoasterContext;
 		readonly stdin?: string;
 	} = {},
 ): Promise<RunResult> {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
-	const exitCode = await runCli(args, {
-		gateways: options.gateways ?? fakeRoasterGateways(),
-		cwd: "/repo",
-		env: {},
+	const baseContext = options.context ?? fakeRoasterContext();
+	const context: RoasterContext = {
+		...baseContext,
 		stdin: async () => options.stdin ?? "",
 		stdout: (text) => stdout.push(text),
 		stderr: (text) => stderr.push(text),
-	});
+	};
+	const exitCode = await runCli(args, { context });
 	return { exitCode, stdout: stdout.join(""), stderr: stderr.join("") };
 }
 
@@ -94,7 +95,7 @@ function applicableSources(): Record<string, string> {
 	};
 }
 
-function gatewaysWithCatalog(
+function contextWithCatalog(
 	options: {
 		readonly sources: Record<string, string>;
 		readonly keys?: readonly string[];
@@ -102,7 +103,7 @@ function gatewaysWithCatalog(
 		readonly response?: ReviewExecutionResponse;
 	} = { sources: { [REVIEW_KEY]: sampleSource() } },
 ) {
-	return fakeRoasterGateways({
+	return fakeRoasterContext({
 		reviewCatalog: new FakeReviewCatalogGateway({
 			reviewSourcesByKey: options.sources,
 			reviewKeys: options.keys,
@@ -132,9 +133,31 @@ describe("roaster review CLI", () => {
 		expect(run.stdout).not.toContain("exec");
 	});
 
+	test("provided context supplies CLI I/O and ignores top-level overrides", async () => {
+		const contextStdout: string[] = [];
+		const topStdout: string[] = [];
+		const context = fakeRoasterContext({
+			stdout: (text) => contextStdout.push(text),
+			stderr: () => undefined,
+		});
+
+		const exitCode = await runCli(["--help"], {
+			context,
+			cwd: "/ignored",
+			env: { ROASTER_TOP_LEVEL: "ignored" },
+			stdin: async () => "ignored",
+			stdout: (text) => topStdout.push(text),
+			stderr: () => undefined,
+		});
+
+		expect(exitCode).toBe(0);
+		expect(contextStdout.join("")).toContain("review");
+		expect(topStdout).toEqual([]);
+	});
+
 	test("review list renders human output", async () => {
 		const run = await runRoaster(["review", "list"], {
-			gateways: gatewaysWithCatalog({
+			context: contextWithCatalog({
 				sources: applicableSources(),
 				keys: ["dignified-python", "typescript-style"],
 			}),
@@ -147,7 +170,7 @@ describe("roaster review CLI", () => {
 
 	test("review list JSON includes keys and count", async () => {
 		const run = await runRoaster(["review", "list", "--format", "json"], {
-			gateways: gatewaysWithCatalog({
+			context: contextWithCatalog({
 				sources: applicableSources(),
 				keys: ["dignified-python", "typescript-style"],
 			}),
@@ -161,7 +184,7 @@ describe("roaster review CLI", () => {
 
 	test("review ls aliases review list", async () => {
 		const run = await runRoaster(["review", "ls", "--format", "json"], {
-			gateways: gatewaysWithCatalog({
+			context: contextWithCatalog({
 				sources: { [REVIEW_KEY]: sampleSource() },
 				keys: [REVIEW_KEY],
 			}),
@@ -174,7 +197,7 @@ describe("roaster review CLI", () => {
 		const run = await runRoaster(
 			["review", "list", "--applicable", "--base-ref", "master", "--format", "json"],
 			{
-				gateways: gatewaysWithCatalog({
+				context: contextWithCatalog({
 					sources: applicableSources(),
 					keys: ["dignified-python", "typescript-style"],
 					diff: diffForPath("src/app.ts"),
@@ -187,7 +210,7 @@ describe("roaster review CLI", () => {
 
 	test("review list fails on invalid review definition", async () => {
 		const run = await runRoaster(["review", "list", "--format", "json"], {
-			gateways: gatewaysWithCatalog({ sources: { bad: "not frontmatter" }, keys: ["bad"] }),
+			context: contextWithCatalog({ sources: { bad: "not frontmatter" }, keys: ["bad"] }),
 		});
 		expect(run.exitCode).toBe(2);
 		const envelope = JSON.parse(run.stdout);
@@ -205,7 +228,7 @@ describe("roaster review CLI", () => {
 		const run = await runRoaster(
 			["review", "run", REVIEW_KEY, "--model", "opus", "--format", "json"],
 			{
-				gateways: gatewaysWithCatalog({
+				context: contextWithCatalog({
 					sources: { [REVIEW_KEY]: sampleSource() },
 					response: { payload: createFindingsReview([finding]), usage: null, inputCoverage: null },
 				}),
@@ -227,13 +250,13 @@ describe("roaster review CLI", () => {
 
 	test("review run uses default model and fails when no model is available", async () => {
 		const success = await runRoaster(["review", "run", REVIEW_KEY, "--format", "json"], {
-			gateways: gatewaysWithCatalog({ sources: { [REVIEW_KEY]: sampleSource() } }),
+			context: contextWithCatalog({ sources: { [REVIEW_KEY]: sampleSource() } }),
 		});
 		expect(success.exitCode).toBe(0);
 		expect(JSON.parse(success.stdout).data.model).toBe("sonnet");
 
 		const failure = await runRoaster(["review", "run", REVIEW_KEY, "--format", "json"], {
-			gateways: gatewaysWithCatalog({
+			context: contextWithCatalog({
 				sources: { [REVIEW_KEY]: sampleSource({ defaultModel: null }) },
 			}),
 		});

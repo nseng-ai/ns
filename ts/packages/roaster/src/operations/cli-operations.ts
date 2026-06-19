@@ -1,7 +1,7 @@
 import { failure, ok, type ClinkrExit } from "@asdl/clinkr";
 import { z } from "zod";
 
-import type { RoasterContext } from "../context.ts";
+import type { RoasterRuntime } from "../context.ts";
 import { failureMessage, type RoasterFailure } from "../failures.ts";
 import { publishFindings, type PublishFindingsResult } from "../findings-publication.ts";
 import {
@@ -13,12 +13,6 @@ import {
 } from "../models.ts";
 import { applicableReviewKeys } from "../review-applicability.ts";
 import { parseReviewDefinition } from "../review-definition.ts";
-
-export interface RoasterCliContext extends RoasterContext {
-	readonly stdin: () => Promise<string>;
-	readonly stdout: (text: string) => void;
-	readonly stderr: (text: string) => void;
-}
 
 const nonBlankStringSchema = z.string().trim().min(1);
 
@@ -62,7 +56,7 @@ export const publishFindingsRequestSchema = z.object({
 });
 
 export async function runReviewList(
-	ctx: RoasterCliContext,
+	ctx: RoasterRuntime,
 	request: ReviewListRequest,
 ): Promise<ClinkrExit<ReviewListResult>> {
 	const catalog = await ctx.reviewCatalog.listReviewKeys();
@@ -109,7 +103,7 @@ export function renderReviewList(result: ReviewListResult): string {
 }
 
 export async function runReviewByKey(
-	ctx: RoasterCliContext,
+	ctx: RoasterRuntime,
 	request: ReviewRunRequest,
 ): Promise<ClinkrExit<ReviewRunResult>> {
 	const source = await ctx.reviewCatalog.loadReviewSource({ key: request.key });
@@ -169,7 +163,7 @@ export function renderReviewRun(result: ReviewRunResult): string {
 }
 
 export async function runPublishFindings(
-	ctx: RoasterCliContext,
+	ctx: RoasterRuntime,
 	request: z.infer<typeof publishFindingsRequestSchema>,
 ): Promise<number> {
 	const envelope = await ctx.stdin();
@@ -196,7 +190,7 @@ type LoadDefinitionsResult =
 	| { readonly type: "error"; readonly error: RoasterFailure };
 
 async function loadDefinitions(
-	ctx: RoasterCliContext,
+	ctx: RoasterRuntime,
 	keys: readonly string[],
 ): Promise<LoadDefinitionsResult> {
 	const loaded: LoadedDefinition[] = [];
@@ -267,7 +261,7 @@ function renderPublishFindingsDiagnostics(
 	].join("\n");
 }
 
-function stderrFailure(ctx: RoasterCliContext, message: string): number {
+function stderrFailure(ctx: RoasterRuntime, message: string): number {
 	ctx.stderr(message);
 	return 1;
 }

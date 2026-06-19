@@ -21,25 +21,31 @@ import type {
 	ReviewExecutionResponse,
 } from "./models.ts";
 
-export interface RoasterGateways {
+export interface RoasterContext {
 	readonly execApi: CommandExecApi;
 	readonly gitGateway: GitGateway;
 	readonly localDiff: LocalDiffGateway;
 	readonly reviewCatalog: ReviewCatalogGateway;
 	readonly github: RoasterGitHubGateway;
 	readonly harness: HarnessGateway;
-}
-
-export interface CreateRealRoasterGatewaysOptions {
-	readonly execApi?: CommandExecApi | undefined;
-	readonly gitGateway?: GitGateway | undefined;
-	readonly harness?: HarnessGateway | undefined;
-}
-
-export interface RoasterRunEnvironment {
 	readonly cwd: string;
 	readonly env: NodeJS.ProcessEnv;
 	readonly signal?: AbortSignal | undefined;
+	readonly stdin: () => Promise<string>;
+	readonly stdout: (text: string) => void;
+	readonly stderr: (text: string) => void;
+}
+
+export interface CreateRealRoasterContextOptions {
+	readonly cwd: string;
+	readonly env: NodeJS.ProcessEnv;
+	readonly stdin: () => Promise<string>;
+	readonly stdout: (text: string) => void;
+	readonly stderr: (text: string) => void;
+	readonly signal?: AbortSignal | undefined;
+	readonly execApi?: CommandExecApi | undefined;
+	readonly gitGateway?: GitGateway | undefined;
+	readonly harness?: HarnessGateway | undefined;
 }
 
 export interface RoasterLocalDiff {
@@ -79,16 +85,16 @@ export interface RoasterGitHub {
 	): Promise<RoasterResult<PRDiscussionComment>>;
 }
 
-export interface RoasterContext {
+export interface RoasterRuntime {
 	readonly localDiff: RoasterLocalDiff;
 	readonly reviewCatalog: RoasterReviewCatalog;
 	readonly github: RoasterGitHub;
 	readonly harness: RoasterHarness;
+	readonly stdin: () => Promise<string>;
+	readonly stderr: (text: string) => void;
 }
 
-export function createRealRoasterGateways(
-	options: CreateRealRoasterGatewaysOptions = {},
-): RoasterGateways {
+export function createRealRoasterContext(options: CreateRealRoasterContextOptions): RoasterContext {
 	const execApi = options.execApi ?? new NodeCommandExecApi();
 	const gitGateway = options.gitGateway ?? new RealGitGateway(execApi);
 	return {
@@ -98,96 +104,101 @@ export function createRealRoasterGateways(
 		reviewCatalog: new RealReviewCatalogGateway({ gitGateway }),
 		github: new RealRoasterGitHubGateway(execApi),
 		harness: options.harness ?? new RealHarnessGateway({ execApi }),
+		cwd: options.cwd,
+		env: options.env,
+		...(options.signal === undefined ? {} : { signal: options.signal }),
+		stdin: options.stdin,
+		stdout: options.stdout,
+		stderr: options.stderr,
 	};
 }
 
-export function createRoasterContext(
-	gateways: RoasterGateways,
-	environment: RoasterRunEnvironment,
-): RoasterContext {
+export function createRoasterRuntime(context: RoasterContext): RoasterRuntime {
 	return {
+		stdin: context.stdin,
+		stderr: context.stderr,
 		localDiff: {
 			async loadDiff(options = {}) {
-				return await gateways.localDiff.loadDiff({
-					...environmentOptions(environment),
+				return await context.localDiff.loadDiff({
+					...environmentOptions(context),
 					...(options.baseRef === undefined ? {} : { baseRef: options.baseRef }),
 				});
 			},
 		},
 		reviewCatalog: {
 			async listReviewKeys() {
-				return await gateways.reviewCatalog.listReviewKeys(catalogOptions(environment));
+				return await context.reviewCatalog.listReviewKeys(catalogOptions(context));
 			},
 			async loadReviewSource(options) {
-				return await gateways.reviewCatalog.loadReviewSource({
-					...catalogOptions(environment),
+				return await context.reviewCatalog.loadReviewSource({
+					...catalogOptions(context),
 					key: options.key,
 				});
 			},
 		},
 		harness: {
 			async runReview(request) {
-				return await gateways.harness.runReview(request, environmentOptions(environment));
+				return await context.harness.runReview(request, environmentOptions(context));
 			},
 		},
 		github: {
 			async getPrChangedFiles(prNumber) {
-				return await gateways.github.getPrChangedFiles(prNumber, environmentOptions(environment));
+				return await context.github.getPrChangedFiles(prNumber, environmentOptions(context));
 			},
 			async getPrReviewComments(prNumber) {
-				return await gateways.github.getPrReviewComments(prNumber, environmentOptions(environment));
+				return await context.github.getPrReviewComments(prNumber, environmentOptions(context));
 			},
 			async createPrReview(prNumber, comments) {
-				return await gateways.github.createPrReview(
+				return await context.github.createPrReview(
 					prNumber,
 					comments,
-					environmentOptions(environment),
+					environmentOptions(context),
 				);
 			},
 			async findPrDiscussionCommentByMarker(options) {
-				return await gateways.github.findPrDiscussionCommentByMarker({
-					...environmentOptions(environment),
+				return await context.github.findPrDiscussionCommentByMarker({
+					...environmentOptions(context),
 					prNumber: options.prNumber,
 					marker: options.marker,
 					authorLogin: options.authorLogin,
 				});
 			},
 			async addPrDiscussionComment(prNumber, body) {
-				return await gateways.github.addPrDiscussionComment(
+				return await context.github.addPrDiscussionComment(
 					prNumber,
 					body,
-					environmentOptions(environment),
+					environmentOptions(context),
 				);
 			},
 			async updatePrDiscussionComment(commentId, body) {
-				return await gateways.github.updatePrDiscussionComment(
+				return await context.github.updatePrDiscussionComment(
 					commentId,
 					body,
-					environmentOptions(environment),
+					environmentOptions(context),
 				);
 			},
 		},
 	};
 }
 
-function environmentOptions(environment: RoasterRunEnvironment): {
+function environmentOptions(context: RoasterContext): {
 	readonly cwd: string;
 	readonly env: NodeJS.ProcessEnv;
 	readonly signal?: AbortSignal;
 } {
 	return {
-		cwd: environment.cwd,
-		env: environment.env,
-		...(environment.signal === undefined ? {} : { signal: environment.signal }),
+		cwd: context.cwd,
+		env: context.env,
+		...(context.signal === undefined ? {} : { signal: context.signal }),
 	};
 }
 
-function catalogOptions(environment: RoasterRunEnvironment): {
+function catalogOptions(context: RoasterContext): {
 	readonly cwd: string;
 	readonly signal?: AbortSignal;
 } {
 	return {
-		cwd: environment.cwd,
-		...(environment.signal === undefined ? {} : { signal: environment.signal }),
+		cwd: context.cwd,
+		...(context.signal === undefined ? {} : { signal: context.signal }),
 	};
 }
