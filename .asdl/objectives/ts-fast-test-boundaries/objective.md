@@ -18,6 +18,7 @@ The TypeScript test suite should make the fast local/default path mostly fake-dr
   - `createManualClock(startMs)` and `createManualTimerScheduler()` in `@asdl/core/testing`, exposing production-typed seams plus test-only controls.
 - Use the clock or timer seam for touched time-based TypeScript logic so tests can simulate time passing without real sleeps or Vitest fake timers.
 - Add or adjust Vitest scripts/configuration so integration tests have a separate local command and a separate CI step, and are excluded from the default local test command.
+- Require performance evidence for every test-boundary change that claims to make the default TypeScript test path faster: record the command measured, baseline and post-change timings, enough repetition/context to make the comparison credible, and any trade-off in integration-suite cost or coverage.
 - Preserve meaningful end-to-end confidence by keeping representative real Git/sqlite/Node smoke coverage in the integration suite.
 
 ## Non-Goals
@@ -41,6 +42,7 @@ The TypeScript test suite should make the fast local/default path mostly fake-dr
 - `@asdl/core/testing` exposes `createManualClock(startMs)` and `createManualTimerScheduler()` so time-based unit tests can advance deterministic time without sleeping.
 - Touched time-based operation/core logic accepts an explicit `Clock` or `TimerScheduler` seam and uses system time/timers only at composition defaults or boundary timestamp conversion.
 - Previously parked timeout-sensitive default-path tests, including the `packages/asdl-core/test/exec.test.ts` issue where applicable, are either made fast through clock/timer injection or explicitly documented as still out of scope with a remaining rationale.
+- Each completed migration or configuration slice that claims local/default-suite speedup includes durable before/after performance evidence, with the measured command, baseline timing, post-change timing, and notes about noise or measurement limits.
 
 ## Assumptions and Risks
 
@@ -50,6 +52,7 @@ Assumptions:
 - Existing real-adapter tests have enough gateway seams to convert default-path coverage to fake-driven tests without large production rewrites.
 - A minimal wall-clock seam is enough for expiry-style tests; timeout scheduling tests may use a separate one-shot timer scheduler seam when they need to drive parent-side scheduled callbacks deterministically. Elapsed/performance timing does not yet require a separate monotonic abstraction.
 - CI can run an additional TypeScript integration step without unacceptable maintenance overhead.
+- Local and CI timing measurements are stable enough to prove directional improvements when captured with explicit commands, comparable environments, and small repeated samples rather than single anecdotal runs.
 
 Risks:
 
@@ -58,6 +61,7 @@ Risks:
 - Some current tests mix unit assertions with real subprocess setup; splitting them may require careful reshaping rather than simple file moves.
 - The clock seam could become a dumping ground if timer, sleep, scheduler, or monotonic concerns are added before concrete call sites require them; current evidence supports only a separate one-shot timer scheduler for `runCommand` timeout handling, not intervals, sleeps, or monotonic time.
 - Optional system-time defaults inside core logic can hide real-time dependencies; defaults are acceptable only as explicit composition behavior, with tests injecting the deterministic seam when exercising time-sensitive behavior.
+- Test moves can create a false sense of speedup if they only shift cost into an integration command; every claimed improvement should distinguish default-suite speedup from total validation cost and preserve coverage evidence.
 
 ## Open Questions
 
