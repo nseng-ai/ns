@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { CommandRunner } from "@asdl/core/exec";
+import type { CommandRunner, ExecOptions } from "@asdl/core/exec";
 import {
 	RealGithubPrFeedbackGateway,
 	replyToReviewThreadMutation,
@@ -181,6 +181,46 @@ describe("RealGithubPrFeedbackGateway", () => {
 		runner.assertDone();
 	});
 
+	test("passes cwd, env, timeout, and review-thread query shape to gh", async () => {
+		const calls: Array<{ command: string; args: readonly string[]; options: ExecOptions }> = [];
+		const runner: CommandRunner = async (command, args, options = {}) => {
+			calls.push({ command, args: [...args], options });
+			return { stdout: reviewThreadsResponse([]), stderr: "", code: 0, killed: false };
+		};
+		const gateway = new RealGithubPrFeedbackGateway(runner);
+		const env = { PATH: "/fake/bin" };
+
+		expect(await gateway.getPrReviewThreads({ cwd: "/repo", env, prNumber: 1157 })).toEqual({
+			ok: true,
+			value: [],
+		});
+
+		expect(calls).toEqual([
+			{
+				command: "gh",
+				args: [
+					"api",
+					"graphql",
+					"-F",
+					"owner={owner}",
+					"-F",
+					"repo={repo}",
+					"-F",
+					"number=1157",
+					"-f",
+					`query=${reviewThreadsQuery}`,
+				],
+				options: { cwd: "/repo", env, timeout: 30_000 },
+			},
+		]);
+		expect(reviewThreadsQuery).toContain("reviewThreads(first: 100, after: $threadCursor)");
+		expect(reviewThreadsQuery).toContain("pageInfo { hasNextPage endCursor }");
+		expect(reviewThreadsQuery).toContain("comments(first: 100)");
+		expect(reviewThreadsQuery).toContain("line: originalLine");
+		expect(reviewThreadsQuery).toContain("startLine: originalStartLine");
+		expect(reviewThreadsQuery).toContain("databaseId");
+	});
+
 	test("hydrates review threads across thread and nested comment pages", async () => {
 		const firstThreadArgs = [
 			"api",
@@ -255,6 +295,44 @@ describe("RealGithubPrFeedbackGateway", () => {
 				}),
 				expect.objectContaining({ id: "RT_thread2", isResolved: true }),
 			],
+		});
+		runner.assertDone();
+	});
+
+	test("preserves command and GraphQL failure details for review threads", async () => {
+		const args = [
+			"api",
+			"graphql",
+			"-F",
+			"owner={owner}",
+			"-F",
+			"repo={repo}",
+			"-F",
+			"number=12",
+			"-f",
+			`query=${reviewThreadsQuery}`,
+		];
+		const graphqlErrors = [{ message: "Could not resolve to a PullRequest" }];
+		const graphqlStdout = JSON.stringify({ data: null, errors: graphqlErrors });
+		const runner = new ScriptedCommandRunner([
+			step("gh", args, { exitCode: 2, stdout: "partial", stderr: "gh: boom" }),
+			step("gh", args, { stdout: graphqlStdout }),
+		]);
+		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+
+		expect(await gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 })).toMatchObject({
+			ok: false,
+			error: {
+				code: "github_pr_feedback_gh_failed",
+				details: { stdout: "partial", stderr: "gh: boom", exitCode: 2 },
+			},
+		});
+		expect(await gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 })).toMatchObject({
+			ok: false,
+			error: {
+				code: "github_pr_feedback_graphql_failed",
+				details: { stdout: graphqlStdout, graphqlErrors },
+			},
 		});
 		runner.assertDone();
 	});

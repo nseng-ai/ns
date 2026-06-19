@@ -7,6 +7,7 @@ import {
 	type ClinkrHandler,
 	type JsonSchemaDocument,
 } from "@asdl/clinkr";
+import type { GithubPrFeedbackFailure } from "@asdl/core/github-pr-feedback";
 
 import type { PrAddressContext } from "./context.ts";
 import type { GatewayFailure, GatewayOptions } from "./gateways.ts";
@@ -49,6 +50,27 @@ export function gatewayFailureDetail(gatewayFailure: GatewayFailure): string {
 
 export function gatewayFailureMessage(prefix: string, gatewayFailure: GatewayFailure): string {
 	return `${prefix}: ${gatewayFailureDetail(gatewayFailure)}`;
+}
+
+export function prFeedbackFailureExit(prefix: string, prFeedbackFailure: GithubPrFeedbackFailure) {
+	return failure("pr_gateway_failure", prFeedbackFailureMessage(prefix, prFeedbackFailure));
+}
+
+export function prFeedbackFailureMessage(
+	prefix: string,
+	prFeedbackFailure: GithubPrFeedbackFailure,
+): string {
+	return `${prefix}: ${prFeedbackFailureDetail(prFeedbackFailure)}`;
+}
+
+export function prFeedbackFailureDetail(prFeedbackFailure: GithubPrFeedbackFailure): string {
+	const details = prFeedbackFailure.details ?? {};
+	const stderr = typeof details.stderr === "string" ? details.stderr : null;
+	const stdout = typeof details.stdout === "string" ? details.stdout : null;
+	if (stderr !== null && stderr.trim() !== "") return stderr;
+	if (stdout !== null && stdout.trim() !== "") return stdout;
+	if (prFeedbackFailure.message.trim() !== "") return prFeedbackFailure.message;
+	return prFeedbackFailure.code;
 }
 
 export interface DefineExecOperationOptions<S extends z.ZodObject, T> {

@@ -16,7 +16,7 @@ function dataFromJson(stdout: readonly string[]): unknown {
 describe("pr-address primitive exec commands", () => {
 	test("returns structured lookup results for PR details and branch PRs", async () => {
 		const prFeedback = new InMemoryGithubPrFeedbackGateway({
-			prs: [prSummary({ number: 12, head_ref_name: "feature/pr" })],
+			prs: [prSummary({ number: 12, headRefName: "feature/pr" })],
 			missingPrNumbers: new Set([404]),
 		});
 
@@ -55,7 +55,7 @@ describe("pr-address primitive exec commands", () => {
 			reviewThreads: {
 				12: [
 					reviewThread({ id: "RT_open" }),
-					reviewThread({ id: "RT_resolved", is_resolved: true }),
+					reviewThread({ id: "RT_resolved", isResolved: true }),
 				],
 			},
 			discussionComments: { 12: [discussionComment({ id: 90 })] },

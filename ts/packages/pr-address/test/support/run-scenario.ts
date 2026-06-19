@@ -3,7 +3,6 @@ import type { PrAddressContext } from "../../src/context.ts";
 import { fakePrAddressContext } from "./in-memory-pr-address-gateways.ts";
 
 export interface ScenarioRunOptions {
-	github?: PrAddressContext["github"] | undefined;
 	git?: PrAddressContext["git"] | undefined;
 	prFeedback?: PrAddressContext["prFeedback"] | undefined;
 	env?: NodeJS.ProcessEnv | undefined;
@@ -26,7 +25,6 @@ export function runScenario(
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const overrides: Partial<PrAddressContext> = {};
-	if (options.github !== undefined) overrides.github = options.github;
 	if (options.git !== undefined) overrides.git = options.git;
 	if (options.prFeedback !== undefined) overrides.prFeedback = options.prFeedback;
 	const stdin = options.stdin;

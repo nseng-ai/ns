@@ -1,6 +1,12 @@
 import { z } from "zod";
 
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
+import type {
+	GithubPrDiscussionComment,
+	GithubPrReview,
+	GithubPrReviewThread,
+	GithubPrSummary,
+} from "@asdl/core/github-pr-feedback";
 import {
 	fetchFeedbackSnapshot,
 	reviewsForRequest,
@@ -10,11 +16,10 @@ import { isAutomationLikeDiscussionComment } from "./core/feedback-summary.ts";
 import {
 	defineExecOperation,
 	gatewayFailureExit,
-	gatewayFailureMessage,
 	gatewayOptions,
+	prFeedbackFailureExit,
 	type PrAddressExecContext,
 } from "./exec-operation.ts";
-import type { PRDiscussionComment, PRReview, PRReviewThread, PRSummary } from "./gateways.ts";
 
 const downloadFeedbackParseSchema = z.object({
 	prNumber: z.int().optional(),
@@ -52,9 +57,9 @@ interface DownloadFeedbackResult {
 }
 
 interface IncludedFeedback {
-	reviewThreads: readonly PRReviewThread[];
-	reviews: readonly PRReview[];
-	discussionComments: readonly PRDiscussionComment[];
+	reviewThreads: readonly GithubPrReviewThread[];
+	reviews: readonly GithubPrReview[];
+	discussionComments: readonly GithubPrDiscussionComment[];
 	counts: DownloadFeedbackCounts;
 }
 
@@ -82,7 +87,7 @@ async function runDownloadFeedbackOperation(
 	}
 
 	const snapshotResult = await fetchFeedbackSnapshot({
-		gateway: ctx.context.github,
+		gateway: ctx.context.prFeedback,
 		gatewayOptions: gatewayOptions(ctx),
 		prNumber: targetResult.pr.number,
 		shouldIncludeResolved: request.includeResolved,
@@ -90,7 +95,7 @@ async function runDownloadFeedbackOperation(
 		shouldCountAllReviewThreads: true,
 	});
 	if (snapshotResult.type === "failure")
-		return gatewayFailureExit(snapshotResult.message, snapshotResult.failure);
+		return prFeedbackFailureExit(snapshotResult.message, snapshotResult.failure);
 
 	const included = selectIncludedFeedback(snapshotResult.snapshot, request);
 	const target = targetFromPr(targetResult.pr, targetResult.branch);
@@ -107,7 +112,7 @@ async function runDownloadFeedbackOperation(
 }
 
 type TargetPrResult =
-	| { type: "found"; pr: PRSummary; branch: string | null }
+	| { type: "found"; pr: GithubPrSummary; branch: string | null }
 	| { type: "miss"; target: DownloadFeedbackTarget; message: string }
 	| { type: "failure"; exit: ClinkrExit<unknown> };
 
@@ -115,15 +120,18 @@ async function resolveTargetPr(
 	ctx: PrAddressExecContext,
 	request: DownloadFeedbackRequest,
 ): Promise<TargetPrResult> {
-	const github = ctx.context.github;
+	const prFeedback = ctx.context.prFeedback;
 	if (request.prNumber !== undefined) {
-		const lookupResult = await github.getPr(request.prNumber, gatewayOptions(ctx));
+		const lookupResult = await prFeedback.getPr({
+			...gatewayOptions(ctx),
+			prNumber: request.prNumber,
+		});
 		if (lookupResult.type === "failure")
 			return {
 				type: "failure",
-				exit: failure(
-					"pr_gateway_failure",
-					gatewayFailureMessage(`Failed to look up PR ${request.prNumber}`, lookupResult.failure),
+				exit: prFeedbackFailureExit(
+					`Failed to look up PR ${request.prNumber}`,
+					lookupResult.failure,
 				),
 			};
 		if (lookupResult.type === "miss") {
@@ -152,16 +160,16 @@ async function resolveTargetPr(
 		};
 	}
 
-	const lookupResult = await github.getPrForBranch(branchResult.branch, gatewayOptions(ctx));
+	const lookupResult = await prFeedback.getPrForBranch({
+		...gatewayOptions(ctx),
+		branch: branchResult.branch,
+	});
 	if (lookupResult.type === "failure")
 		return {
 			type: "failure",
-			exit: failure(
-				"pr_gateway_failure",
-				gatewayFailureMessage(
-					`Failed to look up PR for branch ${branchResult.branch}`,
-					lookupResult.failure,
-				),
+			exit: prFeedbackFailureExit(
+				`Failed to look up PR for branch ${branchResult.branch}`,
+				lookupResult.failure,
 			),
 		};
 	if (lookupResult.type === "miss") {
@@ -185,7 +193,7 @@ function selectIncludedFeedback(
 		? snapshot.discussion_comments
 		: snapshot.discussion_comments.filter((comment) => !isAutomationLikeDiscussionComment(comment));
 	const resolvedThreads = snapshot.counted_review_threads.filter(
-		(thread) => thread.is_resolved,
+		(thread) => thread.isResolved,
 	).length;
 	return {
 		reviewThreads: snapshot.review_threads,
@@ -290,44 +298,44 @@ function renderSinglePrInstructions(): string[] {
 	];
 }
 
-function renderReviewThreads(threads: readonly PRReviewThread[]): string[] {
+function renderReviewThreads(threads: readonly GithubPrReviewThread[]): string[] {
 	if (threads.length === 0) return ["", "No unresolved review threads included."];
 	return threads.flatMap((thread, index) => [
 		"",
 		`### Thread ${index + 1}: ${thread.id}`,
 		`- Path: ${thread.path}`,
 		`- Line: ${formatNullableNumber(thread.line)}`,
-		`- Start line: ${formatNullableNumber(thread.start_line)}`,
-		`- Outdated: ${String(thread.is_outdated)}`,
+		`- Start line: ${formatNullableNumber(thread.startLine)}`,
+		`- Outdated: ${String(thread.isOutdated)}`,
 		`- Comment count: ${thread.comments.length}`,
 		...thread.comments.flatMap((comment, commentIndex) => [
 			"",
 			`#### Comment ${commentIndex + 1}: ${comment.id}`,
 			`- Author: ${comment.author}`,
-			`- Created at: ${comment.created_at}`,
+			`- Created at: ${comment.createdAt}`,
 			`- Path: ${comment.path}`,
 			`- Line: ${formatNullableNumber(comment.line)}`,
-			`- Start line: ${formatNullableNumber(comment.start_line)}`,
+			`- Start line: ${formatNullableNumber(comment.startLine)}`,
 			"",
 			...blockquote(comment.body),
 		]),
 	]);
 }
 
-function renderReviews(reviews: readonly PRReview[]): string[] {
+function renderReviews(reviews: readonly GithubPrReview[]): string[] {
 	if (reviews.length === 0) return ["", "No non-empty human PR-level review bodies included."];
 	return reviews.flatMap((review, index) => [
 		"",
 		`### Review ${index + 1}: ${review.id}`,
 		`- Author: ${review.author}`,
 		`- State: ${review.state}`,
-		`- Submitted at: ${review.submitted_at}`,
+		`- Submitted at: ${review.submittedAt}`,
 		"",
 		...blockquote(review.body),
 	]);
 }
 
-function renderDiscussionComments(comments: readonly PRDiscussionComment[]): string[] {
+function renderDiscussionComments(comments: readonly GithubPrDiscussionComment[]): string[] {
 	if (comments.length === 0) return ["", "No human-like discussion comments included."];
 	return comments.flatMap((comment, index) => [
 		"",
@@ -353,15 +361,15 @@ function hasNoIncludedFeedback(counts: DownloadFeedbackCounts): boolean {
 	);
 }
 
-function targetFromPr(pr: PRSummary, branch: string | null): DownloadFeedbackTarget {
+function targetFromPr(pr: GithubPrSummary, branch: string | null): DownloadFeedbackTarget {
 	return {
 		kind: "github_pr",
 		pr_number: pr.number,
-		branch: branch ?? pr.head_ref_name,
+		branch: branch ?? pr.headRefName,
 		title: pr.title,
 		url: pr.url,
-		head_ref_name: pr.head_ref_name,
-		base_ref_name: pr.base_ref_name,
+		head_ref_name: pr.headRefName,
+		base_ref_name: pr.baseRefName,
 	};
 }
 

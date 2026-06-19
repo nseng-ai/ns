@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import { fetchFeedbackSnapshot, reviewsForRequest } from "../../src/core/feedback-snapshot.ts";
 import { isAutomationLikeDiscussionComment } from "../../src/core/feedback-summary.ts";
 import {
-	InMemoryPrAddressGitHubGateway,
+	InMemoryGithubPrFeedbackGateway,
 	discussionComment,
 	review,
 } from "../support/in-memory-pr-address-gateways.ts";
@@ -29,7 +29,7 @@ describe("pr-address core feedback helpers", () => {
 	});
 
 	test("returns gateway-shaped failures when snapshot collection fails", async () => {
-		const gateway = new InMemoryPrAddressGitHubGateway({ reviewsFailurePrNumbers: new Set([42]) });
+		const gateway = new InMemoryGithubPrFeedbackGateway({ reviewsFailurePrNumbers: new Set([42]) });
 
 		const result = await fetchFeedbackSnapshot({
 			gateway,
@@ -43,7 +43,10 @@ describe("pr-address core feedback helpers", () => {
 		expect(result).toMatchObject({
 			type: "failure",
 			message: "Failed to fetch reviews for PR 42",
-			failure: { message: "gh auth failed", stderr: "gh auth failed", stdout: "", returncode: 4 },
+			failure: {
+				message: "gh auth failed",
+				details: { stderr: "gh auth failed", stdout: "", exitCode: 4 },
+			},
 		});
 	});
 

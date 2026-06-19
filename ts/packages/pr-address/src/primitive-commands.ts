@@ -1,9 +1,8 @@
 import { z } from "zod";
 
-import { failure, ok, type ClinkrExit } from "@asdl/clinkr";
+import { ok, type ClinkrExit } from "@asdl/clinkr";
 import type {
 	GithubPrDiscussionComment,
-	GithubPrFeedbackFailure,
 	GithubPrReview,
 	GithubPrReviewComment,
 	GithubPrReviewThread,
@@ -13,6 +12,7 @@ import type {
 import {
 	defineExecOperation,
 	gatewayOptions,
+	prFeedbackFailureExit,
 	type ExecOperation,
 	type PrAddressExecContext,
 } from "./exec-operation.ts";
@@ -231,20 +231,6 @@ async function runResolveReviewThread(
 			result.error,
 		);
 	return ok({ thread_id: result.value.threadId, is_resolved: result.value.isResolved });
-}
-
-function prFeedbackFailureExit(prefix: string, gatewayFailure: GithubPrFeedbackFailure) {
-	return failure("pr_gateway_failure", `${prefix}: ${failureDetail(gatewayFailure)}`);
-}
-
-function failureDetail(gatewayFailure: GithubPrFeedbackFailure): string {
-	const details = gatewayFailure.details ?? {};
-	const stderr = typeof details.stderr === "string" ? details.stderr : null;
-	const stdout = typeof details.stdout === "string" ? details.stdout : null;
-	if (stderr !== null && stderr.trim() !== "") return stderr;
-	if (stdout !== null && stdout.trim() !== "") return stdout;
-	if (gatewayFailure.message.trim() !== "") return gatewayFailure.message;
-	return gatewayFailure.code;
 }
 
 function lookupResult(

@@ -1,4 +1,4 @@
-import type { PRDiscussionComment } from "./gateways.ts";
+import type { GithubPrDiscussionComment } from "@asdl/core/github-pr-feedback";
 
 const BODY_MARKERS: ReadonlyArray<readonly [marker: string, label: string]> = [
 	["<!-- roaster:", "roaster_marker"],
@@ -8,7 +8,7 @@ const BODY_MARKERS: ReadonlyArray<readonly [marker: string, label: string]> = [
 	["static.graphite.dev", "graphite_static_asset"],
 ];
 
-export function isAutomationLikeDiscussionComment(comment: PRDiscussionComment): boolean {
+export function isAutomationLikeDiscussionComment(comment: GithubPrDiscussionComment): boolean {
 	return sourceEvidence(comment.author, comment.body).length > 0;
 }
 
