@@ -1,5 +1,7 @@
 import { execFile } from "node:child_process";
 
+import { errorCodeFromUnknown } from "@asdl/core/primitives";
+
 export type ClipboardCopyResult =
 	| { type: "copied" }
 	| { type: "failure"; reason: "backend_missing" | "subprocess_error"; detail: string };
@@ -55,7 +57,7 @@ export class RealClipboardProcessRunner implements ClipboardProcessRunner {
 					resolve({ type: "success" });
 					return;
 				}
-				if (hasErrorCode(error, "ENOENT")) {
+				if (errorCodeFromUnknown(error) === "ENOENT") {
 					resolve({
 						type: "failure",
 						reason: "backend_missing",
@@ -91,8 +93,4 @@ export class FakeClipboardGateway implements ClipboardGateway {
 	texts(): readonly string[] {
 		return [...this.copiedTexts];
 	}
-}
-
-function hasErrorCode(error: { code?: string | number | null }, code: string): boolean {
-	return error.code === code;
 }

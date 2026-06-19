@@ -404,9 +404,9 @@ const graphiteSqliteJsonRunner = createGraphiteSqliteJsonRunner();
 
 function runSqliteJsonQuery(dbPath: string, query: string): GraphiteMetadataJsonQueryResult {
 	const outcome = classifySqliteJsonResult(graphiteSqliteJsonRunner.run(dbPath, query));
-	switch (outcome.type) {
-		case "success":
-			return { type: "success", data: outcome.data };
+	if (outcome.ok) return { type: "success", data: outcome.value };
+	const sqliteError = outcome.error;
+	switch (sqliteError.type) {
 		case "command-missing":
 			return { type: "failure", reason: "sqlite-unavailable" };
 		case "exec-error":

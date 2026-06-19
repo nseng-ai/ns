@@ -238,11 +238,14 @@ interface CommandResult {
 }
 
 function failureFromCommandResult(result: CommandResult): GtCommandFailure {
-	const output =
-		result.stderr.trim() ||
-		result.stdout.trim() ||
-		(result.killed ? "command was killed" : "command failed");
-	return { message: output, returnCode: result.code };
+	const stderr = result.stderr.trim();
+	if (stderr !== "") return { message: stderr, returnCode: result.code };
+	const stdout = result.stdout.trim();
+	if (stdout !== "") return { message: stdout, returnCode: result.code };
+	return {
+		message: result.killed ? "command was killed" : "command failed",
+		returnCode: result.code,
+	};
 }
 
 function firstNonemptyLine(text: string): string | null {
@@ -344,9 +347,9 @@ function runSqliteJsonQuery(
 	query: string,
 ): GraphiteMetadataJsonQueryResult {
 	const outcome = classifySqliteJsonResult(sqliteRunner.run(dbPath, query));
-	switch (outcome.type) {
-		case "success":
-			return { type: "success", data: outcome.data };
+	if (outcome.ok) return { type: "success", data: outcome.value };
+	const sqliteError = outcome.error;
+	switch (sqliteError.type) {
 		case "command-missing":
 			return {
 				type: "failure",
@@ -359,18 +362,20 @@ function runSqliteJsonQuery(
 			return {
 				type: "failure",
 				failure: {
-					message: `Graphite metadata store unreadable: ${errorMessageFromValue(outcome.error)}`,
+					message: `Graphite metadata store unreadable: ${errorMessageFromValue(sqliteError.error)}`,
 					returnCode: null,
 				},
 			};
-		case "nonzero-exit":
+		case "nonzero-exit": {
+			const stderr = sqliteError.stderr.trim();
 			return {
 				type: "failure",
 				failure: {
-					message: outcome.stderr.trim() || "Graphite metadata store unreadable",
-					returnCode: outcome.status,
+					message: stderr === "" ? "Graphite metadata store unreadable" : stderr,
+					returnCode: sqliteError.status,
 				},
 			};
+		}
 		case "invalid-json":
 			return {
 				type: "failure",
