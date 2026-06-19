@@ -53,21 +53,27 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 		if (config.type === "error") return config;
 
 		const args = [...buildGitDiffArgs({ baseRef: baseRef.value, excludeGlobs: config.value })];
+		const displayCommand = formatGitDiffDisplayCommand({
+			baseRef: baseRef.value,
+			excludeGlobs: config.value,
+		});
 		let result;
 		try {
 			result = await this.execApi.exec("git", args, execOptions(repoRoot.value, options));
 		} catch (caught) {
 			return error({
 				type: "git_invocation_failed",
-				message: caught instanceof Error ? caught.message : String(caught),
+				message: `${displayCommand} failed to start in ${repoRoot.value}: ${caught instanceof Error ? caught.message : String(caught)}`,
 			});
 		}
 
 		if (result.code !== 0 || result.killed) {
+			const stderr = result.stderr.trim();
+			const reason =
+				stderr === "" ? `exit code ${result.code}${result.killed ? " (killed)" : ""}` : stderr;
 			return error({
 				type: "git_diff_failed",
-				message:
-					result.stderr.trim() || `Unable to load the local diff against origin/${baseRef.value}.`,
+				message: `${displayCommand} failed in ${repoRoot.value}: ${reason}`,
 			});
 		}
 
