@@ -7,11 +7,11 @@
 - [x] Add the minimal TypeScript clock/timer seams in `@asdl/core`.
   - Evidence: local branch adds `@asdl/core/clock` with `Clock`/`systemClock`, `@asdl/core/timers` with one-shot cancellable `TimerScheduler`/`systemTimerScheduler`, and `@asdl/core/testing` manual clock/timer helpers.
   - Production code receives only the production seam shapes; manual controls remain in the testing subpath.
-- [~] Replace touched default-path time sleeps and wall-clock reads with injected clock/timer seams.
+- [x] Replace touched default-path time sleeps and wall-clock reads with injected clock/timer seams.
   - Evidence: `packages/asdl-core/test/exec.test.ts` timeout tests now inject a manual timer scheduler into `runCommand`, advance parent-side timeout/grace timers deterministically, and no longer use `Date.now()` elapsed assertions.
   - Evidence: `packages/pi-extensions/test/runner-subagent-process.test.ts` now uses `createManualClock()` for elapsed progress assertions and `createManualTimerScheduler()` for runner subagent abort kill-grace cancellation and SIGKILL escalation coverage.
-  - Latest slow-test inventory still shows `packages/asdl-core/test/exec.test.ts` in the default path at about 386ms; reassess only if later timing shows remaining material real-time/process cost after the completed timer-seam slice.
-  - Remaining work: assess additional timeout-sensitive default-path tests only when those areas are touched; the `runCommand` and runner-subagent process slices are covered by the shared seams.
+  - Closure sweep evidence: focused grep found remaining default-path time references to be seam boundary defaults, timestamp formatting/IDs, non-touched workflow timeout code, fixed test fixtures, or fake-timer tests without real waits rather than material unresolved Objective work.
+  - Closure sweep timing: `/usr/bin/time -p pnpm --dir ts run test packages/asdl-core/test/exec.test.ts` passed with Vitest duration 578ms and real 1.18s; `/usr/bin/time -p pnpm --dir ts run test packages/pi-extensions/test/runner-subagent-process.test.ts` passed with Vitest duration 363ms and real 1.05s. These are single local samples, used as material-cost checks rather than precise benchmarks.
 - [x] Split `brmem` real Git coverage into default fake-driven gateway tests and integration tests.
   - Evidence: `packages/brmem/test/gateways/real-git-gateway.test.ts` now keeps only injected-command real-adapter sanity coverage in the default suite, and `packages/brmem/test/gateways/prompt-resolution.test.ts` uses an injected fake GitGateway for repository-root success/failure behavior.
   - Evidence: all previous temp-Git `createTempGitRepo` coverage moved under `packages/brmem/test/integration/`, including real-gateway snapshot/delete/copy/glob/branch/remote-config cases, prompt resolution, and public copy/export real-Git wiring scenarios.

@@ -66,4 +66,21 @@ Risks:
 
 ## Open Questions
 
-- Which existing timeout-sensitive tests beyond `packages/asdl-core/test/exec.test.ts`, if any, should adopt the clock or timer seam in this Objective rather than wait for later touched-feature work?
+None. The closure-readiness sweep found no material remaining timeout-sensitive default-path test work in scope for this Objective.
+
+## Closure
+
+Completed. The TypeScript default test path now has a documented fast/fake-driven contract, an intentional integration-test lane, CI wiring for that integration lane, retained real-adapter smoke coverage, and shared `Clock` / `TimerScheduler` seams with manual testing helpers for touched wall-clock and timeout scheduling behavior.
+
+Key evidence:
+
+- `ts/TESTING.md`, `ts/vitest.config.ts`, `ts/vitest.integration.config.ts`, `ts/package.json`, `justfile`, and `.github/workflows/ci.yml` define and wire the default-vs-integration test boundary.
+- Brmem real Git, Node runtime smoke tests, CCC/Pi worktree-status/sqlite coverage, Slot Graphite/sqlite coverage, and Slot Git movement coverage were split into fake-driven default tests plus intentional integration coverage with durable performance evidence in Semantic Updates.
+- `packages/asdl-core/test/exec.test.ts` and `packages/pi-extensions/test/runner-subagent-process.test.ts` use the shared manual timer/clock helpers for the touched timeout and elapsed-time behavior.
+- A focused closure sweep found remaining `Date.now()`, `new Date()`, `setTimeout()`, and fake-timer matches to be boundary defaults, timestamp formatting/IDs, non-touched workflow timeout code, fixed test fixtures, or fake-timer tests without real waits, not material unresolved Objective work.
+- Targeted timing checks passed for the known time-sensitive default-path files: `packages/asdl-core/test/exec.test.ts` and `packages/pi-extensions/test/runner-subagent-process.test.ts`.
+
+Caveats and follow-ups:
+
+- Timing evidence is based on single local warm-dependency samples and should be read as a material-cost check, not a precise benchmark.
+- Future time-sensitive TypeScript work should continue following the documented `Clock` / `TimerScheduler` seam convention instead of broadening the seam preemptively.
