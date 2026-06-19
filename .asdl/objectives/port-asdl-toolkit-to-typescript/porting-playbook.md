@@ -1,6 +1,6 @@
 # TypeScript Capability Porting Playbook
 
-Reusable guidance extracted from the completed `pr-address`, `brmem`, `handoff`, `areg`, `objective`, `slot`, and `vibechk` TypeScript cutovers. This is evidence from production migrations, not a framework-first template: later capability subobjectives should apply the shape deliberately and record any divergence.
+Reusable guidance extracted from the completed `pr-address`, `brmem`, `handoff`, `areg`, `objective`, `slot`, `vibechk`, and `aretro` TypeScript cutovers. This is evidence from production migrations, not a framework-first template: later capability subobjectives should apply the shape deliberately and record any divergence.
 
 ## 1. Inventory public contracts before porting internals
 
@@ -26,6 +26,8 @@ For git-backed state capabilities, storage contracts outrank Python module shape
 `slot` added the first OS/worktree/shell-coupled inventory. Ports with host state must inventory filesystem layout and ambient environment alongside command bytes: `~/.slots` repo/worktree paths, parent-shell `SLOT_CD_DIRECTIVE_FILE` protocol, rc-block markers and idempotency, clipboard tri-state outcomes, hidden exec JSON surfaces, Graphite boundary rules, and host shell behavior. Treat these as durable contracts when installed wrappers or live skill/agent consumers depend on them, even if the Python package layout disappears.
 
 `vibechk` added a local-bundle/runner/git-mutation inventory. Durable contracts included schema-version-1 bundle layout, snake_case `bundle.json` keys, nullable unavailable metrics, run-id prefix resolution, `runs --format table|json`, no-push/no-PR guarantees, failed-runner bundle persistence, `claude` subprocess invocation, transcript streaming, `git add -N` diff capture, and result-branch switch-back behavior. Clinkr parser details could diverge only when the invocation contract remained preserved, as with the internal `output_format` field behind user-facing `vibechk runs --format` normalization.
+
+`aretro` added a deterministic-evidence/semantic-skill inventory. Durable contracts included factual evidence kinds, privacy-preserving compact summaries, sanitized payload/reference detail reads, `aretro exec collect-evidence` as the standalone command boundary, and the rule that semantic retrospective diagnoses remain in the `branch-retro` skill rather than the CLI. Python package layout, `asdl` plugin discoverability, and `uvx` fallback distribution were incidental once active caller evidence supported the TypeScript source/PATH runner.
 
 ## 2. Port in vertical slices
 
@@ -62,6 +64,8 @@ Do not framework-first a capability port. Add package-local runtime, payload/ref
 
 `vibechk` kept bundle schemas, report rendering, runner registry, `claude` adapter, and git result-branch gateway package-local. Even though git and subprocess seams may look reusable, one local-evaluation tool is not enough evidence for shared runner or git-workdir foundations; preserve a clean local boundary and wait for another consumer before promotion.
 
+`aretro` kept session-source, evidence aggregation, payload-store, and payload-reference helpers package-local while reusing shared `@asdl/core/git` for ordinary repository facts. Retrospective evidence has privacy and harness-specific constraints that should not become shared foundations until another capability proves the same sanitized-session seam.
+
 ## 4. Use fake-driven gateways and parity evidence
 
 External boundaries should be gateway-shaped and fake-testable before real adapters become load-bearing.
@@ -79,6 +83,8 @@ Prefer:
 `slot` showed the extra evidence needed for shell-installed CLIs. Tests for shell/completion install must redirect `HOME`, rc files, and directive files so validation never mutates the operator's real shell. Real-shell parity belongs in a deliberate throwaway harness, not ordinary test setup. JSON mode must suppress parent-shell `cd`, including hidden/directive-file side effects. Static TypeScript completion can intentionally diverge from Click `_SLOT_COMPLETE` when there is no TS analog, but marker/idempotency/user-visible completion behavior must be preserved and the divergence must be documented.
 
 `vibechk` showed the extra evidence needed before deleting a tool that mutates arbitrary user workdirs. Fake-driven CLI tests covered bundle/report outcomes, runner failure persistence, no-change runs, and dirty-workdir rejection; a focused real temp-git scenario proved result-branch creation and switch-back. Keep real-git coverage narrow and throwaway, but require it for safety-critical branch mutation before retiring the reference implementation.
+
+`aretro` showed the evidence needed for privacy-preserving session analysis. Fake-driven tests should prove compact evidence, payload artifact shape, targeted detail reads, and raw transcript non-leakage; a real-adapter smoke can record only sanitized command/pass evidence, not transcript-derived raw content.
 
 ## 5. Retire fallback intentionally
 
@@ -101,6 +107,8 @@ Before deletion:
 
 `vibechk` added deletion evidence for a local-only evaluation CLI with no installed-tool consumer. Deletion should preserve active docs by moving them to the TypeScript package, update examples away from `uv run`, scrub Python workspace/build/test/publish wiring, keep `vibechk-v1` open for unimplemented product features, and record rollback/reference evidence before deleting the Python package; for `vibechk`, the deleted `packages/vibechk` reference is commit `25c748681`.
 
+`aretro` added fallback-router retirement evidence. When a skill wrapper already defaults to TypeScript source, deletion should remove Python package files, root workspace/build/test/publish wiring, stale plugin smoke tests, and any `ASDL_*` / `uv run` / `uvx` fallback knobs in the same window. Preserve negative guidance such as “do not use `asdl aretro`” when it prevents stale plugin usage. For `aretro`, the deleted `packages/aretro` reference is commit `dd1c69ac85f9f836a9c12cd1da219099a2683273`.
+
 ## 6. Treat distribution as a product decision
 
 Do not inherit either the old Python `uvx` distribution model or `pr-address`'s run-from-source shim by default. Decide distribution from actual consumers.
@@ -122,6 +130,8 @@ For `objective`, the same source-shim model now covers a formerly Python-only st
 For `slot`, source-shim distribution was accepted only after shell/completion and parent-shell navigation parity were proven. The deletion window confirmed `just install-slot` / `install-tools` route through the TypeScript source shim, active `uv tool install asdl-slots` references were removed, and stale Python fallback paths were scrubbed or documented as historical provenance.
 
 For `vibechk`, actual consumers did not justify adding the shim to `install-tools`. The accepted distribution is an opt-in `just install-vibechk` source shim plus direct Node source invocation for in-checkout development; stale project-venv `vibechk` scripts are removed by the opt-in recipe, and external/npm-style distribution remains a future product decision rather than a reason to keep Python alive.
+
+For `aretro`, active consumers likewise did not justify adding the shim to `install-tools` or preserving checkout-free `uvx` behavior. The accepted distribution is repo-local TypeScript source execution for `branch-retro` plus an opt-in `just install-aretro` PATH shim; if a future installed-skill consumer needs checkout-free execution, treat that as a new product distribution decision rather than a reason to restore Python.
 
 ## 7. Record Semantic Updates at decision points
 

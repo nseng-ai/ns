@@ -1,33 +1,17 @@
 #!/usr/bin/env bash
-# Dispatch `aretro` to TypeScript source in asdl checkouts, Python source for
-# ASDL_ARETRO_MODE=local, or PyPI ephemeral install for ASDL_ARETRO_MODE=prod.
+# Dispatch `aretro` to the TypeScript source CLI in asdl checkouts, or to an
+# installed TypeScript `aretro` command on PATH.
 # See docs/aretro.md.
 set -euo pipefail
-
-# Bump ASDL_ARETRO_VERSION to roll out a new aretro release to skill consumers.
-ASDL_ARETRO_VERSION="0.1.0"
-
-prod_uvx() {
-  exec uvx --from "aretro==${ASDL_ARETRO_VERSION}" aretro "$@"
-}
-
-case "${ASDL_ARETRO_MODE:-}" in
-  local) exec uv run aretro "$@" ;;
-  prod)  prod_uvx "$@" ;;
-  "") ;;
-  *)
-    echo "aretro-run: unknown ASDL_ARETRO_MODE='${ASDL_ARETRO_MODE}' (expected 'local' or 'prod')" >&2
-    exit 2
-    ;;
-esac
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 if [[ -n "$repo_root" && -f "$repo_root/ts/packages/aretro/src/cli.ts" ]]; then
   exec node --experimental-strip-types "$repo_root/ts/packages/aretro/src/cli.ts" "$@"
 fi
 
-if [[ -n "$repo_root" && -f "$repo_root/packages/aretro/pyproject.toml" ]]; then
-  exec uv run --project "$repo_root" aretro "$@"
+if command -v aretro >/dev/null 2>&1; then
+  exec aretro "$@"
 fi
 
-prod_uvx "$@"
+echo "aretro-run: Python aretro is retired; run from an asdl checkout or install the TypeScript shim with 'just install-aretro'." >&2
+exit 127

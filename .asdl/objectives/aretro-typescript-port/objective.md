@@ -125,7 +125,7 @@ This Objective is designed for autonomous stack execution after a human preview 
 
 ## Single Invocation Stack Defaults
 
-The contract-and-shell slice now has landed-state evidence in this Objective. A future `objective-stack-impl` invocation can preview and execute the remaining port as a small Graphite stack without asking further design questions, unless implementation evidence contradicts these defaults.
+The implementation stack has completed. This section now records the stack evidence that led to closure rather than defaults for future execution.
 
 Completed prerequisites:
 
@@ -135,11 +135,11 @@ Completed prerequisites:
 - `aretro-ts-skill-distribution-cutover` — made the `branch-retro` runner prefer the TypeScript CLI for repo-local use, added the opt-in `just install-aretro` source shim, audited checkout-free/prod references, and updated active docs away from Python/default `asdl aretro` examples.
 - `aretro-ts/stack-feedback-cleanup` — addressed post-parity TypeScript feedback by replacing the package-local git gateway/fake with shared `@asdl/core/git`, moving reusable session limiting into the session-source seam, and normalizing payload detail boolean field names without changing the evidence boundary.
 
-Default remaining stack shape:
+Completed final stack shape:
 
-1. `aretro-ts-retire-python` — only after prior parity and cutover gates pass, remove Python package/workspace/build/test/publish wiring, preserve rollback/reference evidence, grep for stale active references, and update the umbrella TypeScript migration Objective/playbook.
+1. `retire-python-aretro-record-typescript-cutover` — removed Python package/workspace/build/test/publish wiring after prior parity and cutover gates passed, preserved rollback/reference evidence, grepped for stale active references, and updated the umbrella TypeScript migration Objective/playbook.
 
-Default decisions for the implementation runner:
+Decisions preserved from the implementation runner:
 
 - Treat `asdl aretro` as stale unless caller evidence proves a live plugin requirement. The current skill and plugin smoke test evidence point to standalone `aretro`, not a parent `asdl aretro` plugin.
 - Keep TypeScript session-source, evidence-aggregation, and payload-store seams package-local in `ts/packages/aretro` for this port. Promote them to `@asdl/core` only if a second consumer or already-existing exported TypeScript seam proves reuse during implementation.
@@ -224,15 +224,15 @@ Prefer `@asdl/clinkr` for command construction and `@asdl/core/cli-entry` for di
 - Real adapters own filesystem, git subprocess, environment, and JSONL parsing details. Application logic should not parse raw command stdout except inside adapters.
 - Do not use module mocks for session sources or payload stores when explicit context injection can cover the behavior.
 
-### Suggested stack shape
+### Completed stack shape
 
-A future autonomous stack implementation can continue with this remaining shape and split by thesis if evidence shows a branch is too broad:
+The autonomous migration stack completed with the final retirement branch:
 
-1. `aretro-ts-retire-python`
-   - Thesis: after parity and distribution evidence are complete, remove `packages/aretro` and active Python workspace/build/test/publish wiring, record rollback/reference evidence, and update the umbrella Objective/playbook.
-   - Expected files: deletion of `packages/aretro`, root `pyproject.toml`, `uv.lock`, `justfile`, plugin smoke tests/docs cleanup if applicable, Objective Semantic Updates.
+1. `retire-python-aretro-record-typescript-cutover`
+   - Thesis: after parity and distribution evidence were complete, remove `packages/aretro` and active Python workspace/build/test/publish wiring, record rollback/reference evidence, and update the umbrella Objective/playbook.
+   - Evidence: committed branch `2515cbf9a` / PR #1860 deletes the Python package, removes active root config and runner fallbacks, records rollback/reference commit `dd1c69ac85f9f836a9c12cd1da219099a2683273`, and updates the umbrella TypeScript migration Objective/playbook.
 
-Stop before the retirement slice if TypeScript parity is incomplete, privacy boundaries are uncertain, or checkout-free/prod skill runner use is still a real requirement without a TypeScript replacement.
+The stop conditions did not fire: the retirement audit found no required checkout-free/prod consumer, the TypeScript runner and payload/evidence privacy boundary were already proven, and validation passed for the deletion/root-config slice.
 
 ## Assumptions and Risks
 
@@ -240,21 +240,33 @@ Assumptions:
 
 - The active user-facing value is the `branch-retro` skill plus standalone `aretro exec` evidence commands, not a parent `asdl aretro` plugin. The completed inventory found the docs-site `asdl aretro --help` example stale by default.
 - The deterministic evidence/semantic-interpretation split remains correct: `aretro` emits observations; the model-backed skill writes recommendations.
-- Repo-local TypeScript source execution plus an opt-in source shim is the default for current in-checkout consumers, matching recent toolkit cutovers. The current `uvx` prod runner must be audited before Python deletion, but it does not block TypeScript parity work.
+- Repo-local TypeScript source execution plus an opt-in source shim is the accepted model for current in-checkout consumers, matching recent toolkit cutovers. The `uvx` prod runner was audited during cutover and retired because no required checkout-free consumer was found.
 - Existing Python scenario/unit tests, `docs/aretro.md`, docs-site pages, and `branch-retro` skill instructions are sufficient to seed and test the compatibility contract.
 - Shared TypeScript foundations cover command runtime behavior via `@asdl/clinkr` and ordinary repo/branch facts via `@asdl/core/git`; session, evidence, and payload seams should remain package-local until repeated consumers prove shared extraction.
 
 Risks:
 
-- The current `uvx`/PyPI runner may support installed skill use outside this checkout. If real consumers depend on that behavior, deleting Python without an equivalent would break the public skill.
+- De-risked: the `uvx`/PyPI runner could have supported installed skill use outside this checkout, but the cutover audit found no required consumer. The Python fallback was deleted without adding an external replacement; future checkout-free distribution would be a new product decision.
 - Session-log formats and adapter behavior may be more coupled to Python `asdl-core` than expected. Port only the needed seam first and avoid a broad `asdl-core` module-map rewrite.
 - Privacy regressions would be severe: compact and payload outputs must not leak raw transcript text, prompts, assistant prose, tool output, or command output.
 - Evidence item exact wording may be consumed by downstream prompts or tests. Treat field names/kinds and privacy guarantees as more durable than incidental summary prose, but record any wording divergence.
 - Payload artifact interoperability may matter for detail reads produced during transition; preserve schema version 1 or record why old artifacts are intentionally not readable.
 - Small CLI/help/docs UX improvements are allowed, but they could mask contract drift if not tied to tests and Semantic Updates.
-- Deleting Python affects root workspace config, lockfile, build recipes, package publication references, and docs-site install text; retirement needs broader validation than a package-only TS change.
+- De-risked by the retirement branch: deleting Python affected root workspace config, lockfile, build recipes, package publication references, and active docs, and the deletion/root-config validation passed before closure.
 
 ## Open Questions
 
-- Does implementation-time caller inventory find any real required `ASDL_ARETRO_MODE=prod` or checkout-free `uvx --from aretro==0.1.0` consumer? If yes, preserve or replace that path before Python deletion; if no, retire or narrow it explicitly.
-- Does the distribution cutover audit find active installed-tool consumers that need `just install-aretro` included in `install-tools`? Default is opt-in only.
+- Resolved: implementation-time caller inventory found no required `ASDL_ARETRO_MODE=prod` or checkout-free `uvx --from aretro==0.1.0` consumer, so the Python fallback and knobs were retired.
+- Resolved: the distribution cutover audit found no active installed-tool consumer requiring `just install-aretro` to be included in `install-tools`; `just install-aretro` remains opt-in.
+
+## Closure
+
+Outcome: completed.
+
+`aretro` is now TypeScript-default for the active `branch-retro` evidence path. `ts/packages/aretro` provides the standalone `@asdl/aretro` CLI, compact evidence collection, sanitized payload detail mode, and targeted detail reads while preserving the deterministic evidence/privacy boundary. Semantic retrospective judgment remains in the `branch-retro` skill.
+
+Final retirement evidence is branch `retire-python-aretro-record-typescript-cutover`, commit `2515cbf9a`, PR #1860. The branch deletes `packages/aretro`, removes active Python workspace/build/test/publish wiring, retires `uv run` / `uvx` / `ASDL_ARETRO_*` runner fallbacks, updates active docs, and records the cutover in the umbrella TypeScript migration Objective and playbook. Rollback/reference evidence for the deleted Python implementation is commit `dd1c69ac85f9f836a9c12cd1da219099a2683273`.
+
+Validation evidence recorded for closure: runner contract checks, stale-reference grep, `uv lock --check`, `just python-check`, `just python-test`, package-focused `@asdl/aretro` TypeScript check/test, full TypeScript check/test, `just dprint-check`, and `just ts-guard` passed during the retirement branch. PR #1860 corroborates the same file set; local committed branch evidence against Graphite parent `update-aretro-stack-feedback-cleanup` is sufficient for the landed-state Objective update.
+
+Caveats and follow-ups are parked rather than active closure blockers: new evidence kinds, semantic diagnosis in the CLI, browser-compatible session evidence collection, npm/registry publishing or checkout-free TypeScript distribution, shared session/payload/evidence foundations before a second consumer, and a revived `asdl aretro` plugin surface all require separate product evidence and human confirmation.
