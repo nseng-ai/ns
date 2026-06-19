@@ -90,16 +90,12 @@ export class RealReviewCatalogGateway implements ReviewCatalogGateway {
 			return error({
 				type: "review_definition_not_found",
 				message: `No review found for key ${JSON.stringify(options.key)} at ${resolved.value.path}.`,
-				reviewKey: options.key,
-				path: resolved.value.path,
 			});
 		}
 		if (status !== "file") {
 			return error({
 				type: "review_definition_not_file",
 				message: `Review definition is not a file: ${resolved.value.path}`,
-				reviewKey: options.key,
-				path: resolved.value.path,
 			});
 		}
 
@@ -110,8 +106,6 @@ export class RealReviewCatalogGateway implements ReviewCatalogGateway {
 			return error({
 				type: "review_definition_read_failed",
 				message: `Unable to read review definition ${resolved.value.path}: ${caught instanceof Error ? caught.message : String(caught)}`,
-				reviewKey: resolved.value.key,
-				path: resolved.value.path,
 			});
 		}
 	}
@@ -181,8 +175,6 @@ export class FakeReviewCatalogGateway implements ReviewCatalogGateway {
 			return error({
 				type: "review_definition_not_found",
 				message: `No fake review definition configured for key ${JSON.stringify(options.key)} at ${path}.`,
-				reviewKey: options.key,
-				path,
 			});
 		}
 		return {
@@ -210,13 +202,11 @@ async function resolveReviewPath(
 		return error({
 			type: "review_key_invalid",
 			message: "Review key must not be empty.",
-			reviewKey: key,
 		});
 	if (normalized.startsWith("/") || normalized.split(/[\\/]/u).includes("..")) {
 		return error({
 			type: "review_key_invalid",
 			message: `Review key must be a relative path without \`..\`: ${JSON.stringify(key)}`,
-			reviewKey: key,
 		});
 	}
 
@@ -238,7 +228,6 @@ async function resolveReviewPath(
 		return error({
 			type: "review_key_invalid",
 			message: `Review key ${JSON.stringify(key)} resolves outside ${reviewsDir}.`,
-			reviewKey: key,
 		});
 	}
 	return { type: "ok", value: { key: normalized, path } };

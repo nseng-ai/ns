@@ -100,9 +100,6 @@ class FailingDiscussionGateway extends FakeRoasterGitHubGateway {
 			error: {
 				type: "github_cli_failed",
 				message: "discussion write failed",
-				command: [],
-				stderr: "",
-				code: 1,
 			},
 		};
 	}

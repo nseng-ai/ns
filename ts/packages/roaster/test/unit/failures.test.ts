@@ -1,26 +1,15 @@
 import { describe, expect, test } from "vitest";
 
-import {
-	failureMessage,
-	isFailureOfType,
-	type RoasterFailure,
-	type RoasterResult,
-} from "../../src/failures.ts";
+import type { RoasterFailure, RoasterResult } from "../../src/failures.ts";
 
 describe("roaster failures", () => {
-	test("narrows semantic failure variants by type", () => {
+	test("carry the consumed failure shape", () => {
 		const failure: RoasterFailure = {
 			type: "git_diff_failed",
 			message: "git diff failed",
-			command: ["git", "diff"],
-			stderr: "fatal",
-			code: 128,
 		};
 
-		expect(isFailureOfType(failure, "git_diff_failed")).toBe(true);
-		if (isFailureOfType(failure, "git_diff_failed")) {
-			expect(failure.stderr).toBe("fatal");
-		}
+		expect(failure).toEqual({ type: "git_diff_failed", message: "git diff failed" });
 	});
 
 	test("uses result unions for expected failures", () => {
@@ -31,7 +20,7 @@ describe("roaster failures", () => {
 
 		expect(result.type).toBe("error");
 		if (result.type === "error") {
-			expect(failureMessage(result.error)).toContain("base-ref");
+			expect(result.error.message).toContain("base-ref");
 		}
 	});
 });

@@ -149,11 +149,7 @@ export function createRoasterRuntime(context: RoasterContext): RoasterRuntime {
 				return await context.github.getPrReviewComments(prNumber, environmentOptions(context));
 			},
 			async createPrReview(prNumber, comments) {
-				return await context.github.createPrReview(
-					prNumber,
-					comments,
-					environmentOptions(context),
-				);
+				return await context.github.createPrReview(prNumber, comments, environmentOptions(context));
 			},
 			async findPrDiscussionCommentByMarker(options) {
 				return await context.github.findPrDiscussionCommentByMarker({

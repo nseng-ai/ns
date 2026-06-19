@@ -43,7 +43,6 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 			return error({
 				type: "repo_root_unavailable",
 				message: repoRoot.error.message,
-				cwd: options.cwd,
 			});
 		}
 
@@ -61,7 +60,6 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 			return error({
 				type: "git_invocation_failed",
 				message: caught instanceof Error ? caught.message : String(caught),
-				command: ["git", ...args],
 			});
 		}
 
@@ -70,9 +68,6 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 				type: "git_diff_failed",
 				message:
 					result.stderr.trim() || `Unable to load the local diff against origin/${baseRef.value}.`,
-				command: ["git", ...args],
-				stderr: result.stderr,
-				code: result.code,
 			});
 		}
 
@@ -114,13 +109,12 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 			return error({
 				type: "project_config_invalid",
 				message: `Failed to read asdl.toml: ${caught instanceof Error ? caught.message : String(caught)}`,
-				path,
 			});
 		}
 
 		const config = parseRoasterProjectConfigToml(source, path);
 		if (config.type === "error")
-			return error({ type: "project_config_invalid", message: config.error.message, path });
+			return error({ type: "project_config_invalid", message: config.error.message });
 		return { type: "ok", value: config.config.diff.exclude };
 	}
 }
