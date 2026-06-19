@@ -58,8 +58,11 @@ describe("buildEvidencePayloadData", () => {
 		expect(detail.tool_calls[0].path).toBe("packages/foo.py");
 		if (!detail.tool_results[0]) throw new Error("tool_results[0] is undefined");
 		expect(detail.tool_results[0].is_error).toBe(true);
+		expect(detail.tool_results[0].is_truncated).toBe(false);
 		if (!detail.command_executions[0]) throw new Error("command_executions[0] is undefined");
 		expect(detail.command_executions[0].command_subject).toBe("just test");
+		expect(detail.command_executions[0].is_cancelled).toBe(false);
+		expect(detail.command_executions[0].is_truncated).toBe(false);
 		if (!detail.usage_events[0]) throw new Error("usage_events[0] is undefined");
 		expect(detail.usage_events[0].total_tokens).toBe(15);
 		if (!detail.warnings[0]) throw new Error("warnings[0] is undefined");

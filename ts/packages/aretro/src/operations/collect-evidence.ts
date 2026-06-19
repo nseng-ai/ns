@@ -144,13 +144,7 @@ export function renderCollectEvidence(_result: CollectEvidenceResult): string {
 async function resolveRepoAndQuery(context: AretroCliContext, request: CollectEvidenceRequest) {
 	const cwd = context.cwd;
 	const repoInput = request.repo ?? cwd;
-
-	const isGitRepository = await context.git.isGitRepository({ cwd: repoInput });
-	if (!isGitRepository) {
-		const error: CollectEvidenceError = {
-			code: "not_a_git_repo",
-			message: `Not a git repository: ${repoInput}. Pass --repo with a git repository path.`,
-		};
+	function preResolutionFailure(error: CollectEvidenceError) {
 		return {
 			ok: false as const,
 			negative: collectFailure(context, request, {
@@ -163,22 +157,20 @@ async function resolveRepoAndQuery(context: AretroCliContext, request: CollectEv
 		};
 	}
 
-	const repoRootResult = await context.git.getRepositoryRoot({ cwd: repoInput });
-	if (!repoRootResult.ok) {
+	const repoRootResult = await context.git.optionalRepoRoot({ cwd: repoInput });
+	if (repoRootResult.type === "missing") {
+		const error: CollectEvidenceError = {
+			code: "not_a_git_repo",
+			message: `Not a git repository: ${repoInput}. Pass --repo with a git repository path.`,
+		};
+		return preResolutionFailure(error);
+	}
+	if (repoRootResult.type === "error") {
 		const error: CollectEvidenceError = {
 			code: repoRootResult.error.code,
 			message: repoRootResult.error.message,
 		};
-		return {
-			ok: false as const,
-			negative: collectFailure(context, request, {
-				repoRoot: null,
-				branch: request.branch ?? null,
-				branchSource: branchSourceForUnresolvedRepo(request),
-				error,
-				warnings: [],
-			}),
-		};
+		return preResolutionFailure(error);
 	}
 	const repoRoot = repoRootResult.value;
 
@@ -260,7 +252,7 @@ async function resolveBranch(
 		return { branch: explicitBranch, branchSource: "explicit", error: null };
 	}
 
-	const currentBranchResult = await context.git.getCurrentBranch({ cwd: repoRoot });
+	const currentBranchResult = await context.git.currentBranch({ cwd: repoRoot });
 	if (currentBranchResult.ok) {
 		return {
 			branch: currentBranchResult.value,

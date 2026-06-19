@@ -2,17 +2,17 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { InMemoryGitGateway } from "@asdl/core/git/testing";
 import { describe, expect, it } from "vitest";
 
 import type { AretroCliContext } from "../../src/context.ts";
-import { FakeAretroGitGateway } from "../../src/gateways/git-fake.ts";
 import { FakeSessionSource } from "../../src/sessions/source-fake.ts";
 import type { ParsedSession } from "../../src/sessions/types.ts";
 import { parseJsonOutput, runScenario } from "../support/run-scenario.ts";
 
 describe("aretro exec collect-evidence", () => {
 	it("returns JSON envelope with expected top-level fields", async () => {
-		const git = new FakeAretroGitGateway({
+		const git = new InMemoryGitGateway({
 			repoRoot: "/test/repo",
 			currentBranch: "test-branch",
 		});
@@ -59,7 +59,7 @@ describe("aretro exec collect-evidence", () => {
 
 	it("collects evidence from session with tool usage", async () => {
 		const session = sampleSession("/repo");
-		const git = new FakeAretroGitGateway({
+		const git = new InMemoryGitGateway({
 			repoRoot: "/repo",
 			currentBranch: "feature/retro",
 		});
@@ -92,7 +92,7 @@ describe("aretro exec collect-evidence", () => {
 
 	it("includes all evidence kinds for comprehensive session", async () => {
 		const session = evidenceSession("/repo");
-		const git = new FakeAretroGitGateway({
+		const git = new InMemoryGitGateway({
 			repoRoot: "/repo",
 			currentBranch: "feature/retro",
 		});
@@ -125,9 +125,8 @@ describe("aretro exec collect-evidence", () => {
 	});
 
 	it("returns negative result for non-git repo", async () => {
-		const git = new FakeAretroGitGateway({
-			isGitRepo: false,
-			repoRoot: { code: "repo_root_failed", message: "Not a git repo" },
+		const git = new InMemoryGitGateway({
+			optionalRepoRoot: { type: "missing" },
 		});
 		const sessionSource = new FakeSessionSource();
 		const context: AretroCliContext = {
@@ -151,9 +150,9 @@ describe("aretro exec collect-evidence", () => {
 	});
 
 	it("returns negative result for detached HEAD without explicit branch", async () => {
-		const git = new FakeAretroGitGateway({
+		const git = new InMemoryGitGateway({
 			repoRoot: "/repo",
-			currentBranch: { code: "detached_head", message: "detached HEAD" },
+			currentBranch: { type: "detached" },
 		});
 		const sessionSource = new FakeSessionSource();
 		const context: AretroCliContext = {
@@ -173,7 +172,7 @@ describe("aretro exec collect-evidence", () => {
 	});
 
 	it("succeeds with explicit branch bypassing current branch lookup", async () => {
-		const git = new FakeAretroGitGateway({ repoRoot: "/repo" });
+		const git = new InMemoryGitGateway({ repoRoot: "/repo" });
 		const sessionSource = new FakeSessionSource({ sessions: [sampleSession("/repo")] });
 		const context: AretroCliContext = {
 			cwd: "/repo",
@@ -191,11 +190,11 @@ describe("aretro exec collect-evidence", () => {
 		expect(result.data.success).toBe(true);
 		expect((result.data.repo as Record<string, unknown>).branch).toBe("feature/manual");
 		expect((result.data.repo as Record<string, unknown>).branch_source).toBe("explicit");
-		expect(git.calls.getCurrentBranch).toEqual([]);
+		expect(git.currentBranchCalls).toEqual([]);
 	});
 
 	it("includes session root warning as successful result", async () => {
-		const git = new FakeAretroGitGateway({
+		const git = new InMemoryGitGateway({
 			repoRoot: "/repo",
 			currentBranch: "feature/retro",
 		});
@@ -231,7 +230,7 @@ describe("aretro exec collect-evidence", () => {
 	});
 
 	it("rejects payload mode without session id", async () => {
-		const git = new FakeAretroGitGateway({ repoRoot: "/repo", currentBranch: "main" });
+		const git = new InMemoryGitGateway({ repoRoot: "/repo", currentBranch: "main" });
 		const sessionSource = new FakeSessionSource();
 		const context: AretroCliContext = {
 			cwd: "/repo",
@@ -248,15 +247,15 @@ describe("aretro exec collect-evidence", () => {
 		const result = parseJsonOutput(run) as { data: Record<string, unknown> };
 		expect(result.data.success).toBe(false);
 		expect((result.data.error as Record<string, unknown>).code).toBe("payload_session_required");
-		expect(git.calls.isGitRepository).toEqual([]);
-		expect(git.calls.getRepositoryRoot).toEqual([]);
-		expect(git.calls.getCurrentBranch).toEqual([]);
+		expect(git.optionalRepoRootCalls).toEqual([]);
+		expect(git.repoRootCalls).toEqual([]);
+		expect(git.currentBranchCalls).toEqual([]);
 		expect(sessionSource.queries).toEqual([]);
 	});
 
 	it("writes sanitized payload detail and reads a targeted pointer", async () => {
 		const payloadRoot = mkdtempSync(join(tmpdir(), "aretro-payload-test-"));
-		const git = new FakeAretroGitGateway({ repoRoot: "/repo", currentBranch: "feature/retro" });
+		const git = new InMemoryGitGateway({ repoRoot: "/repo", currentBranch: "feature/retro" });
 		const sessionSource = new FakeSessionSource({ sessions: [evidenceSession("/repo")] });
 		const context: AretroCliContext = {
 			cwd: "/repo",
@@ -308,7 +307,7 @@ describe("aretro exec collect-evidence", () => {
 	});
 
 	it("returns human-readable output when format is human", async () => {
-		const git = new FakeAretroGitGateway({
+		const git = new InMemoryGitGateway({
 			repoRoot: "/repo",
 			currentBranch: "feature/retro",
 		});
