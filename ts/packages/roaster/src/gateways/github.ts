@@ -11,6 +11,7 @@ import type {
 	PRInlineCommentInput,
 	PRReviewComment,
 } from "../models.ts";
+import { ROASTER_BOT_LOGIN } from "../roaster-bot.ts";
 
 const ghAuthorSchema = z.union([
 	z.string(),
@@ -351,7 +352,7 @@ export class FakeRoasterGitHubGateway implements RoasterGitHubGateway {
 		body: string,
 		_options: GitHubGatewayOptions,
 	): Promise<RoasterResult<PRDiscussionComment>> {
-		const comment = { id: this.nextCommentId, body, author: "github-actions[bot]" };
+		const comment = { id: this.nextCommentId, body, author: ROASTER_BOT_LOGIN };
 		this.nextCommentId += 1;
 		const comments = this.discussionCommentsByPr.get(prNumber) ?? [];
 		comments.push(comment);

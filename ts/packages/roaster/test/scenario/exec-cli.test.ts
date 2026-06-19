@@ -2,7 +2,6 @@ import { describe, expect, test } from "vitest";
 
 import { runCli } from "../../src/cli.ts";
 import type { RoasterContext } from "../../src/context.ts";
-import type { RoasterResult } from "../../src/failures.ts";
 import {
 	FakeRoasterGitHubGateway,
 	type GitHubGatewayOptions,
@@ -20,6 +19,7 @@ import {
 	buildFindingsEnvelope,
 	type FindingsEnvelopeOptions,
 } from "../support/findings-envelope.ts";
+import { FailingDiscussionGateway } from "../support/github-gateways.ts";
 
 interface RunResult {
 	readonly exitCode: number;
@@ -81,22 +81,6 @@ class ThrowingCreateReviewGateway extends FakeRoasterGitHubGateway {
 		_options: GitHubGatewayOptions,
 	): Promise<never> {
 		throw new Error("validation failed");
-	}
-}
-
-class FailingDiscussionGateway extends FakeRoasterGitHubGateway {
-	override async addPrDiscussionComment(
-		_prNumber: number,
-		_body: string,
-		_options: GitHubGatewayOptions,
-	): Promise<RoasterResult<PRDiscussionComment>> {
-		return {
-			type: "error",
-			error: {
-				type: "github_cli_failed",
-				message: "discussion write failed",
-			},
-		};
 	}
 }
 
