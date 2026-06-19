@@ -13,8 +13,13 @@ import type {
 	PRDiscussionComment,
 	PRInlineCommentInput,
 	PRReviewComment,
+	ReviewFinding,
 } from "../../src/models.ts";
 import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
+import {
+	buildFindingsEnvelope,
+	type FindingsEnvelopeOptions,
+} from "../support/findings-envelope.ts";
 
 interface RunResult {
 	readonly exitCode: number;
@@ -38,22 +43,12 @@ async function runRoaster(
 	return { exitCode, stdout: stdout.join(""), stderr: stderr.join("") };
 }
 
-function findingsEnvelope(findings: readonly Record<string, unknown>[]): string {
-	return JSON.stringify({
-		exit_code: 0,
-		data: {
-			reviewName: "dignified-python",
-			reviewPath: "/repo/reviews/dignified-python.md",
-			model: "sonnet",
-			baseRef: "master",
-			format: "findings",
-			count: findings.length,
-			findings,
-			usage: null,
-			inputCoverage: null,
-		},
-	});
-}
+const EXEC_CLI_FINDINGS_ENVELOPE_OPTIONS = {
+	reviewName: "dignified-python",
+	reviewPath: "/repo/reviews/dignified-python.md",
+	model: "sonnet",
+	baseRef: "master",
+} as const satisfies FindingsEnvelopeOptions;
 
 function failedEnvelope(): string {
 	return JSON.stringify({
@@ -69,7 +64,7 @@ const inlineFinding = {
 	severity: "warning",
 	summary: "Inline this",
 	details: "This line is in the PR diff.",
-} as const;
+} as const satisfies ReviewFinding;
 
 const fallbackFinding = {
 	path: "other.py",
@@ -77,7 +72,7 @@ const fallbackFinding = {
 	severity: "info",
 	summary: "Fallback",
 	details: "Not changed.",
-} as const;
+} as const satisfies ReviewFinding;
 
 class ThrowingCreateReviewGateway extends FakeRoasterGitHubGateway {
 	override async createPrReview(
@@ -172,7 +167,7 @@ describe("roaster exec CLI", () => {
 	test("empty and failed review envelopes publish summaries without inline queries", async () => {
 		const emptyGateway = new UnexpectedInlineQueryGateway();
 		const empty = await runRoaster(["exec", "publish-findings", "--pr-number", "47"], {
-			stdin: findingsEnvelope([]),
+			stdin: buildFindingsEnvelope([], EXEC_CLI_FINDINGS_ENVELOPE_OPTIONS),
 			github: emptyGateway,
 		});
 		expect(empty.exitCode).toBe(0);
@@ -213,7 +208,13 @@ describe("roaster exec CLI", () => {
 		const gateway = new FakeRoasterGitHubGateway({ changedFilesByPr: changedFiles });
 		const run = await runRoaster(
 			["exec", "publish-findings", "--pr-number", "47", "--run-url", "https://run"],
-			{ stdin: findingsEnvelope([inlineFinding, fallbackFinding]), github: gateway },
+			{
+				stdin: buildFindingsEnvelope(
+					[inlineFinding, fallbackFinding],
+					EXEC_CLI_FINDINGS_ENVELOPE_OPTIONS,
+				),
+				github: gateway,
+			},
 		);
 		expect(run.exitCode).toBe(0);
 		expect(run.stdout).toBe("");
@@ -239,7 +240,7 @@ describe("roaster exec CLI", () => {
 	test("publish-findings skips duplicate inline markers while updating the summary", async () => {
 		const firstGateway = new FakeRoasterGitHubGateway({ changedFilesByPr: changedFiles });
 		const first = await runRoaster(["exec", "publish-findings", "--pr-number", "47"], {
-			stdin: findingsEnvelope([inlineFinding]),
+			stdin: buildFindingsEnvelope([inlineFinding], EXEC_CLI_FINDINGS_ENVELOPE_OPTIONS),
 			github: firstGateway,
 		});
 		expect(first.exitCode).toBe(0);
@@ -270,7 +271,7 @@ describe("roaster exec CLI", () => {
 			discussionCommentsByPr: discussionComments,
 		});
 		const duplicate = await runRoaster(["exec", "publish-findings", "--pr-number", "47"], {
-			stdin: findingsEnvelope([inlineFinding]),
+			stdin: buildFindingsEnvelope([inlineFinding], EXEC_CLI_FINDINGS_ENVELOPE_OPTIONS),
 			github: duplicateGateway,
 		});
 		expect(duplicate.exitCode).toBe(0);
@@ -287,7 +288,7 @@ describe("roaster exec CLI", () => {
 	test("publish-findings treats summary discussion write errors as fatal", async () => {
 		const gateway = new FailingDiscussionGateway({ changedFilesByPr: changedFiles });
 		const run = await runRoaster(["exec", "publish-findings", "--pr-number", "47"], {
-			stdin: findingsEnvelope([inlineFinding]),
+			stdin: buildFindingsEnvelope([inlineFinding], EXEC_CLI_FINDINGS_ENVELOPE_OPTIONS),
 			github: gateway,
 		});
 		expect(run.exitCode).toBe(1);
@@ -297,7 +298,7 @@ describe("roaster exec CLI", () => {
 	test("publish-findings treats inline posting API errors as non-fatal summary state", async () => {
 		const gateway = new ThrowingCreateReviewGateway({ changedFilesByPr: changedFiles });
 		const run = await runRoaster(["exec", "publish-findings", "--pr-number", "47"], {
-			stdin: findingsEnvelope([inlineFinding]),
+			stdin: buildFindingsEnvelope([inlineFinding], EXEC_CLI_FINDINGS_ENVELOPE_OPTIONS),
 			github: gateway,
 		});
 		expect(run.exitCode).toBe(0);

@@ -3,10 +3,10 @@ import {
 	buildSuccessMachineEnvelopeSchema,
 	machineEnvelopeSchema,
 } from "@asdl/clinkr";
-import { formatZodError } from "@asdl/core/primitives";
+import { formatErrorMessage, formatZodError } from "@asdl/core/primitives";
 import { z } from "zod";
 
-import { environmentOptions, type RoasterRunScope } from "./context.ts";
+import { environmentOptions, ROASTER_BOT_LOGIN, type RoasterRunScope } from "./context.ts";
 import type { RoasterGitHubGateway } from "./gateways/github.ts";
 import {
 	parseFindingsCommentBody,
@@ -31,8 +31,6 @@ export type {
 } from "./findings-comment.ts";
 import { postInlineFindings } from "./inline-publication.ts";
 import { reviewRunResultSchema, type PostInlineFindingsResult } from "./models.ts";
-
-const BOT_LOGIN = "github-actions[bot]";
 
 const reviewRunSuccessEnvelopeSchema = buildSuccessMachineEnvelopeSchema(reviewRunResultSchema);
 
@@ -77,12 +75,12 @@ export function parseFindingsPayloadResult(
 	const failure = reviewRunFailureEnvelopeSchema.safeParse(data.value);
 	if (failure.success) {
 		const identity = fallbackFailureIdentity(options);
-		if (identity.type === "error") return payloadError(identity.message);
+		if (identity.type === "error") return payloadError(identity.error.message);
 		return {
 			type: "ok",
 			payload: {
-				reviewName: identity.reviewName,
-				baseRef: identity.baseRef,
+				reviewName: identity.value.reviewName,
+				baseRef: identity.value.baseRef,
 				count: 0,
 				findings: [],
 				inputCoverage: null,
@@ -120,18 +118,20 @@ export interface SummaryPublicationStatus {
 	readonly marker: string;
 }
 
+export interface PublishFindingsSuccess {
+	readonly inlineStatus: PostInlineFindingsResult;
+	readonly summaryStatus: SummaryPublicationStatus;
+}
+
+export interface PublicationError {
+	readonly fatalFailurePhase: PublicationFailurePhase;
+	readonly reason: PublicationFailureReason;
+	readonly message: string;
+}
+
 export type PublishFindingsResult =
-	| {
-			readonly type: "ok";
-			readonly inlineStatus: PostInlineFindingsResult;
-			readonly summaryStatus: SummaryPublicationStatus;
-	  }
-	| {
-			readonly type: "error";
-			readonly fatalFailurePhase: PublicationFailurePhase;
-			readonly reason: PublicationFailureReason;
-			readonly message: string;
-	  };
+	| { readonly type: "ok"; readonly value: PublishFindingsSuccess }
+	| { readonly type: "error"; readonly error: PublicationError };
 
 export async function publishFindings(
 	ctx: { readonly github: RoasterGitHubGateway; readonly runScope: RoasterRunScope },
@@ -154,7 +154,7 @@ export async function publishFindings(
 		...environmentOptions(ctx.runScope),
 		prNumber: options.prNumber,
 		marker: parsedBody.parsed.marker,
-		authorLogin: BOT_LOGIN,
+		authorLogin: ROASTER_BOT_LOGIN,
 	});
 	if (existing.type === "error")
 		return publicationError("summary_lookup", "github_lookup_failed", existing.error.message);
@@ -174,10 +174,12 @@ export async function publishFindings(
 
 	return {
 		type: "ok",
-		inlineStatus,
-		summaryStatus: {
-			type: existing.value === null ? "posted" : "updated",
-			marker: parsedBody.parsed.marker,
+		value: {
+			inlineStatus,
+			summaryStatus: {
+				type: existing.value === null ? "posted" : "updated",
+				marker: parsedBody.parsed.marker,
+			},
 		},
 	};
 }
@@ -197,8 +199,11 @@ function fallbackPayloadOptions(
 }
 
 type FallbackFailureIdentityResult =
-	| { readonly type: "ok"; readonly reviewName: string; readonly baseRef: string }
-	| { readonly type: "error"; readonly message: string };
+	| {
+			readonly type: "ok";
+			readonly value: { readonly reviewName: string; readonly baseRef: string };
+	  }
+	| { readonly type: "error"; readonly error: { readonly message: string } };
 
 function fallbackFailureIdentity(options: {
 	readonly fallbackReviewName?: string;
@@ -212,10 +217,12 @@ function fallbackFailureIdentity(options: {
 		];
 		return {
 			type: "error",
-			message: `failed review envelopes require fallback identity: ${missing.join(" and ")}`,
+			error: {
+				message: `failed review envelopes require fallback identity: ${missing.join(" and ")}`,
+			},
 		};
 	}
-	return { type: "ok", reviewName: fallbackReviewName, baseRef: fallbackBaseRef };
+	return { type: "ok", value: { reviewName: fallbackReviewName, baseRef: fallbackBaseRef } };
 }
 
 function activityLogEntry(runUrl: string | undefined): string {
@@ -228,7 +235,7 @@ function publicationError(
 	reason: PublicationFailureReason,
 	message: string,
 ): PublishFindingsResult {
-	return { type: "error", fatalFailurePhase, reason, message };
+	return { type: "error", error: { fatalFailurePhase, reason, message } };
 }
 
 type JsonResult =
@@ -241,7 +248,7 @@ function parseJson(raw: string): JsonResult {
 	} catch (caught) {
 		return {
 			type: "error",
-			message: `input is not valid JSON: ${caught instanceof Error ? caught.message : String(caught)}`,
+			message: `input is not valid JSON: ${formatErrorMessage(caught)}`,
 		};
 	}
 }

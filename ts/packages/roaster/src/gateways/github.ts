@@ -1,5 +1,6 @@
-import { execApiToCommandRunner, formatCommand, type CommandExecApi } from "@asdl/core/exec";
+import { commandFailureReason, execApiToCommandRunner, type CommandExecApi } from "@asdl/core/exec";
 import { runGitHubCli } from "@asdl/core/github-cli";
+import { formatErrorMessage } from "@asdl/core/primitives";
 import { withTemporaryJsonFile } from "@asdl/core/temp-files";
 import { z } from "zod";
 
@@ -250,7 +251,6 @@ export class RealRoasterGitHubGateway implements RoasterGitHubGateway {
 		args: readonly string[],
 		options: GitHubGatewayOptions,
 	): Promise<RoasterResult<{ readonly stdout: string }>> {
-		const displayCommand = formatCommand("gh", args);
 		const run = await runGitHubCli({
 			runner: execApiToCommandRunner(this.execApi),
 			args,
@@ -261,17 +261,14 @@ export class RealRoasterGitHubGateway implements RoasterGitHubGateway {
 		if (run.type === "startup_error") {
 			return error({
 				type: "github_cli_failed",
-				message: `${displayCommand} failed to start in ${options.cwd}: ${run.message}`,
+				message: `${run.displayCommand} failed to start in ${options.cwd}: ${run.message}`,
 			});
 		}
 		const result = run.result;
 		if (result.code !== 0 || result.killed) {
-			const stderr = result.stderr.trim();
-			const reason =
-				stderr === "" ? `exit code ${result.code}${result.killed ? " (killed)" : ""}` : stderr;
 			return error({
 				type: "github_cli_failed",
-				message: `${run.displayCommand} failed in ${options.cwd}: ${reason}`,
+				message: `${run.displayCommand} failed in ${options.cwd}: ${commandFailureReason(result)}`,
 			});
 		}
 		return { type: "ok", value: { stdout: result.stdout } };
@@ -397,7 +394,7 @@ function parseJson<T>(text: string, schema: z.ZodType<T>, operation: string): Ro
 	} catch (caught) {
 		return error({
 			type: "github_json_invalid",
-			message: `GitHub response for ${operation} is not valid JSON: ${caught instanceof Error ? caught.message : String(caught)}`,
+			message: `GitHub response for ${operation} is not valid JSON: ${formatErrorMessage(caught)}`,
 		});
 	}
 	const result = schema.safeParse(parsed);

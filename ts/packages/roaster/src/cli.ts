@@ -2,7 +2,7 @@
 
 import process from "node:process";
 
-import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
+import { ClinkrGroup, resolveIo, type ClinkrIo } from "@asdl/clinkr";
 import { rawCommand } from "@asdl/clinkr/raw";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 import { readStdin } from "@asdl/core/stdin";
@@ -94,14 +94,28 @@ export function buildCli(): ClinkrGroup<RoasterRuntime> {
 }
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
-	const context = deps.context ?? createDefaultContext(deps);
-	const io = resolveIo({ stdout: context.stdout, stderr: context.stderr });
+	const { context, io } = cliRuntimeInputs(deps);
 	const runtime = createRoasterRuntime(context);
 	return await buildCli().run(args, { context: runtime, io });
 }
 
-function createDefaultContext(deps: CliDeps): RoasterContext {
+interface CliRuntimeInputs {
+	readonly context: RoasterContext;
+	readonly io: ClinkrIo;
+}
+
+function cliRuntimeInputs(deps: CliDeps): CliRuntimeInputs {
+	if (deps.context !== undefined) {
+		return {
+			context: deps.context,
+			io: resolveIo({ stdout: deps.context.stdout, stderr: deps.context.stderr }),
+		};
+	}
 	const io = resolveIo({ stdout: deps.stdout, stderr: deps.stderr });
+	return { context: createDefaultContext(deps, io), io };
+}
+
+function createDefaultContext(deps: CliDeps, io: ClinkrIo): RoasterContext {
 	return createRealRoasterContext({
 		cwd: deps.cwd ?? process.cwd(),
 		env: deps.env ?? process.env,

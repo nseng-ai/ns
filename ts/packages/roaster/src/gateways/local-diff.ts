@@ -1,7 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { formatCommand, type CommandExecApi } from "@asdl/core/exec";
+import { commandFailureReason, formatCommand, type CommandExecApi } from "@asdl/core/exec";
+import { formatErrorMessage } from "@asdl/core/primitives";
 import { type GitGateway, RealGitGateway } from "@asdl/core/git";
 
 import { parseUnifiedDiff } from "../diff-parsing.ts";
@@ -63,17 +64,14 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 		} catch (caught) {
 			return error({
 				type: "git_invocation_failed",
-				message: `${displayCommand} failed to start in ${repoRoot.value}: ${caught instanceof Error ? caught.message : String(caught)}`,
+				message: `${displayCommand} failed to start in ${repoRoot.value}: ${formatErrorMessage(caught)}`,
 			});
 		}
 
 		if (result.code !== 0 || result.killed) {
-			const stderr = result.stderr.trim();
-			const reason =
-				stderr === "" ? `exit code ${result.code}${result.killed ? " (killed)" : ""}` : stderr;
 			return error({
 				type: "git_diff_failed",
-				message: `${displayCommand} failed in ${repoRoot.value}: ${reason}`,
+				message: `${displayCommand} failed in ${repoRoot.value}: ${commandFailureReason(result)}`,
 			});
 		}
 
@@ -114,7 +112,7 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 			if (isMissingFileError(caught)) return { type: "ok", value: [] };
 			return error({
 				type: "project_config_invalid",
-				message: `Failed to read asdl.toml: ${caught instanceof Error ? caught.message : String(caught)}`,
+				message: `Failed to read asdl.toml: ${formatErrorMessage(caught)}`,
 			});
 		}
 

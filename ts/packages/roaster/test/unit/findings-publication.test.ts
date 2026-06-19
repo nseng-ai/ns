@@ -22,6 +22,7 @@ import type {
 	ReviewInputCoverage,
 } from "../../src/models.ts";
 import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
+import { buildFindingsEnvelope } from "../support/findings-envelope.ts";
 
 const WARNING_FINDING: ReviewFinding = {
 	path: "src/app.ts",
@@ -246,13 +247,16 @@ describe("publishFindings", () => {
 		const runtime = createRoasterRuntime(
 			fakeRoasterContext({ github: new FailingDiscussionGateway() }),
 		);
-		const result = await publishFindings(runtime, { prNumber: 47, envelope: findingsEnvelope([]) });
+		const result = await publishFindings(runtime, {
+			prNumber: 47,
+			envelope: buildFindingsEnvelope([]),
+		});
 
 		expect(result.type).toBe("error");
 		if (result.type === "error") {
-			expect(result.fatalFailurePhase).toBe("summary_write");
-			expect(result.reason).toBe("github_write_failed");
-			expect(result.message).toBe("discussion write failed");
+			expect(result.error.fatalFailurePhase).toBe("summary_write");
+			expect(result.error.reason).toBe("github_write_failed");
+			expect(result.error.message).toBe("discussion write failed");
 		}
 	});
 
@@ -268,13 +272,13 @@ describe("publishFindings", () => {
 		);
 		const result = await publishFindings(runtime, {
 			prNumber: 47,
-			envelope: findingsEnvelope([WARNING_FINDING]),
+			envelope: buildFindingsEnvelope([WARNING_FINDING]),
 		});
 
 		expect(result.type).toBe("ok");
 		if (result.type === "ok") {
-			expect(result.inlineStatus.apiError).toBe("inline validation failed");
-			expect(result.summaryStatus).toEqual({
+			expect(result.value.inlineStatus.apiError).toBe("inline validation failed");
+			expect(result.value.summaryStatus).toEqual({
 				type: "posted",
 				marker: "<!-- roaster:typescript-style -->",
 			});
@@ -298,23 +302,6 @@ describe("preserveActivityLog", () => {
 		expect(merged.endsWith("\n")).toBe(true);
 	});
 });
-
-function findingsEnvelope(findings: readonly ReviewFinding[]): string {
-	return JSON.stringify({
-		exit_code: 0,
-		data: {
-			reviewName: "typescript-style",
-			reviewPath: "reviews/typescript-style.md",
-			model: "haiku",
-			baseRef: "main",
-			format: "findings",
-			count: findings.length,
-			findings,
-			usage: null,
-			inputCoverage: null,
-		},
-	});
-}
 
 class FailingDiscussionGateway extends FakeRoasterGitHubGateway {
 	override async addPrDiscussionComment(

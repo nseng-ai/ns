@@ -195,6 +195,11 @@ export function isSuccessfulExecResult(result: ExecResult): boolean {
 	return result.code === 0 && !result.killed;
 }
 
+export function commandFailureReason(result: ExecResult): string {
+	const stderr = result.stderr.trim();
+	return stderr !== "" ? stderr : `exit code ${result.code}${result.killed ? " (killed)" : ""}`;
+}
+
 export function formatCommand(command: string, args: readonly string[]): string {
 	return [command, ...args].map(formatShellArg).join(" ");
 }
