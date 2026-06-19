@@ -24,6 +24,107 @@ describe("RealSlotGitGateway", () => {
 		]);
 	});
 
+	it("maps branch existence from git show-ref exit codes", async () => {
+		const execApi = new ScriptedExecApi([
+			{ stdout: "", stderr: "", code: 0, killed: false },
+			{ stdout: "", stderr: "missing", code: 1, killed: false },
+		]);
+		const gateway = new RealSlotGitGateway({ cwd: "/repo", env: { PATH: "/fake/bin" }, execApi });
+
+		await expect(gateway.branchExists("master")).resolves.toBe(true);
+		await expect(gateway.branchExists("feature/a")).resolves.toBe(false);
+		expect(execApi.calls()).toEqual([
+			{
+				command: "git",
+				args: ["show-ref", "--verify", "--quiet", "refs/heads/master"],
+				cwd: "/repo",
+				timeout: 10_000,
+			},
+			{
+				command: "git",
+				args: ["show-ref", "--verify", "--quiet", "refs/heads/feature/a"],
+				cwd: "/repo",
+				timeout: 10_000,
+			},
+		]);
+	});
+
+	it("creates branches with normal and force command arguments", async () => {
+		const execApi = new ScriptedExecApi([
+			{ stdout: "", stderr: "", code: 0, killed: false },
+			{ stdout: "", stderr: "", code: 0, killed: false },
+		]);
+		const gateway = new RealSlotGitGateway({ cwd: "/repo", env: { PATH: "/fake/bin" }, execApi });
+
+		await expect(
+			gateway.createBranch("feature/a", "HEAD", { shouldForce: false }),
+		).resolves.toBeNull();
+		await expect(
+			gateway.createBranch("feature/b", "master", { shouldForce: true }),
+		).resolves.toBeNull();
+		expect(execApi.calls()).toEqual([
+			{
+				command: "git",
+				args: ["branch", "feature/a", "HEAD"],
+				cwd: "/repo",
+				timeout: 10_000,
+			},
+			{
+				command: "git",
+				args: ["branch", "-f", "feature/b", "master"],
+				cwd: "/repo",
+				timeout: 10_000,
+			},
+		]);
+	});
+
+	it("emits checkout, previous-branch, and detach command arguments", async () => {
+		const execApi = new ScriptedExecApi([
+			{ stdout: "", stderr: "", code: 0, killed: false },
+			{ stdout: "master\n", stderr: "", code: 0, killed: false },
+			{ stdout: "", stderr: "", code: 0, killed: false },
+		]);
+		const gateway = new RealSlotGitGateway({ cwd: "/repo", env: { PATH: "/fake/bin" }, execApi });
+
+		await expect(gateway.checkoutBranch("/repo/worktree", "feature/a")).resolves.toBeNull();
+		await expect(gateway.getPreviousBranch("/repo/worktree")).resolves.toBe("master");
+		await expect(gateway.detachHead("/repo/worktree", "master")).resolves.toBeNull();
+		expect(execApi.calls()).toEqual([
+			{
+				command: "git",
+				args: ["checkout", "feature/a"],
+				cwd: "/repo/worktree",
+				timeout: 10_000,
+			},
+			{
+				command: "git",
+				args: ["rev-parse", "--abbrev-ref", "@{-1}"],
+				cwd: "/repo/worktree",
+				timeout: 10_000,
+			},
+			{
+				command: "git",
+				args: ["checkout", "--detach", "master"],
+				cwd: "/repo/worktree",
+				timeout: 10_000,
+			},
+		]);
+	});
+
+	it("returns movement command failures without throwing", async () => {
+		const execApi = new ScriptedExecApi({
+			stdout: "",
+			stderr: "fatal: branch already exists\n",
+			code: 128,
+			killed: false,
+		});
+		const gateway = new RealSlotGitGateway({ cwd: "/repo", env: { PATH: "/fake/bin" }, execApi });
+
+		await expect(
+			gateway.createBranch("feature/a", "HEAD", { shouldForce: false }),
+		).resolves.toEqual({ message: "fatal: branch already exists" });
+	});
+
 	it("emits labeled command diagnostics when a sink is injected", async () => {
 		const execApi = new ScriptedExecApi({ stdout: "/repo\n", stderr: "", code: 0, killed: false });
 		const diagnosticSink = new InMemoryDiagnosticSink();
@@ -183,16 +284,19 @@ class InMemoryDiagnosticSink implements SlotDiagnosticSink {
 }
 
 class ScriptedExecApi implements CommandExecApi {
-	private readonly result: ExecResult;
+	private readonly results: ExecResult[];
 	private readonly log: ExecCall[] = [];
+	private nextIndex = 0;
 
-	constructor(result: ExecResult) {
-		this.result = result;
+	constructor(result: ExecResult | readonly ExecResult[]) {
+		this.results = Array.isArray(result) ? result.map((entry) => ({ ...entry })) : [{ ...result }];
 	}
 
 	async exec(command: string, args: string[], options: ExecOptions = {}): Promise<ExecResult> {
 		this.log.push({ command, args: [...args], cwd: options.cwd, timeout: options.timeout });
-		return { ...this.result };
+		const result = this.results[this.nextIndex] ?? this.results.at(-1) ?? emptyExecResult();
+		this.nextIndex += 1;
+		return { ...result };
 	}
 
 	calls(): readonly ExecCall[] {
@@ -231,6 +335,10 @@ function writeMarker(adminDir: string, markerPath: string): void {
 		return;
 	}
 	writeFileSync(fullPath, "marker\n");
+}
+
+function emptyExecResult(): ExecResult {
+	return { stdout: "", stderr: "", code: 0, killed: false };
 }
 
 function worktreeListOutput(path: string, branch: string): string {

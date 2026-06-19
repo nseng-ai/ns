@@ -92,14 +92,23 @@ export interface SlotGtGateway {
 	stackGraph(cwd: string): Promise<StackGraphResult>;
 }
 
-export interface SqliteJsonRunnerResult {
+export type GraphiteMetadataJsonQueryResult =
+	| { type: "success"; data: unknown }
+	| { type: "failure"; failure: GtCommandFailure };
+
+export interface GraphiteMetadataDbAccess {
+	exists(dbPath: string): boolean;
+	queryJson(dbPath: string, query: string): GraphiteMetadataJsonQueryResult;
+}
+
+interface SqliteJsonRunnerResult {
 	stdout: string;
 	stderr: string;
 	status: number | null;
 	error?: unknown;
 }
 
-export interface SqliteJsonRunner {
+interface SqliteJsonRunner {
 	run(dbPath: string, query: string): SqliteJsonRunnerResult;
 }
 
@@ -107,18 +116,18 @@ export class RealSlotGtGateway implements SlotGtGateway {
 	private readonly env: NodeJS.ProcessEnv;
 	private readonly execApi: CommandExecApi;
 	private readonly git: SlotGitGateway;
-	private readonly sqliteRunner: SqliteJsonRunner;
+	private readonly metadataDbAccess: GraphiteMetadataDbAccess;
 
 	constructor(options: {
 		git: SlotGitGateway;
 		env?: NodeJS.ProcessEnv | undefined;
 		execApi?: CommandExecApi | undefined;
-		sqliteRunner?: SqliteJsonRunner | undefined;
+		metadataDbAccess?: GraphiteMetadataDbAccess | undefined;
 	}) {
 		this.env = options.env ?? process.env;
 		this.execApi = options.execApi ?? new NodeCommandExecApi();
 		this.git = options.git;
-		this.sqliteRunner = options.sqliteRunner ?? new RealSqliteJsonRunner();
+		this.metadataDbAccess = options.metadataDbAccess ?? new RealGraphiteMetadataDbAccess();
 	}
 
 	async parentOf(cwd: string): Promise<ParentOfResult> {
@@ -179,7 +188,7 @@ export class RealSlotGtGateway implements SlotGtGateway {
 		return readStackFromMetadataDb(
 			graphiteMetadataDbPath(commonDir),
 			current.branch,
-			this.sqliteRunner,
+			this.metadataDbAccess,
 		);
 	}
 
@@ -191,12 +200,12 @@ export class RealSlotGtGateway implements SlotGtGateway {
 				message: "Could not resolve Git common dir for Graphite metadata.",
 			};
 		const dbPath = graphiteMetadataDbPath(commonDir);
-		if (!existsSync(dbPath))
+		if (!this.metadataDbAccess.exists(dbPath))
 			return {
 				type: "failure",
 				failure: { message: `Graphite metadata store not found at ${dbPath}`, returnCode: null },
 			};
-		const loaded = loadBranchMetadata(dbPath, this.sqliteRunner);
+		const loaded = loadBranchMetadata(dbPath, this.metadataDbAccess);
 		if (loaded.type === "failure") return loaded;
 		return { type: "graph", graph: { topology: loaded.topology, diagnostics: loaded.diagnostics } };
 	}
@@ -257,6 +266,22 @@ function nonemptyLines(text: string): readonly string[] {
 		.filter((line) => line.length > 0);
 }
 
+class RealGraphiteMetadataDbAccess implements GraphiteMetadataDbAccess {
+	private readonly sqliteRunner: SqliteJsonRunner;
+
+	constructor(sqliteRunner: SqliteJsonRunner = new RealSqliteJsonRunner()) {
+		this.sqliteRunner = sqliteRunner;
+	}
+
+	exists(dbPath: string): boolean {
+		return existsSync(dbPath);
+	}
+
+	queryJson(dbPath: string, query: string): GraphiteMetadataJsonQueryResult {
+		return runSqliteJsonQuery(this.sqliteRunner, dbPath, query);
+	}
+}
+
 class RealSqliteJsonRunner implements SqliteJsonRunner {
 	run(dbPath: string, query: string): SqliteJsonRunnerResult {
 		const result = spawnSync("sqlite3", ["-json", dbPath, query], {
@@ -275,14 +300,14 @@ class RealSqliteJsonRunner implements SqliteJsonRunner {
 function readStackFromMetadataDb(
 	dbPath: string,
 	currentBranch: string,
-	sqliteRunner: SqliteJsonRunner,
+	metadataDbAccess: GraphiteMetadataDbAccess,
 ): StackResult {
-	if (!existsSync(dbPath))
+	if (!metadataDbAccess.exists(dbPath))
 		return {
 			type: "failure",
 			failure: { message: `Graphite metadata store not found at ${dbPath}`, returnCode: null },
 		};
-	const loaded = loadBranchMetadata(dbPath, sqliteRunner);
+	const loaded = loadBranchMetadata(dbPath, metadataDbAccess);
 	if (loaded.type === "failure") return { type: "failure", failure: loaded.failure };
 	const row = loaded.topology.get(currentBranch);
 	if (row === undefined)
@@ -313,15 +338,11 @@ function readStackFromMetadataDb(
 
 function loadBranchMetadata(
 	dbPath: string,
-	sqliteRunner: SqliteJsonRunner,
+	metadataDbAccess: GraphiteMetadataDbAccess,
 ):
 	| { type: "ok"; topology: GraphiteTopology; diagnostics: GraphiteTopologyParseDiagnostics }
 	| { type: "failure"; failure: GtCommandFailure } {
-	const schemaRows = runSqliteJsonQuery(
-		sqliteRunner,
-		dbPath,
-		GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY,
-	);
+	const schemaRows = metadataDbAccess.queryJson(dbPath, GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY);
 	if (schemaRows.type === "failure") return schemaRows;
 	if (!hasExpectedGraphiteBranchMetadataSchema(schemaRows.data))
 		return {
@@ -331,7 +352,7 @@ function loadBranchMetadata(
 				returnCode: null,
 			},
 		};
-	const result = runSqliteJsonQuery(sqliteRunner, dbPath, GRAPHITE_BRANCH_METADATA_QUERY);
+	const result = metadataDbAccess.queryJson(dbPath, GRAPHITE_BRANCH_METADATA_QUERY);
 	if (result.type === "failure") return result;
 	const parsed = parseGraphiteBranchMetadataRows(result.data);
 	if (parsed.type === "not_array")
@@ -346,7 +367,7 @@ function runSqliteJsonQuery(
 	sqliteRunner: SqliteJsonRunner,
 	dbPath: string,
 	query: string,
-): { type: "ok"; data: unknown } | { type: "failure"; failure: GtCommandFailure } {
+): GraphiteMetadataJsonQueryResult {
 	const result = sqliteRunner.run(dbPath, query);
 	if (result.error !== undefined && result.error !== null)
 		return {
@@ -368,7 +389,7 @@ function runSqliteJsonQuery(
 			},
 		};
 	try {
-		return { type: "ok", data: JSON.parse(result.stdout.trim() || "[]") };
+		return { type: "success", data: JSON.parse(result.stdout.trim() || "[]") };
 	} catch {
 		return {
 			type: "failure",
