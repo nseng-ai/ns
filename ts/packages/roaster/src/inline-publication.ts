@@ -1,10 +1,11 @@
-import type { RoasterGitHub } from "./context.ts";
+import { environmentOptions, type RoasterRunScope } from "./context.ts";
 import type { FindingsPayload } from "./findings-comment.ts";
 import {
 	extractInlineMarkers,
 	inlineMarkerForFinding,
 	renderInlineBody,
 } from "./findings-comment.ts";
+import type { RoasterGitHubGateway } from "./gateways/github.ts";
 import { classifyInlineFindings } from "./inline-commentability.ts";
 import { type PRInlineCommentInput, type PostInlineFindingsResult } from "./models.ts";
 
@@ -12,18 +13,20 @@ const BOT_LOGIN = "github-actions[bot]";
 
 export interface PostInlineFindingsOptions {
 	readonly prNumber: number;
+	readonly runScope: RoasterRunScope;
 }
 
 export async function postInlineFindings(
-	ctx: { readonly github: RoasterGitHub },
+	ctx: { readonly github: RoasterGitHubGateway },
 	payload: FindingsPayload,
 	options: PostInlineFindingsOptions,
 ): Promise<PostInlineFindingsResult> {
 	if (payload.errorType !== null || payload.count === 0) return emptyInlineResult();
 
-	let changedFilesResult: Awaited<ReturnType<RoasterGitHub["getPrChangedFiles"]>>;
+	const githubOptions = environmentOptions(options.runScope);
+	let changedFilesResult: Awaited<ReturnType<RoasterGitHubGateway["getPrChangedFiles"]>>;
 	try {
-		changedFilesResult = await ctx.github.getPrChangedFiles(options.prNumber);
+		changedFilesResult = await ctx.github.getPrChangedFiles(options.prNumber, githubOptions);
 	} catch (caught) {
 		return { ...emptyInlineResult(), apiError: caughtMessage(caught) };
 	}
@@ -31,9 +34,9 @@ export async function postInlineFindings(
 		return { ...emptyInlineResult(), apiError: changedFilesResult.error.message };
 	}
 
-	let reviewCommentsResult: Awaited<ReturnType<RoasterGitHub["getPrReviewComments"]>>;
+	let reviewCommentsResult: Awaited<ReturnType<RoasterGitHubGateway["getPrReviewComments"]>>;
 	try {
-		reviewCommentsResult = await ctx.github.getPrReviewComments(options.prNumber);
+		reviewCommentsResult = await ctx.github.getPrReviewComments(options.prNumber, githubOptions);
 	} catch (caught) {
 		return { ...emptyInlineResult(), apiError: caughtMessage(caught) };
 	}
@@ -67,7 +70,7 @@ export async function postInlineFindings(
 	let postedCount = 0;
 	if (comments.length > 0) {
 		try {
-			const posted = await ctx.github.createPrReview(options.prNumber, comments);
+			const posted = await ctx.github.createPrReview(options.prNumber, comments, githubOptions);
 			if (posted.type === "error") apiError = posted.error.message;
 			else postedCount = comments.length;
 		} catch (caught) {
