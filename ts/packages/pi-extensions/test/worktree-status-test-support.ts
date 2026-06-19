@@ -226,6 +226,20 @@ export const TEST_THEME: StatusTheme = {
 	},
 };
 
+export function testContext(statuses?: Map<string, string | undefined>): ExtensionContext {
+	return {
+		cwd: "/repo",
+		hasUI: true,
+		ui: {
+			theme: TEST_THEME,
+			setStatus(key, value) {
+				statuses?.set(key, value);
+			},
+			setWidget() {},
+		},
+	};
+}
+
 const DEFAULT_CWD = "/repo";
 const DEFAULT_HEAD_OID = "abc123";
 
