@@ -48,24 +48,21 @@ export const WORKTREE_STATUS_REFRESH_COMMAND_NAME = "pi:worktree-status-refresh"
 
 const GH_STATUS_BACKGROUND_REFRESH_MIN_INTERVAL_MS = 15_000;
 
-const WORKTREE_STATUS_ACTIVITY_EVENTS = [
-	"input",
-	"user_bash",
-	"agent_start",
-	"agent_end",
-	"turn_start",
-	"turn_end",
-	"message_start",
-	"message_end",
-	"tool_execution_start",
-	"tool_execution_end",
-	"model_select",
-	"thinking_level_select",
-] as const;
-
 const WORKTREE_STATUS_TOOL_REFRESH_NAMES = new Set(["bash", "edit", "write"]);
 
-type WorktreeStatusActivityEvent = (typeof WORKTREE_STATUS_ACTIVITY_EVENTS)[number];
+type WorktreeStatusActivityEvent =
+	| "input"
+	| "user_bash"
+	| "agent_start"
+	| "agent_end"
+	| "turn_start"
+	| "turn_end"
+	| "message_start"
+	| "message_end"
+	| "tool_execution_start"
+	| "tool_execution_end"
+	| "model_select"
+	| "thinking_level_select";
 
 export const worktreeStatusParity = definePiSurfaceParity([
 	{
@@ -556,16 +553,33 @@ export default function worktreeStatusExtension(
 		},
 	});
 
-	for (const event of WORKTREE_STATUS_ACTIVITY_EVENTS) {
+	function registerWorktreeStatusActivityHandler(
+		event: WorktreeStatusActivityEvent,
+		afterRecordActivity?: (payload: unknown) => void,
+	): void {
 		pi.on(event, (payload) => {
 			recordActiveSessionActivity();
-			if (event === "message_end" && shouldRefreshAfterUserMessageEnd(payload)) {
-				refreshActiveSession();
-			}
-			if (event === "turn_end") refreshActiveSession();
-			if (event === "tool_execution_end") refreshActiveSessionAfterToolExecution(payload);
+			afterRecordActivity?.(payload);
 		});
 	}
+
+	registerWorktreeStatusActivityHandler("input");
+	registerWorktreeStatusActivityHandler("user_bash");
+	registerWorktreeStatusActivityHandler("agent_start");
+	registerWorktreeStatusActivityHandler("agent_end");
+	registerWorktreeStatusActivityHandler("turn_start");
+	registerWorktreeStatusActivityHandler("turn_end", () => refreshActiveSession());
+	registerWorktreeStatusActivityHandler("message_start");
+	registerWorktreeStatusActivityHandler("message_end", (payload) => {
+		if (shouldRefreshAfterUserMessageEnd(payload)) refreshActiveSession();
+	});
+	registerWorktreeStatusActivityHandler("tool_execution_start");
+	registerWorktreeStatusActivityHandler(
+		"tool_execution_end",
+		refreshActiveSessionAfterToolExecution,
+	);
+	registerWorktreeStatusActivityHandler("model_select");
+	registerWorktreeStatusActivityHandler("thinking_level_select");
 
 	pi.on("session_start", async (_event, ctx) => {
 		const session = activateSession(ctx);
