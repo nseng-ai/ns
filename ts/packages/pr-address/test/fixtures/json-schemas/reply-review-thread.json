@@ -1,0 +1,92 @@
+{
+  "input_json_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "thread_id": {
+        "type": "string"
+      },
+      "body": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "thread_id",
+      "body"
+    ],
+    "additionalProperties": false
+  },
+  "output_json_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "thread_id": {
+        "type": "string"
+      },
+      "comment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "body": {
+            "type": "string"
+          },
+          "author": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "line": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "start_line": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "body",
+          "author",
+          "path",
+          "line",
+          "start_line",
+          "created_at"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "thread_id",
+      "comment"
+    ],
+    "additionalProperties": false
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "input_json_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "pr_number": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      }
+    },
+    "required": [
+      "pr_number"
+    ],
+    "additionalProperties": false
+  },
+  "output_json_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "found": {
+        "type": "boolean"
+      },
+      "pr": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "number": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "title": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              },
+              "head_ref_name": {
+                "type": "string"
+              },
+              "base_ref_name": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              },
+              "head_ref_oid": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "number",
+              "title",
+              "url",
+              "head_ref_name",
+              "base_ref_name",
+              "state",
+              "head_ref_oid"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "miss": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "stderr": {
+                "type": "string"
+              },
+              "returncode": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "stderr",
+              "returncode"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": [
+      "found",
+      "pr",
+      "miss"
+    ],
+    "additionalProperties": false
+  }
+}

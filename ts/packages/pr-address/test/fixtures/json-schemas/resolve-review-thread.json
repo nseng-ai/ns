@@ -1,0 +1,32 @@
+{
+  "input_json_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "thread_id": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "thread_id"
+    ],
+    "additionalProperties": false
+  },
+  "output_json_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "thread_id": {
+        "type": "string"
+      },
+      "is_resolved": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "thread_id",
+      "is_resolved"
+    ],
+    "additionalProperties": false
+  }
+}

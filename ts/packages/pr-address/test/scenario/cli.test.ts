@@ -47,12 +47,15 @@ describe("pr-address CLI", () => {
 		expect(help.stdout.join("")).not.toContain("exec");
 	});
 
-	test("prints generated exec help listing only downloader operations", async () => {
+	test("prints generated exec help listing downloader and primitive operations", async () => {
 		const run = runScenario(["exec", "--help"]);
 		expect(await run.exit).toBe(0);
 		const helpText = run.stdout.join("");
 		expect(helpText).toContain("download-feedback");
 		expect(helpText).toContain("map-branch-prs");
+		expect(helpText).toContain("pr-review-threads");
+		expect(helpText).toContain("reply-review-thread");
+		expect(helpText).toContain("resolve-review-thread");
 		expect(helpText).not.toContain("prepare-run");
 		expect(helpText).not.toContain("resolve-thread");
 	});
@@ -64,7 +67,7 @@ describe("pr-address CLI", () => {
 	});
 
 	test("serves retained schema documents locally", async () => {
-		for (const operation of ["download-feedback", "map-branch-prs"]) {
+		for (const operation of EXEC_OPERATION_NAMES) {
 			const run = runScenario(["exec", operation, "--json-schema"]);
 			expect(await run.exit).toBe(0);
 			const payload = JSON.parse(run.stdout.join("")) as Record<string, unknown>;
@@ -135,6 +138,17 @@ describe("pr-address exec operation table", () => {
 		const tableNames = [...EXEC_OPERATION_NAMES].sort();
 		const builderNames = [...operationSchemaDocumentNames()].sort();
 		expect(tableNames).toEqual(builderNames);
-		expect(tableNames).toEqual(["download-feedback", "map-branch-prs"]);
+		expect(tableNames).toEqual([
+			"branch-pr",
+			"download-feedback",
+			"map-branch-prs",
+			"open-prs",
+			"pr-details",
+			"pr-discussion-comments",
+			"pr-review-threads",
+			"pr-reviews",
+			"reply-review-thread",
+			"resolve-review-thread",
+		]);
 	});
 });

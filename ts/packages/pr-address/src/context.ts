@@ -1,4 +1,9 @@
 import {
+	RealGithubPrFeedbackGateway,
+	type GithubPrFeedbackGateway,
+} from "@asdl/core/github-pr-feedback";
+
+import {
 	RealPrAddressGitGateway,
 	RealPrAddressGitHubGateway,
 	type PrAddressGitGateway,
@@ -8,11 +13,14 @@ import {
 export interface PrAddressContext {
 	github: PrAddressGitHubGateway;
 	git: PrAddressGitGateway;
+	prFeedback: GithubPrFeedbackGateway;
 }
 
 export function createRealPrAddressContext(): PrAddressContext {
+	const prFeedback = new RealGithubPrFeedbackGateway();
 	return {
-		github: new RealPrAddressGitHubGateway(),
+		github: new RealPrAddressGitHubGateway({ prFeedback }),
 		git: new RealPrAddressGitGateway(),
+		prFeedback,
 	};
 }

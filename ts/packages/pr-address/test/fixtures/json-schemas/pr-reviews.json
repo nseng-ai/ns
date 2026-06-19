@@ -1,0 +1,58 @@
+{
+  "input_json_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "pr_number": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      }
+    },
+    "required": [
+      "pr_number"
+    ],
+    "additionalProperties": false
+  },
+  "output_json_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "reviews": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "author": {
+              "type": "string"
+            },
+            "body": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string"
+            },
+            "submitted_at": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "author",
+            "body",
+            "state",
+            "submitted_at"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "reviews"
+    ],
+    "additionalProperties": false
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "input_json_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "pr_number": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      }
+    },
+    "required": [
+      "pr_number"
+    ],
+    "additionalProperties": false
+  },
+  "output_json_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "discussion_comments": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "body": {
+              "type": "string"
+            },
+            "author": {
+              "type": "string"
+            },
+            "url": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "body",
+            "author",
+            "url"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "discussion_comments"
+    ],
+    "additionalProperties": false
+  }
+}

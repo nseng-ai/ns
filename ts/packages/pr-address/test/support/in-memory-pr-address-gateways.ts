@@ -1,4 +1,19 @@
 import type {
+	GithubPrDiscussionComment,
+	GithubPrFeedbackFailure,
+	GithubPrFeedbackGateway,
+	GithubPrFeedbackOptions,
+	GithubPrLookupResult,
+	GithubPrReview,
+	GithubPrReviewComment,
+	GithubPrReviewThread,
+	GithubPrSummary,
+	GithubReviewThreadReply,
+	GithubReviewThreadState,
+} from "@asdl/core/github-pr-feedback";
+import type { Result } from "@asdl/core/result";
+
+import type {
 	CurrentBranchResult,
 	GatewayFailure,
 	GatewayOptions,
@@ -7,6 +22,7 @@ import type {
 	PRLookupMiss,
 	PRLookupResult,
 	PRReview,
+	PRReviewComment,
 	PRReviewThread,
 	PRSummary,
 	PrAddressGitGateway,
@@ -19,6 +35,7 @@ export function fakePrAddressContext(overrides: Partial<PrAddressContext> = {}):
 	return {
 		github: new InMemoryPrAddressGitHubGateway(),
 		git: new InMemoryPrAddressGitGateway(),
+		prFeedback: new InMemoryGithubPrFeedbackGateway(),
 		...overrides,
 	};
 }
@@ -63,6 +80,20 @@ export interface InMemoryGitHubState {
 	reviewsFailurePrNumbers?: ReadonlySet<number> | undefined;
 	reviewThreadsFailurePrNumbers?: ReadonlySet<number> | undefined;
 	discussionCommentsFailurePrNumbers?: ReadonlySet<number> | undefined;
+}
+
+export interface InMemoryPrFeedbackState extends InMemoryGitHubState {
+	replyFailureThreadIds?: ReadonlySet<string> | undefined;
+	resolveFailureThreadIds?: ReadonlySet<string> | undefined;
+}
+
+export interface ReviewThreadReplyLogEntry {
+	threadId: string;
+	body: string;
+}
+
+export interface ResolveReviewThreadLogEntry {
+	threadId: string;
 }
 
 export interface InMemoryGitState {
@@ -168,6 +199,108 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 	}
 }
 
+export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
+	private readonly github: InMemoryPrAddressGitHubGateway;
+	private readonly replyFailureThreadIds: ReadonlySet<string>;
+	private readonly resolveFailureThreadIds: ReadonlySet<string>;
+	private readonly repliesInternal: ReviewThreadReplyLogEntry[] = [];
+	private readonly resolutionsInternal: ResolveReviewThreadLogEntry[] = [];
+
+	constructor(state: InMemoryPrFeedbackState = {}) {
+		this.github = new InMemoryPrAddressGitHubGateway(state);
+		this.replyFailureThreadIds = state.replyFailureThreadIds ?? new Set();
+		this.resolveFailureThreadIds = state.resolveFailureThreadIds ?? new Set();
+	}
+
+	get replies(): readonly ReviewThreadReplyLogEntry[] {
+		return this.repliesInternal.map((entry) => ({ ...entry }));
+	}
+
+	get resolutions(): readonly ResolveReviewThreadLogEntry[] {
+		return this.resolutionsInternal.map((entry) => ({ ...entry }));
+	}
+
+	async getPr(
+		params: GithubPrFeedbackOptions & { readonly prNumber: number },
+	): Promise<GithubPrLookupResult> {
+		return lookupToCore(await this.github.getPr(params.prNumber, params));
+	}
+
+	async getPrForBranch(
+		params: GithubPrFeedbackOptions & { readonly branch: string },
+	): Promise<GithubPrLookupResult> {
+		return lookupToCore(await this.github.getPrForBranch(params.branch, params));
+	}
+
+	async listOpenPrs(
+		params: GithubPrFeedbackOptions,
+	): Promise<Result<readonly GithubPrSummary[], GithubPrFeedbackFailure>> {
+		const result = await this.github.listOpenPrs(params);
+		if (!result.ok) return { ok: false, error: coreFailureFromGateway(result.error) };
+		return { ok: true, value: result.value.map(prSummaryToCore) };
+	}
+
+	async getPrReviews(
+		params: GithubPrFeedbackOptions & { readonly prNumber: number },
+	): Promise<Result<readonly GithubPrReview[], GithubPrFeedbackFailure>> {
+		const result = await this.github.getReviews(params.prNumber, params);
+		if (!result.ok) return { ok: false, error: coreFailureFromGateway(result.error) };
+		return { ok: true, value: result.value.map(reviewToCore) };
+	}
+
+	async getPrReviewThreads(
+		params: GithubPrFeedbackOptions & { readonly prNumber: number },
+	): Promise<Result<readonly GithubPrReviewThread[], GithubPrFeedbackFailure>> {
+		const result = await this.github.getReviewThreads(params.prNumber, {
+			...params,
+			shouldIncludeResolved: true,
+		});
+		if (!result.ok) return { ok: false, error: coreFailureFromGateway(result.error) };
+		return { ok: true, value: result.value.map(reviewThreadToCore) };
+	}
+
+	async getPrDiscussionComments(
+		params: GithubPrFeedbackOptions & { readonly prNumber: number },
+	): Promise<Result<readonly GithubPrDiscussionComment[], GithubPrFeedbackFailure>> {
+		const result = await this.github.getDiscussionComments(params.prNumber, params);
+		if (!result.ok) return { ok: false, error: coreFailureFromGateway(result.error) };
+		return { ok: true, value: result.value.map(discussionCommentToCore) };
+	}
+
+	async replyToReviewThread(
+		params: GithubPrFeedbackOptions & { readonly threadId: string; readonly body: string },
+	): Promise<Result<GithubReviewThreadReply, GithubPrFeedbackFailure>> {
+		if (this.replyFailureThreadIds.has(params.threadId))
+			return { ok: false, error: fakeCoreFailure("reply failed", params.threadId) };
+		this.repliesInternal.push({ threadId: params.threadId, body: params.body });
+		return {
+			ok: true,
+			value: {
+				threadId: params.threadId,
+				comment: {
+					id: this.repliesInternal.length,
+					body: params.body,
+					author: "agent",
+					path: "",
+					line: null,
+					startLine: null,
+					createdAt: "2026-06-01T00:00:00Z",
+					url: `https://github.com/acme/repo/pull/1#discussion_r${this.repliesInternal.length}`,
+				},
+			},
+		};
+	}
+
+	async resolveReviewThread(
+		params: GithubPrFeedbackOptions & { readonly threadId: string },
+	): Promise<Result<GithubReviewThreadState, GithubPrFeedbackFailure>> {
+		if (this.resolveFailureThreadIds.has(params.threadId))
+			return { ok: false, error: fakeCoreFailure("resolve failed", params.threadId) };
+		this.resolutionsInternal.push({ threadId: params.threadId });
+		return { ok: true, value: { threadId: params.threadId, isResolved: true } };
+	}
+}
+
 export class InMemoryPrAddressGitGateway implements PrAddressGitGateway {
 	private readonly currentBranch: string | null;
 	private readonly currentBranchFailure: GatewayFailure | undefined;
@@ -193,6 +326,90 @@ export class InMemoryPrAddressGitGateway implements PrAddressGitGateway {
 			return { type: "failure", failure: this.repoContextFailure };
 		return this.isConfiguredInsideWorkTree ? { type: "inside" } : { type: "outside" };
 	}
+}
+
+function lookupToCore(result: PRLookupResult): GithubPrLookupResult {
+	if (result.type === "failure")
+		return { type: "failure", failure: coreFailureFromGateway(result.failure) };
+	if (result.type === "miss")
+		return { type: "miss", stderr: result.stderr, exitCode: result.returncode };
+	return { type: "found", pr: prSummaryToCore(result.pr) };
+}
+
+function prSummaryToCore(summary: PRSummary): GithubPrSummary {
+	return {
+		number: summary.number,
+		title: summary.title,
+		url: summary.url,
+		headRefName: summary.head_ref_name,
+		baseRefName: summary.base_ref_name,
+		state: summary.state,
+		headRefOid: summary.head_ref_oid,
+	};
+}
+
+function reviewToCore(review: PRReview): GithubPrReview {
+	return {
+		id: review.id,
+		author: review.author,
+		body: review.body,
+		state: review.state,
+		submittedAt: review.submitted_at,
+	};
+}
+
+function reviewThreadToCore(thread: PRReviewThread): GithubPrReviewThread {
+	return {
+		id: thread.id,
+		path: thread.path,
+		line: thread.line,
+		startLine: thread.start_line,
+		isResolved: thread.is_resolved,
+		isOutdated: thread.is_outdated,
+		comments: thread.comments.map(reviewCommentToCore),
+	};
+}
+
+function reviewCommentToCore(comment: PRReviewComment): GithubPrReviewComment {
+	return {
+		id: comment.id,
+		body: comment.body,
+		author: comment.author,
+		path: comment.path,
+		line: comment.line,
+		startLine: comment.start_line,
+		createdAt: comment.created_at,
+	};
+}
+
+function discussionCommentToCore(comment: PRDiscussionComment): GithubPrDiscussionComment {
+	return {
+		id: comment.id,
+		body: comment.body,
+		author: comment.author,
+		url: comment.url,
+	};
+}
+
+function coreFailureFromGateway(failure: GatewayFailure): GithubPrFeedbackFailure {
+	return {
+		code: "github_pr_feedback_gh_failed",
+		message: failure.message,
+		details: {
+			...(failure.details ?? {}),
+			stdout: failure.stdout ?? "",
+			stderr: failure.stderr ?? "",
+			exitCode: failure.returncode ?? 1,
+		},
+	};
+}
+
+function fakeCoreFailure(message: string, threadId: string): GithubPrFeedbackFailure {
+	return {
+		code: "github_pr_feedback_gh_failed",
+		message,
+		details: { operation: "replyToReviewThread", threadId, stderr: message, exitCode: 1 },
+	};
 }
 
 function lookupMiss(): PRLookupMiss {
