@@ -2,12 +2,11 @@
 
 ## Work
 
-- [ ] Inventory and lock the current `aretro` contract.
-  - Policy: direct execution after preview; this is the first slice and should record contract decisions before broad TypeScript implementation.
-  - Read Python source/tests under `packages/aretro`, `docs/aretro.md`, docs-site pages for `aretro` and `branch-retro`, `skills/branch-retro/SKILL.md`, `skills/branch-retro/scripts/aretro-run`, root workspace/build config, and plugin smoke tests.
-  - Classify durable contracts versus incidental Python/Click details: standalone CLI, hidden `exec`, options, JSON envelope fields, error codes, payload artifact schema, pointer validation, privacy boundaries, evidence kinds, human output, skill runner behavior, and distribution assumptions.
-  - Resolve whether docs-site's `asdl aretro --help` example is stale or a live requirement; current skill guidance says standalone `aretro`, not `asdl aretro`.
-  - Evidence: contract inventory or first implementation branch records the durable/incidental split and identifies any distribution or plugin blockers before deletion work begins.
+- [x] Inventory and lock the current `aretro` contract.
+  - Policy: completed by read-only inventory after PR #1820 was submitted; future implementation should use the locked compatibility baseline in `objective.md` unless tests prove a correction is needed.
+  - Evidence: inspected Python source/tests under `packages/aretro`, `docs/aretro.md`, docs-site pages for `aretro` and `branch-retro`, `skills/branch-retro/SKILL.md`, `skills/branch-retro/scripts/aretro-run`, root workspace/build config, plugin smoke tests, `asdl-core.sessions`, `asdl-core.payloads`, and current TypeScript CLI conventions.
+  - Durable decisions: standalone `aretro exec` is the command boundary; docs-site `asdl aretro --help` is stale by default; TypeScript session/evidence/payload seams should start package-local; `just install-aretro` is opt-in by default; checkout-free `uvx`/prod use is an audit gate before Python deletion, not a blocker for TypeScript parity.
+  - Evidence to preserve: Semantic Update `20260619-0247-contract-inventory-locked.md` records the durable/incidental split, stop conditions, and single-invocation defaults.
 
 - [ ] Create `@asdl/aretro` with CLI shell and contract tests.
   - Policy: direct execution after preview.
@@ -37,7 +36,7 @@
   - Policy: direct execution after preview; ask before preserving checkout-free execution through a new external package or adding `aretro` to `install-tools` without caller evidence.
   - Update `skills/branch-retro/scripts/aretro-run` to prefer the repo-local TypeScript CLI once `ts/packages/aretro` exists.
   - Update `skills/branch-retro/SKILL.md` only as needed to keep public skill instructions accurate and implementation-path-agnostic.
-  - Add `just install-aretro` if a PATH shim is the accepted repo-local model; decide whether `install-tools` includes it from active caller evidence.
+  - Add `just install-aretro` as the default opt-in PATH shim if source-shim execution is useful; include it in `install-tools` only if active installed-tool consumer evidence justifies that broader target.
   - Audit `ASDL_ARETRO_MODE=prod`, `uvx --from aretro==0.1.0`, active install docs, and checkout-free skill use before Python deletion. Preserve, replace, or explicitly retire that behavior based on evidence.
   - Update docs/docs-site examples away from Python `uv tool install aretro`, `uv run aretro`, and stale `asdl aretro` claims when TypeScript becomes default.
   - Evidence: skill runner invokes TypeScript for repo-local use; distribution decision is recorded; docs/skill references align with the selected model.
@@ -57,7 +56,9 @@
 
 ## Suggested Stack Boundaries
 
-A future autonomous implementation can preview this as a small Graphite stack. Default branch theses:
+A future `objective-stack-impl` invocation can preview and execute the full remaining migration as one small Graphite stack using these defaults. It should stop only if the implementation discovers a real unresolved prod/`uvx` consumer, privacy ambiguity, evidence-boundary change, registry publishing requirement, or validation failure that needs product/design input.
+
+Default branch theses:
 
 1. `aretro-ts-contract-and-shell` — contract inventory plus `@asdl/aretro` package shell, root/hidden-exec command shape, runtime/help/version, and initial scenario tests.
 2. `aretro-ts-compact-evidence` — git/session-source fakes, compact evidence DTOs, aggregate metrics, warnings, factual evidence items, and privacy-preserving JSON output.
