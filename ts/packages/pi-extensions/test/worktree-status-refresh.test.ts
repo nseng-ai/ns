@@ -111,95 +111,71 @@ describe("worktree status refresh lifecycle", () => {
 	});
 
 	test("user message completion refreshes stale dirty footer state", async () => {
-		await withTempRoot(makeGraphiteRepo(), async (root) => {
-			const userMessageRefreshDirtyChecked = deferred<void>();
-			const pi = new LifecycleFakePi([
-				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
-				...ghNoPrSteps(),
-				...basicGitStatusScript("main", 1, " M file.txt\n", "abc123"),
-				headOidStep("abc123"),
-				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
-				revListStep("main", 1),
-				{ ...dirtyStep(), onCall: () => userMessageRefreshDirtyChecked.resolve() },
-			]);
-			const statuses = new Map<string, string | undefined>();
-			const ctx: ExtensionContext = {
-				cwd: root,
-				hasUI: true,
-				ui: {
-					theme: TEST_THEME,
-					setStatus(key, value) {
-						statuses.set(key, value);
-					},
-					setWidget() {},
-				},
-			};
-
-			worktreeStatusExtension(pi as ExtensionAPI, { refreshIntervalMs: 60_000 });
-			await pi.sessionStart?.({}, ctx);
-			expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
-				"[gt] ↓ main · ↑ - · 1 commit · ✗\n[gh] no PR",
-			);
-
-			await pi.emit(
-				"message_end",
-				{ type: "message_end", message: { role: "user", content: "committed changes" } },
-				ctx,
-			);
-			await userMessageRefreshDirtyChecked.promise;
-			await flushPromises();
-
-			pi.assertDone();
-			expect(pi.calls.filter((call) => call.command === "gh")).toHaveLength(1);
-			expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
-				"[gt] ↓ main · ↑ - · 1 commit\n[gh] no PR",
-			);
-			await pi.sessionShutdown?.();
+		const userMessageRefreshDirtyChecked = deferred<void>();
+		const pi = new LifecycleFakePi([]);
+		const loaders = fakeWorktreeStatusLoaders({
+			localStatuses: [
+				queued(localStatus({ gt: gtStatus({ dirty: "yes" }) })),
+				queued(localStatus(), () => userMessageRefreshDirtyChecked.resolve()),
+			],
+			ghStatuses: [queued({ type: "no-pr" })],
 		});
+		const statuses = new Map<string, string | undefined>();
+		const ctx = testContext(statuses);
+
+		worktreeStatusExtension(pi as ExtensionAPI, { loaders, refreshIntervalMs: 60_000 });
+		await pi.sessionStart?.({}, ctx);
+		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
+			"[gt] ↓ main · ↑ - · 1 commit · ✗\n[gh] no PR",
+		);
+
+		await pi.emit(
+			"message_end",
+			{ type: "message_end", message: { role: "user", content: "committed changes" } },
+			ctx,
+		);
+		await userMessageRefreshDirtyChecked.promise;
+		await flushPromises();
+
+		pi.assertDone();
+		expect(loaders.ghCalls).toHaveLength(1);
+		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
+			"[gt] ↓ main · ↑ - · 1 commit\n[gh] no PR",
+		);
+		await pi.sessionShutdown?.();
 	});
 
 	test("turn completion refreshes footer without mutating tool event", async () => {
-		await withTempRoot(makeGraphiteRepo(), async (root) => {
-			const turnRefreshDirtyChecked = deferred<void>();
-			const pi = new LifecycleFakePi([
-				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
-				...ghNoPrSteps(),
-				...basicGitStatusScript("main", 1, "", "abc123"),
-				headOidStep("abc123"),
-				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
-				revListStep("main", 1),
-				{ ...dirtyStep(" M file.txt\n"), onCall: () => turnRefreshDirtyChecked.resolve() },
-			]);
-			const statuses = new Map<string, string | undefined>();
-			const ctx: ExtensionContext = {
-				cwd: root,
-				hasUI: true,
-				ui: {
-					theme: TEST_THEME,
-					setStatus(key, value) {
-						statuses.set(key, value);
-					},
-					setWidget() {},
-				},
-			};
-
-			worktreeStatusExtension(pi as ExtensionAPI, { refreshIntervalMs: 60_000 });
-			await pi.sessionStart?.({}, ctx);
-			expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
-				"[gt] ↓ main · ↑ - · 1 commit\n[gh] no PR",
-			);
-
-			await pi.emit("turn_end", { type: "turn_end", turnIndex: 0 }, ctx);
-			await turnRefreshDirtyChecked.promise;
-			await flushPromises();
-
-			pi.assertDone();
-			expect(pi.calls.filter((call) => call.command === "gh")).toHaveLength(1);
-			expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
-				"[gt] ↓ main · ↑ - · 1 commit · ✗\n[gh] no PR",
-			);
-			await pi.sessionShutdown?.();
+		const turnRefreshDirtyChecked = deferred<void>();
+		const pi = new LifecycleFakePi([]);
+		const loaders = fakeWorktreeStatusLoaders({
+			localStatuses: [
+				queued(localStatus()),
+				queued(localStatus({ gt: gtStatus({ dirty: "yes" }) }), () =>
+					turnRefreshDirtyChecked.resolve(),
+				),
+			],
+			ghStatuses: [queued({ type: "no-pr" })],
 		});
+		const statuses = new Map<string, string | undefined>();
+		const ctx = testContext(statuses);
+
+		worktreeStatusExtension(pi as ExtensionAPI, { loaders, refreshIntervalMs: 60_000 });
+		await pi.sessionStart?.({}, ctx);
+		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
+			"[gt] ↓ main · ↑ - · 1 commit\n[gh] no PR",
+		);
+
+		await pi.emit("turn_end", { type: "turn_end", turnIndex: 0 }, ctx);
+		await turnRefreshDirtyChecked.promise;
+		await flushPromises();
+
+		pi.assertDone();
+		expect(loaders.ghCalls).toHaveLength(1);
+		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
+			"[gt] ↓ main · ↑ - · 1 commit · ✗\n[gh] no PR",
+		);
+		await pi.sessionShutdown?.();
 	});
 
 	test("manual refresh reruns full local and remote status", async () => {
