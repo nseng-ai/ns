@@ -39,17 +39,17 @@
   - Updated active docs-site install/tool pages away from Python `uv tool install aretro` and stale `asdl aretro` defaults; the skill's negative `do not use asdl aretro` guidance remains intentional.
   - Evidence: runner `--runtime` reports TypeScript in repo-local mode, Python local override still works, docs formatting passed, and active-reference grep found no required checkout-free/prod consumer outside the preserved runner fallback.
 
-- [ ] Retire the Python `packages/aretro` fallback and active workspace wiring.
-  - Policy: direct execution only after TypeScript parity, skill/docs cutover, distribution decision, and rollback/reference evidence are complete; stop if active callers still require Python or PyPI `uvx` behavior.
-  - Remove `packages/aretro`, root `pyproject.toml` workspace/source/test/build/publish references, `uv.lock` entries, plugin smoke-test references if applicable, and stale Python package docs.
-  - Record an in-repo pre-deletion commit as rollback/reference evidence or document another deliberate rollback route before deletion.
-  - Run broader validation appropriate to deleting a Python workspace package and editing root config.
-  - Evidence: active-reference grep shows no live `packages/aretro`, `aretro.main`, `uv run aretro`, `uvx --from aretro`, or `asdl aretro` dependency outside historical/rollback Objective records; validation passes.
+- [x] Retire the Python `packages/aretro` fallback and active workspace wiring.
+  - Policy: completed after TypeScript parity, skill/docs cutover, distribution decision, and rollback/reference evidence were in place.
+  - Removed `packages/aretro`, root `pyproject.toml` workspace/source/test/build/publish references, `uv.lock` entries, and the stale Python plugin smoke-test reference.
+  - Rewrote `skills/branch-retro/scripts/aretro-run` to use the repo-local TypeScript source CLI or a PATH `aretro` command only; Python `uv run` / `uvx` fallbacks and `ASDL_ARETRO_*` knobs are retired.
+  - Rollback/reference evidence: in-repo commit `dd1c69ac85f9f836a9c12cd1da219099a2683273`, captured before deleting `packages/aretro` on the retirement branch.
+  - Evidence: runner contract checks passed for repo-local TypeScript, PATH fallback, and no-source/no-PATH failure; stale-reference grep shows no live Python `aretro` dependency outside Objective history, with remaining `packages/aretro` matches belonging to the TypeScript package path.
 
-- [ ] Record the cutover outcome in the umbrella TypeScript migration Objective and playbook.
-  - Policy: direct execution after the TypeScript default and Python retirement evidence are complete.
-  - Update `.asdl/objectives/port-asdl-toolkit-to-typescript/` migration ledger, roadmap, and `porting-playbook.md` with `aretro` status, distribution decision, rollback/reference evidence, session/payload/privacy lessons, and any shared-foundation recommendations.
-  - Create a Semantic Update in this Objective and the umbrella Objective for the meaningful cutover decision/evidence.
+- [x] Record the cutover outcome in the umbrella TypeScript migration Objective and playbook.
+  - Policy: completed after the TypeScript default and Python retirement evidence were real.
+  - Updated `.asdl/objectives/port-asdl-toolkit-to-typescript/` migration ledger, roadmap, and `porting-playbook.md` with `aretro` status, distribution decision, rollback/reference evidence, session/payload/privacy lessons, and local-seam guidance.
+  - Created Semantic Updates in this Objective and the umbrella Objective for the meaningful cutover decision/evidence.
   - Evidence: umbrella Objective no longer treats `aretro` as unstarted; playbook captures reusable `aretro` lessons.
 
 ## Suggested Stack Boundaries

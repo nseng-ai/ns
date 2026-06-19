@@ -1,13 +1,11 @@
 [tool.uv.workspace]
 members = [
   "packages/asdl-core",
-  "packages/aretro",
   "packages/packagechk",
 ]
 
 [tool.uv.sources]
 asdl-core = { workspace = true }
-aretro = { workspace = true }
 packagechk = { workspace = true }
 
 [project]
@@ -33,7 +31,6 @@ dev = [
   "pytest>=8.0.0",
   "pytest-xdist>=3.8.0",
   "asdl-core",
-  "aretro",
   "packagechk",
   "ty>=0.0.1a7",
 ]
@@ -51,7 +48,6 @@ line-length = 100
 src = [
   "src",
   "packages/asdl-core/src",
-  "packages/aretro/src",
   "packages/packagechk/src",
 ]
 exclude = [".git/", ".claude/", ".agents/skills/"]
@@ -70,7 +66,6 @@ select = [
 known-first-party = [
   "asdl_tools",
   "asdl_core",
-  "aretro",
   "packagechk",
 ]
 
@@ -78,7 +73,6 @@ known-first-party = [
 include = [
   "src",
   "packages/asdl-core/src",
-  "packages/aretro/src",
   "packages/packagechk/src",
 ]
 exclude = [".agents/skills/", ".claude/skills/"]
@@ -96,6 +90,5 @@ markers = [
 testpaths = [
   "tests",
   "packages/asdl-core/tests",
-  "packages/aretro/tests",
   "packages/packagechk/tests",
 ]

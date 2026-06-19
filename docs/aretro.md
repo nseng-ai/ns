@@ -4,9 +4,9 @@
 
 ## Boundary
 
-The deterministic Python layer collects, normalizes, counts, filters, and compresses evidence. It emits observations only. The language model interprets those observations and decides whether they imply missing docs, confusing UX, weak architecture, inefficient workflow, or normal exploration.
+The deterministic TypeScript CLI collects, normalizes, counts, filters, and compresses evidence. It emits observations only. The language model interprets those observations and decides whether they imply missing docs, confusing UX, weak architecture, inefficient workflow, or normal exploration.
 
-Python may report facts such as:
+The CLI may report facts such as:
 
 - a tool was called a certain number of times;
 - a tool result was marked as failed;
@@ -15,7 +15,7 @@ Python may report facts such as:
 - token usage counters were present;
 - a tool result or command execution had large or truncated output.
 
-Python must not emit diagnoses such as `confusion`, `missing_docs`, `bad_architecture`, `wasted_work`, `needs_refactor`, or `skill_gap`.
+The deterministic CLI must not emit diagnoses such as `confusion`, `missing_docs`, `bad_architecture`, `wasted_work`, `needs_refactor`, or `skill_gap`.
 
 ## Recommendation Policy
 
@@ -52,7 +52,7 @@ These kinds are observations, not recommendations.
 
 ## Component Roles
 
-- `asdl-core` session adapters parse harness-specific logs into normalized session facts without retaining raw transcript content.
-- `asdl-core` evidence aggregation turns normalized session facts into deterministic `SessionEvidenceItem` observations.
-- `aretro` exposes the branch-facing CLI and renders the `aretro exec collect-evidence --format json` envelope.
+- `@asdl/aretro` package-local session adapters parse harness-specific logs into normalized session facts without retaining raw transcript content.
+- `@asdl/aretro` evidence aggregation turns normalized session facts into deterministic observations.
+- `aretro` exposes the branch-facing TypeScript CLI and renders the `aretro exec collect-evidence --format json` envelope.
 - `branch-retro` is the first skill consumer of that standalone evidence command: it consumes the JSON envelope, applies semantic judgment, weighs cost, drift, and discoverability, and writes the final retrospective recommendations.

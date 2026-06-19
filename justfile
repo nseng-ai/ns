@@ -184,5 +184,5 @@ clean:
     find . -type f -name "*.pyc" -delete || true
 
 publish: clean check
-    uv build --package asdl-tools --package asdl-core --package aretro
+    uv build --package asdl-tools --package asdl-core
     uv publish
