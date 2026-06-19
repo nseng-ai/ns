@@ -4,7 +4,6 @@ import {
 	RealSubmitGateway,
 	RealSubmitMetadataGateway,
 	runSubmitCommand,
-	type SubmitRestackConfirmationPrompt,
 } from "@asdl/core/submit";
 
 import { RealCheckpointGateway, runCheckpointIfPending } from "../checkpoint.ts";
@@ -13,7 +12,10 @@ import { maybeFormatSubmitFailureWithModel } from "../submit-failure-interpretat
 import { createSdlCommandRunner, SdlCommandExecApi } from "./command-runner.ts";
 
 const submitSchema = z.object({
-	restack: z.boolean().default(false).describe("Run gt restack before submitting when required."),
+	restack: z
+		.boolean()
+		.default(true)
+		.describe("Automatically run gt restack before submitting when Graphite requires it."),
 	verbose: z
 		.boolean()
 		.default(false)
@@ -77,12 +79,6 @@ The command owns its output and exit code. It does not support --format.`,
 				env: ctx.env,
 			},
 			...(liveOutput === undefined ? {} : { onOutput: liveOutput }),
-			...(ctx.confirm === undefined
-				? {}
-				: {
-						confirmRestack: (prompt: SubmitRestackConfirmationPrompt) =>
-							ctx.confirm?.(prompt.title, prompt.message) ?? false,
-					}),
 		});
 		const interpretedResult = await maybeFormatSubmitFailureWithModel(result, ctx);
 		writeCommandResultOutput(interpretedResult, ctx);

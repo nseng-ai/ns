@@ -135,7 +135,7 @@ describe("sdl submit CLI", () => {
 		expect(await helpRun.exit).toBe(0);
 		const help = helpRun.stdout.join("");
 		expect(help).toContain("Usage: sdl submit");
-		expect(help).toContain("--restack");
+		expect(help).toContain("--no-restack");
 		expect(help).toContain("--verbose");
 		expect(help).toContain("ASDL_DEV_PR_DESCRIPTION_MODEL");
 		expect(help).toContain("ASDL_DEV_PR_DESCRIPTION_PROMPT");
@@ -633,7 +633,7 @@ describe("sdl submit CLI", () => {
 		expect(await readFile(rawPath ?? "", "utf8")).toContain("model unavailable");
 	});
 
-	test("restack-required dry-run stops with guidance when no flag or confirmation is available", async () => {
+	test("restack-required dry-run runs restack by default", async () => {
 		const run = runWithFakes({
 			args: ["submit"],
 			state: {
@@ -643,16 +643,17 @@ describe("sdl submit CLI", () => {
 						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run",
 						result: { code: 1, stderr: "branch must be restacked before submitting\n" },
 					},
+					{ match: "gt restack --no-interactive", result: { stdout: "restacked\n" } },
+					...successfulSubmitResponses().slice(cleanCheckpointResponses().length),
 				],
-				textGeneration: [{ ok: false, error: "summary unavailable" }],
+				confirm: () => {
+					throw new Error("confirm should not be called for default restack");
+				},
 			},
 		});
 
-		expect(await run.exit).toBe(1);
-		expect(run.stderr.join("")).toContain("Graphite requires a restack before submission.");
-		expect(run.stderr.join("")).toContain("Raw log:");
-		expect(run.context.modelCalls).toHaveLength(1);
-		expect(formattedExecCalls(run.context)).not.toContain("gt restack --no-interactive");
+		expect(await run.exit).toBe(0);
+		expect(formattedExecCalls(run.context)).toContain("gt restack --no-interactive");
 	});
 
 	test("trunk-out-of-date dry-run failure is deterministic and uses model summarization", async () => {
@@ -773,7 +774,7 @@ describe("sdl submit CLI", () => {
 		expect(await readFile(rawPath ?? "", "utf8")).toContain("raw stderr");
 	});
 
-	test("confirmation threads through SdlContext and runs restack before submit", async () => {
+	test("default restack does not prompt before submit", async () => {
 		const confirmations: Array<{ title: string; message: string }> = [];
 		const run = runWithFakes({
 			args: ["submit"],
@@ -795,8 +796,7 @@ describe("sdl submit CLI", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(confirmations[0]?.title).toBe("Run gt restack before submit?");
-		expect(confirmations[0]?.message).toContain("gt restack --no-interactive");
+		expect(confirmations).toEqual([]);
 		expect(formattedExecCalls(run.context)).toContain("gt restack --no-interactive");
 	});
 
@@ -833,16 +833,16 @@ describe("sdl submit CLI", () => {
 		expect(await runCli(["submit"], { context, homeDir: join(context.cwd, ".home") })).toBe(0);
 		expect(stdout.join("")).toContain("Submitted 1 PR:");
 		expect(stderr.join("")).toBe("");
-		expect(confirmations).toEqual(["Run gt restack before submit?"]);
+		expect(confirmations).toEqual([]);
 		expect(liveOutput).toEqual(
 			expect.arrayContaining([{ stream: "stderr", text: "• Preflight: running gt restack…\n" }]),
 		);
 		expect(liveOutput).not.toContainEqual({ stream: "stdout", text: "restacked\n" });
 	});
 
-	test("--restack runs restack without prompting", async () => {
+	test("--no-restack preserves guided failure without running restack", async () => {
 		const run = runWithFakes({
-			args: ["submit", "--restack"],
+			args: ["submit", "--no-restack"],
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -850,22 +850,20 @@ describe("sdl submit CLI", () => {
 						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run",
 						result: { code: 1, stderr: "must be restacked before submit\n" },
 					},
-					{ match: "gt restack --no-interactive", result: { stdout: "restacked\n" } },
-					...successfulSubmitResponses().slice(cleanCheckpointResponses().length),
 				],
-				confirm: () => {
-					throw new Error("confirm should not be called with --restack");
-				},
+				textGeneration: [{ ok: false, error: "summary unavailable" }],
 			},
 		});
 
-		expect(await run.exit).toBe(0);
-		expect(formattedExecCalls(run.context)).toContain("gt restack --no-interactive");
+		expect(await run.exit).toBe(1);
+		expect(run.stderr.join("")).toContain("Graphite requires a restack before submission.");
+		expect(run.stderr.join("")).toContain("Raw log:");
+		expect(formattedExecCalls(run.context)).not.toContain("gt restack --no-interactive");
 	});
 
 	test("restack conflicts are reported before submit", async () => {
 		const run = runWithFakes({
-			args: ["submit", "--restack"],
+			args: ["submit"],
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -901,7 +899,7 @@ describe("sdl submit CLI", () => {
 	test("readiness recheck failure is deterministic and uses model summarization", async () => {
 		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
 		const run = runWithFakes({
-			args: ["submit", "--restack"],
+			args: ["submit"],
 			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
 			state: {
 				exec: [
