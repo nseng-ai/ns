@@ -27,7 +27,7 @@ describe("worktree status activity lifecycle", () => {
 		const ctx = testContext(statuses, { isIdle: true });
 
 		worktreeStatusExtension(pi as ExtensionAPI, {
-			...loaders,
+			loaders,
 			timers: harness.timers,
 			clock: harness.clock,
 			refreshIntervalMs: 300_000,
@@ -79,7 +79,7 @@ describe("worktree status activity lifecycle", () => {
 		});
 
 		worktreeStatusExtension(pi as ExtensionAPI, {
-			...loaders,
+			loaders,
 			timers: harness.timers,
 			clock: harness.clock,
 			refreshIntervalMs: 300_000,
@@ -118,7 +118,7 @@ describe("worktree status activity lifecycle", () => {
 		const ctx = testContext(statuses, { isIdle: true });
 
 		worktreeStatusExtension(pi as ExtensionAPI, {
-			...loaders,
+			loaders,
 			timers: harness.timers,
 			clock: harness.clock,
 			refreshIntervalMs: 300_000,

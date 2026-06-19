@@ -35,7 +35,7 @@ describe("worktree status refresh timer", () => {
 		const ctx = testContext();
 
 		worktreeStatusExtension(pi as ExtensionAPI, {
-			...loaders,
+			loaders,
 			timers: harness.timers,
 			clock: harness.clock,
 			refreshIntervalMs: 1_000,
@@ -70,7 +70,7 @@ describe("worktree status refresh timer", () => {
 		const ctx = testContext();
 
 		worktreeStatusExtension(pi as ExtensionAPI, {
-			...loaders,
+			loaders,
 			timers: harness.timers,
 			clock: harness.clock,
 			refreshIntervalMs: 1_000,
@@ -122,7 +122,7 @@ describe("worktree status refresh timer", () => {
 		const statuses = new Map<string, string | undefined>();
 		const ctx = testContext(statuses);
 
-		worktreeStatusExtension(pi as ExtensionAPI, { ...loaders, refreshIntervalMs: 60_000 });
+		worktreeStatusExtension(pi as ExtensionAPI, { loaders, refreshIntervalMs: 60_000 });
 		const command = pi.commands.get(WORKTREE_STATUS_REFRESH_COMMAND_NAME);
 		expect(command).toBeDefined();
 		if (command === undefined) throw new Error("expected manual refresh command");
