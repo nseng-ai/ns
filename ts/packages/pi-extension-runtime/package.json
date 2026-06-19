@@ -18,7 +18,7 @@
     "./cmux/types": "./src/cmux/types.ts"
   },
   "scripts": {
-    "check": "tsc --noEmit -p tsconfig.json",
+    "check": "tsgo -p tsconfig.json",
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/pi-extension-runtime/test"
   },
   "dependencies": {

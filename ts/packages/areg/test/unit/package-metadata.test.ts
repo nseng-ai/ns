@@ -23,7 +23,7 @@ describe("areg package metadata", () => {
 		expect(packageJson.version).toBe(VERSION);
 		expect(packageJson.bin).toEqual({ areg: "./src/cli.ts" });
 		expect(packageJson.scripts).toMatchObject({
-			check: "tsc --noEmit -p tsconfig.json",
+			check: "tsgo -p tsconfig.json",
 			test: "cd ../.. && vitest run --config vitest.config.ts packages/areg/test",
 		});
 	});

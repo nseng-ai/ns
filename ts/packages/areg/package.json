@@ -12,7 +12,7 @@
     "areg": "./src/cli.ts"
   },
   "scripts": {
-    "check": "tsc --noEmit -p tsconfig.json",
+    "check": "tsgo -p tsconfig.json",
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/areg/test"
   },
   "dependencies": {

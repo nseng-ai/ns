@@ -149,14 +149,14 @@ CLI commands intended for skill/agent invocation rather than interactive humans 
 When writing, reviewing, or refactoring TypeScript, strictly follow the `typescript-style` skill (`.agents/skills/typescript-style/SKILL.md`) and the repo-specific `asdl-typescript` overlay (`.agents/skills/asdl-typescript/SKILL.md`).
 
 - Load the skill before TypeScript work and read `.agents/skills/typescript-style/core-rules.md` before implementation.
-- Load `.agents/skills/asdl-typescript/SKILL.md` for asdl-tools' TypeScript toolchain, import, compiler-baseline, and local-ban rules.
+- Load `.agents/skills/asdl-typescript/SKILL.md` for asdl-tools' TypeScript toolchain, import, compiler-baseline, local-ban rules, and tsgo-only typecheck policy.
 - Use `.agents/skills/typescript-style/idioms.md` for coding idioms and `.agents/skills/typescript-style/checklist.md` before declaring TypeScript work complete.
 - Load the relevant `.agents/skills/typescript-style/references/` document before designing TypeScript abstractions covered by the skill, including backend/provider boundaries, error handling, plugin/extension APIs, stateful workflow/context code, or TUI code.
 - Treat the skill as the default TypeScript authority while still honoring the skill's precedence rules for explicit project tooling, public API compatibility, and established local conventions.
 
 ### TypeScript Test Execution
 
-Current `ts/` package tests are Vitest-backed. The TS test suite is expected to be fast: for TS implementation plans, grill sessions, and completion criteria, default to running the full TS validation commands instead of asking whether to narrow validation scope. Use pnpm/Vitest commands such as `pnpm --dir ts run test`, `pnpm --dir ts run check`, package scripts when debugging a specific failure, or `just ts-test`. Do not add new package tests that depend on Bun's test runner.
+Current `ts/` package tests are Vitest-backed. The TS test suite is expected to be fast: for TS implementation plans, grill sessions, and completion criteria, default to running the full TS validation commands instead of asking whether to narrow validation scope. For TypeScript typechecking in this repo, use tsgo only through `just ts-check` or `pnpm --dir ts run check`; do not use legacy compiler routes unless the user explicitly asks for parity/debugging. Use pnpm/Vitest commands such as `pnpm --dir ts run test`, `pnpm --dir ts run check`, package scripts when debugging a specific failure, or `just ts-test`. Do not add new package tests that depend on Bun's test runner.
 
 If you are working in an out-of-scope template or standalone Bun project that intentionally still uses Bun's test runner, run direct Bun tests sequentially: `bun test --sequential`.
 

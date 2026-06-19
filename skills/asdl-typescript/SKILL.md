@@ -18,8 +18,7 @@ Load this after `typescript-style` whenever the task touches TypeScript in this 
 - Runtime: Node 24.12 or newer.
 - Dependency governance: pnpm catalog plus Syncpack via `just ts-deps-check`.
 - Tests: Vitest 4 via `pnpm --dir ts run test` or `just ts-test`.
-- Primary typecheck: native TypeScript preview / `tsgo` via `pnpm --dir ts run check` or `just ts-check`.
-- Legacy fallback typecheck: stock `tsc` via `pnpm --dir ts run check:legacy` or `just ts-check-legacy`.
+- Development typecheck: native TypeScript preview / `tsgo` only, via `pnpm --dir ts run check` or `just ts-check`.
 - Formatting: oxfmt via `pnpm --dir ts run fmt:check` / `just ts-format-check`; autofix with `pnpm --dir ts run fmt` / `just ts-format-fix`.
 - Linting: oxlint via `pnpm --dir ts run lint` / `just ts-lint`; autofix with `pnpm --dir ts run lint:fix` / `just ts-lint-fix`.
 - Repo Markdown/TOML formatting remains dprint via `dprint check` / `just dprint-check`; autofix with `just dprint-fix`.
@@ -100,7 +99,6 @@ just ts-deps-check
 just ts-format-check
 just ts-lint
 just ts-check
-just ts-check-legacy
 just ts-test
 just ts-guard
 ```
