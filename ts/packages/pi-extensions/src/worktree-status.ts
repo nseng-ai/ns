@@ -48,24 +48,21 @@ export const WORKTREE_STATUS_REFRESH_COMMAND_NAME = "pi:worktree-status-refresh"
 
 const GH_STATUS_BACKGROUND_REFRESH_MIN_INTERVAL_MS = 15_000;
 
-const WORKTREE_STATUS_ACTIVITY_EVENTS = [
-	"input",
-	"user_bash",
-	"agent_start",
-	"agent_end",
-	"turn_start",
-	"turn_end",
-	"message_start",
-	"message_end",
-	"tool_execution_start",
-	"tool_execution_end",
-	"model_select",
-	"thinking_level_select",
-] as const;
-
 const WORKTREE_STATUS_TOOL_REFRESH_NAMES = new Set(["bash", "edit", "write"]);
 
-type WorktreeStatusActivityEvent = (typeof WORKTREE_STATUS_ACTIVITY_EVENTS)[number];
+type WorktreeStatusActivityEvent =
+	| "input"
+	| "user_bash"
+	| "agent_start"
+	| "agent_end"
+	| "turn_start"
+	| "turn_end"
+	| "message_start"
+	| "message_end"
+	| "tool_execution_start"
+	| "tool_execution_end"
+	| "model_select"
+	| "thinking_level_select";
 
 export const worktreeStatusParity = definePiSurfaceParity([
 	{
@@ -522,11 +519,15 @@ export default function worktreeStatusExtension(
 		recordSessionActivity(session);
 	}
 
-	function refreshActiveSessionAfterToolExecution(event: unknown): void {
-		if (!shouldRefreshAfterToolExecution(event)) return;
+	function refreshActiveSession(): void {
 		const session = activeSession;
 		if (session === undefined || !isActiveSession(session)) return;
 		void fullRefreshChannel.run(session);
+	}
+
+	function refreshActiveSessionAfterToolExecution(event: unknown): void {
+		if (!shouldRefreshAfterToolExecution(event)) return;
+		refreshActiveSession();
 	}
 
 	function recordSessionActivity(
@@ -552,12 +553,33 @@ export default function worktreeStatusExtension(
 		},
 	});
 
-	for (const event of WORKTREE_STATUS_ACTIVITY_EVENTS) {
+	function registerWorktreeStatusActivityHandler(
+		event: WorktreeStatusActivityEvent,
+		afterRecordActivity?: (payload: unknown) => void,
+	): void {
 		pi.on(event, (payload) => {
 			recordActiveSessionActivity();
-			if (event === "tool_execution_end") refreshActiveSessionAfterToolExecution(payload);
+			afterRecordActivity?.(payload);
 		});
 	}
+
+	registerWorktreeStatusActivityHandler("input");
+	registerWorktreeStatusActivityHandler("user_bash");
+	registerWorktreeStatusActivityHandler("agent_start");
+	registerWorktreeStatusActivityHandler("agent_end");
+	registerWorktreeStatusActivityHandler("turn_start");
+	registerWorktreeStatusActivityHandler("turn_end", () => refreshActiveSession());
+	registerWorktreeStatusActivityHandler("message_start");
+	registerWorktreeStatusActivityHandler("message_end", (payload) => {
+		if (shouldRefreshAfterUserMessageEnd(payload)) refreshActiveSession();
+	});
+	registerWorktreeStatusActivityHandler("tool_execution_start");
+	registerWorktreeStatusActivityHandler(
+		"tool_execution_end",
+		refreshActiveSessionAfterToolExecution,
+	);
+	registerWorktreeStatusActivityHandler("model_select");
+	registerWorktreeStatusActivityHandler("thinking_level_select");
 
 	pi.on("session_start", async (_event, ctx) => {
 		const session = activateSession(ctx);
@@ -585,6 +607,11 @@ function fallbackRepoName(cwd: string): string {
 	const gitPaths = findWorktreeStatusGitPaths(cwd);
 	if (gitPaths !== undefined) return basename(gitPaths.repoDir);
 	return basename(resolve(cwd)) || "unknown";
+}
+
+function shouldRefreshAfterUserMessageEnd(event: unknown): boolean {
+	if (!isRecord(event) || !isRecord(event.message)) return false;
+	return event.message.role === "user";
 }
 
 function shouldRefreshAfterToolExecution(event: unknown): boolean {
