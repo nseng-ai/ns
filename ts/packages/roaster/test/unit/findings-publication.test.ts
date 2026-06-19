@@ -7,12 +7,14 @@ import {
 	parseFindingsPayloadResult,
 	parseInlinePostingStatusResult,
 	preserveActivityLog,
+	publishFindings,
 	renderFindingsComment,
 	renderInlineBody,
 	summaryMarkerForReview,
 	type FindingsPayload,
 } from "../../src/findings-publication.ts";
-import type { ReviewFinding, ReviewInputCoverage } from "../../src/models.ts";
+import { FakeRoasterGitHubGateway, type GitHubGatewayOptions } from "../../src/gateways/github.ts";
+import type { PRChangedFile, ReviewFinding, ReviewInputCoverage } from "../../src/models.ts";
 
 const WARNING_FINDING: ReviewFinding = {
 	path: "src/app.ts",
@@ -21,6 +23,69 @@ const WARNING_FINDING: ReviewFinding = {
 	summary: "Avoid broad casts",
 	details: "Validate the payload before casting it.",
 };
+
+class UnexpectedInlineQueryGateway extends FakeRoasterGitHubGateway {
+	override async getPrChangedFiles(
+		_prNumber: number,
+		_options: GitHubGatewayOptions,
+	): Promise<never> {
+		throw new Error("changed files should not be queried");
+	}
+
+	override async getPrReviewComments(
+		_prNumber: number,
+		_options: GitHubGatewayOptions,
+	): Promise<never> {
+		throw new Error("review comments should not be queried");
+	}
+}
+
+class ChangedFilesFailureGateway extends FakeRoasterGitHubGateway {
+	override async getPrChangedFiles(
+		_prNumber: number,
+		_options: GitHubGatewayOptions,
+	): Promise<{
+		readonly type: "error";
+		readonly error: {
+			readonly type: "github_response_invalid";
+			readonly message: string;
+			readonly command: readonly string[];
+		};
+	}> {
+		return {
+			type: "error",
+			error: { type: "github_response_invalid", message: "changed files unavailable", command: [] },
+		};
+	}
+}
+
+class FailingDiscussionGateway extends FakeRoasterGitHubGateway {
+	override async addPrDiscussionComment(
+		_prNumber: number,
+		_body: string,
+		_options: GitHubGatewayOptions,
+	): Promise<{
+		readonly type: "error";
+		readonly error: {
+			readonly type: "github_cli_failed";
+			readonly message: string;
+			readonly command: readonly string[];
+			readonly stderr: string;
+			readonly code: number | null;
+		};
+	}> {
+		return {
+			type: "error",
+			error: {
+				type: "github_cli_failed",
+				message: "comment post failed",
+				command: [],
+				stderr: "",
+				code: 1,
+			},
+		};
+	}
+}
 
 describe("findings comment markers", () => {
 	test("summary marker is first-line parseable", () => {
@@ -231,6 +296,96 @@ describe("payload parsers", () => {
 	});
 });
 
+describe("publishFindings", () => {
+	test("posts inline findings and creates a summary comment", async () => {
+		const changedFiles = new Map<number, readonly PRChangedFile[]>([
+			[47, [{ path: "src/app.ts", status: "modified", patch: "@@ -12 +12 @@\n+new" }]],
+		]);
+		const github = new FakeRoasterGitHubGateway({ changedFilesByPr: changedFiles });
+
+		const result = await publishFindings(
+			{
+				prNumber: 47,
+				rawEnvelope: findingsEnvelope([WARNING_FINDING]),
+				reviewName: "typescript-style",
+				baseRef: "main",
+				runUrl: "https://run",
+			},
+			{ github, cwd: "/repo", env: {} },
+		);
+
+		expect(result.type).toBe("ok");
+		if (result.type === "ok") {
+			expect(result.commentAction).toBe("posted");
+			expect(result.inlineStatus.postedCount).toBe(1);
+			expect(result.body).toContain("<!-- roaster:typescript-style -->");
+			expect(result.body).toContain("### Inline posting");
+			expect(result.body).toContain("Inline comments posted:** 1");
+			expect(result.body).toContain("https://run");
+		}
+		expect(github.createdReviews()).toHaveLength(1);
+	});
+
+	test("publishes failed run envelopes with fallback metadata and no inline queries", async () => {
+		const result = await publishFindings(
+			{
+				prNumber: 47,
+				rawEnvelope: JSON.stringify({
+					exit_code: 2,
+					error_type: "harness_binary_missing",
+					message: "claude not found",
+				}),
+				reviewName: "review",
+				baseRef: "main",
+			},
+			{ github: new UnexpectedInlineQueryGateway(), cwd: "/repo", env: {} },
+		);
+
+		expect(result.type).toBe("ok");
+		if (result.type === "ok") {
+			expect(result.inlineStatus.postedCount).toBe(0);
+			expect(result.body).toContain("<!-- roaster:review -->");
+			expect(result.body).toContain("**Roaster failed** against base `main`");
+			expect(result.body).toContain("harness_binary_missing");
+		}
+	});
+
+	test("keeps inline API failures nonfatal and renders them in the summary", async () => {
+		const result = await publishFindings(
+			{
+				prNumber: 47,
+				rawEnvelope: findingsEnvelope([WARNING_FINDING]),
+				reviewName: "typescript-style",
+				baseRef: "main",
+			},
+			{ github: new ChangedFilesFailureGateway(), cwd: "/repo", env: {} },
+		);
+
+		expect(result.type).toBe("ok");
+		if (result.type === "ok") {
+			expect(result.inlineStatus.apiError).toBe("changed files unavailable");
+			expect(result.body).toContain("API error:** changed files unavailable");
+		}
+	});
+
+	test("returns an error when summary posting fails", async () => {
+		const result = await publishFindings(
+			{
+				prNumber: 47,
+				rawEnvelope: findingsEnvelope([]),
+				reviewName: "typescript-style",
+				baseRef: "main",
+			},
+			{ github: new FailingDiscussionGateway(), cwd: "/repo", env: {} },
+		);
+
+		expect(result).toEqual({
+			type: "error",
+			message: "failed to post findings comment: comment post failed",
+		});
+	});
+});
+
 describe("preserveActivityLog", () => {
 	test("extracts, strips, appends, caps at ten, and terminates with newline", () => {
 		const existing = `${summaryMarkerForReview("review")}\nbody\n\n### Activity Log\n\n${Array.from({ length: 10 }, (_value, index) => `- old ${index}`).join("\n")}\n`;
@@ -247,6 +402,23 @@ describe("preserveActivityLog", () => {
 		expect(merged.endsWith("\n")).toBe(true);
 	});
 });
+
+function findingsEnvelope(findings: readonly ReviewFinding[]): string {
+	return JSON.stringify({
+		exit_code: 0,
+		data: {
+			reviewName: "typescript-style",
+			reviewPath: "reviews/typescript-style.md",
+			model: "haiku",
+			baseRef: "main",
+			format: "findings",
+			count: findings.length,
+			findings,
+			usage: null,
+			inputCoverage: null,
+		},
+	});
+}
 
 function payload(overrides: Partial<FindingsPayload>): FindingsPayload {
 	return {

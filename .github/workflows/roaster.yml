@@ -107,32 +107,20 @@ jobs:
 
           BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName --jq .baseRefName)
 
-          roaster_output_file=$(mktemp)
-          inline_result_file=$(mktemp)
-          trap 'rm -f "$roaster_output_file" "$inline_result_file"' EXIT
-
           status=0
           output=$(pnpm --config.verify-deps-before-run=false --dir ts exec roaster review run "$REVIEW_KEY" \
             --base-ref "$BASE_REF" \
             --format json) || status=$?
-          printf '%s' "$output" > "$roaster_output_file"
 
           echo "--- roaster envelope ---"
           printf '%s\n' "$output"
           echo "--- end roaster envelope ---"
 
-          pnpm --config.verify-deps-before-run=false --dir ts exec roaster exec post-inline-findings \
-            --pr-number "$PR_NUMBER" \
-            < "$roaster_output_file" \
-            > "$inline_result_file"
-
-          pnpm --config.verify-deps-before-run=false --dir ts exec roaster exec format-findings-comment \
-            --inline-result-file "$inline_result_file" \
-            --review-name "$REVIEW_KEY" \
-            --base-ref "$BASE_REF" \
-            < "$roaster_output_file" \
-            | pnpm --config.verify-deps-before-run=false --dir ts exec roaster exec post-findings-comment \
+          printf '%s' "$output" \
+            | pnpm --config.verify-deps-before-run=false --dir ts exec roaster exec publish \
                 --pr-number "$PR_NUMBER" \
+                --review-name "$REVIEW_KEY" \
+                --base-ref "$BASE_REF" \
                 --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
           exit "$status"

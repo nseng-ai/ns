@@ -1,17 +1,8 @@
 import { describe, expect, test } from "vitest";
 
 import { runCli } from "../../src/cli.ts";
-import {
-	FakeRoasterGitHubGateway,
-	type GitHubGatewayOptions,
-	type RoasterGitHubGateway,
-} from "../../src/gateways/github.ts";
-import type {
-	PRChangedFile,
-	PRDiscussionComment,
-	PRInlineCommentInput,
-	PRReviewComment,
-} from "../../src/models.ts";
+import { FakeRoasterGitHubGateway, type RoasterGitHubGateway } from "../../src/gateways/github.ts";
+import type { PRChangedFile } from "../../src/models.ts";
 import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
 
 interface RunResult {
@@ -54,14 +45,6 @@ function findingsEnvelope(findings: readonly Record<string, unknown>[]): string 
 	});
 }
 
-function failedEnvelope(): string {
-	return JSON.stringify({
-		exit_code: 2,
-		error_type: "harness_binary_missing",
-		message: "claude not found",
-	});
-}
-
 const inlineFinding = {
 	path: "app.py",
 	line: 1,
@@ -70,213 +53,61 @@ const inlineFinding = {
 	details: "This line is in the PR diff.",
 } as const;
 
-class ThrowingCreateReviewGateway extends FakeRoasterGitHubGateway {
-	override async createPrReview(
-		_prNumber: number,
-		_comments: readonly PRInlineCommentInput[],
-		_options: GitHubGatewayOptions,
-	): Promise<never> {
-		throw new Error("validation failed");
-	}
-}
-
-class UnexpectedInlineQueryGateway extends FakeRoasterGitHubGateway {
-	override async getPrChangedFiles(
-		_prNumber: number,
-		_options: GitHubGatewayOptions,
-	): Promise<never> {
-		throw new Error("changed files should not be queried");
-	}
-
-	override async getPrReviewComments(
-		_prNumber: number,
-		_options: GitHubGatewayOptions,
-	): Promise<never> {
-		throw new Error("review comments should not be queried");
-	}
-}
+const deletedCommands = [
+	"post-inline-" + "findings",
+	"format-findings-" + "comment",
+	"post-findings-" + "comment",
+];
 
 describe("roaster exec CLI", () => {
-	test("exec help lists hidden commands", async () => {
+	test("exec help lists publish and omits deleted commands", async () => {
 		const run = await runRoaster(["exec", "--help"]);
 		expect(run.exitCode).toBe(0);
-		expect(run.stdout).toContain("post-inline-findings");
-		expect(run.stdout).toContain("format-findings-comment");
-		expect(run.stdout).toContain("post-findings-comment");
+		expect(run.stdout).toContain("publish");
+		for (const commandName of deletedCommands) {
+			expect(run.stdout).not.toContain(commandName);
+		}
 	});
 
-	test("format-findings-comment renders findings from stdin", async () => {
-		const run = await runRoaster(["exec", "format-findings-comment"], {
-			stdin: findingsEnvelope([inlineFinding]),
-		});
-		expect(run.exitCode).toBe(0);
-		expect(run.stdout).toContain("<!-- roaster:dignified-python -->");
-		expect(run.stdout).toContain("## roaster · `dignified-python`");
-		expect(run.stdout).toContain("| ⚠️ warning | `app.py` | 1 | Inline this |");
-	});
-
-	test("format-findings-comment rejects malformed stdin", async () => {
-		const run = await runRoaster(["exec", "format-findings-comment"], { stdin: "not json" });
-		expect(run.exitCode).toBe(1);
-		expect(run.stderr).toContain("valid JSON");
-	});
-
-	test("post-inline-findings no-ops for empty and failed run envelopes", async () => {
-		const empty = await runRoaster(["exec", "post-inline-findings", "--pr-number", "47"], {
-			stdin: findingsEnvelope([]),
-			github: new UnexpectedInlineQueryGateway(),
-		});
-		expect(empty.exitCode).toBe(0);
-		expect(JSON.parse(empty.stdout)).toMatchObject({
-			postedCount: 0,
-			fallbackOnlyCount: 0,
-			apiError: null,
-		});
-
-		const failed = await runRoaster(["exec", "post-inline-findings", "--pr-number", "47"], {
-			stdin: failedEnvelope(),
-			github: new UnexpectedInlineQueryGateway(),
-		});
-		expect(failed.exitCode).toBe(0);
-		expect(JSON.parse(failed.stdout)).toMatchObject({
-			postedCount: 0,
-			fallbackOnlyCount: 0,
-			apiError: null,
-		});
-	});
-
-	test("post-inline-findings posts inlineable findings and skips duplicate markers", async () => {
+	test("publish posts inline findings and creates the summary comment", async () => {
 		const changedFiles = new Map<number, readonly PRChangedFile[]>([
 			[47, [{ path: "app.py", status: "modified", patch: "@@ -1 +1 @@\n+new" }]],
 		]);
-		const firstGateway = new FakeRoasterGitHubGateway({ changedFilesByPr: changedFiles });
-		const first = await runRoaster(["exec", "post-inline-findings", "--pr-number", "47"], {
-			stdin: findingsEnvelope([inlineFinding]),
-			github: firstGateway,
-		});
-		expect(first.exitCode).toBe(0);
-		expect(JSON.parse(first.stdout)).toMatchObject({ postedCount: 1, skippedDuplicateCount: 0 });
-		const markerBody = firstGateway.createdReviews()[0]?.comments[0]?.body ?? "";
-		expect(markerBody).toContain("<!-- roaster-inline:dignified-python:");
+		const github = new FakeRoasterGitHubGateway({ changedFilesByPr: changedFiles });
 
-		const reviewComments = new Map<number, readonly PRReviewComment[]>([
-			[47, [{ author: "github-actions[bot]", body: markerBody }]],
-		]);
-		const duplicateGateway = new FakeRoasterGitHubGateway({
-			changedFilesByPr: changedFiles,
-			reviewCommentsByPr: reviewComments,
-		});
-		const duplicate = await runRoaster(["exec", "post-inline-findings", "--pr-number", "47"], {
-			stdin: findingsEnvelope([inlineFinding]),
-			github: duplicateGateway,
-		});
-		expect(duplicate.exitCode).toBe(0);
-		expect(JSON.parse(duplicate.stdout)).toMatchObject({
-			postedCount: 0,
-			skippedDuplicateCount: 1,
-		});
-		expect(duplicateGateway.createdReviews()).toHaveLength(0);
-
-		const humanReviewComments = new Map<number, readonly PRReviewComment[]>([
-			[47, [{ author: "alice", body: markerBody }]],
-		]);
-		const humanQuotedGateway = new FakeRoasterGitHubGateway({
-			changedFilesByPr: changedFiles,
-			reviewCommentsByPr: humanReviewComments,
-		});
-		const humanQuoted = await runRoaster(["exec", "post-inline-findings", "--pr-number", "47"], {
-			stdin: findingsEnvelope([inlineFinding]),
-			github: humanQuotedGateway,
-		});
-		expect(humanQuoted.exitCode).toBe(0);
-		expect(JSON.parse(humanQuoted.stdout)).toMatchObject({
-			postedCount: 1,
-			skippedDuplicateCount: 0,
-		});
-	});
-
-	test("post-inline-findings preserves fallback-only reasons and API errors", async () => {
-		const changedFiles = new Map<number, readonly PRChangedFile[]>([
-			[47, [{ path: "app.py", status: "modified", patch: "@@ -1 +1 @@\n+new" }]],
-		]);
-		const gateway = new ThrowingCreateReviewGateway({ changedFilesByPr: changedFiles });
-		const fallback = {
-			path: "other.py",
-			line: 10,
-			severity: "info",
-			summary: "Fallback",
-			details: "Not changed.",
-		};
-		const run = await runRoaster(["exec", "post-inline-findings", "--pr-number", "47"], {
-			stdin: findingsEnvelope([inlineFinding, fallback]),
-			github: gateway,
-		});
-		expect(run.exitCode).toBe(0);
-		const data = JSON.parse(run.stdout);
-		expect(data.postedCount).toBe(0);
-		expect(data.fallbackOnlyCount).toBe(1);
-		expect(data.fallbackOnly[0].reason).toBe("file_not_changed");
-		expect(data.apiError).toBe("validation failed");
-	});
-
-	test("format-findings-comment includes inline result file status", async () => {
-		const inlineStatus = JSON.stringify({
-			postedCount: 1,
-			skippedDuplicateCount: 2,
-			fallbackOnlyCount: 3,
-			apiError: "validation failed",
-			fallbackOnly: [],
-		});
-		const path = `/tmp/roaster-inline-status-${process.pid}-${Math.random()}.json`;
-		await import("node:fs/promises").then((fs) => fs.writeFile(path, inlineStatus, "utf8"));
 		const run = await runRoaster(
-			["exec", "format-findings-comment", "--inline-result-file", path],
-			{ stdin: findingsEnvelope([inlineFinding]) },
-		);
-		expect(run.exitCode).toBe(0);
-		expect(run.stdout).toContain("Inline comments posted:** 1");
-		expect(run.stdout).toContain("API error:** validation failed");
-	});
-
-	test("post-findings-comment creates and updates bot comments", async () => {
-		const gateway = new FakeRoasterGitHubGateway();
-		const body = "<!-- roaster:dignified-python -->\n## roaster · `dignified-python`\n";
-		const created = await runRoaster(
-			["exec", "post-findings-comment", "--pr-number", "47", "--run-url", "https://run"],
-			{ stdin: body, github: gateway },
-		);
-		expect(created.exitCode).toBe(0);
-		expect(created.stderr).toContain("posted findings comment");
-
-		const comments = new Map<
-			number,
-			readonly (PRDiscussionComment & { readonly author: string })[]
-		>([
 			[
-				47,
-				[
-					{
-						id: 1,
-						body: "<!-- roaster:dignified-python -->\nold\n",
-						author: "github-actions[bot]",
-					},
-				],
+				"exec",
+				"publish",
+				"--pr-number",
+				"47",
+				"--review-name",
+				"dignified-python",
+				"--base-ref",
+				"master",
+				"--run-url",
+				"https://run",
 			],
-		]);
-		const updateGateway = new FakeRoasterGitHubGateway({ discussionCommentsByPr: comments });
-		const updated = await runRoaster(["exec", "post-findings-comment", "--pr-number", "47"], {
-			stdin: "<!-- roaster:dignified-python -->\nnew\n",
-			github: updateGateway,
-		});
-		expect(updated.exitCode).toBe(0);
-		expect(updated.stderr).toContain("updated findings comment");
+			{ stdin: findingsEnvelope([inlineFinding]), github },
+		);
+
+		expect(run.exitCode).toBe(0);
+		expect(run.stdout).toBe("");
+		expect(run.stderr).toContain("posted findings comment");
+		expect(github.createdReviews()).toHaveLength(1);
+		expect(github.createdReviews()[0]?.comments[0]?.body).toContain(
+			"<!-- roaster-inline:dignified-python:",
+		);
 	});
 
-	test("post-findings-comment rejects body without first-line marker", async () => {
-		const run = await runRoaster(["exec", "post-findings-comment", "--pr-number", "47"], {
-			stdin: "no marker\n",
-		});
+	test("publish rejects malformed stdin", async () => {
+		const run = await runRoaster(
+			["exec", "publish", "--pr-number", "47", "--review-name", "review", "--base-ref", "main"],
+			{ stdin: "not json" },
+		);
+
 		expect(run.exitCode).toBe(1);
-		expect(run.stderr).toContain("marker");
+		expect(run.stderr).toContain("publish:");
+		expect(run.stderr).toContain("valid JSON");
 	});
 });

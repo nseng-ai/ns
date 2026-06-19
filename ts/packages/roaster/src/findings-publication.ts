@@ -6,10 +6,14 @@ import {
 import { formatZodError, truncatedSha256Digest } from "@asdl/core/primitives";
 import { z } from "zod";
 
+import type { RoasterGitHubGateway } from "./gateways/github.ts";
+import { classifyInlineFindings } from "./inline-commentability.ts";
 import {
 	postInlineFindingsResultSchema,
 	reviewRunResultSchema,
 	type InlinePostingStatus,
+	type PostInlineFindingsResult,
+	type PRInlineCommentInput,
 	type ReviewFinding,
 	type ReviewInputCoverage,
 } from "./models.ts";
@@ -20,6 +24,7 @@ const ACTIVITY_LOG_HEADING = "### Activity Log";
 const ACTIVITY_LOG_CAP = 10;
 const OMITTED_INPUT_FILES_RENDER_LIMIT = 10;
 const FOOTER = "_Posted by roaster. This comment is informational and does not block the check._";
+const BOT_LOGIN = "github-actions[bot]";
 
 const reviewRunSuccessEnvelopeSchema = buildSuccessMachineEnvelopeSchema(reviewRunResultSchema);
 
@@ -62,6 +67,29 @@ export interface ParsedFindingsCommentBody {
 	readonly marker: string;
 	readonly body: string;
 }
+
+export interface PublishFindingsRequest {
+	readonly prNumber: number;
+	readonly rawEnvelope: string;
+	readonly reviewName: string;
+	readonly baseRef: string;
+	readonly runUrl?: string | undefined;
+}
+
+export interface PublishFindingsOptions {
+	readonly github: RoasterGitHubGateway;
+	readonly cwd: string;
+	readonly env?: NodeJS.ProcessEnv | undefined;
+}
+
+export type PublishFindingsResult =
+	| {
+			readonly type: "ok";
+			readonly inlineStatus: PostInlineFindingsResult;
+			readonly commentAction: "posted" | "updated";
+			readonly body: string;
+	  }
+	| { readonly type: "error"; readonly message: string };
 
 export type FindingsPayloadParseResult =
 	| { readonly type: "ok"; readonly payload: FindingsPayload }
@@ -223,6 +251,153 @@ export function preserveActivityLog(
 			...entries.map((entry) => `- ${entry}`),
 		].join("\n") + "\n"
 	);
+}
+
+export async function publishFindings(
+	request: PublishFindingsRequest,
+	options: PublishFindingsOptions,
+): Promise<PublishFindingsResult> {
+	const parsed = parseFindingsPayloadResult(request.rawEnvelope, {
+		fallbackReviewName: request.reviewName,
+		fallbackBaseRef: request.baseRef,
+	});
+	if (parsed.type === "error") return { type: "error", message: parsed.error.message };
+
+	const inlineStatus = await postInlineFindings(parsed.payload, request.prNumber, options);
+	const renderedBody = renderFindingsComment(parsed.payload, { inlineStatus });
+	const marker = summaryMarkerForReview(parsed.payload.reviewName);
+	const existing = await options.github.findPrDiscussionCommentByMarker({
+		prNumber: request.prNumber,
+		marker,
+		authorLogin: BOT_LOGIN,
+		cwd: options.cwd,
+		env: options.env,
+	});
+	if (existing.type === "error") {
+		return {
+			type: "error",
+			message: `failed to find existing findings comment: ${existing.error.message}`,
+		};
+	}
+
+	const nextBody = preserveActivityLog(
+		existing.value?.body ?? "",
+		renderedBody,
+		activityLogEntry(request.runUrl),
+	);
+	if (existing.value === null) {
+		const written = await options.github.addPrDiscussionComment(request.prNumber, nextBody, {
+			cwd: options.cwd,
+			env: options.env,
+		});
+		if (written.type === "error") {
+			return {
+				type: "error",
+				message: `failed to post findings comment: ${written.error.message}`,
+			};
+		}
+		return { type: "ok", inlineStatus, commentAction: "posted", body: nextBody };
+	}
+
+	const written = await options.github.updatePrDiscussionComment(existing.value.id, nextBody, {
+		cwd: options.cwd,
+		env: options.env,
+	});
+	if (written.type === "error") {
+		return {
+			type: "error",
+			message: `failed to update findings comment: ${written.error.message}`,
+		};
+	}
+	return { type: "ok", inlineStatus, commentAction: "updated", body: nextBody };
+}
+
+async function postInlineFindings(
+	payload: FindingsPayload,
+	prNumber: number,
+	options: PublishFindingsOptions,
+): Promise<PostInlineFindingsResult> {
+	if (payload.errorType !== null || payload.count === 0) return emptyInlineResult();
+
+	const changedFiles = await options.github.getPrChangedFiles(prNumber, {
+		cwd: options.cwd,
+		env: options.env,
+	});
+	if (changedFiles.type === "error") {
+		return { ...emptyInlineResult(), apiError: changedFiles.error.message };
+	}
+
+	const reviewComments = await options.github.getPrReviewComments(prNumber, {
+		cwd: options.cwd,
+		env: options.env,
+	});
+	if (reviewComments.type === "error") {
+		return { ...emptyInlineResult(), apiError: reviewComments.error.message };
+	}
+
+	const classified = classifyInlineFindings(payload.findings, changedFiles.value);
+	const existingMarkers = new Set(
+		reviewComments.value
+			.filter((comment) => comment.author === BOT_LOGIN)
+			.flatMap((comment) => extractInlineMarkers(comment.body)),
+	);
+	const fallbackOnly = classified.fallbackOnly.map((item) => ({
+		finding: item.finding,
+		reason: item.reason,
+	}));
+	const comments: PRInlineCommentInput[] = [];
+	let skippedDuplicateCount = 0;
+
+	for (const item of classified.inlineable) {
+		const marker = inlineMarkerForFinding(payload.reviewName, item.finding);
+		if (existingMarkers.has(marker)) {
+			skippedDuplicateCount += 1;
+			continue;
+		}
+		comments.push({
+			path: item.target.path,
+			line: item.target.line,
+			body: renderInlineBody(marker, item.finding, { reviewName: payload.reviewName }),
+		});
+	}
+
+	let apiError: string | null = null;
+	let postedCount = 0;
+	if (comments.length > 0) {
+		try {
+			const posted = await options.github.createPrReview(prNumber, comments, {
+				cwd: options.cwd,
+				env: options.env,
+			});
+			if (posted.type === "error") apiError = posted.error.message;
+			else postedCount = comments.length;
+		} catch (caught) {
+			apiError = caught instanceof Error ? caught.message : String(caught);
+		}
+	}
+
+	return {
+		postedCount,
+		skippedDuplicateCount,
+		fallbackOnlyCount: fallbackOnly.length,
+		apiError,
+		fallbackOnly,
+	};
+}
+
+function emptyInlineResult(): PostInlineFindingsResult {
+	return {
+		postedCount: 0,
+		skippedDuplicateCount: 0,
+		fallbackOnlyCount: 0,
+		apiError: null,
+		fallbackOnly: [],
+	};
+}
+
+function activityLogEntry(runUrl: string | undefined): string {
+	const timestamp = new Date().toISOString();
+	return runUrl === undefined || runUrl.trim() === "" ? timestamp : `${timestamp} · ${runUrl}`;
 }
 
 function renderInlinePostingStatus(status: InlinePostingStatus): string[] {

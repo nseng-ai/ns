@@ -9,7 +9,7 @@ sidebar:
 results for humans, agents, and PR comments.
 
 ```bash
-roaster exec format-findings-comment --format md
+roaster review run <key> --format json | roaster exec publish --pr-number 123 --review-name <key> --base-ref main
 ```
 
 ## Mental model
@@ -31,13 +31,11 @@ For local development without installing the shim, use `pnpm --dir ts exec roast
 
 ## Common commands
 
-| Goal                    | Command                                | Boundary                   |
-| ----------------------- | -------------------------------------- | -------------------------- |
-| List CI review keys     | `roaster review list`                  | Read-only                  |
-| Run one CI review       | `roaster review run <key>`             | Invokes Claude Code        |
-| Format review findings  | `roaster exec format-findings-comment` | Read-only                  |
-| Publish PR comments     | `roaster exec post-findings-comment`   | Mutates PR comments        |
-| Publish inline comments | `roaster exec post-inline-findings`    | Mutates PR review comments |
+| Goal                | Command                    | Boundary                                       |
+| ------------------- | -------------------------- | ---------------------------------------------- |
+| List CI review keys | `roaster review list`      | Read-only                                      |
+| Run one CI review   | `roaster review run <key>` | Invokes Claude Code                            |
+| Publish findings    | `roaster exec publish`     | Mutates PR inline comments and summary comment |
 
 ## Agent interface
 
