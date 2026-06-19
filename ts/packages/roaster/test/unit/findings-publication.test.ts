@@ -192,6 +192,18 @@ describe("payload parsers", () => {
 		}
 	});
 
+	test("requires fallback identity for failed envelopes", () => {
+		const result = parseFindingsPayloadResult(
+			JSON.stringify({ exit_code: 2, error_type: "failure", message: "boom" }),
+		);
+
+		expect(result.type).toBe("error");
+		if (result.type === "error") {
+			expect(result.error.message).toContain("--review-name");
+			expect(result.error.message).toContain("--base-ref");
+		}
+	});
+
 	test("parses negative envelopes as renderable payloads", () => {
 		const result = parseFindingsPayloadResult(
 			JSON.stringify({ exit_code: 1, error_type: "negative", message: "no findings" }),
