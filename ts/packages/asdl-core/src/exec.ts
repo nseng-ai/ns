@@ -4,6 +4,7 @@ import { delimiter, join } from "node:path";
 import process from "node:process";
 
 import { stripTerminalEscapes } from "./terminal-escapes.ts";
+import { systemTimerScheduler, type ScheduledTimer, type TimerScheduler } from "./timers.ts";
 
 export { stripTerminalEscapes } from "./terminal-escapes.ts";
 
@@ -28,6 +29,10 @@ export interface ExecOptions {
 	stdin?: string;
 	onStdout?: (text: string) => void;
 	onStderr?: (text: string) => void;
+}
+
+export interface RunCommandDependencies {
+	readonly timers?: TimerScheduler;
 }
 
 export type CommandRunner = (
@@ -86,15 +91,17 @@ export async function runCommand(
 	command: string,
 	args: readonly string[],
 	options: ExecOptions = {},
+	dependencies: RunCommandDependencies = {},
 ): Promise<ExecResult> {
 	return new Promise((resolve) => {
+		const timers = dependencies.timers ?? systemTimerScheduler;
 		let stdout = "";
 		let stderr = "";
 		let hasSettled = false;
 		let hasTimedOut = false;
 		let startupError: string | undefined;
-		let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
-		let killTimer: ReturnType<typeof setTimeout> | undefined;
+		let timeoutTimer: ScheduledTimer | undefined;
+		let killTimer: ScheduledTimer | undefined;
 
 		const spawnOptions: SpawnOptions = {
 			shell: false,
@@ -111,8 +118,8 @@ export async function runCommand(
 		}
 
 		const clearTimers = (): void => {
-			if (timeoutTimer !== undefined) clearTimeout(timeoutTimer);
-			if (killTimer !== undefined) clearTimeout(killTimer);
+			timeoutTimer?.cancel();
+			killTimer?.cancel();
 		};
 
 		const finish = (exitCode: number, killed: boolean): void => {
@@ -130,7 +137,7 @@ export async function runCommand(
 
 		const child = spawn(command, [...args], spawnOptions);
 		if (options.timeout !== undefined && options.timeout > 0) {
-			timeoutTimer = setTimeout(() => {
+			timeoutTimer = timers.setTimeout(() => {
 				hasTimedOut = true;
 				child.kill("SIGTERM");
 
@@ -140,7 +147,7 @@ export async function runCommand(
 					return;
 				}
 
-				killTimer = setTimeout(() => {
+				killTimer = timers.setTimeout(() => {
 					if (!hasSettled) child.kill("SIGKILL");
 				}, graceMs);
 			}, options.timeout);

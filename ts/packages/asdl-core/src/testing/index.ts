@@ -5,7 +5,9 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
+import type { Clock } from "../clock.ts";
 import type { CommandExecApi, CommandRunner, ExecOptions, ExecResult } from "../exec.ts";
+import type { ScheduledTimer, TimerScheduler } from "../timers.ts";
 
 export interface NodeRuntimeCliEntrypointOptions {
 	readonly name: string;
@@ -50,6 +52,20 @@ export interface ResultFields {
 	readonly exitCode?: number;
 	readonly startupError?: string;
 	readonly isKilled?: boolean;
+}
+
+export interface ManualClock {
+	readonly clock: Clock;
+	nowMs(): number;
+	setMs(nowMs: number): void;
+	advanceMs(deltaMs: number): void;
+}
+
+export interface ManualTimerScheduler {
+	readonly timers: TimerScheduler;
+	advanceMs(deltaMs: number): void;
+	runNextTimer(): boolean;
+	pendingTimerCount(): number;
 }
 
 export interface StepOptions extends ResultFields {}
@@ -165,6 +181,93 @@ export function brmemCheckJson(present: boolean): string {
 	return JSON.stringify({ exit_code: 0, data: { present } });
 }
 
+export function createManualClock(startMs: number): ManualClock {
+	let currentMs = validateFiniteMs(startMs, "startMs");
+	const clock: Clock = {
+		nowMs: () => currentMs,
+	};
+
+	return {
+		clock,
+		nowMs() {
+			return currentMs;
+		},
+		setMs(nowMs) {
+			currentMs = validateFiniteMs(nowMs, "nowMs");
+		},
+		advanceMs(deltaMs) {
+			currentMs = validateFiniteMs(currentMs + validateDeltaMs(deltaMs), "nowMs");
+		},
+	};
+}
+
+export function createManualTimerScheduler(): ManualTimerScheduler {
+	let currentMs = 0;
+	let nextId = 0;
+	const scheduledTimers: ManualScheduledTimerState[] = [];
+
+	function runTimer(timer: ManualScheduledTimerState): void {
+		timer.hasFired = true;
+		currentMs = timer.dueMs;
+		timer.callback();
+	}
+
+	function nextPendingTimer(): ManualScheduledTimerState | undefined {
+		let earliest: ManualScheduledTimerState | undefined;
+		for (const timer of scheduledTimers) {
+			if (!isPendingTimer(timer)) continue;
+			if (
+				earliest === undefined ||
+				timer.dueMs < earliest.dueMs ||
+				(timer.dueMs === earliest.dueMs && timer.id < earliest.id)
+			) {
+				earliest = timer;
+			}
+		}
+		return earliest;
+	}
+
+	return {
+		timers: {
+			setTimeout(callback, delayMs): ScheduledTimer {
+				const normalizedDelayMs = Math.max(0, validateFiniteMs(delayMs, "delayMs"));
+				const timer: ManualScheduledTimerState = {
+					id: nextId,
+					dueMs: validateFiniteMs(currentMs + normalizedDelayMs, "dueMs"),
+					callback,
+					isCancelled: false,
+					hasFired: false,
+				};
+				nextId += 1;
+				scheduledTimers.push(timer);
+				return {
+					cancel() {
+						timer.isCancelled = true;
+					},
+				};
+			},
+		},
+		advanceMs(deltaMs) {
+			const targetMs = validateFiniteMs(currentMs + validateDeltaMs(deltaMs), "targetMs");
+			let nextTimer = nextPendingTimer();
+			while (nextTimer !== undefined && nextTimer.dueMs <= targetMs) {
+				runTimer(nextTimer);
+				nextTimer = nextPendingTimer();
+			}
+			currentMs = targetMs;
+		},
+		runNextTimer() {
+			const timer = nextPendingTimer();
+			if (timer === undefined) return false;
+			runTimer(timer);
+			return true;
+		},
+		pendingTimerCount() {
+			return scheduledTimers.filter(isPendingTimer).length;
+		},
+	};
+}
+
 export function describeNodeRuntimeCliEntrypoint(options: NodeRuntimeCliEntrypointOptions): void {
 	const workspaceRoot = fileURLToPath(options.workspaceRoot);
 
@@ -248,6 +351,33 @@ export async function withTempRepoSkill<T>(
 	} finally {
 		await rm(repoDir, { recursive: true, force: true });
 	}
+}
+
+interface ManualScheduledTimerState {
+	readonly id: number;
+	readonly dueMs: number;
+	readonly callback: () => void;
+	isCancelled: boolean;
+	hasFired: boolean;
+}
+
+function isPendingTimer(timer: ManualScheduledTimerState): boolean {
+	return !timer.isCancelled && !timer.hasFired;
+}
+
+function validateFiniteMs(value: number, name: string): number {
+	if (!Number.isFinite(value)) {
+		throw new Error(`${name} must be finite`);
+	}
+	return value;
+}
+
+function validateDeltaMs(deltaMs: number): number {
+	validateFiniteMs(deltaMs, "deltaMs");
+	if (deltaMs < 0) {
+		throw new Error("deltaMs must be non-negative");
+	}
+	return deltaMs;
 }
 
 function sameArgs(left: readonly string[], right: readonly string[]): boolean {
