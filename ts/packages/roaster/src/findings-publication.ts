@@ -6,7 +6,7 @@ import {
 import { formatZodError, truncatedSha256Digest } from "@asdl/core/primitives";
 import { z } from "zod";
 
-import type { RoasterContext } from "./context.ts";
+import type { BoundRoasterGitHubGateway } from "./context.ts";
 import { classifyInlineFindings } from "./inline-commentability.ts";
 import {
 	reviewRunResultSchema,
@@ -121,9 +121,6 @@ export interface PublishFindingsOptions {
 	readonly runUrl?: string | undefined;
 	readonly fallbackReviewName?: string | undefined;
 	readonly fallbackBaseRef?: string | undefined;
-	readonly cwd: string;
-	readonly env?: NodeJS.ProcessEnv | undefined;
-	readonly signal?: AbortSignal | undefined;
 }
 
 export type PublishFindingsResult =
@@ -135,7 +132,7 @@ export type PublishFindingsResult =
 	| { readonly type: "error"; readonly message: string };
 
 export async function publishFindings(
-	ctx: Pick<RoasterContext, "github">,
+	ctx: { readonly github: BoundRoasterGitHubGateway },
 	options: PublishFindingsOptions,
 ): Promise<PublishFindingsResult> {
 	const parsed = parseFindingsPayloadResult(options.envelope, fallbackPayloadOptions(options));
@@ -150,7 +147,6 @@ export async function publishFindings(
 		prNumber: options.prNumber,
 		marker: parsedBody.parsed.marker,
 		authorLogin: BOT_LOGIN,
-		...githubOptions(options),
 	});
 	if (existing.type === "error") return publicationError(existing.error.message);
 
@@ -161,12 +157,8 @@ export async function publishFindings(
 	);
 	const written =
 		existing.value === null
-			? await ctx.github.addPrDiscussionComment(options.prNumber, nextBody, githubOptions(options))
-			: await ctx.github.updatePrDiscussionComment(
-					existing.value.id,
-					nextBody,
-					githubOptions(options),
-				);
+			? await ctx.github.addPrDiscussionComment(options.prNumber, nextBody)
+			: await ctx.github.updatePrDiscussionComment(existing.value.id, nextBody);
 	if (written.type === "error") return publicationError(written.error.message);
 
 	return {
@@ -267,18 +259,15 @@ export function preserveActivityLog(
 }
 
 async function postInlineFindings(
-	ctx: Pick<RoasterContext, "github">,
+	ctx: { readonly github: BoundRoasterGitHubGateway },
 	payload: FindingsPayload,
 	options: PublishFindingsOptions,
 ): Promise<PostInlineFindingsResult> {
 	if (payload.errorType !== null || payload.count === 0) return emptyInlineResult();
 
-	let changedFilesResult: Awaited<ReturnType<RoasterContext["github"]["getPrChangedFiles"]>>;
+	let changedFilesResult: Awaited<ReturnType<BoundRoasterGitHubGateway["getPrChangedFiles"]>>;
 	try {
-		changedFilesResult = await ctx.github.getPrChangedFiles(
-			options.prNumber,
-			githubOptions(options),
-		);
+		changedFilesResult = await ctx.github.getPrChangedFiles(options.prNumber);
 	} catch (caught) {
 		return { ...emptyInlineResult(), apiError: caughtMessage(caught) };
 	}
@@ -286,12 +275,9 @@ async function postInlineFindings(
 		return { ...emptyInlineResult(), apiError: changedFilesResult.error.message };
 	}
 
-	let reviewCommentsResult: Awaited<ReturnType<RoasterContext["github"]["getPrReviewComments"]>>;
+	let reviewCommentsResult: Awaited<ReturnType<BoundRoasterGitHubGateway["getPrReviewComments"]>>;
 	try {
-		reviewCommentsResult = await ctx.github.getPrReviewComments(
-			options.prNumber,
-			githubOptions(options),
-		);
+		reviewCommentsResult = await ctx.github.getPrReviewComments(options.prNumber);
 	} catch (caught) {
 		return { ...emptyInlineResult(), apiError: caughtMessage(caught) };
 	}
@@ -325,11 +311,7 @@ async function postInlineFindings(
 	let postedCount = 0;
 	if (comments.length > 0) {
 		try {
-			const posted = await ctx.github.createPrReview(
-				options.prNumber,
-				comments,
-				githubOptions(options),
-			);
+			const posted = await ctx.github.createPrReview(options.prNumber, comments);
 			if (posted.type === "error") apiError = posted.error.message;
 			else postedCount = comments.length;
 		} catch (caught) {
@@ -367,18 +349,6 @@ function fallbackPayloadOptions(
 			? {}
 			: { fallbackReviewName: options.fallbackReviewName }),
 		...(options.fallbackBaseRef === undefined ? {} : { fallbackBaseRef: options.fallbackBaseRef }),
-	};
-}
-
-function githubOptions(options: Pick<PublishFindingsOptions, "cwd" | "env" | "signal">): {
-	readonly cwd: string;
-	readonly env?: NodeJS.ProcessEnv | undefined;
-	readonly signal?: AbortSignal | undefined;
-} {
-	return {
-		cwd: options.cwd,
-		...(options.env === undefined ? {} : { env: options.env }),
-		...(options.signal === undefined ? {} : { signal: options.signal }),
 	};
 }
 

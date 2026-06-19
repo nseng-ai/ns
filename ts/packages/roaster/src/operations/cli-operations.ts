@@ -1,7 +1,7 @@
 import { failure, ok, type ClinkrExit } from "@asdl/clinkr";
 import { z } from "zod";
 
-import type { RoasterContext } from "../context.ts";
+import type { RoasterRunContext } from "../context.ts";
 import { failureMessage, type RoasterFailure } from "../failures.ts";
 import { publishFindings, type PublishFindingsResult } from "../findings-publication.ts";
 import {
@@ -14,10 +14,7 @@ import {
 import { applicableReviewKeys } from "../review-applicability.ts";
 import { parseReviewDefinition } from "../review-definition.ts";
 
-export interface RoasterCliContext {
-	readonly context: RoasterContext;
-	readonly cwd: string;
-	readonly env: NodeJS.ProcessEnv;
+export interface RoasterCliContext extends RoasterRunContext {
 	readonly stdin: () => Promise<string>;
 	readonly stdout: (text: string) => void;
 	readonly stderr: (text: string) => void;
@@ -68,7 +65,7 @@ export async function runReviewList(
 	ctx: RoasterCliContext,
 	request: ReviewListRequest,
 ): Promise<ClinkrExit<ReviewListResult>> {
-	const catalog = await ctx.context.reviewCatalog.listReviewKeys({ cwd: ctx.cwd });
+	const catalog = await ctx.reviewCatalog.listReviewKeys();
 	if (catalog.type === "error") return failureFromRoaster(catalog.error);
 
 	const loaded = await loadDefinitions(ctx, catalog.value.keys);
@@ -76,11 +73,7 @@ export async function runReviewList(
 
 	let selectedKeys = catalog.value.keys;
 	if (request.applicable) {
-		const diff = await ctx.context.localDiff.loadDiff({
-			cwd: ctx.cwd,
-			env: ctx.env,
-			baseRef: request.base_ref,
-		});
+		const diff = await ctx.localDiff.loadDiff({ baseRef: request.base_ref });
 		if (diff.type === "error") return failureFromRoaster(diff.error);
 		selectedKeys = applicableReviewKeys(
 			new Map(loaded.value.map((item) => [item.key, item.definition])),
@@ -119,10 +112,7 @@ export async function runReviewByKey(
 	ctx: RoasterCliContext,
 	request: ReviewRunRequest,
 ): Promise<ClinkrExit<ReviewRunResult>> {
-	const source = await ctx.context.reviewCatalog.loadReviewSource({
-		cwd: ctx.cwd,
-		key: request.key,
-	});
+	const source = await ctx.reviewCatalog.loadReviewSource({ key: request.key });
 	if (source.type === "error") return failureFromRoaster(source.error);
 
 	const parsed = parseReviewDefinition(source.value.source, { name: source.value.key });
@@ -137,25 +127,18 @@ export async function runReviewByKey(
 			"No model was provided. Pass --model or set default_model in the review definition.",
 		);
 
-	const diff = await ctx.context.localDiff.loadDiff({
-		cwd: ctx.cwd,
-		env: ctx.env,
-		baseRef: request.base_ref,
-	});
+	const diff = await ctx.localDiff.loadDiff({ baseRef: request.base_ref });
 	if (diff.type === "error") return failureFromRoaster(diff.error);
 
 	ctx.stderr(
 		`resolved model=${model} base_ref=${diff.value.baseRef} changed_paths=${diff.value.changedPaths.length}\n`,
 	);
 
-	const response = await ctx.context.harness.runReview(
-		{
-			model,
-			reviewDefinition: parsed.definition,
-			target: { localDiff: diff.value },
-		},
-		{ cwd: ctx.cwd, env: ctx.env },
-	);
+	const response = await ctx.harness.runReview({
+		model,
+		reviewDefinition: parsed.definition,
+		target: { localDiff: diff.value },
+	});
 	if (response.type === "error") return failureFromRoaster(response.error);
 
 	return ok(
@@ -190,14 +173,12 @@ export async function runPublishFindings(
 	request: z.infer<typeof publishFindingsRequestSchema>,
 ): Promise<number> {
 	const envelope = await ctx.stdin();
-	const result = await publishFindings(ctx.context, {
+	const result = await publishFindings(ctx, {
 		prNumber: request.pr_number,
 		envelope,
 		...(request.run_url === undefined ? {} : { runUrl: request.run_url }),
 		...(request.review_name === undefined ? {} : { fallbackReviewName: request.review_name }),
 		...(request.base_ref === undefined ? {} : { fallbackBaseRef: request.base_ref }),
-		cwd: ctx.cwd,
-		env: ctx.env,
 	});
 	if (result.type === "error") return stderrFailure(ctx, `publish-findings: ${result.message}\n`);
 
@@ -220,7 +201,7 @@ async function loadDefinitions(
 ): Promise<LoadDefinitionsResult> {
 	const loaded: LoadedDefinition[] = [];
 	for (const key of keys) {
-		const source = await ctx.context.reviewCatalog.loadReviewSource({ cwd: ctx.cwd, key });
+		const source = await ctx.reviewCatalog.loadReviewSource({ key });
 		if (source.type === "error") return source;
 		const parsed = parseReviewDefinition(source.value.source, { name: source.value.key });
 		if (parsed.type === "error") {
