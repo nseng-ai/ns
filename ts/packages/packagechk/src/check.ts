@@ -1,5 +1,5 @@
-import type { PackageRegistryGateway } from "./gateways.ts";
-import { unsupportedResult, type PackageCheckReport, type Registry } from "./models.ts";
+import type { PackageRegistryGateway } from "./registry-gateways.ts";
+import type { PackageCheckReport, Registry, RegistryCheckResult } from "./models.ts";
 
 export const DEFAULT_REGISTRIES: readonly Registry[] = ["pypi", "npm", "brew"];
 
@@ -12,26 +12,32 @@ export async function checkPackageName(options: {
 	registries: readonly Registry[];
 	registryGateway: PackageRegistryGateway;
 }): Promise<PackageCheckReport> {
-	const results = [];
+	const results: RegistryCheckResult[] = [];
 	for (const registry of options.registries) {
-		switch (registry) {
-			case "pypi":
-				results.push(await options.registryGateway.checkPypi(options.packageName));
-				break;
-			case "npm":
-				results.push(await options.registryGateway.checkNpm(options.packageName));
-				break;
-			case "brew":
-				results.push(await options.registryGateway.checkBrew(options.packageName));
-				break;
-			default:
-				results.push(
-					unsupportedResult(registry, {
-						inputName: options.packageName,
-						message: `${registry} availability checks are not supported`,
-					}),
-				);
-		}
+		results.push(
+			await checkRegistry({
+				packageName: options.packageName,
+				registry,
+				registryGateway: options.registryGateway,
+			}),
+		);
 	}
 	return { inputName: options.packageName, results };
+}
+
+async function checkRegistry(options: {
+	packageName: string;
+	registry: Registry;
+	registryGateway: PackageRegistryGateway;
+}): Promise<RegistryCheckResult> {
+	switch (options.registry) {
+		case "pypi":
+			return await options.registryGateway.checkPypi(options.packageName);
+		case "npm":
+			return await options.registryGateway.checkNpm(options.packageName);
+		case "brew":
+			return await options.registryGateway.checkBrew(options.packageName);
+	}
+	const exhaustive: never = options.registry;
+	return exhaustive;
 }

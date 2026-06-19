@@ -1,16 +1,19 @@
 export { buildCli, runCli, VERSION, type CliDeps } from "./cli.ts";
 export {
 	FakeNpmPublishGateway,
-	FakePackageRegistryGateway,
 	FakePypiPublishGateway,
 	RealNpmPublishGateway,
-	RealPackageRegistryGateway,
 	RealPypiPublishGateway,
 	type NpmPublishGateway,
-	type PackageRegistryGateway,
+	type PypiBuildResult,
 	type PypiPublishGateway,
+} from "./publish-gateways.ts";
+export {
+	FakePackageRegistryGateway,
+	RealPackageRegistryGateway,
+	type PackageRegistryGateway,
 	type RegistryHttpResponse,
-} from "./gateways.ts";
+} from "./registry-gateways.ts";
 export {
 	availableResult,
 	errorResult,
