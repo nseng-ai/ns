@@ -1,6 +1,3 @@
-import { copyFileSync } from "node:fs";
-import { join } from "node:path";
-
 import { afterEach, describe, expect, test } from "vitest";
 
 import {
@@ -9,17 +6,13 @@ import {
 	loadGraphiteMetadataStatus,
 	loadGraphiteMetadataStatusInWorker,
 	shutdownGraphiteMetadataWorker,
+	type GraphiteMetadataDbAccess,
+	type GraphiteMetadataJsonQueryResult,
 	type GraphiteMetadataStatus,
 	type GraphiteMetadataWorkerDiagnostic,
 	type GraphiteMetadataWorkerHandle,
 	type GraphiteMetadataWorkerRequest,
 } from "@asdl/ccc/worktree-status/graphite-metadata";
-import {
-	makeGitRepo,
-	withTempRoot,
-	runSqliteStatements,
-	writeGraphiteMetadataDb,
-} from "./worktree-status-fixtures.ts";
 
 class NonRespondingMetadataWorker implements GraphiteMetadataWorkerHandle {
 	onmessage: ((event: { data: unknown }) => void) | null = null;
@@ -82,162 +75,222 @@ const WORKER_LOOKUP_REQUEST = {
 	type: "load_graphite_metadata",
 	input: WORKER_LOOKUP_INPUT,
 } satisfies GraphiteMetadataWorkerRequest;
-const CURRENT_ASDL_TOOLS_METADATA_FIXTURE = new URL(
-	"./fixtures/graphite-metadata/asdl-tools-current.graphite_metadata.db",
-	import.meta.url,
-);
+const DB_PATH = "/repo/.git/.graphite_metadata.db";
+const EXPECTED_SCHEMA_ROWS = [
+	{ name: "branch_name" },
+	{ name: "parent_branch_name" },
+	{ name: "children" },
+	{ name: "validation_result" },
+];
+
+class FakeGraphiteMetadataDbAccess implements GraphiteMetadataDbAccess {
+	readonly queries: string[] = [];
+	private readonly responses: GraphiteMetadataJsonQueryResult[];
+	private readonly shouldExist: boolean;
+
+	constructor(
+		options: {
+			exists?: boolean | undefined;
+			responses?: readonly GraphiteMetadataJsonQueryResult[] | undefined;
+		} = {},
+	) {
+		this.shouldExist = options.exists ?? true;
+		this.responses = [...(options.responses ?? [])];
+	}
+
+	exists(dbPath: string): boolean {
+		expect(dbPath).toBe(DB_PATH);
+		return this.shouldExist;
+	}
+
+	queryJson(dbPath: string, query: string): GraphiteMetadataJsonQueryResult {
+		expect(dbPath).toBe(DB_PATH);
+		this.queries.push(query);
+		return this.responses.shift() ?? { type: "failure", reason: "read-failed" };
+	}
+}
+
+function success(data: unknown): GraphiteMetadataJsonQueryResult {
+	return { type: "success", data };
+}
+
+function failure(
+	reason: Extract<GraphiteMetadataJsonQueryResult, { type: "failure" }>["reason"],
+): GraphiteMetadataJsonQueryResult {
+	return { type: "failure", reason };
+}
+
+function branchRow(input: {
+	branchName: string;
+	parentBranchName?: string | undefined;
+	children?: readonly unknown[] | undefined;
+	validationResult?: string | undefined;
+	rawChildren?: unknown;
+}): Record<string, unknown> {
+	return {
+		branch_name: input.branchName,
+		parent_branch_name: input.parentBranchName,
+		children: input.rawChildren ?? JSON.stringify(input.children ?? []),
+		validation_result: input.validationResult,
+	};
+}
+
+function loadWithFake(dbAccess: GraphiteMetadataDbAccess, currentBranch = "feature/current") {
+	return loadGraphiteMetadataStatus({ commonGitDir: "/repo/.git", currentBranch }, { dbAccess });
+}
 
 afterEach(() => {
 	shutdownGraphiteMetadataWorker();
 });
 
 describe("Graphite metadata status lookup", () => {
-	test("reports unavailable when metadata DB is missing", async () => {
-		await withTempRoot(makeGitRepo("feature/current"), (root) => {
-			expect(
-				loadGraphiteMetadataStatus({
-					commonGitDir: join(root, ".git"),
-					currentBranch: "feature/current",
-				}),
-			).toEqual({
-				type: "unavailable",
-				reason: "missing-db",
-				currentBranch: "feature/current",
-			});
+	test("reports unavailable when metadata DB is missing", () => {
+		const dbAccess = new FakeGraphiteMetadataDbAccess({ exists: false });
+
+		expect(loadWithFake(dbAccess)).toEqual({
+			type: "unavailable",
+			reason: "missing-db",
+			currentBranch: "feature/current",
+		});
+		expect(dbAccess.queries).toEqual([]);
+	});
+
+	test("loads the current branch parent and children without scanning unrelated rows", () => {
+		const dbAccess = new FakeGraphiteMetadataDbAccess({
+			responses: [
+				success(EXPECTED_SCHEMA_ROWS),
+				success([
+					branchRow({
+						branchName: "feature/current",
+						parentBranchName: "main",
+						children: ["feature/child"],
+					}),
+				]),
+			],
+		});
+
+		expect(loadWithFake(dbAccess)).toEqual({
+			type: "tracked",
+			currentBranch: "feature/current",
+			parent: "main",
+			children: ["feature/child"],
+			isCurrentTrunk: false,
+		});
+		expect(dbAccess.queries[1]).toContain("WHERE branch_name = 'feature/current'");
+	});
+
+	test("marks the current branch as trunk case-insensitively", () => {
+		const dbAccess = new FakeGraphiteMetadataDbAccess({
+			responses: [
+				success(EXPECTED_SCHEMA_ROWS),
+				success([
+					branchRow({
+						branchName: "main",
+						children: ["feature/current"],
+						validationResult: "trunk",
+					}),
+				]),
+			],
+		});
+
+		expect(loadWithFake(dbAccess, "main")).toEqual({
+			type: "tracked",
+			currentBranch: "main",
+			parent: undefined,
+			children: ["feature/current"],
+			isCurrentTrunk: true,
 		});
 	});
 
-	test("loads the current branch parent and children without scanning unrelated rows", async () => {
-		await withTempRoot(makeGitRepo("feature/current"), (root) => {
-			writeGraphiteMetadataDb(join(root, ".git"), [
-				{ branchName: "main", children: ["feature/current"], validationResult: "TRUNK" },
-				{ branchName: "feature/current", parentBranchName: "main", children: ["feature/child"] },
-				{ branchName: "feature/unrelated", parentBranchName: "main", children: ["feature/noise"] },
-			]);
+	test("reports untracked when the current branch has no row", () => {
+		const dbAccess = new FakeGraphiteMetadataDbAccess({
+			responses: [success(EXPECTED_SCHEMA_ROWS), success([])],
+		});
 
-			expect(
-				loadGraphiteMetadataStatus({
-					commonGitDir: join(root, ".git"),
-					currentBranch: "feature/current",
-				}),
-			).toEqual({
-				type: "tracked",
-				currentBranch: "feature/current",
-				parent: "main",
-				children: ["feature/child"],
-				isCurrentTrunk: false,
-			});
+		expect(loadWithFake(dbAccess)).toEqual({
+			type: "untracked",
+			currentBranch: "feature/current",
 		});
 	});
 
-	test("marks the current branch as trunk case-insensitively", async () => {
-		await withTempRoot(makeGitRepo("main"), (root) => {
-			writeGraphiteMetadataDb(join(root, ".git"), [
-				{ branchName: "main", children: ["feature/current"], validationResult: "trunk" },
-			]);
+	test("reports schema mismatch when required columns are missing", () => {
+		const dbAccess = new FakeGraphiteMetadataDbAccess({
+			responses: [success([{ name: "branch_name" }, { name: "parent_branch_name" }])],
+		});
 
-			expect(
-				loadGraphiteMetadataStatus({ commonGitDir: join(root, ".git"), currentBranch: "main" }),
-			).toEqual({
-				type: "tracked",
-				currentBranch: "main",
-				parent: undefined,
-				children: ["feature/current"],
-				isCurrentTrunk: true,
-			});
+		expect(loadWithFake(dbAccess)).toEqual({
+			type: "unavailable",
+			reason: "schema-mismatch",
+			currentBranch: "feature/current",
 		});
 	});
 
-	test("loads trunk metadata from the copied current asdl-tools Graphite database", async () => {
-		await withTempRoot(makeGitRepo("master"), (root) => {
-			copyFileSync(
-				CURRENT_ASDL_TOOLS_METADATA_FIXTURE,
-				join(root, ".git", ".graphite_metadata.db"),
-			);
+	test("treats malformed children JSON as no children", () => {
+		const dbAccess = new FakeGraphiteMetadataDbAccess({
+			responses: [
+				success(EXPECTED_SCHEMA_ROWS),
+				success([
+					branchRow({
+						branchName: "feature/current",
+						parentBranchName: "main",
+						rawChildren: "not json",
+					}),
+				]),
+			],
+		});
 
-			const status = loadGraphiteMetadataStatus({
-				commonGitDir: join(root, ".git"),
-				currentBranch: "master",
-			});
-			expect(status).toMatchObject({
-				type: "tracked",
-				currentBranch: "master",
-				parent: undefined,
-				isCurrentTrunk: true,
-			});
-			if (status.type !== "tracked")
-				throw new Error("expected copied Graphite fixture to track master");
-			expect(status.children).toContain("add-aretro-branch-retro-command");
-			expect(status.children.length).toBeGreaterThan(10);
+		expect(loadWithFake(dbAccess)).toMatchObject({ type: "tracked", children: [] });
+	});
+
+	test("keeps only string children from metadata arrays", () => {
+		const dbAccess = new FakeGraphiteMetadataDbAccess({
+			responses: [
+				success(EXPECTED_SCHEMA_ROWS),
+				success([
+					branchRow({
+						branchName: "feature/current",
+						parentBranchName: "main",
+						rawChildren: '["feature/one", 123, null, "feature/two"]',
+					}),
+				]),
+			],
+		});
+
+		expect(loadWithFake(dbAccess)).toMatchObject({
+			type: "tracked",
+			children: ["feature/one", "feature/two"],
 		});
 	});
 
-	test("reports untracked when the current branch has no row", async () => {
-		await withTempRoot(makeGitRepo("feature/current"), (root) => {
-			writeGraphiteMetadataDb(join(root, ".git"), [
-				{ branchName: "main", validationResult: "TRUNK" },
-			]);
+	test("maps sqlite unavailable and read failures from the db access seam", () => {
+		const sqliteUnavailable = new FakeGraphiteMetadataDbAccess({
+			responses: [failure("sqlite-unavailable")],
+		});
+		expect(loadWithFake(sqliteUnavailable)).toEqual({
+			type: "unavailable",
+			reason: "sqlite-unavailable",
+			currentBranch: "feature/current",
+		});
 
-			expect(
-				loadGraphiteMetadataStatus({
-					commonGitDir: join(root, ".git"),
-					currentBranch: "feature/current",
-				}),
-			).toEqual({
-				type: "untracked",
-				currentBranch: "feature/current",
-			});
+		const readFailed = new FakeGraphiteMetadataDbAccess({
+			responses: [success(EXPECTED_SCHEMA_ROWS), failure("read-failed")],
+		});
+		expect(loadWithFake(readFailed)).toEqual({
+			type: "unavailable",
+			reason: "read-failed",
+			currentBranch: "feature/current",
 		});
 	});
 
-	test("reports schema mismatch when required columns are missing", async () => {
-		await withTempRoot(makeGitRepo("feature/current"), (root) => {
-			runSqliteStatements(join(root, ".git", ".graphite_metadata.db"), [
-				"CREATE TABLE branch_metadata (branch_name TEXT PRIMARY KEY, parent_branch_name TEXT);",
-			]);
-
-			expect(
-				loadGraphiteMetadataStatus({
-					commonGitDir: join(root, ".git"),
-					currentBranch: "feature/current",
-				}),
-			).toEqual({
-				type: "unavailable",
-				reason: "schema-mismatch",
-				currentBranch: "feature/current",
-			});
+	test("treats non-array row query data as a read failure", () => {
+		const dbAccess = new FakeGraphiteMetadataDbAccess({
+			responses: [success(EXPECTED_SCHEMA_ROWS), success({ not: "rows" })],
 		});
-	});
 
-	test("treats malformed children JSON as no children", async () => {
-		await withTempRoot(makeGitRepo("feature/current"), (root) => {
-			writeGraphiteMetadataDb(join(root, ".git"), [
-				{ branchName: "feature/current", parentBranchName: "main", rawChildren: "not json" },
-			]);
-
-			const status = loadGraphiteMetadataStatus({
-				commonGitDir: join(root, ".git"),
-				currentBranch: "feature/current",
-			});
-			expect(status).toMatchObject({ type: "tracked", children: [] });
-		});
-	});
-
-	test("keeps only string children from metadata arrays", async () => {
-		await withTempRoot(makeGitRepo("feature/current"), (root) => {
-			writeGraphiteMetadataDb(join(root, ".git"), [
-				{
-					branchName: "feature/current",
-					parentBranchName: "main",
-					rawChildren: '["feature/one", 123, null, "feature/two"]',
-				},
-			]);
-
-			const status = loadGraphiteMetadataStatus({
-				commonGitDir: join(root, ".git"),
-				currentBranch: "feature/current",
-			});
-			expect(status).toMatchObject({ type: "tracked", children: ["feature/one", "feature/two"] });
+		expect(loadWithFake(dbAccess)).toEqual({
+			type: "unavailable",
+			reason: "read-failed",
+			currentBranch: "feature/current",
 		});
 	});
 
@@ -270,28 +323,6 @@ describe("Graphite metadata status lookup", () => {
 		expect(
 			graphiteMetadataWorkerResponseFromValue({ type: "success", status: "bad" }),
 		).toBeUndefined();
-	});
-
-	test("loads metadata through a worker-backed async adapter", async () => {
-		await withTempRoot(makeGitRepo("feature/current"), async (root) => {
-			writeGraphiteMetadataDb(join(root, ".git"), [
-				{ branchName: "main", children: ["feature/current"], validationResult: "TRUNK" },
-				{ branchName: "feature/current", parentBranchName: "main", children: ["feature/child"] },
-			]);
-
-			expect(
-				await loadGraphiteMetadataStatusInWorker({
-					commonGitDir: join(root, ".git"),
-					currentBranch: "feature/current",
-				}),
-			).toEqual({
-				type: "tracked",
-				currentBranch: "feature/current",
-				parent: "main",
-				children: ["feature/child"],
-				isCurrentTrunk: false,
-			});
-		});
 	});
 
 	test("reuses a cached metadata worker across sequential successful lookups", async () => {

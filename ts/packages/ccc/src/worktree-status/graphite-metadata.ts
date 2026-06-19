@@ -72,14 +72,20 @@ export interface LoadGraphiteMetadataStatusInWorkerOptions {
 	onDiagnostic?: ((diagnostic: GraphiteMetadataWorkerDiagnostic) => void) | undefined;
 }
 
-interface SqliteCliResult {
-	type: "success";
-	data: unknown;
+export type GraphiteMetadataJsonQueryResult =
+	| { type: "success"; data: unknown }
+	| {
+			type: "failure";
+			reason: Extract<GraphiteMetadataUnavailableReason, "sqlite-unavailable" | "read-failed">;
+	  };
+
+export interface GraphiteMetadataDbAccess {
+	exists(dbPath: string): boolean;
+	queryJson(dbPath: string, query: string): GraphiteMetadataJsonQueryResult;
 }
 
-interface SqliteCliFailure {
-	type: "failure";
-	reason: Extract<GraphiteMetadataUnavailableReason, "sqlite-unavailable" | "read-failed">;
+export interface LoadGraphiteMetadataStatusOptions {
+	dbAccess?: GraphiteMetadataDbAccess | undefined;
 }
 
 const GRAPHITE_METADATA_LOOKUP_TIMEOUT_MS = 1_000;
@@ -216,12 +222,14 @@ export function graphiteMetadataWorkerResponseFromValue(
 
 export function loadGraphiteMetadataStatus(
 	input: GraphiteMetadataLookupInput,
+	options: LoadGraphiteMetadataStatusOptions = {},
 ): GraphiteMetadataStatus {
+	const dbAccess = options.dbAccess ?? defaultGraphiteMetadataDbAccess;
 	const dbPath = graphiteMetadataDbPath(input.commonGitDir);
-	if (!existsSync(dbPath))
+	if (!dbAccess.exists(dbPath))
 		return { type: "unavailable", reason: "missing-db", currentBranch: input.currentBranch };
 
-	const schemaRows = runSqliteJsonQuery(dbPath, GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY);
+	const schemaRows = dbAccess.queryJson(dbPath, GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY);
 	if (schemaRows.type === "failure") {
 		return { type: "unavailable", reason: schemaRows.reason, currentBranch: input.currentBranch };
 	}
@@ -234,7 +242,7 @@ export function loadGraphiteMetadataStatus(
 		`WHERE branch_name = ${sqliteTextLiteral(input.currentBranch)}`,
 		"LIMIT 1",
 	].join(" ");
-	const rowResult = runSqliteJsonQuery(dbPath, rowQuery);
+	const rowResult = dbAccess.queryJson(dbPath, rowQuery);
 	if (rowResult.type === "failure") {
 		return { type: "unavailable", reason: rowResult.reason, currentBranch: input.currentBranch };
 	}
@@ -383,7 +391,16 @@ function isGraphiteMetadataUnavailableReason(
 	return GRAPHITE_METADATA_UNAVAILABLE_REASONS.some((reason) => reason === value);
 }
 
-function runSqliteJsonQuery(dbPath: string, query: string): SqliteCliResult | SqliteCliFailure {
+const defaultGraphiteMetadataDbAccess: GraphiteMetadataDbAccess = {
+	exists(dbPath) {
+		return existsSync(dbPath);
+	},
+	queryJson(dbPath, query) {
+		return runSqliteJsonQuery(dbPath, query);
+	},
+};
+
+function runSqliteJsonQuery(dbPath: string, query: string): GraphiteMetadataJsonQueryResult {
 	const result = spawnSync("sqlite3", ["-json", dbPath, query], {
 		encoding: "utf8",
 		timeout: SQLITE_QUERY_TIMEOUT_MS,
