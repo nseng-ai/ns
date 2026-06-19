@@ -522,11 +522,15 @@ export default function worktreeStatusExtension(
 		recordSessionActivity(session);
 	}
 
-	function refreshActiveSessionAfterToolExecution(event: unknown): void {
-		if (!shouldRefreshAfterToolExecution(event)) return;
+	function refreshActiveSession(): void {
 		const session = activeSession;
 		if (session === undefined || !isActiveSession(session)) return;
 		void fullRefreshChannel.run(session);
+	}
+
+	function refreshActiveSessionAfterToolExecution(event: unknown): void {
+		if (!shouldRefreshAfterToolExecution(event)) return;
+		refreshActiveSession();
 	}
 
 	function recordSessionActivity(
@@ -555,6 +559,10 @@ export default function worktreeStatusExtension(
 	for (const event of WORKTREE_STATUS_ACTIVITY_EVENTS) {
 		pi.on(event, (payload) => {
 			recordActiveSessionActivity();
+			if (event === "message_end" && shouldRefreshAfterUserMessageEnd(payload)) {
+				refreshActiveSession();
+			}
+			if (event === "turn_end") refreshActiveSession();
 			if (event === "tool_execution_end") refreshActiveSessionAfterToolExecution(payload);
 		});
 	}
@@ -585,6 +593,11 @@ function fallbackRepoName(cwd: string): string {
 	const gitPaths = findWorktreeStatusGitPaths(cwd);
 	if (gitPaths !== undefined) return basename(gitPaths.repoDir);
 	return basename(resolve(cwd)) || "unknown";
+}
+
+function shouldRefreshAfterUserMessageEnd(event: unknown): boolean {
+	if (!isRecord(event) || !isRecord(event.message)) return false;
+	return event.message.role === "user";
 }
 
 function shouldRefreshAfterToolExecution(event: unknown): boolean {
