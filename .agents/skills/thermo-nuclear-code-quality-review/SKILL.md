@@ -10,6 +10,18 @@ Use this skill for an unusually strict review focused on implementation quality,
 
 Above all, this skill should push the reviewer to be **ambitious** about code structure. Do not merely identify local cleanup opportunities. Actively search for "code judo" moves: restructurings that preserve behavior while making the implementation dramatically simpler, smaller, more direct, and more elegant.
 
+## Scope: review the code, not the commits
+
+This skill reviews **the implementation as it would land** — the merged diff. It is not a VCS-hygiene or process review. Judge the code, the abstractions, and the resulting codebase health, not how the change is packaged in source control.
+
+Out of scope here (do **not** flag as blockers; LOW severity at most, and usually omit entirely unless directly asked):
+
+- Commit organization: unrelated/interleaved commits in a stack, a misplaced cherry-pick, a non-compiling intermediate commit, messy commit messages, squash/split opportunities.
+- Stack/branch shape: how a Graphite stack is sliced, whether a change belongs on a sibling branch, reviewable-unit boundaries.
+- Other pure process concerns: PR description quality, where work "should have" lived branch-wise.
+
+If something like this is genuinely worth a mention, note it once as a brief LOW aside — never as a presumptive blocker, and never let it crowd out the structural code-quality findings that are the point of this review. The escalation rules below ("What to Flag Aggressively", "Approval Bar") apply to **code structure and implementation quality**, not to commit/stack packaging.
+
 ## Core Prompt
 
 Start from this baseline:
