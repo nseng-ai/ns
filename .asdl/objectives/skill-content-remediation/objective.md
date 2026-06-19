@@ -26,9 +26,11 @@ long tail of score 1–3 polish stays opportunistic, not a standalone push.
      `setup-*` / `create-*` family.
   2. The grill pair (`pi-grill-ui`, `pi-grill-with-docs-ui`) duplicates a ~95%
      byte-identical shared core that has already drifted — single-source it.
-  3. Branch-creation precedence policy is triplicated across
+  3. Branch-creation precedence policy is duplicated across
      `branch-context-from-plan/SKILL.md` and `branch-context/references/lifecycle.md`,
-     and already drifting — single-home it.
+     and already drifting — single-home it. (Resolved: implementation confirmed the
+     policy had **2** full copies, not the "triplicated" 3 originally recorded — only
+     these two files restated the full precedence list.)
 - **Per-skill remediation of every first-party skill scoring ≥5** in the audit
   (duplication collapse and disclosure surgery). Top targets: `objective-stack-impl`,
   `dignified-python`, `branch-context-impl`, `refactor-swarm`, `ccc-available-work`,

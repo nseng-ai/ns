@@ -12,9 +12,17 @@
       `pi-grill-with-docs-ui`. Reconcile the already-drifted `status_request` wording;
       leave each skill holding only its UI-specific delta. Depends on resolving the
       shared-core mechanism open question.
-- [ ] Systemic #3 — single-home the branch-creation precedence policy in
+- [x] Systemic #3 — single-home the branch-creation precedence policy in
       `branch-context/references/lifecycle.md`; reduce `branch-context-from-plan` to the
       load-bearing repo default (`--branch-creation graphite`) plus a pointer.
+      Done: `branch-context-from-plan/SKILL.md` Workflow steps 3–4 collapsed to one step
+      holding the inline repo default plus a pointer to the single home; `lifecycle.md`
+      unchanged (already the canonical superset). Correction: the policy was duplicated
+      **2×** (two full copies), not triplicated — only `from-plan` and `lifecycle.md`
+      carried the full precedence list. Evidence: precedence list now resolves only in
+      `lifecycle.md`; `from-plan` still names `--branch-creation graphite` inline and its
+      pointer target (`## Branch creation policy`) is reachable; SKILL.md frontmatter
+      valid and steps contiguous.
 - [ ] Disclosure surgery on oversized always-loaded blocks. Push inline material that
       only one branch reaches behind pointers: `objective-stack-impl` digest/telemetry
       and final-response templates; `branch-context-impl` STOP-contract protocol;
