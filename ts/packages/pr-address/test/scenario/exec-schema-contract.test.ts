@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { describe, test } from "vitest";
 
 import { buildSurfacePlan } from "../../../clinkr/src/surface.ts";
@@ -64,7 +65,7 @@ function schemaKeysForOperation(
 	const operation = EXEC_OPERATIONS.find((candidate) => candidate.name === operationName);
 	if (operation === undefined) throw new Error(`Unknown operation '${operationName}'`);
 
-	const inputSchema = operation.schemaDocument().input_json_schema as Record<string, unknown>;
+	const inputSchema = z.toJSONSchema(operation.schema, { io: "input" }) as Record<string, unknown>;
 	const properties = inputSchema.properties as Record<string, unknown> | undefined;
 	return {
 		parseKeys,

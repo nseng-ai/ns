@@ -113,8 +113,21 @@ export const ghDiscussionCommentSchema = z
 		return { ...comment, numericId };
 	});
 
+export const ghDiscussionCommentConnectionSchema = z
+	.object({
+		nodes: z.array(ghDiscussionCommentSchema).default([]),
+		pageInfo: ghPageInfoSchema.default({ hasNextPage: false }),
+	})
+	.loose();
+
 export const ghDiscussionCommentsResponseSchema = z
-	.object({ comments: z.array(ghDiscussionCommentSchema).default([]) })
+	.object({
+		data: z.object({
+			repository: z.object({
+				pullRequest: z.object({ comments: ghDiscussionCommentConnectionSchema }).loose(),
+			}),
+		}),
+	})
 	.loose();
 
 export const ghGraphqlErrorsSchema = z.object({ errors: z.array(z.unknown()).optional() }).loose();

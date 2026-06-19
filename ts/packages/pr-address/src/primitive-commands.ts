@@ -48,6 +48,13 @@ type BranchPrRequest = z.output<typeof branchPrSchema>;
 type ReviewThreadsRequest = z.output<typeof reviewThreadsSchema>;
 type ReplyReviewThreadRequest = z.output<typeof replyReviewThreadSchema>;
 type ResolveReviewThreadRequest = z.output<typeof resolveReviewThreadSchema>;
+type PrLookupResult = z.output<typeof prLookupResultSchema>;
+type OpenPrsResult = z.output<typeof openPrsResultSchema>;
+type PrReviewsResult = z.output<typeof prReviewsResultSchema>;
+type PrReviewThreadsResult = z.output<typeof prReviewThreadsResultSchema>;
+type PrDiscussionCommentsResult = z.output<typeof prDiscussionCommentsResultSchema>;
+type ReplyReviewThreadResult = z.output<typeof replyReviewThreadResultSchema>;
+type ResolveReviewThreadResult = z.output<typeof resolveReviewThreadResultSchema>;
 
 export const primitiveOperations: readonly ExecOperation[] = [
 	defineExecOperation({
@@ -135,7 +142,7 @@ export const primitiveOperations: readonly ExecOperation[] = [
 async function runPrDetails(
 	ctx: PrAddressExecContext,
 	request: PrNumberRequest,
-): Promise<ClinkrExit<unknown>> {
+): Promise<ClinkrExit<PrLookupResult>> {
 	const result = await ctx.context.prFeedback.getPr({
 		...gatewayOptions(ctx),
 		prNumber: request.prNumber,
@@ -148,7 +155,7 @@ async function runPrDetails(
 async function runBranchPr(
 	ctx: PrAddressExecContext,
 	request: BranchPrRequest,
-): Promise<ClinkrExit<unknown>> {
+): Promise<ClinkrExit<PrLookupResult>> {
 	const result = await ctx.context.prFeedback.getPrForBranch({
 		...gatewayOptions(ctx),
 		branch: request.branch,
@@ -161,7 +168,7 @@ async function runBranchPr(
 	return ok(lookupResult(result));
 }
 
-async function runOpenPrs(ctx: PrAddressExecContext): Promise<ClinkrExit<unknown>> {
+async function runOpenPrs(ctx: PrAddressExecContext): Promise<ClinkrExit<OpenPrsResult>> {
 	return await prFeedbackResultExit({
 		result: ctx.context.prFeedback.listOpenPrs(gatewayOptions(ctx)),
 		failurePrefix: "Failed to list open PRs",
@@ -172,7 +179,7 @@ async function runOpenPrs(ctx: PrAddressExecContext): Promise<ClinkrExit<unknown
 async function runPrReviews(
 	ctx: PrAddressExecContext,
 	request: PrNumberRequest,
-): Promise<ClinkrExit<unknown>> {
+): Promise<ClinkrExit<PrReviewsResult>> {
 	return await prFeedbackResultExit({
 		result: ctx.context.prFeedback.getPrReviews({
 			...gatewayOptions(ctx),
@@ -186,7 +193,7 @@ async function runPrReviews(
 async function runPrReviewThreads(
 	ctx: PrAddressExecContext,
 	request: ReviewThreadsRequest,
-): Promise<ClinkrExit<unknown>> {
+): Promise<ClinkrExit<PrReviewThreadsResult>> {
 	return await prFeedbackResultExit({
 		result: ctx.context.prFeedback.getPrReviewThreads({
 			...gatewayOptions(ctx),
@@ -203,7 +210,7 @@ async function runPrReviewThreads(
 async function runPrDiscussionComments(
 	ctx: PrAddressExecContext,
 	request: PrNumberRequest,
-): Promise<ClinkrExit<unknown>> {
+): Promise<ClinkrExit<PrDiscussionCommentsResult>> {
 	return await prFeedbackResultExit({
 		result: ctx.context.prFeedback.getPrDiscussionComments({
 			...gatewayOptions(ctx),
@@ -217,7 +224,7 @@ async function runPrDiscussionComments(
 async function runReplyReviewThread(
 	ctx: PrAddressExecContext,
 	request: ReplyReviewThreadRequest,
-): Promise<ClinkrExit<unknown>> {
+): Promise<ClinkrExit<ReplyReviewThreadResult>> {
 	return await prFeedbackResultExit({
 		result: ctx.context.prFeedback.replyToReviewThread({
 			...gatewayOptions(ctx),
@@ -233,7 +240,7 @@ async function runReplyReviewThread(
 async function runResolveReviewThread(
 	ctx: PrAddressExecContext,
 	request: ResolveReviewThreadRequest,
-): Promise<ClinkrExit<unknown>> {
+): Promise<ClinkrExit<ResolveReviewThreadResult>> {
 	return await prFeedbackResultExit({
 		result: ctx.context.prFeedback.resolveReviewThread({
 			...gatewayOptions(ctx),
@@ -245,11 +252,11 @@ async function runResolveReviewThread(
 	});
 }
 
-async function prFeedbackResultExit<T>(options: {
-	readonly result: Promise<Result<T, GithubPrFeedbackFailure>>;
+async function prFeedbackResultExit<TValue, TPayload>(options: {
+	readonly result: Promise<Result<TValue, GithubPrFeedbackFailure>>;
 	readonly failurePrefix: string;
-	readonly toPayload: (value: T) => unknown;
-}): Promise<ClinkrExit<unknown>> {
+	readonly toPayload: (value: TValue) => TPayload;
+}): Promise<ClinkrExit<TPayload>> {
 	const result = await options.result;
 	if (!result.ok) return prFeedbackFailureExit(options.failurePrefix, result.error);
 	return ok(options.toPayload(result.value));

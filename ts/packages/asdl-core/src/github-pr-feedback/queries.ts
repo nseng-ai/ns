@@ -1,3 +1,15 @@
+export const discussionCommentsQuery = `
+query($owner: String!, $repo: String!, $number: Int!, $commentCursor: String) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      comments(first: 100, after: $commentCursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes { databaseId body author { login } url }
+      }
+    }
+  }
+}`;
+
 export const reviewThreadsQuery = `
 query($owner: String!, $repo: String!, $number: Int!, $threadCursor: String) {
   repository(owner: $owner, name: $repo) {

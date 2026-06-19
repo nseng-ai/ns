@@ -30,32 +30,9 @@ const downloadFeedbackParseSchema = z.object({
 });
 
 type DownloadFeedbackRequest = z.output<typeof downloadFeedbackParseSchema>;
-
-interface DownloadFeedbackTarget {
-	kind: "github_pr";
-	pr_number: number | null;
-	branch: string | null;
-	title: string | null;
-	url: string | null;
-	head_ref_name: string | null;
-	base_ref_name: string | null;
-}
-
-interface DownloadFeedbackCounts {
-	included_review_threads: number;
-	included_reviews: number;
-	included_discussion_comments: number;
-	excluded_resolved_threads: number;
-	excluded_empty_reviews: number;
-	excluded_automation_comments: number;
-}
-
-interface DownloadFeedbackResult {
-	found: boolean;
-	target: DownloadFeedbackTarget;
-	counts: DownloadFeedbackCounts;
-	markdown: string;
-}
+type DownloadFeedbackResult = z.output<typeof downloadFeedbackResultSchema>;
+type DownloadFeedbackTarget = DownloadFeedbackResult["target"];
+type DownloadFeedbackCounts = DownloadFeedbackResult["counts"];
 
 interface IncludedFeedback {
 	reviewThreads: readonly GithubPrReviewThread[];
@@ -78,7 +55,7 @@ export const downloadFeedbackOperation = defineExecOperation({
 async function runDownloadFeedbackOperation(
 	ctx: PrAddressExecContext,
 	request: DownloadFeedbackRequest,
-): Promise<ClinkrExit<unknown>> {
+): Promise<ClinkrExit<DownloadFeedbackResult>> {
 	const targetResult = await resolveTargetPr(ctx, request);
 	if (targetResult.type === "failure") return targetResult.exit;
 	if (targetResult.type === "miss") {
@@ -116,7 +93,7 @@ async function runDownloadFeedbackOperation(
 type TargetPrResult =
 	| { type: "found"; pr: GithubPrSummary; branch: string | null }
 	| { type: "miss"; target: DownloadFeedbackTarget; message: string }
-	| { type: "failure"; exit: ClinkrExit<unknown> };
+	| { type: "failure"; exit: ClinkrExit<DownloadFeedbackResult> };
 
 async function resolveTargetPr(
 	ctx: PrAddressExecContext,

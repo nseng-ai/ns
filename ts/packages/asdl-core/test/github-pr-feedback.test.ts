@@ -5,6 +5,7 @@ import { RealGithubPrFeedbackGateway } from "@asdl/core/github-pr-feedback";
 import { ScriptedCommandRunner, step } from "@asdl/core/testing";
 
 import {
+	discussionCommentsQuery,
 	replyToReviewThreadMutation,
 	resolveReviewThreadMutation,
 	reviewThreadCommentsQuery,
@@ -25,6 +26,15 @@ function commentPageResponse(
 	pageInfo: Record<string, unknown> = { hasNextPage: false, endCursor: null },
 ): string {
 	return JSON.stringify({ data: { node: { comments: { nodes, pageInfo } } } });
+}
+
+function discussionCommentsResponse(
+	nodes: readonly unknown[],
+	pageInfo: Record<string, unknown> = { hasNextPage: false, endCursor: null },
+): string {
+	return JSON.stringify({
+		data: { repository: { pullRequest: { comments: { nodes, pageInfo } } } },
+	});
 }
 
 function comment(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -455,7 +465,18 @@ describe("RealGithubPrFeedbackGateway", () => {
 	});
 
 	test("rejects malformed discussion comment and reply identities", async () => {
-		const discussionArgs = ["pr", "view", "12", "--json", "comments"];
+		const discussionArgs = [
+			"api",
+			"graphql",
+			"-F",
+			"owner={owner}",
+			"-F",
+			"repo={repo}",
+			"-F",
+			"number=12",
+			"-f",
+			`query=${discussionCommentsQuery}`,
+		];
 		const replyArgs = [
 			"api",
 			"graphql",
@@ -468,10 +489,10 @@ describe("RealGithubPrFeedbackGateway", () => {
 		];
 		const runner = new ScriptedCommandRunner([
 			step("gh", discussionArgs, {
-				stdout: JSON.stringify({ comments: [{ body: "discussion", user: { login: "human" } }] }),
+				stdout: discussionCommentsResponse([{ body: "discussion", author: { login: "human" } }]),
 			}),
 			step("gh", discussionArgs, {
-				stdout: JSON.stringify({ comments: [{ databaseId: "not numeric", body: "discussion" }] }),
+				stdout: discussionCommentsResponse([{ databaseId: "not numeric", body: "discussion" }]),
 			}),
 			step("gh", replyArgs, {
 				stdout: JSON.stringify({
@@ -487,9 +508,11 @@ describe("RealGithubPrFeedbackGateway", () => {
 
 		await expectInvalidIdentity(gateway.getPrDiscussionComments({ cwd: "/repo", prNumber: 12 }), {
 			prNumber: 12,
+			cursorContext: "discussionComments",
 		});
 		await expectInvalidIdentity(gateway.getPrDiscussionComments({ cwd: "/repo", prNumber: 12 }), {
 			prNumber: 12,
+			cursorContext: "discussionComments",
 		});
 		await expectInvalidIdentity(
 			gateway.replyToReviewThread({ cwd: "/repo", threadId: "RT_thread1", body: "Fixed." }),
@@ -510,21 +533,86 @@ describe("RealGithubPrFeedbackGateway", () => {
 		});
 	});
 
-	test("fetches discussion comments", async () => {
-		const args = ["pr", "view", "12", "--json", "comments"];
+	test("returns pagination failures for discussion comments", async () => {
+		const args = [
+			"api",
+			"graphql",
+			"-F",
+			"owner={owner}",
+			"-F",
+			"repo={repo}",
+			"-F",
+			"number=12",
+			"-f",
+			`query=${discussionCommentsQuery}`,
+		];
 		const runner = new ScriptedCommandRunner([
 			step("gh", args, {
-				stdout: JSON.stringify({
-					comments: [
+				stdout: discussionCommentsResponse([], { hasNextPage: true, endCursor: null }),
+			}),
+		]);
+		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+
+		expect(await gateway.getPrDiscussionComments({ cwd: "/repo", prNumber: 12 })).toMatchObject({
+			ok: false,
+			error: {
+				code: "github_pr_feedback_pagination_invalid",
+				details: { prNumber: 12, cursorContext: "discussionComments" },
+			},
+		});
+		runner.assertDone();
+	});
+
+	test("fetches paginated discussion comments with GraphQL database IDs", async () => {
+		const firstArgs = [
+			"api",
+			"graphql",
+			"-F",
+			"owner={owner}",
+			"-F",
+			"repo={repo}",
+			"-F",
+			"number=12",
+			"-f",
+			`query=${discussionCommentsQuery}`,
+		];
+		const secondArgs = [
+			"api",
+			"graphql",
+			"-F",
+			"owner={owner}",
+			"-F",
+			"repo={repo}",
+			"-F",
+			"number=12",
+			"-F",
+			"commentCursor=COMMENT_CURSOR",
+			"-f",
+			`query=${discussionCommentsQuery}`,
+		];
+		const runner = new ScriptedCommandRunner([
+			step("gh", firstArgs, {
+				stdout: discussionCommentsResponse(
+					[
 						{
 							databaseId: 99,
 							body: "discussion",
-							user: { login: "human" },
-							url: "ignored",
-							html_url: "https://github.com/acme/repo/pull/12#issuecomment-99",
+							author: { login: "human" },
+							url: "https://github.com/acme/repo/pull/12#issuecomment-99",
 						},
 					],
-				}),
+					{ hasNextPage: true, endCursor: "COMMENT_CURSOR" },
+				),
+			}),
+			step("gh", secondArgs, {
+				stdout: discussionCommentsResponse([
+					{
+						databaseId: 100,
+						body: "follow-up",
+						author: { login: "maintainer" },
+						url: "https://github.com/acme/repo/pull/12#issuecomment-100",
+					},
+				]),
 			}),
 		]);
 		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
@@ -538,8 +626,17 @@ describe("RealGithubPrFeedbackGateway", () => {
 					author: "human",
 					url: "https://github.com/acme/repo/pull/12#issuecomment-99",
 				},
+				{
+					id: 100,
+					body: "follow-up",
+					author: "maintainer",
+					url: "https://github.com/acme/repo/pull/12#issuecomment-100",
+				},
 			],
 		});
+		expect(discussionCommentsQuery).toContain("comments(first: 100, after: $commentCursor)");
+		expect(discussionCommentsQuery).toContain("pageInfo { hasNextPage endCursor }");
+		expect(discussionCommentsQuery).toContain("databaseId");
 		runner.assertDone();
 	});
 

@@ -1,9 +1,31 @@
 import {
+	discussionCommentsQuery,
 	replyToReviewThreadMutation,
 	resolveReviewThreadMutation,
 	reviewThreadCommentsQuery,
 	reviewThreadsQuery,
 } from "./queries.ts";
+
+export function discussionCommentPageArgs(
+	prNumber: number,
+	commentCursor: string | null | undefined,
+): string[] {
+	return [
+		"api",
+		"graphql",
+		"-F",
+		"owner={owner}",
+		"-F",
+		"repo={repo}",
+		"-F",
+		`number=${prNumber}`,
+		...(commentCursor === null || commentCursor === undefined
+			? []
+			: ["-F", `commentCursor=${commentCursor}`]),
+		"-f",
+		`query=${discussionCommentsQuery}`,
+	];
+}
 
 export function reviewThreadPageArgs(
 	prNumber: number,

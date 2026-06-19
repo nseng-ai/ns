@@ -5,13 +5,11 @@ import {
 	type ClinkrCommandSpec,
 	type ClinkrGroup,
 	type ClinkrHandler,
-	type JsonSchemaDocument,
 } from "@asdl/clinkr";
 import type { GithubPrFeedbackFailure } from "@asdl/core/github-pr-feedback";
 
 import type { PrAddressContext } from "./context.ts";
 import type { GatewayFailure, GatewayOptions } from "./gateways.ts";
-import { schemaDocument } from "./operation-schemas/shared.ts";
 
 /** Handler-facing runtime for one exec operation; clinkr's io seam owns all output. */
 export interface PrAddressExecContext {
@@ -26,7 +24,6 @@ export interface ExecOperation {
 	name: string;
 	schema: z.ZodObject;
 	resultSchema: z.ZodType;
-	schemaDocument(): JsonSchemaDocument;
 	addTo(group: ClinkrGroup<PrAddressExecContext>): void;
 }
 
@@ -83,8 +80,16 @@ export function prFeedbackFailureMessage(
 	})}`;
 }
 
+type ExecOperationSpec<S extends z.ZodObject, T> = Omit<
+	ClinkrCommandSpec<PrAddressExecContext, S, T>,
+	"resultSchema" | "schemaDocument"
+> & {
+	readonly resultSchema?: never;
+	readonly schemaDocument?: never;
+};
+
 export interface DefineExecOperationOptions<S extends z.ZodObject, T> {
-	spec: ClinkrCommandSpec<PrAddressExecContext, S, T>;
+	spec: ExecOperationSpec<S, T>;
 	resultSchema: z.ZodType<T>;
 	/**
 	 * Operation calls GitHub through `gh`, which resolves `owner/repo` from the
@@ -106,14 +111,11 @@ export function defineExecOperation<S extends z.ZodObject, T>(
 		name: spec.name,
 		schema: spec.schema,
 		resultSchema: options.resultSchema,
-		schemaDocument() {
-			return schemaDocument(spec.schema, options.resultSchema);
-		},
 		addTo(group) {
 			const commandSpec = {
 				...spec,
 				handler,
-				schemaDocument: () => schemaDocument(spec.schema, options.resultSchema),
+				resultSchema: options.resultSchema,
 			} satisfies ClinkrCommandSpec<PrAddressExecContext, S, T>;
 			group.command(commandSpec);
 		},
