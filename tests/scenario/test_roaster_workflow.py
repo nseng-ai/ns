@@ -57,26 +57,30 @@ def test_roaster_workflow_runs_diff_findings_review_without_format_flag() -> Non
     assert '--base-ref "$BASE_REF"' in workflow
 
 
-def test_roaster_workflow_posts_inline_findings_before_summary_comment() -> None:
+def test_roaster_workflow_publishes_findings_with_review_metadata() -> None:
     workflow = _roaster_workflow_text()
 
-    post_inline_index = workflow.index(f"{PNPM_ROASTER} exec post-inline-findings")
-    format_index = workflow.index(f"{PNPM_ROASTER} exec format-findings-comment")
-    post_summary_index = workflow.index(f"{PNPM_ROASTER} exec post-findings-comment")
+    publish_command = " ".join(
+        (f"printf '%s' \"$output\" | {PNPM_ROASTER}", "exec publish-findings")
+    )
+    run_url_option = '--run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"'
 
-    assert post_inline_index < format_index < post_summary_index
-    assert '--inline-result-file "$inline_result_file"' in workflow
+    run_index = workflow.index(f'{PNPM_ROASTER} review run "$REVIEW_KEY"')
+    publish_index = workflow.index(publish_command)
+
+    assert run_index < publish_index
+    assert '--pr-number "$PR_NUMBER"' in workflow
+    assert run_url_option in workflow
     assert '--review-name "$REVIEW_KEY"' in workflow
     assert '--base-ref "$BASE_REF"' in workflow
-    assert '> "$inline_result_file"' in workflow
 
 
-def test_roaster_workflow_posts_comments_before_exiting_with_roaster_status() -> None:
+def test_roaster_workflow_publishes_findings_before_exiting_with_roaster_status() -> None:
     workflow = _roaster_workflow_text()
     review_job = workflow[workflow.index("\n  review:") :]
 
-    post_summary_index = review_job.index(f"{PNPM_ROASTER} exec post-findings-comment")
+    publish_index = review_job.index(f"{PNPM_ROASTER} exec publish-findings")
     exit_index = review_job.index('exit "$status"')
 
-    assert post_summary_index < exit_index
-    assert 'printf \'%s\' "$output" > "$roaster_output_file"' in review_job
+    assert publish_index < exit_index
+    assert "printf '%s\\n' \"$output\"" in review_job

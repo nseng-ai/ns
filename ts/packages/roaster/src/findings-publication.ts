@@ -6,10 +6,13 @@ import {
 import { formatZodError, truncatedSha256Digest } from "@asdl/core/primitives";
 import { z } from "zod";
 
+import type { RoasterContext } from "./context.ts";
+import { classifyInlineFindings } from "./inline-commentability.ts";
 import {
-	postInlineFindingsResultSchema,
 	reviewRunResultSchema,
 	type InlinePostingStatus,
+	type PRInlineCommentInput,
+	type PostInlineFindingsResult,
 	type ReviewFinding,
 	type ReviewInputCoverage,
 } from "./models.ts";
@@ -20,6 +23,7 @@ const ACTIVITY_LOG_HEADING = "### Activity Log";
 const ACTIVITY_LOG_CAP = 10;
 const OMITTED_INPUT_FILES_RENDER_LIMIT = 10;
 const FOOTER = "_Posted by roaster. This comment is informational and does not block the check._";
+const BOT_LOGIN = "github-actions[bot]";
 
 const reviewRunSuccessEnvelopeSchema = buildSuccessMachineEnvelopeSchema(reviewRunResultSchema);
 
@@ -43,11 +47,6 @@ export interface FindingsPayload {
 	readonly errorMessage: string | null;
 }
 
-export interface InlinePostingStatusParseError {
-	readonly type: "inline_posting_status_parse_error";
-	readonly message: string;
-}
-
 export interface FindingsPayloadParseError {
 	readonly type: "findings_payload_parse_error";
 	readonly message: string;
@@ -66,9 +65,6 @@ export interface ParsedFindingsCommentBody {
 export type FindingsPayloadParseResult =
 	| { readonly type: "ok"; readonly payload: FindingsPayload }
 	| { readonly type: "error"; readonly error: FindingsPayloadParseError };
-export type InlinePostingStatusParseResult =
-	| { readonly type: "ok"; readonly status: InlinePostingStatus }
-	| { readonly type: "error"; readonly error: InlinePostingStatusParseError };
 export type FindingsCommentBodyParseResult =
 	| { readonly type: "ok"; readonly parsed: ParsedFindingsCommentBody }
 	| { readonly type: "error"; readonly error: FindingsCommentBodyParseError };
@@ -119,19 +115,64 @@ export function parseFindingsPayloadResult(
 	return payloadError(`invalid review-run envelope: ${formatZodError(success.error)}`);
 }
 
-export function parseInlinePostingStatusResult(raw: string): InlinePostingStatusParseResult {
-	const data = parseJson(raw);
-	if (data.type === "error") return inlineStatusError(data.message);
-	const parsed = postInlineFindingsResultSchema.safeParse(data.value);
-	if (!parsed.success) return inlineStatusError(formatZodError(parsed.error));
+export interface PublishFindingsOptions {
+	readonly prNumber: number;
+	readonly envelope: string;
+	readonly runUrl?: string | undefined;
+	readonly fallbackReviewName?: string | undefined;
+	readonly fallbackBaseRef?: string | undefined;
+	readonly cwd: string;
+	readonly env?: NodeJS.ProcessEnv | undefined;
+	readonly signal?: AbortSignal | undefined;
+}
+
+export type PublishFindingsResult =
+	| {
+			readonly type: "ok";
+			readonly inlineStatus: PostInlineFindingsResult;
+			readonly summaryAction: "posted" | "updated";
+	  }
+	| { readonly type: "error"; readonly message: string };
+
+export async function publishFindings(
+	ctx: Pick<RoasterContext, "github">,
+	options: PublishFindingsOptions,
+): Promise<PublishFindingsResult> {
+	const parsed = parseFindingsPayloadResult(options.envelope, fallbackPayloadOptions(options));
+	if (parsed.type === "error") return publicationError(parsed.error.message);
+
+	const inlineStatus = await postInlineFindings(ctx, parsed.payload, options);
+	const renderedBody = renderFindingsComment(parsed.payload, { inlineStatus });
+	const parsedBody = parseFindingsCommentBody(renderedBody);
+	if (parsedBody.type === "error") return publicationError(parsedBody.error.message);
+
+	const existing = await ctx.github.findPrDiscussionCommentByMarker({
+		prNumber: options.prNumber,
+		marker: parsedBody.parsed.marker,
+		authorLogin: BOT_LOGIN,
+		...githubOptions(options),
+	});
+	if (existing.type === "error") return publicationError(existing.error.message);
+
+	const nextBody = preserveActivityLog(
+		existing.value?.body ?? "",
+		parsedBody.parsed.body,
+		activityLogEntry(options.runUrl),
+	);
+	const written =
+		existing.value === null
+			? await ctx.github.addPrDiscussionComment(options.prNumber, nextBody, githubOptions(options))
+			: await ctx.github.updatePrDiscussionComment(
+					existing.value.id,
+					nextBody,
+					githubOptions(options),
+				);
+	if (written.type === "error") return publicationError(written.error.message);
+
 	return {
 		type: "ok",
-		status: {
-			postedCount: parsed.data.postedCount,
-			skippedDuplicateCount: parsed.data.skippedDuplicateCount,
-			fallbackOnlyCount: parsed.data.fallbackOnlyCount,
-			apiError: parsed.data.apiError,
-		},
+		inlineStatus,
+		summaryAction: existing.value === null ? "posted" : "updated",
 	};
 }
 
@@ -223,6 +264,135 @@ export function preserveActivityLog(
 			...entries.map((entry) => `- ${entry}`),
 		].join("\n") + "\n"
 	);
+}
+
+async function postInlineFindings(
+	ctx: Pick<RoasterContext, "github">,
+	payload: FindingsPayload,
+	options: PublishFindingsOptions,
+): Promise<PostInlineFindingsResult> {
+	if (payload.errorType !== null || payload.count === 0) return emptyInlineResult();
+
+	let changedFilesResult: Awaited<ReturnType<RoasterContext["github"]["getPrChangedFiles"]>>;
+	try {
+		changedFilesResult = await ctx.github.getPrChangedFiles(
+			options.prNumber,
+			githubOptions(options),
+		);
+	} catch (caught) {
+		return { ...emptyInlineResult(), apiError: caughtMessage(caught) };
+	}
+	if (changedFilesResult.type === "error") {
+		return { ...emptyInlineResult(), apiError: changedFilesResult.error.message };
+	}
+
+	let reviewCommentsResult: Awaited<ReturnType<RoasterContext["github"]["getPrReviewComments"]>>;
+	try {
+		reviewCommentsResult = await ctx.github.getPrReviewComments(
+			options.prNumber,
+			githubOptions(options),
+		);
+	} catch (caught) {
+		return { ...emptyInlineResult(), apiError: caughtMessage(caught) };
+	}
+	if (reviewCommentsResult.type === "error") {
+		return { ...emptyInlineResult(), apiError: reviewCommentsResult.error.message };
+	}
+
+	const classified = classifyInlineFindings(payload.findings, changedFilesResult.value);
+	const existingMarkers = new Set(
+		reviewCommentsResult.value
+			.filter((comment) => comment.author === BOT_LOGIN)
+			.flatMap((comment) => extractInlineMarkers(comment.body)),
+	);
+	const comments: PRInlineCommentInput[] = [];
+	let skippedDuplicateCount = 0;
+
+	for (const item of classified.inlineable) {
+		const marker = inlineMarkerForFinding(payload.reviewName, item.finding);
+		if (existingMarkers.has(marker)) {
+			skippedDuplicateCount += 1;
+			continue;
+		}
+		comments.push({
+			path: item.target.path,
+			line: item.target.line,
+			body: renderInlineBody(marker, item.finding, { reviewName: payload.reviewName }),
+		});
+	}
+
+	let apiError: string | null = null;
+	let postedCount = 0;
+	if (comments.length > 0) {
+		try {
+			const posted = await ctx.github.createPrReview(
+				options.prNumber,
+				comments,
+				githubOptions(options),
+			);
+			if (posted.type === "error") apiError = posted.error.message;
+			else postedCount = comments.length;
+		} catch (caught) {
+			apiError = caughtMessage(caught);
+		}
+	}
+
+	return {
+		postedCount,
+		skippedDuplicateCount,
+		fallbackOnlyCount: classified.fallbackOnly.length,
+		apiError,
+		fallbackOnly: classified.fallbackOnly,
+	};
+}
+
+function emptyInlineResult(): PostInlineFindingsResult {
+	return {
+		postedCount: 0,
+		skippedDuplicateCount: 0,
+		fallbackOnlyCount: 0,
+		apiError: null,
+		fallbackOnly: [],
+	};
+}
+
+function fallbackPayloadOptions(
+	options: Pick<PublishFindingsOptions, "fallbackReviewName" | "fallbackBaseRef">,
+): {
+	readonly fallbackReviewName?: string;
+	readonly fallbackBaseRef?: string;
+} {
+	return {
+		...(options.fallbackReviewName === undefined
+			? {}
+			: { fallbackReviewName: options.fallbackReviewName }),
+		...(options.fallbackBaseRef === undefined ? {} : { fallbackBaseRef: options.fallbackBaseRef }),
+	};
+}
+
+function githubOptions(options: Pick<PublishFindingsOptions, "cwd" | "env" | "signal">): {
+	readonly cwd: string;
+	readonly env?: NodeJS.ProcessEnv | undefined;
+	readonly signal?: AbortSignal | undefined;
+} {
+	return {
+		cwd: options.cwd,
+		...(options.env === undefined ? {} : { env: options.env }),
+		...(options.signal === undefined ? {} : { signal: options.signal }),
+	};
+}
+
+function activityLogEntry(runUrl: string | undefined): string {
+	const timestamp = new Date().toISOString();
+	return runUrl === undefined || runUrl.trim() === "" ? timestamp : `${timestamp} · ${runUrl}`;
+}
+
+function caughtMessage(caught: unknown): string {
+	return caught instanceof Error ? caught.message : String(caught);
+}
+
+function publicationError(message: string): PublishFindingsResult {
+	return { type: "error", message };
 }
 
 function renderInlinePostingStatus(status: InlinePostingStatus): string[] {
@@ -354,10 +524,6 @@ function parseJson(raw: string): JsonResult {
 
 function payloadError(message: string): FindingsPayloadParseResult {
 	return { type: "error", error: { type: "findings_payload_parse_error", message } };
-}
-
-function inlineStatusError(message: string): InlinePostingStatusParseResult {
-	return { type: "error", error: { type: "inline_posting_status_parse_error", message } };
 }
 
 function commentBodyError(message: string): FindingsCommentBodyParseResult {
