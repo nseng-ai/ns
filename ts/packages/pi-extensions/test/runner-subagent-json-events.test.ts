@@ -12,7 +12,7 @@ describe("runner subagent JSON event parser", () => {
 		const parser = createRunnerSubagentJsonEventParser({
 			title: "Child",
 			sessionFile: "/tmp/child.jsonl",
-			now: () => now,
+			clock: { nowMs: () => now },
 		});
 		const header = {
 			type: "session",
@@ -82,7 +82,7 @@ describe("runner subagent JSON event parser", () => {
 
 	test("tracks agent, turn, tool, elapsed, and stop-reason progress", () => {
 		let now = 10;
-		const parser = createRunnerSubagentJsonEventParser({ now: () => now });
+		const parser = createRunnerSubagentJsonEventParser({ clock: { nowMs: () => now } });
 
 		parser.pushChunk(jsonLine({ type: "agent_start" }));
 		parser.pushChunk(jsonLine({ type: "turn_start" }));
