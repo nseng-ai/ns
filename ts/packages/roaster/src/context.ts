@@ -2,15 +2,11 @@ import { NodeCommandExecApi, type CommandExecApi } from "@asdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@asdl/core/git";
 
 import { RealHarnessGateway, type HarnessGateway } from "./gateways/harness.ts";
-import {
-	RealRoasterGitHubGateway,
-	type GitHubGatewayOptions,
-	type RoasterGitHubGateway,
-} from "./gateways/github.ts";
+import { RealRoasterGitHubGateway, type RoasterGitHubGateway } from "./gateways/github.ts";
 import { RealLocalDiffGateway, type LocalDiffGateway } from "./gateways/local-diff.ts";
 import { RealReviewCatalogGateway, type ReviewCatalogGateway } from "./gateways/review-catalog.ts";
 
-export const ROASTER_BOT_LOGIN = "github-actions[bot]";
+export { ROASTER_BOT_LOGIN } from "./roaster-bot.ts";
 
 export interface RoasterContext {
 	readonly execApi: CommandExecApi;
@@ -42,6 +38,17 @@ export interface CreateRealRoasterContextOptions {
 export interface RoasterRunScope {
 	readonly cwd: string;
 	readonly env: NodeJS.ProcessEnv;
+	readonly signal?: AbortSignal | undefined;
+}
+
+export interface RoasterEnvironmentOptions {
+	readonly cwd: string;
+	readonly env: NodeJS.ProcessEnv;
+	readonly signal?: AbortSignal | undefined;
+}
+
+export interface RoasterCatalogOptions {
+	readonly cwd: string;
 	readonly signal?: AbortSignal | undefined;
 }
 
@@ -86,17 +93,14 @@ export function createRoasterRuntime(context: RoasterContext): RoasterRuntime {
 	};
 }
 
-export function environmentOptions(scope: RoasterRunScope): GitHubGatewayOptions {
+export function environmentOptions(scope: RoasterRunScope): RoasterEnvironmentOptions {
 	return {
 		...catalogOptions(scope),
 		env: scope.env,
 	};
 }
 
-export function catalogOptions(scope: RoasterRunScope): {
-	readonly cwd: string;
-	readonly signal?: AbortSignal;
-} {
+export function catalogOptions(scope: RoasterRunScope): RoasterCatalogOptions {
 	return {
 		cwd: scope.cwd,
 		...(scope.signal === undefined ? {} : { signal: scope.signal }),

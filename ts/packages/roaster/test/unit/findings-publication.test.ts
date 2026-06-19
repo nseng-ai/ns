@@ -15,14 +15,10 @@ import {
 	type FindingsPayload,
 } from "../../src/findings-publication.ts";
 import { FakeRoasterGitHubGateway, type GitHubGatewayOptions } from "../../src/gateways/github.ts";
-import type {
-	PRDiscussionComment,
-	PRInlineCommentInput,
-	ReviewFinding,
-	ReviewInputCoverage,
-} from "../../src/models.ts";
+import type { PRInlineCommentInput, ReviewFinding, ReviewInputCoverage } from "../../src/models.ts";
 import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
 import { buildFindingsEnvelope } from "../support/findings-envelope.ts";
+import { FailingDiscussionGateway } from "../support/github-gateways.ts";
 
 const WARNING_FINDING: ReviewFinding = {
 	path: "src/app.ts",
@@ -302,19 +298,6 @@ describe("preserveActivityLog", () => {
 		expect(merged.endsWith("\n")).toBe(true);
 	});
 });
-
-class FailingDiscussionGateway extends FakeRoasterGitHubGateway {
-	override async addPrDiscussionComment(
-		_prNumber: number,
-		_body: string,
-		_options: GitHubGatewayOptions,
-	): Promise<RoasterResult<PRDiscussionComment>> {
-		return {
-			type: "error",
-			error: { type: "github_cli_failed", message: "discussion write failed" },
-		};
-	}
-}
 
 class InlineFailureGateway extends FakeRoasterGitHubGateway {
 	override async createPrReview(
