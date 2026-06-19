@@ -6,6 +6,10 @@ import process from "node:process";
 import { formatErrorMessage } from "@asdl/core/primitives";
 import { formatElapsedMs } from "@asdl/core/time-format";
 import {
+	emitPiExtensionCommandFinished,
+	type PiExtensionCommandEventEmitter,
+} from "./extension-command-events.ts";
+import {
 	customMessageText,
 	truncateDisplayLine,
 	type CustomMessageContent,
@@ -108,6 +112,7 @@ export interface CommandContext {
 }
 
 export interface ExtensionAPI {
+	readonly events?: PiExtensionCommandEventEmitter | undefined;
 	registerCommand(
 		name: string,
 		options: {
@@ -494,6 +499,15 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 		},
 	});
 	emitCliCommandOutput(pi, ctx, details);
+	// Registered slash-command handlers do not produce a Pi lifecycle completion event;
+	// publish a custom extension-bus notification for observers such as worktree status.
+	emitPiExtensionCommandFinished(pi.events, {
+		commandName: piCommandName,
+		cwd: ctx.cwd,
+		source: `${spec.cliName} ${command.name}`,
+		status: "completed",
+		exitCode: details.exitCode,
+	});
 	if (isCliUsageError(details)) {
 		const restored = restoreCommandInvocationToEditor({
 			ctx,

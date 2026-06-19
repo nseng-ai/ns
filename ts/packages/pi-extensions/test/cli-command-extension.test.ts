@@ -16,6 +16,10 @@ import {
 	type CommandContext,
 	type ExtensionAPI,
 } from "../src/cli-command-extension.ts";
+import {
+	PI_EXTENSION_COMMAND_FINISHED_EVENT,
+	type PiExtensionCommandFinishedEvent,
+} from "../src/extension-command-events.ts";
 
 type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
 type MessageRenderer = Parameters<NonNullable<ExtensionAPI["registerMessageRenderer"]>>[1];
@@ -59,7 +63,16 @@ interface RunCall {
 class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly sentMessages: CustomMessage[] = [];
+	readonly commandFinishedEvents: PiExtensionCommandFinishedEvent[] = [];
 	readonly messageRenderers = new Map<string, MessageRenderer>();
+	readonly events = {
+		emit: (
+			event: typeof PI_EXTENSION_COMMAND_FINISHED_EVENT,
+			payload: PiExtensionCommandFinishedEvent,
+		): void => {
+			if (event === PI_EXTENSION_COMMAND_FINISHED_EVENT) this.commandFinishedEvents.push(payload);
+		},
+	};
 	readonly registerMessageRenderer?: (customType: string, renderer: MessageRenderer) => void;
 	readonly sendMessage?: (message: CustomMessage) => void;
 
@@ -353,6 +366,29 @@ describe("cli command extension helper", () => {
 			pi,
 			"stdout:\nhttps://preview.example\n\nstderr:\nwarning from cli\n",
 		);
+	});
+
+	test("emits command-finished event after the CLI runner completes", async () => {
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			runCli: (_args, deps) => {
+				deps.stdout("updated\n");
+				return 0;
+			},
+		});
+		const { ctx } = createContext();
+
+		await commandFor(pi, "dev:preview-status").handler("--json", ctx);
+
+		expect(pi.commandFinishedEvents).toEqual([
+			{
+				commandName: "dev:preview-status",
+				cwd: "/repo",
+				source: "fake-cli preview-status",
+				status: "completed",
+				exitCode: 0,
+			},
+		]);
 	});
 
 	test("emits configured start feedback before waiting for idle", async () => {
