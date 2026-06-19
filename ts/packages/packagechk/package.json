@@ -16,7 +16,8 @@
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/packagechk/test"
   },
   "dependencies": {
+    "@asdl/clinkr": "workspace:*",
     "@asdl/core": "workspace:*",
-    "commander": "catalog:"
+    "zod": "catalog:"
   }
 }

@@ -95,6 +95,90 @@ describe("root group options", () => {
 	});
 });
 
+describe("default raw commands", () => {
+	function buildDefaultTree(): ClinkrGroup<ProbeContext> {
+		const root = new ClinkrGroup<ProbeContext>({
+			name: "root",
+			version: "1.2.3",
+			runtimeInfo: () => "runtime: test\n",
+		});
+		root.defaultCommand({
+			description: "Run the default action.",
+			schema: z.object({
+				name: z.string(),
+				registry: z.array(z.string()).optional(),
+				json: z.boolean().optional(),
+			}),
+			positionals: { name: { position: 0 } },
+			isRawExit: true,
+			run: async (ctx, request) => {
+				ctx.calls.push(
+					`default:${request.name}:${(request.registry ?? []).join(",")}:${request.json === true}`,
+				);
+				return 7;
+			},
+		});
+		const sub = new ClinkrGroup<ProbeContext>({ name: "sub" });
+		sub.command({
+			name: "inner",
+			schema: z.object({}),
+			handler: async (ctx) => {
+				ctx.calls.push("inner");
+				return ok({});
+			},
+		});
+		root.group(sub);
+		return root;
+	}
+
+	test("dispatches root positionals and options through a raw default command", async () => {
+		const context: ProbeContext = { calls: [] };
+		const run = await runForTest(
+			buildDefaultTree(),
+			["pkg", "--registry", "pypi", "--registry", "npm", "--json"],
+			{ context },
+		);
+
+		expect(run.exitCode).toBe(7);
+		expect(run.stdout).toBe("");
+		expect(run.stderr).toBe("");
+		expect(context.calls).toEqual(["default:pkg:pypi,npm:true"]);
+	});
+
+	test("root runtime and help still win over default parsing", async () => {
+		const runtime = await runForTest(buildDefaultTree(), ["--runtime"], {
+			context: { calls: [] },
+		});
+		expect(runtime).toMatchObject({ exitCode: 0, stdout: "runtime: test\n", stderr: "" });
+
+		const help = await runForTest(buildDefaultTree(), ["--help"], { context: { calls: [] } });
+		expect(help.exitCode).toBe(0);
+		expect(help.stdout).toContain("Usage:");
+		expect(help.stdout).toContain("--registry");
+		expect(help.stdout).toContain("sub");
+		expect(help.stderr).toBe("");
+	});
+
+	test("bare root with required default positional exits 2", async () => {
+		const run = await runForTest(buildDefaultTree(), [], { context: { calls: [] } });
+
+		expect(run.exitCode).toBe(2);
+		expect(run.stdout).toBe("");
+		expect(run.stderr).toContain("name");
+	});
+
+	test("subcommands win over root default parsing", async () => {
+		const context: ProbeContext = { calls: [] };
+		const run = await runForTest(buildDefaultTree(), ["sub", "inner", "--format", "json"], {
+			context,
+		});
+
+		expect(run.exitCode).toBe(0);
+		expect(context.calls).toEqual(["inner"]);
+		expect(parseEnvelope(run.stdout).data).toEqual({});
+	});
+});
+
 describe("nested groups", () => {
 	test("nested subgroup commands dispatch with parsed requests", async () => {
 		const context: ProbeContext = { calls: [] };

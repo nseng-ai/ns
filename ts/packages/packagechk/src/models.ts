@@ -1,7 +1,7 @@
 export const REGISTRIES = ["pypi", "npm", "brew"] as const;
 export type Registry = (typeof REGISTRIES)[number];
 
-export const CHECK_STATUSES = ["available", "taken", "invalid", "unsupported", "error"] as const;
+export const CHECK_STATUSES = ["available", "taken", "invalid", "error"] as const;
 export type CheckStatus = (typeof CHECK_STATUSES)[number];
 
 export interface RegistryCheckResult {
@@ -68,19 +68,6 @@ export function invalidResult(
 	};
 }
 
-export function unsupportedResult(
-	registry: Registry,
-	options: { inputName: string; message: string },
-): RegistryCheckResult {
-	return {
-		registry,
-		inputName: options.inputName,
-		lookupName: options.inputName,
-		status: "unsupported",
-		message: options.message,
-	};
-}
-
 export function errorResult(
 	registry: Registry,
 	options: { inputName: string; lookupName: string; message: string },
@@ -97,7 +84,6 @@ export function errorResult(
 export function reportExitCode(report: PackageCheckReport): number {
 	const statuses = new Set(report.results.map((result) => result.status));
 	if (statuses.has("invalid")) return 2;
-	if (statuses.has("unsupported")) return 2;
 	if (statuses.has("error")) return 2;
 	if (statuses.has("taken")) return 1;
 	return 0;
