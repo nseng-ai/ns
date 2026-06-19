@@ -65,8 +65,9 @@ def test_roaster_workflow_publishes_findings_once_with_fallback_metadata() -> No
     assert workflow.count(f"{PNPM_ROASTER} exec publish") == 1
     assert '--review-name "$REVIEW_KEY"' in workflow
     assert '--base-ref "$BASE_REF"' in workflow
-    assert '--run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"' in workflow
-    assert 'printf \'%s\' "$output" \\\n            |' in workflow
+    run_url_arg = '--run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"'
+    assert run_url_arg in workflow
+    assert "printf '%s' \"$output\" \\\n            |" in workflow
     assert publish_index > workflow.index('echo "--- end roaster envelope ---"')
     assert "roaster_output_" + "file" not in workflow
     assert "inline_result_" + "file" not in workflow
