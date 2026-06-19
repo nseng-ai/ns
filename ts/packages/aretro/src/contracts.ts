@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+import { payloadReferenceSchema, type PayloadReference } from "./payloads/models.ts";
+
+export { payloadReferenceSchema };
+export type { PayloadReference };
+
 export type BranchSource = "explicit" | "git_current_branch" | "detached" | "unresolved";
 
 export const collectEvidenceErrorSchema = z.object({
@@ -113,20 +118,6 @@ export const evidenceItemDtoSchema = z.object({
 });
 
 export type EvidenceItemDto = z.infer<typeof evidenceItemDtoSchema>;
-
-export const payloadReferenceSchema = z.object({
-	payload_path: z.string(),
-	session_id: z.string(),
-	descriptor: z.string(),
-	role: z.enum(["raw", "summary", "log"]),
-	created_at_utc: z.string(),
-	sequence: z.number(),
-	payload_bytes: z.number(),
-	content_type: z.string(),
-	extension: z.enum(["json", "txt"]),
-});
-
-export type PayloadReference = z.infer<typeof payloadReferenceSchema>;
 
 export const collectEvidenceResultSchema = z.object({
 	success: z.boolean(),
