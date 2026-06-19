@@ -1,7 +1,8 @@
 import { existsSync } from "node:fs";
-import { spawnSync } from "node:child_process";
 
 import {
+	classifySqliteJsonResult,
+	createGraphiteSqliteJsonRunner,
 	GRAPHITE_BRANCH_METADATA_QUERY,
 	GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY,
 	graphiteMetadataDbPath,
@@ -17,6 +18,7 @@ import {
 	type GraphiteTrunkMarkerStatus,
 	type GraphiteTopology,
 	type GraphiteWalkTermination,
+	type SqliteJsonRunner,
 } from "@asdl/core/graphite-metadata";
 import { isRecord } from "@asdl/core/primitives";
 import { NodeCommandExecApi, type CommandExecApi } from "@asdl/core/exec";
@@ -24,7 +26,6 @@ import { NodeCommandExecApi, type CommandExecApi } from "@asdl/core/exec";
 import type { SlotGitGateway } from "./git.ts";
 
 const SLOT_GT_TIMEOUT_MS = 10_000;
-const SQLITE_QUERY_TIMEOUT_MS = 1_000;
 
 export interface GtCommandFailure {
 	message: string;
@@ -99,17 +100,6 @@ export type GraphiteMetadataJsonQueryResult =
 export interface GraphiteMetadataDbAccess {
 	exists(dbPath: string): boolean;
 	queryJson(dbPath: string, query: string): GraphiteMetadataJsonQueryResult;
-}
-
-interface SqliteJsonRunnerResult {
-	stdout: string;
-	stderr: string;
-	status: number | null;
-	error?: unknown;
-}
-
-interface SqliteJsonRunner {
-	run(dbPath: string, query: string): SqliteJsonRunnerResult;
 }
 
 export class RealSlotGtGateway implements SlotGtGateway {
@@ -269,7 +259,7 @@ function nonemptyLines(text: string): readonly string[] {
 class RealGraphiteMetadataDbAccess implements GraphiteMetadataDbAccess {
 	private readonly sqliteRunner: SqliteJsonRunner;
 
-	constructor(sqliteRunner: SqliteJsonRunner = new RealSqliteJsonRunner()) {
+	constructor(sqliteRunner: SqliteJsonRunner = createGraphiteSqliteJsonRunner()) {
 		this.sqliteRunner = sqliteRunner;
 	}
 
@@ -279,21 +269,6 @@ class RealGraphiteMetadataDbAccess implements GraphiteMetadataDbAccess {
 
 	queryJson(dbPath: string, query: string): GraphiteMetadataJsonQueryResult {
 		return runSqliteJsonQuery(this.sqliteRunner, dbPath, query);
-	}
-}
-
-class RealSqliteJsonRunner implements SqliteJsonRunner {
-	run(dbPath: string, query: string): SqliteJsonRunnerResult {
-		const result = spawnSync("sqlite3", ["-json", dbPath, query], {
-			encoding: "utf8",
-			timeout: SQLITE_QUERY_TIMEOUT_MS,
-		});
-		return {
-			stdout: result.stdout,
-			stderr: result.stderr,
-			status: result.status,
-			error: result.error,
-		};
 	}
 }
 
@@ -368,38 +343,43 @@ function runSqliteJsonQuery(
 	dbPath: string,
 	query: string,
 ): GraphiteMetadataJsonQueryResult {
-	const result = sqliteRunner.run(dbPath, query);
-	if (result.error !== undefined && result.error !== null)
-		return {
-			type: "failure",
-			failure: {
-				message:
-					errorCodeFromValue(result.error) === "ENOENT"
-						? "sqlite3 command not found while reading Graphite metadata"
-						: `Graphite metadata store unreadable: ${errorMessageFromValue(result.error)}`,
-				returnCode: null,
-			},
-		};
-	if (result.status !== 0)
-		return {
-			type: "failure",
-			failure: {
-				message: result.stderr.trim() || "Graphite metadata store unreadable",
-				returnCode: result.status,
-			},
-		};
-	try {
-		return { type: "success", data: JSON.parse(result.stdout.trim() || "[]") };
-	} catch {
-		return {
-			type: "failure",
-			failure: { message: "Graphite metadata sqlite output was not valid JSON", returnCode: null },
-		};
+	const outcome = classifySqliteJsonResult(sqliteRunner.run(dbPath, query));
+	switch (outcome.type) {
+		case "success":
+			return { type: "success", data: outcome.data };
+		case "command-missing":
+			return {
+				type: "failure",
+				failure: {
+					message: "sqlite3 command not found while reading Graphite metadata",
+					returnCode: null,
+				},
+			};
+		case "exec-error":
+			return {
+				type: "failure",
+				failure: {
+					message: `Graphite metadata store unreadable: ${errorMessageFromValue(outcome.error)}`,
+					returnCode: null,
+				},
+			};
+		case "nonzero-exit":
+			return {
+				type: "failure",
+				failure: {
+					message: outcome.stderr.trim() || "Graphite metadata store unreadable",
+					returnCode: outcome.status,
+				},
+			};
+		case "invalid-json":
+			return {
+				type: "failure",
+				failure: {
+					message: "Graphite metadata sqlite output was not valid JSON",
+					returnCode: null,
+				},
+			};
 	}
-}
-
-function errorCodeFromValue(value: unknown): string | undefined {
-	return isRecord(value) && typeof value.code === "string" ? value.code : undefined;
 }
 
 function errorMessageFromValue(value: unknown): string {

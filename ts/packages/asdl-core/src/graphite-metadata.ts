@@ -1,6 +1,73 @@
+import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 
 import { isRecord } from "./primitives.ts";
+
+export const GRAPHITE_METADATA_SQLITE_QUERY_TIMEOUT_MS = 1_000;
+
+/** Raw result of executing a `sqlite3 -json` query, before classification. */
+export interface SqliteJsonRunResult {
+	readonly stdout: string;
+	readonly stderr: string;
+	readonly status: number | null;
+	readonly error?: unknown;
+}
+
+/** Seam over the `sqlite3 -json` invocation so callers can fake the process. */
+export interface SqliteJsonRunner {
+	run(dbPath: string, query: string): SqliteJsonRunResult;
+}
+
+export function createGraphiteSqliteJsonRunner(
+	timeoutMs: number = GRAPHITE_METADATA_SQLITE_QUERY_TIMEOUT_MS,
+): SqliteJsonRunner {
+	return {
+		run(dbPath, query) {
+			const result = spawnSync("sqlite3", ["-json", dbPath, query], {
+				encoding: "utf8",
+				timeout: timeoutMs,
+			});
+			return {
+				stdout: result.stdout,
+				stderr: result.stderr,
+				status: result.status,
+				error: result.error,
+			};
+		},
+	};
+}
+
+/**
+ * Backend-neutral classification of a `sqlite3 -json` result. Callers map each
+ * variant to their own domain failure type; the spawn + branching kernel is
+ * shared so it cannot drift between consumers.
+ */
+export type SqliteJsonOutcome =
+	| { readonly type: "success"; readonly data: unknown }
+	| { readonly type: "command-missing" }
+	| { readonly type: "exec-error"; readonly error: unknown }
+	| { readonly type: "nonzero-exit"; readonly status: number | null; readonly stderr: string }
+	| { readonly type: "invalid-json" };
+
+export function classifySqliteJsonResult(result: SqliteJsonRunResult): SqliteJsonOutcome {
+	if (result.error !== undefined && result.error !== null) {
+		return sqliteErrorCode(result.error) === "ENOENT"
+			? { type: "command-missing" }
+			: { type: "exec-error", error: result.error };
+	}
+	if (result.status !== 0) {
+		return { type: "nonzero-exit", status: result.status, stderr: result.stderr };
+	}
+	try {
+		return { type: "success", data: JSON.parse(result.stdout.trim() || "[]") };
+	} catch {
+		return { type: "invalid-json" };
+	}
+}
+
+function sqliteErrorCode(value: unknown): string | undefined {
+	return isRecord(value) && typeof value.code === "string" ? value.code : undefined;
+}
 
 const GRAPHITE_TRUNK_VALIDATION_RESULT = "TRUNK";
 const REQUIRED_BRANCH_METADATA_COLUMNS = [
