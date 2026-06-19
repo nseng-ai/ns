@@ -1,6 +1,7 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "vitest";
 
 import { stripTerminalEscapes } from "@asdl/core/exec";
+import { createManualTimerHarness } from "@asdl/core/testing";
 import type { LocalWorktreeStatus } from "@asdl/ccc/worktree-status";
 import {
 	deferred,
@@ -21,75 +22,77 @@ import worktreeStatusExtension, {
 
 describe("worktree status refresh timer", () => {
 	test("startup refreshes immediately and timer refreshes after the active interval", async () => {
-		vi.useFakeTimers();
-		try {
-			const timerLocalLoaded = deferred<void>();
-			const pi = new LifecycleFakePi([]);
-			const loaders = fakeWorktreeStatusLoaders({
-				localStatuses: [
-					queued(localStatus()),
-					queued(localStatus(), () => timerLocalLoaded.resolve()),
-				],
-				ghStatuses: [queued({ type: "no-pr" })],
-			});
-			const ctx = testContext();
+		const harness = createManualTimerHarness();
+		const timerLocalLoaded = deferred<void>();
+		const pi = new LifecycleFakePi([]);
+		const loaders = fakeWorktreeStatusLoaders({
+			localStatuses: [
+				queued(localStatus()),
+				queued(localStatus(), () => timerLocalLoaded.resolve()),
+			],
+			ghStatuses: [queued({ type: "no-pr" })],
+		});
+		const ctx = testContext();
 
-			worktreeStatusExtension(pi as ExtensionAPI, { ...loaders, refreshIntervalMs: 1_000 });
-			await pi.sessionStart?.({}, ctx);
-			expect(loaders.localCalls).toHaveLength(1);
-			expect(loaders.ghCalls).toHaveLength(1);
+		worktreeStatusExtension(pi as ExtensionAPI, {
+			...loaders,
+			timers: harness.timers,
+			clock: harness.clock,
+			refreshIntervalMs: 1_000,
+		});
+		await pi.sessionStart?.({}, ctx);
+		expect(loaders.localCalls).toHaveLength(1);
+		expect(loaders.ghCalls).toHaveLength(1);
 
-			await vi.advanceTimersByTimeAsync(1_000);
-			await timerLocalLoaded.promise;
-			await flushPromises();
+		harness.advanceMs(1_000);
+		await timerLocalLoaded.promise;
+		await flushPromises();
 
-			expect(loaders.localCalls).toHaveLength(2);
-			expect(loaders.ghCalls).toHaveLength(1);
-			pi.assertDone();
-			await pi.sessionShutdown?.();
-		} finally {
-			vi.useRealTimers();
-		}
+		expect(loaders.localCalls).toHaveLength(2);
+		expect(loaders.ghCalls).toHaveLength(1);
+		pi.assertDone();
+		await pi.sessionShutdown?.();
 	});
 
 	test("timer waits for an in-flight refresh before scheduling the next tick", async () => {
-		vi.useFakeTimers();
-		try {
-			const firstTimerLocalResult = deferred<LocalWorktreeStatus>();
-			const secondTimerLocalLoaded = deferred<void>();
-			const pi = new LifecycleFakePi([]);
-			const loaders = fakeWorktreeStatusLoaders({
-				localStatuses: [
-					queued(localStatus()),
-					queued(firstTimerLocalResult.promise),
-					queued(localStatus(), () => secondTimerLocalLoaded.resolve()),
-				],
-				ghStatuses: [queued({ type: "no-pr" })],
-			});
-			const ctx = testContext();
+		const harness = createManualTimerHarness();
+		const firstTimerLocalResult = deferred<LocalWorktreeStatus>();
+		const secondTimerLocalLoaded = deferred<void>();
+		const pi = new LifecycleFakePi([]);
+		const loaders = fakeWorktreeStatusLoaders({
+			localStatuses: [
+				queued(localStatus()),
+				queued(firstTimerLocalResult.promise),
+				queued(localStatus(), () => secondTimerLocalLoaded.resolve()),
+			],
+			ghStatuses: [queued({ type: "no-pr" })],
+		});
+		const ctx = testContext();
 
-			worktreeStatusExtension(pi as ExtensionAPI, { ...loaders, refreshIntervalMs: 1_000 });
-			await pi.sessionStart?.({}, ctx);
-			await vi.advanceTimersByTimeAsync(1_000);
-			await flushPromises();
-			expect(loaders.localCalls).toHaveLength(2);
+		worktreeStatusExtension(pi as ExtensionAPI, {
+			...loaders,
+			timers: harness.timers,
+			clock: harness.clock,
+			refreshIntervalMs: 1_000,
+		});
+		await pi.sessionStart?.({}, ctx);
+		harness.advanceMs(1_000);
+		await flushPromises();
+		expect(loaders.localCalls).toHaveLength(2);
 
-			await vi.advanceTimersByTimeAsync(5_000);
-			await flushPromises();
-			expect(loaders.localCalls).toHaveLength(2);
+		harness.advanceMs(5_000);
+		await flushPromises();
+		expect(loaders.localCalls).toHaveLength(2);
 
-			firstTimerLocalResult.resolve(localStatus());
-			await flushPromises();
-			await vi.advanceTimersByTimeAsync(1_000);
-			await secondTimerLocalLoaded.promise;
-			await flushPromises();
+		firstTimerLocalResult.resolve(localStatus());
+		await flushPromises();
+		harness.advanceMs(1_000);
+		await secondTimerLocalLoaded.promise;
+		await flushPromises();
 
-			expect(loaders.localCalls).toHaveLength(3);
-			pi.assertDone();
-			await pi.sessionShutdown?.();
-		} finally {
-			vi.useRealTimers();
-		}
+		expect(loaders.localCalls).toHaveLength(3);
+		pi.assertDone();
+		await pi.sessionShutdown?.();
 	});
 
 	test("manual refresh after branch identity changes uses the new branch and clears stale GH state", async () => {

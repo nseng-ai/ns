@@ -1,4 +1,5 @@
-import { unrefTimer } from "./timers.ts";
+import type { Clock } from "@asdl/core/clock";
+import type { ScheduledTimer, TimerScheduler } from "@asdl/core/timers";
 
 export const WORKTREE_STATUS_DORMANT_AFTER_MS = 120_000;
 
@@ -12,27 +13,22 @@ export interface WorktreeStatusActivityOptions {
 	readonly shouldRefreshOnWake?: boolean;
 }
 
-export interface WorktreeStatusActivityDependencies {
-	setTimeout(callback: () => void, ms: number): ReturnType<typeof setTimeout>;
-	clearTimeout(timeout: ReturnType<typeof setTimeout>): void;
-	now(): number;
-}
-
 export function createWorktreeStatusActivityController(options: {
-	dependencies: WorktreeStatusActivityDependencies;
+	timers: TimerScheduler;
+	clock: Clock;
 	isActive(): boolean;
 	isBusy(): boolean;
 	onDormantChange(isDormant: boolean): void;
 	onWakeRefresh(): void;
 }): WorktreeStatusActivityController {
-	let lastActivityAtMs = options.dependencies.now();
+	let lastActivityAtMs = options.clock.nowMs();
 	let isDormant = false;
 	let isClosed = false;
-	let dormancyTimer: ReturnType<typeof setTimeout> | undefined;
+	let dormancyTimer: ScheduledTimer | undefined;
 
 	function recordActivity(activityOptions: WorktreeStatusActivityOptions = {}): void {
 		if (isClosed || !options.isActive()) return;
-		lastActivityAtMs = options.dependencies.now();
+		lastActivityAtMs = options.clock.nowMs();
 		if (isDormant) {
 			isDormant = false;
 			options.onDormantChange(false);
@@ -46,15 +42,14 @@ export function createWorktreeStatusActivityController(options: {
 		if (isClosed || !options.isActive()) return;
 		const delayMs = Math.max(
 			0,
-			lastActivityAtMs + WORKTREE_STATUS_DORMANT_AFTER_MS - options.dependencies.now(),
+			lastActivityAtMs + WORKTREE_STATUS_DORMANT_AFTER_MS - options.clock.nowMs(),
 		);
-		dormancyTimer = options.dependencies.setTimeout(checkDormancy, delayMs);
-		unrefTimer(dormancyTimer);
+		dormancyTimer = options.timers.setTimeout(checkDormancy, delayMs);
 	}
 
 	function clearDormancyTimer(): void {
 		if (dormancyTimer === undefined) return;
-		options.dependencies.clearTimeout(dormancyTimer);
+		dormancyTimer.cancel();
 		dormancyTimer = undefined;
 	}
 
@@ -62,12 +57,12 @@ export function createWorktreeStatusActivityController(options: {
 		dormancyTimer = undefined;
 		if (isClosed || !options.isActive()) return;
 		if (isBusySafely()) {
-			lastActivityAtMs = options.dependencies.now();
+			lastActivityAtMs = options.clock.nowMs();
 			scheduleDormancyCheck();
 			return;
 		}
 
-		const idleMs = options.dependencies.now() - lastActivityAtMs;
+		const idleMs = options.clock.nowMs() - lastActivityAtMs;
 		if (idleMs < WORKTREE_STATUS_DORMANT_AFTER_MS) {
 			scheduleDormancyCheck();
 			return;

@@ -68,6 +68,11 @@ export interface ManualTimerScheduler {
 	pendingTimerCount(): number;
 }
 
+export interface ManualTimerHarness extends ManualTimerScheduler {
+	readonly clock: Clock;
+	nowMs(): number;
+}
+
 export interface StepOptions extends ResultFields {}
 
 export interface ScriptStep extends ResultFields {
@@ -202,7 +207,11 @@ export function createManualClock(startMs: number): ManualClock {
 }
 
 export function createManualTimerScheduler(): ManualTimerScheduler {
-	let currentMs = 0;
+	return createManualTimerHarness();
+}
+
+export function createManualTimerHarness(startMs = 0): ManualTimerHarness {
+	let currentMs = validateFiniteMs(startMs, "startMs");
 	let nextId = 0;
 	const scheduledTimers: ManualScheduledTimerState[] = [];
 
@@ -228,6 +237,12 @@ export function createManualTimerScheduler(): ManualTimerScheduler {
 	}
 
 	return {
+		clock: {
+			nowMs: () => currentMs,
+		},
+		nowMs() {
+			return currentMs;
+		},
 		timers: {
 			setTimeout(callback, delayMs): ScheduledTimer {
 				const normalizedDelayMs = Math.max(0, validateFiniteMs(delayMs, "delayMs"));
