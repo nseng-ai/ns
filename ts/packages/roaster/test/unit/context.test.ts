@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { createRoasterRuntime } from "../../src/context.ts";
+import { catalogOptions, createRoasterRuntime, environmentOptions } from "../../src/context.ts";
 import type { RoasterResult } from "../../src/failures.ts";
 import type { HarnessGateway, RunReviewOptions } from "../../src/gateways/harness.ts";
 import type {
@@ -155,34 +155,43 @@ describe("createRoasterRuntime", () => {
 		});
 
 		const ctx = createRoasterRuntime(context);
+		const runOptions = environmentOptions(ctx.runScope);
+		const catalogRunOptions = catalogOptions(ctx.runScope);
 
-		await ctx.localDiff.loadDiff({ baseRef: "origin/main" });
-		await ctx.reviewCatalog.listReviewKeys();
-		await ctx.reviewCatalog.loadReviewSource({ key: "typescript-style" });
-		await ctx.harness.runReview({
-			model: "sonnet",
-			reviewDefinition: sampleReviewDefinition,
-			target: { localDiff: sampleDiff },
-		});
-		await ctx.github.getPrChangedFiles(47);
-		await ctx.github.getPrReviewComments(47);
-		await ctx.github.createPrReview(47, []);
+		expect(ctx.localDiff).toBe(localDiff);
+		expect(ctx.reviewCatalog).toBe(reviewCatalog);
+		expect(ctx.github).toBe(github);
+		expect(ctx.harness).toBe(harness);
+		expect(ctx.runScope).toEqual({ cwd: "/repo", env, signal });
+
+		await ctx.localDiff.loadDiff({ ...runOptions, baseRef: "origin/main" });
+		await ctx.reviewCatalog.listReviewKeys(catalogRunOptions);
+		await ctx.reviewCatalog.loadReviewSource({ ...catalogRunOptions, key: "typescript-style" });
+		await ctx.harness.runReview(
+			{
+				model: "sonnet",
+				reviewDefinition: sampleReviewDefinition,
+				target: { localDiff: sampleDiff },
+			},
+			runOptions,
+		);
+		await ctx.github.getPrChangedFiles(47, runOptions);
+		await ctx.github.getPrReviewComments(47, runOptions);
+		await ctx.github.createPrReview(47, [], runOptions);
 		await ctx.github.findPrDiscussionCommentByMarker({
+			...runOptions,
 			prNumber: 47,
 			marker: "<!-- roaster:typescript-style -->",
 			authorLogin: "github-actions[bot]",
 		});
-		await ctx.github.addPrDiscussionComment(47, "body");
-		await ctx.github.updatePrDiscussionComment(1, "body");
+		await ctx.github.addPrDiscussionComment(47, "body", runOptions);
+		await ctx.github.updatePrDiscussionComment(1, "body", runOptions);
 
 		ctx.stderr("diagnostic");
 		expect(await ctx.stdin()).toBe("envelope");
 		expect(stderr).toEqual(["diagnostic"]);
 		expect("execApi" in ctx).toBe(false);
 		expect("gitGateway" in ctx).toBe(false);
-		expect("cwd" in ctx).toBe(false);
-		expect("env" in ctx).toBe(false);
-		expect("signal" in ctx).toBe(false);
 		expect("stdout" in ctx).toBe(false);
 		expect(localDiff.calls[0]).toMatchObject({ cwd: "/repo", baseRef: "origin/main" });
 		expect(localDiff.calls[0]?.env).toBe(env);

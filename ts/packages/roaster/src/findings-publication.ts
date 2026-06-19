@@ -6,7 +6,8 @@ import {
 import { formatZodError } from "@asdl/core/primitives";
 import { z } from "zod";
 
-import type { RoasterGitHub } from "./context.ts";
+import { environmentOptions, type RoasterRunScope } from "./context.ts";
+import type { RoasterGitHubGateway } from "./gateways/github.ts";
 import {
 	parseFindingsCommentBody,
 	preserveActivityLog,
@@ -133,20 +134,24 @@ export type PublishFindingsResult =
 	  };
 
 export async function publishFindings(
-	ctx: { readonly github: RoasterGitHub },
+	ctx: { readonly github: RoasterGitHubGateway; readonly runScope: RoasterRunScope },
 	options: PublishFindingsOptions,
 ): Promise<PublishFindingsResult> {
 	const parsed = parseFindingsPayloadResult(options.envelope, fallbackPayloadOptions(options));
 	if (parsed.type === "error")
 		return publicationError("payload_parse", "invalid_payload", parsed.error.message);
 
-	const inlineStatus = await postInlineFindings(ctx, parsed.payload, options);
+	const inlineStatus = await postInlineFindings(ctx, parsed.payload, {
+		prNumber: options.prNumber,
+		runScope: ctx.runScope,
+	});
 	const renderedBody = renderFindingsComment(parsed.payload, { inlineStatus });
 	const parsedBody = parseFindingsCommentBody(renderedBody);
 	if (parsedBody.type === "error")
 		return publicationError("comment_body_parse", "invalid_comment_body", parsedBody.error.message);
 
 	const existing = await ctx.github.findPrDiscussionCommentByMarker({
+		...environmentOptions(ctx.runScope),
 		prNumber: options.prNumber,
 		marker: parsedBody.parsed.marker,
 		authorLogin: BOT_LOGIN,
@@ -159,10 +164,11 @@ export async function publishFindings(
 		parsedBody.parsed.body,
 		activityLogEntry(options.runUrl),
 	);
+	const githubOptions = environmentOptions(ctx.runScope);
 	const written =
 		existing.value === null
-			? await ctx.github.addPrDiscussionComment(options.prNumber, nextBody)
-			: await ctx.github.updatePrDiscussionComment(existing.value.id, nextBody);
+			? await ctx.github.addPrDiscussionComment(options.prNumber, nextBody, githubOptions)
+			: await ctx.github.updatePrDiscussionComment(existing.value.id, nextBody, githubOptions);
 	if (written.type === "error")
 		return publicationError("summary_write", "github_write_failed", written.error.message);
 
