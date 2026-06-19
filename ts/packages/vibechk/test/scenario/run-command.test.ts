@@ -31,6 +31,7 @@ describe("vibechk run command", () => {
 	it("successful run writes bundle, prints run id, and can be shown", async () => {
 		const planPath = join(tmpRoot, "plan.md");
 		await writeFile(planPath, "# Plan\n\nDo the thing.\n", "utf-8");
+		const workdir = await createWorkdir(tmpRoot, "workdir");
 
 		const fakeRunner = new FakeRunner({
 			changesByWorkdir: { workdir: "result content\n" },
@@ -55,17 +56,7 @@ describe("vibechk run command", () => {
 		let idIndex = 0;
 
 		const exitCode = await runCli(
-			[
-				"run",
-				"--plan",
-				planPath,
-				"--workdir",
-				join(tmpRoot, "workdir"),
-				"--runner",
-				"fake",
-				"--store",
-				storeRoot,
-			],
+			["run", "--plan", planPath, "--workdir", workdir, "--runner", "fake", "--store", storeRoot],
 			{
 				cwd: tmpRoot,
 				env: { HOME: "/home/tester" },
@@ -100,6 +91,7 @@ describe("vibechk run command", () => {
 	it("runner failure persists bundle and returns non-zero exit code", async () => {
 		const planPath = join(tmpRoot, "plan.md");
 		await writeFile(planPath, "# Plan\n", "utf-8");
+		const workdir = await createWorkdir(tmpRoot, "workdir");
 
 		const fakeRunner = new FakeRunner({
 			exitCode: 7,
@@ -118,17 +110,7 @@ describe("vibechk run command", () => {
 		const stderr: string[] = [];
 
 		const exitCode = await runCli(
-			[
-				"run",
-				"--plan",
-				planPath,
-				"--workdir",
-				join(tmpRoot, "workdir"),
-				"--runner",
-				"fake",
-				"--store",
-				storeRoot,
-			],
+			["run", "--plan", planPath, "--workdir", workdir, "--runner", "fake", "--store", storeRoot],
 			{
 				cwd: tmpRoot,
 				env: { HOME: "/home/tester" },
@@ -156,6 +138,7 @@ describe("vibechk run command", () => {
 	it("no-change run skips branch creation and records null result_branch", async () => {
 		const planPath = join(tmpRoot, "plan.md");
 		await writeFile(planPath, "# Plan\n", "utf-8");
+		const workdir = await createWorkdir(tmpRoot, "workdir");
 
 		const fakeRunner = new FakeRunner({});
 
@@ -170,17 +153,7 @@ describe("vibechk run command", () => {
 		const stderr: string[] = [];
 
 		const exitCode = await runCli(
-			[
-				"run",
-				"--plan",
-				planPath,
-				"--workdir",
-				join(tmpRoot, "workdir"),
-				"--runner",
-				"fake",
-				"--store",
-				storeRoot,
-			],
+			["run", "--plan", planPath, "--workdir", workdir, "--runner", "fake", "--store", storeRoot],
 			{
 				cwd: tmpRoot,
 				env: { HOME: "/home/tester" },
@@ -250,6 +223,7 @@ describe("vibechk run command", () => {
 	it("dirty workdir rejection before runner", async () => {
 		const planPath = join(tmpRoot, "plan.md");
 		await writeFile(planPath, "# Plan\n", "utf-8");
+		const workdir = await createWorkdir(tmpRoot, "workdir");
 
 		const fakeRunner = new FakeRunner({});
 		const fakeGit = new FakeGitGateway({
@@ -261,17 +235,7 @@ describe("vibechk run command", () => {
 		const stderr: string[] = [];
 
 		const exitCode = await runCli(
-			[
-				"run",
-				"--plan",
-				planPath,
-				"--workdir",
-				join(tmpRoot, "workdir"),
-				"--runner",
-				"fake",
-				"--store",
-				storeRoot,
-			],
+			["run", "--plan", planPath, "--workdir", workdir, "--runner", "fake", "--store", storeRoot],
 			{
 				cwd: tmpRoot,
 				env: { HOME: "/home/tester" },
@@ -298,6 +262,8 @@ describe("vibechk run command", () => {
 	it("full walking skeleton: run, show, diff", async () => {
 		const planPath = join(tmpRoot, "plan.md");
 		await writeFile(planPath, "# Plan\n\nWrite the result file.\n", "utf-8");
+		const baselineWorkdir = await createWorkdir(tmpRoot, "baseline");
+		const treatmentWorkdir = await createWorkdir(tmpRoot, "treatment");
 
 		const fakeRunner = new FakeRunner({
 			changesByWorkdir: {
@@ -329,7 +295,7 @@ describe("vibechk run command", () => {
 					"--plan",
 					planPath,
 					"--workdir",
-					join(tmpRoot, "baseline"),
+					baselineWorkdir,
 					"--runner",
 					"fake",
 					"--store",
@@ -363,7 +329,7 @@ describe("vibechk run command", () => {
 					"--plan",
 					planPath,
 					"--workdir",
-					join(tmpRoot, "treatment"),
+					treatmentWorkdir,
 					"--runner",
 					"fake",
 					"--store",
@@ -406,6 +372,12 @@ describe("vibechk run command", () => {
 		expect(diffOutput).toContain("+treatment result");
 	});
 });
+
+async function createWorkdir(root: string, name: string): Promise<string> {
+	const workdir = join(root, name);
+	await mkdir(workdir, { recursive: true });
+	return workdir;
+}
 
 function git(args: readonly string[], cwd?: string): string {
 	const result = spawnSync("git", args, {
