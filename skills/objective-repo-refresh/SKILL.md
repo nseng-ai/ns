@@ -1,31 +1,32 @@
 ---
-name: objective-bulk-refresh
-description: "Bulk refresh all active open Objectives before a context break by fanning out to each genuine owning Graphite tip. Uses objective-branch-refresh at safe materialized tips, reports unsafe targets, and reports orphans as deferred proposal work. Never closes Objectives."
+name: objective-repo-refresh
+description: "Refresh all active open Objectives across the repo/Graphite topology by fanning out to safe owning branch/context targets. Uses objective-branch-refresh and objective-refresh; reports unsafe targets and orphans instead of closing Objectives."
 ---
 
-# objective-bulk-refresh
+# objective-repo-refresh
 
-Run an autonomous semantic maintenance pass over every active open Objective so each genuine owning branch tip has up-to-date Objective records before a context break. This is an Objective skill-family workflow: use/read the `objective` umbrella skill first for shared Objective vocabulary, storage, status semantics, and safety rules.
+Run an autonomous semantic maintenance pass over every active open Objective so each genuine owning branch/context target has up-to-date Objective records before a context break. This is an Objective skill-family workflow: use/read the `objective` umbrella skill first for shared Objective vocabulary, storage, status semantics, and safety rules.
 
-If the user asks what this skill does, explain it without mutating files. If the user asks to run a bedtime Objective refresh, refresh all Objectives, bulk Objective update, or bring all open Objectives up to date, perform this workflow.
+If the user asks what this skill does, explain it without mutating files. If the user asks to refresh all Objectives, run a repo-wide Objective refresh, run a bedtime Objective refresh, or bring all open Objectives up to date, perform this workflow.
 
 ## V1 shape: fan-out only
 
-This skill is a thin orchestrator over the branch-scoped primitive `objective-branch-refresh`.
+This skill is a repo-wide orchestrator over the branch/context orchestrator `objective-branch-refresh`, which in turn uses `objective-refresh` as the one-Objective primitive.
 
-It discovers active open Objectives and Graphite topology, classifies which branch tips genuinely own each Objective record, and applies the `objective-branch-refresh` procedure at each safe materialized owning tip. It does not create a trunk proposal branch in v1.
+It discovers active open Objectives and Graphite topology, classifies which branch/context targets genuinely own each Objective record, and applies `objective-branch-refresh` at each safe materialized target. It does not create a trunk proposal branch in v1.
 
 Orphans are reported as `deferred-proposal`: there is no safe write target for them until the parked proposal-branch phase is implemented.
 
 ## Relationship to adjacent Objective workflows
 
-| Skill                      | Scope                                          | Closes?                       | Driver                    |
-| -------------------------- | ---------------------------------------------- | ----------------------------- | ------------------------- |
-| `objective-update`         | one user-chosen Objective                      | yes, through its Closure Gate | user                      |
-| `objective-branch-refresh` | all Objectives owned by one branch, at its tip | no                            | autonomous / orchestrator |
-| `objective-bulk-refresh`   | every genuine owning tip                       | no                            | autonomous sweep          |
+| Skill                      | Scope                                                    | Closes?                       | Driver                    |
+| -------------------------- | -------------------------------------------------------- | ----------------------------- | ------------------------- |
+| `objective-update`         | one user-chosen Objective                                | yes, through its Closure Gate | user                      |
+| `objective-refresh`        | one Objective in one explicit target context             | no                            | user / orchestrator       |
+| `objective-branch-refresh` | all Objectives in one branch/context                     | no                            | autonomous / orchestrator |
+| `objective-repo-refresh`   | all active open Objectives across repo/Graphite topology | no                            | autonomous sweep          |
 
-Skills do not call each other as tools. This orchestrator documents how an agent should follow the `objective-branch-refresh` procedure in each target worktree using `git -C <wt>`.
+Skills do not call each other as tools. This orchestrator documents how an agent should follow the `objective-branch-refresh` procedure in each target worktree using `git -C <wt>`; `objective-branch-refresh` then follows `objective-refresh` per slug.
 
 ## Graphite dependency
 
@@ -43,7 +44,7 @@ Active Objectives live under `.asdl/objectives/<slug>/`:
 - `objective.md` contains durable purpose, boundaries, completion criteria, assumptions/risks, open questions, and optional closure context.
 - `roadmap.md` contains ordered semantic work using only `[ ]`, `[~]`, and `[x]` states.
 - `updates/` contains immutable Semantic Updates. Never edit, rewrite, move, delete, or normalize an existing update file.
-- `closed.md` is a Closure Marker. This bulk refresh may notice closure readiness but must not create `closed.md`.
+- `closed.md` is a Closure Marker. This repo refresh may notice closure readiness but must not create `closed.md`.
 
 Never move, delete, rename, or recreate Objective slug directories. Never edit archived Objectives unless the user explicitly asks for archive work.
 
@@ -103,11 +104,11 @@ Drop non-topology branches, `backup/*` branches, branches without reliable metad
 After the staleness-artifact filter, classify each Objective:
 
 - **single-owner**: exactly one genuine owning stack path has one safe leaf target.
-- **multi-owner**: two or more genuine owning tips remain.
+- **multi-owner**: two or more genuine owning targets remain.
 - **orphan**: zero genuine owners remain; report `deferred-proposal` in v1 and write nothing.
 - **degrade**: a candidate owner cannot be written safely.
 
-Find a stack leaf by walking children in the topology graph to the descendant with no children. If a path forks (`children.length > 1`) before a unique leaf is determined, degrade that target; there is no single safe tip.
+Find a stack leaf by walking children in the topology graph to the descendant with no children. If a path forks (`children.length > 1`) before a unique leaf is determined, degrade that target; there is no single safe target.
 
 ### 5. Safety probe at each candidate target
 
@@ -117,11 +118,11 @@ For a candidate leaf with worktree `<wt>` and slug `<slug>`:
 git -C <wt> status --porcelain -- .asdl/objectives/<slug>/
 ```
 
-Any output means the tip is dirty under this slug; degrade that Objective/target and write nothing there.
+Any output means the target is dirty under this slug; degrade that Objective/target and write nothing there.
 
 Do not auto-materialize missing worktrees. A leaf with no worktree degrades to a routing recommendation.
 
-Graphite-untracked branches, branches named in warnings, and unsafe forked paths also degrade. An open PR tip is not a degrade: write at the tip if otherwise safe and flag the report prominently so the PR author sees the Objective-refresh commit.
+Graphite-untracked branches, branches named in warnings, and unsafe forked paths also degrade. An open PR target is not a degrade: write at the target if otherwise safe and flag the report prominently so the PR author sees the Objective-refresh commit.
 
 ### 6. Fan out with `objective-branch-refresh`
 
@@ -130,12 +131,13 @@ Group safe slugs by owning leaf worktree. For each worktree group, follow the `o
 - `WT=<leaf worktree_path>`
 - explicit slug list = the slugs owned by that leaf after filtering
 - trunk = inventory/topology trunk
+- selection basis evidence = genuine-owner filter results from this repo refresh
 
-The primitive owns due-checks, durable Objective authoring, Semantic Update creation, and the branch-tip commit.
+`objective-branch-refresh` owns branch/context due-checks, aggregate commit behavior, and final per-target reporting. `objective-refresh` owns per-Objective claim verification, durable Objective authoring, and Semantic Update creation.
 
 ### 7. Multi-owner overlap policy
 
-For multi-owner Objectives, scope each tip to that branch's own three-dot diff:
+For multi-owner Objectives, scope each target to that branch's own three-dot diff:
 
 ```bash
 git -C <wt> diff <trunk>...<branch> -- .asdl/objectives/<slug>/roadmap.md .asdl/objectives/<slug>/objective.md
@@ -143,8 +145,8 @@ git -C <wt> diff <trunk>...<branch> -- .asdl/objectives/<slug>/roadmap.md .asdl/
 
 Compare owning branches at the hunk/section level:
 
-- If branches touch disjoint roadmap rows, headings, or prose paragraphs, each tip may receive its own scoped in-place edits through `objective-branch-refresh`.
-- If two tips require edits to the same roadmap row, heading section, or paragraph and the durable wording cannot be made branch-local without misrepresenting the other branch, do not edit that region in place. Add append-only Semantic Updates at the affected tips when meaningful, and report `note+flag` with a reconciliation recommendation.
+- If branches touch disjoint roadmap rows, headings, or prose paragraphs, each target may receive its own scoped in-place edits through `objective-branch-refresh`.
+- If two targets require edits to the same roadmap row, heading section, or paragraph and the durable wording cannot be made target-local without misrepresenting the other target, do not edit that region in place. Add append-only Semantic Updates at the affected targets when meaningful, and report `note+flag` with a reconciliation recommendation.
 
 Ambiguous overlap degrades only the affected Objective/target; continue the rest of the pass.
 
@@ -159,11 +161,11 @@ Fast-follow design, not part of this implementation: a dedicated proposal branch
 Write nothing for the affected Objective/target and emit a routing recommendation for:
 
 - unmaterialized target leaf;
-- dirty Objective directory at the target tip;
+- dirty Objective directory at the target;
 - forked path with no unique leaf;
 - Graphite-untracked branch or topology warning;
 - branch that is only a staleness artifact after the three-dot filter;
-- same-region multi-owner overlap that cannot be resolved branch-locally;
+- same-region multi-owner overlap that cannot be resolved target-locally;
 - Objective needing closure rather than refresh.
 
 ## Final response
@@ -178,7 +180,7 @@ Return a compact report with:
 
 Use action labels such as:
 
-- `wrote-at-tip`
+- `wrote-at-target`
 - `noop-baseline`
 - `deferred-proposal`
 - `routed`
@@ -192,7 +194,7 @@ Use action labels such as:
 
 ## Verify
 
-- Each refreshed tip has at most one self-identifying `[objective-branch-refresh]` commit for this pass.
+- Each refreshed target has at most one self-identifying `[objective-branch-refresh]` commit for this pass.
 - No writes landed in the orchestrator worktree unless it was also a target worktree.
 - Orphans were reported as `deferred-proposal`, not written.
 - No existing files under `updates/` changed.

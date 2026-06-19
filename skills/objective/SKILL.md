@@ -34,8 +34,9 @@ Use these step skills for explicit workflow requests:
 - `objective-create`: create a new Objective record.
 - `objective-next`: recommend next semantic work and route confirmed execution when durable policy allows it.
 - `objective-update`: update durable Objective tracking for exactly one Objective; when its Closure Gate is clearly ready, it closes the Objective inline without a separate confirmation.
-- `objective-branch-refresh`: autonomously refresh all Objective records genuinely owned by one branch at that branch's tip; never closes Objectives.
-- `objective-bulk-refresh`: fan out branch-scoped Objective refreshes across genuine Graphite owning tips; reports unsafe targets and orphans instead of closing Objectives.
+- `objective-refresh`: refresh exactly one active Objective in one explicit target context; never closes Objectives.
+- `objective-branch-refresh`: refresh all Objective records genuinely in scope for one branch/context; delegates per-Objective semantics to `objective-refresh`; never closes Objectives.
+- `objective-repo-refresh`: fan out branch-scoped Objective refreshes across repo/Graphite topology; reports unsafe targets and orphans instead of closing Objectives.
 - `objective-close`: close an Objective without deleting its checked-in history.
 - `objective-stack-impl`: orchestrate implementation of one Objective as a small Graphite stack.
 

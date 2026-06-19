@@ -208,17 +208,12 @@
     "objective": {
       "source": "skills/objective",
       "sourceType": "local",
-      "computedHash": "2025b093bc9958510d3bbd0995a57489dcb010b7d6ca0a3546748b1b4fbcd9e8"
+      "computedHash": "87b875b4ebef7943cb9f8e315d719217cdee15154eead4bc32256abe160a3e3f"
     },
     "objective-branch-refresh": {
       "source": "skills/objective-branch-refresh",
       "sourceType": "local",
-      "computedHash": "ab4aadd2406a8b9115dd6e12806fdbf3099bda271ef6bbbfc633fad97af8dec3"
-    },
-    "objective-bulk-refresh": {
-      "source": "skills/objective-bulk-refresh",
-      "sourceType": "local",
-      "computedHash": "d469da6f11ca44f7b8bddf9544ac5601bf49a4a03b79454c98a6b088827d3463"
+      "computedHash": "6f56f27c3b4663f54595043ad9cc3c6b2dd769bbb85042cbde8bb9cf70b90b51"
     },
     "objective-close": {
       "source": "skills/objective-close",
@@ -234,6 +229,16 @@
       "source": "skills/objective-next",
       "sourceType": "local",
       "computedHash": "a9ae23d89ff8008c85197dfa8627535222cfd4b09c9d2132645426f9471d8780"
+    },
+    "objective-refresh": {
+      "source": "skills/objective-refresh",
+      "sourceType": "local",
+      "computedHash": "4060a4f44b623f46864b2bcd66727c65de8b59509e59d31520bbd058c9402bc6"
+    },
+    "objective-repo-refresh": {
+      "source": "skills/objective-repo-refresh",
+      "sourceType": "local",
+      "computedHash": "d4c630897c103803451216adf05d141be173c5a117c440c23c0d6899e72c9eec"
     },
     "objective-stack-impl": {
       "source": "skills/objective-stack-impl",
