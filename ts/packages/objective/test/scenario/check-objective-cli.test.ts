@@ -80,8 +80,8 @@ describe("objective check", () => {
 				hasRoot: true,
 				slug: "alpha",
 				path: ".asdl/objectives/alpha",
-				exists: true,
-				closed: false,
+				hasRecord: true,
+				isClosed: false,
 				files: {
 					objectiveMd: true,
 					roadmapMd: true,
@@ -143,7 +143,7 @@ describe("objective check", () => {
 			message: "Objective check failed for slug 'done': 1 error(s), 0 warning(s).",
 			data: {
 				status: "failed",
-				closed: true,
+				isClosed: true,
 				errorCount: 1,
 				warningCount: 0,
 			},

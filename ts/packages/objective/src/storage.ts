@@ -1,5 +1,7 @@
 import { basename, join } from "node:path";
 
+import { z } from "zod";
+
 export const ACTIVE_OBJECTIVE_ROOT = ".asdl/objectives";
 export const OBJECTIVE_ARCHIVE_ROOT = ".asdl/objective-archive";
 
@@ -13,10 +15,22 @@ export interface ObjectiveFiles {
 	closedMd: boolean;
 }
 
+export const objectiveFilesSchema = z.object({
+	objectiveMd: z.boolean(),
+	roadmapMd: z.boolean(),
+	updatesDir: z.boolean(),
+	closedMd: z.boolean(),
+});
+
 export interface ObjectiveUpdateFile {
 	name: string;
 	path: string;
 }
+
+export const objectiveUpdateFileSchema = z.object({
+	name: z.string(),
+	path: z.string(),
+});
 
 export interface ObjectiveCheckoutRecord {
 	slug: string;

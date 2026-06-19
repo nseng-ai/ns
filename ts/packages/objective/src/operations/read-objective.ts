@@ -9,6 +9,8 @@ import {
 	activeRootRelativePath,
 	emptyObjectiveFiles,
 	isValidObjectiveSlug,
+	objectiveFilesSchema,
+	objectiveUpdateFileSchema,
 	renderFilePresence,
 	type ObjectiveFiles,
 	type ObjectiveMarkdownReadResult,
@@ -18,18 +20,6 @@ import {
 
 export const readObjectiveRequestSchema = z.object({
 	slug: z.string().optional().describe("Objective slug to read."),
-});
-
-export const objectiveFilesSchema = z.object({
-	objectiveMd: z.boolean(),
-	roadmapMd: z.boolean(),
-	updatesDir: z.boolean(),
-	closedMd: z.boolean(),
-});
-
-export const objectiveUpdateFileSchema = z.object({
-	name: z.string(),
-	path: z.string(),
 });
 
 export const objectiveMarkdownReadResultSchema = z.discriminatedUnion("type", [

@@ -3,13 +3,14 @@ import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";
 import { pythonStringRepr, removeOneTrailingNewline } from "./format.ts";
-import { objectiveFilesSchema, objectiveUpdateFileSchema } from "./read-objective.ts";
 import { handleObjectiveSlugValidationErrors } from "./slug-validation-errors.ts";
 import {
 	activeRecordRelativePath,
 	activeRootRelativePath,
 	emptyObjectiveFiles,
 	isValidObjectiveSlug,
+	objectiveFilesSchema,
+	objectiveUpdateFileSchema,
 	renderFilePresence,
 	type ObjectiveFiles,
 	type ObjectiveMarkdownReadResult,
@@ -35,7 +36,7 @@ export const checkObjectiveRequestSchema = z.object({
 export const objectiveCheckItemSchema = z.object({
 	path: z.string(),
 	label: z.string(),
-	ok: z.boolean(),
+	isPassed: z.boolean(),
 	severity: z.enum(["error", "warning"]),
 	detail: z.string(),
 });
@@ -46,8 +47,8 @@ export const checkObjectiveBaseResultSchema = z.object({
 	hasRoot: z.boolean(),
 	slug: z.string().nullable(),
 	path: z.string().nullable(),
-	exists: z.boolean(),
-	closed: z.boolean(),
+	hasRecord: z.boolean(),
+	isClosed: z.boolean(),
 	files: objectiveFilesSchema,
 	updates: z.array(objectiveUpdateFileSchema),
 	updateCount: z.number().int(),
@@ -56,16 +57,26 @@ export const checkObjectiveBaseResultSchema = z.object({
 	warningCount: z.number().int(),
 });
 
+const checkObjectiveMissingSlugResultSchema = checkObjectiveBaseResultSchema.extend({
+	status: z.literal("missing_slug"),
+});
+const checkObjectiveInvalidSlugResultSchema = checkObjectiveBaseResultSchema.extend({
+	status: z.literal("invalid_slug"),
+});
+const checkObjectiveNotFoundResultSchema = checkObjectiveBaseResultSchema.extend({
+	status: z.literal("not_found"),
+});
+
 export const checkObjectiveNonSelectedResultSchema = z.discriminatedUnion("status", [
-	checkObjectiveBaseResultSchema.extend({ status: z.literal("missing_slug") }),
-	checkObjectiveBaseResultSchema.extend({ status: z.literal("invalid_slug") }),
-	checkObjectiveBaseResultSchema.extend({ status: z.literal("not_found") }),
+	checkObjectiveMissingSlugResultSchema,
+	checkObjectiveInvalidSlugResultSchema,
+	checkObjectiveNotFoundResultSchema,
 ]);
 
 export const checkObjectiveEvaluatedBaseResultSchema = checkObjectiveBaseResultSchema.extend({
 	slug: z.string(),
 	path: z.string(),
-	exists: z.literal(true),
+	hasRecord: z.literal(true),
 });
 
 export const checkObjectiveOkResultSchema = checkObjectiveEvaluatedBaseResultSchema.extend({
@@ -81,9 +92,9 @@ export const checkObjectiveFailedResultSchema = checkObjectiveEvaluatedBaseResul
 export const checkObjectiveResultSchema = z.discriminatedUnion("status", [
 	checkObjectiveOkResultSchema,
 	checkObjectiveFailedResultSchema,
-	checkObjectiveBaseResultSchema.extend({ status: z.literal("missing_slug") }),
-	checkObjectiveBaseResultSchema.extend({ status: z.literal("invalid_slug") }),
-	checkObjectiveBaseResultSchema.extend({ status: z.literal("not_found") }),
+	checkObjectiveMissingSlugResultSchema,
+	checkObjectiveInvalidSlugResultSchema,
+	checkObjectiveNotFoundResultSchema,
 ]);
 
 export type CheckObjectiveRequest = z.infer<typeof checkObjectiveRequestSchema>;
@@ -124,7 +135,7 @@ export function renderCheckObjective(result: CheckObjectiveResult): string {
 	}
 
 	const rootState = result.hasRoot ? "present" : "missing";
-	const state = result.closed ? "closed" : "open";
+	const state = result.isClosed ? "closed" : "open";
 	const parts = [
 		`Objective check \`${result.slug}\`\n`,
 		`Root: ${result.rootPath} (${rootState})\n`,
@@ -136,7 +147,7 @@ export function renderCheckObjective(result: CheckObjectiveResult): string {
 		"\n",
 	];
 	for (const check of result.checks) {
-		parts.push(`${check.ok ? "✓" : "✗"} ${check.label}: ${check.detail}\n`);
+		parts.push(`${check.isPassed ? "✓" : "✗"} ${check.label}: ${check.detail}\n`);
 	}
 	return removeOneTrailingNewline(parts.join(""));
 }
@@ -180,9 +191,9 @@ async function checkObjective(
 	}
 
 	const relativePath = activeRecordRelativePath(slug);
-	const exists = await storage.activeRecordExists(slug);
-	if (!exists.ok) return { type: "storage-error", error: exists.error };
-	if (!exists.value) {
+	const recordExists = await storage.activeRecordExists(slug);
+	if (!recordExists.ok) return { type: "storage-error", error: recordExists.error };
+	if (!recordExists.value) {
 		return {
 			type: "ok",
 			value: emptyResult({
@@ -231,8 +242,8 @@ async function checkObjective(
 		hasRoot: rootPresence.value,
 		slug,
 		path: relativePath,
-		exists: true as const,
-		closed: files.value.closedMd,
+		hasRecord: true as const,
+		isClosed: files.value.closedMd,
 		files: files.value,
 		updates: [...updates.value],
 		updateCount: updates.value.length,
@@ -261,8 +272,8 @@ function emptyResult(options: {
 		hasRoot: options.hasRoot,
 		slug: options.slug,
 		path: options.path,
-		exists: false,
-		closed: false,
+		hasRecord: false,
+		isClosed: false,
 		files: emptyObjectiveFiles(),
 		updates: [],
 		updateCount: 0,
@@ -277,7 +288,7 @@ function filePresenceChecks(relativePath: string, files: ObjectiveFiles): Object
 		checkItem({
 			path: `${relativePath}/objective.md`,
 			label: "objective.md exists",
-			ok: files.objectiveMd,
+			isPassed: files.objectiveMd,
 			severity: "error",
 			passDetail: "present",
 			failDetail: "missing",
@@ -285,7 +296,7 @@ function filePresenceChecks(relativePath: string, files: ObjectiveFiles): Object
 		checkItem({
 			path: `${relativePath}/roadmap.md`,
 			label: "roadmap.md exists",
-			ok: files.roadmapMd,
+			isPassed: files.roadmapMd,
 			severity: "error",
 			passDetail: "present",
 			failDetail: "missing",
@@ -293,7 +304,7 @@ function filePresenceChecks(relativePath: string, files: ObjectiveFiles): Object
 		checkItem({
 			path: `${relativePath}/updates`,
 			label: "updates/ directory exists",
-			ok: files.updatesDir,
+			isPassed: files.updatesDir,
 			severity: "error",
 			passDetail: "present",
 			failDetail: "missing",
@@ -320,7 +331,7 @@ function objectiveMarkdownChecks(options: {
 		? checkItem({
 				path: options.path,
 				label: "objective.md has ## Closure for closed Objective",
-				ok: hasClosureHeading,
+				isPassed: hasClosureHeading,
 				severity: "error",
 				passDetail: "present",
 				failDetail: "missing while closed.md exists",
@@ -328,7 +339,7 @@ function objectiveMarkdownChecks(options: {
 		: checkItem({
 				path: options.path,
 				label: "objective.md omits ## Closure for open Objective",
-				ok: !hasClosureHeading,
+				isPassed: !hasClosureHeading,
 				severity: "warning",
 				passDetail: "absent",
 				failDetail: "present without closed.md",
@@ -392,7 +403,7 @@ function updateMarkdownChecks(options: {
 		checkItem({
 			path: options.update.path,
 			label: `${displayPath} has title heading`,
-			ok: hasTitleHeading(read.content),
+			isPassed: hasTitleHeading(read.content),
 			severity: "error",
 			passDetail: "present",
 			failDetail: "missing # title",
@@ -418,7 +429,7 @@ function readableMarkdownChecks(options: {
 		checkItem({
 			path: options.path,
 			label: `${options.displayPath} is readable Markdown`,
-			ok: options.read.type === "ok",
+			isPassed: options.read.type === "ok",
 			severity: "error",
 			passDetail: "readable",
 			failDetail: options.read.type === "ok" ? "unreadable" : options.read.message,
@@ -436,7 +447,7 @@ function headingCheck(options: {
 	return checkItem({
 		path: options.path,
 		label: `${options.displayPath} has ${options.heading}`,
-		ok: hasExactHeading(options.content, options.heading),
+		isPassed: hasExactHeading(options.content, options.heading),
 		severity: options.severity,
 		passDetail: "present",
 		failDetail: "missing",
@@ -446,7 +457,7 @@ function headingCheck(options: {
 function checkItem(options: {
 	path: string;
 	label: string;
-	ok: boolean;
+	isPassed: boolean;
 	severity: ObjectiveCheckItem["severity"];
 	passDetail: string;
 	failDetail: string;
@@ -454,9 +465,9 @@ function checkItem(options: {
 	return {
 		path: options.path,
 		label: options.label,
-		ok: options.ok,
+		isPassed: options.isPassed,
 		severity: options.severity,
-		detail: options.ok ? options.passDetail : options.failDetail,
+		detail: options.isPassed ? options.passDetail : options.failDetail,
 	};
 }
 
@@ -472,5 +483,5 @@ function countIssues(
 	checks: readonly ObjectiveCheckItem[],
 	severity: ObjectiveCheckItem["severity"],
 ): number {
-	return checks.filter((check) => !check.ok && check.severity === severity).length;
+	return checks.filter((check) => !check.isPassed && check.severity === severity).length;
 }
