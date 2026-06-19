@@ -127,16 +127,16 @@ This Objective is designed for autonomous stack execution after a human preview 
 
 The contract-and-shell slice now has landed-state evidence in this Objective. A future `objective-stack-impl` invocation can preview and execute the remaining port as a small Graphite stack without asking further design questions, unless implementation evidence contradicts these defaults.
 
-Completed prerequisite:
+Completed prerequisites:
 
 - `aretro-ts-contract-and-shell` — created `@asdl/aretro`, codified the locked CLI/JSON/payload contract, and exposed root/hidden-`exec` command shells with scenario tests over fakes.
+- `aretro-ts-compact-evidence` — ported repo/branch resolution, package-local git and session-source seams, the real Pi JSONL session source, compact DTO conversion, deterministic evidence aggregation, warnings, privacy-preserving compact output, and a sanitized real-adapter smoke.
 
 Default remaining stack shape:
 
-1. `aretro-ts-compact-evidence` — port repo/branch resolution, Pi session-source parsing/querying, compact DTO conversion, deterministic evidence aggregation, warnings, and privacy-preserving compact output.
-2. `aretro-ts-payload-detail` — port schema-version-1 sanitized payload artifacts, payload store/lookup helpers, long command-subject bounding, supporting pointers, and `read-evidence-detail` JSON Pointer validation.
-3. `aretro-ts-skill-distribution-cutover` — make the `branch-retro` runner prefer the TypeScript CLI for repo-local use, add an opt-in `just install-aretro` source shim, audit checkout-free/prod use, and update active docs away from Python/default `asdl aretro` examples.
-4. `aretro-ts-retire-python` — only after prior parity and cutover gates pass, remove Python package/workspace/build/test/publish wiring, preserve rollback/reference evidence, grep for stale active references, and update the umbrella TypeScript migration Objective/playbook.
+1. `aretro-ts-payload-detail` — port schema-version-1 sanitized payload artifacts, payload store/lookup helpers, long command-subject bounding, supporting pointers, and `read-evidence-detail` JSON Pointer validation.
+2. `aretro-ts-skill-distribution-cutover` — make the `branch-retro` runner prefer the TypeScript CLI for repo-local use, add an opt-in `just install-aretro` source shim, audit checkout-free/prod use, and update active docs away from Python/default `asdl aretro` examples.
+3. `aretro-ts-retire-python` — only after prior parity and cutover gates pass, remove Python package/workspace/build/test/publish wiring, preserve rollback/reference evidence, grep for stale active references, and update the umbrella TypeScript migration Objective/playbook.
 
 Default decisions for the implementation runner:
 
@@ -227,16 +227,13 @@ Prefer `@asdl/clinkr` for command construction and `@asdl/core/cli-entry` for di
 
 A future autonomous stack implementation can continue with this remaining shape and split by thesis if evidence shows a branch is too broad:
 
-1. `aretro-ts-compact-evidence`
-   - Thesis: port repo/branch resolution, session-source querying, compact DTO conversion, factual evidence aggregation, warnings, and privacy-preserving output.
-   - Expected files: `collect-evidence.ts`, session source/evidence modules or shared imports, git/session fakes, unit/scenario tests.
-2. `aretro-ts-payload-detail`
+1. `aretro-ts-payload-detail`
    - Thesis: port schema-version-1 sanitized payload detail construction, payload writing, command subject bounding, and `read-evidence-detail` pointer validation.
    - Expected files: `evidence-payload.ts`, payload store/lookup helpers, read-detail operation, unit/scenario tests.
-3. `aretro-ts-skill-distribution-cutover`
+2. `aretro-ts-skill-distribution-cutover`
    - Thesis: make the `branch-retro` skill and repo-local runner use TypeScript, add/decide `just install-aretro`, audit `ASDL_ARETRO_MODE=prod` / `uvx` use, and update active docs.
    - Expected files: `skills/branch-retro/SKILL.md`, `skills/branch-retro/scripts/aretro-run`, `justfile`, docs/docs-site pages, maybe install docs.
-4. `aretro-ts-retire-python`
+3. `aretro-ts-retire-python`
    - Thesis: after parity and distribution evidence are complete, remove `packages/aretro` and active Python workspace/build/test/publish wiring, record rollback/reference evidence, and update the umbrella Objective/playbook.
    - Expected files: deletion of `packages/aretro`, root `pyproject.toml`, `uv.lock`, `justfile`, plugin smoke tests/docs cleanup if applicable, Objective Semantic Updates.
 

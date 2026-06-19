@@ -55,29 +55,26 @@ describe("aretro exec collect-evidence", () => {
 			"collect-evidence",
 			"--format",
 			"json",
-			"--repo",
-			"/test/repo",
 			"--branch",
 			"test-branch",
 		]);
 		expect(await run.exit).toBe(0);
 		const result = parseJsonOutput(run);
 		expect(result).toMatchObject({ exit_code: 0 });
-		const envelope = (result as { data: unknown }).data;
-		expect(envelope).toMatchObject({
-			success: true,
-			repo: "/test/repo",
-			query: {
-				branch: "test-branch",
-				max_sessions: 20,
-				payload_mode: "inline",
-			},
-			source: expect.any(String),
-			aggregate_metrics: expect.any(Object),
-			sessions: expect.any(Array),
-			warnings: expect.any(Array),
-			evidence_items: expect.any(Array),
+		const envelope = (result as { data: Record<string, unknown> }).data;
+		expect(envelope.success).toBe(true);
+		expect(envelope.repo).toMatchObject({
+			branch: "test-branch",
+			branch_source: "explicit",
 		});
+		expect(envelope.query).toMatchObject({
+			max_sessions: 20,
+		});
+		expect(envelope).toHaveProperty("source");
+		expect(envelope).toHaveProperty("aggregate_metrics");
+		expect(envelope).toHaveProperty("sessions");
+		expect(envelope).toHaveProperty("warnings");
+		expect(envelope).toHaveProperty("evidence_items");
 	});
 
 	it("includes optional query fields when provided", async () => {
@@ -90,29 +87,22 @@ describe("aretro exec collect-evidence", () => {
 			"/session-data",
 			"--max-sessions",
 			"10",
-			"--payload-mode",
-			"payload",
-			"--payload-session-id",
-			"session-123",
 		]);
 		expect(await run.exit).toBe(0);
 		const result = parseJsonOutput(run);
-		const envelope = (result as { data: unknown }).data;
-		expect(envelope).toMatchObject({
-			query: {
-				session_root: "/session-data",
-				max_sessions: 10,
-				payload_mode: "payload",
-				payload_session_id: "session-123",
-			},
+		const envelope = (result as { data: Record<string, unknown> }).data;
+		expect(envelope.query).toMatchObject({
+			session_root: "/session-data",
+			max_sessions: 10,
 		});
 	});
 
-	it("returns human-readable placeholder when format is human", async () => {
+	it("returns human-readable output when format is human", async () => {
 		const run = runScenario(["exec", "collect-evidence", "--format", "human"]);
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain("Placeholder");
-		expect(run.stdout.join("")).toContain("contract-only");
+		const output = run.stdout.join("");
+		expect(output).toContain("Collected");
+		expect(output).toContain("session(s)");
 	});
 });
 
