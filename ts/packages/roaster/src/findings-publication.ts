@@ -73,8 +73,6 @@ export function parseFindingsPayloadResult(
 	raw: string,
 	options: { readonly fallbackReviewName?: string; readonly fallbackBaseRef?: string } = {},
 ): FindingsPayloadParseResult {
-	const fallbackReviewName = options.fallbackReviewName ?? "unknown";
-	const fallbackBaseRef = options.fallbackBaseRef ?? "unknown";
 	const data = parseJson(raw);
 	if (data.type === "error") return payloadError(data.message);
 	if (!machineEnvelopeSchema.safeParse(data.value).success)
@@ -98,11 +96,13 @@ export function parseFindingsPayloadResult(
 
 	const failure = reviewRunFailureEnvelopeSchema.safeParse(data.value);
 	if (failure.success) {
+		const identity = fallbackFailureIdentity(options);
+		if (identity.type === "error") return payloadError(identity.message);
 		return {
 			type: "ok",
 			payload: {
-				reviewName: fallbackReviewName,
-				baseRef: fallbackBaseRef,
+				reviewName: identity.reviewName,
+				baseRef: identity.baseRef,
 				count: 0,
 				findings: [],
 				inputCoverage: null,
@@ -350,6 +350,28 @@ function fallbackPayloadOptions(
 			: { fallbackReviewName: options.fallbackReviewName }),
 		...(options.fallbackBaseRef === undefined ? {} : { fallbackBaseRef: options.fallbackBaseRef }),
 	};
+}
+
+type FallbackFailureIdentityResult =
+	| { readonly type: "ok"; readonly reviewName: string; readonly baseRef: string }
+	| { readonly type: "error"; readonly message: string };
+
+function fallbackFailureIdentity(options: {
+	readonly fallbackReviewName?: string;
+	readonly fallbackBaseRef?: string;
+}): FallbackFailureIdentityResult {
+	const { fallbackReviewName, fallbackBaseRef } = options;
+	if (fallbackReviewName === undefined || fallbackBaseRef === undefined) {
+		const missing = [
+			...(fallbackReviewName === undefined ? ["--review-name"] : []),
+			...(fallbackBaseRef === undefined ? ["--base-ref"] : []),
+		];
+		return {
+			type: "error",
+			message: `failed review envelopes require fallback identity: ${missing.join(" and ")}`,
+		};
+	}
+	return { type: "ok", reviewName: fallbackReviewName, baseRef: fallbackBaseRef };
 }
 
 function activityLogEntry(runUrl: string | undefined): string {

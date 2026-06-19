@@ -158,6 +158,17 @@ describe("roaster exec CLI", () => {
 		expect(run.stderr).toContain("valid JSON");
 	});
 
+	test("failed review envelopes require explicit fallback identity", async () => {
+		const run = await runRoaster(["exec", "publish-findings", "--pr-number", "47"], {
+			stdin: failedEnvelope(),
+			github: new UnexpectedInlineQueryGateway(),
+		});
+
+		expect(run.exitCode).toBe(1);
+		expect(run.stderr).toContain("--review-name");
+		expect(run.stderr).toContain("--base-ref");
+	});
+
 	test("empty and failed review envelopes publish summaries without inline queries", async () => {
 		const emptyGateway = new UnexpectedInlineQueryGateway();
 		const empty = await runRoaster(["exec", "publish-findings", "--pr-number", "47"], {
