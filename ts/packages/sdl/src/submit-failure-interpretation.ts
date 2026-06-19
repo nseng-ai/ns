@@ -2,15 +2,14 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { DEFAULT_FAST_MODEL_REF } from "@asdl/plans";
 import type { SubmitFailurePresentation, SubmitFailureTranscript } from "@asdl/core/submit";
 
 import type { SdlContext } from "./sdk.ts";
+import { selectSubmitFailureModelRef } from "./text-generation.ts";
 
 // Keep the optional model-based failure explanation in one file so deleting this
 // feature is mostly removing this import and the two call sites in `submit.ts`.
 const SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS = 12_000;
-const SUBMIT_FAILURE_MODEL_ENV = "SDL_SUBMIT_FAILURE_MODEL";
 const SUBMIT_FAILURE_LOG_DIR_ENV = "SDL_SUBMIT_FAILURE_LOG_DIR";
 
 export interface SubmitFailureInterpretationInput {
@@ -21,17 +20,16 @@ export interface SubmitFailureInterpretationInput {
 	rawFailureTranscript?: SubmitFailureTranscript | undefined;
 }
 
-export async function maybeFormatUnknownSubmitFailureWithModel<
-	T extends SubmitFailureInterpretationInput,
->(result: T, ctx: SdlContext): Promise<T> {
+export async function maybeFormatSubmitFailureWithModel<T extends SubmitFailureInterpretationInput>(
+	result: T,
+	ctx: SdlContext,
+): Promise<T> {
 	if (result.exitCode === 0 || result.stderr.trim() === "") return result;
-	if (isDeterministicSubmitFailure(result)) return result;
 
 	const rawTranscript = renderRawFailureTranscript(result);
 	const rawLog = await writeSubmitFailureRawLog(rawTranscript, ctx.env);
 	const interpretation = await generateSubmitFailureInterpretation({
 		rawTranscript,
-		rawLogPath: rawLog.ok ? rawLog.path : undefined,
 		exitCode: result.exitCode,
 		ctx,
 	});
@@ -45,13 +43,12 @@ export async function maybeFormatUnknownSubmitFailureWithModel<
 
 	return {
 		...result,
-		stderr: formatModelUnavailableFailure(rawLog),
+		stderr: formatOriginalFailureFallback({ stderr: result.stderr, rawLog }),
 	} as T;
 }
 
 async function generateSubmitFailureInterpretation(input: {
 	rawTranscript: string;
-	rawLogPath?: string | undefined;
 	exitCode: number;
 	ctx: SdlContext;
 }): Promise<{ ok: true; text: string } | { ok: false }> {
@@ -62,10 +59,9 @@ async function generateSubmitFailureInterpretation(input: {
 			reasoning: "low",
 			maxTokens: 700,
 			system:
-				"You write polished terminal-facing failure messages for engineers. Be concise, specific, and action-oriented. Do not invent facts not present in the transcript. Do not paste raw logs; the user already has a raw-log path when available.",
+				"You write plain terminal-facing failure summaries for engineers. Be concise, specific, and action-oriented. Output only the final user-facing message. Do not invent facts not present in the transcript. Do not paste raw logs or raw-log paths; the wrapper appends the raw-log line separately.",
 			prompt: buildSubmitFailureInterpretationPrompt({
 				rawTranscript: input.rawTranscript,
-				rawLogPath: input.rawLogPath,
 				exitCode: input.exitCode,
 			}),
 		});
@@ -76,48 +72,34 @@ async function generateSubmitFailureInterpretation(input: {
 	}
 }
 
-function isDeterministicSubmitFailure(result: SubmitFailureInterpretationInput): boolean {
-	if (result.failurePresentation === "deterministic") return true;
-	if (result.failurePresentation === "unknown") return false;
-
-	const failureText = result.stderr.trim();
-	return failureText.includes(
-		"Graphite still requires restack after `sdl submit` already ran `gt restack --no-interactive`.",
-	);
-}
-
-function selectSubmitFailureModelRef(env: Record<string, string | undefined>): string {
-	const modelRef = env[SUBMIT_FAILURE_MODEL_ENV]?.trim();
-	return modelRef === undefined || modelRef === "" ? DEFAULT_FAST_MODEL_REF : modelRef;
-}
-
 function buildSubmitFailureInterpretationPrompt(input: {
 	rawTranscript: string;
-	rawLogPath?: string | undefined;
 	exitCode: number;
 }): string {
 	const bounded = boundSubmitFailureTranscript(input.rawTranscript);
 	return [
 		"Interpret this `sdl submit` failure for the user.",
-		"Your output is the primary user-facing error message, so make it polished Markdown suitable for terminal display.",
-		"Use concise sections such as `## What happened` and `## Recommended next steps`.",
-		"Prefer exact commands already present in the transcript. If the failure is ambiguous, say what to inspect instead of guessing.",
-		"Do not include giant raw logs; full raw logs are available separately when a path is provided.",
-		"Pay close attention to Graphite warning blocks and deterministic preamble lines that name branches. If the output says Graphite skipped submission because `branch <name> is empty`, repeat that exact branch name and tell the user to delete it, reparent around it, or add changes before resubmitting.",
+		"Your output is the primary user-facing error message.",
+		"Output only plain terminal text: no Markdown headings, no bold markers, and no fenced code blocks.",
+		"The first line must be the diagnosis.",
+		"Use short labeled sections where useful: Problem:, Branch:, What succeeded:, Next step:, Alternative:, Details:.",
+		"Include only facts supported by the transcript.",
+		"Prefer exact commands already present in the transcript.",
+		"If the failure is ambiguous, say what to inspect instead of guessing.",
+		"Do not paste raw logs.",
+		"Do not include the raw-log path; the wrapper appends exactly one raw-log line after your text.",
+		"Empty-branch rule: if the transcript says Graphite skipped submission because branch <name> is empty or because the current branch has no changes, make the first line close to: Current branch is empty; Graphite skipped it.",
+		"For empty branches, repeat the exact branch name when known, mention non-empty branches may already have been submitted or updated when stdout says PRs were updated, make the primary next step remove/delete/reparent around the empty branch if it has no remaining work, and present adding real changes only as the alternative when the branch should still have its own PR.",
+		"Do not present add/delete/reparent as equal choices for empty branches.",
 		"",
 		`Exit code: ${input.exitCode}`,
-		input.rawLogPath === undefined
-			? "Raw log path: unavailable"
-			: `Raw log path: ${input.rawLogPath}`,
 		`Transcript limit: ${SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS} characters`,
 		bounded.truncated
 			? `Truncation: transcript was truncated from ${input.rawTranscript.length} to ${bounded.text.length} characters.`
 			: "Truncation: transcript was not truncated.",
 		"",
 		"Bounded transcript:",
-		"```text",
 		bounded.text,
-		"```",
 	].join("\n");
 }
 
@@ -150,26 +132,30 @@ function formatModelPrimaryFailure(input: {
 	text: string;
 	rawLog: { ok: true; path: string } | { ok: false; message: string };
 }): string {
-	return ["## Submit failed", "", input.text.trim(), "", ...formatRawLogLines(input.rawLog)].join(
-		"\n",
-	);
+	return appendRawLogLine(input.text.trim(), input.rawLog);
 }
 
-function formatModelUnavailableFailure(
+function formatOriginalFailureFallback(input: {
+	stderr: string;
+	rawLog: { ok: true; path: string } | { ok: false; message: string };
+}): string {
+	return appendRawLogLine(input.stderr.trimEnd(), input.rawLog);
+}
+
+function appendRawLogLine(
+	text: string,
 	rawLog: { ok: true; path: string } | { ok: false; message: string },
 ): string {
-	return [
-		"sdl submit failed, and the failure could not be interpreted automatically.",
-		...formatRawLogLines(rawLog),
-		"Rerun `sdl submit --verbose` or inspect the raw log details for the underlying Graphite output.",
-	].join("\n");
+	const rawLogLine = formatRawLogLine(rawLog);
+	if (text.split("\n").includes(rawLogLine)) return `${text}\n`;
+	return `${text}\n\n${rawLogLine}\n`;
 }
 
-function formatRawLogLines(
+function formatRawLogLine(
 	rawLog: { ok: true; path: string } | { ok: false; message: string },
-): string[] {
-	if (rawLog.ok) return [`Raw logs: ${rawLog.path}`];
-	return [`Raw logs: unavailable (${rawLog.message})`];
+): string {
+	if (rawLog.ok) return `Raw log: ${rawLog.path}`;
+	return `Raw log: unavailable (${rawLog.message})`;
 }
 
 function renderRawFailureTranscript(result: SubmitFailureInterpretationInput): string {

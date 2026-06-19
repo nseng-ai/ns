@@ -17,10 +17,12 @@ export interface TextGenerationGateway {
 
 export const DEFAULT_CHECKPOINT_MODEL_REF = DEFAULT_FAST_MODEL_REF;
 export const DEFAULT_CHANGES_MODEL_REF = DEFAULT_FAST_MODEL_REF;
+export const DEFAULT_SUBMIT_FAILURE_MODEL_REF = DEFAULT_FAST_MODEL_REF;
 export const CHECKPOINT_MODEL_ENV = "SDL_CHECKPOINT_MODEL";
 export const LEGACY_CHECKPOINT_MODEL_ENV = "ASDL_DEV_CHECKPOINT_MODEL";
 export const CHANGES_MODEL_ENV = "SDL_CHANGES_MODEL";
 export const LEGACY_CHANGES_MODEL_ENV = "PI_DRAFT_MODEL";
+export const SUBMIT_FAILURE_MODEL_ENV = "SDL_SUBMIT_FAILURE_MODEL";
 
 export function selectCheckpointModelRef(env: Record<string, string | undefined>): string {
 	return (
@@ -33,6 +35,10 @@ export function selectChangesModelRef(env: Record<string, string | undefined>): 
 	return (
 		firstEnvValue(env, CHANGES_MODEL_ENV, LEGACY_CHANGES_MODEL_ENV) ?? DEFAULT_CHANGES_MODEL_REF
 	);
+}
+
+export function selectSubmitFailureModelRef(env: Record<string, string | undefined>): string {
+	return firstEnvValue(env, SUBMIT_FAILURE_MODEL_ENV) ?? DEFAULT_SUBMIT_FAILURE_MODEL_REF;
 }
 
 function firstEnvValue(
