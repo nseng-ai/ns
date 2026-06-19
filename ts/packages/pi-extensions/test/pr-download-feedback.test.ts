@@ -306,9 +306,15 @@ describe("/pr:download-stack-feedback", () => {
 			prompt.indexOf("## Summary"),
 		);
 		expect(prompt).toContain("shared fixes, per-PR fixes, ordering constraints");
+		expect(prompt).toContain("Default stack feedback policies:");
 		expect(prompt).toContain("single omnibus follow-up PR at the current stack tip");
+		expect(prompt).toContain(
+			"Plan against the current remaining state, not stale original comments",
+		);
+		expect(prompt).toContain("Treat automation feedback as stack-level remediation");
+		expect(prompt).toContain("resolve all automation review threads stack-wide");
 		expect(prompt.trim()).toMatch(
-			/Do not edit files yet; propose a plan and wait for human confirmation\. Do not resolve or reply to GitHub threads from this prompt\.$/u,
+			/Do not edit files yet; propose a plan and wait for human confirmation\. Do not resolve or reply to GitHub threads during this initial triage prompt; .*validation has passed\.$/u,
 		);
 		expect(ctx.notifications.at(-1)).toEqual({
 			message: "Downloaded PR stack feedback into the editor. Review/edit, then press Enter.",
