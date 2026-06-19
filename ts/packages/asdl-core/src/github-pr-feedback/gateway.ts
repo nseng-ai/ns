@@ -8,7 +8,13 @@ import {
 	reviewThreadCommentPageArgs,
 	reviewThreadPageArgs,
 } from "./args.ts";
-import { failureFromCompleted, failureFromMessage, failureFromStartup, feedbackErr, feedbackOk } from "./failures.ts";
+import {
+	failureFromCompleted,
+	failureFromMessage,
+	failureFromStartup,
+	feedbackErr,
+	feedbackOk,
+} from "./failures.ts";
 import {
 	normalizeDiscussionComment,
 	normalizePrSummary,

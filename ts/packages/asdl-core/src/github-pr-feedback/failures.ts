@@ -11,7 +11,9 @@ export function feedbackOk<T>(value: T): Result<T, GithubPrFeedbackFailure> {
 	return { ok: true, value };
 }
 
-export function feedbackErr<T = never>(error: GithubPrFeedbackFailure): Result<T, GithubPrFeedbackFailure> {
+export function feedbackErr<T = never>(
+	error: GithubPrFeedbackFailure,
+): Result<T, GithubPrFeedbackFailure> {
 	return { ok: false, error };
 }
 
