@@ -39,9 +39,9 @@ The migration should follow the umbrella TypeScript porting playbook: inventory 
   - successful raw payload envelope validation before reading detail values;
   - bounded command subjects with truncation metadata and SHA-256 prefix for long commands.
 - Port the session-source and git boundaries through TypeScript gateways/fakes:
-  - use the existing TypeScript session infrastructure if sufficient, or port only the minimal session adapter/evidence seams needed by `aretro`;
+  - use existing shared TypeScript git infrastructure when sufficient, and port only the minimal session adapter/evidence seams needed by `aretro`;
   - keep session parsing and evidence aggregation factual and harness-neutral;
-  - use package-local seams until a second consumer proves shared extraction.
+  - keep session, evidence, and payload seams package-local until a second consumer proves shared extraction.
 - Update the `branch-retro` skill and `skills/branch-retro/scripts/aretro-run` so repo-local use resolves to the TypeScript CLI.
 - Add `just install-aretro` as the expected repo-local TypeScript source shim if PATH execution remains useful.
 - Audit the existing `ASDL_ARETRO_MODE=prod` / `uvx --from aretro==0.1.0` path before Python deletion. Preserve, replace, or deliberately retire checkout-free execution based on caller evidence; stop before deleting Python if a real required consumer still depends on the PyPI package behavior.
@@ -130,9 +130,10 @@ The contract-and-shell slice now has landed-state evidence in this Objective. A 
 Completed prerequisites:
 
 - `aretro-ts-contract-and-shell` — created `@asdl/aretro`, codified the locked CLI/JSON/payload contract, and exposed root/hidden-`exec` command shells with scenario tests over fakes.
-- `aretro-ts-compact-evidence` — ported repo/branch resolution, package-local git and session-source seams, the real Pi JSONL session source, compact DTO conversion, deterministic evidence aggregation, warnings, privacy-preserving compact output, and a sanitized real-adapter smoke.
+- `aretro-ts-compact-evidence` — ported repo/branch resolution, TypeScript git and session-source seams, the real Pi JSONL session source, compact DTO conversion, deterministic evidence aggregation, warnings, privacy-preserving compact output, and a sanitized real-adapter smoke.
 - `aretro-ts-payload-detail` — ported schema-version-1 sanitized payload artifacts, package-local payload store/lookup helpers, long command-subject bounding, supporting pointers, and `read-evidence-detail` JSON Pointer validation.
 - `aretro-ts-skill-distribution-cutover` — made the `branch-retro` runner prefer the TypeScript CLI for repo-local use, added the opt-in `just install-aretro` source shim, audited checkout-free/prod references, and updated active docs away from Python/default `asdl aretro` examples.
+- `aretro-ts/stack-feedback-cleanup` — addressed post-parity TypeScript feedback by replacing the package-local git gateway/fake with shared `@asdl/core/git`, moving reusable session limiting into the session-source seam, and normalizing payload detail boolean field names without changing the evidence boundary.
 
 Default remaining stack shape:
 
@@ -241,7 +242,7 @@ Assumptions:
 - The deterministic evidence/semantic-interpretation split remains correct: `aretro` emits observations; the model-backed skill writes recommendations.
 - Repo-local TypeScript source execution plus an opt-in source shim is the default for current in-checkout consumers, matching recent toolkit cutovers. The current `uvx` prod runner must be audited before Python deletion, but it does not block TypeScript parity work.
 - Existing Python scenario/unit tests, `docs/aretro.md`, docs-site pages, and `branch-retro` skill instructions are sufficient to seed and test the compatibility contract.
-- Shared TypeScript foundations already cover enough command runtime behavior via `@asdl/clinkr`; session, evidence, and payload seams should remain package-local until repeated consumers prove shared extraction.
+- Shared TypeScript foundations cover command runtime behavior via `@asdl/clinkr` and ordinary repo/branch facts via `@asdl/core/git`; session, evidence, and payload seams should remain package-local until repeated consumers prove shared extraction.
 
 Risks:
 
