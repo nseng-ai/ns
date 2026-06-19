@@ -41,6 +41,30 @@ interface MutableMessageCounts {
 	other: number;
 }
 
+interface JsonObjectDecodeResult {
+	value: JsonObject | null;
+	warnings: readonly SessionWarning[];
+}
+
+interface ParsedPiMessageContribution {
+	messageCounts: SessionMessageCounts;
+	toolCalls: readonly SessionToolCall[];
+	toolResults: readonly SessionToolResult[];
+	commandExecutions: readonly SessionCommandExecution[];
+	usageEvents: readonly SessionUsage[];
+	warnings: readonly SessionWarning[];
+}
+
+interface ParsedToolCallsContribution {
+	toolCalls: readonly SessionToolCall[];
+	warnings: readonly SessionWarning[];
+}
+
+interface ParsedCommandExecutionContribution {
+	commandExecution: SessionCommandExecution | null;
+	warnings: readonly SessionWarning[];
+}
+
 export function defaultPiSessionRoot(): string {
 	return join(homedir(), ".pi", "agent", "sessions");
 }
@@ -58,14 +82,7 @@ function parsePiJsonlSession(path: string, repoRoot: string | null): ParsedSessi
 	const toolResults: SessionToolResult[] = [];
 	const commandExecutions: SessionCommandExecution[] = [];
 	const usageEvents: SessionUsage[] = [];
-	const counts: MutableMessageCounts = {
-		user: 0,
-		assistant: 0,
-		tool_result: 0,
-		command_execution: 0,
-		system: 0,
-		other: 0,
-	};
+	let counts = emptyMessageCounts();
 
 	let sessionId: string | null = null;
 	let cwd: string | null = null;
@@ -81,36 +98,42 @@ function parsePiJsonlSession(path: string, repoRoot: string | null): ParsedSessi
 		if (!rawLine) continue;
 
 		const sourceRef: SessionSourceRef = { path, uri: null, line_number: lineNumber };
-		const decoded = decodeJsonObject(rawLine, sourceRef, warnings);
-		if (decoded === null) {
+		const decoded = decodeJsonObject(rawLine, sourceRef);
+		warnings.push(...decoded.warnings);
+		if (decoded.value === null) {
 			continue;
 		}
+		const record = decoded.value;
 
-		const timestamp = stringValue(decoded, "timestamp");
+		const timestamp = stringValue(record, "timestamp");
 		latestTimestamp = maxIsoString(latestTimestamp, timestamp);
-		const recordType = stringValue(decoded, "type");
+		const recordType = stringValue(record, "type");
 
 		if (recordType === "session") {
 			sawSessionHeader = true;
-			sessionId = stringValue(decoded, "id");
+			sessionId = stringValue(record, "id");
 			startedAtIso = timestamp;
-			cwd = stringValue(decoded, "cwd");
+			cwd = stringValue(record, "cwd");
 		} else if (recordType === "model_change") {
-			modelEvents.push(parsePiModelEvent(decoded));
+			modelEvents.push(parsePiModelEvent(record));
 		} else if (recordType === "message") {
-			parsePiMessage(
-				decoded,
-				sourceRef,
-				counts,
-				toolCalls,
-				toolResults,
-				commandExecutions,
-				usageEvents,
-				warnings,
-			);
+			const contribution = parsePiMessage({ record, sourceRef });
+			counts = addMessageCounts(counts, contribution.messageCounts);
+			toolCalls.push(...contribution.toolCalls);
+			toolResults.push(...contribution.toolResults);
+			commandExecutions.push(...contribution.commandExecutions);
+			usageEvents.push(...contribution.usageEvents);
+			warnings.push(...contribution.warnings);
 		} else if (recordType === "bashExecution") {
-			counts.command_execution += 1;
-			parsePiCommandExecution(decoded, sourceRef, commandExecutions, warnings);
+			counts = addMessageCounts(counts, {
+				...emptyMessageCounts(),
+				command_execution: 1,
+			});
+			const contribution = parsePiCommandExecution({ message: record, sourceRef });
+			if (contribution.commandExecution !== null) {
+				commandExecutions.push(contribution.commandExecution);
+			}
+			warnings.push(...contribution.warnings);
 		} else if (recordType && KNOWN_IGNORED_RECORD_TYPES.has(recordType)) {
 			continue;
 		} else if (recordType === null) {
@@ -244,57 +267,42 @@ function warningResult(opts: { code: string; message: string; path: string }): S
 	};
 }
 
-function decodeJsonObject(
-	rawLine: string,
-	sourceRef: SessionSourceRef,
-	warnings: SessionWarning[],
-): JsonObject | null {
+function decodeJsonObject(rawLine: string, sourceRef: SessionSourceRef): JsonObjectDecodeResult {
 	const trimmed = rawLine.trim();
 	if (trimmed === "") {
-		return null;
+		return { value: null, warnings: [] };
 	}
 
-	let decoded: unknown;
 	try {
-		decoded = JSON.parse(rawLine);
+		return coerceJsonObject(JSON.parse(rawLine), sourceRef);
 	} catch (error) {
 		const msg = error instanceof Error ? error.message : "Unknown JSON error";
-		warnings.push(
-			adapterWarning({
-				code: "malformed_json",
-				message: `Could not decode Pi JSONL line: ${msg}.`,
-				sourceRef,
-			}),
-		);
-		return null;
+		return {
+			value: null,
+			warnings: [
+				adapterWarning({
+					code: "malformed_json",
+					message: `Could not decode Pi JSONL line: ${msg}.`,
+					sourceRef,
+				}),
+			],
+		};
 	}
-
-	return coerceJsonObject(decoded, sourceRef, warnings);
 }
 
-function coerceJsonObject(
-	value: unknown,
-	sourceRef: SessionSourceRef,
-	warnings: SessionWarning[],
-): JsonObject | null {
-	if (typeof value !== "object" || value === null || Array.isArray(value)) {
-		warnings.push(
+function coerceJsonObject(value: unknown, sourceRef: SessionSourceRef): JsonObjectDecodeResult {
+	const result = objectFromValue(value);
+	if (result !== null) return { value: result, warnings: [] };
+	return {
+		value: null,
+		warnings: [
 			adapterWarning({
 				code: "unknown_record_shape",
 				message: "Pi JSONL line decoded to a non-object value.",
 				sourceRef,
 			}),
-		);
-		return null;
-	}
-
-	const result: JsonObject = {};
-	for (const [key, item] of Object.entries(value)) {
-		if (typeof key === "string") {
-			result[key] = item;
-		}
-	}
-	return result;
+		],
+	};
 }
 
 function parsePiModelEvent(record: JsonObject): SessionModelEvent {
@@ -317,85 +325,119 @@ function parsePiModelEvent(record: JsonObject): SessionModelEvent {
 	};
 }
 
-function parsePiMessage(
-	record: JsonObject,
-	sourceRef: SessionSourceRef,
-	counts: MutableMessageCounts,
-	toolCalls: SessionToolCall[],
-	toolResults: SessionToolResult[],
-	commandExecutions: SessionCommandExecution[],
-	usageEvents: SessionUsage[],
-	warnings: SessionWarning[],
-): void {
-	const message = objectValue(record, "message");
+function parsePiMessage(options: {
+	record: JsonObject;
+	sourceRef: SessionSourceRef;
+}): ParsedPiMessageContribution {
+	const message = objectValue(options.record, "message");
 	if (message === null) {
-		counts.other += 1;
-		warnings.push(
-			adapterWarning({
-				code: "partial_record",
-				message: "Pi message record is missing an object message field.",
-				sourceRef,
-			}),
-		);
-		return;
+		return {
+			messageCounts: { ...emptyMessageCounts(), other: 1 },
+			toolCalls: [],
+			toolResults: [],
+			commandExecutions: [],
+			usageEvents: [],
+			warnings: [
+				adapterWarning({
+					code: "partial_record",
+					message: "Pi message record is missing an object message field.",
+					sourceRef: options.sourceRef,
+				}),
+			],
+		};
 	}
 
 	const role = stringValue(message, "role");
-	countMessageRole(role, counts, sourceRef, warnings);
-
-	const usage = parseUsage(message, sourceRef);
-	if (usage !== null) {
-		usageEvents.push(usage);
-	}
+	const roleResult = countMessageRole({ role, sourceRef: options.sourceRef });
+	const usage = parseUsage(message, options.sourceRef);
+	const usageEvents = usage === null ? [] : [usage];
 
 	if (role === "assistant") {
-		parseToolCalls(message, sourceRef, toolCalls, warnings);
-	} else if (role === "toolResult") {
-		toolResults.push(parseToolResult(message, sourceRef));
-	} else if (role === "bashExecution") {
-		parsePiCommandExecution(message, sourceRef, commandExecutions, warnings);
+		const toolCallResult = parseToolCalls({ message, sourceRef: options.sourceRef });
+		return {
+			messageCounts: roleResult.messageCounts,
+			toolCalls: toolCallResult.toolCalls,
+			toolResults: [],
+			commandExecutions: [],
+			usageEvents,
+			warnings: [...roleResult.warnings, ...toolCallResult.warnings],
+		};
 	}
+	if (role === "toolResult") {
+		return {
+			messageCounts: roleResult.messageCounts,
+			toolCalls: [],
+			toolResults: [parseToolResult(message, options.sourceRef)],
+			commandExecutions: [],
+			usageEvents,
+			warnings: roleResult.warnings,
+		};
+	}
+	if (role === "bashExecution") {
+		const commandResult = parsePiCommandExecution({ message, sourceRef: options.sourceRef });
+		return {
+			messageCounts: roleResult.messageCounts,
+			toolCalls: [],
+			toolResults: [],
+			commandExecutions:
+				commandResult.commandExecution === null ? [] : [commandResult.commandExecution],
+			usageEvents,
+			warnings: [...roleResult.warnings, ...commandResult.warnings],
+		};
+	}
+
+	return {
+		messageCounts: roleResult.messageCounts,
+		toolCalls: [],
+		toolResults: [],
+		commandExecutions: [],
+		usageEvents,
+		warnings: roleResult.warnings,
+	};
 }
 
-function countMessageRole(
-	role: string | null,
-	counts: MutableMessageCounts,
-	sourceRef: SessionSourceRef,
-	warnings: SessionWarning[],
-): void {
-	if (role === "user") {
-		counts.user += 1;
-	} else if (role === "assistant") {
-		counts.assistant += 1;
-	} else if (role === "toolResult") {
-		counts.tool_result += 1;
-	} else if (role === "bashExecution") {
-		counts.command_execution += 1;
-	} else if (role === "system") {
-		counts.system += 1;
-	} else {
-		counts.other += 1;
-		warnings.push(
+function countMessageRole(options: { role: string | null; sourceRef: SessionSourceRef }): {
+	messageCounts: SessionMessageCounts;
+	warnings: readonly SessionWarning[];
+} {
+	if (options.role === "user") {
+		return { messageCounts: { ...emptyMessageCounts(), user: 1 }, warnings: [] };
+	}
+	if (options.role === "assistant") {
+		return { messageCounts: { ...emptyMessageCounts(), assistant: 1 }, warnings: [] };
+	}
+	if (options.role === "toolResult") {
+		return { messageCounts: { ...emptyMessageCounts(), tool_result: 1 }, warnings: [] };
+	}
+	if (options.role === "bashExecution") {
+		return { messageCounts: { ...emptyMessageCounts(), command_execution: 1 }, warnings: [] };
+	}
+	if (options.role === "system") {
+		return { messageCounts: { ...emptyMessageCounts(), system: 1 }, warnings: [] };
+	}
+	return {
+		messageCounts: { ...emptyMessageCounts(), other: 1 },
+		warnings: [
 			adapterWarning({
 				code: "unknown_message_role",
 				message: "Pi message record has an unknown or missing role.",
-				sourceRef,
+				sourceRef: options.sourceRef,
 			}),
-		);
-	}
+		],
+	};
 }
 
-function parseToolCalls(
-	message: JsonObject,
-	sourceRef: SessionSourceRef,
-	toolCalls: SessionToolCall[],
-	warnings: SessionWarning[],
-): void {
-	const content = listValue(message, "content");
+function parseToolCalls(options: {
+	message: JsonObject;
+	sourceRef: SessionSourceRef;
+}): ParsedToolCallsContribution {
+	const content = listValue(options.message, "content");
 	if (content === null) {
-		return;
+		return { toolCalls: [], warnings: [] };
 	}
 
+	const toolCalls: SessionToolCall[] = [];
+	const warnings: SessionWarning[] = [];
 	for (const item of content) {
 		const block = objectFromValue(item);
 		if (block === null) continue;
@@ -411,7 +453,7 @@ function parseToolCalls(
 				adapterWarning({
 					code: "partial_tool_call",
 					message: "Pi tool call block is missing a string name.",
-					sourceRef,
+					sourceRef: options.sourceRef,
 				}),
 			);
 			continue;
@@ -424,20 +466,16 @@ function parseToolCalls(
 		const path = stringValue(argumentsObj, "path") ?? stringValue(argumentsObj, "file_path");
 
 		const callId = stringValue(block, "id") ?? "";
-		const toolCall: SessionToolCall = {
+		toolCalls.push({
 			call_id: callId,
 			tool_name: toolName,
 			argument_keys: argumentKeys,
-			source_ref: sourceRef,
-		};
-		if (command !== null) {
-			toolCall.command = command;
-		}
-		if (path !== null) {
-			toolCall.path = path;
-		}
-		toolCalls.push(toolCall);
+			source_ref: options.sourceRef,
+			...(command === null ? {} : { command }),
+			...(path === null ? {} : { path }),
+		});
 	}
+	return { toolCalls, warnings };
 }
 
 function parseToolResult(message: JsonObject, sourceRef: SessionSourceRef): SessionToolResult {
@@ -461,34 +499,37 @@ function parseToolResult(message: JsonObject, sourceRef: SessionSourceRef): Sess
 	return result;
 }
 
-function parsePiCommandExecution(
-	message: JsonObject,
-	sourceRef: SessionSourceRef,
-	commandExecutions: SessionCommandExecution[],
-	warnings: SessionWarning[],
-): void {
-	const command = stringValue(message, "command");
+function parsePiCommandExecution(options: {
+	message: JsonObject;
+	sourceRef: SessionSourceRef;
+}): ParsedCommandExecutionContribution {
+	const command = stringValue(options.message, "command");
 	if (command === null) {
-		warnings.push(
-			adapterWarning({
-				code: "partial_command_execution",
-				message: "Pi bash execution record is missing a string command.",
-				sourceRef,
-			}),
-		);
-		return;
+		return {
+			commandExecution: null,
+			warnings: [
+				adapterWarning({
+					code: "partial_command_execution",
+					message: "Pi bash execution record is missing a string command.",
+					sourceRef: options.sourceRef,
+				}),
+			],
+		};
 	}
 
-	const { textLength, lineCount } = textMetrics(message["output"]);
-	commandExecutions.push({
-		command,
-		exit_code: firstIntValue(message, ["exitCode", "exit_code"]),
-		cancelled: boolValue(message, "cancelled"),
-		truncated: boolValue(message, "truncated"),
-		output_length: textLength,
-		line_count: lineCount,
-		source_ref: sourceRef,
-	});
+	const { textLength, lineCount } = textMetrics(options.message["output"]);
+	return {
+		commandExecution: {
+			command,
+			exit_code: firstIntValue(options.message, ["exitCode", "exit_code"]),
+			cancelled: boolValue(options.message, "cancelled"),
+			truncated: boolValue(options.message, "truncated"),
+			output_length: textLength,
+			line_count: lineCount,
+			source_ref: options.sourceRef,
+		},
+		warnings: [],
+	};
 }
 
 function parseUsage(message: JsonObject, sourceRef: SessionSourceRef): SessionUsage | null {
@@ -655,6 +696,24 @@ function adapterWarning(opts: {
 		source_ref: opts.sourceRef,
 		harness: PI_SOURCE_INFO.harness,
 		adapter_name: PI_SOURCE_INFO.adapter_name,
+	};
+}
+
+function emptyMessageCounts(): MutableMessageCounts {
+	return { user: 0, assistant: 0, tool_result: 0, command_execution: 0, system: 0, other: 0 };
+}
+
+function addMessageCounts(
+	left: MutableMessageCounts,
+	right: SessionMessageCounts,
+): MutableMessageCounts {
+	return {
+		user: left.user + right.user,
+		assistant: left.assistant + right.assistant,
+		tool_result: left.tool_result + right.tool_result,
+		command_execution: left.command_execution + right.command_execution,
+		system: left.system + right.system,
+		other: left.other + right.other,
 	};
 }
 

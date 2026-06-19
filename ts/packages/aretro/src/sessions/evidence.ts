@@ -29,8 +29,8 @@ const HASH_PREFIX_LENGTH = 16;
 
 interface GroupAccumulator {
 	count: number;
-	sessionIndices: Set<number>;
-	sourceRefs: SessionSourceRef[];
+	sessionIndices: ReadonlySet<number>;
+	sourceRefs: readonly SessionSourceRef[];
 }
 
 interface FailureAccumulator extends GroupAccumulator {
@@ -45,15 +45,30 @@ interface LargeOutputAccumulator extends GroupAccumulator {
 	lineThresholdHits: number;
 }
 
-interface UsageAccumulator {
-	count: number;
-	sessionIndices: Set<number>;
-	sourceRefs: SessionSourceRef[];
+interface UsageAccumulator extends GroupAccumulator {
 	inputTokens: number | null;
 	outputTokens: number | null;
 	cacheReadTokens: number | null;
 	cacheWriteTokens: number | null;
 	totalTokens: number | null;
+}
+
+interface LargeOutputItemsOptions {
+	lineThreshold: number;
+	charThreshold: number;
+	maxSourceRefs: number;
+}
+
+interface RecordLargeOutputOptions {
+	group: LargeOutputAccumulator;
+	sessionIndex: number;
+	ref: SessionSourceRef;
+	maxSourceRefs: number;
+	outputLength: number | null;
+	lineCount: number | null;
+	truncated: boolean | null;
+	charThresholdHit: boolean;
+	lineThresholdHit: boolean;
 }
 
 export interface CollectEvidenceOptions {
@@ -84,12 +99,11 @@ export function collectSessionEvidence(
 	const usageItem = tokenUsageItem(sessions, maxSourceRefs);
 	if (usageItem !== null) items.push(usageItem);
 	items.push(
-		...largeOutputItems(
-			sessions,
-			largeOutputLineThreshold,
-			largeOutputCharThreshold,
+		...largeOutputItems(sessions, {
+			lineThreshold: largeOutputLineThreshold,
+			charThreshold: largeOutputCharThreshold,
 			maxSourceRefs,
-		),
+		}),
 	);
 
 	return items.sort(
@@ -105,11 +119,16 @@ function toolUsageItems(
 	for (const [sessionIndex, session] of sessions.entries()) {
 		for (const toolCall of session.tool_calls) {
 			const subject = toolCall.tool_name;
-			if (!groups.has(subject)) {
-				groups.set(subject, { count: 0, sessionIndices: new Set(), sourceRefs: [] });
-			}
-			const group = groups.get(subject)!;
-			recordGroup(group, sessionIndex, sourceRef(toolCall.source_ref, session), maxSourceRefs);
+			const group = groups.get(subject) ?? emptyGroupAccumulator();
+			groups.set(
+				subject,
+				recordGroup({
+					group,
+					sessionIndex,
+					ref: sourceRef(toolCall.source_ref, session),
+					maxSourceRefs,
+				}),
+			);
 		}
 	}
 
@@ -137,28 +156,25 @@ function failedToolItems(
 		for (const toolResult of session.tool_results) {
 			if (!toolResult.is_error) continue;
 			const subject = toolResult.tool_name ?? UNKNOWN_TOOL;
-			if (!groups.has(subject)) {
-				groups.set(subject, {
-					count: 0,
-					sessionIndices: new Set(),
-					sourceRefs: [],
-					errorMessageCount: 0,
-				});
-			}
-			const group = groups.get(subject)!;
-			recordGroup(group, sessionIndex, sourceRef(toolResult.source_ref, session), maxSourceRefs);
-			if (toolResult.error_message !== null) {
-				group.errorMessageCount += 1;
-			}
+			const group = groups.get(subject) ?? emptyFailureAccumulator();
+			const base = recordGroup({
+				group,
+				sessionIndex,
+				ref: sourceRef(toolResult.source_ref, session),
+				maxSourceRefs,
+			});
+			groups.set(subject, {
+				...group,
+				...base,
+				errorMessageCount: group.errorMessageCount + (toolResult.error_message !== null ? 1 : 0),
+			});
 		}
 	}
 
 	const items: SessionEvidenceItem[] = [];
 	for (const [subject, group] of groups) {
-		const metadata: Record<string, EvidenceMetadataValue> = {};
-		if (group.errorMessageCount > 0) {
-			metadata.error_message_count = group.errorMessageCount;
-		}
+		const metadata: Record<string, EvidenceMetadataValue> =
+			group.errorMessageCount > 0 ? { error_message_count: group.errorMessageCount } : {};
 		items.push({
 			kind: "failed_tool_result",
 			subject,
@@ -182,11 +198,16 @@ function repeatedFileReadItems(
 		for (const toolCall of session.tool_calls) {
 			if (!isReadTool(toolCall.tool_name) || toolCall.path === undefined) continue;
 			const subject = toolCall.path;
-			if (!groups.has(subject)) {
-				groups.set(subject, { count: 0, sessionIndices: new Set(), sourceRefs: [] });
-			}
-			const group = groups.get(subject)!;
-			recordGroup(group, sessionIndex, sourceRef(toolCall.source_ref, session), maxSourceRefs);
+			const group = groups.get(subject) ?? emptyGroupAccumulator();
+			groups.set(
+				subject,
+				recordGroup({
+					group,
+					sessionIndex,
+					ref: sourceRef(toolCall.source_ref, session),
+					maxSourceRefs,
+				}),
+			);
 		}
 	}
 
@@ -215,25 +236,30 @@ function repeatedShellCommandItems(
 	for (const [sessionIndex, session] of sessions.entries()) {
 		for (const commandExecution of session.command_executions) {
 			const command = commandExecution.command;
-			if (!groups.has(command)) {
-				groups.set(command, { count: 0, sessionIndices: new Set(), sourceRefs: [] });
-			}
-			const group = groups.get(command)!;
-			recordGroup(
-				group,
-				sessionIndex,
-				sourceRef(commandExecution.source_ref, session),
-				maxSourceRefs,
+			const group = groups.get(command) ?? emptyGroupAccumulator();
+			groups.set(
+				command,
+				recordGroup({
+					group,
+					sessionIndex,
+					ref: sourceRef(commandExecution.source_ref, session),
+					maxSourceRefs,
+				}),
 			);
 		}
 		for (const toolCall of session.tool_calls) {
 			if (!isShellTool(toolCall.tool_name) || toolCall.command === undefined) continue;
 			const command = toolCall.command;
-			if (!groups.has(command)) {
-				groups.set(command, { count: 0, sessionIndices: new Set(), sourceRefs: [] });
-			}
-			const group = groups.get(command)!;
-			recordGroup(group, sessionIndex, sourceRef(toolCall.source_ref, session), maxSourceRefs);
+			const group = groups.get(command) ?? emptyGroupAccumulator();
+			groups.set(
+				command,
+				recordGroup({
+					group,
+					sessionIndex,
+					ref: sourceRef(toolCall.source_ref, session),
+					maxSourceRefs,
+				}),
+			);
 		}
 	}
 
@@ -258,26 +284,17 @@ function tokenUsageItem(
 	sessions: readonly ParsedSession[],
 	maxSourceRefs: number,
 ): SessionEvidenceItem | null {
-	const usage: UsageAccumulator = {
-		count: 0,
-		sessionIndices: new Set(),
-		sourceRefs: [],
-		inputTokens: null,
-		outputTokens: null,
-		cacheReadTokens: null,
-		cacheWriteTokens: null,
-		totalTokens: null,
-	};
+	let usage: UsageAccumulator = emptyUsageAccumulator();
 
 	for (const [sessionIndex, session] of sessions.entries()) {
 		for (const usageEvent of session.usage_events) {
-			recordUsage(
+			usage = recordUsage({
 				usage,
 				sessionIndex,
-				sourceRef(usageEvent.source_ref, session),
+				ref: sourceRef(usageEvent.source_ref, session),
 				maxSourceRefs,
-				usageEvent,
-			);
+				event: usageEvent,
+			});
 		}
 	}
 
@@ -285,12 +302,12 @@ function tokenUsageItem(
 
 	const metadata: Record<string, EvidenceMetadataValue> = {
 		usage_event_count: usage.count,
+		...(usage.inputTokens === null ? {} : { input_tokens: usage.inputTokens }),
+		...(usage.outputTokens === null ? {} : { output_tokens: usage.outputTokens }),
+		...(usage.cacheReadTokens === null ? {} : { cache_read_tokens: usage.cacheReadTokens }),
+		...(usage.cacheWriteTokens === null ? {} : { cache_write_tokens: usage.cacheWriteTokens }),
+		...(usage.totalTokens === null ? {} : { total_tokens: usage.totalTokens }),
 	};
-	setIfNotNull(metadata, "input_tokens", usage.inputTokens);
-	setIfNotNull(metadata, "output_tokens", usage.outputTokens);
-	setIfNotNull(metadata, "cache_read_tokens", usage.cacheReadTokens);
-	setIfNotNull(metadata, "cache_write_tokens", usage.cacheWriteTokens);
-	setIfNotNull(metadata, "total_tokens", usage.totalTokens);
 
 	return {
 		kind: "token_usage_observed",
@@ -305,74 +322,54 @@ function tokenUsageItem(
 
 function largeOutputItems(
 	sessions: readonly ParsedSession[],
-	lineThreshold: number,
-	charThreshold: number,
-	maxSourceRefs: number,
+	options: LargeOutputItemsOptions,
 ): SessionEvidenceItem[] {
 	const groups = new Map<string, LargeOutputAccumulator>();
 
 	for (const [sessionIndex, session] of sessions.entries()) {
 		for (const toolResult of session.tool_results) {
-			const charHit = hitsThreshold(toolResult.text_length, charThreshold);
-			const lineHit = hitsThreshold(toolResult.line_count, lineThreshold);
+			const charHit = hitsThreshold(toolResult.text_length, options.charThreshold);
+			const lineHit = hitsThreshold(toolResult.line_count, options.lineThreshold);
 			if (toolResult.truncated !== true && !charHit && !lineHit) continue;
 
 			const subject = `tool_result:${toolResult.tool_name ?? UNKNOWN_TOOL}`;
-			if (!groups.has(subject)) {
-				groups.set(subject, {
-					count: 0,
-					sessionIndices: new Set(),
-					sourceRefs: [],
-					maxOutputLength: null,
-					maxLineCount: null,
-					truncatedCount: 0,
-					charThresholdHits: 0,
-					lineThresholdHits: 0,
-				});
-			}
-			const group = groups.get(subject)!;
-			recordLargeOutput(
-				group,
-				sessionIndex,
-				sourceRef(toolResult.source_ref, session),
-				maxSourceRefs,
-				toolResult.text_length,
-				toolResult.line_count,
-				toolResult.truncated,
-				charHit,
-				lineHit,
+			const group = groups.get(subject) ?? emptyLargeOutputAccumulator();
+			groups.set(
+				subject,
+				recordLargeOutput({
+					group,
+					sessionIndex,
+					ref: sourceRef(toolResult.source_ref, session),
+					maxSourceRefs: options.maxSourceRefs,
+					outputLength: toolResult.text_length,
+					lineCount: toolResult.line_count,
+					truncated: toolResult.truncated,
+					charThresholdHit: charHit,
+					lineThresholdHit: lineHit,
+				}),
 			);
 		}
 
 		for (const commandExecution of session.command_executions) {
-			const charHit = hitsThreshold(commandExecution.output_length, charThreshold);
-			const lineHit = hitsThreshold(commandExecution.line_count, lineThreshold);
+			const charHit = hitsThreshold(commandExecution.output_length, options.charThreshold);
+			const lineHit = hitsThreshold(commandExecution.line_count, options.lineThreshold);
 			if (commandExecution.truncated !== true && !charHit && !lineHit) continue;
 
 			const subject = "command_execution";
-			if (!groups.has(subject)) {
-				groups.set(subject, {
-					count: 0,
-					sessionIndices: new Set(),
-					sourceRefs: [],
-					maxOutputLength: null,
-					maxLineCount: null,
-					truncatedCount: 0,
-					charThresholdHits: 0,
-					lineThresholdHits: 0,
-				});
-			}
-			const group = groups.get(subject)!;
-			recordLargeOutput(
-				group,
-				sessionIndex,
-				sourceRef(commandExecution.source_ref, session),
-				maxSourceRefs,
-				commandExecution.output_length,
-				commandExecution.line_count,
-				commandExecution.truncated,
-				charHit,
-				lineHit,
+			const group = groups.get(subject) ?? emptyLargeOutputAccumulator();
+			groups.set(
+				subject,
+				recordLargeOutput({
+					group,
+					sessionIndex,
+					ref: sourceRef(commandExecution.source_ref, session),
+					maxSourceRefs: options.maxSourceRefs,
+					outputLength: commandExecution.output_length,
+					lineCount: commandExecution.line_count,
+					truncated: commandExecution.truncated,
+					charThresholdHit: charHit,
+					lineThresholdHit: lineHit,
+				}),
 			);
 		}
 	}
@@ -383,9 +380,9 @@ function largeOutputItems(
 			truncated_count: group.truncatedCount,
 			char_threshold_hits: group.charThresholdHits,
 			line_threshold_hits: group.lineThresholdHits,
+			...(group.maxOutputLength === null ? {} : { max_output_length: group.maxOutputLength }),
+			...(group.maxLineCount === null ? {} : { max_line_count: group.maxLineCount }),
 		};
-		setIfNotNull(metadata, "max_output_length", group.maxOutputLength);
-		setIfNotNull(metadata, "max_line_count", group.maxLineCount);
 
 		items.push({
 			kind: "large_output_observed",
@@ -400,82 +397,121 @@ function largeOutputItems(
 	return items;
 }
 
-function recordGroup(
-	group: GroupAccumulator,
-	sessionIndex: number,
-	ref: SessionSourceRef,
-	maxSourceRefs: number,
-): void {
-	group.count += 1;
-	group.sessionIndices.add(sessionIndex);
-	appendUniqueSourceRef(group.sourceRefs, ref, maxSourceRefs);
+function emptyGroupAccumulator(): GroupAccumulator {
+	return { count: 0, sessionIndices: new Set(), sourceRefs: [] };
 }
 
-function recordUsage(
-	usage: UsageAccumulator,
-	sessionIndex: number,
-	ref: SessionSourceRef,
-	maxSourceRefs: number,
-	event: SessionUsage,
-): void {
-	usage.count += 1;
-	usage.sessionIndices.add(sessionIndex);
-	appendUniqueSourceRef(usage.sourceRefs, ref, maxSourceRefs);
-	usage.inputTokens = addOptionalTotal(usage.inputTokens, event.input_tokens);
-	usage.outputTokens = addOptionalTotal(usage.outputTokens, event.output_tokens);
-	usage.cacheReadTokens = addOptionalTotal(usage.cacheReadTokens, event.cache_read_tokens);
-	usage.cacheWriteTokens = addOptionalTotal(usage.cacheWriteTokens, event.cache_write_tokens);
-	usage.totalTokens = addOptionalTotal(usage.totalTokens, event.total_tokens);
+function emptyFailureAccumulator(): FailureAccumulator {
+	return {
+		...emptyGroupAccumulator(),
+		errorMessageCount: 0,
+	};
 }
 
-function recordLargeOutput(
-	group: LargeOutputAccumulator,
-	sessionIndex: number,
-	ref: SessionSourceRef,
-	maxSourceRefs: number,
-	outputLength: number | null,
-	lineCount: number | null,
-	truncated: boolean | null,
-	charThresholdHit: boolean,
-	lineThresholdHit: boolean,
-): void {
-	recordGroup(group, sessionIndex, ref, maxSourceRefs);
-	if (outputLength !== null) {
-		if (group.maxOutputLength === null || outputLength > group.maxOutputLength) {
-			group.maxOutputLength = outputLength;
-		}
-	}
-	if (lineCount !== null) {
-		if (group.maxLineCount === null || lineCount > group.maxLineCount) {
-			group.maxLineCount = lineCount;
-		}
-	}
-	if (truncated === true) {
-		group.truncatedCount += 1;
-	}
-	if (charThresholdHit) {
-		group.charThresholdHits += 1;
-	}
-	if (lineThresholdHit) {
-		group.lineThresholdHits += 1;
-	}
+function emptyLargeOutputAccumulator(): LargeOutputAccumulator {
+	return {
+		...emptyGroupAccumulator(),
+		maxOutputLength: null,
+		maxLineCount: null,
+		truncatedCount: 0,
+		charThresholdHits: 0,
+		lineThresholdHits: 0,
+	};
+}
+
+function emptyUsageAccumulator(): UsageAccumulator {
+	return {
+		...emptyGroupAccumulator(),
+		inputTokens: null,
+		outputTokens: null,
+		cacheReadTokens: null,
+		cacheWriteTokens: null,
+		totalTokens: null,
+	};
+}
+
+function recordGroup(options: {
+	group: GroupAccumulator;
+	sessionIndex: number;
+	ref: SessionSourceRef;
+	maxSourceRefs: number;
+}): GroupAccumulator {
+	const sessionIndices = new Set(options.group.sessionIndices);
+	sessionIndices.add(options.sessionIndex);
+	return {
+		count: options.group.count + 1,
+		sessionIndices,
+		sourceRefs: appendUniqueSourceRef({
+			sourceRefs: options.group.sourceRefs,
+			ref: options.ref,
+			maxSourceRefs: options.maxSourceRefs,
+		}),
+	};
+}
+
+function recordUsage(options: {
+	usage: UsageAccumulator;
+	sessionIndex: number;
+	ref: SessionSourceRef;
+	maxSourceRefs: number;
+	event: SessionUsage;
+}): UsageAccumulator {
+	const base = recordGroup({
+		group: options.usage,
+		sessionIndex: options.sessionIndex,
+		ref: options.ref,
+		maxSourceRefs: options.maxSourceRefs,
+	});
+	return {
+		...options.usage,
+		...base,
+		inputTokens: addOptionalTotal(options.usage.inputTokens, options.event.input_tokens),
+		outputTokens: addOptionalTotal(options.usage.outputTokens, options.event.output_tokens),
+		cacheReadTokens: addOptionalTotal(
+			options.usage.cacheReadTokens,
+			options.event.cache_read_tokens,
+		),
+		cacheWriteTokens: addOptionalTotal(
+			options.usage.cacheWriteTokens,
+			options.event.cache_write_tokens,
+		),
+		totalTokens: addOptionalTotal(options.usage.totalTokens, options.event.total_tokens),
+	};
+}
+
+function recordLargeOutput(options: RecordLargeOutputOptions): LargeOutputAccumulator {
+	const base = recordGroup({
+		group: options.group,
+		sessionIndex: options.sessionIndex,
+		ref: options.ref,
+		maxSourceRefs: options.maxSourceRefs,
+	});
+	return {
+		...options.group,
+		...base,
+		maxOutputLength: maxNullable(options.group.maxOutputLength, options.outputLength),
+		maxLineCount: maxNullable(options.group.maxLineCount, options.lineCount),
+		truncatedCount: options.group.truncatedCount + (options.truncated === true ? 1 : 0),
+		charThresholdHits: options.group.charThresholdHits + (options.charThresholdHit ? 1 : 0),
+		lineThresholdHits: options.group.lineThresholdHits + (options.lineThresholdHit ? 1 : 0),
+	};
 }
 
 function sourceRef(ref: SessionSourceRef | null, session: ParsedSession): SessionSourceRef {
 	return ref ?? session.source_ref;
 }
 
-function appendUniqueSourceRef(
-	sourceRefs: SessionSourceRef[],
-	ref: SessionSourceRef,
-	maxSourceRefs: number,
-): void {
-	if (sourceRefs.length >= maxSourceRefs) return;
-	const key = sourceRefKey(ref);
-	for (const existing of sourceRefs) {
-		if (sourceRefKey(existing) === key) return;
+function appendUniqueSourceRef(options: {
+	sourceRefs: readonly SessionSourceRef[];
+	ref: SessionSourceRef;
+	maxSourceRefs: number;
+}): readonly SessionSourceRef[] {
+	if (options.sourceRefs.length >= options.maxSourceRefs) return options.sourceRefs;
+	const key = sourceRefKey(options.ref);
+	for (const existing of options.sourceRefs) {
+		if (sourceRefKey(existing) === key) return options.sourceRefs;
 	}
-	sourceRefs.push(ref);
+	return [...options.sourceRefs, options.ref];
 }
 
 function sourceRefKey(ref: SessionSourceRef): string {
@@ -523,14 +559,10 @@ function addOptionalTotal(current: number | null, value: number | null): number 
 	return current + value;
 }
 
-function setIfNotNull(
-	metadata: Record<string, EvidenceMetadataValue>,
-	key: string,
-	value: number | null,
-): void {
-	if (value !== null) {
-		metadata[key] = value;
-	}
+function maxNullable(current: number | null, value: number | null): number | null {
+	if (value === null) return current;
+	if (current === null) return value;
+	return Math.max(current, value);
 }
 
 function hitsThreshold(value: number | null, threshold: number): boolean {

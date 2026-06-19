@@ -1,6 +1,6 @@
-import type { SessionQuery, SessionQueryResult } from "./types.ts";
+import type { SessionQuery, SessionQueryResult, SessionSourceInfo } from "./types.ts";
 
 export interface SessionSource {
-	readonly sourceInfo: { harness: string; adapter_name: string; record_format: string };
+	readonly sourceInfo: SessionSourceInfo;
 	query(query: SessionQuery): Promise<SessionQueryResult>;
 }

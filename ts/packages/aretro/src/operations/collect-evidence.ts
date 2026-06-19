@@ -57,17 +57,7 @@ export async function runCollectEvidence(
 			code: "payload_mode_not_implemented",
 			message: "Payload mode is not yet implemented in the TypeScript port.",
 		};
-		const result = emptyResult({
-			request,
-			cwd,
-			repoRoot: null,
-			branch: request.branch ?? null,
-			branchSource: branchSourceForUnresolvedRepo(request),
-			sourceInfo,
-			error,
-			warnings: [],
-		});
-		return shellNegative(error.message, result);
+		return shellNegativeBeforeResolution({ request, cwd, sourceInfo, error });
 	}
 
 	const gitCommonDir = await context.git.getGitCommonDir({ cwd: repoInput });
@@ -76,17 +66,7 @@ export async function runCollectEvidence(
 			code: "not_a_git_repo",
 			message: `Not a git repository: ${repoInput}. Pass --repo with a git repository path.`,
 		};
-		const result = emptyResult({
-			request,
-			cwd,
-			repoRoot: null,
-			branch: request.branch ?? null,
-			branchSource: branchSourceForUnresolvedRepo(request),
-			sourceInfo,
-			error,
-			warnings: [],
-		});
-		return shellNegative(error.message, result);
+		return shellNegativeBeforeResolution({ request, cwd, sourceInfo, error });
 	}
 
 	const repoRootResult = await context.git.getRepositoryRoot({ cwd: repoInput });
@@ -95,17 +75,7 @@ export async function runCollectEvidence(
 			code: repoRootResult.error.code,
 			message: repoRootResult.error.message,
 		};
-		const result = emptyResult({
-			request,
-			cwd,
-			repoRoot: null,
-			branch: request.branch ?? null,
-			branchSource: branchSourceForUnresolvedRepo(request),
-			sourceInfo,
-			error,
-			warnings: [],
-		});
-		return shellNegative(error.message, result);
+		return shellNegativeBeforeResolution({ request, cwd, sourceInfo, error });
 	}
 	const repoRoot = repoRootResult.value;
 
@@ -223,6 +193,27 @@ function resultFromQueryResult(
 		warnings,
 		evidence_items: evidenceItems,
 	};
+}
+
+function shellNegativeBeforeResolution(options: {
+	request: CollectEvidenceRequest;
+	cwd: string;
+	sourceInfo: SessionSourceInfo;
+	error: CollectEvidenceError;
+}) {
+	return shellNegative(
+		options.error.message,
+		emptyResult({
+			request: options.request,
+			cwd: options.cwd,
+			repoRoot: null,
+			branch: options.request.branch ?? null,
+			branchSource: branchSourceForUnresolvedRepo(options.request),
+			sourceInfo: options.sourceInfo,
+			error: options.error,
+			warnings: [],
+		}),
+	);
 }
 
 function emptyResult(options: {
