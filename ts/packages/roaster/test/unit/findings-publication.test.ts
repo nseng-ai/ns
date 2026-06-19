@@ -15,6 +15,7 @@ import {
 } from "../../src/findings-publication.ts";
 import { FakeRoasterGitHubGateway, type GitHubGatewayOptions } from "../../src/gateways/github.ts";
 import type { PRChangedFile, ReviewFinding, ReviewInputCoverage } from "../../src/models.ts";
+import { buildSuccessEnvelope } from "../support/findings-envelope.ts";
 
 const WARNING_FINDING: ReviewFinding = {
 	path: "src/app.ts",
@@ -306,7 +307,7 @@ describe("publishFindings", () => {
 		const result = await publishFindings(
 			{
 				prNumber: 47,
-				rawEnvelope: findingsEnvelope([WARNING_FINDING]),
+				rawEnvelope: buildSuccessEnvelope([WARNING_FINDING]),
 				reviewName: "typescript-style",
 				baseRef: "main",
 				runUrl: "https://run",
@@ -354,7 +355,7 @@ describe("publishFindings", () => {
 		const result = await publishFindings(
 			{
 				prNumber: 47,
-				rawEnvelope: findingsEnvelope([WARNING_FINDING]),
+				rawEnvelope: buildSuccessEnvelope([WARNING_FINDING]),
 				reviewName: "typescript-style",
 				baseRef: "main",
 			},
@@ -372,7 +373,7 @@ describe("publishFindings", () => {
 		const result = await publishFindings(
 			{
 				prNumber: 47,
-				rawEnvelope: findingsEnvelope([]),
+				rawEnvelope: buildSuccessEnvelope([]),
 				reviewName: "typescript-style",
 				baseRef: "main",
 			},
@@ -402,23 +403,6 @@ describe("preserveActivityLog", () => {
 		expect(merged.endsWith("\n")).toBe(true);
 	});
 });
-
-function findingsEnvelope(findings: readonly ReviewFinding[]): string {
-	return JSON.stringify({
-		exit_code: 0,
-		data: {
-			reviewName: "typescript-style",
-			reviewPath: "reviews/typescript-style.md",
-			model: "haiku",
-			baseRef: "main",
-			format: "findings",
-			count: findings.length,
-			findings,
-			usage: null,
-			inputCoverage: null,
-		},
-	});
-}
 
 function payload(overrides: Partial<FindingsPayload>): FindingsPayload {
 	return {

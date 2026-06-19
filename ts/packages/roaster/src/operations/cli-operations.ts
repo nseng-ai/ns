@@ -201,7 +201,7 @@ export async function runPublishFindings(
 			rawEnvelope: raw,
 			reviewName: request.review_name,
 			baseRef: request.base_ref,
-			runUrl: request.run_url,
+			...(request.run_url === undefined ? {} : { runUrl: request.run_url }),
 		},
 		{ github: ctx.context.github, cwd: ctx.cwd, env: ctx.env },
 	);

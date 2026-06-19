@@ -2,8 +2,9 @@ import { describe, expect, test } from "vitest";
 
 import { runCli } from "../../src/cli.ts";
 import { FakeRoasterGitHubGateway, type RoasterGitHubGateway } from "../../src/gateways/github.ts";
-import type { PRChangedFile } from "../../src/models.ts";
+import type { PRChangedFile, ReviewFinding } from "../../src/models.ts";
 import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
+import { buildSuccessEnvelope } from "../support/findings-envelope.ts";
 
 interface RunResult {
 	readonly exitCode: number;
@@ -28,30 +29,13 @@ async function runRoaster(
 	return { exitCode, stdout: stdout.join(""), stderr: stderr.join("") };
 }
 
-function findingsEnvelope(findings: readonly Record<string, unknown>[]): string {
-	return JSON.stringify({
-		exit_code: 0,
-		data: {
-			reviewName: "dignified-python",
-			reviewPath: "/repo/reviews/dignified-python.md",
-			model: "sonnet",
-			baseRef: "master",
-			format: "findings",
-			count: findings.length,
-			findings,
-			usage: null,
-			inputCoverage: null,
-		},
-	});
-}
-
-const inlineFinding = {
+const inlineFinding: ReviewFinding = {
 	path: "app.py",
 	line: 1,
 	severity: "warning",
 	summary: "Inline this",
 	details: "This line is in the PR diff.",
-} as const;
+};
 
 const deletedCommands = [
 	"post-inline-" + "findings",
@@ -88,7 +72,15 @@ describe("roaster exec CLI", () => {
 				"--run-url",
 				"https://run",
 			],
-			{ stdin: findingsEnvelope([inlineFinding]), github },
+			{
+				stdin: buildSuccessEnvelope([inlineFinding], {
+					reviewName: "dignified-python",
+					reviewPath: "/repo/reviews/dignified-python.md",
+					model: "sonnet",
+					baseRef: "master",
+				}),
+				github,
+			},
 		);
 
 		expect(run.exitCode).toBe(0);
