@@ -9,7 +9,6 @@
   },
   "scripts": {
     "check": "tsgo -p tsconfig.json",
-    "check:legacy": "tsc -p tsconfig.json",
     "deps:check": "syncpack lint",
     "deps:fix": "syncpack fix",
     "fmt": "oxfmt 'packages/**/*.ts' '*.ts'",

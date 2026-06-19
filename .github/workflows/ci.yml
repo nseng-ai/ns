@@ -97,8 +97,6 @@ jobs:
         run: just ts-lint
       - name: Run TypeScript primary typecheck
         run: just ts-check
-      - name: Run TypeScript legacy typecheck
-        run: just ts-check-legacy
       - name: Run TypeScript guard
         run: just ts-guard
       - name: Run TypeScript tests
