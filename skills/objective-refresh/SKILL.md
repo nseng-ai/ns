@@ -1,35 +1,50 @@
 ---
 name: objective-refresh
-description: "Refresh exactly one active Objective in one explicit target context without closure. Use when asked to refresh a single Objective for a branch/ref/worktree, rebaseline one Objective after landing, or when branch/repo refresh orchestrators need the per-objective primitive. For user-directed updates or closure, use objective-update."
+description: "Refresh active Objective records without closure. Use for a single Objective rebaseline, this branch's Objective tracking, explicit trunk non-closing refresh, repo-wide Objective refresh, bedtime Objective refresh, or Graphite/topology fan-out. For user-directed updates or closure, use objective-update."
 ---
 
 # objective-refresh
 
-Refresh exactly one active Objective record in one explicit target context. This is an Objective skill-family workflow: use/read the `objective` umbrella skill first for shared Objective vocabulary, storage, status semantics, and safety rules.
+Refresh active Objective records without closure. This is an Objective skill-family workflow: use/read the `objective` umbrella skill first for shared Objective vocabulary, storage, status semantics, and safety rules.
 
-This skill is the per-Objective primitive for the refresh family. It verifies material claims, updates stale durable Objective prose/roadmap only when meaningful, may append one Semantic Update, and never closes Objectives. For a user-directed update that may create `closed.md`, use `objective-update` instead.
+This skill handles three non-closing refresh scopes:
+
+- **one-objective scope:** one active Objective in one explicit target context;
+- **branch/context scope:** all Objective records genuinely in scope for one branch or explicit branch-like context;
+- **repo scope:** all active open Objectives across safe repo/Graphite owning branch/context targets.
+
+A refresh verifies material claims, updates stale durable Objective prose/roadmap only when meaningful, may append Semantic Updates, and never closes Objectives. For a user-directed update that may create `closed.md`, use `objective-update` instead.
+
+## Scope router
+
+Choose exactly one scope before gathering mutable evidence:
+
+- Explicit Objective slug/path, "refresh this Objective", or "rebaseline one Objective" -> use the one-objective workflow in this file.
+- "Refresh this branch's Objectives", "bring branch Objective tracking up to date", current branch Objective refresh, or explicit trunk named-slug non-closing refresh -> read `references/branch-scope.md`, then return to this file for each selected slug's authoring and verification.
+- "Refresh all Objectives", repo-wide Objective refresh, bedtime Objective refresh, or Graphite/topology fan-out -> read `references/repo-scope.md`; it routes safe targets through `references/branch-scope.md` and then this file's one-objective workflow.
+- Ambiguous refresh scope -> ask the user to choose one-objective, branch/context, or repo scope. Do not infer scope from branch name, PR title, roadmap text, hidden attachments, or candidate count.
 
 ## Concept
 
-A refresh asks: for this target context, what should this Objective record truthfully say as durable ground truth?
+A refresh asks: for this target context, what should the Objective record truthfully say as durable ground truth?
 
-On feature branches, an orchestrator may frame the target as "if this branch landed now". On trunk/default branch, the target is an explicit non-closing rebaseline for a named Objective. Use `objective-update`'s landed-state writing semantics as the authoring model, but do not run the Closure Gate, do not create `closed.md`, and do not add `## Closure`.
+On feature branches, branch/context or repo scope may frame the target as "if this branch landed now". On trunk/default branch, the target is an explicit non-closing rebaseline for named Objective records. Use `objective-update`'s landed-state writing semantics as the authoring model, but do not run the Closure Gate, do not create `closed.md`, and do not add `## Closure`.
 
-Do not require the target to be a branch tip. The target may be the current checkout `HEAD`, a branch/ref in a materialized worktree, or an orchestrator-supplied context. What matters is that the worktree/ref, trunk/base, and baseline are explicit enough to gather deterministic evidence.
+Do not require the target to be a branch tip. The target may be the current checkout `HEAD`, a branch/ref in a materialized worktree, or a branch/repo-scope supplied context. What matters is that the worktree/ref, trunk/base, and baseline are explicit enough to gather deterministic evidence.
 
-## Required target context
+## Required one-objective target context
 
 Process exactly one active Objective slug/path and exactly one target context.
 
-Standalone mode may default the target context to the current checkout `HEAD` only when the checkout is on a real branch:
+Standalone one-objective mode may default the target context to the current checkout `HEAD` only when the checkout is on a real branch:
 
 ```bash
 git -C "$WT" symbolic-ref --quiet --short HEAD
 ```
 
-If no slug/path is explicit in standalone mode, run `objective list --minimal --format md` and ask the user to choose one. Do not auto-select from branch name, PR title, roadmap text, changed files, hidden attachments, or candidate count.
+If no slug/path is explicit in standalone one-objective mode, run `objective list --minimal --format md` and ask the user to choose one. Do not auto-select from branch name, PR title, roadmap text, changed files, hidden attachments, or candidate count.
 
-Orchestrated mode receives the target context from `objective-branch-refresh` or `objective-repo-refresh`. The caller should provide:
+Branch/context and repo scopes should supply this target context for each selected slug:
 
 ```text
 WT=<worktree path>
@@ -68,6 +83,8 @@ git -C "$WT" log -n1 --format=%H --grep='\[objective-refresh\].*<slug>' -- .asdl
 git -C "$WT" log -n1 --format=%H --grep='\[objective-branch-refresh\].*<slug>' -- .asdl/objectives/<slug>/
 ```
 
+`[objective-branch-refresh]` is legacy read compatibility only; all new refresh commits use `[objective-refresh]`.
+
 If no matching refresh commit exists for a feature-owned context, use the merge base with trunk/base:
 
 ```bash
@@ -92,28 +109,28 @@ Do not stamp a post-commit Objective tree SHA into the update file; the update f
 
 ## Safety probes
 
-Before editing the Objective directory, verify it is clean:
+Before editing one Objective directory, verify it is clean:
 
 ```bash
 git -C "$WT" status --porcelain -- .asdl/objectives/<slug>/
 ```
 
-- Standalone mode: if the selected Objective directory is dirty, stop and report the dirty slug unless the user explicitly asks to incorporate those local edits.
-- Orchestrated mode: skip the slug, write nothing for it, and include a degrade reason in the caller's report.
+- Standalone one-objective or branch/context mode: if the selected Objective directory is dirty, stop and report the dirty slug unless the user explicitly asks to incorporate those local edits.
+- Orchestrated repo/target mode: skip the slug, write nothing for it, and include a degrade reason in the report.
 
 Always enforce these invariants:
 
-- Edit only the selected Objective directory.
+- Edit only selected Objective directories for the chosen scope.
 - Never edit, rewrite, move, delete, normalize, or recreate an existing file under `updates/`.
 - Never move, delete, rename, or recreate Objective slug directories.
 - Never edit archived Objectives unless the user explicitly asks for archive work.
 - Never create `closed.md` and never add `## Closure`.
 
-If the selected Objective appears to require closure rather than refresh, report it as closure-ready/needs `objective-update`; do not close it.
+If a selected Objective appears to require closure rather than refresh, report it as closure-ready/needs `objective-update`; do not close it.
 
-## Write policy
+## One-objective write policy
 
-For a due, clean slug:
+For each due, clean slug:
 
 1. Read the Objective record. Use `objective exec read-objective <slug> --format md` when available for deterministic inventory and closed-marker state, then focus on:
    - `.asdl/objectives/<slug>/objective.md`
@@ -148,41 +165,41 @@ For a due, clean slug:
 
 ## Commit behavior
 
-In standalone mode, create one self-identifying commit when there are edits:
+Standalone one-objective mode creates one self-identifying commit when there are edits:
 
 ```bash
 git -C "$WT" add .asdl/objectives/<slug>/
 git -C "$WT" commit -m "[objective-refresh] refresh <slug>"
 ```
 
-Include target context when helpful, for example:
+Branch/context and repo fan-out scopes create at most one aggregate commit per target context when there are edits. Use `[objective-refresh]` for all new aggregate commits:
 
 ```text
+[objective-refresh] refresh Objectives
 [objective-refresh] refresh pr-address-ts-hardening on trunk
 ```
 
-In orchestrated mode, do not create a nested commit if the caller will aggregate branch-level edits. Return the files changed and Semantic Update filename so `objective-branch-refresh` can create one aggregate commit for its target context.
-
-Do not commit when the slug produced no meaningful edit.
+Do not commit when no slug produced a meaningful edit.
 
 ## Final response
 
 Return a compact report with:
 
-1. Objective slug/path, worktree, branch/ref or `HEAD`, trunk/base, target SHA/ref, and baseline.
-2. Action: `wrote`, `noop-baseline`, `skipped-dirty`, `skipped-ambiguous`, `skipped-unverified`, `closure-ready`, or `trunk-explicit-noop`.
+1. Scope, worktree(s), branch/ref or `HEAD`, trunk/base, target SHA/ref, and baseline per processed slug.
+2. Per-slug action: `wrote`, `noop-baseline`, `skipped-dirty`, `skipped-ambiguous`, `skipped-unverified`, `closure-ready`, `not-owned`, `trunk-explicit-noop`, `deferred-proposal`, `routed`, or `note+flag` as applicable.
 3. Claim verification summary: key claims verified, key claims corrected/parked/narrowed, and any claims still treated as assumptions/open questions.
-4. Durable files edited and any new Semantic Update filename.
+4. Durable files edited and any new Semantic Update filenames.
 5. Confirmation that no existing Semantic Updates were edited, no Objective slug directories were moved/deleted/recreated, and no Objective was closed.
-6. Whether a clean rerun should be a no-op.
+6. Whether a clean rerun should be a no-op for refreshed targets.
 
 ## Verify
 
-- New update file, if any, is timestamped and lives under the selected Objective's `updates/` directory.
+- New update files, if any, are timestamped and live under the matching Objective's `updates/` directory.
 - No existing file under `updates/` changed.
 - Required Objective headings remain present in edited files.
 - Every material claim written or preserved in edited Objective prose has supporting evidence, has been weakened to an assumption/open question, or caused `skipped-unverified`.
 - Negative claims have scoped absence evidence.
 - New Semantic Updates include the decisive verification/rebaseline evidence when they correct stale Objective prose.
 - No `closed.md` was created and no `## Closure` was added.
+- New commits, if any, use `[objective-refresh]`; legacy `[objective-branch-refresh]` appears only in baseline lookup compatibility.
 - A rerun with no additional Objective changes produces no commit.
