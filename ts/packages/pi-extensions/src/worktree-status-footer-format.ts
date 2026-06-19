@@ -69,6 +69,7 @@ export interface StatusFooterRenderOptions {
 	branch: string;
 	fallbackRepo: string;
 	worktreeStatus?: WorktreeStatus | undefined;
+	isWorktreeStatusDormant?: boolean | undefined;
 }
 
 interface FooterExtensionStatusLines {
@@ -248,7 +249,17 @@ function formatFooterCwd(cwd: string, home: string | undefined): string {
 }
 
 export function renderStatusFooter(options: StatusFooterRenderOptions): string[] {
-	const { ctx, footerData, theme, width, cwd, branch, fallbackRepo, worktreeStatus } = options;
+	const {
+		ctx,
+		footerData,
+		theme,
+		width,
+		cwd,
+		branch,
+		fallbackRepo,
+		worktreeStatus,
+		isWorktreeStatusDormant,
+	} = options;
 	const identity = formatWorktreeFooterIdentity({
 		cwd,
 		branch,
@@ -262,7 +273,11 @@ export function renderStatusFooter(options: StatusFooterRenderOptions): string[]
 	const footerStatusLines = formatFooterExtensionStatusLines(footerData.getExtensionStatuses());
 	const statsLine = formatFooterStats({ ctx, footerData, theme, width });
 	const lines = [identity];
-	for (const statusLine of formatStructuredFooterWorktreeLines(worktreeStatus, theme)) {
+	for (const statusLine of formatStructuredFooterWorktreeLines(
+		worktreeStatus,
+		isWorktreeStatusDormant === true,
+		theme,
+	)) {
 		lines.push(truncateToWidth(statusLine, width, theme.fg("dim", "...")));
 	}
 	lines.push(statsLine);
@@ -274,9 +289,16 @@ export function renderStatusFooter(options: StatusFooterRenderOptions): string[]
 
 function formatStructuredFooterWorktreeLines(
 	status: WorktreeStatus | undefined,
+	isDormant: boolean,
 	theme: StatusTheme,
 ): string[] {
-	return status === undefined ? [] : formatWorktreeStatusForFooter(status, theme);
+	const lines = status === undefined ? [] : formatWorktreeStatusForFooter(status, theme);
+	if (isDormant) lines.push(formatWorktreeStatusDormantLine(theme));
+	return lines;
+}
+
+export function formatWorktreeStatusDormantLine(theme: StatusTheme): string {
+	return theme.fg("dim", "[wt] dormant after 2m idle");
 }
 
 function formatFooterStats(

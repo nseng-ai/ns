@@ -10,6 +10,7 @@ import { isRecord, stringField } from "./cmux/primitives.ts";
 import { parseMachineEnvelopeData } from "./machine-envelope.ts";
 import type { SendMessageOptions, SendUserMessageOptions } from "./message-delivery.ts";
 import { definePiSurfaceParity } from "./parity.ts";
+import { unrefTimer } from "./timers.ts";
 
 export const PR_FEEDBACK_WATCH_COMMAND_NAME = "code:pr-feedback-watch";
 
@@ -1349,8 +1350,7 @@ class PrFeedbackWatchController {
 			this.timer = undefined;
 			void this.pollOnce(session, { scheduleNext: true, existingFeedbackMode: "baseline" });
 		}, this.nextPollDelayMs());
-		const maybeTimer = this.timer as { unref?: () => void };
-		maybeTimer.unref?.();
+		unrefTimer(this.timer);
 	}
 
 	private nextPollDelayMs(): number {
@@ -1378,8 +1378,7 @@ class PrFeedbackWatchController {
 			}
 			ctx.ui?.setStatus?.(PR_FEEDBACK_WATCH_COMMAND_NAME, defaultStatusLine(this.status()));
 		}, STATUS_REFRESH_INTERVAL_MS);
-		const maybeTimer = this.statusRefreshTimer as { unref?: () => void };
-		maybeTimer.unref?.();
+		unrefTimer(this.statusRefreshTimer);
 	}
 
 	private clearStatusRefreshTimer(): void {
