@@ -4,12 +4,13 @@ import { describe, expect, test } from "vitest";
 import { exitCodeForExit, failure, negative, ok, toMachineEnvelope } from "@asdl/clinkr";
 import { defineExecOperation, type ExecOperation } from "../../src/exec-operation.ts";
 import { loadJsonInput } from "../../src/json-input.ts";
-import { operationSchemaDocumentNames } from "../../src/operation-schemas/index.ts";
+import { EXEC_OPERATIONS } from "../../src/exec-commands.ts";
 import { EXEC_OPERATION_NAMES } from "../support/operation-names.ts";
 import { runScenario } from "../support/run-scenario.ts";
 
 function envelopeOperation(onArgs?: (kind: string | undefined) => void): ExecOperation {
 	return defineExecOperation({
+		resultSchema: z.object({ valid: z.boolean() }),
 		spec: {
 			name: "envelope",
 			schema: z.object({ kind: z.string().optional() }),
@@ -77,6 +78,7 @@ describe("pr-address CLI", () => {
 
 	test("supports injected stdin for managed exec operations", async () => {
 		const echoOperation = defineExecOperation({
+			resultSchema: z.object({ ok: z.boolean() }),
 			spec: {
 				name: "echo-json",
 				schema: z.object({}),
@@ -136,8 +138,8 @@ describe("pr-address CLI", () => {
 describe("pr-address exec operation table", () => {
 	test("every operation serves a pinned schema document and vice versa (1:1)", () => {
 		const tableNames = [...EXEC_OPERATION_NAMES].sort();
-		const builderNames = [...operationSchemaDocumentNames()].sort();
-		expect(tableNames).toEqual(builderNames);
+		const schemaDocumentNames = EXEC_OPERATIONS.map((operation) => operation.name).sort();
+		expect(tableNames).toEqual(schemaDocumentNames);
 		expect(tableNames).toEqual([
 			"branch-pr",
 			"download-feedback",

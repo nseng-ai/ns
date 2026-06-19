@@ -146,7 +146,7 @@ export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
 			for (const thread of connection.nodes) {
 				const hydrated = await this.withCompleteThreadComments(thread, params);
 				if (!hydrated.ok) return feedbackErr(hydrated.error);
-				threads.push(...normalizeReviewThread(hydrated.value));
+				threads.push(normalizeReviewThread(hydrated.value));
 			}
 
 			if (!connection.pageInfo.hasNextPage) break;
@@ -174,9 +174,7 @@ export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
 			prNumber: params.prNumber,
 		});
 		if (!result.ok) return result;
-		return feedbackOk(
-			result.value.comments.map(normalizeDiscussionComment).filter((comment) => comment.id !== 0),
-		);
+		return feedbackOk(result.value.comments.map(normalizeDiscussionComment));
 	}
 
 	async replyToReviewThread(
@@ -264,7 +262,6 @@ export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
 		params: GithubPrFeedbackOptions & { readonly prNumber: number },
 	): Promise<Result<GhReviewThread, GithubPrFeedbackFailure>> {
 		if (!thread.comments.pageInfo.hasNextPage) return feedbackOk(thread);
-		if (thread.id === null) return feedbackOk(thread);
 
 		const comments = [...thread.comments.nodes];
 		let commentCursor = thread.comments.pageInfo.endCursor;

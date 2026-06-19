@@ -40,28 +40,23 @@ export function normalizeReview(review: z.infer<typeof ghReviewSchema>): GithubP
 
 export function normalizeReviewThread(
 	thread: z.infer<typeof ghReviewThreadSchema>,
-): GithubPrReviewThread[] {
-	if (thread.id === null) return [];
-	return [
-		{
-			id: thread.id,
-			path: thread.path,
-			line: thread.line,
-			startLine: thread.startLine ?? null,
-			isResolved: thread.isResolved,
-			isOutdated: thread.isOutdated,
-			comments: thread.comments.nodes
-				.map(normalizeReviewComment)
-				.filter((comment) => comment.id !== 0),
-		},
-	];
+): GithubPrReviewThread {
+	return {
+		id: thread.id,
+		path: thread.path,
+		line: thread.line,
+		startLine: thread.startLine ?? null,
+		isResolved: thread.isResolved,
+		isOutdated: thread.isOutdated,
+		comments: thread.comments.nodes.map(normalizeReviewComment),
+	};
 }
 
 export function normalizeReviewComment(
 	comment: z.infer<typeof ghReviewCommentSchema>,
 ): GithubPrReviewComment {
 	return {
-		id: numericId(comment.databaseId ?? comment.id),
+		id: comment.numericId,
 		body: comment.body,
 		author: normalizeAuthor(comment.author),
 		path: comment.path,
@@ -76,7 +71,7 @@ export function normalizeDiscussionComment(
 	comment: z.infer<typeof ghDiscussionCommentSchema>,
 ): GithubPrDiscussionComment {
 	return {
-		id: numericId(comment.databaseId ?? comment.id),
+		id: comment.numericId,
 		body: comment.body,
 		author: normalizeAuthor(comment.user ?? comment.author),
 		url: comment.html_url ?? comment.url,
@@ -86,13 +81,4 @@ export function normalizeDiscussionComment(
 function normalizeAuthor(author: z.infer<typeof ghAuthorSchema>): string {
 	if (typeof author === "string") return author;
 	return author?.login ?? "";
-}
-
-function numericId(value: string | number | null | undefined): number {
-	if (typeof value === "number") return value;
-	if (typeof value === "string") {
-		const numeric = Number(value);
-		if (Number.isInteger(numeric)) return numeric;
-	}
-	return 0;
 }

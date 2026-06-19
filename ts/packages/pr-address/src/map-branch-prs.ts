@@ -10,6 +10,7 @@ import {
 	type PrAddressExecContext,
 } from "./exec-operation.ts";
 import { loadJsonInput } from "./json-input.ts";
+import { mapBranchPrsResultSchema } from "./operation-schemas/collection.ts";
 
 export const mapBranchPrsInputSchema = z.looseObject({
 	branches: z.array(z.string()),
@@ -44,6 +45,7 @@ export interface MapBranchPrsResult {
 
 export const mapBranchPrsOperation = defineExecOperation({
 	isRepoContextRequired: true,
+	resultSchema: mapBranchPrsResultSchema,
 	spec: {
 		name: "map-branch-prs",
 		description: "Map local branches to open PRs.",

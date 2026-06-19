@@ -20,6 +20,7 @@ import {
 	prFeedbackFailureExit,
 	type PrAddressExecContext,
 } from "./exec-operation.ts";
+import { downloadFeedbackResultSchema } from "./operation-schemas/collection.ts";
 
 const downloadFeedbackParseSchema = z.object({
 	prNumber: z.int().optional(),
@@ -65,6 +66,7 @@ interface IncludedFeedback {
 
 export const downloadFeedbackOperation = defineExecOperation({
 	isRepoContextRequired: true,
+	resultSchema: downloadFeedbackResultSchema,
 	spec: {
 		name: "download-feedback",
 		description: "Download current PR feedback as an LM-ready Markdown triage prompt.",

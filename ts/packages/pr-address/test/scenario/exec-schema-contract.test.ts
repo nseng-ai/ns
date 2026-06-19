@@ -2,7 +2,6 @@ import { describe, test } from "vitest";
 
 import { buildSurfacePlan } from "../../../clinkr/src/surface.ts";
 import { EXEC_OPERATIONS } from "../../src/exec-commands.ts";
-import { buildOperationSchemaDocument } from "../../src/operation-schemas/index.ts";
 
 /**
  * Known deltas between clinkr parse-schema option surface and published
@@ -62,12 +61,10 @@ function schemaKeysForOperation(
 	const surface = buildSurfacePlan({ commandName: operationName, schema });
 	const parseKeys = new Set(surface.options.map((option) => option.key));
 
-	const document = buildOperationSchemaDocument(operationName, schema);
-	if (document === undefined) {
-		throw new Error(`No schema document builder for operation '${operationName}'`);
-	}
+	const operation = EXEC_OPERATIONS.find((candidate) => candidate.name === operationName);
+	if (operation === undefined) throw new Error(`Unknown operation '${operationName}'`);
 
-	const inputSchema = document.input_json_schema as Record<string, unknown>;
+	const inputSchema = operation.schemaDocument().input_json_schema as Record<string, unknown>;
 	const properties = inputSchema.properties as Record<string, unknown> | undefined;
 	return {
 		parseKeys,
