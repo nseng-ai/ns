@@ -341,14 +341,14 @@ function validatePrivateDirectory(dirPath: string): void {
 
 function writeBytesExclusive(filePath: string, payload: Buffer): void {
 	let fd: number | undefined;
-	let ownsPath = false;
+	let hasCreatedPath = false;
 	try {
 		fd = fs.openSync(
 			filePath,
 			fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL,
 			0o600,
 		);
-		ownsPath = true;
+		hasCreatedPath = true;
 		setPrivateFileMode(fd);
 		writeBytesToFd(fd, payload);
 		fs.closeSync(fd);
@@ -360,7 +360,7 @@ function writeBytesExclusive(filePath: string, payload: Buffer): void {
 		if (fd !== undefined) {
 			closeFdAfterWriteFailure(fd);
 		}
-		if (ownsPath) {
+		if (hasCreatedPath) {
 			removePartialPayloadFile(filePath);
 		}
 		throw error;

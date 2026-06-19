@@ -32,11 +32,11 @@ const COMMAND_HASH_PREFIX_LENGTH = 16;
 
 type CommandMetadata = Record<string, string | number | boolean | null>;
 type SourceRefKey = readonly [string | null, string | null, number | null];
-type SourceRefValue = {
-	path: string | null;
-	uri: string | null;
-	line_number: number | null;
-};
+interface SourceRefValue {
+	readonly path: string | null;
+	readonly uri: string | null;
+	readonly line_number: number | null;
+}
 
 export const payloadSourceRefDtoSchema = z.object({
 	path: z.string().nullable(),
