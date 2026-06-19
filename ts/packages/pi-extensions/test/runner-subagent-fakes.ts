@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 
 import type {
+	RunnerSubagentDispatcherContext,
 	RunnerSubagentDispatcherDependencies,
 	SpawnChildProcessOptions,
 	SpawnedChildProcess,
@@ -77,7 +78,7 @@ export class FakeSpawnedChildProcess implements SpawnedChildProcess {
 export function createFakeRunnerSubagentDispatcher(
 	options: {
 		sessionFile?: string;
-		now?: () => number;
+		context?: RunnerSubagentDispatcherContext;
 		runtimeFiles?: RunnerSubagentRuntimeFiles;
 		runtimeResult?: RuntimeResultV1;
 		runtimeResultRead?: RuntimeResultReadResult;
@@ -99,7 +100,7 @@ export function createFakeRunnerSubagentDispatcher(
 		cleanup: () => undefined,
 	};
 	const dependencies: RunnerSubagentDispatcherDependencies = {
-		...(options.now === undefined ? {} : { now: options.now }),
+		...(options.context === undefined ? {} : { context: options.context }),
 		createSessionFile: () => sessionFile,
 		createRuntimeFiles: (input) => {
 			createRuntimeConfig(input);

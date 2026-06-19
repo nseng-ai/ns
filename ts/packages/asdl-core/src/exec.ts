@@ -31,8 +31,15 @@ export interface ExecOptions {
 	onStderr?: (text: string) => void;
 }
 
-export interface RunCommandDependencies {
+export interface RunCommandContext {
 	readonly timers?: TimerScheduler;
+}
+
+export interface RunCommandRequest {
+	readonly command: string;
+	readonly args: readonly string[];
+	readonly options?: ExecOptions;
+	readonly context?: RunCommandContext;
 }
 
 export type CommandRunner = (
@@ -91,10 +98,15 @@ export async function runCommand(
 	command: string,
 	args: readonly string[],
 	options: ExecOptions = {},
-	dependencies: RunCommandDependencies = {},
 ): Promise<ExecResult> {
+	return runCommandWithContext({ command, args, options });
+}
+
+export async function runCommandWithContext(request: RunCommandRequest): Promise<ExecResult> {
 	return new Promise((resolve) => {
-		const timers = dependencies.timers ?? systemTimerScheduler;
+		const timers = request.context?.timers ?? systemTimerScheduler;
+		const options = request.options ?? {};
+		const { command, args } = request;
 		let stdout = "";
 		let stderr = "";
 		let hasSettled = false;

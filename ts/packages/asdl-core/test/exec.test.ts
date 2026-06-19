@@ -14,6 +14,7 @@ import {
 	normalizeExecResult,
 	piExecApiToCommandExecApi,
 	runCommand,
+	runCommandWithContext,
 	shellQuote,
 	stripTerminalEscapes,
 	tailText,
@@ -263,18 +264,18 @@ setInterval(() => {}, 1_000);
 			resolveReady = resolve;
 		});
 
-		const resultPromise = runCommand(
-			process.execPath,
-			[script],
-			{
+		const resultPromise = runCommandWithContext({
+			command: process.execPath,
+			args: [script],
+			options: {
 				timeout: 500,
 				timeoutKillGraceMs: 100,
 				onStderr(text) {
 					if (text.includes("ready")) resolveReady();
 				},
 			},
-			{ timers: manualTimers.timers },
-		);
+			context: { timers: manualTimers.timers },
+		});
 
 		await ready;
 		manualTimers.advanceMs(500);
@@ -303,10 +304,10 @@ setInterval(() => {}, 1_000);
 			resolveIgnoredSigterm = resolve;
 		});
 
-		const resultPromise = runCommand(
-			process.execPath,
-			[script],
-			{
+		const resultPromise = runCommandWithContext({
+			command: process.execPath,
+			args: [script],
+			options: {
 				timeout: 500,
 				timeoutKillGraceMs: 100,
 				onStderr(text) {
@@ -314,8 +315,8 @@ setInterval(() => {}, 1_000);
 					if (text.includes("ignored sigterm")) resolveIgnoredSigterm();
 				},
 			},
-			{ timers: manualTimers.timers },
-		);
+			context: { timers: manualTimers.timers },
+		});
 
 		await ready;
 		manualTimers.advanceMs(500);

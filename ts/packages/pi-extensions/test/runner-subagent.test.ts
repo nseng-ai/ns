@@ -1,5 +1,7 @@
 import { describe, expect, test } from "vitest";
 
+import { createManualClock } from "@asdl/core/testing";
+
 import {
 	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,
 	dispatchRunnerSubagent,
@@ -218,9 +220,10 @@ describe("dispatchRunnerSubagent local contract", () => {
 	});
 
 	test("returns a deterministic stopped-without-terminal result through the injectable runner", async () => {
+		const manualClock = createManualClock(0);
 		const runner = createFakeRunnerSubagentDispatcher({
 			sessionFile: "/tmp/contract-runner-subagent.jsonl",
-			now: () => 0,
+			context: { clock: manualClock.clock },
 		});
 		const pi: RunnerSubagentPi = { [RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES]: runner.dependencies };
 		const ctx: RunnerSubagentContext = { cwd: "/repo" };
