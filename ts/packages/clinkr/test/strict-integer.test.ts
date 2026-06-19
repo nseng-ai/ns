@@ -13,8 +13,8 @@ function buildGroup(): ClinkrGroup<null> {
 	});
 	group.command({
 		name: "show",
-		schema: z.object({ pr_number: z.int() }),
-		positionals: { pr_number: { position: 0 } },
+		schema: z.object({ prNumber: z.int() }),
+		positionals: { prNumber: { position: 0 } },
 		handler: async (_ctx, request) => ok(request),
 	});
 	return group;
@@ -42,7 +42,7 @@ describe("strict integer positionals", () => {
 	test("accepts decimal integers", async () => {
 		const run = await runForTest(buildGroup(), ["show", "41"], { context: null });
 		expect(run.exitCode).toBe(0);
-		expect(JSON.parse(run.stdout)).toEqual({ pr_number: 41 });
+		expect(JSON.parse(run.stdout)).toEqual({ prNumber: 41 });
 	});
 
 	test.each(["12.5", "1e2", "0x10", "+5", " 5 ", "1_000"])(

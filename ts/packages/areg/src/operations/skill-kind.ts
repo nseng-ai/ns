@@ -116,7 +116,7 @@ export const skillKindApplyRequestSchema = z.object({
 		.string()
 		.default(".")
 		.describe("Project directory or subdirectory to mutate (default: current directory)."),
-	dry_run: z.boolean().default(false).describe("Show planned edits without writing files."),
+	dryRun: z.boolean().default(false).describe("Show planned edits without writing files."),
 	yes: z.boolean().default(false).describe("Approve deletion prompts for managed artifacts."),
 	kind: z.enum(SKILL_INVOCATION_KINDS).describe("Desired skill invocation kind."),
 	skills: z.array(z.string()).min(1).describe("Local skill names or path-like skill specs."),
@@ -255,11 +255,11 @@ export async function runSkillKindApply(
 		plans.push(plan.value);
 		planningInspection = inspectionAfterPlannedApply(planningInspection, plan.value);
 	}
-	if (request.dry_run) {
+	if (request.dryRun) {
 		return ok({
 			project_dir: projectDir,
 			kind: request.kind,
-			dry_run: request.dry_run,
+			dry_run: request.dryRun,
 			skills: plans.map((plan) => ({
 				skill: plan.skill,
 				operations: plan.operations.map((operation) => toApplyResult(operation, false, false)),
@@ -277,7 +277,7 @@ export async function runSkillKindApply(
 				return negative(`Declined to apply ${request.kind} to ${plan.skill}.`, {
 					project_dir: projectDir,
 					kind: request.kind,
-					dry_run: request.dry_run,
+					dry_run: request.dryRun,
 					skills: [],
 				});
 		}
@@ -306,7 +306,7 @@ export async function runSkillKindApply(
 	return ok({
 		project_dir: projectDir,
 		kind: request.kind,
-		dry_run: request.dry_run,
+		dry_run: request.dryRun,
 		skills: plans.map((plan) => ({
 			skill: plan.skill,
 			operations: plan.operations.map((operation) =>

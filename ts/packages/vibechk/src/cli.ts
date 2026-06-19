@@ -49,17 +49,17 @@ interface VibechkCliContext {
 
 const runsRequestSchema = z.object({
 	store: z.string().optional(),
-	output_format: z.enum(["table", "json"]).default("table"),
+	outputFormat: z.enum(["table", "json"]).default("table"),
 });
 
 const showRequestSchema = z.object({
-	id_or_prefix: z.string(),
+	idOrPrefix: z.string(),
 	store: z.string().optional(),
 });
 
 const diffRequestSchema = z.object({
-	baseline_id: z.string(),
-	treatment_id: z.string(),
+	baselineId: z.string(),
+	treatmentId: z.string(),
 	store: z.string().optional(),
 });
 
@@ -92,7 +92,7 @@ export function buildCli(): ClinkrGroup<VibechkCliContext> {
 		description: "Render a Markdown report for a single run.",
 		schema: showRequestSchema,
 		positionals: {
-			id_or_prefix: { position: 0 },
+			idOrPrefix: { position: 0 },
 		},
 		handler: runShow,
 		renderHuman: renderShow,
@@ -103,8 +103,8 @@ export function buildCli(): ClinkrGroup<VibechkCliContext> {
 		description: "Render a Markdown comparison report for two runs.",
 		schema: diffRequestSchema,
 		positionals: {
-			baseline_id: { position: 0 },
-			treatment_id: { position: 1 },
+			baselineId: { position: 0 },
+			treatmentId: { position: 1 },
 		},
 		handler: runDiff,
 		renderHuman: renderDiff,
@@ -135,7 +135,7 @@ async function runRuns(ctx: VibechkCliContext, request: RunsRequest) {
 	const storeRoot = resolveStoreRoot(request.store, ctx.env);
 	const loaded = await listBundles(storeRoot);
 
-	if (request.output_format === "json") {
+	if (request.outputFormat === "json") {
 		return ok<RunsResult>({ type: "json", entries: loaded.map(runListEntryToJson) });
 	}
 	return ok<RunsResult>({ type: "table", loaded });
@@ -153,7 +153,7 @@ function renderRuns(result: RunsResult, caps: RenderCapabilities = { canEmitAnsi
 
 async function runShow(ctx: VibechkCliContext, request: ShowRequest) {
 	const storeRoot = resolveStoreRoot(request.store, ctx.env);
-	const loaded = await readBundle(storeRoot, request.id_or_prefix);
+	const loaded = await readBundle(storeRoot, request.idOrPrefix);
 	return ok<ShowResult>({ loaded });
 }
 
@@ -166,8 +166,8 @@ function renderShow(
 
 async function runDiff(ctx: VibechkCliContext, request: DiffRequest) {
 	const storeRoot = resolveStoreRoot(request.store, ctx.env);
-	const baseline = await readBundle(storeRoot, request.baseline_id);
-	const treatment = await readBundle(storeRoot, request.treatment_id);
+	const baseline = await readBundle(storeRoot, request.baselineId);
+	const treatment = await readBundle(storeRoot, request.treatmentId);
 	return ok<DiffResult>({ baseline, treatment });
 }
 

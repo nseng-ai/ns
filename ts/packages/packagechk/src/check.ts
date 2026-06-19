@@ -1,9 +1,4 @@
-import {
-	REGISTRIES,
-	type PackageCheckReport,
-	type Registry,
-	type RegistryCheckResult,
-} from "./models.ts";
+import { REGISTRIES, type PackageCheckReport, type Registry } from "./models.ts";
 import type { PackageRegistryGateway } from "./registry-gateways.ts";
 
 export function registrySelection(registryOptions: readonly Registry[]): readonly Registry[] {
@@ -17,29 +12,8 @@ export async function checkPackageName(options: {
 }): Promise<PackageCheckReport> {
 	const results = await Promise.all(
 		options.registries.map((registry) =>
-			checkRegistry({
-				packageName: options.packageName,
-				registry,
-				registryGateway: options.registryGateway,
-			}),
+			options.registryGateway.check(registry, options.packageName),
 		),
 	);
 	return { inputName: options.packageName, results };
-}
-
-async function checkRegistry(options: {
-	packageName: string;
-	registry: Registry;
-	registryGateway: PackageRegistryGateway;
-}): Promise<RegistryCheckResult> {
-	switch (options.registry) {
-		case "pypi":
-			return await options.registryGateway.checkPypi(options.packageName);
-		case "npm":
-			return await options.registryGateway.checkNpm(options.packageName);
-		case "brew":
-			return await options.registryGateway.checkBrew(options.packageName);
-	}
-	const exhaustive: never = options.registry;
-	return exhaustive;
 }

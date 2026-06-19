@@ -25,7 +25,7 @@ export const listRequestSchema = z.object({
 	key: z.string().optional().describe("Exact Entry Key filter."),
 	branch: z.string().optional().describe("Branch. Defaults to current branch."),
 	base: z.boolean().default(false).describe("Restrict to Base Namespace."),
-	all_branches: z.boolean().default(false).describe("List Entries from all branches."),
+	allBranches: z.boolean().default(false).describe("List Entries from all branches."),
 });
 
 export const listResultSchema = z.object({
@@ -51,7 +51,7 @@ export async function runList(ctx: BrmemCliContext, request: ListRequest) {
 	if (request.base && request.namespace !== undefined) {
 		return failure("base_and_namespace_conflict", "--base and --namespace are mutually exclusive.");
 	}
-	if (request.branch !== undefined && request.all_branches) {
+	if (request.branch !== undefined && request.allBranches) {
 		return failure(
 			"branch_and_all_branches_conflict",
 			"--branch and --all-branches are mutually exclusive.",
@@ -83,7 +83,7 @@ export async function runList(ctx: BrmemCliContext, request: ListRequest) {
 	);
 	if (validationFailure !== undefined) return failure(validationFailure[0], validationFailure[1]);
 	let branch: string | undefined;
-	if (!request.all_branches) {
+	if (!request.allBranches) {
 		if (request.branch !== undefined) branch = request.branch;
 		else {
 			const resolvedBranch = await resolveCurrentBranch(ctx);
@@ -100,7 +100,7 @@ export async function runList(ctx: BrmemCliContext, request: ListRequest) {
 		key: request.key ?? null,
 		branch: branch ?? null,
 		base: request.base,
-		all_branches: request.all_branches,
+		all_branches: request.allBranches,
 		entries: entriesResult.value.map(entryJson),
 	});
 }

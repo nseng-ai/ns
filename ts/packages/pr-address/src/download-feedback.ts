@@ -17,10 +17,10 @@ import {
 import type { PRDiscussionComment, PRReview, PRReviewThread, PRSummary } from "./gateways.ts";
 
 const downloadFeedbackParseSchema = z.object({
-	pr_number: z.int().optional(),
-	include_resolved: z.boolean().default(false),
-	include_automation: z.boolean().default(false),
-	include_empty_reviews: z.boolean().default(false),
+	prNumber: z.int().optional(),
+	includeResolved: z.boolean().default(false),
+	includeAutomation: z.boolean().default(false),
+	includeEmptyReviews: z.boolean().default(false),
 });
 
 type DownloadFeedbackRequest = z.output<typeof downloadFeedbackParseSchema>;
@@ -85,7 +85,7 @@ async function runDownloadFeedbackOperation(
 		gateway: ctx.context.github,
 		gatewayOptions: gatewayOptions(ctx),
 		prNumber: targetResult.pr.number,
-		shouldIncludeResolved: request.include_resolved,
+		shouldIncludeResolved: request.includeResolved,
 		shouldIncludeEmptyReviews: true,
 		shouldCountAllReviewThreads: true,
 	});
@@ -116,21 +116,21 @@ async function resolveTargetPr(
 	request: DownloadFeedbackRequest,
 ): Promise<TargetPrResult> {
 	const github = ctx.context.github;
-	if (request.pr_number !== undefined) {
-		const lookupResult = await github.getPr(request.pr_number, gatewayOptions(ctx));
+	if (request.prNumber !== undefined) {
+		const lookupResult = await github.getPr(request.prNumber, gatewayOptions(ctx));
 		if (lookupResult.type === "failure")
 			return {
 				type: "failure",
 				exit: failure(
 					"pr_gateway_failure",
-					gatewayFailureMessage(`Failed to look up PR ${request.pr_number}`, lookupResult.failure),
+					gatewayFailureMessage(`Failed to look up PR ${request.prNumber}`, lookupResult.failure),
 				),
 			};
 		if (lookupResult.type === "miss") {
 			return {
 				type: "miss",
-				target: emptyTarget({ prNumber: request.pr_number }),
-				message: `No PR found for PR ${request.pr_number}: ${lookupResult.stderr}`,
+				target: emptyTarget({ prNumber: request.prNumber }),
+				message: `No PR found for PR ${request.prNumber}: ${lookupResult.stderr}`,
 			};
 		}
 		return { type: "found", pr: lookupResult.pr, branch: null };
@@ -178,10 +178,10 @@ function selectIncludedFeedback(
 	snapshot: FeedbackSnapshot,
 	request: DownloadFeedbackRequest,
 ): IncludedFeedback {
-	const reviews = request.include_empty_reviews
+	const reviews = request.includeEmptyReviews
 		? snapshot.reviews
 		: reviewsForRequest(snapshot.reviews, false);
-	const discussionComments = request.include_automation
+	const discussionComments = request.includeAutomation
 		? snapshot.discussion_comments
 		: snapshot.discussion_comments.filter((comment) => !isAutomationLikeDiscussionComment(comment));
 	const resolvedThreads = snapshot.counted_review_threads.filter(
@@ -195,11 +195,11 @@ function selectIncludedFeedback(
 			included_review_threads: snapshot.review_threads.length,
 			included_reviews: reviews.length,
 			included_discussion_comments: discussionComments.length,
-			excluded_resolved_threads: request.include_resolved ? 0 : resolvedThreads,
-			excluded_empty_reviews: request.include_empty_reviews
+			excluded_resolved_threads: request.includeResolved ? 0 : resolvedThreads,
+			excluded_empty_reviews: request.includeEmptyReviews
 				? 0
 				: snapshot.reviews.length - reviews.length,
-			excluded_automation_comments: request.include_automation
+			excluded_automation_comments: request.includeAutomation
 				? 0
 				: snapshot.discussion_comments.length - discussionComments.length,
 		},

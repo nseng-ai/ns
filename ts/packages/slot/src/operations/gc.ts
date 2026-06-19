@@ -33,9 +33,9 @@ const gcEntrySchema = z.object({
 });
 
 export const gcRequestSchema = z.object({
-	dry_run: z.boolean().default(false).describe("Preview without mutating."),
+	dryRun: z.boolean().default(false).describe("Preview without mutating."),
 	force: z.boolean().default(false).describe("Free candidates without prompting."),
-	delete_branches: z.boolean().default(false).describe("Delete local branches for freed slots."),
+	deleteBranches: z.boolean().default(false).describe("Delete local branches for freed slots."),
 });
 
 export const gcResultSchema = z.object({
@@ -54,15 +54,15 @@ export type GcResult = z.infer<typeof gcResultSchema>;
 
 export async function runGc(ctx: SlotCliContext, request: GcRequest) {
 	if (ctx.repo.type !== "repo") return failure(ctx.repo.errorType, ctx.repo.message);
-	if (request.dry_run && request.force)
+	if (request.dryRun && request.force)
 		return failure("conflicting_flags", "--dry-run and --force cannot be combined.");
 	const repoCtx: RepoSlotContext = { ...ctx, repo: ctx.repo };
-	const cleanupActions: readonly SlotFreeCleanupAction[] = request.delete_branches
+	const cleanupActions: readonly SlotFreeCleanupAction[] = request.deleteBranches
 		? ["local_branch"]
 		: [];
 	const plan = await planGc(repoCtx);
 	if (plan.type === "failure") return failure(plan.failure.error_type, plan.failure.message);
-	if (request.dry_run) {
+	if (request.dryRun) {
 		const cleanup = await planGcCleanup(repoCtx, plan.outcome, cleanupActions);
 		return ok(toGcResult(outcomeFromGcPlan(plan.outcome, { isDryRun: true, cleanup })));
 	}
@@ -82,7 +82,7 @@ export async function runGc(ctx: SlotCliContext, request: GcRequest) {
 			stdin: repoCtx.stdin,
 			stderr: repoCtx.stderr,
 			prompt: confirmationPrompt(plan.outcome.would_free_count, {
-				shouldDeleteBranches: request.delete_branches,
+				shouldDeleteBranches: request.deleteBranches,
 			}),
 			defaultAnswer: "yes",
 		});

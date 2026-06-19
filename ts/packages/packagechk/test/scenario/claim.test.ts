@@ -32,7 +32,7 @@ describe("packagechk claim commands", () => {
 		expect(run.stderr).toContain("Would write: src/foo_bar/__init__.py");
 		expect(run.stderr).toContain("Would run: uv build");
 		expect(run.stderr).toContain("Would run: uvx uv-publish <artifacts>");
-		expect(registry.pypiCheckedNames).toEqual([]);
+		expect(registry.checkedNames("pypi")).toEqual([]);
 		expect(publisher.toolChecks).toBe(0);
 		expect(publisher.builtProjectDirs).toEqual([]);
 		expect(publisher.publishedArtifacts).toEqual([]);
@@ -40,8 +40,8 @@ describe("packagechk claim commands", () => {
 
 	test("claim-pypi gates taken names before publish effects", async () => {
 		const registry = new FakePackageRegistryGateway({
-			pypiResults: {
-				[SAMPLE]: takenResult("pypi", {
+			results: {
+				[`pypi:${SAMPLE}`]: takenResult("pypi", {
 					inputName: SAMPLE,
 					lookupName: SAMPLE,
 					packageUrl: "https://pypi.org/project/sample-name/",
@@ -57,14 +57,16 @@ describe("packagechk claim commands", () => {
 
 		expect(run.code).toBe(1);
 		expect(run.stderr).toContain("pypi: taken");
-		expect(registry.pypiCheckedNames).toEqual([SAMPLE]);
+		expect(registry.checkedNames("pypi")).toEqual([SAMPLE]);
 		expect(publisher.toolChecks).toBe(0);
 		expect(publisher.builtProjectDirs).toEqual([]);
 	});
 
 	test("claim-pypi publishes after successful precheck", async () => {
 		const registry = new FakePackageRegistryGateway({
-			pypiResults: { [SAMPLE]: availableResult("pypi", { inputName: SAMPLE, lookupName: SAMPLE }) },
+			results: {
+				[`pypi:${SAMPLE}`]: availableResult("pypi", { inputName: SAMPLE, lookupName: SAMPLE }),
+			},
 		});
 		const artifacts = ["dist/sample-0.0.1.tar.gz", "dist/sample-0.0.1-py3-none-any.whl"];
 		const publisher = new FakePypiPublishGateway({ artifacts });
@@ -76,7 +78,7 @@ describe("packagechk claim commands", () => {
 
 		expect(run.code).toBe(0);
 		expect(run.stderr).toContain("✓ Claimed PyPI package name 'sample-name'.");
-		expect(registry.pypiCheckedNames).toEqual([SAMPLE]);
+		expect(registry.checkedNames("pypi")).toEqual([SAMPLE]);
 		expect(publisher.toolChecks).toBe(1);
 		expect(publisher.builtProjectDirs).toHaveLength(1);
 		expect(publisher.publishedArtifacts).toEqual([artifacts]);
@@ -84,7 +86,9 @@ describe("packagechk claim commands", () => {
 
 	test("claim-pypi confirmation decline aborts before build", async () => {
 		const registry = new FakePackageRegistryGateway({
-			pypiResults: { [SAMPLE]: availableResult("pypi", { inputName: SAMPLE, lookupName: SAMPLE }) },
+			results: {
+				[`pypi:${SAMPLE}`]: availableResult("pypi", { inputName: SAMPLE, lookupName: SAMPLE }),
+			},
 		});
 		const publisher = new FakePypiPublishGateway({ artifacts: ["dist/sample.tar.gz"] });
 
@@ -103,8 +107,8 @@ describe("packagechk claim commands", () => {
 
 	test("claim-npm gates taken names before publish effects", async () => {
 		const registry = new FakePackageRegistryGateway({
-			npmResults: {
-				[SAMPLE]: takenResult("npm", {
+			results: {
+				[`npm:${SAMPLE}`]: takenResult("npm", {
 					inputName: SAMPLE,
 					lookupName: SAMPLE,
 					packageUrl: "https://www.npmjs.com/package/sample-name",
@@ -120,15 +124,15 @@ describe("packagechk claim commands", () => {
 
 		expect(run.code).toBe(1);
 		expect(run.stderr).toContain("npm: taken");
-		expect(registry.npmCheckedNames).toEqual([SAMPLE]);
+		expect(registry.checkedNames("npm")).toEqual([SAMPLE]);
 		expect(publisher.toolChecks).toBe(0);
 		expect(publisher.publishedProjectDirs).toEqual([]);
 	});
 
 	test("claim-npm dry-run and scoped publish preserve package names", async () => {
 		const registry = new FakePackageRegistryGateway({
-			npmResults: {
-				"@asdl-io/aretro": availableResult("npm", {
+			results: {
+				"npm:@asdl-io/aretro": availableResult("npm", {
 					inputName: "@asdl-io/aretro",
 					lookupName: "@asdl-io/aretro",
 				}),
@@ -155,7 +159,7 @@ describe("packagechk claim commands", () => {
 		});
 		expect(published.code).toBe(0);
 		expect(published.stderr).toContain("✓ Claimed npm package name '@asdl-io/aretro'.");
-		expect(registry.npmCheckedNames).toEqual(["@asdl-io/aretro"]);
+		expect(registry.checkedNames("npm")).toEqual(["@asdl-io/aretro"]);
 		expect(publisher.toolChecks).toBe(1);
 		expect(publisher.publishedProjectDirs).toHaveLength(1);
 	});

@@ -36,9 +36,11 @@ describe("packagechk CLI", () => {
 
 	test("checks default registries with injected gateway", async () => {
 		const gateway = new FakePackageRegistryGateway({
-			pypiResults: { [SAMPLE]: availableResult("pypi", { inputName: SAMPLE, lookupName: SAMPLE }) },
-			npmResults: { [SAMPLE]: takenResult("npm", { inputName: SAMPLE, lookupName: SAMPLE }) },
-			brewResults: { [SAMPLE]: availableResult("brew", { inputName: SAMPLE, lookupName: SAMPLE }) },
+			results: {
+				[`pypi:${SAMPLE}`]: availableResult("pypi", { inputName: SAMPLE, lookupName: SAMPLE }),
+				[`npm:${SAMPLE}`]: takenResult("npm", { inputName: SAMPLE, lookupName: SAMPLE }),
+				[`brew:${SAMPLE}`]: availableResult("brew", { inputName: SAMPLE, lookupName: SAMPLE }),
+			},
 		});
 
 		const run = await runPackagechk([SAMPLE], { registryGateway: gateway });
@@ -46,15 +48,15 @@ describe("packagechk CLI", () => {
 		expect(run.code).toBe(1);
 		expect(splitLines(run.stdout)).toEqual(["pypi: available", "npm: taken", "brew: available"]);
 		expect(run.stderr).toBe("");
-		expect(gateway.pypiCheckedNames).toEqual([SAMPLE]);
-		expect(gateway.npmCheckedNames).toEqual([SAMPLE]);
-		expect(gateway.brewCheckedNames).toEqual([SAMPLE]);
+		expect(gateway.checkedNames("pypi")).toEqual([SAMPLE]);
+		expect(gateway.checkedNames("npm")).toEqual([SAMPLE]);
+		expect(gateway.checkedNames("brew")).toEqual([SAMPLE]);
 	});
 
 	test("emits schema-versioned JSON", async () => {
 		const gateway = new FakePackageRegistryGateway({
-			pypiResults: {
-				[SAMPLE]: takenResult("pypi", {
+			results: {
+				[`pypi:${SAMPLE}`]: takenResult("pypi", {
 					inputName: SAMPLE,
 					lookupName: SAMPLE,
 					packageUrl: "https://pypi.org/project/sample-name/",
@@ -90,14 +92,16 @@ describe("packagechk CLI", () => {
 
 	test("supports root options before the package name", async () => {
 		const gateway = new FakePackageRegistryGateway({
-			pypiResults: { [SAMPLE]: availableResult("pypi", { inputName: SAMPLE, lookupName: SAMPLE }) },
+			results: {
+				[`pypi:${SAMPLE}`]: availableResult("pypi", { inputName: SAMPLE, lookupName: SAMPLE }),
+			},
 		});
 
 		const run = await runPackagechk(["--registry", "pypi", SAMPLE], { registryGateway: gateway });
 
 		expect(run).toMatchObject({ code: 0, stdout: "pypi: available\n", stderr: "" });
-		expect(gateway.pypiCheckedNames).toEqual([SAMPLE]);
-		expect(gateway.npmCheckedNames).toEqual([]);
+		expect(gateway.checkedNames("pypi")).toEqual([SAMPLE]);
+		expect(gateway.checkedNames("npm")).toEqual([]);
 	});
 
 	test("invalid registry uses packagechk validation", async () => {
@@ -106,9 +110,9 @@ describe("packagechk CLI", () => {
 
 		expect(run.code).toBe(2);
 		expect(run.stderr).toContain("expected one of pypi, npm, brew");
-		expect(gateway.pypiCheckedNames).toEqual([]);
-		expect(gateway.npmCheckedNames).toEqual([]);
-		expect(gateway.brewCheckedNames).toEqual([]);
+		expect(gateway.checkedNames("pypi")).toEqual([]);
+		expect(gateway.checkedNames("npm")).toEqual([]);
+		expect(gateway.checkedNames("brew")).toEqual([]);
 	});
 
 	test("missing root package name is a usage error", async () => {

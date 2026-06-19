@@ -5,7 +5,7 @@ import type { SlotCliContext } from "../context.ts";
 import { claimBranch } from "../lifecycle/claim.ts";
 
 export const claimRequestSchema = z.object({
-	branch_name: z.string().describe("Local branch to claim."),
+	branchName: z.string().describe("Local branch to claim."),
 });
 
 export const claimResultSchema = z.object({
@@ -29,7 +29,7 @@ export type ClaimRequest = z.infer<typeof claimRequestSchema>;
 export type ClaimResult = z.infer<typeof claimResultSchema>;
 
 export async function runClaim(ctx: SlotCliContext, request: ClaimRequest) {
-	const result = await claimBranch(ctx, request.branch_name);
+	const result = await claimBranch(ctx, request.branchName);
 	if (result.type === "failure") return failure(result.failure.error_type, result.failure.message);
 	return ok(result.outcome);
 }

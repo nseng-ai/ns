@@ -31,7 +31,7 @@ const VERSION = "0.1.0";
 const PLANS_ERROR_TYPE = "plans_error";
 
 const listRequestSchema = z.object({
-	plan_store_root: z
+	planStoreRoot: z
 		.string()
 		.optional()
 		.describe("Plan store root directory (relative paths resolve against cwd)."),
@@ -41,7 +41,7 @@ const saveRequestSchema = z.object({
 	slug: z.string().describe("Saved plan slug."),
 	summary: z.string().optional().describe("Optional saved-plan summary."),
 	stdin: z.boolean().optional().describe("Read plan content from stdin."),
-	content_file: z.string().optional().describe("Read plan content from this file path."),
+	contentFile: z.string().optional().describe("Read plan content from this file path."),
 });
 
 const resolveRequestSchema = z.object({
@@ -141,9 +141,9 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 
 async function handleList(ctx: PlansCliContext, request: ListRequest): Promise<LegacyPayload> {
 	const cliPlanStoreRoot =
-		request.plan_store_root === undefined
+		request.planStoreRoot === undefined
 			? undefined
-			: normalizeRootPath(request.plan_store_root, ctx.cwd);
+			: normalizeRootPath(request.planStoreRoot, ctx.cwd);
 	const planStoreRoot = cliPlanStoreRoot ?? ctx.planStoreRoot;
 	const plans = await listSavedPlans(ctx.commands, {
 		cwd: ctx.cwd,
@@ -159,14 +159,14 @@ async function handleList(ctx: PlansCliContext, request: ListRequest): Promise<L
 async function handleSave(ctx: PlansCliContext, request: SaveRequest): Promise<LegacyPayload> {
 	const slugError = validatePlanSlug(request.slug);
 	if (slugError !== undefined) throw new Error(`Invalid saved plan slug: ${slugError}`);
-	if (Boolean(request.stdin) === (request.content_file !== undefined)) {
+	if (Boolean(request.stdin) === (request.contentFile !== undefined)) {
 		throw new Error("Pass exactly one of --stdin or --content-file <path>.");
 	}
 
 	const content =
 		request.stdin === true
 			? await ctx.stdin()
-			: await readFile(normalizePlanFilePath(request.content_file as string), "utf8");
+			: await readFile(normalizePlanFilePath(request.contentFile as string), "utf8");
 	const evidence = await writeSavedPlanFile(
 		ctx.commands,
 		{

@@ -21,7 +21,7 @@ export const reviewListRequestSchema = z.object({
 		.boolean()
 		.default(false)
 		.describe("Only list reviews applicable to the current diff."),
-	base_ref: z.string().optional().describe("Base ref used when filtering applicable reviews."),
+	baseRef: z.string().optional().describe("Base ref used when filtering applicable reviews."),
 });
 
 export const reviewMetadataSchema = z.object({
@@ -43,16 +43,16 @@ export type ReviewListResult = z.infer<typeof reviewListResultSchema>;
 export const reviewRunRequestSchema = z.object({
 	key: nonBlankStringSchema.describe("Review key to run."),
 	model: z.string().optional().describe("Claude Code model override."),
-	base_ref: z.string().optional().describe("Base ref for the local diff."),
+	baseRef: z.string().optional().describe("Base ref for the local diff."),
 });
 
 export type ReviewRunRequest = z.infer<typeof reviewRunRequestSchema>;
 
 export const publishFindingsRequestSchema = z.object({
-	pr_number: z.int().positive().describe("Pull request number."),
-	run_url: z.string().optional().describe("GitHub Actions run URL to include in the activity log."),
-	review_name: z.string().optional().describe("Fallback review key for failed run envelopes."),
-	base_ref: z.string().optional().describe("Fallback base ref for failed run envelopes."),
+	prNumber: z.int().positive().describe("Pull request number."),
+	runUrl: z.string().optional().describe("GitHub Actions run URL to include in the activity log."),
+	reviewName: z.string().optional().describe("Fallback review key for failed run envelopes."),
+	baseRef: z.string().optional().describe("Fallback base ref for failed run envelopes."),
 });
 
 export async function runReviewList(
@@ -67,7 +67,7 @@ export async function runReviewList(
 
 	let selectedKeys = catalog.value.keys;
 	if (request.applicable) {
-		const diff = await loadDiffFromRequest(ctx, request.base_ref);
+		const diff = await loadDiffFromRequest(ctx, request.baseRef);
 		if (diff.type === "error") return failureFromRoaster(diff.error);
 		selectedKeys = applicableReviewKeys(
 			new Map(loaded.value.map((item) => [item.key, item.definition])),
@@ -124,7 +124,7 @@ export async function runReviewByKey(
 			"No model was provided. Pass --model or set default_model in the review definition.",
 		);
 
-	const diff = await loadDiffFromRequest(ctx, request.base_ref);
+	const diff = await loadDiffFromRequest(ctx, request.baseRef);
 	if (diff.type === "error") return failureFromRoaster(diff.error);
 
 	ctx.stderr(
@@ -174,11 +174,11 @@ export async function runPublishFindings(
 ): Promise<number> {
 	const envelope = await ctx.stdin();
 	const result = await publishFindings(ctx, {
-		prNumber: request.pr_number,
+		prNumber: request.prNumber,
 		envelope,
-		...(request.run_url === undefined ? {} : { runUrl: request.run_url }),
-		...(request.review_name === undefined ? {} : { fallbackReviewName: request.review_name }),
-		...(request.base_ref === undefined ? {} : { fallbackBaseRef: request.base_ref }),
+		...(request.runUrl === undefined ? {} : { runUrl: request.runUrl }),
+		...(request.reviewName === undefined ? {} : { fallbackReviewName: request.reviewName }),
+		...(request.baseRef === undefined ? {} : { fallbackBaseRef: request.baseRef }),
 	});
 	if (result.type === "error")
 		return stderrFailure(ctx, `publish-findings: ${result.error.message}\n`);

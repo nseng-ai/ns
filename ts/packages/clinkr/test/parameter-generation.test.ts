@@ -11,7 +11,7 @@ function echoGroup(): ClinkrGroup<null> {
 		schema: z.object({
 			name: z.string(),
 			count: z.number().default(1),
-			dry_run: z.boolean().default(false),
+			dryRun: z.boolean().default(false),
 			verbose: z.boolean().default(true),
 			mode: z.enum(["fast", "slow"]).default("fast"),
 			tags: z.array(z.string()).default([]),
@@ -28,9 +28,9 @@ async function echoedRequest(argv: readonly string[]): Promise<unknown> {
 }
 
 describe("generated options end to end", () => {
-	test("kebab-case flags map back to snake_case request keys", async () => {
+	test("kebab-case flags map back to camelCase request keys", async () => {
 		const request = await echoedRequest(["echo", "--name", "x", "--dry-run"]);
-		expect(request).toMatchObject({ name: "x", dry_run: true });
+		expect(request).toMatchObject({ name: "x", dryRun: true });
 	});
 
 	test("absent options take their zod defaults", async () => {
@@ -38,7 +38,7 @@ describe("generated options end to end", () => {
 		expect(request).toEqual({
 			name: "x",
 			count: 1,
-			dry_run: false,
+			dryRun: false,
 			verbose: true,
 			mode: "fast",
 			tags: [],

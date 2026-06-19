@@ -23,7 +23,7 @@ const gitSetupAdditionSchema = z.object({
 
 export const setupGitRequestSchema = z.object({
 	remote: z.string().default(DEFAULT_REMOTE).describe("Git remote to configure."),
-	dry_run: z
+	dryRun: z
 		.boolean()
 		.default(false)
 		.describe("Show planned Git config changes without mutating local Git config."),
@@ -73,8 +73,8 @@ export async function runSetupGit(ctx: BrmemCliContext, request: SetupGitRequest
 	const fetchValues = configOpt.value.fetch;
 
 	const plan = buildGitSetupPlan({ remote, existing: { push: pushValues, fetch: fetchValues } });
-	const result = setupGitResultFromPlan(plan, request.dry_run);
-	if (request.dry_run) return ok(result);
+	const result = setupGitResultFromPlan(plan, request.dryRun);
+	if (request.dryRun) return ok(result);
 
 	const pushAdditions = plan.additions
 		.filter((a) => a.key === pushConfigKey(remote))

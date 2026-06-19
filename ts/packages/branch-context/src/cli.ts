@@ -43,9 +43,9 @@ const BRANCH_CONTEXT_ERROR_TYPE = "branch_context_error";
 
 const createRequestSchema = z.object({
 	slug: z.string().describe("Branch context slug."),
-	plan_file: z.string().describe("Plan file path (must live outside the repository)."),
+	planFile: z.string().describe("Plan file path (must live outside the repository)."),
 	branch: z.string().optional().describe("Branch name (defaults to the slug)."),
-	branch_creation: z
+	branchCreation: z
 		.enum(BRANCH_CREATION_METHODS)
 		.default(DEFAULT_BRANCH_CREATION_METHOD)
 		.describe("Branch creation method."),
@@ -54,12 +54,12 @@ const createRequestSchema = z.object({
 
 const loadRequestSchema = z.object({
 	key: z.string().optional().describe("Branch-context key (defaults to the only attached entry)."),
-	prompt_file: z.string().optional().describe("Write the implementation prompt to this file."),
-	include_content: z
+	promptFile: z.string().optional().describe("Write the implementation prompt to this file."),
+	includeContent: z
 		.boolean()
 		.optional()
 		.describe("Include the branch-context entry content in JSON output."),
-	include_prompt: z
+	includePrompt: z
 		.boolean()
 		.optional()
 		.describe("Include the implementation prompt in JSON output."),
@@ -197,9 +197,9 @@ async function handleCreate(
 		ctx.context.commands,
 		{
 			slug: request.slug,
-			filePath: request.plan_file,
+			filePath: request.planFile,
 			...(request.branch === undefined ? {} : { branchName: request.branch }),
-			branchCreation: request.branch_creation,
+			branchCreation: request.branchCreation,
 			...(request.summary === undefined ? {} : { summary: request.summary }),
 		},
 		operationOptions(ctx),
@@ -218,15 +218,15 @@ async function handleLoad(
 		operationOptions(ctx),
 	);
 	const promptFile =
-		request.prompt_file === undefined ? undefined : normalizePlanFilePath(request.prompt_file);
+		request.promptFile === undefined ? undefined : normalizePlanFilePath(request.promptFile);
 	if (promptFile !== undefined) {
 		await writeFile(promptFile, buildImplBranchContextPrompt(plan), "utf8");
 	}
 	const machine = loadedPlanJson(plan, {
 		promptFile,
-		attachedPlanContent: request.include_content === true ? plan.content : undefined,
+		attachedPlanContent: request.includeContent === true ? plan.content : undefined,
 		implementationPrompt:
-			request.include_prompt === true ? buildImplBranchContextPrompt(plan) : undefined,
+			request.includePrompt === true ? buildImplBranchContextPrompt(plan) : undefined,
 	});
 	return { machine, human: formatLoadPlanHuman(plan, promptFile) };
 }

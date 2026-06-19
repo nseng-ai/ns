@@ -46,7 +46,7 @@ const stackMapSlotSchema = z.object({
 });
 
 export const gtStackMapBranchesRequestSchema = z.object({
-	recent_limit: z
+	recentLimit: z
 		.number()
 		.int()
 		.nonnegative()
@@ -102,7 +102,7 @@ export async function runGtStackMapBranches(
 	const slotRows = assignedSlotRows(inventory.records);
 	const recentBranches = recentBranchNames(
 		await ctx.git.listLocalBranchTips(),
-		request.recent_limit,
+		request.recentLimit,
 	);
 	const localBranches = new Set(await ctx.git.listLocalBranches());
 	const selection = selectVisibleBranches({
@@ -127,7 +127,7 @@ export async function runGtStackMapBranches(
 		current: stackResult.stack.current,
 		trunk: stackResult.stack.trunk,
 		scope: STACK_MAP_SCOPE,
-		recent_limit: request.recent_limit,
+		recent_limit: request.recentLimit,
 		branches: branchResults(graphResult.graph.topology, selection.selected),
 		edges: edgeResults(graphResult.graph.topology, selection.selected),
 		slots: slotRows,

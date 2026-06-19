@@ -16,7 +16,7 @@ export const mapBranchPrsInputSchema = z.looseObject({
 });
 
 const mapBranchPrsParseSchema = z.object({
-	branches_json: z.string().optional(),
+	branchesJson: z.string().optional(),
 });
 
 type MapBranchPrsRequest = z.output<typeof mapBranchPrsParseSchema>;
@@ -57,7 +57,7 @@ async function runMapBranchPrsOperation(
 	request: MapBranchPrsRequest,
 ): Promise<ClinkrExit<unknown>> {
 	const payloadResult = await loadJsonInput({
-		optionValue: request.branches_json,
+		optionValue: request.branchesJson,
 		commandName: "map-branch-prs",
 		inputDescription: "branches JSON payload",
 		optionName: "--branches-json",

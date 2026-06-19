@@ -166,7 +166,7 @@ describe("areg skill apply CLI", () => {
 			path: ".",
 			kind: "invoke-only",
 			skills: ["alpha", "beta"],
-			dry_run: false,
+			dryRun: false,
 			yes: false,
 		});
 
@@ -238,7 +238,7 @@ describe("areg skill apply CLI", () => {
 			path: ".",
 			kind: "invoke-only",
 			skills: ["alpha", "beta"],
-			dry_run: false,
+			dryRun: false,
 			yes: false,
 		});
 
@@ -277,7 +277,7 @@ describe("areg skill apply CLI", () => {
 			path: ".",
 			kind: "command-backed",
 			skills: ["foo-alpha", "foo-beta"],
-			dry_run: false,
+			dryRun: false,
 			yes: false,
 		});
 
@@ -305,7 +305,7 @@ describe("areg skill apply CLI", () => {
 			path: ".",
 			kind: "normal",
 			skills: ["alpha", "beta"],
-			dry_run: false,
+			dryRun: false,
 			yes: false,
 		});
 
@@ -337,7 +337,7 @@ describe("areg skill apply CLI", () => {
 			path: ".",
 			kind: "normal",
 			skills: ["demo"],
-			dry_run: true,
+			dryRun: true,
 			yes: false,
 		});
 

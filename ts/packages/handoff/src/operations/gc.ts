@@ -9,7 +9,7 @@ const gcActionSchema = z.enum(["kept_active", "would_delete", "deleted", "error"
 export type GcAction = z.infer<typeof gcActionSchema>;
 
 export const gcRequestSchema = z.object({
-	dry_run: z.boolean().default(false).describe("Preview deletions without deleting."),
+	dryRun: z.boolean().default(false).describe("Preview deletions without deleting."),
 	force: z.boolean().default(false).describe("Delete without prompting."),
 });
 
@@ -34,12 +34,12 @@ export type GcResultEntry = z.infer<typeof gcResultEntrySchema>;
 export type GcResult = z.infer<typeof gcResultSchema>;
 
 export async function runGc(ctx: HandoffCliContext, request: GcRequest) {
-	if (request.dry_run && request.force)
+	if (request.dryRun && request.force)
 		return failure("conflicting_flags", "--dry-run and --force are mutually exclusive.");
 	const summaries = await loadAllSummaries(ctx);
 	if (summaries.type !== "resolved") return summaries;
-	const preview = previewResult(summaries.value, request.dry_run);
-	if (request.dry_run || preview.would_delete_count === 0) return ok(preview);
+	const preview = previewResult(summaries.value, request.dryRun);
+	if (request.dryRun || preview.would_delete_count === 0) return ok(preview);
 	if (request.force) return ok(await deleteDeletedBranchHandoffs(ctx, summaries.value));
 
 	ctx.stderr(`${renderGc(preview)}\n`);
