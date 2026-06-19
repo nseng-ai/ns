@@ -23,6 +23,7 @@ import {
 } from "@asdl/ccc/worktree-status";
 import { shutdownGraphiteMetadataWorker } from "@asdl/ccc/worktree-status/graphite-metadata";
 
+import { isRecord } from "./cmux/primitives.ts";
 import { definePiSurfaceParity } from "./parity.ts";
 import {
 	createWorktreeStatusActivityController,
@@ -61,6 +62,8 @@ const WORKTREE_STATUS_ACTIVITY_EVENTS = [
 	"model_select",
 	"thinking_level_select",
 ] as const;
+
+const WORKTREE_STATUS_TOOL_REFRESH_NAMES = new Set(["bash", "edit", "write"]);
 
 type WorktreeStatusActivityEvent = (typeof WORKTREE_STATUS_ACTIVITY_EVENTS)[number];
 
@@ -519,6 +522,13 @@ export default function worktreeStatusExtension(
 		recordSessionActivity(session);
 	}
 
+	function refreshActiveSessionAfterToolExecution(event: unknown): void {
+		if (!shouldRefreshAfterToolExecution(event)) return;
+		const session = activeSession;
+		if (session === undefined || !isActiveSession(session)) return;
+		void fullRefreshChannel.run(session);
+	}
+
 	function recordSessionActivity(
 		session: ActiveSession,
 		options: WorktreeStatusActivityOptions = {},
@@ -543,7 +553,10 @@ export default function worktreeStatusExtension(
 	});
 
 	for (const event of WORKTREE_STATUS_ACTIVITY_EVENTS) {
-		pi.on(event, () => recordActiveSessionActivity());
+		pi.on(event, (payload) => {
+			recordActiveSessionActivity();
+			if (event === "tool_execution_end") refreshActiveSessionAfterToolExecution(payload);
+		});
 	}
 
 	pi.on("session_start", async (_event, ctx) => {
@@ -572,6 +585,13 @@ function fallbackRepoName(cwd: string): string {
 	const gitPaths = findWorktreeStatusGitPaths(cwd);
 	if (gitPaths !== undefined) return basename(gitPaths.repoDir);
 	return basename(resolve(cwd)) || "unknown";
+}
+
+function shouldRefreshAfterToolExecution(event: unknown): boolean {
+	if (!isRecord(event)) return false;
+	return (
+		typeof event.toolName === "string" && WORKTREE_STATUS_TOOL_REFRESH_NAMES.has(event.toolName)
+	);
 }
 
 function renderLines(ctx: ExtensionContext, lines: string[]): void {
