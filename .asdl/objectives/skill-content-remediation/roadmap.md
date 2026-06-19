@@ -2,12 +2,23 @@
 
 ## Work
 
-- [ ] Systemic #1 — decide the invocation model for the `Command: X` stub-description
-      skills, then apply it. The decision (per skill or blanket): slash-command-only →
-      `disable-model-invocation: true`; model-invoked → restore a real trigger
-      description. `setup-dprint` is the correct existing template. This unblocks the
-      description portions of `sdl-submit`, `objective-close`, `objective-create`, and
-      `code-workflows`.
+- [ ] Systemic #1 — set the correct areg invocation kind for the `Command: X`
+      stub-description skills. This is NOT a binary `disable-model-invocation` flip.
+      Invocation is governed by areg's four kinds (`normal` / `ambient-only` /
+      `invoke-only` / `command-backed`), applied via `areg skill apply <kind> <skills>`
+      and enforced by `areg check` — never hand-edit the frontmatter flags. The work
+      splits into two streams: (a) incomplete `normal` skills that only need a real
+      trigger description written (e.g. `objective-close`, `objective-create` — siblings
+      of the already-`normal` `objective-next` / `-update` / `-refresh`); (b)
+      deliberately explicit-only skills reconciled with `areg skill apply invoke-only`,
+      or `command-backed` only where a *verified* Pi replacement extension already exists
+      (`setup-dprint` is the canonical and currently only `command-backed` skill). A
+      `normal` skill carrying a `Command: X` stub is misconfigured ("listed but
+      unroutable"), not a finished state. The taxonomy is now documented in
+      `docs/skill-conventions.md` § Skill Invocation Kinds.
+      Next action: produce a per-skill kind classification (which stubs are `normal` +
+      description vs explicit-only; which explicit-only skills have a Pi replacement →
+      `command-backed`), get sign-off, then batch-apply via `areg`.
 - [ ] Systemic #2 — single-source the grill-loop core shared by `pi-grill-ui` and
       `pi-grill-with-docs-ui`. Reconcile the already-drifted `status_request` wording;
       leave each skill holding only its UI-specific delta. Depends on resolving the
