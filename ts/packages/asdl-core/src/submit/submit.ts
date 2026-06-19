@@ -346,18 +346,16 @@ export async function runSubmitCommand(
 	const readiness = await options.gateway.checkSubmitReadiness(commandParams);
 	if (readiness.kind === "failed") {
 		if (readiness.cause === "trunk_out_of_date") {
-			return failure(
-				normalizedFailureExitCode(readiness.output),
-				formatTrunkOutOfDatePreflightOutput(readiness.output),
-				{
-					failurePresentation: "deterministic",
-					rawFailureTranscript: commandFailureTranscript(
-						"preflight",
-						SUBMIT_DRY_RUN_COMMAND_DISPLAY,
-						readiness.output,
-					),
-				},
-			);
+			const stderr = formatTrunkOutOfDatePreflightOutput(readiness.output);
+			return failure(normalizedFailureExitCode(readiness.output), stderr, {
+				failurePresentation: "deterministic",
+				rawFailureTranscript: commandFailureTranscript(
+					"preflight",
+					SUBMIT_DRY_RUN_COMMAND_DISPLAY,
+					readiness.output,
+					stderr,
+				),
+			});
 		}
 		return failure(
 			normalizedFailureExitCode(readiness.output),
@@ -393,18 +391,16 @@ export async function runSubmitCommand(
 
 		const rechecked = await options.gateway.checkSubmitReadiness(commandParams);
 		if (rechecked.kind !== "ready") {
-			return failure(
-				normalizedFailureExitCode(rechecked.output),
-				formatReadinessRecheckFailureOutput(rechecked.output),
-				{
-					failurePresentation: "deterministic",
-					rawFailureTranscript: commandFailureTranscript(
-						"readiness recheck",
-						SUBMIT_DRY_RUN_COMMAND_DISPLAY,
-						rechecked.output,
-					),
-				},
-			);
+			const stderr = formatReadinessRecheckFailureOutput(rechecked.output);
+			return failure(normalizedFailureExitCode(rechecked.output), stderr, {
+				failurePresentation: "deterministic",
+				rawFailureTranscript: commandFailureTranscript(
+					"readiness recheck",
+					SUBMIT_DRY_RUN_COMMAND_DISPLAY,
+					rechecked.output,
+					stderr,
+				),
+			});
 		}
 	}
 
@@ -512,12 +508,14 @@ async function runRestackBeforeSubmit(
 	emitSubmitProgress(options, "running gt restack");
 	const restack = await options.gateway.restackCurrentStack(commandParams);
 	if (restack.kind === "conflict") {
-		return failure(1, formatRestackConflictOutput(restack.output, restack.conflictedFiles), {
+		const stderr = formatRestackConflictOutput(restack.output, restack.conflictedFiles);
+		return failure(1, stderr, {
 			failurePresentation: "deterministic",
 			rawFailureTranscript: commandFailureTranscript(
 				"restack",
 				RESTACK_COMMAND_DISPLAY,
 				restack.output,
+				stderr,
 			),
 		});
 	}
@@ -654,9 +652,11 @@ function commandFailureTranscript(
 	phase: string,
 	commandDisplay: string,
 	output: SubmitCommandOutput,
+	summary?: string,
 ): SubmitFailureTranscript {
 	return {
 		phase,
+		...(summary === undefined || summary.trim() === "" ? {} : { summary: summary.trimEnd() }),
 		commands: [
 			{
 				commandDisplay,

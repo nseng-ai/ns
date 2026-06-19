@@ -9,7 +9,7 @@ import {
 
 import { RealCheckpointGateway, runCheckpointIfPending } from "../checkpoint.ts";
 import { failed, ok, z, type SdlCommand, type SdlContext } from "../sdk.ts";
-import { maybeFormatUnknownSubmitFailureWithModel } from "../submit-failure-interpretation.ts";
+import { maybeFormatSubmitFailureWithModel } from "../submit-failure-interpretation.ts";
 import { createSdlCommandRunner, SdlCommandExecApi } from "./command-runner.ts";
 
 const submitSchema = z.object({
@@ -28,8 +28,8 @@ Environment:
   ASDL_DEV_PR_DESCRIPTION_MODEL   Model reference for generated PR descriptions.
   ASDL_DEV_PR_DESCRIPTION_PROMPT  Optional path to a custom PR description prompt.
 
-  SDL_SUBMIT_FAILURE_MODEL     Model reference for interpreting unknown submit failures.
-  SDL_SUBMIT_FAILURE_LOG_DIR   Optional directory for raw unknown-failure logs.
+  SDL_SUBMIT_FAILURE_MODEL     Model reference for summarizing submit failures.
+  SDL_SUBMIT_FAILURE_LOG_DIR   Optional directory for raw submit-failure transcripts.
 
 The command owns its output and exit code. It does not support --format.`,
 	schema: submitSchema,
@@ -48,7 +48,7 @@ The command owns its output and exit code. It does not support --format.`,
 			textGeneration: ctx.model,
 		});
 		if (checkpoint.kind === "failed") {
-			const checkpointFailure = await maybeFormatUnknownSubmitFailureWithModel(
+			const checkpointFailure = await maybeFormatSubmitFailureWithModel(
 				{
 					stdout: "",
 					stderr: formatCheckpointBeforeSubmitFailure(checkpoint.output.stderr),
@@ -84,7 +84,7 @@ The command owns its output and exit code. It does not support --format.`,
 							ctx.confirm?.(prompt.title, prompt.message) ?? false,
 					}),
 		});
-		const interpretedResult = await maybeFormatUnknownSubmitFailureWithModel(result, ctx);
+		const interpretedResult = await maybeFormatSubmitFailureWithModel(result, ctx);
 		writeCommandResultOutput(interpretedResult, ctx);
 		return interpretedResult.exitCode === 0 ? ok("") : failed("", interpretedResult.exitCode);
 	},
