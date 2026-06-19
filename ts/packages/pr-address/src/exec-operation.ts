@@ -71,10 +71,10 @@ export function prFeedbackFailureMessage(
 	prefix: string,
 	prFeedbackFailure: GithubPrFeedbackFailure,
 ): string {
-	const details = prFeedbackFailure.details ?? {};
+	const details = prFeedbackFailure.details;
 	return `${prefix}: ${failureDetail({
-		stderr: typeof details.stderr === "string" ? details.stderr : undefined,
-		stdout: typeof details.stdout === "string" ? details.stdout : undefined,
+		stderr: details?.stderr,
+		stdout: details?.stdout,
 		message: prFeedbackFailure.message,
 		code: prFeedbackFailure.code,
 	})}`;

@@ -48,7 +48,7 @@ import type {
 	GithubPrFeedbackGateway,
 	GithubPrFeedbackOperation,
 	GithubPrFeedbackOptions,
-	GithubPrLookupResult,
+	GithubPrLookupOutcome,
 	GithubPrReview,
 	GithubPrReviewThread,
 	GithubPrSummary,
@@ -81,13 +81,13 @@ export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
 
 	async getPr(
 		params: GithubPrFeedbackOptions & { readonly prNumber: number },
-	): Promise<GithubPrLookupResult> {
+	): Promise<Result<GithubPrLookupOutcome, GithubPrFeedbackFailure>> {
 		return await this.getPrBySelector(String(params.prNumber), "getPr", params);
 	}
 
 	async getPrForBranch(
 		params: GithubPrFeedbackOptions & { readonly branch: string },
-	): Promise<GithubPrLookupResult> {
+	): Promise<Result<GithubPrLookupOutcome, GithubPrFeedbackFailure>> {
 		return await this.getPrBySelector(params.branch, "getPrForBranch", params);
 	}
 
@@ -250,7 +250,7 @@ export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
 		selector: string,
 		operation: "getPr" | "getPrForBranch",
 		params: GithubPrFeedbackOptions,
-	): Promise<GithubPrLookupResult> {
+	): Promise<Result<GithubPrLookupOutcome, GithubPrFeedbackFailure>> {
 		const args = [
 			"pr",
 			"view",
@@ -259,21 +259,19 @@ export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
 			"number,title,url,headRefName,headRefOid,baseRefName,state",
 		];
 		const run = await this.runGh({ operation, args, params });
-		if (run.type === "startup_error")
-			return { type: "failure", failure: failureFromStartup(run, operation) };
+		if (run.type === "startup_error") return feedbackErr(failureFromStartup(run, operation));
 		if (run.result.code !== 0 || run.result.killed) {
 			if (isLookupMiss(run.result)) {
-				return {
-					type: "miss",
-					stderr: run.result.stderr || "no PR found",
-					exitCode: run.result.code,
-				};
+				return feedbackOk({
+					found: false,
+					miss: { stderr: run.result.stderr || "no PR found", exitCode: run.result.code },
+				});
 			}
-			return { type: "failure", failure: failureFromCompleted(run, operation) };
+			return feedbackErr(failureFromCompleted(run, operation));
 		}
 		const parseResult = parseJson(run.result.stdout, prSummarySchema, { operation, run });
-		if (!parseResult.ok) return { type: "failure", failure: parseResult.error };
-		return { type: "found", pr: normalizePrSummary(parseResult.value) };
+		if (!parseResult.ok) return feedbackErr(parseResult.error);
+		return feedbackOk({ found: true, pr: normalizePrSummary(parseResult.value) });
 	}
 
 	private async withCompleteThreadComments(

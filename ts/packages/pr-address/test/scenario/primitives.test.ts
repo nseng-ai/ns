@@ -130,6 +130,19 @@ describe("pr-address primitive exec commands", () => {
 	});
 
 	test("maps primitive gateway failures to pr_gateway_failure", async () => {
+		const lookupFailure = new InMemoryGithubPrFeedbackGateway({
+			lookupFailurePrNumbers: new Set([500]),
+		});
+		const lookupRun = runScenario(
+			["exec", "pr-details", "--pr-number", "500", "--format", "json"],
+			{ prFeedback: lookupFailure },
+		);
+		expect(await lookupRun.exit).toBe(2);
+		expect(JSON.parse(lookupRun.stdout.join(""))).toMatchObject({
+			error_type: "pr_gateway_failure",
+			message: "Failed to look up PR 500: gh auth failed",
+		});
+
 		const prFeedback = new InMemoryGithubPrFeedbackGateway({
 			replyFailureThreadIds: new Set(["RT_fail"]),
 		});

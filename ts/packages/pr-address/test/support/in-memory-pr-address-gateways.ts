@@ -2,8 +2,10 @@ import type {
 	GithubPrDiscussionComment,
 	GithubPrFeedbackFailure,
 	GithubPrFeedbackGateway,
+	GithubPrFeedbackOperation,
 	GithubPrFeedbackOptions,
-	GithubPrLookupResult,
+	GithubPrLookupMiss,
+	GithubPrLookupOutcome,
 	GithubPrReview,
 	GithubPrReviewComment,
 	GithubPrReviewThread,
@@ -37,11 +39,14 @@ function fakePrLookupMissStderr(prNumber: number): string {
 	return `no PR found for PR ${prNumber}`;
 }
 
-function fakePrFeedbackFailure(message: string): GithubPrFeedbackFailure {
+function fakePrFeedbackFailure(
+	message: string,
+	operation: GithubPrFeedbackOperation = "getPr",
+): GithubPrFeedbackFailure {
 	return {
 		code: "github_pr_feedback_gh_failed",
 		message,
-		details: { stdout: "", stderr: message, exitCode: 4 },
+		details: { operation, stdout: "", stderr: message, exitCode: 4 },
 	};
 }
 
@@ -112,6 +117,7 @@ export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway 
 			byNumber.set(pr.number, pr);
 			byBranch.set(pr.headRefName, pr);
 		}
+		// Explicit branch mappings and prs both seed lookup maps; backfill number lookup so either path sees the same fake PRs.
 		for (const pr of byBranch.values()) byNumber.set(pr.number, pr);
 		this.prsByNumber = byNumber;
 		this.prsByBranch = byBranch;
@@ -139,23 +145,26 @@ export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway 
 
 	async getPr(
 		params: GithubPrFeedbackOptions & { readonly prNumber: number },
-	): Promise<GithubPrLookupResult> {
+	): Promise<Result<GithubPrLookupOutcome, GithubPrFeedbackFailure>> {
 		if (this.lookupFailurePrNumbers.has(params.prNumber))
-			return { type: "failure", failure: fakePrFeedbackFailure(FAKE_GH_AUTH_FAILED_STDERR) };
+			return { ok: false, error: fakePrFeedbackFailure(FAKE_GH_AUTH_FAILED_STDERR) };
 		if (this.missingPrNumbers.has(params.prNumber)) return prLookupMiss(params.prNumber);
 		const pr = this.prsByNumber.get(params.prNumber);
 		if (pr === undefined) return prLookupMiss(params.prNumber);
-		return { type: "found", pr: clone(pr) };
+		return { ok: true, value: { found: true, pr: clone(pr) } };
 	}
 
 	async getPrForBranch(
 		params: GithubPrFeedbackOptions & { readonly branch: string },
-	): Promise<GithubPrLookupResult> {
+	): Promise<Result<GithubPrLookupOutcome, GithubPrFeedbackFailure>> {
 		if (this.lookupFailureBranches.has(params.branch))
-			return { type: "failure", failure: fakePrFeedbackFailure(FAKE_GH_AUTH_FAILED_STDERR) };
+			return {
+				ok: false,
+				error: fakePrFeedbackFailure(FAKE_GH_AUTH_FAILED_STDERR, "getPrForBranch"),
+			};
 		const pr = this.prsByBranch.get(params.branch);
 		if (pr === undefined) return lookupMiss();
-		return { type: "found", pr: clone(pr) };
+		return { ok: true, value: { found: true, pr: clone(pr) } };
 	}
 
 	async listOpenPrs(
@@ -173,7 +182,10 @@ export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway 
 		params: GithubPrFeedbackOptions & { readonly prNumber: number },
 	): Promise<Result<readonly GithubPrReview[], GithubPrFeedbackFailure>> {
 		if (this.reviewsFailurePrNumbers.has(params.prNumber))
-			return { ok: false, error: fakePrFeedbackFailure(FAKE_GH_AUTH_FAILED_STDERR) };
+			return {
+				ok: false,
+				error: fakePrFeedbackFailure(FAKE_GH_AUTH_FAILED_STDERR, "getPrReviews"),
+			};
 		return { ok: true, value: clone(this.reviews.get(params.prNumber) ?? []) };
 	}
 
@@ -181,7 +193,10 @@ export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway 
 		params: GithubPrFeedbackOptions & { readonly prNumber: number },
 	): Promise<Result<readonly GithubPrReviewThread[], GithubPrFeedbackFailure>> {
 		if (this.reviewThreadsFailurePrNumbers.has(params.prNumber))
-			return { ok: false, error: fakePrFeedbackFailure(FAKE_GH_AUTH_FAILED_STDERR) };
+			return {
+				ok: false,
+				error: fakePrFeedbackFailure(FAKE_GH_AUTH_FAILED_STDERR, "getPrReviewThreads"),
+			};
 		return { ok: true, value: clone(this.reviewThreads.get(params.prNumber) ?? []) };
 	}
 
@@ -189,7 +204,10 @@ export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway 
 		params: GithubPrFeedbackOptions & { readonly prNumber: number },
 	): Promise<Result<readonly GithubPrDiscussionComment[], GithubPrFeedbackFailure>> {
 		if (this.discussionCommentsFailurePrNumbers.has(params.prNumber))
-			return { ok: false, error: fakePrFeedbackFailure(FAKE_GH_AUTH_FAILED_STDERR) };
+			return {
+				ok: false,
+				error: fakePrFeedbackFailure(FAKE_GH_AUTH_FAILED_STDERR, "getPrDiscussionComments"),
+			};
 		return { ok: true, value: clone(this.discussionComments.get(params.prNumber) ?? []) };
 	}
 
@@ -197,7 +215,7 @@ export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway 
 		params: GithubPrFeedbackOptions & { readonly threadId: string; readonly body: string },
 	): Promise<Result<GithubReviewThreadReply, GithubPrFeedbackFailure>> {
 		if (this.replyFailureThreadIds.has(params.threadId))
-			return { ok: false, error: fakePrFeedbackFailure("reply failed") };
+			return { ok: false, error: fakePrFeedbackFailure("reply failed", "replyToReviewThread") };
 		this.repliesInternal.push({ threadId: params.threadId, body: params.body });
 		return {
 			ok: true,
@@ -221,7 +239,7 @@ export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway 
 		params: GithubPrFeedbackOptions & { readonly threadId: string },
 	): Promise<Result<GithubReviewThreadState, GithubPrFeedbackFailure>> {
 		if (this.resolveFailureThreadIds.has(params.threadId))
-			return { ok: false, error: fakePrFeedbackFailure("resolve failed") };
+			return { ok: false, error: fakePrFeedbackFailure("resolve failed", "resolveReviewThread") };
 		this.resolutionsInternal.push({ threadId: params.threadId });
 		return { ok: true, value: { threadId: params.threadId, isResolved: true } };
 	}
@@ -254,14 +272,19 @@ export class InMemoryPrAddressGitGateway implements PrAddressGitGateway {
 	}
 }
 
-function lookupMiss(): Exclude<GithubPrLookupResult, { type: "found" | "failure" }> {
-	return { type: "miss", stderr: FAKE_PR_LOOKUP_MISS_STDERR, exitCode: 1 };
+function lookupMiss(): Result<GithubPrLookupOutcome, GithubPrFeedbackFailure> {
+	return { ok: true, value: { found: false, miss: lookupMissValue() } };
 }
 
-function prLookupMiss(
-	prNumber: number,
-): Exclude<GithubPrLookupResult, { type: "found" | "failure" }> {
-	return { type: "miss", stderr: fakePrLookupMissStderr(prNumber), exitCode: 1 };
+function prLookupMiss(prNumber: number): Result<GithubPrLookupOutcome, GithubPrFeedbackFailure> {
+	return {
+		ok: true,
+		value: { found: false, miss: { stderr: fakePrLookupMissStderr(prNumber), exitCode: 1 } },
+	};
+}
+
+function lookupMissValue(): GithubPrLookupMiss {
+	return { stderr: FAKE_PR_LOOKUP_MISS_STDERR, exitCode: 1 };
 }
 
 function numberMap<T>(

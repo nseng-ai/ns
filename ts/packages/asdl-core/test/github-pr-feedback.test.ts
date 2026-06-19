@@ -114,21 +114,26 @@ describe("RealGithubPrFeedbackGateway", () => {
 		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
 
 		expect(await gateway.getPr({ cwd: "/repo", prNumber: 12 })).toEqual({
-			type: "found",
-			pr: {
-				number: 12,
-				title: "Title",
-				url: "https://github.com/acme/repo/pull/12",
-				headRefName: "feature/pr",
-				headRefOid: "abc",
-				baseRefName: "main",
-				state: "OPEN",
+			ok: true,
+			value: {
+				found: true,
+				pr: {
+					number: 12,
+					title: "Title",
+					url: "https://github.com/acme/repo/pull/12",
+					headRefName: "feature/pr",
+					headRefOid: "abc",
+					baseRefName: "main",
+					state: "OPEN",
+				},
 			},
 		});
 		expect(await gateway.getPrForBranch({ cwd: "/repo", branch: "feature/missing" })).toEqual({
-			type: "miss",
-			stderr: "no pull requests found",
-			exitCode: 1,
+			ok: true,
+			value: {
+				found: false,
+				miss: { stderr: "no pull requests found", exitCode: 1 },
+			},
 		});
 		runner.assertDone();
 	});
@@ -397,6 +402,46 @@ describe("RealGithubPrFeedbackGateway", () => {
 		runner.assertDone();
 	});
 
+	test("normalizes null review-thread comment authors and missing comment nodes", async () => {
+		const args = [
+			"api",
+			"graphql",
+			"-F",
+			"owner={owner}",
+			"-F",
+			"repo={repo}",
+			"-F",
+			"number=12",
+			"-f",
+			`query=${reviewThreadsQuery}`,
+		];
+		const runner = new ScriptedCommandRunner([
+			step("gh", args, {
+				stdout: reviewThreadsResponse([
+					thread({
+						comments: {
+							nodes: [comment({ author: null })],
+							pageInfo: { hasNextPage: false, endCursor: null },
+						},
+					}),
+					thread({ id: "RT_empty", comments: {} }),
+				]),
+			}),
+		]);
+		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+
+		expect(await gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 })).toMatchObject({
+			ok: true,
+			value: [
+				expect.objectContaining({ comments: [expect.objectContaining({ author: "" })] }),
+				expect.objectContaining({ id: "RT_empty", comments: [] }),
+			],
+		});
+		runner.assertDone();
+	});
+
+	// This test pins the intentional hard-fail behavior for malformed identity fields:
+	// a review/comment response with no usable numeric identity invalidates the whole response.
 	test("rejects malformed review thread and review comment identities", async () => {
 		const args = [
 			"api",

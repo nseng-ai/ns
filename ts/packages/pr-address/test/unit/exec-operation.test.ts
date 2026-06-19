@@ -68,12 +68,16 @@ describe("exec operation failure details", () => {
 		const stderrFailure = {
 			code: "github_pr_feedback_gh_failed",
 			message: "message detail",
-			details: { stderr: "stderr detail", stdout: "stdout detail" },
+			details: {
+				operation: "getPrReviewThreads",
+				stderr: "stderr detail",
+				stdout: "stdout detail",
+			},
 		} satisfies GithubPrFeedbackFailure;
 		const stdoutFailure = {
 			code: "github_pr_feedback_gh_failed",
 			message: "message detail",
-			details: { stderr: " ", stdout: "stdout detail" },
+			details: { operation: "getPrReviewThreads", stderr: " ", stdout: "stdout detail" },
 		} satisfies GithubPrFeedbackFailure;
 
 		expect(prFeedbackFailureMessage("Fetch failed", stderrFailure)).toBe(

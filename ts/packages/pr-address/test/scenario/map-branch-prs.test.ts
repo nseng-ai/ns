@@ -206,7 +206,7 @@ describe("pr-address exec map-branch-prs", () => {
 			listOpenPrsFailure: {
 				code: "github_pr_feedback_gh_failed",
 				message: "gh: network down",
-				details: { stderr: "gh: network down", stdout: "", exitCode: 1 },
+				details: { operation: "listOpenPrs", stderr: "gh: network down", stdout: "", exitCode: 1 },
 			},
 		});
 		const run = runScenario(mapArgs(), {

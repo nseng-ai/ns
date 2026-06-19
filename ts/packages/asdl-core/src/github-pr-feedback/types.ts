@@ -70,10 +70,6 @@ export type GithubPrFeedbackFailureCode =
 	| "github_pr_feedback_graphql_failed"
 	| "github_pr_feedback_pagination_invalid";
 
-export interface GithubPrFeedbackFailure extends ErrorInfo {
-	readonly code: GithubPrFeedbackFailureCode;
-}
-
 export type GithubPrFeedbackOperation =
 	| "getPr"
 	| "getPrForBranch"
@@ -84,18 +80,42 @@ export type GithubPrFeedbackOperation =
 	| "replyToReviewThread"
 	| "resolveReviewThread";
 
-export type GithubPrLookupResult =
-	| { readonly type: "found"; readonly pr: GithubPrSummary }
-	| { readonly type: "miss"; readonly stderr: string; readonly exitCode: number }
-	| { readonly type: "failure"; readonly failure: GithubPrFeedbackFailure };
+export interface GithubPrFeedbackFailureDetails extends Readonly<Record<string, unknown>> {
+	readonly operation: GithubPrFeedbackOperation;
+	readonly command?: readonly string[] | undefined;
+	readonly displayCommand?: string | undefined;
+	readonly stdout?: string | undefined;
+	readonly stderr?: string | undefined;
+	readonly exitCode?: number | undefined;
+	readonly killed?: boolean | undefined;
+	readonly graphqlErrors?: unknown;
+	readonly zodError?: string | undefined;
+	readonly prNumber?: number | undefined;
+	readonly threadId?: string | undefined;
+	readonly cursorContext?: string | undefined;
+}
+
+export interface GithubPrFeedbackFailure extends ErrorInfo {
+	readonly code: GithubPrFeedbackFailureCode;
+	readonly details?: GithubPrFeedbackFailureDetails;
+}
+
+export interface GithubPrLookupMiss {
+	readonly stderr: string;
+	readonly exitCode: number;
+}
+
+export type GithubPrLookupOutcome =
+	| { readonly found: true; readonly pr: GithubPrSummary }
+	| { readonly found: false; readonly miss: GithubPrLookupMiss };
 
 export interface GithubPrFeedbackGateway {
 	getPr(
 		params: GithubPrFeedbackOptions & { readonly prNumber: number },
-	): Promise<GithubPrLookupResult>;
+	): Promise<Result<GithubPrLookupOutcome, GithubPrFeedbackFailure>>;
 	getPrForBranch(
 		params: GithubPrFeedbackOptions & { readonly branch: string },
-	): Promise<GithubPrLookupResult>;
+	): Promise<Result<GithubPrLookupOutcome, GithubPrFeedbackFailure>>;
 	listOpenPrs(
 		params: GithubPrFeedbackOptions,
 	): Promise<Result<readonly GithubPrSummary[], GithubPrFeedbackFailure>>;
