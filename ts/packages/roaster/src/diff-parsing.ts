@@ -2,20 +2,7 @@ import { Buffer } from "node:buffer";
 
 import { parsePatchFiles, type FileDiffMetadata } from "@pierre/diffs";
 
-export type DiffChangeKind = "added" | "modified" | "deleted" | "renamed" | "copied";
-
-export interface DiffFile {
-	readonly path: string;
-	readonly oldPath: string | null;
-	readonly changeKind: DiffChangeKind;
-	readonly rawText: string;
-	readonly isBinary: boolean;
-	readonly addedLines: number;
-	readonly removedLines: number;
-	readonly hunkCount: number;
-	readonly byteSize: number;
-	readonly estimatedTokens: number;
-}
+import type { DiffChangeKind, DiffFile } from "./models.ts";
 
 export function estimateTokens(text: string): number {
 	if (text === "") return 0;

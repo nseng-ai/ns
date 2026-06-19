@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-import type { DiffFile } from "./diff-parsing.ts";
-
 export const severityValues = ["info", "warning", "error"] as const;
 export const reviewInputOmissionReasonValues = [
 	"file_exceeds_cap",
@@ -29,6 +27,7 @@ export const inlinePostingOutcomeValues = [
 	"fallback_only",
 	"api_error",
 ] as const;
+export const diffChangeKindValues = ["added", "modified", "deleted", "renamed", "copied"] as const;
 
 const nonBlankStringSchema = z.string().trim().min(1);
 const nonNegativeIntegerSchema = z.int().min(0);
@@ -56,7 +55,7 @@ export const diffFileSchema = z
 	.object({
 		path: z.string(),
 		oldPath: z.string().nullable(),
-		changeKind: z.enum(["added", "modified", "deleted", "renamed", "copied"]),
+		changeKind: z.enum(diffChangeKindValues),
 		rawText: z.string(),
 		isBinary: z.boolean(),
 		addedLines: nonNegativeIntegerSchema,
@@ -66,7 +65,8 @@ export const diffFileSchema = z
 		estimatedTokens: nonNegativeIntegerSchema,
 	})
 	.strict();
-export type DiffFileModel = z.infer<typeof diffFileSchema>;
+export type DiffFile = z.infer<typeof diffFileSchema>;
+export type DiffChangeKind = DiffFile["changeKind"];
 
 export const localDiffSchema = z
 	.object({

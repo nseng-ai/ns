@@ -1,12 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 
+import type { ReviewApplicability, ReviewDefinition } from "../../src/models.ts";
 import {
 	parseReviewDefinition,
-	type ReviewDefinition,
 	type ReviewDefinitionParseErrorCode,
 } from "../../src/review-definition.ts";
-import type { ReviewApplicability } from "../../src/review-applicability.ts";
 
 interface RealReviewCase {
 	readonly path: string;

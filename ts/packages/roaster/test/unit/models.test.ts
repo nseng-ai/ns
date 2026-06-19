@@ -3,6 +3,8 @@ import { describe, expect, test } from "vitest";
 import {
 	createFindingsReview,
 	createLocalDiff,
+	diffChangeKindValues,
+	diffFileSchema,
 	findingsReviewSchema,
 	harnessReviewRequestSchema,
 	inlineClassificationResultSchema,
@@ -72,6 +74,38 @@ describe("roaster domain schemas", () => {
 		).toThrow();
 		expect(() =>
 			findingsReviewSchema.parse({ format: "findings", findings: [], count: 0, extra: true }),
+		).toThrow();
+	});
+
+	test("defines canonical diff file schema and change kinds", () => {
+		expect(diffChangeKindValues).toEqual(["added", "modified", "deleted", "renamed", "copied"]);
+		expect(
+			diffFileSchema.parse({
+				path: "src/app.ts",
+				oldPath: null,
+				changeKind: "modified",
+				rawText: "raw",
+				isBinary: false,
+				addedLines: 1,
+				removedLines: 0,
+				hunkCount: 1,
+				byteSize: 3,
+				estimatedTokens: 1,
+			}),
+		).toMatchObject({ path: "src/app.ts", changeKind: "modified" });
+		expect(() =>
+			diffFileSchema.parse({
+				path: "src/app.ts",
+				oldPath: null,
+				changeKind: "changed",
+				rawText: "raw",
+				isBinary: false,
+				addedLines: 1,
+				removedLines: 0,
+				hunkCount: 1,
+				byteSize: 3,
+				estimatedTokens: 1,
+			}),
 		).toThrow();
 	});
 

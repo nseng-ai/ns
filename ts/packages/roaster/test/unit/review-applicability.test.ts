@@ -1,10 +1,10 @@
 import { describe, expect, test } from "vitest";
 
+import type { ReviewApplicability } from "../../src/models.ts";
 import {
 	applicableReviewKeys,
 	pathMatchesPattern,
 	reviewAppliesToPaths,
-	type ReviewApplicability,
 } from "../../src/review-applicability.ts";
 
 describe("pathMatchesPattern", () => {

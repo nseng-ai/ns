@@ -1,19 +1,15 @@
 import { splitMarkdownFrontmatter } from "@asdl/core/markdown-frontmatter";
-import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
+import { formatErrorMessage, formatZodError, isRecord } from "@asdl/core/primitives";
 import { parse as parseYaml } from "yaml";
 
-import type { ReviewApplicability } from "./review-applicability.ts";
+import {
+	reviewDefinitionSchema,
+	type ReviewApplicability,
+	type ReviewDefinition,
+} from "./models.ts";
 
 const ALLOWED_FRONTMATTER_KEYS = ["applies_to", "default_model", "description"] as const;
 const ALLOWED_APPLIES_TO_KEYS = ["exclude", "include"] as const;
-
-export interface ReviewDefinition {
-	readonly name: string;
-	readonly description: string;
-	readonly instructions: string;
-	readonly defaultModel: string | null;
-	readonly applicability: ReviewApplicability;
-}
 
 export type ReviewDefinitionParseResult =
 	| { readonly type: "ok"; readonly definition: ReviewDefinition }
@@ -97,16 +93,20 @@ export function parseReviewDefinition(
 		);
 	}
 
-	return {
-		type: "ok",
-		definition: {
-			name,
-			description: description.value,
-			instructions,
-			defaultModel: defaultModel.value,
-			applicability: applicability.value,
-		},
+	const candidate = {
+		name,
+		description: description.value,
+		instructions,
+		defaultModel: defaultModel.value,
+		applicability: applicability.value,
 	};
+	const parsedDefinition = reviewDefinitionSchema.safeParse(candidate);
+	if (!parsedDefinition.success) {
+		throw new Error(
+			`Review definition parser produced a value that does not match reviewDefinitionSchema: ${formatZodError(parsedDefinition.error)}`,
+		);
+	}
+	return { type: "ok", definition: parsedDefinition.data };
 }
 
 type FrontmatterSplitResult =
@@ -212,7 +212,7 @@ interface RequirePatternListOptions {
 }
 
 type PatternListResult =
-	| { readonly type: "ok"; readonly value: readonly string[] }
+	| { readonly type: "ok"; readonly value: string[] }
 	| { readonly type: "error"; readonly error: ReviewDefinitionParseError };
 
 function requirePatternList(

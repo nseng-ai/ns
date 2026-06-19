@@ -1,11 +1,8 @@
 import { mapFromRecordOrMap } from "@asdl/core/primitives";
 
-export interface ReviewApplicability {
-	readonly include: readonly string[];
-	readonly exclude: readonly string[];
-}
+import type { ReviewApplicability } from "./models.ts";
 
-export interface ReviewDefinitionWithApplicability {
+interface ReviewDefinitionWithApplicability {
 	readonly applicability: ReviewApplicability;
 }
 
