@@ -1,4 +1,4 @@
-import { execApiToCommandRunner, type CommandExecApi } from "@asdl/core/exec";
+import { execApiToCommandRunner, formatCommand, type CommandExecApi } from "@asdl/core/exec";
 import { runGitHubCli } from "@asdl/core/github-cli";
 import { withTemporaryJsonFile } from "@asdl/core/temp-files";
 import { z } from "zod";
@@ -96,7 +96,11 @@ export class RealRoasterGitHubGateway implements RoasterGitHubGateway {
 		const args = ["api", "--paginate", `repos/{owner}/{repo}/pulls/${prNumber}/files`];
 		const result = await this.runGh(args, options);
 		if (result.type === "error") return result;
-		const parsed = parseJson(result.value.stdout, z.array(ghChangedFileSchema));
+		const parsed = parseJson(
+			result.value.stdout,
+			z.array(ghChangedFileSchema),
+			"list PR changed files",
+		);
 		if (parsed.type === "error") return parsed;
 		return {
 			type: "ok",
@@ -117,7 +121,11 @@ export class RealRoasterGitHubGateway implements RoasterGitHubGateway {
 		const args = ["api", "--paginate", `repos/{owner}/{repo}/pulls/${prNumber}/comments`];
 		const result = await this.runGh(args, options);
 		if (result.type === "error") return result;
-		const parsed = parseJson(result.value.stdout, z.array(ghReviewCommentSchema));
+		const parsed = parseJson(
+			result.value.stdout,
+			z.array(ghReviewCommentSchema),
+			"list PR review comments",
+		);
 		if (parsed.type === "error") return parsed;
 		return {
 			type: "ok",
@@ -211,7 +219,11 @@ export class RealRoasterGitHubGateway implements RoasterGitHubGateway {
 		const args = ["api", "--paginate", `repos/{owner}/{repo}/issues/${prNumber}/comments`];
 		const result = await this.runGh(args, options);
 		if (result.type === "error") return result;
-		const parsed = parseJson(result.value.stdout, z.array(ghDiscussionCommentSchema));
+		const parsed = parseJson(
+			result.value.stdout,
+			z.array(ghDiscussionCommentSchema),
+			"list PR discussion comments",
+		);
 		if (parsed.type === "error") return parsed;
 		return {
 			type: "ok",
@@ -225,7 +237,11 @@ export class RealRoasterGitHubGateway implements RoasterGitHubGateway {
 	): Promise<RoasterResult<PRDiscussionComment>> {
 		const result = await this.runGh(args, options);
 		if (result.type === "error") return result;
-		const parsed = parseJson(result.value.stdout, ghDiscussionCommentSchema);
+		const parsed = parseJson(
+			result.value.stdout,
+			ghDiscussionCommentSchema,
+			"mutate PR discussion comment",
+		);
 		if (parsed.type === "error") return parsed;
 		return { type: "ok", value: publicDiscussionComment(normalizeDiscussionComment(parsed.value)) };
 	}
@@ -234,6 +250,7 @@ export class RealRoasterGitHubGateway implements RoasterGitHubGateway {
 		args: readonly string[],
 		options: GitHubGatewayOptions,
 	): Promise<RoasterResult<{ readonly stdout: string }>> {
+		const displayCommand = formatCommand("gh", args);
 		const run = await runGitHubCli({
 			runner: execApiToCommandRunner(this.execApi),
 			args,
@@ -244,14 +261,17 @@ export class RealRoasterGitHubGateway implements RoasterGitHubGateway {
 		if (run.type === "startup_error") {
 			return error({
 				type: "github_cli_failed",
-				message: run.message,
+				message: `${displayCommand} failed to start in ${options.cwd}: ${run.message}`,
 			});
 		}
 		const result = run.result;
 		if (result.code !== 0 || result.killed) {
+			const stderr = result.stderr.trim();
+			const reason =
+				stderr === "" ? `exit code ${result.code}${result.killed ? " (killed)" : ""}` : stderr;
 			return error({
 				type: "github_cli_failed",
-				message: result.stderr.trim() || `GitHub CLI command failed: ${run.displayCommand}`,
+				message: `${run.displayCommand} failed in ${options.cwd}: ${reason}`,
 			});
 		}
 		return { type: "ok", value: { stdout: result.stdout } };
@@ -370,21 +390,21 @@ export class FakeRoasterGitHubGateway implements RoasterGitHubGateway {
 	}
 }
 
-function parseJson<T>(text: string, schema: z.ZodType<T>): RoasterResult<T> {
+function parseJson<T>(text: string, schema: z.ZodType<T>, operation: string): RoasterResult<T> {
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(text);
 	} catch (caught) {
 		return error({
 			type: "github_json_invalid",
-			message: caught instanceof Error ? caught.message : String(caught),
+			message: `GitHub response for ${operation} is not valid JSON: ${caught instanceof Error ? caught.message : String(caught)}`,
 		});
 	}
 	const result = schema.safeParse(parsed);
 	if (!result.success)
 		return error({
 			type: "github_response_invalid",
-			message: z.prettifyError(result.error),
+			message: `GitHub response for ${operation} did not match the expected shape: ${z.prettifyError(result.error)}`,
 		});
 	return { type: "ok", value: result.data };
 }

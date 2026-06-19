@@ -198,9 +198,12 @@ describe("RealRoasterGitHubGateway", () => {
 		]);
 	});
 
-	test("returns typed failures for gh and JSON errors", async () => {
+	test("returns self-contained typed failures for gh and JSON errors", async () => {
 		const failedExec = new ScriptedCommandExecApi([{ stderr: "no auth", code: 1 }]);
 		const badJsonExec = new ScriptedCommandExecApi([{ stdout: "not json" }]);
+		const badShapeExec = new ScriptedCommandExecApi([
+			{ stdout: JSON.stringify({ not: "a list" }) },
+		]);
 
 		const ghFailure = await new RealRoasterGitHubGateway(failedExec).getPrChangedFiles(12, {
 			cwd: "/repo",
@@ -208,11 +211,29 @@ describe("RealRoasterGitHubGateway", () => {
 		const jsonFailure = await new RealRoasterGitHubGateway(badJsonExec).getPrChangedFiles(12, {
 			cwd: "/repo",
 		});
+		const shapeFailure = await new RealRoasterGitHubGateway(badShapeExec).getPrChangedFiles(12, {
+			cwd: "/repo",
+		});
 
 		expect(ghFailure.type).toBe("error");
-		if (ghFailure.type === "error") expect(ghFailure.error.type).toBe("github_cli_failed");
+		if (ghFailure.type === "error") {
+			expect(ghFailure.error.type).toBe("github_cli_failed");
+			expect(ghFailure.error.message).toContain("gh api --paginate");
+			expect(ghFailure.error.message).toContain("/repo");
+			expect(ghFailure.error.message).toContain("no auth");
+		}
 		expect(jsonFailure.type).toBe("error");
-		if (jsonFailure.type === "error") expect(jsonFailure.error.type).toBe("github_json_invalid");
+		if (jsonFailure.type === "error") {
+			expect(jsonFailure.error.type).toBe("github_json_invalid");
+			expect(jsonFailure.error.message).toContain("list PR changed files");
+			expect(jsonFailure.error.message).toContain("not valid JSON");
+		}
+		expect(shapeFailure.type).toBe("error");
+		if (shapeFailure.type === "error") {
+			expect(shapeFailure.error.type).toBe("github_response_invalid");
+			expect(shapeFailure.error.message).toContain("list PR changed files");
+			expect(shapeFailure.error.message).toContain("expected shape");
+		}
 	});
 });
 

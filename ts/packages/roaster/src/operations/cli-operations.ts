@@ -203,7 +203,7 @@ async function loadDefinitions(
 				type: "error",
 				error: {
 					type: "review_definition_invalid",
-					message: parsed.error.message,
+					message: `Review definition ${source.value.key} at ${source.value.path} is invalid: ${parsed.error.message}`,
 				},
 			};
 		}
