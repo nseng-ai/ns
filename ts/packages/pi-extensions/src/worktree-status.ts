@@ -256,15 +256,24 @@ export type WorktreeStatusFooterBranchReader = (
 	footerData: StatusFooterData,
 ) => string | null;
 
+/**
+ * The observability loaders the extension reads worktree facts through. Bundled
+ * into a single dependency so tests inject one object whose shape matches this
+ * contract 1:1, and infra seams (timers/clock) stay visibly separate.
+ */
+export interface WorktreeStatusLoaders {
+	loadIdentity: WorktreeStatusIdentityLoader;
+	loadLocalStatus: LocalWorktreeStatusLoader;
+	loadGhStatus: WorktreeGhStatusLoader;
+	isIdentityCurrent: WorktreeStatusIdentityCurrentChecker;
+	readFooterBranch: WorktreeStatusFooterBranchReader;
+}
+
 export interface WorktreeStatusExtensionDependencies {
 	timers?: TimerScheduler | undefined;
 	clock?: Clock | undefined;
 	refreshIntervalMs?: number | undefined;
-	loadIdentity?: WorktreeStatusIdentityLoader | undefined;
-	loadLocalStatus?: LocalWorktreeStatusLoader | undefined;
-	loadGhStatus?: WorktreeGhStatusLoader | undefined;
-	isIdentityCurrent?: WorktreeStatusIdentityCurrentChecker | undefined;
-	readFooterBranch?: WorktreeStatusFooterBranchReader | undefined;
+	loaders?: Partial<WorktreeStatusLoaders> | undefined;
 }
 
 interface ActiveSession {
@@ -292,12 +301,13 @@ export default function worktreeStatusExtension(
 ) {
 	pi.registerMessageRenderer?.(WORKTREE_STATUS_UI_KEY, renderWorktreeStatusMessage);
 
-	const loaders = {
-		loadIdentity: dependencies.loadIdentity ?? loadWorktreeStatusIdentity,
-		loadLocalStatus: dependencies.loadLocalStatus ?? loadLocalWorktreeStatus,
-		loadGhStatus: dependencies.loadGhStatus ?? loadWorktreeGhStatus,
-		isIdentityCurrent: dependencies.isIdentityCurrent ?? isWorktreeStatusIdentityStillCurrent,
-		readFooterBranch: dependencies.readFooterBranch ?? currentFooterBranch,
+	const loaders: WorktreeStatusLoaders = {
+		loadIdentity: dependencies.loaders?.loadIdentity ?? loadWorktreeStatusIdentity,
+		loadLocalStatus: dependencies.loaders?.loadLocalStatus ?? loadLocalWorktreeStatus,
+		loadGhStatus: dependencies.loaders?.loadGhStatus ?? loadWorktreeGhStatus,
+		isIdentityCurrent:
+			dependencies.loaders?.isIdentityCurrent ?? isWorktreeStatusIdentityStillCurrent,
+		readFooterBranch: dependencies.loaders?.readFooterBranch ?? currentFooterBranch,
 	};
 	const timers = dependencies.timers ?? unrefTimerScheduler;
 	const clock = dependencies.clock ?? systemClock;

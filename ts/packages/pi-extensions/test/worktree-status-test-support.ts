@@ -9,10 +9,7 @@ import type {
 	WorktreeGhStatus,
 	WorktreeStatusIdentity,
 } from "@asdl/ccc/worktree-status";
-import type {
-	ExtensionContext,
-	WorktreeStatusExtensionDependencies,
-} from "../src/worktree-status.ts";
+import type { ExtensionContext, WorktreeStatusLoaders } from "../src/worktree-status.ts";
 
 export interface ExecCall {
 	command: string;
@@ -237,7 +234,7 @@ export interface QueuedLoaderResult<T> {
 	onCall?: (() => void) | undefined;
 }
 
-export interface FakeWorktreeStatusLoaders extends WorktreeStatusExtensionDependencies {
+export interface FakeWorktreeStatusLoaders extends WorktreeStatusLoaders {
 	readonly identityCalls: Array<{ cwd: string }>;
 	readonly localCalls: Array<{ cwd: string; identity: WorktreeStatusIdentity | undefined }>;
 	readonly ghCalls: Array<{ cwd: string; identity: WorktreeStatusIdentity | undefined }>;

@@ -63,7 +63,7 @@ describe("worktree status extension registration and rendering", () => {
 		const statuses = new Map<string, string | undefined>();
 		const ctx = testContext({ statuses });
 
-		worktreeStatusExtension(pi as ExtensionAPI, loaders);
+		worktreeStatusExtension(pi as ExtensionAPI, { loaders });
 		await pi.sessionStart?.({}, ctx);
 
 		pi.assertDone();
@@ -90,7 +90,7 @@ describe("worktree status extension registration and rendering", () => {
 		const statuses = new Map<string, string | undefined>();
 		const ctx = testContext({ statuses });
 
-		worktreeStatusExtension(pi as ExtensionAPI, loaders);
+		worktreeStatusExtension(pi as ExtensionAPI, { loaders });
 		await pi.sessionStart?.({}, ctx);
 
 		pi.assertDone();
@@ -111,7 +111,7 @@ describe("worktree status extension registration and rendering", () => {
 		const statuses = new Map<string, string | undefined>();
 		const ctx = testContext({ statuses });
 
-		worktreeStatusExtension(pi as ExtensionAPI, loaders);
+		worktreeStatusExtension(pi as ExtensionAPI, { loaders });
 		const sessionStart = pi.sessionStart?.({}, ctx);
 		await localLoaded.promise;
 		await flushPromises();
@@ -135,7 +135,7 @@ describe("worktree status extension registration and rendering", () => {
 		});
 		const ctx = testContext();
 
-		worktreeStatusExtension(pi as ExtensionAPI, loaders);
+		worktreeStatusExtension(pi as ExtensionAPI, { loaders });
 		const sessionStart = pi.sessionStart?.({}, ctx);
 		await ghStarted.promise;
 		localResult.resolve(localStatus());
@@ -171,7 +171,7 @@ describe("worktree status extension registration and rendering", () => {
 			],
 		});
 
-		worktreeStatusExtension(pi as ExtensionAPI, loaders);
+		worktreeStatusExtension(pi as ExtensionAPI, { loaders });
 		await pi.sessionStart?.({}, ctx);
 
 		pi.assertDone();
@@ -220,7 +220,7 @@ describe("worktree status extension registration and rendering", () => {
 			],
 		});
 
-		worktreeStatusExtension(pi as ExtensionAPI, loaders);
+		worktreeStatusExtension(pi as ExtensionAPI, { loaders });
 		await pi.sessionStart?.({}, ctx);
 
 		pi.assertDone();
@@ -265,7 +265,7 @@ describe("worktree status extension registration and rendering", () => {
 			},
 		});
 
-		worktreeStatusExtension(pi as ExtensionAPI, fakeWorktreeStatusLoaders());
+		worktreeStatusExtension(pi as ExtensionAPI, { loaders: fakeWorktreeStatusLoaders() });
 		await pi.sessionStart?.({}, ctx);
 
 		pi.assertDone();
@@ -300,7 +300,7 @@ describe("worktree status extension registration and rendering", () => {
 			],
 		});
 
-		worktreeStatusExtension(pi as ExtensionAPI, loaders);
+		worktreeStatusExtension(pi as ExtensionAPI, { loaders });
 		await pi.sessionStart?.({}, ctx);
 
 		pi.assertDone();
