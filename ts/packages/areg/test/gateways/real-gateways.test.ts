@@ -225,6 +225,9 @@ describe("real areg gateways", () => {
 					verifiedSurfaces: expect.arrayContaining([
 						"objective:next",
 						"code:just-fix",
+						"branch-context:from-plan",
+						"branch-context:impl",
+						"enriched-plan:save",
 						"sdl:code:submit",
 					]),
 				},

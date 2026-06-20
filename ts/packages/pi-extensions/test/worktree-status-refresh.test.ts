@@ -22,6 +22,7 @@ import worktreeStatusExtension, {
 	WORKTREE_STATUS_REFRESH_COMMAND_NAME,
 	type ExtensionAPI,
 } from "../src/worktree-status.ts";
+import { WORKTREE_STATUS_DORMANT_AFTER_MS } from "../src/worktree-status-activity.ts";
 
 describe("worktree status refresh lifecycle", () => {
 	test("background timer limits GitHub refreshes to every fifteen seconds", async () => {
@@ -103,27 +104,31 @@ describe("worktree status refresh lifecycle", () => {
 		await pi.sessionShutdown?.();
 	});
 
-	test("extension command completion refreshes stale dirty footer state", async () => {
-		const commandRefreshLoaded = deferred<void>();
+	test("extension command completion records activity without forcing immediate refresh", async () => {
+		const harness = createManualTimerHarness();
 		const pi = new CommandEventLifecycleFakePi([]);
 		const loaders = fakeWorktreeStatusLoaders({
 			localStatuses: [
 				queued(localStatus()),
-				queued(localStatus({ gt: gtStatus({ dirty: "yes" }) }), () =>
-					commandRefreshLoaded.resolve(),
-				),
+				queued(localStatus({ gt: gtStatus({ dirty: "yes" }) })),
 			],
 			ghStatuses: [queued({ type: "no-pr" }), queued({ type: "no-pr" })],
 		});
 		const statuses = new Map<string, string | undefined>();
 		const ctx = testContext(statuses);
 
-		worktreeStatusExtension(pi as ExtensionAPI, { loaders, refreshIntervalMs: 60_000 });
+		worktreeStatusExtension(pi as ExtensionAPI, {
+			loaders,
+			timers: harness.timers,
+			clock: harness.clock,
+			refreshIntervalMs: WORKTREE_STATUS_DORMANT_AFTER_MS * 10,
+		});
 		await pi.sessionStart?.({}, ctx);
 		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
 			"[gt] ↓ main · ↑ - · 1 commit\n[gh] no PR",
 		);
 
+		harness.advanceMs(WORKTREE_STATUS_DORMANT_AFTER_MS / 2);
 		await pi.emitCommandFinished({
 			commandName: "sdl:cp",
 			cwd: "/repo",
@@ -131,13 +136,20 @@ describe("worktree status refresh lifecycle", () => {
 			status: "completed",
 			exitCode: 0,
 		});
-		await commandRefreshLoaded.promise;
+		await flushPromises();
+
+		expect(loaders.localCalls).toHaveLength(1);
+		expect(loaders.ghCalls).toHaveLength(1);
+		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
+			"[gt] ↓ main · ↑ - · 1 commit\n[gh] no PR",
+		);
+
+		harness.advanceMs(WORKTREE_STATUS_DORMANT_AFTER_MS / 2 + 1);
 		await flushPromises();
 
 		pi.assertDone();
-		expect(loaders.ghCalls).toHaveLength(2);
-		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
-			"[gt] ↓ main · ↑ - · 1 commit · ✗\n[gh] no PR",
+		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).not.toContain(
+			"[wt] dormant",
 		);
 		await pi.sessionShutdown?.();
 	});
