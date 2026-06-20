@@ -4,17 +4,17 @@ The roadmap in `../roadmap.md` carries nine curated candidates. The exploration 
 
 ## Roadmap nine → finding IDs
 
-| Roadmap # | Title | Finding | Strength |
-|-----------|-------|---------|----------|
-| 1 | Collapse PR-description pipeline | A1 | Strong |
-| 2 | `TextGenerationGateway` real seam | A2 | Strong |
-| 3 | Collapse slot-dispatch | B1 | Strong |
-| 4 | Occupancy reconciler (slot inventory) | C1 | Strong |
-| 5 | Graphite stack-navigator adapter | C2 | Strong |
-| 6 | Branch Memory entry locator | D1 | Strong |
-| 7 | Plan-attachment module (branch-context) | D2 | Worth exploring |
-| 8 | Objective markdown validator | D3 | Worth exploring |
-| 9 | Lift diff parsing to core (watch-point) | E1 | Speculative |
+| Roadmap # | Title                                   | Finding | Strength        |
+| --------- | --------------------------------------- | ------- | --------------- |
+| 1         | Collapse PR-description pipeline        | A1      | Strong          |
+| 2         | `TextGenerationGateway` real seam       | A2      | Strong          |
+| 3         | Collapse slot-dispatch                  | B1      | Strong          |
+| 4         | Occupancy reconciler (slot inventory)   | C1      | Strong          |
+| 5         | Graphite stack-navigator adapter        | C2      | Strong          |
+| 6         | Branch Memory entry locator             | D1      | Strong          |
+| 7         | Plan-attachment module (branch-context) | D2      | Worth exploring |
+| 8         | Objective markdown validator            | D3      | Worth exploring |
+| 9         | Lift diff parsing to core (watch-point) | E1      | Speculative     |
 
 ## Strong findings deliberately held off the roadmap nine
 

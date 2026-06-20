@@ -13,9 +13,10 @@ Shared foundation library: Gateways (`exec.ts`, `clock.ts`, `timers.ts`, `git/`,
 **Deletion test:** Delete `pr-description-apply.ts` and the fingerprint/overwrite logic scatters — `submit-pr-descriptions.ts` imports even more from `pr-description.ts` directly, and the split fingerprint logic duplicates or goes implicit. High cost → complexity concentrates when merged → earns its keep.
 
 **Proposed deepening:** One `pr-description-orchestration.ts` with:
+
 - Input: `{ pr: GithubPrDetails; generation: resolved; isPrewritten: boolean; onProgress? }`
 - Output: discriminated union `{ kind: "matched" } | { kind: "updated" } | { kind: "generated"; title; body; promptSource } | { kind: "failed"; reason }`
-Absorbs: PR viewing + commit fetching (`submit-pr-descriptions.ts` 55–64), fingerprint/skip detection (split across apply + pr-description), generation+editing orchestration, prewritten reconciliation (`submit-pr-descriptions.ts` 171–204).
+  Absorbs: PR viewing + commit fetching (`submit-pr-descriptions.ts` 55–64), fingerprint/skip detection (split across apply + pr-description), generation+editing orchestration, prewritten reconciliation (`submit-pr-descriptions.ts` 171–204).
 
 **Tests improve:** `pr-description.test.ts` currently tests parsing/generation in isolation; the real bug is *when* generation runs (the decision logic in apply.ts, undertested). One module lets tests assert given-PR-state-X → output-Y, killing coordination bugs.
 

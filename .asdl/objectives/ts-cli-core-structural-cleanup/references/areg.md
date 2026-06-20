@@ -21,6 +21,7 @@ Below the classes sits a ~600-line private filesystem/path-safety library
 `RealAregProjectGateway`.
 
 Decomposition:
+
 - `src/gateways/host-gateway.ts` (~20 lines) — `RealAregHostGateway` +
   `isExecutable`.
 - `src/gateways/github-gateway.ts` (~45) — `RealAregGithubGateway`.

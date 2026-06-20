@@ -1,6 +1,7 @@
 # Per-package cleanups: roaster, sdl, vibechk, packagechk, pr-address
 
 Cross-cutting verdict for this group:
+
 - **pr-address** is the model citizen (consumes `@asdl/core/{github-pr-feedback,
   git,exec,result,submit}`, reimplements nothing; cli.ts is pure wiring).
 - **roaster** reimplements GitHub-JSON leaf helpers asdl-core owns (the one reuse

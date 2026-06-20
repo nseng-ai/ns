@@ -19,6 +19,7 @@ axis multiplies every exit through `failOrWarn`.
 
 This is the highest-risk code in the package — it mutates local Graphite refs
 *after irreversible merges* — and the least linear. Decompose:
+
 - Split per phase into `guardRefreshTarget`, `forceRefreshStack`,
   `verifyChildrenBeforeDelete`, `deleteLandedBranch`, `restackAndResubmit`, each
   returning `GraphiteMaintenanceOutcome`.

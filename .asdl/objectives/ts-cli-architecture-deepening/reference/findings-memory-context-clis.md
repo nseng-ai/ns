@@ -13,9 +13,10 @@ Branch-scoped durable storage CLIs. Theme: do these share a deep storage seam, o
 **Deletion test:** Delete `ref-layout.ts` and operations + handoff + branch-context fail to compile; the logic is duplicated inline across callers. The gateway interface survives unchanged (it only returns results), confirming the ref/validation logic is the thing leaking.
 
 **Proposed deepening:**
+
 - `BrmemEntryLocator` with `parse(namespace, key, branch)` returning a validated locator or error; carries computed `refName` and `entryLocator`. Absorbs `ref-layout` + validation.
 - `BrmemEntriesGateway` working in locators: `getEntry(locator)`, `putEntry(locator, content)`, `deleteEntry(locator)`, `listEntries({ namespace, branch? })`.
-Operations and downstream packages call `BrmemEntryLocator.parse()` instead of importing ref-layout/validation.
+  Operations and downstream packages call `BrmemEntryLocator.parse()` instead of importing ref-layout/validation.
 
 **Tests improve:** Ref encoding tested in isolation; operations tested against a fake entries gateway returning deterministic locators; handoff/branch-context reuse one parse seam. **Highest reuse surface in the survey** — leverage across brmem + handoff + branch-context.
 
