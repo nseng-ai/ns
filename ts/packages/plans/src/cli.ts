@@ -167,13 +167,15 @@ async function handleSave(
 			throw new Error("Pass exactly one of --stdin or --content-file <path>.");
 		}
 
+		const contentFile = request.contentFile;
 		let content: string;
 		if (request.stdin === true) {
 			content = await ctx.stdin();
-		} else if (request.contentFile !== undefined) {
-			content = await readFile(normalizePlanFilePath(request.contentFile), "utf8");
 		} else {
-			throw new Error("Pass exactly one of --stdin or --content-file <path>.");
+			if (contentFile === undefined) {
+				throw new Error("Save input validation invariant failed.");
+			}
+			content = await readFile(normalizePlanFilePath(contentFile), "utf8");
 		}
 		const evidence = await writeSavedPlanFile(
 			ctx.commands,
@@ -196,9 +198,9 @@ async function handleResolve(
 	ctx: PlansCliContext,
 	request: ResolveRequest,
 ): Promise<ClinkrExit<ResolvePlanData>> {
-	return await runClinkrCommand(PLANS_ERROR_TYPE, async () =>
-		ok(resolvePlanJson(await resolvePlanEvidence(request, ctx))),
-	);
+	return await runClinkrCommand(PLANS_ERROR_TYPE, async () => {
+		return ok(resolvePlanJson(await resolvePlanEvidence(request, ctx)));
+	});
 }
 
 function normalizeRootPath(rawPath: string, cwd: string): string {
