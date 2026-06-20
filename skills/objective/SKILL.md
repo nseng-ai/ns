@@ -31,12 +31,12 @@ Archive state is represented by location. `objective archive <slug>` moves the w
 
 Use these step skills for explicit workflow requests:
 
-- `objective-create`: create a new Objective record.
-- `objective-next`: recommend next semantic work and route confirmed execution when durable policy allows it.
-- `objective-update`: update durable Objective tracking for exactly one Objective; when its Closure Gate is clearly ready, it closes the Objective inline without a separate confirmation.
-- `objective-refresh`: refresh active Objective records without closure; supports one-objective, branch/context, and repo/Graphite-wide scopes through progressive references.
-- `objective-close`: close an Objective without deleting its checked-in history.
-- `objective-stack-impl`: orchestrate implementation of one Objective as a small Graphite stack.
+- `objective-create`: create one new active Objective record. It does not update existing records, create an initial Semantic Update, or close anything.
+- `objective-next`: recommend-first router for one selected open Objective. It reads and recommends by default; it mutates only through an explicit confirmed `objective-update` handoff for stale tracking, or through the confirmed execution path when durable Runner Policy allows it.
+- `objective-update`: update exactly one selected active Objective; when its Closure Gate is clearly ready and the outcome/rationale are clear, it may close the Objective inline without a separate confirmation.
+- `objective-refresh`: non-closing verified rebaseline for active Objective records. It may append Semantic Updates but never creates `closed.md` or `## Closure`.
+- `objective-close`: explicit close only. It records `## Closure` and writes the Closure Marker without deleting checked-in history.
+- `objective-stack-impl`: parent orchestration for implementing one Objective as small slices or a Graphite stack. It uses Objective updates as checkpoints, but does not own the general Objective lifecycle.
 
 When a step skill triggers, use this `objective` skill first for shared model and safety rules, then follow the self-contained step workflow.
 
