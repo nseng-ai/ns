@@ -12,7 +12,9 @@
       of the already-`normal` `objective-next` / `-update` / `-refresh`); (b)
       deliberately explicit-only skills reconciled with `areg skill apply invoke-only`,
       or `command-backed` only where a *verified* Pi replacement extension already exists
-      (`setup-dprint` is the canonical and currently only `command-backed` skill). A
+      (no skill currently uses `command-backed` — the kind is supported but
+      unexemplified; the former `setup-dprint` / `setup-*` examples were removed, so any
+      `command-backed` conversion now requires building the Pi replacement first). A
       `normal` skill carrying a `Command: X` stub is misconfigured ("listed but
       unroutable"), not a finished state. The taxonomy is now documented in
       `docs/skill-conventions.md` § Skill Invocation Kinds.
