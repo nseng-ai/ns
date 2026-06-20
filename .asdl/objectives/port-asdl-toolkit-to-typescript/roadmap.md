@@ -46,12 +46,13 @@
   - Each entry is a transitional compromise (legacy machine-output shapes, snake_case schema keys, Python-parity envelope) accepted to keep the port moving; every entry must be killed or deliberately recommitted before the umbrella closes.
   - Objective-local legacy machine-output projection debt was killed by PR #1726: Objective JSON consumers were migrated to camelCase, `legacy-machine.ts` was deleted, and Objective commands now use canonical Clinkr result schemas directly.
   - New compromises of this type made during capability subobjectives must be appended to `migration-debt.md` when they are accepted.
-- [ ] Complete final migration cleanup.
+- [~] Complete final migration cleanup.
   - Ensure public skills, wrappers, docs, package distribution, and migration ledger agree on the TS-default toolkit state.
   - Mark any remaining Python as deleted, archived, retired, or explicitly out of scope.
   - Resolve the root `asdl exec` / `asdl-core` disposition before closure; `packagechk` is no longer a parked blocker.
   - Evidence to include from the final default capability: `aretro` proved a deterministic evidence/privacy boundary can survive language retirement while leaving semantic judgment in the skill, and a shared-template TypeScript source runner with deterministic script-checkout fallback plus an opt-in installed source shim can replace a Python `uvx` fallback when no checkout-free consumer exists.
   - Evidence to include from the final promoted parked capability: `packagechk` proved the migration can preserve a tiny standalone utility's legacy bare-name dispatch, schema-versioned JSON, registry HTTP checks, and real publish safety gates without retaining a Python workspace package.
+  - Evidence: root `asdl exec` disposition completed in `updates/2026-06-20T044800Z-root-asdl-exec-disposition.md`; stale docs/context/skill domain-language rebaseline completed in `updates/2026-06-20T133023Z-docs-domain-language-rebaseline.md`. Migration-debt ledger review remains before closure.
 
 ## Parked
 

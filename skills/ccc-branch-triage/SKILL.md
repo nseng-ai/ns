@@ -69,7 +69,7 @@ Collect facts in this order:
    ```bash
    gt --cwd <worktree> parent --no-interactive
    gt --cwd <worktree> children --no-interactive
-   asdl slot gt exec stack-branches --format json
+   slot gt exec stack-branches --format json
    ```
 
    Run structured stack inventory from a relevant non-trunk worktree when useful. Use `gt ls` only as a human visual cross-check.
@@ -147,13 +147,13 @@ Mutations are supervised. Always perform the final freshness check first, presen
 - If a slot is assigned, prefer dry-run first:
 
   ```bash
-  uv run asdl slot free --branch <branch> --dry-run
+  slot free --branch <branch> --dry-run
   ```
 
   Then ask for confirmation and, if safe, run:
 
   ```bash
-  uv run asdl slot free --branch <branch> --yes
+  slot free --branch <branch> --yes
   ```
 
 - For Graphite branch deletion, inspect first and state exactly what will be deleted. Use only after confirmation and only when the branch is not checked out in active/dirty cmux workspaces:

@@ -4,7 +4,7 @@ cmux is changing quickly. Treat installed cmux help output as the working source
 integrations, not this document and not a local source checkout.
 
 This guide explains how to query the live cmux command surface before writing or changing Pi extensions, skills, or
-`asdl exec` commands.
+active TypeScript-owned exec helpers such as `ccc exec` commands.
 
 ## What not to trust
 
@@ -103,7 +103,7 @@ Only rename back if the previous title was recorded.
 
 ## Keep deterministic mutation behind `ccc exec`
 
-For repo-local Pi skills and agents, prefer the tested `ccc exec` boundary over raw cmux shell snippets:
+For repo-local Pi skills and agents, prefer the tested TypeScript-owned `ccc exec` boundary over raw cmux shell snippets. Do not add new root `asdl exec` helpers; that Python surface is retired.
 
 ```bash
 ccc exec cmux-workspace-summary --help

@@ -48,7 +48,7 @@ Do not put raw ANSI escapes in Markdown unless the receiving UI renders them. If
 
 ## Future deterministic implementation sketch
 
-This is code shape and pseudocode for a future script or explicit `ccc`/`asdl exec` command after display semantics stabilize. It is not runnable production code and should not be copied into source without tests, fakes, and command-boundary design.
+This is code shape and pseudocode for a future script or explicit `ccc exec` helper after display semantics stabilize. The older root `asdl exec` surface is retired and should not be used for new helpers. This sketch is not runnable production code and should not be copied into source without tests, fakes, and command-boundary design.
 
 Possible data models:
 
@@ -129,7 +129,7 @@ render missing-open-workspace block for branches not represented in displayed to
 Implementation notes for the future command:
 
 - Prefer gateway/fake boundaries for cmux, Git, and Graphite process calls.
-- Preserve the structured Graphite source rule: use `asdl slot gt exec stack-branches --format json`, `gt parent --no-interactive`, or `gt children --no-interactive` for facts.
+- Preserve the structured Graphite source rule: use `slot gt exec stack-branches --format json`, `gt parent --no-interactive`, or `gt children --no-interactive` for facts.
 - Use `gt ls` only for human visual confirmation or as a rendering style template; do not parse it for machine topology.
 - Keep the default renderer overlay-only, with the Attention section behind an explicit flag or separate mode.
 - Preserve the full Graphite tree shape; do not collapse output to only rows with matching cmux workspaces.

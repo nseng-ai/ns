@@ -32,7 +32,7 @@ Use these sources in this order:
    - `git -C <cwd> symbolic-ref --short HEAD` for the checked-out branch;
    - fallback `git -C <cwd> rev-parse --short HEAD` and display detached HEAD as `DETACHED@abc123`;
    - `git -C <cwd> status --porcelain` for dirty state.
-4. Structured Graphite topology for branch facts. Prefer `asdl slot gt exec stack-branches --format json` from relevant stack worktrees and use its `data.edges` parent→child list as the machine tree shape. Fall back to `gt parent --no-interactive` / `gt children --no-interactive` only when the exec helper is unavailable or incomplete.
+4. Structured Graphite topology for branch facts. Prefer `slot gt exec stack-branches --format json` from relevant stack worktrees and use its `data.edges` parent→child list as the machine tree shape. Fall back to `gt parent --no-interactive` / `gt children --no-interactive` only when the exec helper is unavailable or incomplete.
 5. `gt ls` only as human visual confirmation or as a visual template. Do **not** parse `gt ls`, `gt log`, or other human-facing Graphite display output as a machine source of topology facts.
 
 ## Default overlay output
@@ -120,7 +120,7 @@ git -C <cwd> status --porcelain
 From at least one non-trunk stack worktree when available:
 
 ```bash
-asdl slot gt exec stack-branches --format json
+slot gt exec stack-branches --format json
 ```
 
 Read `data.edges` as structured parent→child topology and `data.branches` as the non-trunk branch inventory for the selected scope. If only trunk is available, report the clear no-stack envelope rather than treating it as a failure.

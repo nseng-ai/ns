@@ -131,7 +131,7 @@ Skill-authoring and skill-management conventions live in `docs/skill-conventions
 
 Python CLI packages have two entry points: a standalone CLI built by `build_cli()` in `<package>.cli.main`, and an asdl plugin subgroup discovered via `asdl.plugins` entry points. Test them separately:
 
-**Scenario tests** live in their home package (e.g., `packages/aretro/tests/scenario/`) and should exhaustively cover every user-facing scenario for that package's standalone CLI via `build_cli()`. This is the user-facing entry point and the right level to test. The fixture should be `cli_group = build_cli()`, not `discover_group(...)` directly. Include `--version` and `-h` tests alongside operation tests in the same file. TypeScript standalone CLIs follow the same user-facing scenario-test principle in their package test trees (e.g., `ts/packages/roaster/test/scenario/`), but they do not use Python `asdl.plugins` mounting.
+**Scenario tests** live in their home package and should exhaustively cover every user-facing scenario for that package's standalone CLI. For Python CLI packages, use `build_cli()` from the package's CLI module as the user-facing entry point; for TypeScript standalone CLIs, use the package test tree (e.g., `ts/packages/roaster/test/scenario/`). Python scenario fixtures should be `cli_group = build_cli()`, not `discover_group(...)` directly. Include `--version` and `-h` tests alongside operation tests in the same file. TypeScript standalone CLIs do not use Python `asdl.plugins` mounting.
 
 **Plugin smoke tests** (`tests/scenario/test_plugins.py` in the top-level asdl package): Verify that each Python plugin's entry point wires up correctly through `discover_plugins`. One test per plugin that mounts the subgroup and invokes a representative command. These live at the asdl scope because they test the plugin discovery contract.
 
@@ -142,7 +142,7 @@ CLI commands intended for skill/agent invocation rather than interactive humans 
 - **Visibility:** the `exec` subgroup MUST be `hidden = True`. Users do not discover these commands by reading top-level `--help`; they discover them by reading the skill that drives them. Pass `hidden=True` as a kwarg to the `ClinkrGroup` constructor — by convention `ClinkrGroup` is treated as immutable after construction, so do not mutate `.hidden` afterward. Hiding only affects help-text rendering, not invocability — `pkg exec <op>` continues to work.
 - **Layout:** operation files for exec commands live in `<package>/exec/`, with `exec/group.py` exposing a `build_exec_group()` (or equivalent) that the package's outer `group.py` mounts via `outer.add_command(exec_group)`. `exec/__init__.py` follows the repo's empty-init rule (docstring only, no re-exports).
 - **Naming:** prefer noun-or-verb-phrase command names (`resolve-prompt`, `get-reviews`) — the `exec` namespace already implies the actor, so the verb does not need to.
-- **Canonical examples:** TypeScript roaster registers a hidden exec subgroup in `ts/packages/roaster/src/cli.ts`; Python brmem registers its exec subgroup in `packages/asdl-core/src/asdl_core/brmem/group.py`.
+- **Canonical examples:** TypeScript roaster registers hidden publication helpers in `ts/packages/roaster/src/cli.ts`; TypeScript CCC exposes deterministic agent helpers such as `ccc exec cmux-workspace-summary` from `ts/packages/ccc/src/cli.ts`.
 
 ### TypeScript Style
 

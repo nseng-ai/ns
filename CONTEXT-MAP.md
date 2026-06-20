@@ -6,9 +6,9 @@ This map is the repository entry point for domain-language context. It records w
 
 Current checkout facts:
 
-- Python workspace inventory: 8 active workspace packages under `packages/`.
-- In-scope Python context targets: 8 packages. The former operation-less dispatcher placeholder is no longer tracked as an active workspace package.
-- TypeScript workspace inventory: 16 repo-local packages under `ts/packages/`. This map's TypeScript package-context coverage is intentionally partial pending a focused rebaseline.
+- Python workspace inventory: 1 active workspace package under `packages/`: `asdl-core`, retained as the root plugin-dispatcher/runtime diagnostic surface and shared reference substrate.
+- In-scope Python context targets: 1 package, `asdl-core`. Former capability packages that were ported to TypeScript or retired are not active Python context targets.
+- TypeScript workspace inventory: 19 repo-local packages under `ts/packages/`. This map's TypeScript package-context coverage is intentionally partial pending a focused rebaseline.
 - Present context files: root `CONTEXT.md`, `packages/asdl-core/CONTEXT.md`, `ts/packages/handoff/CONTEXT.md`, `ts/packages/brmem/CONTEXT.md`, `ts/packages/pi-extension-runtime/CONTEXT.md`, `ts/packages/pi-extensions/CONTEXT.md`, `ts/packages/ccc/CONTEXT.md`, and `ts/packages/sdl/CONTEXT.md`.
 - Future drift should be handled by focused rebaseline phases before final readback, not silently folded into unrelated package-context sessions.
 
@@ -25,15 +25,17 @@ Current checkout facts:
 - [@asdl/ccc](./ts/packages/ccc/CONTEXT.md) — CCC (Cmux Command and Control) vocabulary for the private TypeScript orchestration layer that composes Pi, cmux, Graphite, Objective, handoff, branch-context, autobranch/land, and owns worktree-status observability without lower packages importing it.
 - [@asdl/sdl](./ts/packages/sdl/CONTEXT.md) — Source Development Lifecycle CLI vocabulary for SDL command surfaces, SDL extensions, SDL command entries, `@asdl/sdl/sdk` as the public SDL extension API, internal migration exports, SDL Pi mirrors, hard cutover, and lower orchestration ownership.
 
-### Planned Python package contexts
+### Planned TypeScript package contexts
 
-- `packages/areg/CONTEXT.md` — agent-resource bootstrap and skill workflow vocabulary: `areg init`, `areg check`, `update-skills`, `skillx`, target agents, managed instruction blocks, installed skill directories, lockfile source types, skill metadata/issues, and transient skill fetch/cleanup. Current source has a narrow `asdl-core.project_config` dependency plus external `gh` and `npx skills` boundaries.
-- `packages/roaster/CONTEXT.md` — CI PR-diff findings vocabulary: `Roaster`, review definitions, Claude Code review execution, review catalogs/sources, findings, inline commentability, severity, frontmatter, findings comments, and inline finding posting.
-- `packages/asdl-slots/CONTEXT.md` — worktree slot vocabulary: slot records/inventory/status, repo context, slot GC/init/resize plans, shell directive files, explicit `slot gt` operations, and downstack-only stack release.
-- `packages/asdl-objectives/CONTEXT.md` — Objective CLI package vocabulary, including Objective records/statuses, archive/unarchive, checked-in Markdown storage, hidden `exec` commands, and checkout-local list behavior.
-- `packages/packagechk/CONTEXT.md` — standalone package-name availability and claimability vocabulary for PyPI/npm checks, registry results, name normalization/validation, claim project specs, publish gateways, and parked Homebrew support.
-- `packages/aretro/CONTEXT.md` — deterministic branch-retrospective evidence vocabulary: `collect-evidence`, branch resolution sources, session query/source/warning DTOs, session summaries, aggregate metrics, `EvidenceItemDto`, and the boundary between evidence collection and recommendation judgment.
-- `packages/vibechk/CONTEXT.md` — standalone agent-context evaluation vocabulary: baseline/treatment workdirs, plan source, runner adapter, run id, run bundle/store/status, git provenance, metrics, transcript, diff patch, result branch, run report, comparison report, and local-only publish boundary.
+These are active TypeScript package context targets for later focused domain-language sessions. Do not recreate deleted Python package paths when authoring them.
+
+- `@asdl/areg` — agent-resource bootstrap and skill workflow vocabulary: `areg init`, `areg check`, `update-skills`, `skillx`, target agents, managed instruction blocks, installed skill directories, lockfile source types, skill metadata/issues, transient skill fetch/cleanup, and external `gh` / `npx skills` boundaries.
+- `@asdl/roaster` — CI PR-diff findings vocabulary: `Roaster`, review definitions, Claude Code review execution, review catalogs/sources, findings, inline commentability, severity, frontmatter, findings comments, and inline finding posting.
+- `@asdl/slot` — worktree slot vocabulary: slot records/inventory/status, repo context, slot GC/init/resize plans, shell directive files, explicit `slot gt` operations, and downstack-only stack release.
+- `@asdl/objective` — Objective CLI package vocabulary, including Objective records/statuses, archive/unarchive, checked-in Markdown storage, hidden `exec` commands, and checkout-local list behavior.
+- `@asdl/packagechk` — standalone package-name availability and claimability vocabulary for PyPI/npm checks, registry results, name normalization/validation, claim project specs, publish gateways, and parked Homebrew support.
+- `@asdl/aretro` — deterministic branch-retrospective evidence vocabulary: `collect-evidence`, branch resolution sources, session query/source/warning DTOs, session summaries, aggregate metrics, `EvidenceItemDto`, and the boundary between evidence collection and recommendation judgment.
+- `@asdl/vibechk` — standalone agent-context evaluation vocabulary: baseline/treatment workdirs, plan source, runner adapter, run id, run bundle/store/status, git provenance, metrics, transcript, diff patch, result branch, run report, comparison report, and local-only publish boundary.
 
 ### Explicitly out of scope for now
 
@@ -49,15 +51,15 @@ These are current map seeds, not final readback output. Package-context phases s
 - **ASDL Tools → @asdl/pi-extension-runtime**: Neutral TypeScript runtime helpers are shared below Pi extension implementations and CCC without owning user-facing workflow policy.
 - **ASDL Tools → @asdl/pi-extensions**: Pi extensions expose Objective, enriched-plan, branch-context, checkpoint, handoff, grill, and source-control workflows to the local agent runtime.
 - **ASDL Tools → @asdl/ccc**: CCC is the private TypeScript orchestration layer for repo-opinionated Pi/cmux/Graphite/worktree command-and-control workflows and owns the `ccc` Pi command prefix for cmux/workspace orchestration.
-- **areg → asdl-core.project_config + external `gh`/`npx skills`**: `areg` reads shared project config from `asdl-core`, but its skill-management work is bounded by external GitHub and `npx skills` command surfaces.
+- **@asdl/areg → @asdl/core project config + external `gh`/`npx skills`**: `areg` reads shared project config from `@asdl/core`, but its skill-management work is bounded by external GitHub and `npx skills` command surfaces.
 - **@asdl/brmem → @asdl/core + @asdl/clinkr**: brmem uses TypeScript Git helpers and Clinkr command vocabulary to expose branch-scoped text storage.
 - **@asdl/handoff → @asdl/brmem CLI + @asdl/core.git + @asdl/clinkr**: handoff artifacts use Branch Memory storage through the public `brmem` CLI while presenting a user-facing handoff inventory and garbage-collection model.
-- **roaster → asdl-core.gh + asdl-core.git + asdl-core.project_config + asdl-core.clinkr/plugin**: roaster consumes GitHub PR types, local-diff/git facts, shared project config, and Clinkr/plugin mounting.
-- **asdl-slots → asdl-core.git + asdl-core.gh + asdl-core.gt + asdl-core.clinkr/console/plugin**: slots owns worktree slot lifecycle while cross-referencing Git worktree/branch/ref facts, GitHub PR state, and explicit `slot gt` Graphite operations.
-- **asdl-objectives → asdl-core.git + asdl-core.clinkr + asdl-core.console/format/plugin**: Objective CLI inventory uses Git path-touch facts for checkout-local list metadata. Do not reintroduce `asdl-objectives → brmem` as a storage edge.
-- **packagechk → external package registries**: packagechk is standalone/no-`asdl-core`; it owns package-name availability/claimability checks at registry and publish-gateway boundaries.
-- **aretro → asdl-core.sessions + asdl-core.git + asdl-core.clinkr/plugin**: aretro collects deterministic branch/session/git evidence and leaves recommendation judgment to the `branch-retro` skill.
-- **vibechk → git + runner/store boundaries**: vibechk is standalone/no-`asdl-core`; it owns local evaluation workdirs, run bundles, result branches, metrics, and reports without folding into `asdl-core.sessions` or aretro evidence collection.
+- **@asdl/roaster → GitHub + Git + project config + Clinkr-style command presentation**: roaster consumes GitHub PR types, local-diff/git facts, shared project config, and TypeScript command presentation.
+- **@asdl/slot → Git + GitHub + Graphite + shell/worktree boundaries**: slot owns worktree slot lifecycle while cross-referencing Git worktree/branch/ref facts, GitHub PR state, and explicit `slot gt` Graphite operations.
+- **@asdl/objective → Git + Clinkr-style command presentation**: Objective CLI inventory uses Git path-touch facts for checkout-local list metadata. Do not reintroduce Objective → brmem as a storage edge.
+- **@asdl/packagechk → external package registries**: packagechk is standalone; it owns package-name availability/claimability checks at registry and publish-gateway boundaries.
+- **@asdl/aretro → session evidence + Git + Clinkr-style command presentation**: aretro collects deterministic branch/session/git evidence and leaves recommendation judgment to the `branch-retro` skill.
+- **@asdl/vibechk → git + runner/store boundaries**: vibechk is standalone; it owns local evaluation workdirs, run bundles, result branches, metrics, and reports without folding into aretro evidence collection.
 - **@asdl/pi-extension-runtime → shared neutral helpers**: Runtime helper modules own reusable parsing, formatting, Branch Memory command discovery/execution helpers, skill expansion, Objective picker/selection, and cmux/Pi type contracts without registering commands or importing orchestration packages.
 - **@asdl/pi-extensions → Pi runtime + @asdl/sdl + repo CLIs**: Pi extensions own discovery adapters, argument restoration/UI behavior, worktree-status lifecycle/footer plumbing, runtime cmux helpers, and runtime CLI bridging over `sdl`, `git`/`gt`/`gh`, `brmem`, `objective`, `slot`, and related repo commands. For `/sdl:*` and `/sdl:code:*` mirrors, Pi extensions should use thin adapters over SDL-owned command behavior or lower orchestration seams. For `/sdl:code:autobranch`, `/sdl:code:land`, and worktree-status operational presentation, pi-extensions preserves public adapters while delegating repo-opinionated orchestration/observability to CCC where appropriate.
 - **@asdl/sdl → @asdl/pi-extensions**: Pi runtime extensions mirror SDL commands as `/sdl:*` through thin adapters; SDL owns command behavior, and Pi owns runtime registration and presentation.
