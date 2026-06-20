@@ -137,6 +137,9 @@ importers:
 
   packages/asdl-core:
     dependencies:
+      '@asdl/clinkr':
+        specifier: workspace:*
+        version: link:../clinkr
       zod:
         specifier: 'catalog:'
         version: 4.4.3

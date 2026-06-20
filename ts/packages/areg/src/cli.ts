@@ -1,10 +1,7 @@
 #!/usr/bin/env node
 
-import { readFileSync } from "node:fs";
-import process from "node:process";
-
-import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
-import { isDirectCliInvocation } from "@asdl/core/cli-entry";
+import { ClinkrGroup } from "@asdl/clinkr";
+import { defineCli } from "@asdl/core/cli-entry";
 
 import { createRealAregContext, type AregCliContext } from "./context.ts";
 import {
@@ -23,8 +20,6 @@ import {
 	updateSkillsResultSchema,
 } from "./operations/update-skills.ts";
 
-export const VERSION = readPackageVersion();
-
 export interface CliDeps {
 	context?: AregCliContext | undefined;
 	cwd?: string | undefined;
@@ -33,81 +28,64 @@ export interface CliDeps {
 	stderr?: ((text: string) => void) | undefined;
 }
 
+const entry = defineCli<AregCliContext, CliDeps, undefined>({
+	metaUrl: import.meta.url,
+	runtime: "typescript",
+	description: "Manage ASDL agent registry projects.",
+	prepareRun: ({ deps, cwd, env }) => {
+		const context = deps.context ?? createRealAregContext({ cwd, env });
+		const runContext: AregCliContext = {
+			...context,
+			cwd,
+			env: deps.env ?? context.env,
+		};
+		return { type: "run", context: runContext, buildState: undefined };
+	},
+	configureCli: ({ root }) => {
+		root.command({
+			name: "init",
+			description: "Initialize an existing Git project for areg skill workflows.",
+			schema: initRequestSchema,
+			positionals: { target: { position: 0 } },
+			resultSchema: initResultSchema,
+			handler: runInit,
+			renderHuman: renderInit,
+		});
+		root.command({
+			name: "check",
+			description: "Check that skills follow areg conventions.",
+			schema: checkRequestSchema,
+			resultSchema: checkResultSchema,
+			handler: runCheck,
+			renderHuman: renderCheck,
+		});
+		root.command({
+			name: "update-skills",
+			description: "Refresh GitHub-sourced skills recorded in skills-lock.json.",
+			schema: updateSkillsRequestSchema,
+			resultSchema: updateSkillsResultSchema,
+			handler: runUpdateSkills,
+			renderHuman: renderUpdateSkills,
+		});
+		root.group(buildSkillGroup());
+		const execGroup = new ClinkrGroup<AregCliContext>({
+			name: "exec",
+			description: "Commands for use by skills (not interactive users).",
+			isHidden: true,
+		});
+		execGroup.group(buildSkillxGroup());
+		root.group(execGroup);
+	},
+});
+
+export const VERSION = entry.version;
+
 export function buildCli(): ClinkrGroup<AregCliContext> {
-	const root = new ClinkrGroup<AregCliContext>({
-		name: "areg",
-		description: "Manage ASDL agent registry projects.",
-		version: VERSION,
-		runtimeInfo,
-	});
-	root.command({
-		name: "init",
-		description: "Initialize an existing Git project for areg skill workflows.",
-		schema: initRequestSchema,
-		positionals: { target: { position: 0 } },
-		resultSchema: initResultSchema,
-		handler: runInit,
-		renderHuman: renderInit,
-	});
-	root.command({
-		name: "check",
-		description: "Check that skills follow areg conventions.",
-		schema: checkRequestSchema,
-		resultSchema: checkResultSchema,
-		handler: runCheck,
-		renderHuman: renderCheck,
-	});
-	root.command({
-		name: "update-skills",
-		description: "Refresh GitHub-sourced skills recorded in skills-lock.json.",
-		schema: updateSkillsRequestSchema,
-		resultSchema: updateSkillsResultSchema,
-		handler: runUpdateSkills,
-		renderHuman: renderUpdateSkills,
-	});
-	root.group(buildSkillGroup());
-	const execGroup = new ClinkrGroup<AregCliContext>({
-		name: "exec",
-		description: "Commands for use by skills (not interactive users).",
-		isHidden: true,
-	});
-	execGroup.group(buildSkillxGroup());
-	root.group(execGroup);
-	return root;
+	return entry.buildCli(undefined);
 }
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
-	const io = resolveIo({ stdout: deps.stdout, stderr: deps.stderr });
-	const cwd = deps.cwd ?? process.cwd();
-	const env = deps.env ?? process.env;
-	const context = deps.context ?? createRealAregContext({ cwd, env });
-	const runContext: AregCliContext = {
-		...context,
-		cwd,
-		env: deps.env ?? context.env,
-	};
-	return await buildCli().run(args, { context: runContext, io });
+	return await entry.run(args, deps);
 }
 
-function readPackageVersion(): string {
-	const packageJson: unknown = JSON.parse(
-		readFileSync(new URL("../package.json", import.meta.url), "utf8"),
-	);
-	if (
-		typeof packageJson !== "object" ||
-		packageJson === null ||
-		!("version" in packageJson) ||
-		typeof packageJson.version !== "string"
-	) {
-		throw new Error("@asdl/areg package.json must declare a string version");
-	}
-	return packageJson.version;
-}
-
-function runtimeInfo(): string {
-	return "runtime: typescript\nentry_point: @asdl/areg bin areg -> ts/packages/areg/src/cli.ts\n";
-}
-
-if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {
-	process.exitCode = await runCli(process.argv.slice(2));
-}
+await entry.runIfMain({ isImportMetaMain: import.meta.main });
