@@ -3,7 +3,8 @@ import {
 	type GithubPrFeedbackGateway,
 } from "@asdl/core/github-pr-feedback";
 
-import { RealPrAddressGitGateway, type PrAddressGitGateway } from "./gateways.ts";
+import type { PrAddressGitGateway } from "./core/gateways.ts";
+import { RealPrAddressGitGateway } from "./gateways.ts";
 
 export interface PrAddressContext {
 	git: PrAddressGitGateway;

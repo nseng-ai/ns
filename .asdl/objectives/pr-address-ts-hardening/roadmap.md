@@ -2,15 +2,14 @@
 
 ## Work
 
-- [ ] Remove the remaining gateway/index re-export barrels in `pr-address/src`
-      Drop the type re-export block in `gateways.ts:11-17` (re-exporting
-      `CurrentBranchResult`, `GatewayFailure`, `GatewayOptions`,
-      `PrAddressGitGateway`, `RepoContextResult` from `./core/gateways.ts`) and
-      the `index.ts:1` re-export of `runCli` / `CliDeps` from `./cli.ts`, then
-      repoint importers at the canonical source modules per the repo no-reexport
-      rule. The old `stdoutModeRequestShape` / `PRLookupMiss` exports are already
-      gone — do not recreate that work. Evidence: `check` passes; `grep` finds no
-      remaining barrel re-export of the in-scope symbols.
+- [x] Remove the remaining gateway/index re-export barrels in `pr-address/src`
+      Completed by removing the type re-export block in `src/gateways.ts`,
+      deleting `src/index.ts`, removing the package-root `exports` entry from
+      `package.json`, and repointing package-local gateway type importers at
+      `./core/gateways.ts`. Evidence: branch diff against
+      `update-objective-refresh-workflow`, PR #1920, focused package check/test
+      passed, and stale-surface searches find no remaining in-scope barrel
+      re-export or package-root TypeScript consumers.
 
 ## Parked
 
