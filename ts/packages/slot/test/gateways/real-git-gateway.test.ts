@@ -146,6 +146,30 @@ describe("RealSlotGitGateway", () => {
 		}
 	});
 
+	it("uses rebase head-name when porcelain reports a detached worktree", async () => {
+		const fixture = createWorktreeFixture({ gitdir: "absolute" });
+		try {
+			writeRebaseHeadName(fixture.adminDir, "rebase-merge", "feature/rebasing");
+			const execApi = scriptedExecApi({
+				stdout: worktreeListOutput(fixture.worktreePath, null),
+				stderr: "",
+				code: 0,
+				killed: false,
+			});
+			const gateway = new RealSlotGitGateway({
+				cwd: fixture.worktreePath,
+				env: { PATH: "/fake/bin" },
+				execApi,
+			});
+
+			expect(await gateway.listBranchOccupancies()).toEqual([
+				{ path: fixture.worktreePath, branch: "feature/rebasing", operation: "rebase" },
+			]);
+		} finally {
+			fixture.cleanup();
+		}
+	});
+
 	it("resolves relative gitdir pointers", async () => {
 		const fixture = createWorktreeFixture({ gitdir: "relative" });
 		try {
@@ -287,11 +311,19 @@ function writeMarker(adminDir: string, markerPath: string): void {
 	writeFileSync(fullPath, "marker\n");
 }
 
-function worktreeListOutput(path: string, branch: string): string {
-	return [
-		`worktree ${path}`,
-		"HEAD 1111111111111111111111111111111111111111",
-		`branch refs/heads/${branch}`,
-		"",
-	].join("\n");
+function writeRebaseHeadName(
+	adminDir: string,
+	rebaseDirName: "rebase-merge" | "rebase-apply",
+	branch: string,
+): void {
+	const rebaseDir = join(adminDir, rebaseDirName);
+	mkdirSync(rebaseDir, { recursive: true });
+	writeFileSync(join(rebaseDir, "head-name"), `refs/heads/${branch}\n`);
+}
+
+function worktreeListOutput(path: string, branch: string | null): string {
+	const lines = [`worktree ${path}`, "HEAD 1111111111111111111111111111111111111111"];
+	if (branch !== null) lines.push(`branch refs/heads/${branch}`);
+	lines.push("");
+	return lines.join("\n");
 }

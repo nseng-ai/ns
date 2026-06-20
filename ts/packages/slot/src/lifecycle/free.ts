@@ -78,12 +78,16 @@ async function validatedFreeTargets(
 	const targets: FreedSlot[] = [];
 	for (const slotName of slotNames) {
 		const record = findBySlot(inventory, slotName);
-		if (record === null || record.branch === null) {
+		if (record === null) {
 			errors.push(`${slotName} is not currently assigned. Run \`slot list\` to see the pool.`);
 			continue;
 		}
 		if (record.operation !== null) {
 			errors.push(slotOperationMessage(record, { action: "freeing" }));
+			continue;
+		}
+		if (record.branch === null) {
+			errors.push(`${slotName} is not currently assigned. Run \`slot list\` to see the pool.`);
 			continue;
 		}
 		if (await ctx.git.hasUncommittedChanges(record.path)) {
