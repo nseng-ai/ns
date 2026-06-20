@@ -13,7 +13,7 @@ import {
 } from "../models.ts";
 import { applicableReviewKeys } from "../review-applicability.ts";
 import { parseReviewDefinition } from "../review-definition.ts";
-import { listRoastSkillEntries, roastSkillLabel } from "../skill-reviews.ts";
+import { loadRoastSkillEntries } from "../skill-reviews.ts";
 
 const nonBlankStringSchema = z.string().trim().min(1);
 
@@ -123,12 +123,18 @@ export function renderReviewList(result: ReviewListResult): string {
 }
 
 export async function runRoastSkillList(
-	_ctx: RoasterRuntime,
+	ctx: RoasterRuntime,
 	_request: RoastSkillListRequest,
 ): Promise<ClinkrExit<RoastSkillListResult>> {
-	const entries = listRoastSkillEntries().map((entry) => ({
+	const loaded = await loadRoastSkillEntries({
+		...catalogOptions(ctx.runScope),
+		reviewCatalog: ctx.reviewCatalog,
+	});
+	if (loaded.type === "error") return failureFromRoaster(loaded.error);
+
+	const entries = loaded.value.map((entry) => ({
 		surface: entry.surface,
-		label: roastSkillLabel(entry),
+		label: entry.label,
 		review_key: entry.reviewKey,
 		review_path: entry.reviewPath,
 		title: entry.title,

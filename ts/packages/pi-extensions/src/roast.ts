@@ -1,16 +1,17 @@
-import { lstat, readFile } from "node:fs/promises";
-import { dirname, join, parse, resolve } from "node:path";
-
 import {
 	listRoastSkillEntries,
+	loadRoastReviewDefinition as loadCanonicalRoastReviewDefinition,
 	roastSkillLabel,
+	type RoastReviewLoadResult,
 	type RoastSkillEntry,
 } from "@sdl/roaster/skill-reviews";
 
-import { buildFencedTextBlock } from "./skill-expansion.ts";
 import { definePiSurfaceParity, type FullPiSurfaceParity } from "./parity.ts";
+import { buildFencedTextBlock } from "./skill-expansion.ts";
 
-export const roastParity = definePiSurfaceParity(listRoastSkillEntries().map(roastParityRecord));
+const DEFAULT_ROAST_ENTRIES = listRoastSkillEntries();
+
+export const roastParity = definePiSurfaceParity(DEFAULT_ROAST_ENTRIES.map(roastParityRecord));
 
 export interface RoastCommandContext {
 	cwd: string;
@@ -33,19 +34,40 @@ export interface RoastExtensionAPI {
 	sendUserMessage(content: string): Promise<void> | void;
 }
 
+export interface RoastReviewDefinitionLoadRequest {
+	readonly cwd: string;
+	readonly entry: RoastSkillEntry;
+}
+
+export type LoadRoastReviewDefinition = (
+	request: RoastReviewDefinitionLoadRequest,
+) => Promise<RoastReviewLoadResult>;
+
+export interface RoastExtensionOptions {
+	readonly entries?: readonly RoastSkillEntry[] | undefined;
+	readonly loadReviewDefinition?: LoadRoastReviewDefinition | undefined;
+}
+
 interface HandleRoastCommandOptions {
 	readonly pi: RoastExtensionAPI;
 	readonly ctx: RoastCommandContext;
 	readonly entry: RoastSkillEntry;
 	readonly args: string;
+	readonly loadReviewDefinition: LoadRoastReviewDefinition;
 }
 
-export default function roastExtension(pi: RoastExtensionAPI): void {
-	for (const entry of listRoastSkillEntries()) {
+export default function roastExtension(
+	pi: RoastExtensionAPI,
+	options: RoastExtensionOptions = {},
+): void {
+	const entries = options.entries ?? DEFAULT_ROAST_ENTRIES;
+	const loadReviewDefinition = options.loadReviewDefinition ?? defaultLoadRoastReviewDefinition;
+	for (const entry of entries) {
 		pi.registerCommand(entry.surface, {
-			description: `${roastSkillLabel(entry)} — ${entry.description}`,
+			description: `${entry.label} — ${entry.description}`,
 			argumentHint: "[review request/scope]",
-			handler: async (args, ctx) => handleRoastCommand({ pi, ctx, entry, args }),
+			handler: async (args, ctx) =>
+				handleRoastCommand({ pi, ctx, entry, args, loadReviewDefinition }),
 		});
 	}
 }
@@ -54,7 +76,7 @@ function roastParityRecord(entry: RoastSkillEntry): FullPiSurfaceParity {
 	return {
 		kind: "command",
 		surface: entry.surface,
-		workflow: `Run ${roastSkillLabel(entry)} Roaster review`,
+		workflow: `Run ${entry.label} Roaster review`,
 		parity: "FULL",
 		cli: `roaster review run ${entry.reviewKey} for CI review execution; roaster roast list for catalog discovery`,
 		ownerObjective: "cross-harness-parity",
@@ -66,36 +88,36 @@ function roastParityRecord(entry: RoastSkillEntry): FullPiSurfaceParity {
 }
 
 async function handleRoastCommand(options: HandleRoastCommandOptions): Promise<void> {
-	const { pi, ctx, entry, args } = options;
+	const { pi, ctx, entry, args, loadReviewDefinition } = options;
 	await ctx.waitForIdle();
 
-	const reviewDefinition = await loadRoasterReviewDefinition(ctx.cwd, entry.reviewPath);
-	if (ctx.hasUI === true) {
-		const message =
-			reviewDefinition === undefined
-				? `Could not read ${entry.reviewPath}; sending fallback roast prompt.`
-				: `Starting ${roastSkillLabel(entry)} from ${entry.reviewPath}.`;
-		ctx.ui.notify(message, reviewDefinition === undefined ? "warning" : "info");
+	const loaded = await loadReviewDefinition({ cwd: ctx.cwd, entry });
+	if (loaded.type === "error") {
+		if (ctx.hasUI === true) {
+			ctx.ui.notify(
+				`Could not load ${entry.reviewPath} through Roaster catalog: ${loaded.error.message}`,
+				"error",
+			);
+		}
+		return;
 	}
 
-	await pi.sendUserMessage(buildRoasterReviewPrompt(entry, reviewDefinition, args));
+	if (ctx.hasUI === true) {
+		ctx.ui.notify(`Starting ${entry.label} from ${loaded.source.path}.`, "info");
+	}
+
+	await pi.sendUserMessage(buildRoasterReviewPrompt(entry, loaded.source.source, args));
 }
 
 export function buildRoasterReviewPrompt(
 	entry: RoastSkillEntry,
-	reviewDefinition: string | undefined,
+	reviewDefinition: string,
 	args: string,
 ): string {
 	const lines = initialRoastPromptLines(entry, args);
-	if (reviewDefinition !== undefined) {
-		lines.unshift(
-			`Use this Roaster review definition from ${entry.reviewPath}. This is the same review definition used by CI:\n\n<roaster-review-definition key="${entry.reviewKey}" path="${entry.reviewPath}">\n${reviewDefinition}\n</roaster-review-definition>`,
-		);
-	} else {
-		lines.unshift(
-			`The Roaster review definition ${entry.reviewPath} was not available. Follow the repository review workflow as best you can.`,
-		);
-	}
+	lines.unshift(
+		`Use this Roaster review definition from ${entry.reviewPath}. This is the same review definition used by CI:\n\n<roaster-review-definition key="${entry.reviewKey}" path="${entry.reviewPath}">\n${reviewDefinition}\n</roaster-review-definition>`,
+	);
 	return lines.join("\n\n");
 }
 
@@ -114,34 +136,11 @@ function initialRoastPromptLines(entry: RoastSkillEntry, args: string): string[]
 	return lines;
 }
 
-async function loadRoasterReviewDefinition(
-	cwd: string,
-	reviewPath: string,
-): Promise<string | undefined> {
-	const resolvedPath = await resolveReviewDefinitionPath(cwd, reviewPath);
-	if (resolvedPath === undefined) return undefined;
-	return await readFile(resolvedPath, "utf8");
-}
-
-async function resolveReviewDefinitionPath(
-	cwd: string,
-	reviewPath: string,
-): Promise<string | undefined> {
-	let current = resolve(cwd);
-	const root = parse(current).root;
-	while (true) {
-		const candidate = join(current, reviewPath);
-		if (await isReadableFile(candidate)) return candidate;
-		if (current === root) return undefined;
-		current = dirname(current);
-	}
-}
-
-async function isReadableFile(path: string): Promise<boolean> {
-	try {
-		const stats = await lstat(path);
-		return stats.isFile();
-	} catch {
-		return false;
-	}
+async function defaultLoadRoastReviewDefinition(
+	request: RoastReviewDefinitionLoadRequest,
+): Promise<RoastReviewLoadResult> {
+	return await loadCanonicalRoastReviewDefinition({
+		cwd: request.cwd,
+		key: request.entry.reviewKey,
+	});
 }

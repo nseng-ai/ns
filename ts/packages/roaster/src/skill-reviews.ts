@@ -1,71 +1,193 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { join, relative, sep } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import type { RoasterFailure, RoasterResult } from "./failures.ts";
+import {
+	RealReviewCatalogGateway,
+	type ReviewCatalogGateway,
+	type ReviewSource,
+} from "./gateways/review-catalog.ts";
+import type { ReviewDefinition } from "./models.ts";
+import { parseReviewDefinition } from "./review-definition.ts";
+
 export interface RoastSkillEntry {
 	readonly surface: string;
 	readonly reviewKey: string;
 	readonly reviewPath: string;
 	readonly title: string;
+	readonly label: string;
 	readonly description: string;
 	readonly defaultPrompt: string;
 }
 
-const ROAST_SKILL_ENTRIES = [
-	{
-		surface: "roast:thermonuclear-review",
-		reviewKey: "thermonuclear-review",
-		reviewPath: "reviews/thermonuclear-review.md",
-		// Intentionally matches the MVP's named user-facing label: "Roast: ThermonuclearReview".
-		title: "ThermonuclearReview",
-		description:
-			"Run an extremely strict maintainability review for abstraction quality, giant files, and spaghetti-condition growth.",
-		defaultPrompt: "Run the ThermonuclearReview roast against the current branch changes.",
-	},
-	{
-		surface: "roast:improve-codebase-architecture",
-		reviewKey: "improve-codebase-architecture",
-		reviewPath: "reviews/improve-codebase-architecture.md",
-		title: "Improve codebase architecture",
-		description:
-			"Review the current branch for architecture deepening opportunities grounded in the supplied diff.",
-		defaultPrompt:
-			"Run the Improve codebase architecture roast against the current branch changes.",
-	},
-	{
-		surface: "roast:asdl-typescript-style",
-		reviewKey: "asdl-typescript-style",
-		reviewPath: "reviews/asdl-typescript-style.md",
-		title: "ASDL TypeScript style",
-		description: "Enforce asdl's TypeScript style guide and asdl-tools TypeScript overlay.",
-		defaultPrompt: "Run the ASDL TypeScript style roast against the current branch changes.",
-	},
-	{
-		surface: "roast:dignified-python",
-		reviewKey: "dignified-python",
-		reviewPath: "reviews/dignified-python.md",
-		title: "Dignified Python",
-		description: "Enforce asdl's dignified Python coding standards on the supplied diff.",
-		defaultPrompt: "Run the Dignified Python roast against the current branch changes.",
-	},
-	{
-		surface: "roast:dry-but-not-too-dry",
-		reviewKey: "dry-but-not-too-dry",
-		reviewPath: "reviews/dry-but-not-too-dry.md",
-		title: "DRY but not too DRY",
-		description: "Review duplicated code and structure for consolidation with a high DRY bar.",
-		defaultPrompt: "Run the DRY but not too DRY roast against the current branch changes.",
-	},
-	{
-		surface: "roast:duplicative-abstractions",
-		reviewKey: "duplicative-abstractions",
-		reviewPath: "reviews/duplicative-abstractions.md",
-		title: "Duplicative abstractions",
-		description: "Scout for hand-rolled infrastructure that may duplicate existing helpers.",
-		defaultPrompt: "Run the Duplicative abstractions roast against the current branch changes.",
-	},
-] as const satisfies readonly RoastSkillEntry[];
+export type RoastReviewLoadResult =
+	| {
+			readonly type: "ok";
+			readonly entry: RoastSkillEntry;
+			readonly source: ReviewSource;
+			readonly definition: ReviewDefinition;
+	  }
+	| { readonly type: "error"; readonly error: RoasterFailure };
+
+export interface LoadRoastSkillEntriesOptions {
+	readonly cwd: string;
+	readonly reviewCatalog?: ReviewCatalogGateway | undefined;
+	readonly signal?: AbortSignal | undefined;
+}
+
+export interface LoadRoastReviewDefinitionOptions extends LoadRoastSkillEntriesOptions {
+	readonly key: string;
+}
+
+const DEFAULT_REPO_REVIEWS_DIR = new URL("../../../../reviews/", import.meta.url);
+const ACRONYMS = new Map([
+	["asdl", "ASDL"],
+	["dry", "DRY"],
+	["typescript", "TypeScript"],
+	["python", "Python"],
+]);
 
 export function listRoastSkillEntries(): readonly RoastSkillEntry[] {
-	return ROAST_SKILL_ENTRIES;
+	return loadRoastSkillEntriesFromReviewsDirSync(DEFAULT_REPO_REVIEWS_DIR);
+}
+
+export async function loadRoastSkillEntries(
+	options: LoadRoastSkillEntriesOptions,
+): Promise<RoasterResult<readonly RoastSkillEntry[]>> {
+	const reviewCatalog = options.reviewCatalog ?? new RealReviewCatalogGateway();
+	const catalog = await reviewCatalog.listReviewKeys(catalogOptions(options));
+	if (catalog.type === "error") return catalog;
+
+	const entries: RoastSkillEntry[] = [];
+	for (const key of catalog.value.keys) {
+		const loaded = await loadRoastReviewDefinition({ ...options, reviewCatalog, key });
+		if (loaded.type === "error") return { type: "error", error: loaded.error };
+		entries.push(loaded.entry);
+	}
+	return { type: "ok", value: entries };
+}
+
+export async function loadRoastReviewDefinition(
+	options: LoadRoastReviewDefinitionOptions,
+): Promise<RoastReviewLoadResult> {
+	const reviewCatalog = options.reviewCatalog ?? new RealReviewCatalogGateway();
+	const source = await reviewCatalog.loadReviewSource({
+		...catalogOptions(options),
+		key: options.key,
+	});
+	if (source.type === "error") return source;
+
+	const parsed = parseReviewDefinition(source.value.source, { name: source.value.key });
+	if (parsed.type === "error") {
+		return {
+			type: "error",
+			error: reviewDefinitionInvalidFailure(source.value, parsed.error.message),
+		};
+	}
+
+	return {
+		type: "ok",
+		entry: roastSkillEntryFromDefinition(source.value.key, parsed.definition),
+		source: source.value,
+		definition: parsed.definition,
+	};
+}
+
+export function loadRoastSkillEntriesFromReviewsDirSync(
+	reviewsDirUrlOrPath: URL | string,
+): readonly RoastSkillEntry[] {
+	const reviewsDir =
+		reviewsDirUrlOrPath instanceof URL ? fileURLToPath(reviewsDirUrlOrPath) : reviewsDirUrlOrPath;
+	const entries: RoastSkillEntry[] = [];
+	for (const path of markdownFilesSync(reviewsDir).sort()) {
+		const key = keyFromPath(reviewsDir, path);
+		const source = readFileSync(path, "utf8");
+		const parsed = parseReviewDefinition(source, { name: key });
+		if (parsed.type === "error") {
+			throw new Error(
+				`Review definition ${roastReviewPathForKey(key)} is invalid: ${parsed.error.message}`,
+			);
+		}
+		entries.push(roastSkillEntryFromDefinition(key, parsed.definition));
+	}
+	return entries;
+}
+
+export function roastSurfaceForReviewKey(key: string): string {
+	return `roast:${key}`;
+}
+
+export function roastReviewPathForKey(key: string): string {
+	return `reviews/${key}.md`;
+}
+
+export function roastSkillTitleForKey(key: string): string {
+	const words = key.split(/[/-]/u).filter((word) => word.length > 0);
+	return words.map((word, index) => humanizeKeyWord(word, index)).join(" ");
+}
+
+export function roastSkillLabelForKey(key: string): string {
+	return `Roast: ${roastSkillTitleForKey(key)}`;
+}
+
+export function roastDefaultPromptForKey(key: string): string {
+	return `Run the ${roastSkillTitleForKey(key)} roast against the current branch changes.`;
 }
 
 export function roastSkillLabel(entry: RoastSkillEntry): string {
-	return `Roast: ${entry.title}`;
+	return entry.label;
+}
+
+function roastSkillEntryFromDefinition(key: string, definition: ReviewDefinition): RoastSkillEntry {
+	const title = roastSkillTitleForKey(key);
+	return {
+		surface: roastSurfaceForReviewKey(key),
+		reviewKey: key,
+		reviewPath: roastReviewPathForKey(key),
+		title,
+		label: `Roast: ${title}`,
+		description: definition.description,
+		defaultPrompt: roastDefaultPromptForKey(key),
+	};
+}
+
+function catalogOptions(options: {
+	readonly cwd: string;
+	readonly signal?: AbortSignal | undefined;
+}): { readonly cwd: string; readonly signal?: AbortSignal | undefined } {
+	return {
+		cwd: options.cwd,
+		...(options.signal === undefined ? {} : { signal: options.signal }),
+	};
+}
+
+function markdownFilesSync(root: string): string[] {
+	const paths: string[] = [];
+	for (const entry of readdirSync(root, { withFileTypes: true })) {
+		const path = join(root, entry.name);
+		if (entry.isDirectory()) paths.push(...markdownFilesSync(path));
+		else if (entry.isFile() && entry.name.endsWith(".md")) paths.push(path);
+	}
+	return paths;
+}
+
+function keyFromPath(root: string, path: string): string {
+	const withoutSuffix = relative(root, path).replace(/\.md$/u, "");
+	return withoutSuffix.split(sep).join("/");
+}
+
+function humanizeKeyWord(word: string, index: number): string {
+	const lower = word.toLowerCase();
+	const acronym = ACRONYMS.get(lower);
+	if (acronym !== undefined) return acronym;
+	if (index === 0) return `${lower.slice(0, 1).toUpperCase()}${lower.slice(1)}`;
+	return lower;
+}
+
+function reviewDefinitionInvalidFailure(source: ReviewSource, message: string): RoasterFailure {
+	return {
+		type: "review_definition_invalid",
+		message: `Review definition ${source.key} at ${source.path} is invalid: ${message}`,
+	};
 }
