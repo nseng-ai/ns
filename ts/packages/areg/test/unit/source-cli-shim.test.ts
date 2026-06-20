@@ -14,7 +14,7 @@ afterEach(async () => {
 
 describe("areg source CLI shim rendering", () => {
 	const renderScriptPath = fileURLToPath(
-		new URL("../../../../scripts/render-cli-shim.py", import.meta.url),
+		new URL("../../../../scripts/render-cli-shim.mjs", import.meta.url),
 	);
 	const templatePath = fileURLToPath(
 		new URL("../../../../scripts/source-cli-shim-template", import.meta.url),
@@ -27,7 +27,7 @@ describe("areg source CLI shim rendering", () => {
 		const canonicalCheckout = join(tempRoot, "checkout with spaces & pipes | back\\slash ' quote");
 		const installHint = "just install-areg or just install-tools";
 
-		const render = spawnSync("python", [renderScriptPath], {
+		const render = spawnSync("node", [renderScriptPath], {
 			env: {
 				...process.env,
 				ASDL_TEMPLATE: templatePath,
@@ -71,7 +71,7 @@ describe("areg source CLI shim rendering", () => {
 		const tempRoot = await tempDirs.makeTempDir("areg-shim-render-invalid-");
 		const outputPath = join(tempRoot, "areg-shim");
 
-		const render = spawnSync("python", [renderScriptPath], {
+		const render = spawnSync("node", [renderScriptPath], {
 			env: {
 				...process.env,
 				ASDL_TEMPLATE: templatePath,

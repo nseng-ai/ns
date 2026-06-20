@@ -35,22 +35,22 @@ Unreleased, private software. We can break backwards compatibility freely.
 
 ### Tech Stack
 
-- **Language**: Python 3.11+ (uv)
-- **CLI**: Click
-- **Build**: Hatchling
-- **Linting/Formatting**: Ruff
-- **Type checking**: ty
-- **Testing**: pytest
+- **Language**: TypeScript on Node 24+ for first-party toolkit implementations.
+- **CLI**: TypeScript standalone CLIs built with the repo's Clinkr-style command framework.
+- **Package manager**: pnpm workspace under `ts/`.
+- **Linting/Formatting**: oxlint/oxfmt for TypeScript; dprint for Markdown/TOML.
+- **Type checking**: tsgo through the `ts/` workspace scripts.
+- **Testing**: Vitest for TypeScript packages.
 
 ### Project Structure
 
 ```
 asdl/
-├── src/asdl/          # Main package
-│   └── cli/            # Click CLI entry point
-├── tests/              # Test suite
-├── pyproject.toml      # UV project config
-└── justfile            # lint, fix, ty, test, fast-ci
+├── ts/packages/       # First-party TypeScript packages and CLIs
+├── skills/            # Repo-owned agent skills
+├── docs/              # Documentation
+├── .asdl/objectives/  # Durable Objective records
+└── justfile           # Repository orchestration over TS/docs checks
 ```
 
 ### Design Principles
@@ -70,11 +70,8 @@ Edit CONTEXT files deliberately, never incidentally: only when the task is expli
 
 ## Ground Rules
 
-- **Never use raw `pip install`**. Always use `uv`.
 - **Never commit directly to `main` or `master`**. Treat either trunk branch as a hard stop for commit creation: switch to or create a feature branch first, and do not run `git commit`, `gt modify`, or any equivalent command while checked out there.
 - Prefer LBYL (look before you leap) over EAFP (easier to ask forgiveness).
-- Use frozen dataclasses or Pydantic models for data. Avoid mutable state where possible.
-- Use modern Python type syntax (`str | None`, not `Optional[str]`).
 - Keep features decoupled. A feature should declare its dependencies explicitly, not reach into other subsystems.
 
 ### Planning and Estimates
@@ -85,9 +82,9 @@ Edit CONTEXT files deliberately, never incidentally: only when the task is expli
 
 When `just` reports a lint or format failure, do not hand-edit files to satisfy the formatter. Run the corresponding autofix recipe instead:
 
-- `ruff check` failures → `just fix` (runs `ruff check --fix --unsafe-fixes` then `ruff format`)
-- `ruff format --check` failures → `just fix`
-- `dprint check` failures (Markdown / TOML) → `just dprint-fix` (runs `dprint fmt`)
+- `dprint check` failures (Markdown / TOML) → `just dprint-fix`
+- TypeScript formatting failures → `just ts-format-fix`
+- TypeScript lint autofixable failures → `just ts-lint-fix`
 
 After autofixing, re-run `just` to confirm the suite is green. Only edit files by hand when the failure is a real lint/type/test bug that the autofixer cannot resolve.
 
@@ -120,27 +117,18 @@ Skill-authoring and skill-management conventions live in `docs/skill-conventions
 
 ## Code Conventions
 
-### Package Import Rules
-
-- Packages in this repo do **not** publicly re-export symbols from `__init__.py`. Package `__init__.py` files should be empty or contain only a docstring.
-- Consumers must import from the canonical source module (e.g., `from asdl_core.clinkr.group import ClinkrGroup`, not `from asdl_core.clinkr import ClinkrGroup`).
-- Do not use `__all__` or `import X as X` re-export patterns in `__init__.py` files.
-- Do not prefix module filenames with a leading underscore (e.g., `_gateway_access.py`). Because `__init__.py` files are empty, every module's canonical path is already its public path — there is nothing to mark "package-private." `__init__.py` itself is exempt; the rule is about regular `.py` modules.
-
 ### CLI Scenario Testing Convention
 
-Python CLI packages have two entry points: a standalone CLI built by `build_cli()` in `<package>.cli.main`, and an asdl plugin subgroup discovered via `asdl.plugins` entry points. Test them separately:
+TypeScript standalone CLI scenario tests live in the owning package test tree (for example, `ts/packages/roaster/test/scenario/`). Include `--version`, `--runtime`, and `-h` coverage alongside operation tests when those surfaces are part of the user-facing contract.
 
-**Scenario tests** live in their home package and should exhaustively cover every user-facing scenario for that package's standalone CLI. For Python CLI packages, use `build_cli()` from the package's CLI module as the user-facing entry point; for TypeScript standalone CLIs, use the package test tree (e.g., `ts/packages/roaster/test/scenario/`). Python scenario fixtures should be `cli_group = build_cli()`, not `discover_group(...)` directly. Include `--version` and `-h` tests alongside operation tests in the same file. TypeScript standalone CLIs do not use Python `asdl.plugins` mounting.
-
-**Plugin smoke tests** (`tests/scenario/test_plugins.py` in the top-level asdl package): Verify that each Python plugin's entry point wires up correctly through `discover_plugins`. One test per plugin that mounts the subgroup and invokes a representative command. These live at the asdl scope because they test the plugin discovery contract.
+The historical Python `asdl.plugins` smoke-test surface has been retired; do not add new Python plugin tests unless a new Python plugin system is deliberately reintroduced.
 
 ### Skill-Invoked CLI Commands (exec Subgroups)
 
 CLI commands intended for skill/agent invocation rather than interactive humans MUST be registered under a nested `exec` ClinkrGroup inside the package's outer group — e.g., `brmem exec resolve-prompt`, `roaster exec format-findings-comment`. This keeps user-facing top-level help focused on commands a human would actually type.
 
 - **Visibility:** the `exec` subgroup MUST be `hidden = True`. Users do not discover these commands by reading top-level `--help`; they discover them by reading the skill that drives them. Pass `hidden=True` as a kwarg to the `ClinkrGroup` constructor — by convention `ClinkrGroup` is treated as immutable after construction, so do not mutate `.hidden` afterward. Hiding only affects help-text rendering, not invocability — `pkg exec <op>` continues to work.
-- **Layout:** operation files for exec commands live in `<package>/exec/`, with `exec/group.py` exposing a `build_exec_group()` (or equivalent) that the package's outer `group.py` mounts via `outer.add_command(exec_group)`. `exec/__init__.py` follows the repo's empty-init rule (docstring only, no re-exports).
+- **Layout:** operation files for exec commands live in the owning TypeScript package, typically under an `exec` or `operations` module that the outer CLI group mounts.
 - **Naming:** prefer noun-or-verb-phrase command names (`resolve-prompt`, `get-reviews`) — the `exec` namespace already implies the actor, so the verb does not need to.
 - **Canonical examples:** TypeScript roaster registers hidden publication helpers in `ts/packages/roaster/src/cli.ts`; TypeScript CCC exposes deterministic agent helpers such as `ccc exec cmux-workspace-summary` from `ts/packages/ccc/src/cli.ts`.
 
@@ -175,7 +163,7 @@ Fall back to raw `git` only when `gt` cannot express the operation (e.g., surgic
 
 ### Runtime Graphite Dependency Boundary
 
-Graphite is the contributor workflow tool for this repo, but runtime package code must not depend on Graphite by default. Before importing `asdl_core.gt`, accepting a `GtGateway`, constructing `RealGtGateway`, shelling out to `gt`, or adding Graphite to a CLI context, first check whether the same behavior can be satisfied through the git gateway.
+Graphite is the contributor workflow tool for this repo, but runtime package code must not depend on Graphite by default. Before accepting a Graphite gateway, constructing a real Graphite adapter, shelling out to `gt`, or adding Graphite to a CLI context, first check whether the same behavior can be satisfied through the git gateway.
 
 - Use `GitGateway` for ordinary repository facts: current branch, trunk/base branch, local branch existence, refs, commit ranges, patch IDs, and worktrees.
 - A command or command group may depend on Graphite only when Graphite is part of its explicit user-facing contract: the command path, help text, and docs should name Graphite or `gt`, and the behavior should require Graphite stack metadata rather than plain git history.
@@ -185,4 +173,4 @@ Graphite is the contributor workflow tool for this repo, but runtime package cod
 
 ### GitHub Backend Interactions
 
-When adding or editing any code that interacts with the GitHub backend — whether through GraphQL queries, REST API calls, or `gh` CLI commands — always consult the `code-gh` skill (`.claude/skills/code-gh/SKILL.md`) and its references first. This ensures correct API selection (REST vs GraphQL), proper rate-limit awareness, and consistency with the existing gateway patterns in `asdl-core`.
+When adding or editing any code that interacts with the GitHub backend — whether through GraphQL queries, REST API calls, or `gh` CLI commands — always consult the `code-gh` skill (`.claude/skills/code-gh/SKILL.md`) and its references first. This ensures correct API selection (REST vs GraphQL), proper rate-limit awareness, and consistency with existing gateway patterns.

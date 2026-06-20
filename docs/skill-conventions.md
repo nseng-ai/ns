@@ -28,7 +28,7 @@ Norms and gotchas this taxonomy makes non-obvious:
 
 ### Public Skill Authoring — No Internal References
 
-Public skills (those with a `skills/<name>` symlink for external discoverability) are user-facing documents. Do not reference asdl-internal module paths, class names, or implementation details (e.g., `asdl_core.gh.IssueGateway`, `RealIssueGateway.get_reviews`) in their `SKILL.md` files or frontmatter descriptions. Describe *what* CLI operations to call (e.g., `pr-address exec get-reviews`), not *how* they are implemented. Implementation details belong in Python source, not in public `SKILL.md` files. Internal skills (no `skills/` symlink) may reference internals freely.
+Public skills (those with a `skills/<name>` symlink for external discoverability) are user-facing documents. Do not reference asdl-internal module paths, class names, or implementation details in their `SKILL.md` files or frontmatter descriptions. Describe *what* CLI operations to call (e.g., `pr-address exec get-reviews`), not *how* they are implemented. Implementation details belong in source code, not in public `SKILL.md` files. Internal skills (no `skills/` symlink) may reference internals freely.
 
 ### Skill Model Examples
 

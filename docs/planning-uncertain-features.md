@@ -21,13 +21,13 @@ PLAN-VERIFICATION-WORKSTREAM:END <feature-slug>
 ### `refactor-execution-strategy-guidance`
 
 - Status: current branch experiment.
-- Marker evidence: marked additions in `.asdl/prompts/plans-write.md`, `packages/asdl-core/src/asdl_core/prompts/defaults/plans-write.md`, `skills/enriched-plan-save/SKILL.md`, `ts/packages/pi-extensions/src/branch-context/enriched-plan-save.ts`, and associated Python/TypeScript prompt tests.
+- Marker evidence: marked additions in `.asdl/prompts/plans-write.md`, `skills/enriched-plan-save/SKILL.md`, `ts/packages/pi-extensions/src/branch-context/enriched-plan-save.ts`, and associated TypeScript prompt tests.
 - Why unsure: it may over-prescribe implementation mechanics in durable plans, may bias agents toward named skills when local judgment is enough, and overlaps with normal implementation-agent responsibility.
 - Pull-out approach: remove every block/comment group carrying this slug, then remove or relax any tests whose only purpose is asserting the refactor-execution wording.
 
 ## Maintenance commands
 
 ```bash
-rg -n "PLAN-VERIFICATION-WORKSTREAM:(START|END)" .asdl packages skills ts/packages
-rg -n "refactor-execution-strategy-guidance|enriched-plan-save-plan-quality" .asdl packages skills ts/packages
+rg -n "PLAN-VERIFICATION-WORKSTREAM:(START|END)" .asdl skills ts/packages
+rg -n "refactor-execution-strategy-guidance|enriched-plan-save-plan-quality" .asdl skills ts/packages
 ```

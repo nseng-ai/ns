@@ -4,23 +4,9 @@ ts_pnpm := 'corepack pnpm@11.8.0'
 
 default: check
 
-pbcopy-source-activate:
-    uv sync
-    @printf 'source %s/.venv/bin/activate' "{{justfile_directory()}}" | pbcopy
-    @echo "Copied to clipboard — paste and press enter to activate."
+check: dprint-check ts-deps-check ts-guard ts-format-check ts-lint ts-check js-test
 
-check: agent-instructions-check python-check dprint-check ts-deps-check ts-guard ts-format-check ts-lint ts-check js-test python-test
-
-ci: agent-instructions-check python-check dprint-check ts-deps-check ts-guard ts-format-check ts-lint ts-check js-test python-test-all
-
-lint:
-    uv run ruff check
-
-format-check:
-    uv run ruff format --check
-
-agent-instructions-check:
-    uv run pytest tests/scenario/test_agent_instruction_files.py
+ci: check
 
 dprint-check:
     dprint check
@@ -28,18 +14,7 @@ dprint-check:
 dprint-fix:
     dprint fmt
 
-fix:
-    uv run ruff check --fix --unsafe-fixes
-    uv run ruff format
-
-ty:
-    uv run ty check
-
-python-check: lint format-check ty
-
-python-test: test
-
-python-test-all: test-all
+fix: dprint-fix ts-format-fix ts-lint-fix
 
 ts-install:
     {{ts_pnpm}} --config.strict-dep-builds=false --dir {{justfile_directory()}}/ts install
@@ -156,7 +131,7 @@ _install-ts-shim tool cli_rel_path install_hint: ts-install
     ASDL_INSTALL_HINT="{{install_hint}}" \
     ASDL_TEMPLATE="{{justfile_directory()}}/ts/scripts/source-cli-shim-template" \
     ASDL_OUTPUT="$HOME/.local/bin/{{tool}}" \
-      python "{{justfile_directory()}}/ts/scripts/render-cli-shim.py"
+      node "{{justfile_directory()}}/ts/scripts/render-cli-shim.mjs"
     chmod +x "$HOME/.local/bin/{{tool}}"
     @echo "installed: $HOME/.local/bin/{{tool}} (canonical checkout: {{justfile_directory()}})"
 
@@ -165,15 +140,6 @@ _install-ts-shim tool cli_rel_path install_hint: ts-install
 link-branch-context: ts-install
     cd {{justfile_directory()}}/ts/packages/branch-context && {{ts_pnpm}} link
     @echo "linked: branch-context (pnpm global bin)"
-
-test:
-    uv run pytest -n auto --ignore-glob='*/integration/*'
-
-live-github-readonly repo:
-    uv run pytest packages/asdl-core/live_conformance/github --run-live-github --github-conformance-repo {{repo}}
-
-test-all:
-    uv run pytest -n auto
 
 areg-check: ts-install
     node {{justfile_directory()}}/ts/packages/areg/src/cli.ts check --path {{justfile_directory()}}
@@ -191,8 +157,3 @@ clean:
     find . -type d -name ".pytest_cache" -exec rm -rf {} + || true
     find . -type d -name ".ruff_cache" -exec rm -rf {} + || true
     find . -type d -name "*.egg-info" -exec rm -rf {} + || true
-    find . -type f -name "*.pyc" -delete || true
-
-publish: clean check
-    uv build --package asdl-tools --package asdl-core
-    uv publish

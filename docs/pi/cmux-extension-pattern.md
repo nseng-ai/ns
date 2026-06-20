@@ -179,12 +179,6 @@ just ts-test
 just dprint-check
 ```
 
-If Python root CLI behavior changed, run the relevant Python scenario suite:
-
-```bash
-uv run pytest tests/scenario/test_cli.py
-```
-
 Then reload Pi:
 
 ```text
