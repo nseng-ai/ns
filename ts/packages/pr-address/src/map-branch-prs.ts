@@ -1,14 +1,14 @@
 import { z } from "zod";
 
 import { failure, negative, ok, type ClinkrExit, type ClinkrFailureExit } from "@asdl/clinkr";
+import type { GithubPrFeedbackGateway, GithubPrSummary } from "@asdl/core/github-pr-feedback";
 import { duplicateValues } from "./duplicate-values.ts";
 import {
 	defineExecOperation,
-	gatewayFailureExit,
 	gatewayOptions,
+	prFeedbackFailureExit,
 	type PrAddressExecContext,
 } from "./exec-operation.ts";
-import type { PrAddressGitHubGateway, PRSummary } from "./gateways.ts";
 import { loadJsonInput } from "./json-input.ts";
 
 export const mapBranchPrsInputSchema = z.looseObject({
@@ -71,7 +71,7 @@ async function runMapBranchPrsOperation(
 	const validationMessage = branchesValidationMessage(branches, "map-branch-prs");
 	if (validationMessage !== null) return failure("invalid_request", validationMessage);
 
-	const mapping = await mapBranchesToOpenPrs({ branches, github: ctx.context.github, ctx });
+	const mapping = await mapBranchesToOpenPrs({ branches, prFeedback: ctx.context.prFeedback, ctx });
 	if (mapping.type === "error") return mapping.exit;
 	const result = mapping.value;
 	if (result.missing_branches.length === 0 && result.ambiguous_branches.length === 0)
@@ -81,16 +81,16 @@ async function runMapBranchPrsOperation(
 
 export async function mapBranchesToOpenPrs(options: {
 	branches: readonly string[];
-	github: PrAddressGitHubGateway;
+	prFeedback: GithubPrFeedbackGateway;
 	ctx: PrAddressExecContext;
 }): Promise<
 	{ type: "ok"; value: MapBranchPrsResult } | { type: "error"; exit: ClinkrFailureExit }
 > {
-	const openPrsResult = await options.github.listOpenPrs(gatewayOptions(options.ctx));
+	const openPrsResult = await options.prFeedback.listOpenPrs(gatewayOptions(options.ctx));
 	if (!openPrsResult.ok)
 		return {
 			type: "error",
-			exit: gatewayFailureExit("Failed to list open PRs", openPrsResult.error),
+			exit: prFeedbackFailureExit("Failed to list open PRs", openPrsResult.error),
 		};
 
 	const prsByHeadBranch = prsGroupedByHeadBranch(openPrsResult.value);
@@ -143,25 +143,25 @@ export function branchesValidationMessage(
 	return null;
 }
 
-function branchPrEntry(branch: string, pr: PRSummary): BranchPrEntry {
+function branchPrEntry(branch: string, pr: GithubPrSummary): BranchPrEntry {
 	return {
 		branch,
 		pr_number: pr.number,
 		title: pr.title,
 		url: pr.url,
-		head_ref_name: pr.head_ref_name,
-		base_ref_name: pr.base_ref_name,
+		head_ref_name: pr.headRefName,
+		base_ref_name: pr.baseRefName,
 	};
 }
 
 function prsGroupedByHeadBranch(
-	prs: readonly PRSummary[],
-): ReadonlyMap<string, readonly PRSummary[]> {
-	const byBranch = new Map<string, PRSummary[]>();
+	prs: readonly GithubPrSummary[],
+): ReadonlyMap<string, readonly GithubPrSummary[]> {
+	const byBranch = new Map<string, GithubPrSummary[]>();
 	for (const pr of prs) {
-		const existing = byBranch.get(pr.head_ref_name) ?? [];
+		const existing = byBranch.get(pr.headRefName) ?? [];
 		existing.push(pr);
-		byBranch.set(pr.head_ref_name, existing);
+		byBranch.set(pr.headRefName, existing);
 	}
 	return byBranch;
 }

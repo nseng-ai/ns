@@ -1,28 +1,29 @@
 import type {
-	GatewayFailure,
-	GatewayOptions,
-	PRDiscussionComment,
-	PRReview,
-	PRReviewThread,
-	PrAddressGitHubGateway,
-} from "./gateways.ts";
+	GithubPrDiscussionComment,
+	GithubPrFeedbackFailure,
+	GithubPrFeedbackGateway,
+	GithubPrReview,
+	GithubPrReviewThread,
+} from "@asdl/core/github-pr-feedback";
+
+import type { GatewayOptions } from "./gateways.ts";
 
 const SILENCEABLE_EMPTY_REVIEW_STATES = new Set(["COMMENTED", "APPROVED"]);
 
 export interface FeedbackSnapshot {
 	pr_number: number;
-	reviews: readonly PRReview[];
-	review_threads: readonly PRReviewThread[];
-	counted_review_threads: readonly PRReviewThread[];
-	discussion_comments: readonly PRDiscussionComment[];
+	reviews: readonly GithubPrReview[];
+	review_threads: readonly GithubPrReviewThread[];
+	counted_review_threads: readonly GithubPrReviewThread[];
+	discussion_comments: readonly GithubPrDiscussionComment[];
 }
 
 export type FeedbackSnapshotResult =
 	| { type: "ok"; snapshot: FeedbackSnapshot }
-	| { type: "failure"; message: string; failure: GatewayFailure };
+	| { type: "failure"; message: string; failure: GithubPrFeedbackFailure };
 
 export interface FetchFeedbackSnapshotOptions {
-	gateway: PrAddressGitHubGateway;
+	gateway: GithubPrFeedbackGateway;
 	gatewayOptions: GatewayOptions;
 	prNumber: number;
 	shouldIncludeResolved: boolean;
@@ -33,18 +34,21 @@ export interface FetchFeedbackSnapshotOptions {
 export async function fetchFeedbackSnapshot(
 	options: FetchFeedbackSnapshotOptions,
 ): Promise<FeedbackSnapshotResult> {
-	const reviewsResult = await options.gateway.getReviews(options.prNumber, options.gatewayOptions);
+	const reviewsResult = await options.gateway.getPrReviews({
+		...options.gatewayOptions,
+		prNumber: options.prNumber,
+	});
 	if (!reviewsResult.ok)
 		return snapshotFailure(
 			`Failed to fetch reviews for PR ${options.prNumber}`,
 			reviewsResult.error,
 		);
-	let countedReviewThreads: readonly PRReviewThread[];
-	let reviewThreads: readonly PRReviewThread[];
+	let countedReviewThreads: readonly GithubPrReviewThread[];
+	let reviewThreads: readonly GithubPrReviewThread[];
 	if (options.shouldCountAllReviewThreads) {
-		const countedResult = await options.gateway.getReviewThreads(options.prNumber, {
+		const countedResult = await options.gateway.getPrReviewThreads({
 			...options.gatewayOptions,
-			shouldIncludeResolved: true,
+			prNumber: options.prNumber,
 		});
 		if (!countedResult.ok)
 			return snapshotFailure(
@@ -54,24 +58,26 @@ export async function fetchFeedbackSnapshot(
 		countedReviewThreads = countedResult.value;
 		reviewThreads = options.shouldIncludeResolved
 			? countedReviewThreads
-			: countedReviewThreads.filter((thread) => !thread.is_resolved);
+			: unresolvedThreads(countedReviewThreads);
 	} else {
-		const threadsResult = await options.gateway.getReviewThreads(options.prNumber, {
+		const threadsResult = await options.gateway.getPrReviewThreads({
 			...options.gatewayOptions,
-			shouldIncludeResolved: options.shouldIncludeResolved,
+			prNumber: options.prNumber,
 		});
 		if (!threadsResult.ok)
 			return snapshotFailure(
 				`Failed to fetch review threads for PR ${options.prNumber}`,
 				threadsResult.error,
 			);
-		reviewThreads = threadsResult.value;
+		reviewThreads = options.shouldIncludeResolved
+			? threadsResult.value
+			: unresolvedThreads(threadsResult.value);
 		countedReviewThreads = reviewThreads;
 	}
-	const commentsResult = await options.gateway.getDiscussionComments(
-		options.prNumber,
-		options.gatewayOptions,
-	);
+	const commentsResult = await options.gateway.getPrDiscussionComments({
+		...options.gatewayOptions,
+		prNumber: options.prNumber,
+	});
 	if (!commentsResult.ok)
 		return snapshotFailure(
 			`Failed to fetch discussion comments for PR ${options.prNumber}`,
@@ -90,17 +96,26 @@ export async function fetchFeedbackSnapshot(
 }
 
 export function reviewsForRequest(
-	reviews: readonly PRReview[],
+	reviews: readonly GithubPrReview[],
 	shouldIncludeEmptyReviews: boolean,
-): readonly PRReview[] {
+): readonly GithubPrReview[] {
 	if (shouldIncludeEmptyReviews) return reviews;
 	return reviews.filter((review) => !isEmptyReview(review));
 }
 
-function isEmptyReview(review: PRReview): boolean {
+function unresolvedThreads(
+	threads: readonly GithubPrReviewThread[],
+): readonly GithubPrReviewThread[] {
+	return threads.filter((thread) => !thread.isResolved);
+}
+
+function isEmptyReview(review: GithubPrReview): boolean {
 	return SILENCEABLE_EMPTY_REVIEW_STATES.has(review.state) && review.body.trim() === "";
 }
 
-function snapshotFailure(message: string, failure: GatewayFailure): FeedbackSnapshotResult {
+function snapshotFailure(
+	message: string,
+	failure: GithubPrFeedbackFailure,
+): FeedbackSnapshotResult {
 	return { type: "failure", message, failure };
 }

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import {
-	InMemoryPrAddressGitHubGateway,
+	InMemoryGithubPrFeedbackGateway,
 	prSummary,
 } from "../support/in-memory-pr-address-gateways.ts";
 import { runScenario } from "../support/run-scenario.ts";
@@ -27,24 +27,24 @@ interface MapBranchPrsData {
 	summary: { requested: number; matched: number; missing: number; ambiguous: number };
 }
 
-function stackedGithub(): InMemoryPrAddressGitHubGateway {
-	return new InMemoryPrAddressGitHubGateway({
+function stackedPrFeedback(): InMemoryGithubPrFeedbackGateway {
+	return new InMemoryGithubPrFeedbackGateway({
 		prs: [
 			prSummary({
 				number: 11,
-				head_ref_name: "feature-a",
-				base_ref_name: "master",
+				headRefName: "feature-a",
+				baseRefName: "master",
 				title: "A",
 				url: "https://github.example/pr/11",
 			}),
 			prSummary({
 				number: 12,
-				head_ref_name: "feature-b",
-				base_ref_name: "feature-a",
+				headRefName: "feature-b",
+				baseRefName: "feature-a",
 				title: "B",
 				url: "https://github.example/pr/12",
 			}),
-			prSummary({ number: 13, head_ref_name: "feature-merged", state: "MERGED" }),
+			prSummary({ number: 13, headRefName: "feature-merged", state: "MERGED" }),
 		],
 	});
 }
@@ -60,7 +60,7 @@ function mapArgs(args: readonly string[] = []): string[] {
 describe("pr-address exec map-branch-prs", () => {
 	test("maps all branches to open PRs in input order with exit 0", async () => {
 		const run = runScenario(mapArgs(), {
-			github: stackedGithub(),
+			prFeedback: stackedPrFeedback(),
 			stdin: JSON.stringify({ branches: ["feature-b", "feature-a"] }),
 		});
 		expect(await run.exit).toBe(0);
@@ -91,7 +91,7 @@ describe("pr-address exec map-branch-prs", () => {
 
 	test("returns semantic exit 1 with full data and a message naming missing branches", async () => {
 		const run = runScenario(mapArgs(), {
-			github: stackedGithub(),
+			prFeedback: stackedPrFeedback(),
 			stdin: JSON.stringify({ branches: ["feature-a", "no-such-branch", "feature-merged"] }),
 		});
 		expect(await run.exit).toBe(0);
@@ -108,7 +108,7 @@ describe("pr-address exec map-branch-prs", () => {
 		const run = runScenario(
 			mapArgs(["--branches-json", JSON.stringify({ branches: ["feature-a"] })]),
 			{
-				github: stackedGithub(),
+				prFeedback: stackedPrFeedback(),
 			},
 		);
 		expect(await run.exit).toBe(0);
@@ -116,14 +116,14 @@ describe("pr-address exec map-branch-prs", () => {
 	});
 
 	test("returns semantic exit 1 for ambiguous shared-head-branch mapping", async () => {
-		const github = new InMemoryPrAddressGitHubGateway({
+		const prFeedback = new InMemoryGithubPrFeedbackGateway({
 			prs: [
-				prSummary({ number: 30, head_ref_name: "feature-shared" }),
-				prSummary({ number: 21, head_ref_name: "feature-shared" }),
+				prSummary({ number: 30, headRefName: "feature-shared" }),
+				prSummary({ number: 21, headRefName: "feature-shared" }),
 			],
 		});
 		const run = runScenario(mapArgs(), {
-			github,
+			prFeedback,
 			stdin: JSON.stringify({ branches: ["feature-shared"] }),
 		});
 		expect(await run.exit).toBe(0);
@@ -145,7 +145,7 @@ describe("pr-address exec map-branch-prs", () => {
 
 	test("rejects duplicate branches with invalid_request", async () => {
 		const run = runScenario(mapArgs(), {
-			github: stackedGithub(),
+			prFeedback: stackedPrFeedback(),
 			stdin: JSON.stringify({ branches: ["feature-a", "feature-a"] }),
 		});
 		expect(await run.exit).toBe(2);
@@ -156,7 +156,7 @@ describe("pr-address exec map-branch-prs", () => {
 
 	test("rejects an empty branches array with invalid_request", async () => {
 		const run = runScenario(mapArgs(), {
-			github: stackedGithub(),
+			prFeedback: stackedPrFeedback(),
 			stdin: JSON.stringify({ branches: [] }),
 		});
 		expect(await run.exit).toBe(2);
@@ -167,7 +167,7 @@ describe("pr-address exec map-branch-prs", () => {
 
 	test("rejects blank branch names with invalid_request", async () => {
 		const run = runScenario(mapArgs(), {
-			github: stackedGithub(),
+			prFeedback: stackedPrFeedback(),
 			stdin: JSON.stringify({ branches: ["feature-a", "  "] }),
 		});
 		expect(await run.exit).toBe(2);
@@ -177,13 +177,13 @@ describe("pr-address exec map-branch-prs", () => {
 	});
 
 	test("rejects empty stdin with invalid_request", async () => {
-		const run = runScenario(mapArgs(), { github: stackedGithub(), stdin: "" });
+		const run = runScenario(mapArgs(), { prFeedback: stackedPrFeedback(), stdin: "" });
 		expect(await run.exit).toBe(2);
 		expect(parseEnvelope(run).error_type).toBe("invalid_request");
 	});
 
 	test("rejects malformed JSON with invalid_json", async () => {
-		const run = runScenario(mapArgs(), { github: stackedGithub(), stdin: "{not json" });
+		const run = runScenario(mapArgs(), { prFeedback: stackedPrFeedback(), stdin: "{not json" });
 		expect(await run.exit).toBe(2);
 		expect(parseEnvelope(run).error_type).toBe("invalid_json");
 	});
@@ -192,7 +192,7 @@ describe("pr-address exec map-branch-prs", () => {
 		// PINNED CLINKR SEMANTICS: excess arguments are a raw commander usage
 		// error (stderr, exit 2), never a machine envelope.
 		const run = runScenario(["exec", "map-branch-prs", "extra", "--format", "json"], {
-			github: stackedGithub(),
+			prFeedback: stackedPrFeedback(),
 		});
 		expect(await run.exit).toBe(2);
 		expect(run.stdout.join("")).toBe("");
@@ -202,17 +202,15 @@ describe("pr-address exec map-branch-prs", () => {
 	});
 
 	test("maps a gh listing failure to pr_gateway_failure", async () => {
-		const github = new InMemoryPrAddressGitHubGateway({
+		const prFeedback = new InMemoryGithubPrFeedbackGateway({
 			listOpenPrsFailure: {
-				code: "gateway_failed",
+				code: "github_pr_feedback_gh_failed",
 				message: "gh: network down",
-				stderr: "gh: network down",
-				stdout: "",
-				returncode: 1,
+				details: { stderr: "gh: network down", stdout: "", exitCode: 1 },
 			},
 		});
 		const run = runScenario(mapArgs(), {
-			github,
+			prFeedback,
 			stdin: JSON.stringify({ branches: ["feature-a"] }),
 		});
 		expect(await run.exit).toBe(2);
