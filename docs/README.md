@@ -28,5 +28,6 @@ Start here before broad documentation searches. This directory collects cross-pa
 - [Matt Pocock Skills upstream adaptation](agents/matt-pocock-skills.md): imported Matt-sourced skills, ASDL-owned overlays, invocation semantics, and future update checklist.
 - [Conflict resolution by thesis reapplication](thesis-reapplication.md): how to land a branch whose history can no longer be replayed by re-applying its intent against the current baseline, instead of rebasing or resolving conflicts.
 - [Roaster and `@pierre/diffs`](roaster-pierre-diffs.md): the roaster diff-parser integration boundary, Pierre APIs used, APIs deliberately not used, and accepted semantic changes from delegating to Pierre.
+- [XDG Base Directory Specification](xdg-base-directory-spec.md): where programs read/write config, data, state, cache, and runtime files; the env-var defaults and rules; and how the standard relates to ASDL's git-native storage principle.
 
 Agents should consult this README first, then follow the narrowest relevant link instead of scanning the whole repository.
