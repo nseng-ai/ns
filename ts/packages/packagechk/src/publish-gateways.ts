@@ -1,49 +1,54 @@
-import { spawnSync } from "node:child_process";
 import { readdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 
+import {
+	defaultCommandResolver,
+	formatCommand,
+	formatCommandFailure as formatExecCommandFailure,
+	formatCommandStartupFailure,
+	runCommand,
+	type ExecResult,
+} from "@asdl/core/exec";
 import { formatErrorMessage } from "@asdl/core/primitives";
 
 export interface PypiPublishGateway {
 	ensurePublishToolsAvailable(): string | null;
-	buildPackage(projectDir: string): PypiBuildResult;
-	publishArtifacts(projectDir: string, artifacts: readonly string[]): string | null;
+	buildPackage(projectDir: string): Promise<PypiBuildResult>;
+	publishArtifacts(projectDir: string, artifacts: readonly string[]): Promise<string | null>;
 }
 
 export type PypiBuildResult = { artifacts: string[] } | { error: string };
 
 export interface NpmPublishGateway {
 	ensurePublishToolsAvailable(): string | null;
-	publishProject(projectDir: string): string | null;
+	publishProject(projectDir: string): Promise<string | null>;
 }
 
-export type ToolFinder = (toolName: string) => boolean;
-export type CommandRunner = (command: readonly string[], cwd: string) => PublishCommandResult;
-
-export interface PublishCommandResult {
-	returnCode: number;
-	stdout: string;
-	stderr: string;
-}
+export type ToolFinder = (toolName: string) => string | undefined;
+export type CommandRunner = (
+	command: string,
+	args: readonly string[],
+	options: { cwd: string },
+) => Promise<ExecResult>;
 
 export class RealPypiPublishGateway implements PypiPublishGateway {
 	private readonly toolFinder: ToolFinder;
 	private readonly commandRunner: CommandRunner;
 
 	constructor(options: { toolFinder?: ToolFinder; commandRunner?: CommandRunner } = {}) {
-		this.toolFinder = options.toolFinder ?? toolAvailable;
+		this.toolFinder = options.toolFinder ?? defaultCommandResolver;
 		this.commandRunner = options.commandRunner ?? runPublishCommand;
 	}
 
 	ensurePublishToolsAvailable(): string | null {
-		if (!this.toolFinder("uv"))
+		if (this.toolFinder("uv") === undefined)
 			return "Required tool 'uv' is not available. Install uv to build and publish packages.";
-		if (!this.toolFinder("uvx"))
+		if (this.toolFinder("uvx") === undefined)
 			return "Required tool 'uvx' is not available. Install uv to build and publish packages.";
 		return null;
 	}
 
-	buildPackage(projectDir: string): PypiBuildResult {
+	async buildPackage(projectDir: string): Promise<PypiBuildResult> {
 		const distDir = join(projectDir, "dist");
 		try {
 			if (exists(distDir)) {
@@ -54,9 +59,12 @@ export class RealPypiPublishGateway implements PypiPublishGateway {
 				}
 				rmSync(distDir, { recursive: true, force: true });
 			}
-			const command = ["uv", "build"];
-			const result = this.commandRunner(command, projectDir);
-			if (result.returnCode !== 0) return buildFailure(formatCommandFailure(command, result));
+			const result = await this.commandRunner("uv", ["build"], { cwd: projectDir });
+			if (result.code !== 0) {
+				return buildFailure(
+					formatPublishCommandFailure("uv build failed", "uv", ["build"], result),
+				);
+			}
 			if (!exists(distDir)) return buildFailure("uv build did not create a dist/ directory");
 			if (!statSync(distDir).isDirectory())
 				return buildFailure("uv build created dist, but it is not a directory");
@@ -68,18 +76,25 @@ export class RealPypiPublishGateway implements PypiPublishGateway {
 				return buildFailure("uv build did not produce any artifacts in dist/");
 			return { artifacts };
 		} catch (error) {
-			return buildFailure(`uv build failed to start: ${formatErrorMessage(error)}`);
+			return buildFailure(`uv build failed: ${formatErrorMessage(error)}`);
 		}
 	}
 
-	publishArtifacts(projectDir: string, artifacts: readonly string[]): string | null {
+	async publishArtifacts(projectDir: string, artifacts: readonly string[]): Promise<string | null> {
 		if (artifacts.length === 0) return "No distribution artifacts to publish.";
-		const command = ["uvx", "uv-publish", ...artifacts];
+		const command = "uvx";
+		const args = ["uv-publish", ...artifacts];
 		try {
-			const result = this.commandRunner(command, projectDir);
-			return result.returnCode === 0 ? null : formatCommandFailure(command, result);
+			const result = await this.commandRunner(command, args, { cwd: projectDir });
+			return result.code === 0
+				? null
+				: formatPublishCommandFailure("uvx uv-publish failed", command, args, result);
 		} catch (error) {
-			return `${formatCommand(command)} failed to start: ${formatErrorMessage(error)}`;
+			return formatCommandStartupFailure(
+				"uvx uv-publish failed",
+				formatCommand(command, args),
+				error,
+			);
 		}
 	}
 }
@@ -124,13 +139,16 @@ export class FakePypiPublishGateway implements PypiPublishGateway {
 		return this.toolsError;
 	}
 
-	buildPackage(projectDir: string): PypiBuildResult {
+	async buildPackage(projectDir: string): Promise<PypiBuildResult> {
 		this.builtDirs.push(projectDir);
 		if (this.buildError !== null) return { error: this.buildError };
 		return { artifacts: [...this.artifacts] };
 	}
 
-	publishArtifacts(_projectDir: string, artifacts: readonly string[]): string | null {
+	async publishArtifacts(
+		_projectDir: string,
+		artifacts: readonly string[],
+	): Promise<string | null> {
 		this.published.push([...artifacts]);
 		return this.publishError;
 	}
@@ -141,23 +159,26 @@ export class RealNpmPublishGateway implements NpmPublishGateway {
 	private readonly commandRunner: CommandRunner;
 
 	constructor(options: { toolFinder?: ToolFinder; commandRunner?: CommandRunner } = {}) {
-		this.toolFinder = options.toolFinder ?? toolAvailable;
+		this.toolFinder = options.toolFinder ?? defaultCommandResolver;
 		this.commandRunner = options.commandRunner ?? runPublishCommand;
 	}
 
 	ensurePublishToolsAvailable(): string | null {
-		if (!this.toolFinder("npm"))
+		if (this.toolFinder("npm") === undefined)
 			return "Required tool 'npm' is not available. Install Node.js to publish packages.";
 		return null;
 	}
 
-	publishProject(projectDir: string): string | null {
-		const command = ["npm", "publish", "--access=public"];
+	async publishProject(projectDir: string): Promise<string | null> {
+		const command = "npm";
+		const args = ["publish", "--access=public"];
 		try {
-			const result = this.commandRunner(command, projectDir);
-			return result.returnCode === 0 ? null : formatCommandFailure(command, result);
+			const result = await this.commandRunner(command, args, { cwd: projectDir });
+			return result.code === 0
+				? null
+				: formatPublishCommandFailure("npm publish failed", command, args, result);
 		} catch (error) {
-			return `${formatCommand(command)} failed to start: ${formatErrorMessage(error)}`;
+			return formatCommandStartupFailure("npm publish failed", formatCommand(command, args), error);
 		}
 	}
 }
@@ -186,42 +207,31 @@ export class FakeNpmPublishGateway implements NpmPublishGateway {
 		return this.toolsError;
 	}
 
-	publishProject(projectDir: string): string | null {
+	async publishProject(projectDir: string): Promise<string | null> {
 		this.publishedDirs.push(projectDir);
 		return this.publishError;
 	}
 }
 
-function toolAvailable(toolName: string): boolean {
-	const command = process.platform === "win32" ? "where" : "command";
-	const args = process.platform === "win32" ? [toolName] : ["-v", toolName];
-	return spawnSync(command, args, { shell: process.platform !== "win32" }).status === 0;
+async function runPublishCommand(
+	command: string,
+	args: readonly string[],
+	options: { cwd: string },
+): Promise<ExecResult> {
+	return await runCommand(command, args, options);
 }
 
-function runPublishCommand(command: readonly string[], cwd: string): PublishCommandResult {
-	const [file, ...args] = command;
-	if (file === undefined) throw new Error("cannot run an empty command");
-	const result = spawnSync(file, args, { cwd, encoding: "utf8" });
-	if (result.error !== undefined) throw result.error;
-	return {
-		returnCode: result.status ?? 1,
-		stdout: result.stdout,
-		stderr: result.stderr,
-	};
-}
-
-function formatCommandFailure(command: readonly string[], result: PublishCommandResult): string {
-	const output = result.stderr.trim() || result.stdout.trim() || "no output";
-	return `${formatCommand(command)} failed with exit code ${result.returnCode}: ${output}`;
-}
-
-function formatCommand(command: readonly string[]): string {
-	return command.map(shellQuote).join(" ");
-}
-
-function shellQuote(value: string): string {
-	if (/^[A-Za-z0-9_/@%+=:,.-]+$/.test(value)) return value;
-	return `'${value.replaceAll("'", "'\\''")}'`;
+function formatPublishCommandFailure(
+	title: string,
+	command: string,
+	args: readonly string[],
+	result: ExecResult,
+): string {
+	const displayCommand = formatCommand(command, args);
+	if (result.startupError !== undefined) {
+		return formatCommandStartupFailure(title, displayCommand, result.startupError);
+	}
+	return formatExecCommandFailure(title, displayCommand, result);
 }
 
 function buildFailure(error: string): PypiBuildResult {

@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { confirmFromStdin } from "@asdl/clinkr";
 import { z } from "zod";
 
 import {
@@ -32,7 +33,7 @@ export const claimRequestSchema = z.object({
 		.describe("Package description. Defaults to a generic claim description."),
 	version: z.string().default(DEFAULT_CLAIM_VERSION).describe("Version to publish."),
 	dryRun: z.boolean().optional().describe("Show planned operations without effects."),
-	force: z.boolean().optional().describe("Skip confirmation prompt."),
+	skipConfirmation: z.boolean().optional().describe("Skip confirmation prompt."),
 	skipCheck: z.boolean().optional().describe("Skip registry availability pre-check."),
 });
 
@@ -60,10 +61,9 @@ interface ClaimViewData {
 
 interface ClaimPlan {
 	lookupName: string;
-	files: readonly ClaimProjectFile[];
 	dryRun: ClaimDryRunData;
 	view: ClaimViewData;
-	execute(projectDir: string, io: PackagechkIo): number | null;
+	execute(projectDir: string, io: PackagechkIo): Promise<number | null>;
 }
 
 interface ClaimPolicy {
@@ -119,15 +119,20 @@ export async function runClaimCommand(options: {
 		return 2;
 	}
 	if (
-		!(request.force === true) &&
-		!(await confirmRealPublish(policy.label, request.name, request.version, io))
+		!(request.skipConfirmation === true) &&
+		!(await confirmRealPublish({
+			registryLabel: policy.label,
+			packageName: request.name,
+			version: request.version,
+			io,
+		}))
 	) {
 		return 1;
 	}
 	const projectDir = mkdtempSync(join(tmpdir(), policy.tempDirPrefix));
 	try {
-		writeClaimFiles(projectDir, plan.files);
-		const publishExitCode = plan.execute(projectDir, io);
+		writeClaimFiles(projectDir, plan.dryRun.files);
+		const publishExitCode = await plan.execute(projectDir, io);
 		if (publishExitCode !== null) return publishExitCode;
 	} finally {
 		rmSync(projectDir, { recursive: true, force: true });
@@ -182,7 +187,6 @@ function preparePypiClaimPlan(
 	const projectUrl = pypiProjectUrl(lookupName);
 	return {
 		lookupName,
-		files,
 		dryRun: {
 			registryLabel: "PyPI",
 			packageName: spec.packageName,
@@ -213,7 +217,6 @@ function prepareNpmClaimPlan(
 	const packageUrl = npmPackagePageUrl(input.name);
 	return {
 		lookupName: input.name,
-		files,
 		dryRun: {
 			registryLabel: "npm",
 			packageName: spec.packageName,
@@ -229,13 +232,13 @@ function prepareNpmClaimPlan(
 	};
 }
 
-function executePypiClaimPlan(options: {
+async function executePypiClaimPlan(options: {
 	projectDir: string;
 	gateway: PypiPublishGateway;
 	io: PackagechkIo;
-}): number | null {
+}): Promise<number | null> {
 	options.io.stderr("Building placeholder package with uv build...\n");
-	const buildResult = options.gateway.buildPackage(options.projectDir);
+	const buildResult = await options.gateway.buildPackage(options.projectDir);
 	if ("error" in buildResult) {
 		options.io.stderr(`${buildResult.error}\n`);
 		return 2;
@@ -245,7 +248,10 @@ function executePypiClaimPlan(options: {
 		return 2;
 	}
 	options.io.stderr("Publishing placeholder package with uvx uv-publish...\n");
-	const publishError = options.gateway.publishArtifacts(options.projectDir, buildResult.artifacts);
+	const publishError = await options.gateway.publishArtifacts(
+		options.projectDir,
+		buildResult.artifacts,
+	);
 	if (publishError !== null) {
 		options.io.stderr(`${publishError}\n`);
 		return 2;
@@ -253,13 +259,13 @@ function executePypiClaimPlan(options: {
 	return null;
 }
 
-function executeNpmClaimPlan(options: {
+async function executeNpmClaimPlan(options: {
 	projectDir: string;
 	gateway: NpmPublishGateway;
 	io: PackagechkIo;
-}): number | null {
+}): Promise<number | null> {
 	options.io.stderr("Publishing placeholder package with npm publish...\n");
-	const publishError = options.gateway.publishProject(options.projectDir);
+	const publishError = await options.gateway.publishProject(options.projectDir);
 	if (publishError !== null) {
 		options.io.stderr(`${publishError}\n`);
 		return 2;
@@ -313,17 +319,22 @@ function renderClaimDryRun(
 	options.io.stderr(`${options.urlLine}\n`);
 }
 
-async function confirmRealPublish(
-	registryLabel: ClaimRegistryLabel,
-	packageName: string,
-	version: string,
-	io: PackagechkIo,
-): Promise<boolean> {
+async function confirmRealPublish(options: {
+	registryLabel: ClaimRegistryLabel;
+	packageName: string;
+	version: string;
+	io: PackagechkIo;
+}): Promise<boolean> {
+	const { registryLabel, packageName, version, io } = options;
 	io.stderr(`Warning: this will publish a real package to ${registryLabel}.\n`);
 	io.stderr(`Package: ${packageName} (${version})\n`);
-	io.stderr("Continue? [y/N]: ");
-	const input = (await io.stdin()).trim().toLowerCase();
-	if (input === "y" || input === "yes") return true;
+	const answer = await confirmFromStdin({
+		stdin: io.stdin,
+		stderr: io.stderr,
+		prompt: "Continue? [y/N]: ",
+		defaultAnswer: "no",
+	});
+	if (answer === "yes") return true;
 	io.stderr("Aborted by user.\n");
 	return false;
 }

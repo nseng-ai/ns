@@ -1,5 +1,5 @@
-export interface PackagechkIo {
-	stdout(text: string): void;
-	stderr(text: string): void;
-	stdin(): Promise<string>;
+import type { ClinkrIo } from "@asdl/clinkr";
+
+export interface PackagechkIo extends ClinkrIo {
+	stdin(): Promise<string | null>;
 }

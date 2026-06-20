@@ -3,6 +3,7 @@
 import process from "node:process";
 
 import { ClinkrGroup, resolveIo as resolveClinkrIo } from "@asdl/clinkr";
+import { rawCommand } from "@asdl/clinkr/raw";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 import { readStdinLine } from "@asdl/core/stdin";
 import { z } from "zod";
@@ -32,7 +33,7 @@ const REGISTRY_USAGE = REGISTRIES.join("|");
 const checkRequestSchema = z.object({
 	name: z.string().describe("Package name to check."),
 	registry: z.array(z.string()).optional().describe("Registry to check; may be repeated."),
-	json: z.boolean().optional().describe("Emit JSON output."),
+	showJson: z.boolean().optional().describe("Emit JSON output."),
 });
 
 type CheckRequest = z.output<typeof checkRequestSchema>;
@@ -43,7 +44,7 @@ export interface CliDeps {
 	npmPublishGateway?: NpmPublishGateway;
 	stdout?: (text: string) => void;
 	stderr?: (text: string) => void;
-	stdin?: () => Promise<string>;
+	stdin?: () => Promise<string | null>;
 }
 
 interface PackagechkCliContext {
@@ -56,7 +57,7 @@ interface PackagechkCliContext {
 export function buildCli(): ClinkrGroup<PackagechkCliContext> {
 	const root = new ClinkrGroup<PackagechkCliContext>({
 		name: "packagechk",
-		description: `Check whether a package name is available to claim.\n\nDefault check path: packagechk NAME [--registry ${REGISTRY_USAGE}] [--json].`,
+		description: `Check whether a package name is available to claim.\n\nDefault check path: packagechk NAME [--registry ${REGISTRY_USAGE}] [--show-json].`,
 		version: VERSION,
 		runtimeInfo,
 	});
@@ -68,34 +69,36 @@ export function buildCli(): ClinkrGroup<PackagechkCliContext> {
 		run: runCheck,
 	});
 
-	root.command({
-		name: "claim-pypi",
-		description: "Claim a PyPI package name by publishing a minimal placeholder package.",
-		schema: claimRequestSchema,
-		positionals: { name: { position: 0 } },
-		isRawExit: true,
-		run: async (ctx, request) =>
-			runClaimCommand({
-				request,
-				policy: buildPypiClaimPolicy(ctx),
-				io: ctx.io,
-			}),
-	});
+	root.command(
+		rawCommand({
+			name: "claim-pypi",
+			description: "Claim a PyPI package name by publishing a minimal placeholder package.",
+			schema: claimRequestSchema,
+			positionals: { name: { position: 0 } },
+			run: async (ctx, request) =>
+				runClaimCommand({
+					request,
+					policy: buildPypiClaimPolicy(ctx),
+					io: ctx.io,
+				}),
+		}),
+	);
 
-	root.command({
-		name: "claim-npm",
-		description:
-			"Claim an npm package name by publishing a minimal placeholder package. Requires `~/.npmrc` with a `_authToken` line (granular token with publish + bypass-2FA scopes) or equivalent auth picked up by `npm publish`.",
-		schema: claimRequestSchema,
-		positionals: { name: { position: 0 } },
-		isRawExit: true,
-		run: async (ctx, request) =>
-			runClaimCommand({
-				request,
-				policy: buildNpmClaimPolicy(ctx),
-				io: ctx.io,
-			}),
-	});
+	root.command(
+		rawCommand({
+			name: "claim-npm",
+			description:
+				"Claim an npm package name by publishing a minimal placeholder package. Requires `~/.npmrc` with a `_authToken` line (granular token with publish + bypass-2FA scopes) or equivalent auth picked up by `npm publish`.",
+			schema: claimRequestSchema,
+			positionals: { name: { position: 0 } },
+			run: async (ctx, request) =>
+				runClaimCommand({
+					request,
+					policy: buildNpmClaimPolicy(ctx),
+					io: ctx.io,
+				}),
+		}),
+	);
 
 	return root;
 }
@@ -105,7 +108,7 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 	const io: PackagechkIo = {
 		stdout: clinkrIo.stdout,
 		stderr: clinkrIo.stderr,
-		stdin: deps.stdin ?? (async () => (await readStdinLine()) ?? ""),
+		stdin: deps.stdin ?? readStdinLine,
 	};
 	const context: PackagechkCliContext = {
 		registryGateway: deps.registryGateway ?? new RealPackageRegistryGateway(),
@@ -128,7 +131,7 @@ async function runCheck(ctx: PackagechkCliContext, request: CheckRequest): Promi
 		registryGateway: ctx.registryGateway,
 	});
 	const exitCode = reportExitCode(report);
-	if (request.json === true) {
+	if (request.showJson === true) {
 		ctx.io.stdout(`${renderJson(report)}\n`);
 	} else if (exitCode === 2) {
 		ctx.io.stderr(`${renderHuman(report)}\n`);
