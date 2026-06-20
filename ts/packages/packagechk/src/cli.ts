@@ -1,15 +1,8 @@
 #!/usr/bin/env node
 
-import process from "node:process";
-
-import {
-	ClinkrGroup,
-	resolveClinkrInteraction,
-	resolveIo,
-	type ClinkrInteraction,
-} from "@sdl/clinkr";
+import { ClinkrGroup, resolveClinkrInteraction, type ClinkrInteraction } from "@sdl/clinkr";
 import { rawCommand } from "@sdl/clinkr/raw";
-import { isDirectCliInvocation } from "@sdl/core/cli-entry";
+import { defineCli } from "@sdl/core/cli-entry";
 import { readStdinLine } from "@sdl/core/stdin";
 import { z } from "zod";
 
@@ -31,9 +24,70 @@ import {
 } from "./publish-gateways.ts";
 import { RealPackageRegistryGateway, type PackageRegistryGateway } from "./registry-gateways.ts";
 
-export const VERSION = "0.1.0";
-
 const REGISTRY_USAGE = REGISTRIES.join("|");
+
+const entry = defineCli<PackagechkCliContext, CliDeps, undefined>({
+	metaUrl: import.meta.url,
+	runtime: "typescript",
+	description: `Check whether a package name is available to claim.\n\nDefault check path: packagechk NAME [--registry ${REGISTRY_USAGE}] [--show-json].`,
+	prepareRun: ({ deps, io }) => {
+		const context: PackagechkCliContext = {
+			registryGateway: deps.registryGateway ?? new RealPackageRegistryGateway(),
+			pypiPublishGateway: deps.pypiPublishGateway ?? new RealPypiPublishGateway(),
+			npmPublishGateway: deps.npmPublishGateway ?? new RealNpmPublishGateway(),
+			io,
+			interaction: resolveClinkrInteraction({
+				interaction: deps.interaction,
+				stdin: deps.stdin ?? readStdinLine,
+				stderr: io.stderr,
+			}),
+		};
+		return { type: "run", context, buildState: undefined, io };
+	},
+	configureCli: ({ root }) => {
+		root.defaultCommand({
+			schema: checkRequestSchema,
+			positionals: { name: { position: 0 } },
+			isRawExit: true,
+			run: runCheck,
+		});
+
+		root.command(
+			rawCommand({
+				name: "claim-pypi",
+				description: "Claim a PyPI package name by publishing a minimal placeholder package.",
+				schema: claimRequestSchema,
+				positionals: { name: { position: 0 } },
+				run: async (ctx, request) =>
+					runClaimCommand({
+						request,
+						policy: buildPypiClaimPolicy(ctx),
+						io: ctx.io,
+						interaction: ctx.interaction,
+					}),
+			}),
+		);
+
+		root.command(
+			rawCommand({
+				name: "claim-npm",
+				description:
+					"Claim an npm package name by publishing a minimal placeholder package. Requires `~/.npmrc` with a `_authToken` line (granular token with publish + bypass-2FA scopes) or equivalent auth picked up by `npm publish`.",
+				schema: claimRequestSchema,
+				positionals: { name: { position: 0 } },
+				run: async (ctx, request) =>
+					runClaimCommand({
+						request,
+						policy: buildNpmClaimPolicy(ctx),
+						io: ctx.io,
+						interaction: ctx.interaction,
+					}),
+			}),
+		);
+	},
+});
+
+export const VERSION = entry.version;
 
 const checkRequestSchema = z.object({
 	name: z.string().describe("Package name to check."),
@@ -62,71 +116,11 @@ interface PackagechkCliContext {
 }
 
 export function buildCli(): ClinkrGroup<PackagechkCliContext> {
-	const root = new ClinkrGroup<PackagechkCliContext>({
-		name: "packagechk",
-		description: `Check whether a package name is available to claim.\n\nDefault check path: packagechk NAME [--registry ${REGISTRY_USAGE}] [--show-json].`,
-		version: VERSION,
-		runtimeInfo,
-	});
-
-	root.defaultCommand({
-		schema: checkRequestSchema,
-		positionals: { name: { position: 0 } },
-		isRawExit: true,
-		run: runCheck,
-	});
-
-	root.command(
-		rawCommand({
-			name: "claim-pypi",
-			description: "Claim a PyPI package name by publishing a minimal placeholder package.",
-			schema: claimRequestSchema,
-			positionals: { name: { position: 0 } },
-			run: async (ctx, request) =>
-				runClaimCommand({
-					request,
-					policy: buildPypiClaimPolicy(ctx),
-					io: ctx.io,
-					interaction: ctx.interaction,
-				}),
-		}),
-	);
-
-	root.command(
-		rawCommand({
-			name: "claim-npm",
-			description:
-				"Claim an npm package name by publishing a minimal placeholder package. Requires `~/.npmrc` with a `_authToken` line (granular token with publish + bypass-2FA scopes) or equivalent auth picked up by `npm publish`.",
-			schema: claimRequestSchema,
-			positionals: { name: { position: 0 } },
-			run: async (ctx, request) =>
-				runClaimCommand({
-					request,
-					policy: buildNpmClaimPolicy(ctx),
-					io: ctx.io,
-					interaction: ctx.interaction,
-				}),
-		}),
-	);
-
-	return root;
+	return entry.buildCli(undefined);
 }
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
-	const clinkrIo = resolveIo({ stdout: deps.stdout, stderr: deps.stderr });
-	const io: PackagechkIo = clinkrIo;
-	const context: PackagechkCliContext = {
-		registryGateway: deps.registryGateway ?? new RealPackageRegistryGateway(),
-		pypiPublishGateway: deps.pypiPublishGateway ?? new RealPypiPublishGateway(),
-		npmPublishGateway: deps.npmPublishGateway ?? new RealNpmPublishGateway(),
-		io,
-		interaction: resolveClinkrInteraction({
-			interaction: deps.interaction,
-			stdin: deps.stdin ?? readStdinLine,
-			stderr: clinkrIo.stderr,
-		}),
-	};
-	return await buildCli().run(args, { context, io: clinkrIo });
+	return await entry.run(args, deps);
 }
 
 async function runCheck(ctx: PackagechkCliContext, request: CheckRequest): Promise<number> {
@@ -164,10 +158,4 @@ function isRegistry(value: string): value is Registry {
 	return REGISTRIES.includes(value as Registry);
 }
 
-function runtimeInfo(): string {
-	return "runtime: typescript\nentry_point: @sdl/packagechk bin packagechk -> ts/packages/packagechk/src/cli.ts\n";
-}
-
-if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {
-	process.exitCode = await runCli(process.argv.slice(2));
-}
+await entry.runIfMain({ isImportMetaMain: import.meta.main });

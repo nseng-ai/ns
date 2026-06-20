@@ -1,14 +1,7 @@
 #!/usr/bin/env node
 
-import process from "node:process";
-
-import {
-	ClinkrGroup,
-	resolveClinkrInteraction,
-	resolveIo,
-	type ClinkrInteraction,
-} from "@sdl/clinkr";
-import { isDirectCliInvocation } from "@sdl/core/cli-entry";
+import { ClinkrGroup, resolveClinkrInteraction, type ClinkrInteraction } from "@sdl/clinkr";
+import { defineCli } from "@sdl/core/cli-entry";
 import { readStdinLine } from "@sdl/core/stdin";
 
 import { createRealHandoffContext, type HandoffCliContext } from "./context.ts";
@@ -26,8 +19,6 @@ import {
 	renderListMarkdown,
 	runList,
 } from "./operations/list.ts";
-
-export const VERSION = "0.1.0";
 
 interface CliIoDeps {
 	stdout?: ((text: string) => void) | undefined;
@@ -51,70 +42,68 @@ interface CliRealDeps extends CliIoDeps {
 
 export type CliDeps = CliContextDeps | CliRealDeps;
 
+const entry = defineCli<HandoffCliContext, CliDeps, undefined>({
+	metaUrl: import.meta.url,
+	runtime: "typescript",
+	description: "Work with directed handoff artifacts.",
+	prepareRun: ({ deps, cwd, env, io }) => {
+		const baseContext = deps.context ?? createContextFromDeps({ cwd, env });
+		const context: HandoffCliContext = {
+			...baseContext,
+			interaction: resolveClinkrInteraction({
+				interaction: deps.interaction,
+				stdin: deps.stdin ?? readStdinLine,
+				stderr: io.stderr,
+			}),
+			stderr: io.stderr,
+		};
+		return { type: "run", context, buildState: undefined };
+	},
+	configureCli: ({ root }) => {
+		root.command({
+			name: "list",
+			description:
+				"List handoffs. Defaults to the current branch. Pass --all to list across active branches or --include-deleted to include deleted local branches.",
+			schema: listRequestSchema,
+			resultSchema: listResultSchema,
+			handler: runList,
+			renderHuman: renderList,
+			renderMarkdown: renderListMarkdown,
+		});
+		root.command({
+			name: "delete",
+			description: "Delete one handoff by exact slug.",
+			schema: deleteRequestSchema,
+			positionals: { slug: { position: 0 } },
+			options: { force: { short: "-f" } },
+			resultSchema: deleteResultSchema,
+			handler: runDelete,
+			renderHuman: renderDelete,
+		});
+		root.command({
+			name: "gc",
+			description: "Delete handoffs whose local branch no longer exists.",
+			schema: gcRequestSchema,
+			options: { force: { short: "-f" } },
+			resultSchema: gcResultSchema,
+			handler: runGc,
+			renderHuman: renderGc,
+		});
+	},
+});
+
 export function buildCli(): ClinkrGroup<HandoffCliContext> {
-	const root = new ClinkrGroup<HandoffCliContext>({
-		name: "handoff",
-		description: "Work with directed handoff artifacts.",
-		version: VERSION,
-		runtimeInfo,
-	});
-	root.command({
-		name: "list",
-		description:
-			"List handoffs. Defaults to the current branch. Pass --all to list across active branches or --include-deleted to include deleted local branches.",
-		schema: listRequestSchema,
-		resultSchema: listResultSchema,
-		handler: runList,
-		renderHuman: renderList,
-		renderMarkdown: renderListMarkdown,
-	});
-	root.command({
-		name: "delete",
-		description: "Delete one handoff by exact slug.",
-		schema: deleteRequestSchema,
-		positionals: { slug: { position: 0 } },
-		options: { force: { short: "-f" } },
-		resultSchema: deleteResultSchema,
-		handler: runDelete,
-		renderHuman: renderDelete,
-	});
-	root.command({
-		name: "gc",
-		description: "Delete handoffs whose local branch no longer exists.",
-		schema: gcRequestSchema,
-		options: { force: { short: "-f" } },
-		resultSchema: gcResultSchema,
-		handler: runGc,
-		renderHuman: renderGc,
-	});
-	return root;
+	return entry.buildCli(undefined);
 }
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
-	const io = resolveIo({ stdout: deps.stdout, stderr: deps.stderr });
-	const baseContext = deps.context === undefined ? createContextFromDeps(deps) : deps.context;
-	const context: HandoffCliContext = {
-		...baseContext,
-		interaction: resolveClinkrInteraction({
-			interaction: deps.interaction,
-			stdin: deps.stdin ?? readStdinLine,
-			stderr: io.stderr,
-		}),
-		stderr: io.stderr,
-	};
-	return await buildCli().run(args, { context, io });
+	return await entry.run(args, deps);
 }
 
-function createContextFromDeps(deps: CliRealDeps): HandoffCliContext {
-	const cwd = deps.cwd ?? process.cwd();
-	const env = deps.env ?? process.env;
-	return createRealHandoffContext({ cwd, env });
+export const VERSION = entry.version;
+
+function createContextFromDeps(deps: Pick<CliRealDeps, "cwd" | "env">): HandoffCliContext {
+	return createRealHandoffContext({ cwd: deps.cwd, env: deps.env });
 }
 
-function runtimeInfo(): string {
-	return "runtime: typescript\nentry_point: @sdl/handoff bin handoff -> ts/packages/handoff/src/cli.ts\n";
-}
-
-if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {
-	process.exitCode = await runCli(process.argv.slice(2));
-}
+await entry.runIfMain({ isImportMetaMain: import.meta.main });

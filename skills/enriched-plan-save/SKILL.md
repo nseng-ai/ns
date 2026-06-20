@@ -86,8 +86,9 @@ The saved-plan slug is a local filename locator, not necessarily the later branc
 3. Derive `<saved-plan-slug>` from the plan content: kebab-case, 3-7 specific
    words, no dates/random IDs/generic-only names.
 4. Pipe the plan to `enriched-plan exec save --stdin --format json`.
-5. Report `file_path`, `slug`, `repo_key`, `source_branch`, `branch_key`, and
-   optional `summary`. Stop after saving.
+5. Parse the standard Clinkr JSON envelope and report `data.file_path`,
+   `data.slug`, `data.repo_key`, `data.source_branch`, `data.branch_key`, and
+   optional `data.summary`. Stop after saving.
 
 ## Recovery
 

@@ -187,7 +187,11 @@ async function writePlanFile(
 }
 
 function jsonFailure(message: string): string {
-	return `${JSON.stringify({ success: false, error: { code: "plans_error", message } })}\n`;
+	return `${JSON.stringify({ exit_code: 2, error_type: "plans_error", message }, null, 2)}\n`;
+}
+
+function jsonSuccess(data: Record<string, unknown>): string {
+	return `${JSON.stringify({ exit_code: 0, data }, null, 2)}\n`;
 }
 
 function parseJson(run: CliRun): Record<string, unknown> {
@@ -293,7 +297,7 @@ describe("plans list CLI pins", () => {
 		const run = await runWithFakes(["list", "--format=json"]);
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toBe(`${JSON.stringify({ success: true, plans: [] })}\n`);
+		expect(run.stdout.join("")).toBe(jsonSuccess({ plans: [] }));
 		expect(run.stderr.join("")).toBe("");
 		// PINNED CLINKR SEMANTICS: commander accepts --flag=value syntax.
 	});
@@ -319,8 +323,7 @@ describe("plans list CLI pins", () => {
 
 		expect(await json.exit).toBe(0);
 		expect(json.stdout.join("")).toBe(
-			`${JSON.stringify({
-				success: true,
+			jsonSuccess({
 				plans: [
 					{
 						slug: "first-useful-saved-plan",
@@ -336,7 +339,7 @@ describe("plans list CLI pins", () => {
 						},
 					},
 				],
-			})}\n`,
+			}),
 		);
 
 		const human = await runWithFakes(["list", "--plan-store-root", fixture.planStoreRoot], {
@@ -372,22 +375,24 @@ describe("plans list CLI pins", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJson(run)).toEqual({
-			success: true,
-			plans: [
-				{
-					slug: "relative-root-plan-file",
-					branch_key: fixture.branchKey,
-					modified_time_ms: MODIFIED_TIME_MS,
-					path: filePath,
-					file_name: "relative-root-plan-file.md",
-					repo: {
-						root: fixture.repoRoot,
-						key: fixture.repoKey,
-						identity_source: "origin-url",
-						plan_store_path: join(absoluteRoot, fixture.repoKey),
+			exit_code: 0,
+			data: {
+				plans: [
+					{
+						slug: "relative-root-plan-file",
+						branch_key: fixture.branchKey,
+						modified_time_ms: MODIFIED_TIME_MS,
+						path: filePath,
+						file_name: "relative-root-plan-file.md",
+						repo: {
+							root: fixture.repoRoot,
+							key: fixture.repoKey,
+							identity_source: "origin-url",
+							plan_store_path: join(absoluteRoot, fixture.repoKey),
+						},
 					},
-				},
-			],
+				],
+			},
 		});
 	});
 });
@@ -501,8 +506,7 @@ describe("plans exec save pins", () => {
 
 		expect(await json.exit).toBe(0);
 		expect(json.stdout.join("")).toBe(
-			`${JSON.stringify({
-				success: true,
+			jsonSuccess({
 				slug,
 				file_path: expectedPath,
 				repo_root: fixture.repoRoot,
@@ -511,7 +515,7 @@ describe("plans exec save pins", () => {
 				source_branch: SOURCE_BRANCH,
 				branch_key: fixture.branchKey,
 				summary: "Save it",
-			})}\n`,
+			}),
 		);
 		expect(await readFile(expectedPath, "utf8")).toBe("# Plan\n\nDo it.\n");
 
@@ -526,7 +530,7 @@ describe("plans exec save pins", () => {
 			},
 		);
 		expect(await noSummary.exit).toBe(0);
-		expect(parseJson(noSummary)).not.toHaveProperty("summary");
+		expect(parseJson(noSummary)).toMatchObject({ exit_code: 0, data: {} });
 
 		const humanFixture = await makeFixture();
 		const humanPath = join(
@@ -583,7 +587,8 @@ describe("plans exec save pins", () => {
 			},
 		);
 		expect(await run.exit).toBe(0);
-		expect(await readFile(String(parseJson(run).file_path), "utf8")).toBe("# From file\n");
+		const data = parseJson(run).data as Record<string, unknown>;
+		expect(await readFile(String(data.file_path), "utf8")).toBe("# From file\n");
 
 		const missingHuman = await runWithFakes(
 			[
@@ -622,10 +627,10 @@ describe("plans exec save pins", () => {
 		);
 		expect(await missingJson.exit).toBe(2);
 		expect(parseJson(missingJson)).toMatchObject({
-			success: false,
-			error: { code: "plans_error" },
+			exit_code: 2,
+			error_type: "plans_error",
+			message: expect.stringContaining("ENOENT"),
 		});
-		expect(JSON.stringify(parseJson(missingJson))).toContain("ENOENT");
 	});
 });
 
@@ -705,7 +710,7 @@ describe("plans exec resolve pins", () => {
 		});
 		expect(await explicitJson.exit).toBe(0);
 		expect(explicitJson.stdout.join("")).toBe(
-			`${JSON.stringify({ success: true, source: "explicit", file_path: realExplicit })}\n`,
+			jsonSuccess({ source: "explicit", file_path: realExplicit }),
 		);
 
 		const explicitHuman = await runWithFakes(["exec", "resolve", explicitPlan], {
@@ -723,9 +728,11 @@ describe("plans exec resolve pins", () => {
 		});
 		expect(await atPath.exit).toBe(0);
 		expect(parseJson(atPath)).toEqual({
-			success: true,
-			source: "explicit",
-			file_path: realExplicit,
+			exit_code: 0,
+			data: {
+				source: "explicit",
+				file_path: realExplicit,
+			},
 		});
 
 		const homeDir = await makeHomeTempDir();
@@ -738,9 +745,11 @@ describe("plans exec resolve pins", () => {
 		});
 		expect(await homePath.exit).toBe(0);
 		expect(parseJson(homePath)).toEqual({
-			success: true,
-			source: "explicit",
-			file_path: await realpath(homePlan),
+			exit_code: 0,
+			data: {
+				source: "explicit",
+				file_path: await realpath(homePlan),
+			},
 		});
 	});
 
@@ -756,8 +765,7 @@ describe("plans exec resolve pins", () => {
 
 		expect(await json.exit).toBe(0);
 		expect(json.stdout.join("")).toBe(
-			`${JSON.stringify({
-				success: true,
+			jsonSuccess({
 				source: "latest",
 				file_path: newer,
 				slug: "newer-saved-plan-file",
@@ -769,7 +777,7 @@ describe("plans exec resolve pins", () => {
 				source_branch: SOURCE_BRANCH,
 				branch_key: fixture.branchKey,
 				directory_path: join(fixture.planStoreRoot, fixture.repoKey, fixture.branchKey),
-			})}\n`,
+			}),
 		);
 
 		const human = await runWithFakes(["exec", "resolve"], {

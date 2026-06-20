@@ -2,16 +2,15 @@
 
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import process from "node:process";
 
-import { ClinkrGroup, resolveIo } from "@sdl/clinkr";
-import { legacyCommand, type LegacyPayload } from "@sdl/clinkr/legacy";
+import { ClinkrGroup, failure, ok, type ClinkrExit } from "@sdl/clinkr";
+import { defineCli } from "@sdl/core/cli-entry";
+import { NodeCommandExecApi, type CommandExecApi } from "@sdl/core/exec";
+import { RealGitGateway, type GitGateway } from "@sdl/core/git";
+import { formatErrorMessage } from "@sdl/core/primitives";
+import { readStdin } from "@sdl/core/stdin";
 import { z } from "zod";
 
-import { isDirectCliInvocation } from "@sdl/core/cli-entry";
-import { NodeCommandExecApi, type CommandExecApi } from "@sdl/core/exec";
-import { readStdin } from "@sdl/core/stdin";
-import { RealGitGateway, type GitGateway } from "@sdl/core/git";
 import {
 	normalizePlanFilePath,
 	resolvePlanSourceFile,
@@ -27,7 +26,6 @@ import {
 	type SavedPlanListItem,
 } from "./saved-plan-file.ts";
 
-const VERSION = "0.1.0";
 const PLANS_ERROR_TYPE = "plans_error";
 
 const listRequestSchema = z.object({
@@ -61,6 +59,10 @@ type LatestResolvePlanEvidence = LatestSavedPlanFileEvidence & { source: "latest
 
 type ResolvePlanEvidence = ExplicitResolvePlanEvidence | LatestResolvePlanEvidence;
 
+type SavedPlanListData = { plans: ReturnType<typeof savedPlanListItemJson>[] };
+type SavedPlanFileData = ReturnType<typeof savedPlanFileJson>;
+type ResolvePlanData = ReturnType<typeof resolvePlanJson>;
+
 export interface CliDeps {
 	commands?: CommandExecApi | undefined;
 	git?: GitGateway | undefined;
@@ -79,116 +81,130 @@ export interface PlansCliContext {
 	planStoreRoot?: string;
 }
 
-export function buildCli(): ClinkrGroup<PlansCliContext> {
-	const root = new ClinkrGroup<PlansCliContext>({
-		name: "enriched-plan",
-		description: "Enriched-plan operations. An enriched plan is any plan saved into sdl.",
-		version: VERSION,
-		runtimeInfo,
-	});
-
-	root.command(
-		legacyCommand({
+const entry = defineCli<PlansCliContext, CliDeps, undefined>({
+	metaUrl: import.meta.url,
+	runtime: "typescript",
+	description: "Enriched-plan operations. An enriched plan is any plan saved into sdl.",
+	prepareRun: ({ deps, cwd }) => {
+		const commands = deps.commands ?? new NodeCommandExecApi();
+		const context: PlansCliContext = {
+			commands,
+			git: deps.git ?? new RealGitGateway(commands),
+			cwd,
+			stdin: deps.stdin ?? readStdin,
+			...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }),
+		};
+		return { type: "run", context, buildState: undefined };
+	},
+	configureCli: ({ root }) => {
+		root.command({
 			name: "list",
 			description: "List saved plans for the current repository across all branch keys.",
 			schema: listRequestSchema,
-			errorType: PLANS_ERROR_TYPE,
-			run: handleList,
-		}),
-	);
+			handler: handleList,
+			renderHuman: formatSavedPlanListData,
+		});
 
-	const execGroup = new ClinkrGroup<PlansCliContext>({
-		name: "exec",
-		description: "Run hidden deterministic saved-plan operations for agents.",
-		isHidden: true,
-	});
-	execGroup.command(
-		legacyCommand({
+		const execGroup = new ClinkrGroup<PlansCliContext>({
+			name: "exec",
+			description: "Run hidden deterministic saved-plan operations for agents.",
+			isHidden: true,
+		});
+		execGroup.command({
 			name: "save",
 			description: "Save a source-branch plan file in the local store.",
 			schema: saveRequestSchema,
-			errorType: PLANS_ERROR_TYPE,
-			run: handleSave,
-		}),
-	);
-	execGroup.command(
-		legacyCommand({
+			handler: handleSave,
+			renderHuman: renderSavedPlanFileData,
+		});
+		execGroup.command({
 			name: "resolve",
 			description: "Resolve an explicit or latest source-branch plan file.",
 			schema: resolveRequestSchema,
 			positionals: { path: { position: 0 } },
-			errorType: PLANS_ERROR_TYPE,
-			run: handleResolve,
-		}),
-	);
-	root.group(execGroup);
+			handler: handleResolve,
+			renderHuman: renderResolvePlanData,
+		});
+		root.group(execGroup);
+	},
+});
 
-	return root;
+export const VERSION = entry.version;
+
+export function buildCli(): ClinkrGroup<PlansCliContext> {
+	return entry.buildCli(undefined);
 }
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
-	const commands = deps.commands ?? new NodeCommandExecApi();
-	const context: PlansCliContext = {
-		commands,
-		git: deps.git ?? new RealGitGateway(commands),
-		cwd: deps.cwd ?? process.cwd(),
-		stdin: deps.stdin ?? readStdin,
-		...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }),
-	};
-	const io = resolveIo({ stdout: deps.stdout, stderr: deps.stderr });
-	return buildCli().run(args, { context, io });
+	return await entry.run(args, deps);
 }
 
-async function handleList(ctx: PlansCliContext, request: ListRequest): Promise<LegacyPayload> {
-	const cliPlanStoreRoot =
-		request.planStoreRoot === undefined
-			? undefined
-			: normalizeRootPath(request.planStoreRoot, ctx.cwd);
-	const planStoreRoot = cliPlanStoreRoot ?? ctx.planStoreRoot;
-	const plans = await listSavedPlans(ctx.commands, {
-		cwd: ctx.cwd,
-		git: ctx.git,
-		...(planStoreRoot === undefined ? {} : { planStoreRoot }),
-	});
-	return {
-		machine: { plans: plans.map(savedPlanListItemJson) },
-		human: stripOneTrailingNewline(formatSavedPlanList(plans)),
-	};
-}
-
-async function handleSave(ctx: PlansCliContext, request: SaveRequest): Promise<LegacyPayload> {
-	const slugError = validatePlanSlug(request.slug);
-	if (slugError !== undefined) throw new Error(`Invalid saved plan slug: ${slugError}`);
-	if (Boolean(request.stdin) === (request.contentFile !== undefined)) {
-		throw new Error("Pass exactly one of --stdin or --content-file <path>.");
-	}
-
-	const content =
-		request.stdin === true
-			? await ctx.stdin()
-			: await readFile(normalizePlanFilePath(request.contentFile as string), "utf8");
-	const evidence = await writeSavedPlanFile(
-		ctx.commands,
-		{
-			slug: request.slug,
-			content,
-			...(request.summary === undefined ? {} : { summary: request.summary }),
-		},
-		{
+async function handleList(
+	ctx: PlansCliContext,
+	request: ListRequest,
+): Promise<ClinkrExit<SavedPlanListData>> {
+	return await runPlansCommand(async () => {
+		const cliPlanStoreRoot =
+			request.planStoreRoot === undefined
+				? undefined
+				: normalizeRootPath(request.planStoreRoot, ctx.cwd);
+		const planStoreRoot = cliPlanStoreRoot ?? ctx.planStoreRoot;
+		const plans = await listSavedPlans(ctx.commands, {
 			cwd: ctx.cwd,
 			git: ctx.git,
-			...(ctx.planStoreRoot === undefined ? {} : { planStoreRoot: ctx.planStoreRoot }),
-		},
-	);
-	return { machine: savedPlanFileJson(evidence), human: formatSavedPlanFileEvidence(evidence) };
+			...(planStoreRoot === undefined ? {} : { planStoreRoot }),
+		});
+		return { plans: plans.map(savedPlanListItemJson) };
+	});
+}
+
+async function handleSave(
+	ctx: PlansCliContext,
+	request: SaveRequest,
+): Promise<ClinkrExit<SavedPlanFileData>> {
+	return await runPlansCommand(async () => {
+		const slugError = validatePlanSlug(request.slug);
+		if (slugError !== undefined) throw new Error(`Invalid saved plan slug: ${slugError}`);
+		if (Boolean(request.stdin) === (request.contentFile !== undefined)) {
+			throw new Error("Pass exactly one of --stdin or --content-file <path>.");
+		}
+
+		const content =
+			request.stdin === true
+				? await ctx.stdin()
+				: await readFile(normalizePlanFilePath(request.contentFile as string), "utf8");
+		const evidence = await writeSavedPlanFile(
+			ctx.commands,
+			{
+				slug: request.slug,
+				content,
+				...(request.summary === undefined ? {} : { summary: request.summary }),
+			},
+			{
+				cwd: ctx.cwd,
+				git: ctx.git,
+				...(ctx.planStoreRoot === undefined ? {} : { planStoreRoot: ctx.planStoreRoot }),
+			},
+		);
+		return savedPlanFileJson(evidence);
+	});
 }
 
 async function handleResolve(
 	ctx: PlansCliContext,
 	request: ResolveRequest,
-): Promise<LegacyPayload> {
-	const evidence = await resolvePlanEvidence(request, ctx);
-	return { machine: resolvePlanJson(evidence), human: formatResolvePlanEvidence(evidence) };
+): Promise<ClinkrExit<ResolvePlanData>> {
+	return await runPlansCommand(async () =>
+		resolvePlanJson(await resolvePlanEvidence(request, ctx)),
+	);
+}
+
+async function runPlansCommand<T>(operation: () => Promise<T>): Promise<ClinkrExit<T>> {
+	try {
+		return ok(await operation());
+	} catch (error) {
+		return failure(PLANS_ERROR_TYPE, formatErrorMessage(error));
+	}
 }
 
 function normalizeRootPath(rawPath: string, cwd: string): string {
@@ -216,26 +232,68 @@ async function resolvePlanEvidence(
 	return { source: "latest", ...latest };
 }
 
-function formatSavedPlanList(plans: readonly SavedPlanListItem[]): string {
-	if (plans.length === 0) {
-		return "No saved plans found for the current repository.\n";
+function formatSavedPlanListData(data: SavedPlanListData): string {
+	if (data.plans.length === 0) {
+		return "No saved plans found for the current repository.";
 	}
 
 	const lines = ["Saved plans:"];
-	for (const plan of plans) {
+	for (const plan of data.plans) {
 		lines.push(
 			[
 				`- ${plan.slug}`,
-				`  Branch key: ${plan.branchKey}`,
-				`  Modified: ${new Date(plan.modifiedTimeMs).toISOString()}`,
-				`  Path: ${plan.filePath}`,
+				`  Branch key: ${plan.branch_key}`,
+				`  Modified: ${new Date(plan.modified_time_ms).toISOString()}`,
+				`  Path: ${plan.path}`,
 			].join("\n"),
 		);
 	}
-	return `${lines.join("\n")}\n`;
+	return lines.join("\n");
 }
 
-function savedPlanListItemJson(plan: SavedPlanListItem): Record<string, unknown> {
+function renderSavedPlanFileData(data: SavedPlanFileData): string {
+	return formatSavedPlanFileEvidence({
+		slug: data.slug,
+		filePath: data.file_path,
+		repoRoot: data.repo_root,
+		repoKey: data.repo_key,
+		repoIdentitySource: data.repo_identity_source,
+		sourceBranch: data.source_branch,
+		branchKey: data.branch_key,
+		...(data.summary === undefined ? {} : { summary: data.summary }),
+	});
+}
+
+function renderResolvePlanData(data: ResolvePlanData): string {
+	if (data.source === "explicit") {
+		return [`Resolved explicit plan file.`, `Path: ${data.file_path}`].join("\n");
+	}
+	return [
+		"Resolved latest saved plan file in local plan store.",
+		`Path: ${data.file_path}`,
+		`Repo key: ${data.repo_key}`,
+		`Repo root: ${data.repo_root}`,
+		`Repo identity source: ${data.repo_identity_source}`,
+		`Source branch: ${data.source_branch}`,
+		`Branch path segment: ${data.branch_key}`,
+		`Slug: ${data.slug}`,
+		`Modified time ms: ${data.modified_time_ms}`,
+	].join("\n");
+}
+
+function savedPlanListItemJson(plan: SavedPlanListItem): {
+	slug: string;
+	branch_key: string;
+	modified_time_ms: number;
+	path: string;
+	file_name: string;
+	repo: {
+		root: string;
+		key: string;
+		identity_source: string;
+		plan_store_path: string;
+	};
+} {
 	return {
 		slug: plan.slug,
 		branch_key: plan.branchKey,
@@ -251,7 +309,16 @@ function savedPlanListItemJson(plan: SavedPlanListItem): Record<string, unknown>
 	};
 }
 
-function savedPlanFileJson(evidence: SavedPlanFileEvidence): Record<string, unknown> {
+function savedPlanFileJson(evidence: SavedPlanFileEvidence): {
+	slug: string;
+	file_path: string;
+	repo_root: string;
+	repo_key: string;
+	repo_identity_source: SavedPlanFileEvidence["repoIdentitySource"];
+	source_branch: string;
+	branch_key: string;
+	summary?: string;
+} {
 	return {
 		slug: evidence.slug,
 		file_path: evidence.filePath,
@@ -264,7 +331,24 @@ function savedPlanFileJson(evidence: SavedPlanFileEvidence): Record<string, unkn
 	};
 }
 
-function resolvePlanJson(evidence: ResolvePlanEvidence): Record<string, unknown> {
+function resolvePlanJson(evidence: ResolvePlanEvidence):
+	| {
+			source: "explicit";
+			file_path: string;
+	  }
+	| {
+			source: "latest";
+			file_path: string;
+			slug: string;
+			file_name: string;
+			modified_time_ms: number;
+			repo_root: string;
+			repo_key: string;
+			repo_identity_source: LatestSavedPlanFileEvidence["repoIdentitySource"];
+			source_branch: string;
+			branch_key: string;
+			directory_path: string;
+	  } {
 	switch (evidence.source) {
 		case "explicit":
 			return {
@@ -288,36 +372,4 @@ function resolvePlanJson(evidence: ResolvePlanEvidence): Record<string, unknown>
 	}
 }
 
-function formatResolvePlanEvidence(evidence: ResolvePlanEvidence): string {
-	if (evidence.source === "explicit") {
-		return [`Resolved explicit plan file.`, `Path: ${evidence.filePath}`].join("\n");
-	}
-	return formatLatestSavedPlanFileEvidence(evidence);
-}
-
-function formatLatestSavedPlanFileEvidence(evidence: LatestSavedPlanFileEvidence): string {
-	return [
-		"Resolved latest saved plan file in local plan store.",
-		`Path: ${evidence.filePath}`,
-		`Repo key: ${evidence.repoKey}`,
-		`Repo root: ${evidence.repoRoot}`,
-		`Repo identity source: ${evidence.repoIdentitySource}`,
-		`Source branch: ${evidence.sourceBranch}`,
-		`Branch path segment: ${evidence.branchKey}`,
-		`Slug: ${evidence.slug}`,
-		`Modified time ms: ${evidence.modifiedTimeMs}`,
-	].join("\n");
-}
-
-function stripOneTrailingNewline(value: string): string {
-	return value.endsWith("\n") ? value.slice(0, -1) : value;
-}
-
-function runtimeInfo(): string {
-	return "runtime: typescript\nentry_point: @sdl/plans bin enriched-plan -> ts/packages/plans/src/cli.ts\n";
-}
-
-if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {
-	const exitCode = await runCli(process.argv.slice(2));
-	process.exitCode = exitCode;
-}
+await entry.runIfMain({ isImportMetaMain: import.meta.main });

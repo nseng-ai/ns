@@ -1,16 +1,12 @@
 #!/usr/bin/env node
 
-import process from "node:process";
-
-import { ClinkrGroup, resolveIo } from "@sdl/clinkr";
-import { isDirectCliInvocation } from "@sdl/core/cli-entry";
+import { ClinkrGroup } from "@sdl/clinkr";
+import { defineCli } from "@sdl/core/cli-entry";
 import { readStdin } from "@sdl/core/stdin";
 
 import { createRealPrAddressContext, type PrAddressContext } from "./context.ts";
 import { EXEC_OPERATIONS } from "./exec-commands.ts";
 import type { ExecOperation, PrAddressExecContext } from "./exec-operation.ts";
-
-const VERSION = "0.1.0";
 
 export interface CliDeps {
 	context?: PrAddressContext | undefined;
@@ -22,45 +18,40 @@ export interface CliDeps {
 	stderr?: ((text: string) => void) | undefined;
 }
 
+const entry = defineCli<PrAddressExecContext, CliDeps, readonly ExecOperation[]>({
+	metaUrl: import.meta.url,
+	runtime: "typescript",
+	description: "PR review address operations.",
+	prepareRun: ({ deps, cwd, env }) => {
+		const operations = deps.operations ?? EXEC_OPERATIONS;
+		const context = deps.context ?? createRealPrAddressContext();
+		const execContext: PrAddressExecContext = {
+			context,
+			cwd: deps.cwd ?? cwd,
+			env: deps.env ?? env,
+			stdin: deps.stdin ?? readStdin,
+		};
+		return { type: "run", context: execContext, buildState: operations };
+	},
+	configureCli: ({ root, buildState: operations }) => {
+		const execGroup = new ClinkrGroup<PrAddressExecContext>({
+			name: "exec",
+			description: "Operations for the pr-address skill.",
+			isHidden: true,
+		});
+		for (const operation of operations) operation.addTo(execGroup);
+		root.group(execGroup);
+	},
+});
+
 export function buildCli(
 	operations: readonly ExecOperation[] = EXEC_OPERATIONS,
 ): ClinkrGroup<PrAddressExecContext> {
-	const root = new ClinkrGroup<PrAddressExecContext>({
-		name: "pr-address",
-		description: "PR review address operations.",
-		version: VERSION,
-		runtimeInfo,
-	});
-	const execGroup = new ClinkrGroup<PrAddressExecContext>({
-		name: "exec",
-		description: "Operations for the pr-address skill.",
-		isHidden: true,
-	});
-	for (const operation of operations) operation.addTo(execGroup);
-	root.group(execGroup);
-	return root;
+	return entry.buildCli(operations);
 }
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
-	const io = resolveIo({ stdout: deps.stdout, stderr: deps.stderr });
-	const operations = deps.operations ?? EXEC_OPERATIONS;
-	const context = deps.context ?? createRealPrAddressContext();
-	const cwd = deps.cwd ?? process.cwd();
-	const env = deps.env ?? process.env;
-
-	const execContext: PrAddressExecContext = {
-		context,
-		cwd,
-		env,
-		stdin: deps.stdin ?? readStdin,
-	};
-	return await buildCli(operations).run(args, { context: execContext, io });
+	return await entry.run(args, deps);
 }
 
-function runtimeInfo(): string {
-	return "runtime: typescript\nentry_point: @sdl/pr-address bin pr-address -> ts/packages/pr-address/src/cli.ts\n";
-}
-
-if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {
-	process.exitCode = await runCli(process.argv.slice(2));
-}
+await entry.runIfMain({ isImportMetaMain: import.meta.main });

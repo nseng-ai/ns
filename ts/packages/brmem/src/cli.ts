@@ -1,9 +1,7 @@
 #!/usr/bin/env node
 
-import process from "node:process";
-
-import { ClinkrGroup, resolveIo } from "@sdl/clinkr";
-import { isDirectCliInvocation } from "@sdl/core/cli-entry";
+import { ClinkrGroup } from "@sdl/clinkr";
+import { defineCli } from "@sdl/core/cli-entry";
 
 import { createRealBrmemContext, type BrmemCliContext } from "./context.ts";
 import type { BrmemSourceReader } from "./source-reader.ts";
@@ -42,7 +40,111 @@ import {
 	setupGitResultSchema,
 } from "./operations/setup-git.ts";
 
-export const VERSION = "0.1.0";
+const entry = defineCli<BrmemCliContext, CliDeps, undefined>({
+	metaUrl: import.meta.url,
+	runtime: "typescript",
+	description: "Manage Branch Memory Entries stored in git refs.",
+	prepareRun: ({ deps, cwd, env }) => {
+		const context = deps.context ?? createRealBrmemContext({ cwd, env });
+		const runContext: BrmemCliContext = {
+			...context,
+			cwd,
+			env: deps.env ?? context.env,
+			stdin: deps.stdin ?? context.stdin,
+			sourceReader: deps.sourceReader ?? context.sourceReader,
+		};
+		return { type: "run", context: runContext, buildState: undefined };
+	},
+	configureCli: ({ root }) => {
+		root.command({
+			name: "put",
+			description: "Write content to a Branch Memory Entry.",
+			schema: putRequestSchema,
+			positionals: { key: { position: 0 } },
+			options: { force: { short: "-f" } },
+			resultSchema: putResultSchema,
+			handler: runPut,
+			renderHuman: renderPut,
+		});
+		root.command({
+			name: "get",
+			description: "Read content from a Branch Memory Entry.",
+			schema: getRequestSchema,
+			positionals: { key: { position: 0 } },
+			resultSchema: getResultSchema,
+			handler: runGet,
+			renderHuman: renderGet,
+		});
+		root.command({
+			name: "delete",
+			description: "Delete a Branch Memory Entry.",
+			schema: deleteRequestSchema,
+			positionals: { key: { position: 0 } },
+			resultSchema: deleteResultSchema,
+			handler: runDelete,
+			renderHuman: renderDelete,
+		});
+		root.command({
+			name: "list",
+			description:
+				"List Branch Memory Entries. Defaults to the current branch; pass --branch to override or --all-branches to include every branch.",
+			schema: listRequestSchema,
+			resultSchema: listResultSchema,
+			handler: runList,
+			renderHuman: renderList,
+		});
+		root.command({
+			name: "check",
+			description: "Check whether a Branch Memory Entry exists.",
+			schema: checkRequestSchema,
+			positionals: { key: { position: 0 } },
+			resultSchema: checkResultSchema,
+			handler: runCheck,
+			renderHuman: renderCheck,
+		});
+		root.command({
+			name: "copy",
+			description: "Copy Branch Memory Entries between branches.",
+			schema: copyRequestSchema,
+			resultSchema: copyResultSchema,
+			handler: runCopy,
+			renderHuman: renderCopy,
+		});
+		root.command({
+			name: "export",
+			description: "Export Branch Memory Entries to files.",
+			schema: exportRequestSchema,
+			resultSchema: exportResultSchema,
+			handler: runExport,
+			renderHuman: renderExport,
+		});
+		root.command({
+			name: "setup-git",
+			description: "Configure Git push/fetch refspecs for Branch Memory Snapshot Refs.",
+			schema: setupGitRequestSchema,
+			resultSchema: setupGitResultSchema,
+			handler: runSetupGit,
+			renderHuman: renderSetupGit,
+		});
+		const execGroup = new ClinkrGroup<BrmemCliContext>({
+			name: "exec",
+			description: "Commands for use by skills (not interactive users).",
+			isHidden: true,
+		});
+		execGroup.command({
+			name: "resolve-prompt",
+			description: "Resolve a Branch Memory prompt path.",
+			schema: resolvePromptRequestSchema,
+			positionals: { name: { position: 0 } },
+			resultSchema: resolvePromptResultSchema,
+			handler: runResolvePrompt,
+			renderHuman: renderResolvePrompt,
+		});
+		root.group(execGroup);
+	},
+});
+
+export const VERSION = entry.version;
 
 export interface CliDeps {
 	context?: BrmemCliContext | undefined;
@@ -55,119 +157,11 @@ export interface CliDeps {
 }
 
 export function buildCli(): ClinkrGroup<BrmemCliContext> {
-	const root = new ClinkrGroup<BrmemCliContext>({
-		name: "brmem",
-		description: "Manage Branch Memory Entries stored in git refs.",
-		version: VERSION,
-		runtimeInfo,
-	});
-	root.command({
-		name: "put",
-		description: "Write content to a Branch Memory Entry.",
-		schema: putRequestSchema,
-		positionals: { key: { position: 0 } },
-		options: { force: { short: "-f" } },
-		resultSchema: putResultSchema,
-		handler: runPut,
-		renderHuman: renderPut,
-	});
-	root.command({
-		name: "get",
-		description: "Read content from a Branch Memory Entry.",
-		schema: getRequestSchema,
-		positionals: { key: { position: 0 } },
-		resultSchema: getResultSchema,
-		handler: runGet,
-		renderHuman: renderGet,
-	});
-	root.command({
-		name: "delete",
-		description: "Delete a Branch Memory Entry.",
-		schema: deleteRequestSchema,
-		positionals: { key: { position: 0 } },
-		resultSchema: deleteResultSchema,
-		handler: runDelete,
-		renderHuman: renderDelete,
-	});
-	root.command({
-		name: "list",
-		description:
-			"List Branch Memory Entries. Defaults to the current branch; pass --branch to override or --all-branches to include every branch.",
-		schema: listRequestSchema,
-		resultSchema: listResultSchema,
-		handler: runList,
-		renderHuman: renderList,
-	});
-	root.command({
-		name: "check",
-		description: "Check whether a Branch Memory Entry exists.",
-		schema: checkRequestSchema,
-		positionals: { key: { position: 0 } },
-		resultSchema: checkResultSchema,
-		handler: runCheck,
-		renderHuman: renderCheck,
-	});
-	root.command({
-		name: "copy",
-		description: "Copy Branch Memory Entries between branches.",
-		schema: copyRequestSchema,
-		resultSchema: copyResultSchema,
-		handler: runCopy,
-		renderHuman: renderCopy,
-	});
-	root.command({
-		name: "export",
-		description: "Export Branch Memory Entries to files.",
-		schema: exportRequestSchema,
-		resultSchema: exportResultSchema,
-		handler: runExport,
-		renderHuman: renderExport,
-	});
-	root.command({
-		name: "setup-git",
-		description: "Configure Git push/fetch refspecs for Branch Memory Snapshot Refs.",
-		schema: setupGitRequestSchema,
-		resultSchema: setupGitResultSchema,
-		handler: runSetupGit,
-		renderHuman: renderSetupGit,
-	});
-	const execGroup = new ClinkrGroup<BrmemCliContext>({
-		name: "exec",
-		description: "Commands for use by skills (not interactive users).",
-		isHidden: true,
-	});
-	execGroup.command({
-		name: "resolve-prompt",
-		description: "Resolve a Branch Memory prompt path.",
-		schema: resolvePromptRequestSchema,
-		positionals: { name: { position: 0 } },
-		resultSchema: resolvePromptResultSchema,
-		handler: runResolvePrompt,
-		renderHuman: renderResolvePrompt,
-	});
-	root.group(execGroup);
-	return root;
+	return entry.buildCli(undefined);
 }
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
-	const io = resolveIo({ stdout: deps.stdout, stderr: deps.stderr });
-	const cwd = deps.cwd ?? process.cwd();
-	const env = deps.env ?? process.env;
-	const context = deps.context ?? createRealBrmemContext({ cwd, env });
-	const runContext: BrmemCliContext = {
-		...context,
-		cwd,
-		env: deps.env ?? context.env,
-		stdin: deps.stdin ?? context.stdin,
-		sourceReader: deps.sourceReader ?? context.sourceReader,
-	};
-	return await buildCli().run(args, { context: runContext, io });
+	return await entry.run(args, deps);
 }
 
-function runtimeInfo(): string {
-	return "runtime: typescript\nentry_point: @sdl/brmem bin brmem -> ts/packages/brmem/src/cli.ts\n";
-}
-
-if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {
-	process.exitCode = await runCli(process.argv.slice(2));
-}
+await entry.runIfMain({ isImportMetaMain: import.meta.main });

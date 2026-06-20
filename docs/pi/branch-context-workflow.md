@@ -38,6 +38,8 @@ CLI/agent workflows save with:
 enriched-plan exec save --slug <saved-plan-slug> [--summary <text>] --stdin|--content-file <path> [--format json]
 ```
 
+Machine JSON uses the standard Clinkr envelope: successful payload fields are under `data` (for example `data.file_path`, `data.slug`, and `data.source_branch`), and failures use `exit_code: 2`, `error_type`, and `message`.
+
 Saved plans are written to:
 
 ```text
@@ -119,7 +121,7 @@ branch-context exec load [<key>] [--prompt-file <path>] [--format json]
 
 By default, load auto-selects only when the current branch has exactly one branch-context entry. If multiple entries exist, pass an explicit key. An explicit key is treated as an exact Branch Memory key selector rather than a fuzzy slug search. Legacy `plan.md` entries remain readable when explicitly requested or when they are the only entry.
 
-Agent workflows that need the full implementation prompt should pass `--prompt-file <path>` and then read the returned `implementation_prompt_file` from disk. Avoid `--include-content` and `--include-prompt` in normal agent operation because they can print large plan bodies to stdout.
+Agent workflows that need the full implementation prompt should pass `--prompt-file <path>` and then read the returned `data.implementation_prompt_file` from the standard Clinkr JSON envelope. Avoid `--include-content` and `--include-prompt` in normal agent operation because they can print large plan bodies to stdout.
 
 ## Branch-context plan contract trial rollback
 

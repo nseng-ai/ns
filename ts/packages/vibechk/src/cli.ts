@@ -1,10 +1,8 @@
 #!/usr/bin/env node
 
-import process from "node:process";
-
-import { ClinkrGroup, ok, resolveIo, type RenderCapabilities } from "@sdl/clinkr";
+import { ClinkrGroup, ok, type RenderCapabilities } from "@sdl/clinkr";
 import { rawCommand } from "@sdl/clinkr/raw";
-import { isDirectCliInvocation } from "@sdl/core/cli-entry";
+import { defineCli } from "@sdl/core/cli-entry";
 import { z } from "zod";
 
 import type { LoadedBundle } from "./models.ts";
@@ -20,8 +18,6 @@ import { RealVibechkGitGateway } from "./git.ts";
 import { buildProductionRunnerRegistry, type RunnerRegistry } from "./runners.ts";
 import { generateRunId } from "./ids.ts";
 import { executeRun } from "./workflow.ts";
-
-export const VERSION = "0.1.0";
 
 export interface CliDeps {
 	cwd?: string | undefined;
@@ -71,55 +67,88 @@ const runRequestSchema = z.object({
 	store: z.string().optional(),
 });
 
+const entry = defineCli<VibechkCliContext, CliDeps, undefined>({
+	metaUrl: import.meta.url,
+	runtime: "typescript",
+	description: "Run lightweight agent context evals and publish Markdown evidence.",
+	prepareRun: ({ args, deps, cwd, env, stdout, stderr }) => {
+		const runnerRegistry = deps.runnerRegistry ?? buildProductionRunnerRegistry();
+		const gitGatewayFactory =
+			deps.gitGatewayFactory ?? ((workdir: string) => new RealVibechkGitGateway(workdir));
+		const clock = deps.clock ?? (() => new Date());
+		const idGenerator = deps.idGenerator ?? generateRunId;
+		const defaultRunnerName = deps.defaultRunnerName ?? "claude";
+		const context: VibechkCliContext = {
+			cwd,
+			env,
+			runnerRegistry,
+			gitGatewayFactory,
+			clock,
+			idGenerator,
+			defaultRunnerName,
+			stdout: deps.stdout ?? stdout,
+			stderr: deps.stderr ?? stderr,
+		};
+		return {
+			type: "run",
+			context,
+			buildState: undefined,
+			args: normalizeRunsFormatArgs(args),
+		};
+	},
+	configureCli: ({ root }) => {
+		root.command({
+			name: "runs",
+			description: "List local vibechk run bundles from the configured store.",
+			schema: runsRequestSchema,
+			handler: runRuns,
+			renderHuman: renderRuns,
+		});
+
+		root.command({
+			name: "show",
+			description: "Render a Markdown report for a single run.",
+			schema: showRequestSchema,
+			positionals: {
+				idOrPrefix: { position: 0 },
+			},
+			handler: runShow,
+			renderHuman: renderShow,
+		});
+
+		root.command({
+			name: "diff",
+			description: "Render a Markdown comparison report for two runs.",
+			schema: diffRequestSchema,
+			positionals: {
+				baselineId: { position: 0 },
+				treatmentId: { position: 1 },
+			},
+			handler: runDiff,
+			renderHuman: renderDiff,
+		});
+
+		root.command(
+			rawCommand({
+				name: "run",
+				description: "Run a plan in a clean git workdir and persist a local run bundle.",
+				schema: runRequestSchema,
+				run: runRun,
+			}),
+		);
+	},
+	handleRunError: ({ error, stderr }) => {
+		if (error instanceof VibechkError) {
+			stderr(`Error: ${error.message}\n`);
+			return 1;
+		}
+	},
+});
+
+export const VERSION = entry.version;
+
 export function buildCli(): ClinkrGroup<VibechkCliContext> {
-	const root = new ClinkrGroup<VibechkCliContext>({
-		name: "vibechk",
-		description: "Run lightweight agent context evals and publish Markdown evidence.",
-		version: VERSION,
-		runtimeInfo,
-	});
-
-	root.command({
-		name: "runs",
-		description: "List local vibechk run bundles from the configured store.",
-		schema: runsRequestSchema,
-		handler: runRuns,
-		renderHuman: renderRuns,
-	});
-
-	root.command({
-		name: "show",
-		description: "Render a Markdown report for a single run.",
-		schema: showRequestSchema,
-		positionals: {
-			idOrPrefix: { position: 0 },
-		},
-		handler: runShow,
-		renderHuman: renderShow,
-	});
-
-	root.command({
-		name: "diff",
-		description: "Render a Markdown comparison report for two runs.",
-		schema: diffRequestSchema,
-		positionals: {
-			baselineId: { position: 0 },
-			treatmentId: { position: 1 },
-		},
-		handler: runDiff,
-		renderHuman: renderDiff,
-	});
-
-	root.command(
-		rawCommand({
-			name: "run",
-			description: "Run a plan in a clean git workdir and persist a local run bundle.",
-			schema: runRequestSchema,
-			run: runRun,
-		}),
-	);
-
-	return root;
+	return entry.buildCli(undefined);
 }
 
 type RunsRequest = z.infer<typeof runsRequestSchema>;
@@ -212,37 +241,7 @@ async function runRun(ctx: VibechkCliContext, request: RunRequest): Promise<numb
 }
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
-	const io = resolveIo({ stdout: deps.stdout, stderr: deps.stderr });
-	const cwd = deps.cwd ?? process.cwd();
-	const env = deps.env ?? process.env;
-	const runnerRegistry = deps.runnerRegistry ?? buildProductionRunnerRegistry();
-	const gitGatewayFactory =
-		deps.gitGatewayFactory ?? ((workdir: string) => new RealVibechkGitGateway(workdir));
-	const clock = deps.clock ?? (() => new Date());
-	const idGenerator = deps.idGenerator ?? generateRunId;
-	const defaultRunnerName = deps.defaultRunnerName ?? "claude";
-
-	const context: VibechkCliContext = {
-		cwd,
-		env,
-		runnerRegistry,
-		gitGatewayFactory,
-		clock,
-		idGenerator,
-		defaultRunnerName,
-		stdout: io.stdout,
-		stderr: io.stderr,
-	};
-
-	try {
-		return await buildCli().run(normalizeRunsFormatArgs(args), { context, io });
-	} catch (error: unknown) {
-		if (error instanceof VibechkError) {
-			io.stderr(`Error: ${error.message}\n`);
-			return 1;
-		}
-		throw error;
-	}
+	return await entry.run(args, deps);
 }
 
 function normalizeRunsFormatArgs(args: readonly string[]): readonly string[] {
@@ -264,10 +263,4 @@ function normalizeRunsFormatArgs(args: readonly string[]): readonly string[] {
 	return normalized;
 }
 
-function runtimeInfo(): string {
-	return "runtime: typescript\nentry_point: @sdl/vibechk bin vibechk -> ts/packages/vibechk/src/cli.ts\n";
-}
-
-if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {
-	process.exitCode = await runCli(process.argv.slice(2));
-}
+await entry.runIfMain({ isImportMetaMain: import.meta.main });

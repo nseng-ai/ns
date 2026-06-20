@@ -78,8 +78,9 @@ is confirmed dead — otherwise you are doing expensive work a cheap tool would 
 
   If you are currently on the branch, `branch-context exec load [key]
   --prompt-file <path> --format json` is the higher-level loader for bounded
-  stdout; read the returned `implementation_prompt_file`. Treat an attached plan
-  as authored intent, not incidental notes.
+  stdout; read the returned `data.implementation_prompt_file` from the standard
+  Clinkr JSON envelope. Treat an attached plan as authored intent, not incidental
+  notes.
 - **The PR for each source branch** (`gh pr view <n>`). The PR title and body are
   usually the cleanest statement of intent after any attached branch-context plan
   — read them *before* the diffs.

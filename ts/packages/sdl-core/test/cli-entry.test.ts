@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { ClinkrGroup } from "@sdl/clinkr";
+import { ClinkrGroup, ok, resolveIo } from "@sdl/clinkr";
 import { rawCommand } from "@sdl/clinkr/raw";
 import { defineCli, isDirectCliInvocation, type CliPrepareRunInput } from "@sdl/core/cli-entry";
 import { afterEach, describe, expect, test } from "vitest";
@@ -144,6 +144,99 @@ describe("defineCli", () => {
 		expect(prepareInput?.metadata.packageName).toBe("@sdl/example");
 		expect(prepareInput?.io.canEmitAnsi).toBe(false);
 		expect(buildInputVersion).toBe("1.2.3");
+	});
+
+	test("allows prepareRun to override Clinkr args and IO", async () => {
+		const root = makePackage({
+			name: "@sdl/example",
+			version: "1.2.3",
+			bin: { example: "./src/cli.ts" },
+		});
+		const defaultStdoutText: string[] = [];
+		const overrideStdoutText: string[] = [];
+		let prepareArgs: readonly string[] = [];
+		const cli = defineCli<TestContext, TestDeps, undefined>({
+			metaUrl: packageMetaUrl(root),
+			runtime: "typescript",
+			description: "Example CLI.",
+			prepareRun: ({ args }) => {
+				prepareArgs = args;
+				return {
+					type: "run",
+					args: ["go"],
+					io: resolveIo({ stdout: (text) => overrideStdoutText.push(text) }),
+					context: { value: "prepared", stdout: (text) => defaultStdoutText.push(text) },
+					buildState: undefined,
+				};
+			},
+			buildCli: ({ name, description, version, runtimeInfo }) => {
+				const group = new ClinkrGroup<TestContext>({ name, description, version, runtimeInfo });
+				group.command({
+					name: "go",
+					description: "Run test command.",
+					schema: z.object({}),
+					handler: async (ctx) => {
+						ctx.stdout(`${ctx.value}:context`);
+						return ok("rendered");
+					},
+					renderHuman: (data) => data,
+				});
+				return group;
+			},
+		});
+		const exitCode = await cli.run(["alias"], {
+			stdout: (text) => defaultStdoutText.push(text),
+		});
+		expect(exitCode).toBe(0);
+		expect(prepareArgs).toEqual(["alias"]);
+		expect(defaultStdoutText).toEqual(["prepared:context"]);
+		expect(overrideStdoutText).toEqual(["rendered\n"]);
+	});
+
+	test("lets handleRunError normalize handled errors", async () => {
+		const root = makePackage({
+			name: "@sdl/example",
+			version: "1.2.3",
+			bin: { example: "./src/cli.ts" },
+		});
+		const stderrText: string[] = [];
+		const cli = defineCli<TestContext, TestDeps, undefined>({
+			metaUrl: packageMetaUrl(root),
+			runtime: "typescript",
+			description: "Example CLI.",
+			prepareRun: () => {
+				throw new Error("expected failure");
+			},
+			handleRunError: ({ error, stderr }) => {
+				if (!(error instanceof Error)) return undefined;
+				stderr(`handled: ${error.message}\n`);
+				return 9;
+			},
+			buildCli: ({ name, description, version, runtimeInfo }) =>
+				new ClinkrGroup<TestContext>({ name, description, version, runtimeInfo }),
+		});
+		await expect(cli.run([], { stderr: (text) => stderrText.push(text) })).resolves.toBe(9);
+		expect(stderrText).toEqual(["handled: expected failure\n"]);
+	});
+
+	test("rethrows errors that handleRunError declines", async () => {
+		const root = makePackage({
+			name: "@sdl/example",
+			version: "1.2.3",
+			bin: { example: "./src/cli.ts" },
+		});
+		const cli = defineCli<TestContext, TestDeps, undefined>({
+			metaUrl: packageMetaUrl(root),
+			runtime: "typescript",
+			description: "Example CLI.",
+			prepareRun: () => {
+				throw new Error("unhandled failure");
+			},
+			handleRunError: () => undefined,
+			buildCli: ({ name, description, version, runtimeInfo }) =>
+				new ClinkrGroup<TestContext>({ name, description, version, runtimeInfo }),
+		});
+		await expect(cli.run([])).rejects.toThrow("unhandled failure");
 	});
 
 	test("returns handled prepare result without building Clinkr", async () => {

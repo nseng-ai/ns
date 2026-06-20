@@ -1,9 +1,7 @@
 #!/usr/bin/env node
 
-import process from "node:process";
-
-import { ClinkrGroup, resolveIo } from "@sdl/clinkr";
-import { isDirectCliInvocation } from "@sdl/core/cli-entry";
+import { ClinkrGroup } from "@sdl/clinkr";
+import { defineCli } from "@sdl/core/cli-entry";
 
 import { createRealAretroContext, type AretroCliContext } from "./context.ts";
 import {
@@ -19,7 +17,49 @@ import {
 	runReadEvidenceDetail,
 } from "./operations/read-evidence-detail.ts";
 
-export const VERSION = "0.1.0";
+const entry = defineCli<AretroCliContext, CliDeps, undefined>({
+	metaUrl: import.meta.url,
+	runtime: "typescript",
+	description: "Branch session retrospective evidence operations.",
+	prepareRun: ({ deps, cwd, env }) => {
+		const context = deps.context ?? createRealAretroContext({ cwd, env });
+		const runContext: AretroCliContext = {
+			...context,
+			cwd,
+			env: deps.env ?? context.env,
+		};
+		return { type: "run", context: runContext, buildState: undefined };
+	},
+	configureCli: ({ root }) => {
+		const execGroup = new ClinkrGroup<AretroCliContext>({
+			name: "exec",
+			description: "Commands for use by skills (not interactive users).",
+			isHidden: true,
+		});
+
+		execGroup.command({
+			name: "collect-evidence",
+			description: "Collect compact session evidence for a branch retrospective.",
+			schema: collectEvidenceRequestSchema,
+			resultSchema: collectEvidenceResultSchema,
+			handler: runCollectEvidence,
+			renderHuman: renderCollectEvidence,
+		});
+
+		execGroup.command({
+			name: "read-evidence-detail",
+			description: "Read evidence detail from a payload pointer.",
+			schema: readEvidenceDetailRequestSchema,
+			resultSchema: readEvidenceDetailResultSchema,
+			handler: runReadEvidenceDetail,
+			renderHuman: renderReadEvidenceDetail,
+		});
+
+		root.group(execGroup);
+	},
+});
+
+export const VERSION = entry.version;
 
 export interface CliDeps {
 	context?: AretroCliContext | undefined;
@@ -30,59 +70,11 @@ export interface CliDeps {
 }
 
 export function buildCli(): ClinkrGroup<AretroCliContext> {
-	const root = new ClinkrGroup<AretroCliContext>({
-		name: "aretro",
-		description: "Branch session retrospective evidence operations.",
-		version: VERSION,
-		runtimeInfo,
-	});
-
-	const execGroup = new ClinkrGroup<AretroCliContext>({
-		name: "exec",
-		description: "Commands for use by skills (not interactive users).",
-		isHidden: true,
-	});
-
-	execGroup.command({
-		name: "collect-evidence",
-		description: "Collect compact session evidence for a branch retrospective.",
-		schema: collectEvidenceRequestSchema,
-		resultSchema: collectEvidenceResultSchema,
-		handler: runCollectEvidence,
-		renderHuman: renderCollectEvidence,
-	});
-
-	execGroup.command({
-		name: "read-evidence-detail",
-		description: "Read evidence detail from a payload pointer.",
-		schema: readEvidenceDetailRequestSchema,
-		resultSchema: readEvidenceDetailResultSchema,
-		handler: runReadEvidenceDetail,
-		renderHuman: renderReadEvidenceDetail,
-	});
-
-	root.group(execGroup);
-
-	return root;
+	return entry.buildCli(undefined);
 }
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
-	const io = resolveIo({ stdout: deps.stdout, stderr: deps.stderr });
-	const cwd = deps.cwd ?? process.cwd();
-	const env = deps.env ?? process.env;
-	const context = deps.context ?? createRealAretroContext({ cwd, env });
-	const runContext: AretroCliContext = {
-		...context,
-		cwd,
-		env: deps.env ?? context.env,
-	};
-	return await buildCli().run(args, { context: runContext, io });
+	return await entry.run(args, deps);
 }
 
-function runtimeInfo(): string {
-	return "runtime: typescript\nentry_point: @sdl/aretro bin aretro -> ts/packages/aretro/src/cli.ts\n";
-}
-
-if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {
-	process.exitCode = await runCli(process.argv.slice(2));
-}
+await entry.runIfMain({ isImportMetaMain: import.meta.main });
