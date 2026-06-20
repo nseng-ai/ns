@@ -1,6 +1,6 @@
 ---
 name: objective-next
-description: "Recommend the next useful work for an active Objective. Use when asking what to do next on an existing Objective: 'what's next on this objective', 'recommend next work', 'next step for objective X'. Read-only and advisory — to record progress or tracking changes use objective-update; to bring a brand-new Objective into existence use objective-create."
+description: "Recommend the next useful work for an active Objective. Use when asking what to do next on an existing Objective: 'what's next on this objective', 'recommend next work', 'next step for objective X'. Recommend-first and read-only by default; may route to confirmed objective-update for stale tracking or confirmed execution when durable Objective policy allows it. To create a new Objective use objective-create."
 ---
 
 # objective-next

@@ -64,9 +64,10 @@
   "All skills OK"; every disclosed pointer resolves. Edit the real `skills/` source only
   (never a symlinked copy).
   **Remaining value-adjusted sequence** (after the `objective-refresh` rewrite):
-  `objective-update`, then `objective-create` (high-reach objective family; risk 3 now
-  accepted after the gate passed on `objective-stack-impl`, `handoff-create`, and
-  `objective-refresh`) → ccc / niche skills last, only if cheap.
+  Objective-family alignment slice, then `objective-update`, then `objective-create`
+  (high-reach objective family; risk 3 now accepted after the gate passed on
+  `objective-stack-impl`, `handoff-create`, and `objective-refresh`) → ccc / niche
+  skills last, only if cheap.
   **`branch-context-impl` dropped off** (was the tentative "next"): 36 lines, lift 1 /
   risk 4 — its only disclosable block is a 6-trigger STOP safety contract, so disclosing
   it is net-negative and a rewrite most likely softens the contract. Leave as-is.
