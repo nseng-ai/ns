@@ -3,8 +3,10 @@ import process from "node:process";
 import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { ClinkrGroup, resolveIo, type ClinkrIo } from "@sdl/clinkr";
+import { ClinkrGroup, failure, resolveIo, type ClinkrExit, type ClinkrIo } from "@sdl/clinkr";
 import { z } from "zod";
+
+import { formatErrorMessage } from "./primitives.ts";
 
 export type CliRuntime = "typescript" | "bun";
 
@@ -141,6 +143,17 @@ export function isDirectCliInvocation(metaUrl: string, argvPath: string | undefi
 		return modulePath === entryPath;
 	} catch {
 		return false;
+	}
+}
+
+export async function runClinkrCommand<T>(
+	errorType: string,
+	operation: () => Promise<ClinkrExit<T>>,
+): Promise<ClinkrExit<T>> {
+	try {
+		return await operation();
+	} catch (error) {
+		return failure(errorType, formatErrorMessage(error));
 	}
 }
 

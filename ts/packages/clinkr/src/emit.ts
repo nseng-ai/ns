@@ -54,14 +54,17 @@ export function emitExit<T>(exit: ClinkrExit<T>, options: EmitExitOptions<T>): n
 
 function renderOkExit<T>(exit: ClinkrOkExit<T>, options: EmitExitOptions<T>): string {
 	const caps: RenderCapabilities = { canEmitAnsi: options.io.canEmitAnsi === true };
-	if (options.format === "human") {
-		if (exit.human !== undefined) return exit.human;
-		return options.renderHuman === undefined
-			? envelopeJsonText(exit.data)
-			: options.renderHuman(exit.data, caps);
-	}
+	if (options.format === "human") return renderHumanChain(exit, options, caps);
 	if (exit.markdown !== undefined) return exit.markdown;
 	if (options.renderMarkdown !== undefined) return options.renderMarkdown(exit.data, caps);
+	return renderHumanChain(exit, options, caps);
+}
+
+function renderHumanChain<T>(
+	exit: ClinkrOkExit<T>,
+	options: EmitExitOptions<T>,
+	caps: RenderCapabilities,
+): string {
 	if (exit.human !== undefined) return exit.human;
 	return options.renderHuman === undefined
 		? envelopeJsonText(exit.data)

@@ -5,7 +5,12 @@ import { pathToFileURL } from "node:url";
 
 import { ClinkrGroup, ok } from "@sdl/clinkr";
 import { rawCommand } from "@sdl/clinkr/raw";
-import { defineCli, isDirectCliInvocation, type CliPrepareRunInput } from "@sdl/core/cli-entry";
+import {
+	defineCli,
+	isDirectCliInvocation,
+	runClinkrCommand,
+	type CliPrepareRunInput,
+} from "@sdl/core/cli-entry";
 import { afterEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 
@@ -43,6 +48,22 @@ describe("isDirectCliInvocation", () => {
 		expect(isDirectCliInvocation(pathToFileURL(cliPath).href, join(root, "missing.ts"))).toBe(
 			false,
 		);
+	});
+});
+
+describe("runClinkrCommand", () => {
+	test("preserves successful Clinkr exits", async () => {
+		await expect(
+			runClinkrCommand("example_error", async () => ok({ answer: 42 })),
+		).resolves.toEqual({ type: "ok", data: { answer: 42 } });
+	});
+
+	test("converts thrown errors into failure exits", async () => {
+		await expect(
+			runClinkrCommand("example_error", async () => {
+				throw new Error("boom");
+			}),
+		).resolves.toEqual({ type: "failure", errorType: "example_error", message: "boom" });
 	});
 });
 

@@ -3,11 +3,10 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-import { ClinkrGroup, failure, ok, type ClinkrExit } from "@sdl/clinkr";
-import { defineCli } from "@sdl/core/cli-entry";
+import { ClinkrGroup, ok, type ClinkrExit } from "@sdl/clinkr";
+import { defineCli, runClinkrCommand } from "@sdl/core/cli-entry";
 import { NodeCommandExecApi, type CommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@sdl/core/git";
-import { formatErrorMessage } from "@sdl/core/primitives";
 import { readStdin } from "@sdl/core/stdin";
 import { z } from "zod";
 
@@ -59,7 +58,7 @@ type LatestResolvePlanEvidence = LatestSavedPlanFileEvidence & { source: "latest
 
 type ResolvePlanEvidence = ExplicitResolvePlanEvidence | LatestResolvePlanEvidence;
 
-type SavedPlanListData = { plans: ReturnType<typeof savedPlanListItemJson>[] };
+type SavedPlanListData = ReturnType<typeof savedPlanListJson>;
 type SavedPlanFileData = ReturnType<typeof savedPlanFileJson>;
 type ResolvePlanData = ReturnType<typeof resolvePlanJson>;
 
@@ -115,7 +114,6 @@ const entry = defineCli<PlansCliContext, CliDeps, undefined>({
 			description: "Save a source-branch plan file in the local store.",
 			schema: saveRequestSchema,
 			handler: handleSave,
-			renderHuman: renderSavedPlanFileData,
 		});
 		execGroup.command({
 			name: "resolve",
@@ -143,7 +141,7 @@ async function handleList(
 	ctx: PlansCliContext,
 	request: ListRequest,
 ): Promise<ClinkrExit<SavedPlanListData>> {
-	return await runPlansCommand(async () => {
+	return await runClinkrCommand(PLANS_ERROR_TYPE, async () => {
 		const cliPlanStoreRoot =
 			request.planStoreRoot === undefined
 				? undefined
@@ -154,7 +152,7 @@ async function handleList(
 			git: ctx.git,
 			...(planStoreRoot === undefined ? {} : { planStoreRoot }),
 		});
-		return { plans: plans.map(savedPlanListItemJson) };
+		return ok(savedPlanListJson(plans));
 	});
 }
 
@@ -162,7 +160,7 @@ async function handleSave(
 	ctx: PlansCliContext,
 	request: SaveRequest,
 ): Promise<ClinkrExit<SavedPlanFileData>> {
-	return await runPlansCommand(async () => {
+	return await runClinkrCommand(PLANS_ERROR_TYPE, async () => {
 		const slugError = validatePlanSlug(request.slug);
 		if (slugError !== undefined) throw new Error(`Invalid saved plan slug: ${slugError}`);
 		if (Boolean(request.stdin) === (request.contentFile !== undefined)) {
@@ -190,7 +188,7 @@ async function handleSave(
 				...(ctx.planStoreRoot === undefined ? {} : { planStoreRoot: ctx.planStoreRoot }),
 			},
 		);
-		return savedPlanFileJson(evidence);
+		return ok(savedPlanFileJson(evidence), { human: formatSavedPlanFileEvidence(evidence) });
 	});
 }
 
@@ -198,17 +196,9 @@ async function handleResolve(
 	ctx: PlansCliContext,
 	request: ResolveRequest,
 ): Promise<ClinkrExit<ResolvePlanData>> {
-	return await runPlansCommand(async () =>
-		resolvePlanJson(await resolvePlanEvidence(request, ctx)),
+	return await runClinkrCommand(PLANS_ERROR_TYPE, async () =>
+		ok(resolvePlanJson(await resolvePlanEvidence(request, ctx))),
 	);
-}
-
-async function runPlansCommand<T>(operation: () => Promise<T>): Promise<ClinkrExit<T>> {
-	try {
-		return ok(await operation());
-	} catch (error) {
-		return failure(PLANS_ERROR_TYPE, formatErrorMessage(error));
-	}
 }
 
 function normalizeRootPath(rawPath: string, cwd: string): string {
@@ -255,19 +245,6 @@ function formatSavedPlanListData(data: SavedPlanListData): string {
 	return lines.join("\n");
 }
 
-function renderSavedPlanFileData(data: SavedPlanFileData): string {
-	return formatSavedPlanFileEvidence({
-		slug: data.slug,
-		filePath: data.file_path,
-		repoRoot: data.repo_root,
-		repoKey: data.repo_key,
-		repoIdentitySource: data.repo_identity_source,
-		sourceBranch: data.source_branch,
-		branchKey: data.branch_key,
-		...(data.summary === undefined ? {} : { summary: data.summary }),
-	});
-}
-
 function renderResolvePlanData(data: ResolvePlanData): string {
 	if (data.source === "explicit") {
 		return [`Resolved explicit plan file.`, `Path: ${data.file_path}`].join("\n");
@@ -283,6 +260,12 @@ function renderResolvePlanData(data: ResolvePlanData): string {
 		`Slug: ${data.slug}`,
 		`Modified time ms: ${data.modified_time_ms}`,
 	].join("\n");
+}
+
+function savedPlanListJson(plans: readonly SavedPlanListItem[]): {
+	plans: ReturnType<typeof savedPlanListItemJson>[];
+} {
+	return { plans: plans.map(savedPlanListItemJson) };
 }
 
 function savedPlanListItemJson(plan: SavedPlanListItem): {
