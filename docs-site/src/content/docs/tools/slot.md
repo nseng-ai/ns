@@ -11,32 +11,35 @@ place is slowing you down.
 
 ```console
 $ slot init --size 3
-Initialized pool with 3 slot(s) at ~/.slots/repos/myrepo/worktrees
+Initialized pool with 3 slot(s) at $HOME/.local/state/sdl/slots/repos/myrepo/worktrees
   + slot-01
   + slot-02
   + slot-03
 
 $ slot checkout feature-x
 Checked out slot-01 -> feature-x
-cd ~/.slots/repos/myrepo/worktrees/slot-01
+cd $HOME/.local/state/sdl/slots/repos/myrepo/worktrees/slot-01
 
 $ slot list
 Slot     Status     Branch      Worktree
-slot-01  assigned   feature-x   ~/.slots/repos/myrepo/worktrees/slot-01
-slot-02  available              ~/.slots/repos/myrepo/worktrees/slot-02
-slot-03  available              ~/.slots/repos/myrepo/worktrees/slot-03
+slot-01  assigned   feature-x   $HOME/.local/state/sdl/slots/repos/myrepo/worktrees/slot-01
+slot-02  available              $HOME/.local/state/sdl/slots/repos/myrepo/worktrees/slot-02
+slot-03  available              $HOME/.local/state/sdl/slots/repos/myrepo/worktrees/slot-03
 
 $ slot free -n 1
 ✓ Freed slot-01 (feature-x)
-  Worktree kept at ~/.slots/repos/myrepo/worktrees/slot-01; detached HEAD at trunk
+  Worktree kept at $HOME/.local/state/sdl/slots/repos/myrepo/worktrees/slot-01; detached HEAD at trunk
 ```
 
 ## Mental model
 
 A slot is an ordinary Git worktree at
-`~/.slots/repos/<repo>/worktrees/slot-NN/`. `slot init --size N` creates the pool;
-commands then derive assignments from `git worktree list` rather than persisted
-slot metadata.
+`$XDG_STATE_HOME/sdl/slots/repos/<repo>/worktrees/slot-NN/`, defaulting to
+`$HOME/.local/state/sdl/slots/repos/<repo>/worktrees/slot-NN/`. `slot init --size N`
+creates the pool; commands then derive assignments from `git worktree list`
+rather than persisted slot metadata. Set `SLOTS_ROOT=~/.slots` explicitly if you
+want to keep using an existing legacy pool; slot does not move legacy worktrees
+automatically.
 
 - **Slot** — one managed `slot-XX` worktree for the current repository.
 - **Assigned / available** — assigned means a branch is checked out; available
@@ -201,10 +204,14 @@ demand.
 ## Where state lives
 
 ```text
-~/.slots/repos/<repo-name>/worktrees/slot-01/
-~/.slots/repos/<repo-name>/worktrees/slot-02/
+$XDG_STATE_HOME/sdl/slots/repos/<repo-name>/worktrees/slot-01/
+$XDG_STATE_HOME/sdl/slots/repos/<repo-name>/worktrees/slot-02/
 ...
 ```
+
+When `XDG_STATE_HOME` is unset, this defaults to
+`$HOME/.local/state/sdl/slots/...`. `SLOTS_ROOT` can point at an existing legacy
+`~/.slots` pool when needed.
 
 Each `slot-XX` is an ordinary Git worktree of the main repo. Inspect the
 underlying state with `git worktree list` or `slot list` from any managed slot.

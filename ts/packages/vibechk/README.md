@@ -123,9 +123,11 @@ STORE="$PWD/.vibechk-store"
 
 If you omit `--store`, `vibechk` uses:
 
-1. `$VIBECHK_HOME`, when set
-2. `$XDG_STATE_HOME/vibechk`, when set
-3. `~/.local/state/vibechk`
+1. `$VIBECHK_HOME`, when set to an absolute path (or `~/...` after expansion)
+2. `$XDG_STATE_HOME/vibechk`, when set to an absolute path
+3. `$HOME/.local/state/vibechk`
+
+Relative `XDG_STATE_HOME` values are ignored per the XDG spec; relative `VIBECHK_HOME` values are rejected instead of being resolved under the current directory.
 
 ## Run baseline and treatment
 

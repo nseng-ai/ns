@@ -30,6 +30,10 @@ function writeProjectExtension(workspace: Workspace, fileName: string, source: s
 }
 
 function writeGlobalExtension(workspace: Workspace, fileName: string, source: string): void {
+	writeFile(join(workspace.homeDir, ".local", "share", "sdl", "extensions", fileName), source);
+}
+
+function writeLegacyGlobalExtension(workspace: Workspace, fileName: string, source: string): void {
 	writeFile(join(workspace.homeDir, ".sdl", "extensions", fileName), source);
 }
 
@@ -85,6 +89,41 @@ describe("extension registry", () => {
 				"Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.",
 			],
 		]);
+	});
+
+	test("XDG global overrides legacy global and project overrides XDG global", async () => {
+		const workspace = await createWorkspace();
+		writeLegacyGlobalExtension(workspace, "greet.ts", commandEntry("greet", "legacy greet"));
+		writeGlobalExtension(workspace, "greet.ts", commandEntry("greet", "xdg greet"));
+
+		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+
+		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
+		expect(
+			loaded.diagnostics.filter((diagnostic) => diagnostic.code === "extension_command_override"),
+		).toHaveLength(1);
+		const selected = loaded.candidates.get("greet");
+		expect(selected).toBeDefined();
+		if (selected === undefined) return;
+		const command = await loadSelectedSdlCommand(selected);
+		expect(command.ok).toBe(true);
+		if (!command.ok) return;
+		const result = await command.command.run(
+			{
+				cwd: workspace.cwd,
+				env: {},
+				async exec() {
+					return { code: 0, stdout: "", stderr: "", killed: false };
+				},
+				model: {
+					async generateText() {
+						return { ok: true, text: "" };
+					},
+				},
+			},
+			{},
+		);
+		expect(result).toEqual({ ok: true, message: "xdg greet" });
 	});
 
 	test("project overrides global and global overrides built-in without importing candidates", async () => {

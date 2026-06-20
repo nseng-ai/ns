@@ -110,8 +110,11 @@ class ScenarioPromptResolver implements BrmemPromptResolver {
 		return brmemOk(this.repoRootValue);
 	}
 
-	homeRoot(): string {
-		return this.homeRootValue;
+	globalPromptRoots(): readonly string[] {
+		return [
+			`${this.homeRootValue}/.config/sdl/brmem/prompts`,
+			`${this.homeRootValue}/.brmem/prompts`,
+		];
 	}
 
 	async fileExists(path: string): Promise<boolean> {

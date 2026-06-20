@@ -100,7 +100,10 @@ describe("enriched-plan-commands", () => {
 		);
 		expect(pi.sentUserMessages[0]).toContain("write_saved_plan_file");
 		expect(pi.sentUserMessages[0]).toContain(
-			"~/.sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md",
+			"$XDG_STATE_HOME/sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md",
+		);
+		expect(pi.sentUserMessages[0]).toContain(
+			"Legacy ~/.sdl/enriched-plan content remains read-only fallback",
 		);
 		expect(pi.sentUserMessages[0]).toContain("completely fresh downstream implementation session");
 		expect(pi.sentUserMessages[0]).toContain("External research/context contract");

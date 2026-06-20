@@ -1,6 +1,8 @@
 import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import { ensurePrivateDirectory, resolvePathOverride, resolveXdgHome } from "@sdl/core/xdg";
+
 import type { LoadedBundle, RunBundle } from "./models.ts";
 import { encodeRunBundle, parseRunBundle } from "./models.ts";
 
@@ -23,35 +25,25 @@ export function resolveStoreRoot(
 	env: Record<string, string | undefined>,
 ): string {
 	if (explicit !== undefined) {
-		return expandTilde(explicit);
+		return expandExplicitStoreRoot(explicit, env);
 	}
 
-	const vibechkHome = env["VIBECHK_HOME"];
-	if (vibechkHome !== undefined && vibechkHome !== "") {
-		return expandTilde(vibechkHome);
-	}
+	const vibechkHome = resolvePathOverride({ env, name: "VIBECHK_HOME" });
+	if (!vibechkHome.ok) throw new VibechkError(vibechkHome.error.message);
+	if (vibechkHome.value !== undefined) return vibechkHome.value;
 
-	const xdgStateHome = env["XDG_STATE_HOME"];
-	if (xdgStateHome !== undefined && xdgStateHome !== "") {
-		return join(expandTilde(xdgStateHome), "vibechk");
-	}
+	const xdgStateHome = resolveXdgHome("state", env);
+	if (!xdgStateHome.ok) throw new VibechkError(xdgStateHome.error.message);
+	return join(xdgStateHome.value, "vibechk");
+}
 
+function expandExplicitStoreRoot(path: string, env: Record<string, string | undefined>): string {
+	if (!path.startsWith("~/")) return path;
 	const home = env["HOME"];
 	if (home === undefined) {
 		throw new VibechkError("HOME environment variable is not set");
 	}
-	return join(expandTilde(home), ".local", "state", "vibechk");
-}
-
-function expandTilde(path: string): string {
-	if (path.startsWith("~/")) {
-		const home = process.env["HOME"];
-		if (home === undefined) {
-			throw new VibechkError("HOME environment variable is not set");
-		}
-		return join(home, path.slice(2));
-	}
-	return path;
+	return join(home, path.slice(2));
 }
 
 export async function resolveRunId(storeRoot: string, idOrPrefix: string): Promise<string> {
@@ -184,16 +176,16 @@ export async function createRunDir(
 	idGenerator: () => string,
 ): Promise<{ runId: string; runDir: string }> {
 	const runsDir = join(storeRoot, RUNS_DIR_NAME);
-	await mkdir(runsDir, { recursive: true });
+	await ensurePrivateDirectory(runsDir);
 
 	for (let attempt = 0; attempt < 100; attempt++) {
 		const runId = idGenerator().toLowerCase();
 		const runDir = join(runsDir, runId);
 
 		try {
-			await mkdir(runDir, { recursive: false });
+			await mkdir(runDir, { recursive: false, mode: 0o700 });
 			const artifactsDir = join(runDir, ARTIFACTS_DIR_NAME);
-			await mkdir(artifactsDir, { recursive: true });
+			await ensurePrivateDirectory(artifactsDir);
 			return { runId, runDir };
 		} catch (error: unknown) {
 			if (isNodeError(error) && error.code === "EEXIST") {

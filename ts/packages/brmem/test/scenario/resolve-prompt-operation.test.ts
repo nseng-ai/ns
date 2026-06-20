@@ -11,7 +11,11 @@ function projectPrompt(name: string): string {
 	return join(repoRoot, ".brmem", "prompts", `${name}.md`);
 }
 
-function globalPrompt(name: string): string {
+function xdgGlobalPrompt(name: string): string {
+	return join(homeRoot, ".config", "sdl", "brmem", "prompts", `${name}.md`);
+}
+
+function legacyGlobalPrompt(name: string): string {
 	return join(homeRoot, ".brmem", "prompts", `${name}.md`);
 }
 
@@ -30,17 +34,31 @@ describe("brmem exec resolve-prompt", () => {
 		});
 	});
 
-	it("falls back to global prompt", async () => {
+	it("falls back to XDG global prompt", async () => {
 		const run = runScenario(["exec", "resolve-prompt", "foo", "--format", "json"], {
 			repoRoot,
 			homeRoot,
-			promptFiles: [globalPrompt("foo")],
+			promptFiles: [xdgGlobalPrompt("foo")],
 		});
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
 			exit_code: 0,
-			data: { path: globalPrompt("foo"), tier: "global" },
+			data: { path: xdgGlobalPrompt("foo"), tier: "global" },
+		});
+	});
+
+	it("falls back to legacy global prompt after XDG global prompt", async () => {
+		const run = runScenario(["exec", "resolve-prompt", "foo", "--format", "json"], {
+			repoRoot,
+			homeRoot,
+			promptFiles: [legacyGlobalPrompt("foo")],
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toEqual({
+			exit_code: 0,
+			data: { path: legacyGlobalPrompt("foo"), tier: "global" },
 		});
 	});
 
@@ -48,7 +66,7 @@ describe("brmem exec resolve-prompt", () => {
 		const run = runScenario(["exec", "resolve-prompt", "foo", "--format", "json"], {
 			repoRoot,
 			homeRoot,
-			promptFiles: [projectPrompt("foo"), globalPrompt("foo")],
+			promptFiles: [projectPrompt("foo"), xdgGlobalPrompt("foo")],
 		});
 
 		expect(await run.exit).toBe(0);
@@ -72,7 +90,8 @@ describe("brmem exec resolve-prompt", () => {
 		expect(payload.exit_code).toBe(2);
 		expect(payload.error_type).toBe("prompt-not-found");
 		expect(payload.message).toContain(projectPrompt("foo"));
-		expect(payload.message).toContain(globalPrompt("foo"));
+		expect(payload.message).toContain(xdgGlobalPrompt("foo"));
+		expect(payload.message).toContain(legacyGlobalPrompt("foo"));
 		expect(payload.message).toContain("just install-tools");
 	});
 
@@ -81,7 +100,7 @@ describe("brmem exec resolve-prompt", () => {
 			repoRoot,
 			homeRoot,
 			isInGitRepo: false,
-			promptFiles: [globalPrompt("foo")],
+			promptFiles: [xdgGlobalPrompt("foo")],
 		});
 
 		expect(await run.exit).toBe(2);

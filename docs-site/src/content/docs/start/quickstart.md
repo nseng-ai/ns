@@ -25,7 +25,7 @@ TypeScript workspace dependencies.
 slot init --size 3
 ```
 
-`slot` creates ordinary Git worktrees under `~/.slots/repos/<repo>/worktrees/`.
+`slot` creates ordinary Git worktrees under `$XDG_STATE_HOME/sdl/slots/repos/<repo>/worktrees/` (default `$HOME/.local/state/sdl/slots/...`).
 
 ## 3. Put a branch in a slot
 

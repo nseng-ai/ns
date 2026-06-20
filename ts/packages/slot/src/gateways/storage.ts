@@ -1,4 +1,4 @@
-import { mkdir } from "node:fs/promises";
+import { ensurePrivateDirectory } from "@sdl/core/xdg";
 
 export interface SlotStorageGateway {
 	ensureDir(path: string): Promise<void>;
@@ -6,6 +6,6 @@ export interface SlotStorageGateway {
 
 export class RealSlotStorageGateway implements SlotStorageGateway {
 	async ensureDir(path: string): Promise<void> {
-		await mkdir(path, { recursive: true });
+		await ensurePrivateDirectory(path);
 	}
 }

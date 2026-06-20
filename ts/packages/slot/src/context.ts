@@ -1,5 +1,4 @@
-import { homedir } from "node:os";
-import { resolve } from "node:path";
+import { requireSdlStatePath } from "@sdl/core/xdg";
 
 import { resolveClinkrInteraction, type ClinkrInteraction } from "@sdl/clinkr";
 import { readStdinLine } from "@sdl/core/stdin";
@@ -37,7 +36,7 @@ export async function createRealSlotContext(options: {
 	env?: NodeJS.ProcessEnv | undefined;
 }): Promise<SlotCliContext> {
 	const env = options.env ?? process.env;
-	const slotsRoot = env.SLOTS_ROOT ?? resolve(homedir(), ".slots");
+	const slotsRoot = resolveSlotsRoot(env);
 	const git = new RealSlotGitGateway({ cwd: options.cwd, env });
 	const repo = await discoverRepoOrSentinel({ cwd: options.cwd, slotsRoot, git });
 	const stderr = (text: string) => process.stderr.write(text);
@@ -55,4 +54,8 @@ export async function createRealSlotContext(options: {
 		slotsRoot,
 		shouldWriteCdDirective: true,
 	};
+}
+
+export function resolveSlotsRoot(env: Record<string, string | undefined>): string {
+	return requireSdlStatePath({ env, overrideEnvName: "SLOTS_ROOT", segments: ["slots"] });
 }

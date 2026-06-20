@@ -16,11 +16,23 @@ describe("store", () => {
 
 		it("returns VIBECHK_HOME when explicit is undefined", () => {
 			expect(resolveStoreRoot(undefined, { VIBECHK_HOME: "/env/store" })).toBe("/env/store");
+			expect(resolveStoreRoot(undefined, { HOME: "/home/user", VIBECHK_HOME: "~/store" })).toBe(
+				"/home/user/store",
+			);
 		});
 
 		it("returns XDG_STATE_HOME/vibechk when VIBECHK_HOME is not set", () => {
 			expect(resolveStoreRoot(undefined, { XDG_STATE_HOME: "/xdg/state" })).toBe(
 				"/xdg/state/vibechk",
+			);
+		});
+
+		it("ignores relative XDG_STATE_HOME and rejects relative VIBECHK_HOME", () => {
+			expect(resolveStoreRoot(undefined, { HOME: "/home/user", XDG_STATE_HOME: "relative" })).toBe(
+				"/home/user/.local/state/vibechk",
+			);
+			expect(() => resolveStoreRoot(undefined, { VIBECHK_HOME: "relative" })).toThrow(
+				"VIBECHK_HOME must be an absolute path",
 			);
 		});
 

@@ -1,10 +1,9 @@
-import { appendFileSync, mkdirSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { appendFileSync } from "node:fs";
 import process from "node:process";
 
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { formatElapsedMs } from "@sdl/core/time-format";
+import { ensurePrivateParentDirectorySync, requireSdlStatePath } from "@sdl/core/xdg";
 import {
 	emitPiExtensionCommandFinished,
 	type PiExtensionCommandEventEmitter,
@@ -862,13 +861,16 @@ function formatFailedOutput(options: FailedOutputOptions): string {
 }
 
 export function cliCommandTracePath(env: Record<string, string | undefined> = process.env): string {
-	return env[TRACE_PATH_ENV] ?? join(tmpdir(), DEFAULT_TRACE_FILENAME);
+	return requireSdlStatePath({
+		env,
+		overrideEnvName: TRACE_PATH_ENV,
+		segments: ["pi-cli-command-extension", DEFAULT_TRACE_FILENAME],
+	});
 }
 
 function traceCliCommand(event: string, fields: TraceFields = {}): void {
 	if (!isTraceEnabled(process.env)) return;
 
-	const path = cliCommandTracePath(process.env);
 	const record = {
 		timestamp: new Date().toISOString(),
 		pid: process.pid,
@@ -878,7 +880,8 @@ function traceCliCommand(event: string, fields: TraceFields = {}): void {
 	};
 
 	try {
-		mkdirSync(dirname(path), { recursive: true });
+		const path = cliCommandTracePath(process.env);
+		ensurePrivateParentDirectorySync(path);
 		appendFileSync(path, `${JSON.stringify(record)}\n`, "utf8");
 	} catch {
 		// Trace logging is diagnostic only and must never affect command execution.

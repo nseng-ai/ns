@@ -282,6 +282,21 @@ function taggedTheme(): { fg(color: string, text: string): string; bold(text: st
 }
 
 describe("cli command extension helper", () => {
+	test("cli command trace path uses XDG state fallback and normalized explicit overrides", () => {
+		expect(cliCommandTracePath({ HOME: "/home/tester", XDG_STATE_HOME: "/state" })).toBe(
+			"/state/sdl/pi-cli-command-extension/sdl-pi-cli-command-extension.jsonl",
+		);
+		expect(
+			cliCommandTracePath({ HOME: "/home/tester", SDL_PI_CLI_TRACE_PATH: "~/trace.jsonl" }),
+		).toBe("/home/tester/trace.jsonl");
+		expect(() =>
+			cliCommandTracePath({
+				HOME: "/home/tester",
+				SDL_PI_CLI_TRACE_PATH: "relative/trace.jsonl",
+			}),
+		).toThrow("SDL_PI_CLI_TRACE_PATH must be an absolute path");
+	});
+
 	test("registers each command under the configured Pi namespace only", () => {
 		const pi = new FakePi();
 

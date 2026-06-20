@@ -103,9 +103,11 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const liveOutput: Array<{ stream: "stdout" | "stderr"; text: string }> = [];
+	const cwd = options.cwd ?? "/work";
+	const homeDir = options.homeDir ?? join(cwd, ".home");
 	const context = new ScriptedSdlTestContext(options.state, {
 		cwd: options.cwd,
-		env: options.env,
+		env: { HOME: homeDir, ...(options.env ?? {}) },
 		execResponses: defaults.execResponses,
 		textGenerationResults: defaults.textGenerationResults,
 		missingTextGenerationResult: defaults.missingTextGenerationResult,
@@ -118,7 +120,7 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 		exit: runCli(options.args, {
 			context,
 			cwd: context.cwd,
-			homeDir: options.homeDir ?? join(context.cwd, ".home"),
+			homeDir,
 			env: context.env,
 			stdout: (text) => {
 				stdout.push(text);

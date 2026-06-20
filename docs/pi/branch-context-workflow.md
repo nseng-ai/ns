@@ -6,7 +6,7 @@ The branch-context workflow turns a reviewed Saved plan into an implementation b
 
 The workflow has two storage layers:
 
-- **Local plan store**: `~/.sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md`, owned by `@sdl/plans` and the `enriched-plan` CLI.
+- **Local plan store**: `$XDG_STATE_HOME/sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md` (default `$HOME/.local/state/sdl/enriched-plan/...`), owned by `@sdl/plans` and the `enriched-plan` CLI. Legacy `~/.sdl/enriched-plan` content remains readable as fallback compatibility.
 - **Attached plan**: Branch Memory namespace `branch-context`, named Markdown key, on the implementation branch, owned by `@sdl/branch-context` and the `branch-context` CLI. New from-plan attachments use `<branch-context-slug>.md`; `plan.md` remains readable legacy storage.
 
 Branch Memory is the lower storage adapter for attached branch context entries. It stores text under explicit namespace/key contracts, but branch-context policy belongs to the planning layer. Branch context is standing context on a branch, not a special branch type; a plan can be the founding entry where one exists.
@@ -41,8 +41,10 @@ enriched-plan exec save --slug <saved-plan-slug> [--summary <text>] --stdin|--co
 Saved plans are written to:
 
 ```text
-~/.sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md
+$XDG_STATE_HOME/sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md
 ```
+
+When `XDG_STATE_HOME` is unset, the default is `$HOME/.local/state/sdl/enriched-plan/...`. Legacy `~/.sdl/enriched-plan/...` files are read as fallback for inspect/resolve flows but are not updated, migrated, or dual-written.
 
 Saving a plan creates no implementation branch, writes no Branch Memory, and checks in no plan artifact.
 

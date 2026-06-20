@@ -112,7 +112,10 @@ describe("buildWritePlanPrompt", () => {
 		expect(prompt).toContain("/enriched-plan:save request");
 		expect(prompt).toContain("add a tiny docs note plan for testing");
 		expect(prompt).toContain("write_saved_plan_file");
-		expect(prompt).toContain("~/.sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md");
+		expect(prompt).toContain(
+			"$XDG_STATE_HOME/sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md",
+		);
+		expect(prompt).toContain("Legacy ~/.sdl/enriched-plan content remains read-only fallback");
 		expect(prompt).toContain("completely fresh downstream implementation session");
 		expect(prompt).toContain("self-contained");
 		expect(prompt).toContain("Do not rely on this conversation");
