@@ -14,65 +14,60 @@ export const prSummaryListSchema = z.array(prSummarySchema);
 
 export const ghAuthorSchema = z.union([
 	z.string(),
-	z.object({ login: z.string().default("") }).loose(),
+	z.object({ login: z.string() }).loose(),
 	z.null(),
 ]);
 
 export const ghReviewSchema = z
 	.object({
 		id: z.string(),
-		author: ghAuthorSchema.default(""),
-		body: z.string().default(""),
+		author: ghAuthorSchema,
+		body: z.string(),
 		state: z.string(),
-		submittedAt: z.string().default(""),
+		submittedAt: z.string(),
 	})
 	.loose();
 
-export const ghReviewsResponseSchema = z
-	.object({ reviews: z.array(ghReviewSchema).default([]) })
-	.loose();
+export const ghReviewsResponseSchema = z.object({ reviews: z.array(ghReviewSchema) }).loose();
 
 export const ghReviewCommentSchema = z
 	.object({
 		databaseId: z.number().int().positive().nullable().optional(),
 		id: z.union([z.number().int().positive(), z.string()]).optional(),
-		body: z.string().default(""),
-		author: ghAuthorSchema.default(""),
-		path: z.string().default(""),
-		line: z.number().int().nullable().default(null),
+		body: z.string(),
+		author: ghAuthorSchema,
+		path: z.string(),
+		line: z.number().int().nullable(),
 		startLine: z.number().int().nullable().optional(),
-		createdAt: z.string().default(""),
-		url: z.string().optional(),
+		createdAt: z.string(),
+		url: z.string(),
 	})
 	.loose()
 	.transform((comment, ctx) => withNumericGithubIdentity(comment, ctx, "Review comment"));
 
 export const ghPageInfoSchema = z
 	.object({
-		hasNextPage: z.boolean().default(false),
+		hasNextPage: z.boolean(),
 		endCursor: z.string().nullable().optional(),
 	})
 	.loose();
 
 export const ghReviewCommentConnectionSchema = z
 	.object({
-		nodes: z.array(ghReviewCommentSchema).default([]),
-		pageInfo: ghPageInfoSchema.default({ hasNextPage: false }),
+		nodes: z.array(ghReviewCommentSchema),
+		pageInfo: ghPageInfoSchema,
 	})
 	.loose();
 
 export const ghReviewThreadSchema = z
 	.object({
 		id: z.string().min(1),
-		path: z.string().default(""),
-		line: z.number().int().nullable().default(null),
+		path: z.string(),
+		line: z.number().int().nullable(),
 		startLine: z.number().int().nullable().optional(),
-		isResolved: z.boolean().default(false),
-		isOutdated: z.boolean().default(false),
-		comments: ghReviewCommentConnectionSchema.default({
-			nodes: [],
-			pageInfo: { hasNextPage: false },
-		}),
+		isResolved: z.boolean(),
+		isOutdated: z.boolean(),
+		comments: ghReviewCommentConnectionSchema,
 	})
 	.loose();
 
@@ -82,10 +77,10 @@ export const ghDiscussionCommentSchema = z
 	.object({
 		databaseId: z.number().int().positive().optional(),
 		id: z.union([z.number().int().positive(), z.string()]).optional(),
-		body: z.string().default(""),
-		author: ghAuthorSchema.default(""),
+		body: z.string(),
+		author: ghAuthorSchema,
 		user: ghAuthorSchema.optional(),
-		url: z.string().default(""),
+		url: z.string(),
 		html_url: z.string().optional(),
 	})
 	.loose()
@@ -93,8 +88,8 @@ export const ghDiscussionCommentSchema = z
 
 export const ghDiscussionCommentConnectionSchema = z
 	.object({
-		nodes: z.array(ghDiscussionCommentSchema).default([]),
-		pageInfo: ghPageInfoSchema.default({ hasNextPage: false }),
+		nodes: z.array(ghDiscussionCommentSchema),
+		pageInfo: ghPageInfoSchema,
 	})
 	.loose();
 
@@ -115,8 +110,8 @@ export const ghReviewThreadsResponseSchema = z
 				pullRequest: z.object({
 					reviewThreads: z
 						.object({
-							nodes: z.array(ghReviewThreadSchema).default([]),
-							pageInfo: ghPageInfoSchema.default({ hasNextPage: false }),
+							nodes: z.array(ghReviewThreadSchema),
+							pageInfo: ghPageInfoSchema,
 						})
 						.loose(),
 				}),

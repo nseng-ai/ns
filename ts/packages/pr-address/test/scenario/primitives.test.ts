@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import {
 	InMemoryGithubPrFeedbackGateway,
+	InMemoryPrAddressGitGateway,
 	discussionComment,
 	prSummary,
 	review,
@@ -14,6 +15,21 @@ function dataFromJson(stdout: readonly string[]): unknown {
 }
 
 describe("pr-address primitive exec commands", () => {
+	test("repo-required primitive operations fail on repository probe failure", async () => {
+		const run = runScenario(["exec", "open-prs", "--format", "json"], {
+			git: new InMemoryPrAddressGitGateway({
+				repoContextFailure: { code: "work_tree_probe_failed", message: "git probe exploded" },
+			}),
+			prFeedback: new InMemoryGithubPrFeedbackGateway({ prs: [prSummary({ number: 12 })] }),
+		});
+
+		expect(await run.exit).toBe(2);
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
+			error_type: "pr_gateway_failure",
+			message: "Failed to determine repository context: git probe exploded",
+		});
+	});
+
 	test("returns structured lookup results for PR details and branch PRs", async () => {
 		const prFeedback = new InMemoryGithubPrFeedbackGateway({
 			prs: [prSummary({ number: 12, headRefName: "feature/pr" })],
