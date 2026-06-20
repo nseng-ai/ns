@@ -11,7 +11,7 @@ set -euo pipefail
 tool=aretro
 canonical_checkout=unused-for-script-checkout
 cli_rel_path=ts/packages/aretro/src/cli.ts
-install_hint='run from an asdl checkout with '"'"'just ts-install'"'"' available, or install the TypeScript shim with '"'"'just install-aretro'"'"''
+install_hint='run from an asdl checkout with '\''just ts-install'\'' available, or install the TypeScript shim with '\''just install-aretro'\'''
 fallback_mode=script-checkout
 
 run_checkout() {

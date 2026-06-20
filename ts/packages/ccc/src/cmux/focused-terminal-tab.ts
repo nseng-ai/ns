@@ -1,17 +1,14 @@
-import { formatCommand, tailText, type ExecResult } from "@asdl/core/exec";
-import { formatErrorMessage } from "@asdl/core/primitives";
+import {
+	cmuxCommandExecApi,
+	formatCmuxCommandFailure,
+	runCmuxCommand,
+	type CmuxCommandExecHost,
+} from "./command.ts";
 import { isRecord, stringField } from "./primitives.ts";
 
 const CMUX_TIMEOUT_MS = 10_000;
-const MAX_ERROR_CHARS = 4_000;
 
-export interface CmuxExecHost {
-	exec(
-		command: string,
-		args: string[],
-		options?: { cwd?: string; timeout?: number; signal?: AbortSignal },
-	): Promise<ExecResult>;
-}
+export type CmuxExecHost = CmuxCommandExecHost;
 
 export interface CmuxCallerContext {
 	workspaceId: string;
@@ -40,12 +37,6 @@ export interface CmuxSendOptions {
 	signal: AbortSignal | undefined;
 }
 
-interface CmuxExecOptions {
-	cwd: string;
-	timeout: number;
-	signal?: AbortSignal;
-}
-
 export async function identifyCmuxCaller(
 	host: CmuxExecHost,
 	cwd: string,
@@ -53,23 +44,15 @@ export async function identifyCmuxCaller(
 	{ type: "identified"; caller: CmuxCallerContext } | { type: "failed"; message: string }
 > {
 	const commandArgs = ["identify", "--json", "--id-format", "both"];
-	let result: ExecResult;
-	try {
-		result = await host.exec("cmux", commandArgs, { cwd, timeout: CMUX_TIMEOUT_MS });
-	} catch (error) {
+	const result = await runFocusedCmuxCommand({ host, cwd, commandArgs });
+	if (result.type === "failed") {
 		return {
 			type: "failed",
-			message: formatStartupFailure(formatCommand("cmux", commandArgs), error),
-		};
-	}
-	if (result.code !== 0 || result.killed) {
-		return {
-			type: "failed",
-			message: formatExecFailure(formatCommand("cmux", commandArgs), result),
+			message: formatCmuxCommandFailure(result.failure),
 		};
 	}
 
-	const parsed = parseCmuxCallerContext(result.stdout);
+	const parsed = parseCmuxCallerContext(result.result.stdout);
 	if (parsed === undefined) {
 		return {
 			type: "failed",
@@ -125,26 +108,19 @@ export async function createCmuxSurface(
 		commandArgs.push("--window", options.caller.windowId);
 	}
 
-	let result: ExecResult;
-	try {
-		result = await options.host.exec(
-			"cmux",
-			commandArgs,
-			cmuxExecOptions(options.cwd, options.signal),
-		);
-	} catch (error) {
+	const result = await runFocusedCmuxCommand({
+		host: options.host,
+		cwd: options.cwd,
+		commandArgs,
+		signal: options.signal,
+	});
+	if (result.type === "failed") {
 		return {
 			type: "failed",
-			message: formatStartupFailure(formatCommand("cmux", commandArgs), error),
+			message: formatCmuxCommandFailure(result.failure),
 		};
 	}
-	if (result.code !== 0 || result.killed) {
-		return {
-			type: "failed",
-			message: formatExecFailure(formatCommand("cmux", commandArgs), result),
-		};
-	}
-	const surface = parseCreatedCmuxSurface(result.stdout);
+	const surface = parseCreatedCmuxSurface(result.result.stdout);
 	if (surface === undefined) {
 		return {
 			type: "failed",
@@ -291,49 +267,31 @@ interface RunCmuxMutationOptions<TType extends "renamed" | "sent"> {
 async function runCmuxMutation<TType extends "renamed" | "sent">(
 	options: RunCmuxMutationOptions<TType>,
 ): Promise<{ type: TType } | { type: "failed"; message: string }> {
-	let result: ExecResult;
-	try {
-		result = await options.host.exec(
-			"cmux",
-			options.commandArgs,
-			cmuxExecOptions(options.cwd, options.signal),
-		);
-	} catch (error) {
-		return {
-			type: "failed",
-			message: formatStartupFailure(formatCommand("cmux", options.commandArgs), error),
-		};
-	}
-	if (result.code !== 0 || result.killed) {
-		return {
-			type: "failed",
-			message: formatExecFailure(formatCommand("cmux", options.commandArgs), result),
-		};
+	const result = await runFocusedCmuxCommand({
+		host: options.host,
+		cwd: options.cwd,
+		commandArgs: options.commandArgs,
+		signal: options.signal,
+	});
+	if (result.type === "failed") {
+		return { type: "failed", message: formatCmuxCommandFailure(result.failure) };
 	}
 	return { type: options.successType };
 }
 
-function cmuxExecOptions(cwd: string, signal: AbortSignal | undefined): CmuxExecOptions {
-	return { cwd, timeout: CMUX_TIMEOUT_MS, ...(signal === undefined ? {} : { signal }) };
+interface RunFocusedCmuxCommandOptions {
+	host: CmuxExecHost;
+	cwd: string;
+	commandArgs: readonly string[];
+	signal?: AbortSignal | undefined;
 }
 
-function formatExecFailure(commandDisplay: string, result: ExecResult): string {
-	const status = result.killed
-		? `exit code ${result.code}; process was killed or timed out`
-		: `exit code ${result.code}`;
-	const stdout = result.stdout.trimEnd() || "(empty)";
-	const stderr = result.stderr.trimEnd() || "(empty)";
-	return truncateError(
-		`command failed (${status}).\n\n$ ${commandDisplay}\n\nstdout:\n${stdout}\n\nstderr:\n${stderr}`,
-	);
-}
-
-function formatStartupFailure(commandDisplay: string, error: unknown): string {
-	return truncateError(
-		`command failed before completion.\n\n$ ${commandDisplay}\n\nerror:\n${formatErrorMessage(error)}`,
-	);
-}
-
-function truncateError(message: string): string {
-	return tailText(message, { maxChars: MAX_ERROR_CHARS });
+async function runFocusedCmuxCommand(options: RunFocusedCmuxCommandOptions) {
+	return await runCmuxCommand({
+		commands: cmuxCommandExecApi(options.host),
+		args: options.commandArgs,
+		cwd: options.cwd,
+		timeoutMs: CMUX_TIMEOUT_MS,
+		...(options.signal === undefined ? {} : { signal: options.signal }),
+	});
 }

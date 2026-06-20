@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { readFile, writeFile } from "node:fs/promises";
 
+import { formatShellArg } from "../packages/asdl-core/src/exec.ts";
+
 const TOKEN_PREFIX = "@@ASDL_";
 const VALID_FALLBACK_MODES = new Set(["literal", "script-checkout"]);
 const REQUIRED_ENV_VARS = [
@@ -11,11 +13,6 @@ const REQUIRED_ENV_VARS = [
 	"ASDL_CLI_REL_PATH",
 	"ASDL_INSTALL_HINT",
 ];
-
-function shellQuote(value) {
-	if (/^[A-Za-z0-9_@%+=:,./-]+$/.test(value)) return value;
-	return `'${value.replaceAll("'", `'"'"'`)}'`;
-}
 
 function envValue(name) {
 	const value = process.env[name];
@@ -41,11 +38,11 @@ async function main() {
 	}
 
 	const replacements = new Map([
-		["@@ASDL_TOOL@@", shellQuote(envValue("ASDL_TOOL"))],
-		["@@ASDL_CANONICAL_CHECKOUT@@", shellQuote(envValue("ASDL_CANONICAL_CHECKOUT"))],
-		["@@ASDL_CLI_REL_PATH@@", shellQuote(envValue("ASDL_CLI_REL_PATH"))],
-		["@@ASDL_INSTALL_HINT@@", shellQuote(envValue("ASDL_INSTALL_HINT"))],
-		["@@ASDL_FALLBACK_MODE@@", shellQuote(fallbackMode)],
+		["@@ASDL_TOOL@@", formatShellArg(envValue("ASDL_TOOL"))],
+		["@@ASDL_CANONICAL_CHECKOUT@@", formatShellArg(envValue("ASDL_CANONICAL_CHECKOUT"))],
+		["@@ASDL_CLI_REL_PATH@@", formatShellArg(envValue("ASDL_CLI_REL_PATH"))],
+		["@@ASDL_INSTALL_HINT@@", formatShellArg(envValue("ASDL_INSTALL_HINT"))],
+		["@@ASDL_FALLBACK_MODE@@", formatShellArg(fallbackMode)],
 	]);
 
 	let rendered = await readFile(envValue("ASDL_TEMPLATE"), "utf8");

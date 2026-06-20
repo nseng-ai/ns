@@ -1,12 +1,11 @@
 import { z } from "zod";
 
 import { shellNegative, ok, type ClinkrExit } from "@asdl/clinkr";
-import { isSuccessfulExecResult, type CommandExecApi, type ExecResult } from "@asdl/core/exec";
-import { formatErrorMessage } from "@asdl/core/primitives";
+import type { CommandExecApi } from "@asdl/core/exec";
+import { runCmuxCommand, type CmuxCommandFailure } from "./command.ts";
 
 export const DEFAULT_CMUX_WORKSPACE_SUMMARY_STATUS_KEY = "pi-summary";
 export const CMUX_WORKSPACE_SUMMARY_COMMAND_TIMEOUT_MS = 30_000;
-const STARTUP_ERROR_EXIT_CODE = 127;
 
 export const cmuxWorkspaceSummaryRequestSchema = z.strictObject({
 	workspace: z
@@ -57,13 +56,6 @@ interface CmuxWorkspaceSummaryFailure {
 	code: CmuxWorkspaceSummaryFailureCode;
 	message: string;
 	commandFailure?: CmuxCommandFailure;
-}
-
-interface CmuxCommandFailure {
-	command: string[];
-	exitCode: number;
-	stdout: string;
-	stderr: string;
 }
 
 export interface ApplyCmuxWorkspaceSummaryOptions {
@@ -169,31 +161,15 @@ async function runCmux(
 	options: ApplyCmuxWorkspaceSummaryOptions,
 	args: string[],
 ): Promise<CmuxCommandFailure | undefined> {
-	const command = ["cmux", ...args];
-	let result: ExecResult;
-	try {
-		result = await options.commands.exec("cmux", args, {
-			cwd: options.cwd,
-			env: options.env,
-			timeout: CMUX_WORKSPACE_SUMMARY_COMMAND_TIMEOUT_MS,
-		});
-	} catch (error) {
-		return {
-			command,
-			exitCode: STARTUP_ERROR_EXIT_CODE,
-			stdout: "",
-			stderr: formatErrorMessage(error),
-		};
-	}
-
-	if (isSuccessfulExecResult(result)) return undefined;
-	return {
-		command,
-		exitCode: result.code,
-		stdout: result.stdout,
-		stderr:
-			result.stderr || result.startupError || (result.killed ? "cmux command timed out." : ""),
-	};
+	const result = await runCmuxCommand({
+		commands: options.commands,
+		args,
+		cwd: options.cwd,
+		env: options.env,
+		timeoutMs: CMUX_WORKSPACE_SUMMARY_COMMAND_TIMEOUT_MS,
+	});
+	if (result.type === "success") return undefined;
+	return result.failure;
 }
 
 function commandFailure(
