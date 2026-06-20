@@ -188,7 +188,9 @@ function registerFakeCli(
 			{ name: "preview-status", description: "Print a preview status." },
 		],
 		runCli: options.runCli ?? (() => 0),
-		...(options.afterCommandComplete === undefined ? {} : { afterCommandComplete: options.afterCommandComplete }),
+		...(options.afterCommandComplete === undefined
+			? {}
+			: { afterCommandComplete: options.afterCommandComplete }),
 		...(options.env === undefined ? {} : { env: options.env }),
 	});
 }
@@ -720,11 +722,19 @@ describe("cli command extension helper", () => {
 
 		await commandFor(pi, "dev:preview-status").handler("--json words", context.ctx);
 
-		expectSingleCliOutputMessage(pi, "fake-cli preview-status exited with code 2.\n\nstderr:\nError: Unexpected argument: words\n", "error");
+		expectSingleCliOutputMessage(
+			pi,
+			"fake-cli preview-status exited with code 2.\n\nstderr:\nError: Unexpected argument: words\n",
+			"error",
+		);
 		expect(editorTexts).toEqual(["/dev:preview-status --json words"]);
 		expect(editorTextsAtHook).toEqual([["/dev:preview-status --json words"]]);
 		expect(hookDetails).toHaveLength(1);
-		expect(hookDetails[0]).toMatchObject({ exitCode: 2, level: "error", stderr: "Error: Unexpected argument: words\n" });
+		expect(hookDetails[0]).toMatchObject({
+			exitCode: 2,
+			level: "error",
+			stderr: "Error: Unexpected argument: words\n",
+		});
 	});
 
 	test("restores command text after clinkr lowercase error usage errors", async () => {
