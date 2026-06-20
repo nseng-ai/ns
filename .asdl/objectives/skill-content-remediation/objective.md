@@ -98,7 +98,11 @@ Assumptions:
   `normal` skill showing the stub is simply misconfigured.)
 - Disclosing an oversized inline block to a reference reduces always-loaded cost without
   hurting reliability, *provided* the pointer wording names the concrete situation that
-  should reach it.
+  should reach it. (Exercised on `objective-stack-impl`: the two end-of-run sections
+  moved to `references/final-response.md` behind a `## Final response` pointer that names
+  the trigger — "hit a stop condition, about to write the final response" — cutting
+  SKILL.md 282→217 with behavior unchanged. Still active for the remaining disclosure
+  targets.)
 
 Risks:
 

@@ -52,13 +52,19 @@
       `lifecycle.md`; `from-plan` still names `--branch-creation graphite` inline and its
       pointer target (`## Branch creation policy`) is reachable; SKILL.md frontmatter
       valid and steps contiguous.
-- [ ] Disclosure surgery on oversized always-loaded blocks. Push inline material that
+- [~] Disclosure surgery on oversized always-loaded blocks. Push inline material that
       only one branch reaches behind pointers: `objective-stack-impl` digest/telemetry
       and final-response templates; `branch-context-impl` STOP-contract protocol;
       `enriched-plan-save` step-1 conditional sub-blocks; `dignified-python` triplicated
       router → one trigger-keyed routing section; `python-fake-driven-testing` overlapping
       reference pointers sharpened.
       Evidence: each disclosed reference reachable via its pointer; SKILL.md still loads.
+      Progress: `objective-stack-impl` done — the digest-telemetry and final-response
+      template sections moved verbatim into `references/final-response.md`, replaced by a
+      `## Final response` pointer whose wording names the concrete trigger (hit a stop
+      condition, about to write the final response); SKILL.md 282→217 lines; behavior
+      unchanged; `areg check` OK; dprint clean. Remaining: `branch-context-impl`,
+      `enriched-plan-save`, `dignified-python`, `python-fake-driven-testing`.
 - [ ] Duplication collapse across the high-duplication ≥5 skills. Pick one home per
       restated contract and delete the recap: `refactor-swarm` (recap section + redundant
       examples), `ccc-available-work` and `ccc-stack-map` (twice-listed command recipes),
