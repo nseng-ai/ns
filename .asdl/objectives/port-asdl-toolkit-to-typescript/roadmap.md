@@ -42,17 +42,16 @@
   - Evidence: Branch retrospectives / `aretro` completed through `.asdl/objectives/aretro-typescript-port/`: standalone TypeScript `@asdl/aretro` is the active deterministic evidence CLI for `branch-retro`, the runner is rendered from the shared source CLI shim template, dispatches first to the caller's current checkout, falls back deterministically to the checkout containing the skill script, checks `ts/node_modules`, no longer falls back to arbitrary `aretro` on `PATH`, `packages/aretro` and Python `uv run` / `uvx` fallbacks are deleted, `just install-aretro` remains opt-in rather than part of `install-tools`, rollback/reference evidence is commit `dd1c69ac85f9f836a9c12cd1da219099a2683273`, and semantic retrospective judgment remains in the skill.
   - Evidence: `packagechk` completed as a final-cleanup in-scope capability after being promoted from parked pending evidence: standalone TypeScript `@asdl/packagechk` now covers package availability checks, schema-version-1 JSON, PyPI/npm claim dry-run and publish gates, fake-backed registry/publish seams, and opt-in `just install-packagechk`; tracked `packages/packagechk` Python files and root uv workspace/dev/lint/type/test references are deleted.
   - The out-of-sequence `areg` exception is complete, `slot` also completed out of the previous order after dispatcher retirement, Roaster and Vibe check / `vibechk` completed as default capabilities, Branch retrospectives / `aretro` completed as the final persisted default capability, and `packagechk` completed after final-cleanup evidence made it active and in scope. Continue with root `asdl exec` / `asdl-core` disposition, stale docs/context cleanup, and migration-debt review.
-- [~] Burn down the end-of-migration debt ledger (`migration-debt.md`).
-  - Each entry is a transitional compromise (legacy machine-output shapes, snake_case schema keys, Python-parity envelope) accepted to keep the port moving; every entry must be killed or deliberately recommitted before the umbrella closes.
-  - Objective-local legacy machine-output projection debt was killed by PR #1726: Objective JSON consumers were migrated to camelCase, `legacy-machine.ts` was deleted, and Objective commands now use canonical Clinkr result schemas directly.
-  - New compromises of this type made during capability subobjectives must be appended to `migration-debt.md` when they are accepted.
-- [~] Complete final migration cleanup.
+- [x] Burn down the end-of-migration debt ledger (`migration-debt.md`).
+  - Each entry was reviewed in the 2026-06-20 cleanup: Objective-local legacy projection and documented CLI-surface divergence debt were killed; Clinkr v1 machine envelope, snake_case external JSON/schema keys, bounded legacy adapters, and raw byte-owning command mode were deliberately recommitted as accepted current contracts; Pi usage-error sniffing was moved out of the migration closure path as a parked UX/API follow-up.
+  - Evidence: `updates/2026-06-20T133731Z-migration-debt-ledger-resolved.md` and the resolved `migration-debt.md` ledger.
+- [x] Complete final migration cleanup.
   - Ensure public skills, wrappers, docs, package distribution, and migration ledger agree on the TS-default toolkit state.
   - Mark any remaining Python as deleted, archived, retired, or explicitly out of scope.
   - Resolve the root `asdl exec` / `asdl-core` disposition before closure; `packagechk` is no longer a parked blocker.
   - Evidence to include from the final default capability: `aretro` proved a deterministic evidence/privacy boundary can survive language retirement while leaving semantic judgment in the skill, and a shared-template TypeScript source runner with deterministic script-checkout fallback plus an opt-in installed source shim can replace a Python `uvx` fallback when no checkout-free consumer exists.
   - Evidence to include from the final promoted parked capability: `packagechk` proved the migration can preserve a tiny standalone utility's legacy bare-name dispatch, schema-versioned JSON, registry HTTP checks, and real publish safety gates without retaining a Python workspace package.
-  - Evidence: root `asdl exec` disposition completed in `updates/2026-06-20T044800Z-root-asdl-exec-disposition.md`; stale docs/context/skill domain-language rebaseline completed in `updates/2026-06-20T133023Z-docs-domain-language-rebaseline.md`. Migration-debt ledger review remains before closure.
+  - Evidence: root `asdl exec` disposition completed in `updates/2026-06-20T044800Z-root-asdl-exec-disposition.md`; stale docs/context/skill domain-language rebaseline completed in `updates/2026-06-20T133023Z-docs-domain-language-rebaseline.md`; migration-debt ledger cleanup completed in `updates/2026-06-20T133731Z-migration-debt-ledger-resolved.md`.
 
 ## Parked
 
@@ -60,3 +59,5 @@
 - Direct browser-compatible execution for capabilities whose domains depend on local git, shell, filesystem, or authenticated system state.
 - Porting inactive, vendored, experimental, or unclear-value Python code before evidence justifies it.
 - Broad TypeScript rewrites of Python `asdl-core` concepts that have not yet appeared as repeated seams in vertical slices.
+- Future Clinkr/agent-command v2 compatibility redesigns, including possible machine-envelope changes, schema-casing changes, removal of bounded legacy adapters, or per-command migration away from raw byte-owning mode.
+- Pi command-extension UX/API cleanup for structured CLI usage-error classification instead of stderr-prefix sniffing.
