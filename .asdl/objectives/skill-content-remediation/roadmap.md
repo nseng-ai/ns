@@ -1,0 +1,43 @@
+# Roadmap
+
+## Work
+
+- [ ] Systemic #1 — decide the invocation model for the `Command: X` stub-description
+      skills, then apply it. The decision (per skill or blanket): slash-command-only →
+      `disable-model-invocation: true`; model-invoked → restore a real trigger
+      description. `setup-dprint` is the correct existing template. This unblocks the
+      description portions of `sdl-submit`, `objective-close`, `objective-create`, and
+      `code-workflows`.
+- [ ] Systemic #2 — single-source the grill-loop core shared by `pi-grill-ui` and
+      `pi-grill-with-docs-ui`. Reconcile the already-drifted `status_request` wording;
+      leave each skill holding only its UI-specific delta. Depends on resolving the
+      shared-core mechanism open question.
+- [ ] Systemic #3 — single-home the branch-creation precedence policy in
+      `branch-context/references/lifecycle.md`; reduce `branch-context-from-plan` to the
+      load-bearing repo default (`--branch-creation graphite`) plus a pointer.
+- [ ] Disclosure surgery on oversized always-loaded blocks. Push inline material that
+      only one branch reaches behind pointers: `objective-stack-impl` digest/telemetry
+      and final-response templates; `branch-context-impl` STOP-contract protocol;
+      `enriched-plan-save` step-1 conditional sub-blocks; `dignified-python` triplicated
+      router → one trigger-keyed routing section; `python-fake-driven-testing` overlapping
+      reference pointers sharpened.
+      Evidence: each disclosed reference reachable via its pointer; SKILL.md still loads.
+- [ ] Duplication collapse across the high-duplication ≥5 skills. Pick one home per
+      restated contract and delete the recap: `refactor-swarm` (recap section + redundant
+      examples), `ccc-available-work` and `ccc-stack-map` (twice-listed command recipes),
+      `objective-refresh` and `objective-update` (invariants stated 3–4×), `handoff-create`
+      (verbatim artifact template), `python-fake-driven-test-layout` (tree drawn 3×),
+      `code-thermostack` (subagent-contract triplication), `code-gt-restack-resolve`
+      (TS-toolchain rule written twice), `pr-address` (retired-workflow tombstone), plus
+      the body work in `sdl-submit` / `objective-close` / `objective-create` beyond their
+      descriptions.
+      Evidence: no verbatim-duplicated contract remains among these skills.
+
+## Parked
+
+- [ ] Polish tier (audit scores 1–3, ~22 skills): single collapsible repetitions and
+      synonym-trigger descriptions. Cite-and-collapse opportunistically when already
+      editing the skill; not a standalone push.
+- [ ] Remove the `code-gt-restack-resolve` TEMPORARY TS-toolchain keep/reformat block
+      once the TS toolchain rollout lands. Self-labeled for deletion; gated by that
+      rollout, not by this Objective.
