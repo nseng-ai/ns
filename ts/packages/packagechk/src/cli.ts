@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
+import { createInterface } from "node:readline";
 
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 import { Command, CommanderError, InvalidArgumentError, Option } from "commander";
@@ -18,15 +19,14 @@ import {
 import { checkPackageName, registrySelection } from "./check.ts";
 import {
 	RealNpmPublishGateway,
-	RealPackageRegistryGateway,
 	RealPypiPublishGateway,
 	type NpmPublishGateway,
-	type PackageRegistryGateway,
 	type PypiPublishGateway,
-	type PypiPublishFailure,
-} from "./gateways.ts";
+} from "./publish-gateways.ts";
+import { RealPackageRegistryGateway, type PackageRegistryGateway } from "./registry-gateways.ts";
 import { reportExitCode, renderHuman, renderJson } from "./output.ts";
 import type { CheckStatus, Registry } from "./models.ts";
+import { npmPackagePageUrl, pypiProjectUrl } from "./urls.ts";
 import { normalizePypiName, npmValidationError, pypiValidationError } from "./validation.ts";
 
 export const VERSION = "0.1.0";
@@ -35,7 +35,6 @@ const REGISTRY_CHOICES: readonly Registry[] = ["pypi", "npm", "brew"];
 const DEFAULT_CLAIM_VERSION = "0.0.1";
 const DEFAULT_CLAIM_DESCRIPTION = "Claimed package name";
 const DEFAULT_NPM_CLAIM_LICENSE = "MIT";
-const COMMAND_STATES = new WeakMap<Command, RunState>();
 
 export interface CliDeps {
 	registryGateway?: PackageRegistryGateway;
@@ -56,7 +55,16 @@ interface RunState {
 	exitCode: number;
 }
 
+interface CreatedCli {
+	cli: Command;
+	state: RunState;
+}
+
 export function buildCli(deps: CliDeps = {}): Command {
+	return createCli(deps).cli;
+}
+
+function createCli(deps: CliDeps = {}): CreatedCli {
 	const io = resolveIo(deps);
 	const state: RunState = { exitCode: 0 };
 	const registryGateway = deps.registryGateway ?? new RealPackageRegistryGateway();
@@ -73,10 +81,8 @@ export function buildCli(deps: CliDeps = {}): Command {
 		.addOption(
 			new Option(
 				"--registry <registry>",
-				"Registry to check. May be repeated. Defaults to PyPI, npm, and Homebrew.",
-			)
-				.choices([...REGISTRY_CHOICES])
-				.argParser(accumulateRegistry),
+				"Registry to check (pypi|npm|brew). May be repeated. Defaults to PyPI, npm, and Homebrew.",
+			).argParser(accumulateRegistry),
 		)
 		.option("--json", "Emit JSON output.")
 		.action(
@@ -112,13 +118,11 @@ export function buildCli(deps: CliDeps = {}): Command {
 	cli.addCommand(
 		buildClaimNpmCommand({ io, state, registryGateway, publishGateway: npmPublishGateway }),
 	);
-	COMMAND_STATES.set(cli, state);
-	return cli;
+	return { cli, state };
 }
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
-	const cli = buildCli(deps);
-	const state = commandState(cli);
+	const { cli, state } = createCli(deps);
 	try {
 		await cli.parseAsync([...args], { from: "user" });
 		return state.exitCode;
@@ -136,30 +140,24 @@ function buildClaimPypiCommand(options: {
 	registryGateway: PackageRegistryGateway;
 	publishGateway: PypiPublishGateway;
 }): Command {
-	return createCommand("claim-pypi", options.io)
-		.description("Claim a PyPI package name by publishing a minimal placeholder package.")
-		.argument("<name>")
-		.option(
-			"--description <description>",
-			"Package description. Defaults to a generic claim description.",
-		)
-		.option("--version <claim_version>", "Version to publish.", DEFAULT_CLAIM_VERSION)
-		.option("--dry-run", "Show planned operations without effects.")
-		.option("--force", "Skip confirmation prompt.")
-		.option("--skip-check", "Skip PyPI availability pre-check.")
-		.action(async (name: string, raw: ClaimOptions) => {
-			options.state.exitCode = await runClaimPypiCommand({
-				name,
-				description: raw.description,
-				claimVersion: raw.version ?? DEFAULT_CLAIM_VERSION,
-				dryRun: raw.dryRun === true,
-				force: raw.force === true,
-				skipCheck: raw.skipCheck === true,
-				registryGateway: options.registryGateway,
-				publishGateway: options.publishGateway,
-				io: options.io,
-			});
+	return addClaimOptions(
+		createCommand("claim-pypi", options.io)
+			.description("Claim a PyPI package name by publishing a minimal placeholder package.")
+			.argument("<name>"),
+		"PyPI",
+	).action(async (name: string, raw: ClaimOptions) => {
+		options.state.exitCode = await runClaimPypiCommand({
+			name,
+			description: raw.description,
+			claimVersion: raw.version ?? DEFAULT_CLAIM_VERSION,
+			dryRun: raw.dryRun === true,
+			force: raw.force === true,
+			skipCheck: raw.skipCheck === true,
+			registryGateway: options.registryGateway,
+			publishGateway: options.publishGateway,
+			io: options.io,
 		});
+	});
 }
 
 function buildClaimNpmCommand(options: {
@@ -168,32 +166,26 @@ function buildClaimNpmCommand(options: {
 	registryGateway: PackageRegistryGateway;
 	publishGateway: NpmPublishGateway;
 }): Command {
-	return createCommand("claim-npm", options.io)
-		.description(
-			"Claim an npm package name by publishing a minimal placeholder package. Requires `~/.npmrc` with a `_authToken` line (granular token with publish + bypass-2FA scopes) or equivalent auth picked up by `npm publish`.",
-		)
-		.argument("<name>")
-		.option(
-			"--description <description>",
-			"Package description. Defaults to a generic claim description.",
-		)
-		.option("--version <claim_version>", "Version to publish.", DEFAULT_CLAIM_VERSION)
-		.option("--dry-run", "Show planned operations without effects.")
-		.option("--force", "Skip confirmation prompt.")
-		.option("--skip-check", "Skip npm availability pre-check.")
-		.action(async (name: string, raw: ClaimOptions) => {
-			options.state.exitCode = await runClaimNpmCommand({
-				name,
-				description: raw.description,
-				claimVersion: raw.version ?? DEFAULT_CLAIM_VERSION,
-				dryRun: raw.dryRun === true,
-				force: raw.force === true,
-				skipCheck: raw.skipCheck === true,
-				registryGateway: options.registryGateway,
-				publishGateway: options.publishGateway,
-				io: options.io,
-			});
+	return addClaimOptions(
+		createCommand("claim-npm", options.io)
+			.description(
+				"Claim an npm package name by publishing a minimal placeholder package. Requires `~/.npmrc` with a `_authToken` line (granular token with publish + bypass-2FA scopes) or equivalent auth picked up by `npm publish`.",
+			)
+			.argument("<name>"),
+		"npm",
+	).action(async (name: string, raw: ClaimOptions) => {
+		options.state.exitCode = await runClaimNpmCommand({
+			name,
+			description: raw.description,
+			claimVersion: raw.version ?? DEFAULT_CLAIM_VERSION,
+			dryRun: raw.dryRun === true,
+			force: raw.force === true,
+			skipCheck: raw.skipCheck === true,
+			registryGateway: options.registryGateway,
+			publishGateway: options.publishGateway,
+			io: options.io,
 		});
+	});
 }
 
 interface ClaimOptions {
@@ -202,6 +194,18 @@ interface ClaimOptions {
 	dryRun?: boolean;
 	force?: boolean;
 	skipCheck?: boolean;
+}
+
+function addClaimOptions(command: Command, registryLabel: "PyPI" | "npm"): Command {
+	return command
+		.option(
+			"--description <description>",
+			"Package description. Defaults to a generic claim description.",
+		)
+		.option("--version <claim_version>", "Version to publish.", DEFAULT_CLAIM_VERSION)
+		.option("--dry-run", "Show planned operations without effects.")
+		.option("--force", "Skip confirmation prompt.")
+		.option("--skip-check", `Skip ${registryLabel} availability pre-check.`);
 }
 
 async function runCheckCommand(options: {
@@ -280,11 +284,12 @@ async function runClaimPypiCommand(options: {
 	try {
 		writeClaimProjectFiles(projectDir, spec);
 		options.io.stderr("Building placeholder package with uv build...\n");
-		const artifacts = options.publishGateway.buildPackage(projectDir);
-		if (isPypiPublishFailure(artifacts)) {
-			options.io.stderr(`${artifacts.message}\n`);
+		const buildResult = options.publishGateway.buildPackage(projectDir);
+		if ("error" in buildResult) {
+			options.io.stderr(`${buildResult.error}\n`);
 			return 2;
 		}
+		const { artifacts } = buildResult;
 		if (artifacts.length === 0) {
 			options.io.stderr("No distribution artifacts were built.\n");
 			return 2;
@@ -363,7 +368,7 @@ async function runClaimNpmCommand(options: {
 		rmSync(projectDir, { recursive: true, force: true });
 	}
 	options.io.stderr(`✓ Claimed npm package name '${options.name}'.\n`);
-	options.io.stderr(`View package: ${npmPackageUrl(options.name)}\n`);
+	options.io.stderr(`View package: ${npmPackagePageUrl(options.name)}\n`);
 	return 0;
 }
 
@@ -434,7 +439,7 @@ function renderClaimNpmDryRun(options: {
 	io.stderr("Would write: README.md\n");
 	io.stderr("Would write: index.js\n");
 	io.stderr("Would run: npm publish --access=public\n");
-	io.stderr(`npm URL: ${npmPackageUrl(spec.packageName)}\n`);
+	io.stderr(`npm URL: ${npmPackagePageUrl(spec.packageName)}\n`);
 }
 
 async function confirmRealPublish(
@@ -461,16 +466,14 @@ function resolveIo(deps: CliDeps): Io {
 }
 
 async function readProcessStdin(): Promise<string> {
-	return await new Promise((resolve) => {
-		let content = "";
-		process.stdin.setEncoding("utf8");
-		process.stdin.on("data", (chunk) => {
-			content += chunk;
-		});
-		process.stdin.on("end", () => {
-			resolve(content);
-		});
-	});
+	const readline = createInterface({ input: process.stdin, crlfDelay: Infinity });
+	try {
+		const iterator = readline[Symbol.asyncIterator]();
+		const result = await iterator.next();
+		return result.done === true ? "" : result.value;
+	} finally {
+		readline.close();
+	}
 }
 
 function createCommand(name: string, io: Io): Command {
@@ -488,12 +491,6 @@ function createCommand(name: string, io: Io): Command {
 	return command;
 }
 
-function commandState(command: Command): RunState {
-	const state = COMMAND_STATES.get(command);
-	if (state === undefined) throw new Error("packagechk command missing run state");
-	return state;
-}
-
 function accumulateRegistry(value: string, previous: Registry[] | undefined): Registry[] {
 	if (!isRegistry(value)) throw new InvalidArgumentError("expected one of pypi, npm, brew");
 	return [...(previous ?? []), value];
@@ -501,18 +498,6 @@ function accumulateRegistry(value: string, previous: Registry[] | undefined): Re
 
 function isRegistry(value: string): value is Registry {
 	return REGISTRY_CHOICES.includes(value as Registry);
-}
-
-function isPypiPublishFailure(value: string[] | PypiPublishFailure): value is PypiPublishFailure {
-	return !Array.isArray(value);
-}
-
-function pypiProjectUrl(normalizedName: string): string {
-	return `https://pypi.org/project/${encodeURIComponent(normalizedName)}/`;
-}
-
-function npmPackageUrl(packageName: string): string {
-	return `https://www.npmjs.com/package/${encodeURIComponent(packageName).replaceAll("%40", "@").replaceAll("%2F", "/")}`;
 }
 
 function runtimeInfo(): string {

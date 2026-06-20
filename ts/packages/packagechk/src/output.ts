@@ -33,7 +33,7 @@ function sortJsonValue(value: unknown): unknown {
 	if (Array.isArray(value)) return value.map(sortJsonValue);
 	if (value === null || typeof value !== "object") return value;
 	const entries = Object.entries(value as Record<string, unknown>).sort(([left], [right]) =>
-		left.localeCompare(right),
+		left < right ? -1 : left > right ? 1 : 0,
 	);
 	return Object.fromEntries(entries.map(([key, child]) => [key, sortJsonValue(child)]));
 }

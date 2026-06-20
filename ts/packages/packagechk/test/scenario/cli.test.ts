@@ -96,6 +96,34 @@ describe("packagechk CLI", () => {
 		expect(gateway.npmCheckedNames).toEqual([]);
 	});
 
+	test("invalid registry uses packagechk validation", async () => {
+		const run = await runPackagechk([SAMPLE, "--registry", "gems"]);
+
+		expect(run.code).toBe(2);
+		expect(run.stderr).toContain("expected one of pypi, npm, brew");
+	});
+
+	test("scoped npm lookup preserves registry and page URL encoding", async () => {
+		const requestedUrls: string[] = [];
+		const gateway = new RealPackageRegistryGateway({
+			responseFetcher: async (url) => {
+				requestedUrls.push(url);
+				return {
+					statusCode: 200,
+					jsonBody: { "dist-tags": { latest: "1.0.0" }, description: "Scoped package" },
+				};
+			},
+		});
+
+		const run = await runPackagechk(["@asdl-io/aretro", "--registry", "npm"], {
+			registryGateway: gateway,
+		});
+
+		expect(run.code).toBe(1);
+		expect(requestedUrls).toEqual(["https://registry.npmjs.org/@asdl-io%2Faretro"]);
+		expect(run.stdout).toContain("https://www.npmjs.com/package/@asdl-io/aretro");
+	});
+
 	test("real gateway preserves validation and metadata behavior", async () => {
 		const available = new RealPackageRegistryGateway({
 			responseFetcher: async () => ({ statusCode: 404 }),
