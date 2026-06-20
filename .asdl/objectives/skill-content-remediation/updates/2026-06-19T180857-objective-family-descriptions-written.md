@@ -62,4 +62,4 @@ three genuinely-overlapping pairs are split as: `next` (read-only advice) ↔ `u
   see the command-backed-unexemplified update).
 - No automated stub-description lint was added; description quality remains a manual
   review concern. Revisit only if drift recurs.
-</content>
+  </content>
