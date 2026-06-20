@@ -221,15 +221,7 @@ describe("real git gateway", () => {
 		]);
 		const git = new RealGitGateway(commands);
 
-		expect(await git.currentBranch({ cwd: ROOT })).toEqual({
-			type: "detached",
-			error: {
-				code: "detached_head",
-				message:
-					"git branch --show-current returned no current branch.\nCommand: git branch --show-current",
-				displayCommand: "git branch --show-current",
-			},
-		});
+		expect(await git.currentBranch({ cwd: ROOT })).toEqual({ type: "detached" });
 		commands.assertDone();
 	});
 

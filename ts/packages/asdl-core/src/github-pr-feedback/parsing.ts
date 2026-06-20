@@ -2,9 +2,10 @@ import { z } from "zod";
 
 import type { RunGitHubCliResult } from "../github-cli.ts";
 import { githubGraphqlErrorsSchema, parseJsonUnknown } from "../github-graphql-json.ts";
+import { formatErrorMessage } from "../primitives.ts";
 import type { Result } from "../result.ts";
 
-import { failureFromMessage, feedbackErr, feedbackOk, jsonErrorMessage } from "./failures.ts";
+import { failureFromMessage, feedbackErr, feedbackOk } from "./failures.ts";
 import type { GithubPrFeedbackFailure, GithubPrFeedbackOperation } from "./types.ts";
 
 export function parseJson<T>(
@@ -68,7 +69,7 @@ function parseRawJsonText(
 			failureFromMessage({
 				code: "github_pr_feedback_json_parse_failed",
 				operation: context.operation,
-				message: jsonErrorMessage(parsed.error),
+				message: formatErrorMessage(parsed.error),
 				run: context.run,
 				stdout: text,
 				prNumber: context.prNumber,

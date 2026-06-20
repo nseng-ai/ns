@@ -3,6 +3,7 @@ import { accessSync, constants } from "node:fs";
 import { delimiter, join } from "node:path";
 import process from "node:process";
 
+import { formatErrorMessage } from "./primitives.ts";
 import { stripTerminalEscapes } from "./terminal-escapes.ts";
 import { systemTimerScheduler, type ScheduledTimer, type TimerScheduler } from "./timers.ts";
 
@@ -172,12 +173,12 @@ export async function runCommand(
 			} catch (error) {
 				const stdinError = error as NodeJS.ErrnoException;
 				if (stdinError.code !== "EPIPE" && stderr.length === 0) {
-					stderr = stdinError instanceof Error ? stdinError.message : String(stdinError);
+					stderr = formatErrorMessage(stdinError);
 				}
 			}
 		}
 		child.on("error", (error) => {
-			startupError = error instanceof Error ? error.message : String(error);
+			startupError = formatErrorMessage(error);
 			if (stderr.length === 0) stderr = startupError;
 			finish(STARTUP_FAILURE_EXIT_CODE, false);
 		});
@@ -285,9 +286,7 @@ export function formatCommandStartupFailure(
 	displayCommand: string,
 	error: unknown,
 ): string {
-	const message = stripTerminalEscapes(error instanceof Error ? error.message : String(error))
-		.replace(/\r/g, "\n")
-		.trimEnd();
+	const message = stripTerminalEscapes(formatErrorMessage(error)).replace(/\r/g, "\n").trimEnd();
 	return tailText(
 		[
 			`${title} (failed before completion).`,

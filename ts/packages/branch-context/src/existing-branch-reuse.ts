@@ -98,6 +98,8 @@ export async function resolveExistingBranchContextReuse(
 			return result.reuse;
 		}
 		failures.push({ type: "candidate", candidate, message: result.message });
+	} else if (branch.type === "detached") {
+		failures.push({ type: "current-branch-resolution", message: "Current HEAD is detached." });
 	} else {
 		failures.push({ type: "current-branch-resolution", message: branch.error.message });
 	}

@@ -307,10 +307,15 @@ async function resolveSafeImplementationBranch(
 	}
 
 	const branchResult = await git.currentBranch({ cwd, signal });
-	if (branchResult.type !== "branch") {
+	if (branchResult.type === "detached") {
+		throw new Error(
+			"Cannot load attached plan from detached HEAD. Check out a feature branch first.",
+		);
+	}
+	if (branchResult.type === "failure") {
 		throw new Error(
 			[
-				"Cannot load attached plan from detached HEAD. Check out a feature branch first.",
+				"Cannot load attached plan because the current branch could not be resolved.",
 				"",
 				branchResult.error.message,
 			].join("\n"),

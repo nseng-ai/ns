@@ -106,8 +106,3 @@ function buildFailureDetails(options: FailureFromMessageOptions): GithubPrFeedba
 		...(options.zodError === undefined ? {} : { zodError: options.zodError }),
 	};
 }
-
-export function jsonErrorMessage(error: unknown): string {
-	if (error instanceof Error) return error.message;
-	return String(error);
-}

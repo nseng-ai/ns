@@ -54,6 +54,11 @@ export class RealGitGateway implements GitGateway {
 	async currentBranch(): Promise<string> {
 		const result = await this.coreGit.currentBranch({ cwd: this.workdir });
 		if (result.type === "branch") return result.branch;
+		if (result.type === "detached") {
+			throw new VibechkError(
+				`Could not determine current branch in ${this.workdir}\nDetached HEAD.`,
+			);
+		}
 		if (isMissingExecutableError(result.error.message)) {
 			throw new VibechkError("git is not installed or not on PATH.");
 		}

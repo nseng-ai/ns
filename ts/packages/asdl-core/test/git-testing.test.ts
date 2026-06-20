@@ -200,18 +200,10 @@ describe("in-memory git gateway", () => {
 		expect(git.gitPathCalls).toEqual([{ cwd: ROOT, relativePath: "info/exclude" }]);
 	});
 
-	test("models detached current branch with real-parity error", async () => {
+	test("models detached current branch", async () => {
 		const git = new InMemoryGitGateway({ currentBranch: { type: "detached" } });
 
-		expect(await git.currentBranch({ cwd: ROOT })).toEqual({
-			type: "detached",
-			error: {
-				code: "detached_head",
-				message:
-					"git branch --show-current returned no current branch.\nCommand: git branch --show-current",
-				displayCommand: "git branch --show-current",
-			},
-		});
+		expect(await git.currentBranch({ cwd: ROOT })).toEqual({ type: "detached" });
 	});
 
 	test("models work tree probes and records calls", async () => {

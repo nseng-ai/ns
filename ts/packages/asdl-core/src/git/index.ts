@@ -7,6 +7,7 @@ import {
 	type ExecOptions,
 	type ExecResult,
 } from "../exec.ts";
+import { formatErrorMessage } from "../primitives.ts";
 
 const GIT_TIMEOUT_MS = 10_000;
 
@@ -25,7 +26,7 @@ export interface GitErrorInfo {
 export type GitResult<T> = { ok: true; value: T } | { ok: false; error: GitErrorInfo };
 export type GitCurrentBranchResult =
 	| { type: "branch"; branch: string }
-	| { type: "detached"; error: GitErrorInfo }
+	| { type: "detached" }
 	| { type: "failure"; error: GitErrorInfo };
 export type GitOptionalResult<T> =
 	| { type: "found"; value: T }
@@ -162,16 +163,7 @@ export class RealGitGateway implements GitGateway {
 		}
 
 		const branch = firstNonEmptyLine(run.value.result.stdout);
-		if (branch === undefined) {
-			return {
-				type: "detached",
-				error: {
-					code: "detached_head",
-					message: `git branch --show-current returned no current branch.\nCommand: ${run.value.displayCommand}`,
-					displayCommand: run.value.displayCommand,
-				},
-			};
-		}
+		if (branch === undefined) return { type: "detached" };
 		return { type: "branch", branch };
 	}
 
@@ -460,7 +452,7 @@ export class RealGitGateway implements GitGateway {
 			const result = await this.execApi.exec("git", args, execOptions(params, GIT_TIMEOUT_MS));
 			return { ok: true, value: { result, displayCommand } };
 		} catch (caught) {
-			const message = caught instanceof Error ? caught.message : String(caught);
+			const message = formatErrorMessage(caught);
 			return error(
 				"git_startup_failed",
 				`git command failed before completion.\nCommand: ${displayCommand}\nError: ${message}`,
