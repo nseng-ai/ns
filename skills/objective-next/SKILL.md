@@ -5,7 +5,7 @@ description: "Recommend the next useful work for an active Objective. Use when a
 
 # objective-next
 
-Recommend the next useful work for an active Objective. When explicit Objective policy allows it, route to confirmed-execution guidance before offering execution. If stale tracking blocks the recommendation, request an explicit `objective-update` handoff for the same Objective before continuing. Always include a best-effort work-left estimate as remaining semantic steps, not calendar time.
+Recommend the next useful work for an active Objective. When explicit Objective policy allows it, or when the user explicitly asks to execute a concrete `objective-next` recommendation from the current conversation, route to confirmed-execution guidance. If stale tracking blocks the recommendation, request an explicit `objective-update` handoff for the same Objective before continuing. Always include a best-effort work-left estimate as remaining semantic steps, not calendar time.
 
 Part of the Objective skill family. Use the `objective` umbrella skill first for shared vocabulary, selection rules, storage model, and safety boundaries; this step remains self-contained for its own happy path.
 
@@ -47,9 +47,23 @@ The Tracking Gate itself is read-only. Any file changes during this phase belong
 
 ## Conditional references
 
-After selecting and reading the Objective, if the user asks to execute/advance/run work, or if the selected Objective/roadmap row contains `## Runner Policy`, `## Definition of Progress`, row-level `Policy:`, or equivalent execution prose, read `references/confirmed-execution.md` before interpreting policy or offering execution.
+After selecting and reading the Objective, if the user asks to execute/advance/run work, gives a clear affirmative confirmation to a current-session recommendation, or if the selected Objective/roadmap row contains `## Runner Policy`, `## Definition of Progress`, row-level `Policy:`, or equivalent execution prose, read `references/confirmed-execution.md` before interpreting execution basis or offering/running execution.
 
 Normal next-work recommendations do not require loading confirmed-execution guidance.
+
+## Recommendation-continuation execution
+
+A durable `## Runner Policy` is not required when the user explicitly asks to execute a concrete `objective-next` recommendation that is still in the current conversation.
+
+Use this path only when all are true:
+
+- the prior `objective-next` response selected the same Objective slug;
+- it recommended one coherent next semantic step rather than a grab bag;
+- it named enough scope, likely areas, and completion evidence to bound execution;
+- the current user turn is a clear affirmative confirmation to execute that recommendation;
+- requested work can stay within local repository edits, local validation, and meaningful Objective tracking unless the user separately asked for branch/commit/PR/external writes.
+
+If any condition is missing or ambiguous, do not execute yet: reread the Objective, restate a bounded preview, and ask for confirmation or steering. This path is session-scoped execution basis, not hidden Objective state and not a substitute for durable policy when future sessions should proactively offer execution.
 
 ## Workflow
 
@@ -65,13 +79,12 @@ Normal next-work recommendations do not require loading confirmed-execution guid
 
 ## Recommend-only output
 
-Use this path for ordinary `objective-next` recommendations, when the user only asked for advice, or when no durable policy permits direct execution.
+Use this path for ordinary `objective-next` recommendations, when the user only asked for advice, or when no safe execution basis exists.
 
 - Recommend the next useful semantic step.
 - Explain the narrative or roadmap basis, likely files/areas, active assumption or risk exercised, and completion evidence to record afterward.
 - Include a best-effort work-left estimate: either remaining semantic steps/slices until Objective completion, or remaining work until the next discovery/decision step that will reveal additional work. Do not estimate calendar time.
-- If execution was requested but policy is missing or incomplete, include a concise policy-upgrade note: adding durable `## Definition of Progress` and `## Runner Policy` prose enables future execution offers.
-- Do not offer a one-time confirmation that bypasses missing durable policy.
+- If execution was requested but neither durable policy nor recommendation-continuation basis makes execution safe, say what information or confirmation is missing. Mention durable `## Definition of Progress` / `## Runner Policy` only when future sessions should proactively offer execution for this Objective.
 - Do not mutate files except through an explicit `objective-update` handoff.
 
 ## Stop / ask
@@ -81,12 +94,12 @@ Use this path for ordinary `objective-next` recommendations, when the user only 
 - The selected Objective is closed.
 - The Tracking Gate finds likely unrecorded material progress and confirmation to run `objective-update` is pending or declined.
 - The roadmap and narrative are too stale or incomplete to recommend work safely; ask for `objective-update`.
-- Execution policy is relevant but ambiguous for the selected slice; load `references/confirmed-execution.md` and recommend or steer instead of executing.
-- Requested execution would exceed durable policy, preview scope, validation boundaries, or permissions for external systems / write-capable actions.
+- Execution basis is relevant but ambiguous for the selected slice; load `references/confirmed-execution.md` and recommend or steer instead of executing.
+- Requested execution would exceed durable policy, recommendation-continuation scope, preview scope, validation boundaries, or permissions for external systems / write-capable actions.
 
 ## Verify
 
 - Name the selected slug and identify the roadmap item or narrative basis for the recommendation, steering question, or execution preview.
 - If recommendation-only or steer-first, ensure no files changed except through an explicit `objective-update` handoff; report any handoff output separately and confirm it stayed under the selected slug.
-- If confirmed execution ran, verify and report according to `references/confirmed-execution.md`.
+- If confirmed execution ran, verify and report according to `references/confirmed-execution.md`, including whether the basis was durable policy or recommendation-continuation confirmation.
 - If Objective tracking changed, confirm it was meaningful and stayed under the selected slug.

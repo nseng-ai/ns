@@ -29,7 +29,7 @@ The Objective/Runner split is load-bearing:
 - The **Objective** is the durable narrative spec: goal, boundaries, assumptions, progress rubric, and reusable learnings.
 - The **Runner** is the harness that advances the Objective: it chooses moves, manages branches when requested, validates, keeps or rejects work, and stops.
 
-Today's system mostly lives in the bounded/human quadrant, with `objective-stack-impl` occupying a bounded/autonomous-ish specialized stack runner role. General Objective advancement now enters through `objective-next`, which can recommend, steer, or offer confirmed execution when durable policy permits it.
+Today's system mostly lives in the bounded/human quadrant, with `objective-stack-impl` occupying a bounded/autonomous-ish specialized stack runner role. General Objective advancement now enters through `objective-next`, which can recommend, steer, offer confirmed execution when durable policy permits it, or execute a concrete current-session recommendation when the user gives a clear affirmative confirmation.
 
 |                       | **Bounded**                                             | **Standing**                                            |
 | --------------------- | ------------------------------------------------------- | ------------------------------------------------------- |
@@ -135,7 +135,7 @@ This Objective is execution-friendly for `objective-next` under the boundaries b
 - What will not happen unless explicitly requested: ...
 ```
 
-The `## Runner Policy` signal is prose, not a key-value permission bit. If policy is absent or ambiguous, `objective-next` must not infer execution permission from a concrete roadmap row alone. It should recommend only and explain that durable policy enables future execution offers.
+The `## Runner Policy` signal is prose, not a key-value permission bit. If policy is absent or ambiguous, `objective-next` must not infer durable execution permission from a concrete roadmap row alone. It should recommend by default and explain that durable policy enables future proactive execution offers. Separately, if the user gives a clear affirmative confirmation to a concrete current-session recommendation, `objective-next` may execute that bounded recommendation without requiring a policy edit.
 
 Minimum durable content before treating an Objective as autonomy-designed is stronger than ordinary execution-friendliness:
 
@@ -212,14 +212,15 @@ The general runner path is folded into **`objective-next`**, not a separate deve
 4. recommend the next semantic step by default;
 5. when policy says to steer first, ask or recommend planning instead of executing;
 6. when explicit durable policy permits direct execution, present an inline execution preview and wait for human confirmation;
-7. run only within the confirmed scope;
-8. keep only evidenced progress;
-9. stop with a prose explanation.
+7. when the user gives a clear affirmative confirmation to a concrete current-session recommendation, execute that recommendation without requiring the Objective to grow durable Runner Policy;
+8. run only within the confirmed scope;
+9. keep only evidenced progress;
+10. stop with a prose explanation.
 
 The preview should include:
 
 - selected Objective slug;
-- policy basis, including Runner Policy and row-level `Policy:` when relevant;
+- execution basis, including Runner Policy / row-level `Policy:` when relevant, or the prior concrete recommendation plus the user's direct confirmation;
 - proposed bounded scope;
 - likely files or areas and how the work will be left;
 - expected validation;
@@ -230,7 +231,7 @@ The preview should include:
 
 Default PR wording is: `PR submission is out of scope for this launch.`
 
-There is no fixed default pass count. The runner proposes a bounded scope in the preview, and the human confirms it.
+There is no fixed default pass count. The runner proposes a bounded scope in the preview, and the human confirms it. For an immediate follow-up to a concrete `objective-next` recommendation, any clear affirmative confirmation can be enough when the recommendation already named one coherent step, likely scope, and completion evidence; otherwise `objective-next` restates a preview and asks.
 
 ### Relationship to `objective-stack-impl`
 

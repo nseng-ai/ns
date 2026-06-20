@@ -34,17 +34,18 @@ This Objective is execution-friendly for `objective-next` under the boundaries b
 - What will not happen unless explicitly requested: ...
 ```
 
-Ordinary planning-only Objectives may omit these sections.
+Ordinary planning-only Objectives may omit these sections. Omitting them means future sessions should not proactively offer execution from the Objective record alone; it does not block a current-session user from giving a clear affirmative confirmation after `objective-next` has already recommended one concrete, bounded next step with completion evidence.
 
 ## Interpretation rules
 
 - Policy is durable prose, not schema.
 - Do not add YAML/frontmatter, UUIDs, hidden state, queues, ledgers, task databases, automation registries, or lifecycle states.
-- Concrete roadmap rows alone do not imply execution permission.
+- Concrete roadmap rows alone do not imply durable execution permission.
 - A `## Runner Policy` heading alone is insufficient when the content is ambiguous.
 - Row-level `Policy:` prose may override Objective-level defaults for that row.
 - Row-level `Evidence:` prose is expected evidence, not machine state.
-- External systems and write-capable actions are out of scope by default. Publishing, deploying, mutating GitHub issues/PRs, submitting PRs, calling write APIs, or changing external systems requires explicit policy or confirmed preview scope.
+- A direct user follow-up to a concrete current-session `objective-next` recommendation can provide session-scoped execution basis without adding durable policy, but only for that recommended bounded slice.
+- External systems and write-capable actions are out of scope by default. Publishing, deploying, mutating GitHub issues/PRs, submitting PRs, calling write APIs, or changing external systems requires explicit policy, explicit user request, or confirmed preview scope.
 - Do not describe every execution-friendly Objective as autonomous. Human-assisted execution after preview is weaker than autonomous pursuit.
 
 ## Autonomy-designed minimum

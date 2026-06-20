@@ -83,7 +83,7 @@ Additional narrative sections are allowed when they clarify the work, but avoid 
 
 For standing Objectives with no natural goal-met finish line, `## Completion Criteria` should describe retirement or closure criteria. Standing design rationale lives in [Standing Objectives & Objective Runners](pi/standing-objectives-and-runners.md); agent-facing guidance lives in `skills/objective/references/standing-objectives.md`.
 
-Optional execution-friendly `## Definition of Progress` and `## Runner Policy` sections may be added for Objectives that should let `objective-next` offer confirmed execution. Ordinary Objectives may omit these sections. Policy is durable prose, not schema, lifecycle state, automation metadata, or a hidden queue.
+Optional execution-friendly `## Definition of Progress` and `## Runner Policy` sections may be added for Objectives that should let future `objective-next` runs proactively offer confirmed execution. Ordinary Objectives may omit these sections and remain recommendation-first; a user can still explicitly continue from a concrete current-session `objective-next` recommendation. Policy is durable prose, not schema, lifecycle state, automation metadata, or a hidden queue.
 
 Agent-facing progressive-disclosure details live in skill references: `skills/objective/references/execution-policy.md`, `skills/objective-create/references/execution-friendly-create.md`, and `skills/objective-next/references/confirmed-execution.md`.
 
@@ -278,7 +278,7 @@ Shipped CLI:
 
 ### `objective-next`
 
-Acts as the front door for advancing an active objective: recommend next work, steer planning, or offer confirmed execution when explicit Objective policy allows it.
+Acts as the front door for advancing an active objective: recommend next work, steer planning, offer confirmed execution when explicit Objective policy allows it, or execute a concrete recommendation when the user gives a clear affirmative confirmation in the current conversation.
 
 Contract:
 
@@ -289,11 +289,12 @@ Contract:
 - Prefer next work that clarifies active assumptions or de-risks unresolved risks when that is the smallest coherent step.
 - Include a best-effort work-left estimate as remaining semantic steps/slices, not calendar time. If the remaining path is clear, estimate work until Objective completion; otherwise estimate work until the next discovery or decision step where additional work can be identified.
 - If the Tracking Gate indicates likely unrecorded progress, ask whether to run `objective-update` for the same selected objective before recommending or executing next work. If the user confirms or explicitly preauthorized update-and-continue, perform that update, reread the objective and repo evidence, then continue `objective-next`; otherwise stop without a recommendation or execution offer.
-- Direct execution offers require explicit Objective prose policy, such as `## Runner Policy` plus enough `## Definition of Progress` guidance, or row-level `Policy:` prose that clearly permits direct execution for the selected slice.
-- Do not infer execution permission from roadmap concreteness alone. If policy is missing or incomplete, recommend only and include a policy-upgrade note.
+- Direct execution offers for future/proactive runs require explicit Objective prose policy, such as `## Runner Policy` plus enough `## Definition of Progress` guidance, or row-level `Policy:` prose that clearly permits direct execution for the selected slice.
+- A clear affirmative confirmation may execute the current session's concrete `objective-next` recommendation without adding durable Runner Policy, when the previous response selected the same Objective, named one coherent semantic step, bounded likely scope, and described completion evidence. If any of those are missing or ambiguous, restate a bounded preview and ask before executing.
+- Do not infer durable execution permission from roadmap concreteness alone. Missing durable policy means future sessions should recommend by default; it does not block a user-confirmed continuation of the current concrete recommendation.
 - When policy says to steer first, ask one concrete question or recommend a planning/grilling/readback step instead of executing.
-- When policy allows direct execution, present an inline execution preview and wait for explicit affirmative confirmation before material action.
-- The preview should state selected slug, policy basis, bounded scope, likely files/areas, the best-effort work-left estimate, how the work will be left, validation, external systems or write-capable actions, stop/ask conditions, Objective tracking expectations, and PR submission status. PR submission, publishing, deployment, write APIs, and other external writes require explicit Runner Policy or confirmed preview scope.
+- When durable policy allows direct execution, present an inline execution preview and wait for explicit affirmative confirmation before material action. When the recommendation-continuation conditions are met, the user's affirmative response may be that confirmation.
+- The preview should state selected slug, execution basis, bounded scope, likely files/areas, the best-effort work-left estimate, how the work will be left, validation, external systems or write-capable actions, stop/ask conditions, Objective tracking expectations, and PR submission status. PR submission, publishing, deployment, write APIs, and other external writes require explicit Runner Policy, explicit user request, or confirmed preview scope.
 - Do not use hidden ledgers, task files, private queues, Branch Memory run state, alternate Objective stores, or new Objective lifecycle states.
 - In recommendation-only or steer-first paths, do not mutate files except through an explicit `objective-update` handoff. In confirmed execution, mutate only within the confirmed preview scope and write Objective tracking only for meaningful impact.
 
