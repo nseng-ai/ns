@@ -1,5 +1,6 @@
 ---
 name: code-just-fix
+disable-model-invocation: true
 description: "Command: code-just-fix"
 allowed-tools:
   - "Bash(just *)"

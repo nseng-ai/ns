@@ -1,5 +1,6 @@
 ---
 name: setup-graphite
+disable-model-invocation: true
 # Full description commented out to save tokens (coding agents inject skill descriptions into every session):
 # "Configure a repo for agentic use of Graphite (gt). Installs the official graphite skill via `npx skills` and adds a branching / PR convention admonition to AGENTS.md (or CLAUDE.md). Assumes gt is already installed, authenticated, and the repo has been initialized with `gt init`. Use when onboarding a project to gt-based workflows or enabling agents to prefer gt over raw git by default."
 description: "Command: setup-graphite"

@@ -1,5 +1,6 @@
 ---
 name: create-python-dev-cli
+disable-model-invocation: true
 # Full description commented out to save tokens (coding agents inject skill descriptions into every session):
 # "Scaffold a -dev CLI workspace package for development tooling. Use when the user wants to add a dev CLI to an existing Python project, create developer commands, set up a -dev package, or add project-specific tooling as a click CLI. Creates the full package structure inside packages/<project>-dev/ with click CLI, static imports for shell completion, output routing, context injection, a starter clean-pyproject command, and wires up the uv workspace. Run when the user says things like 'add a dev CLI', 'create dev tooling', 'set up a -dev package', or 'scaffold developer commands'."
 description: "Command: create-python-dev-cli"

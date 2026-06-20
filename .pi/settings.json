@@ -1,4 +1,13 @@
 {
   "packages": [],
-  "skills": []
+  "skills": [
+    "-skills/sdl-submit",
+    "-skills/code-workflows",
+    "-skills/changelog-update",
+    "-skills/code-checkpoint",
+    "-skills/code-just-fix",
+    "-skills/create-bun-typescript-project",
+    "-skills/create-python-dev-cli",
+    "-skills/create-python-package"
+  ]
 }

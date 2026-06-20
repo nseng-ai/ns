@@ -1,5 +1,6 @@
 ---
 name: setup-python-gh-ci
+disable-model-invocation: true
 # Full description commented out to save tokens (coding agents inject skill descriptions into every session):
 # "Generate GitHub Actions CI workflow for Python projects using uv and just. Use when the user wants to set up CI, add GitHub Actions, create a CI workflow, configure continuous integration, or add automated testing to their project. Produces .github/workflows/ci.yml and .github/actions/setup-python-uv/action.yml with jobs for lint, format-check, ty, and test (with Python version matrix)."
 description: "Command: setup-python-gh-ci"

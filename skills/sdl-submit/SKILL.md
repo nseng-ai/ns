@@ -1,5 +1,6 @@
 ---
 name: sdl-submit
+disable-model-invocation: true
 description: "Command: sdl-submit"
 allowed-tools:
   - "Bash(sdl submit*)"

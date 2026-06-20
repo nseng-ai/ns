@@ -1,5 +1,6 @@
 ---
 name: setup-dprint-gh-ci
+disable-model-invocation: true
 # Full description commented out to save tokens (coding agents inject skill descriptions into every session):
 # "Add a GitHub Actions workflow that runs `dprint check` on pushes and PRs. Use when adding dprint CI to an existing dprint setup. Requires dprint.json to already exist -- run setup-dprint first if not."
 description: "Command: setup-dprint-gh-ci"

@@ -2,25 +2,26 @@
 
 ## Work
 
-- [ ] Systemic #1 — set the correct areg invocation kind for the `Command: X`
-      stub-description skills. This is NOT a binary `disable-model-invocation` flip.
-      Invocation is governed by areg's four kinds (`normal` / `ambient-only` /
-      `invoke-only` / `command-backed`), applied via `areg skill apply <kind> <skills>`
-      and enforced by `areg check` — never hand-edit the frontmatter flags. The work
-      splits into two streams: (a) incomplete `normal` skills that only need a real
-      trigger description written (e.g. `objective-close`, `objective-create` — siblings
-      of the already-`normal` `objective-next` / `-update` / `-refresh`); (b)
-      deliberately explicit-only skills reconciled with `areg skill apply invoke-only`,
-      or `command-backed` only where a *verified* Pi replacement extension already exists
-      (no skill currently uses `command-backed` — the kind is supported but
-      unexemplified; the former `setup-dprint` / `setup-*` examples were removed, so any
-      `command-backed` conversion now requires building the Pi replacement first). A
-      `normal` skill carrying a `Command: X` stub is misconfigured ("listed but
-      unroutable"), not a finished state. The taxonomy is now documented in
+- [x] Systemic #1 — set the correct areg invocation kind for the `Command: X`
+      stub-description skills (NOT a binary `disable-model-invocation` flip). Invocation
+      is governed by areg's four kinds (`normal` / `ambient-only` / `invoke-only` /
+      `command-backed`), applied via `areg skill apply <kind> <skills>` and enforced by
+      `areg check`. Done across two slices: the objective-family five set to `normal`
+      (real trigger descriptions written, update `2026-06-19T180857`); the `setup-*`
+      family set to `invoke-only` (no verified Pi replacement); and eight skills with
+      verified Pi replacements (`sdl-submit`, `code-checkpoint`, `code-just-fix`,
+      `code-workflows`, `changelog-update`, `create-bun-typescript-project`,
+      `create-python-dev-cli`, `create-python-package`) set to `command-backed` (model
+      invocation disabled + `.pi/settings.json -skills` exclusion, slash-command surfaces
+      preserved). Correction: `command-backed` is NOT unexemplified — the real
+      classification axis is "has a verified Pi replacement?" (membership in
+      `COMMAND_STYLE_LOCAL_SKILLS` + the `real-gateways.ts` allowlist, which auto-generates
+      a backing command), and a skill with one cannot be `invoke-only`; the `setup-*`
+      removal only de-verified that family. Evidence: `areg check` "All skills OK";
+      descriptions left as minimal `Command: <name>` stubs (update `2026-06-19T202008`).
+      Residual body-content work for `sdl-submit` / `objective-close` / `objective-create`
+      is tracked under the duplication-collapse row, not here. Taxonomy in
       `docs/skill-conventions.md` § Skill Invocation Kinds.
-      Next action: produce a per-skill kind classification (which stubs are `normal` +
-      description vs explicit-only; which explicit-only skills have a Pi replacement →
-      `command-backed`), get sign-off, then batch-apply via `areg`.
 - [ ] Systemic #2 — single-source the grill-loop core shared by `pi-grill-ui` and
       `pi-grill-with-docs-ui`. Reconcile the already-drifted `status_request` wording;
       leave each skill holding only its UI-specific delta. Depends on resolving the
