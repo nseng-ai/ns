@@ -105,10 +105,7 @@ async function resolveTargetPr(
 		if (!lookupResult.ok)
 			return {
 				type: "failure",
-				exit: prFeedbackFailureExit(
-					`Failed to look up PR ${request.prNumber}`,
-					lookupResult.error,
-				),
+				exit: prFeedbackFailureExit(`Failed to look up PR ${request.prNumber}`, lookupResult.error),
 			};
 		const outcome = lookupResult.value;
 		if (!outcome.found) {

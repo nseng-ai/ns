@@ -1,4 +1,5 @@
 import { formatCommand, type CommandRunner, type ExecOptions, type ExecResult } from "./exec.ts";
+import { formatErrorMessage } from "./primitives.ts";
 
 export const GITHUB_CLI_TIMEOUT_MS = 30_000;
 export const GITHUB_CLI_STARTUP_ERROR_CODE = 127;
@@ -41,7 +42,7 @@ export async function runGitHubCli(options: RunGitHubCliOptions): Promise<RunGit
 			type: "startup_error",
 			command,
 			displayCommand,
-			message: caught instanceof Error ? caught.message : String(caught),
+			message: formatErrorMessage(caught),
 		};
 	}
 }

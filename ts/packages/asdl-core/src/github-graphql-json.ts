@@ -4,7 +4,7 @@ export type JsonParseResult =
 	| { readonly type: "ok"; readonly value: unknown }
 	| { readonly type: "error"; readonly error: unknown };
 
-export type GraphqlErrorsParseResult =
+type GraphqlErrorsParseResult =
 	| { readonly type: "ok"; readonly errors: readonly unknown[] | undefined }
 	| { readonly type: "invalid" };
 
@@ -24,10 +24,4 @@ export function parseGraphqlErrors(value: unknown): GraphqlErrorsParseResult {
 	const result = githubGraphqlErrorsSchema.safeParse(value);
 	if (!result.success) return { type: "invalid" };
 	return { type: "ok", errors: result.data.errors };
-}
-
-export function graphqlErrorsFromJson(value: unknown): readonly unknown[] | undefined {
-	const result = parseGraphqlErrors(value);
-	if (result.type === "invalid") return undefined;
-	return result.errors;
 }

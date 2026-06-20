@@ -311,9 +311,14 @@ async function resolveAttachBranch(
 	if (branch !== undefined && branch.length > 0) return branch;
 	const current = await git.currentBranch({ cwd: options.cwd, signal: options.signal });
 	if (current.type === "branch") return current.branch;
+	if (current.type === "detached") {
+		throw new Error(
+			"Cannot default branch-context operation from detached HEAD. Pass --branch explicitly.",
+		);
+	}
 	throw new Error(
 		[
-			"Cannot default branch-context operation from detached HEAD. Pass --branch explicitly.",
+			"Cannot default branch-context operation because the current branch could not be resolved. Pass --branch explicitly.",
 			"",
 			current.error.message,
 		].join("\n"),

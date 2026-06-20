@@ -84,26 +84,29 @@ interface GraphqlPageConnection<TNode> {
 	readonly pageInfo: GraphqlPageInfo;
 }
 
+type GraphqlPaginationCursorMode =
+	| {
+			type: "cursorless-first";
+			argsForCursor: (cursor: string | null | undefined) => readonly string[];
+	  }
+	| {
+			type: "cursor-required";
+			initialCursor: string | null | undefined;
+			threadId: string;
+			argsForCursor: (cursor: string) => readonly string[];
+	  };
+
 interface CollectGraphqlPagesOptions<TResponse, TNode, TOutput> {
 	readonly operation: GithubPrFeedbackOperation;
 	readonly params: GithubPrFeedbackOptions & { readonly prNumber: number };
 	readonly schema: z.ZodType<TResponse>;
 	readonly cursorContext: string;
 	readonly missingCursorMessage: string;
-	readonly argsForCursor: (cursor: string | null | undefined) => readonly string[];
+	readonly cursorMode: GraphqlPaginationCursorMode;
 	readonly connectionFromResponse: (
 		response: TResponse,
 	) => Result<GraphqlPageConnection<TNode>, GithubPrFeedbackFailure>;
 	readonly mapNode: (node: TNode) => MaybePromise<Result<TOutput, GithubPrFeedbackFailure>>;
-}
-
-interface CollectGraphqlContinuationPagesOptions<TResponse, TNode, TOutput> extends Omit<
-	CollectGraphqlPagesOptions<TResponse, TNode, TOutput>,
-	"argsForCursor"
-> {
-	readonly initialCursor: string | null | undefined;
-	readonly threadId: string;
-	readonly argsForCursor: (cursor: string) => readonly string[];
 }
 
 export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
@@ -171,7 +174,10 @@ export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
 			cursorContext: "reviewThreads",
 			missingCursorMessage:
 				"GitHub returned a reviewThreads page with hasNextPage but no endCursor",
-			argsForCursor: (cursor) => reviewThreadPageArgs(params.prNumber, cursor),
+			cursorMode: {
+				type: "cursorless-first",
+				argsForCursor: (cursor) => reviewThreadPageArgs(params.prNumber, cursor),
+			},
 			connectionFromResponse: (response) =>
 				feedbackOk(response.data.repository.pullRequest.reviewThreads),
 			mapNode: async (thread) => {
@@ -192,7 +198,10 @@ export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
 			cursorContext: "discussionComments",
 			missingCursorMessage:
 				"GitHub returned a discussion comments page with hasNextPage but no endCursor",
-			argsForCursor: (cursor) => discussionCommentPageArgs(params.prNumber, cursor),
+			cursorMode: {
+				type: "cursorless-first",
+				argsForCursor: (cursor) => discussionCommentPageArgs(params.prNumber, cursor),
+			},
 			connectionFromResponse: (response) =>
 				feedbackOk(response.data.repository.pullRequest.comments),
 			mapNode: (comment) => feedbackOk(normalizeDiscussionComment(comment)),
@@ -287,15 +296,18 @@ export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
 		if (!thread.comments.pageInfo.hasNextPage) return feedbackOk(thread);
 
 		const comments = [...thread.comments.nodes];
-		const additionalComments = await this.collectGraphqlContinuationPages({
+		const additionalComments = await this.collectGraphqlPages({
 			operation: "getPrReviewThreads",
 			params,
-			threadId: thread.id,
 			schema: ghReviewThreadCommentsResponseSchema,
 			cursorContext: "reviewThreadComments",
-			initialCursor: thread.comments.pageInfo.endCursor,
 			missingCursorMessage: `GitHub returned review thread ${thread.id} comments with hasNextPage but no endCursor`,
-			argsForCursor: (cursor) => reviewThreadCommentPageArgs(thread.id, cursor),
+			cursorMode: {
+				type: "cursor-required",
+				initialCursor: thread.comments.pageInfo.endCursor,
+				threadId: thread.id,
+				argsForCursor: (cursor) => reviewThreadCommentPageArgs(thread.id, cursor),
+			},
 			connectionFromResponse: (response) => {
 				const node = response.data.node;
 				if (node === null) {
@@ -326,58 +338,33 @@ export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
 		options: CollectGraphqlPagesOptions<TResponse, TNode, TOutput>,
 	): Promise<Result<readonly TOutput[], GithubPrFeedbackFailure>> {
 		const items: TOutput[] = [];
-		let cursor: string | null | undefined;
+		const threadId =
+			options.cursorMode.type === "cursor-required" ? options.cursorMode.threadId : undefined;
+		let cursor =
+			options.cursorMode.type === "cursor-required" ? options.cursorMode.initialCursor : undefined;
+		let isFirstFetch = true;
 		for (;;) {
-			const result = await this.runGhGraphqlJson({
-				operation: options.operation,
-				args: options.argsForCursor(cursor),
-				params: options.params,
-				schema: options.schema,
-				prNumber: options.params.prNumber,
-				cursorContext: options.cursorContext,
-			});
-			if (!result.ok) return result;
-			const connection = options.connectionFromResponse(result.value);
-			if (!connection.ok) return feedbackErr(connection.error);
-			for (const node of connection.value.nodes) {
-				const item = await options.mapNode(node);
-				if (!item.ok) return feedbackErr(item.error);
-				items.push(item.value);
+			let args: readonly string[];
+			if (options.cursorMode.type === "cursorless-first" && isFirstFetch) {
+				args = options.cursorMode.argsForCursor(cursor);
+			} else {
+				const cursorResult = requireCursor(cursor, {
+					operation: options.operation,
+					message: options.missingCursorMessage,
+					prNumber: options.params.prNumber,
+					threadId,
+					cursorContext: options.cursorContext,
+				});
+				if (!cursorResult.ok) return feedbackErr(cursorResult.error);
+				args = options.cursorMode.argsForCursor(cursorResult.value);
 			}
-			if (!connection.value.pageInfo.hasNextPage) break;
-			const cursorResult = requireCursor(connection.value.pageInfo.endCursor, {
-				operation: options.operation,
-				message: options.missingCursorMessage,
-				prNumber: options.params.prNumber,
-				cursorContext: options.cursorContext,
-			});
-			if (!cursorResult.ok) return feedbackErr(cursorResult.error);
-			cursor = cursorResult.value;
-		}
-		return feedbackOk(items);
-	}
-
-	private async collectGraphqlContinuationPages<TResponse, TNode, TOutput>(
-		options: CollectGraphqlContinuationPagesOptions<TResponse, TNode, TOutput>,
-	): Promise<Result<readonly TOutput[], GithubPrFeedbackFailure>> {
-		const items: TOutput[] = [];
-		let cursor = options.initialCursor;
-		for (;;) {
-			const cursorResult = requireCursor(cursor, {
-				operation: options.operation,
-				message: options.missingCursorMessage,
-				prNumber: options.params.prNumber,
-				threadId: options.threadId,
-				cursorContext: options.cursorContext,
-			});
-			if (!cursorResult.ok) return feedbackErr(cursorResult.error);
 			const result = await this.runGhGraphqlJson({
 				operation: options.operation,
-				args: options.argsForCursor(cursorResult.value),
+				args,
 				params: options.params,
 				schema: options.schema,
 				prNumber: options.params.prNumber,
-				threadId: options.threadId,
+				threadId,
 				cursorContext: options.cursorContext,
 			});
 			if (!result.ok) return result;
@@ -390,6 +377,7 @@ export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
 			}
 			if (!connection.value.pageInfo.hasNextPage) break;
 			cursor = connection.value.pageInfo.endCursor;
+			isFirstFetch = false;
 		}
 		return feedbackOk(items);
 	}

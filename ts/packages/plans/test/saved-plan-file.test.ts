@@ -172,9 +172,7 @@ class FakeGitGateway implements GitGateway {
 
 	async currentBranch(_params: GitCwdParams): Promise<GitCurrentBranchResult> {
 		this.calls.push("currentBranch");
-		if (this.currentBranchValue === undefined) {
-			return { type: "detached", error: { code: "detached_head", message: "detached" } };
-		}
+		if (this.currentBranchValue === undefined) return { type: "detached" };
 		return { type: "branch", branch: this.currentBranchValue };
 	}
 

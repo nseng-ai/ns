@@ -96,7 +96,15 @@ export async function mapBranchesToOpenPrs(options: {
 			continue;
 		}
 		const [pr] = candidates;
-		if (pr === undefined) throw new Error(`Expected PR candidate for branch ${branch}.`);
+		if (pr === undefined) {
+			return {
+				type: "error",
+				exit: failure(
+					"internal_error",
+					`Expected exactly one PR candidate for branch ${branch}, but none was available after singleton validation.`,
+				),
+			};
+		}
 		branchPrs.push(branchPrEntry(branch, pr));
 	}
 	return {

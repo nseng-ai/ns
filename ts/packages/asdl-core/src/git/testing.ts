@@ -225,9 +225,7 @@ export class InMemoryGitGateway implements GitGateway {
 
 	async currentBranch(params: GitCwdParams): Promise<GitCurrentBranchResult> {
 		this.currentBranchLog.push(callFromParams(params));
-		if (isDetachedState(this.currentBranchState)) {
-			return { type: "detached", error: detachedHeadError() };
-		}
+		if (isDetachedState(this.currentBranchState)) return { type: "detached" };
 		if (isFailureState(this.currentBranchState)) {
 			return {
 				type: "failure",
@@ -411,15 +409,6 @@ function isDetachedState(value: unknown): value is { type: "detached" } {
 	return (
 		typeof value === "object" && value !== null && "type" in value && value.type === "detached"
 	);
-}
-
-function detachedHeadError(): GitErrorInfo {
-	return {
-		code: "detached_head",
-		message:
-			"git branch --show-current returned no current branch.\nCommand: git branch --show-current",
-		displayCommand: "git branch --show-current",
-	};
 }
 
 function callFromParams(params: GitCwdParams): GitCall {

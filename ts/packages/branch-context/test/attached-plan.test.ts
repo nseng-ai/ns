@@ -458,10 +458,7 @@ describe("loadAttachedPlan", () => {
 	});
 
 	test("refuses detached HEAD before Branch Memory reads", async () => {
-		const pi = new FakePi([
-			gitRootStep(),
-			gitCurrentBranchStep("", { code: 1, stderr: "fatal: ref HEAD is not a symbolic ref" }),
-		]);
+		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep("")]);
 
 		await expect(
 			loadAttachedPlan(pi, {}, { cwd: ROOT, context: branchContext(pi) }),
