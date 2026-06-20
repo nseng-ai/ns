@@ -27,6 +27,11 @@ describe("packagechk claim commands", () => {
 		expect(run.stderr).toContain("[DRY RUN]");
 		expect(run.stderr).toContain("PyPI lookup name: foo-bar");
 		expect(run.stderr).toContain("Module name: foo_bar");
+		expect(run.stderr).toContain("Would create a temporary placeholder project directory");
+		expect(run.stderr).toContain("Would write: pyproject.toml");
+		expect(run.stderr).toContain("Would write: src/foo_bar/__init__.py");
+		expect(run.stderr).toContain("Would run: uv build");
+		expect(run.stderr).toContain("Would run: uvx uv-publish <artifacts>");
 		expect(registry.pypiCheckedNames).toEqual([]);
 		expect(publisher.toolChecks).toBe(0);
 		expect(publisher.builtProjectDirs).toEqual([]);
@@ -137,6 +142,10 @@ describe("packagechk claim commands", () => {
 		});
 		expect(dryRun.code).toBe(0);
 		expect(dryRun.stderr).toContain("Package name: @asdl-io/aretro");
+		expect(dryRun.stderr).toContain("Would write: package.json");
+		expect(dryRun.stderr).toContain("Would write: README.md");
+		expect(dryRun.stderr).toContain("Would write: index.js");
+		expect(dryRun.stderr).toContain("Would run: npm publish --access=public");
 		expect(dryRun.stderr).toContain("npm URL: https://www.npmjs.com/package/@asdl-io/aretro");
 		expect(publisher.toolChecks).toBe(0);
 

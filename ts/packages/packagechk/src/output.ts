@@ -1,9 +1,4 @@
-import {
-	reportExitCode,
-	reportToJson,
-	type PackageCheckReport,
-	type RegistryCheckResult,
-} from "./models.ts";
+import { reportToJson, type PackageCheckReport, type RegistryCheckResult } from "./models.ts";
 
 export function renderJson(report: PackageCheckReport): string {
 	return JSON.stringify(sortJsonValue(reportToJson(report)));
@@ -37,5 +32,3 @@ function sortJsonValue(value: unknown): unknown {
 	);
 	return Object.fromEntries(entries.map(([key, child]) => [key, sortJsonValue(child)]));
 }
-
-export { reportExitCode };

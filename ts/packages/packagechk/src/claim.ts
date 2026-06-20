@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 const MODULE_SEPARATOR_PATTERN = /[^A-Za-z0-9]+/g;
 
@@ -15,6 +15,11 @@ export interface NpmClaimProjectSpec {
 	description: string;
 	version: string;
 	license: string;
+}
+
+export interface ClaimProjectFile {
+	relativePath: string;
+	contents: string;
 }
 
 export function moduleNameFromPackage(packageName: string): string {
@@ -52,12 +57,18 @@ __version__ = ${formatTomlString(version)}
 `;
 }
 
+export function buildClaimProjectFiles(spec: ClaimProjectSpec): readonly ClaimProjectFile[] {
+	return [
+		{ relativePath: "pyproject.toml", contents: renderClaimPyproject(spec) },
+		{
+			relativePath: `src/${spec.moduleName}/__init__.py`,
+			contents: renderClaimInitPy(spec.version),
+		},
+	];
+}
+
 export function writeClaimProjectFiles(projectDir: string, spec: ClaimProjectSpec): void {
-	const moduleDir = join(projectDir, "src", spec.moduleName);
-	if (existsSync(moduleDir)) throw new Error(`module directory already exists: ${moduleDir}`);
-	mkdirSync(moduleDir, { recursive: true });
-	writeFileSync(join(projectDir, "pyproject.toml"), renderClaimPyproject(spec), "utf8");
-	writeFileSync(join(moduleDir, "__init__.py"), renderClaimInitPy(spec.version), "utf8");
+	writeClaimFiles(projectDir, buildClaimProjectFiles(spec));
 }
 
 export function renderNpmPackageJson(spec: NpmClaimProjectSpec): string {
@@ -83,13 +94,28 @@ export function renderNpmIndexJs(): string {
 	return "// Claimed package name placeholder.\n";
 }
 
+export function buildNpmClaimProjectFiles(spec: NpmClaimProjectSpec): readonly ClaimProjectFile[] {
+	return [
+		{ relativePath: "package.json", contents: renderNpmPackageJson(spec) },
+		{ relativePath: "README.md", contents: renderNpmReadme(spec) },
+		{ relativePath: "index.js", contents: renderNpmIndexJs() },
+	];
+}
+
 export function writeNpmClaimProjectFiles(projectDir: string, spec: NpmClaimProjectSpec): void {
-	const packageJsonPath = join(projectDir, "package.json");
-	if (existsSync(packageJsonPath))
-		throw new Error(`package.json already exists: ${packageJsonPath}`);
-	writeFileSync(packageJsonPath, renderNpmPackageJson(spec), "utf8");
-	writeFileSync(join(projectDir, "README.md"), renderNpmReadme(spec), "utf8");
-	writeFileSync(join(projectDir, "index.js"), renderNpmIndexJs(), "utf8");
+	writeClaimFiles(projectDir, buildNpmClaimProjectFiles(spec));
+}
+
+export function writeClaimFiles(projectDir: string, files: readonly ClaimProjectFile[]): void {
+	for (const file of files) {
+		const targetPath = join(projectDir, file.relativePath);
+		if (existsSync(targetPath)) throw new Error(`claim project file already exists: ${targetPath}`);
+	}
+	for (const file of files) {
+		const targetPath = join(projectDir, file.relativePath);
+		mkdirSync(dirname(targetPath), { recursive: true });
+		writeFileSync(targetPath, file.contents, "utf8");
+	}
 }
 
 function formatTomlString(value: string): string {
