@@ -4,7 +4,7 @@ import * as path from "node:path";
 
 import { Text } from "@earendil-works/pi-tui";
 import { piExecApiToCommandExecApi } from "@asdl/core/exec";
-import { RealGitGateway } from "@asdl/core/git";
+import { RealGitGateway, type GitGateway } from "@asdl/core/git";
 import { formatErrorMessage } from "@asdl/core/primitives";
 import {
 	WRITE_SAVED_PLAN_FILE_TOOL_NAME,
@@ -170,7 +170,7 @@ async function resolveWritePlanPromptBody(
 	pi: ExtensionAPI,
 	cwd: string,
 ): Promise<WritePlanPromptBodyResolution> {
-	const repoRoot = await resolveGitRoot(pi, cwd);
+	const repoRoot = await resolveGitRoot(new RealGitGateway(piExecApiToCommandExecApi(pi)), cwd);
 	if (repoRoot.type === "failed") {
 		return fallbackWritePlanPromptBody(repoRoot.reason);
 	}
@@ -193,10 +193,9 @@ function fallbackWritePlanPromptBody(reason: string): WritePlanPromptBodyResolut
 }
 
 async function resolveGitRoot(
-	pi: ExtensionAPI,
+	git: GitGateway,
 	cwd: string,
 ): Promise<{ type: "resolved"; path: string } | { type: "failed"; reason: string }> {
-	const git = new RealGitGateway(piExecApiToCommandExecApi(pi));
 	const result = await git.repoRoot({ cwd });
 	if (!result.ok) {
 		return { type: "failed", reason: result.error.message };
@@ -221,14 +220,6 @@ async function readRepoWritePlanPromptBody(
 	return { type: "resolved", body: content };
 }
 
-async function assertNotSymlink(targetPath: string, label: string): Promise<Stats> {
-	const stats = await lstat(targetPath);
-	if (stats.isSymbolicLink()) {
-		throw new Error(`${label} is a symlink`);
-	}
-	return stats;
-}
-
 async function assertSafeDirectory(targetPath: string, label: string): Promise<void> {
 	const stats = await assertNotSymlink(targetPath, label);
 	if (!stats.isDirectory()) {
@@ -241,6 +232,14 @@ async function assertSafeFile(targetPath: string, label: string): Promise<void> 
 	if (!stats.isFile()) {
 		throw new Error(`${label} is not a file`);
 	}
+}
+
+async function assertNotSymlink(targetPath: string, label: string): Promise<Stats> {
+	const stats = await lstat(targetPath);
+	if (stats.isSymbolicLink()) {
+		throw new Error(`${label} is a symlink`);
+	}
+	return stats;
 }
 
 function repoPromptPath(repoRoot: string): string {
