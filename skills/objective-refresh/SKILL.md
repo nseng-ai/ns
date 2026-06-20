@@ -5,40 +5,36 @@ description: "Refresh active Objective records without closure. Use for a single
 
 # objective-refresh
 
-Refresh active Objective records without closure. This is an Objective skill-family workflow: use/read the `objective` umbrella skill first for shared Objective vocabulary, storage, status semantics, and safety rules.
-
-This skill handles three non-closing refresh scopes:
-
-- **one-objective scope:** one active Objective in one explicit target context;
-- **branch/context scope:** all Objective records genuinely in scope for one branch or explicit branch-like context;
-- **repo scope:** all active open Objectives across safe repo/Graphite owning branch/context targets.
+Refresh active Objective records without closure. Use/read the `objective` umbrella skill first for shared Objective vocabulary, storage, status semantics, and safety rules.
 
 A refresh verifies material claims, updates stale durable Objective prose/roadmap only when meaningful, may append Semantic Updates, and never closes Objectives. For a user-directed update that may create `closed.md`, use `objective-update` instead.
 
-## Scope router
+## Route scope
 
-Choose exactly one scope before gathering mutable evidence:
+Choose exactly one non-closing scope before gathering mutable evidence:
 
 - Explicit Objective slug/path, "refresh this Objective", or "rebaseline one Objective" -> use the one-objective workflow in this file.
 - "Refresh this branch's Objectives", "bring branch Objective tracking up to date", current branch Objective refresh, or explicit trunk named-slug non-closing refresh -> read `references/branch-scope.md`, then return to this file for each selected slug's authoring and verification.
 - "Refresh all Objectives", repo-wide Objective refresh, bedtime Objective refresh, or Graphite/topology fan-out -> read `references/repo-scope.md`; it routes safe targets through `references/branch-scope.md` and then this file's one-objective workflow.
 - Ambiguous refresh scope -> ask the user to choose one-objective, branch/context, or repo scope. Do not infer scope from branch name, PR title, roadmap text, hidden attachments, or candidate count.
 
-## Concept
+Scope ownership:
 
-A refresh asks: for this target context, what should the Objective record truthfully say as durable ground truth?
+- `references/branch-scope.md` owns branch/context discovery, ownership filtering, dirty-skip behavior, aggregate commit behavior, and final branch report.
+- `references/repo-scope.md` owns repo/Graphite topology inventory, target grouping, staleness filtering, degrade cases, and fan-out.
+- This file owns per-slug authoring, claim verification, durable Objective edits, Semantic Update creation, no-closure invariants, and one-objective final response/verify details.
+
+## Refresh model
+
+Ask: for this target context, what should the Objective record truthfully say as durable ground truth?
 
 The authoring move is a **from-scratch refresh**, not paragraph patching. Read the current Objective text as evidence, extract its core meaning and progress, verify that extracted contract against current ground truth, then rewrite `objective.md` and `roadmap.md` cleanly from that verified contract. Extract first, rewrite second, then diff the rewrite against the extracted contract so no meaning silently falls out.
 
 On feature branches, branch/context or repo scope may frame the target as "if this branch landed now". On trunk/default branch, the target is an explicit non-closing rebaseline for named Objective records. Use `objective-update`'s landed-state writing semantics as the content model, but do not run the Closure Gate, do not create `closed.md`, and do not add `## Closure`.
 
-Do not require the target to be a branch tip. The target may be the current checkout `HEAD`, a branch/ref in a materialized worktree, or a branch/repo-scope supplied context. What matters is that the worktree/ref, trunk/base, and baseline are explicit enough to gather deterministic evidence.
+Do not require the target to be a branch tip. The target may be current checkout `HEAD`, a branch/ref in a materialized worktree, or a branch/repo-scope supplied context. What matters is that the worktree/ref, trunk/base, and baseline are explicit enough to gather deterministic evidence.
 
-## Required one-objective target context
-
-Process exactly one active Objective slug/path and exactly one target context.
-
-Standalone one-objective mode may default the target context to the current checkout `HEAD` only when the checkout is on a real branch:
+Process exactly one active Objective slug/path and exactly one target context at a time. Standalone one-objective mode may default the target context to current checkout `HEAD` only when the checkout is on a real branch:
 
 ```bash
 git -C "$WT" symbolic-ref --quiet --short HEAD
@@ -46,7 +42,7 @@ git -C "$WT" symbolic-ref --quiet --short HEAD
 
 If no slug/path is explicit in standalone one-objective mode, run `objective list --minimal --format md` and ask the user to choose one. Do not auto-select from branch name, PR title, roadmap text, changed files, hidden attachments, or candidate count.
 
-Branch/context and repo scopes should supply this target context for each selected slug:
+Branch/context and repo scopes must supply the one-objective workflow with:
 
 ```text
 WT=<worktree path>
@@ -60,23 +56,17 @@ commit_mode=<standalone|aggregate-by-caller>
 
 Stop if the selected Objective is archived unless the user explicitly asks for archive work. Stop or ask if target context is not explicit enough to verify claims without guessing.
 
-## Claim verification posture
+## Verify claims
 
 Be aggressively skeptical. Presume every material Objective claim is false until verified against current ground truth.
 
-A material claim is any durable statement about current or future work that names or implies a concrete fact, including:
+Material claims include source paths, symbols, commands, packages, workflows, PRs, branches, tests, docs, ADRs, Objective slugs, status words, scope boundaries, non-goals, dependencies, risks, assumptions, completion evidence, and roadmap row rationale. Status words include "exists", "gone", "current", "already", "now", "still", "remaining", "implemented", "deleted", "covered", "tested", "passing", "legacy", "core", "salvaged", "owned", and "deferred".
 
-- source paths, symbols, commands, packages, workflows, PRs, branches, tests, docs, ADRs, or Objective slugs;
-- status words such as "exists", "gone", "current", "already", "now", "still", "remaining", "implemented", "deleted", "covered", "tested", "passing", "legacy", "core", "salvaged", "owned", or "deferred";
-- scope boundaries, non-goals, dependencies, risks, assumptions, completion evidence, and roadmap row rationale.
-
-For every material claim that the refresh writes, carries forward from the old record, or relies on while extracting the refreshed contract, collect evidence first. Evidence may be repository probes (`test -e`, `find`, `rg`, `git grep`, `git diff`, `git log`), deterministic CLI inventory (`objective exec read-objective`, package help/schema output), or PR/CI evidence when the claim is about PR/CI state. Verify negative claims too: "no X" requires a scoped search showing X is absent.
+For every material claim that the refresh writes, carries forward from the old record, or relies on while extracting the refreshed contract, collect evidence first. Evidence may be repository probes (`test -e`, `find`, `rg`, `git grep`, `git diff`, `git log`), deterministic CLI inventory (`objective exec read-objective`, package help/schema output), or PR/CI evidence when the claim is about PR/CI state. Negative claims need scoped absence evidence; "no X" requires a scoped search showing X is absent.
 
 If a claim cannot be verified cheaply, do not leave it as fact. Convert it to an explicit assumption/open question with the missing-evidence scope, park or narrow the roadmap item, or report `skipped-unverified`. If verified evidence contradicts the Objective, correct the extracted contract before rewriting and add a Semantic Update explaining the correction. Never add a Semantic Update that vouches for unverified draft prose.
 
-## Baseline and due-check
-
-Derive the baseline from the target context and selection basis.
+## Derive baseline and due-ness
 
 For feature-owned or orchestrated-owned branch contexts, prefer the most recent refresh commit for the slug. Recognize both the current prefix and the legacy branch-refresh prefix so older branches remain idempotent:
 
@@ -99,7 +89,7 @@ A feature-owned refresh is due iff the Objective directory changed since the bas
 git -C "$WT" diff --quiet <baseline>..HEAD -- .asdl/objectives/<slug>/
 ```
 
-For trunk-explicit contexts, the explicit active slug is due for claim verification. Use the last matching refresh commit when present. If none exists, use the most recent commit that touched the Objective directory; if the Objective directory exists only at `HEAD`, use `HEAD` and record that there is no prior Objective-history baseline. Trunk due-ness means "perform claim verification and write only if ground truth makes durable prose stale," not "force a commit."
+For trunk-explicit contexts, the explicit active slug is due for claim verification. Use the last matching refresh commit when present; otherwise use the most recent commit that touched the Objective directory, or `HEAD` if the directory exists only at `HEAD` and record that there is no prior Objective-history baseline. Trunk due-ness means "perform claim verification and write only if ground truth makes durable prose stale," not "force a commit."
 
 The Semantic Update provenance line is a human/debug breadcrumb, not the deduplication key:
 
@@ -109,7 +99,7 @@ Provenance: objective-refresh basis target=<target-sha-or-ref> from=<baseline-sh
 
 Do not stamp a post-commit Objective tree SHA into the update file; the update file would be part of the tree being identified.
 
-## Safety probes
+## Write one Objective safely
 
 Before editing one Objective directory, verify it is clean:
 
@@ -130,14 +120,9 @@ Always enforce these invariants:
 
 If a selected Objective appears to require closure rather than refresh, report it as closure-ready/needs `objective-update`; do not close it.
 
-## One-objective write policy
-
 For each due, clean slug, run a full refresh loop:
 
-1. **Read the old record as source material.** Use `objective exec read-objective <slug> --format md` when available for deterministic inventory and closed-marker state, then read:
-   - `.asdl/objectives/<slug>/objective.md`
-   - `.asdl/objectives/<slug>/roadmap.md`
-   - recent `updates/` only when needed for context
+1. **Read the old record as source material.** Use `objective exec read-objective <slug> --format md` when available for deterministic inventory and closed-marker state, then focus on `objective.md`, `roadmap.md`, and recent `updates/` only when needed for context.
 2. **Gather target evidence** from the baseline to the target `HEAD`/ref:
 
    ```bash
@@ -170,7 +155,7 @@ For each due, clean slug, run a full refresh loop:
 9. Add one new timestamped Semantic Update under `updates/` when the refresh records a meaningful finding, decision, blocker, risk change, completion event, plan change, follow-up, or ground-truth rebaseline. Include the provenance line above and summarize the decisive extraction + verification evidence.
 10. If the due-check says a refresh is due but you cannot identify a meaningful durable change, or cannot verify the extracted Objective contract well enough to trust it, do not invent filler. Report `skipped-ambiguous` or `skipped-unverified` and leave the slug unchanged unless you can safely narrow/park false claims.
 
-## Commit behavior
+## Commit and report
 
 Standalone one-objective mode creates one self-identifying commit when there are edits:
 
@@ -187,8 +172,6 @@ Branch/context and repo fan-out scopes create at most one aggregate commit per t
 ```
 
 Do not commit when no slug produced a meaningful edit.
-
-## Final response
 
 Return a compact report with:
 

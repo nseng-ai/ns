@@ -63,10 +63,10 @@
   rewrite, then diff the new `SKILL.md` against that contract line-by-line; `areg check`
   "All skills OK"; every disclosed pointer resolves. Edit the real `skills/` source only
   (never a symlinked copy).
-  **Remaining value-adjusted sequence** (after the `handoff-create` rewrite): the
-  objective family (`objective-refresh`, `objective-update`, `objective-create`; high
-  reach, accept risk 3 once the gate has 2–3 passes) → ccc / niche skills last, only if
-  cheap.
+  **Remaining value-adjusted sequence** (after the `objective-refresh` rewrite):
+  `objective-update`, then `objective-create` (high-reach objective family; risk 3 now
+  accepted after the gate passed on `objective-stack-impl`, `handoff-create`, and
+  `objective-refresh`) → ccc / niche skills last, only if cheap.
   **`branch-context-impl` dropped off** (was the tentative "next"): 36 lines, lift 1 /
   risk 4 — its only disclosable block is a 6-trigger STOP safety contract, so disclosing
   it is net-negative and a rewrite most likely softens the contract. Leave as-is.
@@ -92,8 +92,15 @@
   - `refactor-swarm` — rewrite; recap section + redundant examples.
   - `ccc-available-work`, `ccc-stack-map` — rewrite; twice-listed command recipes. Lift
     5 / 4 but cmux-niche (low reach) → sequenced last among rewrites.
-  - `objective-refresh`, `objective-update` — rewrite; invariants stated 3–4×. High reach;
-    take after the gate has 2–3 passes.
+  - `objective-refresh` — **DONE (rewrite).** SKILL.md 205→182 lines; frontmatter
+    preserved after audit; repeated no-closure, immutable-update, slug-directory,
+    baseline-prefix, final-report, and verify rules collapsed into co-located sections.
+    Branch/repo references were read as contract sources and left unchanged. Evidence:
+    contract-diff checks retained required routing, command, safety, action-label, and
+    provenance anchors; validation passed (`git diff --check`, `areg check`,
+    `just dprint-check`). See update `2026-06-20T113402`.
+  - `objective-update` — rewrite; invariants stated 3–4×. High reach; take after the
+    gate has 2–3 passes.
   - `handoff-create` — **DONE (rewrite).** SKILL.md 173→131 lines; the duplicated
     artifact template / storage here-doc collapsed to one canonical artifact shape and
     one canonical `brmem put` command; frontmatter and invocation kind stayed unchanged
