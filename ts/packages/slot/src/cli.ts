@@ -1,15 +1,12 @@
 #!/usr/bin/env node
 
-import process from "node:process";
-
 import {
 	ClinkrGroup,
 	isClinkrHumanOutputInvocation,
 	resolveClinkrInteraction,
-	resolveIo,
 	type ClinkrInteraction,
 } from "@sdl/clinkr";
-import { isDirectCliInvocation } from "@sdl/core/cli-entry";
+import { defineCli } from "@sdl/core/cli-entry";
 import { readStdinLine } from "@sdl/core/stdin";
 
 import { createRealSlotContext, type SlotCliContext } from "./context.ts";
@@ -87,7 +84,130 @@ import {
 	shellShowResultSchema,
 } from "./operations/shell.ts";
 
-export const VERSION = "0.1.0";
+const entry = defineCli<SlotCliContext, CliDeps, undefined>({
+	metaUrl: import.meta.url,
+	runtime: "typescript",
+	description: "Manage the pool of Git-worktree-backed slots.",
+	prepareRun: async ({ args, deps, cwd, env, io }) => {
+		const context = deps.context ?? (await createRealSlotContext({ cwd, env }));
+		const runContext: SlotCliContext = {
+			...context,
+			cwd,
+			env: deps.env ?? context.env,
+			interaction: resolveClinkrInteraction({
+				interaction: deps.interaction,
+				stdin: deps.stdin ?? readStdinLine,
+				stderr: io.stderr,
+			}),
+			stderr: io.stderr,
+			shouldWriteCdDirective: isClinkrHumanOutputInvocation(args),
+		};
+		return { type: "run", context: runContext, buildState: undefined };
+	},
+	configureCli: ({ root }) => {
+		root.command({
+			name: "list",
+			description: "List worktree pool slots derived from Git worktree state.",
+			schema: listRequestSchema,
+			resultSchema: listResultSchema,
+			handler: runList,
+			renderHuman: renderList,
+		});
+		root.command({
+			name: "ls",
+			description: "Alias for list.",
+			schema: listRequestSchema,
+			resultSchema: listResultSchema,
+			handler: runList,
+			renderHuman: renderList,
+		});
+		root.command({
+			name: "checkout",
+			description: "Check out a branch into an available pool slot worktree.",
+			schema: checkoutRequestSchema,
+			positionals: { branchName: { position: 0 }, base: { position: 1 } },
+			options: { new: { short: "-b" } },
+			resultSchema: checkoutResultSchema,
+			handler: runCheckout,
+			renderHuman: renderCheckout,
+		});
+		root.command({
+			name: "co",
+			description: "Alias for checkout.",
+			schema: checkoutRequestSchema,
+			positionals: { branchName: { position: 0 }, base: { position: 1 } },
+			options: { new: { short: "-b" } },
+			resultSchema: checkoutResultSchema,
+			handler: runCheckout,
+			renderHuman: renderCheckout,
+		});
+		root.command({
+			name: "goto",
+			description: "Print/copy a cd command for an assigned slot.",
+			schema: gotoRequestSchema,
+			options: { num: { short: "-n" }, wt: { short: "-w" } },
+			resultSchema: gotoResultSchema,
+			handler: runGoto,
+			renderHuman: renderGoto,
+		});
+		root.command({
+			name: "claim",
+			description: "Move a local branch into the current managed slot or lowest available slot.",
+			schema: claimRequestSchema,
+			positionals: { branchName: { position: 0 } },
+			resultSchema: claimResultSchema,
+			handler: runClaim,
+			renderHuman: renderClaim,
+		});
+		root.command({
+			name: "free",
+			description: "Free assigned slots back to the pool.",
+			schema: freeRequestSchema,
+			options: {
+				num: { short: "-n" },
+				wt: { short: "-w" },
+				branch: { short: "-b" },
+				current: { short: "-c" },
+				yes: { short: "-y" },
+			},
+			resultSchema: freeResultSchema,
+			handler: runFree,
+			renderHuman: renderFree,
+		});
+		root.command({
+			name: "gc",
+			description: "Free slots whose pull requests have closed or merged.",
+			schema: gcRequestSchema,
+			options: { force: { short: "-f" } },
+			resultSchema: gcResultSchema,
+			handler: runGc,
+			renderHuman: renderGc,
+		});
+		root.command({
+			name: "init",
+			description: "Initialize the worktree pool with N detached slots at trunk.",
+			schema: initRequestSchema,
+			options: { size: {} },
+			resultSchema: initResultSchema,
+			handler: runInit,
+			renderHuman: renderInit,
+		});
+		root.command({
+			name: "resize",
+			description: "Grow or shrink the worktree pool to --size slots.",
+			schema: resizeRequestSchema,
+			options: { size: {} },
+			resultSchema: resizeResultSchema,
+			handler: runResize,
+			renderHuman: renderResize,
+		});
+		root.group(buildShellGroup());
+		root.group(buildCompletionGroup());
+		root.group(buildGtGroup());
+	},
+});
+
+export const VERSION = entry.version;
 
 export interface CliDeps {
 	context?: SlotCliContext | undefined;
@@ -100,112 +220,7 @@ export interface CliDeps {
 }
 
 export function buildCli(): ClinkrGroup<SlotCliContext> {
-	const root = new ClinkrGroup<SlotCliContext>({
-		name: "slot",
-		description: "Manage the pool of Git-worktree-backed slots.",
-		version: VERSION,
-		runtimeInfo,
-	});
-	root.command({
-		name: "list",
-		description: "List worktree pool slots derived from Git worktree state.",
-		schema: listRequestSchema,
-		resultSchema: listResultSchema,
-		handler: runList,
-		renderHuman: renderList,
-	});
-	root.command({
-		name: "ls",
-		description: "Alias for list.",
-		schema: listRequestSchema,
-		resultSchema: listResultSchema,
-		handler: runList,
-		renderHuman: renderList,
-	});
-	root.command({
-		name: "checkout",
-		description: "Check out a branch into an available pool slot worktree.",
-		schema: checkoutRequestSchema,
-		positionals: { branchName: { position: 0 }, base: { position: 1 } },
-		options: { new: { short: "-b" } },
-		resultSchema: checkoutResultSchema,
-		handler: runCheckout,
-		renderHuman: renderCheckout,
-	});
-	root.command({
-		name: "co",
-		description: "Alias for checkout.",
-		schema: checkoutRequestSchema,
-		positionals: { branchName: { position: 0 }, base: { position: 1 } },
-		options: { new: { short: "-b" } },
-		resultSchema: checkoutResultSchema,
-		handler: runCheckout,
-		renderHuman: renderCheckout,
-	});
-	root.command({
-		name: "goto",
-		description: "Print/copy a cd command for an assigned slot.",
-		schema: gotoRequestSchema,
-		options: { num: { short: "-n" }, wt: { short: "-w" } },
-		resultSchema: gotoResultSchema,
-		handler: runGoto,
-		renderHuman: renderGoto,
-	});
-	root.command({
-		name: "claim",
-		description: "Move a local branch into the current managed slot or lowest available slot.",
-		schema: claimRequestSchema,
-		positionals: { branchName: { position: 0 } },
-		resultSchema: claimResultSchema,
-		handler: runClaim,
-		renderHuman: renderClaim,
-	});
-	root.command({
-		name: "free",
-		description: "Free assigned slots back to the pool.",
-		schema: freeRequestSchema,
-		options: {
-			num: { short: "-n" },
-			wt: { short: "-w" },
-			branch: { short: "-b" },
-			current: { short: "-c" },
-			yes: { short: "-y" },
-		},
-		resultSchema: freeResultSchema,
-		handler: runFree,
-		renderHuman: renderFree,
-	});
-	root.command({
-		name: "gc",
-		description: "Free slots whose pull requests have closed or merged.",
-		schema: gcRequestSchema,
-		options: { force: { short: "-f" } },
-		resultSchema: gcResultSchema,
-		handler: runGc,
-		renderHuman: renderGc,
-	});
-	root.command({
-		name: "init",
-		description: "Initialize the worktree pool with N detached slots at trunk.",
-		schema: initRequestSchema,
-		options: { size: {} },
-		resultSchema: initResultSchema,
-		handler: runInit,
-		renderHuman: renderInit,
-	});
-	root.command({
-		name: "resize",
-		description: "Grow or shrink the worktree pool to --size slots.",
-		schema: resizeRequestSchema,
-		options: { size: {} },
-		resultSchema: resizeResultSchema,
-		handler: runResize,
-		renderHuman: renderResize,
-	});
-	root.group(buildShellGroup());
-	root.group(buildCompletionGroup());
-	root.group(buildGtGroup());
-	return root;
+	return entry.buildCli(undefined);
 }
 
 function buildShellGroup(): ClinkrGroup<SlotCliContext> {
@@ -317,29 +332,7 @@ function buildGtGroup(): ClinkrGroup<SlotCliContext> {
 }
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
-	const io = resolveIo({ stdout: deps.stdout, stderr: deps.stderr });
-	const cwd = deps.cwd ?? process.cwd();
-	const env = deps.env ?? process.env;
-	const context = deps.context ?? (await createRealSlotContext({ cwd, env }));
-	const runContext: SlotCliContext = {
-		...context,
-		cwd,
-		env: deps.env ?? context.env,
-		interaction: resolveClinkrInteraction({
-			interaction: deps.interaction,
-			stdin: deps.stdin ?? readStdinLine,
-			stderr: io.stderr,
-		}),
-		stderr: io.stderr,
-		shouldWriteCdDirective: isClinkrHumanOutputInvocation(args),
-	};
-	return await buildCli().run(args, { context: runContext, io });
+	return await entry.run(args, deps);
 }
 
-function runtimeInfo(): string {
-	return "runtime: typescript\nentry_point: @sdl/slot bin slot -> ts/packages/slot/src/cli.ts\n";
-}
-
-if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {
-	process.exitCode = await runCli(process.argv.slice(2));
-}
+await entry.runIfMain({ isImportMetaMain: import.meta.main });

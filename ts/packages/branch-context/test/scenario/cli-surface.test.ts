@@ -268,10 +268,12 @@ describe("branch-context CLI surface pinning", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJson(run)).toMatchObject({
-			success: true,
-			slug: PLAN_SLUG,
-			branch: PLAN_SLUG,
-			source_file: planFile,
+			exit_code: 0,
+			data: {
+				slug: PLAN_SLUG,
+				branch: PLAN_SLUG,
+				source_file: planFile,
+			},
 		});
 		// PINNED CLINKR SEMANTICS: commander accepts --flag=value syntax.
 	});
@@ -299,16 +301,18 @@ describe("branch-context CLI surface pinning", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJson(run)).toEqual({
-			success: true,
-			slug: PLAN_SLUG,
-			branch: PLAN_SLUG,
-			branch_creation: "plain-git",
-			start_point: START_POINT,
-			namespace: BRANCH_CONTEXT_NAMESPACE,
-			key: PLAN_KEY,
-			ref_name: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${PLAN_SLUG}:${PLAN_KEY}`,
-			commit: "abc123",
-			source_file: planFile,
+			exit_code: 0,
+			data: {
+				slug: PLAN_SLUG,
+				branch: PLAN_SLUG,
+				branch_creation: "plain-git",
+				start_point: START_POINT,
+				namespace: BRANCH_CONTEXT_NAMESPACE,
+				key: PLAN_KEY,
+				ref_name: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${PLAN_SLUG}:${PLAN_KEY}`,
+				commit: "abc123",
+				source_file: planFile,
+			},
 		});
 		// PINNED QUIRK (clinkr-migration): duplicate scalar flags are accepted and the last value wins.
 	});
@@ -401,19 +405,25 @@ describe("branch-context CLI surface pinning", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe(
-			`${JSON.stringify({
-				success: true,
-				slug: PLAN_SLUG,
-				branch,
-				branch_creation: "plain-git",
-				start_point: START_POINT,
-				namespace: BRANCH_CONTEXT_NAMESPACE,
-				key: PLAN_KEY,
-				ref_name: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${branch.replaceAll("/", "---")}:${PLAN_KEY}`,
-				commit: "abc123",
-				source_file: planFile,
-				summary: "Create it",
-			})}\n`,
+			`${JSON.stringify(
+				{
+					exit_code: 0,
+					data: {
+						slug: PLAN_SLUG,
+						branch,
+						branch_creation: "plain-git",
+						start_point: START_POINT,
+						namespace: BRANCH_CONTEXT_NAMESPACE,
+						key: PLAN_KEY,
+						ref_name: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${branch.replaceAll("/", "---")}:${PLAN_KEY}`,
+						commit: "abc123",
+						source_file: planFile,
+						summary: "Create it",
+					},
+				},
+				null,
+				2,
+			)}\n`,
 		);
 	});
 
@@ -428,14 +438,16 @@ describe("branch-context CLI surface pinning", () => {
 		});
 		expect(await placedAfterFlag.exit).toBe(0);
 		expect(parseJson(placedAfterFlag)).toEqual({
-			success: true,
-			branch,
-			namespace: BRANCH_CONTEXT_NAMESPACE,
-			selected_key: PLAN_KEY,
-			ref_name: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${branch.replaceAll("/", "---")}:${PLAN_KEY}`,
-			byte_count: content.length,
-			available_keys: [PLAN_KEY],
-			source: "attached",
+			exit_code: 0,
+			data: {
+				branch,
+				namespace: BRANCH_CONTEXT_NAMESPACE,
+				selected_key: PLAN_KEY,
+				ref_name: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${branch.replaceAll("/", "---")}:${PLAN_KEY}`,
+				byte_count: content.length,
+				available_keys: [PLAN_KEY],
+				source: "attached",
+			},
 		});
 
 		const duplicate = runWithFakes(["exec", "load", PLAN_KEY, "other-plan", "--format", "json"], {

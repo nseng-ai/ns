@@ -219,21 +219,23 @@ describe("plans list CLI", () => {
 		expect(exitCode).toBe(0);
 		const payload = parseJsonListPayload(output.stdoutText());
 		expect(payload).toMatchObject({
-			success: true,
-			plans: [
-				{
-					slug: "first-useful-saved-plan",
-					branch_key: branchKey,
-					path: filePath,
-					file_name: "first-useful-saved-plan.md",
-					repo: {
-						key: "gh--owner--repo",
-						identity_source: "origin-url",
+			exit_code: 0,
+			data: {
+				plans: [
+					{
+						slug: "first-useful-saved-plan",
+						branch_key: branchKey,
+						path: filePath,
+						file_name: "first-useful-saved-plan.md",
+						repo: {
+							key: "gh--owner--repo",
+							identity_source: "origin-url",
+						},
 					},
-				},
-			],
+				],
+			},
 		});
-		expect(payload.plans[0]?.modified_time_ms).toBe(1_700_000_000_000);
+		expect(payload.data.plans[0]?.modified_time_ms).toBe(1_700_000_000_000);
 	});
 });
 
@@ -269,17 +271,19 @@ describe("plans exec CLI", () => {
 		expect(output.stderrText()).toBe("");
 		const payload = JSON.parse(output.stdoutText());
 		expect(payload).toMatchObject({
-			success: true,
-			slug: "branch-scoped-plan",
-			repo_key: "gh--owner--repo",
-			source_branch: "feature/source-plan",
-			branch_key: encodeBranchForPlanPath("feature/source-plan"),
-			summary: "Save it",
+			exit_code: 0,
+			data: {
+				slug: "branch-scoped-plan",
+				repo_key: "gh--owner--repo",
+				source_branch: "feature/source-plan",
+				branch_key: encodeBranchForPlanPath("feature/source-plan"),
+				summary: "Save it",
+			},
 		});
-		expect(String(payload.file_path)).toContain(
+		expect(String(payload.data.file_path)).toContain(
 			`${fixture.planStoreRoot}/gh--owner--repo/${encodeBranchForPlanPath("feature/source-plan")}/branch-scoped-plan.md`,
 		);
-		expect(await readFile(String(payload.file_path), "utf8")).toBe("# Plan\n\nDo it.\n");
+		expect(await readFile(String(payload.data.file_path), "utf8")).toBe("# Plan\n\nDo it.\n");
 	});
 
 	test("resolve returns explicit paths and the latest saved source-branch plan", async () => {
@@ -298,9 +302,11 @@ describe("plans exec CLI", () => {
 		});
 		expect(explicitExitCode).toBe(0);
 		expect(JSON.parse(explicitOutput.stdoutText())).toMatchObject({
-			success: true,
-			source: "explicit",
-			file_path: await realpath(explicitPlan),
+			exit_code: 0,
+			data: {
+				source: "explicit",
+				file_path: await realpath(explicitPlan),
+			},
 		});
 
 		const branchKey = encodeBranchForPlanPath("feature/source-plan");
@@ -329,10 +335,12 @@ describe("plans exec CLI", () => {
 		});
 		expect(latestExitCode).toBe(0);
 		expect(JSON.parse(latestOutput.stdoutText())).toMatchObject({
-			success: true,
-			source: "latest",
-			slug: "newer-plan-file",
-			file_path: newer,
+			exit_code: 0,
+			data: {
+				source: "latest",
+				slug: "newer-plan-file",
+				file_path: newer,
+			},
 		});
 	});
 });
@@ -345,8 +353,8 @@ interface Fixture {
 }
 
 interface JsonListPayload {
-	success: true;
-	plans: JsonListPlan[];
+	exit_code: 0;
+	data: { plans: JsonListPlan[] };
 }
 
 interface JsonListPlan {
@@ -364,9 +372,10 @@ function parseJsonListPayload(text: string): JsonListPayload {
 function isJsonListPayload(value: unknown): value is JsonListPayload {
 	return (
 		isRecord(value) &&
-		value.success === true &&
-		Array.isArray(value.plans) &&
-		value.plans.every(isJsonListPlan)
+		value.exit_code === 0 &&
+		isRecord(value.data) &&
+		Array.isArray(value.data.plans) &&
+		value.data.plans.every(isJsonListPlan)
 	);
 }
 

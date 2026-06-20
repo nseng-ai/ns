@@ -29,6 +29,8 @@ export type CliPrepareRunResult<TContext, TBuildState> =
 			readonly type: "run";
 			readonly context: TContext;
 			readonly buildState: TBuildState;
+			readonly args?: readonly string[] | undefined;
+			readonly io?: ClinkrIo | undefined;
 	  };
 
 export type CliRunDeps<TDeps extends CliEntrypointDeps> = Partial<TDeps> & CliEntrypointDeps;
@@ -41,6 +43,16 @@ export interface CliPrepareRunInput<TDeps extends CliEntrypointDeps> {
 	readonly stdout: (text: string) => void;
 	readonly stderr: (text: string) => void;
 	readonly io: ClinkrIo;
+	readonly metadata: CliPackageMetadata;
+}
+
+export interface CliRunErrorInput<TDeps extends CliEntrypointDeps> {
+	readonly error: unknown;
+	readonly args: readonly string[];
+	readonly deps: CliRunDeps<TDeps>;
+	readonly io: ClinkrIo;
+	readonly stdout: (text: string) => void;
+	readonly stderr: (text: string) => void;
 	readonly metadata: CliPackageMetadata;
 }
 
@@ -69,6 +81,9 @@ export interface DefineCliBaseOptions<TContext, TDeps extends CliEntrypointDeps,
 	) =>
 		| CliPrepareRunResult<TContext, TBuildState>
 		| Promise<CliPrepareRunResult<TContext, TBuildState>>;
+	readonly handleRunError?: (
+		input: CliRunErrorInput<TDeps>,
+	) => number | undefined | Promise<number | undefined>;
 }
 
 export interface DefineCliBuildOptions<
@@ -162,23 +177,38 @@ export function defineCli<
 		const io = resolveIo({ stdout: deps.stdout, stderr: deps.stderr });
 		const stdout = io.stdout;
 		const stderr = io.stderr;
-		const cwd = deps.cwd ?? process.cwd();
-		const env = deps.env ?? process.env;
-		const prepareResult = await options.prepareRun({
-			args,
-			deps,
-			cwd,
-			env,
-			stdout,
-			stderr,
-			io,
-			metadata,
-		});
-		if (prepareResult.type === "handled") return prepareResult.exitCode;
-		return await buildCli(prepareResult.buildState).run(args, {
-			context: prepareResult.context,
-			io,
-		});
+		try {
+			const cwd = deps.cwd ?? process.cwd();
+			const env = deps.env ?? process.env;
+			const prepareResult = await options.prepareRun({
+				args,
+				deps,
+				cwd,
+				env,
+				stdout,
+				stderr,
+				io,
+				metadata,
+			});
+			if (prepareResult.type === "handled") return prepareResult.exitCode;
+			return await buildCli(prepareResult.buildState).run(prepareResult.args ?? args, {
+				context: prepareResult.context,
+				io: prepareResult.io ?? io,
+			});
+		} catch (error) {
+			if (options.handleRunError === undefined) throw error;
+			const handledExitCode = await options.handleRunError({
+				error,
+				args,
+				deps,
+				io,
+				stdout,
+				stderr,
+				metadata,
+			});
+			if (handledExitCode === undefined) throw error;
+			return handledExitCode;
+		}
 	};
 	const runIfMain = async (input: {
 		readonly isImportMetaMain: boolean;

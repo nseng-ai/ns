@@ -122,7 +122,11 @@ export function runWithFakes(args: readonly string[], options: RunWithFakesOptio
 }
 
 export function jsonFailure(message: string): string {
-	return `${JSON.stringify({ success: false, error: { code: "branch_context_error", message } })}\n`;
+	return `${JSON.stringify({ exit_code: 2, error_type: "branch_context_error", message }, null, 2)}\n`;
+}
+
+export function jsonSuccess(data: Record<string, unknown>): string {
+	return `${JSON.stringify({ exit_code: 0, data }, null, 2)}\n`;
 }
 
 export function parseJson(run: CliRun): Record<string, unknown> {

@@ -44,15 +44,17 @@ describe("branch-context exec", () => {
 		expect(await run.exit).toBe(0);
 		run.commands.assertDone();
 		expect(parseJson(run)).toMatchObject({
-			success: true,
-			slug: PLAN_SLUG,
-			branch,
-			branch_creation: "plain-git",
-			start_point: START_POINT,
-			namespace: BRANCH_CONTEXT_NAMESPACE,
-			key: PLAN_KEY,
-			source_file: planFile,
-			summary: "Create it",
+			exit_code: 0,
+			data: {
+				slug: PLAN_SLUG,
+				branch,
+				branch_creation: "plain-git",
+				start_point: START_POINT,
+				namespace: BRANCH_CONTEXT_NAMESPACE,
+				key: PLAN_KEY,
+				source_file: planFile,
+				summary: "Create it",
+			},
 		});
 		expect(run.brmem.attachmentPresenceCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY }]);
 		expect(run.brmem.attachPlanCalls).toEqual([
@@ -97,14 +99,16 @@ describe("branch-context exec", () => {
 		expect(await run.exit).toBe(0);
 		run.commands.assertDone();
 		expect(parseJson(run)).toMatchObject({
-			success: true,
-			slug: PLAN_SLUG,
-			branch,
-			branch_creation: "graphite",
-			start_point: START_POINT,
-			namespace: BRANCH_CONTEXT_NAMESPACE,
-			key: PLAN_KEY,
-			source_file: planFile,
+			exit_code: 0,
+			data: {
+				slug: PLAN_SLUG,
+				branch,
+				branch_creation: "graphite",
+				start_point: START_POINT,
+				namespace: BRANCH_CONTEXT_NAMESPACE,
+				key: PLAN_KEY,
+				source_file: planFile,
+			},
 		});
 		expect(run.graphite.checkBranchTrackedCalls).toEqual([
 			{ cwd: repoRoot, branch: SOURCE_BRANCH },
@@ -151,8 +155,8 @@ describe("branch-context exec", () => {
 		expect(await run.exit).toBe(2);
 		run.commands.assertDone();
 		const payload = parseJson(run);
-		expect(payload.success).toBe(false);
-		const message = String((payload.error as { message: string }).message);
+		expect(payload).toMatchObject({ exit_code: 2, error_type: "branch_context_error" });
+		const message = String(payload.message);
 		expect(message).toContain(
 			"Current branch is not tracked by Graphite; refusing to stack a branch context on it.",
 		);
@@ -204,15 +208,13 @@ describe("branch-context exec", () => {
 		expect(await run.exit).toBe(2);
 		run.commands.assertDone();
 		const payload = parseJson(run);
-		expect(payload.success).toBe(false);
-		expect(String((payload.error as { message: string }).message)).toContain(
+		expect(payload).toMatchObject({ exit_code: 2, error_type: "branch_context_error" });
+		expect(String(payload.message)).toContain(
 			"Created local Git branch but failed to track it with Graphite.",
 		);
-		expect(String((payload.error as { message: string }).message)).toContain(`Branch: ${branch}`);
-		expect(String((payload.error as { message: string }).message)).toContain(
-			"No attached plan was stored.",
-		);
-		expect(String((payload.error as { message: string }).message)).toContain("gt track failed");
+		expect(String(payload.message)).toContain(`Branch: ${branch}`);
+		expect(String(payload.message)).toContain("No attached plan was stored.");
+		expect(String(payload.message)).toContain("gt track failed");
 		expect(run.git.existingBranches).toContain(branch);
 		expect(run.graphite.checkBranchTrackedCalls).toEqual([
 			{ cwd: repoRoot, branch: SOURCE_BRANCH },
@@ -237,15 +239,18 @@ describe("branch-context exec", () => {
 		run.commands.assertDone();
 		const payload = parseJson(run);
 		expect(payload).toMatchObject({
-			success: true,
-			branch,
-			namespace: BRANCH_CONTEXT_NAMESPACE,
-			selected_key: PLAN_KEY,
-			byte_count: content.length,
-			source: "attached",
+			exit_code: 0,
+			data: {
+				branch,
+				namespace: BRANCH_CONTEXT_NAMESPACE,
+				selected_key: PLAN_KEY,
+				byte_count: content.length,
+				source: "attached",
+			},
 		});
-		expect(payload).not.toHaveProperty("attached_plan_content");
-		expect(payload).not.toHaveProperty("implementation_prompt");
+		const data = payload.data as Record<string, unknown>;
+		expect(data).not.toHaveProperty("attached_plan_content");
+		expect(data).not.toHaveProperty("implementation_prompt");
 		expect(run.brmem.listAttachedPlansCalls).toEqual([{ cwd: repoRoot, branch }]);
 		expect(run.brmem.getAttachedPlanCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY }]);
 	});
@@ -271,14 +276,16 @@ describe("branch-context exec", () => {
 		expect(await run.exit).toBe(0);
 		run.commands.assertDone();
 		expect(parseJson(run)).toMatchObject({
-			success: true,
-			branch: SOURCE_BRANCH,
-			namespace: "local-plan-store",
-			selected_key: PLAN_KEY,
-			ref_name: planFile,
-			byte_count: content.length,
-			source: "saved",
-			source_file: planFile,
+			exit_code: 0,
+			data: {
+				branch: SOURCE_BRANCH,
+				namespace: "local-plan-store",
+				selected_key: PLAN_KEY,
+				ref_name: planFile,
+				byte_count: content.length,
+				source: "saved",
+				source_file: planFile,
+			},
 		});
 		expect(run.brmem.listAttachedPlansCalls).toEqual([{ cwd: repoRoot, branch: SOURCE_BRANCH }]);
 		expect(run.brmem.getAttachedPlanCalls).toEqual([]);
@@ -299,15 +306,18 @@ describe("branch-context exec", () => {
 		run.commands.assertDone();
 		const payload = parseJson(run);
 		expect(payload).toMatchObject({
-			success: true,
-			branch,
-			namespace: BRANCH_CONTEXT_NAMESPACE,
-			selected_key: PLAN_KEY,
-			source: "attached",
-			implementation_prompt_file: promptFile,
+			exit_code: 0,
+			data: {
+				branch,
+				namespace: BRANCH_CONTEXT_NAMESPACE,
+				selected_key: PLAN_KEY,
+				source: "attached",
+				implementation_prompt_file: promptFile,
+			},
 		});
-		expect(payload).not.toHaveProperty("attached_plan_content");
-		expect(payload).not.toHaveProperty("implementation_prompt");
+		const data = payload.data as Record<string, unknown>;
+		expect(data).not.toHaveProperty("attached_plan_content");
+		expect(data).not.toHaveProperty("implementation_prompt");
 		const prompt = await readFile(promptFile, "utf8");
 		expect(prompt).toContain("# branch-context implementation");
 		expect(prompt).toContain("----- BEGIN ATTACHED PLAN -----\n# Attached Plan");
@@ -330,16 +340,19 @@ describe("branch-context exec", () => {
 		run.commands.assertDone();
 		const payload = parseJson(run);
 		expect(payload).toMatchObject({
-			success: true,
-			branch,
-			namespace: BRANCH_CONTEXT_NAMESPACE,
-			selected_key: PLAN_KEY,
-			byte_count: content.length,
-			source: "attached",
-			attached_plan_content: content,
+			exit_code: 0,
+			data: {
+				branch,
+				namespace: BRANCH_CONTEXT_NAMESPACE,
+				selected_key: PLAN_KEY,
+				byte_count: content.length,
+				source: "attached",
+				attached_plan_content: content,
+			},
 		});
-		expect(String(payload.implementation_prompt)).toContain("# branch-context implementation");
-		expect(String(payload.implementation_prompt)).toContain(
+		const data = payload.data as Record<string, unknown>;
+		expect(String(data.implementation_prompt)).toContain("# branch-context implementation");
+		expect(String(data.implementation_prompt)).toContain(
 			"----- BEGIN ATTACHED PLAN -----\n# Attached Plan",
 		);
 		expect(run.brmem.listAttachedPlansCalls).toEqual([{ cwd: repoRoot, branch }]);
@@ -387,11 +400,13 @@ describe("branch-context exec", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJson(run)).toMatchObject({
-			success: true,
-			branch,
-			namespace: BRANCH_CONTEXT_NAMESPACE,
-			key: "notes",
-			source_file: sourceFile,
+			exit_code: 0,
+			data: {
+				branch,
+				namespace: BRANCH_CONTEXT_NAMESPACE,
+				key: "notes",
+				source_file: sourceFile,
+			},
 		});
 		expect(run.brmem.attachPlanCalls).toEqual([
 			{ cwd: repoRoot, branch, key: "notes", sourceFile },
@@ -411,12 +426,14 @@ describe("branch-context exec", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJson(run)).toMatchObject({
-			success: true,
-			branch,
-			namespace: BRANCH_CONTEXT_NAMESPACE,
-			key: PLAN_KEY,
-			source_file: sourceFile,
-			plan_slug: PLAN_SLUG,
+			exit_code: 0,
+			data: {
+				branch,
+				namespace: BRANCH_CONTEXT_NAMESPACE,
+				key: PLAN_KEY,
+				source_file: sourceFile,
+				plan_slug: PLAN_SLUG,
+			},
 		});
 		expect(run.brmem.attachmentPresenceCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY }]);
 		expect(run.brmem.attachPlanCalls).toEqual([
@@ -454,8 +471,8 @@ describe("branch-context exec", () => {
 
 		expect(await run.exit).toBe(2);
 		const payload = parseJson(run);
-		expect(payload.success).toBe(false);
-		const message = String((payload.error as { message: string }).message);
+		expect(payload).toMatchObject({ exit_code: 2, error_type: "branch_context_error" });
+		const message = String(payload.message);
 		expect(message).toContain("No saved plan found for slug `missing-plan`.");
 		expect(message).toContain("Available slugs:");
 		expect(message).toContain("- available-plan");
@@ -476,8 +493,8 @@ describe("branch-context exec", () => {
 
 		expect(await run.exit).toBe(2);
 		const payload = parseJson(run);
-		expect(payload.success).toBe(false);
-		const message = String((payload.error as { message: string }).message);
+		expect(payload).toMatchObject({ exit_code: 2, error_type: "branch_context_error" });
+		const message = String(payload.message);
 		expect(message).toContain(
 			`Multiple saved plans found for slug \`${PLAN_SLUG}\`; choose a file explicitly.`,
 		);
@@ -514,11 +531,13 @@ describe("branch-context exec", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJson(run)).toMatchObject({
-			success: true,
-			branch,
-			key: PLAN_KEY,
-			source_file: sourceFile,
-			plan_slug: PLAN_SLUG,
+			exit_code: 0,
+			data: {
+				branch,
+				key: PLAN_KEY,
+				source_file: sourceFile,
+				plan_slug: PLAN_SLUG,
+			},
 		});
 		expect(run.git.currentBranchCalls).toEqual([]);
 		expect(run.brmem.attachPlanCalls).toEqual([
@@ -538,8 +557,8 @@ describe("branch-context exec", () => {
 
 		expect(await run.exit).toBe(2);
 		const payload = parseJson(run);
-		expect(payload.success).toBe(false);
-		expect(String((payload.error as { message: string }).message)).toContain(
+		expect(payload).toMatchObject({ exit_code: 2, error_type: "branch_context_error" });
+		expect(String(payload.message)).toContain(
 			"Cannot default branch-context operation from detached HEAD. Pass --branch explicitly.",
 		);
 		expect(run.brmem.attachmentPresenceCalls).toEqual([]);
@@ -575,11 +594,13 @@ describe("branch-context exec", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJson(run)).toMatchObject({
-			success: true,
-			branch,
-			namespace: BRANCH_CONTEXT_NAMESPACE,
-			key: "missing",
-			present: false,
+			exit_code: 0,
+			data: {
+				branch,
+				namespace: BRANCH_CONTEXT_NAMESPACE,
+				key: "missing",
+				present: false,
+			},
 		});
 	});
 
@@ -594,11 +615,13 @@ describe("branch-context exec", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJson(run)).toMatchObject({
-			success: true,
-			branch,
-			namespace: BRANCH_CONTEXT_NAMESPACE,
-			key: "notes",
-			deleted: true,
+			exit_code: 0,
+			data: {
+				branch,
+				namespace: BRANCH_CONTEXT_NAMESPACE,
+				key: "notes",
+				deleted: true,
+			},
 		});
 		expect(run.brmem.deleteEntryCalls).toEqual([{ cwd: repoRoot, branch, key: "notes" }]);
 	});
