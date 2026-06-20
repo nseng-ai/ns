@@ -1,6 +1,6 @@
 ---
 name: objective-next
-description: "Command: objective-next"
+description: "Recommend the next useful work for an active Objective. Use when asking what to do next on an existing Objective: 'what's next on this objective', 'recommend next work', 'next step for objective X'. Read-only and advisory — to record progress or tracking changes use objective-update; to bring a brand-new Objective into existence use objective-create."
 ---
 
 # objective-next

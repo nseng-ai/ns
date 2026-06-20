@@ -1,6 +1,6 @@
 ---
 name: objective-refresh
-description: "Refresh active Objective records without closure. Use for a single Objective rebaseline, this branch's Objective tracking, explicit trunk non-closing refresh, repo-wide Objective refresh, bedtime Objective refresh, or Graphite/topology fan-out. For user-directed updates or closure, use objective-update."
+description: "Refresh active Objective records without closure. Use for a single Objective rebaseline, this branch's Objective tracking, explicit trunk non-closing refresh, repo-wide Objective refresh, bedtime Objective refresh, or Graphite/topology fan-out. For user-directed updates use objective-update; to explicitly close an Objective use objective-close."
 ---
 
 # objective-refresh
