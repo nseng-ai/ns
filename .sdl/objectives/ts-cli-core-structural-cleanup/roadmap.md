@@ -2,11 +2,14 @@
 
 ## Work
 
-- [ ] Shared `defineCli` helper in `@asdl/core/cli-entry` (runtimeInfo derivation,
-      version reading, IO/cwd/env defaulting, `import.meta.main` entry guard);
-      migrate all 15 `cli.ts` files onto it.
-      See `references/cli-wiring-layer.md`. Pure subtraction; do this first.
-      Evidence: `--version`/`--runtime`/`-h` scenario tests pass for every CLI.
+- [~] Shared `defineCli` helper in `@asdl/core/cli-entry` (runtimeInfo derivation,
+  version reading, IO/cwd/env defaulting, `import.meta.main` entry guard);
+  migrate all 15 `cli.ts` files onto it.
+  See `references/cli-wiring-layer.md`. Pure subtraction; do this first.
+  Current evidence: PR #1940 addresses post-migration CLI render propagation
+  for `plans` and `clinkr` `ok` render overrides; fleet-wide migration and
+  behavior-parity scenario evidence remain required.
+  Evidence: `--version`/`--runtime`/`-h` scenario tests pass for every CLI.
 - [ ] `clinkr` `execGroup(description?)` factory defaulting `name:"exec"` +
       `isHidden:true`; replace the 9 hand-rolled hidden-exec constructions.
       See `references/cli-wiring-layer.md`.
