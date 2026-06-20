@@ -1,5 +1,5 @@
 import { RealGitBrmemGateway, type BrmemGateway } from "@asdl/brmem";
-import { createClinkrInteraction, type ClinkrInteraction } from "@asdl/clinkr";
+import { resolveClinkrInteraction, type ClinkrInteraction } from "@asdl/clinkr";
 import { NodeCommandExecApi } from "@asdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@asdl/core/git";
 import { readStdinLine } from "@asdl/core/stdin";
@@ -26,7 +26,7 @@ export function createRealHandoffContext(
 		env,
 		git: new RealGitGateway(execApi),
 		brmem: new RealGitBrmemGateway(cwd, execApi),
-		interaction: createClinkrInteraction({ stdin: readStdinLine, stderr }),
+		interaction: resolveClinkrInteraction({ stdin: readStdinLine, stderr }),
 		stderr,
 	};
 }

@@ -2,11 +2,7 @@ import { failure, negative, ok } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../../context.ts";
-import {
-	buildGtNavigationResult,
-	renderGtNavigationResult,
-	resolveOrCheckoutWorktreeForBranch,
-} from "./navigation.ts";
+import { buildGtNavigationResult, resolveOrCheckoutWorktreeForBranch } from "./navigation.ts";
 import { resolveRepoAndCurrentBranch } from "./shared.ts";
 
 export const gtUpRequestSchema = z.object({
@@ -55,6 +51,4 @@ export async function runGtUp(ctx: SlotCliContext, request: GtUpRequest) {
 	);
 }
 
-export function renderGtUpNavigation(result: z.infer<typeof gtNavigationResultSchema>): string {
-	return renderGtNavigationResult(result);
-}
+export { renderGtNavigationResult as renderGtUpNavigation } from "./navigation.ts";

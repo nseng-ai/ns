@@ -4,8 +4,8 @@ import process from "node:process";
 
 import {
 	ClinkrGroup,
-	createClinkrInteraction,
 	isClinkrHumanOutputInvocation,
+	resolveClinkrInteraction,
 	resolveIo,
 	type ClinkrInteraction,
 } from "@asdl/clinkr";
@@ -325,9 +325,11 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 		...context,
 		cwd,
 		env: deps.env ?? context.env,
-		interaction:
-			deps.interaction ??
-			createClinkrInteraction({ stdin: deps.stdin ?? readStdinLine, stderr: io.stderr }),
+		interaction: resolveClinkrInteraction({
+			interaction: deps.interaction,
+			stdin: deps.stdin ?? readStdinLine,
+			stderr: io.stderr,
+		}),
 		stderr: io.stderr,
 		shouldWriteCdDirective: isClinkrHumanOutputInvocation(args),
 	};

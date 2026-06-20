@@ -25,6 +25,14 @@ export interface FakeClinkrInteraction {
 	assertComplete(): void;
 }
 
+export interface ScenarioClinkrInteraction {
+	depsInteraction?: ClinkrInteraction | undefined;
+	contextInteraction: ClinkrInteraction;
+	assertComplete(): void;
+}
+
+export type ScenarioStdin = string | (() => Promise<string | null>) | undefined;
+
 export function createFakeClinkrInteraction(
 	options: {
 		confirmations?: readonly ConfirmationResult[] | undefined;
@@ -49,6 +57,42 @@ export function createFakeClinkrInteraction(
 				throw new Error(`Unused confirmation result(s): ${confirmations.length}`);
 			}
 		},
+	};
+}
+
+export function createOneShotStdinAdapter(stdin: ScenarioStdin): () => Promise<string | null> {
+	let value = stdin;
+	return async () => {
+		if (typeof value === "function") return await value();
+		const result = value ?? null;
+		value = undefined;
+		return result;
+	};
+}
+
+export function createScenarioClinkrInteraction(options: {
+	hasStdin: boolean;
+	interaction?: ClinkrInteraction | undefined;
+	confirmations?: readonly ConfirmationResult[] | undefined;
+}): ScenarioClinkrInteraction {
+	if (options.interaction !== undefined) {
+		return {
+			depsInteraction: options.interaction,
+			contextInteraction: options.interaction,
+			assertComplete: () => {},
+		};
+	}
+	if (!options.hasStdin) {
+		const fake = createFakeClinkrInteraction({ confirmations: options.confirmations });
+		return {
+			depsInteraction: fake.interaction,
+			contextInteraction: fake.interaction,
+			assertComplete: fake.assertComplete,
+		};
+	}
+	return {
+		contextInteraction: createFakeClinkrInteraction({ confirmations: [] }).interaction,
+		assertComplete: () => {},
 	};
 }
 

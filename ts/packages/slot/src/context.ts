@@ -1,7 +1,7 @@
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 
-import { createClinkrInteraction, type ClinkrInteraction } from "@asdl/clinkr";
+import { resolveClinkrInteraction, type ClinkrInteraction } from "@asdl/clinkr";
 import { readStdinLine } from "@asdl/core/stdin";
 
 import { RealClipboardGateway, type ClipboardGateway } from "./gateways/clipboard.ts";
@@ -49,7 +49,7 @@ export async function createRealSlotContext(options: {
 		storage: new RealSlotStorageGateway(),
 		clipboard: new RealClipboardGateway({ env }),
 		cwd: options.cwd,
-		interaction: createClinkrInteraction({ stdin: readStdinLine, stderr }),
+		interaction: resolveClinkrInteraction({ stdin: readStdinLine, stderr }),
 		stderr,
 		env,
 		slotsRoot,

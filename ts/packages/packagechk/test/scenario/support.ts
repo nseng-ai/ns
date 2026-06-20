@@ -1,5 +1,5 @@
 import type { ConfirmationResult } from "@asdl/clinkr";
-import { createFakeClinkrInteraction } from "@asdl/clinkr/testing";
+import { createScenarioClinkrInteraction } from "@asdl/clinkr/testing";
 
 import { runCli, type CliDeps } from "../../src/cli.ts";
 
@@ -15,16 +15,20 @@ export async function runPackagechk(
 ): Promise<CliRun> {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
-	const fakeInteraction =
-		deps.stdin === undefined && deps.interaction === undefined
-			? createFakeClinkrInteraction({ confirmations: deps.confirmations })
-			: undefined;
+	const { confirmations, ...cliDeps } = deps;
+	const scenarioInteraction = createScenarioClinkrInteraction({
+		hasStdin: deps.stdin !== undefined,
+		interaction: deps.interaction,
+		confirmations,
+	});
 	const code = await runCli(args, {
-		...deps,
-		...(fakeInteraction === undefined ? {} : { interaction: fakeInteraction.interaction }),
+		...cliDeps,
+		...(scenarioInteraction.depsInteraction === undefined
+			? {}
+			: { interaction: scenarioInteraction.depsInteraction }),
 		stdout: (text) => stdout.push(text),
 		stderr: (text) => stderr.push(text),
 	});
-	fakeInteraction?.assertComplete();
+	scenarioInteraction.assertComplete();
 	return { code, stdout: stdout.join(""), stderr: stderr.join("") };
 }

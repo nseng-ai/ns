@@ -2,11 +2,7 @@ import { failure, negative, ok } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../../context.ts";
-import {
-	buildGtNavigationResult,
-	renderGtNavigationResult,
-	resolveOrCheckoutWorktreeForBranch,
-} from "./navigation.ts";
+import { buildGtNavigationResult, resolveOrCheckoutWorktreeForBranch } from "./navigation.ts";
 import { resolveRepoAndCurrentBranch } from "./shared.ts";
 import { gtNavigationResultSchema } from "./up.ts";
 
@@ -38,6 +34,4 @@ export async function runGtDown(ctx: SlotCliContext, request: GtDownRequest) {
 	);
 }
 
-export function renderGtDownNavigation(result: z.infer<typeof gtDownResultSchema>): string {
-	return renderGtNavigationResult(result);
-}
+export { renderGtNavigationResult as renderGtDownNavigation } from "./navigation.ts";

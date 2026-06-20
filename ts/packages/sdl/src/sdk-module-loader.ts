@@ -11,6 +11,7 @@ const SDK_SPECIFIER = "@asdl/sdl/sdk";
 /** Absolute path to the SDK source module, used as the `alias` resolution target. */
 const SDK_MODULE_PATH = join(dirname(fileURLToPath(import.meta.url)), "sdk.ts");
 
+// Keep this object in sync with all runtime value exports from sdk.ts; type-only exports are erased.
 const sdlSdkVirtualModule = { defineExtension, failed, ok, z } satisfies Record<string, unknown>;
 
 /**

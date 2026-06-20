@@ -1,10 +1,11 @@
-export { createClinkrInteraction } from "./confirmation.ts";
+export { createClinkrInteraction, resolveClinkrInteraction } from "./confirmation.ts";
 export type {
 	ClinkrInteraction,
 	ConfirmationDefault,
 	ConfirmationRequest,
 	ConfirmationResult,
 	CreateClinkrInteractionOptions,
+	ResolveClinkrInteractionOptions,
 } from "./confirmation.ts";
 export { ClinkrGroup } from "./group.ts";
 export type {
