@@ -1,6 +1,6 @@
 ---
 name: objective-update
-description: "Command: objective-update"
+description: "Update tracking for exactly one existing Objective after work or branch/PR changes — record a Semantic Update, edit roadmap/assumptions/risks, and auto-close only when completion criteria are clearly met. Use for 'update the objective', 'record this progress', 'this branch needs an objective update'. For a non-closing rebaseline of records use objective-refresh; for an explicit close use objective-close; for advice on what to do next without writing use objective-next."
 ---
 
 # objective-update

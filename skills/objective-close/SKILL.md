@@ -1,6 +1,6 @@
 ---
 name: objective-close
-description: "Command: objective-close"
+description: "Close an existing Objective without deleting its checked-in history — record a ## Closure in objective.md and write the closed marker. Use for explicit close intent: 'close this objective', 'mark the objective done', 'abandon this objective'. To record progress short of closing, or to let closure happen automatically when completion criteria are clearly met, use objective-update instead."
 ---
 
 # objective-close

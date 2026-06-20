@@ -1,6 +1,6 @@
 ---
 name: objective-create
-description: "Command: objective-create"
+description: "Create a new Objective record under .asdl/objectives/<slug>/. Use when starting to track a new unit of planned work: 'create an objective', 'start an objective for X', 'turn this into a tracked objective', or scaffolding a new objective's thesis/scope/roadmap. To act on an Objective that already exists, use objective-next (recommend work), objective-update (record progress), or objective-close (finish it)."
 ---
 
 # objective-create
