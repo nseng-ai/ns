@@ -231,6 +231,15 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
 
+  packages/packagechk:
+    dependencies:
+      '@asdl/core':
+        specifier: workspace:*
+        version: link:../asdl-core
+      commander:
+        specifier: 'catalog:'
+        version: 14.0.3
+
   packages/pi-extension-runtime:
     dependencies:
       '@asdl/core':

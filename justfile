@@ -140,6 +140,13 @@ install-vibechk: (_install-ts-shim "vibechk" "ts/packages/vibechk/src/cli.ts" "j
     rm -f "{{justfile_directory()}}/.venv/bin/vibechk"
     @echo "removed stale project venv vibechk script if present"
 
+# Install the packagechk shim to ~/.local/bin so `packagechk` on PATH runs the
+# TypeScript CLI from source: the enclosing checkout's sources when invoked
+# inside an asdl checkout, this checkout's sources everywhere else.
+install-packagechk: (_install-ts-shim "packagechk" "ts/packages/packagechk/src/cli.ts" "just install-packagechk")
+    rm -f "{{justfile_directory()}}/.venv/bin/packagechk"
+    @echo "removed stale project venv packagechk script if present"
+
 _install-ts-shim tool cli_rel_path install_hint: ts-install
     mkdir -p "$HOME/.local/bin"
     rm -f "$HOME/.local/bin/{{tool}}"

@@ -1,12 +1,10 @@
 [tool.uv.workspace]
 members = [
   "packages/asdl-core",
-  "packages/packagechk",
 ]
 
 [tool.uv.sources]
 asdl-core = { workspace = true }
-packagechk = { workspace = true }
 
 [project]
 name = "asdl-tools"
@@ -31,7 +29,6 @@ dev = [
   "pytest>=8.0.0",
   "pytest-xdist>=3.8.0",
   "asdl-core",
-  "packagechk",
   "ty>=0.0.1a7",
 ]
 
@@ -48,7 +45,6 @@ line-length = 100
 src = [
   "src",
   "packages/asdl-core/src",
-  "packages/packagechk/src",
 ]
 exclude = [".git/", ".claude/", ".agents/skills/"]
 force-exclude = true
@@ -66,14 +62,12 @@ select = [
 known-first-party = [
   "asdl_tools",
   "asdl_core",
-  "packagechk",
 ]
 
 [tool.ty.src]
 include = [
   "src",
   "packages/asdl-core/src",
-  "packages/packagechk/src",
 ]
 exclude = [".agents/skills/", ".claude/skills/"]
 
@@ -90,5 +84,4 @@ markers = [
 testpaths = [
   "tests",
   "packages/asdl-core/tests",
-  "packages/packagechk/tests",
 ]

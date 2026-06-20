@@ -1,6 +1,6 @@
 # TypeScript Capability Porting Playbook
 
-Reusable guidance extracted from the completed `pr-address`, `brmem`, `handoff`, `areg`, `objective`, `slot`, `vibechk`, and `aretro` TypeScript cutovers. This is evidence from production migrations, not a framework-first template: later capability subobjectives should apply the shape deliberately and record any divergence.
+Reusable guidance extracted from the completed `pr-address`, `brmem`, `handoff`, `areg`, `objective`, `slot`, `vibechk`, `aretro`, and `packagechk` TypeScript cutovers. This is evidence from production migrations, not a framework-first template: later capability subobjectives should apply the shape deliberately and record any divergence.
 
 ## 1. Inventory public contracts before porting internals
 
@@ -28,6 +28,8 @@ For git-backed state capabilities, storage contracts outrank Python module shape
 `vibechk` added a local-bundle/runner/git-mutation inventory. Durable contracts included schema-version-1 bundle layout, snake_case `bundle.json` keys, nullable unavailable metrics, run-id prefix resolution, `runs --format table|json`, no-push/no-PR guarantees, failed-runner bundle persistence, `claude` subprocess invocation, transcript streaming, `git add -N` diff capture, and result-branch switch-back behavior. Clinkr parser details could diverge only when the invocation contract remained preserved, as with the internal `output_format` field behind user-facing `vibechk runs --format` normalization.
 
 `aretro` added a deterministic-evidence/semantic-skill inventory. Durable contracts included factual evidence kinds, privacy-preserving compact summaries, sanitized payload/reference detail reads, `aretro exec collect-evidence` as the standalone command boundary, and the rule that semantic retrospective diagnoses remain in the `branch-retro` skill rather than the CLI. Python package layout, `asdl` plugin discoverability, and `uvx` fallback distribution were incidental once active caller evidence supported the TypeScript source/PATH runner.
+
+`packagechk` added a small standalone utility with write-capable publish operations. Durable contracts included bare-name default check dispatch, repeated `--registry pypi|npm|brew`, schema-version-1 JSON with snake_case keys, human status lines and exit-code meanings, PyPI/npm validation and normalization rules, dry-run/force/skip-check safety gates, temporary claim-project rendering, and real `uv build` / `uvx uv-publish` / `npm publish --access=public` boundaries. The Python workspace package and Click implementation were incidental once the TypeScript CLI preserved those contracts with fake-backed registry and publish gateways.
 
 ## 2. Port in vertical slices
 
@@ -86,6 +88,8 @@ Prefer:
 
 `aretro` showed the evidence needed for privacy-preserving session analysis. Fake-driven tests should prove compact evidence, payload artifact shape, targeted detail reads, and raw transcript non-leakage; a real-adapter smoke can record only sanitized command/pass evidence, not transcript-derived raw content.
 
+`packagechk` showed the evidence needed for CLIs with real publish effects. Preserve dry-run and confirmation behavior with scenario tests, keep registry and publisher gateways fake-driven, and treat real publish adapters as edge code that formats command failures without running in ordinary tests. A focused real-registry check can de-risk HTTP metadata parsing, but live package publication must remain opt-in/manual.
+
 ## 5. Retire fallback intentionally
 
 Python fallback should be short-lived after TypeScript parity is proven.
@@ -108,6 +112,8 @@ Before deletion:
 `vibechk` added deletion evidence for a local-only evaluation CLI with no installed-tool consumer. Deletion should preserve active docs by moving them to the TypeScript package, update examples away from `uv run`, scrub Python workspace/build/test/publish wiring, keep `vibechk-v1` open for unimplemented product features, and record rollback/reference evidence before deleting the Python package; for `vibechk`, the deleted `packages/vibechk` reference is commit `25c748681`.
 
 `aretro` added fallback-router retirement evidence. When a skill wrapper already defaults to TypeScript source, deletion should remove Python package files, root workspace/build/test/publish wiring, stale plugin smoke tests, and any `ASDL_*` / `uv run` / `uvx` fallback knobs in the same window. Preserve negative guidance such as “do not use `asdl aretro`” when it prevents stale plugin usage. For `aretro`, the deleted `packages/aretro` reference is commit `dd1c69ac85f9f836a9c12cd1da219099a2683273`.
+
+`packagechk` added final parked-capability retirement evidence. Once active-use evidence made it in scope, deletion needed the same-window TypeScript package addition, root uv workspace/dev/lint/type/test cleanup, `uv.lock` update, opt-in source shim recipe, and full repo validation. Because the CLI can publish real packages, preserving fake-backed safety gates and confirmation prompts is part of the deletion gate, not a nice-to-have.
 
 ## 6. Treat distribution as a product decision
 
