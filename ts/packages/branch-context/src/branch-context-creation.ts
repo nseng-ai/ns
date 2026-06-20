@@ -437,15 +437,13 @@ async function resolveCurrentBranch(
 	signal: AbortSignal | undefined,
 ): Promise<string> {
 	const branch = await git.currentBranch({ cwd, signal });
-	if (!branch.ok) {
-		if (branch.error.code === "detached_head") {
-			throw new Error(
-				"Graphite branch creation requires a named current branch; the current checkout appears to be detached.",
-			);
-		}
-		throw new Error(branch.error.message);
+	if (branch.type === "branch") return branch.branch;
+	if (branch.type === "detached") {
+		throw new Error(
+			"Graphite branch creation requires a named current branch; the current checkout appears to be detached.",
+		);
 	}
-	return branch.value;
+	throw new Error(branch.error.message);
 }
 
 function buildEvidence(input: {

@@ -71,12 +71,12 @@ describe("pr-address primitive exec commands", () => {
 		expect(await reviews.exit).toBe(0);
 		expect(dataFromJson(reviews.stdout)).toMatchObject({ reviews: [{ id: "R1" }] });
 
-		const unresolvedThreads = runScenario(
+		const openThreads = runScenario(
 			["exec", "pr-review-threads", "--pr-number", "12", "--format", "json"],
 			{ prFeedback },
 		);
-		expect(await unresolvedThreads.exit).toBe(0);
-		expect(dataFromJson(unresolvedThreads.stdout)).toMatchObject({
+		expect(await openThreads.exit).toBe(0);
+		expect(dataFromJson(openThreads.stdout)).toMatchObject({
 			review_threads: [{ id: "RT_open" }],
 		});
 

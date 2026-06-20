@@ -384,15 +384,13 @@ async function resolveCurrentBranch(
 	signal: AbortSignal | undefined,
 ): Promise<string> {
 	const branch = await git.currentBranch({ cwd, signal });
-	if (!branch.ok) {
-		if (branch.error.code === "detached_head") {
-			throw new Error(
-				"Current git checkout is detached or unnamed; check out a named branch before creating a saved plan file.",
-			);
-		}
-		throw new Error(branch.error.message);
+	if (branch.type === "branch") return branch.branch;
+	if (branch.type === "detached") {
+		throw new Error(
+			"Current git checkout is detached or unnamed; check out a named branch before creating a saved plan file.",
+		);
 	}
-	return branch.value;
+	throw new Error(branch.error.message);
 }
 
 interface RepoIdentityOptions {

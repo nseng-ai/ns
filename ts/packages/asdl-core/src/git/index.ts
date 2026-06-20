@@ -12,6 +12,7 @@ const GIT_TIMEOUT_MS = 10_000;
 
 export interface GitCwdParams {
 	cwd: string;
+	env?: NodeJS.ProcessEnv | undefined;
 	signal?: AbortSignal | undefined;
 }
 
@@ -22,6 +23,10 @@ export interface GitErrorInfo {
 }
 
 export type GitResult<T> = { ok: true; value: T } | { ok: false; error: GitErrorInfo };
+export type GitCurrentBranchResult =
+	| { type: "branch"; branch: string }
+	| { type: "detached"; error: GitErrorInfo }
+	| { type: "failure"; error: GitErrorInfo };
 export type GitOptionalResult<T> =
 	| { type: "found"; value: T }
 	| { type: "missing" }
@@ -57,7 +62,8 @@ export type GitBranchPresenceResult =
 export interface GitGateway {
 	repoRoot(params: GitCwdParams): Promise<GitResult<string>>;
 	optionalRepoRoot(params: GitCwdParams): Promise<GitOptionalResult<string>>;
-	currentBranch(params: GitCwdParams): Promise<GitResult<string>>;
+	currentBranch(params: GitCwdParams): Promise<GitCurrentBranchResult>;
+	isInsideWorkTree(params: GitCwdParams): Promise<GitResult<boolean>>;
 	trunkBranch(params: GitCwdParams): Promise<GitOptionalResult<string>>;
 	originUrl(params: GitCwdParams): Promise<GitOptionalResult<string>>;
 	headCommit(params: GitCwdParams): Promise<GitResult<string>>;
@@ -145,30 +151,57 @@ export class RealGitGateway implements GitGateway {
 		return root === undefined ? { type: "missing" } : { type: "found", value: root };
 	}
 
-	async currentBranch(params: GitCwdParams): Promise<GitResult<string>> {
+	async currentBranch(params: GitCwdParams): Promise<GitCurrentBranchResult> {
 		const run = await this.runGit(params, ["branch", "--show-current"]);
-		if (!run.ok) return run;
+		if (!run.ok) return { type: "failure", error: run.error };
 		if (run.value.result.code !== 0 || run.value.result.killed) {
+			return {
+				type: "failure",
+				error: failure("current_branch_failed", "git branch --show-current failed", run.value),
+			};
+		}
+
+		const branch = firstNonEmptyLine(run.value.result.stdout);
+		if (branch === undefined) {
+			return {
+				type: "detached",
+				error: {
+					code: "detached_head",
+					message: `git branch --show-current returned no current branch.\nCommand: ${run.value.displayCommand}`,
+					displayCommand: run.value.displayCommand,
+				},
+			};
+		}
+		return { type: "branch", branch };
+	}
+
+	async isInsideWorkTree(params: GitCwdParams): Promise<GitResult<boolean>> {
+		const run = await this.runGit(params, ["rev-parse", "--is-inside-work-tree"]);
+		if (!run.ok) return run;
+		if (run.value.result.killed) {
 			return error(
-				"current_branch_failed",
+				"work_tree_probe_failed",
 				formatCommandFailure(
-					"git branch --show-current failed",
+					"git rev-parse --is-inside-work-tree failed",
 					run.value.displayCommand,
 					run.value.result,
 				),
 				run.value.displayCommand,
 			);
 		}
-
-		const branch = firstNonEmptyLine(run.value.result.stdout);
-		if (branch === undefined) {
-			return error(
-				"detached_head",
-				`git branch --show-current returned no current branch.\nCommand: ${run.value.displayCommand}`,
-				run.value.displayCommand,
-			);
+		if (run.value.result.code === 0) {
+			return { ok: true, value: run.value.result.stdout.trim() === "true" };
 		}
-		return { ok: true, value: branch };
+		if (run.value.result.code === 128) return { ok: true, value: false };
+		return error(
+			"work_tree_probe_failed",
+			formatCommandFailure(
+				"git rev-parse --is-inside-work-tree failed",
+				run.value.displayCommand,
+				run.value.result,
+			),
+			run.value.displayCommand,
+		);
 	}
 
 	async trunkBranch(params: GitCwdParams): Promise<GitOptionalResult<string>> {
@@ -424,11 +457,7 @@ export class RealGitGateway implements GitGateway {
 	private async runGit(params: GitCwdParams, args: string[]): Promise<CommandRunResult> {
 		const displayCommand = formatCommand("git", args);
 		try {
-			const result = await this.execApi.exec(
-				"git",
-				args,
-				execOptions(params.cwd, GIT_TIMEOUT_MS, params.signal),
-			);
+			const result = await this.execApi.exec("git", args, execOptions(params, GIT_TIMEOUT_MS));
 			return { ok: true, value: { result, displayCommand } };
 		} catch (caught) {
 			const message = caught instanceof Error ? caught.message : String(caught);
@@ -460,11 +489,13 @@ function error(
 	};
 }
 
-function execOptions(cwd: string, timeout: number, signal: AbortSignal | undefined): ExecOptions {
-	if (signal === undefined) {
-		return { cwd, timeout };
-	}
-	return { cwd, timeout, signal };
+function execOptions(params: GitCwdParams, timeout: number): ExecOptions {
+	return {
+		cwd: params.cwd,
+		timeout,
+		...(params.env === undefined ? {} : { env: params.env }),
+		...(params.signal === undefined ? {} : { signal: params.signal }),
+	};
 }
 
 function isMissingRevisionResult(result: ExecResult): boolean {

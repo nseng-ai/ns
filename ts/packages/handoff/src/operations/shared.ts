@@ -25,18 +25,15 @@ export async function resolveBranch(
 	}
 
 	const current = await ctx.git.currentBranch({ cwd: ctx.cwd });
-	if (!current.ok) {
-		if (current.error.code === "detached_head")
-			return failure("detached_head", options.detachedMessage);
-		return failure(current.error.code, current.error.message);
-	}
-	const validation = validateBranchName(current.value);
+	if (current.type === "detached") return failure("detached_head", options.detachedMessage);
+	if (current.type === "failure") return failure(current.error.code, current.error.message);
+	const validation = validateBranchName(current.branch);
 	if (validation.type === "invalid")
 		return failure(
 			"invalid_branch_name",
-			`Invalid branch name ${JSON.stringify(current.value)}: ${validation.reason}`,
+			`Invalid branch name ${JSON.stringify(current.branch)}: ${validation.reason}`,
 		);
-	return resolved(current.value);
+	return resolved(current.branch);
 }
 
 export function gatewayFailure(error: BrmemErrorInfo, prefix: string): ClinkrFailureExit {

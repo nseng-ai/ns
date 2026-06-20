@@ -1,6 +1,7 @@
 import type {
 	GitBranchParams,
 	GitBranchPresenceResult,
+	GitCurrentBranchResult,
 	GitCwdParams,
 	GitErrorInfo,
 	GitGateway,
@@ -26,6 +27,7 @@ export interface InMemoryGitGatewayState {
 	repoRoot?: ValueState<string> | undefined;
 	optionalRepoRoot?: OptionalValueState<string> | undefined;
 	currentBranch?: CurrentBranchState | undefined;
+	isInsideWorkTree?: ValueState<boolean> | undefined;
 	trunkBranch?: OptionalValueState<string> | undefined;
 	originUrl?: OptionalValueState<string> | undefined;
 	headCommit?: ValueState<string> | undefined;
@@ -68,6 +70,7 @@ export class InMemoryGitGateway implements GitGateway {
 	private readonly repoRootState: ValueState<string>;
 	private readonly optionalRepoRootState: OptionalValueState<string>;
 	private readonly currentBranchState: CurrentBranchState;
+	private readonly isInsideWorkTreeState: ValueState<boolean>;
 	private readonly trunkBranchState: OptionalValueState<string>;
 	private readonly originUrlState: OptionalValueState<string>;
 	private readonly headCommitState: ValueState<string>;
@@ -88,6 +91,7 @@ export class InMemoryGitGateway implements GitGateway {
 	private readonly repoRootLog: GitCall[] = [];
 	private readonly optionalRepoRootLog: GitCall[] = [];
 	private readonly currentBranchLog: GitCall[] = [];
+	private readonly isInsideWorkTreeLog: GitCall[] = [];
 	private readonly trunkBranchLog: GitCall[] = [];
 	private readonly originUrlLog: GitCall[] = [];
 	private readonly headCommitLog: GitCall[] = [];
@@ -104,6 +108,7 @@ export class InMemoryGitGateway implements GitGateway {
 		this.repoRootState = state.repoRoot ?? "/repo";
 		this.optionalRepoRootState = state.optionalRepoRoot ?? state.repoRoot ?? "/repo";
 		this.currentBranchState = state.currentBranch ?? "feature/source-plan";
+		this.isInsideWorkTreeState = state.isInsideWorkTree ?? true;
 		this.trunkBranchState = state.trunkBranch ?? "main";
 		this.originUrlState = state.originUrl ?? "git@github.com:Owner/Repo.git\n";
 		this.headCommitState = state.headCommit ?? "0123456789abcdef0123456789abcdef01234567";
@@ -146,6 +151,10 @@ export class InMemoryGitGateway implements GitGateway {
 
 	get currentBranchCalls(): readonly GitCall[] {
 		return copyCalls(this.currentBranchLog);
+	}
+
+	get isInsideWorkTreeCalls(): readonly GitCall[] {
+		return copyCalls(this.isInsideWorkTreeLog);
 	}
 
 	get trunkBranchCalls(): readonly GitCall[] {
@@ -214,23 +223,29 @@ export class InMemoryGitGateway implements GitGateway {
 		);
 	}
 
-	async currentBranch(params: GitCwdParams): Promise<GitResult<string>> {
+	async currentBranch(params: GitCwdParams): Promise<GitCurrentBranchResult> {
 		this.currentBranchLog.push(callFromParams(params));
 		if (isDetachedState(this.currentBranchState)) {
+			return { type: "detached", error: detachedHeadError() };
+		}
+		if (isFailureState(this.currentBranchState)) {
 			return {
-				ok: false,
-				error: {
-					code: "detached_head",
-					message:
-						"git branch --show-current returned no current branch.\nCommand: git branch --show-current",
-					displayCommand: "git branch --show-current",
+				type: "failure",
+				error: this.currentBranchState.error ?? {
+					code: "current_branch_failed",
+					message: "Could not resolve current branch.",
 				},
 			};
 		}
+		return { type: "branch", branch: this.currentBranchState };
+	}
+
+	async isInsideWorkTree(params: GitCwdParams): Promise<GitResult<boolean>> {
+		this.isInsideWorkTreeLog.push(callFromParams(params));
 		return valueResult(
-			this.currentBranchState,
-			"current_branch_failed",
-			"Could not resolve current branch.",
+			this.isInsideWorkTreeState,
+			"work_tree_probe_failed",
+			"Could not determine whether cwd is inside a git work tree.",
 		);
 	}
 
@@ -396,6 +411,15 @@ function isDetachedState(value: unknown): value is { type: "detached" } {
 	return (
 		typeof value === "object" && value !== null && "type" in value && value.type === "detached"
 	);
+}
+
+function detachedHeadError(): GitErrorInfo {
+	return {
+		code: "detached_head",
+		message:
+			"git branch --show-current returned no current branch.\nCommand: git branch --show-current",
+		displayCommand: "git branch --show-current",
+	};
 }
 
 function callFromParams(params: GitCwdParams): GitCall {

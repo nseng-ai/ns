@@ -6,6 +6,7 @@ import { join } from "node:path";
 import type {
 	GitBranchParams,
 	GitBranchPresenceResult,
+	GitCurrentBranchResult,
 	GitCwdParams,
 	GitErrorInfo,
 	GitLocalBranchTip,
@@ -97,8 +98,12 @@ class FakeGitGateway implements GitGateway {
 		throw new Error("FakeGitGateway.optionalRepoRoot should not be called");
 	}
 
-	async currentBranch(_params: GitCwdParams): Promise<GitResult<string>> {
+	async currentBranch(_params: GitCwdParams): Promise<GitCurrentBranchResult> {
 		throw new Error("FakeGitGateway.currentBranch should not be called");
+	}
+
+	async isInsideWorkTree(_params: GitCwdParams): Promise<GitResult<boolean>> {
+		throw new Error("FakeGitGateway.isInsideWorkTree should not be called");
 	}
 
 	async trunkBranch(_params: GitCwdParams): Promise<GitOptionalResult<string>> {

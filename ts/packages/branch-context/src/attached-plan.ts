@@ -307,7 +307,7 @@ async function resolveSafeImplementationBranch(
 	}
 
 	const branchResult = await git.currentBranch({ cwd, signal });
-	if (!branchResult.ok) {
+	if (branchResult.type !== "branch") {
 		throw new Error(
 			[
 				"Cannot load attached plan from detached HEAD. Check out a feature branch first.",
@@ -316,7 +316,7 @@ async function resolveSafeImplementationBranch(
 			].join("\n"),
 		);
 	}
-	const branch = branchResult.value;
+	const branch = branchResult.branch;
 
 	const trunkBranch = await git.trunkBranch({ cwd, signal });
 	const trunkBranchValue = trunkBranch.type === "found" ? trunkBranch.value : undefined;

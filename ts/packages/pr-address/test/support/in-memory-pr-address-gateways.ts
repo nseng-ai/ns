@@ -260,8 +260,13 @@ export class InMemoryPrAddressGitGateway implements PrAddressGitGateway {
 
 	async getCurrentBranch(_options: GatewayOptions): Promise<CurrentBranchResult> {
 		if (this.currentBranchFailure !== undefined)
-			return { type: "failure", failure: this.currentBranchFailure };
-		if (this.currentBranch === null) return { type: "detached" };
+			return { type: "failure", error: this.currentBranchFailure };
+		if (this.currentBranch === null) {
+			return {
+				type: "detached",
+				error: { code: "detached_head", message: "Detached HEAD." },
+			};
+		}
 		return { type: "branch", branch: this.currentBranch };
 	}
 

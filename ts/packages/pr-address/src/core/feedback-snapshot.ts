@@ -14,7 +14,6 @@ export interface FeedbackSnapshot {
 	pr_number: number;
 	reviews: readonly GithubPrReview[];
 	review_threads: readonly GithubPrReviewThread[];
-	counted_review_threads: readonly GithubPrReviewThread[];
 	discussion_comments: readonly GithubPrDiscussionComment[];
 }
 
@@ -26,9 +25,6 @@ export interface FetchFeedbackSnapshotOptions {
 	gateway: GithubPrFeedbackGateway;
 	gatewayOptions: GatewayOptions;
 	prNumber: number;
-	shouldIncludeResolved: boolean;
-	shouldIncludeEmptyReviews: boolean;
-	shouldCountAllReviewThreads: boolean;
 }
 
 export async function fetchFeedbackSnapshot(
@@ -63,16 +59,12 @@ export async function fetchFeedbackSnapshot(
 			`Failed to fetch discussion comments for PR ${options.prNumber}`,
 			commentsResult.error,
 		);
-	const allThreads = threadsResult.value;
-	const reviewThreads = options.shouldIncludeResolved ? allThreads : unresolvedThreads(allThreads);
-	const countedReviewThreads = options.shouldCountAllReviewThreads ? allThreads : reviewThreads;
 	return {
 		type: "ok",
 		snapshot: {
 			pr_number: options.prNumber,
-			reviews: reviewsForRequest(reviewsResult.value, options.shouldIncludeEmptyReviews),
-			review_threads: reviewThreads,
-			counted_review_threads: countedReviewThreads,
+			reviews: reviewsResult.value,
+			review_threads: threadsResult.value,
 			discussion_comments: commentsResult.value,
 		},
 	};
@@ -80,16 +72,10 @@ export async function fetchFeedbackSnapshot(
 
 export function reviewsForRequest(
 	reviews: readonly GithubPrReview[],
-	shouldIncludeEmptyReviews: boolean,
+	includeEmptyReviews: boolean,
 ): readonly GithubPrReview[] {
-	if (shouldIncludeEmptyReviews) return reviews;
+	if (includeEmptyReviews) return reviews;
 	return reviews.filter((review) => !isEmptyReview(review));
-}
-
-function unresolvedThreads(
-	threads: readonly GithubPrReviewThread[],
-): readonly GithubPrReviewThread[] {
-	return threads.filter((thread) => !thread.isResolved);
 }
 
 function isEmptyReview(review: GithubPrReview): boolean {

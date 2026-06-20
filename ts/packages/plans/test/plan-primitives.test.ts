@@ -6,6 +6,7 @@ import { join } from "node:path";
 import type {
 	GitBranchParams,
 	GitBranchPresenceResult,
+	GitCurrentBranchResult,
 	GitCwdParams,
 	GitGateway,
 	GitLocalBranchTip,
@@ -288,8 +289,12 @@ class FakeGitGateway implements GitGateway {
 		return { type: "found", value: ROOT };
 	}
 
-	async currentBranch(_params: GitCwdParams): Promise<GitResult<string>> {
-		return { ok: true, value: this.currentBranchValue };
+	async currentBranch(_params: GitCwdParams): Promise<GitCurrentBranchResult> {
+		return { type: "branch", branch: this.currentBranchValue };
+	}
+
+	async isInsideWorkTree(_params: GitCwdParams): Promise<GitResult<boolean>> {
+		return { ok: true, value: true };
 	}
 
 	async trunkBranch(_params: GitCwdParams): Promise<GitOptionalResult<string>> {
