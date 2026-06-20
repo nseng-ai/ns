@@ -54,6 +54,23 @@ function thread(overrides: Record<string, unknown> = {}): Record<string, unknown
 	};
 }
 
+async function expectInvalidIdentity(
+	resultPromise: Promise<unknown>,
+	details: {
+		readonly prNumber?: number | undefined;
+		readonly threadId?: string | undefined;
+		readonly cursorContext?: string | undefined;
+	},
+): Promise<void> {
+	await expect(resultPromise).resolves.toMatchObject({
+		ok: false,
+		error: {
+			code: "github_pr_feedback_response_invalid",
+			details,
+		},
+	});
+}
+
 describe("RealGithubPrFeedbackGateway", () => {
 	test("looks up PRs and preserves lookup misses", async () => {
 		const foundArgs = [
@@ -367,6 +384,117 @@ describe("RealGithubPrFeedbackGateway", () => {
 			ok: false,
 			error: { code: "github_pr_feedback_graphql_failed" },
 		});
+		runner.assertDone();
+	});
+
+	test("rejects malformed review thread and review comment identities", async () => {
+		const args = [
+			"api",
+			"graphql",
+			"-F",
+			"owner={owner}",
+			"-F",
+			"repo={repo}",
+			"-F",
+			"number=12",
+			"-f",
+			`query=${reviewThreadsQuery}`,
+		];
+		const commentsArgs = [
+			"api",
+			"graphql",
+			"-f",
+			"threadId=RT_thread1",
+			"-F",
+			"commentCursor=COMMENT_CURSOR",
+			"-f",
+			`query=${reviewThreadCommentsQuery}`,
+		];
+		const runner = new ScriptedCommandRunner([
+			step("gh", args, { stdout: reviewThreadsResponse([thread({ id: undefined })]) }),
+			step("gh", args, { stdout: reviewThreadsResponse([thread({ id: null })]) }),
+			step("gh", args, {
+				stdout: reviewThreadsResponse([
+					thread({ comments: { nodes: [comment({ databaseId: undefined })], pageInfo: {} } }),
+				]),
+			}),
+			step("gh", args, {
+				stdout: reviewThreadsResponse([
+					thread({
+						comments: {
+							nodes: [comment({ databaseId: 1 })],
+							pageInfo: { hasNextPage: true, endCursor: "COMMENT_CURSOR" },
+						},
+					}),
+				]),
+			}),
+			step("gh", commentsArgs, {
+				stdout: commentPageResponse([comment({ databaseId: undefined })]),
+			}),
+		]);
+		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+
+		await expectInvalidIdentity(gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 }), {
+			prNumber: 12,
+			cursorContext: "reviewThreads",
+		});
+		await expectInvalidIdentity(gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 }), {
+			prNumber: 12,
+			cursorContext: "reviewThreads",
+		});
+		await expectInvalidIdentity(gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 }), {
+			prNumber: 12,
+			cursorContext: "reviewThreads",
+		});
+		await expectInvalidIdentity(gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 }), {
+			prNumber: 12,
+			threadId: "RT_thread1",
+			cursorContext: "reviewThreadComments",
+		});
+		runner.assertDone();
+	});
+
+	test("rejects malformed discussion comment and reply identities", async () => {
+		const discussionArgs = ["pr", "view", "12", "--json", "comments"];
+		const replyArgs = [
+			"api",
+			"graphql",
+			"-f",
+			"threadId=RT_thread1",
+			"-f",
+			"body=Fixed.",
+			"-f",
+			`query=${replyToReviewThreadMutation}`,
+		];
+		const runner = new ScriptedCommandRunner([
+			step("gh", discussionArgs, {
+				stdout: JSON.stringify({ comments: [{ body: "discussion", user: { login: "human" } }] }),
+			}),
+			step("gh", discussionArgs, {
+				stdout: JSON.stringify({ comments: [{ databaseId: "not numeric", body: "discussion" }] }),
+			}),
+			step("gh", replyArgs, {
+				stdout: JSON.stringify({
+					data: {
+						addPullRequestReviewThreadReply: {
+							comment: comment({ databaseId: undefined }),
+						},
+					},
+				}),
+			}),
+		]);
+		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+
+		await expectInvalidIdentity(gateway.getPrDiscussionComments({ cwd: "/repo", prNumber: 12 }), {
+			prNumber: 12,
+		});
+		await expectInvalidIdentity(gateway.getPrDiscussionComments({ cwd: "/repo", prNumber: 12 }), {
+			prNumber: 12,
+		});
+		await expectInvalidIdentity(
+			gateway.replyToReviewThread({ cwd: "/repo", threadId: "RT_thread1", body: "Fixed." }),
+			{ threadId: "RT_thread1" },
+		);
 		runner.assertDone();
 	});
 

@@ -11,7 +11,7 @@ import type { GithubPrFeedbackFailure } from "@asdl/core/github-pr-feedback";
 
 import type { PrAddressContext } from "./context.ts";
 import type { GatewayFailure, GatewayOptions } from "./gateways.ts";
-import { buildOperationSchemaDocument } from "./operation-schemas/index.ts";
+import { schemaDocument } from "./operation-schemas/shared.ts";
 
 /** Handler-facing runtime for one exec operation; clinkr's io seam owns all output. */
 export interface PrAddressExecContext {
@@ -25,6 +25,8 @@ export interface PrAddressExecContext {
 export interface ExecOperation {
 	name: string;
 	schema: z.ZodObject;
+	resultSchema: z.ZodType;
+	schemaDocument(): JsonSchemaDocument;
 	addTo(group: ClinkrGroup<PrAddressExecContext>): void;
 }
 
@@ -83,6 +85,7 @@ export function prFeedbackFailureMessage(
 
 export interface DefineExecOperationOptions<S extends z.ZodObject, T> {
 	spec: ClinkrCommandSpec<PrAddressExecContext, S, T>;
+	resultSchema: z.ZodType<T>;
 	/**
 	 * Operation calls GitHub through `gh`, which resolves `owner/repo` from the
 	 * cwd's git remotes. The operation fails fast with `repo_context_required`
@@ -102,26 +105,19 @@ export function defineExecOperation<S extends z.ZodObject, T>(
 	return {
 		name: spec.name,
 		schema: spec.schema,
+		resultSchema: options.resultSchema,
+		schemaDocument() {
+			return schemaDocument(spec.schema, options.resultSchema);
+		},
 		addTo(group) {
 			const commandSpec = {
 				...spec,
 				handler,
-				schemaDocument: () => requireOperationSchemaDocument(spec.name, spec.schema),
+				schemaDocument: () => schemaDocument(spec.schema, options.resultSchema),
 			} satisfies ClinkrCommandSpec<PrAddressExecContext, S, T>;
 			group.command(commandSpec);
 		},
 	};
-}
-
-function requireOperationSchemaDocument(
-	operation: string,
-	requestSchema: z.ZodObject,
-): JsonSchemaDocument {
-	const document = buildOperationSchemaDocument(operation, requestSchema);
-	if (document === undefined) {
-		throw new Error(`pr-address: no schema document builder for exec operation '${operation}'`);
-	}
-	return document;
 }
 
 function withRepoContextPrecondition<S extends z.ZodObject, T>(

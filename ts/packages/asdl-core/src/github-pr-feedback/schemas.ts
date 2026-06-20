@@ -34,8 +34,8 @@ export const ghReviewsResponseSchema = z
 
 export const ghReviewCommentSchema = z
 	.object({
-		databaseId: z.number().int().nullable().optional(),
-		id: z.union([z.number().int(), z.string()]).optional(),
+		databaseId: z.number().int().positive().nullable().optional(),
+		id: z.union([z.number().int().positive(), z.string()]).optional(),
 		body: z.string().default(""),
 		author: ghAuthorSchema.default(""),
 		path: z.string().default(""),
@@ -44,7 +44,19 @@ export const ghReviewCommentSchema = z
 		createdAt: z.string().default(""),
 		url: z.string().optional(),
 	})
-	.loose();
+	.loose()
+	.transform((comment, ctx) => {
+		const numericId = numericGithubIdentity(comment.databaseId ?? comment.id);
+		if (numericId === null) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["databaseId"],
+				message: "Review comment must include a positive integer databaseId or numeric id.",
+			});
+			return z.NEVER;
+		}
+		return { ...comment, numericId };
+	});
 
 export const ghPageInfoSchema = z
 	.object({
@@ -62,7 +74,7 @@ export const ghReviewCommentConnectionSchema = z
 
 export const ghReviewThreadSchema = z
 	.object({
-		id: z.string().nullable().default(null),
+		id: z.string().min(1),
 		path: z.string().default(""),
 		line: z.number().int().nullable().default(null),
 		startLine: z.number().int().nullable().optional(),
@@ -79,15 +91,27 @@ export type GhReviewThread = z.infer<typeof ghReviewThreadSchema>;
 
 export const ghDiscussionCommentSchema = z
 	.object({
-		databaseId: z.number().int().optional(),
-		id: z.union([z.number().int(), z.string()]).optional(),
+		databaseId: z.number().int().positive().optional(),
+		id: z.union([z.number().int().positive(), z.string()]).optional(),
 		body: z.string().default(""),
 		author: ghAuthorSchema.default(""),
 		user: ghAuthorSchema.optional(),
 		url: z.string().default(""),
 		html_url: z.string().optional(),
 	})
-	.loose();
+	.loose()
+	.transform((comment, ctx) => {
+		const numericId = numericGithubIdentity(comment.databaseId ?? comment.id);
+		if (numericId === null) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["databaseId"],
+				message: "Discussion comment must include a positive integer databaseId or numeric id.",
+			});
+			return z.NEVER;
+		}
+		return { ...comment, numericId };
+	});
 
 export const ghDiscussionCommentsResponseSchema = z
 	.object({ comments: z.array(ghDiscussionCommentSchema).default([]) })
@@ -136,10 +160,22 @@ export const ghResolveReviewThreadResponseSchema = z
 		data: z.object({
 			resolveReviewThread: z
 				.object({
-					thread: z.object({ id: z.string(), isResolved: z.boolean() }).loose().nullable(),
+					thread: z
+						.object({ id: z.string().min(1), isResolved: z.boolean() })
+						.loose()
+						.nullable(),
 				})
 				.loose()
 				.nullable(),
 		}),
 	})
 	.loose();
+
+function numericGithubIdentity(value: string | number | null | undefined): number | null {
+	if (typeof value === "number") return Number.isSafeInteger(value) && value > 0 ? value : null;
+	if (typeof value !== "string") return null;
+	const trimmed = value.trim();
+	if (trimmed === "") return null;
+	const numeric = Number(trimmed);
+	return Number.isSafeInteger(numeric) && numeric > 0 ? numeric : null;
+}
