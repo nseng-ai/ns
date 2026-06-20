@@ -273,7 +273,7 @@ export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
 		const run = await this.runGh({ operation, args, params });
 		if (run.type === "startup_error") return feedbackErr(failureFromStartup(run, operation));
 		if (run.result.code !== 0 || run.result.killed) {
-			if (isLookupMiss(run.result, operation)) {
+			if (isExactPrLookupMiss(run.result, operation)) {
 				return feedbackOk({
 					found: false,
 					miss: {
@@ -428,12 +428,13 @@ export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
 	}
 }
 
-function isLookupMiss(result: ExecResult, operation: "getPr" | "getPrForBranch"): boolean {
+function isExactPrLookupMiss(result: ExecResult, operation: "getPr" | "getPrForBranch"): boolean {
 	if (result.code !== 1 || result.killed) return false;
 	const text = `${result.stdout}\n${result.stderr}`.toLowerCase();
 	switch (operation) {
 		case "getPr":
 		case "getPrForBranch":
+			// Keep generic "not found" output classified as a gh failure so repo/auth failures surface.
 			return text.includes("no pull requests found");
 	}
 }
