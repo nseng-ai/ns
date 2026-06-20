@@ -63,10 +63,10 @@
   rewrite, then diff the new `SKILL.md` against that contract line-by-line; `areg check`
   "All skills OK"; every disclosed pointer resolves. Edit the real `skills/` source only
   (never a symlinked copy).
-  **Remaining value-adjusted sequence** (after the `python-fake-driven-testing`
-  reference-tree merge): `handoff-create` (cheap high-value win) → the objective family
-  (`objective-refresh`, `objective-update`, `objective-create`; high reach, accept risk 3
-  once the gate has 2–3 passes) → ccc / niche skills last, only if cheap.
+  **Remaining value-adjusted sequence** (after the `handoff-create` rewrite): the
+  objective family (`objective-refresh`, `objective-update`, `objective-create`; high
+  reach, accept risk 3 once the gate has 2–3 passes) → ccc / niche skills last, only if
+  cheap.
   **`branch-context-impl` dropped off** (was the tentative "next"): 36 lines, lift 1 /
   risk 4 — its only disclosable block is a 6-trigger STOP safety contract, so disclosing
   it is net-negative and a rewrite most likely softens the contract. Leave as-is.
@@ -94,8 +94,13 @@
     5 / 4 but cmux-niche (low reach) → sequenced last among rewrites.
   - `objective-refresh`, `objective-update` — rewrite; invariants stated 3–4×. High reach;
     take after the gate has 2–3 passes.
-  - `handoff-create` — rewrite; verbatim 25-line artifact template (lift 4 / risk 1).
-    Cheap high-value win → first rewrite after the pilot.
+  - `handoff-create` — **DONE (rewrite).** SKILL.md 173→131 lines; the duplicated
+    artifact template / storage here-doc collapsed to one canonical artifact shape and
+    one canonical `brmem put` command; frontmatter and invocation kind stayed unchanged
+    after audit; contract diff preserved the direction-first ask, branch/slug rules,
+    collision handling, storage command, success copy, and pickup/admin boundaries.
+    Evidence: `git diff --check`, `areg check`, and `just dprint-check` passed; see
+    update `2026-06-20T181649`.
   - `python-fake-driven-test-layout` — rewrite; tree drawn 3×. Lift 4 but low reach
     (rarely-consulted scaffolding); kept ONLY as the safe, mechanical **method pilot**.
   - `code-thermostack` — rewrite; subagent-contract triplication.
