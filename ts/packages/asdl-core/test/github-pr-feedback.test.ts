@@ -89,13 +89,6 @@ async function expectInvalidResponse(
 	});
 }
 
-async function expectInvalidIdentity(
-	resultPromise: Promise<unknown>,
-	details: InvalidResponseDetails,
-): Promise<void> {
-	await expectInvalidResponse(resultPromise, details);
-}
-
 describe("RealGithubPrFeedbackGateway", () => {
 	test("looks up PRs and preserves lookup misses", async () => {
 		const foundArgs = [
@@ -732,19 +725,19 @@ describe("RealGithubPrFeedbackGateway", () => {
 		]);
 		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
 
-		await expectInvalidIdentity(gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 }), {
+		await expectInvalidResponse(gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 }), {
 			prNumber: 12,
 			cursorContext: "reviewThreads",
 		});
-		await expectInvalidIdentity(gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 }), {
+		await expectInvalidResponse(gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 }), {
 			prNumber: 12,
 			cursorContext: "reviewThreads",
 		});
-		await expectInvalidIdentity(gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 }), {
+		await expectInvalidResponse(gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 }), {
 			prNumber: 12,
 			cursorContext: "reviewThreads",
 		});
-		await expectInvalidIdentity(gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 }), {
+		await expectInvalidResponse(gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 }), {
 			prNumber: 12,
 			threadId: "RT_thread1",
 			cursorContext: "reviewThreadComments",
@@ -794,15 +787,15 @@ describe("RealGithubPrFeedbackGateway", () => {
 		]);
 		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
 
-		await expectInvalidIdentity(gateway.getPrDiscussionComments({ cwd: "/repo", prNumber: 12 }), {
+		await expectInvalidResponse(gateway.getPrDiscussionComments({ cwd: "/repo", prNumber: 12 }), {
 			prNumber: 12,
 			cursorContext: "discussionComments",
 		});
-		await expectInvalidIdentity(gateway.getPrDiscussionComments({ cwd: "/repo", prNumber: 12 }), {
+		await expectInvalidResponse(gateway.getPrDiscussionComments({ cwd: "/repo", prNumber: 12 }), {
 			prNumber: 12,
 			cursorContext: "discussionComments",
 		});
-		await expectInvalidIdentity(
+		await expectInvalidResponse(
 			gateway.replyToReviewThread({ cwd: "/repo", threadId: "RT_thread1", body: "Fixed." }),
 			{ threadId: "RT_thread1" },
 		);
