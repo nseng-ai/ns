@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { createClinkrInteraction } from "../src/index.ts";
+import { createClinkrInteraction, resolveClinkrInteraction } from "../src/index.ts";
 
 async function confirm(input: string, defaultAnswer: "yes" | "no") {
 	const stderr: string[] = [];
@@ -83,5 +83,25 @@ describe("ClinkrInteraction.confirm", () => {
 		await expect(confirm("maybe", "no")).resolves.toMatchObject({
 			result: { type: "aborted" },
 		});
+	});
+
+	test("resolves an explicit interaction before creating one from stdio", async () => {
+		const explicit = createClinkrInteraction({ stdin: async () => "y", stderr: () => {} });
+		expect(
+			resolveClinkrInteraction({
+				interaction: explicit,
+				stdin: async () => {
+					throw new Error("stdin should not be used");
+				},
+				stderr: () => {},
+			}),
+		).toBe(explicit);
+	});
+
+	test("creates an interaction when none is supplied", async () => {
+		const interaction = resolveClinkrInteraction({ stdin: async () => "y", stderr: () => {} });
+		await expect(
+			interaction.confirm({ message: "Continue?", defaultAnswer: "no" }),
+		).resolves.toEqual({ type: "confirmed" });
 	});
 });

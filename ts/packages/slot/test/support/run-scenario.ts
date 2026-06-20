@@ -1,5 +1,5 @@
 import type { ConfirmationResult } from "@asdl/clinkr";
-import { createFakeClinkrInteraction } from "@asdl/clinkr/testing";
+import { createOneShotStdinAdapter, createScenarioClinkrInteraction } from "@asdl/clinkr/testing";
 
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import type { SlotCliContext } from "../../src/context.ts";
@@ -47,11 +47,10 @@ export function runScenario(
 	const gt = new FakeSlotGtGateway(options.gt ?? {});
 	const pr = new FakeSlotPrGateway(options.pr);
 	const storage = new FakeSlotStorageGateway();
-	let stdin = options.stdin;
-	const fakeInteraction =
-		stdin === undefined
-			? createFakeClinkrInteraction({ confirmations: options.confirmations })
-			: undefined;
+	const scenarioInteraction = createScenarioClinkrInteraction({
+		hasStdin: options.stdin !== undefined,
+		confirmations: options.confirmations,
+	});
 	const repo = options.repo ?? repoContext();
 	const context: SlotCliContext = {
 		repo,
@@ -61,9 +60,7 @@ export function runScenario(
 		storage,
 		clipboard: new FakeClipboardGateway(options.clipboardResult),
 		cwd,
-		interaction:
-			fakeInteraction?.interaction ??
-			createFakeClinkrInteraction({ confirmations: [] }).interaction,
+		interaction: scenarioInteraction.contextInteraction,
 		stderr: (text) => stderr.push(text),
 		env: options.env ?? { PATH: "/fake/bin" },
 		slotsRoot: "/slots",
@@ -75,19 +72,12 @@ export function runScenario(
 		env: context.env,
 		stdout: (text) => stdout.push(text),
 		stderr: (text) => stderr.push(text),
-		...(stdin === undefined
-			? { interaction: fakeInteraction?.interaction }
-			: {
-					stdin: async () => {
-						if (typeof stdin === "function") return await stdin();
-						const value = stdin ?? null;
-						stdin = undefined;
-						return value;
-					},
-				}),
+		...(scenarioInteraction.depsInteraction === undefined
+			? { stdin: createOneShotStdinAdapter(options.stdin) }
+			: { interaction: scenarioInteraction.depsInteraction }),
 	};
 	const exit = runCli(args, deps).then((code) => {
-		fakeInteraction?.assertComplete();
+		scenarioInteraction.assertComplete();
 		return code;
 	});
 	return { exit, stdout, stderr, git, gt, pr, storage, context };

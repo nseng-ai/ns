@@ -4,7 +4,7 @@ import process from "node:process";
 
 import {
 	ClinkrGroup,
-	createClinkrInteraction,
+	resolveClinkrInteraction,
 	resolveIo,
 	type ClinkrInteraction,
 } from "@asdl/clinkr";
@@ -120,9 +120,11 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 		pypiPublishGateway: deps.pypiPublishGateway ?? new RealPypiPublishGateway(),
 		npmPublishGateway: deps.npmPublishGateway ?? new RealNpmPublishGateway(),
 		io,
-		interaction:
-			deps.interaction ??
-			createClinkrInteraction({ stdin: deps.stdin ?? readStdinLine, stderr: clinkrIo.stderr }),
+		interaction: resolveClinkrInteraction({
+			interaction: deps.interaction,
+			stdin: deps.stdin ?? readStdinLine,
+			stderr: clinkrIo.stderr,
+		}),
 	};
 	return await buildCli().run(args, { context, io: clinkrIo });
 }

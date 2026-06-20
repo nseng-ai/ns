@@ -4,7 +4,7 @@ import process from "node:process";
 
 import {
 	ClinkrGroup,
-	createClinkrInteraction,
+	resolveClinkrInteraction,
 	resolveIo,
 	type ClinkrInteraction,
 } from "@asdl/clinkr";
@@ -95,9 +95,11 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 	const baseContext = deps.context === undefined ? createContextFromDeps(deps) : deps.context;
 	const context: HandoffCliContext = {
 		...baseContext,
-		interaction:
-			deps.interaction ??
-			createClinkrInteraction({ stdin: deps.stdin ?? readStdinLine, stderr: io.stderr }),
+		interaction: resolveClinkrInteraction({
+			interaction: deps.interaction,
+			stdin: deps.stdin ?? readStdinLine,
+			stderr: io.stderr,
+		}),
 		stderr: io.stderr,
 	};
 	return await buildCli().run(args, { context, io });

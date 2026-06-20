@@ -1,6 +1,6 @@
 import { FakeBrmemGateway, type BrmemGateway, type FakeBrmemGatewayOptions } from "@asdl/brmem";
 import type { ConfirmationResult } from "@asdl/clinkr";
-import { createFakeClinkrInteraction } from "@asdl/clinkr/testing";
+import { createOneShotStdinAdapter, createScenarioClinkrInteraction } from "@asdl/clinkr/testing";
 import type { GitGateway } from "@asdl/core/git";
 import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@asdl/core/git/testing";
 
@@ -33,11 +33,10 @@ export function runScenario(
 	const stderr: string[] = [];
 	const cwd = options.cwd ?? "/repo";
 	const stderrWriter = (text: string) => stderr.push(text);
-	let stdin = options.stdin;
-	const fakeInteraction =
-		stdin === undefined
-			? createFakeClinkrInteraction({ confirmations: options.confirmations })
-			: undefined;
+	const scenarioInteraction = createScenarioClinkrInteraction({
+		hasStdin: options.stdin !== undefined,
+		confirmations: options.confirmations,
+	});
 	const context: HandoffCliContext = {
 		cwd,
 		env: options.env ?? { PATH: "/fake/bin" },
@@ -49,28 +48,19 @@ export function runScenario(
 				...options.gitState,
 			}),
 		brmem: options.brmem ?? new FakeBrmemGateway(options.fake),
-		interaction:
-			fakeInteraction?.interaction ??
-			createFakeClinkrInteraction({ confirmations: [] }).interaction,
+		interaction: scenarioInteraction.contextInteraction,
 		stderr: stderrWriter,
 	};
 	const deps: CliDeps = {
 		context,
 		stdout: (text) => stdout.push(text),
 		stderr: stderrWriter,
-		...(stdin === undefined
-			? { interaction: fakeInteraction?.interaction }
-			: {
-					stdin: async () => {
-						if (typeof stdin === "function") return await stdin();
-						const value = stdin ?? null;
-						stdin = undefined;
-						return value;
-					},
-				}),
+		...(scenarioInteraction.depsInteraction === undefined
+			? { stdin: createOneShotStdinAdapter(options.stdin) }
+			: { interaction: scenarioInteraction.depsInteraction }),
 	};
 	const exit = runCli(args, deps).then((code) => {
-		fakeInteraction?.assertComplete();
+		scenarioInteraction.assertComplete();
 		return code;
 	});
 	return { exit, stdout, stderr, context };

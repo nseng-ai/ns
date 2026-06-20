@@ -23,12 +23,22 @@ export interface CreateClinkrInteractionOptions {
 	stderr: (text: string) => void;
 }
 
+export interface ResolveClinkrInteractionOptions extends CreateClinkrInteractionOptions {
+	interaction?: ClinkrInteraction | undefined;
+}
+
 export function createClinkrInteraction(
 	options: CreateClinkrInteractionOptions,
 ): ClinkrInteraction {
 	return {
 		confirm: (request) => confirmWithLineReader(options, request),
 	};
+}
+
+export function resolveClinkrInteraction(
+	options: ResolveClinkrInteractionOptions,
+): ClinkrInteraction {
+	return options.interaction ?? createClinkrInteraction(options);
 }
 
 async function confirmWithLineReader(
