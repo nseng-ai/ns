@@ -2,9 +2,6 @@
   "name": "@asdl/pr-address",
   "version": "0.1.0",
   "type": "module",
-  "exports": {
-    ".": "./src/index.ts"
-  },
   "files": [
     "src"
   ],

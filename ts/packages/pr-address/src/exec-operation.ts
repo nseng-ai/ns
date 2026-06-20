@@ -10,7 +10,7 @@ import type { GithubPrFeedbackFailure } from "@asdl/core/github-pr-feedback";
 import { errorDetailText } from "@asdl/core/result";
 
 import type { PrAddressContext } from "./context.ts";
-import type { GatewayFailure, GatewayOptions } from "./gateways.ts";
+import type { GatewayFailure, GatewayOptions } from "./core/gateways.ts";
 
 /** Handler-facing runtime for one exec operation; clinkr's io seam owns all output. */
 export interface PrAddressExecContext {

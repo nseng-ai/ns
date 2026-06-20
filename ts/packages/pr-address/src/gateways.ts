@@ -8,14 +8,6 @@ import type {
 	RepoContextResult,
 } from "./core/gateways.ts";
 
-export type {
-	CurrentBranchResult,
-	GatewayFailure,
-	GatewayOptions,
-	PrAddressGitGateway,
-	RepoContextResult,
-} from "./core/gateways.ts";
-
 export class RealPrAddressGitGateway implements PrAddressGitGateway {
 	private readonly git: GitGateway;
 
