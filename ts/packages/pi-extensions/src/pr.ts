@@ -82,9 +82,9 @@ export const prExtensionParity = definePiSurfaceParity([
 		kind: "command",
 		surface: PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME,
 		workflow:
-			"Download every PR's feedback from the current Graphite stack into the Pi editor as one triage prompt",
+			"Download every PR's feedback from the current Graphite downstack into the Pi editor as one triage prompt",
 		parity: "FULL",
-		cli: "slot gt exec stack-branches + pr-address exec map-branch-prs + pr-address exec download-feedback",
+		cli: "slot gt exec stack-branches --downstack + pr-address exec map-branch-prs + pr-address exec download-feedback",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "pr",
@@ -136,7 +136,7 @@ export default function prExtension(pi: ExtensionAPI): void {
 	});
 	pi.registerCommand(PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME, {
 		description:
-			"Download feedback from every PR in the current Graphite stack into the editor as a triage prompt.",
+			"Download feedback from every PR in the current Graphite downstack into the editor as a triage prompt.",
 		handler: async (rawArgs, ctx) => {
 			await runPrDownloadStackFeedbackCommand(pi, rawArgs, ctx);
 		},
@@ -198,7 +198,7 @@ async function runPrDownloadStackFeedbackCommand(
 			return;
 		}
 		if (stackBranches.branches.length === 0) {
-			notify(ctx, "No Graphite stack branches found for the current checkout.", "warning");
+			notify(ctx, "No Graphite downstack branches found for the current checkout.", "warning");
 			return;
 		}
 
@@ -212,7 +212,7 @@ async function runPrDownloadStackFeedbackCommand(
 			return;
 		}
 		if (mapped.entries.length === 0) {
-			notify(ctx, "No open PRs found for the current Graphite stack branches.", "warning");
+			notify(ctx, "No open PRs found for the current Graphite downstack branches.", "warning");
 			return;
 		}
 
@@ -276,10 +276,14 @@ async function loadStackBranches(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
 ): Promise<{ type: "ok"; branches: string[] } | { type: "error"; message: string }> {
-	const result = await pi.exec("slot", ["gt", "exec", "stack-branches", "--format", "json"], {
-		cwd: ctx.cwd,
-		timeout: STACK_DISCOVERY_TIMEOUT_MS,
-	});
+	const result = await pi.exec(
+		"slot",
+		["gt", "exec", "stack-branches", "--downstack", "--format", "json"],
+		{
+			cwd: ctx.cwd,
+			timeout: STACK_DISCOVERY_TIMEOUT_MS,
+		},
+	);
 	const parsed = parseEnvelopeWithSchema({
 		label: "slot gt exec stack-branches",
 		result,
@@ -381,7 +385,7 @@ function buildStackDownloadFeedbackMarkdown(downloads: readonly StackFeedbackDow
 	return [
 		"# PR stack feedback triage request",
 		"",
-		"Downloaded PR feedback for the current Graphite stack is below. Review the summary and instructions at the bottom before responding.",
+		"Downloaded PR feedback for the current Graphite downstack is below. Review the summary and instructions at the bottom before responding.",
 		"",
 		"## Stack PRs",
 		...downloads.map(
@@ -408,7 +412,7 @@ function renderStackDownloadFeedbackSummary(downloads: readonly StackFeedbackDow
 	const totals = sumDownloadFeedbackCounts(downloads);
 	return [
 		"## Summary",
-		`Downloaded feedback for ${downloads.length} ${downloads.length === 1 ? "PR" : "PRs"} in the current Graphite stack.`,
+		`Downloaded feedback for ${downloads.length} ${downloads.length === 1 ? "PR" : "PRs"} in the current Graphite downstack.`,
 		"",
 		"Stack PRs:",
 		...downloads.map(

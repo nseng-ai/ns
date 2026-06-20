@@ -1,12 +1,12 @@
 ## Instructions before responding
 
-Triage and group the feedback above across the entire Graphite stack. Identify shared fixes, per-PR fixes, ordering constraints, and ambiguous feedback.
+Triage and group the feedback above across the current Graphite downstack. Identify shared fixes, per-PR fixes, ordering constraints, and ambiguous feedback.
 
 Default stack feedback policies:
 
-- Address stack feedback at the stack tip by default: if the user asks you to address the stack feedback, put all resulting changes in a single omnibus follow-up PR at the current stack tip rather than rewriting downstack PRs, unless the user explicitly asks for downstack surgery.
+- Address stack feedback at the current branch by default: if the user asks you to address the feedback, put all resulting changes in a single omnibus follow-up PR at the current branch rather than rewriting downstack PRs, unless the user explicitly asks for downstack surgery.
 - Plan against the current remaining state, not stale original comments: inspect the repository first, identify feedback that is already fixed, and separate remaining work from verification of already-fixed groups.
-- Treat automation feedback as stack-level remediation: comments may appear on downstack PRs, but remediation can happen at the tip and be considered against the whole stack.
+- Treat automation feedback as downstack-level remediation: comments may appear on downstack PRs, but remediation can happen at the current branch and be considered against the downloaded downstack.
 - After implementation and validation, resolve all automation review threads stack-wide with `pr-address exec resolve-review-thread --thread-id <THREAD_ID> --format json` unless the user instructs otherwise.
 - Use `pr-address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json` for review-thread replies after validation.
 

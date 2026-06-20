@@ -257,7 +257,10 @@ describe("/pr:download-stack-feedback", () => {
 		const ctx = await runStackCommand(pi);
 
 		expect(pi.calls).toEqual([
-			{ command: "slot", args: ["gt", "exec", "stack-branches", "--format", "json"] },
+			{
+				command: "slot",
+				args: ["gt", "exec", "stack-branches", "--downstack", "--format", "json"],
+			},
 			{
 				command: "pr-address",
 				args: [
@@ -282,7 +285,7 @@ describe("/pr:download-stack-feedback", () => {
 		const prompt = ctx.editorTexts[0] ?? "";
 		expect(prompt).toContain("# PR stack feedback triage request");
 		expect(prompt).toContain(
-			"Downloaded PR feedback for the current Graphite stack is below. Review the summary and instructions at the bottom before responding.",
+			"Downloaded PR feedback for the current Graphite downstack is below. Review the summary and instructions at the bottom before responding.",
 		);
 		expect(prompt).toContain("## Stack PRs");
 		expect(prompt).toContain("- #101 branch-one: First (https://example.test/pull/101)");
@@ -292,7 +295,7 @@ describe("/pr:download-stack-feedback", () => {
 		expect(prompt).toContain("Thread 101");
 		expect(prompt).toContain("Comment 102");
 		expect(prompt.indexOf("## Summary")).toBeGreaterThan(prompt.indexOf("Comment 102"));
-		expect(prompt).toContain("Downloaded feedback for 2 PRs in the current Graphite stack.");
+		expect(prompt).toContain("Downloaded feedback for 2 PRs in the current Graphite downstack.");
 		expect(prompt).toContain(
 			"Stack PRs:\n- #101 branch-one: First (https://example.test/pull/101)\n- #102 branch-two: Second (https://example.test/pull/102)",
 		);
@@ -307,11 +310,11 @@ describe("/pr:download-stack-feedback", () => {
 		);
 		expect(prompt).toContain("shared fixes, per-PR fixes, ordering constraints");
 		expect(prompt).toContain("Default stack feedback policies:");
-		expect(prompt).toContain("single omnibus follow-up PR at the current stack tip");
+		expect(prompt).toContain("single omnibus follow-up PR at the current branch");
 		expect(prompt).toContain(
 			"Plan against the current remaining state, not stale original comments",
 		);
-		expect(prompt).toContain("Treat automation feedback as stack-level remediation");
+		expect(prompt).toContain("Treat automation feedback as downstack-level remediation");
 		expect(prompt).toContain("resolve all automation review threads stack-wide");
 		expect(prompt).toContain(
 			"pr-address exec resolve-review-thread --thread-id <THREAD_ID> --format json",
@@ -348,11 +351,14 @@ describe("/pr:download-stack-feedback", () => {
 		const ctx = await runStackCommand(pi);
 
 		expect(pi.calls).toEqual([
-			{ command: "slot", args: ["gt", "exec", "stack-branches", "--format", "json"] },
+			{
+				command: "slot",
+				args: ["gt", "exec", "stack-branches", "--downstack", "--format", "json"],
+			},
 		]);
 		expect(ctx.editorTexts).toEqual([]);
 		expect(ctx.notifications.at(-1)).toEqual({
-			message: "No Graphite stack branches found for the current checkout.",
+			message: "No Graphite downstack branches found for the current checkout.",
 			level: "warning",
 		});
 	});
