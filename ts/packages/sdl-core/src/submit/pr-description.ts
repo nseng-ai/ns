@@ -33,7 +33,7 @@ const LOCKFILE_BASENAMES = new Set([
 	"Cargo.lock",
 ]);
 
-export const DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT = `You are a pull request description generator. Analyze the provided git diff and return ONLY a PR title and body.
+export const DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT = `You are a pull request metadata generator. Analyze the provided git diff and return ONLY a freshly generated PR title and body.
 
 ## Analysis Principles
 
@@ -96,7 +96,8 @@ Analyze the diff following these principles:
 - NO metadata headers (NEVER add \`**Author:**\`, \`**Plan:**\`, \`Closes #N\`, or similar)
 - Use relative paths from repository root
 - Be concise (15-40 lines total, shorter if no User Experience section)
-- First line = PR title, rest = PR body
+- First line = freshly generated PR title, rest = PR body
+- Regenerate the title from the diff and commit messages; do not preserve an existing PR title unless the changes independently justify that exact title
 - Avoid function-level details unless critical
 - Maximum 5 key changes
 - Only include Critical Notes if necessary`;
@@ -333,7 +334,7 @@ export function buildPrDescriptionUserPrompt(input: PrDescriptionPromptContext):
 	}
 	sections.push(
 		`## Diff\n\n\`\`\`diff\n${diff.trimEnd()}\n\`\`\``,
-		"Generate a PR title and body for this diff:",
+		"Generate a fresh PR title and body for this diff. Do not preserve an existing PR title unless the diff independently supports it:",
 	);
 	return `${sections.join("\n\n")}\n`;
 }
@@ -445,7 +446,10 @@ export function truncateDiff(diff: string, maxChars = MAX_DIFF_CHARS): string {
 function formatPrContextLines(input: PrDescriptionPromptContext): string[] {
 	switch (input.kind) {
 		case "github":
-			return [`- PR: #${input.number} (${input.url})`, `- Current PR title: ${input.title}`];
+			return [
+				`- PR: #${input.number} (${input.url})`,
+				`- Current PR title (stale context only; regenerate from the diff): ${input.title}`,
+			];
 		case "local":
 			return [
 				"- PR: not yet created; generate initial metadata for Graphite submit",

@@ -65,7 +65,7 @@ The command owns its output and exit code. It does not support --format.`,
 		}
 		if (decision.kind === "skip") {
 			ctx.stdout?.(
-				`PR description is already up to date.\nPR: #${pr.value.number} ${pr.value.url}\n`,
+				`PR title and description are already up to date.\nPR: #${pr.value.number} ${pr.value.url}\n`,
 			);
 			return ok("");
 		}
@@ -90,7 +90,7 @@ The command owns its output and exit code. It does not support --format.`,
 
 		ctx.stdout?.(
 			[
-				"Regenerated PR description.",
+				"Regenerated PR title and description.",
 				`PR: #${pr.value.number} ${pr.value.url}`,
 				`Title: ${applied.title}`,
 				`Prompt: ${formatPromptSourceLabel(applied.promptSource)}`,
