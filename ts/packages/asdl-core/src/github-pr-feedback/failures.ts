@@ -8,6 +8,22 @@ import type {
 	GithubPrFeedbackOperation,
 } from "./types.ts";
 
+interface FailureFromMessageOptions {
+	readonly code: GithubPrFeedbackFailureCode;
+	readonly operation: GithubPrFeedbackOperation;
+	readonly message: string;
+	readonly run?: Extract<RunGitHubCliResult, { readonly type: "completed" }> | undefined;
+	readonly stdout?: string | undefined;
+	readonly stderr?: string | undefined;
+	readonly exitCode?: number | undefined;
+	readonly killed?: boolean | undefined;
+	readonly graphqlErrors?: unknown;
+	readonly zodError?: string | undefined;
+	readonly prNumber?: number | undefined;
+	readonly threadId?: string | undefined;
+	readonly cursorContext?: string | undefined;
+}
+
 export function feedbackOk<T>(value: T): Result<T, GithubPrFeedbackFailure> {
 	return { ok: true, value };
 }
@@ -61,23 +77,22 @@ export function failureFromCompleted(
 	});
 }
 
-export function failureFromMessage(options: {
-	readonly code: GithubPrFeedbackFailureCode;
-	readonly operation: GithubPrFeedbackOperation;
-	readonly message: string;
-	readonly run?: Extract<RunGitHubCliResult, { readonly type: "completed" }> | undefined;
-	readonly stdout?: string | undefined;
-	readonly stderr?: string | undefined;
-	readonly exitCode?: number | undefined;
-	readonly killed?: boolean | undefined;
-	readonly graphqlErrors?: unknown;
-	readonly zodError?: string | undefined;
-	readonly prNumber?: number | undefined;
-	readonly threadId?: string | undefined;
-	readonly cursorContext?: string | undefined;
-}): GithubPrFeedbackFailure {
-	const details: GithubPrFeedbackFailureDetails = {
+export function failureFromMessage(options: FailureFromMessageOptions): GithubPrFeedbackFailure {
+	const details = buildFailureDetails(options);
+	return {
+		code: options.code,
+		message: options.message,
+		...(options.run === undefined ? {} : { displayCommand: options.run.displayCommand }),
+		details,
+	};
+}
+
+function buildFailureDetails(options: FailureFromMessageOptions): GithubPrFeedbackFailureDetails {
+	return {
 		operation: options.operation,
+		...(options.prNumber === undefined ? {} : { prNumber: options.prNumber }),
+		...(options.threadId === undefined ? {} : { threadId: options.threadId }),
+		...(options.cursorContext === undefined ? {} : { cursorContext: options.cursorContext }),
 		...(options.run === undefined
 			? {}
 			: { command: options.run.command, displayCommand: options.run.displayCommand }),
@@ -87,15 +102,6 @@ export function failureFromMessage(options: {
 		...(options.killed === undefined ? {} : { killed: options.killed }),
 		...(options.graphqlErrors === undefined ? {} : { graphqlErrors: options.graphqlErrors }),
 		...(options.zodError === undefined ? {} : { zodError: options.zodError }),
-		...(options.cursorContext === undefined ? {} : { cursorContext: options.cursorContext }),
-		...(options.threadId === undefined ? {} : { threadId: options.threadId }),
-		...(options.prNumber === undefined ? {} : { prNumber: options.prNumber }),
-	};
-	return {
-		code: options.code,
-		message: options.message,
-		...(options.run === undefined ? {} : { displayCommand: options.run.displayCommand }),
-		details,
 	};
 }
 
