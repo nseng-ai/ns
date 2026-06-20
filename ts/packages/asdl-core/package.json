@@ -17,6 +17,7 @@
     "./cli-entry": "./src/cli-entry.ts",
     "./exec": "./src/exec.ts",
     "./github-cli": "./src/github-cli.ts",
+    "./github-pr-feedback": "./src/github-pr-feedback.ts",
     "./graphite-metadata": "./src/graphite-metadata.ts",
     "./github-status": "./src/github-status.ts",
     "./stdin": "./src/stdin.ts",

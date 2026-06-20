@@ -57,7 +57,15 @@ Risks:
 
 ## Open Questions
 
-- What is the smallest exported primitive set that supports both existing `download-feedback` behavior and the first stack feedback composition without overgeneralizing?
-- Should review-thread reply and resolution mutations be part of the first primitive slice or follow immediately after read-side feedback primitives are extracted?
-- What result and error vocabulary should the core primitive layer use so `pr-address`, skills, and future stack workflows can present failures consistently?
-- What concrete evidence should be saved for the follow-on CLI-pushdown documentation Objective: duplicated command removal, lines of GraphQL removed from workflow code, simpler skill instructions, or agent-session examples?
+Resolved by the implementation slice:
+
+- The first exported primitive set covers PR lookup/details, open PR listing, PR-level reviews, hydrated review threads, discussion comments, review-thread reply, and review-thread resolution. Stack feedback can continue composing these primitives without a monolithic stack API.
+- Review-thread reply and resolution shipped in the first primitive slice as separate operations, not a combined workflow.
+- The core result vocabulary is `Result<T, GithubPrFeedbackFailure>` with stable failure codes for `gh` failures, startup failures, JSON parse failures, response validation failures, GraphQL errors, and pagination defects.
+- Follow-on CLI-pushdown documentation evidence should emphasize mechanics moved into tested primitives, the hidden primitive exec surface, and the partial reply-success / resolve-failure composition test.
+
+## Closure
+
+Completed by the shared GitHub PR feedback primitive implementation. `@asdl/core/github-pr-feedback` now owns PR feedback `gh`/GraphQL command construction, response validation, hydrated review-thread pagination, discussion/review parsing, and separate reply/resolve review-thread mutations. `pr-address` consumes that layer through an adapter while preserving downloader filtering and Markdown policy, and hidden `pr-address exec` primitive commands expose structured read/mutation operations for agents without restoring retired workflow machinery.
+
+Evidence: the full TypeScript typecheck, legacy typecheck, lint, formatting check, and Vitest suite passed; targeted `asdl-core`, `pr-address`, and `pi-extensions` PR feedback tests passed. Parked follow-ups remain outside this Objective: evolve CLI-pushdown documentation from this evidence, broaden GitHub primitives beyond PR feedback only if a later Objective asks for it, and avoid replacing every package-local GitHub gateway with a universal client by default.

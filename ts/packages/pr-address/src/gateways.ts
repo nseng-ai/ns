@@ -1,8 +1,16 @@
-import { runCommand, type ExecResult } from "@asdl/core/exec";
-import { GITHUB_CLI_TIMEOUT_MS } from "@asdl/core/github-cli";
-import { commandFailure, err, ok } from "@asdl/core/submit";
-
-import { z } from "zod";
+import { runCommand, type CommandRunner, type ExecResult } from "@asdl/core/exec";
+import {
+	RealGithubPrFeedbackGateway,
+	type GithubPrDiscussionComment,
+	type GithubPrFeedbackFailure,
+	type GithubPrFeedbackGateway,
+	type GithubPrFeedbackOptions,
+	type GithubPrReview,
+	type GithubPrReviewComment,
+	type GithubPrReviewThread,
+	type GithubPrSummary,
+} from "@asdl/core/github-pr-feedback";
+import { commandFailure } from "@asdl/core/submit";
 
 import type {
 	CurrentBranchResult,
@@ -57,321 +65,75 @@ export type ProcessRunner = (request: ProcessRequest) => Promise<ProcessResult>;
 
 const GIT_TIMEOUT_MS = 10_000;
 
-const prSummarySchema = z.object({
-	number: z.number().int(),
-	title: z.string(),
-	url: z.string(),
-	headRefName: z.string(),
-	baseRefName: z.string(),
-	state: z.string(),
-	headRefOid: z.string().nullable().optional(),
-});
-
-const ghAuthorSchema = z.union([
-	z.string(),
-	z.object({ login: z.string().default("") }).loose(),
-	z.null(),
-]);
-const ghReviewSchema = z
-	.object({
-		id: z.string(),
-		author: ghAuthorSchema.default(""),
-		body: z.string().default(""),
-		state: z.string(),
-		submittedAt: z.string().default(""),
-	})
-	.loose();
-const ghReviewCommentSchema = z
-	.object({
-		databaseId: z.number().int().nullable().optional(),
-		id: z.union([z.number().int(), z.string()]).optional(),
-		body: z.string().default(""),
-		author: ghAuthorSchema.default(""),
-		path: z.string().default(""),
-		line: z.number().int().nullable().default(null),
-		startLine: z.number().int().nullable().optional(),
-		createdAt: z.string().default(""),
-	})
-	.loose();
-const ghPageInfoSchema = z
-	.object({
-		hasNextPage: z.boolean().default(false),
-		endCursor: z.string().nullable().optional(),
-	})
-	.loose();
-const ghReviewCommentConnectionSchema = z
-	.object({
-		nodes: z.array(ghReviewCommentSchema).default([]),
-		pageInfo: ghPageInfoSchema.default({ hasNextPage: false }),
-	})
-	.loose();
-const ghReviewThreadSchema = z
-	.object({
-		id: z.string().nullable().default(null),
-		path: z.string().default(""),
-		line: z.number().int().nullable().default(null),
-		startLine: z.number().int().nullable().optional(),
-		isResolved: z.boolean().default(false),
-		isOutdated: z.boolean().default(false),
-		comments: ghReviewCommentConnectionSchema.default({
-			nodes: [],
-			pageInfo: { hasNextPage: false },
-		}),
-	})
-	.loose();
-const ghDiscussionCommentSchema = z
-	.object({
-		databaseId: z.number().int().optional(),
-		id: z.union([z.number().int(), z.string()]).optional(),
-		body: z.string().default(""),
-		author: ghAuthorSchema.default(""),
-		user: ghAuthorSchema.optional(),
-		url: z.string().default(""),
-		html_url: z.string().optional(),
-	})
-	.loose();
-const ghGraphqlErrorsSchema = z.object({ errors: z.array(z.unknown()).optional() }).loose();
-const ghReviewThreadsResponseSchema = z
-	.object({
-		data: z.object({
-			repository: z.object({
-				pullRequest: z.object({
-					reviewThreads: z
-						.object({
-							nodes: z.array(ghReviewThreadSchema).default([]),
-							pageInfo: ghPageInfoSchema.default({ hasNextPage: false }),
-						})
-						.loose(),
-				}),
-			}),
-		}),
-	})
-	.loose();
-const ghReviewThreadCommentsResponseSchema = z
-	.object({
-		data: z.object({
-			node: z.object({ comments: ghReviewCommentConnectionSchema }).loose().nullable(),
-		}),
-	})
-	.loose();
-
-type GhReviewThread = z.infer<typeof ghReviewThreadSchema>;
-
-export const reviewThreadsQuery = `
-query($owner: String!, $repo: String!, $number: Int!, $threadCursor: String) {
-  repository(owner: $owner, name: $repo) {
-    pullRequest(number: $number) {
-      reviewThreads(first: 100, after: $threadCursor) {
-        pageInfo { hasNextPage endCursor }
-        nodes {
-          id
-          isResolved
-          isOutdated
-          path
-          line
-          startLine
-          comments(first: 100) {
-            pageInfo { hasNextPage endCursor }
-            nodes { databaseId body author { login } path line: originalLine startLine: originalStartLine createdAt }
-          }
-        }
-      }
-    }
-  }
-}`;
-
-export const reviewThreadCommentsQuery = `
-query($threadId: ID!, $commentCursor: String) {
-  node(id: $threadId) {
-    ... on PullRequestReviewThread {
-      comments(first: 100, after: $commentCursor) {
-        pageInfo { hasNextPage endCursor }
-        nodes { databaseId body author { login } path line: originalLine startLine: originalStartLine createdAt }
-      }
-    }
-  }
-}`;
-
 export class RealPrAddressGitHubGateway implements PrAddressGitHubGateway {
-	private readonly runProcess: ProcessRunner;
+	private readonly prFeedback: GithubPrFeedbackGateway;
 
-	constructor(options: { runProcess?: ProcessRunner | undefined } = {}) {
-		this.runProcess = options.runProcess ?? runProcess;
+	constructor(
+		options: {
+			runProcess?: ProcessRunner | undefined;
+			prFeedback?: GithubPrFeedbackGateway | undefined;
+		} = {},
+	) {
+		this.prFeedback =
+			options.prFeedback ??
+			new RealGithubPrFeedbackGateway(
+				processRunnerToCommandRunner(options.runProcess ?? runProcess),
+			);
 	}
 
 	async getPr(prNumber: number, options: GatewayOptions): Promise<PRLookupResult> {
-		return await this.getPrBySelector(String(prNumber), options);
+		const result = await this.prFeedback.getPr({ ...feedbackOptions(options), prNumber });
+		return mapLookupResult(result);
 	}
 
 	async getPrForBranch(branch: string, options: GatewayOptions): Promise<PRLookupResult> {
-		return await this.getPrBySelector(branch, options);
+		const result = await this.prFeedback.getPrForBranch({ ...feedbackOptions(options), branch });
+		return mapLookupResult(result);
 	}
 
 	async listOpenPrs(options: GatewayOptions): Promise<GatewayResult<readonly PRSummary[]>> {
-		// --limit 1000 caps pathological repos; pr-address stacks are far below this bound.
-		const result = await this.runGh(
-			[
-				"pr",
-				"list",
-				"--state",
-				"open",
-				"--json",
-				"number,title,url,headRefName,baseRefName,state",
-				"--limit",
-				"1000",
-			],
-			options,
-		);
-		if (result.exitCode !== 0) return err(failureFromProcess(result));
-		const parseResult = parseJson(result.stdout, z.array(prSummarySchema));
-		if (!parseResult.ok) return parseResult;
-		return ok(parseResult.value.map(normalizePrSummary));
+		const result = await this.prFeedback.listOpenPrs(feedbackOptions(options));
+		if (!result.ok) return { ok: false, error: failureFromCore(result.error) };
+		return { ok: true, value: result.value.map(prSummaryFromCore) };
 	}
 
 	async getReviews(
 		prNumber: number,
 		options: GatewayOptions,
 	): Promise<GatewayResult<readonly PRReview[]>> {
-		const result = await this.runGh(["pr", "view", String(prNumber), "--json", "reviews"], options);
-		if (result.exitCode !== 0) return err(failureFromProcess(result));
-		const parseResult = parseJson(
-			result.stdout,
-			z.object({ reviews: z.array(ghReviewSchema).default([]) }).loose(),
-		);
-		if (!parseResult.ok) return parseResult;
-		return ok(parseResult.value.reviews.map(normalizeReview));
+		const result = await this.prFeedback.getPrReviews({ ...feedbackOptions(options), prNumber });
+		if (!result.ok) return { ok: false, error: failureFromCore(result.error) };
+		return { ok: true, value: result.value.map(reviewFromCore) };
 	}
 
 	async getReviewThreads(
 		prNumber: number,
 		options: GatewayOptions & { shouldIncludeResolved: boolean },
 	): Promise<GatewayResult<readonly PRReviewThread[]>> {
-		const threads: PRReviewThread[] = [];
-		let threadCursor: string | null | undefined;
-		for (;;) {
-			const result = await this.runGh(reviewThreadPageArgs(prNumber, threadCursor), options);
-			if (result.exitCode !== 0) return err(failureFromProcess(result));
-			const parseResult = parseGraphqlJson(result.stdout, ghReviewThreadsResponseSchema);
-			if (!parseResult.ok) return parseResult;
-
-			const connection = parseResult.value.data.repository.pullRequest.reviewThreads;
-			for (const thread of connection.nodes) {
-				const hydrated = await this.withCompleteThreadComments(thread, options);
-				if (!hydrated.ok) return hydrated;
-				threads.push(...normalizeReviewThread(hydrated.value));
-			}
-
-			if (!connection.pageInfo.hasNextPage) break;
-			threadCursor = connection.pageInfo.endCursor;
-			if (threadCursor === null || threadCursor === undefined || threadCursor === "") {
-				return err(
-					failureFromMessage(
-						"GitHub returned a reviewThreads page with hasNextPage but no endCursor",
-						0,
-					),
-				);
-			}
-		}
-		return ok(
-			options.shouldIncludeResolved ? threads : threads.filter((thread) => !thread.is_resolved),
-		);
+		const result = await this.prFeedback.getPrReviewThreads({
+			...feedbackOptions(options),
+			prNumber,
+		});
+		if (!result.ok) return { ok: false, error: failureFromCore(result.error) };
+		const threads = result.value.map(reviewThreadFromCore);
+		return {
+			ok: true,
+			value: options.shouldIncludeResolved
+				? threads
+				: threads.filter((thread) => !thread.is_resolved),
+		};
 	}
 
 	async getDiscussionComments(
 		prNumber: number,
 		options: GatewayOptions,
 	): Promise<GatewayResult<readonly PRDiscussionComment[]>> {
-		const result = await this.runGh(
-			["pr", "view", String(prNumber), "--json", "comments"],
-			options,
-		);
-		if (result.exitCode !== 0) return err(failureFromProcess(result));
-		const parseResult = parseJson(
-			result.stdout,
-			z.object({ comments: z.array(ghDiscussionCommentSchema).default([]) }).loose(),
-		);
-		if (!parseResult.ok) return parseResult;
-		return ok(
-			parseResult.value.comments
-				.map(normalizeDiscussionComment)
-				.filter((comment) => comment.id !== 0),
-		);
-	}
-
-	private async withCompleteThreadComments(
-		thread: GhReviewThread,
-		options: GatewayOptions,
-	): Promise<GatewayResult<GhReviewThread>> {
-		if (!thread.comments.pageInfo.hasNextPage) return ok(thread);
-		if (thread.id === null) return ok(thread);
-
-		const comments = [...thread.comments.nodes];
-		let commentCursor = thread.comments.pageInfo.endCursor;
-		for (;;) {
-			if (commentCursor === null || commentCursor === undefined || commentCursor === "") {
-				return err(
-					failureFromMessage(
-						`GitHub returned review thread ${thread.id} comments with hasNextPage but no endCursor`,
-						0,
-					),
-				);
-			}
-			const result = await this.runGh(
-				reviewThreadCommentPageArgs(thread.id, commentCursor),
-				options,
-			);
-			if (result.exitCode !== 0) return err(failureFromProcess(result));
-			const parseResult = parseGraphqlJson(result.stdout, ghReviewThreadCommentsResponseSchema);
-			if (!parseResult.ok) return parseResult;
-			const node = parseResult.value.data.node;
-			if (node === null)
-				return err(failureFromMessage(`GitHub returned no review thread for ${thread.id}`, 0));
-			comments.push(...node.comments.nodes);
-			if (!node.comments.pageInfo.hasNextPage) break;
-			commentCursor = node.comments.pageInfo.endCursor;
-		}
-		return ok({
-			...thread,
-			comments: { ...thread.comments, nodes: comments, pageInfo: { hasNextPage: false } },
+		const result = await this.prFeedback.getPrDiscussionComments({
+			...feedbackOptions(options),
+			prNumber,
 		});
-	}
-
-	private async getPrBySelector(
-		selector: string,
-		options: GatewayOptions,
-	): Promise<PRLookupResult> {
-		const result = await this.runGh(
-			[
-				"pr",
-				"view",
-				selector,
-				"--json",
-				"number,title,url,headRefName,headRefOid,baseRefName,state",
-			],
-			options,
-		);
-		if (result.exitCode !== 0) {
-			if (isLookupMiss(result))
-				return {
-					type: "miss",
-					stderr: result.stderr ?? "no PR found",
-					returncode: result.exitCode,
-				};
-			return { type: "failure", failure: failureFromProcess(result) };
-		}
-		const parseResult = parseJson(result.stdout, prSummarySchema);
-		if (!parseResult.ok) return { type: "failure", failure: parseResult.error };
-		return { type: "found", pr: normalizePrSummary(parseResult.value) };
-	}
-
-	private async runGh(args: readonly string[], options: GatewayOptions): Promise<ProcessResult> {
-		return await this.runProcess({
-			command: "gh",
-			args,
-			cwd: options.cwd,
-			env: options.env,
-			timeout: GITHUB_CLI_TIMEOUT_MS,
-		});
+		if (!result.ok) return { ok: false, error: failureFromCore(result.error) };
+		return { ok: true, value: result.value.map(discussionCommentFromCore) };
 	}
 }
 
@@ -427,38 +189,37 @@ export async function runProcess(request: ProcessRequest): Promise<ProcessResult
 	};
 }
 
-function reviewThreadPageArgs(prNumber: number, threadCursor: string | null | undefined): string[] {
-	return [
-		"api",
-		"graphql",
-		"-F",
-		"owner={owner}",
-		"-F",
-		"repo={repo}",
-		"-F",
-		`number=${prNumber}`,
-		...(threadCursor === null || threadCursor === undefined
-			? []
-			: ["-F", `threadCursor=${threadCursor}`]),
-		"-f",
-		`query=${reviewThreadsQuery}`,
-	];
+function processRunnerToCommandRunner(runProcess: ProcessRunner): CommandRunner {
+	return async (command, args, options = {}) => {
+		const result = await runProcess({
+			command,
+			args,
+			cwd: options.cwd ?? ".",
+			...(options.env === undefined ? {} : { env: options.env }),
+			...(options.timeout === undefined ? {} : { timeout: options.timeout }),
+		});
+		return { stdout: result.stdout, stderr: result.stderr, code: result.exitCode, killed: false };
+	};
 }
 
-function reviewThreadCommentPageArgs(threadId: string, commentCursor: string): string[] {
-	return [
-		"api",
-		"graphql",
-		"-F",
-		`threadId=${threadId}`,
-		"-F",
-		`commentCursor=${commentCursor}`,
-		"-f",
-		`query=${reviewThreadCommentsQuery}`,
-	];
+function feedbackOptions(options: GatewayOptions): GithubPrFeedbackOptions {
+	return {
+		cwd: options.cwd,
+		...(options.env === undefined ? {} : { env: options.env }),
+	};
 }
 
-function normalizePrSummary(summary: z.infer<typeof prSummarySchema>): PRSummary {
+function mapLookupResult(
+	result: Awaited<ReturnType<GithubPrFeedbackGateway["getPr"]>>,
+): PRLookupResult {
+	if (result.type === "failure")
+		return { type: "failure", failure: failureFromCore(result.failure) };
+	if (result.type === "miss")
+		return { type: "miss", stderr: result.stderr, returncode: result.exitCode };
+	return { type: "found", pr: prSummaryFromCore(result.pr) };
+}
+
+function prSummaryFromCore(summary: GithubPrSummary): PRSummary {
 	return {
 		number: summary.number,
 		title: summary.title,
@@ -470,96 +231,76 @@ function normalizePrSummary(summary: z.infer<typeof prSummarySchema>): PRSummary
 	};
 }
 
-function normalizeReview(review: z.infer<typeof ghReviewSchema>): PRReview {
+function reviewFromCore(review: GithubPrReview): PRReview {
 	return {
 		id: review.id,
-		author: normalizeAuthor(review.author),
+		author: review.author,
 		body: review.body,
 		state: review.state,
 		submitted_at: review.submittedAt,
 	};
 }
 
-function normalizeReviewThread(thread: z.infer<typeof ghReviewThreadSchema>): PRReviewThread[] {
-	if (thread.id === null) return [];
-	return [
-		{
-			id: thread.id,
-			path: thread.path,
-			line: thread.line,
-			start_line: thread.startLine ?? null,
-			is_resolved: thread.isResolved,
-			is_outdated: thread.isOutdated,
-			comments: thread.comments.nodes
-				.map(normalizeReviewComment)
-				.filter((comment) => comment.id !== 0),
-		},
-	];
+function reviewThreadFromCore(thread: GithubPrReviewThread): PRReviewThread {
+	return {
+		id: thread.id,
+		path: thread.path,
+		line: thread.line,
+		start_line: thread.startLine,
+		is_resolved: thread.isResolved,
+		is_outdated: thread.isOutdated,
+		comments: thread.comments.map(reviewCommentFromCore),
+	};
 }
 
-function normalizeReviewComment(comment: z.infer<typeof ghReviewCommentSchema>): PRReviewComment {
+function reviewCommentFromCore(comment: GithubPrReviewComment): PRReviewComment {
 	return {
-		id: numericId(comment.databaseId ?? comment.id),
+		id: comment.id,
 		body: comment.body,
-		author: normalizeAuthor(comment.author),
+		author: comment.author,
 		path: comment.path,
 		line: comment.line,
-		start_line: comment.startLine ?? null,
+		start_line: comment.startLine,
 		created_at: comment.createdAt,
 	};
 }
 
-function normalizeDiscussionComment(
-	comment: z.infer<typeof ghDiscussionCommentSchema>,
-): PRDiscussionComment {
+function discussionCommentFromCore(comment: GithubPrDiscussionComment): PRDiscussionComment {
 	return {
-		id: numericId(comment.databaseId ?? comment.id),
+		id: comment.id,
 		body: comment.body,
-		author: normalizeAuthor(comment.user ?? comment.author),
-		url: comment.html_url ?? comment.url,
+		author: comment.author,
+		url: comment.url,
 	};
 }
 
-function normalizeAuthor(author: z.infer<typeof ghAuthorSchema>): string {
-	if (typeof author === "string") return author;
-	return author?.login ?? "";
+function failureFromCore(failure: GithubPrFeedbackFailure): GatewayFailure {
+	const details = failure.details ?? {};
+	const stdout = stringDetail(details.stdout);
+	const graphqlErrors = details.graphqlErrors;
+	const stderr = stringDetail(details.stderr) ?? graphqlErrorsDetail(graphqlErrors);
+	const returncode = numberDetail(details.exitCode) ?? numberDetail(details.returncode) ?? 0;
+	return {
+		code: failure.code,
+		message: failure.message,
+		...(stdout === undefined ? {} : { stdout }),
+		...(stderr === undefined ? {} : { stderr }),
+		returncode,
+		details,
+	};
 }
 
-function numericId(value: string | number | null | undefined): number {
-	if (typeof value === "number") return value;
-	if (typeof value === "string") {
-		const numeric = Number(value);
-		if (Number.isInteger(numeric)) return numeric;
-	}
-	return 0;
+function stringDetail(value: unknown): string | undefined {
+	return typeof value === "string" ? value : undefined;
 }
 
-function isLookupMiss(result: ProcessResult): boolean {
-	const text = `${result.stdout}\n${result.stderr}`.toLowerCase();
-	return (
-		result.exitCode === 1 &&
-		(text.includes("no pull requests") || text.includes("no pr") || text.includes("not found"))
-	);
+function graphqlErrorsDetail(value: unknown): string | undefined {
+	if (value === undefined) return undefined;
+	return JSON.stringify(value);
 }
 
-function parseJson<T>(text: string, schema: z.ZodType<T>): GatewayResult<T> {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(text);
-	} catch (error) {
-		return err(failureFromParse(text, jsonErrorMessage(error)));
-	}
-	const result = schema.safeParse(parsed);
-	if (!result.success) return err(failureFromParse(text, z.prettifyError(result.error)));
-	return ok(result.data);
-}
-
-function parseGraphqlJson<T>(text: string, schema: z.ZodType<T>): GatewayResult<T> {
-	const base = parseJson(text, ghGraphqlErrorsSchema);
-	if (!base.ok) return base;
-	if (base.value.errors !== undefined && base.value.errors.length > 0)
-		return err(failureFromParse(text, JSON.stringify(base.value.errors)));
-	return parseJson(text, schema);
+function numberDetail(value: unknown): number | undefined {
+	return typeof value === "number" ? value : undefined;
 }
 
 function failureFromProcess(result: ProcessResult): GatewayFailure {
@@ -589,47 +330,4 @@ function failureFromProcess(result: ProcessResult): GatewayFailure {
 
 function execResultFromProcess(result: ProcessResult): ExecResult {
 	return { stdout: result.stdout, stderr: result.stderr, code: result.exitCode, killed: false };
-}
-
-function failureFromParse(stdout: string, stderr: string): GatewayFailure {
-	return gatewayFailure({
-		code: "parse_failed",
-		message: stderr || "failed to parse command output",
-		stdout,
-		stderr,
-		returncode: 0,
-	});
-}
-
-function failureFromMessage(stderr: string, returncode: number): GatewayFailure {
-	return gatewayFailure({
-		code: "process_failed",
-		message: stderr,
-		stdout: "",
-		stderr,
-		returncode,
-	});
-}
-
-function gatewayFailure(options: {
-	code: string;
-	message: string;
-	stdout: string;
-	stderr: string;
-	returncode: number;
-}): GatewayFailure {
-	const { code, message, stdout, stderr, returncode } = options;
-	return {
-		code,
-		message,
-		stdout,
-		stderr,
-		returncode,
-		details: { stdout, stderr, returncode },
-	};
-}
-
-function jsonErrorMessage(error: unknown): string {
-	if (error instanceof Error) return error.message;
-	return String(error);
 }

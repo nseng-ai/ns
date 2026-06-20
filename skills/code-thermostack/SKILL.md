@@ -1,11 +1,11 @@
 ---
 name: code-thermostack
-description: "Run Thermostack: perform a thermonuclear code-quality review of the current branch, rank findings by likelihood their fixes will make it to trunk, propose independently reviewable Graphite follow-up branches, and only after explicit approval create a local child fix stack. Use for Thermostack, thermo stack, thermonuclear follow-up stack, or turning harsh code-quality review findings into a Graphite stack."
+description: "Run Thermostack: perform a thermonuclear code-quality review of the current Graphite stack changes against the stack base, rank findings by likelihood their fixes will make it to trunk, propose independently reviewable Graphite follow-up branches, and only after explicit approval create a local child fix stack. Use for Thermostack, thermo stack, thermonuclear follow-up stack, or turning harsh code-quality review findings into a Graphite stack."
 ---
 
 # Thermostack
 
-Thermostack turns a thermonuclear maintainability review of the current branch into a **local-only Graphite child stack** of follow-up fixes. The original checked-out branch is the base/original change and remains untouched; Thermostack creates approved children above it, ordered from most trunk-likely to most speculative unless a hard dependency requires an explicit inversion.
+Thermostack turns a thermonuclear maintainability review of the current Graphite stack changes into a **local-only Graphite child stack** of follow-up fixes. By default, review the diff from the **base of the stack** to the current `HEAD` (`STACK_BASE_REF...HEAD`), not the checked-out branch name against itself. The original checked-out branch is the target/original change and remains untouched; Thermostack creates approved children above it, ordered from most trunk-likely to most speculative unless a hard dependency requires an explicit inversion.
 
 Thermostack is a parent-orchestrated workflow: the main agent owns preflight, ranking, preview, Graphite and remote-safety decisions, branch creation, validation, commits, and final reporting. Use exactly one fresh review-only subagent for review collection when the harness supports subagents. After approval, implement approved fixes one reviewable branch at a time by dispatching exactly one focused implementation subagent for each approved branch when the harness supports editing subagents. Do not use parallel implementation worktrees for the fix stack.
 
@@ -23,19 +23,21 @@ Thermostack is a parent-orchestrated workflow: the main agent owns preflight, ra
 ## 1. Preflight
 
 1. Use the `graphite` skill for Graphite operations, stack mental model, and recovery guidance.
-2. Confirm and record the current branch as the original-change base for this run. Keep this recorded `BASE_BRANCH` for every generated branch name, even after Thermostack checks out the first child branch:
+2. Confirm and record the current branch as the original-change target for this run. Keep this recorded `BASE_BRANCH` for every generated branch name, even after Thermostack checks out the first child branch:
    - `git branch --show-current` must be a non-trunk branch.
    - `git status --short` must be clean before review planning and again before mutation.
-3. Confirm the base branch is Graphite-tracked with non-display plumbing such as `gt parent --no-interactive` or `gt children --no-interactive`. Do not parse `gt ls`, `gt log`, or `gt branch info` for machine decisions; use them only as visual confirmation for humans.
-4. Check for existing generated branches for this base. Stop if branches matching the exact base prefix already exist (for example `$BASE_BRANCH/thermo-*`) unless the user explicitly chooses a recovery path.
-5. Confirm the thermonuclear review skill is installed/readable. Because `thermo-nuclear-code-quality-review` disables model invocation, the reviewer must explicitly load/read `.agents/skills/thermo-nuclear-code-quality-review/SKILL.md` or the exact installed skill by name if the harness supports explicit disabled-skill loading.
+3. Confirm the branch is Graphite-tracked with non-display plumbing such as `gt parent --no-interactive` or `gt children --no-interactive`. Do not parse `gt ls`, `gt log`, or `gt branch info` for machine decisions; use them only as visual confirmation for humans.
+4. Determine and record `STACK_BASE_REF`, the base of the current Graphite stack, before dispatching the reviewer. This is the default review base. Prefer Graphite plumbing and repository trunk/base facts over display output. If the current branch is the bottom branch, `gt parent --no-interactive` is usually the stack base; if the current branch is higher in a stack, walk parent relationships until the first non-stack/trunk ancestor. If the stack base is ambiguous, stop and ask rather than reviewing the wrong diff.
+5. Sanity-check the review scope with `git diff --stat "$STACK_BASE_REF"...HEAD` and `git diff --name-only "$STACK_BASE_REF"...HEAD`. The diff must reflect the intended stack changes. Never compare `$BASE_BRANCH...HEAD` when `BASE_BRANCH` is the checked-out branch; that produces an empty review.
+6. Check for existing generated branches for this base. Stop if branches matching the exact base prefix already exist (for example `$BASE_BRANCH/thermo-*`) unless the user explicitly chooses a recovery path.
+7. Confirm the thermonuclear review skill is installed/readable. Because `thermo-nuclear-code-quality-review` disables model invocation, the reviewer must explicitly load/read `.agents/skills/thermo-nuclear-code-quality-review/SKILL.md` or the exact installed skill by name if the harness supports explicit disabled-skill loading.
 
 ## 2. Collect thermonuclear findings
 
 Dispatch one fresh review-only subagent when the harness supports subagents; do not use inline review as a convenience fallback in a subagent-capable harness. The reviewer must edit nothing. Use a prompt with these requirements:
 
 ```text
-Review the current branch's changes only. Explicitly load/read .agents/skills/thermo-nuclear-code-quality-review/SKILL.md (or the installed skill named thermo-nuclear-code-quality-review if this harness supports explicit skill loading), then perform that thermonuclear maintainability review.
+Review the current stack changes only: use the diff from recorded stack base `STACK_BASE_REF` to current `HEAD` (`STACK_BASE_REF...HEAD`). Do not compare the checked-out branch name `BASE_BRANCH` to `HEAD`; that is the target branch and may equal `HEAD`. Explicitly load/read .agents/skills/thermo-nuclear-code-quality-review/SKILL.md (or the installed skill named thermo-nuclear-code-quality-review if this harness supports explicit skill loading), then perform that thermonuclear maintainability review.
 
 Do not edit files. Return structured findings. For each finding include:
 - id

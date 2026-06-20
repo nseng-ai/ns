@@ -2,26 +2,25 @@
 
 ## Work
 
-- [ ] Inventory concrete GitHub feedback interactions used by PR-address and the planned stack variant.
-  - Include `download-feedback`, `PrAddressGitHubGateway`, review-thread pagination/comment hydration, PR reviews, discussion comments, PR lookup, and direct review-thread mutation needs such as replying to and resolving review threads.
-  - Evidence: summarize the current duplicated or prompt-level GraphQL/`gh` mechanics that the primitive layer is meant to remove, including the observed case where an agent handled multiple roaster inline findings by pairing review-thread IDs with reply bodies, invoking `addPullRequestReviewThreadReply`, then invoking `resolveReviewThread` for each thread from shell. PRs and review-thread links may be cited as provenance, but the Objective record should inline enough context that they are not required reading.
+- [x] Inventory concrete GitHub feedback interactions used by PR-address and the planned stack variant.
+  - Evidence: the implementation moved `download-feedback`'s PR lookup, open PR listing, PR-level reviews, hydrated review-thread pagination/comment hydration, and discussion comment fetching out of `pr-address`'s real gateway and into `@asdl/core/github-pr-feedback`.
+  - Evidence: the mutation need from the motivating shell-loop case is represented as separate tested primitives, `replyToReviewThread(threadId, body)` and `resolveReviewThread(threadId)`.
 
-- [ ] Design the narrow `@asdl/core` primitive surface for PR feedback operations.
-  - Favor small composable operations over a workflow-level download API.
-  - Decide the result/failure vocabulary, exported types, pagination boundaries, and whether reply-thread and resolve-thread mutations belong in the first slice.
-  - Prefer primitive operations such as `replyToReviewThread(threadId, body)` and `resolveReviewThread(threadId)` over a roaster- or PR-address-specific “reply and resolve all feedback” workflow.
+- [x] Design the narrow `@asdl/core` primitive surface for PR feedback operations.
+  - Evidence: the exported surface is primitive-shaped: PR lookup/details, open PRs, reviews, review threads, discussion comments, reply, and resolve. It does not expose a monolithic download, stack download, batch reply, or reply-and-resolve workflow API.
+  - Evidence: failures use structured `GithubPrFeedbackFailure` values over `Result<T, GithubPrFeedbackFailure>`, preserving command metadata, stdout/stderr, exit code/startup, GraphQL errors, Zod errors, cursor context, PR number, and thread ID where applicable.
 
-- [ ] Implement and test the shared GitHub PR feedback primitives.
-  - Cover successful parsing, nonzero `gh` results, startup errors, malformed JSON, pagination defects, reply mutation outcomes, and resolve mutation outcomes when included.
-  - Evidence: tests demonstrate callers can compose primitives without embedding GraphQL text or shell loops.
+- [x] Implement and test the shared GitHub PR feedback primitives.
+  - Evidence: `ts/packages/asdl-core/src/github-pr-feedback.ts` owns the `gh` command shapes, review-thread GraphQL, nested pagination, GraphQL error handling, parse validation, and reply/resolve mutation queries.
+  - Verification: `tsgo`, legacy `tsc`, oxlint, oxfmt check, full TypeScript Vitest suite, and focused package tests passed.
 
-- [ ] Adapt PR-address to consume the primitive layer while preserving local workflow behavior.
-  - Keep filtering, feedback snapshot selection, and Markdown rendering in PR-address.
-  - Ensure `download-feedback` remains compatible and the adapter shape can be reused by a stack feedback variant.
+- [x] Adapt PR-address to consume the primitive layer while preserving local workflow behavior.
+  - Evidence: `RealPrAddressGitHubGateway` is now an adapter over `GithubPrFeedbackGateway`; `download-feedback` keeps filtering, snapshot selection, and Markdown rendering in `pr-address`.
+  - Evidence: `pr-address` scenario tests and `pi-extensions` PR download-feedback tests passed, preserving existing downloader and stack composition contracts.
 
-- [ ] Capture primitive-pushdown evidence for follow-on documentation work.
-  - Record what complexity moved from prompts/workflows into tested primitives, what composition remains flexible, and what tradeoffs or failed assumptions appeared.
-  - Keep evidence self-contained: cite PRs, review threads, or transcripts only as provenance after inlining the relevant mechanics, decisions, and before/after comparison in the Objective record.
+- [x] Capture primitive-pushdown evidence for follow-on documentation work.
+  - Evidence: hidden `pr-address exec` primitive commands now expose structured read and mutation operations (`pr-details`, `branch-pr`, `open-prs`, `pr-reviews`, `pr-review-threads`, `pr-discussion-comments`, `reply-review-thread`, `resolve-review-thread`) without resurrecting retired addressing workflow commands.
+  - Evidence: tests document partial reply-success / resolve-failure composition so callers can preserve a posted reply and avoid blind double-post retries.
 
 ## Parked
 

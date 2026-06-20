@@ -1,10 +1,10 @@
 import { describe, expect, test } from "vitest";
 
+import { reviewThreadCommentsQuery, reviewThreadsQuery } from "@asdl/core/github-pr-feedback";
+
 import {
 	RealPrAddressGitGateway,
 	RealPrAddressGitHubGateway,
-	reviewThreadCommentsQuery,
-	reviewThreadsQuery,
 	type ProcessRequest,
 	type ProcessResult,
 } from "../../src/gateways.ts";
@@ -211,7 +211,7 @@ describe("RealPrAddressGitHubGateway.getReviewThreads", () => {
 		expect(requests.at(1)?.args).toEqual([
 			"api",
 			"graphql",
-			"-F",
+			"-f",
 			"threadId=RT_thread1",
 			"-F",
 			"commentCursor=comment-cursor",

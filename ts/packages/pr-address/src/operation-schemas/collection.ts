@@ -67,3 +67,92 @@ export const downloadFeedbackResultSchema = z.object({
 	counts: downloadFeedbackCountsSchema,
 	markdown: z.string(),
 });
+
+export const prDetailsRequestSchema = z.object({ pr_number: z.int() });
+export const branchPrRequestSchema = z.object({ branch: z.string() });
+export const emptyRequestSchema = z.object({});
+export const prReviewThreadsRequestSchema = z.object({
+	pr_number: z.int(),
+	include_resolved: z.boolean().optional(),
+});
+export const replyReviewThreadRequestSchema = z.object({
+	thread_id: z.string(),
+	body: z.string(),
+});
+export const resolveReviewThreadRequestSchema = z.object({ thread_id: z.string() });
+
+const prSummarySchema = z.object({
+	number: z.int(),
+	title: z.string(),
+	url: z.string(),
+	head_ref_name: z.string(),
+	base_ref_name: z.string(),
+	state: z.string(),
+	head_ref_oid: nullableStringSchema,
+});
+
+const lookupMissSchema = z.object({ stderr: z.string(), returncode: z.int() });
+
+export const prLookupResultSchema = z.object({
+	found: z.boolean(),
+	pr: prSummarySchema.nullable(),
+	miss: lookupMissSchema.nullable(),
+});
+
+export const openPrsResultSchema = z.object({ prs: z.array(prSummarySchema) });
+
+const prReviewSchema = z.object({
+	id: z.string(),
+	author: z.string(),
+	body: z.string(),
+	state: z.string(),
+	submitted_at: z.string(),
+});
+
+export const prReviewsResultSchema = z.object({ reviews: z.array(prReviewSchema) });
+
+const prReviewCommentSchema = z.object({
+	id: z.int(),
+	body: z.string(),
+	author: z.string(),
+	path: z.string(),
+	line: nullableIntSchema,
+	start_line: nullableIntSchema,
+	created_at: z.string(),
+	url: z.string().optional(),
+});
+
+const prReviewThreadSchema = z.object({
+	id: z.string(),
+	path: z.string(),
+	line: nullableIntSchema,
+	start_line: nullableIntSchema,
+	is_resolved: z.boolean(),
+	is_outdated: z.boolean(),
+	comments: z.array(prReviewCommentSchema),
+});
+
+export const prReviewThreadsResultSchema = z.object({
+	review_threads: z.array(prReviewThreadSchema),
+});
+
+const prDiscussionCommentSchema = z.object({
+	id: z.int(),
+	body: z.string(),
+	author: z.string(),
+	url: z.string(),
+});
+
+export const prDiscussionCommentsResultSchema = z.object({
+	discussion_comments: z.array(prDiscussionCommentSchema),
+});
+
+export const replyReviewThreadResultSchema = z.object({
+	thread_id: z.string(),
+	comment: prReviewCommentSchema,
+});
+
+export const resolveReviewThreadResultSchema = z.object({
+	thread_id: z.string(),
+	is_resolved: z.boolean(),
+});
