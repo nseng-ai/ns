@@ -3,123 +3,134 @@
 ## Thesis
 
 An advisory audit of `ts/packages/pr-address` (improve skill, standard depth,
-commit `80dbd8b75`) surfaced 14 findings across security, correctness, tests,
-and tech debt. Most of them lived in the orchestration / payload-store / session
-machinery that the `pr-address-strangler-rewrite` Objective (now **closed /
-completed**, 2026-06-18) has already frozen and deleted — fixing those would have
-been throwaway work, and that code no longer exists. This Objective tracks the
-findings that still exist in the current salvaged `core/`/downloader surface
-(gateways and feedback collection/normalization) and therefore survived the
-rewrite. These are real defects — including a local file-read primitive and a
-silent data-loss path on the feature's core input — worth fixing on trunk now
-that the strangler has landed its downloader-only surface. The Objective has been
-rebaselined against the current downloader-only ground truth: `read-feedback-detail`
-and the payload-store/session surface are no longer present, so their historical
-audit finding is not active scope here.
+commit `80dbd8b75`) surfaced 14 findings across security, correctness, tests, and
+tech debt. The legacy orchestration / payload-store / session machinery they
+mostly lived in was deleted by the now-closed `pr-address-strangler-rewrite`
+Objective (closed `completed`, 2026-06-18). This Objective tracked the three
+findings that survived into the salvaged downloader surface.
 
-The legacy-zone findings are deliberately **not** in scope: they are recorded
-under "Non-Goals" as pointers to the (now-completed) strangler rewrite, which
-already deleted that code, so they are not re-audited and not patched.
+Ground truth has since moved again, and this record has been rebaselined against
+it. The GraphQL pagination, argument-building, and comment normalization logic
+that two of the three findings targeted was **extracted out of
+`ts/packages/pr-address/src/gateways.ts` into the shared
+`@asdl/core/github-pr-feedback` primitives** (commits `3b7535290`, `6e0a3b52e`,
+`781e640cc`). That shared surface is owned by the separate
+`pr-address-github-primitives` Objective. `ts/packages/pr-address/src/gateways.ts`
+is now a thin git-gateway wrapper (~1 KB) and no longer contains
+`reviewThreadPageArgs`, `reviewThreadCommentPageArgs`, `numericId`, or any
+`id === 0` filter.
+
+Net effect on the three findings, verified against current `HEAD`:
+
+- **Correctness — silent comment drop (was Scope #2): resolved.** The extraction
+  replaced the `numericId`→`0`-then-filter behavior with a Zod refinement
+  (`withNumericGithubIdentity` / `numericGithubIdentity`,
+  `asdl-core/github-pr-feedback/schemas.ts:163-192`) that surfaces an explicit
+  parse error ("must include a positive integer databaseId or numeric id")
+  instead of coercing to a sentinel and dropping. Regression coverage exists
+  (`expectInvalidIdentity` in `ts/packages/asdl-core/test/github-pr-feedback.test.ts`,
+  exercising a non-numeric `databaseId`). No `id !== 0` / `id === 0` filter
+  remains in either package.
+- **Security — `gh api -F`/`@` file-read primitive (was Scope #1): still real,
+  relocated, partially addressed.** The pagination helpers now live in
+  `asdl-core/github-pr-feedback/args.ts`. `threadId` in
+  `reviewThreadCommentPageArgs` is already passed as a raw `-f` field
+  (`args.ts:66`), but the string **cursor** fields still use `-F`:
+  `commentCursor` in `discussionCommentPageArgs` (`args.ts:42`) and
+  `reviewThreadCommentPageArgs` (`args.ts:67`), and `threadCursor` in
+  `reviewThreadPageArgs` (`args.ts:57`). `gh` reads a value beginning with `@`
+  as a filename (and `@-` as stdin), so the file-read mechanism persists for
+  those cursor values. This code is now **outside this Objective's stated package
+  scope** and inside the surface owned by `pr-address-github-primitives`; whether
+  it stays tracked here or moves there is an open ownership question (below).
+- **Tech debt / DX — remaining barrel re-exports (Scope #3): still real, still
+  in scope.** `ts/packages/pr-address/src/gateways.ts:11-17` re-exports the
+  git-gateway types `CurrentBranchResult`, `GatewayFailure`, `GatewayOptions`,
+  `PrAddressGitGateway`, and `RepoContextResult` from `./core/gateways.ts`, and
+  `index.ts:1` re-exports `runCli` / `CliDeps` from `./cli.ts`. Both violate the
+  repo's no-reexport / canonical-import rule (AGENTS.md). The old
+  `stdoutModeRequestShape` and `PRLookupMiss` symbols named in earlier
+  baselines are gone from `pr-address/src`; this is now only about the
+  git-gateway/CLI re-export surfaces above.
 
 ## Scope
 
-Fix the three remaining durable findings in `ts/packages/pr-address/src`:
+The only finding that remains durable, real, and inside this Objective's package
+boundary (`ts/packages/pr-address/src`) is the barrel re-export cleanup:
 
-- **Security — `gh api -F`/`@` file-read primitive.** The current downloader-only
-  code no longer has the old reply/resolve mutation helpers, but the
-  thread/comment pagination helpers still pass string GraphQL variables via
-  `gh`'s `-F` flag (`reviewThreadPageArgs` and
-  `reviewThreadCommentPageArgs` in `gateways.ts`). `gh` interprets a value
-  beginning with `@` as a filename to read (and `@-` as stdin). Switch string
-  cursor/thread-id fields to `-f` (raw); keep `-F` only for typed/coerced fields
-  and `gh` placeholders that require it.
-- **Correctness — silent comment drop on unparseable IDs.** `numericId` in
-  `gateways.ts` coerces any non-integer id to `0`, and review/discussion
-  comments with id `0` are filtered out after normalization. When GitHub returns
-  a null `databaseId` with a string GraphQL node id, the comment silently
-  vanishes from the downloaded feedback and the manifest counts. Surface a parse
-  failure or carry the node id through instead of coercing to a sentinel that is
-  then dropped.
-- **Tech debt / DX — remaining barrel re-exports.** `gateways.ts` still
-  re-exports types from `core/gateways.ts`, and `index.ts` still re-exports from
-  `cli.ts`, both violating the repo's no-reexport / canonical-import rule
-  (AGENTS.md). Current ground truth already removed the old
-  `stdoutModeRequestShape` dead export and includes `PRLookupMiss` in the
-  gateway re-export set, so this row is now only about removing the remaining
-  re-export surfaces and repointing importers at canonical modules.
+- **Remove the remaining gateway/index re-export barrels.** Drop the type
+  re-export block in `gateways.ts:11-17` and the CLI re-export in `index.ts:1`,
+  and repoint importers at the canonical source modules (`./core/gateways.ts`,
+  `./cli.ts`) per the repo no-reexport rule. The change is type-checked but has
+  broad fan-out across gateway-type and CLI importers.
 
-Each fix lands with regression test evidence using the existing in-memory
-gateway fakes (no mocks), per the repo's fake-driven testing architecture.
+The fix lands with `check` evidence (no remaining barrel re-export of the
+in-scope symbols) using the existing in-memory gateway fakes where tests are
+touched (no mocks), per the repo's fake-driven testing architecture.
 
 ## Non-Goals
 
-These findings targeted code that the now-completed `pr-address-strangler-rewrite`
-(closed `completed`, 2026-06-18) has already deleted, so they are **not** active
-work here:
-
-- Batch and single-op resolve idempotency on replay (audit findings #2, #4) and
-  their characterization tests (#3 `continue_on_error: true` branch, #5
-  post-mutation write-failure branch) — the resolve/mutation helpers they
-  targeted are gone from the current surface. No "dangerous mutation parity"
-  follow-up Objective exists; the strangler's closeout parks any future
-  addressing workflow as a fresh Objective to be created on demand.
-- Checkpoint-missing detection coupled to a human-readable message prefix (#7)
-  and the untested checkpoint-recovery branches + orphaned fixture (#14) — the
-  session/checkpoint machinery they lived in has been removed by the strangler.
-- `payload-store.ts` god-module split (#10) and the `PayloadReference`-defined-3×
-  consolidation (#11) — `payload-store` was deleted by the strangler.
-- Operation-result schema drift between runtime types and `--json-schema` docs
-  (#6) — the workflow `exec` surface this drift lived in was retired by the
-  strangler's download-only cutover (there is no RunEngine contract); any
-  residual schema concern on the surviving `operation-schemas` would belong to a
-  fresh Objective.
-
-Also out of scope: the strangler rewrite itself, any new RunEngine/zone work,
-performance tuning, dependency upgrades, and pushing or opening PRs.
+- The legacy strangler-zone findings (resolve/mutation idempotency #2/#4 and
+  their characterization tests #3/#5, checkpoint-missing detection #7, untested
+  checkpoint-recovery branches + orphaned fixture #14, `payload-store.ts`
+  god-module split #10 and `PayloadReference`-defined-3× consolidation #11,
+  operation-result schema drift #6) targeted code the completed
+  `pr-address-strangler-rewrite` already deleted from the downloader surface.
+  Note: reply/resolve mutation helpers (`replyToReviewThreadArgs`,
+  `resolveReviewThreadArgs`) have since reappeared in the shared
+  `asdl-core/github-pr-feedback/args.ts` primitives, but they pass `threadId`/
+  `body` as raw `-f` fields and are owned by `pr-address-github-primitives`, not
+  this Objective.
+- The shared-primitives extraction itself, and the `asdl-core/github-pr-feedback`
+  surface generally, are owned by `pr-address-github-primitives`. This Objective
+  does not re-audit or restructure that package; the relocated `-F`/`@` cursor
+  finding is recorded here only until its ownership is decided (see Open
+  Questions).
+- Also out of scope: any new RunEngine/zone work, performance tuning, dependency
+  upgrades, and pushing or opening PRs.
 
 ## Completion Criteria
 
-- All three active scope findings are fixed in `ts/packages/pr-address/src` and each has
-  a regression test that fails against the pre-fix code and passes after.
-- The `gh` pagination calls send string thread ids and cursors as raw fields
-  (`-f`), verified by a test asserting an `@`-prefixed string variable is
-  transmitted literally rather than triggering a file read.
-- A review/discussion comment whose `databaseId` is null and whose id is a
-  non-numeric node id is preserved (or surfaces an explicit error), not silently
-  dropped — covered by a test.
-- `gateways.ts` and `index.ts` contain no type/value re-export barrels for the
-  in-scope symbols, and importers use canonical module paths.
+- `ts/packages/pr-address/src/gateways.ts` and `index.ts` contain no type/value
+  re-export barrels for the in-scope symbols, and importers use canonical module
+  paths.
 - Evidence: `pnpm --dir ts --filter @asdl/pr-address run check` and
-  `pnpm --dir ts --filter @asdl/pr-address run test` both pass.
+  `pnpm --dir ts --filter @asdl/pr-address run test` both pass, and a `grep`
+  finds no remaining barrel re-export of the in-scope symbols in
+  `pr-address/src`.
+- The silent-comment-drop finding (former Scope #2) is recorded as already
+  resolved in current ground truth; no further work is required for it under this
+  Objective.
 
 ## Assumptions and Risks
 
 **Assumptions**
 
-- The current downloader-only `pr-address` surface is the durable target for
-  this Objective. The strangler is now closed/completed, so this surface is
-  stable; no further strangler-driven reshaping is expected.
-- `read-feedback-detail`, payload-store/session machinery, and the raw
-  `--payload-path` surface are absent from current ground truth; the historical
-  containment-bypass finding is treated as already retired with that surface,
-  not as active work.
-- `gh`'s documented `-F`/`@` semantics (value starting with `@` is read from a
-  file, `@-` from stdin) hold for the installed `gh` version; the fix relies on
-  `-f` treating the value as a literal string.
+- The downloader-only `pr-address` surface plus the extracted
+  `asdl-core/github-pr-feedback` primitives are the durable target; the strangler
+  is closed/completed and no further strangler-driven reshaping is expected.
+- `gh`'s documented `-F`/`@` semantics (a value starting with `@` is read from a
+  file, `@-` from stdin) hold for the installed `gh` version; `-f` treats the
+  value as a literal string. This still governs the relocated cursor-field
+  finding.
 
 **Risks**
 
-- **(Retired)** The strangler rewrite (`pr-address-strangler-rewrite`) was
-  previously open and moving the same files, which created rebase/merge-friction
-  risk for these fixes. It is now **closed / completed** and its download-only
-  deletion has landed, so the target surface is stable on trunk and this risk is
-  retired. Keep each fix a small, self-contained diff regardless.
+- **(Retired)** The strangler rewrite's rebase/merge friction is gone (it has
+  landed and closed).
 - Removing the `gateways.ts` re-export barrel touches every consumer importing
-  gateway types from `gateways.ts`; the change is type-checked but has broad
-  fan-out. Low risk (pure import-path movement) but broad blast radius.
+  gateway types from `gateways.ts`. Low risk (pure import-path movement) but
+  broad blast radius — keep the diff self-contained.
 
 ## Open Questions
 
-- Should the `gh -F`→`-f` fix also add a boundary-level rejection of
-  `@`-prefixed thread ids (defense in depth), or is switching to raw fields
-  sufficient on its own?
+- **Ownership of the relocated `-F`/`@` cursor finding.** The remaining `-F`
+  cursor fields now live in `asdl-core/github-pr-feedback/args.ts`, owned by
+  `pr-address-github-primitives`. Should this finding be tracked/fixed under that
+  Objective, re-scoped into this one explicitly (expanding this Objective's
+  package boundary into `asdl-core`), or dropped because GitHub-controlled
+  pagination cursors are low-risk relative to the already-hardened `threadId`?
+  This is a scope decision for the user, not something the refresh resolves.
+- If the `-F`→`-f` cursor fix is pursued, should it also add a boundary-level
+  rejection of `@`-prefixed cursor/thread values (defense in depth), or is
+  switching to raw fields sufficient?
