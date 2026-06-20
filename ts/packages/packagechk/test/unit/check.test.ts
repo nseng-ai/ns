@@ -27,16 +27,10 @@ describe("checkPackageName", () => {
 		const npm = createDeferred<RegistryCheckResult>();
 		const brew = createDeferred<RegistryCheckResult>();
 		const gateway: PackageRegistryGateway = {
-			checkPypi: (packageName) => {
-				events.push(`pypi:start:${packageName}`);
-				return pypi.promise;
-			},
-			checkNpm: (packageName) => {
-				events.push(`npm:start:${packageName}`);
-				return npm.promise;
-			},
-			checkBrew: (packageName) => {
-				events.push(`brew:start:${packageName}`);
+			check: (registry, packageName) => {
+				events.push(`${registry}:start:${packageName}`);
+				if (registry === "pypi") return pypi.promise;
+				if (registry === "npm") return npm.promise;
 				return brew.promise;
 			},
 		};

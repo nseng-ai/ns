@@ -247,7 +247,7 @@ export default defineExtension({
 		const help = run.stdout.join("");
 		expect(help).toContain("Usage: sdl cp");
 		expect(help).toContain("Project cp override with options.");
-		expect(help).toContain("--dryRun");
+		expect(help).toContain("--dry-run");
 		expect(help).not.toContain("model-authored");
 		expect(help).not.toContain("SDL_CHECKPOINT_MODEL");
 		expect(help).not.toContain("ASDL_DEV_CHECKPOINT_MODEL");

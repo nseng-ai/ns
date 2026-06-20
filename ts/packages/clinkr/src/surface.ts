@@ -43,7 +43,7 @@ export interface PositionalSpec {
 }
 
 /** Keys that collide with options clinkr itself adds to every command. */
-const RESERVED_KEYS = new Set(["format", "json_schema", "shell_exit_code"]);
+const RESERVED_KEYS = new Set(["format", "jsonSchema", "shellExitCode"]);
 
 interface UnwrappedField {
 	inner: z.ZodType;
@@ -102,8 +102,18 @@ function fieldKindFor(commandName: string, key: string, inner: z.ZodType): Field
 	);
 }
 
-function kebabCase(key: string): string {
-	return key.replaceAll("_", "-");
+function cliNameFromSchemaKey(key: string): string {
+	return key
+		.replace(/([A-Z]+)([A-Z][a-z])/g, "$1-$2")
+		.replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+		.toLowerCase();
+}
+
+function assertCamelCaseSchemaKey(commandName: string, key: string): void {
+	if (!key.includes("_")) return;
+	throw new Error(
+		`clinkr: field '${key}' in command '${commandName}' must be camelCase; CLI flags are derived as kebab-case`,
+	);
 }
 
 interface BuildFlagOptions {
@@ -115,7 +125,7 @@ interface BuildFlagOptions {
 
 function buildFlag(options: BuildFlagOptions): string {
 	const { key, kind, unwrapped, optionSpec } = options;
-	const kebab = kebabCase(key);
+	const kebab = cliNameFromSchemaKey(key);
 	const longFlag =
 		kind.type === "boolean" && unwrapped.hasDefault && unwrapped.defaultValue === true
 			? `--no-${kebab}`
@@ -169,6 +179,7 @@ export function buildSurfacePlan(input: BuildSurfacePlanOptions): SurfacePlan {
 	const positionalEntries: { position: number; plan: PositionalPlan }[] = [];
 	const optionPlans: OptionPlan[] = [];
 	for (const [key, field] of Object.entries(shape)) {
+		assertCamelCaseSchemaKey(commandName, key);
 		if (RESERVED_KEYS.has(key)) {
 			throw new Error(
 				`clinkr: field '${key}' in command '${commandName}' collides with a clinkr framework option`,
@@ -189,7 +200,7 @@ export function buildSurfacePlan(input: BuildSurfacePlanOptions): SurfacePlan {
 				position: positionalSpec.position,
 				plan: {
 					key,
-					name: kebabCase(key),
+					name: cliNameFromSchemaKey(key),
 					kind,
 					isRequired,
 					isVariadic: kind.type === "string-array",

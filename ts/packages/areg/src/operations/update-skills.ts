@@ -27,7 +27,7 @@ export const updateSkillsRequestSchema = z.object({
 		.default([])
 		.describe("Only update skills whose lockfile source matches; repeatable."),
 	agent: z.array(z.string()).default([]).describe("Agent directory to populate; repeatable."),
-	dry_run: z.boolean().default(false).describe("Print planned updates without calling npx."),
+	dryRun: z.boolean().default(false).describe("Print planned updates without calling npx."),
 });
 
 export const updateSkillsResultSchema = z.object({
@@ -66,7 +66,7 @@ export async function runUpdateSkills(
 	const selectedUpdates = selection.value;
 
 	if (selectedUpdates.length === 0)
-		return ok(emptyReport(inspection.projectDir, request.dry_run, true));
+		return ok(emptyReport(inspection.projectDir, request.dryRun, true));
 
 	const agentsResult = resolveProjectAgents({
 		explicitAgents: request.agent,
@@ -76,14 +76,14 @@ export async function runUpdateSkills(
 	if (!agentsResult.ok) return failure("agent_resolution_failed", agentsResult.error.message);
 	const agents = agentsResult.value;
 
-	if (!request.dry_run) {
+	if (!request.dryRun) {
 		const npx = await ctx.host.checkTool({ tool: "npx", cwd: inspection.projectDir, env: ctx.env });
 		if (npx.type === "missing") return failure("missing_tool", npx.message);
 	}
 
 	const attemptedUpdates: AttemptedUpdate[] = [];
 	for (const update of selectedUpdates) {
-		if (request.dry_run) {
+		if (request.dryRun) {
 			attemptedUpdates.push({ ...update, status: "planned" });
 			continue;
 		}
@@ -104,7 +104,7 @@ export async function runUpdateSkills(
 	const finalReport = report({
 		projectDir: inspection.projectDir,
 		agents,
-		dryRun: request.dry_run,
+		dryRun: request.dryRun,
 		selectedUpdates,
 		attemptedUpdates,
 	});

@@ -4,7 +4,7 @@ const nullableIntSchema = z.int().nullable();
 const nullableStringSchema = z.string().nullable();
 
 export const mapBranchPrsRequestSchema = z.object({
-	branches_json: z.string().optional(),
+	branchesJson: z.string().optional(),
 });
 
 const mapBranchPrsEntrySchema = z.object({
@@ -36,10 +36,10 @@ export const mapBranchPrsResultSchema = z.object({
 });
 
 export const downloadFeedbackRequestSchema = z.object({
-	pr_number: z.int().optional(),
-	include_resolved: z.boolean().optional(),
-	include_automation: z.boolean().optional(),
-	include_empty_reviews: z.boolean().optional(),
+	prNumber: z.int().optional(),
+	includeResolved: z.boolean().optional(),
+	includeAutomation: z.boolean().optional(),
+	includeEmptyReviews: z.boolean().optional(),
 });
 
 const downloadFeedbackTargetSchema = z.object({

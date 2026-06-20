@@ -22,7 +22,7 @@ export const freeRequestSchema = z.object({
 	branch: z.array(z.string()).default([]).describe("Branch assigned to a slot. May be repeated."),
 	current: z.boolean().default(false).describe("Free the current slot worktree."),
 	all: z.boolean().default(false).describe("Also close matching PRs and delete local branches."),
-	dry_run: z.boolean().default(false).describe("Preview without mutating."),
+	dryRun: z.boolean().default(false).describe("Preview without mutating."),
 	yes: z.boolean().default(false).describe("Skip destructive cleanup confirmation."),
 });
 
@@ -63,7 +63,7 @@ export async function runFree(ctx: SlotCliContext, request: FreeRequest) {
 		cleanupActions,
 		trunkBranch: plan.outcome.trunk_branch,
 	});
-	if (request.dry_run)
+	if (request.dryRun)
 		return ok(
 			buildFreeResult({
 				wouldFree: plan.outcome.targets,

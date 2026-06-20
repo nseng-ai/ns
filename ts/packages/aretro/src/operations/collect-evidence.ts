@@ -37,10 +37,10 @@ import { PayloadStore } from "../payloads/store.ts";
 export const collectEvidenceRequestSchema = z.object({
 	repo: z.string().optional(),
 	branch: z.string().optional(),
-	session_root: z.string().optional(),
-	max_sessions: z.number().default(20),
-	payload_mode: z.enum(["inline", "payload"]).default("inline"),
-	payload_session_id: z.string().optional(),
+	sessionRoot: z.string().optional(),
+	maxSessions: z.number().default(20),
+	payloadMode: z.enum(["inline", "payload"]).default("inline"),
+	payloadSessionId: z.string().optional(),
 });
 
 export type CollectEvidenceRequest = z.infer<typeof collectEvidenceRequestSchema>;
@@ -52,12 +52,12 @@ export async function runCollectEvidence(
 	context: AretroCliContext,
 	request: CollectEvidenceRequest,
 ) {
-	if (request.payload_mode === "payload") {
+	if (request.payloadMode === "payload") {
 		let payloadStore: PayloadStore;
 		try {
 			payloadStore = PayloadStore.fromEnvironment({
-				...(request.payload_session_id !== undefined && {
-					explicitSessionId: request.payload_session_id,
+				...(request.payloadSessionId !== undefined && {
+					explicitSessionId: request.payloadSessionId,
 				}),
 				...(context.env !== undefined && { env: context.env }),
 			});
@@ -197,8 +197,8 @@ async function resolveRepoAndQuery(context: AretroCliContext, request: CollectEv
 
 	const query: SessionQuery = {
 		repo_root: repoRoot,
-		session_root: request.session_root ?? null,
-		max_sessions: request.max_sessions,
+		session_root: request.sessionRoot ?? null,
+		max_sessions: request.maxSessions,
 	};
 
 	const queryResult = await context.sessionSource.query(query);
@@ -378,8 +378,8 @@ export function aggregateMetricsFromSummaries(
 function queryToDto(request: CollectEvidenceRequest, repoRoot: string | null): SessionQueryDto {
 	return {
 		repo_root: repoRoot,
-		session_root: request.session_root ?? null,
-		max_sessions: request.max_sessions,
+		session_root: request.sessionRoot ?? null,
+		max_sessions: request.maxSessions,
 	};
 }
 

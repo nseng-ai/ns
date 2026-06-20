@@ -6,8 +6,8 @@ import { PayloadError } from "../payloads/errors.ts";
 import { readJsonPayloadArtifact, resolveJsonPointer, type JsonValue } from "../payloads/lookup.ts";
 
 export const readEvidenceDetailRequestSchema = z.object({
-	payload_path: z.string(),
-	json_pointer: z.string(),
+	payloadPath: z.string(),
+	jsonPointer: z.string(),
 });
 
 export type ReadEvidenceDetailRequest = z.infer<typeof readEvidenceDetailRequestSchema>;
@@ -24,30 +24,30 @@ export async function runReadEvidenceDetail(
 	_context: AretroCliContext,
 	request: ReadEvidenceDetailRequest,
 ) {
-	const pointerError = dataPointerError(request.json_pointer);
+	const pointerError = dataPointerError(request.jsonPointer);
 	if (pointerError !== null) {
 		return failure("invalid_request", pointerError);
 	}
 
 	let envelope: JsonValue;
 	try {
-		envelope = readRawPayloadEnvelope(request.payload_path);
-		validateSuccessEnvelope(envelope, request.payload_path);
-		validatePayloadData(envelope, request.payload_path);
+		envelope = readRawPayloadEnvelope(request.payloadPath);
+		validateSuccessEnvelope(envelope, request.payloadPath);
+		validatePayloadData(envelope, request.payloadPath);
 	} catch (error) {
 		return failureForPayloadError(error);
 	}
 
 	let value: JsonValue;
 	try {
-		value = resolveDetailValue(envelope, request.json_pointer);
+		value = resolveDetailValue(envelope, request.jsonPointer);
 	} catch (error) {
 		return failureForPayloadError(error);
 	}
 
 	return ok({
-		payload_path: request.payload_path,
-		json_pointer: request.json_pointer,
+		payload_path: request.payloadPath,
+		json_pointer: request.jsonPointer,
 		value,
 	});
 }

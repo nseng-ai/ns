@@ -36,7 +36,7 @@ export const exportRequestSchema = z.object({
 		.optional()
 		.describe("Namespace to export. Omit for Base Namespace Entries only."),
 	branch: z.string().optional().describe("Branch. Defaults to current branch."),
-	output_dir: z
+	outputDir: z
 		.string()
 		.optional()
 		.describe("Output directory. Defaults to a fresh temporary directory."),
@@ -44,7 +44,7 @@ export const exportRequestSchema = z.object({
 		.boolean()
 		.default(false)
 		.describe("Overwrite existing regular files at target paths."),
-	dry_run: z.boolean().default(false).describe("Plan the Export without writing files."),
+	dryRun: z.boolean().default(false).describe("Plan the Export without writing files."),
 });
 
 export const exportResultSchema = z.object({
@@ -96,13 +96,13 @@ export async function runExport(ctx: BrmemCliContext, request: ExportRequest) {
 	const branchFailure = validationMessage("branch name", branch, validateBranchName(branch));
 	if (branchFailure !== undefined) return failure("invalid_branch_name", branchFailure);
 
-	const outputDir = resolveOutputDir(request.output_dir, ctx.cwd);
+	const outputDir = resolveOutputDir(request.outputDir, ctx.cwd);
 	const baseResult: ExportResult = {
 		namespace,
 		branch,
 		output_dir: outputDir,
 		overwrite: request.overwrite,
-		dry_run: request.dry_run,
+		dry_run: request.dryRun,
 		exported: [],
 	};
 	const entriesResult = await ctx.gateway.listEntries({ namespace, branch });
@@ -119,7 +119,7 @@ export async function runExport(ctx: BrmemCliContext, request: ExportRequest) {
 
 	const preflight = await preflightExport(outputDir, prepared.prepared, request.overwrite);
 	if (preflight.type === "failure") return preflight.exit;
-	if (request.dry_run) return ok(result);
+	if (request.dryRun) return ok(result);
 
 	for (const item of prepared.prepared) {
 		const targetPathValue = item.exportedEntry.path;

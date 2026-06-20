@@ -116,7 +116,7 @@ export function buildCli(): ClinkrGroup<ObjectiveCliContext> {
 		description: "Summarize Pi runner subagent JSONL usage telemetry for Objective stack digests.",
 		schema: runnerSubagentUsageRequestSchema,
 		resultSchema: runnerSubagentUsageResultSchema,
-		positionals: { session_files: { position: 0 } },
+		positionals: { sessionFiles: { position: 0 } },
 		handler: runRunnerSubagentUsage,
 		renderHuman: renderRunnerSubagentUsageMarkdown,
 		renderMarkdown: renderRunnerSubagentUsageMarkdown,

@@ -24,9 +24,7 @@ import {
 } from "./validation.ts";
 
 export interface PackageRegistryGateway {
-	checkPypi(packageName: string): Promise<RegistryCheckResult>;
-	checkNpm(packageName: string): Promise<RegistryCheckResult>;
-	checkBrew(packageName: string): Promise<RegistryCheckResult>;
+	check(registry: Registry, packageName: string): Promise<RegistryCheckResult>;
 }
 
 export interface RegistryHttpResponse {
@@ -86,6 +84,18 @@ const BREW_REGISTRY_CHECK = {
 	lookupFailedMessage: (error) => `Homebrew formula lookup failed: ${formatErrorMessage(error)}`,
 } as const satisfies RegistryCheckConfig;
 
+const REGISTRY_CHECKS = {
+	pypi: PYPI_REGISTRY_CHECK,
+	npm: NPM_REGISTRY_CHECK,
+	brew: BREW_REGISTRY_CHECK,
+} as const satisfies Record<Registry, RegistryCheckConfig>;
+
+const REGISTRY_LABELS = {
+	pypi: "PyPI",
+	npm: "npm",
+	brew: "Homebrew",
+} as const satisfies Record<Registry, string>;
+
 export class RealPackageRegistryGateway implements PackageRegistryGateway {
 	private readonly responseFetcher: RegistryResponseFetcher;
 	private readonly timeoutMs: number;
@@ -95,27 +105,9 @@ export class RealPackageRegistryGateway implements PackageRegistryGateway {
 		this.timeoutMs = options.timeoutMs ?? 5000;
 	}
 
-	async checkPypi(packageName: string): Promise<RegistryCheckResult> {
+	async check(registry: Registry, packageName: string): Promise<RegistryCheckResult> {
 		return await runRegistryCheck(
-			PYPI_REGISTRY_CHECK,
-			packageName,
-			this.responseFetcher,
-			this.timeoutMs,
-		);
-	}
-
-	async checkNpm(packageName: string): Promise<RegistryCheckResult> {
-		return await runRegistryCheck(
-			NPM_REGISTRY_CHECK,
-			packageName,
-			this.responseFetcher,
-			this.timeoutMs,
-		);
-	}
-
-	async checkBrew(packageName: string): Promise<RegistryCheckResult> {
-		return await runRegistryCheck(
-			BREW_REGISTRY_CHECK,
+			REGISTRY_CHECKS[registry],
 			packageName,
 			this.responseFetcher,
 			this.timeoutMs,
@@ -124,72 +116,36 @@ export class RealPackageRegistryGateway implements PackageRegistryGateway {
 }
 
 export class FakePackageRegistryGateway implements PackageRegistryGateway {
-	private readonly pypiResults: ReadonlyMap<string, RegistryCheckResult>;
-	private readonly npmResults: ReadonlyMap<string, RegistryCheckResult>;
-	private readonly brewResults: ReadonlyMap<string, RegistryCheckResult>;
-	private readonly pypiLog: string[] = [];
-	private readonly npmLog: string[] = [];
-	private readonly brewLog: string[] = [];
+	private readonly results: ReadonlyMap<string, RegistryCheckResult>;
+	private readonly log: Array<{ registry: Registry; name: string }> = [];
 
 	constructor(
 		options: {
-			pypiResults?: ReadonlyMap<string, RegistryCheckResult> | Record<string, RegistryCheckResult>;
-			npmResults?: ReadonlyMap<string, RegistryCheckResult> | Record<string, RegistryCheckResult>;
-			brewResults?: ReadonlyMap<string, RegistryCheckResult> | Record<string, RegistryCheckResult>;
+			results?: ReadonlyMap<string, RegistryCheckResult> | Record<string, RegistryCheckResult>;
 		} = {},
 	) {
-		this.pypiResults = toReadonlyMap(options.pypiResults);
-		this.npmResults = toReadonlyMap(options.npmResults);
-		this.brewResults = toReadonlyMap(options.brewResults);
+		this.results = toReadonlyMap(options.results);
 	}
 
-	get pypiCheckedNames(): string[] {
-		return [...this.pypiLog];
+	checkedNames(registry: Registry): string[] {
+		return this.log.filter((entry) => entry.registry === registry).map((entry) => entry.name);
 	}
 
-	get npmCheckedNames(): string[] {
-		return [...this.npmLog];
-	}
-
-	get brewCheckedNames(): string[] {
-		return [...this.brewLog];
-	}
-
-	async checkPypi(packageName: string): Promise<RegistryCheckResult> {
-		this.pypiLog.push(packageName);
+	async check(registry: Registry, packageName: string): Promise<RegistryCheckResult> {
+		this.log.push({ registry, name: packageName });
 		return (
-			this.pypiResults.get(packageName) ??
-			errorResult("pypi", {
+			this.results.get(fakeResultKey(registry, packageName)) ??
+			errorResult(registry, {
 				inputName: packageName,
 				lookupName: packageName,
-				message: `no fake PyPI result configured for '${packageName}'`,
+				message: `no fake ${REGISTRY_LABELS[registry]} result configured for '${packageName}'`,
 			})
 		);
 	}
+}
 
-	async checkNpm(packageName: string): Promise<RegistryCheckResult> {
-		this.npmLog.push(packageName);
-		return (
-			this.npmResults.get(packageName) ??
-			errorResult("npm", {
-				inputName: packageName,
-				lookupName: packageName,
-				message: `no fake npm result configured for '${packageName}'`,
-			})
-		);
-	}
-
-	async checkBrew(packageName: string): Promise<RegistryCheckResult> {
-		this.brewLog.push(packageName);
-		return (
-			this.brewResults.get(packageName) ??
-			errorResult("brew", {
-				inputName: packageName,
-				lookupName: packageName,
-				message: `no fake Homebrew result configured for '${packageName}'`,
-			})
-		);
-	}
+function fakeResultKey(registry: Registry, packageName: string): string {
+	return `${registry}:${packageName}`;
 }
 
 async function runRegistryCheck(

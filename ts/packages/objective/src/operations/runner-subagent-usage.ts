@@ -75,10 +75,7 @@ export const runnerSubagentUsageResultSchema = z.object({
 });
 
 export const runnerSubagentUsageRequestSchema = z.object({
-	session_files: z
-		.array(z.string())
-		.default([])
-		.describe("Pi runner subagent JSONL session files."),
+	sessionFiles: z.array(z.string()).default([]).describe("Pi runner subagent JSONL session files."),
 });
 
 export type RunnerSubagentUsageStatus = z.infer<typeof runnerSubagentUsageStatusSchema>;
@@ -94,8 +91,8 @@ export async function runRunnerSubagentUsage(
 	_ctx: ObjectiveCliContext,
 	request: RunnerSubagentUsageRequest,
 ): Promise<ClinkrExit<RunnerSubagentUsageResult>> {
-	const result = await summarizeRunnerSubagentUsage(request.session_files);
-	if (request.session_files.length === 0) {
+	const result = await summarizeRunnerSubagentUsage(request.sessionFiles);
+	if (request.sessionFiles.length === 0) {
 		return negative(
 			"Missing session file (missing_session_file). Pass at least one Pi runner subagent JSONL file.",
 			result,

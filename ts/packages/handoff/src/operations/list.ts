@@ -10,7 +10,7 @@ import { resolveBranch } from "./shared.ts";
 export const listRequestSchema = z.object({
 	branch: z.string().optional().describe("Branch. Defaults to current branch."),
 	all: z.boolean().default(false).describe("List handoffs across every active branch."),
-	include_deleted: z
+	includeDeleted: z
 		.boolean()
 		.default(false)
 		.describe("Include handoffs whose local branch no longer exists."),
@@ -41,13 +41,13 @@ export async function runList(ctx: HandoffCliContext, request: ListRequest) {
 
 	const handoffs = await listHandoffSummaries(
 		{ brmem: ctx.brmem, git: ctx.git, cwd: ctx.cwd },
-		{ branch, shouldIncludeDeleted: request.include_deleted },
+		{ branch, shouldIncludeDeleted: request.includeDeleted },
 	);
 	if (handoffs.type === "error") return failure(handoffs.error.code, handoffs.error.message);
 	return ok({
 		scope: request.all ? "all-branches" : "branch",
 		branch: branch ?? null,
-		include_deleted: request.include_deleted,
+		include_deleted: request.includeDeleted,
 		handoffs: [...handoffs.value],
 	} satisfies ListResult);
 }

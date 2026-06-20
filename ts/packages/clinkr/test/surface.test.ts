@@ -11,7 +11,7 @@ describe("buildSurfacePlan kinds", () => {
 				name: z.string(),
 				count: z.number(),
 				ratio: z.int(),
-				dry_run: z.boolean(),
+				dryRun: z.boolean(),
 				mode: z.enum(["fast", "slow"]),
 				tags: z.array(z.string()),
 			}),
@@ -21,7 +21,7 @@ describe("buildSurfacePlan kinds", () => {
 			name: { type: "string" },
 			count: { type: "number" },
 			ratio: { type: "integer" },
-			dry_run: { type: "boolean" },
+			dryRun: { type: "boolean" },
 			mode: { type: "enum", values: ["fast", "slow"] },
 			tags: { type: "string-array" },
 		});
@@ -31,14 +31,14 @@ describe("buildSurfacePlan kinds", () => {
 		const plan = buildSurfacePlan({
 			commandName: "probe",
 			schema: z.object({
-				pr_number: z.int(),
+				prNumber: z.int(),
 				retries: z.int().default(3),
 				ratio: z.number(),
 			}),
 		});
 		const kinds = Object.fromEntries(plan.options.map((option) => [option.key, option.kind]));
 		expect(kinds).toEqual({
-			pr_number: { type: "integer" },
+			prNumber: { type: "integer" },
 			retries: { type: "integer" },
 			ratio: { type: "number" },
 		});
@@ -64,13 +64,13 @@ describe("buildSurfacePlan kinds", () => {
 });
 
 describe("buildSurfacePlan flags", () => {
-	test("maps snake_case keys to kebab-case flags with reverse attribute names", () => {
+	test("maps camelCase keys to kebab-case flags with matching attribute names", () => {
 		const plan = buildSurfacePlan({
 			commandName: "probe",
-			schema: z.object({ plan_store_root: z.string() }),
+			schema: z.object({ planStoreRoot: z.string() }),
 		});
 		expect(plan.options[0]).toMatchObject({
-			key: "plan_store_root",
+			key: "planStoreRoot",
 			flag: "--plan-store-root <value>",
 			attributeName: "planStoreRoot",
 		});
@@ -94,7 +94,7 @@ describe("buildSurfacePlan flags", () => {
 	test("boolean becomes a bare flag", () => {
 		const plan = buildSurfacePlan({
 			commandName: "probe",
-			schema: z.object({ dry_run: z.boolean().default(false) }),
+			schema: z.object({ dryRun: z.boolean().default(false) }),
 		});
 		expect(plan.options[0]).toMatchObject({ flag: "--dry-run", attributeName: "dryRun" });
 	});
@@ -246,7 +246,15 @@ describe("buildSurfacePlan registration errors", () => {
 			buildSurfacePlan({ commandName: "probe", schema: z.object({ format: z.string() }) }),
 		).toThrow(/collides with a clinkr framework option/);
 		expect(() =>
-			buildSurfacePlan({ commandName: "probe", schema: z.object({ json_schema: z.boolean() }) }),
+			buildSurfacePlan({ commandName: "probe", schema: z.object({ jsonSchema: z.boolean() }) }),
 		).toThrow(/collides with a clinkr framework option/);
+	});
+
+	test("rejects snake_case request keys", () => {
+		expect(() =>
+			buildSurfacePlan({ commandName: "probe", schema: z.object({ dry_run: z.boolean() }) }),
+		).toThrow(
+			/clinkr: field 'dry_run' in command 'probe' must be camelCase; CLI flags are derived as kebab-case/,
+		);
 	});
 });

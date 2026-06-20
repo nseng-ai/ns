@@ -11,7 +11,7 @@ import {
 import { extractSlotNumber } from "../naming.ts";
 
 export const checkoutRequestSchema = z.object({
-	branch_name: z.string().optional().describe("Branch to check out."),
+	branchName: z.string().optional().describe("Branch to check out."),
 	base: z.string().optional().describe("Base branch for -b/--new."),
 	new: z.boolean().default(false).describe("Create BRANCH_NAME before assigning it."),
 	current: z.boolean().default(false).describe("Move the current branch into a slot."),
@@ -38,7 +38,7 @@ export type CheckoutRequest = z.infer<typeof checkoutRequestSchema>;
 export type CheckoutResult = z.infer<typeof checkoutResultSchema>;
 
 export async function runCheckout(ctx: SlotCliContext, request: CheckoutRequest) {
-	const inputsProvided = Number(request.branch_name !== undefined) + Number(request.current);
+	const inputsProvided = Number(request.branchName !== undefined) + Number(request.current);
 	if (inputsProvided > 1)
 		return failure("mutually_exclusive_args", "Pass exactly one of BRANCH_NAME or --current.");
 	if (inputsProvided === 0)
@@ -50,7 +50,7 @@ export async function runCheckout(ctx: SlotCliContext, request: CheckoutRequest)
 
 	const lifecycleResult = request.current
 		? await checkoutCurrent(ctx)
-		: await checkoutBranch(ctx, request.branch_name ?? "", {
+		: await checkoutBranch(ctx, request.branchName ?? "", {
 				shouldCreateBranch: request.new,
 				base: request.base ?? null,
 			});
