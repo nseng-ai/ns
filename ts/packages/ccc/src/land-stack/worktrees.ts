@@ -1,8 +1,8 @@
 import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { formatCommand } from "@asdl/core/exec";
-import { parseGitWorktreePorcelain } from "@asdl/core/git";
+import { formatCommand } from "@sdl/core/exec";
+import { parseGitWorktreePorcelain } from "@sdl/core/git";
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import { GIT_TIMEOUT_MS } from "./constants.ts";
 import { failure, landStackFailure, success, type LandStackResult } from "./errors.ts";

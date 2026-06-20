@@ -10,9 +10,9 @@ import {
 	type BrmemCommandResult,
 	type BrmemPutData,
 	type CompletedBrmemRun,
-} from "@asdl/core/brmem-cli";
-import { MAX_ERROR_CHARS, tailText, type CommandExecApi } from "@asdl/core/exec";
-import { isRecord } from "@asdl/core/primitives";
+} from "@sdl/core/brmem-cli";
+import { MAX_ERROR_CHARS, tailText, type CommandExecApi } from "@sdl/core/exec";
+import { isRecord } from "@sdl/core/primitives";
 
 import { BRANCH_CONTEXT_NAMESPACE } from "./constants.ts";
 
@@ -37,7 +37,7 @@ export interface AttachedPlanEntry {
 	refName: string;
 }
 
-export type { BrmemPutData } from "@asdl/core/brmem-cli";
+export type { BrmemPutData } from "@sdl/core/brmem-cli";
 
 export interface BrmemGetContent {
 	content: string;

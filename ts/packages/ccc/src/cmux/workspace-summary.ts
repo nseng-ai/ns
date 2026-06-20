@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { shellNegative, ok, type ClinkrExit } from "@asdl/clinkr";
-import type { CommandExecApi } from "@asdl/core/exec";
+import { shellNegative, ok, type ClinkrExit } from "@sdl/clinkr";
+import type { CommandExecApi } from "@sdl/core/exec";
 import { RealCmuxGateway, type CmuxGateway, type CmuxGatewayFailure } from "./gateway.ts";
 
 export const DEFAULT_CMUX_WORKSPACE_SUMMARY_STATUS_KEY = "pi-summary";

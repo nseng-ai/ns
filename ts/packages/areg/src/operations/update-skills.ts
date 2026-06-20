@@ -1,5 +1,5 @@
-import { failure, ok, type ClinkrExit } from "@asdl/clinkr";
-import type { Result } from "@asdl/core/result";
+import { failure, ok, type ClinkrExit } from "@sdl/clinkr";
+import type { Result } from "@sdl/core/result";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
@@ -70,7 +70,7 @@ export async function runUpdateSkills(
 
 	const agentsResult = resolveProjectAgents({
 		explicitAgents: request.agent,
-		asdlToml: inspection.asdlToml,
+		sdlToml: inspection.sdlToml,
 		aregJson: inspection.aregJson,
 	});
 	if (!agentsResult.ok) return failure("agent_resolution_failed", agentsResult.error.message);

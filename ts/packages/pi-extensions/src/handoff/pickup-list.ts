@@ -1,11 +1,11 @@
-import { formatCommand, type ExecResult } from "@asdl/core/exec";
-import { formatErrorMessage } from "@asdl/core/primitives";
+import { formatCommand, type ExecResult } from "@sdl/core/exec";
+import { formatErrorMessage } from "@sdl/core/primitives";
 import {
 	HANDOFF_KEY_SUFFIX,
 	HANDOFF_NAMESPACE,
 	handoffKeyToSlug,
 	isHandoffKey,
-} from "@asdl/handoff/identity";
+} from "@sdl/handoff/identity";
 
 import { isRecord } from "../cmux/primitives.ts";
 import {

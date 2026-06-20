@@ -9,7 +9,7 @@ Use this reference for non-happy-path branch-context work. Keep diagnostics narr
 - Prefer `branch-context exec load` for attached-plan loading.
 - Prefer `branch-context exec list/check` for read-only branch-context entry inspection.
 - Use `brmem list/get` read-only only when branch-context helpers are insufficient for diagnosing Branch Memory attachment state.
-- Scope filesystem inspection narrowly to the relevant repo key under `~/.asdl/enriched-plan/`; do not perform broad home-directory traversals.
+- Scope filesystem inspection narrowly to the relevant repo key under `~/.sdl/enriched-plan/`; do not perform broad home-directory traversals.
 - Prefer deterministic CLI helpers over manual file or Branch Memory operations when available.
 
 ## Common recovery cases
@@ -27,7 +27,7 @@ Use this reference for non-happy-path branch-context work. Keep diagnostics narr
 Path convention:
 
 ```text
-~/.asdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md
+~/.sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md
 ```
 
 For current-repo read-only inspection, prefer:

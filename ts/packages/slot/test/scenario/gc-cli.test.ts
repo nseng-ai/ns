@@ -1,4 +1,4 @@
-import { stripTerminalEscapes } from "@asdl/core/exec";
+import { stripTerminalEscapes } from "@sdl/core/exec";
 import { describe, expect, it } from "vitest";
 
 import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";

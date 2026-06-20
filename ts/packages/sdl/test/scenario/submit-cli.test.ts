@@ -9,9 +9,9 @@ import {
 	PR_DESCRIPTION_GENERATOR_VERSION,
 	formatManagedGeneratedRegion,
 	hashPrDescriptionPrompt,
-} from "@asdl/core/submit";
-import { runCli } from "@asdl/sdl/cli";
-import type { TextGenerationResult } from "@asdl/sdl/sdk";
+} from "@sdl/core/submit";
+import { runCli } from "@sdl/sdl/cli";
+import type { TextGenerationResult } from "@sdl/sdl/sdk";
 
 import {
 	formattedExecCalls,
@@ -24,7 +24,7 @@ import {
 
 const PR_URL = "https://github.com/acme/repo/pull/123";
 const GRAPHITE_PR_URL = "https://app.graphite.com/github/pr/acme/repo/123";
-const LAGGING_VERIFICATION_PR_URL = "https://app.graphite.com/github/pr/dagster-io/asdl-tools/1517";
+const LAGGING_VERIFICATION_PR_URL = "https://app.graphite.com/github/pr/dagster-io/sdl-tools/1517";
 
 function createSubmitContext(state: TestState = {}): ScriptedSdlTestContext {
 	return new ScriptedSdlTestContext(state, {
@@ -137,8 +137,8 @@ describe("sdl submit CLI", () => {
 		expect(help).toContain("Usage: sdl submit");
 		expect(help).toContain("--no-restack");
 		expect(help).toContain("--verbose");
-		expect(help).toContain("ASDL_DEV_PR_DESCRIPTION_MODEL");
-		expect(help).toContain("ASDL_DEV_PR_DESCRIPTION_PROMPT");
+		expect(help).toContain("SDL_DEV_PR_DESCRIPTION_MODEL");
+		expect(help).toContain("SDL_DEV_PR_DESCRIPTION_PROMPT");
 		expect(help).toContain("SDL_SUBMIT_FAILURE_LOG_DIR");
 		expect(help).not.toContain("\n  --format");
 		expect(helpRun.context.execCalls).toEqual([]);

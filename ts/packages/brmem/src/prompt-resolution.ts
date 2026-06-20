@@ -2,8 +2,8 @@ import { access } from "node:fs/promises";
 import { homedir } from "node:os";
 import process from "node:process";
 
-import { NodeCommandExecApi, type CommandExecApi } from "@asdl/core/exec";
-import { RealGitGateway, type GitGateway } from "@asdl/core/git";
+import { NodeCommandExecApi, type CommandExecApi } from "@sdl/core/exec";
+import { RealGitGateway, type GitGateway } from "@sdl/core/git";
 
 import { brmemError, brmemOk, type BrmemResult } from "./contracts.ts";
 

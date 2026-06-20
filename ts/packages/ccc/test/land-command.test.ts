@@ -7,7 +7,7 @@ import {
 	type LandCommandContext,
 	type LandExtensionAPI,
 	type NotifyLevel,
-} from "@asdl/ccc/land";
+} from "@sdl/ccc/land";
 import { metadataDbJson, topologyArgs } from "./land-test-helpers.ts";
 
 const ROOT = "/repo";

@@ -25,7 +25,7 @@ Use this reference to keep branch-context storage, slugs, branches, and workflow
 
 ```text
 Local plan store:
-~/.asdl/enriched-plan/<repo>/<encoded-source-branch>/<saved-plan-filename-slug>.md
+~/.sdl/enriched-plan/<repo>/<encoded-source-branch>/<saved-plan-filename-slug>.md
 
 Attached plan:
 Branch Memory namespace: branch-context

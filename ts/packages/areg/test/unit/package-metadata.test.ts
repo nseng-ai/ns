@@ -19,7 +19,7 @@ describe("areg package metadata", () => {
 			await readFile(fileURLToPath(packageJsonUrl), "utf8"),
 		) as PackageJson;
 
-		expect(packageJson.name).toBe("@asdl/areg");
+		expect(packageJson.name).toBe("@sdl/areg");
 		expect(packageJson.version).toBe(VERSION);
 		expect(packageJson.bin).toEqual({ areg: "./src/cli.ts" });
 		expect(packageJson.scripts).toMatchObject({

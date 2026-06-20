@@ -98,7 +98,7 @@ describe("cmux Objective sidebar", () => {
 
 		await pi.commands
 			.get("ccc:sidebar:objective-summary")
-			?.handler(`.asdl/objectives/${slug}/objective.md`, ctx);
+			?.handler(`.sdl/objectives/${slug}/objective.md`, ctx);
 
 		pi.assertDone();
 		expect(pi.execCalls[0]).toMatchObject({
@@ -318,16 +318,16 @@ describe("cmux Objective sidebar deterministic helpers", () => {
 			type: "valid",
 			slug: "cmux-objective",
 		});
-		expect(resolveObjectiveSelector(".asdl/objectives/cmux-objective/objective.md", cwd)).toEqual({
+		expect(resolveObjectiveSelector(".sdl/objectives/cmux-objective/objective.md", cwd)).toEqual({
 			type: "valid",
 			slug: "cmux-objective",
 		});
-		expect(resolveObjectiveSelector(".asdl/objectives/cmux-objective", cwd)).toEqual({
+		expect(resolveObjectiveSelector(".sdl/objectives/cmux-objective", cwd)).toEqual({
 			type: "valid",
 			slug: "cmux-objective",
 		});
 		expect(
-			resolveObjectiveSelector("/repo/.asdl/objectives/cmux-objective/roadmap.md", cwd),
+			resolveObjectiveSelector("/repo/.sdl/objectives/cmux-objective/roadmap.md", cwd),
 		).toEqual({ type: "valid", slug: "cmux-objective" });
 	});
 
@@ -337,7 +337,7 @@ describe("cmux Objective sidebar deterministic helpers", () => {
 			"foo/bar",
 			".",
 			"..",
-			".asdl/objective-archive/old/objective.md",
+			".sdl/objective-archive/old/objective.md",
 			"/tmp/outside/objective.md",
 		]) {
 			expect(resolveObjectiveSelector(selector, cwd).type).toBe("invalid");

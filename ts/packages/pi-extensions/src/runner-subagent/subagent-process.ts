@@ -5,10 +5,10 @@ import { mkdir, mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
-import { systemClock, type Clock } from "@asdl/core/clock";
-import { formatErrorMessage } from "@asdl/core/primitives";
-import { systemTimerScheduler, type ScheduledTimer, type TimerScheduler } from "@asdl/core/timers";
-import { parseModelRef } from "@asdl/plans";
+import { systemClock, type Clock } from "@sdl/core/clock";
+import { formatErrorMessage } from "@sdl/core/primitives";
+import { systemTimerScheduler, type ScheduledTimer, type TimerScheduler } from "@sdl/core/timers";
+import { parseModelRef } from "@sdl/plans";
 
 import type { ModelInfo } from "../cmux/types.ts";
 import type {

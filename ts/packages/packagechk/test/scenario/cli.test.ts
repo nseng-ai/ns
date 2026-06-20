@@ -29,7 +29,7 @@ describe("packagechk CLI", () => {
 		expect(runtime).toEqual({
 			code: 0,
 			stdout:
-				"runtime: typescript\nentry_point: @asdl/packagechk bin packagechk -> ts/packages/packagechk/src/cli.ts\n",
+				"runtime: typescript\nentry_point: @sdl/packagechk bin packagechk -> ts/packages/packagechk/src/cli.ts\n",
 			stderr: "",
 		});
 	});
@@ -135,13 +135,13 @@ describe("packagechk CLI", () => {
 			},
 		});
 
-		const run = await runPackagechk(["@asdl-io/aretro", "--registry", "npm"], {
+		const run = await runPackagechk(["@sdl-io/aretro", "--registry", "npm"], {
 			registryGateway: gateway,
 		});
 
 		expect(run.code).toBe(1);
-		expect(requestedUrls).toEqual(["https://registry.npmjs.org/@asdl-io%2Faretro"]);
-		expect(run.stdout).toContain("https://www.npmjs.com/package/@asdl-io/aretro");
+		expect(requestedUrls).toEqual(["https://registry.npmjs.org/@sdl-io%2Faretro"]);
+		expect(run.stdout).toContain("https://www.npmjs.com/package/@sdl-io/aretro");
 	});
 
 	test("real gateway preserves validation and metadata behavior", async () => {

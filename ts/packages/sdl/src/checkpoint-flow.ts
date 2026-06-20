@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { truncateTextHead, truncateTextHeadTail } from "@asdl/core/text-truncation";
+import { truncateTextHead, truncateTextHeadTail } from "@sdl/core/text-truncation";
 
 import {
 	formatCheckpointMessage,

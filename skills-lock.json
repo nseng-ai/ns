@@ -1,8 +1,8 @@
 {
   "version": 1,
   "skills": {
-    "asdl-typescript": {
-      "source": "skills/asdl-typescript",
+    "sdl-typescript": {
+      "source": "skills/sdl-typescript",
       "sourceType": "local",
       "computedHash": "7f5ae181ab4cfc8e44d49f5da0eabb63f17d5c9ea027ec7f2ab1e231691b8a33"
     },

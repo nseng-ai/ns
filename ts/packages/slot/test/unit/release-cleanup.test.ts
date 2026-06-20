@@ -1,4 +1,4 @@
-import { createFakeClinkrInteraction } from "@asdl/clinkr/testing";
+import { createFakeClinkrInteraction } from "@sdl/clinkr/testing";
 import { describe, expect, it } from "vitest";
 
 import { executeReleaseCleanup, planReleaseCleanup } from "../../src/lifecycle/release-cleanup.ts";

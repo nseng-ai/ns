@@ -11,7 +11,7 @@ Part of the Objective skill family. Use the `objective` umbrella skill first for
 
 ## Required shape
 
-Active root: `.asdl/objectives/<slug>/`. Archived records under `.asdl/objective-archive/<slug>/` are not active work candidates.
+Active root: `.sdl/objectives/<slug>/`. Archived records under `.sdl/objective-archive/<slug>/` are not active work candidates.
 
 - `objective.md`: `# <Title>`, `## Thesis`, `## Scope`, `## Non-Goals`, `## Completion Criteria`, `## Assumptions and Risks`, `## Open Questions`; optional execution policy; `## Closure` when closed.
 - `roadmap.md`: `# Roadmap`, `## Work`, `## Parked`; statuses `[ ]`, `[~]`, `[x]` only; semantic rows may include indented prose guidance.
@@ -24,8 +24,8 @@ The Objective slug directory is durable identity. Command/product/prose renames 
 
 ## Resolve the Objective
 
-1. Use an explicit user-provided slug or path under `.asdl/objectives/<slug>/`.
-2. If the selected path is under `.asdl/objective-archive/`, stop and ask whether to unarchive before recommending next work.
+1. Use an explicit user-provided slug or path under `.sdl/objectives/<slug>/`.
+2. If the selected path is under `.sdl/objective-archive/`, stop and ask whether to unarchive before recommending next work.
 3. If no slug or path is explicit, run `objective list --minimal --format md` to enumerate active checkout-local open candidates and ask the user to choose.
 4. If no candidates exist, say so and suggest `objective-create` when appropriate.
 
@@ -37,7 +37,7 @@ Before recommending work or offering execution:
 
 1. Inspect uncommitted changes and branch diff when available.
 2. Look for material non-Objective changes that plausibly advance the selected Objective.
-3. Look for corresponding changes under `.asdl/objectives/<slug>/`.
+3. Look for corresponding changes under `.sdl/objectives/<slug>/`.
 4. If meaningful progress appears likely but unrecorded, ask: `Run objective-update for <slug> now, then rerun objective-next?`
 5. If the user confirms, or has explicitly preauthorized update-and-continue, run `objective-update` for the same selected slug/path, then reread Objective and repo evidence and re-apply this gate before recommending work or offering execution.
 6. If the user declines or confirmation is pending, stop without a next-work recommendation or execution offer.
@@ -90,7 +90,7 @@ Use this path for ordinary `objective-next` recommendations, when the user only 
 ## Stop / ask
 
 - Objective selection is ambiguous or absent.
-- The selected path is under `.asdl/objective-archive/`; ask whether to unarchive before recommending next work.
+- The selected path is under `.sdl/objective-archive/`; ask whether to unarchive before recommending next work.
 - The selected Objective is closed.
 - The Tracking Gate finds likely unrecorded material progress and confirmation to run `objective-update` is pending or declined.
 - The roadmap and narrative are too stale or incomplete to recommend work safely; ask for `objective-update`.

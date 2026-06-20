@@ -6,8 +6,8 @@ The branch-context workflow turns a reviewed Saved plan into an implementation b
 
 The workflow has two storage layers:
 
-- **Local plan store**: `~/.asdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md`, owned by `@asdl/plans` and the `enriched-plan` CLI.
-- **Attached plan**: Branch Memory namespace `branch-context`, named Markdown key, on the implementation branch, owned by `@asdl/branch-context` and the `branch-context` CLI. New from-plan attachments use `<branch-context-slug>.md`; `plan.md` remains readable legacy storage.
+- **Local plan store**: `~/.sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md`, owned by `@sdl/plans` and the `enriched-plan` CLI.
+- **Attached plan**: Branch Memory namespace `branch-context`, named Markdown key, on the implementation branch, owned by `@sdl/branch-context` and the `branch-context` CLI. New from-plan attachments use `<branch-context-slug>.md`; `plan.md` remains readable legacy storage.
 
 Branch Memory is the lower storage adapter for attached branch context entries. It stores text under explicit namespace/key contracts, but branch-context policy belongs to the planning layer. Branch context is standing context on a branch, not a special branch type; a plan can be the founding entry where one exists.
 
@@ -25,7 +25,7 @@ For Pi users, `/branch-context:upstack-impl-session` creates or reuses a branch 
 Pi users run `/enriched-plan:save`. The static planning-policy body lives at:
 
 ```text
-.asdl/prompts/plans-write.md
+.sdl/prompts/plans-write.md
 ```
 
 For `/enriched-plan:save`, the TypeScript Pi extension resolves this file from the current Git root and falls back to its built-in prompt body if Git root discovery, file reading, empty content, or symlink safety checks fail.
@@ -41,7 +41,7 @@ enriched-plan exec save --slug <saved-plan-slug> [--summary <text>] --stdin|--co
 Saved plans are written to:
 
 ```text
-~/.asdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md
+~/.sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md
 ```
 
 Saving a plan creates no implementation branch, writes no Branch Memory, and checks in no plan artifact.

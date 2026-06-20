@@ -2,9 +2,9 @@
 
 import { z } from "zod";
 
-import { ClinkrGroup } from "@asdl/clinkr";
-import { rawCommand } from "@asdl/clinkr/raw";
-import { defineCli } from "@asdl/core/cli-entry";
+import { ClinkrGroup } from "@sdl/clinkr";
+import { rawCommand } from "@sdl/clinkr/raw";
+import { defineCli } from "@sdl/core/cli-entry";
 
 import {
 	executeSdlCommand,

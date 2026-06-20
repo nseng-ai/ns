@@ -1,4 +1,4 @@
-export { isThinkingLevel } from "@asdl/pi-extension-runtime/cmux/types";
+export { isThinkingLevel } from "@sdl/pi-extension-runtime/cmux/types";
 
 export type {
 	AgentEndContext,
@@ -19,4 +19,4 @@ export type {
 	SessionStartContext,
 	ThinkingLevel,
 	UiLike,
-} from "@asdl/pi-extension-runtime/cmux/types";
+} from "@sdl/pi-extension-runtime/cmux/types";

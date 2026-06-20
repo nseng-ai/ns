@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { createTempDirTracker } from "@asdl/core/testing";
+import { createTempDirTracker } from "@sdl/core/testing";
 import { afterEach, describe, expect, test } from "vitest";
 
 const tempDirs = createTempDirTracker();
@@ -28,14 +28,14 @@ describe("aretro source CLI skill runner", () => {
 		const render = spawnSync("node", [renderScriptPath], {
 			env: {
 				...process.env,
-				ASDL_TEMPLATE: templatePath,
-				ASDL_OUTPUT: outputPath,
-				ASDL_TOOL: "aretro",
-				ASDL_CANONICAL_CHECKOUT: "unused-for-script-checkout",
-				ASDL_CLI_REL_PATH: "ts/packages/aretro/src/cli.ts",
-				ASDL_INSTALL_HINT:
-					"run from an asdl checkout with 'just ts-install' available, or install the TypeScript shim with 'just install-aretro'",
-				ASDL_FALLBACK_MODE: "script-checkout",
+				SDL_TEMPLATE: templatePath,
+				SDL_OUTPUT: outputPath,
+				SDL_TOOL: "aretro",
+				SDL_CANONICAL_CHECKOUT: "unused-for-script-checkout",
+				SDL_CLI_REL_PATH: "ts/packages/aretro/src/cli.ts",
+				SDL_INSTALL_HINT:
+					"run from an sdl checkout with 'just ts-install' available, or install the TypeScript shim with 'just install-aretro'",
+				SDL_FALLBACK_MODE: "script-checkout",
 			},
 			encoding: "utf8",
 		});

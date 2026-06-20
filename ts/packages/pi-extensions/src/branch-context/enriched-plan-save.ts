@@ -3,16 +3,16 @@ import { lstat, readFile } from "node:fs/promises";
 import * as path from "node:path";
 
 import { Text } from "@earendil-works/pi-tui";
-import { piExecApiToCommandExecApi } from "@asdl/core/exec";
-import { RealGitGateway, type GitGateway } from "@asdl/core/git";
-import { formatErrorMessage } from "@asdl/core/primitives";
+import { piExecApiToCommandExecApi } from "@sdl/core/exec";
+import { RealGitGateway, type GitGateway } from "@sdl/core/git";
+import { formatErrorMessage } from "@sdl/core/primitives";
 import {
 	WRITE_SAVED_PLAN_FILE_TOOL_NAME,
 	deriveSavedPlanContentSlug,
 	formatSavedPlanFileEvidence,
 	type SavedPlanContentSlugEvidence,
 	type SavedPlanFileEvidence,
-} from "@asdl/plans";
+} from "@sdl/plans";
 import { isRecord } from "../cmux/primitives.ts";
 import { GRILL_ASK_TOOL_NAME } from "../grill-ui.ts";
 import { resolveBranchContextOperations, resolvePlanStoreRootOption } from "./options.ts";
@@ -91,7 +91,7 @@ Workflow:
 6. Stop after reporting the saved plan evidence. Do not create a branch, write Branch Memory, or call any branch-context command/tool.
 
 Local plan store contract:
-- Path convention: ~/.asdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md
+- Path convention: ~/.sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md
 - <repo>: for github.com origins, gh--<owner>--<repo> from sanitized GitHub owner and repo path segments; for non-GitHub or origin-less repos, one sanitized path segment from the normalized remote.origin.url or real repo root path
 - <encoded-source-branch>: current branch at plan-file creation time encoded as one filesystem-safe path segment; branch slashes become --- (for example, branch-contexts/add-widget becomes branch-contexts---add-widget)
 - <slug>: semantic kebab-case saved-plan filename slug without .md; this is a local plan-store locator, not necessarily the later implementation branch slug
@@ -206,12 +206,12 @@ async function resolveGitRoot(
 async function readRepoWritePlanPromptBody(
 	repoRoot: string,
 ): Promise<WritePlanPromptBodyResolution> {
-	const asdlPath = path.join(repoRoot, ".asdl");
-	const promptDir = path.join(asdlPath, "prompts");
+	const sdlPath = path.join(repoRoot, ".sdl");
+	const promptDir = path.join(sdlPath, "prompts");
 	const promptPath = repoPromptPath(repoRoot);
-	await assertSafeDirectory(asdlPath, ".asdl");
-	await assertSafeDirectory(promptDir, ".asdl/prompts");
-	await assertSafeFile(promptPath, `.asdl/prompts/${WRITE_PLAN_PROMPT_NAME}.md`);
+	await assertSafeDirectory(sdlPath, ".sdl");
+	await assertSafeDirectory(promptDir, ".sdl/prompts");
+	await assertSafeFile(promptPath, `.sdl/prompts/${WRITE_PLAN_PROMPT_NAME}.md`);
 
 	const content = await readFile(promptPath, "utf8");
 	if (content.trim().length === 0) {
@@ -243,7 +243,7 @@ async function assertNotSymlink(targetPath: string, label: string): Promise<Stat
 }
 
 function repoPromptPath(repoRoot: string): string {
-	return path.join(repoRoot, ".asdl", "prompts", `${WRITE_PLAN_PROMPT_NAME}.md`);
+	return path.join(repoRoot, ".sdl", "prompts", `${WRITE_PLAN_PROMPT_NAME}.md`);
 }
 
 export async function handleWritePlanCommand(
@@ -284,13 +284,13 @@ export function buildWriteSavedPlanFileTool(
 		name: WRITE_SAVED_PLAN_FILE_TOOL_NAME,
 		label: "Write Saved Plan File",
 		description:
-			"Create a reviewed, self-contained Markdown implementation plan file for a fresh downstream implementation session in the local plan store at `~/.asdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md`. The tool derives the saved-plan filename slug from the content through the Codex-backed slug model, derives repo and current branch from git, validates the slug, creates parent directories, refuses to overwrite an existing file, writes the full Markdown content, and returns path evidence. It does not create branches or write Branch Memory.",
+			"Create a reviewed, self-contained Markdown implementation plan file for a fresh downstream implementation session in the local plan store at `~/.sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md`. The tool derives the saved-plan filename slug from the content through the Codex-backed slug model, derives repo and current branch from git, validates the slug, creates parent directories, refuses to overwrite an existing file, writes the full Markdown content, and returns path evidence. It does not create branches or write Branch Memory.",
 		promptSnippet:
-			"Create a reviewed, self-contained Markdown implementation plan file in the local plan store under `~/.asdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md`.",
+			"Create a reviewed, self-contained Markdown implementation plan file in the local plan store under `~/.sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md`.",
 		promptGuidelines: [
 			"Use write_saved_plan_file for `/enriched-plan:save` and `/enriched-plan:grill-and-save` after producing a reviewed final Markdown plan.",
 			"Do not generate or pass a saved-plan filename slug; write_saved_plan_file derives it from content through the Codex-backed slug model.",
-			"write_saved_plan_file writes the local plan store under `~/.asdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md`; it does not create branches or write Branch Memory.",
+			"write_saved_plan_file writes the local plan store under `~/.sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md`; it does not create branches or write Branch Memory.",
 			"write_saved_plan_file content should be self-contained for a completely fresh downstream implementation session, including relevant context discovered during planning.",
 			"If planning used external/off-repo research, write_saved_plan_file content should include the concrete findings and provenance inline instead of relying on links or hidden conversation context.",
 			"If write_saved_plan_file reports that the saved plan file already exists, stop and report the collision; never overwrite the existing file.",

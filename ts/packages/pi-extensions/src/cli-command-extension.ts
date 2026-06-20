@@ -3,8 +3,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import process from "node:process";
 
-import { formatErrorMessage } from "@asdl/core/primitives";
-import { formatElapsedMs } from "@asdl/core/time-format";
+import { formatErrorMessage } from "@sdl/core/primitives";
+import { formatElapsedMs } from "@sdl/core/time-format";
 import {
 	emitPiExtensionCommandFinished,
 	type PiExtensionCommandEventEmitter,
@@ -16,18 +16,18 @@ import {
 } from "./terminal-presentation.ts";
 
 const CLI_COMMAND_BRIDGE_VERSION = "above-editor-live-stream-trace-v3";
-const TRACE_ENV = "ASDL_PI_CLI_TRACE";
-const TRACE_OUTPUT_ENV = "ASDL_PI_CLI_TRACE_OUTPUT";
-const TRACE_PATH_ENV = "ASDL_PI_CLI_TRACE_PATH";
-const DEFAULT_TRACE_FILENAME = "asdl-pi-cli-command-extension.jsonl";
+const TRACE_ENV = "SDL_PI_CLI_TRACE";
+const TRACE_OUTPUT_ENV = "SDL_PI_CLI_TRACE_OUTPUT";
+const TRACE_PATH_ENV = "SDL_PI_CLI_TRACE_PATH";
+const DEFAULT_TRACE_FILENAME = "sdl-pi-cli-command-extension.jsonl";
 const TRACE_OUTPUT_PREVIEW_CHARS = 500;
-const LIVE_PROGRESS_STATUS_ID = "asdl-cli-command";
-const LIVE_PROGRESS_WIDGET_ID = "asdl-cli-command-output";
+const LIVE_PROGRESS_STATUS_ID = "sdl-cli-command";
+const LIVE_PROGRESS_WIDGET_ID = "sdl-cli-command-output";
 const LIVE_PROGRESS_INTERVAL_MS = 1_000;
 const LIVE_PROGRESS_MAX_LINES = 8;
 const LIVE_PROGRESS_MAX_LINE_CHARS = 160;
 
-export const CLI_COMMAND_OUTPUT_MESSAGE_TYPE = "asdl-cli-command-output";
+export const CLI_COMMAND_OUTPUT_MESSAGE_TYPE = "sdl-cli-command-output";
 
 type NotifyLevel = "info" | "warning" | "error";
 type TraceFields = Record<string, unknown>;

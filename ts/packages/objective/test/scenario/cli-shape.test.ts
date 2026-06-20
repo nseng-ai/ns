@@ -12,7 +12,7 @@ describe("objective CLI shape", () => {
 		const runtime = runScenario(["--runtime"]);
 		expect(await runtime.exit).toBe(0);
 		expect(runtime.stdout.join("")).toBe(
-			"runtime: typescript\nentry_point: @asdl/objective bin objective -> ts/packages/objective/src/cli.ts\n",
+			"runtime: typescript\nentry_point: @sdl/objective bin objective -> ts/packages/objective/src/cli.ts\n",
 		);
 		expect(runtime.stderr.join("")).toBe("");
 	});

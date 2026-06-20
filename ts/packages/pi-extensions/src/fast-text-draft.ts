@@ -1,8 +1,8 @@
-import { DEFAULT_FAST_MODEL, DEFAULT_FAST_MODEL_REF, resolveModelRef } from "@asdl/plans";
+import { DEFAULT_FAST_MODEL, DEFAULT_FAST_MODEL_REF, resolveModelRef } from "@sdl/plans";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { CommandResult } from "@asdl/sdl/checkpoint-flow";
+import type { CommandResult } from "@sdl/sdl/checkpoint-flow";
 import { callPiModelText, type PiModelRegistryLike } from "./pi-model-call.ts";
 import { truncateDisplayLine } from "./terminal-presentation.ts";
 

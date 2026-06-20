@@ -4,7 +4,7 @@ import handoffExtension, {
 	buildHandoffTabPrompt,
 	deriveSemanticHandoffSlug,
 } from "../src/handoff.ts";
-import { buildSlugModelArgs, DEFAULT_FAST_MODEL } from "@asdl/plans";
+import { buildSlugModelArgs, DEFAULT_FAST_MODEL } from "@sdl/plans";
 import { buildHandoffContentSlugPrompt } from "../src/handoff/content-slug.ts";
 import {
 	BRANCH,

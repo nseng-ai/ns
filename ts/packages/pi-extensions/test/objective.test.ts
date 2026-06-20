@@ -374,7 +374,7 @@ function objectiveListFromRecords(
 		exit_code: 0,
 		data: {
 			trunkBranch: trunkBranch,
-			rootPath: ".asdl/objectives",
+			rootPath: ".sdl/objectives",
 			statusFilter: "active",
 			namesOnly: false,
 			records: records.map((record) => ({
@@ -408,14 +408,14 @@ function candidateStep(slugs: string[]): ScriptedExec {
 }
 
 function diffStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedExec {
-	return step("git", ["diff", "--name-status", "-M", `${TRUNK}...HEAD`, "--", ".asdl/objectives"], {
+	return step("git", ["diff", "--name-status", "-M", `${TRUNK}...HEAD`, "--", ".sdl/objectives"], {
 		stdout,
 		...result,
 	});
 }
 
 function statusStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedExec {
-	return step("git", ["status", "--porcelain=v1", "-z", "--", ".asdl/objectives"], {
+	return step("git", ["status", "--porcelain=v1", "-z", "--", ".sdl/objectives"], {
 		stdout,
 		...result,
 	});
@@ -622,12 +622,12 @@ describe("objective:stack-impl command", () => {
 				expectListActiveObjectivesCall(result);
 				expect(result.pi.execCalls[1]).toEqual({
 					command: "git",
-					args: ["diff", "--name-status", "-M", "master...HEAD", "--", ".asdl/objectives"],
+					args: ["diff", "--name-status", "-M", "master...HEAD", "--", ".sdl/objectives"],
 					options: { cwd: ROOT, timeout: 30_000 },
 				});
 				expect(result.pi.execCalls[2]).toEqual({
 					command: "git",
-					args: ["status", "--porcelain=v1", "-z", "--", ".asdl/objectives"],
+					args: ["status", "--porcelain=v1", "-z", "--", ".sdl/objectives"],
 					options: { cwd: ROOT, timeout: 30_000 },
 				});
 				expect(result.waitForIdleCalls()).toBe(2);
@@ -645,7 +645,7 @@ describe("objective:stack-impl command", () => {
 					"",
 					[
 						listStep(["alpha", "bravo", "charlie"]),
-						diffStep("M\t.asdl/objectives/bravo/objective.md\n"),
+						diffStep("M\t.sdl/objectives/bravo/objective.md\n"),
 						statusStep(""),
 					],
 					{},
@@ -675,7 +675,7 @@ describe("objective:stack-impl command", () => {
 					"",
 					[
 						listStep(["alpha", "bravo", "charlie"]),
-						diffStep("M\t.asdl/objectives/bravo/objective.md\n"),
+						diffStep("M\t.sdl/objectives/bravo/objective.md\n"),
 						statusStep(""),
 					],
 					{ selectIndices: [1, 1] },
@@ -725,7 +725,7 @@ describe("objective picker suggestion", () => {
 	test("shows only the one changed active Objective before offering the rest", async () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo", "charlie"]),
-			diffStep("M\t.asdl/objectives/bravo/objective.md\n"),
+			diffStep("M\t.sdl/objectives/bravo/objective.md\n"),
 			statusStep(""),
 		]);
 
@@ -751,7 +751,7 @@ describe("objective picker suggestion", () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo", "charlie"]),
 			diffStep(""),
-			statusStep(" M .asdl/objectives/bravo/objective.md\0"),
+			statusStep(" M .sdl/objectives/bravo/objective.md\0"),
 		]);
 
 		result.pi.assertDone();
@@ -769,7 +769,7 @@ describe("objective picker suggestion", () => {
 	test("dirty-only suggestion uses checkout wording when trunk is unavailable", async () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo"], ""),
-			statusStep(" M .asdl/objectives/bravo/objective.md\0"),
+			statusStep(" M .sdl/objectives/bravo/objective.md\0"),
 		]);
 
 		result.pi.assertDone();
@@ -787,8 +787,8 @@ describe("objective picker suggestion", () => {
 	test("dirty and committed diff slugs are unioned changed-first", async () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo", "charlie", "delta"]),
-			diffStep("M\t.asdl/objectives/alpha/objective.md\n"),
-			statusStep(" M .asdl/objectives/charlie/objective.md\0"),
+			diffStep("M\t.sdl/objectives/alpha/objective.md\n"),
+			statusStep(" M .sdl/objectives/charlie/objective.md\0"),
 		]);
 
 		result.pi.assertDone();
@@ -809,7 +809,7 @@ describe("objective picker suggestion", () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo"]),
 			diffStep(""),
-			statusStep(" M .asdl/objectives/closed-objective/objective.md\0"),
+			statusStep(" M .sdl/objectives/closed-objective/objective.md\0"),
 		]);
 
 		result.pi.assertDone();
@@ -824,7 +824,7 @@ describe("objective picker suggestion", () => {
 			"",
 			[
 				listStep(["alpha", "bravo", "charlie"]),
-				diffStep("M\t.asdl/objectives/bravo/objective.md\n"),
+				diffStep("M\t.sdl/objectives/bravo/objective.md\n"),
 				statusStep(""),
 			],
 			{ selectIndices: [1, 1] },
@@ -846,7 +846,7 @@ describe("objective picker suggestion", () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo", "charlie", "delta"]),
 			diffStep(
-				["M\t.asdl/objectives/alpha/objective.md", "M\t.asdl/objectives/charlie/roadmap.md"].join(
+				["M\t.sdl/objectives/alpha/objective.md", "M\t.sdl/objectives/charlie/roadmap.md"].join(
 					"\n",
 				),
 			),
@@ -873,7 +873,7 @@ describe("objective picker suggestion", () => {
 			[
 				listStep(["alpha", "bravo", "charlie", "delta"]),
 				diffStep(
-					["M\t.asdl/objectives/alpha/objective.md", "M\t.asdl/objectives/charlie/roadmap.md"].join(
+					["M\t.sdl/objectives/alpha/objective.md", "M\t.sdl/objectives/charlie/roadmap.md"].join(
 						"\n",
 					),
 				),
@@ -898,7 +898,7 @@ describe("objective picker suggestion", () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo"]),
 			diffStep(
-				["M\t.asdl/objectives/alpha/objective.md", "M\t.asdl/objectives/bravo/objective.md"].join(
+				["M\t.sdl/objectives/alpha/objective.md", "M\t.sdl/objectives/bravo/objective.md"].join(
 					"\n",
 				),
 			),
@@ -920,7 +920,7 @@ describe("objective picker suggestion", () => {
 	test("does not suggest when the changed Objective slug is not active", async () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo"]),
-			diffStep("M\t.asdl/objectives/closed-objective/objective.md\n"),
+			diffStep("M\t.sdl/objectives/closed-objective/objective.md\n"),
 			statusStep(""),
 		]);
 
@@ -938,8 +938,8 @@ describe("objective picker suggestion", () => {
 			listStep(["pi-extension-deepening"]),
 			diffStep(
 				[
-					"A\t.asdl/objectives/pi-extension-architecture-deepening/closed.md",
-					"M\t.asdl/objectives/pi-extension-deepening/objective.md",
+					"A\t.sdl/objectives/pi-extension-architecture-deepening/closed.md",
+					"M\t.sdl/objectives/pi-extension-deepening/objective.md",
 				].join("\n"),
 			),
 			statusStep(""),
@@ -960,8 +960,8 @@ describe("objective picker suggestion", () => {
 			listStep(["alpha", "bravo", "charlie"]),
 			diffStep(
 				[
-					"M\t.asdl/objectives/bravo/objective.md",
-					"M\t.asdl/objectives/closed-objective/objective.md",
+					"M\t.sdl/objectives/bravo/objective.md",
+					"M\t.sdl/objectives/closed-objective/objective.md",
 				].join("\n"),
 			),
 			statusStep(""),
@@ -991,7 +991,7 @@ describe("objective picker suggestion", () => {
 	test("git status failure preserves committed diff suggestions", async () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo"]),
-			diffStep("M\t.asdl/objectives/bravo/objective.md\n"),
+			diffStep("M\t.sdl/objectives/bravo/objective.md\n"),
 			statusStep("", { code: 1, stderr: "status failed" }),
 		]);
 
@@ -1010,7 +1010,7 @@ describe("objective picker suggestion", () => {
 		const result = await runObjectiveNext("", [
 			listStep(["alpha", "bravo"]),
 			diffStep("", { code: 1, stderr: "fatal: bad revision" }),
-			statusStep(" M .asdl/objectives/bravo/objective.md\0"),
+			statusStep(" M .sdl/objectives/bravo/objective.md\0"),
 		]);
 
 		result.pi.assertDone();
@@ -1150,7 +1150,7 @@ describe("objective command shared selection policy", () => {
 	for (const commandName of OBJECTIVE_COMMAND_NAMES) {
 		describe(commandName, () => {
 			test("explicit slug or path bypasses objective list and git evidence", async () => {
-				const explicitObjective = ".asdl/objectives/bravo/objective.md";
+				const explicitObjective = ".sdl/objectives/bravo/objective.md";
 				const result = await runObjectiveCommand(commandName, `  ${explicitObjective}  `);
 				const skillName = OBJECTIVE_SKILLS_BY_COMMAND[commandName];
 
@@ -1215,7 +1215,7 @@ describe("objective command shared selection policy", () => {
 					"",
 					[
 						listStep(["alpha", "bravo"]),
-						diffStep("M\t.asdl/objectives/bravo/objective.md\n"),
+						diffStep("M\t.sdl/objectives/bravo/objective.md\n"),
 						statusStep(""),
 					],
 					{ cancelSelect: true },

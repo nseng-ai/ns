@@ -41,7 +41,7 @@ export const grillUiParity = definePiSurfaceParity([
 		parity: "WAIVED",
 		fallback: "Use the grill-me skill for a prose interview outside Pi.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
+		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "grill-ui",
 		notes: "Structured TUI interaction is Pi-native; portable fallback is the skill workflow.",
 	},
@@ -52,7 +52,7 @@ export const grillUiParity = definePiSurfaceParity([
 		parity: "WAIVED",
 		fallback: "Use the grill-with-docs skill for a prose docs-aware interview outside Pi.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
+		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "grill-ui",
 		notes:
 			"Structured TUI interaction is Pi-native; portable fallback is the docs-aware skill workflow.",

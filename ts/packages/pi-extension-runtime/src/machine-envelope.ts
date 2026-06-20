@@ -1,5 +1,5 @@
-import { tailText, type TailTextOptions } from "@asdl/core/exec";
-import { formatErrorMessage } from "@asdl/core/primitives";
+import { tailText, type TailTextOptions } from "@sdl/core/exec";
+import { formatErrorMessage } from "@sdl/core/primitives";
 import { isRecord } from "./cmux/primitives.ts";
 
 export interface MachineEnvelopeParseOptions {

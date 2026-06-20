@@ -7,7 +7,7 @@ import type {
 	GithubPrReviewComment,
 	GithubPrReviewThread,
 	GithubPrSummary,
-} from "@asdl/core/github-pr-feedback";
+} from "@sdl/core/github-pr-feedback";
 
 import type {
 	openPrsResultSchema,

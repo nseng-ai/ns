@@ -1,4 +1,4 @@
-import type { ExecOptions, ExecResult } from "@asdl/core/exec";
+import type { ExecOptions, ExecResult } from "@sdl/core/exec";
 
 import type { ModelInfo, ThinkingLevel } from "./cmux/types.ts";
 import {

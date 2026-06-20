@@ -1,4 +1,4 @@
-import { formatElapsedMs } from "@asdl/core/time-format";
+import { formatElapsedMs } from "@sdl/core/time-format";
 
 export interface IdleWaitStatusUi {
 	setStatus(key: string, value: string | undefined): void;

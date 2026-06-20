@@ -6,7 +6,7 @@ import { describe, expect, test } from "vitest";
 
 import {
 	composePiAgentPrompt,
-	findAsdlPiAgentsDir,
+	findSdlPiAgentsDir,
 	loadPiAgentDefinition,
 	parsePiAgentDefinitionMarkdown,
 } from "../src/pi-agent-definition.ts";
@@ -14,10 +14,10 @@ import {
 describe("Pi agent definitions", () => {
 	test("parses scalar frontmatter, prompt guideline lists, and body", () => {
 		const raw = definitionMarkdown({ body: "Body before\n{{prompt}}\nBody after\n" });
-		const parsed = parsePiAgentDefinitionMarkdown(raw, "/repo/.asdl/pi/agents/runner.md");
+		const parsed = parsePiAgentDefinitionMarkdown(raw, "/repo/.sdl/pi/agents/runner.md");
 
 		expect(parsed).toEqual({
-			schema: "asdl.pi-agent.v1",
+			schema: "sdl.pi-agent.v1",
 			name: "runner",
 			toolName: "dispatch_runner_subagent",
 			label: "Dispatch Runner Subagent",
@@ -28,47 +28,47 @@ describe("Pi agent definitions", () => {
 				"Inspect the returned status.",
 			],
 			body: "Body before\n{{prompt}}\nBody after\n",
-			filePath: "/repo/.asdl/pi/agents/runner.md",
+			filePath: "/repo/.sdl/pi/agents/runner.md",
 		});
 	});
 
 	test("rejects missing opening frontmatter delimiter", () => {
 		expect(() =>
-			parsePiAgentDefinitionMarkdown("schema: asdl.pi-agent.v1\n---\nBody", "/agent.md"),
+			parsePiAgentDefinitionMarkdown("schema: sdl.pi-agent.v1\n---\nBody", "/agent.md"),
 		).toThrow(/opening frontmatter delimiter/);
 	});
 
 	test("rejects missing closing frontmatter delimiter", () => {
 		expect(() =>
-			parsePiAgentDefinitionMarkdown("---\nschema: asdl.pi-agent.v1\nBody", "/agent.md"),
+			parsePiAgentDefinitionMarkdown("---\nschema: sdl.pi-agent.v1\nBody", "/agent.md"),
 		).toThrow(/closing frontmatter delimiter/);
 	});
 
 	test("requires exact first-line frontmatter fences", () => {
 		expect(() =>
-			parsePiAgentDefinitionMarkdown("\n---\nschema: asdl.pi-agent.v1\n---\nBody", "/agent.md"),
+			parsePiAgentDefinitionMarkdown("\n---\nschema: sdl.pi-agent.v1\n---\nBody", "/agent.md"),
 		).toThrow(/opening frontmatter delimiter/);
 		expect(() =>
-			parsePiAgentDefinitionMarkdown("--- \nschema: asdl.pi-agent.v1\n---\nBody", "/agent.md"),
+			parsePiAgentDefinitionMarkdown("--- \nschema: sdl.pi-agent.v1\n---\nBody", "/agent.md"),
 		).toThrow(/opening frontmatter delimiter/);
 		expect(() =>
-			parsePiAgentDefinitionMarkdown("---\nschema: asdl.pi-agent.v1\n--- \nBody", "/agent.md"),
+			parsePiAgentDefinitionMarkdown("---\nschema: sdl.pi-agent.v1\n--- \nBody", "/agent.md"),
 		).toThrow(/closing frontmatter delimiter/);
 	});
 
 	test("rejects the wrong schema", () => {
 		expect(() =>
 			parsePiAgentDefinitionMarkdown(
-				definitionMarkdown({ schema: "asdl.pi-agent.v2" }),
+				definitionMarkdown({ schema: "sdl.pi-agent.v2" }),
 				"/agent.md",
 			),
-		).toThrow(/expected asdl\.pi-agent\.v1/);
+		).toThrow(/expected sdl\.pi-agent\.v1/);
 	});
 
 	test("rejects missing required fields with the field name and file path", () => {
 		const raw = [
 			"---",
-			"schema: asdl.pi-agent.v1",
+			"schema: sdl.pi-agent.v1",
 			"name: runner",
 			"toolName: dispatch_runner_subagent",
 			"description: Launch a focused subagent Pi session.",
@@ -95,13 +95,13 @@ describe("Pi agent definitions", () => {
 		).toThrow(/expected "  - guideline"/);
 	});
 
-	test("finds .asdl/pi/agents from a nested cwd", () => {
+	test("finds .sdl/pi/agents from a nested cwd", () => {
 		const root = tempRoot();
 		const nested = join(root, "a", "b", "c");
-		mkdirSync(join(root, ".asdl", "pi", "agents"), { recursive: true });
+		mkdirSync(join(root, ".sdl", "pi", "agents"), { recursive: true });
 		mkdirSync(nested, { recursive: true });
 
-		expect(findAsdlPiAgentsDir(nested)).toBe(join(root, ".asdl", "pi", "agents"));
+		expect(findSdlPiAgentsDir(nested)).toBe(join(root, ".sdl", "pi", "agents"));
 	});
 
 	test("loads runner.md by name", () => {
@@ -110,7 +110,7 @@ describe("Pi agent definitions", () => {
 
 		const loaded = loadPiAgentDefinition("runner", join(root, "nested"));
 		expect(loaded.name).toBe("runner");
-		expect(loaded.filePath).toBe(join(root, ".asdl", "pi", "agents", "runner.md"));
+		expect(loaded.filePath).toBe(join(root, ".sdl", "pi", "agents", "runner.md"));
 		expect(loaded.body).toBe("Runner body {{prompt}}");
 	});
 
@@ -170,7 +170,7 @@ function definitionMarkdown(options: DefinitionMarkdownOptions = {}): string {
 	return (
 		[
 			"---",
-			`schema: ${options.schema ?? "asdl.pi-agent.v1"}`,
+			`schema: ${options.schema ?? "sdl.pi-agent.v1"}`,
 			`name: ${options.name ?? "runner"}`,
 			`toolName: ${options.toolName ?? "dispatch_runner_subagent"}`,
 			`label: ${options.label ?? "Dispatch Runner Subagent"}`,
@@ -189,7 +189,7 @@ function tempRoot(): string {
 }
 
 function writeAgentDefinition(root: string, agentName: string, content: string): void {
-	const agentsDir = join(root, ".asdl", "pi", "agents");
+	const agentsDir = join(root, ".sdl", "pi", "agents");
 	mkdirSync(agentsDir, { recursive: true });
 	writeFileSync(join(agentsDir, `${agentName}.md`), content, "utf8");
 }

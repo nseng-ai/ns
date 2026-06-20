@@ -1,4 +1,4 @@
-import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@asdl/core/git/testing";
+import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@sdl/core/git/testing";
 
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import type { AregCliContext } from "../../src/context.ts";

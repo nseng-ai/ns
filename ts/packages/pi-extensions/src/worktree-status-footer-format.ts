@@ -10,7 +10,7 @@ import {
 	type GtStatus,
 	type StatusTheme,
 	type WorktreeStatus,
-} from "@asdl/ccc/worktree-status";
+} from "@sdl/ccc/worktree-status";
 
 interface StatusFooterData {
 	getExtensionStatuses(): ReadonlyMap<string, string>;

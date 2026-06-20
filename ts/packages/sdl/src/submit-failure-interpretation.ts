@@ -2,7 +2,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { SubmitFailurePresentation, SubmitFailureTranscript } from "@asdl/core/submit";
+import type { SubmitFailurePresentation, SubmitFailureTranscript } from "@sdl/core/submit";
 
 import type { SdlContext } from "./sdk.ts";
 import { selectSubmitFailureModelRef } from "./text-generation.ts";

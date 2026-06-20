@@ -1,5 +1,5 @@
-import { NodeCommandExecApi, type CommandExecApi } from "@asdl/core/exec";
-import { RealGitGateway, type GitGateway } from "@asdl/core/git";
+import { NodeCommandExecApi, type CommandExecApi } from "@sdl/core/exec";
+import { RealGitGateway, type GitGateway } from "@sdl/core/git";
 
 import { RealHarnessGateway, type HarnessGateway } from "./gateways/harness.ts";
 import { RealRoasterGitHubGateway, type RoasterGitHubGateway } from "./gateways/github.ts";

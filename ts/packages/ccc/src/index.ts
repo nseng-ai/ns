@@ -1,7 +1,7 @@
 export { default as registerCccExtension } from "./ccc.ts";
 
 export const CCC_PACKAGE_IDENTITY = {
-	packageName: "@asdl/ccc",
+	packageName: "@sdl/ccc",
 	vocabularyName: "CCC",
 	expandedName: "Cmux Command and Control",
 	visibility: "private-workspace",

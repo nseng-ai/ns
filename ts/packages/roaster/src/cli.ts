@@ -2,10 +2,10 @@
 
 import process from "node:process";
 
-import { ClinkrGroup, resolveIo, type ClinkrIo } from "@asdl/clinkr";
-import { rawCommand } from "@asdl/clinkr/raw";
-import { isDirectCliInvocation } from "@asdl/core/cli-entry";
-import { readStdin } from "@asdl/core/stdin";
+import { ClinkrGroup, resolveIo, type ClinkrIo } from "@sdl/clinkr";
+import { rawCommand } from "@sdl/clinkr/raw";
+import { isDirectCliInvocation } from "@sdl/core/cli-entry";
+import { readStdin } from "@sdl/core/stdin";
 
 import {
 	createRealRoasterContext,
@@ -127,7 +127,7 @@ function createDefaultContext(deps: CliDeps, io: ClinkrIo): RoasterContext {
 }
 
 function runtimeInfo(): string {
-	return "runtime: typescript\nentry_point: @asdl/roaster bin roaster -> ts/packages/roaster/src/cli.ts\n";
+	return "runtime: typescript\nentry_point: @sdl/roaster bin roaster -> ts/packages/roaster/src/cli.ts\n";
 }
 
 if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {

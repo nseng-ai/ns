@@ -1,6 +1,6 @@
 # Objective System
 
-This document is the canonical operational specification for ASDL objectives.
+This document is the canonical operational specification for SDL objectives.
 `CONTEXT.md` defines the domain language; this file defines the markdown-only v1 mechanics.
 
 ## Purpose
@@ -14,38 +14,38 @@ An Objective is not a workflow controller, state machine, hidden agent store, or
 Active Objective records live under the checked-in active root:
 
 ```text
-.asdl/objectives/
+.sdl/objectives/
 ```
 
 Archived Objective records live under the checked-in archive root:
 
 ```text
-.asdl/objective-archive/
+.sdl/objective-archive/
 ```
 
 Each objective is keyed by its directory slug. Active records use this shape:
 
 ```text
-.asdl/objectives/<slug>/
+.sdl/objectives/<slug>/
   objective.md
   roadmap.md
   updates/
   closed.md        # optional; existence means closed
 ```
 
-Archived records preserve the same internal shape under `.asdl/objective-archive/<slug>/`.
+Archived records preserve the same internal shape under `.sdl/objective-archive/<slug>/`.
 
 Rules:
 
-- `.asdl/objectives/` and `.asdl/objective-archive/` are first-class repository content and should be committed.
+- `.sdl/objectives/` and `.sdl/objective-archive/` are first-class repository content and should be committed.
 - The `<slug>` directory name is the stable objective identity in either root.
 - The markdown title may change without changing objective identity.
 - Command, product, branch, package, and prose renames do not imply Objective slug renames.
-- Moving `.asdl/objectives/<old>/` to `.asdl/objectives/<new>/` or `.asdl/objective-archive/<old>/` to `.asdl/objective-archive/<new>/` is an explicit Objective slug migration and should stop normal Objective workflows until a user chooses the canonical identity.
-- Moving `.asdl/objectives/<slug>/` to `.asdl/objective-archive/<slug>/` is Objective archive, not slug migration.
+- Moving `.sdl/objectives/<old>/` to `.sdl/objectives/<new>/` or `.sdl/objective-archive/<old>/` to `.sdl/objective-archive/<new>/` is an explicit Objective slug migration and should stop normal Objective workflows until a user chooses the canonical identity.
+- Moving `.sdl/objectives/<slug>/` to `.sdl/objective-archive/<slug>/` is Objective archive, not slug migration.
 - Open/closed state and active/archived location are orthogonal: `closed.md` records closure state; root location controls whether normal active workflows discover the record.
 - Do not add YAML frontmatter, UUIDs, registries, or hidden attachment metadata.
-- V1 starts fresh from `.asdl/objectives/`; `docs/objectives/` is not a canonical root and has no compatibility behavior.
+- V1 starts fresh from `.sdl/objectives/`; `docs/objectives/` is not a canonical root and has no compatibility behavior.
 
 ## Documentation Surfaces
 
@@ -170,16 +170,16 @@ Rules:
 
 When an operation needs an existing active objective, resolve it in this order:
 
-1. Use an explicit user-provided slug or path under `.asdl/objectives/<slug>/`.
-2. If the user-provided path is under `.asdl/objective-archive/<slug>/`, stop and ask whether to unarchive before running active Objective workflows.
-3. If no slug or path is explicit, list candidate objective directories under `.asdl/objectives/` and ask the user to choose. Use the operation's state filter when it has one, such as active objectives for active-objective workflows.
+1. Use an explicit user-provided slug or path under `.sdl/objectives/<slug>/`.
+2. If the user-provided path is under `.sdl/objective-archive/<slug>/`, stop and ask whether to unarchive before running active Objective workflows.
+3. If no slug or path is explicit, list candidate objective directories under `.sdl/objectives/` and ask the user to choose. Use the operation's state filter when it has one, such as active objectives for active-objective workflows.
 4. If no candidates exist, report that no objectives exist and suggest `objective-create` when appropriate.
 
 Archived slugs remain reserved Objective identities. Do not silently create a new active Objective with the same slug as an archived record; ask whether to unarchive, inspect, or choose a different slug.
 
 Operation-specific exception: when no slug or path is explicit, the user explicitly requested an Objective update, and the active-objective listing returns exactly one candidate, `objective-update` may present that objective as the only candidate. It must ask a short confirmation question before continuing to repo evidence or mutation. If update intent is ambiguous, ask a one-line invocation confirmation first. If multiple active objectives exist, still present the options and ask the user to choose.
 
-Non-binding picker grouping exception: when a UI picker has already listed active objectives, it may use deterministic git facts to group changed active objectives first when direct changes under `.asdl/objectives/<slug>/` are present compared with the repository trunk. If exactly one active objective is the only objective slug changed, the picker may label it as suggested. If multiple active objectives changed, the picker may show those changed active objectives in the first menu and offer a separate option to view the remaining active objectives. The user must still confirm a changed objective or choose another objective. If the diff is unavailable, empty, or contains no changed slugs that are active objectives, the picker should show the normal ordering with no suggestion.
+Non-binding picker grouping exception: when a UI picker has already listed active objectives, it may use deterministic git facts to group changed active objectives first when direct changes under `.sdl/objectives/<slug>/` are present compared with the repository trunk. If exactly one active objective is the only objective slug changed, the picker may label it as suggested. If multiple active objectives changed, the picker may show those changed active objectives in the first menu and offer a separate option to view the remaining active objectives. The user must still confirm a changed objective or choose another objective. If the diff is unavailable, empty, or contains no changed slugs that are active objectives, the picker should show the normal ordering with no suggestion.
 
 Do not silently auto-select from candidate count or changed/touched files. Never infer objective ownership from branch names, PR titles, package names, roadmap keywords, or other hidden attachment mechanisms. Changed-path, branch, stack, or PR evidence may be used only by operation-specific checks after an objective is selected.
 
@@ -193,18 +193,18 @@ Lists Objective records in the current checkout.
 
 Contract:
 
-- Read active Objective records only from `.asdl/objectives/` in the current working tree; archived records under `.asdl/objective-archive/` are excluded even when `--status all` is passed.
-- Report checkout-local status from the active record: direct `.asdl/objectives/<slug>/closed.md` means `closed`; an Objective record without direct `closed.md` means `open`.
-- Do not treat nested files such as `.asdl/objectives/<slug>/updates/closed.md` as closure markers.
+- Read active Objective records only from `.sdl/objectives/` in the current working tree; archived records under `.sdl/objective-archive/` are excluded even when `--status all` is passed.
+- Report checkout-local status from the active record: direct `.sdl/objectives/<slug>/closed.md` means `closed`; an Objective record without direct `closed.md` means `open`.
+- Do not treat nested files such as `.sdl/objectives/<slug>/updates/closed.md` as closure markers.
 - Default to active/open Objective records. Closed records are included only with `--status closed` or `--status all`.
 - Provide a `--status {all,active,open,closed}` filter. The default is `active`.
 - Provide a `--names` flag that emits Objective slugs only, one per line after the status filter is applied.
 - Include local non-trunk branch attribution by default for the listed checkout-local Objective records. `--names` remains slug-only.
 - Provide a `--minimal` flag that hides local branch attribution and shows the compact Objective/status/latest-update list.
-- Compute `latest_update_iso` from the newest committed update touching `.asdl/objectives/<slug>/` when available; otherwise report `null`.
-- Prefix the human and Markdown latest-update cell with `(x)` when the checkout has staged, unstaged, or untracked changes under `.asdl/objectives/<slug>/`. A dirty record with no committed update renders `(x) —`.
-- By default, report local branches whose net `.asdl/objectives` tree differs from trunk and whose `trunk..branch` Objective-path changes touch the listed slug. This is a local-branch update summary, not Graphite stack projection; it ignores branch-only Objective records absent from the current checkout and archived records outside `.asdl/objectives/`.
-- Branch attribution first prefilters all local non-trunk branches by `.asdl/objectives` tree changes, then limits expensive path walks to the newest 50 changed local branches. If that limit is hit, JSON sets `data.updated_branches_truncated` to true and human/Markdown output notes that older updated branches may be omitted.
+- Compute `latest_update_iso` from the newest committed update touching `.sdl/objectives/<slug>/` when available; otherwise report `null`.
+- Prefix the human and Markdown latest-update cell with `(x)` when the checkout has staged, unstaged, or untracked changes under `.sdl/objectives/<slug>/`. A dirty record with no committed update renders `(x) —`.
+- By default, report local branches whose net `.sdl/objectives` tree differs from trunk and whose `trunk..branch` Objective-path changes touch the listed slug. This is a local-branch update summary, not Graphite stack projection; it ignores branch-only Objective records absent from the current checkout and archived records outside `.sdl/objectives/`.
+- Branch attribution first prefilters all local non-trunk branches by `.sdl/objectives` tree changes, then limits expensive path walks to the newest 50 changed local branches. If that limit is hit, JSON sets `data.updated_branches_truncated` to true and human/Markdown output notes that older updated branches may be omitted.
 - Emit machine JSON as a Clinkr envelope whose `data` contains `trunk_branch`, `root_path`, `status_filter`, `names_only`, and `records`. Each record contains `slug`, `status`, and `latest_update_iso`; JSON remains raw and does not expose formatted latest-update text or dirty state. By default, `data.updated_branches_included` is true and each record contains an `updated_branches` array. With `--minimal` or `--names`, branch-attribution fields are omitted.
 - Do not parse Markdown prose, summarize Objective bodies, choose a canonical branch, or depend on Graphite.
 - The shipped command has no Graphite branch projection, third active status, current-branch mode, or detail view.
@@ -228,7 +228,7 @@ Creates a new objective.
 Contract:
 
 - Require an explicit slug or explicit user confirmation of an LM-proposed slug.
-- Create `.asdl/objectives/<slug>/` with `objective.md`, `roadmap.md`, and `updates/`.
+- Create `.sdl/objectives/<slug>/` with `objective.md`, `roadmap.md`, and `updates/`.
 - Write LM-authored initial content using the standardized required headings, including a concrete `## Assumptions and Risks` section.
 - Default to planning-only unless the user explicitly asks for execution-friendly/runner/autonomous behavior or the interview exposes execution policy as a real branch point.
 - For planning-only Objectives, omit `## Definition of Progress` and `## Runner Policy` unless the user explicitly asks for them.
@@ -356,8 +356,8 @@ Moves an Objective record between active and archived roots without editing Obje
 
 Contract:
 
-- `objective archive <slug>` moves `.asdl/objectives/<slug>/` to `.asdl/objective-archive/<slug>/`.
-- `objective archive <slug> --unarchive` moves `.asdl/objective-archive/<slug>/` back to `.asdl/objectives/<slug>/`.
+- `objective archive <slug>` moves `.sdl/objectives/<slug>/` to `.sdl/objective-archive/<slug>/`.
+- `objective archive <slug> --unarchive` moves `.sdl/objective-archive/<slug>/` back to `.sdl/objectives/<slug>/`.
 - Preserve the slug and all files, including `closed.md` when present.
 - Refuse invalid slugs, missing source directories, non-directory sources, and existing destinations.
 - Do not infer closure from archive state and do not infer archive state from closure.
@@ -386,7 +386,7 @@ Markdown-only v1 behavior:
 
 - Inspect current uncommitted changes and branch diff when available.
 - Look for material non-objective changes that plausibly advance the selected objective.
-- Look for corresponding changes under `.asdl/objectives/<slug>/`.
+- Look for corresponding changes under `.sdl/objectives/<slug>/`.
 - If material objective progress appears unrecorded, block next-work recommendation and ask whether to run `objective-update` for the same selected objective.
 - If the user confirms or preauthorized update-and-continue, perform the explicit update workflow, reread the objective and repo evidence, and then continue `objective-next`.
 - If confirmation is pending or declined, stop without a next-work recommendation.

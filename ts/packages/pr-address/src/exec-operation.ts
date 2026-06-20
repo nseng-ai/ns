@@ -1,13 +1,8 @@
 import type { z } from "zod";
 
-import {
-	failure,
-	type ClinkrCommandSpec,
-	type ClinkrGroup,
-	type ClinkrHandler,
-} from "@asdl/clinkr";
-import type { GithubPrFeedbackFailure } from "@asdl/core/github-pr-feedback";
-import { errorDetailText } from "@asdl/core/result";
+import { failure, type ClinkrCommandSpec, type ClinkrGroup, type ClinkrHandler } from "@sdl/clinkr";
+import type { GithubPrFeedbackFailure } from "@sdl/core/github-pr-feedback";
+import { errorDetailText } from "@sdl/core/result";
 
 import type { PrAddressContext } from "./context.ts";
 import type { GatewayFailure, GatewayOptions } from "./core/gateways.ts";

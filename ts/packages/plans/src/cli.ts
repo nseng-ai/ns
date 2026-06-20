@@ -4,14 +4,14 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import process from "node:process";
 
-import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
-import { legacyCommand, type LegacyPayload } from "@asdl/clinkr/legacy";
+import { ClinkrGroup, resolveIo } from "@sdl/clinkr";
+import { legacyCommand, type LegacyPayload } from "@sdl/clinkr/legacy";
 import { z } from "zod";
 
-import { isDirectCliInvocation } from "@asdl/core/cli-entry";
-import { NodeCommandExecApi, type CommandExecApi } from "@asdl/core/exec";
-import { readStdin } from "@asdl/core/stdin";
-import { RealGitGateway, type GitGateway } from "@asdl/core/git";
+import { isDirectCliInvocation } from "@sdl/core/cli-entry";
+import { NodeCommandExecApi, type CommandExecApi } from "@sdl/core/exec";
+import { readStdin } from "@sdl/core/stdin";
+import { RealGitGateway, type GitGateway } from "@sdl/core/git";
 import {
 	normalizePlanFilePath,
 	resolvePlanSourceFile,
@@ -82,7 +82,7 @@ export interface PlansCliContext {
 export function buildCli(): ClinkrGroup<PlansCliContext> {
 	const root = new ClinkrGroup<PlansCliContext>({
 		name: "enriched-plan",
-		description: "Enriched-plan operations. An enriched plan is any plan saved into asdl.",
+		description: "Enriched-plan operations. An enriched plan is any plan saved into sdl.",
 		version: VERSION,
 		runtimeInfo,
 	});
@@ -314,7 +314,7 @@ function stripOneTrailingNewline(value: string): string {
 }
 
 function runtimeInfo(): string {
-	return "runtime: typescript\nentry_point: @asdl/plans bin enriched-plan -> ts/packages/plans/src/cli.ts\n";
+	return "runtime: typescript\nentry_point: @sdl/plans bin enriched-plan -> ts/packages/plans/src/cli.ts\n";
 }
 
 if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {

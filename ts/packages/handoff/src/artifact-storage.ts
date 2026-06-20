@@ -4,8 +4,8 @@ import {
 	mustEntryLocator,
 	type BrmemGateway,
 	type BrmemResult,
-} from "@asdl/brmem";
-import type { GitGateway } from "@asdl/core/git";
+} from "@sdl/brmem";
+import type { GitGateway } from "@sdl/core/git";
 
 import {
 	HANDOFF_NAMESPACE,

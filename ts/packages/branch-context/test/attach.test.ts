@@ -2,10 +2,10 @@ import { afterEach, describe, expect, test } from "vitest";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import type { CommandExecApi } from "@asdl/core/exec";
-import { InMemoryGitGateway } from "@asdl/core/git/testing";
-import { createTempDirTracker } from "@asdl/core/testing";
-import { encodeBranchForPlanPath } from "@asdl/plans";
+import type { CommandExecApi } from "@sdl/core/exec";
+import { InMemoryGitGateway } from "@sdl/core/git/testing";
+import { createTempDirTracker } from "@sdl/core/testing";
+import { encodeBranchForPlanPath } from "@sdl/plans";
 
 import { attachBranchContextEntry } from "../src/attach.ts";
 import { BRANCH_CONTEXT_NAMESPACE, buildBranchContextPlanKey } from "../src/constants.ts";

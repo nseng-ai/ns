@@ -1,4 +1,4 @@
-import { registerAutoslotCommand, type AutoslotExtensionAPI } from "@asdl/ccc/autoslot";
+import { registerAutoslotCommand, type AutoslotExtensionAPI } from "@sdl/ccc/autoslot";
 
 import { definePiSurfaceParity } from "./parity.ts";
 
@@ -14,7 +14,7 @@ export const autoslotParity = definePiSurfaceParity([
 		trackedGap:
 			"cross-harness-parity roadmap: decide whether autoslot gets a portable skill or remains a Pi-only source-control convenience.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
+		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "autoslot",
 		notes:
 			"Pi command exposes the SDL code-lifecycle surface while delegating to CCC autoslot orchestration; no dedicated non-Pi skill currently owns the slot-moving variant.",

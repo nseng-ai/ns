@@ -1,7 +1,7 @@
-import { checkBrmemEntry } from "@asdl/core/brmem-cli";
-import { formatCommand, tailText, type ExecResult } from "@asdl/core/exec";
-import { formatErrorMessage } from "@asdl/core/primitives";
-import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE } from "@asdl/handoff/identity";
+import { checkBrmemEntry } from "@sdl/core/brmem-cli";
+import { formatCommand, tailText, type ExecResult } from "@sdl/core/exec";
+import { formatErrorMessage } from "@sdl/core/primitives";
+import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE } from "@sdl/handoff/identity";
 import { expandRepoSkillBlock, type ExpandedSkillBlock } from "../skill-expansion.ts";
 import type { BaseRuntimeContext, CommandContext, ExtensionAPI } from "./runtime-types.ts";
 

@@ -4,10 +4,10 @@ import process from "node:process";
 
 import { z } from "zod";
 
-import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
-import { rawCommand } from "@asdl/clinkr/raw";
-import { isDirectCliInvocation } from "@asdl/core/cli-entry";
-import { NodeCommandExecApi, type CommandExecApi } from "@asdl/core/exec";
+import { ClinkrGroup, resolveIo } from "@sdl/clinkr";
+import { rawCommand } from "@sdl/clinkr/raw";
+import { isDirectCliInvocation } from "@sdl/core/cli-entry";
+import { NodeCommandExecApi, type CommandExecApi } from "@sdl/core/exec";
 
 import {
 	commitAutobranchCheckpointMessage,
@@ -174,7 +174,7 @@ async function handleAutobranch(ctx: CccCliContext, request: AutobranchRequest):
 }
 
 function runtimeInfo(): string {
-	return "runtime: typescript\nentry_point: @asdl/ccc bin ccc -> ts/packages/ccc/src/cli.ts\n";
+	return "runtime: typescript\nentry_point: @sdl/ccc bin ccc -> ts/packages/ccc/src/cli.ts\n";
 }
 
 if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {

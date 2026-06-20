@@ -1,4 +1,4 @@
-import { AUTOBRANCH_SUMMARY, runCli } from "@asdl/ccc/cli";
+import { AUTOBRANCH_SUMMARY, runCli } from "@sdl/ccc/cli";
 
 import {
 	registerCliCommandExtension,
@@ -17,7 +17,7 @@ export const autobranchParity = definePiSurfaceParity([
 		cli: "ccc exec autobranch",
 		skill: "code-autobranch",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
+		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "autobranch",
 		notes:
 			"Pi command exposes the SDL code-lifecycle surface while delegating to the CCC CLI autobranch operation through registerCliCommandExtension.",

@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { encodeBranchForPlanPath } from "@asdl/plans";
+import { encodeBranchForPlanPath } from "@sdl/plans";
 import { BRANCH_CONTEXT_NAMESPACE } from "../../src/constants.ts";
 import {
 	PLAN_KEY,

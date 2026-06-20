@@ -1,6 +1,6 @@
 # Runner Subagent Helper
 
-This document describes the local runner-subagent helper tracked by the archived [Pi Core Subagent MVP Objective](../../.asdl/objective-archive/pi-core-subagent-mvp/objective.md). It is a repo-local extension/package-layer primitive, not a Pi core API.
+This document describes the local runner-subagent helper tracked by the archived [Pi Core Subagent MVP Objective](../../.sdl/objective-archive/pi-core-subagent-mvp/objective.md). It is a repo-local extension/package-layer primitive, not a Pi core API.
 
 ## Mental model
 
@@ -33,11 +33,11 @@ The helper keeps the full subagent transcript out of the parent LLM context. Par
 
 ## Runner agent definition
 
-The `dispatch_runner_subagent` tool is backed by `.asdl/pi/agents/runner.md`. The TypeScript extension owns execution, progress, cancellation, diagnostics, truncation, and result formatting; the Markdown definition owns runner-facing metadata and the child prompt wrapper.
+The `dispatch_runner_subagent` tool is backed by `.sdl/pi/agents/runner.md`. The TypeScript extension owns execution, progress, cancellation, diagnostics, truncation, and result formatting; the Markdown definition owns runner-facing metadata and the child prompt wrapper.
 
 Supported frontmatter fields for this slice:
 
-- `schema`: must be `asdl.pi-agent.v1`.
+- `schema`: must be `sdl.pi-agent.v1`.
 - `name`: must be `runner`.
 - `toolName`: must be `dispatch_runner_subagent`.
 - `label` and `description`: shown through `pi.registerTool`.
@@ -46,7 +46,7 @@ Supported frontmatter fields for this slice:
 
 The Markdown body is the child prompt wrapper. `{{prompt}}` is replaced with the delegated prompt exactly as provided after tool-input validation. `{{title}}` is replaced with the validated title. If the body does not include `{{prompt}}`, the extension appends a `## Delegated task` section containing the prompt.
 
-The definition is loaded when the extension registers, so edits to `.asdl/pi/agents/runner.md` require `/reload` or restarting Pi before the active tool metadata/prompt wrapper changes. Only `runner.md` is supported by this slice; additional agent variants remain future work.
+The definition is loaded when the extension registers, so edits to `.sdl/pi/agents/runner.md` require `/reload` or restarting Pi before the active tool metadata/prompt wrapper changes. Only `runner.md` is supported by this slice; additional agent variants remain future work.
 
 ## Terminal capture tools
 

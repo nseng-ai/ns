@@ -1,16 +1,16 @@
 ---
 title: Installation
-description: Install asdl tools one at a time, or use the umbrella command when a workflow needs it.
+description: Install sdl tools one at a time, or use the umbrella command when a workflow needs it.
 sidebar:
   order: 2
 ---
 
-asdl tools are independently adoptable CLIs. Install the tool you need; you do
+sdl tools are independently adoptable CLIs. Install the tool you need; you do
 not have to adopt the whole suite first.
 
 ## Standalone tools
 
-TypeScript tools are installed from an asdl checkout with source shims. These
+TypeScript tools are installed from an sdl checkout with source shims. These
 require Node 24 or newer and workspace dependencies installed with `just ts-install`
 or `pnpm --dir ts install` when needed:
 
@@ -30,7 +30,7 @@ Each tool provides its own console script, such as `aretro`, `slot`, `objective`
 Some environments also expose the plugin umbrella for plugin-backed tools:
 
 ```bash
-asdl brmem --help
+sdl brmem --help
 ```
 
 Use the standalone command in examples unless a page explicitly says the umbrella

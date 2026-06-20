@@ -4,8 +4,8 @@ import {
 	formatOutputSection,
 	isSuccessfulExecResult,
 	type ExecResult,
-} from "@asdl/core/exec";
-import { planLocalBranchRefreshFromWorktrees } from "@asdl/core/git";
+} from "@sdl/core/exec";
+import { planLocalBranchRefreshFromWorktrees } from "@sdl/core/git";
 
 import { definePiSurfaceParity } from "./parity.ts";
 
@@ -22,7 +22,7 @@ export const trunkPullParity = definePiSurfaceParity([
 		trackedGap:
 			"cross-harness-parity roadmap: decide whether non-Pi agents need a skill wrapper for the narrow trunk pull workflow or can run the displayed git command directly.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
+		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "trunk-pull",
 		notes:
 			"Pi command resolves gt trunk, then pulls the checked-out trunk worktree or fetches only that remote branch into the matching local branch so users can refresh main/master/trunk before restacking without full gt sync.",
@@ -31,7 +31,7 @@ export const trunkPullParity = definePiSurfaceParity([
 
 type NotifyLevel = "info" | "warning" | "error";
 
-export type { ExecResult } from "@asdl/core/exec";
+export type { ExecResult } from "@sdl/core/exec";
 
 export interface CommandContext {
 	cwd: string;

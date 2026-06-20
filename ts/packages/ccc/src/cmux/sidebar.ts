@@ -1,6 +1,6 @@
-import { objectiveChoiceMap } from "@asdl/pi-extension-runtime/objective-picker";
-import { DEFAULT_FAST_MODEL_REF, resolveModelRef } from "@asdl/plans";
-import { expandRepoSkillBlock } from "@asdl/pi-extension-runtime/skill-expansion";
+import { objectiveChoiceMap } from "@sdl/pi-extension-runtime/objective-picker";
+import { DEFAULT_FAST_MODEL_REF, resolveModelRef } from "@sdl/plans";
+import { expandRepoSkillBlock } from "@sdl/pi-extension-runtime/skill-expansion";
 import {
 	applyObjectiveSidebarFields,
 	formatObjectiveSidebarFields,
@@ -10,7 +10,7 @@ import {
 	validateObjectiveSidebarSlug,
 	slotSlugFromCwd,
 } from "./objective-sidebar.ts";
-import { formatErrorMessage } from "@asdl/core/primitives";
+import { formatErrorMessage } from "@sdl/core/primitives";
 import type {
 	AgentEndContext,
 	CommandContext,
@@ -25,7 +25,7 @@ const BRANCH_STATE_SIDEBAR_COMMAND_NAME = "ccc:sidebar:branch-state-summary";
 const OBJECTIVE_SIDEBAR_COMMAND_NAME = "ccc:sidebar:objective-summary";
 const SKILL_NAME = "ccc-sidebar";
 const PI_SIDEBAR_STATUS_KEY = "pi:ccc-sidebar";
-const SIDEBAR_MODEL_ENV = "ASDL_CCC_SIDEBAR_MODEL";
+const SIDEBAR_MODEL_ENV = "SDL_CCC_SIDEBAR_MODEL";
 
 interface RestoreState {
 	model?: ModelInfo;
@@ -85,7 +85,7 @@ export function registerCccSidebarCommands(
 	});
 
 	pi.registerCommand(OBJECTIVE_SIDEBAR_COMMAND_NAME, {
-		description: "Pick or format an asdl Objective into the caller cmux sidebar.",
+		description: "Pick or format an sdl Objective into the caller cmux sidebar.",
 		argumentHint: "[objective-slug-or-path]",
 		handler: async (args, ctx) => controller.handleObjectiveCommand(args, ctx),
 	});
@@ -224,7 +224,7 @@ async function resolveObjectiveSidebarSlug(
 	}
 
 	if (ctx.hasUI === false || ctx.ui.select === undefined) {
-		notify(ctx, "Pass an Objective slug or .asdl/objectives/<slug> path.", "warning");
+		notify(ctx, "Pass an Objective slug or .sdl/objectives/<slug> path.", "warning");
 		return undefined;
 	}
 

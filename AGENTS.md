@@ -1,4 +1,4 @@
-# ASDL — Agent Onboarding
+# SDL — Agent Onboarding
 
 ## Read This First
 
@@ -15,9 +15,9 @@ Placement policy: root `AGENTS.md` holds only rules that apply repo-wide AND are
 
 ## Orientation
 
-### What is ASDL?
+### What is SDL?
 
-ASDL is a composable toolkit for plan-oriented agentic engineering: tooling that helps humans and agents plan work, implement it in isolated environments, and carry context across sessions.
+SDL is a composable toolkit for plan-oriented agentic engineering: tooling that helps humans and agents plan work, implement it in isolated environments, and carry context across sessions.
 
 **The goal**: each feature should be usable on its own, without buying into the entire system. A team should be able to adopt just the plan workflow, etc., without pulling in unrelated machinery.
 
@@ -45,11 +45,11 @@ Unreleased, private software. We can break backwards compatibility freely.
 ### Project Structure
 
 ```
-asdl/
+sdl/
 ├── ts/packages/       # First-party TypeScript packages and CLIs
 ├── skills/            # Repo-owned agent skills
 ├── docs/              # Documentation
-├── .asdl/objectives/  # Durable Objective records
+├── .sdl/objectives/  # Durable Objective records
 └── justfile           # Repository orchestration over TS/docs checks
 ```
 
@@ -121,7 +121,7 @@ Skill-authoring and skill-management conventions live in `docs/skill-conventions
 
 TypeScript standalone CLI scenario tests live in the owning package test tree (for example, `ts/packages/roaster/test/scenario/`). Include `--version`, `--runtime`, and `-h` coverage alongside operation tests when those surfaces are part of the user-facing contract.
 
-The historical Python `asdl.plugins` smoke-test surface has been retired; do not add new Python plugin tests unless a new Python plugin system is deliberately reintroduced.
+The historical Python `sdl.plugins` smoke-test surface has been retired; do not add new Python plugin tests unless a new Python plugin system is deliberately reintroduced.
 
 ### Skill-Invoked CLI Commands (exec Subgroups)
 
@@ -134,10 +134,10 @@ CLI commands intended for skill/agent invocation rather than interactive humans 
 
 ### TypeScript Style
 
-When writing, reviewing, or refactoring TypeScript, strictly follow the `typescript-style` skill (`.agents/skills/typescript-style/SKILL.md`) and the repo-specific `asdl-typescript` overlay (`.agents/skills/asdl-typescript/SKILL.md`).
+When writing, reviewing, or refactoring TypeScript, strictly follow the `typescript-style` skill (`.agents/skills/typescript-style/SKILL.md`) and the repo-specific `sdl-typescript` overlay (`.agents/skills/sdl-typescript/SKILL.md`).
 
 - Load the skill before TypeScript work and read `.agents/skills/typescript-style/core-rules.md` before implementation.
-- Load `.agents/skills/asdl-typescript/SKILL.md` for asdl-tools' TypeScript toolchain, import, compiler-baseline, local-ban rules, and tsgo-only typecheck policy.
+- Load `.agents/skills/sdl-typescript/SKILL.md` for sdl-tools' TypeScript toolchain, import, compiler-baseline, local-ban rules, and tsgo-only typecheck policy.
 - Use `.agents/skills/typescript-style/idioms.md` for coding idioms and `.agents/skills/typescript-style/checklist.md` before declaring TypeScript work complete.
 - Load the relevant `.agents/skills/typescript-style/references/` document before designing TypeScript abstractions covered by the skill, including backend/provider boundaries, error handling, plugin/extension APIs, stateful workflow/context code, or TUI code.
 - Treat the skill as the default TypeScript authority while still honoring the skill's precedence rules for explicit project tooling, public API compatibility, and established local conventions.

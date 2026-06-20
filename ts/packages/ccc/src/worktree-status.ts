@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
-import { resolveBrmemCommandCandidates, runBrmemCandidate } from "@asdl/core/brmem-cli";
+import { resolveBrmemCommandCandidates, runBrmemCandidate } from "@sdl/core/brmem-cli";
 import {
 	execApiToCommandRunner,
 	formatCommand,
@@ -10,19 +10,19 @@ import {
 	tailText,
 	type ExecOptions,
 	type PiExecResultLike,
-} from "@asdl/core/exec";
-import { RealGitGateway, type GitGateway } from "@asdl/core/git";
-import { runGitHubCli } from "@asdl/core/github-cli";
+} from "@sdl/core/exec";
+import { RealGitGateway, type GitGateway } from "@sdl/core/git";
+import { runGitHubCli } from "@sdl/core/github-cli";
 import {
 	githubRepositoryIdentityFromRemoteUrl,
 	githubWorktreePrStatusArgs,
 	parseGithubWorktreePrStatusJson,
 	type GithubCheckTally,
 	type GithubReviewThreadCounts,
-} from "@asdl/core/github-status";
-import { formatErrorMessage } from "@asdl/core/primitives";
-import { formatCountdownMs } from "@asdl/core/time-format";
-import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
+} from "@sdl/core/github-status";
+import { formatErrorMessage } from "@sdl/core/primitives";
+import { formatCountdownMs } from "@sdl/core/time-format";
+import { parseMachineEnvelopeData } from "@sdl/pi-extension-runtime/machine-envelope";
 import {
 	customMessageText,
 	linkifyPrReferences,
@@ -30,7 +30,7 @@ import {
 	safeTerminalHyperlink,
 	truncateDisplayLine,
 	type CustomMessageContent,
-} from "@asdl/pi-extension-runtime/terminal-presentation";
+} from "@sdl/pi-extension-runtime/terminal-presentation";
 
 import {
 	loadGraphiteMetadataStatusInWorker,

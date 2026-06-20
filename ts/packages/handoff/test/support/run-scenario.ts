@@ -1,8 +1,8 @@
-import { FakeBrmemGateway, type BrmemGateway, type FakeBrmemGatewayOptions } from "@asdl/brmem";
-import type { ConfirmationResult } from "@asdl/clinkr";
-import { createOneShotStdinAdapter, createScenarioClinkrInteraction } from "@asdl/clinkr/testing";
-import type { GitGateway } from "@asdl/core/git";
-import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@asdl/core/git/testing";
+import { FakeBrmemGateway, type BrmemGateway, type FakeBrmemGatewayOptions } from "@sdl/brmem";
+import type { ConfirmationResult } from "@sdl/clinkr";
+import { createOneShotStdinAdapter, createScenarioClinkrInteraction } from "@sdl/clinkr/testing";
+import type { GitGateway } from "@sdl/core/git";
+import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@sdl/core/git/testing";
 
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import { type HandoffCliContext } from "../../src/context.ts";

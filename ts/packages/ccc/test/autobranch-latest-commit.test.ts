@@ -15,7 +15,7 @@ import {
 	runLatestCommitAutobranchTransaction,
 	type LatestCommitTransactionInput,
 } from "../src/autobranch/latest-commit-transaction.ts";
-import { buildSlugModelArgs } from "@asdl/plans";
+import { buildSlugModelArgs } from "@sdl/plans";
 
 interface PreparationHarnessOptions {
 	slug?: string;

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { stripTerminalEscapes } from "@asdl/core/exec";
-import { createManualTimerHarness } from "@asdl/core/testing";
+import { stripTerminalEscapes } from "@sdl/core/exec";
+import { createManualTimerHarness } from "@sdl/core/testing";
 import {
 	deferred,
 	fakeWorktreeStatusLoaders,

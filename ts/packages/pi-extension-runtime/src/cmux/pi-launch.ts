@@ -1,4 +1,4 @@
-import { formatShellArg } from "@asdl/core/exec";
+import { formatShellArg } from "@sdl/core/exec";
 import type { CommandContext, ExtensionAPI, ModelInfo, ThinkingLevel } from "./types.ts";
 
 export interface PiLaunchOptions {

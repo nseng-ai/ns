@@ -1,4 +1,4 @@
-import type { CommandExecApi } from "@asdl/core/exec";
+import type { CommandExecApi } from "@sdl/core/exec";
 import type { BranchContextBrmemGateway } from "./brmem-gateway.ts";
 import { selectAttachedPlanKey } from "./attached-plan.ts";
 import type { BranchContextContext } from "./context.ts";

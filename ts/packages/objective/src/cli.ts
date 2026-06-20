@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { ClinkrGroup } from "@asdl/clinkr";
-import { defineCli } from "@asdl/core/cli-entry";
+import { ClinkrGroup } from "@sdl/clinkr";
+import { defineCli } from "@sdl/core/cli-entry";
 
 import { createRealObjectiveContext, type ObjectiveCliContext } from "./context.ts";
 import {

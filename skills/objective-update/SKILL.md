@@ -19,7 +19,7 @@ If the user only asks about the skill or pastes it with no clear update intent, 
 
 ## Objective record invariants
 
-Active records live at `.asdl/objectives/<slug>/`. Archived records under `.asdl/objective-archive/<slug>/` are not active update candidates.
+Active records live at `.sdl/objectives/<slug>/`. Archived records under `.sdl/objective-archive/<slug>/` are not active update candidates.
 
 Required shape:
 
@@ -39,8 +39,8 @@ Mutation boundary:
 ## Select exactly one Objective
 
 1. Resolve ambiguous invocation intent first.
-2. Use an explicit user-provided slug/path under `.asdl/objectives/<slug>/` when present.
-3. If the selected path is under `.asdl/objective-archive/`, stop and ask whether to unarchive before updating Objective tracking.
+2. Use an explicit user-provided slug/path under `.sdl/objectives/<slug>/` when present.
+3. If the selected path is under `.sdl/objective-archive/`, stop and ask whether to unarchive before updating Objective tracking.
 4. Otherwise run `objective list --minimal --format md` immediately.
 5. If exactly one active Objective exists and update intent is explicit, ask before evidence or mutation: `Only one active Objective exists: <slug>. Run objective-update for this Objective?`
 6. If multiple active Objectives exist, present the command output and ask for one slug/path; do not ask a generic question before showing options.
@@ -96,7 +96,7 @@ Collect fail-soft repo evidence:
 
 Do not require PR evidence when local committed branch evidence is sufficient. For stacked Graphite branches, prefer the Graphite parent as base so lower-stack changes are excluded. If base discovery fails, inspect recent commits and uncommitted status; ask only if evidence remains insufficient.
 
-Use working-tree and branch `name-status` evidence as a path-integrity check. Stop before editing if the update would add, delete, move, or recreate a sibling `.asdl/objectives/<other-slug>/` directory, or existing local changes already do so without an explicit slug-migration request.
+Use working-tree and branch `name-status` evidence as a path-integrity check. Stop before editing if the update would add, delete, move, or recreate a sibling `.sdl/objectives/<other-slug>/` directory, or existing local changes already do so without an explicit slug-migration request.
 
 Update only when selected Objective content clearly matches the request and evidence. If evidence is ambiguous, unrelated, or maps to multiple roadmap rows, ask instead of writing. In durable Objective files, avoid temporal absence statements unless material; prefer stable evidence wording such as local branch diff, PR corroboration, or PR evidence not required.
 
@@ -152,7 +152,7 @@ For archived paths, ask whether to unarchive before updating Objective tracking.
 
 ## Verify
 
-- Changed Objective files all live under exactly one `.asdl/objectives/<slug>/` directory, with no added, deleted, moved, or recreated sibling Objective slug directories.
+- Changed Objective files all live under exactly one `.sdl/objectives/<slug>/` directory, with no added, deleted, moved, or recreated sibling Objective slug directories.
 - New update file, if any, has a timestamped, human-readable filename under that Objective's `updates/` directory.
 - No existing file under the selected Objective's `updates/` directory was edited, deleted, moved, normalized, or recreated.
 - Required headings remain present in edited durable files, including `## Assumptions and Risks`.

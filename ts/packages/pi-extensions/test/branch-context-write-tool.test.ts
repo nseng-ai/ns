@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { DEFAULT_FAST_MODEL } from "@asdl/plans";
+import { DEFAULT_FAST_MODEL } from "@sdl/plans";
 import registerBranchContextExtension from "../src/branch-context-extension.ts";
 
 import {
@@ -28,7 +28,7 @@ describe("write_saved_plan_file tool", () => {
 		};
 
 		expect(tool.description).toContain(
-			"~/.asdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md",
+			"~/.sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md",
 		);
 		expect(tool.description).toContain("refuses to overwrite");
 		expect(tool.description).toContain("does not create branches or write Branch Memory");

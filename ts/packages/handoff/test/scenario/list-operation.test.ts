@@ -1,4 +1,4 @@
-import { FakeBrmemGateway } from "@asdl/brmem";
+import { FakeBrmemGateway } from "@sdl/brmem";
 import { describe, expect, test } from "vitest";
 
 import { parseJsonOutput, putHandoffEntry, runScenario } from "../support/run-scenario.ts";

@@ -1,4 +1,4 @@
-import type { GitErrorInfo, GitGateway, GitLocalBranchTip } from "@asdl/core/git";
+import type { GitErrorInfo, GitGateway, GitLocalBranchTip } from "@sdl/core/git";
 
 import { activeRootRelativePath, objectiveSlugFromActivePath } from "../storage.ts";
 

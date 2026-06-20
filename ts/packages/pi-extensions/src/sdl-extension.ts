@@ -1,4 +1,4 @@
-import { listSdlCommands, runCli, type SdlCommandInfo } from "@asdl/sdl/cli";
+import { listSdlCommands, runCli, type SdlCommandInfo } from "@sdl/sdl/cli";
 
 import autobranchExtension from "./autobranch.ts";
 import autoslotExtension from "./autoslot.ts";
@@ -36,7 +36,7 @@ export const sdlExtensionParity = definePiSurfaceParity([
 		parity: "FULL",
 		cli: "sdl changes",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
+		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "sdl-extension",
 		notes:
 			"Pi command delegates to the built-in SDL changes command through registerCliCommandExtension.",
@@ -49,7 +49,7 @@ export const sdlExtensionParity = definePiSurfaceParity([
 		cli: "sdl cp",
 		skill: "code-checkpoint",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
+		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "sdl-extension",
 		notes:
 			"Pi command is registered through registerCliCommandExtension and delegates to the shared SDL cp command-entry runner.",
@@ -62,7 +62,7 @@ export const sdlExtensionParity = definePiSurfaceParity([
 		cli: "sdl submit",
 		skill: "sdl-submit",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
+		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "sdl-extension",
 		notes:
 			"Pi command delegates to the built-in SDL submit command through registerCliCommandExtension.",
@@ -74,7 +74,7 @@ export const sdlExtensionParity = definePiSurfaceParity([
 		parity: "FULL",
 		cli: "sdl changes",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
+		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "sdl-extension",
 		notes: "Nested code-lifecycle Pi alias over sdl changes; flat /sdl:changes remains primary.",
 	},
@@ -86,7 +86,7 @@ export const sdlExtensionParity = definePiSurfaceParity([
 		cli: "sdl cp",
 		skill: "code-checkpoint",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
+		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "sdl-extension",
 		notes:
 			"Nested code-lifecycle Pi alias over sdl cp; flat /sdl:cp remains primary and no sdl checkpoint CLI command is created.",
@@ -99,7 +99,7 @@ export const sdlExtensionParity = definePiSurfaceParity([
 		cli: "sdl submit",
 		skill: "sdl-submit",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
+		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "sdl-extension",
 		notes: "Nested code-lifecycle Pi alias over sdl submit; flat /sdl:submit remains primary.",
 	},
@@ -111,7 +111,7 @@ export const sdlExtensionParity = definePiSurfaceParity([
 		cli: "sdl regenerate-pr",
 		skill: "sdl-submit",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
+		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "sdl-extension",
 		notes:
 			"Nested code-lifecycle Pi alias over sdl regenerate-pr; no flat /sdl:regenerate-pr mirror is registered.",

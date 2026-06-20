@@ -23,10 +23,10 @@ import {
 	runCommand,
 	stripTerminalEscapes,
 	type CommandRunner,
-} from "@asdl/core/exec";
-import { RealGitGateway, type GitGateway } from "@asdl/core/git";
-import { formatErrorMessage } from "@asdl/core/primitives";
-import { resultErr, resultOk } from "@asdl/core/result";
+} from "@sdl/core/exec";
+import { RealGitGateway, type GitGateway } from "@sdl/core/git";
+import { formatErrorMessage } from "@sdl/core/primitives";
+import { resultErr, resultOk } from "@sdl/core/result";
 
 import type {
 	AregCheckPairingDirectory,
@@ -67,7 +67,7 @@ const PI_GENERIC_REPLACEMENT_PACKAGE_MODULE_RELATIVE_PATH =
 	"ts/packages/pi-extensions/src/backing-skill-commands.ts";
 // Keep this mirror covering pi-extensions replacement command surfaces, including
 // backing skill commands and direct extension aliases used as skill replacements.
-// AREG intentionally does not import @asdl/pi-extensions: pi-extensions is a leaf
+// AREG intentionally does not import @sdl/pi-extensions: pi-extensions is a leaf
 // package for project-local Pi adapters, so shared packages must not depend on it.
 const AREG_VISIBLE_REPLACEMENT_SURFACES = [
 	"branch-context:from-plan",
@@ -305,7 +305,7 @@ export class RealAregProjectGateway implements AregProjectGateway {
 			projectDir,
 			projectPathState: await inspectPath(projectDir),
 			lockfile: await inspectTextFile(path.join(projectDir, "skills-lock.json")),
-			asdlToml: await inspectTextFile(path.join(projectDir, "asdl.toml")),
+			sdlToml: await inspectTextFile(path.join(projectDir, "sdl.toml")),
 			aregJson: await inspectTextFile(path.join(projectDir, "areg.json")),
 		};
 	}
@@ -1120,7 +1120,7 @@ function resolveAllowedProjectTarget(
 }
 
 function isAllowedInitRelativePath(relativePath: string): boolean {
-	return ["asdl.toml", "AGENTS.md", "CLAUDE.md", ".claude/settings.local.json"].includes(
+	return ["sdl.toml", "AGENTS.md", "CLAUDE.md", ".claude/settings.local.json"].includes(
 		relativePath,
 	);
 }

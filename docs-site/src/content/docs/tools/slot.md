@@ -46,7 +46,7 @@ slot metadata.
 
 ## Install
 
-Install the standalone console script from an asdl checkout:
+Install the standalone console script from an sdl checkout:
 
 ```bash
 just install-slot

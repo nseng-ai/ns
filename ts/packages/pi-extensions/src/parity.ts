@@ -1,5 +1,5 @@
 /**
- * Typed parity accounting for Pi surfaces implemented by @asdl/pi-extensions.
+ * Typed parity accounting for Pi surfaces implemented by @sdl/pi-extensions.
  *
  * The cross-harness parity Objective tracks whether Pi command workflows have
  * an agent-neutral route: a CLI plus skill, a known gap, or a deliberate waiver
@@ -19,8 +19,8 @@
  * names: use `sdl:submit`, not `/sdl:submit`. The unique machine key is
  * `kind:surface`.
  *
- * Scope is intentionally narrow for v1: package modules in @asdl/pi-extensions.
- * Ad hoc checked-in `.pi/extensions/*.ts` adapters and direct @asdl/ccc command
+ * Scope is intentionally narrow for v1: package modules in @sdl/pi-extensions.
+ * Ad hoc checked-in `.pi/extensions/*.ts` adapters and direct @sdl/ccc command
  * surfaces are not enforced here unless they are exposed through this package.
  */
 export const PI_SURFACE_KINDS = ["command"] as const;
@@ -47,8 +47,8 @@ export interface BasePiSurfaceParity {
 	readonly workflow: string;
 	/** The Objective that owns semantic review of this parity verdict. */
 	readonly ownerObjective: "cross-harness-parity";
-	/** Guardrail that keeps this v1 registry scoped to @asdl/pi-extensions. */
-	readonly sourcePackage: "@asdl/pi-extensions";
+	/** Guardrail that keeps this v1 registry scoped to @sdl/pi-extensions. */
+	readonly sourcePackage: "@sdl/pi-extensions";
 	/** Co-located source module that owns the registration and this record. */
 	readonly sourceModule: string;
 	/** Short rationale/provenance for reviewers; not used for machine equality. */

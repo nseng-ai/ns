@@ -6,8 +6,8 @@ import {
 	buildSlugModelArgs,
 	deriveSavedPlanContentSlug,
 } from "../src/index.ts";
-import type { ExecResult } from "@asdl/core/exec";
-import type { CommandExecApi, ExecOptions } from "@asdl/core/exec";
+import type { ExecResult } from "@sdl/core/exec";
+import type { CommandExecApi, ExecOptions } from "@sdl/core/exec";
 
 const CWD = "/repo";
 const SAVED_PLAN_CONTENT =

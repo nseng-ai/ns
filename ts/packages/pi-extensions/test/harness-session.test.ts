@@ -99,7 +99,7 @@ describe("harness session extension", () => {
 			entries: [
 				{
 					type: "custom",
-					customType: "asdl-harness-session-id",
+					customType: "sdl-harness-session-id",
 					data: { harnessSessionId: "restored-id" },
 				},
 			],
@@ -120,7 +120,7 @@ describe("harness session extension", () => {
 		expect(pi.entries).toEqual([
 			{
 				type: "custom",
-				customType: "asdl-harness-session-id",
+				customType: "sdl-harness-session-id",
 				data: { harnessSessionId: "pi-ephemeral-1234-abc123" },
 			},
 		]);

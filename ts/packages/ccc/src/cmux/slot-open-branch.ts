@@ -1,4 +1,4 @@
-import { findLatestBranchContextEvidence, type BranchContextEvidence } from "@asdl/branch-context";
+import { findLatestBranchContextEvidence, type BranchContextEvidence } from "@sdl/branch-context";
 
 import { openBranchInCmuxSlot } from "./slot.ts";
 import type {

@@ -7,9 +7,9 @@ import {
 	resolveClinkrInteraction,
 	resolveIo,
 	type ClinkrInteraction,
-} from "@asdl/clinkr";
-import { isDirectCliInvocation } from "@asdl/core/cli-entry";
-import { readStdinLine } from "@asdl/core/stdin";
+} from "@sdl/clinkr";
+import { isDirectCliInvocation } from "@sdl/core/cli-entry";
+import { readStdinLine } from "@sdl/core/stdin";
 
 import { createRealHandoffContext, type HandoffCliContext } from "./context.ts";
 import {
@@ -112,7 +112,7 @@ function createContextFromDeps(deps: CliRealDeps): HandoffCliContext {
 }
 
 function runtimeInfo(): string {
-	return "runtime: typescript\nentry_point: @asdl/handoff bin handoff -> ts/packages/handoff/src/cli.ts\n";
+	return "runtime: typescript\nentry_point: @sdl/handoff bin handoff -> ts/packages/handoff/src/cli.ts\n";
 }
 
 if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {

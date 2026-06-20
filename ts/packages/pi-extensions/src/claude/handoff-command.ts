@@ -5,7 +5,7 @@ import {
 	runHandoffCreateCommand,
 	type HandoffLaunchPromptCopy,
 } from "../handoff/launch-flow.ts";
-import { HANDOFF_NAMESPACE, handoffSlugToKey } from "@asdl/handoff/identity";
+import { HANDOFF_NAMESPACE, handoffSlugToKey } from "@sdl/handoff/identity";
 import { formatPickupHandoffCommand } from "../handoff/identity.ts";
 import type { HandoffStartMessages } from "../handoff/shared.ts";
 import type {
@@ -37,7 +37,7 @@ export const claudeHandoffParity = definePiSurfaceParity([
 		fallback:
 			"Create a handoff with handoff-create, then manually launch Claude Code or another harness and pick up the saved handoff.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
+		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "claude/handoff-command",
 		notes:
 			"The handoff artifact is portable; handing the terminal to Claude Code is a Pi-native interactive session primitive.",

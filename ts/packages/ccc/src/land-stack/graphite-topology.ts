@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { formatCommand } from "@asdl/core/exec";
+import { formatCommand } from "@sdl/core/exec";
 import {
 	GRAPHITE_BRANCH_METADATA_QUERY,
 	GRAPHITE_METADATA_DB_NAME,
@@ -10,7 +10,7 @@ import {
 	walkGraphiteSubtree,
 	type GraphiteTopology,
 	type GraphiteForkViolation,
-} from "@asdl/core/graphite-metadata";
+} from "@sdl/core/graphite-metadata";
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import { GIT_TIMEOUT_MS, SQLITE_TIMEOUT_MS } from "./constants.ts";
 import {
@@ -22,7 +22,7 @@ import {
 } from "./errors.ts";
 import type { LandStackExtensionAPI } from "./types.ts";
 
-export type { GraphiteTopology } from "@asdl/core/graphite-metadata";
+export type { GraphiteTopology } from "@sdl/core/graphite-metadata";
 
 export type ForkViolation = GraphiteForkViolation;
 

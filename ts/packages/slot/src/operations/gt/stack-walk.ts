@@ -2,7 +2,7 @@ import {
 	walkGraphiteAncestors,
 	type GraphiteTopology,
 	type GraphiteWalkTermination,
-} from "@asdl/core/graphite-metadata";
+} from "@sdl/core/graphite-metadata";
 
 import { deduplicateOrderedStrings } from "../../collections.ts";
 import type { StackInfo } from "../../gateways/gt.ts";

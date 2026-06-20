@@ -1,5 +1,5 @@
-import type { GitCurrentBranchResult, GitErrorInfo } from "@asdl/core/git";
-import type { ErrorInfo } from "@asdl/core/submit";
+import type { GitCurrentBranchResult, GitErrorInfo } from "@sdl/core/git";
+import type { ErrorInfo } from "@sdl/core/submit";
 
 export type GatewayFailure = (ErrorInfo | GitErrorInfo) & {
 	stderr?: string | undefined;

@@ -79,7 +79,7 @@ Environment:
 	"regenerate-pr": {
 		command: defaultRegeneratePrCommand,
 		summary:
-			"Regenerate the current branch PR's title and description with the asdl PR-description prompt.",
+			"Regenerate the current branch PR's title and description with the sdl PR-description prompt.",
 		description: defaultRegeneratePrCommand.description,
 	},
 	submit: {
@@ -237,7 +237,7 @@ function formatSdlCommandEntryIssue(issue: z.core.$ZodIssue): string {
 		return "command description must be a string";
 	}
 	if (field === "schema") {
-		return "command schema must be a Zod object schema from @asdl/sdl/sdk";
+		return "command schema must be a Zod object schema from @sdl/sdl/sdk";
 	}
 	if (field === "run") {
 		return "command run must be a function";

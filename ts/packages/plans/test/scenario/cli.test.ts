@@ -3,10 +3,10 @@ import { mkdir, readFile, realpath, utimes, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, relative } from "node:path";
 
-import { type CommandExecApi, type ExecOptions } from "@asdl/core/exec";
-import type { GitGateway } from "@asdl/core/git";
-import { InMemoryGitGateway } from "@asdl/core/git/testing";
-import { createTempDirTracker } from "@asdl/core/testing";
+import { type CommandExecApi, type ExecOptions } from "@sdl/core/exec";
+import type { GitGateway } from "@sdl/core/git";
+import { InMemoryGitGateway } from "@sdl/core/git/testing";
+import { createTempDirTracker } from "@sdl/core/testing";
 
 import { buildRepoPlanStoreKey, encodeBranchForPlanPath, runCli } from "../../src/index.ts";
 
@@ -17,7 +17,7 @@ const MODIFIED_TIME_MS = 1_700_000_000_000;
 const TOP_LEVEL_HELP = [
 	"Usage: enriched-plan [options] [command]",
 	"",
-	"Enriched-plan operations. An enriched plan is any plan saved into asdl.",
+	"Enriched-plan operations. An enriched plan is any plan saved into sdl.",
 	"",
 	"Options:",
 	"  -V, --version   Show the package version.",

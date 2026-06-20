@@ -1,13 +1,13 @@
 import { expect, test } from "vitest";
 
-import { ClinkrGroup } from "@asdl/clinkr";
+import { ClinkrGroup } from "@sdl/clinkr";
 import {
 	createCaptureIo,
 	createFakeClinkrInteraction,
 	createOneShotStdinAdapter,
 	createScenarioClinkrInteraction,
 	type CapturedRun,
-} from "@asdl/clinkr/testing";
+} from "@sdl/clinkr/testing";
 
 test("subpath exports resolve through the package name", async () => {
 	const capture = createCaptureIo();

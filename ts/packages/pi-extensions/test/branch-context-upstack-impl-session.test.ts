@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { BRANCH_CONTEXT_NAMESPACE, formatImplBranchContextCommand } from "@asdl/branch-context";
-import { NoSavedPlanAvailableError } from "@asdl/plans";
+import { BRANCH_CONTEXT_NAMESPACE, formatImplBranchContextCommand } from "@sdl/branch-context";
+import { NoSavedPlanAvailableError } from "@sdl/plans";
 import registerBranchContextExtension from "../src/branch-context-extension.ts";
 
 import {

@@ -76,10 +76,10 @@ describe("objective check", () => {
 			data: {
 				status: "ok",
 				error: null,
-				rootPath: ".asdl/objectives",
+				rootPath: ".sdl/objectives",
 				hasRoot: true,
 				slug: "alpha",
-				path: ".asdl/objectives/alpha",
+				path: ".sdl/objectives/alpha",
 				hasRecord: true,
 				isClosed: false,
 				files: {
@@ -88,7 +88,7 @@ describe("objective check", () => {
 					updatesDir: true,
 					closedMd: false,
 				},
-				updates: [{ name: "progress.md", path: ".asdl/objectives/alpha/updates/progress.md" }],
+				updates: [{ name: "progress.md", path: ".sdl/objectives/alpha/updates/progress.md" }],
 				updateCount: 1,
 				errorCount: 0,
 				warningCount: 0,
@@ -100,8 +100,8 @@ describe("objective check", () => {
 	test("fails when required files and headings are missing", async () => {
 		const run = runScenario(["check", "partial", "--format", "json"], {
 			fake: {
-				directories: [".asdl/objectives/partial"],
-				files: { ".asdl/objectives/partial/objective.md": "# Partial\n" },
+				directories: [".sdl/objectives/partial"],
+				files: { ".sdl/objectives/partial/objective.md": "# Partial\n" },
 			},
 		});
 

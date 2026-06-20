@@ -1,5 +1,5 @@
 {
-  "name": "asdl-ts-workspace",
+  "name": "sdl-ts-workspace",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.8.0",
@@ -19,12 +19,12 @@
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "devDependencies": {
-    "@asdl/branch-context": "workspace:*",
-    "@asdl/roaster": "workspace:*",
-    "@asdl/ccc": "workspace:*",
-    "@asdl/plans": "workspace:*",
-    "@asdl/sdl": "workspace:*",
-    "@asdl/slot": "workspace:*",
+    "@sdl/branch-context": "workspace:*",
+    "@sdl/roaster": "workspace:*",
+    "@sdl/ccc": "workspace:*",
+    "@sdl/plans": "workspace:*",
+    "@sdl/sdl": "workspace:*",
+    "@sdl/slot": "workspace:*",
     "@types/node": "catalog:",
     "sdlcc": "workspace:*",
     "typescript": "catalog:",

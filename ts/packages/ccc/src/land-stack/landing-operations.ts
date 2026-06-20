@@ -1,4 +1,4 @@
-import { formatCommand, type ExecResult } from "@asdl/core/exec";
+import { formatCommand, type ExecResult } from "@sdl/core/exec";
 import {
 	exec,
 	execRaw,

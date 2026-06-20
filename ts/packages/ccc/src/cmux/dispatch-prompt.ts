@@ -7,9 +7,9 @@ import {
 	putBrmemEntryFromFile,
 	type BrmemCommandErrorInfo,
 	type BrmemPutData,
-} from "@asdl/core/brmem-cli";
-import { formatCommand, formatShellArg } from "@asdl/core/exec";
-import { formatErrorMessage } from "@asdl/core/primitives";
+} from "@sdl/core/brmem-cli";
+import { formatCommand, formatShellArg } from "@sdl/core/exec";
+import { formatErrorMessage } from "@sdl/core/primitives";
 import {
 	generateBranchSlug,
 	MAX_BRANCH_SLUG_LENGTH,

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { createManualClock } from "@asdl/core/testing";
+import { createManualClock } from "@sdl/core/testing";
 
 import { createRunnerSubagentJsonEventParser } from "../src/runner-subagent/json-events.ts";
 

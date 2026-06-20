@@ -1,4 +1,4 @@
-import type { ErrorInfo, Result } from "@asdl/core/result";
+import type { ErrorInfo, Result } from "@sdl/core/result";
 
 export const AREG_HOST_TOOL_NAMES = ["gh", "npx"] as const;
 export type AregHostToolName = (typeof AREG_HOST_TOOL_NAMES)[number];
@@ -150,7 +150,7 @@ export interface AregProjectBaseInspection {
 	projectDir: string;
 	projectPathState: AregPathState;
 	lockfile: AregTextFileState;
-	asdlToml: AregTextFileState;
+	sdlToml: AregTextFileState;
 	aregJson: AregTextFileState;
 }
 
@@ -252,7 +252,7 @@ export interface AregProjectGateway {
 }
 
 export interface AregInitTextWritePlan {
-	relativePath: "asdl.toml" | "AGENTS.md" | "CLAUDE.md" | ".claude/settings.local.json";
+	relativePath: "sdl.toml" | "AGENTS.md" | "CLAUDE.md" | ".claude/settings.local.json";
 	content: string;
 	description: string;
 	createParent: boolean;

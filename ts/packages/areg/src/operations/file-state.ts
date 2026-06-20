@@ -1,4 +1,4 @@
-import { resultErr, type Result } from "@asdl/core/result";
+import { resultErr, type Result } from "@sdl/core/result";
 
 import type { AregPathState, AregTextFileState } from "../gateways.ts";
 

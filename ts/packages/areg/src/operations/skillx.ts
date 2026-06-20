@@ -1,4 +1,4 @@
-import { failure, negative, ok, type ClinkrExit, ClinkrGroup } from "@asdl/clinkr";
+import { failure, negative, ok, type ClinkrExit, ClinkrGroup } from "@sdl/clinkr";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";

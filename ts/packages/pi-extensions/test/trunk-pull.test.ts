@@ -85,7 +85,7 @@ function worktreesPorcelain(): string {
 		"HEAD abc123",
 		"branch refs/heads/feature",
 		"",
-		"worktree /Users/schrockn/code/asdl-tools",
+		"worktree /Users/schrockn/code/sdl-tools",
 		"HEAD def456",
 		"branch refs/heads/master",
 		"",
@@ -147,14 +147,14 @@ describe("sdl:code:pull-trunk", () => {
 		expect(pi.execCalls.map((call) => [call.command, call.args, call.options?.cwd])).toEqual([
 			["gt", ["trunk", "--no-interactive"], "/repo"],
 			["git", ["worktree", "list", "--porcelain"], "/repo"],
-			["git", ["pull", "--ff-only", "origin", "master"], "/Users/schrockn/code/asdl-tools"],
+			["git", ["pull", "--ff-only", "origin", "master"], "/Users/schrockn/code/sdl-tools"],
 		]);
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "sync")).toBe(
 			false,
 		);
 		expect(ctx.notifications[0]).toMatchObject({ level: "info" });
 		expect(ctx.notifications[0]?.message).toContain("Command: git pull --ff-only origin master");
-		expect(ctx.notifications[0]?.message).toContain("Cwd: /Users/schrockn/code/asdl-tools");
+		expect(ctx.notifications[0]?.message).toContain("Cwd: /Users/schrockn/code/sdl-tools");
 	});
 
 	test("rejects arguments before waiting or running commands", async () => {

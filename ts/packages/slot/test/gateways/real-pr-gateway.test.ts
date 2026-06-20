@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { ScriptedCommandExecApi } from "@asdl/core/testing";
+import { ScriptedCommandExecApi } from "@sdl/core/testing";
 import type { SlotCommandDiagnosticEvent, SlotDiagnosticSink } from "../../src/diagnostics.ts";
 import { RealSlotPrGateway } from "../../src/gateways/pr.ts";
 
 describe("RealSlotPrGateway", () => {
 	it("looks up multiple branch PRs with one GraphQL batch request", async () => {
 		const execApi = new ScriptedCommandExecApi([
-			{ stdout: JSON.stringify({ nameWithOwner: "dagster-io/asdl-tools" }) },
+			{ stdout: JSON.stringify({ nameWithOwner: "dagster-io/sdl-tools" }) },
 			{
 				stdout: JSON.stringify({
 					data: {
@@ -54,14 +54,14 @@ describe("RealSlotPrGateway", () => {
 			["repo", "view", "--json"],
 			["api", "graphql", "-F"],
 		]);
-		expect(calls[1]?.args[3]).toContain('repository(owner: "dagster-io", name: "asdl-tools")');
+		expect(calls[1]?.args[3]).toContain('repository(owner: "dagster-io", name: "sdl-tools")');
 		expect(calls[1]?.args[3]).toContain('b0: pullRequests(headRefName: "feature/done"');
 		expect(calls[1]?.args[3]).toContain('b1: pullRequests(headRefName: "feature/no-pr"');
 	});
 
 	it("emits labeled gh diagnostics for batch lookup", async () => {
 		const execApi = new ScriptedCommandExecApi([
-			{ stdout: JSON.stringify({ nameWithOwner: "dagster-io/asdl-tools" }) },
+			{ stdout: JSON.stringify({ nameWithOwner: "dagster-io/sdl-tools" }) },
 			{ stdout: JSON.stringify({ data: { repository: { b0: { nodes: [] } } } }) },
 		]);
 		const diagnosticSink = new InMemoryDiagnosticSink();
@@ -100,7 +100,7 @@ describe("RealSlotPrGateway", () => {
 
 	it("returns a batch failure for GraphQL errors", async () => {
 		const execApi = new ScriptedCommandExecApi([
-			{ stdout: JSON.stringify({ nameWithOwner: "dagster-io/asdl-tools" }) },
+			{ stdout: JSON.stringify({ nameWithOwner: "dagster-io/sdl-tools" }) },
 			{ stdout: JSON.stringify({ errors: [{ message: "bad query" }] }) },
 		]);
 		const gateway = new RealSlotPrGateway({ cwd: "/repo", env: { PATH: "/fake/bin" }, execApi });

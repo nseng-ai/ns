@@ -4,4 +4,4 @@ export {
 	normalizeBranchSlugText,
 	sanitizeBranchName,
 	trimBranchSlugToLength,
-} from "@asdl/pi-extension-runtime/branch-slug";
+} from "@sdl/pi-extension-runtime/branch-slug";

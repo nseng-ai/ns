@@ -1,4 +1,4 @@
-import { InMemoryGitGateway } from "@asdl/core/git/testing";
+import { InMemoryGitGateway } from "@sdl/core/git/testing";
 import { describe, expect, test } from "vitest";
 
 import type { ObjectiveCliContext } from "../../src/context.ts";
@@ -13,7 +13,7 @@ describe("objective list-candidates operation", () => {
 	test("selects active open checkout records without archive records or git facts", async () => {
 		const ctx = contextWithFakeStorage({
 			records: [{ slug: "alpha" }, { slug: "bravo", isClosed: true }, { slug: "charlie" }],
-			directories: [".asdl/objective-archive/archived"],
+			directories: [".sdl/objective-archive/archived"],
 		});
 
 		const exit = await runListCandidates(ctx, {});

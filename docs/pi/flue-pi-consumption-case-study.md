@@ -1,36 +1,36 @@
 # External Case Study — How `flue` Consumes the Pi Core Libraries
 
-> **Status: external reference, not asdl architecture.** This document studies a
+> **Status: external reference, not sdl architecture.** This document studies a
 > *different* project — [`withastro/flue`](https://github.com/withastro/flue) —
-> and how it builds on the same `@earendil-works/` ("pi") libraries that asdl
+> and how it builds on the same `@earendil-works/` ("pi") libraries that sdl
 > depends on. It is kept here as a contrasting consumption pattern, not as a
-> description of anything asdl ships. The body below (§1–§11 + file index) is the
-> original flue usage report, preserved verbatim; the **asdl contrast** callouts
+> description of anything sdl ships. The body below (§1–§11 + file index) is the
+> original flue usage report, preserved verbatim; the **sdl contrast** callouts
 > are the only additions.
 
-## Why this is in asdl's docs
+## Why this is in sdl's docs
 
-asdl and flue both sit on top of pi, but they consume *different surfaces of it
+sdl and flue both sit on top of pi, but they consume *different surfaces of it
 in opposite directions*:
 
-|                                     | **flue** (this case study)                                                                                                                   | **asdl** (this repo)                                                                                                                                   |
+|                                     | **flue** (this case study)                                                                                                                   | **sdl** (this repo)                                                                                                                                    |
 | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Relationship to pi                  | **Embeds pi as a runtime engine**                                                                                                            | **Extends pi as a host**                                                                                                                               |
 | Primary packages                    | `@earendil-works/pi-agent-core`, `@earendil-works/pi-ai`                                                                                     | `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, `@earendil-works/pi-ai`                                                                   |
 | Integration shape                   | Constructs and drives a pi `Agent`; owns the streaming/event seams around it                                                                 | Drops extension modules into the pi terminal binary's discovery dirs (`.pi/extensions/`); registers tools/commands/renderers against the extension API |
 | Pinned version (at time of writing) | `0.79.4`                                                                                                                                     | `0.79.1`                                                                                                                                               |
-| Where to read asdl's own model      | This `docs/pi/` collection + [`docs/pi-extension-system-report.md`](../pi-extension-system-report.md) (what pi's extension host actually is) | —                                                                                                                                                      |
+| Where to read sdl's own model       | This `docs/pi/` collection + [`docs/pi-extension-system-report.md`](../pi-extension-system-report.md) (what pi's extension host actually is) | —                                                                                                                                                      |
 
-The short version: **flue treats pi as a library it calls; asdl treats pi as a
+The short version: **flue treats pi as a library it calls; sdl treats pi as a
 platform it plugs into.** flue does not register extensions — it implements its
-own `StreamFn` and event re-projection around pi's `Agent`. asdl does not
+own `StreamFn` and event re-projection around pi's `Agent`. sdl does not
 construct an `Agent` — it lets the pi binary own the loop and contributes
 behavior through the extension API documented in
 [`docs/pi-extension-system-report.md`](../pi-extension-system-report.md).
 
 The one place the two patterns genuinely overlap is **pi-ai's model/provider
-layer** (§5) and its **non-streaming completion call** (§7): asdl's `sdl` package
-uses exactly these. See the asdl-contrast callouts under those sections.
+layer** (§5) and its **non-streaming completion call** (§7): sdl's `sdl` package
+uses exactly these. See the sdl-contrast callouts under those sections.
 
 > **Provenance:** generated 2026-06-17 against `withastro/flue`. Version numbers,
 > file paths, and findings describe flue at that snapshot and will drift as both
@@ -65,12 +65,12 @@ provides the agent loop and model I/O; flue provides everything around it —
 HTTP routing (Hono), durable submissions, session persistence, skills,
 sandboxed tools (`just-bash`), MCP, and Cloudflare/Node deployment.
 
-> **asdl contrast.** asdl does **not** depend on `pi-agent-core` and never
-> constructs an `Agent`. asdl's `ts/packages/pi-extensions` and `ts/packages/sdl`
+> **sdl contrast.** sdl does **not** depend on `pi-agent-core` and never
+> constructs an `Agent`. sdl's `ts/packages/pi-extensions` and `ts/packages/sdl`
 > depend on `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, and
-> `@earendil-works/pi-ai` (pinned `0.79.1`). flue wraps the agent *loop*; asdl
-> plugs into the agent *host*. The loop is flue's to own; for asdl the loop
-> belongs to the pi binary and asdl contributes extensions to it.
+> `@earendil-works/pi-ai` (pinned `0.79.1`). flue wraps the agent *loop*; sdl
+> plugs into the agent *host*. The loop is flue's to own; for sdl the loop
+> belongs to the pi binary and sdl contributes extensions to it.
 
 ## 2. Where the dependency is declared
 
@@ -116,9 +116,9 @@ Key facts:
 - pi handles tool execution (`toolExecution: 'parallel'`); flue supplies the
   tools and the API-key/payload callbacks.
 
-> **asdl contrast.** This whole section has no asdl analog. asdl never owns a
+> **sdl contrast.** This whole section has no sdl analog. sdl never owns a
 > `StreamFn` or subscribes to an `Agent` event stream — that wiring lives inside
-> the pi binary. asdl's equivalent integration seams are the *extension*
+> the pi binary. sdl's equivalent integration seams are the *extension*
 > primitives (`pi.on(...)`, `pi.registerTool`, `pi.registerCommand`, custom TUI
 > renderers) described in [`docs/pi-extension-system-report.md`](../pi-extension-system-report.md).
 
@@ -139,7 +139,7 @@ import { type Static, Type } from '@earendil-works/pi-ai';   // TypeBox-style sc
 - The tool bodies run flue's own sandbox (`just-bash`), but the interface they
   expose to the model is entirely pi's.
 
-> **asdl contrast.** asdl extensions also register tools, but through the
+> **sdl contrast.** sdl extensions also register tools, but through the
 > `pi-coding-agent` extension API (`pi.registerTool`), not by importing
 > `AgentTool` from `pi-agent-core` and handing it to an `Agent` constructor.
 > Same destination (an LLM-callable tool), different registration path: host
@@ -167,15 +167,15 @@ import { type Api, getModel, getModels, type KnownProvider, type Model,
 - `Api` and `KnownProvider` are pi-ai types threaded through flue's provider
   config surface.
 
-> **asdl contrast — this is the real overlap.** asdl's `sdl` package consumes the
+> **sdl contrast — this is the real overlap.** sdl's `sdl` package consumes the
 > same pi-ai model layer. `ts/packages/sdl/src/pi-text-generation.ts` parses the
 > identical `"provider/model-id"` specifier shape, resolves a
 > `PiAi.Model<PiAi.Api>` from a registry, and threads `Api`/`Model` types through
 > its own gateway interface — see `parsePiModelRef` and `PiModelRegistry`. The
-> difference is the registry source: asdl loads pi-coding-agent's
+> difference is the registry source: sdl loads pi-coding-agent's
 > `ModelRegistry.create(AuthStorage.create())` (auth-aware, tied to `/login`)
 > rather than calling pi-ai's `getModel`/`registerApiProvider` directly. flue
-> builds a *provider registry*; asdl reuses pi-coding-agent's registry behind a
+> builds a *provider registry*; sdl reuses pi-coding-agent's registry behind a
 > `TextGenerationGateway`.
 
 ## 6. Custom Cloudflare provider built on pi-ai internals (`cloudflare/workers-ai-provider.ts`)
@@ -200,10 +200,10 @@ import { convertMessages } from '@earendil-works/pi-ai/openai-completions';   //
   pi-ai's detection logic or registry overrides change upstream." An explicit,
   fragile coupling to pi-ai internals worth flagging.
 
-> **asdl contrast.** asdl has no equivalent — it does not implement custom pi-ai
+> **sdl contrast.** sdl has no equivalent — it does not implement custom pi-ai
 > providers or reach into pi-ai's OpenAI-completions/SSE internals. This is the
 > most upgrade-fragile part of flue's integration and is precisely the kind of
-> internal-mirroring asdl avoids by leaning on pi-coding-agent's registry.
+> internal-mirroring sdl avoids by leaning on pi-coding-agent's registry.
 
 ## 7. Messages, usage, compaction, streaming chunks
 
@@ -224,13 +224,13 @@ flue consumes pi's data model pervasively rather than defining its own:
   `StreamChunkWriter` stores pi-ai **`AssistantMessageEvent`** values directly;
   its on-disk chunk segments *are* pi-ai event objects.
 
-> **asdl contrast.** asdl uses pi-ai's **`completeSimple`** too, but for a much
+> **sdl contrast.** sdl uses pi-ai's **`completeSimple`** too, but for a much
 > narrower purpose: `sdl`'s `PiTextGenerationGateway` makes one-shot
 > non-streaming text generations (`generateText`), building a single user
 > message with a `text` content block and reading back `response.content` /
-> `response.stopReason`. asdl does not aggregate `Usage`, persist
+> `response.stopReason`. sdl does not aggregate `Usage`, persist
 > `AssistantMessageEvent` streams, or run pi-ai-driven context compaction — that
-> bookkeeping is the pi binary's job, not asdl's.
+> bookkeeping is the pi binary's job, not sdl's.
 
 ## 8. Type augmentation — flue extends pi's type system (`types.ts`)
 
@@ -304,24 +304,24 @@ and broad:
 - The website's build-time fetch of `models.generated.js` from unpkg ties docs
   freshness to whatever pi-ai version unpkg serves (no version pin in the URL).
 
-> **asdl takeaways (editorial).** Three of flue's risk notes generalize to any
-> pi consumer, asdl included:
+> **sdl takeaways (editorial).** Three of flue's risk notes generalize to any
+> pi consumer, sdl included:
 >
-> 1. **Pin pi consistently across packages.** asdl pins `0.79.1`; flue pins
+> 1. **Pin pi consistently across packages.** sdl pins `0.79.1`; flue pins
 >    `0.79.4`. Keep the pin uniform within a repo — a split pin turns a pi bump
 >    into a cross-package coordination problem.
 > 2. **Avoid hand-mirroring pi internals.** flue's Cloudflare provider is the
->    cautionary tale. asdl's reliance on pi-coding-agent's `ModelRegistry`
+>    cautionary tale. sdl's reliance on pi-coding-agent's `ModelRegistry`
 >    instead of re-deriving provider/compat logic is the safer posture.
 > 3. **Type-augmentation and unpinned catalog fetches are silent upgrade
->    hazards.** asdl has neither today; if either is introduced, treat it as a
+>    hazards.** sdl has neither today; if either is introduced, treat it as a
 >    pi-version coupling point.
 
 ---
 
 ### Quick file index
 
-> All paths below are **flue** files, not asdl files.
+> All paths below are **flue** files, not sdl files.
 
 | File                                                                                   | pi usage                                                                                            |
 | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |

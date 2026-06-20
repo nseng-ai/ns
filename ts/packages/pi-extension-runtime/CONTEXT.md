@@ -1,6 +1,6 @@
-# @asdl/pi-extension-runtime
+# @sdl/pi-extension-runtime
 
-`@asdl/pi-extension-runtime` is the private neutral TypeScript helper layer for Pi extension runtime contracts and presentation utilities that are shared by CCC and repo-local Pi extension implementations. It is lower than CCC and lower than command orchestration packages: it exposes typed helper functions, parsers, and narrow runtime shapes; it does not register commands or own workflow policy.
+`@sdl/pi-extension-runtime` is the private neutral TypeScript helper layer for Pi extension runtime contracts and presentation utilities that are shared by CCC and repo-local Pi extension implementations. It is lower than CCC and lower than command orchestration packages: it exposes typed helper functions, parsers, and narrow runtime shapes; it does not register commands or own workflow policy.
 
 ## Language
 
@@ -13,7 +13,7 @@ A type or helper that can be consumed by both CCC and repo-local Pi extensions w
 *Avoid*: compatibility shim, adapter, domain lifecycle, public API promise.
 
 **Runtime cmux helper path**:
-A neutral helper module path under `@asdl/pi-extension-runtime/cmux/*` for cmux/Pi runtime types, primitive parsing, and launch-command formatting shared below CCC and repo-local Pi extensions. These paths describe the cmux runtime domain, not a `/cmux:*` Pi command namespace.
+A neutral helper module path under `@sdl/pi-extension-runtime/cmux/*` for cmux/Pi runtime types, primitive parsing, and launch-command formatting shared below CCC and repo-local Pi extensions. These paths describe the cmux runtime domain, not a `/cmux:*` Pi command namespace.
 *Avoid*: command implementation, compatibility shim, new dependency direction, permanent workflow ownership statement.
 
 **Machine envelope parser**:

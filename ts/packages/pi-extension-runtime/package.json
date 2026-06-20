@@ -1,5 +1,5 @@
 {
-  "name": "@asdl/pi-extension-runtime",
+  "name": "@sdl/pi-extension-runtime",
   "private": true,
   "type": "module",
   "exports": {
@@ -22,7 +22,7 @@
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/pi-extension-runtime/test"
   },
   "dependencies": {
-    "@asdl/core": "workspace:*"
+    "@sdl/core": "workspace:*"
   },
   "devDependencies": {}
 }

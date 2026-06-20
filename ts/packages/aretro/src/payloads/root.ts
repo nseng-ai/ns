@@ -8,12 +8,12 @@ import { isAbsolute, join } from "node:path";
 import { PayloadError } from "./errors.ts";
 import { isSafeSegment } from "./segments.ts";
 
-export const ASDL_PAYLOAD_ROOT_ENV = "ASDL_PAYLOAD_ROOT";
-export const ASDL_PAYLOAD_SESSION_ID_ENV = "ASDL_PAYLOAD_SESSION_ID";
+export const SDL_PAYLOAD_ROOT_ENV = "SDL_PAYLOAD_ROOT";
+export const SDL_PAYLOAD_SESSION_ID_ENV = "SDL_PAYLOAD_SESSION_ID";
 
 export function defaultPayloadRoot(options?: { tempDir?: string }): string {
 	const baseTempDir = options?.tempDir ?? tmpdir();
-	return join(baseTempDir, "asdl");
+	return join(baseTempDir, "sdl");
 }
 
 export function resolvePayloadRoot(options?: {
@@ -21,7 +21,7 @@ export function resolvePayloadRoot(options?: {
 	tempDir?: string;
 }): string {
 	const sourceEnv = options?.env ?? process.env;
-	const envValue = sourceEnv[ASDL_PAYLOAD_ROOT_ENV];
+	const envValue = sourceEnv[SDL_PAYLOAD_ROOT_ENV];
 	if (envValue === undefined || envValue === "") {
 		return defaultPayloadRoot(
 			options?.tempDir !== undefined ? { tempDir: options.tempDir } : undefined,
@@ -33,7 +33,7 @@ export function resolvePayloadRoot(options?: {
 	}
 	throw new PayloadError(
 		"payload_root_invalid",
-		`${ASDL_PAYLOAD_ROOT_ENV} must be an absolute path: ${JSON.stringify(envValue)}`,
+		`${SDL_PAYLOAD_ROOT_ENV} must be an absolute path: ${JSON.stringify(envValue)}`,
 	);
 }
 
@@ -46,11 +46,11 @@ export function resolvePayloadSessionId(
 	if (explicitSessionId !== undefined && explicitSessionId !== "") {
 		sessionId = explicitSessionId;
 	} else {
-		const envSessionId = sourceEnv[ASDL_PAYLOAD_SESSION_ID_ENV];
+		const envSessionId = sourceEnv[SDL_PAYLOAD_SESSION_ID_ENV];
 		if (envSessionId === undefined || envSessionId === "") {
 			throw new PayloadError(
 				"payload_session_required",
-				`Payload artifact mode requires a session id from an explicit option or ${ASDL_PAYLOAD_SESSION_ID_ENV}.`,
+				`Payload artifact mode requires a session id from an explicit option or ${SDL_PAYLOAD_SESSION_ID_ENV}.`,
 			);
 		}
 		sessionId = envSessionId;

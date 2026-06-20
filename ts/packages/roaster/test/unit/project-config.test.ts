@@ -63,10 +63,10 @@ describe("parseRoasterProjectConfigToml", () => {
 		['[roaster]\ndiff = "not a table"\n', "[roaster.diff] must be a TOML table", "invalid_table"],
 		["[roaster\n", "Invalid TOML", "invalid_toml"],
 	] as const)("rejects invalid config %#", (source, message, code) => {
-		const error = expectError(parseRoasterProjectConfigToml(source, "asdl.toml"));
+		const error = expectError(parseRoasterProjectConfigToml(source, "sdl.toml"));
 
 		expect(error.code).toBe(code);
-		expect(error.message).toContain("asdl.toml: ");
+		expect(error.message).toContain("sdl.toml: ");
 		expect(error.message).toContain(message);
 	});
 });

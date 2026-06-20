@@ -1,6 +1,6 @@
 import process from "node:process";
 
-import { runCommand } from "@asdl/core/exec";
+import { runCommand } from "@sdl/core/exec";
 
 import { PiTextGenerationGateway } from "./pi-text-generation.ts";
 import type { SdlContext } from "./sdk.ts";

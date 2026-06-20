@@ -1,9 +1,9 @@
-import type { CommandResult } from "@asdl/sdl/checkpoint-flow";
+import type { CommandResult } from "@sdl/sdl/checkpoint-flow";
 
 import { branchNameCandidates, findAvailableBranchName } from "./branch-name.ts";
 import { formatCommandDetails } from "./shared.ts";
 import { inspectUpstreamHeadState } from "./upstream.ts";
-import { normalizeBranchSlugText } from "@asdl/pi-extension-runtime/branch-slug";
+import { normalizeBranchSlugText } from "@sdl/pi-extension-runtime/branch-slug";
 import type { LatestCommitAutobranchPlan } from "./latest-commit-preparation.ts";
 
 const GIT_TIMEOUT_MS = 30_000;

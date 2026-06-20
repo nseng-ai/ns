@@ -1,11 +1,11 @@
 ---
 title: What are skills?
-description: How public agent skills pair with asdl tools.
+description: How public agent skills pair with sdl tools.
 sidebar:
   order: 1
 ---
 
-Skills are agent-facing instructions that call asdl CLIs in a repeatable way.
+Skills are agent-facing instructions that call sdl CLIs in a repeatable way.
 They explain when to use a tool, which commands to call, and how to interpret the
 result.
 

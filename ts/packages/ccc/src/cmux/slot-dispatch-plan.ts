@@ -13,20 +13,20 @@ import {
 	type BranchContextCreateOperation,
 	type BranchContextEvidence,
 	type BranchContextOutputDetails,
-} from "@asdl/branch-context";
+} from "@sdl/branch-context";
 import {
 	findLatestSessionSavedPlanFile,
 	resolvePlanStoreDirectory,
 	type PlanStoreDirectoryEvidence,
 	type ValidatedSessionSavedPlan,
-} from "@asdl/plans";
-import { formatCommand, formatShellArg } from "@asdl/core/exec";
+} from "@sdl/plans";
+import { formatCommand, formatShellArg } from "@sdl/core/exec";
 import { checkoutBranchCmuxSlot, openBranchInCmuxSlot } from "./slot.ts";
 import { launchFocusedCmuxTab, type FocusedCmuxTabLaunchResult } from "./focused-terminal-tab.ts";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
 import type { PiLaunchOptions } from "./pi-launch.ts";
 import type { SlotCheckoutTarget } from "../slot-checkout.ts";
-import { formatErrorMessage } from "@asdl/core/primitives";
+import { formatErrorMessage } from "@sdl/core/primitives";
 import type { CommandContext, ExtensionAPI, NotifyLevel } from "./types.ts";
 
 const WORKSPACE_COMMAND_NAME = "ccc:workspace:dispatch-plan";

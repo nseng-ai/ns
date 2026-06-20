@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/exec";
 
 import { RealGitBrmemGateway } from "../../src/real-git-gateway.ts";
 

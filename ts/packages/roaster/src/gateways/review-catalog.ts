@@ -1,9 +1,9 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 
-import { NodeCommandExecApi } from "@asdl/core/exec";
-import { type GitGateway, RealGitGateway } from "@asdl/core/git";
-import { mapFromRecordOrMap } from "@asdl/core/primitives";
+import { NodeCommandExecApi } from "@sdl/core/exec";
+import { type GitGateway, RealGitGateway } from "@sdl/core/git";
+import { mapFromRecordOrMap } from "@sdl/core/primitives";
 
 import type { ReviewCatalogFailure, RoasterResult } from "../failures.ts";
 import { isMissingFileError } from "./filesystem-errors.ts";

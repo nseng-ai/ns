@@ -1,18 +1,18 @@
-import { registerObjectiveStackImplCommand } from "@asdl/ccc/objective-stack-impl";
-import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
+import { registerObjectiveStackImplCommand } from "@sdl/ccc/objective-stack-impl";
+import { parseMachineEnvelopeData } from "@sdl/pi-extension-runtime/machine-envelope";
 import {
 	buildObjectiveSkillPrompt,
 	chooseActiveObjectiveSlug,
 	objectiveSelectionContextFromCommandContext,
 	type ObjectiveSelectionSpec,
-} from "@asdl/pi-extension-runtime/objective-selection";
+} from "@sdl/pi-extension-runtime/objective-selection";
 
 import {
 	formatCommand,
 	formatCommandFailure,
 	formatCommandStartupFailure,
 	type ExecResult,
-} from "@asdl/core/exec";
+} from "@sdl/core/exec";
 import { definePiSurfaceParity } from "./parity.ts";
 import {
 	buildFencedTextBlock,
@@ -28,7 +28,7 @@ import type {
 } from "./cmux/types.ts";
 
 export type { CommandContext, NotifyLevel, SessionStartContext } from "./cmux/types.ts";
-export type { ExecResult } from "@asdl/core/exec";
+export type { ExecResult } from "@sdl/core/exec";
 export type ObjectiveExtensionAPI = Pick<
 	ExtensionAPI,
 	"on" | "registerCommand" | "exec" | "getCommands" | "sendMessage" | "sendUserMessage"
@@ -607,7 +607,7 @@ export const objectiveParity = definePiSurfaceParity([
 		cli: "objective list",
 		skill: "objective",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
+		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "objective",
 		notes:
 			"Pi command formats objective list output in chat while delegating inventory to the Objective CLI.",
@@ -620,7 +620,7 @@ export const objectiveParity = definePiSurfaceParity([
 		cli: "objective exec read-objective plus direct Objective Markdown creation",
 		skill: OBJECTIVE_CREATE_COMMAND.skillName,
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
+		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "objective",
 		notes:
 			"Pi command is a light typeahead-friendly wrapper that expands the portable objective-create skill and preserves any initial user request as context.",
@@ -635,7 +635,7 @@ export const objectiveParity = definePiSurfaceParity([
 				cli: `objective ${spec.commandName.slice("objective:".length)}`,
 				skill: spec.skillName,
 				ownerObjective: "cross-harness-parity",
-				sourcePackage: "@asdl/pi-extensions",
+				sourcePackage: "@sdl/pi-extensions",
 				sourceModule: "objective",
 				notes:
 					"Pi command selects an explicit Objective and then expands the matching portable Objective skill.",
@@ -650,10 +650,10 @@ export const objectiveParity = definePiSurfaceParity([
 		cli: "objective list-candidates plus explicit objective-stack-impl skill invocation",
 		skill: "objective-stack-impl",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
+		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "objective",
 		notes:
-			"The public command is registered through @asdl/ccc, but exposed by the @asdl/pi-extensions Objective adapter.",
+			"The public command is registered through @sdl/ccc, but exposed by the @sdl/pi-extensions Objective adapter.",
 	},
 ] as const);
 

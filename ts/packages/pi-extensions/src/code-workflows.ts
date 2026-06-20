@@ -19,7 +19,7 @@ export const codeWorkflowsParity = definePiSurfaceParity([
 		cli: "none needed; routes are skill references",
 		skill: "code-workflows",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
+		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "code-workflows",
 		notes:
 			"The command is a Pi picker/prompt insertion convenience over portable skills and references.",

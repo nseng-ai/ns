@@ -100,7 +100,7 @@ describe("enriched-plan-commands", () => {
 		);
 		expect(pi.sentUserMessages[0]).toContain("write_saved_plan_file");
 		expect(pi.sentUserMessages[0]).toContain(
-			"~/.asdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md",
+			"~/.sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md",
 		);
 		expect(pi.sentUserMessages[0]).toContain("completely fresh downstream implementation session");
 		expect(pi.sentUserMessages[0]).toContain("External research/context contract");

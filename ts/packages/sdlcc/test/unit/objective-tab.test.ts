@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { ObjectiveList } from "@asdl/pi-extension-runtime/objective-list";
+import type { ObjectiveList } from "@sdl/pi-extension-runtime/objective-list";
 
 import { objectiveTabModule, type ObjectiveTabState } from "../../src/objective-tab.ts";
 import type { CommandOptions, CommandOutput } from "../../src/command-runner.ts";
@@ -8,7 +8,7 @@ import type { TabModuleDeps } from "../../src/tabs/tab-module.ts";
 
 const LIST: ObjectiveList = {
 	trunkBranch: "master",
-	rootPath: ".asdl/objectives",
+	rootPath: ".sdl/objectives",
 	statusFilter: "active",
 	namesOnly: false,
 	records: [
@@ -45,7 +45,7 @@ describe("objectiveTabModule.loadModel", () => {
 				code: 0,
 				stdout: envelope({
 					trunkBranch: "master",
-					rootPath: ".asdl/objectives",
+					rootPath: ".sdl/objectives",
 					statusFilter: "active",
 					namesOnly: false,
 					records: [

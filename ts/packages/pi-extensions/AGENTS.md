@@ -4,7 +4,7 @@ This package contains Pi extension modules. Keep extension code testable through
 
 ## Package Boundary
 
-`@asdl/pi-extensions` is a leaf package for project-local Pi adapters. Other workspace packages must not import from it. If a non-leaf package needs shared behavior that currently lives here, move or copy the shared contract into a lower-level package instead of adding a dependency on `@asdl/pi-extensions`.
+`@sdl/pi-extensions` is a leaf package for project-local Pi adapters. Other workspace packages must not import from it. If a non-leaf package needs shared behavior that currently lives here, move or copy the shared contract into a lower-level package instead of adding a dependency on `@sdl/pi-extensions`.
 
 ## Process I/O
 
@@ -16,7 +16,7 @@ Canonical seams:
 - `src/runner-subagent/curated-context.ts` uses `CuratedContextExecGit` for git evidence.
 - `src/runner-subagent/subagent-process.ts` is the async-spawn adapter seam for runner subagents; module logic depends on injected process functions.
 - `src/claude/interactive-spawn.ts` is the designated interactive Claude Code adapter seam. It may import `node:child_process` and use synchronous `spawnSync` only while the TUI is stopped; the event-loop freeze is intentional because the terminal is handed to the interactive child, matching Pi's upstream interactive-shell pattern. Module logic must depend on the injected `RunInteractiveClaude` type, never on this adapter.
-- The exec result contract lives in `@asdl/core/exec`.
+- The exec result contract lives in `@sdl/core/exec`.
 
 Why: direct or synchronous process I/O blocks the extension host event loop and bypasses the fake-driven tests that should exercise extension behavior without invoking real commands. The Claude Code seam is the narrow exception: the TUI is stopped first, so no host rendering should occur until the child exits and the TUI restarts.
 

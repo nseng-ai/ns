@@ -39,7 +39,7 @@ The CLI owns the deterministic behavior:
 Text generation is controlled by the CLI environment:
 
 - `SDL_CHECKPOINT_MODEL` defaults to `openai-codex/gpt-5.4-mini`;
-- `ASDL_DEV_CHECKPOINT_MODEL` remains a legacy fallback when `SDL_CHECKPOINT_MODEL` is unset.
+- `SDL_DEV_CHECKPOINT_MODEL` remains a legacy fallback when `SDL_CHECKPOINT_MODEL` is unset.
 
 ## Failure handling
 

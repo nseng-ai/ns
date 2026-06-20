@@ -20,7 +20,7 @@ before they choose the next command.
 
 ## Install
 
-`objective` is installed from an asdl checkout with a TypeScript source shim.
+`objective` is installed from an sdl checkout with a TypeScript source shim.
 This requires Node 24 or newer.
 
 ```bash

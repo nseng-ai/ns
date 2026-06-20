@@ -1,11 +1,11 @@
 ---
 name: objective-stack-impl
-description: Implement one asdl Objective as a small Graphite stack from the current agent session. Use when the user asks to implement an Objective as a stack outside the Pi /objective:stack-impl picker, or when a wrapper injects an explicit slug.
+description: Implement one sdl Objective as a small Graphite stack from the current agent session. Use when the user asks to implement an Objective as a stack outside the Pi /objective:stack-impl picker, or when a wrapper injects an explicit slug.
 ---
 
 # objective-stack-impl
 
-Orchestrate implementation of one asdl Objective as a small Graphite stack from this session. You are the **parent**: you own planning, **slice** selection, subagent prompt construction, result interpretation, validation, Objective updates, commits/amends, and every decision to continue or stop. A **runner subagent** writes code, but judgment never delegates — the parent decides what is true.
+Orchestrate implementation of one sdl Objective as a small Graphite stack from this session. You are the **parent**: you own planning, **slice** selection, subagent prompt construction, result interpretation, validation, Objective updates, commits/amends, and every decision to continue or stop. A **runner subagent** writes code, but judgment never delegates — the parent decides what is true.
 
 Part of the Objective skill family. Use the `objective` umbrella skill first for shared vocabulary, selection rules, storage model, and safety boundaries; this step is self-contained for its own happy path.
 
@@ -20,9 +20,9 @@ Part of the Objective skill family. Use the `objective` umbrella skill first for
 
 ## Resolve the Objective
 
-1. If the user or wrapper supplied a slug/path, that is the selection (the Pi `/objective:stack-impl` wrapper normally preselects it before this skill loads). Normalize `.asdl/objectives/<slug>` to `<slug>`.
+1. If the user or wrapper supplied a slug/path, that is the selection (the Pi `/objective:stack-impl` wrapper normally preselects it before this skill loads). Normalize `.sdl/objectives/<slug>` to `<slug>`.
 2. Otherwise do not infer the Objective from branch name, changed files, package names, PR titles, or keyword matches. Run `objective list --minimal --format md`, show the open candidates, and ask the user to choose before any implementation work.
-3. If `.asdl/objectives/<slug>/closed.md` exists, stop and report that the Objective is closed.
+3. If `.sdl/objectives/<slug>/closed.md` exists, stop and report that the Objective is closed.
 
 ## Compact current context
 
@@ -30,7 +30,7 @@ Before planning, write a concise prose compaction of the conversation: user inte
 
 ## Inspect Objective and repository state
 
-Read `objective.md`, `roadmap.md`, and the relevant `updates/` files under `.asdl/objectives/<slug>/`. Then inspect repository state: `git status --short`, the current branch, a diff against the trunk or Graphite parent when useful, and the source/test/skill/prompt/doc files relevant to the next slice.
+Read `objective.md`, `roadmap.md`, and the relevant `updates/` files under `.sdl/objectives/<slug>/`. Then inspect repository state: `git status --short`, the current branch, a diff against the trunk or Graphite parent when useful, and the source/test/skill/prompt/doc files relevant to the next slice.
 
 **Tracking gate:** if material implementation progress is present but unrecorded in the Objective, stop and ask the user to run `objective-update` before continuing. If evidence is absent, ambiguous, or unrelated, proceed with a short note.
 

@@ -1,4 +1,4 @@
-import { describeNodeRuntimeCliEntrypoint } from "@asdl/core/testing";
+import { describeNodeRuntimeCliEntrypoint } from "@sdl/core/testing";
 
 describeNodeRuntimeCliEntrypoint({
 	name: "branch-context Node runtime CLI entrypoint",
@@ -11,5 +11,5 @@ describeNodeRuntimeCliEntrypoint({
 		{ type: "not_contains", text: "exec" },
 	],
 	runtimeDiagnostics:
-		"runtime: typescript\nentry_point: @asdl/branch-context bin branch-context -> ts/packages/branch-context/src/cli.ts\n",
+		"runtime: typescript\nentry_point: @sdl/branch-context bin branch-context -> ts/packages/branch-context/src/cli.ts\n",
 });

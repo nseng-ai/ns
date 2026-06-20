@@ -8,8 +8,8 @@ Start here before broad documentation searches. This directory collects cross-pa
 - `docs/`: cross-package design docs, system behavior, and contributor-facing documentation topology.
 - `ts/packages/<pkg>/README.md`: package-specific usage, public CLI notes, and package-local entrypoints.
 - `skills/<name>/SKILL.md`: user-facing agent procedure. Public skills should describe CLI operations and avoid implementation internals.
-- `.asdl/objectives/<slug>/`: durable Objective narrative, roadmap, updates, and closure.
-- `.asdl/prompts/`: checked-in reusable prompt assets consumed by repo tooling or skills; this is distinct from Pi `.pi/prompts` slash prompt templates.
+- `.sdl/objectives/<slug>/`: durable Objective narrative, roadmap, updates, and closure.
+- `.sdl/prompts/`: checked-in reusable prompt assets consumed by repo tooling or skills; this is distinct from Pi `.pi/prompts` slash prompt templates.
 - `docs/adr/`: durable architecture decision records.
 
 ## Index
@@ -19,13 +19,13 @@ Start here before broad documentation searches. This directory collects cross-pa
 - [Pi docs](pi/README.md): Pi-specific notes used by this repo.
 - [Skill/extension router pattern](skill-extension-router-pattern.md): consolidate rare workflow skills behind one router with lazy-loaded playbooks and optional selector commands.
 - [Querying cmux help](cmux/help-querying.md): how agents should revalidate fast-changing cmux CLI behavior.
-- [Retired Python `asdl exec` commands](asdl-exec/README.md): disposition notes and TypeScript replacement pointers for the former root exec surface.
+- [Retired Python `sdl exec` commands](sdl-exec/README.md): disposition notes and TypeScript replacement pointers for the former root exec surface.
 - [GitHub Actions remote code authoring](remote-code-authoring-github-actions.md): ground-truth Erk survey and design lessons for using workflow dispatch as a remote agent authoring substrate.
 - [Internal PR stack address workflow retrospective](internal-pr-stack-address-retrospective.md): analysis of the stack-wide feedback workflow, with evidence and CLI push-down recommendations.
 - [refactor-swarm-workflow](refactor-swarm-workflow.md): the multi-agent `Workflow`-tool engine for applying a file-local change across many files (distinct from the `refactor-swarm` skill).
 - [Subagent pushdown](subagent-pushdown.md): guidelines for using subagents as bounded semantic subroutines while keeping deterministic JSON contracts at CLI/tool boundaries.
 - [Harness skill/command/prompt invocation mechanics](harness-skill-invocation.md): how Claude Code, Codex, and Pi discover, surface, and gate skills/commands — invocation-control flags, ambient context cost, read roots, and namespacing — input to `areg` command conversion.
-- [Matt Pocock Skills upstream adaptation](agents/matt-pocock-skills.md): imported Matt-sourced skills, ASDL-owned overlays, invocation semantics, and future update checklist.
+- [Matt Pocock Skills upstream adaptation](agents/matt-pocock-skills.md): imported Matt-sourced skills, SDL-owned overlays, invocation semantics, and future update checklist.
 - [Conflict resolution by thesis reapplication](thesis-reapplication.md): how to land a branch whose history can no longer be replayed by re-applying its intent against the current baseline, instead of rebasing or resolving conflicts.
 - [Roaster and `@pierre/diffs`](roaster-pierre-diffs.md): the roaster diff-parser integration boundary, Pierre APIs used, APIs deliberately not used, and accepted semantic changes from delegating to Pierre.
 - [XDG Base Directory Specification](xdg-base-directory-spec.md): where programs read/write config, data, state, cache, and runtime files; the env-var defaults and rules; and how the standard relates to ASDL's git-native storage principle.

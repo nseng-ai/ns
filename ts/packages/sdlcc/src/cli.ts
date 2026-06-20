@@ -2,9 +2,9 @@
 
 import { z } from "zod";
 
-import { ClinkrGroup } from "@asdl/clinkr";
-import { defineCli } from "@asdl/core/cli-entry";
-import { rawCommand } from "@asdl/clinkr/raw";
+import { ClinkrGroup } from "@sdl/clinkr";
+import { defineCli } from "@sdl/core/cli-entry";
+import { rawCommand } from "@sdl/clinkr/raw";
 
 import { runRealCommand, type CommandRunner } from "./command-runner.ts";
 import {

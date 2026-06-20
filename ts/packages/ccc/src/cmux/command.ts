@@ -6,8 +6,8 @@ import {
 	type CommandExecApi,
 	type ExecOptions,
 	type ExecResult,
-} from "@asdl/core/exec";
-import { formatErrorMessage } from "@asdl/core/primitives";
+} from "@sdl/core/exec";
+import { formatErrorMessage } from "@sdl/core/primitives";
 
 export const CMUX_STARTUP_FAILURE_EXIT_CODE = 127;
 

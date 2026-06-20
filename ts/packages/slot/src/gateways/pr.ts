@@ -1,5 +1,5 @@
-import { NodeCommandExecApi, type CommandExecApi, type ExecResult } from "@asdl/core/exec";
-import { runGitHubCliAsExecResult } from "@asdl/core/github-cli";
+import { NodeCommandExecApi, type CommandExecApi, type ExecResult } from "@sdl/core/exec";
+import { runGitHubCliAsExecResult } from "@sdl/core/github-cli";
 import { z } from "zod";
 
 import {

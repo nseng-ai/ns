@@ -1,4 +1,4 @@
-import { defineExtension, ok, z } from "@asdl/sdl/sdk";
+import { defineExtension, ok, z } from "@sdl/sdl/sdk";
 
 type Assert<T extends true> = T;
 type IsAny<T> = 0 extends 1 & T ? true : false;

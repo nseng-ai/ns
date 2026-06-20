@@ -37,4 +37,4 @@ local.just
 .vercel
 .env*
 
-.asdl/tmp
+.sdl/tmp

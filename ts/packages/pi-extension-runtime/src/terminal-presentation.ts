@@ -1,6 +1,6 @@
 import { isRecord } from "./cmux/primitives.ts";
 
-export { stripTerminalEscapes } from "@asdl/core/terminal-escapes";
+export { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 
 export interface CustomMessageTextPart {
 	type: string;

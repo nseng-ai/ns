@@ -1,16 +1,16 @@
 ---
 title: Quickstart
-description: A numbered first run through asdl using slot as the first standalone tool.
+description: A numbered first run through sdl using slot as the first standalone tool.
 sidebar:
   order: 1
 ---
 
-Start with one tool. `slot` is the fastest way to feel the asdl pattern: a small
+Start with one tool. `slot` is the fastest way to feel the sdl pattern: a small
 CLI with predictable human output, optional machine output, and no hidden state.
 
 ## 1. Install slot
 
-From an asdl checkout, install the TypeScript source shim:
+From an sdl checkout, install the TypeScript source shim:
 
 ```bash
 just install-slot

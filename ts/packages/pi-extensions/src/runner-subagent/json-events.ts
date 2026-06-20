@@ -1,5 +1,5 @@
-import { systemClock, type Clock } from "@asdl/core/clock";
-import { formatErrorMessage } from "@asdl/core/primitives";
+import { systemClock, type Clock } from "@sdl/core/clock";
+import { formatErrorMessage } from "@sdl/core/primitives";
 import { isThinkingLevel } from "../cmux/types.ts";
 import type { RunnerSubagentLaunchMetadata, RunnerSubagentProgress } from "../runner-subagent.ts";
 import type { RunnerSubagentActivity } from "./activity.ts";

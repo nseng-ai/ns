@@ -100,12 +100,12 @@ describe("home-directory guard extension", () => {
 		const pi = await createGuard();
 
 		expect(
-			pi.emitToolCall(bashEvent("find /Users/schrockn/code/asdl-tools -name foo")),
+			pi.emitToolCall(bashEvent("find /Users/schrockn/code/sdl-tools -name foo")),
 		).toBeUndefined();
 		expect(
-			pi.emitToolCall(bashEvent("rm /Users/schrockn/code/asdl-tools/tmp-file")),
+			pi.emitToolCall(bashEvent("rm /Users/schrockn/code/sdl-tools/tmp-file")),
 		).toBeUndefined();
-		expect(pi.emitToolCall(bashEvent("grep -R foo ~/code/asdl-tools"))).toBeUndefined();
+		expect(pi.emitToolCall(bashEvent("grep -R foo ~/code/sdl-tools"))).toBeUndefined();
 		expect(pi.emitToolCall(bashEvent("HOME_COPY=/Users/schrockn echo ok"))).toBeUndefined();
 	});
 
@@ -127,7 +127,7 @@ describe("home-directory guard extension", () => {
 		const pi = await createGuard();
 
 		expect(
-			pi.emitUserBash({ command: "ls ~/code/asdl-tools", cwd: "/tmp", excludeFromContext: false }),
+			pi.emitUserBash({ command: "ls ~/code/sdl-tools", cwd: "/tmp", excludeFromContext: false }),
 		).toBeUndefined();
 	});
 
@@ -146,14 +146,14 @@ describe("home-directory guard extension", () => {
 		expect(
 			pi.emitToolCall({
 				toolName: "read",
-				input: { path: "/Users/schrockn/code/asdl-tools/README.md" },
+				input: { path: "/Users/schrockn/code/sdl-tools/README.md" },
 			}),
 		).toBeUndefined();
 		expect(
-			pi.emitToolCall({ toolName: "ls", input: { path: "~/code/asdl-tools" } }),
+			pi.emitToolCall({ toolName: "ls", input: { path: "~/code/sdl-tools" } }),
 		).toBeUndefined();
 		expect(
-			pi.emitToolCall({ toolName: "find", input: { paths: ["$HOME/code/asdl-tools"] } }),
+			pi.emitToolCall({ toolName: "find", input: { paths: ["$HOME/code/sdl-tools"] } }),
 		).toBeUndefined();
 	});
 
@@ -164,7 +164,7 @@ describe("home-directory guard extension", () => {
 			pi.emitToolCall({
 				toolName: "write",
 				input: {
-					path: "/Users/schrockn/code/asdl-tools/notes.md",
+					path: "/Users/schrockn/code/sdl-tools/notes.md",
 					content: "Document that /Users/schrockn is the home directory.",
 				},
 			}),

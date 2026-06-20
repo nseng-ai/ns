@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { failure, ok } from "@asdl/clinkr";
+import { failure, ok } from "@sdl/clinkr";
 import { z } from "zod";
 
 import type { BrmemCliContext } from "../context.ts";
@@ -34,7 +34,7 @@ export async function runResolvePrompt(ctx: BrmemCliContext, request: ResolvePro
 		`No prompt named ${JSON.stringify(request.name)} found. Checked:\n` +
 			`  - ${projectPath} (project-local)\n` +
 			`  - ${globalPath} (global)\n` +
-			"Initialize the global default by running `just install-tools` from a asdl checkout, " +
+			"Initialize the global default by running `just install-tools` from a sdl checkout, " +
 			"or copy a packaged `default-prompt.md` to one of the paths above.",
 	);
 }

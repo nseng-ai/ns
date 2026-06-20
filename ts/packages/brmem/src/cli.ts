@@ -2,8 +2,8 @@
 
 import process from "node:process";
 
-import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
-import { isDirectCliInvocation } from "@asdl/core/cli-entry";
+import { ClinkrGroup, resolveIo } from "@sdl/clinkr";
+import { isDirectCliInvocation } from "@sdl/core/cli-entry";
 
 import { createRealBrmemContext, type BrmemCliContext } from "./context.ts";
 import type { BrmemSourceReader } from "./source-reader.ts";
@@ -165,7 +165,7 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 }
 
 function runtimeInfo(): string {
-	return "runtime: typescript\nentry_point: @asdl/brmem bin brmem -> ts/packages/brmem/src/cli.ts\n";
+	return "runtime: typescript\nentry_point: @sdl/brmem bin brmem -> ts/packages/brmem/src/cli.ts\n";
 }
 
 if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {

@@ -20,7 +20,7 @@ while skills get stable JSON.
 
 ## Install
 
-`pr-address` is a TypeScript tool. Install it from an asdl checkout with
+`pr-address` is a TypeScript tool. Install it from an sdl checkout with
 `just install-pr-address`, which places a `pr-address` shim on your `PATH`
 (it requires Node 24 or newer).
 

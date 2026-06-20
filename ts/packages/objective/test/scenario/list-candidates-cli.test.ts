@@ -7,7 +7,7 @@ describe("objective exec list-candidates", () => {
 		const run = runScenario(["exec", "list-candidates"], {
 			fake: {
 				records: [{ slug: "alpha" }, { slug: "bravo", isClosed: true }, { slug: "charlie" }],
-				directories: [".asdl/objective-archive/archived"],
+				directories: [".sdl/objective-archive/archived"],
 			},
 		});
 
@@ -20,7 +20,7 @@ describe("objective exec list-candidates", () => {
 		const run = runScenario(["exec", "list-candidates", "--format", "json"], {
 			fake: {
 				records: [{ slug: "alpha" }, { slug: "bravo", isClosed: true }, { slug: "charlie" }],
-				directories: [".asdl/objective-archive/archived"],
+				directories: [".sdl/objective-archive/archived"],
 			},
 		});
 
@@ -46,7 +46,7 @@ describe("objective exec list-candidates", () => {
 		const run = runScenario(["exec", "list-candidates"], {
 			fake: {
 				records: [{ slug: "done", isClosed: true }],
-				directories: [".asdl/objective-archive/archived"],
+				directories: [".sdl/objective-archive/archived"],
 			},
 		});
 

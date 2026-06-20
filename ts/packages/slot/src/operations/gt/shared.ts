@@ -1,4 +1,4 @@
-import { failure, type ClinkrFailureExit } from "@asdl/clinkr";
+import { failure, type ClinkrFailureExit } from "@sdl/clinkr";
 
 import type { RepoSlotContext, SlotCliContext } from "../../context.ts";
 

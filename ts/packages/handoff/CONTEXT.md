@@ -1,6 +1,6 @@
-# @asdl/handoff
+# @sdl/handoff
 
-`@asdl/handoff` owns directed Handoff Artifact vocabulary and user-facing handoff inventory over Branch Memory storage for the TypeScript standalone `handoff` CLI.
+`@sdl/handoff` owns directed Handoff Artifact vocabulary and user-facing handoff inventory over Branch Memory storage for the TypeScript standalone `handoff` CLI.
 
 ## Language
 

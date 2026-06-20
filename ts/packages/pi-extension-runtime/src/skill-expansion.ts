@@ -1,7 +1,7 @@
 import { lstat, readFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, parse, resolve } from "node:path";
 
-import { splitMarkdownFrontmatter } from "@asdl/core/markdown-frontmatter";
+import { splitMarkdownFrontmatter } from "@sdl/core/markdown-frontmatter";
 
 export interface SkillCommandInfo {
 	name: string;

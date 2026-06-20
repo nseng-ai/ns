@@ -18,7 +18,7 @@ export const pushParity = definePiSurfaceParity([
 		trackedGap:
 			"cross-harness-parity roadmap: decide whether /sdl:code:push needs a thin skill documenting clean-worktree git push or should be treated as primitive git usage.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
+		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "push",
 		notes:
 			"Pi command exposes the SDL code-lifecycle surface with a clean-worktree guard and message rendering around git push; non-Pi agents can run git status and git push directly, but no installed skill owns the guarded workflow yet.",

@@ -1,4 +1,4 @@
-import { ok, shellNegative } from "@asdl/clinkr";
+import { ok, shellNegative } from "@sdl/clinkr";
 import { z } from "zod";
 
 import type { AretroCliContext } from "../context.ts";

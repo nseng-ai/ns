@@ -1,13 +1,13 @@
-import type { ExecResult } from "@asdl/core/exec";
+import type { ExecResult } from "@sdl/core/exec";
 import type {
 	SessionReplacementContext,
 	SessionReplacementOptions,
 	SessionReplacementResult,
 	SessionUserMessageOptions,
-} from "@asdl/pi-extension-runtime/session-replacement";
+} from "@sdl/pi-extension-runtime/session-replacement";
 import type { ModelInfo, ThinkingLevel } from "../cmux/types.ts";
 
-export type { ExecResult } from "@asdl/core/exec";
+export type { ExecResult } from "@sdl/core/exec";
 export type { ModelInfo, ThinkingLevel } from "../cmux/types.ts";
 
 export type NotifyLevel = "info" | "warning" | "error";

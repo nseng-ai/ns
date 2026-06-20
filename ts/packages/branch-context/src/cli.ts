@@ -3,12 +3,12 @@
 import { writeFile } from "node:fs/promises";
 import process from "node:process";
 
-import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
-import { legacyCommand, type LegacyPayload } from "@asdl/clinkr/legacy";
+import { ClinkrGroup, resolveIo } from "@sdl/clinkr";
+import { legacyCommand, type LegacyPayload } from "@sdl/clinkr/legacy";
 import { z } from "zod";
 
-import { isDirectCliInvocation } from "@asdl/core/cli-entry";
-import { normalizePlanFilePath, validatePlanSlug } from "@asdl/plans";
+import { isDirectCliInvocation } from "@sdl/core/cli-entry";
+import { normalizePlanFilePath, validatePlanSlug } from "@sdl/plans";
 import {
 	attachBranchContextEntry,
 	checkBranchContextEntry,
@@ -379,7 +379,7 @@ function loadedPlanJson(
 }
 
 function runtimeInfo(): string {
-	return "runtime: typescript\nentry_point: @asdl/branch-context bin branch-context -> ts/packages/branch-context/src/cli.ts\n";
+	return "runtime: typescript\nentry_point: @sdl/branch-context bin branch-context -> ts/packages/branch-context/src/cli.ts\n";
 }
 
 if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {

@@ -1,4 +1,4 @@
-import { describeNodeRuntimeCliEntrypoint } from "@asdl/core/testing";
+import { describeNodeRuntimeCliEntrypoint } from "@sdl/core/testing";
 
 describeNodeRuntimeCliEntrypoint({
 	name: "plans Node runtime CLI entrypoint",
@@ -11,5 +11,5 @@ describeNodeRuntimeCliEntrypoint({
 		{ type: "contains", text: "list" },
 	],
 	runtimeDiagnostics:
-		"runtime: typescript\nentry_point: @asdl/plans bin enriched-plan -> ts/packages/plans/src/cli.ts\n",
+		"runtime: typescript\nentry_point: @sdl/plans bin enriched-plan -> ts/packages/plans/src/cli.ts\n",
 });

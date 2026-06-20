@@ -22,8 +22,8 @@ new test files and modify no source. Either can be executed first or in parallel
 The TS codebase is exceptionally disciplined: zero `as any`/`@ts-ignore`,
 errors-as-values throughout, no source TODOs, ~2267 passing tests, and the
 large architectural threads (cross-package infrastructure duplication, the
-shared `asdl-core` TS foundation) are already tracked as live objectives under
-`.asdl/objectives/` (e.g. `asdl-core-ts`). Net-new, worth-doing, not-already-
+shared `sdl-core` TS foundation) are already tracked as live objectives under
+`.sdl/objectives/` (e.g. `sdl-core-ts`). Net-new, worth-doing, not-already-
 tracked findings were few; the two highest-leverage ones are genuinely untested
 critical paths with clean fake-driven test stories — those became plans 001 and 002.
 
@@ -59,6 +59,6 @@ critical paths with clean fake-driven test stories — those became plans 001 an
 ## Not audited this run
 
 Live GitHub conformance paths; deep internals of `pi-extensions` (84 files);
-`clinkr`, `plans`, `asdl-dev`, `branch-context` in depth; the docs-site. Standard
+`clinkr`, `plans`, `sdl-dev`, `branch-context` in depth; the docs-site. Standard
 depth, weighted to churn hotspots (`pr-address`, `ccc`, `pi-extension-runtime`, `sdl`).
 </content>

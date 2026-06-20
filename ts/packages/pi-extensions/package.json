@@ -1,5 +1,5 @@
 {
-  "name": "@asdl/pi-extensions",
+  "name": "@sdl/pi-extensions",
   "private": true,
   "type": "module",
   "scripts": {
@@ -7,13 +7,13 @@
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/pi-extensions/test"
   },
   "dependencies": {
-    "@asdl/core": "workspace:*",
-    "@asdl/ccc": "workspace:*",
-    "@asdl/handoff": "workspace:*",
-    "@asdl/pi-extension-runtime": "workspace:*",
-    "@asdl/branch-context": "workspace:*",
-    "@asdl/plans": "workspace:*",
-    "@asdl/sdl": "workspace:*",
+    "@sdl/core": "workspace:*",
+    "@sdl/ccc": "workspace:*",
+    "@sdl/handoff": "workspace:*",
+    "@sdl/pi-extension-runtime": "workspace:*",
+    "@sdl/branch-context": "workspace:*",
+    "@sdl/plans": "workspace:*",
+    "@sdl/sdl": "workspace:*",
     "zod": "catalog:"
   },
   "peerDependencies": {

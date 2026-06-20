@@ -1,7 +1,7 @@
 import {
 	RealGithubPrFeedbackGateway,
 	type GithubPrFeedbackGateway,
-} from "@asdl/core/github-pr-feedback";
+} from "@sdl/core/github-pr-feedback";
 
 import type { PrAddressGitGateway } from "./core/gateways.ts";
 import { RealPrAddressGitGateway } from "./gateways.ts";

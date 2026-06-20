@@ -52,7 +52,7 @@ These kinds are observations, not recommendations.
 
 ## Component Roles
 
-- `@asdl/aretro` package-local session adapters parse harness-specific logs into normalized session facts without retaining raw transcript content.
-- `@asdl/aretro` evidence aggregation turns normalized session facts into deterministic observations.
+- `@sdl/aretro` package-local session adapters parse harness-specific logs into normalized session facts without retaining raw transcript content.
+- `@sdl/aretro` evidence aggregation turns normalized session facts into deterministic observations.
 - `aretro` exposes the branch-facing TypeScript CLI and renders the `aretro exec collect-evidence --format json` envelope.
 - `branch-retro` is the first skill consumer of that standalone evidence command: it consumes the JSON envelope, applies semantic judgment, weighs cost, drift, and discoverability, and writes the final retrospective recommendations.

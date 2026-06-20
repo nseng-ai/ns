@@ -3,7 +3,7 @@ import {
 	formatCommandFailure,
 	formatCommandStartupFailure,
 	type ExecResult,
-} from "@asdl/core/exec";
+} from "@sdl/core/exec";
 import type { CommandContext } from "./cmux/types.ts";
 import {
 	parseObjectiveList,
@@ -240,7 +240,7 @@ async function objectiveDiffChangedSlugs(
 	options: ObjectiveDiffChangedSlugsOptions,
 ): Promise<string[]> {
 	const { host, ctx, trunkBranch } = options;
-	const args = ["diff", "--name-status", "-M", `${trunkBranch}...HEAD`, "--", ".asdl/objectives"];
+	const args = ["diff", "--name-status", "-M", `${trunkBranch}...HEAD`, "--", ".sdl/objectives"];
 	try {
 		const result = await host.exec("git", args, {
 			cwd: ctx.cwd,
@@ -261,7 +261,7 @@ async function objectiveStatusChangedSlugs(
 	options: ObjectiveStatusChangedSlugsOptions,
 ): Promise<string[]> {
 	const { host, ctx } = options;
-	const args = ["status", "--porcelain=v1", "-z", "--", ".asdl/objectives"];
+	const args = ["status", "--porcelain=v1", "-z", "--", ".sdl/objectives"];
 	try {
 		const result = await host.exec("git", args, {
 			cwd: ctx.cwd,

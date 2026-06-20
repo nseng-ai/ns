@@ -1,4 +1,4 @@
-# @asdl/pr-address
+# @sdl/pr-address
 
 Transitional TypeScript package for the `pr-address` standalone CLI.
 
@@ -18,7 +18,7 @@ The `download-feedback` result includes Markdown intended for session/editor pre
 `pr-address` is distributed as a machine-level PATH shim that runs this package's sources directly; nothing is bundled or published:
 
 - **Install**: `just install-pr-address` renders the shared TypeScript source CLI shim template to `~/.local/bin/pr-address`, baking in the installing checkout's path as the canonical fallback.
-- **Dispatch**: inside an asdl checkout (any worktree), the shim runs that checkout's `ts/packages/pr-address/src/cli.ts`, so each worktree exercises its own code. Everywhere else it runs the baked canonical checkout's sources.
+- **Dispatch**: inside an sdl checkout (any worktree), the shim runs that checkout's `ts/packages/pr-address/src/cli.ts`, so each worktree exercises its own code. Everywhere else it runs the baked canonical checkout's sources.
 - **Requirements**: `node` (Node 24+, matching the workspace `engines` floor) and `pnpm install` having been run in the checkout's `ts/` directory (`just ts-install`).
 
 ## Local usage
@@ -31,8 +31,8 @@ pr-address exec download-feedback --pr-number <pr-number> --format json
 ## Validation
 
 ```bash
-pnpm --dir ts --filter @asdl/pr-address run check
-pnpm --dir ts --filter @asdl/pr-address run test
+pnpm --dir ts --filter @sdl/pr-address run check
+pnpm --dir ts --filter @sdl/pr-address run test
 ```
 
 Broader workspace validation:

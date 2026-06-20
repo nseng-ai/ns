@@ -23,7 +23,7 @@ context.
 ```bash
 uv tool install brmem
 brmem --help
-asdl brmem --help
+sdl brmem --help
 ```
 
 ## Common commands
@@ -46,4 +46,4 @@ them. See the [brmem skill](/skills/brmem/) and [CLI conventions](/concepts/conv
 ## See also
 
 - [Context across sessions](/guides/context-across-sessions/)
-- [The asdl umbrella](/concepts/umbrella/)
+- [The sdl umbrella](/concepts/umbrella/)

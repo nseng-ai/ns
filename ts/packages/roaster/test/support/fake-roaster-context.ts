@@ -1,7 +1,7 @@
-import type { CommandExecApi } from "@asdl/core/exec";
-import type { GitGateway } from "@asdl/core/git";
-import { InMemoryGitGateway } from "@asdl/core/git/testing";
-import { ScriptedCommandExecApi } from "@asdl/core/testing";
+import type { CommandExecApi } from "@sdl/core/exec";
+import type { GitGateway } from "@sdl/core/git";
+import { InMemoryGitGateway } from "@sdl/core/git/testing";
+import { ScriptedCommandExecApi } from "@sdl/core/testing";
 
 import type { RoasterContext } from "../../src/context.ts";
 import { FakeHarnessGateway, type HarnessGateway } from "../../src/gateways/harness.ts";

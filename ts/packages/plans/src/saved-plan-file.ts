@@ -3,14 +3,14 @@ import { mkdir, open, readdir, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 
-import type { CommandExecApi } from "@asdl/core/exec";
-import { RealGitGateway, type GitGateway } from "@asdl/core/git";
+import type { CommandExecApi } from "@sdl/core/exec";
+import { RealGitGateway, type GitGateway } from "@sdl/core/git";
 import {
 	githubRepositoryIdentityFromNormalizedRemoteUrl,
 	normalizeGitRemoteUrl,
-} from "@asdl/core/github-status";
+} from "@sdl/core/github-status";
 import { normalizeSummary, validatePlanSlug } from "./plan-persistence.ts";
-import { isRecord } from "@asdl/core/primitives";
+import { isRecord } from "@sdl/core/primitives";
 
 const MAX_SEGMENT_LENGTH = 120;
 const PLAN_FILE_SUFFIX = ".md";
@@ -97,7 +97,7 @@ export class NoSavedPlanAvailableError extends Error {
 }
 
 export function defaultPlanStoreRoot(): string {
-	return join(homedir(), ".asdl", "enriched-plan");
+	return join(homedir(), ".sdl", "enriched-plan");
 }
 
 export function normalizeRepoOriginUrl(rawUrl: string): string {

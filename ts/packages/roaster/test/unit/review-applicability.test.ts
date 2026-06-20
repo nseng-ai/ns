@@ -57,7 +57,7 @@ describe("reviewAppliesToPaths", () => {
 
 		expect(
 			reviewAppliesToPaths(applicability, [
-				"packages/asdl-core/tests/unit/prompts/test_resolver.py",
+				"packages/sdl-core/tests/unit/prompts/test_resolver.py",
 			]),
 		).toBe(false);
 	});
@@ -69,7 +69,7 @@ describe("reviewAppliesToPaths", () => {
 		};
 
 		expect(
-			reviewAppliesToPaths(applicability, ["packages/asdl-core/src/asdl_core/project_config.py"]),
+			reviewAppliesToPaths(applicability, ["packages/sdl-core/src/sdl_core/project_config.py"]),
 		).toBe(true);
 	});
 
@@ -81,8 +81,8 @@ describe("reviewAppliesToPaths", () => {
 
 		expect(
 			reviewAppliesToPaths(applicability, [
-				"packages/asdl-core/tests/unit/prompts/test_resolver.py",
-				"packages/asdl-core/src/asdl_core/project_config.py",
+				"packages/sdl-core/tests/unit/prompts/test_resolver.py",
+				"packages/sdl-core/src/sdl_core/project_config.py",
 			]),
 		).toBe(true);
 	});

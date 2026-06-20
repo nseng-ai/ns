@@ -1,5 +1,5 @@
-import { splitMarkdownFrontmatter, stripLineEnding } from "@asdl/core/markdown-frontmatter";
-import { err, type Result } from "@asdl/core/result";
+import { splitMarkdownFrontmatter, stripLineEnding } from "@sdl/core/markdown-frontmatter";
+import { err, type Result } from "@sdl/core/result";
 
 const FRONTMATTER_KEY_RE = /^(?<key>[A-Za-z0-9_-]+):(?<value>.*)$/u;
 

@@ -26,16 +26,16 @@ async function createWorkspace(): Promise<Workspace> {
 }
 
 function writeProjectExtension(workspace: Workspace, fileName: string, source: string): void {
-	writeFile(join(workspace.cwd, ".asdl", "extensions", fileName), source);
+	writeFile(join(workspace.cwd, ".sdl", "extensions", fileName), source);
 }
 
 function writeGlobalExtension(workspace: Workspace, fileName: string, source: string): void {
-	writeFile(join(workspace.homeDir, ".asdl", "extensions", fileName), source);
+	writeFile(join(workspace.homeDir, ".sdl", "extensions", fileName), source);
 }
 
 function writeProjectManifest(workspace: Workspace, packageName: string, manifest: unknown): void {
 	writeFile(
-		join(workspace.cwd, ".asdl", "extensions", packageName, "package.json"),
+		join(workspace.cwd, ".sdl", "extensions", packageName, "package.json"),
 		JSON.stringify(manifest),
 	);
 }
@@ -47,7 +47,7 @@ function writeFile(path: string, source: string): void {
 
 function commandEntry(name: string, message: string): string {
 	return `
-import { defineExtension, ok } from "@asdl/sdl/sdk";
+import { defineExtension, ok } from "@sdl/sdl/sdk";
 
 export default defineExtension({
 	commands: [{
@@ -78,7 +78,7 @@ describe("extension registry", () => {
 			["cp", "Create a checkpoint commit for the current diff."],
 			[
 				"regenerate-pr",
-				"Regenerate the current branch PR's title and description with the asdl PR-description prompt.",
+				"Regenerate the current branch PR's title and description with the sdl PR-description prompt.",
 			],
 			[
 				"submit",
@@ -133,7 +133,7 @@ describe("extension registry", () => {
 	test("manifest metadata customizes catalog help without importing command entries", async () => {
 		const workspace = await createWorkspace();
 		writeProjectManifest(workspace, "pkg", {
-			asdl: {
+			sdl: {
 				commands: [
 					{
 						name: "hello",
@@ -145,7 +145,7 @@ describe("extension registry", () => {
 			},
 		});
 		writeFile(
-			join(workspace.cwd, ".asdl", "extensions", "pkg", "src", "hello.ts"),
+			join(workspace.cwd, ".sdl", "extensions", "pkg", "src", "hello.ts"),
 			"throw new Error('should not import during discovery');\n",
 		);
 
@@ -162,7 +162,7 @@ describe("extension registry", () => {
 	test("one SDL extension module can contribute multiple manifest-listed commands", async () => {
 		const workspace = await createWorkspace();
 		writeProjectManifest(workspace, "pkg", {
-			asdl: {
+			sdl: {
 				commands: [
 					{ name: "hello", description: "Say hello.", entry: "./src/commands.ts" },
 					{ name: "bye", description: "Say bye.", entry: "./src/commands.ts" },
@@ -170,9 +170,9 @@ describe("extension registry", () => {
 			},
 		});
 		writeFile(
-			join(workspace.cwd, ".asdl", "extensions", "pkg", "src", "commands.ts"),
+			join(workspace.cwd, ".sdl", "extensions", "pkg", "src", "commands.ts"),
 			`
-import { defineExtension, ok } from "@asdl/sdl/sdk";
+import { defineExtension, ok } from "@sdl/sdl/sdk";
 
 export default defineExtension({
 	commands: [
@@ -222,10 +222,10 @@ export default defineExtension({
 		const workspace = await createWorkspace();
 		writeProjectExtension(workspace, "one.ts", commandEntry("one", "one"));
 		writeProjectManifest(workspace, "pkg", {
-			asdl: { commands: [{ name: "one", description: "One.", entry: "./src/one.ts" }] },
+			sdl: { commands: [{ name: "one", description: "One.", entry: "./src/one.ts" }] },
 		});
 		writeFile(
-			join(workspace.cwd, ".asdl", "extensions", "pkg", "src", "one.ts"),
+			join(workspace.cwd, ".sdl", "extensions", "pkg", "src", "one.ts"),
 			commandEntry("one", "pkg"),
 		);
 

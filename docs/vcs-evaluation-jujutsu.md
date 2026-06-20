@@ -20,7 +20,7 @@ integration points keep working unchanged.
 The collaborator / GitHub impact is therefore near-zero — GitHub only ever sees ordinary git
 commits, branches, and PRs. The only hard problem is *local*: `gt` and jj both want to own
 commit rewriting and stack topology, and co-owning the same stack is not worth the
-reconciliation cost. Recommendation: do not build gt/jj coexistence into asdl tooling. jj is
+reconciliation cost. Recommendation: do not build gt/jj coexistence into sdl tooling. jj is
 fine as an optional personal tool on non-`gt` branches. Revisit only as a full `gt`
 replacement.
 
@@ -62,7 +62,7 @@ making subsystems jj-native" for why it should *stay* there.)
 Almost everything works unchanged (`for-each-ref`, `rev-parse`, `merge-base`, `log`,
 `patch-id`, `ls-tree`, `status --porcelain`) because colocated git is intact. Two exceptions:
 
-- **Current-branch detection** (`ts/packages/asdl-core/src/git/index.ts` and `ts/packages/slot/src/gateways/git.ts`) is the load-bearing breakage. In jj you frequently sit on an *anonymous* change with no bookmark, and jj leaves git `HEAD` detached; current-branch commands then report no branch, violating tooling assumptions that work is on a named branch.
+- **Current-branch detection** (`ts/packages/sdl-core/src/git/index.ts` and `ts/packages/slot/src/gateways/git.ts`) is the load-bearing breakage. In jj you frequently sit on an *anonymous* change with no bookmark, and jj leaves git `HEAD` detached; current-branch commands then report no branch, violating tooling assumptions that work is on a named branch.
 - **In-progress-op detection** reads `.git/worktrees/<id>/rebase-merge`, `rebase-apply`, and `BISECT_*` markers in the TypeScript slot git gateway. jj rebases internally and never writes those files, so these probes go inert (silently report "nothing in progress"). That is not dangerous, but any safety check relying on them is blind during a jj operation.
 
 `.graphite_metadata.db` reading is unaffected — it is a path relative to git-common-dir, which
@@ -71,7 +71,7 @@ colocated jj preserves.
 ### 3. Graphite coexistence — the hard problem
 
 `gt` tracks `parent_branch_name` / `children` / commit SHAs in `.graphite_metadata.db`
-(read by TypeScript Graphite metadata helpers such as `ts/packages/asdl-core/src/graphite-metadata.ts` and CCC/slot Graphite surfaces). The
+(read by TypeScript Graphite metadata helpers such as `ts/packages/sdl-core/src/graphite-metadata.ts` and CCC/slot Graphite surfaces). The
 moment you jj-amend/rebase/squash, the underlying commits are rewritten out from under `gt`,
 its metadata goes stale, and `gt restack` / `gt submit` start making wrong decisions. `gt` and
 jj both want to own commit rewriting and stack topology, and they don't know about each other.
@@ -143,7 +143,7 @@ machinery between two systems that each assume they own the stack.
 
 - Do not build any gt/jj coexistence into the repo's tooling — no jj `SlotsGateway`, no
   jj-aware `get_current_branch`, no jj-native brmem.
-- jj is fine as a *personal* tool on scratch / non-`gt` branches, never wired into asdl tooling
+- jj is fine as a *personal* tool on scratch / non-`gt` branches, never wired into sdl tooling
   and never on a `gt`-tracked stack. This needs zero repo changes and carries no risk.
 - Revisit only if jj's stacking + `jj-spr` matures to where it could *replace* `gt` outright —
   at which point it is a clean swap, not a coexistence.

@@ -1,5 +1,5 @@
-import { formatCommand, formatCommandFailure, isSuccessfulExecResult } from "@asdl/core/exec";
-import { planLocalBranchRefreshFromWorktrees, type LocalBranchRefreshPlan } from "@asdl/core/git";
+import { formatCommand, formatCommandFailure, isSuccessfulExecResult } from "@sdl/core/exec";
+import { planLocalBranchRefreshFromWorktrees, type LocalBranchRefreshPlan } from "@sdl/core/git";
 
 import {
 	buildBrmemPayloadPiLaunchCommand,

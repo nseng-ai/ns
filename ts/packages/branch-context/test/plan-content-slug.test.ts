@@ -8,8 +8,8 @@ import {
 	derivePlanContentSlug,
 	type PlanContentSlugEvidence,
 } from "../src/index.ts";
-import { buildSlugModelArgs, DEFAULT_FAST_MODEL } from "@asdl/plans";
-import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
+import { buildSlugModelArgs, DEFAULT_FAST_MODEL } from "@sdl/plans";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/exec";
 
 const CWD = "/repo";
 const PLAN_CONTENT = "# Add Docs Portal Site\n\nBuild and publish the docs portal.\n";
@@ -148,12 +148,12 @@ describe("derivePlanContentSlug", () => {
 
 	test("overlong model output is repaired to seven complete slug words", async () => {
 		const filePath = await makePlanFile();
-		const rawOutput = "asdl docs site slot page conventions skeleton theme foundation\n";
+		const rawOutput = "sdl docs site slot page conventions skeleton theme foundation\n";
 		const pi = new FakeSlugPi({ result: { stdout: rawOutput } });
 
 		const evidence = await derivePlanContentSlug(pi, { filePath, cwd: CWD });
 
-		expect(evidence.slug).toBe("asdl-docs-site-slot-page-conventions-skeleton");
+		expect(evidence.slug).toBe("sdl-docs-site-slot-page-conventions-skeleton");
 		expect(evidence.rawOutput).toBe(rawOutput);
 	});
 

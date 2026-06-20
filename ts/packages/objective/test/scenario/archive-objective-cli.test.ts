@@ -1,4 +1,4 @@
-import { InMemoryGitGateway } from "@asdl/core/git/testing";
+import { InMemoryGitGateway } from "@sdl/core/git/testing";
 import { describe, expect, test } from "vitest";
 
 import { FakeObjectiveStorageGateway } from "../../src/fake-storage.ts";
@@ -72,22 +72,22 @@ describe("objective archive", () => {
 				error: null,
 				slug: "alpha",
 				direction: "archive",
-				sourcePath: ".asdl/objectives/alpha",
-				destinationPath: ".asdl/objective-archive/alpha",
+				sourcePath: ".sdl/objectives/alpha",
+				destinationPath: ".sdl/objective-archive/alpha",
 				hasSource: false,
 				hasDestination: true,
 				hasMoved: true,
 			}),
 		});
-		await expect(fake.pathKind(".asdl/objectives/alpha")).resolves.toEqual({
+		await expect(fake.pathKind(".sdl/objectives/alpha")).resolves.toEqual({
 			ok: true,
 			value: "missing",
 		});
-		await expect(fake.pathKind(".asdl/objective-archive/alpha")).resolves.toEqual({
+		await expect(fake.pathKind(".sdl/objective-archive/alpha")).resolves.toEqual({
 			ok: true,
 			value: "directory",
 		});
-		await expect(fake.readTextFile(".asdl/objective-archive/alpha/objective.md")).resolves.toEqual({
+		await expect(fake.readTextFile(".sdl/objective-archive/alpha/objective.md")).resolves.toEqual({
 			type: "ok",
 			content: "# alpha\n",
 		});
@@ -98,14 +98,14 @@ describe("objective archive", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe(
-			"Archived Objective `alpha`.\n\nMoved:\n  .asdl/objectives/alpha\n  -> .asdl/objective-archive/alpha\n",
+			"Archived Objective `alpha`.\n\nMoved:\n  .sdl/objectives/alpha\n  -> .sdl/objective-archive/alpha\n",
 		);
 		expect(run.stderr).toEqual([]);
 	});
 
 	test("unarchives archived record with stable JSON and filesystem move", async () => {
 		const fake = new FakeObjectiveStorageGateway({
-			files: { ".asdl/objective-archive/alpha/objective.md": "# alpha\n" },
+			files: { ".sdl/objective-archive/alpha/objective.md": "# alpha\n" },
 		});
 		const run = runScenario(["archive", "alpha", "--unarchive", "--format", "json"], {
 			context: contextFor(fake),
@@ -119,18 +119,18 @@ describe("objective archive", () => {
 				error: null,
 				slug: "alpha",
 				direction: "unarchive",
-				sourcePath: ".asdl/objective-archive/alpha",
-				destinationPath: ".asdl/objectives/alpha",
+				sourcePath: ".sdl/objective-archive/alpha",
+				destinationPath: ".sdl/objectives/alpha",
 				hasSource: false,
 				hasDestination: true,
 				hasMoved: true,
 			}),
 		});
-		await expect(fake.pathKind(".asdl/objective-archive/alpha")).resolves.toEqual({
+		await expect(fake.pathKind(".sdl/objective-archive/alpha")).resolves.toEqual({
 			ok: true,
 			value: "missing",
 		});
-		await expect(fake.pathKind(".asdl/objectives/alpha")).resolves.toEqual({
+		await expect(fake.pathKind(".sdl/objectives/alpha")).resolves.toEqual({
 			ok: true,
 			value: "directory",
 		});
@@ -138,12 +138,12 @@ describe("objective archive", () => {
 
 	test("human unarchive output starts with unarchived sentence and moved paths", async () => {
 		const run = runScenario(["archive", "alpha", "--unarchive"], {
-			fake: { files: { ".asdl/objective-archive/alpha/objective.md": "# alpha\n" } },
+			fake: { files: { ".sdl/objective-archive/alpha/objective.md": "# alpha\n" } },
 		});
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe(
-			"Unarchived Objective `alpha`.\n\nMoved:\n  .asdl/objective-archive/alpha\n  -> .asdl/objectives/alpha\n",
+			"Unarchived Objective `alpha`.\n\nMoved:\n  .sdl/objective-archive/alpha\n  -> .sdl/objectives/alpha\n",
 		);
 		expect(run.stderr).toEqual([]);
 	});
@@ -157,20 +157,20 @@ describe("objective archive", () => {
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
 			exit_code: 1,
-			message: "No active Objective record found for slug 'ghost' at .asdl/objectives/ghost.",
+			message: "No active Objective record found for slug 'ghost' at .sdl/objectives/ghost.",
 			data: archiveData({
 				status: "source_not_found",
 				error: "source_not_found",
 				slug: "ghost",
 				direction: "archive",
-				sourcePath: ".asdl/objectives/ghost",
-				destinationPath: ".asdl/objective-archive/ghost",
+				sourcePath: ".sdl/objectives/ghost",
+				destinationPath: ".sdl/objective-archive/ghost",
 				hasSource: false,
 				hasDestination: false,
 				hasMoved: false,
 			}),
 		});
-		await expect(fake.pathKind(".asdl/objective-archive/ghost")).resolves.toEqual({
+		await expect(fake.pathKind(".sdl/objective-archive/ghost")).resolves.toEqual({
 			ok: true,
 			value: "missing",
 		});
@@ -180,8 +180,8 @@ describe("objective archive", () => {
 		const fake = new FakeObjectiveStorageGateway({
 			records: [{ slug: "alpha" }],
 			files: {
-				".asdl/objectives/alpha/objective.md": "active sentinel\n",
-				".asdl/objective-archive/alpha/objective.md": "archived sentinel\n",
+				".sdl/objectives/alpha/objective.md": "active sentinel\n",
+				".sdl/objective-archive/alpha/objective.md": "archived sentinel\n",
 			},
 		});
 		const run = runScenario(["archive", "alpha", "--format", "json"], {
@@ -192,24 +192,24 @@ describe("objective archive", () => {
 		expect(parseJsonOutput(run)).toEqual({
 			exit_code: 1,
 			message:
-				"Destination already exists for slug 'alpha': .asdl/objective-archive/alpha. Refusing to merge or overwrite.",
+				"Destination already exists for slug 'alpha': .sdl/objective-archive/alpha. Refusing to merge or overwrite.",
 			data: archiveData({
 				status: "destination_exists",
 				error: "destination_exists",
 				slug: "alpha",
 				direction: "archive",
-				sourcePath: ".asdl/objectives/alpha",
-				destinationPath: ".asdl/objective-archive/alpha",
+				sourcePath: ".sdl/objectives/alpha",
+				destinationPath: ".sdl/objective-archive/alpha",
 				hasSource: true,
 				hasDestination: true,
 				hasMoved: false,
 			}),
 		});
-		await expect(fake.readTextFile(".asdl/objectives/alpha/objective.md")).resolves.toEqual({
+		await expect(fake.readTextFile(".sdl/objectives/alpha/objective.md")).resolves.toEqual({
 			type: "ok",
 			content: "active sentinel\n",
 		});
-		await expect(fake.readTextFile(".asdl/objective-archive/alpha/objective.md")).resolves.toEqual({
+		await expect(fake.readTextFile(".sdl/objective-archive/alpha/objective.md")).resolves.toEqual({
 			type: "ok",
 			content: "archived sentinel\n",
 		});
@@ -228,8 +228,8 @@ describe("objective archive", () => {
 				error: "invalid_slug",
 				slug: null,
 				direction: "archive",
-				sourcePath: ".asdl/objectives",
-				destinationPath: ".asdl/objective-archive",
+				sourcePath: ".sdl/objectives",
+				destinationPath: ".sdl/objective-archive",
 				hasSource: false,
 				hasDestination: false,
 				hasMoved: false,
@@ -247,8 +247,8 @@ describe("objective archive", () => {
 				error: "missing_slug",
 				slug: null,
 				direction: "archive",
-				sourcePath: ".asdl/objectives",
-				destinationPath: ".asdl/objective-archive",
+				sourcePath: ".sdl/objectives",
+				destinationPath: ".sdl/objective-archive",
 				hasSource: false,
 				hasDestination: false,
 				hasMoved: false,
@@ -258,20 +258,20 @@ describe("objective archive", () => {
 
 	test("non-directory source is refused", async () => {
 		const run = runScenario(["archive", "alpha", "--format", "json"], {
-			fake: { files: { ".asdl/objectives/alpha": "not a directory\n" } },
+			fake: { files: { ".sdl/objectives/alpha": "not a directory\n" } },
 		});
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
 			exit_code: 1,
-			message: "Objective source path for slug 'alpha' is not a directory: .asdl/objectives/alpha.",
+			message: "Objective source path for slug 'alpha' is not a directory: .sdl/objectives/alpha.",
 			data: archiveData({
 				status: "source_not_directory",
 				error: "source_not_directory",
 				slug: "alpha",
 				direction: "archive",
-				sourcePath: ".asdl/objectives/alpha",
-				destinationPath: ".asdl/objective-archive/alpha",
+				sourcePath: ".sdl/objectives/alpha",
+				destinationPath: ".sdl/objective-archive/alpha",
 				hasSource: true,
 				hasDestination: false,
 				hasMoved: false,
@@ -295,7 +295,7 @@ describe("objective archive", () => {
 			exit_code: 0,
 			data: {
 				trunkBranch: "master",
-				rootPath: ".asdl/objectives",
+				rootPath: ".sdl/objectives",
 				statusFilter: "all",
 				namesOnly: false,
 				records: [
