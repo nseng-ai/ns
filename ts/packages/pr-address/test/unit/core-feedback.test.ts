@@ -6,6 +6,7 @@ import {
 	InMemoryGithubPrFeedbackGateway,
 	discussionComment,
 	review,
+	reviewThread,
 } from "../support/in-memory-pr-address-gateways.ts";
 
 const GATEWAY_OPTIONS = { cwd: "/repo" };
@@ -49,6 +50,64 @@ describe("pr-address core feedback helpers", () => {
 			},
 		});
 	});
+
+	const snapshotThreadScenarios = [
+		{
+			shouldIncludeResolved: false,
+			shouldCountAllReviewThreads: false,
+			reviewThreadIds: ["unresolved"],
+			countedThreadIds: ["unresolved"],
+		},
+		{
+			shouldIncludeResolved: false,
+			shouldCountAllReviewThreads: true,
+			reviewThreadIds: ["unresolved"],
+			countedThreadIds: ["unresolved", "resolved"],
+		},
+		{
+			shouldIncludeResolved: true,
+			shouldCountAllReviewThreads: false,
+			reviewThreadIds: ["unresolved", "resolved"],
+			countedThreadIds: ["unresolved", "resolved"],
+		},
+		{
+			shouldIncludeResolved: true,
+			shouldCountAllReviewThreads: true,
+			reviewThreadIds: ["unresolved", "resolved"],
+			countedThreadIds: ["unresolved", "resolved"],
+		},
+	] as const;
+
+	test.each(snapshotThreadScenarios)(
+		"snapshot thread include/count behavior %#",
+		async (scenario) => {
+			const gateway = new InMemoryGithubPrFeedbackGateway({
+				reviewThreads: {
+					123: [
+						reviewThread({ id: "unresolved", isResolved: false }),
+						reviewThread({ id: "resolved", isResolved: true }),
+					],
+				},
+			});
+
+			const result = await fetchFeedbackSnapshot({
+				gateway,
+				gatewayOptions: GATEWAY_OPTIONS,
+				prNumber: 123,
+				shouldIncludeResolved: scenario.shouldIncludeResolved,
+				shouldIncludeEmptyReviews: false,
+				shouldCountAllReviewThreads: scenario.shouldCountAllReviewThreads,
+			});
+
+			if (result.type !== "ok") throw new Error(result.message);
+			expect(result.snapshot.review_threads.map((thread) => thread.id)).toEqual(
+				scenario.reviewThreadIds,
+			);
+			expect(result.snapshot.counted_review_threads.map((thread) => thread.id)).toEqual(
+				scenario.countedThreadIds,
+			);
+		},
+	);
 
 	test("identifies automation-like discussion comments", () => {
 		expect(

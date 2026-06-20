@@ -16,19 +16,27 @@ import {
 	type ExecOperation,
 	type PrAddressExecContext,
 } from "./exec-operation.ts";
+import type {
+	prDiscussionCommentSchema,
+	prLookupResultSchema,
+	prReviewCommentSchema,
+	prReviewSchema,
+	prReviewThreadSchema,
+	prSummarySchema,
+} from "./operation-schemas/collection.ts";
 
-const prNumberSchema = z.object({ pr_number: z.int() });
+const prNumberSchema = z.object({ prNumber: z.int() });
 const branchPrSchema = z.object({ branch: z.string() });
 const emptySchema = z.object({});
 const reviewThreadsSchema = z.object({
-	pr_number: z.int(),
-	include_resolved: z.boolean().default(false),
+	prNumber: z.int(),
+	includeResolved: z.boolean().default(false),
 });
 const replyReviewThreadSchema = z.object({
-	thread_id: z.string(),
+	threadId: z.string(),
 	body: z.string(),
 });
-const resolveReviewThreadSchema = z.object({ thread_id: z.string() });
+const resolveReviewThreadSchema = z.object({ threadId: z.string() });
 
 type PrNumberRequest = z.output<typeof prNumberSchema>;
 type BranchPrRequest = z.output<typeof branchPrSchema>;
@@ -117,10 +125,10 @@ async function runPrDetails(
 ): Promise<ClinkrExit<unknown>> {
 	const result = await ctx.context.prFeedback.getPr({
 		...gatewayOptions(ctx),
-		prNumber: request.pr_number,
+		prNumber: request.prNumber,
 	});
 	if (result.type === "failure")
-		return prFeedbackFailureExit(`Failed to look up PR ${request.pr_number}`, result.failure);
+		return prFeedbackFailureExit(`Failed to look up PR ${request.prNumber}`, result.failure);
 	return ok(lookupResult(result));
 }
 
@@ -152,11 +160,11 @@ async function runPrReviews(
 ): Promise<ClinkrExit<unknown>> {
 	const result = await ctx.context.prFeedback.getPrReviews({
 		...gatewayOptions(ctx),
-		prNumber: request.pr_number,
+		prNumber: request.prNumber,
 	});
 	if (!result.ok)
 		return prFeedbackFailureExit(
-			`Failed to fetch reviews for PR ${request.pr_number}`,
+			`Failed to fetch reviews for PR ${request.prNumber}`,
 			result.error,
 		);
 	return ok({ reviews: result.value.map(reviewResult) });
@@ -168,14 +176,14 @@ async function runPrReviewThreads(
 ): Promise<ClinkrExit<unknown>> {
 	const result = await ctx.context.prFeedback.getPrReviewThreads({
 		...gatewayOptions(ctx),
-		prNumber: request.pr_number,
+		prNumber: request.prNumber,
 	});
 	if (!result.ok)
 		return prFeedbackFailureExit(
-			`Failed to fetch review threads for PR ${request.pr_number}`,
+			`Failed to fetch review threads for PR ${request.prNumber}`,
 			result.error,
 		);
-	const threads = request.include_resolved
+	const threads = request.includeResolved
 		? result.value
 		: result.value.filter((thread) => !thread.isResolved);
 	return ok({ review_threads: threads.map(reviewThreadResult) });
@@ -187,11 +195,11 @@ async function runPrDiscussionComments(
 ): Promise<ClinkrExit<unknown>> {
 	const result = await ctx.context.prFeedback.getPrDiscussionComments({
 		...gatewayOptions(ctx),
-		prNumber: request.pr_number,
+		prNumber: request.prNumber,
 	});
 	if (!result.ok)
 		return prFeedbackFailureExit(
-			`Failed to fetch discussion comments for PR ${request.pr_number}`,
+			`Failed to fetch discussion comments for PR ${request.prNumber}`,
 			result.error,
 		);
 	return ok({ discussion_comments: result.value.map(discussionCommentResult) });
@@ -203,12 +211,12 @@ async function runReplyReviewThread(
 ): Promise<ClinkrExit<unknown>> {
 	const result = await ctx.context.prFeedback.replyToReviewThread({
 		...gatewayOptions(ctx),
-		threadId: request.thread_id,
+		threadId: request.threadId,
 		body: request.body,
 	});
 	if (!result.ok)
 		return prFeedbackFailureExit(
-			`Failed to reply to review thread ${request.thread_id}`,
+			`Failed to reply to review thread ${request.threadId}`,
 			result.error,
 		);
 	return ok({
@@ -223,11 +231,11 @@ async function runResolveReviewThread(
 ): Promise<ClinkrExit<unknown>> {
 	const result = await ctx.context.prFeedback.resolveReviewThread({
 		...gatewayOptions(ctx),
-		threadId: request.thread_id,
+		threadId: request.threadId,
 	});
 	if (!result.ok)
 		return prFeedbackFailureExit(
-			`Failed to resolve review thread ${request.thread_id}`,
+			`Failed to resolve review thread ${request.threadId}`,
 			result.error,
 		);
 	return ok({ thread_id: result.value.threadId, is_resolved: result.value.isResolved });
@@ -238,7 +246,7 @@ function lookupResult(
 		Awaited<ReturnType<PrAddressExecContext["context"]["prFeedback"]["getPr"]>>,
 		{ type: "failure" }
 	>,
-) {
+): z.infer<typeof prLookupResultSchema> {
 	if (result.type === "miss") {
 		return {
 			found: false,
@@ -249,7 +257,7 @@ function lookupResult(
 	return { found: true, pr: prSummaryResult(result.pr), miss: null };
 }
 
-function prSummaryResult(pr: GithubPrSummary) {
+function prSummaryResult(pr: GithubPrSummary): z.infer<typeof prSummarySchema> {
 	return {
 		number: pr.number,
 		title: pr.title,
@@ -261,7 +269,7 @@ function prSummaryResult(pr: GithubPrSummary) {
 	};
 }
 
-function reviewResult(review: GithubPrReview) {
+function reviewResult(review: GithubPrReview): z.infer<typeof prReviewSchema> {
 	return {
 		id: review.id,
 		author: review.author,
@@ -271,7 +279,7 @@ function reviewResult(review: GithubPrReview) {
 	};
 }
 
-function reviewThreadResult(thread: GithubPrReviewThread) {
+function reviewThreadResult(thread: GithubPrReviewThread): z.infer<typeof prReviewThreadSchema> {
 	return {
 		id: thread.id,
 		path: thread.path,
@@ -283,7 +291,9 @@ function reviewThreadResult(thread: GithubPrReviewThread) {
 	};
 }
 
-function reviewCommentResult(comment: GithubPrReviewComment) {
+function reviewCommentResult(
+	comment: GithubPrReviewComment,
+): z.infer<typeof prReviewCommentSchema> {
 	return {
 		id: comment.id,
 		body: comment.body,
@@ -296,6 +306,8 @@ function reviewCommentResult(comment: GithubPrReviewComment) {
 	};
 }
 
-function discussionCommentResult(comment: GithubPrDiscussionComment) {
+function discussionCommentResult(
+	comment: GithubPrDiscussionComment,
+): z.infer<typeof prDiscussionCommentSchema> {
 	return { id: comment.id, body: comment.body, author: comment.author, url: comment.url };
 }

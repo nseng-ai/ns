@@ -9,8 +9,7 @@
     },
     "required": [
       "branch"
-    ],
-    "additionalProperties": false
+    ]
   },
   "output_json_schema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",

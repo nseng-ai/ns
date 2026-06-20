@@ -6,7 +6,7 @@ export function schemaDocument(
 	resultSchema: z.ZodType,
 ): JsonSchemaDocument {
 	return {
-		input_json_schema: z.toJSONSchema(requestSchema),
-		output_json_schema: z.toJSONSchema(resultSchema),
+		input_json_schema: z.toJSONSchema(requestSchema, { io: "input" }),
+		output_json_schema: z.toJSONSchema(resultSchema, { io: "output" }),
 	};
 }

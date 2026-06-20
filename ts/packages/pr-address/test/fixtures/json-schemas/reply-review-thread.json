@@ -3,7 +3,7 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
-      "thread_id": {
+      "threadId": {
         "type": "string"
       },
       "body": {
@@ -11,10 +11,9 @@
       }
     },
     "required": [
-      "thread_id",
+      "threadId",
       "body"
-    ],
-    "additionalProperties": false
+    ]
   },
   "output_json_schema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",

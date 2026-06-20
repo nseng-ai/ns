@@ -9,16 +9,18 @@
         "maximum": 9007199254740991
       },
       "includeResolved": {
+        "default": false,
         "type": "boolean"
       },
       "includeAutomation": {
+        "default": false,
         "type": "boolean"
       },
       "includeEmptyReviews": {
+        "default": false,
         "type": "boolean"
       }
-    },
-    "additionalProperties": false
+    }
   },
   "output_json_schema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",

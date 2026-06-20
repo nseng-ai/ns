@@ -98,15 +98,18 @@ export function defineExecOperation<S extends z.ZodObject, T>(
 			const commandSpec = {
 				...spec,
 				handler,
-				schemaDocument: () => requireOperationSchemaDocument(spec.name),
+				schemaDocument: () => requireOperationSchemaDocument(spec.name, spec.schema),
 			} satisfies ClinkrCommandSpec<PrAddressExecContext, S, T>;
 			group.command(commandSpec);
 		},
 	};
 }
 
-function requireOperationSchemaDocument(operation: string): JsonSchemaDocument {
-	const document = buildOperationSchemaDocument(operation);
+function requireOperationSchemaDocument(
+	operation: string,
+	requestSchema: z.ZodObject,
+): JsonSchemaDocument {
+	const document = buildOperationSchemaDocument(operation, requestSchema);
 	if (document === undefined) {
 		throw new Error(`pr-address: no schema document builder for exec operation '${operation}'`);
 	}

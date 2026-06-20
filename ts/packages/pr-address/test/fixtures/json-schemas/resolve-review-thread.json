@@ -3,14 +3,13 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
-      "thread_id": {
+      "threadId": {
         "type": "string"
       }
     },
     "required": [
-      "thread_id"
-    ],
-    "additionalProperties": false
+      "threadId"
+    ]
   },
   "output_json_schema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",

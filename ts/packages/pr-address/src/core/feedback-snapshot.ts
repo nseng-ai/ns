@@ -43,37 +43,18 @@ export async function fetchFeedbackSnapshot(
 			`Failed to fetch reviews for PR ${options.prNumber}`,
 			reviewsResult.error,
 		);
-	let countedReviewThreads: readonly GithubPrReviewThread[];
-	let reviewThreads: readonly GithubPrReviewThread[];
-	if (options.shouldCountAllReviewThreads) {
-		const countedResult = await options.gateway.getPrReviewThreads({
-			...options.gatewayOptions,
-			prNumber: options.prNumber,
-		});
-		if (!countedResult.ok)
-			return snapshotFailure(
-				`Failed to fetch review threads for PR ${options.prNumber}`,
-				countedResult.error,
-			);
-		countedReviewThreads = countedResult.value;
-		reviewThreads = options.shouldIncludeResolved
-			? countedReviewThreads
-			: unresolvedThreads(countedReviewThreads);
-	} else {
-		const threadsResult = await options.gateway.getPrReviewThreads({
-			...options.gatewayOptions,
-			prNumber: options.prNumber,
-		});
-		if (!threadsResult.ok)
-			return snapshotFailure(
-				`Failed to fetch review threads for PR ${options.prNumber}`,
-				threadsResult.error,
-			);
-		reviewThreads = options.shouldIncludeResolved
-			? threadsResult.value
-			: unresolvedThreads(threadsResult.value);
-		countedReviewThreads = reviewThreads;
-	}
+	const threadsResult = await options.gateway.getPrReviewThreads({
+		...options.gatewayOptions,
+		prNumber: options.prNumber,
+	});
+	if (!threadsResult.ok)
+		return snapshotFailure(
+			`Failed to fetch review threads for PR ${options.prNumber}`,
+			threadsResult.error,
+		);
+	const allThreads = threadsResult.value;
+	const reviewThreads = options.shouldIncludeResolved ? allThreads : unresolvedThreads(allThreads);
+	const countedReviewThreads = options.shouldCountAllReviewThreads ? allThreads : reviewThreads;
 	const commentsResult = await options.gateway.getPrDiscussionComments({
 		...options.gatewayOptions,
 		prNumber: options.prNumber,
