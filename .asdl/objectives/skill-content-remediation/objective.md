@@ -25,8 +25,9 @@ long tail of score 1–3 polish stays opportunistic, not a standalone push.
      commented-description frontmatter is the *rendered output* of an explicit-only kind,
      so a skill that is kind `normal` but shows that stub is misconfigured — "listed but
      unroutable.") Two streams: write real descriptions for incomplete `normal` skills,
-     and reconcile deliberately-explicit skills to `invoke-only` (or `command-backed`
-     only where a verified Pi replacement exists). Affects `sdl-submit`,
+     and reconcile deliberately-explicit skills to `invoke-only` (the default explicit-only
+     kind; `command-backed` is currently unexemplified — no skill uses it — and would
+     require building a verified Pi replacement extension first). Affects `sdl-submit`,
      `objective-close`, `objective-create`, `code-workflows`, `changelog-update`,
      `code-checkpoint`, `code-just-fix`, and the `setup-*` / `create-*` family
      (`code-autobranch` already carries a real `normal` description). Taxonomy documented
