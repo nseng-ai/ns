@@ -84,8 +84,10 @@ Risks). Systemic #1/#2/#3 are already complete and unaffected.
   `thermo-nuclear-code-quality-review`, `ts-morph-*`) — these are upstream code.
 - Not the `skill-management-subsystem` Objective's install/list/path/catalog tooling.
   This Objective is about skill *content*, that one is about the management *subsystem*.
-- No new skills and no change to what any skill *does* — content and structure
-  remediation only.
+- No new production/remediation target skills and no change to what any existing skill
+  *does* — content and structure remediation only. Any `skill-audit-improved` support
+  artifact must be explicitly reconciled as a support-skill exception (registered cleanly
+  or removed/parked as inert comparison material) before it counts as Objective progress.
 
 ## Completion Criteria
 
@@ -177,6 +179,13 @@ Risks:
   `2026-06-20T140000`): `code-gt-restack-resolve`, `code-resolve-merge-conflicts`, and
   `objective-close`. `branch-context-impl` is the limiting case — disclosing its sole
   block (a 6-trigger STOP safety contract) is net-negative, so it is dropped entirely.
+- The `skill-audit-improved` support-skill branch surfaced a boundary/invocation risk:
+  adding a new first-party skill while documenting it as the audit entry point contradicts
+  the original "no new skills" boundary unless it is deliberately treated as a support
+  exception. Current evidence is not clean enough to count it as progress: `areg check`
+  reports the directory is orphaned from `skills-lock.json`, and `areg skill show` reports
+  inconsistent invocation artifacts (`disable-model-invocation` present but
+  `agents/openai.yaml` absent).
 
 ## Open Questions
 
