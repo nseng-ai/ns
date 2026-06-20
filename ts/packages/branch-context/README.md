@@ -15,7 +15,6 @@ If manually reverting instead of using a PR/commit revert, remove the prototype-
 - `skills/branch-context-impl/SKILL.md`
 - `skills/branch-context/SKILL.md`
 - `ts/packages/branch-context/src/prompts/branch-context-impl.md`
-- `packages/asdl-core/tests/unit/prompts/test_resolver.py`
 - `ts/packages/branch-context/test/attached-plan.test.ts`
 
 After rollback, rerun the same prompt and branch-context checks that covered the prototype.

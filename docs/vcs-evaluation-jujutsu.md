@@ -62,15 +62,8 @@ making subsystems jj-native" for why it should *stay* there.)
 Almost everything works unchanged (`for-each-ref`, `rev-parse`, `merge-base`, `log`,
 `patch-id`, `ls-tree`, `status --porcelain`) because colocated git is intact. Two exceptions:
 
-- **`get_current_branch()`** = `git symbolic-ref --short HEAD`
-  (`packages/asdl-core/src/asdl_core/git/real_git_gateway.py:211`) is the load-bearing
-  breakage. In jj you frequently sit on an *anonymous* change with no bookmark, and jj leaves
-  git `HEAD` detached; `symbolic-ref` then errors, violating the tooling's assumption that you
-  are always on a named branch.
-- **In-progress-op detection** reads `.git/worktrees/<id>/rebase-merge`, `rebase-apply`, and
-  `BISECT_START` (`real_git_gateway.py:47-118`). jj rebases internally and never writes those
-  files, so these probes go inert (silently report "nothing in progress"). That is not
-  dangerous, but any safety check relying on them is blind during a jj operation.
+- **Current-branch detection** (`ts/packages/asdl-core/src/git/index.ts` and `ts/packages/slot/src/gateways/git.ts`) is the load-bearing breakage. In jj you frequently sit on an *anonymous* change with no bookmark, and jj leaves git `HEAD` detached; current-branch commands then report no branch, violating tooling assumptions that work is on a named branch.
+- **In-progress-op detection** reads `.git/worktrees/<id>/rebase-merge`, `rebase-apply`, and `BISECT_*` markers in the TypeScript slot git gateway. jj rebases internally and never writes those files, so these probes go inert (silently report "nothing in progress"). That is not dangerous, but any safety check relying on them is blind during a jj operation.
 
 `.graphite_metadata.db` reading is unaffected — it is a path relative to git-common-dir, which
 colocated jj preserves.
@@ -78,7 +71,7 @@ colocated jj preserves.
 ### 3. Graphite coexistence — the hard problem
 
 `gt` tracks `parent_branch_name` / `children` / commit SHAs in `.graphite_metadata.db`
-(`packages/asdl-core/src/asdl_core/gt/metadata_reader.py`, read via `gt/real_gateway.py`). The
+(read by TypeScript Graphite metadata helpers such as `ts/packages/asdl-core/src/graphite-metadata.ts` and CCC/slot Graphite surfaces). The
 moment you jj-amend/rebase/squash, the underlying commits are rewritten out from under `gt`,
 its metadata goes stale, and `gt restack` / `gt submit` start making wrong decisions. `gt` and
 jj both want to own commit rewriting and stack topology, and they don't know about each other.
@@ -163,6 +156,6 @@ is mostly editing ergonomics plus op-log undo, a full replacement does not clear
 - jj "Working with GitHub": <https://jj-vcs.github.io/jj/latest/github/>
 - jj workspaces: <https://jj-vcs.github.io/jj/latest/working-copy/#workspaces>
 - jj-spr (stacked PRs against GitHub): <https://github.com/jennings/jj-spr>
-- In-repo domain language: `packages/asdl-core/CONTEXT.md` (Git / Graphite),
-  `ts/packages/brmem/CONTEXT.md` (Branch Memory), `ts/packages/pi-extensions/CONTEXT.md`
-  (worktree-slot).
+- In-repo domain language: root `CONTEXT.md` / `CONTEXT-MAP.md`,
+  `ts/packages/brmem/CONTEXT.md` (Branch Memory), `ts/packages/ccc/CONTEXT.md`, and
+  `ts/packages/pi-extensions/CONTEXT.md` (worktree/Pi integration).

@@ -6,10 +6,10 @@ This map is the repository entry point for domain-language context. It records w
 
 Current checkout facts:
 
-- Python workspace inventory: 1 active workspace package under `packages/`: `asdl-core`, retained as the root plugin-dispatcher/runtime diagnostic surface and shared reference substrate.
-- In-scope Python context targets: 1 package, `asdl-core`. Former capability packages that were ported to TypeScript or retired are not active Python context targets.
+- Python workspace inventory: no active first-party Python workspace packages remain.
+- In-scope Python context targets: none. Former Python capability packages were ported to TypeScript, retired, or deleted as migration reference material.
 - TypeScript workspace inventory: 19 repo-local packages under `ts/packages/`. This map's TypeScript package-context coverage is intentionally partial pending a focused rebaseline.
-- Present context files: root `CONTEXT.md`, `packages/asdl-core/CONTEXT.md`, `ts/packages/handoff/CONTEXT.md`, `ts/packages/brmem/CONTEXT.md`, `ts/packages/pi-extension-runtime/CONTEXT.md`, `ts/packages/pi-extensions/CONTEXT.md`, `ts/packages/ccc/CONTEXT.md`, and `ts/packages/sdl/CONTEXT.md`.
+- Present context files: root `CONTEXT.md`, `ts/packages/handoff/CONTEXT.md`, `ts/packages/brmem/CONTEXT.md`, `ts/packages/pi-extension-runtime/CONTEXT.md`, `ts/packages/pi-extensions/CONTEXT.md`, `ts/packages/ccc/CONTEXT.md`, and `ts/packages/sdl/CONTEXT.md`.
 - Future drift should be handled by focused rebaseline phases before final readback, not silently folded into unrelated package-context sessions.
 
 ## Contexts
@@ -17,7 +17,6 @@ Current checkout facts:
 ### Present
 
 - [ASDL Tools](./CONTEXT.md) — Objective-system vocabulary for checked-in durable narrative roadmap records, Active Objective Root, Objective Archive Root, Archived Objective, Objective Update, Objective Close, Objective Archive, Semantic Update, Tracking Gate, and Closure Marker; plus an **Architecture Boundaries** section defining the repo-wide Gateway and Domain logic terms (canonical definitions replicated from the `typescript-fake-driven-testing` skill).
-- [asdl-core](./packages/asdl-core/CONTEXT.md) — shared CLI, Git, Graphite, GitHub, session, plugin, repository-config, and presentation vocabulary. Keep this as one context file with H2 sections until a subpackage graduates to a standalone package.
 - [@asdl/handoff](./ts/packages/handoff/CONTEXT.md) — active directed handoff artifact vocabulary over Branch Memory storage for the TypeScript standalone `handoff` CLI: continuation focus, Create a Handoff, Pick Up a Handoff, List Handoffs, and Delete a Handoff actions, handoff slug/key, `handoff` namespace, Handoff Summary, Branch State, List Scope, all-branches inventory, garbage collection, Handoff Technical Locator, and the boundary between durable handoff artifacts and worker-protocol handoffs.
 - [@asdl/brmem](./ts/packages/brmem/CONTEXT.md) — Branch Memory primitive vocabulary. Present terms include Branch Memory System, Branch Memory, Namespace, Base Namespace `base`, Entry, Entry Key, Snapshot, Snapshot Ref, Entry Locator, Namespace Copy, Copy Conflict, and Export. Do not describe prompt resolution as ordinary Branch Memory operation, and do not revive stale `Entry Ref` / `Ref locator` wording.
 - [@asdl/pi-extension-runtime](./ts/packages/pi-extension-runtime/CONTEXT.md) — neutral Pi extension runtime helper vocabulary for command presentation, Branch Memory command discovery/execution helpers, machine-envelope parsing, terminal text shaping, skill expansion, Objective picker/selection helpers, branch-slug normalization, and cmux/Pi runtime types shared below CCC and repo-local Pi extensions.
@@ -41,7 +40,6 @@ These are active TypeScript package context targets for later focused domain-lan
 
 - `packages/asdl-initiatives/CONTEXT.md` — no tracked package exists in the current workspace.
 - `packages/asdl-reviewer/CONTEXT.md` — historical package identity replaced by `roaster`; do not recreate unless the package itself returns as a separate tracked package.
-- Per-subpackage `packages/asdl-core/**/CONTEXT.md` files — keep `asdl-core` as one context file for now.
 
 ## Candidate Relationships
 

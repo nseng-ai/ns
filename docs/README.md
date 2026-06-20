@@ -6,7 +6,7 @@ Start here before broad documentation searches. This directory collects cross-pa
 
 - `CONTEXT.md`: durable domain language and repo-wide conceptual grounding.
 - `docs/`: cross-package design docs, system behavior, and contributor-facing documentation topology.
-- `packages/<pkg>/README.md`: package-specific usage, public CLI notes, and package-local entrypoints.
+- `ts/packages/<pkg>/README.md`: package-specific usage, public CLI notes, and package-local entrypoints.
 - `skills/<name>/SKILL.md`: user-facing agent procedure. Public skills should describe CLI operations and avoid implementation internals.
 - `.asdl/objectives/<slug>/`: durable Objective narrative, roadmap, updates, and closure.
 - `.asdl/prompts/`: checked-in reusable prompt assets consumed by repo tooling or skills; this is distinct from Pi `.pi/prompts` slash prompt templates.
@@ -20,7 +20,6 @@ Start here before broad documentation searches. This directory collects cross-pa
 - [Skill/extension router pattern](skill-extension-router-pattern.md): consolidate rare workflow skills behind one router with lazy-loaded playbooks and optional selector commands.
 - [Querying cmux help](cmux/help-querying.md): how agents should revalidate fast-changing cmux CLI behavior.
 - [Retired Python `asdl exec` commands](asdl-exec/README.md): disposition notes and TypeScript replacement pointers for the former root exec surface.
-- [GitHub gateway conformance fixtures](github-gateway-conformance-fixtures.md): live GitHub fixture policy.
 - [GitHub Actions remote code authoring](remote-code-authoring-github-actions.md): ground-truth Erk survey and design lessons for using workflow dispatch as a remote agent authoring substrate.
 - [Internal PR stack address workflow retrospective](internal-pr-stack-address-retrospective.md): analysis of the stack-wide feedback workflow, with evidence and CLI push-down recommendations.
 - [refactor-swarm-workflow](refactor-swarm-workflow.md): the multi-agent `Workflow`-tool engine for applying a file-local change across many files (distinct from the `refactor-swarm` skill).

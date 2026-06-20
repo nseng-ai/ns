@@ -18,14 +18,14 @@ describe("aretro source CLI skill runner", () => {
 		const outputPath = join(tempRoot, "aretro-run");
 		const repoRoot = fileURLToPath(new URL("../../../../../", import.meta.url));
 		const renderScriptPath = fileURLToPath(
-			new URL("../../../../scripts/render-cli-shim.py", import.meta.url),
+			new URL("../../../../scripts/render-cli-shim.mjs", import.meta.url),
 		);
 		const templatePath = fileURLToPath(
 			new URL("../../../../scripts/source-cli-shim-template", import.meta.url),
 		);
 		const checkedInRunnerPath = join(repoRoot, "skills/branch-retro/scripts/aretro-run");
 
-		const render = spawnSync("python", [renderScriptPath], {
+		const render = spawnSync("node", [renderScriptPath], {
 			env: {
 				...process.env,
 				ASDL_TEMPLATE: templatePath,
