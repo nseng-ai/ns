@@ -105,22 +105,23 @@ async function resolveTargetPr(
 			...gatewayOptions(ctx),
 			prNumber: request.prNumber,
 		});
-		if (lookupResult.type === "failure")
+		if (!lookupResult.ok)
 			return {
 				type: "failure",
 				exit: prFeedbackFailureExit(
 					`Failed to look up PR ${request.prNumber}`,
-					lookupResult.failure,
+					lookupResult.error,
 				),
 			};
-		if (lookupResult.type === "miss") {
+		const outcome = lookupResult.value;
+		if (!outcome.found) {
 			return {
 				type: "miss",
 				target: emptyTarget({ prNumber: request.prNumber }),
-				message: `No PR found for PR ${request.prNumber}: ${lookupResult.stderr}`,
+				message: `No PR found for PR ${request.prNumber}: ${outcome.miss.stderr}`,
 			};
 		}
-		return { type: "found", pr: lookupResult.pr, branch: null };
+		return { type: "found", pr: outcome.pr, branch: null };
 	}
 
 	const branchResult = await ctx.context.git.getCurrentBranch(gatewayOptions(ctx));
@@ -143,22 +144,23 @@ async function resolveTargetPr(
 		...gatewayOptions(ctx),
 		branch: branchResult.branch,
 	});
-	if (lookupResult.type === "failure")
+	if (!lookupResult.ok)
 		return {
 			type: "failure",
 			exit: prFeedbackFailureExit(
 				`Failed to look up PR for branch ${branchResult.branch}`,
-				lookupResult.failure,
+				lookupResult.error,
 			),
 		};
-	if (lookupResult.type === "miss") {
+	const outcome = lookupResult.value;
+	if (!outcome.found) {
 		return {
 			type: "miss",
 			target: emptyTarget({ branch: branchResult.branch }),
-			message: `No PR found for branch ${branchResult.branch}: ${lookupResult.stderr}`,
+			message: `No PR found for branch ${branchResult.branch}: ${outcome.miss.stderr}`,
 		};
 	}
-	return { type: "found", pr: lookupResult.pr, branch: branchResult.branch };
+	return { type: "found", pr: outcome.pr, branch: branchResult.branch };
 }
 
 function selectIncludedFeedback(

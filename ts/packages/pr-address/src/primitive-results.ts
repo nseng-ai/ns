@@ -2,7 +2,7 @@ import type { z } from "zod";
 
 import type {
 	GithubPrDiscussionComment,
-	GithubPrLookupResult,
+	GithubPrLookupOutcome,
 	GithubPrReview,
 	GithubPrReviewComment,
 	GithubPrReviewThread,
@@ -24,14 +24,12 @@ import type {
 	resolveReviewThreadResultSchema,
 } from "./operation-schemas/collection.ts";
 
-export function lookupResult(
-	result: Exclude<GithubPrLookupResult, { readonly type: "failure" }>,
-): z.output<typeof prLookupResultSchema> {
-	if (result.type === "miss") {
+export function lookupResult(result: GithubPrLookupOutcome): z.output<typeof prLookupResultSchema> {
+	if (!result.found) {
 		return {
 			found: false,
 			pr: null,
-			miss: { stderr: result.stderr, returncode: result.exitCode },
+			miss: { stderr: result.miss.stderr, returncode: result.miss.exitCode },
 		};
 	}
 	return { found: true, pr: prSummaryResult(result.pr), miss: null };

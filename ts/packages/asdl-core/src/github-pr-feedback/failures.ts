@@ -4,6 +4,7 @@ import type { Result } from "../result.ts";
 import type {
 	GithubPrFeedbackFailure,
 	GithubPrFeedbackFailureCode,
+	GithubPrFeedbackFailureDetails,
 	GithubPrFeedbackOperation,
 } from "./types.ts";
 
@@ -75,25 +76,26 @@ export function failureFromMessage(options: {
 	readonly threadId?: string | undefined;
 	readonly cursorContext?: string | undefined;
 }): GithubPrFeedbackFailure {
+	const details: GithubPrFeedbackFailureDetails = {
+		operation: options.operation,
+		...(options.run === undefined
+			? {}
+			: { command: options.run.command, displayCommand: options.run.displayCommand }),
+		...(options.stdout === undefined ? {} : { stdout: options.stdout }),
+		...(options.stderr === undefined ? {} : { stderr: options.stderr }),
+		...(options.exitCode === undefined ? {} : { exitCode: options.exitCode }),
+		...(options.killed === undefined ? {} : { killed: options.killed }),
+		...(options.graphqlErrors === undefined ? {} : { graphqlErrors: options.graphqlErrors }),
+		...(options.zodError === undefined ? {} : { zodError: options.zodError }),
+		...(options.cursorContext === undefined ? {} : { cursorContext: options.cursorContext }),
+		...(options.threadId === undefined ? {} : { threadId: options.threadId }),
+		...(options.prNumber === undefined ? {} : { prNumber: options.prNumber }),
+	};
 	return {
 		code: options.code,
 		message: options.message,
 		...(options.run === undefined ? {} : { displayCommand: options.run.displayCommand }),
-		details: {
-			operation: options.operation,
-			...(options.run === undefined
-				? {}
-				: { command: options.run.command, displayCommand: options.run.displayCommand }),
-			...(options.stdout === undefined ? {} : { stdout: options.stdout }),
-			...(options.stderr === undefined ? {} : { stderr: options.stderr }),
-			...(options.exitCode === undefined ? {} : { exitCode: options.exitCode }),
-			...(options.killed === undefined ? {} : { killed: options.killed }),
-			...(options.graphqlErrors === undefined ? {} : { graphqlErrors: options.graphqlErrors }),
-			...(options.zodError === undefined ? {} : { zodError: options.zodError }),
-			...(options.cursorContext === undefined ? {} : { cursorContext: options.cursorContext }),
-			...(options.threadId === undefined ? {} : { threadId: options.threadId }),
-			...(options.prNumber === undefined ? {} : { prNumber: options.prNumber }),
-		},
+		details,
 	};
 }
 

@@ -143,29 +143,28 @@ async function runPrDetails(
 	ctx: PrAddressExecContext,
 	request: PrNumberRequest,
 ): Promise<ClinkrExit<PrLookupResult>> {
-	const result = await ctx.context.prFeedback.getPr({
-		...gatewayOptions(ctx),
-		prNumber: request.prNumber,
+	return await prFeedbackResultExit({
+		result: ctx.context.prFeedback.getPr({
+			...gatewayOptions(ctx),
+			prNumber: request.prNumber,
+		}),
+		failurePrefix: `Failed to look up PR ${request.prNumber}`,
+		toPayload: lookupResult,
 	});
-	if (result.type === "failure")
-		return prFeedbackFailureExit(`Failed to look up PR ${request.prNumber}`, result.failure);
-	return ok(lookupResult(result));
 }
 
 async function runBranchPr(
 	ctx: PrAddressExecContext,
 	request: BranchPrRequest,
 ): Promise<ClinkrExit<PrLookupResult>> {
-	const result = await ctx.context.prFeedback.getPrForBranch({
-		...gatewayOptions(ctx),
-		branch: request.branch,
+	return await prFeedbackResultExit({
+		result: ctx.context.prFeedback.getPrForBranch({
+			...gatewayOptions(ctx),
+			branch: request.branch,
+		}),
+		failurePrefix: `Failed to look up PR for branch ${request.branch}`,
+		toPayload: lookupResult,
 	});
-	if (result.type === "failure")
-		return prFeedbackFailureExit(
-			`Failed to look up PR for branch ${request.branch}`,
-			result.failure,
-		);
-	return ok(lookupResult(result));
 }
 
 async function runOpenPrs(ctx: PrAddressExecContext): Promise<ClinkrExit<OpenPrsResult>> {
