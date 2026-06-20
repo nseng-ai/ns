@@ -1,4 +1,10 @@
-import { envelopeJsonText, exitCodeForExit, toMachineEnvelope, type ClinkrExit } from "./exit.ts";
+import {
+	envelopeJsonText,
+	exitCodeForExit,
+	toMachineEnvelope,
+	type ClinkrExit,
+	type ClinkrOkExit,
+} from "./exit.ts";
 import type { ClinkrIo } from "./io.ts";
 
 export type ClinkrFormat = "human" | "json" | "markdown";
@@ -9,20 +15,11 @@ export interface RenderCapabilities {
 	canEmitAnsi: boolean;
 }
 
-export type LegacyMachineSerialization = "indent2" | "compact";
-
-export interface LegacyMachineOutput {
-	body: unknown;
-	exitCode: number;
-	serialization?: LegacyMachineSerialization;
-}
-
 export interface EmitExitOptions<T> {
 	format: ClinkrFormat;
 	io: ClinkrIo;
 	renderHuman?: ((data: T, caps: RenderCapabilities) => string) | undefined;
 	renderMarkdown?: ((data: T, caps: RenderCapabilities) => string) | undefined;
-	legacyMachine?: ((exit: ClinkrExit<T>) => LegacyMachineOutput) | undefined;
 	shellExitCode?: boolean | undefined;
 }
 
@@ -31,21 +28,12 @@ export interface EmitExitOptions<T> {
  */
 export function emitExit<T>(exit: ClinkrExit<T>, options: EmitExitOptions<T>): number {
 	if (options.format === "json") {
-		if (options.legacyMachine !== undefined) {
-			const legacy = options.legacyMachine(exit);
-			const body =
-				legacy.serialization === "compact"
-					? JSON.stringify(legacy.body)
-					: envelopeJsonText(legacy.body);
-			options.io.stdout(`${body}\n`);
-			return legacy.exitCode;
-		}
 		options.io.stdout(`${envelopeJsonText(toMachineEnvelope(exit))}\n`);
 		return exitCodeForExit(exit, { shellExitCode: options.shellExitCode });
 	}
 	switch (exit.type) {
 		case "ok": {
-			options.io.stdout(`${renderOkData(exit.data, options)}\n`);
+			options.io.stdout(`${renderOkExit(exit, options)}\n`);
 			return 0;
 		}
 		case "negative":
@@ -64,12 +52,18 @@ export function emitExit<T>(exit: ClinkrExit<T>, options: EmitExitOptions<T>): n
 	}
 }
 
-function renderOkData<T>(data: T, options: EmitExitOptions<T>): string {
+function renderOkExit<T>(exit: ClinkrOkExit<T>, options: EmitExitOptions<T>): string {
 	const caps: RenderCapabilities = { canEmitAnsi: options.io.canEmitAnsi === true };
-	if (options.format === "markdown" && options.renderMarkdown !== undefined) {
-		return options.renderMarkdown(data, caps);
+	if (options.format === "human") {
+		if (exit.human !== undefined) return exit.human;
+		return options.renderHuman === undefined
+			? envelopeJsonText(exit.data)
+			: options.renderHuman(exit.data, caps);
 	}
+	if (exit.markdown !== undefined) return exit.markdown;
+	if (options.renderMarkdown !== undefined) return options.renderMarkdown(exit.data, caps);
+	if (exit.human !== undefined) return exit.human;
 	return options.renderHuman === undefined
-		? envelopeJsonText(data)
-		: options.renderHuman(data, caps);
+		? envelopeJsonText(exit.data)
+		: options.renderHuman(exit.data, caps);
 }

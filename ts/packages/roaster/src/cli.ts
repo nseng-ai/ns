@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { ClinkrGroup, resolveIo } from "@sdl/clinkr";
+import { ClinkrGroup } from "@sdl/clinkr";
 import { rawCommand } from "@sdl/clinkr/raw";
 import { defineCli } from "@sdl/core/cli-entry";
 import { readStdin } from "@sdl/core/stdin";
@@ -44,7 +44,6 @@ const entry = defineCli<RoasterRuntime, CliDeps, undefined>({
 				type: "run",
 				context: createRoasterRuntime(deps.context),
 				buildState: undefined,
-				io: resolveIo({ stdout: deps.context.stdout, stderr: deps.context.stderr }),
 			};
 		}
 		const context = createRealRoasterContext({
@@ -122,7 +121,12 @@ export function buildCli(): ClinkrGroup<RoasterRuntime> {
 }
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
-	return await entry.run(args, deps);
+	if (deps.context === undefined) return await entry.run(args, deps);
+	return await entry.run(args, {
+		...deps,
+		stdout: deps.context.stdout,
+		stderr: deps.context.stderr,
+	});
 }
 
 await entry.runIfMain({ isImportMetaMain: import.meta.main });

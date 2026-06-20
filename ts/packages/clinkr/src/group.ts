@@ -1,7 +1,7 @@
 import { Argument, Command, CommanderError, InvalidArgumentError, Option } from "commander";
 import { z } from "zod";
 
-import { emitExit, type LegacyMachineOutput, type RenderCapabilities } from "./emit.ts";
+import { emitExit, type RenderCapabilities } from "./emit.ts";
 import type { ClinkrExit } from "./exit.ts";
 import { clinkrFormatFromOption } from "./format.ts";
 import { ClinkrFailure } from "./failure.ts";
@@ -40,13 +40,6 @@ export interface ClinkrCommandSpec<TContext, S extends z.ZodObject, T> {
 	renderHuman?: (data: T, caps: RenderCapabilities) => string;
 	/** Markdown rendering for the ok variant; falls back to human rendering when absent. */
 	renderMarkdown?: (data: T, caps: RenderCapabilities) => string;
-	/**
-	 * Deprecated-from-birth escape hatch: routes the whole exit union through a
-	 * legacy machine shape under `--format json` so migrated commands keep their
-	 * pre-clinkr output contract. Kill tracked in the umbrella migration-debt
-	 * ledger.
-	 */
-	legacyMachine?: (exit: ClinkrExit<T>) => LegacyMachineOutput;
 	/** Rendered commands cannot opt into raw mode; use `@sdl/clinkr/raw`. */
 	isRawExit?: never;
 	positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>>;
@@ -67,7 +60,6 @@ export interface RawCommandSpec<TContext, S extends z.ZodObject> {
 	resultSchema?: never;
 	renderHuman?: never;
 	renderMarkdown?: never;
-	legacyMachine?: never;
 	schemaDocument?: never;
 }
 
@@ -112,7 +104,6 @@ interface RenderedExecution<TContext> {
 	handler: (ctx: TContext, request: unknown) => Promise<ClinkrExit<unknown>>;
 	renderHuman: ((data: unknown, caps: RenderCapabilities) => string) | undefined;
 	renderMarkdown: ((data: unknown, caps: RenderCapabilities) => string) | undefined;
-	legacyMachine: ((exit: ClinkrExit<unknown>) => LegacyMachineOutput) | undefined;
 }
 
 interface RawExecution<TContext> {
@@ -299,9 +290,6 @@ function executionOf<TContext, S extends z.ZodObject, T>(
 		renderMarkdown: spec.renderMarkdown as
 			| ((data: unknown, caps: RenderCapabilities) => string)
 			| undefined,
-		legacyMachine: spec.legacyMachine as
-			| ((exit: ClinkrExit<unknown>) => LegacyMachineOutput)
-			| undefined,
 	};
 }
 
@@ -452,7 +440,6 @@ function configureCommandExecution<TContext>(
 					io,
 					renderHuman: registered.execution.renderHuman,
 					renderMarkdown: registered.execution.renderMarkdown,
-					legacyMachine: registered.execution.legacyMachine,
 					shellExitCode: opts["shellExitCode"] === true,
 				});
 				return;

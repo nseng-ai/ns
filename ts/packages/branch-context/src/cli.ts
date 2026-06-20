@@ -99,8 +99,6 @@ type ListData = {
 type CheckData = ReturnType<typeof checkJson>;
 type DeleteData = ReturnType<typeof deleteJson>;
 
-const loadHumanByData = new WeakMap<LoadPlanData, string>();
-
 export interface CliDeps {
 	context?: BranchContextContext | undefined;
 	cwd?: string | undefined;
@@ -146,7 +144,6 @@ const entry = defineCli<BranchContextCliContext, CliDeps, undefined>({
 			schema: loadRequestSchema,
 			positionals: { key: { position: 0 } },
 			handler: handleLoad,
-			renderHuman: renderLoadPlanData,
 		});
 		execGroup.command({
 			name: "attach",
@@ -211,7 +208,7 @@ async function handleCreate(
 			},
 			operationOptions(ctx),
 		);
-		return branchContextJson(evidence);
+		return ok(branchContextJson(evidence));
 	});
 }
 
@@ -237,8 +234,7 @@ async function handleLoad(
 			attachedPlanContent: request.includeContent === true ? plan.content : undefined,
 			implementationPrompt: request.includePrompt === true ? implementationPrompt : undefined,
 		});
-		loadHumanByData.set(data, formatLoadPlanHuman(plan, promptFile, implementationPrompt));
-		return data;
+		return ok(data, { human: formatLoadPlanHuman(plan, promptFile, implementationPrompt) });
 	});
 }
 
@@ -252,7 +248,7 @@ async function handleAttach(
 			{ key: request.key, filePath: request.file, planSlug: request.plan, branch: request.branch },
 			operationOptions(ctx),
 		);
-		return attachJson(evidence);
+		return ok(attachJson(evidence));
 	});
 }
 
@@ -266,7 +262,7 @@ async function handleList(
 			{ branch: request.branch },
 			operationOptions(ctx),
 		);
-		return {
+		return ok({
 			branch: list.branch,
 			entries: list.entries.map((entry) => ({
 				namespace: entry.namespace,
@@ -274,7 +270,7 @@ async function handleList(
 				branch: entry.branch,
 				ref_name: entry.refName,
 			})),
-		};
+		});
 	});
 }
 
@@ -288,7 +284,7 @@ async function handleCheck(
 			request,
 			operationOptions(ctx),
 		);
-		return checkJson(evidence);
+		return ok(checkJson(evidence));
 	});
 }
 
@@ -302,13 +298,15 @@ async function handleDelete(
 			request,
 			operationOptions(ctx),
 		);
-		return deleteJson(evidence);
+		return ok(deleteJson(evidence));
 	});
 }
 
-async function runBranchContextCommand<T>(operation: () => Promise<T>): Promise<ClinkrExit<T>> {
+async function runBranchContextCommand<T>(
+	operation: () => Promise<ClinkrExit<T>>,
+): Promise<ClinkrExit<T>> {
 	try {
-		return ok(await operation());
+		return await operation();
 	} catch (error) {
 		return failure(BRANCH_CONTEXT_ERROR_TYPE, formatErrorMessage(error));
 	}
@@ -346,23 +344,6 @@ function renderBranchContextData(data: BranchContextData): string {
 		sourceFile: data.source_file,
 		...(data.summary === undefined ? {} : { summary: data.summary }),
 	});
-}
-
-function renderLoadPlanData(data: LoadPlanData): string {
-	return (
-		loadHumanByData.get(data) ??
-		formatLoadedAttachedPlanEvidence({
-			branch: data.branch,
-			namespace: data.namespace,
-			selectedKey: data.selected_key,
-			refName: data.ref_name,
-			content: data.attached_plan_content ?? "",
-			byteCount: data.byte_count,
-			availableKeys: data.available_keys,
-			source: data.source,
-			...(data.source_file === undefined ? {} : { sourceFile: data.source_file }),
-		})
-	);
 }
 
 function renderAttachData(data: AttachData): string {

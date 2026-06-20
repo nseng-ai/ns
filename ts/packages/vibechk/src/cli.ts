@@ -208,36 +208,28 @@ function renderDiff(
 }
 
 async function runRun(ctx: VibechkCliContext, request: RunRequest): Promise<number> {
-	try {
-		const runnerName = request.runner ?? ctx.defaultRunnerName;
-		const runner = ctx.runnerRegistry.get(runnerName);
-		const gitGateway = ctx.gitGatewayFactory(request.workdir);
+	const runnerName = request.runner ?? ctx.defaultRunnerName;
+	const runner = ctx.runnerRegistry.get(runnerName);
+	const gitGateway = ctx.gitGatewayFactory(request.workdir);
 
-		const result = await executeRun({
-			planPath: request.plan,
-			workdir: request.workdir,
-			runnerName,
-			model: request.model ?? null,
-			store: request.store,
-			env: ctx.env,
-			deps: {
-				runner,
-				gitGateway,
-				clock: ctx.clock,
-				idGenerator: ctx.idGenerator,
-				stdout: ctx.stdout,
-			},
-		});
+	const result = await executeRun({
+		planPath: request.plan,
+		workdir: request.workdir,
+		runnerName,
+		model: request.model ?? null,
+		store: request.store,
+		env: ctx.env,
+		deps: {
+			runner,
+			gitGateway,
+			clock: ctx.clock,
+			idGenerator: ctx.idGenerator,
+			stdout: ctx.stdout,
+		},
+	});
 
-		ctx.stdout(`Run ID: ${result.runId}\n`);
-		return result.exitCode;
-	} catch (error: unknown) {
-		if (error instanceof VibechkError) {
-			ctx.stderr(`Error: ${error.message}\n`);
-			return 1;
-		}
-		throw error;
-	}
+	ctx.stdout(`Run ID: ${result.runId}\n`);
+	return result.exitCode;
 }
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
@@ -246,6 +238,8 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 
 function normalizeRunsFormatArgs(args: readonly string[]): readonly string[] {
 	if (args[0] !== "runs") return args;
+	// `runs` exposes a domain outputFormat choice (`table|json`) to avoid colliding with
+	// Clinkr's global `--format human|json|markdown`; keep the old `runs --format` alias.
 	const normalized: string[] = [];
 	for (let index = 0; index < args.length; index += 1) {
 		const arg = args[index];

@@ -169,10 +169,14 @@ async function handleSave(
 			throw new Error("Pass exactly one of --stdin or --content-file <path>.");
 		}
 
-		const content =
-			request.stdin === true
-				? await ctx.stdin()
-				: await readFile(normalizePlanFilePath(request.contentFile as string), "utf8");
+		let content: string;
+		if (request.stdin === true) {
+			content = await ctx.stdin();
+		} else if (request.contentFile !== undefined) {
+			content = await readFile(normalizePlanFilePath(request.contentFile), "utf8");
+		} else {
+			throw new Error("Pass exactly one of --stdin or --content-file <path>.");
+		}
 		const evidence = await writeSavedPlanFile(
 			ctx.commands,
 			{

@@ -42,7 +42,7 @@ const entry = defineCli<PackagechkCliContext, CliDeps, undefined>({
 				stderr: io.stderr,
 			}),
 		};
-		return { type: "run", context, buildState: undefined, io };
+		return { type: "run", context, buildState: undefined };
 	},
 	configureCli: ({ root }) => {
 		root.defaultCommand({

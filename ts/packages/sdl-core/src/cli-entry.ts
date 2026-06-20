@@ -30,7 +30,6 @@ export type CliPrepareRunResult<TContext, TBuildState> =
 			readonly context: TContext;
 			readonly buildState: TBuildState;
 			readonly args?: readonly string[] | undefined;
-			readonly io?: ClinkrIo | undefined;
 	  };
 
 export type CliRunDeps<TDeps extends CliEntrypointDeps> = Partial<TDeps> & CliEntrypointDeps;
@@ -193,7 +192,7 @@ export function defineCli<
 			if (prepareResult.type === "handled") return prepareResult.exitCode;
 			return await buildCli(prepareResult.buildState).run(prepareResult.args ?? args, {
 				context: prepareResult.context,
-				io: prepareResult.io ?? io,
+				io,
 			});
 		} catch (error) {
 			if (options.handleRunError === undefined) throw error;
