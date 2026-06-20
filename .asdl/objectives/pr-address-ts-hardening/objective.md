@@ -9,40 +9,32 @@ mostly lived in was deleted by the now-closed `pr-address-strangler-rewrite`
 Objective (closed `completed`, 2026-06-18). This Objective tracked the three
 findings that survived into the salvaged downloader surface.
 
-Ground truth has since moved again, and this record has been rebaselined against
-it. The GraphQL pagination, argument-building, and comment normalization logic
-that two of the three findings targeted was **extracted out of
-`ts/packages/pr-address/src/gateways.ts` into the shared
-`@asdl/core/github-pr-feedback` primitives** (commits `3b7535290`, `6e0a3b52e`,
-`781e640cc`). That shared surface is owned by the separate
-`pr-address-github-primitives` Objective. `ts/packages/pr-address/src/gateways.ts`
-is now a thin git-gateway wrapper (~1 KB) and no longer contains
-`reviewThreadPageArgs`, `reviewThreadCommentPageArgs`, `numericId`, or any
-`id === 0` filter.
+Ground truth moved during the Objective. The GraphQL pagination,
+argument-building, and comment normalization logic that two of the three findings
+targeted was extracted out of `ts/packages/pr-address/src/gateways.ts` into the
+shared `@asdl/core/github-pr-feedback` primitives (commits `3b7535290`,
+`6e0a3b52e`, `781e640cc`). `ts/packages/pr-address/src/gateways.ts` is now a thin
+git-gateway wrapper (~1 KB) and no longer contains `reviewThreadPageArgs`,
+`reviewThreadCommentPageArgs`, `numericId`, or any `id === 0` filter.
 
-Net effect on the three findings, verified against current `HEAD`:
+Final disposition of the three findings:
 
 - **Correctness — silent comment drop (was Scope #2): resolved.** The extraction
   replaced the `numericId`→`0`-then-filter behavior with a Zod refinement
   (`withNumericGithubIdentity` / `numericGithubIdentity`,
-  `asdl-core/github-pr-feedback/schemas.ts:163-192`) that surfaces an explicit
-  parse error ("must include a positive integer databaseId or numeric id")
-  instead of coercing to a sentinel and dropping. Regression coverage exists
-  (`expectInvalidIdentity` in `ts/packages/asdl-core/test/github-pr-feedback.test.ts`,
-  exercising a non-numeric `databaseId`). No `id !== 0` / `id === 0` filter
-  remains in either package.
-- **Security — `gh api -F`/`@` file-read primitive (was Scope #1): still real,
-  relocated, partially addressed.** The pagination helpers now live in
-  `asdl-core/github-pr-feedback/args.ts`. `threadId` in
-  `reviewThreadCommentPageArgs` is already passed as a raw `-f` field
-  (`args.ts:66`), but the string **cursor** fields still use `-F`:
-  `commentCursor` in `discussionCommentPageArgs` (`args.ts:42`) and
-  `reviewThreadCommentPageArgs` (`args.ts:67`), and `threadCursor` in
-  `reviewThreadPageArgs` (`args.ts:57`). `gh` reads a value beginning with `@`
-  as a filename (and `@-` as stdin), so the file-read mechanism persists for
-  those cursor values. This code is now **outside this Objective's stated package
-  scope** and inside the surface owned by `pr-address-github-primitives`; whether
-  it stays tracked here or moves there is an open ownership question (below).
+  `asdl-core/github-pr-feedback/schemas.ts`) that surfaces an explicit parse
+  error instead of coercing to a sentinel and dropping. Regression coverage exists
+  in `ts/packages/asdl-core/test/github-pr-feedback.test.ts`. No `id !== 0` /
+  `id === 0` filter remains in either package.
+- **Security — `gh api -F`/`@` file-read primitive (was Scope #1): resolved in
+  the relocated shared primitive owner.** The remaining cursor fields in
+  `ts/packages/asdl-core/src/github-pr-feedback/args.ts` were changed to raw
+  `-f` GraphQL variables for `threadCursor` and both `commentCursor` paths.
+  `owner={owner}`, `repo={repo}`, and numeric `number` remain `-F`
+  intentionally for documented `gh` placeholder expansion and numeric GraphQL
+  variable conversion. Regression coverage now includes an `@/tmp/secret` cursor
+  and exact argument-array expectations proving cursors are passed literally via
+  `-f`.
 - **Tech debt / DX — remaining barrel re-exports (Scope #3): resolved.** The
   package cleanup removed the `gateways.ts` type re-export block, deleted the
   package-root `index.ts` CLI barrel, removed the package-root `exports` entry,
@@ -52,16 +44,13 @@ Net effect on the three findings, verified against current `HEAD`:
 
 ## Scope
 
-The only finding that remained durable, real, and inside this Objective's package
-boundary (`ts/packages/pr-address/src`) was the barrel re-export cleanup, and it
-is now implemented: `src/gateways.ts` owns only `RealPrAddressGitGateway` and its
-implementation imports, `src/index.ts` is deleted, the package-root `exports`
-entry is gone, and internal gateway type consumers import from
-`./core/gateways.ts`.
+The in-package `ts/packages/pr-address/src` hardening work is complete: the
+barrel re-export cleanup landed, and no active package-boundary hardening work
+remains inside `ts/packages/pr-address/src`.
 
-No active package-boundary hardening work remains inside `ts/packages/pr-address/src`.
-The relocated `gh api -F`/`@` cursor question remains parked outside this
-Objective's package boundary until ownership is decided.
+The relocated `gh api -F`/`@` cursor question was explicitly re-scoped to the
+shared `@asdl/core/github-pr-feedback` primitive owner for the narrow cursor fix.
+That fix is complete and does not reopen broader `asdl-core` audit scope.
 
 ## Non-Goals
 
@@ -71,16 +60,11 @@ Objective's package boundary until ownership is decided.
   god-module split #10 and `PayloadReference`-defined-3× consolidation #11,
   operation-result schema drift #6) targeted code the completed
   `pr-address-strangler-rewrite` already deleted from the downloader surface.
-  Note: reply/resolve mutation helpers (`replyToReviewThreadArgs`,
-  `resolveReviewThreadArgs`) have since reappeared in the shared
-  `asdl-core/github-pr-feedback/args.ts` primitives, but they pass `threadId`/
-  `body` as raw `-f` fields and are owned by `pr-address-github-primitives`, not
-  this Objective.
 - The shared-primitives extraction itself, and the `asdl-core/github-pr-feedback`
-  surface generally, are owned by `pr-address-github-primitives`. This Objective
-  does not re-audit or restructure that package; the relocated `-F`/`@` cursor
-  finding is recorded here only until its ownership is decided (see Open
-  Questions).
+  surface generally, are not re-audited or restructured by this Objective. The
+  final cross-package edit is limited to the relocated cursor argument primitive.
+- The cursor fix does not reject `@`-prefixed cursor values at the boundary;
+  cursors are opaque GitHub strings and are preserved literally via `gh api -f`.
 - Also out of scope: any new RunEngine/zone work, performance tuning, dependency
   upgrades, and pushing or opening PRs.
 
@@ -89,11 +73,16 @@ Objective's package boundary until ownership is decided.
 - **Satisfied:** `ts/packages/pr-address/src/gateways.ts` and the deleted
   `index.ts` contain no type/value re-export barrels for the in-scope symbols,
   and importers use canonical module paths.
-- Evidence: `pnpm --dir ts --filter @asdl/pr-address run check` and
-  `pnpm --dir ts --filter @asdl/pr-address run test` pass; stale-surface searches
-  find no remaining package-root `@asdl/pr-address` TypeScript consumers, no
-  `exports` key in `ts/packages/pr-address/package.json`, and no remaining
-  in-scope barrel re-export.
+- **Satisfied:** the relocated cursor file-read primitive no longer uses `gh api
+  -F` for cursor variables. `threadCursor` and `commentCursor` now use `-f` in
+  `ts/packages/asdl-core/src/github-pr-feedback/args.ts`; focused tests pin an
+  `@`-prefixed cursor literal.
+- Evidence: focused package validation passed for `@asdl/core`; broader
+  TypeScript gates passed (`just ts-format-check`, `just ts-lint`,
+  `just ts-check`, `just ts-test`, `just ts-guard`). Earlier package-entrypoint
+  cleanup evidence remains valid: focused `@asdl/pr-address` check/test passed
+  and stale-surface searches found no remaining in-scope barrel re-export or
+  package-root TypeScript consumers.
 - The silent-comment-drop finding (former Scope #2) is recorded as already
   resolved in current ground truth; no further work is required for it under this
   Objective.
@@ -107,8 +96,8 @@ Objective's package boundary until ownership is decided.
   is closed/completed and no further strangler-driven reshaping is expected.
 - `gh`'s documented `-F`/`@` semantics (a value starting with `@` is read from a
   file, `@-` from stdin) hold for the installed `gh` version; `-f` treats the
-  value as a literal string. This still governs the relocated cursor-field
-  finding.
+  value as a literal string. The cursor fix uses this by passing cursor values
+  with `-f`.
 
 **Risks**
 
@@ -117,16 +106,28 @@ Objective's package boundary until ownership is decided.
 - **(De-risked)** Removing the `gateways.ts` re-export barrel touched only the
   expected package-local consumers and remained a pure import-surface cleanup;
   focused package check/test passed.
+- **(De-risked)** The relocated cursor file-read primitive now passes dynamic
+  cursor strings via raw `-f` fields and has focused regression coverage for an
+  `@`-prefixed cursor.
 
 ## Open Questions
 
-- **Ownership of the relocated `-F`/`@` cursor finding.** The remaining `-F`
-  cursor fields now live in `asdl-core/github-pr-feedback/args.ts`, owned by
-  `pr-address-github-primitives`. Should this finding be tracked/fixed under that
-  Objective, re-scoped into this one explicitly (expanding this Objective's
-  package boundary into `asdl-core`), or dropped because GitHub-controlled
-  pagination cursors are low-risk relative to the already-hardened `threadId`?
-  This is a scope decision for the user, not something the refresh resolves.
-- If the `-F`→`-f` cursor fix is pursued, should it also add a boundary-level
-  rejection of `@`-prefixed cursor/thread values (defense in depth), or is
-  switching to raw fields sufficient?
+None. The relocated cursor ownership decision was resolved by fixing the narrow
+cursor argument primitive in `@asdl/core/github-pr-feedback` while preserving
+literal opaque cursor values.
+
+## Closure
+
+Closed as completed. The in-package `pr-address/src` cleanup is done, the
+silent-comment-drop finding is already resolved in the shared parser ground
+truth, and the only remaining parked ownership question was resolved by applying
+the narrow cursor fix in the shared `@asdl/core/github-pr-feedback` primitive
+owner.
+
+Evidence: local branch diff against Graphite parent
+`remove-pr-address-gateway-barrels-bin-only`; `gh help api` still documents `-F`
+`@` file-read semantics and `-f` raw string fields; stale cursor-flag searches
+found no cursor expected arrays paired with `-F`; focused `@asdl/core` check/test
+passed; broader TypeScript gates passed (`just ts-format-check`, `just ts-lint`,
+`just ts-check`, `just ts-test`, `just ts-guard`). No PR evidence was required
+for closure.

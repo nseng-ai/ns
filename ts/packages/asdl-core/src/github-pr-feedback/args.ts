@@ -39,7 +39,7 @@ export function discussionCommentPageArgs(
 			...repoPrFields(prNumber),
 			...(commentCursor === null || commentCursor === undefined
 				? []
-				: [{ flag: "-F" as const, name: "commentCursor", value: commentCursor }]),
+				: [{ flag: "-f" as const, name: "commentCursor", value: commentCursor }]),
 		],
 		discussionCommentsQuery,
 	);
@@ -54,7 +54,7 @@ export function reviewThreadPageArgs(
 			...repoPrFields(prNumber),
 			...(threadCursor === null || threadCursor === undefined
 				? []
-				: [{ flag: "-F" as const, name: "threadCursor", value: threadCursor }]),
+				: [{ flag: "-f" as const, name: "threadCursor", value: threadCursor }]),
 		],
 		reviewThreadsQuery,
 	);
@@ -64,7 +64,7 @@ export function reviewThreadCommentPageArgs(threadId: string, commentCursor: str
 	return graphqlArgs(
 		[
 			{ flag: "-f", name: "threadId", value: threadId },
-			{ flag: "-F", name: "commentCursor", value: commentCursor },
+			{ flag: "-f", name: "commentCursor", value: commentCursor },
 		],
 		reviewThreadCommentsQuery,
 	);
