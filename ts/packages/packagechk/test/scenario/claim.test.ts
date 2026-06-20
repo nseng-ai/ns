@@ -120,7 +120,7 @@ describe("packagechk claim commands", () => {
 		const run = await runPackagechk(["claim-pypi", SAMPLE], {
 			registryGateway: registry,
 			pypiPublishGateway: publisher,
-			stdin: async () => "n\n",
+			confirmations: [{ type: "declined" }],
 		});
 
 		expect(run.code).toBe(1);
@@ -141,7 +141,7 @@ describe("packagechk claim commands", () => {
 		const run = await runPackagechk(["claim-pypi", SAMPLE], {
 			registryGateway: registry,
 			pypiPublishGateway: publisher,
-			stdin: async () => null,
+			confirmations: [{ type: "aborted" }],
 		});
 
 		expect(run.code).toBe(1);

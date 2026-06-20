@@ -1,4 +1,4 @@
-import { confirmFromStdin, failure, ok } from "@asdl/clinkr";
+import { failure, ok } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { HandoffCliContext } from "../context.ts";
@@ -43,14 +43,13 @@ export async function runGc(ctx: HandoffCliContext, request: GcRequest) {
 	if (request.force) return ok(await deleteDeletedBranchHandoffs(ctx, summaries.value));
 
 	ctx.stderr(`${renderGc(preview)}\n`);
-	const confirmed = await confirmFromStdin({
-		stdin: ctx.stdin,
-		stderr: ctx.stderr,
-		prompt: `Delete ${preview.would_delete_count} handoff(s)? [y/N]: `,
+	const confirmed = await ctx.interaction.confirm({
+		message: `Delete ${preview.would_delete_count} handoff(s)?`,
 		defaultAnswer: "no",
 	});
-	if (confirmed === "yes") return ok(await deleteDeletedBranchHandoffs(ctx, summaries.value));
-	if (confirmed !== "no") return confirmed;
+	if (confirmed.type === "confirmed")
+		return ok(await deleteDeletedBranchHandoffs(ctx, summaries.value));
+	if (confirmed.type === "aborted") return failure("aborted", "Aborted!");
 	return ok(resultFromEntries(preview.entries, { dryRun: false, cancelled: true }));
 }
 

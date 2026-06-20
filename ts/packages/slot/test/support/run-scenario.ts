@@ -1,3 +1,6 @@
+import type { ConfirmationResult } from "@asdl/clinkr";
+import { createFakeClinkrInteraction } from "@asdl/clinkr/testing";
+
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import type { SlotCliContext } from "../../src/context.ts";
 import { FakeClipboardGateway, type ClipboardCopyResult } from "../../src/gateways/clipboard.ts";
@@ -16,6 +19,7 @@ export interface ScenarioRunOptions {
 	pr?: FakeSlotPrGatewayOptions | undefined;
 	cwd?: string | undefined;
 	stdin?: string | (() => Promise<string | null>) | undefined;
+	confirmations?: readonly ConfirmationResult[] | undefined;
 	env?: NodeJS.ProcessEnv | undefined;
 	repo?: RepoContext | { type: "no_repo"; errorType: "not_in_repo"; message: string } | undefined;
 	clipboardResult?: ClipboardCopyResult | undefined;
@@ -44,6 +48,10 @@ export function runScenario(
 	const pr = new FakeSlotPrGateway(options.pr);
 	const storage = new FakeSlotStorageGateway();
 	let stdin = options.stdin;
+	const fakeInteraction =
+		stdin === undefined
+			? createFakeClinkrInteraction({ confirmations: options.confirmations })
+			: undefined;
 	const repo = options.repo ?? repoContext();
 	const context: SlotCliContext = {
 		repo,
@@ -53,12 +61,9 @@ export function runScenario(
 		storage,
 		clipboard: new FakeClipboardGateway(options.clipboardResult),
 		cwd,
-		stdin: async () => {
-			if (typeof stdin === "function") return await stdin();
-			const value = stdin ?? null;
-			stdin = undefined;
-			return value;
-		},
+		interaction:
+			fakeInteraction?.interaction ??
+			createFakeClinkrInteraction({ confirmations: [] }).interaction,
 		stderr: (text) => stderr.push(text),
 		env: options.env ?? { PATH: "/fake/bin" },
 		slotsRoot: "/slots",
@@ -70,9 +75,22 @@ export function runScenario(
 		env: context.env,
 		stdout: (text) => stdout.push(text),
 		stderr: (text) => stderr.push(text),
-		stdin: context.stdin,
+		...(stdin === undefined
+			? { interaction: fakeInteraction?.interaction }
+			: {
+					stdin: async () => {
+						if (typeof stdin === "function") return await stdin();
+						const value = stdin ?? null;
+						stdin = undefined;
+						return value;
+					},
+				}),
 	};
-	return { exit: runCli(args, deps), stdout, stderr, git, gt, pr, storage, context };
+	const exit = runCli(args, deps).then((code) => {
+		fakeInteraction?.assertComplete();
+		return code;
+	});
+	return { exit, stdout, stderr, git, gt, pr, storage, context };
 }
 
 export function parseJsonOutput(run: ScenarioRun): unknown {

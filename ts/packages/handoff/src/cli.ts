@@ -2,8 +2,14 @@
 
 import process from "node:process";
 
-import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
+import {
+	ClinkrGroup,
+	createClinkrInteraction,
+	resolveIo,
+	type ClinkrInteraction,
+} from "@asdl/clinkr";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
+import { readStdinLine } from "@asdl/core/stdin";
 
 import { createRealHandoffContext, type HandoffCliContext } from "./context.ts";
 import {
@@ -26,13 +32,14 @@ export const VERSION = "0.1.0";
 interface CliIoDeps {
 	stdout?: ((text: string) => void) | undefined;
 	stderr?: ((text: string) => void) | undefined;
+	stdin?: (() => Promise<string | null>) | undefined;
+	interaction?: ClinkrInteraction | undefined;
 }
 
 interface CliContextDeps extends CliIoDeps {
 	context: HandoffCliContext;
 	cwd?: never;
 	env?: never;
-	stdin?: never;
 }
 
 interface CliRealDeps extends CliIoDeps {
@@ -85,15 +92,21 @@ export function buildCli(): ClinkrGroup<HandoffCliContext> {
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
 	const io = resolveIo({ stdout: deps.stdout, stderr: deps.stderr });
-	const context = deps.context === undefined ? createContextFromDeps(deps) : deps.context;
+	const baseContext = deps.context === undefined ? createContextFromDeps(deps) : deps.context;
+	const context: HandoffCliContext = {
+		...baseContext,
+		interaction:
+			deps.interaction ??
+			createClinkrInteraction({ stdin: deps.stdin ?? readStdinLine, stderr: io.stderr }),
+		stderr: io.stderr,
+	};
 	return await buildCli().run(args, { context, io });
 }
 
 function createContextFromDeps(deps: CliRealDeps): HandoffCliContext {
 	const cwd = deps.cwd ?? process.cwd();
 	const env = deps.env ?? process.env;
-	const baseContext = createRealHandoffContext({ cwd, env });
-	return { ...baseContext, stdin: deps.stdin ?? baseContext.stdin };
+	return createRealHandoffContext({ cwd, env });
 }
 
 function runtimeInfo(): string {

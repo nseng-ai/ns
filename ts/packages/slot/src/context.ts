@@ -1,6 +1,7 @@
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 
+import { createClinkrInteraction, type ClinkrInteraction } from "@asdl/clinkr";
 import { readStdinLine } from "@asdl/core/stdin";
 
 import { RealClipboardGateway, type ClipboardGateway } from "./gateways/clipboard.ts";
@@ -22,7 +23,7 @@ export interface SlotCliContext {
 	storage: SlotStorageGateway;
 	clipboard: ClipboardGateway;
 	cwd: string;
-	stdin: () => Promise<string | null>;
+	interaction: ClinkrInteraction;
 	stderr: (text: string) => void;
 	env: NodeJS.ProcessEnv;
 	slotsRoot: string;
@@ -39,6 +40,7 @@ export async function createRealSlotContext(options: {
 	const slotsRoot = env.SLOTS_ROOT ?? resolve(homedir(), ".slots");
 	const git = new RealSlotGitGateway({ cwd: options.cwd, env });
 	const repo = await discoverRepoOrSentinel({ cwd: options.cwd, slotsRoot, git });
+	const stderr = (text: string) => process.stderr.write(text);
 	return {
 		repo,
 		git,
@@ -47,8 +49,8 @@ export async function createRealSlotContext(options: {
 		storage: new RealSlotStorageGateway(),
 		clipboard: new RealClipboardGateway({ env }),
 		cwd: options.cwd,
-		stdin: readStdinLine,
-		stderr: (text) => process.stderr.write(text),
+		interaction: createClinkrInteraction({ stdin: readStdinLine, stderr }),
+		stderr,
 		env,
 		slotsRoot,
 		shouldWriteCdDirective: true,

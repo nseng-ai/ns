@@ -1,4 +1,4 @@
-import { confirmFromStdin, failure, negative, ok } from "@asdl/clinkr";
+import { failure, negative, ok } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { RepoSlotContext, SlotCliContext } from "../context.ts";
@@ -78,16 +78,14 @@ export async function runGc(ctx: SlotCliContext, request: GcRequest) {
 		repoCtx.stderr(
 			`${renderGc(toGcResult(outcomeFromGcPlan(plan.outcome, { isDryRun: true, cleanup })))}\n`,
 		);
-		const accepted = await confirmFromStdin({
-			stdin: repoCtx.stdin,
-			stderr: repoCtx.stderr,
-			prompt: confirmationPrompt(plan.outcome.would_free_count, {
+		const accepted = await repoCtx.interaction.confirm({
+			message: confirmationMessage(plan.outcome.would_free_count, {
 				shouldDeleteBranches: request.deleteBranches,
 			}),
 			defaultAnswer: "yes",
 		});
-		if (typeof accepted !== "string") return accepted;
-		if (accepted === "no")
+		if (accepted.type === "aborted") return failure("aborted", "Aborted!");
+		if (accepted.type === "declined")
 			return ok(
 				toGcResult(outcomeFromGcPlan(plan.outcome, { isDryRun: false, cleanup }), {
 					isCancelled: true,
@@ -149,10 +147,9 @@ function ansi(style: AnsiStyle, text: string): string {
 	return `\u001b[${ANSI_CODES[style]}m${text}\u001b[0m`;
 }
 
-function confirmationPrompt(count: number, options: { shouldDeleteBranches: boolean }): string {
-	if (options.shouldDeleteBranches)
-		return `Free ${count} slot(s) and delete local branches? [Y/n]: `;
-	return `Free ${count} slot(s)? [Y/n]: `;
+function confirmationMessage(count: number, options: { shouldDeleteBranches: boolean }): string {
+	if (options.shouldDeleteBranches) return `Free ${count} slot(s) and delete local branches?`;
+	return `Free ${count} slot(s)?`;
 }
 
 function toGcResult(

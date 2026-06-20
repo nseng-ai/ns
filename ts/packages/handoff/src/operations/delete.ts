@@ -1,4 +1,4 @@
-import { confirmFromStdin, failure, ok } from "@asdl/clinkr";
+import { failure, ok } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { HandoffCliContext } from "../context.ts";
@@ -37,14 +37,12 @@ export async function runDelete(ctx: HandoffCliContext, request: DeleteRequest) 
 	if (target.type === "error") return failure(target.error.code, target.error.message);
 
 	if (!request.force) {
-		const confirmed = await confirmFromStdin({
-			stdin: ctx.stdin,
-			stderr: ctx.stderr,
-			prompt: `Delete handoff \`${target.value.slug}\` on branch \`${target.value.branch}\`? [y/N]: `,
+		const confirmed = await ctx.interaction.confirm({
+			message: `Delete handoff \`${target.value.slug}\` on branch \`${target.value.branch}\`?`,
 			defaultAnswer: "no",
 		});
-		if (confirmed === "no") return ok(cancelledResult(target.value));
-		if (confirmed !== "yes") return confirmed;
+		if (confirmed.type === "declined") return ok(cancelledResult(target.value));
+		if (confirmed.type === "aborted") return failure("aborted", "Aborted!");
 	}
 
 	const deleted = await deleteHandoffArtifact(

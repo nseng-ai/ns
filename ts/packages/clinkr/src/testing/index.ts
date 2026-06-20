@@ -1,3 +1,8 @@
+import type {
+	ClinkrInteraction,
+	ConfirmationRequest,
+	ConfirmationResult,
+} from "../confirmation.ts";
 import { machineEnvelopeSchema, type MachineEnvelope } from "../exit.ts";
 import type { ClinkrGroup } from "../group.ts";
 import type { ClinkrIo } from "../io.ts";
@@ -12,6 +17,39 @@ export interface CaptureIo {
 	io: ClinkrIo;
 	stdout: () => string;
 	stderr: () => string;
+}
+
+export interface FakeClinkrInteraction {
+	interaction: ClinkrInteraction;
+	requests(): readonly ConfirmationRequest[];
+	assertComplete(): void;
+}
+
+export function createFakeClinkrInteraction(
+	options: {
+		confirmations?: readonly ConfirmationResult[] | undefined;
+	} = {},
+): FakeClinkrInteraction {
+	const confirmations = [...(options.confirmations ?? [])];
+	const requests: ConfirmationRequest[] = [];
+	return {
+		interaction: {
+			confirm: async (request) => {
+				requests.push({ ...request });
+				const result = confirmations.shift();
+				if (result === undefined) {
+					throw new Error(`Unexpected confirmation prompt: ${request.message}`);
+				}
+				return { ...result };
+			},
+		},
+		requests: () => requests.map((request) => ({ ...request })),
+		assertComplete: () => {
+			if (confirmations.length > 0) {
+				throw new Error(`Unused confirmation result(s): ${confirmations.length}`);
+			}
+		},
+	};
 }
 
 export function createCaptureIo(): CaptureIo {
