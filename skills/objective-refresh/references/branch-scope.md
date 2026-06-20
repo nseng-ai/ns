@@ -8,7 +8,7 @@ A branch refresh asks: if this branch landed now, what should the Objective reco
 
 A trunk refresh asks: now that work has landed on the default branch, what should these explicitly named Objective records say about current ground truth?
 
-Update durable Objective prose only when target evidence makes the current record stale, incomplete, or misleading. Do not write ceremonial "checked today" updates.
+Refresh durable Objective prose only when target evidence makes the current record stale, incomplete, or misleading. When writing, follow the top-level from-scratch loop: current Objective text -> extracted core meaning and progress -> verified contract -> clean rewrite. Do not write ceremonial "checked today" updates.
 
 ## Invocation modes
 
@@ -100,10 +100,10 @@ If a selected Objective appears to require closure rather than refresh, report i
 For each due, clean slug, return to the one-objective procedure in `../SKILL.md` with the prepared target context. The one-objective procedure owns:
 
 - Objective read scope;
-- claim ledger construction;
+- extraction of core meaning, progress, and material claims from the current record;
 - material-claim verification;
 - stale claim correction, narrowing, parking, or `skipped-unverified` classification;
-- edits to `objective.md` and `roadmap.md`;
+- from-scratch rewrites of `objective.md` and `roadmap.md` when writing is warranted;
 - creation of a new timestamped Semantic Update when meaningful;
 - confirmation that existing Semantic Updates, Objective slug directories, and closure markers were not modified.
 

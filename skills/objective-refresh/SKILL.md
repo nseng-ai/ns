@@ -28,7 +28,9 @@ Choose exactly one scope before gathering mutable evidence:
 
 A refresh asks: for this target context, what should the Objective record truthfully say as durable ground truth?
 
-On feature branches, branch/context or repo scope may frame the target as "if this branch landed now". On trunk/default branch, the target is an explicit non-closing rebaseline for named Objective records. Use `objective-update`'s landed-state writing semantics as the authoring model, but do not run the Closure Gate, do not create `closed.md`, and do not add `## Closure`.
+The authoring move is a **from-scratch refresh**, not paragraph patching. Read the current Objective text as evidence, extract its core meaning and progress, verify that extracted contract against current ground truth, then rewrite `objective.md` and `roadmap.md` cleanly from that verified contract. Extract first, rewrite second, then diff the rewrite against the extracted contract so no meaning silently falls out.
+
+On feature branches, branch/context or repo scope may frame the target as "if this branch landed now". On trunk/default branch, the target is an explicit non-closing rebaseline for named Objective records. Use `objective-update`'s landed-state writing semantics as the content model, but do not run the Closure Gate, do not create `closed.md`, and do not add `## Closure`.
 
 Do not require the target to be a branch tip. The target may be the current checkout `HEAD`, a branch/ref in a materialized worktree, or a branch/repo-scope supplied context. What matters is that the worktree/ref, trunk/base, and baseline are explicit enough to gather deterministic evidence.
 
@@ -68,9 +70,9 @@ A material claim is any durable statement about current or future work that name
 - status words such as "exists", "gone", "current", "already", "now", "still", "remaining", "implemented", "deleted", "covered", "tested", "passing", "legacy", "core", "salvaged", "owned", or "deferred";
 - scope boundaries, non-goals, dependencies, risks, assumptions, completion evidence, and roadmap row rationale.
 
-For every material claim that the refresh writes, preserves, or relies on, collect evidence first. Evidence may be repository probes (`test -e`, `find`, `rg`, `git grep`, `git diff`, `git log`), deterministic CLI inventory (`objective exec read-objective`, package help/schema output), or PR/CI evidence when the claim is about PR/CI state. Verify negative claims too: "no X" requires a scoped search showing X is absent.
+For every material claim that the refresh writes, carries forward from the old record, or relies on while extracting the refreshed contract, collect evidence first. Evidence may be repository probes (`test -e`, `find`, `rg`, `git grep`, `git diff`, `git log`), deterministic CLI inventory (`objective exec read-objective`, package help/schema output), or PR/CI evidence when the claim is about PR/CI state. Verify negative claims too: "no X" requires a scoped search showing X is absent.
 
-If a claim cannot be verified cheaply, do not leave it as fact. Convert it to an explicit assumption/open question with the missing-evidence scope, park or narrow the roadmap item, or report `skipped-unverified`. If verified evidence contradicts the Objective, rebaseline the Objective prose/roadmap and add a Semantic Update explaining the correction. Never add a Semantic Update that vouches for unverified draft prose.
+If a claim cannot be verified cheaply, do not leave it as fact. Convert it to an explicit assumption/open question with the missing-evidence scope, park or narrow the roadmap item, or report `skipped-unverified`. If verified evidence contradicts the Objective, correct the extracted contract before rewriting and add a Semantic Update explaining the correction. Never add a Semantic Update that vouches for unverified draft prose.
 
 ## Baseline and due-check
 
@@ -130,13 +132,13 @@ If a selected Objective appears to require closure rather than refresh, report i
 
 ## One-objective write policy
 
-For each due, clean slug:
+For each due, clean slug, run a full refresh loop:
 
-1. Read the Objective record. Use `objective exec read-objective <slug> --format md` when available for deterministic inventory and closed-marker state, then focus on:
+1. **Read the old record as source material.** Use `objective exec read-objective <slug> --format md` when available for deterministic inventory and closed-marker state, then read:
    - `.asdl/objectives/<slug>/objective.md`
    - `.asdl/objectives/<slug>/roadmap.md`
    - recent `updates/` only when needed for context
-2. Gather target evidence from the baseline to the target `HEAD`/ref:
+2. **Gather target evidence** from the baseline to the target `HEAD`/ref:
 
    ```bash
    git -C "$WT" log --oneline <baseline>..<target> -- .asdl/objectives/<slug>/
@@ -146,22 +148,27 @@ For each due, clean slug:
    ```
 
    Use `HEAD` for `<target>` when operating in the current checkout.
-3. Build a claim ledger before editing. From changed Objective prose plus any existing prose you are about to preserve, list concrete material claims by category: paths/files, symbols/APIs, commands/CLI surface, tests/evidence, status words, boundaries/non-goals, risks/assumptions, and roadmap rationale.
-4. Verify the claim ledger against current ground truth. Use targeted probes rather than vibes:
+3. **Extract the refresh contract before editing.** From the old record plus target evidence, write a brief in-session extraction with:
+   - core meaning: the Objective's durable purpose, scope boundaries, completion criteria, assumptions/risks, and open questions;
+   - progress: completed work, active work, parked/deferred work, closure-adjacent evidence, and remaining roadmap shape;
+   - material claims by category: paths/files, symbols/APIs, commands/CLI surface, tests/evidence, status words, boundaries/non-goals, risks/assumptions, and roadmap rationale;
+   - stale or suspect text from the old record that must not be carried forward as fact.
+4. **Verify the extracted contract** against current ground truth. Use targeted probes rather than vibes:
    - paths/files: `git -C "$WT" ls-files -- <path>`, `test -e`, or `find` scoped to the claimed directory;
    - symbols/commands/types: `rg --fixed-strings`, `rg` with a narrow regex, package `--help`, or schema/help output;
    - "deleted"/"absent"/"no longer": scoped `rg/find/git ls-files` evidence for absence;
    - "implemented"/"covered"/"tested": source plus test probes, and run targeted tests only when the claim depends on passing behavior;
    - PR/CI/review state: `gh`/Graphite evidence when the claim names PR/CI state;
    - ownership or deferral: git diff/log/Objective evidence showing the named owner or deferred target exists.
-5. Classify the slug before writing:
-   - `verified`: material claims are supported or have been rewritten into assumptions/open questions.
-   - `stale-rebaselined`: at least one claim was false and you corrected/parked/narrowed it.
+5. **Classify the slug before writing:**
+   - `verified`: the extracted contract is supported or has been weakened into assumptions/open questions.
+   - `stale-rebaselined`: at least one old-record claim was false and the extracted contract corrects/parks/narrows it.
    - `skipped-unverified`: important claims remain unverifiable or contradictory and you cannot safely rewrite them without user input.
-6. Edit `objective.md` when the target context changes durable narrative, scope, completion criteria, assumptions/risks, open questions, closure-adjacent caveats, or when verification shows existing prose is stale. Do not add `## Closure`.
-7. Edit `roadmap.md` when ordered guidance, checkbox state, row notes, completion evidence, parked work, or claim verification changes the shape of active work. Use only `[ ]`, `[~]`, and `[x]`.
-8. Add one new timestamped Semantic Update under `updates/` when the refresh records a meaningful finding, decision, blocker, risk change, completion event, plan change, follow-up, or ground-truth rebaseline. Include the provenance line above and summarize the verification evidence that mattered.
-9. If the due-check says a refresh is due but you cannot identify a meaningful durable change, or cannot verify the Objective claims well enough to trust them, do not invent filler. Report `skipped-ambiguous` or `skipped-unverified` and leave the slug unchanged unless you can safely narrow/park false claims.
+6. **Rewrite from scratch when a write is warranted.** Do not patch paragraphs or preserve old wording by inertia. Re-author `objective.md` from the verified contract when the target context changes durable narrative, scope, completion criteria, assumptions/risks, open questions, closure-adjacent caveats, or when verification shows existing prose is stale. Do not add `## Closure`.
+7. **Rewrite `roadmap.md` from scratch when active work shape changes.** Reconstruct ordered guidance, checkbox state, row notes, completion evidence, and parked work from the verified progress contract. Use only `[ ]`, `[~]`, and `[x]`.
+8. **Contract-diff the rewrite before saving as done.** Compare the rewritten files against the extracted contract line by line. Every verified purpose, boundary, progress fact, roadmap item, assumption/open question, and parked/deferred item must be present or intentionally omitted with a reason. If the rewrite drops or softens meaning, fix it before finalizing.
+9. Add one new timestamped Semantic Update under `updates/` when the refresh records a meaningful finding, decision, blocker, risk change, completion event, plan change, follow-up, or ground-truth rebaseline. Include the provenance line above and summarize the decisive extraction + verification evidence.
+10. If the due-check says a refresh is due but you cannot identify a meaningful durable change, or cannot verify the extracted Objective contract well enough to trust it, do not invent filler. Report `skipped-ambiguous` or `skipped-unverified` and leave the slug unchanged unless you can safely narrow/park false claims.
 
 ## Commit behavior
 
@@ -197,7 +204,7 @@ Return a compact report with:
 - New update files, if any, are timestamped and live under the matching Objective's `updates/` directory.
 - No existing file under `updates/` changed.
 - Required Objective headings remain present in edited files.
-- Every material claim written or preserved in edited Objective prose has supporting evidence, has been weakened to an assumption/open question, or caused `skipped-unverified`.
+- Every material claim in the extracted contract and rewritten Objective prose has supporting evidence, has been weakened to an assumption/open question, or caused `skipped-unverified`.
 - Negative claims have scoped absence evidence.
 - New Semantic Updates include the decisive verification/rebaseline evidence when they correct stale Objective prose.
 - No `closed.md` was created and no `## Closure` was added.

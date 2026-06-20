@@ -137,8 +137,8 @@ git -C <wt> diff <trunk>...<branch> -- .asdl/objectives/<slug>/roadmap.md .asdl/
 
 Compare owning branches at the hunk/section level:
 
-- If branches touch disjoint roadmap rows, headings, or prose paragraphs, each target may receive its own scoped in-place edits through branch/context scope.
-- If two targets require edits to the same roadmap row, heading section, or paragraph and the durable wording cannot be made target-local without misrepresenting the other target, do not edit that region in place. Add append-only Semantic Updates at the affected targets when meaningful, and report `note+flag` with a reconciliation recommendation.
+- If branches touch disjoint roadmap rows, headings, or prose paragraphs, each target may receive its own scoped from-scratch refresh through branch/context scope, using only that target's verified contract.
+- If two targets require changes to the same roadmap row, heading section, or paragraph and the durable wording cannot be made target-local without misrepresenting the other target, do not rewrite that region. Add append-only Semantic Updates at the affected targets when meaningful, and report `note+flag` with a reconciliation recommendation.
 
 Ambiguous overlap degrades only the affected Objective/target; continue the rest of the pass.
 
