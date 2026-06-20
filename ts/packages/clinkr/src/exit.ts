@@ -1,8 +1,13 @@
 import { z } from "zod";
 
-export interface ClinkrOkExit<T> {
-	type: "ok";
-	data: T;
+export interface ClinkrOkRenderOverrides {
+	readonly human?: string;
+	readonly markdown?: string;
+}
+
+export interface ClinkrOkExit<T> extends ClinkrOkRenderOverrides {
+	readonly type: "ok";
+	readonly data: T;
 }
 
 export interface ClinkrNegativeExit<T> {
@@ -83,8 +88,13 @@ export function buildFailureMachineEnvelopeSchema(
 		.strict();
 }
 
-export function ok<T>(data: T): ClinkrOkExit<T> {
-	return { type: "ok", data };
+export function ok<T>(data: T, overrides: ClinkrOkRenderOverrides = {}): ClinkrOkExit<T> {
+	return {
+		type: "ok",
+		data,
+		...(overrides.human === undefined ? {} : { human: overrides.human }),
+		...(overrides.markdown === undefined ? {} : { markdown: overrides.markdown }),
+	};
 }
 
 export function negative<T = never>(message: string, data?: T): ClinkrNegativeExit<T> {

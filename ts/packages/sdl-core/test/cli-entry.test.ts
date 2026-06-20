@@ -3,9 +3,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { ClinkrGroup, ok, resolveIo } from "@sdl/clinkr";
+import { ClinkrGroup, ok } from "@sdl/clinkr";
 import { rawCommand } from "@sdl/clinkr/raw";
-import { defineCli, isDirectCliInvocation, type CliPrepareRunInput } from "@sdl/core/cli-entry";
+import {
+	defineCli,
+	isDirectCliInvocation,
+	runClinkrCommand,
+	type CliPrepareRunInput,
+} from "@sdl/core/cli-entry";
 import { afterEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 
@@ -43,6 +48,22 @@ describe("isDirectCliInvocation", () => {
 		expect(isDirectCliInvocation(pathToFileURL(cliPath).href, join(root, "missing.ts"))).toBe(
 			false,
 		);
+	});
+});
+
+describe("runClinkrCommand", () => {
+	test("preserves successful Clinkr exits", async () => {
+		await expect(
+			runClinkrCommand("example_error", async () => ok({ answer: 42 })),
+		).resolves.toEqual({ type: "ok", data: { answer: 42 } });
+	});
+
+	test("converts thrown errors into failure exits", async () => {
+		await expect(
+			runClinkrCommand("example_error", async () => {
+				throw new Error("boom");
+			}),
+		).resolves.toEqual({ type: "failure", errorType: "example_error", message: "boom" });
 	});
 });
 
@@ -146,26 +167,24 @@ describe("defineCli", () => {
 		expect(buildInputVersion).toBe("1.2.3");
 	});
 
-	test("allows prepareRun to override Clinkr args and IO", async () => {
+	test("allows prepareRun to override Clinkr args", async () => {
 		const root = makePackage({
 			name: "@sdl/example",
 			version: "1.2.3",
 			bin: { example: "./src/cli.ts" },
 		});
-		const defaultStdoutText: string[] = [];
-		const overrideStdoutText: string[] = [];
+		const stdoutText: string[] = [];
 		let prepareArgs: readonly string[] = [];
 		const cli = defineCli<TestContext, TestDeps, undefined>({
 			metaUrl: packageMetaUrl(root),
 			runtime: "typescript",
 			description: "Example CLI.",
-			prepareRun: ({ args }) => {
+			prepareRun: ({ args, stdout }) => {
 				prepareArgs = args;
 				return {
 					type: "run",
 					args: ["go"],
-					io: resolveIo({ stdout: (text) => overrideStdoutText.push(text) }),
-					context: { value: "prepared", stdout: (text) => defaultStdoutText.push(text) },
+					context: { value: "prepared", stdout },
 					buildState: undefined,
 				};
 			},
@@ -185,12 +204,11 @@ describe("defineCli", () => {
 			},
 		});
 		const exitCode = await cli.run(["alias"], {
-			stdout: (text) => defaultStdoutText.push(text),
+			stdout: (text) => stdoutText.push(text),
 		});
 		expect(exitCode).toBe(0);
 		expect(prepareArgs).toEqual(["alias"]);
-		expect(defaultStdoutText).toEqual(["prepared:context"]);
-		expect(overrideStdoutText).toEqual(["rendered\n"]);
+		expect(stdoutText).toEqual(["prepared:context", "rendered\n"]);
 	});
 
 	test("lets handleRunError normalize handled errors", async () => {

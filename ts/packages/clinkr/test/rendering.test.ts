@@ -96,6 +96,38 @@ describe("renderHuman", () => {
 		const run = await runForTest(group, ["act"], { context: null });
 		expect(run.stdout).toBe('{\n  "count": 2\n}\n');
 	});
+
+	test("ok-exit human override takes precedence over command renderer", async () => {
+		let renderCalls = 0;
+		const group = new ClinkrGroup<null>({ name: "probe" });
+		group.command({
+			name: "act",
+			schema: z.object({}),
+			handler: async () => ok({ count: 2 }, { human: "override" }),
+			renderHuman: (data) => {
+				renderCalls += 1;
+				return `plans: ${data.count}`;
+			},
+		});
+		const run = await runForTest(group, ["act"], { context: null });
+		expect(run.exitCode).toBe(0);
+		expect(run.stdout).toBe("override\n");
+		expect(renderCalls).toBe(0);
+	});
+
+	test("json mode ignores ok-exit render overrides", async () => {
+		const group = new ClinkrGroup<null>({ name: "probe" });
+		group.command({
+			name: "act",
+			schema: z.object({}),
+			handler: async () => ok({ count: 2 }, { human: "human", markdown: "markdown" }),
+		});
+		const run = await runForTest(group, ["act", "--format", "json"], { context: null });
+		expect(run.exitCode).toBe(0);
+		expect(JSON.parse(run.stdout)).toEqual({ exit_code: 0, data: { count: 2 } });
+		expect(run.stdout).not.toContain("human");
+		expect(run.stdout).not.toContain("markdown");
+	});
 });
 
 describe("renderMarkdown", () => {
@@ -161,6 +193,36 @@ describe("renderMarkdown", () => {
 		const run = await runForTest(group, ["act", "--format", "markdown"], { context: null });
 		expect(run.exitCode).toBe(0);
 		expect(run.stdout).toBe("plans: 2\n");
+	});
+
+	test("uses ok-exit markdown override before command markdown renderer", async () => {
+		let markdownCalls = 0;
+		const group = new ClinkrGroup<null>({ name: "probe" });
+		group.command({
+			name: "act",
+			schema: z.object({}),
+			handler: async () => ok({ count: 2 }, { human: "human override", markdown: "md override" }),
+			renderMarkdown: (data) => {
+				markdownCalls += 1;
+				return `- plans: ${data.count}`;
+			},
+		});
+		const run = await runForTest(group, ["act", "--format", "markdown"], { context: null });
+		expect(run.exitCode).toBe(0);
+		expect(run.stdout).toBe("md override\n");
+		expect(markdownCalls).toBe(0);
+	});
+
+	test("markdown falls back to ok-exit human override", async () => {
+		const group = new ClinkrGroup<null>({ name: "probe" });
+		group.command({
+			name: "act",
+			schema: z.object({}),
+			handler: async () => ok({ count: 2 }, { human: "human override" }),
+		});
+		const run = await runForTest(group, ["act", "--format", "markdown"], { context: null });
+		expect(run.exitCode).toBe(0);
+		expect(run.stdout).toBe("human override\n");
 	});
 
 	test("falls back to indented JSON when renderMarkdown and renderHuman are absent", async () => {

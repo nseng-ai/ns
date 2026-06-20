@@ -3,8 +3,10 @@ import process from "node:process";
 import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { ClinkrGroup, resolveIo, type ClinkrIo } from "@sdl/clinkr";
+import { ClinkrGroup, failure, resolveIo, type ClinkrExit, type ClinkrIo } from "@sdl/clinkr";
 import { z } from "zod";
+
+import { formatErrorMessage } from "./primitives.ts";
 
 export type CliRuntime = "typescript" | "bun";
 
@@ -30,7 +32,6 @@ export type CliPrepareRunResult<TContext, TBuildState> =
 			readonly context: TContext;
 			readonly buildState: TBuildState;
 			readonly args?: readonly string[] | undefined;
-			readonly io?: ClinkrIo | undefined;
 	  };
 
 export type CliRunDeps<TDeps extends CliEntrypointDeps> = Partial<TDeps> & CliEntrypointDeps;
@@ -145,6 +146,17 @@ export function isDirectCliInvocation(metaUrl: string, argvPath: string | undefi
 	}
 }
 
+export async function runClinkrCommand<T>(
+	errorType: string,
+	operation: () => Promise<ClinkrExit<T>>,
+): Promise<ClinkrExit<T>> {
+	try {
+		return await operation();
+	} catch (error) {
+		return failure(errorType, formatErrorMessage(error));
+	}
+}
+
 export function defineCli<
 	TContext,
 	TDeps extends CliEntrypointDeps = CliEntrypointDeps,
@@ -193,7 +205,7 @@ export function defineCli<
 			if (prepareResult.type === "handled") return prepareResult.exitCode;
 			return await buildCli(prepareResult.buildState).run(prepareResult.args ?? args, {
 				context: prepareResult.context,
-				io: prepareResult.io ?? io,
+				io,
 			});
 		} catch (error) {
 			if (options.handleRunError === undefined) throw error;

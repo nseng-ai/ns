@@ -2,9 +2,8 @@
 
 import { writeFile } from "node:fs/promises";
 
-import { ClinkrGroup, failure, ok, type ClinkrExit } from "@sdl/clinkr";
-import { defineCli } from "@sdl/core/cli-entry";
-import { formatErrorMessage } from "@sdl/core/primitives";
+import { ClinkrGroup, ok, type ClinkrExit } from "@sdl/clinkr";
+import { defineCli, runClinkrCommand } from "@sdl/core/cli-entry";
 import { normalizePlanFilePath, validatePlanSlug } from "@sdl/plans";
 import { z } from "zod";
 
@@ -20,6 +19,7 @@ import {
 	type BranchContextAttachEvidence,
 	type BranchContextCheckEvidence,
 	type BranchContextDeleteEvidence,
+	type BranchContextListEvidence,
 } from "./attach.ts";
 import {
 	buildImplBranchContextPrompt,
@@ -87,19 +87,9 @@ type KeyRequest = z.infer<typeof keyRequestSchema>;
 type BranchContextData = ReturnType<typeof branchContextJson>;
 type LoadPlanData = ReturnType<typeof loadedPlanJson>;
 type AttachData = ReturnType<typeof attachJson>;
-type ListData = {
-	branch: string;
-	entries: {
-		namespace: string;
-		key: string;
-		branch: string;
-		ref_name: string;
-	}[];
-};
+type ListData = ReturnType<typeof listJson>;
 type CheckData = ReturnType<typeof checkJson>;
 type DeleteData = ReturnType<typeof deleteJson>;
-
-const loadHumanByData = new WeakMap<LoadPlanData, string>();
 
 export interface CliDeps {
 	context?: BranchContextContext | undefined;
@@ -138,7 +128,6 @@ const entry = defineCli<BranchContextCliContext, CliDeps, undefined>({
 			description: "Create a branch context from a saved plan.",
 			schema: createRequestSchema,
 			handler: handleCreate,
-			renderHuman: renderBranchContextData,
 		});
 		execGroup.command({
 			name: "load",
@@ -146,7 +135,6 @@ const entry = defineCli<BranchContextCliContext, CliDeps, undefined>({
 			schema: loadRequestSchema,
 			positionals: { key: { position: 0 } },
 			handler: handleLoad,
-			renderHuman: renderLoadPlanData,
 		});
 		execGroup.command({
 			name: "attach",
@@ -154,14 +142,12 @@ const entry = defineCli<BranchContextCliContext, CliDeps, undefined>({
 			schema: attachRequestSchema,
 			positionals: { key: { position: 0 } },
 			handler: handleAttach,
-			renderHuman: renderAttachData,
 		});
 		execGroup.command({
 			name: "list",
 			description: "List branch-context entries.",
 			schema: listRequestSchema,
 			handler: handleList,
-			renderHuman: renderListData,
 		});
 		execGroup.command({
 			name: "check",
@@ -169,7 +155,6 @@ const entry = defineCli<BranchContextCliContext, CliDeps, undefined>({
 			schema: keyRequestSchema,
 			positionals: { key: { position: 0 } },
 			handler: handleCheck,
-			renderHuman: renderCheckData,
 		});
 		execGroup.command({
 			name: "delete",
@@ -177,7 +162,6 @@ const entry = defineCli<BranchContextCliContext, CliDeps, undefined>({
 			schema: keyRequestSchema,
 			positionals: { key: { position: 0 } },
 			handler: handleDelete,
-			renderHuman: renderDeleteData,
 		});
 		root.group(execGroup);
 	},
@@ -197,7 +181,7 @@ async function handleCreate(
 	ctx: BranchContextCliContext,
 	request: CreateRequest,
 ): Promise<ClinkrExit<BranchContextData>> {
-	return await runBranchContextCommand(async () => {
+	return await runClinkrCommand(BRANCH_CONTEXT_ERROR_TYPE, async () => {
 		const slugError = validatePlanSlug(request.slug);
 		if (slugError !== undefined) throw new Error(`Invalid branch context slug: ${slugError}`);
 		const evidence = await createBranchContextFromFile(
@@ -211,7 +195,7 @@ async function handleCreate(
 			},
 			operationOptions(ctx),
 		);
-		return branchContextJson(evidence);
+		return ok(branchContextJson(evidence), { human: formatBranchContextEvidence(evidence) });
 	});
 }
 
@@ -219,7 +203,7 @@ async function handleLoad(
 	ctx: BranchContextCliContext,
 	request: LoadRequest,
 ): Promise<ClinkrExit<LoadPlanData>> {
-	return await runBranchContextCommand(async () => {
+	return await runClinkrCommand(BRANCH_CONTEXT_ERROR_TYPE, async () => {
 		const requestedKey = request.key;
 		const plan = await loadBranchContextPlan(
 			ctx.context.commands,
@@ -237,8 +221,7 @@ async function handleLoad(
 			attachedPlanContent: request.includeContent === true ? plan.content : undefined,
 			implementationPrompt: request.includePrompt === true ? implementationPrompt : undefined,
 		});
-		loadHumanByData.set(data, formatLoadPlanHuman(plan, promptFile, implementationPrompt));
-		return data;
+		return ok(data, { human: formatLoadPlanHuman(plan, promptFile, implementationPrompt) });
 	});
 }
 
@@ -246,13 +229,13 @@ async function handleAttach(
 	ctx: BranchContextCliContext,
 	request: AttachRequest,
 ): Promise<ClinkrExit<AttachData>> {
-	return await runBranchContextCommand(async () => {
+	return await runClinkrCommand(BRANCH_CONTEXT_ERROR_TYPE, async () => {
 		const evidence = await attachBranchContextEntry(
 			ctx.context.commands,
 			{ key: request.key, filePath: request.file, planSlug: request.plan, branch: request.branch },
 			operationOptions(ctx),
 		);
-		return attachJson(evidence);
+		return ok(attachJson(evidence), { human: formatAttachEvidence(evidence) });
 	});
 }
 
@@ -260,21 +243,13 @@ async function handleList(
 	ctx: BranchContextCliContext,
 	request: ListRequest,
 ): Promise<ClinkrExit<ListData>> {
-	return await runBranchContextCommand(async () => {
+	return await runClinkrCommand(BRANCH_CONTEXT_ERROR_TYPE, async () => {
 		const list = await listBranchContextEntries(
 			ctx.context.commands,
 			{ branch: request.branch },
 			operationOptions(ctx),
 		);
-		return {
-			branch: list.branch,
-			entries: list.entries.map((entry) => ({
-				namespace: entry.namespace,
-				key: entry.key,
-				branch: entry.branch,
-				ref_name: entry.refName,
-			})),
-		};
+		return ok(listJson(list), { human: formatListEvidence(list.branch, list.entries) });
 	});
 }
 
@@ -282,13 +257,13 @@ async function handleCheck(
 	ctx: BranchContextCliContext,
 	request: KeyRequest,
 ): Promise<ClinkrExit<CheckData>> {
-	return await runBranchContextCommand(async () => {
+	return await runClinkrCommand(BRANCH_CONTEXT_ERROR_TYPE, async () => {
 		const evidence = await checkBranchContextEntry(
 			ctx.context.commands,
 			request,
 			operationOptions(ctx),
 		);
-		return checkJson(evidence);
+		return ok(checkJson(evidence), { human: formatCheckEvidence(evidence) });
 	});
 }
 
@@ -296,22 +271,14 @@ async function handleDelete(
 	ctx: BranchContextCliContext,
 	request: KeyRequest,
 ): Promise<ClinkrExit<DeleteData>> {
-	return await runBranchContextCommand(async () => {
+	return await runClinkrCommand(BRANCH_CONTEXT_ERROR_TYPE, async () => {
 		const evidence = await deleteBranchContextEntry(
 			ctx.context.commands,
 			request,
 			operationOptions(ctx),
 		);
-		return deleteJson(evidence);
+		return ok(deleteJson(evidence), { human: formatDeleteEvidence(evidence) });
 	});
-}
-
-async function runBranchContextCommand<T>(operation: () => Promise<T>): Promise<ClinkrExit<T>> {
-	try {
-		return ok(await operation());
-	} catch (error) {
-		return failure(BRANCH_CONTEXT_ERROR_TYPE, formatErrorMessage(error));
-	}
 }
 
 function operationOptions(ctx: BranchContextCliContext) {
@@ -331,80 +298,6 @@ function formatLoadPlanHuman(
 		return `${formatLoadedAttachedPlanEvidence(plan)}\nImplementation prompt file: ${promptFile}`;
 	}
 	return `${formatLoadedAttachedPlanEvidence(plan)}\n\n${implementationPrompt}`;
-}
-
-function renderBranchContextData(data: BranchContextData): string {
-	return formatBranchContextEvidence({
-		slug: data.slug,
-		branch: data.branch,
-		branchCreation: data.branch_creation,
-		startPoint: data.start_point,
-		namespace: data.namespace,
-		key: data.key,
-		refName: data.ref_name,
-		commit: data.commit,
-		sourceFile: data.source_file,
-		...(data.summary === undefined ? {} : { summary: data.summary }),
-	});
-}
-
-function renderLoadPlanData(data: LoadPlanData): string {
-	return (
-		loadHumanByData.get(data) ??
-		formatLoadedAttachedPlanEvidence({
-			branch: data.branch,
-			namespace: data.namespace,
-			selectedKey: data.selected_key,
-			refName: data.ref_name,
-			content: data.attached_plan_content ?? "",
-			byteCount: data.byte_count,
-			availableKeys: data.available_keys,
-			source: data.source,
-			...(data.source_file === undefined ? {} : { sourceFile: data.source_file }),
-		})
-	);
-}
-
-function renderAttachData(data: AttachData): string {
-	return formatAttachEvidence({
-		branch: data.branch,
-		namespace: data.namespace,
-		key: data.key,
-		refName: data.ref_name,
-		commit: data.commit,
-		sourceFile: data.source_file,
-		...(data.plan_slug === undefined ? {} : { planSlug: data.plan_slug }),
-	});
-}
-
-function renderListData(data: ListData): string {
-	return formatListEvidence(
-		data.branch,
-		data.entries.map((entry) => ({
-			namespace: entry.namespace,
-			key: entry.key,
-			branch: entry.branch,
-			refName: entry.ref_name,
-		})),
-	);
-}
-
-function renderCheckData(data: CheckData): string {
-	return formatCheckEvidence({
-		branch: data.branch,
-		namespace: data.namespace,
-		key: data.key,
-		present: data.present,
-	});
-}
-
-function renderDeleteData(data: DeleteData): string {
-	return formatDeleteEvidence({
-		branch: data.branch,
-		namespace: data.namespace,
-		key: data.key,
-		deleted: data.deleted,
-	});
 }
 
 function branchContextJson(evidence: BranchContextEvidence): {
@@ -437,6 +330,26 @@ interface LoadedPlanJsonOptions {
 	promptFile?: string | undefined;
 	attachedPlanContent?: string | undefined;
 	implementationPrompt?: string | undefined;
+}
+
+function listJson(list: BranchContextListEvidence): {
+	branch: string;
+	entries: {
+		namespace: string;
+		key: string;
+		branch: string;
+		ref_name: string;
+	}[];
+} {
+	return {
+		branch: list.branch,
+		entries: list.entries.map((entry) => ({
+			namespace: entry.namespace,
+			key: entry.key,
+			branch: entry.branch,
+			ref_name: entry.refName,
+		})),
+	};
 }
 
 function attachJson(evidence: BranchContextAttachEvidence): {
