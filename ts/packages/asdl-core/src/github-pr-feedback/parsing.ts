@@ -1,10 +1,10 @@
 import { z } from "zod";
 
 import type { RunGitHubCliResult } from "../github-cli.ts";
+import { githubGraphqlErrorsSchema, parseJsonUnknown } from "../github-graphql-json.ts";
 import type { Result } from "../result.ts";
 
 import { failureFromMessage, feedbackErr, feedbackOk, jsonErrorMessage } from "./failures.ts";
-import { ghGraphqlErrorsSchema } from "./schemas.ts";
 import type { GithubPrFeedbackFailure, GithubPrFeedbackOperation } from "./types.ts";
 
 export function parseJson<T>(
@@ -12,15 +12,13 @@ export function parseJson<T>(
 	schema: z.ZodType<T>,
 	context: GithubPrFeedbackFailureContext,
 ): Result<T, GithubPrFeedbackFailure> {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(text);
-	} catch (error) {
+	const parsed = parseJsonUnknown(text);
+	if (parsed.type === "error") {
 		return feedbackErr(
 			failureFromMessage({
 				code: "github_pr_feedback_json_parse_failed",
 				operation: context.operation,
-				message: jsonErrorMessage(error),
+				message: jsonErrorMessage(parsed.error),
 				run: context.run,
 				stdout: text,
 				prNumber: context.prNumber,
@@ -29,7 +27,70 @@ export function parseJson<T>(
 			}),
 		);
 	}
-	const result = schema.safeParse(parsed);
+	return validateParsedJson(parsed.value, text, schema, context);
+}
+
+export function parseGraphqlJson<T>(
+	text: string,
+	schema: z.ZodType<T>,
+	context: GithubPrFeedbackFailureContext,
+): Result<T, GithubPrFeedbackFailure> {
+	const parsed = parseJsonUnknown(text);
+	if (parsed.type === "error") {
+		return feedbackErr(
+			failureFromMessage({
+				code: "github_pr_feedback_json_parse_failed",
+				operation: context.operation,
+				message: jsonErrorMessage(parsed.error),
+				run: context.run,
+				stdout: text,
+				prNumber: context.prNumber,
+				threadId: context.threadId,
+				cursorContext: context.cursorContext,
+			}),
+		);
+	}
+	const errorsResult = githubGraphqlErrorsSchema.safeParse(parsed.value);
+	if (!errorsResult.success) {
+		return feedbackErr(
+			failureFromMessage({
+				code: "github_pr_feedback_response_invalid",
+				operation: context.operation,
+				message: z.prettifyError(errorsResult.error),
+				run: context.run,
+				stdout: text,
+				zodError: z.prettifyError(errorsResult.error),
+				prNumber: context.prNumber,
+				threadId: context.threadId,
+				cursorContext: context.cursorContext,
+			}),
+		);
+	}
+	if (errorsResult.data.errors !== undefined && errorsResult.data.errors.length > 0) {
+		return feedbackErr(
+			failureFromMessage({
+				code: "github_pr_feedback_graphql_failed",
+				operation: context.operation,
+				message: JSON.stringify(errorsResult.data.errors),
+				run: context.run,
+				stdout: text,
+				graphqlErrors: errorsResult.data.errors,
+				prNumber: context.prNumber,
+				threadId: context.threadId,
+				cursorContext: context.cursorContext,
+			}),
+		);
+	}
+	return validateParsedJson(parsed.value, text, schema, context);
+}
+
+function validateParsedJson<T>(
+	value: unknown,
+	text: string,
+	schema: z.ZodType<T>,
+	context: GithubPrFeedbackFailureContext,
+): Result<T, GithubPrFeedbackFailure> {
+	const result = schema.safeParse(value);
 	if (!result.success) {
 		return feedbackErr(
 			failureFromMessage({
@@ -46,31 +107,6 @@ export function parseJson<T>(
 		);
 	}
 	return feedbackOk(result.data);
-}
-
-export function parseGraphqlJson<T>(
-	text: string,
-	schema: z.ZodType<T>,
-	context: GithubPrFeedbackFailureContext,
-): Result<T, GithubPrFeedbackFailure> {
-	const base = parseJson(text, ghGraphqlErrorsSchema, context);
-	if (!base.ok) return base;
-	if (base.value.errors !== undefined && base.value.errors.length > 0) {
-		return feedbackErr(
-			failureFromMessage({
-				code: "github_pr_feedback_graphql_failed",
-				operation: context.operation,
-				message: JSON.stringify(base.value.errors),
-				run: context.run,
-				stdout: text,
-				graphqlErrors: base.value.errors,
-				prNumber: context.prNumber,
-				threadId: context.threadId,
-				cursorContext: context.cursorContext,
-			}),
-		);
-	}
-	return parseJson(text, schema, context);
 }
 
 export function requireCursor(

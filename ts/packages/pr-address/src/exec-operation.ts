@@ -73,8 +73,8 @@ export function prFeedbackFailureMessage(
 ): string {
 	const details = prFeedbackFailure.details;
 	return `${prefix}: ${failureDetail({
-		stderr: details?.stderr,
-		stdout: details?.stdout,
+		...(typeof details?.stderr === "string" ? { stderr: details.stderr } : {}),
+		...(typeof details?.stdout === "string" ? { stdout: details.stdout } : {}),
 		message: prFeedbackFailure.message,
 		code: prFeedbackFailure.code,
 	})}`;

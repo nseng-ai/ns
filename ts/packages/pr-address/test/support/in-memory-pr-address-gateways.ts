@@ -69,7 +69,7 @@ export interface InMemoryPrFeedbackState {
 	lookupFailureBranches?: ReadonlySet<string> | undefined;
 	lookupFailurePrNumbers?: ReadonlySet<number> | undefined;
 	missingPrNumbers?: ReadonlySet<number> | undefined;
-	reviewsFailurePrNumbers?: ReadonlySet<number> | undefined;
+	reviewFailurePrNumbers?: ReadonlySet<number> | undefined;
 	reviewThreadsFailurePrNumbers?: ReadonlySet<number> | undefined;
 	discussionCommentsFailurePrNumbers?: ReadonlySet<number> | undefined;
 	replyFailureThreadIds?: ReadonlySet<string> | undefined;
@@ -102,7 +102,7 @@ export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway 
 	private readonly lookupFailureBranches: ReadonlySet<string>;
 	private readonly lookupFailurePrNumbers: ReadonlySet<number>;
 	private readonly missingPrNumbers: ReadonlySet<number>;
-	private readonly reviewsFailurePrNumbers: ReadonlySet<number>;
+	private readonly reviewFailurePrNumbers: ReadonlySet<number>;
 	private readonly reviewThreadsFailurePrNumbers: ReadonlySet<number>;
 	private readonly discussionCommentsFailurePrNumbers: ReadonlySet<number>;
 	private readonly replyFailureThreadIds: ReadonlySet<string>;
@@ -128,7 +128,7 @@ export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway 
 		this.lookupFailureBranches = state.lookupFailureBranches ?? new Set();
 		this.lookupFailurePrNumbers = state.lookupFailurePrNumbers ?? new Set();
 		this.missingPrNumbers = state.missingPrNumbers ?? new Set();
-		this.reviewsFailurePrNumbers = state.reviewsFailurePrNumbers ?? new Set();
+		this.reviewFailurePrNumbers = state.reviewFailurePrNumbers ?? new Set();
 		this.reviewThreadsFailurePrNumbers = state.reviewThreadsFailurePrNumbers ?? new Set();
 		this.discussionCommentsFailurePrNumbers = state.discussionCommentsFailurePrNumbers ?? new Set();
 		this.replyFailureThreadIds = state.replyFailureThreadIds ?? new Set();
@@ -181,7 +181,7 @@ export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway 
 	async getPrReviews(
 		params: GithubPrFeedbackOptions & { readonly prNumber: number },
 	): Promise<Result<readonly GithubPrReview[], GithubPrFeedbackFailure>> {
-		if (this.reviewsFailurePrNumbers.has(params.prNumber))
+		if (this.reviewFailurePrNumbers.has(params.prNumber))
 			return {
 				ok: false,
 				error: fakePrFeedbackFailure(FAKE_GH_AUTH_FAILED_STDERR, "getPrReviews"),

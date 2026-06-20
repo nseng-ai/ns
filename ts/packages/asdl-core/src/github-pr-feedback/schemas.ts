@@ -45,18 +45,7 @@ export const ghReviewCommentSchema = z
 		url: z.string().optional(),
 	})
 	.loose()
-	.transform((comment, ctx) => {
-		const numericId = numericGithubIdentity(comment.databaseId ?? comment.id);
-		if (numericId === null) {
-			ctx.addIssue({
-				code: "custom",
-				path: ["databaseId"],
-				message: "Review comment must include a positive integer databaseId or numeric id.",
-			});
-			return z.NEVER;
-		}
-		return { ...comment, numericId };
-	});
+	.transform((comment, ctx) => withNumericGithubIdentity(comment, ctx, "Review comment"));
 
 export const ghPageInfoSchema = z
 	.object({
@@ -100,18 +89,7 @@ export const ghDiscussionCommentSchema = z
 		html_url: z.string().optional(),
 	})
 	.loose()
-	.transform((comment, ctx) => {
-		const numericId = numericGithubIdentity(comment.databaseId ?? comment.id);
-		if (numericId === null) {
-			ctx.addIssue({
-				code: "custom",
-				path: ["databaseId"],
-				message: "Discussion comment must include a positive integer databaseId or numeric id.",
-			});
-			return z.NEVER;
-		}
-		return { ...comment, numericId };
-	});
+	.transform((comment, ctx) => withNumericGithubIdentity(comment, ctx, "Discussion comment"));
 
 export const ghDiscussionCommentConnectionSchema = z
 	.object({
@@ -129,8 +107,6 @@ export const ghDiscussionCommentsResponseSchema = z
 		}),
 	})
 	.loose();
-
-export const ghGraphqlErrorsSchema = z.object({ errors: z.array(z.unknown()).optional() }).loose();
 
 export const ghReviewThreadsResponseSchema = z
 	.object({
@@ -183,6 +159,28 @@ export const ghResolveReviewThreadResponseSchema = z
 		}),
 	})
 	.loose();
+
+function withNumericGithubIdentity<
+	T extends {
+		readonly databaseId?: number | null | undefined;
+		readonly id?: number | string | undefined;
+	},
+>(
+	comment: T,
+	ctx: z.RefinementCtx,
+	label: string,
+): (T & { readonly numericId: number }) | typeof z.NEVER {
+	const numericId = numericGithubIdentity(comment.databaseId ?? comment.id);
+	if (numericId === null) {
+		ctx.addIssue({
+			code: "custom",
+			path: ["databaseId"],
+			message: `${label} must include a positive integer databaseId or numeric id.`,
+		});
+		return z.NEVER;
+	}
+	return { ...comment, numericId };
+}
 
 function numericGithubIdentity(value: string | number | null | undefined): number | null {
 	if (typeof value === "number") return Number.isSafeInteger(value) && value > 0 ? value : null;

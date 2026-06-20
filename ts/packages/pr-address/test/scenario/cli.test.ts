@@ -5,20 +5,8 @@ import { exitCodeForExit, failure, negative, ok, toMachineEnvelope } from "@asdl
 import { defineExecOperation, type ExecOperation } from "../../src/exec-operation.ts";
 import { loadJsonInput } from "../../src/json-input.ts";
 import { EXEC_OPERATIONS } from "../../src/exec-commands.ts";
+import { EXEC_OPERATION_NAMES } from "../support/operation-names.ts";
 import { runScenario } from "../support/run-scenario.ts";
-
-const EXPECTED_EXEC_OPERATION_NAMES = [
-	"branch-pr",
-	"download-feedback",
-	"map-branch-prs",
-	"open-prs",
-	"pr-details",
-	"pr-discussion-comments",
-	"pr-review-threads",
-	"pr-reviews",
-	"reply-review-thread",
-	"resolve-review-thread",
-] as const;
 
 function envelopeOperation(onArgs?: (kind: string | undefined) => void): ExecOperation {
 	return defineExecOperation({
@@ -80,7 +68,7 @@ describe("pr-address CLI", () => {
 	});
 
 	test("serves canonical schema documents locally", async () => {
-		for (const operation of EXPECTED_EXEC_OPERATION_NAMES) {
+		for (const operation of EXEC_OPERATION_NAMES) {
 			const run = runScenario(["exec", operation, "--json-schema"]);
 			expect(await run.exit).toBe(0);
 			const payload = JSON.parse(run.stdout.join("")) as Record<string, unknown>;
@@ -153,7 +141,7 @@ describe("pr-address CLI", () => {
 describe("pr-address exec operation table", () => {
 	test("matches the literal managed operation list", () => {
 		expect(EXEC_OPERATIONS.map((operation) => operation.name).sort()).toEqual(
-			[...EXPECTED_EXEC_OPERATION_NAMES].sort(),
+			[...EXEC_OPERATION_NAMES].sort(),
 		);
 	});
 

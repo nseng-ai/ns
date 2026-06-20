@@ -92,7 +92,8 @@ export async function runProcess(request: ProcessRequest): Promise<ProcessResult
 function failureFromProcess(result: ProcessResult): GatewayFailure {
 	const stderr = result.stderr.trim();
 	const stdout = result.stdout.trim();
-	const message = stderr || stdout || `process exited with code ${result.exitCode}`;
+	const message =
+		stderr !== "" ? stderr : stdout !== "" ? stdout : `process exited with code ${result.exitCode}`;
 	const failure = commandFailure({
 		command: result.command ?? "process",
 		args: result.args ?? [],
