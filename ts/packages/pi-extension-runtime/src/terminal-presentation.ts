@@ -33,6 +33,12 @@ export function terminalHyperlink(text: string, sanitizedUrl: string): string {
 	return `\x1B]8;;${sanitizedUrl}\x07${text}\x1B]8;;\x07`;
 }
 
+export function safeTerminalHyperlink(text: string, url: string | null | undefined): string {
+	if (url === null || url === undefined) return text;
+	const sanitizedUrl = sanitizeTerminalHyperlinkUrl(url);
+	return sanitizedUrl === undefined ? text : terminalHyperlink(text, sanitizedUrl);
+}
+
 export function customMessageText(content: CustomMessageContent): string {
 	if (typeof content === "string") return content;
 	return content

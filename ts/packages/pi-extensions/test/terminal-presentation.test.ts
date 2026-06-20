@@ -5,6 +5,7 @@ import {
 	linkifyPrReferences,
 	prLinksDetailsFor,
 	prLinksFromDetails,
+	safeTerminalHyperlink,
 	sanitizeTerminalHyperlinkUrl,
 	stripTerminalEscapes,
 	terminalHyperlink,
@@ -42,6 +43,17 @@ describe("terminal presentation helpers", () => {
 		expect(terminalHyperlink("#101", "https://github.example/pull/101")).toBe(
 			"\x1B]8;;https://github.example/pull/101\x07#101\x1B]8;;\x07",
 		);
+	});
+
+	test("safely linkifies text when a URL is safe", () => {
+		expect(safeTerminalHyperlink("#101", "https://github.example/pull/101")).toBe(
+			"\x1B]8;;https://github.example/pull/101\x07#101\x1B]8;;\x07",
+		);
+		expect(safeTerminalHyperlink("#101", "https://github.example/a b")).toBe(
+			"\x1B]8;;https://github.example/a%20b\x07#101\x1B]8;;\x07",
+		);
+		expect(safeTerminalHyperlink("#101", "javascript:alert(1)")).toBe("#101");
+		expect(safeTerminalHyperlink("#101", undefined)).toBe("#101");
 	});
 
 	test("extracts plain text from custom message content", () => {

@@ -27,6 +27,7 @@ import {
 	customMessageText,
 	linkifyPrReferences,
 	prLinksFromDetails,
+	safeTerminalHyperlink,
 	truncateDisplayLine,
 	type CustomMessageContent,
 } from "@asdl/pi-extension-runtime/terminal-presentation";
@@ -739,7 +740,7 @@ function formatGhStatusLine(
 	const pieces = [
 		formatColoredSegment("[gh]", "dim", options.theme),
 		formatColoredSegment(" ", "dim", options.theme),
-		formatColoredSegment(`#${status.prNumber}`, "accent", options.theme),
+		formatGhPrReference(status, options.theme),
 		formatColoredSegment(" · comments ", "dim", options.theme),
 		formatColoredSegment(
 			commentsValue,
@@ -764,6 +765,11 @@ function formatGhStatusLine(
 		);
 	}
 	return pieces.join("");
+}
+
+function formatGhPrReference(status: GhStatus, theme: StatusTheme | undefined): string {
+	const text = `#${status.prNumber}`;
+	return formatColoredSegment(safeTerminalHyperlink(text, status.url), "accent", theme);
 }
 
 function formatGhStatusAnnotation(

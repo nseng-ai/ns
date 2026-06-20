@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { githubWorktreePrStatusQuery } from "@asdl/core/github-status";
+import { stripTerminalEscapes } from "@asdl/core/terminal-escapes";
 import type { GraphiteMetadataWorkerDiagnostic } from "@asdl/ccc/worktree-status/graphite-metadata";
 import {
 	formatGhStatus,
@@ -426,6 +427,30 @@ describe("worktree status formatting", () => {
 		).toBe("[gh] unavailable: gh api graphql exited 1: timeout");
 	});
 
+	test("formats gh PR references with safe terminal hyperlinks", () => {
+		expect(
+			formatGhStatus({
+				type: "available",
+				prNumber: 1921,
+				url: "https://github.com/dagster-io/asdl-tools/pull/1921",
+				threads: { unresolved: 0, total: 0, hasMore: false },
+				checks: { passing: 0, pending: 0, failing: 0, unknown: 0 },
+			}),
+		).toBe(
+			"[gh] \x1B]8;;https://github.com/dagster-io/asdl-tools/pull/1921\x07#1921\x1B]8;;\x07 · comments 0/0 · actions 0✓ · landable",
+		);
+
+		expect(
+			formatGhStatus({
+				type: "available",
+				prNumber: 1921,
+				url: "javascript:alert(1)",
+				threads: { unresolved: 0, total: 0, hasMore: false },
+				checks: { passing: 0, pending: 0, failing: 0, unknown: 0 },
+			}),
+		).toBe("[gh] #1921 · comments 0/0 · actions 0✓ · landable");
+	});
+
 	test("formats gh refresh countdowns on available PR status lines", () => {
 		expect(
 			formatGhStatus(
@@ -632,7 +657,9 @@ describe("composed local and gh worktree status loading", () => {
 			threads: { unresolved: 3, total: 5, hasMore: false },
 			checks: { passing: 4, pending: 2, failing: 1, unknown: 0 },
 		});
-		expect(formatWorktreeStatus(status)).toContain("[gh] #1736 · comments 2/5 · actions 2⏳ 1✗");
+		expect(formatWorktreeStatus(status).map(stripTerminalEscapes)).toContain(
+			"[gh] #1736 · comments 2/5 · actions 2⏳ 1✗",
+		);
 	});
 
 	test("treats a PR head OID mismatch as local ahead of PR", async () => {
@@ -668,8 +695,8 @@ describe("composed local and gh worktree status loading", () => {
 		pi.assertDone();
 		expect(status.gh).toMatchObject({ type: "available", checks: { unknown: 1 } });
 		const formatted = formatWorktreeStatus(status);
-		expect(formatted).toContain("[gh] #1736 · comments 0/0 · actions 1?");
-		expect(formatted.join("\n")).not.toContain("landable");
+		expect(formatted.map(stripTerminalEscapes)).toContain("[gh] #1736 · comments 0/0 · actions 1?");
+		expect(stripTerminalEscapes(formatted.join("\n"))).not.toContain("landable");
 	});
 
 	test("loads local worktree status without invoking gh", async () => {
