@@ -9,7 +9,7 @@
 - [~] Rebaseline the remaining default suites for likely boundary leaks after the current TypeScript stack lands.
   - Policy: direct evidence-gathering and small unambiguous fixes are allowed; ask before proposing broad CI/configuration or convention changes.
   - Guidance: start with tests that create real repositories, spawn real CLIs, open sqlite/metadata fixtures, use real sleeps/timers, or hit backend/network adapters from unit/default paths.
-  - Latest evidence: the vibechk real-Git migration rebaseline recommended `ts/packages/asdl-core/test/exec.test.ts` real child-process `runCommand` coverage as the next bounded slice; see `updates/2026-06-20T181625Z-vibechk-rebaseline-next-boundary.md`.
+  - Latest evidence: the vibechk real-Git migration rebaseline recommended `ts/packages/asdl-core/test/exec.test.ts` real child-process `runCommand` coverage as the next bounded slice; measured vibechk default-lane timing evidence lives in `updates/2026-06-20T182851Z-vibechk-default-lane-timing.md`.
 - [ ] Extract repeated seam patterns into local conventions only after multiple slices prove the same shape.
   - Policy: steer first before adding broad shared APIs, repo-wide rules, or CI topology changes.
   - Guidance: prefer package-local seams until a cross-package pattern is proven; document stable patterns in the relevant testing docs. Keep cleanup follow-ups such as shared Vitest config, CI setup actions, or shared fake helpers separate from the semantic migration unless they are required to keep the migration readable.
