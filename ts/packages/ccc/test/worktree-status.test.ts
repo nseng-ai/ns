@@ -12,6 +12,7 @@ import {
 	loadLocalWorktreeStatus,
 	loadWorktreeGhStatus,
 	renderWorktreeStatusMessage,
+	repoNameFromWorktreeStatusGitPaths,
 	type ExecGateway,
 	type ExecResult,
 	type GraphiteMetadataLoader,
@@ -375,6 +376,25 @@ describe("worktree status message rendering", () => {
 });
 
 describe("worktree status formatting", () => {
+	test("derives repository name from worktree git paths", () => {
+		expect(
+			repoNameFromWorktreeStatusGitPaths({
+				repoDir: "/Users/me/src/sdl-tools",
+				gitDir: "/Users/me/src/sdl-tools/.git",
+				commonGitDir: "/Users/me/src/sdl-tools/.git",
+				headPath: "/Users/me/src/sdl-tools/.git/HEAD",
+			}),
+		).toBe("sdl-tools");
+		expect(
+			repoNameFromWorktreeStatusGitPaths({
+				repoDir: "/tmp/feature-wt",
+				gitDir: "/Users/me/src/sdl-tools/.git/worktrees/feature-wt",
+				commonGitDir: "/Users/me/src/sdl-tools/.git",
+				headPath: "/Users/me/src/sdl-tools/.git/worktrees/feature-wt/HEAD",
+			}),
+		).toBe("sdl-tools");
+	});
+
 	test("formats gt commits, unknown commits, trunk, and dirty state", () => {
 		expect(
 			formatGtStatus({ down: "main", up: "-", commits: { type: "count", count: 0 }, dirty: "no" }),

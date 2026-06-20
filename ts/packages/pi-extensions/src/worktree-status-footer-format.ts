@@ -1,15 +1,18 @@
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, isAbsolute, relative, resolve, sep } from "node:path";
 
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
 import {
+	findWorktreeStatusGitPaths,
 	formatWorktreeStatusForFooter,
+	repoNameFromWorktreeStatusGitPaths,
 	WORKTREE_STATUS_UI_KEY,
 	type FormatWorktreeStatusOptions,
 	type GtCommitStatus,
 	type GtStatus,
 	type StatusTheme,
 	type WorktreeStatus,
+	type WorktreeStatusGitPaths,
 } from "@sdl/ccc/worktree-status";
 
 interface StatusFooterData {
@@ -190,14 +193,14 @@ function footerCommitCount(commits: GtCommitStatus): string {
 }
 
 function footerIdentityParts(options: FooterIdentityPartsOptions): FooterIdentityParts {
-	const slotInfo = slotInfoFromCwd(options.cwd);
-	if (slotInfo !== undefined) {
-		const relativePath = relative(slotInfo.worktreeRoot, resolve(options.cwd));
+	const gitPaths = findWorktreeStatusGitPaths(options.cwd);
+	if (gitPaths !== undefined) {
+		const repo = repoNameFromWorktreeStatusGitPaths(gitPaths) ?? options.fallbackRepo;
 		return {
-			repo: slotInfo.repo,
-			slot: slotInfo.slot,
+			repo,
+			slot: worktreeLabelFromGitPaths(gitPaths, repo),
 			branch: options.branch,
-			relativePath: relativePath.length > 0 ? relativePath : ".",
+			relativePath: relativeWorktreePath(gitPaths.repoDir, options.cwd),
 		};
 	}
 	return {
@@ -208,30 +211,15 @@ function footerIdentityParts(options: FooterIdentityPartsOptions): FooterIdentit
 	};
 }
 
-function slotInfoFromCwd(
-	cwd: string,
-): { repo: string; slot: string; worktreeRoot: string } | undefined {
-	const resolvedCwd = resolve(cwd);
-	const parts = resolvedCwd.split(sep);
-	for (let index = 0; index < parts.length - 4; index++) {
-		if (
-			parts[index] !== ".slots" ||
-			parts[index + 1] !== "repos" ||
-			parts[index + 3] !== "worktrees"
-		)
-			continue;
-		const repo = parts[index + 2];
-		const slot = parts[index + 4];
-		if (repo === undefined || repo.length === 0 || slot === undefined || slot.length === 0)
-			return undefined;
-		return { repo, slot, worktreeRoot: pathFromParts(parts.slice(0, index + 5)) };
-	}
-	return undefined;
+function worktreeLabelFromGitPaths(gitPaths: WorktreeStatusGitPaths, repo: string): string {
+	const worktreeName = basename(gitPaths.repoDir);
+	if (worktreeName.length === 0 || worktreeName === repo) return "no-slot";
+	return worktreeName;
 }
 
-function pathFromParts(parts: readonly string[]): string {
-	if (parts[0] === "") return `${sep}${join(...parts.slice(1))}`;
-	return join(...parts);
+function relativeWorktreePath(worktreeRoot: string, cwd: string): string {
+	const relativePath = relative(worktreeRoot, resolve(cwd));
+	return relativePath.length > 0 ? relativePath : ".";
 }
 
 function formatFooterCwd(cwd: string, home: string | undefined): string {

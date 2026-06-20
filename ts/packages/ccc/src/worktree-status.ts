@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 
 import { resolveBrmemCommandCandidates, runBrmemCandidate } from "@sdl/core/brmem-cli";
 import {
@@ -59,6 +59,15 @@ export interface WorktreeStatusGitPaths {
 	readonly gitDir: string;
 	readonly commonGitDir: string;
 	readonly headPath: string;
+}
+
+export function repoNameFromWorktreeStatusGitPaths(
+	gitPaths: WorktreeStatusGitPaths,
+): string | undefined {
+	const repoDir =
+		basename(gitPaths.commonGitDir) === ".git" ? dirname(gitPaths.commonGitDir) : gitPaths.repoDir;
+	const repoName = basename(repoDir);
+	return repoName.length > 0 ? repoName : undefined;
 }
 
 type GitFileParseResult =

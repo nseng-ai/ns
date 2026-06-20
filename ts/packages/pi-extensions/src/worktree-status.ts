@@ -12,6 +12,7 @@ import {
 	loadWorktreeGhStatus,
 	loadWorktreeStatusIdentity,
 	renderWorktreeStatusMessage,
+	repoNameFromWorktreeStatusGitPaths,
 	sameWorktreeStatusIdentity,
 	WORKTREE_STATUS_UI_KEY,
 	type ExecResult,
@@ -717,7 +718,7 @@ function currentFooterBranch(cwd: string, footerData: StatusFooterData): string 
 
 function fallbackRepoName(cwd: string): string {
 	const gitPaths = findWorktreeStatusGitPaths(cwd);
-	if (gitPaths !== undefined) return basename(gitPaths.repoDir);
+	if (gitPaths !== undefined) return repoNameFromWorktreeStatusGitPaths(gitPaths) ?? "unknown";
 	return basename(resolve(cwd)) || "unknown";
 }
 
