@@ -25,13 +25,17 @@ long tail of score 1–3 polish stays opportunistic, not a standalone push.
      commented-description frontmatter is the *rendered output* of an explicit-only kind,
      so a skill that is kind `normal` but shows that stub is misconfigured — "listed but
      unroutable.") Two streams: write real descriptions for incomplete `normal` skills,
-     and reconcile deliberately-explicit skills to `invoke-only` (the default explicit-only
-     kind; `command-backed` is currently unexemplified — no skill uses it — and would
-     require building a verified Pi replacement extension first). Affects `sdl-submit`,
+     and reconcile deliberately-explicit skills to `invoke-only` (no verified Pi
+     replacement) or `command-backed` (a verified Pi replacement exists — membership in
+     `COMMAND_STYLE_LOCAL_SKILLS` + the `real-gateways.ts` allowlist, which auto-generates
+     a backing command; a skill with one *cannot* be `invoke-only`). Affects `sdl-submit`,
      `objective-close`, `objective-create`, `code-workflows`, `changelog-update`,
      `code-checkpoint`, `code-just-fix`, and the `setup-*` / `create-*` family
-     (`code-autobranch` already carries a real `normal` description). Taxonomy documented
-     in `docs/skill-conventions.md` § Skill Invocation Kinds.
+     (`code-autobranch` already carries a real `normal` description). **Resolved/applied:**
+     objective-family → `normal`; `setup-*` → `invoke-only`; eight verified-replacement
+     skills → `command-backed`. `command-backed` is exemplified, not just supported (this
+     supersedes the earlier "unexemplified" framing). Taxonomy documented in
+     `docs/skill-conventions.md` § Skill Invocation Kinds.
   2. The grill pair (`pi-grill-ui`, `pi-grill-with-docs-ui`) duplicates a ~95%
      byte-identical shared core that has already drifted — single-source it.
   3. Branch-creation precedence policy is duplicated across
@@ -104,18 +108,21 @@ Risks:
   exist.
 - Editing descriptions (systemic #1) is the highest-risk surface: it changes whether and
   how skills auto-trigger and whether other skills can reach them. A wrong call degrades
-  routing silently.
+  routing silently. (Partially materialized and mechanically caught: an initial
+  mis-classification of eight backed skills as `invoke-only` was flagged immediately by
+  `areg check` and corrected to `command-backed`. `areg check` enforcement substantially
+  de-risks silent routing regressions.)
 - Edits must respect the symlink layout; editing a `.claude/skills/` or
   `.agents/skills/` symlinked path instead of the real `skills/` source would be a
   no-op or worse.
 
 ## Open Questions
 
-- Systemic #1 (mechanism resolved; per-skill assignment remains): the mechanism is the
-  areg four-kind taxonomy applied via `areg skill apply`, not a binary flag. Open per
-  skill: which kind — `normal` (write a real description), `invoke-only`, or
-  `command-backed` (only where a verified Pi replacement extension exists)? Needs a
-  per-skill classification + sign-off before batch application.
+- Systemic #1 — **resolved.** The per-skill kind assignment was classified, signed off,
+  and applied: objective-family → `normal`; `setup-*` → `invoke-only`; eight
+  verified-replacement skills → `command-backed`. The classification axis is "has a
+  verified Pi replacement?", and `areg check` enforces the wiring. See update
+  `2026-06-19T202008`.
 - For the grill pair, what shared-core mechanism is acceptable given the
   self-contained-fallback requirement — a generation/templating step at install time, or
   a documented deliberate copy guarded by a drift lint?
