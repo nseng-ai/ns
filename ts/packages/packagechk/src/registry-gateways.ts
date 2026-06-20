@@ -1,8 +1,11 @@
+import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
+
 import {
 	availableResult,
 	errorResult,
 	invalidResult,
 	takenResult,
+	type Registry,
 	type RegistryCheckResult,
 } from "./models.ts";
 import {
@@ -19,7 +22,6 @@ import {
 	npmValidationError,
 	pypiValidationError,
 } from "./validation.ts";
-import { formatError } from "./error-format.ts";
 
 export interface PackageRegistryGateway {
 	checkPypi(packageName: string): Promise<RegistryCheckResult>;
@@ -37,6 +39,53 @@ export type RegistryResponseFetcher = (
 	timeoutMs: number,
 ) => Promise<RegistryHttpResponse>;
 
+interface Metadata {
+	packageUrl: string;
+	latestVersion?: string;
+	description?: string;
+}
+
+interface RegistryCheckConfig {
+	registry: Registry;
+	lookupName(packageName: string): string;
+	validate(packageName: string): string | null;
+	url(lookupName: string): string;
+	metadata(lookupName: string, jsonBody: Record<string, unknown> | null): Metadata;
+	unexpectedStatusMessage(statusCode: number): string;
+	lookupFailedMessage(error: unknown): string;
+}
+
+const PYPI_REGISTRY_CHECK = {
+	registry: "pypi",
+	lookupName: normalizePypiName,
+	validate: pypiValidationError,
+	url: pypiProjectJsonUrl,
+	metadata: pypiMetadata,
+	unexpectedStatusMessage: (statusCode) => `PyPI returned unexpected HTTP status ${statusCode}`,
+	lookupFailedMessage: (error) => `PyPI lookup failed: ${formatErrorMessage(error)}`,
+} as const satisfies RegistryCheckConfig;
+
+const NPM_REGISTRY_CHECK = {
+	registry: "npm",
+	lookupName: (packageName) => packageName,
+	validate: npmValidationError,
+	url: npmRegistryUrl,
+	metadata: npmMetadata,
+	unexpectedStatusMessage: (statusCode) => `npm returned unexpected HTTP status ${statusCode}`,
+	lookupFailedMessage: (error) => `npm lookup failed: ${formatErrorMessage(error)}`,
+} as const satisfies RegistryCheckConfig;
+
+const BREW_REGISTRY_CHECK = {
+	registry: "brew",
+	lookupName: (packageName) => packageName,
+	validate: brewFormulaValidationError,
+	url: brewFormulaJsonUrl,
+	metadata: brewMetadata,
+	unexpectedStatusMessage: (statusCode) =>
+		`Homebrew formula API returned unexpected HTTP status ${statusCode}`,
+	lookupFailedMessage: (error) => `Homebrew formula lookup failed: ${formatErrorMessage(error)}`,
+} as const satisfies RegistryCheckConfig;
+
 export class RealPackageRegistryGateway implements PackageRegistryGateway {
 	private readonly responseFetcher: RegistryResponseFetcher;
 	private readonly timeoutMs: number;
@@ -47,101 +96,30 @@ export class RealPackageRegistryGateway implements PackageRegistryGateway {
 	}
 
 	async checkPypi(packageName: string): Promise<RegistryCheckResult> {
-		const lookupName = normalizePypiName(packageName);
-		const validationError = pypiValidationError(packageName);
-		if (validationError !== null) {
-			return invalidResult("pypi", {
-				inputName: packageName,
-				lookupName,
-				message: validationError,
-			});
-		}
-		try {
-			const response = await this.responseFetcher(pypiProjectJsonUrl(lookupName), this.timeoutMs);
-			if (response.statusCode === 200) {
-				const metadata = pypiMetadata(lookupName, response.jsonBody);
-				return takenResult("pypi", { inputName: packageName, lookupName, ...metadata });
-			}
-			if (response.statusCode === 404)
-				return availableResult("pypi", { inputName: packageName, lookupName });
-			return errorResult("pypi", {
-				inputName: packageName,
-				lookupName,
-				message: `PyPI returned unexpected HTTP status ${response.statusCode}`,
-			});
-		} catch (error) {
-			return errorResult("pypi", {
-				inputName: packageName,
-				lookupName,
-				message: `PyPI lookup failed: ${formatError(error)}`,
-			});
-		}
+		return await runRegistryCheck(
+			PYPI_REGISTRY_CHECK,
+			packageName,
+			this.responseFetcher,
+			this.timeoutMs,
+		);
 	}
 
 	async checkNpm(packageName: string): Promise<RegistryCheckResult> {
-		const validationError = npmValidationError(packageName);
-		if (validationError !== null) {
-			return invalidResult("npm", {
-				inputName: packageName,
-				lookupName: packageName,
-				message: validationError,
-			});
-		}
-		try {
-			const response = await this.responseFetcher(npmRegistryUrl(packageName), this.timeoutMs);
-			if (response.statusCode === 200) {
-				const metadata = npmMetadata(packageName, response.jsonBody);
-				return takenResult("npm", { inputName: packageName, lookupName: packageName, ...metadata });
-			}
-			if (response.statusCode === 404)
-				return availableResult("npm", { inputName: packageName, lookupName: packageName });
-			return errorResult("npm", {
-				inputName: packageName,
-				lookupName: packageName,
-				message: `npm returned unexpected HTTP status ${response.statusCode}`,
-			});
-		} catch (error) {
-			return errorResult("npm", {
-				inputName: packageName,
-				lookupName: packageName,
-				message: `npm lookup failed: ${formatError(error)}`,
-			});
-		}
+		return await runRegistryCheck(
+			NPM_REGISTRY_CHECK,
+			packageName,
+			this.responseFetcher,
+			this.timeoutMs,
+		);
 	}
 
 	async checkBrew(packageName: string): Promise<RegistryCheckResult> {
-		const validationError = brewFormulaValidationError(packageName);
-		if (validationError !== null) {
-			return invalidResult("brew", {
-				inputName: packageName,
-				lookupName: packageName,
-				message: validationError,
-			});
-		}
-		try {
-			const response = await this.responseFetcher(brewFormulaJsonUrl(packageName), this.timeoutMs);
-			if (response.statusCode === 200) {
-				const metadata = brewMetadata(packageName, response.jsonBody);
-				return takenResult("brew", {
-					inputName: packageName,
-					lookupName: packageName,
-					...metadata,
-				});
-			}
-			if (response.statusCode === 404)
-				return availableResult("brew", { inputName: packageName, lookupName: packageName });
-			return errorResult("brew", {
-				inputName: packageName,
-				lookupName: packageName,
-				message: `Homebrew formula API returned unexpected HTTP status ${response.statusCode}`,
-			});
-		} catch (error) {
-			return errorResult("brew", {
-				inputName: packageName,
-				lookupName: packageName,
-				message: `Homebrew formula lookup failed: ${formatError(error)}`,
-			});
-		}
+		return await runRegistryCheck(
+			BREW_REGISTRY_CHECK,
+			packageName,
+			this.responseFetcher,
+			this.timeoutMs,
+		);
 	}
 }
 
@@ -214,6 +192,44 @@ export class FakePackageRegistryGateway implements PackageRegistryGateway {
 	}
 }
 
+async function runRegistryCheck(
+	config: RegistryCheckConfig,
+	packageName: string,
+	responseFetcher: RegistryResponseFetcher,
+	timeoutMs: number,
+): Promise<RegistryCheckResult> {
+	const lookupName = config.lookupName(packageName);
+	const validationError = config.validate(packageName);
+	if (validationError !== null) {
+		return invalidResult(config.registry, {
+			inputName: packageName,
+			lookupName,
+			message: validationError,
+		});
+	}
+	try {
+		const response = await responseFetcher(config.url(lookupName), timeoutMs);
+		if (response.statusCode === 200) {
+			const metadata = config.metadata(lookupName, response.jsonBody);
+			return takenResult(config.registry, { inputName: packageName, lookupName, ...metadata });
+		}
+		if (response.statusCode === 404) {
+			return availableResult(config.registry, { inputName: packageName, lookupName });
+		}
+		return errorResult(config.registry, {
+			inputName: packageName,
+			lookupName,
+			message: config.unexpectedStatusMessage(response.statusCode),
+		});
+	} catch (error) {
+		return errorResult(config.registry, {
+			inputName: packageName,
+			lookupName,
+			message: config.lookupFailedMessage(error),
+		});
+	}
+}
+
 function toReadonlyMap<T>(
 	input: ReadonlyMap<string, T> | Record<string, T> | undefined,
 ): ReadonlyMap<string, T> {
@@ -277,12 +293,6 @@ function brewMetadata(formulaName: string, jsonBody: Record<string, unknown> | n
 	});
 }
 
-interface Metadata {
-	packageUrl: string;
-	latestVersion?: string;
-	description?: string;
-}
-
 function buildMetadata(options: {
 	packageUrl: string;
 	latestVersion: string | undefined;
@@ -293,10 +303,6 @@ function buildMetadata(options: {
 		...(options.latestVersion === undefined ? {} : { latestVersion: options.latestVersion }),
 		...(options.description === undefined ? {} : { description: options.description }),
 	};
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function stringField(fields: Record<string, unknown> | null, key: string): string | undefined {

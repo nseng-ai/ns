@@ -39,7 +39,6 @@ type ClaimRequest = z.output<typeof claimRequestSchema>;
 
 type ClaimRegistry = "pypi" | "npm";
 type ClaimRegistryLabel = "PyPI" | "npm";
-type ClaimCommandKind = "pypi-build" | "pypi-publish-artifacts" | "npm-publish";
 
 export interface ClaimCommandIo {
 	stdout(text: string): void;
@@ -47,74 +46,30 @@ export interface ClaimCommandIo {
 	stdin(): Promise<string>;
 }
 
-interface PreparedClaim<TSpec> {
-	spec: TSpec;
+interface ClaimPlan {
 	lookupName: string;
+	renderDryRun(skipCheck: boolean, io: ClaimCommandIo): void;
+	execute(projectDir: string, io: ClaimCommandIo): number | null;
+	viewLine(): string;
 }
 
-interface ClaimCommandDescriptor {
-	kind: ClaimCommandKind;
-	dryRunCommand: string;
-	statusLine: string;
-}
-
-interface ClaimOperationPlan<TSpec> {
-	spec: TSpec;
-	files: readonly ClaimProjectFile[];
-	commands: readonly ClaimCommandDescriptor[];
-}
-
-interface ClaimPolicy<TSpec> {
+interface ClaimPolicy {
 	registry: ClaimRegistry;
 	label: ClaimRegistryLabel;
 	tempDirPrefix: string;
-	validate: (name: string) => string | null;
-	prepare: (input: {
+	validate(name: string): string | null;
+	precheck(name: string): Promise<RegistryCheckResult>;
+	ensurePublishToolsAvailable(): string | null;
+	prepare(input: {
 		name: string;
 		description: string | undefined;
 		claimVersion: string;
-	}) => PreparedClaim<TSpec>;
-	precheck: (name: string) => Promise<RegistryCheckResult>;
-	ensurePublishToolsAvailable: () => string | null;
-	buildPlan: (spec: TSpec) => ClaimOperationPlan<TSpec>;
-	renderDryRun: (input: {
-		plan: ClaimOperationPlan<TSpec>;
-		lookupName: string;
-		skipCheck: boolean;
-		io: ClaimCommandIo;
-	}) => void;
-	executeCommands: (input: {
-		projectDir: string;
-		plan: ClaimOperationPlan<TSpec>;
-		io: ClaimCommandIo;
-	}) => number | null;
-	viewLine: (input: { name: string; lookupName: string; spec: TSpec }) => string;
+	}): ClaimPlan;
 }
 
-const PYPI_CLAIM_COMMANDS: readonly ClaimCommandDescriptor[] = [
-	{
-		kind: "pypi-build",
-		dryRunCommand: "uv build",
-		statusLine: "Building placeholder package with uv build...",
-	},
-	{
-		kind: "pypi-publish-artifacts",
-		dryRunCommand: "uvx uv-publish <artifacts>",
-		statusLine: "Publishing placeholder package with uvx uv-publish...",
-	},
-];
-
-const NPM_CLAIM_COMMANDS: readonly ClaimCommandDescriptor[] = [
-	{
-		kind: "npm-publish",
-		dryRunCommand: "npm publish --access=public",
-		statusLine: "Publishing placeholder package with npm publish...",
-	},
-];
-
-export async function runClaimCommand<TSpec>(options: {
+export async function runClaimCommand(options: {
 	request: ClaimRequest;
-	policy: ClaimPolicy<TSpec>;
+	policy: ClaimPolicy;
 	io: ClaimCommandIo;
 }): Promise<number> {
 	const { request, policy, io } = options;
@@ -123,23 +78,17 @@ export async function runClaimCommand<TSpec>(options: {
 		io.stderr(`${policy.registry}: invalid: ${validationError}\n`);
 		return 2;
 	}
-	const prepared = policy.prepare({
+	const plan = policy.prepare({
 		name: request.name,
 		description: request.description,
 		claimVersion: request.version,
 	});
-	const plan = policy.buildPlan(prepared.spec);
 	if (request.dry_run === true) {
-		policy.renderDryRun({
-			plan,
-			lookupName: prepared.lookupName,
-			skipCheck: request.skip_check === true,
-			io,
-		});
+		plan.renderDryRun(request.skip_check === true, io);
 		return 0;
 	}
-	if (prepared.lookupName !== request.name) {
-		io.stderr(`${policy.label} lookup name: ${prepared.lookupName}\n`);
+	if (plan.lookupName !== request.name) {
+		io.stderr(`${policy.label} lookup name: ${plan.lookupName}\n`);
 	}
 	if (request.skip_check !== true) {
 		const checkResult = await policy.precheck(request.name);
@@ -165,181 +114,152 @@ export async function runClaimCommand<TSpec>(options: {
 	}
 	const projectDir = mkdtempSync(join(tmpdir(), policy.tempDirPrefix));
 	try {
-		const publishExitCode = executeClaimOperation({ projectDir, plan, policy, io });
+		const publishExitCode = plan.execute(projectDir, io);
 		if (publishExitCode !== null) return publishExitCode;
 	} finally {
 		rmSync(projectDir, { recursive: true, force: true });
 	}
 	io.stderr(`✓ Claimed ${policy.label} package name '${request.name}'.\n`);
-	io.stderr(
-		`${policy.viewLine({ name: request.name, lookupName: prepared.lookupName, spec: prepared.spec })}\n`,
-	);
+	io.stderr(`${plan.viewLine()}\n`);
 	return 0;
 }
 
 export function buildPypiClaimPolicy(ctx: {
 	registryGateway: PackageRegistryGateway;
 	pypiPublishGateway: PypiPublishGateway;
-}): ClaimPolicy<ClaimProjectSpec> {
+}): ClaimPolicy {
 	return {
 		registry: "pypi",
 		label: "PyPI",
 		tempDirPrefix: "packagechk-claim-pypi-",
 		validate: pypiValidationError,
-		prepare: (input) => {
-			const lookupName = normalizePypiName(input.name);
-			return {
-				lookupName,
-				spec: {
-					packageName: input.name,
-					moduleName: moduleNameFromPackage(lookupName),
-					description: input.description ?? DEFAULT_CLAIM_DESCRIPTION,
-					version: input.claimVersion,
-				},
-			};
-		},
 		precheck: (name) => ctx.registryGateway.checkPypi(name),
 		ensurePublishToolsAvailable: () => ctx.pypiPublishGateway.ensurePublishToolsAvailable(),
-		buildPlan: buildPypiClaimOperationPlan,
-		renderDryRun: renderClaimPypiDryRun,
-		executeCommands: (input) =>
-			executePypiClaimCommands({ ...input, gateway: ctx.pypiPublishGateway }),
-		viewLine: (input) => `View project: ${pypiProjectUrl(input.lookupName)}`,
+		prepare: (input) => preparePypiClaimPlan(input, ctx.pypiPublishGateway),
 	};
 }
 
 export function buildNpmClaimPolicy(ctx: {
 	registryGateway: PackageRegistryGateway;
 	npmPublishGateway: NpmPublishGateway;
-}): ClaimPolicy<NpmClaimProjectSpec> {
+}): ClaimPolicy {
 	return {
 		registry: "npm",
 		label: "npm",
 		tempDirPrefix: "packagechk-claim-npm-",
 		validate: npmValidationError,
-		prepare: (input) => ({
-			lookupName: input.name,
-			spec: {
-				packageName: input.name,
-				description: input.description ?? DEFAULT_CLAIM_DESCRIPTION,
-				version: input.claimVersion,
-				license: DEFAULT_NPM_CLAIM_LICENSE,
-			},
-		}),
 		precheck: (name) => ctx.registryGateway.checkNpm(name),
 		ensurePublishToolsAvailable: () => ctx.npmPublishGateway.ensurePublishToolsAvailable(),
-		buildPlan: buildNpmClaimOperationPlan,
-		renderDryRun: renderClaimNpmDryRun,
-		executeCommands: (input) =>
-			executeNpmClaimCommands({ ...input, gateway: ctx.npmPublishGateway }),
-		viewLine: (input) => `View package: ${npmPackagePageUrl(input.name)}`,
+		prepare: (input) => prepareNpmClaimPlan(input, ctx.npmPublishGateway),
 	};
 }
 
-function buildPypiClaimOperationPlan(spec: ClaimProjectSpec): ClaimOperationPlan<ClaimProjectSpec> {
+function preparePypiClaimPlan(
+	input: { name: string; description: string | undefined; claimVersion: string },
+	gateway: PypiPublishGateway,
+): ClaimPlan {
+	const lookupName = normalizePypiName(input.name);
+	const spec: ClaimProjectSpec = {
+		packageName: input.name,
+		moduleName: moduleNameFromPackage(lookupName),
+		description: input.description ?? DEFAULT_CLAIM_DESCRIPTION,
+		version: input.claimVersion,
+	};
+	const files = buildClaimProjectFiles(spec);
 	return {
-		spec,
-		files: buildClaimProjectFiles(spec),
-		commands: PYPI_CLAIM_COMMANDS,
+		lookupName,
+		renderDryRun: (skipCheck, io) =>
+			renderClaimDryRun({
+				io,
+				registryLabel: "PyPI",
+				packageName: spec.packageName,
+				lookupName,
+				version: spec.version,
+				description: spec.description,
+				extraLines: [`Module name: ${spec.moduleName}`],
+				availabilityLine: skipCheck
+					? "Availability check: skipped (--skip-check)"
+					: "Availability check: would check PyPI before publishing",
+				files,
+				dryRunCommands: ["uv build", "uvx uv-publish <artifacts>"],
+				urlLine: `PyPI URL: ${pypiProjectUrl(lookupName)}`,
+			}),
+		execute: (projectDir, io) => executePypiClaimPlan({ projectDir, files, gateway, io }),
+		viewLine: () => `View project: ${pypiProjectUrl(lookupName)}`,
 	};
 }
 
-function buildNpmClaimOperationPlan(
-	spec: NpmClaimProjectSpec,
-): ClaimOperationPlan<NpmClaimProjectSpec> {
+function prepareNpmClaimPlan(
+	input: { name: string; description: string | undefined; claimVersion: string },
+	gateway: NpmPublishGateway,
+): ClaimPlan {
+	const spec: NpmClaimProjectSpec = {
+		packageName: input.name,
+		description: input.description ?? DEFAULT_CLAIM_DESCRIPTION,
+		version: input.claimVersion,
+		license: DEFAULT_NPM_CLAIM_LICENSE,
+	};
+	const files = buildNpmClaimProjectFiles(spec);
 	return {
-		spec,
-		files: buildNpmClaimProjectFiles(spec),
-		commands: NPM_CLAIM_COMMANDS,
+		lookupName: input.name,
+		renderDryRun: (skipCheck, io) =>
+			renderClaimDryRun({
+				io,
+				registryLabel: "npm",
+				packageName: spec.packageName,
+				version: spec.version,
+				description: spec.description,
+				extraLines: [`License: ${spec.license}`],
+				availabilityLine: skipCheck
+					? "Availability check: skipped (--skip-check)"
+					: "Availability check: would check npm before publishing",
+				files,
+				dryRunCommands: ["npm publish --access=public"],
+				urlLine: `npm URL: ${npmPackagePageUrl(input.name)}`,
+			}),
+		execute: (projectDir, io) => executeNpmClaimPlan({ projectDir, files, gateway, io }),
+		viewLine: () => `View package: ${npmPackagePageUrl(input.name)}`,
 	};
 }
 
-function executeClaimOperation<TSpec>(options: {
+function executePypiClaimPlan(options: {
 	projectDir: string;
-	plan: ClaimOperationPlan<TSpec>;
-	policy: ClaimPolicy<TSpec>;
-	io: ClaimCommandIo;
-}): number | null {
-	writeClaimFiles(options.projectDir, options.plan.files);
-	return options.policy.executeCommands({
-		projectDir: options.projectDir,
-		plan: options.plan,
-		io: options.io,
-	});
-}
-
-function executePypiClaimCommands(options: {
-	projectDir: string;
-	plan: ClaimOperationPlan<ClaimProjectSpec>;
+	files: readonly ClaimProjectFile[];
 	gateway: PypiPublishGateway;
 	io: ClaimCommandIo;
 }): number | null {
-	let artifacts: readonly string[] | null = null;
-	for (const command of options.plan.commands) {
-		switch (command.kind) {
-			case "pypi-build": {
-				options.io.stderr(`${command.statusLine}\n`);
-				const buildResult = options.gateway.buildPackage(options.projectDir);
-				if ("error" in buildResult) {
-					options.io.stderr(`${buildResult.error}\n`);
-					return 2;
-				}
-				if (buildResult.artifacts.length === 0) {
-					options.io.stderr("No distribution artifacts were built.\n");
-					return 2;
-				}
-				artifacts = buildResult.artifacts;
-				break;
-			}
-			case "pypi-publish-artifacts": {
-				options.io.stderr(`${command.statusLine}\n`);
-				if (artifacts === null) {
-					options.io.stderr("Cannot publish PyPI artifacts before building them.\n");
-					return 2;
-				}
-				const publishError = options.gateway.publishArtifacts(options.projectDir, artifacts);
-				if (publishError !== null) {
-					options.io.stderr(`${publishError}\n`);
-					return 2;
-				}
-				break;
-			}
-			case "npm-publish": {
-				options.io.stderr("Internal error: npm publish command in PyPI claim plan.\n");
-				return 2;
-			}
-			default:
-				assertNever(command.kind);
-		}
+	writeClaimFiles(options.projectDir, options.files);
+	options.io.stderr("Building placeholder package with uv build...\n");
+	const buildResult = options.gateway.buildPackage(options.projectDir);
+	if ("error" in buildResult) {
+		options.io.stderr(`${buildResult.error}\n`);
+		return 2;
+	}
+	if (buildResult.artifacts.length === 0) {
+		options.io.stderr("No distribution artifacts were built.\n");
+		return 2;
+	}
+	options.io.stderr("Publishing placeholder package with uvx uv-publish...\n");
+	const publishError = options.gateway.publishArtifacts(options.projectDir, buildResult.artifacts);
+	if (publishError !== null) {
+		options.io.stderr(`${publishError}\n`);
+		return 2;
 	}
 	return null;
 }
 
-function executeNpmClaimCommands(options: {
+function executeNpmClaimPlan(options: {
 	projectDir: string;
-	plan: ClaimOperationPlan<NpmClaimProjectSpec>;
+	files: readonly ClaimProjectFile[];
 	gateway: NpmPublishGateway;
 	io: ClaimCommandIo;
 }): number | null {
-	for (const command of options.plan.commands) {
-		switch (command.kind) {
-			case "npm-publish": {
-				options.io.stderr(`${command.statusLine}\n`);
-				const publishError = options.gateway.publishProject(options.projectDir);
-				if (publishError !== null) {
-					options.io.stderr(`${publishError}\n`);
-					return 2;
-				}
-				break;
-			}
-			case "pypi-build":
-			case "pypi-publish-artifacts": {
-				options.io.stderr("Internal error: PyPI command in npm claim plan.\n");
-				return 2;
-			}
-			default:
-				assertNever(command.kind);
-		}
+	writeClaimFiles(options.projectDir, options.files);
+	options.io.stderr("Publishing placeholder package with npm publish...\n");
+	const publishError = options.gateway.publishProject(options.projectDir);
+	if (publishError !== null) {
+		options.io.stderr(`${publishError}\n`);
+		return 2;
 	}
 	return null;
 }
@@ -363,59 +283,40 @@ function precheckExitCode(
 	return null;
 }
 
-function renderClaimPypiDryRun(options: {
-	plan: ClaimOperationPlan<ClaimProjectSpec>;
-	lookupName: string;
-	skipCheck: boolean;
+function renderClaimDryRun(options: {
 	io: ClaimCommandIo;
+	registryLabel: ClaimRegistryLabel;
+	packageName: string;
+	lookupName?: string;
+	version: string;
+	description: string;
+	extraLines: readonly string[];
+	availabilityLine: string;
+	files: readonly ClaimProjectFile[];
+	dryRunCommands: readonly string[];
+	urlLine: string;
 }): void {
-	const { spec } = options.plan;
-	options.io.stderr(`[DRY RUN] Would claim PyPI package name '${spec.packageName}'.\n`);
-	options.io.stderr(`Package name: ${spec.packageName}\n`);
-	if (options.lookupName !== spec.packageName) {
-		options.io.stderr(`PyPI lookup name: ${options.lookupName}\n`);
-	}
-	options.io.stderr(`Version: ${spec.version}\n`);
-	options.io.stderr(`Description: ${spec.description}\n`);
-	options.io.stderr(`Module name: ${spec.moduleName}\n`);
 	options.io.stderr(
-		options.skipCheck
-			? "Availability check: skipped (--skip-check)\n"
-			: "Availability check: would check PyPI before publishing\n",
+		`[DRY RUN] Would claim ${options.registryLabel} package name '${options.packageName}'.\n`,
 	);
-	renderPlanDryRunSteps(options.plan, options.io);
-	options.io.stderr(`PyPI URL: ${pypiProjectUrl(options.lookupName)}\n`);
-}
-
-function renderClaimNpmDryRun(options: {
-	plan: ClaimOperationPlan<NpmClaimProjectSpec>;
-	lookupName: string;
-	skipCheck: boolean;
-	io: ClaimCommandIo;
-}): void {
-	const { spec } = options.plan;
-	options.io.stderr(`[DRY RUN] Would claim npm package name '${spec.packageName}'.\n`);
-	options.io.stderr(`Package name: ${spec.packageName}\n`);
-	options.io.stderr(`Version: ${spec.version}\n`);
-	options.io.stderr(`Description: ${spec.description}\n`);
-	options.io.stderr(`License: ${spec.license}\n`);
-	options.io.stderr(
-		options.skipCheck
-			? "Availability check: skipped (--skip-check)\n"
-			: "Availability check: would check npm before publishing\n",
-	);
-	renderPlanDryRunSteps(options.plan, options.io);
-	options.io.stderr(`npm URL: ${npmPackagePageUrl(options.lookupName)}\n`);
-}
-
-function renderPlanDryRunSteps<TSpec>(plan: ClaimOperationPlan<TSpec>, io: ClaimCommandIo): void {
-	io.stderr("Would create a temporary placeholder project directory\n");
-	for (const file of plan.files) {
-		io.stderr(`Would write: ${file.relativePath}\n`);
+	options.io.stderr(`Package name: ${options.packageName}\n`);
+	if (options.lookupName !== undefined && options.lookupName !== options.packageName) {
+		options.io.stderr(`${options.registryLabel} lookup name: ${options.lookupName}\n`);
 	}
-	for (const command of plan.commands) {
-		io.stderr(`Would run: ${command.dryRunCommand}\n`);
+	options.io.stderr(`Version: ${options.version}\n`);
+	options.io.stderr(`Description: ${options.description}\n`);
+	for (const line of options.extraLines) {
+		options.io.stderr(`${line}\n`);
 	}
+	options.io.stderr(`${options.availabilityLine}\n`);
+	options.io.stderr("Would create a temporary placeholder project directory\n");
+	for (const file of options.files) {
+		options.io.stderr(`Would write: ${file.relativePath}\n`);
+	}
+	for (const command of options.dryRunCommands) {
+		options.io.stderr(`Would run: ${command}\n`);
+	}
+	options.io.stderr(`${options.urlLine}\n`);
 }
 
 async function confirmRealPublish(
@@ -431,8 +332,4 @@ async function confirmRealPublish(
 	if (input === "y" || input === "yes") return true;
 	io.stderr("Aborted by user.\n");
 	return false;
-}
-
-function assertNever(value: never): never {
-	throw new Error(`Unhandled claim command kind: ${String(value)}`);
 }
