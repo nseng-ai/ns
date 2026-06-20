@@ -71,7 +71,7 @@ Use a quick pass first, then deepen only where relevance is ambiguous or the sho
 6. Enrich with structured Graphite facts only where available. In v1, Graphite evidence is current-stack/worktree-scoped: run this from the current checkout and from open cmux worktree directories when useful:
 
    ```bash
-   asdl slot gt exec stack-branches --format json
+   slot gt exec stack-branches --format json
    ```
 
    Do not claim complete Graphite topology for every local branch unless a future deterministic helper provides it. Never parse `gt ls`, `gt log`, or other human-facing Graphite display output for machine facts. If Graphite evidence is unavailable, say so.
@@ -219,7 +219,7 @@ objective list --format json
 When useful from current or open worktree directories:
 
 ```bash
-asdl slot gt exec stack-branches --format json
+slot gt exec stack-branches --format json
 ```
 
 For selected Objectives or shortlist branches only:
