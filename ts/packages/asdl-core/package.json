@@ -37,6 +37,7 @@
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/asdl-core/test"
   },
   "dependencies": {
+    "@asdl/clinkr": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {}
