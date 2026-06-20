@@ -52,18 +52,26 @@
       `lifecycle.md`; `from-plan` still names `--branch-creation graphite` inline and its
       pointer target (`## Branch creation policy`) is reachable; SKILL.md frontmatter
       valid and steps contiguous.
-- [~] From-scratch rewrite of each ≥5 skill against `writing-great-skills`, preserving
-  all behavior. **Method decided 2026-06-20** (supersedes the prior split of
-  "disclosure surgery" + "duplication collapse" into separate surgical passes):
-  rewrite each target clean so duplication collapse and oversized-block disclosure
-  fall out as byproducts, while gaining clarity/LM-friendliness. Per-target gate:
-  extract the behavioral contract (triggers, ordered steps, stop/ask conditions,
-  output shapes, safety rules, CLI calls), rewrite, then diff the new `SKILL.md`
-  against that contract line-by-line; `areg check` "All skills OK"; every disclosed
-  pointer resolves. Edit the real `skills/` source only (never a symlinked copy).
-  The notes below carry over from the old rows as per-target rewrite focus, not as
-  separate work items.
-  Targets and their known debt:
+- [~] Per-skill remediation, technique chosen by the (lift × risk) quadrant and ordered
+  by value (reach), not raw lift. **Method decided 2026-06-20; re-audited 2026-06-20**
+  (update `2026-06-20T140000`). From-scratch rewrite against `writing-great-skills`
+  (behavior preserved; duplication collapse and oversized-block disclosure fall out as
+  byproducts) is the technique for the high-lift/low-risk quadrant; safety-critical /
+  rigid-output-contract skills take the **surgical** path; others take prune-to-stub or
+  move-to-reference. Per-target gate for any rewrite: extract the behavioral contract
+  (triggers, ordered steps, stop/ask conditions, output shapes, safety rules, CLI calls),
+  rewrite, then diff the new `SKILL.md` against that contract line-by-line; `areg check`
+  "All skills OK"; every disclosed pointer resolves. Edit the real `skills/` source only
+  (never a symlinked copy).
+  **Value-adjusted sequence** (after the `python-fake-driven-test-layout` method pilot):
+  `handoff-create` (cheap high-value win) → the `python-fake-driven-testing`
+  reference-tree merge (highest value; its own row below) → the objective family
+  (`objective-refresh`, `objective-update`, `objective-create`; high reach, accept risk 3
+  once the gate has 2–3 passes) → ccc / niche skills last, only if cheap.
+  **`branch-context-impl` dropped off** (was the tentative "next"): 36 lines, lift 1 /
+  risk 4 — its only disclosable block is a 6-trigger STOP safety contract, so disclosing
+  it is net-negative and a rewrite most likely softens the contract. Leave as-is.
+  Targets and their known debt / technique:
   - `objective-stack-impl` — **DONE (rewrite method, the retro-rewrite decided yes).**
     First disclosed under the prior surgical method (282→217); then re-remediated as a
     from-scratch rewrite against `writing-great-skills`, behavior preserved via
@@ -74,23 +82,41 @@
     217→136; `references/final-response.md` unchanged, pointer resolves. Evidence:
     `areg check` "All skills OK"; `just dprint-check` clean. See update
     `2026-06-20T133000`.
-  - `branch-context-impl` — STOP-contract protocol block to disclose.
-  - `enriched-plan-save` — step-1 conditional sub-blocks to disclose.
-  - `dignified-python` — triplicated router → one trigger-keyed routing section.
-  - `python-fake-driven-testing` — overlapping reference pointers (gated by the Open
-    Question on consolidating the 11-file reference tree vs. only sharpening pointers).
-  - `refactor-swarm` — recap section + redundant examples.
-  - `ccc-available-work`, `ccc-stack-map` — twice-listed command recipes.
-  - `objective-refresh`, `objective-update` — invariants stated 3–4×.
-  - `handoff-create` — verbatim artifact template.
-  - `python-fake-driven-test-layout` — tree drawn 3×.
-  - `code-thermostack` — subagent-contract triplication.
-  - `code-gt-restack-resolve` — TS-toolchain rule written twice.
-  - `pr-address` — retired-workflow tombstone.
-  - `sdl-submit`, `objective-close`, `objective-create` — body work beyond their
-    (already-set) descriptions.
+  - `enriched-plan-save` — rewrite; step-1 conditional sub-blocks to disclose.
+  - `dignified-python` — rewrite; triplicated router → one trigger-keyed routing
+    section. Only the SKILL.md router collapses; the 4.5K version-file tree is left as-is
+    (version files are independent — re-audit `2026-06-20T140000`).
+  - `python-fake-driven-testing` — rewrite the SKILL.md (overlapping reference pointers).
+    The Open Question on the reference tree is **resolved: merge** — tracked separately as
+    its own row below, the highest-value action in the Objective.
+  - `refactor-swarm` — rewrite; recap section + redundant examples.
+  - `ccc-available-work`, `ccc-stack-map` — rewrite; twice-listed command recipes. Lift
+    5 / 4 but cmux-niche (low reach) → sequenced last among rewrites.
+  - `objective-refresh`, `objective-update` — rewrite; invariants stated 3–4×. High reach;
+    take after the gate has 2–3 passes.
+  - `handoff-create` — rewrite; verbatim 25-line artifact template (lift 4 / risk 1).
+    Cheap high-value win → first rewrite after the pilot.
+  - `python-fake-driven-test-layout` — rewrite; tree drawn 3×. Lift 4 but low reach
+    (rarely-consulted scaffolding); kept ONLY as the safe, mechanical **method pilot**.
+  - `code-thermostack` — rewrite; subagent-contract triplication.
+  - `code-gt-restack-resolve` — **surgical, NOT from-scratch** (rigid output contract +
+    conflict-resolution stakes): remove the externally-gated TEMPORARY TS-toolchain block
+    (see Parked), then a surgical pass on the twice-written TS-toolchain rule.
+  - `pr-address` — **prune-to-stub** (retired-workflow tombstone), not a rewrite.
+  - `sdl-submit` — **move-to-reference**: relocate the env-var catalog to a reference file.
+  - `objective-close` — **surgical** (already clean, lift 1).
+  - `objective-create` — rewrite; body work beyond its (already-set) description.
+  - New elevation candidates (clarity/sprawl, not duplication — re-audit
+    `2026-06-20T140000`): `brmem` (296 ln, high blast radius — rewrite), `objective`
+    (126 ln — rewrite), `code-resolve-merge-conflicts` (safety-critical → **surgical**).
+    `ccc-branch-triage` and `handoff-pickup` stay parked.
     Evidence: per-target contract diff shows no behavioral change; no verbatim-
     duplicated contract remains among these skills.
+- [ ] **`python-fake-driven-testing` reference-tree merge** — the highest-value single
+      action in the Objective (re-audit `2026-06-20T140000`): merge
+      `references/quick-reference.md` + `workflows.md` (~200 lines off a 6.4K-line tree
+      that loads on most Python tasks). A separate workstream from any SKILL.md rewrite.
+      Resolves the standing Open Question (YES, merge).
 
 ## Parked
 
