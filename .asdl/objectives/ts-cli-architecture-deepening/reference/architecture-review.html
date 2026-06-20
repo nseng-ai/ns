@@ -1,0 +1,709 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Architecture review — asdl-tools (TS CLIs + asdl-core)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+      mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose", flowchart: { curve: "basis" } });
+    </script>
+    <style>
+      .seam { stroke-dasharray: 5 4; }
+      .deep { background: linear-gradient(135deg, #0f172a, #1e293b); }
+      .grain { background-image: radial-gradient(#e7e5e4 0.5px, transparent 0.5px); background-size: 14px 14px; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+      h1,h2,h3 { letter-spacing: -0.015em; }
+    </style>
+  </head>
+  <body class="bg-stone-50 text-slate-900 font-sans grain">
+    <main class="max-w-5xl mx-auto px-6 py-12 space-y-12">
+
+      <!-- ============ HEADER ============ -->
+      <header class="space-y-5">
+        <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Architecture review · deepening opportunities</p>
+        <h1 class="font-serif text-4xl md:text-5xl text-slate-900">asdl-tools — the TypeScript CLIs &amp; <span class="mono text-indigo-700">asdl-core</span></h1>
+        <p class="text-slate-600 max-w-2xl">Where modules are <em>shallow</em> — interface nearly as wide as the implementation — and where deepening would buy <strong>leverage</strong> for callers and <strong>locality</strong> for the tests. Surveyed: <span class="mono text-sm">asdl-core, ccc, slot, sdl/sdlcc, brmem, handoff, branch-context, objective, plans, roaster, aretro, vibechk, packagechk, pr-address, areg</span>.</p>
+
+        <div class="flex flex-wrap gap-4 items-center text-xs text-slate-600 border-t border-b border-slate-200 py-4">
+          <span class="font-semibold uppercase tracking-wider text-slate-400">Legend</span>
+          <span class="inline-flex items-center gap-2"><span class="inline-block w-5 h-4 border-2 border-slate-400 bg-white"></span> module</span>
+          <span class="inline-flex items-center gap-2"><svg width="34" height="8"><line x1="0" y1="4" x2="34" y2="4" class="seam" stroke="#64748b" stroke-width="2"/></svg> seam</span>
+          <span class="inline-flex items-center gap-2"><svg width="34" height="8"><line x1="0" y1="4" x2="34" y2="4" stroke="#dc2626" stroke-width="2"/></svg> leakage</span>
+          <span class="inline-flex items-center gap-2"><span class="inline-block w-5 h-4 deep rounded-sm"></span> deep module</span>
+          <span class="ml-auto mono text-slate-400">2026-06-20</span>
+        </div>
+
+        <div class="flex flex-wrap gap-2 text-[11px]">
+          <span class="px-2 py-1 rounded bg-emerald-100 text-emerald-800 font-medium">Strong</span>
+          <span class="px-2 py-1 rounded bg-amber-100 text-amber-800 font-medium">Worth exploring</span>
+          <span class="px-2 py-1 rounded bg-slate-200 text-slate-700 font-medium">Speculative</span>
+          <span class="text-slate-400 self-center">— recommendation strength per card</span>
+        </div>
+      </header>
+
+      <section id="candidates" class="space-y-12">
+
+        <!-- ============ CANDIDATE 1 ============ -->
+        <article id="c1" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="px-7 pt-7 pb-5">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <p class="text-xs uppercase tracking-wider text-indigo-600 font-semibold">asdl-core · submit</p>
+                <h2 class="font-serif text-2xl mt-1">1 · Collapse the PR-description pipeline into one deep module</h2>
+              </div>
+              <span class="shrink-0 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold">Strong</span>
+            </div>
+            <div class="mt-3 flex flex-wrap gap-2 text-[11px]">
+              <span class="px-2 py-1 rounded bg-slate-100 text-slate-600">in-process</span>
+            </div>
+            <p class="mt-3 mono text-sm text-slate-500">submit/pr-description.ts (571) · pr-description-apply.ts (182) · submit-pr-descriptions.ts (216)</p>
+          </div>
+
+          <div class="px-7 pb-3 grid md:grid-cols-2 gap-5">
+            <!-- BEFORE -->
+            <div class="rounded-lg border border-slate-200 bg-stone-50 p-4">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-3">Before — three shallow modules, logic threaded between them</p>
+              <pre class="mermaid">
+flowchart TB
+  C[submit-pr-descriptions.ts<br/>orchestration loop] -->|15+ symbols| D[pr-description.ts<br/>generate + parse region]
+  C -->|decide overwrite| A[pr-description-apply.ts<br/>fingerprint + apply]
+  A -.fingerprint leak.-> D
+  C -.prewrite reconcile.-> D
+  classDef leak stroke:#dc2626,stroke-width:2px,fill:#fef2f2;
+  class A,D leak
+              </pre>
+            </div>
+            <!-- AFTER -->
+            <div class="rounded-lg border-2 border-slate-800 deep text-stone-100 p-4">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-3">After — one interface, the wrappers absorbed</p>
+              <div class="space-y-2">
+                <div class="rounded border border-slate-500 bg-slate-800/60 px-3 py-2">
+                  <p class="mono text-[11px] text-emerald-300">reconcilePrDescription(pr, generation, prewritten)</p>
+                  <p class="text-[11px] text-slate-400">→ matched | updated | generated | failed</p>
+                </div>
+                <div class="opacity-50 space-y-1 pl-3 border-l border-slate-600">
+                  <p class="mono text-[10px] text-slate-400">view + commits</p>
+                  <p class="mono text-[10px] text-slate-400">fingerprint / skip-detect</p>
+                  <p class="mono text-[10px] text-slate-400">generate + edit</p>
+                  <p class="mono text-[10px] text-slate-400">prewritten reconcile</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-7 pb-7 pt-3 grid md:grid-cols-2 gap-x-8 gap-y-4">
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400">Problem</p>
+              <p class="text-sm mt-1">Three modules encode one semantic — "given a PR, produce its description." The decision of <em>when</em> to generate lives in <span class="mono text-xs">apply</span>; the fingerprint it reads lives in <span class="mono text-xs">pr-description</span>. The interface is nearly as wide as the implementation.</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400">Solution</p>
+              <p class="text-sm mt-1">One module, one entry point returning a discriminated result; viewing, fingerprinting, generation, and prewritten reconciliation become private implementation.</p>
+            </div>
+            <div class="md:col-span-2">
+              <p class="text-xs uppercase tracking-wider text-slate-400">Deletion test</p>
+              <p class="text-sm mt-1">Delete <span class="mono text-xs">apply</span> and the fingerprint/overwrite logic reappears, split across the loop and <span class="mono text-xs">pr-description</span>. Complexity <strong>concentrates</strong> when merged — earns its keep.</p>
+            </div>
+            <div class="md:col-span-2">
+              <p class="text-xs uppercase tracking-wider text-slate-400">Wins</p>
+              <ul class="mt-2 grid sm:grid-cols-2 gap-x-6 gap-y-1 text-sm list-disc list-inside text-slate-700">
+                <li>locality: PR-description logic in one place</li>
+                <li>tests assert state→result, not 3-file scenarios</li>
+                <li>interface shrinks; implementation absorbs the wrappers</li>
+                <li>the *when-to-generate* decision finally gets tested</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <!-- ============ CANDIDATE 2 ============ -->
+        <article id="c2" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="px-7 pt-7 pb-5">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <p class="text-xs uppercase tracking-wider text-indigo-600 font-semibold">asdl-core · submit</p>
+                <h2 class="font-serif text-2xl mt-1">2 · Make <span class="mono text-xl">TextGenerationGateway</span> a real seam</h2>
+              </div>
+              <span class="shrink-0 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold">Strong</span>
+            </div>
+            <div class="mt-3 flex flex-wrap gap-2 text-[11px]">
+              <span class="px-2 py-1 rounded bg-slate-100 text-slate-600">ports &amp; adapters</span>
+            </div>
+            <p class="mt-3 mono text-sm text-slate-500">submit/text-generation.ts (25) · consumed by pr-description{,-apply}.ts, submit-pr-descriptions.ts</p>
+          </div>
+
+          <div class="px-7 pb-3 grid md:grid-cols-2 gap-5">
+            <!-- BEFORE: one adapter -->
+            <div class="rounded-lg border border-slate-200 bg-stone-50 p-4 flex flex-col">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-3">Before — one adapter = hypothetical seam</p>
+              <div class="flex-1 flex flex-col items-center justify-center gap-1 py-4">
+                <div class="w-56 border-2 border-slate-300 border-dashed rounded px-3 py-2 text-center">
+                  <p class="mono text-[11px] text-slate-500">interface TextGenerationGateway</p>
+                </div>
+                <svg width="16" height="34"><line x1="8" y1="0" x2="8" y2="34" stroke="#94a3b8" stroke-width="2"/></svg>
+                <div class="w-44 border-2 border-slate-400 rounded px-3 py-2 text-center bg-white">
+                  <p class="mono text-[11px]">real model adapter</p>
+                </div>
+                <p class="text-[11px] text-red-600 mt-3 max-w-xs text-center">Tests of generation orchestration must mock at the type level — the seam is aspirational.</p>
+              </div>
+            </div>
+            <!-- AFTER: two adapters -->
+            <div class="rounded-lg border-2 border-slate-800 deep text-stone-100 p-4 flex flex-col">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-3">After — two adapters = real seam</p>
+              <div class="flex-1 flex flex-col items-center justify-center gap-1 py-4">
+                <div class="w-56 border-2 border-emerald-400 rounded px-3 py-2 text-center">
+                  <p class="mono text-[11px] text-emerald-300">TextGenerationGateway</p>
+                </div>
+                <svg width="120" height="30"><line x1="60" y1="0" x2="20" y2="30" stroke="#64748b" stroke-width="2"/><line x1="60" y1="0" x2="100" y2="30" stroke="#64748b" stroke-width="2"/></svg>
+                <div class="flex gap-3">
+                  <div class="border border-slate-500 rounded px-3 py-2 text-center bg-slate-800/60"><p class="mono text-[10px] text-slate-300">real model</p></div>
+                  <div class="border border-emerald-500 rounded px-3 py-2 text-center bg-slate-800/60"><p class="mono text-[10px] text-emerald-300">InMemory fake</p></div>
+                </div>
+                <p class="text-[11px] text-emerald-200/80 mt-3 max-w-xs text-center">Canned descriptions make orchestration deterministic — like <span class="mono">ScriptedCommandRunner</span>.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-7 pb-7 pt-3 grid md:grid-cols-2 gap-x-8 gap-y-4">
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400">Problem</p>
+              <p class="text-sm mt-1">The interface exists but only the real adapter does. "One adapter means a hypothetical seam." Tests can't exercise generation without mocking the type.</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400">Solution</p>
+              <p class="text-sm mt-1">Add an in-memory fake adapter beside the real one, exported from <span class="mono text-xs">testing/</span>. Two adapters justify the seam.</p>
+            </div>
+            <div class="md:col-span-2">
+              <p class="text-xs uppercase tracking-wider text-slate-400">Deletion test</p>
+              <p class="text-sm mt-1">Inline the real model and the PR-description tests go flaky or vanish. The seam earns its keep — but only once a second adapter proves it.</p>
+            </div>
+            <div class="md:col-span-2">
+              <p class="text-xs uppercase tracking-wider text-slate-400">Wins</p>
+              <ul class="mt-2 grid sm:grid-cols-2 gap-x-6 gap-y-1 text-sm list-disc list-inside text-slate-700">
+                <li>the interface becomes the test surface</li>
+                <li>generation orchestration tested deterministically</li>
+                <li>pairs directly with candidate 1</li>
+                <li>leverage: one fake, many orchestration tests</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <!-- ============ CANDIDATE 3 ============ -->
+        <article id="c3" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="px-7 pt-7 pb-5">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <p class="text-xs uppercase tracking-wider text-indigo-600 font-semibold">ccc · cmux</p>
+                <h2 class="font-serif text-2xl mt-1">3 · Collapse slot-dispatch into one orchestration module</h2>
+              </div>
+              <span class="shrink-0 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold">Strong</span>
+            </div>
+            <div class="mt-3 flex flex-wrap gap-2 text-[11px]">
+              <span class="px-2 py-1 rounded bg-slate-100 text-slate-600">in-process</span>
+            </div>
+            <p class="mt-3 mono text-sm text-slate-500">cmux/dispatch-prompt.ts (432) · dispatch-from-trunk.ts (198) · slot-dispatch-plan.ts (548) · slot.ts</p>
+          </div>
+
+          <div class="px-7 pb-3 grid md:grid-cols-2 gap-5">
+            <!-- BEFORE: the bounce -->
+            <div class="rounded-lg border border-slate-200 bg-stone-50 p-4">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-3">Before — read 4 files to learn the composition order</p>
+              <pre class="mermaid">
+flowchart LR
+  P[dispatch-prompt] --> S1[branch create]
+  P --> S2[brmem stash]
+  P --> S3[slot checkout]
+  P --> S4[cmux open]
+  T[dispatch-from-trunk] --> S1
+  T --> S2
+  T --> S3
+  DP[dispatch-plan] --> S1
+  DP --> S2
+  DP --> S3
+  classDef h fill:#fff,stroke:#94a3b8;
+  class P,T,DP h
+              </pre>
+              <p class="text-[11px] text-red-600 mt-2">Same four-step sequence re-spelled in three handlers; order is implicit.</p>
+            </div>
+            <!-- AFTER -->
+            <div class="rounded-lg border-2 border-slate-800 deep text-stone-100 p-4">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-3">After — handlers delegate to one ordered module</p>
+              <pre class="mermaid">
+flowchart LR
+  P[dispatch-prompt] --> O
+  T[dispatch-from-trunk] --> O
+  DP[dispatch-plan] --> O[SlotDispatchPlan<br/>stash → resolve → open → notify]
+  classDef d fill:#0f172a,stroke:#34d399,color:#e2e8f0;
+  class O d
+              </pre>
+              <p class="text-[11px] text-emerald-200/80 mt-2">One sequence, named once; handlers pass intent, not steps.</p>
+            </div>
+          </div>
+
+          <div class="px-7 pb-7 pt-3 grid md:grid-cols-2 gap-x-8 gap-y-4">
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400">Problem</p>
+              <p class="text-sm mt-1">The correct order — branch → Branch Memory payload → slot checkout → cmux workspace — is encoded three times across handlers. Understanding one dispatch means bouncing between four files.</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400">Solution</p>
+              <p class="text-sm mt-1">A <span class="mono text-xs">SlotDispatchPlan</span> module owns the sequence behind <span class="mono text-xs">(branch, payload, metadata)</span>; handlers become thin call sites.</p>
+            </div>
+            <div class="md:col-span-2">
+              <p class="text-xs uppercase tracking-wider text-slate-400">Deletion test</p>
+              <p class="text-sm mt-1">Delete any one handler and the same shallow four-step pattern still sits in the other two. The sequence is the real module — it just isn't named yet.</p>
+            </div>
+            <div class="md:col-span-2">
+              <p class="text-xs uppercase tracking-wider text-slate-400">Wins</p>
+              <ul class="mt-2 grid sm:grid-cols-2 gap-x-6 gap-y-1 text-sm list-disc list-inside text-slate-700">
+                <li>locality: dispatch order in one module</li>
+                <li>one fake gateway, not 4 coordinated mocks</li>
+                <li>leverage: new dispatch entry points reuse it</li>
+                <li>AI-navigable: one file answers "how does dispatch work?"</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <!-- ============ CANDIDATE 4 ============ -->
+        <article id="c4" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="px-7 pt-7 pb-5">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <p class="text-xs uppercase tracking-wider text-indigo-600 font-semibold">slot</p>
+                <h2 class="font-serif text-2xl mt-1">4 · Hide occupancy reconciliation behind the inventory</h2>
+              </div>
+              <span class="shrink-0 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold">Strong</span>
+            </div>
+            <div class="mt-3 flex flex-wrap gap-2 text-[11px]">
+              <span class="px-2 py-1 rounded bg-slate-100 text-slate-600">local-substitutable</span>
+            </div>
+            <p class="mt-3 mono text-sm text-slate-500">inventory.ts (96) · planning.ts (174) · operations/gt/navigation.ts (132)</p>
+          </div>
+
+          <div class="px-7 pb-3 grid md:grid-cols-2 gap-5">
+            <!-- BEFORE: cross-section of repeated matching -->
+            <div class="rounded-lg border border-slate-200 bg-stone-50 p-4">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-3">Before — three callers re-derive slot state</p>
+              <div class="space-y-2">
+                <div class="border-l-4 border-red-400 bg-white px-3 py-2"><p class="mono text-[11px]">inventory.ts</p><p class="text-[11px] text-slate-500">match worktrees × occupancies × tips</p></div>
+                <div class="border-l-4 border-red-400 bg-white px-3 py-2"><p class="mono text-[11px]">planning.ts</p><p class="text-[11px] text-slate-500">pattern-match <span class="mono">record.branch === null</span></p></div>
+                <div class="border-l-4 border-red-400 bg-white px-3 py-2"><p class="mono text-[11px]">gt/navigation.ts</p><p class="text-[11px] text-slate-500">re-list worktrees to find branch</p></div>
+              </div>
+              <p class="text-[11px] text-red-600 mt-3">Occupancy semantics leak into every caller.</p>
+            </div>
+            <!-- AFTER: one thick band -->
+            <div class="rounded-lg border-2 border-slate-800 deep text-stone-100 p-4 flex flex-col">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-3">After — one reconciler owns the rules</p>
+              <div class="flex-1 flex flex-col justify-center gap-3">
+                <div class="border-2 border-emerald-400 rounded px-3 py-4 text-center">
+                  <p class="mono text-[11px] text-emerald-300">reconcile() · findOccupiedBranch()</p>
+                  <p class="text-[10px] text-slate-400 mt-1">worktrees + occupancies + operations → SlotRecord[]</p>
+                </div>
+                <div class="flex gap-2 justify-center opacity-70">
+                  <span class="mono text-[10px] border border-slate-600 rounded px-2 py-1">inventory</span>
+                  <span class="mono text-[10px] border border-slate-600 rounded px-2 py-1">planning</span>
+                  <span class="mono text-[10px] border border-slate-600 rounded px-2 py-1">navigation</span>
+                </div>
+                <p class="text-[11px] text-emerald-200/80 text-center">Callers see records and a lookup — never occupancy internals.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-7 pb-7 pt-3 grid md:grid-cols-2 gap-x-8 gap-y-4">
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400">Problem</p>
+              <p class="text-sm mt-1">Assembling a <span class="mono text-xs">SlotInventory</span> — worktrees, occupancies, branch tips, in-progress operations — and the reading of it are tangled; three callers pattern-match <span class="mono text-xs">SlotRecord.branch === null</span> to re-infer state.</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400">Solution</p>
+              <p class="text-sm mt-1">A reconciler module owns merging worktree state with occupancy metadata and exposes <span class="mono text-xs">reconcile()</span> + a pure occupancy lookup. <span class="mono text-xs">SlotRecord</span> becomes immutable output.</p>
+            </div>
+            <div class="md:col-span-2">
+              <p class="text-xs uppercase tracking-wider text-slate-400">Deletion test</p>
+              <p class="text-sm mt-1">Delete the assembly and worktree-listing, occupancy-merging, and operation-detection reappear in 5+ call sites. Complexity concentrates — keep it.</p>
+            </div>
+            <div class="md:col-span-2">
+              <p class="text-xs uppercase tracking-wider text-slate-400">Wins</p>
+              <ul class="mt-2 grid sm:grid-cols-2 gap-x-6 gap-y-1 text-sm list-disc list-inside text-slate-700">
+                <li>edge cases (rebase/merge in progress) tested once</li>
+                <li>callers stop hand-built inventory fixtures</li>
+                <li>locality: occupancy rules in one module</li>
+                <li>navigation stops re-listing worktrees</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <!-- ============ CANDIDATE 5 ============ -->
+        <article id="c5" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="px-7 pt-7 pb-5">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <p class="text-xs uppercase tracking-wider text-indigo-600 font-semibold">slot · gt</p>
+                <h2 class="font-serif text-2xl mt-1">5 · Put a stack-navigator adapter over Graphite's discriminants</h2>
+              </div>
+              <span class="shrink-0 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold">Strong</span>
+            </div>
+            <div class="mt-3 flex flex-wrap gap-2 text-[11px]">
+              <span class="px-2 py-1 rounded bg-slate-100 text-slate-600">ports &amp; adapters</span>
+            </div>
+            <p class="mt-3 mono text-sm text-slate-500">operations/gt/navigation.ts · gateways/gt.ts · operations/gt/shared.ts</p>
+          </div>
+
+          <div class="px-7 pb-3 grid md:grid-cols-2 gap-5">
+            <!-- BEFORE: mass diagram - wide interface -->
+            <div class="rounded-lg border border-slate-200 bg-stone-50 p-4">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-3">Before — wide interface, callers handle every variant</p>
+              <div class="flex items-end gap-3 justify-center pt-4 h-56">
+                <div class="flex flex-col items-center">
+                  <div class="w-24 bg-red-200 border border-red-400 rounded-t" style="height:150px"></div>
+                  <p class="text-[10px] text-slate-500 mt-1 text-center">interface<br/>parent/children/<br/>trunk/stack/graph<br/>+ type discriminants</p>
+                </div>
+                <div class="flex flex-col items-center">
+                  <div class="w-24 bg-slate-300 border border-slate-400 rounded-t" style="height:170px"></div>
+                  <p class="text-[10px] text-slate-500 mt-1">implementation</p>
+                </div>
+              </div>
+              <p class="text-[11px] text-red-600 mt-2">Graphite + git reasoning entangled; tests mock both gateways for one move.</p>
+            </div>
+            <!-- AFTER: deep, narrow -->
+            <div class="rounded-lg border-2 border-slate-800 deep text-stone-100 p-4">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-3">After — narrow interface, deep adapter</p>
+              <div class="flex items-end gap-3 justify-center pt-4 h-56">
+                <div class="flex flex-col items-center">
+                  <div class="w-24 bg-emerald-400/80 border border-emerald-300 rounded-t" style="height:42px"></div>
+                  <p class="text-[10px] text-slate-300 mt-1 text-center">navigateUp()<br/>navigateDown()</p>
+                </div>
+                <div class="flex flex-col items-center">
+                  <div class="w-24 bg-slate-600 border border-slate-500 rounded-t" style="height:180px"></div>
+                  <p class="text-[10px] text-slate-400 mt-1 text-center">discriminants +<br/>untracked-branch +<br/>error classification</p>
+                </div>
+              </div>
+              <p class="text-[11px] text-emerald-200/80 mt-2">Callers get a branch or an error — Graphite's algebra stays inside.</p>
+            </div>
+          </div>
+
+          <div class="px-7 pb-7 pt-3 grid md:grid-cols-2 gap-x-8 gap-y-4">
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400">Problem</p>
+              <p class="text-sm mt-1"><span class="mono text-xs">SlotGtGateway</span> exposes raw topology discriminants (<span class="mono text-xs">type: "parent" | "failure" | "untracked_branch"</span>); navigation entangles git checkout side effects with Graphite reasoning. Tests set up both gt <em>and</em> git mocks for a single move.</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400">Solution</p>
+              <p class="text-sm mt-1">A <span class="mono text-xs">GraphiteStackNavigator</span> adapter absorbs the discriminants and error classification; its interface is <span class="mono text-xs">{ branch | error }</span>.</p>
+            </div>
+            <div class="md:col-span-2 rounded-md bg-amber-50 border border-amber-200 px-4 py-3">
+              <p class="text-xs font-semibold text-amber-800">Respects the Graphite-boundary rule</p>
+              <p class="text-sm text-amber-900 mt-1"><span class="mono text-xs">slot gt</span> is the canonical opt-in Graphite surface — its name is the contract. The adapter stays inside that group and must use Graphite plumbing (<span class="mono text-xs">gt parent/children --no-interactive</span>), never parsed <span class="mono text-xs">gt ls</span> display output.</p>
+            </div>
+            <div class="md:col-span-2">
+              <p class="text-xs uppercase tracking-wider text-slate-400">Wins</p>
+              <ul class="mt-2 grid sm:grid-cols-2 gap-x-6 gap-y-1 text-sm list-disc list-inside text-slate-700">
+                <li>tests mock one narrow contract, not Graphite's algebra</li>
+                <li>git vs Graphite reasoning separated</li>
+                <li>Graphite version drift contained in the adapter</li>
+                <li>interface shrinks; implementation absorbs the variants</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <!-- ============ CANDIDATE 6 ============ -->
+        <article id="c6" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="px-7 pt-7 pb-5">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <p class="text-xs uppercase tracking-wider text-indigo-600 font-semibold">brmem · handoff · branch-context</p>
+                <h2 class="font-serif text-2xl mt-1">6 · Deepen Branch Memory behind an entry locator</h2>
+              </div>
+              <span class="shrink-0 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold">Strong</span>
+            </div>
+            <div class="mt-3 flex flex-wrap gap-2 text-[11px]">
+              <span class="px-2 py-1 rounded bg-slate-100 text-slate-600">local-substitutable</span>
+            </div>
+            <p class="mt-3 mono text-sm text-slate-500">brmem/gateway.ts · ref-layout.ts · validation.ts · operations/* · (callers: handoff, branch-context)</p>
+          </div>
+
+          <div class="px-7 pb-3 grid md:grid-cols-2 gap-5">
+            <!-- BEFORE: ref-layout leaks to many -->
+            <div class="rounded-lg border border-slate-200 bg-stone-50 p-4">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-3">Before — ref naming + validation leak to every caller</p>
+              <pre class="mermaid">
+flowchart TB
+  RL[ref-layout.ts<br/>buildSnapshotRef / encodeBranchName]
+  V[validation.ts<br/>validateEntryKey / Namespace]
+  RL -.-> OP[brmem operations]
+  V -.-> OP
+  RL -.imported.-> H[handoff]
+  V -.imported.-> H
+  RL -.imported.-> BC[branch-context]
+  V -.imported.-> BC
+  classDef leak stroke:#dc2626,stroke-width:2px,fill:#fef2f2;
+  class RL,V leak
+              </pre>
+              <p class="text-[11px] text-red-600 mt-1">Change the encoding and edits ripple across packages.</p>
+            </div>
+            <!-- AFTER: locator -->
+            <div class="rounded-lg border-2 border-slate-800 deep text-stone-100 p-4">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-3">After — one locator; storage model hidden</p>
+              <pre class="mermaid">
+flowchart TB
+  OP[brmem operations] --> L
+  H[handoff] --> L
+  BC[branch-context] --> L[BrmemEntryLocator.parse<br/>ns + key + branch → validated ref]
+  classDef d fill:#0f172a,stroke:#34d399,color:#e2e8f0;
+  class L d
+              </pre>
+              <p class="text-[11px] text-emerald-200/80 mt-1">Refs + validation computed once, behind a parse() seam.</p>
+            </div>
+          </div>
+
+          <div class="px-7 pb-7 pt-3 grid md:grid-cols-2 gap-x-8 gap-y-4">
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400">Problem</p>
+              <p class="text-sm mt-1">The <span class="mono text-xs">BrmemGateway</span> only returns results — ref naming (<span class="mono text-xs">buildSnapshotRef</span>, <span class="mono text-xs">encodeBranchName</span>) and validation live in side modules that operations <em>and</em> downstream packages import directly. The storage model is public.</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400">Solution</p>
+              <p class="text-sm mt-1">A <span class="mono text-xs">BrmemEntryLocator</span> (with a validating <span class="mono text-xs">parse()</span>) absorbs ref layout + validation; a thin <span class="mono text-xs">BrmemEntriesGateway</span> works in locators. Callers pass <span class="mono text-xs">(namespace, key, branch)</span> — never construct refs.</p>
+            </div>
+            <div class="md:col-span-2">
+              <p class="text-xs uppercase tracking-wider text-slate-400">Deletion test</p>
+              <p class="text-sm mt-1">Delete <span class="mono text-xs">ref-layout</span> and ref construction reappears inline across operations, handoff, and branch-context. Highest reuse surface in the survey — clearly earns its keep.</p>
+            </div>
+            <div class="md:col-span-2">
+              <p class="text-xs uppercase tracking-wider text-slate-400">Wins</p>
+              <ul class="mt-2 grid sm:grid-cols-2 gap-x-6 gap-y-1 text-sm list-disc list-inside text-slate-700">
+                <li>leverage: one seam, brmem + handoff + branch-context</li>
+                <li>encoding rules change in one place</li>
+                <li>locality: ref/validation bugs concentrate</li>
+                <li>operations test against a fake entries gateway</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <!-- ============ CANDIDATE 7 ============ -->
+        <article id="c7" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="px-7 pt-7 pb-5">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <p class="text-xs uppercase tracking-wider text-indigo-600 font-semibold">branch-context</p>
+                <h2 class="font-serif text-2xl mt-1">7 · Replace the shallow brmem adapter with a plan-attachment module</h2>
+              </div>
+              <span class="shrink-0 px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-semibold">Worth exploring</span>
+            </div>
+            <div class="mt-3 flex flex-wrap gap-2 text-[11px]">
+              <span class="px-2 py-1 rounded bg-slate-100 text-slate-600">local-substitutable</span>
+            </div>
+            <p class="mt-3 mono text-sm text-slate-500">brmem-gateway.ts (200) · attach.ts (341) · attached-plan.ts (271) · constants.ts</p>
+          </div>
+
+          <div class="px-7 pb-3 grid md:grid-cols-2 gap-5">
+            <!-- BEFORE -->
+            <div class="rounded-lg border border-slate-200 bg-stone-50 p-4">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-3">Before — callers know namespaces &amp; entry keys</p>
+              <div class="space-y-2 pt-2">
+                <div class="border border-slate-300 bg-white rounded px-3 py-2"><p class="mono text-[11px]">attach.ts</p><p class="text-[11px] text-red-600">builds keys via buildBranchContextPlanKey</p></div>
+                <div class="border border-slate-300 bg-white rounded px-3 py-2"><p class="mono text-[11px]">attached-plan.ts</p><p class="text-[11px] text-red-600">parses brmem list/get output</p></div>
+                <div class="border border-slate-300 bg-white rounded px-3 py-2"><p class="mono text-[11px]">constants.ts</p><p class="text-[11px] text-slate-500">BRANCH_CONTEXT_NAMESPACE = "branch-context"</p></div>
+                <p class="text-[11px] text-red-600">Namespace + key derivation scattered across 3 modules.</p>
+              </div>
+            </div>
+            <!-- AFTER -->
+            <div class="rounded-lg border-2 border-slate-800 deep text-stone-100 p-4 flex flex-col">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-3">After — slugs in, plans out</p>
+              <div class="flex-1 flex flex-col justify-center gap-2">
+                <div class="border-2 border-emerald-400 rounded px-3 py-3">
+                  <p class="mono text-[11px] text-emerald-300">PlanAttachmentStorage</p>
+                  <p class="text-[10px] text-slate-400 mt-1">attach · list · get · delete — by slug</p>
+                </div>
+                <p class="text-[11px] text-emerald-200/80">Namespace + entry-key derivation become implementation; callers never see brmem.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-7 pb-7 pt-3 grid md:grid-cols-2 gap-x-8 gap-y-4">
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400">Problem</p>
+              <p class="text-sm mt-1">The branch-context gateway is a shallow adapter over brmem CLI output; <span class="mono text-xs">attach</span> and <span class="mono text-xs">attached-plan</span> still reference the namespace constant and construct entry keys. brmem's storage layout is visible.</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400">Solution</p>
+              <p class="text-sm mt-1">A <span class="mono text-xs">PlanAttachmentStorage</span> module hides namespace + key semantics; callers work in slugs. Composes naturally on candidate 6's locator.</p>
+            </div>
+            <div class="md:col-span-2">
+              <p class="text-xs uppercase tracking-wider text-slate-400">Deletion test</p>
+              <p class="text-sm mt-1">Delete the gateway and hardcoded namespace strings + inline list/get parsing reappear in both callers. Concentrates — keep, but deepen.</p>
+            </div>
+            <div class="md:col-span-2">
+              <p class="text-xs uppercase tracking-wider text-slate-400">Wins</p>
+              <ul class="mt-2 grid sm:grid-cols-2 gap-x-6 gap-y-1 text-sm list-disc list-inside text-slate-700">
+                <li>callers fake PlanAttachmentStorage, never brmem</li>
+                <li>key generation tested in isolation</li>
+                <li>leverage: a future objective-context reuses it</li>
+                <li>locality: attachment semantics in one module</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <!-- ============ CANDIDATE 8 ============ -->
+        <article id="c8" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="px-7 pt-7 pb-5">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <p class="text-xs uppercase tracking-wider text-indigo-600 font-semibold">objective</p>
+                <h2 class="font-serif text-2xl mt-1">8 · Pull objective-markdown rules into one validator</h2>
+              </div>
+              <span class="shrink-0 px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-semibold">Worth exploring</span>
+            </div>
+            <div class="mt-3 flex flex-wrap gap-2 text-[11px]">
+              <span class="px-2 py-1 rounded bg-slate-100 text-slate-600">in-process</span>
+            </div>
+            <p class="mt-3 mono text-sm text-slate-500">storage.ts (287) · real-storage.ts (109) · operations/read-objective.ts · operations/check-objective.ts</p>
+          </div>
+
+          <div class="px-7 pb-3 grid md:grid-cols-2 gap-5">
+            <!-- BEFORE: call-graph - storage only does IO, rules scattered -->
+            <div class="rounded-lg border border-slate-200 bg-stone-50 p-4">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-3">Before — storage does I/O; structure rules per-operation</p>
+              <pre class="mermaid">
+flowchart TB
+  ST[ObjectiveStorage<br/>readTextFile only]
+  RO[read-objective] --> ST
+  CO[check-objective<br/>required headings] --> ST
+  RO -.its own parsing.-> RO
+  CO -.its own rules.-> CO
+  classDef leak stroke:#dc2626,stroke-width:2px,fill:#fef2f2;
+  class RO,CO leak
+              </pre>
+              <p class="text-[11px] text-red-600 mt-1">A schema change touches every operation file.</p>
+            </div>
+            <!-- AFTER -->
+            <div class="rounded-lg border-2 border-slate-800 deep text-stone-100 p-4">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-3">After — one validator owns the markdown contract</p>
+              <pre class="mermaid">
+flowchart TB
+  RO[read-objective] --> MV
+  CO[check-objective] --> MV[ObjectiveMarkdownValidator<br/>validate + requiredHeadings]
+  MV --> ST[ObjectiveStorageGateway<br/>file I/O]
+  classDef d fill:#0f172a,stroke:#34d399,color:#e2e8f0;
+  class MV d
+              </pre>
+              <p class="text-[11px] text-emerald-200/80 mt-1">Structure rules in one place; I/O stays a thin gateway.</p>
+            </div>
+          </div>
+
+          <div class="px-7 pb-7 pt-3 grid md:grid-cols-2 gap-x-8 gap-y-4">
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400">Problem</p>
+              <p class="text-sm mt-1"><span class="mono text-xs">ObjectiveStorage</span> only reads files; each operation re-applies its own heading/structure rules. The real bugs hide in scattered interpretation, not the I/O.</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400">Solution</p>
+              <p class="text-sm mt-1">An <span class="mono text-xs">ObjectiveMarkdownValidator</span> owns objective/roadmap/update structure; operations consume it instead of re-deriving headings.</p>
+            </div>
+            <div class="md:col-span-2">
+              <p class="text-xs uppercase tracking-wider text-slate-400">Deletion test</p>
+              <p class="text-sm mt-1">Pure rules extracted for testability today, but there's no <em>locality</em> — the markdown contract spreads across operations. Concentrating it is the win.</p>
+            </div>
+            <div class="md:col-span-2">
+              <p class="text-xs uppercase tracking-wider text-slate-400">Wins</p>
+              <ul class="mt-2 grid sm:grid-cols-2 gap-x-6 gap-y-1 text-sm list-disc list-inside text-slate-700">
+                <li>schema changes land in one module</li>
+                <li>validation tested without file I/O</li>
+                <li>new operations reuse one validator</li>
+                <li>locality: the markdown contract has a home</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <!-- ============ CANDIDATE 9 ============ -->
+        <article id="c9" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="px-7 pt-7 pb-5">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <p class="text-xs uppercase tracking-wider text-indigo-600 font-semibold">roaster · pr-address · asdl-core</p>
+                <h2 class="font-serif text-2xl mt-1">9 · Lift diff parsing into asdl-core — <span class="text-slate-400">only if a second consumer appears</span></h2>
+              </div>
+              <span class="shrink-0 px-3 py-1 rounded-full bg-slate-200 text-slate-700 text-xs font-semibold">Speculative</span>
+            </div>
+            <div class="mt-3 flex flex-wrap gap-2 text-[11px]">
+              <span class="px-2 py-1 rounded bg-slate-100 text-slate-600">in-process</span>
+            </div>
+            <p class="mt-3 mono text-sm text-slate-500">roaster/diff-parsing.ts (71) · inline-commentability.ts (73)</p>
+          </div>
+
+          <div class="px-7 pb-3 grid md:grid-cols-2 gap-5">
+            <div class="rounded-lg border border-slate-200 bg-stone-50 p-4">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-3">Today — one consumer = hypothetical seam</p>
+              <div class="flex flex-col items-center justify-center gap-1 py-6">
+                <div class="border border-slate-400 bg-white rounded px-3 py-2 mono text-[11px]">@pierre/diffs</div>
+                <svg width="16" height="26"><line x1="8" y1="0" x2="8" y2="26" stroke="#94a3b8" stroke-width="2"/></svg>
+                <div class="border border-slate-400 bg-white rounded px-3 py-2 mono text-[11px]">roaster thin adapter</div>
+                <svg width="16" height="26"><line x1="8" y1="0" x2="8" y2="26" stroke="#94a3b8" stroke-width="2"/></svg>
+                <div class="border border-slate-300 bg-white rounded px-3 py-2 mono text-[11px] text-slate-500">roaster only</div>
+              </div>
+            </div>
+            <div class="rounded-lg border border-slate-300 bg-white p-4">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-3">If pr-address ever parses diffs — two consumers</p>
+              <div class="flex flex-col items-center justify-center gap-1 py-4">
+                <div class="border-2 border-indigo-400 rounded px-3 py-2 mono text-[11px] text-indigo-700">@asdl/core diff-parsing</div>
+                <svg width="120" height="26"><line x1="60" y1="0" x2="20" y2="26" stroke="#64748b" stroke-width="2"/><line x1="60" y1="0" x2="100" y2="26" stroke="#64748b" stroke-width="2"/></svg>
+                <div class="flex gap-3">
+                  <div class="border border-slate-400 rounded px-3 py-1 mono text-[10px]">roaster</div>
+                  <div class="border border-slate-400 rounded px-3 py-1 mono text-[10px]">pr-address</div>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-3 text-center">Two adapters would make the seam real. Today there is one.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-7 pb-7 pt-3 grid md:grid-cols-2 gap-x-8 gap-y-4">
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400">Problem</p>
+              <p class="text-sm mt-1">Roaster's 144-line Pierre adapter is pure and reusable-looking — but nothing else parses diffs today. Moving it now buys a seam for an imaginary caller.</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400">Solution</p>
+              <p class="text-sm mt-1">Leave it in roaster. <strong>Trigger</strong>: when pr-address (or another CLI) needs hunk geometry, lift <span class="mono text-xs">parseUnifiedDiff</span> + <span class="mono text-xs">commentableRightSideLines</span> to <span class="mono text-xs">@asdl/core</span> then — two real adapters.</p>
+            </div>
+            <div class="md:col-span-2 rounded-md bg-amber-50 border border-amber-200 px-4 py-3">
+              <p class="text-xs font-semibold text-amber-800">⚠ Contradicts the spirit of ADR-0007 — surfaced only as a watch-point</p>
+              <p class="text-sm text-amber-900 mt-1">ADR-0007 deliberately kept roaster a <em>thin</em> Pierre adapter and rejected broadening its parser surface. Relocating the adapter is compatible only when a real second consumer exists; doing it speculatively re-opens a decision the ADR already settled. Listed so a future review doesn't mistake the one-adapter seam for a missing one.</p>
+            </div>
+            <div class="md:col-span-2">
+              <p class="text-xs uppercase tracking-wider text-slate-400">Wins (only once two consumers exist)</p>
+              <ul class="mt-2 grid sm:grid-cols-2 gap-x-6 gap-y-1 text-sm list-disc list-inside text-slate-700">
+                <li>leverage: one parser, two GitHub-facing CLIs</li>
+                <li>parse edge cases tested once in core</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+      </section>
+
+      <!-- ============ TOP RECOMMENDATION ============ -->
+      <section id="top-recommendation">
+        <div class="rounded-2xl deep text-stone-100 p-8 shadow-lg">
+          <p class="text-xs uppercase tracking-[0.3em] text-emerald-300">Top recommendation</p>
+          <h2 class="font-serif text-3xl mt-2">Deepen Branch Memory behind an entry locator <span class="text-slate-400 text-xl">→ candidate 6</span></h2>
+          <p class="mt-4 text-slate-300 max-w-3xl">It has the widest <strong>leverage</strong> in the survey: ref naming and validation currently leak from <span class="mono text-sm text-emerald-200">brmem</span> into its own operations <em>and</em> into <span class="mono text-sm text-emerald-200">handoff</span> and <span class="mono text-sm text-emerald-200">branch-context</span>. One <span class="mono text-sm text-emerald-200">BrmemEntryLocator</span> seam pays back across three packages and N call sites, gives every storage test a fake to write against, and is the foundation candidate 7 composes onto. Highest leverage, clearest deletion test, and it makes the storage model stop leaking — the single biggest AI-navigability win here.</p>
+          <div class="mt-6 flex flex-wrap gap-3 text-xs">
+            <a href="#c6" class="px-4 py-2 rounded-lg bg-emerald-400 text-slate-900 font-semibold">Jump to candidate 6</a>
+            <span class="px-4 py-2 rounded-lg border border-slate-600 text-slate-300">Cleanest self-contained first cut: candidate 1 (PR-description) + 2 (its fake)</span>
+          </div>
+        </div>
+        <p class="text-center text-xs text-slate-400 mt-8">Pick one to take into a grilling session — constraints, the shape of the deepened module, what sits behind the seam, which tests survive.</p>
+      </section>
+
+    </main>
+  </body>
+</html>
