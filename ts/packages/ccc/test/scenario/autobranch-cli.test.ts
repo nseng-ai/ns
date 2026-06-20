@@ -44,7 +44,7 @@ class AutobranchCommandFake implements CommandExecApi {
 interface RecordedCommand {
 	command: string;
 	args: string[];
-	options?: ExecOptions | undefined;
+	options?: ExecOptions;
 }
 
 class CmuxCommandFake implements CommandExecApi {
@@ -56,7 +56,7 @@ class CmuxCommandFake implements CommandExecApi {
 	}
 
 	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
-		this.events.push({ command, args: [...args], options });
+		this.events.push({ command, args: [...args], ...(options === undefined ? {} : { options }) });
 		if (args.join(" ") === this.failedCommand) {
 			return { stdout: "", stderr: "workspace not found", code: 2, killed: false };
 		}

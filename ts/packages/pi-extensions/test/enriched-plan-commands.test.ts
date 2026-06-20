@@ -163,7 +163,7 @@ describe("enriched-plan-commands", () => {
 			{ message: "Starting /enriched-plan:save planning turn…", level: "info" },
 			{
 				message:
-					"Falling back to built-in /enriched-plan:save prompt body because git root discovery failed with exit code 128: fatal: not a git repository",
+					"Falling back to built-in /enriched-plan:save prompt body because git rev-parse --show-toplevel failed (exit code 128).\n\nCommand: git rev-parse --show-toplevel\n\n----- stdout tail -----\n(empty)\n\n----- stderr tail -----\nfatal: not a git repository",
 				level: "warning",
 			},
 		]);

@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { shellNegative, ok, type ClinkrExit } from "@asdl/clinkr";
+import { isSuccessfulExecResult, type CommandExecApi, type ExecResult } from "@asdl/core/exec";
 import { formatErrorMessage } from "@asdl/core/primitives";
-import type { CommandExecApi, ExecResult } from "@asdl/core/exec";
 
 export const DEFAULT_CMUX_WORKSPACE_SUMMARY_STATUS_KEY = "pi-summary";
 export const CMUX_WORKSPACE_SUMMARY_COMMAND_TIMEOUT_MS = 30_000;
@@ -56,7 +56,7 @@ type CmuxWorkspaceSummaryFailureCode =
 interface CmuxWorkspaceSummaryFailure {
 	code: CmuxWorkspaceSummaryFailureCode;
 	message: string;
-	commandFailure?: CmuxCommandFailure | undefined;
+	commandFailure?: CmuxCommandFailure;
 }
 
 interface CmuxCommandFailure {
@@ -186,7 +186,7 @@ async function runCmux(
 		};
 	}
 
-	if (result.code === 0 && !result.killed) return undefined;
+	if (isSuccessfulExecResult(result)) return undefined;
 	return {
 		command,
 		exitCode: result.code,

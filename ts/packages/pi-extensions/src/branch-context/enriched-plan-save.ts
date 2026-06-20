@@ -1,7 +1,10 @@
+import type { Stats } from "node:fs";
 import { lstat, readFile } from "node:fs/promises";
 import * as path from "node:path";
 
 import { Text } from "@earendil-works/pi-tui";
+import { piExecApiToCommandExecApi } from "@asdl/core/exec";
+import { RealGitGateway } from "@asdl/core/git";
 import { formatErrorMessage } from "@asdl/core/primitives";
 import {
 	WRITE_SAVED_PLAN_FILE_TOOL_NAME,
@@ -45,7 +48,6 @@ interface WriteSavedPlanFileProgressDetails {
 }
 
 const WRITE_PLAN_PROMPT_NAME = "plans-write";
-const WRITE_PLAN_GIT_ROOT_TIMEOUT_MS = 10_000;
 
 export const DEFAULT_WRITE_PLAN_PROMPT_BODY = `Plan audience and context contract:
 - Treat the saved Markdown plan as the only planning context available to a completely fresh downstream implementation session.
@@ -194,26 +196,12 @@ async function resolveGitRoot(
 	pi: ExtensionAPI,
 	cwd: string,
 ): Promise<{ type: "resolved"; path: string } | { type: "failed"; reason: string }> {
-	try {
-		const result = await pi.exec("git", ["rev-parse", "--show-toplevel"], {
-			cwd,
-			timeout: WRITE_PLAN_GIT_ROOT_TIMEOUT_MS,
-		});
-		if (result.killed || result.code !== 0) {
-			const details = result.stderr.trim() || result.stdout.trim() || "no output";
-			return {
-				type: "failed",
-				reason: `git root discovery failed with exit code ${result.code}: ${details}`,
-			};
-		}
-		const root = result.stdout.trim();
-		if (root.length === 0) {
-			return { type: "failed", reason: "git root discovery returned an empty path" };
-		}
-		return { type: "resolved", path: root };
-	} catch (error) {
-		return { type: "failed", reason: `git root discovery failed: ${formatErrorMessage(error)}` };
+	const git = new RealGitGateway(piExecApiToCommandExecApi(pi));
+	const result = await git.repoRoot({ cwd });
+	if (!result.ok) {
+		return { type: "failed", reason: result.error.message };
 	}
+	return { type: "resolved", path: result.value };
 }
 
 async function readRepoWritePlanPromptBody(
@@ -233,21 +221,23 @@ async function readRepoWritePlanPromptBody(
 	return { type: "resolved", body: content };
 }
 
-async function assertSafeDirectory(targetPath: string, label: string): Promise<void> {
+async function assertNotSymlink(targetPath: string, label: string): Promise<Stats> {
 	const stats = await lstat(targetPath);
 	if (stats.isSymbolicLink()) {
 		throw new Error(`${label} is a symlink`);
 	}
+	return stats;
+}
+
+async function assertSafeDirectory(targetPath: string, label: string): Promise<void> {
+	const stats = await assertNotSymlink(targetPath, label);
 	if (!stats.isDirectory()) {
 		throw new Error(`${label} is not a directory`);
 	}
 }
 
 async function assertSafeFile(targetPath: string, label: string): Promise<void> {
-	const stats = await lstat(targetPath);
-	if (stats.isSymbolicLink()) {
-		throw new Error(`${label} is a symlink`);
-	}
+	const stats = await assertNotSymlink(targetPath, label);
 	if (!stats.isFile()) {
 		throw new Error(`${label} is not a file`);
 	}
