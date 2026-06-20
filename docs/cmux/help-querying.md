@@ -101,13 +101,13 @@ cmux clear-status pi-summary --workspace "$CMUX_WORKSPACE_ID"
 
 Only rename back if the previous title was recorded.
 
-## Keep deterministic mutation behind `asdl exec`
+## Keep deterministic mutation behind `ccc exec`
 
-For repo-local Pi skills and agents, prefer the tested `asdl exec` boundary over raw cmux shell snippets:
+For repo-local Pi skills and agents, prefer the tested `ccc exec` boundary over raw cmux shell snippets:
 
 ```bash
-asdl exec cmux-workspace-summary --help
-asdl exec cmux-workspace-summary --json-schema
+ccc exec cmux-workspace-summary --help
+ccc exec cmux-workspace-summary --json-schema
 ```
 
 The current workspace-summary command contract is documented in

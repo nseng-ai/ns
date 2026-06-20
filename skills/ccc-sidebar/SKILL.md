@@ -1,6 +1,6 @@
 ---
 name: ccc-sidebar
-description: Use when /ccc:sidebar:session-summary or /ccc:sidebar:branch-state-summary asks a Pi session to update the caller cmux sidebar/workspace card; generate compact title and one-line Goal/State description, then run one asdl exec command. /ccc:sidebar:objective-summary is handled directly by deterministic extension code and should not invoke this skill.
+description: Use when /ccc:sidebar:session-summary or /ccc:sidebar:branch-state-summary asks a Pi session to update the caller cmux sidebar/workspace card; generate compact title and one-line Goal/State description, then run one ccc exec command. /ccc:sidebar:objective-summary is handled directly by deterministic extension code and should not invoke this skill.
 metadata:
   internal: true
 ---
@@ -36,16 +36,16 @@ Produce these two fields and self-check the character limits before running comm
 - For `/ccc:sidebar:session-summary`, `title`: exactly `summary:<slug>`, where `<slug>` is a concise lowercase hyphen slug for the session topic. `description`: exactly one short line with the `Goal:` prefix.
 - For `/ccc:sidebar:branch-state-summary`, `title`: exactly `state:<slug>`, where `<slug>` is a concise lowercase hyphen slug for the branch topic. `description`: exactly one short line with the `State:` prefix.
 
-Keep the full title at max 45 chars. If any field is too long, rewrite it shorter before running `asdl exec`. If possible, avoid apostrophes in generated fields so single-quote shell quoting stays simple; rewrite contractions rather than escaping them.
+Keep the full title at max 45 chars. If any field is too long, rewrite it shorter before running `ccc exec`. If possible, avoid apostrophes in generated fields so single-quote shell quoting stays simple; rewrite contractions rather than escaping them.
 
 ## Apply immediately when the source is resolved
 
-Run exactly one deterministic `asdl exec cmux-workspace-summary` command with careful quoting. Do not assign shell variables. Do not write an env prelude. Do not pass `--workspace`; the CLI resolves `CMUX_WORKSPACE_ID` / `CMUX_TAB_ID` itself. Do not run raw `cmux` commands. If command execution fails, report the exact failure and stop rather than trying unrelated workarounds.
+Run exactly one deterministic `ccc exec cmux-workspace-summary` command with careful quoting. Do not assign shell variables. Do not write an env prelude. Do not pass `--workspace`; the CLI resolves `CMUX_WORKSPACE_ID` / `CMUX_TAB_ID` itself. Do not run raw `cmux` commands. If command execution fails, report the exact failure and stop rather than trying unrelated workarounds.
 
 Use this command shape:
 
 ```bash
-asdl exec cmux-workspace-summary \
+ccc exec cmux-workspace-summary \
   --title '<summary-or-state-title>' \
   --description '<Goal-or-State-line>' \
   --format json

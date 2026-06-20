@@ -15,19 +15,19 @@ This guide captures the repo-local pattern for Pi commands that open cmux worksp
 
 Current layers:
 
-| Layer                  | Path / command                               | Responsibility                                                         |
-| ---------------------- | -------------------------------------------- | ---------------------------------------------------------------------- |
-| Pi discovery adapter   | `.pi/extensions/ccc.ts`                      | Thin adapter that registers the repo CCC command suite                 |
-| Engineered TS package  | `ts/packages/ccc/src/ccc.ts`                 | Wires shared CCC workspace/sidebar controllers and command modules     |
-| CCC cmux modules       | `ts/packages/ccc/src/cmux/`                  | Implements `/ccc:workspace:*` and `/ccc:sidebar:*` behavior with tests |
-| Local sidebar skill    | `skills/ccc-sidebar/SKILL.md`                | Tells the model what PR sidebar fields to generate                     |
-| Deterministic CLI      | `asdl exec cmux-workspace-summary`           | Applies title and direct description, then clears the old status pill  |
-| cmux gateway           | `src/asdl_tools/cmux/gateway.py`             | Runs installed cmux CLI commands                                       |
-| Scenario/package tests | `tests/scenario/test_cli.py`, `ts/.../test/` | Cover Python exec behavior and Pi command behavior                     |
+| Layer                  | Path / command                                  | Responsibility                                                         |
+| ---------------------- | ----------------------------------------------- | ---------------------------------------------------------------------- |
+| Pi discovery adapter   | `.pi/extensions/ccc.ts`                         | Thin adapter that registers the repo CCC command suite                 |
+| Engineered TS package  | `ts/packages/ccc/src/ccc.ts`                    | Wires shared CCC workspace/sidebar controllers and command modules     |
+| CCC cmux modules       | `ts/packages/ccc/src/cmux/`                     | Implements `/ccc:workspace:*` and `/ccc:sidebar:*` behavior with tests |
+| Local sidebar skill    | `skills/ccc-sidebar/SKILL.md`                   | Tells the model what PR sidebar fields to generate                     |
+| Deterministic CLI      | `ccc exec cmux-workspace-summary`               | Applies title and direct description, then clears the old status pill  |
+| cmux command gateway   | `ts/packages/ccc/src/cmux/workspace-summary.ts` | Runs installed cmux CLI commands through the CCC command gateway       |
+| Scenario/package tests | `ts/packages/ccc/test/`, `ts/.../test/`         | Cover CCC exec behavior and Pi command behavior                        |
 
 Project-local `.pi/extensions/*.ts` files should stay thin once behavior is durable or risky. Put reusable CCC workspace/sidebar behavior under `ts/packages/ccc/src/cmux/` with pnpm/Vitest tests. Keep generic Pi lifecycle/footer/watch plumbing in `@asdl/pi-extensions`; CCC owns repo-opinionated cmux/workspace/sidebar orchestration and operational worktree-status facts/presentation.
 
-Do not put raw cmux mutation sequences in long skill bodies when a tested `asdl exec` command can own them.
+Do not put raw cmux mutation sequences in long skill bodies when a tested `ccc exec` command can own them.
 
 ## Command suite
 
@@ -44,7 +44,7 @@ The project-local adapter registers:
 
 There is no legacy `set-workspace-summary` alias.
 
-The old refresh-meta command was intentionally removed and not replaced. It only refreshed the current workspace name/description and did not open a new workspace; future metadata refresh behavior should be designed around `asdl exec cmux-workspace-summary`, not raw cmux mutations.
+The old refresh-meta command was intentionally removed and not replaced. It only refreshed the current workspace name/description and did not open a new workspace; future metadata refresh behavior should be designed around `ccc exec cmux-workspace-summary`, not raw cmux mutations.
 
 ## Duplicate command troubleshooting
 
@@ -80,7 +80,7 @@ process.env.CMUX_WORKSPACE_ID ?? process.env.CMUX_TAB_ID
 
 If no caller workspace is available, notify and return. Do not fall back to the focused workspace because a background Pi session can be running while another cmux workspace is focused.
 
-The PR sidebar skill and deterministic Objective sidebar extension do not pass `--workspace`; `asdl exec cmux-workspace-summary` resolves the same caller workspace env itself.
+The PR sidebar skill and deterministic Objective sidebar extension do not pass `--workspace`; `ccc exec cmux-workspace-summary` resolves the same caller workspace env itself.
 
 ## Model choice and speed
 
@@ -111,14 +111,14 @@ Prompt-only length enforcement is intentional for PR sidebar for now. Do not add
 
 `/ccc:sidebar:pr-summary` summarizes current PR, branch, or active implementation work through the model-assisted `ccc-sidebar` skill. The Goal line describes the PR outcome, not the cmux update itself.
 
-`/ccc:sidebar:objective-summary [objective-slug-or-path]` formats an active asdl Objective deterministically. It accepts a slug or `.asdl/objectives/<slug>/...` path; if no selector is supplied, it opens a deterministic active-Objective picker like `/objective:update`. After selection, it validates the selected Objective slug/readability through `objective exec read-objective` and applies fixed fields through `pi.exec("asdl", [...])`: title/topline `obj:<objective-slug>` and description `<slot-slug>::<branch-slug>`. It does not queue a model prompt, read Objective prose, invoke the `ccc-sidebar` skill, or infer an Objective from branch, PR, hidden context, or conversation text.
+`/ccc:sidebar:objective-summary [objective-slug-or-path]` formats an active asdl Objective deterministically. It accepts a slug or `.asdl/objectives/<slug>/...` path; if no selector is supplied, it opens a deterministic active-Objective picker like `/objective:update`. After selection, it validates the selected Objective slug/readability through `objective exec read-objective` and applies fixed fields through `pi.exec("ccc", [...])`: title/topline `obj:<objective-slug>` and description `<slot-slug>::<branch-slug>`. It does not queue a model prompt, read Objective prose, invoke the `ccc-sidebar` skill, or infer an Objective from branch, PR, hidden context, or conversation text.
 
 ## Apply through exec, not raw cmux
 
 The PR sidebar skill should tell the model to call exactly one deterministic command when the source is resolved:
 
 ```bash
-asdl exec cmux-workspace-summary \
+ccc exec cmux-workspace-summary \
   --title 'Short title' \
   --description 'Goal: ...' \
   --format json
@@ -164,7 +164,7 @@ Objective sidebar already follows the direct extension apply path. If PR sidebar
 
 1. Use Pi model APIs or an existing fast-draft helper to generate a small JSON object for the fields.
 2. Validate and shorten fields in TypeScript.
-3. Call `pi.exec("asdl", ["exec", "cmux-workspace-summary", ...])` with argv.
+3. Call `pi.exec("ccc", ["exec", "cmux-workspace-summary", ...])` with argv.
 4. Display the resulting title directly.
 
 That design would keep semantic PR summarization in a model while making quoting, cmux targeting, and command execution fully deterministic. It would also remove the PR skill-driven bash block from the conversation. Reintroducing automatic summaries should wait until that targeting and apply path are explicit.
@@ -176,14 +176,13 @@ After changing CCC workspace/sidebar Pi resources:
 ```bash
 just ts-check
 just ts-test
-uv run pytest tests/scenario/test_cli.py -k cmux_workspace_summary
 just dprint-check
 ```
 
-If Python gateway or root CLI behavior changed, run the full suite:
+If Python root CLI behavior changed, run the relevant Python scenario suite:
 
 ```bash
-just
+uv run pytest tests/scenario/test_cli.py
 ```
 
 Then reload Pi:

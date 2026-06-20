@@ -19,7 +19,7 @@ Start here before broad documentation searches. This directory collects cross-pa
 - [Pi docs](pi/README.md): Pi-specific notes used by this repo.
 - [Skill/extension router pattern](skill-extension-router-pattern.md): consolidate rare workflow skills behind one router with lazy-loaded playbooks and optional selector commands.
 - [Querying cmux help](cmux/help-querying.md): how agents should revalidate fast-changing cmux CLI behavior.
-- [asdl exec commands](asdl-exec/README.md): deterministic command boundaries for skills and agents.
+- [Retired Python `asdl exec` commands](asdl-exec/README.md): disposition notes and TypeScript replacement pointers for the former root exec surface.
 - [GitHub gateway conformance fixtures](github-gateway-conformance-fixtures.md): live GitHub fixture policy.
 - [GitHub Actions remote code authoring](remote-code-authoring-github-actions.md): ground-truth Erk survey and design lessons for using workflow dispatch as a remote agent authoring substrate.
 - [Internal PR stack address workflow retrospective](internal-pr-stack-address-retrospective.md): analysis of the stack-wide feedback workflow, with evidence and CLI push-down recommendations.

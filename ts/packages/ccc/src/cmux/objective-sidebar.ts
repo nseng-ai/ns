@@ -250,15 +250,15 @@ export async function applyObjectiveSidebarFields(
 	];
 	let result: ExecResult;
 	try {
-		result = await pi.exec("asdl", args, { cwd, timeout: CMUX_WORKSPACE_SUMMARY_TIMEOUT_MS });
+		result = await pi.exec("ccc", args, { cwd, timeout: CMUX_WORKSPACE_SUMMARY_TIMEOUT_MS });
 	} catch (error) {
 		return {
 			type: "failed",
-			message: formatStartupFailure("Could not apply cmux Objective sidebar.", "asdl", args, error),
+			message: formatStartupFailure("Could not apply cmux Objective sidebar.", "ccc", args, error),
 		};
 	}
 
-	const commandDisplay = formatCommand("asdl", args);
+	const commandDisplay = formatCommand("ccc", args);
 	if (result.killed || result.code !== 0) {
 		return {
 			type: "failed",

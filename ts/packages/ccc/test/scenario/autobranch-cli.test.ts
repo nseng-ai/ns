@@ -41,6 +41,29 @@ class AutobranchCommandFake implements CommandExecApi {
 	}
 }
 
+interface RecordedCommand {
+	command: string;
+	args: string[];
+	options?: ExecOptions | undefined;
+}
+
+class CmuxCommandFake implements CommandExecApi {
+	readonly events: RecordedCommand[] = [];
+	private readonly failedCommand: string | undefined;
+
+	constructor(failedCommand?: string) {
+		this.failedCommand = failedCommand;
+	}
+
+	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
+		this.events.push({ command, args: [...args], options });
+		if (args.join(" ") === this.failedCommand) {
+			return { stdout: "", stderr: "workspace not found", code: 2, killed: false };
+		}
+		return { stdout: "", stderr: "", code: 0, killed: false };
+	}
+}
+
 function runWithFakes(args: readonly string[], options: FakeOptions = {}): CliRun {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
@@ -101,6 +124,124 @@ describe("ccc CLI", () => {
 			"Run hidden deterministic CCC operations for agents.",
 		);
 		expect(output(execHelp).stdout).toContain("autobranch");
+		expect(output(execHelp).stdout).toContain("cmux-workspace-summary");
+	});
+
+	test("cmux workspace summary applies title, description, and status through ccc exec", async () => {
+		const stdout: string[] = [];
+		const stderr: string[] = [];
+		const commands = new CmuxCommandFake();
+		const exit = await runCli(
+			[
+				"exec",
+				"cmux-workspace-summary",
+				"--title",
+				"Ship cmux summary command",
+				"--description",
+				"Goal: Add a project-local Pi command that labels this cmux workspace.",
+				"--format",
+				"json",
+			],
+			{
+				cwd: "/repo",
+				env: { PATH: "/bin", CMUX_WORKSPACE_ID: "workspace:16", CMUX_TAB_ID: "workspace:tab" },
+				commands,
+				stdout: (text) => stdout.push(text),
+				stderr: (text) => stderr.push(text),
+			},
+		);
+
+		expect(exit).toBe(0);
+		expect(stderr.join("")).toBe("");
+		expect(JSON.parse(stdout.join(""))).toEqual({
+			exit_code: 0,
+			data: {
+				success: true,
+				workspace: "workspace:16",
+				title: "Ship cmux summary command",
+				description: "Goal: Add a project-local Pi command that labels this cmux workspace.",
+				status_key: "pi-summary",
+				error: null,
+			},
+		});
+		expect(commands.events.map((event) => [event.command, event.args])).toEqual([
+			["cmux", ["workspace", "rename", "workspace:16", "--title", "Ship cmux summary command"]],
+			[
+				"cmux",
+				[
+					"workspace-action",
+					"--workspace",
+					"workspace:16",
+					"--action",
+					"set-description",
+					"--description",
+					"Goal: Add a project-local Pi command that labels this cmux workspace.",
+				],
+			],
+			["cmux", ["clear-status", "pi-summary", "--workspace", "workspace:16"]],
+		]);
+	});
+
+	test("cmux workspace summary reports validation and command failures as JSON", async () => {
+		const missingStdout: string[] = [];
+		const missingStderr: string[] = [];
+		const missing = await runCli(
+			["exec", "cmux-workspace-summary", "--title", "Missing description", "--format", "json"],
+			{
+				cwd: "/repo",
+				env: { PATH: "/bin", CMUX_WORKSPACE_ID: "workspace:16" },
+				commands: new CmuxCommandFake(),
+				stdout: (text) => missingStdout.push(text),
+				stderr: (text) => missingStderr.push(text),
+			},
+		);
+
+		expect(missing).toBe(1);
+		expect(missingStderr.join("")).toBe("");
+		expect(JSON.parse(missingStdout.join(""))).toMatchObject({
+			exit_code: 1,
+			message: "Provide --description.",
+			data: { success: false, error: { code: "missing_description" } },
+		});
+
+		const failedStdout: string[] = [];
+		const failed = await runCli(
+			[
+				"exec",
+				"cmux-workspace-summary",
+				"--workspace",
+				"workspace:16",
+				"--title",
+				"fail",
+				"--description",
+				"Goal: Test failure.",
+				"--format",
+				"json",
+			],
+			{
+				cwd: "/repo",
+				env: { PATH: "/bin" },
+				commands: new CmuxCommandFake("workspace rename workspace:16 --title fail"),
+				stdout: (text) => failedStdout.push(text),
+				stderr: () => undefined,
+			},
+		);
+
+		expect(failed).toBe(1);
+		expect(JSON.parse(failedStdout.join(""))).toMatchObject({
+			exit_code: 1,
+			data: {
+				success: false,
+				error: {
+					code: "rename_workspace_failed",
+					command_failure: {
+						command: ["cmux", "workspace", "rename", "workspace:16", "--title", "fail"],
+						exit_code: 2,
+						stderr: "workspace not found",
+					},
+				},
+			},
+		});
 	});
 
 	test("autobranch help documents slug, Graphite, latest-commit behavior, and json schema", async () => {

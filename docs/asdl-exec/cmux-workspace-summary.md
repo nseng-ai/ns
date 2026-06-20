@@ -1,13 +1,13 @@
-# `asdl exec cmux-workspace-summary`
+# `ccc exec cmux-workspace-summary`
 
-`asdl exec cmux-workspace-summary` is the deterministic command boundary for applying compact cmux sidebar/workspace-card metadata. It exists so Pi skills and agents do not hand-write the cmux mutation sequence.
+`ccc exec cmux-workspace-summary` is the deterministic CCC-owned command boundary for applying compact cmux sidebar/workspace-card metadata. The former Python `asdl exec cmux-workspace-summary` command is retired.
 
 ## Command
 
-Use a direct one-line `Goal:` description:
+Use a direct one-line `Goal:` or `State:` description:
 
 ```bash
-asdl exec cmux-workspace-summary \
+ccc exec cmux-workspace-summary \
   --title "$title" \
   --description "Goal: ..." \
   --format json
@@ -19,10 +19,10 @@ asdl exec cmux-workspace-summary \
 
 The current Pi skill enforces these limits by prompt instruction before calling the command:
 
-| Field           | Limit         | Meaning                             |
-| --------------- | ------------- | ----------------------------------- |
-| `--title`       | 45 characters | Short action/object workspace title |
-| `--description` | 1 short line  | Tooltip text: `Goal: ...`           |
+| Field           | Limit         | Meaning                                      |
+| --------------- | ------------- | -------------------------------------------- |
+| `--title`       | 45 characters | Short action/objective/state workspace title |
+| `--description` | 1 short line  | Tooltip text: `Goal: ...` or `State: ...`    |
 
 The command trusts those fields and applies them. It does not perform deterministic length validation.
 
@@ -46,7 +46,7 @@ Use `--format json` for skills and agents. Successful output has `exit_code: 0` 
   "data": {
     "success": true,
     "workspace": "workspace-or-uuid",
-    "title": "Ship exec-based cmux summary",
+    "title": "summary:cmux-sidebar",
     "description": "Goal: ...",
     "status_key": "pi-summary",
     "error": null
@@ -79,7 +79,7 @@ For cmux command failures, `error.command_failure` records the command argv, exi
 
 ## Test surface
 
-The command is covered through root CLI scenario tests in `tests/scenario/test_cli.py` using `FakeCmuxGateway`. The fake lives at `src/asdl_tools/cmux/testing.py`; the real CLI gateway lives at `src/asdl_tools/cmux/gateway.py`.
+The command is covered through CCC TypeScript CLI scenario tests in `ts/packages/ccc/test/scenario/autobranch-cli.test.ts` and direct Objective-sidebar tests in `ts/packages/ccc/test/cmux-objective-sidebar.test.ts`.
 
 When extending this command, preserve tests for:
 
@@ -88,15 +88,15 @@ When extending this command, preserve tests for:
 - missing workspace;
 - missing description;
 - cmux command failure details;
-- hidden but invocable root `asdl exec` group.
+- hidden but invocable `ccc exec` group.
 
 ## Future single-command direction
 
-The current skill still asks the model to call this one command. If the goal is “the agent writes no bash,” move another layer into the Pi extension:
+The PR sidebar skill still asks the model to call this one command. If the goal is “the agent writes no bash,” move another layer into the Pi extension:
 
 1. Have the extension call a fast model directly for structured JSON fields.
 2. Parse/validate the JSON in TypeScript.
-3. Invoke `asdl exec cmux-workspace-summary` via `pi.exec("asdl", [...])` with argv, not shell.
+3. Invoke `ccc exec cmux-workspace-summary` via `pi.exec("ccc", [...])` with argv, not shell.
 4. Render the resulting JSON envelope in the extension.
 
 That keeps semantic summarization in a model while making quoting, cmux targeting, and command execution fully deterministic.

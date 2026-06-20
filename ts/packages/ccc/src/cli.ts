@@ -15,6 +15,12 @@ import {
 } from "./autobranch/checkpoint.ts";
 import { createAutobranchCheckpointFlow, type AutobranchFlowInput } from "./autobranch/flow.ts";
 import type { ParsedAutobranchArgs } from "./autobranch/preparation.ts";
+import {
+	applyCmuxWorkspaceSummaryCommand,
+	cmuxWorkspaceSummaryRequestSchema,
+	cmuxWorkspaceSummaryResultSchema,
+	renderCmuxWorkspaceSummaryHuman,
+} from "./cmux/workspace-summary.ts";
 
 const VERSION = "0.1.0";
 export const AUTOBRANCH_SUMMARY =
@@ -67,6 +73,15 @@ export function buildCli(): ClinkrGroup<CccCliContext> {
 		description: "Run hidden deterministic CCC operations for agents.",
 		isHidden: true,
 	});
+	execGroup.command({
+		name: "cmux-workspace-summary",
+		summary: "Apply generated cmux workspace title and description fields.",
+		description: "Apply generated cmux workspace title and description fields.",
+		schema: cmuxWorkspaceSummaryRequestSchema,
+		resultSchema: cmuxWorkspaceSummaryResultSchema,
+		handler: handleCmuxWorkspaceSummary,
+		renderHuman: renderCmuxWorkspaceSummaryHuman,
+	});
 	execGroup.command(
 		rawCommand({
 			name: "autobranch",
@@ -108,6 +123,18 @@ export async function runCli(args: readonly string[], deps: CccCliDeps = {}): Pr
 	};
 	const io = resolveIo({ stdout, stderr });
 	return buildCli().run(args, { context, io });
+}
+
+async function handleCmuxWorkspaceSummary(
+	ctx: CccCliContext,
+	request: z.output<typeof cmuxWorkspaceSummaryRequestSchema>,
+) {
+	return applyCmuxWorkspaceSummaryCommand({
+		request,
+		commands: ctx.commands,
+		cwd: ctx.cwd,
+		env: ctx.env,
+	});
 }
 
 async function handleAutobranch(ctx: CccCliContext, request: AutobranchRequest): Promise<number> {

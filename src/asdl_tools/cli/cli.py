@@ -10,7 +10,6 @@ from asdl_tools.cli.plugins import (
     PluginEntryPointSource,
     discover_plugins,
 )
-from asdl_tools.exec.group import build_exec_group
 
 
 class AsdlRootGroup(click.Group):
@@ -57,7 +56,6 @@ def build_cli(
         del ctx
 
     add_runtime_option(cli, runtime="python", entry_point="asdl_tools.cli.cli:main")
-    cli.add_command(build_exec_group())
     return cli
 
 

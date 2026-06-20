@@ -381,7 +381,7 @@ export function objectiveReadStep(slug: string): ScriptedExec {
 
 export function cmuxSummaryStep(title: string, description: string): ScriptedExec {
 	return step(
-		"asdl",
+		"ccc",
 		[
 			"exec",
 			"cmux-workspace-summary",

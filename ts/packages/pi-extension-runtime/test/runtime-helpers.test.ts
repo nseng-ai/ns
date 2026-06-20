@@ -16,9 +16,9 @@ import type { CommandContext, ExecResult } from "../src/cmux/types.ts";
 
 describe("pi extension runtime helpers", () => {
 	test("formats command displays with shell quoting", () => {
-		expect(
-			formatCommand("asdl", ["exec", "cmux-workspace-summary", "--title", "hello world"]),
-		).toBe("asdl exec cmux-workspace-summary --title 'hello world'");
+		expect(formatCommand("ccc", ["exec", "cmux-workspace-summary", "--title", "hello world"])).toBe(
+			"ccc exec cmux-workspace-summary --title 'hello world'",
+		);
 	});
 
 	test("parses successful machine-envelope data", () => {
