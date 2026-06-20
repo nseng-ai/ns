@@ -13,6 +13,7 @@ import {
 	type ClaimProjectSpec,
 	type NpmClaimProjectSpec,
 } from "./claim.ts";
+import type { PackagechkIo } from "./io.ts";
 import { type RegistryCheckResult } from "./models.ts";
 import { type NpmPublishGateway, type PypiPublishGateway } from "./publish-gateways.ts";
 import { type PackageRegistryGateway } from "./registry-gateways.ts";
@@ -40,34 +41,35 @@ type ClaimRequest = z.output<typeof claimRequestSchema>;
 type ClaimRegistry = "pypi" | "npm";
 type ClaimRegistryLabel = "PyPI" | "npm";
 
-export interface ClaimCommandIo {
-	stdout(text: string): void;
-	stderr(text: string): void;
-	stdin(): Promise<string>;
+interface ClaimDryRunData {
+	registryLabel: ClaimRegistryLabel;
+	packageName: string;
+	lookupName?: string;
+	version: string;
+	description: string;
+	extraLines: readonly string[];
+	files: readonly ClaimProjectFile[];
+	dryRunCommands: readonly string[];
+	urlLine: string;
+}
+
+interface ClaimViewData {
+	noun: "project" | "package";
+	url: string;
 }
 
 interface ClaimPlan {
-	packageName: string;
 	lookupName: string;
-	version: string;
-	description: string;
-	packageUrl: string;
-	extraLines: readonly string[];
 	files: readonly ClaimProjectFile[];
-	execute(projectDir: string, io: ClaimCommandIo): number | null;
-}
-
-interface ClaimRegistryDescriptor {
-	dryRunCommands: readonly string[];
-	urlLineLabel: string;
-	viewLineLabel: string;
+	dryRun: ClaimDryRunData;
+	view: ClaimViewData;
+	execute(projectDir: string, io: PackagechkIo): number | null;
 }
 
 interface ClaimPolicy {
 	registry: ClaimRegistry;
 	label: ClaimRegistryLabel;
 	tempDirPrefix: string;
-	descriptor: ClaimRegistryDescriptor;
 	validate(name: string): string | null;
 	precheck(name: string): Promise<RegistryCheckResult>;
 	ensurePublishToolsAvailable(): string | null;
@@ -77,7 +79,7 @@ interface ClaimPolicy {
 export async function runClaimCommand(options: {
 	request: ClaimRequest;
 	policy: ClaimPolicy;
-	io: ClaimCommandIo;
+	io: PackagechkIo;
 }): Promise<number> {
 	const { request, policy, io } = options;
 	const isDryRun = request.dryRun === true;
@@ -92,7 +94,7 @@ export async function runClaimCommand(options: {
 	}
 	const checkResult = shouldUsePrecheckValidation ? await policy.precheck(request.name) : undefined;
 	if (checkResult !== undefined) {
-		const exitCode = emitPrecheckFailureExitCode(policy.registry, checkResult, io);
+		const exitCode = precheckExitCode(policy.registry, checkResult, io);
 		if (exitCode !== null) return exitCode;
 		if (checkResult.lookupName !== request.name) {
 			io.stderr(`${policy.label} lookup name: ${checkResult.lookupName}\n`);
@@ -104,13 +106,10 @@ export async function runClaimCommand(options: {
 		claimVersion: request.version,
 	});
 	if (isDryRun) {
-		renderClaimDryRun({
-			io,
-			registryLabel: policy.label,
-			descriptor: policy.descriptor,
-			plan,
-			skipCheck: shouldSkipCheck,
-		});
+		const availabilityLine = shouldSkipCheck
+			? "Availability check: skipped (--skip-check)"
+			: `Availability check: would check ${plan.dryRun.registryLabel} before publishing`;
+		renderClaimDryRun({ io, ...plan.dryRun, availabilityLine });
 		return 0;
 	}
 	if (checkResult === undefined && plan.lookupName !== request.name) {
@@ -129,13 +128,14 @@ export async function runClaimCommand(options: {
 	}
 	const projectDir = mkdtempSync(join(tmpdir(), policy.tempDirPrefix));
 	try {
+		writeClaimFiles(projectDir, plan.files);
 		const publishExitCode = plan.execute(projectDir, io);
 		if (publishExitCode !== null) return publishExitCode;
 	} finally {
 		rmSync(projectDir, { recursive: true, force: true });
 	}
 	io.stderr(`✓ Claimed ${policy.label} package name '${request.name}'.\n`);
-	io.stderr(`${policy.descriptor.viewLineLabel}: ${plan.packageUrl}\n`);
+	io.stderr(`View ${plan.view.noun}: ${plan.view.url}\n`);
 	return 0;
 }
 
@@ -147,11 +147,6 @@ export function buildPypiClaimPolicy(ctx: {
 		registry: "pypi",
 		label: "PyPI",
 		tempDirPrefix: "packagechk-claim-pypi-",
-		descriptor: {
-			dryRunCommands: ["uv build", "uvx uv-publish <artifacts>"],
-			urlLineLabel: "PyPI URL",
-			viewLineLabel: "View project",
-		},
 		validate: pypiValidationError,
 		precheck: (name) => ctx.registryGateway.check("pypi", name),
 		ensurePublishToolsAvailable: () => ctx.pypiPublishGateway.ensurePublishToolsAvailable(),
@@ -167,11 +162,6 @@ export function buildNpmClaimPolicy(ctx: {
 		registry: "npm",
 		label: "npm",
 		tempDirPrefix: "packagechk-claim-npm-",
-		descriptor: {
-			dryRunCommands: ["npm publish --access=public"],
-			urlLineLabel: "npm URL",
-			viewLineLabel: "View package",
-		},
 		validate: npmValidationError,
 		precheck: (name) => ctx.registryGateway.check("npm", name),
 		ensurePublishToolsAvailable: () => ctx.npmPublishGateway.ensurePublishToolsAvailable(),
@@ -191,15 +181,23 @@ function preparePypiClaimPlan(
 		version: input.claimVersion,
 	};
 	const files = buildClaimProjectFiles(spec);
+	const projectUrl = pypiProjectUrl(lookupName);
 	return {
-		packageName: spec.packageName,
 		lookupName,
-		version: spec.version,
-		description: spec.description,
-		packageUrl: pypiProjectUrl(lookupName),
-		extraLines: [`Module name: ${spec.moduleName}`],
 		files,
-		execute: (projectDir, io) => executePypiClaimPlan({ projectDir, files, gateway, io }),
+		dryRun: {
+			registryLabel: "PyPI",
+			packageName: spec.packageName,
+			lookupName,
+			version: spec.version,
+			description: spec.description,
+			extraLines: [`Module name: ${spec.moduleName}`],
+			files,
+			dryRunCommands: ["uv build", "uvx uv-publish <artifacts>"],
+			urlLine: `PyPI URL: ${projectUrl}`,
+		},
+		view: { noun: "project", url: projectUrl },
+		execute: (projectDir, io) => executePypiClaimPlan({ projectDir, gateway, io }),
 	};
 }
 
@@ -214,25 +212,30 @@ function prepareNpmClaimPlan(
 		license: DEFAULT_NPM_CLAIM_LICENSE,
 	};
 	const files = buildNpmClaimProjectFiles(spec);
+	const packageUrl = npmPackagePageUrl(input.name);
 	return {
-		packageName: spec.packageName,
 		lookupName: input.name,
-		version: spec.version,
-		description: spec.description,
-		packageUrl: npmPackagePageUrl(input.name),
-		extraLines: [`License: ${spec.license}`],
 		files,
-		execute: (projectDir, io) => executeNpmClaimPlan({ projectDir, files, gateway, io }),
+		dryRun: {
+			registryLabel: "npm",
+			packageName: spec.packageName,
+			version: spec.version,
+			description: spec.description,
+			extraLines: [`License: ${spec.license}`],
+			files,
+			dryRunCommands: ["npm publish --access=public"],
+			urlLine: `npm URL: ${packageUrl}`,
+		},
+		view: { noun: "package", url: packageUrl },
+		execute: (projectDir, io) => executeNpmClaimPlan({ projectDir, gateway, io }),
 	};
 }
 
 function executePypiClaimPlan(options: {
 	projectDir: string;
-	files: readonly ClaimProjectFile[];
 	gateway: PypiPublishGateway;
-	io: ClaimCommandIo;
+	io: PackagechkIo;
 }): number | null {
-	writeClaimFiles(options.projectDir, options.files);
 	options.io.stderr("Building placeholder package with uv build...\n");
 	const buildResult = options.gateway.buildPackage(options.projectDir);
 	if ("error" in buildResult) {
@@ -254,11 +257,9 @@ function executePypiClaimPlan(options: {
 
 function executeNpmClaimPlan(options: {
 	projectDir: string;
-	files: readonly ClaimProjectFile[];
 	gateway: NpmPublishGateway;
-	io: ClaimCommandIo;
+	io: PackagechkIo;
 }): number | null {
-	writeClaimFiles(options.projectDir, options.files);
 	options.io.stderr("Publishing placeholder package with npm publish...\n");
 	const publishError = options.gateway.publishProject(options.projectDir);
 	if (publishError !== null) {
@@ -268,10 +269,10 @@ function executeNpmClaimPlan(options: {
 	return null;
 }
 
-function emitPrecheckFailureExitCode(
+function precheckExitCode(
 	registry: ClaimRegistry,
 	result: RegistryCheckResult,
-	io: ClaimCommandIo,
+	io: PackagechkIo,
 ): number | null {
 	if (result.status === "taken") {
 		io.stderr(`${registry}: taken: ${result.message}\n`);
@@ -285,44 +286,40 @@ function emitPrecheckFailureExitCode(
 	return null;
 }
 
-function renderClaimDryRun(options: {
-	io: ClaimCommandIo;
-	registryLabel: ClaimRegistryLabel;
-	descriptor: ClaimRegistryDescriptor;
-	plan: ClaimPlan;
-	skipCheck: boolean;
-}): void {
+function renderClaimDryRun(
+	options: ClaimDryRunData & {
+		io: PackagechkIo;
+		availabilityLine: string;
+	},
+): void {
 	options.io.stderr(
-		`[DRY RUN] Would claim ${options.registryLabel} package name '${options.plan.packageName}'.\n`,
+		`[DRY RUN] Would claim ${options.registryLabel} package name '${options.packageName}'.\n`,
 	);
-	options.io.stderr(`Package name: ${options.plan.packageName}\n`);
-	if (options.plan.lookupName !== options.plan.packageName) {
-		options.io.stderr(`${options.registryLabel} lookup name: ${options.plan.lookupName}\n`);
+	options.io.stderr(`Package name: ${options.packageName}\n`);
+	if (options.lookupName !== undefined && options.lookupName !== options.packageName) {
+		options.io.stderr(`${options.registryLabel} lookup name: ${options.lookupName}\n`);
 	}
-	options.io.stderr(`Version: ${options.plan.version}\n`);
-	options.io.stderr(`Description: ${options.plan.description}\n`);
-	for (const line of options.plan.extraLines) {
+	options.io.stderr(`Version: ${options.version}\n`);
+	options.io.stderr(`Description: ${options.description}\n`);
+	for (const line of options.extraLines) {
 		options.io.stderr(`${line}\n`);
 	}
-	const availabilityLine = options.skipCheck
-		? "Availability check: skipped (--skip-check)"
-		: `Availability check: would check ${options.registryLabel} before publishing`;
-	options.io.stderr(`${availabilityLine}\n`);
+	options.io.stderr(`${options.availabilityLine}\n`);
 	options.io.stderr("Would create a temporary placeholder project directory\n");
-	for (const file of options.plan.files) {
+	for (const file of options.files) {
 		options.io.stderr(`Would write: ${file.relativePath}\n`);
 	}
-	for (const command of options.descriptor.dryRunCommands) {
+	for (const command of options.dryRunCommands) {
 		options.io.stderr(`Would run: ${command}\n`);
 	}
-	options.io.stderr(`${options.descriptor.urlLineLabel}: ${options.plan.packageUrl}\n`);
+	options.io.stderr(`${options.urlLine}\n`);
 }
 
 async function confirmRealPublish(
 	registryLabel: ClaimRegistryLabel,
 	packageName: string,
 	version: string,
-	io: ClaimCommandIo,
+	io: PackagechkIo,
 ): Promise<boolean> {
 	io.stderr(`Warning: this will publish a real package to ${registryLabel}.\n`);
 	io.stderr(`Package: ${packageName} (${version})\n`);
