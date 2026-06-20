@@ -18,7 +18,7 @@ import {
 	type NpmClaimProjectSpec,
 } from "./claim.ts";
 import { checkPackageName, registrySelection } from "./check.ts";
-import type { CheckStatus, Registry, RegistryCheckResult } from "./models.ts";
+import { REGISTRIES, type CheckStatus, type Registry, type RegistryCheckResult } from "./models.ts";
 import { reportExitCode, renderHuman, renderJson } from "./output.ts";
 import {
 	RealNpmPublishGateway,
@@ -32,7 +32,7 @@ import { normalizePypiName, npmValidationError, pypiValidationError } from "./va
 
 export const VERSION = "0.1.0";
 
-const REGISTRY_CHOICES: readonly Registry[] = ["pypi", "npm", "brew"];
+const REGISTRY_USAGE = REGISTRIES.join("|");
 const DEFAULT_CLAIM_VERSION = "0.0.1";
 const DEFAULT_CLAIM_DESCRIPTION = "Claimed package name";
 const DEFAULT_NPM_CLAIM_LICENSE = "MIT";
@@ -105,14 +105,12 @@ interface ClaimPolicy<TSpec> {
 export function buildCli(): ClinkrGroup<PackagechkCliContext> {
 	const root = new ClinkrGroup<PackagechkCliContext>({
 		name: "packagechk",
-		description:
-			"Check whether a package name is available to claim.\n\nDefault check path: packagechk NAME [--registry pypi|npm|brew] [--json].",
+		description: `Check whether a package name is available to claim.\n\nDefault check path: packagechk NAME [--registry ${REGISTRY_USAGE}] [--json].`,
 		version: VERSION,
 		runtimeInfo,
 	});
 
 	root.defaultCommand({
-		description: "Check whether a package name is available to claim.",
 		schema: checkRequestSchema,
 		positionals: { name: { position: 0 } },
 		isRawExit: true,
@@ -354,14 +352,14 @@ function buildNpmClaimPolicy(ctx: PackagechkCliContext): ClaimPolicy<NpmClaimPro
 function parseRegistryOptions(options: readonly string[]): Registry[] | string {
 	const registries: Registry[] = [];
 	for (const option of options) {
-		if (!isRegistry(option)) return `error: --registry: expected one of pypi, npm, brew`;
+		if (!isRegistry(option)) return `error: --registry: expected one of ${REGISTRIES.join(", ")}`;
 		registries.push(option);
 	}
 	return registries;
 }
 
 function isRegistry(value: string): value is Registry {
-	return REGISTRY_CHOICES.includes(value as Registry);
+	return REGISTRIES.includes(value as Registry);
 }
 
 function precheckExitCode(

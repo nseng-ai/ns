@@ -1,10 +1,13 @@
+import {
+	REGISTRIES,
+	type PackageCheckReport,
+	type Registry,
+	type RegistryCheckResult,
+} from "./models.ts";
 import type { PackageRegistryGateway } from "./registry-gateways.ts";
-import type { PackageCheckReport, Registry, RegistryCheckResult } from "./models.ts";
-
-export const DEFAULT_REGISTRIES: readonly Registry[] = ["pypi", "npm", "brew"];
 
 export function registrySelection(registryOptions: readonly Registry[]): readonly Registry[] {
-	return registryOptions.length === 0 ? DEFAULT_REGISTRIES : [...registryOptions];
+	return registryOptions.length === 0 ? REGISTRIES : [...registryOptions];
 }
 
 export async function checkPackageName(options: {
@@ -12,16 +15,15 @@ export async function checkPackageName(options: {
 	registries: readonly Registry[];
 	registryGateway: PackageRegistryGateway;
 }): Promise<PackageCheckReport> {
-	const results: RegistryCheckResult[] = [];
-	for (const registry of options.registries) {
-		results.push(
-			await checkRegistry({
+	const results = await Promise.all(
+		options.registries.map((registry) =>
+			checkRegistry({
 				packageName: options.packageName,
 				registry,
 				registryGateway: options.registryGateway,
 			}),
-		);
-	}
+		),
+	);
 	return { inputName: options.packageName, results };
 }
 

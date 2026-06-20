@@ -16,6 +16,9 @@ describe("packagechk CLI", () => {
 		expect(help.code).toBe(0);
 		expect(help.stdout).toContain("Usage: packagechk");
 		expect(help.stdout).toContain("Check whether a package name is available to claim.");
+		expect(help.stdout).toContain(
+			"Default check path: packagechk NAME [--registry pypi|npm|brew] [--json].",
+		);
 		expect(help.stdout).toContain("--runtime");
 		expect(help.stdout).toContain("--registry");
 		expect(help.stdout).toContain("--json");
