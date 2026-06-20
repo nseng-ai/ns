@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { Worker as ThreadWorker } from "node:worker_threads";
+import { Worker } from "node:worker_threads";
 
 import {
 	classifySqliteJsonResult,
@@ -263,7 +263,7 @@ export function loadGraphiteMetadataStatus(
 }
 
 function createGraphiteMetadataWorker(): GraphiteMetadataWorkerHandle {
-	const worker = new ThreadWorker(new URL("./graphite-metadata-worker.ts", import.meta.url), {
+	const worker = new Worker(new URL("./graphite-metadata-worker.ts", import.meta.url), {
 		execArgv: [],
 	});
 	const handle: GraphiteMetadataWorkerHandle = {

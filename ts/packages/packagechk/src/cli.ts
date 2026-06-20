@@ -5,7 +5,7 @@ import process from "node:process";
 import {
 	ClinkrGroup,
 	createClinkrInteraction,
-	resolveIo as resolveClinkrIo,
+	resolveIo,
 	type ClinkrInteraction,
 } from "@asdl/clinkr";
 import { rawCommand } from "@asdl/clinkr/raw";
@@ -113,7 +113,7 @@ export function buildCli(): ClinkrGroup<PackagechkCliContext> {
 }
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
-	const clinkrIo = resolveClinkrIo({ stdout: deps.stdout, stderr: deps.stderr });
+	const clinkrIo = resolveIo({ stdout: deps.stdout, stderr: deps.stderr });
 	const io: PackagechkIo = clinkrIo;
 	const context: PackagechkCliContext = {
 		registryGateway: deps.registryGateway ?? new RealPackageRegistryGateway(),

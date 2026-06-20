@@ -3,7 +3,7 @@ import { formatErrorMessage } from "@asdl/core/primitives";
 import {
 	HANDOFF_KEY_SUFFIX,
 	HANDOFF_NAMESPACE,
-	handoffKeyToSlug as handoffSlug,
+	handoffKeyToSlug,
 	isHandoffKey,
 } from "@asdl/handoff/identity";
 
@@ -201,7 +201,7 @@ function parseHandoffSummaryItems(handoffs: unknown[]): HandoffItemsParseResult 
 			continue;
 		}
 		seen.add(identity);
-		items.push({ branch: handoff.branch, key: handoff.key, slug: handoffSlug(handoff.key) });
+		items.push({ branch: handoff.branch, key: handoff.key, slug: handoffKeyToSlug(handoff.key) });
 	}
 
 	return { type: "valid", items };
@@ -227,7 +227,7 @@ function parseLegacyBrmemEntryItems(
 			continue;
 		}
 		seen.add(identity);
-		items.push({ branch, key: entry.key, slug: handoffSlug(entry.key) });
+		items.push({ branch, key: entry.key, slug: handoffKeyToSlug(entry.key) });
 	}
 
 	return { type: "valid", items: sortHandoffItems(items) };
@@ -298,7 +298,7 @@ export function buildPickupHandoffPrompt(branch: string, key: string, artifact: 
 	return `Read this handoff artifact as active context for the session and present a concise handoff summary to the user.
 
 Branch: ${branch}
-Handoff: ${handoffSlug(key)}
+Handoff: ${handoffKeyToSlug(key)}
 
 Technical locator:
 - Namespace: ${HANDOFF_NAMESPACE}
@@ -360,7 +360,7 @@ function splitSelectorTerms(selector: string[]): string[] {
 }
 
 function handoffKeyTokens(key: string): string[] {
-	return splitSelectorTerms([handoffSlug(key)]);
+	return splitSelectorTerms([handoffKeyToSlug(key)]);
 }
 
 export async function handlePickupHandoffCommand(
@@ -434,7 +434,7 @@ export async function handlePickupHandoffCommand(
 	}
 
 	let artifact: string;
-	setStatus(ctx, PICKUP_HANDOFF_COMMAND_NAME, `reading ${handoffSlug(selectedKey)}…`);
+	setStatus(ctx, PICKUP_HANDOFF_COMMAND_NAME, `reading ${handoffKeyToSlug(selectedKey)}…`);
 	try {
 		artifact = await readHandoff(pi, ctx, branch, selectedKey);
 	} catch (error) {
@@ -445,7 +445,10 @@ export async function handlePickupHandoffCommand(
 	}
 
 	if (ctx.hasUI) {
-		ctx.ui.notify(`Picked up handoff ${handoffSlug(selectedKey)} from branch ${branch}.`, "info");
+		ctx.ui.notify(
+			`Picked up handoff ${handoffKeyToSlug(selectedKey)} from branch ${branch}.`,
+			"info",
+		);
 	}
 	pi.sendUserMessage(buildPickupHandoffPrompt(branch, selectedKey, artifact));
 }

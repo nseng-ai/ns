@@ -11,7 +11,7 @@ export type {
 	TextGenerationResult,
 } from "./text-generation.ts";
 
-export interface ExecOptions {
+export interface SdlExecOptions {
 	timeoutMs?: number;
 	stdin?: string | undefined;
 	onStdout?: ((text: string) => void) | undefined;
@@ -34,7 +34,7 @@ export interface SdlContext {
 	/** Environment visible to SDL commands and shell execution. */
 	env: Record<string, string | undefined>;
 	/** Low-level argv execution hook. Project commands own the exact commands they run. */
-	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
+	exec(command: string, args: string[], options?: SdlExecOptions): Promise<ExecResult>;
 	/** Raw text-generation capability; SDL commands own prompts, validation, and repair policy. */
 	model: TextGenerationGateway;
 	/** Durable output for commands that need to stream multiple chunks before returning. */

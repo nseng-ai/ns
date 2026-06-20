@@ -40,12 +40,12 @@ export function makeTurn(index: number, overrides: Partial<LiveTurn> = {}): Live
 }
 
 /** Turns at exactly these indices — gaps model an elided (capped-out) middle. */
-export function makeTurns(indices: readonly number[]): LiveTurn[] {
+export function makeTurnsAtIndices(indices: readonly number[]): LiveTurn[] {
 	return indices.map((index) => makeTurn(index));
 }
 
 export function sequentialTurns(count: number): LiveTurn[] {
-	return makeTurns(Array.from({ length: count }, (_unused, position) => position + 1));
+	return makeTurnsAtIndices(Array.from({ length: count }, (_unused, position) => position + 1));
 }
 
 export function makeProfile(

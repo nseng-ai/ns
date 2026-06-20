@@ -2,8 +2,8 @@
  * Lookup helpers for JSON payload artifacts.
  */
 
-import * as fs from "node:fs";
-import * as path from "node:path";
+import { lstatSync, readFileSync, type Stats } from "node:fs";
+import { basename, dirname, isAbsolute } from "node:path";
 
 import { PayloadError } from "./errors.ts";
 import { PAYLOAD_FILENAME_PATTERN } from "./filename.ts";
@@ -86,7 +86,7 @@ export function readJsonPayloadArtifact(
 	validateJsonPayloadArtifactPath(payloadPath, { allowedRoles: roles });
 	let content: string;
 	try {
-		content = fs.readFileSync(payloadPath, "utf-8");
+		content = readFileSync(payloadPath, "utf-8");
 	} catch (error) {
 		throw new PayloadError(
 			"payload_lookup_failed",
@@ -178,15 +178,15 @@ function validateJsonPayloadArtifactPath(
 	payloadPath: string,
 	options: { allowedRoles: ReadonlySet<string> },
 ): void {
-	if (!path.isAbsolute(payloadPath)) {
+	if (!isAbsolute(payloadPath)) {
 		throw new PayloadError(
 			"payload_lookup_failed",
 			`Payload artifact path must be absolute: ${payloadPath}`,
 		);
 	}
-	let stats: fs.Stats;
+	let stats: Stats;
 	try {
-		stats = fs.lstatSync(payloadPath);
+		stats = lstatSync(payloadPath);
 	} catch (error) {
 		if ((error as NodeJS.ErrnoException).code === "ENOENT") {
 			throw new PayloadError(
@@ -212,28 +212,28 @@ function validateJsonPayloadArtifactPath(
 			`Payload artifact path must be a regular file: ${payloadPath}`,
 		);
 	}
-	if (path.basename(path.dirname(payloadPath)) !== "payloads") {
+	if (basename(dirname(payloadPath)) !== "payloads") {
 		throw new PayloadError(
 			"payload_lookup_failed",
 			`Payload artifact must live under a payloads directory: ${payloadPath}`,
 		);
 	}
 
-	const sessionId = path.basename(path.dirname(path.dirname(payloadPath)));
+	const sessionId = basename(dirname(dirname(payloadPath)));
 	if (!isSafeSegment(sessionId)) {
 		throw new PayloadError(
 			"payload_lookup_failed",
 			`Payload artifact session id must be a safe segment: ${JSON.stringify(sessionId)}`,
 		);
 	}
-	if (path.basename(path.dirname(path.dirname(path.dirname(payloadPath)))) !== "sessions") {
+	if (basename(dirname(dirname(dirname(payloadPath)))) !== "sessions") {
 		throw new PayloadError(
 			"payload_lookup_failed",
 			`Payload artifact must live under sessions/<session-id>/payloads: ${payloadPath}`,
 		);
 	}
 
-	const filename = path.basename(payloadPath);
+	const filename = basename(payloadPath);
 	const match = PAYLOAD_FILENAME_PATTERN.exec(filename);
 	if (match === null || match.groups === undefined) {
 		throw new PayloadError(

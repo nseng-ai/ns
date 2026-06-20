@@ -1,9 +1,9 @@
 import {
-	addRunnerSubagentUsageCostTotals,
-	addRunnerSubagentUsageTotals,
+	addRuntimeRunnerSubagentUsageCostTotals,
+	addRuntimeRunnerSubagentUsageTotals,
 	parseRunnerSubagentUsageJsonl,
-	type RunnerSubagentUsageCostTotals as RuntimeRunnerSubagentUsageCostTotals,
-	type RunnerSubagentUsageTotals as RuntimeRunnerSubagentUsageTotals,
+	type RuntimeRunnerSubagentUsageCostTotals,
+	type RuntimeRunnerSubagentUsageTotals,
 } from "@asdl/pi-extension-runtime/runner-subagent-usage";
 
 import { formatErrorMessage } from "@asdl/core/primitives";
@@ -70,8 +70,8 @@ function usageMetadataFromSessionJsonl(
 	let tokens = zeroRuntimeTokens();
 	let cost = zeroRuntimeCost();
 	for (const record of parsed.records) {
-		tokens = addRunnerSubagentUsageTotals(tokens, record.tokens);
-		cost = addRunnerSubagentUsageCostTotals(cost, record.cost);
+		tokens = addRuntimeRunnerSubagentUsageTotals(tokens, record.tokens);
+		cost = addRuntimeRunnerSubagentUsageCostTotals(cost, record.cost);
 	}
 
 	return {

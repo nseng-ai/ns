@@ -15,8 +15,8 @@ import {
 	runListEntryToJson,
 } from "./reports.ts";
 import { listBundles, readBundle, resolveStoreRoot, VibechkError } from "./store.ts";
-import type { GitGateway } from "./git.ts";
-import { RealGitGateway } from "./git.ts";
+import type { VibechkGitGateway } from "./git.ts";
+import { RealVibechkGitGateway } from "./git.ts";
 import { buildProductionRunnerRegistry, type RunnerRegistry } from "./runners.ts";
 import { generateRunId } from "./ids.ts";
 import { executeRun } from "./workflow.ts";
@@ -29,7 +29,7 @@ export interface CliDeps {
 	stdout?: ((text: string) => void) | undefined;
 	stderr?: ((text: string) => void) | undefined;
 	runnerRegistry?: RunnerRegistry | undefined;
-	gitGatewayFactory?: ((workdir: string) => GitGateway) | undefined;
+	gitGatewayFactory?: ((workdir: string) => VibechkGitGateway) | undefined;
 	clock?: (() => Date) | undefined;
 	idGenerator?: (() => string) | undefined;
 	defaultRunnerName?: string | undefined;
@@ -39,7 +39,7 @@ interface VibechkCliContext {
 	cwd: string;
 	env: NodeJS.ProcessEnv;
 	runnerRegistry: RunnerRegistry;
-	gitGatewayFactory: (workdir: string) => GitGateway;
+	gitGatewayFactory: (workdir: string) => VibechkGitGateway;
 	clock: () => Date;
 	idGenerator: () => string;
 	defaultRunnerName: string;
@@ -217,7 +217,7 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 	const env = deps.env ?? process.env;
 	const runnerRegistry = deps.runnerRegistry ?? buildProductionRunnerRegistry();
 	const gitGatewayFactory =
-		deps.gitGatewayFactory ?? ((workdir: string) => new RealGitGateway(workdir));
+		deps.gitGatewayFactory ?? ((workdir: string) => new RealVibechkGitGateway(workdir));
 	const clock = deps.clock ?? (() => new Date());
 	const idGenerator = deps.idGenerator ?? generateRunId;
 	const defaultRunnerName = deps.defaultRunnerName ?? "claude";

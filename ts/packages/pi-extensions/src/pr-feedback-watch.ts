@@ -1,10 +1,7 @@
 import { accessSync, constants } from "node:fs";
 import { join } from "node:path";
 
-import {
-	githubPrIdentityFromUrl,
-	type GithubPrIdentity as CoreGithubPrIdentity,
-} from "@asdl/core/github-status";
+import { githubPrIdentityFromUrl, type GithubPrIdentity } from "@asdl/core/github-status";
 import { formatElapsedMs } from "@asdl/core/time-format";
 import { isRecord, stringField } from "./cmux/primitives.ts";
 import { parseMachineEnvelopeData } from "./machine-envelope.ts";
@@ -76,7 +73,7 @@ export interface IgnoredFeedbackItem {
 	reason: IgnoredFeedbackReason;
 }
 
-export interface GithubPrIdentity extends CoreGithubPrIdentity {
+export interface PrFeedbackWatchGithubPrIdentity extends GithubPrIdentity {
 	url?: string | undefined;
 }
 
@@ -148,7 +145,7 @@ interface ExecOptions {
 interface LoadRestFingerprintOptions {
 	pi: ExecGateway;
 	cwd: string;
-	identity: GithubPrIdentity;
+	identity: PrFeedbackWatchGithubPrIdentity;
 	sinceIso?: string | undefined;
 	signal?: AbortSignal | undefined;
 }
@@ -504,7 +501,7 @@ export function feedbackItemKeysFromFingerprint(
 export function parseGitHubPullRequestUrl(
 	url: string | undefined,
 	fallbackNumber: number | undefined,
-): GithubPrIdentity | undefined {
+): PrFeedbackWatchGithubPrIdentity | undefined {
 	if (url === undefined) return undefined;
 	const identity = githubPrIdentityFromUrl(url, fallbackNumber);
 	return identity === undefined ? undefined : { ...identity, url };
@@ -694,7 +691,7 @@ class PrFeedbackWatchController {
 	private hasNotifiedDirtyPause = false;
 	private hasNotifiedRestFailure = false;
 	private headRefOid: string | undefined;
-	private githubPrIdentity: GithubPrIdentity | undefined;
+	private githubPrIdentity: PrFeedbackWatchGithubPrIdentity | undefined;
 	private lastRestFingerprintKey: string | undefined;
 	private restSinceIso: string | undefined;
 	private lastHeavyFallbackAt = 0;
@@ -1619,7 +1616,7 @@ function formatUnknownError(error: unknown): string {
 }
 
 function discussionCommentsEndpoint(
-	identity: GithubPrIdentity,
+	identity: PrFeedbackWatchGithubPrIdentity,
 	sinceIso: string | undefined,
 ): string {
 	return buildGitHubRestEndpoint(
@@ -1628,14 +1625,17 @@ function discussionCommentsEndpoint(
 	);
 }
 
-function reviewsEndpoint(identity: GithubPrIdentity): string {
+function reviewsEndpoint(identity: PrFeedbackWatchGithubPrIdentity): string {
 	return buildGitHubRestEndpoint(
 		`repos/${identity.owner}/${identity.repo}/pulls/${identity.number}/reviews`,
 		{ per_page: 100 },
 	);
 }
 
-function reviewCommentsEndpoint(identity: GithubPrIdentity, sinceIso: string | undefined): string {
+function reviewCommentsEndpoint(
+	identity: PrFeedbackWatchGithubPrIdentity,
+	sinceIso: string | undefined,
+): string {
 	return buildGitHubRestEndpoint(
 		`repos/${identity.owner}/${identity.repo}/pulls/${identity.number}/comments`,
 		{ per_page: 100, sort: "updated", direction: "desc", since: sinceIso },

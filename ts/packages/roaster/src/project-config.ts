@@ -1,5 +1,5 @@
 import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
-import { parse as parseToml } from "smol-toml";
+import { parse } from "smol-toml";
 
 export interface RoasterDiffProjectConfig {
 	readonly exclude: readonly string[];
@@ -33,7 +33,7 @@ export function parseRoasterProjectConfigToml(
 ): ProjectConfigParseResult {
 	let data: unknown;
 	try {
-		data = parseToml(source);
+		data = parse(source);
 	} catch (error) {
 		return failure(
 			"invalid_toml",

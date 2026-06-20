@@ -1,4 +1,4 @@
-import type * as PiAi from "@earendil-works/pi-ai";
+import type { Api, completeSimple, Model } from "@earendil-works/pi-ai";
 
 import { formatErrorMessage } from "@asdl/core/primitives";
 
@@ -12,15 +12,15 @@ const DEFAULT_MAX_TOKENS = 512;
 const DEFAULT_REASONING = "low";
 const DEFAULT_TIMEOUT_MS = 120_000;
 
-type CompleteSimpleFunction = typeof PiAi.completeSimple;
+type CompleteSimpleFunction = typeof completeSimple;
 
 type ModelAuth =
 	| { ok: true; apiKey?: string; headers?: Record<string, string> }
 	| { ok: false; error: string };
 
 export interface PiModelRegistry {
-	find(provider: string, modelId: string): PiAi.Model<PiAi.Api> | undefined;
-	getApiKeyAndHeaders(model: PiAi.Model<PiAi.Api>): Promise<ModelAuth>;
+	find(provider: string, modelId: string): Model<Api> | undefined;
+	getApiKeyAndHeaders(model: Model<Api>): Promise<ModelAuth>;
 }
 
 export interface PiTextGenerationGatewayOptions {

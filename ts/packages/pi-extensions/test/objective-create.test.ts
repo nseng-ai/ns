@@ -7,7 +7,7 @@ import { describe, expect, test } from "vitest";
 import objectiveExtension, {
 	type CommandContext,
 	type ExecResult,
-	type ExtensionAPI,
+	type ObjectiveExtensionAPI,
 	type NotifyLevel,
 } from "../src/objective.ts";
 
@@ -23,16 +23,16 @@ hidden-frontmatter-token: do-not-include
 Create one Objective.
 `;
 
-type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
+type RegisteredCommand = Parameters<ObjectiveExtensionAPI["registerCommand"]>[1];
 
-type CommandInfo = ReturnType<ExtensionAPI["getCommands"]>[number];
+type CommandInfo = ReturnType<ObjectiveExtensionAPI["getCommands"]>[number];
 
 interface Notification {
 	message: string;
 	level: NotifyLevel | undefined;
 }
 
-class FakePi implements ExtensionAPI {
+class FakePi implements ObjectiveExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly sentUserMessages: string[] = [];
 	readonly execCalls: Array<{ command: string; args: string[]; options: unknown }> = [];

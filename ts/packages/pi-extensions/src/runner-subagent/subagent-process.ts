@@ -1,6 +1,6 @@
-import { spawn as nodeSpawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { existsSync as nodeExistsSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
@@ -214,13 +214,13 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		...(launch === undefined ? {} : { launch }),
 	});
 	const invocation = resolvePiInvocation(childArgs, dependencies);
-	const spawn = dependencies.spawn ?? defaultSpawnChildProcess;
+	const spawnChildProcess = dependencies.spawn ?? defaultSpawnChildProcess;
 	const timers = dependencies.timers ?? systemTimerScheduler;
 	const killTimeoutMs = dependencies.killTimeoutMs ?? DEFAULT_KILL_TIMEOUT_MS;
 
 	let child: SpawnedChildProcess;
 	try {
-		child = spawn(invocation.command, invocation.args, {
+		child = spawnChildProcess(invocation.command, invocation.args, {
 			cwd,
 			shell: false,
 			stdio: ["ignore", "pipe", "pipe"],
@@ -482,10 +482,10 @@ export function resolvePiInvocation(
 ): PiInvocation {
 	const processArgv = dependencies.processArgv ?? process.argv;
 	const processExecPath = dependencies.processExecPath ?? process.execPath;
-	const existsSync = dependencies.existsSync ?? nodeExistsSync;
+	const pathExists = dependencies.existsSync ?? existsSync;
 	const currentScript = processArgv[1];
 
-	if (currentScript && isSafelyDiscoverablePiScript(currentScript) && existsSync(currentScript)) {
+	if (currentScript && isSafelyDiscoverablePiScript(currentScript) && pathExists(currentScript)) {
 		return { command: processExecPath, args: [currentScript, ...args] };
 	}
 
@@ -704,7 +704,7 @@ function defaultSpawnChildProcess(
 	args: string[],
 	options: SpawnChildProcessOptions,
 ): SpawnedChildProcess {
-	return nodeSpawn(command, args, options);
+	return spawn(command, args, options);
 }
 
 function defaultReadSessionFile(sessionFile: string): Promise<string> {

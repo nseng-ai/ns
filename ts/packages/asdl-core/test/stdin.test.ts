@@ -1,5 +1,5 @@
 import { PassThrough } from "node:stream";
-import { setTimeout as delay } from "node:timers/promises";
+import { setTimeout } from "node:timers/promises";
 
 import { describe, expect, test } from "vitest";
 
@@ -13,7 +13,7 @@ describe("readStdinLine", () => {
 		try {
 			input.write("yes\n");
 
-			const result = await Promise.race([line, delay(100).then(() => "timed_out" as const)]);
+			const result = await Promise.race([line, setTimeout(100).then(() => "timed_out" as const)]);
 			expect(result).toBe("yes");
 		} finally {
 			input.destroy();

@@ -2,7 +2,7 @@ import { join } from "node:path";
 
 import { runCli } from "@asdl/sdl/cli";
 import type {
-	ExecOptions,
+	SdlExecOptions,
 	ExecResult,
 	SdlConfirmPrompt,
 	SdlContext,
@@ -20,7 +20,7 @@ export interface ScriptedExecResponse {
 export interface ExecCall {
 	command: string;
 	args: string[];
-	options: ExecOptions | undefined;
+	options: SdlExecOptions | undefined;
 }
 
 export interface TestState {
@@ -70,7 +70,7 @@ export class ScriptedSdlTestContext implements SdlContext {
 		this.confirm = state.confirm;
 	}
 
-	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
+	async exec(command: string, args: string[], options?: SdlExecOptions): Promise<ExecResult> {
 		const call = { command, args: [...args], options };
 		this.execCalls.push(call);
 		const index = this.execResponses.findIndex((response) => responseMatches(response.match, call));

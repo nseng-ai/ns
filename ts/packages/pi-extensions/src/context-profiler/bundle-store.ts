@@ -1,4 +1,4 @@
-import { promises as fs } from "node:fs";
+import { link, mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
 	EPISODES_FILE_NAME,
@@ -58,7 +58,7 @@ class FsBundleStore implements BundleStore {
 	}): Promise<WriteEpisodesFileResult> {
 		try {
 			const manifestPath = path.join(options.bundleDir, MANIFEST_FILE_NAME);
-			const manifestText = await fs.readFile(manifestPath, "utf8");
+			const manifestText = await readFile(manifestPath, "utf8");
 			if (!bundleManifestReadSchema.safeParse(JSON.parse(manifestText)).success) {
 				return {
 					ok: false,
@@ -75,20 +75,20 @@ class FsBundleStore implements BundleStore {
 			`.episodes.${process.pid}.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`,
 		);
 		try {
-			await fs.writeFile(tempPath, options.json, "utf8");
+			await writeFile(tempPath, options.json, "utf8");
 			try {
-				await fs.link(tempPath, finalPath);
+				await link(tempPath, finalPath);
 			} catch (error) {
 				if (isAlreadyExists(error)) {
-					await fs.rm(tempPath, { force: true });
+					await rm(tempPath, { force: true });
 					return { ok: true, isAlreadyPresent: true };
 				}
 				throw error;
 			}
-			await fs.rm(tempPath, { force: true });
+			await rm(tempPath, { force: true });
 			return { ok: true, isAlreadyPresent: false };
 		} catch (error) {
-			await fs.rm(tempPath, { force: true }).catch(() => undefined);
+			await rm(tempPath, { force: true }).catch(() => undefined);
 			return { ok: false, error: { code: "io-error", message: errorMessage(error) } };
 		}
 	}
@@ -109,7 +109,7 @@ class FsBundleStore implements BundleStore {
 
 	private async persistBundleNow(snapshot: BundleSnapshot): Promise<PersistBundleResult> {
 		try {
-			await fs.mkdir(this.rootDir, { recursive: true });
+			await mkdir(this.rootDir, { recursive: true });
 			const numericOrdinals = await this.listNumericOrdinals();
 			const committed = await this.listCommittedBundles(numericOrdinals);
 			const latest = committed.at(-1) ?? null;
@@ -135,18 +135,14 @@ class FsBundleStore implements BundleStore {
 				`.tmp-${ordinal}-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
 			);
 			const manifestJson = `${JSON.stringify(snapshot.manifest, null, 2)}\n`;
-			await fs.mkdir(tempDir, { recursive: false });
+			await mkdir(tempDir, { recursive: false });
 			try {
-				await fs.writeFile(path.join(tempDir, MESSAGES_FILE_NAME), snapshot.messagesJsonl, "utf8");
-				await fs.writeFile(
-					path.join(tempDir, SYSTEM_PROMPT_FILE_NAME),
-					snapshot.systemPrompt,
-					"utf8",
-				);
-				await fs.writeFile(path.join(tempDir, MANIFEST_FILE_NAME), manifestJson, "utf8");
-				await fs.rename(tempDir, dir);
+				await writeFile(path.join(tempDir, MESSAGES_FILE_NAME), snapshot.messagesJsonl, "utf8");
+				await writeFile(path.join(tempDir, SYSTEM_PROMPT_FILE_NAME), snapshot.systemPrompt, "utf8");
+				await writeFile(path.join(tempDir, MANIFEST_FILE_NAME), manifestJson, "utf8");
+				await rename(tempDir, dir);
 			} catch (error) {
-				await fs.rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
+				await rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
 				throw error;
 			}
 			const byteSize =
@@ -170,12 +166,10 @@ class FsBundleStore implements BundleStore {
 	}
 
 	private async listNumericOrdinals(): Promise<number[]> {
-		const entries = await fs
-			.readdir(this.rootDir, { withFileTypes: true })
-			.catch((error: unknown) => {
-				if (isNotFound(error)) return [];
-				throw error;
-			});
+		const entries = await readdir(this.rootDir, { withFileTypes: true }).catch((error: unknown) => {
+			if (isNotFound(error)) return [];
+			throw error;
+		});
 		return entries
 			.filter((entry) => entry.isDirectory() && /^\d+$/.test(entry.name))
 			.map((entry) => Number.parseInt(entry.name, 10))
@@ -196,7 +190,7 @@ class FsBundleStore implements BundleStore {
 
 async function readManifest(manifestPath: string): Promise<BundleManifestSummary | null> {
 	try {
-		const parsed = JSON.parse(await fs.readFile(manifestPath, "utf8")) as unknown;
+		const parsed = JSON.parse(await readFile(manifestPath, "utf8")) as unknown;
 		const result = bundleManifestReadSchema.safeParse(parsed);
 		if (!result.success) return null;
 		return result.data;
@@ -215,7 +209,7 @@ async function committedBundleByteSize(dir: string): Promise<number> {
 	let total = 0;
 	for (const file of files) {
 		try {
-			total += (await fs.stat(path.join(dir, file))).size;
+			total += (await stat(path.join(dir, file))).size;
 		} catch (error) {
 			if (!isNotFound(error)) throw error;
 		}

@@ -3,7 +3,7 @@ import {
 	formatCommandFailure,
 	formatOutputSection,
 	isSuccessfulExecResult,
-	type ExecResult as CoreExecResult,
+	type ExecResult,
 } from "@asdl/core/exec";
 import { planLocalBranchRefreshFromWorktrees } from "@asdl/core/git";
 
@@ -31,7 +31,7 @@ export const trunkPullParity = definePiSurfaceParity([
 
 type NotifyLevel = "info" | "warning" | "error";
 
-export type ExecResult = CoreExecResult;
+export type { ExecResult } from "@asdl/core/exec";
 
 export interface CommandContext {
 	cwd: string;

@@ -8,7 +8,7 @@ import objectiveExtension, {
 	parseObjectiveListArgs,
 	type CommandContext,
 	type ExecResult,
-	type ExtensionAPI,
+	type ObjectiveExtensionAPI,
 	type NotifyLevel,
 } from "../src/objective.ts";
 import type { AgentEndContext, ExecOptions, SessionStartContext } from "../src/cmux/types.ts";
@@ -30,8 +30,8 @@ const ACTION_PROMPTS: Record<ObjectiveCommandName, string> = {
 	"objective:update": "Run objective-update for this explicitly selected Objective slug or path:",
 };
 
-type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
-type CommandInfo = ReturnType<ExtensionAPI["getCommands"]>[number];
+type RegisteredCommand = Parameters<ObjectiveExtensionAPI["registerCommand"]>[1];
+type CommandInfo = ReturnType<ObjectiveExtensionAPI["getCommands"]>[number];
 
 interface ExecCall {
 	command: string;
@@ -60,14 +60,14 @@ type EventName = "agent_end" | "session_start";
 type AgentEndHandler = (_event: unknown, ctx: AgentEndContext) => Promise<void> | void;
 type SessionStartHandler = (_event: unknown, ctx: SessionStartContext) => Promise<void> | void;
 
-class FakePi implements ExtensionAPI {
+class FakePi implements ObjectiveExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly execCalls: ExecCall[] = [];
 	readonly errors: string[] = [];
-	readonly sentMessages: Parameters<NonNullable<ExtensionAPI["sendMessage"]>>[0][] = [];
+	readonly sentMessages: Parameters<NonNullable<ObjectiveExtensionAPI["sendMessage"]>>[0][] = [];
 	readonly sentUserMessages: string[] = [];
 	private readonly script: ScriptedExec[];
-	private readonly commandInfos: ReturnType<ExtensionAPI["getCommands"]>;
+	private readonly commandInfos: ReturnType<ObjectiveExtensionAPI["getCommands"]>;
 	private readonly eventHandlers: Record<EventName, Array<AgentEndHandler | SessionStartHandler>> =
 		{
 			agent_end: [],
@@ -76,7 +76,7 @@ class FakePi implements ExtensionAPI {
 
 	constructor(
 		script: ScriptedExec[] = [],
-		commandInfos: ReturnType<ExtensionAPI["getCommands"]> = [],
+		commandInfos: ReturnType<ObjectiveExtensionAPI["getCommands"]> = [],
 	) {
 		this.script = [...script];
 		this.commandInfos = [...commandInfos];
@@ -114,11 +114,11 @@ class FakePi implements ExtensionAPI {
 		return execResult(expected.result);
 	}
 
-	getCommands(): ReturnType<ExtensionAPI["getCommands"]> {
+	getCommands(): ReturnType<ObjectiveExtensionAPI["getCommands"]> {
 		return this.commandInfos;
 	}
 
-	sendMessage(message: Parameters<NonNullable<ExtensionAPI["sendMessage"]>>[0]): void {
+	sendMessage(message: Parameters<NonNullable<ObjectiveExtensionAPI["sendMessage"]>>[0]): void {
 		this.sentMessages.push(message);
 	}
 

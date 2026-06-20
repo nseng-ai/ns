@@ -1,6 +1,6 @@
 import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
 import { err, type Result } from "@asdl/core/result";
-import { parse as parseToml } from "smol-toml";
+import { parse } from "smol-toml";
 
 import type { AregTextFileState } from "../gateways.ts";
 import { rejectTextState } from "./file-state.ts";
@@ -25,7 +25,7 @@ export function resolveProjectAgents(input: {
 export function parseAsdlAregAgents(text: string, pathLabel = "asdl.toml"): Result<string[]> {
 	let data: unknown;
 	try {
-		data = parseToml(text);
+		data = parse(text);
 	} catch (error) {
 		return err({
 			code: "asdl_toml_invalid",

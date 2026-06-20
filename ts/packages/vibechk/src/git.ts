@@ -6,8 +6,8 @@ import {
 	type ExecResult,
 } from "@asdl/core/exec";
 import {
-	RealGitGateway as CoreRealGitGateway,
-	type GitGateway as CoreGitGateway,
+	RealGitGateway,
+	type GitGateway,
 	type GitOperationResult,
 	type GitResult,
 } from "@asdl/core/git";
@@ -23,7 +23,7 @@ export interface GitProvenance {
 	remotes: Record<string, string>;
 }
 
-export interface GitGateway {
+export interface VibechkGitGateway {
 	repoRoot(): Promise<string>;
 	currentBranch(): Promise<string>;
 	currentCommit(): Promise<string>;
@@ -35,15 +35,15 @@ export interface GitGateway {
 	checkout(branch: string): Promise<void>;
 }
 
-export class RealGitGateway implements GitGateway {
+export class RealVibechkGitGateway implements VibechkGitGateway {
 	private readonly workdir: string;
 	private readonly execApi: CommandExecApi;
-	private readonly coreGit: CoreGitGateway;
+	private readonly coreGit: GitGateway;
 
 	constructor(workdir: string, execApi: CommandExecApi = new NodeCommandExecApi()) {
 		this.workdir = workdir;
 		this.execApi = execApi;
-		this.coreGit = new CoreRealGitGateway(execApi);
+		this.coreGit = new RealGitGateway(execApi);
 	}
 
 	async repoRoot(): Promise<string> {

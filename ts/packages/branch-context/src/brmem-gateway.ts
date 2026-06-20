@@ -8,7 +8,7 @@ import {
 	runAvailableBrmemCommand,
 	type BrmemCommandErrorInfo,
 	type BrmemCommandResult,
-	type BrmemPutData as CoreBrmemPutData,
+	type BrmemPutData,
 	type CompletedBrmemRun,
 } from "@asdl/core/brmem-cli";
 import { MAX_ERROR_CHARS, tailText, type CommandExecApi } from "@asdl/core/exec";
@@ -37,7 +37,7 @@ export interface AttachedPlanEntry {
 	refName: string;
 }
 
-export type BrmemPutData = CoreBrmemPutData;
+export type { BrmemPutData } from "@asdl/core/brmem-cli";
 
 export interface BrmemGetContent {
 	content: string;

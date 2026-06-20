@@ -1,4 +1,4 @@
-import * as path from "node:path";
+import { basename, isAbsolute, posix, relative, resolve, sep } from "node:path";
 
 import { formatCommand, formatOutputSection, tailText, type ExecResult } from "@asdl/core/exec";
 import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
@@ -91,7 +91,7 @@ export function resolveObjectiveSelector(
 		);
 	}
 
-	if (path.isAbsolute(trimmed)) {
+	if (isAbsolute(trimmed)) {
 		return resolveAbsoluteObjectiveSelector(trimmed, cwd);
 	}
 
@@ -223,7 +223,7 @@ export async function readCurrentBranchSlug(
 }
 
 export function slotSlugFromCwd(cwd: string): string {
-	return path.basename(path.resolve(cwd));
+	return basename(resolve(cwd));
 }
 
 export function formatObjectiveSidebarFields(input: ObjectiveSidebarFormatInput): SidebarFields {
@@ -293,24 +293,24 @@ function resolveAbsoluteObjectiveSelector(
 	selector: string,
 	cwd: string,
 ): ObjectiveSelectorParseResult {
-	const normalizedSelector = path.resolve(selector);
-	const activeRoot = path.resolve(cwd, ACTIVE_OBJECTIVE_ROOT);
-	const relative = path.relative(activeRoot, normalizedSelector);
-	if (relative.length === 0) {
+	const normalizedSelector = resolve(selector);
+	const activeRoot = resolve(cwd, ACTIVE_OBJECTIVE_ROOT);
+	const relativePath = relative(activeRoot, normalizedSelector);
+	if (relativePath.length === 0) {
 		return invalidSelector("Pass an Objective slug or path below .asdl/objectives/<slug>.");
 	}
-	if (relative.startsWith("..") || path.isAbsolute(relative)) {
+	if (relativePath.startsWith("..") || isAbsolute(relativePath)) {
 		return invalidSelector(
 			"Objective path must be inside the current repo's .asdl/objectives directory.",
 		);
 	}
 
-	const slug = relative.split(path.sep)[0];
+	const slug = relativePath.split(sep)[0];
 	return validSlugSelector(slug ?? "");
 }
 
 function resolveRepoRelativeObjectiveSelector(selector: string): ObjectiveSelectorParseResult {
-	const normalized = path.posix.normalize(selector);
+	const normalized = posix.normalize(selector);
 	if (
 		normalized === ARCHIVE_OBJECTIVE_ROOT ||
 		normalized.startsWith(`${ARCHIVE_OBJECTIVE_ROOT}/`)
@@ -326,8 +326,8 @@ function resolveRepoRelativeObjectiveSelector(selector: string): ObjectiveSelect
 		return invalidSelector("Pass an Objective slug or .asdl/objectives/<slug> path.");
 	}
 
-	const relative = normalized.slice(ACTIVE_OBJECTIVE_PREFIX.length);
-	const slug = relative.split("/")[0] ?? "";
+	const relativePath = normalized.slice(ACTIVE_OBJECTIVE_PREFIX.length);
+	const slug = relativePath.split("/")[0] ?? "";
 	return validSlugSelector(slug);
 }
 

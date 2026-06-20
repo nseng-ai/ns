@@ -1,4 +1,4 @@
-import type * as PiAi from "@earendil-works/pi-ai";
+import type { Api, completeSimple, Model } from "@earendil-works/pi-ai";
 
 export type PiModelAuth =
 	| { ok: true; apiKey?: string; headers?: Record<string, string> }
@@ -9,7 +9,7 @@ export interface PiModelRegistryLike {
 	getApiKeyAndHeaders(model: unknown): Promise<PiModelAuth>;
 }
 
-export type CompleteSimpleFunction = typeof PiAi.completeSimple;
+export type CompleteSimpleFunction = typeof completeSimple;
 
 export type PiModelCallFailureReason =
 	| "model-unavailable"
@@ -46,7 +46,7 @@ export async function callPiModelText(options: CallPiModelTextOptions): Promise<
 	try {
 		const completeFn = options.completeFn ?? (await loadCompleteSimple());
 		const response = await completeFn(
-			model as PiAi.Model<PiAi.Api>,
+			model as Model<Api>,
 			{
 				systemPrompt: options.systemPrompt,
 				messages: [

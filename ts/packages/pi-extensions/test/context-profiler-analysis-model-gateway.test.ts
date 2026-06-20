@@ -1,6 +1,12 @@
 import { describe, expect, test } from "vitest";
 
-import type * as PiAi from "@earendil-works/pi-ai";
+import type {
+	AssistantMessage,
+	completeSimple,
+	Context,
+	SimpleStreamOptions,
+	Usage,
+} from "@earendil-works/pi-ai";
 import { EPISODE_ANALYSIS_SYSTEM_PROMPT } from "../src/context-profiler/analysis.ts";
 import {
 	createCodexAnalysisModelGateway,
@@ -12,7 +18,7 @@ import {
 	SEGMENTATION_SYSTEM_PROMPT,
 } from "../src/context-profiler/segmentation.ts";
 
-type CompleteSimpleFunction = typeof PiAi.completeSimple;
+type CompleteSimpleFunction = typeof completeSimple;
 
 const MODEL_TOKEN = { id: "fake-model" };
 
@@ -38,7 +44,7 @@ function makeRegistry(state: FakeRegistryState = {}): AnalysisModelRegistry {
 	};
 }
 
-const ZERO_USAGE: PiAi.Usage = {
+const ZERO_USAGE: Usage = {
 	input: 0,
 	output: 0,
 	cacheRead: 0,
@@ -48,8 +54,8 @@ const ZERO_USAGE: PiAi.Usage = {
 };
 
 function makeResponse(
-	overrides: Partial<Pick<PiAi.AssistantMessage, "stopReason" | "errorMessage" | "content">>,
-): PiAi.AssistantMessage {
+	overrides: Partial<Pick<AssistantMessage, "stopReason" | "errorMessage" | "content">>,
+): AssistantMessage {
 	return {
 		role: "assistant",
 		api: "fake-api",
@@ -63,7 +69,7 @@ function makeResponse(
 	};
 }
 
-function completeWith(response: PiAi.AssistantMessage): CompleteSimpleFunction {
+function completeWith(response: AssistantMessage): CompleteSimpleFunction {
 	return (() => Promise.resolve(response)) as CompleteSimpleFunction;
 }
 
@@ -160,12 +166,8 @@ describe("createCodexAnalysisModelGateway", () => {
 	});
 
 	test("returns validated-but-unrepaired segmentation and sends the payload verbatim", async () => {
-		const seen: { context?: PiAi.Context; options?: PiAi.SimpleStreamOptions } = {};
-		const completeFn = ((
-			_model: unknown,
-			context: PiAi.Context,
-			options?: PiAi.SimpleStreamOptions,
-		) => {
+		const seen: { context?: Context; options?: SimpleStreamOptions } = {};
+		const completeFn = ((_model: unknown, context: Context, options?: SimpleStreamOptions) => {
 			seen.context = context;
 			if (options !== undefined) seen.options = options;
 			return Promise.resolve(makeResponse({ content: [{ type: "text", text: VALID_TEXT }] }));
@@ -198,8 +200,8 @@ describe("createCodexAnalysisModelGateway", () => {
 	});
 
 	test("returns validated episode analysis and sends the payload verbatim", async () => {
-		const seen: { context?: PiAi.Context } = {};
-		const completeFn = ((_model: unknown, context: PiAi.Context) => {
+		const seen: { context?: Context } = {};
+		const completeFn = ((_model: unknown, context: Context) => {
 			seen.context = context;
 			return Promise.resolve(
 				makeResponse({

@@ -23,7 +23,7 @@ import {
 	type LiveTurn,
 	type NormalizedMessage,
 } from "../src/context-profiler/model.ts";
-import { makeTurns as makeTurnsAtIndices } from "./context-profiler-fakes.ts";
+import { makeTurnsAtIndices } from "./context-profiler-fakes.ts";
 
 // Minimal but fully-typed SessionEntry message fixture: the derivation reads only
 // `type` and the message role/content, but the literal still satisfies SessionEntry.

@@ -111,7 +111,7 @@ export interface CommandContext {
 	waitForIdle(): Promise<void>;
 }
 
-export interface ExtensionAPI {
+export interface CliCommandExtensionAPI {
 	readonly events?: PiExtensionCommandEventEmitter | undefined;
 	registerCommand(
 		name: string,
@@ -165,7 +165,10 @@ export function selectCliCommands<TCommand extends CliCommandInfo>(options: {
 	});
 }
 
-export function registerCliCommandExtension(pi: ExtensionAPI, spec: CliCommandExtensionSpec): void {
+export function registerCliCommandExtension(
+	pi: CliCommandExtensionAPI,
+	spec: CliCommandExtensionSpec,
+): void {
 	assertValidCommandSpec(spec);
 	pi.registerMessageRenderer?.(CLI_COMMAND_OUTPUT_MESSAGE_TYPE, renderCliCommandOutputMessage);
 	traceCliCommand("register", {
@@ -312,7 +315,7 @@ export function renderCliCommandOutputMessage(
 }
 
 interface RunRegisteredCliCommandOptions {
-	pi: ExtensionAPI;
+	pi: CliCommandExtensionAPI;
 	spec: CliCommandExtensionSpec;
 	command: CliCommandInfo;
 	piCommandName: string;
@@ -777,7 +780,7 @@ function truncateLiveProgressLine(text: string): string {
 }
 
 function emitCliCommandOutput(
-	pi: ExtensionAPI,
+	pi: CliCommandExtensionAPI,
 	ctx: CommandContext,
 	details: CliCommandOutputDetails,
 ): void {
@@ -904,11 +907,11 @@ function tracePreview(text: string): string {
 	return `${text.slice(0, TRACE_OUTPUT_PREVIEW_CHARS)}…`;
 }
 
-function hasSendMessage(pi: ExtensionAPI): boolean {
+function hasSendMessage(pi: CliCommandExtensionAPI): boolean {
 	return typeof pi.sendMessage === "function";
 }
 
-function hasMessageRenderer(pi: ExtensionAPI): boolean {
+function hasMessageRenderer(pi: CliCommandExtensionAPI): boolean {
 	return typeof pi.registerMessageRenderer === "function";
 }
 

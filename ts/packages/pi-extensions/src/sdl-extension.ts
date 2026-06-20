@@ -5,14 +5,14 @@ import autoslotExtension from "./autoslot.ts";
 import {
 	registerCliCommandExtension,
 	selectCliCommands,
-	type ExtensionAPI as CliExtensionAPI,
+	type CliCommandExtensionAPI,
 } from "./cli-command-extension.ts";
 import landExtension from "./land.ts";
 import { definePiSurfaceParity } from "./parity.ts";
 import pushExtension from "./push.ts";
 import trunkPullExtension from "./trunk-pull.ts";
 
-export type ExtensionAPI = CliExtensionAPI &
+export type SdlExtensionAPI = CliCommandExtensionAPI &
 	Parameters<typeof autobranchExtension>[0] &
 	Parameters<typeof autoslotExtension>[0] &
 	Parameters<typeof landExtension>[0] &
@@ -118,7 +118,7 @@ export const sdlExtensionParity = definePiSurfaceParity([
 	},
 ] as const);
 
-export default function sdlExtension(pi: ExtensionAPI): void {
+export default function sdlExtension(pi: SdlExtensionAPI): void {
 	const commands = selectSdlCommands(SDL_COMMAND_NAMES);
 	registerCliCommandExtension(pi, {
 		cliName: "sdl",

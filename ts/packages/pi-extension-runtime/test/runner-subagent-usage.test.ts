@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 
 import {
-	addRunnerSubagentUsageCostTotals,
-	addRunnerSubagentUsageTotals,
+	addRuntimeRunnerSubagentUsageCostTotals,
+	addRuntimeRunnerSubagentUsageTotals,
 	parseRunnerSubagentUsageJsonl,
 } from "../src/runner-subagent-usage.ts";
 
@@ -106,13 +106,13 @@ describe("runner subagent usage parsing", () => {
 
 	test("adds token and cost totals", () => {
 		expect(
-			addRunnerSubagentUsageTotals(
+			addRuntimeRunnerSubagentUsageTotals(
 				{ input: 1, output: 2, cacheRead: 3, cacheWrite: 4, totalTokens: 10 },
 				{ input: 5, output: 6, cacheRead: 7, cacheWrite: 8, totalTokens: 26 },
 			),
 		).toEqual({ input: 6, output: 8, cacheRead: 10, cacheWrite: 12, totalTokens: 36 });
 		expect(
-			addRunnerSubagentUsageCostTotals(
+			addRuntimeRunnerSubagentUsageCostTotals(
 				{ input: 0.1, output: 0.2, cacheRead: 0.3, cacheWrite: 0.4, total: 1 },
 				{ input: 0.5, output: 0.6, cacheRead: 0.7, cacheWrite: 0.8, total: 2.6 },
 			),

@@ -1,6 +1,6 @@
 import { splitMarkdownFrontmatter } from "@asdl/core/markdown-frontmatter";
 import { formatErrorMessage, formatZodError, isRecord } from "@asdl/core/primitives";
-import { parse as parseYaml } from "yaml";
+import { parse } from "yaml";
 
 import {
 	reviewDefinitionSchema,
@@ -51,7 +51,7 @@ export function parseReviewDefinition(
 
 	let parsedFrontmatter: unknown;
 	try {
-		parsedFrontmatter = parseYaml(split.frontmatterText);
+		parsedFrontmatter = parse(split.frontmatterText);
 	} catch (error) {
 		return failure(
 			"invalid_yaml",

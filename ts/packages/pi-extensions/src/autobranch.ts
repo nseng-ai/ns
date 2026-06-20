@@ -1,9 +1,12 @@
 import { AUTOBRANCH_SUMMARY, runCli } from "@asdl/ccc/cli";
 
-import { registerCliCommandExtension, type ExtensionAPI } from "./cli-command-extension.ts";
+import {
+	registerCliCommandExtension,
+	type CliCommandExtensionAPI,
+} from "./cli-command-extension.ts";
 import { definePiSurfaceParity } from "./parity.ts";
 
-export type { ExtensionAPI };
+export type { CliCommandExtensionAPI };
 
 export const autobranchParity = definePiSurfaceParity([
 	{
@@ -21,7 +24,7 @@ export const autobranchParity = definePiSurfaceParity([
 	},
 ] as const);
 
-export default function autobranchExtension(pi: ExtensionAPI): void {
+export default function autobranchExtension(pi: CliCommandExtensionAPI): void {
 	registerCliCommandExtension(pi, {
 		cliName: "ccc",
 		piNamespace: "sdl:code",

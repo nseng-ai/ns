@@ -1,6 +1,6 @@
 import type { CommandExecApi, CommandRunner, ExecOptions, ExecResult } from "@asdl/core/exec";
 
-import type { ExecOptions as SdlExecOptions, SdlContext } from "../sdk.ts";
+import type { SdlExecOptions, SdlContext } from "../sdk.ts";
 
 export function createSdlCommandRunner(ctx: SdlContext): CommandRunner {
 	return async (command, args, options) => {

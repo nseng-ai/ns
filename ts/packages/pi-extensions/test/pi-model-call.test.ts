@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type * as PiAi from "@earendil-works/pi-ai";
+import type { AssistantMessage, Context, SimpleStreamOptions, Usage } from "@earendil-works/pi-ai";
 import {
 	callPiModelText,
 	type CompleteSimpleFunction,
@@ -9,7 +9,7 @@ import {
 
 const MODEL_TOKEN = { id: "fake-model" };
 
-const ZERO_USAGE: PiAi.Usage = {
+const ZERO_USAGE: Usage = {
 	input: 0,
 	output: 0,
 	cacheRead: 0,
@@ -40,8 +40,8 @@ function makeRegistry(state: FakeRegistryState = {}): PiModelRegistryLike {
 }
 
 function makeResponse(
-	overrides: Partial<Pick<PiAi.AssistantMessage, "stopReason" | "errorMessage" | "content">>,
-): PiAi.AssistantMessage {
+	overrides: Partial<Pick<AssistantMessage, "stopReason" | "errorMessage" | "content">>,
+): AssistantMessage {
 	return {
 		role: "assistant",
 		api: "fake-api",
@@ -55,7 +55,7 @@ function makeResponse(
 	};
 }
 
-function completeWith(response: PiAi.AssistantMessage): CompleteSimpleFunction {
+function completeWith(response: AssistantMessage): CompleteSimpleFunction {
 	return (() => Promise.resolve(response)) as CompleteSimpleFunction;
 }
 
@@ -141,13 +141,8 @@ describe("callPiModelText", () => {
 
 	test("passes context and options through", async () => {
 		const controller = new AbortController();
-		const seen: { model?: unknown; context?: PiAi.Context; options?: PiAi.SimpleStreamOptions } =
-			{};
-		const completeFn = ((
-			model: unknown,
-			context: PiAi.Context,
-			options?: PiAi.SimpleStreamOptions,
-		) => {
+		const seen: { model?: unknown; context?: Context; options?: SimpleStreamOptions } = {};
+		const completeFn = ((model: unknown, context: Context, options?: SimpleStreamOptions) => {
 			seen.model = model;
 			seen.context = context;
 			if (options !== undefined) seen.options = options;

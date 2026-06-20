@@ -2,8 +2,8 @@
  * Payload root and session-id resolution helpers.
  */
 
-import * as os from "node:os";
-import * as path from "node:path";
+import { tmpdir } from "node:os";
+import { isAbsolute, join } from "node:path";
 
 import { PayloadError } from "./errors.ts";
 import { isSafeSegment } from "./segments.ts";
@@ -12,8 +12,8 @@ export const ASDL_PAYLOAD_ROOT_ENV = "ASDL_PAYLOAD_ROOT";
 export const ASDL_PAYLOAD_SESSION_ID_ENV = "ASDL_PAYLOAD_SESSION_ID";
 
 export function defaultPayloadRoot(options?: { tempDir?: string }): string {
-	const baseTempDir = options?.tempDir ?? os.tmpdir();
-	return path.join(baseTempDir, "asdl");
+	const baseTempDir = options?.tempDir ?? tmpdir();
+	return join(baseTempDir, "asdl");
 }
 
 export function resolvePayloadRoot(options?: {
@@ -28,7 +28,7 @@ export function resolvePayloadRoot(options?: {
 		);
 	}
 
-	if (path.isAbsolute(envValue)) {
+	if (isAbsolute(envValue)) {
 		return envValue;
 	}
 	throw new PayloadError(
