@@ -13,21 +13,21 @@
 
 ## Parked
 
-- [ ] (Relocated — ownership decision pending) `gh api -F`/`@` cursor file-read
-      primitive: the pagination helpers moved to
-      `asdl-core/github-pr-feedback/args.ts` (owned by
-      `pr-address-github-primitives`). `threadId` is already a raw `-f` field
-      (`args.ts:66`), but `threadCursor` (`args.ts:57`) and `commentCursor`
-      (`args.ts:42`, `args.ts:67`) still use `-F`. Outside this Objective's
-      `ts/packages/pr-address/src` boundary; track under the primitives Objective
-      or re-scope explicitly before acting (see objective.md Open Questions).
+- [x] (Resolved after relocated ownership decision) `gh api -F`/`@` cursor
+      file-read primitive: the pagination helpers moved to
+      `asdl-core/github-pr-feedback/args.ts`. The narrow cursor fix was applied
+      in that shared primitive owner: `threadCursor` and both `commentCursor`
+      variables now use raw `-f` GraphQL fields, while `owner={owner}`,
+      `repo={repo}`, and numeric `number` intentionally remain `-F`. Evidence:
+      focused `@asdl/core` check/test passed, broader TypeScript gates passed,
+      and tests pin an `@`-prefixed cursor literal.
 
 - [x] (Resolved in current ground truth) Stop silently dropping comments with
       unparseable ids: the extraction replaced `numericId`→`0`-then-filter with a
       Zod refinement (`withNumericGithubIdentity` /`numericGithubIdentity`,
-      `asdl-core/github-pr-feedback/schemas.ts:163-192`) that surfaces an
-      explicit parse error instead of dropping. Covered by `expectInvalidIdentity`
-      in `ts/packages/asdl-core/test/github-pr-feedback.test.ts`. No `id !== 0`
+      `asdl-core/github-pr-feedback/schemas.ts`) that surfaces an explicit parse
+      error instead of dropping. Covered by `expectInvalidIdentity` in
+      `ts/packages/asdl-core/test/github-pr-feedback.test.ts`. No `id !== 0`
       filter remains in either package.
 
 - [ ] (Retired with deleted surface) `read-feedback-detail --payload-path`
@@ -38,8 +38,7 @@
       single-op resolve idempotency on replay + characterization tests (audit
       findings #2/#3/#4/#5): the original mutation helpers in the legacy surface
       are gone. (Reply/resolve helpers later reappeared in the shared
-      `asdl-core` primitives using raw `-f` fields, owned by
-      `pr-address-github-primitives`.)
+      `asdl-core` primitives using raw `-f` fields.)
 
 - [ ] (Retired with deleted surface — strangler completed) Checkpoint-missing
       detection coupled to a message prefix and untested checkpoint-recovery

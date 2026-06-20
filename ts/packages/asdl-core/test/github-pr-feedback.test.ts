@@ -5,6 +5,11 @@ import { RealGithubPrFeedbackGateway } from "@asdl/core/github-pr-feedback";
 import { ScriptedCommandRunner, step } from "@asdl/core/testing";
 
 import {
+	discussionCommentPageArgs,
+	reviewThreadCommentPageArgs,
+	reviewThreadPageArgs,
+} from "../src/github-pr-feedback/args.ts";
+import {
 	discussionCommentsQuery,
 	replyToReviewThreadMutation,
 	resolveReviewThreadMutation,
@@ -90,6 +95,49 @@ async function expectInvalidResponse(
 }
 
 describe("RealGithubPrFeedbackGateway", () => {
+	test("passes pagination cursors as raw GraphQL fields", () => {
+		const cursor = "@/tmp/secret";
+
+		expect(reviewThreadPageArgs(12, cursor)).toEqual([
+			"api",
+			"graphql",
+			"-F",
+			"owner={owner}",
+			"-F",
+			"repo={repo}",
+			"-F",
+			"number=12",
+			"-f",
+			"threadCursor=@/tmp/secret",
+			"-f",
+			`query=${reviewThreadsQuery}`,
+		]);
+		expect(discussionCommentPageArgs(12, cursor)).toEqual([
+			"api",
+			"graphql",
+			"-F",
+			"owner={owner}",
+			"-F",
+			"repo={repo}",
+			"-F",
+			"number=12",
+			"-f",
+			"commentCursor=@/tmp/secret",
+			"-f",
+			`query=${discussionCommentsQuery}`,
+		]);
+		expect(reviewThreadCommentPageArgs("RT_thread1", cursor)).toEqual([
+			"api",
+			"graphql",
+			"-f",
+			"threadId=RT_thread1",
+			"-f",
+			"commentCursor=@/tmp/secret",
+			"-f",
+			`query=${reviewThreadCommentsQuery}`,
+		]);
+	});
+
 	test("looks up PRs and preserves lookup misses", async () => {
 		const foundArgs = [
 			"pr",
@@ -456,7 +504,7 @@ describe("RealGithubPrFeedbackGateway", () => {
 			"repo={repo}",
 			"-F",
 			"number=12",
-			"-F",
+			"-f",
 			"threadCursor=THREAD_CURSOR",
 			"-f",
 			`query=${reviewThreadsQuery}`,
@@ -466,7 +514,7 @@ describe("RealGithubPrFeedbackGateway", () => {
 			"graphql",
 			"-f",
 			"threadId=RT_thread1",
-			"-F",
+			"-f",
 			"commentCursor=COMMENT_CURSOR",
 			"-f",
 			`query=${reviewThreadCommentsQuery}`,
@@ -691,7 +739,7 @@ describe("RealGithubPrFeedbackGateway", () => {
 			"graphql",
 			"-f",
 			"threadId=RT_thread1",
-			"-F",
+			"-f",
 			"commentCursor=COMMENT_CURSOR",
 			"-f",
 			`query=${reviewThreadCommentsQuery}`,
@@ -866,7 +914,7 @@ describe("RealGithubPrFeedbackGateway", () => {
 			"repo={repo}",
 			"-F",
 			"number=12",
-			"-F",
+			"-f",
 			"commentCursor=COMMENT_CURSOR",
 			"-f",
 			`query=${discussionCommentsQuery}`,
