@@ -8,6 +8,7 @@ import {
 	commandFailureReason,
 	execApiToCommandRunner,
 	formatCommand,
+	formatCommandResultFailure,
 	formatCommandStartupFailure,
 	formatOutputSection,
 	formatShellArg,
@@ -171,6 +172,29 @@ describe("exec presentation helpers", () => {
 				"objective command failed (failed before completion).\n\nCommand: objective list",
 			),
 		).toBe(true);
+	});
+
+	test("formatCommandResultFailure formats failed exec results from command args", () => {
+		const failure = formatCommandResultFailure("publish failed", "npm", ["publish"], {
+			stdout: "",
+			stderr: "denied",
+			code: 1,
+			killed: false,
+		});
+		const startupFailure = formatCommandResultFailure("publish failed", "missing tool", [], {
+			stdout: "",
+			stderr: "",
+			code: 127,
+			killed: false,
+			startupError: "spawn missing tool ENOENT",
+		});
+
+		expect(failure).toContain("publish failed (exit code 1).");
+		expect(failure).toContain("Command: npm publish");
+		expect(failure).toContain("denied");
+		expect(startupFailure).toContain("publish failed (failed before completion).");
+		expect(startupFailure).toContain("Command: 'missing tool'");
+		expect(startupFailure).toContain("spawn missing tool ENOENT");
 	});
 });
 

@@ -16,6 +16,7 @@ import {
 } from "./claim.ts";
 import type { PackagechkIo } from "./io.ts";
 import { type RegistryCheckResult } from "./models.ts";
+import { formatRegistryStatusLine } from "./output.ts";
 import { type NpmPublishGateway, type PypiPublishGateway } from "./publish-gateways.ts";
 import { type PackageRegistryGateway } from "./registry-gateways.ts";
 import { npmPackagePageUrl, pypiProjectUrl } from "./urls.ts";
@@ -86,7 +87,7 @@ export async function runClaimCommand(options: {
 	const shouldSkipCheck = request.skipCheck === true;
 	const validationError = policy.validate(request.name);
 	if (validationError !== null) {
-		io.stderr(`${policy.registry}: invalid: ${validationError}\n`);
+		io.stderr(`${formatRegistryStatusLine(policy.registry, "invalid", validationError)}\n`);
 		return 2;
 	}
 	const checkResult =
@@ -279,12 +280,12 @@ function precheckExitCode(
 	io: PackagechkIo,
 ): number | null {
 	if (result.status === "taken") {
-		io.stderr(`${registry}: taken: ${result.message}\n`);
+		io.stderr(`${formatRegistryStatusLine(registry, result.status, result.message)}\n`);
 		if (result.packageUrl !== undefined) io.stderr(`${result.packageUrl}\n`);
 		return 1;
 	}
 	if (result.status !== "available") {
-		io.stderr(`${registry}: ${result.status}: ${result.message}\n`);
+		io.stderr(`${formatRegistryStatusLine(registry, result.status, result.message)}\n`);
 		return 2;
 	}
 	return null;

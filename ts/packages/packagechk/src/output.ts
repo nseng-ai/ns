@@ -1,4 +1,10 @@
-import { reportToJson, type PackageCheckReport, type RegistryCheckResult } from "./models.ts";
+import {
+	reportToJson,
+	type CheckStatus,
+	type PackageCheckReport,
+	type Registry,
+	type RegistryCheckResult,
+} from "./models.ts";
 
 export function renderJson(report: PackageCheckReport): string {
 	return JSON.stringify(sortJsonValue(reportToJson(report)));
@@ -21,7 +27,15 @@ function renderResult(result: RegistryCheckResult): string {
 		if (result.packageUrl !== undefined) details.push(result.packageUrl);
 		return details.join(" — ");
 	}
-	return `${result.registry}: ${result.status}: ${result.message}`;
+	return formatRegistryStatusLine(result.registry, result.status, result.message);
+}
+
+export function formatRegistryStatusLine(
+	registry: Registry,
+	status: CheckStatus,
+	message: string,
+): string {
+	return `${registry}: ${status}: ${message}`;
 }
 
 function sortJsonValue(value: unknown): unknown {

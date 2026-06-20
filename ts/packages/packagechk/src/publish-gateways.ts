@@ -4,7 +4,7 @@ import { join } from "node:path";
 import {
 	defaultCommandResolver,
 	formatCommand,
-	formatCommandFailure as formatExecCommandFailure,
+	formatCommandResultFailure,
 	formatCommandStartupFailure,
 	runCommand,
 	type ExecResult,
@@ -37,7 +37,7 @@ export class RealPypiPublishGateway implements PypiPublishGateway {
 
 	constructor(options: { toolFinder?: ToolFinder; commandRunner?: CommandRunner } = {}) {
 		this.toolFinder = options.toolFinder ?? defaultCommandResolver;
-		this.commandRunner = options.commandRunner ?? runPublishCommand;
+		this.commandRunner = options.commandRunner ?? runCommand;
 	}
 
 	ensurePublishToolsAvailable(): string | null {
@@ -61,9 +61,7 @@ export class RealPypiPublishGateway implements PypiPublishGateway {
 			}
 			const result = await this.commandRunner("uv", ["build"], { cwd: projectDir });
 			if (result.code !== 0) {
-				return buildFailure(
-					formatPublishCommandFailure("uv build failed", "uv", ["build"], result),
-				);
+				return buildFailure(formatCommandResultFailure("uv build failed", "uv", ["build"], result));
 			}
 			if (!exists(distDir)) return buildFailure("uv build did not create a dist/ directory");
 			if (!statSync(distDir).isDirectory())
@@ -88,7 +86,7 @@ export class RealPypiPublishGateway implements PypiPublishGateway {
 			const result = await this.commandRunner(command, args, { cwd: projectDir });
 			return result.code === 0
 				? null
-				: formatPublishCommandFailure("uvx uv-publish failed", command, args, result);
+				: formatCommandResultFailure("uvx uv-publish failed", command, args, result);
 		} catch (error) {
 			return formatCommandStartupFailure(
 				"uvx uv-publish failed",
@@ -160,7 +158,7 @@ export class RealNpmPublishGateway implements NpmPublishGateway {
 
 	constructor(options: { toolFinder?: ToolFinder; commandRunner?: CommandRunner } = {}) {
 		this.toolFinder = options.toolFinder ?? defaultCommandResolver;
-		this.commandRunner = options.commandRunner ?? runPublishCommand;
+		this.commandRunner = options.commandRunner ?? runCommand;
 	}
 
 	ensurePublishToolsAvailable(): string | null {
@@ -176,7 +174,7 @@ export class RealNpmPublishGateway implements NpmPublishGateway {
 			const result = await this.commandRunner(command, args, { cwd: projectDir });
 			return result.code === 0
 				? null
-				: formatPublishCommandFailure("npm publish failed", command, args, result);
+				: formatCommandResultFailure("npm publish failed", command, args, result);
 		} catch (error) {
 			return formatCommandStartupFailure("npm publish failed", formatCommand(command, args), error);
 		}
@@ -211,27 +209,6 @@ export class FakeNpmPublishGateway implements NpmPublishGateway {
 		this.publishedDirs.push(projectDir);
 		return this.publishError;
 	}
-}
-
-async function runPublishCommand(
-	command: string,
-	args: readonly string[],
-	options: { cwd: string },
-): Promise<ExecResult> {
-	return await runCommand(command, args, options);
-}
-
-function formatPublishCommandFailure(
-	title: string,
-	command: string,
-	args: readonly string[],
-	result: ExecResult,
-): string {
-	const displayCommand = formatCommand(command, args);
-	if (result.startupError !== undefined) {
-		return formatCommandStartupFailure(title, displayCommand, result.startupError);
-	}
-	return formatExecCommandFailure(title, displayCommand, result);
 }
 
 function buildFailure(error: string): PypiBuildResult {
