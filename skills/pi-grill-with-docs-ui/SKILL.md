@@ -9,7 +9,7 @@ metadata:
 
 This is the Pi structured-UI complement to portable `grilling` plus `domain-modeling`. It must remain self-contained because `/pi:grill-with-docs` fallback prompts still need to work when skill expansion is unavailable.
 
-Interview me relentlessly about every aspect of this plan until we reach shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one by one. Ask exactly one user-facing question at a time, and include your recommended answer.
+Interview me relentlessly about every aspect of this plan or design until we reach shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one by one. Ask exactly one user-facing question at a time, and include your recommended answer.
 
 If `grill_ask` is available, use it for every user-facing grill question instead of asking in prose. Ask exactly one question per tool call. Include 2-5 affirmative, mutually exclusive options; your recommendation and rationale; `estimatedRemaining`; a freeform path; a status path; and an end-session path.
 
@@ -44,7 +44,7 @@ Offer ADR creation sparingly and explicitly. Only offer an ADR when all three ar
 
 ## Docs-aware status checkpoints
 
-When `grill_ask` returns `status_request`, include a compact status report with the normal grill status fields plus:
+When `grill_ask` returns `status_request`, include a compact status report with the normal grill status fields — answered-question count, estimated questions remaining, resolved decisions, unresolved branches, current pending question, and current recommendation — plus:
 
 `Documentation updates:` summarize `CONTEXT.md` edits made, ADRs created or offered, or say `none yet`.
 

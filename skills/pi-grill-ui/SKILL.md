@@ -13,7 +13,7 @@ Interview me relentlessly about every aspect of this plan or design until we rea
 
 If `grill_ask` is available, use it for every user-facing grill question instead of asking in prose. Ask exactly one question per tool call. Include 2-5 affirmative, mutually exclusive options; your recommendation and rationale; `estimatedRemaining`; a freeform path; a status path; and an end-session path.
 
-If `grill_ask` reports `status_request`, do not treat that as an answer. Summarize answered-question count, estimated questions remaining, resolved decisions, unresolved branches, current pending question, and current recommendation, then re-ask the same pending question through `grill_ask`.
+If `grill_ask` reports `status_request`, do not treat it as an answer. Summarize answered-question count, estimated questions remaining, resolved decisions, unresolved branches, current pending question, and current recommendation, then re-ask the same pending question through `grill_ask`.
 
 If `grill_ask` is unavailable or reports `ui_unavailable`, ask the same one question in prose with numbered choices, including Other/freeform, Show current grill status, and End grilling session when applicable.
 
