@@ -1,18 +1,14 @@
-import { tailText, type CommandExecApi, type ExecResult } from "@asdl/core/exec";
-import { runCmuxCommand } from "./command.ts";
-import type { CmuxCommandFailure } from "./command.ts";
+import {
+	cmuxCommandExecApi,
+	formatCmuxCommandFailure,
+	runCmuxCommand,
+	type CmuxCommandExecHost,
+} from "./command.ts";
 import { isRecord, stringField } from "./primitives.ts";
 
 const CMUX_TIMEOUT_MS = 10_000;
-const MAX_ERROR_CHARS = 4_000;
 
-export interface CmuxExecHost {
-	exec(
-		command: string,
-		args: string[],
-		options?: { cwd?: string; timeout?: number; signal?: AbortSignal },
-	): Promise<ExecResult>;
-}
+export type CmuxExecHost = CmuxCommandExecHost;
 
 export interface CmuxCallerContext {
 	workspaceId: string;
@@ -298,40 +294,4 @@ async function runFocusedCmuxCommand(options: RunFocusedCmuxCommandOptions) {
 		timeoutMs: CMUX_TIMEOUT_MS,
 		...(options.signal === undefined ? {} : { signal: options.signal }),
 	});
-}
-
-function cmuxCommandExecApi(host: CmuxExecHost): CommandExecApi {
-	return {
-		async exec(command, args, options) {
-			return await host.exec(command, args, options);
-		},
-	};
-}
-
-function formatCmuxCommandFailure(failure: CmuxCommandFailure): string {
-	if (failure.startupError !== undefined) {
-		return formatStartupFailure(failure.displayCommand, failure.startupError);
-	}
-	return formatExecFailure(failure.displayCommand, failure);
-}
-
-function formatExecFailure(commandDisplay: string, failure: CmuxCommandFailure): string {
-	const status = failure.killed
-		? `exit code ${failure.exitCode}; process was killed or timed out`
-		: `exit code ${failure.exitCode}`;
-	const stdout = failure.stdout.trimEnd() || "(empty)";
-	const stderr = failure.stderr.trimEnd() || "(empty)";
-	return truncateError(
-		`command failed (${status}).\n\n$ ${commandDisplay}\n\nstdout:\n${stdout}\n\nstderr:\n${stderr}`,
-	);
-}
-
-function formatStartupFailure(commandDisplay: string, errorMessage: string): string {
-	return truncateError(
-		`command failed before completion.\n\n$ ${commandDisplay}\n\nerror:\n${errorMessage}`,
-	);
-}
-
-function truncateError(message: string): string {
-	return tailText(message, { maxChars: MAX_ERROR_CHARS });
 }

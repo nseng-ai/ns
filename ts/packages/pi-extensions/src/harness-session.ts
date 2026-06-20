@@ -1,4 +1,5 @@
 import { truncatedSha256Digest } from "@asdl/core";
+import { shellQuote } from "@asdl/core/exec";
 
 const HARNESS_SESSION_ENTRY_TYPE = "asdl-harness-session-id";
 const HARNESS_SESSION_ENV = "HARNESS_SESSION_ID";
@@ -85,7 +86,7 @@ export function registerHarnessSessionExtension(
 }
 
 export function shellSingleQuote(value: string): string {
-	return `'${value.replaceAll("'", "'\\''")}'`;
+	return shellQuote(value);
 }
 
 function exportHarnessSessionCommand(harnessSessionId: string): string {

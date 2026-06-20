@@ -1,5 +1,6 @@
 import {
 	formatCommand,
+	formatCommandFailure,
 	formatCommandStartupFailure,
 	isSuccessfulExecResult,
 	type CommandExecApi,
@@ -16,13 +17,21 @@ export interface CmuxCommandFailure {
 	exitCode: number;
 	stdout: string;
 	stderr: string;
-	killed: boolean;
+	isKilled: boolean;
 	startupError?: string;
 }
 
 export type CmuxCommandResult =
 	| { type: "success"; result: ExecResult }
 	| { type: "failed"; failure: CmuxCommandFailure };
+
+export interface CmuxCommandExecHost {
+	exec(
+		command: string,
+		args: string[],
+		options?: { cwd?: string; timeout?: number; signal?: AbortSignal },
+	): Promise<ExecResult>;
+}
 
 export interface RunCmuxCommandOptions {
 	commands: CommandExecApi;
@@ -31,6 +40,14 @@ export interface RunCmuxCommandOptions {
 	timeoutMs: number;
 	env?: NodeJS.ProcessEnv | undefined;
 	signal?: AbortSignal | undefined;
+}
+
+export function cmuxCommandExecApi(host: CmuxCommandExecHost): CommandExecApi {
+	return {
+		async exec(command, args, options) {
+			return await host.exec(command, args, options);
+		},
+	};
 }
 
 export async function runCmuxCommand(options: RunCmuxCommandOptions): Promise<CmuxCommandResult> {
@@ -58,7 +75,7 @@ export async function runCmuxCommand(options: RunCmuxCommandOptions): Promise<Cm
 				exitCode: CMUX_STARTUP_FAILURE_EXIT_CODE,
 				stdout: "",
 				stderr,
-				killed: false,
+				isKilled: false,
 				startupError,
 			},
 		};
@@ -75,7 +92,23 @@ export async function runCmuxCommand(options: RunCmuxCommandOptions): Promise<Cm
 			stdout: result.stdout,
 			stderr:
 				result.stderr || result.startupError || (result.killed ? "cmux command timed out." : ""),
-			killed: result.killed,
+			isKilled: result.killed,
 		},
 	};
+}
+
+export function formatCmuxCommandFailure(failure: CmuxCommandFailure): string {
+	if (failure.startupError !== undefined) {
+		return formatCommandStartupFailure(
+			"cmux command failed",
+			failure.displayCommand,
+			failure.startupError,
+		);
+	}
+	return formatCommandFailure("cmux command failed", failure.displayCommand, {
+		stdout: failure.stdout,
+		stderr: failure.stderr,
+		code: failure.exitCode,
+		killed: failure.isKilled,
+	});
 }

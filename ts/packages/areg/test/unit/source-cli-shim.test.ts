@@ -48,7 +48,7 @@ describe("areg source CLI shim rendering", () => {
 		expect(rendered).toContain("tool=areg\n");
 		expect(rendered).toContain("fallback_mode=literal\n");
 		expect(rendered).toContain("canonical_checkout='");
-		expect(rendered).toContain("'\"'\"'");
+		expect(rendered).toContain("'\\''");
 		expect(rendered).not.toContain(`canonical_checkout=${canonicalCheckout}\n`);
 
 		const syntaxCheck = spawnSync("bash", ["-n", outputPath], { encoding: "utf8" });

@@ -1,5 +1,7 @@
 import { fileURLToPath } from "node:url";
 
+import { shellQuote } from "@asdl/core/exec";
+
 import { runRealCommand, type CommandOutput, type CommandRunner } from "./command-runner.ts";
 import { isRecord, stringField } from "./json-fields.ts";
 import {
@@ -247,8 +249,4 @@ function slotTargetFromAssignment(
 
 function commandFailureMessage(commandName: string, result: CommandOutput): string {
 	return `${commandName} failed with exit code ${result.code}. stdout: ${result.stdout.trim() || "(empty)"} stderr: ${result.stderr.trim() || "(empty)"}`;
-}
-
-function shellQuote(value: string): string {
-	return `'${value.replaceAll("'", "'\\''")}'`;
 }

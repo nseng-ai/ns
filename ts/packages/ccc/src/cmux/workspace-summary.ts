@@ -2,8 +2,7 @@ import { z } from "zod";
 
 import { shellNegative, ok, type ClinkrExit } from "@asdl/clinkr";
 import type { CommandExecApi } from "@asdl/core/exec";
-import { runCmuxCommand } from "./command.ts";
-import type { CmuxCommandFailure as SharedCmuxCommandFailure } from "./command.ts";
+import { runCmuxCommand, type CmuxCommandFailure } from "./command.ts";
 
 export const DEFAULT_CMUX_WORKSPACE_SUMMARY_STATUS_KEY = "pi-summary";
 export const CMUX_WORKSPACE_SUMMARY_COMMAND_TIMEOUT_MS = 30_000;
@@ -57,13 +56,6 @@ interface CmuxWorkspaceSummaryFailure {
 	code: CmuxWorkspaceSummaryFailureCode;
 	message: string;
 	commandFailure?: CmuxCommandFailure;
-}
-
-interface CmuxCommandFailure {
-	command: string[];
-	exitCode: number;
-	stdout: string;
-	stderr: string;
 }
 
 export interface ApplyCmuxWorkspaceSummaryOptions {
@@ -177,16 +169,7 @@ async function runCmux(
 		timeoutMs: CMUX_WORKSPACE_SUMMARY_COMMAND_TIMEOUT_MS,
 	});
 	if (result.type === "success") return undefined;
-	return cmuxCommandFailureFromShared(result.failure);
-}
-
-function cmuxCommandFailureFromShared(failure: SharedCmuxCommandFailure): CmuxCommandFailure {
-	return {
-		command: failure.command,
-		exitCode: failure.exitCode,
-		stdout: failure.stdout,
-		stderr: failure.stderr,
-	};
+	return result.failure;
 }
 
 function commandFailure(
