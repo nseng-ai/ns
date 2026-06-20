@@ -1,10 +1,8 @@
-import { formatCommand, formatOutputSection } from "@asdl/core/exec";
+import { piExecApiToCommandExecApi } from "@asdl/core/exec";
 import { checkoutSlot, type SlotCheckoutTarget } from "../slot-checkout.ts";
+import { RealCmuxGateway, type CmuxGatewayFailure } from "./gateway.ts";
 import { getWorktreeDescription } from "./worktree-description.ts";
-import type { ExecResult, ExtensionAPI, NotifyLevel } from "./types.ts";
-
-const CMUX_TIMEOUT_MS = 10_000;
-const MAX_ERROR_CHARS = 4_000;
+import type { ExtensionAPI, NotifyLevel } from "./types.ts";
 
 export interface BranchCmuxSlotCheckoutOptions {
 	pi: Pick<ExtensionAPI, "exec">;
@@ -77,17 +75,18 @@ export async function openCmuxWorkspace(
 	target: SlotCheckoutTarget,
 	options: OpenCmuxWorkspaceOptions,
 ): Promise<{ ok: true } | { error: string }> {
-	const args = buildNewWorkspaceArgs(target, options);
-	const result = await pi.exec("cmux", args, {
+	const cmux = new RealCmuxGateway(piExecApiToCommandExecApi(pi));
+	const result = await cmux.openWorkspace({
 		cwd: target.worktreePath,
-		timeout: CMUX_TIMEOUT_MS,
+		name: target.branchName,
+		description: options.description,
+		workspaceCwd: target.worktreePath,
+		...(options.command === undefined ? {} : { command: options.command }),
 	});
-	if (result.code === 0 && !result.killed) {
-		return { ok: true };
-	}
+	if (result.type === "success") return { ok: true };
 
 	return {
-		error: formatCmuxWorkspaceFailure(result, args, options),
+		error: formatCmuxWorkspaceFailure(result.failure, options),
 	};
 }
 
@@ -115,33 +114,10 @@ function formatSlotCheckoutFailure(branchName: string, cause: string): string {
 }
 
 function formatCmuxWorkspaceFailure(
-	result: ExecResult,
-	args: string[],
+	failure: CmuxGatewayFailure,
 	options: OpenCmuxWorkspaceOptions,
 ): string {
 	const heading = options.failureHeading ?? "cmux new-workspace failed.";
-	const lines = [
-		heading,
-		...(options.failureDetails ?? []),
-		formatCommandFailure("cmux new-workspace failed.", "cmux", args, result),
-	];
+	const lines = [heading, ...(options.failureDetails ?? []), failure.message];
 	return lines.filter((line) => line.length > 0).join("\n");
-}
-
-function formatCommandFailure(
-	title: string,
-	command: string,
-	args: string[],
-	result: ExecResult,
-): string {
-	const status = result.killed
-		? `exit code ${result.code}; process was killed or timed out`
-		: `exit code ${result.code}`;
-	const sections = [
-		`${title} (${status})`,
-		`Command: ${formatCommand(command, args)}`,
-		formatOutputSection("stdout", result.stdout, { maxChars: MAX_ERROR_CHARS, maxLines: 80 }),
-		formatOutputSection("stderr", result.stderr, { maxChars: MAX_ERROR_CHARS, maxLines: 80 }),
-	];
-	return sections.join("\n\n");
 }
