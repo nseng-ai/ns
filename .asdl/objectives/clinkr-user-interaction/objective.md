@@ -6,6 +6,8 @@ Clinkr should own a small, explicit abstraction for interactive user confirmatio
 
 The abstraction should avoid prematurely committing to the word "gateway" if that name obscures the concept. The durable goal is a Clinkr-level user interaction seam for confirmation behavior, with real Node readline behavior at the edge and fast fake/test behavior available to scenario tests.
 
+Current checkout evidence shows a partial low-level prototype, not the final seam: `@asdl/clinkr` exports `confirmFromStdin`, `@asdl/core/stdin` exports both full-stream `readStdin()` and one-line `readStdinLine()`, and `slot`, `handoff`, and `packagechk` confirmation call sites use the Clinkr helper while still injecting raw stdin/stderr functions themselves.
+
 ## Scope
 
 - Design and implement a Clinkr-level confirmation interaction seam for TypeScript CLIs.
@@ -40,6 +42,7 @@ Assumptions:
 - The first useful abstraction is confirmation-only, not a generic input framework. This should cover the current bug class while avoiding a premature API for freeform prompts or menus.
 - Clinkr is the right ownership layer because it already owns command dispatch, human vs machine output behavior, IO injection, and Commander containment.
 - A small real adapter over Node readline is enough; no third-party prompt library is needed.
+- The current `confirmFromStdin` helper is useful prototype evidence, but the final API should still hide raw stdin/stderr wiring from command operations.
 - Scenario tests can become more meaningful and faster by injecting a fake interaction seam rather than simulating process stdin.
 
 Risks:
@@ -47,11 +50,12 @@ Risks:
 - Naming may be misleading. `UserInputGateway` sounds mechanism-shaped and may invite bulk stdin or payload reading into the same surface; alternatives such as user interaction, prompt, confirmation, or interactive UI should be considered before settling the API name.
 - Overgeneralizing beyond confirmation could create a half-built prompt framework with unclear ownership relative to Pi/TUI UI surfaces.
 - Under-generalizing to only `confirmFromStdin` could leave commands still responsible for prompt rendering and stream behavior, preserving the class of bugs in a different form.
+- Leaving `confirmFromStdin` as the public shape could prematurely freeze a mechanism-shaped API before the Clinkr interaction boundary is named.
 - Existing tests may assert low-level stdin behavior; migration should preserve user-facing behavior while updating tests to target the new seam.
 
 ## Open Questions
 
 - What is the canonical name for the seam: confirmation, user interaction, interactive prompt, UI, or gateway? The initial preference is to avoid `gateway` unless the final shape is clearly an external-capability adapter.
-- Should the seam live entirely in `@asdl/clinkr`, or should the low-level one-line reader remain in `@asdl/core/stdin` with Clinkr owning only confirmation policy?
+- Should the seam live entirely in `@asdl/clinkr`, or should the current split remain, with the low-level one-line reader in `@asdl/core/stdin` and Clinkr owning only confirmation policy?
 - Should Clinkr contexts receive the interaction seam automatically from `ClinkrGroup.run`, or should each CLI context explicitly include it next to its domain gateways?
 - Should confirmation return a domain result such as `"yes" | "no" | { type: "aborted" }`, or use Clinkr failure/negative conventions at the CLI boundary?
