@@ -71,7 +71,7 @@ and examples.
 
 ## Reference Routing
 
-- Adding a feature or fixing a bug: read `references/quick-reference.md`, then
+- Adding a feature, fixing a bug, or needing quick placement/command lookup: read
   `references/workflows.md`.
 - Deciding which layer or test shape to use: read
   `references/testing-strategy.md`.
