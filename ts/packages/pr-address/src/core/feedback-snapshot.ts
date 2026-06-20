@@ -34,36 +34,38 @@ export interface FetchFeedbackSnapshotOptions {
 export async function fetchFeedbackSnapshot(
 	options: FetchFeedbackSnapshotOptions,
 ): Promise<FeedbackSnapshotResult> {
-	const reviewsResult = await options.gateway.getPrReviews({
-		...options.gatewayOptions,
-		prNumber: options.prNumber,
-	});
+	const [reviewsResult, threadsResult, commentsResult] = await Promise.all([
+		options.gateway.getPrReviews({
+			...options.gatewayOptions,
+			prNumber: options.prNumber,
+		}),
+		options.gateway.getPrReviewThreads({
+			...options.gatewayOptions,
+			prNumber: options.prNumber,
+		}),
+		options.gateway.getPrDiscussionComments({
+			...options.gatewayOptions,
+			prNumber: options.prNumber,
+		}),
+	]);
 	if (!reviewsResult.ok)
 		return snapshotFailure(
 			`Failed to fetch reviews for PR ${options.prNumber}`,
 			reviewsResult.error,
 		);
-	const threadsResult = await options.gateway.getPrReviewThreads({
-		...options.gatewayOptions,
-		prNumber: options.prNumber,
-	});
 	if (!threadsResult.ok)
 		return snapshotFailure(
 			`Failed to fetch review threads for PR ${options.prNumber}`,
 			threadsResult.error,
 		);
-	const allThreads = threadsResult.value;
-	const reviewThreads = options.shouldIncludeResolved ? allThreads : unresolvedThreads(allThreads);
-	const countedReviewThreads = options.shouldCountAllReviewThreads ? allThreads : reviewThreads;
-	const commentsResult = await options.gateway.getPrDiscussionComments({
-		...options.gatewayOptions,
-		prNumber: options.prNumber,
-	});
 	if (!commentsResult.ok)
 		return snapshotFailure(
 			`Failed to fetch discussion comments for PR ${options.prNumber}`,
 			commentsResult.error,
 		);
+	const allThreads = threadsResult.value;
+	const reviewThreads = options.shouldIncludeResolved ? allThreads : unresolvedThreads(allThreads);
+	const countedReviewThreads = options.shouldCountAllReviewThreads ? allThreads : reviewThreads;
 	return {
 		type: "ok",
 		snapshot: {

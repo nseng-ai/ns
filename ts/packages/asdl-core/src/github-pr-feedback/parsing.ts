@@ -73,29 +73,26 @@ export function parseGraphqlJson<T>(
 	return parseJson(text, schema, context);
 }
 
-export function requireEndCursor(options: {
-	readonly operation: GithubPrFeedbackOperation;
-	readonly pageInfo: {
-		readonly hasNextPage: boolean;
-		readonly endCursor?: string | null | undefined;
-	};
-	readonly message: string;
-	readonly prNumber?: number | undefined;
-	readonly threadId?: string | undefined;
-	readonly cursorContext: string;
-}): Result<string, GithubPrFeedbackFailure> {
-	const cursor = options.pageInfo.endCursor;
-	if (!options.pageInfo.hasNextPage || (cursor !== null && cursor !== undefined && cursor !== "")) {
-		return feedbackOk(cursor ?? "");
-	}
+export function requireCursor(
+	endCursor: string | null | undefined,
+	context: {
+		readonly operation: GithubPrFeedbackOperation;
+		readonly message: string;
+		readonly prNumber?: number | undefined;
+		readonly threadId?: string | undefined;
+		readonly cursorContext: string;
+	},
+): Result<string, GithubPrFeedbackFailure> {
+	if (endCursor !== null && endCursor !== undefined && endCursor !== "")
+		return feedbackOk(endCursor);
 	return feedbackErr(
 		failureFromMessage({
 			code: "github_pr_feedback_pagination_invalid",
-			operation: options.operation,
-			message: options.message,
-			prNumber: options.prNumber,
-			threadId: options.threadId,
-			cursorContext: options.cursorContext,
+			operation: context.operation,
+			message: context.message,
+			prNumber: context.prNumber,
+			threadId: context.threadId,
+			cursorContext: context.cursorContext,
 		}),
 	);
 }

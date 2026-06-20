@@ -1,11 +1,11 @@
-export interface ErrorInfo {
+export interface ErrorInfo<Details extends object = Record<string, unknown>> {
 	code: string;
 	message: string;
-	details?: Record<string, unknown>;
+	details?: Details;
 	displayCommand?: string;
 }
 
-export type Result<T, E extends ErrorInfo = ErrorInfo> =
+export type Result<T, E extends ErrorInfo<object> = ErrorInfo> =
 	| { ok: true; value: T }
 	| { ok: false; error: E };
 
@@ -13,7 +13,9 @@ export function resultOk<T>(value: T): Result<T> {
 	return { ok: true, value };
 }
 
-export function resultErr<T = never, E extends ErrorInfo = ErrorInfo>(error: E): Result<T, E> {
+export function resultErr<T = never, E extends ErrorInfo<object> = ErrorInfo>(
+	error: E,
+): Result<T, E> {
 	return { ok: false, error };
 }
 

@@ -393,11 +393,55 @@ describe("RealGithubPrFeedbackGateway", () => {
 
 		expect(await gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 })).toMatchObject({
 			ok: false,
-			error: { code: "github_pr_feedback_pagination_invalid" },
+			error: {
+				code: "github_pr_feedback_pagination_invalid",
+				details: { prNumber: 12, cursorContext: "reviewThreads" },
+			},
 		});
 		expect(await gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 })).toMatchObject({
 			ok: false,
 			error: { code: "github_pr_feedback_graphql_failed" },
+		});
+		runner.assertDone();
+	});
+
+	test("returns pagination failures for review thread comments", async () => {
+		const args = [
+			"api",
+			"graphql",
+			"-F",
+			"owner={owner}",
+			"-F",
+			"repo={repo}",
+			"-F",
+			"number=12",
+			"-f",
+			`query=${reviewThreadsQuery}`,
+		];
+		const runner = new ScriptedCommandRunner([
+			step("gh", args, {
+				stdout: reviewThreadsResponse([
+					thread({
+						comments: {
+							nodes: [comment({ databaseId: 1 })],
+							pageInfo: { hasNextPage: true, endCursor: null },
+						},
+					}),
+				]),
+			}),
+		]);
+		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+
+		expect(await gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 })).toMatchObject({
+			ok: false,
+			error: {
+				code: "github_pr_feedback_pagination_invalid",
+				details: {
+					prNumber: 12,
+					threadId: "RT_thread1",
+					cursorContext: "reviewThreadComments",
+				},
+			},
 		});
 		runner.assertDone();
 	});

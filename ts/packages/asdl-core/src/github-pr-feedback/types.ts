@@ -80,7 +80,7 @@ export type GithubPrFeedbackOperation =
 	| "replyToReviewThread"
 	| "resolveReviewThread";
 
-export interface GithubPrFeedbackFailureDetails extends Readonly<Record<string, unknown>> {
+export interface GithubPrFeedbackFailureDetails {
 	readonly operation: GithubPrFeedbackOperation;
 	readonly command?: readonly string[] | undefined;
 	readonly displayCommand?: string | undefined;
@@ -95,7 +95,7 @@ export interface GithubPrFeedbackFailureDetails extends Readonly<Record<string, 
 	readonly cursorContext?: string | undefined;
 }
 
-export interface GithubPrFeedbackFailure extends ErrorInfo {
+export interface GithubPrFeedbackFailure extends ErrorInfo<GithubPrFeedbackFailureDetails> {
 	readonly code: GithubPrFeedbackFailureCode;
 	readonly details?: GithubPrFeedbackFailureDetails;
 }

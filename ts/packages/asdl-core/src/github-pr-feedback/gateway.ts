@@ -28,7 +28,7 @@ import {
 import {
 	parseGraphqlJson,
 	parseJson,
-	requireEndCursor,
+	requireCursor,
 	type GithubPrFeedbackFailureContext,
 } from "./parsing.ts";
 import {
@@ -151,9 +151,8 @@ export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
 			}
 
 			if (!connection.pageInfo.hasNextPage) break;
-			const cursorResult = requireEndCursor({
+			const cursorResult = requireCursor(connection.pageInfo.endCursor, {
 				operation: "getPrReviewThreads",
-				pageInfo: connection.pageInfo,
 				message: "GitHub returned a reviewThreads page with hasNextPage but no endCursor",
 				prNumber: params.prNumber,
 				cursorContext: "reviewThreads",
@@ -183,9 +182,8 @@ export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
 			const connection = result.value.data.repository.pullRequest.comments;
 			comments.push(...connection.nodes.map(normalizeDiscussionComment));
 			if (!connection.pageInfo.hasNextPage) break;
-			const cursorResult = requireEndCursor({
+			const cursorResult = requireCursor(connection.pageInfo.endCursor, {
 				operation: "getPrDiscussionComments",
-				pageInfo: connection.pageInfo,
 				message: "GitHub returned a discussion comments page with hasNextPage but no endCursor",
 				prNumber: params.prNumber,
 				cursorContext: "discussionComments",
@@ -283,9 +281,8 @@ export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
 		const comments = [...thread.comments.nodes];
 		let commentCursor = thread.comments.pageInfo.endCursor;
 		for (;;) {
-			const cursorResult = requireEndCursor({
+			const cursorResult = requireCursor(commentCursor, {
 				operation: "getPrReviewThreads",
-				pageInfo: { hasNextPage: true, endCursor: commentCursor },
 				message: `GitHub returned review thread ${thread.id} comments with hasNextPage but no endCursor`,
 				prNumber: params.prNumber,
 				threadId: thread.id,
