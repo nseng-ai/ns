@@ -5,6 +5,7 @@ import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import {
 	formatWorktreeStatusForFooter,
 	WORKTREE_STATUS_UI_KEY,
+	type FormatWorktreeStatusOptions,
 	type GtCommitStatus,
 	type GtStatus,
 	type StatusTheme,
@@ -70,6 +71,7 @@ export interface StatusFooterRenderOptions {
 	fallbackRepo: string;
 	worktreeStatus?: WorktreeStatus | undefined;
 	isWorktreeStatusDormant?: boolean | undefined;
+	ghRefreshCountdownMs?: number | undefined;
 }
 
 interface FooterExtensionStatusLines {
@@ -259,6 +261,7 @@ export function renderStatusFooter(options: StatusFooterRenderOptions): string[]
 		fallbackRepo,
 		worktreeStatus,
 		isWorktreeStatusDormant,
+		ghRefreshCountdownMs,
 	} = options;
 	const identity = formatWorktreeFooterIdentity({
 		cwd,
@@ -273,11 +276,11 @@ export function renderStatusFooter(options: StatusFooterRenderOptions): string[]
 	const footerStatusLines = formatFooterExtensionStatusLines(footerData.getExtensionStatuses());
 	const statsLine = formatFooterStats({ ctx, footerData, theme, width });
 	const lines = [identity];
-	for (const statusLine of formatStructuredFooterWorktreeLines(
-		worktreeStatus,
-		isWorktreeStatusDormant === true,
+	for (const statusLine of formatStructuredFooterWorktreeLines(worktreeStatus, {
 		theme,
-	)) {
+		...(isWorktreeStatusDormant === true ? { isDormant: true } : {}),
+		...(ghRefreshCountdownMs === undefined ? {} : { ghRefreshCountdownMs }),
+	})) {
 		lines.push(truncateToWidth(statusLine, width, theme.fg("dim", "...")));
 	}
 	lines.push(statsLine);
@@ -289,16 +292,9 @@ export function renderStatusFooter(options: StatusFooterRenderOptions): string[]
 
 function formatStructuredFooterWorktreeLines(
 	status: WorktreeStatus | undefined,
-	isDormant: boolean,
-	theme: StatusTheme,
+	options: FormatWorktreeStatusOptions,
 ): string[] {
-	const lines = status === undefined ? [] : formatWorktreeStatusForFooter(status, theme);
-	if (isDormant) lines.push(formatWorktreeStatusDormantLine(theme));
-	return lines;
-}
-
-export function formatWorktreeStatusDormantLine(theme: StatusTheme): string {
-	return theme.fg("dim", "[wt] dormant after 2m idle");
+	return status === undefined ? [] : formatWorktreeStatusForFooter(status, options);
 }
 
 function formatFooterStats(

@@ -50,14 +50,12 @@ import {
 	WORKTREE_STATUS_ACTIVE_REFRESH_INTERVAL_MS,
 	type WorktreeStatusRefreshTimer,
 } from "./worktree-status-refresh-timer.ts";
-import {
-	formatWorktreeStatusDormantLine,
-	renderStatusFooter,
-} from "./worktree-status-footer-format.ts";
+import { renderStatusFooter } from "./worktree-status-footer-format.ts";
 
 export const WORKTREE_STATUS_REFRESH_COMMAND_NAME = "pi:worktree-status-refresh";
 
 const GH_STATUS_BACKGROUND_REFRESH_MIN_INTERVAL_MS = 15_000;
+const WORKTREE_STATUS_COUNTDOWN_RENDER_INTERVAL_MS = 1_000;
 
 const WORKTREE_STATUS_TOOL_REFRESH_NAMES = new Set(["bash", "edit", "write"]);
 
@@ -321,6 +319,8 @@ export default function worktreeStatusExtension(
 	let nextSessionId = 0;
 	let activeSession: ActiveSession | undefined;
 	let lastLinesKey: string | undefined;
+	let countdownRenderTimer: WorktreeStatusRefreshTimer | undefined;
+	let requestFooterRender: (() => void) | undefined;
 
 	function isActiveSession(session: ActiveSession): boolean {
 		return activeSession === session && !session.closed && !session.abortController.signal.aborted;
@@ -352,6 +352,7 @@ export default function worktreeStatusExtension(
 	function installSessionControllers(session: ActiveSession): void {
 		session.refreshTimer = createWorktreeStatusRefreshTimer({
 			timers,
+			clock,
 			isActive: () => isActiveSession(session),
 			onTick: () => fullRefreshChannel.run(session),
 			intervalMs: dependencies.refreshIntervalMs ?? WORKTREE_STATUS_ACTIVE_REFRESH_INTERVAL_MS,
@@ -365,12 +366,33 @@ export default function worktreeStatusExtension(
 				session.isDormant = isDormant;
 				if (isDormant) session.refreshTimer?.pause();
 				else session.refreshTimer?.resume();
+				requestFooterRender?.();
 				renderSessionStatus(session);
 			},
 			onWakeRefresh: () => {
 				void fullRefreshChannel.run(session, { shouldForceRemote: true });
 			},
 		});
+		countdownRenderTimer = createWorktreeStatusRefreshTimer({
+			timers,
+			clock,
+			isActive: () => isActiveSession(session),
+			onTick: async () => {
+				if (nextGhRefreshCountdownMs(session) !== undefined) requestFooterRender?.();
+			},
+			intervalMs: WORKTREE_STATUS_COUNTDOWN_RENDER_INTERVAL_MS,
+		});
+	}
+
+	function clearCountdownRenderTimer(): void {
+		countdownRenderTimer?.close();
+		countdownRenderTimer = undefined;
+	}
+
+	function nextGhRefreshCountdownMs(session: ActiveSession): number | undefined {
+		const nextTickAtMs = session.refreshTimer?.nextTickAtMs();
+		if (nextTickAtMs === undefined) return undefined;
+		return Math.max(0, nextTickAtMs - clock.nowMs());
 	}
 
 	function closeActiveSession(): void {
@@ -378,12 +400,14 @@ export default function worktreeStatusExtension(
 		if (session !== undefined) {
 			session.closed = true;
 			session.abortController.abort();
+			clearCountdownRenderTimer();
 			session.refreshTimer?.close();
 			session.refreshTimer = undefined;
 			session.activityController?.close();
 			session.activityController = undefined;
 			session.activityUnsubscribe?.();
 			session.activityUnsubscribe = undefined;
+			requestFooterRender = undefined;
 			session.ctx.ui.setFooter?.(undefined);
 			fullRefreshChannel.clearSession(session);
 		}
@@ -417,9 +441,12 @@ export default function worktreeStatusExtension(
 
 	function formatSessionStatusLines(session: ActiveSession): string[] {
 		const status = combinedSessionStatus(session);
-		const lines = status === undefined ? [] : formatWorktreeStatus(status, session.ctx.ui.theme);
-		if (session.isDormant) lines.push(formatWorktreeStatusDormantLine(session.ctx.ui.theme));
-		return lines;
+		return status === undefined
+			? []
+			: formatWorktreeStatus(status, {
+					theme: session.ctx.ui.theme,
+					...(session.isDormant ? { isDormant: true } : {}),
+				});
 	}
 
 	async function refreshLocalNowWithIdentity(
@@ -517,6 +544,9 @@ export default function worktreeStatusExtension(
 		) {
 			await refreshRemoteNowWithIdentity(session, { ...options, identity: localIdentity });
 		}
+		if (!isActiveSession(session)) return;
+		session.refreshTimer?.reset();
+		requestFooterRender?.();
 	}
 
 	function renderSessionLines(session: ActiveSession, lines: string[]): boolean {
@@ -535,13 +565,19 @@ export default function worktreeStatusExtension(
 		if (!session.hasUI || setFooter === undefined) return;
 
 		setFooter((tui, theme, footerData) => {
+			const footerRenderRequest = () => tui.requestRender();
+			requestFooterRender = footerRenderRequest;
 			const unsubscribe = footerData.onBranchChange(() => tui.requestRender());
 			return {
-				dispose: unsubscribe,
+				dispose() {
+					unsubscribe();
+					if (requestFooterRender === footerRenderRequest) requestFooterRender = undefined;
+				},
 				invalidate() {},
 				render(width) {
 					const cwd = session.ctx.sessionManager?.getCwd() ?? session.ctx.cwd;
 					const branch = loaders.readFooterBranch(cwd, footerData) ?? "unknown";
+					const ghRefreshCountdownMs = nextGhRefreshCountdownMs(session);
 					return isActiveSession(session)
 						? renderStatusFooter({
 								ctx: session.ctx,
@@ -553,6 +589,7 @@ export default function worktreeStatusExtension(
 								fallbackRepo: fallbackRepoName(cwd),
 								worktreeStatus: combinedSessionStatus(session),
 								...(session.isDormant ? { isWorktreeStatusDormant: true } : {}),
+								...(ghRefreshCountdownMs === undefined ? {} : { ghRefreshCountdownMs }),
 							})
 						: [];
 				},
@@ -657,7 +694,11 @@ export default function worktreeStatusExtension(
 		installStatusFooter(session);
 		installActivityTracking(session);
 		await fullRefreshChannel.run(session, { shouldForceRemote: true });
-		if (isActiveSession(session)) session.refreshTimer?.resume();
+		if (isActiveSession(session)) {
+			session.refreshTimer?.resume();
+			countdownRenderTimer?.resume();
+			requestFooterRender?.();
+		}
 	});
 
 	pi.on("session_shutdown", async () => {

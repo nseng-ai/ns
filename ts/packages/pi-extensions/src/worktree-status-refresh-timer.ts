@@ -1,20 +1,25 @@
+import type { Clock } from "@asdl/core/clock";
 import type { ScheduledTimer, TimerScheduler } from "@asdl/core/timers";
 
-export const WORKTREE_STATUS_ACTIVE_REFRESH_INTERVAL_MS = 30_000;
+export const WORKTREE_STATUS_ACTIVE_REFRESH_INTERVAL_MS = 10_000;
 
 export interface WorktreeStatusRefreshTimer {
 	resume(): void;
 	pause(): void;
+	reset(): void;
+	nextTickAtMs(): number | undefined;
 	close(): void;
 }
 
 export function createWorktreeStatusRefreshTimer(options: {
 	timers: TimerScheduler;
+	clock: Clock;
 	isActive(): boolean;
 	onTick(): Promise<void>;
 	intervalMs: number;
 }): WorktreeStatusRefreshTimer {
 	let pending: ScheduledTimer | undefined;
+	let pendingDueMs: number | undefined;
 	let isResumed = false;
 	let isClosed = false;
 	let isRunning = false;
@@ -31,6 +36,16 @@ export function createWorktreeStatusRefreshTimer(options: {
 		clearPending();
 	}
 
+	function reset(): void {
+		if (isClosed || !isResumed || !options.isActive()) return;
+		clearPending();
+		scheduleNextTick();
+	}
+
+	function nextTickAtMs(): number | undefined {
+		return pendingDueMs;
+	}
+
 	function close(): void {
 		isClosed = true;
 		isResumed = false;
@@ -39,8 +54,10 @@ export function createWorktreeStatusRefreshTimer(options: {
 
 	function scheduleNextTick(): void {
 		if (pending !== undefined || isClosed || !isResumed || !options.isActive()) return;
+		pendingDueMs = options.clock.nowMs() + options.intervalMs;
 		pending = options.timers.setTimeout(() => {
 			pending = undefined;
+			pendingDueMs = undefined;
 			void runTick();
 		}, options.intervalMs);
 	}
@@ -49,6 +66,7 @@ export function createWorktreeStatusRefreshTimer(options: {
 		if (pending === undefined) return;
 		pending.cancel();
 		pending = undefined;
+		pendingDueMs = undefined;
 	}
 
 	async function runTick(): Promise<void> {
@@ -64,5 +82,5 @@ export function createWorktreeStatusRefreshTimer(options: {
 		}
 	}
 
-	return { resume, pause, close };
+	return { resume, pause, reset, nextTickAtMs, close };
 }
