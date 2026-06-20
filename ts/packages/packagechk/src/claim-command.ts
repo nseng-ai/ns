@@ -84,15 +84,13 @@ export async function runClaimCommand(options: {
 	const { request, policy, io } = options;
 	const isDryRun = request.dryRun === true;
 	const shouldSkipCheck = request.skipCheck === true;
-	const shouldUsePrecheckValidation = !isDryRun && !shouldSkipCheck;
-	if (!shouldUsePrecheckValidation) {
-		const validationError = policy.validate(request.name);
-		if (validationError !== null) {
-			io.stderr(`${policy.registry}: invalid: ${validationError}\n`);
-			return 2;
-		}
+	const validationError = policy.validate(request.name);
+	if (validationError !== null) {
+		io.stderr(`${policy.registry}: invalid: ${validationError}\n`);
+		return 2;
 	}
-	const checkResult = shouldUsePrecheckValidation ? await policy.precheck(request.name) : undefined;
+	const checkResult =
+		!isDryRun && !shouldSkipCheck ? await policy.precheck(request.name) : undefined;
 	if (checkResult !== undefined) {
 		const exitCode = precheckExitCode(policy.registry, checkResult, io);
 		if (exitCode !== null) return exitCode;
