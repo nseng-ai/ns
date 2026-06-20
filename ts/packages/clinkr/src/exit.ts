@@ -5,11 +5,9 @@ export interface ClinkrOkRenderOverrides {
 	readonly markdown?: string;
 }
 
-export interface ClinkrOkExit<T> {
+export interface ClinkrOkExit<T> extends ClinkrOkRenderOverrides {
 	readonly type: "ok";
 	readonly data: T;
-	readonly human?: string;
-	readonly markdown?: string;
 }
 
 export interface ClinkrNegativeExit<T> {
