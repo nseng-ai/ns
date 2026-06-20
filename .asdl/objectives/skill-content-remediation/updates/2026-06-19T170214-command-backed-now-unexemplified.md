@@ -54,5 +54,5 @@ Branch-local changes (vs the Graphite parent), all committed, working tree clean
 - Lowest-risk first slice still stands: `objective-close` / `objective-create` are
   `normal` siblings of `objective-next`/`-update`/`-refresh` missing only their trigger
   descriptions — write those, no kind change.
-</content>
-</invoke>
+  </content>
+  </invoke>
