@@ -138,11 +138,15 @@ export class RealSlotGitGateway implements SlotGitGateway {
 			operation: "slot.git.list_branch_occupancies",
 		});
 		const occupancies = parseGitWorktreePorcelain(result.stdout).map((worktree) => {
-			if (worktree.branch === null) return null;
+			const operation = this.worktreeOperation(worktree.path);
+			if (operation === null) {
+				if (worktree.branch === null) return null;
+				return { path: worktree.path, branch: worktree.branch, operation: "checked-out" };
+			}
 			return {
 				path: worktree.path,
-				branch: worktree.branch,
-				operation: this.worktreeOperation(worktree.path) ?? "checked-out",
+				branch: worktree.branch ?? operation.branch,
+				operation: operation.name,
 			};
 		});
 		return occupancies.filter((occupancy) => occupancy !== null);
@@ -277,12 +281,16 @@ export class RealSlotGitGateway implements SlotGitGateway {
 		});
 	}
 
-	private worktreeOperation(worktreePath: string): string | null {
+	private worktreeOperation(worktreePath: string): WorktreeOperation | null {
 		const adminDir = resolveWorktreeAdminDir(worktreePath);
 		if (adminDir === null) return null;
 		for (const marker of GIT_OPERATION_MARKERS) {
 			for (const path of marker.paths) {
-				if (existsSync(resolve(adminDir, path))) return marker.operation;
+				if (existsSync(resolve(adminDir, path)))
+					return {
+						name: marker.operation,
+						branch: operationBranch(adminDir, marker.operation),
+					};
 			}
 		}
 		return null;
@@ -321,12 +329,39 @@ interface CommandResult {
 	killed: boolean;
 }
 
+type WorktreeOperationName = (typeof GIT_OPERATION_MARKERS)[number]["operation"];
+
+interface WorktreeOperation {
+	name: WorktreeOperationName;
+	branch: string | null;
+}
+
 function failureFromResult(result: CommandResult): GitCommandFailure {
 	const output =
 		result.stderr.trim() ||
 		result.stdout.trim() ||
 		(result.killed ? "git command was killed" : "git command failed");
 	return { message: output };
+}
+
+function operationBranch(adminDir: string, operation: WorktreeOperationName): string | null {
+	if (operation !== "rebase") return null;
+	return (
+		branchFromRefFile(resolve(adminDir, "rebase-merge", "head-name")) ??
+		branchFromRefFile(resolve(adminDir, "rebase-apply", "head-name"))
+	);
+}
+
+function branchFromRefFile(path: string): string | null {
+	const raw = readTextFile(path);
+	if (raw === undefined) return null;
+	const ref = raw
+		.split(/\r?\n/u)
+		.map((line) => line.trim())
+		.find((line) => line.length > 0);
+	if (ref === undefined) return null;
+	const prefix = "refs/heads/";
+	return ref.startsWith(prefix) ? ref.slice(prefix.length) : ref;
 }
 
 function resolveWorktreeAdminDir(worktreePath: string): string | null {

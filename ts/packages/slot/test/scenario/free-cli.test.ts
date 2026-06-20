@@ -25,6 +25,31 @@ describe("slot free CLI", () => {
 		]);
 	});
 
+	it("reports operation state for a detached rebasing slot", async () => {
+		const run = runScenario(["free", "-n", "3", "--format", "json"], {
+			git: {
+				worktrees: [
+					slotWorktree("slot-01", null),
+					slotWorktree("slot-02", null),
+					slotWorktree("slot-03", null),
+				],
+				branchOccupancies: [
+					{
+						path: "/slots/repos/repo/worktrees/slot-03",
+						branch: "feature/rebasing",
+						operation: "rebase",
+					},
+				],
+			},
+		});
+		expect(await run.exit).toBe(2);
+		expect(parseJsonOutput(run)).toMatchObject({ error_type: "invalid_slot_args" });
+		expect(run.stdout.join("")).toContain(
+			"slot-03 holds 'feature/rebasing' with a rebase in progress",
+		);
+		expect(run.stdout.join("")).not.toContain("slot-03 is not currently assigned");
+	});
+
 	it("dry-runs --all cleanup without mutating PRs or branches", async () => {
 		const run = runScenario(["free", "-n", "1", "--all", "--dry-run", "--format", "json"], {
 			git: {
