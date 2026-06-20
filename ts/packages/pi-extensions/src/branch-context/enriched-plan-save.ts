@@ -1,4 +1,10 @@
+import type { Stats } from "node:fs";
+import { lstat, readFile } from "node:fs/promises";
+import * as path from "node:path";
+
 import { Text } from "@earendil-works/pi-tui";
+import { piExecApiToCommandExecApi } from "@asdl/core/exec";
+import { RealGitGateway } from "@asdl/core/git";
 import { formatErrorMessage } from "@asdl/core/primitives";
 import {
 	WRITE_SAVED_PLAN_FILE_TOOL_NAME,
@@ -42,7 +48,6 @@ interface WriteSavedPlanFileProgressDetails {
 }
 
 const WRITE_PLAN_PROMPT_NAME = "plans-write";
-const WRITE_PLAN_PROMPT_RESOLVE_TIMEOUT_MS = 10_000;
 
 export const DEFAULT_WRITE_PLAN_PROMPT_BODY = `Plan audience and context contract:
 - Treat the saved Markdown plan as the only planning context available to a completely fresh downstream implementation session.
@@ -112,17 +117,6 @@ Exact tool call shape:
 
 If summary is not useful, omit it from the tool call rather than passing an empty string. Do not create target branches or write Branch Memory in this workflow.`;
 
-interface ResolvedAsdlPrompt {
-	name: string;
-	content: string;
-	provenance: {
-		source: string;
-		repo_prompt_path: string;
-		prompt_path?: string | null | undefined;
-		default_name?: string | null | undefined;
-	};
-}
-
 type WritePlanPromptBodyResolution =
 	| { type: "resolved"; body: string }
 	| { type: "fallback"; body: string; warning: string };
@@ -176,32 +170,16 @@ async function resolveWritePlanPromptBody(
 	pi: ExtensionAPI,
 	cwd: string,
 ): Promise<WritePlanPromptBodyResolution> {
+	const repoRoot = await resolveGitRoot(pi, cwd);
+	if (repoRoot.type === "failed") {
+		return fallbackWritePlanPromptBody(repoRoot.reason);
+	}
+
 	try {
-		const result = await pi.exec(
-			"asdl",
-			["exec", "resolve-prompt", WRITE_PLAN_PROMPT_NAME, "--format", "json"],
-			{ cwd, timeout: WRITE_PLAN_PROMPT_RESOLVE_TIMEOUT_MS },
-		);
-		if (result.code !== 0) {
-			return fallbackWritePlanPromptBody(
-				`asdl exec resolve-prompt failed with exit code ${result.code}: ${result.stderr ?? result.stdout ?? "(no output)"}`,
-			);
-		}
-
-		const resolved = parseResolvePromptJson(result.stdout, WRITE_PLAN_PROMPT_NAME);
-		if (resolved === undefined) {
-			return fallbackWritePlanPromptBody(
-				"asdl exec resolve-prompt returned malformed JSON output.",
-			);
-		}
-		if (resolved.content.trim().length === 0) {
-			return fallbackWritePlanPromptBody("asdl exec resolve-prompt returned empty prompt content.");
-		}
-
-		return { type: "resolved", body: resolved.content };
+		return await readRepoWritePlanPromptBody(repoRoot.path);
 	} catch (error) {
 		return fallbackWritePlanPromptBody(
-			`asdl exec resolve-prompt failed: ${formatErrorMessage(error)}`,
+			`repo prompt ${repoPromptPath(repoRoot.path)} could not be read: ${formatErrorMessage(error)}`,
 		);
 	}
 }
@@ -214,54 +192,59 @@ function fallbackWritePlanPromptBody(reason: string): WritePlanPromptBodyResolut
 	};
 }
 
-function parseResolvePromptJson(
-	stdout: string,
-	expectedName: string,
-): ResolvedAsdlPrompt | undefined {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(stdout);
-	} catch {
-		return undefined;
+async function resolveGitRoot(
+	pi: ExtensionAPI,
+	cwd: string,
+): Promise<{ type: "resolved"; path: string } | { type: "failed"; reason: string }> {
+	const git = new RealGitGateway(piExecApiToCommandExecApi(pi));
+	const result = await git.repoRoot({ cwd });
+	if (!result.ok) {
+		return { type: "failed", reason: result.error.message };
 	}
-
-	if (!isRecord(parsed) || !isRecord(parsed.data)) {
-		return undefined;
-	}
-
-	const data = parsed.data;
-	const provenance = data.provenance;
-	if (
-		typeof data.name !== "string" ||
-		data.name !== expectedName ||
-		typeof data.content !== "string" ||
-		!isRecord(provenance)
-	) {
-		return undefined;
-	}
-	if (typeof provenance.source !== "string" || typeof provenance.repo_prompt_path !== "string") {
-		return undefined;
-	}
-	const promptPath = provenance.prompt_path;
-	const defaultName = provenance.default_name;
-	if (!isOptionalString(promptPath) || !isOptionalString(defaultName)) {
-		return undefined;
-	}
-
-	return {
-		name: data.name,
-		content: data.content,
-		provenance: {
-			source: provenance.source,
-			repo_prompt_path: provenance.repo_prompt_path,
-			prompt_path: promptPath,
-			default_name: defaultName,
-		},
-	};
+	return { type: "resolved", path: result.value };
 }
 
-function isOptionalString(value: unknown): value is string | null | undefined {
-	return value === undefined || value === null || typeof value === "string";
+async function readRepoWritePlanPromptBody(
+	repoRoot: string,
+): Promise<WritePlanPromptBodyResolution> {
+	const asdlPath = path.join(repoRoot, ".asdl");
+	const promptDir = path.join(asdlPath, "prompts");
+	const promptPath = repoPromptPath(repoRoot);
+	await assertSafeDirectory(asdlPath, ".asdl");
+	await assertSafeDirectory(promptDir, ".asdl/prompts");
+	await assertSafeFile(promptPath, `.asdl/prompts/${WRITE_PLAN_PROMPT_NAME}.md`);
+
+	const content = await readFile(promptPath, "utf8");
+	if (content.trim().length === 0) {
+		return fallbackWritePlanPromptBody(`repo prompt ${promptPath} is empty`);
+	}
+	return { type: "resolved", body: content };
+}
+
+async function assertNotSymlink(targetPath: string, label: string): Promise<Stats> {
+	const stats = await lstat(targetPath);
+	if (stats.isSymbolicLink()) {
+		throw new Error(`${label} is a symlink`);
+	}
+	return stats;
+}
+
+async function assertSafeDirectory(targetPath: string, label: string): Promise<void> {
+	const stats = await assertNotSymlink(targetPath, label);
+	if (!stats.isDirectory()) {
+		throw new Error(`${label} is not a directory`);
+	}
+}
+
+async function assertSafeFile(targetPath: string, label: string): Promise<void> {
+	const stats = await assertNotSymlink(targetPath, label);
+	if (!stats.isFile()) {
+		throw new Error(`${label} is not a file`);
+	}
+}
+
+function repoPromptPath(repoRoot: string): string {
+	return path.join(repoRoot, ".asdl", "prompts", `${WRITE_PLAN_PROMPT_NAME}.md`);
 }
 
 export async function handleWritePlanCommand(

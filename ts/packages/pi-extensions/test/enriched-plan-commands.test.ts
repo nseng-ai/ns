@@ -7,9 +7,11 @@ import registerBranchContextExtension, {
 
 import {
 	FakePi,
-	ROOT,
 	createContext,
-	resolveWritePlanPromptStep,
+	gitRootStep,
+	makeRepoPrompt,
+	makeRepoPromptSymlink,
+	step,
 } from "./branch-context-extension-support.ts";
 
 describe("enriched-plan-commands", () => {
@@ -70,13 +72,14 @@ describe("enriched-plan-commands", () => {
 		expect(pi.sentUserMessages[0]).toContain("User steering for this planning request: (none)");
 	});
 
-	test("enriched-plan:save waits for idle, resolves prompt, and dispatches the generated prompt", async () => {
+	test("enriched-plan:save waits for idle, reads repo prompt, and dispatches the generated prompt", async () => {
 		const events: string[] = [];
-		const pi = new FakePi([resolveWritePlanPromptStep()], events);
+		const repoRoot = await makeRepoPrompt();
+		const pi = new FakePi([gitRootStep(repoRoot)], events);
 		registerBranchContextExtension(pi);
 		const command = pi.commands.get("enriched-plan:save");
 		expect(command).toBeDefined();
-		const context = createContext(events);
+		const context = createContext(events, { cwd: repoRoot });
 
 		await command?.handler("  add a tiny docs note plan for testing  ", context.ctx);
 
@@ -86,9 +89,9 @@ describe("enriched-plan-commands", () => {
 		expect(events.at(-1)).toBe("send");
 		expect(pi.execCalls).toEqual([
 			{
-				command: "asdl",
-				args: ["exec", "resolve-prompt", "plans-write", "--format", "json"],
-				options: { cwd: ROOT, timeout: 10_000 },
+				command: "git",
+				args: ["rev-parse", "--show-toplevel"],
+				options: { cwd: repoRoot, timeout: 10_000 },
 			},
 		]);
 		expect(pi.sentUserMessages).toHaveLength(1);
@@ -109,10 +112,11 @@ describe("enriched-plan-commands", () => {
 	});
 
 	test("enriched-plan:save with empty args still sends a prompt with none steering", async () => {
-		const pi = new FakePi([resolveWritePlanPromptStep()]);
+		const repoRoot = await makeRepoPrompt();
+		const pi = new FakePi([gitRootStep(repoRoot)]);
 		registerBranchContextExtension(pi);
 		const command = pi.commands.get("enriched-plan:save");
-		const context = createContext();
+		const context = createContext([], { cwd: repoRoot });
 
 		await command?.handler("   ", context.ctx);
 
@@ -121,11 +125,12 @@ describe("enriched-plan-commands", () => {
 		expect(pi.sentUserMessages[0]).toContain("User steering for this planning request: (none)");
 	});
 
-	test("enriched-plan:save uses custom resolved prompt body", async () => {
-		const pi = new FakePi([resolveWritePlanPromptStep({ content: "Custom plan body\n" })]);
+	test("enriched-plan:save uses custom checked-in prompt body", async () => {
+		const repoRoot = await makeRepoPrompt("Custom plan body\n");
+		const pi = new FakePi([gitRootStep(repoRoot)]);
 		registerBranchContextExtension(pi);
 		const command = pi.commands.get("enriched-plan:save");
-		const context = createContext();
+		const context = createContext([], { cwd: repoRoot });
 
 		await command?.handler("customize this", context.ctx);
 
@@ -138,10 +143,12 @@ describe("enriched-plan-commands", () => {
 		]);
 	});
 
-	test("enriched-plan:save falls back and warns when resolver fails", async () => {
+	test("enriched-plan:save falls back and warns when git root discovery fails", async () => {
 		const pi = new FakePi([
-			resolveWritePlanPromptStep({
-				result: { code: 1, stdout: "", stderr: "prompt_not_found: missing" },
+			step("git", ["rev-parse", "--show-toplevel"], {
+				code: 128,
+				stdout: "",
+				stderr: "fatal: not a git repository",
 			}),
 		]);
 		registerBranchContextExtension(pi);
@@ -156,22 +163,23 @@ describe("enriched-plan-commands", () => {
 			{ message: "Starting /enriched-plan:save planning turn…", level: "info" },
 			{
 				message:
-					"Falling back to built-in /enriched-plan:save prompt body because asdl exec resolve-prompt failed with exit code 1: prompt_not_found: missing",
+					"Falling back to built-in /enriched-plan:save prompt body because git rev-parse --show-toplevel failed (exit code 128).\n\nCommand: git rev-parse --show-toplevel\n\n----- stdout tail -----\n(empty)\n\n----- stderr tail -----\nfatal: not a git repository",
 				level: "warning",
 			},
 		]);
 	});
 
-	test("enriched-plan:save falls back without UI warning when resolver returns malformed JSON", async () => {
-		const pi = new FakePi([resolveWritePlanPromptStep({ result: { stdout: "not json" } })]);
+	test("enriched-plan:save rejects symlinked repo prompt and falls back without UI warning", async () => {
+		const repoRoot = await makeRepoPromptSymlink();
+		const pi = new FakePi([gitRootStep(repoRoot)]);
 		registerBranchContextExtension(pi);
 		const command = pi.commands.get("enriched-plan:save");
-		const context = createContext([], { hasUI: false });
+		const context = createContext([], { cwd: repoRoot, hasUI: false });
 
-		await command?.handler("malformed", context.ctx);
+		await command?.handler("symlink", context.ctx);
 
 		pi.assertDone();
-		expect(pi.sentUserMessages).toEqual([buildWritePlanPrompt("malformed")]);
+		expect(pi.sentUserMessages).toEqual([buildWritePlanPrompt("symlink")]);
 		expect(context.notifications).toEqual([]);
 	});
 });

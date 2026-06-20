@@ -28,11 +28,7 @@ Pi users run `/enriched-plan:save`. The static planning-policy body lives at:
 .asdl/prompts/plans-write.md
 ```
 
-It is resolved through:
-
-```text
-asdl exec resolve-prompt plans-write --format json
-```
+For `/enriched-plan:save`, the TypeScript Pi extension resolves this file from the current Git root and falls back to its built-in prompt body if Git root discovery, file reading, empty content, or symlink safety checks fail.
 
 The structured grilling variant is `/enriched-plan:grill-and-save`. It uses Pi's structured `grill_ask` UI and writes the same Saved plan artifact through `write_saved_plan_file`. The grill should resolve product/design requirements, not routine validation coverage; ordinary test/check scope is deferred to the downstream implementation agent's project policy and changed-file judgment.
 

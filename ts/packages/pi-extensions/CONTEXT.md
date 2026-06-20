@@ -41,7 +41,7 @@ A cmux command suite entrypoint that creates a new cmux workspace after preparin
 *Avoid*: workspace metadata refresh, summary-only command, current workspace rename.
 
 **cmux sidebar command**:
-An explicit manual command that updates the caller workspace using `CMUX_WORKSPACE_ID` or `CMUX_TAB_ID` and applies through `asdl exec cmux-workspace-summary`. `/ccc:sidebar:pr-summary` is model-assisted; `/ccc:sidebar:objective-summary [objective-slug-or-path]` is a deterministic Objective picker/metadata formatter/apply command.
+An explicit manual command that updates the caller workspace using `CMUX_WORKSPACE_ID` or `CMUX_TAB_ID` and applies through `ccc exec cmux-workspace-summary`. `/ccc:sidebar:pr-summary` is model-assisted; `/ccc:sidebar:objective-summary [objective-slug-or-path]` is a deterministic Objective picker/metadata formatter/apply command.
 *Avoid*: automatic workspace-opening automation, focused workspace fallback, raw cmux mutation, assuming both sidebar variants use a model.
 
 **Objective selector**:
@@ -69,7 +69,7 @@ The generic Pi runtime behavior for composing footer lines from cwd, current bra
 *Avoid*: worktree-status fact model, Graphite stack status, Branch Memory storage.
 
 **Deterministic sidebar fields**:
-The `title` and description produced without a model from structured metadata and mechanical formatting rules before calling `asdl exec cmux-workspace-summary`. Objective sidebar fields are fixed as `obj:<objective-slug>` and `<slot-slug>::<branch-slug>`; PR sidebar still asks the model for a one-line `Goal:` description.
+The `title` and description produced without a model from structured metadata and mechanical formatting rules before calling `ccc exec cmux-workspace-summary`. Objective sidebar fields are fixed as `obj:<objective-slug>` and `<slot-slug>::<branch-slug>`; PR sidebar still asks the model for a one-line `Goal:` description.
 *Avoid*: generated Objective summary, arbitrary prose compression, model draft.
 
 **Parked cmux automatic sidebar update**:
@@ -113,7 +113,7 @@ The shippable agent-skill capability made of the `branch-context` umbrella/refer
 *Avoid*: planned-branch skill family, one-off skill, internal docs dependency, hidden installation requirement.
 
 **Enriched-plan save prompt policy**:
-The checked-in `.asdl/prompts/plans-write.md` static prompt body consumed by `/enriched-plan:save` after the command dynamically injects its header and user steering; resolved through `asdl exec resolve-prompt plans-write --format json` with built-in fallback for usability.
+The checked-in `.asdl/prompts/plans-write.md` static prompt body consumed by `/enriched-plan:save` after the command dynamically injects its header and user steering; resolved inside the TypeScript Pi extension from the current Git root with built-in fallback for usability and symlink-safety checks.
 *Avoid*: Pi slash prompt template, saved plan content, Branch Memory attachment, mode selector.
 
 **Enriched-plan grill-and-save prompt**:

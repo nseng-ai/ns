@@ -1,5 +1,5 @@
 import { afterEach, expect } from "vitest";
-import { mkdir, mkdtemp, realpath, rm, utimes, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -316,34 +316,6 @@ export function step(
 	return { command, args, result };
 }
 
-export interface ResolveWritePlanPromptStepOptions {
-	content?: string;
-	result?: Partial<ExecResult>;
-}
-
-export function resolveWritePlanPromptStep(
-	options: ResolveWritePlanPromptStepOptions = {},
-): ScriptedExec {
-	const content = options.content ?? DEFAULT_WRITE_PLAN_PROMPT_BODY;
-	const result = options.result ?? {};
-	return step("asdl", ["exec", "resolve-prompt", "plans-write", "--format", "json"], {
-		stdout: JSON.stringify({
-			exit_code: 0,
-			data: {
-				name: "plans-write",
-				content,
-				provenance: {
-					source: "repo",
-					repo_prompt_path: `${ROOT}/.asdl/prompts/plans-write.md`,
-					prompt_path: `${ROOT}/.asdl/prompts/plans-write.md`,
-					default_name: null,
-				},
-			},
-		}),
-		...result,
-	});
-}
-
 export function planSlugArgs(content: string): string[] {
 	return buildSlugModelArgs(buildPlanContentSlugPrompt(content));
 }
@@ -472,6 +444,23 @@ export async function makeNamedPlanFile(
 	const filePath = join(dir, fileName);
 	await writeFile(filePath, content, "utf8");
 	return filePath;
+}
+
+export async function makeRepoPrompt(content = DEFAULT_WRITE_PLAN_PROMPT_BODY): Promise<string> {
+	const dir = await makeTempDir();
+	const promptDir = join(dir, ".asdl", "prompts");
+	await mkdir(promptDir, { recursive: true });
+	await writeFile(join(promptDir, "plans-write.md"), content, "utf8");
+	return dir;
+}
+
+export async function makeRepoPromptSymlink(): Promise<string> {
+	const dir = await makeTempDir();
+	const target = await makeTempDir("branch-context-prompt-target-");
+	await mkdir(join(dir, ".asdl", "prompts"), { recursive: true });
+	await writeFile(join(target, "plans-write.md"), "linked prompt\n", "utf8");
+	await symlink(join(target, "plans-write.md"), join(dir, ".asdl", "prompts", "plans-write.md"));
+	return dir;
 }
 
 export function planStoreDirectory(

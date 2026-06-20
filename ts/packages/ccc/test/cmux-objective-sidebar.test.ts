@@ -55,7 +55,7 @@ describe("cmux Objective sidebar", () => {
 				options: { cwd: repoRoot, timeout: 30_000 },
 			},
 			{
-				command: "asdl",
+				command: "ccc",
 				args: [
 					"exec",
 					"cmux-workspace-summary",
@@ -144,7 +144,7 @@ describe("cmux Objective sidebar", () => {
 			["objective", ["exec", "read-objective", slug, "--format", "json"]],
 			["git", ["branch", "--show-current"]],
 			[
-				"asdl",
+				"ccc",
 				[
 					"exec",
 					"cmux-workspace-summary",
@@ -275,7 +275,7 @@ describe("cmux Objective sidebar", () => {
 				objectiveReadStep(slug),
 				gitCurrentBranchStep(),
 				step(
-					"asdl",
+					"ccc",
 					[
 						"exec",
 						"cmux-workspace-summary",

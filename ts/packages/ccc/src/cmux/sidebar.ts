@@ -112,7 +112,7 @@ Summarize this Pi session's current task, progress, and likely next action.
 The title must be exactly summary:<slug>, where <slug> is a concise lowercase hyphen slug for the session topic and the full title is max 45 chars.
 The Goal line should describe what this session is trying to accomplish, not the cmux update itself.
 
-Use the active Pi conversation context already available to you. Do not include this control prompt as the subject of the sidebar update. Generate compact title and description fields, apply the update with the asdl exec command when the source is resolved, then report the applied title briefly.`;
+Use the active Pi conversation context already available to you. Do not include this control prompt as the subject of the sidebar update. Generate compact title and description fields, apply the update with the ccc exec command when the source is resolved, then report the applied title briefly.`;
 }
 
 export function buildCmuxBranchStateSidebarPrompt(
@@ -131,14 +131,14 @@ Use read-only repository evidence: current branch, parent branch, porcelain stat
 The title must be exactly state:<slug>, where <slug> is a concise lowercase hyphen slug for the branch topic and the full title is max 45 chars.
 The State line should describe what the branch currently changes or needs next relative to its parent, not the cmux update itself.
 
-Do not include this control prompt as the subject of the sidebar update. Run only read-only Git/Graphite inspection before applying the cmux update. Generate compact title and description fields, apply the update with the asdl exec command when the branch state is resolved, then report the applied title briefly.`;
+Do not include this control prompt as the subject of the sidebar update. Run only read-only Git/Graphite inspection before applying the cmux update. Generate compact title and description fields, apply the update with the ccc exec command when the branch state is resolved, then report the applied title briefly.`;
 }
 
 function buildFallbackSessionSkillPrompt(): string {
 	return `The ccc-sidebar skill was not found. Update the caller cmux workspace title and one-line Goal description for this Pi session using exactly one deterministic command. The title must be exactly summary:<slug>, where <slug> is a concise lowercase hyphen slug:
 
 \`\`\`bash
-asdl exec cmux-workspace-summary \\
+ccc exec cmux-workspace-summary \\
   --title 'summary:<slug>' \\
   --description 'Goal: ...' \\
   --format json
@@ -151,7 +151,7 @@ function buildFallbackBranchStateSkillPrompt(): string {
 	return `The ccc-sidebar skill was not found. Update the caller cmux workspace title and one-line State description for the current branch relative to its parent using exactly one deterministic apply command after read-only Git/Graphite inspection. The title must be exactly state:<slug>, where <slug> is a concise lowercase hyphen slug:
 
 \`\`\`bash
-asdl exec cmux-workspace-summary \\
+ccc exec cmux-workspace-summary \\
   --title 'state:<slug>' \\
   --description 'State: ...' \\
   --format json

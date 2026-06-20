@@ -1,8 +1,9 @@
-# asdl exec Commands
+# Retired Python `asdl exec` Commands
 
-Hidden `asdl exec` commands are deterministic command boundaries for skills and agents. They keep mechanical work
-out of prompts while preserving a machine-readable JSON contract.
+The Python root `asdl exec` surface is retired. Active skill, Pi extension, and higher-level tool callers should use the TypeScript owner for each deterministic operation instead of adding new root `asdl exec` commands.
 
-Current docs:
+Current replacements/retirements:
 
-- [`cmux-workspace-summary`](cmux-workspace-summary.md): apply generated cmux workspace title and description fields.
+- cmux workspace/sidebar summary: use [`ccc exec cmux-workspace-summary`](cmux-workspace-summary.md).
+- `/enriched-plan:save` prompt policy: resolved inside the TypeScript Pi extension from `.asdl/prompts/plans-write.md` with built-in fallback.
+- GitHub review-thread list/resolve commands: retired with no active higher-level caller at migration time.
