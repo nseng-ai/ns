@@ -22,26 +22,9 @@ const mapBranchPrsParseSchema = z.object({
 
 type MapBranchPrsRequest = z.output<typeof mapBranchPrsParseSchema>;
 
-export interface BranchPrEntry {
-	branch: string;
-	pr_number: number;
-	title: string;
-	url: string;
-	head_ref_name: string;
-	base_ref_name: string;
-}
-
-export interface AmbiguousBranchPrEntry {
-	branch: string;
-	candidates: BranchPrEntry[];
-}
-
-export interface MapBranchPrsResult {
-	branch_prs: BranchPrEntry[];
-	missing_branches: string[];
-	ambiguous_branches: AmbiguousBranchPrEntry[];
-	summary: { requested: number; matched: number; missing: number; ambiguous: number };
-}
+export type MapBranchPrsResult = z.output<typeof mapBranchPrsResultSchema>;
+export type BranchPrEntry = MapBranchPrsResult["branch_prs"][number];
+export type AmbiguousBranchPrEntry = MapBranchPrsResult["ambiguous_branches"][number];
 
 export const mapBranchPrsOperation = defineExecOperation({
 	isRepoContextRequired: true,
@@ -57,7 +40,7 @@ export const mapBranchPrsOperation = defineExecOperation({
 async function runMapBranchPrsOperation(
 	ctx: PrAddressExecContext,
 	request: MapBranchPrsRequest,
-): Promise<ClinkrExit<unknown>> {
+): Promise<ClinkrExit<MapBranchPrsResult>> {
 	const payloadResult = await loadJsonInput({
 		optionValue: request.branchesJson,
 		commandName: "map-branch-prs",

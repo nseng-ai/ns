@@ -5,8 +5,20 @@ import { exitCodeForExit, failure, negative, ok, toMachineEnvelope } from "@asdl
 import { defineExecOperation, type ExecOperation } from "../../src/exec-operation.ts";
 import { loadJsonInput } from "../../src/json-input.ts";
 import { EXEC_OPERATIONS } from "../../src/exec-commands.ts";
-import { EXEC_OPERATION_NAMES } from "../support/operation-names.ts";
 import { runScenario } from "../support/run-scenario.ts";
+
+const EXPECTED_EXEC_OPERATION_NAMES = [
+	"branch-pr",
+	"download-feedback",
+	"map-branch-prs",
+	"open-prs",
+	"pr-details",
+	"pr-discussion-comments",
+	"pr-review-threads",
+	"pr-reviews",
+	"reply-review-thread",
+	"resolve-review-thread",
+] as const;
 
 function envelopeOperation(onArgs?: (kind: string | undefined) => void): ExecOperation {
 	return defineExecOperation({
@@ -67,12 +79,15 @@ describe("pr-address CLI", () => {
 		expect(run.stderr.join("")).toBe("error: unknown command 'prepare-run'\n");
 	});
 
-	test("serves retained schema documents locally", async () => {
-		for (const operation of EXEC_OPERATION_NAMES) {
+	test("serves canonical schema documents locally", async () => {
+		for (const operation of EXPECTED_EXEC_OPERATION_NAMES) {
 			const run = runScenario(["exec", operation, "--json-schema"]);
 			expect(await run.exit).toBe(0);
 			const payload = JSON.parse(run.stdout.join("")) as Record<string, unknown>;
 			expect(Object.keys(payload).sort()).toEqual(["input_json_schema", "output_json_schema"]);
+			expect(payload["input_json_schema"]).toEqual(expect.objectContaining({ type: "object" }));
+			expect(payload["output_json_schema"]).toEqual(expect.objectContaining({ type: "object" }));
+			expect(payload["output_json_schema"]).not.toEqual({});
 		}
 	});
 
@@ -136,21 +151,20 @@ describe("pr-address CLI", () => {
 });
 
 describe("pr-address exec operation table", () => {
-	test("every operation serves a pinned schema document and vice versa (1:1)", () => {
-		const tableNames = [...EXEC_OPERATION_NAMES].sort();
-		const schemaDocumentNames = EXEC_OPERATIONS.map((operation) => operation.name).sort();
-		expect(tableNames).toEqual(schemaDocumentNames);
-		expect(tableNames).toEqual([
-			"branch-pr",
-			"download-feedback",
-			"map-branch-prs",
-			"open-prs",
-			"pr-details",
-			"pr-discussion-comments",
-			"pr-review-threads",
-			"pr-reviews",
-			"reply-review-thread",
-			"resolve-review-thread",
-		]);
+	test("matches the literal managed operation list", () => {
+		expect(EXEC_OPERATIONS.map((operation) => operation.name).sort()).toEqual(
+			[...EXPECTED_EXEC_OPERATION_NAMES].sort(),
+		);
+	});
+
+	test("every managed operation exposes useful input and output schemas", () => {
+		for (const operation of EXEC_OPERATIONS) {
+			expect(operation.resultSchema).toBeDefined();
+			const inputSchema = z.toJSONSchema(operation.schema, { io: "input" });
+			const outputSchema = z.toJSONSchema(operation.resultSchema, { io: "output" });
+			expect(inputSchema).toEqual(expect.objectContaining({ type: "object" }));
+			expect(outputSchema).toEqual(expect.objectContaining({ type: "object" }));
+			expect(outputSchema).not.toEqual({});
+		}
 	});
 });

@@ -5,6 +5,7 @@ import { GITHUB_CLI_TIMEOUT_MS, runGitHubCli, type RunGitHubCliResult } from "..
 import type { Result } from "../result.ts";
 
 import {
+	discussionCommentPageArgs,
 	replyToReviewThreadArgs,
 	resolveReviewThreadArgs,
 	reviewThreadCommentPageArgs,
@@ -166,15 +167,33 @@ export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
 	async getPrDiscussionComments(
 		params: GithubPrFeedbackOptions & { readonly prNumber: number },
 	): Promise<Result<readonly GithubPrDiscussionComment[], GithubPrFeedbackFailure>> {
-		const result = await this.runGhJson({
-			operation: "getPrDiscussionComments",
-			args: ["pr", "view", String(params.prNumber), "--json", "comments"],
-			params,
-			schema: ghDiscussionCommentsResponseSchema,
-			prNumber: params.prNumber,
-		});
-		if (!result.ok) return result;
-		return feedbackOk(result.value.comments.map(normalizeDiscussionComment));
+		const comments: GithubPrDiscussionComment[] = [];
+		let commentCursor: string | null | undefined;
+		for (;;) {
+			const result = await this.runGhGraphqlJson({
+				operation: "getPrDiscussionComments",
+				args: discussionCommentPageArgs(params.prNumber, commentCursor),
+				params,
+				schema: ghDiscussionCommentsResponseSchema,
+				prNumber: params.prNumber,
+				cursorContext: "discussionComments",
+			});
+			if (!result.ok) return result;
+
+			const connection = result.value.data.repository.pullRequest.comments;
+			comments.push(...connection.nodes.map(normalizeDiscussionComment));
+			if (!connection.pageInfo.hasNextPage) break;
+			const cursorResult = requireEndCursor({
+				operation: "getPrDiscussionComments",
+				pageInfo: connection.pageInfo,
+				message: "GitHub returned a discussion comments page with hasNextPage but no endCursor",
+				prNumber: params.prNumber,
+				cursorContext: "discussionComments",
+			});
+			if (!cursorResult.ok) return feedbackErr(cursorResult.error);
+			commentCursor = cursorResult.value;
+		}
+		return feedbackOk(comments);
 	}
 
 	async replyToReviewThread(

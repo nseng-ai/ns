@@ -26,7 +26,7 @@ import type {
 
 export function lookupResult(
 	result: Exclude<GithubPrLookupResult, { readonly type: "failure" }>,
-): z.infer<typeof prLookupResultSchema> {
+): z.output<typeof prLookupResultSchema> {
 	if (result.type === "miss") {
 		return {
 			found: false,
@@ -39,43 +39,43 @@ export function lookupResult(
 
 export function openPrsResult(
 	prs: readonly GithubPrSummary[],
-): z.infer<typeof openPrsResultSchema> {
+): z.output<typeof openPrsResultSchema> {
 	return { prs: prs.map(prSummaryResult) };
 }
 
 export function reviewsResult(
 	reviews: readonly GithubPrReview[],
-): z.infer<typeof prReviewsResultSchema> {
+): z.output<typeof prReviewsResultSchema> {
 	return { reviews: reviews.map(reviewResult) };
 }
 
 export function reviewThreadsResult(
 	threads: readonly GithubPrReviewThread[],
-): z.infer<typeof prReviewThreadsResultSchema> {
+): z.output<typeof prReviewThreadsResultSchema> {
 	return { review_threads: threads.map(reviewThreadResult) };
 }
 
 export function discussionCommentsResult(
 	comments: readonly GithubPrDiscussionComment[],
-): z.infer<typeof prDiscussionCommentsResultSchema> {
+): z.output<typeof prDiscussionCommentsResultSchema> {
 	return { discussion_comments: comments.map(discussionCommentResult) };
 }
 
 export function replyReviewThreadResult(options: {
 	readonly threadId: string;
 	readonly comment: GithubPrReviewComment;
-}): z.infer<typeof replyReviewThreadResultSchema> {
+}): z.output<typeof replyReviewThreadResultSchema> {
 	return { thread_id: options.threadId, comment: reviewCommentResult(options.comment) };
 }
 
 export function resolveReviewThreadResult(options: {
 	readonly threadId: string;
 	readonly isResolved: boolean;
-}): z.infer<typeof resolveReviewThreadResultSchema> {
+}): z.output<typeof resolveReviewThreadResultSchema> {
 	return { thread_id: options.threadId, is_resolved: options.isResolved };
 }
 
-function prSummaryResult(pr: GithubPrSummary): z.infer<typeof prSummarySchema> {
+function prSummaryResult(pr: GithubPrSummary): z.output<typeof prSummarySchema> {
 	return {
 		number: pr.number,
 		title: pr.title,
@@ -87,7 +87,7 @@ function prSummaryResult(pr: GithubPrSummary): z.infer<typeof prSummarySchema> {
 	};
 }
 
-function reviewResult(review: GithubPrReview): z.infer<typeof prReviewSchema> {
+function reviewResult(review: GithubPrReview): z.output<typeof prReviewSchema> {
 	return {
 		id: review.id,
 		author: review.author,
@@ -97,7 +97,7 @@ function reviewResult(review: GithubPrReview): z.infer<typeof prReviewSchema> {
 	};
 }
 
-function reviewThreadResult(thread: GithubPrReviewThread): z.infer<typeof prReviewThreadSchema> {
+function reviewThreadResult(thread: GithubPrReviewThread): z.output<typeof prReviewThreadSchema> {
 	return {
 		id: thread.id,
 		path: thread.path,
@@ -111,7 +111,7 @@ function reviewThreadResult(thread: GithubPrReviewThread): z.infer<typeof prRevi
 
 function reviewCommentResult(
 	comment: GithubPrReviewComment,
-): z.infer<typeof prReviewCommentSchema> {
+): z.output<typeof prReviewCommentSchema> {
 	return {
 		id: comment.id,
 		body: comment.body,
@@ -126,6 +126,6 @@ function reviewCommentResult(
 
 function discussionCommentResult(
 	comment: GithubPrDiscussionComment,
-): z.infer<typeof prDiscussionCommentSchema> {
+): z.output<typeof prDiscussionCommentSchema> {
 	return { id: comment.id, body: comment.body, author: comment.author, url: comment.url };
 }
