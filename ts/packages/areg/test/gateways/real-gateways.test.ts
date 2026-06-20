@@ -23,7 +23,6 @@ import {
 import { ScriptedCommandRunner, step } from "../support/scripted-command-runner.ts";
 
 describe("real areg gateways", () => {
-
 	test("check project inspection resolves relative path, symlink targets, excludes, and prunes pairing traversal", async () => {
 		const root = await mkdtemp(path.join(os.tmpdir(), "areg-check."));
 		try {
@@ -671,7 +670,6 @@ describe("real areg gateways", () => {
 		}
 	});
 });
-
 
 class MutatingNpxSkillsGateway implements AregNpxSkillsGateway {
 	private readonly skillsToCreate: readonly string[];

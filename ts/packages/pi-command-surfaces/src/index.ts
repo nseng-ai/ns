@@ -1,5 +1,6 @@
 export const BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME = "sdl:branch-context:from-plan";
-export const BRANCH_CONTEXT_UPSTACK_IMPL_FROM_PLAN_COMMAND_NAME = "sdl:branch-context:upstack-impl-from-plan";
+export const BRANCH_CONTEXT_UPSTACK_IMPL_FROM_PLAN_COMMAND_NAME =
+	"sdl:branch-context:upstack-impl-from-plan";
 export const IMPL_BRANCH_CONTEXT_COMMAND_NAME = "sdl:branch-context:impl-attached-plan";
 export const WRITE_PLAN_COMMAND_NAME = "sdl:plan:save";
 export const WRITE_GRILLED_PLAN_COMMAND_NAME = "sdl:plan:grill-and-save";
@@ -94,9 +95,14 @@ export const SPECIALIZED_SKILL_REPLACEMENTS = {
 	"ccc-sidebar": "ccc:sidebar:pr-summary",
 } as const satisfies Record<string, string>;
 
-export const SPECIALIZED_PI_COMMAND_SURFACES = new Set<string>(Object.values(SPECIALIZED_SKILL_REPLACEMENTS));
+export const SPECIALIZED_PI_COMMAND_SURFACES = new Set<string>(
+	Object.values(SPECIALIZED_SKILL_REPLACEMENTS),
+);
 
-export function derivePiReplacementSurface(skillName: string, namespaces: readonly string[] = KNOWN_PI_COMMAND_NAMESPACES): string | undefined {
+export function derivePiReplacementSurface(
+	skillName: string,
+	namespaces: readonly string[] = KNOWN_PI_COMMAND_NAMESPACES,
+): string | undefined {
 	for (const [specializedSkillName, surface] of Object.entries(SPECIALIZED_SKILL_REPLACEMENTS).sort(
 		(left, right) => right[0].length - left[0].length,
 	)) {
@@ -116,7 +122,9 @@ export function derivePiReplacementSurface(skillName: string, namespaces: readon
 	return `${skillName.slice(0, firstHyphen)}:${skillName.slice(firstHyphen + 1)}`;
 }
 
-export function deriveVisiblePiReplacementSurfaces(skillNames: readonly string[] = COMMAND_STYLE_LOCAL_SKILLS): string[] {
+export function deriveVisiblePiReplacementSurfaces(
+	skillNames: readonly string[] = COMMAND_STYLE_LOCAL_SKILLS,
+): string[] {
 	const surfaces: string[] = [...SPECIALIZED_PI_COMMAND_SURFACES];
 	for (const skillName of skillNames) {
 		if (skillName in SPECIALIZED_SKILL_REPLACEMENTS) continue;
