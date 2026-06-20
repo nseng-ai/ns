@@ -15,14 +15,17 @@ This Objective drives the high-yield fixes only: three cross-cutting **systemic*
 findings, plus per-skill remediation of every skill the audit scored **5 or higher**.
 The long tail of score 1–3 polish stays opportunistic, not a standalone push.
 
-**Per-skill method (decided 2026-06-20):** per-skill remediation is a **from-scratch
-rewrite** of each ≥5 target using the `writing-great-skills` skill as the sole
-authoring authority, preserving 100% of behavior. This supersedes the earlier surgical
-approach (verbatim disclosure-move + recap-deletion): a clean rewrite collapses
-duplication and discloses oversized blocks as a *byproduct*, while also buying the
-clarity/LM-friendliness that surgical edits left on the table. Behavior preservation is
-not an intention but an operational gate — **extract-contract-then-diff** (see
-Assumptions and Risks). Systemic #1/#2/#3 are already complete and unaffected.
+**Per-skill method (decided 2026-06-20):** the **from-scratch rewrite** against
+`writing-great-skills` (preserving 100% of behavior) is the technique for the
+high-lift/low-risk quadrant — a clean rewrite collapses duplication and discloses
+oversized blocks as a *byproduct* while buying the clarity/LM-friendliness surgical
+edits left on the table. It is **not** applied uniformly: a 2026-06-20 re-audit (update
+`2026-06-20T140000`) replaced the single-score cut with a **(lift × risk) quadrant**
+and ranks targets by **value = lift × reach × stakes − risk**. Safety-critical and
+rigid-output-contract skills take the **surgical** path, never from-scratch; other
+targets take prune-to-stub or move-to-reference. Behavior preservation is not an
+intention but an operational gate — **extract-contract-then-diff** (see Assumptions and
+Risks). Systemic #1/#2/#3 are already complete and unaffected.
 
 ## Scope
 
@@ -52,14 +55,19 @@ Assumptions and Risks). Systemic #1/#2/#3 are already complete and unaffected.
      and already drifting — single-home it. (Resolved: implementation confirmed the
      policy had **2** full copies, not the "triplicated" 3 originally recorded — only
      these two files restated the full precedence list.)
-- **Per-skill remediation of every first-party skill scoring ≥5** in the audit, done as
-  a **from-scratch rewrite** against `writing-great-skills` that preserves all behavior
-  (duplication collapse and disclosure fall out of the rewrite rather than being
-  separate surgical passes). Top targets: `objective-stack-impl`,
-  `dignified-python`, `branch-context-impl`, `refactor-swarm`, `ccc-available-work`,
+- **Per-skill remediation of the high-value targets**, with the technique chosen by the
+  (lift × risk) quadrant and the order set by value (reach), not raw lift (re-audit
+  `2026-06-20T140000`): from-scratch rewrite against `writing-great-skills` for
+  high-lift/low-risk targets (behavior preserved; duplication collapse and disclosure
+  fall out of the rewrite); **surgical** for safety-critical / rigid-output-contract
+  skills; prune-to-stub or move-to-reference for the rest. Top targets:
+  `objective-stack-impl`, `dignified-python`, `refactor-swarm`, `ccc-available-work`,
   `enriched-plan-save`, `python-fake-driven-testing`, `objective-refresh`,
   `objective-update`, `code-gt-restack-resolve`, `python-fake-driven-test-layout`,
-  `handoff-create`, `ccc-stack-map`, `code-thermostack`, `pr-address`.
+  `handoff-create`, `ccc-stack-map`, `code-thermostack`, `pr-address`, plus the new
+  clarity/sprawl elevation candidates `brmem`, `objective`, and
+  `code-resolve-merge-conflicts`. `branch-context-impl` **dropped off** (lift 1 / risk 4;
+  its only disclosable block is a 6-trigger STOP safety contract — leave as-is).
 - **Source of truth:** edit the real files under `skills/` only. The
   `skills/` → `.agents/skills/` → `.claude/skills/` symlink chain means every edit
   lands in one place; never edit a symlinked copy.
@@ -122,6 +130,15 @@ Assumptions:
   217→136 lines with the contract preserved, collapsing a 4× "no hidden state"
   restatement and introducing leading words `parent`/`slice`/`verify-independently`. One
   data point, not yet a trend across the remaining targets.)
+- Remediation value is **value = lift × reach × stakes − risk**, not lift alone
+  (re-audit `2026-06-20T140000`). Reach = invocation frequency and always-loaded-ness;
+  descriptions are always loaded, bodies and reference trees load only on invoke, and
+  reference-tree tokens dwarf SKILL.md tokens — so a high-lift SKILL.md change on a
+  rarely-invoked skill is low value. This is why the highest-value action is the
+  `python-fake-driven-testing` reference-tree merge rather than any single rewrite, and
+  why `python-fake-driven-test-layout` (lift 4, low reach) is kept only as the method
+  pilot. Not yet validated against outcomes — it is a ranking heuristic, not a measured
+  result.
 
 Risks:
 
@@ -154,6 +171,12 @@ Risks:
   "All skills OK", pointer resolves — no drift detected. The gate has not yet had to
   *catch* a drop, so its catch-power is still unproven; passing once is not the same as
   having rejected a bad rewrite.)
+- For safety-critical and rigid-output-contract skills, a from-scratch rewrite is
+  unacceptably likely to silently soften a stop-condition or safety rule even with the
+  gate, so these take the **surgical** path, never from-scratch (re-audit
+  `2026-06-20T140000`): `code-gt-restack-resolve`, `code-resolve-merge-conflicts`, and
+  `objective-close`. `branch-context-impl` is the limiting case — disclosing its sole
+  block (a 6-trigger STOP safety contract) is net-negative, so it is dropped entirely.
 
 ## Open Questions
 
@@ -168,6 +191,9 @@ Risks:
   were reconciled in place and both files kept self-contained. The "~95% byte-identical"
   framing was corrected — `pi-grill-with-docs-ui` is a superset, not a twin. See
   roadmap Systemic #2 and update `2026-06-19T210500`.
-- Should `python-fake-driven-testing`'s 11-file / 6.4K-line reference tree be consolidated
-  (e.g. merge `quick-reference.md` and `workflows.md`) or only have its overlapping
-  pointers sharpened?
+- `python-fake-driven-testing` reference tree — **resolved: merge.** The re-audit
+  (update `2026-06-20T140000`) found this the highest-value single action in the whole
+  Objective: merge `references/quick-reference.md` + `workflows.md` (~200 lines off a
+  6.4K-line tree that loads on most Python tasks). It is a separate workstream from any
+  SKILL.md rewrite. `dignified-python`'s 4.5K tree does *not* need consolidation (its
+  version files are independent) — only its SKILL.md router (stated 3×) needs collapsing.
