@@ -1,5 +1,6 @@
 ---
 name: create-bun-typescript-project
+disable-model-invocation: true
 # Full description commented out to save tokens (coding agents inject skill descriptions into every session):
 # "Scaffold a well-structured Bun-centric TypeScript project. Use when the user wants to create a new TypeScript project, set up a Bun project, bootstrap a TS library or CLI, or start a new TS repo with modern tooling. Creates the full structure: package.json (Bun, no build step), strict ESM tsconfig.json, oxlint + oxfmt orchestrated by ultracite, bun test --sequential, bunfig.toml, and .gitignore. Bun runs TypeScript directly — no bundler, no dist/. Produces a project that passes `bun run check`, `bunx tsc --noEmit`, and `bun test --sequential` immediately. Run when the user says things like 'set up a new TypeScript project', 'create a Bun project', 'scaffold a TS CLI', or 'initialize a bun-centric repo'."
 description: "Command: create-bun-typescript-project"

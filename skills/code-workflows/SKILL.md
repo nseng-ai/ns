@@ -1,5 +1,6 @@
 ---
 name: code-workflows
+disable-model-invocation: true
 description: "Command: code-workflows"
 metadata:
   internal: true

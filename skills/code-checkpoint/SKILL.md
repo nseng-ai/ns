@@ -1,5 +1,6 @@
 ---
 name: code-checkpoint
+disable-model-invocation: true
 description: "Command: code-checkpoint"
 allowed-tools:
   - "Bash(sdl cp*)"
