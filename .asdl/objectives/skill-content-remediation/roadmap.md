@@ -117,16 +117,16 @@
       `references/quick-reference.md` + `workflows.md` (~200 lines off a 6.4K-line tree
       that loads on most Python tasks). A separate workstream from any SKILL.md rewrite.
       Resolves the standing Open Question (YES, merge).
-- [ ] Resolve the `skill-audit-improved` support-skill status before counting it as
-      Objective progress. Current branch evidence (`add-skill-audit-improved`, PR #1919)
-      adds `skills/skill-audit-improved/` plus docs that tell authors to summon it, while
-      the skill body calls itself an inert comparison artifact. Verification is red:
-      `areg check` reports the directory is orphaned from `skills-lock.json`, and
-      `areg skill show skill-audit-improved` reports inconsistent invocation artifacts
-      (`disable-model-invocation` present, `agents/openai.yaml` absent). Decide whether it
-      is a deliberate support-skill exception (then register/apply the correct areg kind)
-      or remove/park it as inert comparison material; rerun `areg check` before treating
-      the branch as landed progress.
+- [x] Resolve the `skill-audit-improved` support-skill status before counting it as
+      Objective progress. Decided and applied as a deliberate invoke-only support-skill
+      exception: `skills-lock.json` now has a repo-relative local entry;
+      `.agents/skills/skill-audit-improved` and `.claude/skills/skill-audit-improved`
+      are installed through the canonical symlink chain; `areg skill apply invoke-only
+      skill-audit-improved` generated `skills/skill-audit-improved/agents/openai.yaml`;
+      and the skill body no longer says it is an inert comparison artifact. Evidence:
+      `areg skill show skill-audit-improved` reports kind `invoke-only`, `areg check`
+      reports "All skills OK", `npx skills list` shows the installed skill, and
+      `just dprint-check` passed. See update `2026-06-20T174032`.
 
 ## Parked
 

@@ -182,10 +182,11 @@ Risks:
 - The `skill-audit-improved` support-skill branch surfaced a boundary/invocation risk:
   adding a new first-party skill while documenting it as the audit entry point contradicts
   the original "no new skills" boundary unless it is deliberately treated as a support
-  exception. Current evidence is not clean enough to count it as progress: `areg check`
-  reports the directory is orphaned from `skills-lock.json`, and `areg skill show` reports
-  inconsistent invocation artifacts (`disable-model-invocation` present but
-  `agents/openai.yaml` absent).
+  exception. **Resolved as a support-skill exception:** the skill is registered in
+  `skills-lock.json`, installed through the symlink chain, reconciled as `invoke-only`
+  via `areg skill apply`, and its body no longer calls itself an inert comparison
+  artifact. Evidence: `areg skill show skill-audit-improved` reports kind `invoke-only`,
+  and `areg check` reports "All skills OK" (update `2026-06-20T174032`).
 
 ## Open Questions
 

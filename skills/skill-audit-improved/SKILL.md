@@ -1,7 +1,7 @@
 ---
 name: skill-audit-improved
-description: "Self-contained skill for auditing and tightening agent skills — bundles the writing-great-skills vocabulary with ASDL's operational audit checklists. Summon by name to review a SKILL.md for predictability, token cost, triggers, progressive disclosure, and CLI push-down."
 disable-model-invocation: true
+description: "Self-contained skill for auditing and tightening agent skills — bundles the writing-great-skills vocabulary with ASDL's operational audit checklists. Summon by name to review a SKILL.md for predictability, token cost, triggers, progressive disclosure, and CLI push-down."
 ---
 
 # skill-audit-improved
@@ -11,8 +11,8 @@ disable-model-invocation: true
     src: pocock       = Matt Pocock's writing-great-skills (vocabulary, failure modes, leading words)
     src: skill-audit  = the original asdl skill-audit (operational checklists)
     src: asdl         = asdl overlay / authored for this merge
-  Inert comparison artifact: not registered. To install as invoke-only, run
-  `areg skill apply invoke-only skill-audit-improved` (see docs/skill-conventions.md).
+  Installed as an invoke-only support skill via areg. Keep invocation artifacts
+  managed by `areg skill apply invoke-only skill-audit-improved` (see docs/skill-conventions.md).
 -->
 
 Audit and tighten `SKILL.md` files: same **process** every run (see Vocabulary), high signal, low token cost, clear routing. Default goal: preserve behavior while deleting prompt burden.
