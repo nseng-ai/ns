@@ -20,7 +20,7 @@
       removal only de-verified that family. Evidence: `areg check` "All skills OK";
       descriptions left as minimal `Command: <name>` stubs (update `2026-06-19T202008`).
       Residual body-content work for `sdl-submit` / `objective-close` / `objective-create`
-      is tracked under the duplication-collapse row, not here. Taxonomy in
+      is tracked under the from-scratch-rewrite row, not here. Taxonomy in
       `docs/skill-conventions.md` § Skill Invocation Kinds.
 - [x] Systemic #2 — single-source the grill-loop core shared by `pi-grill-ui` and
       `pi-grill-with-docs-ui`. Reconcile the already-drifted `status_request` wording;
@@ -52,23 +52,45 @@
       `lifecycle.md`; `from-plan` still names `--branch-creation graphite` inline and its
       pointer target (`## Branch creation policy`) is reachable; SKILL.md frontmatter
       valid and steps contiguous.
-- [ ] Disclosure surgery on oversized always-loaded blocks. Push inline material that
-      only one branch reaches behind pointers: `objective-stack-impl` digest/telemetry
-      and final-response templates; `branch-context-impl` STOP-contract protocol;
-      `enriched-plan-save` step-1 conditional sub-blocks; `dignified-python` triplicated
-      router → one trigger-keyed routing section; `python-fake-driven-testing` overlapping
-      reference pointers sharpened.
-      Evidence: each disclosed reference reachable via its pointer; SKILL.md still loads.
-- [ ] Duplication collapse across the high-duplication ≥5 skills. Pick one home per
-      restated contract and delete the recap: `refactor-swarm` (recap section + redundant
-      examples), `ccc-available-work` and `ccc-stack-map` (twice-listed command recipes),
-      `objective-refresh` and `objective-update` (invariants stated 3–4×), `handoff-create`
-      (verbatim artifact template), `python-fake-driven-test-layout` (tree drawn 3×),
-      `code-thermostack` (subagent-contract triplication), `code-gt-restack-resolve`
-      (TS-toolchain rule written twice), `pr-address` (retired-workflow tombstone), plus
-      the body work in `sdl-submit` / `objective-close` / `objective-create` beyond their
-      descriptions.
-      Evidence: no verbatim-duplicated contract remains among these skills.
+- [~] From-scratch rewrite of each ≥5 skill against `writing-great-skills`, preserving
+  all behavior. **Method decided 2026-06-20** (supersedes the prior split of
+  "disclosure surgery" + "duplication collapse" into separate surgical passes):
+  rewrite each target clean so duplication collapse and oversized-block disclosure
+  fall out as byproducts, while gaining clarity/LM-friendliness. Per-target gate:
+  extract the behavioral contract (triggers, ordered steps, stop/ask conditions,
+  output shapes, safety rules, CLI calls), rewrite, then diff the new `SKILL.md`
+  against that contract line-by-line; `areg check` "All skills OK"; every disclosed
+  pointer resolves. Edit the real `skills/` source only (never a symlinked copy).
+  The notes below carry over from the old rows as per-target rewrite focus, not as
+  separate work items.
+  Targets and their known debt:
+  - `objective-stack-impl` — **DONE (rewrite method, the retro-rewrite decided yes).**
+    First disclosed under the prior surgical method (282→217); then re-remediated as a
+    from-scratch rewrite against `writing-great-skills`, behavior preserved via
+    extract-contract-then-diff (every contract item verified present; description kept
+    verbatim so routing is unchanged). Clarity wins: leading words
+    `parent`/`slice`/`verify-independently`, the 4× "no hidden state" restatement
+    collapsed to one boundary, status interpretation co-located under Execute. SKILL.md
+    217→136; `references/final-response.md` unchanged, pointer resolves. Evidence:
+    `areg check` "All skills OK"; `just dprint-check` clean. See update
+    `2026-06-20T133000`.
+  - `branch-context-impl` — STOP-contract protocol block to disclose.
+  - `enriched-plan-save` — step-1 conditional sub-blocks to disclose.
+  - `dignified-python` — triplicated router → one trigger-keyed routing section.
+  - `python-fake-driven-testing` — overlapping reference pointers (gated by the Open
+    Question on consolidating the 11-file reference tree vs. only sharpening pointers).
+  - `refactor-swarm` — recap section + redundant examples.
+  - `ccc-available-work`, `ccc-stack-map` — twice-listed command recipes.
+  - `objective-refresh`, `objective-update` — invariants stated 3–4×.
+  - `handoff-create` — verbatim artifact template.
+  - `python-fake-driven-test-layout` — tree drawn 3×.
+  - `code-thermostack` — subagent-contract triplication.
+  - `code-gt-restack-resolve` — TS-toolchain rule written twice.
+  - `pr-address` — retired-workflow tombstone.
+  - `sdl-submit`, `objective-close`, `objective-create` — body work beyond their
+    (already-set) descriptions.
+    Evidence: per-target contract diff shows no behavioral change; no verbatim-
+    duplicated contract remains among these skills.
 
 ## Parked
 

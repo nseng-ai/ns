@@ -12,8 +12,17 @@ mode is **oversized always-loaded blocks**: large reference material sitting inl
 `SKILL.md` that only one branch reaches and should be disclosed behind a pointer.
 
 This Objective drives the high-yield fixes only: three cross-cutting **systemic**
-findings, plus per-skill surgery on every skill the audit scored **5 or higher**. The
-long tail of score 1–3 polish stays opportunistic, not a standalone push.
+findings, plus per-skill remediation of every skill the audit scored **5 or higher**.
+The long tail of score 1–3 polish stays opportunistic, not a standalone push.
+
+**Per-skill method (decided 2026-06-20):** per-skill remediation is a **from-scratch
+rewrite** of each ≥5 target using the `writing-great-skills` skill as the sole
+authoring authority, preserving 100% of behavior. This supersedes the earlier surgical
+approach (verbatim disclosure-move + recap-deletion): a clean rewrite collapses
+duplication and discloses oversized blocks as a *byproduct*, while also buying the
+clarity/LM-friendliness that surgical edits left on the table. Behavior preservation is
+not an intention but an operational gate — **extract-contract-then-diff** (see
+Assumptions and Risks). Systemic #1/#2/#3 are already complete and unaffected.
 
 ## Scope
 
@@ -43,8 +52,10 @@ long tail of score 1–3 polish stays opportunistic, not a standalone push.
      and already drifting — single-home it. (Resolved: implementation confirmed the
      policy had **2** full copies, not the "triplicated" 3 originally recorded — only
      these two files restated the full precedence list.)
-- **Per-skill remediation of every first-party skill scoring ≥5** in the audit
-  (duplication collapse and disclosure surgery). Top targets: `objective-stack-impl`,
+- **Per-skill remediation of every first-party skill scoring ≥5** in the audit, done as
+  a **from-scratch rewrite** against `writing-great-skills` that preserves all behavior
+  (duplication collapse and disclosure fall out of the rewrite rather than being
+  separate surgical passes). Top targets: `objective-stack-impl`,
   `dignified-python`, `branch-context-impl`, `refactor-swarm`, `ccc-available-work`,
   `enriched-plan-save`, `python-fake-driven-testing`, `objective-refresh`,
   `objective-update`, `code-gt-restack-resolve`, `python-fake-driven-test-layout`,
@@ -98,7 +109,19 @@ Assumptions:
   `normal` skill showing the stub is simply misconfigured.)
 - Disclosing an oversized inline block to a reference reduces always-loaded cost without
   hurting reliability, *provided* the pointer wording names the concrete situation that
-  should reach it.
+  should reach it. (Exercised on `objective-stack-impl`: the two end-of-run sections
+  moved to `references/final-response.md` behind a `## Final response` pointer that names
+  the trigger — "hit a stop condition, about to write the final response" — cutting
+  SKILL.md 282→217 with behavior unchanged. Still active for the remaining disclosure
+  targets — now realized inside the from-scratch rewrite rather than as a standalone
+  move.)
+- A behavior-preserving from-scratch rewrite (against `writing-great-skills`) yields
+  better clarity and LM-friendliness than surgical verbatim-move + recap-deletion, at
+  acceptable risk, *because* the rewrite is gated by extract-contract-then-diff.
+  (**Exercised once, holding:** the first rewrite — `objective-stack-impl` — cut SKILL.md
+  217→136 lines with the contract preserved, collapsing a 4× "no hidden state"
+  restatement and introducing leading words `parent`/`slice`/`verify-independently`. One
+  data point, not yet a trend across the remaining targets.)
 
 Risks:
 
@@ -118,6 +141,19 @@ Risks:
 - Edits must respect the symlink layout; editing a `.claude/skills/` or
   `.agents/skills/` symlinked path instead of the real `skills/` source would be a
   no-op or worse.
+- A from-scratch rewrite is the **highest behavior-drift** remediation method available:
+  unlike a verbatim move, it can silently drop a stop-condition, soften a safety rule,
+  reorder steps, or shift a trigger — and skills are prose contracts with no test suite
+  to catch it. Mitigation (load-bearing, not optional): **extract-contract-then-diff** —
+  before rewriting, enumerate the skill's behavioral contract (trigger conditions,
+  ordered steps, stop/ask conditions, output shapes, safety rules, CLI invocations);
+  after rewriting, diff the new `SKILL.md` against that contract line-by-line, then run
+  `areg check` and verify every disclosed-reference pointer resolves. A rewrite that
+  cannot be shown to preserve the contract does not ship. (**Gate exercised once on
+  `objective-stack-impl`:** the contract-diff confirmed every item present, `areg check`
+  "All skills OK", pointer resolves — no drift detected. The gate has not yet had to
+  *catch* a drop, so its catch-power is still unproven; passing once is not the same as
+  having rejected a bad rewrite.)
 
 ## Open Questions
 
