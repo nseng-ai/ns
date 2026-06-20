@@ -10,6 +10,7 @@ const ROAST_SKILL_ENTRIES = [
 	{
 		surface: "roast:thermonuclear-review",
 		skillName: "thermo-nuclear-code-quality-review",
+		// Intentionally matches the MVP's named user-facing label: "Roast: ThermonuclearReview".
 		title: "ThermonuclearReview",
 		description:
 			"Run an extremely strict maintainability review for abstraction quality, giant files, and spaghetti-condition growth.",
@@ -26,7 +27,7 @@ const ROAST_SKILL_ENTRIES = [
 ] as const satisfies readonly RoastSkillEntry[];
 
 export function listRoastSkillEntries(): readonly RoastSkillEntry[] {
-	return [...ROAST_SKILL_ENTRIES];
+	return ROAST_SKILL_ENTRIES;
 }
 
 export function roastSkillLabel(entry: RoastSkillEntry): string {

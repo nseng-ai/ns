@@ -29,11 +29,14 @@ describe("Roaster skill review catalog", () => {
 		expect(surfaces.every((surface) => surface.startsWith("roast:"))).toBe(true);
 	});
 
-	test("returns a copy of the catalog list", () => {
+	test("returns the readonly catalog without changing order", () => {
 		const first = listRoastSkillEntries();
 		const second = listRoastSkillEntries();
 
 		expect(first).toEqual(second);
-		expect(first).not.toBe(second);
+		expect(first.map((entry) => entry.surface)).toEqual([
+			"roast:thermonuclear-review",
+			"roast:improve-codebase-architecture",
+		]);
 	});
 });

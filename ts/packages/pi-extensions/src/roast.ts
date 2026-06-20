@@ -5,57 +5,24 @@ import {
 } from "@sdl/roaster/skill-reviews";
 
 import { buildFencedTextBlock, invokeRepoSkillPromptTurn } from "./skill-expansion.ts";
-import { definePiSurfaceParity } from "./parity.ts";
+import { definePiSurfaceParity, type FullPiSurfaceParity } from "./parity.ts";
+import type {
+	BackingSkillCommandContext,
+	BackingSkillCommandHost,
+} from "./backing-skill-commands.ts";
 import type { SkillCommandInfo } from "./skill-expansion.ts";
 
-export const roastParity = definePiSurfaceParity([
-	{
-		kind: "command",
-		surface: "roast:thermonuclear-review",
-		workflow: "Run ThermonuclearReview Roaster review skill",
-		parity: "FULL",
-		cli: "roaster roast list for catalog discovery; invoke skill thermo-nuclear-code-quality-review directly outside Pi",
-		skill: "thermo-nuclear-code-quality-review",
-		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl/pi-extensions",
-		sourceModule: "roast",
-		notes:
-			"The command is a Pi convenience wrapper over a portable backing skill and Roaster-owned catalog entry.",
-	},
-	{
-		kind: "command",
-		surface: "roast:improve-codebase-architecture",
-		workflow: "Run Improve codebase architecture Roaster review skill",
-		parity: "FULL",
-		cli: "roaster roast list for catalog discovery; invoke skill improve-codebase-architecture directly outside Pi",
-		skill: "improve-codebase-architecture",
-		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl/pi-extensions",
-		sourceModule: "roast",
-		notes:
-			"The command is a Pi convenience wrapper over a portable backing skill and Roaster-owned catalog entry.",
-	},
-] as const);
+export const roastParity = definePiSurfaceParity(listRoastSkillEntries().map(roastParityRecord));
 
-export interface RoastCommandContext {
-	cwd: string;
-	hasUI?: boolean;
-	ui: {
-		notify(message: string, level?: "info" | "warning" | "error"): void;
-	};
-	waitForIdle(): Promise<void>;
-}
-
-interface RegisteredRoastCommand {
-	description?: string;
-	argumentHint?: string;
-	handler(args: string, ctx: RoastCommandContext): Promise<void> | void;
-}
-
-export interface RoastExtensionAPI {
-	registerCommand(name: string, command: RegisteredRoastCommand): void;
-	sendUserMessage(content: string): Promise<void> | void;
+export interface RoastExtensionAPI extends BackingSkillCommandHost {
 	getCommands?(): readonly SkillCommandInfo[];
+}
+
+interface HandleRoastCommandOptions {
+	readonly pi: RoastExtensionAPI;
+	readonly ctx: BackingSkillCommandContext;
+	readonly entry: RoastSkillEntry;
+	readonly args: string;
 }
 
 export default function roastExtension(pi: RoastExtensionAPI): void {
@@ -63,17 +30,29 @@ export default function roastExtension(pi: RoastExtensionAPI): void {
 		pi.registerCommand(entry.surface, {
 			description: `${roastSkillLabel(entry)} — ${entry.description}`,
 			argumentHint: "[review request/scope]",
-			handler: async (args, ctx) => handleRoastCommand(pi, ctx, entry, args),
+			handler: async (args, ctx) => handleRoastCommand({ pi, ctx, entry, args }),
 		});
 	}
 }
 
-async function handleRoastCommand(
-	pi: RoastExtensionAPI,
-	ctx: RoastCommandContext,
-	entry: RoastSkillEntry,
-	args: string,
-): Promise<void> {
+function roastParityRecord(entry: RoastSkillEntry): FullPiSurfaceParity {
+	return {
+		kind: "command",
+		surface: entry.surface,
+		workflow: `Run ${roastSkillLabel(entry)} Roaster review skill`,
+		parity: "FULL",
+		cli: `roaster roast list for catalog discovery; invoke skill ${entry.skillName} directly outside Pi`,
+		skill: entry.skillName,
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@sdl/pi-extensions",
+		sourceModule: "roast",
+		notes:
+			"The command is a Pi convenience wrapper over a portable backing skill and Roaster-owned catalog entry.",
+	};
+}
+
+async function handleRoastCommand(options: HandleRoastCommandOptions): Promise<void> {
+	const { pi, ctx, entry, args } = options;
 	await invokeRepoSkillPromptTurn({
 		host: pi,
 		ctx,

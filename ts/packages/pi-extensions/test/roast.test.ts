@@ -4,13 +4,14 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import roastExtension, { buildRoastPrompt, type RoastCommandContext } from "../src/roast.ts";
+import type { BackingSkillCommandContext } from "../src/backing-skill-commands.ts";
+import roastExtension, { buildRoastPrompt } from "../src/roast.ts";
 import { buildFencedTextBlock, type SkillCommandInfo } from "../src/skill-expansion.ts";
 
 interface RegisteredCommand {
 	readonly description?: string;
 	readonly argumentHint?: string;
-	handler(args: string, ctx: RoastCommandContext): Promise<void> | void;
+	handler(args: string, ctx: BackingSkillCommandContext): Promise<void> | void;
 }
 
 class FakeRoastHost {
@@ -50,7 +51,7 @@ function commandContext(cwd: string): {
 		level: "info" | "warning" | "error" | undefined;
 	}>;
 	readonly waitCount: () => number;
-	readonly ctx: RoastCommandContext;
+	readonly ctx: BackingSkillCommandContext;
 } {
 	const notifications: Array<{
 		message: string;
