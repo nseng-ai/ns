@@ -9,7 +9,7 @@ import { runScenario } from "../support/run-scenario.ts";
 import { FakeRunner } from "../support/fake-runner.ts";
 import { FakeGitGateway } from "../support/fake-git-gateway.ts";
 import { runCli } from "../../src/cli.ts";
-import { RealGitGateway } from "../../src/git.ts";
+import { RealVibechkGitGateway } from "../../src/git.ts";
 import { RunnerRegistry } from "../../src/runners.ts";
 
 describe("vibechk run command", () => {
@@ -228,7 +228,7 @@ describe("vibechk run command", () => {
 				stdout: (text) => stdout.push(text),
 				stderr: (text) => stderr.push(text),
 				runnerRegistry: new RunnerRegistry([fakeRunner]),
-				gitGatewayFactory: (workdir) => new RealGitGateway(workdir),
+				gitGatewayFactory: (workdir) => new RealVibechkGitGateway(workdir),
 				clock: () => new Date("2026-05-23T12:00:00Z"),
 				idGenerator: () => "RealRun1",
 				defaultRunnerName: "fake",

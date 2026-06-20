@@ -1,4 +1,4 @@
-export interface RunnerSubagentUsageTotals {
+export interface RuntimeRunnerSubagentUsageTotals {
 	input: number;
 	output: number;
 	cacheRead: number;
@@ -6,7 +6,7 @@ export interface RunnerSubagentUsageTotals {
 	totalTokens: number;
 }
 
-export interface RunnerSubagentUsageCostTotals {
+export interface RuntimeRunnerSubagentUsageCostTotals {
 	input: number;
 	output: number;
 	cacheRead: number;
@@ -21,8 +21,8 @@ export interface RunnerSubagentUsageModelRef {
 }
 
 export interface RunnerSubagentUsageRecord {
-	tokens: RunnerSubagentUsageTotals;
-	cost: RunnerSubagentUsageCostTotals;
+	tokens: RuntimeRunnerSubagentUsageTotals;
+	cost: RuntimeRunnerSubagentUsageCostTotals;
 	model: RunnerSubagentUsageModelRef;
 	peakTotalTokens: number;
 	peakPromptTokens: number;
@@ -64,10 +64,10 @@ export function parseRunnerSubagentUsageJsonl(jsonl: string): ParseRunnerSubagen
 	return { type: "ok", records };
 }
 
-export function addRunnerSubagentUsageTotals(
-	left: RunnerSubagentUsageTotals,
-	right: RunnerSubagentUsageTotals,
-): RunnerSubagentUsageTotals {
+export function addRuntimeRunnerSubagentUsageTotals(
+	left: RuntimeRunnerSubagentUsageTotals,
+	right: RuntimeRunnerSubagentUsageTotals,
+): RuntimeRunnerSubagentUsageTotals {
 	return {
 		input: left.input + right.input,
 		output: left.output + right.output,
@@ -77,10 +77,10 @@ export function addRunnerSubagentUsageTotals(
 	};
 }
 
-export function addRunnerSubagentUsageCostTotals(
-	left: RunnerSubagentUsageCostTotals,
-	right: RunnerSubagentUsageCostTotals,
-): RunnerSubagentUsageCostTotals {
+export function addRuntimeRunnerSubagentUsageCostTotals(
+	left: RuntimeRunnerSubagentUsageCostTotals,
+	right: RuntimeRunnerSubagentUsageCostTotals,
+): RuntimeRunnerSubagentUsageCostTotals {
 	return {
 		input: left.input + right.input,
 		output: left.output + right.output,
@@ -110,7 +110,7 @@ function usageFromRecord(record: unknown): RunnerSubagentUsageRecord | null {
 	};
 }
 
-function tokensFromUsage(usage: JsonRecord): RunnerSubagentUsageTotals {
+function tokensFromUsage(usage: JsonRecord): RuntimeRunnerSubagentUsageTotals {
 	return {
 		input: numberField(usage, "input"),
 		output: numberField(usage, "output"),
@@ -120,7 +120,7 @@ function tokensFromUsage(usage: JsonRecord): RunnerSubagentUsageTotals {
 	};
 }
 
-function costFromUsage(usage: JsonRecord): RunnerSubagentUsageCostTotals {
+function costFromUsage(usage: JsonRecord): RuntimeRunnerSubagentUsageCostTotals {
 	const cost = mappingField(usage, "cost") ?? {};
 	return {
 		input: numberField(cost, "input"),

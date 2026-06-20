@@ -2,8 +2,21 @@
  * Payload artifact store.
  */
 
-import * as fs from "node:fs";
-import * as path from "node:path";
+import {
+	chmodSync,
+	closeSync,
+	fchmodSync,
+	constants,
+	lstatSync,
+	mkdirSync,
+	openSync,
+	readdirSync,
+	statSync,
+	unlinkSync,
+	writeSync,
+	type Stats,
+} from "node:fs";
+import { isAbsolute, join } from "node:path";
 
 import { PayloadError } from "./errors.ts";
 import { PAYLOAD_FILENAME_PATTERN } from "./filename.ts";
@@ -31,7 +44,7 @@ export class PayloadStore {
 		this.sessionId = options.sessionId;
 		this._clock = options.clock ?? defaultClock;
 
-		if (!path.isAbsolute(this.root)) {
+		if (!isAbsolute(this.root)) {
 			throw new PayloadError(
 				"payload_root_invalid",
 				`Payload root must be an absolute path: ${this.root}`,
@@ -44,9 +57,9 @@ export class PayloadStore {
 			);
 		}
 
-		const sessionsDir = path.join(this.root, "sessions");
-		const sessionDir = path.join(sessionsDir, this.sessionId);
-		this.payloadDir = path.join(sessionDir, "payloads");
+		const sessionsDir = join(this.root, "sessions");
+		const sessionDir = join(sessionsDir, this.sessionId);
+		this.payloadDir = join(sessionDir, "payloads");
 
 		ensurePrivateDirectory(this.root, {
 			notDirectoryErrorType: "payload_root_invalid",
@@ -147,7 +160,7 @@ export class PayloadStore {
 
 		while (true) {
 			const sequence = this._nextSequence();
-			const payloadPath = path.join(
+			const payloadPath = join(
 				this.payloadDir,
 				payloadFilename({
 					filenameTimestamp,
@@ -188,7 +201,7 @@ export class PayloadStore {
 		let maxSequence = 0;
 		let payloadEntries: string[];
 		try {
-			payloadEntries = fs.readdirSync(this.payloadDir);
+			payloadEntries = readdirSync(this.payloadDir);
 		} catch (error) {
 			throw new PayloadError(
 				"payload_write_failed",
@@ -245,9 +258,9 @@ function ensurePrivateDirectory(
 		createErrorType: "payload_root_invalid" | "payload_directory_unsafe";
 	},
 ): void {
-	let stats: fs.Stats | undefined;
+	let stats: Stats | undefined;
 	try {
-		stats = fs.lstatSync(dirPath);
+		stats = lstatSync(dirPath);
 	} catch (error) {
 		if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
 			throw new PayloadError(
@@ -276,11 +289,11 @@ function ensurePrivateDirectory(
 	}
 
 	try {
-		fs.mkdirSync(dirPath, { mode: 0o700 });
+		mkdirSync(dirPath, { mode: 0o700 });
 	} catch (error) {
 		if ((error as NodeJS.ErrnoException).code === "EEXIST") {
 			try {
-				const retryStats = fs.lstatSync(dirPath);
+				const retryStats = lstatSync(dirPath);
 				if (retryStats.isSymbolicLink() || !retryStats.isDirectory()) {
 					throw new PayloadError(
 						options.notDirectoryErrorType,
@@ -305,7 +318,7 @@ function ensurePrivateDirectory(
 	}
 
 	try {
-		fs.chmodSync(dirPath, 0o700);
+		chmodSync(dirPath, 0o700);
 	} catch (error) {
 		throw new PayloadError(
 			"payload_directory_unsafe",
@@ -320,9 +333,9 @@ function validatePrivateDirectory(dirPath: string): void {
 	if (process.platform !== "linux" && process.platform !== "darwin") {
 		return;
 	}
-	let stats: fs.Stats;
+	let stats: Stats;
 	try {
-		stats = fs.statSync(dirPath);
+		stats = statSync(dirPath);
 	} catch (error) {
 		throw new PayloadError(
 			"payload_directory_unsafe",
@@ -343,15 +356,11 @@ function writeBytesExclusive(filePath: string, payload: Buffer): void {
 	let fd: number | undefined;
 	let hasCreatedPath = false;
 	try {
-		fd = fs.openSync(
-			filePath,
-			fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL,
-			0o600,
-		);
+		fd = openSync(filePath, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL, 0o600);
 		hasCreatedPath = true;
 		setPrivateFileMode(fd);
 		writeBytesToFd(fd, payload);
-		fs.closeSync(fd);
+		closeSync(fd);
 		fd = undefined;
 	} catch (error) {
 		if ((error as NodeJS.ErrnoException).code === "EEXIST") {
@@ -369,14 +378,14 @@ function writeBytesExclusive(filePath: string, payload: Buffer): void {
 
 function setPrivateFileMode(fd: number): void {
 	if (process.platform === "linux" || process.platform === "darwin") {
-		fs.fchmodSync(fd, 0o600);
+		fchmodSync(fd, 0o600);
 	}
 }
 
 function writeBytesToFd(fd: number, payload: Buffer): void {
 	let bytesWrittenTotal = 0;
 	while (bytesWrittenTotal < payload.length) {
-		const bytesWritten = fs.writeSync(fd, payload, bytesWrittenTotal);
+		const bytesWritten = writeSync(fd, payload, bytesWrittenTotal);
 		if (bytesWritten === 0) {
 			throw new Error("write returned 0 bytes");
 		}
@@ -386,7 +395,7 @@ function writeBytesToFd(fd: number, payload: Buffer): void {
 
 function closeFdAfterWriteFailure(fd: number): void {
 	try {
-		fs.closeSync(fd);
+		closeSync(fd);
 	} catch {
 		// Best-effort cleanup close: preserve the original write/open failure.
 	}
@@ -394,9 +403,9 @@ function closeFdAfterWriteFailure(fd: number): void {
 
 function removePartialPayloadFile(filePath: string): void {
 	try {
-		const stats = fs.statSync(filePath);
+		const stats = statSync(filePath);
 		if (stats.isFile()) {
-			fs.unlinkSync(filePath);
+			unlinkSync(filePath);
 		}
 	} catch {
 		// Best-effort cleanup: preserve the original write failure.

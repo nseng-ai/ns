@@ -1,5 +1,5 @@
 import { Buffer } from "node:buffer";
-import { readFile as nodeReadFile, stat as nodeStat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { relative, resolve } from "node:path";
 import { formatErrorMessage } from "@asdl/core/primitives";
 import type { CommandResult } from "@asdl/sdl/checkpoint-flow";
@@ -137,8 +137,8 @@ async function readUntrackedSnippets(
 		return "";
 	}
 
-	const readFile = input.readFile ?? nodeReadFile;
-	const stat = input.stat ?? nodeStat;
+	const readFileImpl = input.readFile ?? readFile;
+	const statImpl = input.stat ?? stat;
 	const files = listed.stdout.split("\0").filter(Boolean).slice(0, MAX_UNTRACKED_FILES);
 	const snippets: string[] = [];
 	for (const file of files) {
@@ -148,12 +148,12 @@ async function readUntrackedSnippets(
 		}
 
 		try {
-			const info = await stat(absolutePath);
+			const info = await statImpl(absolutePath);
 			if (!info.isFile()) {
 				snippets.push(`## ${file}\n[not a regular file]`);
 				continue;
 			}
-			const raw = await readFile(absolutePath);
+			const raw = await readFileImpl(absolutePath);
 			const buffer = typeof raw === "string" ? Buffer.from(raw, "utf8") : Buffer.from(raw);
 			if (buffer.includes(0)) {
 				snippets.push(`## ${file}\n[binary file, ${info.size} bytes]`);

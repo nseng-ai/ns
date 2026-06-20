@@ -23,14 +23,14 @@ import type {
 	AutocompleteItem,
 	CommandContext,
 	ExecOptions,
-	ExtensionAPI as CmuxExtensionAPI,
+	ExtensionAPI,
 	NotifyLevel,
 } from "./cmux/types.ts";
 
 export type { CommandContext, NotifyLevel, SessionStartContext } from "./cmux/types.ts";
 export type { ExecResult } from "@asdl/core/exec";
-export type ExtensionAPI = Pick<
-	CmuxExtensionAPI,
+export type ObjectiveExtensionAPI = Pick<
+	ExtensionAPI,
 	"on" | "registerCommand" | "exec" | "getCommands" | "sendMessage" | "sendUserMessage"
 >;
 
@@ -77,7 +77,7 @@ interface ObjectiveCreateCommandSpec {
 }
 
 interface InvokeObjectiveCreateSkillOptions {
-	pi: ExtensionAPI;
+	pi: ObjectiveExtensionAPI;
 	ctx: CommandContext;
 	spec: ObjectiveCreateCommandSpec;
 	rawArgs: string;
@@ -193,7 +193,7 @@ const OBJECTIVE_COMMANDS: ObjectiveCommandSpec[] = [
 ];
 
 async function invokeObjectiveSkill(
-	pi: ExtensionAPI,
+	pi: ObjectiveExtensionAPI,
 	ctx: CommandContext,
 	spec: ObjectiveCommandSpec,
 	objective: string,
@@ -217,7 +217,7 @@ async function invokeObjectiveSkill(
 }
 
 async function chooseObjectiveAndInvoke(
-	pi: ExtensionAPI,
+	pi: ObjectiveExtensionAPI,
 	ctx: CommandContext,
 	spec: ObjectiveCommandSpec,
 ): Promise<void> {
@@ -292,7 +292,7 @@ async function handleObjectiveCreateCommand(
 }
 
 async function handleObjectiveCommand(
-	pi: ExtensionAPI,
+	pi: ObjectiveExtensionAPI,
 	spec: ObjectiveCommandSpec,
 	args: string,
 	ctx: CommandContext,
@@ -437,7 +437,7 @@ function matchingCompletions(
 }
 
 function createObjectiveCommandCompleter(
-	pi: ExtensionAPI,
+	pi: ObjectiveExtensionAPI,
 ): (prefix: string) => Promise<AutocompleteItem[] | null> {
 	let cachedCwd: string | undefined;
 	let cachedItems: AutocompleteItem[] | null | undefined;
@@ -489,7 +489,7 @@ function createObjectiveCommandCompleter(
 }
 
 async function loadObjectiveCompletionItems(
-	pi: ExtensionAPI,
+	pi: ObjectiveExtensionAPI,
 	cwd: string | undefined,
 ): Promise<AutocompleteItem[] | null> {
 	let result: ExecResult;
@@ -658,7 +658,7 @@ export const objectiveParity = definePiSurfaceParity([
 ] as const);
 
 async function handleCustomCliCommand(
-	pi: ExtensionAPI,
+	pi: ObjectiveExtensionAPI,
 	spec: CustomCliCommandSpec,
 	rawArgs: string,
 	ctx: CommandContext,
@@ -772,7 +772,7 @@ function objectiveCommandOutputContent(result: ExecResult): string {
 }
 
 function presentCustomCliMessage(
-	pi: ExtensionAPI,
+	pi: ObjectiveExtensionAPI,
 	ctx: CommandContext,
 	spec: CustomCliCommandSpec,
 	content: string,
@@ -802,7 +802,7 @@ function presentCustomCliMessage(
 	console.log(content);
 }
 
-export default function objectiveExtension(pi: ExtensionAPI): void {
+export default function objectiveExtension(pi: ObjectiveExtensionAPI): void {
 	const objectiveCommandCompleter = createObjectiveCommandCompleter(pi);
 
 	for (const { spec, description } of CUSTOM_CLI_COMMANDS) {

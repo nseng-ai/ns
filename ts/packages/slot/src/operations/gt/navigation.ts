@@ -85,7 +85,7 @@ export async function buildGtNavigationResult(
 	};
 }
 
-export function renderGtNavigation(result: GtNavigationResult): string {
+export function renderGtNavigationResult(result: GtNavigationResult): string {
 	const lines: string[] = [];
 	if (result.slot_name === null)
 		lines.push(`${result.branch_name} is checked out at ${result.worktree_path}`);

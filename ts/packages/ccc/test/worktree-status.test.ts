@@ -8,8 +8,8 @@ import {
 	formatGtStatus,
 	combineWorktreeStatus,
 	formatWorktreeStatus,
-	loadGtStatus as loadGtStatusReal,
-	loadLocalWorktreeStatus as loadLocalWorktreeStatusReal,
+	loadGtStatus,
+	loadLocalWorktreeStatus,
 	loadWorktreeGhStatus,
 	renderWorktreeStatusMessage,
 	type ExecGateway,
@@ -183,16 +183,16 @@ function withDefaultLocalOptions(
 	};
 }
 
-async function loadLocalWorktreeStatus(
+async function loadLocalWorktreeStatusWithDefaultMetadata(
 	pi: ExecGateway,
 	cwd: string,
 	options: LoadLocalWorktreeStatusOptions = {},
 ): Promise<LocalWorktreeStatus> {
-	return loadLocalWorktreeStatusReal(pi, cwd, withDefaultLocalOptions(cwd, options));
+	return loadLocalWorktreeStatus(pi, cwd, withDefaultLocalOptions(cwd, options));
 }
 
-async function loadGtStatus(options: LoadGtStatusOptions) {
-	return loadGtStatusReal({
+async function loadGtStatusWithDefaultMetadata(options: LoadGtStatusOptions) {
+	return loadGtStatus({
 		...options,
 		metadataLoader: options.metadataLoader ?? defaultMetadataLoader,
 	});
@@ -203,7 +203,11 @@ async function loadFormattedStatus(
 	metadata: GraphiteMetadataStatus = trackedMetadata(),
 ): Promise<{ pi: FakePi; formatted: string }> {
 	const pi = new FakePi(script);
-	const status = await loadGtStatus({ pi, cwd: ROOT, metadataLoader: metadataLoaderFor(metadata) });
+	const status = await loadGtStatusWithDefaultMetadata({
+		pi,
+		cwd: ROOT,
+		metadataLoader: metadataLoaderFor(metadata),
+	});
 	return { pi, formatted: formatGtStatus(status) };
 }
 
@@ -212,7 +216,7 @@ async function loadComposedWorktreeStatus(
 	cwd: string,
 	options: LoadLocalWorktreeStatusOptions = {},
 ): Promise<WorktreeStatus> {
-	const local = await loadLocalWorktreeStatus(pi, cwd, options);
+	const local = await loadLocalWorktreeStatusWithDefaultMetadata(pi, cwd, options);
 	const gh = await loadWorktreeGhStatus(pi, cwd, {
 		identity: local.identity,
 		signal: options.signal,
@@ -510,7 +514,7 @@ describe("composed local and gh worktree status loading", () => {
 			...basicGitStatusScript(),
 		]);
 
-		const status = await loadLocalWorktreeStatus(pi, ROOT);
+		const status = await loadLocalWorktreeStatusWithDefaultMetadata(pi, ROOT);
 
 		pi.assertDone();
 		expectNoGtCalls(pi);
@@ -539,7 +543,7 @@ describe("composed local and gh worktree status loading", () => {
 			...basicGitStatusScript(),
 		]);
 
-		const status = await loadLocalWorktreeStatus(pi, ROOT);
+		const status = await loadLocalWorktreeStatusWithDefaultMetadata(pi, ROOT);
 
 		pi.assertDone();
 		expectNoGtCalls(pi);
@@ -565,7 +569,7 @@ describe("composed local and gh worktree status loading", () => {
 			...basicGitStatusScript(),
 		]);
 
-		const status = await loadLocalWorktreeStatus(pi, ROOT);
+		const status = await loadLocalWorktreeStatusWithDefaultMetadata(pi, ROOT);
 
 		pi.assertDone();
 		expect(status.brmem).toBe(
@@ -578,7 +582,9 @@ describe("composed local and gh worktree status loading", () => {
 			brmemListStep({ stdout: "not json" }),
 			...basicGitStatusScript(),
 		]);
-		expect((await loadLocalWorktreeStatus(malformedJsonPi, ROOT)).brmem).toBe("unavailable");
+		expect((await loadLocalWorktreeStatusWithDefaultMetadata(malformedJsonPi, ROOT)).brmem).toBe(
+			"unavailable",
+		);
 		malformedJsonPi.assertDone();
 
 		const malformedEntriesPi = new OrderlessFakePi([
@@ -598,7 +604,7 @@ describe("composed local and gh worktree status loading", () => {
 			}),
 			...basicGitStatusScript(),
 		]);
-		expect((await loadLocalWorktreeStatus(malformedEntriesPi, ROOT)).brmem).toBe(
+		expect((await loadLocalWorktreeStatusWithDefaultMetadata(malformedEntriesPi, ROOT)).brmem).toBe(
 			"(notes: adapter)",
 		);
 		malformedEntriesPi.assertDone();
@@ -615,7 +621,10 @@ describe("composed local and gh worktree status loading", () => {
 		};
 		const pi = new OrderlessFakePi([brmemListStep({}), ...basicGitStatusScript()]);
 
-		const status = await loadLocalWorktreeStatus(pi, ROOT, { metadataLoader, onDiagnostic });
+		const status = await loadLocalWorktreeStatusWithDefaultMetadata(pi, ROOT, {
+			metadataLoader,
+			onDiagnostic,
+		});
 
 		pi.assertDone();
 		expectNoGtCalls(pi);
@@ -705,7 +714,7 @@ describe("composed local and gh worktree status loading", () => {
 			...basicGitStatusScript(),
 		]);
 
-		const status = await loadLocalWorktreeStatus(pi, ROOT);
+		const status = await loadLocalWorktreeStatusWithDefaultMetadata(pi, ROOT);
 
 		pi.assertDone();
 		expect(pi.calls.some((call) => call.command === "gh")).toBe(false);
@@ -789,7 +798,7 @@ describe("loadGtStatus", () => {
 		};
 		const pi = new FakePi([revListStep("main", 3), dirtyStep()]);
 
-		const status = await loadGtStatus({ pi, cwd: ROOT, metadataLoader });
+		const status = await loadGtStatusWithDefaultMetadata({ pi, cwd: ROOT, metadataLoader });
 
 		pi.assertDone();
 		expect(formatGtStatus(status)).toBe("[gt] ↓ main · ↑ feature/child · 3 commits");
@@ -808,7 +817,12 @@ describe("loadGtStatus", () => {
 		};
 		const pi = new FakePi([revListStep("main", 1), dirtyStep()]);
 
-		const status = await loadGtStatus({ pi, cwd: ROOT, metadataLoader, onDiagnostic });
+		const status = await loadGtStatusWithDefaultMetadata({
+			pi,
+			cwd: ROOT,
+			metadataLoader,
+			onDiagnostic,
+		});
 
 		pi.assertDone();
 		expect(formatGtStatus(status)).toBe("[gt] ↓ main · ↑ - · 1 commit");

@@ -13,7 +13,12 @@ import {
 	type LmEpisodeStart,
 } from "../src/context-profiler/segmentation.ts";
 import { MAX_DELEGATIONS } from "../src/context-profiler/model.ts";
-import { makeProfile, makeTurn, makeTurns, sequentialTurns } from "./context-profiler-fakes.ts";
+import {
+	makeProfile,
+	makeTurn,
+	makeTurnsAtIndices,
+	sequentialTurns,
+} from "./context-profiler-fakes.ts";
 
 function makeStart(startTurn: number, overrides: Partial<LmEpisodeStart> = {}): LmEpisodeStart {
 	return {
@@ -180,7 +185,7 @@ describe("repairEpisodes", () => {
 
 	test("clamps out-of-range starts and snaps into the elided middle gap", () => {
 		// Capped list with an elided middle: indices 1–4 then 90–93.
-		const turns = makeTurns([1, 2, 3, 4, 90, 91, 92, 93]);
+		const turns = makeTurnsAtIndices([1, 2, 3, 4, 90, 91, 92, 93]);
 		const episodes = repairEpisodes([makeStart(1), makeStart(40), makeStart(999)], turns);
 		expect(episodes.map((episode) => episode.turnRange.start)).toEqual([1, 90, 93]);
 		expect(episodes.map((episode) => episode.turnRange.end)).toEqual([4, 92, 93]);
@@ -228,7 +233,7 @@ describe("repairEpisodes", () => {
 	});
 
 	test("splits an episode crossing the elision seam into included-turn runs", () => {
-		const turns = makeTurns(cappedSeamIndices());
+		const turns = makeTurnsAtIndices(cappedSeamIndices());
 		const episodes = repairEpisodes(
 			[makeStart(1, { label: "the work", kind: "edit", outcome: "active" })],
 			turns,
@@ -247,7 +252,7 @@ describe("repairEpisodes", () => {
 	});
 
 	test("seam-splitting only affects the episode whose run crosses the seam", () => {
-		const turns = makeTurns(cappedSeamIndices());
+		const turns = makeTurnsAtIndices(cappedSeamIndices());
 		const episodes = repairEpisodes(
 			[
 				makeStart(1, { label: "early", kind: "explore", outcome: "completed" }),
@@ -276,7 +281,7 @@ describe("repairDelegations", () => {
 	});
 
 	test("snaps out-of-range and elided turns to real capped turns, dedupes, and sorts", () => {
-		const turns = makeTurns([1, 2, 3, 4, 90, 91, 92, 93]);
+		const turns = makeTurnsAtIndices([1, 2, 3, 4, 90, 91, 92, 93]);
 		const claims = [
 			makeDelegation(999, { label: "late" }),
 			makeDelegation(40, { label: "middle winner", confidence: "low" }),

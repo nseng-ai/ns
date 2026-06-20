@@ -40,7 +40,7 @@ import { gcRequestSchema, gcResultSchema, renderGc, runGc } from "./operations/g
 import {
 	gtDownRequestSchema,
 	gtDownResultSchema,
-	renderGtNavigation as renderGtDownNavigation,
+	renderGtDownNavigation,
 	runGtDown,
 } from "./operations/gt/down.ts";
 import {
@@ -64,7 +64,7 @@ import {
 import {
 	gtNavigationResultSchema,
 	gtUpRequestSchema,
-	renderGtNavigation as renderGtUpNavigation,
+	renderGtUpNavigation,
 	runGtUp,
 } from "./operations/gt/up.ts";
 import { gotoRequestSchema, gotoResultSchema, renderGoto, runGoto } from "./operations/goto.ts";

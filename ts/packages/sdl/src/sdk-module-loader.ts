@@ -3,13 +3,15 @@ import { fileURLToPath } from "node:url";
 
 import { createJiti } from "jiti/static";
 
-import * as sdlSdk from "./sdk.ts";
+import { defineExtension, failed, ok, z } from "./sdk.ts";
 
 /** Module specifier that SDL command entries import the SDK from. */
 const SDK_SPECIFIER = "@asdl/sdl/sdk";
 
 /** Absolute path to the SDK source module, used as the `alias` resolution target. */
 const SDK_MODULE_PATH = join(dirname(fileURLToPath(import.meta.url)), "sdk.ts");
+
+const sdlSdkVirtualModule = { defineExtension, failed, ok, z } satisfies Record<string, unknown>;
 
 /**
  * Create the SDL-aware jiti instance used for user-authored modules.
@@ -25,7 +27,7 @@ export function createSdlJiti(): ReturnType<typeof createJiti> {
 		},
 		moduleCache: false,
 		virtualModules: {
-			[SDK_SPECIFIER]: sdlSdk,
+			[SDK_SPECIFIER]: sdlSdkVirtualModule,
 		},
 	});
 }

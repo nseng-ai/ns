@@ -2,12 +2,12 @@ import { readFile, stat } from "node:fs/promises";
 
 import { negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import {
-	addRunnerSubagentUsageCostTotals,
-	addRunnerSubagentUsageTotals,
+	addRuntimeRunnerSubagentUsageCostTotals,
+	addRuntimeRunnerSubagentUsageTotals,
 	parseRunnerSubagentUsageJsonl,
-	type RunnerSubagentUsageCostTotals as RuntimeRunnerSubagentUsageCostTotals,
+	type RuntimeRunnerSubagentUsageCostTotals,
 	type RunnerSubagentUsageRecord,
-	type RunnerSubagentUsageTotals as RuntimeRunnerSubagentUsageTotals,
+	type RuntimeRunnerSubagentUsageTotals,
 } from "@asdl/pi-extension-runtime/runner-subagent-usage";
 import { z } from "zod";
 
@@ -188,8 +188,8 @@ function summaryFromRecords(
 	const seenModelKeys = new Set<string>();
 
 	for (const record of records) {
-		tokens = addRunnerSubagentUsageTotals(tokens, record.tokens);
-		cost = addRunnerSubagentUsageCostTotals(cost, record.cost);
+		tokens = addRuntimeRunnerSubagentUsageTotals(tokens, record.tokens);
+		cost = addRuntimeRunnerSubagentUsageCostTotals(cost, record.cost);
 		peakObservedTotalTokens = maxOptional(
 			peakObservedTotalTokens,
 			Math.trunc(record.peakTotalTokens),

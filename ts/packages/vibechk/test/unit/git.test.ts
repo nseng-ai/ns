@@ -1,12 +1,12 @@
 import { ScriptedCommandExecApi } from "@asdl/core/testing";
 import { describe, expect, it } from "vitest";
 
-import { RealGitGateway } from "../../src/git.ts";
+import { RealVibechkGitGateway } from "../../src/git.ts";
 
-describe("RealGitGateway", () => {
+describe("RealVibechkGitGateway", () => {
 	it("runs git commands through injected CommandExecApi", async () => {
 		const execApi = new ScriptedCommandExecApi([{ stdout: "abc123\n" }]);
-		const gateway = new RealGitGateway("/repo", execApi);
+		const gateway = new RealVibechkGitGateway("/repo", execApi);
 
 		await expect(gateway.currentCommit()).resolves.toBe("abc123");
 
@@ -27,7 +27,7 @@ describe("RealGitGateway", () => {
 				startupError: "spawn git ENOENT",
 			},
 		]);
-		const gateway = new RealGitGateway("/repo", execApi);
+		const gateway = new RealVibechkGitGateway("/repo", execApi);
 
 		await expect(gateway.currentCommit()).rejects.toThrow("git is not installed or not on PATH.");
 	});

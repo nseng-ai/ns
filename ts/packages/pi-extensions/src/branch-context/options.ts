@@ -1,19 +1,16 @@
 import {
-	createBranchContextFromFile as createBranchContextFromFilePrimitive,
+	createBranchContextFromFile,
 	loadBranchContextPlan,
 	type BranchCreationMethod,
 } from "@asdl/branch-context";
-import {
-	resolveSelectedSavedPlanFile as resolveSelectedSavedPlanFilePrimitive,
-	writeSavedPlanFile as writeSavedPlanFilePrimitive,
-} from "@asdl/plans";
+import { resolveSelectedSavedPlanFile, writeSavedPlanFile } from "@asdl/plans";
 import type { BranchContextExtensionOptions, BranchContextOperations } from "./host-types.ts";
 
 const realBranchContextOperations: BranchContextOperations = {
 	loadBranchContextPlan,
-	createBranchContextFromFile: createBranchContextFromFilePrimitive,
-	writeSavedPlanFile: writeSavedPlanFilePrimitive,
-	resolveSelectedSavedPlanFile: resolveSelectedSavedPlanFilePrimitive,
+	createBranchContextFromFile,
+	writeSavedPlanFile,
+	resolveSelectedSavedPlanFile,
 };
 
 export function resolveBranchContextOperations(

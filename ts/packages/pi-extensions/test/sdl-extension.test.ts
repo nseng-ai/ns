@@ -6,15 +6,15 @@ import { dirname, join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 
 import { CLI_COMMAND_OUTPUT_MESSAGE_TYPE } from "../src/cli-command-extension.ts";
-import sdlExtension, { type ExtensionAPI } from "../src/sdl-extension.ts";
+import sdlExtension, { type SdlExtensionAPI } from "../src/sdl-extension.ts";
 import type { CommandContext } from "../src/cli-command-extension.ts";
 
-type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
-type CustomMessage = Parameters<NonNullable<ExtensionAPI["sendMessage"]>>[0];
+type RegisteredCommand = Parameters<SdlExtensionAPI["registerCommand"]>[1];
+type CustomMessage = Parameters<NonNullable<SdlExtensionAPI["sendMessage"]>>[0];
 
 const tempDirs: string[] = [];
 
-class FakePi implements ExtensionAPI {
+class FakePi implements SdlExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly messageRenderers = new Map<string, unknown>();
 	readonly sentMessages: CustomMessage[] = [];

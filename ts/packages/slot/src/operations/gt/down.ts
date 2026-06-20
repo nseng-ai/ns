@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { SlotCliContext } from "../../context.ts";
 import {
 	buildGtNavigationResult,
-	renderGtNavigation,
+	renderGtNavigationResult,
 	resolveOrCheckoutWorktreeForBranch,
 } from "./navigation.ts";
 import { resolveRepoAndCurrentBranch } from "./shared.ts";
@@ -38,4 +38,6 @@ export async function runGtDown(ctx: SlotCliContext, request: GtDownRequest) {
 	);
 }
 
-export { renderGtNavigation };
+export function renderGtDownNavigation(result: z.infer<typeof gtDownResultSchema>): string {
+	return renderGtNavigationResult(result);
+}

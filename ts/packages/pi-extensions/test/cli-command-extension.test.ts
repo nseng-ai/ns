@@ -14,16 +14,18 @@ import {
 	type CliCommandInfo,
 	type CliCommandRunDeps,
 	type CommandContext,
-	type ExtensionAPI,
+	type CliCommandExtensionAPI,
 } from "../src/cli-command-extension.ts";
 import {
 	PI_EXTENSION_COMMAND_FINISHED_EVENT,
 	type PiExtensionCommandFinishedEvent,
 } from "../src/extension-command-events.ts";
 
-type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
-type MessageRenderer = Parameters<NonNullable<ExtensionAPI["registerMessageRenderer"]>>[1];
-type CustomMessage = Parameters<NonNullable<ExtensionAPI["sendMessage"]>>[0];
+type RegisteredCommand = Parameters<CliCommandExtensionAPI["registerCommand"]>[1];
+type MessageRenderer = Parameters<
+	NonNullable<CliCommandExtensionAPI["registerMessageRenderer"]>
+>[1];
+type CustomMessage = Parameters<NonNullable<CliCommandExtensionAPI["sendMessage"]>>[0];
 type NotifyLevel = "info" | "warning" | "error";
 interface Notification {
 	message: string;
@@ -60,7 +62,7 @@ interface RunCall {
 	env: Record<string, string | undefined>;
 }
 
-class FakePi implements ExtensionAPI {
+class FakePi implements CliCommandExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly sentMessages: CustomMessage[] = [];
 	readonly commandFinishedEvents: PiExtensionCommandFinishedEvent[] = [];

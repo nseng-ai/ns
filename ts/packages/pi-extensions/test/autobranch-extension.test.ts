@@ -1,11 +1,11 @@
 import { describe, expect, test } from "vitest";
 
 import autobranchExtension from "../src/autobranch.ts";
-import type { ExtensionAPI } from "../src/cli-command-extension.ts";
+import type { CliCommandExtensionAPI } from "../src/cli-command-extension.ts";
 
-type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
+type RegisteredCommand = Parameters<CliCommandExtensionAPI["registerCommand"]>[1];
 
-class FakePi implements ExtensionAPI {
+class FakePi implements CliCommandExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 
 	registerCommand(name: string, command: RegisteredCommand): void {

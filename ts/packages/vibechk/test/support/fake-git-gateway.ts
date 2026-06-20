@@ -1,4 +1,4 @@
-import type { GitGateway } from "../../src/git.ts";
+import type { VibechkGitGateway } from "../../src/git.ts";
 
 export interface FakeGitState {
 	repoRoot: string;
@@ -10,7 +10,7 @@ export interface FakeGitState {
 	hasChanges: boolean;
 }
 
-export class FakeGitGateway implements GitGateway {
+export class FakeGitGateway implements VibechkGitGateway {
 	private state: FakeGitState;
 	private readonly checkoutHistory: string[] = [];
 	private readonly createdBranches: string[] = [];

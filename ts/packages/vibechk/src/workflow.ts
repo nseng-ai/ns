@@ -2,7 +2,7 @@ import { readFile, stat, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
 import type { GitProvenance, RunBundle } from "./models.ts";
-import type { GitGateway } from "./git.ts";
+import type { VibechkGitGateway } from "./git.ts";
 import type { Runner, RunnerResult } from "./runners.ts";
 import {
 	ARTIFACTS_DIR_NAME,
@@ -24,7 +24,7 @@ export interface RunExecutionResult {
 
 export interface RunDeps {
 	runner: Runner;
-	gitGateway: GitGateway;
+	gitGateway: VibechkGitGateway;
 	clock: () => Date;
 	idGenerator: () => string;
 	stdout: (text: string) => void;
