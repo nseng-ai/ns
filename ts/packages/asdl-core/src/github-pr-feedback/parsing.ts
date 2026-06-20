@@ -12,22 +12,9 @@ export function parseJson<T>(
 	schema: z.ZodType<T>,
 	context: GithubPrFeedbackFailureContext,
 ): Result<T, GithubPrFeedbackFailure> {
-	const parsed = parseJsonUnknown(text);
-	if (parsed.type === "error") {
-		return feedbackErr(
-			failureFromMessage({
-				code: "github_pr_feedback_json_parse_failed",
-				operation: context.operation,
-				message: jsonErrorMessage(parsed.error),
-				run: context.run,
-				stdout: text,
-				prNumber: context.prNumber,
-				threadId: context.threadId,
-				cursorContext: context.cursorContext,
-			}),
-		);
-	}
-	return validateParsedJson(parsed.value, text, schema, context);
+	const parsed = parseRawJsonText(text, context);
+	if (!parsed.ok) return feedbackErr(parsed.error);
+	return validateParsedJson({ value: parsed.value, text, schema, context });
 }
 
 export function parseGraphqlJson<T>(
@@ -35,21 +22,8 @@ export function parseGraphqlJson<T>(
 	schema: z.ZodType<T>,
 	context: GithubPrFeedbackFailureContext,
 ): Result<T, GithubPrFeedbackFailure> {
-	const parsed = parseJsonUnknown(text);
-	if (parsed.type === "error") {
-		return feedbackErr(
-			failureFromMessage({
-				code: "github_pr_feedback_json_parse_failed",
-				operation: context.operation,
-				message: jsonErrorMessage(parsed.error),
-				run: context.run,
-				stdout: text,
-				prNumber: context.prNumber,
-				threadId: context.threadId,
-				cursorContext: context.cursorContext,
-			}),
-		);
-	}
+	const parsed = parseRawJsonText(text, context);
+	if (!parsed.ok) return feedbackErr(parsed.error);
 	const errorsResult = githubGraphqlErrorsSchema.safeParse(parsed.value);
 	if (!errorsResult.success) {
 		return feedbackErr(
@@ -81,15 +55,42 @@ export function parseGraphqlJson<T>(
 			}),
 		);
 	}
-	return validateParsedJson(parsed.value, text, schema, context);
+	return validateParsedJson({ value: parsed.value, text, schema, context });
+}
+
+function parseRawJsonText(
+	text: string,
+	context: GithubPrFeedbackFailureContext,
+): Result<unknown, GithubPrFeedbackFailure> {
+	const parsed = parseJsonUnknown(text);
+	if (parsed.type === "error") {
+		return feedbackErr(
+			failureFromMessage({
+				code: "github_pr_feedback_json_parse_failed",
+				operation: context.operation,
+				message: jsonErrorMessage(parsed.error),
+				run: context.run,
+				stdout: text,
+				prNumber: context.prNumber,
+				threadId: context.threadId,
+				cursorContext: context.cursorContext,
+			}),
+		);
+	}
+	return feedbackOk(parsed.value);
+}
+
+interface ValidateParsedJsonOptions<T> {
+	readonly value: unknown;
+	readonly text: string;
+	readonly schema: z.ZodType<T>;
+	readonly context: GithubPrFeedbackFailureContext;
 }
 
 function validateParsedJson<T>(
-	value: unknown,
-	text: string,
-	schema: z.ZodType<T>,
-	context: GithubPrFeedbackFailureContext,
+	options: ValidateParsedJsonOptions<T>,
 ): Result<T, GithubPrFeedbackFailure> {
+	const { value, text, schema, context } = options;
 	const result = schema.safeParse(value);
 	if (!result.success) {
 		return feedbackErr(

@@ -12,6 +12,7 @@ import type {
 	GithubReviewThreadState,
 } from "@asdl/core/github-pr-feedback";
 import type { Result } from "@asdl/core/result";
+import { createDeferred } from "@asdl/core/testing";
 
 import { fetchFeedbackSnapshot, reviewsForRequest } from "../../src/core/feedback-snapshot.ts";
 import { isAutomationLikeDiscussionComment } from "../../src/core/feedback-summary.ts";
@@ -31,11 +32,6 @@ type DiscussionCommentsResult = Result<
 	readonly GithubPrDiscussionComment[],
 	GithubPrFeedbackFailure
 >;
-
-interface Deferred<T> {
-	readonly promise: Promise<T>;
-	readonly resolve: (value: T) => void;
-}
 
 class ControlledFeedbackGateway implements GithubPrFeedbackGateway {
 	private readonly startedInternal: FeedbackReadName[] = [];
@@ -93,15 +89,6 @@ class ControlledFeedbackGateway implements GithubPrFeedbackGateway {
 	async resolveReviewThread(): Promise<Result<GithubReviewThreadState, GithubPrFeedbackFailure>> {
 		throw new Error("Unexpected resolveReviewThread call");
 	}
-}
-
-function createDeferred<T>(): Deferred<T> {
-	let resolve: ((value: T) => void) | undefined;
-	const promise = new Promise<T>((innerResolve) => {
-		resolve = innerResolve;
-	});
-	if (resolve === undefined) throw new Error("Deferred promise did not initialize");
-	return { promise, resolve };
 }
 
 describe("pr-address core feedback helpers", () => {

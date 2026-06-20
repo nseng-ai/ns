@@ -54,6 +54,11 @@ export interface ResultFields {
 	readonly isKilled?: boolean;
 }
 
+export interface Deferred<T> {
+	readonly promise: Promise<T>;
+	readonly resolve: (value: T) => void;
+}
+
 export interface ManualClock {
 	readonly clock: Clock;
 	setMs(nowMs: number): void;
@@ -183,6 +188,15 @@ export function startupErrorStep(
 
 export function brmemCheckJson(present: boolean): string {
 	return JSON.stringify({ exit_code: 0, data: { present } });
+}
+
+export function createDeferred<T>(): Deferred<T> {
+	let resolve: ((value: T) => void) | undefined;
+	const promise = new Promise<T>((innerResolve) => {
+		resolve = innerResolve;
+	});
+	if (resolve === undefined) throw new Error("Deferred promise did not initialize");
+	return { promise, resolve };
 }
 
 export function createManualClock(startMs: number): ManualClock {

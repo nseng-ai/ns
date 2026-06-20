@@ -1,5 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 
+import { createDeferred } from "@asdl/core/testing";
+
 import { buildHandoffSelfPrompt, formatHandoffSelfKickoffPrompt } from "../src/handoff.ts";
 import { createHandoffSelfWorkflow } from "../src/handoff/self.ts";
 import type { HandoffCreateSkillLoader } from "../src/handoff/shared.ts";
@@ -510,12 +512,4 @@ function extractWorkflowId(prompt: string): string {
 		throw new Error(`prompt did not contain workflow_id:\n${prompt}`);
 	}
 	return match[1].trim();
-}
-
-function createDeferred<T>(): { promise: Promise<T>; resolve(value: T): void } {
-	let resolve: (value: T) => void = () => {};
-	const promise = new Promise<T>((innerResolve) => {
-		resolve = innerResolve;
-	});
-	return { promise, resolve };
 }

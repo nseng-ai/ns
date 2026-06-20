@@ -72,9 +72,9 @@ export async function fetchFeedbackSnapshot(
 
 export function reviewsForRequest(
 	reviews: readonly GithubPrReview[],
-	includeEmptyReviews: boolean,
+	shouldIncludeEmptyReviews: boolean,
 ): readonly GithubPrReview[] {
-	if (includeEmptyReviews) return reviews;
+	if (shouldIncludeEmptyReviews) return reviews;
 	return reviews.filter((review) => !isEmptyReview(review));
 }
 
