@@ -43,30 +43,25 @@ Net effect on the three findings, verified against current `HEAD`:
   those cursor values. This code is now **outside this Objective's stated package
   scope** and inside the surface owned by `pr-address-github-primitives`; whether
   it stays tracked here or moves there is an open ownership question (below).
-- **Tech debt / DX — remaining barrel re-exports (Scope #3): still real, still
-  in scope.** `ts/packages/pr-address/src/gateways.ts:11-17` re-exports the
-  git-gateway types `CurrentBranchResult`, `GatewayFailure`, `GatewayOptions`,
-  `PrAddressGitGateway`, and `RepoContextResult` from `./core/gateways.ts`, and
-  `index.ts:1` re-exports `runCli` / `CliDeps` from `./cli.ts`. Both violate the
-  repo's no-reexport / canonical-import rule (AGENTS.md). The old
-  `stdoutModeRequestShape` and `PRLookupMiss` symbols named in earlier
-  baselines are gone from `pr-address/src`; this is now only about the
-  git-gateway/CLI re-export surfaces above.
+- **Tech debt / DX — remaining barrel re-exports (Scope #3): resolved.** The
+  package cleanup removed the `gateways.ts` type re-export block, deleted the
+  package-root `index.ts` CLI barrel, removed the package-root `exports` entry,
+  and repointed internal gateway type consumers at `./core/gateways.ts`. The
+  supported `pr-address` bin entry remains intact, and repository searches find
+  no package-root `@asdl/pr-address` TypeScript import consumers.
 
 ## Scope
 
-The only finding that remains durable, real, and inside this Objective's package
-boundary (`ts/packages/pr-address/src`) is the barrel re-export cleanup:
+The only finding that remained durable, real, and inside this Objective's package
+boundary (`ts/packages/pr-address/src`) was the barrel re-export cleanup, and it
+is now implemented: `src/gateways.ts` owns only `RealPrAddressGitGateway` and its
+implementation imports, `src/index.ts` is deleted, the package-root `exports`
+entry is gone, and internal gateway type consumers import from
+`./core/gateways.ts`.
 
-- **Remove the remaining gateway/index re-export barrels.** Drop the type
-  re-export block in `gateways.ts:11-17` and the CLI re-export in `index.ts:1`,
-  and repoint importers at the canonical source modules (`./core/gateways.ts`,
-  `./cli.ts`) per the repo no-reexport rule. The change is type-checked but has
-  broad fan-out across gateway-type and CLI importers.
-
-The fix lands with `check` evidence (no remaining barrel re-export of the
-in-scope symbols) using the existing in-memory gateway fakes where tests are
-touched (no mocks), per the repo's fake-driven testing architecture.
+No active package-boundary hardening work remains inside `ts/packages/pr-address/src`.
+The relocated `gh api -F`/`@` cursor question remains parked outside this
+Objective's package boundary until ownership is decided.
 
 ## Non-Goals
 
@@ -91,13 +86,14 @@ touched (no mocks), per the repo's fake-driven testing architecture.
 
 ## Completion Criteria
 
-- `ts/packages/pr-address/src/gateways.ts` and `index.ts` contain no type/value
-  re-export barrels for the in-scope symbols, and importers use canonical module
-  paths.
+- **Satisfied:** `ts/packages/pr-address/src/gateways.ts` and the deleted
+  `index.ts` contain no type/value re-export barrels for the in-scope symbols,
+  and importers use canonical module paths.
 - Evidence: `pnpm --dir ts --filter @asdl/pr-address run check` and
-  `pnpm --dir ts --filter @asdl/pr-address run test` both pass, and a `grep`
-  finds no remaining barrel re-export of the in-scope symbols in
-  `pr-address/src`.
+  `pnpm --dir ts --filter @asdl/pr-address run test` pass; stale-surface searches
+  find no remaining package-root `@asdl/pr-address` TypeScript consumers, no
+  `exports` key in `ts/packages/pr-address/package.json`, and no remaining
+  in-scope barrel re-export.
 - The silent-comment-drop finding (former Scope #2) is recorded as already
   resolved in current ground truth; no further work is required for it under this
   Objective.
@@ -118,9 +114,9 @@ touched (no mocks), per the repo's fake-driven testing architecture.
 
 - **(Retired)** The strangler rewrite's rebase/merge friction is gone (it has
   landed and closed).
-- Removing the `gateways.ts` re-export barrel touches every consumer importing
-  gateway types from `gateways.ts`. Low risk (pure import-path movement) but
-  broad blast radius — keep the diff self-contained.
+- **(De-risked)** Removing the `gateways.ts` re-export barrel touched only the
+  expected package-local consumers and remained a pure import-surface cleanup;
+  focused package check/test passed.
 
 ## Open Questions
 
