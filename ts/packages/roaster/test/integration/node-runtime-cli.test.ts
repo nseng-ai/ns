@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-import { describeNodeRuntimeCliEntrypoint } from "@asdl/core/testing";
+import { describeNodeRuntimeCliEntrypoint } from "@sdl/core/testing";
 import { expect, test } from "vitest";
 
 const TS_WORKSPACE_ROOT = fileURLToPath(new URL("../../../../", import.meta.url));
@@ -18,7 +18,7 @@ describeNodeRuntimeCliEntrypoint({
 		{ type: "not_contains", text: "exec" },
 	],
 	runtimeDiagnostics:
-		"runtime: typescript\nentry_point: @asdl/roaster bin roaster -> ts/packages/roaster/src/cli.ts\n",
+		"runtime: typescript\nentry_point: @sdl/roaster bin roaster -> ts/packages/roaster/src/cli.ts\n",
 });
 
 test("prints the package version", () => {

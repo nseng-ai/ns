@@ -4,9 +4,9 @@ import { TextEncoder } from "node:util";
 
 import type { AttachedPlanEntry } from "./brmem-gateway.ts";
 import { BRANCH_CONTEXT_NAMESPACE } from "./constants.ts";
-import type { CommandExecApi } from "@asdl/core/exec";
-import type { GitGateway } from "@asdl/core/git";
-import { resolveSelectedSavedPlanFile } from "@asdl/plans";
+import type { CommandExecApi } from "@sdl/core/exec";
+import type { GitGateway } from "@sdl/core/git";
+import { resolveSelectedSavedPlanFile } from "@sdl/plans";
 import type { BranchContextContext } from "./context.ts";
 
 const BRANCH_CONTEXT_IMPL_PROMPT_TEMPLATE = readFileSync(

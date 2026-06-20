@@ -3,10 +3,10 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { runCli } from "../../src/cli.ts";
-import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
-import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@asdl/core/git/testing";
-import { createTempDirTracker } from "@asdl/core/testing";
-import { encodeBranchForPlanPath } from "@asdl/plans";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/exec";
+import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@sdl/core/git/testing";
+import { createTempDirTracker } from "@sdl/core/testing";
+import { encodeBranchForPlanPath } from "@sdl/plans";
 import {
 	InMemoryBranchContextBrmemGateway,
 	type InMemoryBrmemGatewayState,

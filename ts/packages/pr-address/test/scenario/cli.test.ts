@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
-import { exitCodeForExit, failure, negative, ok, toMachineEnvelope } from "@asdl/clinkr";
+import { exitCodeForExit, failure, negative, ok, toMachineEnvelope } from "@sdl/clinkr";
 import { defineExecOperation, type ExecOperation } from "../../src/exec-operation.ts";
 import { loadJsonInput } from "../../src/json-input.ts";
 import { EXEC_OPERATIONS } from "../../src/exec-commands.ts";
@@ -38,7 +38,7 @@ describe("pr-address CLI", () => {
 		const runtime = runScenario(["--runtime"]);
 		expect(await runtime.exit).toBe(0);
 		expect(runtime.stdout.join("")).toBe(
-			"runtime: typescript\nentry_point: @asdl/pr-address bin pr-address -> ts/packages/pr-address/src/cli.ts\n",
+			"runtime: typescript\nentry_point: @sdl/pr-address bin pr-address -> ts/packages/pr-address/src/cli.ts\n",
 		);
 	});
 

@@ -10,8 +10,8 @@ import {
 	buildPlanContentSlugPrompt,
 	type BranchContextEvidence,
 	type LoadedAttachedPlan,
-} from "@asdl/branch-context";
-import type { ExecOptions, ExecResult } from "@asdl/core/exec";
+} from "@sdl/branch-context";
+import type { ExecOptions, ExecResult } from "@sdl/core/exec";
 import {
 	DEFAULT_FAST_MODEL,
 	buildRepoPlanStoreKey,
@@ -21,7 +21,7 @@ import {
 	normalizeRepoOriginUrl,
 	type SavedPlanFileEvidence,
 	type SelectedSavedPlanFile,
-} from "@asdl/plans";
+} from "@sdl/plans";
 import {
 	DEFAULT_WRITE_PLAN_PROMPT_BODY,
 	type BranchContextOperations,
@@ -31,7 +31,7 @@ import {
 	type ToolDefinition,
 } from "../src/branch-context-extension.ts";
 
-export { brmemCheckJson as brmemCheckEnvelope } from "@asdl/core/testing";
+export { brmemCheckJson as brmemCheckEnvelope } from "@sdl/core/testing";
 
 export const TEST_DIR = dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = resolve(TEST_DIR, "../../../..");
@@ -448,7 +448,7 @@ export async function makeNamedPlanFile(
 
 export async function makeRepoPrompt(content = DEFAULT_WRITE_PLAN_PROMPT_BODY): Promise<string> {
 	const dir = await makeTempDir();
-	const promptDir = join(dir, ".asdl", "prompts");
+	const promptDir = join(dir, ".sdl", "prompts");
 	await mkdir(promptDir, { recursive: true });
 	await writeFile(join(promptDir, "plans-write.md"), content, "utf8");
 	return dir;
@@ -457,9 +457,9 @@ export async function makeRepoPrompt(content = DEFAULT_WRITE_PLAN_PROMPT_BODY): 
 export async function makeRepoPromptSymlink(): Promise<string> {
 	const dir = await makeTempDir();
 	const target = await makeTempDir("branch-context-prompt-target-");
-	await mkdir(join(dir, ".asdl", "prompts"), { recursive: true });
+	await mkdir(join(dir, ".sdl", "prompts"), { recursive: true });
 	await writeFile(join(target, "plans-write.md"), "linked prompt\n", "utf8");
-	await symlink(join(target, "plans-write.md"), join(dir, ".asdl", "prompts", "plans-write.md"));
+	await symlink(join(target, "plans-write.md"), join(dir, ".sdl", "prompts", "plans-write.md"));
 	return dir;
 }
 

@@ -1,6 +1,6 @@
 # GitHub Actions Remote Code Authoring: Erk Ground-Truth Survey
 
-This report summarizes a source-code survey of `/Users/schrockn/code/erk` focused on GitHub Actions dispatching as a remote code-authoring substrate. The goal is not to describe Erk's documented intent; it is to extract ground-truth implementation lessons for building a higher-quality version in `asdl-tools`.
+This report summarizes a source-code survey of `/Users/schrockn/code/erk` focused on GitHub Actions dispatching as a remote code-authoring substrate. The goal is not to describe Erk's documented intent; it is to extract ground-truth implementation lessons for building a higher-quality version in `sdl-tools`.
 
 The investigation used source files, workflow YAML, and tests as evidence. It deliberately treats documentation as secondary.
 
@@ -15,7 +15,7 @@ Erk uses GitHub Actions as a remote agent queue:
 
 The system is powerful, but its correctness depends on many implicit contracts between Python, GitHub Actions YAML, shell snippets, PR-body metadata, branch files, and workflow run names.
 
-The main design lessons for `asdl-tools` are:
+The main design lessons for `sdl-tools` are:
 
 - Treat workflow dispatch as a typed domain operation, not a loose API call.
 - Make dispatch correlation IDs first-class and impossible to override accidentally.
@@ -499,7 +499,7 @@ Stale path:
 
 That script expects raw JSONL under `.erk/session/{session_id}.jsonl`, while the current mainline persists preprocessed XML under `.erk/sessions/*.xml`. It appears legacy.
 
-For `asdl-tools`, session storage should be a first-class domain model with fake/real conformance tests.
+For `sdl-tools`, session storage should be a first-class domain model with fake/real conformance tests.
 
 ## Auth, Permissions, and Secrets
 
@@ -606,7 +606,7 @@ The most important hidden contracts are:
 
 Each of these should become either a typed interface, a conformance test, or an explicit documented non-goal.
 
-## Proposed `asdl-tools` Design Shape
+## Proposed `sdl-tools` Design Shape
 
 ### Domain Types
 
@@ -729,4 +729,4 @@ Real execution should consume the same plan. If real execution does not consume 
 
 Erk proves that GitHub Actions can function as a remote code-authoring substrate: dispatch a workflow, run an agent on a branch, push code, persist session context, and update PR state. The hard part is not the API call; it is maintaining reliable contracts across CLI inputs, workflow YAML, branch files, PR metadata, logs, comments, sessions, and UI state.
 
-A higher-quality `asdl-tools` implementation should make those contracts explicit, typed, and tested from the beginning.
+A higher-quality `sdl-tools` implementation should make those contracts explicit, typed, and tested from the beginning.

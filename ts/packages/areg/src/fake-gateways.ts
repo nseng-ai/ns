@@ -1,4 +1,4 @@
-import { resultErr, resultOk } from "@asdl/core/result";
+import { resultErr, resultOk } from "@sdl/core/result";
 
 import type {
 	AregCheckPairingDirectory,
@@ -75,7 +75,7 @@ export interface FakeAregProjectGatewayOptions {
 	projectPathState?: AregPathState | undefined;
 	targetPathState?: AregPathState | undefined;
 	lockfile?: AregTextFileState | object | string | undefined;
-	asdlToml?: AregTextFileState | string | undefined;
+	sdlToml?: AregTextFileState | string | undefined;
 	aregJson?: AregTextFileState | object | string | undefined;
 	agentsMd?: AregTextFileState | string | undefined;
 	claudeMd?: AregTextFileState | string | undefined;
@@ -123,7 +123,7 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 		);
 		this.files = new Map([
 			["skills-lock.json", normalizeTextFileState(options.lockfile ?? { version: 1, skills: {} })],
-			["asdl.toml", normalizeTextFileState(options.asdlToml ?? { type: "missing" })],
+			["sdl.toml", normalizeTextFileState(options.sdlToml ?? { type: "missing" })],
 			["areg.json", normalizeTextFileState(options.aregJson ?? { type: "missing" })],
 			["AGENTS.md", normalizeTextFileState(options.agentsMd ?? { type: "missing" })],
 			["CLAUDE.md", normalizeTextFileState(options.claudeMd ?? { type: "missing" })],
@@ -176,7 +176,7 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 			projectDir: this.projectDir,
 			projectPathState: copyPathState(this.projectPathState),
 			lockfile: this.fileState("skills-lock.json"),
-			asdlToml: this.fileState("asdl.toml"),
+			sdlToml: this.fileState("sdl.toml"),
 			aregJson: this.fileState("areg.json"),
 		};
 	}

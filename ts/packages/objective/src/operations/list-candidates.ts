@@ -1,4 +1,4 @@
-import { failure, ok, type ClinkrExit } from "@asdl/clinkr";
+import { failure, ok, type ClinkrExit } from "@sdl/clinkr";
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";

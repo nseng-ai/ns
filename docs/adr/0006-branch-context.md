@@ -6,7 +6,7 @@ Accepted; amended by named branch-context plan keys
 
 ## Context
 
-ADR 0005 originally retained `planned-branch` as asdl's branch-attached-plan vocabulary. A follow-up grill session on 2026-06-12 reversed that clause: the durable concept is not a special branch type, but the standing context attached to any branch through Branch Memory.
+ADR 0005 originally retained `planned-branch` as sdl's branch-attached-plan vocabulary. A follow-up grill session on 2026-06-12 reversed that clause: the durable concept is not a special branch type, but the standing context attached to any branch through Branch Memory.
 
 The new vocabulary keeps ADR 0005's additive thesis intact. `enriched-plan` remains the pre-branch saved-plan intake surface. Once a plan is attached to a branch, it is one entry in that branch's context, not evidence that the branch has a special type.
 
@@ -22,7 +22,7 @@ Handoff remains a sibling concept, not a branch-context subtype. A handoff is a 
 
 ### Primitives over branded branch type
 
-asdl does not claim a special branch type. `attach` and `load` are primitives usable on any branch, created any way, at any time.
+sdl does not claim a special branch type. `attach` and `load` are primitives usable on any branch, created any way, at any time.
 
 The fused from-plan flow survives as documented sugar: `branch-context exec from-plan --slug <branch-context-slug> --plan-file <path> [--branch-creation plain-git|graphite]`. That sugar keeps the branch-creation policy logic from the previous planned-branch flow: plain git by default, Graphite only when explicitly requested by the caller or wrapper.
 
@@ -38,7 +38,7 @@ There are no migration shims. This is unreleased private software, so pre-rename
 
 | Old surface                                                                                 | New surface                                                                                 |
 | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `@asdl/planned-branch`, bin `planned-branch`, `ts/packages/planned-branch/`                 | `@asdl/branch-context`, bin `branch-context`, `ts/packages/branch-context/`                 |
+| `@sdl/planned-branch`, bin `planned-branch`, `ts/packages/planned-branch/`                  | `@sdl/branch-context`, bin `branch-context`, `ts/packages/branch-context/`                  |
 | `planned-branch exec create`                                                                | `branch-context exec from-plan --slug <slug> --plan-file <path>`                            |
 | `planned-branch exec load-plan <key-or-slug>`                                               | `branch-context exec load [<key>]`; no argument loads only when exactly one entry exists    |
 | attached-plan-only operation set                                                            | branch-context primitives: `attach`, `list`, `check`, `delete`                              |

@@ -1,5 +1,5 @@
-import type { Clock } from "@asdl/core/clock";
-import type { ScheduledTimer, TimerScheduler } from "@asdl/core/timers";
+import type { Clock } from "@sdl/core/clock";
+import type { ScheduledTimer, TimerScheduler } from "@sdl/core/timers";
 
 export const WORKTREE_STATUS_DORMANT_AFTER_MS = 120_000;
 

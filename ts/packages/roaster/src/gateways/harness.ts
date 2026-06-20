@@ -4,8 +4,8 @@ import {
 	type CommandResolver,
 	type ExecOptions,
 	type ExecResult,
-} from "@asdl/core/exec";
-import { formatErrorMessage, mapFromRecordOrMap } from "@asdl/core/primitives";
+} from "@sdl/core/exec";
+import { formatErrorMessage, mapFromRecordOrMap } from "@sdl/core/primitives";
 
 import type { RoasterResult } from "../failures.ts";
 import {

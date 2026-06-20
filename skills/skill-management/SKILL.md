@@ -22,7 +22,7 @@ allowed-tools:
 
 Manage project skills with `npx skills`. This skill is the canonical reference
 for adding, editing, removing, updating, inspecting, and publishing skills in a
-repo that uses the asdl-tools local-skill layout.
+repo that uses the sdl-tools local-skill layout.
 
 `npx skills` installs agent skill packages into `.agents/skills/<name>/` (the
 universal cache) and symlinks agent-specific directories like

@@ -495,10 +495,10 @@ describe("cli command extension helper", () => {
 	test("writes metadata trace events and sends final output as a custom message", async () => {
 		const directory = mkdtempSync(join(tmpdir(), "pi-cli-trace-test-"));
 		const tracePath = join(directory, "trace.jsonl");
-		const oldTrace = process.env.ASDL_PI_CLI_TRACE;
-		const oldTracePath = process.env.ASDL_PI_CLI_TRACE_PATH;
-		process.env.ASDL_PI_CLI_TRACE = "1";
-		process.env.ASDL_PI_CLI_TRACE_PATH = tracePath;
+		const oldTrace = process.env.SDL_PI_CLI_TRACE;
+		const oldTracePath = process.env.SDL_PI_CLI_TRACE_PATH;
+		process.env.SDL_PI_CLI_TRACE = "1";
+		process.env.SDL_PI_CLI_TRACE_PATH = tracePath;
 		try {
 			const pi = new FakePi();
 			registerFakeCli(pi, {
@@ -546,8 +546,8 @@ describe("cli command extension helper", () => {
 			});
 			expectSingleCliOutputMessage(pi, "ok\n");
 		} finally {
-			restoreEnv("ASDL_PI_CLI_TRACE", oldTrace);
-			restoreEnv("ASDL_PI_CLI_TRACE_PATH", oldTracePath);
+			restoreEnv("SDL_PI_CLI_TRACE", oldTrace);
+			restoreEnv("SDL_PI_CLI_TRACE_PATH", oldTracePath);
 			rmSync(directory, { recursive: true, force: true });
 		}
 	});
@@ -898,7 +898,7 @@ describe("cli command extension helper", () => {
 
 		const liveWidgetText = widgets.at(-1)?.lines?.join("\n") ?? "";
 		expect(widgets.at(-1)?.placement).toBe("aboveEditor");
-		expect(statuses.at(-1)?.key).toBe("asdl-cli-command");
+		expect(statuses.at(-1)?.key).toBe("sdl-cli-command");
 		expect(statuses.at(-1)?.value).toContain("/dev:preview-status running CLI command");
 		expect(liveWidgetText).toContain("Running /dev:preview-status");
 		expect(liveWidgetText).toContain("stdout: started");
@@ -908,9 +908,9 @@ describe("cli command extension helper", () => {
 		finishRun();
 		await commandPromise;
 
-		expect(statuses.at(-1)).toEqual({ key: "asdl-cli-command", value: undefined });
+		expect(statuses.at(-1)).toEqual({ key: "sdl-cli-command", value: undefined });
 		expect(widgets.at(-1)).toEqual({
-			key: "asdl-cli-command-output",
+			key: "sdl-cli-command-output",
 			lines: undefined,
 			placement: undefined,
 		});
@@ -963,11 +963,11 @@ describe("cli command extension helper", () => {
 		});
 		expect(
 			parseCliCommandArgs(
-				'--branch \'feature with spaces\' --project asdl\\ tools --label "say \\"hi\\""',
+				'--branch \'feature with spaces\' --project sdl\\ tools --label "say \\"hi\\""',
 			),
 		).toEqual({
 			ok: true,
-			args: ["--branch", "feature with spaces", "--project", "asdl tools", "--label", 'say "hi"'],
+			args: ["--branch", "feature with spaces", "--project", "sdl tools", "--label", 'say "hi"'],
 		});
 		expect(parseCliCommandArgs('--branch "unterminated')).toEqual({
 			ok: false,

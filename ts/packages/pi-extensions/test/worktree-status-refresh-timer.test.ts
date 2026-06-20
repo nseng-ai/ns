@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 
-import { stripTerminalEscapes } from "@asdl/core/exec";
-import { createManualTimerHarness } from "@asdl/core/testing";
-import type { LocalWorktreeStatus } from "@asdl/ccc/worktree-status";
+import { stripTerminalEscapes } from "@sdl/core/exec";
+import { createManualTimerHarness } from "@sdl/core/testing";
+import type { LocalWorktreeStatus } from "@sdl/ccc/worktree-status";
 import {
 	deferred,
 	fakeWorktreeStatusLoaders,

@@ -422,18 +422,18 @@ describe("pr feedback watch download helpers", () => {
 describe("pr feedback watch REST fingerprint helpers", () => {
 	test("parses GitHub PR URLs and rejects malformed URLs", () => {
 		expect(
-			parseGitHubPullRequestUrl("https://github.com/dagster-io/asdl-tools/pull/1036", undefined),
+			parseGitHubPullRequestUrl("https://github.com/dagster-io/sdl-tools/pull/1036", undefined),
 		).toEqual({
 			owner: "dagster-io",
-			repo: "asdl-tools",
+			repo: "sdl-tools",
 			number: 1036,
-			url: "https://github.com/dagster-io/asdl-tools/pull/1036",
+			url: "https://github.com/dagster-io/sdl-tools/pull/1036",
 		});
 		expect(
-			parseGitHubPullRequestUrl("https://example.com/dagster-io/asdl-tools/pull/1036", undefined),
+			parseGitHubPullRequestUrl("https://example.com/dagster-io/sdl-tools/pull/1036", undefined),
 		).toBeUndefined();
 		expect(
-			parseGitHubPullRequestUrl("https://github.com/dagster-io/asdl-tools/issues/1036", undefined),
+			parseGitHubPullRequestUrl("https://github.com/dagster-io/sdl-tools/issues/1036", undefined),
 		).toBeUndefined();
 	});
 

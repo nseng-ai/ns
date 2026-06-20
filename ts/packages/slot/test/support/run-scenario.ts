@@ -1,5 +1,5 @@
-import type { ConfirmationResult } from "@asdl/clinkr";
-import { createOneShotStdinAdapter, createScenarioClinkrInteraction } from "@asdl/clinkr/testing";
+import type { ConfirmationResult } from "@sdl/clinkr";
+import { createOneShotStdinAdapter, createScenarioClinkrInteraction } from "@sdl/clinkr/testing";
 
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import type { SlotCliContext } from "../../src/context.ts";

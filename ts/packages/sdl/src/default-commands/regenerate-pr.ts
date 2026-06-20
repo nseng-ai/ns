@@ -1,4 +1,4 @@
-import { RealGitGateway } from "@asdl/core/git";
+import { RealGitGateway } from "@sdl/core/git";
 import {
 	applyGeneratedDescription,
 	decidePrBodyOverwrite,
@@ -9,7 +9,7 @@ import {
 	REPO_PR_DESCRIPTION_PROMPT_PATH,
 	resolvePrDescriptionGeneration,
 	type PromptSource,
-} from "@asdl/core/submit";
+} from "@sdl/core/submit";
 
 import { failed, ok, z, type SdlCommand, type SdlContext } from "../sdk.ts";
 import { createSdlCommandRunner, SdlCommandExecApi } from "./command-runner.ts";
@@ -25,7 +25,7 @@ const regeneratePrSchema = z.object({
 
 export const defaultRegeneratePrCommand = {
 	name: "regenerate-pr",
-	description: `Regenerate the current branch PR's title and description with the asdl PR-description prompt.
+	description: `Regenerate the current branch PR's title and description with the sdl PR-description prompt.
 
 By default this regenerates both the PR title and body, replacing any existing body. The --force flag is accepted for compatibility with older guarded PR regeneration workflows.
 

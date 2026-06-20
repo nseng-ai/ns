@@ -5,8 +5,8 @@ import {
 	type ObjectiveSelectionContext,
 	type ObjectiveSelectionHost,
 	type ObjectiveSelectionSpec,
-} from "@asdl/pi-extension-runtime/objective-selection";
-import { invokeRepoSkillPromptTurn } from "@asdl/pi-extension-runtime/skill-expansion";
+} from "@sdl/pi-extension-runtime/objective-selection";
+import { invokeRepoSkillPromptTurn } from "@sdl/pi-extension-runtime/skill-expansion";
 import type { CommandDefinition } from "./cmux/types.ts";
 
 interface ObjectiveStackImplCommandSpec extends ObjectiveSelectionSpec {

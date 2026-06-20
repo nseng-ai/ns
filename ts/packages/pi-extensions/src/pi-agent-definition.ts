@@ -1,10 +1,10 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
-import { splitMarkdownFrontmatter, stripLineEnding } from "@asdl/core/markdown-frontmatter";
-import { formatErrorMessage } from "@asdl/core/primitives";
+import { splitMarkdownFrontmatter, stripLineEnding } from "@sdl/core/markdown-frontmatter";
+import { formatErrorMessage } from "@sdl/core/primitives";
 
-export const PI_AGENT_DEFINITION_SCHEMA = "asdl.pi-agent.v1";
+export const PI_AGENT_DEFINITION_SCHEMA = "sdl.pi-agent.v1";
 
 export interface PiAgentDefinition {
 	schema: typeof PI_AGENT_DEFINITION_SCHEMA;
@@ -40,10 +40,10 @@ const SUPPORTED_FRONTMATTER_FIELDS = new Set<string>([
 	"promptGuidelines",
 ]);
 
-export function findAsdlPiAgentsDir(cwd: string): string | undefined {
+export function findSdlPiAgentsDir(cwd: string): string | undefined {
 	let current = resolve(cwd);
 	while (true) {
-		const candidate = join(current, ".asdl", "pi", "agents");
+		const candidate = join(current, ".sdl", "pi", "agents");
 		if (isDirectory(candidate)) return candidate;
 
 		const parent = dirname(current);
@@ -59,9 +59,9 @@ export function loadPiAgentDefinition(agentName: string, cwd: string): PiAgentDe
 		);
 	}
 
-	const agentsDir = findAsdlPiAgentsDir(cwd);
+	const agentsDir = findSdlPiAgentsDir(cwd);
 	if (agentsDir === undefined) {
-		throw new Error(`Could not find .asdl/pi/agents while walking up from ${cwd}.`);
+		throw new Error(`Could not find .sdl/pi/agents while walking up from ${cwd}.`);
 	}
 
 	const filePath = join(agentsDir, `${agentName}.md`);

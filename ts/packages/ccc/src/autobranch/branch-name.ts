@@ -1,9 +1,9 @@
-import type { CommandResult } from "@asdl/sdl/checkpoint-flow";
+import type { CommandResult } from "@sdl/sdl/checkpoint-flow";
 
 import {
 	MAX_BRANCH_SLUG_LENGTH,
 	trimBranchSlugToLength,
-} from "@asdl/pi-extension-runtime/branch-slug";
+} from "@sdl/pi-extension-runtime/branch-slug";
 
 const GIT_TIMEOUT_MS = 30_000;
 

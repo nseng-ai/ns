@@ -48,7 +48,7 @@ describe("validateCheckpointMessage", () => {
 - Update pi-extension-deepening objective/roadmap candidate 10 disposition
 - Switch .pi/extensions land/submit imports to @earendil-works
 - Refresh docs/pi README vibecoded vs promotion statuses
-- Add .asdl/objectives/pi-extension-deepening/updates/2026-05-25-vibecoded-extension-dispositions.md`);
+- Add .sdl/objectives/pi-extension-deepening/updates/2026-05-25-vibecoded-extension-dispositions.md`);
 
 		expect(result.ok).toBe(false);
 		if (!result.ok) {

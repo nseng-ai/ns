@@ -1,6 +1,6 @@
 export { default, handoffParity } from "./handoff/registration.ts";
 export type { CommandContext, ExecResult, ExtensionAPI } from "./handoff/runtime-types.ts";
-export { deriveSemanticHandoffSlug } from "@asdl/handoff/identity";
+export { deriveSemanticHandoffSlug } from "@sdl/handoff/identity";
 export { buildCreateHandoffPrompt } from "./handoff/create.ts";
 export {
 	buildPickupHandoffPrompt,

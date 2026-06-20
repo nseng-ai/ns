@@ -1,4 +1,4 @@
-import { registerLandCommand, type LandExtensionAPI } from "@asdl/ccc/land";
+import { registerLandCommand, type LandExtensionAPI } from "@sdl/ccc/land";
 
 import { definePiSurfaceParity } from "./parity.ts";
 
@@ -13,7 +13,7 @@ export const landParity = definePiSurfaceParity([
 		trackedGap:
 			"cross-harness-parity roadmap: add a clinkr-based CLI entry and skill for the unified /sdl:code:land orchestration.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
+		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "land",
 		notes:
 			"Pi command exposes the SDL code-lifecycle surface and delegates to CCC land orchestration; no bin or installed skill currently makes the unified workflow reachable outside Pi.",

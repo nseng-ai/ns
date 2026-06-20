@@ -5,7 +5,7 @@ import {
 	formatCommandFailure,
 	formatCommandStartupFailure,
 	stripTerminalEscapes,
-} from "@asdl/core/exec";
+} from "@sdl/core/exec";
 
 import { parseMachineEnvelopeData } from "../src/index.ts";
 import {

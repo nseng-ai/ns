@@ -1,6 +1,6 @@
 # Writing-Great-Skills Adaptation
 
-Adapted from Matt Pocock's vendored `writing-great-skills` skill. Use this as ASDL's operational audit lens; the upstream skill remains provenance and broader reference.
+Adapted from Matt Pocock's vendored `writing-great-skills` skill. Use this as SDL's operational audit lens; the upstream skill remains provenance and broader reference.
 
 ## Predictability
 
@@ -8,7 +8,7 @@ Audit for predictable process, not identical output. A good skill causes agents 
 
 ## Invocation mode
 
-ASDL maps upstream invocation language to harness behavior:
+SDL maps upstream invocation language to harness behavior:
 
 - **Ambient-discoverable / model-invoked**: keep a rich frontmatter description when the agent must choose the skill itself or another skill must route to it.
 - **Explicitly invoked / user-invoked**: use `disable-model-invocation: true` when humans or wrapper prompts invoke the skill directly and ambient context would be waste.
@@ -47,8 +47,8 @@ Prefer project vocabulary and compact words that guide behavior. A good leading 
 When auditing a Matt-sourced update, classify each change as:
 
 1. exact vendored refresh;
-2. ASDL overlay update;
+2. SDL overlay update;
 3. fork/wrapper required; or
 4. reject/defer.
 
-Do not copy upstream workflow skills over ASDL-native Branch Memory, Objective, Graphite, handoff, or SDL workflows without a separate product decision.
+Do not copy upstream workflow skills over SDL-native Branch Memory, Objective, Graphite, handoff, or SDL workflows without a separate product decision.

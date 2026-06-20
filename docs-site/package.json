@@ -1,5 +1,5 @@
 {
-  "name": "asdl-docs",
+  "name": "sdl-docs",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.14.0",

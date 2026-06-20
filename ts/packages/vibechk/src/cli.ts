@@ -2,9 +2,9 @@
 
 import process from "node:process";
 
-import { ClinkrGroup, ok, resolveIo, type RenderCapabilities } from "@asdl/clinkr";
-import { rawCommand } from "@asdl/clinkr/raw";
-import { isDirectCliInvocation } from "@asdl/core/cli-entry";
+import { ClinkrGroup, ok, resolveIo, type RenderCapabilities } from "@sdl/clinkr";
+import { rawCommand } from "@sdl/clinkr/raw";
+import { isDirectCliInvocation } from "@sdl/core/cli-entry";
 import { z } from "zod";
 
 import type { LoadedBundle } from "./models.ts";
@@ -265,7 +265,7 @@ function normalizeRunsFormatArgs(args: readonly string[]): readonly string[] {
 }
 
 function runtimeInfo(): string {
-	return "runtime: typescript\nentry_point: @asdl/vibechk bin vibechk -> ts/packages/vibechk/src/cli.ts\n";
+	return "runtime: typescript\nentry_point: @sdl/vibechk bin vibechk -> ts/packages/vibechk/src/cli.ts\n";
 }
 
 if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {

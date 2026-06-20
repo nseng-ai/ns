@@ -100,8 +100,8 @@ Example success handoff:
   "head_sha": "abc123def456",
   "validation": {"command": "just", "exit_code": 0},
   "files_changed": [
-    "packages/asdl-foo/src/asdl_foo/cli.py",
-    "packages/asdl-foo/tests/scenario/test_cli.py"
+    "packages/sdl-foo/src/sdl_foo/cli.py",
+    "packages/sdl-foo/tests/scenario/test_cli.py"
   ],
   "deviations": [],
   "downstream_notes": [

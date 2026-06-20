@@ -1,4 +1,4 @@
-import { describeNodeRuntimeCliEntrypoint } from "@asdl/core/testing";
+import { describeNodeRuntimeCliEntrypoint } from "@sdl/core/testing";
 
 describeNodeRuntimeCliEntrypoint({
 	name: "sdl Node runtime CLI entrypoint",
@@ -11,5 +11,5 @@ describeNodeRuntimeCliEntrypoint({
 		{ type: "contains", text: "cp" },
 	],
 	runtimeDiagnostics:
-		"runtime: typescript\nentry_point: @asdl/sdl bin sdl -> ts/packages/sdl/src/cli.ts\n",
+		"runtime: typescript\nentry_point: @sdl/sdl bin sdl -> ts/packages/sdl/src/cli.ts\n",
 });

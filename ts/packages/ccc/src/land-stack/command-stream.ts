@@ -1,12 +1,12 @@
-import { formatCommand, normalizeExecResult, type ExecResult } from "@asdl/core/exec";
-import { formatErrorMessage } from "@asdl/core/primitives";
+import { formatCommand, normalizeExecResult, type ExecResult } from "@sdl/core/exec";
+import { formatErrorMessage } from "@sdl/core/primitives";
 import {
 	customMessageText,
 	linkifyPrReferences,
 	prLinksDetailsFor,
 	prLinksFromDetails,
 	truncateDisplayLine,
-} from "@asdl/pi-extension-runtime/terminal-presentation";
+} from "@sdl/pi-extension-runtime/terminal-presentation";
 import { commandStreamOutputLines, normalizeCommandFinish } from "./command-exec.ts";
 import { COMMAND_STREAM_MESSAGE_TYPE } from "./constants.ts";
 import type {

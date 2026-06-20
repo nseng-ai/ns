@@ -1,8 +1,8 @@
 import { accessSync, constants } from "node:fs";
 import { join } from "node:path";
 
-import { githubPrIdentityFromUrl, type GithubPrIdentity } from "@asdl/core/github-status";
-import { formatElapsedMs } from "@asdl/core/time-format";
+import { githubPrIdentityFromUrl, type GithubPrIdentity } from "@sdl/core/github-status";
+import { formatElapsedMs } from "@sdl/core/time-format";
 import { isRecord, stringField } from "./cmux/primitives.ts";
 import { parseMachineEnvelopeData } from "./machine-envelope.ts";
 import type { SendMessageOptions, SendUserMessageOptions } from "./message-delivery.ts";
@@ -21,7 +21,7 @@ export const prFeedbackWatchParity = definePiSurfaceParity([
 		fallback:
 			"Use /pr:download-feedback or pr-address exec download-feedback manually when PR feedback is detected or requested outside Pi.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
+		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "pr-feedback-watch",
 		notes:
 			"Pi owns opt-in live polling and prompt injection; pr-address owns portable read-only feedback download and normalization.",
@@ -1217,7 +1217,7 @@ class PrFeedbackWatchController {
 		return {
 			type: "failed",
 			message:
-				"Could not find pr-address. Expected `pr-address` on PATH (installed with `just install-pr-address`) or an asdl checkout containing ts/packages/pr-address/src/cli.ts.",
+				"Could not find pr-address. Expected `pr-address` on PATH (installed with `just install-pr-address`) or an sdl checkout containing ts/packages/pr-address/src/cli.ts.",
 		};
 	}
 

@@ -1,5 +1,5 @@
-import { formatErrorMessage } from "@asdl/core/primitives";
-import { HANDOFF_NAMESPACE, handoffSlugToKey, parseFlatHandoffSlug } from "@asdl/handoff/identity";
+import { formatErrorMessage } from "@sdl/core/primitives";
+import { HANDOFF_NAMESPACE, handoffSlugToKey, parseFlatHandoffSlug } from "@sdl/handoff/identity";
 
 import { isRecord, stringField } from "../cmux/primitives.ts";
 import { formatPickupHandoffCommand } from "./identity.ts";

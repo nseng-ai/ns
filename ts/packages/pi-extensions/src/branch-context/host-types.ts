@@ -3,14 +3,14 @@ import type {
 	BranchCreationMethod,
 	createBranchContextFromFile,
 	loadBranchContextPlan,
-} from "@asdl/branch-context";
-import type { ExecOptions, ExecResult } from "@asdl/core/exec";
+} from "@sdl/branch-context";
+import type { ExecOptions, ExecResult } from "@sdl/core/exec";
 import type {
 	SessionReplacementContext,
 	SessionReplacementOptions,
 	SessionReplacementResult,
-} from "@asdl/pi-extension-runtime/session-replacement";
-import type { resolveSelectedSavedPlanFile, writeSavedPlanFile } from "@asdl/plans";
+} from "@sdl/pi-extension-runtime/session-replacement";
+import type { resolveSelectedSavedPlanFile, writeSavedPlanFile } from "@sdl/plans";
 import type { SendMessageOptions } from "../message-delivery.ts";
 
 export type NotifyLevel = "info" | "warning" | "error";

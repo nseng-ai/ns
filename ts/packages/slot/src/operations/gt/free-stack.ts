@@ -1,4 +1,4 @@
-import { failure, ok } from "@asdl/clinkr";
+import { failure, ok } from "@sdl/clinkr";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../../context.ts";

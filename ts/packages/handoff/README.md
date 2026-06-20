@@ -1,4 +1,4 @@
-# @asdl/handoff
+# @sdl/handoff
 
 TypeScript implementation of the standalone `handoff` CLI for listing, deleting, and garbage-collecting directed Handoff Artifacts stored in Branch Memory.
 

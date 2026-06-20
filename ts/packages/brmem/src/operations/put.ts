@@ -1,4 +1,4 @@
-import { failure, ok } from "@asdl/clinkr";
+import { failure, ok } from "@sdl/clinkr";
 import { posix } from "node:path";
 import { TextDecoder } from "node:util";
 import { z } from "zod";

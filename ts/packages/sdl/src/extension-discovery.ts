@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { basename, extname, join, relative, resolve } from "node:path";
 
-import { isPathInside, isRecord } from "@asdl/core/primitives";
+import { isPathInside, isRecord } from "@sdl/core/primitives";
 
 import {
 	SDL_COMMAND_NAME_PATTERN,
@@ -209,26 +209,26 @@ function discoverPackageCommands(
 		};
 	}
 
-	if (!isRecord(parsed) || !isRecord(parsed.asdl)) {
+	if (!isRecord(parsed) || !isRecord(parsed.sdl)) {
 		return {
 			commands: [],
 			diagnostics: [
 				diagnostic(
-					"extension_manifest_missing_asdl",
-					`Extension manifest must contain an asdl object: ${packageJsonPath}.`,
+					"extension_manifest_missing_sdl",
+					`Extension manifest must contain an sdl object: ${packageJsonPath}.`,
 					{ path: packageJsonPath },
 				),
 			],
 		};
 	}
-	const entries = parsed.asdl.commands;
+	const entries = parsed.sdl.commands;
 	if (!Array.isArray(entries)) {
 		return {
 			commands: [],
 			diagnostics: [
 				diagnostic(
 					"extension_manifest_commands_not_array",
-					`Extension manifest asdl.commands must be an array: ${packageJsonPath}.`,
+					`Extension manifest sdl.commands must be an array: ${packageJsonPath}.`,
 					{ path: packageJsonPath },
 				),
 			],

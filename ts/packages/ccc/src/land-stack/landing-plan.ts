@@ -1,4 +1,4 @@
-import { formatCommand } from "@asdl/core/exec";
+import { formatCommand } from "@sdl/core/exec";
 import { exec } from "./command-exec.ts";
 import { GIT_TIMEOUT_MS } from "./constants.ts";
 import { failure, landStackFailure, success, type LandStackResult } from "./errors.ts";

@@ -2,10 +2,10 @@ import type { BrmemPutData } from "./brmem-gateway.ts";
 import { attachBranchContext, assertBrmemEntryAbsent, AttachBranchContextError } from "./attach.ts";
 import { BRANCH_CONTEXT_NAMESPACE, buildBranchContextPlanKey } from "./constants.ts";
 import type { BranchContextGraphiteGateway } from "./graphite-gateway.ts";
-import { formatCommand, type CommandExecApi } from "@asdl/core/exec";
-import type { GitGateway } from "@asdl/core/git";
-import { formatErrorMessage } from "@asdl/core/primitives";
-import { normalizeSummary, resolvePlanSourceFile } from "@asdl/plans";
+import { formatCommand, type CommandExecApi } from "@sdl/core/exec";
+import type { GitGateway } from "@sdl/core/git";
+import { formatErrorMessage } from "@sdl/core/primitives";
+import { normalizeSummary, resolvePlanSourceFile } from "@sdl/plans";
 import type { BranchContextContext } from "./context.ts";
 
 export {

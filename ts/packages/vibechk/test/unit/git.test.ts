@@ -1,4 +1,4 @@
-import { ScriptedCommandExecApi } from "@asdl/core/testing";
+import { ScriptedCommandExecApi } from "@sdl/core/testing";
 import { describe, expect, it } from "vitest";
 
 import { RealVibechkGitGateway } from "../../src/git.ts";

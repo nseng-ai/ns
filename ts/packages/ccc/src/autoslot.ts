@@ -1,6 +1,6 @@
 import process from "node:process";
 
-import type { ExtensionAPI } from "@asdl/pi-extension-runtime/cmux/types";
+import type { ExtensionAPI } from "@sdl/pi-extension-runtime/cmux/types";
 import {
 	commitAutobranchCheckpointMessage,
 	prepareAutobranchCheckpointMessage,

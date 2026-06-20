@@ -4,24 +4,24 @@ import {
 	appendBlock,
 	claudeBlock,
 	managedBlockBounds,
-	parseAsdlAregAgents,
+	parseSdlAregAgents,
 	parseLegacyAregJsonAgents,
 	replaceOrAppendAregSection,
 	renderAregSection,
 } from "../../src/operations/init.ts";
 
 describe("init config helpers", () => {
-	test("parses asdl.toml areg agents and validates bad values", () => {
-		expect(parseAsdlAregAgents('[areg]\nagents = ["codex", "cursor"]\n')).toEqual({
+	test("parses sdl.toml areg agents and validates bad values", () => {
+		expect(parseSdlAregAgents('[areg]\nagents = ["codex", "cursor"]\n')).toEqual({
 			ok: true,
 			value: ["codex", "cursor"],
 		});
-		expect(parseAsdlAregAgents("[areg]\nagents = []\n")).toEqual({ ok: true, value: [] });
-		expect(parseAsdlAregAgents("[areg\n")).toMatchObject({
+		expect(parseSdlAregAgents("[areg]\nagents = []\n")).toEqual({ ok: true, value: [] });
+		expect(parseSdlAregAgents("[areg\n")).toMatchObject({
 			ok: false,
 			error: { message: expect.stringContaining("Invalid TOML") },
 		});
-		expect(parseAsdlAregAgents('[areg]\nagents = [""]\n')).toMatchObject({
+		expect(parseSdlAregAgents('[areg]\nagents = [""]\n')).toMatchObject({
 			ok: false,
 			error: { message: expect.stringContaining("non-empty string list") },
 		});

@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 
-import { shellQuote } from "@asdl/core/exec";
+import { shellQuote } from "@sdl/core/exec";
 
 import { runRealCommand, type CommandOutput, type CommandRunner } from "./command-runner.ts";
 import { isRecord, stringField } from "./json-fields.ts";

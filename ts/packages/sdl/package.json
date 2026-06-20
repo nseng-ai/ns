@@ -1,5 +1,5 @@
 {
-  "name": "@asdl/sdl",
+  "name": "@sdl/sdl",
   "version": "0.1.0",
   "private": true,
   "description": "Emerging customer-facing Source Development Lifecycle CLI.",
@@ -16,7 +16,7 @@
     "./text-generation": "./src/text-generation.ts",
     "./text-repair": "./src/text-repair.ts"
   },
-  "asdl": {
+  "sdl": {
     "publicPluginApi": [
       "./sdk"
     ],
@@ -40,9 +40,9 @@
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/sdl/test"
   },
   "dependencies": {
-    "@asdl/clinkr": "workspace:*",
-    "@asdl/core": "workspace:*",
-    "@asdl/plans": "workspace:*",
+    "@sdl/clinkr": "workspace:*",
+    "@sdl/core": "workspace:*",
+    "@sdl/plans": "workspace:*",
     "@earendil-works/pi-ai": "catalog:",
     "@earendil-works/pi-coding-agent": "catalog:",
     "jiti": "catalog:",

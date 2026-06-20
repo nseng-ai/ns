@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { NodeCommandExecApi, formatCommand, type CommandExecApi } from "@asdl/core/exec";
+import { NodeCommandExecApi, formatCommand, type CommandExecApi } from "@sdl/core/exec";
 
 import {
 	brmemError,

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 
-import { formatZodError } from "@asdl/core/primitives";
+import { formatZodError } from "@sdl/core/primitives";
 import { z } from "zod";
 
 import { parseCliCommandArgs } from "./cli-command-extension.ts";
@@ -74,7 +74,7 @@ export const prExtensionParity = definePiSurfaceParity([
 		parity: "FULL",
 		cli: "pr-address exec download-feedback",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
+		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "pr",
 		notes: "Pi owns editor prefill; pr-address owns portable collection and Markdown rendering.",
 	},
@@ -86,7 +86,7 @@ export const prExtensionParity = definePiSurfaceParity([
 		parity: "FULL",
 		cli: "slot gt exec stack-branches + pr-address exec map-branch-prs + pr-address exec download-feedback",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
+		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "pr",
 		notes:
 			"Pi orchestrates stack discovery and editor prefill; slot owns Graphite stack discovery and pr-address owns PR feedback collection/Markdown rendering.",

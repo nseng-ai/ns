@@ -24,7 +24,7 @@
 ## Why this matters
 
 `sdl` lets a project drop TypeScript command override files into
-`.asdl/commands/*.ts`; `sdl` discovers them, validates their shape, transpiles
+`.sdl/commands/*.ts`; `sdl` discovers them, validates their shape, transpiles
 and loads them at runtime via `jiti`, and runs them. Two modules carry this
 load-bearing behavior and currently have **zero** test references anywhere in
 the repo: `command-registry.ts` (discovery + validation + execution) and
@@ -40,17 +40,17 @@ matching the coverage the package's other modules already have.
 Files in scope (read them before writing tests):
 
 - `ts/packages/sdl/src/command-registry.ts` — discovery + validation + execution. Key exported functions:
-  - `discoverProjectCommandNames(cwd)` — scans `<cwd>/.asdl/commands`, returns `{ ok: true, names }` or `{ ok: false, message }`. Returns empty names when the directory is absent; errors when the path is a non-directory; rejects filenames not matching `^[a-z][a-z0-9-]*$` (excluding `.d.ts`).
+  - `discoverProjectCommandNames(cwd)` — scans `<cwd>/.sdl/commands`, returns `{ ok: true, names }` or `{ ok: false, message }`. Returns empty names when the directory is absent; errors when the path is a non-directory; rejects filenames not matching `^[a-z][a-z0-9-]*$` (excluding `.d.ts`).
   - `validateSdlCommand(command, expectedName, commandPath)` — Zod-validates a loaded module's default export; name must equal `expectedName`.
   - `validateSdlResult(result, commandName)` — coerces an invalid command result into a `failed(...)` with exit code 2.
   - `executeSdlCommand(ctx, command, request)` — parses `request` against `command.schema`, runs `command.run`, validates the result, and converts thrown errors into `failed(...)`.
-  - `loadSdlCommand(commandName, cwd)` — loads a project override if `<cwd>/.asdl/commands/<name>.ts` exists, else falls back to a built-in (`changes`/`cp`/`submit`), else `Unknown SDL command`.
+  - `loadSdlCommand(commandName, cwd)` — loads a project override if `<cwd>/.sdl/commands/<name>.ts` exists, else falls back to a built-in (`changes`/`cp`/`submit`), else `Unknown SDL command`.
   - `isBuiltInCommandName`, `listSdlCommandInfos`.
 
   Excerpt — discovery validation (lines 73–115):
   ```ts
   export function discoverProjectCommandNames(cwd: string): ProjectCommandDiscoveryResult {
-    const commandsDirectory = projectCommandsDirectory(cwd);   // <cwd>/.asdl/commands
+    const commandsDirectory = projectCommandsDirectory(cwd);   // <cwd>/.sdl/commands
     if (!existsSync(commandsDirectory)) {
       return { ok: true, names: [] };
     }
@@ -83,7 +83,7 @@ Files in scope (read them before writing tests):
   ```ts
   export async function loadSdkCommandModule(modulePath: string): Promise<unknown> {
     const jiti = createJiti(import.meta.url, {
-      alias: { [SDK_SPECIFIER]: SDK_MODULE_PATH },   // SDK_SPECIFIER = "@asdl/sdl/sdk"
+      alias: { [SDK_SPECIFIER]: SDK_MODULE_PATH },   // SDK_SPECIFIER = "@sdl/sdl/sdk"
       moduleCache: false,                            // fresh load each call
       virtualModules: { [SDK_SPECIFIER]: sdlSdk },   // inject THIS process's SDK instance
     });
@@ -91,7 +91,7 @@ Files in scope (read them before writing tests):
   }
   ```
   The point of `virtualModules` is **SDK identity**: an override file that does
-  `import { defineCommand, ok } from "@asdl/sdl/sdk"` gets the host's exact SDK
+  `import { defineCommand, ok } from "@sdl/sdl/sdk"` gets the host's exact SDK
   object, not a copy from the user's `node_modules`. `moduleCache: false` means
   editing the file and reloading picks up the new contents.
 
@@ -131,12 +131,12 @@ Files in scope (read them before writing tests):
 
 ## Commands you will need
 
-| Purpose                       | Command                                                                                                                                   | Expected on success               |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| Typecheck this package        | `cd /Users/schrockn/code/asdl-tools/ts/packages/sdl && pnpm run check`                                                                    | exit 0, no tsc errors             |
-| Run this package's tests      | `pnpm --dir /Users/schrockn/code/asdl-tools/ts/packages/sdl run test`                                                                     | all pass, including the new tests |
-| Run one new file              | `pnpm --dir /Users/schrockn/code/asdl-tools/ts exec vitest run --config vitest.config.ts packages/sdl/test/unit/command-registry.test.ts` | pass                              |
-| Install (if a fresh checkout) | `pnpm --dir /Users/schrockn/code/asdl-tools/ts install`                                                                                   | exit 0                            |
+| Purpose                       | Command                                                                                                                                  | Expected on success               |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| Typecheck this package        | `cd /Users/schrockn/code/sdl-tools/ts/packages/sdl && pnpm run check`                                                                    | exit 0, no tsc errors             |
+| Run this package's tests      | `pnpm --dir /Users/schrockn/code/sdl-tools/ts/packages/sdl run test`                                                                     | all pass, including the new tests |
+| Run one new file              | `pnpm --dir /Users/schrockn/code/sdl-tools/ts exec vitest run --config vitest.config.ts packages/sdl/test/unit/command-registry.test.ts` | pass                              |
+| Install (if a fresh checkout) | `pnpm --dir /Users/schrockn/code/sdl-tools/ts install`                                                                                   | exit 0                            |
 
 If `pnpm run check` or `run test` fails with "command not found" or missing
 modules, run the install command once, then retry.
@@ -169,11 +169,11 @@ Create `ts/packages/sdl/test/unit/command-registry.test.ts`. Import from
 `../../src/command-registry.ts` and `../../src/sdk.ts`. Cover:
 
 - `discoverProjectCommandNames`:
-  - absent directory → `{ ok: true, names: [] }` (point `cwd` at a fresh temp dir with no `.asdl`).
+  - absent directory → `{ ok: true, names: [] }` (point `cwd` at a fresh temp dir with no `.sdl`).
   - directory with valid `.ts` files (e.g. `deploy.ts`, `cp.ts`) → `{ ok: true, names: ["cp", "deploy"] }` (sorted).
   - `.d.ts` files are ignored; non-`.ts` files ignored; subdirectories ignored.
   - an invalid filename (e.g. `Bad_Name.ts` or `1bad.ts`) → `{ ok: false }` with a message containing `must match [a-z][a-z0-9-]*`.
-  - `.asdl/commands` existing as a **file** rather than a directory → `{ ok: false }` with a message containing `must be a directory`.
+  - `.sdl/commands` existing as a **file** rather than a directory → `{ ok: false }` with a message containing `must be a directory`.
 - `validateSdlCommand`:
   - a valid command object built with `defineCommand({ name: "x", description: "d", run: () => ok("done") })` and `expectedName: "x"` → `{ ok: true }`.
   - name mismatch (`expectedName: "y"`) → `{ ok: false }` with message containing `command name must be "y"`.
@@ -193,20 +193,20 @@ Create `ts/packages/sdl/test/unit/command-registry.test.ts`. Import from
   - a command whose `run` throws → `failed(...)` with `exitCode === 2` and message containing the command name.
   - a request that fails schema validation (define a command with `schema: z.object({ count: z.number() })` and pass `{}`) → `failed(...)` with `exitCode === 2` and message containing `Invalid request`.
 
-**Verify**: `pnpm --dir /Users/schrockn/code/asdl-tools/ts exec vitest run --config vitest.config.ts packages/sdl/test/unit/command-registry.test.ts` → all pass.
+**Verify**: `pnpm --dir /Users/schrockn/code/sdl-tools/ts exec vitest run --config vitest.config.ts packages/sdl/test/unit/command-registry.test.ts` → all pass.
 
 ### Step 2: Test `sdk-module-loader.ts` runtime loading + SDK identity
 
 Create `ts/packages/sdl/test/unit/sdk-module-loader.test.ts`. This test writes a
 real TypeScript command file into a temp dir and loads it through
 `loadSdkCommandModule`, proving that (a) the file transpiles and loads, (b) the
-injected `@asdl/sdl/sdk` resolves even though the temp dir has no `node_modules`,
+injected `@sdl/sdl/sdk` resolves even though the temp dir has no `node_modules`,
 and (c) `moduleCache: false` means an edited file reloads fresh.
 
 Pattern for the fixture file content (write with `writeFileSync`):
 
 ```ts
-import { defineCommand, ok } from "@asdl/sdl/sdk";
+import { defineCommand, ok } from "@sdl/sdl/sdk";
 export default defineCommand({
   name: "demo",
   description: "demo command",
@@ -222,7 +222,7 @@ Cover:
   `../../src/command-registry.ts`) → `{ ok: true }`. Then run the command via
   `executeSdlCommand(ctx, loaded.command, {})` → `{ ok: true, message: "loaded-v1" }`.
   (That the import resolved at all is the SDK-injection proof — the temp dir has
-  no `@asdl/sdl` in `node_modules`.)
+  no `@sdl/sdl` in `node_modules`.)
 - **`moduleCache: false` reloads**: load once (expect `loaded-v1`), overwrite the
   same path with `run: () => ok("loaded-v2")`, load again → second load runs and
   yields `loaded-v2`. (If this proves flaky due to jiti internals, see STOP
@@ -234,14 +234,14 @@ Cover:
 
 Clean up temp dirs in `afterEach`.
 
-**Verify**: `pnpm --dir /Users/schrockn/code/asdl-tools/ts exec vitest run --config vitest.config.ts packages/sdl/test/unit/sdk-module-loader.test.ts` → all pass.
+**Verify**: `pnpm --dir /Users/schrockn/code/sdl-tools/ts exec vitest run --config vitest.config.ts packages/sdl/test/unit/sdk-module-loader.test.ts` → all pass.
 
 ### Step 3: Typecheck and full-package test
 
 **Verify**:
 
-- `cd /Users/schrockn/code/asdl-tools/ts/packages/sdl && pnpm run check` → exit 0.
-- `pnpm --dir /Users/schrockn/code/asdl-tools/ts/packages/sdl run test` → all pass (existing + new).
+- `cd /Users/schrockn/code/sdl-tools/ts/packages/sdl && pnpm run check` → exit 0.
+- `pnpm --dir /Users/schrockn/code/sdl-tools/ts/packages/sdl run test` → all pass (existing + new).
 
 ## Test plan
 
@@ -258,8 +258,8 @@ Clean up temp dirs in `afterEach`.
 
 ALL must hold:
 
-- [ ] `cd /Users/schrockn/code/asdl-tools/ts/packages/sdl && pnpm run check` exits 0.
-- [ ] `pnpm --dir /Users/schrockn/code/asdl-tools/ts/packages/sdl run test` exits 0; the two new files run and pass.
+- [ ] `cd /Users/schrockn/code/sdl-tools/ts/packages/sdl && pnpm run check` exits 0.
+- [ ] `pnpm --dir /Users/schrockn/code/sdl-tools/ts/packages/sdl run test` exits 0; the two new files run and pass.
 - [ ] `git status --porcelain` shows only the two new test files added (no source files modified).
 - [ ] `shadcn-improve/plans/README.md` status row for 001 updated to DONE.
 
@@ -270,7 +270,7 @@ Stop and report back (do not improvise) if:
 - The "Current state" excerpts don't match the live code (drift since `d637e619b`).
 - A test you wrote to document *correct* behavior fails because the source is
   actually wrong — report the suspected bug; do not edit source to make the test pass.
-- `loadSdkCommandModule` cannot resolve `@asdl/sdl/sdk` from a temp dir in the
+- `loadSdkCommandModule` cannot resolve `@sdl/sdl/sdk` from a temp dir in the
   test environment (e.g. jiti behaves differently under vitest) — report it; the
   fix may require a different fixture strategy, which is a design decision.
 - The reload-on-edit assertion (Step 2) is irreducibly flaky — report it rather

@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { GENERATED_BODY_MARKER } from "@asdl/core/submit";
+import { GENERATED_BODY_MARKER } from "@sdl/core/submit";
 
 import {
 	formattedExecCalls,
@@ -17,7 +17,7 @@ import {
 const PR_URL = "https://github.com/acme/repo/pull/123";
 const generatedText = `Improve PR descriptions
 
-This regenerates the PR title and body with the asdl-owned prompt.
+This regenerates the PR title and body with the sdl-owned prompt.
 
 ## Key Changes
 
@@ -85,8 +85,8 @@ describe("sdl regenerate-pr CLI", () => {
 		expect(help).toContain("Usage: sdl regenerate-pr");
 		expect(help).toContain("replacing any existing");
 		expect(help).toContain("body. The --force flag");
-		expect(help).toContain("ASDL_DEV_PR_DESCRIPTION_MODEL");
-		expect(help).toContain("ASDL_DEV_PR_DESCRIPTION_PROMPT");
+		expect(help).toContain("SDL_DEV_PR_DESCRIPTION_MODEL");
+		expect(help).toContain("SDL_DEV_PR_DESCRIPTION_PROMPT");
 		expect(help).toContain("--force");
 		expect(help).toContain("--json-schema");
 		expect(help).not.toContain("\n  --format");
@@ -166,7 +166,7 @@ describe("sdl regenerate-pr CLI", () => {
 		const run = runWithFakes(
 			["regenerate-pr"],
 			{},
-			{ env: { ASDL_DEV_PR_DESCRIPTION_MODEL: "openai-codex/custom-mini" } },
+			{ env: { SDL_DEV_PR_DESCRIPTION_MODEL: "openai-codex/custom-mini" } },
 		);
 
 		expect(await run.exit).toBe(0);
@@ -180,7 +180,7 @@ describe("sdl regenerate-pr CLI", () => {
 			const run = runWithFakes(
 				["regenerate-pr"],
 				{},
-				{ env: { ASDL_DEV_PR_DESCRIPTION_PROMPT: promptPath } },
+				{ env: { SDL_DEV_PR_DESCRIPTION_PROMPT: promptPath } },
 			);
 
 			expect(await run.exit).toBe(0);
@@ -195,11 +195,11 @@ describe("sdl regenerate-pr CLI", () => {
 		const run = runWithFakes(
 			["regenerate-pr"],
 			{},
-			{ env: { ASDL_DEV_PR_DESCRIPTION_PROMPT: "/path/that/does/not/exist.md" } },
+			{ env: { SDL_DEV_PR_DESCRIPTION_PROMPT: "/path/that/does/not/exist.md" } },
 		);
 
 		expect(await run.exit).toBe(2);
-		expect(run.stderr.join("")).toContain("Could not read ASDL_DEV_PR_DESCRIPTION_PROMPT");
+		expect(run.stderr.join("")).toContain("Could not read SDL_DEV_PR_DESCRIPTION_PROMPT");
 	});
 
 	test("unknown options exit 2", async () => {

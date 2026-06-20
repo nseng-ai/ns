@@ -4,9 +4,9 @@ import { describe, expect, test } from "vitest";
 
 import { visibleWidth } from "@earendil-works/pi-tui";
 
-import { stripTerminalEscapes } from "@asdl/core/exec";
-import { createManualTimerHarness } from "@asdl/core/testing";
-import type { WorktreeGhStatus } from "@asdl/ccc/worktree-status";
+import { stripTerminalEscapes } from "@sdl/core/exec";
+import { createManualTimerHarness } from "@sdl/core/testing";
+import type { WorktreeGhStatus } from "@sdl/ccc/worktree-status";
 import {
 	deferred,
 	fakeWorktreeStatusLoaders,
@@ -257,7 +257,7 @@ describe("worktree status extension registration and rendering", () => {
 	});
 
 	test("custom footer formats slot identity and truncates nested path before branch", async () => {
-		const worktreeRoot = "/tmp/.slots/repos/asdl-tools/worktrees/slot-02";
+		const worktreeRoot = "/tmp/.slots/repos/sdl-tools/worktrees/slot-02";
 		const nestedCwd = `${worktreeRoot}/ts/界面/pi-extensions`;
 		const pi = new LifecycleFakePi([]);
 		const statuses = new Map<string, string>();
@@ -299,18 +299,18 @@ describe("worktree status extension registration and rendering", () => {
 		);
 
 		const wideFooterRaw = footer.render(200)[0] ?? "";
-		expect(wideFooterRaw).toContain("\x1B[36masdl-tools\x1B[39m");
+		expect(wideFooterRaw).toContain("\x1B[36msdl-tools\x1B[39m");
 		expect(wideFooterRaw).toContain("\x1B[36mslot-02\x1B[39m");
 		expect(wideFooterRaw).toContain("\x1B[36mts/界面/pi-extensions\x1B[39m");
 		expect(wideFooterRaw).toContain("\x1B[31m✗\x1B[39m");
 		const wideFooter = stripTerminalEscapes(wideFooterRaw);
 		expect(wideFooter).toBe(
-			"[wt] repo:asdl-tools wt:slot-02 pwd:ts/界面/pi-extensions (✗) | br:feature/slot-identity ↓:- commits:? ↑:-",
+			"[wt] repo:sdl-tools wt:slot-02 pwd:ts/界面/pi-extensions (✗) | br:feature/slot-identity ↓:- commits:? ↑:-",
 		);
 		expect(wideFooter).not.toContain("stale-branch");
 		const narrowIdentityRaw = footer.render(46)[0] ?? "";
 		const narrowIdentity = stripTerminalEscapes(narrowIdentityRaw);
-		expect(narrowIdentity).toContain("[wt] repo:asdl-tools wt:slot-02");
+		expect(narrowIdentity).toContain("[wt] repo:sdl-tools wt:slot-02");
 		expect(narrowIdentity).toContain("...");
 		expect(visibleWidth(narrowIdentityRaw)).toBeLessThanOrEqual(46);
 		await pi.sessionShutdown?.();

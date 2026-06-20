@@ -1,4 +1,4 @@
-import type { ScheduledTimer, TimerScheduler } from "@asdl/core/timers";
+import type { ScheduledTimer, TimerScheduler } from "@sdl/core/timers";
 
 export function unrefTimer(
 	timer: ReturnType<typeof setTimeout> | ReturnType<typeof setInterval>,
@@ -11,7 +11,7 @@ export function unrefTimer(
 /**
  * A {@link TimerScheduler} whose timers are unref'd, so long-lived background
  * timers never keep the Pi host process alive at shutdown. This is the
- * difference from `@asdl/core`'s `systemTimerScheduler`, whose consumers are
+ * difference from `@sdl/core`'s `systemTimerScheduler`, whose consumers are
  * short-lived awaited timeouts that intentionally do not unref.
  */
 export const unrefTimerScheduler: TimerScheduler = {

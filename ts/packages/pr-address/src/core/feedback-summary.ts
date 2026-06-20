@@ -1,8 +1,8 @@
-import type { GithubPrDiscussionComment } from "@asdl/core/github-pr-feedback";
+import type { GithubPrDiscussionComment } from "@sdl/core/github-pr-feedback";
 
 const BODY_MARKERS: ReadonlyArray<readonly [marker: string, label: string]> = [
 	["<!-- roaster:", "roaster_marker"],
-	["<!-- asdl-reviewer:", "asdl_reviewer_marker"],
+	["<!-- sdl-reviewer:", "sdl_reviewer_marker"],
 	["[vc]:", "vercel_marker"],
 	["app.graphite.com/github/pr/", "graphite_link"],
 	["static.graphite.dev", "graphite_static_asset"],

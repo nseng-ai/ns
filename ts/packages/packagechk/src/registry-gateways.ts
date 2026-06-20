@@ -1,4 +1,4 @@
-import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
+import { formatErrorMessage, isRecord } from "@sdl/core/primitives";
 
 import {
 	availableResult,

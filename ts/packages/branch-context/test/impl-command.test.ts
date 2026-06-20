@@ -4,7 +4,7 @@ import {
 	BRANCH_CONTEXT_PLAN_KEY,
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 	formatImplBranchContextCommand,
-} from "@asdl/branch-context";
+} from "@sdl/branch-context";
 
 describe("branch-context impl command contract", () => {
 	test("exports the Pi command name", () => {

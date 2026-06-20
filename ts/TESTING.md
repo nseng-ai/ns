@@ -49,10 +49,10 @@ Default-path tests should prefer small fake-driven seams:
 ## Deterministic time convention
 
 Project-owned time-sensitive behavior in the default suite should inject `Clock` or `TimerScheduler` and
-use helpers from `@asdl/core/testing`:
+use helpers from `@sdl/core/testing`:
 
 ```ts
-import { createManualClock, createManualTimerScheduler } from "@asdl/core/testing";
+import { createManualClock, createManualTimerScheduler } from "@sdl/core/testing";
 ```
 
 Use `createManualClock()` for wall-clock reads and elapsed-time assertions. Use

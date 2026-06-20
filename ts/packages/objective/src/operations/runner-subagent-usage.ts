@@ -1,6 +1,6 @@
 import { readFile, stat } from "node:fs/promises";
 
-import { negative, ok, type ClinkrExit } from "@asdl/clinkr";
+import { negative, ok, type ClinkrExit } from "@sdl/clinkr";
 import {
 	addRuntimeRunnerSubagentUsageCostTotals,
 	addRuntimeRunnerSubagentUsageTotals,
@@ -8,7 +8,7 @@ import {
 	type RuntimeRunnerSubagentUsageCostTotals,
 	type RunnerSubagentUsageRecord,
 	type RuntimeRunnerSubagentUsageTotals,
-} from "@asdl/pi-extension-runtime/runner-subagent-usage";
+} from "@sdl/pi-extension-runtime/runner-subagent-usage";
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";

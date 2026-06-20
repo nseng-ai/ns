@@ -1,12 +1,12 @@
-# @asdl/slot
+# @sdl/slot
 
 TypeScript-backed `slot` CLI for working on multiple branches in parallel without stashing, losing your place, or waiting for a clean working tree. `slot` gives each in-flight branch its own dedicated Git worktree, so switching contexts is just `cd` and every other branch keeps its editor state, terminal state, running processes, and uncommitted changes.
 
-The standalone `slot` command is the default public surface. There is no TypeScript `asdl.plugins` analog.
+The standalone `slot` command is the default public surface. There is no TypeScript `sdl.plugins` analog.
 
 ## Install/run model
 
-From an asdl checkout:
+From an sdl checkout:
 
 ```bash
 just install-slot

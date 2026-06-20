@@ -15,7 +15,7 @@ Use live repo evidence as the source of truth. Documentation and Objective table
 - **Default: diff-scoped review.** Review the current worktree plus current branch diff. Inspect changed files first, then use full inventory searches only to understand nearby patterns.
 - **Explicit full-sweep review.** Inventory every current Pi command surface and compare it to skills, CLIs, and the Objective parity table.
 
-If full-sweep is requested and `.asdl/objectives/cross-harness-parity/parity-table.md` exists, check it against live evidence and refresh it when drift is found.
+If full-sweep is requested and `.sdl/objectives/cross-harness-parity/parity-table.md` exists, check it against live evidence and refresh it when drift is found.
 
 ## Evidence collection
 
@@ -106,9 +106,9 @@ Base/evidence: <branch/base, changed files, source searches>
 
 ## Objective table sync
 
-`.asdl/objectives/cross-harness-parity/parity-table.md` is the single durable parity table when present. Do not keep a duplicate exhaustive table in this skill.
+`.sdl/objectives/cross-harness-parity/parity-table.md` is the single durable parity table when present. Do not keep a duplicate exhaustive table in this skill.
 
-If review edits `parity-table.md` or other Objective tracking, also create a new immutable Semantic Update under `.asdl/objectives/cross-harness-parity/updates/` with:
+If review edits `parity-table.md` or other Objective tracking, also create a new immutable Semantic Update under `.sdl/objectives/cross-harness-parity/updates/` with:
 
 ```markdown
 # <Update Title>
@@ -141,10 +141,10 @@ For ordinary reviews, report the evidence commands you ran. When editing this ro
 ```bash
 dprint check skills/code-workflows/SKILL.md \
   skills/code-workflows/references/parity-review.md \
-  .asdl/objectives/cross-harness-parity/objective.md \
-  .asdl/objectives/cross-harness-parity/roadmap.md \
-  .asdl/objectives/cross-harness-parity/parity-table.md \
-  .asdl/objectives/cross-harness-parity/updates/<new-update>.md \
+  .sdl/objectives/cross-harness-parity/objective.md \
+  .sdl/objectives/cross-harness-parity/roadmap.md \
+  .sdl/objectives/cross-harness-parity/parity-table.md \
+  .sdl/objectives/cross-harness-parity/updates/<new-update>.md \
   skills-lock.json
 git diff --check
 ```

@@ -31,7 +31,7 @@ Never parse human-facing `gt ls`, `gt log`, or `gt branch info` output for machi
 
 ## Objective surfaces and invariants
 
-Active Objectives live under `.asdl/objectives/<slug>/`:
+Active Objectives live under `.sdl/objectives/<slug>/`:
 
 - `objective.md` contains durable purpose, boundaries, completion criteria, assumptions/risks, open questions, and optional closure context.
 - `roadmap.md` contains ordered semantic work using only `[ ]`, `[~]`, and `[x]` states.
@@ -86,7 +86,7 @@ If the topology command fails entirely, stop. If individual branches have warnin
 `updatedBranches` is intentionally conservative and can be inflated by branches cut from an older trunk. A branch is a genuine owner for a slug only if its three-dot diff against trunk is non-empty for that Objective directory:
 
 ```bash
-git -C <wt> diff --quiet <trunk>...<branch> -- .asdl/objectives/<slug>/
+git -C <wt> diff --quiet <trunk>...<branch> -- .sdl/objectives/<slug>/
 ```
 
 Drop non-topology branches, `backup/*` branches, branches without reliable metadata, and branches that fail the genuine-owner diff. Preserve the evidence in the report so users can see which apparent owners were staleness artifacts.
@@ -107,7 +107,7 @@ Find a stack leaf by walking children in the topology graph to the descendant wi
 For a candidate leaf with worktree `<wt>` and slug `<slug>`:
 
 ```bash
-git -C <wt> status --porcelain -- .asdl/objectives/<slug>/
+git -C <wt> status --porcelain -- .sdl/objectives/<slug>/
 ```
 
 Any output means the target is dirty under this slug; degrade that Objective/target and write nothing there.
@@ -132,7 +132,7 @@ Branch/context scope owns target due-checks, aggregate commit behavior, and fina
 For multi-owner Objectives, scope each target to that branch's own three-dot diff:
 
 ```bash
-git -C <wt> diff <trunk>...<branch> -- .asdl/objectives/<slug>/roadmap.md .asdl/objectives/<slug>/objective.md
+git -C <wt> diff <trunk>...<branch> -- .sdl/objectives/<slug>/roadmap.md .sdl/objectives/<slug>/objective.md
 ```
 
 Compare owning branches at the hunk/section level:

@@ -1,6 +1,6 @@
-# @asdl/brmem
+# @sdl/brmem
 
-`@asdl/brmem` is the TypeScript implementation of the public standalone `brmem` CLI and reusable library for the Branch Memory System.
+`@sdl/brmem` is the TypeScript implementation of the public standalone `brmem` CLI and reusable library for the Branch Memory System.
 
 It implements the current operation set:
 
@@ -26,8 +26,8 @@ just install-tools
 
 The recipe renders the shared TypeScript source CLI shim template to `$HOME/.local/bin/brmem`.
 
-- Inside an asdl checkout, the shim runs that checkout's `ts/packages/brmem/src/cli.ts`.
-- Outside an asdl checkout, it runs the checkout path baked in when the shim was installed.
+- Inside an sdl checkout, the shim runs that checkout's `ts/packages/brmem/src/cli.ts`.
+- Outside an sdl checkout, it runs the checkout path baked in when the shim was installed.
 - Requirements: Node 24+ matching workspace CI, plus `ts/node_modules` from `just ts-install` or `pnpm --dir ts install`.
 
 ## Local usage
@@ -42,7 +42,7 @@ Expected runtime diagnostics include:
 
 ```text
 runtime: typescript
-entry_point: @asdl/brmem bin brmem -> ts/packages/brmem/src/cli.ts
+entry_point: @sdl/brmem bin brmem -> ts/packages/brmem/src/cli.ts
 ```
 
 ## Git setup for Branch Memory Snapshot Refs

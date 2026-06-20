@@ -29,7 +29,7 @@ afterEach(() => {
 describe("extension loader", () => {
 	test("loads a TypeScript command entry with SDK identity", async () => {
 		const modulePath = await createModule(`
-import { defineExtension, ok, z } from "@asdl/sdl/sdk";
+import { defineExtension, ok, z } from "@sdl/sdl/sdk";
 
 export default defineExtension({
 	commands: [{

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { ScriptedCommandExecApi } from "@asdl/core/testing";
+import { ScriptedCommandExecApi } from "@sdl/core/testing";
 
 import { FakeHarnessGateway, RealHarnessGateway } from "../../src/gateways/harness.ts";
 import { buildClaudeDiffFindingsJsonSchema } from "../../src/gateways/harness-output.ts";

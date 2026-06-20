@@ -1,9 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { commandFailureReason, formatCommand, type CommandExecApi } from "@asdl/core/exec";
-import { formatErrorMessage } from "@asdl/core/primitives";
-import { type GitGateway, RealGitGateway } from "@asdl/core/git";
+import { commandFailureReason, formatCommand, type CommandExecApi } from "@sdl/core/exec";
+import { formatErrorMessage } from "@sdl/core/primitives";
+import { type GitGateway, RealGitGateway } from "@sdl/core/git";
 
 import { parseUnifiedDiff } from "../diff-parsing.ts";
 import type { LocalDiffFailure, RoasterResult } from "../failures.ts";
@@ -104,7 +104,7 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 	}
 
 	private async loadProjectConfig(repoRoot: string): Promise<RoasterResult<readonly string[]>> {
-		const path = join(repoRoot, "asdl.toml");
+		const path = join(repoRoot, "sdl.toml");
 		let source: string;
 		try {
 			source = await readFile(path, "utf8");
@@ -112,7 +112,7 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 			if (isMissingFileError(caught)) return { type: "ok", value: [] };
 			return error({
 				type: "project_config_invalid",
-				message: `Failed to read asdl.toml: ${formatErrorMessage(caught)}`,
+				message: `Failed to read sdl.toml: ${formatErrorMessage(caught)}`,
 			});
 		}
 

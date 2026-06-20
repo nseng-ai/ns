@@ -3,9 +3,9 @@ import { mkdir, mkdtemp, readFile, realpath, rm, utimes, writeFile } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { CommandExecApi, ExecOptions } from "@asdl/core/exec";
-import type { GitGateway } from "@asdl/core/git";
-import { InMemoryGitGateway } from "@asdl/core/git/testing";
+import type { CommandExecApi, ExecOptions } from "@sdl/core/exec";
+import type { GitGateway } from "@sdl/core/git";
+import { InMemoryGitGateway } from "@sdl/core/git/testing";
 import {
 	buildRepoPlanStoreKey,
 	encodeBranchForPlanPath,

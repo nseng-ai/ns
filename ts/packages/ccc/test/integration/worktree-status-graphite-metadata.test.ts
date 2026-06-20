@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { loadGraphiteMetadataStatus } from "@asdl/ccc/worktree-status/graphite-metadata";
+import { loadGraphiteMetadataStatus } from "@sdl/ccc/worktree-status/graphite-metadata";
 import {
 	makeGitRepo,
 	runSqliteStatements,
@@ -12,8 +12,8 @@ import {
 	writeGraphiteMetadataDb,
 } from "./worktree-status-fixtures.ts";
 
-const CURRENT_ASDL_TOOLS_METADATA_FIXTURE = new URL(
-	"../fixtures/graphite-metadata/asdl-tools-current.graphite_metadata.db",
+const CURRENT_SDL_TOOLS_METADATA_FIXTURE = new URL(
+	"../fixtures/graphite-metadata/sdl-tools-current.graphite_metadata.db",
 	import.meta.url,
 );
 const sqliteAvailable = spawnSync("sqlite3", ["--version"], { encoding: "utf8" }).status === 0;
@@ -62,12 +62,9 @@ describe("Graphite metadata real sqlite integration", () => {
 		});
 	});
 
-	sqliteTest("parses the copied current asdl-tools Graphite database", async () => {
+	sqliteTest("parses the copied current sdl-tools Graphite database", async () => {
 		await withTempRoot(makeGitRepo("master"), (root) => {
-			copyFileSync(
-				CURRENT_ASDL_TOOLS_METADATA_FIXTURE,
-				join(root, ".git", ".graphite_metadata.db"),
-			);
+			copyFileSync(CURRENT_SDL_TOOLS_METADATA_FIXTURE, join(root, ".git", ".graphite_metadata.db"));
 
 			const status = loadGraphiteMetadataStatus({
 				commonGitDir: join(root, ".git"),

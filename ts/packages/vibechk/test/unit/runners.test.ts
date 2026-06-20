@@ -1,5 +1,5 @@
-import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
-import { ScriptedCommandExecApi } from "@asdl/core/testing";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/exec";
+import { ScriptedCommandExecApi } from "@sdl/core/testing";
 import { describe, expect, it } from "vitest";
 
 import { ClaudeRunner, type RunnerRequest } from "../../src/runners.ts";

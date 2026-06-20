@@ -1,6 +1,6 @@
 import { expect } from "vitest";
 
-import { githubWorktreePrStatusQuery } from "@asdl/core/github-status";
+import { githubWorktreePrStatusQuery } from "@sdl/core/github-status";
 import type {
 	ExecResult,
 	GtStatus,
@@ -8,7 +8,7 @@ import type {
 	StatusTheme,
 	WorktreeGhStatus,
 	WorktreeStatusIdentity,
-} from "@asdl/ccc/worktree-status";
+} from "@sdl/ccc/worktree-status";
 import type { ExtensionContext, WorktreeStatusLoaders } from "../src/worktree-status.ts";
 
 export interface ExecCall {
@@ -171,7 +171,7 @@ export function headOidStep(oid = "abc123"): ScriptedExec {
 	return step("git", ["rev-parse", "HEAD"], { stdout: `${oid}\n` });
 }
 
-export function remoteOriginStep(url = "git@github.com:dagster-io/asdl-tools.git"): ScriptedExec {
+export function remoteOriginStep(url = "git@github.com:dagster-io/sdl-tools.git"): ScriptedExec {
 	return step("git", ["config", "--get", "remote.origin.url"], { stdout: `${url}\n` });
 }
 
@@ -203,7 +203,7 @@ export function ghNoPrSteps(headRefName = "feature/current"): ScriptedExec[] {
 				"-f",
 				"owner=dagster-io",
 				"-f",
-				"repo=asdl-tools",
+				"repo=sdl-tools",
 				"-f",
 				`headRefName=${headRefName}`,
 			],

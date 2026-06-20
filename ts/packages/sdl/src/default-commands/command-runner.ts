@@ -1,4 +1,4 @@
-import type { CommandExecApi, CommandRunner, ExecOptions, ExecResult } from "@asdl/core/exec";
+import type { CommandExecApi, CommandRunner, ExecOptions, ExecResult } from "@sdl/core/exec";
 
 import type { SdlExecOptions, SdlContext } from "../sdk.ts";
 

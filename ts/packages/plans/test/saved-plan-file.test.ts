@@ -16,7 +16,7 @@ import type {
 	GitRefsPathParams,
 	GitResult,
 	GitRevisionRangePathParams,
-} from "@asdl/core/git";
+} from "@sdl/core/git";
 import {
 	buildRepoPlanStoreKey,
 	encodeBranchForPlanPath,

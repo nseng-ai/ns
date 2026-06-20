@@ -58,12 +58,12 @@ function createContext(cwd: string): CommandContext {
 async function createOverrideProject(): Promise<string> {
 	const directory = await mkdtemp(join(tmpdir(), "sdl-pi-override-"));
 	tempDirs.push(directory);
-	const extensionPath = join(directory, ".asdl", "extensions", "cp.ts");
+	const extensionPath = join(directory, ".sdl", "extensions", "cp.ts");
 	mkdirSync(dirname(extensionPath), { recursive: true });
 	writeFileSync(
 		extensionPath,
 		`
-import { defineExtension, ok } from "@asdl/sdl/sdk";
+import { defineExtension, ok } from "@sdl/sdl/sdk";
 
 export default defineExtension({
 	commands: [{
@@ -147,7 +147,7 @@ describe("sdl Pi extension", () => {
 			"Pull Graphite trunk without running full gt sync",
 		);
 		expect(pi.commands.get("sdl:code:regenerate-pr")?.description).toBe(
-			"sdl regenerate-pr: Regenerate the current branch PR's title and description with the asdl PR-description prompt.",
+			"sdl regenerate-pr: Regenerate the current branch PR's title and description with the sdl PR-description prompt.",
 		);
 		expect(pi.messageRenderers.has(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(true);
 		expect(pi.messageRenderers.has("code-changes-summary")).toBe(false);

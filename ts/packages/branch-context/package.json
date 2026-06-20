@@ -1,5 +1,5 @@
 {
-  "name": "@asdl/branch-context",
+  "name": "@sdl/branch-context",
   "version": "0.1.0",
   "type": "module",
   "exports": {
@@ -16,9 +16,9 @@
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/branch-context/test"
   },
   "dependencies": {
-    "@asdl/clinkr": "workspace:*",
-    "@asdl/core": "workspace:*",
-    "@asdl/plans": "workspace:*",
+    "@sdl/clinkr": "workspace:*",
+    "@sdl/core": "workspace:*",
+    "@sdl/plans": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {}

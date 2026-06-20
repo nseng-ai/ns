@@ -1,6 +1,6 @@
 import { basename, resolve } from "node:path";
 
-import type { CustomMessageContent } from "@asdl/pi-extension-runtime/terminal-presentation";
+import type { CustomMessageContent } from "@sdl/pi-extension-runtime/terminal-presentation";
 
 import {
 	combineWorktreeStatus,
@@ -22,11 +22,11 @@ import {
 	type WorktreeGhStatus,
 	type WorktreeStatus,
 	type WorktreeStatusIdentity,
-} from "@asdl/ccc/worktree-status";
-import { shutdownGraphiteMetadataWorker } from "@asdl/ccc/worktree-status/graphite-metadata";
+} from "@sdl/ccc/worktree-status";
+import { shutdownGraphiteMetadataWorker } from "@sdl/ccc/worktree-status/graphite-metadata";
 
-import { systemClock, type Clock } from "@asdl/core/clock";
-import type { TimerScheduler } from "@asdl/core/timers";
+import { systemClock, type Clock } from "@sdl/core/clock";
+import type { TimerScheduler } from "@sdl/core/timers";
 
 import { isRecord } from "./cmux/primitives.ts";
 import {
@@ -82,7 +82,7 @@ export const worktreeStatusParity = definePiSurfaceParity([
 		fallback:
 			"Outside Pi, run the underlying Git, Graphite, GitHub, and Branch Memory fact commands directly or rely on the harness's own status surface.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
+		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "worktree-status",
 		notes:
 			"This command is Pi-native status UI over CCC-owned observability loaders, not a portable workflow surface.",

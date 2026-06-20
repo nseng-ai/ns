@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 
-import type { ExecResult } from "@asdl/core/exec";
+import type { ExecResult } from "@sdl/core/exec";
 import { RealBranchContextGraphiteGateway } from "../../src/graphite-gateway.ts";
-import type { CommandExecApi, ExecOptions } from "@asdl/core/exec";
+import type { CommandExecApi, ExecOptions } from "@sdl/core/exec";
 import { InMemoryBranchContextGraphiteGateway } from "../support/in-memory-graphite-gateway.ts";
 
 const ROOT = "/repo";

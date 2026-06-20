@@ -1,4 +1,4 @@
-import { ok } from "@asdl/clinkr";
+import { ok } from "@sdl/clinkr";
 import { z } from "zod";
 
 import type { BrmemCliContext } from "../context.ts";

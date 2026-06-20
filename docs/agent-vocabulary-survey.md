@@ -1,7 +1,7 @@
 # Agent Tooling Vocabulary Survey
 
 **Researched:** 2026-06-12, against live official vendor docs and changelogs.
-**Why it exists:** input to renaming/reframing asdl plan management (planned-branch family) to be additive to the plan systems agent harnesses already ship. This doc records what every major coding-agent product calls the concepts asdl touches: plans, execution instances, standing automation, execution environments, orchestration, and reusable instruction artifacts.
+**Why it exists:** input to renaming/reframing sdl plan management (planned-branch family) to be additive to the plan systems agent harnesses already ship. This doc records what every major coding-agent product calls the concepts sdl touches: plans, execution instances, standing automation, execution environments, orchestration, and reusable instruction artifacts.
 **Staleness warning:** this space renames aggressively (see the renames table). Treat anything here as a snapshot, not a contract.
 
 ## The concept frame
@@ -76,7 +76,7 @@ Canonical term list: <https://code.claude.com/docs/en/glossary> (includes an off
 - **Session** — canonical unit (verbs: message, tag, archive, sleep/wake); metered in **ACUs** (Agent Compute Units). **Parent/child sessions** (2026) group nested work; **MultiDevin** = one manager + up to ten worker Devins. (<https://docs.devin.ai/api-reference/v1/sessions/create-a-new-devin-session>)
 - **Automation** — Trigger + Conditions + Action; a run is an **invocation**; triggers: Slack, GitHub, Linear, schedule (cron), webhook. **Scheduled Sessions are deprecated in favor of Automations** — direct evidence of "automation" winning the category. (<https://docs.devin.ai/product-guides/automations>)
 - **Environment / Blueprint / Snapshot** — Blueprint (YAML, Dockerfile-analog) builds a Snapshot (frozen bootable image; fresh copy per session); replaced "Devin's Machine." (<https://docs.devin.ai/onboard-devin/environment/blueprints>)
-- **Playbook / Knowledge / Skills** — **Playbooks** are "like a custom system prompt for a repeated task," with required sections: Procedure, Specifications, Advice, **Forbidden Actions**, Required from User — the closest existing relative of an asdl orchestration pattern's boundary-constraints/authorized-judgment split. **Knowledge** items carry a Trigger Description controlling recall. Skills follow the `.agents/skills/` standard. (<https://docs.devin.ai/product-guides/creating-playbooks>)
+- **Playbook / Knowledge / Skills** — **Playbooks** are "like a custom system prompt for a repeated task," with required sections: Procedure, Specifications, Advice, **Forbidden Actions**, Required from User — the closest existing relative of an sdl orchestration pattern's boundary-constraints/authorized-judgment split. **Knowledge** items carry a Trigger Description controlling recall. Skills follow the `.agents/skills/` standard. (<https://docs.devin.ai/product-guides/creating-playbooks>)
 - **Attachment** — assign Jira/Linear tickets to Devin (playbook labels `!plan` / `!implement` / `!triage`); plan tracking syncs to Linear's plan UI; **Devin Review** + Autofix on PRs. (<https://docs.devin.ai/integrations/linear>)
 
 ### Others, condensed
@@ -128,20 +128,20 @@ Canonical term list: <https://code.claude.com/docs/en/glossary> (includes an off
 | Devin's Machine                 | Blueprints + Snapshots                | Apr–Jun 2026 |
 | Windsurf                        | Devin Desktop                         | Jun 2026     |
 
-## Gaps in the field (asdl-relevant)
+## Gaps in the field (sdl-relevant)
 
-Two concepts central to asdl's plan-management reframe have **no existing vocabulary at any vendor**:
+Two concepts central to sdl's plan-management reframe have **no existing vocabulary at any vendor**:
 
-1. **Plan attached to a branch as durable, branch-scoped context.** Closest neighbors: Claude Code links sessions to the PRs they created (`--from-pr`, PR URLs in the `/resume` picker) and allows in-repo `plansDirectory`; Copilot leaves agent code on branches without PRs; Warp/Augment treat plans and branches as session "artifacts." Nobody stores a plan *on* a branch for a later zero-context session to pick up. asdl can name this without competing with anyone.
+1. **Plan attached to a branch as durable, branch-scoped context.** Closest neighbors: Claude Code links sessions to the PRs they created (`--from-pr`, PR URLs in the `/resume` picker) and allows in-repo `plansDirectory`; Copilot leaves agent code on branches without PRs; Warp/Augment treat plans and branches as session "artifacts." Nobody stores a plan *on* a branch for a later zero-context session to pick up. sdl can name this without competing with anyone.
 2. **Enriching/compiling a plan into an orchestration.** Closest neighbors: Kiro **Waves** (dependency-graph parallel execution of spec tasks), Factory **Missions** (mission plan → worker sessions + validation workers), Devin **Playbooks** (reusable procedures with Forbidden Actions sections). All are closed single-vendor execution engines; none is a library of orchestration patterns applied to an arbitrary plan. Claude Code's dynamic workflows (JavaScript orchestration scripts with phases and runs) are a plausible compile *target* for such an enrichment step, not a competitor to it.
 
-## Implications adopted for asdl naming
+## Implications adopted for sdl naming
 
 Recorded here for traceability; the binding vocabulary lives wherever the plan-management CONTEXT/ADR work lands:
 
-- Keep **plan** as a plain noun (every harness has one; asdl is additive, operating on plans authored anywhere).
+- Keep **plan** as a plain noun (every harness has one; sdl is additive, operating on plans authored anywhere).
 - Use **run** for a single execution instance (consensus for triggered/unattended executions; "session" stays free for its interactive meaning).
 - Use **automation** for the standing trigger-bound producer of runs (category winner: Cursor, Devin, OpenHands, Augment, Codex app).
 - Use **trigger** as the binding sub-noun; triggers fire.
 - Prefer **environment** over "runner" for where runs execute (field consensus; "runner" is CI vocabulary, not agent vocabulary).
-- Avoid **task**, **workflow**, **job**, and **spec** as asdl-distinctive terms (overloaded, owned, unused-for-a-reason, and claimed-for-a-heavier-artifact respectively).
+- Avoid **task**, **workflow**, **job**, and **spec** as sdl-distinctive terms (overloaded, owned, unused-for-a-reason, and claimed-for-a-heavier-artifact respectively).

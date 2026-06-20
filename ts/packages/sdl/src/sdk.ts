@@ -1,9 +1,9 @@
-import type { PositionalSpec } from "@asdl/clinkr/raw";
+import type { PositionalSpec } from "@sdl/clinkr/raw";
 import { z } from "zod";
 
 import type { TextGenerationGateway } from "./text-generation.ts";
 
-export type { PositionalSpec } from "@asdl/clinkr/raw";
+export type { PositionalSpec } from "@sdl/clinkr/raw";
 export { z } from "zod";
 export type {
 	TextGenerationGateway,

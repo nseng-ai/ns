@@ -1,4 +1,4 @@
-import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@asdl/core/git/testing";
+import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@sdl/core/git/testing";
 import { describe, expect, test } from "vitest";
 
 import type { AregCliContext } from "../../src/context.ts";
@@ -78,7 +78,7 @@ describe("areg init CLI", () => {
 				cwd: "/repo",
 			},
 		]);
-		expect(run.projectGateway.text("asdl.toml")).toBe('[areg]\nagents = ["codex","claude-code"]\n');
+		expect(run.projectGateway.text("sdl.toml")).toBe('[areg]\nagents = ["codex","claude-code"]\n');
 		expect(run.projectGateway.text("AGENTS.md")).toContain("<!-- areg:skills:start -->");
 		expect(run.projectGateway.text("CLAUDE.md")).toContain("@AGENTS.md");
 		expect(run.projectGateway.text(".claude/settings.local.json")).toContain(
@@ -90,20 +90,20 @@ describe("areg init CLI", () => {
 		const run = runInit([".", "--agent", "codex", "--agent", "windsurf"]);
 
 		expect(await run.exit).toBe(0);
-		expect(run.projectGateway.text("asdl.toml")).toBe('[areg]\nagents = ["codex","windsurf"]\n');
+		expect(run.projectGateway.text("sdl.toml")).toBe('[areg]\nagents = ["codex","windsurf"]\n');
 		expect(run.npxSkills.operations()[0]?.targetAgents).toEqual(["codex", "windsurf"]);
 	});
 
 	test("preserves unrelated TOML and migrates legacy agents without rewriting areg.json", async () => {
 		const run = runInit([], {
 			project: {
-				asdlToml: '[roaster.diff]\nexclude = [".agents/skills/**/*.py"]\n',
+				sdlToml: '[roaster.diff]\nexclude = [".agents/skills/**/*.py"]\n',
 				aregJson: { agents: ["codex", "cursor"] },
 			},
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(run.projectGateway.text("asdl.toml")).toBe(
+		expect(run.projectGateway.text("sdl.toml")).toBe(
 			'[roaster.diff]\nexclude = [".agents/skills/**/*.py"]\n\n[areg]\nagents = ["codex","cursor"]\n',
 		);
 		expect(run.projectGateway.text("areg.json")).toBe(
@@ -153,14 +153,14 @@ describe("areg init CLI", () => {
 		expect(await run.exit).toBe(2);
 		expect(run.stderr.join("")).toContain("malformed areg-managed block");
 		expect(run.npxSkills.operations()).toEqual([]);
-		expect(run.projectGateway.text("asdl.toml")).toBeUndefined();
+		expect(run.projectGateway.text("sdl.toml")).toBeUndefined();
 	});
 
 	test("invalid legacy config is ignored when explicit agents are provided", async () => {
 		const run = runInit(["--agent", "codex"], { project: { aregJson: "{not json\n" } });
 
 		expect(await run.exit).toBe(0);
-		expect(run.projectGateway.text("asdl.toml")).toBe('[areg]\nagents = ["codex"]\n');
+		expect(run.projectGateway.text("sdl.toml")).toBe('[areg]\nagents = ["codex"]\n');
 	});
 
 	test("preflight and npx failures do not apply planned writes", async () => {
@@ -173,7 +173,7 @@ describe("areg init CLI", () => {
 		expect(await npxFail.exit).toBe(1);
 		expect(npxFail.stderr.join("")).toContain("npx skills add failed: boom");
 		expect(npxFail.stderr.join("")).not.toContain('"operations"');
-		expect(npxFail.projectGateway.text("asdl.toml")).toBeUndefined();
+		expect(npxFail.projectGateway.text("sdl.toml")).toBeUndefined();
 	});
 
 	test("rejects non-Git directories and Git subdirectories", async () => {
@@ -201,7 +201,7 @@ describe("areg init CLI", () => {
 				agents: ["codex", "claude-code"],
 				bootstrap_repo: BOOTSTRAP_REPO,
 				bootstrap_skills: ["skill-management", "skillx"],
-				written_files: ["asdl.toml", "AGENTS.md", "CLAUDE.md", ".claude/settings.local.json"],
+				written_files: ["sdl.toml", "AGENTS.md", "CLAUDE.md", ".claude/settings.local.json"],
 				skipped_files: [],
 			},
 		});
@@ -224,7 +224,7 @@ describe("areg init CLI", () => {
 				bootstrap_skills: ["skill-management", "skillx"],
 				operations: [
 					{ type: "external", path: "npx skills add", status: "not_attempted" },
-					{ type: "write", path: "asdl.toml", status: "not_attempted" },
+					{ type: "write", path: "sdl.toml", status: "not_attempted" },
 					{
 						type: "write",
 						path: "AGENTS.md",
@@ -237,7 +237,7 @@ describe("areg init CLI", () => {
 			},
 		});
 		expect(run.npxSkills.operations()).toEqual([]);
-		expect(run.projectGateway.text("asdl.toml")).toBeUndefined();
+		expect(run.projectGateway.text("sdl.toml")).toBeUndefined();
 	});
 
 	test("JSON npx failure reports external failure and not-attempted file writes", async () => {
@@ -258,14 +258,14 @@ describe("areg init CLI", () => {
 						status: "failed",
 						error: { code: "boom", message: "boom" },
 					},
-					{ type: "write", path: "asdl.toml", status: "not_attempted" },
+					{ type: "write", path: "sdl.toml", status: "not_attempted" },
 					{ type: "write", path: "AGENTS.md", status: "not_attempted" },
 					{ type: "write", path: "CLAUDE.md", status: "not_attempted" },
 					{ type: "write", path: ".claude/settings.local.json", status: "not_attempted" },
 				],
 			},
 		});
-		expect(run.projectGateway.text("asdl.toml")).toBeUndefined();
+		expect(run.projectGateway.text("sdl.toml")).toBeUndefined();
 	});
 
 	test("JSON file execution failure reports applied external and partial file statuses", async () => {
@@ -283,7 +283,7 @@ describe("areg init CLI", () => {
 				mutation_failed: true,
 				operations: [
 					{ type: "external", path: "npx skills add", status: "applied" },
-					{ type: "write", path: "asdl.toml", status: "applied" },
+					{ type: "write", path: "sdl.toml", status: "applied" },
 					{
 						type: "write",
 						path: "AGENTS.md",
@@ -296,7 +296,7 @@ describe("areg init CLI", () => {
 			},
 		});
 		expect(run.npxSkills.operations()).toHaveLength(1);
-		expect(run.projectGateway.text("asdl.toml")).toBe('[areg]\nagents = ["codex","claude-code"]\n');
+		expect(run.projectGateway.text("sdl.toml")).toBe('[areg]\nagents = ["codex","claude-code"]\n');
 		expect(run.projectGateway.text("AGENTS.md")).toBeUndefined();
 	});
 });

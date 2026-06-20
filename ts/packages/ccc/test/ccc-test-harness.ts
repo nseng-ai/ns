@@ -3,11 +3,7 @@ import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
-import {
-	buildRepoPlanStoreKey,
-	encodeBranchForPlanPath,
-	normalizeRepoOriginUrl,
-} from "@asdl/plans";
+import { buildRepoPlanStoreKey, encodeBranchForPlanPath, normalizeRepoOriginUrl } from "@sdl/plans";
 import type {
 	AgentEndContext,
 	AutocompleteProvider,
@@ -21,9 +17,9 @@ import type {
 	SessionStartContext,
 	ThinkingLevel,
 } from "../src/cmux/types.ts";
-import type { SkillCommandInfo } from "@asdl/pi-extension-runtime/skill-expansion";
+import type { SkillCommandInfo } from "@sdl/pi-extension-runtime/skill-expansion";
 
-export { brmemCheckJson } from "@asdl/core/testing";
+export { brmemCheckJson } from "@sdl/core/testing";
 
 export const ROOT = "/repo";
 export const WORKTREE = "/slot/worktree";
@@ -254,12 +250,12 @@ export class FakeCommandContext implements CommandContext {
 const tempDirs: string[] = [];
 const originalCmuxWorkspaceId = process.env.CMUX_WORKSPACE_ID;
 const originalCmuxTabId = process.env.CMUX_TAB_ID;
-const originalSidebarModel = process.env.ASDL_CCC_SIDEBAR_MODEL;
+const originalSidebarModel = process.env.SDL_CCC_SIDEBAR_MODEL;
 
 export async function resetCmuxTestEnvironment(): Promise<void> {
 	restoreEnvValue("CMUX_WORKSPACE_ID", originalCmuxWorkspaceId);
 	restoreEnvValue("CMUX_TAB_ID", originalCmuxTabId);
-	restoreEnvValue("ASDL_CCC_SIDEBAR_MODEL", originalSidebarModel);
+	restoreEnvValue("SDL_CCC_SIDEBAR_MODEL", originalSidebarModel);
 	const dirs = tempDirs.splice(0);
 	await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
 }
@@ -354,7 +350,7 @@ export function objectiveListStep(slugs: string[]): ScriptedExec {
 			exit_code: 0,
 			data: {
 				trunkBranch: "master",
-				rootPath: ".asdl/objectives",
+				rootPath: ".sdl/objectives",
 				statusFilter: "active",
 				namesOnly: false,
 				records: slugs.map((slug, index) => ({

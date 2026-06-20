@@ -125,19 +125,19 @@ function registerDispatchRunnerSubagentWithFakeDefinition(
 
 function fakeRunnerAgentDefinition(): PiAgentDefinition {
 	return {
-		schema: "asdl.pi-agent.v1",
+		schema: "sdl.pi-agent.v1",
 		name: "runner",
 		toolName: "dispatch_runner_subagent",
 		label: "Dispatch Runner Subagent",
 		description: "Dispatch a focused runner subagent fixture.",
 		promptGuidelines: [],
 		body: "{{prompt}}",
-		filePath: "/fixture/.asdl/pi/agents/runner.md",
+		filePath: "/fixture/.sdl/pi/agents/runner.md",
 	};
 }
 
 describe("Pi extension parity metadata", () => {
-	test("all @asdl/pi-extensions command surfaces have parity metadata", () => {
+	test("all @sdl/pi-extensions command surfaces have parity metadata", () => {
 		const comparison = comparePiSurfaceParity({
 			liveSurfaces: collectLivePiExtensionSurfaces(),
 			metadata: PI_EXTENSION_PARITY_RECORDS,
@@ -190,7 +190,7 @@ describe("Pi extension parity metadata", () => {
 				parity: "WAIVED",
 				fallback: "Use a fixture fallback.",
 				ownerObjective: "cross-harness-parity",
-				sourcePackage: "@asdl/pi-extensions",
+				sourcePackage: "@sdl/pi-extensions",
 				sourceModule: "fixture",
 				notes: "Fixture metadata for stale-check coverage.",
 			},
@@ -211,7 +211,7 @@ describe("Pi extension parity metadata", () => {
 				parity: "WAIVED",
 				fallback: "Use a fixture fallback.",
 				ownerObjective: "cross-harness-parity",
-				sourcePackage: "@asdl/pi-extensions",
+				sourcePackage: "@sdl/pi-extensions",
 				sourceModule: "fixture",
 				notes: "Fixture metadata for dynamic-family stale-check coverage.",
 				matching: { type: "dynamic-family", rationale: "Generated only by runtime fixtures." },
@@ -236,7 +236,7 @@ describe("Pi extension parity metadata", () => {
 				parity: "NONE",
 				trackedGap: "Fixture tracked gap.",
 				ownerObjective: "cross-harness-parity",
-				sourcePackage: "@asdl/pi-extensions",
+				sourcePackage: "@sdl/pi-extensions",
 				sourceModule: "fixture-a",
 				notes: "First fixture duplicate.",
 			},
@@ -247,7 +247,7 @@ describe("Pi extension parity metadata", () => {
 				parity: "NONE",
 				trackedGap: "Fixture tracked gap.",
 				ownerObjective: "cross-harness-parity",
-				sourcePackage: "@asdl/pi-extensions",
+				sourcePackage: "@sdl/pi-extensions",
 				sourceModule: "fixture-b",
 				notes: "Second fixture duplicate.",
 			},

@@ -1,5 +1,5 @@
 {
-  "name": "@asdl/ccc",
+  "name": "@sdl/ccc",
   "private": true,
   "type": "module",
   "bin": {
@@ -22,12 +22,12 @@
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/ccc/test"
   },
   "dependencies": {
-    "@asdl/clinkr": "workspace:*",
-    "@asdl/core": "workspace:*",
-    "@asdl/pi-extension-runtime": "workspace:*",
-    "@asdl/branch-context": "workspace:*",
-    "@asdl/plans": "workspace:*",
-    "@asdl/sdl": "workspace:*",
+    "@sdl/clinkr": "workspace:*",
+    "@sdl/core": "workspace:*",
+    "@sdl/pi-extension-runtime": "workspace:*",
+    "@sdl/branch-context": "workspace:*",
+    "@sdl/plans": "workspace:*",
+    "@sdl/sdl": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {}

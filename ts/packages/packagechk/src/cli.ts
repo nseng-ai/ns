@@ -7,10 +7,10 @@ import {
 	resolveClinkrInteraction,
 	resolveIo,
 	type ClinkrInteraction,
-} from "@asdl/clinkr";
-import { rawCommand } from "@asdl/clinkr/raw";
-import { isDirectCliInvocation } from "@asdl/core/cli-entry";
-import { readStdinLine } from "@asdl/core/stdin";
+} from "@sdl/clinkr";
+import { rawCommand } from "@sdl/clinkr/raw";
+import { isDirectCliInvocation } from "@sdl/core/cli-entry";
+import { readStdinLine } from "@sdl/core/stdin";
 import { z } from "zod";
 
 import {
@@ -165,7 +165,7 @@ function isRegistry(value: string): value is Registry {
 }
 
 function runtimeInfo(): string {
-	return "runtime: typescript\nentry_point: @asdl/packagechk bin packagechk -> ts/packages/packagechk/src/cli.ts\n";
+	return "runtime: typescript\nentry_point: @sdl/packagechk bin packagechk -> ts/packages/packagechk/src/cli.ts\n";
 }
 
 if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {

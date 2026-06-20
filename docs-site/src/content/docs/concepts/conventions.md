@@ -1,11 +1,11 @@
 ---
 title: CLI conventions
-description: Shared output formats, exit codes, JSON envelopes, and human-vs-agent command surfaces across asdl tools.
+description: Shared output formats, exit codes, JSON envelopes, and human-vs-agent command surfaces across sdl tools.
 sidebar:
   order: 2
 ---
 
-Every asdl tool shares one CLI grammar. Learn one tool's output, exit behavior,
+Every sdl tool shares one CLI grammar. Learn one tool's output, exit behavior,
 and agent boundary, and the rest should feel familiar.
 
 ## Output formats — `--format {human,json,md}`

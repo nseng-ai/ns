@@ -1,4 +1,4 @@
-import { NodeCommandExecApi, type CommandExecApi, type ExecResult } from "@asdl/core/exec";
+import { NodeCommandExecApi, type CommandExecApi, type ExecResult } from "@sdl/core/exec";
 
 import type { Metrics } from "./models.ts";
 import { VibechkError } from "./store.ts";

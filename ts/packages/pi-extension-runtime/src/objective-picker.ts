@@ -159,7 +159,7 @@ function addObjectiveSlugFromPath(slugs: Set<string>, path: string): void {
 
 function objectiveSlugFromPath(path: string): string | undefined {
 	const parts = path.split("/");
-	if (parts.length < 4 || parts[0] !== ".asdl" || parts[1] !== "objectives") {
+	if (parts.length < 4 || parts[0] !== ".sdl" || parts[1] !== "objectives") {
 		return undefined;
 	}
 

@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { DEFAULT_FAST_MODEL_REF, parseModelRef, resolveModelRef } from "../src/index.ts";
 
-const ENV_VAR = "ASDL_TEST_MODEL";
+const ENV_VAR = "SDL_TEST_MODEL";
 
 describe("parseModelRef", () => {
 	test("splits provider and modelId on the first slash", () => {

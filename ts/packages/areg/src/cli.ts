@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { ClinkrGroup } from "@asdl/clinkr";
-import { defineCli } from "@asdl/core/cli-entry";
+import { ClinkrGroup } from "@sdl/clinkr";
+import { defineCli } from "@sdl/core/cli-entry";
 
 import { createRealAregContext, type AregCliContext } from "./context.ts";
 import {
@@ -31,7 +31,7 @@ export interface CliDeps {
 const entry = defineCli<AregCliContext, CliDeps, undefined>({
 	metaUrl: import.meta.url,
 	runtime: "typescript",
-	description: "Manage ASDL agent registry projects.",
+	description: "Manage SDL agent registry projects.",
 	prepareRun: ({ deps, cwd, env }) => {
 		const context = deps.context ?? createRealAregContext({ cwd, env });
 		const runContext: AregCliContext = {

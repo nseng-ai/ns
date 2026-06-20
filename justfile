@@ -62,62 +62,62 @@ js-test: ts-test
 
 # Install the slot shim to ~/.local/bin so `slot` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
-# inside an asdl checkout, this checkout's sources everywhere else.
+# inside an sdl checkout, this checkout's sources everywhere else.
 install-slot: (_install-ts-shim "slot" "ts/packages/slot/src/cli.ts" "just install-slot or just install-tools")
     rm -f "{{justfile_directory()}}/.venv/bin/slot"
     @echo "removed stale project venv slot script if present"
 
 # Install the pr-address shim to ~/.local/bin so `pr-address` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
-# inside an asdl checkout, this checkout's sources everywhere else.
+# inside an sdl checkout, this checkout's sources everywhere else.
 install-pr-address: (_install-ts-shim "pr-address" "ts/packages/pr-address/src/cli.ts" "just install-pr-address")
 
 # Install the roaster shim to ~/.local/bin so `roaster` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
-# inside an asdl checkout, this checkout's sources everywhere else.
+# inside an sdl checkout, this checkout's sources everywhere else.
 install-roaster: (_install-ts-shim "roaster" "ts/packages/roaster/src/cli.ts" "just install-roaster")
 
 # Install the brmem shim to ~/.local/bin so `brmem` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
-# inside an asdl checkout, this checkout's sources everywhere else.
+# inside an sdl checkout, this checkout's sources everywhere else.
 install-brmem: (_install-ts-shim "brmem" "ts/packages/brmem/src/cli.ts" "just install-brmem or just install-tools")
 
 # Install the handoff shim to ~/.local/bin so `handoff` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
-# inside an asdl checkout, this checkout's sources everywhere else.
+# inside an sdl checkout, this checkout's sources everywhere else.
 install-handoff: (_install-ts-shim "handoff" "ts/packages/handoff/src/cli.ts" "just install-handoff or just install-tools")
     rm -f "{{justfile_directory()}}/.venv/bin/handoff"
     @echo "removed stale project venv handoff script if present"
 
 # Install the areg shim to ~/.local/bin so `areg` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
-# inside an asdl checkout, this checkout's sources everywhere else.
+# inside an sdl checkout, this checkout's sources everywhere else.
 install-areg: (_install-ts-shim "areg" "ts/packages/areg/src/cli.ts" "just install-areg or just install-tools")
     rm -f "{{justfile_directory()}}/.venv/bin/areg"
     @echo "removed stale project venv areg script if present"
 
 # Install the aretro shim to ~/.local/bin so `aretro` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
-# inside an asdl checkout, this checkout's sources everywhere else.
+# inside an sdl checkout, this checkout's sources everywhere else.
 install-aretro: (_install-ts-shim "aretro" "ts/packages/aretro/src/cli.ts" "just install-aretro")
 
 # Install the objective shim to ~/.local/bin so `objective` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
-# inside an asdl checkout, this checkout's sources everywhere else.
+# inside an sdl checkout, this checkout's sources everywhere else.
 install-objective: (_install-ts-shim "objective" "ts/packages/objective/src/cli.ts" "just install-objective or just install-tools")
     rm -f "{{justfile_directory()}}/.venv/bin/objective"
     @echo "removed stale project venv objective script if present"
 
 # Install the vibechk shim to ~/.local/bin so `vibechk` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
-# inside an asdl checkout, this checkout's sources everywhere else.
+# inside an sdl checkout, this checkout's sources everywhere else.
 install-vibechk: (_install-ts-shim "vibechk" "ts/packages/vibechk/src/cli.ts" "just install-vibechk")
     rm -f "{{justfile_directory()}}/.venv/bin/vibechk"
     @echo "removed stale project venv vibechk script if present"
 
 # Install the packagechk shim to ~/.local/bin so `packagechk` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
-# inside an asdl checkout, this checkout's sources everywhere else.
+# inside an sdl checkout, this checkout's sources everywhere else.
 install-packagechk: (_install-ts-shim "packagechk" "ts/packages/packagechk/src/cli.ts" "just install-packagechk")
     rm -f "{{justfile_directory()}}/.venv/bin/packagechk"
     @echo "removed stale project venv packagechk script if present"
@@ -125,12 +125,12 @@ install-packagechk: (_install-ts-shim "packagechk" "ts/packages/packagechk/src/c
 _install-ts-shim tool cli_rel_path install_hint: ts-install
     mkdir -p "$HOME/.local/bin"
     rm -f "$HOME/.local/bin/{{tool}}"
-    ASDL_TOOL="{{tool}}" \
-    ASDL_CANONICAL_CHECKOUT="{{justfile_directory()}}" \
-    ASDL_CLI_REL_PATH="{{cli_rel_path}}" \
-    ASDL_INSTALL_HINT="{{install_hint}}" \
-    ASDL_TEMPLATE="{{justfile_directory()}}/ts/scripts/source-cli-shim-template" \
-    ASDL_OUTPUT="$HOME/.local/bin/{{tool}}" \
+    SDL_TOOL="{{tool}}" \
+    SDL_CANONICAL_CHECKOUT="{{justfile_directory()}}" \
+    SDL_CLI_REL_PATH="{{cli_rel_path}}" \
+    SDL_INSTALL_HINT="{{install_hint}}" \
+    SDL_TEMPLATE="{{justfile_directory()}}/ts/scripts/source-cli-shim-template" \
+    SDL_OUTPUT="$HOME/.local/bin/{{tool}}" \
       node "{{justfile_directory()}}/ts/scripts/render-cli-shim.mjs"
     chmod +x "$HOME/.local/bin/{{tool}}"
     @echo "installed: $HOME/.local/bin/{{tool}} (canonical checkout: {{justfile_directory()}})"

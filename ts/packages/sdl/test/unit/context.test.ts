@@ -2,7 +2,7 @@ import process from "node:process";
 
 import { describe, expect, test } from "vitest";
 
-import { createRealSdlCommandContext } from "@asdl/sdl/context";
+import { createRealSdlCommandContext } from "@sdl/sdl/context";
 
 describe("real SDL command context", () => {
 	test("forwards stdin to executed commands", async () => {

@@ -1,8 +1,8 @@
-import { RealGitBrmemGateway, type BrmemGateway } from "@asdl/brmem";
-import { resolveClinkrInteraction, type ClinkrInteraction } from "@asdl/clinkr";
-import { NodeCommandExecApi } from "@asdl/core/exec";
-import { RealGitGateway, type GitGateway } from "@asdl/core/git";
-import { readStdinLine } from "@asdl/core/stdin";
+import { RealGitBrmemGateway, type BrmemGateway } from "@sdl/brmem";
+import { resolveClinkrInteraction, type ClinkrInteraction } from "@sdl/clinkr";
+import { NodeCommandExecApi } from "@sdl/core/exec";
+import { RealGitGateway, type GitGateway } from "@sdl/core/git";
+import { readStdinLine } from "@sdl/core/stdin";
 
 export interface HandoffCliContext {
 	cwd: string;

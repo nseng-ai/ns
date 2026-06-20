@@ -1,6 +1,6 @@
 import type { Api, completeSimple, Model } from "@earendil-works/pi-ai";
 
-import { formatErrorMessage } from "@asdl/core/primitives";
+import { formatErrorMessage } from "@sdl/core/primitives";
 
 import type {
 	TextGenerationGateway,

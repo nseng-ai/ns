@@ -19,7 +19,7 @@ describe("handoff CLI shape", () => {
 		const runtime = runScenario(["--runtime"]);
 		expect(await runtime.exit).toBe(0);
 		expect(runtime.stdout.join("")).toBe(
-			"runtime: typescript\nentry_point: @asdl/handoff bin handoff -> ts/packages/handoff/src/cli.ts\n",
+			"runtime: typescript\nentry_point: @sdl/handoff bin handoff -> ts/packages/handoff/src/cli.ts\n",
 		);
 	});
 

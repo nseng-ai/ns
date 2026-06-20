@@ -9,7 +9,7 @@ import {
 	handoffSlugToKey,
 	isHandoffKey,
 	parseFlatHandoffSlug,
-} from "@asdl/handoff/identity";
+} from "@sdl/handoff/identity";
 
 describe("handoff identity", () => {
 	test("exports the handoff storage constants", () => {

@@ -1,4 +1,4 @@
-import { formatCommand, formatOutputSection } from "@asdl/core/exec";
+import { formatCommand, formatOutputSection } from "@sdl/core/exec";
 import {
 	DEFAULT_FAST_MODEL,
 	DEFAULT_FAST_MODEL_REF,
@@ -6,7 +6,7 @@ import {
 	type ParsedModelRef,
 } from "./model-defaults.ts";
 
-export const SLUG_MODEL_ENV = "ASDL_SLUG_MODEL";
+export const SLUG_MODEL_ENV = "SDL_SLUG_MODEL";
 export const SLUG_MODEL_THINKING = "minimal";
 export const SLUG_MODEL_TIMEOUT_MS = 60_000;
 

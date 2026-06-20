@@ -5,4 +5,4 @@ export {
 	type TextGenerationResult,
 	type TextRepairProgressEvent,
 	type ValidateGeneratedTextResult,
-} from "@asdl/core/text-repair";
+} from "@sdl/core/text-repair";

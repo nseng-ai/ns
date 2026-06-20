@@ -5,7 +5,7 @@ import path from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { InMemoryGitGateway } from "@asdl/core/git/testing";
+import { InMemoryGitGateway } from "@sdl/core/git/testing";
 
 import type {
 	AregNpxSkillsAddRequest,
@@ -338,7 +338,7 @@ describe("real areg gateways", () => {
 				path.join(project, "skills-lock.json"),
 				JSON.stringify({ version: 1, skills: {} }),
 			);
-			await writeFile(path.join(project, "asdl.toml"), '[areg]\nagents = ["codex"]\n');
+			await writeFile(path.join(project, "sdl.toml"), '[areg]\nagents = ["codex"]\n');
 
 			const result = await new RealAregProjectGateway().inspectProjectBase({
 				cwd: root,
@@ -350,7 +350,7 @@ describe("real areg gateways", () => {
 				projectDir: project,
 				projectPathState: { type: "directory" },
 				lockfile: { type: "file", text: JSON.stringify({ version: 1, skills: {} }) },
-				asdlToml: { type: "file", text: '[areg]\nagents = ["codex"]\n' },
+				sdlToml: { type: "file", text: '[areg]\nagents = ["codex"]\n' },
 				aregJson: { type: "missing" },
 			});
 		} finally {

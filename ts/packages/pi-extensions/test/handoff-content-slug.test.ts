@@ -1,12 +1,12 @@
 import { describe, expect, test } from "vitest";
 
-import { buildSlugModelArgs, DEFAULT_FAST_MODEL } from "@asdl/plans";
+import { buildSlugModelArgs, DEFAULT_FAST_MODEL } from "@sdl/plans";
 import {
 	buildHandoffContentSlugPrompt,
 	deriveHandoffContentSlug,
 	normalizeHandoffContentSlugOutput,
 } from "../src/handoff/content-slug.ts";
-import type { ExecResult } from "@asdl/core/exec";
+import type { ExecResult } from "@sdl/core/exec";
 import type { ExtensionAPI } from "../src/handoff.ts";
 
 const CWD = "/repo";

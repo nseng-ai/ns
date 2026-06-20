@@ -1,4 +1,4 @@
-import type { Result } from "@asdl/core/result";
+import type { Result } from "@sdl/core/result";
 
 import { transformSkillFrontmatter } from "./frontmatter.ts";
 import {

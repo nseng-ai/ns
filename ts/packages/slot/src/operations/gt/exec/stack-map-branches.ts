@@ -1,10 +1,10 @@
-import { failure, ok } from "@asdl/clinkr";
+import { failure, ok } from "@sdl/clinkr";
 import type {
 	GraphiteBranchTopology,
 	GraphiteTopology,
 	GraphiteTopologyParseDiagnostics,
 	GraphiteWalkTermination,
-} from "@asdl/core/graphite-metadata";
+} from "@sdl/core/graphite-metadata";
 import { z } from "zod";
 
 import { deduplicateOrderedStrings } from "../../../collections.ts";

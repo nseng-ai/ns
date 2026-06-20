@@ -7,7 +7,7 @@ This guide captures the repo-local pattern for Pi commands that open cmux worksp
 - A Pi command labels or annotates the caller cmux workspace from Pi session context.
 - A Pi command opens a new cmux workspace without automatically refreshing sidebar metadata.
 - A manual sidebar update must target the workspace that launched this terminal, not whatever cmux workspace is focused now.
-- The behavior is repo-local to `asdl-tools` and should not become a global Pi extension.
+- The behavior is repo-local to `sdl-tools` and should not become a global Pi extension.
 - The PR sidebar workflow needs a short semantic model pass but deterministic cmux mutation.
 - The Objective sidebar workflow needs deterministic formatting from an explicit Objective selector or UI picker selection.
 
@@ -25,7 +25,7 @@ Current layers:
 | cmux command gateway   | `ts/packages/ccc/src/cmux/workspace-summary.ts` | Runs installed cmux CLI commands through the CCC command gateway       |
 | Scenario/package tests | `ts/packages/ccc/test/`, `ts/.../test/`         | Cover CCC exec behavior and Pi command behavior                        |
 
-Project-local `.pi/extensions/*.ts` files should stay thin once behavior is durable or risky. Put reusable CCC workspace/sidebar behavior under `ts/packages/ccc/src/cmux/` with pnpm/Vitest tests. Keep generic Pi lifecycle/footer/watch plumbing in `@asdl/pi-extensions`; CCC owns repo-opinionated cmux/workspace/sidebar orchestration and operational worktree-status facts/presentation.
+Project-local `.pi/extensions/*.ts` files should stay thin once behavior is durable or risky. Put reusable CCC workspace/sidebar behavior under `ts/packages/ccc/src/cmux/` with pnpm/Vitest tests. Keep generic Pi lifecycle/footer/watch plumbing in `@sdl/pi-extensions`; CCC owns repo-opinionated cmux/workspace/sidebar orchestration and operational worktree-status facts/presentation.
 
 Do not put raw cmux mutation sequences in long skill bodies when a tested `ccc exec` command can own them.
 
@@ -86,7 +86,7 @@ The PR sidebar skill and deterministic Objective sidebar extension do not pass `
 
 PR sidebar updates are low-stakes semantic compression. The controller temporarily switches the follow-up PR turn to a faster model and minimal thinking:
 
-- env override: `ASDL_CCC_SIDEBAR_MODEL=provider/model`
+- env override: `SDL_CCC_SIDEBAR_MODEL=provider/model`
 - default: `openai-codex/gpt-5.4-mini`
 - thinking level: `minimal`
 
@@ -111,7 +111,7 @@ Prompt-only length enforcement is intentional for PR sidebar for now. Do not add
 
 `/ccc:sidebar:pr-summary` summarizes current PR, branch, or active implementation work through the model-assisted `ccc-sidebar` skill. The Goal line describes the PR outcome, not the cmux update itself.
 
-`/ccc:sidebar:objective-summary [objective-slug-or-path]` formats an active asdl Objective deterministically. It accepts a slug or `.asdl/objectives/<slug>/...` path; if no selector is supplied, it opens a deterministic active-Objective picker like `/objective:update`. After selection, it validates the selected Objective slug/readability through `objective exec read-objective` and applies fixed fields through `pi.exec("ccc", [...])`: title/topline `obj:<objective-slug>` and description `<slot-slug>::<branch-slug>`. It does not queue a model prompt, read Objective prose, invoke the `ccc-sidebar` skill, or infer an Objective from branch, PR, hidden context, or conversation text.
+`/ccc:sidebar:objective-summary [objective-slug-or-path]` formats an active sdl Objective deterministically. It accepts a slug or `.sdl/objectives/<slug>/...` path; if no selector is supplied, it opens a deterministic active-Objective picker like `/objective:update`. After selection, it validates the selected Objective slug/readability through `objective exec read-objective` and applies fixed fields through `pi.exec("ccc", [...])`: title/topline `obj:<objective-slug>` and description `<slot-slug>::<branch-slug>`. It does not queue a model prompt, read Objective prose, invoke the `ccc-sidebar` skill, or infer an Objective from branch, PR, hidden context, or conversation text.
 
 ## Apply through exec, not raw cmux
 
@@ -126,7 +126,7 @@ ccc exec cmux-workspace-summary \
 
 Do not assign shell variables, do not write an env prelude, and do not pass `--workspace` from the skill. The Objective sidebar extension calls the same command directly with argv rather than asking an agent to write shell. The command clears the legacy `pi-summary` cmux status pill. The JSON envelope must have `exit_code: 0` and `data.success: true`. The PR assistant should then reply only with the applied title.
 
-See [`../asdl-exec/cmux-workspace-summary.md`](../asdl-exec/cmux-workspace-summary.md) for the exec contract and [`../cmux/help-querying.md`](../cmux/help-querying.md) for how to revalidate cmux CLI behavior.
+See [`../sdl-exec/cmux-workspace-summary.md`](../sdl-exec/cmux-workspace-summary.md) for the exec contract and [`../cmux/help-querying.md`](../cmux/help-querying.md) for how to revalidate cmux CLI behavior.
 
 ## Opening new cmux workspaces
 

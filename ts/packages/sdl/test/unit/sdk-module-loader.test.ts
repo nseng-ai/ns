@@ -10,7 +10,7 @@ function sortedKeys(value: object): string[] {
 }
 
 test("virtual SDK module mirrors sdk.ts runtime value exports", async () => {
-	const virtualModule = await createSdlJiti().import<SdkRuntimeModule>("@asdl/sdl/sdk");
+	const virtualModule = await createSdlJiti().import<SdkRuntimeModule>("@sdl/sdl/sdk");
 	const sdkKeys = sortedKeys(sdkModule);
 
 	expect(sortedKeys(virtualModule)).toEqual(sdkKeys);

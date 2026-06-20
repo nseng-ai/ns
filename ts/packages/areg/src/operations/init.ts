@@ -1,14 +1,14 @@
 import path from "node:path";
 
-import { failure, ok, shellNegative, type ClinkrExit } from "@asdl/clinkr";
-import { managedRegionBounds } from "@asdl/core/managed-region";
-import { resultErr, type Result } from "@asdl/core/result";
+import { failure, ok, shellNegative, type ClinkrExit } from "@sdl/clinkr";
+import { managedRegionBounds } from "@sdl/core/managed-region";
+import { resultErr, type Result } from "@sdl/core/result";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
 import type { AregInitTextWritePlan, AregPathState, AregTextFileState } from "../gateways.ts";
 import { rejectTextState, validateOptionalDirectoryState } from "./file-state.ts";
-import { parseAsdlAregAgents, resolveProjectAgents } from "./project-agents.ts";
+import { parseSdlAregAgents, resolveProjectAgents } from "./project-agents.ts";
 import { inspectInitProject } from "./project-inspection.ts";
 import {
 	applyProjectMutationPlan,
@@ -18,7 +18,7 @@ import {
 } from "./project-mutations.ts";
 
 export {
-	parseAsdlAregAgents,
+	parseSdlAregAgents,
 	parseLegacyAregJsonAgents,
 	resolveProjectAgents,
 } from "./project-agents.ts";
@@ -182,7 +182,7 @@ export async function runInit(
 
 	const agentsResult = resolveProjectAgents({
 		explicitAgents: request.agent,
-		asdlToml: inspection.asdlToml,
+		sdlToml: inspection.sdlToml,
 		aregJson: inspection.aregJson,
 	});
 	if (!agentsResult.ok) return failure("agent_resolution_failed", agentsResult.error.message);
@@ -324,14 +324,14 @@ async function buildInitTextPlan(
 		projectDir: string;
 		agentsMd: AregTextFileState;
 		claudeMd: AregTextFileState;
-		asdlToml: AregTextFileState;
+		sdlToml: AregTextFileState;
 		claudeDir: AregPathState;
 		claudeSettings: AregTextFileState;
 	},
 	options: { agents: readonly string[]; yes: boolean; noAppend: boolean },
 ): Promise<Result<InitTextPlan>> {
-	const asdl = planAsdlToml(inspection.asdlToml, options.agents);
-	if (!asdl.ok) return asdl;
+	const sdl = planSdlToml(inspection.sdlToml, options.agents);
+	if (!sdl.ok) return sdl;
 
 	const agents = await planManagedBlock(ctx, {
 		path: "AGENTS.md",
@@ -359,30 +359,30 @@ async function buildInitTextPlan(
 	return {
 		ok: true,
 		value: {
-			writes: [asdl.value, ...textPlans.filter(isTextWritePlan)],
+			writes: [sdl.value, ...textPlans.filter(isTextWritePlan)],
 			skippedFiles: textPlans.filter(isSkippedFile).map((skipped) => ({ ...skipped })),
 		},
 	};
 }
 
-function planAsdlToml(
+function planSdlToml(
 	state: AregTextFileState,
 	agents: readonly string[],
 ): Result<AregInitTextWritePlan> {
 	if (state.type === "missing")
-		return { ok: true, value: writePlan("asdl.toml", renderAregSection(agents), "asdl.toml") };
+		return { ok: true, value: writePlan("sdl.toml", renderAregSection(agents), "sdl.toml") };
 	if (state.type !== "file")
 		return rejectTextState({
-			pathLabel: "asdl.toml",
+			pathLabel: "sdl.toml",
 			state,
-			description: "asdl.toml",
+			description: "sdl.toml",
 			action: "manage it",
 		});
-	const parsed = parseAsdlAregAgents(state.text, "asdl.toml");
+	const parsed = parseSdlAregAgents(state.text, "sdl.toml");
 	if (!parsed.ok) return parsed;
 	return {
 		ok: true,
-		value: writePlan("asdl.toml", replaceOrAppendAregSection(state.text, agents), "asdl.toml"),
+		value: writePlan("sdl.toml", replaceOrAppendAregSection(state.text, agents), "sdl.toml"),
 	};
 }
 

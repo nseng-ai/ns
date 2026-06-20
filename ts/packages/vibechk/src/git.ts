@@ -4,13 +4,13 @@ import {
 	NodeCommandExecApi,
 	type CommandExecApi,
 	type ExecResult,
-} from "@asdl/core/exec";
+} from "@sdl/core/exec";
 import {
 	RealGitGateway,
 	type GitGateway,
 	type GitOperationResult,
 	type GitResult,
-} from "@asdl/core/git";
+} from "@sdl/core/git";
 
 import { VibechkError } from "./store.ts";
 

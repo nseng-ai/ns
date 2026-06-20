@@ -20,10 +20,10 @@ import {
 	BRANCH_CONTEXT_NAMESPACE,
 	createBranchContextContext,
 	type BranchContextContext,
-} from "@asdl/branch-context";
-import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
-import { InMemoryGitGateway } from "@asdl/core/git/testing";
-import { buildPlanFileName, buildRepoPlanStoreKey, encodeBranchForPlanPath } from "@asdl/plans";
+} from "@sdl/branch-context";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/exec";
+import { InMemoryGitGateway } from "@sdl/core/git/testing";
+import { buildPlanFileName, buildRepoPlanStoreKey, encodeBranchForPlanPath } from "@sdl/plans";
 
 const ROOT = "/repo";
 const PLAN_SLUG = "branch-scoped-plan-extension";
@@ -410,7 +410,7 @@ describe("loadAttachedPlan", () => {
 		const fileName = buildPlanFileName(savedSlug);
 		const directory = join(
 			planStoreRoot,
-			buildRepoPlanStoreKey(ROOT, "git@github.com:asdl/asdl-tools.git"),
+			buildRepoPlanStoreKey(ROOT, "git@github.com:sdl/sdl-tools.git"),
 			encodeBranchForPlanPath(PLAN_BRANCH),
 		);
 		const filePath = join(directory, fileName);
@@ -429,7 +429,7 @@ describe("loadAttachedPlan", () => {
 					git: new InMemoryGitGateway({
 						currentBranch: PLAN_BRANCH,
 						trunkBranch: "main",
-						originUrl: "git@github.com:asdl/asdl-tools.git",
+						originUrl: "git@github.com:sdl/sdl-tools.git",
 						headCommit: "1111111111111111111111111111111111111111",
 					}),
 					brmem: emptyBrmemGateway(),

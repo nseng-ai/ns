@@ -7,5 +7,5 @@ export {
 	objectiveRecordsWithChangedFirst,
 	parseObjectiveDiffChangedSlugs,
 	parseObjectiveStatusChangedSlugs,
-} from "@asdl/pi-extension-runtime/objective-picker";
-export type { ObjectiveDiffSelection } from "@asdl/pi-extension-runtime/objective-picker";
+} from "@sdl/pi-extension-runtime/objective-picker";
+export type { ObjectiveDiffSelection } from "@sdl/pi-extension-runtime/objective-picker";

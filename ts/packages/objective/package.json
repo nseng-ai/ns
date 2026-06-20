@@ -1,5 +1,5 @@
 {
-  "name": "@asdl/objective",
+  "name": "@sdl/objective",
   "version": "0.1.0",
   "type": "module",
   "exports": {
@@ -16,9 +16,9 @@
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/objective/test"
   },
   "dependencies": {
-    "@asdl/clinkr": "workspace:*",
-    "@asdl/core": "workspace:*",
-    "@asdl/pi-extension-runtime": "workspace:*",
+    "@sdl/clinkr": "workspace:*",
+    "@sdl/core": "workspace:*",
+    "@sdl/pi-extension-runtime": "workspace:*",
     "zod": "catalog:"
   }
 }

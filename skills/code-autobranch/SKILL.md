@@ -41,7 +41,7 @@ The CLI owns two modes:
 - Dirty worktree: stash pending tracked and untracked changes, create a Graphite branch with `gt create`, restore the stash, then create a checkpoint commit.
 - Clean worktree: only for an eligible latest unpushed non-root, non-merge commit with no Graphite child branches; create a recovery branch, reset the source branch to the parent, create a Graphite branch, move the commit there, verify the result, and clean up recovery evidence.
 
-Branch slug derivation routes through `@asdl/plans` model defaults and `ASDL_SLUG_MODEL`. Checkpoint message generation uses SDL checkpoint text-generation settings, including `SDL_CHECKPOINT_MODEL` with legacy `ASDL_DEV_CHECKPOINT_MODEL` fallback.
+Branch slug derivation routes through `@sdl/plans` model defaults and `SDL_SLUG_MODEL`. Checkpoint message generation uses SDL checkpoint text-generation settings, including `SDL_CHECKPOINT_MODEL` with legacy `SDL_DEV_CHECKPOINT_MODEL` fallback.
 
 ## Failure handling
 

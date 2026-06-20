@@ -2,7 +2,7 @@
 
 `sdl` is the Source Development Lifecycle CLI. It is the durable public command boundary for software-development-lifecycle workflows that have migrated out of repo-internal tooling.
 
-The retired `asdl-dev` package no longer owns current command surfaces. Lower packages such as `@asdl/ccc` may continue to own repo-specific orchestration internals, but SDL owns the public lifecycle command surface once a workflow moves to `sdl`.
+The retired `sdl-dev` package no longer owns current command surfaces. Lower packages such as `@sdl/ccc` may continue to own repo-specific orchestration internals, but SDL owns the public lifecycle command surface once a workflow moves to `sdl`.
 
 ## Command ownership and hard cutover
 
@@ -18,24 +18,24 @@ A migration slice should delete old command names and old `/code:<name>` Pi mirr
 SDL treats project-specific lifecycle behavior as first-class. SDL extensions can contribute command entries today and are expected to grow additional contribution points later. Command catalogs are discovered in increasing precedence:
 
 ```text
-built-in command table < ~/.asdl/extensions < <cwd>/.asdl/extensions
+built-in command table < ~/.sdl/extensions < <cwd>/.sdl/extensions
 ```
 
 Global and project roots support these one-level entry shapes:
 
 ```text
-.asdl/extensions/greet.ts
-.asdl/extensions/greet.js
-.asdl/extensions/greet/index.ts
-.asdl/extensions/greet/index.js
-.asdl/extensions/package-name/package.json
+.sdl/extensions/greet.ts
+.sdl/extensions/greet.js
+.sdl/extensions/greet/index.ts
+.sdl/extensions/greet/index.js
+.sdl/extensions/package-name/package.json
 ```
 
 Direct files and directory indexes infer one SDL command-entry name from the file or directory name. They appear in top-level help with a generic description until selected. Package manifests can provide top-level help metadata without executing TypeScript:
 
 ```json
 {
-  "asdl": {
+  "sdl": {
     "commands": [
       {
         "name": "greet",
@@ -53,7 +53,7 @@ Manifest command entries require `name`, `description`, and a relative POSIX-sty
 SDL extension modules default-export an extension object created with `defineExtension()`. A command contribution is one entry in the extension's optional `commands` array; extensions may omit `commands` when they have no command contributions for the current SDL surface.
 
 ```ts
-import { defineExtension, ok } from "@asdl/sdl/sdk";
+import { defineExtension, ok } from "@sdl/sdl/sdk";
 
 export default defineExtension({
   commands: [
@@ -74,17 +74,17 @@ Duplicate command names within one source level are errors. Across source levels
 
 Discovery is side-effect-light: `sdl --help`, `sdl -h`, `sdl --version`, `sdl --runtime`, and unselected command lookup read only built-in definitions, filesystem entries, and JSON manifests. Malformed discovery entries that do not affect the selected command are printed as stderr warnings while the invocation continues and stdout remains reserved for primary output. Discovery diagnostics that affect the selected command are fatal, including higher-precedence broken overrides that would otherwise fall back to lower-precedence commands. SDL imports and validates exactly one external SDL extension contribution only when that command is selected, including selected-command help and JSON schema.
 
-The legacy `.asdl/commands/<command>.ts` path has been removed. It is not a compatibility fallback.
+The legacy `.sdl/commands/<command>.ts` path has been removed. It is not a compatibility fallback.
 
 Dynamic Pi `/sdl:*` mirrors are not part of this first general extension-loading slice. Existing exact mirrors such as `/sdl:changes`, `/sdl:cp`, and `/sdl:submit` continue to delegate to `sdl`; nested code-lifecycle mirrors such as `/sdl:code:regenerate-pr` may delegate to SDL commands without adding flat mirrors. Arbitrary SDL extension command entries are not dynamically mirrored into Pi.
 
 ## Public SDL extension API
 
-SDL extension authors should import only from `@asdl/sdl/sdk`:
+SDL extension authors should import only from `@sdl/sdl/sdk`:
 
 ```ts
-import { defineExtension, failed, ok, z } from "@asdl/sdl/sdk";
-import type { SdlContext, SdlResult } from "@asdl/sdl/sdk";
+import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
+import type { SdlContext, SdlResult } from "@sdl/sdl/sdk";
 ```
 
 That SDK subpath is the public author API for SDL extensions. It exposes:
@@ -107,7 +107,7 @@ SDL command entries own their prompts, validation, repair policy, and exact exte
 
 ## Internal migration exports
 
-`@asdl/sdl/package.json` marks only `./sdk` as `asdl.publicPluginApi`. Other package subpaths are `asdl.internalMigrationExports`: they exist so ASDL workspace packages can share primitives during migration, but they are not plugin-author APIs and should not be documented as stable extension surfaces.
+`@sdl/sdl/package.json` marks only `./sdk` as `sdl.publicPluginApi`. Other package subpaths are `sdl.internalMigrationExports`: they exist so SDL workspace packages can share primitives during migration, but they are not plugin-author APIs and should not be documented as stable extension surfaces.
 
 ## `cp`
 
@@ -130,9 +130,9 @@ Environment:
 
 - `SDL_CHECKPOINT_MODEL`: model reference for the checkpoint message.
 
-For compatibility with existing local environments, an unset `SDL_CHECKPOINT_MODEL` falls back to `ASDL_DEV_CHECKPOINT_MODEL`.
+For compatibility with existing local environments, an unset `SDL_CHECKPOINT_MODEL` falls back to `SDL_DEV_CHECKPOINT_MODEL`.
 
-Projects may override `sdl cp` by contributing an SDL command entry named `cp` from `.asdl/extensions` or `~/.asdl/extensions`. When no SDL extension override exists, SDL uses the built-in `cp` implementation.
+Projects may override `sdl cp` by contributing an SDL command entry named `cp` from `.sdl/extensions` or `~/.sdl/extensions`. When no SDL extension override exists, SDL uses the built-in `cp` implementation.
 
 Pi exposes the same capability as `/sdl:cp` through `.pi/extensions/sdl.ts`; `/code:cp` is not retained as a compatibility alias.
 
@@ -169,7 +169,7 @@ sdl submit [--no-restack] [--verbose]
 Behavior:
 
 - runs the existing SDL checkpoint flow before submit when the worktree is dirty;
-- uses `@asdl/core/submit` for Graphite submit, PR metadata prewrite, current-PR verification, and PR-description generation;
+- uses `@sdl/core/submit` for Graphite submit, PR metadata prewrite, current-PR verification, and PR-description generation;
 - prints concise phase-oriented progress by default while preserving captured Graphite output for PR-link extraction and failure diagnostics;
 - streams raw Graphite/subprocess output for debugging with `--verbose`;
 - skips model regeneration and `gh pr edit` for unchanged PR descriptions when the stored managed-region fingerprint matches the current GitHub PR diff patch id, prompt hash, and generator version;
@@ -181,12 +181,12 @@ Behavior:
 
 Environment:
 
-- `ASDL_DEV_PR_DESCRIPTION_MODEL`: model reference for generated PR descriptions.
-- `ASDL_DEV_PR_DESCRIPTION_PROMPT`: optional custom PR-description prompt file.
+- `SDL_DEV_PR_DESCRIPTION_MODEL`: model reference for generated PR descriptions.
+- `SDL_DEV_PR_DESCRIPTION_PROMPT`: optional custom PR-description prompt file.
 - `SDL_SUBMIT_FAILURE_MODEL`: model reference for submit failure summarization.
 - `SDL_SUBMIT_FAILURE_LOG_DIR`: optional directory under which submit-failure raw log directories are created.
 
-`submit` is a built-in SDL command, not a legacy repo-local `.asdl/commands/submit.ts` module. It can be overridden through an SDL command entry or manifest descriptor under `.asdl/extensions`. Legacy submit surfaces are not retained as compatibility surfaces.
+`submit` is a built-in SDL command, not a legacy repo-local `.sdl/commands/submit.ts` module. It can be overridden through an SDL command entry or manifest descriptor under `.sdl/extensions`. Legacy submit surfaces are not retained as compatibility surfaces.
 
 ## `regenerate-pr`
 
@@ -199,15 +199,15 @@ sdl regenerate-pr [--force]
 Behavior:
 
 - resolves the current branch PR through GitHub;
-- reads commit messages and PR diff through `@asdl/core/submit`;
+- reads commit messages and PR diff through `@sdl/core/submit`;
 - generates a replacement title/body with the PR-description prompt;
 - updates the PR title/body and writes success output with the PR number, URL, title, and prompt source;
 - accepts `--force` as a compatibility no-op and does not support `--format`.
 
 Environment:
 
-- `ASDL_DEV_PR_DESCRIPTION_MODEL`: model reference for generated PR descriptions.
-- `ASDL_DEV_PR_DESCRIPTION_PROMPT`: optional custom PR-description prompt file.
+- `SDL_DEV_PR_DESCRIPTION_MODEL`: model reference for generated PR descriptions.
+- `SDL_DEV_PR_DESCRIPTION_PROMPT`: optional custom PR-description prompt file.
 
 Pi exposes this capability only as the nested `/sdl:code:regenerate-pr` adapter in this slice. There is no flat `/sdl:regenerate-pr` Pi mirror.
 
@@ -229,10 +229,10 @@ Behavior:
 
 Environment matches PR description generation for `sdl submit`:
 
-- `ASDL_DEV_PR_DESCRIPTION_MODEL`: model reference for generated PR descriptions.
-- `ASDL_DEV_PR_DESCRIPTION_PROMPT`: optional custom PR-description prompt file.
+- `SDL_DEV_PR_DESCRIPTION_MODEL`: model reference for generated PR descriptions.
+- `SDL_DEV_PR_DESCRIPTION_PROMPT`: optional custom PR-description prompt file.
 
-`asdl-dev pr-regen` and `/code:pr-regen` are not retained as compatibility surfaces.
+`sdl-dev pr-regen` and `/code:pr-regen` are not retained as compatibility surfaces.
 
 ## Testing future command migrations
 

@@ -1,8 +1,8 @@
-export { parseObjectiveList } from "@asdl/pi-extension-runtime/objective-list";
+export { parseObjectiveList } from "@sdl/pi-extension-runtime/objective-list";
 export type {
 	ObjectiveList,
 	ObjectiveListParseInvalid,
 	ObjectiveListParseResult,
 	ObjectiveListParseValid,
 	ObjectiveListRecord,
-} from "@asdl/pi-extension-runtime/objective-list";
+} from "@sdl/pi-extension-runtime/objective-list";

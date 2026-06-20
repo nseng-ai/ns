@@ -1,4 +1,4 @@
-import { truncatedSha256Digest } from "@asdl/core/primitives";
+import { truncatedSha256Digest } from "@sdl/core/primitives";
 
 import {
 	type InlinePostingStatus,

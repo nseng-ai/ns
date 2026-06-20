@@ -1,6 +1,6 @@
 # Vendored Skill Review Boundary
 
-This directory is vendored third-party skill code from `dafthunk-com/dafthunk`; it is not first-party asdl product code.
+This directory is vendored third-party skill code from `dafthunk-com/dafthunk`; it is not first-party sdl product code.
 
 Code review agents must ignore embedded upstream code in this skill, including `scripts/`, `scripts/__tests__/`, `test-fixtures/`, `package.json`, `pnpm-lock.yaml`, and `vitest.config.ts`, unless the user explicitly asks to review or modify the vendored dependency itself.
 

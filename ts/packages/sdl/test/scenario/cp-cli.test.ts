@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { listSdlCommands } from "@asdl/sdl/cli";
+import { listSdlCommands } from "@sdl/sdl/cli";
 
 import {
 	formatExecCall,
@@ -55,7 +55,7 @@ async function createExtensionProject(
 ): Promise<string> {
 	const directory = await mkdtemp(join(tmpdir(), "sdl-extension-project-"));
 	tempDirs.push(directory);
-	const extensionPath = join(directory, ".asdl", "extensions", extensionFileName);
+	const extensionPath = join(directory, ".sdl", "extensions", extensionFileName);
 	mkdirSync(dirname(extensionPath), { recursive: true });
 	writeFileSync(extensionPath, extensionSource);
 	return directory;
@@ -67,7 +67,7 @@ async function createLegacyCommandProject(
 ): Promise<string> {
 	const directory = await mkdtemp(join(tmpdir(), "sdl-legacy-command-project-"));
 	tempDirs.push(directory);
-	const commandPath = join(directory, ".asdl", "commands", commandFileName);
+	const commandPath = join(directory, ".sdl", "commands", commandFileName);
 	mkdirSync(dirname(commandPath), { recursive: true });
 	writeFileSync(commandPath, commandSource);
 	return directory;
@@ -79,7 +79,7 @@ async function createManifestProject(
 ): Promise<string> {
 	const directory = await mkdtemp(join(tmpdir(), "sdl-extension-project-"));
 	tempDirs.push(directory);
-	const packageDir = join(directory, ".asdl", "extensions", "pkg");
+	const packageDir = join(directory, ".sdl", "extensions", "pkg");
 	writeFileSyncWithParents(join(packageDir, "package.json"), JSON.stringify(manifest));
 	for (const [relativePath, source] of Object.entries(files)) {
 		writeFileSyncWithParents(join(packageDir, relativePath), source);
@@ -109,7 +109,7 @@ describe("sdl cp CLI help and parsing", () => {
 			{
 				name: "regenerate-pr",
 				description:
-					"Regenerate the current branch PR's title and description with the asdl PR-description prompt.",
+					"Regenerate the current branch PR's title and description with the sdl PR-description prompt.",
 			},
 			{
 				name: "submit",
@@ -157,7 +157,7 @@ describe("sdl cp CLI help and parsing", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe(
-			"runtime: typescript\nentry_point: @asdl/sdl bin sdl -> ts/packages/sdl/src/cli.ts\n",
+			"runtime: typescript\nentry_point: @sdl/sdl bin sdl -> ts/packages/sdl/src/cli.ts\n",
 		);
 		expect(run.stderr.join("")).toBe("");
 	});
@@ -170,9 +170,9 @@ describe("sdl cp CLI help and parsing", () => {
 		expect(help).toContain("Usage: sdl cp");
 		expect(help).toContain("model-authored");
 		expect(help).toContain("SDL_CHECKPOINT_MODEL");
-		expect(help).toContain("ASDL_DEV_CHECKPOINT_MODEL");
+		expect(help).toContain("SDL_DEV_CHECKPOINT_MODEL");
 		expect(help).not.toContain("SDL_TEXT_BACKEND");
-		expect(help).not.toContain("ASDL_DEV_TEXT_BACKEND");
+		expect(help).not.toContain("SDL_DEV_TEXT_BACKEND");
 		expect(help).toContain("--json-schema");
 		expect(help).not.toContain("--format");
 	});
@@ -205,7 +205,7 @@ describe("sdl extension contribution loading", () => {
 	test("manifest metadata appears in top-level help without importing the entry", async () => {
 		const cwd = await createManifestProject(
 			{
-				asdl: {
+				sdl: {
 					commands: [
 						{
 							name: "hello",
@@ -230,7 +230,7 @@ describe("sdl extension contribution loading", () => {
 
 	test("project-local cp help uses selected command metadata and schema", async () => {
 		const cwd = await createOverrideProject(`
-import { defineExtension, ok, z } from "@asdl/sdl/sdk";
+import { defineExtension, ok, z } from "@sdl/sdl/sdk";
 
 export default defineExtension({
 	commands: [{
@@ -250,7 +250,7 @@ export default defineExtension({
 		expect(help).toContain("--dry-run");
 		expect(help).not.toContain("model-authored");
 		expect(help).not.toContain("SDL_CHECKPOINT_MODEL");
-		expect(help).not.toContain("ASDL_DEV_CHECKPOINT_MODEL");
+		expect(help).not.toContain("SDL_DEV_CHECKPOINT_MODEL");
 		expect(run.stderr.join("")).toBe("");
 		expect(run.context.execCalls).toEqual([]);
 	});
@@ -259,7 +259,7 @@ export default defineExtension({
 		const cwd = await createExtensionProject(
 			"hello.ts",
 			`
-import { defineExtension, ok } from "@asdl/sdl/sdk";
+import { defineExtension, ok } from "@sdl/sdl/sdk";
 
 export default defineExtension({
 	commands: [{
@@ -289,7 +289,7 @@ export default defineExtension({
 		const cwd = await createExtensionProject(
 			"hello.ts",
 			`
-import { defineExtension, ok, z } from "@asdl/sdl/sdk";
+import { defineExtension, ok, z } from "@sdl/sdl/sdk";
 
 export default defineExtension({
 	commands: [{
@@ -372,7 +372,7 @@ export default defineExtension({
 
 	test("malformed selected manifest command exits with its discovery diagnostic", async () => {
 		const cwd = await createManifestProject(
-			{ asdl: { commands: [{ name: "hello", description: "Say hello.", entry: "./missing.ts" }] } },
+			{ sdl: { commands: [{ name: "hello", description: "Say hello.", entry: "./missing.ts" }] } },
 			{},
 		);
 		const run = runWithFakes({ args: ["hello"], state: { exec: [] }, cwd });
@@ -387,7 +387,7 @@ export default defineExtension({
 
 	test("malformed selected project override fails instead of falling back to built-in cp", async () => {
 		const cwd = await createManifestProject(
-			{ asdl: { commands: [{ name: "cp", description: "Broken cp.", entry: "./missing.ts" }] } },
+			{ sdl: { commands: [{ name: "cp", description: "Broken cp.", entry: "./missing.ts" }] } },
 			{},
 		);
 		const run = runWithFakes({ args: ["cp"], cwd });
@@ -405,7 +405,7 @@ export default defineExtension({
 		const cwd = await createExtensionProject(
 			"hello.ts",
 			`
-import { defineExtension } from "@asdl/sdl/sdk";
+import { defineExtension } from "@sdl/sdl/sdk";
 
 export default defineExtension({
 	commands: [{
@@ -422,7 +422,7 @@ export default defineExtension({
 		expect(await run.exit).toBe(2);
 		expect(run.stderr.join("")).toContain("Invalid SDL extension contribution extensions/hello.ts");
 		expect(run.stderr.join("")).toContain(
-			"command schema must be a Zod object schema from @asdl/sdl/sdk",
+			"command schema must be a Zod object schema from @sdl/sdl/sdk",
 		);
 		expect(run.context.execCalls).toEqual([]);
 	});
@@ -436,11 +436,11 @@ export default defineExtension({
 		expect(run.stderr.join("")).toBe("");
 	});
 
-	test("legacy .asdl/commands files no longer register commands", async () => {
+	test("legacy .sdl/commands files no longer register commands", async () => {
 		const cwd = await createLegacyCommandProject(
 			"hello.ts",
 			`
-import { defineExtension, ok } from "@asdl/sdl/sdk";
+import { defineExtension, ok } from "@sdl/sdl/sdk";
 export default defineExtension({
 	commands: [{ name: "hello", description: "Legacy hello", run() { return ok("legacy"); } }],
 });
@@ -515,7 +515,7 @@ describe("sdl cp CLI behavior", () => {
 			state: { textGeneration: [{ ok: true, text: defaultCheckpointMessage() }] },
 			env: {
 				SDL_CHECKPOINT_MODEL: "openai-codex/custom-mini",
-				ASDL_DEV_CHECKPOINT_MODEL: "openai-codex/legacy",
+				SDL_DEV_CHECKPOINT_MODEL: "openai-codex/legacy",
 			},
 		});
 
@@ -526,7 +526,7 @@ describe("sdl cp CLI behavior", () => {
 	test("legacy checkpoint model environment is a fallback", async () => {
 		const run = runWithFakes({
 			args: ["cp"],
-			env: { ASDL_DEV_CHECKPOINT_MODEL: "openai-codex/legacy-mini" },
+			env: { SDL_DEV_CHECKPOINT_MODEL: "openai-codex/legacy-mini" },
 		});
 
 		expect(await run.exit).toBe(0);
@@ -735,7 +735,7 @@ describe("sdl cp CLI behavior", () => {
 	test("project-local SDL command entry fully replaces default cp behavior", async () => {
 		const cwd = await createOverrideProject(
 			`
-import { defineExtension, ok } from "@asdl/sdl/sdk";
+import { defineExtension, ok } from "@sdl/sdl/sdk";
 
 export default defineExtension({
 	commands: [{
@@ -779,7 +779,7 @@ export default defineExtension({
 
 	test("project-local SDL command entry must declare description", async () => {
 		const cwd = await createOverrideProject(
-			"import { defineExtension } from '@asdl/sdl/sdk';\nexport default defineExtension({ commands: [{ name: 'cp', run() { return { ok: true, message: 'custom' }; } }] });\n",
+			"import { defineExtension } from '@sdl/sdl/sdk';\nexport default defineExtension({ commands: [{ name: 'cp', run() { return { ok: true, message: 'custom' }; } }] });\n",
 		);
 		const run = runWithFakes({ args: ["cp"], state: { exec: [] }, cwd });
 
@@ -790,7 +790,7 @@ export default defineExtension({
 
 	test("project-local SDL command entry invalid return exits 2", async () => {
 		const cwd = await createOverrideProject(
-			"import { defineExtension } from '@asdl/sdl/sdk';\nexport default defineExtension({ commands: [{ name: 'cp', description: 'Custom', run() { return undefined; } }] });\n",
+			"import { defineExtension } from '@sdl/sdl/sdk';\nexport default defineExtension({ commands: [{ name: 'cp', description: 'Custom', run() { return undefined; } }] });\n",
 		);
 		const run = runWithFakes({ args: ["cp"], state: { exec: [] }, cwd });
 
@@ -801,7 +801,7 @@ export default defineExtension({
 
 	test("project-local SDL command entry throw exits 2", async () => {
 		const cwd = await createOverrideProject(
-			"import { defineExtension } from '@asdl/sdl/sdk';\nexport default defineExtension({ commands: [{ name: 'cp', description: 'Custom', run() { throw new Error('boom'); } }] });\n",
+			"import { defineExtension } from '@sdl/sdl/sdk';\nexport default defineExtension({ commands: [{ name: 'cp', description: 'Custom', run() { throw new Error('boom'); } }] });\n",
 		);
 		const run = runWithFakes({ args: ["cp"], state: { exec: [] }, cwd });
 

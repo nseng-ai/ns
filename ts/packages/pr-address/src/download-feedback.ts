@@ -1,12 +1,12 @@
 import { z } from "zod";
 
-import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
+import { failure, negative, ok, type ClinkrExit } from "@sdl/clinkr";
 import type {
 	GithubPrDiscussionComment,
 	GithubPrReview,
 	GithubPrReviewThread,
 	GithubPrSummary,
-} from "@asdl/core/github-pr-feedback";
+} from "@sdl/core/github-pr-feedback";
 import {
 	fetchFeedbackSnapshot,
 	reviewsForRequest,

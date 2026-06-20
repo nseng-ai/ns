@@ -1,4 +1,4 @@
-import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE } from "@asdl/handoff/identity";
+import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE } from "@sdl/handoff/identity";
 
 import {
 	CREATE_HANDOFF_FALLBACK,

@@ -1,4 +1,4 @@
-import { buildPlanFileName, validatePlanSlug } from "@asdl/plans";
+import { buildPlanFileName, validatePlanSlug } from "@sdl/plans";
 
 export const BRANCH_CONTEXT_NAMESPACE = "branch-context";
 export const BRANCH_CONTEXT_LEGACY_PLAN_KEY = "plan.md";

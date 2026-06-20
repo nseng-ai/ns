@@ -10,9 +10,9 @@ import type {
 	GithubPrSummary,
 	GithubReviewThreadReply,
 	GithubReviewThreadState,
-} from "@asdl/core/github-pr-feedback";
-import type { Result } from "@asdl/core/result";
-import { createDeferred } from "@asdl/core/testing";
+} from "@sdl/core/github-pr-feedback";
+import type { Result } from "@sdl/core/result";
+import { createDeferred } from "@sdl/core/testing";
 
 import { fetchFeedbackSnapshot, reviewsForRequest } from "../../src/core/feedback-snapshot.ts";
 import { isAutomationLikeDiscussionComment } from "../../src/core/feedback-summary.ts";

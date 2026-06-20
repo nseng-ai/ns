@@ -1,5 +1,5 @@
 {
-  "name": "@asdl/roaster",
+  "name": "@sdl/roaster",
   "version": "0.1.0",
   "type": "module",
   "exports": {
@@ -16,8 +16,8 @@
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/roaster/test"
   },
   "dependencies": {
-    "@asdl/clinkr": "workspace:*",
-    "@asdl/core": "workspace:*",
+    "@sdl/clinkr": "workspace:*",
+    "@sdl/core": "workspace:*",
     "@pierre/diffs": "catalog:",
     "smol-toml": "catalog:",
     "yaml": "catalog:",

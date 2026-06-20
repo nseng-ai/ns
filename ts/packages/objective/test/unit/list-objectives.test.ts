@@ -1,4 +1,4 @@
-import { InMemoryGitGateway } from "@asdl/core/git/testing";
+import { InMemoryGitGateway } from "@sdl/core/git/testing";
 import { describe, expect, test } from "vitest";
 
 import { buildObjectiveBranchAttribution } from "../../src/operations/list-branch-attribution.ts";
@@ -11,7 +11,7 @@ import {
 
 const SAMPLE_RESULT: ObjectiveListResult = {
 	trunkBranch: "master",
-	rootPath: ".asdl/objectives",
+	rootPath: ".sdl/objectives",
 	statusFilter: "active",
 	namesOnly: false,
 	updatedBranchesIncluded: true,
@@ -32,7 +32,7 @@ describe("renderObjectiveListHuman", () => {
 	test("renders the full human table with branch attribution continuations", () => {
 		const result: ObjectiveListResult = {
 			trunkBranch: "master",
-			rootPath: ".asdl/objectives",
+			rootPath: ".sdl/objectives",
 			statusFilter: "all",
 			namesOnly: false,
 			updatedBranchesIncluded: true,
@@ -56,7 +56,7 @@ describe("renderObjectiveListHuman", () => {
 
 		expect(renderObjectiveListHuman(result, { canEmitAnsi: false }).split("\n")).toEqual([
 			"Objective records in this checkout",
-			"Root: .asdl/objectives",
+			"Root: .sdl/objectives",
 			"Status filter: all",
 			"",
 			"OBJECTIVE        STATUS    LATEST UPDATE         UPDATED BRANCHES",
@@ -121,16 +121,16 @@ describe("objective list helpers", () => {
 				{ name: "feat/same-tree", headIso: "2026-05-04T00:00:00Z" },
 			],
 			treeOids: {
-				"master|.asdl/objectives": "trunk-tree",
-				"feat/newer|.asdl/objectives": "newer-tree",
-				"feat/older|.asdl/objectives": "older-tree",
-				"feat/same-tree|.asdl/objectives": "trunk-tree",
+				"master|.sdl/objectives": "trunk-tree",
+				"feat/newer|.sdl/objectives": "newer-tree",
+				"feat/older|.sdl/objectives": "older-tree",
+				"feat/same-tree|.sdl/objectives": "trunk-tree",
 			},
 			changedPaths: {
-				"master...feat/newer|.asdl/objectives": [".asdl/objectives/alpha/objective.md"],
-				"master...feat/older|.asdl/objectives": [
-					".asdl/objectives/alpha/roadmap.md",
-					".asdl/objectives/branch-only/objective.md",
+				"master...feat/newer|.sdl/objectives": [".sdl/objectives/alpha/objective.md"],
+				"master...feat/older|.sdl/objectives": [
+					".sdl/objectives/alpha/roadmap.md",
+					".sdl/objectives/branch-only/objective.md",
 				],
 			},
 		});
@@ -157,11 +157,11 @@ describe("objective list helpers", () => {
 				{ name: "feat/stale", headIso: "2026-05-02T00:00:00Z" },
 			],
 			treeOids: {
-				"master|.asdl/objectives": "newer-trunk-tree",
-				"feat/stale|.asdl/objectives": "older-branch-tree",
+				"master|.sdl/objectives": "newer-trunk-tree",
+				"feat/stale|.sdl/objectives": "older-branch-tree",
 			},
 			changedPaths: {
-				"master...feat/stale|.asdl/objectives": [],
+				"master...feat/stale|.sdl/objectives": [],
 			},
 		});
 

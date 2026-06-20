@@ -17,7 +17,7 @@ import type {
 	GitResult,
 	GitRevisionRangePathParams,
 	GitGateway,
-} from "@asdl/core/git";
+} from "@sdl/core/git";
 import { describe, expect, it } from "vitest";
 
 import { RealBrmemPromptResolver } from "../../src/prompt-resolution.ts";

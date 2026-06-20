@@ -2,11 +2,11 @@ import { realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 
-import type { CommandExecApi } from "@asdl/core/exec";
-import { RealGitGateway, type GitGateway } from "@asdl/core/git";
-import { isPathInside } from "@asdl/core/primitives";
+import type { CommandExecApi } from "@sdl/core/exec";
+import { RealGitGateway, type GitGateway } from "@sdl/core/git";
+import { isPathInside } from "@sdl/core/primitives";
 
-export { isPathInside } from "@asdl/core/primitives";
+export { isPathInside } from "@sdl/core/primitives";
 
 const GENERIC_SLUG_WORDS = new Set([
 	"plan",

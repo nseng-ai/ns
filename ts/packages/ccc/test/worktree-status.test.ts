@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 
-import { githubWorktreePrStatusQuery } from "@asdl/core/github-status";
-import { stripTerminalEscapes } from "@asdl/core/terminal-escapes";
-import type { GraphiteMetadataWorkerDiagnostic } from "@asdl/ccc/worktree-status/graphite-metadata";
+import { githubWorktreePrStatusQuery } from "@sdl/core/github-status";
+import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
+import type { GraphiteMetadataWorkerDiagnostic } from "@sdl/ccc/worktree-status/graphite-metadata";
 import {
 	formatGhStatus,
 	formatGtStatus,
@@ -21,8 +21,8 @@ import {
 	type StatusTheme,
 	type WorktreeStatus,
 	type WorktreeStatusIdentity,
-} from "@asdl/ccc/worktree-status";
-import type { GraphiteMetadataStatus } from "@asdl/ccc/worktree-status/graphite-metadata";
+} from "@sdl/ccc/worktree-status";
+import type { GraphiteMetadataStatus } from "@sdl/ccc/worktree-status/graphite-metadata";
 
 const ROOT = "/repo";
 const HEAD_OID = "abc123";
@@ -126,7 +126,7 @@ function dirtyStep(stdout = ""): ScriptedExec {
 	return step("git", ["status", "--porcelain=v1"], { stdout });
 }
 
-function remoteOriginStep(url = "git@github.com:dagster-io/asdl-tools.git"): ScriptedExec {
+function remoteOriginStep(url = "git@github.com:dagster-io/sdl-tools.git"): ScriptedExec {
 	return step("git", ["config", "--get", "remote.origin.url"], { stdout: `${url}\n` });
 }
 
@@ -253,7 +253,7 @@ function ghWorktreePrStep(options: {
 			"-f",
 			"owner=dagster-io",
 			"-f",
-			"repo=asdl-tools",
+			"repo=sdl-tools",
 			"-f",
 			"headRefName=feature/current",
 		],
@@ -288,7 +288,7 @@ function worktreePrNode(options: {
 	const resolvedThreads = Math.max(0, totalThreads - unresolvedThreads);
 	return {
 		number: options.number,
-		url: `https://github.com/dagster-io/asdl-tools/pull/${options.number}`,
+		url: `https://github.com/dagster-io/sdl-tools/pull/${options.number}`,
 		headRefName: "feature/current",
 		headRefOid: options.headOid ?? HEAD_OID,
 		statusCheckRollup: {
@@ -346,7 +346,7 @@ describe("worktree status message rendering", () => {
 				content: "[gh] #489 · comments 0/0 · actions 12✓ · landable",
 				details: {
 					prLinks: [
-						{ number: 489, url: "https://app.graphite.com/github/pr/dagster-io/asdl-tools/489" },
+						{ number: 489, url: "https://app.graphite.com/github/pr/dagster-io/sdl-tools/489" },
 					],
 				},
 			},
@@ -355,7 +355,7 @@ describe("worktree status message rendering", () => {
 		);
 
 		expect(component.render(200)).toEqual([
-			"[gh] \x1B]8;;https://app.graphite.com/github/pr/dagster-io/asdl-tools/489\x07#489\x1B]8;;\x07 · comments 0/0 · actions 12✓ · landable",
+			"[gh] \x1B]8;;https://app.graphite.com/github/pr/dagster-io/sdl-tools/489\x07#489\x1B]8;;\x07 · comments 0/0 · actions 12✓ · landable",
 		]);
 	});
 
@@ -436,12 +436,12 @@ describe("worktree status formatting", () => {
 			formatGhStatus({
 				type: "available",
 				prNumber: 1921,
-				url: "https://github.com/dagster-io/asdl-tools/pull/1921",
+				url: "https://github.com/dagster-io/sdl-tools/pull/1921",
 				threads: { unresolved: 0, total: 0, hasMore: false },
 				checks: { passing: 0, pending: 0, failing: 0, unknown: 0 },
 			}),
 		).toBe(
-			"[gh] \x1B]8;;https://github.com/dagster-io/asdl-tools/pull/1921\x07#1921\x1B]8;;\x07 · comments 0/0 · actions 0✓ · landable",
+			"[gh] \x1B]8;;https://github.com/dagster-io/sdl-tools/pull/1921\x07#1921\x1B]8;;\x07 · comments 0/0 · actions 0✓ · landable",
 		);
 
 		expect(

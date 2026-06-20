@@ -3,8 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
-import { InMemoryGitGateway } from "@asdl/core/git/testing";
-import { ScriptedCommandExecApi } from "@asdl/core/testing";
+import { InMemoryGitGateway } from "@sdl/core/git/testing";
+import { ScriptedCommandExecApi } from "@sdl/core/testing";
 
 import {
 	FakeLocalDiffGateway,
@@ -40,7 +40,7 @@ describe("RealLocalDiffGateway", () => {
 		const repoRoot = await mkdtemp(join(tmpdir(), "roaster-local-diff-"));
 		await mkdir(repoRoot, { recursive: true });
 		await writeFile(
-			join(repoRoot, "asdl.toml"),
+			join(repoRoot, "sdl.toml"),
 			'[roaster.diff]\nexclude = [".agents/skills/**/*.py"]\n',
 			"utf8",
 		);

@@ -11,7 +11,7 @@ import {
 	type SavedPlanFileEvidence,
 	type PlanStoreOptions,
 } from "./saved-plan-file.ts";
-import type { CommandExecApi } from "@asdl/core/exec";
+import type { CommandExecApi } from "@sdl/core/exec";
 import { isPathInside, normalizePlanFilePath, validatePlanSlug } from "./plan-persistence.ts";
 
 export const WRITE_SAVED_PLAN_FILE_TOOL_NAME = "write_saved_plan_file";

@@ -2,9 +2,9 @@ import { afterEach, describe, expect, test } from "vitest";
 import { readFile, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { buildPlanContentSlugPrompt, formatImplBranchContextCommand } from "@asdl/branch-context";
-import { withTempRepoSkill } from "@asdl/core/testing";
-import { buildSlugModelArgs } from "@asdl/plans";
+import { buildPlanContentSlugPrompt, formatImplBranchContextCommand } from "@sdl/branch-context";
+import { withTempRepoSkill } from "@sdl/core/testing";
+import { buildSlugModelArgs } from "@sdl/plans";
 import registerCccExtension from "../src/ccc.ts";
 import { buildGptNanoTextArgs, buildSlugPrompt } from "../src/cmux/branch-slug.ts";
 import { registerCccSlotDispatchFromTrunkCommand } from "../src/cmux/dispatch-from-trunk.ts";

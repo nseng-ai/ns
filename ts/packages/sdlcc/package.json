@@ -13,9 +13,9 @@
     "stack-map": "bun src/cli.ts"
   },
   "dependencies": {
-    "@asdl/clinkr": "workspace:*",
-    "@asdl/core": "workspace:*",
-    "@asdl/pi-extension-runtime": "workspace:*",
+    "@sdl/clinkr": "workspace:*",
+    "@sdl/core": "workspace:*",
+    "@sdl/pi-extension-runtime": "workspace:*",
     "@opentui/core": "catalog:",
     "zod": "catalog:"
   }

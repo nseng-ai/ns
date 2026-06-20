@@ -6,7 +6,7 @@ import { createJiti } from "jiti/static";
 import { defineExtension, failed, ok, z } from "./sdk.ts";
 
 /** Module specifier that SDL command entries import the SDK from. */
-const SDK_SPECIFIER = "@asdl/sdl/sdk";
+const SDK_SPECIFIER = "@sdl/sdl/sdk";
 
 /** Absolute path to the SDK source module, used as the `alias` resolution target. */
 const SDK_MODULE_PATH = join(dirname(fileURLToPath(import.meta.url)), "sdk.ts");
@@ -17,7 +17,7 @@ const sdlSdkVirtualModule = { defineExtension, failed, ok, z } satisfies Record<
 /**
  * Create the SDL-aware jiti instance used for user-authored modules.
  *
- * The load-bearing option is `virtualModules`: it binds `@asdl/sdl/sdk` to the
+ * The load-bearing option is `virtualModules`: it binds `@sdl/sdl/sdk` to the
  * exact SDK object imported by this process, so command-entry commands and
  * schemas share host SDK identity instead of resolving a second package copy.
  */

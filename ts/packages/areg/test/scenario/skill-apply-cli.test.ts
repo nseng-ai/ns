@@ -1,4 +1,4 @@
-import { InMemoryGitGateway } from "@asdl/core/git/testing";
+import { InMemoryGitGateway } from "@sdl/core/git/testing";
 import { describe, expect, test } from "vitest";
 
 import type { AregCliContext } from "../../src/context.ts";

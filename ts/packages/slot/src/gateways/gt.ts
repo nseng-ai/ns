@@ -19,9 +19,9 @@ import {
 	type GraphiteTopology,
 	type GraphiteWalkTermination,
 	type SqliteJsonRunner,
-} from "@asdl/core/graphite-metadata";
-import { isRecord } from "@asdl/core/primitives";
-import { NodeCommandExecApi, type CommandExecApi } from "@asdl/core/exec";
+} from "@sdl/core/graphite-metadata";
+import { isRecord } from "@sdl/core/primitives";
+import { NodeCommandExecApi, type CommandExecApi } from "@sdl/core/exec";
 
 import type { SlotGitGateway } from "./git.ts";
 

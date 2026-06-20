@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { DEFAULT_FAST_MODEL } from "@asdl/plans";
+import { DEFAULT_FAST_MODEL } from "@sdl/plans";
 import {
 	DEFAULT_WRITE_PLAN_PROMPT_BODY,
 	buildWriteGrilledPlanPrompt,
@@ -112,7 +112,7 @@ describe("buildWritePlanPrompt", () => {
 		expect(prompt).toContain("/enriched-plan:save request");
 		expect(prompt).toContain("add a tiny docs note plan for testing");
 		expect(prompt).toContain("write_saved_plan_file");
-		expect(prompt).toContain("~/.asdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md");
+		expect(prompt).toContain("~/.sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md");
 		expect(prompt).toContain("completely fresh downstream implementation session");
 		expect(prompt).toContain("self-contained");
 		expect(prompt).toContain("Do not rely on this conversation");
@@ -157,7 +157,7 @@ describe("buildWritePlanPrompt", () => {
 	});
 
 	test("checked-in write-plan prompt policy is an intentional repo override", async () => {
-		const promptPath = join(REPO_ROOT, ".asdl", "prompts", "plans-write.md");
+		const promptPath = join(REPO_ROOT, ".sdl", "prompts", "plans-write.md");
 		const checkedInContent = await readFile(promptPath, "utf8");
 
 		expect(checkedInContent).not.toBe(DEFAULT_WRITE_PLAN_PROMPT_BODY);

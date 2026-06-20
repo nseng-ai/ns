@@ -1,9 +1,9 @@
 import { Buffer } from "node:buffer";
 import { readFile, stat } from "node:fs/promises";
 import { relative, resolve } from "node:path";
-import { formatErrorMessage } from "@asdl/core/primitives";
-import type { CommandResult } from "@asdl/sdl/checkpoint-flow";
-import type { PendingWorktreeSnapshot } from "@asdl/sdl/pending-worktree";
+import { formatErrorMessage } from "@sdl/core/primitives";
+import type { CommandResult } from "@sdl/sdl/checkpoint-flow";
+import type { PendingWorktreeSnapshot } from "@sdl/sdl/pending-worktree";
 
 import { chooseAvailableBranchName } from "./branch-name.ts";
 import {
@@ -12,7 +12,7 @@ import {
 	MAX_DIFF_CHARS,
 	prepareRequestedBranchSlug,
 } from "./slug.ts";
-import { sanitizeBranchName } from "@asdl/pi-extension-runtime/branch-slug";
+import { sanitizeBranchName } from "@sdl/pi-extension-runtime/branch-slug";
 
 const GIT_TIMEOUT_MS = 30_000;
 const MAX_UNTRACKED_FILES = 12;

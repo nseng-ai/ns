@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { InMemoryGitGateway } from "@asdl/core/git/testing";
+import { InMemoryGitGateway } from "@sdl/core/git/testing";
 import {
 	NoSavedPlanAvailableError,
 	buildRepoPlanStoreKey,

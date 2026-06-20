@@ -1,10 +1,10 @@
-import { RealGitGateway } from "@asdl/core/git";
+import { RealGitGateway } from "@sdl/core/git";
 import {
 	RealGithubPrGateway,
 	RealSubmitGateway,
 	RealSubmitMetadataGateway,
 	runSubmitCommand,
-} from "@asdl/core/submit";
+} from "@sdl/core/submit";
 
 import { RealCheckpointGateway, runCheckpointIfPending } from "../checkpoint.ts";
 import { failed, ok, z, type SdlCommand, type SdlContext } from "../sdk.ts";
@@ -27,8 +27,8 @@ export const defaultSubmitCommand = {
 	description: `Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.
 
 Environment:
-  ASDL_DEV_PR_DESCRIPTION_MODEL   Model reference for generated PR descriptions.
-  ASDL_DEV_PR_DESCRIPTION_PROMPT  Optional path to a custom PR description prompt.
+  SDL_DEV_PR_DESCRIPTION_MODEL   Model reference for generated PR descriptions.
+  SDL_DEV_PR_DESCRIPTION_PROMPT  Optional path to a custom PR description prompt.
 
   SDL_SUBMIT_FAILURE_MODEL     Model reference for summarizing submit failures.
   SDL_SUBMIT_FAILURE_LOG_DIR   Optional directory for raw submit-failure transcripts.

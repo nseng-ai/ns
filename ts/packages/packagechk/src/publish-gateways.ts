@@ -8,8 +8,8 @@ import {
 	formatCommandStartupFailure,
 	runCommand,
 	type ExecResult,
-} from "@asdl/core/exec";
-import { formatErrorMessage } from "@asdl/core/primitives";
+} from "@sdl/core/exec";
+import { formatErrorMessage } from "@sdl/core/primitives";
 
 export interface PypiPublishGateway {
 	ensurePublishToolsAvailable(): string | null;

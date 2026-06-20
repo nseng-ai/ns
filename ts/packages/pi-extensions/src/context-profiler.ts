@@ -56,7 +56,7 @@ export const contextProfilerParity = definePiSurfaceParity([
 		fallback:
 			"Use a saved context-profiler bundle and the context-bundle-analysis skill for offline prose analysis outside Pi.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
+		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "context-profiler",
 		notes:
 			"Live context overlay and interrogation UI are Pi session primitives; frozen bundle analysis has a portable skill path.",

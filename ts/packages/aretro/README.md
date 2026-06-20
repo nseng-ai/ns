@@ -1,4 +1,4 @@
-# @asdl/aretro
+# @sdl/aretro
 
 TypeScript port of the `aretro` retrospective evidence operations CLI.
 
@@ -24,11 +24,11 @@ aretro exec read-evidence-detail <pointer>
 ## Testing
 
 ```bash
-pnpm --filter @asdl/aretro run test
+pnpm --filter @sdl/aretro run test
 ```
 
 ## Type checking
 
 ```bash
-pnpm --filter @asdl/aretro run check
+pnpm --filter @sdl/aretro run check
 ```

@@ -108,7 +108,7 @@ whether a Matt upstream change should be copied, forked, wrapped, or rejected.
 Use these concepts inline:
 
 - Predictability means same process, not same output.
-- Model-invoked vs. user-invoked maps to ASDL's ambient-discoverable vs.
+- Model-invoked vs. user-invoked maps to SDL's ambient-discoverable vs.
   explicitly-invoked behavior, with harness caveats.
 - Context load competes with human cognitive load; use routers only when they
   reduce the combined cost.

@@ -1,9 +1,9 @@
-import { formatCommand } from "@asdl/core/exec";
+import { formatCommand } from "@sdl/core/exec";
 import {
 	linkifyPrReferences,
 	prLinksFromDetails,
 	truncateDisplayLine,
-} from "@asdl/pi-extension-runtime/terminal-presentation";
+} from "@sdl/pi-extension-runtime/terminal-presentation";
 import { formatCommandDetails, shortSha } from "./command-exec.ts";
 import {
 	AUTO_CHUNK_LANDING_SIZE,

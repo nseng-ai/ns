@@ -7,7 +7,7 @@ import {
 	parseBrmemPutData,
 } from "../../src/brmem-gateway.ts";
 import { BRANCH_CONTEXT_NAMESPACE } from "../../src/constants.ts";
-import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/exec";
 import { InMemoryBranchContextBrmemGateway } from "../support/in-memory-brmem-gateway.ts";
 
 const ROOT = "/no-such-branch-context-repo";

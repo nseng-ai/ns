@@ -47,13 +47,13 @@ sdl submit --restack
 Automatic checkpointing uses SDL checkpoint environment variables:
 
 - `SDL_CHECKPOINT_MODEL` defaults to `openai-codex/gpt-5.4-mini`;
-- `ASDL_DEV_CHECKPOINT_MODEL` remains a legacy fallback when `SDL_CHECKPOINT_MODEL` is unset.
+- `SDL_DEV_CHECKPOINT_MODEL` remains a legacy fallback when `SDL_CHECKPOINT_MODEL` is unset.
 
 PR description generation uses:
 
-- `ASDL_DEV_PR_DESCRIPTION_MODEL` for the model ref, defaulting to `openai-codex/gpt-5.4-mini`;
-- `ASDL_DEV_PR_DESCRIPTION_PROMPT` as an optional prompt-file override;
-- `.asdl/prompts/pr-description.md` as the repo-local prompt override before the built-in default.
+- `SDL_DEV_PR_DESCRIPTION_MODEL` for the model ref, defaulting to `openai-codex/gpt-5.4-mini`;
+- `SDL_DEV_PR_DESCRIPTION_PROMPT` as an optional prompt-file override;
+- `.sdl/prompts/pr-description.md` as the repo-local prompt override before the built-in default.
 
 Submit failure interpretation uses `SDL_SUBMIT_FAILURE_MODEL`, defaulting to the standard SDL fast model.
 

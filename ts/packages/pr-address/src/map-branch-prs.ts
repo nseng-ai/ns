@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { failure, negative, ok, type ClinkrExit, type ClinkrFailureExit } from "@asdl/clinkr";
-import type { GithubPrFeedbackGateway, GithubPrSummary } from "@asdl/core/github-pr-feedback";
+import { failure, negative, ok, type ClinkrExit, type ClinkrFailureExit } from "@sdl/clinkr";
+import type { GithubPrFeedbackGateway, GithubPrSummary } from "@sdl/core/github-pr-feedback";
 import { duplicateValues } from "./duplicate-values.ts";
 import {
 	defineExecOperation,

@@ -4,7 +4,7 @@ import type {
 	GithubPrFeedbackGateway,
 	GithubPrReview,
 	GithubPrReviewThread,
-} from "@asdl/core/github-pr-feedback";
+} from "@sdl/core/github-pr-feedback";
 
 import type { GatewayOptions } from "./gateways.ts";
 

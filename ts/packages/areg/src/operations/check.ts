@@ -1,5 +1,5 @@
-import { failure, negative, ok, shellNegative, type ClinkrExit } from "@asdl/clinkr";
-import type { Result } from "@asdl/core/result";
+import { failure, negative, ok, shellNegative, type ClinkrExit } from "@sdl/clinkr";
+import type { Result } from "@sdl/core/result";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";

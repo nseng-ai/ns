@@ -1,4 +1,4 @@
-import { failure, ok, type ClinkrFailureExit } from "@asdl/clinkr";
+import { failure, ok, type ClinkrFailureExit } from "@sdl/clinkr";
 import { z } from "zod";
 
 import type { BrmemCliContext } from "../context.ts";

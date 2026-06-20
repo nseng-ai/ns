@@ -1,7 +1,7 @@
-import { commandFailureReason, execApiToCommandRunner, type CommandExecApi } from "@asdl/core/exec";
-import { runGitHubCli } from "@asdl/core/github-cli";
-import { formatErrorMessage } from "@asdl/core/primitives";
-import { withTemporaryJsonFile } from "@asdl/core/temp-files";
+import { commandFailureReason, execApiToCommandRunner, type CommandExecApi } from "@sdl/core/exec";
+import { runGitHubCli } from "@sdl/core/github-cli";
+import { formatErrorMessage } from "@sdl/core/primitives";
+import { withTemporaryJsonFile } from "@sdl/core/temp-files";
 import { z } from "zod";
 
 import type { GitHubGatewayFailure, RoasterResult } from "../failures.ts";

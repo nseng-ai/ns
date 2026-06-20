@@ -1,4 +1,4 @@
-import { InMemoryGitGateway } from "@asdl/core/git/testing";
+import { InMemoryGitGateway } from "@sdl/core/git/testing";
 import { describe, expect, test } from "vitest";
 
 import type { AregCliContext } from "../../src/context.ts";
@@ -144,7 +144,7 @@ describe("areg update-skills CLI", () => {
 		const run = runUpdate([], {
 			project: {
 				lockfile: lockfile({ local: local("local") }),
-				asdlToml: "[areg]\nagents = [1]\n",
+				sdlToml: "[areg]\nagents = [1]\n",
 			},
 			npxMissing: true,
 		});
@@ -168,11 +168,11 @@ describe("areg update-skills CLI", () => {
 	});
 
 	test("resolves agents from config precedence and explicit overrides", async () => {
-		const asdl = runUpdate([], {
-			project: { asdlToml: '[areg]\nagents = ["cursor"]\n', aregJson: { agents: ["legacy"] } },
+		const sdl = runUpdate([], {
+			project: { sdlToml: '[areg]\nagents = ["cursor"]\n', aregJson: { agents: ["legacy"] } },
 		});
-		expect(await asdl.exit).toBe(0);
-		expect(asdl.npxSkills.operations()[0]?.targetAgents).toEqual(["cursor"]);
+		expect(await sdl.exit).toBe(0);
+		expect(sdl.npxSkills.operations()[0]?.targetAgents).toEqual(["cursor"]);
 
 		const legacy = runUpdate([], { project: { aregJson: { agents: ["legacy"] } } });
 		expect(await legacy.exit).toBe(0);
@@ -184,10 +184,10 @@ describe("areg update-skills CLI", () => {
 	});
 
 	test("selected updates fail on invalid config, missing lockfile, malformed lockfile, and missing npx before calls", async () => {
-		const invalidConfig = runUpdate([], { project: { asdlToml: "[areg]\nagents = [1]\n" } });
+		const invalidConfig = runUpdate([], { project: { sdlToml: "[areg]\nagents = [1]\n" } });
 		expect(await invalidConfig.exit).toBe(2);
 		expect(invalidConfig.stderr.join("")).toContain(
-			"asdl.toml [areg].agents must be a non-empty string list",
+			"sdl.toml [areg].agents must be a non-empty string list",
 		);
 		expect(invalidConfig.npxSkills.operations()).toEqual([]);
 

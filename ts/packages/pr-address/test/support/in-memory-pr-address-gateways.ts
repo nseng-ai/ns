@@ -12,8 +12,8 @@ import type {
 	GithubPrSummary,
 	GithubReviewThreadReply,
 	GithubReviewThreadState,
-} from "@asdl/core/github-pr-feedback";
-import type { Result } from "@asdl/core/result";
+} from "@sdl/core/github-pr-feedback";
+import type { Result } from "@sdl/core/result";
 
 import type {
 	CurrentBranchResult,

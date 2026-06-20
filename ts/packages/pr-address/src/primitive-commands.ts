@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-import { ok, type ClinkrExit } from "@asdl/clinkr";
-import type { GithubPrFeedbackFailure } from "@asdl/core/github-pr-feedback";
-import type { Result } from "@asdl/core/result";
+import { ok, type ClinkrExit } from "@sdl/clinkr";
+import type { GithubPrFeedbackFailure } from "@sdl/core/github-pr-feedback";
+import type { Result } from "@sdl/core/result";
 
 import {
 	defineExecOperation,

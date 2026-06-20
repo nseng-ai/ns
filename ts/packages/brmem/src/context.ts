@@ -1,4 +1,4 @@
-import { readStdin } from "@asdl/core/stdin";
+import { readStdin } from "@sdl/core/stdin";
 
 import type { BrmemGateway } from "./gateway.ts";
 import { RealBrmemPromptResolver, type BrmemPromptResolver } from "./prompt-resolution.ts";

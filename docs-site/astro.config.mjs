@@ -2,19 +2,19 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import starlightLlmsTxt from 'starlight-llms-txt';
 
-const site = process.env.DOCS_SITE_URL ?? 'https://asdl-docs.vercel.app';
+const site = process.env.DOCS_SITE_URL ?? 'https://sdl-docs.vercel.app';
 
 export default defineConfig({
   output: 'static',
   site,
   integrations: [
     starlight({
-      title: 'asdl',
+      title: 'sdl',
       description:
         'Agent-native software development tooling for durable plans, branch memory, review workflows, and retrospectives.',
       logo: {
         src: './src/assets/logo.svg',
-        alt: 'asdl',
+        alt: 'sdl',
       },
       social: [
         {
@@ -44,26 +44,26 @@ export default defineConfig({
       },
       plugins: [
         starlightLlmsTxt({
-          projectName: 'asdl',
+          projectName: 'sdl',
           description:
-            'asdl is a suite of agent-native development tools for preserving branch context, coordinating objectives, and automating review workflows.',
+            'sdl is a suite of agent-native development tools for preserving branch context, coordinating objectives, and automating review workflows.',
           details:
             'The docs portal publishes the same Markdown corpus that agents consume, so human-facing docs and llms.txt bundles stay aligned.',
           customSets: [
             {
               label: 'Concepts',
               paths: ['concepts/**'],
-              description: 'Core asdl concepts and operating models.',
+              description: 'Core sdl concepts and operating models.',
             },
             {
               label: 'Tools',
               paths: ['tools/**'],
-              description: 'Command-line tools and workflows in the asdl toolkit.',
+              description: 'Command-line tools and workflows in the sdl toolkit.',
             },
             {
               label: 'Skills',
               paths: ['skills/**'],
-              description: 'Public agent skills that build on asdl tools.',
+              description: 'Public agent skills that build on sdl tools.',
             },
           ],
         }),
@@ -80,7 +80,7 @@ export default defineConfig({
         {
           label: 'Concepts',
           items: [
-            { label: 'The asdl umbrella', slug: 'concepts/umbrella' },
+            { label: 'The sdl umbrella', slug: 'concepts/umbrella' },
             { label: 'CLI conventions', slug: 'concepts/conventions' },
             { label: 'Objectives', slug: 'concepts/objectives' },
           ],

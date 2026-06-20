@@ -20,7 +20,7 @@ output are explicit artifacts. `roaster` keeps the mechanical publication surfac
 
 ## Install
 
-From an asdl checkout, install the TypeScript source shim:
+From an sdl checkout, install the TypeScript source shim:
 
 ```bash
 just install-roaster

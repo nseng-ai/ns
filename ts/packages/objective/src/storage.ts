@@ -2,8 +2,8 @@ import { basename, join } from "node:path";
 
 import { z } from "zod";
 
-export const ACTIVE_OBJECTIVE_ROOT = ".asdl/objectives";
-export const OBJECTIVE_ARCHIVE_ROOT = ".asdl/objective-archive";
+export const ACTIVE_OBJECTIVE_ROOT = ".sdl/objectives";
+export const OBJECTIVE_ARCHIVE_ROOT = ".sdl/objective-archive";
 
 export type ObjectiveRecordStatus = "open" | "closed";
 export type ObjectiveArchiveDirection = "archive" | "unarchive";

@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { homedir } from "node:os";
 
-import { managedRegionBounds } from "@asdl/core/managed-region";
+import { managedRegionBounds } from "@sdl/core/managed-region";
 
 export const SUPPORTED_SHELLS = ["zsh", "bash"] as const;
 export type SupportedShell = (typeof SUPPORTED_SHELLS)[number];

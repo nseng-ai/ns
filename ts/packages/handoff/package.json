@@ -1,5 +1,5 @@
 {
-  "name": "@asdl/handoff",
+  "name": "@sdl/handoff",
   "version": "0.1.0",
   "type": "module",
   "exports": {
@@ -17,9 +17,9 @@
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/handoff/test"
   },
   "dependencies": {
-    "@asdl/brmem": "workspace:*",
-    "@asdl/clinkr": "workspace:*",
-    "@asdl/core": "workspace:*",
+    "@sdl/brmem": "workspace:*",
+    "@sdl/clinkr": "workspace:*",
+    "@sdl/core": "workspace:*",
     "zod": "catalog:"
   }
 }

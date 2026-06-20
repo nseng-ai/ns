@@ -2,8 +2,8 @@
 
 import process from "node:process";
 
-import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
-import { isDirectCliInvocation } from "@asdl/core/cli-entry";
+import { ClinkrGroup, resolveIo } from "@sdl/clinkr";
+import { isDirectCliInvocation } from "@sdl/core/cli-entry";
 
 import { createRealAretroContext, type AretroCliContext } from "./context.ts";
 import {
@@ -80,7 +80,7 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 }
 
 function runtimeInfo(): string {
-	return "runtime: typescript\nentry_point: @asdl/aretro bin aretro -> ts/packages/aretro/src/cli.ts\n";
+	return "runtime: typescript\nentry_point: @sdl/aretro bin aretro -> ts/packages/aretro/src/cli.ts\n";
 }
 
 if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {

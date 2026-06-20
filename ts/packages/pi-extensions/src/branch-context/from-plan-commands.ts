@@ -1,7 +1,7 @@
 import {
 	formatBranchContextUpAndImplFollowUpFlow,
 	runBranchContextUpAndImplLaunch,
-} from "@asdl/ccc/branch-context-up-and-impl";
+} from "@sdl/ccc/branch-context-up-and-impl";
 import {
 	BRANCH_CONTEXT_NAMESPACE,
 	buildBranchContextOutputMessage,
@@ -21,13 +21,13 @@ import {
 	type BranchCreationMethod,
 	type ExistingBranchContextReuse,
 	type PlanContentSlugEvidence,
-} from "@asdl/branch-context";
+} from "@sdl/branch-context";
 import {
 	NoSavedPlanAvailableError,
 	type RepoIdentitySource,
 	type SelectedSavedPlanFile,
-} from "@asdl/plans";
-import { formatErrorMessage } from "@asdl/core/primitives";
+} from "@sdl/plans";
+import { formatErrorMessage } from "@sdl/core/primitives";
 import {
 	resolveBranchContextDefaultCreation,
 	resolveBranchContextOperations,

@@ -1,4 +1,4 @@
-import { formatOutputSection, tailText, type ExecOptions, type ExecResult } from "@asdl/core/exec";
+import { formatOutputSection, tailText, type ExecOptions, type ExecResult } from "@sdl/core/exec";
 
 import { buildFencedTextBlock, expandRepoSkillBlock } from "./skill-expansion.ts";
 import { definePiSurfaceParity } from "./parity.ts";
@@ -15,7 +15,7 @@ export const smartRestackParity = definePiSurfaceParity([
 		fallback:
 			"Claude Code, Codex, and other non-Pi users should invoke the portable `code-gt-restack-resolve` skill directly; it runs the same Graphite restack workflow from the current repository state.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
+		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "smart-restack",
 		notes:
 			"This Pi-native command is a turn-saving UI wrapper over the portable code-gt-restack-resolve skill; the skill remains the cross-harness workflow contract.",

@@ -1,4 +1,4 @@
-import { mapFromRecordOrMap } from "@asdl/core/primitives";
+import { mapFromRecordOrMap } from "@sdl/core/primitives";
 
 import type { ReviewApplicability } from "./models.ts";
 

@@ -1,5 +1,5 @@
-import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
-import { err, type Result } from "@asdl/core/result";
+import { formatErrorMessage, isRecord } from "@sdl/core/primitives";
+import { err, type Result } from "@sdl/core/result";
 import { parse } from "smol-toml";
 
 import type { AregTextFileState } from "../gateways.ts";
@@ -9,26 +9,26 @@ export const DEFAULT_AGENTS = ["codex", "claude-code"] as const;
 
 export function resolveProjectAgents(input: {
 	explicitAgents: readonly string[];
-	asdlToml: AregTextFileState;
+	sdlToml: AregTextFileState;
 	aregJson: AregTextFileState;
 }): Result<string[]> {
 	if (input.explicitAgents.length > 0) return { ok: true, value: [...input.explicitAgents] };
-	const asdlAgents = parseAsdlAregAgentsFromState(input.asdlToml);
-	if (!asdlAgents.ok) return asdlAgents;
-	if (asdlAgents.value.length > 0) return asdlAgents;
+	const sdlAgents = parseSdlAregAgentsFromState(input.sdlToml);
+	if (!sdlAgents.ok) return sdlAgents;
+	if (sdlAgents.value.length > 0) return sdlAgents;
 	const legacyAgents = parseLegacyAregJsonAgentsFromState(input.aregJson);
 	if (!legacyAgents.ok) return legacyAgents;
 	if (legacyAgents.value.length > 0) return legacyAgents;
 	return { ok: true, value: [...DEFAULT_AGENTS] };
 }
 
-export function parseAsdlAregAgents(text: string, pathLabel = "asdl.toml"): Result<string[]> {
+export function parseSdlAregAgents(text: string, pathLabel = "sdl.toml"): Result<string[]> {
 	let data: unknown;
 	try {
 		data = parse(text);
 	} catch (error) {
 		return err({
-			code: "asdl_toml_invalid",
+			code: "sdl_toml_invalid",
 			message: `Invalid TOML in ${pathLabel}: ${formatErrorMessage(error)}`,
 		});
 	}
@@ -37,14 +37,14 @@ export function parseAsdlAregAgents(text: string, pathLabel = "asdl.toml"): Resu
 	if (areg === undefined) return { ok: true, value: [] };
 	if (!isRecord(areg))
 		return err({
-			code: "asdl_toml_invalid",
+			code: "sdl_toml_invalid",
 			message: `[areg] in ${pathLabel} must be a TOML table.`,
 		});
 	const agents = areg.agents;
 	if (agents === undefined) return { ok: true, value: [] };
 	if (!Array.isArray(agents))
 		return err({
-			code: "asdl_toml_invalid",
+			code: "sdl_toml_invalid",
 			message: `${pathLabel} [areg].agents must be a string array.`,
 		});
 	if (agents.length === 0) return { ok: true, value: [] };
@@ -52,7 +52,7 @@ export function parseAsdlAregAgents(text: string, pathLabel = "asdl.toml"): Resu
 	for (const agent of agents) {
 		if (typeof agent !== "string" || agent.trim().length === 0)
 			return err({
-				code: "asdl_toml_invalid",
+				code: "sdl_toml_invalid",
 				message: `${pathLabel} [areg].agents must be a non-empty string list.`,
 			});
 		result.push(agent);
@@ -90,16 +90,16 @@ export function parseLegacyAregJsonAgents(text: string): Result<string[]> {
 	return { ok: true, value: result };
 }
 
-function parseAsdlAregAgentsFromState(state: AregTextFileState): Result<string[]> {
+function parseSdlAregAgentsFromState(state: AregTextFileState): Result<string[]> {
 	if (state.type === "missing") return { ok: true, value: [] };
 	if (state.type !== "file")
 		return rejectTextState({
-			pathLabel: "asdl.toml",
+			pathLabel: "sdl.toml",
 			state,
-			description: "asdl.toml",
+			description: "sdl.toml",
 			action: "manage it",
 		});
-	return parseAsdlAregAgents(state.text, "asdl.toml");
+	return parseSdlAregAgents(state.text, "sdl.toml");
 }
 
 function parseLegacyAregJsonAgentsFromState(state: AregTextFileState): Result<string[]> {

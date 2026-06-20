@@ -10,8 +10,8 @@ import {
 	hasExpectedGraphiteBranchMetadataSchema,
 	parseGraphiteBranchMetadataRows,
 	sqliteTextLiteral,
-} from "@asdl/core/graphite-metadata";
-import { isRecord } from "@asdl/pi-extension-runtime/cmux/primitives";
+} from "@sdl/core/graphite-metadata";
+import { isRecord } from "@sdl/pi-extension-runtime/cmux/primitives";
 const GRAPHITE_METADATA_UNAVAILABLE_REASONS = [
 	"missing-db",
 	"sqlite-unavailable",

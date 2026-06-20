@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 
-import { createDeferred } from "@asdl/core/testing";
+import { createDeferred } from "@sdl/core/testing";
 
 import { buildHandoffSelfPrompt, formatHandoffSelfKickoffPrompt } from "../src/handoff.ts";
 import { createHandoffSelfWorkflow } from "../src/handoff/self.ts";

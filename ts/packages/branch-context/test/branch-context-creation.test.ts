@@ -10,10 +10,10 @@ import {
 	validateTargetBranchName,
 	type CreateBranchContextFromFileParams,
 } from "../src/branch-context-creation.ts";
-import { createBranchContextContext, type BranchContextContext } from "@asdl/branch-context";
-import type { CommandExecApi, ExecOptions } from "@asdl/core/exec";
-import type { ExecResult } from "@asdl/core/exec";
-import { brmemCheckJson } from "@asdl/core/testing";
+import { createBranchContextContext, type BranchContextContext } from "@sdl/branch-context";
+import type { CommandExecApi, ExecOptions } from "@sdl/core/exec";
+import type { ExecResult } from "@sdl/core/exec";
+import { brmemCheckJson } from "@sdl/core/testing";
 
 const ROOT = "/repo";
 const PLAN_SLUG = "branch-scoped-plan-extension";

@@ -1,4 +1,4 @@
-import type { CommandExecApi } from "@asdl/core/exec";
+import type { CommandExecApi } from "@sdl/core/exec";
 import { formatCmuxCommandFailure, runCmuxCommand, type CmuxCommandFailure } from "./command.ts";
 import { isRecord, stringField } from "./primitives.ts";
 

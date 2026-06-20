@@ -12,7 +12,7 @@ import {
 	type GraphiteMetadataWorkerDiagnostic,
 	type GraphiteMetadataWorkerHandle,
 	type GraphiteMetadataWorkerRequest,
-} from "@asdl/ccc/worktree-status/graphite-metadata";
+} from "@sdl/ccc/worktree-status/graphite-metadata";
 
 class NonRespondingMetadataWorker implements GraphiteMetadataWorkerHandle {
 	onmessage: ((event: { data: unknown }) => void) | null = null;

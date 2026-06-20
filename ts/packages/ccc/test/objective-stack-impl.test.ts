@@ -15,7 +15,7 @@ import {
 	type Selection,
 	writeSelfContainedSkillMarkdown,
 } from "./ccc-test-harness.ts";
-import type { ExecResult } from "@asdl/core/exec";
+import type { ExecResult } from "@sdl/core/exec";
 
 const TRUNK = "master";
 
@@ -81,14 +81,14 @@ async function runObjectiveStackImpl(options: RunObjectiveStackImplOptions): Pro
 }
 
 function diffStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedExec {
-	return step("git", ["diff", "--name-status", "-M", `${TRUNK}...HEAD`, "--", ".asdl/objectives"], {
+	return step("git", ["diff", "--name-status", "-M", `${TRUNK}...HEAD`, "--", ".sdl/objectives"], {
 		stdout,
 		...result,
 	});
 }
 
 function statusStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedExec {
-	return step("git", ["status", "--porcelain=v1", "-z", "--", ".asdl/objectives"], {
+	return step("git", ["status", "--porcelain=v1", "-z", "--", ".sdl/objectives"], {
 		stdout,
 		...result,
 	});
@@ -166,12 +166,12 @@ describe("objective stack impl CCC orchestration", () => {
 		expectListActiveObjectivesCall(result);
 		expect(result.host.execCalls[1]).toEqual({
 			command: "git",
-			args: ["diff", "--name-status", "-M", "master...HEAD", "--", ".asdl/objectives"],
+			args: ["diff", "--name-status", "-M", "master...HEAD", "--", ".sdl/objectives"],
 			options: { cwd: ROOT, timeout: 30_000 },
 		});
 		expect(result.host.execCalls[2]).toEqual({
 			command: "git",
-			args: ["status", "--porcelain=v1", "-z", "--", ".asdl/objectives"],
+			args: ["status", "--porcelain=v1", "-z", "--", ".sdl/objectives"],
 			options: { cwd: ROOT, timeout: 30_000 },
 		});
 		expect(result.waitForIdleCalls()).toBe(2);
@@ -183,7 +183,7 @@ describe("objective stack impl CCC orchestration", () => {
 			args: "",
 			script: [
 				objectiveListStep(["alpha", "bravo", "charlie"]),
-				diffStep("M\t.asdl/objectives/bravo/objective.md\n"),
+				diffStep("M\t.sdl/objectives/bravo/objective.md\n"),
 				statusStep(""),
 			],
 			commandInfos: [skillCommand("objective-stack-impl", stackSkillPath)],
@@ -206,7 +206,7 @@ describe("objective stack impl CCC orchestration", () => {
 			args: "",
 			script: [
 				objectiveListStep(["alpha", "bravo", "charlie"]),
-				diffStep("M\t.asdl/objectives/bravo/objective.md\n"),
+				diffStep("M\t.sdl/objectives/bravo/objective.md\n"),
 				statusStep(""),
 			],
 			contextOptions: { selectIndices: [1, 1] },

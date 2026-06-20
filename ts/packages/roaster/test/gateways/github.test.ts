@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, test } from "vitest";
 
-import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
-import { ScriptedCommandExecApi } from "@asdl/core/testing";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/exec";
+import { ScriptedCommandExecApi } from "@sdl/core/testing";
 
 import { FakeRoasterGitHubGateway, RealRoasterGitHubGateway } from "../../src/gateways/github.ts";
 import type { PRChangedFile, PRInlineCommentInput, PRReviewComment } from "../../src/models.ts";

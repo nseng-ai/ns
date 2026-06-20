@@ -1,4 +1,4 @@
-// Compatibility shim: @asdl/ccc owns focused cmux terminal-tab orchestration.
+// Compatibility shim: @sdl/ccc owns focused cmux terminal-tab orchestration.
 export {
 	createCmuxSurface,
 	identifyCmuxCaller,
@@ -6,7 +6,7 @@ export {
 	parseCreatedCmuxSurface,
 	renameCmuxTab,
 	sendCmuxText,
-} from "@asdl/ccc/cmux/focused-terminal-tab";
+} from "@sdl/ccc/cmux/focused-terminal-tab";
 export type {
 	CmuxCallerContext,
 	CmuxCreatedSurface,
@@ -14,4 +14,4 @@ export type {
 	CmuxSendOptions,
 	CmuxTabOptions,
 	CreateCmuxSurfaceOptions,
-} from "@asdl/ccc/cmux/focused-terminal-tab";
+} from "@sdl/ccc/cmux/focused-terminal-tab";

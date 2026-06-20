@@ -6,9 +6,9 @@ import {
 	type CommandRunner,
 	type ExecOptions,
 	type ExecResult,
-} from "@asdl/core/exec";
+} from "@sdl/core/exec";
 
-export const SLOT_DIAGNOSTIC_LOG_ENV = "ASDL_SLOT_DIAGNOSTIC_LOG";
+export const SLOT_DIAGNOSTIC_LOG_ENV = "SDL_SLOT_DIAGNOSTIC_LOG";
 
 export interface SlotCommandDiagnosticEvent {
 	readonly type: "slot.command";

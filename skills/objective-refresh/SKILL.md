@@ -71,8 +71,8 @@ If a claim cannot be verified cheaply, do not leave it as fact. Convert it to an
 For feature-owned or orchestrated-owned branch contexts, prefer the most recent refresh commit for the slug. Recognize both the current prefix and the legacy branch-refresh prefix so older branches remain idempotent:
 
 ```bash
-git -C "$WT" log -n1 --format=%H --grep='\[objective-refresh\].*<slug>' -- .asdl/objectives/<slug>/
-git -C "$WT" log -n1 --format=%H --grep='\[objective-branch-refresh\].*<slug>' -- .asdl/objectives/<slug>/
+git -C "$WT" log -n1 --format=%H --grep='\[objective-refresh\].*<slug>' -- .sdl/objectives/<slug>/
+git -C "$WT" log -n1 --format=%H --grep='\[objective-branch-refresh\].*<slug>' -- .sdl/objectives/<slug>/
 ```
 
 `[objective-branch-refresh]` is legacy read compatibility only; all new refresh commits use `[objective-refresh]`.
@@ -86,7 +86,7 @@ git -C "$WT" merge-base <trunk-or-base> HEAD
 A feature-owned refresh is due iff the Objective directory changed since the baseline:
 
 ```bash
-git -C "$WT" diff --quiet <baseline>..HEAD -- .asdl/objectives/<slug>/
+git -C "$WT" diff --quiet <baseline>..HEAD -- .sdl/objectives/<slug>/
 ```
 
 For trunk-explicit contexts, the explicit active slug is due for claim verification. Use the last matching refresh commit when present; otherwise use the most recent commit that touched the Objective directory, or `HEAD` if the directory exists only at `HEAD` and record that there is no prior Objective-history baseline. Trunk due-ness means "perform claim verification and write only if ground truth makes durable prose stale," not "force a commit."
@@ -104,7 +104,7 @@ Do not stamp a post-commit Objective tree SHA into the update file; the update f
 Before editing one Objective directory, verify it is clean:
 
 ```bash
-git -C "$WT" status --porcelain -- .asdl/objectives/<slug>/
+git -C "$WT" status --porcelain -- .sdl/objectives/<slug>/
 ```
 
 - Standalone one-objective or branch/context mode: if the selected Objective directory is dirty, stop and report the dirty slug unless the user explicitly asks to incorporate those local edits.
@@ -126,10 +126,10 @@ For each due, clean slug, run a full refresh loop:
 2. **Gather target evidence** from the baseline to the target `HEAD`/ref:
 
    ```bash
-   git -C "$WT" log --oneline <baseline>..<target> -- .asdl/objectives/<slug>/
-   git -C "$WT" diff --stat <baseline>..<target> -- .asdl/objectives/<slug>/
-   git -C "$WT" diff --name-status <baseline>..<target> -- .asdl/objectives/<slug>/
-   git -C "$WT" diff <baseline>..<target> -- .asdl/objectives/<slug>/objective.md .asdl/objectives/<slug>/roadmap.md
+   git -C "$WT" log --oneline <baseline>..<target> -- .sdl/objectives/<slug>/
+   git -C "$WT" diff --stat <baseline>..<target> -- .sdl/objectives/<slug>/
+   git -C "$WT" diff --name-status <baseline>..<target> -- .sdl/objectives/<slug>/
+   git -C "$WT" diff <baseline>..<target> -- .sdl/objectives/<slug>/objective.md .sdl/objectives/<slug>/roadmap.md
    ```
 
    Use `HEAD` for `<target>` when operating in the current checkout.
@@ -160,7 +160,7 @@ For each due, clean slug, run a full refresh loop:
 Standalone one-objective mode creates one self-identifying commit when there are edits:
 
 ```bash
-git -C "$WT" add .asdl/objectives/<slug>/
+git -C "$WT" add .sdl/objectives/<slug>/
 git -C "$WT" commit -m "[objective-refresh] refresh <slug>"
 ```
 

@@ -10,9 +10,9 @@ import {
 	type BrmemPutData,
 } from "./brmem-gateway.ts";
 import type { BranchContextContext } from "./context.ts";
-import type { CommandExecApi } from "@asdl/core/exec";
-import type { GitGateway } from "@asdl/core/git";
-import { listSavedPlans, resolvePlanSourceFile, type PlanStoreOptions } from "@asdl/plans";
+import type { CommandExecApi } from "@sdl/core/exec";
+import type { GitGateway } from "@sdl/core/git";
+import { listSavedPlans, resolvePlanSourceFile, type PlanStoreOptions } from "@sdl/plans";
 
 export interface BranchContextPrimitiveOptions {
 	cwd: string;

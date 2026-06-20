@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# aretro — runs an asdl TypeScript CLI from source.
+# aretro — runs an sdl TypeScript CLI from source.
 #
 # Rendered by TypeScript tool install recipes and skill-local source runners.
 # The installer replaces this template's placeholders with shell-quoted literal
 # values. Installed shims use a baked canonical checkout fallback. Skill-local
 # runners derive their fallback checkout from the rendered script's own location.
-# In both modes, sources from the caller's current asdl checkout win first.
+# In both modes, sources from the caller's current sdl checkout win first.
 set -euo pipefail
 
 tool=aretro
 canonical_checkout=unused-for-script-checkout
 cli_rel_path=ts/packages/aretro/src/cli.ts
-install_hint='run from an asdl checkout with '\''just ts-install'\'' available, or install the TypeScript shim with '\''just install-aretro'\'''
+install_hint='run from an sdl checkout with '\''just ts-install'\'' available, or install the TypeScript shim with '\''just install-aretro'\'''
 fallback_mode=script-checkout
 
 run_checkout() {
@@ -35,7 +35,7 @@ case "$fallback_mode" in
       run_checkout "$canonical_checkout" "$@"
     fi
 
-    echo "$tool: no asdl checkout found (cwd is not inside an asdl checkout and the canonical checkout '$canonical_checkout' is missing $cli_rel_path); reinstall from an asdl checkout with: $install_hint" >&2
+    echo "$tool: no sdl checkout found (cwd is not inside an sdl checkout and the canonical checkout '$canonical_checkout' is missing $cli_rel_path); reinstall from an sdl checkout with: $install_hint" >&2
     exit 2
     ;;
   script-checkout)
@@ -45,7 +45,7 @@ case "$fallback_mode" in
       run_checkout "$script_checkout" "$@"
     fi
 
-    echo "$tool: no asdl checkout found (cwd is not inside an asdl checkout and the script checkout is missing $cli_rel_path); $install_hint" >&2
+    echo "$tool: no sdl checkout found (cwd is not inside an sdl checkout and the script checkout is missing $cli_rel_path); $install_hint" >&2
     exit 2
     ;;
   *)

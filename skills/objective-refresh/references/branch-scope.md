@@ -38,13 +38,13 @@ test "$branch" = "<trunk>"
 On a feature branch, discover candidate Objective slugs from explicit user-supplied slug(s) when present; otherwise use a three-dot diff against trunk:
 
 ```bash
-git -C "$WT" diff --name-only <trunk>...HEAD -- .asdl/objectives/
+git -C "$WT" diff --name-only <trunk>...HEAD -- .sdl/objectives/
 ```
 
-Reduce paths to `.asdl/objectives/<slug>/`. A slug is genuinely owned by this branch only when this three-dot diff is non-empty for that slug:
+Reduce paths to `.sdl/objectives/<slug>/`. A slug is genuinely owned by this branch only when this three-dot diff is non-empty for that slug:
 
 ```bash
-git -C "$WT" diff --quiet <trunk>...HEAD -- .asdl/objectives/<slug>/
+git -C "$WT" diff --quiet <trunk>...HEAD -- .sdl/objectives/<slug>/
 ```
 
 If no active Objective slug is genuinely owned on a feature branch, report that the branch owns no Objective records and make no commit. If the user supplied explicit slug(s) on a feature branch, still apply the ownership filter and report `not-owned` for any slug that lacks a three-dot Objective diff.
@@ -69,7 +69,7 @@ commit_mode=aggregate-by-caller
 Derive the baseline with the rules in `../SKILL.md`:
 
 - Feature-owned contexts prefer the most recent `[objective-refresh]` or legacy `[objective-branch-refresh]` commit for that slug; otherwise use `git -C "$WT" merge-base <trunk> HEAD`.
-- Feature-owned contexts are due only when `.asdl/objectives/<slug>/` changed since the baseline.
+- Feature-owned contexts are due only when `.sdl/objectives/<slug>/` changed since the baseline.
 - Trunk-explicit contexts are due for claim verification, but write only when ground truth makes durable prose stale.
 
 After a successful aggregate refresh commit, the last-refresh baseline advances to that commit, so an immediate rerun is a no-op when no claims have drifted. A pure restack with unchanged Objective trees is also a no-op.
@@ -79,7 +79,7 @@ After a successful aggregate refresh commit, the last-refresh baseline advances 
 Before processing one Objective directory, verify it is clean:
 
 ```bash
-git -C "$WT" status --porcelain -- .asdl/objectives/<slug>/
+git -C "$WT" status --porcelain -- .sdl/objectives/<slug>/
 ```
 
 - Standalone branch/context mode: if a due slug is dirty, stop and report the dirty slug.
@@ -114,7 +114,7 @@ Keep the branch/context loop responsible for discovery, ownership filtering, dir
 After processing all due slugs for this target context, create one self-identifying aggregate commit when there are edits:
 
 ```bash
-git -C "$WT" add .asdl/objectives/<slug>/
+git -C "$WT" add .sdl/objectives/<slug>/
 git -C "$WT" commit -m "[objective-refresh] refresh <slug>"
 ```
 

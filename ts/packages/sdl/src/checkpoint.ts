@@ -1,4 +1,4 @@
-import { runCommand, type CommandRunner, type ExecResult } from "@asdl/core/exec";
+import { runCommand, type CommandRunner, type ExecResult } from "@sdl/core/exec";
 import {
 	createCommitWithPreparedMessage,
 	prepareCheckpointMessage,

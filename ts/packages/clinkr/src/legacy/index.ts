@@ -4,7 +4,7 @@
  * `{"success":true,...}` body on ok and `{"success":false,"error":{...}}` with
  * exit 2 on failure. One directory to delete when the migration-debt ledger
  * kills the `legacyMachine` escape hatch. Intentionally not re-exported from
- * the package root — `@asdl/clinkr/legacy` is the only door.
+ * the package root — `@sdl/clinkr/legacy` is the only door.
  */
 
 import type { z } from "zod";
@@ -89,7 +89,7 @@ function toLegacyFailure(errorType: string, error: unknown): ClinkrFailure {
 	return new ClinkrFailure({ errorType, message: formatErrorMessage(error) });
 }
 
-// Inlined copy of @asdl/core's formatErrorMessage: clinkr has zero workspace
+// Inlined copy of @sdl/core's formatErrorMessage: clinkr has zero workspace
 // deps, and this module must delete cleanly without leaving a dep to GC.
 function formatErrorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);

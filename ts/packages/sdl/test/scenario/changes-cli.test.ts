@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { listSdlCommands } from "@asdl/sdl/cli";
+import { listSdlCommands } from "@sdl/sdl/cli";
 
 import { formatOutstandingChangesMessage } from "../../src/changes-summary.ts";
 import { validateChangesSummary } from "../../src/changes-model-summary.ts";
@@ -54,7 +54,7 @@ describe("sdl changes CLI", () => {
 			{
 				name: "regenerate-pr",
 				description:
-					"Regenerate the current branch PR's title and description with the asdl PR-description prompt.",
+					"Regenerate the current branch PR's title and description with the sdl PR-description prompt.",
 			},
 			{
 				name: "submit",

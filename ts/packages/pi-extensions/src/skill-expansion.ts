@@ -15,4 +15,4 @@ export {
 	type SkillExpansionHost,
 	type SkillExpansionOptions,
 	type SkillPathExpansionOptions,
-} from "@asdl/pi-extension-runtime/skill-expansion";
+} from "@sdl/pi-extension-runtime/skill-expansion";

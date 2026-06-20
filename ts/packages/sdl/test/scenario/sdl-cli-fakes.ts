@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { runCli } from "@asdl/sdl/cli";
+import { runCli } from "@sdl/sdl/cli";
 import type {
 	SdlExecOptions,
 	ExecResult,
@@ -8,7 +8,7 @@ import type {
 	SdlContext,
 	TextGenerationRequest,
 	TextGenerationResult,
-} from "@asdl/sdl/sdk";
+} from "@sdl/sdl/sdk";
 
 export type ScriptedTextGenerationResult = TextGenerationResult | Promise<TextGenerationResult>;
 

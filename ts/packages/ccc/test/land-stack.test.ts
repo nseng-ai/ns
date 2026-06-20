@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { formatCommand, type ExecResult } from "@asdl/core/exec";
+import { formatCommand, type ExecResult } from "@sdl/core/exec";
 import {
 	isGtDeleteMissingBranch,
 	outputTail,
@@ -1207,11 +1207,11 @@ describe("land-stack pure helpers", () => {
 	});
 
 	test("detects managed slot paths and extracts slot names", () => {
-		const slotPath = "/Users/me/.slots/repos/asdl-tools/worktrees/slot-04";
+		const slotPath = "/Users/me/.slots/repos/sdl-tools/worktrees/slot-04";
 		expect(isManagedSlotPath(slotPath)).toBe(true);
 		expect(slotNameFromPath(slotPath)).toBe("slot-04");
-		expect(isManagedSlotPath("/tmp/asdl-tools/worktrees/slot-04")).toBe(false);
-		expect(slotNameFromPath("/tmp/asdl-tools/worktrees/slot-04")).toBe("slot-04");
+		expect(isManagedSlotPath("/tmp/sdl-tools/worktrees/slot-04")).toBe(false);
+		expect(slotNameFromPath("/tmp/sdl-tools/worktrees/slot-04")).toBe("slot-04");
 	});
 
 	test("formats command displays with shell quoting", () => {
@@ -1237,10 +1237,10 @@ describe("land-stack pure helpers", () => {
 			parseGitCheckedOutElsewhere(
 				execResult({
 					code: 1,
-					stderr: "fatal: 'master' is already checked out at '/Users/schrockn/code/asdl-tools'\n",
+					stderr: "fatal: 'master' is already checked out at '/Users/schrockn/code/sdl-tools'\n",
 				}),
 			),
-		).toEqual({ branch: "master", path: "/Users/schrockn/code/asdl-tools" });
+		).toEqual({ branch: "master", path: "/Users/schrockn/code/sdl-tools" });
 		expect(
 			parseGitCheckedOutElsewhere(
 				execResult({ code: 1, stderr: "ERROR: authentication failed\n" }),

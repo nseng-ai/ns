@@ -8,10 +8,10 @@ export {
 	stripTerminalEscapes,
 	terminalHyperlink,
 	truncateDisplayLine,
-} from "@asdl/pi-extension-runtime/terminal-presentation";
+} from "@sdl/pi-extension-runtime/terminal-presentation";
 export type {
 	CustomMessageContent,
 	CustomMessageTextPart,
 	PrLink,
 	PrLinksDetails,
-} from "@asdl/pi-extension-runtime/terminal-presentation";
+} from "@sdl/pi-extension-runtime/terminal-presentation";

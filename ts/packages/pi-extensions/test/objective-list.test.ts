@@ -10,7 +10,7 @@ describe("parseObjectiveList", () => {
 			type: "valid",
 			list: {
 				trunkBranch: "main",
-				rootPath: ".asdl/objectives",
+				rootPath: ".sdl/objectives",
 				statusFilter: "active",
 				namesOnly: false,
 				records: [
@@ -126,7 +126,7 @@ function envelope(dataOverrides: Record<string, unknown> = {}): string {
 		exit_code: 0,
 		data: {
 			trunkBranch: "main",
-			rootPath: ".asdl/objectives",
+			rootPath: ".sdl/objectives",
 			statusFilter: "active",
 			namesOnly: false,
 			records: [record()],

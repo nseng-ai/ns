@@ -2,9 +2,9 @@
 
 import process from "node:process";
 
-import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
-import { isDirectCliInvocation } from "@asdl/core/cli-entry";
-import { readStdin } from "@asdl/core/stdin";
+import { ClinkrGroup, resolveIo } from "@sdl/clinkr";
+import { isDirectCliInvocation } from "@sdl/core/cli-entry";
+import { readStdin } from "@sdl/core/stdin";
 
 import { createRealPrAddressContext, type PrAddressContext } from "./context.ts";
 import { EXEC_OPERATIONS } from "./exec-commands.ts";
@@ -58,7 +58,7 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 }
 
 function runtimeInfo(): string {
-	return "runtime: typescript\nentry_point: @asdl/pr-address bin pr-address -> ts/packages/pr-address/src/cli.ts\n";
+	return "runtime: typescript\nentry_point: @sdl/pr-address bin pr-address -> ts/packages/pr-address/src/cli.ts\n";
 }
 
 if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {

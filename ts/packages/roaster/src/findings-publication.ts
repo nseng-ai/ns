@@ -2,8 +2,8 @@ import {
 	buildFailureMachineEnvelopeSchema,
 	buildSuccessMachineEnvelopeSchema,
 	machineEnvelopeSchema,
-} from "@asdl/clinkr";
-import { formatErrorMessage, formatZodError } from "@asdl/core/primitives";
+} from "@sdl/clinkr";
+import { formatErrorMessage, formatZodError } from "@sdl/core/primitives";
 import { z } from "zod";
 
 import { environmentOptions, ROASTER_BOT_LOGIN, type RoasterRunScope } from "./context.ts";

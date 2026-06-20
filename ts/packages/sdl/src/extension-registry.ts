@@ -84,11 +84,11 @@ export async function loadSdlCommandCatalog(
 	const home = options.homeDir ?? homedir();
 	const globalCandidates = loadRootCandidates({
 		level: "global",
-		rootDir: join(home, ".asdl", "extensions"),
+		rootDir: join(home, ".sdl", "extensions"),
 	});
 	const projectCandidates = loadRootCandidates({
 		level: "project",
-		rootDir: join(options.cwd, ".asdl", "extensions"),
+		rootDir: join(options.cwd, ".sdl", "extensions"),
 	});
 	diagnostics.push(...globalCandidates.diagnostics, ...projectCandidates.diagnostics);
 

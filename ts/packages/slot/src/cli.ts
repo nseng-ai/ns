@@ -8,9 +8,9 @@ import {
 	resolveClinkrInteraction,
 	resolveIo,
 	type ClinkrInteraction,
-} from "@asdl/clinkr";
-import { isDirectCliInvocation } from "@asdl/core/cli-entry";
-import { readStdinLine } from "@asdl/core/stdin";
+} from "@sdl/clinkr";
+import { isDirectCliInvocation } from "@sdl/core/cli-entry";
+import { readStdinLine } from "@sdl/core/stdin";
 
 import { createRealSlotContext, type SlotCliContext } from "./context.ts";
 import {
@@ -337,7 +337,7 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 }
 
 function runtimeInfo(): string {
-	return "runtime: typescript\nentry_point: @asdl/slot bin slot -> ts/packages/slot/src/cli.ts\n";
+	return "runtime: typescript\nentry_point: @sdl/slot bin slot -> ts/packages/slot/src/cli.ts\n";
 }
 
 if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {

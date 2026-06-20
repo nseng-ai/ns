@@ -1,21 +1,21 @@
 import { basename, isAbsolute, posix, relative, resolve, sep } from "node:path";
 
-import { formatCommand, formatOutputSection, tailText, type ExecResult } from "@asdl/core/exec";
-import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
+import { formatCommand, formatOutputSection, tailText, type ExecResult } from "@sdl/core/exec";
+import { parseMachineEnvelopeData } from "@sdl/pi-extension-runtime/machine-envelope";
 import {
 	parseObjectiveList,
 	type ObjectiveListRecord,
-} from "@asdl/pi-extension-runtime/objective-list";
-import { formatErrorMessage } from "@asdl/core/primitives";
+} from "@sdl/pi-extension-runtime/objective-list";
+import { formatErrorMessage } from "@sdl/core/primitives";
 import type { ExtensionAPI } from "./types.ts";
 
 const OBJECTIVE_READ_TIMEOUT_MS = 30_000;
 export const CMUX_WORKSPACE_SUMMARY_TIMEOUT_MS = 30_000;
 const MAX_ERROR_CHARS = 4_000;
 const MAX_ERROR_LINES = 20;
-const ACTIVE_OBJECTIVE_PREFIX = ".asdl/objectives/";
-const ACTIVE_OBJECTIVE_ROOT = ".asdl/objectives";
-const ARCHIVE_OBJECTIVE_ROOT = ".asdl/objective-archive";
+const ACTIVE_OBJECTIVE_PREFIX = ".sdl/objectives/";
+const ACTIVE_OBJECTIVE_ROOT = ".sdl/objectives";
+const ARCHIVE_OBJECTIVE_ROOT = ".sdl/objective-archive";
 
 export type ObjectiveSelectorParseResult =
 	| {
@@ -82,12 +82,12 @@ export function resolveObjectiveSelector(
 ): ObjectiveSelectorParseResult {
 	const trimmed = selector.trim();
 	if (trimmed.length === 0) {
-		return invalidSelector("Pass an Objective slug or .asdl/objectives/<slug> path.");
+		return invalidSelector("Pass an Objective slug or .sdl/objectives/<slug> path.");
 	}
 
 	if (trimmed.includes("\\")) {
 		return invalidSelector(
-			"Objective selector must be a slug or a .asdl/objectives/<slug> path using forward slashes.",
+			"Objective selector must be a slug or a .sdl/objectives/<slug> path using forward slashes.",
 		);
 	}
 
@@ -297,11 +297,11 @@ function resolveAbsoluteObjectiveSelector(
 	const activeRoot = resolve(cwd, ACTIVE_OBJECTIVE_ROOT);
 	const relativePath = relative(activeRoot, normalizedSelector);
 	if (relativePath.length === 0) {
-		return invalidSelector("Pass an Objective slug or path below .asdl/objectives/<slug>.");
+		return invalidSelector("Pass an Objective slug or path below .sdl/objectives/<slug>.");
 	}
 	if (relativePath.startsWith("..") || isAbsolute(relativePath)) {
 		return invalidSelector(
-			"Objective path must be inside the current repo's .asdl/objectives directory.",
+			"Objective path must be inside the current repo's .sdl/objectives directory.",
 		);
 	}
 
@@ -316,14 +316,14 @@ function resolveRepoRelativeObjectiveSelector(selector: string): ObjectiveSelect
 		normalized.startsWith(`${ARCHIVE_OBJECTIVE_ROOT}/`)
 	) {
 		return invalidSelector(
-			"Archived Objective paths are not supported; pass an active .asdl/objectives/<slug> path.",
+			"Archived Objective paths are not supported; pass an active .sdl/objectives/<slug> path.",
 		);
 	}
 	if (normalized === ACTIVE_OBJECTIVE_ROOT) {
-		return invalidSelector("Pass an Objective slug or path below .asdl/objectives/<slug>.");
+		return invalidSelector("Pass an Objective slug or path below .sdl/objectives/<slug>.");
 	}
 	if (!normalized.startsWith(ACTIVE_OBJECTIVE_PREFIX)) {
-		return invalidSelector("Pass an Objective slug or .asdl/objectives/<slug> path.");
+		return invalidSelector("Pass an Objective slug or .sdl/objectives/<slug> path.");
 	}
 
 	const relativePath = normalized.slice(ACTIVE_OBJECTIVE_PREFIX.length);

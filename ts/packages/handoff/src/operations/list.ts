@@ -1,5 +1,5 @@
-import { failure, ok, type RenderCapabilities } from "@asdl/clinkr";
-import { renderTextTable } from "@asdl/core/text-table";
+import { failure, ok, type RenderCapabilities } from "@sdl/clinkr";
+import { renderTextTable } from "@sdl/core/text-table";
 import { z } from "zod";
 
 import type { HandoffCliContext } from "../context.ts";

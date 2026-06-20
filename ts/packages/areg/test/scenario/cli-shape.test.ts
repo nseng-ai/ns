@@ -13,7 +13,7 @@ describe("areg CLI shape", () => {
 		const runtime = runScenario(["--runtime"]);
 		expect(await runtime.exit).toBe(0);
 		expect(runtime.stdout.join("")).toBe(
-			"runtime: typescript\nentry_point: @asdl/areg bin areg -> ts/packages/areg/src/cli.ts\n",
+			"runtime: typescript\nentry_point: @sdl/areg bin areg -> ts/packages/areg/src/cli.ts\n",
 		);
 		expect(runtime.stderr.join("")).toBe("");
 	});
@@ -25,7 +25,7 @@ describe("areg CLI shape", () => {
 		expect(run.stderr.join("")).toBe("");
 		const help = run.stdout.join("");
 		expect(help).toContain("Usage: areg");
-		expect(help).toContain("Manage ASDL agent registry projects.");
+		expect(help).toContain("Manage SDL agent registry projects.");
 		expect(help).toContain("--runtime");
 		expect(help).toContain("init");
 		expect(help).toContain("check");

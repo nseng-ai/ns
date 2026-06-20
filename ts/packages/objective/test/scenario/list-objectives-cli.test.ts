@@ -42,7 +42,7 @@ describe("objective list", () => {
 			exit_code: 0,
 			data: {
 				trunkBranch: "master",
-				rootPath: ".asdl/objectives",
+				rootPath: ".sdl/objectives",
 				statusFilter: "active",
 				namesOnly: false,
 				records: [
@@ -61,7 +61,7 @@ describe("objective list", () => {
 	test("filters open closed and all active-root records while omitting archive-root records", async () => {
 		const fake = {
 			records: [{ slug: "alpha" }, { slug: "done", isClosed: true }],
-			directories: [".asdl/objective-archive/archived"],
+			directories: [".sdl/objective-archive/archived"],
 		};
 		const open = runScenario(["list", "--minimal", "--format", "json", "--status", "open"], {
 			fake,
@@ -87,7 +87,7 @@ describe("objective list", () => {
 
 	test("includes incomplete direct child directories as active records", async () => {
 		const run = runScenario(["list", "--minimal", "--format", "json"], {
-			fake: { directories: [".asdl/objectives/incomplete"] },
+			fake: { directories: [".sdl/objectives/incomplete"] },
 		});
 
 		expect(await run.exit).toBe(0);
@@ -95,7 +95,7 @@ describe("objective list", () => {
 			exit_code: 0,
 			data: {
 				trunkBranch: "master",
-				rootPath: ".asdl/objectives",
+				rootPath: ".sdl/objectives",
 				statusFilter: "active",
 				namesOnly: false,
 				records: [
@@ -136,7 +136,7 @@ describe("objective list", () => {
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
 		expect(output).toContain("# Objective records in this checkout");
-		expect(output).toContain("Root: `.asdl/objectives`");
+		expect(output).toContain("Root: `.sdl/objectives`");
 		expect(output).toContain("Status filter: `all`");
 		expect(output).toContain("| objective | status | latest update |");
 		expect(output).toContain("| alpha | ○ open | 2026-06-08T17:23:00Z |");
@@ -145,7 +145,7 @@ describe("objective list", () => {
 
 	test("dirty markers appear in JSON, human, and Markdown renderers", async () => {
 		const fake = { records: [{ slug: "alpha" }] };
-		const git = { dirtyPaths: [".asdl/objectives/alpha"] };
+		const git = { dirtyPaths: [".sdl/objectives/alpha"] };
 		const json = runScenario(["list", "--format", "json"], { fake, git });
 		const minimalJson = runScenario(["list", "--minimal", "--format", "json"], { fake, git });
 		const human = runScenario(["list"], { fake, git });
@@ -159,7 +159,7 @@ describe("objective list", () => {
 			exit_code: 0,
 			data: {
 				trunkBranch: "master",
-				rootPath: ".asdl/objectives",
+				rootPath: ".sdl/objectives",
 				statusFilter: "active",
 				namesOnly: false,
 				updatedBranchesIncluded: true,
@@ -178,7 +178,7 @@ describe("objective list", () => {
 			exit_code: 0,
 			data: {
 				trunkBranch: "master",
-				rootPath: ".asdl/objectives",
+				rootPath: ".sdl/objectives",
 				statusFilter: "active",
 				namesOnly: false,
 				records: [
@@ -202,17 +202,17 @@ describe("objective list", () => {
 				{ name: "feat/same-tree", headIso: "2026-05-04T00:00:00Z" },
 			],
 			treeOids: {
-				"master|.asdl/objectives": "trunk-tree",
-				"feat/beta|.asdl/objectives": "beta-tree",
-				"feat/alpha|.asdl/objectives": "alpha-tree",
-				"feat/same-tree|.asdl/objectives": "trunk-tree",
+				"master|.sdl/objectives": "trunk-tree",
+				"feat/beta|.sdl/objectives": "beta-tree",
+				"feat/alpha|.sdl/objectives": "alpha-tree",
+				"feat/same-tree|.sdl/objectives": "trunk-tree",
 			},
 			changedPaths: {
-				"master...feat/beta|.asdl/objectives": [
-					".asdl/objectives/beta/roadmap.md",
-					".asdl/objectives/closed-one/objective.md",
+				"master...feat/beta|.sdl/objectives": [
+					".sdl/objectives/beta/roadmap.md",
+					".sdl/objectives/closed-one/objective.md",
 				],
-				"master...feat/alpha|.asdl/objectives": [".asdl/objectives/alpha/objective.md"],
+				"master...feat/alpha|.sdl/objectives": [".sdl/objectives/alpha/objective.md"],
 			},
 		};
 		const json = runScenario(["list", "--format", "json", "--status", "all"], { fake, git });
@@ -229,7 +229,7 @@ describe("objective list", () => {
 			exit_code: 0,
 			data: {
 				trunkBranch: "master",
-				rootPath: ".asdl/objectives",
+				rootPath: ".sdl/objectives",
 				statusFilter: "all",
 				namesOnly: false,
 				updatedBranchesIncluded: true,
@@ -275,13 +275,13 @@ describe("objective list", () => {
 		const git = {
 			localBranchTips: [{ name: "master", headIso: "2026-04-01T00:00:00Z" }, ...branches],
 			treeOids: Object.fromEntries([
-				["master|.asdl/objectives", "trunk-tree"],
-				...branches.map((branch) => [`${branch.name}|.asdl/objectives`, `${branch.name}-tree`]),
+				["master|.sdl/objectives", "trunk-tree"],
+				...branches.map((branch) => [`${branch.name}|.sdl/objectives`, `${branch.name}-tree`]),
 			]),
 			changedPaths: Object.fromEntries(
 				branches.map((branch) => [
-					`master...${branch.name}|.asdl/objectives`,
-					[".asdl/objectives/alpha/objective.md"],
+					`master...${branch.name}|.sdl/objectives`,
+					[".sdl/objectives/alpha/objective.md"],
 				]),
 			),
 		};
@@ -308,11 +308,11 @@ describe("objective list", () => {
 		const git = {
 			localBranchTips: ["master", "feat/alpha"],
 			treeOids: {
-				"master|.asdl/objectives": "trunk-tree",
-				"feat/alpha|.asdl/objectives": "alpha-tree",
+				"master|.sdl/objectives": "trunk-tree",
+				"feat/alpha|.sdl/objectives": "alpha-tree",
 			},
 			changedPaths: {
-				"master..feat/alpha|.asdl/objectives": [".asdl/objectives/alpha/objective.md"],
+				"master..feat/alpha|.sdl/objectives": [".sdl/objectives/alpha/objective.md"],
 			},
 		};
 		const minimal = runScenario(["list", "--minimal", "--format", "json"], { fake, git });

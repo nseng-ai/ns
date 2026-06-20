@@ -1,4 +1,4 @@
-import { GRAPHITE_BRANCH_METADATA_QUERY } from "@asdl/core/graphite-metadata";
+import { GRAPHITE_BRANCH_METADATA_QUERY } from "@sdl/core/graphite-metadata";
 
 export const TOPOLOGY_QUERY = GRAPHITE_BRANCH_METADATA_QUERY;
 

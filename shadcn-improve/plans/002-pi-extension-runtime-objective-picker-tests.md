@@ -48,8 +48,8 @@ Files in scope (read them before writing tests):
     - with picker: compute `changedObjectiveSelection` (runs `git diff` + `git status`), then either the compact "changed-or-other" picker (`spec.compactDiffSuggestion`) or a notify + full picker.
   - `objectiveSelectionContextFromCommandContext(ctx)` (lines 60–73) — binds `notify`/`select`/`setStatus` off a `CommandContext`.
   - `listActiveObjectives` runs `host.exec("objective", ["list", "--minimal", "--format", "json"], {...})`.
-  - `objectiveDiffChangedSlugs` runs `host.exec("git", ["diff", "--name-status", "-M", "<trunk>...HEAD", "--", ".asdl/objectives"], ...)`.
-  - `objectiveStatusChangedSlugs` runs `host.exec("git", ["status", "--porcelain=v1", "-z", "--", ".asdl/objectives"], ...)`.
+  - `objectiveDiffChangedSlugs` runs `host.exec("git", ["diff", "--name-status", "-M", "<trunk>...HEAD", "--", ".sdl/objectives"], ...)`.
+  - `objectiveStatusChangedSlugs` runs `host.exec("git", ["status", "--porcelain=v1", "-z", "--", ".sdl/objectives"], ...)`.
 
   Excerpt — picker branching (lines 336–358):
   ```ts
@@ -70,10 +70,10 @@ Files in scope (read them before writing tests):
     exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult>;
   }
   ```
-  `ExecResult` is `{ code: number; killed: boolean; stdout: string; stderr: string }` (from `@asdl/core/exec`; see the existing test's `host` stub for the exact literal shape).
+  `ExecResult` is `{ code: number; killed: boolean; stdout: string; stderr: string }` (from `@sdl/core/exec`; see the existing test's `host` stub for the exact literal shape).
 
 - `ts/packages/pi-extension-runtime/src/objective-picker.ts` — pure helpers (no I/O):
-  - `parseObjectiveDiffChangedSlugs(stdout)` — parses `git diff --name-status` lines; slug is `parts[2]` of `.asdl/objectives/<slug>/...`; handles `R`/`C` rename/copy lines (multiple tab fields).
+  - `parseObjectiveDiffChangedSlugs(stdout)` — parses `git diff --name-status` lines; slug is `parts[2]` of `.sdl/objectives/<slug>/...`; handles `R`/`C` rename/copy lines (multiple tab fields).
   - `parseObjectiveStatusChangedSlugs(stdout)` — parses `git status --porcelain=v1 -z` (NUL-separated); two-char status + space + path; skips `!!` (ignored); for rename/copy status consumes the **next** NUL entry as the second path.
   - `changedActiveObjectiveSelection(objectiveList, trunkBranch, allChangedSlugs, changeBasisLabel?)` — intersects changed slugs with active records; returns `undefined` if no changed slugs, blank label, or no active intersection.
   - `formatObjectiveChoice`, `objectiveRecordsWithChangedFirst`, `objectiveChoiceMap`, `objectiveDiffPickerTitle`, and the constant `VIEW_OTHER_OBJECTIVES_CHOICE`.
@@ -141,12 +141,12 @@ Files in scope (read them before writing tests):
 
 ## Commands you will need
 
-| Purpose                       | Command                                                                                                                                               | Expected on success           |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
-| Typecheck this package        | `cd /Users/schrockn/code/asdl-tools/ts/packages/pi-extension-runtime && pnpm run check`                                                               | exit 0, no tsc errors         |
-| Run this package's tests      | `pnpm --dir /Users/schrockn/code/asdl-tools/ts/packages/pi-extension-runtime run test`                                                                | all pass, including new tests |
-| Run one new file              | `pnpm --dir /Users/schrockn/code/asdl-tools/ts exec vitest run --config vitest.config.ts packages/pi-extension-runtime/test/objective-picker.test.ts` | pass                          |
-| Install (if a fresh checkout) | `pnpm --dir /Users/schrockn/code/asdl-tools/ts install`                                                                                               | exit 0                        |
+| Purpose                       | Command                                                                                                                                              | Expected on success           |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| Typecheck this package        | `cd /Users/schrockn/code/sdl-tools/ts/packages/pi-extension-runtime && pnpm run check`                                                               | exit 0, no tsc errors         |
+| Run this package's tests      | `pnpm --dir /Users/schrockn/code/sdl-tools/ts/packages/pi-extension-runtime run test`                                                                | all pass, including new tests |
+| Run one new file              | `pnpm --dir /Users/schrockn/code/sdl-tools/ts exec vitest run --config vitest.config.ts packages/pi-extension-runtime/test/objective-picker.test.ts` | pass                          |
+| Install (if a fresh checkout) | `pnpm --dir /Users/schrockn/code/sdl-tools/ts install`                                                                                               | exit 0                        |
 
 ## Scope
 
@@ -177,14 +177,14 @@ Create `test/objective-picker.test.ts` importing from `../src/objective-picker.t
 Cover (these are pure functions — no host needed):
 
 - `parseObjectiveDiffChangedSlugs`:
-  - a normal `M\t.asdl/objectives/alpha/objective.md` line → `["alpha"]`.
-  - a rename line `R100\t.asdl/objectives/old/x.md\t.asdl/objectives/new/x.md` → includes both `new` and `old` (sorted, deduped).
-  - lines outside `.asdl/objectives/...` or shallower than `<slug>/<file>` → ignored.
+  - a normal `M\t.sdl/objectives/alpha/objective.md` line → `["alpha"]`.
+  - a rename line `R100\t.sdl/objectives/old/x.md\t.sdl/objectives/new/x.md` → includes both `new` and `old` (sorted, deduped).
+  - lines outside `.sdl/objectives/...` or shallower than `<slug>/<file>` → ignored.
   - blank input → `[]`.
 - `parseObjectiveStatusChangedSlugs` (NUL-separated — build inputs with `"\0"`):
-  - `M .asdl/objectives/alpha/objective.md` (note 2-char status + space) → `["alpha"]`.
-  - an ignored entry `!! .asdl/objectives/zeta/x.md` → excluded.
-  - a rename entry `R  .asdl/objectives/new/x.md` followed by a second NUL entry `.asdl/objectives/old/x.md` → includes both `new` and `old`, and does not misparse the consumed second path as its own entry.
+  - `M .sdl/objectives/alpha/objective.md` (note 2-char status + space) → `["alpha"]`.
+  - an ignored entry `!! .sdl/objectives/zeta/x.md` → excluded.
+  - a rename entry `R  .sdl/objectives/new/x.md` followed by a second NUL entry `.sdl/objectives/old/x.md` → includes both `new` and `old`, and does not misparse the consumed second path as its own entry.
   - empty trailing entries ignored.
 - `changedActiveObjectiveSelection`:
   - changed slugs that intersect active records → selection with `changedActiveSlugs` in record order.
@@ -199,7 +199,7 @@ Cover (these are pure functions — no host needed):
 Use small inline `ObjectiveList`/`ObjectiveListRecord` literals (see the type in
 `objective-list.ts` lines 3–15).
 
-**Verify**: `pnpm --dir /Users/schrockn/code/asdl-tools/ts exec vitest run --config vitest.config.ts packages/pi-extension-runtime/test/objective-picker.test.ts` → pass.
+**Verify**: `pnpm --dir /Users/schrockn/code/sdl-tools/ts exec vitest run --config vitest.config.ts packages/pi-extension-runtime/test/objective-picker.test.ts` → pass.
 
 ### Step 2: Envelope parsing — `objective-list.test.ts`
 
@@ -211,7 +211,7 @@ Create `test/objective-list.test.ts` importing `parseObjectiveList` from
 - a record missing `slug`/`status` → `{ type: "invalid" }` mentioning the record index.
 - malformed JSON / failure envelope (`{ exit_code: 2, ... }`) → `{ type: "invalid" }`.
 
-**Verify**: `pnpm --dir /Users/schrockn/code/asdl-tools/ts exec vitest run --config vitest.config.ts packages/pi-extension-runtime/test/objective-list.test.ts` → pass.
+**Verify**: `pnpm --dir /Users/schrockn/code/sdl-tools/ts exec vitest run --config vitest.config.ts packages/pi-extension-runtime/test/objective-list.test.ts` → pass.
 
 ### Step 3: Picker path — `objective-selection-picker.test.ts`
 
@@ -253,14 +253,14 @@ Record `select` calls (title + items) and `notify` calls. Cover:
   branches in `objectiveDiffChangedSlugs`/`objectiveStatusChangedSlugs` swallow
   failures by design — assert selection still proceeds).
 
-**Verify**: `pnpm --dir /Users/schrockn/code/asdl-tools/ts exec vitest run --config vitest.config.ts packages/pi-extension-runtime/test/objective-selection-picker.test.ts` → pass.
+**Verify**: `pnpm --dir /Users/schrockn/code/sdl-tools/ts exec vitest run --config vitest.config.ts packages/pi-extension-runtime/test/objective-selection-picker.test.ts` → pass.
 
 ### Step 4: Typecheck and full-package test
 
 **Verify**:
 
-- `cd /Users/schrockn/code/asdl-tools/ts/packages/pi-extension-runtime && pnpm run check` → exit 0.
-- `pnpm --dir /Users/schrockn/code/asdl-tools/ts/packages/pi-extension-runtime run test` → all pass (existing + new).
+- `cd /Users/schrockn/code/sdl-tools/ts/packages/pi-extension-runtime && pnpm run check` → exit 0.
+- `pnpm --dir /Users/schrockn/code/sdl-tools/ts/packages/pi-extension-runtime run test` → all pass (existing + new).
 
 ## Test plan
 
@@ -277,8 +277,8 @@ Record `select` calls (title + items) and `notify` calls. Cover:
 
 ALL must hold:
 
-- [ ] `cd /Users/schrockn/code/asdl-tools/ts/packages/pi-extension-runtime && pnpm run check` exits 0.
-- [ ] `pnpm --dir /Users/schrockn/code/asdl-tools/ts/packages/pi-extension-runtime run test` exits 0; the three new files run and pass.
+- [ ] `cd /Users/schrockn/code/sdl-tools/ts/packages/pi-extension-runtime && pnpm run check` exits 0.
+- [ ] `pnpm --dir /Users/schrockn/code/sdl-tools/ts/packages/pi-extension-runtime run test` exits 0; the three new files run and pass.
 - [ ] At least one test exercises each picker branch: full picker, compact changed picker, view-others, cancel, list-failure, empty-list.
 - [ ] `git status --porcelain` shows only the three new test files added (no source modified).
 - [ ] `shadcn-improve/plans/README.md` status row for 002 updated to DONE.

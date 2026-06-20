@@ -1,13 +1,13 @@
 import { describe, expect, test } from "vitest";
 
-import type { CommandExecApi } from "@asdl/core/exec";
-import { InMemoryGitGateway } from "@asdl/core/git/testing";
+import type { CommandExecApi } from "@sdl/core/exec";
+import { InMemoryGitGateway } from "@sdl/core/git/testing";
 
 import {
 	BRANCH_CONTEXT_NAMESPACE,
 	BRANCH_CONTEXT_OUTPUT_MESSAGE_TYPE,
 	resolveExistingBranchContextReuse,
-} from "@asdl/branch-context";
+} from "@sdl/branch-context";
 import type { BranchContextContext } from "../src/context.ts";
 import { InMemoryBranchContextBrmemGateway } from "./support/in-memory-brmem-gateway.ts";
 import { InMemoryBranchContextGraphiteGateway } from "./support/in-memory-graphite-gateway.ts";

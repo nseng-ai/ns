@@ -1,6 +1,6 @@
-# @asdl/pi-extensions
+# @sdl/pi-extensions
 
-`@asdl/pi-extensions` is the repo-local engineered TypeScript layer for durable Pi extension behavior in asdl. Pi discovers checked-in project-local adapters under `.pi/extensions/`; adapters delegate stable, risky, reused, or test-worthy behavior to this private package. CCC (`@asdl/ccc`) is the separate private orchestration layer for repo-opinionated command-and-control workflows, owns the `ccc` Pi command prefix for cmux/workspace orchestration, and can own selected SDL code-lifecycle implementations such as `/sdl:code:autobranch` and `/sdl:code:land`. Neutral shared helper contracts live below both packages in `@asdl/pi-extension-runtime`.
+`@sdl/pi-extensions` is the repo-local engineered TypeScript layer for durable Pi extension behavior in sdl. Pi discovers checked-in project-local adapters under `.pi/extensions/`; adapters delegate stable, risky, reused, or test-worthy behavior to this private package. CCC (`@sdl/ccc`) is the separate private orchestration layer for repo-opinionated command-and-control workflows, owns the `ccc` Pi command prefix for cmux/workspace orchestration, and can own selected SDL code-lifecycle implementations such as `/sdl:code:autobranch` and `/sdl:code:land`. Neutral shared helper contracts live below both packages in `@sdl/pi-extension-runtime`.
 
 ## Language
 
@@ -29,7 +29,7 @@ The Pi-specific command/tool layer for starting grill sessions and routing user-
 *Avoid*: questionnaire framework, docs editor, generic form engine, `/grill-ui`, `/grill-with-docs-ui`.
 
 **Command runtime**:
-The neutral helper layer, implemented in `@asdl/pi-extension-runtime`, for command display formatting, shell quoting, normalized exec results, and bounded stdout/stderr evidence.
+The neutral helper layer, implemented in `@sdl/pi-extension-runtime`, for command display formatting, shell quoting, normalized exec results, and bounded stdout/stderr evidence.
 *Avoid*: shell executor, workflow owner, subprocess policy, test fake.
 
 **CCC cmux command suite**:
@@ -45,27 +45,27 @@ An explicit manual command that updates the caller workspace using `CMUX_WORKSPA
 *Avoid*: automatic workspace-opening automation, focused workspace fallback, raw cmux mutation, assuming both sidebar variants use a model.
 
 **Objective selector**:
-A structured selector for an active Objective: either a single Objective slug, a repo-relative/absolute path below `.asdl/objectives/<slug>/`, or a user-chosen active Objective from a deterministic picker when a command intentionally supports no-arg selection. It is not prompt text and is not inferred from branch, PR, hidden context, or conversation prose.
+A structured selector for an active Objective: either a single Objective slug, a repo-relative/absolute path below `.sdl/objectives/<slug>/`, or a user-chosen active Objective from a deterministic picker when a command intentionally supports no-arg selection. It is not prompt text and is not inferred from branch, PR, hidden context, or conversation prose.
 *Avoid*: Objective prompt, branch-derived Objective, archived Objective path.
 
 **Objective stack implementation adapter**:
-The public Pi extension registration surface for `/objective:stack-impl`. The command name remains part of the Objective extension surface, but the stack implementation orchestration behind it is delegated to `@asdl/ccc/objective-stack-impl`; normal Objective record/list/current/update/next/close/archive semantics stay below CCC.
+The public Pi extension registration surface for `/objective:stack-impl`. The command name remains part of the Objective extension surface, but the stack implementation orchestration behind it is delegated to `@sdl/ccc/objective-stack-impl`; normal Objective record/list/current/update/next/close/archive semantics stay below CCC.
 *Avoid*: CCC command prefix alias, Objective storage owner, stack orchestration implementation body.
 
 **Autobranch adapter**:
-The public Pi extension registration surface for `/sdl:code:autobranch`. The command belongs to the SDL code-lifecycle family and is discovered through `@asdl/pi-extensions`, but dirty-worktree and latest-commit autobranch orchestration is delegated to `@asdl/ccc/autobranch`.
+The public Pi extension registration surface for `/sdl:code:autobranch`. The command belongs to the SDL code-lifecycle family and is discovered through `@sdl/pi-extensions`, but dirty-worktree and latest-commit autobranch orchestration is delegated to `@sdl/ccc/autobranch`.
 *Avoid*: preparation owner, transaction owner, old `/code:autobranch` compatibility alias, Graphite policy implementation.
 
 **Land adapter**:
-The public Pi extension registration surface for unified `/sdl:code:land`. The command belongs to the SDL code-lifecycle family and is discovered through `@asdl/pi-extensions`, but Graphite stack-shape dispatch, single-PR fast landing, Graphite/GitHub/slot stack landing orchestration, and failure presentation are delegated to `@asdl/ccc/land`.
+The public Pi extension registration surface for unified `/sdl:code:land`. The command belongs to the SDL code-lifecycle family and is discovered through `@sdl/pi-extensions`, but Graphite stack-shape dispatch, single-PR fast landing, Graphite/GitHub/slot stack landing orchestration, and failure presentation are delegated to `@sdl/ccc/land`.
 *Avoid*: PR view/merge policy owner, stack landing policy owner, direct Graphite/GitHub mutation owner, old `/code:land` compatibility alias.
 
 **Worktree status adapter**:
-The Pi lifecycle module behind `.pi/extensions/worktree-status.ts`: registers the `worktree-status` renderer, reacts to session/tool/agent/shutdown events, manages active-session cancellation, watches Git/Branch Memory/worktree paths, installs the custom footer, and renders generic cwd/session/model/context/token/cost footer lines while delegating repo-operational status facts and presentation to `@asdl/ccc/worktree-status`.
+The Pi lifecycle module behind `.pi/extensions/worktree-status.ts`: registers the `worktree-status` renderer, reacts to session/tool/agent/shutdown events, manages active-session cancellation, watches Git/Branch Memory/worktree paths, installs the custom footer, and renders generic cwd/session/model/context/token/cost footer lines while delegating repo-operational status facts and presentation to `@sdl/ccc/worktree-status`.
 *Avoid*: CCC observability fact owner, Graphite metadata parser owner, Branch Memory scope formatter, visible slash command.
 
 **Pi footer lifecycle**:
-The generic Pi runtime behavior for composing footer lines from cwd, current branch, session name, extension status lines, model/provider, context usage, tokens, and cost. It remains in `@asdl/pi-extensions` because it is Pi session plumbing rather than CCC observability.
+The generic Pi runtime behavior for composing footer lines from cwd, current branch, session name, extension status lines, model/provider, context usage, tokens, and cost. It remains in `@sdl/pi-extensions` because it is Pi session plumbing rather than CCC observability.
 *Avoid*: worktree-status fact model, Graphite stack status, Branch Memory storage.
 
 **Deterministic sidebar fields**:
@@ -81,7 +81,7 @@ A reviewed Markdown implementation plan written before an implementation branch 
 *Avoid*: attached plan, Branch Memory entry, checked-in plan.
 
 **Local plan store**:
-The machine-local pre-branch store at `~/.asdl/enriched-plan/<repo>/<encoded-source-branch>/`. Saved plans use `<slug>.md`.
+The machine-local pre-branch store at `~/.sdl/enriched-plan/<repo>/<encoded-source-branch>/`. Saved plans use `<slug>.md`.
 *Avoid*: Branch Memory namespace, repo docs directory, objective update.
 
 **Saved-plan filename slug**:
@@ -113,7 +113,7 @@ The shippable agent-skill capability made of the `branch-context` umbrella/refer
 *Avoid*: planned-branch skill family, one-off skill, internal docs dependency, hidden installation requirement.
 
 **Enriched-plan save prompt policy**:
-The checked-in `.asdl/prompts/plans-write.md` static prompt body consumed by `/enriched-plan:save` after the command dynamically injects its header and user steering; resolved inside the TypeScript Pi extension from the current Git root with built-in fallback for usability and symlink-safety checks.
+The checked-in `.sdl/prompts/plans-write.md` static prompt body consumed by `/enriched-plan:save` after the command dynamically injects its header and user steering; resolved inside the TypeScript Pi extension from the current Git root with built-in fallback for usability and symlink-safety checks.
 *Avoid*: Pi slash prompt template, saved plan content, Branch Memory attachment, mode selector.
 
 **Enriched-plan grill-and-save prompt**:

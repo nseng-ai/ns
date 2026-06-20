@@ -2,7 +2,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY } from "@asdl/core/graphite-metadata";
+import { GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY } from "@sdl/core/graphite-metadata";
 import {
 	RealSlotGtGateway,
 	type GraphiteMetadataDbAccess,

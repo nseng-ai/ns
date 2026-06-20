@@ -54,5 +54,5 @@ Direct `parseUnifiedDiff` callers should pass normal Git-format diffs. Roaster d
 - **Use Pierre but preserve every old edge semantic:** requires raw metadata checks, path decoding, fallback synthetic files, and patch normalization that recreate much of the parser complexity this change is meant to delete.
 - **Port Hunk-style patch normalization into roaster:** robust but too broad for roaster's needs. Roaster controls its own `git diff` invocation and can force canonical prefixes there.
 - **Deep-import Pierre parser internals:** might avoid root-export dependency weight but couples roaster to private package layout and unpublished API stability.
-- **Copy Pierre parser source into ASDL:** creates a forked parser maintenance burden and violates the shared-parser goal.
+- **Copy Pierre parser source into SDL:** creates a forked parser maintenance burden and violates the shared-parser goal.
 - **Add a user-facing parser selector or escape hatch:** increases command surface without a current product requirement. This is an internal implementation choice.

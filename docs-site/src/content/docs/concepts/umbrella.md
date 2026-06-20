@@ -1,11 +1,11 @@
 ---
-title: The asdl umbrella
-description: How standalone asdl tools optionally compose under one command.
+title: The sdl umbrella
+description: How standalone sdl tools optionally compose under one command.
 sidebar:
   order: 1
 ---
 
-`asdl` is an optional umbrella command for a suite of standalone tools. The core
+`sdl` is an optional umbrella command for a suite of standalone tools. The core
 product rule is that each tool must make sense on its own first.
 
 ## Standalone first
@@ -22,7 +22,7 @@ tool independently adoptable.
 ## Umbrella form
 
 ```bash
-asdl brmem get plan.md
+sdl brmem get plan.md
 ```
 
 The umbrella discovers plugin subcommands and gives teams one entry point when

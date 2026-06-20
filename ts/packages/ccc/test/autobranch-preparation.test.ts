@@ -3,8 +3,8 @@ import {
 	prepareAutobranchPlan,
 	type AutobranchPreparationInput,
 } from "../src/autobranch/preparation.ts";
-import { MAX_BRANCH_SLUG_LENGTH } from "@asdl/pi-extension-runtime/branch-slug";
-import { buildSlugModelArgs } from "@asdl/plans";
+import { MAX_BRANCH_SLUG_LENGTH } from "@sdl/pi-extension-runtime/branch-slug";
+import { buildSlugModelArgs } from "@sdl/plans";
 import {
 	eventIndex,
 	fail,

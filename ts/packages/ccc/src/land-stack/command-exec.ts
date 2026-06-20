@@ -4,9 +4,9 @@ import {
 	stripTerminalEscapes,
 	tailText,
 	type ExecResult,
-} from "@asdl/core/exec";
-import { GRAPHITE_METADATA_DB_NAME } from "@asdl/core/graphite-metadata";
-import { formatErrorMessage } from "@asdl/core/primitives";
+} from "@sdl/core/exec";
+import { GRAPHITE_METADATA_DB_NAME } from "@sdl/core/graphite-metadata";
+import { formatErrorMessage } from "@sdl/core/primitives";
 import {
 	MAX_COMMAND_STREAM_OUTPUT_LINES,
 	MAX_OUTPUT_TAIL_CHARS,

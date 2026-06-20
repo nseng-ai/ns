@@ -2,7 +2,7 @@ import {
 	parseObjectiveList,
 	type ObjectiveList,
 	type ObjectiveListRecord,
-} from "@asdl/pi-extension-runtime/objective-list";
+} from "@sdl/pi-extension-runtime/objective-list";
 
 import { keyNameFromInput } from "./tabs/key-input.ts";
 import type { TabIntent, TabKeyInput, TabModule, TabModuleDeps } from "./tabs/tab-module.ts";

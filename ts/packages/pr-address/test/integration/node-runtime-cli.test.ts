@@ -43,7 +43,7 @@ describe("pr-address Node runtime CLI entrypoint", () => {
 
 		expect(result.status, result.stderr).toBe(0);
 		expect(result.stdout).toBe(
-			"runtime: typescript\nentry_point: @asdl/pr-address bin pr-address -> ts/packages/pr-address/src/cli.ts\n",
+			"runtime: typescript\nentry_point: @sdl/pr-address bin pr-address -> ts/packages/pr-address/src/cli.ts\n",
 		);
 	});
 
@@ -59,7 +59,7 @@ describe("pr-address Node runtime CLI entrypoint", () => {
 
 		expect(result.status, result.stderr).toBe(0);
 		expect(result.stdout).toBe(
-			"runtime: typescript\nentry_point: @asdl/pr-address bin pr-address -> ts/packages/pr-address/src/cli.ts\n",
+			"runtime: typescript\nentry_point: @sdl/pr-address bin pr-address -> ts/packages/pr-address/src/cli.ts\n",
 		);
 	});
 });

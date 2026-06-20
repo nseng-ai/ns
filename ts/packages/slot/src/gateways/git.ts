@@ -1,8 +1,8 @@
 import { existsSync, readFileSync, statSync, type Stats } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 
-import { NodeCommandExecApi, type CommandExecApi } from "@asdl/core/exec";
-import { parseGitWorktreePorcelain, RealGitGateway, type GitGateway } from "@asdl/core/git";
+import { NodeCommandExecApi, type CommandExecApi } from "@sdl/core/exec";
+import { parseGitWorktreePorcelain, RealGitGateway, type GitGateway } from "@sdl/core/git";
 
 import {
 	createSlotDiagnosticSinkFromEnv,

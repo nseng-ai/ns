@@ -1,5 +1,5 @@
-import type { RenderCapabilities } from "@asdl/clinkr";
-import { renderTextTable, type TextTableColumn } from "@asdl/core/text-table";
+import type { RenderCapabilities } from "@sdl/clinkr";
+import { renderTextTable, type TextTableColumn } from "@sdl/core/text-table";
 
 import type { LoadedBundle } from "./models.ts";
 import { encodeMetrics } from "./models.ts";

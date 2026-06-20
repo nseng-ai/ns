@@ -18,10 +18,10 @@ describe("objective exec read-objective", () => {
 			data: {
 				status: "ok",
 				error: null,
-				rootPath: ".asdl/objectives",
+				rootPath: ".sdl/objectives",
 				rootExists: true,
 				slug: "alpha",
-				path: ".asdl/objectives/alpha",
+				path: ".sdl/objectives/alpha",
 				exists: true,
 				closed: false,
 				files: {
@@ -31,8 +31,8 @@ describe("objective exec read-objective", () => {
 					closedMd: false,
 				},
 				updates: [
-					{ name: "first.md", path: ".asdl/objectives/alpha/updates/first.md" },
-					{ name: "second.md", path: ".asdl/objectives/alpha/updates/second.md" },
+					{ name: "first.md", path: ".sdl/objectives/alpha/updates/first.md" },
+					{ name: "second.md", path: ".sdl/objectives/alpha/updates/second.md" },
 				],
 				updateCount: 2,
 				markdownFiles: {
@@ -40,11 +40,11 @@ describe("objective exec read-objective", () => {
 					roadmapMd: { type: "ok", content: "# Roadmap\n" },
 					updates: [
 						{
-							update: { name: "first.md", path: ".asdl/objectives/alpha/updates/first.md" },
+							update: { name: "first.md", path: ".sdl/objectives/alpha/updates/first.md" },
 							content: { type: "ok", content: "# First\n" },
 						},
 						{
-							update: { name: "second.md", path: ".asdl/objectives/alpha/updates/second.md" },
+							update: { name: "second.md", path: ".sdl/objectives/alpha/updates/second.md" },
 							content: { type: "ok", content: "# Second\n" },
 						},
 					],
@@ -96,8 +96,8 @@ describe("objective exec read-objective", () => {
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
 		expect(output).toContain("# Objective `story`");
-		expect(output).toContain("Root: `.asdl/objectives` (present)");
-		expect(output).toContain("Path: `.asdl/objectives/story`");
+		expect(output).toContain("Root: `.sdl/objectives` (present)");
+		expect(output).toContain("Path: `.sdl/objectives/story`");
 		expect(output).toContain("State: open");
 		expect(output).toContain("Files: objective.md:yes, roadmap.md:yes, updates/:yes, closed.md:no");
 		expect(output).toContain("Updates: 2");
@@ -116,7 +116,7 @@ describe("objective exec read-objective", () => {
 
 	test("notes missing Markdown files and missing updates directory", async () => {
 		const run = runScenario(["exec", "read-objective", "partial", "--format", "md"], {
-			fake: { directories: [".asdl/objectives/partial"] },
+			fake: { directories: [".sdl/objectives/partial"] },
 		});
 
 		expect(await run.exit).toBe(0);
@@ -161,7 +161,7 @@ describe("objective exec read-objective", () => {
 
 	test("absent active record returns deterministic facts and ignores archive-only records", async () => {
 		const run = runScenario(["exec", "read-objective", "alpha", "--format", "json"], {
-			fake: { records: [], directories: [".asdl/objective-archive/alpha"] },
+			fake: { records: [], directories: [".sdl/objective-archive/alpha"] },
 		});
 
 		expect(await run.exit).toBe(0);
@@ -172,7 +172,7 @@ describe("objective exec read-objective", () => {
 				status: "not_found",
 				error: "not_found",
 				slug: "alpha",
-				path: ".asdl/objectives/alpha",
+				path: ".sdl/objectives/alpha",
 			}),
 		});
 	});
@@ -187,7 +187,7 @@ function emptyReadData(options: {
 	return {
 		status: options.status,
 		error: options.error,
-		rootPath: ".asdl/objectives",
+		rootPath: ".sdl/objectives",
 		rootExists: false,
 		slug: options.slug ?? null,
 		path: options.path ?? null,

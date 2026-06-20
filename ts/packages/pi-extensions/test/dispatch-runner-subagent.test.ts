@@ -4,8 +4,8 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import type { ExecOptions, ExecResult } from "@asdl/core/exec";
-import { createManualClock } from "@asdl/core/testing";
+import type { ExecOptions, ExecResult } from "@sdl/core/exec";
+import { createManualClock } from "@sdl/core/testing";
 
 import type { ThinkingLevel } from "../src/cmux/types.ts";
 import {
@@ -195,7 +195,7 @@ function createRunnerDefinitionRoot(overrides: RunnerDefinitionOverrides = {}): 
 }
 
 function writeRunnerDefinition(root: string, overrides: RunnerDefinitionOverrides = {}): void {
-	const agentsDir = join(root, ".asdl", "pi", "agents");
+	const agentsDir = join(root, ".sdl", "pi", "agents");
 	mkdirSync(agentsDir, { recursive: true });
 	writeFileSync(join(agentsDir, "runner.md"), runnerDefinitionMarkdown(overrides), "utf8");
 }
@@ -208,7 +208,7 @@ function runnerDefinitionMarkdown(overrides: RunnerDefinitionOverrides = {}): st
 	];
 	return [
 		"---",
-		"schema: asdl.pi-agent.v1",
+		"schema: sdl.pi-agent.v1",
 		"name: runner",
 		`toolName: ${overrides.toolName ?? DISPATCH_RUNNER_SUBAGENT_TOOL_NAME}`,
 		`label: ${overrides.label ?? "Dispatch Runner Subagent"}`,

@@ -4,7 +4,7 @@ import {
 	type CommandExecApi,
 	type ExecOptions,
 	type ExecResult,
-} from "@asdl/core/exec";
+} from "@sdl/core/exec";
 
 const GT_TIMEOUT_MS = 30_000;
 

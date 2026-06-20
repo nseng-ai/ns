@@ -20,7 +20,7 @@ skill, not in a raw log dump.
 
 ## Install
 
-Install the TypeScript source shim from an asdl checkout:
+Install the TypeScript source shim from an sdl checkout:
 
 ```bash
 just install-aretro

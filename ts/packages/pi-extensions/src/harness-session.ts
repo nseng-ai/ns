@@ -1,7 +1,7 @@
-import { truncatedSha256Digest } from "@asdl/core";
-import { shellQuote } from "@asdl/core/exec";
+import { truncatedSha256Digest } from "@sdl/core";
+import { shellQuote } from "@sdl/core/exec";
 
-const HARNESS_SESSION_ENTRY_TYPE = "asdl-harness-session-id";
+const HARNESS_SESSION_ENTRY_TYPE = "sdl-harness-session-id";
 const HARNESS_SESSION_ENV = "HARNESS_SESSION_ID";
 
 interface CustomSessionEntry {

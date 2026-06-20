@@ -1,10 +1,10 @@
-import { formatImplBranchContextCommand, type BranchContextEvidence } from "@asdl/branch-context";
-import type { ExecResult } from "@asdl/core/exec";
+import { formatImplBranchContextCommand, type BranchContextEvidence } from "@sdl/branch-context";
+import type { ExecResult } from "@sdl/core/exec";
 import type {
 	SessionReplacementContext,
 	SessionReplacementOptions,
 	SessionReplacementResult,
-} from "@asdl/pi-extension-runtime/session-replacement";
+} from "@sdl/pi-extension-runtime/session-replacement";
 import { setLaunchStatus, type LaunchStatusUi, type LaunchStatusUpdater } from "./launch-status.ts";
 
 export interface BranchContextUpAndImplHost {

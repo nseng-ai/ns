@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { InMemoryGitGateway } from "@asdl/core/git/testing";
+import { InMemoryGitGateway } from "@sdl/core/git/testing";
 import { describe, expect, it } from "vitest";
 
 import type { AretroCliContext } from "../../src/context.ts";
@@ -259,7 +259,7 @@ describe("aretro exec collect-evidence", () => {
 		const sessionSource = new FakeSessionSource({ sessions: [evidenceSession("/repo")] });
 		const context: AretroCliContext = {
 			cwd: "/repo",
-			env: { ASDL_PAYLOAD_ROOT: payloadRoot },
+			env: { SDL_PAYLOAD_ROOT: payloadRoot },
 			git,
 			sessionSource,
 		};

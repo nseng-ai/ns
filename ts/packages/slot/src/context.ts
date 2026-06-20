@@ -1,8 +1,8 @@
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 
-import { resolveClinkrInteraction, type ClinkrInteraction } from "@asdl/clinkr";
-import { readStdinLine } from "@asdl/core/stdin";
+import { resolveClinkrInteraction, type ClinkrInteraction } from "@sdl/clinkr";
+import { readStdinLine } from "@sdl/core/stdin";
 
 import { RealClipboardGateway, type ClipboardGateway } from "./gateways/clipboard.ts";
 import { RealSlotGitGateway, type SlotGitGateway } from "./gateways/git.ts";

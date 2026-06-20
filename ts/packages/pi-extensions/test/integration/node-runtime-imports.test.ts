@@ -25,31 +25,31 @@ const PROJECT_EXTENSION_ADAPTERS = [
 ] as const;
 
 const PI_EXTENSIONS_WORKSPACE_IMPORTS = [
-	"@asdl/ccc/worktree-status/graphite-metadata",
-	"@asdl/core/exec",
-	"@asdl/branch-context",
-	"@asdl/plans",
-	"@asdl/sdl/cli",
+	"@sdl/ccc/worktree-status/graphite-metadata",
+	"@sdl/core/exec",
+	"@sdl/branch-context",
+	"@sdl/plans",
+	"@sdl/sdl/cli",
 ] as const;
 
 const CCC_WORKSPACE_IMPORTS = [
-	"@asdl/core/exec",
-	"@asdl/branch-context",
-	"@asdl/plans",
-	"@asdl/sdl/checkpoint-flow",
+	"@sdl/core/exec",
+	"@sdl/branch-context",
+	"@sdl/plans",
+	"@sdl/sdl/checkpoint-flow",
 ] as const;
 
 const SDL_EXPORT_IMPORTS = [
-	"@asdl/sdl/checkpoint",
-	"@asdl/sdl/checkpoint-flow",
-	"@asdl/sdl/checkpoint-message",
-	"@asdl/sdl/cli",
-	"@asdl/sdl/context",
-	"@asdl/sdl/pending-worktree",
-	"@asdl/sdl/pi-text-generation",
-	"@asdl/sdl/sdk",
-	"@asdl/sdl/text-generation",
-	"@asdl/sdl/text-repair",
+	"@sdl/sdl/checkpoint",
+	"@sdl/sdl/checkpoint-flow",
+	"@sdl/sdl/checkpoint-message",
+	"@sdl/sdl/cli",
+	"@sdl/sdl/context",
+	"@sdl/sdl/pending-worktree",
+	"@sdl/sdl/pi-text-generation",
+	"@sdl/sdl/sdk",
+	"@sdl/sdl/text-generation",
+	"@sdl/sdl/text-repair",
 ] as const;
 
 interface NodeEvalOptions {

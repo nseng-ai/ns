@@ -37,7 +37,7 @@ describe("extension discovery", () => {
 		writeFile(
 			join(root, "package-ext", "package.json"),
 			JSON.stringify({
-				asdl: {
+				sdl: {
 					commands: [{ name: "custom", description: "Custom command.", entry: "./src/index.ts" }],
 				},
 			}),
@@ -78,11 +78,11 @@ describe("extension discovery", () => {
 	test("malformed package manifests produce structured diagnostics", async () => {
 		const root = await createTempDir();
 		writeFile(join(root, "bad-json", "package.json"), "{ nope");
-		writeFile(join(root, "missing-asdl", "package.json"), JSON.stringify({ name: "missing" }));
+		writeFile(join(root, "missing-sdl", "package.json"), JSON.stringify({ name: "missing" }));
 		writeFile(
 			join(root, "bad-entries", "package.json"),
 			JSON.stringify({
-				asdl: {
+				sdl: {
 					commands: [
 						"not-object",
 						{ name: "Bad", description: "Bad.", entry: "./missing.ts" },
@@ -108,15 +108,15 @@ describe("extension discovery", () => {
 			"extension_manifest_command_description_missing",
 			"extension_manifest_entry_missing",
 			"extension_manifest_parse_failed",
-			"extension_manifest_missing_asdl",
+			"extension_manifest_missing_sdl",
 		]);
 	});
 
-	test("manifest asdl.commands must be an array", async () => {
+	test("manifest sdl.commands must be an array", async () => {
 		const root = await createTempDir();
 		writeFile(
 			join(root, "bad", "package.json"),
-			JSON.stringify({ asdl: { extensions: ["./src/index.ts"] } }),
+			JSON.stringify({ sdl: { extensions: ["./src/index.ts"] } }),
 		);
 
 		const result = discoverExtensionsInRoot(root);
@@ -131,7 +131,7 @@ describe("extension discovery", () => {
 		writeFile(
 			join(root, "bad", "package.json"),
 			JSON.stringify({
-				asdl: { commands: [{ name: "hello", description: "Hello.", entry: "./missing.ts" }] },
+				sdl: { commands: [{ name: "hello", description: "Hello.", entry: "./missing.ts" }] },
 			}),
 		);
 
