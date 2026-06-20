@@ -18,12 +18,19 @@ long tail of score 1–3 polish stays opportunistic, not a standalone push.
 ## Scope
 
 - **Three systemic findings:**
-  1. `Command: X` stub descriptions on model-invocable skills — decide and apply the
-     intended invocation model per skill (`disable-model-invocation: true` for
-     slash-command-only, or a real trigger description for model-invoked). Affects
-     `sdl-submit`, `objective-close`, `objective-create`, `code-workflows`,
-     `changelog-update`, `code-checkpoint`, `code-autobranch`, `code-just-fix`, and the
-     `setup-*` / `create-*` family.
+  1. `Command: X` stub descriptions — set the correct areg invocation *kind* per skill.
+     (Reframed: invocation is governed by areg's four kinds — `normal` / `ambient-only` /
+     `invoke-only` / `command-backed` — applied via `areg skill apply` and enforced by
+     `areg check`, not a hand-edited `disable-model-invocation` flag. The `Command: X` +
+     commented-description frontmatter is the *rendered output* of an explicit-only kind,
+     so a skill that is kind `normal` but shows that stub is misconfigured — "listed but
+     unroutable.") Two streams: write real descriptions for incomplete `normal` skills,
+     and reconcile deliberately-explicit skills to `invoke-only` (or `command-backed`
+     only where a verified Pi replacement exists). Affects `sdl-submit`,
+     `objective-close`, `objective-create`, `code-workflows`, `changelog-update`,
+     `code-checkpoint`, `code-just-fix`, and the `setup-*` / `create-*` family
+     (`code-autobranch` already carries a real `normal` description). Taxonomy documented
+     in `docs/skill-conventions.md` § Skill Invocation Kinds.
   2. The grill pair (`pi-grill-ui`, `pi-grill-with-docs-ui`) duplicates a ~95%
      byte-identical shared core that has already drifted — single-source it.
   3. Branch-creation precedence policy is duplicated across
@@ -79,8 +86,11 @@ Assumptions:
   bespoke per-skill surgery. (Could be disproven if a parked score-3 skill turns out to
   cost more than estimated once touched.)
 - The `Command: X` stub is a deliberate token-saving convention, not a bug, so systemic
-  #1 is a per-skill policy *decision*, not a blanket description revert. (Could be
-  disproven — the author may want all descriptions restored, or all flags set.)
+  #1 is a per-skill policy *decision*, not a blanket description revert. (Refined: the
+  stub is the *rendered output* of an areg explicit-only invocation kind, managed by
+  `areg skill apply` — so the per-skill decision is which of the four kinds applies, and
+  the application is mechanical/registry-driven, not a freehand frontmatter edit. A
+  `normal` skill showing the stub is simply misconfigured.)
 - Disclosing an oversized inline block to a reference reduces always-loaded cost without
   hurting reliability, *provided* the pointer wording names the concrete situation that
   should reach it.
@@ -100,9 +110,11 @@ Risks:
 
 ## Open Questions
 
-- Systemic #1: for each `Command: X` skill, is the intended invocation slash-command-only
-  (set `disable-model-invocation: true`, keep the stub as a human label) or model-invoked
-  (restore the commented-out trigger description)? Needs a per-skill or blanket call.
+- Systemic #1 (mechanism resolved; per-skill assignment remains): the mechanism is the
+  areg four-kind taxonomy applied via `areg skill apply`, not a binary flag. Open per
+  skill: which kind — `normal` (write a real description), `invoke-only`, or
+  `command-backed` (only where a verified Pi replacement extension exists)? Needs a
+  per-skill classification + sign-off before batch application.
 - For the grill pair, what shared-core mechanism is acceptable given the
   self-contained-fallback requirement — a generation/templating step at install time, or
   a documented deliberate copy guarded by a drift lint?

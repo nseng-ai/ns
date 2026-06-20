@@ -65,6 +65,8 @@ Source: `github.com/badlogic/pi-mono`, `packages/coding-agent` (verified against
 
 ## Implications for `areg` command conversion
 
+> These mechanics were since implemented as `areg`'s managed **skill invocation kinds** (`normal` / `invoke-only` / `command-backed` / `ambient-only`). For the repo-facing taxonomy — how to inspect and change a skill's kind, and why you must never hand-edit the flags below — see [Skill Conventions § Skill Invocation Kinds](skill-conventions.md#skill-invocation-kinds-areg). The notes here are the underlying harness research the kinds are built on.
+
 1. **Root coupling is real but manageable.** Codex and Pi both read `.agents/skills/` and it cannot be diverged by symlinks (same-path readers see the same thing). Pi can now force-exclude a discovered skill with `-skills/<name>` while Codex ignores that Pi setting. Only Claude Code reads a separate root (`.claude/`).
 2. **Command conversion is a three-artifact lifecycle plus replacement verification:** add `disable-model-invocation: true` to `SKILL.md`, write `agents/openai.yaml` with `allow_implicit_invocation: false`, and add `.pi/settings.json` `"-skills/<name>"`. Before writing those artifacts, `areg command convert` verifies that a replacement Pi extension command exists so hiding `/skill:<name>` does not remove the user's invocable Pi surface.
 3. **Replacement Pi commands must read backing skills directly.** A command-converted skill may be hidden from `pi.getCommands()`, so specialized and generic `/ns:cmd` extensions read `skills/<name>/SKILL.md` from the repo instead of expanding ambient `skill:<name>` registrations.
