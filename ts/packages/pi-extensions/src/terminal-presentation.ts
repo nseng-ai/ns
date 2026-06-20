@@ -3,6 +3,7 @@ export {
 	linkifyPrReferences,
 	prLinksDetailsFor,
 	prLinksFromDetails,
+	safeTerminalHyperlink,
 	sanitizeTerminalHyperlinkUrl,
 	stripTerminalEscapes,
 	terminalHyperlink,
