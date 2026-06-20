@@ -64,13 +64,21 @@ function thread(overrides: Record<string, unknown> = {}): Record<string, unknown
 	};
 }
 
-async function expectInvalidIdentity(
+function withoutKey(record: Record<string, unknown>, key: string): Record<string, unknown> {
+	const copy = { ...record };
+	delete copy[key];
+	return copy;
+}
+
+interface InvalidResponseDetails {
+	readonly prNumber?: number | undefined;
+	readonly threadId?: string | undefined;
+	readonly cursorContext?: string | undefined;
+}
+
+async function expectInvalidResponse(
 	resultPromise: Promise<unknown>,
-	details: {
-		readonly prNumber?: number | undefined;
-		readonly threadId?: string | undefined;
-		readonly cursorContext?: string | undefined;
-	},
+	details: InvalidResponseDetails,
 ): Promise<void> {
 	await expect(resultPromise).resolves.toMatchObject({
 		ok: false,
@@ -138,6 +146,38 @@ describe("RealGithubPrFeedbackGateway", () => {
 		runner.assertDone();
 	});
 
+	test("treats generic not found lookup output as a gateway failure", async () => {
+		const branchArgs = [
+			"pr",
+			"view",
+			"feature/auth",
+			"--json",
+			"number,title,url,headRefName,headRefOid,baseRefName,state",
+		];
+		const prArgs = [
+			"pr",
+			"view",
+			"404",
+			"--json",
+			"number,title,url,headRefName,headRefOid,baseRefName,state",
+		];
+		const runner = new ScriptedCommandRunner([
+			step("gh", branchArgs, { exitCode: 1, stderr: "repository not found" }),
+			step("gh", prArgs, { exitCode: 1, stderr: "not found" }),
+		]);
+		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+
+		expect(await gateway.getPrForBranch({ cwd: "/repo", branch: "feature/auth" })).toMatchObject({
+			ok: false,
+			error: { code: "github_pr_feedback_gh_failed" },
+		});
+		expect(await gateway.getPr({ cwd: "/repo", prNumber: 404 })).toMatchObject({
+			ok: false,
+			error: { code: "github_pr_feedback_gh_failed" },
+		});
+		runner.assertDone();
+	});
+
 	test("lists open PRs and reports malformed JSON", async () => {
 		const args = [
 			"pr",
@@ -184,7 +224,13 @@ describe("RealGithubPrFeedbackGateway", () => {
 			step("gh", args, {
 				stdout: JSON.stringify({
 					reviews: [
-						{ id: "R1", author: null, body: "", state: "APPROVED" },
+						{
+							id: "R1",
+							author: null,
+							body: "",
+							state: "APPROVED",
+							submittedAt: "2026-06-01T00:00:00Z",
+						},
 						{
 							id: "R2",
 							author: { login: "reviewer" },
@@ -201,7 +247,13 @@ describe("RealGithubPrFeedbackGateway", () => {
 		expect(await gateway.getPrReviews({ cwd: "/repo", prNumber: 12 })).toEqual({
 			ok: true,
 			value: [
-				{ id: "R1", author: "", body: "", state: "APPROVED", submittedAt: "" },
+				{
+					id: "R1",
+					author: "",
+					body: "",
+					state: "APPROVED",
+					submittedAt: "2026-06-01T00:00:00Z",
+				},
 				{
 					id: "R2",
 					author: "reviewer",
@@ -210,6 +262,134 @@ describe("RealGithubPrFeedbackGateway", () => {
 					submittedAt: "2026-06-01T00:00:00Z",
 				},
 			],
+		});
+		runner.assertDone();
+	});
+
+	test("rejects missing requested PR-level review fields", async () => {
+		const args = ["pr", "view", "12", "--json", "reviews"];
+		const runner = new ScriptedCommandRunner([
+			step("gh", args, {
+				stdout: JSON.stringify({
+					reviews: [
+						{
+							id: "R1",
+							author: { login: "reviewer" },
+							state: "COMMENTED",
+							submittedAt: "2026-06-01T00:00:00Z",
+						},
+					],
+				}),
+			}),
+			step("gh", args, {
+				stdout: JSON.stringify({
+					reviews: [
+						{ id: "R2", author: { login: "reviewer" }, body: "Looks good", state: "APPROVED" },
+					],
+				}),
+			}),
+		]);
+		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+
+		await expectInvalidResponse(gateway.getPrReviews({ cwd: "/repo", prNumber: 12 }), {
+			prNumber: 12,
+		});
+		await expectInvalidResponse(gateway.getPrReviews({ cwd: "/repo", prNumber: 12 }), {
+			prNumber: 12,
+		});
+		runner.assertDone();
+	});
+
+	test("rejects missing requested review-thread and comment fields", async () => {
+		const args = [
+			"api",
+			"graphql",
+			"-F",
+			"owner={owner}",
+			"-F",
+			"repo={repo}",
+			"-F",
+			"number=12",
+			"-f",
+			`query=${reviewThreadsQuery}`,
+		];
+		const runner = new ScriptedCommandRunner([
+			step("gh", args, { stdout: reviewThreadsResponse([withoutKey(thread(), "path")]) }),
+			step("gh", args, { stdout: reviewThreadsResponse([withoutKey(thread(), "isResolved")]) }),
+			step("gh", args, {
+				stdout: reviewThreadsResponse([
+					thread({
+						comments: {
+							nodes: [withoutKey(comment(), "body")],
+							pageInfo: { hasNextPage: false, endCursor: null },
+						},
+					}),
+				]),
+			}),
+			step("gh", args, {
+				stdout: reviewThreadsResponse([
+					thread({
+						comments: {
+							nodes: [withoutKey(comment(), "path")],
+							pageInfo: { hasNextPage: false, endCursor: null },
+						},
+					}),
+				]),
+			}),
+		]);
+		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+
+		await expectInvalidResponse(gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 }), {
+			prNumber: 12,
+			cursorContext: "reviewThreads",
+		});
+		await expectInvalidResponse(gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 }), {
+			prNumber: 12,
+			cursorContext: "reviewThreads",
+		});
+		await expectInvalidResponse(gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 }), {
+			prNumber: 12,
+			cursorContext: "reviewThreads",
+		});
+		await expectInvalidResponse(gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 }), {
+			prNumber: 12,
+			cursorContext: "reviewThreads",
+		});
+		runner.assertDone();
+	});
+
+	test("rejects missing requested discussion comment fields", async () => {
+		const args = [
+			"api",
+			"graphql",
+			"-F",
+			"owner={owner}",
+			"-F",
+			"repo={repo}",
+			"-F",
+			"number=12",
+			"-f",
+			`query=${discussionCommentsQuery}`,
+		];
+		const discussion: Record<string, unknown> = {
+			databaseId: 99,
+			body: "discussion",
+			author: { login: "human" },
+			url: "https://github.com/acme/repo/pull/12#issuecomment-99",
+		};
+		const runner = new ScriptedCommandRunner([
+			step("gh", args, { stdout: discussionCommentsResponse([withoutKey(discussion, "body")]) }),
+			step("gh", args, { stdout: discussionCommentsResponse([withoutKey(discussion, "url")]) }),
+		]);
+		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+
+		await expectInvalidResponse(gateway.getPrDiscussionComments({ cwd: "/repo", prNumber: 12 }), {
+			prNumber: 12,
+			cursorContext: "discussionComments",
+		});
+		await expectInvalidResponse(gateway.getPrDiscussionComments({ cwd: "/repo", prNumber: 12 }), {
+			prNumber: 12,
+			cursorContext: "discussionComments",
 		});
 		runner.assertDone();
 	});
@@ -310,7 +490,11 @@ describe("RealGithubPrFeedbackGateway", () => {
 			}),
 			step("gh", secondThreadArgs, {
 				stdout: reviewThreadsResponse([
-					thread({ id: "RT_thread2", isResolved: true, comments: { nodes: [], pageInfo: {} } }),
+					thread({
+						id: "RT_thread2",
+						isResolved: true,
+						comments: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } },
+					}),
 				]),
 			}),
 		]);
@@ -446,7 +630,7 @@ describe("RealGithubPrFeedbackGateway", () => {
 		runner.assertDone();
 	});
 
-	test("normalizes null review-thread comment authors and missing comment nodes", async () => {
+	test("normalizes null review-thread comment authors and empty comment nodes", async () => {
 		const args = [
 			"api",
 			"graphql",
@@ -468,7 +652,10 @@ describe("RealGithubPrFeedbackGateway", () => {
 							pageInfo: { hasNextPage: false, endCursor: null },
 						},
 					}),
-					thread({ id: "RT_empty", comments: {} }),
+					thread({
+						id: "RT_empty",
+						comments: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } },
+					}),
 				]),
 			}),
 		]);
@@ -514,7 +701,12 @@ describe("RealGithubPrFeedbackGateway", () => {
 			step("gh", args, { stdout: reviewThreadsResponse([thread({ id: null })]) }),
 			step("gh", args, {
 				stdout: reviewThreadsResponse([
-					thread({ comments: { nodes: [comment({ databaseId: undefined })], pageInfo: {} } }),
+					thread({
+						comments: {
+							nodes: [comment({ databaseId: undefined })],
+							pageInfo: { hasNextPage: false, endCursor: null },
+						},
+					}),
 				]),
 			}),
 			step("gh", args, {
@@ -533,19 +725,19 @@ describe("RealGithubPrFeedbackGateway", () => {
 		]);
 		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
 
-		await expectInvalidIdentity(gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 }), {
+		await expectInvalidResponse(gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 }), {
 			prNumber: 12,
 			cursorContext: "reviewThreads",
 		});
-		await expectInvalidIdentity(gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 }), {
+		await expectInvalidResponse(gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 }), {
 			prNumber: 12,
 			cursorContext: "reviewThreads",
 		});
-		await expectInvalidIdentity(gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 }), {
+		await expectInvalidResponse(gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 }), {
 			prNumber: 12,
 			cursorContext: "reviewThreads",
 		});
-		await expectInvalidIdentity(gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 }), {
+		await expectInvalidResponse(gateway.getPrReviewThreads({ cwd: "/repo", prNumber: 12 }), {
 			prNumber: 12,
 			threadId: "RT_thread1",
 			cursorContext: "reviewThreadComments",
@@ -595,15 +787,15 @@ describe("RealGithubPrFeedbackGateway", () => {
 		]);
 		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
 
-		await expectInvalidIdentity(gateway.getPrDiscussionComments({ cwd: "/repo", prNumber: 12 }), {
+		await expectInvalidResponse(gateway.getPrDiscussionComments({ cwd: "/repo", prNumber: 12 }), {
 			prNumber: 12,
 			cursorContext: "discussionComments",
 		});
-		await expectInvalidIdentity(gateway.getPrDiscussionComments({ cwd: "/repo", prNumber: 12 }), {
+		await expectInvalidResponse(gateway.getPrDiscussionComments({ cwd: "/repo", prNumber: 12 }), {
 			prNumber: 12,
 			cursorContext: "discussionComments",
 		});
-		await expectInvalidIdentity(
+		await expectInvalidResponse(
 			gateway.replyToReviewThread({ cwd: "/repo", threadId: "RT_thread1", body: "Fixed." }),
 			{ threadId: "RT_thread1" },
 		);

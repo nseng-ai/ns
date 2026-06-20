@@ -128,12 +128,16 @@ function withRepoContextPrecondition<S extends z.ZodObject, T>(
 ): ClinkrHandler<PrAddressExecContext, S, T> {
 	return async (ctx, request) => {
 		const probe = await ctx.context.git.isInsideWorkTree({ cwd: ctx.cwd, env: ctx.env });
-		if (probe.type === "outside") {
-			return failure(
-				"repo_context_required",
-				"pr-address must run inside the target git repository (gh resolves the repo from the current directory).",
-			);
+		switch (probe.type) {
+			case "inside":
+				return handler(ctx, request);
+			case "outside":
+				return failure(
+					"repo_context_required",
+					"pr-address must run inside the target git repository (gh resolves the repo from the current directory).",
+				);
+			case "failure":
+				return gatewayFailureExit("Failed to determine repository context", probe.failure);
 		}
-		return handler(ctx, request);
 	};
 }
