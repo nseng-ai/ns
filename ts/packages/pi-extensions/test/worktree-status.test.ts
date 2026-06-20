@@ -31,7 +31,7 @@ describe("worktree status extension registration and rendering", () => {
 
 		expect(pi.commands).toEqual([WORKTREE_STATUS_REFRESH_COMMAND_NAME]);
 		expect(pi.renderers).toEqual(["worktree-status"]);
-		expect(pi.events).toEqual([
+		expect(pi.registeredEvents).toEqual([
 			"input",
 			"user_bash",
 			"agent_start",

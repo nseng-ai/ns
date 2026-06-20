@@ -4,6 +4,11 @@ import { stripTerminalEscapes } from "@asdl/core/exec";
 import { createManualTimerHarness } from "@asdl/core/testing";
 import type { LocalWorktreeStatus } from "@asdl/ccc/worktree-status";
 import {
+	PI_EXTENSION_COMMAND_FINISHED_EVENT,
+	type PiExtensionCommandEventHandler,
+	type PiExtensionCommandFinishedEvent,
+} from "../src/extension-command-events.ts";
+import {
 	deferred,
 	fakeWorktreeStatusLoaders,
 	flushPromises,
@@ -88,6 +93,45 @@ describe("worktree status refresh lifecycle", () => {
 			ctx,
 		);
 		await toolRefreshLoaded.promise;
+		await flushPromises();
+
+		pi.assertDone();
+		expect(loaders.ghCalls).toHaveLength(1);
+		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
+			"[gt] ↓ main · ↑ - · 1 commit · ✗\n[gh] no PR",
+		);
+		await pi.sessionShutdown?.();
+	});
+
+	test("extension command completion refreshes stale dirty footer state", async () => {
+		const commandRefreshLoaded = deferred<void>();
+		const pi = new CommandEventLifecycleFakePi([]);
+		const loaders = fakeWorktreeStatusLoaders({
+			localStatuses: [
+				queued(localStatus()),
+				queued(localStatus({ gt: gtStatus({ dirty: "yes" }) }), () =>
+					commandRefreshLoaded.resolve(),
+				),
+			],
+			ghStatuses: [queued({ type: "no-pr" })],
+		});
+		const statuses = new Map<string, string | undefined>();
+		const ctx = testContext(statuses);
+
+		worktreeStatusExtension(pi as ExtensionAPI, { loaders, refreshIntervalMs: 60_000 });
+		await pi.sessionStart?.({}, ctx);
+		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
+			"[gt] ↓ main · ↑ - · 1 commit\n[gh] no PR",
+		);
+
+		await pi.emitCommandFinished({
+			commandName: "sdl:cp",
+			cwd: "/repo",
+			source: "sdl cp",
+			status: "completed",
+			exitCode: 0,
+		});
+		await commandRefreshLoaded.promise;
 		await flushPromises();
 
 		pi.assertDone();
@@ -232,3 +276,28 @@ describe("worktree status refresh lifecycle", () => {
 		await pi.sessionShutdown?.();
 	});
 });
+
+class CommandEventLifecycleFakePi extends LifecycleFakePi {
+	private readonly commandEventHandlers: PiExtensionCommandEventHandler[] = [];
+	readonly events = {
+		on: (
+			event: typeof PI_EXTENSION_COMMAND_FINISHED_EVENT,
+			handler: PiExtensionCommandEventHandler,
+		): void => {
+			if (event === PI_EXTENSION_COMMAND_FINISHED_EVENT) {
+				this.commandEventHandlers.push(handler);
+			}
+		},
+		emit: (
+			event: typeof PI_EXTENSION_COMMAND_FINISHED_EVENT,
+			payload: PiExtensionCommandFinishedEvent,
+		): void => {
+			if (event !== PI_EXTENSION_COMMAND_FINISHED_EVENT) return;
+			for (const handler of this.commandEventHandlers) void handler(payload);
+		},
+	};
+
+	async emitCommandFinished(payload: PiExtensionCommandFinishedEvent): Promise<void> {
+		for (const handler of this.commandEventHandlers) await handler(payload);
+	}
+}

@@ -82,7 +82,7 @@ interface RegisteredCommand {
 
 export class RegistrationFakePi {
 	readonly commands: string[] = [];
-	readonly events: RegisteredEventName[] = [];
+	readonly registeredEvents: RegisteredEventName[] = [];
 	readonly renderers: string[] = [];
 
 	registerCommand(name: string): void {
@@ -90,7 +90,7 @@ export class RegistrationFakePi {
 	}
 
 	on(event: RegisteredEventName): void {
-		this.events.push(event);
+		this.registeredEvents.push(event);
 	}
 
 	async exec(): Promise<ExecResult> {

@@ -29,6 +29,11 @@ import { systemClock, type Clock } from "@asdl/core/clock";
 import type { TimerScheduler } from "@asdl/core/timers";
 
 import { isRecord } from "./cmux/primitives.ts";
+import {
+	PI_EXTENSION_COMMAND_FINISHED_EVENT,
+	type PiExtensionCommandEventBus,
+	type PiExtensionCommandFinishedEvent,
+} from "./extension-command-events.ts";
 import { definePiSurfaceParity } from "./parity.ts";
 import { unrefTimerScheduler } from "./timers.ts";
 import {
@@ -208,6 +213,7 @@ interface RegisteredCommand {
 }
 
 export interface ExtensionAPI {
+	readonly events?: PiExtensionCommandEventBus | undefined;
 	on(
 		event: "session_start",
 		handler: (event: unknown, ctx: ExtensionContext) => Promise<void> | void,
@@ -602,13 +608,28 @@ export default function worktreeStatusExtension(
 		},
 	});
 
+	function handleActiveSessionActivity(afterRecordActivity?: () => void): void {
+		recordActiveSessionActivity();
+		afterRecordActivity?.();
+	}
+
 	function registerWorktreeStatusActivityHandler(
 		event: WorktreeStatusActivityEvent,
 		afterRecordActivity?: (payload: unknown) => void,
 	): void {
 		pi.on(event, (payload) => {
-			recordActiveSessionActivity();
-			afterRecordActivity?.(payload);
+			handleActiveSessionActivity(() => afterRecordActivity?.(payload));
+		});
+	}
+
+	function registerExtensionCommandActivityHandler(
+		afterRecordActivity?: (payload: PiExtensionCommandFinishedEvent) => void,
+	): void {
+		if (typeof pi.events?.on !== "function") return;
+		// Extension command completion is a custom extension-bus event, not a Pi lifecycle event,
+		// but it should participate in the same worktree-status activity path as pi.on events.
+		pi.events.on(PI_EXTENSION_COMMAND_FINISHED_EVENT, (payload) => {
+			handleActiveSessionActivity(() => afterRecordActivity?.(payload));
 		});
 	}
 
@@ -629,6 +650,7 @@ export default function worktreeStatusExtension(
 	);
 	registerWorktreeStatusActivityHandler("model_select");
 	registerWorktreeStatusActivityHandler("thinking_level_select");
+	registerExtensionCommandActivityHandler(() => refreshActiveSession());
 
 	pi.on("session_start", async (_event, ctx) => {
 		const session = activateSession(ctx);
