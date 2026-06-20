@@ -22,10 +22,25 @@
       Residual body-content work for `sdl-submit` / `objective-close` / `objective-create`
       is tracked under the duplication-collapse row, not here. Taxonomy in
       `docs/skill-conventions.md` § Skill Invocation Kinds.
-- [ ] Systemic #2 — single-source the grill-loop core shared by `pi-grill-ui` and
+- [x] Systemic #2 — single-source the grill-loop core shared by `pi-grill-ui` and
       `pi-grill-with-docs-ui`. Reconcile the already-drifted `status_request` wording;
-      leave each skill holding only its UI-specific delta. Depends on resolving the
-      shared-core mechanism open question.
+      leave each skill holding only its UI-specific delta.
+      Mechanism decided: **reconcile-only, no drift guard** — neither a runtime pointer
+      (barred by the self-contained-fallback constraint) nor an install-time generation
+      step (heavyweight for the actual surface). Correction: the "~95% byte-identical
+      core" framing was generous — `pi-grill-with-docs-ui` is a *superset* of
+      `pi-grill-ui`, and the truly byte-identical shared blocks are only **3 short
+      paragraphs** (the `grill_ask` usage para, the `ui_unavailable` fallback para, and
+      the validation-scope para), all already consistent. Actual drift fixed:
+      `status_request` opener wording (`that`→`it`) realigned; the shared interview
+      opener realigned (`this plan or design`); and the normal grill status-field
+      enumeration inlined into `pi-grill-with-docs-ui`'s status-checkpoint section, which
+      had referenced "the normal grill status fields" without listing them — a
+      self-containment hole in the docs-aware fallback. Each skill now holds only its
+      UI-specific delta (`pi-grill-with-docs-ui` keeps the `Documentation updates:` line
+      and the docs-first/during-session/checkpoint sections). Evidence: `areg check`
+      "All skills OK"; both files remain self-contained; shared field enumeration now
+      byte-identical across both. Done on branch `grill-core-reconcile`.
 - [x] Systemic #3 — single-home the branch-creation precedence policy in
       `branch-context/references/lifecycle.md`; reduce `branch-context-from-plan` to the
       load-bearing repo default (`--branch-creation graphite`) plus a pointer.

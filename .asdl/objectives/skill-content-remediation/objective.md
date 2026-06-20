@@ -105,7 +105,10 @@ Risks:
 - The grill pair's self-contained-fallback constraint blocks a runtime pointer, so
   single-sourcing needs a build/install-time mechanism that may not exist yet. De-risk
   the mechanism before committing to an approach; the fallback is the reason the copies
-  exist.
+  exist. (Resolved: no build/install-time mechanism was needed. The shared core turned
+  out to be only 3 short paragraphs, so the chosen mechanism is reconcile-in-place with
+  no drift guard — both files stay self-contained. Accepted residual risk: re-drift can
+  recur silently since there is no guard; deemed acceptable given the tiny surface.)
 - Editing descriptions (systemic #1) is the highest-risk surface: it changes whether and
   how skills auto-trigger and whether other skills can reach them. A wrong call degrades
   routing silently. (Partially materialized and mechanically caught: an initial
@@ -123,9 +126,12 @@ Risks:
   verified-replacement skills → `command-backed`. The classification axis is "has a
   verified Pi replacement?", and `areg check` enforces the wiring. See update
   `2026-06-19T202008`.
-- For the grill pair, what shared-core mechanism is acceptable given the
-  self-contained-fallback requirement — a generation/templating step at install time, or
-  a documented deliberate copy guarded by a drift lint?
+- For the grill pair — **resolved.** Mechanism chosen: **reconcile-only, no drift
+  guard.** Neither candidate (install-time generation, or a copy guarded by a drift
+  lint) was warranted: the true shared core is only 3 short paragraphs, so the copies
+  were reconciled in place and both files kept self-contained. The "~95% byte-identical"
+  framing was corrected — `pi-grill-with-docs-ui` is a superset, not a twin. See
+  roadmap Systemic #2 and update `2026-06-19T210500`.
 - Should `python-fake-driven-testing`'s 11-file / 6.4K-line reference tree be consolidated
   (e.g. merge `quick-reference.md` and `workflows.md`) or only have its overlapping
   pointers sharpened?
