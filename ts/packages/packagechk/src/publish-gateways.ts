@@ -80,20 +80,13 @@ export class RealPypiPublishGateway implements PypiPublishGateway {
 
 	async publishArtifacts(projectDir: string, artifacts: readonly string[]): Promise<string | null> {
 		if (artifacts.length === 0) return "No distribution artifacts to publish.";
-		const command = "uvx";
-		const args = ["uv-publish", ...artifacts];
-		try {
-			const result = await this.commandRunner(command, args, { cwd: projectDir });
-			return result.code === 0
-				? null
-				: formatCommandResultFailure("uvx uv-publish failed", command, args, result);
-		} catch (error) {
-			return formatCommandStartupFailure(
-				"uvx uv-publish failed",
-				formatCommand(command, args),
-				error,
-			);
-		}
+		return await runPublishProcess(
+			this.commandRunner,
+			"uvx uv-publish failed",
+			"uvx",
+			["uv-publish", ...artifacts],
+			projectDir,
+		);
 	}
 }
 
@@ -168,16 +161,13 @@ export class RealNpmPublishGateway implements NpmPublishGateway {
 	}
 
 	async publishProject(projectDir: string): Promise<string | null> {
-		const command = "npm";
-		const args = ["publish", "--access=public"];
-		try {
-			const result = await this.commandRunner(command, args, { cwd: projectDir });
-			return result.code === 0
-				? null
-				: formatCommandResultFailure("npm publish failed", command, args, result);
-		} catch (error) {
-			return formatCommandStartupFailure("npm publish failed", formatCommand(command, args), error);
-		}
+		return await runPublishProcess(
+			this.commandRunner,
+			"npm publish failed",
+			"npm",
+			["publish", "--access=public"],
+			projectDir,
+		);
 	}
 }
 
@@ -208,6 +198,21 @@ export class FakeNpmPublishGateway implements NpmPublishGateway {
 	async publishProject(projectDir: string): Promise<string | null> {
 		this.publishedDirs.push(projectDir);
 		return this.publishError;
+	}
+}
+
+async function runPublishProcess(
+	runner: CommandRunner,
+	title: string,
+	command: string,
+	args: readonly string[],
+	cwd: string,
+): Promise<string | null> {
+	try {
+		const result = await runner(command, args, { cwd });
+		return result.code === 0 ? null : formatCommandResultFailure(title, command, args, result);
+	} catch (error) {
+		return formatCommandStartupFailure(title, formatCommand(command, args), error);
 	}
 }
 

@@ -70,4 +70,28 @@ describe("publish gateways", () => {
 		expect(error).toContain("Command: npm publish --access=public");
 		expect(error).toContain("publish denied");
 	});
+
+	test("publish startup failures use shared command failure formatting", async () => {
+		const runner: CommandRunner = async () => {
+			throw new Error("spawn failed");
+		};
+		const pypiGateway = new RealPypiPublishGateway({
+			toolFinder: () => "/bin/tool",
+			commandRunner: runner,
+		});
+		const npmGateway = new RealNpmPublishGateway({
+			toolFinder: () => "/bin/npm",
+			commandRunner: runner,
+		});
+
+		const pypiError = await pypiGateway.publishArtifacts("/tmp/project", ["dist/sample.tar.gz"]);
+		const npmError = await npmGateway.publishProject("/tmp/project");
+
+		expect(pypiError).toContain("uvx uv-publish failed (failed before completion).");
+		expect(pypiError).toContain("Command: uvx uv-publish dist/sample.tar.gz");
+		expect(pypiError).toContain("spawn failed");
+		expect(npmError).toContain("npm publish failed (failed before completion).");
+		expect(npmError).toContain("Command: npm publish --access=public");
+		expect(npmError).toContain("spawn failed");
+	});
 });
