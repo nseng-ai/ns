@@ -22,7 +22,7 @@ import {
 	type BranchContextContext,
 } from "@asdl/branch-context";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
-import type { GitGateway } from "@asdl/core/git";
+import { InMemoryGitGateway } from "@asdl/core/git/testing";
 import { buildPlanFileName, buildRepoPlanStoreKey, encodeBranchForPlanPath } from "@asdl/plans";
 
 const ROOT = "/repo";
@@ -253,56 +253,6 @@ function attachedPlanEntry(key: string, branch: string = PLAN_BRANCH): AttachedP
 	};
 }
 
-function fakeGitGateway(branch: string = PLAN_BRANCH): GitGateway {
-	return {
-		async repoRoot() {
-			return { ok: true, value: ROOT };
-		},
-		async optionalRepoRoot() {
-			return { type: "found", value: ROOT };
-		},
-		async currentBranch() {
-			return { type: "branch", branch };
-		},
-		async isInsideWorkTree() {
-			return { ok: true, value: true };
-		},
-		async trunkBranch() {
-			return { type: "found", value: "main" };
-		},
-		async originUrl() {
-			return { type: "found", value: "git@github.com:asdl/asdl-tools.git" };
-		},
-		async headCommit() {
-			return { ok: true, value: "1111111111111111111111111111111111111111" };
-		},
-		async gitPath() {
-			return { ok: true, value: "/repo/.git/info/exclude" };
-		},
-		async validateBranchRef() {
-			return { ok: true };
-		},
-		async localBranchPresence() {
-			return { type: "absent", refName: `refs/heads/${branch}` };
-		},
-		async createBranchAtHead() {
-			return { ok: true };
-		},
-		async hasUncommittedChangesUnder() {
-			return { ok: true, value: false };
-		},
-		async listLocalBranchTips() {
-			return { ok: true, value: [] };
-		},
-		async treeOidsAtRefs(params) {
-			return { ok: true, value: Object.fromEntries(params.refs.map((ref) => [ref, null])) };
-		},
-		async changedPathsUnder() {
-			return { ok: true, value: [] };
-		},
-	};
-}
-
 function branchContext(
 	pi: CommandExecApi,
 	overrides: Partial<BranchContextContext> = {},
@@ -475,7 +425,15 @@ describe("loadAttachedPlan", () => {
 			{},
 			{
 				cwd: ROOT,
-				context: branchContext(pi, { git: fakeGitGateway(), brmem: emptyBrmemGateway() }),
+				context: branchContext(pi, {
+					git: new InMemoryGitGateway({
+						currentBranch: PLAN_BRANCH,
+						trunkBranch: "main",
+						originUrl: "git@github.com:asdl/asdl-tools.git",
+						headCommit: "1111111111111111111111111111111111111111",
+					}),
+					brmem: emptyBrmemGateway(),
+				}),
 				planStoreRoot,
 				async readTextFile(path) {
 					readPaths.push(path);

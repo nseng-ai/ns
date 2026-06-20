@@ -5,6 +5,28 @@ export interface ErrorInfo<Details extends object = Record<string, unknown>> {
 	displayCommand?: string;
 }
 
+export interface ErrorDetailTextOptions {
+	readonly stderr?: string | null | undefined;
+	readonly stdout?: string | null | undefined;
+	readonly message?: string | null | undefined;
+	readonly fallback: string;
+}
+
+export function errorDetailText(options: ErrorDetailTextOptions): string {
+	const stderr = nonBlankString(options.stderr);
+	if (stderr !== undefined) return stderr;
+	const stdout = nonBlankString(options.stdout);
+	if (stdout !== undefined) return stdout;
+	const message = nonBlankString(options.message);
+	if (message !== undefined) return message;
+	return options.fallback;
+}
+
+function nonBlankString(value: string | null | undefined): string | undefined {
+	if (typeof value !== "string") return undefined;
+	return value.trim() === "" ? undefined : value;
+}
+
 export type Result<T, E extends ErrorInfo<object> = ErrorInfo> =
 	| { ok: true; value: T }
 	| { ok: false; error: E };

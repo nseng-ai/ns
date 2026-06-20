@@ -4,6 +4,7 @@ import { systemClock } from "@asdl/core/clock";
 import { systemTimerScheduler } from "@asdl/core/timers";
 import {
 	brmemCheckJson,
+	createDeferred,
 	createManualClock,
 	createManualTimerScheduler,
 	createTempDirTracker,
@@ -18,6 +19,7 @@ import { expect, test } from "vitest";
 test("exports testing helpers through the package testing subpath", () => {
 	expect(typeof describeNodeRuntimeCliEntrypoint).toBe("function");
 	expect(typeof createTempDirTracker).toBe("function");
+	expect(typeof createDeferred).toBe("function");
 	expect(typeof createManualClock).toBe("function");
 	expect(typeof createManualTimerScheduler).toBe("function");
 	expect(typeof withTempRepoSkill).toBe("function");
@@ -31,6 +33,12 @@ test("exports clock and timer seams through package subpaths", () => {
 	expect(typeof systemClock.nowMs()).toBe("number");
 	const timer = systemTimerScheduler.setTimeout(() => {}, 1_000);
 	timer.cancel();
+});
+
+test("deferred helper exposes an externally-resolvable promise", async () => {
+	const deferred = createDeferred<string>();
+	deferred.resolve("done");
+	await expect(deferred.promise).resolves.toBe("done");
 });
 
 test("scripted command helpers record calls and validate expected steps", async () => {

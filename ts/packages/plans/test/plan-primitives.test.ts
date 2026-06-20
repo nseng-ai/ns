@@ -3,20 +3,7 @@ import { mkdir, mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type {
-	GitBranchParams,
-	GitBranchPresenceResult,
-	GitCurrentBranchResult,
-	GitCwdParams,
-	GitGateway,
-	GitLocalBranchTip,
-	GitOperationResult,
-	GitOptionalResult,
-	GitPathParams,
-	GitRefsPathParams,
-	GitResult,
-	GitRevisionRangePathParams,
-} from "@asdl/core/git";
+import { InMemoryGitGateway } from "@asdl/core/git/testing";
 import {
 	NoSavedPlanAvailableError,
 	buildRepoPlanStoreKey,
@@ -131,7 +118,11 @@ describe("source branch plan path helpers", () => {
 			1_800_000_000_000,
 		);
 		await writePlanStoreFile(directoryPath, "ignored-source-plan.txt", 1_900_000_000_000);
-		const git = new FakeGitGateway({ currentBranch: sourceBranch });
+		const git = new InMemoryGitGateway({
+			currentBranch: sourceBranch,
+			originUrl: "git@github.com:owner/repo.git",
+			trunkBranch: { type: "missing" },
+		});
 
 		const evidence = await findLatestSavedPlanFile(unusedPi, { cwd: ROOT, planStoreRoot, git });
 
@@ -148,7 +139,11 @@ describe("source branch plan path helpers", () => {
 
 	test("reports a typed error when the local plan store directory is missing", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
-		const git = new FakeGitGateway({ currentBranch: "main" });
+		const git = new InMemoryGitGateway({
+			currentBranch: "main",
+			originUrl: "git@github.com:owner/repo.git",
+			trunkBranch: { type: "missing" },
+		});
 
 		const promise = findLatestSavedPlanFile(unusedPi, { cwd: ROOT, planStoreRoot, git });
 		await expect(promise).rejects.toThrow(
@@ -164,7 +159,11 @@ describe("source branch plan path helpers", () => {
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
 		await mkdir(directoryPath, { recursive: true });
 		await writeFile(join(directoryPath, "notes.txt"), "not a plan", "utf8");
-		const git = new FakeGitGateway({ currentBranch: sourceBranch });
+		const git = new InMemoryGitGateway({
+			currentBranch: sourceBranch,
+			originUrl: "git@github.com:owner/repo.git",
+			trunkBranch: { type: "missing" },
+		});
 
 		const promise = findLatestSavedPlanFile(unusedPi, { cwd: ROOT, planStoreRoot, git });
 		await expect(promise).rejects.toThrow(
@@ -180,7 +179,11 @@ describe("source branch plan path helpers", () => {
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
 		await writePlanStoreFile(directoryPath, "valid-source-plan.md", 1_700_000_000_000);
 		const latestPath = await writePlanStoreFile(directoryPath, "bad.md", 1_800_000_000_000);
-		const git = new FakeGitGateway({ currentBranch: sourceBranch });
+		const git = new InMemoryGitGateway({
+			currentBranch: sourceBranch,
+			originUrl: "git@github.com:owner/repo.git",
+			trunkBranch: { type: "missing" },
+		});
 
 		const evidence = await findLatestSavedPlanFile(unusedPi, { cwd: ROOT, planStoreRoot, git });
 
@@ -198,7 +201,11 @@ describe("source branch plan path helpers", () => {
 			"zeta-source-plan.md",
 			1_800_000_000_000,
 		);
-		const git = new FakeGitGateway({ currentBranch: sourceBranch });
+		const git = new InMemoryGitGateway({
+			currentBranch: sourceBranch,
+			originUrl: "git@github.com:owner/repo.git",
+			trunkBranch: { type: "missing" },
+		});
 
 		const evidence = await findLatestSavedPlanFile(unusedPi, { cwd: ROOT, planStoreRoot, git });
 
@@ -266,87 +273,6 @@ describe("normalizePlanFilePath", () => {
 });
 
 const unusedPi = { exec: async () => ({ stdout: "", stderr: "", code: 0, killed: false }) };
-
-interface FakeGitOptions {
-	currentBranch: string;
-	originUrl?: string;
-}
-
-class FakeGitGateway implements GitGateway {
-	private readonly currentBranchValue: string;
-	private readonly originUrlValue: string;
-
-	constructor(options: FakeGitOptions) {
-		this.currentBranchValue = options.currentBranch;
-		this.originUrlValue = options.originUrl ?? "git@github.com:owner/repo.git";
-	}
-
-	async repoRoot(_params: GitCwdParams): Promise<GitResult<string>> {
-		return { ok: true, value: ROOT };
-	}
-
-	async optionalRepoRoot(_params: GitCwdParams): Promise<GitOptionalResult<string>> {
-		return { type: "found", value: ROOT };
-	}
-
-	async currentBranch(_params: GitCwdParams): Promise<GitCurrentBranchResult> {
-		return { type: "branch", branch: this.currentBranchValue };
-	}
-
-	async isInsideWorkTree(_params: GitCwdParams): Promise<GitResult<boolean>> {
-		return { ok: true, value: true };
-	}
-
-	async trunkBranch(_params: GitCwdParams): Promise<GitOptionalResult<string>> {
-		return { type: "missing" };
-	}
-
-	async originUrl(_params: GitCwdParams): Promise<GitOptionalResult<string>> {
-		return { type: "found", value: this.originUrlValue };
-	}
-
-	async headCommit(_params: GitCwdParams): Promise<GitResult<string>> {
-		return { ok: true, value: "abc123" };
-	}
-
-	async gitPath(params: GitPathParams): Promise<GitResult<string>> {
-		return { ok: true, value: `${ROOT}/.git/${params.relativePath}` };
-	}
-
-	async validateBranchRef(_params: GitBranchParams): Promise<GitOperationResult> {
-		return { ok: true };
-	}
-
-	async localBranchPresence(params: GitBranchParams): Promise<GitBranchPresenceResult> {
-		return { type: "absent", refName: `refs/heads/${params.branch}` };
-	}
-
-	async createBranchAtHead(_params: GitBranchParams): Promise<GitOperationResult> {
-		return { ok: true };
-	}
-
-	async hasUncommittedChangesUnder(_params: GitPathParams): Promise<GitResult<boolean>> {
-		return { ok: true, value: false };
-	}
-
-	async listLocalBranchTips(
-		_params: GitCwdParams,
-	): Promise<GitResult<readonly GitLocalBranchTip[]>> {
-		return { ok: true, value: [] };
-	}
-
-	async treeOidsAtRefs(
-		params: GitRefsPathParams,
-	): Promise<GitResult<Readonly<Record<string, string | null>>>> {
-		return { ok: true, value: Object.fromEntries(params.refs.map((ref) => [ref, null])) };
-	}
-
-	async changedPathsUnder(
-		_params: GitRevisionRangePathParams,
-	): Promise<GitResult<readonly string[]>> {
-		return { ok: true, value: [] };
-	}
-}
 
 async function makeTempDir(prefix: string): Promise<string> {
 	const dir = await mkdtemp(join(tmpdir(), prefix));

@@ -7,6 +7,7 @@ import {
 	type ClinkrHandler,
 } from "@asdl/clinkr";
 import type { GithubPrFeedbackFailure } from "@asdl/core/github-pr-feedback";
+import { errorDetailText } from "@asdl/core/result";
 
 import type { PrAddressContext } from "./context.ts";
 import type { GatewayFailure, GatewayOptions } from "./gateways.ts";
@@ -43,12 +44,12 @@ export interface FailureDetailInput {
 }
 
 export function failureDetail(input: FailureDetailInput): string {
-	const stderr = typeof input.stderr === "string" ? input.stderr : null;
-	const stdout = typeof input.stdout === "string" ? input.stdout : null;
-	if (stderr !== null && stderr.trim() !== "") return stderr;
-	if (stdout !== null && stdout.trim() !== "") return stdout;
-	if (typeof input.message === "string" && input.message.trim() !== "") return input.message;
-	return input.code;
+	return errorDetailText({
+		stderr: input.stderr,
+		stdout: input.stdout,
+		message: input.message,
+		fallback: input.code,
+	});
 }
 
 export function gatewayFailureMessage(prefix: string, gatewayFailure: GatewayFailure): string {

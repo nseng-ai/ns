@@ -1,5 +1,5 @@
 import type { RunGitHubCliResult } from "../github-cli.ts";
-import { resultErr, resultOk, type Result } from "../result.ts";
+import { errorDetailText, resultErr, resultOk, type Result } from "../result.ts";
 
 import type {
 	GithubPrFeedbackFailure,
@@ -60,13 +60,14 @@ export function failureFromCompleted(
 		readonly cursorContext?: string | undefined;
 	} = {},
 ): GithubPrFeedbackFailure {
-	const stderr = run.result.stderr.trim();
-	const stdout = run.result.stdout.trim();
 	return failureFromMessage({
 		code: "github_pr_feedback_gh_failed",
 		operation,
-		message:
-			stderr !== "" ? stderr : stdout !== "" ? stdout : `gh exited with code ${run.result.code}`,
+		message: errorDetailText({
+			stderr: run.result.stderr,
+			stdout: run.result.stdout,
+			fallback: `gh exited with code ${run.result.code}`,
+		}),
 		run,
 		stdout: run.result.stdout,
 		stderr: run.result.stderr,
