@@ -63,9 +63,8 @@
   rewrite, then diff the new `SKILL.md` against that contract line-by-line; `areg check`
   "All skills OK"; every disclosed pointer resolves. Edit the real `skills/` source only
   (never a symlinked copy).
-  **Value-adjusted sequence** (after the `python-fake-driven-test-layout` method pilot):
-  `handoff-create` (cheap high-value win) → the `python-fake-driven-testing`
-  reference-tree merge (highest value; its own row below) → the objective family
+  **Remaining value-adjusted sequence** (after the `python-fake-driven-testing`
+  reference-tree merge): `handoff-create` (cheap high-value win) → the objective family
   (`objective-refresh`, `objective-update`, `objective-create`; high reach, accept risk 3
   once the gate has 2–3 passes) → ccc / niche skills last, only if cheap.
   **`branch-context-impl` dropped off** (was the tentative "next"): 36 lines, lift 1 /
@@ -87,8 +86,9 @@
     section. Only the SKILL.md router collapses; the 4.5K version-file tree is left as-is
     (version files are independent — re-audit `2026-06-20T140000`).
   - `python-fake-driven-testing` — rewrite the SKILL.md (overlapping reference pointers).
-    The Open Question on the reference tree is **resolved: merge** — tracked separately as
-    its own row below, the highest-value action in the Objective.
+    The reference-tree merge is **DONE** separately: `quick-reference.md` was folded into
+    `workflows.md`, and `SKILL.md` now routes feature/bug/quick-lookup work to the single
+    file. See update `2026-06-20T181500`.
   - `refactor-swarm` — rewrite; recap section + redundant examples.
   - `ccc-available-work`, `ccc-stack-map` — rewrite; twice-listed command recipes. Lift
     5 / 4 but cmux-niche (low reach) → sequenced last among rewrites.
@@ -112,11 +112,14 @@
     `ccc-branch-triage` and `handoff-pickup` stay parked.
     Evidence: per-target contract diff shows no behavioral change; no verbatim-
     duplicated contract remains among these skills.
-- [ ] **`python-fake-driven-testing` reference-tree merge** — the highest-value single
-      action in the Objective (re-audit `2026-06-20T140000`): merge
-      `references/quick-reference.md` + `workflows.md` (~200 lines off a 6.4K-line tree
-      that loads on most Python tasks). A separate workstream from any SKILL.md rewrite.
-      Resolves the standing Open Question (YES, merge).
+- [x] **`python-fake-driven-testing` reference-tree merge** — completed by folding
+      `references/quick-reference.md` into `references/workflows.md` and updating
+      `SKILL.md` routing so feature, bug, and quick-placement/command lookup all load the
+      single merged reference. Net reference-tree reduction: 477-line file deleted, 111
+      lines added to `workflows.md`, `SKILL.md` unchanged except the pointer. Evidence:
+      no `quick-reference` pointers remain under `skills/python-fake-driven-testing`;
+      `areg check`, `git diff --check`, and `just dprint-check` passed. See update
+      `2026-06-20T181500`.
 - [x] Resolve the `skill-audit-improved` support-skill status before counting it as
       Objective progress. Decided and applied as a deliberate invoke-only support-skill
       exception: `skills-lock.json` now has a repo-relative local entry;

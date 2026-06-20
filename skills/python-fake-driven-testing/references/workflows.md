@@ -1,6 +1,6 @@
 ---
 name: fake-driven-testing-workflows
-description: Step-by-step guidance for specific testing tasks
+description: Quick lookup and step-by-step guidance for fake-driven Python testing tasks
 ---
 
 # Testing Workflows
@@ -9,7 +9,114 @@ description: Step-by-step guidance for specific testing tasks
 
 ## Overview
 
-This document provides concrete workflows for common testing scenarios in Python projects. Each workflow includes a checklist and code examples.
+This document is the merged quick lookup and workflow guide for common Python fake-driven testing tasks. Use it for file placement, common fixtures, commands, and step-by-step flows for features, bugs, gateway changes, dry-run behavior, and builders.
+
+## Contents
+
+- [Quick Lookup](#quick-lookup)
+- [Adding a New Feature](#adding-a-new-feature)
+- [Fixing a Bug](#fixing-a-bug)
+- [Adding an Integration class Method](#adding-an-integration-class-method)
+- [Changing an Interface](#changing-an-interface)
+- [Managing Dry-Run Features](#managing-dry-run-features)
+- [Testing with Builder Patterns](#testing-with-builder-patterns)
+- [Related Documentation](#related-documentation)
+
+## Quick Lookup
+
+### Test Placement Decision Tree
+
+```text
+I need to test...
+├─ A new feature or bug fix with external dependencies
+│  └─ Layer 4 "logic": tests/scenario/ for end-to-end shape, tests/unit/ for narrow logic
+├─ A pure utility/helper with no dependencies
+│  └─ Layer 3 "pure": tests/unit/ with no fakes or mocks
+├─ A fake implementation
+│  └─ Layer 1 "fake-check": tests/gateways/test_fakes.py
+├─ A real gateway implementation
+│  └─ Layer 2 "real-sanity": tests/gateways/test_real_gateways.py with mocked I/O
+├─ A critical user workflow over real systems
+│  └─ Layer 5 "smoke": tests/integration/ sparingly
+└─ A shared gateway contract worth pinning across implementations
+   └─ Layer 6 "conformance": tests/conformance/ only when justified
+```
+
+Defaults:
+
+- Business logic with dependencies → Layer 4 "logic" over fakes.
+- Pure utilities with no dependencies → Layer 3 "pure".
+- If a test imports a `Fake*`, it is Layer 4 "logic", not Layer 3 "pure", unless it is testing the fake itself in Layer 1.
+
+See `testing-strategy.md` for detailed layer definitions and `python-fake-driven-test-layout` for the canonical on-disk layout.
+
+### File Location Map
+
+```text
+src/<package>/
+├── gateways/<domain>/
+│   ├── gateway.py   # ABC/interface
+│   ├── real.py      # real implementation
+│   └── fake.py      # in-memory fake implementation
+├── services/        # business logic over gateway interfaces
+├── models/          # domain models
+└── cli/             # CLI entry points, if applicable
+
+tests/
+├── unit/            # Layer 3 pure + narrow Layer 4 logic
+├── scenario/        # Layer 4 end-to-end logic over fakes
+├── gateways/
+│   ├── test_fakes.py          # Layer 1 fake-check
+│   └── test_real_gateways.py  # Layer 2 real-sanity
+├── integration/     # Layer 5 smoke
+└── conformance/     # Layer 6 optional shared gateway contracts
+```
+
+Fakes live in the importable package, not under `tests/`. Test data builders and helpers live next to the tests that use them; avoid a top-level `tests/helpers/` shed.
+
+### Common Fixtures and Patterns
+
+| Fixture / pattern    | Use                                                                    |
+| -------------------- | ---------------------------------------------------------------------- |
+| `tmp_path`           | Real temporary directories/files when the code genuinely needs a path. |
+| `monkeypatch`        | Real-sanity tests that replace external I/O calls.                     |
+| `capsys` / `caplog`  | Assert user-visible output or logging.                                 |
+| Dependency injection | Pass fakes into services or context objects.                           |
+| Builder pattern      | Build complex test data declaratively.                                 |
+| `CliRunner`          | Invoke Click CLIs in-process for scenario tests.                       |
+
+Do not create generic `FakeFileSystem`, `FakeSubprocess`, or `FakeHttpClient` gateways. Name gateways after domain capabilities such as `GitCli`, `NpxSkillsClient`, `ProjectManifestStore`, or `UserStore`; see `anti-patterns.md` and `gateway-architecture.md#keep-gateways-narrow`.
+
+### Layer Distribution Guideline
+
+For a typical feature, expect most coverage in Layer 4:
+
+| Layer               | Typical role                                                                    |
+| ------------------- | ------------------------------------------------------------------------------- |
+| Layer 1 fake-check  | 1–2 tests when a fake changes.                                                  |
+| Layer 2 real-sanity | 1–2 tests when a real gateway changes.                                          |
+| Layer 3 pure        | A few tests for pure helpers.                                                   |
+| Layer 4 logic       | The majority: feature, bug, edge-case, and error-path coverage over fakes.      |
+| Layer 5 smoke       | One sparse critical real workflow, if justified.                                |
+| Layer 6 conformance | Usually zero; add only when fake/real parity is worth dedicated infrastructure. |
+
+### Useful Commands
+
+```bash
+pytest                                      # Run all tests
+pytest tests/scenario/test_user_service.py  # Run one file
+pytest tests/scenario/test_user_service.py::test_create_user
+pytest -v
+pytest --cov=src/<package> --cov-report=term-missing
+pytest tests/unit/                          # Layer 3 + narrow Layer 4
+pytest tests/scenario/                      # Layer 4 end-to-end shape
+pytest tests/gateways/                      # Layers 1 + 2
+pytest tests/integration/                   # Layer 5 smoke
+mypy src/                                   # Type check when project uses mypy
+ty check                                    # Type check when project uses ty
+ruff format src/ tests/                     # Format when project uses ruff
+ruff check src/ tests/                      # Lint when project uses ruff
+```
 
 ## Adding a New Feature
 
