@@ -115,7 +115,7 @@ describe("sdl regenerate-pr CLI", () => {
 		const run = runWithFakes(["regenerate-pr"]);
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain("Regenerated PR description.");
+		expect(run.stdout.join("")).toContain("Regenerated PR title and description.");
 		expect(run.stdout.join("")).toContain(`PR: #123 ${PR_URL}`);
 		expect(run.stdout.join("")).toContain("Prompt: built-in");
 		expect(run.stderr.join("")).toBe("");

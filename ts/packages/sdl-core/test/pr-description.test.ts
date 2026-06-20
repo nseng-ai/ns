@@ -208,11 +208,16 @@ describe("PR description helpers", () => {
 
 		expect(prompt).toContain("## Context");
 		expect(prompt).toContain("- PR: #12");
+		expect(prompt).toContain(
+			"- Current PR title (stale context only; regenerate from the diff): Current title",
+		);
 		expect(prompt).toContain("## Commit Messages");
 		expect(prompt).toContain("Add feature");
 		expect(prompt).not.toContain("Body");
 		expect(prompt).toContain("## Diff");
-		expect(prompt).toContain("Generate a PR title and body for this diff:");
+		expect(prompt).toContain(
+			"Generate a fresh PR title and body for this diff. Do not preserve an existing PR title unless the diff independently supports it:",
+		);
 	});
 
 	test("omits commit bodies from the generation prompt so stale PR descriptions are not echoed", () => {
