@@ -1,5 +1,5 @@
 ---
-schema: asdl.pi-agent.v1
+schema: sdl.pi-agent.v1
 name: runner
 toolName: dispatch_runner_subagent
 label: Dispatch Runner Subagent
