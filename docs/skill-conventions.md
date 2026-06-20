@@ -6,6 +6,10 @@ Conventions for authoring, naming, vendoring, and managing skills in this repo. 
 
 All skill-management procedures — adding, editing, removing, updating, listing, and publishing skills — are documented in the `skill-management` skill at `.agents/skills/skill-management/SKILL.md`. Use that skill whenever you need to install or modify skills rather than running `npx skills` commands freehand. The canonical asdl install flag is `--agent codex claude-code -y`. Local skills live as real directories under `skills/<name>/`; `.agents/skills/<name>` is a symlink back to that canonical source, keeping the universal-agent directory populated without duplicating content. GitHub-sourced skills remain real directories under `.agents/skills/<name>/`.
 
+### Auditing and Tightening Skills
+
+To audit or tighten a `SKILL.md` — for predictability, token cost, trigger quality, progressive disclosure, install layout, or CLI push-down — summon the **`skill-audit-improved`** skill (`skills/skill-audit-improved/`). It is self-contained: it bundles the writing-great-skills vocabulary (predictability, the failure modes, leading words) with asdl's operational audit checklists, so it carries its own conceptual frame. The original `skill-audit` skill remains for comparison. Use the vocabulary's failure-mode names (duplication, sediment, sprawl, no-op, premature completion) as the labels for audit findings; the deep definitions live in that skill's bundled `GLOSSARY.md`.
+
 ### Skill Invocation Kinds (`areg`)
 
 How a skill is invoked — whether the model auto-routes to it, whether a human can call it by name, and whether it costs ambient context — is **managed by the agent registry (`areg`)**, not by hand-authored frontmatter. Every local skill has exactly one *invocation kind*. Inspect with `areg skill list` (all skills, with derived `MODEL`/`NATIVE`/`PI` columns) or `areg skill show <name>` (one skill, with its artifact facts); change with `areg skill apply <kind> <skills...>`. **Do not hand-edit the underlying flags/artifacts** — `areg skill apply` reconciles the whole bundle at once, and `areg check` flags any hand-introduced drift as `mixed`/`inconsistent`.

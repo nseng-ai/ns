@@ -117,6 +117,16 @@
       `references/quick-reference.md` + `workflows.md` (~200 lines off a 6.4K-line tree
       that loads on most Python tasks). A separate workstream from any SKILL.md rewrite.
       Resolves the standing Open Question (YES, merge).
+- [x] Resolve the `skill-audit-improved` support-skill status before counting it as
+      Objective progress. Decided and applied as a deliberate invoke-only support-skill
+      exception: `skills-lock.json` now has a repo-relative local entry;
+      `.agents/skills/skill-audit-improved` and `.claude/skills/skill-audit-improved`
+      are installed through the canonical symlink chain; `areg skill apply invoke-only
+      skill-audit-improved` generated `skills/skill-audit-improved/agents/openai.yaml`;
+      and the skill body no longer says it is an inert comparison artifact. Evidence:
+      `areg skill show skill-audit-improved` reports kind `invoke-only`, `areg check`
+      reports "All skills OK", `npx skills list` shows the installed skill, and
+      `just dprint-check` passed. See update `2026-06-20T174032`.
 
 ## Parked
 

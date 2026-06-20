@@ -321,6 +321,11 @@
       "sourceType": "local",
       "computedHash": "aff80b28a8eb74940c9738c27458d489d3f7df708aa2a408d06b9ec61eca2cda"
     },
+    "skill-audit-improved": {
+      "source": "skills/skill-audit-improved",
+      "sourceType": "local",
+      "computedHash": "586db4b721b786646ede2398e4adef883a5468a2afea148506e8f7f4669fdd3a"
+    },
     "skill-creator": {
       "source": "anthropics/skills",
       "sourceType": "github",
