@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import type { BackingSkillCommandContext } from "../src/backing-skill-commands.ts";
-import roastExtension, { buildRoastPrompt } from "../src/roast.ts";
+import roastExtension, { buildRoasterReviewPrompt, buildRoastPrompt } from "../src/roast.ts";
 import { buildFencedTextBlock, type SkillCommandInfo } from "../src/skill-expansion.ts";
 
 interface RegisteredCommand {
@@ -83,7 +83,7 @@ function registeredCommand(host: FakeRoastHost, name: string): RegisteredCommand
 }
 
 describe("roast Pi extension", () => {
-	test("registers one direct command per Roaster roast skill", () => {
+	test("registers one direct command per Roaster roast entry", () => {
 		const host = new FakeRoastHost();
 
 		roastExtension(host);
@@ -91,12 +91,19 @@ describe("roast Pi extension", () => {
 		expect([...host.commands.keys()]).toEqual([
 			"roast:thermonuclear-review",
 			"roast:improve-codebase-architecture",
+			"roast:asdl-typescript-style",
+			"roast:dignified-python",
+			"roast:dry-but-not-too-dry",
+			"roast:duplicative-abstractions",
 		]);
 		expect(registeredCommand(host, "roast:thermonuclear-review").description).toContain(
 			"Roast: ThermonuclearReview",
 		);
 		expect(registeredCommand(host, "roast:improve-codebase-architecture").description).toContain(
 			"Roast: Improve codebase architecture",
+		);
+		expect(registeredCommand(host, "roast:asdl-typescript-style").description).toContain(
+			"Roast: ASDL TypeScript style",
 		);
 	});
 
@@ -140,6 +147,46 @@ describe("roast Pi extension", () => {
 		}
 	});
 
+	test("immediately sends a CI review-definition-backed prompt", async () => {
+		const tempDir = await mkdtemp(join(tmpdir(), "roast-review-definition-"));
+		try {
+			const cwd = join(tempDir, "repo", "nested");
+			const reviewDir = join(tempDir, "repo", "reviews");
+			const reviewPath = join(reviewDir, "asdl-typescript-style.md");
+			await mkdir(cwd, { recursive: true });
+			await mkdir(reviewDir, { recursive: true });
+			await writeFile(
+				reviewPath,
+				"---\ndescription: TypeScript review\n---\n\n# ASDL TypeScript style review\n",
+				"utf8",
+			);
+			const host = new FakeRoastHost();
+			roastExtension(host);
+			const context = commandContext(cwd);
+			const rawArgs = "only inspect src/new-code.ts";
+
+			await registeredCommand(host, "roast:asdl-typescript-style").handler(rawArgs, context.ctx);
+
+			expect(context.waitCount()).toBe(1);
+			expect(context.notifications).toEqual([
+				{
+					message: "Starting Roast: ASDL TypeScript style from reviews/asdl-typescript-style.md.",
+					level: "info",
+				},
+			]);
+			expect(host.sentUserMessages).toHaveLength(1);
+			const prompt = host.sentUserMessages[0];
+			expect(prompt).toContain(
+				'<roaster-review-definition key="asdl-typescript-style" path="reviews/asdl-typescript-style.md">',
+			);
+			expect(prompt).toContain("# ASDL TypeScript style review");
+			expect(prompt).toContain("Run Roast: ASDL TypeScript style now.");
+			expect(prompt).toContain(buildFencedTextBlock(rawArgs));
+		} finally {
+			await rm(tempDir, { recursive: true, force: true });
+		}
+	});
+
 	test("sends a fallback prompt when the backing skill is unavailable", async () => {
 		const tempDir = await mkdtemp(join(tmpdir(), "roast-extension-fallback-"));
 		try {
@@ -171,9 +218,10 @@ describe("roast Pi extension", () => {
 		}
 	});
 
-	test("prompt builder uses the default prompt when no raw args are provided", () => {
-		const prompt = buildRoastPrompt(
+	test("prompt builders use the default prompt when no raw args are provided", () => {
+		const skillPrompt = buildRoastPrompt(
 			{
+				backing: "skill",
 				surface: "roast:fixture",
 				skillName: "fixture-skill",
 				title: "Fixture",
@@ -183,10 +231,27 @@ describe("roast Pi extension", () => {
 			"<skill>fixture</skill>",
 			"   ",
 		);
+		const reviewPrompt = buildRoasterReviewPrompt(
+			{
+				backing: "review-definition",
+				surface: "roast:review-fixture",
+				reviewKey: "review-fixture",
+				reviewPath: "reviews/review-fixture.md",
+				title: "Review fixture",
+				description: "Review fixture description.",
+				defaultPrompt: "Run the review fixture roast.",
+			},
+			"# Review fixture",
+			"   ",
+		);
 
-		expect(prompt).toContain("<skill>fixture</skill>");
-		expect(prompt).toContain("Run Roast: Fixture now.");
-		expect(prompt).toContain("Run the fixture roast.");
-		expect(prompt).not.toContain("Use this user-supplied review request/scope");
+		expect(skillPrompt).toContain("<skill>fixture</skill>");
+		expect(skillPrompt).toContain("Run Roast: Fixture now.");
+		expect(skillPrompt).toContain("Run the fixture roast.");
+		expect(skillPrompt).not.toContain("Use this user-supplied review request/scope");
+		expect(reviewPrompt).toContain("# Review fixture");
+		expect(reviewPrompt).toContain("Run Roast: Review fixture now.");
+		expect(reviewPrompt).toContain("Run the review fixture roast.");
+		expect(reviewPrompt).not.toContain("Use this user-supplied review request/scope");
 	});
 });

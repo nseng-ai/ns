@@ -44,7 +44,9 @@ export type ReviewListResult = z.infer<typeof reviewListResultSchema>;
 export const roastSkillMetadataSchema = z.object({
 	surface: nonBlankStringSchema,
 	label: nonBlankStringSchema,
-	skill_name: nonBlankStringSchema,
+	backing: z.union([z.literal("skill"), z.literal("review_definition")]),
+	skill_name: nonBlankStringSchema.nullable(),
+	review_key: nonBlankStringSchema.nullable(),
 	title: nonBlankStringSchema,
 	description: nonBlankStringSchema,
 });
@@ -128,7 +130,9 @@ export async function runRoastSkillList(
 	const entries = listRoastSkillEntries().map((entry) => ({
 		surface: entry.surface,
 		label: roastSkillLabel(entry),
-		skill_name: entry.skillName,
+		backing: entry.backing === "skill" ? "skill" : "review_definition",
+		skill_name: entry.backing === "skill" ? entry.skillName : null,
+		review_key: entry.backing === "review-definition" ? entry.reviewKey : null,
 		title: entry.title,
 		description: entry.description,
 	}));
@@ -138,7 +142,9 @@ export async function runRoastSkillList(
 export function renderRoastSkillList(result: RoastSkillListResult): string {
 	const lines = [`Roast skill entries: ${result.count}`];
 	for (const entry of result.entries) {
-		lines.push(`- ${entry.surface} — ${entry.label} (skill: ${entry.skill_name})`);
+		const backing =
+			entry.skill_name === null ? `(review: ${entry.review_key})` : `(skill: ${entry.skill_name})`;
+		lines.push(`- ${entry.surface} — ${entry.label} ${backing}`);
 	}
 	return lines.join("\n");
 }

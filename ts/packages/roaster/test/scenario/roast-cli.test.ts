@@ -37,38 +37,54 @@ describe("roaster roast CLI", () => {
 		const run = await runRoaster(["roast", "list"]);
 
 		expect(run.exitCode).toBe(0);
-		expect(run.stdout).toContain("Roast skill entries: 2");
+		expect(run.stdout).toContain("Roast skill entries: 6");
 		expect(run.stdout).toContain(
 			"- roast:thermonuclear-review — Roast: ThermonuclearReview (skill: thermo-nuclear-code-quality-review)",
 		);
 		expect(run.stdout).toContain(
 			"- roast:improve-codebase-architecture — Roast: Improve codebase architecture (skill: improve-codebase-architecture)",
 		);
+		expect(run.stdout).toContain(
+			"- roast:asdl-typescript-style — Roast: ASDL TypeScript style (review: asdl-typescript-style)",
+		);
+		expect(run.stdout).toContain(
+			"- roast:dignified-python — Roast: Dignified Python (review: dignified-python)",
+		);
+		expect(run.stdout).toContain(
+			"- roast:dry-but-not-too-dry — Roast: DRY but not too DRY (review: dry-but-not-too-dry)",
+		);
+		expect(run.stdout).toContain(
+			"- roast:duplicative-abstractions — Roast: Duplicative abstractions (review: duplicative-abstractions)",
+		);
 	});
 
-	test("roast list renders JSON with snake-case skill names", async () => {
+	test("roast list renders JSON with backing identifiers", async () => {
 		const run = await runRoaster(["roast", "list", "--format", "json"]);
 
 		expect(run.exitCode).toBe(0);
 		const envelope = JSON.parse(run.stdout);
-		expect(envelope.data.count).toBe(2);
-		expect(envelope.data.entries).toEqual([
-			{
-				surface: "roast:thermonuclear-review",
-				label: "Roast: ThermonuclearReview",
-				skill_name: "thermo-nuclear-code-quality-review",
-				title: "ThermonuclearReview",
-				description:
-					"Run an extremely strict maintainability review for abstraction quality, giant files, and spaghetti-condition growth.",
-			},
-			{
-				surface: "roast:improve-codebase-architecture",
-				label: "Roast: Improve codebase architecture",
-				skill_name: "improve-codebase-architecture",
-				title: "Improve codebase architecture",
-				description:
-					"Scan the codebase for architecture deepening opportunities and present an HTML report.",
-			},
+		expect(envelope.data.count).toBe(6);
+		expect(envelope.data.entries.map((entry: { surface: string }) => entry.surface)).toEqual([
+			"roast:thermonuclear-review",
+			"roast:improve-codebase-architecture",
+			"roast:asdl-typescript-style",
+			"roast:dignified-python",
+			"roast:dry-but-not-too-dry",
+			"roast:duplicative-abstractions",
 		]);
+		expect(envelope.data.entries[0]).toMatchObject({
+			surface: "roast:thermonuclear-review",
+			label: "Roast: ThermonuclearReview",
+			backing: "skill",
+			skill_name: "thermo-nuclear-code-quality-review",
+			review_key: null,
+		});
+		expect(envelope.data.entries[2]).toMatchObject({
+			surface: "roast:asdl-typescript-style",
+			label: "Roast: ASDL TypeScript style",
+			backing: "review_definition",
+			skill_name: null,
+			review_key: "asdl-typescript-style",
+		});
 	});
 });
