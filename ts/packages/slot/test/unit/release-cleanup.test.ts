@@ -1,3 +1,4 @@
+import { createFakeClinkrInteraction } from "@asdl/clinkr/testing";
 import { describe, expect, it } from "vitest";
 
 import { executeReleaseCleanup, planReleaseCleanup } from "../../src/lifecycle/release-cleanup.ts";
@@ -67,7 +68,7 @@ function context(options: {
 		storage: new FakeSlotStorageGateway(),
 		clipboard: new FakeClipboardGateway(),
 		cwd: "/repo",
-		stdin: async () => "",
+		interaction: createFakeClinkrInteraction().interaction,
 		stderr: () => {},
 		env: { PATH: "/fake/bin" },
 		slotsRoot: "/slots",

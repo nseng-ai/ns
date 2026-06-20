@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { confirmFromStdin } from "@asdl/clinkr";
+import type { ClinkrInteraction } from "@asdl/clinkr";
 import { z } from "zod";
 
 import {
@@ -81,8 +81,9 @@ export async function runClaimCommand(options: {
 	request: ClaimRequest;
 	policy: ClaimPolicy;
 	io: PackagechkIo;
+	interaction: ClinkrInteraction;
 }): Promise<number> {
-	const { request, policy, io } = options;
+	const { request, policy, io, interaction } = options;
 	const isDryRun = request.dryRun === true;
 	const shouldSkipCheck = request.skipCheck === true;
 	const validationError = policy.validate(request.name);
@@ -126,6 +127,7 @@ export async function runClaimCommand(options: {
 			packageName: request.name,
 			version: request.version,
 			io,
+			interaction,
 		}))
 	) {
 		return 1;
@@ -325,17 +327,13 @@ async function confirmRealPublish(options: {
 	packageName: string;
 	version: string;
 	io: PackagechkIo;
+	interaction: ClinkrInteraction;
 }): Promise<boolean> {
-	const { registryLabel, packageName, version, io } = options;
+	const { registryLabel, packageName, version, io, interaction } = options;
 	io.stderr(`Warning: this will publish a real package to ${registryLabel}.\n`);
 	io.stderr(`Package: ${packageName} (${version})\n`);
-	const answer = await confirmFromStdin({
-		stdin: io.stdin,
-		stderr: io.stderr,
-		prompt: "Continue? [y/N]: ",
-		defaultAnswer: "no",
-	});
-	if (answer === "yes") return true;
+	const answer = await interaction.confirm({ message: "Continue?", defaultAnswer: "no" });
+	if (answer.type === "confirmed") return true;
 	io.stderr("Aborted by user.\n");
 	return false;
 }

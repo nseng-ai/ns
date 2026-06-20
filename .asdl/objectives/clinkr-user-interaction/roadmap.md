@@ -2,18 +2,19 @@
 
 ## Work
 
-- [~] Settle the Clinkr interaction abstraction name and API boundary.
-  - Current state: `confirmFromStdin` is exported from `@asdl/clinkr`, but its API still exposes raw stdin/stderr functions to command operations.
-  - Decide whether the durable surface is confirmation, user interaction, prompt, UI, or gateway. Keep bulk stdin payload reading explicitly out of scope.
-  - Evidence: API review notes or tests make the distinction between interactive confirmation and full-stream stdin payloads unambiguous.
-- [~] Implement the real confirmation interaction and fake/test seam.
-  - Current state: `confirmFromStdin` implements yes/no parsing, defaults, invalid-answer reprompting, and EOF abort results; `@asdl/core/stdin.readStdinLine()` provides the one-line Node readline primitive.
-  - Remaining: wrap this in a Clinkr-owned interaction seam and provide fake behavior that lets scenario tests supply semantic answers without timing, process stdin, or EOF mechanics.
-- [~] Migrate current TypeScript confirmation call sites onto the Clinkr seam.
-  - Current state: `slot gc`, `slot free`, `handoff gc`, `handoff delete`, and `packagechk claim-*` call `confirmFromStdin`; `slot` still preserves JSON/machine-mode confirmation refusal behavior through `confirmation_required` failures.
-  - Remaining: remove per-command raw stdin/stderr wiring once the higher-level Clinkr interaction seam exists.
-- [ ] Document the interaction boundary for future CLI authors.
-  - Explain when to use the confirmation seam, when to use Clinkr IO, and when to use full stdin payload readers.
+- [x] Settle the Clinkr interaction abstraction name and API boundary.
+  - Durable surface: `ClinkrInteraction` with `confirm({ message, defaultAnswer })`.
+  - Confirmation returns a domain result union (`confirmed`, `declined`, `aborted`), and package operations map those results to their existing CLI conventions.
+  - Bulk stdin payload reading remains outside the interaction seam.
+- [x] Implement the real confirmation interaction and fake/test seam.
+  - `createClinkrInteraction` owns prompt suffix formatting, yes/no parsing, default handling, invalid-answer reprompting, prompt/error stderr output, and EOF abort results over an injected one-line stdin reader.
+  - `createFakeClinkrInteraction` queues semantic confirmation results, records requests, throws on unexpected prompts, and exposes `assertComplete()` for unused queued answers.
+- [x] Migrate current TypeScript confirmation call sites onto the Clinkr seam.
+  - `slot gc`, `slot free`, `handoff gc`, `handoff delete`, and `packagechk claim-*` now use `ctx.interaction.confirm(...)` or the package context interaction.
+  - Package `runCli` functions construct/overlay interaction from resolved Clinkr IO and one-line stdin readers, so prompts use the same stderr capture as other Clinkr output.
+  - `slot` JSON/machine-mode destructive confirmations still refuse without `--force`/`--yes` through `confirmation_required` failures.
+- [x] Document the interaction boundary for future CLI authors.
+  - The exported Clinkr API comment documents `ClinkrInteraction` for terminal yes/no confirmation, `ClinkrIo` for output rendering/status streams, and stdin helpers for full payload reading / edge line-reader wiring.
 
 ## Parked
 

@@ -1,4 +1,6 @@
 import { FakeBrmemGateway, type BrmemGateway, type FakeBrmemGatewayOptions } from "@asdl/brmem";
+import type { ConfirmationResult } from "@asdl/clinkr";
+import { createFakeClinkrInteraction } from "@asdl/clinkr/testing";
 import type { GitGateway } from "@asdl/core/git";
 import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@asdl/core/git/testing";
 
@@ -13,6 +15,7 @@ export interface ScenarioRunOptions {
 	cwd?: string | undefined;
 	env?: NodeJS.ProcessEnv | undefined;
 	stdin?: string | (() => Promise<string | null>) | undefined;
+	confirmations?: readonly ConfirmationResult[] | undefined;
 }
 
 export interface ScenarioRun {
@@ -31,6 +34,10 @@ export function runScenario(
 	const cwd = options.cwd ?? "/repo";
 	const stderrWriter = (text: string) => stderr.push(text);
 	let stdin = options.stdin;
+	const fakeInteraction =
+		stdin === undefined
+			? createFakeClinkrInteraction({ confirmations: options.confirmations })
+			: undefined;
 	const context: HandoffCliContext = {
 		cwd,
 		env: options.env ?? { PATH: "/fake/bin" },
@@ -42,20 +49,31 @@ export function runScenario(
 				...options.gitState,
 			}),
 		brmem: options.brmem ?? new FakeBrmemGateway(options.fake),
-		stdin: async () => {
-			if (typeof stdin === "function") return await stdin();
-			const value = stdin ?? null;
-			stdin = undefined;
-			return value;
-		},
+		interaction:
+			fakeInteraction?.interaction ??
+			createFakeClinkrInteraction({ confirmations: [] }).interaction,
 		stderr: stderrWriter,
 	};
 	const deps: CliDeps = {
 		context,
 		stdout: (text) => stdout.push(text),
 		stderr: stderrWriter,
+		...(stdin === undefined
+			? { interaction: fakeInteraction?.interaction }
+			: {
+					stdin: async () => {
+						if (typeof stdin === "function") return await stdin();
+						const value = stdin ?? null;
+						stdin = undefined;
+						return value;
+					},
+				}),
 	};
-	return { exit: runCli(args, deps), stdout, stderr, context };
+	const exit = runCli(args, deps).then((code) => {
+		fakeInteraction?.assertComplete();
+		return code;
+	});
+	return { exit, stdout, stderr, context };
 }
 
 export function parseJsonOutput(run: ScenarioRun): unknown {

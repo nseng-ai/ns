@@ -2,7 +2,12 @@
 
 import process from "node:process";
 
-import { ClinkrGroup, resolveIo as resolveClinkrIo } from "@asdl/clinkr";
+import {
+	ClinkrGroup,
+	createClinkrInteraction,
+	resolveIo as resolveClinkrIo,
+	type ClinkrInteraction,
+} from "@asdl/clinkr";
 import { rawCommand } from "@asdl/clinkr/raw";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 import { readStdinLine } from "@asdl/core/stdin";
@@ -45,6 +50,7 @@ export interface CliDeps {
 	stdout?: (text: string) => void;
 	stderr?: (text: string) => void;
 	stdin?: () => Promise<string | null>;
+	interaction?: ClinkrInteraction;
 }
 
 interface PackagechkCliContext {
@@ -52,6 +58,7 @@ interface PackagechkCliContext {
 	pypiPublishGateway: PypiPublishGateway;
 	npmPublishGateway: NpmPublishGateway;
 	io: PackagechkIo;
+	interaction: ClinkrInteraction;
 }
 
 export function buildCli(): ClinkrGroup<PackagechkCliContext> {
@@ -80,6 +87,7 @@ export function buildCli(): ClinkrGroup<PackagechkCliContext> {
 					request,
 					policy: buildPypiClaimPolicy(ctx),
 					io: ctx.io,
+					interaction: ctx.interaction,
 				}),
 		}),
 	);
@@ -96,6 +104,7 @@ export function buildCli(): ClinkrGroup<PackagechkCliContext> {
 					request,
 					policy: buildNpmClaimPolicy(ctx),
 					io: ctx.io,
+					interaction: ctx.interaction,
 				}),
 		}),
 	);
@@ -105,16 +114,15 @@ export function buildCli(): ClinkrGroup<PackagechkCliContext> {
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
 	const clinkrIo = resolveClinkrIo({ stdout: deps.stdout, stderr: deps.stderr });
-	const io: PackagechkIo = {
-		stdout: clinkrIo.stdout,
-		stderr: clinkrIo.stderr,
-		stdin: deps.stdin ?? readStdinLine,
-	};
+	const io: PackagechkIo = clinkrIo;
 	const context: PackagechkCliContext = {
 		registryGateway: deps.registryGateway ?? new RealPackageRegistryGateway(),
 		pypiPublishGateway: deps.pypiPublishGateway ?? new RealPypiPublishGateway(),
 		npmPublishGateway: deps.npmPublishGateway ?? new RealNpmPublishGateway(),
 		io,
+		interaction:
+			deps.interaction ??
+			createClinkrInteraction({ stdin: deps.stdin ?? readStdinLine, stderr: clinkrIo.stderr }),
 	};
 	return await buildCli().run(args, { context, io: clinkrIo });
 }

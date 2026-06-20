@@ -2,8 +2,15 @@
 
 import process from "node:process";
 
-import { ClinkrGroup, isClinkrHumanOutputInvocation, resolveIo } from "@asdl/clinkr";
+import {
+	ClinkrGroup,
+	createClinkrInteraction,
+	isClinkrHumanOutputInvocation,
+	resolveIo,
+	type ClinkrInteraction,
+} from "@asdl/clinkr";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
+import { readStdinLine } from "@asdl/core/stdin";
 
 import { createRealSlotContext, type SlotCliContext } from "./context.ts";
 import {
@@ -89,6 +96,7 @@ export interface CliDeps {
 	stdout?: ((text: string) => void) | undefined;
 	stderr?: ((text: string) => void) | undefined;
 	stdin?: (() => Promise<string | null>) | undefined;
+	interaction?: ClinkrInteraction | undefined;
 }
 
 export function buildCli(): ClinkrGroup<SlotCliContext> {
@@ -317,8 +325,10 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 		...context,
 		cwd,
 		env: deps.env ?? context.env,
-		stdin: deps.stdin ?? context.stdin,
-		stderr: deps.stderr ?? context.stderr,
+		interaction:
+			deps.interaction ??
+			createClinkrInteraction({ stdin: deps.stdin ?? readStdinLine, stderr: io.stderr }),
+		stderr: io.stderr,
 		shouldWriteCdDirective: isClinkrHumanOutputInvocation(args),
 	};
 	return await buildCli().run(args, { context: runContext, io });

@@ -1,4 +1,4 @@
-import { confirmFromStdin, failure, negative, ok } from "@asdl/clinkr";
+import { failure, negative, ok } from "@asdl/clinkr";
 import { z } from "zod";
 
 import { deduplicateOrderedStrings } from "../collections.ts";
@@ -79,14 +79,12 @@ export async function runFree(ctx: SlotCliContext, request: FreeRequest) {
 				"confirmation_required",
 				"Destructive free --all requires --yes in JSON mode (or use --dry-run first).",
 			);
-		const confirmed = await confirmFromStdin({
-			stdin: repoCtx.stdin,
-			stderr: repoCtx.stderr,
-			prompt: `Free ${plan.outcome.targets.length} slot(s), close matching PRs, and delete local branches? [y/N]: `,
+		const confirmed = await repoCtx.interaction.confirm({
+			message: `Free ${plan.outcome.targets.length} slot(s), close matching PRs, and delete local branches?`,
 			defaultAnswer: "no",
 		});
-		if (typeof confirmed !== "string") return confirmed;
-		if (confirmed === "no")
+		if (confirmed.type === "aborted") return failure("aborted", "Aborted!");
+		if (confirmed.type === "declined")
 			return ok(
 				buildFreeResult({
 					wouldFree: plan.outcome.targets,
