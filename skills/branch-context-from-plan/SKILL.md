@@ -33,14 +33,9 @@ The plan is attached under Branch Memory namespace `branch-context`, key `<branc
 
 1. Resolve the saved plan first if a path is given or none is known.
 2. Derive `<branch-context-slug>` from plan content: kebab-case, 3-7 specific words, no dates/random IDs/generic-only names. This drives the default target branch and the attached-plan key `<branch-context-slug>.md`.
-3. Choose the branch creation method before invoking `branch-context exec from-plan`. Policy precedence is:
-   1. Explicit user request. Users or harnesses may say `--graphite`, `--plain-git`, or plain-language equivalents; translate these to `--branch-creation graphite` or `--branch-creation plain-git` for direct CLI invocation.
-   2. Wrapper/harness default, such as a Pi adapter-provided branch creation method.
-   3. Repo policy from loaded project instructions/docs.
-   4. Portable CLI default (`plain-git`) only when no higher-priority policy exists.
-4. In this repo, direct skill/CLI execution should include `--branch-creation graphite`; omitting `--branch-creation` is correct only for portable/default contexts without a repo policy.
-5. Pass `--branch` only when the user requested a specific target branch; the attached-plan key still comes from `<branch-context-slug>.md`, not the target branch name.
-6. Report `branch`, `branch_creation`, `namespace`, `key`, `ref_name`, `commit`, `source_file`, `slug`.
+3. Choose the branch creation method before invoking `branch-context exec from-plan`. Policy precedence is explicit user request > wrapper/harness default > repo policy > portable CLI default. In this repo, include `--branch-creation graphite`; omit `--branch-creation` only in portable/default contexts without a repo policy. For the full branch creation policy rules, see the `branch-context` umbrella's `references/lifecycle.md` (`## Branch creation policy`).
+4. Pass `--branch` only when the user requested a specific target branch; the attached-plan key still comes from `<branch-context-slug>.md`, not the target branch name.
+5. Report `branch`, `branch_creation`, `namespace`, `key`, `ref_name`, `commit`, `source_file`, `slug`.
 
 ## Recovery
 
