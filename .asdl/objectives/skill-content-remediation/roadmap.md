@@ -100,8 +100,14 @@
     contract-diff checks retained required routing, command, safety, action-label, and
     provenance anchors; validation passed (`git diff --check`, `areg check`,
     `just dprint-check`). See update `2026-06-20T113402`.
-  - `objective-update` — rewrite; invariants stated 3–4×. High reach; take after the
-    gate has 2–3 passes.
+  - `objective-update` — **DONE (rewrite).** SKILL.md 192→160 lines; frontmatter
+    preserved; no reference file added; no sibling Objective skills edited. Repeated
+    selection, slug-identity, immutable-update, evidence, Closure Gate, stop/ask, and
+    verify invariants collapsed into co-located sections. Evidence: extract-contract-
+    then-diff preserved required behavior (independent contract review found one
+    consolidation-routing softening, fixed before closeout); validation passed
+    (`git diff --check`, `areg check`, `just dprint-check`). See update
+    `2026-06-20T192000-objective-update-rewritten`.
   - `handoff-create` — **DONE (rewrite).** SKILL.md 173→131 lines; the duplicated
     artifact template / storage here-doc collapsed to one canonical artifact shape and
     one canonical `brmem put` command; frontmatter and invocation kind stayed unchanged
