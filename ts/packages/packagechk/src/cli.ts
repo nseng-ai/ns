@@ -12,9 +12,9 @@ import {
 	buildPypiClaimPolicy,
 	claimRequestSchema,
 	runClaimCommand,
-	type ClaimCommandIo,
 } from "./claim-command.ts";
 import { checkPackageName, registrySelection } from "./check.ts";
+import type { PackagechkIo } from "./io.ts";
 import { REGISTRIES, reportExitCode, type Registry } from "./models.ts";
 import { renderHuman, renderJson } from "./output.ts";
 import {
@@ -50,7 +50,7 @@ interface PackagechkCliContext {
 	registryGateway: PackageRegistryGateway;
 	pypiPublishGateway: PypiPublishGateway;
 	npmPublishGateway: NpmPublishGateway;
-	io: ClaimCommandIo;
+	io: PackagechkIo;
 }
 
 export function buildCli(): ClinkrGroup<PackagechkCliContext> {
@@ -102,7 +102,7 @@ export function buildCli(): ClinkrGroup<PackagechkCliContext> {
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
 	const clinkrIo = resolveClinkrIo({ stdout: deps.stdout, stderr: deps.stderr });
-	const io: ClaimCommandIo = {
+	const io: PackagechkIo = {
 		stdout: clinkrIo.stdout,
 		stderr: clinkrIo.stderr,
 		stdin: deps.stdin ?? (async () => (await readStdinLine()) ?? ""),
