@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { shellNegative, ok, type ClinkrExit } from "@asdl/clinkr";
 import type { CommandExecApi } from "@asdl/core/exec";
-import { runCmuxCommand, type CmuxCommandFailure } from "./command.ts";
+import { RealCmuxGateway, type CmuxGateway, type CmuxGatewayFailure } from "./gateway.ts";
 
 export const DEFAULT_CMUX_WORKSPACE_SUMMARY_STATUS_KEY = "pi-summary";
 export const CMUX_WORKSPACE_SUMMARY_COMMAND_TIMEOUT_MS = 30_000;
@@ -55,7 +55,7 @@ type CmuxWorkspaceSummaryFailureCode =
 interface CmuxWorkspaceSummaryFailure {
 	code: CmuxWorkspaceSummaryFailureCode;
 	message: string;
-	commandFailure?: CmuxCommandFailure;
+	commandFailure?: CmuxGatewayFailure["commandFailure"];
 }
 
 export interface ApplyCmuxWorkspaceSummaryOptions {
@@ -63,6 +63,7 @@ export interface ApplyCmuxWorkspaceSummaryOptions {
 	commands: CommandExecApi;
 	cwd: string;
 	env: Record<string, string | undefined>;
+	cmux?: CmuxGateway;
 }
 
 export async function applyCmuxWorkspaceSummaryCommand(
@@ -88,56 +89,60 @@ export async function applyCmuxWorkspaceSummaryCommand(
 		});
 	}
 
-	const renameFailure = await runCmux(options, [
-		"workspace",
-		"rename",
+	const cmux = options.cmux ?? new RealCmuxGateway(options.commands);
+	const context = {
+		cwd: options.cwd,
+		env: options.env,
+		timeoutMs: CMUX_WORKSPACE_SUMMARY_COMMAND_TIMEOUT_MS,
+	};
+
+	const renameResult = await cmux.renameWorkspace({
+		...context,
 		workspace,
-		"--title",
-		options.request.title,
-	]);
-	if (renameFailure !== undefined) {
+		title: options.request.title,
+	});
+	if (renameResult.type === "failed") {
 		return failedExit(
 			options.request,
 			workspace,
-			commandFailure("rename_workspace_failed", "Failed to rename cmux workspace.", renameFailure),
+			commandFailure(
+				"rename_workspace_failed",
+				"Failed to rename cmux workspace.",
+				renameResult.failure,
+			),
 		);
 	}
 
-	const descriptionFailure = await runCmux(options, [
-		"workspace-action",
-		"--workspace",
+	const descriptionResult = await cmux.setWorkspaceDescription({
+		...context,
 		workspace,
-		"--action",
-		"set-description",
-		"--description",
 		description,
-	]);
-	if (descriptionFailure !== undefined) {
+	});
+	if (descriptionResult.type === "failed") {
 		return failedExit(
 			options.request,
 			workspace,
 			commandFailure(
 				"set_description_failed",
 				"Failed to set cmux workspace description.",
-				descriptionFailure,
+				descriptionResult.failure,
 			),
 		);
 	}
 
-	const clearStatusFailure = await runCmux(options, [
-		"clear-status",
-		options.request.statusKey,
-		"--workspace",
+	const clearStatusResult = await cmux.clearStatus({
+		...context,
 		workspace,
-	]);
-	if (clearStatusFailure !== undefined) {
+		statusKey: options.request.statusKey,
+	});
+	if (clearStatusResult.type === "failed") {
 		return failedExit(
 			options.request,
 			workspace,
 			commandFailure(
 				"clear_status_failed",
 				"Failed to clear cmux workspace status.",
-				clearStatusFailure,
+				clearStatusResult.failure,
 			),
 		);
 	}
@@ -157,32 +162,22 @@ export function renderCmuxWorkspaceSummaryHuman(data: CmuxWorkspaceSummaryResult
 	return `${data.error?.message ?? "Unknown cmux summary failure."}\n`;
 }
 
-async function runCmux(
-	options: ApplyCmuxWorkspaceSummaryOptions,
-	args: string[],
-): Promise<CmuxCommandFailure | undefined> {
-	const result = await runCmuxCommand({
-		commands: options.commands,
-		args,
-		cwd: options.cwd,
-		env: options.env,
-		timeoutMs: CMUX_WORKSPACE_SUMMARY_COMMAND_TIMEOUT_MS,
-	});
-	if (result.type === "success") return undefined;
-	return result.failure;
-}
-
 function commandFailure(
 	code: Exclude<CmuxWorkspaceSummaryFailureCode, "missing_workspace" | "missing_description">,
 	baseMessage: string,
-	failure: CmuxCommandFailure,
+	failure: CmuxGatewayFailure,
 ): CmuxWorkspaceSummaryFailure {
-	const details = failure.stderr.trim() || failure.stdout.trim();
+	const commandFailureValue = failure.commandFailure;
+	if (commandFailureValue === undefined) {
+		return { code, message: failure.message };
+	}
+
+	const details = commandFailureValue.stderr.trim() || commandFailureValue.stdout.trim();
 	const message =
 		details.length > 0
-			? `${baseMessage} exit ${failure.exitCode}: ${details}`
-			: `${baseMessage} exit ${failure.exitCode}.`;
-	return { code, message, commandFailure: failure };
+			? `${baseMessage} exit ${commandFailureValue.exitCode}: ${details}`
+			: `${baseMessage} exit ${commandFailureValue.exitCode}.`;
+	return { code, message, commandFailure: commandFailureValue };
 }
 
 function failedExit(

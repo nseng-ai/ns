@@ -1,25 +1,16 @@
+import { cmuxCommandExecApi, type CmuxCommandExecHost } from "./command.ts";
 import {
-	cmuxCommandExecApi,
-	formatCmuxCommandFailure,
-	runCmuxCommand,
-	type CmuxCommandExecHost,
-} from "./command.ts";
-import { isRecord, stringField } from "./primitives.ts";
-
-const CMUX_TIMEOUT_MS = 10_000;
+	RealCmuxGateway,
+	parseCmuxCallerContext,
+	parseCreatedCmuxSurface,
+	type CmuxCallerContext,
+	type CmuxCreatedSurface,
+	type CmuxGateway,
+} from "./gateway.ts";
 
 export type CmuxExecHost = CmuxCommandExecHost;
-
-export interface CmuxCallerContext {
-	workspaceId: string;
-	paneId: string;
-	windowId?: string;
-}
-
-export interface CmuxCreatedSurface {
-	surfaceId: string;
-	workspaceId?: string;
-}
+export type { CmuxCallerContext, CmuxCreatedSurface };
+export { parseCmuxCallerContext, parseCreatedCmuxSurface };
 
 export interface CmuxTabOptions {
 	workspaceId: string;
@@ -43,43 +34,10 @@ export async function identifyCmuxCaller(
 ): Promise<
 	{ type: "identified"; caller: CmuxCallerContext } | { type: "failed"; message: string }
 > {
-	const commandArgs = ["identify", "--json", "--id-format", "both"];
-	const result = await runFocusedCmuxCommand({ host, cwd, commandArgs });
-	if (result.type === "failed") {
-		return {
-			type: "failed",
-			message: formatCmuxCommandFailure(result.failure),
-		};
-	}
-
-	const parsed = parseCmuxCallerContext(result.result.stdout);
-	if (parsed === undefined) {
-		return {
-			type: "failed",
-			message:
-				"cmux identify did not return a caller workspace and pane; are you running inside cmux?",
-		};
-	}
-	return { type: "identified", caller: parsed };
-}
-
-export function parseCmuxCallerContext(stdout: string): CmuxCallerContext | undefined {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(stdout);
-	} catch {
-		return undefined;
-	}
-	if (!isRecord(parsed) || !isRecord(parsed.caller)) {
-		return undefined;
-	}
-	const workspaceId = stringField(parsed.caller, "workspace_id");
-	const paneId = stringField(parsed.caller, "pane_id");
-	if (workspaceId === undefined || paneId === undefined) {
-		return undefined;
-	}
-	const windowId = stringField(parsed.caller, "window_id");
-	return windowId === undefined ? { workspaceId, paneId } : { workspaceId, paneId, windowId };
+	const gateway = createRealCmuxGateway(host);
+	const result = await gateway.identifyCaller({ cwd });
+	if (result.type === "failed") return { type: "failed", message: result.failure.message };
+	return { type: "identified", caller: result.value };
 }
 
 export interface CreateCmuxSurfaceOptions {
@@ -92,63 +50,14 @@ export interface CreateCmuxSurfaceOptions {
 export async function createCmuxSurface(
 	options: CreateCmuxSurfaceOptions,
 ): Promise<{ type: "created"; surface: CmuxCreatedSurface } | { type: "failed"; message: string }> {
-	const commandArgs = [
-		"--json",
-		"new-surface",
-		"--type",
-		"terminal",
-		"--workspace",
-		options.caller.workspaceId,
-		"--pane",
-		options.caller.paneId,
-		"--focus",
-		"true",
-	];
-	if (options.caller.windowId !== undefined) {
-		commandArgs.push("--window", options.caller.windowId);
-	}
-
-	const result = await runFocusedCmuxCommand({
-		host: options.host,
+	const gateway = createRealCmuxGateway(options.host);
+	const result = await gateway.createTerminalSurface({
 		cwd: options.cwd,
-		commandArgs,
-		signal: options.signal,
+		caller: options.caller,
+		...(options.signal === undefined ? {} : { signal: options.signal }),
 	});
-	if (result.type === "failed") {
-		return {
-			type: "failed",
-			message: formatCmuxCommandFailure(result.failure),
-		};
-	}
-	const surface = parseCreatedCmuxSurface(result.result.stdout);
-	if (surface === undefined) {
-		return {
-			type: "failed",
-			message: "cmux new-surface did not return a surface identifier; no launch command was sent.",
-		};
-	}
-	return { type: "created", surface };
-}
-
-export function parseCreatedCmuxSurface(stdout: string): CmuxCreatedSurface | undefined {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(stdout);
-	} catch {
-		return undefined;
-	}
-	if (!isRecord(parsed)) {
-		return undefined;
-	}
-	const surfaceId =
-		stringField(parsed, "surface_id") ??
-		stringField(parsed, "surface_ref") ??
-		stringField(parsed, "id");
-	if (surfaceId === undefined) {
-		return undefined;
-	}
-	const workspaceId = stringField(parsed, "workspace_id") ?? stringField(parsed, "workspace_ref");
-	return workspaceId === undefined ? { surfaceId } : { surfaceId, workspaceId };
+	if (result.type === "failed") return { type: "failed", message: result.failure.message };
+	return { type: "created", surface: result.value };
 }
 
 export async function renameCmuxTab(
@@ -156,25 +65,17 @@ export async function renameCmuxTab(
 	cwd: string,
 	options: CmuxTabOptions,
 ): Promise<{ type: "renamed" } | { type: "failed"; message: string }> {
-	const commandArgs = [
-		"rename-tab",
-		"--workspace",
-		options.workspaceId,
-		"--surface",
-		options.surfaceId,
-		"--title",
-		options.tabTitle,
-	];
-	if (options.windowId !== undefined) {
-		commandArgs.push("--window", options.windowId);
-	}
-	return runCmuxMutation({
-		host,
+	const gateway = createRealCmuxGateway(host);
+	const result = await gateway.renameTab({
 		cwd,
-		commandArgs,
-		signal: options.signal,
-		successType: "renamed",
+		workspaceId: options.workspaceId,
+		surfaceId: options.surfaceId,
+		title: options.tabTitle,
+		...(options.windowId === undefined ? {} : { windowId: options.windowId }),
+		...(options.signal === undefined ? {} : { signal: options.signal }),
 	});
+	if (result.type === "failed") return { type: "failed", message: result.failure.message };
+	return { type: "renamed" };
 }
 
 export async function sendCmuxText(
@@ -182,12 +83,17 @@ export async function sendCmuxText(
 	cwd: string,
 	options: CmuxSendOptions,
 ): Promise<{ type: "sent" } | { type: "failed"; message: string }> {
-	const commandArgs = ["send", "--workspace", options.workspaceId, "--surface", options.surfaceId];
-	if (options.windowId !== undefined) {
-		commandArgs.push("--window", options.windowId);
-	}
-	commandArgs.push("--", options.text);
-	return runCmuxMutation({ host, cwd, commandArgs, signal: options.signal, successType: "sent" });
+	const gateway = createRealCmuxGateway(host);
+	const result = await gateway.sendText({
+		cwd,
+		workspaceId: options.workspaceId,
+		surfaceId: options.surfaceId,
+		text: options.text,
+		...(options.windowId === undefined ? {} : { windowId: options.windowId }),
+		...(options.signal === undefined ? {} : { signal: options.signal }),
+	});
+	if (result.type === "failed") return { type: "failed", message: result.failure.message };
+	return { type: "sent" };
 }
 
 export type CmuxTabLaunchStage = "identify" | "create-surface" | "rename" | "send";
@@ -199,6 +105,7 @@ export interface LaunchFocusedCmuxTabOptions {
 	command: string;
 	signal: AbortSignal | undefined;
 	onStage?: (stage: CmuxTabLaunchStage) => void;
+	gateway?: CmuxGateway;
 }
 
 export type FocusedCmuxTabLaunchResult =
@@ -209,89 +116,70 @@ export async function launchFocusedCmuxTab(
 	options: LaunchFocusedCmuxTabOptions,
 ): Promise<FocusedCmuxTabLaunchResult> {
 	const { host, cwd, tabTitle, command, signal } = options;
+	const gateway = options.gateway ?? createRealCmuxGateway(host);
 
 	options.onStage?.("identify");
-	const identified = await identifyCmuxCaller(host, cwd);
+	const identified = await gateway.identifyCaller({ cwd });
 	if (identified.type === "failed") {
-		return { type: "failed", message: identified.message };
+		return { type: "failed", message: identified.failure.message };
 	}
 
 	options.onStage?.("create-surface");
-	const created = await createCmuxSurface({ host, cwd, caller: identified.caller, signal });
+	const created = await gateway.createTerminalSurface({
+		cwd,
+		caller: identified.value,
+		...(signal === undefined ? {} : { signal }),
+	});
 	if (created.type === "failed") {
-		return { type: "failed", message: created.message };
+		return { type: "failed", message: created.failure.message };
 	}
 
-	const surfaceId = created.surface.surfaceId;
-	const workspaceId = created.surface.workspaceId ?? identified.caller.workspaceId;
+	const surfaceId = created.value.surfaceId;
+	const workspaceId = created.value.workspaceId ?? identified.value.workspaceId;
 	const windowIdEntry =
-		identified.caller.windowId === undefined ? {} : { windowId: identified.caller.windowId };
+		identified.value.windowId === undefined ? {} : { windowId: identified.value.windowId };
 	const recoveryMessage = (failureMessage: string): string =>
 		`${failureMessage}\n\nCreated cmux surface: ${surfaceId}\nManual recovery: run ${command}`;
 
 	options.onStage?.("rename");
-	const renamed = await renameCmuxTab(host, cwd, {
+	const renamed = await gateway.renameTab({
+		cwd,
 		workspaceId,
 		surfaceId,
-		tabTitle,
-		signal,
+		title: tabTitle,
+		...(signal === undefined ? {} : { signal }),
 		...windowIdEntry,
 	});
 	if (renamed.type === "failed") {
-		return { type: "failed", surfaceId, workspaceId, message: recoveryMessage(renamed.message) };
+		return {
+			type: "failed",
+			surfaceId,
+			workspaceId,
+			message: recoveryMessage(renamed.failure.message),
+		};
 	}
 
 	options.onStage?.("send");
-	const sent = await sendCmuxText(host, cwd, {
+	const sent = await gateway.sendText({
+		cwd,
 		workspaceId,
 		surfaceId,
 		text: `${command}\n`,
-		signal,
+		...(signal === undefined ? {} : { signal }),
 		...windowIdEntry,
 	});
 	if (sent.type === "failed") {
-		return { type: "failed", surfaceId, workspaceId, message: recoveryMessage(sent.message) };
+		return {
+			type: "failed",
+			surfaceId,
+			workspaceId,
+			message: recoveryMessage(sent.failure.message),
+		};
 	}
 
 	return { type: "launched", tabTitle, surfaceId, workspaceId, command };
 }
 
-interface RunCmuxMutationOptions<TType extends "renamed" | "sent"> {
-	host: CmuxExecHost;
-	cwd: string;
-	commandArgs: string[];
-	signal: AbortSignal | undefined;
-	successType: TType;
-}
-
-async function runCmuxMutation<TType extends "renamed" | "sent">(
-	options: RunCmuxMutationOptions<TType>,
-): Promise<{ type: TType } | { type: "failed"; message: string }> {
-	const result = await runFocusedCmuxCommand({
-		host: options.host,
-		cwd: options.cwd,
-		commandArgs: options.commandArgs,
-		signal: options.signal,
-	});
-	if (result.type === "failed") {
-		return { type: "failed", message: formatCmuxCommandFailure(result.failure) };
-	}
-	return { type: options.successType };
-}
-
-interface RunFocusedCmuxCommandOptions {
-	host: CmuxExecHost;
-	cwd: string;
-	commandArgs: readonly string[];
-	signal?: AbortSignal | undefined;
-}
-
-async function runFocusedCmuxCommand(options: RunFocusedCmuxCommandOptions) {
-	return await runCmuxCommand({
-		commands: cmuxCommandExecApi(options.host),
-		args: options.commandArgs,
-		cwd: options.cwd,
-		timeoutMs: CMUX_TIMEOUT_MS,
-		...(options.signal === undefined ? {} : { signal: options.signal }),
-	});
+function createRealCmuxGateway(host: CmuxExecHost): CmuxGateway {
+	return new RealCmuxGateway(cmuxCommandExecApi(host));
 }
