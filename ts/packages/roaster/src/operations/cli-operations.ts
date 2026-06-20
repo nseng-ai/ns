@@ -13,6 +13,7 @@ import {
 } from "../models.ts";
 import { applicableReviewKeys } from "../review-applicability.ts";
 import { parseReviewDefinition } from "../review-definition.ts";
+import { listRoastSkillEntries, roastSkillLabel } from "../skill-reviews.ts";
 
 const nonBlankStringSchema = z.string().trim().min(1);
 
@@ -39,6 +40,24 @@ export const reviewListResultSchema = z.object({
 
 export type ReviewListRequest = z.infer<typeof reviewListRequestSchema>;
 export type ReviewListResult = z.infer<typeof reviewListResultSchema>;
+
+export const roastSkillMetadataSchema = z.object({
+	surface: nonBlankStringSchema,
+	label: nonBlankStringSchema,
+	skill_name: nonBlankStringSchema,
+	title: nonBlankStringSchema,
+	description: nonBlankStringSchema,
+});
+
+export const roastSkillListRequestSchema = z.object({});
+
+export const roastSkillListResultSchema = z.object({
+	count: z.int().min(0),
+	entries: z.array(roastSkillMetadataSchema),
+});
+
+export type RoastSkillListRequest = z.infer<typeof roastSkillListRequestSchema>;
+export type RoastSkillListResult = z.infer<typeof roastSkillListResultSchema>;
 
 export const reviewRunRequestSchema = z.object({
 	key: nonBlankStringSchema.describe("Review key to run."),
@@ -98,6 +117,28 @@ export function renderReviewList(result: ReviewListResult): string {
 	for (const review of result.reviews) {
 		const model = review.default_model === null ? "" : ` (default model: ${review.default_model})`;
 		lines.push(`- ${review.key}: ${review.description}${model}`);
+	}
+	return lines.join("\n");
+}
+
+export async function runRoastSkillList(
+	_ctx: RoasterRuntime,
+	_request: RoastSkillListRequest,
+): Promise<ClinkrExit<RoastSkillListResult>> {
+	const entries = listRoastSkillEntries().map((entry) => ({
+		surface: entry.surface,
+		label: roastSkillLabel(entry),
+		skill_name: entry.skillName,
+		title: entry.title,
+		description: entry.description,
+	}));
+	return ok(roastSkillListResultSchema.parse({ count: entries.length, entries }));
+}
+
+export function renderRoastSkillList(result: RoastSkillListResult): string {
+	const lines = [`Roast skill entries: ${result.count}`];
+	for (const entry of result.entries) {
+		lines.push(`- ${entry.surface} — ${entry.label} (skill: ${entry.skill_name})`);
 	}
 	return lines.join("\n");
 }

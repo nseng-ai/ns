@@ -13,6 +13,7 @@
     "@sdl/pi-extension-runtime": "workspace:*",
     "@sdl/branch-context": "workspace:*",
     "@sdl/plans": "workspace:*",
+    "@sdl/roaster": "workspace:*",
     "@sdl/sdl": "workspace:*",
     "zod": "catalog:"
   },

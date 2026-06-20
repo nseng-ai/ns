@@ -11,6 +11,7 @@ import handoffExtension from "../src/handoff.ts";
 import modelShortcutExtension from "../src/model-shortcuts.ts";
 import objectiveExtension from "../src/objective.ts";
 import prExtension from "../src/pr.ts";
+import roastExtension from "../src/roast.ts";
 import {
 	comparePiSurfaceParity,
 	formatParityComparisonFailure,
@@ -101,6 +102,7 @@ function collectLivePiExtensionSurfaces(): LivePiSurface[] {
 	registerWithFakeHost(pi, modelShortcutExtension);
 	registerWithFakeHost(pi, objectiveExtension);
 	registerWithFakeHost(pi, prExtension);
+	registerWithFakeHost(pi, roastExtension);
 	registerWithFakeHost(pi, sdlExtension);
 	registerWithFakeHost(pi, worktreeStatusExtension);
 
