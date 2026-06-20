@@ -426,6 +426,37 @@ describe("worktree status formatting", () => {
 		).toBe("[gh] unavailable: gh api graphql exited 1: timeout");
 	});
 
+	test("formats gh refresh countdowns on available PR status lines", () => {
+		expect(
+			formatGhStatus(
+				{
+					type: "available",
+					prNumber: 1907,
+					threads: { unresolved: 0, total: 1, hasMore: false },
+					checks: { passing: 0, pending: 4, failing: 0, unknown: 0 },
+				},
+				{ ghRefreshCountdownMs: 29_200 },
+			),
+		).toBe("[gh] #1907 · comments 1/1 · actions 4⏳ · refresh 30s");
+	});
+
+	test("formats dormant state on the gh line instead of refresh countdowns", () => {
+		expect(formatGhStatus({ type: "no-pr" }, { isDormant: true })).toBe(
+			"[gh] no PR · dormant after 2m idle",
+		);
+		expect(
+			formatGhStatus(
+				{
+					type: "available",
+					prNumber: 1907,
+					threads: { unresolved: 0, total: 1, hasMore: false },
+					checks: { passing: 0, pending: 4, failing: 0, unknown: 0 },
+				},
+				{ ghRefreshCountdownMs: 29_200, isDormant: true },
+			),
+		).toBe("[gh] #1907 · comments 1/1 · actions 4⏳ · dormant after 2m idle");
+	});
+
 	test("colors gh landability by state without changing stripped text", () => {
 		const blocked = formatGhStatus(
 			{
@@ -434,14 +465,16 @@ describe("worktree status formatting", () => {
 				threads: { unresolved: 2, total: 100, hasMore: true },
 				checks: { passing: 16, pending: 3, failing: 1, unknown: 0 },
 			},
-			MARKER_THEME,
+			{ theme: MARKER_THEME },
 		);
 		expect(blocked).toContain("<dim>[gh]</dim>");
 		expect(blocked).toContain("<accent>#1736</accent>");
 		expect(blocked).toContain("<warning>98/100+</warning>");
 		expect(blocked).toContain("<warning>3⏳</warning>");
 		expect(blocked).toContain("<error>1✗</error>");
-		expect(formatGhStatus({ type: "no-pr" }, MARKER_THEME)).toBe("<dim>[gh] no PR</dim>");
+		expect(formatGhStatus({ type: "no-pr" }, { theme: MARKER_THEME })).toBe(
+			"<dim>[gh] no PR</dim>",
+		);
 	});
 });
 

@@ -21,6 +21,7 @@ import {
 	type GithubReviewThreadCounts,
 } from "@asdl/core/github-status";
 import { formatErrorMessage } from "@asdl/core/primitives";
+import { formatCountdownMs } from "@asdl/core/time-format";
 import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
 import {
 	customMessageText,
@@ -605,38 +606,55 @@ function worktreeStatusLineColor(line: string): string {
 	return line.startsWith("[gt]") ? "accent" : "dim";
 }
 
+const DORMANT_GH_STATUS_ANNOTATION_TEXT = " · dormant after 2m idle";
+
 export interface StatusTheme {
 	fg(color: string, value: string): string;
 	underline?(value: string): string;
 }
 
-export function formatWorktreeStatus(status: WorktreeStatus, theme?: StatusTheme): string[] {
+export interface FormatWorktreeStatusOptions {
+	readonly theme?: StatusTheme | undefined;
+	readonly ghRefreshCountdownMs?: number | undefined;
+	readonly isDormant?: boolean | undefined;
+}
+
+export function formatWorktreeStatus(
+	status: WorktreeStatus,
+	options: FormatWorktreeStatusOptions = {},
+): string[] {
 	const lines: string[] = [];
 	if (status.brmem !== undefined) {
-		lines.push(formatStatusSegment(`[brmem] ${status.brmem}`, theme));
+		lines.push(formatStatusSegment(`[brmem] ${status.brmem}`, options.theme));
 	}
-	lines.push(formatGtStatus(status.gt, theme));
-	lines.push(...formatWorktreeStatusForFooterTail(status, theme));
+	lines.push(formatGtStatus(status.gt, options.theme));
+	lines.push(...formatWorktreeStatusForFooterTail(status, options));
 	return lines;
 }
 
 export function formatWorktreeStatusForFooter(
 	status: WorktreeStatus,
-	theme?: StatusTheme,
+	options: FormatWorktreeStatusOptions = {},
 ): string[] {
 	const lines: string[] = [];
 	if (status.brmem !== undefined) {
-		lines.push(formatStatusSegment(`[brmem] ${status.brmem}`, theme));
+		lines.push(formatStatusSegment(`[brmem] ${status.brmem}`, options.theme));
 	}
-	lines.push(...formatWorktreeStatusForFooterTail(status, theme));
+	lines.push(...formatWorktreeStatusForFooterTail(status, options));
 	return lines;
 }
 
-function formatWorktreeStatusForFooterTail(status: WorktreeStatus, theme?: StatusTheme): string[] {
-	const lines: string[] = [formatGhStatus(status.gh, theme)];
+function formatWorktreeStatusForFooterTail(
+	status: WorktreeStatus,
+	options: FormatWorktreeStatusOptions,
+): string[] {
+	const lines: string[] = [formatGhStatus(status.gh, options)];
 	if (status.gtMetadataDiagnostic !== undefined) {
 		lines.push(
-			formatStatusSegment(formatGraphiteMetadataDiagnostic(status.gtMetadataDiagnostic), theme),
+			formatStatusSegment(
+				formatGraphiteMetadataDiagnostic(status.gtMetadataDiagnostic),
+				options.theme,
+			),
 		);
 	}
 	return lines;
@@ -680,39 +698,81 @@ function formatGtCommitStatus(commits: GtCommitStatus): string | undefined {
 	}
 }
 
-export function formatGhStatus(status: WorktreeGhStatus, theme?: StatusTheme): string {
-	return formatGhStatusLine(status, theme) ?? formatColoredSegment("[gh] checking…", "dim", theme);
+export function formatGhStatus(
+	status: WorktreeGhStatus,
+	options: FormatWorktreeStatusOptions = {},
+): string {
+	return (
+		formatGhStatusLine(status, options) ??
+		formatGhStatusAnnotation(formatColoredSegment("[gh] checking…", "dim", options.theme), options)
+	);
 }
 
-function formatGhStatusLine(status: WorktreeGhStatus, theme?: StatusTheme): string | undefined {
+function formatGhStatusLine(
+	status: WorktreeGhStatus,
+	options: FormatWorktreeStatusOptions,
+): string | undefined {
 	if (status.type === "pending") return undefined;
-	if (status.type === "no-pr") return formatColoredSegment("[gh] no PR", "dim", theme);
+	if (status.type === "no-pr")
+		return formatGhStatusAnnotation(
+			formatColoredSegment("[gh] no PR", "dim", options.theme),
+			options,
+		);
 	if (status.type === "head-mismatch")
-		return formatColoredSegment("[gh] local ahead of PR", "warning", theme);
+		return formatGhStatusAnnotation(
+			formatColoredSegment("[gh] local ahead of PR", "warning", options.theme),
+			options,
+		);
 	if (status.type === "unavailable") {
 		const detail =
-			status.message === undefined ? "" : formatColoredSegment(`: ${status.message}`, "dim", theme);
-		return `${formatColoredSegment("[gh] unavailable", "warning", theme)}${detail}`;
+			status.message === undefined
+				? ""
+				: formatColoredSegment(`: ${status.message}`, "dim", options.theme);
+		return formatGhStatusAnnotation(
+			`${formatColoredSegment("[gh] unavailable", "warning", options.theme)}${detail}`,
+			options,
+		);
 	}
 
 	const resolvedThreads = Math.max(0, status.threads.total - status.threads.unresolved);
 	const commentsValue = `${resolvedThreads}/${status.threads.total}${status.threads.hasMore ? "+" : ""}`;
 	const pieces = [
-		formatColoredSegment("[gh]", "dim", theme),
-		formatColoredSegment(" ", "dim", theme),
-		formatColoredSegment(`#${status.prNumber}`, "accent", theme),
-		formatColoredSegment(" · comments ", "dim", theme),
-		formatColoredSegment(commentsValue, status.threads.unresolved > 0 ? "warning" : "dim", theme),
-		formatColoredSegment(" · actions ", "dim", theme),
-		...formatActionBucketSegments(status.checks, theme),
+		formatColoredSegment("[gh]", "dim", options.theme),
+		formatColoredSegment(" ", "dim", options.theme),
+		formatColoredSegment(`#${status.prNumber}`, "accent", options.theme),
+		formatColoredSegment(" · comments ", "dim", options.theme),
+		formatColoredSegment(
+			commentsValue,
+			status.threads.unresolved > 0 ? "warning" : "dim",
+			options.theme,
+		),
+		formatColoredSegment(" · actions ", "dim", options.theme),
+		...formatActionBucketSegments(status.checks, options.theme),
 	];
+	if (options.isDormant === true) {
+		pieces.push(formatColoredSegment(DORMANT_GH_STATUS_ANNOTATION_TEXT, "dim", options.theme));
+	} else if (options.ghRefreshCountdownMs !== undefined) {
+		pieces.push(
+			formatColoredSegment(" · refresh ", "dim", options.theme),
+			formatColoredSegment(formatCountdownMs(options.ghRefreshCountdownMs), "dim", options.theme),
+		);
+	}
 	if (isGhStatusLandable(status)) {
 		pieces.push(
-			formatColoredSegment(" · ", "dim", theme),
-			formatColoredSegment("landable", "accent", theme),
+			formatColoredSegment(" · ", "dim", options.theme),
+			formatColoredSegment("landable", "accent", options.theme),
 		);
 	}
 	return pieces.join("");
+}
+
+function formatGhStatusAnnotation(
+	statusLine: string,
+	options: FormatWorktreeStatusOptions,
+): string {
+	if (options.isDormant === true)
+		return `${statusLine}${formatColoredSegment(DORMANT_GH_STATUS_ANNOTATION_TEXT, "dim", options.theme)}`;
+	return statusLine;
 }
 
 function isGhStatusLandable(status: GhStatus): boolean {

@@ -5,6 +5,7 @@ import { describe, expect, test } from "vitest";
 import { visibleWidth } from "@earendil-works/pi-tui";
 
 import { stripTerminalEscapes } from "@asdl/core/exec";
+import { createManualTimerHarness } from "@asdl/core/testing";
 import type { WorktreeGhStatus } from "@asdl/ccc/worktree-status";
 import {
 	deferred,
@@ -187,6 +188,71 @@ describe("worktree status extension registration and rendering", () => {
 			"[wt] repo:repo wt:no-slot pwd:/repo | br:current-branch ↓:main commits:1 ↑:-",
 		);
 		expect(footerLines[0]).not.toContain("stale-branch");
+		await pi.sessionShutdown?.();
+	});
+
+	test("custom footer shows gh refresh countdown and resets after manual refresh", async () => {
+		const harness = createManualTimerHarness();
+		const availableGhStatus: WorktreeGhStatus = {
+			type: "available",
+			prNumber: 1907,
+			threads: { unresolved: 0, total: 1, hasMore: false },
+			checks: { passing: 0, pending: 4, failing: 0, unknown: 0 },
+		};
+		const pi = new LifecycleFakePi([]);
+		const statuses = new Map<string, string>();
+		let footerFactory: Parameters<NonNullable<ExtensionContext["ui"]["setFooter"]>>[0];
+		let renderRequestCount = 0;
+		const ctx = testContext({
+			statuses,
+			setFooter(factory) {
+				footerFactory = factory;
+			},
+			model: { id: "test-model", contextWindow: 272000 },
+		});
+		const loaders = fakeWorktreeStatusLoaders({
+			localStatuses: [queued(localStatus()), queued(localStatus())],
+			ghStatuses: [queued(availableGhStatus), queued(availableGhStatus)],
+		});
+
+		worktreeStatusExtension(pi as ExtensionAPI, {
+			loaders,
+			timers: harness.timers,
+			clock: harness.clock,
+		});
+		const command = pi.commands.get(WORKTREE_STATUS_REFRESH_COMMAND_NAME);
+		expect(command).toBeDefined();
+		if (command === undefined) throw new Error("expected manual refresh command");
+		await pi.sessionStart?.({}, ctx);
+
+		expect(footerFactory).toBeDefined();
+		if (footerFactory === undefined) throw new Error("expected custom footer factory");
+		const footer = footerFactory(
+			{
+				requestRender() {
+					renderRequestCount += 1;
+				},
+			},
+			TEST_THEME,
+			footerData(statuses, "feature/current"),
+		);
+		expect(footer.render(200).map(stripTerminalEscapes)).toContain(
+			"[gh] #1907 · comments 1/1 · actions 4⏳ · refresh 10s",
+		);
+
+		harness.advanceMs(5_000);
+		await flushPromises();
+		expect(renderRequestCount).toBeGreaterThan(0);
+		expect(footer.render(200).map(stripTerminalEscapes)).toContain(
+			"[gh] #1907 · comments 1/1 · actions 4⏳ · refresh 5s",
+		);
+
+		await command.handler("", ctx);
+
+		expect(footer.render(200).map(stripTerminalEscapes)).toContain(
+			"[gh] #1907 · comments 1/1 · actions 4⏳ · refresh 10s",
+		);
+		pi.assertDone();
 		await pi.sessionShutdown?.();
 	});
 

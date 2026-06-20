@@ -41,7 +41,7 @@ describe("worktree status activity lifecycle", () => {
 		await flushPromises();
 
 		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
-			"[gt] ↓ main · ↑ - · 1 commit\n[gh] no PR\n[wt] dormant after 2m idle",
+			"[gt] ↓ main · ↑ - · 1 commit\n[gh] no PR · dormant after 2m idle",
 		);
 
 		harness.advanceMs(60_000);
@@ -88,7 +88,7 @@ describe("worktree status activity lifecycle", () => {
 		harness.advanceMs(120_000);
 		await flushPromises();
 		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toContain(
-			"[wt] dormant after 2m idle",
+			"[gh] no PR · dormant after 2m idle",
 		);
 
 		terminalInput?.("a");
@@ -130,7 +130,7 @@ describe("worktree status activity lifecycle", () => {
 		harness.advanceMs(120_000);
 		await flushPromises();
 		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toContain(
-			"[wt] dormant after 2m idle",
+			"[gh] no PR · dormant after 2m idle",
 		);
 
 		await command.handler("", ctx);
