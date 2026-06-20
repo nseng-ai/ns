@@ -1,31 +1,46 @@
 # Confirmed Execution
 
-Load this reference after selecting and reading an Objective when the user asks to execute/advance/run work, or when the selected Objective or roadmap row contains `## Runner Policy`, `## Definition of Progress`, row-level `Policy:`, or equivalent execution prose.
+Load this reference after selecting and reading an Objective when the user asks to execute/advance/run work, gives a clear affirmative confirmation to a current-session recommendation, or when the selected Objective or roadmap row contains `## Runner Policy`, `## Definition of Progress`, row-level `Policy:`, or equivalent execution prose.
 
 Read the `objective` skill's execution policy reference first when shared policy concepts are unclear.
 
-## Policy reading
+## Execution basis
 
-After the Tracking Gate passes:
+After the Tracking Gate passes, execution may proceed from either basis below.
+
+### Durable policy basis
 
 - Read optional top-level `## Definition of Progress` and `## Runner Policy` sections, or equivalent explicit prose that says when `objective-next` may execute after preview.
 - Inspect the selected roadmap row and immediate indented notes for row-level `Policy:` and `Evidence:` guidance.
 - Treat policy as prose, not schema. Do not add YAML/frontmatter, UUIDs, hidden state, queues, ledgers, task databases, automation registries, or lifecycle states.
 - Row-level policy may override Objective-level defaults for the selected slice.
-- Do not infer execution permission from a concrete roadmap row, obvious implementation step, or the mere existence of a `## Runner Policy` heading alone.
+- Do not infer durable execution permission from a concrete roadmap row, obvious implementation step, or the mere existence of a `## Runner Policy` heading alone.
 - Do not describe every execution-friendly Objective as autonomous.
+
+### Recommendation-continuation basis
+
+Durable policy is not required when the user explicitly asks to execute a concrete `objective-next` recommendation that is still in the current conversation.
+
+Use this basis only when all are true:
+
+- the previous `objective-next` response selected the same Objective slug;
+- it recommended one coherent next semantic step rather than multiple alternatives;
+- it named enough scope, likely areas, and completion evidence to bound execution;
+- the current user turn is a clear affirmative confirmation to execute that recommendation;
+- the work can stay within local repository edits, local validation, and meaningful Objective tracking unless the user separately requested branch/commit/PR/external writes.
+
+This basis is not durable Objective state. It lets the current session continue from its own recommendation; it does not cause future sessions to proactively offer execution.
 
 ## Output path selection
 
 ### Recommend-only
 
-Use when no explicit execution policy exists, policy is stale/incomplete, policy does not allow direct execution for the selected slice, or the user only asked for advice.
+Use when no execution basis exists, durable policy is stale/incomplete, recommendation-continuation conditions are not met, policy does not allow direct execution for the selected slice, or the user only asked for advice.
 
 - Recommend the next useful semantic step.
 - Explain the narrative or roadmap basis, likely files/areas, active assumption or risk exercised, and completion evidence to record afterward.
 - Include a best-effort work-left estimate: either remaining semantic steps/slices until Objective completion, or remaining work until the next discovery/decision step that will reveal additional work. Do not estimate calendar time.
-- If policy is missing or incomplete and execution was requested, include a concise policy-upgrade note: adding durable `## Definition of Progress` and `## Runner Policy` prose enables future execution offers.
-- Do not offer a one-time confirmation that bypasses missing durable policy.
+- If execution was requested but neither durable policy nor recommendation-continuation basis makes execution safe, say what information or confirmation is missing. Mention durable `## Definition of Progress` / `## Runner Policy` only when future sessions should proactively offer execution for this Objective.
 - Do not mutate files except through an explicit `objective-update` handoff.
 
 ### Steer-first
@@ -39,14 +54,14 @@ Use when Objective policy or row-level notes say human judgment, planning, termi
 
 ### Execution-offer
 
-Use only when explicit Objective or row-level prose policy allows direct execution for the selected slice.
+Use when explicit Objective or row-level prose policy allows direct execution for the selected slice, or when the recommendation-continuation basis is satisfied.
 
-Present an inline execution preview and wait for explicit affirmative confirmation before any material action. Material actions include editing files, creating/moving branches, launching runner subagents, running write-capable external commands, committing, or submitting PRs.
+For durable-policy execution, present an inline execution preview and wait for explicit affirmative confirmation before any material action. For recommendation-continuation execution, the user's clear affirmative confirmation may serve as that confirmation when the prior recommendation already bounded the selected slug, coherent slice, likely scope, and completion evidence; if not, present a fresh preview and ask. Material actions include editing files, creating/moving branches, launching runner subagents, running write-capable external commands, committing, or submitting PRs.
 
 The preview must include:
 
 - selected Objective slug;
-- policy basis: quote or summarize the Runner Policy and row-level `Policy:` that permits execution;
+- execution basis: quote or summarize the Runner Policy / row-level `Policy:` that permits execution, or summarize the prior recommendation plus the user's direct confirmation;
 - bounded scope/slice;
 - inline plan and likely files or areas;
 - best-effort work-left estimate, either remaining semantic steps/slices until Objective completion or remaining work until the next discovery/decision point; do not estimate calendar time;
@@ -64,7 +79,7 @@ If the user changes scope, revise the preview and ask again. Proceed only after 
 - Run within the confirmed scope only.
 - Use optional runner subagents at most one at a time, in the current worktree, with complete prompts and parent verification of results.
 - If branch creation, commit amendment, restacking, or submission is in scope in this repo, consult the Graphite skill first.
-- Keep work only when it is evidenced against `## Definition of Progress` or equivalent progress criteria and passes appropriate validation.
+- Keep work only when it is evidenced against `## Definition of Progress`, the prior recommendation's completion evidence, or equivalent progress criteria and passes appropriate validation.
 - Discard ambiguous, speculative, or out-of-scope changes instead of preserving them as run artifacts.
 - Write Objective tracking only for meaningful progress, changed assumptions, invalidated assumptions, reusable findings, changed roadmap/policy guidance, or other durable Objective impact under the selected slug.
 - Do not write ceremonial run logs, hidden ledgers, task files, private queues, Branch Memory run state, or alternate Objective stores.
@@ -78,5 +93,6 @@ Report:
 - how the work was left;
 - validation performed or skipped with justification;
 - Objective tracking changes;
+- execution basis (durable policy or recommendation-continuation confirmation);
 - PR submission status;
 - confirmation that all kept changes stayed within the confirmed scope.

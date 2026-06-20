@@ -32,7 +32,7 @@ Archive state is represented by location. `objective archive <slug>` moves the w
 Use these step skills for explicit workflow requests:
 
 - `objective-create`: create one new active Objective record. It does not update existing records, create an initial Semantic Update, or close anything.
-- `objective-next`: recommend-first router for one selected open Objective. It reads and recommends by default; it mutates only through an explicit confirmed `objective-update` handoff for stale tracking, or through the confirmed execution path when durable Runner Policy allows it.
+- `objective-next`: recommend-first router for one selected open Objective. It reads and recommends by default; it mutates only through an explicit confirmed `objective-update` handoff for stale tracking, through the confirmed execution path when durable Runner Policy allows it, or by continuing from a concrete current-session recommendation when the user explicitly says to execute it.
 - `objective-update`: update exactly one selected active Objective; when its Closure Gate is clearly ready and the outcome/rationale are clear, it may close the Objective inline without a separate confirmation.
 - `objective-refresh`: non-closing verified rebaseline for active Objective records. It may append Semantic Updates but never creates `closed.md` or `## Closure`.
 - `objective-close`: explicit close only. It records `## Closure` and writes the Closure Marker without deleting checked-in history.
@@ -76,7 +76,7 @@ Safe consolidation rules:
 - `## Open Questions`
 - `## Closure` only when closed
 
-Optional execution policy sections may make an Objective execution-friendly for `objective-next` after preview and confirmation. They are durable prose policy, not schema, lifecycle state, or a hidden task queue. Objectives may omit them and remain planning/recommendation-only.
+Optional execution policy sections may make an Objective execution-friendly for future `objective-next` proactive execution offers after preview and confirmation. They are durable prose policy, not schema, lifecycle state, or a hidden task queue. Objectives may omit them and remain planning/recommendation-first; a user can still explicitly continue from a concrete current-session `objective-next` recommendation.
 
 `## Assumptions and Risks` captures assumptions that might be disproven and risks that need de-risking, mitigation, acceptance, or explicit follow-up. Keep it narrative and evidence-linked; do not turn it into IDs, owners, due dates, or a task database.
 
