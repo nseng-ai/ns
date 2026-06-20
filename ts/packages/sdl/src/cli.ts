@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
+import { ClinkrGroup } from "@asdl/clinkr";
 import { rawCommand } from "@asdl/clinkr/raw";
 import { defineCli } from "@asdl/core/cli-entry";
 
@@ -101,7 +101,8 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 				: { command: selectedCommand, source: selectedSource },
 		);
 
-		const baseContext = injectedContext ?? createRealSdlCommandContext({ cwd: resolvedCwd, env: resolvedEnv });
+		const baseContext =
+			injectedContext ?? createRealSdlCommandContext({ cwd: resolvedCwd, env: resolvedEnv });
 		const onOutput = deps.onOutput ?? baseContext.onOutput;
 		const confirm = deps.confirm ?? baseContext.confirm;
 		const context: SdlContext = {
@@ -128,8 +129,39 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 			buildState: { commandInfos, selectedCommand },
 		};
 	},
-	buildCli: ({ name, description, version, runtimeInfo, buildState }) =>
-		buildSdlCli({ name, description, version, runtimeInfo, buildState }),
+	configureCli: ({ root, buildState }) => {
+		for (const commandInfo of buildState.commandInfos) {
+			const selectedCommand =
+				buildState.selectedCommand?.name === commandInfo.name
+					? buildState.selectedCommand
+					: undefined;
+			const commandName = commandInfo.name;
+			const schema = selectedCommand?.schema ?? z.object({});
+			root.command(
+				rawCommand({
+					name: commandName,
+					description: commandInfo.fullDescription,
+					summary: commandInfo.description,
+					schema,
+					...(selectedCommand?.positionals === undefined
+						? {}
+						: { positionals: selectedCommand.positionals }),
+					run: async (ctx, request) => {
+						const result =
+							selectedCommand === undefined
+								? {
+										ok: false as const,
+										exitCode: 2,
+										message: `Unknown SDL command: ${commandName}`,
+									}
+								: await executeSdlCommand(ctx.context, selectedCommand, request);
+						writeSdlResultOutput(result, ctx);
+						return result.ok ? 0 : result.exitCode;
+					},
+				}),
+			);
+		}
+	},
 });
 
 export function buildCli(options: BuildSdlCliOptions = {}): ClinkrGroup<SdlCliContext> {
@@ -137,51 +169,6 @@ export function buildCli(options: BuildSdlCliOptions = {}): ClinkrGroup<SdlCliCo
 		commandInfos: options.commandInfos ?? listStaticSdlCommandInfos(),
 		selectedCommand: options.selectedCommand,
 	});
-}
-
-function buildSdlCli(input: {
-	name: string;
-	description: string;
-	version: string;
-	runtimeInfo: () => string;
-	buildState: SdlCliBuildState;
-}): ClinkrGroup<SdlCliContext> {
-	const group = new ClinkrGroup<SdlCliContext>({
-		name: input.name,
-		description: input.description,
-		version: input.version,
-		runtimeInfo: input.runtimeInfo,
-	});
-
-	for (const commandInfo of input.buildState.commandInfos) {
-		const selectedCommand =
-			input.buildState.selectedCommand?.name === commandInfo.name
-				? input.buildState.selectedCommand
-				: undefined;
-		const commandName = commandInfo.name;
-		const schema = selectedCommand?.schema ?? z.object({});
-		group.command(
-			rawCommand({
-				name: commandName,
-				description: commandInfo.fullDescription,
-				summary: commandInfo.description,
-				schema,
-				...(selectedCommand?.positionals === undefined
-					? {}
-					: { positionals: selectedCommand.positionals }),
-				run: async (ctx, request) => {
-					const result =
-						selectedCommand === undefined
-							? { ok: false as const, exitCode: 2, message: `Unknown SDL command: ${commandName}` }
-							: await executeSdlCommand(ctx.context, selectedCommand, request);
-					writeSdlResultOutput(result, ctx);
-					return result.ok ? 0 : result.exitCode;
-				},
-			}),
-		);
-	}
-
-	return group;
 }
 
 export function listSdlCommands(): SdlCommandInfo[] {

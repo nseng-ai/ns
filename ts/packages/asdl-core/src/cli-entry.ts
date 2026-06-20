@@ -29,7 +29,7 @@ export type CliPrepareRunResult<TContext, TBuildState> =
 			readonly type: "run";
 			readonly context: TContext;
 			readonly buildState: TBuildState;
-		};
+	  };
 
 export type CliRunDeps<TDeps extends CliEntrypointDeps> = Partial<TDeps> & CliEntrypointDeps;
 
@@ -53,25 +53,49 @@ export interface DefineCliBuildInput<TBuildState> {
 	readonly buildState: TBuildState;
 }
 
-export interface DefineCliOptions<
+export interface DefineCliConfigureInput<
 	TContext,
-	TDeps extends CliEntrypointDeps,
 	TBuildState,
-> {
+> extends DefineCliBuildInput<TBuildState> {
+	readonly root: ClinkrGroup<TContext>;
+}
+
+export interface DefineCliBaseOptions<TContext, TDeps extends CliEntrypointDeps, TBuildState> {
 	readonly metaUrl: string;
 	readonly runtime: CliRuntime;
 	readonly description: string;
 	readonly prepareRun: (
 		input: CliPrepareRunInput<TDeps>,
-	) => CliPrepareRunResult<TContext, TBuildState> | Promise<CliPrepareRunResult<TContext, TBuildState>>;
-	readonly buildCli: (input: DefineCliBuildInput<TBuildState>) => ClinkrGroup<TContext>;
+	) =>
+		| CliPrepareRunResult<TContext, TBuildState>
+		| Promise<CliPrepareRunResult<TContext, TBuildState>>;
 }
 
-export interface DefinedCli<
+export interface DefineCliBuildOptions<
 	TContext,
 	TDeps extends CliEntrypointDeps,
 	TBuildState,
-> {
+> extends DefineCliBaseOptions<TContext, TDeps, TBuildState> {
+	readonly buildCli: (input: DefineCliBuildInput<TBuildState>) => ClinkrGroup<TContext>;
+	readonly configureCli?: never;
+}
+
+export interface DefineCliConfigureOptions<
+	TContext,
+	TDeps extends CliEntrypointDeps,
+	TBuildState,
+> extends DefineCliBaseOptions<TContext, TDeps, TBuildState> {
+	readonly configureCli: (
+		input: DefineCliConfigureInput<TContext, TBuildState>,
+	) => ClinkrGroup<TContext> | void;
+	readonly buildCli?: never;
+}
+
+export type DefineCliOptions<TContext, TDeps extends CliEntrypointDeps, TBuildState> =
+	| DefineCliBuildOptions<TContext, TDeps, TBuildState>
+	| DefineCliConfigureOptions<TContext, TDeps, TBuildState>;
+
+export interface DefinedCli<TContext, TDeps extends CliEntrypointDeps, TBuildState> {
 	readonly metadata: CliPackageMetadata;
 	readonly version: string;
 	readonly runtimeInfo: () => string;
@@ -110,19 +134,30 @@ export function defineCli<
 	TContext,
 	TDeps extends CliEntrypointDeps = CliEntrypointDeps,
 	TBuildState = undefined,
->(options: DefineCliOptions<TContext, TDeps, TBuildState>): DefinedCli<TContext, TDeps, TBuildState> {
+>(
+	options: DefineCliOptions<TContext, TDeps, TBuildState>,
+): DefinedCli<TContext, TDeps, TBuildState> {
 	const metadata = readCliPackageMetadata(options.metaUrl);
 	const runtimeInfo = (): string =>
 		`runtime: ${options.runtime}\nentry_point: ${metadata.packageName} bin ${metadata.binName} -> ts/packages/${metadata.packageDirName}/${metadata.binPath}\n`;
-	const buildCli = (buildState: TBuildState): ClinkrGroup<TContext> =>
-		options.buildCli({
+	const buildCli = (buildState: TBuildState): ClinkrGroup<TContext> => {
+		const buildInput = {
 			name: metadata.binName,
 			description: options.description,
 			version: metadata.version,
 			runtimeInfo,
 			metadata,
 			buildState,
+		};
+		if (options.buildCli !== undefined) return options.buildCli(buildInput);
+		const root = new ClinkrGroup<TContext>({
+			name: buildInput.name,
+			description: buildInput.description,
+			version: buildInput.version,
+			runtimeInfo: buildInput.runtimeInfo,
 		});
+		return options.configureCli({ ...buildInput, root }) ?? root;
+	};
 	const run = async (args: readonly string[], deps: CliRunDeps<TDeps> = {}): Promise<number> => {
 		const io = resolveIo({ stdout: deps.stdout, stderr: deps.stderr });
 		const stdout = io.stdout;
@@ -170,7 +205,9 @@ function readCliPackageMetadata(metaUrl: string): CliPackageMetadata {
 	try {
 		rawPackageJson = JSON.parse(readFileSync(packageJsonUrl, "utf8"));
 	} catch (error) {
-		throw new Error(`Unable to read CLI package metadata from ${packageJsonPath}`, { cause: error });
+		throw new Error(`Unable to read CLI package metadata from ${packageJsonPath}`, {
+			cause: error,
+		});
 	}
 	const parsed = packageJsonSchema.safeParse(rawPackageJson);
 	if (!parsed.success) {

@@ -1,5 +1,6 @@
 {
   "name": "@asdl/sdl",
+  "version": "0.1.0",
   "private": true,
   "description": "Emerging customer-facing Source Development Lifecycle CLI.",
   "type": "module",

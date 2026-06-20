@@ -32,17 +32,27 @@ afterEach(() => {
 
 describe("isDirectCliInvocation", () => {
 	test("matches real paths and ignores missing argv paths", () => {
-		const root = makePackage({ name: "example-cli", version: "1.2.3", bin: { example: "./src/cli.ts" } });
+		const root = makePackage({
+			name: "example-cli",
+			version: "1.2.3",
+			bin: { example: "./src/cli.ts" },
+		});
 		const cliPath = join(root, "src", "cli.ts");
 		expect(isDirectCliInvocation(pathToFileURL(cliPath).href, cliPath)).toBe(true);
 		expect(isDirectCliInvocation(pathToFileURL(cliPath).href, undefined)).toBe(false);
-		expect(isDirectCliInvocation(pathToFileURL(cliPath).href, join(root, "missing.ts"))).toBe(false);
+		expect(isDirectCliInvocation(pathToFileURL(cliPath).href, join(root, "missing.ts"))).toBe(
+			false,
+		);
 	});
 });
 
 describe("defineCli", () => {
 	test("reads package metadata and formats TypeScript runtime diagnostics", () => {
-		const root = makePackage({ name: "@asdl/example", version: "1.2.3", bin: { example: "./src/cli.ts" } });
+		const root = makePackage({
+			name: "@asdl/example",
+			version: "1.2.3",
+			bin: { example: "./src/cli.ts" },
+		});
 		const cli = defineCli<TestContext, TestDeps, undefined>({
 			metaUrl: packageMetaUrl(root),
 			runtime: "typescript",
@@ -80,7 +90,11 @@ describe("defineCli", () => {
 	});
 
 	test("passes resolved dependencies, IO, args, and metadata into prepareRun", async () => {
-		const root = makePackage({ name: "@asdl/example", version: "1.2.3", bin: { example: "./src/cli.ts" } });
+		const root = makePackage({
+			name: "@asdl/example",
+			version: "1.2.3",
+			bin: { example: "./src/cli.ts" },
+		});
 		const stdoutText: string[] = [];
 		const stderrText: string[] = [];
 		let prepareInput: CliPrepareRunInput<TestDeps> | undefined;
@@ -133,7 +147,11 @@ describe("defineCli", () => {
 	});
 
 	test("returns handled prepare result without building Clinkr", async () => {
-		const root = makePackage({ name: "@asdl/example", version: "1.2.3", bin: { example: "./src/cli.ts" } });
+		const root = makePackage({
+			name: "@asdl/example",
+			version: "1.2.3",
+			bin: { example: "./src/cli.ts" },
+		});
 		const cli = defineCli<TestContext, TestDeps, undefined>({
 			metaUrl: packageMetaUrl(root),
 			runtime: "typescript",

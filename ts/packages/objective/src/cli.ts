@@ -50,13 +50,7 @@ const entry = defineCli<ObjectiveCliContext, CliDeps, undefined>({
 		const context = deps.context ?? (await createRealObjectiveContext({ cwd, env }));
 		return { type: "run", context, buildState: undefined };
 	},
-	buildCli: ({ name, description, version, runtimeInfo }) => {
-		const root = new ClinkrGroup<ObjectiveCliContext>({
-			name,
-			description,
-			version,
-			runtimeInfo,
-		});
+	configureCli: ({ root }) => {
 		root.command({
 			name: "archive",
 			description: "Archive or unarchive an Objective record by moving its directory.",
@@ -99,7 +93,8 @@ const entry = defineCli<ObjectiveCliContext, CliDeps, undefined>({
 		});
 		execGroup.command({
 			name: "read-objective",
-			description: "Read one Objective record by explicit slug as filesystem facts or raw Markdown.",
+			description:
+				"Read one Objective record by explicit slug as filesystem facts or raw Markdown.",
 			schema: readObjectiveRequestSchema,
 			resultSchema: readObjectiveResultSchema,
 			positionals: { slug: { position: 0 } },
@@ -109,7 +104,8 @@ const entry = defineCli<ObjectiveCliContext, CliDeps, undefined>({
 		});
 		execGroup.command({
 			name: "runner-subagent-usage",
-			description: "Summarize Pi runner subagent JSONL usage telemetry for Objective stack digests.",
+			description:
+				"Summarize Pi runner subagent JSONL usage telemetry for Objective stack digests.",
 			schema: runnerSubagentUsageRequestSchema,
 			resultSchema: runnerSubagentUsageResultSchema,
 			positionals: { sessionFiles: { position: 0 } },
@@ -118,7 +114,6 @@ const entry = defineCli<ObjectiveCliContext, CliDeps, undefined>({
 			renderMarkdown: renderRunnerSubagentUsageMarkdown,
 		});
 		root.group(execGroup);
-		return root;
 	},
 });
 

@@ -41,13 +41,7 @@ const entry = defineCli<AregCliContext, CliDeps, undefined>({
 		};
 		return { type: "run", context: runContext, buildState: undefined };
 	},
-	buildCli: ({ name, description, version, runtimeInfo }) => {
-		const root = new ClinkrGroup<AregCliContext>({
-			name,
-			description,
-			version,
-			runtimeInfo,
-		});
+	configureCli: ({ root }) => {
 		root.command({
 			name: "init",
 			description: "Initialize an existing Git project for areg skill workflows.",
@@ -81,7 +75,6 @@ const entry = defineCli<AregCliContext, CliDeps, undefined>({
 		});
 		execGroup.group(buildSkillxGroup());
 		root.group(execGroup);
-		return root;
 	},
 });
 

@@ -13,7 +13,6 @@ import {
 	runSdlccCmuxReport,
 } from "./cmux-report.ts";
 
-
 export interface SdlccCliDeps {
 	readonly cwd?: string | undefined;
 	readonly env?: Record<string, string | undefined> | undefined;
@@ -53,14 +52,7 @@ const entry = defineCli<SdlccCliContext, SdlccCliDeps>({
 		}
 		return { type: "run", context, buildState: undefined };
 	},
-	buildCli: ({ name, description, version, runtimeInfo }) => {
-		const root = new ClinkrGroup<SdlccCliContext>({
-			name,
-			description,
-			version,
-			runtimeInfo,
-		});
-
+	configureCli: ({ root }) => {
 		const cmuxGroup = new ClinkrGroup<SdlccCliContext>({
 			name: "cmux",
 			description: "cmux integration helpers for sdlcc.",
@@ -96,7 +88,6 @@ const entry = defineCli<SdlccCliContext, SdlccCliDeps>({
 			}),
 		);
 		root.group(cmuxGroup);
-		return root;
 	},
 });
 
