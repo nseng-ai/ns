@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { parseGraphqlErrors, parseJsonUnknown } from "./github-graphql-json.ts";
+
 export interface GithubPrIdentity {
 	owner: string;
 	repo: string;
@@ -44,8 +46,6 @@ export interface GithubWorktreePrStatus {
 
 export const githubWorktreePrStatusQuery =
 	"query($owner:String!,$repo:String!,$headRefName:String!){repository(owner:$owner,name:$repo){pullRequests(first:2,states:OPEN,headRefName:$headRefName,orderBy:{field:UPDATED_AT,direction:DESC}){nodes{number url headRefName headRefOid statusCheckRollup{contexts(first:100){pageInfo{hasNextPage} nodes{__typename ... on CheckRun{status conclusion} ... on StatusContext{state}}}} reviewThreads(first:100){totalCount pageInfo{hasNextPage} nodes{isResolved}}}}}}";
-
-const githubGraphqlErrorsSchema = z.object({ errors: z.array(z.unknown()).optional() }).loose();
 
 const githubReviewThreadConnectionSchema = z
 	.object({
@@ -296,10 +296,9 @@ function reviewThreadCountsFromConnection(
 function parseGraphqlJson(text: string): unknown | undefined {
 	const parsed = parseJson(text);
 	if (parsed === undefined) return undefined;
-	const errorsResult = githubGraphqlErrorsSchema.safeParse(parsed);
-	if (!errorsResult.success) return undefined;
-	if (errorsResult.data.errors !== undefined && errorsResult.data.errors.length > 0)
-		return undefined;
+	const graphqlErrors = parseGraphqlErrors(parsed);
+	if (graphqlErrors.type === "invalid") return undefined;
+	if (graphqlErrors.errors !== undefined && graphqlErrors.errors.length > 0) return undefined;
 	return parsed;
 }
 
@@ -324,9 +323,7 @@ function classifyStatusContext(value: Record<string, unknown>): GithubCheckBucke
 }
 
 function parseJson(text: string): unknown | undefined {
-	try {
-		return JSON.parse(text) as unknown;
-	} catch {
-		return undefined;
-	}
+	const parsed = parseJsonUnknown(text);
+	if (parsed.type === "error") return undefined;
+	return parsed.value;
 }

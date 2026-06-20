@@ -9,7 +9,7 @@ export type Result<T, E extends ErrorInfo<object> = ErrorInfo> =
 	| { ok: true; value: T }
 	| { ok: false; error: E };
 
-export function resultOk<T>(value: T): Result<T> {
+export function resultOk<T, E extends ErrorInfo<object> = ErrorInfo>(value: T): Result<T, E> {
 	return { ok: true, value };
 }
 

@@ -123,7 +123,7 @@ describe("pr-address core feedback helpers", () => {
 	});
 
 	test("returns gateway-shaped failures when snapshot collection fails", async () => {
-		const gateway = new InMemoryGithubPrFeedbackGateway({ reviewsFailurePrNumbers: new Set([42]) });
+		const gateway = new InMemoryGithubPrFeedbackGateway({ reviewFailurePrNumbers: new Set([42]) });
 
 		const result = await fetchFeedbackSnapshot({
 			gateway,
@@ -180,25 +180,25 @@ describe("pr-address core feedback helpers", () => {
 	const failurePriorityScenarios = [
 		{
 			name: "reviews beat review threads",
-			reviewsFailure: true,
-			threadsFailure: true,
-			commentsFailure: false,
+			shouldFailReviews: true,
+			shouldFailReviewThreads: true,
+			shouldFailDiscussionComments: false,
 			expectedMessage: "Failed to fetch reviews for PR 42",
 			expectedOperation: "getPrReviews",
 		},
 		{
 			name: "review threads beat discussion comments",
-			reviewsFailure: false,
-			threadsFailure: true,
-			commentsFailure: true,
+			shouldFailReviews: false,
+			shouldFailReviewThreads: true,
+			shouldFailDiscussionComments: true,
 			expectedMessage: "Failed to fetch review threads for PR 42",
 			expectedOperation: "getPrReviewThreads",
 		},
 		{
 			name: "discussion comments are returned after earlier successes",
-			reviewsFailure: false,
-			threadsFailure: false,
-			commentsFailure: true,
+			shouldFailReviews: false,
+			shouldFailReviewThreads: false,
+			shouldFailDiscussionComments: true,
 			expectedMessage: "Failed to fetch discussion comments for PR 42",
 			expectedOperation: "getPrDiscussionComments",
 		},
@@ -208,9 +208,11 @@ describe("pr-address core feedback helpers", () => {
 		"preserves snapshot failure priority: $name",
 		async (scenario) => {
 			const gateway = new InMemoryGithubPrFeedbackGateway({
-				reviewsFailurePrNumbers: scenario.reviewsFailure ? new Set([42]) : new Set(),
-				reviewThreadsFailurePrNumbers: scenario.threadsFailure ? new Set([42]) : new Set(),
-				discussionCommentsFailurePrNumbers: scenario.commentsFailure ? new Set([42]) : new Set(),
+				reviewFailurePrNumbers: scenario.shouldFailReviews ? new Set([42]) : new Set(),
+				reviewThreadsFailurePrNumbers: scenario.shouldFailReviewThreads ? new Set([42]) : new Set(),
+				discussionCommentsFailurePrNumbers: scenario.shouldFailDiscussionComments
+					? new Set([42])
+					: new Set(),
 			});
 
 			const result = await fetchFeedbackSnapshot({

@@ -6,81 +6,83 @@ import {
 	reviewThreadsQuery,
 } from "./queries.ts";
 
+interface GraphqlField {
+	readonly flag: "-f" | "-F";
+	readonly name: string;
+	readonly value: string | number;
+}
+
+function graphqlArgs(fields: readonly GraphqlField[], query: string): string[] {
+	return [
+		"api",
+		"graphql",
+		...fields.flatMap((field) => [field.flag, `${field.name}=${field.value}`]),
+		"-f",
+		`query=${query}`,
+	];
+}
+
+function repoPrFields(prNumber: number): GraphqlField[] {
+	return [
+		{ flag: "-F", name: "owner", value: "{owner}" },
+		{ flag: "-F", name: "repo", value: "{repo}" },
+		{ flag: "-F", name: "number", value: prNumber },
+	];
+}
+
 export function discussionCommentPageArgs(
 	prNumber: number,
 	commentCursor: string | null | undefined,
 ): string[] {
-	return [
-		"api",
-		"graphql",
-		"-F",
-		"owner={owner}",
-		"-F",
-		"repo={repo}",
-		"-F",
-		`number=${prNumber}`,
-		...(commentCursor === null || commentCursor === undefined
-			? []
-			: ["-F", `commentCursor=${commentCursor}`]),
-		"-f",
-		`query=${discussionCommentsQuery}`,
-	];
+	return graphqlArgs(
+		[
+			...repoPrFields(prNumber),
+			...(commentCursor === null || commentCursor === undefined
+				? []
+				: [{ flag: "-F" as const, name: "commentCursor", value: commentCursor }]),
+		],
+		discussionCommentsQuery,
+	);
 }
 
 export function reviewThreadPageArgs(
 	prNumber: number,
 	threadCursor: string | null | undefined,
 ): string[] {
-	return [
-		"api",
-		"graphql",
-		"-F",
-		"owner={owner}",
-		"-F",
-		"repo={repo}",
-		"-F",
-		`number=${prNumber}`,
-		...(threadCursor === null || threadCursor === undefined
-			? []
-			: ["-F", `threadCursor=${threadCursor}`]),
-		"-f",
-		`query=${reviewThreadsQuery}`,
-	];
+	return graphqlArgs(
+		[
+			...repoPrFields(prNumber),
+			...(threadCursor === null || threadCursor === undefined
+				? []
+				: [{ flag: "-F" as const, name: "threadCursor", value: threadCursor }]),
+		],
+		reviewThreadsQuery,
+	);
 }
 
 export function reviewThreadCommentPageArgs(threadId: string, commentCursor: string): string[] {
-	return [
-		"api",
-		"graphql",
-		"-f",
-		`threadId=${threadId}`,
-		"-F",
-		`commentCursor=${commentCursor}`,
-		"-f",
-		`query=${reviewThreadCommentsQuery}`,
-	];
+	return graphqlArgs(
+		[
+			{ flag: "-f", name: "threadId", value: threadId },
+			{ flag: "-F", name: "commentCursor", value: commentCursor },
+		],
+		reviewThreadCommentsQuery,
+	);
 }
 
 export function replyToReviewThreadArgs(threadId: string, body: string): string[] {
-	return [
-		"api",
-		"graphql",
-		"-f",
-		`threadId=${threadId}`,
-		"-f",
-		`body=${body}`,
-		"-f",
-		`query=${replyToReviewThreadMutation}`,
-	];
+	return graphqlArgs(
+		[
+			{ flag: "-f", name: "threadId", value: threadId },
+			{ flag: "-f", name: "body", value: body },
+		],
+		replyToReviewThreadMutation,
+	);
 }
 
 export function resolveReviewThreadArgs(threadId: string): string[] {
-	return [
-		"api",
-		"graphql",
-		"-f",
-		`threadId=${threadId}`,
-		"-f",
-		`query=${resolveReviewThreadMutation}`,
-	];
+	return graphqlArgs(
+		[{ flag: "-f", name: "threadId", value: threadId }],
+		resolveReviewThreadMutation,
+	);
 }
