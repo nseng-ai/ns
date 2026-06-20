@@ -1,8 +1,8 @@
 import { mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import type { SubmitFailurePresentation, SubmitFailureTranscript } from "@sdl/core/submit";
+import { ensurePrivateDirectory, requireSdlStatePath } from "@sdl/core/xdg";
 
 import type { SdlContext } from "./sdk.ts";
 import { selectSubmitFailureModelRef } from "./text-generation.ts";
@@ -118,7 +118,8 @@ async function writeSubmitFailureRawLog(
 	env: Record<string, string | undefined>,
 ): Promise<{ ok: true; path: string } | { ok: false; message: string }> {
 	try {
-		const baseDir = env[SUBMIT_FAILURE_LOG_DIR_ENV]?.trim() || tmpdir();
+		const baseDir = resolveSubmitFailureLogRoot(env);
+		await ensurePrivateDirectory(baseDir);
 		const dir = await mkdtemp(join(baseDir, "sdl-submit-failure-"));
 		const path = join(dir, "raw.log");
 		await writeFile(path, rawTranscript, "utf8");
@@ -126,6 +127,14 @@ async function writeSubmitFailureRawLog(
 	} catch (error) {
 		return { ok: false, message: error instanceof Error ? error.message : String(error) };
 	}
+}
+
+function resolveSubmitFailureLogRoot(env: Record<string, string | undefined>): string {
+	return requireSdlStatePath({
+		env,
+		overrideEnvName: SUBMIT_FAILURE_LOG_DIR_ENV,
+		segments: ["submit-failure-logs"],
+	});
 }
 
 function formatModelPrimaryFailure(input: {

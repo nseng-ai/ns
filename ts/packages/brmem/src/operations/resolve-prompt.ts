@@ -22,18 +22,25 @@ export async function runResolvePrompt(ctx: BrmemCliContext, request: ResolvePro
 	if (repoRoot.type === "error") return failure(repoRoot.error.code, repoRoot.error.message);
 
 	const projectPath = join(repoRoot.value, ".brmem", "prompts", `${request.name}.md`);
-	const globalPath = join(ctx.promptResolver.homeRoot(), ".brmem", "prompts", `${request.name}.md`);
+	const globalPaths = ctx.promptResolver
+		.globalPromptRoots()
+		.map((root) => join(root, `${request.name}.md`));
 
 	if (await ctx.promptResolver.fileExists(projectPath))
 		return ok({ path: projectPath, tier: "project" } satisfies ResolvePromptResult);
-	if (await ctx.promptResolver.fileExists(globalPath))
-		return ok({ path: globalPath, tier: "global" } satisfies ResolvePromptResult);
+	for (const globalPath of globalPaths) {
+		if (await ctx.promptResolver.fileExists(globalPath))
+			return ok({ path: globalPath, tier: "global" } satisfies ResolvePromptResult);
+	}
 
 	return failure(
 		"prompt-not-found",
 		`No prompt named ${JSON.stringify(request.name)} found. Checked:\n` +
-			`  - ${projectPath} (project-local)\n` +
-			`  - ${globalPath} (global)\n` +
+			[
+				`  - ${projectPath} (project-local)`,
+				...globalPaths.map((path) => `  - ${path} (global)`),
+			].join("\n") +
+			"\n" +
 			"Initialize the global default by running `just install-tools` from a sdl checkout, " +
 			"or copy a packaged `default-prompt.md` to one of the paths above.",
 	);

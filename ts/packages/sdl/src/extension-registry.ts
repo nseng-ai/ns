@@ -1,5 +1,7 @@
-import { homedir } from "node:os";
+import process from "node:process";
 import { join } from "node:path";
+
+import { legacyHomePath, requireXdgPath, resolveSdlXdgPath } from "@sdl/core/xdg";
 
 import {
 	SDL_COMMAND_NAME_PATTERN,
@@ -68,6 +70,7 @@ export interface DiagnosticClassification {
 interface LoadSdlCommandCatalogOptions {
 	cwd: string;
 	homeDir?: string | undefined;
+	env?: Record<string, string | undefined> | undefined;
 }
 
 const ORDERED_SOURCE_LEVELS = [
@@ -81,27 +84,36 @@ export async function loadSdlCommandCatalog(
 ): Promise<SdlCommandCatalog> {
 	const diagnostics: ExtensionDiagnostic[] = [];
 	const builtInCandidates = listBuiltInSdlCommandCandidates();
-	const home = options.homeDir ?? homedir();
-	const globalCandidates = loadRootCandidates({
-		level: "global",
-		rootDir: join(home, ".sdl", "extensions"),
-	});
+	const env = catalogEnv(options);
+	const legacyGlobalRoot = legacyHomePath(env, [".sdl", "extensions"]);
+	const globalRoots = [
+		...(legacyGlobalRoot.ok ? [legacyGlobalRoot.value] : []),
+		requireXdgPath(resolveSdlXdgPath({ kind: "data", env, segments: ["extensions"] })),
+	];
+	const orderedSources: Array<{
+		level: ExtensionSourceLevel;
+		label: string;
+		candidates: readonly ExtensionCommandCandidate[];
+	}> = [{ level: "built-in", label: "built-in", candidates: builtInCandidates }];
+	for (const rootDir of uniquePaths(globalRoots)) {
+		const loaded = loadRootCandidates({ level: "global", rootDir });
+		diagnostics.push(...loaded.diagnostics);
+		orderedSources.push({ level: "global", label: rootDir, candidates: loaded.candidates });
+	}
 	const projectCandidates = loadRootCandidates({
 		level: "project",
 		rootDir: join(options.cwd, ".sdl", "extensions"),
 	});
-	diagnostics.push(...globalCandidates.diagnostics, ...projectCandidates.diagnostics);
-
-	const candidatesByLevel = {
-		"built-in": builtInCandidates,
-		global: globalCandidates.candidates,
-		project: projectCandidates.candidates,
-	} satisfies Record<ExtensionSourceLevel, readonly ExtensionCommandCandidate[]>;
+	diagnostics.push(...projectCandidates.diagnostics);
+	orderedSources.push({
+		level: "project",
+		label: join(options.cwd, ".sdl", "extensions"),
+		candidates: projectCandidates.candidates,
+	});
 
 	const merged = new Map<string, ExtensionCommandCandidate>();
-	for (const level of ORDERED_SOURCE_LEVELS) {
-		const levelCandidates = candidatesByLevel[level];
-		const validation = validateLevelCandidates(level, levelCandidates);
+	for (const source of orderedSources) {
+		const validation = validateSourceCandidates(source.level, source.label, source.candidates);
 		diagnostics.push(...validation.diagnostics);
 		for (const candidate of validation.candidates) {
 			const existing = merged.get(candidate.name);
@@ -270,8 +282,9 @@ function externalCandidateForLevel(
 	};
 }
 
-function validateLevelCandidates(
+function validateSourceCandidates(
 	level: ExtensionSourceLevel,
+	sourceLabel: string,
 	candidates: readonly ExtensionCommandCandidate[],
 ): {
 	candidates: readonly ExtensionCommandCandidate[];
@@ -310,7 +323,7 @@ function validateLevelCandidates(
 		diagnostics.push({
 			severity: "error",
 			code: "extension_command_duplicate_in_level",
-			message: `Duplicate SDL command ${name} within ${level} extension source level: ${matches.map((match) => formatSource(match.source)).join(", ")}.`,
+			message: `Duplicate SDL command ${name} within ${level} extension source ${sourceLabel}: ${matches.map((match) => formatSource(match.source)).join(", ")}.`,
 			sourceLevel: level,
 			commandName: name,
 		});
@@ -319,6 +332,18 @@ function validateLevelCandidates(
 		candidates: validated.filter((candidate) => !duplicateNames.has(candidate.name)),
 		diagnostics,
 	};
+}
+
+function catalogEnv(options: LoadSdlCommandCatalogOptions): Record<string, string | undefined> {
+	return {
+		...process.env,
+		...(options.env ?? {}),
+		...(options.homeDir === undefined ? {} : { HOME: options.homeDir }),
+	};
+}
+
+function uniquePaths(paths: readonly string[]): readonly string[] {
+	return [...new Set(paths)];
 }
 
 function sourceLevelRank(level: ExtensionSourceLevel): number {

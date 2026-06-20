@@ -15,13 +15,16 @@ describe("RealBrmemPromptResolver integration", () => {
 			writeFileSync(promptPath, "prompt\n", "utf8");
 
 			const resolver = new RealBrmemPromptResolver({
-				env: { ...process.env, HOME: "/tmp/brmem-home" },
+				env: { ...process.env, HOME: "/tmp/brmem-home", XDG_CONFIG_HOME: undefined },
 			});
 			expect(await resolver.repositoryRoot({ cwd: repo.path })).toEqual({
 				type: "ok",
 				value: realpathSync(repo.path),
 			});
-			expect(resolver.homeRoot()).toBe("/tmp/brmem-home");
+			expect(resolver.globalPromptRoots()).toEqual([
+				"/tmp/brmem-home/.config/sdl/brmem/prompts",
+				"/tmp/brmem-home/.brmem/prompts",
+			]);
 			expect(await resolver.fileExists(promptPath)).toBe(true);
 			expect(await resolver.fileExists(join(repo.path, ".brmem", "prompts", "missing.md"))).toBe(
 				false,

@@ -19,6 +19,7 @@ import type {
 } from "@sdl/core/git";
 import {
 	buildRepoPlanStoreKey,
+	defaultPlanStoreRoot,
 	encodeBranchForPlanPath,
 	normalizeRepoOriginUrl,
 	writeSavedPlanFile,
@@ -31,6 +32,17 @@ const tempDirs: string[] = [];
 afterEach(async () => {
 	const dirs = tempDirs.splice(0);
 	await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
+});
+
+describe("defaultPlanStoreRoot", () => {
+	test("uses XDG state root and ignores relative XDG values", () => {
+		expect(defaultPlanStoreRoot({ HOME: "/home/tester", XDG_STATE_HOME: "/state" })).toBe(
+			"/state/sdl/enriched-plan",
+		);
+		expect(defaultPlanStoreRoot({ HOME: "/home/tester", XDG_STATE_HOME: "relative" })).toBe(
+			"/home/tester/.local/state/sdl/enriched-plan",
+		);
+	});
 });
 
 describe("writeSavedPlanFile", () => {
@@ -104,6 +116,61 @@ describe("writeSavedPlanFile", () => {
 		).rejects.toThrow("refusing to overwrite");
 
 		expect(await readFile(filePath, "utf8")).toBe("# Existing Plan\n");
+	});
+
+	test("uses the XDG state root by default", async () => {
+		const tempHome = await makeTempDir("source-plan-home-");
+		const sourceBranch = "branch-contexts/add-widget";
+		const origin = "git@github.com:owner/repo.git";
+		const git = new FakeGitGateway({ currentBranch: sourceBranch, originUrl: origin });
+
+		const evidence = await writeSavedPlanFile(
+			unusedPi,
+			{ slug: PLAN_SLUG, content: "# Test Plan\n" },
+			{ cwd: ROOT, env: { HOME: tempHome }, git },
+		);
+
+		expect(evidence.filePath).toBe(
+			join(
+				tempHome,
+				".local",
+				"state",
+				"sdl",
+				"enriched-plan",
+				"gh--owner--repo",
+				encodeBranchForPlanPath(sourceBranch),
+				`${PLAN_SLUG}.md`,
+			),
+		);
+		expect(await readFile(evidence.filePath, "utf8")).toBe("# Test Plan\n");
+	});
+
+	test("rejects legacy same-slug collisions when writing to the default XDG root", async () => {
+		const tempHome = await makeTempDir("source-plan-home-");
+		const sourceBranch = "branch-contexts/add-widget";
+		const branchKey = encodeBranchForPlanPath(sourceBranch);
+		const legacyPath = join(
+			tempHome,
+			".sdl",
+			"enriched-plan",
+			"gh--owner--repo",
+			branchKey,
+			`${PLAN_SLUG}.md`,
+		);
+		await mkdir(dirname(legacyPath), { recursive: true });
+		await writeFile(legacyPath, "# Legacy Plan\n", "utf8");
+		const git = new FakeGitGateway({
+			currentBranch: sourceBranch,
+			originUrl: "git@github.com:owner/repo.git",
+		});
+
+		await expect(
+			writeSavedPlanFile(
+				unusedPi,
+				{ slug: PLAN_SLUG, content: "# New Plan\n" },
+				{ cwd: ROOT, env: { HOME: tempHome }, git },
+			),
+		).rejects.toThrow("legacy local plan store");
 	});
 
 	test("rejects invalid slug before git commands or filesystem writes", async () => {

@@ -91,7 +91,7 @@ Workflow:
 6. Stop after reporting the saved plan evidence. Do not create a branch, write Branch Memory, or call any branch-context command/tool.
 
 Local plan store contract:
-- Path convention: ~/.sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md
+- Canonical write path convention: $XDG_STATE_HOME/sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md, defaulting to $HOME/.local/state/sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md. Legacy ~/.sdl/enriched-plan content remains read-only fallback compatibility, not the canonical write target.
 - <repo>: for github.com origins, gh--<owner>--<repo> from sanitized GitHub owner and repo path segments; for non-GitHub or origin-less repos, one sanitized path segment from the normalized remote.origin.url or real repo root path
 - <encoded-source-branch>: current branch at plan-file creation time encoded as one filesystem-safe path segment; branch slashes become --- (for example, branch-contexts/add-widget becomes branch-contexts---add-widget)
 - <slug>: semantic kebab-case saved-plan filename slug without .md; this is a local plan-store locator, not necessarily the later implementation branch slug
@@ -284,13 +284,13 @@ export function buildWriteSavedPlanFileTool(
 		name: WRITE_SAVED_PLAN_FILE_TOOL_NAME,
 		label: "Write Saved Plan File",
 		description:
-			"Create a reviewed, self-contained Markdown implementation plan file for a fresh downstream implementation session in the local plan store at `~/.sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md`. The tool derives the saved-plan filename slug from the content through the Codex-backed slug model, derives repo and current branch from git, validates the slug, creates parent directories, refuses to overwrite an existing file, writes the full Markdown content, and returns path evidence. It does not create branches or write Branch Memory.",
+			"Create a reviewed, self-contained Markdown implementation plan file for a fresh downstream implementation session in the XDG local plan store at `$XDG_STATE_HOME/sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md` (default `$HOME/.local/state/sdl/enriched-plan/...`). The tool derives the saved-plan filename slug from the content through the Codex-backed slug model, derives repo and current branch from git, validates the slug, creates parent directories, refuses to overwrite an existing file, writes the full Markdown content, and returns path evidence. Legacy `~/.sdl/enriched-plan` content is read-only fallback compatibility. It does not create branches or write Branch Memory.",
 		promptSnippet:
-			"Create a reviewed, self-contained Markdown implementation plan file in the local plan store under `~/.sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md`.",
+			"Create a reviewed, self-contained Markdown implementation plan file in the XDG local plan store under `$XDG_STATE_HOME/sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md` (default `$HOME/.local/state/sdl/enriched-plan/...`).",
 		promptGuidelines: [
 			"Use write_saved_plan_file for `/enriched-plan:save` and `/enriched-plan:grill-and-save` after producing a reviewed final Markdown plan.",
 			"Do not generate or pass a saved-plan filename slug; write_saved_plan_file derives it from content through the Codex-backed slug model.",
-			"write_saved_plan_file writes the local plan store under `~/.sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md`; it does not create branches or write Branch Memory.",
+			"write_saved_plan_file writes the XDG local plan store under `$XDG_STATE_HOME/sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md` (default `$HOME/.local/state/sdl/enriched-plan/...`); it does not create branches or write Branch Memory.",
 			"write_saved_plan_file content should be self-contained for a completely fresh downstream implementation session, including relevant context discovered during planning.",
 			"If planning used external/off-repo research, write_saved_plan_file content should include the concrete findings and provenance inline instead of relying on links or hidden conversation context.",
 			"If write_saved_plan_file reports that the saved plan file already exists, stop and report the collision; never overwrite the existing file.",

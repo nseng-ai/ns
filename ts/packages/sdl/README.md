@@ -18,7 +18,7 @@ A migration slice should delete old command names and old `/code:<name>` Pi mirr
 SDL treats project-specific lifecycle behavior as first-class. SDL extensions can contribute command entries today and are expected to grow additional contribution points later. Command catalogs are discovered in increasing precedence:
 
 ```text
-built-in command table < ~/.sdl/extensions < <cwd>/.sdl/extensions
+built-in command table < legacy ~/.sdl/extensions < $XDG_DATA_HOME/sdl/extensions < <cwd>/.sdl/extensions
 ```
 
 Global and project roots support these one-level entry shapes:
@@ -70,7 +70,7 @@ export default defineExtension({
 
 Command names must be flat and match `[a-z][a-z0-9-]*`. Nested groups, slashes, colons, spaces, and uppercase names are not supported in this prototype.
 
-Duplicate command names within one source level are errors. Across source levels, higher-precedence sources override lower-precedence sources: project overrides global and built-in; global overrides built-in. Overrides are recorded as non-fatal diagnostics.
+Duplicate command names within one extension root are errors. Across roots, higher-precedence sources override lower-precedence sources: project overrides XDG global, legacy global, and built-in; XDG global overrides legacy global and built-in; legacy global overrides built-in. Overrides are recorded as non-fatal diagnostics.
 
 Discovery is side-effect-light: `sdl --help`, `sdl -h`, `sdl --version`, `sdl --runtime`, and unselected command lookup read only built-in definitions, filesystem entries, and JSON manifests. Malformed discovery entries that do not affect the selected command are printed as stderr warnings while the invocation continues and stdout remains reserved for primary output. Discovery diagnostics that affect the selected command are fatal, including higher-precedence broken overrides that would otherwise fall back to lower-precedence commands. SDL imports and validates exactly one external SDL extension contribution only when that command is selected, including selected-command help and JSON schema.
 
@@ -132,7 +132,7 @@ Environment:
 
 For compatibility with existing local environments, an unset `SDL_CHECKPOINT_MODEL` falls back to `SDL_DEV_CHECKPOINT_MODEL`.
 
-Projects may override `sdl cp` by contributing an SDL command entry named `cp` from `.sdl/extensions` or `~/.sdl/extensions`. When no SDL extension override exists, SDL uses the built-in `cp` implementation.
+Projects may override `sdl cp` by contributing an SDL command entry named `cp` from project `.sdl/extensions`, XDG global `$XDG_DATA_HOME/sdl/extensions` (default `$HOME/.local/share/sdl/extensions`), or legacy global `~/.sdl/extensions`. When no SDL extension override exists, SDL uses the built-in `cp` implementation.
 
 Pi exposes the same capability as `/sdl:cp` through `.pi/extensions/sdl.ts`; `/code:cp` is not retained as a compatibility alias.
 
@@ -176,7 +176,7 @@ Behavior:
 - when regeneration is needed, updates the PR title and replaces only the machine-owned generated body region, preserving human text outside it;
 - runs `gt restack --no-interactive` automatically when Graphite reports a required restack; `--no-restack` disables that automation and preserves the guided failure path;
 - keeps deterministic hand-written guidance for known Graphite failures as fallback and raw-log context;
-- for failed submit runs with stderr, asks the configured model for the primary concise failure summary and writes the complete raw stdout/stderr transcript to a local temp log file whose path is printed;
+- for failed submit runs with stderr, asks the configured model for the primary concise failure summary and writes the complete raw stdout/stderr transcript under `$XDG_STATE_HOME/sdl/submit-failure-logs` by default (or `SDL_SUBMIT_FAILURE_LOG_DIR` when set) and prints the raw-log path;
 - exposes the Pi mirror as `/sdl:submit` from SDL command metadata.
 
 Environment:
@@ -184,7 +184,7 @@ Environment:
 - `SDL_DEV_PR_DESCRIPTION_MODEL`: model reference for generated PR descriptions.
 - `SDL_DEV_PR_DESCRIPTION_PROMPT`: optional custom PR-description prompt file.
 - `SDL_SUBMIT_FAILURE_MODEL`: model reference for submit failure summarization.
-- `SDL_SUBMIT_FAILURE_LOG_DIR`: optional directory under which submit-failure raw log directories are created.
+- `SDL_SUBMIT_FAILURE_LOG_DIR`: optional absolute directory (after `~/` expansion) under which submit-failure raw log directories are created.
 
 `submit` is a built-in SDL command, not a legacy repo-local `.sdl/commands/submit.ts` module. It can be overridden through an SDL command entry or manifest descriptor under `.sdl/extensions`. Legacy submit surfaces are not retained as compatibility surfaces.
 

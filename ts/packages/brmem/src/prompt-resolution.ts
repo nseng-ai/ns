@@ -1,15 +1,16 @@
 import { access } from "node:fs/promises";
-import { homedir } from "node:os";
 import process from "node:process";
 
 import { NodeCommandExecApi, type CommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@sdl/core/git";
 
+import { legacyHomePath, resolveSdlXdgPath } from "@sdl/core/xdg";
+
 import { brmemError, brmemOk, type BrmemResult } from "./contracts.ts";
 
 export interface BrmemPromptResolver {
 	repositoryRoot(options: { cwd: string }): Promise<BrmemResult<string>>;
-	homeRoot(): string;
+	globalPromptRoots(): readonly string[];
 	fileExists(path: string): Promise<boolean>;
 }
 
@@ -42,9 +43,18 @@ export class RealBrmemPromptResolver implements BrmemPromptResolver {
 		return brmemOk(result.value);
 	}
 
-	homeRoot(): string {
-		const home = this.env.HOME;
-		return home === undefined || home.length === 0 ? homedir() : home;
+	globalPromptRoots(): readonly string[] {
+		const roots: string[] = [];
+		const xdgRoot = resolveSdlXdgPath({
+			kind: "config",
+			env: this.env,
+			segments: ["brmem", "prompts"],
+		});
+		if (xdgRoot.ok) roots.push(xdgRoot.value);
+
+		const legacyRoot = legacyHomePath(this.env, [".brmem", "prompts"]);
+		if (legacyRoot.ok) roots.push(legacyRoot.value);
+		return [...new Set(roots)];
 	}
 
 	async fileExists(path: string): Promise<boolean> {

@@ -31,7 +31,7 @@ describe("RealBrmemPromptResolver", () => {
 			writeFileSync(promptPath, "prompt\n", "utf8");
 			const git = new FakeGitGateway({ repoRoot: root });
 			const resolver = new RealBrmemPromptResolver({
-				env: { ...process.env, HOME: "/tmp/brmem-home" },
+				env: { ...process.env, HOME: "/tmp/brmem-home", XDG_CONFIG_HOME: undefined },
 				git,
 			});
 
@@ -40,7 +40,10 @@ describe("RealBrmemPromptResolver", () => {
 				value: root,
 			});
 			expect(git.repoRootCalls).toEqual([{ cwd: "/work" }]);
-			expect(resolver.homeRoot()).toBe("/tmp/brmem-home");
+			expect(resolver.globalPromptRoots()).toEqual([
+				"/tmp/brmem-home/.config/sdl/brmem/prompts",
+				"/tmp/brmem-home/.brmem/prompts",
+			]);
 			expect(await resolver.fileExists(promptPath)).toBe(true);
 			expect(await resolver.fileExists(join(root, ".brmem", "prompts", "missing.md"))).toBe(false);
 		} finally {

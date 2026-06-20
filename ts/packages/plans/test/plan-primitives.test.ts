@@ -137,6 +137,32 @@ describe("source branch plan path helpers", () => {
 		});
 	});
 
+	test("finds latest saved plan from the legacy store when the XDG store is absent", async () => {
+		const tempHome = await makeTempDir("source-plan-home-");
+		const sourceBranch = "branch-contexts/add-widget";
+		const legacyRoot = join(tempHome, ".sdl", "enriched-plan");
+		const legacyDirectory = planStoreDirectory(legacyRoot, sourceBranch);
+		const legacyPath = await writePlanStoreFile(
+			legacyDirectory,
+			"legacy-source-plan.md",
+			1_800_000_000_000,
+		);
+		const git = new InMemoryGitGateway({
+			currentBranch: sourceBranch,
+			originUrl: "git@github.com:owner/repo.git",
+			trunkBranch: { type: "missing" },
+		});
+
+		const evidence = await findLatestSavedPlanFile(unusedPi, {
+			cwd: ROOT,
+			env: { HOME: tempHome },
+			git,
+		});
+
+		expect(evidence.filePath).toBe(legacyPath);
+		expect(evidence.directoryPath).toBe(legacyDirectory);
+	});
+
 	test("reports a typed error when the local plan store directory is missing", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
 		const git = new InMemoryGitGateway({

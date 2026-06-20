@@ -119,6 +119,14 @@ local per-machine configuration for the TypeScript CLIs, or scratch state. For
 those, prefer `XDG_CACHE_HOME` (regenerable) or `XDG_STATE_HOME` (local,
 non-precious) over `XDG_DATA_HOME`, and keep that boundary explicit.
 
+Current SDL-owned roots use these conventions:
+
+- Saved/enriched plans: `$XDG_STATE_HOME/sdl/enriched-plan` (default `$HOME/.local/state/sdl/enriched-plan`) with read-only legacy fallback from `~/.sdl/enriched-plan`.
+- Slot worktree pools: `$XDG_STATE_HOME/sdl/slots` (default `$HOME/.local/state/sdl/slots`), with `SLOTS_ROOT` as an explicit absolute override for existing pools.
+- SDL global extensions: `$XDG_DATA_HOME/sdl/extensions` (default `$HOME/.local/share/sdl/extensions`) with read-only legacy fallback from `~/.sdl/extensions`.
+- Branch Memory global prompt templates: `$XDG_CONFIG_HOME/sdl/brmem/prompts` (default `$HOME/.config/sdl/brmem/prompts`) with read-only legacy fallback from `~/.brmem/prompts`.
+- Submit raw failure logs and SDL Pi CLI trace logs: `$XDG_STATE_HOME/sdl/...` unless their explicit SDL-specific overrides are set.
+
 ## Sources
 
 - [XDG Base Directory Specification (canonical, freedesktop.org)](https://specifications.freedesktop.org/basedir/latest/)
