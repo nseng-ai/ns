@@ -1,3 +1,5 @@
+import type { z } from "zod";
+
 import { runCommand, type CommandRunner, type ExecResult } from "../exec.ts";
 import { GITHUB_CLI_TIMEOUT_MS, runGitHubCli, type RunGitHubCliResult } from "../github-cli.ts";
 import type { Result } from "../result.ts";
@@ -22,7 +24,12 @@ import {
 	normalizeReviewComment,
 	normalizeReviewThread,
 } from "./normalizers.ts";
-import { parseGraphqlJson, parseJson, requireEndCursor } from "./parsing.ts";
+import {
+	parseGraphqlJson,
+	parseJson,
+	requireEndCursor,
+	type GithubPrFeedbackFailureContext,
+} from "./parsing.ts";
 import {
 	ghDiscussionCommentsResponseSchema,
 	ghReplyReviewThreadResponseSchema,
@@ -47,6 +54,22 @@ import type {
 	GithubReviewThreadReply,
 	GithubReviewThreadState,
 } from "./types.ts";
+
+interface RunGhParsedOptions<T> {
+	readonly operation: GithubPrFeedbackOperation;
+	readonly args: readonly string[];
+	readonly params: GithubPrFeedbackOptions;
+	readonly schema: z.ZodType<T>;
+	readonly prNumber?: number | undefined;
+	readonly threadId?: string | undefined;
+	readonly cursorContext?: string | undefined;
+}
+
+type GhJsonParser<T> = (
+	text: string,
+	schema: z.ZodType<T>,
+	context: GithubPrFeedbackFailureContext,
+) => Result<T, GithubPrFeedbackFailure>;
 
 export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
 	private readonly runner: CommandRunner;
@@ -289,42 +312,28 @@ export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
 		});
 	}
 
-	private async runGhJson<T>(options: {
-		readonly operation: GithubPrFeedbackOperation;
-		readonly args: readonly string[];
-		readonly params: GithubPrFeedbackOptions;
-		readonly schema: Parameters<typeof parseJson<T>>[1];
-		readonly prNumber?: number | undefined;
-		readonly threadId?: string | undefined;
-	}): Promise<Result<T, GithubPrFeedbackFailure>> {
-		const run = await this.runGh(options);
-		if (run.type === "startup_error")
-			return feedbackErr(failureFromStartup(run, options.operation));
-		if (run.result.code !== 0 || run.result.killed)
-			return feedbackErr(failureFromCompleted(run, options.operation, options));
-		return parseJson(run.result.stdout, options.schema, {
-			operation: options.operation,
-			run,
-			prNumber: options.prNumber,
-			threadId: options.threadId,
-		});
+	private async runGhJson<T>(
+		options: RunGhParsedOptions<T>,
+	): Promise<Result<T, GithubPrFeedbackFailure>> {
+		return await this.runGhParsed(options, parseJson);
 	}
 
-	private async runGhGraphqlJson<T>(options: {
-		readonly operation: GithubPrFeedbackOperation;
-		readonly args: readonly string[];
-		readonly params: GithubPrFeedbackOptions;
-		readonly schema: Parameters<typeof parseGraphqlJson<T>>[1];
-		readonly prNumber?: number | undefined;
-		readonly threadId?: string | undefined;
-		readonly cursorContext?: string | undefined;
-	}): Promise<Result<T, GithubPrFeedbackFailure>> {
+	private async runGhGraphqlJson<T>(
+		options: RunGhParsedOptions<T>,
+	): Promise<Result<T, GithubPrFeedbackFailure>> {
+		return await this.runGhParsed(options, parseGraphqlJson);
+	}
+
+	private async runGhParsed<T>(
+		options: RunGhParsedOptions<T>,
+		parse: GhJsonParser<T>,
+	): Promise<Result<T, GithubPrFeedbackFailure>> {
 		const run = await this.runGh(options);
 		if (run.type === "startup_error")
 			return feedbackErr(failureFromStartup(run, options.operation));
 		if (run.result.code !== 0 || run.result.killed)
 			return feedbackErr(failureFromCompleted(run, options.operation, options));
-		return parseGraphqlJson(run.result.stdout, options.schema, {
+		return parse(run.result.stdout, options.schema, {
 			operation: options.operation,
 			run,
 			prNumber: options.prNumber,

@@ -1,14 +1,15 @@
 import { describe, expect, test } from "vitest";
 
 import type { CommandRunner, ExecOptions } from "@asdl/core/exec";
+import { RealGithubPrFeedbackGateway } from "@asdl/core/github-pr-feedback";
+import { ScriptedCommandRunner, step } from "@asdl/core/testing";
+
 import {
-	RealGithubPrFeedbackGateway,
 	replyToReviewThreadMutation,
 	resolveReviewThreadMutation,
 	reviewThreadCommentsQuery,
 	reviewThreadsQuery,
-} from "@asdl/core/github-pr-feedback";
-import { ScriptedCommandRunner, step } from "@asdl/core/testing";
+} from "../src/github-pr-feedback/queries.ts";
 
 function reviewThreadsResponse(
 	nodes: readonly unknown[],

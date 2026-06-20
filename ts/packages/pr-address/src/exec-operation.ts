@@ -36,20 +36,32 @@ export function gatewayFailureExit(prefix: string, gatewayFailure: GatewayFailur
 	return failure("pr_gateway_failure", gatewayFailureMessage(prefix, gatewayFailure));
 }
 
-export function gatewayFailureDetail(gatewayFailure: GatewayFailure): string {
-	const stderr = typeof gatewayFailure.stderr === "string" ? gatewayFailure.stderr : null;
-	const stdout = typeof gatewayFailure.stdout === "string" ? gatewayFailure.stdout : null;
+export interface FailureDetailInput {
+	readonly stderr?: string | null | undefined;
+	readonly stdout?: string | null | undefined;
+	readonly message?: string | null | undefined;
+	readonly code: string;
+}
+
+export function failureDetail(input: FailureDetailInput): string {
+	const stderr = typeof input.stderr === "string" ? input.stderr : null;
+	const stdout = typeof input.stdout === "string" ? input.stdout : null;
 	if (stderr !== null && stderr.trim() !== "") return stderr;
 	if (stdout !== null && stdout.trim() !== "") return stdout;
-	if (typeof gatewayFailure.message === "string" && gatewayFailure.message.trim() !== "")
-		return gatewayFailure.message;
-	if (typeof gatewayFailure.returncode === "number")
-		return `exit code ${gatewayFailure.returncode}`;
-	return gatewayFailure.code ?? "gateway failed";
+	if (typeof input.message === "string" && input.message.trim() !== "") return input.message;
+	return input.code;
 }
 
 export function gatewayFailureMessage(prefix: string, gatewayFailure: GatewayFailure): string {
-	return `${prefix}: ${gatewayFailureDetail(gatewayFailure)}`;
+	return `${prefix}: ${failureDetail({
+		stderr: gatewayFailure.stderr,
+		stdout: gatewayFailure.stdout,
+		message: gatewayFailure.message,
+		code:
+			typeof gatewayFailure.returncode === "number"
+				? `exit code ${gatewayFailure.returncode}`
+				: (gatewayFailure.code ?? "gateway failed"),
+	})}`;
 }
 
 export function prFeedbackFailureExit(prefix: string, prFeedbackFailure: GithubPrFeedbackFailure) {
@@ -60,17 +72,13 @@ export function prFeedbackFailureMessage(
 	prefix: string,
 	prFeedbackFailure: GithubPrFeedbackFailure,
 ): string {
-	return `${prefix}: ${prFeedbackFailureDetail(prFeedbackFailure)}`;
-}
-
-export function prFeedbackFailureDetail(prFeedbackFailure: GithubPrFeedbackFailure): string {
 	const details = prFeedbackFailure.details ?? {};
-	const stderr = typeof details.stderr === "string" ? details.stderr : null;
-	const stdout = typeof details.stdout === "string" ? details.stdout : null;
-	if (stderr !== null && stderr.trim() !== "") return stderr;
-	if (stdout !== null && stdout.trim() !== "") return stdout;
-	if (prFeedbackFailure.message.trim() !== "") return prFeedbackFailure.message;
-	return prFeedbackFailure.code;
+	return `${prefix}: ${failureDetail({
+		stderr: typeof details.stderr === "string" ? details.stderr : undefined,
+		stdout: typeof details.stdout === "string" ? details.stdout : undefined,
+		message: prFeedbackFailure.message,
+		code: prFeedbackFailure.code,
+	})}`;
 }
 
 export interface DefineExecOperationOptions<S extends z.ZodObject, T> {
