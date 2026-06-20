@@ -210,6 +210,19 @@ export function formatCommand(command: string, args: readonly string[]): string 
 	return [command, ...args].map(formatShellArg).join(" ");
 }
 
+export function formatCommandResultFailure(
+	title: string,
+	command: string,
+	args: readonly string[],
+	result: ExecResult,
+): string {
+	const displayCommand = formatCommand(command, args);
+	if (result.startupError !== undefined) {
+		return formatCommandStartupFailure(title, displayCommand, result.startupError);
+	}
+	return formatCommandFailure(title, displayCommand, result);
+}
+
 export function formatShellArg(value: string): string {
 	if (/^[A-Za-z0-9_@%+=:,./-]+$/.test(value)) {
 		return value;

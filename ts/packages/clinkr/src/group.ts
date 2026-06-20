@@ -98,10 +98,10 @@ export interface ClinkrRunOptions<TContext> {
 
 interface RegisteredCommand<TContext> {
 	name: string;
-	description: string | undefined;
-	summary: string | undefined;
+	description?: string;
+	summary?: string;
 	schema: z.ZodObject;
-	schemaDocument: (() => JsonSchemaDocument) | undefined;
+	schemaDocument?: () => JsonSchemaDocument;
 	execution: RenderedExecution<TContext> | RawExecution<TContext>;
 	plan: SurfacePlan;
 }
@@ -176,10 +176,10 @@ export class ClinkrGroup<TContext> {
 		});
 		this.registeredCommands.push({
 			name: spec.name,
-			description: spec.description,
-			summary: spec.summary,
+			...(spec.description === undefined ? {} : { description: spec.description }),
+			...(spec.summary === undefined ? {} : { summary: spec.summary }),
 			schema: spec.schema,
-			schemaDocument: spec.schemaDocument,
+			...(spec.schemaDocument === undefined ? {} : { schemaDocument: spec.schemaDocument }),
 			execution: executionOf(spec),
 			plan,
 		});
@@ -198,10 +198,7 @@ export class ClinkrGroup<TContext> {
 		});
 		this.defaultRegisteredCommand = {
 			name: this.name,
-			description: undefined,
-			summary: undefined,
 			schema: spec.schema,
-			schemaDocument: undefined,
 			execution: rawExecutionOf(spec),
 			plan,
 		};

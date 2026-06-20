@@ -17,11 +17,11 @@ describe("packagechk CLI", () => {
 		expect(help.stdout).toContain("Usage: packagechk");
 		expect(help.stdout).toContain("Check whether a package name is available to claim.");
 		expect(help.stdout).toContain(
-			"Default check path: packagechk NAME [--registry pypi|npm|brew] [--json].",
+			"Default check path: packagechk NAME [--registry pypi|npm|brew] [--show-json].",
 		);
 		expect(help.stdout).toContain("--runtime");
 		expect(help.stdout).toContain("--registry");
-		expect(help.stdout).toContain("--json");
+		expect(help.stdout).toContain("--show-json");
 		expect(help.stdout).toContain("claim-pypi");
 		expect(help.stdout).toContain("claim-npm");
 
@@ -66,7 +66,7 @@ describe("packagechk CLI", () => {
 			},
 		});
 
-		const run = await runPackagechk([SAMPLE, "--registry", "pypi", "--json"], {
+		const run = await runPackagechk([SAMPLE, "--registry", "pypi", "--show-json"], {
 			registryGateway: gateway,
 		});
 

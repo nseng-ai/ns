@@ -213,6 +213,7 @@ async function fetchRegistryResponse(
 				const parsed: unknown = JSON.parse(text);
 				if (isRecord(parsed)) jsonBody = parsed;
 			} catch {
+				// Registry status still determines availability; malformed metadata only omits optional fields.
 				jsonBody = null;
 			}
 		}

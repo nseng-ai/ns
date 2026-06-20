@@ -18,8 +18,7 @@ import readline from "node:readline/promises";
 
 import {
 	formatCommand,
-	formatCommandFailure,
-	formatCommandStartupFailure,
+	formatCommandResultFailure,
 	NodeCommandExecApi,
 	runCommand,
 	stripTerminalEscapes,
@@ -202,21 +201,11 @@ export class RealAregGithubGateway implements AregGithubGateway {
 			return { type: "missing", message: `No skills directory found in ${options.repo}` };
 		if (combined.includes("401") || combined.includes("403"))
 			return { type: "auth-error", message: `Authentication error accessing ${options.repo}` };
-		if (result.startupError !== undefined) {
-			return {
-				type: "error",
-				error: errorInfo(
-					"gh-startup-failed",
-					formatCommandStartupFailure("gh api failed", displayCommand, result.startupError),
-					displayCommand,
-				),
-			};
-		}
 		return {
 			type: "error",
 			error: errorInfo(
-				"gh-failed",
-				formatCommandFailure("gh api failed", displayCommand, result),
+				result.startupError === undefined ? "gh-failed" : "gh-startup-failed",
+				formatCommandResultFailure("gh api failed", "gh", args, result),
 				displayCommand,
 			),
 		};
@@ -239,21 +228,11 @@ export class RealAregNpxSkillsGateway implements AregNpxSkillsGateway {
 			timeout: COMMAND_TIMEOUT_MS,
 		});
 		if (result.code === 0) return { type: "ok" };
-		if (result.startupError !== undefined) {
-			return {
-				type: "error",
-				error: errorInfo(
-					"npx-startup-failed",
-					formatCommandStartupFailure("npx skills add failed", displayCommand, result.startupError),
-					displayCommand,
-				),
-			};
-		}
 		return {
 			type: "error",
 			error: errorInfo(
-				"npx-failed",
-				formatCommandFailure("npx skills add failed", displayCommand, result),
+				result.startupError === undefined ? "npx-failed" : "npx-startup-failed",
+				formatCommandResultFailure("npx skills add failed", "npx", args, result),
 				displayCommand,
 			),
 		};

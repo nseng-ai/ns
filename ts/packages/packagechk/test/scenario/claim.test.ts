@@ -12,6 +12,14 @@ import { runPackagechk } from "./support.ts";
 const SAMPLE = "sample-name";
 
 describe("packagechk claim commands", () => {
+	test("claim help shows the confirmation bypass flag", async () => {
+		const help = await runPackagechk(["claim-pypi", "--help"]);
+
+		expect(help.code).toBe(0);
+		expect(help.stdout).toContain("--skip-confirmation");
+		expect(help.stdout).not.toContain("--force");
+	});
+
 	test("claim-pypi dry-run avoids external effects", async () => {
 		const registry = new FakePackageRegistryGateway();
 		const publisher = new FakePypiPublishGateway({
@@ -42,7 +50,7 @@ describe("packagechk claim commands", () => {
 		const registry = new FakePackageRegistryGateway();
 		const publisher = new FakePypiPublishGateway({ artifacts: ["dist/sample.tar.gz"] });
 
-		const run = await runPackagechk(["claim-pypi", "bad!name", "--force"], {
+		const run = await runPackagechk(["claim-pypi", "bad!name", "--skip-confirmation"], {
 			registryGateway: registry,
 			pypiPublishGateway: publisher,
 		});
@@ -67,7 +75,7 @@ describe("packagechk claim commands", () => {
 		});
 		const publisher = new FakePypiPublishGateway({ artifacts: ["dist/sample.tar.gz"] });
 
-		const run = await runPackagechk(["claim-pypi", SAMPLE, "--force"], {
+		const run = await runPackagechk(["claim-pypi", SAMPLE, "--skip-confirmation"], {
 			registryGateway: registry,
 			pypiPublishGateway: publisher,
 		});
@@ -88,7 +96,7 @@ describe("packagechk claim commands", () => {
 		const artifacts = ["dist/sample-0.0.1.tar.gz", "dist/sample-0.0.1-py3-none-any.whl"];
 		const publisher = new FakePypiPublishGateway({ artifacts });
 
-		const run = await runPackagechk(["claim-pypi", SAMPLE, "--force"], {
+		const run = await runPackagechk(["claim-pypi", SAMPLE, "--skip-confirmation"], {
 			registryGateway: registry,
 			pypiPublishGateway: publisher,
 		});
@@ -122,11 +130,31 @@ describe("packagechk claim commands", () => {
 		expect(publisher.builtProjectDirs).toEqual([]);
 	});
 
+	test("claim-pypi confirmation EOF aborts before build", async () => {
+		const registry = new FakePackageRegistryGateway({
+			results: {
+				[`pypi:${SAMPLE}`]: availableResult("pypi", { inputName: SAMPLE, lookupName: SAMPLE }),
+			},
+		});
+		const publisher = new FakePypiPublishGateway({ artifacts: ["dist/sample.tar.gz"] });
+
+		const run = await runPackagechk(["claim-pypi", SAMPLE], {
+			registryGateway: registry,
+			pypiPublishGateway: publisher,
+			stdin: async () => null,
+		});
+
+		expect(run.code).toBe(1);
+		expect(run.stderr).toContain("Aborted by user.");
+		expect(publisher.toolChecks).toBe(1);
+		expect(publisher.builtProjectDirs).toEqual([]);
+	});
+
 	test("claim-npm rejects invalid names before registry or publish effects", async () => {
 		const registry = new FakePackageRegistryGateway();
 		const publisher = new FakeNpmPublishGateway();
 
-		const run = await runPackagechk(["claim-npm", "bad!name", "--force"], {
+		const run = await runPackagechk(["claim-npm", "bad!name", "--skip-confirmation"], {
 			registryGateway: registry,
 			npmPublishGateway: publisher,
 		});
@@ -150,7 +178,7 @@ describe("packagechk claim commands", () => {
 		});
 		const publisher = new FakeNpmPublishGateway();
 
-		const run = await runPackagechk(["claim-npm", SAMPLE, "--force"], {
+		const run = await runPackagechk(["claim-npm", SAMPLE, "--skip-confirmation"], {
 			registryGateway: registry,
 			npmPublishGateway: publisher,
 		});
@@ -186,7 +214,7 @@ describe("packagechk claim commands", () => {
 		expect(dryRun.stderr).toContain("npm URL: https://www.npmjs.com/package/@asdl-io/aretro");
 		expect(publisher.toolChecks).toBe(0);
 
-		const published = await runPackagechk(["claim-npm", "@asdl-io/aretro", "--force"], {
+		const published = await runPackagechk(["claim-npm", "@asdl-io/aretro", "--skip-confirmation"], {
 			registryGateway: registry,
 			npmPublishGateway: publisher,
 		});
