@@ -38,6 +38,23 @@ describe("packagechk claim commands", () => {
 		expect(publisher.publishedArtifacts).toEqual([]);
 	});
 
+	test("claim-pypi rejects invalid names before registry or publish effects", async () => {
+		const registry = new FakePackageRegistryGateway();
+		const publisher = new FakePypiPublishGateway({ artifacts: ["dist/sample.tar.gz"] });
+
+		const run = await runPackagechk(["claim-pypi", "bad!name", "--force"], {
+			registryGateway: registry,
+			pypiPublishGateway: publisher,
+		});
+
+		expect(run.code).toBe(2);
+		expect(run.stderr).toContain("pypi: invalid:");
+		expect(registry.checkedNames("pypi")).toEqual([]);
+		expect(publisher.toolChecks).toBe(0);
+		expect(publisher.builtProjectDirs).toEqual([]);
+		expect(publisher.publishedArtifacts).toEqual([]);
+	});
+
 	test("claim-pypi gates taken names before publish effects", async () => {
 		const registry = new FakePackageRegistryGateway({
 			results: {
@@ -103,6 +120,22 @@ describe("packagechk claim commands", () => {
 		expect(run.stderr).toContain("Aborted by user.");
 		expect(publisher.toolChecks).toBe(1);
 		expect(publisher.builtProjectDirs).toEqual([]);
+	});
+
+	test("claim-npm rejects invalid names before registry or publish effects", async () => {
+		const registry = new FakePackageRegistryGateway();
+		const publisher = new FakeNpmPublishGateway();
+
+		const run = await runPackagechk(["claim-npm", "bad!name", "--force"], {
+			registryGateway: registry,
+			npmPublishGateway: publisher,
+		});
+
+		expect(run.code).toBe(2);
+		expect(run.stderr).toContain("npm: invalid:");
+		expect(registry.checkedNames("npm")).toEqual([]);
+		expect(publisher.toolChecks).toBe(0);
+		expect(publisher.publishedProjectDirs).toEqual([]);
 	});
 
 	test("claim-npm gates taken names before publish effects", async () => {
