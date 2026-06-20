@@ -1,28 +1,17 @@
-export type RoastSkillEntry = RoastSkillBackedEntry | RoastReviewDefinitionEntry;
-
-interface BaseRoastEntry {
+export interface RoastSkillEntry {
 	readonly surface: string;
+	readonly reviewKey: string;
+	readonly reviewPath: string;
 	readonly title: string;
 	readonly description: string;
 	readonly defaultPrompt: string;
 }
 
-export interface RoastSkillBackedEntry extends BaseRoastEntry {
-	readonly backing: "skill";
-	readonly skillName: string;
-}
-
-export interface RoastReviewDefinitionEntry extends BaseRoastEntry {
-	readonly backing: "review-definition";
-	readonly reviewKey: string;
-	readonly reviewPath: string;
-}
-
 const ROAST_SKILL_ENTRIES = [
 	{
-		backing: "skill",
 		surface: "roast:thermonuclear-review",
-		skillName: "thermo-nuclear-code-quality-review",
+		reviewKey: "thermonuclear-review",
+		reviewPath: "reviews/thermonuclear-review.md",
 		// Intentionally matches the MVP's named user-facing label: "Roast: ThermonuclearReview".
 		title: "ThermonuclearReview",
 		description:
@@ -30,16 +19,16 @@ const ROAST_SKILL_ENTRIES = [
 		defaultPrompt: "Run the ThermonuclearReview roast against the current branch changes.",
 	},
 	{
-		backing: "skill",
 		surface: "roast:improve-codebase-architecture",
-		skillName: "improve-codebase-architecture",
+		reviewKey: "improve-codebase-architecture",
+		reviewPath: "reviews/improve-codebase-architecture.md",
 		title: "Improve codebase architecture",
 		description:
-			"Scan the codebase for architecture deepening opportunities and present an HTML report.",
-		defaultPrompt: "Run the Improve codebase architecture roast for the current repository.",
+			"Review the current branch for architecture deepening opportunities grounded in the supplied diff.",
+		defaultPrompt:
+			"Run the Improve codebase architecture roast against the current branch changes.",
 	},
 	{
-		backing: "review-definition",
 		surface: "roast:asdl-typescript-style",
 		reviewKey: "asdl-typescript-style",
 		reviewPath: "reviews/asdl-typescript-style.md",
@@ -48,7 +37,6 @@ const ROAST_SKILL_ENTRIES = [
 		defaultPrompt: "Run the ASDL TypeScript style roast against the current branch changes.",
 	},
 	{
-		backing: "review-definition",
 		surface: "roast:dignified-python",
 		reviewKey: "dignified-python",
 		reviewPath: "reviews/dignified-python.md",
@@ -57,7 +45,6 @@ const ROAST_SKILL_ENTRIES = [
 		defaultPrompt: "Run the Dignified Python roast against the current branch changes.",
 	},
 	{
-		backing: "review-definition",
 		surface: "roast:dry-but-not-too-dry",
 		reviewKey: "dry-but-not-too-dry",
 		reviewPath: "reviews/dry-but-not-too-dry.md",
@@ -66,7 +53,6 @@ const ROAST_SKILL_ENTRIES = [
 		defaultPrompt: "Run the DRY but not too DRY roast against the current branch changes.",
 	},
 	{
-		backing: "review-definition",
 		surface: "roast:duplicative-abstractions",
 		reviewKey: "duplicative-abstractions",
 		reviewPath: "reviews/duplicative-abstractions.md",

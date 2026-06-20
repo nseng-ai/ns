@@ -39,10 +39,10 @@ describe("roaster roast CLI", () => {
 		expect(run.exitCode).toBe(0);
 		expect(run.stdout).toContain("Roast skill entries: 6");
 		expect(run.stdout).toContain(
-			"- roast:thermonuclear-review — Roast: ThermonuclearReview (skill: thermo-nuclear-code-quality-review)",
+			"- roast:thermonuclear-review — Roast: ThermonuclearReview (review: thermonuclear-review)",
 		);
 		expect(run.stdout).toContain(
-			"- roast:improve-codebase-architecture — Roast: Improve codebase architecture (skill: improve-codebase-architecture)",
+			"- roast:improve-codebase-architecture — Roast: Improve codebase architecture (review: improve-codebase-architecture)",
 		);
 		expect(run.stdout).toContain(
 			"- roast:asdl-typescript-style — Roast: ASDL TypeScript style (review: asdl-typescript-style)",
@@ -58,7 +58,7 @@ describe("roaster roast CLI", () => {
 		);
 	});
 
-	test("roast list renders JSON with backing identifiers", async () => {
+	test("roast list renders JSON with review identifiers", async () => {
 		const run = await runRoaster(["roast", "list", "--format", "json"]);
 
 		expect(run.exitCode).toBe(0);
@@ -75,16 +75,14 @@ describe("roaster roast CLI", () => {
 		expect(envelope.data.entries[0]).toMatchObject({
 			surface: "roast:thermonuclear-review",
 			label: "Roast: ThermonuclearReview",
-			backing: "skill",
-			skill_name: "thermo-nuclear-code-quality-review",
-			review_key: null,
+			review_key: "thermonuclear-review",
+			review_path: "reviews/thermonuclear-review.md",
 		});
 		expect(envelope.data.entries[2]).toMatchObject({
 			surface: "roast:asdl-typescript-style",
 			label: "Roast: ASDL TypeScript style",
-			backing: "review_definition",
-			skill_name: null,
 			review_key: "asdl-typescript-style",
+			review_path: "reviews/asdl-typescript-style.md",
 		});
 	});
 });

@@ -16,6 +16,32 @@ interface RealReviewCase {
 
 const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
 	{
+		path: "../../../../../reviews/thermonuclear-review.md",
+		name: "thermonuclear-review",
+		expectedModel: "sonnet",
+		expectedApplicability: {
+			include: ["**/*.ts", "**/*.tsx", "**/*.py"],
+			exclude: [".agents/skills/**", ".claude/skills/**", "skills/**"],
+		},
+	},
+	{
+		path: "../../../../../reviews/improve-codebase-architecture.md",
+		name: "improve-codebase-architecture",
+		expectedModel: "sonnet",
+		expectedApplicability: {
+			include: ["**/*.ts", "**/*.tsx", "**/*.py"],
+			exclude: [
+				"**/tests/**",
+				"**/test/**",
+				"**/*.test.ts",
+				"**/test_*.py",
+				".agents/skills/**",
+				".claude/skills/**",
+				"skills/**",
+			],
+		},
+	},
+	{
 		path: "../../../../../reviews/dignified-python.md",
 		name: "dignified-python",
 		expectedModel: "haiku",

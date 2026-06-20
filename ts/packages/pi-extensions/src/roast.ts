@@ -4,43 +4,39 @@ import { dirname, join, parse, resolve } from "node:path";
 import {
 	listRoastSkillEntries,
 	roastSkillLabel,
-	type RoastReviewDefinitionEntry,
-	type RoastSkillBackedEntry,
 	type RoastSkillEntry,
 } from "@sdl/roaster/skill-reviews";
 
-import { buildFencedTextBlock, invokeRepoSkillPromptTurn } from "./skill-expansion.ts";
+import { buildFencedTextBlock } from "./skill-expansion.ts";
 import { definePiSurfaceParity, type FullPiSurfaceParity } from "./parity.ts";
-import type {
-	BackingSkillCommandContext,
-	BackingSkillCommandHost,
-} from "./backing-skill-commands.ts";
-import type { SkillCommandInfo } from "./skill-expansion.ts";
 
 export const roastParity = definePiSurfaceParity(listRoastSkillEntries().map(roastParityRecord));
 
-export interface RoastExtensionAPI extends BackingSkillCommandHost {
-	getCommands?(): readonly SkillCommandInfo[];
+export interface RoastCommandContext {
+	cwd: string;
+	hasUI?: boolean;
+	ui: {
+		notify(message: string, level?: "info" | "warning" | "error"): void;
+	};
+	waitForIdle(): Promise<void>;
+}
+
+export interface RoastExtensionAPI {
+	registerCommand(
+		name: string,
+		options: {
+			description?: string;
+			argumentHint?: string;
+			handler(args: string, ctx: RoastCommandContext): Promise<void> | void;
+		},
+	): void;
+	sendUserMessage(content: string): Promise<void> | void;
 }
 
 interface HandleRoastCommandOptions {
 	readonly pi: RoastExtensionAPI;
-	readonly ctx: BackingSkillCommandContext;
+	readonly ctx: RoastCommandContext;
 	readonly entry: RoastSkillEntry;
-	readonly args: string;
-}
-
-interface HandleSkillRoastCommandOptions {
-	readonly pi: RoastExtensionAPI;
-	readonly ctx: BackingSkillCommandContext;
-	readonly entry: RoastSkillBackedEntry;
-	readonly args: string;
-}
-
-interface HandleReviewDefinitionRoastCommandOptions {
-	readonly pi: RoastExtensionAPI;
-	readonly ctx: BackingSkillCommandContext;
-	readonly entry: RoastReviewDefinitionEntry;
 	readonly args: string;
 }
 
@@ -60,47 +56,16 @@ function roastParityRecord(entry: RoastSkillEntry): FullPiSurfaceParity {
 		surface: entry.surface,
 		workflow: `Run ${roastSkillLabel(entry)} Roaster review`,
 		parity: "FULL",
-		cli: roastParityCli(entry),
-		...(entry.backing === "skill" ? { skill: entry.skillName } : {}),
+		cli: `roaster review run ${entry.reviewKey} for CI review execution; roaster roast list for catalog discovery`,
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "roast",
 		notes:
-			"The command is a Pi convenience wrapper over a portable backing skill or Roaster review definition catalog entry.",
+			"The command is a Pi convenience wrapper over the portable Roaster review definition catalog.",
 	};
 }
 
-function roastParityCli(entry: RoastSkillEntry): string {
-	if (entry.backing === "skill") {
-		return `roaster roast list for catalog discovery; invoke skill ${entry.skillName} directly outside Pi`;
-	}
-	return `roaster review run ${entry.reviewKey} for CI review execution; roaster roast list for catalog discovery`;
-}
-
 async function handleRoastCommand(options: HandleRoastCommandOptions): Promise<void> {
-	const { pi, ctx, entry, args } = options;
-	if (entry.backing === "skill") {
-		await handleSkillRoastCommand({ pi, ctx, entry, args });
-		return;
-	}
-	await handleReviewDefinitionRoastCommand({ pi, ctx, entry, args });
-}
-
-async function handleSkillRoastCommand(options: HandleSkillRoastCommandOptions): Promise<void> {
-	const { pi, ctx, entry, args } = options;
-	await invokeRepoSkillPromptTurn({
-		host: pi,
-		ctx,
-		skillName: entry.skillName,
-		successMessage: `Starting ${roastSkillLabel(entry)}.`,
-		fallbackMessage: `${entry.skillName} skill was not found; sending fallback roast prompt.`,
-		buildPrompt: (skillBlock) => buildRoastPrompt(entry, skillBlock, args),
-	});
-}
-
-async function handleReviewDefinitionRoastCommand(
-	options: HandleReviewDefinitionRoastCommandOptions,
-): Promise<void> {
 	const { pi, ctx, entry, args } = options;
 	await ctx.waitForIdle();
 
@@ -116,24 +81,8 @@ async function handleReviewDefinitionRoastCommand(
 	await pi.sendUserMessage(buildRoasterReviewPrompt(entry, reviewDefinition, args));
 }
 
-export function buildRoastPrompt(
-	entry: RoastSkillBackedEntry,
-	skillBlock: string | undefined,
-	args: string,
-): string {
-	const lines = initialRoastPromptLines(entry, args);
-	if (skillBlock !== undefined) {
-		lines.unshift(skillBlock);
-	} else {
-		lines.unshift(
-			`The backing skill ${entry.skillName} was not available. Follow the repository review workflow as best you can.`,
-		);
-	}
-	return lines.join("\n\n");
-}
-
 export function buildRoasterReviewPrompt(
-	entry: RoastReviewDefinitionEntry,
+	entry: RoastSkillEntry,
 	reviewDefinition: string | undefined,
 	args: string,
 ): string {
