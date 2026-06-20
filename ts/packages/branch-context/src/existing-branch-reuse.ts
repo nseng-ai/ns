@@ -88,9 +88,9 @@ export async function resolveExistingBranchContextReuse(
 		cwd: options.cwd,
 		signal: options.signal,
 	});
-	if (branch.ok) {
+	if (branch.type === "branch") {
 		const candidate: ExistingBranchContextCandidate = {
-			branch: branch.value,
+			branch: branch.branch,
 			source: "current-branch",
 		};
 		const result = await verifyCandidate(brmem, options, candidate);

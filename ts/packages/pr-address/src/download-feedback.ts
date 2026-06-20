@@ -69,9 +69,6 @@ async function runDownloadFeedbackOperation(
 		gateway: ctx.context.prFeedback,
 		gatewayOptions: gatewayOptions(ctx),
 		prNumber: targetResult.pr.number,
-		shouldIncludeResolved: request.includeResolved,
-		shouldIncludeEmptyReviews: true,
-		shouldCountAllReviewThreads: true,
 	});
 	if (snapshotResult.type === "failure")
 		return prFeedbackFailureExit(snapshotResult.message, snapshotResult.failure);
@@ -128,7 +125,7 @@ async function resolveTargetPr(
 	if (branchResult.type === "failure")
 		return {
 			type: "failure",
-			exit: gatewayFailureExit("Failed to determine current branch", branchResult.failure),
+			exit: gatewayFailureExit("Failed to determine current branch", branchResult.error),
 		};
 	if (branchResult.type === "detached") {
 		return {
@@ -167,24 +164,26 @@ function selectIncludedFeedback(
 	snapshot: FeedbackSnapshot,
 	request: DownloadFeedbackRequest,
 ): IncludedFeedback {
+	const reviewThreads = request.includeResolved
+		? snapshot.review_threads
+		: snapshot.review_threads.filter((thread) => !thread.isResolved);
 	const reviews = request.includeEmptyReviews
 		? snapshot.reviews
 		: reviewsForRequest(snapshot.reviews, false);
 	const discussionComments = request.includeAutomation
 		? snapshot.discussion_comments
 		: snapshot.discussion_comments.filter((comment) => !isAutomationLikeDiscussionComment(comment));
-	const resolvedThreads = snapshot.counted_review_threads.filter(
-		(thread) => thread.isResolved,
-	).length;
 	return {
-		reviewThreads: snapshot.review_threads,
+		reviewThreads,
 		reviews,
 		discussionComments,
 		counts: {
-			included_review_threads: snapshot.review_threads.length,
+			included_review_threads: reviewThreads.length,
 			included_reviews: reviews.length,
 			included_discussion_comments: discussionComments.length,
-			excluded_resolved_threads: request.includeResolved ? 0 : resolvedThreads,
+			excluded_resolved_threads: request.includeResolved
+				? 0
+				: snapshot.review_threads.length - reviewThreads.length,
 			excluded_empty_reviews: request.includeEmptyReviews
 				? 0
 				: snapshot.reviews.length - reviews.length,

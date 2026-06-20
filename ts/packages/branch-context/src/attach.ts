@@ -310,16 +310,14 @@ async function resolveAttachBranch(
 	const branch = requestedBranch?.trim();
 	if (branch !== undefined && branch.length > 0) return branch;
 	const current = await git.currentBranch({ cwd: options.cwd, signal: options.signal });
-	if (!current.ok) {
-		throw new Error(
-			[
-				"Cannot default branch-context operation from detached HEAD. Pass --branch explicitly.",
-				"",
-				current.error.message,
-			].join("\n"),
-		);
-	}
-	return current.value;
+	if (current.type === "branch") return current.branch;
+	throw new Error(
+		[
+			"Cannot default branch-context operation from detached HEAD. Pass --branch explicitly.",
+			"",
+			current.error.message,
+		].join("\n"),
+	);
 }
 
 function planStoreOptions(options: BranchContextPrimitiveOptions): PlanStoreOptions {

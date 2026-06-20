@@ -116,9 +116,9 @@ describe("real git gateway", () => {
 		]);
 		const git = new RealGitGateway(commands);
 
-		expect(await git.currentBranch({ cwd: ROOT })).toEqual({
-			ok: true,
-			value: "feature/source-plan",
+		expect(await git.currentBranch({ cwd: ROOT, env: { PATH: "/fake/bin" } })).toEqual({
+			type: "branch",
+			branch: "feature/source-plan",
 		});
 		expect(await git.originUrl({ cwd: ROOT })).toEqual({
 			type: "found",
@@ -131,6 +131,11 @@ describe("real git gateway", () => {
 			["config", "--get", "remote.origin.url"],
 			["rev-parse", "HEAD"],
 		]);
+		expect(commands.execCalls[0]?.options).toEqual({
+			cwd: ROOT,
+			timeout: 10_000,
+			env: { PATH: "/fake/bin" },
+		});
 		expect(commands.execCalls.every((call) => call.options?.timeout === 10_000)).toBe(true);
 	});
 
@@ -217,13 +222,61 @@ describe("real git gateway", () => {
 		const git = new RealGitGateway(commands);
 
 		expect(await git.currentBranch({ cwd: ROOT })).toEqual({
-			ok: false,
+			type: "detached",
 			error: {
 				code: "detached_head",
 				message:
 					"git branch --show-current returned no current branch.\nCommand: git branch --show-current",
 				displayCommand: "git branch --show-current",
 			},
+		});
+		commands.assertDone();
+	});
+
+	test("reports current branch command failures", async () => {
+		const commands = new ScriptedCommands([
+			step("git", ["branch", "--show-current"], { code: 2, stderr: "boom" }),
+		]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.currentBranch({ cwd: ROOT })).toMatchObject({
+			type: "failure",
+			error: { code: "current_branch_failed" },
+		});
+		commands.assertDone();
+	});
+
+	test("detects whether cwd is inside a work tree", async () => {
+		const commands = new ScriptedCommands([
+			step("git", ["rev-parse", "--is-inside-work-tree"], { stdout: "true\n" }),
+			step("git", ["rev-parse", "--is-inside-work-tree"], { stdout: "false\n" }),
+			step("git", ["rev-parse", "--is-inside-work-tree"], {
+				code: 128,
+				stderr: "fatal: not a git repository",
+			}),
+		]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.isInsideWorkTree({ cwd: ROOT })).toEqual({ ok: true, value: true });
+		expect(await git.isInsideWorkTree({ cwd: ROOT })).toEqual({ ok: true, value: false });
+		expect(await git.isInsideWorkTree({ cwd: ROOT })).toEqual({ ok: true, value: false });
+		commands.assertDone();
+	});
+
+	test("reports unexpected work tree probe failures", async () => {
+		const commands = new ScriptedCommands([
+			step("git", ["rev-parse", "--is-inside-work-tree"], { code: 2, stderr: "boom" }),
+			step("git", ["rev-parse", "--is-inside-work-tree"], { killed: true }),
+		]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.isInsideWorkTree({ cwd: ROOT })).toMatchObject({
+			ok: false,
+			error: { code: "work_tree_probe_failed" },
+		});
+		expect(await git.isInsideWorkTree({ cwd: ROOT })).toMatchObject({
+			ok: false,
+			error: { code: "work_tree_probe_failed" },
 		});
 		commands.assertDone();
 	});

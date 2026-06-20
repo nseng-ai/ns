@@ -159,6 +159,27 @@ describe("pr-address exec download-feedback", () => {
 		expect(markdown).not.toContain("<!-- roaster: finding -->");
 	});
 
+	test("includes resolved review threads when requested", async () => {
+		const run = runScenario(
+			["exec", "download-feedback", "--include-resolved", "--format", "json"],
+			{
+				git: new InMemoryPrAddressGitGateway({ currentBranch: "feature/demo" }),
+				prFeedback: defaultPrFeedback(),
+			},
+		);
+
+		expect(await run.exit).toBe(0);
+		const data = dataFrom(run.stdout);
+		expect(data.counts).toMatchObject({
+			included_review_threads: 2,
+			excluded_resolved_threads: 0,
+		});
+		const markdown = data.markdown;
+		if (typeof markdown !== "string") throw new Error("expected markdown string");
+		expect(markdown).toContain("RT_open");
+		expect(markdown).toContain("RT_resolved");
+	});
+
 	test("accepts an explicit PR number without a current branch", async () => {
 		const run = runScenario(
 			["exec", "download-feedback", "--pr-number", "42", "--format", "json"],

@@ -32,8 +32,8 @@ describe("in-memory git gateway", () => {
 			value: "/optional-repo",
 		});
 		expect(await git.currentBranch({ cwd: "/work" })).toEqual({
-			ok: true,
-			value: "feature/source-plan",
+			type: "branch",
+			branch: "feature/source-plan",
 		});
 		expect(await git.trunkBranch({ cwd: "/work" })).toEqual({ type: "found", value: "trunk" });
 		expect(await git.originUrl({ cwd: "/work" })).toEqual({
@@ -156,7 +156,10 @@ describe("in-memory git gateway", () => {
 			error: { code: "repo_root_failed", message: "Could not resolve git repository root." },
 		});
 		expect(await git.optionalRepoRoot({ cwd: ROOT })).toEqual({ type: "missing" });
-		expect(await git.currentBranch({ cwd: ROOT })).toEqual({ ok: false, error: explicitError });
+		expect(await git.currentBranch({ cwd: ROOT })).toEqual({
+			type: "failure",
+			error: explicitError,
+		});
 		expect(await git.trunkBranch({ cwd: ROOT })).toEqual({
 			type: "error",
 			error: { code: "trunk_branch_failed", message: "Could not resolve trunk branch." },
@@ -201,7 +204,7 @@ describe("in-memory git gateway", () => {
 		const git = new InMemoryGitGateway({ currentBranch: { type: "detached" } });
 
 		expect(await git.currentBranch({ cwd: ROOT })).toEqual({
-			ok: false,
+			type: "detached",
 			error: {
 				code: "detached_head",
 				message:
@@ -209,6 +212,23 @@ describe("in-memory git gateway", () => {
 				displayCommand: "git branch --show-current",
 			},
 		});
+	});
+
+	test("models work tree probes and records calls", async () => {
+		const defaultGit = new InMemoryGitGateway();
+		const outsideGit = new InMemoryGitGateway({ isInsideWorkTree: false });
+		const failure = { code: "custom_worktree_failure", message: "Custom worktree failure." };
+		const failingGit = new InMemoryGitGateway({
+			isInsideWorkTree: { type: "failure", error: failure },
+		});
+
+		expect(await defaultGit.isInsideWorkTree({ cwd: ROOT })).toEqual({ ok: true, value: true });
+		expect(await outsideGit.isInsideWorkTree({ cwd: ROOT })).toEqual({ ok: true, value: false });
+		expect(await failingGit.isInsideWorkTree({ cwd: ROOT })).toEqual({
+			ok: false,
+			error: failure,
+		});
+		expect(defaultGit.isInsideWorkTreeCalls).toEqual([{ cwd: ROOT }]);
 	});
 
 	test("keeps trunk branch as pure configured tri-state", async () => {

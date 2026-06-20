@@ -262,7 +262,10 @@ function fakeGitGateway(branch: string = PLAN_BRANCH): GitGateway {
 			return { type: "found", value: ROOT };
 		},
 		async currentBranch() {
-			return { ok: true, value: branch };
+			return { type: "branch", branch };
+		},
+		async isInsideWorkTree() {
+			return { ok: true, value: true };
 		},
 		async trunkBranch() {
 			return { type: "found", value: "main" };

@@ -253,15 +253,15 @@ async function resolveBranch(
 	}
 
 	const currentBranchResult = await context.git.currentBranch({ cwd: repoRoot });
-	if (currentBranchResult.ok) {
+	if (currentBranchResult.type === "branch") {
 		return {
-			branch: currentBranchResult.value,
+			branch: currentBranchResult.branch,
 			branchSource: "git_current_branch",
 			error: null,
 		};
 	}
 
-	if (currentBranchResult.error.code === "detached_head") {
+	if (currentBranchResult.type === "detached") {
 		return {
 			branch: null,
 			branchSource: "detached",
