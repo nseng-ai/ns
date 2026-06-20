@@ -4,6 +4,7 @@ description: |
   the supplied diff. Push for structural simplification, code-judo reframings,
   cleaner boundaries, less spaghetti growth, and direct maintainable code.
 default_model: sonnet
+local_only: true
 applies_to:
   include:
     - "**/*.ts"

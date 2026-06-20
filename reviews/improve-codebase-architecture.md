@@ -4,6 +4,7 @@ description: |
   interfaces, seams, adapters, leverage, and locality problems introduced or
   revealed by the current branch.
 default_model: sonnet
+local_only: true
 applies_to:
   include:
     - "**/*.ts"

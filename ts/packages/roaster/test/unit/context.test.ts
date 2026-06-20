@@ -30,6 +30,7 @@ const sampleReviewDefinition: ReviewDefinition = {
 	instructions: "Flag concrete issues.",
 	defaultModel: "sonnet",
 	applicability: { include: ["**/*.ts"], exclude: [] },
+	localOnly: false,
 };
 
 const sampleDiff = createLocalDiff({ baseRef: "main", diffText: "", files: [] });

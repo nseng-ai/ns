@@ -8,7 +8,12 @@ import {
 	type ReviewDefinition,
 } from "./models.ts";
 
-const ALLOWED_FRONTMATTER_KEYS = ["applies_to", "default_model", "description"] as const;
+const ALLOWED_FRONTMATTER_KEYS = [
+	"applies_to",
+	"default_model",
+	"description",
+	"local_only",
+] as const;
 const ALLOWED_APPLIES_TO_KEYS = ["exclude", "include"] as const;
 
 export type ReviewDefinitionParseResult =
@@ -30,6 +35,7 @@ export type ReviewDefinitionParseErrorCode =
 	| "invalid_name"
 	| "invalid_description"
 	| "invalid_default_model"
+	| "invalid_local_only"
 	| "invalid_instructions"
 	| "invalid_applicability";
 
@@ -85,6 +91,9 @@ export function parseReviewDefinition(
 	const applicability = parseApplicability(parsedFrontmatter);
 	if (applicability.type === "error") return applicability;
 
+	const localOnly = parseLocalOnly(parsedFrontmatter);
+	if (localOnly.type === "error") return localOnly;
+
 	const instructions = split.body.trim();
 	if (instructions === "") {
 		return failure(
@@ -99,6 +108,7 @@ export function parseReviewDefinition(
 		instructions,
 		defaultModel: defaultModel.value,
 		applicability: applicability.value,
+		localOnly: localOnly.value,
 	};
 	const parsedDefinition = reviewDefinitionSchema.safeParse(candidate);
 	if (!parsedDefinition.success) {
@@ -171,6 +181,19 @@ function parseDefaultModel(frontmatter: Readonly<Record<string, unknown>>): Defa
 		);
 	}
 	return { type: "ok", value: value.trim() };
+}
+
+type LocalOnlyResult =
+	| { readonly type: "ok"; readonly value: boolean }
+	| { readonly type: "error"; readonly error: ReviewDefinitionParseError };
+
+function parseLocalOnly(frontmatter: Readonly<Record<string, unknown>>): LocalOnlyResult {
+	if (!("local_only" in frontmatter)) return { type: "ok", value: false };
+	const value = frontmatter.local_only;
+	if (typeof value !== "boolean") {
+		return failure("invalid_local_only", "Review definition field `local_only` must be a boolean.");
+	}
+	return { type: "ok", value };
 }
 
 type ApplicabilityResult =

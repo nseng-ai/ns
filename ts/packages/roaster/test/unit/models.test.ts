@@ -32,6 +32,7 @@ describe("roaster domain schemas", () => {
 			instructions: "Flag concrete issues.",
 			defaultModel: "haiku",
 			applicability: { include: ["**/*.ts"], exclude: [] },
+			localOnly: false,
 		});
 
 		const finding = reviewFindingSchema.parse({
@@ -175,6 +176,7 @@ describe("roaster domain schemas", () => {
 			instructions: "Flag concrete issues.",
 			defaultModel: "haiku",
 			applicability: { include: ["**/*.ts"], exclude: [] },
+			localOnly: false,
 		});
 		const request = harnessReviewRequestSchema.parse({
 			model: "haiku",

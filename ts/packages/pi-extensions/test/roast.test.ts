@@ -246,6 +246,7 @@ function okLoaded(entry: RoastSkillEntry, source: string): RoastReviewLoadResult
 			instructions: source,
 			defaultModel: null,
 			applicability: { include: [], exclude: [] },
+			localOnly: false,
 		},
 	};
 }

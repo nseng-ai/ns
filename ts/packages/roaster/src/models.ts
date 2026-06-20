@@ -47,6 +47,7 @@ export const reviewDefinitionSchema = z
 		instructions: nonBlankStringSchema,
 		defaultModel: nonBlankStringSchema.nullable(),
 		applicability: reviewApplicabilitySchema,
+		localOnly: z.boolean(),
 	})
 	.strict();
 export type ReviewDefinition = z.infer<typeof reviewDefinitionSchema>;

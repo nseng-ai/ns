@@ -4,6 +4,7 @@ description: |
   shared semantics or change-coupling worth consolidating, while rejecting
   abstraction for its own sake.
 default_model: sonnet
+local_only: true
 applies_to:
   include:
     - "**/*.ts"

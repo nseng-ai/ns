@@ -47,6 +47,7 @@ function sampleSource(
 		readonly defaultModel?: string | null;
 		readonly description?: string;
 		readonly appliesTo?: string;
+		readonly localOnly?: boolean | undefined;
 	} = {},
 ): string {
 	const defaultModel = options.defaultModel === undefined ? "sonnet" : options.defaultModel;
@@ -54,6 +55,7 @@ function sampleSource(
 		"---",
 		`description: ${options.description ?? "Review Python diffs for style violations."}`,
 		...(defaultModel === null ? [] : [`default_model: ${defaultModel}`]),
+		...(options.localOnly === true ? ["local_only: true"] : []),
 		...(options.appliesTo === undefined ? [] : [options.appliesTo.trimEnd()]),
 		"---",
 		"",
@@ -194,6 +196,7 @@ describe("roaster review CLI", () => {
 		expect(envelope.data.keys).toEqual(["dignified-python", "typescript-style"]);
 		expect(envelope.data.count).toBe(2);
 		expect(envelope.data.reviews[0].default_model).toBe("sonnet");
+		expect(envelope.data.reviews[0].local_only).toBe(false);
 	});
 
 	test("review ls aliases review list", async () => {
@@ -207,6 +210,23 @@ describe("roaster review CLI", () => {
 		expect(JSON.parse(run.stdout).data.keys).toEqual([REVIEW_KEY]);
 	});
 
+	test("review list --ci omits local-only reviews", async () => {
+		const run = await runRoaster(["review", "list", "--ci", "--format", "json"], {
+			context: contextWithCatalog({
+				sources: {
+					"local-architecture": sampleSource({ localOnly: true }),
+					"typescript-style": sampleSource({
+						description: "Review TypeScript diffs for style violations.",
+					}),
+				},
+				keys: ["local-architecture", "typescript-style"],
+			}),
+		});
+
+		expect(run.exitCode).toBe(0);
+		expect(JSON.parse(run.stdout).data.keys).toEqual(["typescript-style"]);
+	});
+
 	test("review list --applicable filters by changed paths", async () => {
 		const run = await runRoaster(
 			["review", "list", "--applicable", "--base-ref", "master", "--format", "json"],
@@ -218,6 +238,34 @@ describe("roaster review CLI", () => {
 				}),
 			},
 		);
+		expect(run.exitCode).toBe(0);
+		expect(JSON.parse(run.stdout).data.keys).toEqual(["typescript-style"]);
+	});
+
+	test("review list --ci and --applicable both filter discovered reviews", async () => {
+		const run = await runRoaster(
+			["review", "list", "--ci", "--applicable", "--base-ref", "master", "--format", "json"],
+			{
+				context: contextWithCatalog({
+					sources: {
+						"local-typescript": sampleSource({
+							localOnly: true,
+							appliesTo: "applies_to:\n  include:\n    - '**/*.ts'",
+						}),
+						"typescript-style": sampleSource({
+							description: "Review TypeScript diffs for style violations.",
+							appliesTo: "applies_to:\n  include:\n    - '**/*.ts'",
+						}),
+						"dignified-python": sampleSource({
+							appliesTo: "applies_to:\n  include:\n    - '**/*.py'",
+						}),
+					},
+					keys: ["local-typescript", "typescript-style", "dignified-python"],
+					diff: diffForPath("src/app.ts"),
+				}),
+			},
+		);
+
 		expect(run.exitCode).toBe(0);
 		expect(JSON.parse(run.stdout).data.keys).toEqual(["typescript-style"]);
 	});

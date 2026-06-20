@@ -26,6 +26,7 @@ function request(
 			instructions: "Flag concrete issues.",
 			defaultModel: "haiku",
 			applicability: { include: ["**/*.ts"], exclude: [] },
+			localOnly: false,
 		},
 		target: {
 			localDiff: createLocalDiff({

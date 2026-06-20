@@ -22,6 +22,7 @@ export const reviewListRequestSchema = z.object({
 		.boolean()
 		.default(false)
 		.describe("Only list reviews applicable to the current diff."),
+	ci: z.boolean().default(false).describe("Only list reviews enabled for CI automation."),
 	baseRef: z.string().optional().describe("Base ref used when filtering applicable reviews."),
 });
 
@@ -29,6 +30,7 @@ export const reviewMetadataSchema = z.object({
 	key: nonBlankStringSchema,
 	description: nonBlankStringSchema,
 	default_model: nonBlankStringSchema.nullable(),
+	local_only: z.boolean(),
 });
 
 export const reviewListResultSchema = z.object({
@@ -86,11 +88,21 @@ export async function runReviewList(
 	if (loaded.type === "error") return failureFromRoaster(loaded.error);
 
 	let selectedKeys = catalog.value.keys;
+	if (request.ci) {
+		selectedKeys = selectedKeys.filter((key) =>
+			loaded.value.some((item) => item.key === key && !item.definition.localOnly),
+		);
+	}
 	if (request.applicable) {
 		const diff = await loadDiffFromRequest(ctx, request.baseRef);
 		if (diff.type === "error") return failureFromRoaster(diff.error);
+		const selectedBeforeApplicability = new Set(selectedKeys);
 		selectedKeys = applicableReviewKeys(
-			new Map(loaded.value.map((item) => [item.key, item.definition])),
+			new Map(
+				loaded.value
+					.filter((item) => selectedBeforeApplicability.has(item.key))
+					.map((item) => [item.key, item.definition]),
+			),
 			{ changedPaths: diff.value.changedPaths },
 		);
 	}
@@ -102,6 +114,7 @@ export async function runReviewList(
 			key: item.key,
 			description: item.definition.description,
 			default_model: item.definition.defaultModel,
+			local_only: item.definition.localOnly,
 		}));
 	return ok(
 		reviewListResultSchema.parse({
@@ -117,7 +130,8 @@ export function renderReviewList(result: ReviewListResult): string {
 	const lines = [`Reviews directory: ${result.reviews_dir}`, `Reviews: ${result.count}`];
 	for (const review of result.reviews) {
 		const model = review.default_model === null ? "" : ` (default model: ${review.default_model})`;
-		lines.push(`- ${review.key}: ${review.description}${model}`);
+		const scope = review.local_only ? " [local-only]" : "";
+		lines.push(`- ${review.key}: ${review.description}${model}${scope}`);
 	}
 	return lines.join("\n");
 }
