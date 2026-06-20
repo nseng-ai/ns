@@ -71,6 +71,14 @@ export interface RawCommandSpec<TContext, S extends z.ZodObject> {
 	schemaDocument?: never;
 }
 
+export interface DefaultRawCommandSpec<TContext, S extends z.ZodObject> extends Omit<
+	RawCommandSpec<TContext, S>,
+	"name" | "summary"
+> {
+	name?: never;
+	summary?: never;
+}
+
 export interface ClinkrGroupOptions {
 	name: string;
 	description?: string;
@@ -122,6 +130,10 @@ interface BuildLeafCommandOptions<TContext> {
 	state: RunState;
 }
 
+interface ConfigureCommandExecutionOptions<TContext> extends BuildLeafCommandOptions<TContext> {
+	command: Command;
+}
+
 interface BuildCommandOptions<TContext> {
 	context: TContext;
 	io: ClinkrIo;
@@ -137,6 +149,7 @@ export class ClinkrGroup<TContext> {
 	private readonly runtimeInfo: (() => string) | undefined;
 	private registeredCommands: RegisteredCommand<TContext>[];
 	private subgroups: ClinkrGroup<TContext>[];
+	private defaultRegisteredCommand: RegisteredCommand<TContext> | undefined;
 
 	constructor(options: ClinkrGroupOptions) {
 		this.name = options.name;
@@ -146,6 +159,7 @@ export class ClinkrGroup<TContext> {
 		this.runtimeInfo = options.runtimeInfo;
 		this.registeredCommands = [];
 		this.subgroups = [];
+		this.defaultRegisteredCommand = undefined;
 	}
 
 	command<S extends z.ZodObject>(spec: RawCommandSpec<TContext, S>): this;
@@ -168,6 +182,28 @@ export class ClinkrGroup<TContext> {
 			execution: executionOf(spec),
 			plan,
 		});
+		return this;
+	}
+
+	defaultCommand<S extends z.ZodObject>(spec: DefaultRawCommandSpec<TContext, S>): this {
+		if (this.defaultRegisteredCommand !== undefined) {
+			throw new Error(`clinkr: group '${this.name}' already has a default command`);
+		}
+		const plan = buildSurfacePlan({
+			commandName: this.name,
+			schema: spec.schema,
+			positionals: spec.positionals ?? {},
+			optionSpecs: spec.options ?? {},
+		});
+		this.defaultRegisteredCommand = {
+			name: this.name,
+			description: spec.description,
+			summary: undefined,
+			schema: spec.schema,
+			schemaDocument: undefined,
+			execution: rawExecutionOf(spec),
+			plan,
+		};
 		return this;
 	}
 
@@ -217,6 +253,15 @@ export class ClinkrGroup<TContext> {
 		if (isRoot && this.runtimeInfo !== undefined) {
 			command.addOption(new Option("--runtime", "Show CLI runtime diagnostics and exit."));
 		}
+		if (this.defaultRegisteredCommand !== undefined) {
+			configureCommandExecution({
+				command,
+				registered: this.defaultRegisteredCommand,
+				context,
+				io,
+				state,
+			});
+		}
 		for (const registered of this.registeredCommands) {
 			command.addCommand(buildLeafCommand({ registered, context, io, state }));
 		}
@@ -229,7 +274,7 @@ export class ClinkrGroup<TContext> {
 	}
 
 	private findBareGroupPath(argv: readonly string[]): string[] | undefined {
-		if (argv.length === 0) return [];
+		if (argv.length === 0) return this.defaultRegisteredCommand === undefined ? [] : undefined;
 		const [head, ...tail] = argv;
 		if (head === undefined) return [];
 		const child = this.subgroups.find((candidate) => candidate.name === head);
@@ -243,14 +288,7 @@ export class ClinkrGroup<TContext> {
 function executionOf<TContext, S extends z.ZodObject, T>(
 	spec: ClinkrCommandSpec<TContext, S, T> | RawCommandSpec<TContext, S>,
 ): RenderedExecution<TContext> | RawExecution<TContext> {
-	if (spec.isRawExit === true) {
-		return {
-			type: "raw",
-			// Erase the command generics once; zod re-establishes the request shape
-			// at parse time, so the cast is backed by a runtime guarantee.
-			run: spec.run as (ctx: TContext, request: unknown) => Promise<number>,
-		};
-	}
+	if (spec.isRawExit === true) return rawExecutionOf(spec);
 	return {
 		type: "rendered",
 		resultSchema: spec.resultSchema,
@@ -266,6 +304,17 @@ function executionOf<TContext, S extends z.ZodObject, T>(
 		legacyMachine: spec.legacyMachine as
 			| ((exit: ClinkrExit<unknown>) => LegacyMachineOutput)
 			| undefined,
+	};
+}
+
+function rawExecutionOf<TContext, S extends z.ZodObject>(
+	spec: Pick<RawCommandSpec<TContext, S>, "run">,
+): RawExecution<TContext> {
+	return {
+		type: "raw",
+		// Erase the command generics once; zod re-establishes the request shape
+		// at parse time, so the cast is backed by a runtime guarantee.
+		run: spec.run as (ctx: TContext, request: unknown) => Promise<number>,
 	};
 }
 
@@ -308,10 +357,19 @@ function exitCodeForCommanderError(error: CommanderError): number {
 }
 
 function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>): Command {
-	const { registered, context, io, state } = options;
+	const { registered, io } = options;
 	const command = createContainedCommand(registered.name, io);
 	if (registered.description !== undefined) command.description(registered.description);
 	if (registered.summary !== undefined) command.summary(registered.summary);
+	configureCommandExecution({ command, ...options });
+	return command;
+}
+
+function configureCommandExecution<TContext>(
+	options: ConfigureCommandExecutionOptions<TContext>,
+): void {
+	const { command, registered, context, io, state } = options;
+	if (registered.description !== undefined) command.description(registered.description);
 	for (const positional of registered.plan.positionals) {
 		command.addArgument(buildCommanderArgument(positional));
 	}
@@ -406,7 +464,6 @@ function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>):
 				assertNever(registered.execution);
 		}
 	});
-	return command;
 }
 
 function buildCommanderArgument(plan: PositionalPlan): Argument {

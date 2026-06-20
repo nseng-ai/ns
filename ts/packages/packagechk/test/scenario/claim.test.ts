@@ -96,6 +96,30 @@ describe("packagechk claim commands", () => {
 		expect(publisher.builtProjectDirs).toEqual([]);
 	});
 
+	test("claim-npm gates taken names before publish effects", async () => {
+		const registry = new FakePackageRegistryGateway({
+			npmResults: {
+				[SAMPLE]: takenResult("npm", {
+					inputName: SAMPLE,
+					lookupName: SAMPLE,
+					packageUrl: "https://www.npmjs.com/package/sample-name",
+				}),
+			},
+		});
+		const publisher = new FakeNpmPublishGateway();
+
+		const run = await runPackagechk(["claim-npm", SAMPLE, "--force"], {
+			registryGateway: registry,
+			npmPublishGateway: publisher,
+		});
+
+		expect(run.code).toBe(1);
+		expect(run.stderr).toContain("npm: taken");
+		expect(registry.npmCheckedNames).toEqual([SAMPLE]);
+		expect(publisher.toolChecks).toBe(0);
+		expect(publisher.publishedProjectDirs).toEqual([]);
+	});
+
 	test("claim-npm dry-run and scoped publish preserve package names", async () => {
 		const registry = new FakePackageRegistryGateway({
 			npmResults: {

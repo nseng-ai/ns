@@ -16,6 +16,7 @@ describe("packagechk CLI", () => {
 		expect(help.code).toBe(0);
 		expect(help.stdout).toContain("Usage: packagechk");
 		expect(help.stdout).toContain("Check whether a package name is available to claim.");
+		expect(help.stdout).toContain("--runtime");
 		expect(help.stdout).toContain("--registry");
 		expect(help.stdout).toContain("--json");
 		expect(help.stdout).toContain("claim-pypi");
@@ -97,10 +98,22 @@ describe("packagechk CLI", () => {
 	});
 
 	test("invalid registry uses packagechk validation", async () => {
-		const run = await runPackagechk([SAMPLE, "--registry", "gems"]);
+		const gateway = new FakePackageRegistryGateway();
+		const run = await runPackagechk([SAMPLE, "--registry", "gems"], { registryGateway: gateway });
 
 		expect(run.code).toBe(2);
 		expect(run.stderr).toContain("expected one of pypi, npm, brew");
+		expect(gateway.pypiCheckedNames).toEqual([]);
+		expect(gateway.npmCheckedNames).toEqual([]);
+		expect(gateway.brewCheckedNames).toEqual([]);
+	});
+
+	test("missing root package name is a usage error", async () => {
+		const run = await runPackagechk([]);
+
+		expect(run.code).toBe(2);
+		expect(run.stdout).toBe("");
+		expect(run.stderr).toContain("name");
 	});
 
 	test("scoped npm lookup preserves registry and page URL encoding", async () => {
@@ -126,7 +139,7 @@ describe("packagechk CLI", () => {
 
 	test("real gateway preserves validation and metadata behavior", async () => {
 		const available = new RealPackageRegistryGateway({
-			responseFetcher: async () => ({ statusCode: 404 }),
+			responseFetcher: async () => ({ statusCode: 404, jsonBody: null }),
 		});
 		expect(
 			await runPackagechk(["Foo_Bar", "--registry", "pypi"], { registryGateway: available }),

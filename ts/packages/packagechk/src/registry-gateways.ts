@@ -29,7 +29,7 @@ export interface PackageRegistryGateway {
 
 export interface RegistryHttpResponse {
 	statusCode: number;
-	jsonBody?: Record<string, unknown> | null;
+	jsonBody: Record<string, unknown> | null;
 }
 
 export type RegistryResponseFetcher = (
@@ -59,7 +59,7 @@ export class RealPackageRegistryGateway implements PackageRegistryGateway {
 		try {
 			const response = await this.responseFetcher(pypiProjectJsonUrl(lookupName), this.timeoutMs);
 			if (response.statusCode === 200) {
-				const metadata = pypiMetadata(lookupName, response.jsonBody ?? null);
+				const metadata = pypiMetadata(lookupName, response.jsonBody);
 				return takenResult("pypi", { inputName: packageName, lookupName, ...metadata });
 			}
 			if (response.statusCode === 404)
@@ -90,7 +90,7 @@ export class RealPackageRegistryGateway implements PackageRegistryGateway {
 		try {
 			const response = await this.responseFetcher(npmRegistryUrl(packageName), this.timeoutMs);
 			if (response.statusCode === 200) {
-				const metadata = npmMetadata(packageName, response.jsonBody ?? null);
+				const metadata = npmMetadata(packageName, response.jsonBody);
 				return takenResult("npm", { inputName: packageName, lookupName: packageName, ...metadata });
 			}
 			if (response.statusCode === 404)
@@ -121,7 +121,7 @@ export class RealPackageRegistryGateway implements PackageRegistryGateway {
 		try {
 			const response = await this.responseFetcher(brewFormulaJsonUrl(packageName), this.timeoutMs);
 			if (response.statusCode === 200) {
-				const metadata = brewMetadata(packageName, response.jsonBody ?? null);
+				const metadata = brewMetadata(packageName, response.jsonBody);
 				return takenResult("brew", {
 					inputName: packageName,
 					lookupName: packageName,
@@ -233,7 +233,7 @@ async function fetchRegistryResponse(
 			headers: { Accept: "application/json", "User-Agent": "packagechk/0.1" },
 			signal: controller.signal,
 		});
-		if (response.status === 404) return { statusCode: 404 };
+		if (response.status === 404) return { statusCode: 404, jsonBody: null };
 		let jsonBody: Record<string, unknown> | null = null;
 		const text = await response.text();
 		if (text !== "") {

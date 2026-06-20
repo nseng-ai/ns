@@ -10,6 +10,7 @@ export type {
 	ClinkrGroupOptions,
 	ClinkrHandler,
 	ClinkrRunOptions,
+	DefaultRawCommandSpec,
 } from "./group.ts";
 export {
 	buildFailureMachineEnvelopeSchema,
