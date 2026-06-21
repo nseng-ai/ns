@@ -444,7 +444,15 @@ describe("worktree status formatting", () => {
 			}),
 		).toBe("[gh] #1736 · comments 98/100+ · actions 3⏳ 1✗");
 		expect(formatGhStatus({ type: "no-pr" })).toBe("[gh] no PR");
-		expect(formatGhStatus({ type: "head-mismatch" })).toBe("[gh] local ahead of PR");
+		expect(
+			formatGhStatus({
+				type: "head-mismatch",
+				prNumber: 1736,
+				threads: { unresolved: 0, total: 8, hasMore: false },
+				checks: { passing: 16, pending: 0, failing: 0, unknown: 0 },
+				prHeadOid: "stale-pr-head",
+			}),
+		).toBe("[gh] #1736 · comments 8/8 · actions 16✓ · PR behind local");
 		expect(formatGhStatus({ type: "unavailable" })).toBe("[gh] unavailable");
 		expect(
 			formatGhStatus({ type: "unavailable", message: "gh api graphql exited 1: timeout" }),
@@ -463,6 +471,18 @@ describe("worktree status formatting", () => {
 		).toBe(
 			"[gh] \x1B]8;;https://github.com/dagster-io/sdl-tools/pull/1921\x07#1921\x1B]8;;\x07 · comments 0/0 · actions 0✓ · landable",
 		);
+		expect(
+			formatGhStatus({
+				type: "head-mismatch",
+				prNumber: 1921,
+				url: "https://github.com/dagster-io/sdl-tools/pull/1921",
+				threads: { unresolved: 0, total: 0, hasMore: false },
+				checks: { passing: 0, pending: 0, failing: 0, unknown: 0 },
+				prHeadOid: "stale-pr-head",
+			}),
+		).toBe(
+			"[gh] \x1B]8;;https://github.com/dagster-io/sdl-tools/pull/1921\x07#1921\x1B]8;;\x07 · comments 0/0 · actions 0✓ · PR behind local",
+		);
 
 		expect(
 			formatGhStatus({
@@ -473,6 +493,16 @@ describe("worktree status formatting", () => {
 				checks: { passing: 0, pending: 0, failing: 0, unknown: 0 },
 			}),
 		).toBe("[gh] #1921 · comments 0/0 · actions 0✓ · landable");
+		expect(
+			formatGhStatus({
+				type: "head-mismatch",
+				prNumber: 1921,
+				url: "javascript:alert(1)",
+				threads: { unresolved: 0, total: 0, hasMore: false },
+				checks: { passing: 0, pending: 0, failing: 0, unknown: 0 },
+				prHeadOid: "stale-pr-head",
+			}),
+		).toBe("[gh] #1921 · comments 0/0 · actions 0✓ · PR behind local");
 	});
 
 	test("formats gh refresh countdowns on available PR status lines", () => {
@@ -487,6 +517,18 @@ describe("worktree status formatting", () => {
 				{ ghRefreshCountdownMs: 29_200 },
 			),
 		).toBe("[gh] #1907 · comments 1/1 · actions 4⏳ · refresh 30s");
+		expect(
+			formatGhStatus(
+				{
+					type: "head-mismatch",
+					prNumber: 1907,
+					threads: { unresolved: 0, total: 1, hasMore: false },
+					checks: { passing: 0, pending: 4, failing: 0, unknown: 0 },
+					prHeadOid: "stale-pr-head",
+				},
+				{ ghRefreshCountdownMs: 29_200 },
+			),
+		).toBe("[gh] #1907 · comments 1/1 · actions 4⏳ · PR behind local · refresh 30s");
 	});
 
 	test("formats dormant state on the gh line instead of refresh countdowns", () => {
@@ -504,6 +546,18 @@ describe("worktree status formatting", () => {
 				{ ghRefreshCountdownMs: 29_200, isDormant: true },
 			),
 		).toBe("[gh] #1907 · comments 1/1 · actions 4⏳ · dormant after 2m idle");
+		expect(
+			formatGhStatus(
+				{
+					type: "head-mismatch",
+					prNumber: 1907,
+					threads: { unresolved: 0, total: 1, hasMore: false },
+					checks: { passing: 0, pending: 4, failing: 0, unknown: 0 },
+					prHeadOid: "stale-pr-head",
+				},
+				{ ghRefreshCountdownMs: 29_200, isDormant: true },
+			),
+		).toBe("[gh] #1907 · comments 1/1 · actions 4⏳ · PR behind local · dormant after 2m idle");
 	});
 
 	test("colors gh landability by state without changing stripped text", () => {
@@ -691,12 +745,15 @@ describe("composed local and gh worktree status loading", () => {
 		);
 	});
 
-	test("treats a PR head OID mismatch as local ahead of PR", async () => {
+	test("preserves first returned PR details for a PR head OID mismatch", async () => {
 		const pi = new OrderlessFakePi([
 			brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
 			remoteOriginStep(),
 			ghWorktreePrStep({
-				nodes: [{ number: 1736, headOid: "different", passingChecks: 4 }],
+				nodes: [
+					{ number: 1736, headOid: "different", passingChecks: 4 },
+					{ number: 1737, headOid: "also-different", failingChecks: 1 },
+				],
 			}),
 			...basicGitStatusScript(),
 		]);
@@ -704,9 +761,18 @@ describe("composed local and gh worktree status loading", () => {
 		const status = await loadComposedWorktreeStatus(pi, ROOT);
 
 		pi.assertDone();
-		expect(status.gh).toEqual({ type: "head-mismatch" });
-		expect(formatWorktreeStatus(status)).toContain("[gh] local ahead of PR");
-		expect(formatWorktreeStatus(status).join("\n")).not.toContain("#1736");
+		expect(status.gh).toMatchObject({
+			type: "head-mismatch",
+			prNumber: 1736,
+			url: "https://github.com/dagster-io/sdl-tools/pull/1736",
+			threads: { unresolved: 0, total: 0, hasMore: false },
+			checks: { passing: 4, pending: 0, failing: 0, unknown: 0 },
+			prHeadOid: "different",
+		});
+		expect(formatWorktreeStatus(status).map(stripTerminalEscapes)).toContain(
+			"[gh] #1736 · comments 0/0 · actions 4✓ · PR behind local",
+		);
+		expect(stripTerminalEscapes(formatWorktreeStatus(status).join("\n"))).not.toContain("landable");
 	});
 
 	test("unknown gh checks block landability", async () => {

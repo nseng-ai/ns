@@ -82,7 +82,14 @@ describe("worktree status extension registration and rendering", () => {
 		const pi = new LifecycleFakePi([]);
 		const loaders = fakeWorktreeStatusLoaders({
 			ghStatuses: [
-				queued({ type: "head-mismatch" }),
+				queued({
+					type: "head-mismatch",
+					prNumber: 1795,
+					url: "https://github.com/dagster-io/asdl-tools/pull/1795",
+					threads: { unresolved: 0, total: 0, hasMore: false },
+					checks: { passing: 0, pending: 0, failing: 0, unknown: 0 },
+					prHeadOid: "stale-pr-head",
+				}),
 				queued({
 					type: "available",
 					prNumber: 1795,
@@ -98,7 +105,7 @@ describe("worktree status extension registration and rendering", () => {
 		worktreeStatusExtension(pi as ExtensionAPI, { loaders });
 		await pi.sessionStart?.({}, ctx);
 		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toContain(
-			"[gh] local ahead of PR",
+			"[gh] #1795 · comments 0/0 · actions 0✓ · PR behind local",
 		);
 		const command = pi.commands.get(WORKTREE_STATUS_REFRESH_COMMAND_NAME);
 		expect(command).toBeDefined();
