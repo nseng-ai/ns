@@ -1,18 +1,18 @@
 import { describe, expect, test } from "vitest";
 
-import type { RoastReviewLoadResult, RoastSkillEntry } from "@sdl/roaster/skill-reviews";
+import type { RoastReviewLoadResult, RoastSkillEntry } from "@sdl/roaster";
 
 import roastExtension, {
 	buildRoasterReviewPrompt,
 	type LoadRoastReviewDefinition,
-	type RoastCommandContext,
 } from "../src/roast.ts";
+import type { PiCommandContext } from "../src/pi-command-host.ts";
 import { buildFencedTextBlock } from "../src/skill-expansion.ts";
 
 interface RegisteredCommand {
 	readonly description?: string;
 	readonly argumentHint?: string;
-	handler(args: string, ctx: RoastCommandContext): Promise<void> | void;
+	handler(args: string, ctx: PiCommandContext): Promise<void> | void;
 }
 
 class FakeRoastHost {
@@ -35,7 +35,7 @@ function commandContext(cwd: string): {
 		level: "info" | "warning" | "error" | undefined;
 	}>;
 	readonly waitCount: () => number;
-	readonly ctx: RoastCommandContext;
+	readonly ctx: PiCommandContext;
 } {
 	const notifications: Array<{
 		message: string;
@@ -135,8 +135,8 @@ describe("roast Pi extension", () => {
 		roastExtension(host, {
 			entries: [TYPESCRIPT_ENTRY],
 			loadReviewDefinition: async (request) => {
-				requestedKeys.push(request.entry.reviewKey);
-				return okLoaded(request.entry, "# ASDL TypeScript style review");
+				requestedKeys.push(request.key);
+				return okLoaded(roastEntryForKey(request.key), "# ASDL TypeScript style review");
 			},
 		});
 		const context = commandContext("/repo");
@@ -219,7 +219,6 @@ function roastEntry(options: {
 	return {
 		surface: `roast:${options.reviewKey}`,
 		reviewKey: options.reviewKey,
-		reviewPath: `reviews/${options.reviewKey}.md`,
 		title: options.title,
 		label: `Roast: ${options.title}`,
 		description: options.description,
@@ -228,7 +227,17 @@ function roastEntry(options: {
 }
 
 function successfulLoader(source: string): LoadRoastReviewDefinition {
-	return async (request) => okLoaded(request.entry, source);
+	return async (request) => okLoaded(roastEntryForKey(request.key), source);
+}
+
+function roastEntryForKey(key: string): RoastSkillEntry {
+	if (key === THERMONUCLEAR_ENTRY.reviewKey) return THERMONUCLEAR_ENTRY;
+	if (key === TYPESCRIPT_ENTRY.reviewKey) return TYPESCRIPT_ENTRY;
+	return roastEntry({
+		reviewKey: key,
+		title: "Review fixture",
+		description: "Review fixture description.",
+	});
 }
 
 function okLoaded(entry: RoastSkillEntry, source: string): RoastReviewLoadResult {
@@ -237,7 +246,7 @@ function okLoaded(entry: RoastSkillEntry, source: string): RoastReviewLoadResult
 		entry,
 		source: {
 			key: entry.reviewKey,
-			path: `/repo/${entry.reviewPath}`,
+			path: `/repo/reviews/${entry.reviewKey}.md`,
 			source,
 		},
 		definition: {

@@ -30,7 +30,7 @@ const PI_EXTENSIONS_WORKSPACE_IMPORTS = [
 	"@sdl/core/exec",
 	"@sdl/branch-context",
 	"@sdl/plans",
-	"@sdl/roaster/skill-reviews",
+	"@sdl/roaster",
 	"@sdl/sdl/cli",
 ] as const;
 

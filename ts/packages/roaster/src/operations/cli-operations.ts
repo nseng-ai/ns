@@ -13,7 +13,7 @@ import {
 } from "../models.ts";
 import { applicableReviewKeys } from "../review-applicability.ts";
 import { parseReviewDefinition } from "../review-definition.ts";
-import { loadRoastSkillEntries } from "../skill-reviews.ts";
+import { loadRoastSkillEntries, roastReviewPathForKey } from "../skill-reviews.ts";
 
 const nonBlankStringSchema = z.string().trim().min(1);
 
@@ -150,7 +150,7 @@ export async function runRoastSkillList(
 		surface: entry.surface,
 		label: entry.label,
 		review_key: entry.reviewKey,
-		review_path: entry.reviewPath,
+		review_path: roastReviewPathForKey(entry.reviewKey),
 		title: entry.title,
 		description: entry.description,
 	}));

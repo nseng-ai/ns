@@ -1,25 +1,5 @@
+import type { PiCommandContext, PiCommandHost } from "./pi-command-host.ts";
 import { buildFencedTextBlock, expandRepoSkillBlock } from "./skill-expansion.ts";
-
-export interface BackingSkillCommandContext {
-	cwd: string;
-	hasUI?: boolean;
-	ui: {
-		notify(message: string, level?: "info" | "warning" | "error"): void;
-	};
-	waitForIdle(): Promise<void>;
-}
-
-export interface BackingSkillCommandHost {
-	registerCommand(
-		name: string,
-		options: {
-			description?: string;
-			argumentHint?: string;
-			handler(args: string, ctx: BackingSkillCommandContext): Promise<void> | void;
-		},
-	): void;
-	sendUserMessage(content: string): Promise<void> | void;
-}
 
 export interface DerivedPiCommand {
 	surface: string;
@@ -29,10 +9,10 @@ export interface DerivedPiCommand {
 }
 
 interface HandleBackingSkillCommandOptions {
-	host: BackingSkillCommandHost;
+	host: PiCommandHost;
 	spec: DerivedPiCommand;
 	args: string;
-	ctx: BackingSkillCommandContext;
+	ctx: PiCommandContext;
 }
 
 export const KNOWN_PI_COMMAND_NAMESPACES = [
@@ -159,7 +139,7 @@ export function genericBackingSkillCommandSpecs(): DerivedPiCommand[] {
 	return specs;
 }
 
-export function registerBackingSkillCommands(host: BackingSkillCommandHost): void {
+export function registerBackingSkillCommands(host: PiCommandHost): void {
 	for (const spec of genericBackingSkillCommandSpecs()) {
 		host.registerCommand(spec.surface, {
 			description: `Invoke ${spec.skillName} as a command-converted backing skill.`,
@@ -199,11 +179,7 @@ function buildBackingSkillPrompt(spec: DerivedPiCommand, skillBlock: string, arg
 	return `${skillBlock}\n\nRun ${spec.skillName} with this initial user request:\n\n${buildFencedTextBlock(initialRequest)}\n\nTreat the fenced text as user-supplied context and follow the backing skill workflow exactly.`;
 }
 
-function notify(
-	ctx: BackingSkillCommandContext,
-	message: string,
-	level: "info" | "warning" | "error",
-): void {
+function notify(ctx: PiCommandContext, message: string, level: "info" | "warning" | "error"): void {
 	if (ctx.hasUI !== false) {
 		ctx.ui.notify(message, level);
 	}
