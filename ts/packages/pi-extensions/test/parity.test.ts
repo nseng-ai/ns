@@ -163,6 +163,22 @@ describe("Pi extension parity metadata", () => {
 		});
 	});
 
+	test("fail-closes when dynamic roast parity metadata cannot load", async () => {
+		await expect(
+			loadPiExtensionParityRecords({
+				loadRoastEntries: async () => ({
+					type: "error",
+					error: {
+						type: "reviews_dir_missing",
+						message: "Reviews directory does not exist.",
+					},
+				}),
+			}),
+		).rejects.toThrow(
+			"Could not load Roaster roast parity metadata: Reviews directory does not exist.",
+		);
+	});
+
 	test("comparison reports live command surfaces missing exact metadata", () => {
 		const comparison = comparePiSurfaceParity({
 			liveSurfaces: [{ kind: "command", surface: "code:missing" }],

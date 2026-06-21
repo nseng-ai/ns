@@ -21,6 +21,12 @@ export type LoadRoastReviewDefinition = (
 
 export type LoadRoastSkillEntries = typeof loadCanonicalRoastSkillEntries;
 
+export interface LoadRoastSkillEntriesOrThrowOptions {
+	readonly cwd?: string | undefined;
+	readonly loadEntries?: LoadRoastSkillEntries | undefined;
+	readonly failureContext: string;
+}
+
 export interface RoastExtensionOptions {
 	readonly entries?: readonly RoastSkillEntry[] | undefined;
 	readonly loadEntries?: LoadRoastSkillEntries | undefined;
@@ -40,7 +46,13 @@ export default async function roastExtension(
 	pi: PiCommandHost,
 	options: RoastExtensionOptions = {},
 ): Promise<void> {
-	const entries = options.entries ?? (await loadEntriesOrThrow(options));
+	const entries =
+		options.entries ??
+		(await loadRoastSkillEntriesOrThrow({
+			cwd: options.cwd,
+			loadEntries: options.loadEntries,
+			failureContext: "Roaster roast catalog",
+		}));
 	const loadReviewDefinition = options.loadReviewDefinition ?? loadCanonicalRoastReviewDefinition;
 	for (const entry of entries) {
 		pi.registerCommand(entry.surface, {
@@ -58,13 +70,13 @@ export function roastParityForEntries(
 	return definePiSurfaceParity(entries.map(roastParityRecord));
 }
 
-async function loadEntriesOrThrow(
-	options: RoastExtensionOptions,
+export async function loadRoastSkillEntriesOrThrow(
+	options: LoadRoastSkillEntriesOrThrowOptions,
 ): Promise<readonly RoastSkillEntry[]> {
 	const loadEntries = options.loadEntries ?? loadCanonicalRoastSkillEntries;
 	const loaded = await loadEntries({ cwd: options.cwd ?? process.cwd() });
 	if (loaded.type === "error") {
-		throw new Error(`Could not load Roaster roast catalog: ${loaded.error.message}`);
+		throw new Error(`Could not load ${options.failureContext}: ${loaded.error.message}`);
 	}
 	return loaded.value;
 }
