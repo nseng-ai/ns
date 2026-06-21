@@ -5,6 +5,7 @@ import {
 	type CliCommandExtensionAPI,
 } from "./cli-command-extension.ts";
 import { definePiSurfaceParity } from "./parity.ts";
+import { requestWorktreeStatusRefresh } from "./worktree-status.ts";
 
 export type { CliCommandExtensionAPI };
 
@@ -36,6 +37,7 @@ export default function autobranchExtension(pi: CliCommandExtensionAPI): void {
 					"Starting /sdl:code:autobranch — runs once Pi finishes its current response, then creates a Graphite branch. Interrupt Pi to run it now.",
 			},
 		],
+		afterCommandComplete: requestWorktreeStatusRefresh,
 		runCli: (args, deps) => runCli(["exec", ...args], deps),
 	});
 }

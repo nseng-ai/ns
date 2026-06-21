@@ -88,6 +88,7 @@ export interface CliCommandExtensionSpec {
 	piNamespace: string;
 	commands: readonly CliCommandInfo[];
 	runCli(args: readonly string[], deps: CliCommandRunDeps): Promise<number> | number;
+	afterCommandComplete?: (details: CliCommandOutputDetails) => Promise<void> | void;
 	env?: Record<string, string | undefined>;
 	piCommandAliases?: Readonly<Record<string, string>>;
 	piCommandNameForCommand?: (command: CliCommandInfo) => string;
@@ -519,6 +520,7 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 		});
 		traceCliCommand("usage_error_restored", { commandName: command.name, piCommandName, restored });
 	}
+	await spec.afterCommandComplete?.(details);
 }
 
 interface BuildOutputDetailsOptions {

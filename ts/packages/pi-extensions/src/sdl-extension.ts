@@ -8,6 +8,7 @@ import {
 	type CliCommandExtensionAPI,
 } from "./cli-command-extension.ts";
 import landExtension from "./land.ts";
+import { requestWorktreeStatusRefresh } from "./worktree-status.ts";
 import { definePiSurfaceParity } from "./parity.ts";
 import pushExtension from "./push.ts";
 import trunkPullExtension from "./trunk-pull.ts";
@@ -124,6 +125,7 @@ export default function sdlExtension(pi: SdlExtensionAPI): void {
 		cliName: "sdl",
 		piNamespace: "sdl",
 		commands,
+		afterCommandComplete: requestWorktreeStatusRefresh,
 		runCli,
 	});
 	registerCliCommandExtension(pi, {
@@ -131,6 +133,7 @@ export default function sdlExtension(pi: SdlExtensionAPI): void {
 		piNamespace: "sdl",
 		commands: selectSdlCommands(SDL_CODE_COMMAND_NAMES),
 		piCommandAliases: SDL_CODE_PI_COMMAND_ALIASES,
+		afterCommandComplete: requestWorktreeStatusRefresh,
 		runCli,
 	});
 	autobranchExtension(pi);
