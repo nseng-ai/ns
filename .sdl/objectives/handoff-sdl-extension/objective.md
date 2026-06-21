@@ -73,3 +73,11 @@ Risks:
 - What JSON or structured output should `sdl handoff pickup` return for Pi/skill adapters?
 - Should `sdl handoff create` derive slugs from final Markdown itself, require an explicit slug, or support both with a deterministic derivation helper?
 - Which context files should gain new vocabulary for "SDL command tree", "leaf command", and "Handoff SDL extension" after the design lands?
+
+## Closure
+
+Closed as subsumed by `sdl-extension-architecture` on 2026-06-21.
+
+The Handoff-specific nested command-tree plan remains valuable provenance, but it is no longer the active architecture driver. The broader replacement Objective resets the SDL extension architecture effort to a command-first, bottom-up experiment: remove privileged SDL domain commands, re-add simple commands as project-local user-authored extensions, and only then decide which SDK/kernel interfaces, bundled extension forms, or sophisticated workflow migrations are justified.
+
+Future Handoff work should be reopened or recreated as a child/follow-up only after the command-first SDL extension model has produced enough evidence for nested command trees or bundled/sophisticated workflow extensions.
