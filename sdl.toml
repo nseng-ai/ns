@@ -6,3 +6,7 @@ exclude = [
   ".agents/skills/**/*.py",
   ".claude/skills/**/*.py",
 ]
+
+[roaster.model_profiles]
+quick = "openai-codex/gpt-5.4-mini"
+deep = "openai-codex/gpt-5.5"

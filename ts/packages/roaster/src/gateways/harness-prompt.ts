@@ -15,6 +15,23 @@ export function systemPromptFindings(): string {
 	return readPromptAsset("review_system_findings.md").trim();
 }
 
+export function systemPromptFindingsJsonText(): string {
+	return [
+		"You are a CI PR-diff reviewer. Your task is to review the supplied pull request diff and return structured findings about changed code.",
+		"",
+		"Output rules:",
+		'- Return exactly one JSON object with a `findings` array and no surrounding prose. The object shape is `{ "findings": [...] }`.',
+		"- Each finding must contain `path`, `line`, `severity`, `summary`, and `details`.",
+		"- Use `line: null` only for file-level findings.",
+		'- If there is nothing worth flagging, return `{ "findings": [] }`.',
+		"",
+		"Context and tools:",
+		"- You have read-only access to the repository through read and bash tools. Use them only when needed to validate the review instructions.",
+		"- Do not run tests, install packages, or mutate state.",
+		"- Only flag material issues grounded in the supplied diff. Do not invent findings about unrelated code.",
+	].join("\n");
+}
+
 export function reviewPromptTemplate(): string {
 	return readPromptAsset("review_prompt.md");
 }

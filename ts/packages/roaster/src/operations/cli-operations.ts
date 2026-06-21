@@ -1,3 +1,6 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+
 import { failure, ok, shellNegative, type ClinkrExit } from "@sdl/clinkr";
 import { z } from "zod";
 
@@ -16,6 +19,12 @@ import {
 	type ReviewRunResult,
 	type ReviewUsage,
 } from "../models.ts";
+import {
+	DEFAULT_ROASTER_MODEL_PROFILES,
+	isRoasterModelProfileKey,
+	parseRoasterProjectConfigToml,
+	type RoasterModelProfilesProjectConfig,
+} from "../project-config.ts";
 import { applicableReviewKeys } from "../review-applicability.ts";
 import { parseReviewDefinition } from "../review-definition.ts";
 import { loadRoastSkillEntries, roastReviewPathForKey } from "../skill-reviews.ts";
@@ -34,7 +43,7 @@ export const reviewListRequestSchema = z.object({
 export const reviewMetadataSchema = z.object({
 	key: nonBlankStringSchema,
 	description: nonBlankStringSchema,
-	default_model: nonBlankStringSchema.nullable(),
+	model_profile: nonBlankStringSchema,
 	local_only: z.boolean(),
 });
 
@@ -69,7 +78,8 @@ export type RoastSkillListResult = z.infer<typeof roastSkillListResultSchema>;
 
 export const reviewRunRequestSchema = z.object({
 	key: nonBlankStringSchema.describe("Review key to run."),
-	model: z.string().optional().describe("Claude Code model override."),
+	model: z.string().optional().describe("Concrete model override."),
+	modelProfile: z.string().optional().describe("Model profile override."),
 	baseRef: z.string().optional().describe("Base ref for the local diff."),
 });
 
@@ -140,7 +150,7 @@ export async function runReviewList(
 		.map((item) => ({
 			key: item.key,
 			description: item.definition.description,
-			default_model: item.definition.defaultModel,
+			model_profile: item.definition.modelProfile,
 			local_only: item.definition.localOnly,
 		}));
 	return ok(
@@ -156,7 +166,7 @@ export async function runReviewList(
 export function renderReviewList(result: ReviewListResult): string {
 	const lines = [`Reviews directory: ${result.reviews_dir}`, `Reviews: ${result.count}`];
 	for (const review of result.reviews) {
-		const model = review.default_model === null ? "" : ` (default model: ${review.default_model})`;
+		const model = ` (model profile: ${review.model_profile})`;
 		const scope = review.local_only ? " [local-only]" : "";
 		lines.push(`- ${review.key}: ${review.description}${model}${scope}`);
 	}
@@ -207,23 +217,26 @@ export async function runReviewByKey(
 		return failure("review_definition_invalid", parsed.error.message);
 	}
 
-	const model = resolveModel(request.model, parsed.definition.defaultModel);
-	if (model === null)
-		return failure(
-			"model_not_provided",
-			"No model was provided. Pass --model or set default_model in the review definition.",
-		);
+	const profiles = await loadModelProfiles(ctx);
+	if (profiles.type === "error") return profiles;
+	const model = resolveModel({
+		requestModel: request.model,
+		requestModelProfile: request.modelProfile,
+		definitionModelProfile: parsed.definition.modelProfile,
+		profiles: profiles.value,
+	});
+	if (model.type === "error") return failureFromRoaster(model.error);
 
 	const diff = await loadDiffFromRequest(ctx, request.baseRef);
 	if (diff.type === "error") return failureFromRoaster(diff.error);
 
 	ctx.stderr(
-		`resolved model=${model} base_ref=${diff.value.baseRef} changed_paths=${diff.value.changedPaths.length}\n`,
+		`resolved model=${model.value.value} model_profile=${model.value.profile} base_ref=${diff.value.baseRef} changed_paths=${diff.value.changedPaths.length}\n`,
 	);
 
 	const response = await ctx.harness.runReview(
 		{
-			model,
+			model: model.value.value,
 			reviewDefinition: parsed.definition,
 			target: { localDiff: diff.value },
 		},
@@ -234,7 +247,7 @@ export async function runReviewByKey(
 	const runResult = reviewRunResult(
 		source.value.key,
 		source.value.path,
-		model,
+		model.value.value,
 		diff.value.baseRef,
 		response.value,
 	);
@@ -432,13 +445,63 @@ function reviewRunResult(
 	});
 }
 
-function resolveModel(
-	requestModel: string | undefined,
-	defaultModel: string | null,
-): string | null {
-	const model = requestModel?.trim() ?? "";
-	if (model !== "") return model;
-	return defaultModel;
+interface ResolveModelOptions {
+	readonly requestModel: string | undefined;
+	readonly requestModelProfile: string | undefined;
+	readonly definitionModelProfile: string;
+	readonly profiles: RoasterModelProfilesProjectConfig;
+}
+
+interface ResolvedModel {
+	readonly value: string;
+	readonly profile: string;
+}
+
+type ResolveModelResult =
+	| { readonly type: "ok"; readonly value: ResolvedModel }
+	| { readonly type: "error"; readonly error: RoasterFailure };
+
+type LoadModelProfilesResult =
+	| { readonly type: "ok"; readonly value: RoasterModelProfilesProjectConfig }
+	| { readonly type: "error"; readonly error: RoasterFailure };
+
+function resolveModel(options: ResolveModelOptions): ResolveModelResult {
+	const model = options.requestModel?.trim() ?? "";
+	if (model !== "") return { type: "ok", value: { value: model, profile: "<explicit>" } };
+
+	const profile = (options.requestModelProfile ?? options.definitionModelProfile).trim();
+	if (!isRoasterModelProfileKey(profile)) {
+		return {
+			type: "error",
+			error: {
+				type: "review_definition_invalid",
+				message: `Unknown Roaster model profile ${JSON.stringify(profile)}. Allowed profiles: quick, deep.`,
+			},
+		};
+	}
+	return { type: "ok", value: { value: options.profiles[profile], profile } };
+}
+
+async function loadModelProfiles(ctx: RoasterRuntime): Promise<LoadModelProfilesResult> {
+	const repoRoot = await ctx.gitGateway.repoRoot(catalogOptions(ctx.runScope));
+	if (!repoRoot.ok) return { type: "ok", value: DEFAULT_ROASTER_MODEL_PROFILES };
+
+	const path = join(repoRoot.value, "sdl.toml");
+	let source: string;
+	try {
+		source = await readFile(path, "utf8");
+	} catch {
+		return { type: "ok", value: DEFAULT_ROASTER_MODEL_PROFILES };
+	}
+
+	const parsed = parseRoasterProjectConfigToml(source, path);
+	if (parsed.type === "error") {
+		return {
+			type: "error",
+			error: { type: "project_config_invalid", message: parsed.error.message },
+		};
+	}
+	return { type: "ok", value: parsed.config.modelProfiles };
 }
 
 function totalInputTokens(usage: ReviewUsage): number {

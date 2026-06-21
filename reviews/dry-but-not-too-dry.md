@@ -3,7 +3,7 @@ description: |
   High-bar DRY reviewer: assess whether duplicated code or structure represents
   shared semantics or change-coupling worth consolidating, while rejecting
   abstraction for its own sake.
-default_model: sonnet
+model_profile: deep
 local_only: true
 applies_to:
   include:
