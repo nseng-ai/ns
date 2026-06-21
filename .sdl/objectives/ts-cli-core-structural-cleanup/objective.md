@@ -142,8 +142,10 @@ Risks:
   careful test coverage before refactor.
 - The `branch-context` shell-out boundary decision is resolved: `branch-context`
   should use the in-process `@sdl/brmem` gateway, not a user-installed `brmem`
-  shim. Remaining risk is preserving current diagnostics and partial-failure
-  semantics while deleting the subprocess/JSON parse layer.
+  shim. The shared testing gateway slice reduces cross-package fake drift for
+  branch-context consumers, but remaining risk is preserving current diagnostics,
+  partial-failure semantics, and validation evidence while deleting the
+  subprocess/JSON parse layer.
 - A shared `defineCli` helper touches all 15 CLIs at once; a subtle change to
   IO/exit-code/entry-guard semantics could regress every CLI simultaneously.
   Mitigate by landing it behind scenario-test coverage of `--version`,

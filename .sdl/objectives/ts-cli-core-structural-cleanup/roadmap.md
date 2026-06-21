@@ -19,12 +19,17 @@
       delete meaningful complexity. Do not reintroduce this helper without new
       evidence that it prevents plausible drift or removes substantial mental
       load.
-- [ ] Unify Branch-Memory access: point `branch-context` at the in-process
-      `@asdl/brmem` `BrmemGateway`; delete the parsing half of its
-      `brmem-gateway.ts` and its `@asdl/core/brmem-cli` dependency.
-      Decision: `branch-context` should use the in-process gateway rather than a
-      user-installed `brmem` shim, so implementation can proceed.
-      See `references/branch-memory-access.md`.
+- [~] Unify Branch-Memory access: point `branch-context` at the in-process
+  `@asdl/brmem` `BrmemGateway`; delete the parsing half of its
+  `brmem-gateway.ts` and its `@asdl/core/brmem-cli` dependency.
+  Decision: `branch-context` should use the in-process gateway rather than a
+  user-installed `brmem` shim, so implementation can proceed.
+  Progress: `@sdl/branch-context/testing` now exports a reusable in-memory
+  Branch-Memory gateway, and branch-context / ccc / pi-extension tests reuse
+  it instead of maintaining divergent fakes. Completion still needs the
+  gateway-migration row evidence, including behavior-preserving diagnostics
+  and validation for the subprocess/JSON parse deletion.
+  See `references/branch-memory-access.md`.
 - [ ] Collapse the `@asdl/core/brmem-cli` multi-candidate framework to a single
       `runBrmem`; fix the duplicated candidate-loop at `ccc/worktree-status.ts`;
       delete dead exports `graphqlErrorsFromJson`, `readOptionalBrmemBooleanField`.
