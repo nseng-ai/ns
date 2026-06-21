@@ -244,11 +244,7 @@ async function handleList(
 	request: ListRequest,
 ): Promise<ClinkrExit<ListData>> {
 	return await runClinkrCommand(BRANCH_CONTEXT_ERROR_TYPE, async () => {
-		const list = await listBranchContextEntries(
-			ctx.context.commands,
-			{ branch: request.branch },
-			operationOptions(ctx),
-		);
+		const list = await listBranchContextEntries({ branch: request.branch }, operationOptions(ctx));
 		return ok(listJson(list), { human: formatListEvidence(list.branch, list.entries) });
 	});
 }
@@ -258,11 +254,7 @@ async function handleCheck(
 	request: KeyRequest,
 ): Promise<ClinkrExit<CheckData>> {
 	return await runClinkrCommand(BRANCH_CONTEXT_ERROR_TYPE, async () => {
-		const evidence = await checkBranchContextEntry(
-			ctx.context.commands,
-			request,
-			operationOptions(ctx),
-		);
+		const evidence = await checkBranchContextEntry(request, operationOptions(ctx));
 		return ok(checkJson(evidence), { human: formatCheckEvidence(evidence) });
 	});
 }
@@ -272,11 +264,7 @@ async function handleDelete(
 	request: KeyRequest,
 ): Promise<ClinkrExit<DeleteData>> {
 	return await runClinkrCommand(BRANCH_CONTEXT_ERROR_TYPE, async () => {
-		const evidence = await deleteBranchContextEntry(
-			ctx.context.commands,
-			request,
-			operationOptions(ctx),
-		);
+		const evidence = await deleteBranchContextEntry(request, operationOptions(ctx));
 		return ok(deleteJson(evidence), { human: formatDeleteEvidence(evidence) });
 	});
 }

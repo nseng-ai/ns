@@ -76,7 +76,7 @@ export async function createBranchContextFromFile(
 	await checkBranchRefFormat(git, options.cwd, operation.branch, options.signal);
 	const startPoint = await resolveStartPoint(git, options.cwd, options.signal);
 	await assertLocalBranchAbsent(git, options.cwd, operation.branch, options.signal);
-	await assertBrmemEntryAbsent(brmem, options.cwd, operation.branch, operation.key, options.signal);
+	await assertBrmemEntryAbsent(brmem, operation.branch, operation.key);
 	await createBranchContext(git, graphite, {
 		cwd: options.cwd,
 		method: operation.branchCreation,
@@ -92,7 +92,6 @@ export async function createBranchContextFromFile(
 			branch: operation.branch,
 			key: operation.key,
 			sourceFile,
-			signal: options.signal,
 		});
 	} catch (error) {
 		throw partialFailureError({

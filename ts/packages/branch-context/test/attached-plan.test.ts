@@ -65,11 +65,7 @@ describe("loadAttachedPlan", () => {
 			entries: [{ branch: PLAN_BRANCH, key: PLAN_KEY, content: PLAN_CONTENT }],
 		});
 
-		const plan = await loadAttachedPlan(
-			NO_COMMANDS,
-			{},
-			{ cwd: ROOT, context: branchContext({ brmem }) },
-		);
+		const plan = await loadAttachedPlan({}, { cwd: ROOT, context: branchContext({ brmem }) });
 
 		expect(brmem.listAttachedPlansCalls).toEqual([{ branch: PLAN_BRANCH }]);
 		expect(brmem.getAttachedPlanCalls).toEqual([{ branch: PLAN_BRANCH, key: PLAN_KEY }]);
@@ -91,7 +87,7 @@ describe("loadAttachedPlan", () => {
 		});
 
 		await expect(
-			loadAttachedPlan(NO_COMMANDS, {}, { cwd: ROOT, context: branchContext({ brmem }) }),
+			loadAttachedPlan({}, { cwd: ROOT, context: branchContext({ brmem }) }),
 		).rejects.toThrow(/No supported branch-context plan entries[\s\S]*plan\.md/);
 		expect(brmem.getAttachedPlanCalls).toEqual([]);
 	});
@@ -104,11 +100,7 @@ describe("loadAttachedPlan", () => {
 			],
 		});
 
-		const plan = await loadAttachedPlan(
-			NO_COMMANDS,
-			{},
-			{ cwd: ROOT, context: branchContext({ brmem }) },
-		);
+		const plan = await loadAttachedPlan({}, { cwd: ROOT, context: branchContext({ brmem }) });
 
 		expect(plan.selectedKey).toBe(PLAN_KEY);
 		expect(plan.availableKeys).toEqual([PLAN_KEY, LEGACY_PLAN_KEY]);
@@ -116,7 +108,6 @@ describe("loadAttachedPlan", () => {
 
 	test("loads an explicit exact key", async () => {
 		const exactPlan = await loadAttachedPlan(
-			NO_COMMANDS,
 			{ requestedKey: PLAN_KEY },
 			{ cwd: ROOT, context: branchContext() },
 		);
@@ -154,7 +145,7 @@ describe("loadAttachedPlan", () => {
 		const brmem = new InMemoryBranchMemoryGateway();
 
 		await expect(
-			loadAttachedPlan(NO_COMMANDS, {}, { cwd: ROOT, context: branchContext({ brmem }) }),
+			loadAttachedPlan({}, { cwd: ROOT, context: branchContext({ brmem }) }),
 		).rejects.toThrow(
 			/No branch-context entries[\s\S]*enriched-plan exec save[\s\S]*branch-context exec from-plan/,
 		);
@@ -219,7 +210,6 @@ describe("loadAttachedPlan", () => {
 
 		await expect(
 			loadAttachedPlan(
-				NO_COMMANDS,
 				{},
 				{
 					cwd: ROOT,
@@ -238,7 +228,6 @@ describe("loadAttachedPlan", () => {
 			const brmem = new InMemoryBranchMemoryGateway();
 			await expect(
 				loadAttachedPlan(
-					NO_COMMANDS,
 					{},
 					{
 						cwd: ROOT,

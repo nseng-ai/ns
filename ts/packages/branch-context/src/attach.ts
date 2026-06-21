@@ -59,7 +59,6 @@ export interface AttachBranchContextOptions {
 	branch: string;
 	key: string;
 	sourceFile: string;
-	signal?: AbortSignal | undefined;
 }
 
 interface BranchContextPrimitiveResolution {
@@ -75,26 +74,18 @@ export async function attachBranchContextEntry(
 ): Promise<BranchContextAttachEvidence> {
 	const context = await resolveBranchContextPrimitiveResolution(options, params.branch);
 	const source = await resolveAttachSource(pi, params, options);
-	await assertBrmemEntryAbsent(
-		context.brmem,
-		options.cwd,
-		context.branch,
-		source.key,
-		options.signal,
-	);
+	await assertBrmemEntryAbsent(context.brmem, context.branch, source.key);
 	const data = await attachBranchContext({
 		brmem: context.brmem,
 		cwd: options.cwd,
 		branch: context.branch,
 		key: source.key,
 		sourceFile: source.sourceFile,
-		signal: options.signal,
 	});
 	return attachEvidence(data, source.planSlug);
 }
 
 export async function listBranchContextEntries(
-	_paramsPi: CommandExecApi,
 	params: { branch?: string | undefined },
 	options: BranchContextPrimitiveOptions,
 ): Promise<BranchContextListEvidence> {
@@ -105,7 +96,6 @@ export async function listBranchContextEntries(
 }
 
 export async function checkBranchContextEntry(
-	_paramsPi: CommandExecApi,
 	params: { key: string; branch?: string | undefined },
 	options: BranchContextPrimitiveOptions,
 ): Promise<BranchContextCheckEvidence> {
@@ -125,7 +115,6 @@ export async function checkBranchContextEntry(
 }
 
 export async function deleteBranchContextEntry(
-	_paramsPi: CommandExecApi,
 	params: { key: string; branch?: string | undefined },
 	options: BranchContextPrimitiveOptions,
 ): Promise<BranchContextDeleteEvidence> {
@@ -141,13 +130,9 @@ export async function deleteBranchContextEntry(
 
 export async function assertBrmemEntryAbsent(
 	brmem: BrmemGateway,
-	cwd: string,
 	targetBranch: string,
 	key: string,
-	signal: AbortSignal | undefined,
 ): Promise<void> {
-	void cwd;
-	void signal;
 	const check = await checkBranchContextEntryPresence(brmem, { branch: targetBranch, key });
 	if (check.type === "absent") {
 		return;
@@ -168,7 +153,6 @@ export async function assertBrmemEntryAbsent(
 export async function attachBranchContext(
 	options: AttachBranchContextOptions,
 ): Promise<BranchContextAttachData> {
-	void options.signal;
 	const attach = await attachBranchContextPlan(options.brmem, {
 		cwd: options.cwd,
 		branch: options.branch,

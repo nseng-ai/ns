@@ -116,7 +116,7 @@ export async function loadBranchContextPlan(
 	options: LoadAttachedPlanOptions,
 ): Promise<LoadedAttachedPlan> {
 	try {
-		return await loadAttachedPlan(pi, params, options);
+		return await loadAttachedPlan(params, options);
 	} catch (error) {
 		if (!isSavedPlanFallbackEligibleError(error) || params.requestedKey !== undefined) {
 			throw error;
@@ -147,7 +147,6 @@ function isSavedPlanFallbackEligibleError(
 }
 
 export async function loadAttachedPlan(
-	_pi: CommandExecApi,
 	params: LoadAttachedPlanParams,
 	options: LoadAttachedPlanOptions,
 ): Promise<LoadedAttachedPlan> {
