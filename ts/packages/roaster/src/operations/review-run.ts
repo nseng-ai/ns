@@ -1,0 +1,285 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+
+import { formatErrorMessage } from "@sdl/core/primitives";
+
+import { catalogOptions, environmentOptions, type RoasterRuntime } from "../context.ts";
+import type { ReviewLogFailure, RoasterFailure, RoasterResult } from "../failures.ts";
+import { isMissingFileError } from "../gateways/filesystem-errors.ts";
+import { renderReviewLogMarkdown, type ReviewLogWriteResult } from "../gateways/review-log.ts";
+import {
+	reviewRunResultSchema,
+	type ReviewDefinition,
+	type ReviewExecutionResponse,
+	type ReviewRunResult,
+} from "../models.ts";
+import {
+	DEFAULT_ROASTER_MODEL_PROFILES,
+	isRoasterModelProfileKey,
+	parseRoasterProjectConfigToml,
+	type RoasterModelProfileKey,
+	type RoasterProjectConfig,
+} from "../project-config.ts";
+import { parseReviewDefinition } from "../review-definition.ts";
+
+export interface RunRoasterReviewRequest {
+	readonly key: string;
+	readonly model?: string | undefined;
+	readonly modelProfile?: string | undefined;
+	readonly baseRef?: string | undefined;
+	readonly logBranch?: string | undefined;
+}
+
+export type RunRoasterReviewOutcome =
+	| {
+			readonly type: "completed";
+			readonly result: ReviewRunResult;
+			readonly logEntry: ReviewLogWriteResult;
+			readonly progress: RunRoasterReviewProgress;
+	  }
+	| {
+			readonly type: "completed_log_failed";
+			readonly result: ReviewRunResult;
+			readonly error: ReviewLogFailure;
+			readonly progress: RunRoasterReviewProgress;
+	  }
+	| { readonly type: "failed"; readonly error: RoasterFailure };
+
+export interface RunRoasterReviewProgress {
+	readonly reviewKey: string;
+	readonly reviewPath: string;
+	readonly modelProfile: RoasterModelProfileKey;
+	readonly model: string;
+	readonly baseRef: string;
+	readonly changedPathCount: number;
+}
+
+interface ResolvedReviewModel {
+	readonly modelProfile: RoasterModelProfileKey;
+	readonly model: string;
+}
+
+type ResolveReviewModelResult =
+	| { readonly type: "ok"; readonly value: ResolvedReviewModel }
+	| { readonly type: "error"; readonly error: RoasterFailure };
+
+interface ReviewLogMetadata {
+	readonly branch: string;
+	readonly headCommit: string;
+}
+
+export async function runRoasterReview(
+	ctx: RoasterRuntime,
+	request: RunRoasterReviewRequest,
+): Promise<RunRoasterReviewOutcome> {
+	const source = await ctx.reviewCatalog.loadReviewSource({
+		...catalogOptions(ctx.runScope),
+		key: request.key,
+	});
+	if (source.type === "error") return { type: "failed", error: source.error };
+
+	const parsed = parseReviewDefinition(source.value.source, { name: source.value.key });
+	if (parsed.type === "error") {
+		return {
+			type: "failed",
+			error: {
+				type: "review_definition_invalid",
+				message: parsed.error.message,
+			},
+		};
+	}
+
+	const config = await loadProjectConfigFromContext(ctx);
+	if (config.type === "error") return { type: "failed", error: config.error };
+	const resolved = resolveReviewModel(request, parsed.definition, config.value);
+	if (resolved.type === "error") return { type: "failed", error: resolved.error };
+	const model = resolved.value;
+
+	const diff = await ctx.localDiff.loadDiff({
+		...environmentOptions(ctx.runScope),
+		...(request.baseRef === undefined ? {} : { baseRef: request.baseRef }),
+		excludeGlobs: config.value.diff.exclude,
+	});
+	if (diff.type === "error") return { type: "failed", error: diff.error };
+
+	const progress: RunRoasterReviewProgress = {
+		reviewKey: source.value.key,
+		reviewPath: source.value.path,
+		modelProfile: model.modelProfile,
+		model: model.model,
+		baseRef: diff.value.baseRef,
+		changedPathCount: diff.value.changedPaths.length,
+	};
+
+	const response = await ctx.reviewRunner.runReview(
+		{
+			model: model.model,
+			reviewDefinition: parsed.definition,
+			target: { localDiff: diff.value },
+		},
+		environmentOptions(ctx.runScope),
+	);
+	if (response.type === "error") return { type: "failed", error: response.error };
+
+	const result = reviewRunResult(
+		source.value.key,
+		source.value.path,
+		model.model,
+		diff.value.baseRef,
+		response.value,
+	);
+	const logResult = await writeReviewRunLog(ctx, {
+		reviewKey: source.value.key,
+		result,
+		...(request.logBranch === undefined ? {} : { logBranch: request.logBranch }),
+	});
+	if (logResult.type === "error") {
+		if (!isReviewLogFailure(logResult.error)) {
+			return { type: "failed", error: logResult.error };
+		}
+		return { type: "completed_log_failed", result, error: logResult.error, progress };
+	}
+
+	return { type: "completed", result, logEntry: logResult.value, progress };
+}
+
+export async function writeReviewRunLog(
+	ctx: RoasterRuntime,
+	options: {
+		readonly reviewKey: string;
+		readonly result: ReviewRunResult;
+		readonly ranAt?: string | undefined;
+		readonly logBranch?: string | undefined;
+	},
+): Promise<RoasterResult<ReviewLogWriteResult>> {
+	const ranAt = options.ranAt ?? new Date().toISOString();
+	const metadata = await reviewLogMetadata(ctx, options.logBranch);
+	return await ctx.reviewLog.writeReviewLog({
+		...environmentOptions(ctx.runScope),
+		reviewKey: options.reviewKey,
+		ranAt,
+		...(options.logBranch === undefined ? {} : { branch: options.logBranch }),
+		content: renderReviewLogMarkdown(options.result, { ranAt, ...metadata }),
+	});
+}
+
+function isReviewLogFailure(error: RoasterFailure): error is ReviewLogFailure {
+	return (
+		error.type === "review_log_write_failed" ||
+		error.type === "review_log_list_failed" ||
+		error.type === "review_log_response_invalid"
+	);
+}
+
+function reviewRunResult(
+	reviewName: string,
+	reviewPath: string,
+	model: string,
+	baseRef: string,
+	response: ReviewExecutionResponse,
+): ReviewRunResult {
+	return reviewRunResultSchema.parse({
+		reviewName,
+		reviewPath,
+		model,
+		baseRef,
+		format: response.payload.format,
+		count: response.payload.count,
+		findings: response.payload.findings,
+		usage: response.usage,
+		inputCoverage: response.inputCoverage,
+	});
+}
+
+function resolveReviewModel(
+	request: RunRoasterReviewRequest,
+	definition: ReviewDefinition,
+	config: RoasterProjectConfig,
+): ResolveReviewModelResult {
+	const profile = (request.modelProfile ?? definition.modelProfile).trim();
+	if (!isRoasterModelProfileKey(profile)) {
+		return {
+			type: "error",
+			error: {
+				type: "review_definition_invalid",
+				message: `Unknown Roaster model profile ${JSON.stringify(profile)}. Allowed profiles: quick, deep.`,
+			},
+		};
+	}
+
+	const requestModel = request.model?.trim() ?? "";
+	if (requestModel !== "")
+		return { type: "ok", value: { modelProfile: profile, model: requestModel } };
+	return { type: "ok", value: { modelProfile: profile, model: config.modelProfiles[profile] } };
+}
+
+async function reviewLogMetadata(
+	ctx: RoasterRuntime,
+	logBranch: string | undefined,
+): Promise<ReviewLogMetadata> {
+	const options = environmentOptions(ctx.runScope);
+	const currentBranch =
+		logBranch === undefined ? branchMetadataValue(await ctx.gitGateway.currentBranch(options)) : logBranch;
+	const headCommit = await ctx.gitGateway.headCommit(options);
+	return {
+		branch: currentBranch,
+		headCommit: headCommit.ok
+			? headCommit.value
+			: unavailableMetadataValue(headCommit.error.message),
+	};
+}
+
+function branchMetadataValue(
+	result: Awaited<ReturnType<RoasterRuntime["gitGateway"]["currentBranch"]>>,
+): string {
+	switch (result.type) {
+		case "branch":
+			return result.branch;
+		case "detached":
+			return "unknown";
+		case "failure":
+			return unavailableMetadataValue(result.error.message);
+	}
+}
+
+function unavailableMetadataValue(message: string): string {
+	return `unavailable: ${message}`;
+}
+
+export async function loadProjectConfigFromContext(
+	ctx: RoasterRuntime,
+): Promise<RoasterResult<RoasterProjectConfig>> {
+	const repoRoot = await ctx.gitGateway.repoRoot(catalogOptions(ctx.runScope));
+	if (!repoRoot.ok) {
+		return { type: "error", error: { type: "repo_root_unavailable", message: repoRoot.error.message } };
+	}
+
+	const path = join(repoRoot.value, "sdl.toml");
+	let source: string;
+	try {
+		source = await readFile(path, "utf8");
+	} catch (caught) {
+		if (isMissingFileError(caught)) {
+			return {
+				type: "ok",
+				value: { diff: { exclude: [] }, modelProfiles: DEFAULT_ROASTER_MODEL_PROFILES },
+			};
+		}
+		return {
+			type: "error",
+			error: {
+				type: "project_config_invalid",
+				message: `Failed to read sdl.toml: ${formatErrorMessage(caught)}`,
+			},
+		};
+	}
+
+	const parsed = parseRoasterProjectConfigToml(source, path);
+	if (parsed.type === "error") {
+		return {
+			type: "error",
+			error: { type: "project_config_invalid", message: parsed.error.message },
+		};
+	}
+	return { type: "ok", value: parsed.config };
+}

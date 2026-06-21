@@ -1,5 +1,5 @@
 import { estimateTokens } from "../diff-parsing.ts";
-import type { HarnessReviewRequest, ReviewInputCoverage } from "../models.ts";
+import type { ReviewRunnerRequest, ReviewInputCoverage } from "../models.ts";
 
 export const MAX_PROMPT_DIFF_TOKENS = 90_000;
 export const MAX_PROMPT_DIFF_FILE_TOKENS = 40_000;
@@ -10,7 +10,7 @@ export interface PromptSizedDiffResult {
 }
 
 export function promptSizedDiff(
-	localDiff: HarnessReviewRequest["target"]["localDiff"],
+	localDiff: ReviewRunnerRequest["target"]["localDiff"],
 ): PromptSizedDiffResult {
 	const fullDiffEstimatedTokens = estimateTokens(localDiff.diffText);
 	const omittedFiles: ReviewInputCoverage["omittedFiles"] = [];
@@ -52,7 +52,7 @@ export function promptSizedDiff(
 }
 
 function omittedReviewInputFile(
-	file: HarnessReviewRequest["target"]["localDiff"]["files"][number],
+	file: ReviewRunnerRequest["target"]["localDiff"]["files"][number],
 	reason: ReviewInputCoverage["omittedFiles"][number]["reason"],
 ): ReviewInputCoverage["omittedFiles"][number] {
 	return {

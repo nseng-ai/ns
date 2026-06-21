@@ -1,13 +1,13 @@
 import { describe, expect, test } from "vitest";
 
-import { isClaudeCodeSupportedModel } from "../../src/gateways/harness.ts";
-import { buildClaudeDiffFindingsJsonSchema } from "../../src/gateways/harness-output.ts";
+import { isClaudeCodeSupportedModel } from "../../src/gateways/review-runner.ts";
+import { buildClaudeDiffFindingsJsonSchema } from "../../src/gateways/claude-code-review-runner.ts";
 import {
 	assembleReviewPrompt,
 	MAX_PROMPT_CHANGED_PATHS,
 	renderPromptFence,
 	systemPromptFindings,
-} from "../../src/gateways/harness-prompt.ts";
+} from "../../src/gateways/review-runner-prompt.ts";
 import { createLocalDiff, type ReviewDefinition } from "../../src/models.ts";
 
 const reviewDefinition: ReviewDefinition = {

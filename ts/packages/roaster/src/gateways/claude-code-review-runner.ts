@@ -5,34 +5,17 @@ import type { RoasterResult } from "../failures.ts";
 import {
 	createFindingsReview,
 	reviewExecutionResponseSchema,
-	severityValues,
+	reviewFindingsPayloadSchema,
 	type ReviewExecutionResponse,
-	type ReviewFinding,
+	type ReviewFindingsPayload,
 	type ReviewInputCoverage,
 	type ReviewUsage,
 } from "../models.ts";
 
 const TRUNCATED_MODEL_RESPONSE_CHARS = 500;
 
-const claudeFindingSchema = z
-	.object({
-		path: z.string().trim().min(1),
-		line: z.int().positive().nullable(),
-		severity: z.enum(severityValues),
-		summary: z.string().trim().min(1),
-		details: z.string().trim().min(1),
-	})
-	.strict();
-const claudeFindingsPayloadSchema = z
-	.object({
-		findings: z.array(claudeFindingSchema),
-	})
-	.strict();
-
-type ClaudeFindingsPayload = z.infer<typeof claudeFindingsPayloadSchema>;
-
 export function buildClaudeDiffFindingsJsonSchema(): Record<string, unknown> {
-	const schema = z.toJSONSchema(claudeFindingsPayloadSchema, { io: "output" }) as Record<
+	const schema = z.toJSONSchema(reviewFindingsPayloadSchema, { io: "output" }) as Record<
 		string,
 		unknown
 	>;
@@ -79,7 +62,7 @@ export function parseClaudeCodeReviewOutput(options: {
 	if (resultEvent.type === "error") return resultEvent;
 
 	if (Object.hasOwn(resultEvent.value, "structured_output")) {
-		const findingsResult = claudeFindingsPayloadSchema.safeParse(
+		const findingsResult = reviewFindingsPayloadSchema.safeParse(
 			resultEvent.value.structured_output,
 		);
 		if (!findingsResult.success) {
@@ -140,14 +123,13 @@ function resultEventFromParsedOutput(parsed: unknown): RoasterResult<Record<stri
 }
 
 function reviewResponseFromClaudePayload(
-	payload: ClaudeFindingsPayload,
+	payload: ReviewFindingsPayload,
 	resultEvent: Record<string, unknown>,
 	inputCoverage: ReviewInputCoverage | null,
 ): RoasterResult<ReviewExecutionResponse> {
-	const findings: ReviewFinding[] = payload.findings.map((finding) => ({ ...finding }));
 	try {
 		const response = reviewExecutionResponseSchema.parse({
-			payload: createFindingsReview(findings),
+			payload: createFindingsReview(payload.findings),
 			usage: usageFromResultEvent(resultEvent),
 			inputCoverage,
 		});

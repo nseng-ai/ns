@@ -90,6 +90,13 @@ export const reviewFindingSchema = z
 	.strict();
 export type ReviewFinding = z.infer<typeof reviewFindingSchema>;
 
+export const reviewFindingsPayloadSchema = z
+	.object({
+		findings: z.array(reviewFindingSchema),
+	})
+	.strict();
+export type ReviewFindingsPayload = z.infer<typeof reviewFindingsPayloadSchema>;
+
 export const findingsReviewSchema = z
 	.object({
 		format: z.literal("findings"),
@@ -136,14 +143,14 @@ export const diffReviewTargetSchema = z
 	.strict();
 export type DiffReviewTarget = z.infer<typeof diffReviewTargetSchema>;
 
-export const harnessReviewRequestSchema = z
+export const reviewRunnerRequestSchema = z
 	.object({
 		model: nonBlankStringSchema,
 		reviewDefinition: reviewDefinitionSchema,
 		target: diffReviewTargetSchema,
 	})
 	.strict();
-export type HarnessReviewRequest = z.infer<typeof harnessReviewRequestSchema>;
+export type ReviewRunnerRequest = z.infer<typeof reviewRunnerRequestSchema>;
 
 export const reviewInputCoverageSchema = z
 	.object({

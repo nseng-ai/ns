@@ -6,7 +6,7 @@ import {
 	diffChangeKindValues,
 	diffFileSchema,
 	findingsReviewSchema,
-	harnessReviewRequestSchema,
+	reviewRunnerRequestSchema,
 	inlineClassificationResultSchema,
 	inlinePostingStatusSchema,
 	localDiffSchema,
@@ -178,7 +178,7 @@ describe("roaster domain schemas", () => {
 			applicability: { include: ["**/*.ts"], exclude: [] },
 			localOnly: false,
 		});
-		const request = harnessReviewRequestSchema.parse({
+		const request = reviewRunnerRequestSchema.parse({
 			model: "haiku",
 			reviewDefinition,
 			target: { localDiff },
