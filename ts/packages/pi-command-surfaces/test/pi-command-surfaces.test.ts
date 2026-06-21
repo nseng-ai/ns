@@ -18,6 +18,7 @@ describe("Pi command surfaces", () => {
 			`${IMPL_BRANCH_CONTEXT_COMMAND_NAME}-extra`,
 		);
 		expect(derivePiReplacementSurface("objective-stack-impl")).toBe("objective:stack-impl");
+		expect(derivePiReplacementSurface("code-checkpoint")).toBe("sdl:cp");
 		expect(derivePiReplacementSurface("foo-bar-baz")).toBe("foo:bar-baz");
 		expect(derivePiReplacementSurface("plain")).toBeUndefined();
 	});

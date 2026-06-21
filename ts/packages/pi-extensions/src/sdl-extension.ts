@@ -23,7 +23,15 @@ const CHANGES_COMMAND_INFO = {
 	name: "changes",
 	description: "Summarize outstanding worktree changes without committing.",
 } as const satisfies SdlCommandInfo;
-const SDL_COMMANDS = [CHANGES_COMMAND_INFO] as const satisfies readonly SdlCommandInfo[];
+const CP_COMMAND_INFO = {
+	name: "cp",
+	description: "Create a checkpoint commit for the current diff.",
+} as const satisfies SdlCommandInfo;
+const SDL_DIRECT_COMMANDS = [
+	CHANGES_COMMAND_INFO,
+	CP_COMMAND_INFO,
+] as const satisfies readonly SdlCommandInfo[];
+const SDL_CODE_ALIAS_COMMANDS = [CHANGES_COMMAND_INFO] as const satisfies readonly SdlCommandInfo[];
 const SDL_CODE_COMMAND_ALIASES = {
 	changes: "sdl:code:changes",
 } as const satisfies Record<typeof CHANGES_COMMAND_INFO.name, string>;
@@ -40,6 +48,18 @@ export const sdlExtensionParity = definePiSurfaceParity([
 		sourceModule: "sdl-extension",
 		notes:
 			"Pi command delegates to sdl changes through registerCliCommandExtension; in this repo the CLI behavior is restored by the project-local .sdl/extensions/changes.ts extension.",
+	},
+	{
+		kind: "command",
+		surface: "sdl:cp",
+		workflow: "Create a checkpoint commit for the current diff",
+		parity: "FULL",
+		cli: "sdl cp",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@sdl/pi-extensions",
+		sourceModule: "sdl-extension",
+		notes:
+			"Pi command delegates to sdl cp through registerCliCommandExtension; in this repo the CLI behavior is restored by the project-local .sdl/extensions/cp.ts extension. Old /code:* checkpoint aliases are not restored.",
 	},
 	{
 		kind: "command",
@@ -63,11 +83,11 @@ export default function sdlExtension(pi: SdlExtensionAPI): void {
 	} as const;
 	registerCliCommandExtension(pi, {
 		...sdlBaseSpec,
-		commands: SDL_COMMANDS,
+		commands: SDL_DIRECT_COMMANDS,
 	});
 	registerCliCommandExtension(pi, {
 		...sdlBaseSpec,
-		commands: SDL_COMMANDS,
+		commands: SDL_CODE_ALIAS_COMMANDS,
 		piCommandAliases: SDL_CODE_COMMAND_ALIASES,
 	});
 	autobranchExtension(pi);
