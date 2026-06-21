@@ -1,15 +1,19 @@
 import { siteUrl } from "@/geistdocs";
 
-const URL_SCHEME_PATTERN = /^[a-z][a-z\d+.-]*:\/\//i;
-
 export function getSiteOrigin(): string {
-  return new URL(normalizeSiteUrl(siteUrl)).origin;
+  const urlInput = URL.canParse(siteUrl) ? siteUrl : withInferredProtocol(siteUrl);
+
+  return new URL(urlInput).origin;
 }
 
-function normalizeSiteUrl(value: string): string {
-  if (URL_SCHEME_PATTERN.test(value)) return value;
-
-  const protocol = value.startsWith("localhost") || value.startsWith("127.0.0.1") ? "http" : "https";
+function withInferredProtocol(value: string): string {
+  const protocol = isLocalSiteHost(value) ? "http" : "https";
 
   return `${protocol}://${value}`;
+}
+
+function isLocalSiteHost(value: string): boolean {
+  const host = value.split(":", 1)[0];
+
+  return host === "localhost" || host === "127.0.0.1";
 }

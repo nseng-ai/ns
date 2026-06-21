@@ -1,33 +1,10 @@
 ---
 title: "Parallel branches with slot"
-description: "Use slot to keep multiple branches open without stashing or re-checking out."
+description: "TODO: Lorum ipsum placeholder content."
 ---
 
-Use `slot` when code review, hotfixes, and feature work need to stay open at the same time. A slot is just a Git worktree, so switching context becomes `cd` instead of stash, checkout, restore, and re-run setup.
+> **TODO:** Lorum ipsum placeholder content. Replace this generated page with accurate SDL documentation.
 
-## Core loop
+## Lorum ipsum
 
-```bash
-slot init --size 3
-slot checkout feature-x
-slot list
-slot free -n 1
-```
-
-1. Create enough slots for the amount of parallel work you expect.
-2. Check out an existing branch, create a new branch with `slot checkout -b`, or redirect the current branch into a slot.
-3. Use `slot list` to see which branches are assigned.
-4. Free clean branches when they are merged, closed, or no longer needed.
-
-## When to use it
-
-- A review request arrives while a feature branch is still dirty.
-- You need to compare two related branches without losing editor or test state.
-- A stack has multiple branches that should remain independently runnable.
-- An agent session needs a clean implementation checkout while you keep the original branch open.
-
-## Graphite-aware navigation
-
-If your repository uses Graphite, `slot gt` is the explicit Graphite-dependent surface. Use `slot gt up` or `slot gt down` to move through a stack when the target branch is already checked out or can be placed in an available slot.
-
-See [`slot`](/docs/tools/slot) for the full command reference and [CLI conventions](/docs/concepts/cli-conventions) for machine-readable output expectations.
+Lorum ipsum dolor sit amet, consectetur adipiscing elit. TODO: replace this placeholder with real content before publishing.
