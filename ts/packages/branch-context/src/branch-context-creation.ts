@@ -174,7 +174,7 @@ export function formatBranchContextCreatePreview(
 		`Branch Memory namespace: ${operation.namespace}`,
 		`Branch Memory key: ${operation.key}`,
 		"",
-		"Branch-context commands that would run:",
+		"Branch-context operations that would run:",
 	];
 	if (operation.branchCreation === "graphite") {
 		lines.push(formatCommand("gt", ["info", graphiteParentBranch, "--no-interactive"]));
@@ -192,18 +192,13 @@ export function formatBranchContextCreatePreview(
 		);
 	}
 	lines.push(
-		formatCommand("brmem", [
-			"put",
-			operation.key,
-			"--namespace",
-			operation.namespace,
-			"--branch",
-			operation.branch,
-			"--file",
-			operation.filePath,
-			"--format",
-			"json",
-		]),
+		[
+			"Attach plan through the in-process Branch Memory gateway:",
+			`Namespace: ${operation.namespace}`,
+			`Branch: ${operation.branch}`,
+			`Key: ${operation.key}`,
+			`Source file: ${operation.filePath}`,
+		].join(" "),
 	);
 	return lines.join("\n");
 }

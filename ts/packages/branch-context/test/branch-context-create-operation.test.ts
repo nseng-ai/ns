@@ -144,20 +144,13 @@ describe("branch-context create preview", () => {
 		expect(text).toContain(
 			formatCommand("gt", ["track", TARGET_BRANCH, "--parent", SOURCE_BRANCH, "--no-interactive"]),
 		);
-		expect(text).toContain(
-			formatCommand("brmem", [
-				"put",
-				PLAN_KEY,
-				"--namespace",
-				BRANCH_CONTEXT_NAMESPACE,
-				"--branch",
-				TARGET_BRANCH,
-				"--file",
-				PLAN_FILE,
-				"--format",
-				"json",
-			]),
-		);
+		expect(text).toContain("Branch-context operations that would run:");
+		expect(text).toContain("Attach plan through the in-process Branch Memory gateway:");
+		expect(text).toContain(`Namespace: ${BRANCH_CONTEXT_NAMESPACE}`);
+		expect(text).toContain(`Branch: ${TARGET_BRANCH}`);
+		expect(text).toContain(`Key: ${PLAN_KEY}`);
+		expect(text).toContain(`Source file: ${PLAN_FILE}`);
+		expect(text).not.toContain("brmem put");
 	});
 
 	test("omits Graphite tracking for plain Git preview", () => {
