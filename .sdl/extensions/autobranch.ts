@@ -1,15 +1,21 @@
 import { Buffer } from "node:buffer";
-import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join, relative, resolve } from "node:path";
+import { readFile, stat } from "node:fs/promises";
+import { relative, resolve } from "node:path";
 
 import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
 import { prepareCheckpointMessage } from "./shared/checkpoint-message.ts";
+import {
+  createCommitWithPreparedMessage,
+  execGit,
+  firstEnvValue,
+  formatCommandDetails,
+  loadPendingWorktreeSnapshot,
+  type PendingWorktreeError,
+  type PendingWorktreeSnapshot,
+} from "./shared/worktree.ts";
 import type { ExecResult, SdlExtensionApi } from "@sdl/sdl/sdk";
 
 const GIT_FACT_TIMEOUT_MS = 30_000;
-const GIT_COMMIT_TIMEOUT_MS = 120_000;
-const GIT_LOG_TIMEOUT_MS = 5_000;
 const GT_CREATE_TIMEOUT_MS = 120_000;
 const GT_TIMEOUT_MS = 120_000;
 const STASH_PUSH_TIMEOUT_MS = 120_000;
@@ -28,6 +34,7 @@ const MAX_DIFF_CHARS = 24_000;
 const MAX_UNTRACKED_FILES = 12;
 const MAX_UNTRACKED_FILE_CHARS = 4_000;
 const MAX_BACKUP_SEGMENT_CHARS = 32;
+
 const AUTOBRANCH_DESCRIPTION = `Create a Graphite branch using \`gt create\` from dirty worktree changes or from the latest eligible unpushed commit.
 
 Dirty worktree mode stashes pending changes, creates a Graphite branch, restores the stash, and creates a checkpoint commit. Clean worktree mode moves the latest eligible unpushed non-merge commit onto a new Graphite branch using recovery-branch verification.
@@ -44,20 +51,6 @@ const autobranchRequestSchema = z.object({
 });
 
 type AutobranchRequest = z.output<typeof autobranchRequestSchema>;
-
-interface PendingWorktreeSnapshot {
-  root: string;
-  branch: string;
-  status: string;
-  diff: string;
-  isClean: boolean;
-}
-
-type PendingWorktreeError =
-  | { kind: "not_git_repo"; result: ExecResult }
-  | { kind: "detached_head"; result: ExecResult }
-  | { kind: "status_failed"; result: ExecResult }
-  | { kind: "diff_failed"; result: ExecResult };
 
 interface ParsedAutobranchArgs {
   slug?: string;
@@ -286,49 +279,12 @@ async function createAutobranchCheckpointFlow(
   return runDirtyAutobranchFlow(ctx, args, snapshot);
 }
 
-async function loadPendingWorktreeSnapshot(
+function execGt(
   ctx: SdlExtensionApi,
-): Promise<
-  { ok: true; snapshot: PendingWorktreeSnapshot } | { ok: false; error: PendingWorktreeError }
-> {
-  const root = await execGit(ctx, ["rev-parse", "--show-toplevel"], GIT_FACT_TIMEOUT_MS);
-  if (root.code !== 0) {
-    return { ok: false, error: { kind: "not_git_repo", result: root } };
-  }
-
-  const branch = await execGit(ctx, ["symbolic-ref", "--short", "HEAD"], GIT_FACT_TIMEOUT_MS);
-  if (branch.code !== 0) {
-    return { ok: false, error: { kind: "detached_head", result: branch } };
-  }
-
-  const status = await execGit(ctx, ["status", "--porcelain=v1"], GIT_FACT_TIMEOUT_MS);
-  if (status.code !== 0) {
-    return { ok: false, error: { kind: "status_failed", result: status } };
-  }
-
-  const diff = await execGit(ctx, ["diff", "HEAD", "--no-ext-diff"], GIT_FACT_TIMEOUT_MS);
-  if (diff.code !== 0) {
-    return { ok: false, error: { kind: "diff_failed", result: diff } };
-  }
-
-  return {
-    ok: true,
-    snapshot: {
-      root: root.stdout.trim(),
-      branch: branch.stdout.trim(),
-      status: status.stdout,
-      diff: diff.stdout,
-      isClean: status.stdout.trim().length === 0,
-    },
-  };
-}
-
-function execGit(ctx: SdlExtensionApi, args: string[], timeoutMs: number): Promise<ExecResult> {
-  return ctx.exec("git", args, { timeoutMs });
-}
-
-function execGt(ctx: SdlExtensionApi, args: string[], timeoutMs: number): Promise<ExecResult> {
-  return ctx.exec("gt", args, { timeoutMs });
+  args: readonly string[],
+  timeoutMs: number,
+): Promise<ExecResult> {
+  return ctx.exec("gt", [...args], { timeoutMs });
 }
 
 async function runDirtyAutobranchFlow(
@@ -1538,12 +1494,6 @@ function formatCreatedBranchCleanup(
   return `Could not delete incomplete branch ${result.branchName}: ${result.createdBranchDeleteError}`;
 }
 
-function formatCommandDetails(result: ExecResult): string {
-  const details = result.stderr.trim() || result.stdout.trim();
-  const killed = result.killed ? " (killed or timed out)" : "";
-  return details ? `exit ${result.code}${killed}: ${details}` : `exit ${result.code}${killed}`;
-}
-
 function formatCommand(command: string, args: readonly string[]): string {
   return [command, ...args].map(formatShellArg).join(" ");
 }
@@ -1637,50 +1587,5 @@ function selectCheckpointModelRef(env: Record<string, string | undefined>): stri
     firstEnvValue(env, CHECKPOINT_MODEL_ENV, LEGACY_CHECKPOINT_MODEL_ENV) ??
     DEFAULT_CHECKPOINT_MODEL_REF
   );
-}
-
-function firstEnvValue(
-  env: Record<string, string | undefined>,
-  ...envNames: readonly string[]
-): string | undefined {
-  for (const envName of envNames) {
-    const value = env[envName]?.trim();
-    if (value !== undefined && value !== "") {
-      return value;
-    }
-  }
-  return undefined;
-}
-
-async function createCommitWithPreparedMessage(
-  ctx: SdlExtensionApi,
-  message: string,
-): Promise<{ summary: string } | { error: string }> {
-  const tempDir = await mkdtemp(join(tmpdir(), "pi-cp-commit-"));
-  try {
-    const messagePath = join(tempDir, "message.txt");
-    await writeFile(messagePath, `${message}\n`, "utf8");
-
-    const add = await execGit(ctx, ["add", "-A"], GIT_FACT_TIMEOUT_MS);
-    if (add.code !== 0) {
-      return { error: formatCommandError("Failed to stage checkpoint changes.", add) };
-    }
-
-    const commit = await execGit(ctx, ["commit", "-F", messagePath], GIT_COMMIT_TIMEOUT_MS);
-    if (commit.code !== 0) {
-      return { error: formatCommandError("Checkpoint commit failed.", commit) };
-    }
-
-    const log = await execGit(ctx, ["log", "-1", "--oneline"], GIT_LOG_TIMEOUT_MS);
-    if (log.code !== 0) {
-      return {
-        error: formatCommandError("Created checkpoint commit, but failed to read it back.", log),
-      };
-    }
-
-    return { summary: log.stdout.trim() };
-  } finally {
-    await rm(tempDir, { force: true, recursive: true });
-  }
 }
 
