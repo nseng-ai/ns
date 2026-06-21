@@ -1,8 +1,19 @@
-const LOCAL_SITE_HOST = "localhost:3000";
+import { siteUrl } from "@/geistdocs";
 
-export function getSiteOrigin() {
-  const host = process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL ?? LOCAL_SITE_HOST;
-  const protocol = host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https";
+export function getSiteOrigin(): string {
+  const urlInput = URL.canParse(siteUrl) ? siteUrl : withInferredProtocol(siteUrl);
 
-  return `${protocol}://${host}`;
+  return new URL(urlInput).origin;
+}
+
+function withInferredProtocol(value: string): string {
+  const protocol = isLocalSiteHost(value) ? "http" : "https";
+
+  return `${protocol}://${value}`;
+}
+
+function isLocalSiteHost(value: string): boolean {
+  const host = value.split(":", 1)[0];
+
+  return host === "localhost" || host === "127.0.0.1";
 }

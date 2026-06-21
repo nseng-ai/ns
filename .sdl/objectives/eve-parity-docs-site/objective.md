@@ -124,6 +124,8 @@ not from a staged preservation artifact.
   recoverable from git history and useful as reference material for the published
   corpus port. The migrated corpus now lives under `docs-site/docs/**` as `.mdx`
   pages with Fumadocs `meta.json` IA; no staged preservation artifact was needed.
+  The page prose is currently intentionally stubbed with TODO/Lorum ipsum
+  placeholders so incomplete launch content is obvious.
 - A standalone (non-workspace) Next.js app coexists fine alongside the `ts/`
   pnpm workspace, as the current standalone Astro app already does.
 - Keeping md-tracking on (an external call to `geistdocs.com`) is acceptable
@@ -146,10 +148,10 @@ not from a staged preservation artifact.
 - **Loss of working site during migration.** Deleting the Astro app before the
   Next.js app reaches parity leaves SDL without full published-site parity
   mid-stream. Mitigation is now stronger: the replacement Next.js/geistdocs app
-  builds locally with the migrated Get started / Concepts / Tools / Guides /
-  Skills corpus and exposes the AI-native/machine-readable routes. Remaining
-  risk is feature parity for search, marketing home, integrations, and launch
-  readiness.
+  builds locally with the Get started / Concepts / Tools / Guides / Skills IA and
+  exposes the AI-native/machine-readable routes. Remaining risk is feature
+  parity for search, marketing home, integrations, launch readiness, and
+  replacing the intentional TODO/Lorum ipsum page stubs with publishable copy.
 - **md-tracking telemetry** sends page-fetch events off-repo to a third party.
   Owner-approved, but record it as a known external dependency.
 
@@ -174,6 +176,10 @@ not from a staged preservation artifact.
   corpus.** The current port uses `.mdx` for all Get started / Concepts / Tools /
   Guides / Skills pages. The `source.config.ts` niceties already include mermaid,
   Geist shiki theme, the fence-label normalizer, and last-modified behavior.
+- **Content prose readiness: reopened.** The docs IA and file corpus are present,
+  but generated prose has been intentionally replaced by obvious TODO/Lorum ipsum
+  placeholders. Launch readiness now requires rewriting those pages with accurate
+  SDL copy.
 
 ## Background & Decision Log
 

@@ -2,7 +2,7 @@ import "../global.css";
 import { Navbar } from "@vercel/geistdocs/navbar";
 import type { Metadata } from "next";
 import { Footer } from "@/components/geistdocs/footer";
-import { GeistdocsProvider } from "@/components/geistdocs/provider";
+import { SiteProviders } from "@/components/geistdocs/provider";
 import { config } from "@/lib/geistdocs/config";
 import { mono, sans } from "@/lib/geistdocs/fonts";
 import { getSiteOrigin } from "@/lib/geistdocs/url";
@@ -26,11 +26,11 @@ export default async function Layout({ children, params }: LayoutProps<"/[lang]"
       suppressHydrationWarning
     >
       <body>
-        <GeistdocsProvider basePath={config.basePath} lang={lang}>
+        <SiteProviders lang={lang}>
           <Navbar config={config} />
           {children}
           <Footer config={config} />
-        </GeistdocsProvider>
+        </SiteProviders>
       </body>
     </html>
   );
