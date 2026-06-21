@@ -1,7 +1,4 @@
-import {
-	orchestratePrDescription,
-	type PrDescriptionOrchestrationResult,
-} from "./pr-description-orchestration.ts";
+import { orchestratePrDescription } from "./pr-description-orchestration.ts";
 import {
 	resolvePrDescriptionGeneration,
 	type PrDescriptionGenerationResolution,
@@ -86,27 +83,32 @@ export async function generateSubmitPrDescriptions(input: {
 			githubPr: input.prDescription.githubPr,
 			textGeneration: input.prDescription.textGeneration,
 			git: input.prDescription.git,
-			target: { type: "details", pr: viewed.value },
+			pr: viewed.value,
 			...(generation === undefined ? {} : { generation }),
 			...(prewrittenMetadata === undefined ? {} : { prewrittenMetadata }),
 			...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
 		});
 
-		collectPrDescriptionResult({
-			result,
-			link,
-			number,
-			generated,
-			skipped,
-			prewritten,
-			prewriteFallbacks,
-			failures,
-		});
-		if (result.type === "generated") {
-			input.onProgress?.(`finished PR #${number} description`);
-		}
-		if (result.type === "matched" && result.match === "generated_fingerprint") {
-			input.onProgress?.(`skipping PR #${number} description; generated fingerprint is unchanged`);
+		switch (result.type) {
+			case "skipped":
+				skipped.push(link);
+				input.onProgress?.(
+					`skipping PR #${number} description; generated fingerprint is unchanged`,
+				);
+				break;
+			case "matched_prewritten":
+				prewritten.push(link);
+				break;
+			case "updated":
+				prewriteFallbacks.push(link);
+				break;
+			case "generated":
+				generated.push(link);
+				input.onProgress?.(`finished PR #${number} description`);
+				break;
+			case "failed":
+				failures.push({ link, number, reason: result.reason });
+				break;
 		}
 	}
 
@@ -134,40 +136,6 @@ export function formatPrDescriptionFailureText(
 		"Checkout the branch and run `sdl regenerate-pr` to regenerate its PR description.",
 	];
 	return lines.join("\n");
-}
-
-function collectPrDescriptionResult(params: {
-	result: PrDescriptionOrchestrationResult;
-	link: SubmitPrLink;
-	number: number;
-	generated: SubmitPrLink[];
-	skipped: SubmitPrLink[];
-	prewritten: SubmitPrLink[];
-	prewriteFallbacks: SubmitPrLink[];
-	failures: PrDescriptionFailure[];
-}): void {
-	switch (params.result.type) {
-		case "matched":
-			if (params.result.match === "generated_fingerprint") {
-				params.skipped.push(params.link);
-			} else {
-				params.prewritten.push(params.link);
-			}
-			break;
-		case "updated":
-			params.prewriteFallbacks.push(params.link);
-			break;
-		case "generated":
-			params.generated.push(params.link);
-			break;
-		case "failed":
-			params.failures.push({
-				link: params.link,
-				number: params.number,
-				reason: params.result.reason,
-			});
-			break;
-	}
 }
 
 function formatPrDescriptionFailureRow(failure: PrDescriptionFailure): string {

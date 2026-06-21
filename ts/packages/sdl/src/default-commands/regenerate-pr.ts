@@ -50,33 +50,34 @@ The command owns its output and exit code. It does not support --format.`,
 			git,
 			githubPr,
 			textGeneration: ctx.model,
-			target: { type: "details", pr: pr.value },
+			pr: pr.value,
 			shouldForce: true,
 		});
-		if (result.type === "failed") {
-			ctx.stderr?.(ensureTrailingNewline(result.reason));
-			return failed("", result.exitCode ?? 1);
+		switch (result.type) {
+			case "failed":
+				ctx.stderr?.(ensureTrailingNewline(result.reason));
+				return failed("", result.exitCode ?? 1);
+			case "skipped":
+				ctx.stdout?.(
+					`PR title and description are already up to date.\nPR: #${pr.value.number} ${pr.value.url}\n`,
+				);
+				return ok("");
+			case "generated":
+				ctx.stdout?.(
+					[
+						"Regenerated PR title and description.",
+						`PR: #${pr.value.number} ${pr.value.url}`,
+						`Title: ${result.title}`,
+						`Prompt: ${formatPromptSourceLabel(result.promptSource)}`,
+					].join("\n") + "\n",
+				);
+				return ok("");
+			case "matched_prewritten":
+			case "updated":
+				throw new Error(
+					`Unexpected PR description orchestration result for regenerate-pr: ${result.type}`,
+				);
 		}
-		if (result.type === "matched" && result.match === "generated_fingerprint") {
-			ctx.stdout?.(
-				`PR title and description are already up to date.\nPR: #${pr.value.number} ${pr.value.url}\n`,
-			);
-			return ok("");
-		}
-		if (result.type !== "generated") {
-			ctx.stderr?.("PR title and description were not regenerated.\n");
-			return failed("", 1);
-		}
-
-		ctx.stdout?.(
-			[
-				"Regenerated PR title and description.",
-				`PR: #${pr.value.number} ${pr.value.url}`,
-				`Title: ${result.title}`,
-				`Prompt: ${formatPromptSourceLabel(result.promptSource)}`,
-			].join("\n") + "\n",
-		);
-		return ok("");
 	},
 } satisfies SdlCommand<typeof regeneratePrSchema>;
 

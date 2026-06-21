@@ -50,7 +50,6 @@ export {
 	orchestratePrDescription,
 	type PrDescriptionOrchestrationOptions,
 	type PrDescriptionOrchestrationResult,
-	type PrDescriptionTarget,
 } from "./pr-description-orchestration.ts";
 export {
 	appendGeneratedMarker,

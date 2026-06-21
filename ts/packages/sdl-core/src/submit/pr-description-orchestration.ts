@@ -16,17 +16,13 @@ import {
 import type { PreparedSubmitPrMetadata } from "./submit-pr-metadata-prewrite.ts";
 import type { TextGenerationGateway } from "./text-generation.ts";
 
-export type PrDescriptionTarget =
-	| { type: "number"; number: number }
-	| { type: "details"; pr: GithubPrDetails };
-
 export interface PrDescriptionOrchestrationOptions {
 	cwd: string;
 	env: Record<string, string | undefined>;
 	git: GitGateway;
 	githubPr: GithubPrGateway;
 	textGeneration: TextGenerationGateway;
-	target: PrDescriptionTarget;
+	pr: GithubPrDetails;
 	generation?: Extract<PrDescriptionGenerationResolution, { ok: true }>;
 	prewrittenMetadata?: PreparedSubmitPrMetadata;
 	shouldForce?: boolean;
@@ -34,27 +30,21 @@ export interface PrDescriptionOrchestrationOptions {
 }
 
 export type PrDescriptionOrchestrationResult =
-	| {
-			type: "matched";
-			match: "generated_fingerprint";
-			pr: GithubPrDetails;
-			patchId: string;
-	  }
-	| { type: "matched"; match: "prewritten_metadata"; pr: GithubPrDetails }
-	| { type: "updated"; source: "prewritten"; pr: GithubPrDetails; title: string }
+	| { type: "skipped"; pr: GithubPrDetails; patchId: string }
+	| { type: "matched_prewritten"; pr: GithubPrDetails }
+	| { type: "updated"; pr: GithubPrDetails; title: string }
 	| { type: "generated"; pr: GithubPrDetails; title: string; promptSource: PromptSource }
 	| { type: "failed"; pr?: GithubPrDetails; reason: string; exitCode?: number };
 
 export async function orchestratePrDescription(
 	options: PrDescriptionOrchestrationOptions,
 ): Promise<PrDescriptionOrchestrationResult> {
-	const pr = await resolvePrDescriptionTarget(options);
-	if (!pr.ok) return { type: "failed", reason: pr.error };
+	const pr = options.pr;
 
 	if (options.prewrittenMetadata !== undefined) {
 		return await reconcilePrewrittenPr({
 			options,
-			pr: pr.value,
+			pr,
 			metadata: options.prewrittenMetadata,
 		});
 	}
@@ -63,20 +53,20 @@ export async function orchestratePrDescription(
 	if (!generation.ok) {
 		return {
 			type: "failed",
-			pr: pr.value,
+			pr,
 			reason: generation.error,
 			...(generation.exitCode === undefined ? {} : { exitCode: generation.exitCode }),
 		};
 	}
 
-	options.onProgress?.(`checking PR #${pr.value.number} description fingerprint`);
+	options.onProgress?.(`checking PR #${pr.number} description fingerprint`);
 	const patchId = await options.githubPr.stablePatchIdForPr({
 		cwd: options.cwd,
-		number: pr.value.number,
-		...(pr.value.baseRefName === undefined ? {} : { baseRefName: pr.value.baseRefName }),
-		...(pr.value.headRefName === undefined ? {} : { headRefName: pr.value.headRefName }),
+		number: pr.number,
+		...(pr.baseRefName === undefined ? {} : { baseRefName: pr.baseRefName }),
+		...(pr.headRefName === undefined ? {} : { headRefName: pr.headRefName }),
 	});
-	if (!patchId.ok) return { type: "failed", pr: pr.value, reason: patchId.error.message };
+	if (!patchId.ok) return { type: "failed", pr, reason: patchId.error.message };
 
 	const metadata: PrDescriptionFingerprintMetadata = {
 		version: "2",
@@ -84,25 +74,24 @@ export async function orchestratePrDescription(
 		promptHash: hashPrDescriptionPrompt(generation.promptText),
 		generator: PR_DESCRIPTION_GENERATOR_VERSION,
 	};
-	const parsedRegion = parseManagedGeneratedRegion(pr.value.body);
+	const parsedRegion = parseManagedGeneratedRegion(pr.body);
 	if (
 		options.shouldForce !== true &&
 		parsedRegion.type === "found" &&
 		fingerprintsMatch(parsedRegion.metadata, metadata)
 	) {
 		return {
-			type: "matched",
-			match: "generated_fingerprint",
-			pr: pr.value,
+			type: "skipped",
+			pr,
 			patchId: patchId.value.patchId,
 		};
 	}
 
 	const commits = await options.githubPr.getPrCommitMessages({
 		cwd: options.cwd,
-		number: pr.value.number,
+		number: pr.number,
 	});
-	if (!commits.ok) return { type: "failed", pr: pr.value, reason: commits.error.message };
+	if (!commits.ok) return { type: "failed", pr, reason: commits.error.message };
 
 	const prepared = await preparePrDescription({
 		textGeneration: options.textGeneration,
@@ -110,48 +99,39 @@ export async function orchestratePrDescription(
 		promptText: generation.promptText,
 		context: {
 			kind: "github",
-			number: pr.value.number,
-			url: pr.value.url,
-			title: pr.value.title,
-			headRefName: pr.value.headRefName,
-			baseRefName: pr.value.baseRefName,
+			number: pr.number,
+			url: pr.url,
+			title: pr.title,
+			headRefName: pr.headRefName,
+			baseRefName: pr.baseRefName,
 			commitMessages: commits.value,
 			diff: patchId.value.diff,
 		},
 		...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
 	});
-	if (!prepared.ok) return { type: "failed", pr: pr.value, reason: prepared.error };
+	if (!prepared.ok) return { type: "failed", pr, reason: prepared.error };
 
-	options.onProgress?.(`updating PR #${pr.value.number} description`);
+	options.onProgress?.(`updating PR #${pr.number} description`);
 	const edited = await options.githubPr.editPr({
 		cwd: options.cwd,
-		number: pr.value.number,
+		number: pr.number,
 		title: prepared.title,
-		body: replaceOrInsertGeneratedRegion(pr.value.body, prepared.body, metadata),
+		body: replaceOrInsertGeneratedRegion(pr.body, prepared.body, metadata),
 	});
 	if (!edited.ok) {
 		return {
 			type: "failed",
-			pr: pr.value,
-			reason: `Generated a PR description, but failed to update PR #${pr.value.number}.\n${edited.error.message}`,
+			pr,
+			reason: `Generated a PR description, but failed to update PR #${pr.number}.\n${edited.error.message}`,
 		};
 	}
 
 	return {
 		type: "generated",
-		pr: pr.value,
+		pr,
 		title: prepared.title,
 		promptSource: generation.promptSource,
 	};
-}
-
-async function resolvePrDescriptionTarget(
-	options: Pick<PrDescriptionOrchestrationOptions, "cwd" | "githubPr" | "target">,
-): Promise<{ ok: true; value: GithubPrDetails } | { ok: false; error: string }> {
-	if (options.target.type === "details") return { ok: true, value: options.target.pr };
-	const viewed = await options.githubPr.viewPr({ cwd: options.cwd, number: options.target.number });
-	if (!viewed.ok) return { ok: false, error: viewed.error.message };
-	return { ok: true, value: viewed.value };
 }
 
 async function reconcilePrewrittenPr(params: {
@@ -161,7 +141,7 @@ async function reconcilePrewrittenPr(params: {
 }): Promise<PrDescriptionOrchestrationResult> {
 	params.options.onProgress?.(`validating prewritten metadata for PR #${params.pr.number}`);
 	if (prMetadataMatches(params.pr.title, params.pr.body, params.metadata)) {
-		return { type: "matched", match: "prewritten_metadata", pr: params.pr };
+		return { type: "matched_prewritten", pr: params.pr };
 	}
 
 	params.options.onProgress?.(`updating PR #${params.pr.number} with prewritten metadata`);
@@ -172,7 +152,7 @@ async function reconcilePrewrittenPr(params: {
 		body: appendGeneratedMarker(params.metadata.body),
 	});
 	if (edited.ok) {
-		return { type: "updated", source: "prewritten", pr: params.pr, title: params.metadata.title };
+		return { type: "updated", pr: params.pr, title: params.metadata.title };
 	}
 
 	return {

@@ -37,7 +37,6 @@ class FakeGithubPrGateway implements GithubPrGateway {
 	private readonly commits: PrCommitMessage[];
 	private readonly editError: string | undefined;
 	readonly editCalls: EditCall[] = [];
-	viewPrCalls = 0;
 	commitMessageCalls = 0;
 	stablePatchIdCalls = 0;
 
@@ -62,9 +61,8 @@ class FakeGithubPrGateway implements GithubPrGateway {
 		return { ok: true, value: this.pr } as const;
 	}
 
-	async viewPr() {
-		this.viewPrCalls += 1;
-		return { ok: true, value: this.pr } as const;
+	async viewPr(): Promise<never> {
+		throw new Error("orchestratePrDescription should not look up PR details");
 	}
 
 	async getPrCommitMessages() {
@@ -103,14 +101,11 @@ describe("orchestratePrDescription", () => {
 			git: UNUSED_GIT,
 			githubPr,
 			textGeneration,
-			target: {
-				type: "details",
-				pr: prDetails({ title: "Prepared title", body: "Prepared body" }),
-			},
+			pr: prDetails({ title: "Prepared title", body: "Prepared body" }),
 			prewrittenMetadata: preparedMetadata({ title: "Prepared title", body: "Prepared body" }),
 		});
 
-		expect(result).toMatchObject({ type: "matched", match: "prewritten_metadata" });
+		expect(result).toMatchObject({ type: "matched_prewritten" });
 		expect(githubPr.stablePatchIdCalls).toBe(0);
 		expect(githubPr.commitMessageCalls).toBe(0);
 		expect(githubPr.editCalls).toEqual([]);
@@ -126,13 +121,12 @@ describe("orchestratePrDescription", () => {
 			git: UNUSED_GIT,
 			githubPr,
 			textGeneration: new ScriptedTextGenerationGateway([]),
-			target: { type: "details", pr: DEFAULT_PR },
+			pr: DEFAULT_PR,
 			prewrittenMetadata: preparedMetadata({ title: "Prepared title", body: "Prepared body" }),
 		});
 
 		expect(result).toMatchObject({
 			type: "updated",
-			source: "prewritten",
 			title: "Prepared title",
 		});
 		expect(githubPr.editCalls).toEqual([
@@ -156,13 +150,12 @@ describe("orchestratePrDescription", () => {
 			git: UNUSED_GIT,
 			githubPr,
 			textGeneration,
-			target: { type: "details", pr: prDetails({ body }) },
+			pr: prDetails({ body }),
 			generation: GENERATION,
 		});
 
 		expect(result).toMatchObject({
-			type: "matched",
-			match: "generated_fingerprint",
+			type: "skipped",
 			patchId: "patch-1",
 		});
 		expect(githubPr.stablePatchIdCalls).toBe(1);
@@ -186,7 +179,7 @@ describe("orchestratePrDescription", () => {
 			git: UNUSED_GIT,
 			githubPr,
 			textGeneration,
-			target: { type: "details", pr: DEFAULT_PR },
+			pr: DEFAULT_PR,
 			generation: GENERATION,
 		});
 
@@ -220,7 +213,7 @@ describe("orchestratePrDescription", () => {
 			git: UNUSED_GIT,
 			githubPr,
 			textGeneration,
-			target: { type: "details", pr: prDetails({ body }) },
+			pr: prDetails({ body }),
 			generation: GENERATION,
 			shouldForce: true,
 		});
