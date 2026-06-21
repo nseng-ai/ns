@@ -6,7 +6,7 @@ description: |
   imports, no re-exports, modern type syntax, and other production-tested
   patterns. Intended for cheap, per-diff detection; resolution stays with
   the engineer in their normal higher-context workflow.
-default_model: haiku
+model_profile: quick
 applies_to:
   include:
     - "**/*.py"

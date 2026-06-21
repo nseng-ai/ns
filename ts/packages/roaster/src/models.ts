@@ -45,7 +45,7 @@ export const reviewDefinitionSchema = z
 		name: nonBlankStringSchema,
 		description: nonBlankStringSchema,
 		instructions: nonBlankStringSchema,
-		defaultModel: nonBlankStringSchema.nullable(),
+		modelProfile: nonBlankStringSchema,
 		applicability: reviewApplicabilitySchema,
 		localOnly: z.boolean(),
 	})

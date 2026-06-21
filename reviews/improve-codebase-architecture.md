@@ -3,7 +3,7 @@ description: |
   Review the supplied diff for architecture deepening opportunities: modules,
   interfaces, seams, adapters, leverage, and locality problems introduced or
   revealed by the current branch.
-default_model: sonnet
+model_profile: deep
 local_only: true
 applies_to:
   include:
