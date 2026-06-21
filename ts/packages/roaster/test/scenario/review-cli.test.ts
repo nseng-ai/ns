@@ -5,12 +5,15 @@ import type { RoasterContext } from "../../src/context.ts";
 import { FakeHarnessGateway } from "../../src/gateways/harness.ts";
 import { FakeLocalDiffGateway } from "../../src/gateways/local-diff.ts";
 import { FakeReviewCatalogGateway } from "../../src/gateways/review-catalog.ts";
+import { FakeReviewLogGateway } from "../../src/gateways/review-log.ts";
 import {
 	createFindingsReview,
 	createLocalDiff,
 	type LocalDiff,
 	type ReviewExecutionResponse,
 	type ReviewFinding,
+	type ReviewInputCoverage,
+	type ReviewUsage,
 } from "../../src/models.ts";
 import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
 
@@ -103,6 +106,7 @@ function contextWithCatalog(
 		readonly keys?: readonly string[];
 		readonly diff?: LocalDiff;
 		readonly response?: ReviewExecutionResponse;
+		readonly reviewLog?: FakeReviewLogGateway;
 	} = { sources: { [REVIEW_KEY]: sampleSource() } },
 ) {
 	return fakeRoasterContext({
@@ -124,7 +128,42 @@ function contextWithCatalog(
 				},
 			},
 		}),
+		...(options.reviewLog === undefined ? {} : { reviewLog: options.reviewLog }),
 	});
+}
+
+function sampleUsage(): ReviewUsage {
+	return {
+		inputTokens: 10,
+		outputTokens: 5,
+		cacheCreationInputTokens: 2,
+		cacheReadInputTokens: 3,
+		totalCostUsd: 0.0123,
+		durationMs: 1500,
+		numTurns: 2,
+	};
+}
+
+function sampleInputCoverage(): ReviewInputCoverage {
+	return {
+		fullDiffEstimatedTokens: 100,
+		promptDiffTokenCap: 80,
+		promptDiffFileTokenCap: 50,
+		changedPathCount: 2,
+		includedFileCount: 1,
+		omittedFileCount: 1,
+		omittedFiles: [
+			{
+				path: "large.py",
+				changeKind: "modified",
+				byteSize: 1000,
+				estimatedTokens: 90,
+				addedLines: 10,
+				removedLines: 1,
+				reason: "file_exceeds_cap",
+			},
+		],
+	};
 }
 
 describe("roaster review CLI", () => {

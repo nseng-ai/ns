@@ -5,6 +5,7 @@ import { RealHarnessGateway, type HarnessGateway } from "./gateways/harness.ts";
 import { RealRoasterGitHubGateway, type RoasterGitHubGateway } from "./gateways/github.ts";
 import { RealLocalDiffGateway, type LocalDiffGateway } from "./gateways/local-diff.ts";
 import { RealReviewCatalogGateway, type ReviewCatalogGateway } from "./gateways/review-catalog.ts";
+import { RealReviewLogGateway, type ReviewLogGateway } from "./gateways/review-log.ts";
 
 export { ROASTER_BOT_LOGIN } from "./roaster-bot.ts";
 
@@ -13,6 +14,7 @@ export interface RoasterContext {
 	readonly gitGateway: GitGateway;
 	readonly localDiff: LocalDiffGateway;
 	readonly reviewCatalog: ReviewCatalogGateway;
+	readonly reviewLog: ReviewLogGateway;
 	readonly github: RoasterGitHubGateway;
 	readonly harness: HarnessGateway;
 	readonly cwd: string;
@@ -32,6 +34,7 @@ export interface CreateRealRoasterContextOptions {
 	readonly signal?: AbortSignal | undefined;
 	readonly execApi?: CommandExecApi | undefined;
 	readonly gitGateway?: GitGateway | undefined;
+	readonly reviewLog?: ReviewLogGateway | undefined;
 	readonly harness?: HarnessGateway | undefined;
 }
 
@@ -54,8 +57,10 @@ export interface RoasterCatalogOptions {
 
 export interface RoasterRuntime {
 	readonly runScope: RoasterRunScope;
+	readonly gitGateway: GitGateway;
 	readonly localDiff: LocalDiffGateway;
 	readonly reviewCatalog: ReviewCatalogGateway;
+	readonly reviewLog: ReviewLogGateway;
 	readonly github: RoasterGitHubGateway;
 	readonly harness: HarnessGateway;
 	readonly stdin: () => Promise<string>;
@@ -70,6 +75,7 @@ export function createRealRoasterContext(options: CreateRealRoasterContextOption
 		gitGateway,
 		localDiff: new RealLocalDiffGateway({ execApi, gitGateway }),
 		reviewCatalog: new RealReviewCatalogGateway({ gitGateway }),
+		reviewLog: options.reviewLog ?? new RealReviewLogGateway({ execApi }),
 		github: new RealRoasterGitHubGateway(execApi),
 		harness: options.harness ?? new RealHarnessGateway({ execApi }),
 		cwd: options.cwd,
@@ -84,8 +90,10 @@ export function createRealRoasterContext(options: CreateRealRoasterContextOption
 export function createRoasterRuntime(context: RoasterContext): RoasterRuntime {
 	return {
 		runScope: runScopeFromContext(context),
+		gitGateway: context.gitGateway,
 		localDiff: context.localDiff,
 		reviewCatalog: context.reviewCatalog,
+		reviewLog: context.reviewLog,
 		github: context.github,
 		harness: context.harness,
 		stdin: context.stdin,
