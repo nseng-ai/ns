@@ -1325,6 +1325,21 @@ Use the selected Objective.
 		expect(result.pi.sentUserMessages[0]).toContain("until the next discovery or decision step");
 	});
 
+	test("objective:next prompt preauthorizes clear tracking-gate updates", async () => {
+		const result = await runObjectiveCommand("objective:next", "bravo");
+
+		result.pi.assertDone();
+		expect(result.pi.sentUserMessages[0]).toContain(
+			"This explicit objective-next invocation preauthorizes update-and-continue",
+		);
+		expect(result.pi.sentUserMessages[0]).toContain(
+			"run objective-update for this selected Objective",
+		);
+		expect(result.pi.sentUserMessages[0]).toContain(
+			"Ask before updating only when evidence, Objective fit, or update scope is ambiguous.",
+		);
+	});
+
 	test("objective-update prompt includes the post-selection evidence workflow reminder", async () => {
 		const result = await runObjectiveCommand("objective:update", "bravo");
 

@@ -1,11 +1,11 @@
 ---
 name: objective-next
-description: "Recommend the next useful work for an active Objective. Use when asking what to do next on an existing Objective: 'what's next on this objective', 'recommend next work', 'next step for objective X'. Recommend-first and read-only by default; may route to confirmed objective-update for stale tracking or confirmed execution when durable Objective policy allows it. To create a new Objective use objective-create."
+description: "Recommend the next useful work for an active Objective. Use when asking what to do next on an existing Objective: 'what's next on this objective', 'recommend next work', 'next step for objective X'. Recommend-first by default; routes clear stale tracking through objective-update before continuing, and may route to confirmed execution when durable Objective policy allows it. To create a new Objective use objective-create."
 ---
 
 # objective-next
 
-Recommend the next useful work for an active Objective. When explicit Objective policy allows it, or when the user explicitly asks to execute a concrete `objective-next` recommendation from the current conversation, route to confirmed-execution guidance. If stale tracking blocks the recommendation, request an explicit `objective-update` handoff for the same Objective before continuing. Always include a best-effort work-left estimate as remaining semantic steps, not calendar time.
+Recommend the next useful work for an active Objective. When explicit Objective policy allows it, or when the user explicitly asks to execute a concrete `objective-next` recommendation from the current conversation, route to confirmed-execution guidance. If clear stale tracking blocks the recommendation, run the explicit `objective-update` workflow for the same Objective before continuing; ask first only when evidence or update scope is ambiguous. Always include a best-effort work-left estimate as remaining semantic steps, not calendar time.
 
 Part of the Objective skill family. Use the `objective` umbrella skill first for shared vocabulary, selection rules, storage model, and safety boundaries; this step remains self-contained for its own happy path.
 
@@ -38,12 +38,12 @@ Before recommending work or offering execution:
 1. Inspect uncommitted changes and branch diff when available.
 2. Look for material non-Objective changes that plausibly advance the selected Objective.
 3. Look for corresponding changes under `.sdl/objectives/<slug>/`.
-4. If meaningful progress appears likely but unrecorded, ask: `Run objective-update for <slug> now, then rerun objective-next?`
-5. If the user confirms, or has explicitly preauthorized update-and-continue, run `objective-update` for the same selected slug/path, then reread Objective and repo evidence and re-apply this gate before recommending work or offering execution.
+4. If meaningful current-branch or worktree progress for the selected Objective appears clearly unrecorded, treat the `objective-next` request as update-and-continue preauthorization: run `objective-update` for the same selected slug/path, then reread Objective and repo evidence and re-apply this gate before recommending work or offering execution.
+5. If meaningful progress appears likely but evidence, Objective fit, or update scope is ambiguous, ask: `Run objective-update for <slug> now, then rerun objective-next?`
 6. If the user declines or confirmation is pending, stop without a next-work recommendation or execution offer.
-7. If evidence is absent, ambiguous, or clearly unrelated, proceed with a concise note.
+7. If evidence is absent or clearly unrelated, proceed with a concise note.
 
-The Tracking Gate itself is read-only. Any file changes during this phase belong only to the explicit `objective-update` handoff.
+The Tracking Gate check itself is read-only. Any file changes during this phase belong only to the explicit `objective-update` workflow that the gate routes into.
 
 ## Conditional references
 
@@ -69,7 +69,7 @@ If any condition is missing or ambiguous, do not execute yet: reread the Objecti
 
 1. Exclude closed Objectives by default. If `closed.md` exists, stop and say it is closed.
 2. Read `objective.md`, `roadmap.md`, and relevant `updates/` files.
-3. Apply the Tracking Gate. If it triggers and the user confirms or preauthorized update-and-continue, perform the `objective-update` handoff for this same Objective, then restart from step 2 with refreshed files/evidence.
+3. Apply the Tracking Gate. If it finds clear unrecorded current-branch progress for the selected Objective, perform the `objective-update` workflow for this same Objective, then restart from step 2 with refreshed files/evidence. If the gate is ambiguous and the user confirms update-and-continue, do the same.
 4. Load conditional references only when their routing conditions apply.
 5. Choose the smallest coherent next semantic step grounded in the Objective narrative, roadmap, active assumptions, and risks.
 6. Form a best-effort work-left estimate: if the Objective narrative and roadmap make the remaining path clear, estimate the semantic steps remaining until Objective completion; if not, estimate the work remaining until the next discovery/decision step where additional work can be identified. Express this as step count, named slices, or coarse scope, not elapsed time.
@@ -92,7 +92,7 @@ Use this path for ordinary `objective-next` recommendations, when the user only 
 - Objective selection is ambiguous or absent.
 - The selected path is under `.sdl/objective-archive/`; ask whether to unarchive before recommending next work.
 - The selected Objective is closed.
-- The Tracking Gate finds likely unrecorded material progress and confirmation to run `objective-update` is pending or declined.
+- The Tracking Gate finds likely unrecorded material progress but evidence, Objective fit, or update scope is ambiguous and confirmation to run `objective-update` is pending or declined.
 - The roadmap and narrative are too stale or incomplete to recommend work safely; ask for `objective-update`.
 - Execution basis is relevant but ambiguous for the selected slice; load `references/confirmed-execution.md` and recommend or steer instead of executing.
 - Requested execution would exceed durable policy, recommendation-continuation scope, preview scope, validation boundaries, or permissions for external systems / write-capable actions.

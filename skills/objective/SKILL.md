@@ -32,7 +32,7 @@ Archive state is represented by location. `objective archive <slug>` moves the w
 Use these step skills for explicit workflow requests:
 
 - `objective-create`: create one new active Objective record. It does not update existing records, create an initial Semantic Update, or close anything.
-- `objective-next`: recommend-first router for one selected open Objective. It reads and recommends by default; it mutates only through an explicit confirmed `objective-update` handoff for stale tracking, through the confirmed execution path when durable Runner Policy allows it, or by continuing from a concrete current-session recommendation when the user explicitly says to execute it.
+- `objective-next`: recommend-first router for one selected open Objective. It reads and recommends by default; when stale tracking clearly blocks, it first routes into the explicit `objective-update` workflow for the same Objective, then continues; it also mutates through the confirmed execution path when durable Runner Policy allows it, or by continuing from a concrete current-session recommendation when the user explicitly says to execute it.
 - `objective-update`: update exactly one selected active Objective; when its Closure Gate is clearly ready and the outcome/rationale are clear, it may close the Objective inline without a separate confirmation.
 - `objective-refresh`: non-closing verified rebaseline for active Objective records. It may append Semantic Updates but never creates `closed.md` or `## Closure`.
 - `objective-close`: explicit close only. It records `## Closure` and writes the Closure Marker without deleting checked-in history.
@@ -117,7 +117,7 @@ Use `objective list` for the default checkout-local Objective status inventory, 
 
 ## Tracking Gate
 
-Before `objective-next` recommends work or offers confirmed execution, check read-only whether material progress appears present in repo changes but absent from the selected Objective. If so, ask whether to run `objective-update` for the same selected Objective before recommending or executing new work. If the user confirms or preauthorized update-and-continue, perform the explicit Objective Update workflow, reread the Objective and repo evidence, and then continue `objective-next`. Changed-path evidence collection and materiality judgment both remain skill/agent responsibilities in v1.
+Before `objective-next` recommends work or offers confirmed execution, check read-only whether material progress appears present in repo changes but absent from the selected Objective. If current-branch or worktree evidence clearly shows material unrecorded progress for that same selected Objective, treat the `objective-next` request as update-and-continue preauthorization: perform the explicit Objective Update workflow, reread the Objective and repo evidence, and then continue `objective-next`. Ask first when evidence, Objective fit, or update scope is ambiguous. Changed-path evidence collection and materiality judgment both remain skill/agent responsibilities in v1.
 
 ## Non-goals
 

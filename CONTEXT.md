@@ -45,8 +45,8 @@ An update file that records meaningful objective information such as a finding, 
 *Avoid*: Ceremonial update, status ping, branch changelog
 
 **Tracking Gate**:
-A read-only check that blocks next-work recommendations when branch or worktree evidence suggests objective progress has not been recorded, until an explicit **Objective Update** handoff is confirmed.
-*Avoid*: Auto-refresh, auto-update, hidden reconciliation
+A read-only check that blocks next-work recommendations when branch or worktree evidence suggests objective progress has not been recorded, then either routes clear same-objective cases into the explicit **Objective Update** workflow before continuing or asks for confirmation when the evidence or update scope is ambiguous.
+*Avoid*: hidden reconciliation, silent objective mutation, background refresh
 
 **Objective Update**:
 The explicit mutation workflow that updates objective tracking by editing durable files and, when there is meaningful semantic information, writing a **Semantic Update**.
