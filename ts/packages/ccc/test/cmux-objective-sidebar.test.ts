@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, test } from "vitest";
 
-import type { ExecResult } from "@sdl/core/exec";
 import {
 	formatObjectiveSidebarFields,
 	resolveObjectiveSelector,
@@ -13,29 +12,14 @@ import {
 	gitCurrentBranchStep,
 	makeTempDir,
 	notificationMessages,
+	objectiveDiffStep,
 	objectiveListStep,
 	objectiveReadStep,
 	objectiveSidebarDescription,
+	objectiveStatusStep,
 	resetCmuxTestEnvironment,
 	step,
-	type ScriptedExec,
 } from "./ccc-test-harness.ts";
-
-const TRUNK = "master";
-
-function objectiveDiffStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedExec {
-	return step("git", ["diff", "--name-status", "-M", `${TRUNK}...HEAD`, "--", ".sdl/objectives"], {
-		stdout,
-		...result,
-	});
-}
-
-function objectiveStatusStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedExec {
-	return step("git", ["status", "--porcelain=v1", "-z", "--", ".sdl/objectives"], {
-		stdout,
-		...result,
-	});
-}
 
 afterEach(resetCmuxTestEnvironment);
 
