@@ -7,7 +7,7 @@ the deliberate SDK-pressure promotion analysis the roadmap anticipates for the
 `cp` / `regenerate-pr` / `submit` migration slices — it converts accumulated
 duplication evidence into a concrete, ordered promotion backlog.
 
-Status: analysis plus first implementation slice. The #1 exec evidence helper promotion (`commandSucceeded()` + `formatCommandEvidence()`) is now implemented in `@sdl/sdl/sdk` and proven by the project-local `push` extension. The `z` schema export is also part of the current public author runtime. The remaining ranked items are still recommendations, not yet promoted.
+Status: analysis plus implementation slices. The #1 exec evidence helper promotion (`commandSucceeded()` + `formatCommandEvidence()`) is implemented in `@sdl/sdl/sdk` and proven by the project-local `push` extension. The checkpoint message helper has intentionally taken a lower-commitment path first: `prepareCheckpointMessage` now lives in `.sdl/extensions/shared/checkpoint-message.ts` and is used by `cp`, `autobranch`, and `submit` without widening the public SDK. The `z` schema export is also part of the current public author runtime. The remaining ranked items are recommendations, not yet promoted.
 
 ---
 
@@ -74,20 +74,19 @@ modules, so they re-derive them.
 
 ## 3. Measured duplication
 
-### 3.1 Checkpoint message subsystem (4 live copies)
+### 3.1 Checkpoint message subsystem (common helper first)
 
-~400 lines, **byte-identical** in `.sdl/extensions/cp.ts` and
-`.sdl/extensions/autobranch.ts` (32 shared functions; the only difference is
-`DEFAULT_CHECKPOINT_MODEL_REF` aliasing the same string literal). Verified via
-direct diff of `validateCheckpointMessage` / `collectCheckpointIssues` /
-`buildCheckpointDiffPromptSection`. Also present in
-`ts/packages/sdl/src/checkpoint-*.ts` and bundled into `submit.ts`.
+Previously, `.sdl/extensions/cp.ts` and `.sdl/extensions/autobranch.ts` carried
+~400-line local checkpoint-message copies, and `submit.ts` bundled another copy
+of the same message-validation and prompt-compaction machinery. The current
+state intentionally consolidates message preparation under the extension-owned
+shared helper `.sdl/extensions/shared/checkpoint-message.ts`; `cp`,
+`autobranch`, and `submit` import that helper instead of widening
+`@sdl/sdl/sdk`.
 
-Includes: `loadPendingWorktreeSnapshot`, `prepareCheckpointMessage`,
-`validateCheckpointMessage` + `collectCheckpointIssues` (the validate-and-repair
-state machine), `buildCheckpointDiffPromptSection` + diff compaction
-(`parseDiffFileSections`, `parseDiffHeaderPath`, `buildFileSectionCompactedDiff`,
-`buildChangedPathList`, `buildHeadTailCompactedDiff`).
+Still separate: command-policy helpers such as pending-worktree loading,
+checkpoint model selection, staging/commit execution, and submit's generated
+bundle structure. These remain SDK-pressure evidence, not public API.
 
 ### 3.2 PR-description + managed-region subsystem (2 copies, huge)
 
@@ -140,10 +139,13 @@ Nothing can be both reusable and readable until the reach mechanism is chosen.
   failing the "easy to understand" goal; would need a `@generated` banner and a
   no-hand-edit rule.
 
-**Recommendation: Option A.** The primitives already live in `@sdl/core`; the
-missing piece is purely exposure. It is the only option where the checked-in
-extension is both DRY and readable, and it matches the objective's command-first
-SDK-promotion model. The remainder of this report assumes Option A.
+**Recommendation: start with a lower-commitment extension-owned helper when the
+API shape is still policy-laden.** Option A remains the route for primitives that
+are clearly public author API, as proven by the exec evidence helpers. For
+`prepareCheckpointMessage`, the chosen next step is not immediate public SDK
+promotion: first consolidate the shared implementation under `.sdl/extensions/shared/`
+so the command stack can prove the helper shape without freezing it as public
+extension API.
 
 ---
 
@@ -227,12 +229,12 @@ function prepareCheckpointMessage(
 // optionally: createCheckpointCommit(ctx, message)
 ```
 
-Source: `@sdl/sdl/src/checkpoint-*.ts`. Collapses 4 live copies; `cp.ts` -> ~60
-lines of glue, `autobranch.ts` loses its largest block. Mid B/C because the
-surface is the most **policy-laden** (system prompt, validate-and-repair state
-machine, bullet/subject rules, model selection) and carries the highest
-API-stability risk. **Sequence it second** despite the mid ratio, because the
-absolute payoff is the largest in the stack.
+Source: currently `.sdl/extensions/shared/checkpoint-message.ts` for repo-local
+extensions, with package-owned checkpoint modules still available as comparison
+provenance. The shared helper collapses the biggest message-preparation copies
+without making the policy-laden prompt, validate-and-repair state machine, and
+message rules public SDK. Revisit SDK promotion only after this common-helper
+shape proves stable and author-facing.
 
 ### #6 Managed-region + PR-description (B/C: mid)
 
@@ -261,8 +263,10 @@ net-new infrastructure plus a cross-package migration, and its largest beneficia
 
 ## 6. Recommended cut line and sequencing
 
-- **Promote #1-#5** — captures essentially all recurring, low-policy duplication
-  plus the single biggest line win.
+- **Promote #1 only so far** — the exec evidence helpers are proven public SDK.
+- **Consolidate #5 as an extension-owned shared helper before SDK promotion** —
+  captures the single biggest line win without freezing checkpoint policy as
+  public author API.
 - **Treat #6 as a deliberate, separately reviewed promotion** (external marker
   contract).
 - **Defer #7** until a promoted diff primitive needs it, then back that primitive
@@ -272,8 +276,10 @@ net-new infrastructure plus a cross-package migration, and its largest beneficia
   primitives. Promoting them would move complexity behind a worse seam.
 
 **Sequencing (differs from pure ratio):** ship **#1 first** to pay the one-time
-loader cost and prove the mechanism on `push.ts`; then jump to **#5** for the
-largest absolute payoff (4 copies, ~1600 lines); then #2-#4; then #6.
+loader cost and prove the mechanism on `push.ts`; consolidate **#5** under
+`.sdl/extensions/shared/` while the API remains policy-laden; revisit public SDK
+promotion for #5 only if the common-helper shape proves stable and useful outside
+this repo-local extension stack; then consider #2-#4 and #6 as separate reviews.
 
 ---
 
@@ -290,10 +296,11 @@ and fixes concrete style/runtime issues only:
   use predicate naming for the autobranch clean-worktree snapshot field, and keep
   scenario-test helpers shaped as single options objects.
 - **Intentionally deferred SDK-pressure evidence:** pending-worktree snapshot
-  helpers, checkpoint/repair flow, PR-description and managed-region flow,
+  helpers, checkpoint commit flow, PR-description and managed-region flow,
   GitHub gateway operations, CCC autobranch transaction/slug/latest-commit flows,
   and broad text/temp/model utility promotions remain candidates for separately
-  reviewed public API design.
+  reviewed public API design. Checkpoint message preparation is now shared inside
+  `.sdl/extensions/shared/`, but that is explicitly not a public SDK promotion.
 
 This remediation should not import private workspace implementation modules from
 `.sdl/extensions/*.ts`, nor should workspace packages import extension-owned
@@ -304,9 +311,11 @@ until a future promotion slice chooses a stable public surface.
 
 ## 8. `submit.ts` liability
 
-`submit.ts` is a checked-in esbuild artifact: untyped, un-reviewable, and a fifth
-copy of the checkpoint code. Under Option A it should be re-authored against the
-widened SDK like the other extensions, retiring the bundle.
+`submit.ts` remains a checked-in esbuild artifact: untyped, un-reviewable, and
+still carrying generated workflow structure. This cleanup removed the dead
+bundled checkpoint message prompt/validation helpers where the extension now uses
+`.sdl/extensions/shared/checkpoint-message.ts`, but it did not re-author the
+submit artifact. Full submit debundling remains a separate slice.
 
 ---
 
