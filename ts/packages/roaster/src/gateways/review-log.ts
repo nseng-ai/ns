@@ -1,5 +1,5 @@
 import { runAvailableBrmemCommand, type CompletedBrmemRun } from "@sdl/core/brmem-cli";
-import { commandFailureReason, type CommandExecApi } from "@sdl/core/exec";
+import { formatCommandFailure, type CommandExecApi } from "@sdl/core/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { withTemporaryFile } from "@sdl/core/temp-files";
 import { z } from "zod";
@@ -116,7 +116,11 @@ export class RealReviewLogGateway implements ReviewLogGateway {
 				if (result.code !== 0 || result.killed) {
 					return error({
 						type: "review_log_write_failed",
-						message: `brmem put failed while writing roaster review log: ${commandFailureReason(result)}`,
+						message: brmemCommandFailureMessage(
+							"brmem put",
+							"writing roaster review log",
+							run.value,
+						),
 					});
 				}
 				const envelope = parseEnvelope(result.stdout, brmemPutDataSchema, "brmem put");
@@ -156,7 +160,7 @@ export class RealReviewLogGateway implements ReviewLogGateway {
 		if (result.code !== 0 || result.killed) {
 			return error({
 				type: "review_log_list_failed",
-				message: `brmem list failed while listing roaster review logs: ${commandFailureReason(result)}`,
+				message: brmemCommandFailureMessage("brmem list", "listing roaster review logs", run.value),
 			});
 		}
 		const envelope = parseEnvelope(result.stdout, brmemListDataSchema, "brmem list");
@@ -448,6 +452,22 @@ interface ParsedEnvelope<T> {
 	readonly exitCode: number;
 	readonly message?: string | undefined;
 	readonly data?: T | undefined;
+}
+
+function brmemCommandFailureMessage(
+	operation: string,
+	context: string,
+	run: CompletedBrmemRun,
+): string {
+	const envelope = parseEnvelope(run.result.stdout, z.unknown(), operation);
+	if (envelope.type === "ok" && envelope.value.message !== undefined) {
+		return `${operation} failed while ${context}: ${envelope.value.message}`;
+	}
+	return formatCommandFailure(
+		`${operation} failed while ${context}`,
+		run.displayCommand,
+		run.result,
+	);
 }
 
 function parseEnvelope<T>(

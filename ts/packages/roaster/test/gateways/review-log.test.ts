@@ -109,6 +109,27 @@ describe("RealReviewLogGateway", () => {
 		if (failedWrite.type !== "error") throw new Error("unexpected success");
 		expect(failedWrite.error.type).toBe("review_log_write_failed");
 
+		const envelopeFailure = new RealReviewLogGateway({
+			execApi: new ScriptedCommandExecApi([
+				{
+					code: 1,
+					stdout: JSON.stringify({
+						exit_code: 1,
+						message: "Source file is 2 MiB; Branch Memory Entries are capped at 1 MiB",
+					}),
+				},
+			]),
+		});
+		const failedEnvelopeWrite = await envelopeFailure.writeReviewLog({
+			...scope,
+			reviewKey: "typescript-style",
+			ranAt: "2026-06-20T18:42:11.123Z",
+			content: "# Review\n",
+		});
+		expect(failedEnvelopeWrite.type).toBe("error");
+		if (failedEnvelopeWrite.type !== "error") throw new Error("unexpected success");
+		expect(failedEnvelopeWrite.error.message).toContain("Source file is 2 MiB");
+
 		const invalidJson = new RealReviewLogGateway({
 			execApi: new ScriptedCommandExecApi([{ stdout: "not json" }]),
 		});
