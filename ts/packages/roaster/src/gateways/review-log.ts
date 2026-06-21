@@ -86,7 +86,9 @@ export class RealReviewLogGateway implements ReviewLogGateway {
 		this.execApi = options.execApi;
 	}
 
-	async writeReviewLog(request: ReviewLogWriteRequest): Promise<RoasterResult<ReviewLogWriteResult>> {
+	async writeReviewLog(
+		request: ReviewLogWriteRequest,
+	): Promise<RoasterResult<ReviewLogWriteResult>> {
 		const entryKey = reviewLogEntryKey({ reviewKey: request.reviewKey, ranAt: request.ranAt });
 		return await withTemporaryFile(
 			{
@@ -139,7 +141,9 @@ export class RealReviewLogGateway implements ReviewLogGateway {
 		);
 	}
 
-	async listReviewLogs(request: ReviewLogListRequest): Promise<RoasterResult<readonly ReviewLogEntry[]>> {
+	async listReviewLogs(
+		request: ReviewLogListRequest,
+	): Promise<RoasterResult<readonly ReviewLogEntry[]>> {
 		const args = ["list", "--namespace", ROASTER_REVIEW_LOG_NAMESPACE, "--format", "json"];
 		const result = await this.execApi.exec("brmem", args, execOptions(request));
 		if (result.code !== 0 || result.killed) {
@@ -212,7 +216,9 @@ export class FakeReviewLogGateway implements ReviewLogGateway {
 		for (const entry of options.entries ?? []) this.entriesInternal.push(this.seededEntry(entry));
 	}
 
-	async writeReviewLog(request: ReviewLogWriteRequest): Promise<RoasterResult<ReviewLogWriteResult>> {
+	async writeReviewLog(
+		request: ReviewLogWriteRequest,
+	): Promise<RoasterResult<ReviewLogWriteResult>> {
 		if (this.writeFailure !== undefined) return error(this.writeFailure);
 		const key = reviewLogEntryKey({ reviewKey: request.reviewKey, ranAt: request.ranAt });
 		const entry: WrittenReviewLogEntry = {
@@ -228,7 +234,9 @@ export class FakeReviewLogGateway implements ReviewLogGateway {
 		return { type: "ok", value: publicWriteResult(entry) };
 	}
 
-	async listReviewLogs(request: ReviewLogListRequest): Promise<RoasterResult<readonly ReviewLogEntry[]>> {
+	async listReviewLogs(
+		request: ReviewLogListRequest,
+	): Promise<RoasterResult<readonly ReviewLogEntry[]>> {
 		if (this.listFailure !== undefined) return error(this.listFailure);
 		const prefix = request.reviewKey === undefined ? null : reviewLogKeyPrefix(request.reviewKey);
 		const entries = this.entriesInternal
@@ -243,13 +251,14 @@ export class FakeReviewLogGateway implements ReviewLogGateway {
 
 	private seededEntry(seed: FakeReviewLogEntrySeed): WrittenReviewLogEntry {
 		const parsed = parseReviewLogEntryKey(seed.key);
-		const reviewKey = seed.reviewKey === undefined ? parsed?.reviewKey ?? null : seed.reviewKey;
-		const ranAt = seed.ranAt === undefined ? parsed?.ranAt ?? null : seed.ranAt;
+		const reviewKey = seed.reviewKey === undefined ? (parsed?.reviewKey ?? null) : seed.reviewKey;
+		const ranAt = seed.ranAt === undefined ? (parsed?.ranAt ?? null) : seed.ranAt;
 		return {
 			namespace: ROASTER_REVIEW_LOG_NAMESPACE,
 			key: seed.key,
 			branch: seed.branch ?? this.branch,
-			entryLocator: seed.entryLocator ?? reviewLogEntryLocator(seed.branch ?? this.branch, seed.key),
+			entryLocator:
+				seed.entryLocator ?? reviewLogEntryLocator(seed.branch ?? this.branch, seed.key),
 			reviewKey: reviewKey ?? "unknown",
 			ranAt: ranAt ?? "unknown",
 			content: seed.content ?? "",
@@ -302,7 +311,10 @@ export function renderReviewLogMarkdown(
 	return `${trimTrailingBlankLines(lines).join("\n")}\n`;
 }
 
-export function reviewLogEntryKey(options: { readonly reviewKey: string; readonly ranAt: string }): string {
+export function reviewLogEntryKey(options: {
+	readonly reviewKey: string;
+	readonly ranAt: string;
+}): string {
 	return `${reviewLogKeyPrefix(options.reviewKey)}${safeTimestamp(options.ranAt)}.md`;
 }
 
@@ -335,18 +347,24 @@ export function parseReviewLogEntryKey(
 }
 
 function sanitizeReviewKeySegments(reviewKey: string): readonly string[] {
-	const segments = reviewKey.split("/").map(sanitizeReviewKeySegment).filter((segment) => segment !== "");
+	const segments = reviewKey
+		.split("/")
+		.map(sanitizeReviewKeySegment)
+		.filter((segment) => segment !== "");
 	return segments.length === 0 ? ["review"] : segments;
 }
 
 function sanitizeReviewKeySegment(segment: string): string {
 	const sanitized = segment
-		.replace(/[\u0000-\u001F\u007F\\:?*\[\]~^\s]+/gu, "-")
+		.replace(/[\u0000-\u001F\u007F\\:?*[\]~^\s]+/gu, "-")
 		.replace(/[^A-Za-z0-9._-]+/gu, "-")
 		.replace(/-+/gu, "-")
 		.replace(/^-+|-+$/gu, "");
 	if (sanitized === "" || sanitized === "." || sanitized === "..") return "review";
-	if (sanitized.endsWith(".lock")) return `${sanitized.slice(0, -5)}-lock`;
+	if (sanitized.endsWith(".lock")) {
+		const stem = sanitized.slice(0, -5);
+		return stem === "" ? "lock" : `${stem}-lock`;
+	}
 	return sanitized;
 }
 
@@ -355,7 +373,8 @@ function safeTimestamp(isoTimestamp: string): string {
 }
 
 function renderUsage(usage: ReviewUsage): readonly string[] {
-	const inputTokens = usage.inputTokens + usage.cacheCreationInputTokens + usage.cacheReadInputTokens;
+	const inputTokens =
+		usage.inputTokens + usage.cacheCreationInputTokens + usage.cacheReadInputTokens;
 	return [
 		"## Usage",
 		"",
@@ -415,27 +434,40 @@ function parseEnvelope<T>(
 	}
 	const envelope = clinkrEnvelopeSchema.safeParse(parsed);
 	if (!envelope.success) {
-		return invalidResponse(`${operation} response did not match Clinkr envelope shape: ${z.prettifyError(envelope.error)}`);
+		return invalidResponse(
+			`${operation} response did not match Clinkr envelope shape: ${z.prettifyError(envelope.error)}`,
+		);
 	}
 	const dataValue = envelope.data["data"];
 	if (dataValue === undefined) {
-		return { type: "ok", value: envelopeValue(envelope.data, undefined) };
+		return { type: "ok", value: envelopeValueWithoutData(envelope.data) };
 	}
 	const data = dataSchema.safeParse(dataValue);
 	if (!data.success) {
-		return invalidResponse(`${operation} response data did not match expected shape: ${z.prettifyError(data.error)}`);
+		return invalidResponse(
+			`${operation} response data did not match expected shape: ${z.prettifyError(data.error)}`,
+		);
 	}
 	return { type: "ok", value: envelopeValue(envelope.data, data.data) };
 }
 
 function envelopeValue<T>(
 	envelope: z.infer<typeof clinkrEnvelopeSchema>,
-	data: T | undefined,
+	data: T,
 ): ParsedEnvelope<T> {
 	return {
 		exitCode: envelope.exit_code,
 		...(envelope.message === undefined ? {} : { message: envelope.message }),
-		...(data === undefined ? {} : { data }),
+		data,
+	};
+}
+
+function envelopeValueWithoutData<T>(
+	envelope: z.infer<typeof clinkrEnvelopeSchema>,
+): ParsedEnvelope<T> {
+	return {
+		exitCode: envelope.exit_code,
+		...(envelope.message === undefined ? {} : { message: envelope.message }),
 	};
 }
 

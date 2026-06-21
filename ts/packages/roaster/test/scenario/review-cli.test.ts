@@ -349,6 +349,81 @@ describe("roaster review CLI", () => {
 		expect(data.base_ref).toBeUndefined();
 	});
 
+	test("review run logs successful reviews to Branch Memory by default", async () => {
+		const reviewLog = new FakeReviewLogGateway();
+		const finding: ReviewFinding = {
+			path: "app.py",
+			line: 1,
+			severity: "warning",
+			summary: "Avoid print",
+			details: "Use click.echo().",
+		};
+		const run = await runRoaster(["review", "run", REVIEW_KEY, "--model", "opus"], {
+			context: contextWithCatalog({
+				sources: { [REVIEW_KEY]: sampleSource() },
+				reviewLog,
+				response: {
+					payload: createFindingsReview([finding]),
+					usage: sampleUsage(),
+					inputCoverage: sampleInputCoverage(),
+				},
+			}),
+		});
+
+		expect(run.exitCode).toBe(0);
+		const entries = reviewLog.writtenEntries();
+		expect(entries).toHaveLength(1);
+		const entry = entries[0];
+		expect(entry?.namespace).toBe("roaster");
+		expect(entry?.key).toMatch(/^reviews\/dignified-python\/\d{4}-\d{2}-\d{2}T/);
+		expect(entry?.content).toContain("# Roaster Review: dignified-python");
+		expect(entry?.content).toContain("- Review key: `dignified-python`");
+		expect(entry?.content).toContain("- Base ref: `master`");
+		expect(entry?.content).toContain("- Model: `opus`");
+		expect(entry?.content).toContain("- Findings: 1");
+		expect(entry?.content).toContain("Avoid print");
+		expect(entry?.content).toContain("Use click.echo().");
+		expect(entry?.content).toContain("## Usage");
+		expect(entry?.content).toContain("## Input Coverage");
+		expect(entry?.content).not.toContain("```json");
+		expect(entry?.content).not.toContain("payload");
+	});
+
+	test("review run logging failure exits nonzero and preserves review result", async () => {
+		const reviewLog = new FakeReviewLogGateway({
+			writeFailure: {
+				type: "review_log_write_failed",
+				message: "brmem put failed while writing roaster review log: missing brmem",
+			},
+		});
+		const run = await runRoaster(
+			["review", "run", REVIEW_KEY, "--model", "opus", "--format", "json"],
+			{
+				context: contextWithCatalog({
+					sources: { [REVIEW_KEY]: sampleSource() },
+					reviewLog,
+				}),
+			},
+		);
+
+		expect(run.exitCode).toBe(1);
+		const envelope = JSON.parse(run.stdout);
+		expect(envelope.exit_code).toBe(1);
+		expect(envelope.message).toContain("failed to write Branch Memory review log");
+		expect(envelope.data.reviewName).toBe(REVIEW_KEY);
+		expect(envelope.data.findings).toEqual([]);
+
+		const human = await runRoaster(["review", "run", REVIEW_KEY, "--model", "opus"], {
+			context: contextWithCatalog({
+				sources: { [REVIEW_KEY]: sampleSource() },
+				reviewLog,
+			}),
+		});
+		expect(human.exitCode).toBe(1);
+		expect(human.stderr).toContain("Reviewer: dignified-python");
+		expect(human.stderr).toContain("failed to write Branch Memory review log");
+	});
+
 	test("review run uses default model and fails when no model is available", async () => {
 		const success = await runRoaster(["review", "run", REVIEW_KEY, "--format", "json"], {
 			context: contextWithCatalog({ sources: { [REVIEW_KEY]: sampleSource() } }),
@@ -356,12 +431,52 @@ describe("roaster review CLI", () => {
 		expect(success.exitCode).toBe(0);
 		expect(JSON.parse(success.stdout).data.model).toBe("sonnet");
 
+		const reviewLog = new FakeReviewLogGateway();
 		const failure = await runRoaster(["review", "run", REVIEW_KEY, "--format", "json"], {
 			context: contextWithCatalog({
 				sources: { [REVIEW_KEY]: sampleSource({ defaultModel: null }) },
+				reviewLog,
 			}),
 		});
 		expect(failure.exitCode).toBe(2);
 		expect(JSON.parse(failure.stdout).error_type).toBe("model_not_provided");
+		expect(reviewLog.writtenEntries()).toEqual([]);
+	});
+
+	test("review log lists entries and filters by review key", async () => {
+		const reviewLog = new FakeReviewLogGateway({
+			entries: [
+				{ key: "reviews/dignified-python/2026-06-20T18-42-11-123Z.md" },
+				{ key: "reviews/typescript-style/2026-06-20T18-43-11-123Z.md" },
+			],
+		});
+		const all = await runRoaster(["review", "log"], {
+			context: contextWithCatalog({ sources: { [REVIEW_KEY]: sampleSource() }, reviewLog }),
+		});
+		expect(all.exitCode).toBe(0);
+		expect(all.stdout).toContain("Roaster review logs: 2");
+		expect(all.stdout).toContain("reviews/typescript-style/2026-06-20T18-43-11-123Z.md");
+		expect(all.stdout).toContain(
+			"brmem get reviews/dignified-python/2026-06-20T18-42-11-123Z.md --namespace roaster",
+		);
+
+		const filtered = await runRoaster(["review", "log", REVIEW_KEY, "--format", "json"], {
+			context: contextWithCatalog({ sources: { [REVIEW_KEY]: sampleSource() }, reviewLog }),
+		});
+		expect(filtered.exitCode).toBe(0);
+		const data = JSON.parse(filtered.stdout).data;
+		expect(data.count).toBe(1);
+		expect(data.reviewKey).toBe(REVIEW_KEY);
+		expect(data.entries[0].entryKey).toBe("reviews/dignified-python/2026-06-20T18-42-11-123Z.md");
+		expect(data.entries[0].entryLocator).toContain("refs/brmem/ns/roaster/");
+		expect(data.entries[0].ranAt).toBe("2026-06-20T18:42:11.123Z");
+	});
+
+	test("review log reports an informative empty result", async () => {
+		const run = await runRoaster(["review", "log"], {
+			context: contextWithCatalog({ sources: { [REVIEW_KEY]: sampleSource() } }),
+		});
+		expect(run.exitCode).toBe(0);
+		expect(run.stdout).toContain("No roaster review logs found for this branch.");
 	});
 });

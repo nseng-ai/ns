@@ -159,8 +159,10 @@ describe("createRoasterRuntime", () => {
 		const runOptions = environmentOptions(ctx.runScope);
 		const catalogRunOptions = catalogOptions(ctx.runScope);
 
+		expect(ctx.gitGateway).toBe(context.gitGateway);
 		expect(ctx.localDiff).toBe(localDiff);
 		expect(ctx.reviewCatalog).toBe(reviewCatalog);
+		expect(ctx.reviewLog).toBe(context.reviewLog);
 		expect(ctx.github).toBe(github);
 		expect(ctx.harness).toBe(harness);
 		expect(ctx.runScope).toEqual({ cwd: "/repo", env, signal });
@@ -192,7 +194,6 @@ describe("createRoasterRuntime", () => {
 		expect(await ctx.stdin()).toBe("envelope");
 		expect(stderr).toEqual(["diagnostic"]);
 		expect("execApi" in ctx).toBe(false);
-		expect("gitGateway" in ctx).toBe(false);
 		expect("stdout" in ctx).toBe(false);
 		expect(localDiff.calls[0]).toMatchObject({ cwd: "/repo", baseRef: "origin/main" });
 		expect(localDiff.calls[0]?.env).toBe(env);
