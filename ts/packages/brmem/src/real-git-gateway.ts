@@ -39,6 +39,7 @@ import {
 
 const EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 const GIT_BLOB_MODE_FILE = "100644";
+const GIT_TREE_MODE = "040000";
 
 interface GitRunResult {
 	code: number;
@@ -56,6 +57,18 @@ interface SnapshotValidationContext {
 interface SnapshotInvalidKey {
 	key: string;
 	reason: string;
+}
+
+interface SnapshotTreeNode {
+	blobs: Map<string, string>;
+	trees: Map<string, SnapshotTreeNode>;
+}
+
+interface MktreeEntry {
+	mode: typeof GIT_BLOB_MODE_FILE | typeof GIT_TREE_MODE;
+	kind: "blob" | "tree";
+	sha: string;
+	name: string;
 }
 
 const SNAPSHOT_CORRUPT_SAMPLE_LIMIT = 5;
@@ -616,11 +629,12 @@ function splitConfigValues(stdout: string): readonly string[] {
 async function runGit(
 	commands: CommandExecApi,
 	args: readonly string[],
-	options: { cwd: string; env?: NodeJS.ProcessEnv | undefined },
+	options: { cwd: string; env?: NodeJS.ProcessEnv | undefined; stdin?: string | undefined },
 ): Promise<GitRunResult> {
 	const result = await commands.exec("git", [...args], {
 		cwd: options.cwd,
 		env: options.env ?? process.env,
+		...(options.stdin === undefined ? {} : { stdin: options.stdin }),
 	});
 	return {
 		code: result.code,
@@ -696,29 +710,128 @@ async function buildTreeFromEntries(
 	const validation = validateWritableSnapshotEntries(entries);
 	if (validation.type === "error") return validation;
 	if (entries.size === 0) return brmemOk(EMPTY_TREE_SHA);
-	const tempDir = mkdtempSync(join(tmpdir(), "brmem-index-"));
-	try {
-		const indexPath = join(tempDir, "index");
-		const env = { ...process.env, GIT_INDEX_FILE: indexPath };
-		const readEmpty = await runGit(commands, ["read-tree", "--empty"], { cwd, env });
-		if (readEmpty.code !== 0)
-			return gitError("git_read_tree_failed", "Could not initialize Snapshot tree.", readEmpty);
-		for (const [path, blobSha] of entries) {
-			const update = await runGit(
-				commands,
-				["update-index", "--add", "--cacheinfo", `${GIT_BLOB_MODE_FILE},${blobSha},${path}`],
-				{ cwd, env },
-			);
-			if (update.code !== 0)
-				return gitError("git_update_index_failed", "Could not build Snapshot tree.", update);
-		}
-		const tree = await runGit(commands, ["write-tree"], { cwd, env });
-		if (tree.code !== 0)
-			return gitError("git_write_tree_failed", "Could not write Snapshot tree.", tree);
-		return brmemOk(tree.stdout.trim());
-	} finally {
-		rmSync(tempDir, { recursive: true, force: true });
+	const snapshotTree = buildSnapshotTree(entries);
+	if (snapshotTree.type === "error") return snapshotTree;
+	const tree = await writeSnapshotTree(commands, cwd, snapshotTree.value);
+	if (tree.type === "error") return tree;
+	const verification = await verifyBuiltTreeMatchesEntries(commands, cwd, tree.value, entries);
+	if (verification.type === "error") return verification;
+	return tree;
+}
+
+function buildSnapshotTree(entries: ReadonlyMap<string, string>): BrmemResult<SnapshotTreeNode> {
+	const root = createSnapshotTreeNode();
+	for (const [key, blobSha] of entries) {
+		const added = addSnapshotTreeEntry(root, key, blobSha);
+		if (added.type === "error") return added;
 	}
+	return brmemOk(root);
+}
+
+function createSnapshotTreeNode(): SnapshotTreeNode {
+	return { blobs: new Map(), trees: new Map() };
+}
+
+function addSnapshotTreeEntry(
+	root: SnapshotTreeNode,
+	key: string,
+	blobSha: string,
+): BrmemResult<void> {
+	const segments = key.split("/");
+	let node = root;
+	let prefix = "";
+	for (let index = 0; index < segments.length; index += 1) {
+		const segment = segments[index];
+		if (segment === undefined) break;
+		const path = prefix.length === 0 ? segment : `${prefix}/${segment}`;
+		const isLeaf = index === segments.length - 1;
+		if (isLeaf) {
+			if (node.trees.has(segment)) return snapshotTreeConflict(key, path);
+			node.blobs.set(segment, blobSha);
+			return brmemOk(undefined);
+		}
+		if (node.blobs.has(segment)) return snapshotTreeConflict(key, path);
+		let child = node.trees.get(segment);
+		if (child === undefined) {
+			child = createSnapshotTreeNode();
+			node.trees.set(segment, child);
+		}
+		node = child;
+		prefix = path;
+	}
+	return brmemOk(undefined);
+}
+
+function snapshotTreeConflict<T>(key: string, path: string): BrmemResult<T> {
+	return brmemError(
+		"snapshot_tree_conflict",
+		`Entry Key ${JSON.stringify(key)} conflicts with another Entry at ${JSON.stringify(path)}; Git trees cannot store one name as both an Entry and a directory.`,
+	);
+}
+
+async function writeSnapshotTree(
+	commands: CommandExecApi,
+	cwd: string,
+	node: SnapshotTreeNode,
+): Promise<BrmemResult<string>> {
+	const entries: MktreeEntry[] = [];
+	for (const [name, sha] of node.blobs) {
+		entries.push({ mode: GIT_BLOB_MODE_FILE, kind: "blob", sha, name });
+	}
+	for (const [name, child] of node.trees) {
+		const subtree = await writeSnapshotTree(commands, cwd, child);
+		if (subtree.type === "error") return subtree;
+		entries.push({ mode: GIT_TREE_MODE, kind: "tree", sha: subtree.value, name });
+	}
+	entries.sort(compareMktreeEntries);
+	const tree = await runGit(commands, ["mktree"], {
+		cwd,
+		stdin: entries.map(formatMktreeEntry).join(""),
+	});
+	if (tree.code !== 0) return gitError("git_mktree_failed", "Could not build Snapshot tree.", tree);
+	return brmemOk(tree.stdout.trim());
+}
+
+function compareMktreeEntries(left: MktreeEntry, right: MktreeEntry): number {
+	if (left.name === right.name) return 0;
+	return left.name < right.name ? -1 : 1;
+}
+
+function formatMktreeEntry(entry: MktreeEntry): string {
+	return `${entry.mode} ${entry.kind} ${entry.sha}\t${entry.name}\n`;
+}
+
+async function verifyBuiltTreeMatchesEntries(
+	commands: CommandExecApi,
+	cwd: string,
+	treeSha: string,
+	expected: ReadonlyMap<string, string>,
+): Promise<BrmemResult<void>> {
+	const actual = await enumerateTreeEntries(commands, cwd, treeSha);
+	if (doEntryMapsMatch(expected, actual)) return brmemOk(undefined);
+	return brmemError(
+		"snapshot_tree_mismatch",
+		`Built Snapshot tree ${treeSha} did not match requested Entries; refusing to create Snapshot commit. Expected ${formatEntryMapSummary(expected)} but got ${formatEntryMapSummary(actual)}.`,
+	);
+}
+
+function doEntryMapsMatch(
+	expected: ReadonlyMap<string, string>,
+	actual: ReadonlyMap<string, string>,
+): boolean {
+	if (expected.size !== actual.size) return false;
+	for (const [key, blobSha] of expected) {
+		if (actual.get(key) !== blobSha) return false;
+	}
+	return true;
+}
+
+function formatEntryMapSummary(entries: ReadonlyMap<string, string>): string {
+	const keys = [...entries.keys()].sort();
+	const samples = keys.slice(0, SNAPSHOT_CORRUPT_SAMPLE_LIMIT);
+	const remaining = keys.length - samples.length;
+	if (remaining > 0) samples.push(`... and ${remaining} more`);
+	return `${entries.size} Entry Key(s): ${samples.join(", ")}`;
 }
 
 async function enumerateTreeEntries(
