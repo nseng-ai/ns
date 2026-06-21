@@ -1,4 +1,4 @@
 {
   "title": "Guides",
-  "pages": ["index"]
+  "pages": ["parallel-branches", "context-across-sessions", "addressing-pr-feedback"]
 }

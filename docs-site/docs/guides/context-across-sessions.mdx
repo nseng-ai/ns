@@ -1,0 +1,27 @@
+---
+title: "Context across sessions"
+description: "Preserve branch-local plans and handoffs with Branch Memory."
+---
+
+Use Branch Memory when context belongs to a branch but should not be committed as a source file. Plans, handoffs, and prompt fragments can stay attached to the branch that needs them.
+
+```bash
+brmem get handoff.md
+```
+
+## Decide where context belongs
+
+- Commit Markdown when the information is durable product or engineering documentation.
+- Use an Objective when the work needs a checked-in narrative roadmap across branches or PRs.
+- Use Branch Memory when the information is branch-scoped workflow context that should move with the branch but stay out of the working tree.
+
+## Common pattern
+
+1. A planning workflow writes or attaches a plan to the branch.
+2. An implementation session reads the branch-scoped entry.
+3. A handoff workflow records the continuation focus before stopping.
+4. A future session loads the handoff from the same branch.
+
+Mutating Branch Memory is deliberate. Skills should make storage actions explicit and prefer read-only inspection when they only need to recover context.
+
+See [`brmem`](/docs/tools/brmem), [the brmem skill](/docs/skills/brmem), and [CLI conventions](/docs/concepts/cli-conventions).

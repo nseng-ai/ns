@@ -10,7 +10,7 @@ export function Logo() {
 }
 
 export const github = {
-  owner: "sdl",
+  owner: "dagster-io",
   repo: "sdl-tools",
 };
 
@@ -33,7 +33,8 @@ export const suggestions = [
   "How do I start using SDL?",
   "What are Objectives?",
   "How does Branch Memory work?",
-  "How do worktree slots help parallel agent work?",
+  "How do worktree slots help parallel branches?",
+  "How do I triage PR feedback?",
 ];
 
 export const agent = {

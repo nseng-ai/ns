@@ -1,0 +1,39 @@
+---
+title: "roaster"
+description: "A CI PR-diff findings runner for configured reviewer output."
+---
+
+`roaster` runs PR-diff findings reviews from Markdown configuration and formats the results for humans, agents, and PR comments.
+
+```bash
+roaster review list
+roaster review run code-quality
+```
+
+## Mental model
+
+CI reviewers are most useful when the review prompt, PR diff input, and posted output are explicit artifacts. `roaster` keeps review catalog operations human-readable and reserves hidden `exec` commands for automation publishing surfaces.
+
+## Install
+
+From an SDL checkout, install the TypeScript source shim:
+
+```bash
+just install-roaster
+roaster --help
+```
+
+For local development without installing the shim, use `pnpm --dir ts exec roaster ...`.
+
+## Common commands
+
+| Goal | Command | Boundary |
+| --- | --- | --- |
+| List CI review keys | `roaster review list` | Read-only |
+| Use the short list alias | `roaster review ls` | Read-only |
+| Run one CI review | `roaster review run <key>` | Invokes reviewer harness |
+| Publish findings from stdin | `roaster exec publish-findings` | Mutates PR comments/reviews |
+
+## Agent interface
+
+Use `roaster exec` operations from skills or automation when publishing already-produced findings. See [CLI conventions](/docs/concepts/cli-conventions) for output and exit-code expectations.

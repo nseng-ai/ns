@@ -1,19 +1,35 @@
 ---
-title: "Introduction"
-description: "What SDL is and how the documentation is organized."
+title: "Documentation"
+description: "Published documentation for SDL's standalone CLI tools and agent workflows."
 ---
 
 SDL is a composable toolkit for plan-oriented agentic engineering. It helps humans and coding agents plan work, implement it in isolated environments, and carry context across sessions.
 
-This documentation site is being rebuilt on Next.js, Fumadocs, and `@vercel/geistdocs`. The initial skeleton is intentionally small; the full published corpus will be restored and rewritten as later migration slices land.
+Each SDL tool is useful on its own. A team can start with worktree slots, Branch Memory, Objectives, PR feedback download helpers, or retrospective evidence without adopting every other part of the system first.
+
+```bash
+just install-slot
+slot init --size 3
+slot checkout feature-x
+```
+
+## Start here
+
+1. [Quickstart](/docs/get-started/quickstart) — create a `slot` pool and check out your first branch-backed worktree.
+2. [Installation](/docs/get-started/installation) — install the standalone tools from an SDL checkout.
+3. [CLI conventions](/docs/concepts/cli-conventions) — learn output formats, exit codes, JSON envelopes, and hidden `exec` commands.
 
 ## What SDL provides
 
-- **Objectives** for durable narrative roadmaps.
-- **Worktree slots** for parallel implementation sessions.
-- **Branch Memory and handoffs** for branch-scoped context.
-- **PR feedback tooling** for classifying and resolving review feedback.
+| Area | Use it for | First page |
+| --- | --- | --- |
+| Worktree slots | Parallel branches without stashing or re-checking out. | [`slot`](/docs/tools/slot) |
+| Branch Memory | Branch-scoped context for plans, handoffs, and skills. | [`brmem`](/docs/tools/brmem) |
+| Objectives | Checked-in narrative roadmap records for long-running work. | [Objectives](/docs/concepts/objectives) |
+| PR feedback | Downloading structured PR review state for agents. | [`pr-address`](/docs/tools/pr-address) |
+| Retrospectives | Deterministic evidence for branch/session recommendations. | [`aretro`](/docs/tools/aretro) |
+| CI findings | Running and publishing configured PR-diff reviews. | [`roaster`](/docs/tools/roaster) |
 
-## Documentation split
+## For agents
 
-Published product documentation lives in this `docs-site/docs/` corpus. The repository-root `docs/` directory remains internal engineering documentation and is not published by this site.
+Agent workflows should prefer stable machine output when a tool provides it. The common pattern is a human-facing top-level command plus a hidden `exec` subgroup for skills and automation. See [CLI conventions](/docs/concepts/cli-conventions) before scripting against a command surface.
