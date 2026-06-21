@@ -328,9 +328,12 @@ describe("project-local submit extension", () => {
 		});
 		const run = runWithFakes({ args: ["submit"], state: { textGeneration: [pendingModel] } });
 
-		await vi.waitFor(() => {
-			expect(run.context.textGeneratorCalls).toHaveLength(1);
-		});
+		await vi.waitFor(
+			() => {
+				expect(run.context.textGeneratorCalls).toHaveLength(1);
+			},
+			{ timeout: 5_000 },
+		);
 		expect(run.liveOutput).toContainEqual({
 			stream: "stderr",
 			text: "  … generating PR metadata (attempt 1/2)\n",

@@ -166,6 +166,7 @@ export function resolveBrmemCommandCandidates(
 	});
 	if (tsWorkspaceRoot === null) return [{ command: "brmem", prefixArgs: [] }];
 	return [
+		{ command: "brmem", prefixArgs: [] },
 		{
 			command: "pnpm",
 			prefixArgs: [
@@ -176,7 +177,6 @@ export function resolveBrmemCommandCandidates(
 				"brmem",
 			],
 		},
-		{ command: "brmem", prefixArgs: [] },
 	];
 }
 
