@@ -2,16 +2,17 @@ import Link from "next/link";
 
 const features = [
   {
-    title: "Lorem ipsum",
-    description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+    title: "Durable plans",
+    description: "Track Objectives, branch context, and handoffs as checked-in or branch-scoped context.",
   },
   {
-    title: "Dolor sit amet",
-    description: "Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+    title: "Parallel branches",
+    description: "Coordinate worktree slots, Graphite stacks, and PR feedback without losing session state.",
   },
   {
-    title: "Consectetur adipiscing",
-    description: "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.",
+    title: "Agent extensions",
+    description: "Browse the local extension surfaces that bring sdl workflows into Pi.",
+    href: "/extensions",
   },
 ];
 
@@ -40,6 +41,12 @@ export default function HomePage() {
           >
             Get started
           </Link>
+          <Link
+            className="rounded-full border px-5 py-2.5 font-medium text-gray-1000 text-sm"
+            href="/extensions"
+          >
+            Browse extensions
+          </Link>
         </div>
       </section>
 
@@ -48,6 +55,14 @@ export default function HomePage() {
           <article className="rounded-2xl border bg-background p-5" key={feature.title}>
             <h2 className="font-semibold text-lg text-gray-1000">{feature.title}</h2>
             <p className="mt-2 text-gray-800 text-sm leading-6">{feature.description}</p>
+            {feature.href ? (
+              <Link
+                className="mt-4 inline-flex font-medium text-blue-700 text-sm underline-offset-4 hover:underline"
+                href={feature.href}
+              >
+                Explore gallery
+              </Link>
+            ) : null}
           </article>
         ))}
       </section>

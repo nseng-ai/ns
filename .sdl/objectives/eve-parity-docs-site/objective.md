@@ -143,9 +143,10 @@ not from a staged preservation artifact.
   otherwise CLIs + Vitest. Increases dependency surface and maintenance. Accepted
   cost of the rip-and-replace decision.
 - **Extensions gallery data source.** The gallery direction is now resolved to
-  extensions, not tools/skills/generic integrations. Remaining risk is choosing a
-  maintainable docs-site-local data/config shape and avoiding a premature shared
-  catalog package.
+  extensions, not tools/skills/generic integrations. The first implementation
+  uses a maintainable docs-site-local data/config module and avoids a premature
+  shared catalog package; remaining risk is only launch-copy depth and whether a
+  future shared source becomes useful after the docs site matures.
 - **Loss of working site during migration.** Deleting the Astro app before the
   Next.js app reaches parity leaves SDL without full published-site parity
   mid-stream. Mitigation is now stronger: the replacement Next.js/geistdocs app
@@ -163,9 +164,10 @@ not from a staged preservation artifact.
   documentation. The standalone app now points `source.config.ts` at
   `docs-site/docs/`, keeping published content inside the app boundary.
 - **Extensions gallery content: resolved to extensions.** The former
-  integrations/gallery open question is now an extensions gallery direction. Do
-  not spend this Objective slice on generic tools, public skills, or broad
-  integration taxonomy unless needed to explain extension entries.
+  integrations/gallery open question is now implemented as an extensions gallery
+  backed by `docs-site/lib/extensions-catalog.ts`. Do not spend this Objective
+  slice on generic tools, public skills, or broad integration taxonomy unless
+  needed to explain extension entries.
 - **Workspace membership: keep standalone.** `docs-site/` remains outside the
   `ts/` workspace with its own lockfile. It has a local `pnpm-workspace.yaml`
   only for pnpm build-script supply-chain policy (`allowBuilds` for `esbuild` and
