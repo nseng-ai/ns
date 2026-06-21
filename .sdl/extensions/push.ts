@@ -1,5 +1,11 @@
-import { defineExtension, failed, ok } from "@sdl/sdl/sdk";
-import type { ExecResult, SdlContext } from "@sdl/sdl/sdk";
+import {
+	commandSucceeded,
+	defineExtension,
+	failed,
+	formatCommandEvidence,
+	ok,
+} from "@sdl/sdl/sdk";
+import type { SdlContext } from "@sdl/sdl/sdk";
 
 const PUSH_TIMEOUT_MS = 120_000;
 
@@ -61,38 +67,6 @@ async function runPush(ctx: SdlContext) {
 			result: pushResult,
 		}),
 	);
-}
-
-function commandSucceeded(result: ExecResult): boolean {
-	return result.code === 0 && !result.killed;
-}
-
-interface FormatCommandEvidenceOptions {
-	intro: string;
-	command: string;
-	cwd: string;
-	result: ExecResult;
-	guidance?: string | undefined;
-}
-
-function formatCommandEvidence(options: FormatCommandEvidenceOptions): string {
-	const sections = [
-		options.intro,
-		`Command: ${options.command}`,
-		`Cwd: ${options.cwd}`,
-		`Exit: ${options.result.code}`,
-		`Killed: ${options.result.killed}`,
-	];
-	if (options.guidance !== undefined) {
-		sections.push(options.guidance);
-	}
-	sections.push(
-		"stdout:",
-		formatOutput(options.result.stdout),
-		"stderr:",
-		formatOutput(options.result.stderr),
-	);
-	return sections.join("\n");
 }
 
 function formatDirtyWorktreeMessage(cwd: string, stdout: string): string {

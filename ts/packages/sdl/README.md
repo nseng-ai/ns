@@ -91,6 +91,7 @@ That SDK subpath is the public author API for SDL extensions. It exposes:
 
 - `defineExtension()` for declaring SDL extension contributions, including commandless extensions and arbitrary-length inline `commands` arrays;
 - `ok()` and `failed()` for returning command results;
+- `commandSucceeded()` and `formatCommandEvidence()` for common command-result evidence formatting;
 - `z` for declaring command schemas through the SDK-owned Zod boundary;
 - `SdlContext` for command execution capabilities;
 - `SdlResult` for success/failure results.

@@ -5,7 +5,8 @@ import { z } from "zod";
 import type { TextGenerator } from "./text-generation.ts";
 
 export type { PositionalSpec } from "@sdl/clinkr/raw";
-export type { ExecResult } from "@sdl/core/exec";
+export { commandSucceeded, formatCommandEvidence } from "@sdl/core/exec";
+export type { ExecResult, FormatCommandEvidenceOptions } from "@sdl/core/exec";
 export { z } from "zod";
 export type {
 	TextGenerator,
