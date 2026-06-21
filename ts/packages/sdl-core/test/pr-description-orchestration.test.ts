@@ -100,7 +100,7 @@ describe("orchestratePrDescription", () => {
 			env: {},
 			git: UNUSED_GIT,
 			githubPr,
-			textGeneration,
+			textGenerator: textGeneration,
 			pr: prDetails({ title: "Prepared title", body: "Prepared body" }),
 			prewrittenMetadata: preparedMetadata({ title: "Prepared title", body: "Prepared body" }),
 		});
@@ -120,7 +120,7 @@ describe("orchestratePrDescription", () => {
 			env: {},
 			git: UNUSED_GIT,
 			githubPr,
-			textGeneration: new ScriptedTextGenerator([]),
+			textGenerator: new ScriptedTextGenerator([]),
 			pr: DEFAULT_PR,
 			prewrittenMetadata: preparedMetadata({ title: "Prepared title", body: "Prepared body" }),
 		});
@@ -149,7 +149,7 @@ describe("orchestratePrDescription", () => {
 			env: {},
 			git: UNUSED_GIT,
 			githubPr,
-			textGeneration,
+			textGenerator: textGeneration,
 			pr: prDetails({ body }),
 			generation: GENERATION,
 		});
@@ -178,7 +178,7 @@ describe("orchestratePrDescription", () => {
 			env: {},
 			git: UNUSED_GIT,
 			githubPr,
-			textGeneration,
+			textGenerator: textGeneration,
 			pr: DEFAULT_PR,
 			generation: GENERATION,
 		});
@@ -212,7 +212,7 @@ describe("orchestratePrDescription", () => {
 			env: {},
 			git: UNUSED_GIT,
 			githubPr,
-			textGeneration,
+			textGenerator: textGeneration,
 			pr: prDetails({ body }),
 			generation: GENERATION,
 			shouldForce: true,

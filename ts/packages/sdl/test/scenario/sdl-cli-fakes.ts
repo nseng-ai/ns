@@ -52,7 +52,7 @@ export class ScriptedSdlTestContext implements SdlContext {
 	readonly cwd: string;
 	readonly env: Record<string, string | undefined>;
 	readonly execCalls: ExecCall[] = [];
-	readonly textGenerationCalls: TextGenerationRequest[] = [];
+	readonly textGeneratorCalls: TextGenerationRequest[] = [];
 	stdout?: ((text: string) => void) | undefined;
 	stderr?: ((text: string) => void) | undefined;
 	onOutput?: ((stream: "stdout" | "stderr", text: string) => void) | undefined;
@@ -89,7 +89,7 @@ export class ScriptedSdlTestContext implements SdlContext {
 
 	readonly textGenerator = {
 		generateText: async (request: TextGenerationRequest): Promise<TextGenerationResult> => {
-			this.textGenerationCalls.push({ ...request });
+			this.textGeneratorCalls.push({ ...request });
 			return await (this.textGenerationResults.shift() ??
 				this.missingTextGenerationResult?.() ?? {
 					ok: false,

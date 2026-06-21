@@ -21,7 +21,7 @@ export interface PrDescriptionOrchestrationOptions {
 	env: Record<string, string | undefined>;
 	git: GitGateway;
 	githubPr: GithubPrGateway;
-	textGeneration: TextGenerator;
+	textGenerator: TextGenerator;
 	pr: GithubPrDetails;
 	generation?: Extract<PrDescriptionGenerationResolution, { ok: true }>;
 	prewrittenMetadata?: PreparedSubmitPrMetadata;
@@ -94,7 +94,7 @@ export async function orchestratePrDescription(
 	if (!commits.ok) return { type: "failed", pr, reason: commits.error.message };
 
 	const prepared = await preparePrDescription({
-		textGeneration: options.textGeneration,
+		textGenerator: options.textGenerator,
 		modelRef: generation.modelRef,
 		promptText: generation.promptText,
 		context: {

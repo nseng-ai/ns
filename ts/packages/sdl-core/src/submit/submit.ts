@@ -191,7 +191,7 @@ export interface SubmitCommandResult {
 
 export interface SubmitPrDescriptionOptions {
 	githubPr: GithubPrGateway;
-	textGeneration: TextGenerator;
+	textGenerator: TextGenerator;
 	git: GitGateway;
 	env: Record<string, string | undefined>;
 }
@@ -410,7 +410,7 @@ export async function runSubmitCommand(
 		env: options.prDescription.env,
 		gateway: options.metadataGateway,
 		git: options.prDescription.git,
-		textGeneration: options.prDescription.textGeneration,
+		textGenerator: options.prDescription.textGenerator,
 		onProgress: (message) => emitSubmitProgress(options, message),
 	});
 	if (prewrite.kind === "failed") {

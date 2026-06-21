@@ -1,4 +1,4 @@
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { copyFileSync, cpSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,6 +18,9 @@ import {
 const AUTOBRANCH_EXTENSION_SOURCE = fileURLToPath(
 	new URL("../../../../../.sdl/extensions/autobranch.ts", import.meta.url),
 );
+const SHARED_EXTENSION_HELPERS_SOURCE = fileURLToPath(
+	new URL("../../../../../.sdl/extensions/shared", import.meta.url),
+);
 const tempProjectDirs: string[] = [];
 const CHECKPOINT_MESSAGE = "[cp] Move pending work\n\n- Preserve current changes";
 const HEAD_SHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -29,6 +32,9 @@ function createAutobranchProject(): string {
 	const extensionPath = join(directory, ".sdl", "extensions", "autobranch.ts");
 	mkdirSync(dirname(extensionPath), { recursive: true });
 	copyFileSync(AUTOBRANCH_EXTENSION_SOURCE, extensionPath);
+	cpSync(SHARED_EXTENSION_HELPERS_SOURCE, join(directory, ".sdl", "extensions", "shared"), {
+		recursive: true,
+	});
 	return directory;
 }
 
@@ -165,7 +171,7 @@ describe("sdl autobranch CLI availability", () => {
 			expect(run.stdout.join("")).toBe("");
 			expect(run.stderr.join("")).toMatch(/too many arguments|unknown/i);
 			expect(run.context.execCalls).toEqual([]);
-			expect(run.context.textGenerationCalls).toEqual([]);
+			expect(run.context.textGeneratorCalls).toEqual([]);
 		}
 	});
 
@@ -229,8 +235,8 @@ describe("project-local autobranch extension", () => {
 			"git status --porcelain=v1",
 		]);
 		expect(run.context.execCalls.some((call) => call.command === "pi")).toBe(false);
-		expect(run.context.textGenerationCalls).toHaveLength(1);
-		expect(run.context.textGenerationCalls[0]).toMatchObject({
+		expect(run.context.textGeneratorCalls).toHaveLength(1);
+		expect(run.context.textGeneratorCalls[0]).toMatchObject({
 			operation: "checkpoint-message",
 			modelRef: "openai-codex/gpt-5.4-mini",
 		});
@@ -265,7 +271,7 @@ describe("project-local autobranch extension", () => {
 				"git branch -D autobranch-backup/feature/source/123456789",
 			]),
 		);
-		expect(run.context.textGenerationCalls).toEqual([]);
+		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
 	test("writes latest-commit recovery cleanup warnings to stderr only", async () => {
@@ -301,6 +307,6 @@ describe("project-local autobranch extension", () => {
 		expect(run.stdout.join("")).toBe("");
 		expect(run.stderr.join("")).toContain("Not inside a git repository.");
 		expect(run.stderr.join("")).toContain("fatal: not a git repo");
-		expect(run.context.textGenerationCalls).toEqual([]);
+		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 });

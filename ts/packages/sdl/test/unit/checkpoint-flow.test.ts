@@ -115,28 +115,28 @@ describe("buildCheckpointUserPrompt", () => {
 
 describe("prepareCheckpointMessage", () => {
 	test("valid first model draft returns after one generation call", async () => {
-		const textGeneration = new ScriptedTextGenerator([{ ok: true, text: validMessage }]);
+		const textGenerator = new ScriptedTextGenerator([{ ok: true, text: validMessage }]);
 
 		const result = await prepareCheckpointMessage({
 			status: " M file.ts\n",
 			diff: "diff",
 			modelRef: "openai-codex/gpt-5.4-mini",
-			textGeneration,
+			textGenerator,
 		});
 
 		expect(result).toEqual({ ok: true, message: validMessage, source: "model" });
-		expect(textGeneration.calls).toHaveLength(1);
-		expect(textGeneration.calls[0]).toMatchObject({
+		expect(textGenerator.calls).toHaveLength(1);
+		expect(textGenerator.calls[0]).toMatchObject({
 			modelRef: "openai-codex/gpt-5.4-mini",
 			operation: "checkpoint-message",
 			maxTokens: 512,
 			reasoning: "low",
 		});
-		expect(textGeneration.calls[0]?.prompt).toContain("## git status --porcelain\n\n M file.ts");
+		expect(textGenerator.calls[0]?.prompt).toContain("## git status --porcelain\n\n M file.ts");
 	});
 
 	test("invalid first draft sends validation feedback and accepts repaired draft", async () => {
-		const textGeneration = new ScriptedTextGenerator([
+		const textGenerator = new ScriptedTextGenerator([
 			{ ok: true, text: fourBulletMessage },
 			{ ok: true, text: validMessage },
 		]);
@@ -145,7 +145,7 @@ describe("prepareCheckpointMessage", () => {
 			status: " M file.ts\n",
 			diff: "diff",
 			modelRef: "openai-codex/gpt-5.4-mini",
-			textGeneration,
+			textGenerator,
 		});
 
 		expect(result.ok).toBe(true);
@@ -153,16 +153,16 @@ describe("prepareCheckpointMessage", () => {
 			expect(result.source).toBe("repaired_model");
 			expect(result.feedback).toContain("too_many_bullets");
 		}
-		expect(textGeneration.calls).toHaveLength(2);
-		expect(textGeneration.calls[1]?.prompt).toContain("## previous invalid draft");
-		expect(textGeneration.calls[1]?.prompt).toContain(fourBulletMessage);
-		expect(textGeneration.calls[1]?.prompt).toContain("## validation feedback");
-		expect(textGeneration.calls[1]?.prompt).toContain("too_many_bullets");
-		expect(textGeneration.calls[1]?.prompt).not.toContain("deterministic validation feedback");
+		expect(textGenerator.calls).toHaveLength(2);
+		expect(textGenerator.calls[1]?.prompt).toContain("## previous invalid draft");
+		expect(textGenerator.calls[1]?.prompt).toContain(fourBulletMessage);
+		expect(textGenerator.calls[1]?.prompt).toContain("## validation feedback");
+		expect(textGenerator.calls[1]?.prompt).toContain("too_many_bullets");
+		expect(textGenerator.calls[1]?.prompt).not.toContain("deterministic validation feedback");
 	});
 
 	test("repair prompt for large diff stays compacted", async () => {
-		const textGeneration = new ScriptedTextGenerator([
+		const textGenerator = new ScriptedTextGenerator([
 			{ ok: true, text: fourBulletMessage },
 			{ ok: true, text: validMessage },
 		]);
@@ -171,24 +171,24 @@ describe("prepareCheckpointMessage", () => {
 			status: " M src/large-one.ts\n M src/large-two.ts\n",
 			diff: largeDiffWithSentinel(),
 			modelRef: "openai-codex/gpt-5.4-mini",
-			textGeneration,
+			textGenerator,
 		});
 
 		expect(result.ok).toBe(true);
-		expect(textGeneration.calls).toHaveLength(2);
-		for (const call of textGeneration.calls) {
+		expect(textGenerator.calls).toHaveLength(2);
+		for (const call of textGenerator.calls) {
 			expect(call.prompt.length).toBeLessThan(27_000);
 			expect(call.prompt).toContain("Large diff compacted for checkpoint message generation.");
 			expect(call.prompt).toContain("- src/large-one.ts");
 			expect(call.prompt).not.toContain("FULL_DIFF_SENTINEL_SHOULD_NOT_APPEAR");
 		}
-		expect(textGeneration.calls[1]?.prompt).toContain("## previous invalid draft");
-		expect(textGeneration.calls[1]?.prompt).toContain("## validation feedback");
+		expect(textGenerator.calls[1]?.prompt).toContain("## previous invalid draft");
+		expect(textGenerator.calls[1]?.prompt).toContain("## validation feedback");
 	});
 
 	test("repair prompt caps oversized invalid model output", async () => {
 		const oversizedInvalidDraft = `not a checkpoint message ${"q".repeat(30_000)}\nREPAIR_DRAFT_SENTINEL_SHOULD_NOT_APPEAR`;
-		const textGeneration = new ScriptedTextGenerator([
+		const textGenerator = new ScriptedTextGenerator([
 			{ ok: true, text: oversizedInvalidDraft },
 			{ ok: true, text: validMessage },
 		]);
@@ -197,11 +197,11 @@ describe("prepareCheckpointMessage", () => {
 			status: " M file.ts\n",
 			diff: "diff --git a/file.ts b/file.ts\n+code\n",
 			modelRef: "openai-codex/gpt-5.4-mini",
-			textGeneration,
+			textGenerator,
 		});
 
 		expect(result.ok).toBe(true);
-		const repairPrompt = textGeneration.calls[1]?.prompt ?? "";
+		const repairPrompt = textGenerator.calls[1]?.prompt ?? "";
 		expect(repairPrompt.length).toBeLessThan(35_000);
 		expect(repairPrompt).toContain("[... omitted ");
 		expect(repairPrompt).toContain("chars from previous invalid draft");
@@ -210,7 +210,7 @@ describe("prepareCheckpointMessage", () => {
 	});
 
 	test("invalid first and second drafts return failure instead of template recovery", async () => {
-		const textGeneration = new ScriptedTextGenerator([
+		const textGenerator = new ScriptedTextGenerator([
 			{ ok: true, text: fourBulletMessage },
 			{ ok: true, text: "still invalid" },
 		]);
@@ -219,7 +219,7 @@ describe("prepareCheckpointMessage", () => {
 			status: " M extensions/cp.ts\n",
 			diff: "diff --git a/extensions/cp.ts b/extensions/cp.ts\n",
 			modelRef: "openai-codex/gpt-5.4-mini",
-			textGeneration,
+			textGenerator,
 		});
 
 		expect(result.ok).toBe(false);
@@ -229,25 +229,25 @@ describe("prepareCheckpointMessage", () => {
 			);
 			expect(result.error).toContain("missing_cp_prefix");
 		}
-		expect(textGeneration.calls).toHaveLength(2);
+		expect(textGenerator.calls).toHaveLength(2);
 	});
 
 	test("first-call generation error returns failure", async () => {
-		const textGeneration = new ScriptedTextGenerator([{ ok: false, error: "auth failed" }]);
+		const textGenerator = new ScriptedTextGenerator([{ ok: false, error: "auth failed" }]);
 
 		const result = await prepareCheckpointMessage({
 			status: " M file.ts\n",
 			diff: "diff",
 			modelRef: "openai-codex/gpt-5.4-mini",
-			textGeneration,
+			textGenerator,
 		});
 
 		expect(result).toEqual({ ok: false, error: "auth failed" });
-		expect(textGeneration.calls).toHaveLength(1);
+		expect(textGenerator.calls).toHaveLength(1);
 	});
 
 	test("second-call generation error returns failure", async () => {
-		const textGeneration = new ScriptedTextGenerator([
+		const textGenerator = new ScriptedTextGenerator([
 			{ ok: true, text: fourBulletMessage },
 			{ ok: false, error: "model unavailable" },
 		]);
@@ -256,11 +256,11 @@ describe("prepareCheckpointMessage", () => {
 			status: " M extensions/cp.ts\n",
 			diff: "diff --git a/extensions/cp.ts b/extensions/cp.ts\n",
 			modelRef: "openai-codex/gpt-5.4-mini",
-			textGeneration,
+			textGenerator,
 		});
 
 		expect(result).toEqual({ ok: false, error: "model unavailable" });
-		expect(textGeneration.calls).toHaveLength(2);
+		expect(textGenerator.calls).toHaveLength(2);
 	});
 });
 

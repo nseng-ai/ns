@@ -1,4 +1,5 @@
 import { defineExtension, failed, ok } from "@sdl/sdl/sdk";
+import { draftChangesSummary } from "./shared/text-helpers.ts";
 import type { ExecResult, SdlContext } from "@sdl/sdl/sdk";
 
 // This project-local extension intentionally uses only the public SDL SDK import. The local
@@ -62,7 +63,12 @@ export default defineExtension({
           return ok("Working tree is clean; no outstanding changes.");
         }
 
-        const summary = await draftChangesSummary(ctx, snapshot);
+        const summary = await draftChangesSummary({
+          textGenerator: ctx.textGenerator,
+          env: ctx.env,
+          snapshot,
+          modelRef: selectChangesModelRef(ctx.env),
+        });
         if (!summary.ok) {
           return failed(summary.error, 2);
         }
@@ -114,25 +120,6 @@ function execGit(ctx: SdlContext, args: string[]): Promise<ExecResult> {
   return ctx.exec("git", args, { timeoutMs: GIT_FACT_TIMEOUT_MS });
 }
 
-async function draftChangesSummary(
-  ctx: SdlContext,
-  snapshot: Pick<PendingWorktreeSnapshot, "branch" | "status" | "diff">,
-): Promise<{ ok: true; summaryText: string } | { ok: false; error: string }> {
-  const drafted = await ctx.textGenerator.generateText({
-    modelRef: selectChangesModelRef(ctx.env),
-    system: CHANGES_SUMMARY_SYSTEM_PROMPT,
-    prompt: buildChangesUserPrompt(snapshot),
-    maxTokens: CHANGES_SUMMARY_MAX_TOKENS,
-    reasoning: "low",
-    operation: "changes-summary",
-  });
-  if (!drafted.ok) {
-    return { ok: false, error: drafted.error };
-  }
-
-  return validateChangesSummary(drafted.text);
-}
-
 function selectChangesModelRef(env: Record<string, string | undefined>): string {
   return (
     firstEnvValue(env, CHANGES_MODEL_ENV, LEGACY_CHANGES_MODEL_ENV) ?? DEFAULT_CHANGES_MODEL_REF
@@ -150,76 +137,6 @@ function firstEnvValue(
     }
   }
   return undefined;
-}
-
-function buildChangesUserPrompt(
-  snapshot: Pick<PendingWorktreeSnapshot, "branch" | "status" | "diff">,
-): string {
-  return `Summarize the outstanding changes in this worktree for a reviewer.\n\n## branch\n\n${snapshot.branch}\n\n## git status --porcelain=v1\n\n${snapshot.status.trim() || "(clean)"}\n\n## git diff HEAD\n\n${snapshot.diff.trim() || "(no tracked diff; rely on untracked filenames in status)"}\n`;
-}
-
-function validateChangesSummary(
-  output: string,
-): { ok: true; summaryText: string } | { ok: false; error: string } {
-  const normalized = normalizeChangesSummary(output);
-  if (normalized.trim().length === 0) {
-    return { ok: false, error: INVALID_SUMMARY_ERROR };
-  }
-
-  if (normalized.includes("[cp]")) {
-    return { ok: false, error: INVALID_SUMMARY_ERROR };
-  }
-
-  const nonEmptyLines = normalized
-    .split("\n")
-    .map((line) => line.trimEnd())
-    .filter((line) => line.trim().length > 0);
-  if (nonEmptyLines.length === 0) {
-    return { ok: false, error: INVALID_SUMMARY_ERROR };
-  }
-  if (nonEmptyLines.some((line) => line.trim().startsWith("```"))) {
-    return { ok: false, error: INVALID_SUMMARY_ERROR };
-  }
-  if (nonEmptyLines.some((line) => !line.startsWith("- "))) {
-    return { ok: false, error: INVALID_SUMMARY_ERROR };
-  }
-  if (nonEmptyLines.length > CHANGES_SUMMARY_MAX_BULLETS) {
-    return { ok: false, error: INVALID_SUMMARY_ERROR };
-  }
-
-  return { ok: true, summaryText: nonEmptyLines.join("\n") };
-}
-
-function normalizeChangesSummary(output: string): string {
-  const withoutCarriageReturns = output.replace(/\r\n?/g, "\n");
-  const trimmed = trimOuterBlankLines(withoutCarriageReturns);
-  return stripOuterCodeFence(trimmed);
-}
-
-function trimOuterBlankLines(text: string): string {
-  const lines = text.split("\n");
-  let start = 0;
-  let end = lines.length;
-  while (start < end && lines[start]?.trim() === "") {
-    start += 1;
-  }
-  while (end > start && lines[end - 1]?.trim() === "") {
-    end -= 1;
-  }
-  return lines.slice(start, end).join("\n");
-}
-
-function stripOuterCodeFence(text: string): string {
-  const lines = text.split("\n");
-  if (lines.length < 2) {
-    return text;
-  }
-  const firstLine = lines[0]?.trim() ?? "";
-  const lastLine = lines[lines.length - 1]?.trim() ?? "";
-  if (!/^```[a-zA-Z0-9_-]*$/.test(firstLine) || lastLine !== "```") {
-    return text;
-  }
-  return trimOuterBlankLines(lines.slice(1, -1).join("\n"));
 }
 
 function formatOutstandingChangesMessage(

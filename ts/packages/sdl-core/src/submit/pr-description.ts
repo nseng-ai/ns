@@ -382,7 +382,7 @@ export function formatPrDescriptionValidationFeedback(
 }
 
 export async function preparePrDescription(input: {
-	textGeneration: TextGenerator;
+	textGenerator: TextGenerator;
 	modelRef: string;
 	promptText: string;
 	context: PrDescriptionPromptContext;
@@ -393,7 +393,7 @@ export async function preparePrDescription(input: {
 		noun: "PR description",
 		initialPrompt: firstPrompt,
 		generate: (prompt) =>
-			generatePrDescriptionText(input.textGeneration, input.modelRef, input.promptText, prompt),
+			generatePrDescriptionText(input.textGenerator, input.modelRef, input.promptText, prompt),
 		validate: (text) => {
 			const validation = parsePrDescriptionOutput(text);
 			if (validation.ok) return { ok: true, value: validation.description };
@@ -546,12 +546,12 @@ async function isReadableFile(path: string): Promise<boolean> {
 }
 
 async function generatePrDescriptionText(
-	textGeneration: TextGenerator,
+	textGenerator: TextGenerator,
 	modelRef: string,
 	system: string,
 	prompt: string,
 ): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
-	return textGeneration.generateText({
+	return textGenerator.generateText({
 		modelRef,
 		system,
 		prompt,
