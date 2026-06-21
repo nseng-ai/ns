@@ -145,7 +145,9 @@ Risks:
   in-process `@sdl/brmem` gateway, its subprocess/JSON parse layer is gone, the
   dry-run preview no longer claims a `brmem put` command will run, and CLI
   scenario tests cover attach/list/get/check/delete failure diagnostics. The
-  separate `@sdl/core/brmem-cli` candidate-framework collapse remains open.
+  related `@sdl/core/brmem-cli` candidate-framework collapse has landed in the
+  current stack; the remaining known cleanup in that row is the
+  `readOptionalBrmemBooleanField` dead export.
 - A shared `defineCli` helper touches all 15 CLIs at once; a subtle change to
   IO/exit-code/entry-guard semantics could regress every CLI simultaneously.
   Mitigate by landing it behind scenario-test coverage of `--version`,
