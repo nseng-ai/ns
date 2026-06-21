@@ -3,7 +3,7 @@ import { Navbar } from "@vercel/geistdocs/navbar";
 import type { Metadata } from "next";
 import { Footer } from "@/components/geistdocs/footer";
 import { SiteProviders } from "@/components/geistdocs/provider";
-import { config } from "@/lib/geistdocs/config";
+import { geistdocsConfig } from "@/lib/geistdocs/config";
 import { mono, sans } from "@/lib/geistdocs/fonts";
 import { getSiteOrigin } from "@/lib/geistdocs/url";
 import { cn } from "@/lib/utils";
@@ -27,9 +27,9 @@ export default async function Layout({ children, params }: LayoutProps<"/[lang]"
     >
       <body>
         <SiteProviders lang={lang}>
-          <Navbar config={config} />
+          <Navbar config={geistdocsConfig} />
           {children}
-          <Footer config={config} />
+          <Footer config={geistdocsConfig} />
         </SiteProviders>
       </body>
     </html>

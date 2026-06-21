@@ -37,8 +37,8 @@ ts-lint-fix: ts-install
 ts-check: ts-install
     {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run check
 
-ts-guard:
-    node {{justfile_directory()}}/ts/scripts/guard-no-as-unknown-as.mjs
+ts-guard: ts-install
+    node {{justfile_directory()}}/ts/scripts/guard-typescript-style.mjs
 
 ts-test: ts-install
     {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run test

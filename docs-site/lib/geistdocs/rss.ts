@@ -1,6 +1,6 @@
 import { Feed } from "feed";
 import { title } from "@/geistdocs";
-import { config } from "@/lib/geistdocs/config";
+import { geistdocsConfig } from "@/lib/geistdocs/config";
 import { source } from "@/lib/geistdocs/source";
 import { getSiteOrigin } from "@/lib/geistdocs/url";
 
@@ -10,7 +10,7 @@ interface RssPageData {
   title?: string;
 }
 
-export function buildRssResponse(lang = config.defaultLanguage): Response {
+export function buildRssResponse(lang = geistdocsConfig.defaultLanguage): Response {
   const baseUrl = getSiteOrigin();
   const feed = new Feed({
     title,

@@ -79,18 +79,31 @@ This is intentional. Do not copy rules from projects that ban this pattern unles
 sdl's `exactOptionalPropertyTypes` contract. Under this setting, `{ env: undefined }` is not equivalent
 to omitting `env`.
 
-## Hard ban: `as unknown as`
+## Hard bans enforced by `just ts-guard`
 
-`as unknown as T` is banned everywhere in TypeScript, including tests. It launders the type instead of
-modeling the fixture or boundary honestly.
+The repository TypeScript guard runs an adversarial self-review and enforces these uniquely greppable
+rules:
 
-Preferred fixes:
+- `SDL_TS_BAN_AS_UNKNOWN_AS`: `as unknown as T` is banned everywhere in TypeScript, including tests. It
+  launders the type instead of modeling the fixture or boundary honestly.
+- `SDL_TS_BAN_IMPORT_ALIAS_FOR_FIRST_PARTY`: first-party import aliases are banned for relative imports,
+  `@sdl/*` workspace packages, and project-local aliases such as docs-site `@/`. Preserve source names so
+  `rg SymbolName` remains reliable. Third-party import aliases are allowed when used consistently.
+- `SDL_TS_BAN_EMPTY_INTERFACE_EXTENDS`: empty `interface X extends Y {}` aliases are banned. Use
+  `type X = Y` unless the interface adds real members.
+
+Review-only hard ban: `SDL_TS_BAN_IMPORTED_BINDING_LOCAL_ALIAS` means do not work around alias bans with
+`const LocalName = ImportedName`; use the first-party source name or a third-party import alias. This is
+not enforced mechanically because legitimate constants can share the same AST shape.
+
+Preferred fixes for unsafe casts and empty aliases:
 
 - build a complete typed object;
 - add a small typed `make*` fixture helper;
 - derive the type from the source of truth;
 - add a narrow runtime assertion at the boundary;
-- isolate a single library-forced cast with a comment only when the external type truly requires it.
+- isolate a single library-forced cast with a comment only when the external type truly requires it;
+- replace empty interface-extension aliases with direct `type` aliases.
 
 Run the TypeScript validation gates before declaring TypeScript work done:
 

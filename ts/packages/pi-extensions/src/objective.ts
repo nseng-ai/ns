@@ -83,7 +83,7 @@ interface InvokeObjectiveCreateSkillOptions {
 	rawArgs: string;
 }
 
-interface HandleObjectiveCreateCommandOptions extends InvokeObjectiveCreateSkillOptions {}
+type HandleObjectiveCreateCommandOptions = InvokeObjectiveCreateSkillOptions;
 
 export interface ObjectiveListParsedArgs {
 	args: string[];

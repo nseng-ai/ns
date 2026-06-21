@@ -48,7 +48,7 @@ interface StackMapGraphEdge {
 	readonly child: string;
 }
 
-interface StackMapGraphSlot extends StackMapSlotAssignment {}
+type StackMapGraphSlot = StackMapSlotAssignment;
 
 export async function loadStackMapModel(
 	options: LoadStackMapModelOptions = {},

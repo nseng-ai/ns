@@ -1,9 +1,11 @@
 import type { PositionalSpec } from "@sdl/clinkr/raw";
+import type { ExecResult } from "@sdl/core/exec";
 import { z } from "zod";
 
 import type { TextGenerationGateway } from "./text-generation.ts";
 
 export type { PositionalSpec } from "@sdl/clinkr/raw";
+export type { ExecResult } from "@sdl/core/exec";
 export { z } from "zod";
 export type {
 	TextGenerationGateway,
@@ -16,13 +18,6 @@ export interface SdlExecOptions {
 	stdin?: string | undefined;
 	onStdout?: ((text: string) => void) | undefined;
 	onStderr?: ((text: string) => void) | undefined;
-}
-
-export interface ExecResult {
-	code: number;
-	stdout: string;
-	stderr: string;
-	killed: boolean;
 }
 
 export type SdlOutputStream = "stdout" | "stderr";

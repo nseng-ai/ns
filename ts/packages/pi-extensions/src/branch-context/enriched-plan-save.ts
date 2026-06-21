@@ -1,15 +1,12 @@
 import type { Stats } from "node:fs";
 import { lstat, readFile } from "node:fs/promises";
-import * as path from "node:path";
+import { join } from "node:path";
 
 import { Text } from "@earendil-works/pi-tui";
 import { piExecApiToCommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@sdl/core/git";
 import { formatErrorMessage } from "@sdl/core/primitives";
-import {
-	WRITE_GRILLED_PLAN_COMMAND_NAME as SHARED_WRITE_GRILLED_PLAN_COMMAND_NAME,
-	WRITE_PLAN_COMMAND_NAME as SHARED_WRITE_PLAN_COMMAND_NAME,
-} from "@sdl/pi-command-surfaces";
+import { WRITE_GRILLED_PLAN_COMMAND_NAME, WRITE_PLAN_COMMAND_NAME } from "@sdl/pi-command-surfaces";
 import {
 	WRITE_SAVED_PLAN_FILE_TOOL_NAME,
 	deriveSavedPlanContentSlug,
@@ -30,8 +27,7 @@ import type {
 	ToolUpdateHandler,
 } from "./host-types.ts";
 
-export const WRITE_PLAN_COMMAND_NAME = SHARED_WRITE_PLAN_COMMAND_NAME;
-export const WRITE_GRILLED_PLAN_COMMAND_NAME = SHARED_WRITE_GRILLED_PLAN_COMMAND_NAME;
+export { WRITE_GRILLED_PLAN_COMMAND_NAME, WRITE_PLAN_COMMAND_NAME } from "@sdl/pi-command-surfaces";
 const WRITE_PLAN_TOOL_STATUS_KEY = WRITE_PLAN_COMMAND_NAME;
 
 interface WriteSavedPlanFileToolParams {
@@ -210,8 +206,8 @@ async function resolveGitRoot(
 async function readRepoWritePlanPromptBody(
 	repoRoot: string,
 ): Promise<WritePlanPromptBodyResolution> {
-	const sdlPath = path.join(repoRoot, ".sdl");
-	const promptDir = path.join(sdlPath, "prompts");
+	const sdlPath = join(repoRoot, ".sdl");
+	const promptDir = join(sdlPath, "prompts");
 	const promptPath = repoPromptPath(repoRoot);
 	await assertSafeDirectory(sdlPath, ".sdl");
 	await assertSafeDirectory(promptDir, ".sdl/prompts");
@@ -247,7 +243,7 @@ async function assertNotSymlink(targetPath: string, label: string): Promise<Stat
 }
 
 function repoPromptPath(repoRoot: string): string {
-	return path.join(repoRoot, ".sdl", "prompts", `${WRITE_PLAN_PROMPT_NAME}.md`);
+	return join(repoRoot, ".sdl", "prompts", `${WRITE_PLAN_PROMPT_NAME}.md`);
 }
 
 export async function handleWritePlanCommand(

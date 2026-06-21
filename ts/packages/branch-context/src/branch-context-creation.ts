@@ -350,7 +350,7 @@ interface CreatePlainGitBranchOptions {
 	signal: AbortSignal | undefined;
 }
 
-interface CreateGraphiteBranchOptions extends CreatePlainGitBranchOptions {}
+type CreateGraphiteBranchOptions = CreatePlainGitBranchOptions;
 
 async function createBranchContext(
 	git: GitGateway,

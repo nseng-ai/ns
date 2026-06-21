@@ -1,9 +1,9 @@
 import { createSitemapMarkdownRoute } from "@vercel/geistdocs/routes/sitemap";
-import { config } from "@/lib/geistdocs/config";
+import { geistdocsConfig } from "@/lib/geistdocs/config";
 import { geistdocsSource } from "@/lib/geistdocs/source";
 
 const sitemapMarkdownRoute = createSitemapMarkdownRoute({
-  config,
+  config: geistdocsConfig,
   sources: [{ source: geistdocsSource }],
 });
 

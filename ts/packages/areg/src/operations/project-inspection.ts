@@ -43,8 +43,7 @@ export interface AregSkillKindProjectInspection {
 	skills: readonly AregSkillKindSkillInspection[];
 }
 
-export interface AregInitProjectInspection
-	extends AregProjectBaseInspection, AregInstructionFilesInspection {}
+export type AregInitProjectInspection = AregProjectBaseInspection & AregInstructionFilesInspection;
 
 export async function inspectInitProject(
 	ctx: AregCliContext,

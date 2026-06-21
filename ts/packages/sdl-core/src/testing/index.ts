@@ -77,7 +77,7 @@ export interface ManualTimerHarness extends ManualTimerScheduler {
 	nowMs(): number;
 }
 
-export interface StepOptions extends ResultFields {}
+export type StepOptions = ResultFields;
 
 export interface ScriptStep extends ResultFields {
 	readonly command: string;

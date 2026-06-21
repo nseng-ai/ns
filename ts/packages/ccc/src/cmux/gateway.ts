@@ -56,7 +56,7 @@ export interface CmuxCreatedSurface {
 	workspaceId?: string;
 }
 
-export interface IdentifyCmuxCallerParams extends CmuxCommandContext {}
+export type IdentifyCmuxCallerParams = CmuxCommandContext;
 
 export interface CreateCmuxTerminalSurfaceParams extends CmuxCommandContext {
 	caller: CmuxCallerContext;

@@ -1,6 +1,6 @@
 import { createProxy, type GeistdocsProxyContext } from "@vercel/geistdocs/proxy";
 import { NextResponse } from "next/server";
-import { config as geistdocsConfig } from "@/lib/geistdocs/config";
+import { geistdocsConfig } from "@/lib/geistdocs/config";
 import { isLocalizedMachineRoute } from "@/lib/geistdocs/machine-routes";
 import { trackMdRequest } from "@/lib/geistdocs/md-tracking";
 

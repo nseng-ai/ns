@@ -1,6 +1,6 @@
 import {
-	loadRoastReviewDefinition as loadCanonicalRoastReviewDefinition,
-	loadRoastSkillEntries as loadCanonicalRoastSkillEntries,
+	loadRoastReviewDefinition,
+	loadRoastSkillEntries,
 	roastReviewPathForKey,
 	type RoastReviewLoadResult,
 	type RoastSkillEntry,
@@ -19,7 +19,7 @@ export type LoadRoastReviewDefinition = (
 	request: RoastReviewDefinitionLoadRequest,
 ) => Promise<RoastReviewLoadResult>;
 
-export type LoadRoastSkillEntries = typeof loadCanonicalRoastSkillEntries;
+export type LoadRoastSkillEntries = typeof loadRoastSkillEntries;
 
 export interface LoadRoastSkillEntriesOrThrowOptions {
 	readonly cwd?: string | undefined;
@@ -53,7 +53,7 @@ export default async function roastExtension(
 			loadEntries: options.loadEntries,
 			failureContext: "Roaster roast catalog",
 		}));
-	const loadReviewDefinition = options.loadReviewDefinition ?? loadCanonicalRoastReviewDefinition;
+	const loadReviewDefinition = options.loadReviewDefinition ?? loadRoastReviewDefinition;
 	for (const entry of entries) {
 		pi.registerCommand(entry.surface, {
 			description: `${entry.label} — ${entry.description}`,
@@ -73,7 +73,7 @@ export function roastParityForEntries(
 export async function loadRoastSkillEntriesOrThrow(
 	options: LoadRoastSkillEntriesOrThrowOptions,
 ): Promise<readonly RoastSkillEntry[]> {
-	const loadEntries = options.loadEntries ?? loadCanonicalRoastSkillEntries;
+	const loadEntries = options.loadEntries ?? loadRoastSkillEntries;
 	const loaded = await loadEntries({ cwd: options.cwd ?? process.cwd() });
 	if (loaded.type === "error") {
 		throw new Error(`Could not load ${options.failureContext}: ${loaded.error.message}`);
