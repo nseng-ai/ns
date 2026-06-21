@@ -99,6 +99,17 @@ describe("runSdlccCli", () => {
 		expect(run.startCalls).toEqual([]);
 	});
 
+	test("prints runtime diagnostics without starting the TUI", async () => {
+		const run = runWithFakes(["--runtime"]);
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe(
+			"runtime: bun\nentry_point: sdlcc bin sdlcc -> ts/packages/sdlcc/src/cli.ts\n",
+		);
+		expect(run.stderr).toEqual([]);
+		expect(run.startCalls).toEqual([]);
+	});
+
 	test("rejects unknown commands without starting the TUI", async () => {
 		const run = runWithFakes(["not-a-command"]);
 
