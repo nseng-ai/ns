@@ -1,4 +1,6 @@
-import { basename } from "node:path";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { basename, join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
@@ -256,64 +258,121 @@ describe("worktree status extension registration and rendering", () => {
 		await pi.sessionShutdown?.();
 	});
 
-	test("custom footer formats slot identity and truncates nested path before branch", async () => {
-		const worktreeRoot = "/tmp/.slots/repos/sdl-tools/worktrees/slot-02";
-		const nestedCwd = `${worktreeRoot}/ts/界面/pi-extensions`;
-		const pi = new LifecycleFakePi([]);
-		const statuses = new Map<string, string>();
-		let footerFactory: Parameters<NonNullable<ExtensionContext["ui"]["setFooter"]>>[0];
-		const ctx = testContext({
-			cwd: worktreeRoot,
-			sessionCwd: nestedCwd,
-			statuses,
-			setFooter(factory) {
-				footerFactory = factory;
-			},
-			model: { id: "test-model", contextWindow: 272000 },
-		});
-		const loaders = fakeWorktreeStatusLoaders({
-			footerBranch: "feature/slot-identity",
-			localStatuses: [
-				queued(
-					localStatus({
-						identity: worktreeIdentity({
-							cwd: worktreeRoot,
-							head: { type: "branch", name: "feature/slot-identity" },
+	test("custom footer formats generic linked worktree identity and truncates nested path before branch", async () => {
+		const fixture = createLinkedWorktreeFixture("feature-wt");
+		const worktreeRoot = fixture.worktreeRoot;
+		const nestedCwd = join(worktreeRoot, "ts", "界面", "pi-extensions");
+		mkdirSync(nestedCwd, { recursive: true });
+		try {
+			const pi = new LifecycleFakePi([]);
+			const statuses = new Map<string, string>();
+			let footerFactory: Parameters<NonNullable<ExtensionContext["ui"]["setFooter"]>>[0];
+			const ctx = testContext({
+				cwd: worktreeRoot,
+				sessionCwd: nestedCwd,
+				statuses,
+				setFooter(factory) {
+					footerFactory = factory;
+				},
+				model: { id: "test-model", contextWindow: 272000 },
+			});
+			const loaders = fakeWorktreeStatusLoaders({
+				footerBranch: "feature/generic-worktree",
+				localStatuses: [
+					queued(
+						localStatus({
+							identity: worktreeIdentity({
+								cwd: worktreeRoot,
+								head: { type: "branch", name: "feature/generic-worktree" },
+							}),
+							gt: gtStatus({ down: "-", commits: { type: "unknown" }, dirty: "yes" }),
 						}),
-						gt: gtStatus({ down: "-", commits: { type: "unknown" }, dirty: "yes" }),
-					}),
-				),
-			],
-		});
+					),
+				],
+			});
 
-		worktreeStatusExtension(pi as ExtensionAPI, { loaders });
-		await pi.sessionStart?.({}, ctx);
+			worktreeStatusExtension(pi as ExtensionAPI, { loaders });
+			await pi.sessionStart?.({}, ctx);
 
-		pi.assertDone();
-		expect(footerFactory).toBeDefined();
-		if (footerFactory === undefined) throw new Error("expected custom footer factory");
-		const footer = footerFactory(
-			{ requestRender() {} },
-			TEST_THEME,
-			footerData(statuses, "stale-branch"),
-		);
+			pi.assertDone();
+			expect(footerFactory).toBeDefined();
+			if (footerFactory === undefined) throw new Error("expected custom footer factory");
+			const footer = footerFactory(
+				{ requestRender() {} },
+				TEST_THEME,
+				footerData(statuses, "stale-branch"),
+			);
 
-		const wideFooterRaw = footer.render(200)[0] ?? "";
-		expect(wideFooterRaw).toContain("\x1B[36msdl-tools\x1B[39m");
-		expect(wideFooterRaw).toContain("\x1B[36mslot-02\x1B[39m");
-		expect(wideFooterRaw).toContain("\x1B[36mts/界面/pi-extensions\x1B[39m");
-		expect(wideFooterRaw).toContain("\x1B[31m✗\x1B[39m");
-		const wideFooter = stripTerminalEscapes(wideFooterRaw);
-		expect(wideFooter).toBe(
-			"[wt] repo:sdl-tools wt:slot-02 pwd:ts/界面/pi-extensions (✗) | br:feature/slot-identity ↓:- commits:? ↑:-",
-		);
-		expect(wideFooter).not.toContain("stale-branch");
-		const narrowIdentityRaw = footer.render(46)[0] ?? "";
-		const narrowIdentity = stripTerminalEscapes(narrowIdentityRaw);
-		expect(narrowIdentity).toContain("[wt] repo:sdl-tools wt:slot-02");
-		expect(narrowIdentity).toContain("...");
-		expect(visibleWidth(narrowIdentityRaw)).toBeLessThanOrEqual(46);
-		await pi.sessionShutdown?.();
+			const wideFooterRaw = footer.render(200)[0] ?? "";
+			expect(wideFooterRaw).toContain("\x1B[36msdl-tools\x1B[39m");
+			expect(wideFooterRaw).toContain("\x1B[36mfeature-wt\x1B[39m");
+			expect(wideFooterRaw).toContain("\x1B[36mts/界面/pi-extensions\x1B[39m");
+			expect(wideFooterRaw).toContain("\x1B[31m✗\x1B[39m");
+			const wideFooter = stripTerminalEscapes(wideFooterRaw);
+			expect(wideFooter).toBe(
+				"[wt] repo:sdl-tools wt:feature-wt pwd:ts/界面/pi-extensions (✗) | br:feature/generic-worktree ↓:- commits:? ↑:-",
+			);
+			expect(wideFooter).not.toContain("stale-branch");
+			const narrowIdentityRaw = footer.render(46)[0] ?? "";
+			const narrowIdentity = stripTerminalEscapes(narrowIdentityRaw);
+			expect(narrowIdentity).toContain("[wt] repo:sdl-tools wt:feature-wt");
+			expect(narrowIdentity).toContain("...");
+			expect(visibleWidth(narrowIdentityRaw)).toBeLessThanOrEqual(46);
+			await pi.sessionShutdown?.();
+		} finally {
+			rmSync(fixture.tempRoot, { recursive: true, force: true });
+		}
+	});
+
+	test("custom footer formats linked worktree root as pwd dot", async () => {
+		const fixture = createLinkedWorktreeFixture("slot-04");
+		const worktreeRoot = fixture.worktreeRoot;
+		try {
+			const pi = new LifecycleFakePi([]);
+			const statuses = new Map<string, string>();
+			let footerFactory: Parameters<NonNullable<ExtensionContext["ui"]["setFooter"]>>[0];
+			const ctx = testContext({
+				cwd: worktreeRoot,
+				sessionCwd: worktreeRoot,
+				statuses,
+				setFooter(factory) {
+					footerFactory = factory;
+				},
+				model: { id: "test-model", contextWindow: 272000 },
+			});
+			const loaders = fakeWorktreeStatusLoaders({
+				footerBranch: "feature/generic-root",
+				localStatuses: [
+					queued(
+						localStatus({
+							identity: worktreeIdentity({
+								cwd: worktreeRoot,
+								head: { type: "branch", name: "feature/generic-root" },
+							}),
+						}),
+					),
+				],
+			});
+
+			worktreeStatusExtension(pi as ExtensionAPI, { loaders });
+			await pi.sessionStart?.({}, ctx);
+
+			pi.assertDone();
+			expect(footerFactory).toBeDefined();
+			if (footerFactory === undefined) throw new Error("expected custom footer factory");
+			const footer = footerFactory(
+				{ requestRender() {} },
+				TEST_THEME,
+				footerData(statuses, "stale-branch"),
+			);
+
+			expect(stripTerminalEscapes(footer.render(200)[0] ?? "")).toBe(
+				"[wt] repo:sdl-tools wt:slot-04 pwd:. | br:feature/generic-root ↓:main commits:1 ↑:-",
+			);
+			await pi.sessionShutdown?.();
+		} finally {
+			rmSync(fixture.tempRoot, { recursive: true, force: true });
+		}
 	});
 
 	test("custom footer tolerates context usage estimation failures", async () => {
@@ -443,6 +502,25 @@ function testContext(options: TestContextOptions = {}): ExtensionContext {
 			...(options.setFooter === undefined ? {} : { setFooter: options.setFooter }),
 		},
 	};
+}
+
+interface LinkedWorktreeFixture {
+	readonly tempRoot: string;
+	readonly worktreeRoot: string;
+}
+
+function createLinkedWorktreeFixture(worktreeName: string): LinkedWorktreeFixture {
+	const tempRoot = mkdtempSync(join(tmpdir(), "sdl-worktree-footer-"));
+	const repoRoot = join(tempRoot, "sdl-tools");
+	const commonGitDir = join(repoRoot, ".git");
+	const gitDir = join(commonGitDir, "worktrees", worktreeName);
+	const worktreeRoot = join(tempRoot, worktreeName);
+	mkdirSync(gitDir, { recursive: true });
+	mkdirSync(worktreeRoot, { recursive: true });
+	writeFileSync(join(worktreeRoot, ".git"), `gitdir: ${gitDir}\n`);
+	writeFileSync(join(gitDir, "HEAD"), "ref: refs/heads/feature/generic-worktree\n");
+	writeFileSync(join(gitDir, "commondir"), "../..\n");
+	return { tempRoot, worktreeRoot };
 }
 
 function footerData(statuses: ReadonlyMap<string, string>, branch: string) {
