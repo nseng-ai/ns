@@ -1,16 +1,15 @@
-import {
-	Key,
-	matchesKey,
-	truncateToWidth,
-	visibleWidth,
-	wrapTextWithAnsi,
-} from "@earendil-works/pi-tui";
+import { Key, matchesKey, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import type { Component, TUI } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
+import {
+	clamp,
+	fitToWidth,
+	reconcileScroll as reconcileViewportScroll,
+} from "./context-profiler/render.ts";
 
 const FALLBACK_TERMINAL_ROWS = 24;
 const MIN_RENDER_WIDTH = 40;
-const ROW_PREVIEW_WIDTH = 48;
+const ROW_SUMMARY_WIDTH = 46;
 
 type PreviewThemeColor = "text" | "muted" | "accent" | "warning" | "dim" | "border";
 
@@ -98,12 +97,12 @@ export class PrPreviewFeedbackView implements Component {
 		const bodyRows = Math.max(1, height - chromeRows);
 		const body = this.renderBody(innerWidth, bodyRows);
 		return [
-			this.border("┌", "─", "┐", safeWidth),
+			this.border({ left: "┌", fill: "─", right: "┐", width: safeWidth }),
 			...header.map((line) => this.boxLine(line, innerWidth)),
-			this.border("├", "─", "┤", safeWidth),
+			this.border({ left: "├", fill: "─", right: "┤", width: safeWidth }),
 			...body.map((line) => this.boxLine(line, innerWidth)),
 			this.boxLine(footer, innerWidth),
-			this.border("└", "─", "┘", safeWidth),
+			this.border({ left: "└", fill: "─", right: "┘", width: safeWidth }),
 		].map((line) => fitToWidth(line, width));
 	}
 
@@ -138,11 +137,17 @@ export class PrPreviewFeedbackView implements Component {
 	private renderBody(width: number, rows: number): string[] {
 		if (this.model.threads.length === 0) return this.renderEmptyBody(width, rows);
 		this.selectedIndex = clamp(this.selectedIndex, 0, this.model.threads.length - 1);
-		this.listScroll = reconcileScroll(this.selectedIndex, this.listScroll, rows);
-		const leftWidth = Math.max(20, Math.min(Math.floor(width * 0.42), width - 24));
+		this.listScroll = reconcileViewportScroll({
+			scroll: this.listScroll,
+			anchor: this.selectedIndex,
+			areaHeight: rows,
+			totalLines: this.model.threads.length,
+		});
+		const preferredLeftWidth = clamp(Math.floor(width * 0.32), 28, 52);
+		const leftWidth = Math.min(preferredLeftWidth, Math.max(20, width - 24));
 		const rightWidth = Math.max(12, width - leftWidth - 3);
 		const visibleThreads = this.model.threads.slice(this.listScroll, this.listScroll + rows);
-		const detailLines = buildThreadDetailLines(this.model.threads[this.selectedIndex]);
+		const detailLines = this.renderDetailLines(this.model.threads[this.selectedIndex]);
 		const maxDetailScroll = Math.max(0, detailLines.length - rows);
 		this.detailScroll = clamp(this.detailScroll, 0, maxDetailScroll);
 		const rightLines = wrapDetailLines(detailLines, rightWidth).slice(
@@ -165,6 +170,29 @@ export class PrPreviewFeedbackView implements Component {
 	private renderEmptyBody(width: number, rows: number): string[] {
 		const lines = wrapDetailLines(buildEmptyStateLines(this.model), width);
 		return Array.from({ length: rows }, (_unused, index) => fitToWidth(lines[index] ?? "", width));
+	}
+
+	private renderDetailLines(thread: PrPreviewFeedbackThread | undefined): string[] {
+		return buildThreadDetailRows(thread).map((row) => this.renderDetailLine(row));
+	}
+
+	private renderDetailLine(row: ThreadDetailRow): string {
+		switch (row.role) {
+			case "finding":
+				return this.color("accent", `▣ ${row.text}`);
+			case "review":
+				return this.color("muted", `  ${row.text}`);
+			case "body":
+				return this.color("text", `  │ ${row.text}`);
+			case "evidence":
+				return this.color("warning", `  Evidence: ${row.text}`);
+			case "source":
+				return this.color("dim", `  ${row.text}`);
+			case "comment":
+				return this.color("muted", row.text);
+			case "spacer":
+				return "";
+		}
 	}
 
 	private renderThreadRow(
@@ -196,8 +224,11 @@ export class PrPreviewFeedbackView implements Component {
 		return this.theme.fg(color, value);
 	}
 
-	private border(left: string, fill: string, right: string, width: number): string {
-		return this.color("border", `${left}${fill.repeat(Math.max(0, width - 2))}${right}`);
+	private border(options: { left: string; fill: string; right: string; width: number }): string {
+		return this.color(
+			"border",
+			`${options.left}${options.fill.repeat(Math.max(0, options.width - 2))}${options.right}`,
+		);
 	}
 
 	private boxLine(value: string, width: number): string {
@@ -206,36 +237,46 @@ export class PrPreviewFeedbackView implements Component {
 }
 
 export function buildThreadRowLabel(thread: PrPreviewFeedbackThread): string {
-	const preview = firstNonEmptyLine(thread.comments[0]?.body ?? "");
+	const summary = parseCommentBody(thread.comments[0]?.body ?? "");
+	const title =
+		summary.title === "" ? null : truncatePlainToWidth(summary.title, ROW_SUMMARY_WIDTH);
 	return [
-		`${thread.path}:${formatThreadLine(thread)}`,
-		`${thread.comments.length} ${thread.comments.length === 1 ? "comment" : "comments"}`,
+		`L${formatThreadLine(thread)}`,
+		summary.level,
+		summary.review,
+		title,
+		thread.comments.length === 1 ? null : `${thread.comments.length} comments`,
 		thread.is_outdated ? "outdated" : null,
-		preview === "" ? null : truncateToWidth(preview, ROW_PREVIEW_WIDTH),
 	]
 		.filter((part): part is string => part !== null)
 		.join(" · ");
 }
 
 export function buildThreadDetailLines(thread: PrPreviewFeedbackThread | undefined): string[] {
-	if (thread === undefined) return ["No thread selected."];
-	return [
-		`Thread ${thread.id}`,
-		`Path: ${thread.path}`,
-		`Line: ${formatThreadLine(thread)}`,
-		`Outdated: ${thread.is_outdated ? "yes" : "no"}`,
-		`Resolved: ${thread.is_resolved ? "yes" : "no"}`,
-		"",
-		...thread.comments.flatMap((comment, index) => renderComment(comment, index)),
-	];
+	return buildThreadDetailRows(thread).map(formatThreadDetailRowText);
+}
+
+interface ThreadDetailRow {
+	role: "finding" | "review" | "body" | "evidence" | "source" | "comment" | "spacer";
+	text: string;
+}
+
+function buildThreadDetailRows(thread: PrPreviewFeedbackThread | undefined): ThreadDetailRow[] {
+	if (thread === undefined) return [{ role: "body", text: "No thread selected." }];
+	return thread.comments.flatMap((comment, index) => renderComment(thread, comment, index));
+}
+
+function formatThreadDetailRowText(row: ThreadDetailRow): string {
+	if (row.role === "evidence") return `Evidence: ${row.text}`;
+	return row.text;
 }
 
 export function buildPreviewHeaderLines(model: PrPreviewFeedbackViewModel): string[] {
+	const head = model.target.head_ref_name ?? model.target.branch ?? "?";
+	const base = model.target.base_ref_name ?? "?";
 	return [
 		`PR #${model.target.pr_number}: ${model.target.title ?? "(untitled)"}`,
-		`Head ${model.target.head_ref_name ?? "?"} → base ${model.target.base_ref_name ?? "?"} · branch ${model.target.branch ?? "?"}`,
-		`Unresolved thread rows: ${model.threads.length} · PR-level review bodies excluded: ${model.counts.included_reviews} · discussion comments excluded: ${model.counts.included_discussion_comments}`,
-		`Fetched ${model.fetchedAt.toISOString()} · snapshot only; close/reopen to refresh`,
+		`${head} → ${base} · ${model.threads.length} unresolved inline threads · excluded ${model.counts.included_reviews} PR reviews / ${model.counts.included_discussion_comments} discussion · snapshot ${model.fetchedAt.toISOString()}`,
 		...buildCountMismatchNotice(model),
 	];
 }
@@ -261,13 +302,29 @@ export function buildEmptyStateLines(model: PrPreviewFeedbackViewModel): string[
 	];
 }
 
-function renderComment(comment: PrPreviewFeedbackComment, index: number): string[] {
+function renderComment(
+	thread: PrPreviewFeedbackThread,
+	comment: PrPreviewFeedbackComment,
+	index: number,
+): ThreadDetailRow[] {
+	const parsed = parseCommentBody(comment.body);
 	return [
-		`Comment ${index + 1}: #${comment.id} by ${comment.author} at ${comment.created_at}`,
-		`Location: ${comment.path}:${formatCommentLine(comment)}`,
-		"Body:",
-		...comment.body.split(/\r\n|\r|\n/u).map((line) => (line.length === 0 ? "  " : `  ${line}`)),
-		"",
+		...(index === 0
+			? []
+			: ([
+					{ role: "spacer", text: "" },
+					{ role: "comment", text: `Comment ${index + 1}` },
+				] satisfies ThreadDetailRow[])),
+		{
+			role: "finding",
+			text: `${formatFindingPrefix(parsed)}${parsed.title === "" ? "Review comment" : parsed.title}`,
+		},
+		{ role: "review", text: `Review: ${parsed.review ?? "uncategorized"}` },
+		{ role: "spacer", text: "" },
+		...parsed.details.map((line): ThreadDetailRow => ({ role: "body", text: line })),
+		...renderEvidence(parsed.evidence),
+		{ role: "spacer", text: "" },
+		{ role: "source", text: formatCommentSource(thread, comment) },
 	];
 }
 
@@ -292,27 +349,107 @@ function formatCommentLine(comment: Pick<PrPreviewFeedbackComment, "line" | "sta
 	return formatThreadLine(comment);
 }
 
-function firstNonEmptyLine(value: string): string {
-	return (
-		value
-			.split(/\r\n|\r|\n/u)
-			.find((line) => line.trim() !== "")
-			?.trim() ?? ""
-	);
+function formatFindingPrefix(comment: Pick<ParsedCommentBody, "level">): string {
+	if (comment.level === null) return "";
+	return `${comment.level}: `;
 }
 
-function fitToWidth(value: string, width: number): string {
-	if (width <= 0) return "";
-	const truncated = truncateToWidth(value, width, "…");
-	return truncated + " ".repeat(Math.max(0, width - visibleWidth(truncated)));
+function renderEvidence(evidence: readonly string[]): ThreadDetailRow[] {
+	if (evidence.length === 0) return [];
+	return [
+		{ role: "spacer", text: "" },
+		...evidence.map((line): ThreadDetailRow => ({ role: "evidence", text: line })),
+	];
 }
 
-function reconcileScroll(selection: number, scroll: number, height: number): number {
-	if (selection < scroll) return selection;
-	if (selection >= scroll + height) return selection - height + 1;
-	return scroll;
+function formatCommentSource(
+	thread: PrPreviewFeedbackThread,
+	comment: PrPreviewFeedbackComment,
+): string {
+	const status = [thread.is_outdated ? "outdated" : null, thread.is_resolved ? "resolved" : null]
+		.filter((part): part is string => part !== null)
+		.join(", ");
+	const statusSuffix = status === "" ? "" : ` · ${status}`;
+	return `${basename(thread.path)}:${formatCommentLine(comment)} · ${comment.author} · #${comment.id} · ${comment.created_at} · ${thread.id}${statusSuffix}`;
 }
 
-function clamp(value: number, min: number, max: number): number {
-	return Math.min(Math.max(value, min), max);
+interface ParsedCommentBody {
+	level: string | null;
+	title: string;
+	review: string | null;
+	details: readonly string[];
+	evidence: readonly string[];
+}
+
+function parseCommentBody(body: string): ParsedCommentBody {
+	const lines = normalizeCommentBodyLines(body);
+	const firstLine = firstNonEmptyLine(lines);
+	const titleMatch = /^(?<level>info|warning|error):\s*(?<title>.*)$/u.exec(firstLine);
+	const level = titleMatch?.groups?.level ?? null;
+	const title = titleMatch?.groups?.title ?? firstLine;
+	const details: string[] = [];
+	const evidence: string[] = [];
+	let review: string | null = null;
+	for (const line of lines) {
+		const trimmed = line.trim();
+		if (trimmed === firstLine) continue;
+		if (trimmed === "") continue;
+		const reviewMatch = /^Review:\s*(?<review>.+)$/u.exec(trimmed);
+		if (reviewMatch?.groups?.review !== undefined) {
+			review = reviewMatch.groups.review;
+			continue;
+		}
+		if (trimmed.startsWith("Evidence:")) {
+			evidence.push(trimmed.replace(/^Evidence:\s*/u, ""));
+			continue;
+		}
+		details.push(line.trim());
+	}
+	return { level, title, review, details: trimBlankLines(details), evidence };
+}
+
+function trimBlankLines(lines: readonly string[]): string[] {
+	let start = 0;
+	let end = lines.length;
+	while (start < end && lines[start]?.trim() === "") start += 1;
+	while (end > start && lines[end - 1]?.trim() === "") end -= 1;
+	return lines.slice(start, end);
+}
+
+function firstNonEmptyLine(lines: readonly string[]): string {
+	return lines.find((line) => line.trim() !== "")?.trim() ?? "";
+}
+
+function normalizeCommentBodyLines(body: string): string[] {
+	return body
+		.split(/\r\n|\r|\n/u)
+		.map(normalizeCommentBodyLine)
+		.filter((line): line is string => line !== null);
+}
+
+function normalizeCommentBodyLine(line: string): string | null {
+	const trimmed = line.trim();
+	if (/^<!--\s*roaster-inline:/u.test(trimmed)) return null;
+	if (trimmed.startsWith("_Posted by roaster.")) return null;
+	const bold = /^\*\*(?<text>.*)\*\*$/u.exec(trimmed)?.groups?.text;
+	if (bold !== undefined) return bold;
+	const review = /^_Review:\s*`(?<review>[^`]+)`\._$/u.exec(trimmed)?.groups?.review;
+	if (review !== undefined) return `Review: ${review}`;
+	return line;
+}
+
+function basename(path: string): string {
+	return path.split("/").at(-1) ?? path;
+}
+
+function truncatePlainToWidth(text: string, width: number): string {
+	if (visibleWidth(text) <= width) return text;
+	const ellipsis = "…";
+	const maxBodyWidth = Math.max(0, width - visibleWidth(ellipsis));
+	let result = "";
+	for (const char of text) {
+		if (visibleWidth(result + char) > maxBodyWidth) break;
+		result += char;
+	}
+	return `${result}${ellipsis}`;
 }
