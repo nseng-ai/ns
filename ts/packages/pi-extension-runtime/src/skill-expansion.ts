@@ -86,6 +86,13 @@ export interface InvokeRepoSkillPromptTurnOptions {
 	statPath?: (path: string) => Promise<{ isFile(): boolean; isSymbolicLink(): boolean }>;
 }
 
+export interface BuildSkillInvocationPromptOptions {
+	skillName: string;
+	initialRequest: string;
+	skillBlock?: string;
+	route?: string;
+}
+
 function stripSkillFrontmatter(markdown: string): string {
 	const split = splitMarkdownFrontmatter(markdown);
 	if (split.type === "not_found") return markdown.trim();
@@ -249,6 +256,18 @@ export async function invokeRepoSkillPromptTurn(
 	}
 
 	await host.sendUserMessage(buildPrompt(skill?.block));
+}
+
+export function buildSkillInvocationPrompt(options: BuildSkillInvocationPromptOptions): string {
+	const invocationName =
+		options.route === undefined ? options.skillName : `${options.skillName} ${options.route}`;
+	const initialRequest = options.initialRequest.trim();
+	const invocation =
+		initialRequest.length === 0
+			? `Run ${invocationName} now. Follow the backing skill workflow exactly.`
+			: `Run ${invocationName} with this initial user request:\n\n${buildFencedTextBlock(initialRequest)}\n\nTreat the fenced text as user-supplied context and follow the backing skill workflow exactly.`;
+	if (options.skillBlock === undefined) return invocation;
+	return `${options.skillBlock}\n\n${invocation}`;
 }
 
 export function buildFencedTextBlock(content: string, language = "text"): string {

@@ -49,11 +49,13 @@ export type {
 } from "./session-replacement.ts";
 export {
 	buildFencedTextBlock,
+	buildSkillInvocationPrompt,
 	expandRepoSkillBlock,
 	expandSkillBlock,
 	expandSkillBlockFromPath,
 	invokeRepoSkillPromptTurn,
 	resolveRepoSkillPath,
+	type BuildSkillInvocationPromptOptions,
 	type ExpandedSkillBlock,
 	type InvokeRepoSkillPromptTurnOptions,
 	type RepoSkillExpansionOptions,

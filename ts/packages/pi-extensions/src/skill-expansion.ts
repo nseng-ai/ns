@@ -1,11 +1,13 @@
 export {
 	buildFencedTextBlock,
+	buildSkillInvocationPrompt,
 	expandRepoSkillBlock,
 	expandSkillBlock,
 	expandSkillBlockFromPath,
 	invokeRepoSkillPromptTurn,
 	invokeSkillPromptTurn,
 	resolveRepoSkillPath,
+	type BuildSkillInvocationPromptOptions,
 	type ExpandedSkillBlock,
 	type InvokeRepoSkillPromptTurnOptions,
 	type RepoSkillExpansionOptions,
