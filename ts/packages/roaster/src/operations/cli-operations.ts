@@ -231,7 +231,13 @@ export async function runReviewByKey(
 	);
 	if (response.type === "error") return failureFromRoaster(response.error);
 
-	const runResult = reviewRunResult(source.value.key, source.value.path, model, diff.value.baseRef, response.value);
+	const runResult = reviewRunResult(
+		source.value.key,
+		source.value.path,
+		model,
+		diff.value.baseRef,
+		response.value,
+	);
 	const ranAt = new Date().toISOString();
 	const metadata = await reviewLogMetadata(ctx);
 	const logResult = await ctx.reviewLog.writeReviewLog({
@@ -373,7 +379,9 @@ async function reviewLogMetadata(ctx: RoasterRuntime): Promise<ReviewLogMetadata
 	const headCommit = await ctx.gitGateway.headCommit(options);
 	return {
 		branch: branchMetadataValue(currentBranch),
-		headCommit: headCommit.ok ? headCommit.value : unavailableMetadataValue(headCommit.error.message),
+		headCommit: headCommit.ok
+			? headCommit.value
+			: unavailableMetadataValue(headCommit.error.message),
 	};
 }
 
