@@ -10,10 +10,13 @@ import prExtension, {
 	type RegisteredCommand,
 } from "../src/pr.ts";
 import {
-	buildCountMismatchNotice,
 	buildThreadDetailLines,
 	buildThreadRowLabel,
 	type PrPreviewFeedbackThread,
+} from "../src/pr-preview-feedback-model.ts";
+import {
+	buildCountMismatchNotice,
+	sliceWrappedDetailLinesForViewport,
 } from "../src/pr-preview-feedback-view.ts";
 
 const ROOT = "/repo";
@@ -247,30 +250,49 @@ function currentPr1952Thread(options: {
 	};
 }
 
+interface RunRegisteredCommandOptions {
+	pi: FakePi;
+	commandName: string;
+	rawArgs?: string;
+	ctx?: FakeContext;
+}
+
+interface RunPreviewCommandOptions {
+	pi: FakePi;
+	rawArgs?: string;
+	ctx?: FakeContext;
+}
+
 async function runCommand(pi: FakePi, rawArgs = ""): Promise<FakeContext> {
-	return await runRegisteredCommand(pi, PR_DOWNLOAD_FEEDBACK_COMMAND_NAME, rawArgs);
+	return await runRegisteredCommand({
+		pi,
+		commandName: PR_DOWNLOAD_FEEDBACK_COMMAND_NAME,
+		rawArgs,
+	});
 }
 
 async function runStackCommand(pi: FakePi, rawArgs = ""): Promise<FakeContext> {
-	return await runRegisteredCommand(pi, PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME, rawArgs);
+	return await runRegisteredCommand({
+		pi,
+		commandName: PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME,
+		rawArgs,
+	});
 }
 
-async function runPreviewCommand(
-	pi: FakePi,
-	rawArgs = "",
-	ctx = new FakeContext(),
-): Promise<FakeContext> {
-	return await runRegisteredCommand(pi, PR_PREVIEW_FEEDBACK_COMMAND_NAME, rawArgs, ctx);
+async function runPreviewCommand(options: RunPreviewCommandOptions): Promise<FakeContext> {
+	return await runRegisteredCommand({
+		pi: options.pi,
+		commandName: PR_PREVIEW_FEEDBACK_COMMAND_NAME,
+		...(options.rawArgs === undefined ? {} : { rawArgs: options.rawArgs }),
+		...(options.ctx === undefined ? {} : { ctx: options.ctx }),
+	});
 }
 
-async function runRegisteredCommand(
-	pi: FakePi,
-	commandName: string,
-	rawArgs: string,
-	ctx = new FakeContext(),
-): Promise<FakeContext> {
-	prExtension(pi);
-	const command = pi.commands.get(commandName);
+async function runRegisteredCommand(options: RunRegisteredCommandOptions): Promise<FakeContext> {
+	const ctx = options.ctx ?? new FakeContext();
+	const rawArgs = options.rawArgs ?? "";
+	prExtension(options.pi);
+	const command = options.pi.commands.get(options.commandName);
 	expect(command).toBeDefined();
 	await command?.handler(rawArgs, ctx);
 	return ctx;
@@ -362,7 +384,7 @@ describe("/pr:preview-feedback", () => {
 	test("rejects unsupported arguments with preview usage without running the CLI", async () => {
 		const pi = new FakePi();
 
-		const ctx = await runPreviewCommand(pi, "--bad");
+		const ctx = await runPreviewCommand({ pi, rawArgs: "--bad" });
 
 		expect(pi.calls).toEqual([]);
 		expect(ctx.customCalls).toEqual([]);
@@ -375,7 +397,7 @@ describe("/pr:preview-feedback", () => {
 		const pi = new FakePi();
 		const ctx = new FakeContext({ hasUI: false, custom: false });
 
-		await runPreviewCommand(pi, "", ctx);
+		await runPreviewCommand({ pi, ctx });
 
 		expect(pi.calls).toEqual([]);
 		expect(ctx.customCalls).toEqual([]);
@@ -393,7 +415,7 @@ describe("/pr:preview-feedback", () => {
 			execResult({ stdout: envelope(previewThreadsData(1)) }),
 		]);
 
-		const ctx = await runPreviewCommand(pi);
+		const ctx = await runPreviewCommand({ pi });
 
 		expect(pi.calls).toEqual([
 			{ command: "pr-address", args: ["exec", "download-feedback", "--format", "json"] },
@@ -422,7 +444,7 @@ describe("/pr:preview-feedback", () => {
 			execResult({ stdout: envelope(previewThreadsData(1)) }),
 		]);
 
-		await runPreviewCommand(pi, "123");
+		await runPreviewCommand({ pi, rawArgs: "123" });
 
 		expect(pi.calls).toEqual([
 			{
@@ -455,7 +477,7 @@ describe("/pr:preview-feedback", () => {
 			}),
 		);
 
-		const ctx = await runPreviewCommand(pi);
+		const ctx = await runPreviewCommand({ pi });
 
 		expect(pi.calls).toEqual([
 			{ command: "pr-address", args: ["exec", "download-feedback", "--format", "json"] },
@@ -473,7 +495,7 @@ describe("/pr:preview-feedback", () => {
 			execResult({ stdout: "not json", stderr: "boom", code: 2 }),
 		]);
 
-		const ctx = await runPreviewCommand(pi);
+		const ctx = await runPreviewCommand({ pi });
 
 		expect(ctx.customCalls).toEqual([]);
 		expect(ctx.notifications.at(-1)?.level).toBe("error");
@@ -489,7 +511,7 @@ describe("/pr:preview-feedback", () => {
 			execResult({ stdout: envelope(previewThreadsData(0)) }),
 		]);
 
-		const ctx = await runPreviewCommand(pi);
+		const ctx = await runPreviewCommand({ pi });
 
 		expect(ctx.customCalls).toHaveLength(1);
 		expect(ctx.customCalls[0]?.options).toMatchObject({ overlay: true });
@@ -541,6 +563,38 @@ describe("/pr:preview-feedback", () => {
 		);
 		expect(details).not.toContain("roaster-inline");
 		expect(details).not.toContain("Posted by roaster");
+	});
+
+	test("wrapped detail viewport scrolls to the visual bottom", () => {
+		const detailLines = buildThreadDetailLines(CURRENT_PR_1952_REVIEW_THREADS[0]);
+		const logicalMaxScroll = Math.max(0, detailLines.length - 5);
+		const initialViewport = sliceWrappedDetailLinesForViewport({
+			lines: detailLines,
+			width: 36,
+			rows: 5,
+			scroll: 0,
+		});
+
+		const bottomViewport = sliceWrappedDetailLinesForViewport({
+			lines: detailLines,
+			width: 36,
+			rows: 5,
+			scroll: initialViewport.maxScroll,
+		});
+		const scrolledText = Array.from({ length: initialViewport.maxScroll + 1 }, (_unused, scroll) =>
+			sliceWrappedDetailLinesForViewport({
+				lines: detailLines,
+				width: 36,
+				rows: 5,
+				scroll,
+			}).lines.join("\n"),
+		).join("\n");
+		const bottomText = bottomViewport.lines.join("\n");
+
+		expect(initialViewport.maxScroll).toBeGreaterThan(logicalMaxScroll);
+		expect(bottomViewport.scroll).toBe(initialViewport.maxScroll);
+		expect(scrolledText).toContain("Evidence:");
+		expect(bottomText).toContain("github-actions");
 	});
 
 	test("count mismatch notice is exposed without throwing", () => {

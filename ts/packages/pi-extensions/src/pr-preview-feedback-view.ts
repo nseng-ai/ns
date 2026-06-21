@@ -1,6 +1,14 @@
-import { Key, matchesKey, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { Key, matchesKey, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import type { Component, TUI } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
+
+import {
+	buildThreadDetailRows,
+	buildThreadRowLabel,
+	type PrPreviewFeedbackDetailRow,
+	type PrPreviewFeedbackThread,
+	type PrPreviewFeedbackViewModel,
+} from "./pr-preview-feedback-model.ts";
 import {
 	clamp,
 	fitToWidth,
@@ -9,60 +17,35 @@ import {
 
 const FALLBACK_TERMINAL_ROWS = 24;
 const MIN_RENDER_WIDTH = 40;
-const ROW_SUMMARY_WIDTH = 46;
 
 type PreviewThemeColor = "text" | "muted" | "accent" | "warning" | "dim" | "border";
 
-export interface PrPreviewFeedbackCounts {
-	included_review_threads: number;
-	included_reviews: number;
-	included_discussion_comments: number;
-	excluded_resolved_threads: number;
-	excluded_empty_reviews: number;
-	excluded_automation_comments: number;
-}
-
-export interface PrPreviewFeedbackTarget {
-	pr_number: number;
-	title: string | null;
-	url: string | null;
-	branch: string | null;
-	head_ref_name: string | null;
-	base_ref_name: string | null;
-}
-
-export interface PrPreviewFeedbackComment {
-	id: number;
-	body: string;
-	author: string;
-	path: string;
-	line: number | null;
-	start_line: number | null;
-	created_at: string;
-}
-
-export interface PrPreviewFeedbackThread {
-	id: string;
-	path: string;
-	line: number | null;
-	start_line: number | null;
-	is_resolved: boolean;
-	is_outdated: boolean;
-	comments: readonly PrPreviewFeedbackComment[];
-}
-
-export interface PrPreviewFeedbackViewModel {
-	target: PrPreviewFeedbackTarget;
-	counts: PrPreviewFeedbackCounts;
-	fetchedAt: Date;
-	threads: readonly PrPreviewFeedbackThread[];
-}
+export type {
+	PrPreviewFeedbackComment,
+	PrPreviewFeedbackCounts,
+	PrPreviewFeedbackTarget,
+	PrPreviewFeedbackThread,
+	PrPreviewFeedbackViewModel,
+} from "./pr-preview-feedback-model.ts";
 
 export interface PrPreviewFeedbackViewOptions {
 	tui: TUI;
 	theme: Theme;
 	model: PrPreviewFeedbackViewModel;
 	onClose: () => void;
+}
+
+export interface WrappedDetailViewportOptions {
+	lines: readonly string[];
+	width: number;
+	rows: number;
+	scroll: number;
+}
+
+export interface WrappedDetailViewport {
+	lines: string[];
+	scroll: number;
+	maxScroll: number;
 }
 
 export class PrPreviewFeedbackView implements Component {
@@ -148,12 +131,14 @@ export class PrPreviewFeedbackView implements Component {
 		const rightWidth = Math.max(12, width - leftWidth - 3);
 		const visibleThreads = this.model.threads.slice(this.listScroll, this.listScroll + rows);
 		const detailLines = this.renderDetailLines(this.model.threads[this.selectedIndex]);
-		const maxDetailScroll = Math.max(0, detailLines.length - rows);
-		this.detailScroll = clamp(this.detailScroll, 0, maxDetailScroll);
-		const rightLines = wrapDetailLines(detailLines, rightWidth).slice(
-			this.detailScroll,
-			this.detailScroll + rows,
-		);
+		const viewport = sliceWrappedDetailLinesForViewport({
+			lines: detailLines,
+			width: rightWidth,
+			rows,
+			scroll: this.detailScroll,
+		});
+		this.detailScroll = viewport.scroll;
+		const rightLines = viewport.lines;
 		const lines: string[] = [];
 		for (let row = 0; row < rows; row += 1) {
 			const thread = visibleThreads[row];
@@ -176,7 +161,7 @@ export class PrPreviewFeedbackView implements Component {
 		return buildThreadDetailRows(thread).map((row) => this.renderDetailLine(row));
 	}
 
-	private renderDetailLine(row: ThreadDetailRow): string {
+	private renderDetailLine(row: PrPreviewFeedbackDetailRow): string {
 		switch (row.role) {
 			case "finding":
 				return this.color("accent", `▣ ${row.text}`);
@@ -236,39 +221,17 @@ export class PrPreviewFeedbackView implements Component {
 	}
 }
 
-export function buildThreadRowLabel(thread: PrPreviewFeedbackThread): string {
-	const summary = parseCommentBody(thread.comments[0]?.body ?? "");
-	const title =
-		summary.title === "" ? null : truncatePlainToWidth(summary.title, ROW_SUMMARY_WIDTH);
-	return [
-		`L${formatThreadLine(thread)}`,
-		summary.level,
-		summary.review,
-		title,
-		thread.comments.length === 1 ? null : `${thread.comments.length} comments`,
-		thread.is_outdated ? "outdated" : null,
-	]
-		.filter((part): part is string => part !== null)
-		.join(" · ");
-}
-
-export function buildThreadDetailLines(thread: PrPreviewFeedbackThread | undefined): string[] {
-	return buildThreadDetailRows(thread).map(formatThreadDetailRowText);
-}
-
-interface ThreadDetailRow {
-	role: "finding" | "review" | "body" | "evidence" | "source" | "comment" | "spacer";
-	text: string;
-}
-
-function buildThreadDetailRows(thread: PrPreviewFeedbackThread | undefined): ThreadDetailRow[] {
-	if (thread === undefined) return [{ role: "body", text: "No thread selected." }];
-	return thread.comments.flatMap((comment, index) => renderComment(thread, comment, index));
-}
-
-function formatThreadDetailRowText(row: ThreadDetailRow): string {
-	if (row.role === "evidence") return `Evidence: ${row.text}`;
-	return row.text;
+export function sliceWrappedDetailLinesForViewport(
+	options: WrappedDetailViewportOptions,
+): WrappedDetailViewport {
+	const wrappedDetailLines = wrapDetailLines(options.lines, options.width);
+	const maxScroll = Math.max(0, wrappedDetailLines.length - options.rows);
+	const scroll = clamp(options.scroll, 0, maxScroll);
+	return {
+		lines: wrappedDetailLines.slice(scroll, scroll + options.rows),
+		scroll,
+		maxScroll,
+	};
 }
 
 export function buildPreviewHeaderLines(model: PrPreviewFeedbackViewModel): string[] {
@@ -302,154 +265,10 @@ export function buildEmptyStateLines(model: PrPreviewFeedbackViewModel): string[
 	];
 }
 
-function renderComment(
-	thread: PrPreviewFeedbackThread,
-	comment: PrPreviewFeedbackComment,
-	index: number,
-): ThreadDetailRow[] {
-	const parsed = parseCommentBody(comment.body);
-	return [
-		...(index === 0
-			? []
-			: ([
-					{ role: "spacer", text: "" },
-					{ role: "comment", text: `Comment ${index + 1}` },
-				] satisfies ThreadDetailRow[])),
-		{
-			role: "finding",
-			text: `${formatFindingPrefix(parsed)}${parsed.title === "" ? "Review comment" : parsed.title}`,
-		},
-		{ role: "review", text: `Review: ${parsed.review ?? "uncategorized"}` },
-		{ role: "spacer", text: "" },
-		...parsed.details.map((line): ThreadDetailRow => ({ role: "body", text: line })),
-		...renderEvidence(parsed.evidence),
-		{ role: "spacer", text: "" },
-		{ role: "source", text: formatCommentSource(thread, comment) },
-	];
-}
-
 function wrapDetailLines(lines: readonly string[], width: number): string[] {
 	return lines.flatMap((line) => {
 		if (line === "") return [""];
 		const wrapped = wrapTextWithAnsi(line, Math.max(1, width));
 		return wrapped.length === 0 ? [""] : wrapped;
 	});
-}
-
-function formatThreadLine(thread: Pick<PrPreviewFeedbackThread, "line" | "start_line">): string {
-	if (thread.start_line !== null && thread.line !== null && thread.start_line !== thread.line) {
-		return `${thread.start_line}-${thread.line}`;
-	}
-	if (thread.line !== null) return String(thread.line);
-	if (thread.start_line !== null) return String(thread.start_line);
-	return "?";
-}
-
-function formatCommentLine(comment: Pick<PrPreviewFeedbackComment, "line" | "start_line">): string {
-	return formatThreadLine(comment);
-}
-
-function formatFindingPrefix(comment: Pick<ParsedCommentBody, "level">): string {
-	if (comment.level === null) return "";
-	return `${comment.level}: `;
-}
-
-function renderEvidence(evidence: readonly string[]): ThreadDetailRow[] {
-	if (evidence.length === 0) return [];
-	return [
-		{ role: "spacer", text: "" },
-		...evidence.map((line): ThreadDetailRow => ({ role: "evidence", text: line })),
-	];
-}
-
-function formatCommentSource(
-	thread: PrPreviewFeedbackThread,
-	comment: PrPreviewFeedbackComment,
-): string {
-	const status = [thread.is_outdated ? "outdated" : null, thread.is_resolved ? "resolved" : null]
-		.filter((part): part is string => part !== null)
-		.join(", ");
-	const statusSuffix = status === "" ? "" : ` · ${status}`;
-	return `${basename(thread.path)}:${formatCommentLine(comment)} · ${comment.author} · #${comment.id} · ${comment.created_at} · ${thread.id}${statusSuffix}`;
-}
-
-interface ParsedCommentBody {
-	level: string | null;
-	title: string;
-	review: string | null;
-	details: readonly string[];
-	evidence: readonly string[];
-}
-
-function parseCommentBody(body: string): ParsedCommentBody {
-	const lines = normalizeCommentBodyLines(body);
-	const firstLine = firstNonEmptyLine(lines);
-	const titleMatch = /^(?<level>info|warning|error):\s*(?<title>.*)$/u.exec(firstLine);
-	const level = titleMatch?.groups?.level ?? null;
-	const title = titleMatch?.groups?.title ?? firstLine;
-	const details: string[] = [];
-	const evidence: string[] = [];
-	let review: string | null = null;
-	for (const line of lines) {
-		const trimmed = line.trim();
-		if (trimmed === firstLine) continue;
-		if (trimmed === "") continue;
-		const reviewMatch = /^Review:\s*(?<review>.+)$/u.exec(trimmed);
-		if (reviewMatch?.groups?.review !== undefined) {
-			review = reviewMatch.groups.review;
-			continue;
-		}
-		if (trimmed.startsWith("Evidence:")) {
-			evidence.push(trimmed.replace(/^Evidence:\s*/u, ""));
-			continue;
-		}
-		details.push(line.trim());
-	}
-	return { level, title, review, details: trimBlankLines(details), evidence };
-}
-
-function trimBlankLines(lines: readonly string[]): string[] {
-	let start = 0;
-	let end = lines.length;
-	while (start < end && lines[start]?.trim() === "") start += 1;
-	while (end > start && lines[end - 1]?.trim() === "") end -= 1;
-	return lines.slice(start, end);
-}
-
-function firstNonEmptyLine(lines: readonly string[]): string {
-	return lines.find((line) => line.trim() !== "")?.trim() ?? "";
-}
-
-function normalizeCommentBodyLines(body: string): string[] {
-	return body
-		.split(/\r\n|\r|\n/u)
-		.map(normalizeCommentBodyLine)
-		.filter((line): line is string => line !== null);
-}
-
-function normalizeCommentBodyLine(line: string): string | null {
-	const trimmed = line.trim();
-	if (/^<!--\s*roaster-inline:/u.test(trimmed)) return null;
-	if (trimmed.startsWith("_Posted by roaster.")) return null;
-	const bold = /^\*\*(?<text>.*)\*\*$/u.exec(trimmed)?.groups?.text;
-	if (bold !== undefined) return bold;
-	const review = /^_Review:\s*`(?<review>[^`]+)`\._$/u.exec(trimmed)?.groups?.review;
-	if (review !== undefined) return `Review: ${review}`;
-	return line;
-}
-
-function basename(path: string): string {
-	return path.split("/").at(-1) ?? path;
-}
-
-function truncatePlainToWidth(text: string, width: number): string {
-	if (visibleWidth(text) <= width) return text;
-	const ellipsis = "…";
-	const maxBodyWidth = Math.max(0, width - visibleWidth(ellipsis));
-	let result = "";
-	for (const char of text) {
-		if (visibleWidth(result + char) > maxBodyWidth) break;
-		result += char;
-	}
-	return `${result}${ellipsis}`;
 }
