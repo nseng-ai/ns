@@ -81,7 +81,7 @@ A reviewed Markdown implementation plan written before an implementation branch 
 *Avoid*: attached plan, Branch Memory entry, checked-in plan.
 
 **Local plan store**:
-The machine-local pre-branch store at `~/.sdl/enriched-plan/<repo>/<encoded-source-branch>/`. Saved plans use `<slug>.md`.
+The machine-local pre-branch store at `$XDG_STATE_HOME/sdl/enriched-plan/<repo>/<encoded-source-branch>/`, defaulting to `$HOME/.local/state/sdl/enriched-plan/...`. Legacy `~/.sdl/enriched-plan` content remains a read-only fallback. Saved plans use `<slug>.md`.
 *Avoid*: Branch Memory namespace, repo docs directory, objective update.
 
 **Saved-plan filename slug**:
