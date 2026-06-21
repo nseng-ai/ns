@@ -1,7 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 
-import type { ReviewApplicability, ReviewDefinition } from "../../src/models.ts";
+import type {
+	ReviewApplicability,
+	ReviewDefinition,
+	ReviewModelProfile,
+} from "../../src/models.ts";
 import {
 	parseReviewDefinition,
 	type ReviewDefinitionParseErrorCode,
@@ -10,7 +14,7 @@ import {
 interface RealReviewCase {
 	readonly path: string;
 	readonly name: string;
-	readonly expectedModel: string;
+	readonly expectedProfile: ReviewModelProfile;
 	readonly expectedApplicability: ReviewApplicability;
 	readonly expectedLocalOnly: boolean;
 }
@@ -19,7 +23,7 @@ const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
 	{
 		path: "../../../../../reviews/thermonuclear-review.md",
 		name: "thermonuclear-review",
-		expectedModel: "sonnet",
+		expectedProfile: "deep",
 		expectedApplicability: {
 			include: ["**/*.ts", "**/*.tsx", "**/*.py"],
 			exclude: [".agents/skills/**", ".claude/skills/**", "skills/**"],
@@ -29,7 +33,7 @@ const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
 	{
 		path: "../../../../../reviews/improve-codebase-architecture.md",
 		name: "improve-codebase-architecture",
-		expectedModel: "sonnet",
+		expectedProfile: "deep",
 		expectedApplicability: {
 			include: ["**/*.ts", "**/*.tsx", "**/*.py"],
 			exclude: [
@@ -47,14 +51,14 @@ const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
 	{
 		path: "../../../../../reviews/dignified-python.md",
 		name: "dignified-python",
-		expectedModel: "haiku",
+		expectedProfile: "quick",
 		expectedApplicability: { include: ["**/*.py"], exclude: ["**/tests/**/*.py"] },
 		expectedLocalOnly: false,
 	},
 	{
 		path: "../../../../../reviews/sdl-typescript-style.md",
 		name: "sdl-typescript-style",
-		expectedModel: "haiku",
+		expectedProfile: "quick",
 		expectedApplicability: {
 			include: ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"],
 			exclude: [],
@@ -64,7 +68,7 @@ const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
 	{
 		path: "../../../../../reviews/duplicative-abstractions.md",
 		name: "duplicative-abstractions",
-		expectedModel: "haiku",
+		expectedProfile: "quick",
 		expectedApplicability: {
 			include: ["**/*.ts", "**/*.tsx", "**/*.py"],
 			exclude: ["**/tests/**", "**/test/**", "**/*.test.ts", "**/test_*.py", ".agents/skills/**"],
@@ -74,7 +78,7 @@ const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
 	{
 		path: "../../../../../reviews/dry-but-not-too-dry.md",
 		name: "dry-but-not-too-dry",
-		expectedModel: "sonnet",
+		expectedProfile: "deep",
 		expectedApplicability: {
 			include: ["**/*.ts", "**/*.tsx", "**/*.py"],
 			exclude: [
@@ -99,7 +103,7 @@ describe("parseReviewDefinition", () => {
 
 		expect(definition.name).toBe(reviewCase.name);
 		expect(definition.description.trim()).not.toBe("");
-		expect(definition.defaultModel).toBe(reviewCase.expectedModel);
+		expect(definition.modelProfile).toBe(reviewCase.expectedProfile);
 		expect(definition.applicability).toEqual(reviewCase.expectedApplicability);
 		expect(definition.localOnly).toBe(reviewCase.expectedLocalOnly);
 		expect(definition.instructions.trim()).not.toBe("");
@@ -110,7 +114,7 @@ describe("parseReviewDefinition", () => {
 			parseReviewDefinition(
 				"---\n" +
 					"description: Review Python diffs for style violations.\n" +
-					"default_model: sonnet\n" +
+					"model_profile: deep\n" +
 					"---\n" +
 					"\n" +
 					"Flag concrete issues in the diff.\n",
@@ -122,7 +126,7 @@ describe("parseReviewDefinition", () => {
 			name: "dignified-python",
 			description: "Review Python diffs for style violations.",
 			instructions: "Flag concrete issues in the diff.",
-			defaultModel: "sonnet",
+			modelProfile: "deep",
 			applicability: { include: [], exclude: [] },
 			localOnly: false,
 		});
@@ -133,7 +137,7 @@ describe("parseReviewDefinition", () => {
 			parseReviewDefinition(
 				"---\n" +
 					"description: Review architecture diffs.\n" +
-					"default_model: sonnet\n" +
+					"model_profile: deep\n" +
 					"local_only: true\n" +
 					"---\n" +
 					"\n" +
@@ -150,7 +154,7 @@ describe("parseReviewDefinition", () => {
 			parseReviewDefinition(
 				"---\n" +
 					"description: Review Python diffs for style violations.\n" +
-					"default_model: sonnet\n" +
+					"model_profile: quick\n" +
 					"applies_to:\n" +
 					"  include:\n" +
 					"    - ' **\\*.py '\n" +
@@ -169,8 +173,8 @@ describe("parseReviewDefinition", () => {
 		});
 	});
 
-	test("allows missing default model", () => {
-		const definition = expectOk(
+	test("requires model profile", () => {
+		const error = expectError(
 			parseReviewDefinition(
 				"---\n" +
 					"description: Review Python diffs for style violations.\n" +
@@ -181,9 +185,8 @@ describe("parseReviewDefinition", () => {
 			),
 		);
 
-		expect(definition.defaultModel).toBeNull();
-		expect(definition.applicability).toEqual({ include: [], exclude: [] });
-		expect(definition.localOnly).toBe(false);
+		expect(error.code).toBe("invalid_model_profile");
+		expect(error.message).toContain("model_profile");
 	});
 
 	test.each([
@@ -200,12 +203,12 @@ describe("parseReviewDefinition", () => {
 		],
 		[
 			"description",
-			"---\ndefault_model: sonnet\n---\n\nFlag concrete issues in the diff.\n",
+			"---\nmodel_profile: deep\n---\n\nFlag concrete issues in the diff.\n",
 			"invalid_description",
 		],
 		[
 			"instructions",
-			"---\ndescription: Review Python diffs for style violations.\n---\n",
+			"---\ndescription: Review Python diffs for style violations.\nmodel_profile: quick\n---\n",
 			"invalid_instructions",
 		],
 	] as const)("rejects invalid definition: %s", (message, source, code) => {
@@ -219,7 +222,7 @@ describe("parseReviewDefinition", () => {
 		expect(
 			expectError(
 				parseReviewDefinition(
-					"\n---\ndescription: Review Python diffs for style violations.\n---\n\nFlag concrete issues in the diff.\n",
+					"\n---\ndescription: Review Python diffs for style violations.\nmodel_profile: quick\n---\n\nFlag concrete issues in the diff.\n",
 					{ name: "dignified-python" },
 				),
 			).code,
@@ -227,7 +230,7 @@ describe("parseReviewDefinition", () => {
 		expect(
 			expectError(
 				parseReviewDefinition(
-					" ---\ndescription: Review Python diffs for style violations.\n---\n\nFlag concrete issues in the diff.\n",
+					" ---\ndescription: Review Python diffs for style violations.\nmodel_profile: quick\n---\n\nFlag concrete issues in the diff.\n",
 					{ name: "dignified-python" },
 				),
 			).code,
@@ -235,7 +238,7 @@ describe("parseReviewDefinition", () => {
 		expect(
 			expectError(
 				parseReviewDefinition(
-					"--- \ndescription: Review Python diffs for style violations.\n---\n\nFlag concrete issues in the diff.\n",
+					"--- \ndescription: Review Python diffs for style violations.\nmodel_profile: quick\n---\n\nFlag concrete issues in the diff.\n",
 					{ name: "dignified-python" },
 				),
 			).code,
@@ -243,7 +246,7 @@ describe("parseReviewDefinition", () => {
 		expect(
 			expectError(
 				parseReviewDefinition(
-					"---\ndescription: Review Python diffs for style violations.\n ---\n\nFlag concrete issues in the diff.\n",
+					"---\ndescription: Review Python diffs for style violations.\nmodel_profile: quick\n ---\n\nFlag concrete issues in the diff.\n",
 					{ name: "dignified-python" },
 				),
 			).code,
@@ -251,7 +254,7 @@ describe("parseReviewDefinition", () => {
 		expect(
 			expectError(
 				parseReviewDefinition(
-					"---\ndescription: Review Python diffs for style violations.\n--- \n\nFlag concrete issues in the diff.\n",
+					"---\ndescription: Review Python diffs for style violations.\nmodel_profile: quick\n--- \n\nFlag concrete issues in the diff.\n",
 					{ name: "dignified-python" },
 				),
 			).code,
@@ -261,7 +264,7 @@ describe("parseReviewDefinition", () => {
 	test("requires non-empty name", () => {
 		const error = expectError(
 			parseReviewDefinition(
-				"---\ndescription: Review Python diffs for style violations.\n---\n\nFlag concrete issues in the diff.\n",
+				"---\ndescription: Review Python diffs for style violations.\nmodel_profile: quick\n---\n\nFlag concrete issues in the diff.\n",
 				{ name: "   " },
 			),
 		);
@@ -275,6 +278,7 @@ describe("parseReviewDefinition", () => {
 			parseReviewDefinition(
 				"---\n" +
 					"description: Review Python diffs for style violations.\n" +
+					"model_profile: quick\n" +
 					"default_model: sonnet\n" +
 					"severity: error\n" +
 					"owner: team-platform\n" +
@@ -286,46 +290,49 @@ describe("parseReviewDefinition", () => {
 		);
 
 		expect(error.code).toBe("unknown_frontmatter_key");
+		expect(error.message).toContain("`default_model`");
 		expect(error.message).toContain("`owner`");
 		expect(error.message).toContain("`severity`");
 		expect(error.message).toContain("Allowed fields:");
+		expect(error.message).toContain("model_profile");
 	});
 
-	test.each(["sonnet", "opus", "haiku", "claude-sonnet-4-6", "gpt-5-mini"])(
-		"accepts default model %s",
-		(model) => {
-			const definition = expectOk(
-				parseReviewDefinition(
-					`---\ndescription: Review Python diffs for style violations.\ndefault_model: ${model}\n---\n\nFlag concrete issues in the diff.\n`,
-					{ name: "dignified-python" },
-				),
-			);
-
-			expect(definition.defaultModel).toBe(model);
-		},
-	);
-
-	test.each(["", "   ", "[]", "123"])("rejects invalid default model %#", (defaultModel) => {
-		const error = expectError(
+	test.each(["quick", "deep"] as const)("accepts model profile %s", (profile) => {
+		const definition = expectOk(
 			parseReviewDefinition(
-				"---\n" +
-					"description: Review Python diffs for style violations.\n" +
-					`default_model: ${defaultModel}\n` +
-					"---\n" +
-					"\n" +
-					"Flag concrete issues in the diff.\n",
+				`---\ndescription: Review Python diffs for style violations.\nmodel_profile: ${profile}\n---\n\nFlag concrete issues in the diff.\n`,
 				{ name: "dignified-python" },
 			),
 		);
 
-		expect(error.code).toBe("invalid_default_model");
+		expect(definition.modelProfile).toBe(profile);
 	});
+
+	test.each(["", "   ", "[]", "123", "sonnet", "haiku", "gpt-5-mini"])(
+		"rejects invalid model profile %#",
+		(modelProfile) => {
+			const error = expectError(
+				parseReviewDefinition(
+					"---\n" +
+						"description: Review Python diffs for style violations.\n" +
+						`model_profile: ${modelProfile}\n` +
+						"---\n" +
+						"\n" +
+						"Flag concrete issues in the diff.\n",
+					{ name: "dignified-python" },
+				),
+			);
+
+			expect(error.code).toBe("invalid_model_profile");
+		},
+	);
 
 	test.each(["yes", '"true"', "1", "[]"])("rejects invalid local_only %#", (localOnly) => {
 		const error = expectError(
 			parseReviewDefinition(
 				"---\n" +
 					"description: Review Python diffs for style violations.\n" +
+					"model_profile: quick\n" +
 					`local_only: ${localOnly}\n` +
 					"---\n" +
 					"\n" +
@@ -353,6 +360,7 @@ describe("parseReviewDefinition", () => {
 			parseReviewDefinition(
 				"---\n" +
 					"description: Review Python diffs for style violations.\n" +
+					"model_profile: quick\n" +
 					appliesToYaml +
 					"---\n" +
 					"\n" +

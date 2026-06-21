@@ -311,6 +311,7 @@ export function renderReviewLogMarkdown(
 		`- Branch: \`${metadata.branch}\``,
 		`- Head commit: \`${metadata.headCommit}\``,
 		`- Base ref: \`${result.baseRef}\``,
+		`- Model profile: \`${result.modelProfile}\``,
 		`- Model: \`${result.model}\``,
 		`- Findings: ${result.count}`,
 		"",

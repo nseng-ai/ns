@@ -46,6 +46,7 @@ async function runRoaster(
 const EXEC_CLI_FINDINGS_ENVELOPE_OPTIONS = {
 	reviewName: "dignified-python",
 	reviewPath: "/repo/reviews/dignified-python.md",
+	modelProfile: "deep",
 	model: "sonnet",
 	baseRef: "master",
 } as const satisfies FindingsEnvelopeOptions;

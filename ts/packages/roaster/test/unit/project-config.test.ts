@@ -2,21 +2,27 @@ import { describe, expect, test } from "vitest";
 
 import {
 	buildGitDiffArgs,
+	DEFAULT_ROASTER_MODEL_PROFILES,
 	parseRoasterProjectConfigToml,
+	resolveModelProfile,
 	roasterExcludeGlobsToGitPathspecs,
 	type ProjectConfigErrorCode,
+	type RoasterProjectConfig,
 } from "../../src/project-config.ts";
 
 describe("parseRoasterProjectConfigToml", () => {
 	test.each([
 		["empty TOML", ""],
 		["areg-only config", '[areg]\nagents = ["codex", "claude-code"]\n'],
-		["missing diff table", "[roaster]\n"],
+		["missing roaster tables", "[roaster]\n"],
 		["diff table without exclude", "[roaster.diff]\nunknown = true\n"],
-	])("returns empty excludes for %s", (_label, source) => {
+	])("returns empty excludes and default model profiles for %s", (_label, source) => {
 		const config = expectOk(parseRoasterProjectConfigToml(source));
 
 		expect(config.diff.exclude).toEqual([]);
+		expect(config.modelProfiles).toEqual(DEFAULT_ROASTER_MODEL_PROFILES);
+		expect(resolveModelProfile(config, "quick")).toBe("haiku");
+		expect(resolveModelProfile(config, "deep")).toBe("opus");
 	});
 
 	test("parses roaster diff excludes", () => {
@@ -27,6 +33,21 @@ describe("parseRoasterProjectConfigToml", () => {
 		);
 
 		expect(config.diff.exclude).toEqual([".agents/skills/**/*.py", ".claude/skills/**/*.py"]);
+		expect(config.modelProfiles).toEqual(DEFAULT_ROASTER_MODEL_PROFILES);
+	});
+
+	test("parses partial and full model profile overrides", () => {
+		const partial = expectOk(
+			parseRoasterProjectConfigToml('[roaster.model_profiles]\ndeep = "claude-opus-4-5"\n'),
+		);
+		const full = expectOk(
+			parseRoasterProjectConfigToml(
+				'[roaster.model_profiles]\nquick = "claude-haiku-4-5"\ndeep = "opus"\n',
+			),
+		);
+
+		expect(partial.modelProfiles).toEqual({ quick: "haiku", deep: "claude-opus-4-5" });
+		expect(full.modelProfiles).toEqual({ quick: "claude-haiku-4-5", deep: "opus" });
 	});
 
 	test("parses known sections and ignores unrelated fields", () => {
@@ -39,13 +60,20 @@ describe("parseRoasterProjectConfigToml", () => {
 					'agents = ["codex"]\n' +
 					'unknown = "ignored"\n' +
 					"\n" +
+					"[roaster]\n" +
+					"unknown = true\n" +
+					"\n" +
 					"[roaster.diff]\n" +
 					'exclude = [".agents/skills/**/*.py"]\n' +
-					"unknown = true\n",
+					"unknown = true\n" +
+					"\n" +
+					"[roaster.model_profiles]\n" +
+					'quick = "haiku"\n',
 			),
 		);
 
 		expect(config.diff.exclude).toEqual([".agents/skills/**/*.py"]);
+		expect(config.modelProfiles).toEqual({ quick: "haiku", deep: "opus" });
 	});
 
 	test.each([
@@ -61,6 +89,26 @@ describe("parseRoasterProjectConfigToml", () => {
 		],
 		['roaster = "not a table"\n', "[roaster] must be a TOML table", "invalid_table"],
 		['[roaster]\ndiff = "not a table"\n', "[roaster.diff] must be a TOML table", "invalid_table"],
+		[
+			'[roaster]\nmodel_profiles = "not a table"\n',
+			"[roaster.model_profiles] must be a TOML table",
+			"invalid_table",
+		],
+		[
+			'[roaster.model_profiles]\nquick = ""\n',
+			"quick must be a non-empty string",
+			"invalid_model_profiles",
+		],
+		[
+			"[roaster.model_profiles]\ndeep = 123\n",
+			"deep must be a non-empty string",
+			"invalid_model_profiles",
+		],
+		[
+			'[roaster.model_profiles]\nmedium = "sonnet"\n',
+			"unknown profile key",
+			"invalid_model_profiles",
+		],
 		["[roaster\n", "Invalid TOML", "invalid_toml"],
 	] as const)("rejects invalid config %#", (source, message, code) => {
 		const error = expectError(parseRoasterProjectConfigToml(source, "sdl.toml"));
@@ -122,7 +170,7 @@ describe("git diff pathspec helpers", () => {
 
 type ParseResult = ReturnType<typeof parseRoasterProjectConfigToml>;
 
-function expectOk(result: ParseResult): { readonly diff: { readonly exclude: readonly string[] } } {
+function expectOk(result: ParseResult): RoasterProjectConfig {
 	if (result.type === "error") throw new Error(result.error.message);
 	return result.config;
 }

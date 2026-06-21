@@ -28,7 +28,7 @@ const sampleReviewDefinition: ReviewDefinition = {
 	name: "typescript-style",
 	description: "Review TypeScript diffs.",
 	instructions: "Flag concrete issues.",
-	defaultModel: "sonnet",
+	modelProfile: "deep",
 	applicability: { include: ["**/*.ts"], exclude: [] },
 	localOnly: false,
 };

@@ -288,7 +288,7 @@ function okLoaded(entry: RoastSkillEntry, source: string): RoastReviewLoadResult
 			name: entry.reviewKey,
 			description: entry.description,
 			instructions: source,
-			defaultModel: null,
+			modelProfile: "quick",
 			applicability: { include: [], exclude: [] },
 			localOnly: false,
 		},

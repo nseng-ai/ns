@@ -11,6 +11,7 @@ function runResult(overrides: Partial<ReviewRunResult> = {}): ReviewRunResult {
 	return {
 		reviewName: "team/review key",
 		reviewPath: "/repo/reviews/team/review key.md",
+		modelProfile: "deep",
 		model: "sonnet",
 		baseRef: "main",
 		format: "findings",
@@ -58,6 +59,7 @@ describe("review log helpers", () => {
 		);
 
 		expect(markdown).toContain("# Roaster Review: team/review key");
+		expect(markdown).toContain("- Model profile: `deep`");
 		expect(markdown).toContain("### 1. info — `unknown:—`");
 		expect(markdown).toContain("Readable **Markdown** details.");
 		expect(markdown).not.toContain("```json");

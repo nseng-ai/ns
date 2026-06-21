@@ -1,18 +1,22 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+
 import { formatErrorMessage, isRecord } from "@sdl/core/primitives";
+import type { GitGateway } from "@sdl/core/git";
 import { parse } from "smol-toml";
+
+import type { LocalDiffFailure, RoasterResult } from "./failures.ts";
+import type { ReviewModelProfile } from "./models.ts";
 
 export interface RoasterDiffProjectConfig {
 	readonly exclude: readonly string[];
 }
 
-export interface RoasterModelProfilesProjectConfig {
-	readonly quick: string;
-	readonly deep: string;
-}
+export type RoasterModelProfiles = Readonly<Record<ReviewModelProfile, string>>;
 
 export interface RoasterProjectConfig {
 	readonly diff: RoasterDiffProjectConfig;
-	readonly modelProfiles: RoasterModelProfilesProjectConfig;
+	readonly modelProfiles: RoasterModelProfiles;
 }
 
 export type ProjectConfigParseResult =
@@ -35,17 +39,45 @@ export interface GitDiffArgsOptions {
 	readonly excludeGlobs?: readonly string[] | undefined;
 }
 
-export const DEFAULT_ROASTER_MODEL_PROFILES: RoasterModelProfilesProjectConfig = {
-	quick: "openai-codex/gpt-5.4-mini",
-	deep: "openai-codex/gpt-5.5",
-};
+export interface LoadRoasterProjectConfigOptions {
+	readonly cwd: string;
+	readonly signal?: AbortSignal | undefined;
+	readonly gitGateway: GitGateway;
+}
 
-const EMPTY_CONFIG: RoasterProjectConfig = {
-	diff: { exclude: [] },
-	modelProfiles: DEFAULT_ROASTER_MODEL_PROFILES,
-};
-const MODEL_PROFILE_KEYS = ["quick", "deep"] as const;
-export type RoasterModelProfileKey = (typeof MODEL_PROFILE_KEYS)[number];
+export const DEFAULT_ROASTER_MODEL_PROFILES = {
+	quick: "haiku",
+	deep: "opus",
+} as const satisfies RoasterModelProfiles;
+
+const MODEL_PROFILE_KEYS = ["quick", "deep"] as const satisfies readonly ReviewModelProfile[];
+
+export async function loadRoasterProjectConfig(
+	options: LoadRoasterProjectConfigOptions,
+): Promise<RoasterResult<RoasterProjectConfig>> {
+	const repoRoot = await options.gitGateway.repoRoot({ cwd: options.cwd, signal: options.signal });
+	if (!repoRoot.ok) {
+		return roasterError({ type: "repo_root_unavailable", message: repoRoot.error.message });
+	}
+
+	const path = join(repoRoot.value, "sdl.toml");
+	let source: string;
+	try {
+		source = await readFile(path, "utf8");
+	} catch (caught) {
+		if (isMissingFileError(caught)) return { type: "ok", value: emptyConfig() };
+		return roasterError({
+			type: "project_config_invalid",
+			message: `Failed to read sdl.toml: ${formatErrorMessage(caught)}`,
+		});
+	}
+
+	const config = parseRoasterProjectConfigToml(source, path);
+	if (config.type === "error") {
+		return roasterError({ type: "project_config_invalid", message: config.error.message });
+	}
+	return { type: "ok", value: config.config };
+}
 
 export function parseRoasterProjectConfigToml(
 	source: string,
@@ -61,22 +93,31 @@ export function parseRoasterProjectConfigToml(
 		);
 	}
 
-	if (!isRecord(data)) return { type: "ok", config: EMPTY_CONFIG };
+	if (!isRecord(data)) return { type: "ok", config: emptyConfig() };
 	const roaster = data.roaster;
-	if (roaster === undefined) return { type: "ok", config: EMPTY_CONFIG };
+	if (roaster === undefined) return { type: "ok", config: emptyConfig() };
 	if (!isRecord(roaster))
 		return failure("invalid_table", formatMessage("[roaster] must be a TOML table.", pathLabel));
 
-	const parsedDiff = parseDiffConfig(roaster.diff, pathLabel);
-	if (parsedDiff.type === "error") return parsedDiff;
-
-	const parsedModelProfiles = parseModelProfiles(roaster.model_profiles, pathLabel);
-	if (parsedModelProfiles.type === "error") return parsedModelProfiles;
+	const diff = parseDiffConfig(roaster, pathLabel);
+	if (diff.type === "error") return diff;
+	const modelProfiles = parseModelProfilesConfig(roaster, pathLabel);
+	if (modelProfiles.type === "error") return modelProfiles;
 
 	return {
 		type: "ok",
-		config: { diff: parsedDiff.value, modelProfiles: parsedModelProfiles.value },
+		config: {
+			diff: { exclude: diff.value },
+			modelProfiles: modelProfiles.value,
+		},
 	};
+}
+
+export function resolveModelProfile(
+	config: RoasterProjectConfig,
+	profile: ReviewModelProfile,
+): string {
+	return config.modelProfiles[profile];
 }
 
 export function roasterExcludeGlobsToGitPathspecs(patterns: readonly string[]): readonly string[] {
@@ -104,79 +145,76 @@ export function buildGitDiffArgs(options: GitDiffArgsOptions): readonly string[]
 }
 
 type DiffConfigParseResult =
-	| { readonly type: "ok"; readonly value: RoasterDiffProjectConfig }
-	| { readonly type: "error"; readonly error: ProjectConfigError };
-
-type ExcludeParseResult =
 	| { readonly type: "ok"; readonly value: readonly string[] }
 	| { readonly type: "error"; readonly error: ProjectConfigError };
 
-type ModelProfilesParseResult =
-	| { readonly type: "ok"; readonly value: RoasterModelProfilesProjectConfig }
-	| { readonly type: "error"; readonly error: ProjectConfigError };
-
-export function isRoasterModelProfileKey(value: string): value is RoasterModelProfileKey {
-	return MODEL_PROFILE_KEYS.includes(value as RoasterModelProfileKey);
-}
-
-function parseDiffConfig(value: unknown, pathLabel: string | undefined): DiffConfigParseResult {
-	if (value === undefined) return { type: "ok", value: EMPTY_CONFIG.diff };
-	if (!isRecord(value)) {
+function parseDiffConfig(
+	roaster: Readonly<Record<string, unknown>>,
+	pathLabel: string | undefined,
+): DiffConfigParseResult {
+	const diff = roaster.diff;
+	if (diff === undefined) return { type: "ok", value: [] };
+	if (!isRecord(diff)) {
 		return failure(
 			"invalid_table",
 			formatMessage("[roaster.diff] must be a TOML table.", pathLabel),
 		);
 	}
 
-	const exclude = value.exclude;
-	if (exclude === undefined) return { type: "ok", value: EMPTY_CONFIG.diff };
-	const parsedExclude = parseExcludeGlobs(exclude, pathLabel);
-	if (parsedExclude.type === "error") return parsedExclude;
-	return { type: "ok", value: { exclude: parsedExclude.value } };
+	const exclude = diff.exclude;
+	if (exclude === undefined) return { type: "ok", value: [] };
+	return parseExcludeGlobs(exclude, pathLabel);
 }
 
-function parseModelProfiles(
-	value: unknown,
+type ModelProfilesParseResult =
+	| { readonly type: "ok"; readonly value: RoasterModelProfiles }
+	| { readonly type: "error"; readonly error: ProjectConfigError };
+
+function parseModelProfilesConfig(
+	roaster: Readonly<Record<string, unknown>>,
 	pathLabel: string | undefined,
 ): ModelProfilesParseResult {
-	if (value === undefined) return { type: "ok", value: DEFAULT_ROASTER_MODEL_PROFILES };
-	if (!isRecord(value)) {
+	const table = roaster.model_profiles;
+	if (table === undefined) return { type: "ok", value: defaultProfiles() };
+	if (!isRecord(table)) {
 		return failure(
 			"invalid_table",
 			formatMessage("[roaster.model_profiles] must be a TOML table.", pathLabel),
 		);
 	}
 
-	const unknownKeys = Object.keys(value)
-		.filter((key) => !isRoasterModelProfileKey(key))
+	const unknownKeys = Object.keys(table)
+		.filter((key) => !MODEL_PROFILE_KEYS.includes(key as ReviewModelProfile))
 		.sort();
 	if (unknownKeys.length > 0) {
+		const unknownList = unknownKeys.map((key) => `\`${key}\``).join(", ");
 		return failure(
 			"invalid_model_profiles",
 			formatMessage(
-				`[roaster.model_profiles] contains unknown profile key(s): ${unknownKeys.join(", ")}. Allowed keys: ${MODEL_PROFILE_KEYS.join(", ")}.`,
+				`[roaster.model_profiles] contains unknown profile key(s): ${unknownList}. Allowed keys: quick, deep.`,
 				pathLabel,
 			),
 		);
 	}
 
-	const profiles = { ...DEFAULT_ROASTER_MODEL_PROFILES };
+	const profiles: Record<ReviewModelProfile, string> = { ...DEFAULT_ROASTER_MODEL_PROFILES };
 	for (const key of MODEL_PROFILE_KEYS) {
-		if (!(key in value)) continue;
-		const profileValue = value[key];
-		if (typeof profileValue !== "string" || profileValue.trim() === "") {
+		if (!(key in table)) continue;
+		const value = table[key];
+		if (typeof value !== "string" || value.trim() === "") {
 			return failure(
 				"invalid_model_profiles",
-				formatMessage(
-					`[roaster.model_profiles].${key} must be a non-empty string.`,
-					pathLabel,
-				),
+				formatMessage(`[roaster.model_profiles].${key} must be a non-empty string.`, pathLabel),
 			);
 		}
-		profiles[key] = profileValue.trim();
+		profiles[key] = value.trim();
 	}
 	return { type: "ok", value: profiles };
 }
+
+type ExcludeParseResult =
+	| { readonly type: "ok"; readonly value: readonly string[] }
+	| { readonly type: "error"; readonly error: ProjectConfigError };
 
 function parseExcludeGlobs(value: unknown, pathLabel: string | undefined): ExcludeParseResult {
 	if (!Array.isArray(value)) {
@@ -230,6 +268,22 @@ function validateRoasterExcludePattern(
 		);
 	}
 	return { type: "ok" };
+}
+
+function emptyConfig(): RoasterProjectConfig {
+	return { diff: { exclude: [] }, modelProfiles: defaultProfiles() };
+}
+
+function defaultProfiles(): RoasterModelProfiles {
+	return { ...DEFAULT_ROASTER_MODEL_PROFILES };
+}
+
+function isMissingFileError(error: unknown): boolean {
+	return isRecord(error) && error["code"] === "ENOENT";
+}
+
+function roasterError(errorValue: LocalDiffFailure): RoasterResult<never> {
+	return { type: "error", error: errorValue };
 }
 
 function failure(

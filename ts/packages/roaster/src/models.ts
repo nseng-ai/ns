@@ -28,8 +28,12 @@ export const inlinePostingOutcomeValues = [
 	"api_error",
 ] as const;
 export const diffChangeKindValues = ["added", "modified", "deleted", "renamed", "copied"] as const;
+export const reviewModelProfileValues = ["quick", "deep"] as const;
 
 const nonBlankStringSchema = z.string().trim().min(1);
+
+export const reviewModelProfileSchema = z.enum(reviewModelProfileValues);
+export type ReviewModelProfile = z.infer<typeof reviewModelProfileSchema>;
 const nonNegativeIntegerSchema = z.int().min(0);
 
 export const reviewApplicabilitySchema = z
@@ -45,7 +49,7 @@ export const reviewDefinitionSchema = z
 		name: nonBlankStringSchema,
 		description: nonBlankStringSchema,
 		instructions: nonBlankStringSchema,
-		modelProfile: nonBlankStringSchema,
+		modelProfile: reviewModelProfileSchema,
 		applicability: reviewApplicabilitySchema,
 		localOnly: z.boolean(),
 	})
@@ -179,6 +183,7 @@ export const reviewRunResultSchema = z
 	.object({
 		reviewName: nonBlankStringSchema,
 		reviewPath: nonBlankStringSchema,
+		modelProfile: reviewModelProfileSchema,
 		model: nonBlankStringSchema,
 		baseRef: nonBlankStringSchema,
 		format: z.literal("findings"),

@@ -30,7 +30,7 @@ describe("roaster domain schemas", () => {
 			name: "typescript-style",
 			description: "Review TypeScript diffs.",
 			instructions: "Flag concrete issues.",
-			defaultModel: "haiku",
+			modelProfile: "quick",
 			applicability: { include: ["**/*.ts"], exclude: [] },
 			localOnly: false,
 		});
@@ -174,7 +174,7 @@ describe("roaster domain schemas", () => {
 			name: "typescript-style",
 			description: "Review TypeScript diffs.",
 			instructions: "Flag concrete issues.",
-			defaultModel: "haiku",
+			modelProfile: "quick",
 			applicability: { include: ["**/*.ts"], exclude: [] },
 			localOnly: false,
 		});
@@ -197,6 +197,7 @@ describe("roaster domain schemas", () => {
 		const result = reviewRunResultSchema.parse({
 			reviewName: "typescript-style",
 			reviewPath: "reviews/typescript-style.md",
+			modelProfile: "quick",
 			model: "haiku",
 			baseRef: "main",
 			format: "findings",

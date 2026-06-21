@@ -104,6 +104,7 @@ describe("roaster roast CLI", () => {
 function reviewSource(description: string): string {
 	return `---
 description: ${JSON.stringify(description)}
+model_profile: quick
 ---
 
 # Review

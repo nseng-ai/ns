@@ -1,6 +1,3 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-
 import { commandFailureReason, formatCommand, type CommandExecApi } from "@sdl/core/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { type GitGateway, RealGitGateway } from "@sdl/core/git";
@@ -8,8 +5,7 @@ import { type GitGateway, RealGitGateway } from "@sdl/core/git";
 import { parseUnifiedDiff } from "../diff-parsing.ts";
 import type { LocalDiffFailure, RoasterResult } from "../failures.ts";
 import { createLocalDiff, type LocalDiff } from "../models.ts";
-import { buildGitDiffArgs, parseRoasterProjectConfigToml } from "../project-config.ts";
-import { isMissingFileError } from "./filesystem-errors.ts";
+import { buildGitDiffArgs, loadRoasterProjectConfig } from "../project-config.ts";
 
 const GIT_TIMEOUT_MS = 10_000;
 
@@ -50,13 +46,18 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 		const baseRef = await this.resolveBaseRef(options, repoRoot.value);
 		if (baseRef.type === "error") return baseRef;
 
-		const config = await this.loadProjectConfig(repoRoot.value);
+		const config = await loadRoasterProjectConfig({
+			cwd: repoRoot.value,
+			...(options.signal === undefined ? {} : { signal: options.signal }),
+			gitGateway: this.gitGateway,
+		});
 		if (config.type === "error") return config;
+		const excludeGlobs = config.value.diff.exclude;
 
-		const args = [...buildGitDiffArgs({ baseRef: baseRef.value, excludeGlobs: config.value })];
+		const args = [...buildGitDiffArgs({ baseRef: baseRef.value, excludeGlobs })];
 		const displayCommand = formatGitDiffDisplayCommand({
 			baseRef: baseRef.value,
-			excludeGlobs: config.value,
+			excludeGlobs,
 		});
 		let result;
 		try {
@@ -101,25 +102,6 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 			type: "base_ref_unavailable",
 			message: "Unable to resolve a base branch. Pass --base-ref explicitly.",
 		});
-	}
-
-	private async loadProjectConfig(repoRoot: string): Promise<RoasterResult<readonly string[]>> {
-		const path = join(repoRoot, "sdl.toml");
-		let source: string;
-		try {
-			source = await readFile(path, "utf8");
-		} catch (caught) {
-			if (isMissingFileError(caught)) return { type: "ok", value: [] };
-			return error({
-				type: "project_config_invalid",
-				message: `Failed to read sdl.toml: ${formatErrorMessage(caught)}`,
-			});
-		}
-
-		const config = parseRoasterProjectConfigToml(source, path);
-		if (config.type === "error")
-			return error({ type: "project_config_invalid", message: config.error.message });
-		return { type: "ok", value: config.config.diff.exclude };
 	}
 }
 

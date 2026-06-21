@@ -4,8 +4,10 @@ import { parse } from "yaml";
 
 import {
 	reviewDefinitionSchema,
+	reviewModelProfileSchema,
 	type ReviewApplicability,
 	type ReviewDefinition,
+	type ReviewModelProfile,
 } from "./models.ts";
 
 const ALLOWED_FRONTMATTER_KEYS = [
@@ -168,19 +170,31 @@ function requireStringField(
 }
 
 type ModelProfileResult =
-	| { readonly type: "ok"; readonly value: string }
+	| { readonly type: "ok"; readonly value: ReviewModelProfile }
 	| { readonly type: "error"; readonly error: ReviewDefinitionParseError };
 
 function parseModelProfile(frontmatter: Readonly<Record<string, unknown>>): ModelProfileResult {
-	if (!("model_profile" in frontmatter)) return { type: "ok", value: "quick" };
+	if (!("model_profile" in frontmatter)) {
+		return failure(
+			"invalid_model_profile",
+			"Review definition frontmatter is missing required field `model_profile`.",
+		);
+	}
 	const value = frontmatter.model_profile;
 	if (typeof value !== "string" || value.trim() === "") {
 		return failure(
 			"invalid_model_profile",
-			"Review definition field `model_profile` must be a non-empty string.",
+			"Review definition field `model_profile` must be one of: quick, deep.",
 		);
 	}
-	return { type: "ok", value: value.trim() };
+	const parsed = reviewModelProfileSchema.safeParse(value.trim());
+	if (!parsed.success) {
+		return failure(
+			"invalid_model_profile",
+			"Review definition field `model_profile` must be one of: quick, deep.",
+		);
+	}
+	return { type: "ok", value: parsed.data };
 }
 
 type LocalOnlyResult =

@@ -3,6 +3,7 @@ import type { ReviewFinding } from "../../src/models.ts";
 export interface FindingsEnvelopeOptions {
 	readonly reviewName?: string | undefined;
 	readonly reviewPath?: string | undefined;
+	readonly modelProfile?: "quick" | "deep" | undefined;
 	readonly model?: string | undefined;
 	readonly baseRef?: string | undefined;
 }
@@ -17,6 +18,7 @@ export function buildFindingsEnvelope(
 		data: {
 			reviewName,
 			reviewPath: options.reviewPath ?? `reviews/${reviewName}.md`,
+			modelProfile: options.modelProfile ?? "quick",
 			model: options.model ?? "haiku",
 			baseRef: options.baseRef ?? "main",
 			format: "findings",

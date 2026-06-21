@@ -136,6 +136,7 @@ describe("payload parsers", () => {
 				data: {
 					reviewName: "typescript-style",
 					reviewPath: "reviews/typescript-style.md",
+					modelProfile: "quick",
 					model: "haiku",
 					baseRef: "main",
 					format: "findings",
@@ -157,6 +158,7 @@ describe("payload parsers", () => {
 				data: {
 					reviewName: "typescript-style",
 					reviewPath: "reviews/typescript-style.md",
+					modelProfile: "quick",
 					model: "haiku",
 					baseRef: "main",
 					payload: { format: "findings", count: 1, findings: [WARNING_FINDING] },

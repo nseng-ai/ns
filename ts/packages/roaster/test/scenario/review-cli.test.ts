@@ -47,17 +47,17 @@ async function runRoaster(
 
 function sampleSource(
 	options: {
-		readonly defaultModel?: string | null;
+		readonly modelProfile?: "quick" | "deep";
 		readonly description?: string;
 		readonly appliesTo?: string;
 		readonly localOnly?: boolean | undefined;
 	} = {},
 ): string {
-	const defaultModel = options.defaultModel === undefined ? "sonnet" : options.defaultModel;
+	const modelProfile = options.modelProfile ?? "deep";
 	return [
 		"---",
 		`description: ${options.description ?? "Review Python diffs for style violations."}`,
-		...(defaultModel === null ? [] : [`default_model: ${defaultModel}`]),
+		`model_profile: ${modelProfile}`,
 		...(options.localOnly === true ? ["local_only: true"] : []),
 		...(options.appliesTo === undefined ? [] : [options.appliesTo.trimEnd()]),
 		"---",
@@ -234,7 +234,9 @@ describe("roaster review CLI", () => {
 		const envelope = JSON.parse(run.stdout);
 		expect(envelope.data.keys).toEqual(["dignified-python", "typescript-style"]);
 		expect(envelope.data.count).toBe(2);
-		expect(envelope.data.reviews[0].default_model).toBe("sonnet");
+		expect(envelope.data.reviews[0].model_profile).toBe("deep");
+		expect(envelope.data.reviews[0].resolved_model).toBe("opus");
+		expect(envelope.data.reviews[0].default_model).toBeUndefined();
 		expect(envelope.data.reviews[0].local_only).toBe(false);
 	});
 
@@ -336,11 +338,14 @@ describe("roaster review CLI", () => {
 			},
 		);
 		expect(run.exitCode).toBe(0);
-		expect(run.stderr).toContain("resolved model=opus base_ref=master changed_paths=1");
+		expect(run.stderr).toContain(
+			"resolved model=opus model_profile=deep base_ref=master changed_paths=1",
+		);
 		const data = JSON.parse(run.stdout).data;
 		expect(data.reviewName).toBe(REVIEW_KEY);
 		expect(data.reviewPath).toBe("/repo/reviews/dignified-python.md");
 		expect(data.baseRef).toBe("master");
+		expect(data.modelProfile).toBe("deep");
 		expect(data.model).toBe("opus");
 		expect(data.inputCoverage).toBeNull();
 		expect(data.findings[0].summary).toBe("Avoid print");
@@ -379,6 +384,7 @@ describe("roaster review CLI", () => {
 		expect(entry?.content).toContain("# Roaster Review: dignified-python");
 		expect(entry?.content).toContain("- Review key: `dignified-python`");
 		expect(entry?.content).toContain("- Base ref: `master`");
+		expect(entry?.content).toContain("- Model profile: `deep`");
 		expect(entry?.content).toContain("- Model: `opus`");
 		expect(entry?.content).toContain("- Findings: 1");
 		expect(entry?.content).toContain("Avoid print");
@@ -424,23 +430,53 @@ describe("roaster review CLI", () => {
 		expect(human.stderr).toContain("failed to write Branch Memory review log");
 	});
 
-	test("review run uses default model and fails when no model is available", async () => {
-		const success = await runRoaster(["review", "run", REVIEW_KEY, "--format", "json"], {
-			context: contextWithCatalog({ sources: { [REVIEW_KEY]: sampleSource() } }),
-		});
-		expect(success.exitCode).toBe(0);
-		expect(JSON.parse(success.stdout).data.model).toBe("sonnet");
-
-		const reviewLog = new FakeReviewLogGateway();
-		const failure = await runRoaster(["review", "run", REVIEW_KEY, "--format", "json"], {
+	test("review run resolves definition and request model profiles", async () => {
+		const definitionProfile = await runRoaster(["review", "run", REVIEW_KEY, "--format", "json"], {
 			context: contextWithCatalog({
-				sources: { [REVIEW_KEY]: sampleSource({ defaultModel: null }) },
-				reviewLog,
+				sources: { [REVIEW_KEY]: sampleSource({ modelProfile: "deep" }) },
 			}),
 		});
-		expect(failure.exitCode).toBe(2);
-		expect(JSON.parse(failure.stdout).error_type).toBe("model_not_provided");
-		expect(reviewLog.writtenEntries()).toEqual([]);
+		expect(definitionProfile.exitCode).toBe(0);
+		expect(JSON.parse(definitionProfile.stdout).data.modelProfile).toBe("deep");
+		expect(JSON.parse(definitionProfile.stdout).data.model).toBe("opus");
+
+		const requestProfile = await runRoaster(
+			["review", "run", REVIEW_KEY, "--model-profile", "quick", "--format", "json"],
+			{
+				context: contextWithCatalog({
+					sources: { [REVIEW_KEY]: sampleSource({ modelProfile: "deep" }) },
+				}),
+			},
+		);
+		expect(requestProfile.exitCode).toBe(0);
+		expect(JSON.parse(requestProfile.stdout).data.modelProfile).toBe("quick");
+		expect(JSON.parse(requestProfile.stdout).data.model).toBe("haiku");
+	});
+
+	test("review run concrete --model takes precedence over --model-profile", async () => {
+		const run = await runRoaster(
+			[
+				"review",
+				"run",
+				REVIEW_KEY,
+				"--model-profile",
+				"quick",
+				"--model",
+				"opus",
+				"--format",
+				"json",
+			],
+			{
+				context: contextWithCatalog({
+					sources: { [REVIEW_KEY]: sampleSource({ modelProfile: "deep" }) },
+				}),
+			},
+		);
+
+		expect(run.exitCode).toBe(0);
+		const data = JSON.parse(run.stdout).data;
+		expect(data.modelProfile).toBe("quick");
+		expect(data.model).toBe("opus");
 	});
 
 	test("review log lists entries and filters by review key", async () => {

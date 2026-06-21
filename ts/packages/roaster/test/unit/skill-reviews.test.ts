@@ -9,6 +9,7 @@ import {
 
 const REVIEW_SOURCE = `---
 description: Fixture review description.
+model_profile: quick
 ---
 
 # Fixture review
@@ -63,7 +64,7 @@ describe("Roaster skill review catalog", () => {
 	});
 
 	test("rejects invalid review definitions instead of advertising stale commands", async () => {
-		const invalidSource = "---\ndescription: Invalid only\n---\n\n";
+		const invalidSource = "---\ndescription: Invalid only\nmodel_profile: quick\n---\n\n";
 		const reviewCatalog = new FakeReviewCatalogGateway({
 			reviewSourcesByKey: { "invalid-review": invalidSource },
 		});
