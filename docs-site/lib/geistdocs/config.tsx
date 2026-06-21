@@ -24,6 +24,7 @@ export const config = defineConfig({
   translations,
   content: [{ id: "docs", label: "Docs", dir: "docs", route: "/docs" }],
   ai: {
+    enabled: false,
     prompt,
     suggestions,
   },

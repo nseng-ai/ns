@@ -61,10 +61,10 @@ not from a staged preservation artifact.
 - **Marketing home page**: eve-style hero, file-tree, feature grid, installer +
   CTA, OG/Twitter metadata — adapted to SDL positioning. Skips eve's
   per-feature animated visuals (`components/visuals/*`).
-- **Integrations / gallery page**: included as a structural mirror of eve's
-  integrations gallery. What it catalogs for SDL is an Open Question (eve sources
-  identity from a workspace `@vercel/eve-catalog`; SDL has no equivalent —
-  candidate: SDL tools + public skills).
+- **Extensions gallery page**: included as a structural mirror of eve's
+  integrations gallery, but the SDL version catalogs extensions rather than
+  generic integrations. It should start from a docs-site-local data/config shape
+  unless a later implementation proves a shared catalog package is necessary.
 
 **Deployment & repo integration.**
 
@@ -87,7 +87,8 @@ not from a staged preservation artifact.
   from git history as reference material, but does not stage or preserve the old
   site as a migration artifact.
 - **No new shared content catalog package** (no SDL analogue of
-  `@vercel/eve-catalog`) unless the integrations gallery decision demands it.
+  `@vercel/eve-catalog`) unless the extensions gallery implementation proves a
+  shared source of truth is necessary.
 - Not adopting geistdocs for any purpose beyond the docs site (no coupling of
   `ts/` runtime packages to geistdocs/Vercel).
 
@@ -141,10 +142,10 @@ not from a staged preservation artifact.
 - **Stack addition.** Brings Next.js + React + Tailwind v4 into a repo that is
   otherwise CLIs + Vitest. Increases dependency surface and maintenance. Accepted
   cost of the rip-and-replace decision.
-- **Integrations gallery has no obvious data source.** eve's is catalog-backed;
-  SDL has nothing equivalent. Risk of building chrome with no content. Mitigation:
-  resolve the Open Question before building the page; the page may shrink to a
-  tools/skills index or be parked.
+- **Extensions gallery data source.** The gallery direction is now resolved to
+  extensions, not tools/skills/generic integrations. Remaining risk is choosing a
+  maintainable docs-site-local data/config shape and avoiding a premature shared
+  catalog package.
 - **Loss of working site during migration.** Deleting the Astro app before the
   Next.js app reaches parity leaves SDL without full published-site parity
   mid-stream. Mitigation is now stronger: the replacement Next.js/geistdocs app
@@ -161,17 +162,18 @@ not from a staged preservation artifact.
   `docs/` + `apps/docs`, but SDL's root `docs/` remains internal engineering
   documentation. The standalone app now points `source.config.ts` at
   `docs-site/docs/`, keeping published content inside the app boundary.
-- **Integrations gallery content.** What does it catalog for SDL? Options:
-  (a) SDL tools (slot, brmem, pr-address, aretro, objective, roaster, …),
-  (b) public agent skills, (c) drop the page and treat as a Non-Goal. Resolve
-  before building.
+- **Extensions gallery content: resolved to extensions.** The former
+  integrations/gallery open question is now an extensions gallery direction. Do
+  not spend this Objective slice on generic tools, public skills, or broad
+  integration taxonomy unless needed to explain extension entries.
 - **Workspace membership: keep standalone.** `docs-site/` remains outside the
   `ts/` workspace with its own lockfile. It has a local `pnpm-workspace.yaml`
   only for pnpm build-script supply-chain policy (`allowBuilds` for `esbuild` and
   `sharp`), not to join the repo TypeScript workspace.
-- **Site identity/positioning copy** — tagline, hero headline, `siteId`,
-  production URL/domain. eve: "The Framework for Building Agents" / "Like Next.js
-  for web apps, but for agents." SDL needs its own.
+- **Site identity/positioning copy** — brand casing is resolved to lowercase
+  `sdl`; tagline, hero headline, `siteId`, and production URL/domain still need
+  launch-ready decisions. eve: "The Framework for Building Agents" / "Like
+  Next.js for web apps, but for agents." sdl needs its own.
 - **Content file extension: resolved to `.mdx` for the migrated published
   corpus.** The current port uses `.mdx` for all Get started / Concepts / Tools /
   Guides / Skills pages. The `source.config.ts` niceties already include mermaid,
