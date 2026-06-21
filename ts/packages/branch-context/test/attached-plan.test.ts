@@ -15,7 +15,7 @@ import { BRANCH_CONTEXT_NAMESPACE, type BranchContextContext } from "@sdl/branch
 import type { CommandExecApi } from "@sdl/core/exec";
 import { InMemoryGitGateway } from "@sdl/core/git/testing";
 import { buildPlanFileName, buildRepoPlanStoreKey, encodeBranchForPlanPath } from "@sdl/plans";
-import { InMemoryBranchMemoryGateway } from "./support/in-memory-brmem-gateway.ts";
+import { InMemoryBranchMemoryGateway } from "@sdl/branch-context/testing";
 import { InMemoryBranchContextGraphiteGateway } from "./support/in-memory-graphite-gateway.ts";
 
 const ROOT = "/repo";

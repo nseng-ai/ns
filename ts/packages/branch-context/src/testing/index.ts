@@ -1,19 +1,20 @@
 import {
 	FakeBrmemGateway,
 	type BrmemGateway,
-	type BrmemResult,
 	type BrmemOptionalResult,
+	type BrmemResult,
 	type CopyEntriesResult,
 	type DeleteEntryResult,
 	type EntryContent,
 	type EntryDiagnostic,
+	type FakeBrmemGatewayOptions,
 	type FakeEntrySeed,
 	type GitRemoteConfig,
 	type ListedEntry,
 	type PutEntryResult,
 } from "@sdl/brmem";
 
-import { BRANCH_CONTEXT_NAMESPACE } from "../../src/constants.ts";
+import { BRANCH_CONTEXT_NAMESPACE } from "../constants.ts";
 
 export interface InMemoryAttachedPlanState {
 	branch: string;
@@ -25,7 +26,8 @@ export interface InMemoryAttachedPlanState {
 }
 
 export interface InMemoryBrmemGatewayState {
-	entries?: readonly InMemoryAttachedPlanState[];
+	currentBranch?: FakeBrmemGatewayOptions["currentBranch"] | undefined;
+	entries?: readonly InMemoryAttachedPlanState[] | undefined;
 	presenceFailure?: { code: string; message: string } | undefined;
 	attachFailure?: { code: string; message: string } | undefined;
 	listFailure?: { code: string; message: string } | undefined;
@@ -71,6 +73,7 @@ export class InMemoryBranchMemoryGateway implements BrmemGateway {
 		for (const entry of state.entries ?? [])
 			this.entries.set(entryKey(entry.branch, entry.key), normalizeEntry(entry));
 		this.fake = new FakeBrmemGateway({
+			...(state.currentBranch === undefined ? {} : { currentBranch: state.currentBranch }),
 			entries: (state.entries ?? []).map(toFakeEntry),
 			operationErrors: {
 				...(state.presenceFailure === undefined ? {} : { check: state.presenceFailure }),
@@ -170,7 +173,9 @@ export class InMemoryBranchMemoryGateway implements BrmemGateway {
 	}): Promise<BrmemResult<DeleteEntryResult>> {
 		this.deleteEntryCalls.push({ branch: options.branch, key: options.key });
 		const result = await this.fake.deleteEntry(options);
-		if (result.type === "ok") this.entries.delete(entryKey(options.branch, options.key));
+		if (result.type === "ok" && options.namespace === BRANCH_CONTEXT_NAMESPACE) {
+			this.entries.delete(entryKey(options.branch, options.key));
+		}
 		return result;
 	}
 

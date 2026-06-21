@@ -10,7 +10,7 @@ import { encodeBranchForPlanPath } from "@sdl/plans";
 import {
 	InMemoryBranchMemoryGateway,
 	type InMemoryBrmemGatewayState,
-} from "./in-memory-brmem-gateway.ts";
+} from "@sdl/branch-context/testing";
 import {
 	InMemoryBranchContextGraphiteGateway,
 	type InMemoryGraphiteGatewayState,
