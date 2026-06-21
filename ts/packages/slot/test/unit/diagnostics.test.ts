@@ -34,9 +34,9 @@ describe("slot diagnostics", () => {
 			const result = await runDiagnosticCommand({
 				execApi,
 				command: "git",
-				args: ["status", "--porcelain"],
+				args: ["worktree", "list", "--porcelain"],
 				execOptions: { cwd: "/repo", timeout: 123 },
-				operation: "slot.git.has_uncommitted_changes",
+				operation: "slot.git.list_worktrees",
 				diagnosticSink: sink,
 			});
 
@@ -51,10 +51,10 @@ describe("slot diagnostics", () => {
 			const event = JSON.parse(lines[0] ?? "{}");
 			expect(event).toMatchObject({
 				type: "slot.command",
-				operation: "slot.git.has_uncommitted_changes",
+				operation: "slot.git.list_worktrees",
 				command: "git",
-				args: ["status", "--porcelain"],
-				displayCommand: "git status --porcelain",
+				args: ["worktree", "list", "--porcelain"],
+				displayCommand: "git worktree list --porcelain",
 				cwd: "/repo",
 				timeoutMs: 123,
 				exitCode: 7,

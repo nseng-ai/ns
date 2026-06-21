@@ -5,40 +5,117 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import type { ExecResult } from "@sdl/core/exec";
+import { InMemoryGitGateway } from "@sdl/core/git/testing";
 import { ScriptedCommandExecApi } from "@sdl/core/testing";
 import type { SlotCommandDiagnosticEvent, SlotDiagnosticSink } from "../../src/diagnostics.ts";
 import { RealSlotRepositoryGateway } from "../../src/gateways/repository.ts";
 
 describe("RealSlotRepositoryGateway", () => {
-	it("runs git commands through the injected shared command exec API", async () => {
-		const execApi = scriptedExecApi({ stdout: "/repo\n", stderr: "", code: 0, killed: false });
+	it("delegates repository root lookup to the injected core git gateway", async () => {
+		const coreGit = new InMemoryGitGateway({ repoRoot: "/repo" });
 		const gateway = new RealSlotRepositoryGateway({
 			cwd: "/repo",
 			env: { PATH: "/fake/bin" },
-			execApi,
+			coreGit,
 		});
 
 		await expect(gateway.getRepositoryRoot("/repo/subdir")).resolves.toBe("/repo");
-		expect(execApi.calls()).toEqual([gitCall(["rev-parse", "--show-toplevel"], "/repo/subdir")]);
+		expect(coreGit.repoRootCalls).toEqual([{ cwd: "/repo/subdir" }]);
 	});
 
-	it("maps branch existence from git show-ref exit codes", async () => {
-		const execApi = scriptedExecApi([
-			{ stdout: "", stderr: "", code: 0, killed: false },
-			{ stdout: "", stderr: "missing", code: 1, killed: false },
-		]);
-		const gateway = new RealSlotRepositoryGateway({
-			cwd: "/repo",
-			env: { PATH: "/fake/bin" },
-			execApi,
+	it("maps current branch results from the core git gateway", async () => {
+		const branchGit = new InMemoryGitGateway({ currentBranch: "feature/a" });
+		const detachedGit = new InMemoryGitGateway({ currentBranch: { type: "detached" } });
+		const failingGit = new InMemoryGitGateway({
+			currentBranch: { type: "failure", error: { code: "boom", message: "branch failed" } },
 		});
+
+		await expect(
+			new RealSlotRepositoryGateway({ cwd: "/repo", coreGit: branchGit }).getCurrentBranch(
+				"/repo/worktree",
+			),
+		).resolves.toEqual({ type: "branch", branch: "feature/a" });
+		await expect(
+			new RealSlotRepositoryGateway({ cwd: "/repo", coreGit: detachedGit }).getCurrentBranch(
+				"/repo/worktree",
+			),
+		).resolves.toEqual({ type: "detached" });
+		await expect(
+			new RealSlotRepositoryGateway({ cwd: "/repo", coreGit: failingGit }).getCurrentBranch(
+				"/repo/worktree",
+			),
+		).resolves.toEqual({ type: "failure", failure: { message: "branch failed" } });
+		expect(branchGit.currentBranchCalls).toEqual([{ cwd: "/repo/worktree" }]);
+	});
+
+	it("maps branch presence and errors from the core git gateway", async () => {
+		const coreGit = new InMemoryGitGateway({
+			existingBranches: ["master"],
+			localBranchPresenceFailures: {
+				"feature/error": {
+					type: "failure",
+					error: { code: "branch_presence_failed", message: "presence failed" },
+				},
+			},
+		});
+		const gateway = new RealSlotRepositoryGateway({ cwd: "/repo", coreGit });
 
 		await expect(gateway.branchExists("master")).resolves.toBe(true);
 		await expect(gateway.branchExists("feature/a")).resolves.toBe(false);
-		expect(execApi.calls()).toEqual([
-			gitCall(["show-ref", "--verify", "--quiet", "refs/heads/master"], "/repo"),
-			gitCall(["show-ref", "--verify", "--quiet", "refs/heads/feature/a"], "/repo"),
+		await expect(gateway.branchExists("feature/error")).rejects.toThrow("presence failed");
+		expect(coreGit.localBranchPresenceCalls).toEqual([
+			{ cwd: "/repo", branch: "master" },
+			{ cwd: "/repo", branch: "feature/a" },
+			{ cwd: "/repo", branch: "feature/error" },
 		]);
+	});
+
+	it("maps trunk branch results from the core git gateway", async () => {
+		await expect(
+			new RealSlotRepositoryGateway({
+				cwd: "/repo",
+				coreGit: new InMemoryGitGateway({ trunkBranch: "develop" }),
+			}).getTrunkBranch(),
+		).resolves.toBe("develop");
+		await expect(
+			new RealSlotRepositoryGateway({
+				cwd: "/repo",
+				coreGit: new InMemoryGitGateway({ trunkBranch: { type: "missing" } }),
+			}).getTrunkBranch(),
+		).resolves.toBe("master");
+		await expect(
+			new RealSlotRepositoryGateway({
+				cwd: "/repo",
+				coreGit: new InMemoryGitGateway({
+					trunkBranch: {
+						type: "failure",
+						error: { code: "trunk_failed", message: "trunk failed" },
+					},
+				}),
+			}).getTrunkBranch(),
+		).rejects.toThrow("trunk failed");
+	});
+
+	it("delegates uncommitted-change checks to the core git path contract", async () => {
+		const coreGit = new InMemoryGitGateway({ dirtyPaths: ["."] });
+		const gateway = new RealSlotRepositoryGateway({ cwd: "/repo", coreGit });
+
+		await expect(gateway.hasUncommittedChanges("/repo/worktree")).resolves.toBe(true);
+		expect(coreGit.hasUncommittedChangesUnderCalls).toEqual([
+			{ cwd: "/repo/worktree", relativePath: "." },
+		]);
+	});
+
+	it("delegates local branch tip listing to the core git gateway", async () => {
+		const coreGit = new InMemoryGitGateway({
+			localBranchTips: [{ name: "feature/a", headIso: "2026-06-21T00:00:00.000Z" }],
+		});
+		const gateway = new RealSlotRepositoryGateway({ cwd: "/repo", coreGit });
+
+		await expect(gateway.listLocalBranchTips()).resolves.toEqual([
+			{ name: "feature/a", headIso: "2026-06-21T00:00:00.000Z" },
+		]);
+		expect(coreGit.listLocalBranchTipsCalls).toEqual([{ cwd: "/repo" }]);
 	});
 
 	it("creates branches with normal and force command arguments", async () => {
@@ -104,8 +181,13 @@ describe("RealSlotRepositoryGateway", () => {
 		).resolves.toEqual({ message: "fatal: branch already exists" });
 	});
 
-	it("emits labeled command diagnostics when a sink is injected", async () => {
-		const execApi = scriptedExecApi({ stdout: "/repo\n", stderr: "", code: 0, killed: false });
+	it("emits labeled command diagnostics for slot-owned raw git commands", async () => {
+		const execApi = scriptedExecApi({
+			stdout: worktreeListOutput("/repo", "master"),
+			stderr: "",
+			code: 0,
+			killed: false,
+		});
 		const diagnosticSink = new InMemoryDiagnosticSink();
 		const gateway = new RealSlotRepositoryGateway({
 			cwd: "/repo",
@@ -114,19 +196,18 @@ describe("RealSlotRepositoryGateway", () => {
 			diagnosticSink,
 		});
 
-		await expect(gateway.getRepositoryRoot("/repo/subdir")).resolves.toBe("/repo");
+		await expect(gateway.listWorktrees()).resolves.toEqual([{ path: "/repo", branch: "master" }]);
 		expect(diagnosticSink.events()).toEqual([
 			expect.objectContaining({
 				type: "slot.command",
-				operation: "slot.git.get_repository_root",
+				operation: "slot.git.list_worktrees",
 				command: "git",
-				args: ["rev-parse", "--show-toplevel"],
-				displayCommand: "git rev-parse --show-toplevel",
-				cwd: "/repo/subdir",
+				args: ["worktree", "list", "--porcelain"],
+				displayCommand: "git worktree list --porcelain",
+				cwd: "/repo",
 				timeoutMs: 10_000,
 				exitCode: 0,
 				killed: false,
-				stdoutBytes: 6,
 				stderrBytes: 0,
 			}),
 		]);

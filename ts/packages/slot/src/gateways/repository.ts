@@ -92,12 +92,13 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 		cwd: string;
 		env?: NodeJS.ProcessEnv | undefined;
 		execApi?: CommandExecApi | undefined;
+		coreGit?: GitGateway | undefined;
 		diagnosticSink?: SlotDiagnosticSink | undefined;
 	}) {
 		this.cwd = options.cwd;
 		this.env = options.env ?? process.env;
 		this.execApi = options.execApi ?? new NodeCommandExecApi();
-		this.coreGit = new RealGitGateway(this.execApi);
+		this.coreGit = options.coreGit ?? new RealGitGateway(this.execApi);
 		this.diagnosticSink = options.diagnosticSink ?? createSlotDiagnosticSinkFromEnv(this.env);
 	}
 
@@ -117,10 +118,9 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 	}
 
 	async getRepositoryRoot(cwd: string): Promise<string> {
-		const result = await this.git(["rev-parse", "--show-toplevel"], cwd, {
-			operation: "slot.git.get_repository_root",
-		});
-		return result.stdout.trim();
+		const result = await this.coreGit.repoRoot({ cwd, env: this.env });
+		if (result.ok) return result.value;
+		throw new Error(result.error.message);
 	}
 
 	async listWorktrees(): Promise<readonly WorktreeInfo[]> {
@@ -157,55 +157,33 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 	}
 
 	async listLocalBranchTips(): Promise<readonly LocalBranchTip[]> {
-		const result = await this.coreGit.listLocalBranchTips({ cwd: this.cwd });
+		const result = await this.coreGit.listLocalBranchTips({ cwd: this.cwd, env: this.env });
 		if (result.ok) return result.value;
 		throw new Error(result.error.message);
 	}
 
 	async hasUncommittedChanges(path: string): Promise<boolean> {
-		const result = await this.git(["status", "--porcelain"], path, {
-			allowFailure: true,
-			operation: "slot.git.has_uncommitted_changes",
+		const result = await this.coreGit.hasUncommittedChangesUnder({
+			cwd: path,
+			env: this.env,
+			relativePath: ".",
 		});
-		return result.isOk && result.stdout.length > 0;
+		if (result.ok) return result.value;
+		throw new Error(result.error.message);
 	}
 
 	async getTrunkBranch(): Promise<string> {
-		const originHead = await this.git(
-			["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"],
-			this.cwd,
-			{ allowFailure: true, operation: "slot.git.get_trunk_branch.origin_head" },
-		);
-		if (originHead.isOk) {
-			const trimmed = originHead.stdout.trim();
-			const prefix = "origin/";
-			if (trimmed.startsWith(prefix)) return trimmed.slice(prefix.length);
-		}
-		for (const candidate of ["master", "main"] as const) {
-			const exists = await this.git(
-				["show-ref", "--verify", "--quiet", `refs/heads/${candidate}`],
-				this.cwd,
-				{ allowFailure: true, operation: "slot.git.get_trunk_branch.local_candidate" },
-			);
-			if (exists.isOk) return candidate;
-		}
-		return "master";
+		const result = await this.coreGit.trunkBranch({ cwd: this.cwd, env: this.env });
+		if (result.type === "found") return result.value;
+		if (result.type === "missing") return "master";
+		throw new Error(result.error.message);
 	}
 
 	async getCurrentBranch(cwd: string): Promise<CurrentBranchResult> {
-		const result = await this.git(["symbolic-ref", "--short", "HEAD"], cwd, {
-			allowFailure: true,
-			operation: "slot.git.get_current_branch",
-		});
-		if (result.isOk) {
-			const branch = result.stdout.trim();
-			if (branch.length > 0) return { type: "branch", branch };
-			return { type: "detached" };
-		}
-		const text = `${result.stderr}\n${result.stdout}`.toLowerCase();
-		if (text.includes("not a symbolic ref") || text.includes("not currently on a branch"))
-			return { type: "detached" };
-		return { type: "failure", failure: failureFromResult(result) };
+		const result = await this.coreGit.currentBranch({ cwd, env: this.env });
+		if (result.type === "branch") return { type: "branch", branch: result.branch };
+		if (result.type === "detached") return { type: "detached" };
+		return { type: "failure", failure: { message: result.error.message } };
 	}
 
 	async getPreviousBranch(cwd: string): Promise<string | null> {
@@ -220,12 +198,14 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 	}
 
 	async branchExists(branch: string): Promise<boolean> {
-		const result = await this.git(
-			["show-ref", "--verify", "--quiet", `refs/heads/${branch}`],
-			this.cwd,
-			{ allowFailure: true, operation: "slot.git.branch_exists" },
-		);
-		return result.isOk;
+		const result = await this.coreGit.localBranchPresence({
+			cwd: this.cwd,
+			env: this.env,
+			branch,
+		});
+		if (result.type === "present") return true;
+		if (result.type === "absent") return false;
+		throw new Error(result.error.message);
 	}
 
 	async createBranch(
