@@ -144,6 +144,24 @@ When you identify a code-quality problem, prefer suggestions like:
 Do not be satisfied with "maybe rename this" feedback when the real issue is structural.
 Do not be satisfied with a merely cleaner version of the same messy idea if there is a plausible path to a much simpler idea.
 
+## Adversarial Findings Challenge
+
+Before finalizing findings, challenge the draft in a separate focused subagent when the harness supports subagents. If subagents are unavailable, do the same pass inline and explicitly say so.
+
+Give the challenger the draft findings, the evidence used for each, and this instruction:
+
+> Attack these findings. For each one, decide KEEP / DOWNGRADE / DROP. A finding only survives as HIGH or blocker if the remedy clearly deletes meaningful complexity, prevents a plausible bug, repairs an actual boundary violation, or makes an important invariant harder to violate. Repetition alone is not enough. Thin wrappers, identity helpers, and shared abstractions that mostly rename obvious code should be downgraded or dropped unless they buy a real invariant or remove substantial mental load.
+
+The challenger must specifically look for:
+
+- findings that count repetition but do not prove complexity, drift, or bug risk;
+- proposed abstractions that add a new concept without deleting a larger one;
+- bundled findings where a strong recommendation is carrying a weak sibling;
+- cases where the code already follows the convention correctly everywhere;
+- remedies whose main benefit is fewer lines rather than fewer concepts.
+
+Reconcile the challenge before output. If a finding is downgraded or dropped, do not quietly keep it in the same severity band. Prefer a smaller final report with only findings that still clear the approval bar.
+
 ## Review Tone
 
 Be direct, serious, and demanding about quality.
