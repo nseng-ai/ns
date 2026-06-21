@@ -4,7 +4,7 @@ import { createInterface } from "node:readline/promises";
 import { runCommand } from "@sdl/core/exec";
 
 import { PiTextGenerator } from "./pi-text-generation.ts";
-import type { SdlConfirmPrompt, SdlContext } from "./sdk.ts";
+import type { SdlConfirmPrompt, SdlExtensionApi } from "./sdk.ts";
 import type { TextGenerator } from "./text-generation.ts";
 
 export interface RealSdlCommandContextOptions {
@@ -18,7 +18,7 @@ export function createTextGenerator(): TextGenerator {
 
 export function createRealSdlCommandContext(
 	options: RealSdlCommandContextOptions = {},
-): SdlContext {
+): SdlExtensionApi {
 	const cwd = options.cwd ?? process.cwd();
 	const env = options.env ?? process.env;
 	const textGenerator = createTextGenerator();
@@ -65,4 +65,4 @@ export function parseTerminalConfirmAnswer(answer: string): boolean {
 	return normalized === "y" || normalized === "yes";
 }
 
-export type { SdlContext } from "./sdk.ts";
+export type { SdlExtensionApi } from "./sdk.ts";

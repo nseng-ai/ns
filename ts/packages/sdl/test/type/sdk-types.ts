@@ -1,6 +1,10 @@
-import { commandSucceeded, defineExtension, formatCommandEvidence, ok } from "@sdl/sdl/sdk";
-import type { TextGenerationRequest, TextGenerationResult, TextGenerator } from "@sdl/sdl/sdk";
-import { z } from "zod";
+import { commandSucceeded, defineExtension, formatCommandEvidence, ok, z } from "@sdl/sdl/sdk";
+import type {
+	SdlExtensionApi,
+	TextGenerationRequest,
+	TextGenerationResult,
+	TextGenerator,
+} from "@sdl/sdl/sdk";
 
 type Assert<T extends true> = T;
 type IsAny<T> = 0 extends 1 & T ? true : false;
@@ -75,6 +79,17 @@ const textGenerator: TextGenerator = {
 	},
 };
 
+function acceptsExtensionApi(api: SdlExtensionApi): string {
+	return api.cwd;
+}
+
+const arbitraryOperationRequest: TextGenerationRequest = {
+	modelRef: "example-model",
+	system: "system",
+	prompt: "prompt",
+	operation: "project-specific-operation",
+};
+
 const commandResult = { code: 0, stdout: "", stderr: "", killed: false };
 const commandOk: boolean = commandSucceeded(commandResult);
 const commandEvidence: string = formatCommandEvidence({
@@ -87,5 +102,7 @@ const commandEvidence: string = formatCommandEvidence({
 void extension;
 void commandlessExtension;
 void textGenerator;
+void acceptsExtensionApi;
+void arbitraryOperationRequest;
 void commandOk;
 void commandEvidence;

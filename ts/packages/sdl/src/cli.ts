@@ -21,12 +21,12 @@ import {
 	loadSdlCommandCatalog,
 	loadSelectedSdlCommand,
 } from "./extension-registry.ts";
-import type { SdlCommand, SdlConfirmPrompt, SdlContext, SdlOutputStream } from "./sdk.ts";
+import type { SdlCommand, SdlConfirmPrompt, SdlExtensionApi, SdlOutputStream } from "./sdk.ts";
 
 export type { SdlCommandInfo } from "./command-registry.ts";
 
 export interface SdlCliDeps {
-	context?: SdlContext | undefined;
+	context?: SdlExtensionApi | undefined;
 	cwd?: string | undefined;
 	homeDir?: string | undefined;
 	stdout?: ((text: string) => void) | undefined;
@@ -42,7 +42,7 @@ export interface BuildSdlCliOptions {
 }
 
 export interface SdlCliContext {
-	context: SdlContext;
+	context: SdlExtensionApi;
 	cwd: string;
 	env: Record<string, string | undefined>;
 	stdout: (text: string) => void;
@@ -105,7 +105,7 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 			injectedContext ?? createRealSdlCommandContext({ cwd: resolvedCwd, env: resolvedEnv });
 		const onOutput = deps.onOutput ?? baseContext.onOutput;
 		const confirm = deps.confirm ?? baseContext.confirm;
-		const context: SdlContext = {
+		const context: SdlExtensionApi = {
 			cwd: resolvedCwd,
 			env: resolvedEnv,
 			textGenerator: baseContext.textGenerator,

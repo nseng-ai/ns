@@ -5,15 +5,11 @@
 Import the SDK's own surface from the subpath itself:
 
 ```ts
-import { defineExtension, failed, ok } from "@sdl/sdl/sdk";
-import type { SdlContext, SdlResult } from "@sdl/sdl/sdk";
+import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
+import type { SdlExtensionApi, SdlResult } from "@sdl/sdl/sdk";
 ```
 
-Command schemas are [Zod](https://zod.dev) schemas. Import `z` from `zod` directly — it is an ordinary third-party dependency of your extension, not an SDK export:
-
-```ts
-import { z } from "zod";
-```
+Command schemas are [Zod](https://zod.dev) schemas. Import the SDK's `z` export so extension modules use the same schema identity as the SDL host.
 
 Do not import SDL implementation modules (`@sdl/sdl/*` other than `./sdk`, `@sdl/core/*`, `@sdl/clinkr/*`). The SDK re-exports the few lower-package types an author needs; those are documented below as first-party SDK vocabulary, with their origin noted.
 
@@ -96,7 +92,7 @@ interface SdlCommand<S extends SdlCommandSchema = z.ZodObject> {
   description: string;
   schema?: S | undefined;
   positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>> | undefined;
-  run(ctx: SdlContext, request: z.output<S>): Promise<SdlResult> | SdlResult;
+  run(ctx: SdlExtensionApi, request: z.output<S>): Promise<SdlResult> | SdlResult;
 }
 ```
 
@@ -111,8 +107,7 @@ interface SdlCommand<S extends SdlCommandSchema = z.ZodObject> {
 **Example.** Declared inline so `request` is inferred from `schema`:
 
 ```ts
-import { defineExtension, ok } from "@sdl/sdl/sdk";
-import { z } from "zod";
+import { defineExtension, ok, z } from "@sdl/sdl/sdk";
 
 export default defineExtension({
   commands: [
@@ -132,13 +127,13 @@ export default defineExtension({
 type SdlCommandSchema = z.ZodObject;
 ```
 
-The schema type a command may declare. Always a Zod object, built with `z` imported from `zod`.
+The schema type a command may declare. Always a Zod object, built with `z` imported from `@sdl/sdl/sdk`.
 
 **Example.**
 
 ```ts
+import { z } from "@sdl/sdl/sdk";
 import type { SdlCommandSchema } from "@sdl/sdl/sdk";
-import { z } from "zod";
 
 const schema: SdlCommandSchema = z.object({ force: z.boolean().default(false) });
 ```
@@ -154,12 +149,12 @@ The parsed-request type derived from a command's schema — the type `run` recei
 **Example.**
 
 ```ts
-import type { SdlCommandRequest, SdlContext, SdlResult } from "@sdl/sdl/sdk";
-import { z } from "zod";
+import { z } from "@sdl/sdl/sdk";
+import type { SdlCommandRequest, SdlExtensionApi, SdlResult } from "@sdl/sdl/sdk";
 
 const schema = z.object({ slug: z.string().optional() });
 
-function runAutobranch(ctx: SdlContext, request: SdlCommandRequest<typeof schema>): SdlResult {
+function runAutobranch(ctx: SdlExtensionApi, request: SdlCommandRequest<typeof schema>): SdlResult {
   return ok(request.slug ?? "(auto)"); // request is { slug?: string }
 }
 ```
@@ -276,9 +271,9 @@ A discriminated union on `ok`. Construct values with `ok()` and `failed()` rathe
 **Example.**
 
 ```ts
-import type { SdlContext, SdlResult } from "@sdl/sdl/sdk";
+import type { SdlExtensionApi, SdlResult } from "@sdl/sdl/sdk";
 
-function run(ctx: SdlContext): SdlResult {
+function run(ctx: SdlExtensionApi): SdlResult {
   return ctx.env["DRY_RUN"] ? ok("would run") : ok("ran");
 }
 ```
@@ -322,12 +317,12 @@ return failed("Working tree is dirty; commit or stash first.", 2);
 
 ## Execution context
 
-### `SdlContext`
+### `SdlExtensionApi`
 
 The capabilities a command receives as the first argument to `run`. SDL owns the host environment; the command owns the exact external commands, prompts, and policy it applies.
 
 ```ts
-interface SdlContext {
+interface SdlExtensionApi {
   cwd: string;
   env: Record<string, string | undefined>;
   exec(command: string, args: string[], options?: SdlExecOptions): Promise<ExecResult>;
@@ -354,7 +349,7 @@ interface SdlContext {
 **Example.**
 
 ```ts
-async run(ctx: SdlContext) {
+async run(ctx: SdlExtensionApi) {
   const root = await ctx.exec("git", ["rev-parse", "--show-toplevel"], {
     timeoutMs: 30_000,
   });
@@ -433,7 +428,7 @@ Tags which stream a chunk belongs to in the `onOutput` hook.
 **Example.**
 
 ```ts
-run(ctx: SdlContext) {
+run(ctx: SdlExtensionApi) {
   ctx.onOutput?.("stderr", "working…\n");
   return ok("done");
 }
@@ -495,7 +490,7 @@ interface TextGenerationRequest {
   prompt: string;
   maxTokens?: number;
   reasoning?: "minimal" | "low";
-  operation?: "checkpoint-message" | "changes-summary" | "pr-description" | "submit-failure";
+  operation?: string;
 }
 ```
 
@@ -506,7 +501,7 @@ interface TextGenerationRequest {
 - `prompt` — user prompt.
 - `maxTokens?` — optional output cap.
 - `reasoning?` — optional reasoning effort, `"minimal"` or `"low"`.
-- `operation?` — optional operation tag for host-side routing/telemetry.
+- `operation?` — optional operation tag for host-side routing/telemetry. Use any stable string that identifies the generation task.
 
 **Example.** Built and passed to `generateText` in the `TextGenerator` example above.
 
@@ -532,14 +527,14 @@ ctx.stdout?.(result.text);
 
 ## Schema
 
-### `z` (from `zod`)
+### `z` (from Zod)
 
-Command schemas are [Zod](https://zod.dev) schemas. `z` is **not** an SDK export — import it from `zod` directly, exactly as you would any other third-party dependency of your extension. Its API is zod's own — see the zod documentation; it is not re-documented here.
+Command schemas are [Zod](https://zod.dev) schemas. The SDK exports the host's schema builder so single-file extensions do not need their own resolvable `zod` dependency. Its API is Zod's own — see the Zod documentation; it is not re-documented here.
 
 ```ts
-import { z } from "zod";
+import { z } from "@sdl/sdl/sdk";
 
 const schema = z.object({ slug: z.string().optional() });
 ```
 
-A single resolved copy of `zod` is shared across the host package and `.sdl/extensions` (pnpm deduplicates it), so schemas you build keep a consistent Zod identity at runtime.
+Using the SDK export keeps schemas on the same Zod identity as the SDL host at runtime.

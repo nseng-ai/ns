@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import type { TextGenerator } from "./text-generation.ts";
 
+export { z };
 export type { PositionalSpec } from "@sdl/clinkr/raw";
 export { commandSucceeded, formatCommandEvidence } from "@sdl/core/exec";
 export type { ExecResult, FormatCommandEvidenceOptions } from "@sdl/core/exec";
@@ -25,7 +26,7 @@ export interface SdlExecOptions {
 export type SdlOutputStream = "stdout" | "stderr";
 export type SdlConfirmPrompt = (title: string, message: string) => Promise<boolean> | boolean;
 
-export interface SdlContext {
+export interface SdlExtensionApi {
 	/** Current repository working directory for command-entry execution. */
 	cwd: string;
 	/** Environment visible to SDL commands and shell execution. */
@@ -57,7 +58,7 @@ export interface SdlCommand<S extends SdlCommandSchema = z.ZodObject> {
 	description: string;
 	schema?: S | undefined;
 	positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>> | undefined;
-	run(ctx: SdlContext, request: z.output<S>): Promise<SdlResult> | SdlResult;
+	run(ctx: SdlExtensionApi, request: z.output<S>): Promise<SdlResult> | SdlResult;
 }
 
 export interface SdlExtension<TCommands extends readonly SdlCommand[] = readonly SdlCommand[]> {

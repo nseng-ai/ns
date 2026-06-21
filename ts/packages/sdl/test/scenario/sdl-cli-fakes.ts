@@ -5,7 +5,7 @@ import type {
 	SdlExecOptions,
 	ExecResult,
 	SdlConfirmPrompt,
-	SdlContext,
+	SdlExtensionApi,
 	TextGenerationRequest,
 	TextGenerationResult,
 } from "@sdl/sdl/sdk";
@@ -48,7 +48,7 @@ interface ScriptedSdlTestContextOptions extends RunWithFakesDefaults {
 	env?: Record<string, string | undefined> | undefined;
 }
 
-export class ScriptedSdlTestContext implements SdlContext {
+export class ScriptedSdlTestContext implements SdlExtensionApi {
 	readonly cwd: string;
 	readonly env: Record<string, string | undefined>;
 	readonly execCalls: ExecCall[] = [];
