@@ -5,17 +5,24 @@ import { spawnSync } from "node:child_process";
 
 export interface TempGitRepo {
 	path: string;
-	runGit: (args: readonly string[], options?: { input?: string | undefined }) => string;
+	runGit: (
+		args: readonly string[],
+		options?: { input?: string | undefined; env?: NodeJS.ProcessEnv | undefined },
+	) => string;
 	cleanup: () => void;
 }
 
 export function createTempGitRepo(): TempGitRepo {
 	const path = mkdtempSync(join(tmpdir(), "brmem-ts-test-"));
-	const runGit = (args: readonly string[], options: { input?: string | undefined } = {}) => {
+	const runGit = (
+		args: readonly string[],
+		options: { input?: string | undefined; env?: NodeJS.ProcessEnv | undefined } = {},
+	) => {
 		const result = spawnSync("git", [...args], {
 			cwd: path,
 			input: options.input,
 			encoding: "utf8",
+			...(options.env === undefined ? {} : { env: options.env }),
 		});
 		if (result.status !== 0) {
 			throw new Error(`git ${args.join(" ")} failed: ${result.stderr || result.stdout}`);

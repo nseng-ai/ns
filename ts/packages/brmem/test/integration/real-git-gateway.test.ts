@@ -1,7 +1,18 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import type { BrmemResult } from "../../src/contracts.ts";
+import type {
+	CopyEntriesResult,
+	DeleteEntryResult,
+	ListedEntry,
+	PutEntryResult,
+} from "../../src/gateway.ts";
 import { RealGitBrmemGateway } from "../../src/real-git-gateway.ts";
-import { createTempGitRepo } from "../support/temp-git-repo.ts";
+import { mustSnapshotRef } from "../../src/ref-layout.ts";
+import { createTempGitRepo, type TempGitRepo } from "../support/temp-git-repo.ts";
 
 describe("RealGitBrmemGateway integration", () => {
 	it("writes Snapshot Refs and reads/checks/lists Entries in a throwaway repository", async () => {
@@ -198,6 +209,165 @@ describe("RealGitBrmemGateway integration", () => {
 		}
 	});
 
+	it("reports corrupt Snapshot Entry Keys while listing without throwing", async () => {
+		const repo = createTempGitRepo();
+		try {
+			const gateway = new RealGitBrmemGateway(repo.path);
+			const corrupt = createCorruptSnapshot(repo, {
+				namespace: "notes",
+				branch: "source",
+				entries: [{ key: "docs-site/app/[lang]/page.tsx", content: "corrupt" }],
+			});
+			const listed = await gateway.listEntries({ namespace: "notes", branch: "source" });
+			expectSnapshotCorrupt(listed, "docs-site/app/[lang]/page.tsx");
+			expect(repo.runGit(["rev-parse", "--verify", corrupt.snapshotRef]).trim()).toBe(
+				corrupt.commitSha,
+			);
+		} finally {
+			repo.cleanup();
+		}
+	});
+
+	it("refuses to put an Entry over a corrupt existing Snapshot", async () => {
+		const repo = createTempGitRepo();
+		try {
+			const gateway = new RealGitBrmemGateway(repo.path);
+			const corrupt = createCorruptSnapshot(repo, {
+				namespace: "base",
+				branch: "main",
+				entries: [{ key: "docs-site/app/[lang]/page.tsx", content: "corrupt" }],
+			});
+			const put = await gateway.putEntry({
+				namespace: "base",
+				branch: "main",
+				key: "valid.md",
+				content: "valid",
+			});
+			expectSnapshotCorrupt(put, "docs-site/app/[lang]/page.tsx");
+			expect(repo.runGit(["rev-parse", "--verify", corrupt.snapshotRef]).trim()).toBe(
+				corrupt.commitSha,
+			);
+		} finally {
+			repo.cleanup();
+		}
+	});
+
+	it("refuses to delete a valid Entry from a corrupt existing Snapshot", async () => {
+		const repo = createTempGitRepo();
+		try {
+			const gateway = new RealGitBrmemGateway(repo.path);
+			const corrupt = createCorruptSnapshot(repo, {
+				namespace: "base",
+				branch: "main",
+				entries: [
+					{ key: "valid.md", content: "valid" },
+					{ key: "docs-site/app/[lang]/page.tsx", content: "corrupt" },
+				],
+			});
+			const deleted = await gateway.deleteEntry({
+				namespace: "base",
+				branch: "main",
+				key: "valid.md",
+			});
+			expectSnapshotCorrupt(deleted, "docs-site/app/[lang]/page.tsx");
+			expect(repo.runGit(["rev-parse", "--verify", corrupt.snapshotRef]).trim()).toBe(
+				corrupt.commitSha,
+			);
+		} finally {
+			repo.cleanup();
+		}
+	});
+
+	it("refuses full Namespace Copy from a corrupt source Snapshot", async () => {
+		const repo = createTempGitRepo();
+		try {
+			const gateway = new RealGitBrmemGateway(repo.path);
+			const corrupt = createCorruptSnapshot(repo, {
+				namespace: "notes",
+				branch: "source",
+				entries: [{ key: "docs-site/app/[lang]/page.tsx", content: "corrupt" }],
+			});
+			const destRef = mustSnapshotRef("notes", "dest");
+			const copied = await gateway.copyEntries({
+				namespace: "notes",
+				fromBranch: "source",
+				toBranch: "dest",
+				shouldOverwrite: true,
+			});
+			expectSnapshotCorrupt(copied, "docs-site/app/[lang]/page.tsx");
+			expect(repo.runGit(["rev-parse", "--verify", corrupt.snapshotRef]).trim()).toBe(
+				corrupt.commitSha,
+			);
+			expect(snapshotRefExists(repo, destRef)).toBe(false);
+		} finally {
+			repo.cleanup();
+		}
+	});
+
+	it("refuses full Namespace Copy into a corrupt destination Snapshot even with overwrite", async () => {
+		const repo = createTempGitRepo();
+		try {
+			const gateway = new RealGitBrmemGateway(repo.path);
+			expect(
+				(
+					await gateway.putEntry({
+						namespace: "notes",
+						branch: "source",
+						key: "valid.md",
+						content: "valid",
+					})
+				).type,
+			).toBe("ok");
+			const corrupt = createCorruptSnapshot(repo, {
+				namespace: "notes",
+				branch: "dest",
+				entries: [{ key: "docs-site/app/[lang]/page.tsx", content: "corrupt" }],
+			});
+			const copied = await gateway.copyEntries({
+				namespace: "notes",
+				fromBranch: "source",
+				toBranch: "dest",
+				shouldOverwrite: true,
+			});
+			expectSnapshotCorrupt(copied, "docs-site/app/[lang]/page.tsx");
+			expect(repo.runGit(["rev-parse", "--verify", corrupt.snapshotRef]).trim()).toBe(
+				corrupt.commitSha,
+			);
+		} finally {
+			repo.cleanup();
+		}
+	});
+
+	it("validates the whole source Snapshot before key-glob Namespace Copy", async () => {
+		const repo = createTempGitRepo();
+		try {
+			const gateway = new RealGitBrmemGateway(repo.path);
+			const corrupt = createCorruptSnapshot(repo, {
+				namespace: "base",
+				branch: "source",
+				entries: [
+					{ key: "foo/body.md", content: "valid" },
+					{ key: "docs-site/app/[lang]/page.tsx", content: "corrupt" },
+				],
+			});
+			const destRef = mustSnapshotRef("base", "dest");
+			const copied = await gateway.copyEntries({
+				namespace: "base",
+				fromBranch: "source",
+				toBranch: "dest",
+				shouldOverwrite: true,
+				keyGlob: "foo/*",
+			});
+			expectSnapshotCorrupt(copied, "docs-site/app/[lang]/page.tsx");
+			expect(repo.runGit(["rev-parse", "--verify", corrupt.snapshotRef]).trim()).toBe(
+				corrupt.commitSha,
+			);
+			expect(snapshotRefExists(repo, destRef)).toBe(false);
+		} finally {
+			repo.cleanup();
+		}
+	});
+
 	it("maps invalid branch names and detached current branch to structured errors", async () => {
 		const repo = createTempGitRepo();
 		try {
@@ -260,6 +430,69 @@ describe("RealGitBrmemGateway integration", () => {
 		}
 	});
 });
+
+type SnapshotCorruptResult = BrmemResult<
+	readonly ListedEntry[] | PutEntryResult | DeleteEntryResult | CopyEntriesResult
+>;
+
+interface CorruptSnapshotEntry {
+	key: string;
+	content: string;
+}
+
+interface CorruptSnapshotOptions {
+	namespace: string;
+	branch: string;
+	entries: readonly CorruptSnapshotEntry[];
+}
+
+interface CorruptSnapshotResult {
+	snapshotRef: string;
+	commitSha: string;
+}
+
+function createCorruptSnapshot(
+	repo: TempGitRepo,
+	options: CorruptSnapshotOptions,
+): CorruptSnapshotResult {
+	const snapshotRef = mustSnapshotRef(options.namespace, options.branch);
+	const tempDir = mkdtempSync(join(tmpdir(), "brmem-corrupt-index-"));
+	try {
+		const env = { ...process.env, GIT_INDEX_FILE: join(tempDir, "index") };
+		repo.runGit(["read-tree", "--empty"], { env });
+		for (const entry of options.entries) {
+			const blobSha = repo
+				.runGit(["hash-object", "-w", "--stdin"], {
+					input: entry.content,
+				})
+				.trim();
+			repo.runGit(["update-index", "--add", "--cacheinfo", `100644,${blobSha},${entry.key}`], {
+				env,
+			});
+		}
+		const treeSha = repo.runGit(["write-tree"], { env }).trim();
+		const commitSha = repo.runGit(["commit-tree", treeSha, "-m", "corrupt brmem snapshot"]).trim();
+		repo.runGit(["update-ref", snapshotRef, commitSha]);
+		return { snapshotRef, commitSha };
+	} finally {
+		rmSync(tempDir, { recursive: true, force: true });
+	}
+}
+
+function expectSnapshotCorrupt(result: SnapshotCorruptResult, invalidKey: string): void {
+	expect(result).toMatchObject({ type: "error", error: { code: "snapshot_corrupt" } });
+	if (result.type !== "error") throw new Error("expected snapshot_corrupt error");
+	expect(result.error.message).toContain(invalidKey);
+}
+
+function snapshotRefExists(repo: TempGitRepo, snapshotRef: string): boolean {
+	try {
+		repo.runGit(["rev-parse", "--verify", snapshotRef]);
+		return true;
+	} catch {
+		return false;
+	}
+}
 
 async function withCommitterDate<T>(date: string, action: () => Promise<T>): Promise<T> {
 	const previous = process.env.GIT_COMMITTER_DATE;
