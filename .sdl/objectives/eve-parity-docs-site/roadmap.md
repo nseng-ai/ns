@@ -10,8 +10,8 @@
   Baseline `geistdocs.tsx` (Logo, `github`, `nav`, `suggestions`, `siteId`, `title`, `prompt`, `translations={en}`), the SDL `agent{}` block, `lib/geistdocs/{config.tsx,source.ts}`, and top-level `meta.json` exist. Content directory is resolved to `docs-site/docs/`. The real docs sidebar IA now covers Get started, Concepts, Tools, Guides, and Skills with clean Fumadocs slugs; remaining work is launch-level positioning copy for the marketing home/site identity.
 - [x] Port and restructure the content corpus into Fumadocs MDX.
       Rebuilt the user-facing sections the old Starlight site covered (Get started / Concepts / Tools / Guides / Skills) from git history into `.mdx` pages under `docs-site/docs/`. The corpus uses geistdocs frontmatter, per-folder `meta.json`, clean slugs, and no placeholder-only section indexes. Evidence: `pnpm --dir docs-site run build`, `just docs-check`, `just dprint-check`, stale-link greps, and build route artifact inspection passed for the migrated corpus.
-- [ ] Wire the AI-native + machine routes.
-      `/llms.txt`, `/llms.mdx/[[...slug]]`, `/agents.md`, `/sitemap.md`, `/og/<slug>` (static OG initially), `/rss.xml`, `robots`, `sitemap.ts`, and the `.md`/`.mdx` per-page fetch. Keep md-tracking telemetry ON (`siteId` + `md-tracking.ts`).
+- [x] Wire the AI-native + machine routes.
+      Root and localized endpoints now serve `/llms.txt`, `/llms.mdx/[[...slug]]`, `/agents.md`, `/sitemap.md`, `/og/<slug>/image.png`, `/rss.xml`, `robots.txt`, `sitemap.xml`, and `.md`/`.mdx` per-page fetches from the current `docs-site/docs/` corpus. The Geistdocs proxy still owns docs Markdown negotiation and md-tracking remains wired through `siteId` + `md-tracking.ts`. Evidence: `pnpm --dir docs-site run build`, `just docs-check`, `just dprint-check`, and local smoke checks for root/localized machine routes plus `/docs/introduction.mdx` passed.
 - [ ] Wire search; explicitly omit AI chat.
       geistdocs `createSearchRoute` (Orama). Do NOT add `createChatRoute` or the chat widget (Non-Goal).
 - [ ] Build the marketing home page.
@@ -25,7 +25,7 @@
 ## Parked
 
 - AI chat assistant (`createChatRoute` + chat widget) — deliberately deferred; needs a model provider + key.
-- Dynamic per-page OG image generation (eve itself parks this behind a static OG image).
+- Advanced/branded OG artwork beyond the simple generated SDL page cards.
 - Real second language / translations (i18n scaffolding only for now).
 - Advanced search tuning (custom Orama tokenizers, CJK, etc.).
 - Folding `docs-site/` into a root pnpm workspace (only if standalone proves frictionful).

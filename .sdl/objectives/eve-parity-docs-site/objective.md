@@ -116,8 +116,10 @@ not from a staged preservation artifact.
 - `@vercel/geistdocs` is usable by a non-Vercel-owned, standalone repo project
   (it is public on npm and eve consumes it as a normal dependency). Initial
   local evidence supports this: a standalone `docs-site/` skeleton installs and
-  builds with `@vercel/geistdocs` 1.7.3. Deeper feature parity still needs
-  validation as machine routes, search, and content are added.
+  builds with `@vercel/geistdocs` 1.7.3, the migrated corpus builds, and the
+  machine-readable routes validate against the published corpus. Deeper feature
+  parity still needs validation as search, marketing home, integrations, and
+  launch wiring are added.
 - The former curated Starlight content (`docs-site/src/content/docs/**`) was
   recoverable from git history and useful as reference material for the published
   corpus port. The migrated corpus now lives under `docs-site/docs/**` as `.mdx`
@@ -145,8 +147,9 @@ not from a staged preservation artifact.
   Next.js app reaches parity leaves SDL without full published-site parity
   mid-stream. Mitigation is now stronger: the replacement Next.js/geistdocs app
   builds locally with the migrated Get started / Concepts / Tools / Guides /
-  Skills corpus. Remaining risk is feature parity for machine routes, search,
-  marketing home, integrations, and launch readiness.
+  Skills corpus and exposes the AI-native/machine-readable routes. Remaining
+  risk is feature parity for search, marketing home, integrations, and launch
+  readiness.
 - **md-tracking telemetry** sends page-fetch events off-repo to a third party.
   Owner-approved, but record it as a known external dependency.
 
