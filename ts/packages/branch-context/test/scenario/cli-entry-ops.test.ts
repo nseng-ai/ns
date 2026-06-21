@@ -56,20 +56,19 @@ describe("branch-context exec", () => {
 				summary: "Create it",
 			},
 		});
-		expect(run.brmem.attachmentPresenceCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY }]);
-		expect(run.brmem.attachPlanCalls).toEqual([
-			{ cwd: repoRoot, branch, key: PLAN_KEY, sourceFile: planFile },
+		expect(run.brmem.attachmentPresenceCalls).toEqual([{ branch, key: PLAN_KEY }]);
+		expect(run.brmem.attachPlanCalls).toMatchObject([
+			{ namespace: BRANCH_CONTEXT_NAMESPACE, branch, key: PLAN_KEY, content: "# Plan\n" },
 		]);
 		expect(run.graphite.checkBranchTrackedCalls).toEqual([]);
 		expect(run.graphite.trackBranchCalls).toEqual([]);
-		expect(run.brmem.attachedPlans).toContainEqual({
-			branch,
-			key: PLAN_KEY,
-			content: "",
-			refName: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${branch.replaceAll("/", "---")}:${PLAN_KEY}`,
-			commit: "abc123",
-			sourceFile: planFile,
-		});
+		expect(run.brmem.attachedPlans).toContainEqual(
+			expect.objectContaining({
+				branch,
+				key: PLAN_KEY,
+				content: "# Plan\n",
+			}),
+		);
 	});
 
 	test("create tracks Graphite branches through the semantic gateway", async () => {
@@ -116,8 +115,8 @@ describe("branch-context exec", () => {
 		expect(run.graphite.trackBranchCalls).toEqual([
 			{ cwd: repoRoot, branch, parentBranch: SOURCE_BRANCH },
 		]);
-		expect(run.brmem.attachPlanCalls).toEqual([
-			{ cwd: repoRoot, branch, key: PLAN_KEY, sourceFile: planFile },
+		expect(run.brmem.attachPlanCalls).toMatchObject([
+			{ namespace: BRANCH_CONTEXT_NAMESPACE, branch, key: PLAN_KEY, content: "# Plan\n" },
 		]);
 	});
 
@@ -251,8 +250,8 @@ describe("branch-context exec", () => {
 		const data = payload.data as Record<string, unknown>;
 		expect(data).not.toHaveProperty("attached_plan_content");
 		expect(data).not.toHaveProperty("implementation_prompt");
-		expect(run.brmem.listAttachedPlansCalls).toEqual([{ cwd: repoRoot, branch }]);
-		expect(run.brmem.getAttachedPlanCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY }]);
+		expect(run.brmem.listAttachedPlansCalls).toEqual([{ branch }]);
+		expect(run.brmem.getAttachedPlanCalls).toEqual([{ branch, key: PLAN_KEY }]);
 	});
 
 	test("load falls back to the latest saved source-branch plan when no plan is attached", async () => {
@@ -287,7 +286,7 @@ describe("branch-context exec", () => {
 				source_file: planFile,
 			},
 		});
-		expect(run.brmem.listAttachedPlansCalls).toEqual([{ cwd: repoRoot, branch: SOURCE_BRANCH }]);
+		expect(run.brmem.listAttachedPlansCalls).toEqual([{ branch: SOURCE_BRANCH }]);
 		expect(run.brmem.getAttachedPlanCalls).toEqual([]);
 	});
 
@@ -355,8 +354,8 @@ describe("branch-context exec", () => {
 		expect(String(data.implementation_prompt)).toContain(
 			"----- BEGIN ATTACHED PLAN -----\n# Attached Plan",
 		);
-		expect(run.brmem.listAttachedPlansCalls).toEqual([{ cwd: repoRoot, branch }]);
-		expect(run.brmem.getAttachedPlanCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY }]);
+		expect(run.brmem.listAttachedPlansCalls).toEqual([{ branch }]);
+		expect(run.brmem.getAttachedPlanCalls).toEqual([{ branch, key: PLAN_KEY }]);
 	});
 
 	test("load accepts JSON-only include flags in human mode without changing output", async () => {
@@ -408,8 +407,8 @@ describe("branch-context exec", () => {
 				source_file: sourceFile,
 			},
 		});
-		expect(run.brmem.attachPlanCalls).toEqual([
-			{ cwd: repoRoot, branch, key: "notes", sourceFile },
+		expect(run.brmem.attachPlanCalls).toMatchObject([
+			{ namespace: BRANCH_CONTEXT_NAMESPACE, branch, key: "notes", content: "# Notes\n" },
 		]);
 	});
 
@@ -435,9 +434,9 @@ describe("branch-context exec", () => {
 				plan_slug: PLAN_SLUG,
 			},
 		});
-		expect(run.brmem.attachmentPresenceCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY }]);
-		expect(run.brmem.attachPlanCalls).toEqual([
-			{ cwd: repoRoot, branch, key: PLAN_KEY, sourceFile },
+		expect(run.brmem.attachmentPresenceCalls).toEqual([{ branch, key: PLAN_KEY }]);
+		expect(run.brmem.attachPlanCalls).toMatchObject([
+			{ namespace: BRANCH_CONTEXT_NAMESPACE, branch, key: PLAN_KEY, content: "# Saved Plan\n" },
 		]);
 	});
 
@@ -540,8 +539,8 @@ describe("branch-context exec", () => {
 			},
 		});
 		expect(run.git.currentBranchCalls).toEqual([]);
-		expect(run.brmem.attachPlanCalls).toEqual([
-			{ cwd: repoRoot, branch, key: PLAN_KEY, sourceFile },
+		expect(run.brmem.attachPlanCalls).toMatchObject([
+			{ namespace: BRANCH_CONTEXT_NAMESPACE, branch, key: PLAN_KEY, content: "# Saved Plan\n" },
 		]);
 	});
 
@@ -625,6 +624,6 @@ describe("branch-context exec", () => {
 				deleted: true,
 			},
 		});
-		expect(run.brmem.deleteEntryCalls).toEqual([{ cwd: repoRoot, branch, key: "notes" }]);
+		expect(run.brmem.deleteEntryCalls).toEqual([{ branch, key: "notes" }]);
 	});
 });

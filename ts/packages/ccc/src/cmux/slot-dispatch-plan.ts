@@ -10,6 +10,7 @@ import {
 	formatBranchContextCreatePreview,
 	formatImplBranchContextCommand,
 	resolveBranchContextCreatePreviewContext,
+	type BranchContextContext,
 	type BranchContextCreateOperation,
 	type BranchContextEvidence,
 	type BranchContextOutputDetails,
@@ -76,6 +77,7 @@ interface AttachSlotAndLaunchOptions {
 	checkout: CurrentCheckout;
 	operation: BranchContextCreateOperation;
 	config: DispatchPlanConfig;
+	options: CccSlotDispatchPlanOptions;
 }
 
 interface FormatDryRunOptions {
@@ -101,6 +103,9 @@ interface FormatSurfaceSuccessOptions {
 
 export interface CccSlotDispatchPlanOptions {
 	planStoreRoot?: string;
+	createBranchContextContext?:
+		| ((pi: ExtensionAPI, cwd: string) => BranchContextContext)
+		| undefined;
 }
 
 export function registerCccSlotDispatchPlanCommand(
@@ -181,7 +186,7 @@ async function handleCommand({
 			const launchOptions = getPiLaunchOptions(pi, ctx);
 			const previewContext = await resolveBranchContextCreatePreviewContext(pi, {
 				cwd: checkout.directory.repoRoot,
-				context: createBranchContextContext(pi),
+				context: dispatchBranchContextContext(pi, checkout.directory.repoRoot, options),
 			});
 			const branchContextPreview = formatBranchContextCreatePreview(operation, {
 				...previewContext,
@@ -210,12 +215,21 @@ async function handleCommand({
 			checkout,
 			operation,
 			config,
+			options,
 		});
 	} catch (error) {
 		present(ctx, formatUnexpectedError(error), "error");
 	} finally {
 		setStatus(ctx, config, undefined);
 	}
+}
+
+function dispatchBranchContextContext(
+	pi: ExtensionAPI,
+	cwd: string,
+	options: CccSlotDispatchPlanOptions,
+): BranchContextContext {
+	return options.createBranchContextContext?.(pi, cwd) ?? createBranchContextContext(pi, { cwd });
 }
 
 function parseCommandArgs(rawArgs: string): CommandArgs | { error: string } {
@@ -291,7 +305,7 @@ async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): P
 	try {
 		evidence = await createBranchContextFromFile(pi, operation.params, {
 			cwd: checkout.directory.repoRoot,
-			context: createBranchContextContext(pi),
+			context: dispatchBranchContextContext(pi, checkout.directory.repoRoot, options.options),
 		});
 	} catch (error) {
 		present(ctx, formatCccBranchContextCreateFailure(operation, error), "error");

@@ -1,6 +1,7 @@
 import type { CommandExecApi } from "@sdl/core/exec";
-import type { BranchContextBrmemGateway } from "./brmem-gateway.ts";
+import type { BrmemGateway } from "@sdl/brmem";
 import { selectAttachedPlanKey } from "./attached-plan.ts";
+import { checkBranchContextEntryPresence, listBranchContextPlans } from "./branch-memory.ts";
 import type { BranchContextContext } from "./context.ts";
 import { BRANCH_CONTEXT_NAMESPACE } from "./constants.ts";
 import { extractBranchContextEvidenceFromSessionEntry } from "./session-artifact.ts";
@@ -55,7 +56,7 @@ export async function resolveExistingBranchContextReuse(
 			branch: explicitBranch,
 			source: "explicit-branch",
 		};
-		const result = await verifyCandidate(brmem, options, candidate);
+		const result = await verifyCandidate(brmem, candidate);
 		if (result.type === "verified") {
 			return result.reuse;
 		}
@@ -77,7 +78,7 @@ export async function resolveExistingBranchContextReuse(
 
 	const sessionCandidate = sessionCandidates[0];
 	if (sessionCandidate !== undefined) {
-		const result = await verifyCandidate(brmem, options, sessionCandidate);
+		const result = await verifyCandidate(brmem, sessionCandidate);
 		if (result.type === "verified") {
 			return result.reuse;
 		}
@@ -93,7 +94,7 @@ export async function resolveExistingBranchContextReuse(
 			branch: branch.branch,
 			source: "current-branch",
 		};
-		const result = await verifyCandidate(brmem, options, candidate);
+		const result = await verifyCandidate(brmem, candidate);
 		if (result.type === "verified") {
 			return result.reuse;
 		}
@@ -108,8 +109,7 @@ export async function resolveExistingBranchContextReuse(
 }
 
 async function verifyCandidate(
-	brmem: BranchContextBrmemGateway,
-	options: ResolveExistingBranchContextReuseOptions,
+	brmem: BrmemGateway,
 	candidate: ExistingBranchContextCandidate,
 ): Promise<CandidateVerification> {
 	if (candidate.requestedKey !== undefined) {
@@ -130,11 +130,9 @@ async function verifyCandidate(
 		} catch (error) {
 			return { type: "failure", message: error instanceof Error ? error.message : String(error) };
 		}
-		const presence = await brmem.attachmentPresence({
-			cwd: options.cwd,
+		const presence = await checkBranchContextEntryPresence(brmem, {
 			branch: candidate.branch,
 			key,
-			signal: options.signal,
 		});
 		if (presence.type === "present") {
 			return {
@@ -148,11 +146,7 @@ async function verifyCandidate(
 		return { type: "failure", message: presence.error.message };
 	}
 
-	const list = await brmem.listAttachedPlans({
-		cwd: options.cwd,
-		branch: candidate.branch,
-		signal: options.signal,
-	});
+	const list = await listBranchContextPlans(brmem, { branch: candidate.branch });
 	if (!list.ok) {
 		return { type: "failure", message: list.error.message };
 	}

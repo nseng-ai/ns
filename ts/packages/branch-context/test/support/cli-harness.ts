@@ -8,7 +8,7 @@ import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@sdl/core/git/
 import { createTempDirTracker } from "@sdl/core/testing";
 import { encodeBranchForPlanPath } from "@sdl/plans";
 import {
-	InMemoryBranchContextBrmemGateway,
+	InMemoryBranchMemoryGateway,
 	type InMemoryBrmemGatewayState,
 } from "./in-memory-brmem-gateway.ts";
 import {
@@ -53,7 +53,7 @@ export interface CliRun {
 	stderr: string[];
 	commands: RecordingCommands;
 	git: InMemoryGitGateway;
-	brmem: InMemoryBranchContextBrmemGateway;
+	brmem: InMemoryBranchMemoryGateway;
 	graphite: InMemoryBranchContextGraphiteGateway;
 }
 
@@ -102,7 +102,7 @@ export function runWithFakes(args: readonly string[], options: RunWithFakesOptio
 		currentBranch: SOURCE_BRANCH,
 		...options.git,
 	});
-	const brmem = new InMemoryBranchContextBrmemGateway(options.brmem);
+	const brmem = new InMemoryBranchMemoryGateway(options.brmem);
 	const graphite = new InMemoryBranchContextGraphiteGateway(options.graphite);
 	return {
 		stdout,

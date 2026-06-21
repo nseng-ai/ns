@@ -1,15 +1,18 @@
 import {
-	type AttachedPlanEntry,
-	type BrmemAttachPlanParams,
-	type BrmemAttachmentParams,
-	type BrmemAttachmentPresenceResult,
-	type BrmemCwdParams,
-	type BrmemErrorInfo,
-	type BrmemGetContent,
-	type BrmemPutData,
+	FakeBrmemGateway,
+	type BrmemGateway,
 	type BrmemResult,
-	type BranchContextBrmemGateway,
-} from "../../src/brmem-gateway.ts";
+	type BrmemOptionalResult,
+	type CopyEntriesResult,
+	type DeleteEntryResult,
+	type EntryContent,
+	type EntryDiagnostic,
+	type FakeEntrySeed,
+	type GitRemoteConfig,
+	type ListedEntry,
+	type PutEntryResult,
+} from "@sdl/brmem";
+
 import { BRANCH_CONTEXT_NAMESPACE } from "../../src/constants.ts";
 
 export interface InMemoryAttachedPlanState {
@@ -23,28 +26,27 @@ export interface InMemoryAttachedPlanState {
 
 export interface InMemoryBrmemGatewayState {
 	entries?: readonly InMemoryAttachedPlanState[];
-	presenceFailure?: BrmemErrorInfo | undefined;
-	attachFailure?: BrmemErrorInfo | undefined;
-	listFailure?: BrmemErrorInfo | undefined;
-	getFailure?: BrmemErrorInfo | undefined;
-	deleteFailure?: BrmemErrorInfo | undefined;
+	presenceFailure?: { code: string; message: string } | undefined;
+	attachFailure?: { code: string; message: string } | undefined;
+	listFailure?: { code: string; message: string } | undefined;
+	getFailure?: { code: string; message: string } | undefined;
+	deleteFailure?: { code: string; message: string } | undefined;
 }
 
-export interface BrmemCall {
-	cwd: string;
-}
-
-export interface BrmemAttachmentCall extends BrmemCall {
+export interface BrmemAttachmentCall {
 	branch: string;
 	key: string;
 }
 
-export interface BrmemAttachPlanCall extends BrmemAttachmentCall {
-	sourceFile: string;
+export interface BrmemListCall {
+	branch?: string | undefined;
 }
 
-export interface BrmemListCall extends BrmemCall {
+export interface BrmemPutCall {
+	namespace: string;
 	branch: string;
+	key: string;
+	content: string;
 }
 
 interface StoredAttachedPlan {
@@ -56,150 +58,153 @@ interface StoredAttachedPlan {
 	sourceFile: string;
 }
 
-export class InMemoryBranchContextBrmemGateway implements BranchContextBrmemGateway {
+export class InMemoryBranchMemoryGateway implements BrmemGateway {
+	private readonly fake: FakeBrmemGateway;
 	private readonly entries = new Map<string, StoredAttachedPlan>();
-	private readonly presenceFailure: BrmemErrorInfo | undefined;
-	private readonly attachFailure: BrmemErrorInfo | undefined;
-	private readonly listFailure: BrmemErrorInfo | undefined;
-	private readonly getFailure: BrmemErrorInfo | undefined;
-	private readonly deleteFailure: BrmemErrorInfo | undefined;
-	private readonly attachmentPresenceLog: BrmemAttachmentCall[] = [];
-	private readonly attachPlanLog: BrmemAttachPlanCall[] = [];
-	private readonly listAttachedPlansLog: BrmemListCall[] = [];
-	private readonly getAttachedPlanLog: BrmemAttachmentCall[] = [];
-	private readonly deleteEntryLog: BrmemAttachmentCall[] = [];
+	readonly checkEntryCalls: BrmemAttachmentCall[] = [];
+	readonly putEntryCalls: BrmemPutCall[] = [];
+	readonly listEntriesCalls: BrmemListCall[] = [];
+	readonly getEntryCalls: BrmemAttachmentCall[] = [];
+	readonly deleteEntryCalls: BrmemAttachmentCall[] = [];
 
 	constructor(state: InMemoryBrmemGatewayState = {}) {
-		for (const entry of state.entries ?? []) {
+		for (const entry of state.entries ?? [])
 			this.entries.set(entryKey(entry.branch, entry.key), normalizeEntry(entry));
-		}
-		this.presenceFailure = state.presenceFailure;
-		this.attachFailure = state.attachFailure;
-		this.listFailure = state.listFailure;
-		this.getFailure = state.getFailure;
-		this.deleteFailure = state.deleteFailure;
+		this.fake = new FakeBrmemGateway({
+			entries: (state.entries ?? []).map(toFakeEntry),
+			operationErrors: {
+				...(state.presenceFailure === undefined ? {} : { check: state.presenceFailure }),
+				...(state.attachFailure === undefined ? {} : { put: state.attachFailure }),
+				...(state.listFailure === undefined ? {} : { list: state.listFailure }),
+				...(state.getFailure === undefined ? {} : { get: state.getFailure }),
+				...(state.deleteFailure === undefined ? {} : { delete: state.deleteFailure }),
+			},
+		});
 	}
 
 	get attachmentPresenceCalls(): readonly BrmemAttachmentCall[] {
-		return copyAttachmentCalls(this.attachmentPresenceLog);
+		return this.checkEntryCalls.map((call) => ({ ...call }));
 	}
 
-	get attachPlanCalls(): readonly BrmemAttachPlanCall[] {
-		return this.attachPlanLog.map((call) => ({ ...call }));
+	get attachPlanCalls(): readonly BrmemPutCall[] {
+		return this.putEntryCalls.map((call) => ({ ...call }));
 	}
 
 	get listAttachedPlansCalls(): readonly BrmemListCall[] {
-		return this.listAttachedPlansLog.map((call) => ({ ...call }));
+		return this.listEntriesCalls.map((call) => ({ ...call }));
 	}
 
 	get getAttachedPlanCalls(): readonly BrmemAttachmentCall[] {
-		return copyAttachmentCalls(this.getAttachedPlanLog);
-	}
-
-	get deleteEntryCalls(): readonly BrmemAttachmentCall[] {
-		return copyAttachmentCalls(this.deleteEntryLog);
+		return this.getEntryCalls.map((call) => ({ ...call }));
 	}
 
 	get attachedPlans(): readonly InMemoryAttachedPlanState[] {
-		return [...this.entries.values()]
-			.map((entry) => ({ ...entry }))
-			.sort((left, right) =>
-				`${left.branch}/${left.key}`.localeCompare(`${right.branch}/${right.key}`),
-			);
+		return [...this.entries.values()].map((entry) => ({ ...entry }));
 	}
 
-	async attachmentPresence(params: BrmemAttachmentParams): Promise<BrmemAttachmentPresenceResult> {
-		this.attachmentPresenceLog.push({ cwd: params.cwd, branch: params.branch, key: params.key });
-		if (this.presenceFailure !== undefined) {
-			return { type: "error", error: this.presenceFailure };
-		}
-		if (this.entries.has(entryKey(params.branch, params.key))) {
-			return {
-				type: "present",
-				displayCommand: `brmem check ${params.key} --namespace ${BRANCH_CONTEXT_NAMESPACE} --branch ${params.branch} --format json`,
-			};
-		}
-		return { type: "absent" };
+	async currentBranch(): Promise<BrmemResult<string>> {
+		return await this.fake.currentBranch();
 	}
 
-	async attachPlan(params: BrmemAttachPlanParams): Promise<BrmemResult<BrmemPutData>> {
-		this.attachPlanLog.push({
-			cwd: params.cwd,
-			branch: params.branch,
-			key: params.key,
-			sourceFile: params.sourceFile,
-		});
-		if (this.attachFailure !== undefined) {
-			return { ok: false, error: this.attachFailure };
-		}
-		const key = entryKey(params.branch, params.key);
-		if (this.entries.has(key)) {
-			return {
-				ok: false,
-				error: {
-					code: "brmem_entry_exists",
-					message: `Attached plan already exists: ${params.branch}/${params.key}`,
-				},
-			};
-		}
-
-		const stored: StoredAttachedPlan = {
-			branch: params.branch,
-			key: params.key,
-			content: "",
-			refName: defaultRefName(params.branch, params.key),
-			commit: "abc123",
-			sourceFile: params.sourceFile,
-		};
-		this.entries.set(key, stored);
-		return { ok: true, value: putData(stored) };
+	async listEntries(options: {
+		namespace: string;
+		key?: string | undefined;
+		branch?: string | undefined;
+	}): Promise<BrmemResult<readonly ListedEntry[]>> {
+		this.listEntriesCalls.push({ branch: options.branch });
+		return await this.fake.listEntries(options);
 	}
 
-	async listAttachedPlans(
-		params: BrmemCwdParams & { branch: string },
-	): Promise<BrmemResult<AttachedPlanEntry[]>> {
-		this.listAttachedPlansLog.push({ cwd: params.cwd, branch: params.branch });
-		if (this.listFailure !== undefined) {
-			return { ok: false, error: this.listFailure };
-		}
-		const entries = [...this.entries.values()]
-			.filter((entry) => entry.branch === params.branch)
-			.map((entry) => ({
-				namespace: BRANCH_CONTEXT_NAMESPACE,
-				key: entry.key,
-				branch: entry.branch,
-				refName: entry.refName,
-			}))
-			.sort((left, right) => left.key.localeCompare(right.key));
-		return { ok: true, value: entries };
+	async listAllEntries(options: {
+		key?: string | undefined;
+		branch?: string | undefined;
+	}): Promise<BrmemResult<readonly ListedEntry[]>> {
+		return await this.fake.listAllEntries(options);
 	}
 
-	async getAttachedPlan(params: BrmemAttachmentParams): Promise<BrmemResult<BrmemGetContent>> {
-		this.getAttachedPlanLog.push({ cwd: params.cwd, branch: params.branch, key: params.key });
-		if (this.getFailure !== undefined) {
-			return { ok: false, error: this.getFailure };
-		}
-		const entry = this.entries.get(entryKey(params.branch, params.key));
-		if (entry === undefined) {
-			return {
-				ok: false,
-				error: {
-					code: "brmem_entry_missing",
-					message: `Attached plan not found: ${params.branch}/${params.key}`,
-				},
-			};
-		}
-		return { ok: true, value: { content: entry.content, refName: entry.refName } };
+	async getEntry(options: {
+		namespace: string;
+		key: string;
+		branch: string;
+		at?: string | undefined;
+	}): Promise<BrmemOptionalResult<EntryContent>> {
+		this.getEntryCalls.push({ branch: options.branch, key: options.key });
+		return await this.fake.getEntry(options);
 	}
 
-	async deleteEntry(params: BrmemAttachmentParams): Promise<BrmemResult<void>> {
-		this.deleteEntryLog.push({ cwd: params.cwd, branch: params.branch, key: params.key });
-		if (this.deleteFailure !== undefined) {
-			return { ok: false, error: this.deleteFailure };
-		}
-		this.entries.delete(entryKey(params.branch, params.key));
-		return { ok: true, value: undefined };
+	async checkEntry(options: {
+		namespace: string;
+		key: string;
+		branch: string;
+		at?: string | undefined;
+	}): Promise<BrmemOptionalResult<EntryDiagnostic>> {
+		this.checkEntryCalls.push({ branch: options.branch, key: options.key });
+		return await this.fake.checkEntry(options);
 	}
+
+	async putEntry(options: {
+		namespace: string;
+		key: string;
+		branch: string;
+		content: string;
+	}): Promise<BrmemResult<PutEntryResult>> {
+		this.putEntryCalls.push({ ...options });
+		const result = await this.fake.putEntry(options);
+		if (result.type === "ok" && options.namespace === BRANCH_CONTEXT_NAMESPACE) {
+			this.entries.set(entryKey(options.branch, options.key), {
+				branch: options.branch,
+				key: options.key,
+				content: options.content,
+				refName: result.value.entry.entryLocator,
+				commit: result.value.commitSha,
+				sourceFile: "",
+			});
+		}
+		return result;
+	}
+
+	async deleteEntry(options: {
+		namespace: string;
+		key: string;
+		branch: string;
+	}): Promise<BrmemResult<DeleteEntryResult>> {
+		this.deleteEntryCalls.push({ branch: options.branch, key: options.key });
+		const result = await this.fake.deleteEntry(options);
+		if (result.type === "ok") this.entries.delete(entryKey(options.branch, options.key));
+		return result;
+	}
+
+	async copyEntries(options: {
+		namespace: string;
+		fromBranch: string;
+		toBranch: string;
+		shouldOverwrite: boolean;
+		keyGlob?: string | undefined;
+	}): Promise<BrmemResult<CopyEntriesResult>> {
+		return await this.fake.copyEntries(options);
+	}
+
+	async getRemoteConfig(remote: string): Promise<BrmemOptionalResult<GitRemoteConfig>> {
+		return await this.fake.getRemoteConfig(remote);
+	}
+
+	async addRemoteRefspecs(
+		remote: string,
+		push: readonly string[],
+		fetch: readonly string[],
+	): Promise<BrmemResult<void>> {
+		return await this.fake.addRemoteRefspecs(remote, push, fetch);
+	}
+}
+
+function toFakeEntry(entry: InMemoryAttachedPlanState): FakeEntrySeed {
+	return {
+		namespace: BRANCH_CONTEXT_NAMESPACE,
+		branch: entry.branch,
+		key: entry.key,
+		content: entry.content ?? "",
+		...(entry.commit === undefined ? {} : { headSha: entry.commit }),
+	};
 }
 
 function normalizeEntry(entry: InMemoryAttachedPlanState): StoredAttachedPlan {
@@ -213,25 +218,10 @@ function normalizeEntry(entry: InMemoryAttachedPlanState): StoredAttachedPlan {
 	};
 }
 
-function putData(entry: StoredAttachedPlan): BrmemPutData {
-	return {
-		namespace: BRANCH_CONTEXT_NAMESPACE,
-		key: entry.key,
-		branch: entry.branch,
-		refName: entry.refName,
-		commit: entry.commit,
-		sourceFile: entry.sourceFile,
-	};
-}
-
 function defaultRefName(branch: string, key: string): string {
 	return `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${branch.replaceAll("/", "---")}:${key}`;
 }
 
 function entryKey(branch: string, key: string): string {
 	return `${branch}\0${key}`;
-}
-
-function copyAttachmentCalls(calls: readonly BrmemAttachmentCall[]): BrmemAttachmentCall[] {
-	return calls.map((call) => ({ ...call }));
 }

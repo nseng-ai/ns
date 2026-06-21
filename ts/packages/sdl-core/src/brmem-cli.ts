@@ -20,15 +20,9 @@ export interface BrmemExecGateway {
 	): Promise<PiExecResultLike>;
 }
 
-export interface BrmemCommandCandidate {
-	command: string;
-	prefixArgs: string[];
-}
-
 export interface CompletedBrmemRun {
 	type: "completed";
-	candidate: BrmemCommandCandidate;
-	command: string;
+	command: "brmem";
 	args: string[];
 	displayCommand: string;
 	result: ExecResult;
@@ -36,32 +30,15 @@ export interface CompletedBrmemRun {
 
 export interface UnavailableBrmemRun {
 	type: "unavailable";
-	candidate: BrmemCommandCandidate;
-	command: string;
+	command: "brmem";
 	args: string[];
 	displayCommand: string;
 	failure: string;
 }
 
-export type BrmemCandidateRun = CompletedBrmemRun | UnavailableBrmemRun;
+export type BrmemRun = CompletedBrmemRun | UnavailableBrmemRun;
 
-export interface NoAvailableBrmemCommandRun {
-	type: "unavailable";
-	failures: readonly UnavailableBrmemRun[];
-}
-
-export type FirstAvailableBrmemCommandRun = CompletedBrmemRun | NoAvailableBrmemCommandRun;
-
-export interface RunBrmemCandidateOptions {
-	gateway: BrmemExecGateway;
-	cwd: string;
-	candidate: BrmemCommandCandidate;
-	brmemArgs: readonly string[];
-	timeoutMs: number;
-	signal?: AbortSignal | undefined;
-}
-
-export interface RunFirstAvailableBrmemCommandOptions {
+export interface RunBrmemOptions {
 	gateway: BrmemExecGateway;
 	cwd: string;
 	brmemArgs: readonly string[];
@@ -126,54 +103,31 @@ export interface PutBrmemEntryFromFileOptions extends BrmemEntryLocator {
 	signal?: AbortSignal | undefined;
 }
 
-export function resolveBrmemCommandCandidates(
-	cwd: string,
-	options: { exists?: (path: string) => boolean } = {},
-): BrmemCommandCandidate[] {
-	void cwd;
-	void options;
-	return [{ command: "brmem", prefixArgs: [] }];
-}
-
-export async function runBrmemCandidate(
-	options: RunBrmemCandidateOptions,
-): Promise<BrmemCandidateRun> {
-	const { gateway, cwd, candidate, brmemArgs, timeoutMs, signal } = options;
-	const args = [...candidate.prefixArgs, ...brmemArgs];
-	const displayCommand = formatCommand(candidate.command, args);
+export async function runBrmem(options: RunBrmemOptions): Promise<BrmemRun> {
+	const { gateway, cwd, brmemArgs, timeoutMs, signal } = options;
+	const command = "brmem";
+	const args = [...brmemArgs];
+	const displayCommand = formatCommand(command, args);
 
 	try {
 		const result = normalizeExecResult(
-			await gateway.exec(candidate.command, args, execOptions(cwd, timeoutMs, signal)),
+			await gateway.exec(command, args, execOptions(cwd, timeoutMs, signal)),
 		);
 		if (isLikelyCommandNotFound(result)) {
 			return {
 				type: "unavailable",
-				candidate,
-				command: candidate.command,
+				command,
 				args,
 				displayCommand,
-				failure: formatCommandFailure(
-					"brmem command candidate was unavailable",
-					displayCommand,
-					result,
-				),
+				failure: formatCommandFailure("brmem command was unavailable", displayCommand, result),
 			};
 		}
 
-		return {
-			type: "completed",
-			candidate,
-			command: candidate.command,
-			args,
-			displayCommand,
-			result,
-		};
+		return { type: "completed", command, args, displayCommand, result };
 	} catch (error) {
 		return {
 			type: "unavailable",
-			candidate,
-			command: candidate.command,
+			command,
 			args,
 			displayCommand,
 			failure: formatStartupFailure(displayCommand, error),
@@ -181,24 +135,10 @@ export async function runBrmemCandidate(
 	}
 }
 
-export async function runFirstAvailableBrmemCommand(
-	options: RunFirstAvailableBrmemCommandOptions,
-): Promise<FirstAvailableBrmemCommandRun> {
-	const { gateway, cwd, brmemArgs, timeoutMs, signal } = options;
-	const failures: UnavailableBrmemRun[] = [];
-	for (const candidate of resolveBrmemCommandCandidates(cwd)) {
-		const run = await runBrmemCandidate({ gateway, cwd, candidate, brmemArgs, timeoutMs, signal });
-		if (run.type === "completed") return run;
-		failures.push(run);
-	}
-
-	return { type: "unavailable", failures };
-}
-
 export async function runAvailableBrmemCommand(
 	options: RunAvailableBrmemCommandOptions,
 ): Promise<BrmemCommandResult<CompletedBrmemRun>> {
-	const run = await runFirstAvailableBrmemCommand({
+	const run = await runBrmem({
 		gateway: options.gateway,
 		cwd: options.cwd,
 		brmemArgs: options.brmemArgs,
@@ -208,7 +148,7 @@ export async function runAvailableBrmemCommand(
 	if (run.type === "unavailable") {
 		return {
 			ok: false,
-			error: { code: "brmem_unavailable", message: formatBrmemUnavailableMessage(run.failures) },
+			error: { code: "brmem_unavailable", message: formatBrmemUnavailableMessage(run) },
 		};
 	}
 	return { ok: true, value: run };
@@ -376,15 +316,15 @@ export function parseBrmemPutData(stdout: string): BrmemPutData {
 	};
 }
 
-export function formatBrmemUnavailableMessage(failures: readonly UnavailableBrmemRun[]): string {
+export function formatBrmemUnavailableMessage(failure: UnavailableBrmemRun): string {
 	return [
 		"No brmem command available. Install the TypeScript-backed public shim with `just install-brmem` or `just install-tools`, then ensure `brmem` is on PATH.",
-		...failures.map((failure) => `\n${failure.failure}`),
+		`\n${failure.failure}`,
 	].join("\n");
 }
 
-export function formatBrmemUnavailableError(failures: readonly UnavailableBrmemRun[]): Error {
-	return new Error(formatBrmemUnavailableMessage(failures));
+export function formatBrmemUnavailableError(failure: UnavailableBrmemRun): Error {
+	return new Error(formatBrmemUnavailableMessage(failure));
 }
 
 export interface BrmemFieldParseContext {

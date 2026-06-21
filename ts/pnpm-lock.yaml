@@ -143,6 +143,9 @@ importers:
 
   packages/branch-context:
     dependencies:
+      '@sdl/brmem':
+        specifier: workspace:*
+        version: link:../brmem
       '@sdl/clinkr':
         specifier: workspace:*
         version: link:../clinkr

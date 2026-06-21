@@ -310,7 +310,7 @@ describe("branch-context CLI surface pinning", () => {
 				namespace: BRANCH_CONTEXT_NAMESPACE,
 				key: PLAN_KEY,
 				ref_name: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${PLAN_SLUG}:${PLAN_KEY}`,
-				commit: "abc123",
+				commit: "commit0000000000000000000000000000000002",
 				source_file: planFile,
 			},
 		});
@@ -416,7 +416,7 @@ describe("branch-context CLI surface pinning", () => {
 						namespace: BRANCH_CONTEXT_NAMESPACE,
 						key: PLAN_KEY,
 						ref_name: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${branch.replaceAll("/", "---")}:${PLAN_KEY}`,
-						commit: "abc123",
+						commit: "commit0000000000000000000000000000000002",
 						source_file: planFile,
 						summary: "Create it",
 					},

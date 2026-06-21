@@ -111,7 +111,7 @@ const entry = defineCli<BranchContextCliContext, CliDeps, undefined>({
 	description: "Branch context operations.",
 	prepareRun: ({ deps, cwd }) => {
 		const context: BranchContextCliContext = {
-			context: deps.context ?? createRealBranchContextContext(),
+			context: deps.context ?? createRealBranchContextContext({ cwd }),
 			cwd,
 			...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }),
 		};

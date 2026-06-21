@@ -139,6 +139,14 @@ class CreateBranchContextUsageError extends Error {
 	}
 }
 
+function resolveBranchContextContext(
+	pi: ExtensionAPI,
+	cwd: string,
+	options: BranchContextExtensionOptions,
+) {
+	return options.createBranchContextContext?.(pi, cwd) ?? createBranchContextContext(pi, { cwd });
+}
+
 export function parseCreateBranchContextArgs(rawArgs: string): CreateBranchContextArgs {
 	const parsed: CreateBranchContextArgs = { help: false, dryRun: false, yes: false };
 	const tokens = rawArgs
@@ -336,7 +344,7 @@ export async function handleImplBranchContextCommand(
 		const params = trimmedArgs.length > 0 ? { requestedKey: trimmedArgs } : {};
 		const plan = await operations.loadBranchContextPlan(pi, params, {
 			cwd: ctx.cwd,
-			context: createBranchContextContext(pi),
+			context: resolveBranchContextContext(pi, ctx.cwd, options),
 			planStoreRoot: resolvePlanStoreRootOption(options),
 			sessionEntries: ctx.sessionManager?.getBranch?.() ?? [],
 		});
@@ -434,6 +442,7 @@ export async function handleCreateBranchContextCommand(
 			preview,
 			ctx,
 			operations: resolveBranchContextOperations(options),
+			extensionOptions: options,
 		});
 		presentBranchContextMessage(
 			pi,
@@ -503,7 +512,13 @@ export async function handleUpAndImplCommand(
 			);
 			return;
 		}
-		await handleUpAndImplExistingReuse({ pi, args, ctx, originalError: error });
+		await handleUpAndImplExistingReuse({
+			pi,
+			args,
+			ctx,
+			originalError: error,
+			extensionOptions: options,
+		});
 		return;
 	}
 
@@ -547,6 +562,7 @@ export async function handleUpAndImplCommand(
 			preview,
 			ctx,
 			operations: resolveBranchContextOperations(options),
+			extensionOptions: options,
 		});
 	} catch (error) {
 		ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, undefined);
@@ -574,6 +590,7 @@ interface CreateBranchContextFromPreviewOptions {
 	preview: CreateBranchContextPreview;
 	ctx: CommandContext;
 	operations: BranchContextOperations;
+	extensionOptions: BranchContextExtensionOptions;
 }
 
 interface HandleUpAndImplExistingReuseOptions {
@@ -581,12 +598,13 @@ interface HandleUpAndImplExistingReuseOptions {
 	args: CreateBranchContextArgs;
 	ctx: CommandContext;
 	originalError: unknown;
+	extensionOptions: BranchContextExtensionOptions;
 }
 
 async function handleUpAndImplExistingReuse(
 	options: HandleUpAndImplExistingReuseOptions,
 ): Promise<void> {
-	const { pi, args, ctx, originalError } = options;
+	const { pi, args, ctx, originalError, extensionOptions } = options;
 	let reuse: ExistingBranchContextReuse;
 	ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, "finding existing branch context…");
 	try {
@@ -596,7 +614,7 @@ async function handleUpAndImplExistingReuse(
 			args.branchName === undefined
 				? { sessionEntries }
 				: { explicitBranch: args.branchName, sessionEntries },
-			{ cwd: ctx.cwd, context: createBranchContextContext(pi) },
+			{ cwd: ctx.cwd, context: resolveBranchContextContext(pi, ctx.cwd, extensionOptions) },
 		);
 	} catch (reuseError) {
 		presentBranchContextMessage(
@@ -641,6 +659,7 @@ async function createBranchContextFromPreview({
 	preview,
 	ctx,
 	operations,
+	extensionOptions,
 }: CreateBranchContextFromPreviewOptions): Promise<BranchContextEvidence> {
 	const params: {
 		slug: string;
@@ -662,7 +681,7 @@ async function createBranchContextFromPreview({
 
 	return operations.createBranchContextFromFile(pi, params, {
 		cwd: ctx.cwd,
-		context: createBranchContextContext(pi),
+		context: resolveBranchContextContext(pi, ctx.cwd, extensionOptions),
 	});
 }
 
