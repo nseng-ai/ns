@@ -664,6 +664,7 @@ export function buildDetectedFeedbackPrompt(input: DispatchPromptInput): string 
 		"Instructions:",
 		"- Triage the downloaded feedback above and propose a focused plan before editing.",
 		"- Do not push, submit, create branches, resolve threads, or reply on GitHub unless the human explicitly asks.",
+		"- If the human asks you to address feedback, inspect the current repository state before acting; after implementing or verifying fixes and running appropriate validation, resolve/reply to review threads with `pr-address exec resolve-review-thread --thread-id <THREAD_ID> --format json` / `pr-address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json` rather than raw `gh api graphql`.",
 		"- Ask before cross-cutting, complex, ambiguous, or dirty-tree work.",
 		"- Run appropriate tests before committing.",
 	);

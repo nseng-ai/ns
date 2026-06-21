@@ -313,8 +313,19 @@ describe("/pr:download-stack-feedback", () => {
 		);
 		expect(prompt).toContain("Treat automation feedback as stack-level remediation");
 		expect(prompt).toContain("resolve all automation review threads stack-wide");
-		expect(prompt.trim()).toMatch(
-			/Do not edit files yet; propose a plan and wait for human confirmation\. Do not resolve or reply to GitHub threads during this initial triage prompt; .*validation has passed\.$/u,
+		expect(prompt).toContain(
+			"pr-address exec resolve-review-thread --thread-id <THREAD_ID> --format json",
+		);
+		expect(prompt).toContain(
+			"pr-address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json",
+		);
+		expect(prompt).toContain(
+			"Do not edit files yet; propose a plan and wait for human confirmation. Do not resolve or reply to GitHub threads during this initial triage prompt",
+		);
+		expect(prompt).toContain("current repository state has been inspected");
+		expect(prompt).toContain("validation has passed");
+		expect(prompt).toContain(
+			"Do not use raw `gh api graphql` for review-thread resolve/reply mutations",
 		);
 		expect(ctx.notifications.at(-1)).toEqual({
 			message: "Downloaded PR stack feedback into the editor. Review/edit, then press Enter.",

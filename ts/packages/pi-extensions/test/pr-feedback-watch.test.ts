@@ -416,6 +416,15 @@ describe("pr feedback watch download helpers", () => {
 		expect(prompt).toContain("download/download-feedback:123:1");
 		expect(prompt).toContain("Do not push, submit, create branches");
 		expect(prompt).toContain("Triage the downloaded feedback");
+		expect(prompt).toContain("If the human asks you to address feedback");
+		expect(prompt).toContain("inspect the current repository state before acting");
+		expect(prompt).toContain(
+			"pr-address exec resolve-review-thread --thread-id <THREAD_ID> --format json",
+		);
+		expect(prompt).toContain(
+			"pr-address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json",
+		);
+		expect(prompt).toContain("rather than raw `gh api graphql`");
 	});
 });
 

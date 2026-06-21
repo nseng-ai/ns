@@ -1,17 +1,19 @@
 # @sdl/pr-address
 
-Transitional TypeScript package for the `pr-address` standalone CLI.
+Transitional TypeScript package for the `pr-address` standalone CLI: LM-ready PR feedback download plus shared PR feedback primitives.
 
-`pr-address` is now a tiny read-only feedback downloader. The old addressing workflow engine — payload sessions, classification, planning, resolver payloads, GitHub mutation orchestration, checkpoints, finalization, and detail lookup — is retired and deleted from the current CLI.
+The old addressing workflow engine — payload sessions, classification, planning, resolver payloads, batch mutation orchestration, checkpoints, finalization, and detail lookup — is retired and deleted from the current CLI.
 
 ## Retained contract
 
 The retained foundation is:
 
-- `pr-address exec download-feedback [--pr-number <number>] --format json`
-- minimal branch-to-PR lookup plumbing for `/pr:download-stack-feedback` while that Pi command still shells out to this package
+- `pr-address exec download-feedback [--pr-number <number>] --format json` for Markdown triage context.
+- `pr-address exec map-branch-prs --format json` as minimal branch-to-PR lookup plumbing for `/pr:download-stack-feedback`.
+- Read primitives: `pr-details`, `branch-pr`, `open-prs`, `pr-reviews`, `pr-review-threads`, and `pr-discussion-comments`.
+- Mutation primitives: `reply-review-thread` and `resolve-review-thread`.
 
-The `download-feedback` result includes Markdown intended for session/editor prefill. It is triage-only and must not mutate GitHub.
+The `download-feedback` result includes Markdown intended for session/editor prefill. It is triage-only and must not mutate GitHub. After human direction, current-state inspection, implementation or verification, and appropriate validation, review-thread mutations should use the primitive commands instead of raw `gh api graphql`.
 
 ## Distribution
 
@@ -26,6 +28,9 @@ The `download-feedback` result includes Markdown intended for session/editor pre
 ```bash
 node ts/packages/pr-address/src/cli.ts --help
 pr-address exec download-feedback --pr-number <pr-number> --format json
+pr-address exec pr-review-threads --pr-number <pr-number> --include-resolved --format json
+pr-address exec reply-review-thread --thread-id <THREAD_ID> --body "Fixed in <commit/branch>." --format json
+pr-address exec resolve-review-thread --thread-id <THREAD_ID> --format json
 ```
 
 ## Validation

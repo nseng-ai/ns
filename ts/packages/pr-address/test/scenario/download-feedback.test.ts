@@ -138,9 +138,19 @@ describe("pr-address exec download-feedback", () => {
 		expect(markdown.indexOf("Do not edit files yet")).toBeGreaterThan(
 			markdown.indexOf("## Instructions before responding"),
 		);
-		expect(markdown.trim()).toMatch(
-			/Do not edit files yet; propose a plan and wait for human confirmation\. Do not resolve or reply to GitHub threads from this prompt\.$/u,
+		expect(markdown).toContain(
+			"Do not edit files yet; propose a plan and wait for human confirmation. Do not resolve or reply to GitHub threads during this initial triage prompt.",
 		);
+		expect(markdown).toContain("If the human asks you to address the feedback");
+		expect(markdown).toContain("inspect the current repository state before acting");
+		expect(markdown).toContain(
+			"pr-address exec resolve-review-thread --thread-id <THREAD_ID> --format json",
+		);
+		expect(markdown).toContain(
+			"pr-address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json",
+		);
+		expect(markdown).toContain("do not use raw `gh api graphql` for those mutations");
+		expect(markdown.trim()).toMatch(/those mutations\.$/u);
 		expect(markdown).toContain("Downloaded feedback for PR #42: Add primitive");
 		expect(markdown).toContain("- URL: https://example.test/pr/42");
 		expect(markdown).toContain("- Branch: feature/demo");

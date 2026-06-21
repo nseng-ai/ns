@@ -1,15 +1,13 @@
 ---
 name: pr-address
-description: "Download GitHub PR feedback for agent triage. The old pr-address addressing workflow is retired; use only the read-only download helpers."
+description: "Use when downloading GitHub PR feedback or using pr-address exec PR feedback primitives for agent triage, PR lookup, review-thread inspection, or confirmed review-thread reply/resolution."
 ---
 
 # pr-address
 
-`pr-address` is now a transitional, read-only feedback-download surface.
+`pr-address` is the repo-owned PR feedback surface: LM-ready feedback download plus shared `pr-address exec` primitives for PR lookup, review inspection, and confirmed review-thread mutations.
 
-Use it to fetch GitHub PR review feedback as Markdown for an agent to inspect. Do **not** use it as an addressing workflow engine: the old payload-session, classification, planning, resolver-payload, checkpoint, finalization, and mutation workflow is retired and deleted from the current CLI.
-
-## Supported workflow
+## Initial feedback download
 
 Prefer the Pi commands when available:
 
@@ -22,32 +20,44 @@ Manual CLI fallback:
 pr-address exec download-feedback --pr-number <pr-number> --format json
 ```
 
-The JSON result includes a `markdown` field intended for editor/session prefill. It is triage-only: ask the human before making code changes, and do not resolve or reply to GitHub threads from the download result alone.
+The JSON result includes a `markdown` field intended for editor/session prefill. It is triage-only: downloaded feedback alone does not authorize editing files, resolving threads, replying on GitHub, pushing, or submitting. During initial triage, propose a plan and wait for human confirmation.
 
-## Retained implementation helper
+## Current primitive surface
 
-`map-branch-prs` remains as implementation plumbing for stack downloads:
+Download / stack plumbing:
 
-```bash
-slot gt exec stack-branches --format json \
-  | pr-address exec map-branch-prs --format json
-```
+- `download-feedback`
+- `map-branch-prs`
 
-Treat every other historical `pr-address exec` operation as obsolete unless a current implementation session is explicitly deleting or migrating it.
+Read primitives:
+
+- `pr-details`
+- `branch-pr`
+- `open-prs`
+- `pr-reviews`
+- `pr-review-threads [--include-resolved]`
+- `pr-discussion-comments`
+
+Mutation primitives:
+
+- `reply-review-thread --thread-id <id> --body <body>`
+- `resolve-review-thread --thread-id <id>`
+
+After the user has asked you to address feedback, current repo state has been inspected, the fix is implemented or verified, and appropriate validation has passed, use `pr-address exec resolve-review-thread --thread-id <THREAD_ID> --format json` rather than raw `gh api graphql` to resolve review threads. Use `pr-address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json` rather than raw GraphQL/REST to reply to review threads.
 
 ## Retired workflow
 
-Do not run or teach agents to run these old workflow families:
+The retired workflow is the old payload-session/classification/planning/batch/checkpoint/finalization orchestration engine. Do not run or teach agents to run these old workflow families:
 
 - payload/session setup: `prepare-run`, payload paths, harness-session payload chaining;
 - classification/planning: `classification-template`, `validate-feedback-classification`, `plan-feedback`;
 - detail lookup: `read-feedback-detail`, `read-feedback-details`;
-- mutation orchestration: `build-resolve-thread-batch-payload`, `resolve-thread-batch`, `resolve-thread-with-reply`, `reply-to-review`, `reply-to-discussion`;
+- batch mutation orchestration: `build-resolve-thread-batch-payload`, `resolve-thread-batch`, `resolve-thread-with-reply`, `reply-to-review`, `reply-to-discussion`;
 - checkpoint/finalization: `record-batch-checkpoint`, `finalize-run`.
 
-Future addressing work should rebuild from the download-feedback foundation rather than preserving the old workflow machinery.
+Do not describe the current primitive commands as retired.
 
 ## References
 
-- `references/cli-collection.md` — download-only helper notes.
-- `references/cli-reference.md` — JSON envelope and transitional CLI notes.
+- `references/cli-collection.md` — current command families and safety notes.
+- `references/cli-reference.md` — JSON envelope and command examples.
