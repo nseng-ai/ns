@@ -1,5 +1,4 @@
 import { existsSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
 
 import {
 	MAX_ERROR_CHARS,
@@ -12,6 +11,7 @@ import {
 	type PiExecResultLike,
 } from "./exec.ts";
 import { formatErrorMessage, isRecord } from "./primitives.ts";
+import { findWorkspaceRootByMarkers } from "./workspace-root.ts";
 
 export const DEFAULT_BRMEM_TIMEOUT_MS = 30_000;
 
@@ -102,6 +102,13 @@ export interface BrmemPutData {
 	sourceFile: string;
 }
 
+export interface BrmemListEntry {
+	readonly namespace: string;
+	readonly key: string;
+	readonly branch: string;
+	readonly refName: string;
+}
+
 interface BrmemCheckData {
 	present: boolean;
 }
@@ -124,12 +131,26 @@ export type BrmemEntryPresenceResult =
 	| { type: "absent" }
 	| { type: "error"; error: BrmemCommandErrorInfo };
 
-export interface PutBrmemEntryFromFileOptions extends BrmemEntryLocator {
-	gateway: BrmemExecGateway;
-	cwd: string;
-	sourceFile: string;
-	timeoutMs?: number;
-	signal?: AbortSignal | undefined;
+export interface PutBrmemEntryFromFileOptions {
+	readonly gateway: BrmemExecGateway;
+	readonly cwd: string;
+	readonly namespace: string;
+	readonly key: string;
+	readonly branch?: string | undefined;
+	readonly sourceFile: string;
+	readonly timeoutMs?: number;
+	readonly env?: NodeJS.ProcessEnv | undefined;
+	readonly signal?: AbortSignal | undefined;
+}
+
+export interface ListBrmemEntriesOptions {
+	readonly gateway: BrmemExecGateway;
+	readonly cwd: string;
+	readonly namespace?: string | undefined;
+	readonly branch?: string | undefined;
+	readonly timeoutMs?: number | undefined;
+	readonly env?: NodeJS.ProcessEnv | undefined;
+	readonly signal?: AbortSignal | undefined;
 }
 
 export function resolveBrmemCommandCandidates(
@@ -137,10 +158,15 @@ export function resolveBrmemCommandCandidates(
 	options: { exists?: (path: string) => boolean } = {},
 ): BrmemCommandCandidate[] {
 	const exists = options.exists ?? existsSync;
-	const candidates: BrmemCommandCandidate[] = [{ command: "brmem", prefixArgs: [] }];
-	const tsWorkspaceRoot = findTsWorkspaceRoot(cwd, exists);
-	if (tsWorkspaceRoot !== null) {
-		candidates.push({
+	const tsWorkspaceRoot = findWorkspaceRootByMarkers({
+		cwd,
+		markers: ["pnpm-workspace.yaml", "packages/brmem/package.json"],
+		nestedDirectory: "ts",
+		exists,
+	});
+	if (tsWorkspaceRoot === null) return [{ command: "brmem", prefixArgs: [] }];
+	return [
+		{
 			command: "pnpm",
 			prefixArgs: [
 				"--config.verify-deps-before-run=false",
@@ -149,9 +175,9 @@ export function resolveBrmemCommandCandidates(
 				"exec",
 				"brmem",
 			],
-		});
-	}
-	return candidates;
+		},
+		{ command: "brmem", prefixArgs: [] },
+	];
 }
 
 export async function runBrmemCandidate(
@@ -305,14 +331,14 @@ export async function putBrmemEntryFromFile(
 			options.key,
 			"--namespace",
 			options.namespace,
-			"--branch",
-			options.branch,
+			...(options.branch === undefined ? [] : ["--branch", options.branch]),
 			"--file",
 			options.sourceFile,
 			"--format",
 			"json",
 		],
 		...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
+		...(options.env === undefined ? {} : { env: options.env }),
 		signal: options.signal,
 	});
 	if (!run.ok) return run;
@@ -362,14 +388,60 @@ export async function putBrmemEntryFromFile(
 	}
 }
 
+export async function listBrmemEntries(
+	options: ListBrmemEntriesOptions,
+): Promise<BrmemCommandResult<readonly BrmemListEntry[]>> {
+	const run = await runAvailableBrmemCommand({
+		gateway: options.gateway,
+		cwd: options.cwd,
+		brmemArgs: [
+			"list",
+			...(options.namespace === undefined ? [] : ["--namespace", options.namespace]),
+			...(options.branch === undefined ? [] : ["--branch", options.branch]),
+			"--format",
+			"json",
+		],
+		...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
+		...(options.env === undefined ? {} : { env: options.env }),
+		signal: options.signal,
+	});
+	if (!run.ok) return run;
+	if (run.value.result.code !== 0 || run.value.result.killed) {
+		return {
+			ok: false,
+			error: brmemCommandFailure("brmem_list_failed", "brmem list failed", run.value),
+		};
+	}
+
+	try {
+		return {
+			ok: true,
+			value: parseBrmemListEntries(run.value.result.stdout, {
+				namespace: options.namespace,
+				branch: options.branch,
+			}),
+		};
+	} catch (error) {
+		return {
+			ok: false,
+			error: {
+				code: "brmem_malformed_list",
+				message: formatErrorMessage(error),
+				displayCommand: run.value.displayCommand,
+			},
+		};
+	}
+}
+
 export function brmemCommandFailure(
 	code: string,
 	title: string,
 	run: CompletedBrmemRun,
 ): BrmemCommandErrorInfo {
+	const message = brmemEnvelopeFailureMessage(title, run);
 	return {
 		code,
-		message: formatCommandFailure(title, run.displayCommand, run.result),
+		message,
 		displayCommand: run.displayCommand,
 	};
 }
@@ -402,6 +474,21 @@ export function parseBrmemPutData(stdout: string): BrmemPutData {
 		commit: fields.commit,
 		sourceFile: fields.source_file,
 	};
+}
+
+export function parseBrmemListEntries(
+	stdout: string,
+	expected: { readonly namespace?: string | undefined; readonly branch?: string | undefined } = {},
+): readonly BrmemListEntry[] {
+	const data = parseBrmemMachineEnvelopeData(stdout, "brmem list JSON");
+	const entries = data.entries;
+	if (!Array.isArray(entries)) {
+		throw malformedBrmemEnvelope("brmem list", stdout, "expected data.entries array");
+	}
+
+	return entries.map((entry, index) =>
+		parseBrmemListEntry({ value: entry, index, stdout, expected }),
+	);
 }
 
 export function formatBrmemUnavailableMessage(failures: readonly UnavailableBrmemRun[]): string {
@@ -524,12 +611,54 @@ function malformedBrmemEnvelope(commandName: string, stdout: string, reason: str
 	);
 }
 
+interface ParseBrmemListEntryOptions {
+	readonly value: unknown;
+	readonly index: number;
+	readonly stdout: string;
+	readonly expected: {
+		readonly namespace?: string | undefined;
+		readonly branch?: string | undefined;
+	};
+}
+
+function parseBrmemListEntry(options: ParseBrmemListEntryOptions): BrmemListEntry {
+	const { value, index, stdout, expected } = options;
+	if (!isRecord(value)) {
+		throw malformedBrmemEnvelope("brmem list", stdout, `expected data.entries[${index}] object`);
+	}
+
+	const fields = requireBrmemStringFields(value, ["namespace", "key", "branch", "ref_name"], {
+		commandName: "brmem list",
+		stdout,
+		pathPrefix: `data.entries[${index}]`,
+	});
+	const mismatches = expectedMismatches(
+		{ namespace: fields.namespace, branch: fields.branch },
+		expected,
+	);
+	if (mismatches.length > 0) {
+		throw malformedBrmemEnvelope(
+			"brmem list",
+			stdout,
+			`expected canonical entry at data.entries[${index}] (${mismatches.join(", ")})`,
+		);
+	}
+
+	return {
+		namespace: fields.namespace,
+		key: fields.key,
+		branch: fields.branch,
+		refName: fields.ref_name,
+	};
+}
+
 function expectedMismatches(
 	actual: Record<string, string>,
-	expected: Record<string, string>,
+	expected: Record<string, string | undefined>,
 ): string[] {
 	const mismatches: string[] = [];
 	for (const [field, expectedValue] of Object.entries(expected)) {
+		if (expectedValue === undefined) continue;
 		if (actual[field] !== expectedValue) {
 			mismatches.push(
 				`${field} ${JSON.stringify(actual[field])} != ${JSON.stringify(expectedValue)}`,
@@ -537,6 +666,24 @@ function expectedMismatches(
 		}
 	}
 	return mismatches;
+}
+
+function brmemEnvelopeFailureMessage(title: string, run: CompletedBrmemRun): string {
+	const statusText = parseEnvelopeStatusText(run.result.stdout);
+	const fallback = formatCommandFailure(title, run.displayCommand, run.result);
+	if (statusText === undefined) return fallback;
+	return `${title}: ${statusText}\n\n${fallback}`;
+}
+
+function parseEnvelopeStatusText(stdout: string): string | undefined {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(stdout);
+	} catch {
+		return undefined;
+	}
+	if (!isRecord(parsed)) return undefined;
+	return envelopeStatusText(parsed);
 }
 
 function envelopeStatusText(envelope: Record<string, unknown>): string | undefined {
@@ -547,27 +694,6 @@ function envelopeStatusText(envelope: Record<string, unknown>): string | undefin
 		return envelope.error;
 	}
 	return undefined;
-}
-
-function findTsWorkspaceRoot(cwd: string, exists: (path: string) => boolean): string | null {
-	let current = resolve(cwd);
-	while (true) {
-		if (isTsWorkspaceRoot(current, exists)) return current;
-
-		const nestedTsRoot = join(current, "ts");
-		if (isTsWorkspaceRoot(nestedTsRoot, exists)) return nestedTsRoot;
-
-		const parent = dirname(current);
-		if (parent === current) return null;
-		current = parent;
-	}
-}
-
-function isTsWorkspaceRoot(path: string, exists: (path: string) => boolean): boolean {
-	return (
-		exists(join(path, "pnpm-workspace.yaml")) &&
-		exists(join(path, "packages", "brmem", "package.json"))
-	);
 }
 
 function execOptions(

@@ -5,6 +5,8 @@ import {
 	brmemCommandFailure,
 	checkBrmemEntry,
 	formatBrmemUnavailableMessage,
+	listBrmemEntries,
+	parseBrmemListEntries,
 	parseBrmemPutData,
 	putBrmemEntryFromFile,
 	resolveBrmemCommandCandidates,
@@ -522,6 +524,33 @@ describe("putBrmemEntryFromFile", () => {
 		expect(gateway.calls[0]?.options).toEqual({ cwd: ROOT, timeout: DEFAULT_BRMEM_TIMEOUT_MS });
 	});
 
+	test("omits --branch when no branch is requested", async () => {
+		const args = [
+			"put",
+			"prompt.md",
+			"--namespace",
+			"ccc-dispatch",
+			"--file",
+			"/tmp/prompt.md",
+			"--format",
+			"json",
+		];
+		const gateway = new FakeGateway([
+			step("brmem", args, { code: 0, stdout: envelope(validData) }),
+		]);
+
+		const result = await putBrmemEntryFromFile({
+			gateway,
+			cwd: ROOT,
+			namespace: "ccc-dispatch",
+			key: "prompt.md",
+			sourceFile,
+		});
+
+		gateway.assertDone();
+		expect(result).toMatchObject({ ok: true });
+	});
+
 	test("maps put command failures", async () => {
 		const killed = new FakeGateway([
 			step("brmem", putArgs, { code: 124, killed: true, stderr: "timeout" }),
@@ -625,6 +654,157 @@ describe("putBrmemEntryFromFile", () => {
 	});
 });
 
+describe("parseBrmemListEntries", () => {
+	const validData = {
+		entries: [
+			{
+				namespace: "roaster",
+				key: "reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
+				branch: "feature/demo",
+				ref_name:
+					"refs/brmem/ns/roaster/feature---demo:reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
+			},
+		],
+	} satisfies Record<string, unknown>;
+
+	test("parses list entries to camelCase fields", () => {
+		expect(parseBrmemListEntries(envelope(validData), { namespace: "roaster" })).toEqual([
+			{
+				namespace: "roaster",
+				key: "reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
+				branch: "feature/demo",
+				refName:
+					"refs/brmem/ns/roaster/feature---demo:reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
+			},
+		]);
+	});
+
+	test("throws for malformed list envelopes and entries", () => {
+		expect(() => parseBrmemListEntries("{")).toThrow(/Malformed brmem list JSON/);
+		expect(() => parseBrmemListEntries(envelope({}))).toThrow(/expected data.entries array/);
+		expect(() => parseBrmemListEntries(envelope({ entries: [null] }))).toThrow(
+			/expected data.entries\[0\] object/,
+		);
+		expect(() =>
+			parseBrmemListEntries(envelope({ entries: [{ ...validData.entries[0], key: 123 }] })),
+		).toThrow(/expected string fields/);
+	});
+
+	test("throws when expected namespace or branch does not match", () => {
+		expect(() =>
+			parseBrmemListEntries(envelope(validData), { namespace: "branch-context" }),
+		).toThrow(/namespace "roaster" != "branch-context"/);
+		expect(() => parseBrmemListEntries(envelope(validData), { branch: "other" })).toThrow(
+			/branch "feature\/demo" != "other"/,
+		);
+	});
+});
+
+describe("listBrmemEntries", () => {
+	const listArgs = ["list", "--namespace", "roaster", "--format", "json"];
+	const validData = {
+		entries: [
+			{
+				namespace: "roaster",
+				key: "reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
+				branch: "feature/demo",
+				ref_name:
+					"refs/brmem/ns/roaster/feature---demo:reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
+			},
+		],
+	} satisfies Record<string, unknown>;
+
+	test("runs brmem list and parses entries", async () => {
+		const signal = new AbortController().signal;
+		const gateway = new FakeGateway([
+			step("brmem", listArgs, { code: 0, stdout: envelope(validData) }),
+		]);
+
+		const result = await listBrmemEntries({
+			gateway,
+			cwd: ROOT,
+			namespace: "roaster",
+			signal,
+		});
+
+		gateway.assertDone();
+		expect(result).toMatchObject({ ok: true });
+		if (!result.ok) throw new Error(`expected successful list: ${result.error.message}`);
+		expect(result.value[0]?.refName).toBe(
+			"refs/brmem/ns/roaster/feature---demo:reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
+		);
+		expect(gateway.calls[0]?.options).toEqual({
+			cwd: ROOT,
+			timeout: DEFAULT_BRMEM_TIMEOUT_MS,
+			signal,
+		});
+	});
+
+	test("passes optional branch and env arguments", async () => {
+		const env = { PATH: "/bin" };
+		const gateway = new FakeGateway([
+			step(
+				"brmem",
+				["list", "--namespace", "roaster", "--branch", "feature/demo", "--format", "json"],
+				{ code: 0, stdout: envelope(validData) },
+			),
+		]);
+
+		const result = await listBrmemEntries({
+			gateway,
+			cwd: ROOT,
+			namespace: "roaster",
+			branch: "feature/demo",
+			env,
+		});
+
+		gateway.assertDone();
+		expect(result).toMatchObject({ ok: true });
+		expect(gateway.calls[0]?.options).toEqual({
+			cwd: ROOT,
+			timeout: DEFAULT_BRMEM_TIMEOUT_MS,
+			env,
+		});
+	});
+
+	test("maps list command failures", async () => {
+		const nonzero = new FakeGateway([step("brmem", listArgs, { code: 2, stderr: "bad args" })]);
+		expect(
+			await listBrmemEntries({ gateway: nonzero, cwd: ROOT, namespace: "roaster" }),
+		).toMatchObject({
+			ok: false,
+			error: { code: "brmem_list_failed" },
+		});
+		nonzero.assertDone();
+
+		const unavailable = new FakeGateway([
+			step("brmem", listArgs, { code: 127, stderr: "brmem: command not found" }),
+		]);
+		expect(
+			await listBrmemEntries({ gateway: unavailable, cwd: ROOT, namespace: "roaster" }),
+		).toMatchObject({
+			ok: false,
+			error: { code: "brmem_unavailable" },
+		});
+		unavailable.assertDone();
+	});
+
+	test("maps malformed list output", async () => {
+		const gateway = new FakeGateway([step("brmem", listArgs, { code: 0, stdout: "{" })]);
+
+		const result = await listBrmemEntries({ gateway, cwd: ROOT, namespace: "roaster" });
+
+		gateway.assertDone();
+		expect(result).toMatchObject({
+			ok: false,
+			error: {
+				code: "brmem_malformed_list",
+				displayCommand: "brmem list --namespace roaster --format json",
+			},
+		});
+	});
+});
+
 describe("brmemCommandFailure", () => {
 	test("formats command output and preserves the display command", () => {
 		const error = brmemCommandFailure("brmem_put_failed", "brmem put failed", {
@@ -642,6 +822,25 @@ describe("brmemCommandFailure", () => {
 		expect(error.message).toContain("Command: brmem put plan.md");
 		expect(error.message).toContain("out");
 		expect(error.message).toContain("err");
+	});
+
+	test("surfaces brmem machine-envelope status text", () => {
+		const error = brmemCommandFailure("brmem_put_failed", "brmem put failed", {
+			type: "completed",
+			candidate: { command: "brmem", prefixArgs: [] },
+			command: "brmem",
+			args: ["put", "plan.md"],
+			displayCommand: "brmem put plan.md",
+			result: {
+				code: 1,
+				killed: false,
+				stdout: JSON.stringify({ exit_code: 1, message: "Source file is too large" }),
+				stderr: "",
+			},
+		});
+
+		expect(error.message).toContain("brmem put failed: Source file is too large");
+		expect(error.message).toContain("Command: brmem put plan.md");
 	});
 });
 
