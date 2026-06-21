@@ -16,9 +16,21 @@ The expanded meaning of `sdl`: the user-facing CLI for source-control and softwa
 The user-facing invocation pair for a migrated lifecycle command: `sdl <name>` plus optional `/sdl:<name>` Pi mirror when implemented.
 *Avoid*: `sdl-dev` command for migrated workflows, `/code:*` target namespace, compatibility alias.
 
+**SDL kernel**:
+The host layer of the `sdl` CLI: command discovery, precedence, selected extension loading, CLI presentation, argument/schema parsing, execution context construction, and the public SDL extension API. The kernel should stay small and should not own repository workflow policy until repeated command evidence proves a reusable service belongs there.
+*Avoid*: repository workflow command bundle, Graphite/GitHub policy owner, hidden plugin registry, task database, synonym for all SDL packages.
+
 **SDL extension**:
-Repo-local or global lifecycle behavior exposed through SDL because it belongs to the Source Development Lifecycle even when it depends on project-specific tools, policy, or orchestration packages. SDL extensions live under `.sdl/extensions` and default-export an extension object created with `defineExtension()` from `@sdl/sdl/sdk`; command contributions currently live in an optional `commands` bucket.
+Repo-local or global lifecycle behavior exposed through SDL because it belongs to the Source Development Lifecycle even when it depends on project-specific tools, policy, or orchestration packages. SDL extensions default-export an extension object created with `defineExtension()` from `@sdl/sdl/sdk`; command contributions currently live in an optional `commands` bucket.
 *Avoid*: Pi runtime extension, reason to stay outside SDL, hidden task, factory registration side effect, command-required or single-command-only model.
+
+**Project-local SDL extension**:
+A checked-in repository extension under `<repo>/.sdl/extensions` that contributes lifecycle behavior for that checkout. It can restore a familiar `sdl <name>` surface for this repo without implying the command is built into every SDL installation.
+*Avoid*: default SDL command, universal command, compatibility alias, bundled first-party extension, package implementation module.
+
+**Future bundled SDL extension**:
+A possible first-party extension distribution form for reusable SDL workflows after project-local command evidence proves a stable portable contract. It is intentionally not the mechanism used for the current command-first `changes` / `cp` / `submit` / `regenerate-pr` migration.
+*Avoid*: current project-local extension, privileged built-in, excuse to skip SDK boundary design, automatic destination for repo-specific workflow policy.
 
 **Single-file SDL extension**:
 A direct `.sdl/extensions/<name>.ts` or `.sdl/extensions/<name>.js` authoring module. It is a leaf extension surface: it may import the public SDL extension API, but workspace packages must not import from it. Reusable behavior proven inside a single-file extension must move or be copied into a package-owned module before packages can depend on it.
@@ -45,12 +57,16 @@ A single-segment SDL command name such as `submit`, `changes`, `autobranch`, `au
 *Avoid*: `sdl pr regen`, `sdl slot auto`, command taxonomy churn.
 
 **SDL extension API**:
-The concrete `@sdl/sdl/sdk` subpath used by SDL extension authors — the live instance that fills the Public author API slot today. It exposes the SDL extension authoring surface: `defineExtension()`, the command and result types and helpers, and `SdlContext` execution capabilities (including text generation). Command schemas use `z` imported from `zod` directly — an ordinary third-party dependency of the extension, not an SDK export. `ts/packages/sdl/docs/sdk-reference.md` is the authoritative, complete export inventory; do not maintain a parallel hand-enumeration of exports here. Single-file SDL extensions should use this API rather than SDL implementation modules; packages must never depend on single-file extensions.
-*Avoid*: Public SDL extension API (third label for the same referent), Pi runtime extension API, importing implementation modules, copying SDK types, resolving SDK through project-local internals, importing from single-file extensions, factory-registration API, re-exporting `z`/zod from the SDK or claiming SDK-owned schema identity.
+The concrete `@sdl/sdl/sdk` subpath used by SDL extension authors — the live instance that fills the Public author API slot today. It exposes the SDL extension authoring surface: `defineExtension()`, the command and result types and helpers, `SdlExtensionApi` execution capabilities (including text generation), schema builder `z`, and a deliberately curated set of lower-package re-exports owned as first-party SDK vocabulary. `ts/packages/sdl/docs/sdk-reference.md` is the authoritative, complete export inventory; do not maintain a parallel hand-enumeration of exports here. Single-file SDL extensions should use this API rather than SDL implementation modules; packages must never depend on single-file extensions.
+*Avoid*: Public SDL extension API (third label for the same referent), Pi runtime extension API, importing implementation modules, copying SDK types, resolving SDK through project-local internals, importing from single-file extensions, factory-registration API, direct `zod` dependency for command schemas when the SDK `z` export is available.
 
 **Public author API**:
 The abstract slot — the stable package subpath we promise to point SDL extension authors at, independent of which subpath currently fills it. The SDL extension API (`@sdl/sdl/sdk`) is its current and only filler. Use this term for the promise/contract; use SDL extension API for the concrete exports.
 *Avoid*: synonym for `@sdl/sdl/sdk`, internal migration export, workspace-private helper, public promise for every package export, unqualified extension API.
+
+**Command-first SDK promotion rule**:
+The evidence rule for moving behavior into the SDL extension API: one command may copy or localize a seam while it is still being proven; shared helpers can live inside `.sdl/extensions/` when that keeps project-local authoring readable; promotion to `@sdl/sdl/sdk` requires repeated command evidence or a clearly documented single-command necessity. Promotion should create a deep author-facing interface, not expose internals for convenience.
+*Avoid*: one-command convenience export, importing implementation modules from extensions, treating duplication as automatically bad, hidden migration registry.
 
 **Internal migration export**:
 An SDL package subpath that exists so SDL workspace packages can share primitives during migration, but is not promised as a plugin-author API.

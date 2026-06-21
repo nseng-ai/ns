@@ -15,7 +15,15 @@ A migration slice should delete old command names and old `/code:<name>` Pi mirr
 
 ## SDL extensions
 
-SDL treats project-specific lifecycle behavior as first-class. SDL extensions can contribute command entries today and are expected to grow additional contribution points later. Command catalogs are discovered in increasing precedence:
+SDL treats project-specific lifecycle behavior as first-class. SDL extensions can contribute command entries today and are expected to grow additional contribution points later.
+
+The SDL kernel owns the stable host mechanics: command discovery, precedence, selected extension loading, CLI presentation, argument/schema parsing, the execution context, and the public author API. It should not own repository workflow policy such as checkpoint wording, PR-description prompts, Graphite submit orchestration, or project-specific GitHub behavior unless that policy has deliberately become a reusable kernel service.
+
+Project-local SDL extensions own repo-specific command behavior. In this repository, commands such as `changes`, `cp`, `autobranch`, `submit`, `regenerate-pr`, and `push` are checked in under `.sdl/extensions/`; their presence here does not make them universal built-in SDL commands.
+
+Future bundled first-party extensions are still a design space, not the current mechanism for this command-first migration. A workflow should become bundled only after the project-local form proves a stable reusable contract and the repository-specific policy has been separated from the portable behavior.
+
+Command catalogs are discovered in increasing precedence:
 
 ```text
 built-in command table < $XDG_DATA_HOME/sdl/extensions < <cwd>/.sdl/extensions
@@ -76,7 +84,7 @@ Discovery is side-effect-light: `sdl --help`, `sdl -h`, `sdl --version`, `sdl --
 
 The legacy `.sdl/commands/<command>.ts` path has been removed. It is not a compatibility fallback.
 
-Dynamic Pi `/sdl:*` mirrors are not part of this first general extension-loading slice. In this repository, the exact `/sdl:changes`, `/sdl:cp`, `/sdl:autobranch`, `/sdl:submit`, `/sdl:regenerate-pr`, and nested `/sdl:code:changes` mirrors delegate to restored project-local SDL commands. Other repository workflow mirrors are unavailable until their SDL command entries migrate back. Arbitrary SDL extension command entries are not dynamically mirrored into Pi.
+Dynamic Pi `/sdl:*` mirrors are not part of this first general extension-loading slice. In this repository, the exact `/sdl:changes`, `/sdl:cp`, `/sdl:autobranch`, `/sdl:submit`, `/sdl:regenerate-pr`, `/sdl:push`, and nested `/sdl:code:changes` mirrors delegate to restored project-local SDL commands. Arbitrary SDL extension command entries are not dynamically mirrored into Pi; new exact mirrors require an explicit Pi adapter and package tests.
 
 ## SDL extension API
 
@@ -87,11 +95,13 @@ import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
 import type { SdlExtensionApi, SdlResult } from "@sdl/sdl/sdk";
 ```
 
-That SDK subpath is the public author API for SDL extensions. The complete, authoritative reference for every export — `defineExtension()`, the command and result types, `SdlExtensionApi` and its execution capabilities, schema builder `z`, and the command-evidence and text-generation helpers — lives in [`docs/sdk-reference.md`](./docs/sdk-reference.md).
+That SDK subpath is the public author API for SDL extensions. The complete, authoritative reference for every export — `defineExtension()`, the command and result types, `SdlExtensionApi` and its execution capabilities, schema builder `z`, and the command-evidence and text-generation helpers — lives in [`docs/sdk-reference.md`](./docs/sdk-reference.md). When the SDK re-exports lower-package types or helpers, extension authors should treat them as first-party SDK vocabulary rather than importing lower packages directly.
 
 SDL command entries own their prompts, validation, repair policy, and exact external commands. They should not import internal SDL implementation modules.
 
 Single-file SDL extension modules such as `.sdl/extensions/<name>.ts` are leaf authoring surfaces, not shared libraries. Workspace packages must not import from them. If package code needs behavior first proven inside a single-file extension, move or copy the reusable contract into a package-owned module and expose it deliberately through `@sdl/sdl/sdk` or another documented package export; do not create a package → extension dependency.
+
+The command-first promotion rule is evidence driven: copy or localize behavior while one command is proving a seam, extract shared helpers inside `.sdl/extensions/` only when that keeps project-local authoring readable, and promote a helper into `@sdl/sdl/sdk` only after multiple command slices prove the shape or a single-command necessity is explicitly documented. Promotion should deepen the kernel boundary; it should not merely make one command easier by exposing implementation internals.
 
 ## Internal migration exports
 
@@ -225,6 +235,15 @@ Environment matches PR description generation for `sdl submit`:
 - `SDL_DEV_PR_DESCRIPTION_PROMPT`: optional custom PR-description prompt file.
 
 Pi exposes the same capability as `/sdl:regenerate-pr`. `sdl pr-regen`, `/sdl:pr-regen`, `/code:pr-regen`, and `/sdl:code:regenerate-pr` are not retained as compatibility surfaces.
+
+## Future extension classification
+
+Use these cut lines when deciding where a lifecycle workflow belongs:
+
+- **Kernel service:** discovery, loading, precedence, command presentation, execution/context primitives, and small author helpers with proven reuse or explicit necessity.
+- **Project-local extension:** repo-specific workflow policy, prompts, external command choreography, and command names that should travel with this checkout but not every SDL installation.
+- **Future bundled extension:** reusable first-party workflow behavior whose portable contract has been proven outside a single repository; still out of scope for the current command-first migration.
+- **Internal migration export:** package-to-package sharing during migration, not an author API and not a reason for `.sdl/extensions/*.ts` files to import implementation modules.
 
 ## Testing future command migrations
 
