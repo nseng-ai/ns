@@ -1,3 +1,5 @@
+// Public author API for SDL extensions.
+// Keep ts/packages/sdl/docs/sdk-reference.md in sync when changing these exports.
 import type { PositionalSpec } from "@sdl/clinkr/raw";
 import type { ExecResult } from "@sdl/core/exec";
 import { z } from "zod";

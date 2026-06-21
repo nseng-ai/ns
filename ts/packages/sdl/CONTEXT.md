@@ -45,7 +45,7 @@ A single-segment SDL command name such as `submit`, `changes`, `autobranch`, `au
 *Avoid*: `sdl pr regen`, `sdl slot auto`, command taxonomy churn.
 
 **SDL extension API**:
-The concrete `@sdl/sdl/sdk` subpath used by SDL extension authors — the live instance that fills the Public author API slot today. It exposes `defineExtension()`, `ok()`, `failed()`, `commandSucceeded()`, `formatCommandEvidence()`, `SdlContext`, extension/command types, result types, and `z` for SDK-owned schema identity. Single-file SDL extensions should use this API rather than SDL implementation modules; packages must never depend on single-file extensions.
+The concrete `@sdl/sdl/sdk` subpath used by SDL extension authors — the live instance that fills the Public author API slot today. It exposes the SDL extension authoring surface: `defineExtension()`, the command and result types and helpers, `SdlContext` execution capabilities (including text generation), and `z` for SDK-owned schema identity. `ts/packages/sdl/docs/sdk-reference.md` is the authoritative, complete export inventory; do not maintain a parallel hand-enumeration of exports here. Single-file SDL extensions should use this API rather than SDL implementation modules; packages must never depend on single-file extensions.
 *Avoid*: Public SDL extension API (third label for the same referent), Pi runtime extension API, importing implementation modules, copying SDK types, resolving SDK through project-local internals, importing from single-file extensions, factory-registration API.
 
 **Public author API**:
