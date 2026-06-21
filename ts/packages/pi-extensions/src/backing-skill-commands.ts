@@ -1,9 +1,7 @@
 import {
-	COMMAND_STYLE_LOCAL_SKILLS,
 	derivePiReplacementSurface,
+	genericCommandStyleSkillNames,
 	KNOWN_PI_COMMAND_NAMESPACES,
-	SPECIALIZED_PI_COMMAND_SURFACES,
-	SPECIALIZED_SKILL_REPLACEMENTS,
 } from "@sdl/pi-command-surfaces";
 
 import type { PiCommandContext, PiCommandHost } from "./pi-command-host.ts";
@@ -52,15 +50,9 @@ function buildDerivedPiCommand(options: {
 
 export function genericBackingSkillCommandSpecs(): DerivedPiCommand[] {
 	const specs: DerivedPiCommand[] = [];
-	for (const skillName of COMMAND_STYLE_LOCAL_SKILLS) {
-		if (skillName in SPECIALIZED_SKILL_REPLACEMENTS) {
-			continue;
-		}
+	for (const skillName of genericCommandStyleSkillNames()) {
 		const derived = derivePiReplacementCommand(skillName);
-		if (derived === undefined || SPECIALIZED_PI_COMMAND_SURFACES.has(derived.surface)) {
-			continue;
-		}
-		specs.push(derived);
+		if (derived !== undefined) specs.push(derived);
 	}
 	return specs;
 }

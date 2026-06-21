@@ -3,6 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
+import { genericCommandStyleSkillNames } from "@sdl/pi-command-surfaces";
+
 import {
 	derivePiReplacementCommand,
 	genericBackingSkillCommandSpecs,
@@ -86,6 +88,9 @@ describe("genericBackingSkillCommandSpecs", () => {
 		expect(surfaces).not.toContain("objective:create");
 		expect(surfaces).not.toContain("objective:current");
 		expect(surfaces).not.toContain("code:gt-restack-resolve");
+		expect(genericBackingSkillCommandSpecs().map((spec) => spec.skillName)).toEqual(
+			genericCommandStyleSkillNames(),
+		);
 		for (const surface of surfaces) {
 			expect(SPECIALIZED_PI_COMMAND_SURFACES.has(surface)).toBe(false);
 		}

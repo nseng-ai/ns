@@ -61,11 +61,6 @@ export const COMMAND_STYLE_LOCAL_SKILLS = [
 	"python-fake-driven-test-layout",
 	"python-fake-driven-testing",
 	"refactor-swarm",
-	"setup-dprint",
-	"setup-dprint-gh-ci",
-	"setup-graphite",
-	"setup-pypi-publish",
-	"setup-python-gh-ci",
 	"sdl-submit",
 	"skill-audit",
 	"skill-management",
@@ -122,15 +117,23 @@ export function derivePiReplacementSurface(
 	return `${skillName.slice(0, firstHyphen)}:${skillName.slice(firstHyphen + 1)}`;
 }
 
+export function genericCommandStyleSkillNames(
+	skillNames: readonly string[] = COMMAND_STYLE_LOCAL_SKILLS,
+): string[] {
+	return skillNames.filter((skillName) => {
+		if (skillName in SPECIALIZED_SKILL_REPLACEMENTS) return false;
+		const surface = derivePiReplacementSurface(skillName);
+		return surface !== undefined && !SPECIALIZED_PI_COMMAND_SURFACES.has(surface);
+	});
+}
+
 export function deriveVisiblePiReplacementSurfaces(
 	skillNames: readonly string[] = COMMAND_STYLE_LOCAL_SKILLS,
 ): string[] {
 	const surfaces: string[] = [...SPECIALIZED_PI_COMMAND_SURFACES];
-	for (const skillName of skillNames) {
-		if (skillName in SPECIALIZED_SKILL_REPLACEMENTS) continue;
+	for (const skillName of genericCommandStyleSkillNames(skillNames)) {
 		const surface = derivePiReplacementSurface(skillName);
-		if (surface === undefined || SPECIALIZED_PI_COMMAND_SURFACES.has(surface)) continue;
-		surfaces.push(surface);
+		if (surface !== undefined) surfaces.push(surface);
 	}
 	return surfaces;
 }

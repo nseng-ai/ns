@@ -4,6 +4,7 @@ import {
 	BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
 	derivePiReplacementSurface,
 	deriveVisiblePiReplacementSurfaces,
+	genericCommandStyleSkillNames,
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 	SPECIALIZED_PI_COMMAND_SURFACES,
 } from "../src/index.ts";
@@ -19,6 +20,20 @@ describe("Pi command surfaces", () => {
 		expect(derivePiReplacementSurface("objective-stack-impl")).toBe("objective:stack-impl");
 		expect(derivePiReplacementSurface("foo-bar-baz")).toBe("foo:bar-baz");
 		expect(derivePiReplacementSurface("plain")).toBeUndefined();
+	});
+
+	test("selects generic command-style skill names with the canonical filter", () => {
+		const skillNames = genericCommandStyleSkillNames();
+
+		expect(skillNames).toContain("pr-address");
+		expect(skillNames).toContain("objective-close");
+		expect(skillNames).toContain("code-workflows");
+		expect(skillNames).not.toContain("objective-create");
+		expect(skillNames).not.toContain("code-gt-restack-resolve");
+		expect(skillNames).not.toContain("setup-dprint");
+		expect(genericCommandStyleSkillNames(["plain", "foo-bar", "objective-create"])).toEqual([
+			"foo-bar",
+		]);
 	});
 
 	test("collects verified backing skill replacement surfaces from the canonical lists", () => {
