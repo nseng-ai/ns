@@ -1,6 +1,8 @@
 import { defineExtension, failed, ok } from "@sdl/sdl/sdk";
 import type { ExecResult, SdlContext } from "@sdl/sdl/sdk";
 
+// This project-local extension intentionally uses only the public SDL SDK import. The local
+// workflow helpers below are SDK-pressure evidence for later command migrations, not new SDK API.
 const GIT_FACT_TIMEOUT_MS = 30_000;
 const DEFAULT_CHANGES_MODEL_REF = "openai-codex/gpt-5.4-mini";
 const CHANGES_MODEL_ENV = "SDL_CHANGES_MODEL";
@@ -35,7 +37,7 @@ interface PendingWorktreeSnapshot {
   branch: string;
   status: string;
   diff: string;
-  clean: boolean;
+  isClean: boolean;
 }
 
 type PendingWorktreeError =
@@ -56,7 +58,7 @@ export default defineExtension({
         }
 
         const snapshot = loaded.snapshot;
-        if (snapshot.clean) {
+        if (snapshot.isClean) {
           return ok("Working tree is clean; no outstanding changes.");
         }
 
@@ -103,7 +105,7 @@ async function loadPendingWorktreeSnapshot(
       branch: branch.stdout.trim(),
       status: status.stdout,
       diff: diff.stdout,
-      clean: status.stdout.trim().length === 0,
+      isClean: status.stdout.trim().length === 0,
     },
   };
 }
