@@ -1,6 +1,6 @@
 import { defineExtension, failed, ok } from "@sdl/sdl/sdk";
 import { draftChangesSummary } from "./shared/text-helpers.ts";
-import type { ExecResult, SdlContext } from "@sdl/sdl/sdk";
+import type { ExecResult, SdlExtensionApi } from "@sdl/sdl/sdk";
 
 // This project-local extension intentionally uses only the public SDL SDK import. The local
 // workflow helpers below are SDK-pressure evidence for later command migrations, not new SDK API.
@@ -80,7 +80,7 @@ export default defineExtension({
 });
 
 async function loadPendingWorktreeSnapshot(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
 ): Promise<
   { ok: true; snapshot: PendingWorktreeSnapshot } | { ok: false; error: PendingWorktreeError }
 > {
@@ -116,7 +116,7 @@ async function loadPendingWorktreeSnapshot(
   };
 }
 
-function execGit(ctx: SdlContext, args: string[]): Promise<ExecResult> {
+function execGit(ctx: SdlExtensionApi, args: string[]): Promise<ExecResult> {
   return ctx.exec("git", args, { timeoutMs: GIT_FACT_TIMEOUT_MS });
 }
 

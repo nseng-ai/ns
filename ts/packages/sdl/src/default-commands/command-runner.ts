@@ -1,8 +1,8 @@
 import type { CommandExecApi, CommandRunner, ExecOptions, ExecResult } from "@sdl/core/exec";
 
-import type { SdlExecOptions, SdlContext } from "../sdk.ts";
+import type { SdlExecOptions, SdlExtensionApi } from "../sdk.ts";
 
-export function createSdlCommandRunner(ctx: SdlContext): CommandRunner {
+export function createSdlCommandRunner(ctx: SdlExtensionApi): CommandRunner {
 	return async (command, args, options) => {
 		const cwdError = validateSdlExecCwd(ctx, options);
 		if (cwdError !== undefined) return cwdError;
@@ -13,7 +13,7 @@ export function createSdlCommandRunner(ctx: SdlContext): CommandRunner {
 export class SdlCommandExecApi implements CommandExecApi {
 	private readonly runner: CommandRunner;
 
-	constructor(ctx: SdlContext) {
+	constructor(ctx: SdlExtensionApi) {
 		this.runner = createSdlCommandRunner(ctx);
 	}
 
@@ -33,7 +33,7 @@ function convertExecOptions(options: ExecOptions | undefined): SdlExecOptions | 
 }
 
 function validateSdlExecCwd(
-	ctx: SdlContext,
+	ctx: SdlExtensionApi,
 	options: ExecOptions | undefined,
 ): ExecResult | undefined {
 	if (options?.cwd === undefined || options.cwd === ctx.cwd) return undefined;

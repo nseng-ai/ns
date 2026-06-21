@@ -5,7 +5,7 @@ import { join, relative, resolve } from "node:path";
 
 import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
 import { prepareCheckpointMessage } from "./shared/text-helpers.ts";
-import type { ExecResult, SdlContext, TextGenerator } from "@sdl/sdl/sdk";
+import type { ExecResult, SdlExtensionApi, TextGenerator } from "@sdl/sdl/sdk";
 
 const GIT_FACT_TIMEOUT_MS = 30_000;
 const GIT_COMMIT_TIMEOUT_MS = 120_000;
@@ -351,7 +351,7 @@ export default defineExtension({
 });
 
 async function createAutobranchCheckpointFlow(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   args: ParsedAutobranchArgs,
 ): Promise<AutobranchFlowResult> {
   const loaded = await loadPendingWorktreeSnapshot(ctx);
@@ -368,7 +368,7 @@ async function createAutobranchCheckpointFlow(
 }
 
 async function loadPendingWorktreeSnapshot(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
 ): Promise<
   { ok: true; snapshot: PendingWorktreeSnapshot } | { ok: false; error: PendingWorktreeError }
 > {
@@ -404,16 +404,16 @@ async function loadPendingWorktreeSnapshot(
   };
 }
 
-function execGit(ctx: SdlContext, args: string[], timeoutMs: number): Promise<ExecResult> {
+function execGit(ctx: SdlExtensionApi, args: string[], timeoutMs: number): Promise<ExecResult> {
   return ctx.exec("git", args, { timeoutMs });
 }
 
-function execGt(ctx: SdlContext, args: string[], timeoutMs: number): Promise<ExecResult> {
+function execGt(ctx: SdlExtensionApi, args: string[], timeoutMs: number): Promise<ExecResult> {
   return ctx.exec("gt", args, { timeoutMs });
 }
 
 async function runDirtyAutobranchFlow(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   args: ParsedAutobranchArgs,
   snapshot: PendingWorktreeSnapshot,
 ): Promise<AutobranchFlowResult> {
@@ -456,7 +456,7 @@ async function runDirtyAutobranchFlow(
 }
 
 async function prepareAutobranchPlan(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   args: ParsedAutobranchArgs,
   snapshot: PendingWorktreeSnapshot,
 ): Promise<AutobranchPreparationResult> {
@@ -506,7 +506,7 @@ type PreparedBaseSlugResult =
     >;
 
 async function prepareBaseSlug(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   args: ParsedAutobranchArgs,
   snapshot: PendingWorktreeSnapshot,
 ): Promise<PreparedBaseSlugResult> {
@@ -522,7 +522,7 @@ async function prepareBaseSlug(
   return generateSlugFromChanges(ctx, { ...snapshot, untracked });
 }
 
-async function readUntrackedSnippets(ctx: SdlContext, root: string): Promise<string> {
+async function readUntrackedSnippets(ctx: SdlExtensionApi, root: string): Promise<string> {
   const listed = await execGit(
     ctx,
     ["ls-files", "--others", "--exclude-standard", "-z"],
@@ -565,7 +565,7 @@ async function readUntrackedSnippets(ctx: SdlContext, root: string): Promise<str
 }
 
 async function generateSlugFromChanges(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   snapshot: AutobranchSnapshot,
 ): Promise<PreparedBaseSlugResult> {
   const prompt = buildBranchSlugPrompt({
@@ -626,7 +626,7 @@ function fallbackSlugFromSnapshot(snapshot: AutobranchSnapshot): string | undefi
 }
 
 async function runAutobranchTransaction(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   branchName: string,
   checkpointMessage: string,
 ): Promise<AutobranchTransactionResult> {
@@ -668,7 +668,7 @@ async function runAutobranchTransaction(
 }
 
 async function stashPendingChanges(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   message: string,
 ): Promise<
   | { ok: true; ref: string }
@@ -692,7 +692,7 @@ async function stashPendingChanges(
 }
 
 async function findStashRef(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   message: string,
 ): Promise<{ ok: true; ref: string } | { ok: false; error: string }> {
   const listed = await execGit(ctx, ["stash", "list", "--format=%gd%x00%s"], GIT_FACT_TIMEOUT_MS);
@@ -709,7 +709,7 @@ async function findStashRef(
 }
 
 async function createGraphiteBranch(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   branchName: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const created = await execGt(
@@ -724,7 +724,7 @@ async function createGraphiteBranch(
 }
 
 async function restoreStash(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   ref: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const restored = await execGit(ctx, ["stash", "pop", ref], STASH_POP_TIMEOUT_MS);
@@ -735,7 +735,7 @@ async function restoreStash(
 }
 
 async function createLatestCommitAutobranchFlow(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   args: ParsedAutobranchArgs,
   snapshot: PendingWorktreeSnapshot,
 ): Promise<AutobranchFlowResult> {
@@ -775,7 +775,7 @@ async function createLatestCommitAutobranchFlow(
 }
 
 async function prepareLatestCommitAutobranchPlan(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   args: ParsedAutobranchArgs,
   snapshot: PendingWorktreeSnapshot,
 ): Promise<LatestCommitPreparationResult> {
@@ -830,7 +830,7 @@ type LatestCommitFactsResult =
     >;
 
 async function loadLatestCommitFacts(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   snapshot: PendingWorktreeSnapshot,
 ): Promise<LatestCommitFactsResult> {
   const trunk = await execGt(ctx, ["trunk", "--no-interactive"], GT_TIMEOUT_MS);
@@ -917,7 +917,7 @@ async function loadLatestCommitFacts(
 }
 
 async function inspectGraphiteChildBranches(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
 ): Promise<{ ok: true; children: string[] } | { ok: false; error: string }> {
   const children = await execGt(ctx, ["children", "--no-interactive"], GT_TIMEOUT_MS);
   if (children.code !== 0) {
@@ -927,7 +927,7 @@ async function inspectGraphiteChildBranches(
 }
 
 async function prepareLatestCommitSlug(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   facts: LatestCommitFacts,
 ): Promise<
   | { ok: true; baseSlug: string; source: LatestCommitAutobranchPlan["slugSource"] }
@@ -965,7 +965,7 @@ async function prepareLatestCommitSlug(
 }
 
 async function runLatestCommitAutobranchTransaction(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   plan: LatestCommitAutobranchPlan,
 ): Promise<LatestCommitTransactionResult> {
   const upstream = await inspectUpstreamHeadState(ctx);
@@ -1063,7 +1063,7 @@ async function runLatestCommitAutobranchTransaction(
 }
 
 async function resetSourceBranchToParent(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   plan: LatestCommitAutobranchPlan,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const currentBranch = await execGit(ctx, ["branch", "--show-current"], GIT_FACT_TIMEOUT_MS);
@@ -1096,7 +1096,7 @@ async function resetSourceBranchToParent(
 }
 
 async function recoverFromSourceResetFailure(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   plan: LatestCommitAutobranchPlan,
   backupBranch: string,
 ): Promise<SourceResetFailureRecovery> {
@@ -1124,7 +1124,7 @@ async function recoverFromSourceResetFailure(
 }
 
 async function restoreSourceBranch(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   plan: LatestCommitAutobranchPlan,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const checkedOut = await execGit(ctx, ["checkout", plan.sourceBranch], GIT_FACT_TIMEOUT_MS);
@@ -1143,7 +1143,7 @@ async function restoreSourceBranch(
 }
 
 async function restoreSourceAndDeleteCreatedBranch(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   plan: LatestCommitAutobranchPlan,
 ): Promise<CreatedBranchRecovery> {
   const restored = await restoreSourceBranch(ctx, plan);
@@ -1168,7 +1168,7 @@ async function restoreSourceAndDeleteCreatedBranch(
 }
 
 async function chooseAvailableBackupBranchName(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   sourceBranch: string,
   timestamp: number,
 ): Promise<{ ok: true; name: string } | { ok: false }> {
@@ -1199,7 +1199,7 @@ function sanitizeBackupBranchSegment(value: string): string {
     .replace(/-+$/g, "");
 }
 
-async function inspectUpstreamHeadState(ctx: SdlContext): Promise<UpstreamHeadState> {
+async function inspectUpstreamHeadState(ctx: SdlExtensionApi): Promise<UpstreamHeadState> {
   const branch = await execGit(ctx, ["branch", "--show-current"], GIT_FACT_TIMEOUT_MS);
   if (branch.code !== 0) {
     return { type: "failed", error: formatCommandDetails(branch) };
@@ -1265,7 +1265,7 @@ function buildBranchSlugPrompt(input: BranchSlugPromptInput): string {
   return lines.join("\n");
 }
 
-async function deriveBranchSlug(ctx: SdlContext, prompt: string): Promise<BranchSlugModelResult> {
+async function deriveBranchSlug(ctx: SdlExtensionApi, prompt: string): Promise<BranchSlugModelResult> {
   const resolution = resolveModelRef(ctx.env, SLUG_MODEL_ENV, DEFAULT_FAST_MODEL_REF);
   if (!resolution.ok) {
     return { ok: false, formattedFailure: resolution.error };
@@ -1364,7 +1364,7 @@ function resolveModelRef(
 }
 
 async function chooseAvailableBranchName(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   baseSlug: string,
 ): Promise<({ ok: true } & AvailableBranchName) | { ok: false }> {
   const candidates = branchNameCandidates(
@@ -1377,7 +1377,7 @@ async function chooseAvailableBranchName(
 }
 
 async function findAvailableBranchName<TName extends string>(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   candidates: Iterable<{ name: TName; hasSuffix: boolean }>,
 ): Promise<({ ok: true } & AvailableBranchName & { name: TName }) | undefined> {
   for (const candidate of candidates) {
@@ -1734,7 +1734,7 @@ function firstEnvValue(
 }
 
 async function createCommitWithPreparedMessage(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   message: string,
 ): Promise<{ summary: string } | { error: string }> {
   const tempDir = await mkdtemp(join(tmpdir(), "pi-cp-commit-"));

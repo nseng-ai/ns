@@ -6,7 +6,7 @@ import process from "node:process";
 
 import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
 import { preparePrDescription } from "./shared/text-helpers.ts";
-import type { ExecResult, SdlContext, TextGenerator } from "@sdl/sdl/sdk";
+import type { ExecResult, SdlExtensionApi, TextGenerator } from "@sdl/sdl/sdk";
 
 // This project-local extension intentionally uses only the public SDL SDK import. The local
 // PR-description helpers below are SDK-pressure evidence for later command migrations, not new SDK API.
@@ -219,7 +219,7 @@ export default defineExtension({
       name: "regenerate-pr",
       description: REGENERATE_PR_DESCRIPTION,
       schema: regeneratePrSchema,
-      async run(ctx: SdlContext, request: RegeneratePrRequest) {
+      async run(ctx: SdlExtensionApi, request: RegeneratePrRequest) {
         const pr = await viewCurrentBranchPr(ctx);
         if (!pr.ok) {
           return failed(`Could not resolve current branch PR.\n${pr.error.message}`, 1);
@@ -272,7 +272,7 @@ export default defineExtension({
 });
 
 async function generateRegeneratedPrMetadata(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   pr: GithubPrDetails,
 ): Promise<{ ok: true; value: GeneratedPrMetadata } | { ok: false; error: string; exitCode?: number }> {
   const generation = await resolvePrDescriptionGeneration(ctx);
@@ -323,12 +323,12 @@ async function generateRegeneratedPrMetadata(
   };
 }
 
-async function viewCurrentBranchPr(ctx: SdlContext): Promise<Result<GithubPrDetails, CommandFailure>> {
+async function viewCurrentBranchPr(ctx: SdlExtensionApi): Promise<Result<GithubPrDetails, CommandFailure>> {
   return viewPrWithArgs(ctx, { cwd: ctx.cwd, args: ["pr", "view", "--json", PR_VIEW_FIELDS] });
 }
 
 async function getPrCommitMessages(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   params: { cwd: string; number: number },
 ): Promise<Result<PrCommitMessage[], CommandFailure>> {
   const args = ["pr", "view", String(params.number), "--json", "commits"];
@@ -366,7 +366,7 @@ async function getPrCommitMessages(
 }
 
 async function getPrDiff(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   params: { cwd: string; number: number; baseRefName?: string; headRefName?: string },
 ): Promise<Result<string, CommandFailure>> {
   const args = ["pr", "diff", String(params.number)];
@@ -396,7 +396,7 @@ async function getPrDiff(
 }
 
 async function stablePatchIdForPr(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   params: { cwd: string; number: number; baseRefName?: string; headRefName?: string },
 ): Promise<Result<StablePatchIdForPrResult, CommandFailure>> {
   const diff = await getPrDiff(ctx, params);
@@ -430,7 +430,7 @@ async function stablePatchIdForPr(
 }
 
 async function editPr(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   params: { cwd: string; number: number; title: string; body: string },
 ): Promise<Result<void, CommandFailure>> {
   return await withTemporaryFile(
@@ -460,7 +460,7 @@ async function editPr(
 }
 
 async function viewPrWithArgs(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   params: { cwd: string; args: string[] },
 ): Promise<Result<GithubPrDetails, CommandFailure>> {
   const result = await runGh(ctx, params.args, VIEW_TIMEOUT_MS);
@@ -479,7 +479,7 @@ async function viewPrWithArgs(
 }
 
 async function getLocalPrDiff(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   params: { cwd: string; number: number; baseRefName: string; headRefName: string },
 ): Promise<Result<string, CommandFailure>> {
   const args = ["diff", `${params.baseRefName}...${params.headRefName}`];
@@ -496,7 +496,7 @@ async function getLocalPrDiff(
 }
 
 async function runGh(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   args: readonly string[],
   timeoutMs: number,
 ): Promise<ExecResult> {
@@ -504,7 +504,7 @@ async function runGh(
 }
 
 async function resolvePrDescriptionGeneration(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
 ): Promise<PrDescriptionGenerationResolution> {
   const repoRoot = await readRepoRoot(ctx);
   const prompt = await resolvePrDescriptionPrompt({
@@ -530,7 +530,7 @@ function selectPrDescriptionModelRef(env: Record<string, string | undefined>): s
   return DEFAULT_PR_DESCRIPTION_MODEL_REF;
 }
 
-async function readRepoRoot(ctx: SdlContext): Promise<Result<string, CommandFailure>> {
+async function readRepoRoot(ctx: SdlExtensionApi): Promise<Result<string, CommandFailure>> {
   const args = ["rev-parse", "--show-toplevel"];
   const result = await ctx.exec("git", args, { timeoutMs: VIEW_TIMEOUT_MS });
   const failure = commandFailure({

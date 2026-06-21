@@ -5,7 +5,7 @@ import {
 	formatCommandEvidence,
 	ok,
 } from "@sdl/sdl/sdk";
-import type { SdlContext } from "@sdl/sdl/sdk";
+import type { SdlExtensionApi } from "@sdl/sdl/sdk";
 
 const PUSH_TIMEOUT_MS = 120_000;
 
@@ -27,7 +27,7 @@ export default defineExtension({
 	],
 });
 
-async function runPush(ctx: SdlContext) {
+async function runPush(ctx: SdlExtensionApi) {
 	const statusResult = await ctx.exec("git", ["status", "--porcelain"]);
 	if (!commandSucceeded(statusResult)) {
 		return failed(

@@ -1,9 +1,10 @@
+import { z } from "zod";
+
 import {
 	failed,
-	z,
 	type SdlCommand,
 	type SdlCommandSchema,
-	type SdlContext,
+	type SdlExtensionApi,
 	type SdlResult,
 } from "./sdk.ts";
 
@@ -126,7 +127,7 @@ export function validateSdlExtensionContribution(
 }
 
 export async function executeSdlCommand(
-	ctx: SdlContext,
+	ctx: SdlExtensionApi,
 	command: SdlCommand,
 	request: unknown,
 ): Promise<SdlResult> {

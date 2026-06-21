@@ -78,31 +78,16 @@ The legacy `.sdl/commands/<command>.ts` path has been removed. It is not a compa
 
 Dynamic Pi `/sdl:*` mirrors are not part of this first general extension-loading slice. In this repository, the exact `/sdl:changes`, `/sdl:cp`, `/sdl:autobranch`, `/sdl:submit`, `/sdl:regenerate-pr`, and nested `/sdl:code:changes` mirrors delegate to restored project-local SDL commands. Other repository workflow mirrors are unavailable until their SDL command entries migrate back. Arbitrary SDL extension command entries are not dynamically mirrored into Pi.
 
-## Public SDL extension API
+## SDL extension API
 
-SDL extension authors should import only from `@sdl/sdl/sdk`:
+SDL extension authors import the SDK surface, including schema builder `z`, from `@sdl/sdl/sdk`:
 
 ```ts
 import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
-import type { SdlContext, SdlResult } from "@sdl/sdl/sdk";
+import type { SdlExtensionApi, SdlResult } from "@sdl/sdl/sdk";
 ```
 
-That SDK subpath is the public author API for SDL extensions. It exposes:
-
-- `defineExtension()` for declaring SDL extension contributions, including commandless extensions and arbitrary-length inline `commands` arrays;
-- `ok()` and `failed()` for returning command results;
-- `commandSucceeded()` and `formatCommandEvidence()` for common command-result evidence formatting;
-- `z` for declaring command schemas through the SDK-owned Zod boundary;
-- `SdlContext` for command execution capabilities;
-- `SdlResult` for success/failure results.
-
-`SdlContext` provides:
-
-- `ctx.cwd`: repository working directory for the command;
-- `ctx.env`: environment visible to the command;
-- `ctx.exec(command, args, options)`: low-level argv execution with timeout and stdout/stderr chunk callbacks;
-- `ctx.textGenerator`: text-generation capability;
-- optional durable output hooks (`ctx.stdout`, `ctx.stderr`), live-output hook (`ctx.onOutput`), and confirmation hook (`ctx.confirm`) for command-owned progress and prompts.
+That SDK subpath is the public author API for SDL extensions. The complete, authoritative reference for every export — `defineExtension()`, the command and result types, `SdlExtensionApi` and its execution capabilities, schema builder `z`, and the command-evidence and text-generation helpers — lives in [`docs/sdk-reference.md`](./docs/sdk-reference.md).
 
 SDL command entries own their prompts, validation, repair policy, and exact external commands. They should not import internal SDL implementation modules.
 

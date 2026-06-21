@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
 import { prepareCheckpointMessage } from "./shared/text-helpers.ts";
-import type { ExecResult, SdlContext, TextGenerator } from "@sdl/sdl/sdk";
+import type { ExecResult, SdlExtensionApi, TextGenerator } from "@sdl/sdl/sdk";
 
 // This project-local extension intentionally uses only the public SDL SDK import. The local
 // checkpoint helpers below are SDK-pressure evidence for later command migrations, not new SDK API.
@@ -170,7 +170,7 @@ export default defineExtension({
 });
 
 async function loadPendingWorktreeSnapshot(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
 ): Promise<
   { ok: true; snapshot: PendingWorktreeSnapshot } | { ok: false; error: PendingWorktreeError }
 > {
@@ -206,7 +206,7 @@ async function loadPendingWorktreeSnapshot(
   };
 }
 
-function execGit(ctx: SdlContext, args: string[], timeoutMs: number): Promise<ExecResult> {
+function execGit(ctx: SdlExtensionApi, args: string[], timeoutMs: number): Promise<ExecResult> {
   return ctx.exec("git", args, { timeoutMs });
 }
 
@@ -231,7 +231,7 @@ function firstEnvValue(
 }
 
 async function createCommitWithPreparedMessage(
-  ctx: SdlContext,
+  ctx: SdlExtensionApi,
   message: string,
 ): Promise<{ summary: string } | { error: string }> {
   const tempDir = await mkdtemp(join(tmpdir(), "pi-cp-commit-"));
