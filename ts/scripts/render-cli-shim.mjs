@@ -1,10 +1,8 @@
 #!/usr/bin/env node
 import { readFile, writeFile } from "node:fs/promises";
 
-import { formatShellArg } from "../packages/sdl-core/src/exec.ts";
+import { renderCliShim } from "./render-cli-shim-core.ts";
 
-const TOKEN_PREFIX = "@@SDL_";
-const VALID_FALLBACK_MODES = new Set(["literal", "script-checkout"]);
 const REQUIRED_ENV_VARS = [
 	"SDL_TEMPLATE",
 	"SDL_OUTPUT",
@@ -29,31 +27,22 @@ async function main() {
 		return 2;
 	}
 
-	const fallbackMode = process.env.SDL_FALLBACK_MODE ?? "literal";
-	if (!VALID_FALLBACK_MODES.has(fallbackMode)) {
-		console.error(
-			`render-cli-shim.mjs: invalid SDL_FALLBACK_MODE '${fallbackMode}'; expected one of: literal, script-checkout`,
-		);
-		return 2;
+	const templatePath = envValue("SDL_TEMPLATE");
+	const result = renderCliShim({
+		template: await readFile(templatePath, "utf8"),
+		tool: envValue("SDL_TOOL"),
+		canonicalCheckout: envValue("SDL_CANONICAL_CHECKOUT"),
+		cliRelPath: envValue("SDL_CLI_REL_PATH"),
+		installHint: envValue("SDL_INSTALL_HINT"),
+		fallbackMode: process.env.SDL_FALLBACK_MODE,
+		templateLabel: templatePath,
+	});
+	if (result.type === "failure") {
+		console.error(`render-cli-shim.mjs: ${result.message}`);
+		return result.exitCode;
 	}
 
-	const replacements = new Map([
-		["@@SDL_TOOL@@", formatShellArg(envValue("SDL_TOOL"))],
-		["@@SDL_CANONICAL_CHECKOUT@@", formatShellArg(envValue("SDL_CANONICAL_CHECKOUT"))],
-		["@@SDL_CLI_REL_PATH@@", formatShellArg(envValue("SDL_CLI_REL_PATH"))],
-		["@@SDL_INSTALL_HINT@@", formatShellArg(envValue("SDL_INSTALL_HINT"))],
-		["@@SDL_FALLBACK_MODE@@", formatShellArg(fallbackMode)],
-	]);
-
-	let rendered = await readFile(envValue("SDL_TEMPLATE"), "utf8");
-	for (const [token, value] of replacements) rendered = rendered.replaceAll(token, value);
-
-	if (rendered.includes(TOKEN_PREFIX)) {
-		console.error(`render-cli-shim.mjs: unrendered shim token remains in ${envValue("SDL_TEMPLATE")}`);
-		return 2;
-	}
-
-	await writeFile(envValue("SDL_OUTPUT"), rendered, "utf8");
+	await writeFile(envValue("SDL_OUTPUT"), result.rendered, "utf8");
 	return 0;
 }
 

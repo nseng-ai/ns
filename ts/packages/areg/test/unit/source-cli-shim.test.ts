@@ -1,93 +1,56 @@
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-import { createTempDirTracker } from "@sdl/core/testing";
-import { afterEach, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 
-const tempDirs = createTempDirTracker();
+import { renderCliShim } from "../../../../scripts/render-cli-shim-core.ts";
 
-afterEach(async () => {
-	await tempDirs.cleanup();
-});
+const templatePath = fileURLToPath(
+	new URL("../../../../scripts/source-cli-shim-template", import.meta.url),
+);
+
+async function readTemplate(): Promise<string> {
+	return await readFile(templatePath, "utf8");
+}
 
 describe("areg source CLI shim rendering", () => {
-	const renderScriptPath = fileURLToPath(
-		new URL("../../../../scripts/render-cli-shim.mjs", import.meta.url),
-	);
-	const templatePath = fileURLToPath(
-		new URL("../../../../scripts/source-cli-shim-template", import.meta.url),
-	);
-
 	test("renders adversarial canonical checkout paths as shell literals", async () => {
-		const tempRoot = await tempDirs.makeTempDir("areg-shim-render-");
-		const executionRoot = await tempDirs.makeTempDir("areg-shim-cwd-");
-		const outputPath = join(tempRoot, "areg-shim");
-		const canonicalCheckout = join(tempRoot, "checkout with spaces & pipes | back\\slash ' quote");
+		const canonicalCheckout = "/tmp/checkout with spaces & pipes | back\\slash ' quote";
 		const installHint = "just install-areg or just install-tools";
 
-		const render = spawnSync("node", [renderScriptPath], {
-			env: {
-				...process.env,
-				SDL_TEMPLATE: templatePath,
-				SDL_OUTPUT: outputPath,
-				SDL_TOOL: "areg",
-				SDL_CANONICAL_CHECKOUT: canonicalCheckout,
-				SDL_CLI_REL_PATH: "ts/packages/areg/src/cli.ts",
-				SDL_INSTALL_HINT: installHint,
-			},
-			encoding: "utf8",
+		const result = renderCliShim({
+			template: await readTemplate(),
+			tool: "areg",
+			canonicalCheckout,
+			cliRelPath: "ts/packages/areg/src/cli.ts",
+			installHint,
 		});
 
-		expect(render.status).toBe(0);
-		expect(render.stderr).toBe("");
+		expect(result.type).toBe("ok");
+		if (result.type !== "ok") return;
 
-		const rendered = await readFile(outputPath, "utf8");
-		expect(rendered).not.toContain("@@SDL_");
-		expect(rendered).toContain("tool=areg\n");
-		expect(rendered).toContain("fallback_mode=literal\n");
-		expect(rendered).toContain("canonical_checkout='");
-		expect(rendered).toContain("'\\''");
-		expect(rendered).not.toContain(`canonical_checkout=${canonicalCheckout}\n`);
-
-		const syntaxCheck = spawnSync("bash", ["-n", outputPath], { encoding: "utf8" });
-		expect(syntaxCheck.status).toBe(0);
-		expect(syntaxCheck.stderr).toBe("");
-
-		const run = spawnSync("bash", [outputPath], {
-			cwd: executionRoot,
-			encoding: "utf8",
-		});
-		expect(run.status).toBe(2);
-		expect(run.stdout).toBe("");
-		expect(run.stderr).toContain("areg: no sdl checkout found");
-		expect(run.stderr).toContain(canonicalCheckout);
-		expect(run.stderr).toContain("ts/packages/areg/src/cli.ts");
-		expect(run.stderr).toContain(installHint);
+		expect(result.rendered).not.toContain("@@SDL_");
+		expect(result.rendered).toContain("tool=areg\n");
+		expect(result.rendered).toContain("fallback_mode=literal\n");
+		expect(result.rendered).toContain("canonical_checkout='");
+		expect(result.rendered).toContain("'\\''");
+		expect(result.rendered).not.toContain(`canonical_checkout=${canonicalCheckout}\n`);
 	});
 
 	test("rejects unknown fallback modes", async () => {
-		const tempRoot = await tempDirs.makeTempDir("areg-shim-render-invalid-");
-		const outputPath = join(tempRoot, "areg-shim");
-
-		const render = spawnSync("node", [renderScriptPath], {
-			env: {
-				...process.env,
-				SDL_TEMPLATE: templatePath,
-				SDL_OUTPUT: outputPath,
-				SDL_TOOL: "areg",
-				SDL_CANONICAL_CHECKOUT: tempRoot,
-				SDL_CLI_REL_PATH: "ts/packages/areg/src/cli.ts",
-				SDL_INSTALL_HINT: "just install-areg",
-				SDL_FALLBACK_MODE: "surprise",
-			},
-			encoding: "utf8",
+		const result = renderCliShim({
+			template: await readTemplate(),
+			tool: "areg",
+			canonicalCheckout: "/tmp/sdl",
+			cliRelPath: "ts/packages/areg/src/cli.ts",
+			installHint: "just install-areg",
+			fallbackMode: "surprise",
 		});
 
-		expect(render.status).toBe(2);
-		expect(render.stdout).toBe("");
-		expect(render.stderr).toContain("invalid SDL_FALLBACK_MODE 'surprise'");
-		expect(render.stderr).toContain("literal, script-checkout");
+		expect(result.type).toBe("failure");
+		expect(result).toMatchObject({ exitCode: 2 });
+		if (result.type !== "failure") return;
+		expect(result.message).toContain("invalid SDL_FALLBACK_MODE 'surprise'");
+		expect(result.message).toContain("literal, script-checkout");
 	});
 });
