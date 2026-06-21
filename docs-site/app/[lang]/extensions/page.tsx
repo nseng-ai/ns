@@ -1,31 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Card, CtaLink, Eyebrow, PreviewPanel } from "@/components/marketing-ui";
 import {
   extensionCatalogEntries,
-  extensionCategoryLabels,
+  extensionCategoryDescriptors,
+  extensionStatusLabels,
   featuredExtensionCatalogEntries,
+  getExtensionCategoryLabel,
   type ExtensionCatalogEntry,
-  type ExtensionCategory,
 } from "@/lib/extensions-catalog";
 
 export const metadata: Metadata = {
   title: "Extensions | sdl Documentation",
   description: "A static catalog of sdl's local Pi and workflow extensions.",
 };
-
-const extensionCategories = [
-  "planning-context",
-  "branch-pr",
-  "review-quality",
-  "interaction",
-  "runtime-visibility",
-] as const satisfies readonly ExtensionCategory[];
-
-const statusLabels = {
-  "built-in": "Built in",
-  workflow: "Workflow",
-  experimental: "Experimental",
-} satisfies Record<ExtensionCatalogEntry["status"], string>;
 
 export default function ExtensionsPage() {
   const featuredEntries = featuredExtensionCatalogEntries();
@@ -34,9 +22,7 @@ export default function ExtensionsPage() {
     <main className="bg-background-100">
       <section className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl gap-10 px-6 py-16 lg:grid-cols-[1fr_420px] lg:items-center lg:py-24">
         <div className="space-y-8">
-          <div className="inline-flex rounded-full border bg-background px-3 py-1 font-medium text-gray-800 text-xs uppercase tracking-[0.18em]">
-            Extensions gallery
-          </div>
+          <Eyebrow>Extensions gallery</Eyebrow>
           <div className="max-w-3xl space-y-5">
             <h1 className="text-balance font-semibold text-5xl text-gray-1000 tracking-[-0.04em] md:text-7xl">
               Local workflows, agent-ready.
@@ -47,42 +33,27 @@ export default function ExtensionsPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Link
-              className="rounded-full bg-gray-1000 px-5 py-2.5 font-medium text-background text-sm transition-opacity hover:opacity-90"
-              href="#all-extensions"
-            >
-              Browse extensions
-            </Link>
-            <Link
-              className="rounded-full border bg-background px-5 py-2.5 font-medium text-gray-1000 text-sm transition-colors hover:bg-background-100"
-              href="/docs/guides/context-across-sessions"
-            >
+            <CtaLink href="#all-extensions">Browse extensions</CtaLink>
+            <CtaLink href="/docs/guides/context-across-sessions" variant="secondary">
               Read the guide
-            </Link>
+            </CtaLink>
           </div>
         </div>
 
-        <aside className="rounded-[2rem] border bg-background p-3 shadow-sm">
-          <div className="rounded-[1.5rem] border bg-gray-1000 p-5 text-background">
-            <div className="flex items-center justify-between border-background/15 border-b pb-4">
-              <div>
-                <p className="font-mono text-background/60 text-xs">sdl extension catalog</p>
-                <p className="mt-1 font-semibold text-xl">{extensionCatalogEntries.length} local surfaces</p>
+        <PreviewPanel
+          badge="static"
+          eyebrow="sdl extension catalog"
+          title={`${extensionCatalogEntries.length} local surfaces`}
+        >
+          <div className="mt-5 space-y-3 font-mono text-sm">
+            {featuredEntries.slice(0, 4).map((entry) => (
+              <div className="rounded-2xl border border-background/15 bg-background/5 p-3" key={entry.slug}>
+                <p className="text-background/60 text-xs">{entry.sourcePath}</p>
+                <p className="mt-1 text-background">{entry.commandHint}</p>
               </div>
-              <span className="rounded-full border border-background/20 px-2 py-1 font-mono text-background/70 text-xs">
-                static
-              </span>
-            </div>
-            <div className="mt-5 space-y-3 font-mono text-sm">
-              {featuredEntries.slice(0, 4).map((entry) => (
-                <div className="rounded-2xl border border-background/15 bg-background/5 p-3" key={entry.slug}>
-                  <p className="text-background/60 text-xs">{entry.sourcePath}</p>
-                  <p className="mt-1 text-background">{entry.commandHint}</p>
-                </div>
-              ))}
-            </div>
+            ))}
           </div>
-        </aside>
+        </PreviewPanel>
       </section>
 
       <section className="mx-auto max-w-6xl px-6 pb-12">
@@ -124,13 +95,13 @@ export default function ExtensionsPage() {
         </div>
 
         <div className="space-y-8">
-          {extensionCategories.map((category) => {
-            const entries = extensionCatalogEntries.filter((entry) => entry.category === category);
+          {extensionCategoryDescriptors.map((descriptor) => {
+            const entries = extensionCatalogEntries.filter((entry) => entry.category === descriptor.category);
 
             return (
-              <section className="rounded-[1.5rem] border bg-background p-4 md:p-5" key={category}>
+              <section className="rounded-[1.5rem] border bg-background p-4 md:p-5" key={descriptor.category}>
                 <div className="mb-4 flex items-center justify-between gap-4">
-                  <h3 className="font-semibold text-gray-1000 text-xl">{extensionCategoryLabels[category]}</h3>
+                  <h3 className="font-semibold text-gray-1000 text-xl">{descriptor.label}</h3>
                   <span className="rounded-full border px-2 py-1 text-gray-800 text-xs">
                     {entries.length} {entries.length === 1 ? "extension" : "extensions"}
                   </span>
@@ -157,11 +128,11 @@ interface MetricCardProps {
 
 function MetricCard({ label, value, detail }: MetricCardProps) {
   return (
-    <article className="rounded-2xl border bg-background p-5">
+    <Card>
       <p className="font-medium text-blue-700 text-sm">{label}</p>
       <p className="mt-2 font-semibold text-2xl text-gray-1000 tracking-tight">{value}</p>
       <p className="mt-2 text-gray-800 text-sm leading-6">{detail}</p>
-    </article>
+    </Card>
   );
 }
 
@@ -181,10 +152,10 @@ function ExtensionCard({ entry, isProminent = false }: ExtensionCardProps) {
     >
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-full border bg-background px-2 py-1 font-medium text-gray-900 text-xs">
-          {extensionCategoryLabels[entry.category]}
+          {getExtensionCategoryLabel(entry.category)}
         </span>
         <span className="rounded-full border bg-background px-2 py-1 text-gray-800 text-xs">
-          {statusLabels[entry.status]}
+          {extensionStatusLabels[entry.status]}
         </span>
       </div>
       <h3 className="mt-4 font-semibold text-gray-1000 text-xl tracking-tight">{entry.name}</h3>

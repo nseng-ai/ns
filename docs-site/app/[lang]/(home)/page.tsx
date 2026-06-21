@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Card, CtaLink, Eyebrow, PreviewPanel } from "@/components/marketing-ui";
 
 export const metadata: Metadata = {
   title: "sdl Documentation",
@@ -49,9 +50,7 @@ export default function HomePage() {
     <main className="bg-background-100">
       <section className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl gap-10 px-6 py-16 lg:grid-cols-[1fr_440px] lg:items-center lg:py-24">
         <div className="space-y-8">
-          <div className="inline-flex rounded-full border bg-background px-3 py-1 font-medium text-blue-700 text-xs uppercase tracking-[0.18em]">
-            sdl Documentation
-          </div>
+          <Eyebrow tone="blue">sdl Documentation</Eyebrow>
           <div className="max-w-3xl space-y-5">
             <h1 className="text-balance font-semibold text-5xl text-gray-1000 tracking-[-0.04em] md:text-7xl">
               Lorem ipsum dolor sit amet, consectetur adipiscing elit.
@@ -62,24 +61,13 @@ export default function HomePage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Link
-              className="rounded-full bg-gray-1000 px-5 py-2.5 font-medium text-background text-sm transition-opacity hover:opacity-90"
-              href="/docs/introduction"
-            >
-              Read the docs
-            </Link>
-            <Link
-              className="rounded-full border bg-background px-5 py-2.5 font-medium text-gray-1000 text-sm transition-colors hover:bg-background-100"
-              href="/docs/get-started/quickstart"
-            >
+            <CtaLink href="/docs/introduction">Read the docs</CtaLink>
+            <CtaLink href="/docs/get-started/quickstart" variant="secondary">
               Get started
-            </Link>
-            <Link
-              className="rounded-full border bg-background px-5 py-2.5 font-medium text-gray-1000 text-sm transition-colors hover:bg-background-100"
-              href="/extensions"
-            >
+            </CtaLink>
+            <CtaLink href="/extensions" variant="secondary">
               Browse extensions
-            </Link>
+            </CtaLink>
           </div>
         </div>
 
@@ -89,7 +77,7 @@ export default function HomePage() {
       <section className="mx-auto max-w-6xl px-6 pb-12">
         <div className="grid gap-4 md:grid-cols-3">
           {features.map((feature) => (
-            <article className="rounded-2xl border bg-background p-5" key={feature.title}>
+            <Card key={feature.title}>
               <h2 className="font-semibold text-lg text-gray-1000">{feature.title}</h2>
               <p className="mt-2 text-gray-800 text-sm leading-6">{feature.description}</p>
               {feature.href ? (
@@ -100,7 +88,7 @@ export default function HomePage() {
                   Explore gallery
                 </Link>
               ) : null}
-            </article>
+            </Card>
           ))}
         </div>
       </section>
@@ -128,18 +116,12 @@ export default function HomePage() {
               </h2>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Link
-                className="rounded-full bg-background px-5 py-2.5 font-medium text-gray-1000 text-sm transition-opacity hover:opacity-90"
-                href="/docs/introduction"
-              >
+              <CtaLink href="/docs/introduction" variant="dark-primary">
                 Start reading
-              </Link>
-              <Link
-                className="rounded-full border border-background/30 px-5 py-2.5 font-medium text-background text-sm transition-colors hover:bg-background/10"
-                href="/extensions"
-              >
+              </CtaLink>
+              <CtaLink href="/extensions" variant="dark-secondary">
                 View extensions
-              </Link>
+              </CtaLink>
             </div>
           </div>
         </div>
@@ -150,37 +132,26 @@ export default function HomePage() {
 
 function FileTreePreview() {
   return (
-    <aside className="rounded-[2rem] border bg-background p-3 shadow-sm">
-      <div className="rounded-[1.5rem] border bg-gray-1000 p-5 text-background">
-        <div className="flex items-center justify-between border-background/15 border-b pb-4">
-          <div>
-            <p className="font-mono text-background/60 text-xs">published docs tree</p>
-            <p className="mt-1 font-semibold text-xl">docs-site routes</p>
-          </div>
-          <span className="rounded-full border border-background/20 px-2 py-1 font-mono text-background/70 text-xs">
-            static
-          </span>
-        </div>
-        <div className="mt-5 space-y-2 font-mono text-sm">
-          {treeItems.map((item) => (
-            <div
-              className="flex items-center gap-2 rounded-xl border border-background/10 bg-background/5 px-3 py-2"
-              key={`${item.depth}-${item.label}`}
-            >
-              <span className="text-background/25">{"  ".repeat(item.depth)}</span>
-              <span className={item.tone === "folder" ? "text-blue-200" : "text-background/80"}>
-                {item.label}
+    <PreviewPanel badge="static" eyebrow="published docs tree" title="docs-site routes">
+      <div className="mt-5 space-y-2 font-mono text-sm">
+        {treeItems.map((item) => (
+          <div
+            className="flex items-center gap-2 rounded-xl border border-background/10 bg-background/5 px-3 py-2"
+            key={`${item.depth}-${item.label}`}
+          >
+            <span className="text-background/25">{"  ".repeat(item.depth)}</span>
+            <span className={item.tone === "folder" ? "text-blue-200" : "text-background/80"}>
+              {item.label}
+            </span>
+            {item.tone === "route" ? (
+              <span className="ml-auto rounded-full border border-background/15 px-2 py-0.5 text-background/50 text-[0.625rem] uppercase tracking-[0.14em]">
+                route
               </span>
-              {item.tone === "route" ? (
-                <span className="ml-auto rounded-full border border-background/15 px-2 py-0.5 text-background/50 text-[0.625rem] uppercase tracking-[0.14em]">
-                  route
-                </span>
-              ) : null}
-            </div>
-          ))}
-        </div>
+            ) : null}
+          </div>
+        ))}
       </div>
-    </aside>
+    </PreviewPanel>
   );
 }
 

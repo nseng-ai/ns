@@ -5,26 +5,89 @@ export type ExtensionCategory =
   | "interaction"
   | "runtime-visibility";
 
+export type ExtensionStatus = "built-in" | "workflow" | "experimental";
+
 export interface ExtensionCatalogEntry {
   slug: string;
   name: string;
   summary: string;
   details: string;
   category: ExtensionCategory;
-  status: "built-in" | "workflow" | "experimental";
+  status: ExtensionStatus;
   commandHint: string;
   sourcePath: string;
   docsHref?: string;
   isFeatured?: boolean;
 }
 
-export const extensionCategoryLabels = {
-  "planning-context": "Planning & context",
-  "branch-pr": "Branch & PR workflow",
-  "review-quality": "Review & quality",
-  interaction: "Interaction",
-  "runtime-visibility": "Runtime visibility",
-} satisfies Record<ExtensionCategory, string>;
+export interface ExtensionCategoryDescriptor {
+  category: ExtensionCategory;
+  label: string;
+}
+
+type DescriptorCategory<Items extends readonly ExtensionCategoryDescriptor[]> = Items[number]["category"];
+
+type MissingDescriptorCategory<Items extends readonly ExtensionCategoryDescriptor[]> = Exclude<
+  ExtensionCategory,
+  DescriptorCategory<Items>
+>;
+
+type ExtraDescriptorCategory<Items extends readonly ExtensionCategoryDescriptor[]> = Exclude<
+  DescriptorCategory<Items>,
+  ExtensionCategory
+>;
+
+type DescriptorCoverageCheck<Items extends readonly ExtensionCategoryDescriptor[]> = [
+  MissingDescriptorCategory<Items>,
+] extends [never]
+  ? [ExtraDescriptorCategory<Items>] extends [never]
+    ? unknown
+    : { readonly __extraCategories: ExtraDescriptorCategory<Items> }
+  : { readonly __missingCategories: MissingDescriptorCategory<Items> };
+
+export const extensionStatusLabels = {
+  "built-in": "Built in",
+  workflow: "Workflow",
+  experimental: "Experimental",
+} satisfies Record<ExtensionStatus, string>;
+
+export const extensionCategoryDescriptors = defineExtensionCategoryDescriptors([
+  { category: "planning-context", label: "Planning & context" },
+  { category: "branch-pr", label: "Branch & PR workflow" },
+  { category: "review-quality", label: "Review & quality" },
+  { category: "interaction", label: "Interaction" },
+  { category: "runtime-visibility", label: "Runtime visibility" },
+] as const);
+
+const extensionCategoryLabelByCategory = new Map<ExtensionCategory, string>(
+  extensionCategoryDescriptors.map((descriptor) => [descriptor.category, descriptor.label]),
+);
+
+export function getExtensionCategoryLabel(category: ExtensionCategory) {
+  const label = extensionCategoryLabelByCategory.get(category);
+
+  if (label === undefined) {
+    throw new Error(`Missing extension category label for ${category}`);
+  }
+
+  return label;
+}
+
+function defineExtensionCategoryDescriptors<const Items extends readonly ExtensionCategoryDescriptor[]>(
+  items: Items & DescriptorCoverageCheck<Items>,
+) {
+  const seenCategories = new Set<ExtensionCategory>();
+
+  for (const item of items) {
+    if (seenCategories.has(item.category)) {
+      throw new Error(`Duplicate extension category descriptor for ${item.category}`);
+    }
+
+    seenCategories.add(item.category);
+  }
+
+  return items;
+}
 
 // This catalog is curated display metadata. Do not derive it from pi-extensions parity records:
 // parity records track CLI/skill equivalence, while these entries optimize docs discovery copy.
