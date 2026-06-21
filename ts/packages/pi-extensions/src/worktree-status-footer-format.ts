@@ -205,7 +205,7 @@ function footerIdentityParts(options: FooterIdentityPartsOptions): FooterIdentit
 	}
 	return {
 		repo: options.fallbackRepo,
-		slot: "no-slot",
+		slot: "root",
 		branch: options.branch,
 		relativePath: formatFooterCwd(options.cwd, options.home),
 	};
@@ -213,7 +213,7 @@ function footerIdentityParts(options: FooterIdentityPartsOptions): FooterIdentit
 
 function worktreeLabelFromGitPaths(gitPaths: WorktreeStatusGitPaths, repo: string): string {
 	const worktreeName = basename(gitPaths.repoDir);
-	if (worktreeName.length === 0 || worktreeName === repo) return "no-slot";
+	if (worktreeName.length === 0 || worktreeName === repo) return "root";
 	return worktreeName;
 }
 
