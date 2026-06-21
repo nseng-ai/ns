@@ -177,4 +177,21 @@ describe("attachBranchContextEntry", () => {
 		expect(brmem.attachmentPresenceCalls).toEqual([]);
 		expect(brmem.attachPlanCalls).toEqual([]);
 	});
+
+	test("rejects explicit legacy plan.md attach keys", async () => {
+		const planStoreRoot = await makePlanStore();
+		const sourceFile = await writeSavedPlan(planStoreRoot);
+		const git = new InMemoryGitGateway({ repoRoot: ROOT, currentBranch: TARGET_BRANCH });
+		const brmem = new InMemoryBranchContextBrmemGateway();
+
+		await expect(
+			attachBranchContextEntry(
+				NO_COMMANDS,
+				{ key: "plan.md", filePath: sourceFile },
+				{ cwd: ROOT, context: branchContext({ git, brmem }), planStoreRoot },
+			),
+		).rejects.toThrow("Legacy branch-context key plan.md is no longer supported");
+		expect(brmem.attachmentPresenceCalls).toEqual([]);
+		expect(brmem.attachPlanCalls).toEqual([]);
+	});
 });

@@ -81,8 +81,8 @@ A reviewed Markdown implementation plan written before an implementation branch 
 *Avoid*: attached plan, Branch Memory entry, checked-in plan.
 
 **Local plan store**:
-The machine-local pre-branch store at `$XDG_STATE_HOME/sdl/enriched-plan/<repo>/<encoded-source-branch>/`, defaulting to `$HOME/.local/state/sdl/enriched-plan/...`. Legacy `~/.sdl/enriched-plan` content remains a read-only fallback. Saved plans use `<slug>.md`.
-*Avoid*: Branch Memory namespace, repo docs directory, objective update.
+The machine-local pre-branch store at `$XDG_STATE_HOME/sdl/enriched-plan/<repo>/<encoded-source-branch>/` (default `$HOME/.local/state/sdl/enriched-plan/...`). Saved plans use `<slug>.md`.
+*Avoid*: Branch Memory namespace, repo docs directory, objective update, legacy dotdir store.
 
 **Saved-plan filename slug**:
 The `<slug>` filename stem in the Local plan store, derived by the write-plan workflow from the final reviewed plan content as a semantic local locator for a reviewed plan file.
@@ -101,8 +101,8 @@ The standing Branch Memory context attached to a branch in namespace `branch-con
 *Avoid*: planned branch, brmem branch, Objective branch, plan branch.
 
 **Attached plan**:
-The canonical Markdown implementation plan stored as a branch-context entry in Branch Memory namespace `branch-context` with a named Markdown key. New from-plan attachments use `<branch-context-slug>.md`; `plan.md` remains readable legacy storage.
-*Avoid*: saved plan, local plan store file, prompt template.
+The canonical Markdown implementation plan stored as a branch-context entry in Branch Memory namespace `branch-context` with a named Markdown key such as `<branch-context-slug>.md`. The legacy `plan.md` key is not a supported attached-plan key.
+*Avoid*: saved plan, local plan store file, prompt template, legacy `plan.md` key.
 
 **Branch Memory attachment**:
 The planning-layer use of `branch-context` attach/load/list/check/delete helpers over the Branch Memory namespace contract.

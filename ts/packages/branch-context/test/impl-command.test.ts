@@ -1,7 +1,6 @@
 import { describe, expect, test } from "vitest";
 
 import {
-	BRANCH_CONTEXT_PLAN_KEY,
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 	formatImplBranchContextCommand,
 } from "@sdl/branch-context";
@@ -11,9 +10,9 @@ describe("branch-context impl command contract", () => {
 		expect(IMPL_BRANCH_CONTEXT_COMMAND_NAME).toBe("sdl:branch-context:impl-attached-plan");
 	});
 
-	test("formats default and keyed impl commands", () => {
-		expect(formatImplBranchContextCommand(BRANCH_CONTEXT_PLAN_KEY)).toBe(
-			`/${IMPL_BRANCH_CONTEXT_COMMAND_NAME}`,
+	test("formats impl commands with explicit named keys", () => {
+		expect(formatImplBranchContextCommand("branch-scoped-plan.md")).toBe(
+			`/${IMPL_BRANCH_CONTEXT_COMMAND_NAME} branch-scoped-plan.md`,
 		);
 		expect(formatImplBranchContextCommand("custom-plan.md")).toBe(
 			`/${IMPL_BRANCH_CONTEXT_COMMAND_NAME} custom-plan.md`,

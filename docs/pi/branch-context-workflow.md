@@ -6,8 +6,8 @@ The branch-context workflow turns a reviewed Saved plan into an implementation b
 
 The workflow has two storage layers:
 
-- **Local plan store**: `$XDG_STATE_HOME/sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md` (default `$HOME/.local/state/sdl/enriched-plan/...`), owned by `@sdl/plans` and the `enriched-plan` CLI. Legacy `~/.sdl/enriched-plan` content remains readable as fallback compatibility.
-- **Attached plan**: Branch Memory namespace `branch-context`, named Markdown key, on the implementation branch, owned by `@sdl/branch-context` and the `branch-context` CLI. New from-plan attachments use `<branch-context-slug>.md`; `plan.md` remains readable legacy storage.
+- **Local plan store**: `$XDG_STATE_HOME/sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md` (default `$HOME/.local/state/sdl/enriched-plan/...`), owned by `@sdl/plans` and the `enriched-plan` CLI.
+- **Attached plan**: Branch Memory namespace `branch-context`, named Markdown key, on the implementation branch, owned by `@sdl/branch-context` and the `branch-context` CLI. From-plan attachments use `<branch-context-slug>.md`; the legacy `plan.md` key is not a supported attached-plan key.
 
 Branch Memory is the lower storage adapter for attached branch context entries. It stores text under explicit namespace/key contracts, but branch-context policy belongs to the planning layer. Branch context is standing context on a branch, not a special branch type; a plan can be the founding entry where one exists.
 
@@ -18,7 +18,7 @@ Branch Memory is the lower storage adapter for attached branch context entries. 
 3. Attach the plan to Branch Memory namespace `branch-context` under the named Markdown key for that workflow, on the implementation branch.
 4. Load and implement with `/sdl:branch-context:impl-attached-plan` or `branch-context exec load`.
 
-For Pi users, `/sdl:branch-context:upstack-impl-from-plan` creates or reuses a branch with attached branch context, checks out the target branch, starts a fresh Pi session, and sends `/sdl:branch-context:impl-attached-plan` in that session. It uses Graphite by default, with `--plain-git` as an escape hatch.
+For Pi users, `/sdl:branch-context:upstack-impl-from-plan` creates or reuses a branch with attached branch context, checks out the target branch, starts a fresh Pi session, and sends `/sdl:branch-context:impl-attached-plan <key>` in that session. It uses Graphite by default, with `--plain-git` as an escape hatch.
 
 ## Save a source-branch plan
 
@@ -46,7 +46,7 @@ Saved plans are written to:
 $XDG_STATE_HOME/sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md
 ```
 
-When `XDG_STATE_HOME` is unset, the default is `$HOME/.local/state/sdl/enriched-plan/...`. Legacy `~/.sdl/enriched-plan/...` files are read as fallback for inspect/resolve flows but are not updated, migrated, or dual-written.
+When `XDG_STATE_HOME` is unset, the default is `$HOME/.local/state/sdl/enriched-plan/...`. Legacy `~/.sdl/enriched-plan/...` files are not read, migrated, or dual-written.
 
 Saving a plan creates no implementation branch, writes no Branch Memory, and checks in no plan artifact.
 
@@ -119,7 +119,7 @@ Pi users run `/sdl:branch-context:impl-attached-plan`. CLI/agent workflows use:
 branch-context exec load [<key>] [--prompt-file <path>] [--format json]
 ```
 
-By default, load auto-selects only when the current branch has exactly one branch-context entry. If multiple entries exist, pass an explicit key. An explicit key is treated as an exact Branch Memory key selector rather than a fuzzy slug search. Legacy `plan.md` entries remain readable when explicitly requested or when they are the only entry.
+By default, load auto-selects only when the current branch has exactly one supported named Markdown branch-context entry. If multiple supported entries exist, pass an explicit key. An explicit key is treated as an exact Branch Memory key selector rather than a fuzzy slug search. Legacy `plan.md` entries are not supported; reattach those plans under a named Markdown key such as `<slug>.md`.
 
 Agent workflows that need the full implementation prompt should pass `--prompt-file <path>` and then read the returned `data.implementation_prompt_file` from the standard Clinkr JSON envelope. Avoid `--include-content` and `--include-prompt` in normal agent operation because they can print large plan bodies to stdout.
 
@@ -181,7 +181,7 @@ Candidate selection order for resumption is:
 
 Candidates are verified in that order and the first verified candidate wins. If no candidate verifies, the command fails with one message listing every verification failure, including a current branch that could not be resolved.
 
-After either creation or resumption selects a branch/key, the command checks out the exact branch with `git checkout <branch>`, creates a new Pi session, and sends `/sdl:branch-context:impl-attached-plan <key>` in that new session when the selected key is named. Legacy `plan.md` may still render as bare `/sdl:branch-context:impl-attached-plan`. Resumption success and cancellation messages say the branch and Attached plan were reused; they do not claim that a branch was newly created.
+After either creation or resumption selects a branch/key, the command checks out the exact branch with `git checkout <branch>`, creates a new Pi session, and sends `/sdl:branch-context:impl-attached-plan <key>` in that new session. Resumption success and cancellation messages say the branch and Attached plan were reused; they do not claim that a branch was newly created.
 
 Ambiguity is explicit. If the current session contains multiple candidate branches with branch-context output, the command refuses to choose implicitly and asks you to rerun with `--branch <target-branch>`. If a branch-context entry cannot be selected unambiguously on the chosen branch, rerun `/sdl:branch-context:impl-attached-plan <key>` manually from that branch or inspect the branch-context keys first.
 

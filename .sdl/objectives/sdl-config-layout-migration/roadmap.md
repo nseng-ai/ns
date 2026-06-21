@@ -8,17 +8,17 @@
 - [x] Move slot storage to the new location.
       Evidence: user confirmed slot migration has already happened; commit history for `ts/packages/slot/src/context.ts`, `ts/packages/slot/src/repo-context.ts`, and `ts/packages/slot/README.md` includes the XDG storage migration commits. Remaining slot work is verification and cleanup of stale fallback paths or docs, not target-layout selection.
 
-- [ ] Inventory active backwards-compatibility codepaths and path references.
-      Build a current, reviewed inventory of implementation fallbacks, tests, docs, skills, and user-facing strings for legacy SDL-owned layout paths. Classify each hit as delete-now, retain-with-rationale, Pi-owned/external, historical Objective/archive prose, absence assertion, or git-native compatibility requiring separate safety evidence.
+- [x] Inventory active backwards-compatibility codepaths and path references.
+      Evidence: update `updates/2026-06-21T025401Z-legacy-layout-inventory.md` classified active implementation fallbacks, tests, docs, skills, and user-facing strings. Delete-now filesystem/config candidates were saved-plan `~/.sdl/enriched-plan`, SDL global `~/.sdl/extensions`, and Branch Memory global `~/.brmem/prompts`; user expansion added `SLOTS_ROOT`, project-local `.brmem/prompts`, and branch-context `plan.md`; canonical `refs/brmem/*` remained out of removal scope.
 
-- [ ] Delete repo-owned filesystem/config/storage fallback codepaths once the inventory proves canonical coverage.
-      Remove safe legacy fallback reads and their tests/docs from subsystems such as saved plans, slot storage, Branch Memory prompt lookup, SDL global extensions, submit failure logs, Pi CLI trace logs, and vibechk store handling as applicable. Evidence should include targeted tests for canonical XDG/`.sdl` behavior and source-search classification of remaining legacy hits.
+- [x] Delete repo-owned filesystem/config/storage fallback codepaths once the inventory proves canonical coverage.
+      Evidence: update `updates/2026-06-21T034845Z-remove-legacy-layout-compatibility.md` removed saved-plan `~/.sdl/enriched-plan` discovery/collision behavior, SDL global `~/.sdl/extensions` discovery, brmem global `~/.brmem/prompts`, project `.brmem/prompts`, branch-context `plan.md` load/attach support, `SLOTS_ROOT`, and the now-unused `legacyHomePath()` helper. Focused package tests and full TS/docs gates passed.
 
-- [ ] Resolve Branch Memory git-ref compatibility separately if it is still active.
-      If legacy `refs/brmem/*` compatibility exists, decide whether to migrate, export, retain, or abandon it before deleting fallback reads. Do not delete durable ref compatibility merely because filesystem/config fallbacks are ready to remove.
+- [x] Resolve Branch Memory git-ref compatibility separately if it is still active.
+      Evidence: update `updates/2026-06-21T034845Z-remove-legacy-layout-compatibility.md` records that `refs/brmem/*` is the canonical Branch Memory Snapshot Ref contract, not an active alternate legacy fallback; no git-ref compatibility deletion is part of this Objective slice.
 
-- [ ] Refresh active documentation and agent guidance after cleanup.
-      Active docs, package READMEs, and relevant skills should present XDG user/global roots and in-repo `.sdl/...` paths as canonical. Legacy paths should appear only as historical context, explicit retained compatibility, Pi-owned external paths, or migration notes.
+- [x] Refresh active documentation and agent guidance after cleanup.
+      Evidence: update `updates/2026-06-21T034845Z-remove-legacy-layout-compatibility.md` lists refreshed docs, READMEs, skills, prompt text, Pi tool descriptions/tests, ADR 0006 current wording, and `ts/packages/pi-extensions/CONTEXT.md`. Legacy path hits now remain only as historical provenance or explicit no-fallback assertions.
 
 ## Parked
 

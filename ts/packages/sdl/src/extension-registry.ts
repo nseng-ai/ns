@@ -1,7 +1,7 @@
 import process from "node:process";
 import { join } from "node:path";
 
-import { legacyHomePath, requireXdgPath, resolveSdlXdgPath } from "@sdl/core/xdg";
+import { requireXdgPath, resolveSdlXdgPath } from "@sdl/core/xdg";
 
 import {
 	SDL_COMMAND_NAME_PATTERN,
@@ -85,9 +85,7 @@ export async function loadSdlCommandCatalog(
 	const diagnostics: ExtensionDiagnostic[] = [];
 	const builtInCandidates = listBuiltInSdlCommandCandidates();
 	const env = catalogEnv(options);
-	const legacyGlobalRoot = legacyHomePath(env, [".sdl", "extensions"]);
 	const globalRoots = [
-		...(legacyGlobalRoot.ok ? [legacyGlobalRoot.value] : []),
 		requireXdgPath(resolveSdlXdgPath({ kind: "data", env, segments: ["extensions"] })),
 	];
 	const orderedSources: Array<{

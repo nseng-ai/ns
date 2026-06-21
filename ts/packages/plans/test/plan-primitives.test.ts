@@ -137,30 +137,26 @@ describe("source branch plan path helpers", () => {
 		});
 	});
 
-	test("finds latest saved plan from the legacy store when the XDG store is absent", async () => {
+	test("ignores legacy saved plans when the XDG store is absent", async () => {
 		const tempHome = await makeTempDir("source-plan-home-");
 		const sourceBranch = "branch-contexts/add-widget";
 		const legacyRoot = join(tempHome, ".sdl", "enriched-plan");
 		const legacyDirectory = planStoreDirectory(legacyRoot, sourceBranch);
-		const legacyPath = await writePlanStoreFile(
-			legacyDirectory,
-			"legacy-source-plan.md",
-			1_800_000_000_000,
-		);
+		await writePlanStoreFile(legacyDirectory, "legacy-source-plan.md", 1_800_000_000_000);
 		const git = new InMemoryGitGateway({
 			currentBranch: sourceBranch,
 			originUrl: "git@github.com:owner/repo.git",
 			trunkBranch: { type: "missing" },
 		});
 
-		const evidence = await findLatestSavedPlanFile(unusedPi, {
+		const promise = findLatestSavedPlanFile(unusedPi, {
 			cwd: ROOT,
 			env: { HOME: tempHome },
 			git,
 		});
 
-		expect(evidence.filePath).toBe(legacyPath);
-		expect(evidence.directoryPath).toBe(legacyDirectory);
+		await expect(promise).rejects.toThrow("No local plan store directory exists");
+		await expect(promise).rejects.toMatchObject({ reason: "missing-directory" });
 	});
 
 	test("reports a typed error when the local plan store directory is missing", async () => {

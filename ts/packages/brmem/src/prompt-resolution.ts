@@ -4,7 +4,7 @@ import process from "node:process";
 import { NodeCommandExecApi, type CommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@sdl/core/git";
 
-import { legacyHomePath, resolveSdlXdgPath } from "@sdl/core/xdg";
+import { resolveSdlXdgPath } from "@sdl/core/xdg";
 
 import { brmemError, brmemOk, type BrmemResult } from "./contracts.ts";
 
@@ -52,8 +52,6 @@ export class RealBrmemPromptResolver implements BrmemPromptResolver {
 		});
 		if (xdgRoot.ok) roots.push(xdgRoot.value);
 
-		const legacyRoot = legacyHomePath(this.env, [".brmem", "prompts"]);
-		if (legacyRoot.ok) roots.push(legacyRoot.value);
 		return [...new Set(roots)];
 	}
 

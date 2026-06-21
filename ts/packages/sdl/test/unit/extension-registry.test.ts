@@ -91,9 +91,9 @@ describe("extension registry", () => {
 		]);
 	});
 
-	test("XDG global overrides legacy global and project overrides XDG global", async () => {
+	test("XDG global commands are loaded and legacy global commands are ignored", async () => {
 		const workspace = await createWorkspace();
-		writeLegacyGlobalExtension(workspace, "greet.ts", commandEntry("greet", "legacy greet"));
+		writeLegacyGlobalExtension(workspace, "legacy.ts", commandEntry("legacy", "legacy greet"));
 		writeGlobalExtension(workspace, "greet.ts", commandEntry("greet", "xdg greet"));
 
 		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
@@ -101,7 +101,8 @@ describe("extension registry", () => {
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
 		expect(
 			loaded.diagnostics.filter((diagnostic) => diagnostic.code === "extension_command_override"),
-		).toHaveLength(1);
+		).toHaveLength(0);
+		expect(loaded.candidates.has("legacy")).toBe(false);
 		const selected = loaded.candidates.get("greet");
 		expect(selected).toBeDefined();
 		if (selected === undefined) return;

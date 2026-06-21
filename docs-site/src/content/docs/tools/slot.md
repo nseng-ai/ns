@@ -37,9 +37,8 @@ A slot is an ordinary Git worktree at
 `$XDG_STATE_HOME/sdl/slots/repos/<repo>/worktrees/slot-NN/`, defaulting to
 `$HOME/.local/state/sdl/slots/repos/<repo>/worktrees/slot-NN/`. `slot init --size N`
 creates the pool; commands then derive assignments from `git worktree list`
-rather than persisted slot metadata. Set `SLOTS_ROOT=~/.slots` explicitly if you
-want to keep using an existing legacy pool; slot does not move legacy worktrees
-automatically.
+rather than persisted slot metadata. No slot-root override is supported; existing
+non-XDG legacy pools are not discovered automatically.
 
 - **Slot** — one managed `slot-XX` worktree for the current repository.
 - **Assigned / available** — assigned means a branch is checked out; available
@@ -210,8 +209,7 @@ $XDG_STATE_HOME/sdl/slots/repos/<repo-name>/worktrees/slot-02/
 ```
 
 When `XDG_STATE_HOME` is unset, this defaults to
-`$HOME/.local/state/sdl/slots/...`. `SLOTS_ROOT` can point at an existing legacy
-`~/.slots` pool when needed.
+`$HOME/.local/state/sdl/slots/...`. No slot-root override is supported.
 
 Each `slot-XX` is an ordinary Git worktree of the main repo. Inspect the
 underlying state with `git worktree list` or `slot list` from any managed slot.

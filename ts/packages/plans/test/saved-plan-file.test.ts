@@ -145,7 +145,7 @@ describe("writeSavedPlanFile", () => {
 		expect(await readFile(evidence.filePath, "utf8")).toBe("# Test Plan\n");
 	});
 
-	test("rejects legacy same-slug collisions when writing to the default XDG root", async () => {
+	test("ignores legacy same-slug files when writing to the default XDG root", async () => {
 		const tempHome = await makeTempDir("source-plan-home-");
 		const sourceBranch = "branch-contexts/add-widget";
 		const branchKey = encodeBranchForPlanPath(sourceBranch);
@@ -164,13 +164,26 @@ describe("writeSavedPlanFile", () => {
 			originUrl: "git@github.com:owner/repo.git",
 		});
 
-		await expect(
-			writeSavedPlanFile(
-				unusedPi,
-				{ slug: PLAN_SLUG, content: "# New Plan\n" },
-				{ cwd: ROOT, env: { HOME: tempHome }, git },
+		const evidence = await writeSavedPlanFile(
+			unusedPi,
+			{ slug: PLAN_SLUG, content: "# New Plan\n" },
+			{ cwd: ROOT, env: { HOME: tempHome }, git },
+		);
+
+		expect(evidence.filePath).toBe(
+			join(
+				tempHome,
+				".local",
+				"state",
+				"sdl",
+				"enriched-plan",
+				"gh--owner--repo",
+				branchKey,
+				`${PLAN_SLUG}.md`,
 			),
-		).rejects.toThrow("legacy local plan store");
+		);
+		expect(await readFile(evidence.filePath, "utf8")).toBe("# New Plan\n");
+		expect(await readFile(legacyPath, "utf8")).toBe("# Legacy Plan\n");
 	});
 
 	test("rejects invalid slug before git commands or filesystem writes", async () => {

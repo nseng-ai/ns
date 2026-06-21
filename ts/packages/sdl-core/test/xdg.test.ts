@@ -9,7 +9,6 @@ import {
 	ensurePrivateDirectorySync,
 	ensurePrivateParentDirectory,
 	ensurePrivateParentDirectorySync,
-	legacyHomePath,
 	requireSdlStatePath,
 	requireXdgPath,
 	resolvePathOverride,
@@ -133,13 +132,6 @@ describe("XDG path helpers", () => {
 				segments: ["logs"],
 			}),
 		).toThrow("SDL_LOG_DIR must be an absolute path");
-	});
-
-	test("legacyHomePath builds read-only legacy fallback paths from HOME", () => {
-		expect(legacyHomePath({ HOME: "/home/tester" }, [".sdl", "enriched-plan"])).toEqual({
-			ok: true,
-			value: "/home/tester/.sdl/enriched-plan",
-		});
 	});
 
 	test("private directory creation uses 0700 for new directories and leaves existing permissions", async () => {

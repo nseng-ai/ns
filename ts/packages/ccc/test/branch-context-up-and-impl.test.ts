@@ -1,7 +1,6 @@
 import { describe, expect, test } from "vitest";
 
 import {
-	BRANCH_CONTEXT_PLAN_KEY,
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 	formatImplBranchContextCommand,
 } from "@sdl/branch-context";
@@ -96,34 +95,16 @@ describe("branch-context up-and-impl CCC launch orchestration", () => {
 		});
 	});
 
-	test("keeps the bare impl command for the default plan key", async () => {
-		const pi = new FakePi({ script: [checkoutStep()] });
-		const ctx = new FakeUpAndImplContext();
-
-		const result = await runBranchContextUpAndImplLaunch({
-			host: pi,
-			ctx,
-			statusKey: STATUS_KEY,
-			target: { branch: BRANCH, key: BRANCH_CONTEXT_PLAN_KEY },
-		});
-
-		pi.assertDone();
-		expect(ctx.replacementUserMessages).toEqual([
-			formatImplBranchContextCommand(BRANCH_CONTEXT_PLAN_KEY),
-		]);
-		expect(result).toEqual({ type: "launched", branch: BRANCH, key: BRANCH_CONTEXT_PLAN_KEY });
-	});
-
 	test("formats impl commands from branch-context keys", () => {
-		expect(formatImplBranchContextCommand(BRANCH_CONTEXT_PLAN_KEY)).toBe(
-			`/${IMPL_BRANCH_CONTEXT_COMMAND_NAME}`,
+		expect(formatImplBranchContextCommand("branch-scoped-plan.md")).toBe(
+			`/${IMPL_BRANCH_CONTEXT_COMMAND_NAME} branch-scoped-plan.md`,
 		);
 		expect(formatImplBranchContextCommand(KEY)).toBe(`/${IMPL_BRANCH_CONTEXT_COMMAND_NAME} ${KEY}`);
 	});
 
 	test("formats the manual follow-up flow", () => {
-		expect(formatBranchContextUpAndImplFollowUpFlow(BRANCH, BRANCH_CONTEXT_PLAN_KEY)).toBe(
-			`git checkout ${BRANCH}\n/new\n${formatImplBranchContextCommand(BRANCH_CONTEXT_PLAN_KEY)}`,
+		expect(formatBranchContextUpAndImplFollowUpFlow(BRANCH, "branch-scoped-plan.md")).toBe(
+			`git checkout ${BRANCH}\n/new\n${formatImplBranchContextCommand("branch-scoped-plan.md")}`,
 		);
 		expect(formatBranchContextUpAndImplFollowUpFlow(BRANCH, KEY)).toBe(
 			`git checkout ${BRANCH}\n/new\n${formatImplBranchContextCommand(KEY)}`,

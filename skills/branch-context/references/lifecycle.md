@@ -25,17 +25,18 @@ Use this reference to keep branch-context storage, slugs, branches, and workflow
 
 ```text
 Local plan store:
-~/.sdl/enriched-plan/<repo>/<encoded-source-branch>/<saved-plan-filename-slug>.md
+$XDG_STATE_HOME/sdl/enriched-plan/<repo>/<encoded-source-branch>/<saved-plan-filename-slug>.md
+(default $HOME/.local/state/sdl/enriched-plan/...)
 
 Attached plan:
 Branch Memory namespace: branch-context
 Entry key for new from-plan attachments: <branch-context-slug>.md
 Entry key for attach --plan: <saved-plan-filename-slug>.md
-Legacy readable key: plan.md
+Unsupported legacy key: plan.md
 Branch: <target-implementation-branch>
 ```
 
-The Local plan store is pre-branch handoff storage. The attached plan is the canonical plan for implementation once it is attached to branch context. Old branches may still store the attached plan as `plan.md`; this is legacy readable storage, not the new default.
+The Local plan store is pre-branch handoff storage. The attached plan is the canonical plan for implementation once it is attached to branch context. Old branches may still contain a `plan.md` entry, but branch-context workflows no longer load it; reattach under a named Markdown key such as `<slug>.md`.
 
 ## Repo and source-branch path convention
 

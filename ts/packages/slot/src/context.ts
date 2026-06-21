@@ -1,4 +1,4 @@
-import { requireSdlStatePath } from "@sdl/core/xdg";
+import { requireXdgPath, resolveSdlXdgPath } from "@sdl/core/xdg";
 
 import { resolveClinkrInteraction, type ClinkrInteraction } from "@sdl/clinkr";
 import { readStdinLine } from "@sdl/core/stdin";
@@ -57,5 +57,5 @@ export async function createRealSlotContext(options: {
 }
 
 export function resolveSlotsRoot(env: Record<string, string | undefined>): string {
-	return requireSdlStatePath({ env, overrideEnvName: "SLOTS_ROOT", segments: ["slots"] });
+	return requireXdgPath(resolveSdlXdgPath({ kind: "state", env, segments: ["slots"] }));
 }

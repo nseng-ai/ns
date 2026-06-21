@@ -3,8 +3,6 @@ import { basename, resolve } from "node:path";
 import { mainRepoRootFromGitCommonDir, type SlotGitGateway } from "./gateways/git.ts";
 import type { SlotStorageGateway } from "./gateways/storage.ts";
 
-export const DEFAULT_SLOTS_ROOT = "$XDG_STATE_HOME/sdl/slots";
-
 export interface RepoContext {
 	type: "repo";
 	root: string;
