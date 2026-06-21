@@ -8,7 +8,7 @@ describeNodeRuntimeCliEntrypoint({
 	helpAssertions: [
 		{ type: "contains", text: "Usage: sdl" },
 		{ type: "contains", text: "--runtime" },
-		{ type: "not-contains", text: "cp" },
+		{ type: "not_contains", text: "cp" },
 	],
 	runtimeDiagnostics:
 		"runtime: typescript\nentry_point: @sdl/sdl bin sdl -> ts/packages/sdl/src/cli.ts\n",
