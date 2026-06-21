@@ -20,6 +20,7 @@
   },
   "devDependencies": {
     "@sdl/branch-context": "workspace:*",
+    "@sdl/brmem": "workspace:*",
     "@sdl/ccc": "workspace:*",
     "@sdl/core": "workspace:*",
     "@sdl/plans": "workspace:*",
