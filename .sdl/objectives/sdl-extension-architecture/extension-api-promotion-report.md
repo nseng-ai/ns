@@ -16,14 +16,14 @@ Status: analysis/recommendation. No SDK helper is promoted by this document.
 The extension stack analyzed (one self-contained file per command under
 `.sdl/extensions/`):
 
-| Extension | Lines | How it obtains its primitives |
-|---|---|---|
-| `push` | 112 | hand-inlined |
-| `cp` | 720 | hand-inlined |
-| `regenerate-pr` | 1071 | hand-inlined |
-| `autobranch` | 2196 | hand-inlined |
-| `submit` | 3491 | **esbuild bundle** of `@sdl/core` + `@sdl/sdl` modules |
-| `changes` | (earlier slice) | hand-inlined |
+| Extension       | Lines           | How it obtains its primitives                          |
+| --------------- | --------------- | ------------------------------------------------------ |
+| `push`          | 112             | hand-inlined                                           |
+| `cp`            | 720             | hand-inlined                                           |
+| `regenerate-pr` | 1071            | hand-inlined                                           |
+| `autobranch`    | 2196            | hand-inlined                                           |
+| `submit`        | 3491            | **esbuild bundle** of `@sdl/core` + `@sdl/sdl` modules |
+| `changes`       | (earlier slice) | hand-inlined                                           |
 
 ---
 
@@ -148,17 +148,17 @@ implementation cost is near zero — cost is dominated by **surface design**.
 One-time fixed cost (widening the virtual module + keeping `sdk.ts` and
 `sdlSdkVirtualModule` in sync) is assigned to API #1.
 
-| # | Proposed API | Reaches | Benefit | Cost | B/C |
-|---|---|---|---|---|---|
-| 1 | `commandSucceeded` + `formatCommandEvidence` (exec evidence) | 6/6 | High | Very low | high |
-| 2 | `resolveModelRef(env, {names, default})` | 5/6 | Med | Trivial | high |
-| 3 | Text/util re-exports | 5/6 | Med (broad, shallow) | Trivial | high |
-| 4 | `loadPendingWorktreeSnapshot` + `execGit` (git facts) | 4/6 | High | Low | high |
-| 5 | `prepareCheckpointMessage` (checkpoint subsystem) | 4/6 | Very high | Medium | mid |
-| 6 | `@sdl/core/managed-region` + `preparePrDescription` | 2/6 (huge each) | High | Med-high | mid |
-| 7 | `@sdl/core/diff` (pierre-backed) | 4/6 (lossy use) | Med | High | low |
+| # | Proposed API                                                 | Reaches         | Benefit              | Cost     | B/C  |
+| - | ------------------------------------------------------------ | --------------- | -------------------- | -------- | ---- |
+| 1 | `commandSucceeded` + `formatCommandEvidence` (exec evidence) | 6/6             | High                 | Very low | high |
+| 2 | `resolveModelRef(env, {names, default})`                     | 5/6             | Med                  | Trivial  | high |
+| 3 | Text/util re-exports                                         | 5/6             | Med (broad, shallow) | Trivial  | high |
+| 4 | `loadPendingWorktreeSnapshot` + `execGit` (git facts)        | 4/6             | High                 | Low      | high |
+| 5 | `prepareCheckpointMessage` (checkpoint subsystem)            | 4/6             | Very high            | Medium   | mid  |
+| 6 | `@sdl/core/managed-region` + `preparePrDescription`          | 2/6 (huge each) | High                 | Med-high | mid  |
+| 7 | `@sdl/core/diff` (pierre-backed)                             | 4/6 (lossy use) | Med                  | High     | low  |
 
-### #1 Exec evidence layer  (B/C: highest)
+### #1 Exec evidence layer (B/C: highest)
 
 ```ts
 function commandSucceeded(r: ExecResult): boolean;
@@ -167,12 +167,13 @@ function formatCommandEvidence(opts: {
   result: ExecResult; guidance?: string;
 }): string;
 ```
+
 Source: `@sdl/core/exec`. Reaches all 6 files. Pure functions over the
 already-public `ExecResult`, zero policy. Best breadth-to-surface ratio and the
 safest first promotion, so it absorbs the one-time loader-widening cost.
 `push.ts` shrinks 112 -> ~30 lines, proving the mechanism end-to-end.
 
-### #2 `resolveModelRef(env, { names, default })`  (B/C: high)
+### #2 `resolveModelRef(env, { names, default })` (B/C: high)
 
 ```ts
 function resolveModelRef(
@@ -180,11 +181,12 @@ function resolveModelRef(
   opts: { names: readonly string[]; default: string },
 ): string;
 ```
+
 Collapses `selectCheckpointModelRef` / `selectPrDescriptionModelRef` /
 `firstEnvValue` / autobranch `resolveModelRef` into one env-fallback primitive
 (primary env -> legacy env -> default). Trivial cost; pair with #1.
 
-### #3 Text/util re-exports  (B/C: high, but shallow)
+### #3 Text/util re-exports (B/C: high, but shallow)
 
 Re-export existing `@sdl/core` symbols: `isRecord`, `sha256Digest`, `Result` /
 `ok` / `err`, `truncateTextHeadTail`, `trimOuterBlankLines`,
@@ -193,7 +195,7 @@ collision** with the SDK command-result helpers — namespace under subpaths
 (`@sdl/sdl/sdk/text`, `.../result`) rather than flattening, to avoid public
 surface bloat.
 
-### #4 Git facts  (B/C: high)
+### #4 Git facts (B/C: high)
 
 ```ts
 function execGit(ctx: SdlContext, args: string[], timeoutMs: number): Promise<ExecResult>;
@@ -201,11 +203,12 @@ function loadPendingWorktreeSnapshot(
   ctx: SdlContext,
 ): Promise<Result<PendingWorktreeSnapshot, PendingWorktreeError>>;
 ```
+
 Source: `@sdl/sdl/src/pending-worktree.ts`. Replaces the repeated "rev-parse
 toplevel -> branch -> status -> diff, with typed failure" sequence. Only design
 choice is exposing the `PendingWorktreeError` discriminated union as public.
 
-### #5 Checkpoint subsystem  (B/C: mid; highest absolute benefit)
+### #5 Checkpoint subsystem (B/C: mid; highest absolute benefit)
 
 ```ts
 function prepareCheckpointMessage(
@@ -214,6 +217,7 @@ function prepareCheckpointMessage(
 ): Promise<PreparedCheckpointMessage>;
 // optionally: createCheckpointCommit(ctx, message)
 ```
+
 Source: `@sdl/sdl/src/checkpoint-*.ts`. Collapses 4 live copies; `cp.ts` -> ~60
 lines of glue, `autobranch.ts` loses its largest block. Mid B/C because the
 surface is the most **policy-laden** (system prompt, validate-and-repair state
@@ -221,7 +225,7 @@ machine, bullet/subject rules, model selection) and carries the highest
 API-stability risk. **Sequence it second** despite the mid ratio, because the
 absolute payoff is the largest in the stack.
 
-### #6 Managed-region + PR-description  (B/C: mid)
+### #6 Managed-region + PR-description (B/C: mid)
 
 Expose `@sdl/core/managed-region` (`parseManagedRegion` / `replaceManagedRegion`
 / `replaceMalformedManagedRegionFromBegin`) and the `preparePrDescription` flow
@@ -231,7 +235,7 @@ Largest pairwise duplication (37 functions) but only 2 consumers, and the
 `<!-- sdl-pr-description -->` markers are a **durable external contract** in PR
 bodies — heavier stability cost. Promote as a separately reviewed step.
 
-### #7 `@sdl/core/diff` (pierre-backed)  (B/C: lowest)
+### #7 `@sdl/core/diff` (pierre-backed) (B/C: lowest)
 
 Lift roaster's `parseUnifiedDiff` wrapper (`ts/packages/roaster/src/diff-parsing.ts`,
 backed by `@pierre/diffs`) down into a new `@sdl/core/diff` module; expose
