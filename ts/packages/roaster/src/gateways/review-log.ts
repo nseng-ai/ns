@@ -1,8 +1,10 @@
-import { runAvailableBrmemCommand, type CompletedBrmemRun } from "@sdl/core/brmem-cli";
-import { formatCommandFailure, type CommandExecApi } from "@sdl/core/exec";
-import { formatErrorMessage } from "@sdl/core/primitives";
+import {
+	listBrmemEntries,
+	putBrmemEntryFromFile,
+	type BrmemCommandErrorInfo,
+} from "@sdl/core/brmem-cli";
+import type { CommandExecApi } from "@sdl/core/exec";
 import { withTemporaryFile } from "@sdl/core/temp-files";
-import { z } from "zod";
 
 import type { RoasterEnvironmentOptions } from "../context.ts";
 import type { ReviewLogFailure, ReviewLogFailureType, RoasterResult } from "../failures.ts";
@@ -11,38 +13,6 @@ import type { ReviewInputCoverage, ReviewRunResult, ReviewUsage } from "../model
 export const ROASTER_REVIEW_LOG_NAMESPACE = "roaster";
 const REVIEW_LOG_PREFIX = "reviews";
 const TIMESTAMP_PATTERN = /^(\d{4}-\d{2}-\d{2}T\d{2})-(\d{2})-(\d{2})-(\d{3})Z\.md$/u;
-
-const clinkrEnvelopeSchema = z
-	.object({
-		exit_code: z.number().int(),
-		message: z.string().optional(),
-		error_type: z.string().optional(),
-	})
-	.loose();
-const brmemPutDataSchema = z
-	.object({
-		namespace: z.string(),
-		key: z.string(),
-		branch: z.string(),
-		ref_name: z.string(),
-		commit: z.string(),
-		source_file: z.string(),
-	})
-	.loose();
-const brmemListDataSchema = z
-	.object({
-		entries: z.array(
-			z
-				.object({
-					namespace: z.string(),
-					key: z.string(),
-					branch: z.string(),
-					ref_name: z.string(),
-				})
-				.loose(),
-		),
-	})
-	.loose();
 
 export interface ReviewLogWriteRequest extends RoasterEnvironmentOptions {
 	readonly reviewKey: string;
@@ -99,49 +69,25 @@ export class RealReviewLogGateway implements ReviewLogGateway {
 				contents: request.content,
 			},
 			async (filePath) => {
-				const args = [
-					"put",
-					entryKey,
-					"--namespace",
-					ROASTER_REVIEW_LOG_NAMESPACE,
-					...(request.branch === undefined ? [] : ["--branch", request.branch]),
-					"--file",
-					filePath,
-					"--format",
-					"json",
-				];
-				const run = await this.runBrmem(request, args, "review_log_write_failed");
-				if (run.type === "error") return run;
-				const result = run.value.result;
-				if (result.code !== 0 || result.killed) {
-					return error({
-						type: "review_log_write_failed",
-						message: brmemCommandFailureMessage(
-							"brmem put",
-							"writing roaster review log",
-							run.value,
-						),
-					});
-				}
-				const envelope = parseEnvelope(result.stdout, brmemPutDataSchema, "brmem put");
-				if (envelope.type === "error") return envelope;
-				if (envelope.value.exitCode !== 0) {
-					return error({
-						type: "review_log_write_failed",
-						message: `brmem put failed while writing roaster review log: ${envelope.value.message ?? `exit_code ${envelope.value.exitCode}`}`,
-					});
-				}
-				if (envelope.value.data === undefined) {
-					return invalidResponse("brmem put response omitted data");
-				}
-				const data = envelope.value.data;
+				const result = await putBrmemEntryFromFile({
+					gateway: this.execApi,
+					cwd: request.cwd,
+					namespace: ROASTER_REVIEW_LOG_NAMESPACE,
+					key: entryKey,
+					...(request.branch === undefined ? {} : { branch: request.branch }),
+					sourceFile: filePath,
+					...(request.env === undefined ? {} : { env: request.env }),
+					signal: request.signal,
+				});
+				if (!result.ok) return reviewLogCommandError("review_log_write_failed", result.error);
+				const data = result.value;
 				return {
 					type: "ok",
 					value: {
 						namespace: data.namespace,
 						key: data.key,
 						branch: data.branch,
-						entryLocator: data.ref_name,
+						entryLocator: data.refName,
 						reviewKey: request.reviewKey,
 						ranAt: request.ranAt,
 					},
@@ -153,30 +99,16 @@ export class RealReviewLogGateway implements ReviewLogGateway {
 	async listReviewLogs(
 		request: ReviewLogListRequest,
 	): Promise<RoasterResult<readonly ReviewLogEntry[]>> {
-		const args = ["list", "--namespace", ROASTER_REVIEW_LOG_NAMESPACE, "--format", "json"];
-		const run = await this.runBrmem(request, args, "review_log_list_failed");
-		if (run.type === "error") return run;
-		const result = run.value.result;
-		if (result.code !== 0 || result.killed) {
-			return error({
-				type: "review_log_list_failed",
-				message: brmemCommandFailureMessage("brmem list", "listing roaster review logs", run.value),
-			});
-		}
-		const envelope = parseEnvelope(result.stdout, brmemListDataSchema, "brmem list");
-		if (envelope.type === "error") return envelope;
-		if (envelope.value.exitCode !== 0) {
-			return error({
-				type: "review_log_list_failed",
-				message: `brmem list failed while listing roaster review logs: ${envelope.value.message ?? `exit_code ${envelope.value.exitCode}`}`,
-			});
-		}
-		if (envelope.value.data === undefined) {
-			return invalidResponse("brmem list response omitted data");
-		}
+		const result = await listBrmemEntries({
+			gateway: this.execApi,
+			cwd: request.cwd,
+			namespace: ROASTER_REVIEW_LOG_NAMESPACE,
+			...(request.env === undefined ? {} : { env: request.env }),
+			signal: request.signal,
+		});
+		if (!result.ok) return reviewLogCommandError("review_log_list_failed", result.error);
 		const prefix = request.reviewKey === undefined ? null : reviewLogKeyPrefix(request.reviewKey);
-		const entries = envelope.value.data.entries.flatMap((entry) => {
-			if (entry.namespace !== ROASTER_REVIEW_LOG_NAMESPACE) return [];
+		const entries = result.value.flatMap((entry) => {
 			if (prefix !== null && !entry.key.startsWith(prefix)) return [];
 			const parsed = parseReviewLogEntryKey(entry.key);
 			if (parsed === null) return [];
@@ -184,34 +116,13 @@ export class RealReviewLogGateway implements ReviewLogGateway {
 				{
 					key: entry.key,
 					branch: entry.branch,
-					entryLocator: entry.ref_name,
+					entryLocator: entry.refName,
 					reviewKey: parsed.reviewKey,
 					ranAt: parsed.ranAt,
 				},
 			];
 		});
 		return { type: "ok", value: sortReviewLogEntries(entries) };
-	}
-
-	private async runBrmem(
-		request: RoasterEnvironmentOptions,
-		args: readonly string[],
-		failureType: ReviewLogFailureType,
-	): Promise<RoasterResult<CompletedBrmemRun>> {
-		const run = await runAvailableBrmemCommand({
-			gateway: this.execApi,
-			cwd: request.cwd,
-			brmemArgs: args,
-			...(request.env === undefined ? {} : { env: request.env }),
-			signal: request.signal,
-		});
-		if (!run.ok) {
-			return error({
-				type: failureType,
-				message: run.error.message,
-			});
-		}
-		return { type: "ok", value: run.value };
 	}
 }
 
@@ -448,78 +359,6 @@ function trimTrailingBlankLines(lines: readonly string[]): readonly string[] {
 	return lines.slice(0, end);
 }
 
-interface ParsedEnvelope<T> {
-	readonly exitCode: number;
-	readonly message?: string | undefined;
-	readonly data?: T | undefined;
-}
-
-function brmemCommandFailureMessage(
-	operation: string,
-	context: string,
-	run: CompletedBrmemRun,
-): string {
-	const envelope = parseEnvelope(run.result.stdout, z.unknown(), operation);
-	if (envelope.type === "ok" && envelope.value.message !== undefined) {
-		return `${operation} failed while ${context}: ${envelope.value.message}`;
-	}
-	return formatCommandFailure(
-		`${operation} failed while ${context}`,
-		run.displayCommand,
-		run.result,
-	);
-}
-
-function parseEnvelope<T>(
-	text: string,
-	dataSchema: z.ZodType<T>,
-	operation: string,
-): RoasterResult<ParsedEnvelope<T>> {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(text);
-	} catch (caught) {
-		return invalidResponse(`${operation} did not return valid JSON: ${formatErrorMessage(caught)}`);
-	}
-	const envelope = clinkrEnvelopeSchema.safeParse(parsed);
-	if (!envelope.success) {
-		return invalidResponse(
-			`${operation} response did not match Clinkr envelope shape: ${z.prettifyError(envelope.error)}`,
-		);
-	}
-	const dataValue = envelope.data["data"];
-	if (dataValue === undefined) {
-		return { type: "ok", value: envelopeValueWithoutData(envelope.data) };
-	}
-	const data = dataSchema.safeParse(dataValue);
-	if (!data.success) {
-		return invalidResponse(
-			`${operation} response data did not match expected shape: ${z.prettifyError(data.error)}`,
-		);
-	}
-	return { type: "ok", value: envelopeValue(envelope.data, data.data) };
-}
-
-function envelopeValue<T>(
-	envelope: z.infer<typeof clinkrEnvelopeSchema>,
-	data: T,
-): ParsedEnvelope<T> {
-	return {
-		exitCode: envelope.exit_code,
-		...(envelope.message === undefined ? {} : { message: envelope.message }),
-		data,
-	};
-}
-
-function envelopeValueWithoutData<T>(
-	envelope: z.infer<typeof clinkrEnvelopeSchema>,
-): ParsedEnvelope<T> {
-	return {
-		exitCode: envelope.exit_code,
-		...(envelope.message === undefined ? {} : { message: envelope.message }),
-	};
-}
-
 function reviewLogEntryLocator(branch: string, key: string): string {
 	return `refs/brmem/ns/${ROASTER_REVIEW_LOG_NAMESPACE}/${branch.replaceAll("/", "---")}:${key}`;
 }
@@ -558,6 +397,16 @@ function publicListEntry(entry: WrittenReviewLogEntry): ReviewLogEntry {
 		reviewKey: entry.reviewKey,
 		ranAt: entry.ranAt,
 	};
+}
+
+function reviewLogCommandError(
+	failureType: ReviewLogFailureType,
+	failure: BrmemCommandErrorInfo,
+): RoasterResult<never> {
+	if (failure.code.includes("malformed") || failure.code.includes("unexpected")) {
+		return invalidResponse(failure.message);
+	}
+	return error({ type: failureType, message: failure.message });
 }
 
 function invalidResponse(message: string): RoasterResult<never> {

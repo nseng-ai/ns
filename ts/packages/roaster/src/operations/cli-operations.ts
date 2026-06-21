@@ -17,7 +17,7 @@ import {
 import { applicableReviewKeys } from "../review-applicability.ts";
 import { parseReviewDefinition } from "../review-definition.ts";
 import { loadRoastSkillEntries, roastReviewPathForKey } from "../skill-reviews.ts";
-import { loadProjectConfigFromContext, runRoasterReview, writeReviewRunLog } from "./review-run.ts";
+import { loadReviewExecutionContext, runRoasterReview, writeReviewRunLog } from "./review-run.ts";
 
 const nonBlankStringSchema = z.string().trim().min(1);
 
@@ -252,30 +252,18 @@ export async function runRecordFindings(
 	const payload = await readFindingsPayload(ctx);
 	if (payload.type === "failure") return payload.exit;
 
-	const source = await ctx.reviewCatalog.loadReviewSource({
-		...catalogOptions(ctx.runScope),
-		key: request.reviewKey,
-	});
-	if (source.type === "error") return failureFromRoaster(source.error);
-
-	const parsed = parseReviewDefinition(source.value.source, { name: source.value.key });
-	if (parsed.type === "error") return failure("review_definition_invalid", parsed.error.message);
-
-	const config = await loadProjectConfigFromContext(ctx);
-	if (config.type === "error") return failureFromRoaster(config.error);
-
-	const diff = await ctx.localDiff.loadDiff({
-		...environmentOptions(ctx.runScope),
+	const loaded = await loadReviewExecutionContext(ctx, {
+		reviewKey: request.reviewKey,
 		...(request.baseRef === undefined ? {} : { baseRef: request.baseRef }),
-		excludeGlobs: config.value.diff.exclude,
 	});
-	if (diff.type === "error") return failureFromRoaster(diff.error);
+	if (loaded.type === "error") return failureFromRoaster(loaded.error);
+	const { source, diff } = loaded.value;
 
 	const result = reviewRunResultSchema.parse({
-		reviewName: source.value.key,
-		reviewPath: source.value.path,
+		reviewName: source.key,
+		reviewPath: source.path,
 		model: request.model ?? "same-session",
-		baseRef: diff.value.baseRef,
+		baseRef: diff.baseRef,
 		format: "findings",
 		count: payload.value.findings.length,
 		findings: payload.value.findings,
@@ -283,7 +271,7 @@ export async function runRecordFindings(
 		inputCoverage: null,
 	});
 
-	const logResult = await writeReviewRunLog(ctx, { reviewKey: source.value.key, result });
+	const logResult = await writeReviewRunLog(ctx, { reviewKey: source.key, result });
 	if (logResult.type === "error") {
 		return shellNegative(
 			`${renderReviewRun(result)}\n\nroaster: failed to write Branch Memory review log:\n${logResult.error.message}`,

@@ -1,3 +1,4 @@
+import type { CommandExecApi, ExecOptions } from "@sdl/core/exec";
 import { ScriptedCommandExecApi } from "@sdl/core/testing";
 import { describe, expect, test } from "vitest";
 
@@ -5,24 +6,53 @@ import { RealReviewLogGateway } from "../../src/gateways/review-log.ts";
 
 const scope = { cwd: "/repo", env: { PATH: "/bin" } };
 
+interface ExecCall {
+	readonly command: string;
+	readonly args: readonly string[];
+	readonly options?: ExecOptions | undefined;
+}
+
+class EchoPutCommandExecApi implements CommandExecApi {
+	private readonly callsInternal: ExecCall[] = [];
+
+	async exec(command: string, args: string[], options?: ExecOptions) {
+		this.callsInternal.push({
+			command,
+			args: [...args],
+			...(options === undefined ? {} : { options: { ...options } }),
+		});
+		const sourceFile = args[args.indexOf("--file") + 1] ?? "";
+		return {
+			code: 0,
+			killed: false,
+			stderr: "",
+			stdout: JSON.stringify({
+				exit_code: 0,
+				data: {
+					namespace: "roaster",
+					key: "reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
+					branch: "feature",
+					ref_name:
+						"refs/brmem/ns/roaster/feature:reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
+					commit: "abc123",
+					source_file: sourceFile,
+				},
+			}),
+		};
+	}
+
+	calls(): readonly ExecCall[] {
+		return this.callsInternal.map((call) => ({
+			command: call.command,
+			args: [...call.args],
+			...(call.options === undefined ? {} : { options: { ...call.options } }),
+		}));
+	}
+}
+
 describe("RealReviewLogGateway", () => {
 	test("writes review logs through brmem put", async () => {
-		const execApi = new ScriptedCommandExecApi([
-			{
-				stdout: JSON.stringify({
-					exit_code: 0,
-					data: {
-						namespace: "roaster",
-						key: "reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
-						branch: "feature",
-						ref_name:
-							"refs/brmem/ns/roaster/feature:reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
-						commit: "abc123",
-						source_file: "/tmp/review.md",
-					},
-				}),
-			},
-		]);
+		const execApi = new EchoPutCommandExecApi();
 		const gateway = new RealReviewLogGateway({ execApi });
 
 		const result = await gateway.writeReviewLog({

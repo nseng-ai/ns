@@ -6,9 +6,11 @@ import { formatErrorMessage } from "@sdl/core/primitives";
 import { catalogOptions, environmentOptions, type RoasterRuntime } from "../context.ts";
 import type { ReviewLogFailure, RoasterFailure, RoasterResult } from "../failures.ts";
 import { isMissingFileError } from "../gateways/filesystem-errors.ts";
+import type { ReviewSource } from "../gateways/review-catalog.ts";
 import { renderReviewLogMarkdown, type ReviewLogWriteResult } from "../gateways/review-log.ts";
 import {
 	reviewRunResultSchema,
+	type LocalDiff,
 	type ReviewDefinition,
 	type ReviewExecutionResponse,
 	type ReviewRunResult,
@@ -68,68 +70,61 @@ interface ReviewLogMetadata {
 	readonly headCommit: string;
 }
 
+export interface LoadReviewExecutionContextRequest {
+	readonly reviewKey: string;
+	readonly baseRef?: string | undefined;
+}
+
+export interface ReviewExecutionContext {
+	readonly source: ReviewSource;
+	readonly definition: ReviewDefinition;
+	readonly config: RoasterProjectConfig;
+	readonly diff: LocalDiff;
+}
+
 export async function runRoasterReview(
 	ctx: RoasterRuntime,
 	request: RunRoasterReviewRequest,
 ): Promise<RunRoasterReviewOutcome> {
-	const source = await ctx.reviewCatalog.loadReviewSource({
-		...catalogOptions(ctx.runScope),
-		key: request.key,
+	const loaded = await loadReviewExecutionContext(ctx, {
+		reviewKey: request.key,
+		...(request.baseRef === undefined ? {} : { baseRef: request.baseRef }),
 	});
-	if (source.type === "error") return { type: "failed", error: source.error };
+	if (loaded.type === "error") return { type: "failed", error: loaded.error };
+	const { source, definition, config, diff } = loaded.value;
 
-	const parsed = parseReviewDefinition(source.value.source, { name: source.value.key });
-	if (parsed.type === "error") {
-		return {
-			type: "failed",
-			error: {
-				type: "review_definition_invalid",
-				message: parsed.error.message,
-			},
-		};
-	}
-
-	const config = await loadProjectConfigFromContext(ctx);
-	if (config.type === "error") return { type: "failed", error: config.error };
-	const resolved = resolveReviewModel(request, parsed.definition, config.value);
+	const resolved = resolveReviewModel(request, definition, config);
 	if (resolved.type === "error") return { type: "failed", error: resolved.error };
 	const model = resolved.value;
 
-	const diff = await ctx.localDiff.loadDiff({
-		...environmentOptions(ctx.runScope),
-		...(request.baseRef === undefined ? {} : { baseRef: request.baseRef }),
-		excludeGlobs: config.value.diff.exclude,
-	});
-	if (diff.type === "error") return { type: "failed", error: diff.error };
-
 	const progress: RunRoasterReviewProgress = {
-		reviewKey: source.value.key,
-		reviewPath: source.value.path,
+		reviewKey: source.key,
+		reviewPath: source.path,
 		modelProfile: model.modelProfile,
 		model: model.model,
-		baseRef: diff.value.baseRef,
-		changedPathCount: diff.value.changedPaths.length,
+		baseRef: diff.baseRef,
+		changedPathCount: diff.changedPaths.length,
 	};
 
 	const response = await ctx.reviewRunner.runReview(
 		{
 			model: model.model,
-			reviewDefinition: parsed.definition,
-			target: { localDiff: diff.value },
+			reviewDefinition: definition,
+			target: { localDiff: diff },
 		},
 		environmentOptions(ctx.runScope),
 	);
 	if (response.type === "error") return { type: "failed", error: response.error };
 
 	const result = reviewRunResult(
-		source.value.key,
-		source.value.path,
+		source.key,
+		source.path,
 		model.model,
-		diff.value.baseRef,
+		diff.baseRef,
 		response.value,
 	);
 	const logResult = await writeReviewRunLog(ctx, {
-		reviewKey: source.value.key,
+		reviewKey: source.key,
 		result,
 		...(request.logBranch === undefined ? {} : { logBranch: request.logBranch }),
 	});
@@ -141,6 +136,48 @@ export async function runRoasterReview(
 	}
 
 	return { type: "completed", result, logEntry: logResult.value, progress };
+}
+
+export async function loadReviewExecutionContext(
+	ctx: RoasterRuntime,
+	request: LoadReviewExecutionContextRequest,
+): Promise<RoasterResult<ReviewExecutionContext>> {
+	const source = await ctx.reviewCatalog.loadReviewSource({
+		...catalogOptions(ctx.runScope),
+		key: request.reviewKey,
+	});
+	if (source.type === "error") return source;
+
+	const parsed = parseReviewDefinition(source.value.source, { name: source.value.key });
+	if (parsed.type === "error") {
+		return {
+			type: "error",
+			error: {
+				type: "review_definition_invalid",
+				message: parsed.error.message,
+			},
+		};
+	}
+
+	const config = await loadProjectConfigFromContext(ctx);
+	if (config.type === "error") return config;
+
+	const diff = await ctx.localDiff.loadDiff({
+		...environmentOptions(ctx.runScope),
+		...(request.baseRef === undefined ? {} : { baseRef: request.baseRef }),
+		excludeGlobs: config.value.diff.exclude,
+	});
+	if (diff.type === "error") return diff;
+
+	return {
+		type: "ok",
+		value: {
+			source: source.value,
+			definition: parsed.definition,
+			config: config.value,
+			diff: diff.value,
+		},
+	};
 }
 
 export async function writeReviewRunLog(
