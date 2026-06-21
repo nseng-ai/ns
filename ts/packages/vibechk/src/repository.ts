@@ -12,84 +12,44 @@ import {
 	type GitResult,
 } from "@sdl/core/git";
 
+import type { GitProvenance } from "./models.ts";
 import { VibechkError } from "./store.ts";
 
 const GIT_TIMEOUT_MS = 10_000;
 
-export interface GitProvenance {
-	repoRoot: string;
-	startingBranch: string;
-	startingCommit: string;
-	remotes: Record<string, string>;
-}
-
-export interface VibechkRepositoryGateway {
-	repoRoot(): Promise<string>;
-	currentBranch(): Promise<string>;
-	currentCommit(): Promise<string>;
-	remotes(): Promise<Record<string, string>>;
+export interface VibechkWorkdirGateway {
+	readProvenance(): Promise<GitProvenance>;
 	isClean(): Promise<boolean>;
 	diffPatch(): Promise<string>;
 	hasChanges(): Promise<boolean>;
 	createResultBranchAndCommit(branch: string, message: string): Promise<void>;
-	checkout(branch: string): Promise<void>;
+	restoreBranch(branch: string): Promise<void>;
 }
 
-export class RealVibechkRepositoryGateway implements VibechkRepositoryGateway {
+export interface RealVibechkWorkdirGatewayOptions {
+	workdir: string;
+	execApi?: CommandExecApi | undefined;
+	coreGit?: GitGateway | undefined;
+}
+
+export class RealVibechkWorkdirGateway implements VibechkWorkdirGateway {
 	private readonly workdir: string;
 	private readonly execApi: CommandExecApi;
 	private readonly coreGit: GitGateway;
 
-	constructor(workdir: string, execApi: CommandExecApi = new NodeCommandExecApi()) {
-		this.workdir = workdir;
-		this.execApi = execApi;
-		this.coreGit = new RealGitGateway(execApi);
+	constructor(options: RealVibechkWorkdirGatewayOptions) {
+		this.workdir = options.workdir;
+		this.execApi = options.execApi ?? new NodeCommandExecApi();
+		this.coreGit = options.coreGit ?? new RealGitGateway(this.execApi);
 	}
 
-	async repoRoot(): Promise<string> {
-		const result = await this.coreGit.repoRoot({ cwd: this.workdir });
-		return this.unwrapGitResult(result, `Workdir ${this.workdir} is not a git repository.`);
-	}
-
-	async currentBranch(): Promise<string> {
-		const result = await this.coreGit.currentBranch({ cwd: this.workdir });
-		if (result.type === "branch") return result.branch;
-		if (result.type === "detached") {
-			throw new VibechkError(
-				`Could not determine current branch in ${this.workdir}\nDetached HEAD.`,
-			);
-		}
-		if (isMissingExecutableError(result.error.message)) {
-			throw new VibechkError("git is not installed or not on PATH.");
-		}
-		throw new VibechkError(
-			`Could not determine current branch in ${this.workdir}\n${result.error.message}`,
-		);
-	}
-
-	async currentCommit(): Promise<string> {
-		const result = await this.coreGit.headCommit({ cwd: this.workdir });
-		return this.unwrapGitResult(result, `Could not determine current commit in ${this.workdir}`);
-	}
-
-	async remotes(): Promise<Record<string, string>> {
-		const output = await this.runGit(
-			["remote", "-v"],
-			`Could not list git remotes in ${this.workdir}`,
-		);
-		const remotes: Record<string, string> = {};
-		for (const line of output.split("\n")) {
-			const parts = line.split(/\s+/u);
-			if (
-				parts.length >= 2 &&
-				parts[0] !== undefined &&
-				parts[1] !== undefined &&
-				!(parts[0] in remotes)
-			) {
-				remotes[parts[0]] = parts[1];
-			}
-		}
-		return remotes;
+	async readProvenance(): Promise<GitProvenance> {
+		return {
+			repoRoot: await this.repoRoot(),
+			startingBranch: await this.currentBranch(),
+			startingCommit: await this.currentCommit(),
+			remotes: await this.remotes(),
+		};
 	}
 
 	async isClean(): Promise<boolean> {
@@ -125,8 +85,54 @@ export class RealVibechkRepositoryGateway implements VibechkRepositoryGateway {
 		await this.runGit(["commit", "-m", message], `Could not commit vibechk changes on ${branch}`);
 	}
 
-	async checkout(branch: string): Promise<void> {
+	async restoreBranch(branch: string): Promise<void> {
 		await this.runGit(["switch", branch], `Could not switch back to branch ${branch}`);
+	}
+
+	private async repoRoot(): Promise<string> {
+		const result = await this.coreGit.repoRoot({ cwd: this.workdir });
+		return this.unwrapGitResult(result, `Workdir ${this.workdir} is not a git repository.`);
+	}
+
+	private async currentBranch(): Promise<string> {
+		const result = await this.coreGit.currentBranch({ cwd: this.workdir });
+		if (result.type === "branch") return result.branch;
+		if (result.type === "detached") {
+			throw new VibechkError(
+				`Could not determine current branch in ${this.workdir}\nDetached HEAD.`,
+			);
+		}
+		if (isMissingExecutableError(result.error.message)) {
+			throw new VibechkError("git is not installed or not on PATH.");
+		}
+		throw new VibechkError(
+			`Could not determine current branch in ${this.workdir}\n${result.error.message}`,
+		);
+	}
+
+	private async currentCommit(): Promise<string> {
+		const result = await this.coreGit.headCommit({ cwd: this.workdir });
+		return this.unwrapGitResult(result, `Could not determine current commit in ${this.workdir}`);
+	}
+
+	private async remotes(): Promise<Record<string, string>> {
+		const output = await this.runGit(
+			["remote", "-v"],
+			`Could not list git remotes in ${this.workdir}`,
+		);
+		const remotes: Record<string, string> = {};
+		for (const line of output.split("\n")) {
+			const parts = line.split(/\s+/u);
+			if (
+				parts.length >= 2 &&
+				parts[0] !== undefined &&
+				parts[1] !== undefined &&
+				!(parts[0] in remotes)
+			) {
+				remotes[parts[0]] = parts[1];
+			}
+		}
+		return remotes;
 	}
 
 	private unwrapGitResult<T>(result: GitResult<T>, errorMessage: string): T {

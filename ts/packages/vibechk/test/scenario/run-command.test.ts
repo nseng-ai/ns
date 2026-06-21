@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { runScenario } from "../support/run-scenario.ts";
 import { FakeRunner } from "../support/fake-runner.ts";
-import { FakeVibechkRepositoryGateway } from "../support/fake-repository-gateway.ts";
+import { FakeVibechkWorkdirGateway } from "../support/fake-repository-gateway.ts";
 import { runCli } from "../../src/cli.ts";
 import { RunnerRegistry } from "../../src/runners.ts";
 
@@ -35,7 +35,7 @@ describe("vibechk run command", () => {
 			metricsByWorkdir: { workdir: { wallTimeSeconds: 1.5, totalTokens: 100 } },
 		});
 
-		const fakeRepository = new FakeVibechkRepositoryGateway({
+		const fakeRepository = new FakeVibechkWorkdirGateway({
 			repoRoot: "/tmp/repo",
 			currentBranch: "main",
 			currentCommit: "abc123",
@@ -80,7 +80,7 @@ describe("vibechk run command", () => {
 		expect(exitCode).toBe(0);
 		expect(stdout.join("")).toContain("Run ID: testrun1");
 		expect(fakeRepository.getCreatedBranches()).toEqual(["vibechk/testrun1"]);
-		expect(fakeRepository.getCheckoutHistory()).toEqual(["main"]);
+		expect(fakeRepository.getRestoreHistory()).toEqual(["main"]);
 
 		const showRun = runScenario(["show", "testrun1", "--store", storeRoot]);
 		expect(await showRun.exit).toBe(0);
@@ -104,7 +104,7 @@ describe("vibechk run command", () => {
 			changesByWorkdir: { workdir: "failed output\n" },
 		});
 
-		const fakeRepository = new FakeVibechkRepositoryGateway({
+		const fakeRepository = new FakeVibechkWorkdirGateway({
 			currentBranch: "main",
 			isClean: true,
 		});
@@ -157,7 +157,7 @@ describe("vibechk run command", () => {
 
 		const fakeRunner = new FakeRunner({});
 
-		const fakeRepository = new FakeVibechkRepositoryGateway({
+		const fakeRepository = new FakeVibechkWorkdirGateway({
 			currentBranch: "main",
 			isClean: true,
 			hasChanges: false,
@@ -194,7 +194,7 @@ describe("vibechk run command", () => {
 
 		expect(exitCode).toBe(0);
 		expect(fakeRepository.getCreatedBranches()).toEqual([]);
-		expect(fakeRepository.getCheckoutHistory()).toEqual([]);
+		expect(fakeRepository.getRestoreHistory()).toEqual([]);
 
 		const showRun = runScenario(["show", "nochange", "--store", storeRoot]);
 		expect(await showRun.exit).toBe(0);
@@ -208,7 +208,7 @@ describe("vibechk run command", () => {
 		await writeFile(planPath, "# Plan\n", "utf-8");
 
 		const fakeRunner = new FakeRunner({});
-		const fakeRepository = new FakeVibechkRepositoryGateway({
+		const fakeRepository = new FakeVibechkWorkdirGateway({
 			currentBranch: "main",
 			isClean: false,
 		});
@@ -272,7 +272,7 @@ describe("vibechk run command", () => {
 		let timeIndex = 0;
 
 		const runBaseline = async (): Promise<number> => {
-			const fakeRepository = new FakeVibechkRepositoryGateway({
+			const fakeRepository = new FakeVibechkWorkdirGateway({
 				currentBranch: "main",
 				isClean: true,
 			});
@@ -309,7 +309,7 @@ describe("vibechk run command", () => {
 		};
 
 		const runTreatment = async (): Promise<number> => {
-			const fakeRepository = new FakeVibechkRepositoryGateway({
+			const fakeRepository = new FakeVibechkWorkdirGateway({
 				currentBranch: "main",
 				isClean: true,
 			});
