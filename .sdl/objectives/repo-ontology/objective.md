@@ -12,43 +12,42 @@ Current known documentation surface:
 
 The list below is the current known context inventory to keep fresh, not a frozen final inventory. When tracked packages, extension surfaces, or substantial repo-local domain-language surfaces change, the Objective should update the relevant context/map/docs rather than treating the old inventory as authoritative.
 
-- Root repo context: `CONTEXT.md` for Objective-system vocabulary.
+The repo is now an all-TypeScript pnpm workspace. The former first-party Python `packages/*` tree has been fully ported to TypeScript, retired, or deleted as migration reference — there are no tracked Python workspace packages, and no Python `CONTEXT.md` targets remain. The repository namespace was renamed from `asdl` to `sdl` (landed on trunk 2026-06-20), so every package name is now `@sdl/*` (the lone exception is the unscoped `sdlcc`). Any leftover `ts/packages/asdl-core/` and `ts/packages/asdl-dev/` directories are untracked build residue (only `node_modules`), not tracked packages.
+
+- Root repo context: `CONTEXT.md` — Objective-system vocabulary plus the repo-wide Architecture Boundaries (Gateway / Domain logic) section.
 - Repo map: `CONTEXT-MAP.md` as the navigation index and relationship/ambiguity rollup.
-- Python package contexts:
-  - `packages/areg/CONTEXT.md` — agent-resource bootstrap, persistent/transient skill workflows, skill checks, managed instruction blocks, and `skillx` helper vocabulary.
-  - `packages/asdl-core/CONTEXT.md` — single context file with H2 sections for Clinkr, Git, Gt, Gh, Top-level utilities, and Sessions.
-  - `packages/asdl-handoff/CONTEXT.md` — directed handoff artifact inventory and garbage-collection vocabulary over Branch Memory storage.
-  - `packages/brmem/CONTEXT.md` — Branch Memory primitive vocabulary.
-  - `packages/asdl-pr-address/CONTEXT.md` — PR review-thread/comment/addressing vocabulary.
-  - `packages/roaster/CONTEXT.md` — review harness, finding, and posting vocabulary.
-  - `packages/asdl-slots/CONTEXT.md` — worktree slot and explicit `slot gt` vocabulary.
-  - `packages/asdl-objectives/CONTEXT.md` — Objective CLI package vocabulary, including archive/status/list/exec surfaces.
-  - `packages/packagechk/CONTEXT.md` — standalone package-name availability and claimability vocabulary.
-  - `packages/aretro/CONTEXT.md` — branch retrospective evidence CLI vocabulary.
-  - `packages/vibechk/CONTEXT.md` — agent-context evaluation run, bundle, metric, runner, and comparison-report vocabulary.
-- TypeScript contexts:
-  - `ts/packages/asdl-dev/CONTEXT.md` — repo-local developer CLI vocabulary for `preview-url`, `cp`, `submit`, command execution, Vercel preview resolution, checkpoint text generation, and Graphite submission.
-  - `ts/packages/pi-extensions/CONTEXT.md` — project-local Pi discovery adapters, engineered extension layer, command mirrors, planned/autobranch flows, runner subagents, terminal/CLI output presentation, and runtime CLI edges.
-  - `ts/packages/pi-extension-runtime/CONTEXT.md` — neutral Pi extension runtime helper vocabulary (command presentation, Branch Memory command helpers, machine-envelope parsing, skill expansion, Objective picker/selection); landed from an adjacent Objective and is now part of the surface to keep fresh.
-  - `ts/packages/ccc/CONTEXT.md` — CCC (Cmux Command and Control) orchestration-layer vocabulary for Pi/cmux/Graphite/Objective/handoff/branch-context/autobranch/land command-and-control and worktree-status observability; landed from an adjacent Objective and is now part of the surface to keep fresh.
-- TypeScript packages without a recorded context decision: `@asdl/core` (`ts/packages/asdl-core`), `@asdl/clinkr`, `@asdl/branch-context` (`ts/packages/branch-context`, renamed on trunk from `@asdl/planned-branch`), `@asdl/plans` (CLI/skills now surfaced as `enriched-plan`; package name unchanged), and `@asdl/pr-address` are tracked workspace packages created by the adjacent TypeScript-port Objectives. Each needs a deliberate planned / accepted-from-adjacent / out-of-scope decision in the Phase 15.5 rebaseline rather than silent absence from the map.
+- TypeScript workspace: 20 tracked packages under `ts/packages/`.
 
-Current backlog from the prior finite sweep:
+Present package contexts (six packages, plus root and map):
 
-- Completed foundation — old Phases 0 through 2: map scaffold/rebaselines, root/Pi/asdl-core contexts, brmem context, and brmem terminology alignment.
-- Phase 3 — current-checkout map catch-up: update `/CONTEXT-MAP.md` so it no longer lags the completed brmem context or the post-merge package inventory.
-- Phase 4 — post-merge Objective rebaseline: record that the outstanding-change batch has landed, update this Objective's closure target, and add context phases for new package/TypeScript surfaces.
-- Phases 5 through 15 — one focused context or rebaseline slice at a time: `areg`, `asdl-handoff`, `asdl-pr-address`, `roaster`, `asdl-slots`, `asdl-objectives`, `packagechk`, `aretro`, `vibechk`, `asdl-dev`, and a refresh of `@asdl/pi-extensions`.
-- Phase 15.5 — TypeScript workspace rebaseline: catch `/CONTEXT-MAP.md` up to the nine-package TypeScript workspace, decide context status for the five new port/foundation packages, and verify the adjacent-Objective `ccc` and `pi-extension-runtime` contexts against this Objective's contract.
-- Phase 16 — final `/CONTEXT-MAP.md` relationship/ambiguity/readback pass for the current backlog. If future drift discovers new in-scope contexts, update the roadmap rather than treating Phase 16 as fixed.
+- `ts/packages/handoff/CONTEXT.md` — `@sdl/handoff` directed handoff artifact vocabulary over Branch Memory storage.
+- `ts/packages/brmem/CONTEXT.md` — `@sdl/brmem` Branch Memory primitive vocabulary.
+- `ts/packages/ccc/CONTEXT.md` — `@sdl/ccc` (Cmux Command and Control) orchestration-layer vocabulary.
+- `ts/packages/pi-extension-runtime/CONTEXT.md` — `@sdl/pi-extension-runtime` neutral Pi extension runtime helper vocabulary.
+- `ts/packages/pi-extensions/CONTEXT.md` — `@sdl/pi-extensions` repo-local Pi discovery/extension vocabulary (still needs a focused refresh against the full current extension inventory).
+- `ts/packages/sdl/CONTEXT.md` — `@sdl/sdl` Source Development Lifecycle CLI vocabulary, including `@sdl/sdl/sdk` as the public SDL extension API.
+
+Planned package contexts (recorded as *Planned* in `CONTEXT-MAP.md`, awaiting focused domain-language sessions):
+
+- `@sdl/areg` — agent-resource bootstrap and skill-workflow vocabulary.
+- `@sdl/roaster` — CI PR-diff review/findings vocabulary.
+- `@sdl/slot` — worktree slot and explicit `slot gt` vocabulary.
+- `@sdl/objective` — Objective CLI package vocabulary (records/statuses/archive/exec).
+- `@sdl/packagechk` — standalone package-name availability/claimability vocabulary.
+- `@sdl/aretro` — deterministic branch-retrospective evidence vocabulary.
+- `@sdl/vibechk` — standalone agent-context evaluation vocabulary.
+
+Tracked packages with no recorded context decision yet: `@sdl/core` (dir `ts/packages/sdl-core`), `@sdl/clinkr`, `@sdl/branch-context`, `@sdl/plans` (CLI/skills surfaced as `enriched-plan`), `@sdl/pr-address`, `@sdl/pi-command-surfaces`, and the unscoped `sdlcc`. Each needs a deliberate planned / accepted-from-adjacent / out-of-scope decision recorded in the map rather than silent absence.
+
+Out of scope per the map: `sdl-initiatives` (no tracked package exists) and `sdl-reviewer` (historical identity replaced by `roaster`). Do not recreate either unless the package itself returns as a tracked package.
 
 Each context-writing phase is expected to explicitly invoke `grill-me` for focused terminology/readback decisions, or `grill-with-docs` when the same grilling session should update documentation inline. A package context may be accepted from an adjacent Objective only when it conforms to this Objective's contract: Language entries with `Avoid:` aliases where relevant, followed by Relationships, with map-level collisions either resolved locally or carried forward deliberately.
 
 ## Non-Goals
 
-- Do not split `asdl-core` into per-subpackage `CONTEXT.md` files. Keep it as a single file with H2 sections until a subpackage actually graduates to a standalone package.
-- Do not create `CONTEXT.md` for `asdl-dispatcher` while it remains a tracked CLI stub with no live operations.
-- Do not create or reserve context slots for historical or absent package names such as `asdl-initiatives` or `asdl-reviewer` unless tracked implementation returns as a real package.
+- Do not recreate any Python `packages/*` paths or `CONTEXT.md` files. The Python workspace is gone; authoring against old Python paths is a regression.
+- Do not split `@sdl/core` into per-subpackage `CONTEXT.md` files. Keep it as a single file with H2 sections until a subpackage actually graduates to a standalone package.
+- Do not create or reserve context slots for historical or absent package names such as `sdl-initiatives` or `sdl-reviewer` unless tracked implementation returns as a real package.
 - Do not invent a documentation generator, linter, registry, YAML/frontmatter schema, UUIDs, or hidden Objective state. The Markdown contexts and map are the contract.
 - Do not auto-generate glossaries from AST/source scans. Source inspection is evidence; the value is human-led vocabulary choice and ambiguity resolution.
 - Do not turn package-context phases into broad implementation projects. If a context session reveals code/docs/product terminology mismatch, record the mismatch and handle any required alignment as a focused follow-up rather than expanding the context slice.
@@ -99,27 +98,25 @@ This Objective is execution-friendly for `objective-next` under the boundaries b
 Assumptions:
 
 - The `grill-with-docs` output shape remains the right context format: Language entries, `Avoid:` aliases where useful, and Relationships. This Objective is not designing a new documentation framework.
-- The current tracked package inventory is the post-merge baseline: 12 workspace Python packages are tracked, with `asdl-dispatcher` out of context scope because its group still has no live operations; the in-scope Python context target is the other 11 packages.
-- Revised (2026-06): the old assumption of two repo-local TypeScript package contexts (`asdl-dev`, `@asdl/pi-extensions`) is no longer the baseline. The TypeScript workspace now has nine tracked packages: those two plus `@asdl/pi-extension-runtime` and `@asdl/ccc` (both with present context files landed from adjacent Objectives) and `@asdl/core`, `@asdl/clinkr`, `@asdl/branch-context`, `@asdl/plans`, and `@asdl/pr-address` (no context decision recorded yet). The count is still nine, but `@asdl/planned-branch` was renamed to `@asdl/branch-context` on trunk (mid-2026-06), so any context decision now targets the surviving name.
-- Bottom-up sequencing still helps, but the context queue is larger than the old coarse Phase 3. Smaller phases should reduce stale tracking and make each package-context session independently reviewable.
-- Adjacent Objectives may land conforming context sections. Those sections can satisfy repo-ontology rows if they meet this Objective's shape and relationship/ambiguity requirements. Confirmed in practice (2026-06): `ts/packages/ccc/CONTEXT.md` and `ts/packages/pi-extension-runtime/CONTEXT.md` landed from adjacent Objectives; conformance verification is tracked as Phase 15.5 work.
+- The post-rename baseline is all-TypeScript: 20 tracked packages under `ts/packages/`, all named `@sdl/*` except the unscoped `sdlcc`, with no tracked Python workspace packages. Six packages have present contexts (`handoff`, `brmem`, `ccc`, `pi-extension-runtime`, `pi-extensions`, `sdl`); the rest are either planned, accepted-from-adjacent, or undecided in the map.
+- `CONTEXT-MAP.md` has already been rebaselined to this all-TypeScript, all-`@sdl/*` world (Present/Planned/Out-of-scope sections, relationships, and ambiguities). The remaining gap is mostly in this Objective's own roadmap and in a handful of undecided packages, not in the map's overall framing.
+- Bottom-up sequencing still helps: each remaining package-context session should be independently reviewable and leave durable value even if closure is deferred.
+- Adjacent Objectives may land conforming context sections. `ts/packages/ccc/CONTEXT.md` and `ts/packages/pi-extension-runtime/CONTEXT.md` landed this way and are present; future adjacent contexts can satisfy rows only if they meet this Objective's shape and relationship/ambiguity requirements.
 
 Risks:
 
-- Inventory drift has already materialized multiple times and more drift remains possible before closure: `packagechk`, `@asdl/pi-extensions`, Objective archive mechanics, `roaster`, `aretro`, asdl-core Sessions, brmem Base Namespace terminology, `areg`, `asdl-handoff`, `vibechk`, `asdl-dev`, and the 2026-06 TypeScript workspace expansion (`@asdl/pi-extension-runtime`, `@asdl/ccc`, `@asdl/core`, `@asdl/clinkr`, `@asdl/branch-context`, `@asdl/plans`, `@asdl/pr-address`) all changed the closure target after the initial scaffold. Mitigation: handle drift as focused rebaseline/update phases (Phase 4, Phase 15.5) rather than silently widening an unrelated package session.
-- Map drift (brmem-era, resolved): the Phase 3 catch-up landed; `/CONTEXT-MAP.md` now marks brmem present and carries `areg`, `asdl-handoff`, `vibechk`, and `asdl-dev` as planned contexts.
-- Map drift (TypeScript-era, open): `/CONTEXT-MAP.md`'s Inventory Baseline still claims four repo-local TypeScript packages while nine are tracked, and records no context decision for `@asdl/core`, `@asdl/clinkr`, `@asdl/branch-context`, `@asdl/plans`, or `@asdl/pr-address`. The map's Relationships section has already absorbed the `@asdl/branch-context` rename, so the baseline is now both stale-incomplete and inconsistent with the map's own relationship vocabulary. Mitigation: the Phase 15.5 rebaseline owns this catch-up.
-- TypeScript-port Objectives may replace Python package surfaces mid-sweep: `pr-address-typescript-port` now owns the `pr-address` consumer migration to `@asdl/pr-address`, which can invalidate the planned Python `asdl-pr-address` context slice before it runs. Mitigation: re-derive affected slices against the cutover plan (tracked in Phase 15.5) instead of documenting a surface that is being retired.
-- Runtime-boundary drift between `asdl-dev` and `@asdl/pi-extensions` could duplicate command vocabulary. Mitigation: assign CLI command semantics to `asdl-dev`; assign Pi discovery, command mirroring, UI/presentation, and runtime adapter semantics to `@asdl/pi-extensions`.
+- Inventory drift has materialized repeatedly and remains the dominant risk: the whole Python tree was deleted and ported to TypeScript, every package was renamed `asdl→sdl`, and packages such as `@sdl/pi-command-surfaces` and the unscoped `sdlcc` exist with no recorded context decision. Mitigation: handle drift as focused rebaseline/update phases against current source, never by silently widening an unrelated package session.
+- Map-vs-tree count drift (open): `CONTEXT-MAP.md`'s Inventory Baseline says "19 repo-local packages" while 20 `ts/packages/*` package.json files are tracked. Mitigation: a focused map catch-up row should re-derive the exact count and the undecided-package list, not guess.
+- Undecided packages absent from the map (open): `@sdl/core`, `@sdl/clinkr`, `@sdl/branch-context`, `@sdl/plans`, `@sdl/pr-address`, `@sdl/pi-command-surfaces`, and `sdlcc` have no recorded planned/accepted/out-of-scope decision. Mitigation: record an explicit decision per package rather than leaving silent absence.
 - Cross-context ambiguity can grow into unresolved debate. Mitigation: local contexts pick package-local canonical terms; the map records only concise resolved collisions, not open-ended discussion.
 - Grilling appetite may drop before all package contexts are complete. Mitigation: each remaining package phase is self-contained and leaves durable value even if closure is deferred.
 - Source archaeology can swamp vocabulary work. Mitigation: source scans prove edges and find candidate terms, but human grilling/readback decides canonical language.
-- A future asdl-core subpackage graduation could invalidate the single-file H2 boundary. Mitigation: treat graduation as a separate package move that owns splitting the context then; it is not a blocker for this Objective.
+- A future `@sdl/core` subpackage graduation could invalidate the single-file H2 boundary. Mitigation: treat graduation as a separate package move that owns splitting the context then; it is not a blocker for this Objective.
 
 ## Open Questions
 
-- Should `/CONTEXT-MAP.md` link into `asdl-core`'s H2 sections individually (e.g. `Clinkr → packages/asdl-core/CONTEXT.md#clinkr`), or treat `asdl-core` as a single linked context? — *Provisional answer:* keep one asdl-core context entry with inline H2 anchors; revisit during final readback.
+- Should `/CONTEXT-MAP.md` link into `@sdl/core`'s H2 sections individually (e.g. `Clinkr → ts/packages/sdl-core/CONTEXT.md#clinkr`), or treat `@sdl/core` as a single linked context? — *Provisional answer:* keep one `@sdl/core` context entry with inline H2 anchors when it is authored; revisit during final readback.
 - When a cross-context ambiguity is severe, is the right response to canonicalize a single repo-wide name, or preserve package-local names with the boundary documented? — *Provisional answer:* preserve package-local names when the underlying concepts differ; use `Avoid:` aliases and map entries to prevent accidental synonym collapse.
 - Which additional contexts, edges, or ambiguities will future trunk changes add before closure, and should they be inserted as new package/context phases or grouped as one new surface phase?
 - Once the sweep is done, what is the maintenance cadence — opportunistic updates on PRs that touch domain language, or a periodic re-grilling cycle?
-- A `docs/adr/` corpus now exists (ADRs 0001–0006, landed by adjacent vocabulary Objectives such as additive-plan-vocabulary and branch-context). The thesis treats `grill-with-docs`-maintained ADRs as part of the documentation surface, but `/CONTEXT-MAP.md` does not index them. Should the map index the ADR corpus as a navigable surface, or do ADRs stay out of the map and only get touched when the Parked three-criteria authoring bar fires? — *Leaning:* keep ADR authoring parked, but consider a single map pointer to `docs/adr/` during the Phase 16 readback so contributors can find decisions from the map.
+- A `docs/adr/` corpus now exists (ADRs 0001–0007, landed by adjacent vocabulary Objectives). The thesis treats `grill-with-docs`-maintained ADRs as part of the documentation surface, but `/CONTEXT-MAP.md` does not index them. Should the map index the ADR corpus as a navigable surface, or do ADRs stay out of the map and only get touched when the Parked three-criteria authoring bar fires? — *Leaning:* keep ADR authoring parked, but consider a single map pointer to `docs/adr/` during the final readback so contributors can find decisions from the map.
