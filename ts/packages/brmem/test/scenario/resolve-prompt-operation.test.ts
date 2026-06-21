@@ -8,11 +8,15 @@ const repoRoot = "/workspace/repo";
 const homeRoot = "/home/tester";
 
 function projectPrompt(name: string): string {
-	return join(repoRoot, ".brmem", "prompts", `${name}.md`);
+	return join(repoRoot, ".sdl", "prompts", `${name}.md`);
 }
 
 function xdgGlobalPrompt(name: string): string {
 	return join(homeRoot, ".config", "sdl", "brmem", "prompts", `${name}.md`);
+}
+
+function legacyProjectPrompt(name: string): string {
+	return join(repoRoot, ".brmem", "prompts", `${name}.md`);
 }
 
 function legacyGlobalPrompt(name: string): string {
@@ -48,17 +52,17 @@ describe("brmem exec resolve-prompt", () => {
 		});
 	});
 
-	it("falls back to legacy global prompt after XDG global prompt", async () => {
+	it("does not resolve legacy project or global prompt paths", async () => {
 		const run = runScenario(["exec", "resolve-prompt", "foo", "--format", "json"], {
 			repoRoot,
 			homeRoot,
-			promptFiles: [legacyGlobalPrompt("foo")],
+			promptFiles: [legacyProjectPrompt("foo"), legacyGlobalPrompt("foo")],
 		});
 
-		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toEqual({
-			exit_code: 0,
-			data: { path: legacyGlobalPrompt("foo"), tier: "global" },
+		expect(await run.exit).toBe(2);
+		expect(parseJsonOutput(run)).toMatchObject({
+			exit_code: 2,
+			error_type: "prompt-not-found",
 		});
 	});
 
@@ -91,7 +95,8 @@ describe("brmem exec resolve-prompt", () => {
 		expect(payload.error_type).toBe("prompt-not-found");
 		expect(payload.message).toContain(projectPrompt("foo"));
 		expect(payload.message).toContain(xdgGlobalPrompt("foo"));
-		expect(payload.message).toContain(legacyGlobalPrompt("foo"));
+		expect(payload.message).not.toContain(legacyProjectPrompt("foo"));
+		expect(payload.message).not.toContain(legacyGlobalPrompt("foo"));
 		expect(payload.message).toContain("just install-tools");
 	});
 

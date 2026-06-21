@@ -339,13 +339,50 @@ describe("loadAttachedPlan", () => {
 		});
 	});
 
-	test("loads a single legacy plan.md entry without an explicit key", async () => {
-		const pi = new FakePi(successfulLoadScript({ key: LEGACY_PLAN_KEY }));
+	test("rejects a single legacy plan.md entry without loading it", async () => {
+		const pi = new FakePi([
+			gitRootStep(),
+			gitCurrentBranchStep(),
+			...gitDefaultBranchProbeSteps(),
+			brmemListStep(PLAN_BRANCH, { stdout: listEnvelope(PLAN_BRANCH, [{ key: LEGACY_PLAN_KEY }]) }),
+		]);
+
+		await expect(
+			loadAttachedPlan(pi, {}, { cwd: ROOT, context: branchContext(pi) }),
+		).rejects.toThrow(/No supported branch-context plan entries[\s\S]*plan\.md/);
+
+		pi.assertDone();
+	});
+
+	test("rejects an explicit legacy plan.md key before reading content", async () => {
+		const pi = new FakePi([
+			gitRootStep(),
+			gitCurrentBranchStep(),
+			...gitDefaultBranchProbeSteps(),
+			brmemListStep(PLAN_BRANCH, { stdout: listEnvelope(PLAN_BRANCH, [{ key: LEGACY_PLAN_KEY }]) }),
+		]);
+
+		await expect(
+			loadAttachedPlan(
+				pi,
+				{ requestedKey: LEGACY_PLAN_KEY },
+				{ cwd: ROOT, context: branchContext(pi) },
+			),
+		).rejects.toThrow(/Legacy branch-context key plan\.md is no longer supported/);
+
+		pi.assertDone();
+	});
+
+	test("auto-selection ignores legacy plan.md when one supported plan exists", async () => {
+		const pi = new FakePi(
+			successfulLoadScript({ entries: [{ key: LEGACY_PLAN_KEY }, { key: PLAN_KEY }] }),
+		);
 
 		const plan = await loadAttachedPlan(pi, {}, { cwd: ROOT, context: branchContext(pi) });
 
 		pi.assertDone();
-		expect(plan.selectedKey).toBe(LEGACY_PLAN_KEY);
+		expect(plan.selectedKey).toBe(PLAN_KEY);
+		expect(plan.availableKeys).toEqual([PLAN_KEY, LEGACY_PLAN_KEY]);
 	});
 
 	test("loads an explicit exact key", async () => {
@@ -366,7 +403,7 @@ describe("loadAttachedPlan", () => {
 				entries: [attachedPlanEntry("beta.md"), attachedPlanEntry("alpha.md")],
 			}),
 		).toThrow(
-			/Multiple branch-context entries[\s\S]*Pass an explicit branch-context key[\s\S]*- alpha\.md[\s\S]*- beta\.md/,
+			/Multiple supported branch-context plan entries[\s\S]*Pass an explicit named Markdown branch-context key[\s\S]*- alpha\.md[\s\S]*- beta\.md/,
 		);
 	});
 
@@ -374,10 +411,10 @@ describe("loadAttachedPlan", () => {
 		expect(() =>
 			selectAttachedPlanKey({
 				branch: PLAN_BRANCH,
-				requestedKey: "missing",
+				requestedKey: "missing.md",
 				entries: [attachedPlanEntry("alpha.md"), attachedPlanEntry("beta.md")],
 			}),
-		).toThrow(/Requested branch-context key `missing`[\s\S]*- alpha\.md[\s\S]*- beta\.md/);
+		).toThrow(/Requested branch-context key `missing\.md`[\s\S]*- alpha\.md[\s\S]*- beta\.md/);
 	});
 
 	test("rejects invalid requested keys before command selection", () => {

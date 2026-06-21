@@ -105,23 +105,6 @@ export function resolvePathOverride(options: {
 	return ok(expanded.value);
 }
 
-export function legacyHomePath(
-	env: Record<string, string | undefined>,
-	segments: readonly string[],
-): Result<string, XdgPathError> {
-	const home = env["HOME"];
-	if (home === undefined || home.length === 0) {
-		return err({ code: "home-not-set", message: "HOME environment variable is not set." });
-	}
-	if (!isAbsolute(home)) {
-		return err({
-			code: "home-not-absolute",
-			message: `HOME environment variable must be absolute: ${home}`,
-		});
-	}
-	return ok(join(home, ...segments));
-}
-
 export async function ensurePrivateDirectory(path: string): Promise<void> {
 	await mkdir(path, { recursive: true, mode: 0o700 });
 }

@@ -105,7 +105,7 @@ $XDG_STATE_HOME/sdl/slots/repos/<repo-name>/worktrees/slot-01/
 $XDG_STATE_HOME/sdl/slots/repos/<repo-name>/worktrees/slot-02/
 ```
 
-When `XDG_STATE_HOME` is unset, the default root is `$HOME/.local/state/sdl/slots`. `SLOTS_ROOT` remains an explicit absolute override (with `~/` expansion), which users can set to `~/.slots` if they want to keep using an existing legacy pool. Existing legacy worktrees are not moved automatically.
+When `XDG_STATE_HOME` is unset, the default root is `$HOME/.local/state/sdl/slots`. No slot-root override is supported; existing non-XDG legacy pools are not discovered automatically.
 
 Each `slot-XX` is an ordinary Git worktree. The pool is derived from `git worktree list`; there is no persisted branch-to-slot mapping or separate configured-size store.
 

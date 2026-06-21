@@ -574,6 +574,7 @@ describe("branch-context exec", () => {
 			brmem: {
 				entries: [
 					{ branch, key: PLAN_KEY },
+					{ branch, key: "plan.md" },
 					{ branch, key: "notes" },
 				],
 			},
@@ -581,6 +582,7 @@ describe("branch-context exec", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain(`- ${PLAN_KEY} (plan)`);
+		expect(run.stdout.join("")).toContain("- plan.md (unsupported legacy plan key)");
 		expect(run.stdout.join("")).toContain("- notes");
 	});
 

@@ -1,6 +1,6 @@
 import {
-	BRANCH_CONTEXT_LEGACY_PLAN_KEY,
 	BRANCH_CONTEXT_NAMESPACE,
+	UNSUPPORTED_ATTACHED_PLAN_KEY,
 	buildBranchContextPlanKey,
 } from "./constants.ts";
 import { normalizeRequestedBranchContextKey } from "./attached-plan.ts";
@@ -215,8 +215,8 @@ export function formatListEvidence(branch: string, entries: readonly AttachedPla
 	}
 	for (const entry of entries) {
 		const label =
-			entry.key === BRANCH_CONTEXT_LEGACY_PLAN_KEY
-				? " (legacy plan)"
+			entry.key === UNSUPPORTED_ATTACHED_PLAN_KEY
+				? " (unsupported legacy plan key)"
 				: entry.key.endsWith(".md")
 					? " (plan)"
 					: "";
@@ -283,8 +283,14 @@ async function resolveAttachSource(
 	if (params.key === undefined || params.filePath === undefined) {
 		throw new Error("Attach requires either --plan <slug> or <key> --file <path>.");
 	}
+	const key = normalizeRequestedBranchContextKey(params.key);
+	if (key === UNSUPPORTED_ATTACHED_PLAN_KEY) {
+		throw new Error(
+			"Legacy branch-context key plan.md is no longer supported; attach the plan under a named Markdown key such as <slug>.md.",
+		);
+	}
 	return {
-		key: normalizeRequestedBranchContextKey(params.key),
+		key,
 		sourceFile: await resolvePlanSourceFile(pi, {
 			cwd: options.cwd,
 			rawFilePath: params.filePath,

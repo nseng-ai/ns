@@ -26,8 +26,8 @@ describe("RealBrmemPromptResolver", () => {
 	it("resolves repository roots through an injected GitGateway and checks prompt existence", async () => {
 		const root = await mkdtemp(join(tmpdir(), "brmem-prompt-test-"));
 		try {
-			const promptPath = join(root, ".brmem", "prompts", "foo.md");
-			mkdirSync(join(root, ".brmem", "prompts"), { recursive: true });
+			const promptPath = join(root, ".sdl", "prompts", "foo.md");
+			mkdirSync(join(root, ".sdl", "prompts"), { recursive: true });
 			writeFileSync(promptPath, "prompt\n", "utf8");
 			const git = new FakeGitGateway({ repoRoot: root });
 			const resolver = new RealBrmemPromptResolver({
@@ -40,12 +40,9 @@ describe("RealBrmemPromptResolver", () => {
 				value: root,
 			});
 			expect(git.repoRootCalls).toEqual([{ cwd: "/work" }]);
-			expect(resolver.globalPromptRoots()).toEqual([
-				"/tmp/brmem-home/.config/sdl/brmem/prompts",
-				"/tmp/brmem-home/.brmem/prompts",
-			]);
+			expect(resolver.globalPromptRoots()).toEqual(["/tmp/brmem-home/.config/sdl/brmem/prompts"]);
 			expect(await resolver.fileExists(promptPath)).toBe(true);
-			expect(await resolver.fileExists(join(root, ".brmem", "prompts", "missing.md"))).toBe(false);
+			expect(await resolver.fileExists(join(root, ".sdl", "prompts", "missing.md"))).toBe(false);
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}

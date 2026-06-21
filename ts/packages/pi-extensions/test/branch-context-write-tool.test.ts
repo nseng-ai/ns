@@ -30,7 +30,7 @@ describe("write_saved_plan_file tool", () => {
 		expect(tool.description).toContain(
 			"$XDG_STATE_HOME/sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md",
 		);
-		expect(tool.description).toContain("Legacy `~/.sdl/enriched-plan` content");
+		expect(tool.description).not.toContain("Legacy `~/.sdl/enriched-plan` content");
 		expect(tool.description).toContain("refuses to overwrite");
 		expect(tool.description).toContain("does not create branches or write Branch Memory");
 		expect(tool.description).toContain("self-contained");

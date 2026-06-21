@@ -123,7 +123,7 @@ Workflow:
 
 Local plan store contract:
 
-- Path convention: ~/.sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md
+- Path convention: $XDG_STATE_HOME/sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md, defaulting to $HOME/.local/state/sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md
 - <repo>: for github.com origins, gh--<owner>--<repo> from sanitized GitHub owner and repo path segments; for non-GitHub or origin-less repos, one sanitized path segment from the normalized remote.origin.url or real repo root path
 - <encoded-source-branch>: current branch at plan-file creation time encoded as one filesystem-safe path segment; branch slashes become --- (for example, branch-contexts/add-widget becomes branch-contexts---add-widget)
 - <slug>: semantic kebab-case saved-plan filename slug without .md; this is a local plan-store locator, not necessarily the later implementation branch slug

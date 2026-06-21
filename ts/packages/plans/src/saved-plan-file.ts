@@ -11,12 +11,7 @@ import {
 } from "@sdl/core/github-status";
 import { normalizeSummary, validatePlanSlug } from "./plan-persistence.ts";
 import { isRecord } from "@sdl/core/primitives";
-import {
-	ensurePrivateParentDirectory,
-	legacyHomePath,
-	requireXdgPath,
-	resolveSdlXdgPath,
-} from "@sdl/core/xdg";
+import { ensurePrivateParentDirectory, requireXdgPath, resolveSdlXdgPath } from "@sdl/core/xdg";
 
 const MAX_SEGMENT_LENGTH = 120;
 const PLAN_FILE_SUFFIX = ".md";
@@ -233,39 +228,36 @@ export async function listSavedPlans(
 	options: PlanStoreOptions,
 ): Promise<SavedPlanListItem[]> {
 	const repoDirectory = await resolvePlanStoreRepoDirectory(pi, options);
-	const repoDirectories = planStoreRepoDirectoryFallbacks(repoDirectory, options);
 	const plans: SavedPlanListItem[] = [];
 
-	for (const repoDirectoryCandidate of repoDirectories) {
-		const branchEntries = await readDirectoryIfExists(repoDirectoryCandidate.repoDirectoryPath);
-		for (const branchEntry of branchEntries) {
-			if (!branchEntry.isDirectory()) {
+	const branchEntries = await readDirectoryIfExists(repoDirectory.repoDirectoryPath);
+	for (const branchEntry of branchEntries) {
+		if (!branchEntry.isDirectory()) {
+			continue;
+		}
+
+		const branchKey = branchEntry.name;
+		const branchDirectoryPath = join(repoDirectory.repoDirectoryPath, branchKey);
+		const planEntries = await readDirectoryIfExists(branchDirectoryPath);
+		for (const planEntry of planEntries) {
+			if (!planEntry.isFile() || !planEntry.name.endsWith(PLAN_FILE_SUFFIX)) {
 				continue;
 			}
 
-			const branchKey = branchEntry.name;
-			const branchDirectoryPath = join(repoDirectoryCandidate.repoDirectoryPath, branchKey);
-			const planEntries = await readDirectoryIfExists(branchDirectoryPath);
-			for (const planEntry of planEntries) {
-				if (!planEntry.isFile() || !planEntry.name.endsWith(PLAN_FILE_SUFFIX)) {
-					continue;
-				}
-
-				const filePath = join(branchDirectoryPath, planEntry.name);
-				const fileStat = await statFileIfRegular(filePath);
-				if (fileStat === undefined) {
-					continue;
-				}
-
-				plans.push({
-					...repoDirectoryCandidate,
-					branchKey,
-					slug: planEntry.name.slice(0, -PLAN_FILE_SUFFIX.length),
-					filePath,
-					fileName: planEntry.name,
-					modifiedTimeMs: fileStat.mtimeMs,
-				});
+			const filePath = join(branchDirectoryPath, planEntry.name);
+			const fileStat = await statFileIfRegular(filePath);
+			if (fileStat === undefined) {
+				continue;
 			}
+
+			plans.push({
+				...repoDirectory,
+				branchKey,
+				slug: planEntry.name.slice(0, -PLAN_FILE_SUFFIX.length),
+				filePath,
+				fileName: planEntry.name,
+				modifiedTimeMs: fileStat.mtimeMs,
+			});
 		}
 	}
 
@@ -277,38 +269,32 @@ export async function findLatestSavedPlanFile(
 	options: PlanStoreOptions,
 ): Promise<LatestSavedPlanFileEvidence> {
 	const directory = await resolvePlanStoreDirectory(pi, options);
-	const directories = planStoreDirectoryFallbacks(directory, options);
 	const candidates: Array<{
 		directory: PlanStoreDirectoryEvidence;
 		fileName: string;
 		filePath: string;
 		modifiedTimeMs: number;
 	}> = [];
-	let hasFoundDirectory = false;
-
-	for (const directoryCandidate of directories) {
-		const directoryRead = await readDirectoryIfExistsWithPresence(directoryCandidate.directoryPath);
-		if (directoryRead.isPresent) hasFoundDirectory = true;
-		for (const entry of directoryRead.entries) {
-			if (!entry.isFile() || !entry.name.endsWith(PLAN_FILE_SUFFIX)) {
-				continue;
-			}
-
-			const filePath = join(directoryCandidate.directoryPath, entry.name);
-			const fileStat = await stat(filePath);
-			if (!fileStat.isFile()) {
-				continue;
-			}
-			candidates.push({
-				directory: directoryCandidate,
-				fileName: entry.name,
-				filePath,
-				modifiedTimeMs: fileStat.mtimeMs,
-			});
+	const directoryRead = await readDirectoryIfExistsWithPresence(directory.directoryPath);
+	for (const entry of directoryRead.entries) {
+		if (!entry.isFile() || !entry.name.endsWith(PLAN_FILE_SUFFIX)) {
+			continue;
 		}
+
+		const filePath = join(directory.directoryPath, entry.name);
+		const fileStat = await stat(filePath);
+		if (!fileStat.isFile()) {
+			continue;
+		}
+		candidates.push({
+			directory,
+			fileName: entry.name,
+			filePath,
+			modifiedTimeMs: fileStat.mtimeMs,
+		});
 	}
 
-	if (!hasFoundDirectory) {
+	if (!directoryRead.isPresent) {
 		throw new NoSavedPlanAvailableError({
 			reason: "missing-directory",
 			directoryPath: directory.directoryPath,
@@ -366,24 +352,6 @@ export async function writeSavedPlanFile(
 	const directory = await resolvePlanStoreDirectory(pi, options);
 	const fileName = buildPlanFileName(slug);
 	const filePath = join(directory.directoryPath, fileName);
-	const legacyCollisionPath = legacyPlanStoreRoot(options);
-	if (legacyCollisionPath !== undefined) {
-		const legacyFilePath = join(
-			legacyCollisionPath,
-			directory.repoKey,
-			directory.branchKey,
-			fileName,
-		);
-		if (legacyFilePath !== filePath && (await statFileIfRegular(legacyFilePath)) !== undefined) {
-			throw new Error(
-				[
-					"Saved plan file already exists in the legacy local plan store; refusing to create a confusing duplicate in the XDG plan store.",
-					`Legacy path: ${legacyFilePath}`,
-					`XDG path: ${filePath}`,
-				].join("\n"),
-			);
-		}
-	}
 
 	await writeExclusiveFile(filePath, params.content);
 
@@ -405,38 +373,6 @@ export async function writeSavedPlanFile(
 
 function resolvePrimaryPlanStoreRoot(options: PlanStoreOptions): string {
 	return options.planStoreRoot ?? defaultPlanStoreRoot(options.env ?? process.env);
-}
-
-function legacyPlanStoreRoot(options: PlanStoreOptions): string | undefined {
-	if (options.planStoreRoot !== undefined) return undefined;
-	const resolved = legacyHomePath(options.env ?? process.env, [".sdl", "enriched-plan"]);
-	if (!resolved.ok) return undefined;
-	return resolved.value;
-}
-
-function planStoreRepoDirectoryFallbacks(
-	primary: PlanStoreRepoEvidence,
-	options: PlanStoreOptions,
-): readonly PlanStoreRepoEvidence[] {
-	const legacyRoot = legacyPlanStoreRoot(options);
-	if (legacyRoot === undefined) return [primary];
-	const legacy = { ...primary, repoDirectoryPath: join(legacyRoot, primary.repoKey) };
-	if (legacy.repoDirectoryPath === primary.repoDirectoryPath) return [primary];
-	return [primary, legacy];
-}
-
-function planStoreDirectoryFallbacks(
-	primary: PlanStoreDirectoryEvidence,
-	options: PlanStoreOptions,
-): readonly PlanStoreDirectoryEvidence[] {
-	const legacyRoot = legacyPlanStoreRoot(options);
-	if (legacyRoot === undefined) return [primary];
-	const legacy = {
-		...primary,
-		directoryPath: join(legacyRoot, primary.repoKey, primary.branchKey),
-	};
-	if (legacy.directoryPath === primary.directoryPath) return [primary];
-	return [primary, legacy];
 }
 
 function parseSavedPlanFileParams(params: unknown): SavedPlanFileParams {

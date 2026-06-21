@@ -8,12 +8,7 @@ import { formatErrorMessage } from "@sdl/core/primitives";
 import { normalizeSummary, resolvePlanSourceFile } from "@sdl/plans";
 import type { BranchContextContext } from "./context.ts";
 
-export {
-	BRANCH_CONTEXT_LEGACY_PLAN_KEY,
-	BRANCH_CONTEXT_NAMESPACE,
-	BRANCH_CONTEXT_PLAN_KEY,
-	buildBranchContextPlanKey,
-} from "./constants.ts";
+export { BRANCH_CONTEXT_NAMESPACE, buildBranchContextPlanKey } from "./constants.ts";
 
 const MAX_ERROR_CHARS = 4_000;
 

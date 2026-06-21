@@ -430,7 +430,7 @@ describe("branch-context-upstack-impl-session", () => {
 		]);
 		const content = pi.sentMessages[0]?.content ?? "";
 		expect(content).toContain("No existing branch context with an attached plan could be reused.");
-		expect(content).toContain("Multiple branch-context entries exist");
+		expect(content).toContain("Multiple supported branch-context plan entries exist");
 		expect(content).toContain("- alpha.md");
 		expect(content).toContain("- beta.md");
 		expect(context.replacementUserMessages).toEqual([]);

@@ -18,7 +18,7 @@ A migration slice should delete old command names and old `/code:<name>` Pi mirr
 SDL treats project-specific lifecycle behavior as first-class. SDL extensions can contribute command entries today and are expected to grow additional contribution points later. Command catalogs are discovered in increasing precedence:
 
 ```text
-built-in command table < legacy ~/.sdl/extensions < $XDG_DATA_HOME/sdl/extensions < <cwd>/.sdl/extensions
+built-in command table < $XDG_DATA_HOME/sdl/extensions < <cwd>/.sdl/extensions
 ```
 
 Global and project roots support these one-level entry shapes:
@@ -70,7 +70,7 @@ export default defineExtension({
 
 Command names must be flat and match `[a-z][a-z0-9-]*`. Nested groups, slashes, colons, spaces, and uppercase names are not supported in this prototype.
 
-Duplicate command names within one extension root are errors. Across roots, higher-precedence sources override lower-precedence sources: project overrides XDG global, legacy global, and built-in; XDG global overrides legacy global and built-in; legacy global overrides built-in. Overrides are recorded as non-fatal diagnostics.
+Duplicate command names within one extension root are errors. Across roots, higher-precedence sources override lower-precedence sources: project overrides XDG global and built-in; XDG global overrides built-in. Overrides are recorded as non-fatal diagnostics.
 
 Discovery is side-effect-light: `sdl --help`, `sdl -h`, `sdl --version`, `sdl --runtime`, and unselected command lookup read only built-in definitions, filesystem entries, and JSON manifests. Malformed discovery entries that do not affect the selected command are printed as stderr warnings while the invocation continues and stdout remains reserved for primary output. Discovery diagnostics that affect the selected command are fatal, including higher-precedence broken overrides that would otherwise fall back to lower-precedence commands. SDL imports and validates exactly one external SDL extension contribution only when that command is selected, including selected-command help and JSON schema.
 
@@ -132,7 +132,7 @@ Environment:
 
 For compatibility with existing local environments, an unset `SDL_CHECKPOINT_MODEL` falls back to `SDL_DEV_CHECKPOINT_MODEL`.
 
-Projects may override `sdl cp` by contributing an SDL command entry named `cp` from project `.sdl/extensions`, XDG global `$XDG_DATA_HOME/sdl/extensions` (default `$HOME/.local/share/sdl/extensions`), or legacy global `~/.sdl/extensions`. When no SDL extension override exists, SDL uses the built-in `cp` implementation.
+Projects may override `sdl cp` by contributing an SDL command entry named `cp` from project `.sdl/extensions` or XDG global `$XDG_DATA_HOME/sdl/extensions` (default `$HOME/.local/share/sdl/extensions`). When no SDL extension override exists, SDL uses the built-in `cp` implementation.
 
 Pi exposes the same capability as `/sdl:cp` through `.pi/extensions/sdl.ts`; `/code:cp` is not retained as a compatibility alias.
 

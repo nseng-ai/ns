@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { TextEncoder } from "node:util";
 
 import type { AttachedPlanEntry } from "./brmem-gateway.ts";
-import { BRANCH_CONTEXT_NAMESPACE } from "./constants.ts";
+import { BRANCH_CONTEXT_NAMESPACE, UNSUPPORTED_ATTACHED_PLAN_KEY } from "./constants.ts";
 import type { CommandExecApi } from "@sdl/core/exec";
 import type { GitGateway } from "@sdl/core/git";
 import { resolveSelectedSavedPlanFile } from "@sdl/plans";
@@ -64,14 +64,44 @@ export class AmbiguousBranchContextPlanEntryError extends Error {
 	constructor(branch: string, availableKeys: readonly string[]) {
 		super(
 			[
-				`Multiple branch-context entries exist on branch \`${branch}\` in namespace \`${BRANCH_CONTEXT_NAMESPACE}\`.`,
-				"Pass an explicit branch-context key to choose which plan to load.",
+				`Multiple supported branch-context plan entries exist on branch \`${branch}\` in namespace \`${BRANCH_CONTEXT_NAMESPACE}\`.`,
+				"Pass an explicit named Markdown branch-context key to choose which plan to load.",
+				"",
+				"Supported keys:",
+				formatAvailableKeys([...availableKeys]),
+			].join("\n"),
+		);
+		this.name = "AmbiguousBranchContextPlanEntryError";
+		this.branch = branch;
+	}
+}
+
+export class UnsupportedBranchContextPlanKeyError extends Error {
+	readonly branch: string;
+	readonly key: string;
+
+	constructor(branch: string, key: string) {
+		super(formatUnsupportedBranchContextPlanKeyMessage(branch, key));
+		this.name = "UnsupportedBranchContextPlanKeyError";
+		this.branch = branch;
+		this.key = key;
+	}
+}
+
+export class NoSupportedBranchContextPlanEntriesError extends Error {
+	readonly branch: string;
+
+	constructor(branch: string, availableKeys: readonly string[]) {
+		super(
+			[
+				`No supported branch-context plan entries exist on branch \`${branch}\` in namespace \`${BRANCH_CONTEXT_NAMESPACE}\`.`,
+				`Legacy key \`${UNSUPPORTED_ATTACHED_PLAN_KEY}\` is no longer supported; reattach the plan under a named Markdown key such as <slug>.md.`,
 				"",
 				"Available keys:",
 				formatAvailableKeys([...availableKeys]),
 			].join("\n"),
 		);
-		this.name = "AmbiguousBranchContextPlanEntryError";
+		this.name = "NoSupportedBranchContextPlanEntriesError";
 		this.branch = branch;
 	}
 }
@@ -226,24 +256,34 @@ export function selectAttachedPlanKey(input: {
 	entries: AttachedPlanEntry[];
 }): string {
 	const availableKeys = sortedUniqueKeys(input.entries);
-	const available = new Set(availableKeys);
+	const supportedKeys = availableKeys.filter(isSupportedBranchContextPlanKey);
+	const supported = new Set(supportedKeys);
 	if (input.requestedKey === undefined) {
-		if (availableKeys.length === 1) {
-			return availableKeys[0]!;
+		if (supportedKeys.length === 1) {
+			return supportedKeys[0]!;
 		}
-		if (availableKeys.length === 0) {
-			throw new NoAttachedBranchContextEntriesError(input.branch);
+		if (supportedKeys.length === 0) {
+			if (availableKeys.length === 0) {
+				throw new NoAttachedBranchContextEntriesError(input.branch);
+			}
+			throw new NoSupportedBranchContextPlanEntriesError(input.branch, availableKeys);
 		}
-		throw new AmbiguousBranchContextPlanEntryError(input.branch, availableKeys);
+		throw new AmbiguousBranchContextPlanEntryError(input.branch, supportedKeys);
 	}
 
 	const key = normalizeRequestedBranchContextKey(input.requestedKey);
-	if (available.has(key)) {
+	if (!isSupportedBranchContextPlanKey(key)) {
+		throw new UnsupportedBranchContextPlanKeyError(input.branch, key);
+	}
+	if (supported.has(key)) {
 		return key;
 	}
 	throw new Error(
 		[
 			`Requested branch-context key \`${key}\` was not found on branch \`${input.branch}\` in namespace \`${BRANCH_CONTEXT_NAMESPACE}\`.`,
+			"",
+			"Supported keys:",
+			formatAvailableKeys(supportedKeys),
 			"",
 			"Available keys:",
 			formatAvailableKeys(availableKeys),
@@ -336,6 +376,23 @@ async function resolveSafeImplementationBranch(
 
 function sortedUniqueKeys(entries: AttachedPlanEntry[]): string[] {
 	return [...new Set(entries.map((entry) => entry.key))].sort();
+}
+
+function isSupportedBranchContextPlanKey(key: string): boolean {
+	return key !== UNSUPPORTED_ATTACHED_PLAN_KEY && key.endsWith(".md");
+}
+
+function formatUnsupportedBranchContextPlanKeyMessage(branch: string, key: string): string {
+	if (key === UNSUPPORTED_ATTACHED_PLAN_KEY) {
+		return [
+			`Legacy branch-context key ${key} is no longer supported on branch \`${branch}\`.`,
+			"Attach the plan under a named Markdown key such as <slug>.md, then load that key.",
+		].join("\n");
+	}
+	return [
+		`Unsupported branch-context key ${key} on branch \`${branch}\`.`,
+		"Branch-context plans must use a named Markdown key such as <slug>.md.",
+	].join("\n");
 }
 
 function formatAvailableKeys(keys: string[]): string {

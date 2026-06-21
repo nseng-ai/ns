@@ -21,7 +21,7 @@ export async function runResolvePrompt(ctx: BrmemCliContext, request: ResolvePro
 	const repoRoot = await ctx.promptResolver.repositoryRoot({ cwd: ctx.cwd });
 	if (repoRoot.type === "error") return failure(repoRoot.error.code, repoRoot.error.message);
 
-	const projectPath = join(repoRoot.value, ".brmem", "prompts", `${request.name}.md`);
+	const projectPath = join(repoRoot.value, ".sdl", "prompts", `${request.name}.md`);
 	const globalPaths = ctx.promptResolver
 		.globalPromptRoots()
 		.map((root) => join(root, `${request.name}.md`));

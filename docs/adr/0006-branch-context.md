@@ -30,7 +30,7 @@ The fused from-plan flow survives as documented sugar: `branch-context exec from
 
 Branch context uses Branch Memory namespace `branch-context`.
 
-Branch-context attached plans now use named Markdown keys for new attachments. `branch-context exec from-plan` and Pi from-plan workflows derive `<branch-context-slug>.md`; `branch-context exec attach --plan <saved-plan-slug>` uses `<saved-plan-slug>.md`; `attach <key> --file <path>` remains the explicit arbitrary-key escape hatch. Legacy `plan.md` entries remain readable but are no longer the new default.
+Branch-context attached plans use named Markdown keys. `branch-context exec from-plan` and Pi from-plan workflows derive `<branch-context-slug>.md`; `branch-context exec attach --plan <saved-plan-slug>` uses `<saved-plan-slug>.md`; `attach <key> --file <path>` remains the explicit arbitrary-key escape hatch except that `plan.md` is rejected as an unsupported legacy plan key.
 
 There are no migration shims. This is unreleased private software, so pre-rename attached plans in namespace `planned-branch` with `<slug>.md` keys and old `planned-branch-output` session artifacts become orphaned. Manual recovery can read them through raw Branch Memory locators if needed.
 
@@ -55,7 +55,7 @@ There are no migration shims. This is unreleased private software, so pre-rename
 - Active surfaces use branch-context vocabulary instead of planned-branch vocabulary.
 - `enriched-plan` is untouched: it remains the saved-plan intake surface from ADR 0005.
 - Existing planned-branch Branch Memory entries and session artifacts are not migrated.
-- No-argument implementation loading now auto-selects only when exactly one branch-context entry exists; multiple entries require an explicit key.
+- No-argument implementation loading auto-selects only when exactly one supported named Markdown branch-context entry exists; multiple supported entries require an explicit key.
 - Exact-key loading for non-plan entries is available for the multi-entry case; `my-notes` no longer fuzzy-matches `my-notes.md`.
 - CONTEXT files are not edited by this ADR. Their planned-branch language is known drift to handle in a dedicated rebaseline session.
 
