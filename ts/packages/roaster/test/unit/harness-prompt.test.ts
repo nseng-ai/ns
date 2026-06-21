@@ -16,6 +16,7 @@ const reviewDefinition: ReviewDefinition = {
 	instructions: "Flag concrete issues.",
 	defaultModel: "haiku",
 	applicability: { include: ["**/*.ts"], exclude: [] },
+	localOnly: false,
 };
 
 describe("Claude Code harness prompt assembly", () => {

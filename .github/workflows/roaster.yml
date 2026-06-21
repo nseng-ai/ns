@@ -52,7 +52,7 @@ jobs:
           fi
 
           status=0
-          output=$(pnpm --config.verify-deps-before-run=false --dir ts exec roaster review list --applicable --base-ref "$BASE_REF" --format json) || status=$?
+          output=$(pnpm --config.verify-deps-before-run=false --dir ts exec roaster review list --ci --applicable --base-ref "$BASE_REF" --format json) || status=$?
           if [ "$status" -ne 0 ]; then
             printf '%s\n' "$output"
             exit "$status"

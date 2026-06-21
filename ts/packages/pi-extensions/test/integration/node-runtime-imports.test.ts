@@ -20,6 +20,7 @@ const PROJECT_EXTENSION_ADAPTERS = [
 	".pi/extensions/just-fix.ts",
 	".pi/extensions/objective.ts",
 	".pi/extensions/branch-context.ts",
+	".pi/extensions/roast.ts",
 	".pi/extensions/sdl.ts",
 	".pi/extensions/worktree-status.ts",
 ] as const;
@@ -29,6 +30,7 @@ const PI_EXTENSIONS_WORKSPACE_IMPORTS = [
 	"@sdl/core/exec",
 	"@sdl/branch-context",
 	"@sdl/plans",
+	"@sdl/roaster/skill-reviews",
 	"@sdl/sdl/cli",
 ] as const;
 
@@ -77,7 +79,7 @@ describe("Node runtime import smoke", () => {
 		});
 
 		expectSuccessfulNodeRun(result);
-		expect(result.stdout).toContain("imported 5 package specifiers");
+		expect(result.stdout).toContain("imported 6 package specifiers");
 	});
 
 	test("ccc package imports representative cross-package dependencies under Node", () => {

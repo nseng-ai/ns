@@ -12,6 +12,7 @@ interface RealReviewCase {
 	readonly name: string;
 	readonly expectedModel: string;
 	readonly expectedApplicability: ReviewApplicability;
+	readonly expectedLocalOnly: boolean;
 }
 
 const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
@@ -23,6 +24,7 @@ const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
 			include: ["**/*.ts", "**/*.tsx", "**/*.py"],
 			exclude: [".agents/skills/**", ".claude/skills/**", "skills/**"],
 		},
+		expectedLocalOnly: true,
 	},
 	{
 		path: "../../../../../reviews/improve-codebase-architecture.md",
@@ -40,12 +42,14 @@ const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
 				"skills/**",
 			],
 		},
+		expectedLocalOnly: true,
 	},
 	{
 		path: "../../../../../reviews/dignified-python.md",
 		name: "dignified-python",
 		expectedModel: "haiku",
 		expectedApplicability: { include: ["**/*.py"], exclude: ["**/tests/**/*.py"] },
+		expectedLocalOnly: false,
 	},
 	{
 		path: "../../../../../reviews/sdl-typescript-style.md",
@@ -55,6 +59,7 @@ const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
 			include: ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"],
 			exclude: [],
 		},
+		expectedLocalOnly: false,
 	},
 	{
 		path: "../../../../../reviews/duplicative-abstractions.md",
@@ -64,6 +69,7 @@ const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
 			include: ["**/*.ts", "**/*.tsx", "**/*.py"],
 			exclude: ["**/tests/**", "**/test/**", "**/*.test.ts", "**/test_*.py", ".agents/skills/**"],
 		},
+		expectedLocalOnly: false,
 	},
 	{
 		path: "../../../../../reviews/dry-but-not-too-dry.md",
@@ -81,6 +87,7 @@ const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
 				"skills/**",
 			],
 		},
+		expectedLocalOnly: true,
 	},
 ];
 
@@ -94,6 +101,7 @@ describe("parseReviewDefinition", () => {
 		expect(definition.description.trim()).not.toBe("");
 		expect(definition.defaultModel).toBe(reviewCase.expectedModel);
 		expect(definition.applicability).toEqual(reviewCase.expectedApplicability);
+		expect(definition.localOnly).toBe(reviewCase.expectedLocalOnly);
 		expect(definition.instructions.trim()).not.toBe("");
 	});
 
@@ -116,7 +124,25 @@ describe("parseReviewDefinition", () => {
 			instructions: "Flag concrete issues in the diff.",
 			defaultModel: "sonnet",
 			applicability: { include: [], exclude: [] },
+			localOnly: false,
 		});
+	});
+
+	test("parses local-only review definitions", () => {
+		const definition = expectOk(
+			parseReviewDefinition(
+				"---\n" +
+					"description: Review architecture diffs.\n" +
+					"default_model: sonnet\n" +
+					"local_only: true\n" +
+					"---\n" +
+					"\n" +
+					"Flag high-context architecture issues.\n",
+				{ name: "architecture-review" },
+			),
+		);
+
+		expect(definition.localOnly).toBe(true);
 	});
 
 	test("parses applicability and normalizes patterns", () => {
@@ -157,6 +183,7 @@ describe("parseReviewDefinition", () => {
 
 		expect(definition.defaultModel).toBeNull();
 		expect(definition.applicability).toEqual({ include: [], exclude: [] });
+		expect(definition.localOnly).toBe(false);
 	});
 
 	test.each([
@@ -292,6 +319,22 @@ describe("parseReviewDefinition", () => {
 		);
 
 		expect(error.code).toBe("invalid_default_model");
+	});
+
+	test.each(["yes", '"true"', "1", "[]"])("rejects invalid local_only %#", (localOnly) => {
+		const error = expectError(
+			parseReviewDefinition(
+				"---\n" +
+					"description: Review Python diffs for style violations.\n" +
+					`local_only: ${localOnly}\n` +
+					"---\n" +
+					"\n" +
+					"Flag concrete issues in the diff.\n",
+				{ name: "dignified-python" },
+			),
+		);
+
+		expect(error.code).toBe("invalid_local_only");
 	});
 
 	test.each([
