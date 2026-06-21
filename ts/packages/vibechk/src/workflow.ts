@@ -2,7 +2,7 @@ import { readFile, stat, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
 import type { GitProvenance, RunBundle } from "./models.ts";
-import type { VibechkGitGateway } from "./git.ts";
+import type { VibechkRepositoryGateway } from "./repository.ts";
 import type { Runner, RunnerResult } from "./runners.ts";
 import {
 	ARTIFACTS_DIR_NAME,
@@ -24,7 +24,7 @@ export interface RunExecutionResult {
 
 export interface RunDeps {
 	runner: Runner;
-	gitGateway: VibechkGitGateway;
+	repository: VibechkRepositoryGateway;
 	clock: () => Date;
 	idGenerator: () => string;
 	stdout: (text: string) => void;
@@ -45,14 +45,14 @@ export async function executeRun(options: RunExecutionOptions): Promise<RunExecu
 	const resolvedPlanPath = await resolvePlanPath(planPath);
 	const resolvedWorkdir = await resolveWorkdir(workdir);
 
-	const git = deps.gitGateway;
+	const repository = deps.repository;
 
-	const repoRoot = await git.repoRoot();
-	const startingBranch = await git.currentBranch();
-	const startingCommit = await git.currentCommit();
-	const remotes = await git.remotes();
+	const repoRoot = await repository.repoRoot();
+	const startingBranch = await repository.currentBranch();
+	const startingCommit = await repository.currentCommit();
+	const remotes = await repository.remotes();
 
-	if (!(await git.isClean())) {
+	if (!(await repository.isClean())) {
 		throw new VibechkError(
 			`Workdir ${resolvedWorkdir} has uncommitted changes; vibechk run requires a clean workdir.`,
 		);
@@ -124,16 +124,16 @@ export async function executeRun(options: RunExecutionOptions): Promise<RunExecu
 	let postRunError: string | null = null;
 
 	try {
-		diffPatch = await git.diffPatch();
+		diffPatch = await repository.diffPatch();
 		await writeFile(join(runDir, DIFF_FILE_NAME), diffPatch, "utf-8");
 
-		if (await git.hasChanges()) {
+		if (await repository.hasChanges()) {
 			resultBranch = `vibechk/${runId}`;
-			await git.createResultBranchAndCommit(resultBranch, `vibechk: capture run ${runId}`);
+			await repository.createResultBranchAndCommit(resultBranch, `vibechk: capture run ${runId}`);
 			isBranchCreated = true;
-			await git.checkout(startingBranch);
+			await repository.checkout(startingBranch);
 
-			if (!(await git.isClean())) {
+			if (!(await repository.isClean())) {
 				postRunError = `Workdir ${resolvedWorkdir} was not clean after restoring branch ${startingBranch}.`;
 			}
 		}

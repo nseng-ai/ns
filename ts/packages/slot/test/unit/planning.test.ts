@@ -7,7 +7,7 @@ import {
 	inventoryWithoutCallerBranchOccupancy,
 } from "../../src/planning.ts";
 import type { SlotInventory } from "../../src/inventory.ts";
-import { FakeSlotGitGateway } from "../../src/gateways/fakes/git.ts";
+import { FakeSlotRepositoryGateway } from "../../src/gateways/fakes/repository.ts";
 
 const slot1 = {
 	slotName: "slot-01",
@@ -37,7 +37,7 @@ describe("checkout planning", () => {
 	it("reuses an existing clean slot assignment", async () => {
 		const plan = await planCheckout(
 			inventory({ records: [{ ...slot1, branch: "feature/a" }] }),
-			new FakeSlotGitGateway(),
+			new FakeSlotRepositoryGateway(),
 			"feature/a",
 		);
 		expect(plan).toMatchObject({ type: "reuse_assignment", record: { slotName: "slot-01" } });
@@ -46,19 +46,19 @@ describe("checkout planning", () => {
 	it("reports operation-held slots as branch in use", async () => {
 		const plan = await planCheckout(
 			inventory({ records: [{ ...slot1, branch: "feature/a", operation: "rebase" }] }),
-			new FakeSlotGitGateway(),
+			new FakeSlotRepositoryGateway(),
 			"feature/a",
 		);
 		expect(plan).toMatchObject({ type: "branch_in_use", occupancy: { operation: "rebase" } });
 	});
 
 	it("returns the main worktree redirect plan when the branch is in main", async () => {
-		const plan = await planCheckout(inventory(), new FakeSlotGitGateway(), "master");
+		const plan = await planCheckout(inventory(), new FakeSlotRepositoryGateway(), "master");
 		expect(plan).toEqual({ type: "branch_in_main_worktree", mainPath: "/repo" });
 	});
 
 	it("assigns the lowest clean detached slot", async () => {
-		const plan = await planCheckout(inventory(), new FakeSlotGitGateway(), "feature/a");
+		const plan = await planCheckout(inventory(), new FakeSlotRepositoryGateway(), "feature/a");
 		expect(plan).toMatchObject({ type: "assign_to_slot", record: { slotName: "slot-01" } });
 	});
 
@@ -70,7 +70,7 @@ describe("checkout planning", () => {
 					{ ...slot2, branch: "b" },
 				],
 			}),
-			new FakeSlotGitGateway(),
+			new FakeSlotRepositoryGateway(),
 			"feature/a",
 		);
 		expect(plan).toMatchObject({
@@ -80,7 +80,7 @@ describe("checkout planning", () => {
 	});
 
 	it("plans previous-branch redirect before trunk", async () => {
-		const git = new FakeSlotGitGateway({
+		const git = new FakeSlotRepositoryGateway({
 			previousBranches: { "/repo": "prev" },
 			localBranches: ["master", "moving", "prev"],
 			worktrees: [{ path: "/repo", branch: "moving" }],
@@ -94,7 +94,7 @@ describe("checkout planning", () => {
 	});
 
 	it("detaches a managed slot worktree at trunk", async () => {
-		const git = new FakeSlotGitGateway({ trunkBranch: "main" });
+		const git = new FakeSlotRepositoryGateway({ trunkBranch: "main" });
 		await expect(
 			planCurrentWtRedirect(git, {
 				cwd: "/slots/repos/repo/worktrees/slot-01",
@@ -123,7 +123,7 @@ describe("checkout planning", () => {
 	});
 
 	it("plans current checkout without redirect when current branch is already in a slot", async () => {
-		const git = new FakeSlotGitGateway({
+		const git = new FakeSlotRepositoryGateway({
 			worktrees: [
 				{ path: "/repo", branch: "master" },
 				{ path: slot1.path, branch: "feature/a" },

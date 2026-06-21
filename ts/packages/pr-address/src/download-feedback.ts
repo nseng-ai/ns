@@ -118,7 +118,7 @@ async function resolveTargetPr(
 		return { type: "found", pr: outcome.pr, branch: null };
 	}
 
-	const branchResult = await ctx.context.git.getCurrentBranch(gatewayOptions(ctx));
+	const branchResult = await ctx.context.git.currentBranch(gatewayOptions(ctx));
 	if (branchResult.type === "failure")
 		return {
 			type: "failure",

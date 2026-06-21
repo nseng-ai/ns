@@ -53,7 +53,7 @@ export interface BranchDeleteOptions {
 	shouldForce: boolean;
 }
 
-export interface SlotGitGateway {
+export interface SlotRepositoryGateway {
 	pathExists(path: string): Promise<boolean>;
 	getGitCommonDir(cwd: string): Promise<string | null>;
 	getRepositoryRoot(cwd: string): Promise<string>;
@@ -81,7 +81,7 @@ export interface SlotGitGateway {
 	removeWorktree(path: string): Promise<void>;
 }
 
-export class RealSlotGitGateway implements SlotGitGateway {
+export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 	private readonly cwd: string;
 	private readonly env: NodeJS.ProcessEnv;
 	private readonly execApi: CommandExecApi;

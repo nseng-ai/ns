@@ -1,6 +1,6 @@
 import { basename, resolve } from "node:path";
 
-import { mainRepoRootFromGitCommonDir, type SlotGitGateway } from "./gateways/git.ts";
+import { mainRepoRootFromGitCommonDir, type SlotRepositoryGateway } from "./gateways/repository.ts";
 import type { SlotStorageGateway } from "./gateways/storage.ts";
 
 export interface RepoContext {
@@ -23,7 +23,7 @@ export type RepoDiscoveryResult = RepoContext | NoRepoSentinel;
 export async function discoverRepoOrSentinel(options: {
 	cwd: string;
 	slotsRoot: string;
-	git: SlotGitGateway;
+	git: SlotRepositoryGateway;
 }): Promise<RepoDiscoveryResult> {
 	const cwd = resolve(options.cwd);
 	if (!(await options.git.pathExists(cwd))) {

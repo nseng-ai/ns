@@ -5,16 +5,16 @@ import { runCli, type CliDeps } from "../../src/cli.ts";
 import type { SlotCliContext } from "../../src/context.ts";
 import { FakeClipboardGateway, type ClipboardCopyResult } from "../../src/gateways/clipboard.ts";
 import {
-	FakeSlotGitGateway,
-	type FakeSlotGitGatewayOptions,
-} from "../../src/gateways/fakes/git.ts";
+	FakeSlotRepositoryGateway,
+	type FakeSlotRepositoryGatewayOptions,
+} from "../../src/gateways/fakes/repository.ts";
 import { FakeSlotGtGateway, type FakeSlotGtGatewayOptions } from "../../src/gateways/fakes/gt.ts";
 import { FakeSlotPrGateway, type FakeSlotPrGatewayOptions } from "../../src/gateways/fakes/pr.ts";
 import { FakeSlotStorageGateway } from "../../src/gateways/fakes/storage.ts";
 import type { RepoContext } from "../../src/repo-context.ts";
 
 export interface ScenarioRunOptions {
-	git?: FakeSlotGitGatewayOptions | undefined;
+	git?: FakeSlotRepositoryGatewayOptions | undefined;
 	gt?: FakeSlotGtGatewayOptions | undefined;
 	pr?: FakeSlotPrGatewayOptions | undefined;
 	cwd?: string | undefined;
@@ -29,7 +29,7 @@ export interface ScenarioRun {
 	exit: Promise<number>;
 	stdout: string[];
 	stderr: string[];
-	git: FakeSlotGitGateway;
+	git: FakeSlotRepositoryGateway;
 	gt: FakeSlotGtGateway;
 	pr: FakeSlotPrGateway;
 	storage: FakeSlotStorageGateway;
@@ -43,7 +43,7 @@ export function runScenario(
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const cwd = options.cwd ?? "/repo";
-	const git = new FakeSlotGitGateway(options.git);
+	const git = new FakeSlotRepositoryGateway(options.git);
 	const gt = new FakeSlotGtGateway(options.gt ?? {});
 	const pr = new FakeSlotPrGateway(options.pr);
 	const storage = new FakeSlotStorageGateway();

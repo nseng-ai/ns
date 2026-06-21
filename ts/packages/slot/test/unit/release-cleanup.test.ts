@@ -5,7 +5,7 @@ import { executeReleaseCleanup, planReleaseCleanup } from "../../src/lifecycle/r
 import type { FreedSlot } from "../../src/lifecycle/release-target.ts";
 import { repoContext } from "../support/run-scenario.ts";
 import { FakeClipboardGateway } from "../../src/gateways/clipboard.ts";
-import { FakeSlotGitGateway } from "../../src/gateways/fakes/git.ts";
+import { FakeSlotRepositoryGateway } from "../../src/gateways/fakes/repository.ts";
 import { FakeSlotGtGateway } from "../../src/gateways/fakes/gt.ts";
 import { FakeSlotPrGateway } from "../../src/gateways/fakes/pr.ts";
 import { FakeSlotStorageGateway } from "../../src/gateways/fakes/storage.ts";
@@ -56,10 +56,10 @@ describe("release cleanup", () => {
 
 function context(options: {
 	pr: FakeSlotPrGateway;
-}): RepoSlotContext & { git: FakeSlotGitGateway; pr: FakeSlotPrGateway } {
+}): RepoSlotContext & { git: FakeSlotRepositoryGateway; pr: FakeSlotPrGateway } {
 	return {
 		repo: repoContext(),
-		git: new FakeSlotGitGateway({
+		git: new FakeSlotRepositoryGateway({
 			worktrees: [{ path: "/repo", branch: "master" }],
 			localBranches: ["master", "feature/a"],
 		}),

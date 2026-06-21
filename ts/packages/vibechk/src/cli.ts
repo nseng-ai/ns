@@ -13,8 +13,8 @@ import {
 	runListEntryToJson,
 } from "./reports.ts";
 import { listBundles, readBundle, resolveStoreRoot, VibechkError } from "./store.ts";
-import type { VibechkGitGateway } from "./git.ts";
-import { RealVibechkGitGateway } from "./git.ts";
+import type { VibechkRepositoryGateway } from "./repository.ts";
+import { RealVibechkRepositoryGateway } from "./repository.ts";
 import { buildProductionRunnerRegistry, type RunnerRegistry } from "./runners.ts";
 import { generateRunId } from "./ids.ts";
 import { executeRun } from "./workflow.ts";
@@ -25,7 +25,7 @@ export interface CliDeps {
 	stdout?: ((text: string) => void) | undefined;
 	stderr?: ((text: string) => void) | undefined;
 	runnerRegistry?: RunnerRegistry | undefined;
-	gitGatewayFactory?: ((workdir: string) => VibechkGitGateway) | undefined;
+	repositoryGatewayFactory?: ((workdir: string) => VibechkRepositoryGateway) | undefined;
 	clock?: (() => Date) | undefined;
 	idGenerator?: (() => string) | undefined;
 	defaultRunnerName?: string | undefined;
@@ -35,7 +35,7 @@ interface VibechkCliContext {
 	cwd: string;
 	env: NodeJS.ProcessEnv;
 	runnerRegistry: RunnerRegistry;
-	gitGatewayFactory: (workdir: string) => VibechkGitGateway;
+	repositoryGatewayFactory: (workdir: string) => VibechkRepositoryGateway;
 	clock: () => Date;
 	idGenerator: () => string;
 	defaultRunnerName: string;
@@ -73,8 +73,9 @@ const entry = defineCli<VibechkCliContext, CliDeps, undefined>({
 	description: "Run lightweight agent context evals and publish Markdown evidence.",
 	prepareRun: ({ args, deps, cwd, env, stdout, stderr }) => {
 		const runnerRegistry = deps.runnerRegistry ?? buildProductionRunnerRegistry();
-		const gitGatewayFactory =
-			deps.gitGatewayFactory ?? ((workdir: string) => new RealVibechkGitGateway(workdir));
+		const repositoryGatewayFactory =
+			deps.repositoryGatewayFactory ??
+			((workdir: string) => new RealVibechkRepositoryGateway(workdir));
 		const clock = deps.clock ?? (() => new Date());
 		const idGenerator = deps.idGenerator ?? generateRunId;
 		const defaultRunnerName = deps.defaultRunnerName ?? "claude";
@@ -82,7 +83,7 @@ const entry = defineCli<VibechkCliContext, CliDeps, undefined>({
 			cwd,
 			env,
 			runnerRegistry,
-			gitGatewayFactory,
+			repositoryGatewayFactory,
 			clock,
 			idGenerator,
 			defaultRunnerName,
@@ -210,7 +211,7 @@ function renderDiff(
 async function runRun(ctx: VibechkCliContext, request: RunRequest): Promise<number> {
 	const runnerName = request.runner ?? ctx.defaultRunnerName;
 	const runner = ctx.runnerRegistry.get(runnerName);
-	const gitGateway = ctx.gitGatewayFactory(request.workdir);
+	const repository = ctx.repositoryGatewayFactory(request.workdir);
 
 	const result = await executeRun({
 		planPath: request.plan,
@@ -221,7 +222,7 @@ async function runRun(ctx: VibechkCliContext, request: RunRequest): Promise<numb
 		env: ctx.env,
 		deps: {
 			runner,
-			gitGateway,
+			repository,
 			clock: ctx.clock,
 			idGenerator: ctx.idGenerator,
 			stdout: ctx.stdout,

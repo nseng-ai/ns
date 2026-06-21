@@ -8,11 +8,11 @@ import {
 	poolSize,
 	slotStatus,
 } from "../../src/inventory.ts";
-import { FakeSlotGitGateway } from "../../src/gateways/fakes/git.ts";
+import { FakeSlotRepositoryGateway } from "../../src/gateways/fakes/repository.ts";
 
 describe("slot inventory", () => {
 	it("derives managed slots, skips main and non-slot worktrees, and sorts by number", async () => {
-		const git = new FakeSlotGitGateway({
+		const git = new FakeSlotRepositoryGateway({
 			worktrees: [
 				{ path: "/repo", branch: "master" },
 				{ path: "/other/not-a-slot", branch: "feature/nope" },
@@ -30,7 +30,7 @@ describe("slot inventory", () => {
 	});
 
 	it("uses non-checked-out occupancy as operation state", async () => {
-		const git = new FakeSlotGitGateway({
+		const git = new FakeSlotRepositoryGateway({
 			worktrees: [{ path: "/slots/repos/repo/worktrees/slot-03", branch: "feature/rebase" }],
 			branchOccupancies: [
 				{
@@ -45,7 +45,7 @@ describe("slot inventory", () => {
 	});
 
 	it("finds branch and slot matches", async () => {
-		const git = new FakeSlotGitGateway({
+		const git = new FakeSlotRepositoryGateway({
 			worktrees: [
 				{ path: "/repo", branch: "master" },
 				{ path: "/slots/repos/repo/worktrees/slot-01", branch: "feature/a" },
@@ -58,7 +58,7 @@ describe("slot inventory", () => {
 	});
 
 	it("lowest available skips assigned and dirty slots", async () => {
-		const git = new FakeSlotGitGateway({
+		const git = new FakeSlotRepositoryGateway({
 			worktrees: [
 				{ path: "/slots/repos/repo/worktrees/slot-01", branch: "feature/a" },
 				{ path: "/slots/repos/repo/worktrees/slot-02", branch: null },

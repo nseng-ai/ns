@@ -1,4 +1,4 @@
-import type { SlotGitGateway } from "../gateways/git.ts";
+import type { SlotRepositoryGateway } from "../gateways/repository.ts";
 import { findBySlot, type SlotInventory, type SlotRecord } from "../inventory.ts";
 
 export interface FreedSlot {
@@ -30,7 +30,7 @@ export function freedSlotFromRecord(record: SlotRecord): FreedSlot {
 }
 
 export interface ReleaseAssignedSlotTargetOptions {
-	git: SlotGitGateway;
+	git: SlotRepositoryGateway;
 	inventory: SlotInventory;
 	target: FreedSlot;
 	trunkBranch: string;
