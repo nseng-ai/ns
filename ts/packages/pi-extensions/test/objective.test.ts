@@ -16,18 +16,20 @@ import type { AgentEndContext, ExecOptions, SessionStartContext } from "../src/c
 const ROOT = "/repo";
 const TRUNK = "master";
 
-const OBJECTIVE_COMMAND_NAMES = ["objective:next", "objective:update"] as const;
+const OBJECTIVE_COMMAND_NAMES = ["objective:next", "objective:update", "objective:close"] as const;
 type ObjectiveCommandName = (typeof OBJECTIVE_COMMAND_NAMES)[number];
-type ObjectiveSkillName = "objective-next" | "objective-update";
+type ObjectiveSkillName = "objective-next" | "objective-update" | "objective-close";
 
 const OBJECTIVE_SKILLS_BY_COMMAND: Record<ObjectiveCommandName, ObjectiveSkillName> = {
 	"objective:next": "objective-next",
 	"objective:update": "objective-update",
+	"objective:close": "objective-close",
 };
 
 const ACTION_PROMPTS: Record<ObjectiveCommandName, string> = {
 	"objective:next": "Run objective-next for this explicitly selected Objective slug or path:",
 	"objective:update": "Run objective-update for this explicitly selected Objective slug or path:",
+	"objective:close": "Run objective-close for this explicitly selected Objective slug or path:",
 };
 
 type RegisteredCommand = Parameters<ObjectiveExtensionAPI["registerCommand"]>[1];
@@ -1046,6 +1048,31 @@ describe("objective picker suggestion", () => {
 		]);
 		expect(result.pi.sentUserMessages).toEqual([]);
 	});
+
+	test("objective:close uses normal changed-first selection, not compact suggestion UX", async () => {
+		const result = await runObjectiveCommand("objective:close", "", [
+			listStep(["alpha", "bravo", "charlie"]),
+			diffStep("M\t.sdl/objectives/bravo/objective.md\n"),
+			statusStep(""),
+		]);
+
+		result.pi.assertDone();
+		expect(result.notifications).toContainEqual({
+			message: "Found changed Objective bravo from objective diff vs master.",
+			level: "info",
+		});
+		expect(result.selections).toEqual([
+			{
+				title: "Select an active Objective to close",
+				items: [
+					"bravo — suggested: only Objective changed vs master — open — latest update 2026-01-02T00:00:00Z",
+					"alpha — open — latest update 2026-01-01T00:00:00Z",
+					"charlie — open — latest update 2026-01-03T00:00:00Z",
+				],
+			},
+		]);
+		expect(result.pi.sentUserMessages[0]).toContain("```text\nbravo\n```");
+	});
 });
 
 describe("objective command shared selection policy", () => {
@@ -1304,6 +1331,24 @@ Use the selected Objective.
 		result.pi.assertDone();
 		expect(result.pi.sentUserMessages[0]).toContain(
 			"After this explicit selection, follow objective-update's normal post-selection evidence workflow.",
+		);
+	});
+
+	test("objective:close fallback and prompt include closure confirmation guidance", async () => {
+		const result = await runObjectiveCommand("objective:close", "bravo");
+
+		result.pi.assertDone();
+		expect(result.pi.sentUserMessages[0]).toContain(
+			"The objective-close skill was not found among loaded Pi skills.",
+		);
+		expect(result.pi.sentUserMessages[0]).toContain(
+			"close exactly one explicit Objective below only after confirming the closure outcome/rationale",
+		);
+		expect(result.pi.sentUserMessages[0]).toContain(
+			"Run objective-close for this explicitly selected Objective slug or path:",
+		);
+		expect(result.pi.sentUserMessages[0]).toContain(
+			"After this explicit selection, follow objective-close's normal closure confirmation workflow before mutating Objective files.",
 		);
 	});
 
