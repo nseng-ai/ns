@@ -2,7 +2,11 @@ import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { TextEncoder } from "node:util";
 
-import type { AttachedPlanEntry } from "./brmem-gateway.ts";
+import {
+	getBranchContextPlan,
+	listBranchContextPlans,
+	type AttachedPlanEntry,
+} from "./branch-memory.ts";
 import { BRANCH_CONTEXT_NAMESPACE, UNSUPPORTED_ATTACHED_PLAN_KEY } from "./constants.ts";
 import type { CommandExecApi } from "@sdl/core/exec";
 import type { GitGateway } from "@sdl/core/git";
@@ -112,7 +116,7 @@ export async function loadBranchContextPlan(
 	options: LoadAttachedPlanOptions,
 ): Promise<LoadedAttachedPlan> {
 	try {
-		return await loadAttachedPlan(pi, params, options);
+		return await loadAttachedPlan(params, options);
 	} catch (error) {
 		if (!isSavedPlanFallbackEligibleError(error) || params.requestedKey !== undefined) {
 			throw error;
@@ -143,7 +147,6 @@ function isSavedPlanFallbackEligibleError(
 }
 
 export async function loadAttachedPlan(
-	_pi: CommandExecApi,
 	params: LoadAttachedPlanParams,
 	options: LoadAttachedPlanOptions,
 ): Promise<LoadedAttachedPlan> {
@@ -152,11 +155,7 @@ export async function loadAttachedPlan(
 		options.cwd,
 		options.signal,
 	);
-	const list = await options.context.brmem.listAttachedPlans({
-		cwd: options.cwd,
-		branch,
-		signal: options.signal,
-	});
+	const list = await listBranchContextPlans(options.context.brmem, { branch });
 	if (!list.ok) {
 		throw new Error(list.error.message);
 	}
@@ -171,11 +170,9 @@ export async function loadAttachedPlan(
 			? { branch, entries }
 			: { branch, requestedKey: params.requestedKey, entries };
 	const selectedKey = selectAttachedPlanKey(selectionInput);
-	const get = await options.context.brmem.getAttachedPlan({
-		cwd: options.cwd,
+	const get = await getBranchContextPlan(options.context.brmem, {
 		branch,
 		key: selectedKey,
-		signal: options.signal,
 	});
 	if (!get.ok) {
 		throw new Error(get.error.message);

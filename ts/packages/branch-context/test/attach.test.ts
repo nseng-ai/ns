@@ -10,7 +10,7 @@ import { encodeBranchForPlanPath } from "@sdl/plans";
 import { attachBranchContextEntry } from "../src/attach.ts";
 import { BRANCH_CONTEXT_NAMESPACE, buildBranchContextPlanKey } from "../src/constants.ts";
 import type { BranchContextContext } from "../src/context.ts";
-import { InMemoryBranchContextBrmemGateway } from "./support/in-memory-brmem-gateway.ts";
+import { InMemoryBranchMemoryGateway } from "./support/in-memory-brmem-gateway.ts";
 import { InMemoryBranchContextGraphiteGateway } from "./support/in-memory-graphite-gateway.ts";
 
 const ROOT = "/repo";
@@ -69,7 +69,7 @@ describe("attachBranchContextEntry", () => {
 		const planStoreRoot = await makePlanStore();
 		const sourceFile = await writeSavedPlan(planStoreRoot);
 		const git = new InMemoryGitGateway({ repoRoot: ROOT, currentBranch: TARGET_BRANCH });
-		const brmem = new InMemoryBranchContextBrmemGateway();
+		const brmem = new InMemoryBranchMemoryGateway();
 
 		const evidence = await attachBranchContextEntry(
 			NO_COMMANDS,
@@ -84,11 +84,14 @@ describe("attachBranchContextEntry", () => {
 			sourceFile,
 			planSlug: PLAN_SLUG,
 		});
-		expect(brmem.attachmentPresenceCalls).toEqual([
-			{ cwd: ROOT, branch: TARGET_BRANCH, key: PLAN_KEY },
-		]);
+		expect(brmem.attachmentPresenceCalls).toEqual([{ branch: TARGET_BRANCH, key: PLAN_KEY }]);
 		expect(brmem.attachPlanCalls).toEqual([
-			{ cwd: ROOT, branch: TARGET_BRANCH, key: PLAN_KEY, sourceFile },
+			{
+				namespace: BRANCH_CONTEXT_NAMESPACE,
+				branch: TARGET_BRANCH,
+				key: PLAN_KEY,
+				content: "# Saved Plan\n",
+			},
 		]);
 	});
 
@@ -96,7 +99,7 @@ describe("attachBranchContextEntry", () => {
 		const planStoreRoot = await makePlanStore();
 		await writeSavedPlan(planStoreRoot, { slug: "available-plan" });
 		const git = new InMemoryGitGateway({ repoRoot: ROOT, currentBranch: TARGET_BRANCH });
-		const brmem = new InMemoryBranchContextBrmemGateway();
+		const brmem = new InMemoryBranchMemoryGateway();
 
 		await expect(
 			attachBranchContextEntry(
@@ -118,7 +121,7 @@ describe("attachBranchContextEntry", () => {
 		const first = await writeSavedPlan(planStoreRoot, { branch: "feature/one" });
 		const second = await writeSavedPlan(planStoreRoot, { branch: "feature/two" });
 		const git = new InMemoryGitGateway({ repoRoot: ROOT, currentBranch: TARGET_BRANCH });
-		const brmem = new InMemoryBranchContextBrmemGateway();
+		const brmem = new InMemoryBranchMemoryGateway();
 
 		const error = await attachBranchContextEntry(
 			NO_COMMANDS,
@@ -144,7 +147,7 @@ describe("attachBranchContextEntry", () => {
 		const planStoreRoot = await makePlanStore();
 		const sourceFile = await writeSavedPlan(planStoreRoot);
 		const git = new InMemoryGitGateway({ repoRoot: ROOT, currentBranch: { type: "detached" } });
-		const brmem = new InMemoryBranchContextBrmemGateway();
+		const brmem = new InMemoryBranchMemoryGateway();
 
 		const evidence = await attachBranchContextEntry(
 			NO_COMMANDS,
@@ -153,9 +156,15 @@ describe("attachBranchContextEntry", () => {
 		);
 
 		expect(evidence.branch).toBe(TARGET_BRANCH);
+		expect(evidence.sourceFile).toBe(sourceFile);
 		expect(git.currentBranchCalls).toEqual([]);
 		expect(brmem.attachPlanCalls).toEqual([
-			{ cwd: ROOT, branch: TARGET_BRANCH, key: PLAN_KEY, sourceFile },
+			{
+				namespace: BRANCH_CONTEXT_NAMESPACE,
+				branch: TARGET_BRANCH,
+				key: PLAN_KEY,
+				content: "# Saved Plan\n",
+			},
 		]);
 	});
 
@@ -163,7 +172,7 @@ describe("attachBranchContextEntry", () => {
 		const planStoreRoot = await makePlanStore();
 		await writeSavedPlan(planStoreRoot);
 		const git = new InMemoryGitGateway({ repoRoot: ROOT, currentBranch: { type: "detached" } });
-		const brmem = new InMemoryBranchContextBrmemGateway();
+		const brmem = new InMemoryBranchMemoryGateway();
 
 		await expect(
 			attachBranchContextEntry(
@@ -182,7 +191,7 @@ describe("attachBranchContextEntry", () => {
 		const planStoreRoot = await makePlanStore();
 		const sourceFile = await writeSavedPlan(planStoreRoot);
 		const git = new InMemoryGitGateway({ repoRoot: ROOT, currentBranch: TARGET_BRANCH });
-		const brmem = new InMemoryBranchContextBrmemGateway();
+		const brmem = new InMemoryBranchMemoryGateway();
 
 		await expect(
 			attachBranchContextEntry(

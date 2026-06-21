@@ -1,4 +1,4 @@
-import type { BrmemPutData } from "./brmem-gateway.ts";
+import type { BranchContextAttachData } from "./branch-memory.ts";
 import { attachBranchContext, assertBrmemEntryAbsent, AttachBranchContextError } from "./attach.ts";
 import { BRANCH_CONTEXT_NAMESPACE, buildBranchContextPlanKey } from "./constants.ts";
 import type { BranchContextGraphiteGateway } from "./graphite-gateway.ts";
@@ -76,7 +76,7 @@ export async function createBranchContextFromFile(
 	await checkBranchRefFormat(git, options.cwd, operation.branch, options.signal);
 	const startPoint = await resolveStartPoint(git, options.cwd, options.signal);
 	await assertLocalBranchAbsent(git, options.cwd, operation.branch, options.signal);
-	await assertBrmemEntryAbsent(brmem, options.cwd, operation.branch, operation.key, options.signal);
+	await assertBrmemEntryAbsent(brmem, operation.branch, operation.key);
 	await createBranchContext(git, graphite, {
 		cwd: options.cwd,
 		method: operation.branchCreation,
@@ -84,7 +84,7 @@ export async function createBranchContextFromFile(
 		signal: options.signal,
 	});
 
-	let attach: BrmemPutData;
+	let attach: BranchContextAttachData;
 	try {
 		attach = await attachBranchContext({
 			brmem,
@@ -92,7 +92,6 @@ export async function createBranchContextFromFile(
 			branch: operation.branch,
 			key: operation.key,
 			sourceFile,
-			signal: options.signal,
 		});
 	} catch (error) {
 		throw partialFailureError({
@@ -442,7 +441,7 @@ async function resolveCurrentBranch(
 }
 
 function buildEvidence(input: {
-	data: BrmemPutData;
+	data: BranchContextAttachData;
 	slug: string;
 	branchCreation: BranchCreationMethod;
 	startPoint: string;
@@ -466,13 +465,7 @@ function buildEvidence(input: {
 	return { ...evidence, summary: input.summary };
 }
 
-function attachFailureTitle(code: string): string {
-	if (code === "brmem_unavailable") {
-		return "Created branch but no brmem command was available to attach the plan.";
-	}
-	if (code === "brmem_malformed_put" || code === "brmem_unexpected_put_data") {
-		return "Created branch but could not parse Branch Memory storage result.";
-	}
+function attachFailureTitle(_code: string): string {
 	return "Created branch but failed to attach the plan in Branch Memory.";
 }
 

@@ -1,8 +1,13 @@
 import { afterEach, describe, expect, test } from "vitest";
-import { readFile, realpath, writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { buildPlanContentSlugPrompt, formatImplBranchContextCommand } from "@sdl/branch-context";
+import {
+	buildPlanContentSlugPrompt,
+	createBranchContextContext,
+	formatImplBranchContextCommand,
+	type BranchContextContext,
+} from "@sdl/branch-context";
 import { withTempRepoSkill } from "@sdl/core/testing";
 import { buildSlugModelArgs } from "@sdl/plans";
 import registerCccExtension from "../src/ccc.ts";
@@ -12,6 +17,7 @@ import { registerCccSlotDispatchPromptCommand } from "../src/cmux/dispatch-promp
 import {
 	registerCccSlotDispatchPlanCommand,
 	registerCccSurfaceDispatchPlanCommand,
+	type CccSlotDispatchPlanOptions,
 } from "../src/cmux/slot-dispatch-plan.ts";
 import { registerCccSlotOpenBranchCommand } from "../src/cmux/slot-open-branch.ts";
 import { createCccSidebarController, registerCccSidebarCommands } from "../src/cmux/sidebar.ts";
@@ -28,7 +34,6 @@ import {
 	START_POINT,
 	WORKTREE,
 	brmemCheckJson,
-	brmemPutJson,
 	dispatchValidationScript,
 	gitCurrentBranchStep,
 	gitOriginStep,
@@ -51,6 +56,149 @@ const SAVED_PLAN_FILENAME_SLUG = "saved-plan-local-locator";
 const SAVED_PLAN_FILE_NAME = `${SAVED_PLAN_FILENAME_SLUG}.md`;
 const PLAN_CONTENT = "# Plan\n";
 const DISPATCH_PROMPT_NAMESPACE = "ccc-dispatch";
+
+function branchContextTestOptions(planStoreRoot: string): CccSlotDispatchPlanOptions {
+	return {
+		planStoreRoot,
+		createBranchContextContext(pi, cwd) {
+			return {
+				...createBranchContextContext(pi, { cwd }),
+				brmem: createInMemoryBranchContextBrmemGateway(),
+			};
+		},
+	};
+}
+
+interface InMemoryBrmemEntry {
+	namespace: string;
+	key: string;
+	branch: string;
+	content: string;
+	commitSha: string;
+	blobSha: string;
+	updatedAt: string;
+}
+
+function createInMemoryBranchContextBrmemGateway(): BranchContextContext["brmem"] {
+	const entries = new Map<string, InMemoryBrmemEntry>();
+	let sequence = 1;
+
+	function entryId(namespace: string, branch: string, key: string): string {
+		return `${namespace}\0${branch}\0${key}`;
+	}
+
+	function entryLocator(namespace: string, branch: string, key: string): string {
+		return `refs/brmem/ns/${namespace}/${branch.replaceAll("/", "---")}:${key}`;
+	}
+
+	function nextSha(prefix: string): string {
+		const value = `${prefix}${String(sequence).padStart(34, "0")}`;
+		sequence += 1;
+		return value;
+	}
+
+	function toEntryRef(entry: Pick<InMemoryBrmemEntry, "namespace" | "key" | "branch">) {
+		return {
+			namespace: entry.namespace,
+			key: entry.key,
+			branch: entry.branch,
+			entryLocator: entryLocator(entry.namespace, entry.branch, entry.key),
+		};
+	}
+
+	return {
+		async currentBranch() {
+			return { type: "ok", value: SOURCE_BRANCH };
+		},
+		async listEntries(options) {
+			return {
+				type: "ok",
+				value: [...entries.values()]
+					.filter((entry) => entry.namespace === options.namespace)
+					.filter((entry) => options.branch === undefined || entry.branch === options.branch)
+					.filter((entry) => options.key === undefined || entry.key === options.key)
+					.map((entry) => ({ ...toEntryRef(entry), updatedAt: entry.updatedAt })),
+			};
+		},
+		async listAllEntries(options) {
+			return {
+				type: "ok",
+				value: [...entries.values()]
+					.filter((entry) => options.branch === undefined || entry.branch === options.branch)
+					.filter((entry) => options.key === undefined || entry.key === options.key)
+					.map((entry) => ({ ...toEntryRef(entry), updatedAt: entry.updatedAt })),
+			};
+		},
+		async getEntry(options) {
+			const entry = entries.get(entryId(options.namespace, options.branch, options.key));
+			if (entry === undefined) return { type: "missing" };
+			return { type: "found", value: { content: entry.content } };
+		},
+		async checkEntry(options) {
+			const entry = entries.get(entryId(options.namespace, options.branch, options.key));
+			if (entry === undefined) return { type: "missing" };
+			return {
+				type: "found",
+				value: {
+					headSha: entry.commitSha,
+					headDate: entry.updatedAt,
+					blobSha: entry.blobSha,
+					sizeBytes: Buffer.byteLength(entry.content, "utf8"),
+				},
+			};
+		},
+		async putEntry(options) {
+			const commitSha = nextSha("commit");
+			const entry: InMemoryBrmemEntry = {
+				namespace: options.namespace,
+				key: options.key,
+				branch: options.branch,
+				content: options.content,
+				commitSha,
+				blobSha: nextSha("blob"),
+				updatedAt: "2026-01-01T00:00:00.000Z",
+			};
+			entries.set(entryId(options.namespace, options.branch, options.key), entry);
+			return { type: "ok", value: { commitSha, entry: toEntryRef(entry) } };
+		},
+		async deleteEntry(options) {
+			const id = entryId(options.namespace, options.branch, options.key);
+			if (!entries.has(id)) {
+				return { type: "error", error: { code: "key_not_found", message: "key not found" } };
+			}
+			entries.delete(id);
+			return {
+				type: "ok",
+				value: { commitSha: nextSha("commit"), entry: toEntryRef(options), isSnapshotEmpty: false },
+			};
+		},
+		async copyEntries(options) {
+			const copied = [...entries.values()].filter(
+				(entry) => entry.namespace === options.namespace && entry.branch === options.fromBranch,
+			);
+			for (const entry of copied) {
+				entries.set(entryId(entry.namespace, options.toBranch, entry.key), {
+					...entry,
+					branch: options.toBranch,
+					commitSha: nextSha("commit"),
+				});
+			}
+			return {
+				type: "ok",
+				value: {
+					entries: copied.map((entry) => toEntryRef({ ...entry, branch: options.toBranch })),
+				},
+			};
+		},
+		async getRemoteConfig() {
+			return { type: "missing" };
+		},
+		async addRemoteRefspecs() {
+			return { type: "ok", value: undefined };
+		},
+	};
+}
+
 const DISPATCH_PROMPT_KEY = "prompt.md";
 const TRUNK_BRANCH = "master";
 
@@ -296,7 +444,7 @@ describe("CCC cmux command suite", () => {
 				headStep(),
 			],
 		});
-		registerCccSlotDispatchPlanCommand(pi, { planStoreRoot });
+		registerCccSlotDispatchPlanCommand(pi, branchContextTestOptions(planStoreRoot));
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
 			branchEntries: [savedPlanEntry(repoRoot, planFile, { slug: SAVED_PLAN_FILENAME_SLUG })],
@@ -335,7 +483,6 @@ describe("CCC cmux command suite", () => {
 			fileName: SAVED_PLAN_FILE_NAME,
 			content: PLAN_CONTENT,
 		});
-		const realPlanFile = await realpath(planFile);
 		const pi = new FakePi({
 			script: [
 				gitRootStep(repoRoot),
@@ -348,42 +495,10 @@ describe("CCC cmux command suite", () => {
 				step("git", ["check-ref-format", "--branch", PLAN_SLUG], {}),
 				headStep(),
 				step("git", ["rev-parse", "--verify", `refs/heads/${PLAN_SLUG}`], missingRevisionResult()),
-				step(
-					"brmem",
-					[
-						"check",
-						PLAN_KEY,
-						"--namespace",
-						"branch-context",
-						"--branch",
-						PLAN_SLUG,
-						"--format",
-						"json",
-					],
-					{ stdout: brmemCheckJson(false) },
-				),
 				gitCurrentBranchStep(),
 				step("gt", ["info", SOURCE_BRANCH, "--no-interactive"], {}),
 				step("git", ["branch", PLAN_SLUG, "HEAD"], {}),
 				step("gt", ["track", PLAN_SLUG, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),
-				step(
-					"brmem",
-					[
-						"put",
-						PLAN_KEY,
-						"--namespace",
-						"branch-context",
-						"--branch",
-						PLAN_SLUG,
-						"--file",
-						realPlanFile,
-						"--format",
-						"json",
-					],
-					{
-						stdout: brmemPutJson(repoRoot, realPlanFile),
-					},
-				),
 				step("slot", ["checkout", PLAN_SLUG, "--format", "json", "--no-clipboard"], {
 					stdout: slotCheckoutJson(PLAN_SLUG),
 				}),
@@ -404,7 +519,7 @@ describe("CCC cmux command suite", () => {
 				),
 			],
 		});
-		registerCccSlotDispatchPlanCommand(pi, { planStoreRoot });
+		registerCccSlotDispatchPlanCommand(pi, branchContextTestOptions(planStoreRoot));
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
 			model: PREVIOUS_MODEL,
@@ -443,7 +558,7 @@ describe("CCC cmux command suite", () => {
 				headStep(),
 			],
 		});
-		registerCccSurfaceDispatchPlanCommand(pi, { planStoreRoot });
+		registerCccSurfaceDispatchPlanCommand(pi, branchContextTestOptions(planStoreRoot));
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
 			branchEntries: [savedPlanEntry(repoRoot, planFile, { slug: SAVED_PLAN_FILENAME_SLUG })],
@@ -474,7 +589,6 @@ describe("CCC cmux command suite", () => {
 			fileName: SAVED_PLAN_FILE_NAME,
 			content: PLAN_CONTENT,
 		});
-		const realPlanFile = await realpath(planFile);
 		const launchCommand = `pi --provider anthropic --model claude-sonnet-4-5 --thinking medium '${formatImplBranchContextCommand(PLAN_KEY)}'`;
 		const surfaceLaunchCommand = `cd ${WORKTREE} && ${launchCommand}`;
 		const pi = new FakePi({
@@ -489,42 +603,10 @@ describe("CCC cmux command suite", () => {
 				step("git", ["check-ref-format", "--branch", PLAN_SLUG], {}),
 				headStep(),
 				step("git", ["rev-parse", "--verify", `refs/heads/${PLAN_SLUG}`], missingRevisionResult()),
-				step(
-					"brmem",
-					[
-						"check",
-						PLAN_KEY,
-						"--namespace",
-						"branch-context",
-						"--branch",
-						PLAN_SLUG,
-						"--format",
-						"json",
-					],
-					{ stdout: brmemCheckJson(false) },
-				),
 				gitCurrentBranchStep(),
 				step("gt", ["info", SOURCE_BRANCH, "--no-interactive"], {}),
 				step("git", ["branch", PLAN_SLUG, "HEAD"], {}),
 				step("gt", ["track", PLAN_SLUG, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),
-				step(
-					"brmem",
-					[
-						"put",
-						PLAN_KEY,
-						"--namespace",
-						"branch-context",
-						"--branch",
-						PLAN_SLUG,
-						"--file",
-						realPlanFile,
-						"--format",
-						"json",
-					],
-					{
-						stdout: brmemPutJson(repoRoot, realPlanFile),
-					},
-				),
 				step("slot", ["checkout", PLAN_SLUG, "--format", "json", "--no-clipboard"], {
 					stdout: slotCheckoutJson(PLAN_SLUG),
 				}),
@@ -585,7 +667,7 @@ describe("CCC cmux command suite", () => {
 				),
 			],
 		});
-		registerCccSurfaceDispatchPlanCommand(pi, { planStoreRoot });
+		registerCccSurfaceDispatchPlanCommand(pi, branchContextTestOptions(planStoreRoot));
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
 			model: PREVIOUS_MODEL,
@@ -615,7 +697,6 @@ describe("CCC cmux command suite", () => {
 			fileName: SAVED_PLAN_FILE_NAME,
 			content: PLAN_CONTENT,
 		});
-		const realPlanFile = await realpath(planFile);
 		const pi = new FakePi({
 			script: [
 				gitRootStep(repoRoot),
@@ -628,49 +709,17 @@ describe("CCC cmux command suite", () => {
 				step("git", ["check-ref-format", "--branch", PLAN_SLUG], {}),
 				headStep(),
 				step("git", ["rev-parse", "--verify", `refs/heads/${PLAN_SLUG}`], missingRevisionResult()),
-				step(
-					"brmem",
-					[
-						"check",
-						PLAN_KEY,
-						"--namespace",
-						"branch-context",
-						"--branch",
-						PLAN_SLUG,
-						"--format",
-						"json",
-					],
-					{ stdout: brmemCheckJson(false) },
-				),
 				gitCurrentBranchStep(),
 				step("gt", ["info", SOURCE_BRANCH, "--no-interactive"], {}),
 				step("git", ["branch", PLAN_SLUG, "HEAD"], {}),
 				step("gt", ["track", PLAN_SLUG, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),
-				step(
-					"brmem",
-					[
-						"put",
-						PLAN_KEY,
-						"--namespace",
-						"branch-context",
-						"--branch",
-						PLAN_SLUG,
-						"--file",
-						realPlanFile,
-						"--format",
-						"json",
-					],
-					{
-						stdout: brmemPutJson(repoRoot, realPlanFile),
-					},
-				),
 				step("slot", ["checkout", PLAN_SLUG, "--format", "json", "--no-clipboard"], {
 					code: 2,
 					stderr: "slot unavailable\n",
 				}),
 			],
 		});
-		registerCccSurfaceDispatchPlanCommand(pi, { planStoreRoot });
+		registerCccSurfaceDispatchPlanCommand(pi, branchContextTestOptions(planStoreRoot));
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
 			model: PREVIOUS_MODEL,
@@ -691,7 +740,7 @@ describe("CCC cmux command suite", () => {
 		const outsidePlanFile = join(outsideDir, SAVED_PLAN_FILENAME);
 		await writeFile(outsidePlanFile, "# Outside Plan\n", "utf8");
 		const pi = new FakePi({ script: dispatchValidationScript(repoRoot) });
-		registerCccSlotDispatchPlanCommand(pi, { planStoreRoot });
+		registerCccSlotDispatchPlanCommand(pi, branchContextTestOptions(planStoreRoot));
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
 			branchEntries: [savedPlanEntry(repoRoot, outsidePlanFile)],
@@ -712,7 +761,7 @@ describe("CCC cmux command suite", () => {
 		const planStoreRoot = await makeTempDir();
 		const planFile = await writeCmuxPlanStoreFile(planStoreRoot, repoRoot);
 		const pi = new FakePi({ script: dispatchValidationScript(repoRoot) });
-		registerCccSlotDispatchPlanCommand(pi, { planStoreRoot });
+		registerCccSlotDispatchPlanCommand(pi, branchContextTestOptions(planStoreRoot));
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
 			branchEntries: [savedPlanEntry(repoRoot, planFile, { repoKey: "gh--other--repo" })],
@@ -731,7 +780,7 @@ describe("CCC cmux command suite", () => {
 		const planStoreRoot = await makeTempDir();
 		const planFile = await writeCmuxPlanStoreFile(planStoreRoot, repoRoot);
 		const pi = new FakePi({ script: dispatchValidationScript(repoRoot) });
-		registerCccSlotDispatchPlanCommand(pi, { planStoreRoot });
+		registerCccSlotDispatchPlanCommand(pi, branchContextTestOptions(planStoreRoot));
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
 			branchEntries: [

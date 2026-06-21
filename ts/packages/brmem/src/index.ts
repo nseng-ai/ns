@@ -37,3 +37,12 @@ export type {
 	FakeEntrySeed,
 	FakeGitRemoteConfig,
 } from "./fake-gateway.ts";
+export { putEntryFromFile, prepareEntryContentFromSource } from "./put-entry-from-file.ts";
+export type {
+	PreparedEntryContent,
+	PrepareEntryContentSourceOptions,
+	PutEntryFromFileOptions,
+	PutEntryFromFileResult,
+} from "./put-entry-from-file.ts";
+export { NodeBrmemSourceReader } from "./source-reader.ts";
+export type { BrmemSourceReader, SourceBytesResult } from "./source-reader.ts";

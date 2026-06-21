@@ -9,7 +9,7 @@ import {
 	resolveExistingBranchContextReuse,
 } from "@sdl/branch-context";
 import type { BranchContextContext } from "../src/context.ts";
-import { InMemoryBranchContextBrmemGateway } from "./support/in-memory-brmem-gateway.ts";
+import { InMemoryBranchMemoryGateway } from "./support/in-memory-brmem-gateway.ts";
 import { InMemoryBranchContextGraphiteGateway } from "./support/in-memory-graphite-gateway.ts";
 
 const CWD = "/repo";
@@ -64,7 +64,7 @@ function sessionEntry(branch: string, key: string): unknown {
 
 describe("resolveExistingBranchContextReuse", () => {
 	test("verifies an explicit branch without touching git", async () => {
-		const brmem = new InMemoryBranchContextBrmemGateway({
+		const brmem = new InMemoryBranchMemoryGateway({
 			entries: [{ branch: "branch-contexts/explicit", key: "explicit-plan.md" }],
 		});
 		const git = new InMemoryGitGateway();
@@ -80,15 +80,13 @@ describe("resolveExistingBranchContextReuse", () => {
 			key: "explicit-plan.md",
 			source: "explicit-branch",
 		});
-		expect(brmem.listAttachedPlansCalls).toEqual([
-			{ cwd: CWD, branch: "branch-contexts/explicit" },
-		]);
+		expect(brmem.listAttachedPlansCalls).toEqual([{ branch: "branch-contexts/explicit" }]);
 		expect(brmem.attachmentPresenceCalls).toEqual([]);
 		expect(git.currentBranchCalls).toEqual([]);
 	});
 
 	test("fails an explicit branch without falling back to the current branch", async () => {
-		const brmem = new InMemoryBranchContextBrmemGateway();
+		const brmem = new InMemoryBranchMemoryGateway();
 		const git = new InMemoryGitGateway({ currentBranch: CURRENT_BRANCH });
 
 		await expect(
@@ -104,7 +102,7 @@ describe("resolveExistingBranchContextReuse", () => {
 	});
 
 	test("verifies a single session candidate without touching git", async () => {
-		const brmem = new InMemoryBranchContextBrmemGateway({
+		const brmem = new InMemoryBranchMemoryGateway({
 			entries: [{ branch: SESSION_BRANCH, key: SESSION_KEY }],
 		});
 		const git = new InMemoryGitGateway();
@@ -116,14 +114,12 @@ describe("resolveExistingBranchContextReuse", () => {
 		);
 
 		expect(reuse).toEqual({ branch: SESSION_BRANCH, key: SESSION_KEY, source: "session-output" });
-		expect(brmem.attachmentPresenceCalls).toEqual([
-			{ cwd: CWD, branch: SESSION_BRANCH, key: SESSION_KEY },
-		]);
+		expect(brmem.attachmentPresenceCalls).toEqual([{ branch: SESSION_BRANCH, key: SESSION_KEY }]);
 		expect(git.currentBranchCalls).toEqual([]);
 	});
 
 	test("rejects legacy plan.md session candidates before presence verification", async () => {
-		const brmem = new InMemoryBranchContextBrmemGateway({
+		const brmem = new InMemoryBranchMemoryGateway({
 			entries: [{ branch: SESSION_BRANCH, key: LEGACY_SESSION_KEY }],
 		});
 		const git = new InMemoryGitGateway({ currentBranch: { type: "detached" } });
@@ -141,7 +137,7 @@ describe("resolveExistingBranchContextReuse", () => {
 	});
 
 	test("falls through to the current branch when legacy plan.md session evidence is rejected", async () => {
-		const brmem = new InMemoryBranchContextBrmemGateway({
+		const brmem = new InMemoryBranchMemoryGateway({
 			entries: [
 				{ branch: SESSION_BRANCH, key: LEGACY_SESSION_KEY },
 				{ branch: CURRENT_BRANCH, key: CURRENT_KEY },
@@ -157,11 +153,11 @@ describe("resolveExistingBranchContextReuse", () => {
 
 		expect(reuse).toEqual({ branch: CURRENT_BRANCH, key: CURRENT_KEY, source: "current-branch" });
 		expect(brmem.attachmentPresenceCalls).toEqual([]);
-		expect(brmem.listAttachedPlansCalls).toEqual([{ cwd: CWD, branch: CURRENT_BRANCH }]);
+		expect(brmem.listAttachedPlansCalls).toEqual([{ branch: CURRENT_BRANCH }]);
 	});
 
 	test("rejects ambiguous session candidates before any gateway I/O", async () => {
-		const brmem = new InMemoryBranchContextBrmemGateway();
+		const brmem = new InMemoryBranchMemoryGateway();
 		const git = new InMemoryGitGateway();
 
 		await expect(
@@ -184,7 +180,7 @@ describe("resolveExistingBranchContextReuse", () => {
 	});
 
 	test("falls through to the current branch when the session candidate fails verification", async () => {
-		const brmem = new InMemoryBranchContextBrmemGateway({
+		const brmem = new InMemoryBranchMemoryGateway({
 			entries: [{ branch: CURRENT_BRANCH, key: CURRENT_KEY }],
 		});
 		const git = new InMemoryGitGateway({ currentBranch: CURRENT_BRANCH });
@@ -196,15 +192,13 @@ describe("resolveExistingBranchContextReuse", () => {
 		);
 
 		expect(reuse).toEqual({ branch: CURRENT_BRANCH, key: CURRENT_KEY, source: "current-branch" });
-		expect(brmem.attachmentPresenceCalls).toEqual([
-			{ cwd: CWD, branch: SESSION_BRANCH, key: SESSION_KEY },
-		]);
-		expect(brmem.listAttachedPlansCalls).toEqual([{ cwd: CWD, branch: CURRENT_BRANCH }]);
+		expect(brmem.attachmentPresenceCalls).toEqual([{ branch: SESSION_BRANCH, key: SESSION_KEY }]);
+		expect(brmem.listAttachedPlansCalls).toEqual([{ branch: CURRENT_BRANCH }]);
 		expect(git.currentBranchCalls).toHaveLength(1);
 	});
 
 	test("aggregates session and current-branch verification failures into one error", async () => {
-		const brmem = new InMemoryBranchContextBrmemGateway();
+		const brmem = new InMemoryBranchMemoryGateway();
 		const git = new InMemoryGitGateway({ currentBranch: CURRENT_BRANCH });
 
 		const promise = resolveExistingBranchContextReuse(
@@ -219,7 +213,7 @@ describe("resolveExistingBranchContextReuse", () => {
 	});
 
 	test("reports an unresolvable current branch alongside the session failure", async () => {
-		const brmem = new InMemoryBranchContextBrmemGateway();
+		const brmem = new InMemoryBranchMemoryGateway();
 		const git = new InMemoryGitGateway({ currentBranch: { type: "detached" } });
 
 		const promise = resolveExistingBranchContextReuse(
@@ -232,7 +226,7 @@ describe("resolveExistingBranchContextReuse", () => {
 	});
 
 	test("reports only the current-branch resolution failure when no session candidates exist", async () => {
-		const brmem = new InMemoryBranchContextBrmemGateway();
+		const brmem = new InMemoryBranchMemoryGateway();
 		const git = new InMemoryGitGateway({ currentBranch: { type: "detached" } });
 
 		const promise = resolveExistingBranchContextReuse(

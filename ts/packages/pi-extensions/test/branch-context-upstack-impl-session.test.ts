@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { BRANCH_CONTEXT_NAMESPACE, formatImplBranchContextCommand } from "@sdl/branch-context";
+import { formatImplBranchContextCommand } from "@sdl/branch-context";
 import { NoSavedPlanAvailableError } from "@sdl/plans";
 import registerBranchContextExtension from "../src/branch-context-extension.ts";
 
@@ -11,8 +11,7 @@ import {
 	PLAN_KEY,
 	PLAN_SLUG,
 	SOURCE_BRANCH,
-	brmemCheckEnvelope,
-	brmemListAttachedPlansStep,
+	branchContextExtensionTestOptions,
 	createBranchContextOperationFakes,
 	createContext,
 	gitCheckoutStep,
@@ -22,7 +21,6 @@ import {
 	planSlugStep,
 	branchContextEvidence,
 	branchContextOutputMessageEntry,
-	step,
 } from "./branch-context-extension-support.ts";
 
 const CUSTOM_PLAN_KEY = "custom-plan.md";
@@ -61,7 +59,7 @@ describe("branch-context-upstack-impl-session", () => {
 		const events: string[] = [];
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT), gitCheckoutStep(PLAN_SLUG)], events);
 		const fakes = createBranchContextOperationFakes();
-		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		registerBranchContextExtension(pi, branchContextExtensionTestOptions(fakes.operations));
 		const command = pi.commands.get("sdl:branch-context:upstack-impl-from-plan");
 		const context = createContext(events, { sessionFile: "/sessions/source.jsonl" });
 
@@ -93,32 +91,16 @@ describe("branch-context-upstack-impl-session", () => {
 
 	test("sdl:branch-context:upstack-impl-from-plan reuses one session-created attached plan when the local plan store is missing", async () => {
 		const events: string[] = [];
-		const pi = new FakePi(
-			[
-				step(
-					"brmem",
-					[
-						"check",
-						PLAN_KEY,
-						"--namespace",
-						BRANCH_CONTEXT_NAMESPACE,
-						"--branch",
-						IMPL_BRANCH,
-						"--format",
-						"json",
-					],
-					{ stdout: brmemCheckEnvelope(true) },
-				),
-				gitCheckoutStep(IMPL_BRANCH),
-			],
-			events,
-		);
+		const pi = new FakePi([gitCheckoutStep(IMPL_BRANCH)], events);
 		const fakes = createBranchContextOperationFakes({
 			async resolveSelectedSavedPlanFile() {
 				throw missingPlanStoreError();
 			},
 		});
-		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		registerBranchContextExtension(
+			pi,
+			branchContextExtensionTestOptions(fakes.operations, [{ branch: IMPL_BRANCH, key: PLAN_KEY }]),
+		);
 		const command = pi.commands.get("sdl:branch-context:upstack-impl-from-plan");
 		const context = createContext(events, {
 			sessionEntries: [
@@ -135,19 +117,6 @@ describe("branch-context-upstack-impl-session", () => {
 		expect(fakes.selectPlanCalls).toHaveLength(1);
 		expect(fakes.createBranchCalls).toEqual([]);
 		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
-			{
-				command: "brmem",
-				args: [
-					"check",
-					PLAN_KEY,
-					"--namespace",
-					BRANCH_CONTEXT_NAMESPACE,
-					"--branch",
-					IMPL_BRANCH,
-					"--format",
-					"json",
-				],
-			},
 			{ command: "git", args: ["checkout", IMPL_BRANCH] },
 		]);
 		expect(pi.execCalls.some((call) => call.command === "pi")).toBe(false);
@@ -160,29 +129,18 @@ describe("branch-context-upstack-impl-session", () => {
 	});
 
 	test("sdl:branch-context:upstack-impl-from-plan reuses a non-default session-created attached plan", async () => {
-		const pi = new FakePi([
-			step(
-				"brmem",
-				[
-					"check",
-					CUSTOM_PLAN_KEY,
-					"--namespace",
-					BRANCH_CONTEXT_NAMESPACE,
-					"--branch",
-					IMPL_BRANCH,
-					"--format",
-					"json",
-				],
-				{ stdout: brmemCheckEnvelope(true) },
-			),
-			gitCheckoutStep(IMPL_BRANCH),
-		]);
+		const pi = new FakePi([gitCheckoutStep(IMPL_BRANCH)]);
 		const fakes = createBranchContextOperationFakes({
 			async resolveSelectedSavedPlanFile() {
 				throw missingPlanStoreError();
 			},
 		});
-		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		registerBranchContextExtension(
+			pi,
+			branchContextExtensionTestOptions(fakes.operations, [
+				{ branch: IMPL_BRANCH, key: CUSTOM_PLAN_KEY },
+			]),
+		);
 		const command = pi.commands.get("sdl:branch-context:upstack-impl-from-plan");
 		const context = createContext([], {
 			sessionEntries: [
@@ -202,16 +160,18 @@ describe("branch-context-upstack-impl-session", () => {
 
 	test("sdl:branch-context:upstack-impl-from-plan reuses an explicit branch when the local plan store is missing", async () => {
 		const explicitBranch = "branch-contexts/explicit-target";
-		const pi = new FakePi([
-			brmemListAttachedPlansStep(explicitBranch, [{ key: PLAN_KEY }]),
-			gitCheckoutStep(explicitBranch),
-		]);
+		const pi = new FakePi([gitCheckoutStep(explicitBranch)]);
 		const fakes = createBranchContextOperationFakes({
 			async resolveSelectedSavedPlanFile() {
 				throw missingPlanStoreError();
 			},
 		});
-		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		registerBranchContextExtension(
+			pi,
+			branchContextExtensionTestOptions(fakes.operations, [
+				{ branch: explicitBranch, key: PLAN_KEY },
+			]),
+		);
 		const command = pi.commands.get("sdl:branch-context:upstack-impl-from-plan");
 		const context = createContext();
 
@@ -220,18 +180,6 @@ describe("branch-context-upstack-impl-session", () => {
 		pi.assertDone();
 		expect(fakes.createBranchCalls).toEqual([]);
 		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
-			{
-				command: "brmem",
-				args: [
-					"list",
-					"--namespace",
-					BRANCH_CONTEXT_NAMESPACE,
-					"--branch",
-					explicitBranch,
-					"--format",
-					"json",
-				],
-			},
 			{ command: "git", args: ["checkout", explicitBranch] },
 		]);
 		expect(pi.sentMessages[0]?.content).toContain("Reuse source: explicit --branch");
@@ -240,13 +188,18 @@ describe("branch-context-upstack-impl-session", () => {
 
 	test("sdl:branch-context:upstack-impl-from-plan dry-run describes explicit branch reuse without checkout", async () => {
 		const explicitBranch = "branch-contexts/explicit-target";
-		const pi = new FakePi([brmemListAttachedPlansStep(explicitBranch, [{ key: PLAN_KEY }])]);
+		const pi = new FakePi();
 		const fakes = createBranchContextOperationFakes({
 			async resolveSelectedSavedPlanFile() {
 				throw missingPlanStoreError();
 			},
 		});
-		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		registerBranchContextExtension(
+			pi,
+			branchContextExtensionTestOptions(fakes.operations, [
+				{ branch: explicitBranch, key: PLAN_KEY },
+			]),
+		);
 		const command = pi.commands.get("sdl:branch-context:upstack-impl-from-plan");
 		const context = createContext();
 
@@ -254,20 +207,7 @@ describe("branch-context-upstack-impl-session", () => {
 
 		pi.assertDone();
 		expect(fakes.createBranchCalls).toEqual([]);
-		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
-			{
-				command: "brmem",
-				args: [
-					"list",
-					"--namespace",
-					BRANCH_CONTEXT_NAMESPACE,
-					"--branch",
-					explicitBranch,
-					"--format",
-					"json",
-				],
-			},
-		]);
+		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([]);
 		const content = pi.sentMessages[0]?.content ?? "";
 		expect(content).toContain(
 			"Dry run: no branch would be created, no plan would be attached, no checkout would happen",
@@ -278,28 +218,18 @@ describe("branch-context-upstack-impl-session", () => {
 	});
 
 	test("sdl:branch-context:upstack-impl-from-plan dry-run includes non-default keys in the follow-up flow", async () => {
-		const pi = new FakePi([
-			step(
-				"brmem",
-				[
-					"check",
-					CUSTOM_PLAN_KEY,
-					"--namespace",
-					BRANCH_CONTEXT_NAMESPACE,
-					"--branch",
-					IMPL_BRANCH,
-					"--format",
-					"json",
-				],
-				{ stdout: brmemCheckEnvelope(true) },
-			),
-		]);
+		const pi = new FakePi();
 		const fakes = createBranchContextOperationFakes({
 			async resolveSelectedSavedPlanFile() {
 				throw missingPlanStoreError();
 			},
 		});
-		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		registerBranchContextExtension(
+			pi,
+			branchContextExtensionTestOptions(fakes.operations, [
+				{ branch: IMPL_BRANCH, key: CUSTOM_PLAN_KEY },
+			]),
+		);
 		const command = pi.commands.get("sdl:branch-context:upstack-impl-from-plan");
 		const context = createContext([], {
 			sessionEntries: [
@@ -322,17 +252,18 @@ describe("branch-context-upstack-impl-session", () => {
 
 	test("sdl:branch-context:upstack-impl-from-plan reuses the current branch when the local plan store is missing", async () => {
 		const currentBranch = "branch-contexts/current-target";
-		const pi = new FakePi([
-			gitCurrentBranchStep(currentBranch),
-			brmemListAttachedPlansStep(currentBranch, [{ key: PLAN_KEY }]),
-			gitCheckoutStep(currentBranch),
-		]);
+		const pi = new FakePi([gitCurrentBranchStep(currentBranch), gitCheckoutStep(currentBranch)]);
 		const fakes = createBranchContextOperationFakes({
 			async resolveSelectedSavedPlanFile() {
 				throw missingPlanStoreError();
 			},
 		});
-		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		registerBranchContextExtension(
+			pi,
+			branchContextExtensionTestOptions(fakes.operations, [
+				{ branch: currentBranch, key: PLAN_KEY },
+			]),
+		);
 		const command = pi.commands.get("sdl:branch-context:upstack-impl-from-plan");
 		const context = createContext();
 
@@ -342,18 +273,6 @@ describe("branch-context-upstack-impl-session", () => {
 		expect(fakes.createBranchCalls).toEqual([]);
 		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
 			{ command: "git", args: ["branch", "--show-current"] },
-			{
-				command: "brmem",
-				args: [
-					"list",
-					"--namespace",
-					BRANCH_CONTEXT_NAMESPACE,
-					"--branch",
-					currentBranch,
-					"--format",
-					"json",
-				],
-			},
 			{ command: "git", args: ["checkout", currentBranch] },
 		]);
 		expect(pi.sentMessages[0]?.content).toContain("Reuse source: current branch");
@@ -368,7 +287,7 @@ describe("branch-context-upstack-impl-session", () => {
 				throw missingPlanStoreError();
 			},
 		});
-		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		registerBranchContextExtension(pi, branchContextExtensionTestOptions(fakes.operations));
 		const command = pi.commands.get("sdl:branch-context:upstack-impl-from-plan");
 		const context = createContext([], {
 			sessionEntries: [
@@ -399,35 +318,26 @@ describe("branch-context-upstack-impl-session", () => {
 
 	test("sdl:branch-context:upstack-impl-from-plan surfaces attached-plan key ambiguity on explicit reuse", async () => {
 		const branch = "branch-contexts/custom-target";
-		const pi = new FakePi([
-			brmemListAttachedPlansStep(branch, [{ key: "alpha.md" }, { key: "beta.md" }]),
-		]);
+		const pi = new FakePi();
 		const fakes = createBranchContextOperationFakes({
 			async resolveSelectedSavedPlanFile() {
 				throw missingPlanStoreError();
 			},
 		});
-		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		registerBranchContextExtension(
+			pi,
+			branchContextExtensionTestOptions(fakes.operations, [
+				{ branch, key: "alpha.md" },
+				{ branch, key: "beta.md" },
+			]),
+		);
 		const command = pi.commands.get("sdl:branch-context:upstack-impl-from-plan");
 		const context = createContext();
 
 		await command?.handler(`--branch ${branch}`, context.ctx);
 
 		pi.assertDone();
-		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
-			{
-				command: "brmem",
-				args: [
-					"list",
-					"--namespace",
-					BRANCH_CONTEXT_NAMESPACE,
-					"--branch",
-					branch,
-					"--format",
-					"json",
-				],
-			},
-		]);
+		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([]);
 		const content = pi.sentMessages[0]?.content ?? "";
 		expect(content).toContain("No existing branch context with an attached plan could be reused.");
 		expect(content).toContain("Multiple supported branch-context plan entries exist");
@@ -438,31 +348,18 @@ describe("branch-context-upstack-impl-session", () => {
 
 	test("sdl:branch-context:upstack-impl-from-plan falls through to the current branch when the session candidate fails verification", async () => {
 		const currentBranch = "branch-contexts/current-target";
-		const pi = new FakePi([
-			step(
-				"brmem",
-				[
-					"check",
-					PLAN_KEY,
-					"--namespace",
-					BRANCH_CONTEXT_NAMESPACE,
-					"--branch",
-					IMPL_BRANCH,
-					"--format",
-					"json",
-				],
-				{ stdout: brmemCheckEnvelope(false) },
-			),
-			gitCurrentBranchStep(currentBranch),
-			brmemListAttachedPlansStep(currentBranch, [{ key: PLAN_KEY }]),
-			gitCheckoutStep(currentBranch),
-		]);
+		const pi = new FakePi([gitCurrentBranchStep(currentBranch), gitCheckoutStep(currentBranch)]);
 		const fakes = createBranchContextOperationFakes({
 			async resolveSelectedSavedPlanFile() {
 				throw missingPlanStoreError();
 			},
 		});
-		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		registerBranchContextExtension(
+			pi,
+			branchContextExtensionTestOptions(fakes.operations, [
+				{ branch: currentBranch, key: PLAN_KEY },
+			]),
+		);
 		const command = pi.commands.get("sdl:branch-context:upstack-impl-from-plan");
 		const context = createContext([], {
 			sessionEntries: [
@@ -478,32 +375,7 @@ describe("branch-context-upstack-impl-session", () => {
 		pi.assertDone();
 		expect(fakes.createBranchCalls).toEqual([]);
 		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
-			{
-				command: "brmem",
-				args: [
-					"check",
-					PLAN_KEY,
-					"--namespace",
-					BRANCH_CONTEXT_NAMESPACE,
-					"--branch",
-					IMPL_BRANCH,
-					"--format",
-					"json",
-				],
-			},
 			{ command: "git", args: ["branch", "--show-current"] },
-			{
-				command: "brmem",
-				args: [
-					"list",
-					"--namespace",
-					BRANCH_CONTEXT_NAMESPACE,
-					"--branch",
-					currentBranch,
-					"--format",
-					"json",
-				],
-			},
 			{ command: "git", args: ["checkout", currentBranch] },
 		]);
 		expect(pi.sentMessages[0]?.content).toContain(
@@ -514,29 +386,13 @@ describe("branch-context-upstack-impl-session", () => {
 	});
 
 	test("sdl:branch-context:upstack-impl-from-plan aggregates session and current-branch failures into one error", async () => {
-		const pi = new FakePi([
-			step(
-				"brmem",
-				[
-					"check",
-					PLAN_KEY,
-					"--namespace",
-					BRANCH_CONTEXT_NAMESPACE,
-					"--branch",
-					IMPL_BRANCH,
-					"--format",
-					"json",
-				],
-				{ stdout: brmemCheckEnvelope(false) },
-			),
-			gitCurrentBranchStep(SOURCE_BRANCH, { stdout: "" }),
-		]);
+		const pi = new FakePi([gitCurrentBranchStep(SOURCE_BRANCH, { stdout: "" })]);
 		const fakes = createBranchContextOperationFakes({
 			async resolveSelectedSavedPlanFile() {
 				throw missingPlanStoreError();
 			},
 		});
-		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		registerBranchContextExtension(pi, branchContextExtensionTestOptions(fakes.operations));
 		const command = pi.commands.get("sdl:branch-context:upstack-impl-from-plan");
 		const context = createContext([], {
 			sessionEntries: [
@@ -560,16 +416,18 @@ describe("branch-context-upstack-impl-session", () => {
 
 	test("sdl:branch-context:upstack-impl-from-plan resumes when the plan store directory exists but holds no plans", async () => {
 		const explicitBranch = "branch-contexts/explicit-target";
-		const pi = new FakePi([
-			brmemListAttachedPlansStep(explicitBranch, [{ key: PLAN_KEY }]),
-			gitCheckoutStep(explicitBranch),
-		]);
+		const pi = new FakePi([gitCheckoutStep(explicitBranch)]);
 		const fakes = createBranchContextOperationFakes({
 			async resolveSelectedSavedPlanFile() {
 				throw emptyPlanStoreError();
 			},
 		});
-		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		registerBranchContextExtension(
+			pi,
+			branchContextExtensionTestOptions(fakes.operations, [
+				{ branch: explicitBranch, key: PLAN_KEY },
+			]),
+		);
 		const command = pi.commands.get("sdl:branch-context:upstack-impl-from-plan");
 		const context = createContext();
 
@@ -587,7 +445,7 @@ describe("branch-context-upstack-impl-session", () => {
 		const filePath = await makeNamedPlanFile();
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT), gitCheckoutStep(PLAN_SLUG)]);
 		const fakes = createBranchContextOperationFakes();
-		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		registerBranchContextExtension(pi, branchContextExtensionTestOptions(fakes.operations));
 		const command = pi.commands.get("sdl:branch-context:upstack-impl-from-plan");
 		const context = createContext([], { shouldCancelNewSession: true });
 
@@ -602,29 +460,18 @@ describe("branch-context-upstack-impl-session", () => {
 	});
 
 	test("sdl:branch-context:upstack-impl-from-plan reports keyed cancellation recovery", async () => {
-		const pi = new FakePi([
-			step(
-				"brmem",
-				[
-					"check",
-					CUSTOM_PLAN_KEY,
-					"--namespace",
-					BRANCH_CONTEXT_NAMESPACE,
-					"--branch",
-					IMPL_BRANCH,
-					"--format",
-					"json",
-				],
-				{ stdout: brmemCheckEnvelope(true) },
-			),
-			gitCheckoutStep(IMPL_BRANCH),
-		]);
+		const pi = new FakePi([gitCheckoutStep(IMPL_BRANCH)]);
 		const fakes = createBranchContextOperationFakes({
 			async resolveSelectedSavedPlanFile() {
 				throw missingPlanStoreError();
 			},
 		});
-		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		registerBranchContextExtension(
+			pi,
+			branchContextExtensionTestOptions(fakes.operations, [
+				{ branch: IMPL_BRANCH, key: CUSTOM_PLAN_KEY },
+			]),
+		);
 		const command = pi.commands.get("sdl:branch-context:upstack-impl-from-plan");
 		const context = createContext([], {
 			sessionEntries: [
@@ -681,7 +528,7 @@ describe("branch-context-upstack-impl-session", () => {
 				);
 			},
 		});
-		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		registerBranchContextExtension(pi, branchContextExtensionTestOptions(fakes.operations));
 		const command = pi.commands.get("sdl:branch-context:upstack-impl-from-plan");
 		const context = createContext();
 

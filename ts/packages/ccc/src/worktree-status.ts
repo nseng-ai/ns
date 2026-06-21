@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 
-import { resolveBrmemCommandCandidates, runBrmemCandidate } from "@sdl/core/brmem-cli";
+import { runBrmem } from "@sdl/core/brmem-cli";
 import {
 	execApiToCommandRunner,
 	formatCommand,
@@ -272,28 +272,24 @@ async function loadBrmemStatus(
 	cwd: string,
 	signal?: AbortSignal,
 ): Promise<string | undefined> {
-	for (const candidate of resolveBrmemCommandCandidates(cwd)) {
-		if (signal?.aborted) return undefined;
+	if (signal?.aborted) return undefined;
 
-		const run = await runBrmemCandidate({
-			gateway: pi,
-			cwd,
-			candidate,
-			brmemArgs: ["list", "--format", "json"],
-			timeoutMs: COMMAND_TIMEOUT_MS,
-			signal,
-		});
-		if (run.type === "unavailable") continue;
-		if (run.result.killed || run.result.code !== 0) continue;
+	const run = await runBrmem({
+		gateway: pi,
+		cwd,
+		brmemArgs: ["list", "--format", "json"],
+		timeoutMs: COMMAND_TIMEOUT_MS,
+		signal,
+	});
+	if (run.type === "unavailable") return signal?.aborted ? undefined : "unavailable";
+	if (run.result.killed || run.result.code !== 0)
+		return signal?.aborted ? undefined : "unavailable";
 
-		const parsed = parseMachineEnvelopeData(run.result.stdout, { label: "brmem list JSON" });
-		if (parsed.type !== "valid") continue;
+	const parsed = parseMachineEnvelopeData(run.result.stdout, { label: "brmem list JSON" });
+	if (parsed.type !== "valid") return "unavailable";
 
-		const status = formatBrmemScopes(parseBrmemEntries(parsed.data.entries));
-		return status.length > 0 ? status : undefined;
-	}
-
-	return signal?.aborted ? undefined : "unavailable";
+	const status = formatBrmemScopes(parseBrmemEntries(parsed.data.entries));
+	return status.length > 0 ? status : undefined;
 }
 
 function parseBrmemEntries(value: unknown): BrmemEntry[] {

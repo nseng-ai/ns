@@ -16,6 +16,7 @@
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/branch-context/test"
   },
   "dependencies": {
+    "@sdl/brmem": "workspace:*",
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
     "@sdl/pi-command-surfaces": "workspace:*",

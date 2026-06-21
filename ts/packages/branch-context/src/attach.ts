@@ -5,11 +5,15 @@ import {
 } from "./constants.ts";
 import { normalizeRequestedBranchContextKey } from "./attached-plan.ts";
 import {
+	attachBranchContextPlan,
+	checkBranchContextEntryPresence,
+	deleteBranchContextPlan,
+	listBranchContextPlans,
 	type AttachedPlanEntry,
-	type BranchContextBrmemGateway,
-	type BrmemPutData,
-} from "./brmem-gateway.ts";
+	type BranchContextAttachData,
+} from "./branch-memory.ts";
 import type { BranchContextContext } from "./context.ts";
+import type { BrmemGateway } from "@sdl/brmem";
 import type { CommandExecApi } from "@sdl/core/exec";
 import type { GitGateway } from "@sdl/core/git";
 import { listSavedPlans, resolvePlanSourceFile, type PlanStoreOptions } from "@sdl/plans";
@@ -28,7 +32,7 @@ export interface AttachBranchContextParams {
 	branch?: string | undefined;
 }
 
-export type BranchContextAttachEvidence = BrmemPutData & { planSlug?: string };
+export type BranchContextAttachEvidence = BranchContextAttachData & { planSlug?: string };
 
 export interface BranchContextListEvidence {
 	branch: string;
@@ -50,17 +54,16 @@ export interface BranchContextDeleteEvidence {
 }
 
 export interface AttachBranchContextOptions {
-	brmem: BranchContextBrmemGateway;
+	brmem: BrmemGateway;
 	cwd: string;
 	branch: string;
 	key: string;
 	sourceFile: string;
-	signal?: AbortSignal | undefined;
 }
 
 interface BranchContextPrimitiveResolution {
 	git: GitGateway;
-	brmem: BranchContextBrmemGateway;
+	brmem: BrmemGateway;
 	branch: string;
 }
 
@@ -71,51 +74,36 @@ export async function attachBranchContextEntry(
 ): Promise<BranchContextAttachEvidence> {
 	const context = await resolveBranchContextPrimitiveResolution(options, params.branch);
 	const source = await resolveAttachSource(pi, params, options);
-	await assertBrmemEntryAbsent(
-		context.brmem,
-		options.cwd,
-		context.branch,
-		source.key,
-		options.signal,
-	);
+	await assertBrmemEntryAbsent(context.brmem, context.branch, source.key);
 	const data = await attachBranchContext({
 		brmem: context.brmem,
 		cwd: options.cwd,
 		branch: context.branch,
 		key: source.key,
 		sourceFile: source.sourceFile,
-		signal: options.signal,
 	});
 	return attachEvidence(data, source.planSlug);
 }
 
 export async function listBranchContextEntries(
-	_paramsPi: CommandExecApi,
 	params: { branch?: string | undefined },
 	options: BranchContextPrimitiveOptions,
 ): Promise<BranchContextListEvidence> {
 	const context = await resolveBranchContextPrimitiveResolution(options, params.branch);
-	const list = await context.brmem.listAttachedPlans({
-		cwd: options.cwd,
-		branch: context.branch,
-		signal: options.signal,
-	});
+	const list = await listBranchContextPlans(context.brmem, { branch: context.branch });
 	if (!list.ok) throw new Error(list.error.message);
 	return { branch: context.branch, entries: list.value };
 }
 
 export async function checkBranchContextEntry(
-	_paramsPi: CommandExecApi,
 	params: { key: string; branch?: string | undefined },
 	options: BranchContextPrimitiveOptions,
 ): Promise<BranchContextCheckEvidence> {
 	const context = await resolveBranchContextPrimitiveResolution(options, params.branch);
 	const key = normalizeRequestedBranchContextKey(params.key);
-	const presence = await context.brmem.attachmentPresence({
-		cwd: options.cwd,
+	const presence = await checkBranchContextEntryPresence(context.brmem, {
 		branch: context.branch,
 		key,
-		signal: options.signal,
 	});
 	if (presence.type === "error") throw new Error(presence.error.message);
 	return {
@@ -127,30 +115,25 @@ export async function checkBranchContextEntry(
 }
 
 export async function deleteBranchContextEntry(
-	_paramsPi: CommandExecApi,
 	params: { key: string; branch?: string | undefined },
 	options: BranchContextPrimitiveOptions,
 ): Promise<BranchContextDeleteEvidence> {
 	const context = await resolveBranchContextPrimitiveResolution(options, params.branch);
 	const key = normalizeRequestedBranchContextKey(params.key);
-	const deleted = await context.brmem.deleteEntry({
-		cwd: options.cwd,
+	const deleted = await deleteBranchContextPlan(context.brmem, {
 		branch: context.branch,
 		key,
-		signal: options.signal,
 	});
 	if (!deleted.ok) throw new Error(deleted.error.message);
 	return { branch: context.branch, namespace: BRANCH_CONTEXT_NAMESPACE, key, deleted: true };
 }
 
 export async function assertBrmemEntryAbsent(
-	brmem: BranchContextBrmemGateway,
-	cwd: string,
+	brmem: BrmemGateway,
 	targetBranch: string,
 	key: string,
-	signal: AbortSignal | undefined,
 ): Promise<void> {
-	const check = await brmem.attachmentPresence({ cwd, branch: targetBranch, key, signal });
+	const check = await checkBranchContextEntryPresence(brmem, { branch: targetBranch, key });
 	if (check.type === "absent") {
 		return;
 	}
@@ -161,7 +144,6 @@ export async function assertBrmemEntryAbsent(
 				`Namespace: ${BRANCH_CONTEXT_NAMESPACE}`,
 				`Branch: ${targetBranch}`,
 				`Key: ${key}`,
-				`Command: ${check.displayCommand}`,
 			].join("\n"),
 		);
 	}
@@ -170,13 +152,12 @@ export async function assertBrmemEntryAbsent(
 
 export async function attachBranchContext(
 	options: AttachBranchContextOptions,
-): Promise<BrmemPutData> {
-	const attach = await options.brmem.attachPlan({
+): Promise<BranchContextAttachData> {
+	const attach = await attachBranchContextPlan(options.brmem, {
 		cwd: options.cwd,
 		branch: options.branch,
 		key: options.key,
 		sourceFile: options.sourceFile,
-		signal: options.signal,
 	});
 	if (attach.ok) {
 		return attach.value;
@@ -341,7 +322,7 @@ function planStoreOptions(options: BranchContextPrimitiveOptions): PlanStoreOpti
 }
 
 function attachEvidence(
-	data: BrmemPutData,
+	data: BranchContextAttachData,
 	planSlug: string | undefined,
 ): BranchContextAttachEvidence {
 	return {
