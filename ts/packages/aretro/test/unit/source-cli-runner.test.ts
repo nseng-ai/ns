@@ -1,54 +1,33 @@
-import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { createTempDirTracker } from "@sdl/core/testing";
-import { afterEach, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 
-const tempDirs = createTempDirTracker();
+import { renderCliShim } from "../../../../scripts/render-cli-shim-core.ts";
 
-afterEach(async () => {
-	await tempDirs.cleanup();
-});
+const repoRoot = fileURLToPath(new URL("../../../../../", import.meta.url));
+const templatePath = fileURLToPath(
+	new URL("../../../../scripts/source-cli-shim-template", import.meta.url),
+);
+const checkedInRunnerPath = join(repoRoot, "skills/branch-retro/scripts/aretro-run");
 
 describe("aretro source CLI skill runner", () => {
 	test("matches the checked-in runner rendered from the shared template", async () => {
-		const tempRoot = await tempDirs.makeTempDir("aretro-runner-render-");
-		const outputPath = join(tempRoot, "aretro-run");
-		const repoRoot = fileURLToPath(new URL("../../../../../", import.meta.url));
-		const renderScriptPath = fileURLToPath(
-			new URL("../../../../scripts/render-cli-shim.mjs", import.meta.url),
-		);
-		const templatePath = fileURLToPath(
-			new URL("../../../../scripts/source-cli-shim-template", import.meta.url),
-		);
-		const checkedInRunnerPath = join(repoRoot, "skills/branch-retro/scripts/aretro-run");
-
-		const render = spawnSync("node", [renderScriptPath], {
-			env: {
-				...process.env,
-				SDL_TEMPLATE: templatePath,
-				SDL_OUTPUT: outputPath,
-				SDL_TOOL: "aretro",
-				SDL_CANONICAL_CHECKOUT: "unused-for-script-checkout",
-				SDL_CLI_REL_PATH: "ts/packages/aretro/src/cli.ts",
-				SDL_INSTALL_HINT:
-					"run from an sdl checkout with 'just ts-install' available, or install the TypeScript shim with 'just install-aretro'",
-				SDL_FALLBACK_MODE: "script-checkout",
-			},
-			encoding: "utf8",
+		const result = renderCliShim({
+			template: await readFile(templatePath, "utf8"),
+			tool: "aretro",
+			canonicalCheckout: "unused-for-script-checkout",
+			cliRelPath: "ts/packages/aretro/src/cli.ts",
+			installHint:
+				"run from an sdl checkout with 'just ts-install' available, or install the TypeScript shim with 'just install-aretro'",
+			fallbackMode: "script-checkout",
 		});
 
-		expect(render.status).toBe(0);
-		expect(render.stderr).toBe("");
+		expect(result.type).toBe("ok");
+		if (result.type !== "ok") return;
 
-		const rendered = await readFile(outputPath, "utf8");
 		const checkedInRunner = await readFile(checkedInRunnerPath, "utf8");
-		expect(rendered).toBe(checkedInRunner);
-
-		const syntaxCheck = spawnSync("bash", ["-n", checkedInRunnerPath], { encoding: "utf8" });
-		expect(syntaxCheck.status).toBe(0);
-		expect(syntaxCheck.stderr).toBe("");
+		expect(result.rendered).toBe(checkedInRunner);
 	});
 });

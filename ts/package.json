@@ -20,19 +20,20 @@
   },
   "devDependencies": {
     "@sdl/branch-context": "workspace:*",
-    "@sdl/roaster": "workspace:*",
     "@sdl/ccc": "workspace:*",
+    "@sdl/core": "workspace:*",
     "@sdl/plans": "workspace:*",
+    "@sdl/roaster": "workspace:*",
     "@sdl/sdl": "workspace:*",
     "@sdl/slot": "workspace:*",
     "@types/node": "catalog:",
-    "sdlcc": "workspace:*",
-    "typescript": "catalog:",
-    "vitest": "catalog:",
     "@typescript/native-preview": "catalog:",
     "oxfmt": "catalog:",
     "oxlint": "catalog:",
-    "syncpack": "catalog:"
+    "sdlcc": "workspace:*",
+    "syncpack": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   },
   "workspaces": [
     "packages/*"

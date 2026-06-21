@@ -71,6 +71,9 @@ importers:
       '@sdl/ccc':
         specifier: workspace:*
         version: link:packages/ccc
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:packages/sdl-core
       '@sdl/plans':
         specifier: workspace:*
         version: link:packages/plans
