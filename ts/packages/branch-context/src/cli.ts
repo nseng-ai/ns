@@ -2,7 +2,7 @@
 
 import { writeFile } from "node:fs/promises";
 
-import { ClinkrGroup, ok, type ClinkrExit } from "@sdl/clinkr";
+import { ClinkrGroup, execGroup as createExecGroup, ok, type ClinkrExit } from "@sdl/clinkr";
 import { defineCli, runClinkrCommand } from "@sdl/core/cli-entry";
 import { normalizePlanFilePath, validatePlanSlug } from "@sdl/plans";
 import { z } from "zod";
@@ -118,11 +118,9 @@ const entry = defineCli<BranchContextCliContext, CliDeps, undefined>({
 		return { type: "run", context, buildState: undefined };
 	},
 	configureCli: ({ root }) => {
-		const execGroup = new ClinkrGroup<BranchContextCliContext>({
-			name: "exec",
-			description: "Run hidden deterministic branch-context operations for agents.",
-			isHidden: true,
-		});
+		const execGroup = createExecGroup<BranchContextCliContext>(
+			"Run hidden deterministic branch-context operations for agents.",
+		);
 		execGroup.command({
 			name: "from-plan",
 			description: "Create a branch context from a saved plan.",

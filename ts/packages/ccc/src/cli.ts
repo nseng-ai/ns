@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-import { ClinkrGroup } from "@sdl/clinkr";
+import { ClinkrGroup, execGroup as createExecGroup } from "@sdl/clinkr";
 import { rawCommand } from "@sdl/clinkr/raw";
 import { defineCli } from "@sdl/core/cli-entry";
 import { NodeCommandExecApi, type CommandExecApi } from "@sdl/core/exec";
@@ -75,11 +75,9 @@ const entry = defineCli<CccCliContext, CccCliDeps, undefined>({
 		return { type: "run", context, buildState: undefined };
 	},
 	configureCli: ({ root }) => {
-		const execGroup = new ClinkrGroup<CccCliContext>({
-			name: "exec",
-			description: "Run hidden deterministic CCC operations for agents.",
-			isHidden: true,
-		});
+		const execGroup = createExecGroup<CccCliContext>(
+			"Run hidden deterministic CCC operations for agents.",
+		);
 		execGroup.command({
 			name: "cmux-workspace-summary",
 			summary: "Apply generated cmux workspace title and description fields.",

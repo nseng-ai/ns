@@ -3,7 +3,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-import { ClinkrGroup, ok, type ClinkrExit } from "@sdl/clinkr";
+import { ClinkrGroup, execGroup as createExecGroup, ok, type ClinkrExit } from "@sdl/clinkr";
 import { defineCli, runClinkrCommand } from "@sdl/core/cli-entry";
 import { NodeCommandExecApi, type CommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@sdl/core/git";
@@ -104,11 +104,9 @@ const entry = defineCli<PlansCliContext, CliDeps, undefined>({
 			renderHuman: formatSavedPlanListData,
 		});
 
-		const execGroup = new ClinkrGroup<PlansCliContext>({
-			name: "exec",
-			description: "Run hidden deterministic saved-plan operations for agents.",
-			isHidden: true,
-		});
+		const execGroup = createExecGroup<PlansCliContext>(
+			"Run hidden deterministic saved-plan operations for agents.",
+		);
 		execGroup.command({
 			name: "save",
 			description: "Save a source-branch plan file in the local store.",
