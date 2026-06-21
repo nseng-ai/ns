@@ -7,7 +7,7 @@ the deliberate SDK-pressure promotion analysis the roadmap anticipates for the
 `cp` / `regenerate-pr` / `submit` migration slices — it converts accumulated
 duplication evidence into a concrete, ordered promotion backlog.
 
-Status: analysis plus first implementation slice. The #1 exec evidence helper promotion (`commandSucceeded()` + `formatCommandEvidence()`) is now implemented in `@sdl/sdl/sdk` and proven by the project-local `push` extension. The remaining ranked items are still recommendations, not yet promoted.
+Status: analysis plus first implementation slice. The #1 exec evidence helper promotion (`commandSucceeded()` + `formatCommandEvidence()`) is now implemented in `@sdl/sdl/sdk` and proven by the project-local `push` extension. The `z` schema export is also part of the current public author runtime. The remaining ranked items are still recommendations, not yet promoted.
 
 ---
 
@@ -30,10 +30,19 @@ The extension stack analyzed (one self-contained file per command under
 ## 2. Root constraint (why the duplication exists)
 
 `@sdl/sdl/sdk` is a **jiti virtual module** defined in
-`ts/packages/sdl/src/sdk-module-loader.ts`. It binds exactly four runtime values:
+`ts/packages/sdl/src/sdk-module-loader.ts`. Its runtime value map must stay in
+sync with the public author exports in `ts/packages/sdl/src/sdk.ts`; current
+runtime values include:
 
 ```ts
-const sdlSdkVirtualModule = { defineExtension, failed, ok, z };
+const sdlSdkVirtualModule = {
+  commandSucceeded,
+  defineExtension,
+  failed,
+  formatCommandEvidence,
+  ok,
+  z,
+};
 ```
 
 A `.sdl/extensions/*.ts` file loads standalone, outside the workspace, so it
@@ -268,7 +277,32 @@ largest absolute payoff (4 copies, ~1600 lines); then #2-#4; then #6.
 
 ---
 
-## 7. `submit.ts` liability
+## 7. Current review remediation cut line
+
+The current top-of-stack review remediation uses the already-public author API
+and fixes concrete style/runtime issues only:
+
+- **Already promoted/used now:** `z`, `commandSucceeded`, and
+  `formatCommandEvidence` are public `@sdl/sdl/sdk` runtime exports, and
+  `push.ts` uses the exec evidence helpers instead of local command-success and
+  evidence formatting copies.
+- **Concrete remediation now:** keep schema ownership on the SDK virtual module,
+  use predicate naming for the autobranch clean-worktree snapshot field, and keep
+  scenario-test helpers shaped as single options objects.
+- **Intentionally deferred SDK-pressure evidence:** pending-worktree snapshot
+  helpers, checkpoint/repair flow, PR-description and managed-region flow,
+  GitHub gateway operations, CCC autobranch transaction/slug/latest-commit flows,
+  and broad text/temp/model utility promotions remain candidates for separately
+  reviewed public API design.
+
+This remediation should not import private workspace implementation modules from
+`.sdl/extensions/*.ts`, nor should workspace packages import extension-owned
+helpers. The duplicated workflow logic remains deliberate SDK-pressure evidence
+until a future promotion slice chooses a stable public surface.
+
+---
+
+## 8. `submit.ts` liability
 
 `submit.ts` is a checked-in esbuild artifact: untyped, un-reviewable, and a fifth
 copy of the checkpoint code. Under Option A it should be re-authored against the
@@ -276,7 +310,7 @@ widened SDK like the other extensions, retiring the bundle.
 
 ---
 
-## 8. Proof-of-mechanism (smallest viable first step)
+## 9. Proof-of-mechanism (smallest viable first step)
 
 Implemented in the first SDK-promotion slice: promote #1 and convert `push.ts`:
 

@@ -74,7 +74,7 @@ interface PendingWorktreeSnapshot {
   branch: string;
   status: string;
   diff: string;
-  clean: boolean;
+  isClean: boolean;
 }
 
 type PendingWorktreeError =
@@ -360,7 +360,7 @@ async function createAutobranchCheckpointFlow(
   }
 
   const snapshot = loaded.snapshot;
-  if (snapshot.clean) {
+  if (snapshot.isClean) {
     return createLatestCommitAutobranchFlow(ctx, args, snapshot);
   }
 
@@ -399,7 +399,7 @@ async function loadPendingWorktreeSnapshot(
       branch: branch.stdout.trim(),
       status: status.stdout,
       diff: diff.stdout,
-      clean: status.stdout.trim().length === 0,
+      isClean: status.stdout.trim().length === 0,
     },
   };
 }
