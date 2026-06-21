@@ -3,6 +3,15 @@ import { NextResponse, type NextRequest } from "next/server";
 import { config as geistdocsConfig } from "@/lib/geistdocs/config";
 import { trackMdRequest } from "@/lib/geistdocs/md-tracking";
 
+const LOCALIZED_MACHINE_ROUTE_PATHS = new Set([
+  "llms.txt",
+  "agents.md",
+  "sitemap.md",
+  "rss.xml",
+  "llms.mdx",
+]);
+const LOCALIZED_MACHINE_ROUTE_PREFIXES = ["llms.mdx/", "og/"];
+
 function isLocalizedMachineRoute(pathname: string): boolean {
   const languagePrefix = `/${geistdocsConfig.defaultLanguage}/`;
 
@@ -11,13 +20,8 @@ function isLocalizedMachineRoute(pathname: string): boolean {
   const path = pathname.slice(languagePrefix.length);
 
   return (
-    path === "llms.txt" ||
-    path === "agents.md" ||
-    path === "sitemap.md" ||
-    path === "rss.xml" ||
-    path === "llms.mdx" ||
-    path.startsWith("llms.mdx/") ||
-    path.startsWith("og/")
+    LOCALIZED_MACHINE_ROUTE_PATHS.has(path) ||
+    LOCALIZED_MACHINE_ROUTE_PREFIXES.some((prefix) => path.startsWith(prefix))
   );
 }
 

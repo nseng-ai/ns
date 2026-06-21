@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { createOgImageResponse, getLocalizedOgStaticParams } from "@/app/og/[...slug]/og-image";
+import { createOgImageResponse, getLocalizedOgStaticParams } from "@/lib/geistdocs/og-image";
 
 export function GET(
   _request: NextRequest,

@@ -3,13 +3,7 @@ import type { NextConfig } from "next";
 
 const withMDX = createMDX();
 
-const localSiteHost = "localhost:3000";
-
 const config: NextConfig = {
-  env: {
-    NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL:
-      process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL ?? localSiteHost,
-  },
   experimental: {
     turbopackFileSystemCacheForDev: true,
   },

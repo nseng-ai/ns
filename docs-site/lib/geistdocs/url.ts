@@ -1,8 +1,15 @@
-const LOCAL_SITE_HOST = "localhost:3000";
+import { siteUrl } from "@/geistdocs";
 
-export function getSiteOrigin() {
-  const host = process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL ?? LOCAL_SITE_HOST;
-  const protocol = host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https";
+const URL_SCHEME_PATTERN = /^[a-z][a-z\d+.-]*:\/\//i;
 
-  return `${protocol}://${host}`;
+export function getSiteOrigin(): string {
+  return new URL(normalizeSiteUrl(siteUrl)).origin;
+}
+
+function normalizeSiteUrl(value: string): string {
+  if (URL_SCHEME_PATTERN.test(value)) return value;
+
+  const protocol = value.startsWith("localhost") || value.startsWith("127.0.0.1") ? "http" : "https";
+
+  return `${protocol}://${value}`;
 }

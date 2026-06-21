@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { buildRssResponse } from "@/app/rss.xml/rss-response";
+import { buildRssResponse } from "@/lib/geistdocs/rss";
 
 export const revalidate = false;
 
