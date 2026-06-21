@@ -1207,9 +1207,14 @@ describe("land-stack pure helpers", () => {
 	});
 
 	test("detects managed slot paths and extracts slot names", () => {
-		const slotPath = "/Users/me/.slots/repos/sdl-tools/worktrees/slot-04";
-		expect(isManagedSlotPath(slotPath)).toBe(true);
-		expect(slotNameFromPath(slotPath)).toBe("slot-04");
+		const legacySlotPath = "/Users/me/.slots/repos/sdl-tools/worktrees/slot-04";
+		const xdgSlotPath = "/Users/me/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-04";
+		const windowsXdgSlotPath =
+			"C:\\Users\\me\\AppData\\Local\\sdl\\slots\\repos\\sdl-tools\\worktrees\\slot-04";
+		expect(isManagedSlotPath(legacySlotPath)).toBe(true);
+		expect(isManagedSlotPath(xdgSlotPath)).toBe(true);
+		expect(isManagedSlotPath(windowsXdgSlotPath)).toBe(true);
+		expect(slotNameFromPath(xdgSlotPath)).toBe("slot-04");
 		expect(isManagedSlotPath("/tmp/sdl-tools/worktrees/slot-04")).toBe(false);
 		expect(slotNameFromPath("/tmp/sdl-tools/worktrees/slot-04")).toBe("slot-04");
 	});
