@@ -26,9 +26,11 @@ In scope — the verified review findings, grouped:
   `@asdl/core/cli-entry` owning `runtimeInfo` derivation, version reading,
   IO/cwd/env defaulting, and the `import.meta.main` entry guard (collapses ~150
   lines of boilerplate copy-pasted across 14–15 `cli.ts` files and kills the
-  stale-version and runtimeInfo-desync latent drift bugs); a `clinkr`
-  `execGroup(description?)` factory so the hidden-`exec` convention cannot be
-  wired inconsistently.
+  stale-version and runtimeInfo-desync latent drift bugs). The previously
+  proposed `clinkr` `execGroup(description?)` factory is rejected: the existing
+  hidden-`exec` construction was already correct everywhere, and the helper was
+  a thin wrapper that did not delete enough complexity to justify a shared
+  abstraction.
 - **Branch-Memory access unification:** point `branch-context` at the in-process
   `@asdl/brmem` `BrmemGateway` (as `handoff` already does) instead of shelling
   out to the `brmem` CLI + re-parsing JSON; collapse the
@@ -91,9 +93,11 @@ In scope — the verified review findings, grouped:
 
 ## Completion Criteria
 
-- The shared `defineCli` + `execGroup` helpers exist and all CLIs consume them;
-  `runtimeInfo`/version/entry-footer boilerplate and the hand-rolled hidden-exec
-  construction are gone from individual `cli.ts` files.
+- The shared `defineCli` helper exists and all CLIs consume it;
+  `runtimeInfo`/version/entry-footer boilerplate is gone from individual
+  `cli.ts` files. The `execGroup(description?)` helper is explicitly not a
+  completion requirement after review rejected it as an underpowered shared
+  abstraction.
 - `branch-context` reads/writes Branch Memory through the in-process gateway; the
   parsing half of its `brmem-gateway.ts` and its `@asdl/core/brmem-cli`
   dependency are deleted; the brmem-cli candidate framework is collapsed.
@@ -124,6 +128,10 @@ Assumptions:
   most items are pure subtraction and do not depend on each other.
 - The CLI scenario tests plus `just` are a sufficient behavior-parity net for
   refactors of this shape.
+- The original `execGroup(description?)` recommendation over-weighted repeated
+  syntax and under-weighted abstraction cost. Future shared-helper rows should
+  clear a stronger bar: delete meaningful complexity, prevent plausible drift,
+  or encode a non-obvious invariant.
 
 Risks:
 
@@ -146,8 +154,10 @@ Risks:
 - Is `branch-context`'s `brmem` CLI shell-out deliberate (user-installed shim)
   or accidental divergence? Decision gates whether B3's parse-layer deletion
   proceeds.
-- Where should the `execGroup(description?)` helper live: in `clinkr` itself or
-  in a shared CLI helper layer? The `defineCli` half is resolved in current code:
-  it lives in `@sdl/core/cli-entry`, and all 15 `cli.ts` files consume it.
+- The `execGroup(description?)` placement question is closed by rejection: do
+  not add the helper in `clinkr` or a shared CLI helper layer unless new evidence
+  shows it buys a real invariant or removes substantial mental load. The
+  `defineCli` half is resolved in current code: it lives in
+  `@sdl/core/cli-entry`, and all 15 `cli.ts` files consume it.
 - For the two `legacyCommand`-based CLIs (`plans`, `branch-context`), is
   migrating off the deprecated path in scope here or a separate Objective?

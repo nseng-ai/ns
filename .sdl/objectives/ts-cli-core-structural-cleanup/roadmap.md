@@ -11,9 +11,14 @@
       `const VERSION`/`runtimeInfo`/`readPackageVersion` implementations remain in
       those entrypoints, package-local `sdlcc` `--runtime` coverage now exists, and
       `just ts-format-check && just ts-lint && just ts-check && just ts-test` passed.
-- [ ] `clinkr` `execGroup(description?)` factory defaulting `name:"exec"` +
-      `isHidden:true`; replace the 9 hand-rolled hidden-exec constructions.
-      See `references/cli-wiring-layer.md`.
+- [x] Rejected: `clinkr` `execGroup(description?)` factory defaulting
+      `name:"exec"` + `isHidden:true`; replace the hand-rolled hidden-exec
+      constructions. See `references/cli-wiring-layer.md`.
+      Decision: the implementation was reverted because it added a thin wrapper
+      around already-correct, obvious `ClinkrGroup` construction and did not
+      delete meaningful complexity. Do not reintroduce this helper without new
+      evidence that it prevents plausible drift or removes substantial mental
+      load.
 - [ ] Unify Branch-Memory access: point `branch-context` at the in-process
       `@asdl/brmem` `BrmemGateway`; delete the parsing half of its
       `brmem-gateway.ts` and its `@asdl/core/brmem-cli` dependency.
