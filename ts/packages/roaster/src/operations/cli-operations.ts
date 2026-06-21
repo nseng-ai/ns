@@ -1,9 +1,14 @@
-import { failure, ok, type ClinkrExit } from "@sdl/clinkr";
+import { failure, ok, shellNegative, type ClinkrExit } from "@sdl/clinkr";
 import { z } from "zod";
 
 import { catalogOptions, environmentOptions, type RoasterRuntime } from "../context.ts";
 import type { RoasterFailure } from "../failures.ts";
 import { publishFindings, type PublishFindingsResult } from "../findings-publication.ts";
+import {
+	ROASTER_REVIEW_LOG_NAMESPACE,
+	renderReviewLogMarkdown,
+	type ReviewLogEntry,
+} from "../gateways/review-log.ts";
 import {
 	reviewRunResultSchema,
 	type ReviewDefinition,
@@ -69,6 +74,28 @@ export const reviewRunRequestSchema = z.object({
 });
 
 export type ReviewRunRequest = z.infer<typeof reviewRunRequestSchema>;
+
+export const reviewLogRequestSchema = z.object({
+	key: z.string().optional().describe("Review key filter."),
+});
+
+export const reviewLogEntrySchema = z.object({
+	entryKey: nonBlankStringSchema,
+	branch: nonBlankStringSchema,
+	entryLocator: nonBlankStringSchema,
+	reviewKey: nonBlankStringSchema.nullable(),
+	ranAt: nonBlankStringSchema.nullable(),
+});
+
+export const reviewLogResultSchema = z.object({
+	namespace: nonBlankStringSchema,
+	reviewKey: nonBlankStringSchema.nullable(),
+	count: z.int().min(0),
+	entries: z.array(reviewLogEntrySchema),
+});
+
+export type ReviewLogRequest = z.infer<typeof reviewLogRequestSchema>;
+export type ReviewLogResult = z.infer<typeof reviewLogResultSchema>;
 
 export const publishFindingsRequestSchema = z.object({
 	prNumber: z.int().positive().describe("Pull request number."),
@@ -204,9 +231,23 @@ export async function runReviewByKey(
 	);
 	if (response.type === "error") return failureFromRoaster(response.error);
 
-	return ok(
-		reviewRunResult(source.value.key, source.value.path, model, diff.value.baseRef, response.value),
-	);
+	const runResult = reviewRunResult(source.value.key, source.value.path, model, diff.value.baseRef, response.value);
+	const ranAt = new Date().toISOString();
+	const metadata = await reviewLogMetadata(ctx);
+	const logResult = await ctx.reviewLog.writeReviewLog({
+		...environmentOptions(ctx.runScope),
+		reviewKey: source.value.key,
+		ranAt,
+		content: renderReviewLogMarkdown(runResult, { ranAt, ...metadata }),
+	});
+	if (logResult.type === "error") {
+		return shellNegative(
+			`${renderReviewRun(runResult)}\n\nroaster: failed to write Branch Memory review log:\n${logResult.error.message}`,
+			runResult,
+		);
+	}
+
+	return ok(runResult);
 }
 
 export function renderReviewRun(result: ReviewRunResult): string {
@@ -226,6 +267,42 @@ export function renderReviewRun(result: ReviewRunResult): string {
 		lines.push(`Cost: $${result.usage.totalCostUsd.toFixed(4)} USD`);
 		lines.push(
 			`Duration: ${(result.usage.durationMs / 1000).toFixed(1)}s (${result.usage.numTurns} turns)`,
+		);
+	}
+	return lines.join("\n");
+}
+
+export async function runReviewLog(
+	ctx: RoasterRuntime,
+	request: ReviewLogRequest,
+): Promise<ClinkrExit<ReviewLogResult>> {
+	const entries = await ctx.reviewLog.listReviewLogs({
+		...environmentOptions(ctx.runScope),
+		...(request.key === undefined ? {} : { reviewKey: request.key }),
+	});
+	if (entries.type === "error") return failureFromRoaster(entries.error);
+	return ok(
+		reviewLogResultSchema.parse({
+			namespace: ROASTER_REVIEW_LOG_NAMESPACE,
+			reviewKey: request.key ?? null,
+			count: entries.value.length,
+			entries: entries.value.map(reviewLogEntryResult),
+		}),
+	);
+}
+
+export function renderReviewLog(result: ReviewLogResult): string {
+	if (result.count === 0) {
+		return result.reviewKey === null
+			? "No roaster review logs found for this branch."
+			: `No roaster review logs found for review key ${result.reviewKey} on this branch.`;
+	}
+	const lines = [`Roaster review logs: ${result.count}`];
+	for (const entry of result.entries) {
+		lines.push(
+			`- ${entry.ranAt ?? "unknown time"}  ${entry.reviewKey ?? "unknown review"}  ${entry.entryKey}`,
+			`  git show ${entry.entryLocator}`,
+			`  brmem get ${entry.entryKey} --namespace ${result.namespace}`,
 		);
 	}
 	return lines.join("\n");
@@ -259,6 +336,11 @@ type LoadDefinitionsResult =
 	| { readonly type: "ok"; readonly value: readonly LoadedDefinition[] }
 	| { readonly type: "error"; readonly error: RoasterFailure };
 
+interface ReviewLogMetadata {
+	readonly branch: string;
+	readonly headCommit: string;
+}
+
 async function loadDefinitions(
 	ctx: RoasterRuntime,
 	keys: readonly string[],
@@ -283,6 +365,43 @@ async function loadDefinitions(
 		loaded.push({ key: source.value.key, definition: parsed.definition });
 	}
 	return { type: "ok", value: loaded };
+}
+
+async function reviewLogMetadata(ctx: RoasterRuntime): Promise<ReviewLogMetadata> {
+	const options = environmentOptions(ctx.runScope);
+	const currentBranch = await ctx.gitGateway.currentBranch(options);
+	const headCommit = await ctx.gitGateway.headCommit(options);
+	return {
+		branch: branchMetadataValue(currentBranch),
+		headCommit: headCommit.ok ? headCommit.value : unavailableMetadataValue(headCommit.error.message),
+	};
+}
+
+function reviewLogEntryResult(entry: ReviewLogEntry): ReviewLogResult["entries"][number] {
+	return {
+		entryKey: entry.key,
+		branch: entry.branch,
+		entryLocator: entry.entryLocator,
+		reviewKey: entry.reviewKey,
+		ranAt: entry.ranAt,
+	};
+}
+
+function branchMetadataValue(
+	result: Awaited<ReturnType<RoasterRuntime["gitGateway"]["currentBranch"]>>,
+): string {
+	switch (result.type) {
+		case "branch":
+			return result.branch;
+		case "detached":
+			return "unknown";
+		case "failure":
+			return unavailableMetadataValue(result.error.message);
+	}
+}
+
+function unavailableMetadataValue(message: string): string {
+	return `unavailable: ${message}`;
 }
 
 function reviewRunResult(
