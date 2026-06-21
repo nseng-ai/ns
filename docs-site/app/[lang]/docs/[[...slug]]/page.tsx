@@ -16,6 +16,9 @@ const docsPage = createDocsPage({
     ...metadata,
     metadataBase: new URL(getSiteOrigin()),
   }),
+  openGraph: {
+    images: true,
+  },
   source: geistdocsSource,
   tableOfContentPopover: {
     enabled: false,
