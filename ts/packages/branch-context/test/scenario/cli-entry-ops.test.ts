@@ -224,6 +224,57 @@ describe("branch-context exec", () => {
 		expect(run.brmem.attachPlanCalls).toEqual([]);
 	});
 
+	test("Branch Memory attach failures report partial failure after branch creation", async () => {
+		const repoRoot = await makeTempDir();
+		const outsideDir = await makeTempDir();
+		const planFile = join(outsideDir, "plan.md");
+		await writeFile(planFile, "# Plan\n", "utf8");
+		const branch = "branch-contexts/branch-scoped-plan";
+		const run = runWithFakes(
+			[
+				"exec",
+				"from-plan",
+				"--slug",
+				PLAN_SLUG,
+				"--plan-file",
+				planFile,
+				"--branch",
+				branch,
+				"--format",
+				"json",
+			],
+			{
+				cwd: repoRoot,
+				git: { headCommit: START_POINT },
+				brmem: {
+					attachFailure: {
+						code: "brmem_write_failed",
+						message: "Branch Memory write failed.",
+					},
+				},
+			},
+		);
+
+		expect(await run.exit).toBe(2);
+		run.commands.assertDone();
+		const payload = parseJson(run);
+		expect(payload).toMatchObject({ exit_code: 2, error_type: "branch_context_error" });
+		const message = String(payload.message);
+		expect(message).toContain(
+			"Partial failure: Created branch but failed to attach the plan in Branch Memory.",
+		);
+		expect(message).toContain(`Created branch: ${branch}`);
+		expect(message).toContain(`Namespace: ${BRANCH_CONTEXT_NAMESPACE}`);
+		expect(message).toContain(`Key: ${PLAN_KEY}`);
+		expect(message).toContain("No cleanup was attempted; inspect the created branch manually.");
+		expect(message).toContain("Branch Memory write failed.");
+		expect(run.git.existingBranches).toContain(branch);
+		expect(run.brmem.attachPlanCalls).toMatchObject([
+			{ namespace: BRANCH_CONTEXT_NAMESPACE, branch, key: PLAN_KEY, content: "# Plan\n" },
+		]);
+		expect(run.brmem.attachedPlans).toEqual([]);
+	});
+
 	test("load JSON is metadata-only by default", async () => {
 		const repoRoot = await makeTempDir();
 		const branch = "branch-contexts/branch-scoped-plan";
@@ -250,6 +301,53 @@ describe("branch-context exec", () => {
 		const data = payload.data as Record<string, unknown>;
 		expect(data).not.toHaveProperty("attached_plan_content");
 		expect(data).not.toHaveProperty("implementation_prompt");
+		expect(run.brmem.listAttachedPlansCalls).toEqual([{ branch }]);
+		expect(run.brmem.getAttachedPlanCalls).toEqual([{ branch, key: PLAN_KEY }]);
+	});
+
+	test("load reports Branch Memory list failures", async () => {
+		const repoRoot = await makeTempDir();
+		const branch = "branch-contexts/branch-scoped-plan";
+		const run = runWithFakes(["exec", "load", "--format", "json"], {
+			cwd: repoRoot,
+			git: { currentBranch: branch, trunkBranch: "main" },
+			brmem: {
+				listFailure: {
+					code: "brmem_list_failed",
+					message: "Branch Memory list failed.",
+				},
+			},
+		});
+
+		expect(await run.exit).toBe(2);
+		run.commands.assertDone();
+		const payload = parseJson(run);
+		expect(payload).toMatchObject({ exit_code: 2, error_type: "branch_context_error" });
+		expect(String(payload.message)).toContain("Branch Memory list failed.");
+		expect(run.brmem.listAttachedPlansCalls).toEqual([{ branch }]);
+		expect(run.brmem.getAttachedPlanCalls).toEqual([]);
+	});
+
+	test("load reports Branch Memory get failures after selecting an attached key", async () => {
+		const repoRoot = await makeTempDir();
+		const branch = "branch-contexts/branch-scoped-plan";
+		const run = runWithFakes(["exec", "load", "--format", "json"], {
+			cwd: repoRoot,
+			git: { currentBranch: branch, trunkBranch: "main" },
+			brmem: {
+				entries: [{ branch, key: PLAN_KEY, content: "# Plan\n" }],
+				getFailure: {
+					code: "brmem_get_failed",
+					message: "Branch Memory get failed.",
+				},
+			},
+		});
+
+		expect(await run.exit).toBe(2);
+		run.commands.assertDone();
+		const payload = parseJson(run);
+		expect(payload).toMatchObject({ exit_code: 2, error_type: "branch_context_error" });
+		expect(String(payload.message)).toContain("Branch Memory get failed.");
 		expect(run.brmem.listAttachedPlansCalls).toEqual([{ branch }]);
 		expect(run.brmem.getAttachedPlanCalls).toEqual([{ branch, key: PLAN_KEY }]);
 	});
@@ -585,6 +683,28 @@ describe("branch-context exec", () => {
 		expect(run.stdout.join("")).toContain("- notes");
 	});
 
+	test("check reports Branch Memory presence failures", async () => {
+		const repoRoot = await makeTempDir();
+		const branch = "branch-contexts/manual-context";
+		const run = runWithFakes(["exec", "check", "missing", "--format", "json"], {
+			cwd: repoRoot,
+			git: { currentBranch: branch },
+			brmem: {
+				presenceFailure: {
+					code: "brmem_check_failed",
+					message: "Branch Memory check failed.",
+				},
+			},
+		});
+
+		expect(await run.exit).toBe(2);
+		run.commands.assertDone();
+		const payload = parseJson(run);
+		expect(payload).toMatchObject({ exit_code: 2, error_type: "branch_context_error" });
+		expect(String(payload.message)).toContain("Branch Memory check failed.");
+		expect(run.brmem.attachmentPresenceCalls).toEqual([{ branch, key: "missing" }]);
+	});
+
 	test("check exits successfully for absent entries", async () => {
 		const repoRoot = await makeTempDir();
 		const branch = "branch-contexts/manual-context";
@@ -603,6 +723,32 @@ describe("branch-context exec", () => {
 				present: false,
 			},
 		});
+	});
+
+	test("delete reports Branch Memory delete failures", async () => {
+		const repoRoot = await makeTempDir();
+		const branch = "branch-contexts/manual-context";
+		const run = runWithFakes(["exec", "delete", "notes", "--format", "json"], {
+			cwd: repoRoot,
+			git: { currentBranch: branch },
+			brmem: {
+				entries: [{ branch, key: "notes" }],
+				deleteFailure: {
+					code: "brmem_delete_failed",
+					message: "Branch Memory delete failed.",
+				},
+			},
+		});
+
+		expect(await run.exit).toBe(2);
+		run.commands.assertDone();
+		const payload = parseJson(run);
+		expect(payload).toMatchObject({ exit_code: 2, error_type: "branch_context_error" });
+		expect(String(payload.message)).toContain("Branch Memory delete failed.");
+		expect(run.brmem.deleteEntryCalls).toEqual([{ branch, key: "notes" }]);
+		expect(run.brmem.attachedPlans).toContainEqual(
+			expect.objectContaining({ branch, key: "notes" }),
+		);
 	});
 
 	test("delete removes an explicit branch-context key", async () => {

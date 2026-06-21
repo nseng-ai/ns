@@ -140,10 +140,14 @@ Risks:
   costly; the existing up-front `expectedShas` snapshot and merge→verify→cleanup
   ordering must be preserved exactly. Treat this as the item most needing
   careful test coverage before refactor.
-- The `branch-context` shell-out boundary decision is resolved: `branch-context`
-  should use the in-process `@sdl/brmem` gateway, not a user-installed `brmem`
-  shim. Remaining risk is preserving current diagnostics and partial-failure
-  semantics while deleting the subprocess/JSON parse layer.
+- The `branch-context` shell-out boundary decision is resolved and the
+  branch-context migration risk is de-risked: `branch-context` now uses the
+  in-process `@sdl/brmem` gateway, its subprocess/JSON parse layer is gone, the
+  dry-run preview no longer claims a `brmem put` command will run, and CLI
+  scenario tests cover attach/list/get/check/delete failure diagnostics. The
+  related `@sdl/core/brmem-cli` candidate-framework collapse has landed in the
+  current stack; the remaining known cleanup in that row is the
+  `readOptionalBrmemBooleanField` dead export.
 - A shared `defineCli` helper touches all 15 CLIs at once; a subtle change to
   IO/exit-code/entry-guard semantics could regress every CLI simultaneously.
   Mitigate by landing it behind scenario-test coverage of `--version`,
