@@ -17,7 +17,7 @@ import {
 	formatParityComparisonFailure,
 	type LivePiSurface,
 } from "../src/parity-check.ts";
-import { PI_EXTENSION_PARITY_RECORDS } from "../src/parity-registry.ts";
+import { loadPiExtensionParityRecords } from "../src/parity-registry.ts";
 import { definePiSurfaceParity } from "../src/parity.ts";
 import type { PiAgentDefinition } from "../src/pi-agent-definition.ts";
 import sdlExtension from "../src/sdl-extension.ts";
@@ -88,29 +88,32 @@ class FakePiSurfaceHost {
 	}
 }
 
-function collectLivePiExtensionSurfaces(): LivePiSurface[] {
+async function collectLivePiExtensionSurfaces(): Promise<LivePiSurface[]> {
 	const pi = new FakePiSurfaceHost();
 
-	registerWithFakeHost(pi, registerBranchContextWithFakeHostOptions);
-	registerWithFakeHost(pi, claudeExtension);
-	registerWithFakeHost(pi, codeWorkflowsExtension);
-	registerWithFakeHost(pi, codeExtension);
-	registerWithFakeHost(pi, registerContextProfilerExtension);
-	registerWithFakeHost(pi, registerDispatchRunnerSubagentWithFakeDefinition);
-	registerWithFakeHost(pi, registerGrillUiExtension);
-	registerWithFakeHost(pi, handoffExtension);
-	registerWithFakeHost(pi, modelShortcutExtension);
-	registerWithFakeHost(pi, objectiveExtension);
-	registerWithFakeHost(pi, prExtension);
-	registerWithFakeHost(pi, roastExtension);
-	registerWithFakeHost(pi, sdlExtension);
-	registerWithFakeHost(pi, worktreeStatusExtension);
+	await registerWithFakeHost(pi, registerBranchContextWithFakeHostOptions);
+	await registerWithFakeHost(pi, claudeExtension);
+	await registerWithFakeHost(pi, codeWorkflowsExtension);
+	await registerWithFakeHost(pi, codeExtension);
+	await registerWithFakeHost(pi, registerContextProfilerExtension);
+	await registerWithFakeHost(pi, registerDispatchRunnerSubagentWithFakeDefinition);
+	await registerWithFakeHost(pi, registerGrillUiExtension);
+	await registerWithFakeHost(pi, handoffExtension);
+	await registerWithFakeHost(pi, modelShortcutExtension);
+	await registerWithFakeHost(pi, objectiveExtension);
+	await registerWithFakeHost(pi, prExtension);
+	await registerWithFakeHost(pi, roastExtension);
+	await registerWithFakeHost(pi, sdlExtension);
+	await registerWithFakeHost(pi, worktreeStatusExtension);
 
 	return pi.surfaces();
 }
 
-function registerWithFakeHost<TPi>(pi: FakePiSurfaceHost, register: (pi: TPi) => void): void {
-	register(pi as TPi);
+async function registerWithFakeHost<TPi>(
+	pi: FakePiSurfaceHost,
+	register: (pi: TPi) => void | Promise<void>,
+): Promise<void> {
+	await register(pi as TPi);
 }
 
 function registerBranchContextWithFakeHostOptions(
@@ -139,10 +142,10 @@ function fakeRunnerAgentDefinition(): PiAgentDefinition {
 }
 
 describe("Pi extension parity metadata", () => {
-	test("all @sdl/pi-extensions command surfaces have parity metadata", () => {
+	test("all @sdl/pi-extensions command surfaces have parity metadata", async () => {
 		const comparison = comparePiSurfaceParity({
-			liveSurfaces: collectLivePiExtensionSurfaces(),
-			metadata: PI_EXTENSION_PARITY_RECORDS,
+			liveSurfaces: await collectLivePiExtensionSurfaces(),
+			metadata: await loadPiExtensionParityRecords({ cwd: process.cwd() }),
 		});
 
 		if (

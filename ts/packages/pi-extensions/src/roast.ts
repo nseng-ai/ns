@@ -1,6 +1,6 @@
 import {
-	listRoastSkillEntries,
 	loadRoastReviewDefinition as loadCanonicalRoastReviewDefinition,
+	loadRoastSkillEntries as loadCanonicalRoastSkillEntries,
 	roastReviewPathForKey,
 	type RoastReviewLoadResult,
 	type RoastSkillEntry,
@@ -9,10 +9,6 @@ import {
 import { definePiSurfaceParity, type FullPiSurfaceParity } from "./parity.ts";
 import type { PiCommandContext, PiCommandHost } from "./pi-command-host.ts";
 import { buildFencedTextBlock } from "./skill-expansion.ts";
-
-const DEFAULT_ROAST_ENTRIES = listRoastSkillEntries();
-
-export const roastParity = definePiSurfaceParity(DEFAULT_ROAST_ENTRIES.map(roastParityRecord));
 
 export interface RoastReviewDefinitionLoadRequest {
 	readonly cwd: string;
@@ -23,8 +19,12 @@ export type LoadRoastReviewDefinition = (
 	request: RoastReviewDefinitionLoadRequest,
 ) => Promise<RoastReviewLoadResult>;
 
+export type LoadRoastSkillEntries = typeof loadCanonicalRoastSkillEntries;
+
 export interface RoastExtensionOptions {
 	readonly entries?: readonly RoastSkillEntry[] | undefined;
+	readonly loadEntries?: LoadRoastSkillEntries | undefined;
+	readonly cwd?: string | undefined;
 	readonly loadReviewDefinition?: LoadRoastReviewDefinition | undefined;
 }
 
@@ -36,11 +36,11 @@ interface HandleRoastCommandOptions {
 	readonly loadReviewDefinition: LoadRoastReviewDefinition;
 }
 
-export default function roastExtension(
+export default async function roastExtension(
 	pi: PiCommandHost,
 	options: RoastExtensionOptions = {},
-): void {
-	const entries = options.entries ?? DEFAULT_ROAST_ENTRIES;
+): Promise<void> {
+	const entries = options.entries ?? (await loadEntriesOrThrow(options));
 	const loadReviewDefinition = options.loadReviewDefinition ?? loadCanonicalRoastReviewDefinition;
 	for (const entry of entries) {
 		pi.registerCommand(entry.surface, {
@@ -50,6 +50,23 @@ export default function roastExtension(
 				handleRoastCommand({ pi, ctx, entry, args, loadReviewDefinition }),
 		});
 	}
+}
+
+export function roastParityForEntries(
+	entries: readonly RoastSkillEntry[],
+): readonly FullPiSurfaceParity[] {
+	return definePiSurfaceParity(entries.map(roastParityRecord));
+}
+
+async function loadEntriesOrThrow(
+	options: RoastExtensionOptions,
+): Promise<readonly RoastSkillEntry[]> {
+	const loadEntries = options.loadEntries ?? loadCanonicalRoastSkillEntries;
+	const loaded = await loadEntries({ cwd: options.cwd ?? process.cwd() });
+	if (loaded.type === "error") {
+		throw new Error(`Could not load Roaster roast catalog: ${loaded.error.message}`);
+	}
+	return loaded.value;
 }
 
 function roastParityRecord(entry: RoastSkillEntry): FullPiSurfaceParity {

@@ -1,7 +1,3 @@
-import { readdirSync, readFileSync } from "node:fs";
-import { join, relative, sep } from "node:path";
-import { fileURLToPath } from "node:url";
-
 import type { RoasterFailure, RoasterResult } from "./failures.ts";
 import {
 	RealReviewCatalogGateway,
@@ -39,7 +35,6 @@ export interface LoadRoastReviewDefinitionOptions extends LoadRoastSkillEntriesO
 	readonly key: string;
 }
 
-const DEFAULT_REPO_REVIEWS_DIR = new URL("../../../../reviews/", import.meta.url);
 const ACRONYMS = new Map([
 	["asdl", "ASDL"],
 	["dry", "DRY"],
@@ -47,15 +42,14 @@ const ACRONYMS = new Map([
 	["python", "Python"],
 ]);
 
-export function listRoastSkillEntries(): readonly RoastSkillEntry[] {
-	return loadRoastSkillEntriesFromReviewsDirSync(DEFAULT_REPO_REVIEWS_DIR);
-}
-
 export async function loadRoastSkillEntries(
 	options: LoadRoastSkillEntriesOptions,
 ): Promise<RoasterResult<readonly RoastSkillEntry[]>> {
 	const reviewCatalog = options.reviewCatalog ?? new RealReviewCatalogGateway();
-	const catalog = await reviewCatalog.listReviewKeys(catalogOptions(options));
+	const catalog = await reviewCatalog.listReviewKeys({
+		cwd: options.cwd,
+		...(options.signal === undefined ? {} : { signal: options.signal }),
+	});
 	if (catalog.type === "error") return catalog;
 
 	const entries: RoastSkillEntry[] = [];
@@ -72,7 +66,8 @@ export async function loadRoastReviewDefinition(
 ): Promise<RoastReviewLoadResult> {
 	const reviewCatalog = options.reviewCatalog ?? new RealReviewCatalogGateway();
 	const source = await reviewCatalog.loadReviewSource({
-		...catalogOptions(options),
+		cwd: options.cwd,
+		...(options.signal === undefined ? {} : { signal: options.signal }),
 		key: options.key,
 	});
 	if (source.type === "error") return source;
@@ -91,26 +86,6 @@ export async function loadRoastReviewDefinition(
 		source: source.value,
 		definition: parsed.definition,
 	};
-}
-
-export function loadRoastSkillEntriesFromReviewsDirSync(
-	reviewsDirUrlOrPath: URL | string,
-): readonly RoastSkillEntry[] {
-	const reviewsDir =
-		reviewsDirUrlOrPath instanceof URL ? fileURLToPath(reviewsDirUrlOrPath) : reviewsDirUrlOrPath;
-	const entries: RoastSkillEntry[] = [];
-	for (const path of markdownFilesSync(reviewsDir).sort()) {
-		const key = keyFromPath(reviewsDir, path);
-		const source = readFileSync(path, "utf8");
-		const parsed = parseReviewDefinition(source, { name: key });
-		if (parsed.type === "error") {
-			throw new Error(
-				`Review definition ${roastReviewPathForKey(key)} is invalid: ${parsed.error.message}`,
-			);
-		}
-		entries.push(roastSkillEntryFromDefinition(key, parsed.definition));
-	}
-	return entries;
 }
 
 function roastSurfaceForReviewKey(key: string): string {
@@ -144,31 +119,6 @@ function roastSkillEntryFromDefinition(key: string, definition: ReviewDefinition
 		description: definition.description,
 		defaultPrompt: roastDefaultPromptForKey(key),
 	};
-}
-
-function catalogOptions(options: {
-	readonly cwd: string;
-	readonly signal?: AbortSignal | undefined;
-}): { readonly cwd: string; readonly signal?: AbortSignal | undefined } {
-	return {
-		cwd: options.cwd,
-		...(options.signal === undefined ? {} : { signal: options.signal }),
-	};
-}
-
-function markdownFilesSync(root: string): string[] {
-	const paths: string[] = [];
-	for (const entry of readdirSync(root, { withFileTypes: true })) {
-		const path = join(root, entry.name);
-		if (entry.isDirectory()) paths.push(...markdownFilesSync(path));
-		else if (entry.isFile() && entry.name.endsWith(".md")) paths.push(path);
-	}
-	return paths;
-}
-
-function keyFromPath(root: string, path: string): string {
-	const withoutSuffix = relative(root, path).replace(/\.md$/u, "");
-	return withoutSuffix.split(sep).join("/");
 }
 
 function humanizeKeyWord(word: string, index: number): string {
