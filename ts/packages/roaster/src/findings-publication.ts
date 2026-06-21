@@ -34,6 +34,12 @@ import { reviewRunResultSchema, type PostInlineFindingsResult } from "./models.t
 
 const reviewRunSuccessEnvelopeSchema = buildSuccessMachineEnvelopeSchema(reviewRunResultSchema);
 
+const reviewRunShellNegativeEnvelopeSchema = z.strictObject({
+	exit_code: z.literal(1),
+	message: z.string(),
+	data: reviewRunResultSchema,
+});
+
 const reviewRunFailureEnvelopeSchema = buildFailureMachineEnvelopeSchema({
 	errorTypeSchema: z.string().trim().min(1),
 });
@@ -57,20 +63,10 @@ export function parseFindingsPayloadResult(
 		return payloadError("expected a clinkr envelope with top-level 'exit_code'");
 
 	const success = reviewRunSuccessEnvelopeSchema.safeParse(data.value);
-	if (success.success) {
-		return {
-			type: "ok",
-			payload: {
-				reviewName: success.data.data.reviewName,
-				baseRef: success.data.data.baseRef,
-				count: success.data.data.count,
-				findings: success.data.data.findings,
-				inputCoverage: success.data.data.inputCoverage,
-				errorType: null,
-				errorMessage: null,
-			},
-		};
-	}
+	if (success.success) return payloadFromReviewRunResult(success.data.data);
+
+	const shellNegative = reviewRunShellNegativeEnvelopeSchema.safeParse(data.value);
+	if (shellNegative.success) return payloadFromReviewRunResult(shellNegative.data.data);
 
 	const failure = reviewRunFailureEnvelopeSchema.safeParse(data.value);
 	if (failure.success) {
@@ -180,6 +176,23 @@ export async function publishFindings(
 				type: existing.value === null ? "posted" : "updated",
 				marker: parsedBody.parsed.marker,
 			},
+		},
+	};
+}
+
+function payloadFromReviewRunResult(
+	result: z.infer<typeof reviewRunResultSchema>,
+): FindingsPayloadParseResult {
+	return {
+		type: "ok",
+		payload: {
+			reviewName: result.reviewName,
+			baseRef: result.baseRef,
+			count: result.count,
+			findings: result.findings,
+			inputCoverage: result.inputCoverage,
+			errorType: null,
+			errorMessage: null,
 		},
 	};
 }

@@ -199,6 +199,33 @@ describe("payload parsers", () => {
 		}
 	});
 
+	test("parses shell-negative review result envelopes as findings payloads", () => {
+		const result = parseFindingsPayloadResult(
+			JSON.stringify({
+				exit_code: 1,
+				message: "failed to write Branch Memory review log",
+				data: {
+					reviewName: "typescript-style",
+					reviewPath: "reviews/typescript-style.md",
+					model: "haiku",
+					baseRef: "main",
+					format: "findings",
+					count: 1,
+					findings: [WARNING_FINDING],
+					usage: null,
+					inputCoverage: null,
+				},
+			}),
+		);
+
+		expect(result.type).toBe("ok");
+		if (result.type === "ok") {
+			expect(result.payload.errorType).toBeNull();
+			expect(result.payload.reviewName).toBe("typescript-style");
+			expect(result.payload.findings).toEqual([WARNING_FINDING]);
+		}
+	});
+
 	test("requires fallback identity for failed envelopes", () => {
 		const result = parseFindingsPayloadResult(
 			JSON.stringify({ exit_code: 2, error_type: "failure", message: "boom" }),
