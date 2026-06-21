@@ -1,4 +1,3 @@
-import { autobranchParity } from "./autobranch.ts";
 import { autoslotParity } from "./autoslot.ts";
 import { branchContextExtensionParity } from "./branch-context-extension.ts";
 import { claudeHandoffParity } from "./claude/handoff-command.ts";
@@ -19,7 +18,6 @@ import { worktreeStatusParity } from "./worktree-status.ts";
 import type { PiSurfaceParity } from "./parity.ts";
 
 export const STATIC_PI_EXTENSION_PARITY_RECORDS = [
-	...autobranchParity,
 	...autoslotParity,
 	...branchContextExtensionParity,
 	...claudeHandoffParity,

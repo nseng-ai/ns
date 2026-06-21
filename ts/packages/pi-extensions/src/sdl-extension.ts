@@ -1,6 +1,5 @@
 import { runCli, type SdlCommandInfo } from "@sdl/sdl/cli";
 
-import autobranchExtension from "./autobranch.ts";
 import autoslotExtension from "./autoslot.ts";
 import {
 	registerCliCommandExtension,
@@ -13,7 +12,6 @@ import pushExtension from "./push.ts";
 import trunkPullExtension from "./trunk-pull.ts";
 
 export type SdlExtensionAPI = CliCommandExtensionAPI &
-	Parameters<typeof autobranchExtension>[0] &
 	Parameters<typeof autoslotExtension>[0] &
 	Parameters<typeof landExtension>[0] &
 	Parameters<typeof pushExtension>[0] &
@@ -27,6 +25,11 @@ const CP_COMMAND_INFO = {
 	name: "cp",
 	description: "Create a checkpoint commit for the current diff.",
 } as const satisfies SdlCommandInfo;
+const AUTOBRANCH_COMMAND_INFO = {
+	name: "autobranch",
+	description:
+		"Create a Graphite branch from dirty worktree changes or the latest unpushed commit.",
+} as const satisfies SdlCommandInfo;
 const SUBMIT_COMMAND_INFO = {
 	name: "submit",
 	description: "Checkpoint outstanding changes, then submit the current Graphite stack.",
@@ -38,6 +41,7 @@ const REGENERATE_PR_COMMAND_INFO = {
 const SDL_DIRECT_COMMANDS = [
 	CHANGES_COMMAND_INFO,
 	CP_COMMAND_INFO,
+	AUTOBRANCH_COMMAND_INFO,
 	SUBMIT_COMMAND_INFO,
 	REGENERATE_PR_COMMAND_INFO,
 ] as const satisfies readonly SdlCommandInfo[];
@@ -85,6 +89,18 @@ export const sdlExtensionParity = definePiSurfaceParity([
 	},
 	{
 		kind: "command",
+		surface: "sdl:autobranch",
+		workflow: "Create a Graphite branch from dirty worktree changes or the latest unpushed commit",
+		parity: "FULL",
+		cli: "sdl autobranch",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@sdl/pi-extensions",
+		sourceModule: "sdl-extension",
+		notes:
+			"Pi command delegates to sdl autobranch through registerCliCommandExtension; in this repo the CLI behavior is restored by the project-local SDK-only .sdl/extensions/autobranch.ts extension.",
+	},
+	{
+		kind: "command",
 		surface: "sdl:regenerate-pr",
 		workflow: "Regenerate the current branch PR title and generated description region",
 		parity: "FULL",
@@ -124,7 +140,6 @@ export default function sdlExtension(pi: SdlExtensionAPI): void {
 		commands: SDL_CODE_ALIAS_COMMANDS,
 		piCommandAliases: SDL_CODE_COMMAND_ALIASES,
 	});
-	autobranchExtension(pi);
 	autoslotExtension(pi);
 	landExtension(pi);
 	pushExtension(pi);
