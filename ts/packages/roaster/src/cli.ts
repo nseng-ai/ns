@@ -14,16 +14,20 @@ import {
 import {
 	publishFindingsRequestSchema,
 	renderReviewList,
+	renderReviewLog,
 	renderReviewRun,
 	renderRoastSkillList,
 	reviewListRequestSchema,
 	reviewListResultSchema,
+	reviewLogRequestSchema,
+	reviewLogResultSchema,
 	reviewRunRequestSchema,
 	roastSkillListRequestSchema,
 	roastSkillListResultSchema,
 	runPublishFindings,
 	runReviewByKey,
 	runReviewList,
+	runReviewLog,
 	runRoastSkillList,
 } from "./operations/cli-operations.ts";
 import { reviewRunResultSchema } from "./models.ts";
@@ -99,6 +103,15 @@ const entry = defineCli<RoasterRuntime, CliDeps, undefined>({
 			resultSchema: reviewRunResultSchema,
 			handler: runReviewByKey,
 			renderHuman: renderReviewRun,
+		});
+		reviewGroup.command({
+			name: "log",
+			description: "List Branch Memory review log Entries for this branch.",
+			schema: reviewLogRequestSchema,
+			positionals: { key: { position: 0 } },
+			resultSchema: reviewLogResultSchema,
+			handler: runReviewLog,
+			renderHuman: renderReviewLog,
 		});
 		root.group(reviewGroup);
 

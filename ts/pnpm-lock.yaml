@@ -68,6 +68,9 @@ importers:
       '@sdl/branch-context':
         specifier: workspace:*
         version: link:packages/branch-context
+      '@sdl/brmem':
+        specifier: workspace:*
+        version: link:packages/brmem
       '@sdl/ccc':
         specifier: workspace:*
         version: link:packages/ccc

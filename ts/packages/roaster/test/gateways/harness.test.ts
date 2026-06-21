@@ -24,7 +24,7 @@ function request(
 			name: options.reviewName ?? "typescript-style",
 			description: "Review TypeScript diffs.",
 			instructions: "Flag concrete issues.",
-			defaultModel: "haiku",
+			modelProfile: "quick",
 			applicability: { include: ["**/*.ts"], exclude: [] },
 			localOnly: false,
 		},

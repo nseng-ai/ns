@@ -4,7 +4,7 @@ description: |
   hand-rolled infrastructure that may duplicate an existing repository helper.
   Emit investigation leads for a stronger follow-up agent; do not try to prove
   or fully resolve the design question.
-default_model: haiku
+model_profile: quick
 applies_to:
   include:
     - "**/*.ts"

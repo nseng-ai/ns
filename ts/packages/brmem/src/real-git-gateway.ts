@@ -426,15 +426,10 @@ export class RealGitBrmemGateway implements BrmemGateway {
 			if (parsed === undefined) continue;
 			if (!options.allNamespaces && parsed.namespace !== options.namespace) continue;
 			if (options.branch !== undefined && parsed.branch !== options.branch) continue;
-			const treeEntries = await loadSnapshotEntries(this.commands, this.cwd, {
-				namespace: parsed.namespace,
-				branch: parsed.branch,
-				snapshotRef,
-			});
-			if (treeEntries.type === "error") return treeEntries;
+			const treeEntries = await enumerateTreeEntries(this.commands, this.cwd, snapshotRef);
 			const updatedAtByPath = await enumerateEntryUpdatedAt(this.commands, this.cwd, snapshotRef);
 			if (updatedAtByPath.type === "error") return updatedAtByPath;
-			for (const path of treeEntries.value.keys()) {
+			for (const path of treeEntries.keys()) {
 				if (options.key !== undefined && path !== options.key) continue;
 				// Defensive: a Snapshot Ref may contain paths that are not valid Entry
 				// Keys — e.g. a historically corrupted snapshot that captured unrelated
@@ -846,7 +841,7 @@ async function enumerateTreeEntries(
 ): Promise<Map<string, string>> {
 	const result = await runGit(
 		commands,
-		["ls-tree", "-r", "--format=%(path)%x09%(objectname)", refOrTree],
+		["ls-tree", "-r", "--full-tree", "--format=%(path)%x09%(objectname)", refOrTree],
 		{ cwd },
 	);
 	const entries = new Map<string, string>();

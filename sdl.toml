@@ -6,3 +6,7 @@ exclude = [
   ".agents/skills/**/*.py",
   ".claude/skills/**/*.py",
 ]
+
+[roaster.model_profiles]
+quick = "haiku"
+deep = "sonnet"

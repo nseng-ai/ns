@@ -72,6 +72,34 @@ describe("RealGitBrmemGateway integration", () => {
 		}
 	});
 
+	it("writes and lists top-level Snapshot Entries from a repository subdirectory", async () => {
+		const repo = createTempGitRepo();
+		try {
+			mkdirSync(join(repo.path, "ts"));
+			const gateway = new RealGitBrmemGateway(join(repo.path, "ts"));
+			const key = "reviews/sdl-typescript-style/log.md";
+			expect(
+				(
+					await gateway.putEntry({
+						namespace: "roaster",
+						branch: "feat/x",
+						key,
+						content: "review\n",
+					})
+				).type,
+			).toBe("ok");
+
+			const listed = await gateway.listEntries({ namespace: "roaster", branch: "feat/x" });
+			if (listed.type !== "ok") throw new Error("unexpected list error");
+			expect(listed.value.map((entry) => entry.key)).toEqual([key]);
+			expect(repo.runGit(["ls-tree", "-r", "--name-only", "refs/brmem/ns/roaster/feat---x"])).toBe(
+				`${key}\n`,
+			);
+		} finally {
+			repo.cleanup();
+		}
+	});
+
 	it("writes mixed-depth Entry Keys as nested Snapshot tree entries", async () => {
 		const repo = createTempGitRepo();
 		try {
@@ -314,7 +342,7 @@ describe("RealGitBrmemGateway integration", () => {
 		}
 	});
 
-	it("reports corrupt Snapshot Entry Keys while listing without throwing", async () => {
+	it("skips corrupt Snapshot Entry Keys while listing without throwing", async () => {
 		const repo = createTempGitRepo();
 		try {
 			const gateway = new RealGitBrmemGateway(repo.path);
@@ -324,7 +352,7 @@ describe("RealGitBrmemGateway integration", () => {
 				entries: [{ key: "docs-site/app/[lang]/page.tsx", content: "corrupt" }],
 			});
 			const listed = await gateway.listEntries({ namespace: "notes", branch: "source" });
-			expectSnapshotCorrupt(listed, "docs-site/app/[lang]/page.tsx");
+			expect(listed).toMatchObject({ type: "ok", value: [] });
 			expect(repo.runGit(["rev-parse", "--verify", corrupt.snapshotRef]).trim()).toBe(
 				corrupt.commitSha,
 			);
@@ -521,12 +549,12 @@ describe("RealGitBrmemGateway integration", () => {
 		}
 	});
 
-	it("refuses to commit a Snapshot when temp-index isolation fails (GIT_INDEX_FILE dropped)", async () => {
+	it("does not depend on GIT_INDEX_FILE isolation when writing Snapshot trees", async () => {
 		const repo = createTempGitRepo();
 		try {
-			// Simulate an exec adapter (e.g. a host runtime) that drops GIT_INDEX_FILE,
-			// causing git to fall back to the repository index and capture the whole
-			// working tree. The write-path invariant must reject the resulting snapshot.
+			// Snapshot construction uses git mktree with explicit blob/tree entries, not
+			// a temporary index. Dropping GIT_INDEX_FILE should not affect the written
+			// tree or accidentally capture the repository worktree.
 			const real = new NodeCommandExecApi();
 			const envDropping: CommandExecApi = {
 				exec(command, args, options) {
@@ -543,12 +571,10 @@ describe("RealGitBrmemGateway integration", () => {
 				key: "plan.md",
 				content: "plan body",
 			});
-			expect(put).toMatchObject({ type: "error", error: { code: "snapshot_tree_mismatch" } });
-			// The corrupted snapshot must never have been written (rev-parse --verify
-			// exits non-zero for a missing ref, which runGit surfaces as a throw).
-			expect(() =>
-				repo.runGit(["rev-parse", "--verify", "refs/brmem/ns/branch-context/feat---x"]),
-			).toThrow();
+			expect(put).toMatchObject({ type: "ok" });
+			expect(
+				repo.runGit(["ls-tree", "-r", "--name-only", "refs/brmem/ns/branch-context/feat---x"]),
+			).toBe("plan.md\n");
 		} finally {
 			repo.cleanup();
 		}

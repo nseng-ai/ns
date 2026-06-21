@@ -5,8 +5,14 @@ export interface RoasterDiffProjectConfig {
 	readonly exclude: readonly string[];
 }
 
+export interface RoasterModelProfilesProjectConfig {
+	readonly quick: string;
+	readonly deep: string;
+}
+
 export interface RoasterProjectConfig {
 	readonly diff: RoasterDiffProjectConfig;
+	readonly modelProfiles: RoasterModelProfilesProjectConfig;
 }
 
 export type ProjectConfigParseResult =
@@ -18,14 +24,28 @@ export interface ProjectConfigError {
 	readonly message: string;
 }
 
-export type ProjectConfigErrorCode = "invalid_toml" | "invalid_table" | "invalid_exclude";
+export type ProjectConfigErrorCode =
+	| "invalid_toml"
+	| "invalid_table"
+	| "invalid_exclude"
+	| "invalid_model_profiles";
 
 export interface GitDiffArgsOptions {
 	readonly baseRef: string;
 	readonly excludeGlobs?: readonly string[] | undefined;
 }
 
-const EMPTY_CONFIG: RoasterProjectConfig = { diff: { exclude: [] } };
+export const DEFAULT_ROASTER_MODEL_PROFILES: RoasterModelProfilesProjectConfig = {
+	quick: "haiku",
+	deep: "sonnet",
+};
+
+const EMPTY_CONFIG: RoasterProjectConfig = {
+	diff: { exclude: [] },
+	modelProfiles: DEFAULT_ROASTER_MODEL_PROFILES,
+};
+const MODEL_PROFILE_KEYS = ["quick", "deep"] as const;
+export type RoasterModelProfileKey = (typeof MODEL_PROFILE_KEYS)[number];
 
 export function parseRoasterProjectConfigToml(
 	source: string,
@@ -47,19 +67,16 @@ export function parseRoasterProjectConfigToml(
 	if (!isRecord(roaster))
 		return failure("invalid_table", formatMessage("[roaster] must be a TOML table.", pathLabel));
 
-	const diff = roaster.diff;
-	if (diff === undefined) return { type: "ok", config: EMPTY_CONFIG };
-	if (!isRecord(diff))
-		return failure(
-			"invalid_table",
-			formatMessage("[roaster.diff] must be a TOML table.", pathLabel),
-		);
+	const parsedDiff = parseDiffConfig(roaster.diff, pathLabel);
+	if (parsedDiff.type === "error") return parsedDiff;
 
-	const exclude = diff.exclude;
-	if (exclude === undefined) return { type: "ok", config: EMPTY_CONFIG };
-	const parsedExclude = parseExcludeGlobs(exclude, pathLabel);
-	if (parsedExclude.type === "error") return parsedExclude;
-	return { type: "ok", config: { diff: { exclude: parsedExclude.value } } };
+	const parsedModelProfiles = parseModelProfiles(roaster.model_profiles, pathLabel);
+	if (parsedModelProfiles.type === "error") return parsedModelProfiles;
+
+	return {
+		type: "ok",
+		config: { diff: parsedDiff.value, modelProfiles: parsedModelProfiles.value },
+	};
 }
 
 export function roasterExcludeGlobsToGitPathspecs(patterns: readonly string[]): readonly string[] {
@@ -86,9 +103,77 @@ export function buildGitDiffArgs(options: GitDiffArgsOptions): readonly string[]
 	return args;
 }
 
+type DiffConfigParseResult =
+	| { readonly type: "ok"; readonly value: RoasterDiffProjectConfig }
+	| { readonly type: "error"; readonly error: ProjectConfigError };
+
 type ExcludeParseResult =
 	| { readonly type: "ok"; readonly value: readonly string[] }
 	| { readonly type: "error"; readonly error: ProjectConfigError };
+
+type ModelProfilesParseResult =
+	| { readonly type: "ok"; readonly value: RoasterModelProfilesProjectConfig }
+	| { readonly type: "error"; readonly error: ProjectConfigError };
+
+export function isRoasterModelProfileKey(value: string): value is RoasterModelProfileKey {
+	return MODEL_PROFILE_KEYS.includes(value as RoasterModelProfileKey);
+}
+
+function parseDiffConfig(value: unknown, pathLabel: string | undefined): DiffConfigParseResult {
+	if (value === undefined) return { type: "ok", value: EMPTY_CONFIG.diff };
+	if (!isRecord(value)) {
+		return failure(
+			"invalid_table",
+			formatMessage("[roaster.diff] must be a TOML table.", pathLabel),
+		);
+	}
+
+	const exclude = value.exclude;
+	if (exclude === undefined) return { type: "ok", value: EMPTY_CONFIG.diff };
+	const parsedExclude = parseExcludeGlobs(exclude, pathLabel);
+	if (parsedExclude.type === "error") return parsedExclude;
+	return { type: "ok", value: { exclude: parsedExclude.value } };
+}
+
+function parseModelProfiles(
+	value: unknown,
+	pathLabel: string | undefined,
+): ModelProfilesParseResult {
+	if (value === undefined) return { type: "ok", value: DEFAULT_ROASTER_MODEL_PROFILES };
+	if (!isRecord(value)) {
+		return failure(
+			"invalid_table",
+			formatMessage("[roaster.model_profiles] must be a TOML table.", pathLabel),
+		);
+	}
+
+	const unknownKeys = Object.keys(value)
+		.filter((key) => !isRoasterModelProfileKey(key))
+		.sort();
+	if (unknownKeys.length > 0) {
+		return failure(
+			"invalid_model_profiles",
+			formatMessage(
+				`[roaster.model_profiles] contains unknown profile key(s): ${unknownKeys.join(", ")}. Allowed keys: ${MODEL_PROFILE_KEYS.join(", ")}.`,
+				pathLabel,
+			),
+		);
+	}
+
+	const profiles = { ...DEFAULT_ROASTER_MODEL_PROFILES };
+	for (const key of MODEL_PROFILE_KEYS) {
+		if (!(key in value)) continue;
+		const profileValue = value[key];
+		if (typeof profileValue !== "string" || profileValue.trim() === "") {
+			return failure(
+				"invalid_model_profiles",
+				formatMessage(`[roaster.model_profiles].${key} must be a non-empty string.`, pathLabel),
+			);
+		}
+		profiles[key] = profileValue.trim();
+	}
+	return { type: "ok", value: profiles };
+}
 
 function parseExcludeGlobs(value: unknown, pathLabel: string | undefined): ExcludeParseResult {
 	if (!Array.isArray(value)) {

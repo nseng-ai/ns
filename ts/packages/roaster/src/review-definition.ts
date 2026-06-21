@@ -10,9 +10,9 @@ import {
 
 const ALLOWED_FRONTMATTER_KEYS = [
 	"applies_to",
-	"default_model",
 	"description",
 	"local_only",
+	"model_profile",
 ] as const;
 const ALLOWED_APPLIES_TO_KEYS = ["exclude", "include"] as const;
 
@@ -34,7 +34,7 @@ export type ReviewDefinitionParseErrorCode =
 	| "unknown_frontmatter_key"
 	| "invalid_name"
 	| "invalid_description"
-	| "invalid_default_model"
+	| "invalid_model_profile"
 	| "invalid_local_only"
 	| "invalid_instructions"
 	| "invalid_applicability";
@@ -85,8 +85,8 @@ export function parseReviewDefinition(
 	const description = requireStringField(parsedFrontmatter, "description");
 	if (description.type === "error") return description;
 
-	const defaultModel = parseDefaultModel(parsedFrontmatter);
-	if (defaultModel.type === "error") return defaultModel;
+	const modelProfile = parseModelProfile(parsedFrontmatter);
+	if (modelProfile.type === "error") return modelProfile;
 
 	const applicability = parseApplicability(parsedFrontmatter);
 	if (applicability.type === "error") return applicability;
@@ -106,7 +106,7 @@ export function parseReviewDefinition(
 		name,
 		description: description.value,
 		instructions,
-		defaultModel: defaultModel.value,
+		modelProfile: modelProfile.value,
 		applicability: applicability.value,
 		localOnly: localOnly.value,
 	};
@@ -167,17 +167,17 @@ function requireStringField(
 	return { type: "ok", value: value.trim() };
 }
 
-type DefaultModelResult =
-	| { readonly type: "ok"; readonly value: string | null }
+type ModelProfileResult =
+	| { readonly type: "ok"; readonly value: string }
 	| { readonly type: "error"; readonly error: ReviewDefinitionParseError };
 
-function parseDefaultModel(frontmatter: Readonly<Record<string, unknown>>): DefaultModelResult {
-	if (!("default_model" in frontmatter)) return { type: "ok", value: null };
-	const value = frontmatter.default_model;
+function parseModelProfile(frontmatter: Readonly<Record<string, unknown>>): ModelProfileResult {
+	if (!("model_profile" in frontmatter)) return { type: "ok", value: "quick" };
+	const value = frontmatter.model_profile;
 	if (typeof value !== "string" || value.trim() === "") {
 		return failure(
-			"invalid_default_model",
-			"Review definition field `default_model` must be a non-empty string.",
+			"invalid_model_profile",
+			"Review definition field `model_profile` must be a non-empty string.",
 		);
 	}
 	return { type: "ok", value: value.trim() };

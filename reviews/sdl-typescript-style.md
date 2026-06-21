@@ -24,7 +24,7 @@ description: |
   hygiene, suppression hygiene, and other Tier A rules. Intended for cheap,
   per-diff detection; resolution stays with the engineer in a later,
   higher-context workflow.
-default_model: haiku
+model_profile: quick
 applies_to:
   include:
     - "**/*.ts"

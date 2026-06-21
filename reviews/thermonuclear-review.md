@@ -3,7 +3,7 @@ description: |
   Run an extremely strict maintainability and implementation-quality review on
   the supplied diff. Push for structural simplification, code-judo reframings,
   cleaner boundaries, less spaghetti growth, and direct maintainable code.
-default_model: sonnet
+model_profile: deep
 local_only: true
 applies_to:
   include:

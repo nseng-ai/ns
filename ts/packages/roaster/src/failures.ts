@@ -31,12 +31,18 @@ export type GitHubGatewayFailureType =
 	| "github_json_invalid"
 	| "github_response_invalid";
 
+export type ReviewLogFailureType =
+	| "review_log_write_failed"
+	| "review_log_list_failed"
+	| "review_log_response_invalid";
+
 export type RoasterFailureType =
 	| ReviewDefinitionFailureType
 	| ReviewCatalogFailureType
 	| LocalDiffFailureType
 	| HarnessFailureType
-	| GitHubGatewayFailureType;
+	| GitHubGatewayFailureType
+	| ReviewLogFailureType;
 
 export interface RoasterFailure {
 	readonly type: RoasterFailureType;
@@ -54,3 +60,4 @@ export type ReviewCatalogFailure = RoasterFailure & { readonly type: ReviewCatal
 export type LocalDiffFailure = RoasterFailure & { readonly type: LocalDiffFailureType };
 export type HarnessFailure = RoasterFailure & { readonly type: HarnessFailureType };
 export type GitHubGatewayFailure = RoasterFailure & { readonly type: GitHubGatewayFailureType };
+export type ReviewLogFailure = RoasterFailure & { readonly type: ReviewLogFailureType };

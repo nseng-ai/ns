@@ -11,12 +11,14 @@ import {
 	FakeReviewCatalogGateway,
 	type ReviewCatalogGateway,
 } from "../../src/gateways/review-catalog.ts";
+import { FakeReviewLogGateway, type ReviewLogGateway } from "../../src/gateways/review-log.ts";
 
 export interface FakeRoasterContextOptions {
 	readonly execApi?: CommandExecApi | undefined;
 	readonly gitGateway?: GitGateway | undefined;
 	readonly localDiff?: LocalDiffGateway | undefined;
 	readonly reviewCatalog?: ReviewCatalogGateway | undefined;
+	readonly reviewLog?: ReviewLogGateway | undefined;
 	readonly github?: RoasterGitHubGateway | undefined;
 	readonly harness?: HarnessGateway | undefined;
 	readonly cwd?: string | undefined;
@@ -45,6 +47,7 @@ export function fakeRoasterContext(options: FakeRoasterContextOptions = {}): Roa
 		gitGateway,
 		localDiff: options.localDiff ?? new FakeLocalDiffGateway(),
 		reviewCatalog: options.reviewCatalog ?? new FakeReviewCatalogGateway(),
+		reviewLog: options.reviewLog ?? new FakeReviewLogGateway(),
 		github: options.github ?? new FakeRoasterGitHubGateway(),
 		harness: options.harness ?? new FakeHarnessGateway(),
 		cwd: options.cwd ?? "/repo",

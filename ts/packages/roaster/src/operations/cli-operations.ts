@@ -1,9 +1,17 @@
-import { failure, ok, type ClinkrExit } from "@sdl/clinkr";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+
+import { failure, ok, shellNegative, type ClinkrExit } from "@sdl/clinkr";
 import { z } from "zod";
 
 import { catalogOptions, environmentOptions, type RoasterRuntime } from "../context.ts";
 import type { RoasterFailure } from "../failures.ts";
 import { publishFindings, type PublishFindingsResult } from "../findings-publication.ts";
+import {
+	ROASTER_REVIEW_LOG_NAMESPACE,
+	renderReviewLogMarkdown,
+	type ReviewLogEntry,
+} from "../gateways/review-log.ts";
 import {
 	reviewRunResultSchema,
 	type ReviewDefinition,
@@ -11,6 +19,12 @@ import {
 	type ReviewRunResult,
 	type ReviewUsage,
 } from "../models.ts";
+import {
+	DEFAULT_ROASTER_MODEL_PROFILES,
+	isRoasterModelProfileKey,
+	parseRoasterProjectConfigToml,
+	type RoasterModelProfilesProjectConfig,
+} from "../project-config.ts";
 import { applicableReviewKeys } from "../review-applicability.ts";
 import { parseReviewDefinition } from "../review-definition.ts";
 import { loadRoastSkillEntries, roastReviewPathForKey } from "../skill-reviews.ts";
@@ -29,7 +43,7 @@ export const reviewListRequestSchema = z.object({
 export const reviewMetadataSchema = z.object({
 	key: nonBlankStringSchema,
 	description: nonBlankStringSchema,
-	default_model: nonBlankStringSchema.nullable(),
+	model_profile: nonBlankStringSchema,
 	local_only: z.boolean(),
 });
 
@@ -64,11 +78,37 @@ export type RoastSkillListResult = z.infer<typeof roastSkillListResultSchema>;
 
 export const reviewRunRequestSchema = z.object({
 	key: nonBlankStringSchema.describe("Review key to run."),
-	model: z.string().optional().describe("Claude Code model override."),
+	model: z.string().optional().describe("Concrete model override."),
+	modelProfile: z.string().optional().describe("Model profile override."),
 	baseRef: z.string().optional().describe("Base ref for the local diff."),
+	logBranch: nonBlankStringSchema
+		.optional()
+		.describe("Branch Memory branch for the review log. Defaults to the current branch."),
 });
 
 export type ReviewRunRequest = z.infer<typeof reviewRunRequestSchema>;
+
+export const reviewLogRequestSchema = z.object({
+	key: z.string().optional().describe("Review key filter."),
+});
+
+export const reviewLogEntrySchema = z.object({
+	entryKey: nonBlankStringSchema,
+	branch: nonBlankStringSchema,
+	entryLocator: nonBlankStringSchema,
+	reviewKey: nonBlankStringSchema.nullable(),
+	ranAt: nonBlankStringSchema.nullable(),
+});
+
+export const reviewLogResultSchema = z.object({
+	namespace: nonBlankStringSchema,
+	reviewKey: nonBlankStringSchema.nullable(),
+	count: z.int().min(0),
+	entries: z.array(reviewLogEntrySchema),
+});
+
+export type ReviewLogRequest = z.infer<typeof reviewLogRequestSchema>;
+export type ReviewLogResult = z.infer<typeof reviewLogResultSchema>;
 
 export const publishFindingsRequestSchema = z.object({
 	prNumber: z.int().positive().describe("Pull request number."),
@@ -113,7 +153,7 @@ export async function runReviewList(
 		.map((item) => ({
 			key: item.key,
 			description: item.definition.description,
-			default_model: item.definition.defaultModel,
+			model_profile: item.definition.modelProfile,
 			local_only: item.definition.localOnly,
 		}));
 	return ok(
@@ -129,7 +169,7 @@ export async function runReviewList(
 export function renderReviewList(result: ReviewListResult): string {
 	const lines = [`Reviews directory: ${result.reviews_dir}`, `Reviews: ${result.count}`];
 	for (const review of result.reviews) {
-		const model = review.default_model === null ? "" : ` (default model: ${review.default_model})`;
+		const model = ` (model profile: ${review.model_profile})`;
 		const scope = review.local_only ? " [local-only]" : "";
 		lines.push(`- ${review.key}: ${review.description}${model}${scope}`);
 	}
@@ -180,23 +220,26 @@ export async function runReviewByKey(
 		return failure("review_definition_invalid", parsed.error.message);
 	}
 
-	const model = resolveModel(request.model, parsed.definition.defaultModel);
-	if (model === null)
-		return failure(
-			"model_not_provided",
-			"No model was provided. Pass --model or set default_model in the review definition.",
-		);
+	const profiles = await loadModelProfiles(ctx);
+	if (profiles.type === "error") return failureFromRoaster(profiles.error);
+	const model = resolveModel({
+		requestModel: request.model,
+		requestModelProfile: request.modelProfile,
+		definitionModelProfile: parsed.definition.modelProfile,
+		profiles: profiles.value,
+	});
+	if (model.type === "error") return failureFromRoaster(model.error);
 
 	const diff = await loadDiffFromRequest(ctx, request.baseRef);
 	if (diff.type === "error") return failureFromRoaster(diff.error);
 
 	ctx.stderr(
-		`resolved model=${model} base_ref=${diff.value.baseRef} changed_paths=${diff.value.changedPaths.length}\n`,
+		`resolved model=${model.value.value} model_profile=${model.value.profile} base_ref=${diff.value.baseRef} changed_paths=${diff.value.changedPaths.length}\n`,
 	);
 
 	const response = await ctx.harness.runReview(
 		{
-			model,
+			model: model.value.value,
 			reviewDefinition: parsed.definition,
 			target: { localDiff: diff.value },
 		},
@@ -204,9 +247,30 @@ export async function runReviewByKey(
 	);
 	if (response.type === "error") return failureFromRoaster(response.error);
 
-	return ok(
-		reviewRunResult(source.value.key, source.value.path, model, diff.value.baseRef, response.value),
+	const runResult = reviewRunResult(
+		source.value.key,
+		source.value.path,
+		model.value.value,
+		diff.value.baseRef,
+		response.value,
 	);
+	const ranAt = new Date().toISOString();
+	const metadata = await reviewLogMetadata(ctx, request.logBranch);
+	const logResult = await ctx.reviewLog.writeReviewLog({
+		...environmentOptions(ctx.runScope),
+		reviewKey: source.value.key,
+		ranAt,
+		...(request.logBranch === undefined ? {} : { branch: request.logBranch }),
+		content: renderReviewLogMarkdown(runResult, { ranAt, ...metadata }),
+	});
+	if (logResult.type === "error") {
+		return shellNegative(
+			`${renderReviewRun(runResult)}\n\nroaster: failed to write Branch Memory review log:\n${logResult.error.message}`,
+			runResult,
+		);
+	}
+
+	return ok(runResult);
 }
 
 export function renderReviewRun(result: ReviewRunResult): string {
@@ -226,6 +290,42 @@ export function renderReviewRun(result: ReviewRunResult): string {
 		lines.push(`Cost: $${result.usage.totalCostUsd.toFixed(4)} USD`);
 		lines.push(
 			`Duration: ${(result.usage.durationMs / 1000).toFixed(1)}s (${result.usage.numTurns} turns)`,
+		);
+	}
+	return lines.join("\n");
+}
+
+export async function runReviewLog(
+	ctx: RoasterRuntime,
+	request: ReviewLogRequest,
+): Promise<ClinkrExit<ReviewLogResult>> {
+	const entries = await ctx.reviewLog.listReviewLogs({
+		...environmentOptions(ctx.runScope),
+		...(request.key === undefined ? {} : { reviewKey: request.key }),
+	});
+	if (entries.type === "error") return failureFromRoaster(entries.error);
+	return ok(
+		reviewLogResultSchema.parse({
+			namespace: ROASTER_REVIEW_LOG_NAMESPACE,
+			reviewKey: request.key ?? null,
+			count: entries.value.length,
+			entries: entries.value.map(reviewLogEntryResult),
+		}),
+	);
+}
+
+export function renderReviewLog(result: ReviewLogResult): string {
+	if (result.count === 0) {
+		return result.reviewKey === null
+			? "No roaster review logs found for this branch."
+			: `No roaster review logs found for review key ${result.reviewKey} on this branch.`;
+	}
+	const lines = [`Roaster review logs: ${result.count}`];
+	for (const entry of result.entries) {
+		lines.push(
+			`- ${entry.ranAt ?? "unknown time"}  ${entry.reviewKey ?? "unknown review"}  ${entry.entryKey}`,
+			`  git show ${entry.entryLocator}`,
+			`  brmem get ${entry.entryKey} --namespace ${result.namespace}`,
 		);
 	}
 	return lines.join("\n");
@@ -259,6 +359,11 @@ type LoadDefinitionsResult =
 	| { readonly type: "ok"; readonly value: readonly LoadedDefinition[] }
 	| { readonly type: "error"; readonly error: RoasterFailure };
 
+interface ReviewLogMetadata {
+	readonly branch: string;
+	readonly headCommit: string;
+}
+
 async function loadDefinitions(
 	ctx: RoasterRuntime,
 	keys: readonly string[],
@@ -285,6 +390,51 @@ async function loadDefinitions(
 	return { type: "ok", value: loaded };
 }
 
+async function reviewLogMetadata(
+	ctx: RoasterRuntime,
+	logBranch: string | undefined,
+): Promise<ReviewLogMetadata> {
+	const options = environmentOptions(ctx.runScope);
+	const currentBranch =
+		logBranch === undefined
+			? branchMetadataValue(await ctx.gitGateway.currentBranch(options))
+			: logBranch;
+	const headCommit = await ctx.gitGateway.headCommit(options);
+	return {
+		branch: currentBranch,
+		headCommit: headCommit.ok
+			? headCommit.value
+			: unavailableMetadataValue(headCommit.error.message),
+	};
+}
+
+function reviewLogEntryResult(entry: ReviewLogEntry): ReviewLogResult["entries"][number] {
+	return {
+		entryKey: entry.key,
+		branch: entry.branch,
+		entryLocator: entry.entryLocator,
+		reviewKey: entry.reviewKey,
+		ranAt: entry.ranAt,
+	};
+}
+
+function branchMetadataValue(
+	result: Awaited<ReturnType<RoasterRuntime["gitGateway"]["currentBranch"]>>,
+): string {
+	switch (result.type) {
+		case "branch":
+			return result.branch;
+		case "detached":
+			return "unknown";
+		case "failure":
+			return unavailableMetadataValue(result.error.message);
+	}
+}
+
+function unavailableMetadataValue(message: string): string {
+	return `unavailable: ${message}`;
+}
+
 function reviewRunResult(
 	reviewName: string,
 	reviewPath: string,
@@ -305,13 +455,63 @@ function reviewRunResult(
 	});
 }
 
-function resolveModel(
-	requestModel: string | undefined,
-	defaultModel: string | null,
-): string | null {
-	const model = requestModel?.trim() ?? "";
-	if (model !== "") return model;
-	return defaultModel;
+interface ResolveModelOptions {
+	readonly requestModel: string | undefined;
+	readonly requestModelProfile: string | undefined;
+	readonly definitionModelProfile: string;
+	readonly profiles: RoasterModelProfilesProjectConfig;
+}
+
+interface ResolvedModel {
+	readonly value: string;
+	readonly profile: string;
+}
+
+type ResolveModelResult =
+	| { readonly type: "ok"; readonly value: ResolvedModel }
+	| { readonly type: "error"; readonly error: RoasterFailure };
+
+type LoadModelProfilesResult =
+	| { readonly type: "ok"; readonly value: RoasterModelProfilesProjectConfig }
+	| { readonly type: "error"; readonly error: RoasterFailure };
+
+function resolveModel(options: ResolveModelOptions): ResolveModelResult {
+	const model = options.requestModel?.trim() ?? "";
+	if (model !== "") return { type: "ok", value: { value: model, profile: "<explicit>" } };
+
+	const profile = (options.requestModelProfile ?? options.definitionModelProfile).trim();
+	if (!isRoasterModelProfileKey(profile)) {
+		return {
+			type: "error",
+			error: {
+				type: "review_definition_invalid",
+				message: `Unknown Roaster model profile ${JSON.stringify(profile)}. Allowed profiles: quick, deep.`,
+			},
+		};
+	}
+	return { type: "ok", value: { value: options.profiles[profile], profile } };
+}
+
+async function loadModelProfiles(ctx: RoasterRuntime): Promise<LoadModelProfilesResult> {
+	const repoRoot = await ctx.gitGateway.repoRoot(catalogOptions(ctx.runScope));
+	if (!repoRoot.ok) return { type: "ok", value: DEFAULT_ROASTER_MODEL_PROFILES };
+
+	const path = join(repoRoot.value, "sdl.toml");
+	let source: string;
+	try {
+		source = await readFile(path, "utf8");
+	} catch {
+		return { type: "ok", value: DEFAULT_ROASTER_MODEL_PROFILES };
+	}
+
+	const parsed = parseRoasterProjectConfigToml(source, path);
+	if (parsed.type === "error") {
+		return {
+			type: "error",
+			error: { type: "project_config_invalid", message: parsed.error.message },
+		};
+	}
+	return { type: "ok", value: parsed.config.modelProfiles };
 }
 
 function totalInputTokens(usage: ReviewUsage): number {
