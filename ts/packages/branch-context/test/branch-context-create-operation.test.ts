@@ -14,7 +14,7 @@ import {
 	resolveBranchContextCreatePreviewContext,
 } from "../src/branch-context-creation.ts";
 import type { CommandExecApi } from "@sdl/core/exec";
-import { InMemoryBranchMemoryGateway } from "./support/in-memory-brmem-gateway.ts";
+import { InMemoryBranchMemoryGateway } from "@sdl/branch-context/testing";
 import type { BranchContextContext } from "../src/context.ts";
 import { InMemoryGitGateway } from "@sdl/core/git/testing";
 import { InMemoryBranchContextGraphiteGateway } from "./support/in-memory-graphite-gateway.ts";

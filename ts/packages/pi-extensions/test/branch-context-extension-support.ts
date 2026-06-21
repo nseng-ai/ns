@@ -9,10 +9,10 @@ import {
 	buildBranchContextPlanKey,
 	buildPlanContentSlugPrompt,
 	createBranchContextContext,
-	type BranchContextContext,
 	type BranchContextEvidence,
 	type LoadedAttachedPlan,
 } from "@sdl/branch-context";
+import { InMemoryBranchMemoryGateway } from "@sdl/branch-context/testing";
 import type { ExecOptions, ExecResult } from "@sdl/core/exec";
 import {
 	DEFAULT_FAST_MODEL,
@@ -157,137 +157,17 @@ export function branchContextExtensionTestOptions(
 		createBranchContextContext(pi, cwd) {
 			return {
 				...createBranchContextContext(pi, { cwd }),
-				brmem: createInMemoryBranchMemory(entries),
+				brmem: new InMemoryBranchMemoryGateway({
+					currentBranch: SOURCE_BRANCH,
+					entries: entries.map((entry) => ({
+						branch: entry.branch,
+						key: entry.key,
+						content: entry.content ?? IMPL_PLAN_CONTENT,
+					})),
+				}),
 			};
 		},
 	};
-}
-
-interface StoredBranchMemoryEntry {
-	branch: string;
-	key: string;
-	content: string;
-	commitSha: string;
-	blobSha: string;
-}
-
-function createInMemoryBranchMemory(
-	seeds: readonly BranchMemoryEntrySeed[],
-): BranchContextContext["brmem"] {
-	const entries = new Map<string, StoredBranchMemoryEntry>();
-	let sequence = 1;
-	for (const seed of seeds) {
-		const entry = normalizeBranchMemorySeed(seed, nextSha("commit"), nextSha("blob"));
-		entries.set(entryId(entry.branch, entry.key), entry);
-	}
-
-	function nextSha(prefix: string): string {
-		const value = `${prefix}${String(sequence).padStart(34, "0")}`;
-		sequence += 1;
-		return value;
-	}
-
-	function refName(branch: string, key: string): string {
-		return `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${branch.replaceAll("/", "---")}:${key}`;
-	}
-
-	function entryRef(entry: Pick<StoredBranchMemoryEntry, "branch" | "key">) {
-		return {
-			namespace: BRANCH_CONTEXT_NAMESPACE,
-			branch: entry.branch,
-			key: entry.key,
-			entryLocator: refName(entry.branch, entry.key),
-		};
-	}
-
-	return {
-		async currentBranch() {
-			return { type: "ok", value: SOURCE_BRANCH };
-		},
-		async listEntries(options) {
-			return {
-				type: "ok",
-				value: [...entries.values()]
-					.filter((entry) => options.branch === undefined || entry.branch === options.branch)
-					.filter((entry) => options.key === undefined || entry.key === options.key)
-					.map((entry) => ({ ...entryRef(entry), updatedAt: "2026-01-01T00:00:00.000Z" })),
-			};
-		},
-		async listAllEntries(options) {
-			return {
-				type: "ok",
-				value: [...entries.values()]
-					.filter((entry) => options.branch === undefined || entry.branch === options.branch)
-					.filter((entry) => options.key === undefined || entry.key === options.key)
-					.map((entry) => ({ ...entryRef(entry), updatedAt: "2026-01-01T00:00:00.000Z" })),
-			};
-		},
-		async getEntry(options) {
-			const entry = entries.get(entryId(options.branch, options.key));
-			if (entry === undefined) return { type: "missing" };
-			return { type: "found", value: { content: entry.content } };
-		},
-		async checkEntry(options) {
-			const entry = entries.get(entryId(options.branch, options.key));
-			if (entry === undefined) return { type: "missing" };
-			return {
-				type: "found",
-				value: {
-					headSha: entry.commitSha,
-					headDate: "2026-01-01T00:00:00.000Z",
-					blobSha: entry.blobSha,
-					sizeBytes: Buffer.byteLength(entry.content, "utf8"),
-				},
-			};
-		},
-		async putEntry(options) {
-			const entry = normalizeBranchMemorySeed(
-				{ branch: options.branch, key: options.key, content: options.content },
-				nextSha("commit"),
-				nextSha("blob"),
-			);
-			entries.set(entryId(entry.branch, entry.key), entry);
-			return { type: "ok", value: { commitSha: entry.commitSha, entry: entryRef(entry) } };
-		},
-		async deleteEntry(options) {
-			const id = entryId(options.branch, options.key);
-			if (!entries.has(id)) {
-				return { type: "error", error: { code: "key_not_found", message: "key not found" } };
-			}
-			entries.delete(id);
-			return {
-				type: "ok",
-				value: { commitSha: nextSha("commit"), entry: entryRef(options), isSnapshotEmpty: false },
-			};
-		},
-		async copyEntries() {
-			return { type: "ok", value: { entries: [] } };
-		},
-		async getRemoteConfig() {
-			return { type: "missing" };
-		},
-		async addRemoteRefspecs() {
-			return { type: "ok", value: undefined };
-		},
-	};
-}
-
-function normalizeBranchMemorySeed(
-	seed: BranchMemoryEntrySeed,
-	commitSha: string,
-	blobSha: string,
-): StoredBranchMemoryEntry {
-	return {
-		branch: seed.branch,
-		key: seed.key,
-		content: seed.content ?? IMPL_PLAN_CONTENT,
-		commitSha,
-		blobSha,
-	};
-}
-
-function entryId(branch: string, key: string): string {
-	return `${branch}\0${key}`;
 }
 
 export interface BranchContextOperationFakes {

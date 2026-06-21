@@ -9,7 +9,7 @@ import {
 	resolveExistingBranchContextReuse,
 } from "@sdl/branch-context";
 import type { BranchContextContext } from "../src/context.ts";
-import { InMemoryBranchMemoryGateway } from "./support/in-memory-brmem-gateway.ts";
+import { InMemoryBranchMemoryGateway } from "@sdl/branch-context/testing";
 import { InMemoryBranchContextGraphiteGateway } from "./support/in-memory-graphite-gateway.ts";
 
 const CWD = "/repo";

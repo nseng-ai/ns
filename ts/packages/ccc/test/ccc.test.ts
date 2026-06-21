@@ -6,8 +6,8 @@ import {
 	buildPlanContentSlugPrompt,
 	createBranchContextContext,
 	formatImplBranchContextCommand,
-	type BranchContextContext,
 } from "@sdl/branch-context";
+import { InMemoryBranchMemoryGateway } from "@sdl/branch-context/testing";
 import { withTempRepoSkill } from "@sdl/core/testing";
 import { buildSlugModelArgs } from "@sdl/plans";
 import registerCccExtension from "../src/ccc.ts";
@@ -63,138 +63,8 @@ function branchContextTestOptions(planStoreRoot: string): CccSlotDispatchPlanOpt
 		createBranchContextContext(pi, cwd) {
 			return {
 				...createBranchContextContext(pi, { cwd }),
-				brmem: createInMemoryBranchContextBrmemGateway(),
+				brmem: new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH }),
 			};
-		},
-	};
-}
-
-interface InMemoryBrmemEntry {
-	namespace: string;
-	key: string;
-	branch: string;
-	content: string;
-	commitSha: string;
-	blobSha: string;
-	updatedAt: string;
-}
-
-function createInMemoryBranchContextBrmemGateway(): BranchContextContext["brmem"] {
-	const entries = new Map<string, InMemoryBrmemEntry>();
-	let sequence = 1;
-
-	function entryId(namespace: string, branch: string, key: string): string {
-		return `${namespace}\0${branch}\0${key}`;
-	}
-
-	function entryLocator(namespace: string, branch: string, key: string): string {
-		return `refs/brmem/ns/${namespace}/${branch.replaceAll("/", "---")}:${key}`;
-	}
-
-	function nextSha(prefix: string): string {
-		const value = `${prefix}${String(sequence).padStart(34, "0")}`;
-		sequence += 1;
-		return value;
-	}
-
-	function toEntryRef(entry: Pick<InMemoryBrmemEntry, "namespace" | "key" | "branch">) {
-		return {
-			namespace: entry.namespace,
-			key: entry.key,
-			branch: entry.branch,
-			entryLocator: entryLocator(entry.namespace, entry.branch, entry.key),
-		};
-	}
-
-	return {
-		async currentBranch() {
-			return { type: "ok", value: SOURCE_BRANCH };
-		},
-		async listEntries(options) {
-			return {
-				type: "ok",
-				value: [...entries.values()]
-					.filter((entry) => entry.namespace === options.namespace)
-					.filter((entry) => options.branch === undefined || entry.branch === options.branch)
-					.filter((entry) => options.key === undefined || entry.key === options.key)
-					.map((entry) => ({ ...toEntryRef(entry), updatedAt: entry.updatedAt })),
-			};
-		},
-		async listAllEntries(options) {
-			return {
-				type: "ok",
-				value: [...entries.values()]
-					.filter((entry) => options.branch === undefined || entry.branch === options.branch)
-					.filter((entry) => options.key === undefined || entry.key === options.key)
-					.map((entry) => ({ ...toEntryRef(entry), updatedAt: entry.updatedAt })),
-			};
-		},
-		async getEntry(options) {
-			const entry = entries.get(entryId(options.namespace, options.branch, options.key));
-			if (entry === undefined) return { type: "missing" };
-			return { type: "found", value: { content: entry.content } };
-		},
-		async checkEntry(options) {
-			const entry = entries.get(entryId(options.namespace, options.branch, options.key));
-			if (entry === undefined) return { type: "missing" };
-			return {
-				type: "found",
-				value: {
-					headSha: entry.commitSha,
-					headDate: entry.updatedAt,
-					blobSha: entry.blobSha,
-					sizeBytes: Buffer.byteLength(entry.content, "utf8"),
-				},
-			};
-		},
-		async putEntry(options) {
-			const commitSha = nextSha("commit");
-			const entry: InMemoryBrmemEntry = {
-				namespace: options.namespace,
-				key: options.key,
-				branch: options.branch,
-				content: options.content,
-				commitSha,
-				blobSha: nextSha("blob"),
-				updatedAt: "2026-01-01T00:00:00.000Z",
-			};
-			entries.set(entryId(options.namespace, options.branch, options.key), entry);
-			return { type: "ok", value: { commitSha, entry: toEntryRef(entry) } };
-		},
-		async deleteEntry(options) {
-			const id = entryId(options.namespace, options.branch, options.key);
-			if (!entries.has(id)) {
-				return { type: "error", error: { code: "key_not_found", message: "key not found" } };
-			}
-			entries.delete(id);
-			return {
-				type: "ok",
-				value: { commitSha: nextSha("commit"), entry: toEntryRef(options), isSnapshotEmpty: false },
-			};
-		},
-		async copyEntries(options) {
-			const copied = [...entries.values()].filter(
-				(entry) => entry.namespace === options.namespace && entry.branch === options.fromBranch,
-			);
-			for (const entry of copied) {
-				entries.set(entryId(entry.namespace, options.toBranch, entry.key), {
-					...entry,
-					branch: options.toBranch,
-					commitSha: nextSha("commit"),
-				});
-			}
-			return {
-				type: "ok",
-				value: {
-					entries: copied.map((entry) => toEntryRef({ ...entry, branch: options.toBranch })),
-				},
-			};
-		},
-		async getRemoteConfig() {
-			return { type: "missing" };
-		},
-		async addRemoteRefspecs() {
-			return { type: "ok", value: undefined };
 		},
 	};
 }
