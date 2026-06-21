@@ -396,7 +396,9 @@ async function reviewLogMetadata(
 ): Promise<ReviewLogMetadata> {
 	const options = environmentOptions(ctx.runScope);
 	const currentBranch =
-		logBranch === undefined ? branchMetadataValue(await ctx.gitGateway.currentBranch(options)) : logBranch;
+		logBranch === undefined
+			? branchMetadataValue(await ctx.gitGateway.currentBranch(options))
+			: logBranch;
 	const headCommit = await ctx.gitGateway.headCommit(options);
 	return {
 		branch: currentBranch,
