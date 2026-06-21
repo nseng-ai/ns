@@ -1,6 +1,8 @@
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, test, vi } from "vitest";
 
@@ -12,14 +14,11 @@ import {
 } from "@sdl/core/submit";
 import { listSdlCommands } from "@sdl/sdl/cli";
 
-import { executeSdlCommand } from "../../src/command-registry.ts";
-import { defaultSubmitCommand } from "../../src/default-commands/submit.ts";
 import type { TextGenerationResult } from "@sdl/sdl/sdk";
 
 import {
 	formattedExecCalls,
 	runCliWithFakes,
-	ScriptedSdlTestContext,
 	type RunWithFakesOptions,
 	type ScriptedExecResponse,
 } from "./sdl-cli-fakes.ts";
@@ -27,6 +26,17 @@ import {
 const PR_URL = "https://github.com/acme/repo/pull/123";
 const GRAPHITE_PR_URL = "https://app.graphite.com/github/pr/acme/repo/123";
 const LAGGING_VERIFICATION_PR_URL = "https://app.graphite.com/github/pr/dagster-io/sdl-tools/1517";
+const SUBMIT_EXTENSION_SOURCE = fileURLToPath(
+	new URL("../../../../../.sdl/extensions/submit.ts", import.meta.url),
+);
+const tempProjectDirs: string[] = [];
+
+afterEach(() => {
+	vi.useRealTimers();
+	for (const directory of tempProjectDirs.splice(0)) {
+		rmSync(directory, { recursive: true, force: true });
+	}
+});
 
 function runUnavailableSubmitCli(args: readonly string[]) {
 	return runCliWithFakes(
@@ -38,12 +48,25 @@ function runUnavailableSubmitCli(args: readonly string[]) {
 	);
 }
 
+function createSubmitProject(): string {
+	const directory = mkdtempSyncCompat("sdl-submit-project-");
+	tempProjectDirs.push(directory);
+	const extensionPath = join(directory, ".sdl", "extensions", "submit.ts");
+	mkdirSync(dirname(extensionPath), { recursive: true });
+	copyFileSync(SUBMIT_EXTENSION_SOURCE, extensionPath);
+	return directory;
+}
+
+function mkdtempSyncCompat(prefix: string): string {
+	return mkdtempSync(join(tmpdir(), prefix));
+}
+
 describe("sdl submit CLI availability", () => {
 	test("submit is not registered as a built-in command after the kernel reset", () => {
 		expect(listSdlCommands().some((command) => command.name === "submit")).toBe(false);
 	});
 
-	test("submit help and invocation are unavailable rather than stubbed", async () => {
+	test("submit help and invocation are unavailable without a project extension", async () => {
 		const help = runUnavailableSubmitCli(["submit", "--help"]);
 		expect(await help.exit).toBe(0);
 		expect(help.stdout.join("")).toContain("Usage: sdl");
@@ -59,44 +82,36 @@ describe("sdl submit CLI availability", () => {
 			expect(run.context.modelCalls).toEqual([]);
 		}
 	});
+
+	test("project-local submit help exposes restored options and environment", async () => {
+		const cwd = createSubmitProject();
+		const help = runCliWithFakes(
+			{ args: ["submit", "--help"], cwd, state: { exec: [], textGeneration: [] } },
+			{
+				execResponses: () => [],
+				textGenerationResults: () => [],
+			},
+		);
+
+		expect(await help.exit).toBe(0);
+		const output = help.stdout.join("");
+		expect(output).toContain("Usage: sdl submit");
+		expect(output).toContain("--no-restack");
+		expect(output).toContain("--verbose");
+		expect(output).toContain("SDL_DEV_PR_DESCRIPTION_MODEL");
+		expect(output).toContain("SDL_SUBMIT_FAILURE_LOG_DIR");
+	});
 });
 
 function runWithFakes(options: RunWithFakesOptions) {
-	const stdout: string[] = [];
-	const stderr: string[] = [];
-	const liveOutput: Array<{ stream: "stdout" | "stderr"; text: string }> = [];
-	const cwd = options.cwd ?? "/work";
-	const homeDir = options.homeDir ?? join(cwd, ".home");
-	const context = new ScriptedSdlTestContext(options.state, {
-		cwd,
-		env: { HOME: homeDir, ...(options.env ?? {}) },
-		execResponses: successfulSubmitResponses,
-		textGenerationResults: () => [{ ok: true, text: defaultPrDescriptionText() }],
-		missingTextGenerationResult: () => ({ ok: true, text: defaultPrDescriptionText() }),
-	});
-	context.stdout = (text) => stdout.push(text);
-	context.stderr = (text) => stderr.push(text);
-	context.onOutput = (stream, text) => liveOutput.push({ stream, text });
-	return {
-		context,
-		stdout,
-		stderr,
-		liveOutput,
-		exit: executeSdlCommand(
-			context,
-			defaultSubmitCommand,
-			submitRequestFromArgs(options.args),
-		).then((result) => (result.ok ? 0 : result.exitCode)),
-	};
-}
-
-function submitRequestFromArgs(args: readonly string[]): Record<string, boolean> {
-	const request: Record<string, boolean> = {};
-	for (const arg of args.slice(1)) {
-		if (arg === "--verbose") request.verbose = true;
-		if (arg === "--no-restack") request.restack = false;
-	}
-	return request;
+	return runCliWithFakes(
+		{ ...options, cwd: options.cwd ?? createSubmitProject() },
+		{
+			execResponses: successfulSubmitResponses,
+			textGenerationResults: () => [{ ok: true, text: defaultPrDescriptionText() }],
+			missingTextGenerationResult: () => ({ ok: true, text: defaultPrDescriptionText() }),
+		},
+	);
 }
 
 function cleanCheckpointResponses(): ScriptedExecResponse[] {
@@ -182,11 +197,7 @@ function defaultPrDescriptionText(): string {
 	return "Generated PR\n\nGenerated body";
 }
 
-describe("inactive default submit command", () => {
-	afterEach(() => {
-		vi.useRealTimers();
-	});
-
+describe("project-local submit extension", () => {
 	test("clean success submits, verifies current PR, prints quiet progress, and rewrites PR bodies", async () => {
 		const run = runWithFakes({ args: ["submit"] });
 
