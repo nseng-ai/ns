@@ -68,11 +68,15 @@ not from a staged preservation artifact.
 
 **Deployment & repo integration.**
 
-- Vercel deployment, reusing the current `docs-site/vercel.json` wiring model;
-  keep deploys gated (`ignoreCommand: "exit 0"`) until the site is launch-ready.
-- Rewire `just docs-dev` / `docs-build` / `docs-check` recipes to the Next.js
-  app (`next dev --turbo` / `next build` / type+lint check).
-- Update `docs-site/README.md` and any AGENTS.md note describing the docs split.
+- Vercel deployment supports both repository-root and `docs-site` Root Directory
+  modes; keep deploys gated (`ignoreCommand: "exit 0"`) until the site is
+  launch-ready.
+- Root `just docs-dev` / `docs-build` / `docs-check` recipes are the intended
+  local command surface for the standalone Next.js app. `docs-check` delegates
+  to the package `check` script, which currently uses `next build` as the
+  production-build validation baseline.
+- `docs-site/README.md` and scoped `docs-site/AGENTS.md` describe the published
+  docs/internal docs split and standalone package boundary.
 
 ## Non-Goals
 
