@@ -1,29 +1,15 @@
-# sdl docs site
+# SDL docs site
 
-This is the public Astro/Starlight documentation site for `sdl`.
+This is SDL's published documentation site. It is a standalone Next.js + Fumadocs app using `@vercel/geistdocs`, with its own lockfile outside the `ts/` pnpm workspace.
 
-## Local development
+Published content lives under `docs-site/docs/`. The repository-root `docs/` tree is internal engineering documentation and is not published by this site.
 
-From the repository root:
+## Development
 
-```sh
-just docs-dev
-just docs-build
-just docs-check
+```bash
+pnpm --dir docs-site install
+pnpm --dir docs-site run dev
+pnpm --dir docs-site run build
 ```
 
-## Vercel deployment
-
-The repository root `vercel.json` is configured for a Vercel project whose Root Directory is the repository root:
-
-- Install Command: `pnpm --dir docs-site install --frozen-lockfile`
-- Build Command: `pnpm --dir docs-site run build`
-- Output Directory: `docs-site/dist`
-
-Alternatively, set the Vercel project Root Directory to `docs-site`; in that mode Vercel uses `docs-site/vercel.json` and the output directory is `dist`.
-
-Deployments are temporarily disabled in both Vercel config files with `ignoreCommand: "exit 0"`. Vercel treats an ignored-build command that exits `0` as a skipped build, so connected Git commits should not publish preview or production deployments while this setting is present. Remove the `ignoreCommand` property from both config files to re-enable Vercel deployments.
-
-Set `DOCS_SITE_URL` in Vercel to the canonical production URL if it differs from the default `https://sdl-docs.vercel.app`. This feeds Astro's `site` value for sitemap and canonical metadata.
-
-To make the site publicly viewable, ensure Vercel Deployment Protection / Vercel Authentication is disabled for the production deployment in the Vercel project settings. This access-control setting is not controlled by `vercel.json`.
+Vercel deploys remain gated by `vercel.json` until launch-ready.

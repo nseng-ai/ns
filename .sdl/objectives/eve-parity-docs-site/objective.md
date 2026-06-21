@@ -9,8 +9,9 @@ visual and structural fidelity to eve's docs — its geistdocs chrome, AI-native
 machine routes, marketing home, and integrations gallery — adapted to SDL's
 product surface (the `sdl` umbrella, its CLIs, and its public skills).
 
-The current `docs-site/` (Astro + Starlight) is deleted and rebuilt; its curated
-content corpus is preserved as migration input, not as a stack to extend.
+The current `docs-site/` (Astro + Starlight) is deleted and rebuilt. Its prior
+content and assets remain recoverable from git history and the Objective notes,
+not from a staged preservation artifact.
 
 ## Scope
 
@@ -32,10 +33,10 @@ content corpus is preserved as migration input, not as a stack to extend.
 
 - Internal engineering docs stay in the repo-root `docs/` (ADRs, surveys,
   retrospectives, system reports). They are NOT published.
-- Published site content lives inside `docs-site/` (Fumadocs MDX corpus). eve
+- Published site content lives in `docs-site/docs/` (Fumadocs MDX corpus). eve
   keeps content at root `docs/` and the app at `apps/docs/`; SDL cannot use that
   split because root `docs/` is occupied by internal docs, so content lives
-  under `docs-site/` (exact sub-path TBD — see Open Questions).
+  inside the standalone `docs-site/` app.
 
 **eve features to reproduce (in scope).**
 
@@ -82,8 +83,9 @@ content corpus is preserved as migration input, not as a stack to extend.
   A polished but static home is sufficient.
 - **No second language / real translations.** i18n scaffolding only.
 - **No changes to the internal `docs/` tree.** Its contents, organization, and
-  purpose are out of scope; this Objective only consumes a snapshot of the
-  existing curated site content as migration input.
+  purpose are out of scope; this Objective may use the former published site
+  from git history as reference material, but does not stage or preserve the old
+  site as a migration artifact.
 - **No new shared content catalog package** (no SDL analogue of
   `@vercel/eve-catalog`) unless the integrations gallery decision demands it.
 - Not adopting geistdocs for any purpose beyond the docs site (no coupling of
@@ -112,12 +114,14 @@ content corpus is preserved as migration input, not as a stack to extend.
 **Assumptions**
 
 - `@vercel/geistdocs` is usable by a non-Vercel-owned, standalone repo project
-  (it is public on npm and eve consumes it as a normal dependency). If
-  geistdocs hard-requires Vercel platform context that can't be satisfied
-  locally/in CI, this assumption is wrong and the plan needs revision.
-- The existing curated Starlight content (`docs-site/src/content/docs/**`) is
-  good enough source material to port; rewriting prose is expected but the
-  information architecture largely carries over.
+  (it is public on npm and eve consumes it as a normal dependency). Initial
+  local evidence supports this: a standalone `docs-site/` skeleton installs and
+  builds with `@vercel/geistdocs` 1.7.3. Deeper feature parity still needs
+  validation as machine routes, search, and content are added.
+- The former curated Starlight content (`docs-site/src/content/docs/**`) is
+  recoverable from git history and useful as reference material; rewriting prose
+  is expected, and no separate asset/content preservation step is required before
+  deleting the old app.
 - A standalone (non-workspace) Next.js app coexists fine alongside the `ts/`
   pnpm workspace, as the current standalone Astro app already does.
 - Keeping md-tracking on (an external call to `geistdocs.com`) is acceptable
@@ -138,26 +142,27 @@ content corpus is preserved as migration input, not as a stack to extend.
   resolve the Open Question before building the page; the page may shrink to a
   tools/skills index or be parked.
 - **Loss of working site during migration.** Deleting the Astro app before the
-  Next.js app reaches parity leaves SDL without a buildable docs site mid-stream.
-  Mitigation: sequence so the new app reaches a buildable skeleton early; the old
-  site is in git history if rollback is needed.
+  Next.js app reaches parity leaves SDL without full published-site parity
+  mid-stream. Initial mitigation is in place: the replacement Next.js/geistdocs
+  skeleton builds locally. Remaining risk is product/content parity, not total
+  absence of a buildable docs app.
 - **md-tracking telemetry** sends page-fetch events off-repo to a third party.
   Owner-approved, but record it as a known external dependency.
 
 ## Open Questions
 
-- **Content directory location.** eve uses root `docs/` + `apps/docs` with
-  `source.config.ts` pointing `dir: "../../docs"`. SDL can't use root `docs/`.
-  Where does the MDX corpus live — `docs-site/content/`, `docs-site/docs/`, or
-  co-located under `docs-site/app`? (Leaning: a top-level `docs-site/content/`
-  or `docs-site/docs/` dir that `source.config.ts` points at.)
+- **Content directory location: resolved to `docs-site/docs/`.** eve uses root
+  `docs/` + `apps/docs`, but SDL's root `docs/` remains internal engineering
+  documentation. The standalone app now points `source.config.ts` at
+  `docs-site/docs/`, keeping published content inside the app boundary.
 - **Integrations gallery content.** What does it catalog for SDL? Options:
   (a) SDL tools (slot, brmem, pr-address, aretro, objective, roaster, …),
   (b) public agent skills, (c) drop the page and treat as a Non-Goal. Resolve
   before building.
-- **Workspace membership.** Keep `docs-site/` fully standalone (own lockfile),
-  or fold it into a root pnpm workspace alongside `ts/`? Standalone matches
-  today; a root workspace would dedupe tooling but is a larger structural change.
+- **Workspace membership: keep standalone.** `docs-site/` remains outside the
+  `ts/` workspace with its own lockfile. It has a local `pnpm-workspace.yaml`
+  only for pnpm build-script supply-chain policy (`allowBuilds` for `esbuild` and
+  `sharp`), not to join the repo TypeScript workspace.
 - **Site identity/positioning copy** — tagline, hero headline, `siteId`,
   production URL/domain. eve: "The Framework for Building Agents" / "Like Next.js
   for web apps, but for agents." SDL needs its own.
@@ -183,6 +188,14 @@ Decisions captured during the framing conversation:
 5. **Parity flips** — toward maximal eve fidelity: KEEP `[lang]` i18n
    scaffolding, INCLUDE an integrations gallery, LEAVE md-tracking telemetry ON.
    Home keeps eve structure but skips per-feature animated visuals.
+6. **Asset preservation simplification** — delete the old Astro/Starlight
+   `docs-site/` outright instead of first staging content/assets. Git history and
+   this Objective's reference notes are sufficient source material if old content
+   or wiring needs to be recovered.
+7. **Initial scaffold choices** — published content lives in `docs-site/docs/`,
+   the app remains standalone outside `ts/`, Vercel deploys stay gated, and
+   TypeScript is pinned to stable `6.0.3` because Next's TypeScript detector did
+   not accept the prerelease `7.0.1-rc` pin in this standalone app.
 
 ## Reference: eve docs architecture (`vercel/eve` `apps/docs`)
 
@@ -239,7 +252,7 @@ At `docs-site/` today — Astro 6 + Starlight (`@astrojs/starlight` 0.39.2),
 package `sdl-docs`, standalone (own `pnpm-lock.yaml`, outside `ts/`), Vercel-
 wired with deploys disabled via `ignoreCommand: "exit 0"`.
 
-Reusable migration inputs (preserve before deleting):
+Recoverable reference inputs (not staged before deleting):
 
 - Content corpus `docs-site/src/content/docs/**` — already curated, user-facing,
   and structurally close to eve:
