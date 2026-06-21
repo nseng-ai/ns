@@ -26,9 +26,10 @@
   - Current evidence: first-slice Pi changes keep only the explicit `changes` mirrors delegating to `sdl changes`, remove unavailable `cp`, `submit`, and `regenerate-pr` mirror registration/parity records, and update narrow push/worktree-status guidance that would have advertised removed mirrors. The broader row remains active for later migrated commands and any dynamic Pi discovery decision.
   - Evidence should include parity/registration tests or documented limitations for project-local static mirrors.
 
-- [ ] Document the emerging SDL kernel and extension SDK model.
+- [~] Document the emerging SDL kernel and extension SDK model.
   - Policy: direct execution after preview; steer first before finalizing public extension terminology that affects authors.
-  - Explain kernel responsibilities, public SDK imports, internal migration exports, project-local extension discovery, project-local versus bundled extension criteria, and the command-first promotion rule for new SDK capabilities.
+  - Current evidence: the single-file SDL extension boundary is now documented in SDL README/context language and in `.sdl/extensions/AGENTS.md`: direct `.sdl/extensions/<name>.ts` modules are leaf authoring surfaces, packages must not import from them, and reusable behavior must move or be copied into package-owned modules before packages depend on it.
+  - Remaining scope: explain kernel responsibilities, public SDK imports, internal migration exports, project-local extension discovery, project-local versus bundled extension criteria, and the command-first promotion rule for new SDK capabilities.
   - Evidence should include SDL README/context updates and any necessary context-map language refresh.
 
 - [ ] Record the command-first closure boundary and spawn or park follow-up capability work.
