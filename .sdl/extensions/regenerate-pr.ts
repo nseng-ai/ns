@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import { basename, isAbsolute, join, resolve } from "node:path";
 import process from "node:process";
 
-import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
+import { defineExtension, failed, ok } from "@sdl/sdl/sdk";
+import { z } from "zod";
 import { preparePrDescription } from "./shared/text-helpers.ts";
 import type { ExecResult, SdlContext, TextGenerator } from "@sdl/sdl/sdk";
 

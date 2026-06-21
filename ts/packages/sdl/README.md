@@ -80,14 +80,15 @@ Dynamic Pi `/sdl:*` mirrors are not part of this first general extension-loading
 
 ## SDL extension API
 
-SDL extension authors should import only from `@sdl/sdl/sdk`:
+SDL extension authors import the SDK's own surface from `@sdl/sdl/sdk`, and command schemas use `z` imported from `zod` directly:
 
 ```ts
-import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
+import { defineExtension, failed, ok } from "@sdl/sdl/sdk";
 import type { SdlContext, SdlResult } from "@sdl/sdl/sdk";
+import { z } from "zod";
 ```
 
-That SDK subpath is the public author API for SDL extensions. The complete, authoritative reference for every export — `defineExtension()`, the command and result types, `SdlContext` and its execution capabilities, the command-evidence and text-generation helpers, and `z` — lives in [`docs/sdk-reference.md`](./docs/sdk-reference.md).
+That SDK subpath is the public author API for SDL extensions. The complete, authoritative reference for every export — `defineExtension()`, the command and result types, `SdlContext` and its execution capabilities, and the command-evidence and text-generation helpers — lives in [`docs/sdk-reference.md`](./docs/sdk-reference.md). `z` is not an SDK export: it comes from `zod`, an ordinary third-party dependency of the extension.
 
 SDL command entries own their prompts, validation, repair policy, and exact external commands. They should not import internal SDL implementation modules.
 

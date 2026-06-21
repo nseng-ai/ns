@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import { createJiti } from "jiti/static";
 
-import { commandSucceeded, defineExtension, failed, formatCommandEvidence, ok, z } from "./sdk.ts";
+import { commandSucceeded, defineExtension, failed, formatCommandEvidence, ok } from "./sdk.ts";
 
 /** Module specifier that SDL command entries import the SDK from. */
 const SDK_SPECIFIER = "@sdl/sdl/sdk";
@@ -18,15 +18,16 @@ const sdlSdkVirtualModule = {
 	failed,
 	formatCommandEvidence,
 	ok,
-	z,
 } satisfies Record<string, unknown>;
 
 /**
  * Create the SDL-aware jiti instance used for user-authored modules.
  *
  * The load-bearing option is `virtualModules`: it binds `@sdl/sdl/sdk` to the
- * exact SDK object imported by this process, so command-entry commands and
- * schemas share host SDK identity instead of resolving a second package copy.
+ * exact SDK object imported by this process, so command-entry commands share
+ * host SDK identity instead of resolving a second package copy. Schemas import
+ * `z` from `zod` directly; their identity relies on `zod` being deduplicated to
+ * a single resolved copy across the host package and `.sdl/extensions`.
  */
 export function createSdlJiti(): ReturnType<typeof createJiti> {
 	return createJiti(import.meta.url, {

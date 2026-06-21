@@ -1,5 +1,6 @@
-import { commandSucceeded, defineExtension, formatCommandEvidence, ok, z } from "@sdl/sdl/sdk";
+import { commandSucceeded, defineExtension, formatCommandEvidence, ok } from "@sdl/sdl/sdk";
 import type { TextGenerationRequest, TextGenerationResult, TextGenerator } from "@sdl/sdl/sdk";
+import { z } from "zod";
 
 type Assert<T extends true> = T;
 type IsAny<T> = 0 extends 1 & T ? true : false;

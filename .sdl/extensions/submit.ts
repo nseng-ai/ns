@@ -2,7 +2,8 @@
 import { chmod, mkdir, mkdtemp as mkdtemp3, writeFile as writeFile3 } from "node:fs/promises";
 import { join as join4 } from "node:path";
 import process2 from "node:process";
-import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
+import { defineExtension, failed, ok } from "@sdl/sdl/sdk";
+import { z } from "zod";
 import { prepareCheckpointMessage, preparePrDescription } from "./shared/text-helpers.ts";
 
 // ts/packages/sdl-core/src/exec.ts

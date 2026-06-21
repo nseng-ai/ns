@@ -2,11 +2,17 @@
 
 `@sdl/sdl/sdk` is the public author API for SDL extensions — the one subpath you import from to write an SDL extension; this document is the complete reference for its exports.
 
-Import everything from the subpath itself:
+Import the SDK's own surface from the subpath itself:
 
 ```ts
-import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
+import { defineExtension, failed, ok } from "@sdl/sdl/sdk";
 import type { SdlContext, SdlResult } from "@sdl/sdl/sdk";
+```
+
+Command schemas are [Zod](https://zod.dev) schemas. Import `z` from `zod` directly — it is an ordinary third-party dependency of your extension, not an SDK export:
+
+```ts
+import { z } from "zod";
 ```
 
 Do not import SDL implementation modules (`@sdl/sdl/*` other than `./sdk`, `@sdl/core/*`, `@sdl/clinkr/*`). The SDK re-exports the few lower-package types an author needs; those are documented below as first-party SDK vocabulary, with their origin noted.
@@ -105,7 +111,8 @@ interface SdlCommand<S extends SdlCommandSchema = z.ZodObject> {
 **Example.** Declared inline so `request` is inferred from `schema`:
 
 ```ts
-import { defineExtension, ok, z } from "@sdl/sdl/sdk";
+import { defineExtension, ok } from "@sdl/sdl/sdk";
+import { z } from "zod";
 
 export default defineExtension({
   commands: [
@@ -125,13 +132,13 @@ export default defineExtension({
 type SdlCommandSchema = z.ZodObject;
 ```
 
-The schema type a command may declare. Always a Zod object, built with the SDK's `z`.
+The schema type a command may declare. Always a Zod object, built with `z` imported from `zod`.
 
 **Example.**
 
 ```ts
-import { z } from "@sdl/sdl/sdk";
 import type { SdlCommandSchema } from "@sdl/sdl/sdk";
+import { z } from "zod";
 
 const schema: SdlCommandSchema = z.object({ force: z.boolean().default(false) });
 ```
@@ -147,8 +154,8 @@ The parsed-request type derived from a command's schema — the type `run` recei
 **Example.**
 
 ```ts
-import { z } from "@sdl/sdl/sdk";
 import type { SdlCommandRequest, SdlContext, SdlResult } from "@sdl/sdl/sdk";
+import { z } from "zod";
 
 const schema = z.object({ slug: z.string().optional() });
 
@@ -525,14 +532,14 @@ ctx.stdout?.(result.text);
 
 ## Schema
 
-### `z`
+### `z` (from `zod`)
 
-The SDK re-exports `z` from [zod](https://zod.dev). Build command schemas with **this** `z` so schemas share the SDK's Zod identity rather than a separately-installed copy of zod. Its API is zod's own — see the zod documentation; it is not re-documented here.
-
-**Example.**
+Command schemas are [Zod](https://zod.dev) schemas. `z` is **not** an SDK export — import it from `zod` directly, exactly as you would any other third-party dependency of your extension. Its API is zod's own — see the zod documentation; it is not re-documented here.
 
 ```ts
-import { z } from "@sdl/sdl/sdk";
+import { z } from "zod";
 
 const schema = z.object({ slug: z.string().optional() });
 ```
+
+A single resolved copy of `zod` is shared across the host package and `.sdl/extensions` (pnpm deduplicates it), so schemas you build keep a consistent Zod identity at runtime.

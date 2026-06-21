@@ -239,7 +239,8 @@ describe("sdl extension contribution loading", () => {
 		const cwd = await createExtensionProject(
 			"cp.ts",
 			`
-import { defineExtension, ok, z } from "@sdl/sdl/sdk";
+import { defineExtension, ok } from "@sdl/sdl/sdk";
+import { z } from "zod";
 
 export default defineExtension({
 	commands: [{
@@ -299,7 +300,8 @@ export default defineExtension({
 		const cwd = await createExtensionProject(
 			"hello.ts",
 			`
-import { defineExtension, ok, z } from "@sdl/sdl/sdk";
+import { defineExtension, ok } from "@sdl/sdl/sdk";
+import { z } from "zod";
 
 export default defineExtension({
 	commands: [{

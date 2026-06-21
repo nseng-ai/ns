@@ -2,7 +2,8 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
+import { defineExtension, failed, ok } from "@sdl/sdl/sdk";
+import { z } from "zod";
 import { prepareCheckpointMessage } from "./shared/text-helpers.ts";
 import type { ExecResult, SdlContext, TextGenerator } from "@sdl/sdl/sdk";
 

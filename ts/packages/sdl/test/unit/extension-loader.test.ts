@@ -7,7 +7,8 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import { validateSdlExtensionContribution } from "../../src/command-registry.ts";
 import { loadSdlExtensionContribution } from "../../src/extension-loader.ts";
-import { z, type SdlCommand } from "../../src/sdk.ts";
+import { type SdlCommand } from "../../src/sdk.ts";
+import { z } from "zod";
 
 const tempDirs: string[] = [];
 
@@ -29,7 +30,8 @@ afterEach(() => {
 describe("extension loader", () => {
 	test("loads a TypeScript command entry with SDK identity", async () => {
 		const modulePath = await createModule(`
-import { defineExtension, ok, z } from "@sdl/sdl/sdk";
+import { defineExtension, ok } from "@sdl/sdl/sdk";
+import { z } from "zod";
 
 export default defineExtension({
 	commands: [{
