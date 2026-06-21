@@ -2,17 +2,15 @@
 
 ## Work
 
-- [~] Shared `defineCli` helper in `@sdl/core/cli-entry` (runtimeInfo derivation,
-  version reading, IO/cwd/env defaulting, `import.meta.main` entry guard);
-  migrate all 15 `cli.ts` files onto it.
-  See `references/cli-wiring-layer.md`. Pure subtraction; do this first.
-  Current evidence: `defineCli` exists in `ts/packages/sdl-core/src/cli-entry.ts`,
-  all 15 `ts/packages/*/src/cli.ts` files consume it, and no old hand-written
-  `const VERSION`/`runtimeInfo`/`readPackageVersion` implementations remain in
-  those entrypoints. Keep this row in-progress until the strict behavior-parity
-  evidence is closed; package-local `sdlcc` `--runtime` coverage was not found
-  during the 2026-06-21 rebaseline.
-  Evidence target: `--version`/`--runtime`/`-h` scenario tests pass for every CLI.
+- [x] Shared `defineCli` helper in `@sdl/core/cli-entry` (runtimeInfo derivation,
+      version reading, IO/cwd/env defaulting, `import.meta.main` entry guard);
+      migrate all 15 `cli.ts` files onto it.
+      See `references/cli-wiring-layer.md`. Pure subtraction; done first.
+      Evidence: `defineCli` exists in `ts/packages/sdl-core/src/cli-entry.ts`, all 15
+      `ts/packages/*/src/cli.ts` files consume it, no old hand-written
+      `const VERSION`/`runtimeInfo`/`readPackageVersion` implementations remain in
+      those entrypoints, package-local `sdlcc` `--runtime` coverage now exists, and
+      `just ts-format-check && just ts-lint && just ts-check && just ts-test` passed.
 - [ ] `clinkr` `execGroup(description?)` factory defaulting `name:"exec"` +
       `isHidden:true`; replace the 9 hand-rolled hidden-exec constructions.
       See `references/cli-wiring-layer.md`.
