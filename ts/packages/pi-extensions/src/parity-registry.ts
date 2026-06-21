@@ -10,7 +10,6 @@ import { modelShortcutParity } from "./model-shortcuts.ts";
 import { objectiveParity } from "./objective.ts";
 import { prFeedbackWatchParity } from "./pr-feedback-watch.ts";
 import { prExtensionParity } from "./pr.ts";
-import { pushParity } from "./push.ts";
 import { sdlExtensionParity } from "./sdl-extension.ts";
 import { smartRestackParity } from "./smart-restack.ts";
 import { trunkPullParity } from "./trunk-pull.ts";
@@ -30,7 +29,6 @@ export const STATIC_PI_EXTENSION_PARITY_RECORDS = [
 	...objectiveParity,
 	...prFeedbackWatchParity,
 	...prExtensionParity,
-	...pushParity,
 	...sdlExtensionParity,
 	...smartRestackParity,
 	...trunkPullParity,

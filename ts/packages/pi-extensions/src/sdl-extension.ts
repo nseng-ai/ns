@@ -8,13 +8,11 @@ import {
 import landExtension from "./land.ts";
 import { requestWorktreeStatusRefresh } from "./worktree-status.ts";
 import { definePiSurfaceParity } from "./parity.ts";
-import pushExtension from "./push.ts";
 import trunkPullExtension from "./trunk-pull.ts";
 
 export type SdlExtensionAPI = CliCommandExtensionAPI &
 	Parameters<typeof autoslotExtension>[0] &
 	Parameters<typeof landExtension>[0] &
-	Parameters<typeof pushExtension>[0] &
 	Parameters<typeof trunkPullExtension>[0];
 
 const CHANGES_COMMAND_INFO = {
@@ -38,12 +36,17 @@ const REGENERATE_PR_COMMAND_INFO = {
 	name: "regenerate-pr",
 	description: "Regenerate the current branch PR title and description.",
 } as const satisfies SdlCommandInfo;
+const PUSH_COMMAND_INFO = {
+	name: "push",
+	description: "Push already-committed work on the current branch with git push.",
+} as const satisfies SdlCommandInfo;
 const SDL_DIRECT_COMMANDS = [
 	CHANGES_COMMAND_INFO,
 	CP_COMMAND_INFO,
 	AUTOBRANCH_COMMAND_INFO,
 	SUBMIT_COMMAND_INFO,
 	REGENERATE_PR_COMMAND_INFO,
+	PUSH_COMMAND_INFO,
 ] as const satisfies readonly SdlCommandInfo[];
 const SDL_CODE_ALIAS_COMMANDS = [CHANGES_COMMAND_INFO] as const satisfies readonly SdlCommandInfo[];
 const SDL_CODE_COMMAND_ALIASES = {
@@ -113,6 +116,18 @@ export const sdlExtensionParity = definePiSurfaceParity([
 	},
 	{
 		kind: "command",
+		surface: "sdl:push",
+		workflow: "Push already-committed work from the current branch",
+		parity: "FULL",
+		cli: "sdl push",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@sdl/pi-extensions",
+		sourceModule: "sdl-extension",
+		notes:
+			"Pi command delegates to sdl push through registerCliCommandExtension; in this repo the CLI behavior is restored by the project-local .sdl/extensions/push.ts extension. /sdl:code:push and /code:push are not retained.",
+	},
+	{
+		kind: "command",
 		surface: "sdl:code:changes",
 		workflow: "Nested code-lifecycle alias for outstanding worktree changes",
 		parity: "FULL",
@@ -142,6 +157,5 @@ export default function sdlExtension(pi: SdlExtensionAPI): void {
 	});
 	autoslotExtension(pi);
 	landExtension(pi);
-	pushExtension(pi);
 	trunkPullExtension(pi);
 }

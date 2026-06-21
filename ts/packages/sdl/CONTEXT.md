@@ -65,7 +65,7 @@ A repo-local `.sdl/extensions` command entry or manifest descriptor that replace
 *Avoid*: compatibility alias, wrapper around old command name, global user plugin.
 
 **SDL Pi mirror**:
-A `/sdl:<name>` Pi command that delegates to the corresponding `sdl <name>` CLI behavior. During the project-local extension migration, `/sdl:changes`, `/sdl:cp`, `/sdl:autobranch`, `/sdl:submit`, `/sdl:regenerate-pr`, and `/sdl:code:changes` are explicit mirrors for repo-local SDL commands; old checkpoint `/code:*`, nested checkpoint aliases, `/sdl:code:autobranch`, `/sdl:code:submit`, `/sdl:code:regenerate-pr`, and legacy submit/PR-regeneration aliases are not restored. The mirror is an adapter over SDL, not a separate implementation.
+A `/sdl:<name>` Pi command that delegates to the corresponding `sdl <name>` CLI behavior. During the project-local extension migration, `/sdl:changes`, `/sdl:cp`, `/sdl:autobranch`, `/sdl:submit`, `/sdl:regenerate-pr`, `/sdl:push`, and `/sdl:code:changes` are explicit mirrors for repo-local SDL commands; old checkpoint `/code:*`, nested checkpoint aliases, `/sdl:code:autobranch`, `/sdl:code:submit`, `/sdl:code:regenerate-pr`, `/sdl:code:push`, and legacy submit/PR-regeneration/push aliases are not restored. The mirror is an adapter over SDL, not a separate implementation.
 *Avoid*: parallel Pi implementation, `/code:*` replacement wrapper without SDL, independent behavior fork, dynamic arbitrary `/sdl:*` registration, advertising mirrors for unavailable SDL commands.
 
 **Hard cutover**:

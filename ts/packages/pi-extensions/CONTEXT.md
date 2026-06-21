@@ -60,6 +60,10 @@ The public Pi extension registration surface for `/sdl:autobranch`. The command 
 The public Pi extension registration surface for unified `/sdl:code:land`. The command belongs to the SDL code-lifecycle family and is discovered through `@sdl/pi-extensions`, but Graphite stack-shape dispatch, single-PR fast landing, Graphite/GitHub/slot stack landing orchestration, and failure presentation are delegated to `@sdl/ccc/land`.
 *Avoid*: PR view/merge policy owner, stack landing policy owner, direct Graphite/GitHub mutation owner, old `/code:land` compatibility alias.
 
+**Push mirror**:
+The public Pi extension registration surface for flat `/sdl:push`, a generic SDL CLI mirror over project-local `sdl push`. SDL owns the clean-worktree plain-`git push` behavior through `.sdl/extensions/push.ts`; Pi only registers and renders the generic CLI bridge output. Nested `/sdl:code:push` and legacy `/code:push` are not retained.
+*Avoid*: Pi-only push implementation, Graphite submit replacement, force-push or remote/branch argument pass-through, old `/sdl:code:push` compatibility alias.
+
 **Worktree status adapter**:
 The Pi lifecycle module behind `.pi/extensions/worktree-status.ts`: registers the `worktree-status` renderer, reacts to session/tool/agent/shutdown events, manages active-session cancellation, watches Git/Branch Memory/worktree paths, installs the custom footer, and renders generic cwd/session/model/context/token/cost footer lines while delegating repo-operational status facts and presentation to `@sdl/ccc/worktree-status`.
 *Avoid*: CCC observability fact owner, Graphite metadata parser owner, Branch Memory scope formatter, visible slash command.
@@ -161,7 +165,7 @@ The parity-review convention that Pi model-visible tools are host-native bridges
 *Avoid*: custom-tool parity row, hidden command surface, tool as workflow owner.
 
 **Code command prefix**:
-The Pi slash-command namespace for codebase/source-control or review workflows that intentionally remain outside the SDL code-lifecycle family. The current project-owned code-prefix command is `/code:pr-feedback-watch`; migrated lifecycle workflows use primary SDL mirrors under `/sdl:*` or nested code-lifecycle surfaces under `/sdl:code:*`, not `/code:*` compatibility aliases. PR metadata regeneration uses flat `/sdl:regenerate-pr`, not `/code:pr-regen` or `/sdl:code:regenerate-pr`.
+The Pi slash-command namespace for codebase/source-control or review workflows that intentionally remain outside the SDL code-lifecycle family. The current project-owned code-prefix command is `/code:pr-feedback-watch`; migrated lifecycle workflows use primary SDL mirrors under `/sdl:*` or selected nested code-lifecycle surfaces under `/sdl:code:*`, not `/code:*` compatibility aliases. PR metadata regeneration uses flat `/sdl:regenerate-pr`, not `/code:pr-regen` or `/sdl:code:regenerate-pr`; push uses flat `/sdl:push`, not `/sdl:code:push`.
 *Avoid*: visibility flag, prototype marker, package prefix, migrated SDL workflow prefix.
 
 **Pending worktree snapshot**:
