@@ -15,12 +15,16 @@ import {
 	publishFindingsRequestSchema,
 	renderReviewList,
 	renderReviewRun,
+	renderRoastSkillList,
 	reviewListRequestSchema,
 	reviewListResultSchema,
 	reviewRunRequestSchema,
+	roastSkillListRequestSchema,
+	roastSkillListResultSchema,
 	runPublishFindings,
 	runReviewByKey,
 	runReviewList,
+	runRoastSkillList,
 } from "./operations/cli-operations.ts";
 import { reviewRunResultSchema } from "./models.ts";
 
@@ -97,6 +101,20 @@ const entry = defineCli<RoasterRuntime, CliDeps, undefined>({
 			renderHuman: renderReviewRun,
 		});
 		root.group(reviewGroup);
+
+		const roastGroup = new ClinkrGroup<RoasterRuntime>({
+			name: "roast",
+			description: "Roaster review-skill catalog operations.",
+		});
+		roastGroup.command({
+			name: "list",
+			description: "List Roaster review-skill commands.",
+			schema: roastSkillListRequestSchema,
+			resultSchema: roastSkillListResultSchema,
+			handler: runRoastSkillList,
+			renderHuman: renderRoastSkillList,
+		});
+		root.group(roastGroup);
 
 		const execGroup = new ClinkrGroup<RoasterRuntime>({
 			name: "exec",
