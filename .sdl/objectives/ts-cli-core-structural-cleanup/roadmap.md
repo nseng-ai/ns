@@ -2,14 +2,17 @@
 
 ## Work
 
-- [~] Shared `defineCli` helper in `@asdl/core/cli-entry` (runtimeInfo derivation,
+- [~] Shared `defineCli` helper in `@sdl/core/cli-entry` (runtimeInfo derivation,
   version reading, IO/cwd/env defaulting, `import.meta.main` entry guard);
   migrate all 15 `cli.ts` files onto it.
   See `references/cli-wiring-layer.md`. Pure subtraction; do this first.
-  Current evidence: PR #1940 addresses post-migration CLI render propagation
-  for `plans` and `clinkr` `ok` render overrides; fleet-wide migration and
-  behavior-parity scenario evidence remain required.
-  Evidence: `--version`/`--runtime`/`-h` scenario tests pass for every CLI.
+  Current evidence: `defineCli` exists in `ts/packages/sdl-core/src/cli-entry.ts`,
+  all 15 `ts/packages/*/src/cli.ts` files consume it, and no old hand-written
+  `const VERSION`/`runtimeInfo`/`readPackageVersion` implementations remain in
+  those entrypoints. Keep this row in-progress until the strict behavior-parity
+  evidence is closed; package-local `sdlcc` `--runtime` coverage was not found
+  during the 2026-06-21 rebaseline.
+  Evidence target: `--version`/`--runtime`/`-h` scenario tests pass for every CLI.
 - [ ] `clinkr` `execGroup(description?)` factory defaulting `name:"exec"` +
       `isHidden:true`; replace the 9 hand-rolled hidden-exec constructions.
       See `references/cli-wiring-layer.md`.
