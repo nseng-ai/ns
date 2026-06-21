@@ -8,6 +8,11 @@ import { describe, expect, test } from "vitest";
 import type { Clock } from "../clock.ts";
 import type { CommandExecApi, CommandRunner, ExecOptions, ExecResult } from "../exec.ts";
 import type { ScheduledTimer, TimerScheduler } from "../timers.ts";
+import type {
+	TextGenerationGateway,
+	TextGenerationRequest,
+	TextGenerationResult,
+} from "../submit/text-generation.ts";
 
 export interface NodeRuntimeCliEntrypointOptions {
 	readonly name: string;
@@ -90,6 +95,8 @@ export interface ScriptedCommandExecCall {
 	readonly options?: ExecOptions | undefined;
 }
 
+export type ScriptedTextGenerationStep = TextGenerationResult | Promise<TextGenerationResult>;
+
 export class ScriptedCommandRunner {
 	private readonly callsInternal: RunnerCall[] = [];
 	private readonly errors: string[] = [];
@@ -167,6 +174,36 @@ export class ScriptedCommandExecApi implements CommandExecApi {
 			args: [...call.args],
 			...(call.options === undefined ? {} : { options: { ...call.options } }),
 		}));
+	}
+}
+
+export class ScriptedTextGenerationGateway implements TextGenerationGateway {
+	private readonly requestsInternal: TextGenerationRequest[] = [];
+	private readonly errors: string[] = [];
+	private readonly script: ScriptedTextGenerationStep[];
+
+	constructor(script: readonly ScriptedTextGenerationStep[]) {
+		this.script = [...script];
+	}
+
+	get requests(): readonly TextGenerationRequest[] {
+		return this.requestsInternal.map(copyTextGenerationRequest);
+	}
+
+	readonly generateText: TextGenerationGateway["generateText"] = async (request) => {
+		this.requestsInternal.push(copyTextGenerationRequest(request));
+		const result = this.script.shift();
+		if (result === undefined) {
+			const message = "unexpected text generation request";
+			this.errors.push(message);
+			return { ok: false, error: message };
+		}
+		return await result;
+	};
+
+	assertDone(): void {
+		expect(this.errors).toEqual([]);
+		expect(this.script).toEqual([]);
 	}
 }
 
@@ -421,4 +458,15 @@ function result(fields: ResultFields): ExecResult {
 
 function copyScriptStep(stepValue: ScriptStep): ScriptStep {
 	return { ...stepValue, args: [...stepValue.args] };
+}
+
+function copyTextGenerationRequest(request: TextGenerationRequest): TextGenerationRequest {
+	return {
+		modelRef: request.modelRef,
+		system: request.system,
+		prompt: request.prompt,
+		...(request.maxTokens === undefined ? {} : { maxTokens: request.maxTokens }),
+		...(request.reasoning === undefined ? {} : { reasoning: request.reasoning }),
+		...(request.operation === undefined ? {} : { operation: request.operation }),
+	};
 }

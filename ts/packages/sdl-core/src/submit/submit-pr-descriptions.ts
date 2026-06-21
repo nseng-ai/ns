@@ -1,9 +1,8 @@
+import { orchestratePrDescription } from "./pr-description-orchestration.ts";
 import {
-	appendGeneratedMarker,
 	resolvePrDescriptionGeneration,
 	type PrDescriptionGenerationResolution,
 } from "./pr-description.ts";
-import { applyGeneratedDescription, decidePrBodyOverwrite } from "./pr-description-apply.ts";
 import { formatItemCount } from "./format.ts";
 import type { SubmitPrLink } from "./gt-output.ts";
 import { formatPrLinkTextRow, prNumberFromLink } from "./submit-pr-link.ts";
@@ -64,81 +63,52 @@ export async function generateSubmitPrDescriptions(input: {
 		}
 
 		const prewrittenMetadata = prewrittenByBranch.get(viewed.value.headRefName);
-		if (prewrittenMetadata !== undefined) {
-			input.onProgress?.(`validating prewritten metadata for PR #${number}`);
-			const reconciled = await reconcilePrewrittenPr({
-				cwd: input.cwd,
-				githubPr: input.prDescription.githubPr,
-				link,
-				number,
-				title: viewed.value.title,
-				body: viewed.value.body,
-				prewrittenMetadata,
-				...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
-			});
-			if (reconciled.kind === "matched") {
-				prewritten.push(link);
-			} else if (reconciled.kind === "updated") {
-				prewriteFallbacks.push(link);
-			} else {
-				failures.push(reconciled.failure);
-			}
-			continue;
-		}
-
-		if (generation === undefined) {
+		if (prewrittenMetadata === undefined && generation === undefined) {
 			input.onProgress?.("resolving PR description prompt and model");
-		}
-		const resolvedGeneration =
-			generation ??
-			(await resolvePrDescriptionGeneration({
+			const resolvedGeneration = await resolvePrDescriptionGeneration({
 				cwd: input.cwd,
 				env: input.prDescription.env,
 				git: input.prDescription.git,
-			}));
-		if (!resolvedGeneration.ok) {
-			failures.push({ link, number, reason: resolvedGeneration.error });
-			continue;
+			});
+			if (!resolvedGeneration.ok) {
+				failures.push({ link, number, reason: resolvedGeneration.error });
+				continue;
+			}
+			generation = resolvedGeneration;
 		}
-		generation = resolvedGeneration;
 
-		input.onProgress?.(`checking PR #${number} description fingerprint`);
-		const decision = await decidePrBodyOverwrite({
-			pr: viewed.value,
+		const result = await orchestratePrDescription({
 			cwd: input.cwd,
+			env: input.prDescription.env,
 			githubPr: input.prDescription.githubPr,
-			generation,
-		});
-		if (decision.kind === "failed") {
-			failures.push({ link, number, reason: decision.error });
-			continue;
-		}
-		if (decision.kind === "skip") {
-			input.onProgress?.(`skipping PR #${number} description; generated fingerprint is unchanged`);
-			skipped.push(link);
-			continue;
-		}
-
-		const applied = await applyGeneratedDescription({
+			textGeneration: input.prDescription.textGeneration,
+			git: input.prDescription.git,
 			pr: viewed.value,
-			commits: decision.commits,
-			diff: decision.diff,
-			metadata: decision.metadata,
-			options: {
-				cwd: input.cwd,
-				env: input.prDescription.env,
-				githubPr: input.prDescription.githubPr,
-				textGeneration: input.prDescription.textGeneration,
-				git: input.prDescription.git,
-				generation,
-				...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
-			},
+			...(generation === undefined ? {} : { generation }),
+			...(prewrittenMetadata === undefined ? {} : { prewrittenMetadata }),
+			...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
 		});
-		if (applied.ok) {
-			input.onProgress?.(`finished PR #${number} description`);
-			generated.push(link);
-		} else {
-			failures.push({ link, number, reason: applied.error });
+
+		switch (result.type) {
+			case "skipped":
+				skipped.push(link);
+				input.onProgress?.(
+					`skipping PR #${number} description; generated fingerprint is unchanged`,
+				);
+				break;
+			case "matched_prewritten":
+				prewritten.push(link);
+				break;
+			case "updated":
+				prewriteFallbacks.push(link);
+				break;
+			case "generated":
+				generated.push(link);
+				input.onProgress?.(`finished PR #${number} description`);
+				break;
+			case "failed":
+				failures.push({ link, number, reason: result.reason });
+				break;
 		}
 	}
 
@@ -166,49 +136,6 @@ export function formatPrDescriptionFailureText(
 		"Checkout the branch and run `sdl regenerate-pr` to regenerate its PR description.",
 	];
 	return lines.join("\n");
-}
-
-async function reconcilePrewrittenPr(input: {
-	cwd: string;
-	githubPr: SubmitPrDescriptionOptions["githubPr"];
-	link: SubmitPrLink;
-	number: number;
-	title: string;
-	body: string;
-	prewrittenMetadata: PreparedSubmitPrMetadata;
-	onProgress?: (message: string) => void;
-}): Promise<
-	{ kind: "matched" } | { kind: "updated" } | { kind: "failed"; failure: PrDescriptionFailure }
-> {
-	if (prMetadataMatches(input.title, input.body, input.prewrittenMetadata)) {
-		return { kind: "matched" };
-	}
-
-	input.onProgress?.(`updating PR #${input.number} with prewritten metadata`);
-	const edited = await input.githubPr.editPr({
-		cwd: input.cwd,
-		number: input.number,
-		title: input.prewrittenMetadata.title,
-		body: appendGeneratedMarker(input.prewrittenMetadata.body),
-	});
-	if (edited.ok) return { kind: "updated" };
-
-	return {
-		kind: "failed",
-		failure: {
-			link: input.link,
-			number: input.number,
-			reason: `Generated initial metadata, but failed to update PR #${input.number} after Graphite created mismatched metadata.\n${edited.error.message}`,
-		},
-	};
-}
-
-function prMetadataMatches(
-	title: string,
-	body: string,
-	metadata: PreparedSubmitPrMetadata,
-): boolean {
-	return title.trim() === metadata.title.trim() && body.trim() === metadata.body.trim();
 }
 
 function formatPrDescriptionFailureRow(failure: PrDescriptionFailure): string {

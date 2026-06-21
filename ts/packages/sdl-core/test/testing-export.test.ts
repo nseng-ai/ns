@@ -11,6 +11,7 @@ import {
 	describeNodeRuntimeCliEntrypoint,
 	ScriptedCommandExecApi,
 	ScriptedCommandRunner,
+	ScriptedTextGenerationGateway,
 	step,
 	withTempRepoSkill,
 } from "@sdl/core/testing";
@@ -25,6 +26,7 @@ test("exports testing helpers through the package testing subpath", () => {
 	expect(typeof withTempRepoSkill).toBe("function");
 	expect(typeof ScriptedCommandRunner).toBe("function");
 	expect(typeof ScriptedCommandExecApi).toBe("function");
+	expect(typeof ScriptedTextGenerationGateway).toBe("function");
 	expect(typeof step).toBe("function");
 	expect(brmemCheckJson(true)).toBe(JSON.stringify({ exit_code: 0, data: { present: true } }));
 });
@@ -41,7 +43,7 @@ test("deferred helper exposes an externally-resolvable promise", async () => {
 	await expect(deferred.promise).resolves.toBe("done");
 });
 
-test("scripted command helpers record calls and validate expected steps", async () => {
+test("scripted helpers record calls and validate expected steps", async () => {
 	const runner = new ScriptedCommandRunner([step("node", ["--version"], { stdout: "v1\n" })]);
 	const result = await runner.runner("node", ["--version"], { cwd: "/repo" });
 
@@ -59,6 +61,20 @@ test("scripted command helpers record calls and validate expected steps", async 
 	expect(execApi.calls()).toEqual([
 		{ command: "gh", args: ["pr", "view"], options: { cwd: "/repo", stdin: "payload" } },
 	]);
+
+	const textGeneration = new ScriptedTextGenerationGateway([{ ok: true, text: "generated" }]);
+	await expect(
+		textGeneration.generateText({
+			modelRef: "model",
+			system: "system",
+			prompt: "prompt",
+			operation: "pr-description",
+		}),
+	).resolves.toEqual({ ok: true, text: "generated" });
+	expect(textGeneration.requests).toEqual([
+		{ modelRef: "model", system: "system", prompt: "prompt", operation: "pr-description" },
+	]);
+	textGeneration.assertDone();
 });
 
 test("temp dir tracker removes tracked directories", async () => {
