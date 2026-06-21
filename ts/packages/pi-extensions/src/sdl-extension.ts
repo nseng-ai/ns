@@ -121,20 +121,20 @@ export const sdlExtensionParity = definePiSurfaceParity([
 
 export default function sdlExtension(pi: SdlExtensionAPI): void {
 	const commands = selectSdlCommands(SDL_COMMAND_NAMES);
-	registerCliCommandExtension(pi, {
+	const sdlBaseSpec = {
 		cliName: "sdl",
 		piNamespace: "sdl",
-		commands,
 		afterCommandComplete: requestWorktreeStatusRefresh,
 		runCli,
+	} as const;
+	registerCliCommandExtension(pi, {
+		...sdlBaseSpec,
+		commands,
 	});
 	registerCliCommandExtension(pi, {
-		cliName: "sdl",
-		piNamespace: "sdl",
+		...sdlBaseSpec,
 		commands: selectSdlCommands(SDL_CODE_COMMAND_NAMES),
 		piCommandAliases: SDL_CODE_PI_COMMAND_ALIASES,
-		afterCommandComplete: requestWorktreeStatusRefresh,
-		runCli,
 	});
 	autobranchExtension(pi);
 	autoslotExtension(pi);

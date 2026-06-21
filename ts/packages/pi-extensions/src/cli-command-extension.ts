@@ -91,8 +91,9 @@ export interface CliCommandExtensionSpec {
 	/**
 	 * Narrow CLI-adapter completion hook for awaited, adapter-local side effects
 	 * such as refreshing Pi worktree status after slash-command execution.
-	 * This is intentionally not routed through pi.events: current consumers need
-	 * ordered completion rather than transient inter-extension pub/sub.
+	 * The extension command event remains best-effort activity/observability;
+	 * consumers that need ordered completion should use this hook instead of
+	 * transient inter-extension pub/sub.
 	 */
 	afterCommandComplete?: (details: CliCommandOutputDetails) => Promise<void> | void;
 	env?: Record<string, string | undefined>;

@@ -33,7 +33,6 @@ import { isRecord } from "./cmux/primitives.ts";
 import {
 	PI_EXTENSION_COMMAND_FINISHED_EVENT,
 	type PiExtensionCommandEventBus,
-	type PiExtensionCommandFinishedEvent,
 } from "./extension-command-events.ts";
 import { definePiSurfaceParity } from "./parity.ts";
 import { unrefTimerScheduler } from "./timers.ts";
@@ -635,6 +634,8 @@ export default function worktreeStatusExtension(
 		return refreshSession(session, options);
 	}
 
+	activeWorktreeStatusRefresh = () => refreshActiveSession({ shouldForceRemote: true });
+
 	function refreshActiveSessionAfterToolExecution(event: unknown): void {
 		if (!shouldRefreshAfterToolExecution(event)) return;
 		void refreshActiveSession();
@@ -659,7 +660,7 @@ export default function worktreeStatusExtension(
 			const session = activeSession;
 			if (session === undefined) return;
 			recordSessionActivity(session, { shouldRefreshOnWake: false });
-			await refreshSession(session, { shouldForceRemote: true });
+			await requestWorktreeStatusRefresh();
 		},
 	});
 
@@ -677,14 +678,13 @@ export default function worktreeStatusExtension(
 		});
 	}
 
-	function registerExtensionCommandActivityHandler(
-		afterRecordActivity?: (payload: PiExtensionCommandFinishedEvent) => void,
-	): void {
+	function registerExtensionCommandActivityHandler(): void {
 		if (typeof pi.events?.on !== "function") return;
-		// Extension command completion is a custom extension-bus event, not a Pi lifecycle event,
-		// but it should participate in the same worktree-status activity path as pi.on events.
-		pi.events.on(PI_EXTENSION_COMMAND_FINISHED_EVENT, (payload) => {
-			handleActiveSessionActivity(() => afterRecordActivity?.(payload));
+		// Extension command completion is best-effort activity/observability. Ordered
+		// worktree refresh for CLI-backed slash commands is requested through
+		// requestWorktreeStatusRefresh via CliCommandExtensionSpec.afterCommandComplete.
+		pi.events.on(PI_EXTENSION_COMMAND_FINISHED_EVENT, () => {
+			handleActiveSessionActivity();
 		});
 	}
 
@@ -705,9 +705,7 @@ export default function worktreeStatusExtension(
 	);
 	registerWorktreeStatusActivityHandler("model_select");
 	registerWorktreeStatusActivityHandler("thinking_level_select");
-	registerExtensionCommandActivityHandler(
-		() => void refreshActiveSession({ shouldForceRemote: true }),
-	);
+	registerExtensionCommandActivityHandler();
 
 	pi.on("session_start", async (_event, ctx) => {
 		const session = activateSession(ctx);
