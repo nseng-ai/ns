@@ -1,3 +1,11 @@
+import {
+	COMMAND_STYLE_LOCAL_SKILLS,
+	derivePiReplacementSurface,
+	KNOWN_PI_COMMAND_NAMESPACES,
+	SPECIALIZED_PI_COMMAND_SURFACES,
+	SPECIALIZED_SKILL_REPLACEMENTS,
+} from "@sdl/pi-command-surfaces";
+
 import type { PiCommandContext, PiCommandHost } from "./pi-command-host.ts";
 import { buildFencedTextBlock, expandRepoSkillBlock } from "./skill-expansion.ts";
 
@@ -15,121 +23,16 @@ interface HandleBackingSkillCommandOptions {
 	ctx: PiCommandContext;
 }
 
-export const KNOWN_PI_COMMAND_NAMESPACES = [
-	"branch-context",
-	"enriched-plan",
-	"objective",
-	"handoff",
-	"context",
-	"changelog",
-	"typescript",
-	"python",
-	"refactor",
-	"setup",
-	"create",
-	"skill",
-	"code",
-	"ccc",
-	"claude",
-	"dev",
-	"cli",
-	"pr",
-	"sdl",
-	"pi",
-	"stack",
-] as const;
-
-export const COMMAND_STYLE_LOCAL_SKILLS = [
-	"branch-context-from-plan",
-	"branch-context-impl",
-	"branch-retro",
-	"ccc-sidebar",
-	"changelog-update",
-	"cli-push-down",
-	"code-autobranch",
-	"code-checkpoint",
-	"code-gh",
-	"code-just-fix",
-	"code-resolve-merge-conflicts",
-	"code-workflows",
-	"context-bundle-analysis",
-	"create-bun-typescript-project",
-	"create-python-dev-cli",
-	"create-python-package",
-	"dignified-python",
-	"enriched-plan-save",
-	"handoff-create",
-	"handoff-pickup",
-	"objective-close",
-	"objective-create",
-	"objective-next",
-	"objective-stack-impl",
-	"objective-update",
-	"pi-grill-ui",
-	"pi-grill-with-docs-ui",
-	"pr-address",
-	"python-fake-driven-test-layout",
-	"python-fake-driven-testing",
-	"refactor-swarm",
-	"sdl-submit",
-	"skill-audit",
-	"skill-management",
-	"typescript-fake-driven-testing",
-	"typescript-style",
-] as const;
-
-export const SPECIALIZED_SKILL_REPLACEMENTS = {
-	"branch-context-from-plan": "sdl:branch-context:from-plan",
-	"branch-context-impl": "sdl:branch-context:impl-attached-plan",
-	"enriched-plan-save": "sdl:plan:save",
-	"handoff-create": "handoff:create",
-	"handoff-pickup": "handoff:pickup",
-	"objective-create": "objective:create",
-	"objective-next": "objective:next",
-	"objective-stack-impl": "objective:stack-impl",
-	"objective-update": "objective:update",
-	"pi-grill-ui": "pi:grill-me",
-	"pi-grill-with-docs-ui": "pi:grill-with-docs",
-	"code-autobranch": "sdl:code:autobranch",
-	"code-checkpoint": "sdl:code:checkpoint",
-	"code-gt-restack-resolve": "code:gt-restack-resolve",
-	"code-just-fix": "code:just-fix",
-	"sdl-submit": "sdl:submit",
-	"ccc-sidebar": "ccc:sidebar:pr-summary",
-} as const satisfies Record<string, string>;
-
-export const SPECIALIZED_PI_COMMAND_SURFACES = new Set<string>(
-	Object.values(SPECIALIZED_SKILL_REPLACEMENTS),
-);
+export {
+	COMMAND_STYLE_LOCAL_SKILLS,
+	KNOWN_PI_COMMAND_NAMESPACES,
+	SPECIALIZED_PI_COMMAND_SURFACES,
+	SPECIALIZED_SKILL_REPLACEMENTS,
+} from "@sdl/pi-command-surfaces";
 
 export function derivePiReplacementCommand(skillName: string): DerivedPiCommand | undefined {
-	const specializedSurface =
-		SPECIALIZED_SKILL_REPLACEMENTS[skillName as keyof typeof SPECIALIZED_SKILL_REPLACEMENTS];
-	if (specializedSurface !== undefined) {
-		return buildDerivedPiCommand({ skillName, surface: specializedSurface });
-	}
-
-	const namespaces = [...KNOWN_PI_COMMAND_NAMESPACES].sort(
-		(left, right) => right.length - left.length,
-	);
-	for (const namespace of namespaces) {
-		const prefix = `${namespace}-`;
-		if (skillName.startsWith(prefix))
-			return buildDerivedPiCommand({
-				skillName,
-				surface: `${namespace}:${skillName.slice(prefix.length)}`,
-			});
-	}
-
-	const firstHyphen = skillName.indexOf("-");
-	if (firstHyphen <= 0 || firstHyphen === skillName.length - 1) {
-		return undefined;
-	}
-
-	return buildDerivedPiCommand({
-		skillName,
-		surface: `${skillName.slice(0, firstHyphen)}:${skillName.slice(firstHyphen + 1)}`,
-	});
+	const surface = derivePiReplacementSurface(skillName, KNOWN_PI_COMMAND_NAMESPACES);
+	return surface === undefined ? undefined : buildDerivedPiCommand({ skillName, surface });
 }
 
 function buildDerivedPiCommand(options: {

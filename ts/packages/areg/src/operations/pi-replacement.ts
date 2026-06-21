@@ -1,46 +1,9 @@
-export const KNOWN_PI_COMMAND_NAMESPACES = [
-	"branch-context",
-	"enriched-plan",
-	"objective",
-	"handoff",
-	"context",
-	"changelog",
-	"typescript",
-	"python",
-	"refactor",
-	"setup",
-	"create",
-	"skill",
-	"code",
-	"ccc",
-	"claude",
-	"dev",
-	"cli",
-	"pr",
-	"sdl",
-	"pi",
-	"stack",
-] as const;
+import { derivePiReplacementSurface } from "@sdl/pi-command-surfaces";
 
-export const SPECIALIZED_SKILL_REPLACEMENTS: Readonly<Record<string, string>> = {
-	"branch-context-from-plan": "sdl:branch-context:from-plan",
-	"branch-context-impl": "sdl:branch-context:impl-attached-plan",
-	"enriched-plan-save": "sdl:plan:save",
-	"handoff-create": "handoff:create",
-	"handoff-pickup": "handoff:pickup",
-	"objective-create": "objective:create",
-	"objective-current": "objective:current",
-	"objective-next": "objective:next",
-	"objective-stack-impl": "objective:stack-impl",
-	"objective-update": "objective:update",
-	"pi-grill-ui": "pi:grill-me",
-	"pi-grill-with-docs-ui": "pi:grill-with-docs",
-	"code-autobranch": "sdl:code:autobranch",
-	"code-checkpoint": "sdl:code:checkpoint",
-	"code-just-fix": "code:just-fix",
-	"code-submit": "sdl:code:submit",
-	"ccc-sidebar": "ccc:sidebar:pr-summary",
-};
+export {
+	KNOWN_PI_COMMAND_NAMESPACES,
+	SPECIALIZED_SKILL_REPLACEMENTS,
+} from "@sdl/pi-command-surfaces";
 
 export interface PiReplacementFacts {
 	verifiedSurfaces: readonly string[];
@@ -53,32 +16,16 @@ export interface PiReplacementVerification {
 
 export function derivePiReplacementCommand(
 	skillName: string,
-	namespaces: readonly string[] = KNOWN_PI_COMMAND_NAMESPACES,
+	namespaces?: readonly string[],
 ): string | undefined {
-	for (const [specializedSkillName, surface] of Object.entries(SPECIALIZED_SKILL_REPLACEMENTS).sort(
-		(left, right) => right[0].length - left[0].length,
-	)) {
-		if (skillName === specializedSkillName) return surface;
-
-		const prefix = `${specializedSkillName}-`;
-		if (skillName.startsWith(prefix)) return `${surface}-${skillName.slice(prefix.length)}`;
-	}
-
-	for (const namespace of [...namespaces].sort((left, right) => right.length - left.length)) {
-		const prefix = `${namespace}-`;
-		if (skillName.startsWith(prefix)) return `${namespace}:${skillName.slice(prefix.length)}`;
-	}
-	const firstHyphen = skillName.indexOf("-");
-	if (firstHyphen <= 0 || firstHyphen === skillName.length - 1) return undefined;
-	return `${skillName.slice(0, firstHyphen)}:${skillName.slice(firstHyphen + 1)}`;
+	return derivePiReplacementSurface(skillName, namespaces);
 }
 
 export function verifyPiReplacement(
 	skillName: string,
 	facts: PiReplacementFacts,
 ): PiReplacementVerification {
-	const specialized = SPECIALIZED_SKILL_REPLACEMENTS[skillName];
-	const surface = specialized ?? derivePiReplacementCommand(skillName);
+	const surface = derivePiReplacementCommand(skillName);
 	if (surface === undefined) return { verified: false };
 	return { verified: facts.verifiedSurfaces.includes(surface), surface };
 }

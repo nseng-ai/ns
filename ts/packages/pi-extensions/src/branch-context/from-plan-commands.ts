@@ -3,6 +3,10 @@ import {
 	runBranchContextUpAndImplLaunch,
 } from "@sdl/ccc/branch-context-up-and-impl";
 import {
+	BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
+	BRANCH_CONTEXT_UPSTACK_IMPL_FROM_PLAN_COMMAND_NAME,
+} from "@sdl/pi-command-surfaces";
+import {
 	BRANCH_CONTEXT_NAMESPACE,
 	buildBranchContextOutputMessage,
 	buildBranchContextPlanKey,
@@ -41,13 +45,13 @@ import type {
 	NotifyLevel,
 } from "./host-types.ts";
 
-export const CREATE_BRANCH_CONTEXT_COMMAND_NAME = "sdl:branch-context:from-plan";
-export const UP_AND_IMPL_COMMAND_NAME = "sdl:branch-context:upstack-impl-from-plan";
-const BRANCH_CONTEXT_STATUS_KEY = "sdl:branch-context:from-plan";
-const UP_AND_IMPL_STATUS_KEY = "sdl:branch-context:upstack-impl-from-plan";
+export const CREATE_BRANCH_CONTEXT_COMMAND_NAME = BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME;
+export const UP_AND_IMPL_COMMAND_NAME = BRANCH_CONTEXT_UPSTACK_IMPL_FROM_PLAN_COMMAND_NAME;
+const BRANCH_CONTEXT_STATUS_KEY = CREATE_BRANCH_CONTEXT_COMMAND_NAME;
+const UP_AND_IMPL_STATUS_KEY = UP_AND_IMPL_COMMAND_NAME;
 const IMPL_BRANCH_CONTEXT_STATUS_KEY = IMPL_BRANCH_CONTEXT_COMMAND_NAME;
 
-export const CREATE_BRANCH_CONTEXT_USAGE = `Usage: /sdl:branch-context:from-plan [options] [absolute-or-home-plan-file.md]
+export const CREATE_BRANCH_CONTEXT_USAGE = `Usage: /${CREATE_BRANCH_CONTEXT_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
 
 Create a branch context from a saved plan. The branch slug is derived from the plan content by a tiny Pi model, then the plan is attached to the branch in Branch Memory as <content-derived-slug>.md.
 
@@ -63,9 +67,9 @@ With no file path, the command prefers the most recent saved plan created in the
 An explicit file path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute with a .md filename.
 The saved-plan filename is only a locator. If the model cannot derive and validate a content slug, the command fails without falling back to the filename.`;
 
-export const UP_AND_IMPL_USAGE = `Usage: /sdl:branch-context:upstack-impl-from-plan [options] [absolute-or-home-plan-file.md]
+export const UP_AND_IMPL_USAGE = `Usage: /${UP_AND_IMPL_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
 
-Stack a branch context on the current branch with Graphite, attach the saved plan, check out that branch with exact git checkout <branch>, start a fresh Pi session, and run /sdl:branch-context:impl-attached-plan <attached-key> for the attached plan in that new session.
+Stack a branch context on the current branch with Graphite, attach the saved plan, check out that branch with exact git checkout <branch>, start a fresh Pi session, and run /${IMPL_BRANCH_CONTEXT_COMMAND_NAME} <attached-key> for the attached plan in that new session.
 
 Options:
   --dry-run          Show the selected plan and follow-up flow without mutating.
@@ -79,7 +83,7 @@ The current branch must be trunk or a Graphite-tracked branch; otherwise this co
 With no file path, the command prefers the most recent saved plan created in the current session, then falls back to the newest .md file in the current repo/source branch local plan store directory.
 An explicit file path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute with a .md filename.
 
-This command intentionally models the manual flow: /sdl:branch-context:from-plan --graphite, git checkout <branch>, /new, then /sdl:branch-context:impl-attached-plan <attached-key> in the new Pi session.`;
+This command intentionally models the manual flow: /${CREATE_BRANCH_CONTEXT_COMMAND_NAME} --graphite, git checkout <branch>, /new, then /${IMPL_BRANCH_CONTEXT_COMMAND_NAME} <attached-key> in the new Pi session.`;
 
 export interface CreateBranchContextArgs {
 	help: boolean;
