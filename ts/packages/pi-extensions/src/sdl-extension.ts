@@ -1,10 +1,9 @@
-import { listSdlCommands, runCli, type SdlCommandInfo } from "@sdl/sdl/cli";
+import { runCli, type SdlCommandInfo } from "@sdl/sdl/cli";
 
 import autobranchExtension from "./autobranch.ts";
 import autoslotExtension from "./autoslot.ts";
 import {
 	registerCliCommandExtension,
-	selectCliCommands,
 	type CliCommandExtensionAPI,
 } from "./cli-command-extension.ts";
 import landExtension from "./land.ts";
@@ -20,14 +19,14 @@ export type SdlExtensionAPI = CliCommandExtensionAPI &
 	Parameters<typeof pushExtension>[0] &
 	Parameters<typeof trunkPullExtension>[0];
 
-const SDL_COMMAND_NAMES = ["changes", "cp", "submit"] as const;
-const SDL_CODE_COMMAND_NAMES = ["changes", "cp", "submit", "regenerate-pr"] as const;
-const SDL_CODE_PI_COMMAND_ALIASES = {
+const CHANGES_COMMAND_INFO = {
+	name: "changes",
+	description: "Summarize outstanding worktree changes without committing.",
+} as const satisfies SdlCommandInfo;
+const SDL_COMMANDS = [CHANGES_COMMAND_INFO] as const satisfies readonly SdlCommandInfo[];
+const SDL_CODE_COMMAND_ALIASES = {
 	changes: "sdl:code:changes",
-	cp: "sdl:code:checkpoint",
-	submit: "sdl:code:submit",
-	"regenerate-pr": "sdl:code:regenerate-pr",
-} as const satisfies Record<(typeof SDL_CODE_COMMAND_NAMES)[number], string>;
+} as const satisfies Record<typeof CHANGES_COMMAND_INFO.name, string>;
 
 export const sdlExtensionParity = definePiSurfaceParity([
 	{
@@ -40,33 +39,7 @@ export const sdlExtensionParity = definePiSurfaceParity([
 		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "sdl-extension",
 		notes:
-			"Pi command delegates to the built-in SDL changes command through registerCliCommandExtension.",
-	},
-	{
-		kind: "command",
-		surface: "sdl:cp",
-		workflow: "Create a checkpoint commit for the current diff",
-		parity: "FULL",
-		cli: "sdl cp",
-		skill: "code-checkpoint",
-		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl/pi-extensions",
-		sourceModule: "sdl-extension",
-		notes:
-			"Pi command is registered through registerCliCommandExtension and delegates to the shared SDL cp command-entry runner.",
-	},
-	{
-		kind: "command",
-		surface: "sdl:submit",
-		workflow: "Checkpoint outstanding changes, then submit the current Graphite stack",
-		parity: "FULL",
-		cli: "sdl submit",
-		skill: "sdl-submit",
-		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl/pi-extensions",
-		sourceModule: "sdl-extension",
-		notes:
-			"Pi command delegates to the built-in SDL submit command through registerCliCommandExtension.",
+			"Pi command delegates to sdl changes through registerCliCommandExtension; in this repo the CLI behavior is restored by the project-local .sdl/extensions/changes.ts extension.",
 	},
 	{
 		kind: "command",
@@ -79,48 +52,9 @@ export const sdlExtensionParity = definePiSurfaceParity([
 		sourceModule: "sdl-extension",
 		notes: "Nested code-lifecycle Pi alias over sdl changes; flat /sdl:changes remains primary.",
 	},
-	{
-		kind: "command",
-		surface: "sdl:code:checkpoint",
-		workflow: "Nested code-lifecycle alias for checkpoint creation",
-		parity: "FULL",
-		cli: "sdl cp",
-		skill: "code-checkpoint",
-		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl/pi-extensions",
-		sourceModule: "sdl-extension",
-		notes:
-			"Nested code-lifecycle Pi alias over sdl cp; flat /sdl:cp remains primary and no sdl checkpoint CLI command is created.",
-	},
-	{
-		kind: "command",
-		surface: "sdl:code:submit",
-		workflow: "Nested code-lifecycle alias for submitting the current Graphite stack",
-		parity: "FULL",
-		cli: "sdl submit",
-		skill: "sdl-submit",
-		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl/pi-extensions",
-		sourceModule: "sdl-extension",
-		notes: "Nested code-lifecycle Pi alias over sdl submit; flat /sdl:submit remains primary.",
-	},
-	{
-		kind: "command",
-		surface: "sdl:code:regenerate-pr",
-		workflow: "Regenerate the current branch PR title and description",
-		parity: "FULL",
-		cli: "sdl regenerate-pr",
-		skill: "sdl-submit",
-		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl/pi-extensions",
-		sourceModule: "sdl-extension",
-		notes:
-			"Nested code-lifecycle Pi alias over sdl regenerate-pr; no flat /sdl:regenerate-pr mirror is registered.",
-	},
 ] as const);
 
 export default function sdlExtension(pi: SdlExtensionAPI): void {
-	const commands = selectSdlCommands(SDL_COMMAND_NAMES);
 	const sdlBaseSpec = {
 		cliName: "sdl",
 		piNamespace: "sdl",
@@ -129,24 +63,16 @@ export default function sdlExtension(pi: SdlExtensionAPI): void {
 	} as const;
 	registerCliCommandExtension(pi, {
 		...sdlBaseSpec,
-		commands,
+		commands: SDL_COMMANDS,
 	});
 	registerCliCommandExtension(pi, {
 		...sdlBaseSpec,
-		commands: selectSdlCommands(SDL_CODE_COMMAND_NAMES),
-		piCommandAliases: SDL_CODE_PI_COMMAND_ALIASES,
+		commands: SDL_COMMANDS,
+		piCommandAliases: SDL_CODE_COMMAND_ALIASES,
 	});
 	autobranchExtension(pi);
 	autoslotExtension(pi);
 	landExtension(pi);
 	pushExtension(pi);
 	trunkPullExtension(pi);
-}
-
-function selectSdlCommands(names: readonly string[]): SdlCommandInfo[] {
-	return selectCliCommands({
-		availableCommands: listSdlCommands(),
-		names,
-		missingCommandLabel: "sdl",
-	});
 }

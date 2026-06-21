@@ -270,7 +270,7 @@ describe("sdl:code:push", () => {
 		expect(content).toContain("To github.com:repo/project.git");
 	});
 
-	test("nonzero push emits generic sdl:submit guidance and includes stdout/stderr", async () => {
+	test("nonzero push emits manual Graphite-submit guidance and includes stdout/stderr", async () => {
 		const pi = new FakePi([
 			step("git", ["status", "--porcelain"]),
 			step("git", ["push"], { code: 1, stdout: "rejected update\n", stderr: "non-fast-forward\n" }),
@@ -282,11 +282,11 @@ describe("sdl:code:push", () => {
 
 		pi.assertDone();
 		expect(notifications).toEqual([
-			{ message: "`git push` failed; use `/sdl:submit`.", level: "error" },
+			{ message: "`git push` failed; use the Graphite submit flow manually.", level: "error" },
 		]);
 		const content = messageText(pi.sentMessages[0]);
 		expect(content).toContain(
-			"The branch is likely out of sync or needs the Graphite submit flow. Use `/sdl:submit`.",
+			"The branch is likely out of sync or needs the Graphite submit flow; run it manually until the SDL submit extension migrates back.",
 		);
 		expect(content).toContain("stdout:\nrejected update");
 		expect(content).toContain("stderr:\nnon-fast-forward");
@@ -304,7 +304,7 @@ describe("sdl:code:push", () => {
 
 		pi.assertDone();
 		expect(notifications).toEqual([
-			{ message: "`git push` failed; use `/sdl:submit`.", level: "error" },
+			{ message: "`git push` failed; use the Graphite submit flow manually.", level: "error" },
 		]);
 		expect(messageText(pi.sentMessages[0])).toContain("Killed: true");
 	});

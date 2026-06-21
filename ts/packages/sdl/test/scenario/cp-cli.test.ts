@@ -19,34 +19,13 @@ const tempDirs: string[] = [];
 
 function runWithFakes(options: RunWithFakesOptions) {
 	return runCliWithFakes(options, {
-		execResponses: defaultSuccessfulExecResponses,
-		textGenerationResults: () => [{ ok: true, text: defaultCheckpointMessage() }],
+		execResponses: defaultExecResponses,
+		textGenerationResults: () => [{ ok: true, text: "unused" }],
 	});
 }
 
-function defaultSuccessfulExecResponses(): ScriptedExecResponse[] {
-	return [
-		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
-		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
-		{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n" } },
-		{
-			match: "git diff HEAD --no-ext-diff",
-			result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
-		},
-		{ match: "git add -A", result: {} },
-		{ match: /^git commit -F /, result: {} },
-		{ match: "git log -1 --oneline", result: { stdout: "abc123 [cp] Update checkpoint tests\n" } },
-	];
-}
-
-function defaultCheckpointMessage(): string {
-	return `[cp] Update checkpoint tests
-
-- Add CLI coverage`;
-}
-
-async function createOverrideProject(extensionSource: string): Promise<string> {
-	return createExtensionProject("cp.ts", extensionSource);
+function defaultExecResponses(): ScriptedExecResponse[] {
+	return [];
 }
 
 async function createExtensionProject(
@@ -98,37 +77,22 @@ afterEach(() => {
 	}
 });
 
-describe("sdl cp CLI help and parsing", () => {
-	test("command metadata lists built-in commands", () => {
-		expect(listSdlCommands()).toEqual([
-			{
-				name: "changes",
-				description: "Summarize outstanding worktree changes without committing.",
-			},
-			{ name: "cp", description: "Create a checkpoint commit for the current diff." },
-			{
-				name: "regenerate-pr",
-				description:
-					"Regenerate the current branch PR's title and description with the sdl PR-description prompt.",
-			},
-			{
-				name: "submit",
-				description:
-					"Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.",
-			},
-		]);
+describe("empty SDL kernel CLI help and parsing", () => {
+	test("static command metadata is empty", () => {
+		expect(listSdlCommands()).toEqual([]);
 	});
 
-	test("top-level help lists cp", async () => {
+	test("top-level help remains available without domain built-ins", async () => {
 		const run = runWithFakes({ args: ["--help"] });
 
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
 		expect(help).toContain("Usage: sdl");
 		expect(help).toContain("Source Development Lifecycle tools.");
-		expect(help).toContain("changes");
-		expect(help).toContain("cp");
-		expect(help).toContain("submit");
+		expect(help).not.toContain("changes");
+		expect(help).not.toContain("cp");
+		expect(help).not.toContain("submit");
+		expect(help).not.toContain("regenerate-pr");
 		expect(help).toContain("--runtime");
 		expect(run.stderr.join("")).toBe("");
 	});
@@ -138,9 +102,9 @@ describe("sdl cp CLI help and parsing", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("Usage: sdl");
-		expect(run.stdout.join("")).toContain("changes");
-		expect(run.stdout.join("")).toContain("cp");
-		expect(run.stdout.join("")).toContain("submit");
+		expect(run.stdout.join("")).not.toContain("changes");
+		expect(run.stdout.join("")).not.toContain("cp");
+		expect(run.stdout.join("")).not.toContain("submit");
 		expect(run.stderr.join("")).toBe("");
 	});
 
@@ -162,27 +126,16 @@ describe("sdl cp CLI help and parsing", () => {
 		expect(run.stderr.join("")).toBe("");
 	});
 
-	test("command help documents checkpoint behavior", async () => {
-		const run = runWithFakes({ args: ["cp", "--help"] });
+	test("removed domain built-ins are unavailable rather than stubbed", async () => {
+		for (const commandName of ["cp", "submit", "regenerate-pr"] as const) {
+			const run = runWithFakes({ args: [commandName], state: { exec: [] } });
 
-		expect(await run.exit).toBe(0);
-		const help = run.stdout.join("");
-		expect(help).toContain("Usage: sdl cp");
-		expect(help).toContain("model-authored");
-		expect(help).toContain("SDL_CHECKPOINT_MODEL");
-		expect(help).toContain("SDL_DEV_CHECKPOINT_MODEL");
-		expect(help).not.toContain("SDL_TEXT_BACKEND");
-		expect(help).not.toContain("SDL_DEV_TEXT_BACKEND");
-		expect(help).toContain("--json-schema");
-		expect(help).not.toContain("--format");
-	});
-
-	test("raw cp exposes json schema", async () => {
-		const run = runWithFakes({ args: ["cp", "--json-schema"] });
-
-		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toHaveProperty("input_json_schema");
-		expect(run.stderr.join("")).toBe("");
+			expect(await run.exit).not.toBe(0);
+			expect(run.stdout.join("")).toBe("");
+			expect(run.stderr.join("")).toMatch(/too many arguments|unknown/i);
+			expect(run.context.execCalls).toEqual([]);
+			expect(run.context.modelCalls).toEqual([]);
+		}
 	});
 });
 
@@ -229,7 +182,9 @@ describe("sdl extension contribution loading", () => {
 	});
 
 	test("project-local cp help uses selected command metadata and schema", async () => {
-		const cwd = await createOverrideProject(`
+		const cwd = await createExtensionProject(
+			"cp.ts",
+			`
 import { defineExtension, ok, z } from "@sdl/sdl/sdk";
 
 export default defineExtension({
@@ -240,7 +195,8 @@ export default defineExtension({
 	run() { return ok("unused"); },
 }],
 });
-`);
+`,
+		);
 		const run = runWithFakes({ args: ["cp", "--help"], state: { exec: [] }, cwd });
 
 		expect(await run.exit).toBe(0);
@@ -357,17 +313,24 @@ export default defineExtension({
 		expect(run.context.execCalls).toEqual([]);
 	});
 
-	test("malformed unrelated extension warns without breaking built-in cp", async () => {
-		const cwd = await createExtensionProject("Bad.ts", "export default {};\n");
-		const run = runWithFakes({ args: ["cp"], cwd });
+	test("malformed unrelated extension warns without breaking a valid project command", async () => {
+		const cwd = await createExtensionProject(
+			"hello.ts",
+			`
+import { defineExtension, ok } from "@sdl/sdl/sdk";
+export default defineExtension({
+	commands: [{ name: "hello", description: "Hello", run() { return ok("hello"); } }],
+});
+`,
+		);
+		writeFileSyncWithParents(join(cwd, ".sdl", "extensions", "Bad.ts"), "export default {};\n");
+		const run = runWithFakes({ args: ["hello"], state: { exec: [] }, cwd });
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain("[cp] Update checkpoint tests");
+		expect(run.stdout.join("")).toBe("hello\n");
 		expect(run.stderr.join("")).toContain("Warning:");
 		expect(run.stderr.join("")).toContain("command entry name inferred");
-		expect(run.context.execCalls.map(formatExecCall)).toEqual(
-			expect.arrayContaining([expect.stringMatching(/^git commit -F /)]),
-		);
+		expect(run.context.execCalls).toEqual([]);
 	});
 
 	test("malformed selected manifest command exits with its discovery diagnostic", async () => {
@@ -385,7 +348,7 @@ export default defineExtension({
 		expect(run.context.execCalls).toEqual([]);
 	});
 
-	test("malformed selected project override fails instead of falling back to built-in cp", async () => {
+	test("malformed selected project command fails instead of falling back to a removed built-in", async () => {
 		const cwd = await createManifestProject(
 			{ sdl: { commands: [{ name: "cp", description: "Broken cp.", entry: "./missing.ts" }] } },
 			{},
@@ -451,379 +414,5 @@ export default defineExtension({
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).not.toContain("hello");
 		expect(run.stderr.join("")).toBe("");
-	});
-});
-
-describe("sdl cp CLI behavior", () => {
-	test("drafts with the model gateway and commits a valid model message", async () => {
-		const message = `[cp] Update CLI checkpoint
-
-- Add command table coverage`;
-		const run = runWithFakes({
-			args: ["cp"],
-			state: {
-				textGeneration: [{ ok: true, text: message }],
-				exec: [
-					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
-					{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
-					{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n" } },
-					{
-						match: "git diff HEAD --no-ext-diff",
-						result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
-					},
-					{ match: "git add -A", result: {} },
-					{ match: /^git commit -F /, result: {} },
-					{
-						match: "git log -1 --oneline",
-						result: { stdout: "def456 [cp] Update CLI checkpoint\n" },
-					},
-				],
-			},
-		});
-
-		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toBe(`def456 [cp] Update CLI checkpoint\n${message}\n`);
-		expect(run.stderr.join("")).toBe("");
-		expect(run.context.execCalls.map(formatExecCall)).toEqual([
-			"git rev-parse --show-toplevel",
-			"git symbolic-ref --short HEAD",
-			"git status --porcelain=v1",
-			"git diff HEAD --no-ext-diff",
-			"git add -A",
-			expect.stringMatching(/^git commit -F /),
-			"git log -1 --oneline",
-		]);
-		expect(run.context.modelCalls).toEqual([
-			expect.objectContaining({
-				modelRef: "openai-codex/gpt-5.4-mini",
-				operation: "checkpoint-message",
-				maxTokens: 512,
-				reasoning: "low",
-			}),
-		]);
-		expect(run.context.modelCalls[0]?.prompt).toContain(
-			"## git status --porcelain\n\n M src/app.ts",
-		);
-		expect(run.context.modelCalls[0]?.prompt).toContain(
-			"## git diff HEAD\n\ndiff --git a/src/app.ts b/src/app.ts",
-		);
-	});
-
-	test("checkpoint model can be selected by SDL environment", async () => {
-		const run = runWithFakes({
-			args: ["cp"],
-			state: { textGeneration: [{ ok: true, text: defaultCheckpointMessage() }] },
-			env: {
-				SDL_CHECKPOINT_MODEL: "openai-codex/custom-mini",
-				SDL_DEV_CHECKPOINT_MODEL: "openai-codex/legacy",
-			},
-		});
-
-		expect(await run.exit).toBe(0);
-		expect(run.context.modelCalls[0]?.modelRef).toBe("openai-codex/custom-mini");
-	});
-
-	test("legacy checkpoint model environment is a fallback", async () => {
-		const run = runWithFakes({
-			args: ["cp"],
-			env: { SDL_DEV_CHECKPOINT_MODEL: "openai-codex/legacy-mini" },
-		});
-
-		expect(await run.exit).toBe(0);
-		expect(run.context.modelCalls[0]?.modelRef).toBe("openai-codex/legacy-mini");
-	});
-
-	test("model generation error exits 2 without committing", async () => {
-		const run = runWithFakes({
-			args: ["cp"],
-			state: {
-				textGeneration: [{ ok: false, error: "auth failed" }],
-			},
-		});
-
-		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toBe("auth failed\n");
-		expect(run.context.modelCalls).toHaveLength(1);
-		expect(run.context.execCalls.map(formatExecCall)).toEqual([
-			"git rev-parse --show-toplevel",
-			"git symbolic-ref --short HEAD",
-			"git status --porcelain=v1",
-			"git diff HEAD --no-ext-diff",
-		]);
-	});
-
-	test("invalid first model output triggers one repair request and commits the repaired message", async () => {
-		const repaired = `[cp] Repair checkpoint message
-
-- Keep only valid bullets`;
-		const run = runWithFakes({
-			args: ["cp"],
-			state: {
-				textGeneration: [
-					{ ok: true, text: "not a commit message" },
-					{ ok: true, text: repaired },
-				],
-			},
-		});
-
-		expect(await run.exit).toBe(0);
-		expect(run.stderr.join("")).toBe("");
-		expect(run.context.modelCalls).toHaveLength(2);
-		expect(run.context.modelCalls[1]?.prompt).toContain(
-			"## previous invalid draft\n\nnot a commit message",
-		);
-		expect(run.context.modelCalls[1]?.prompt).toContain("missing_cp_prefix");
-		expect(run.context.execCalls.map(formatExecCall)).toEqual([
-			"git rev-parse --show-toplevel",
-			"git symbolic-ref --short HEAD",
-			"git status --porcelain=v1",
-			"git diff HEAD --no-ext-diff",
-			"git add -A",
-			expect.stringMatching(/^git commit -F /),
-			"git log -1 --oneline",
-		]);
-	});
-
-	test("invalid first and repaired output exits 2 without committing", async () => {
-		const run = runWithFakes({
-			args: ["cp"],
-			state: {
-				textGeneration: [
-					{ ok: true, text: "not a commit message" },
-					{ ok: true, text: "still invalid" },
-				],
-			},
-		});
-
-		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toContain(
-			"Model produced an invalid checkpoint message after 2 attempts.",
-		);
-		expect(run.stderr.join("")).toContain("missing_cp_prefix");
-		expect(run.context.modelCalls).toHaveLength(2);
-		expect(run.context.execCalls.map(formatExecCall)).toEqual([
-			"git rev-parse --show-toplevel",
-			"git symbolic-ref --short HEAD",
-			"git status --porcelain=v1",
-			"git diff HEAD --no-ext-diff",
-		]);
-	});
-
-	test("clean worktree exits without model generation or committing", async () => {
-		const run = runWithFakes({
-			args: ["cp"],
-			state: {
-				exec: [
-					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
-					{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
-					{ match: "git status --porcelain=v1", result: { stdout: "" } },
-					{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
-				],
-			},
-		});
-
-		expect(await run.exit).toBe(1);
-		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toBe("Working tree is clean; nothing to checkpoint.\n");
-		expect(run.context.modelCalls).toEqual([]);
-		expect(run.context.execCalls.map(formatExecCall)).toEqual([
-			"git rev-parse --show-toplevel",
-			"git symbolic-ref --short HEAD",
-			"git status --porcelain=v1",
-			"git diff HEAD --no-ext-diff",
-		]);
-	});
-
-	test("trunk branch exits without model generation or committing", async () => {
-		const run = runWithFakes({
-			args: ["cp"],
-			state: {
-				exec: [
-					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
-					{ match: "git symbolic-ref --short HEAD", result: { stdout: "main\n" } },
-					{ match: "git status --porcelain=v1", result: { stdout: "" } },
-					{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
-				],
-			},
-		});
-
-		expect(await run.exit).toBe(1);
-		expect(run.stderr.join("")).toBe(
-			"Refusing to create checkpoint commit on trunk branch: main\n",
-		);
-		expect(run.context.modelCalls).toEqual([]);
-		expect(run.context.execCalls.map(formatExecCall)).toEqual([
-			"git rev-parse --show-toplevel",
-			"git symbolic-ref --short HEAD",
-			"git status --porcelain=v1",
-			"git diff HEAD --no-ext-diff",
-		]);
-	});
-
-	test("not-git repositories exit with a typed diagnostic", async () => {
-		const run = runWithFakes({
-			args: ["cp"],
-			state: {
-				exec: [
-					{
-						match: "git rev-parse --show-toplevel",
-						result: { code: 128, stderr: "fatal: not a git repository" },
-					},
-				],
-			},
-		});
-
-		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toBe(
-			"Not inside a git repository.\nexit 128: fatal: not a git repository\n",
-		);
-		expect(run.context.modelCalls).toEqual([]);
-		expect(run.context.execCalls.map(formatExecCall)).toEqual(["git rev-parse --show-toplevel"]);
-	});
-
-	test("detached HEAD exits with a typed diagnostic", async () => {
-		const run = runWithFakes({
-			args: ["cp"],
-			state: {
-				exec: [
-					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
-					{
-						match: "git symbolic-ref --short HEAD",
-						result: { code: 1, stderr: "fatal: ref HEAD is not a symbolic ref" },
-					},
-				],
-			},
-		});
-
-		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toBe(
-			"Could not determine current branch.\nexit 1: fatal: ref HEAD is not a symbolic ref\n",
-		);
-		expect(run.context.modelCalls).toEqual([]);
-		expect(run.context.execCalls.map(formatExecCall)).toEqual([
-			"git rev-parse --show-toplevel",
-			"git symbolic-ref --short HEAD",
-		]);
-	});
-
-	test("git failures map to nonzero exits with useful stderr", async () => {
-		const run = runWithFakes({
-			args: ["cp"],
-			state: {
-				exec: [
-					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
-					{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
-					{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n" } },
-					{
-						match: "git diff HEAD --no-ext-diff",
-						result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
-					},
-					{ match: "git add -A", result: { code: 1, stderr: "index locked" } },
-				],
-			},
-		});
-
-		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toBe("Failed to stage checkpoint changes.\nexit 1: index locked\n");
-	});
-
-	test("project-local SDL command entry fully replaces default cp behavior", async () => {
-		const cwd = await createOverrideProject(
-			`
-import { defineExtension, ok } from "@sdl/sdl/sdk";
-
-export default defineExtension({
-	commands: [{
-	name: "cp",
-	description: "Custom checkpoint",
-	async run(ctx) {
-		const result = await ctx.exec("echo", ["custom"]);
-		return ok(` +
-				"`custom:${result.stdout.trim()}`" +
-				`);
-	},
-}],
-});
-`,
-		);
-		const run = runWithFakes({
-			args: ["cp"],
-			state: {
-				exec: [{ match: "echo custom", result: { stdout: "custom\n" } }],
-			},
-			cwd,
-		});
-
-		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toBe("custom:custom\n");
-		expect(run.stderr.join("")).toBe("");
-		expect(run.context.execCalls.map(formatExecCall)).toEqual(["echo custom"]);
-		expect(run.context.modelCalls).toEqual([]);
-	});
-
-	test("malformed project-local SDL command entry exits 2 with a clear diagnostic", async () => {
-		const cwd = await createOverrideProject("export default { name: 'Bad', run() {} };\n");
-		const run = runWithFakes({ args: ["cp"], state: { exec: [] }, cwd });
-
-		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toContain('expected a command entry named "cp" in commands[]');
-		expect(run.context.execCalls).toEqual([]);
-		expect(run.context.modelCalls).toEqual([]);
-	});
-
-	test("project-local SDL command entry must declare description", async () => {
-		const cwd = await createOverrideProject(
-			"import { defineExtension } from '@sdl/sdl/sdk';\nexport default defineExtension({ commands: [{ name: 'cp', run() { return { ok: true, message: 'custom' }; } }] });\n",
-		);
-		const run = runWithFakes({ args: ["cp"], state: { exec: [] }, cwd });
-
-		expect(await run.exit).toBe(2);
-		expect(run.stderr.join("")).toContain("command description must be a string");
-		expect(run.context.execCalls).toEqual([]);
-	});
-
-	test("project-local SDL command entry invalid return exits 2", async () => {
-		const cwd = await createOverrideProject(
-			"import { defineExtension } from '@sdl/sdl/sdk';\nexport default defineExtension({ commands: [{ name: 'cp', description: 'Custom', run() { return undefined; } }] });\n",
-		);
-		const run = runWithFakes({ args: ["cp"], state: { exec: [] }, cwd });
-
-		expect(await run.exit).toBe(2);
-		expect(run.stderr.join("")).toBe("Command cp returned an invalid result.\n");
-		expect(run.context.execCalls).toEqual([]);
-	});
-
-	test("project-local SDL command entry throw exits 2", async () => {
-		const cwd = await createOverrideProject(
-			"import { defineExtension } from '@sdl/sdl/sdk';\nexport default defineExtension({ commands: [{ name: 'cp', description: 'Custom', run() { throw new Error('boom'); } }] });\n",
-		);
-		const run = runWithFakes({ args: ["cp"], state: { exec: [] }, cwd });
-
-		expect(await run.exit).toBe(2);
-		expect(run.stderr.join("")).toBe("Command cp failed.\nboom\n");
-		expect(run.context.execCalls).toEqual([]);
-	});
-
-	test("cp rejects unsupported arguments", async () => {
-		const run = runWithFakes({ args: ["cp", "--bogus"] });
-
-		expect(await run.exit).toBe(2);
-		expect(run.stderr.join("")).toContain("error: unknown option");
-		expect(run.context.execCalls).toEqual([]);
-	});
-
-	test("cp accepts a bare option terminator", async () => {
-		const run = runWithFakes({ args: ["cp", "--"] });
-
-		expect(await run.exit).toBe(0);
-		expect(
-			run.context.execCalls[0] === undefined ? undefined : formatExecCall(run.context.execCalls[0]),
-		).toBe("git rev-parse --show-toplevel");
 	});
 });

@@ -131,9 +131,9 @@ describe("worktree status refresh lifecycle", () => {
 
 		harness.advanceMs(WORKTREE_STATUS_DORMANT_AFTER_MS / 2);
 		await pi.emitCommandFinished({
-			commandName: "sdl:cp",
+			commandName: "sdl:changes",
 			cwd: "/repo",
-			source: "sdl cp",
+			source: "sdl changes",
 			status: "completed",
 			exitCode: 0,
 		});
