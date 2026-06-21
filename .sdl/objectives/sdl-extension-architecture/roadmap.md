@@ -6,10 +6,9 @@
   - Policy: direct execution after preview.
   - Evidence: local branch diff removes privileged domain-command registration from `ts/packages/sdl/src/command-registry.ts`, adds `.sdl/extensions/changes.ts` as an SDK-only direct project-local extension, rewrites SDL scenario/unit coverage for an empty built-in catalog and project-local `changes`, and leaves `cp`, `submit`, and `regenerate-pr` unavailable until later project-local migration slices. Verification: full Vitest suite, TypeScript typecheck/lint/format checks, dprint check, and source searches for default command registration and stale built-in/mirror wording.
 
-- [ ] Migrate checkpoint creation (`cp`) as a project-local mutating command extension.
+- [x] Migrate checkpoint creation (`cp`) as a project-local mutating command extension.
   - Policy: direct execution after preview for code/docs/tests; ask before running a real mutating checkpoint command as validation.
-  - Use this slice to test branch safety, dirty-worktree inspection, staging/commit behavior, model-generated messages, output, and confirmation boundaries.
-  - Evidence should distinguish logic that remains extension-owned from any Git/model helpers that deserve public SDK or kernel treatment.
+  - Evidence: `.sdl/extensions/cp.ts` restores `sdl cp` as an SDK-only project-local extension, copies checkpoint snapshot/model/validation/commit helpers locally instead of importing internal migration exports, removes the inactive `ts/packages/sdl/src/default-commands/cp.ts` module, adds `--dry-run` as the non-mutating preview boundary, restores only the explicit `/sdl:cp` Pi mirror, and keeps old `/code:*` plus nested checkpoint aliases absent. SDL and Pi tests exercise selected project-extension loading, default faked commit behavior, dry-run no-mutation, model repair/failure paths, branch/clean-worktree refusals, typed git diagnostics, and Pi delegation. No public SDK helpers were promoted; duplicated git/model/message/commit helpers remain recorded SDK-pressure evidence for comparison with later `regenerate-pr` and `submit` slices.
 
 - [ ] Migrate PR metadata regeneration as a project-local GitHub-facing command extension.
   - Policy: direct execution after preview for implementation; ask before mutating real GitHub PR state.

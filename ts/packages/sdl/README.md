@@ -76,7 +76,7 @@ Discovery is side-effect-light: `sdl --help`, `sdl -h`, `sdl --version`, `sdl --
 
 The legacy `.sdl/commands/<command>.ts` path has been removed. It is not a compatibility fallback.
 
-Dynamic Pi `/sdl:*` mirrors are not part of this first general extension-loading slice. In this repository, the exact `/sdl:changes` and nested `/sdl:code:changes` mirrors continue to delegate to `sdl changes` after the project-local extension is restored. Other repository workflow mirrors are unavailable until their SDL command entries migrate back. Arbitrary SDL extension command entries are not dynamically mirrored into Pi.
+Dynamic Pi `/sdl:*` mirrors are not part of this first general extension-loading slice. In this repository, the exact `/sdl:changes`, `/sdl:cp`, and nested `/sdl:code:changes` mirrors delegate to restored project-local SDL commands. Other repository workflow mirrors are unavailable until their SDL command entries migrate back. Arbitrary SDL extension command entries are not dynamically mirrored into Pi.
 
 ## Public SDL extension API
 
@@ -113,7 +113,30 @@ Single-file SDL extension modules such as `.sdl/extensions/<name>.ts` are leaf a
 
 ## `cp`
 
-Checkpoint creation is intentionally unavailable as an SDL command in the first project-local extension cutover. It is expected to return as a project-local SDL extension in a later migration slice. Until then, there is no built-in `sdl cp` implementation and no Pi mirror for checkpoint creation through SDL.
+Create a checkpoint commit for the current diff.
+
+```bash
+sdl cp
+sdl cp --dry-run
+```
+
+In this repository, `sdl cp` is provided by the project-local single-file extension `.sdl/extensions/cp.ts`; it is not a universal built-in SDL command.
+
+Behavior:
+
+- captures the current pending worktree snapshot with git fact commands;
+- refuses `main` and `master` branches before generating a message or committing;
+- refuses clean worktrees with `Working tree is clean; nothing to checkpoint.`;
+- asks the configured text-generation model for a validated `[cp]` commit message, with one repair attempt for invalid output;
+- stages all changes with `git add -A`, commits using the prepared message, reads `git log -1 --oneline`, then prints the commit summary plus checkpoint message;
+- with `--dry-run`, previews the model-authored checkpoint message and branch without running `git add`, `git commit`, or `git log`.
+
+Environment:
+
+- `SDL_CHECKPOINT_MODEL`: model reference for generated checkpoint messages.
+- `SDL_DEV_CHECKPOINT_MODEL`: transitional fallback for the old checkpoint model selection.
+
+Pi exposes the same capability as `/sdl:cp`. Old compatibility aliases such as `/code:cp`, `/code:checkpoint`, `/sdl:code:cp`, and `/sdl:code:checkpoint` are not restored.
 
 ## `changes`
 
