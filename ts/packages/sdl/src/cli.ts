@@ -21,7 +21,12 @@ import {
 	loadSdlCommandCatalog,
 	loadSelectedSdlCommand,
 } from "./extension-registry.ts";
-import type { SdlCommand, SdlConfirmPrompt, SdlExtensionApi, SdlOutputStream } from "./sdk.ts";
+import type {
+	SdlCommand,
+	SdlConfirmPrompt,
+	SdlExtensionApi,
+	SdlOutputStream,
+} from "./sdk/index.ts";
 
 export type { SdlCommandInfo } from "./command-registry.ts";
 

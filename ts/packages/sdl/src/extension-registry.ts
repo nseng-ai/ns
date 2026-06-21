@@ -21,7 +21,7 @@ import {
 	type ExtensionDiscoveryDiagnostic,
 } from "./extension-discovery.ts";
 import { loadSdlExtensionContribution, type ExtensionLoadDiagnostic } from "./extension-loader.ts";
-import type { SdlCommand } from "./sdk.ts";
+import type { SdlCommand } from "./sdk/index.ts";
 
 export type ExtensionSourceLevel = SdlCommandSourceLevel;
 export type ExtensionSourceInfo = SdlCommandSourceInfo;

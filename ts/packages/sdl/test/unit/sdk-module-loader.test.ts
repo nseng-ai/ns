@@ -1,13 +1,13 @@
 import { expect, test } from "vitest";
 
-import { createSdlJiti } from "../../src/sdk-module-loader.ts";
+import { createSdlJiti } from "../../src/sdk/module-loader.ts";
 
 function sortedKeys(value: object): string[] {
 	return Object.keys(value).sort();
 }
 
-test("virtual SDK module mirrors sdk.ts runtime value exports", async () => {
-	const sdkModule = await import("../../src/sdk.ts");
+test("virtual SDK module mirrors SDK runtime value exports", async () => {
+	const sdkModule = await import("../../src/sdk/index.ts");
 	const virtualModule = await createSdlJiti().import<typeof sdkModule>("@sdl/sdl/sdk");
 	const sdkKeys = sortedKeys(sdkModule);
 
@@ -43,7 +43,7 @@ test("repo-local migration extensions can import internal migration subpaths", a
 		await jiti.import<typeof import("../../src/pr-description.ts")>("@sdl/sdl/pr-description");
 	expect(typeof prDescriptionModule.preparePrDescription).toBe("function");
 
-	const textGenerationModule = await jiti.import<typeof import("../../src/text-generation.ts")>(
+	const textGenerationModule = await jiti.import<typeof import("../../src/sdk/text-generation.ts")>(
 		"@sdl/sdl/text-generation",
 	);
 	expect(textGenerationModule.CHECKPOINT_MODEL_ENV).toBe("SDL_CHECKPOINT_MODEL");

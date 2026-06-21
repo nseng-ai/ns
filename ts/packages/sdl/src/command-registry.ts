@@ -6,7 +6,7 @@ import {
 	type SdlCommandSchema,
 	type SdlExtensionApi,
 	type SdlResult,
-} from "./sdk.ts";
+} from "./sdk/index.ts";
 
 export type SdlCommandSourceLevel = "built-in" | "global" | "project";
 

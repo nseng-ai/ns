@@ -10,7 +10,7 @@ import {
 	type PendingWorktreeError,
 	type PendingWorktreeSnapshot,
 } from "./pending-worktree.ts";
-import { selectCheckpointModelRef, type TextGenerator } from "./text-generation.ts";
+import { selectCheckpointModelRef, type TextGenerator } from "./sdk/text-generation.ts";
 
 export interface CheckpointGateway {
 	loadPendingWorktreeSnapshot(params: { cwd: string }): Promise<

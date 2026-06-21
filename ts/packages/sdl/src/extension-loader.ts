@@ -1,5 +1,5 @@
 import { formatUnknownError } from "./command-registry.ts";
-import { loadSdlUserModuleDefault } from "./sdk-module-loader.ts";
+import { loadSdlUserModuleDefault } from "./sdk/module-loader.ts";
 
 export interface ExtensionLoadDiagnostic {
 	severity: "error";
