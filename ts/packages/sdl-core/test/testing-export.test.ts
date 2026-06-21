@@ -11,6 +11,7 @@ import {
 	describeNodeRuntimeCliEntrypoint,
 	ScriptedCommandExecApi,
 	ScriptedCommandRunner,
+	ScriptedQueue,
 	ScriptedTextGenerationGateway,
 	step,
 	withTempRepoSkill,
@@ -26,6 +27,7 @@ test("exports testing helpers through the package testing subpath", () => {
 	expect(typeof withTempRepoSkill).toBe("function");
 	expect(typeof ScriptedCommandRunner).toBe("function");
 	expect(typeof ScriptedCommandExecApi).toBe("function");
+	expect(typeof ScriptedQueue).toBe("function");
 	expect(typeof ScriptedTextGenerationGateway).toBe("function");
 	expect(typeof step).toBe("function");
 	expect(brmemCheckJson(true)).toBe(JSON.stringify({ exit_code: 0, data: { present: true } }));

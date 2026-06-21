@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { ScriptedQueue } from "@sdl/core/testing";
 import objectiveExtension, {
 	completeObjectiveListArgs,
 	parseObjectiveListArgs,
@@ -65,10 +66,9 @@ type SessionStartHandler = (_event: unknown, ctx: SessionStartContext) => Promis
 class FakePi implements ObjectiveExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly execCalls: ExecCall[] = [];
-	readonly errors: string[] = [];
 	readonly sentMessages: Parameters<NonNullable<ObjectiveExtensionAPI["sendMessage"]>>[0][] = [];
 	readonly sentUserMessages: string[] = [];
-	private readonly script: ScriptedExec[];
+	private readonly script: ScriptedQueue<ScriptedExec>;
 	private readonly commandInfos: ReturnType<ObjectiveExtensionAPI["getCommands"]>;
 	private readonly eventHandlers: Record<EventName, Array<AgentEndHandler | SessionStartHandler>> =
 		{
@@ -80,7 +80,7 @@ class FakePi implements ObjectiveExtensionAPI {
 		script: ScriptedExec[] = [],
 		commandInfos: ReturnType<ObjectiveExtensionAPI["getCommands"]> = [],
 	) {
-		this.script = [...script];
+		this.script = new ScriptedQueue(script, (step) => step);
 		this.commandInfos = [...commandInfos];
 	}
 
@@ -96,16 +96,15 @@ class FakePi implements ObjectiveExtensionAPI {
 
 	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
 		this.execCalls.push({ command, args: [...args], options });
-		const expected = this.script.shift();
-		if (!expected) {
-			const message = `unexpected exec: ${command} ${args.join(" ")}`;
-			this.errors.push(message);
-			return execResult({ code: 99, stderr: message });
+		const missingStepMessage = `unexpected exec: ${command} ${args.join(" ")}`;
+		const expected = this.script.shiftOrRecordError(missingStepMessage);
+		if (expected === undefined) {
+			return execResult({ code: 99, stderr: missingStepMessage });
 		}
 
 		if (expected.command !== command || !sameArgs(expected.args, args)) {
 			const message = `expected ${expected.command} ${expected.args.join(" ")}, got ${command} ${args.join(" ")}`;
-			this.errors.push(message);
+			this.script.recordError(message);
 			return execResult({ code: 99, stderr: message });
 		}
 
@@ -135,8 +134,7 @@ class FakePi implements ObjectiveExtensionAPI {
 	}
 
 	assertDone(): void {
-		expect(this.errors).toEqual([]);
-		expect(this.script).toEqual([]);
+		this.script.assertDone();
 	}
 }
 

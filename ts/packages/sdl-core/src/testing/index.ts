@@ -97,7 +97,8 @@ export interface ScriptedCommandExecCall {
 
 export type ScriptedTextGenerationStep = TextGenerationResult | Promise<TextGenerationResult>;
 
-class ScriptedQueue<TStep> {
+/** Internal monorepo testing helper for ordered scripted expectations. */
+export class ScriptedQueue<TStep> {
 	private readonly errors: string[] = [];
 	private readonly steps: TStep[];
 

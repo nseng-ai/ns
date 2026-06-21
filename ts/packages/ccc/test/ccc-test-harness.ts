@@ -1,4 +1,3 @@
-import { expect } from "vitest";
 import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
@@ -18,6 +17,8 @@ import type {
 	ThinkingLevel,
 } from "../src/cmux/types.ts";
 import type { SkillCommandInfo } from "@sdl/pi-extension-runtime/skill-expansion";
+
+import { ScriptedQueue } from "@sdl/core/testing";
 
 export { brmemCheckJson } from "@sdl/core/testing";
 
@@ -80,8 +81,7 @@ export class FakePi implements ExtensionAPI {
 	}> = [];
 	readonly setModels: ModelInfo[] = [];
 	readonly thinkingLevels: string[] = [];
-	readonly errors: string[] = [];
-	private readonly script: ScriptedExec[];
+	private readonly script: ScriptedQueue<ScriptedExec>;
 	private readonly skillCommands: SkillCommandInfo[];
 	private readonly shouldRequireExpectedArgs: boolean;
 	private readonly eventHandlers: Record<EventName, Array<AgentEndHandler | SessionStartHandler>> =
@@ -98,7 +98,7 @@ export class FakePi implements ExtensionAPI {
 			shouldRequireExpectedArgs?: boolean;
 		} = {},
 	) {
-		this.script = [...(options.script ?? [])];
+		this.script = new ScriptedQueue(options.script ?? [], (step) => step);
 		this.skillCommands = [...(options.skillCommands ?? [])];
 		// Strict by default: undefined ScriptedExec args now count as a mismatch unless callers explicitly disable expected-arg checking.
 		this.shouldRequireExpectedArgs = options.shouldRequireExpectedArgs ?? true;
@@ -116,7 +116,11 @@ export class FakePi implements ExtensionAPI {
 
 	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
 		this.execCalls.push({ command, args: [...args], options });
-		const expected = this.script.shift();
+		const missingStepMessage = `unexpected exec: ${command} ${args.join(" ")}`;
+		const expected = this.script.shiftOrRecordError(missingStepMessage);
+		if (expected === undefined) {
+			return execResult({ code: 99, stderr: missingStepMessage });
+		}
 		const { result, errorMessage } = runScriptedExec({
 			expected,
 			command,
@@ -124,7 +128,7 @@ export class FakePi implements ExtensionAPI {
 			shouldRequireExpectedArgs: this.shouldRequireExpectedArgs,
 		});
 		if (errorMessage !== undefined) {
-			this.errors.push(errorMessage);
+			this.script.recordError(errorMessage);
 		}
 		return result;
 	}
@@ -173,8 +177,7 @@ export class FakePi implements ExtensionAPI {
 	}
 
 	assertDone(): void {
-		expect(this.errors).toEqual([]);
-		expect(this.script).toEqual([]);
+		this.script.assertDone();
 	}
 }
 

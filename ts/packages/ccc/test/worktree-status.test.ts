@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { githubWorktreePrStatusQuery } from "@sdl/core/github-status";
+import { ScriptedQueue } from "@sdl/core/testing";
 import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 import type { GraphiteMetadataWorkerDiagnostic } from "@sdl/ccc/worktree-status/graphite-metadata";
 import {
@@ -41,25 +42,23 @@ interface ScriptedExec {
 
 class FakePi {
 	readonly calls: ExecCall[] = [];
-	readonly errors: string[] = [];
-	private readonly script: ScriptedExec[];
+	private readonly script: ScriptedQueue<ScriptedExec>;
 
 	constructor(script: ScriptedExec[]) {
-		this.script = [...script];
+		this.script = new ScriptedQueue(script, (step) => step);
 	}
 
 	async exec(command: string, args: string[]): Promise<ExecResult> {
 		this.calls.push({ command, args: [...args] });
-		const expected = this.script.shift();
-		if (!expected) {
-			const message = `unexpected exec: ${command} ${args.join(" ")}`;
-			this.errors.push(message);
-			return execResult({ code: 99, stderr: message });
+		const missingStepMessage = `unexpected exec: ${command} ${args.join(" ")}`;
+		const expected = this.script.shiftOrRecordError(missingStepMessage);
+		if (expected === undefined) {
+			return execResult({ code: 99, stderr: missingStepMessage });
 		}
 
 		if (expected.command !== command || !sameArgs(expected.args, args)) {
 			const message = `expected ${expected.command} ${expected.args.join(" ")}, got ${command} ${args.join(" ")}`;
-			this.errors.push(message);
+			this.script.recordError(message);
 			return execResult({ code: 99, stderr: message });
 		}
 
@@ -67,8 +66,7 @@ class FakePi {
 	}
 
 	assertDone(): void {
-		expect(this.errors).toEqual([]);
-		expect(this.script).toEqual([]);
+		this.script.assertDone();
 	}
 }
 
