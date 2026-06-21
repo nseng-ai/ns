@@ -73,9 +73,7 @@ export function parseWorktreeList(output: string): WorktreeEntry[] {
 
 export function isManagedSlotPath(path: string): boolean {
 	const normalized = path.replaceAll("\\", "/");
-	return (
-		normalized.includes("/.slots/repos/") && /\/worktrees\/slot-[^/]+(?:\/|$)/.test(normalized)
-	);
+	return /(?:^|\/)(?:\.slots|slots)\/repos\/[^/]+\/worktrees\/slot-[^/]+(?:\/|$)/.test(normalized);
 }
 
 export function slotNameFromPath(path: string): string | undefined {
