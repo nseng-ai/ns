@@ -81,7 +81,7 @@ export const SPECIALIZED_SKILL_REPLACEMENTS = {
 	"objective-update": "objective:update",
 	"pi-grill-ui": "pi:grill-me",
 	"pi-grill-with-docs-ui": "pi:grill-with-docs",
-	"code-autobranch": "sdl:code:autobranch",
+	"code-autobranch": "sdl:autobranch",
 	"code-checkpoint": "sdl:cp",
 	"code-gt-restack-resolve": "code:gt-restack-resolve",
 	"code-just-fix": "code:just-fix",

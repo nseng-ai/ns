@@ -56,7 +56,7 @@ function createContext(cwd: string): CommandContext {
 }
 
 async function createCommandProject(
-	commandName: "changes" | "cp" | "submit" | "regenerate-pr",
+	commandName: "changes" | "cp" | "autobranch" | "submit" | "regenerate-pr",
 ): Promise<string> {
 	const directory = await mkdtemp(join(tmpdir(), `sdl-pi-${commandName}-`));
 	tempDirs.push(directory);
@@ -97,10 +97,10 @@ describe("sdl Pi extension", () => {
 		expect([...pi.commands.keys()]).toEqual([
 			"sdl:changes",
 			"sdl:cp",
+			"sdl:autobranch",
 			"sdl:submit",
 			"sdl:regenerate-pr",
 			"sdl:code:changes",
-			"sdl:code:autobranch",
 			"sdl:code:autoslot",
 			"sdl:code:land",
 			"sdl:code:push",
@@ -112,6 +112,7 @@ describe("sdl Pi extension", () => {
 		expect(pi.commands.has("dev:cp")).toBe(false);
 		expect(pi.commands.has("code:submit")).toBe(false);
 		expect(pi.commands.has("code:autobranch")).toBe(false);
+		expect(pi.commands.has("sdl:code:autobranch")).toBe(false);
 		expect(pi.commands.has("code:autoslot")).toBe(false);
 		expect(pi.commands.has("code:land")).toBe(false);
 		expect(pi.commands.has("code:push")).toBe(false);
@@ -125,6 +126,9 @@ describe("sdl Pi extension", () => {
 		expect(pi.commands.get("sdl:cp")?.description).toBe(
 			"sdl cp: Create a checkpoint commit for the current diff.",
 		);
+		expect(pi.commands.get("sdl:autobranch")?.description).toBe(
+			"sdl autobranch: Create a Graphite branch from dirty worktree changes or the latest unpushed commit.",
+		);
 		expect(pi.commands.get("sdl:submit")?.description).toBe(
 			"sdl submit: Checkpoint outstanding changes, then submit the current Graphite stack.",
 		);
@@ -133,9 +137,6 @@ describe("sdl Pi extension", () => {
 		);
 		expect(pi.commands.get("sdl:code:changes")?.description).toBe(
 			"sdl changes: Summarize outstanding worktree changes without committing.",
-		);
-		expect(pi.commands.get("sdl:code:autobranch")?.description).toBe(
-			"ccc autobranch: Create a Graphite branch from dirty worktree changes or the latest unpushed commit.",
 		);
 		expect(pi.commands.get("sdl:code:autoslot")?.description).toContain("managed slot worktree");
 		expect(pi.commands.get("sdl:code:land")?.description).toBe(
@@ -190,6 +191,28 @@ describe("sdl Pi extension", () => {
 		expect(pi.sentMessages).toHaveLength(1);
 		expect(String(pi.sentMessages[0]?.content)).toContain("pi-custom-cp");
 		expect(pi.commands.has("sdl:code:cp")).toBe(false);
+	});
+
+	test("runs sdl autobranch through the flat direct SDL mirror only", async () => {
+		const cwd = await createCommandProject("autobranch");
+		const pi = new FakePi();
+		sdlExtension(pi);
+
+		const originalHome = process.env.HOME;
+		process.env.HOME = join(cwd, ".home");
+		try {
+			await commandFor(pi, "sdl:autobranch").handler("", createContext(cwd));
+		} finally {
+			if (originalHome === undefined) {
+				delete process.env.HOME;
+			} else {
+				process.env.HOME = originalHome;
+			}
+		}
+
+		expect(pi.sentMessages).toHaveLength(1);
+		expect(String(pi.sentMessages[0]?.content)).toContain("pi-custom-autobranch");
+		expect(pi.commands.has("sdl:code:autobranch")).toBe(false);
 	});
 
 	test("runs sdl submit through the flat direct SDL mirror only", async () => {

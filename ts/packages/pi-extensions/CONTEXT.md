@@ -1,6 +1,6 @@
 # @sdl/pi-extensions
 
-`@sdl/pi-extensions` is the repo-local engineered TypeScript layer for durable Pi extension behavior in sdl. Pi discovers checked-in project-local adapters under `.pi/extensions/`; adapters delegate stable, risky, reused, or test-worthy behavior to this private package. CCC (`@sdl/ccc`) is the separate private orchestration layer for repo-opinionated command-and-control workflows, owns the `ccc` Pi command prefix for cmux/workspace orchestration, and can own selected SDL code-lifecycle implementations such as `/sdl:code:autobranch` and `/sdl:code:land`. Neutral shared helper contracts live below both packages in `@sdl/pi-extension-runtime`.
+`@sdl/pi-extensions` is the repo-local engineered TypeScript layer for durable Pi extension behavior in sdl. Pi discovers checked-in project-local adapters under `.pi/extensions/`; adapters delegate stable, risky, reused, or test-worthy behavior to this private package. CCC (`@sdl/ccc`) is the separate private orchestration layer for repo-opinionated command-and-control workflows, owns the `ccc` Pi command prefix for cmux/workspace orchestration, and can own selected SDL code-lifecycle implementations such as `/sdl:code:land` while `autobranch` now uses the flat `/sdl:autobranch` mirror over `sdl autobranch`. Neutral shared helper contracts live below both packages in `@sdl/pi-extension-runtime`.
 
 ## Language
 
@@ -52,9 +52,9 @@ A structured selector for an active Objective: either a single Objective slug, a
 The public Pi extension registration surface for `/objective:stack-impl`. The command name remains part of the Objective extension surface, but the stack implementation orchestration behind it is delegated to `@sdl/ccc/objective-stack-impl`; normal Objective record/list/current/update/next/close/archive semantics stay below CCC.
 *Avoid*: CCC command prefix alias, Objective storage owner, stack orchestration implementation body.
 
-**Autobranch adapter**:
-The public Pi extension registration surface for `/sdl:code:autobranch`. The command belongs to the SDL code-lifecycle family and is discovered through `@sdl/pi-extensions`, but dirty-worktree and latest-commit autobranch orchestration is delegated to `@sdl/ccc/autobranch`.
-*Avoid*: preparation owner, transaction owner, old `/code:autobranch` compatibility alias, Graphite policy implementation.
+**Autobranch mirror**:
+The public Pi extension registration surface for `/sdl:autobranch`. The command mirrors `sdl autobranch`, which is implemented in this repo by the SDK-only project-local SDL extension `.sdl/extensions/autobranch.ts`; hidden `ccc exec autobranch` remains internal compatibility evidence, not the public Pi adapter target.
+*Avoid*: nested `/sdl:code:autobranch`, old `/code:autobranch` compatibility alias, direct CCC CLI adapter as the public path.
 
 **Land adapter**:
 The public Pi extension registration surface for unified `/sdl:code:land`. The command belongs to the SDL code-lifecycle family and is discovered through `@sdl/pi-extensions`, but Graphite stack-shape dispatch, single-PR fast landing, Graphite/GitHub/slot stack landing orchestration, and failure presentation are delegated to `@sdl/ccc/land`.
@@ -165,7 +165,7 @@ The Pi slash-command namespace for codebase/source-control or review workflows t
 *Avoid*: visibility flag, prototype marker, package prefix, migrated SDL workflow prefix.
 
 **Pending worktree snapshot**:
-A read-only capture of repository root, current branch, porcelain status, diff, and cleanliness used by `sdl changes` / `/sdl:changes` / `/sdl:code:changes` before presentation, by project-local `sdl cp` / `/sdl:cp` before checkpoint mutation, and by `/sdl:code:autobranch` before mutation. Old checkpoint aliases such as `/code:cp`, `/code:checkpoint`, and `/sdl:code:checkpoint` remain unavailable.
+A read-only capture of repository root, current branch, porcelain status, diff, and cleanliness used by `sdl changes` / `/sdl:changes` / `/sdl:code:changes` before presentation, by project-local `sdl cp` / `/sdl:cp` before checkpoint mutation, and by project-local `sdl autobranch` / `/sdl:autobranch` before mutation. Old checkpoint aliases such as `/code:cp`, `/code:checkpoint`, and `/sdl:code:checkpoint` remain unavailable.
 *Avoid*: stash, checkpoint, worktree status renderer, advertising unavailable old `cp` aliases.
 
 **Outstanding changes summary**:
@@ -181,12 +181,12 @@ A git commit created from pending worktree changes using a prepared checkpoint m
 *Avoid*: checkpoint message, stash, branch creation, old checkpoint alias.
 
 **Autobranch preparation**:
-A CCC-owned pre-transaction plan exposed through the `/sdl:code:autobranch` adapter: choose a branch slug/name and collect preflight facts before moving work. Dirty-worktree preparation also prepares a checkpoint message; clean latest-commit preparation inspects trunk/upstream/parent shape and derives a slug from the existing commit message and diff.
-*Avoid*: Pi extension implementation ownership, branch transaction, stash operation, model prompt alone.
+A pre-transaction plan used by `sdl autobranch` / `/sdl:autobranch`: choose a branch slug/name and collect preflight facts before moving work. Dirty-worktree preparation also prepares a checkpoint message; clean latest-commit preparation inspects trunk/upstream/parent shape and derives a slug from the existing commit message and diff.
+*Avoid*: Pi extension implementation ownership, nested `/sdl:code:autobranch`, branch transaction, stash operation, model prompt alone.
 
 **Autobranch transaction**:
-A CCC-owned mutating `/sdl:code:autobranch` sequence exposed through the SDL code-lifecycle family. Dirty mode stashes pending changes, creates the branch, restores the stash, and writes a checkpoint commit; latest-commit mode creates a recovery branch, resets the source branch to the parent, creates the Graphite branch, hard-resets it to the original commit SHA, verifies the SHA, and cleans up recovery evidence.
-*Avoid*: Pi extension implementation ownership, preparation, plain git branch creation, restack.
+The mutating `sdl autobranch` / `/sdl:autobranch` sequence. Dirty mode stashes pending changes, creates the branch, restores the stash, and writes a checkpoint commit; latest-commit mode creates a recovery branch, resets the source branch to the parent, creates the Graphite branch, hard-resets it to the original commit SHA, verifies the SHA, and cleans up recovery evidence.
+*Avoid*: Pi extension implementation ownership, nested `/sdl:code:autobranch`, preparation, plain git branch creation, restack.
 
 **Runner subagent**:
 A fresh Pi subprocess launched by a parent extension with an isolated conversation and explicit return mode.
