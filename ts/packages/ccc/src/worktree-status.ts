@@ -130,11 +130,20 @@ export interface GhStatus {
 	checks: GithubCheckTally;
 }
 
+export interface GhHeadMismatchStatus {
+	type: "head-mismatch";
+	prNumber: number;
+	url?: string | undefined;
+	threads: GithubReviewThreadCounts;
+	checks: GithubCheckTally;
+	prHeadOid: string;
+}
+
 export type WorktreeGhStatus =
 	| GhStatus
+	| GhHeadMismatchStatus
 	| { type: "pending" }
 	| { type: "no-pr" }
-	| { type: "head-mismatch" }
 	| { type: "unavailable"; message?: string | undefined };
 
 export interface LocalWorktreeStatus {
@@ -489,11 +498,22 @@ async function loadGhStatus(
 		return { type: "unavailable", message: "could not verify local HEAD" };
 
 	const pr = prs.find((candidate) => candidate.headRefOid === identity.headOid);
-	if (pr === undefined) return { type: "head-mismatch" };
+	if (pr === undefined) {
+		const stalePr = prs[0];
+		if (stalePr === undefined) throw new Error("expected at least one GitHub PR candidate");
+		return {
+			type: "head-mismatch",
+			prNumber: stalePr.number,
+			...(stalePr.url === undefined ? {} : { url: stalePr.url }),
+			threads: stalePr.threads,
+			checks: stalePr.checks,
+			prHeadOid: stalePr.headRefOid,
+		};
+	}
 	return {
 		type: "available",
 		prNumber: pr.number,
-		url: pr.url,
+		...(pr.url === undefined ? {} : { url: pr.url }),
 		threads: pr.threads,
 		checks: pr.checks,
 	};
@@ -728,11 +748,6 @@ function formatGhStatusLine(
 			formatColoredSegment("[gh] no PR", "dim", options.theme),
 			options,
 		);
-	if (status.type === "head-mismatch")
-		return formatGhStatusAnnotation(
-			formatColoredSegment("[gh] local ahead of PR", "warning", options.theme),
-			options,
-		);
 	if (status.type === "unavailable") {
 		const detail =
 			status.message === undefined
@@ -744,9 +759,29 @@ function formatGhStatusLine(
 		);
 	}
 
+	const pieces = formatGhPrDetailPieces(status, options);
+	if (status.type === "head-mismatch") {
+		pieces.push(formatColoredSegment(" · PR behind local", "warning", options.theme));
+		appendGhPrStatusAnnotation(pieces, options);
+		return pieces.join("");
+	}
+	appendGhPrStatusAnnotation(pieces, options);
+	if (isGhStatusLandable(status)) {
+		pieces.push(
+			formatColoredSegment(" · ", "dim", options.theme),
+			formatColoredSegment("landable", "accent", options.theme),
+		);
+	}
+	return pieces.join("");
+}
+
+function formatGhPrDetailPieces(
+	status: Pick<GhStatus, "prNumber" | "url" | "threads" | "checks">,
+	options: FormatWorktreeStatusOptions,
+): string[] {
 	const resolvedThreads = Math.max(0, status.threads.total - status.threads.unresolved);
 	const commentsValue = `${resolvedThreads}/${status.threads.total}${status.threads.hasMore ? "+" : ""}`;
-	const pieces = [
+	return [
 		formatColoredSegment("[gh]", "dim", options.theme),
 		formatColoredSegment(" ", "dim", options.theme),
 		formatGhPrReference(status, options.theme),
@@ -759,6 +794,9 @@ function formatGhStatusLine(
 		formatColoredSegment(" · actions ", "dim", options.theme),
 		...formatActionBucketSegments(status.checks, options.theme),
 	];
+}
+
+function appendGhPrStatusAnnotation(pieces: string[], options: FormatWorktreeStatusOptions): void {
 	if (options.isDormant === true) {
 		pieces.push(formatColoredSegment(DORMANT_GH_STATUS_ANNOTATION_TEXT, "dim", options.theme));
 	} else if (options.ghRefreshCountdownMs !== undefined) {
@@ -767,16 +805,12 @@ function formatGhStatusLine(
 			formatColoredSegment(formatCountdownMs(options.ghRefreshCountdownMs), "dim", options.theme),
 		);
 	}
-	if (isGhStatusLandable(status)) {
-		pieces.push(
-			formatColoredSegment(" · ", "dim", options.theme),
-			formatColoredSegment("landable", "accent", options.theme),
-		);
-	}
-	return pieces.join("");
 }
 
-function formatGhPrReference(status: GhStatus, theme: StatusTheme | undefined): string {
+function formatGhPrReference(
+	status: Pick<GhStatus, "prNumber" | "url">,
+	theme: StatusTheme | undefined,
+): string {
 	const text = `#${status.prNumber}`;
 	return formatColoredSegment(safeTerminalHyperlink(text, status.url), "accent", theme);
 }
