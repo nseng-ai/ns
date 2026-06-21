@@ -15,7 +15,7 @@ import {
 	type ReviewUsage,
 } from "../models.ts";
 import { applicableReviewKeys } from "../review-applicability.ts";
-import { parseReviewDefinition } from "../review-definition.ts";
+import { loadParsedReviewDefinition } from "../review-definition-loading.ts";
 import { loadRoastSkillEntries, roastReviewPathForKey } from "../skill-reviews.ts";
 import { loadReviewExecutionContext, runRoasterReview, writeReviewRunLog } from "./review-run.ts";
 
@@ -386,22 +386,13 @@ async function loadDefinitions(
 ): Promise<LoadDefinitionsResult> {
 	const loaded: LoadedDefinition[] = [];
 	for (const key of keys) {
-		const source = await ctx.reviewCatalog.loadReviewSource({
+		const parsed = await loadParsedReviewDefinition({
 			...catalogOptions(ctx.runScope),
+			reviewCatalog: ctx.reviewCatalog,
 			key,
 		});
-		if (source.type === "error") return source;
-		const parsed = parseReviewDefinition(source.value.source, { name: source.value.key });
-		if (parsed.type === "error") {
-			return {
-				type: "error",
-				error: {
-					type: "review_definition_invalid",
-					message: `Review definition ${source.value.key} at ${source.value.path} is invalid: ${parsed.error.message}`,
-				},
-			};
-		}
-		loaded.push({ key: source.value.key, definition: parsed.definition });
+		if (parsed.type === "error") return parsed;
+		loaded.push({ key: parsed.value.source.key, definition: parsed.value.definition });
 	}
 	return { type: "ok", value: loaded };
 }
