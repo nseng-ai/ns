@@ -1,24 +1,28 @@
-import { randomUUID } from "node:crypto";
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test } from "vitest";
 
-import { GENERATED_BODY_MARKER } from "@sdl/core/submit";
+import { formatManagedGeneratedRegion, GENERATED_BODY_MARKER } from "@sdl/core/submit";
 import { listSdlCommands } from "@sdl/sdl/cli";
 
-import { executeSdlCommand } from "../../src/command-registry.ts";
-import { defaultRegeneratePrCommand } from "../../src/default-commands/regenerate-pr.ts";
 import {
 	formattedExecCalls,
+	parseJsonOutput,
 	runCliWithFakes,
-	ScriptedSdlTestContext,
+	type ExecCall,
+	type RunWithFakesOptions,
 	type ScriptedExecResponse,
-	type TestState,
 } from "./sdl-cli-fakes.ts";
 
 const PR_URL = "https://github.com/acme/repo/pull/123";
+const REGENERATE_PR_EXTENSION_SOURCE = fileURLToPath(
+	new URL("../../../../../.sdl/extensions/regenerate-pr.ts", import.meta.url),
+);
+const tempProjectDirs: string[] = [];
 const generatedText = `Improve PR descriptions
 
 This regenerates the PR title and body with the sdl-owned prompt.
@@ -27,6 +31,12 @@ This regenerates the PR title and body with the sdl-owned prompt.
 
 - Adds title generation
 - Adds guarded body updates`;
+
+afterEach(() => {
+	for (const directory of tempProjectDirs.splice(0)) {
+		rmSync(directory, { recursive: true, force: true });
+	}
+});
 
 function runUnavailableRegeneratePrCli(args: readonly string[]) {
 	return runCliWithFakes(
@@ -38,52 +48,28 @@ function runUnavailableRegeneratePrCli(args: readonly string[]) {
 	);
 }
 
-describe("sdl regenerate-pr CLI availability", () => {
-	test("regenerate-pr is not registered as a built-in command after the kernel reset", () => {
-		expect(listSdlCommands().some((command) => command.name === "regenerate-pr")).toBe(false);
-	});
+function createRegeneratePrProject(): string {
+	const directory = mkdtempSyncCompat("sdl-regenerate-pr-project-");
+	tempProjectDirs.push(directory);
+	const extensionPath = join(directory, ".sdl", "extensions", "regenerate-pr.ts");
+	mkdirSync(dirname(extensionPath), { recursive: true });
+	copyFileSync(REGENERATE_PR_EXTENSION_SOURCE, extensionPath);
+	return directory;
+}
 
-	test("regenerate-pr help and invocation are unavailable rather than stubbed", async () => {
-		const help = runUnavailableRegeneratePrCli(["regenerate-pr", "--help"]);
-		expect(await help.exit).toBe(0);
-		expect(help.stdout.join("")).toContain("Usage: sdl");
-		expect(help.stdout.join("")).not.toContain("Usage: sdl regenerate-pr");
+function mkdtempSyncCompat(prefix: string): string {
+	return mkdtempSync(join(tmpdir(), prefix));
+}
 
-		for (const args of [["regenerate-pr"], ["regenerate-pr", "--force"]] as const) {
-			const run = runUnavailableRegeneratePrCli(args);
-
-			expect(await run.exit).not.toBe(0);
-			expect(run.stdout.join("")).toBe("");
-			expect(run.stderr.join("")).toMatch(/too many arguments|unknown/i);
-			expect(run.context.execCalls).toEqual([]);
-			expect(run.context.modelCalls).toEqual([]);
-		}
-	});
-});
-
-function runWithFakes(
-	args: readonly string[],
-	state: TestState = {},
-	options: { env?: Record<string, string | undefined> } = {},
-) {
-	const stdout: string[] = [];
-	const stderr: string[] = [];
-	const context = new ScriptedSdlTestContext(state, {
-		env: { HOME: "/work/.home", ...(options.env ?? {}) },
-		execResponses: successfulRegeneratePrResponses,
-		textGenerationResults: () => [{ ok: true, text: generatedText }],
-		missingTextGenerationResult: () => ({ ok: true, text: generatedText }),
-	});
-	context.stdout = (text) => stdout.push(text);
-	context.stderr = (text) => stderr.push(text);
-	return {
-		context,
-		stdout,
-		stderr,
-		exit: executeSdlCommand(context, defaultRegeneratePrCommand, {
-			force: args.includes("--force"),
-		}).then((result) => (result.ok ? 0 : result.exitCode)),
-	};
+function runWithFakes(options: RunWithFakesOptions) {
+	return runCliWithFakes(
+		{ ...options, cwd: options.cwd ?? createRegeneratePrProject() },
+		{
+			execResponses: successfulRegeneratePrResponses,
+			textGenerationResults: () => [{ ok: true, text: generatedText }],
+			missingTextGenerationResult: () => ({ ok: true, text: generatedText }),
+		},
+	);
 }
 
 function successfulRegeneratePrResponses(): ScriptedExecResponse[] {
@@ -106,6 +92,22 @@ function successfulRegeneratePrResponses(): ScriptedExecResponse[] {
 	];
 }
 
+function successfulReadOnlyRegeneratePrResponses(
+	options: { body?: string } = {},
+): ScriptedExecResponse[] {
+	return successfulRegeneratePrResponses()
+		.filter((response) => !(response.match instanceof RegExp))
+		.map((response) => {
+			if (response.match !== "gh pr view --json number,url,title,body,headRefName,baseRefName") {
+				return response;
+			}
+			return {
+				...response,
+				result: { stdout: prJson({ body: options.body ?? `Old body\n${GENERATED_BODY_MARKER}` }) },
+			};
+		});
+}
+
 function prJson(options: { body: string; title?: string } = { body: "" }): string {
 	return JSON.stringify({
 		number: 123,
@@ -123,9 +125,85 @@ function commitsJson(): string {
 	});
 }
 
-describe("inactive default regenerate-pr command", () => {
-	test("regenerates the current branch PR with SDL-owned wording", async () => {
-		const run = runWithFakes(["regenerate-pr"]);
+function bodyInspectingEditResponse(assertBody: (body: string) => void): ScriptedExecResponse {
+	return {
+		match: (call: ExecCall) => {
+			if (
+				call.command !== "gh" ||
+				call.args.slice(0, 5).join(" ") !== "pr edit 123 --title Improve PR descriptions"
+			) {
+				return false;
+			}
+			const bodyFileFlagIndex = call.args.indexOf("--body-file");
+			const bodyPath = call.args[bodyFileFlagIndex + 1];
+			if (bodyPath === undefined) return false;
+			assertBody(readFileSync(bodyPath, "utf8"));
+			return true;
+		},
+		result: {},
+	};
+}
+
+describe("sdl regenerate-pr CLI availability", () => {
+	test("regenerate-pr is not registered as a built-in command after the kernel reset", () => {
+		expect(listSdlCommands().some((command) => command.name === "regenerate-pr")).toBe(false);
+	});
+
+	test("regenerate-pr help and invocation are unavailable without a project extension", async () => {
+		const help = runUnavailableRegeneratePrCli(["regenerate-pr", "--help"]);
+		expect(await help.exit).toBe(0);
+		expect(help.stdout.join("")).toContain("Usage: sdl");
+		expect(help.stdout.join("")).not.toContain("Usage: sdl regenerate-pr");
+
+		for (const args of [["regenerate-pr"], ["regenerate-pr", "--force"]] as const) {
+			const run = runUnavailableRegeneratePrCli(args);
+
+			expect(await run.exit).not.toBe(0);
+			expect(run.stdout.join("")).toBe("");
+			expect(run.stderr.join("")).toMatch(/too many arguments|unknown/i);
+			expect(run.context.execCalls).toEqual([]);
+			expect(run.context.modelCalls).toEqual([]);
+		}
+	});
+
+	test("project-local regenerate-pr appears in help, selected help, and JSON schema", async () => {
+		const cwd = createRegeneratePrProject();
+
+		const topHelp = runWithFakes({
+			args: ["--help"],
+			state: { exec: [], textGeneration: [] },
+			cwd,
+		});
+		expect(await topHelp.exit).toBe(0);
+		expect(topHelp.stdout.join("")).toContain("regenerate-pr");
+		expect(topHelp.stdout.join("")).toContain("Run SDL command entry 'regenerate-pr'.");
+
+		const commandHelp = runWithFakes({
+			args: ["regenerate-pr", "--help"],
+			state: { exec: [], textGeneration: [] },
+			cwd,
+		});
+		expect(await commandHelp.exit).toBe(0);
+		const help = commandHelp.stdout.join("");
+		expect(help).toContain("Usage: sdl regenerate-pr");
+		expect(help).toContain("Regenerate the current branch PR title");
+		expect(help).toContain("--force");
+		expect(help).toContain("SDL_DEV_PR_DESCRIPTION_MODEL");
+		expect(help).toContain("SDL_DEV_PR_DESCRIPTION_PROMPT");
+
+		const schema = runWithFakes({
+			args: ["regenerate-pr", "--json-schema"],
+			state: { exec: [], textGeneration: [] },
+			cwd,
+		});
+		expect(await schema.exit).toBe(0);
+		expect(parseJsonOutput(schema)).toHaveProperty("input_json_schema");
+	});
+});
+
+describe("project-local regenerate-pr extension", () => {
+	test("regenerates the current branch PR after confirmation", async () => {
+		const run = runWithFakes({ args: ["regenerate-pr"], state: { confirm: () => true } });
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("Regenerated PR title and description.");
@@ -135,9 +213,10 @@ describe("inactive default regenerate-pr command", () => {
 		expect(formattedExecCalls(run.context)).toEqual(
 			expect.arrayContaining([
 				"gh pr view --json number,url,title,body,headRefName,baseRefName",
-				"gh pr view 123 --json commits",
 				"git rev-parse --show-toplevel",
 				"gh pr diff 123",
+				"git patch-id --stable",
+				"gh pr view 123 --json commits",
 				expect.stringMatching(/^gh pr edit 123 --title Improve PR descriptions --body-file /),
 			]),
 		);
@@ -151,23 +230,91 @@ describe("inactive default regenerate-pr command", () => {
 		expect(run.context.modelCalls[0]?.prompt).toContain("## Diff");
 	});
 
-	test("--force remains a compatibility no-op", async () => {
-		const run = runWithFakes(["regenerate-pr", "--force"]);
+	test("declined confirmation does not edit GitHub", async () => {
+		const run = runWithFakes({
+			args: ["regenerate-pr"],
+			state: { confirm: () => false, exec: successfulReadOnlyRegeneratePrResponses() },
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(run.stderr.join("")).toContain("cancelled");
+		expect(formattedExecCalls(run.context)).not.toContainEqual(
+			expect.stringContaining("gh pr edit"),
+		);
+	});
+
+	test("missing confirmation channel does not edit GitHub", async () => {
+		const run = runWithFakes({
+			args: ["regenerate-pr"],
+			state: { exec: successfulReadOnlyRegeneratePrResponses() },
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(run.stderr.join("")).toContain("Confirmation is unavailable");
+		expect(formattedExecCalls(run.context)).not.toContainEqual(
+			expect.stringContaining("gh pr edit"),
+		);
+	});
+
+	test("--force remains a compatibility no-op and still asks before editing", async () => {
+		let asked = false;
+		const run = runWithFakes({
+			args: ["regenerate-pr", "--force"],
+			state: {
+				confirm: (_title, message) => {
+					asked = true;
+					expect(message).toContain("--force was provided");
+					return true;
+				},
+			},
+		});
 
 		expect(await run.exit).toBe(0);
+		expect(asked).toBe(true);
 		expect(formattedExecCalls(run.context)).toContainEqual(
 			expect.stringMatching(/^gh pr edit 123 --title Improve PR descriptions --body-file /),
 		);
 	});
 
+	test("preserves human body text outside the managed generated region", async () => {
+		const oldRegion = formatManagedGeneratedRegion("Old generated body", {
+			version: "2",
+			patchId: "old-patch",
+			promptHash: "sha256:old-prompt",
+			generator: "sdl-pr-description-v2",
+		});
+		const existingBody = `Human intro\n\n${oldRegion}\n\nHuman footer`;
+		const run = runWithFakes({
+			args: ["regenerate-pr"],
+			state: {
+				confirm: () => true,
+				exec: [
+					...successfulReadOnlyRegeneratePrResponses({ body: existingBody }),
+					bodyInspectingEditResponse((body) => {
+						expect(body).toContain("Human intro");
+						expect(body).toContain("Human footer");
+						expect(body).toContain("This regenerates the PR title and body");
+						expect(body).not.toContain("Old generated body");
+					}),
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+	});
+
 	test("reports no current PR clearly", async () => {
-		const run = runWithFakes(["regenerate-pr"], {
-			exec: [
-				{
-					match: "gh pr view --json number,url,title,body,headRefName,baseRefName",
-					result: { code: 1, stderr: "no pull requests found for branch\n" },
-				},
-			],
+		const run = runWithFakes({
+			args: ["regenerate-pr"],
+			state: {
+				confirm: () => true,
+				exec: [
+					{
+						match: "gh pr view --json number,url,title,body,headRefName,baseRefName",
+						result: { code: 1, stderr: "no pull requests found for branch\n" },
+					},
+				],
+			},
 		});
 
 		expect(await run.exit).toBe(1);
@@ -176,25 +323,25 @@ describe("inactive default regenerate-pr command", () => {
 	});
 
 	test("uses the historical PR description model environment override", async () => {
-		const run = runWithFakes(
-			["regenerate-pr"],
-			{},
-			{ env: { SDL_DEV_PR_DESCRIPTION_MODEL: "openai-codex/custom-mini" } },
-		);
+		const run = runWithFakes({
+			args: ["regenerate-pr"],
+			state: { confirm: () => true },
+			env: { SDL_DEV_PR_DESCRIPTION_MODEL: "openai-codex/custom-mini" },
+		});
 
 		expect(await run.exit).toBe(0);
 		expect(run.context.modelCalls[0]?.modelRef).toBe("openai-codex/custom-mini");
 	});
 
 	test("reports the historical env prompt path in success output", async () => {
-		const promptPath = join(tmpdir(), `sdl-regenerate-pr-prompt-${randomUUID()}.md`);
+		const promptPath = join(tmpdir(), `sdl-regenerate-pr-prompt-${Date.now()}.md`);
 		await writeFile(promptPath, "custom system prompt", "utf8");
 		try {
-			const run = runWithFakes(
-				["regenerate-pr"],
-				{},
-				{ env: { SDL_DEV_PR_DESCRIPTION_PROMPT: promptPath } },
-			);
+			const run = runWithFakes({
+				args: ["regenerate-pr"],
+				state: { confirm: () => true },
+				env: { SDL_DEV_PR_DESCRIPTION_PROMPT: promptPath },
+			});
 
 			expect(await run.exit).toBe(0);
 			expect(run.stdout.join("")).toContain(`Prompt: ${promptPath}`);
@@ -205,11 +352,11 @@ describe("inactive default regenerate-pr command", () => {
 	});
 
 	test("unreadable prompt env path exits 2", async () => {
-		const run = runWithFakes(
-			["regenerate-pr"],
-			{},
-			{ env: { SDL_DEV_PR_DESCRIPTION_PROMPT: "/path/that/does/not/exist.md" } },
-		);
+		const run = runWithFakes({
+			args: ["regenerate-pr"],
+			state: { confirm: () => true },
+			env: { SDL_DEV_PR_DESCRIPTION_PROMPT: "/path/that/does/not/exist.md" },
+		});
 
 		expect(await run.exit).toBe(2);
 		expect(run.stderr.join("")).toContain("Could not read SDL_DEV_PR_DESCRIPTION_PROMPT");

@@ -1,9 +1,10 @@
 import process from "node:process";
+import { createInterface } from "node:readline/promises";
 
 import { runCommand } from "@sdl/core/exec";
 
 import { PiTextGenerationGateway } from "./pi-text-generation.ts";
-import type { SdlContext } from "./sdk.ts";
+import type { SdlConfirmPrompt, SdlContext } from "./sdk.ts";
 import type { TextGenerationGateway } from "./text-generation.ts";
 
 export interface RealSdlCommandContextOptions {
@@ -21,6 +22,7 @@ export function createRealSdlCommandContext(
 	const cwd = options.cwd ?? process.cwd();
 	const env = options.env ?? process.env;
 	const model = createTextGenerationGateway();
+	const confirm = createTerminalConfirmPrompt();
 	return {
 		cwd,
 		env,
@@ -41,7 +43,26 @@ export function createRealSdlCommandContext(
 				killed: result.killed,
 			};
 		},
+		...(confirm === undefined ? {} : { confirm }),
 	};
+}
+
+export function createTerminalConfirmPrompt(): SdlConfirmPrompt | undefined {
+	if (process.stdin.isTTY !== true || process.stdout.isTTY !== true) return undefined;
+	return async (title, message) => {
+		const readline = createInterface({ input: process.stdin, output: process.stdout });
+		try {
+			const answer = await readline.question(`${title}\n\n${message}\n\nProceed? [y/N] `);
+			return parseTerminalConfirmAnswer(answer);
+		} finally {
+			readline.close();
+		}
+	};
+}
+
+export function parseTerminalConfirmAnswer(answer: string): boolean {
+	const normalized = answer.trim().toLowerCase();
+	return normalized === "y" || normalized === "yes";
 }
 
 export type { SdlContext } from "./sdk.ts";
