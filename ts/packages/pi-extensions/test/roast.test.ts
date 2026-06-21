@@ -5,6 +5,7 @@ import type { RoastReviewLoadResult, RoastSkillEntry } from "@sdl/roaster";
 import roastExtension, {
 	buildRoasterReviewPrompt,
 	type LoadRoastReviewDefinition,
+	type LoadRoastSkillEntries,
 } from "../src/roast.ts";
 import type { PiCommandContext } from "../src/pi-command-host.ts";
 import { buildFencedTextBlock } from "../src/skill-expansion.ts";
@@ -79,10 +80,10 @@ const TYPESCRIPT_ENTRY = roastEntry({
 });
 
 describe("roast Pi extension", () => {
-	test("registers one direct command per injected Roaster roast entry", () => {
+	test("registers one direct command per injected Roaster roast entry", async () => {
 		const host = new FakeRoastHost();
 
-		roastExtension(host, {
+		await roastExtension(host, {
 			entries: [THERMONUCLEAR_ENTRY, TYPESCRIPT_ENTRY],
 			loadReviewDefinition: successfulLoader("# Unused"),
 		});
@@ -99,9 +100,43 @@ describe("roast Pi extension", () => {
 		);
 	});
 
+	test("loads default entries through the injected async catalog loader", async () => {
+		const host = new FakeRoastHost();
+		const requestedCwds: string[] = [];
+		const loadEntries: LoadRoastSkillEntries = async (request) => {
+			requestedCwds.push(request.cwd);
+			return { type: "ok", value: [THERMONUCLEAR_ENTRY] };
+		};
+
+		await roastExtension(host, {
+			cwd: "/repo",
+			loadEntries,
+			loadReviewDefinition: successfulLoader("# Unused"),
+		});
+
+		expect(requestedCwds).toEqual(["/repo"]);
+		expect([...host.commands.keys()]).toEqual(["roast:thermonuclear-review"]);
+	});
+
+	test("fail-closes startup when async catalog loading fails", async () => {
+		const host = new FakeRoastHost();
+		const loadEntries: LoadRoastSkillEntries = async () => ({
+			type: "error",
+			error: {
+				type: "reviews_dir_missing",
+				message: "Reviews directory does not exist.",
+			},
+		});
+
+		await expect(roastExtension(host, { loadEntries })).rejects.toThrow(
+			"Could not load Roaster roast catalog: Reviews directory does not exist.",
+		);
+		expect([...host.commands.keys()]).toEqual([]);
+	});
+
 	test("sends a canonical review-definition-backed prompt", async () => {
 		const host = new FakeRoastHost();
-		roastExtension(host, {
+		await roastExtension(host, {
 			entries: [THERMONUCLEAR_ENTRY],
 			loadReviewDefinition: successfulLoader("# Thermonuclear Review\n\nRoast hard."),
 		});
@@ -132,7 +167,7 @@ describe("roast Pi extension", () => {
 	test("loads the review matching the registered command entry", async () => {
 		const requestedKeys: string[] = [];
 		const host = new FakeRoastHost();
-		roastExtension(host, {
+		await roastExtension(host, {
 			entries: [TYPESCRIPT_ENTRY],
 			loadReviewDefinition: async (request) => {
 				requestedKeys.push(request.key);
@@ -165,7 +200,7 @@ describe("roast Pi extension", () => {
 
 	test("fail-closes when canonical review loading fails", async () => {
 		const host = new FakeRoastHost();
-		roastExtension(host, {
+		await roastExtension(host, {
 			entries: [TYPESCRIPT_ENTRY],
 			loadReviewDefinition: async () => ({
 				type: "error",

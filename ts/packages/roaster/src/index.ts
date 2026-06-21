@@ -1,6 +1,5 @@
 export { runCli, type CliDeps } from "./cli.ts";
 export {
-	listRoastSkillEntries,
 	loadRoastReviewDefinition,
 	loadRoastSkillEntries,
 	roastReviewPathForKey,
