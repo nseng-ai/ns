@@ -146,9 +146,8 @@ Risks:
 - Is `branch-context`'s `brmem` CLI shell-out deliberate (user-installed shim)
   or accidental divergence? Decision gates whether B3's parse-layer deletion
   proceeds.
-- Should the shared `defineCli`/`execGroup` helpers live in `@asdl/core/cli-entry`
-  or in `clinkr` itself? (`cli-entry` already hosts `isDirectCliInvocation` and
-  is imported by 14/15 CLIs, suggesting it; `execGroup` is more naturally a
-  `clinkr` factory.)
+- Where should the `execGroup(description?)` helper live: in `clinkr` itself or
+  in a shared CLI helper layer? The `defineCli` half is resolved in current code:
+  it lives in `@sdl/core/cli-entry`, and all 15 `cli.ts` files consume it.
 - For the two `legacyCommand`-based CLIs (`plans`, `branch-context`), is
   migrating off the deprecated path in scope here or a separate Objective?
