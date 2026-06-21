@@ -288,7 +288,7 @@ Contract:
 - Apply the **Tracking Gate** before recommending next work or offering execution.
 - Prefer next work that clarifies active assumptions or de-risks unresolved risks when that is the smallest coherent step.
 - Include a best-effort work-left estimate as remaining semantic steps/slices, not calendar time. If the remaining path is clear, estimate work until Objective completion; otherwise estimate work until the next discovery or decision step where additional work can be identified.
-- If the Tracking Gate indicates likely unrecorded progress, ask whether to run `objective-update` for the same selected objective before recommending or executing next work. If the user confirms or explicitly preauthorized update-and-continue, perform that update, reread the objective and repo evidence, then continue `objective-next`; otherwise stop without a recommendation or execution offer.
+- If the Tracking Gate indicates clear material current-branch or worktree progress for the same selected objective that is absent from objective tracking, treat the `objective-next` request as update-and-continue preauthorization: run `objective-update`, reread the objective and repo evidence, then continue `objective-next`. Ask first only when evidence, objective fit, or update scope is ambiguous; if confirmation is then pending or declined, stop without a recommendation or execution offer.
 - Direct execution offers for future/proactive runs require explicit Objective prose policy, such as `## Runner Policy` plus enough `## Definition of Progress` guidance, or row-level `Policy:` prose that clearly permits direct execution for the selected slice.
 - A clear affirmative confirmation may execute the current session's concrete `objective-next` recommendation without adding durable Runner Policy, when the previous response selected the same Objective, named one coherent semantic step, bounded likely scope, and described completion evidence. If any of those are missing or ambiguous, restate a bounded preview and ask before executing.
 - Do not infer durable execution permission from roadmap concreteness alone. Missing durable policy means future sessions should recommend by default; it does not block a user-confirmed continuation of the current concrete recommendation.
@@ -387,12 +387,12 @@ Markdown-only v1 behavior:
 - Inspect current uncommitted changes and branch diff when available.
 - Look for material non-objective changes that plausibly advance the selected objective.
 - Look for corresponding changes under `.sdl/objectives/<slug>/`.
-- If material objective progress appears unrecorded, block next-work recommendation and ask whether to run `objective-update` for the same selected objective.
-- If the user confirms or preauthorized update-and-continue, perform the explicit update workflow, reread the objective and repo evidence, and then continue `objective-next`.
-- If confirmation is pending or declined, stop without a next-work recommendation.
-- If evidence is absent, ambiguous, or clearly unrelated, proceed with a concise note.
+- If material objective progress appears clearly unrecorded for the same selected objective, block next-work recommendation, perform the explicit `objective-update` workflow, reread the objective and repo evidence, and then continue `objective-next`.
+- If material progress appears likely but evidence, objective fit, or update scope is ambiguous, ask whether to run `objective-update` for the same selected objective.
+- If ambiguous-case confirmation is pending or declined, stop without a next-work recommendation.
+- If evidence is absent or clearly unrelated, proceed with a concise note.
 
-The Tracking Gate check must not mutate files, auto-refresh objective state, or perform hidden reconciliation. It runs before both recommendation and execution-offer paths. When it blocks, `objective-next` may offer a user-confirmed handoff to `objective-update`; any file changes belong to that explicit update workflow, not to the read-only gate.
+The Tracking Gate check itself must not mutate files, auto-refresh objective state, or perform hidden reconciliation. It runs before both recommendation and execution-offer paths. When it clearly blocks, `objective-next` routes into the explicit `objective-update` workflow for the same selected objective; when it ambiguously blocks, it may offer a user-confirmed handoff to `objective-update`. Any file changes belong to that explicit update workflow, not to the read-only gate check.
 
 Deterministic git comparison and changed-path scope facts for the Tracking Gate are left as future CLI work; collection of branch evidence and semantic materiality both remain LM/human-authored in v1.
 

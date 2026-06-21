@@ -13,7 +13,7 @@ Update Objective tracking for exactly one selected Objective. Use the `objective
 
 Run when the user explicitly asks to update Objective tracking, record progress, says branch/PR changes need an Objective update, invokes `$objective-update`, or provides a `<skill name="objective-update">` block as an action cue.
 
-Also run when `objective-next` selected a slug/path, its Tracking Gate blocks, and the user confirms or preauthorizes updating that same Objective before continuing.
+Also run when `objective-next` selected a slug/path, its Tracking Gate blocks, and either the gate's clear-progress auto-update policy applies or the user otherwise confirms/preauthorizes updating that same Objective before continuing.
 
 If the user only asks about the skill or pastes it with no clear update intent, ask: `Do you want me to run objective-update for the current branch now?`
 
