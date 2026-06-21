@@ -12,7 +12,7 @@ import {
 	ScriptedCommandExecApi,
 	ScriptedCommandRunner,
 	ScriptedQueue,
-	ScriptedTextGenerationGateway,
+	ScriptedTextGenerator,
 	step,
 	withTempRepoSkill,
 } from "@sdl/core/testing";
@@ -28,7 +28,7 @@ test("exports testing helpers through the package testing subpath", () => {
 	expect(typeof ScriptedCommandRunner).toBe("function");
 	expect(typeof ScriptedCommandExecApi).toBe("function");
 	expect(typeof ScriptedQueue).toBe("function");
-	expect(typeof ScriptedTextGenerationGateway).toBe("function");
+	expect(typeof ScriptedTextGenerator).toBe("function");
 	expect(typeof step).toBe("function");
 	expect(brmemCheckJson(true)).toBe(JSON.stringify({ exit_code: 0, data: { present: true } }));
 });
@@ -64,7 +64,7 @@ test("scripted helpers record calls and validate expected steps", async () => {
 		{ command: "gh", args: ["pr", "view"], options: { cwd: "/repo", stdin: "payload" } },
 	]);
 
-	const textGeneration = new ScriptedTextGenerationGateway([{ ok: true, text: "generated" }]);
+	const textGeneration = new ScriptedTextGenerator([{ ok: true, text: "generated" }]);
 	await expect(
 		textGeneration.generateText({
 			modelRef: "model",

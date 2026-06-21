@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
-import type { ExecResult, SdlContext, TextGenerationGateway } from "@sdl/sdl/sdk";
+import type { ExecResult, SdlContext, TextGenerator } from "@sdl/sdl/sdk";
 
 // This project-local extension intentionally uses only the public SDL SDK import. The local
 // checkpoint helpers below are SDK-pressure evidence for later command migrations, not new SDK API.
@@ -212,7 +212,7 @@ function execGit(ctx: SdlContext, args: string[], timeoutMs: number): Promise<Ex
 async function prepareCheckpointMessage(input: {
   status: string;
   diff: string;
-  textGeneration: TextGenerationGateway;
+  textGeneration: TextGenerator;
   modelRef: string;
 }): Promise<PreparedCheckpointMessage> {
   let prompt = buildCheckpointUserPrompt({ status: input.status, diff: input.diff });
@@ -252,7 +252,7 @@ async function prepareCheckpointMessage(input: {
 }
 
 function generateCheckpointText(
-  textGeneration: TextGenerationGateway,
+  textGeneration: TextGenerator,
   modelRef: string,
   prompt: string,
 ): Promise<{ ok: true; text: string } | { ok: false; error: string }> {

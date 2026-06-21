@@ -9,7 +9,7 @@ import {
 	formatCheckpointValidationFeedback,
 	validateCheckpointMessage,
 } from "./checkpoint-message.ts";
-import type { TextGenerationGateway } from "./text-generation.ts";
+import type { TextGenerator } from "./text-generation.ts";
 import { prepareRepairedText } from "./text-repair.ts";
 
 export const CHECKPOINT_SYSTEM_PROMPT = `You write terse checkpoint commit messages for coding agents.
@@ -71,7 +71,7 @@ export type PreparedCheckpointMessage =
 export async function prepareCheckpointMessage(input: {
 	status: string;
 	diff: string;
-	textGeneration: TextGenerationGateway;
+	textGeneration: TextGenerator;
 	modelRef: string;
 }): Promise<PreparedCheckpointMessage> {
 	const initialPrompt = buildCheckpointUserPrompt({ status: input.status, diff: input.diff });
@@ -299,7 +299,7 @@ function promptBlock(value: string, emptyPlaceholder: string): string {
 }
 
 async function generateCheckpointText(
-	textGeneration: TextGenerationGateway,
+	textGeneration: TextGenerator,
 	modelRef: string,
 	prompt: string,
 ): Promise<{ ok: true; text: string } | { ok: false; error: string }> {

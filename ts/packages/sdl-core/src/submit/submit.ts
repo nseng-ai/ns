@@ -27,7 +27,7 @@ import {
 	generateSubmitPrDescriptions,
 } from "./submit-pr-descriptions.ts";
 import { prNumberFromLink } from "./submit-pr-link.ts";
-import type { TextGenerationGateway } from "./text-generation.ts";
+import type { TextGenerator } from "./text-generation.ts";
 
 const SUBMIT_ARGS = [
 	"submit",
@@ -191,7 +191,7 @@ export interface SubmitCommandResult {
 
 export interface SubmitPrDescriptionOptions {
 	githubPr: GithubPrGateway;
-	textGeneration: TextGenerationGateway;
+	textGeneration: TextGenerator;
 	git: GitGateway;
 	env: Record<string, string | undefined>;
 }

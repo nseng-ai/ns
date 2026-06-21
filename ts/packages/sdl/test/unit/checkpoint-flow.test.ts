@@ -7,7 +7,7 @@ import {
 	type CommandResult,
 } from "@sdl/sdl/checkpoint-flow";
 import type {
-	TextGenerationGateway,
+	TextGenerator,
 	TextGenerationRequest,
 	TextGenerationResult,
 } from "@sdl/sdl/text-generation";
@@ -22,7 +22,7 @@ const fourBulletMessage = `[cp] Resolve checkpoint import drift
 - Refresh checkpoint validation coverage
 - Add one extra bullet that should be rejected`;
 
-class ScriptedTextGenerationGateway implements TextGenerationGateway {
+class ScriptedTextGenerator implements TextGenerator {
 	private readonly results: TextGenerationResult[];
 	readonly calls: TextGenerationRequest[] = [];
 
@@ -115,7 +115,7 @@ describe("buildCheckpointUserPrompt", () => {
 
 describe("prepareCheckpointMessage", () => {
 	test("valid first model draft returns after one generation call", async () => {
-		const textGeneration = new ScriptedTextGenerationGateway([{ ok: true, text: validMessage }]);
+		const textGeneration = new ScriptedTextGenerator([{ ok: true, text: validMessage }]);
 
 		const result = await prepareCheckpointMessage({
 			status: " M file.ts\n",
@@ -136,7 +136,7 @@ describe("prepareCheckpointMessage", () => {
 	});
 
 	test("invalid first draft sends validation feedback and accepts repaired draft", async () => {
-		const textGeneration = new ScriptedTextGenerationGateway([
+		const textGeneration = new ScriptedTextGenerator([
 			{ ok: true, text: fourBulletMessage },
 			{ ok: true, text: validMessage },
 		]);
@@ -162,7 +162,7 @@ describe("prepareCheckpointMessage", () => {
 	});
 
 	test("repair prompt for large diff stays compacted", async () => {
-		const textGeneration = new ScriptedTextGenerationGateway([
+		const textGeneration = new ScriptedTextGenerator([
 			{ ok: true, text: fourBulletMessage },
 			{ ok: true, text: validMessage },
 		]);
@@ -188,7 +188,7 @@ describe("prepareCheckpointMessage", () => {
 
 	test("repair prompt caps oversized invalid model output", async () => {
 		const oversizedInvalidDraft = `not a checkpoint message ${"q".repeat(30_000)}\nREPAIR_DRAFT_SENTINEL_SHOULD_NOT_APPEAR`;
-		const textGeneration = new ScriptedTextGenerationGateway([
+		const textGeneration = new ScriptedTextGenerator([
 			{ ok: true, text: oversizedInvalidDraft },
 			{ ok: true, text: validMessage },
 		]);
@@ -210,7 +210,7 @@ describe("prepareCheckpointMessage", () => {
 	});
 
 	test("invalid first and second drafts return failure instead of template recovery", async () => {
-		const textGeneration = new ScriptedTextGenerationGateway([
+		const textGeneration = new ScriptedTextGenerator([
 			{ ok: true, text: fourBulletMessage },
 			{ ok: true, text: "still invalid" },
 		]);
@@ -233,7 +233,7 @@ describe("prepareCheckpointMessage", () => {
 	});
 
 	test("first-call generation error returns failure", async () => {
-		const textGeneration = new ScriptedTextGenerationGateway([{ ok: false, error: "auth failed" }]);
+		const textGeneration = new ScriptedTextGenerator([{ ok: false, error: "auth failed" }]);
 
 		const result = await prepareCheckpointMessage({
 			status: " M file.ts\n",
@@ -247,7 +247,7 @@ describe("prepareCheckpointMessage", () => {
 	});
 
 	test("second-call generation error returns failure", async () => {
-		const textGeneration = new ScriptedTextGenerationGateway([
+		const textGeneration = new ScriptedTextGenerator([
 			{ ok: true, text: fourBulletMessage },
 			{ ok: false, error: "model unavailable" },
 		]);
