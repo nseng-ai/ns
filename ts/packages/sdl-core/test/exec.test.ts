@@ -2,8 +2,10 @@ import { describe, expect, test } from "vitest";
 
 import {
 	commandFailureReason,
+	commandSucceeded,
 	execApiToCommandRunner,
 	formatCommand,
+	formatCommandEvidence,
 	formatCommandResultFailure,
 	formatCommandStartupFailure,
 	formatOutputSection,
@@ -79,9 +81,35 @@ describe("exec presentation helpers", () => {
 	});
 
 	test("classifies successful exec results", () => {
+		expect(commandSucceeded({ stdout: "", stderr: "", code: 0, killed: false })).toBe(true);
+		expect(commandSucceeded({ stdout: "", stderr: "", code: 1, killed: false })).toBe(false);
+		expect(commandSucceeded({ stdout: "", stderr: "", code: 0, killed: true })).toBe(false);
 		expect(isSuccessfulExecResult({ stdout: "", stderr: "", code: 0, killed: false })).toBe(true);
-		expect(isSuccessfulExecResult({ stdout: "", stderr: "", code: 1, killed: false })).toBe(false);
-		expect(isSuccessfulExecResult({ stdout: "", stderr: "", code: 0, killed: true })).toBe(false);
+	});
+
+	test("formats full command evidence for SDK command failures", () => {
+		expect(
+			formatCommandEvidence({
+				intro: "Could not inspect status.",
+				command: "git status --porcelain",
+				cwd: "/repo",
+				result: { stdout: "", stderr: "fatal: nope\n", code: 128, killed: false },
+				guidance: "Fix the repository state.",
+			}),
+		).toBe(
+			[
+				"Could not inspect status.",
+				"Command: git status --porcelain",
+				"Cwd: /repo",
+				"Exit: 128",
+				"Killed: false",
+				"Fix the repository state.",
+				"stdout:",
+				"<empty>",
+				"stderr:",
+				"fatal: nope",
+			].join("\n"),
+		);
 	});
 
 	test("formats concise command failure reasons", () => {

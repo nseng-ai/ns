@@ -24,9 +24,13 @@
   - Current evidence: first-slice Pi changes kept only explicit `changes` mirrors; the `cp` slice restored flat `/sdl:cp`; the submit slice restored flat `/sdl:submit` only, left `/sdl:code:submit` and legacy submit aliases absent, and updated command-surface replacement/push guidance accordingly. The broader row remains active for later `regenerate-pr` migration and any dynamic Pi discovery decision.
   - Evidence should include parity/registration tests or documented limitations for project-local static mirrors.
 
+- [x] Promote the first command-result evidence helpers into the public SDL SDK.
+  - Policy: direct execution after the promotion report selected the proof-of-mechanism surface.
+  - Evidence: `@sdl/core/exec` now owns `commandSucceeded()` and `formatCommandEvidence()`, `@sdl/sdl/sdk` re-exports them, the jiti virtual SDK module binds them for user-authored `.sdl/extensions/*.ts` modules, and `.sdl/extensions/push.ts` imports them instead of carrying local copies. SDK type coverage and the virtual-module mirror test cover the public surface; the push scenario validates selected extension loading through `@sdl/sdl/sdk`.
+
 - [~] Document the emerging SDL kernel and extension SDK model.
   - Policy: direct execution after preview; steer first before finalizing public extension terminology that affects authors.
-  - Current evidence: the single-file SDL extension boundary is now documented in SDL README/context language and in `.sdl/extensions/AGENTS.md`: direct `.sdl/extensions/<name>.ts` modules are leaf authoring surfaces, packages must not import from them, and reusable behavior must move or be copied into package-owned modules before packages depend on it.
+  - Current evidence: the single-file SDL extension boundary is now documented in SDL README/context language and in `.sdl/extensions/AGENTS.md`: direct `.sdl/extensions/<name>.ts` modules are leaf authoring surfaces, packages must not import from them, and reusable behavior must move or be copied into package-owned modules before packages depend on it. The first promoted helper slice documents `commandSucceeded()` and `formatCommandEvidence()` as public SDK command-result evidence helpers.
   - Remaining scope: explain kernel responsibilities, public SDK imports, internal migration exports, project-local extension discovery, project-local versus bundled extension criteria, and the command-first promotion rule for new SDK capabilities.
   - Evidence should include SDL README/context updates and any necessary context-map language refresh.
 
