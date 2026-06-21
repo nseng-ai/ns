@@ -45,12 +45,12 @@ A single-segment SDL command name such as `submit`, `changes`, `autobranch`, `au
 *Avoid*: `sdl pr regen`, `sdl slot auto`, command taxonomy churn.
 
 **SDL extension API**:
-The `@sdl/sdl/sdk` subpath used by SDL extension authors. It exposes `defineExtension()`, `ok()`, `failed()`, `commandSucceeded()`, `formatCommandEvidence()`, `SdlContext`, extension/command types, result types, and `z` for SDK-owned schema identity. Single-file SDL extensions should use this API rather than SDL implementation modules; packages must never depend on single-file extensions.
-*Avoid*: Pi runtime extension API, importing implementation modules, copying SDK types, resolving SDK through project-local internals, importing from single-file extensions, factory-registration API.
+The concrete `@sdl/sdl/sdk` subpath used by SDL extension authors — the live instance that fills the Public author API slot today. It exposes `defineExtension()`, `ok()`, `failed()`, `commandSucceeded()`, `formatCommandEvidence()`, `SdlContext`, extension/command types, result types, and `z` for SDK-owned schema identity. Single-file SDL extensions should use this API rather than SDL implementation modules; packages must never depend on single-file extensions.
+*Avoid*: Public SDL extension API (third label for the same referent), Pi runtime extension API, importing implementation modules, copying SDK types, resolving SDK through project-local internals, importing from single-file extensions, factory-registration API.
 
 **Public author API**:
-The stable package subpath intended for SDL extension authors. For SDL extensions, this is currently `@sdl/sdl/sdk`.
-*Avoid*: internal migration export, workspace-private helper, public promise for every package export, unqualified extension API.
+The abstract slot — the stable package subpath we promise to point SDL extension authors at, independent of which subpath currently fills it. The SDL extension API (`@sdl/sdl/sdk`) is its current and only filler. Use this term for the promise/contract; use SDL extension API for the concrete exports.
+*Avoid*: synonym for `@sdl/sdl/sdk`, internal migration export, workspace-private helper, public promise for every package export, unqualified extension API.
 
 **Internal migration export**:
 An SDL package subpath that exists so SDL workspace packages can share primitives during migration, but is not promised as a plugin-author API.
