@@ -19,6 +19,7 @@ import {
 	testContext,
 } from "./worktree-status-test-support.ts";
 import worktreeStatusExtension, {
+	requestWorktreeStatusRefresh,
 	WORKTREE_STATUS_REFRESH_COMMAND_NAME,
 	type ExtensionAPI,
 } from "../src/worktree-status.ts";
@@ -218,6 +219,39 @@ describe("worktree status refresh lifecycle", () => {
 		expect(loaders.ghCalls).toHaveLength(1);
 		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
 			"[gt] ↓ main · ↑ - · 1 commit · ✗\n[gh] no PR",
+		);
+		await pi.sessionShutdown?.();
+	});
+
+	test("requestWorktreeStatusRefresh reruns active session local and forced remote status", async () => {
+		const pi = new LifecycleFakePi([]);
+		const loaders = fakeWorktreeStatusLoaders({
+			localStatuses: [
+				queued(localStatus()),
+				queued(
+					localStatus({
+						gt: gtStatus({ commits: { type: "count", count: 2 }, dirty: "yes" }),
+					}),
+				),
+			],
+			ghStatuses: [queued({ type: "no-pr" }), queued({ type: "no-pr" })],
+		});
+		const statuses = new Map<string, string | undefined>();
+		const ctx = testContext(statuses);
+
+		worktreeStatusExtension(pi as ExtensionAPI, { loaders });
+		await pi.sessionStart?.({}, ctx);
+		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
+			"[gt] ↓ main · ↑ - · 1 commit\n[gh] no PR",
+		);
+
+		await requestWorktreeStatusRefresh();
+
+		pi.assertDone();
+		expect(loaders.localCalls).toHaveLength(2);
+		expect(loaders.ghCalls).toHaveLength(2);
+		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
+			"[gt] ↓ main · ↑ - · 2 commits · ✗\n[gh] no PR",
 		);
 		await pi.sessionShutdown?.();
 	});
