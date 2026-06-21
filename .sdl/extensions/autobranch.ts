@@ -472,7 +472,7 @@ async function prepareAutobranchPlan(
   const prepared = await prepareCheckpointMessage({
     status: snapshot.status,
     diff: snapshot.diff,
-    textGeneration: ctx.model,
+    textGeneration: ctx.textGenerator,
     modelRef: selectCheckpointModelRef(ctx.env),
   });
   if (!prepared.ok) {

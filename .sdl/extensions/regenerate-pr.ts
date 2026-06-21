@@ -289,7 +289,7 @@ async function generateRegeneratedPrMetadata(
   if (!commits.ok) return { ok: false, error: commits.error.message };
 
   const prepared = await preparePrDescription({
-    textGeneration: ctx.model,
+    textGeneration: ctx.textGenerator,
     modelRef: generation.modelRef,
     promptText: generation.promptText,
     pr,

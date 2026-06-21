@@ -21,7 +21,11 @@ export const defaultChangesCommand = {
 			return ok("Working tree is clean; no outstanding changes.");
 		}
 
-		const summary = await draftChangesSummary({ model: ctx.model, env: ctx.env, snapshot });
+		const summary = await draftChangesSummary({
+			textGenerator: ctx.textGenerator,
+			env: ctx.env,
+			snapshot,
+		});
 		if (!summary.ok) {
 			return failed(summary.error, 2);
 		}

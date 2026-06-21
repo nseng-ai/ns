@@ -162,7 +162,7 @@ describe("sdl regenerate-pr CLI availability", () => {
 			expect(run.stdout.join("")).toBe("");
 			expect(run.stderr.join("")).toMatch(/too many arguments|unknown/i);
 			expect(run.context.execCalls).toEqual([]);
-			expect(run.context.modelCalls).toEqual([]);
+			expect(run.context.textGenerationCalls).toEqual([]);
 		}
 	});
 
@@ -220,14 +220,14 @@ describe("project-local regenerate-pr extension", () => {
 				expect.stringMatching(/^gh pr edit 123 --title Improve PR descriptions --body-file /),
 			]),
 		);
-		expect(run.context.modelCalls[0]).toMatchObject({
+		expect(run.context.textGenerationCalls[0]).toMatchObject({
 			operation: "pr-description",
 			modelRef: "openai-codex/gpt-5.4-mini",
 			maxTokens: 2048,
 			reasoning: "low",
 		});
-		expect(run.context.modelCalls[0]?.prompt).toContain("## Context");
-		expect(run.context.modelCalls[0]?.prompt).toContain("## Diff");
+		expect(run.context.textGenerationCalls[0]?.prompt).toContain("## Context");
+		expect(run.context.textGenerationCalls[0]?.prompt).toContain("## Diff");
 	});
 
 	test("declined confirmation does not edit GitHub", async () => {
@@ -330,7 +330,7 @@ describe("project-local regenerate-pr extension", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(run.context.modelCalls[0]?.modelRef).toBe("openai-codex/custom-mini");
+		expect(run.context.textGenerationCalls[0]?.modelRef).toBe("openai-codex/custom-mini");
 	});
 
 	test("reports the historical env prompt path in success output", async () => {
@@ -345,7 +345,7 @@ describe("project-local regenerate-pr extension", () => {
 
 			expect(await run.exit).toBe(0);
 			expect(run.stdout.join("")).toContain(`Prompt: ${promptPath}`);
-			expect(run.context.modelCalls[0]?.system).toBe("custom system prompt");
+			expect(run.context.textGenerationCalls[0]?.system).toBe("custom system prompt");
 		} finally {
 			await rm(promptPath, { force: true });
 		}

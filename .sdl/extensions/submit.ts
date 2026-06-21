@@ -3197,7 +3197,7 @@ var submit_entry_default = defineExtension({
           cwd: ctx.cwd,
           env: ctx.env,
           gateway: new RealCheckpointGateway(runner),
-          textGeneration: ctx.model
+          textGeneration: ctx.textGenerator
         });
         if (checkpoint.kind === "failed") {
           const checkpointFailure = await maybeFormatSubmitFailureWithModel({
@@ -3220,7 +3220,7 @@ var submit_entry_default = defineExtension({
           shouldForwardCommandOutput: request.verbose,
           prDescription: {
             githubPr: new RealGithubPrGateway(runner),
-            textGeneration: ctx.model,
+            textGeneration: ctx.textGenerator,
             git: new LocalGitGateway(new SdlCommandExecApi(ctx)),
             env: ctx.env
           },
@@ -3335,7 +3335,7 @@ async function maybeFormatSubmitFailureWithModel(result, ctx) {
 }
 async function generateSubmitFailureInterpretation(input) {
   try {
-    const interpretation = await input.ctx.model.generateText({
+    const interpretation = await input.ctx.textGenerator.generateText({
       modelRef: selectSubmitFailureModelRef(input.ctx.env),
       operation: "submit-failure",
       reasoning: "low",

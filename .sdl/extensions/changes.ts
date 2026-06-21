@@ -118,7 +118,7 @@ async function draftChangesSummary(
   ctx: SdlContext,
   snapshot: Pick<PendingWorktreeSnapshot, "branch" | "status" | "diff">,
 ): Promise<{ ok: true; summaryText: string } | { ok: false; error: string }> {
-  const drafted = await ctx.model.generateText({
+  const drafted = await ctx.textGenerator.generateText({
     modelRef: selectChangesModelRef(ctx.env),
     system: CHANGES_SUMMARY_SYSTEM_PROMPT,
     prompt: buildChangesUserPrompt(snapshot),

@@ -52,20 +52,20 @@ export class ScriptedSdlTestContext implements SdlContext {
 	readonly cwd: string;
 	readonly env: Record<string, string | undefined>;
 	readonly execCalls: ExecCall[] = [];
-	readonly modelCalls: TextGenerationRequest[] = [];
+	readonly textGenerationCalls: TextGenerationRequest[] = [];
 	stdout?: ((text: string) => void) | undefined;
 	stderr?: ((text: string) => void) | undefined;
 	onOutput?: ((stream: "stdout" | "stderr", text: string) => void) | undefined;
 	confirm?: SdlConfirmPrompt | undefined;
 	private readonly execResponses: ScriptedExecResponse[];
-	private readonly modelResults: ScriptedTextGenerationResult[];
+	private readonly textGenerationResults: ScriptedTextGenerationResult[];
 	private readonly missingTextGenerationResult: (() => TextGenerationResult) | undefined;
 
 	constructor(state: TestState = {}, options: ScriptedSdlTestContextOptions) {
 		this.cwd = options.cwd ?? "/work";
 		this.env = options.env ?? {};
 		this.execResponses = [...(state.exec ?? options.execResponses())];
-		this.modelResults = [...(state.textGeneration ?? options.textGenerationResults())];
+		this.textGenerationResults = [...(state.textGeneration ?? options.textGenerationResults())];
 		this.missingTextGenerationResult = options.missingTextGenerationResult;
 		this.confirm = state.confirm;
 	}
@@ -87,10 +87,10 @@ export class ScriptedSdlTestContext implements SdlContext {
 		return result;
 	}
 
-	readonly model = {
+	readonly textGenerator = {
 		generateText: async (request: TextGenerationRequest): Promise<TextGenerationResult> => {
-			this.modelCalls.push({ ...request });
-			return await (this.modelResults.shift() ??
+			this.textGenerationCalls.push({ ...request });
+			return await (this.textGenerationResults.shift() ??
 				this.missingTextGenerationResult?.() ?? {
 					ok: false,
 					error: "missing scripted text result",

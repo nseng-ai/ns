@@ -165,7 +165,7 @@ describe("sdl autobranch CLI availability", () => {
 			expect(run.stdout.join("")).toBe("");
 			expect(run.stderr.join("")).toMatch(/too many arguments|unknown/i);
 			expect(run.context.execCalls).toEqual([]);
-			expect(run.context.modelCalls).toEqual([]);
+			expect(run.context.textGenerationCalls).toEqual([]);
 		}
 	});
 
@@ -229,8 +229,8 @@ describe("project-local autobranch extension", () => {
 			"git status --porcelain=v1",
 		]);
 		expect(run.context.execCalls.some((call) => call.command === "pi")).toBe(false);
-		expect(run.context.modelCalls).toHaveLength(1);
-		expect(run.context.modelCalls[0]).toMatchObject({
+		expect(run.context.textGenerationCalls).toHaveLength(1);
+		expect(run.context.textGenerationCalls[0]).toMatchObject({
 			operation: "checkpoint-message",
 			modelRef: "openai-codex/gpt-5.4-mini",
 		});
@@ -265,7 +265,7 @@ describe("project-local autobranch extension", () => {
 				"git branch -D autobranch-backup/feature/source/123456789",
 			]),
 		);
-		expect(run.context.modelCalls).toEqual([]);
+		expect(run.context.textGenerationCalls).toEqual([]);
 	});
 
 	test("writes latest-commit recovery cleanup warnings to stderr only", async () => {
@@ -301,6 +301,6 @@ describe("project-local autobranch extension", () => {
 		expect(run.stdout.join("")).toBe("");
 		expect(run.stderr.join("")).toContain("Not inside a git repository.");
 		expect(run.stderr.join("")).toContain("fatal: not a git repo");
-		expect(run.context.modelCalls).toEqual([]);
+		expect(run.context.textGenerationCalls).toEqual([]);
 	});
 });
