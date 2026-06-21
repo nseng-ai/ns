@@ -104,6 +104,21 @@ describe("resolveBrmemCommandCandidates", () => {
 		]);
 	});
 
+	test("adds the TS workspace brmem package as a pnpm fallback", () => {
+		const exists = fakeExists([
+			"/repo/ts/pnpm-workspace.yaml",
+			"/repo/ts/packages/brmem/package.json",
+		]);
+
+		expect(resolveBrmemCommandCandidates("/repo/pkg/app", { exists })).toEqual([
+			{ command: "brmem", prefixArgs: [] },
+			{
+				command: "pnpm",
+				prefixArgs: ["--config.verify-deps-before-run=false", "--dir", "/repo/ts", "exec", "brmem"],
+			},
+		]);
+	});
+
 	test("ignores old Python venv and uv fallback locations", () => {
 		expect(
 			resolveBrmemCommandCandidates("/repo/pkg/app", {
@@ -262,6 +277,31 @@ describe("runFirstAvailableBrmemCommand", () => {
 		expect(message).toContain("just install-tools");
 		expect(message).toContain("Command: brmem list --format json");
 		expect(message).not.toContain("uv run");
+	});
+
+	test("falls back to the TS workspace brmem command after PATH brmem is unavailable", async () => {
+		const workspaceRoot = process.cwd();
+		const gateway = new FakeGateway([
+			step("brmem", ["list"], { code: 127, stderr: "brmem: command not found" }),
+			step(
+				"pnpm",
+				["--config.verify-deps-before-run=false", "--dir", workspaceRoot, "exec", "brmem", "list"],
+				{ code: 0, stdout: "{}" },
+			),
+		]);
+
+		const run = await runFirstAvailableBrmemCommand({
+			gateway,
+			cwd: workspaceRoot,
+			brmemArgs: ["list"],
+			timeoutMs: 1000,
+		});
+
+		gateway.assertDone();
+		expect(run.type).toBe("completed");
+		if (run.type !== "completed") throw new Error(`expected completed run, got ${run.type}`);
+		expect(run.command).toBe("pnpm");
+		expect(run.result.stdout).toBe("{}");
 	});
 
 	test("returns unavailable after an explicit startupError result", async () => {

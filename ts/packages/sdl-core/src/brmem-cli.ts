@@ -1,3 +1,6 @@
+import { existsSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+
 import {
 	MAX_ERROR_CHARS,
 	formatCommand,
@@ -16,7 +19,7 @@ export interface BrmemExecGateway {
 	exec(
 		command: string,
 		args: string[],
-		options?: { cwd?: string; timeout?: number; signal?: AbortSignal },
+		options?: { cwd?: string; env?: NodeJS.ProcessEnv; timeout?: number; signal?: AbortSignal },
 	): Promise<PiExecResultLike>;
 }
 
@@ -58,6 +61,7 @@ export interface RunBrmemCandidateOptions {
 	candidate: BrmemCommandCandidate;
 	brmemArgs: readonly string[];
 	timeoutMs: number;
+	env?: NodeJS.ProcessEnv | undefined;
 	signal?: AbortSignal | undefined;
 }
 
@@ -66,6 +70,7 @@ export interface RunFirstAvailableBrmemCommandOptions {
 	cwd: string;
 	brmemArgs: readonly string[];
 	timeoutMs: number;
+	env?: NodeJS.ProcessEnv | undefined;
 	signal?: AbortSignal | undefined;
 }
 
@@ -84,6 +89,7 @@ export interface RunAvailableBrmemCommandOptions {
 	cwd: string;
 	brmemArgs: readonly string[];
 	timeoutMs?: number;
+	env?: NodeJS.ProcessEnv | undefined;
 	signal?: AbortSignal | undefined;
 }
 
@@ -130,21 +136,34 @@ export function resolveBrmemCommandCandidates(
 	cwd: string,
 	options: { exists?: (path: string) => boolean } = {},
 ): BrmemCommandCandidate[] {
-	void cwd;
-	void options;
-	return [{ command: "brmem", prefixArgs: [] }];
+	const exists = options.exists ?? existsSync;
+	const candidates: BrmemCommandCandidate[] = [{ command: "brmem", prefixArgs: [] }];
+	const tsWorkspaceRoot = findTsWorkspaceRoot(cwd, exists);
+	if (tsWorkspaceRoot !== null) {
+		candidates.push({
+			command: "pnpm",
+			prefixArgs: [
+				"--config.verify-deps-before-run=false",
+				"--dir",
+				tsWorkspaceRoot,
+				"exec",
+				"brmem",
+			],
+		});
+	}
+	return candidates;
 }
 
 export async function runBrmemCandidate(
 	options: RunBrmemCandidateOptions,
 ): Promise<BrmemCandidateRun> {
-	const { gateway, cwd, candidate, brmemArgs, timeoutMs, signal } = options;
+	const { gateway, cwd, candidate, brmemArgs, timeoutMs, env, signal } = options;
 	const args = [...candidate.prefixArgs, ...brmemArgs];
 	const displayCommand = formatCommand(candidate.command, args);
 
 	try {
 		const result = normalizeExecResult(
-			await gateway.exec(candidate.command, args, execOptions(cwd, timeoutMs, signal)),
+			await gateway.exec(candidate.command, args, execOptions(cwd, timeoutMs, env, signal)),
 		);
 		if (isLikelyCommandNotFound(result)) {
 			return {
@@ -184,10 +203,18 @@ export async function runBrmemCandidate(
 export async function runFirstAvailableBrmemCommand(
 	options: RunFirstAvailableBrmemCommandOptions,
 ): Promise<FirstAvailableBrmemCommandRun> {
-	const { gateway, cwd, brmemArgs, timeoutMs, signal } = options;
+	const { gateway, cwd, brmemArgs, timeoutMs, env, signal } = options;
 	const failures: UnavailableBrmemRun[] = [];
 	for (const candidate of resolveBrmemCommandCandidates(cwd)) {
-		const run = await runBrmemCandidate({ gateway, cwd, candidate, brmemArgs, timeoutMs, signal });
+		const run = await runBrmemCandidate({
+			gateway,
+			cwd,
+			candidate,
+			brmemArgs,
+			timeoutMs,
+			...(env === undefined ? {} : { env }),
+			signal,
+		});
 		if (run.type === "completed") return run;
 		failures.push(run);
 	}
@@ -203,6 +230,7 @@ export async function runAvailableBrmemCommand(
 		cwd: options.cwd,
 		brmemArgs: options.brmemArgs,
 		timeoutMs: options.timeoutMs ?? DEFAULT_BRMEM_TIMEOUT_MS,
+		...(options.env === undefined ? {} : { env: options.env }),
 		signal: options.signal,
 	});
 	if (run.type === "unavailable") {
@@ -521,11 +549,39 @@ function envelopeStatusText(envelope: Record<string, unknown>): string | undefin
 	return undefined;
 }
 
-function execOptions(cwd: string, timeout: number, signal: AbortSignal | undefined) {
-	if (signal === undefined) {
-		return { cwd, timeout };
+function findTsWorkspaceRoot(cwd: string, exists: (path: string) => boolean): string | null {
+	let current = resolve(cwd);
+	while (true) {
+		if (isTsWorkspaceRoot(current, exists)) return current;
+
+		const nestedTsRoot = join(current, "ts");
+		if (isTsWorkspaceRoot(nestedTsRoot, exists)) return nestedTsRoot;
+
+		const parent = dirname(current);
+		if (parent === current) return null;
+		current = parent;
 	}
-	return { cwd, timeout, signal };
+}
+
+function isTsWorkspaceRoot(path: string, exists: (path: string) => boolean): boolean {
+	return (
+		exists(join(path, "pnpm-workspace.yaml")) &&
+		exists(join(path, "packages", "brmem", "package.json"))
+	);
+}
+
+function execOptions(
+	cwd: string,
+	timeout: number,
+	env: NodeJS.ProcessEnv | undefined,
+	signal: AbortSignal | undefined,
+) {
+	return {
+		cwd,
+		timeout,
+		...(env === undefined ? {} : { env }),
+		...(signal === undefined ? {} : { signal }),
+	};
 }
 
 function formatStartupFailure(displayCommand: string, error: unknown): string {

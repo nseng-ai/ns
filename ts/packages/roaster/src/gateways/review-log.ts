@@ -1,10 +1,11 @@
+import { runAvailableBrmemCommand, type CompletedBrmemRun } from "@sdl/core/brmem-cli";
 import { commandFailureReason, type CommandExecApi } from "@sdl/core/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { withTemporaryFile } from "@sdl/core/temp-files";
 import { z } from "zod";
 
 import type { RoasterEnvironmentOptions } from "../context.ts";
-import type { ReviewLogFailure, RoasterResult } from "../failures.ts";
+import type { ReviewLogFailure, ReviewLogFailureType, RoasterResult } from "../failures.ts";
 import type { ReviewInputCoverage, ReviewRunResult, ReviewUsage } from "../models.ts";
 
 export const ROASTER_REVIEW_LOG_NAMESPACE = "roaster";
@@ -107,7 +108,9 @@ export class RealReviewLogGateway implements ReviewLogGateway {
 					"--format",
 					"json",
 				];
-				const result = await this.execApi.exec("brmem", args, execOptions(request));
+				const run = await this.runBrmem(request, args, "review_log_write_failed");
+				if (run.type === "error") return run;
+				const result = run.value.result;
 				if (result.code !== 0 || result.killed) {
 					return error({
 						type: "review_log_write_failed",
@@ -145,7 +148,9 @@ export class RealReviewLogGateway implements ReviewLogGateway {
 		request: ReviewLogListRequest,
 	): Promise<RoasterResult<readonly ReviewLogEntry[]>> {
 		const args = ["list", "--namespace", ROASTER_REVIEW_LOG_NAMESPACE, "--format", "json"];
-		const result = await this.execApi.exec("brmem", args, execOptions(request));
+		const run = await this.runBrmem(request, args, "review_log_list_failed");
+		if (run.type === "error") return run;
+		const result = run.value.result;
 		if (result.code !== 0 || result.killed) {
 			return error({
 				type: "review_log_list_failed",
@@ -180,6 +185,27 @@ export class RealReviewLogGateway implements ReviewLogGateway {
 			];
 		});
 		return { type: "ok", value: sortReviewLogEntries(entries) };
+	}
+
+	private async runBrmem(
+		request: RoasterEnvironmentOptions,
+		args: readonly string[],
+		failureType: ReviewLogFailureType,
+	): Promise<RoasterResult<CompletedBrmemRun>> {
+		const run = await runAvailableBrmemCommand({
+			gateway: this.execApi,
+			cwd: request.cwd,
+			brmemArgs: args,
+			...(request.env === undefined ? {} : { env: request.env }),
+			signal: request.signal,
+		});
+		if (!run.ok) {
+			return error({
+				type: failureType,
+				message: run.error.message,
+			});
+		}
+		return { type: "ok", value: run.value };
 	}
 }
 
@@ -468,14 +494,6 @@ function envelopeValueWithoutData<T>(
 	return {
 		exitCode: envelope.exit_code,
 		...(envelope.message === undefined ? {} : { message: envelope.message }),
-	};
-}
-
-function execOptions(options: RoasterEnvironmentOptions) {
-	return {
-		cwd: options.cwd,
-		...(options.env === undefined ? {} : { env: options.env }),
-		...(options.signal === undefined ? {} : { signal: options.signal }),
 	};
 }
 
