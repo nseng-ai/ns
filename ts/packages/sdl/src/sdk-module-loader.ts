@@ -17,21 +17,36 @@ import {
 	z,
 } from "./sdk.ts";
 
+const SDL_SRC_DIR = dirname(fileURLToPath(import.meta.url));
+
 /** Module specifier that SDL command entries import the SDK from. */
 const SDK_SPECIFIER = "@sdl/sdl/sdk";
-const CHECKPOINT_FLOW_SPECIFIER = "@sdl/sdl/checkpoint-flow";
-const CHANGES_MODEL_SUMMARY_SPECIFIER = "@sdl/sdl/changes-model-summary";
-const PR_DESCRIPTION_SPECIFIER = "@sdl/sdl/pr-description";
-const TEXT_GENERATION_SPECIFIER = "@sdl/sdl/text-generation";
-
-const SDL_SRC_DIR = dirname(fileURLToPath(import.meta.url));
 
 /** Absolute path to the SDK source module, used as the `alias` resolution target. */
 const SDK_MODULE_PATH = join(SDL_SRC_DIR, "sdk.ts");
-const CHECKPOINT_FLOW_MODULE_PATH = join(SDL_SRC_DIR, "checkpoint-flow.ts");
-const CHANGES_MODEL_SUMMARY_MODULE_PATH = join(SDL_SRC_DIR, "changes-model-summary.ts");
-const PR_DESCRIPTION_MODULE_PATH = join(SDL_SRC_DIR, "pr-description.ts");
-const TEXT_GENERATION_MODULE_PATH = join(SDL_SRC_DIR, "text-generation.ts");
+
+const INTERNAL_MIGRATION_MODULE_PATHS = {
+	"@sdl/sdl/checkpoint": "checkpoint.ts",
+	"@sdl/sdl/checkpoint-flow": "checkpoint-flow.ts",
+	"@sdl/sdl/checkpoint-message": "checkpoint-message.ts",
+	"@sdl/sdl/changes-model-summary": "changes-model-summary.ts",
+	"@sdl/sdl/cli": "cli.ts",
+	"@sdl/sdl/context": "context.ts",
+	"@sdl/sdl/pending-worktree": "pending-worktree.ts",
+	"@sdl/sdl/pi-text-generation": "pi-text-generation.ts",
+	"@sdl/sdl/pr-description": "pr-description.ts",
+	"@sdl/sdl/text-generation": "text-generation.ts",
+	"@sdl/sdl/text-repair": "text-repair.ts",
+} as const;
+
+function buildInternalMigrationAliases(): Record<string, string> {
+	return Object.fromEntries(
+		Object.entries(INTERNAL_MIGRATION_MODULE_PATHS).map(([specifier, relativePath]) => [
+			specifier,
+			join(SDL_SRC_DIR, relativePath),
+		]),
+	);
+}
 
 // Keep this object in sync with all runtime value exports from sdk.ts; type-only exports are erased.
 const sdlSdkVirtualModule = {
@@ -55,15 +70,16 @@ const sdlSdkVirtualModule = {
  * exact SDK object imported by this process, so command-entry commands and
  * schemas share host SDK identity instead of resolving dependency copies from
  * `.sdl/extensions`.
+ *
+ * Checked-in repo-local migration extensions may also import package subpaths
+ * listed as `internalMigrationExports`; aliases resolve those subpaths to this
+ * source tree without making them part of the public SDK virtual module.
  */
 export function createSdlJiti(): ReturnType<typeof createJiti> {
 	return createJiti(import.meta.url, {
 		alias: {
+			...buildInternalMigrationAliases(),
 			[SDK_SPECIFIER]: SDK_MODULE_PATH,
-			[CHECKPOINT_FLOW_SPECIFIER]: CHECKPOINT_FLOW_MODULE_PATH,
-			[CHANGES_MODEL_SUMMARY_SPECIFIER]: CHANGES_MODEL_SUMMARY_MODULE_PATH,
-			[PR_DESCRIPTION_SPECIFIER]: PR_DESCRIPTION_MODULE_PATH,
-			[TEXT_GENERATION_SPECIFIER]: TEXT_GENERATION_MODULE_PATH,
 		},
 		moduleCache: false,
 		virtualModules: {

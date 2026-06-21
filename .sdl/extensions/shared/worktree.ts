@@ -1,13 +1,14 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
+import { createCommitWithPreparedMessage } from "@sdl/sdl/checkpoint-flow";
+import {
+  formatPendingWorktreeCommandDetails,
+  loadPendingWorktreeSnapshot,
+  type WorktreeCommandResult,
+} from "@sdl/sdl/pending-worktree";
 import type { ExecResult, SdlExtensionApi } from "@sdl/sdl/sdk";
 
-const GIT_FACT_TIMEOUT_MS = 30_000;
-const GIT_COMMIT_TIMEOUT_MS = 120_000;
-const GIT_LOG_TIMEOUT_MS = 5_000;
-
+// Checked-in repo-local SDL migration extensions may use @sdl/sdl internal
+// migration exports to avoid copying canonical command primitives. This file
+// preserves the local extension-facing shapes and messages.
 export interface PendingWorktreeSnapshot {
   root: string;
   branch: string;
@@ -17,44 +18,39 @@ export interface PendingWorktreeSnapshot {
 }
 
 export type PendingWorktreeError =
-  | { kind: "not_git_repo"; result: ExecResult }
-  | { kind: "detached_head"; result: ExecResult }
-  | { kind: "status_failed"; result: ExecResult }
-  | { kind: "diff_failed"; result: ExecResult };
+  | { kind: "not_git_repo"; result: WorktreeCommandResult }
+  | { kind: "detached_head"; result: WorktreeCommandResult }
+  | { kind: "status_failed"; result: WorktreeCommandResult }
+  | { kind: "diff_failed"; result: WorktreeCommandResult };
 
-export async function loadPendingWorktreeSnapshot(
+async function loadExtensionPendingWorktreeSnapshot(
   ctx: SdlExtensionApi,
 ): Promise<
   { ok: true; snapshot: PendingWorktreeSnapshot } | { ok: false; error: PendingWorktreeError }
 > {
-  const root = await execGit(ctx, ["rev-parse", "--show-toplevel"], GIT_FACT_TIMEOUT_MS);
-  if (root.code !== 0) {
-    return { ok: false, error: { kind: "not_git_repo", result: root } };
-  }
+  const loaded = await loadPendingWorktreeSnapshot({
+    cwd: ctx.cwd,
+    execGit: (args, timeoutMs) => execGit(ctx, args, timeoutMs),
+  });
 
-  const branch = await execGit(ctx, ["symbolic-ref", "--short", "HEAD"], GIT_FACT_TIMEOUT_MS);
-  if (branch.code !== 0) {
-    return { ok: false, error: { kind: "detached_head", result: branch } };
-  }
-
-  const status = await execGit(ctx, ["status", "--porcelain=v1"], GIT_FACT_TIMEOUT_MS);
-  if (status.code !== 0) {
-    return { ok: false, error: { kind: "status_failed", result: status } };
-  }
-
-  const diff = await execGit(ctx, ["diff", "HEAD", "--no-ext-diff"], GIT_FACT_TIMEOUT_MS);
-  if (diff.code !== 0) {
-    return { ok: false, error: { kind: "diff_failed", result: diff } };
+  if (!loaded.ok) {
+    return {
+      ok: false,
+      error: {
+        kind: loaded.error.kind,
+        result: loaded.error.result,
+      },
+    };
   }
 
   return {
     ok: true,
     snapshot: {
-      root: root.stdout.trim(),
-      branch: branch.stdout.trim(),
-      status: status.stdout,
-      diff: diff.stdout,
-      isClean: status.stdout.trim().length === 0,
+      root: loaded.snapshot.root,
+      branch: loaded.snapshot.branch,
+      status: loaded.snapshot.status,
+      diff: loaded.snapshot.diff,
+      isClean: loaded.snapshot.clean,
     },
   };
 }
@@ -67,49 +63,15 @@ export function execGit(
   return ctx.exec("git", [...args], { timeoutMs });
 }
 
-export function firstEnvValue(
-  env: Record<string, string | undefined>,
-  ...envNames: readonly string[]
-): string | undefined {
-  for (const envName of envNames) {
-    const value = env[envName]?.trim();
-    if (value !== undefined && value !== "") {
-      return value;
-    }
-  }
-  return undefined;
-}
-
-export async function createCommitWithPreparedMessage(
+function createExtensionCommitWithPreparedMessage(
   ctx: SdlExtensionApi,
   message: string,
 ): Promise<{ summary: string } | { error: string }> {
-  const tempDir = await mkdtemp(join(tmpdir(), "pi-cp-commit-"));
-  try {
-    const messagePath = join(tempDir, "message.txt");
-    await writeFile(messagePath, `${message}\n`, "utf8");
-
-    const add = await execGit(ctx, ["add", "-A"], GIT_FACT_TIMEOUT_MS);
-    if (add.code !== 0) {
-      return { error: formatCommandError("Failed to stage checkpoint changes.", add) };
-    }
-
-    const commit = await execGit(ctx, ["commit", "-F", messagePath], GIT_COMMIT_TIMEOUT_MS);
-    if (commit.code !== 0) {
-      return { error: formatCommandError("Checkpoint commit failed.", commit) };
-    }
-
-    const log = await execGit(ctx, ["log", "-1", "--oneline"], GIT_LOG_TIMEOUT_MS);
-    if (log.code !== 0) {
-      return {
-        error: formatCommandError("Created checkpoint commit, but failed to read it back.", log),
-      };
-    }
-
-    return { summary: log.stdout.trim() };
-  } finally {
-    await rm(tempDir, { force: true, recursive: true });
-  }
+  return createCommitWithPreparedMessage({
+    cwd: ctx.cwd,
+    message,
+    exec: (command, args, _cwd, timeoutMs) => ctx.exec(command, args, { timeoutMs }),
+  });
 }
 
 export function formatPendingWorktreeError(error: PendingWorktreeError): string {
@@ -130,8 +92,11 @@ export function formatCommandError(summary: string, result: ExecResult): string 
   return [summary, formatCommandDetails(result)].join("\n");
 }
 
-export function formatCommandDetails(result: ExecResult): string {
-  const details = result.stderr.trim() || result.stdout.trim();
-  const killed = result.killed ? " (killed or timed out)" : "";
-  return details ? `exit ${result.code}${killed}: ${details}` : `exit ${result.code}${killed}`;
+export function formatCommandDetails(result: WorktreeCommandResult): string {
+  return formatPendingWorktreeCommandDetails(result);
 }
+
+export {
+  createExtensionCommitWithPreparedMessage as createCommitWithPreparedMessage,
+  loadExtensionPendingWorktreeSnapshot as loadPendingWorktreeSnapshot,
+};

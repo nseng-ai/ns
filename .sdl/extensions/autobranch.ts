@@ -2,12 +2,17 @@ import { Buffer } from "node:buffer";
 import { readFile, stat } from "node:fs/promises";
 import { relative, resolve } from "node:path";
 
+import {
+  CHECKPOINT_MODEL_ENV,
+  DEFAULT_CHECKPOINT_MODEL_REF,
+  LEGACY_CHECKPOINT_MODEL_ENV,
+  selectCheckpointModelRef,
+} from "@sdl/sdl/text-generation";
 import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
 import { prepareCheckpointMessage } from "./shared/checkpoint-message.ts";
 import {
   createCommitWithPreparedMessage,
   execGit,
-  firstEnvValue,
   formatCommandDetails,
   loadPendingWorktreeSnapshot,
   type PendingWorktreeError,
@@ -21,9 +26,6 @@ const GT_TIMEOUT_MS = 120_000;
 const STASH_PUSH_TIMEOUT_MS = 120_000;
 const STASH_POP_TIMEOUT_MS = 120_000;
 const DEFAULT_FAST_MODEL_REF = "openai-codex/gpt-5.4-mini";
-const DEFAULT_CHECKPOINT_MODEL_REF = DEFAULT_FAST_MODEL_REF;
-const CHECKPOINT_MODEL_ENV = "SDL_CHECKPOINT_MODEL";
-const LEGACY_CHECKPOINT_MODEL_ENV = "SDL_DEV_CHECKPOINT_MODEL";
 const SLUG_MODEL_ENV = "SDL_SLUG_MODEL";
 const SLUG_MODEL_TIMEOUT_MS = 60_000;
 const SLUG_MODEL_THINKING = "minimal";
@@ -1580,12 +1582,5 @@ function firstNonEmptyLine(value: string): string | undefined {
     .split("\n")
     .map((line) => line.trim())
     .find((line) => line.length > 0);
-}
-
-function selectCheckpointModelRef(env: Record<string, string | undefined>): string {
-  return (
-    firstEnvValue(env, CHECKPOINT_MODEL_ENV, LEGACY_CHECKPOINT_MODEL_ENV) ??
-    DEFAULT_CHECKPOINT_MODEL_REF
-  );
 }
 
