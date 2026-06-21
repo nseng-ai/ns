@@ -55,7 +55,7 @@ function createContext(cwd: string): CommandContext {
 	};
 }
 
-async function createCommandProject(commandName: "changes" | "cp"): Promise<string> {
+async function createCommandProject(commandName: "changes" | "cp" | "submit"): Promise<string> {
 	const directory = await mkdtemp(join(tmpdir(), `sdl-pi-${commandName}-`));
 	tempDirs.push(directory);
 	const extensionPath = join(directory, ".sdl", "extensions", `${commandName}.ts`);
@@ -95,6 +95,7 @@ describe("sdl Pi extension", () => {
 		expect([...pi.commands.keys()]).toEqual([
 			"sdl:changes",
 			"sdl:cp",
+			"sdl:submit",
 			"sdl:code:changes",
 			"sdl:code:autobranch",
 			"sdl:code:autoslot",
@@ -113,7 +114,6 @@ describe("sdl Pi extension", () => {
 		expect(pi.commands.has("code:push")).toBe(false);
 		expect(pi.commands.has("code:pr-regen")).toBe(false);
 		expect(pi.commands.has("sdl:regenerate-pr")).toBe(false);
-		expect(pi.commands.has("sdl:submit")).toBe(false);
 		expect(pi.commands.has("sdl:code:checkpoint")).toBe(false);
 		expect(pi.commands.has("sdl:code:submit")).toBe(false);
 		expect(pi.commands.has("sdl:code:regenerate-pr")).toBe(false);
@@ -122,6 +122,9 @@ describe("sdl Pi extension", () => {
 		);
 		expect(pi.commands.get("sdl:cp")?.description).toBe(
 			"sdl cp: Create a checkpoint commit for the current diff.",
+		);
+		expect(pi.commands.get("sdl:submit")?.description).toBe(
+			"sdl submit: Checkpoint outstanding changes, then submit the current Graphite stack.",
 		);
 		expect(pi.commands.get("sdl:code:changes")?.description).toBe(
 			"sdl changes: Summarize outstanding worktree changes without committing.",
@@ -182,5 +185,27 @@ describe("sdl Pi extension", () => {
 		expect(pi.sentMessages).toHaveLength(1);
 		expect(String(pi.sentMessages[0]?.content)).toContain("pi-custom-cp");
 		expect(pi.commands.has("sdl:code:cp")).toBe(false);
+	});
+
+	test("runs sdl submit through the flat direct SDL mirror only", async () => {
+		const cwd = await createCommandProject("submit");
+		const pi = new FakePi();
+		sdlExtension(pi);
+
+		const originalHome = process.env.HOME;
+		process.env.HOME = join(cwd, ".home");
+		try {
+			await commandFor(pi, "sdl:submit").handler("", createContext(cwd));
+		} finally {
+			if (originalHome === undefined) {
+				delete process.env.HOME;
+			} else {
+				process.env.HOME = originalHome;
+			}
+		}
+
+		expect(pi.sentMessages).toHaveLength(1);
+		expect(String(pi.sentMessages[0]?.content)).toContain("pi-custom-submit");
+		expect(pi.commands.has("sdl:code:submit")).toBe(false);
 	});
 });
