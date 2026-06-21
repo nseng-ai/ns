@@ -20,6 +20,10 @@ The user-facing invocation pair for a migrated lifecycle command: `sdl <name>` p
 Repo-local or global lifecycle behavior exposed through SDL because it belongs to the Source Development Lifecycle even when it depends on project-specific tools, policy, or orchestration packages. SDL extensions live under `.sdl/extensions` and default-export an extension object created with `defineExtension()` from `@sdl/sdl/sdk`; command contributions currently live in an optional `commands` bucket.
 *Avoid*: Pi runtime extension, reason to stay outside SDL, hidden task, factory registration side effect, command-required or single-command-only model.
 
+**Single-file SDL extension**:
+A direct `.sdl/extensions/<name>.ts` or `.sdl/extensions/<name>.js` authoring module. It is a leaf extension surface: it may import the public SDL extension API, but workspace packages must not import from it. Reusable behavior proven inside a single-file extension must move or be copied into a package-owned module before packages can depend on it.
+*Avoid*: shared package module, helper library, internal migration export, public SDK source.
+
 **SDL command entry**:
 A command contribution inside an SDL extension's `commands` array. It names and implements one flat `sdl <name>` command.
 *Avoid*: SDL extension itself, YAML command spec, nested task database, arbitrary internal import, Pi extension command.
@@ -41,8 +45,8 @@ A single-segment SDL command name such as `submit`, `changes`, `autobranch`, `au
 *Avoid*: `sdl pr regen`, `sdl slot auto`, command taxonomy churn.
 
 **SDL extension API**:
-The `@sdl/sdl/sdk` subpath used by SDL extension authors. It exposes `defineExtension()`, `ok()`, `failed()`, `SdlContext`, extension/command types, result types, and `z` for SDK-owned schema identity.
-*Avoid*: Pi runtime extension API, importing implementation modules, copying SDK types, resolving SDK through project-local internals, factory-registration API.
+The `@sdl/sdl/sdk` subpath used by SDL extension authors. It exposes `defineExtension()`, `ok()`, `failed()`, `SdlContext`, extension/command types, result types, and `z` for SDK-owned schema identity. Single-file SDL extensions should use this API rather than SDL implementation modules; packages must never depend on single-file extensions.
+*Avoid*: Pi runtime extension API, importing implementation modules, copying SDK types, resolving SDK through project-local internals, importing from single-file extensions, factory-registration API.
 
 **Public author API**:
 The stable package subpath intended for SDL extension authors. For SDL extensions, this is currently `@sdl/sdl/sdk`.

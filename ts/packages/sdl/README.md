@@ -105,6 +105,8 @@ That SDK subpath is the public author API for SDL extensions. It exposes:
 
 SDL command entries own their prompts, validation, repair policy, and exact external commands. They should not import internal SDL implementation modules.
 
+Single-file SDL extension modules such as `.sdl/extensions/<name>.ts` are leaf authoring surfaces, not shared libraries. Workspace packages must not import from them. If package code needs behavior first proven inside a single-file extension, move or copy the reusable contract into a package-owned module and expose it deliberately through `@sdl/sdl/sdk` or another documented package export; do not create a package → extension dependency.
+
 ## Internal migration exports
 
 `@sdl/sdl/package.json` marks only `./sdk` as `sdl.publicPluginApi`. Other package subpaths are `sdl.internalMigrationExports`: they exist so SDL workspace packages can share primitives during migration, but they are not plugin-author APIs and should not be documented as stable extension surfaces.
