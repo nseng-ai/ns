@@ -18,7 +18,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
     return {
       changeFrequency: "weekly" as const,
-      lastModified: data.lastModified === undefined ? undefined : new Date(data.lastModified),
+      ...(data.lastModified === undefined ? {} : { lastModified: new Date(data.lastModified) }),
       priority: 0.5,
       url: url(page.url),
     };

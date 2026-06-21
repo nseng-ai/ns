@@ -12,7 +12,7 @@ interface FooterProps {
   copyright?: string;
 }
 
-export function Footer({ config, copyright = `© ${new Date().getFullYear()} SDL` }: FooterProps) {
+export function Footer({ config, copyright = `© ${new Date().getFullYear()} sdl` }: FooterProps) {
   const githubUrl =
     config.github?.owner && config.github.repo
       ? `https://github.com/${config.github.owner}/${config.github.repo}`

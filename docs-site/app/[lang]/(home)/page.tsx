@@ -2,16 +2,16 @@ import Link from "next/link";
 
 const features = [
   {
-    title: "Plan-oriented engineering",
-    description: "Turn multi-session engineering work into durable Objectives and enriched plans.",
+    title: "Lorem ipsum",
+    description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
   },
   {
-    title: "Isolated implementation slots",
-    description: "Use worktree slots to let humans and agents advance branches without clobbering each other.",
+    title: "Dolor sit amet",
+    description: "Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
   },
   {
-    title: "Context across sessions",
-    description: "Carry branch-scoped decisions through Branch Memory, handoffs, and branch context.",
+    title: "Consectetur adipiscing",
+    description: "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.",
   },
 ];
 
@@ -19,13 +19,13 @@ export default function HomePage() {
   return (
     <main className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-6xl flex-col px-6 py-20">
       <section className="max-w-3xl space-y-6">
-        <p className="font-medium text-blue-700 text-sm uppercase tracking-wide">SDL Documentation</p>
+        <p className="font-medium text-blue-700 text-sm tracking-wide">sdl Documentation</p>
         <h1 className="text-balance font-semibold text-5xl text-gray-1000 tracking-tight md:text-6xl">
-          Plan, implement, and resume agentic engineering work.
+          Lorem ipsum dolor sit amet, consectetur adipiscing elit.
         </h1>
         <p className="text-balance text-gray-800 text-xl leading-8">
-          SDL is a composable toolkit for plan-oriented agentic engineering: plans, worktree slots,
-          Branch Memory, handoffs, Objectives, and PR feedback workflows.
+          sdl lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut
+          labore et dolore magna aliqua.
         </p>
         <div className="flex flex-wrap gap-3">
           <Link

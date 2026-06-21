@@ -1,6 +1,6 @@
-# SDL docs site
+# sdl docs site
 
-This is SDL's published documentation site. It is a standalone Next.js + Fumadocs app using `@vercel/geistdocs`, with its own lockfile outside the `ts/` pnpm workspace.
+This is sdl's published documentation site. It is a standalone Next.js + Fumadocs app using `@vercel/geistdocs`, with its own lockfile outside the `ts/` pnpm workspace.
 
 Published content lives under `docs-site/docs/`. The repository-root `docs/` tree is internal engineering documentation and is not published by this site.
 
