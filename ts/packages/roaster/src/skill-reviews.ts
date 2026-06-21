@@ -36,10 +36,10 @@ export interface LoadRoastReviewDefinitionOptions extends LoadRoastSkillEntriesO
 }
 
 const ACRONYMS = new Map([
-	["asdl", "ASDL"],
 	["dry", "DRY"],
-	["typescript", "TypeScript"],
 	["python", "Python"],
+	["sdl", "SDL"],
+	["typescript", "TypeScript"],
 ]);
 
 export async function loadRoastSkillEntries(
@@ -88,8 +88,8 @@ export async function loadRoastReviewDefinition(
 	};
 }
 
-function roastSurfaceForReviewKey(key: string): string {
-	return `roast:${key}`;
+function roastSkillSurfaceForReviewKey(key: string): string {
+	return `skill:roast-${key}`;
 }
 
 export function roastReviewPathForKey(key: string): string {
@@ -112,7 +112,7 @@ function roastDefaultPromptForKey(key: string): string {
 function roastSkillEntryFromDefinition(key: string, definition: ReviewDefinition): RoastSkillEntry {
 	const title = roastSkillTitleForKey(key);
 	return {
-		surface: roastSurfaceForReviewKey(key),
+		surface: roastSkillSurfaceForReviewKey(key),
 		reviewKey: key,
 		title,
 		label: roastSkillLabelForKey(key),

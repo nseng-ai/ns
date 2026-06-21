@@ -280,9 +280,6 @@ importers:
       '@sdl/plans':
         specifier: workspace:*
         version: link:../plans
-      '@sdl/roaster':
-        specifier: workspace:*
-        version: link:../roaster
       '@sdl/sdl':
         specifier: workspace:*
         version: link:../sdl

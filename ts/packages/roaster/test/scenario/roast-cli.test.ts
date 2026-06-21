@@ -12,7 +12,7 @@ interface RunResult {
 }
 
 const REVIEW_SOURCES = {
-	"asdl-typescript-style": reviewSource("Enforce asdl's TypeScript style guide."),
+	"sdl-typescript-style": reviewSource("Enforce SDL's TypeScript style guide."),
 	"dignified-python": reviewSource("Enforce dignified Python standards."),
 	"dry-but-not-too-dry": reviewSource("Review duplicated code and structure."),
 	"duplicative-abstractions": reviewSource("Scout for duplicated infrastructure."),
@@ -51,22 +51,22 @@ describe("roaster roast CLI", () => {
 		expect(run.exitCode).toBe(0);
 		expect(run.stdout).toContain("Roast skill entries: 6");
 		expect(run.stdout).toContain(
-			"- roast:asdl-typescript-style — Roast: ASDL TypeScript style (review: asdl-typescript-style)",
+			"- skill:roast-sdl-typescript-style — Roast: SDL TypeScript style (review: sdl-typescript-style)",
 		);
 		expect(run.stdout).toContain(
-			"- roast:dignified-python — Roast: Dignified Python (review: dignified-python)",
+			"- skill:roast-dignified-python — Roast: Dignified Python (review: dignified-python)",
 		);
 		expect(run.stdout).toContain(
-			"- roast:dry-but-not-too-dry — Roast: DRY but not too DRY (review: dry-but-not-too-dry)",
+			"- skill:roast-dry-but-not-too-dry — Roast: DRY but not too DRY (review: dry-but-not-too-dry)",
 		);
 		expect(run.stdout).toContain(
-			"- roast:duplicative-abstractions — Roast: Duplicative abstractions (review: duplicative-abstractions)",
+			"- skill:roast-duplicative-abstractions — Roast: Duplicative abstractions (review: duplicative-abstractions)",
 		);
 		expect(run.stdout).toContain(
-			"- roast:improve-codebase-architecture — Roast: Improve codebase architecture (review: improve-codebase-architecture)",
+			"- skill:roast-improve-codebase-architecture — Roast: Improve codebase architecture (review: improve-codebase-architecture)",
 		);
 		expect(run.stdout).toContain(
-			"- roast:thermonuclear-review — Roast: Thermonuclear review (review: thermonuclear-review)",
+			"- skill:roast-thermonuclear-review — Roast: Thermonuclear review (review: thermonuclear-review)",
 		);
 	});
 
@@ -78,22 +78,22 @@ describe("roaster roast CLI", () => {
 		expect(envelope.data.count).toBe(6);
 		expect(envelope.data.entries.map((entry: { surface: string }) => entry.surface)).toEqual(
 			[
-				"asdl-typescript-style",
 				"dignified-python",
 				"dry-but-not-too-dry",
 				"duplicative-abstractions",
 				"improve-codebase-architecture",
+				"sdl-typescript-style",
 				"thermonuclear-review",
-			].map((key) => `roast:${key}`),
+			].map((key) => `skill:roast-${key}`),
 		);
-		expect(envelope.data.entries[0]).toMatchObject({
-			surface: "roast:asdl-typescript-style",
-			label: "Roast: ASDL TypeScript style",
-			review_key: "asdl-typescript-style",
-			review_path: "reviews/asdl-typescript-style.md",
+		expect(envelope.data.entries[4]).toMatchObject({
+			surface: "skill:roast-sdl-typescript-style",
+			label: "Roast: SDL TypeScript style",
+			review_key: "sdl-typescript-style",
+			review_path: "reviews/sdl-typescript-style.md",
 		});
 		expect(envelope.data.entries[5]).toMatchObject({
-			surface: "roast:thermonuclear-review",
+			surface: "skill:roast-thermonuclear-review",
 			label: "Roast: Thermonuclear review",
 			review_key: "thermonuclear-review",
 			review_path: "reviews/thermonuclear-review.md",
