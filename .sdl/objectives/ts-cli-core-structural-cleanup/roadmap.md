@@ -22,7 +22,8 @@
 - [ ] Unify Branch-Memory access: point `branch-context` at the in-process
       `@asdl/brmem` `BrmemGateway`; delete the parsing half of its
       `brmem-gateway.ts` and its `@asdl/core/brmem-cli` dependency.
-      Resolve the "deliberate shell-out?" open question first.
+      Decision: `branch-context` should use the in-process gateway rather than a
+      user-installed `brmem` shim, so implementation can proceed.
       See `references/branch-memory-access.md`.
 - [ ] Collapse the `@asdl/core/brmem-cli` multi-candidate framework to a single
       `runBrmem`; fix the duplicated candidate-loop at `ccc/worktree-status.ts`;

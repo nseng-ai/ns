@@ -140,10 +140,10 @@ Risks:
   costly; the existing up-front `expectedShas` snapshot and merge→verify→cleanup
   ordering must be preserved exactly. Treat this as the item most needing
   careful test coverage before refactor.
-- The `branch-context` shell-out *may* be a deliberate boundary (invoking the
-  user-installed `brmem` shim rather than linking the library). It is currently
-  undocumented; if a real reason exists, the remedy is to document it rather than
-  collapse it. Resolve this before deleting the parse layer.
+- The `branch-context` shell-out boundary decision is resolved: `branch-context`
+  should use the in-process `@sdl/brmem` gateway, not a user-installed `brmem`
+  shim. Remaining risk is preserving current diagnostics and partial-failure
+  semantics while deleting the subprocess/JSON parse layer.
 - A shared `defineCli` helper touches all 15 CLIs at once; a subtle change to
   IO/exit-code/entry-guard semantics could regress every CLI simultaneously.
   Mitigate by landing it behind scenario-test coverage of `--version`,
@@ -151,9 +151,6 @@ Risks:
 
 ## Open Questions
 
-- Is `branch-context`'s `brmem` CLI shell-out deliberate (user-installed shim)
-  or accidental divergence? Decision gates whether B3's parse-layer deletion
-  proceeds.
 - The `execGroup(description?)` placement question is closed by rejection: do
   not add the helper in `clinkr` or a shared CLI helper layer unless new evidence
   shows it buys a real invariant or removes substantial mental load. The
