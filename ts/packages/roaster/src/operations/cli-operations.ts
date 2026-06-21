@@ -218,7 +218,7 @@ export async function runReviewByKey(
 	}
 
 	const profiles = await loadModelProfiles(ctx);
-	if (profiles.type === "error") return profiles;
+	if (profiles.type === "error") return failureFromRoaster(profiles.error);
 	const model = resolveModel({
 		requestModel: request.model,
 		requestModelProfile: request.modelProfile,

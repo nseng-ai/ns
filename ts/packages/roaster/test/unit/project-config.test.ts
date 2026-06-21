@@ -19,6 +19,12 @@ describe("parseRoasterProjectConfigToml", () => {
 		expect(config.diff.exclude).toEqual([]);
 	});
 
+	test("defaults model profiles to Claude Code supported aliases", () => {
+		const config = expectOk(parseRoasterProjectConfigToml(""));
+
+		expect(config.modelProfiles).toEqual({ quick: "haiku", deep: "sonnet" });
+	});
+
 	test("parses roaster diff excludes", () => {
 		const config = expectOk(
 			parseRoasterProjectConfigToml(
@@ -41,11 +47,16 @@ describe("parseRoasterProjectConfigToml", () => {
 					"\n" +
 					"[roaster.diff]\n" +
 					'exclude = [".agents/skills/**/*.py"]\n' +
-					"unknown = true\n",
+					"unknown = true\n" +
+					"\n" +
+					"[roaster.model_profiles]\n" +
+					'quick = "haiku"\n' +
+					'deep = "opus"\n',
 			),
 		);
 
 		expect(config.diff.exclude).toEqual([".agents/skills/**/*.py"]);
+		expect(config.modelProfiles).toEqual({ quick: "haiku", deep: "opus" });
 	});
 
 	test.each([
@@ -122,7 +133,7 @@ describe("git diff pathspec helpers", () => {
 
 type ParseResult = ReturnType<typeof parseRoasterProjectConfigToml>;
 
-function expectOk(result: ParseResult): { readonly diff: { readonly exclude: readonly string[] } } {
+function expectOk(result: ParseResult) {
 	if (result.type === "error") throw new Error(result.error.message);
 	return result.config;
 }

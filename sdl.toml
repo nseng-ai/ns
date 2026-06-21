@@ -8,5 +8,5 @@ exclude = [
 ]
 
 [roaster.model_profiles]
-quick = "openai-codex/gpt-5.4-mini"
-deep = "openai-codex/gpt-5.5"
+quick = "haiku"
+deep = "sonnet"

@@ -47,17 +47,17 @@ async function runRoaster(
 
 function sampleSource(
 	options: {
-		readonly defaultModel?: string | null;
+		readonly modelProfile?: string | null;
 		readonly description?: string;
 		readonly appliesTo?: string;
 		readonly localOnly?: boolean | undefined;
 	} = {},
 ): string {
-	const defaultModel = options.defaultModel === undefined ? "sonnet" : options.defaultModel;
+	const modelProfile = options.modelProfile === undefined ? "quick" : options.modelProfile;
 	return [
 		"---",
 		`description: ${options.description ?? "Review Python diffs for style violations."}`,
-		...(defaultModel === null ? [] : [`default_model: ${defaultModel}`]),
+		...(modelProfile === null ? [] : [`model_profile: ${modelProfile}`]),
 		...(options.localOnly === true ? ["local_only: true"] : []),
 		...(options.appliesTo === undefined ? [] : [options.appliesTo.trimEnd()]),
 		"---",
@@ -234,7 +234,7 @@ describe("roaster review CLI", () => {
 		const envelope = JSON.parse(run.stdout);
 		expect(envelope.data.keys).toEqual(["dignified-python", "typescript-style"]);
 		expect(envelope.data.count).toBe(2);
-		expect(envelope.data.reviews[0].default_model).toBe("sonnet");
+		expect(envelope.data.reviews[0].model_profile).toBe("quick");
 		expect(envelope.data.reviews[0].local_only).toBe(false);
 	});
 
@@ -336,7 +336,9 @@ describe("roaster review CLI", () => {
 			},
 		);
 		expect(run.exitCode).toBe(0);
-		expect(run.stderr).toContain("resolved model=opus base_ref=master changed_paths=1");
+		expect(run.stderr).toContain(
+			"resolved model=opus model_profile=<explicit> base_ref=master changed_paths=1",
+		);
 		const data = JSON.parse(run.stdout).data;
 		expect(data.reviewName).toBe(REVIEW_KEY);
 		expect(data.reviewPath).toBe("/repo/reviews/dignified-python.md");
@@ -424,22 +426,22 @@ describe("roaster review CLI", () => {
 		expect(human.stderr).toContain("failed to write Branch Memory review log");
 	});
 
-	test("review run uses default model and fails when no model is available", async () => {
+	test("review run resolves model profiles and rejects unknown profiles", async () => {
 		const success = await runRoaster(["review", "run", REVIEW_KEY, "--format", "json"], {
 			context: contextWithCatalog({ sources: { [REVIEW_KEY]: sampleSource() } }),
 		});
 		expect(success.exitCode).toBe(0);
-		expect(JSON.parse(success.stdout).data.model).toBe("sonnet");
+		expect(JSON.parse(success.stdout).data.model).toBe("haiku");
 
 		const reviewLog = new FakeReviewLogGateway();
 		const failure = await runRoaster(["review", "run", REVIEW_KEY, "--format", "json"], {
 			context: contextWithCatalog({
-				sources: { [REVIEW_KEY]: sampleSource({ defaultModel: null }) },
+				sources: { [REVIEW_KEY]: sampleSource({ modelProfile: "missing" }) },
 				reviewLog,
 			}),
 		});
 		expect(failure.exitCode).toBe(2);
-		expect(JSON.parse(failure.stdout).error_type).toBe("model_not_provided");
+		expect(JSON.parse(failure.stdout).error_type).toBe("review_definition_invalid");
 		expect(reviewLog.writtenEntries()).toEqual([]);
 	});
 

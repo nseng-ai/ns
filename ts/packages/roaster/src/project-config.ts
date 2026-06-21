@@ -36,8 +36,8 @@ export interface GitDiffArgsOptions {
 }
 
 export const DEFAULT_ROASTER_MODEL_PROFILES: RoasterModelProfilesProjectConfig = {
-	quick: "openai-codex/gpt-5.4-mini",
-	deep: "openai-codex/gpt-5.5",
+	quick: "haiku",
+	deep: "sonnet",
 };
 
 const EMPTY_CONFIG: RoasterProjectConfig = {
@@ -167,10 +167,7 @@ function parseModelProfiles(
 		if (typeof profileValue !== "string" || profileValue.trim() === "") {
 			return failure(
 				"invalid_model_profiles",
-				formatMessage(
-					`[roaster.model_profiles].${key} must be a non-empty string.`,
-					pathLabel,
-				),
+				formatMessage(`[roaster.model_profiles].${key} must be a non-empty string.`, pathLabel),
 			);
 		}
 		profiles[key] = profileValue.trim();
