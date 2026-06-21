@@ -12,9 +12,11 @@ import {
 	gitCurrentBranchStep,
 	makeTempDir,
 	notificationMessages,
+	objectiveDiffStep,
 	objectiveListStep,
 	objectiveReadStep,
 	objectiveSidebarDescription,
+	objectiveStatusStep,
 	resetCmuxTestEnvironment,
 	step,
 } from "./ccc-test-harness.ts";
@@ -117,6 +119,8 @@ describe("cmux Objective sidebar", () => {
 		const pi = new FakePi({
 			script: [
 				objectiveListStep(["alpha-objective", slug]),
+				objectiveDiffStep(""),
+				objectiveStatusStep(""),
 				objectiveReadStep(slug),
 				gitCurrentBranchStep(),
 				cmuxSummaryStep(expectedTitle, expectedDescription),
@@ -129,7 +133,7 @@ describe("cmux Objective sidebar", () => {
 		await pi.commands.get("ccc:sidebar:objective-summary")?.handler("", ctx);
 
 		pi.assertDone();
-		expect(ctx.waitCount).toBe(1);
+		expect(ctx.waitCount).toBe(2);
 		expect(ctx.selections).toEqual([
 			{
 				title: "Select an active Objective for cmux sidebar",
@@ -141,6 +145,8 @@ describe("cmux Objective sidebar", () => {
 		]);
 		expect(pi.execCalls.map((call) => [call.command, call.args])).toEqual([
 			["objective", ["list", "--minimal", "--format", "json"]],
+			["git", ["diff", "--name-status", "-M", "master...HEAD", "--", ".sdl/objectives"]],
+			["git", ["status", "--porcelain=v1", "-z", "--", ".sdl/objectives"]],
 			["objective", ["exec", "read-objective", slug, "--format", "json"]],
 			["git", ["branch", "--show-current"]],
 			[
@@ -163,9 +169,105 @@ describe("cmux Objective sidebar", () => {
 		expect(notificationMessages(ctx)).toContain(`Applied cmux Objective sidebar: ${expectedTitle}`);
 	});
 
+	test("ccc:sidebar:objective-summary suggests the only changed active Objective", async () => {
+		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
+		const repoRoot = await makeTempDir();
+		const slug = "bravo-objective";
+		const expectedTitle = `obj:${slug}`;
+		const expectedDescription = objectiveSidebarDescription(repoRoot);
+		const pi = new FakePi({
+			script: [
+				objectiveListStep(["alpha-objective", slug, "charlie-objective"]),
+				objectiveDiffStep(`M\t.sdl/objectives/${slug}/objective.md\n`),
+				objectiveStatusStep(""),
+				objectiveReadStep(slug),
+				gitCurrentBranchStep(),
+				cmuxSummaryStep(expectedTitle, expectedDescription),
+			],
+		});
+		const controller = createCccSidebarController(pi);
+		registerCccSidebarCommands(pi, controller);
+		const ctx = new FakeCommandContext({ cwd: repoRoot });
+
+		await pi.commands.get("ccc:sidebar:objective-summary")?.handler("", ctx);
+
+		pi.assertDone();
+		expect(ctx.selections).toEqual([
+			{
+				title: "Select an active Objective for cmux sidebar (only Objective changed vs master)",
+				items: [
+					"bravo-objective — suggested: only Objective changed vs master — open — latest update 2026-01-02T00:00:00Z",
+					"View other active Objectives…",
+				],
+			},
+		]);
+		expect(pi.execCalls.at(-1)).toMatchObject({
+			command: "ccc",
+			args: [
+				"exec",
+				"cmux-workspace-summary",
+				"--title",
+				expectedTitle,
+				"--description",
+				expectedDescription,
+				"--format",
+				"json",
+			],
+		});
+		expect(pi.sentUserMessages).toEqual([]);
+		expect(notificationMessages(ctx)).toContain(`Applied cmux Objective sidebar: ${expectedTitle}`);
+	});
+
+	test("ccc:sidebar:objective-summary can escape from changed suggestion to other active Objectives", async () => {
+		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
+		const repoRoot = await makeTempDir();
+		const slug = "charlie-objective";
+		const expectedTitle = `obj:${slug}`;
+		const expectedDescription = objectiveSidebarDescription(repoRoot);
+		const pi = new FakePi({
+			script: [
+				objectiveListStep(["alpha-objective", "bravo-objective", slug]),
+				objectiveDiffStep("M\t.sdl/objectives/bravo-objective/objective.md\n"),
+				objectiveStatusStep(""),
+				objectiveReadStep(slug),
+				gitCurrentBranchStep(),
+				cmuxSummaryStep(expectedTitle, expectedDescription),
+			],
+		});
+		const controller = createCccSidebarController(pi);
+		registerCccSidebarCommands(pi, controller);
+		const ctx = new FakeCommandContext({ cwd: repoRoot, selectIndices: [1, 1] });
+
+		await pi.commands.get("ccc:sidebar:objective-summary")?.handler("", ctx);
+
+		pi.assertDone();
+		expect(ctx.selections[0]).toEqual({
+			title: "Select an active Objective for cmux sidebar (only Objective changed vs master)",
+			items: [
+				"bravo-objective — suggested: only Objective changed vs master — open — latest update 2026-01-02T00:00:00Z",
+				"View other active Objectives…",
+			],
+		});
+		expect(ctx.selections[1]).toEqual({
+			title: "Select an active Objective for cmux sidebar (other active Objectives)",
+			items: [
+				"alpha-objective — open — latest update 2026-01-01T00:00:00Z",
+				"charlie-objective — open — latest update 2026-01-03T00:00:00Z",
+			],
+		});
+		expect(pi.execCalls.at(-1)).toMatchObject({ command: "ccc" });
+		expect(notificationMessages(ctx)).toContain(`Applied cmux Objective sidebar: ${expectedTitle}`);
+	});
+
 	test("ccc:sidebar:objective-summary picker cancellation stops without model or apply", async () => {
 		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
-		const pi = new FakePi({ script: [objectiveListStep(["alpha-objective"])] });
+		const pi = new FakePi({
+			script: [
+				objectiveListStep(["alpha-objective"]),
+				objectiveDiffStep(""),
+				objectiveStatusStep(""),
+			],
+		});
 		const controller = createCccSidebarController(pi);
 		registerCccSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ shouldCancelSelect: true });
@@ -173,7 +275,7 @@ describe("cmux Objective sidebar", () => {
 		await pi.commands.get("ccc:sidebar:objective-summary")?.handler("", ctx);
 
 		pi.assertDone();
-		expect(pi.execCalls).toHaveLength(1);
+		expect(pi.execCalls).toHaveLength(3);
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(ctx.notifications.at(-1)).toEqual({
 			message: "Objective selection cancelled.",

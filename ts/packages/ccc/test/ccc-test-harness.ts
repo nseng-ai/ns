@@ -375,6 +375,23 @@ export function objectiveReadStep(slug: string): ScriptedExec {
 	});
 }
 
+export function objectiveDiffStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedExec {
+	return step("git", ["diff", "--name-status", "-M", "master...HEAD", "--", ".sdl/objectives"], {
+		stdout,
+		...result,
+	});
+}
+
+export function objectiveStatusStep(
+	stdout: string,
+	result: Partial<ExecResult> = {},
+): ScriptedExec {
+	return step("git", ["status", "--porcelain=v1", "-z", "--", ".sdl/objectives"], {
+		stdout,
+		...result,
+	});
+}
+
 export function cmuxSummaryStep(title: string, description: string): ScriptedExec {
 	return step(
 		"ccc",

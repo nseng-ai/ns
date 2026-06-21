@@ -5,19 +5,17 @@ import {
 	FakeCommandContext,
 	FakePi,
 	ROOT,
+	objectiveDiffStep,
 	objectiveListStep,
+	objectiveStatusStep,
 	resetCmuxTestEnvironment,
 	skillCommand,
-	step,
 	type FakeCommandContextOptions,
 	type Notification,
 	type ScriptedExec,
 	type Selection,
 	writeSelfContainedSkillMarkdown,
 } from "./ccc-test-harness.ts";
-import type { ExecResult } from "@sdl/core/exec";
-
-const TRUNK = "master";
 
 type CommandInfo = ReturnType<FakePi["getCommands"]>[number];
 
@@ -78,20 +76,6 @@ async function runObjectiveStackImpl(options: RunObjectiveStackImplOptions): Pro
 		selections: fakeContext.selections,
 		waitForIdleCalls: () => fakeContext.waitCount,
 	};
-}
-
-function diffStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedExec {
-	return step("git", ["diff", "--name-status", "-M", `${TRUNK}...HEAD`, "--", ".sdl/objectives"], {
-		stdout,
-		...result,
-	});
-}
-
-function statusStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedExec {
-	return step("git", ["status", "--porcelain=v1", "-z", "--", ".sdl/objectives"], {
-		stdout,
-		...result,
-	});
 }
 
 function expectListActiveObjectivesCall(result: { host: FakePi }): void {
@@ -158,7 +142,11 @@ describe("objective stack impl CCC orchestration", () => {
 	test("empty args load active candidates with objective list json and git evidence", async () => {
 		const result = await runObjectiveStackImpl({
 			args: "",
-			script: [objectiveListStep(["alpha", "bravo"]), diffStep(""), statusStep("")],
+			script: [
+				objectiveListStep(["alpha", "bravo"]),
+				objectiveDiffStep(""),
+				objectiveStatusStep(""),
+			],
 			commandInfos: [skillCommand("objective-stack-impl", stackSkillPath)],
 		});
 
@@ -183,8 +171,8 @@ describe("objective stack impl CCC orchestration", () => {
 			args: "",
 			script: [
 				objectiveListStep(["alpha", "bravo", "charlie"]),
-				diffStep("M\t.sdl/objectives/bravo/objective.md\n"),
-				statusStep(""),
+				objectiveDiffStep("M\t.sdl/objectives/bravo/objective.md\n"),
+				objectiveStatusStep(""),
 			],
 			commandInfos: [skillCommand("objective-stack-impl", stackSkillPath)],
 		});
@@ -206,8 +194,8 @@ describe("objective stack impl CCC orchestration", () => {
 			args: "",
 			script: [
 				objectiveListStep(["alpha", "bravo", "charlie"]),
-				diffStep("M\t.sdl/objectives/bravo/objective.md\n"),
-				statusStep(""),
+				objectiveDiffStep("M\t.sdl/objectives/bravo/objective.md\n"),
+				objectiveStatusStep(""),
 			],
 			contextOptions: { selectIndices: [1, 1] },
 			commandInfos: [skillCommand("objective-stack-impl", stackSkillPath)],
@@ -227,7 +215,11 @@ describe("objective stack impl CCC orchestration", () => {
 	test("picker cancellation sends no prompt", async () => {
 		const result = await runObjectiveStackImpl({
 			args: "",
-			script: [objectiveListStep(["alpha", "bravo"]), diffStep(""), statusStep("")],
+			script: [
+				objectiveListStep(["alpha", "bravo"]),
+				objectiveDiffStep(""),
+				objectiveStatusStep(""),
+			],
 			contextOptions: { shouldCancelSelect: true },
 		});
 
