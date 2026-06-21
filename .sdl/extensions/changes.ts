@@ -1,3 +1,4 @@
+import { commandSteps, runSdlCommandSequence } from "@sdl/sdl/command-sequence";
 import { defineExtension, failed, ok } from "@sdl/sdl/sdk";
 import type { SdlCommandResult, SdlContext } from "@sdl/sdl/sdk";
 
@@ -78,40 +79,39 @@ async function loadPendingWorktreeSnapshot(
 ): Promise<
   { ok: true; snapshot: PendingWorktreeSnapshot } | { ok: false; error: PendingWorktreeError }
 > {
-  const root = await execGit(ctx, ["rev-parse", "--show-toplevel"]);
-  if (!root.succeeded()) {
-    return { ok: false, error: { kind: "not_git_repo", result: root } };
-  }
-
-  const branch = await execGit(ctx, ["symbolic-ref", "--short", "HEAD"]);
-  if (!branch.succeeded()) {
-    return { ok: false, error: { kind: "detached_head", result: branch } };
-  }
-
-  const status = await execGit(ctx, ["status", "--porcelain=v1"]);
-  if (!status.succeeded()) {
-    return { ok: false, error: { kind: "status_failed", result: status } };
-  }
-
-  const diff = await execGit(ctx, ["diff", "HEAD", "--no-ext-diff"]);
-  if (!diff.succeeded()) {
-    return { ok: false, error: { kind: "diff_failed", result: diff } };
-  }
+  const git = commandSteps("git", { timeoutMs: GIT_FACT_TIMEOUT_MS });
+  const loaded = await runSdlCommandSequence(ctx, [
+    git.trimmedStdout(
+      "root",
+      ["rev-parse", "--show-toplevel"],
+      pendingWorktreeFailure("not_git_repo"),
+    ),
+    git.trimmedStdout(
+      "branch",
+      ["symbolic-ref", "--short", "HEAD"],
+      pendingWorktreeFailure("detached_head"),
+    ),
+    git.stdout("status", ["status", "--porcelain=v1"], pendingWorktreeFailure("status_failed")),
+    git.stdout("diff", ["diff", "HEAD", "--no-ext-diff"], pendingWorktreeFailure("diff_failed")),
+  ]);
+  if (!loaded.ok) return loaded;
 
   return {
     ok: true,
     snapshot: {
-      root: root.stdout.trim(),
-      branch: branch.stdout.trim(),
-      status: status.stdout,
-      diff: diff.stdout,
-      isClean: status.stdout.trim().length === 0,
+      root: loaded.outputs.root,
+      branch: loaded.outputs.branch,
+      status: loaded.outputs.status,
+      diff: loaded.outputs.diff,
+      isClean: loaded.outputs.status.trim().length === 0,
     },
   };
 }
 
-function execGit(ctx: SdlContext, args: string[]): Promise<SdlCommandResult> {
-  return ctx.exec("git", args, { timeoutMs: GIT_FACT_TIMEOUT_MS });
+function pendingWorktreeFailure(
+  kind: PendingWorktreeError["kind"],
+): (result: SdlCommandResult) => PendingWorktreeError {
+  return (result) => ({ kind, result });
 }
 
 async function draftChangesSummary(

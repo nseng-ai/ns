@@ -4,6 +4,14 @@ import { fileURLToPath } from "node:url";
 import { createJiti } from "jiti/static";
 
 import {
+	commandEvidenceFailure,
+	commandStep,
+	commandSteps,
+	runSdlCommandSequence,
+	stdoutCommandStep,
+	trimStdout,
+} from "./command-sequence.ts";
+import {
 	commandSucceeded,
 	createSdlCommandResult,
 	defineExtension,
@@ -15,9 +23,12 @@ import {
 
 /** Module specifier that SDL command entries import the SDK from. */
 const SDK_SPECIFIER = "@sdl/sdl/sdk";
+const COMMAND_SEQUENCE_SPECIFIER = "@sdl/sdl/command-sequence";
 
-/** Absolute path to the SDK source module, used as the `alias` resolution target. */
-const SDK_MODULE_PATH = join(dirname(fileURLToPath(import.meta.url)), "sdk.ts");
+/** Absolute paths to SDL source modules, used as `alias` resolution targets. */
+const SDL_SOURCE_DIR = dirname(fileURLToPath(import.meta.url));
+const SDK_MODULE_PATH = join(SDL_SOURCE_DIR, "sdk.ts");
+const COMMAND_SEQUENCE_MODULE_PATH = join(SDL_SOURCE_DIR, "command-sequence.ts");
 
 // Keep this object in sync with all runtime value exports from sdk.ts; type-only exports are erased.
 const sdlSdkVirtualModule = {
@@ -30,21 +41,32 @@ const sdlSdkVirtualModule = {
 	z,
 } satisfies Record<string, unknown>;
 
+const sdlCommandSequenceVirtualModule = {
+	commandEvidenceFailure,
+	commandStep,
+	commandSteps,
+	runSdlCommandSequence,
+	stdoutCommandStep,
+	trimStdout,
+} satisfies Record<string, unknown>;
+
 /**
  * Create the SDL-aware jiti instance used for user-authored modules.
  *
- * The load-bearing option is `virtualModules`: it binds `@sdl/sdl/sdk` to the
- * exact SDK object imported by this process, so command-entry commands and
- * schemas share host SDK identity instead of resolving a second package copy.
+ * The load-bearing option is `virtualModules`: it binds SDL extension imports to the
+ * exact objects imported by this process, so command-entry commands and schemas share
+ * host SDK identity and project-local helper imports work from temporary extension roots.
  */
 export function createSdlJiti(): ReturnType<typeof createJiti> {
 	return createJiti(import.meta.url, {
 		alias: {
 			[SDK_SPECIFIER]: SDK_MODULE_PATH,
+			[COMMAND_SEQUENCE_SPECIFIER]: COMMAND_SEQUENCE_MODULE_PATH,
 		},
 		moduleCache: false,
 		virtualModules: {
 			[SDK_SPECIFIER]: sdlSdkVirtualModule,
+			[COMMAND_SEQUENCE_SPECIFIER]: sdlCommandSequenceVirtualModule,
 		},
 	});
 }

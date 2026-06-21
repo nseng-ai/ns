@@ -3,6 +3,11 @@ import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 
+import {
+  commandEvidenceFailure,
+  commandSteps,
+  runSdlCommandSequence,
+} from "@sdl/sdl/command-sequence";
 import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
 import type { SdlCommandResult, SdlContext, TextGenerator } from "@sdl/sdl/sdk";
 
@@ -371,36 +376,39 @@ async function loadPendingWorktreeSnapshot(
 ): Promise<
   { ok: true; snapshot: PendingWorktreeSnapshot } | { ok: false; error: PendingWorktreeError }
 > {
-  const root = await execGit(ctx, ["rev-parse", "--show-toplevel"], GIT_FACT_TIMEOUT_MS);
-  if (!root.succeeded()) {
-    return { ok: false, error: { kind: "not_git_repo", result: root } };
-  }
-
-  const branch = await execGit(ctx, ["symbolic-ref", "--short", "HEAD"], GIT_FACT_TIMEOUT_MS);
-  if (!branch.succeeded()) {
-    return { ok: false, error: { kind: "detached_head", result: branch } };
-  }
-
-  const status = await execGit(ctx, ["status", "--porcelain=v1"], GIT_FACT_TIMEOUT_MS);
-  if (!status.succeeded()) {
-    return { ok: false, error: { kind: "status_failed", result: status } };
-  }
-
-  const diff = await execGit(ctx, ["diff", "HEAD", "--no-ext-diff"], GIT_FACT_TIMEOUT_MS);
-  if (!diff.succeeded()) {
-    return { ok: false, error: { kind: "diff_failed", result: diff } };
-  }
+  const git = commandSteps("git", { timeoutMs: GIT_FACT_TIMEOUT_MS });
+  const loaded = await runSdlCommandSequence(ctx, [
+    git.trimmedStdout(
+      "root",
+      ["rev-parse", "--show-toplevel"],
+      pendingWorktreeFailure("not_git_repo"),
+    ),
+    git.trimmedStdout(
+      "branch",
+      ["symbolic-ref", "--short", "HEAD"],
+      pendingWorktreeFailure("detached_head"),
+    ),
+    git.stdout("status", ["status", "--porcelain=v1"], pendingWorktreeFailure("status_failed")),
+    git.stdout("diff", ["diff", "HEAD", "--no-ext-diff"], pendingWorktreeFailure("diff_failed")),
+  ]);
+  if (!loaded.ok) return loaded;
 
   return {
     ok: true,
     snapshot: {
-      root: root.stdout.trim(),
-      branch: branch.stdout.trim(),
-      status: status.stdout,
-      diff: diff.stdout,
-      clean: status.stdout.trim().length === 0,
+      root: loaded.outputs.root,
+      branch: loaded.outputs.branch,
+      status: loaded.outputs.status,
+      diff: loaded.outputs.diff,
+      clean: loaded.outputs.status.trim().length === 0,
     },
   };
+}
+
+function pendingWorktreeFailure(
+  kind: PendingWorktreeError["kind"],
+): (result: SdlCommandResult) => PendingWorktreeError {
+  return (result) => ({ kind, result });
 }
 
 function execGit(ctx: SdlContext, args: string[], timeoutMs: number): Promise<SdlCommandResult> {
@@ -1816,22 +1824,21 @@ async function createCommitWithPreparedMessage(
     const messagePath = join(tempDir, "message.txt");
     await writeFile(messagePath, `${message}\n`, "utf8");
 
-    const add = await execGit(ctx, ["add", "-A"], GIT_FACT_TIMEOUT_MS);
-    if (!add.succeeded()) {
-      return { error: add.formatEvidence("Failed to stage checkpoint changes.") };
-    }
+    const gitFact = commandSteps("git", { timeoutMs: GIT_FACT_TIMEOUT_MS });
+    const gitCommit = commandSteps("git", { timeoutMs: GIT_COMMIT_TIMEOUT_MS });
+    const gitLog = commandSteps("git", { timeoutMs: GIT_LOG_TIMEOUT_MS });
+    const committed = await runSdlCommandSequence(ctx, [
+      gitFact.run(["add", "-A"], commandEvidenceFailure("Failed to stage checkpoint changes.")),
+      gitCommit.run(["commit", "-F", messagePath], commandEvidenceFailure("Checkpoint commit failed.")),
+      gitLog.trimmedStdout(
+        "summary",
+        ["log", "-1", "--oneline"],
+        commandEvidenceFailure("Created checkpoint commit, but failed to read it back."),
+      ),
+    ]);
+    if (!committed.ok) return { error: committed.error };
 
-    const commit = await execGit(ctx, ["commit", "-F", messagePath], GIT_COMMIT_TIMEOUT_MS);
-    if (!commit.succeeded()) {
-      return { error: commit.formatEvidence("Checkpoint commit failed.") };
-    }
-
-    const log = await execGit(ctx, ["log", "-1", "--oneline"], GIT_LOG_TIMEOUT_MS);
-    if (!log.succeeded()) {
-      return { error: log.formatEvidence("Created checkpoint commit, but failed to read it back.") };
-    }
-
-    return { summary: log.stdout.trim() };
+    return { summary: committed.outputs.summary };
   } finally {
     await rm(tempDir, { force: true, recursive: true });
   }

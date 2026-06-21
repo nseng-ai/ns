@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { basename, isAbsolute, join, resolve } from "node:path";
 import process from "node:process";
 
+import { commandSteps, runSdlCommandSequence } from "@sdl/sdl/command-sequence";
 import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
 import type { ExecResult, SdlCommandResult, SdlContext, TextGenerator } from "@sdl/sdl/sdk";
 
@@ -322,16 +323,20 @@ async function getPrCommitMessages(
   ctx: SdlContext,
   params: { cwd: string; number: number },
 ): Promise<Result<PrCommitMessage[], CommandFailure>> {
-  const args = ["pr", "view", String(params.number), "--json", "commits"];
-  const result = await runGh(ctx, args, VIEW_TIMEOUT_MS);
-  const failure = commandFailure({
-    result,
-    code: "github_pr_commits_failed",
-    message: `Could not read commit messages for PR #${params.number}.`,
-  });
-  if (failure !== undefined) return { ok: false, error: failure };
+  const gh = commandSteps("gh", { timeoutMs: VIEW_TIMEOUT_MS });
+  const loaded = await runSdlCommandSequence(ctx, [
+    gh.stdout(
+      "commits",
+      ["pr", "view", String(params.number), "--json", "commits"],
+      commandFailureMapper(
+        "github_pr_commits_failed",
+        `Could not read commit messages for PR #${params.number}.`,
+      ),
+    ),
+  ]);
+  if (!loaded.ok) return { ok: false, error: loaded.error };
 
-  const parsed = parseJson(result.stdout);
+  const parsed = parseJson(loaded.outputs.commits);
   if (!isRecord(parsed) || !Array.isArray(parsed.commits)) {
     return {
       ok: false,
@@ -389,19 +394,21 @@ async function stablePatchIdForPr(
   const diff = await getPrDiff(ctx, params);
   if (!diff.ok) return diff;
 
-  const args = ["patch-id", "--stable"];
-  const result = await ctx.exec("git", args, {
-    timeoutMs: PATCH_ID_TIMEOUT_MS,
-    stdin: diff.value,
-  });
-  const failure = commandFailure({
-    result,
-    code: "git_patch_id_failed",
-    message: `Could not compute stable patch id for PR #${params.number}.`,
-  });
-  if (failure !== undefined) return { ok: false, error: failure };
+  const git = commandSteps("git", { timeoutMs: PATCH_ID_TIMEOUT_MS });
+  const loaded = await runSdlCommandSequence(ctx, [
+    git.trimmedStdout(
+      "patchId",
+      ["patch-id", "--stable"],
+      commandFailureMapper(
+        "git_patch_id_failed",
+        `Could not compute stable patch id for PR #${params.number}.`,
+      ),
+      { stdin: diff.value },
+    ),
+  ]);
+  if (!loaded.ok) return { ok: false, error: loaded.error };
 
-  const patchId = result.stdout.trim().split(/\s+/, 1)[0] ?? "";
+  const patchId = loaded.outputs.patchId.split(/\s+/, 1)[0] ?? "";
   if (patchId === "") {
     return {
       ok: false,
@@ -421,22 +428,22 @@ async function editPr(
   return await withTemporaryFile(
     { prefix: "sdl-dev-pr-body-", filename: "body.md", contents: `${params.body}\n` },
     async (bodyPath) => {
-      const args = [
-        "pr",
-        "edit",
-        String(params.number),
-        "--title",
-        params.title,
-        "--body-file",
-        bodyPath,
-      ];
-      const result = await runGh(ctx, args, EDIT_TIMEOUT_MS);
-      const failure = commandFailure({
-        result,
-        code: "github_pr_edit_failed",
-        message: `Could not update PR #${params.number}.`,
-      });
-      if (failure !== undefined) return { ok: false, error: failure };
+      const gh = commandSteps("gh", { timeoutMs: EDIT_TIMEOUT_MS });
+      const edited = await runSdlCommandSequence(ctx, [
+        gh.run(
+          [
+            "pr",
+            "edit",
+            String(params.number),
+            "--title",
+            params.title,
+            "--body-file",
+            bodyPath,
+          ],
+          commandFailureMapper("github_pr_edit_failed", `Could not update PR #${params.number}.`),
+        ),
+      ]);
+      if (!edited.ok) return { ok: false, error: edited.error };
       return { ok: true, value: undefined };
     },
   );
@@ -446,15 +453,17 @@ async function viewPrWithArgs(
   ctx: SdlContext,
   params: { cwd: string; args: string[] },
 ): Promise<Result<GithubPrDetails, CommandFailure>> {
-  const result = await runGh(ctx, params.args, VIEW_TIMEOUT_MS);
-  const failure = commandFailure({
-    result,
-    code: "github_pr_view_failed",
-    message: "Could not read GitHub PR details.",
-  });
-  if (failure !== undefined) return { ok: false, error: failure };
+  const gh = commandSteps("gh", { timeoutMs: VIEW_TIMEOUT_MS });
+  const loaded = await runSdlCommandSequence(ctx, [
+    gh.stdout(
+      "details",
+      params.args,
+      commandFailureMapper("github_pr_view_failed", "Could not read GitHub PR details."),
+    ),
+  ]);
+  if (!loaded.ok) return { ok: false, error: loaded.error };
 
-  const parsed = parseGithubPrDetails(result.stdout);
+  const parsed = parseGithubPrDetails(loaded.outputs.details);
   if (!parsed.ok) return parsed;
   return { ok: true, value: parsed.value };
 }
@@ -463,15 +472,19 @@ async function getLocalPrDiff(
   ctx: SdlContext,
   params: { cwd: string; number: number; baseRefName: string; headRefName: string },
 ): Promise<Result<string, CommandFailure>> {
-  const args = ["diff", `${params.baseRefName}...${params.headRefName}`];
-  const result = await ctx.exec("git", args, { timeoutMs: DIFF_TIMEOUT_MS });
-  const failure = commandFailure({
-    result,
-    code: "github_pr_local_diff_failed",
-    message: `GitHub PR #${params.number} diff was too large for GitHub; could not read local diff for ${params.baseRefName}...${params.headRefName}.`,
-  });
-  if (failure !== undefined) return { ok: false, error: failure };
-  return { ok: true, value: result.stdout };
+  const git = commandSteps("git", { timeoutMs: DIFF_TIMEOUT_MS });
+  const loaded = await runSdlCommandSequence(ctx, [
+    git.stdout(
+      "diff",
+      ["diff", `${params.baseRefName}...${params.headRefName}`],
+      commandFailureMapper(
+        "github_pr_local_diff_failed",
+        `GitHub PR #${params.number} diff was too large for GitHub; could not read local diff for ${params.baseRefName}...${params.headRefName}.`,
+      ),
+    ),
+  ]);
+  if (!loaded.ok) return { ok: false, error: loaded.error };
+  return { ok: true, value: loaded.outputs.diff };
 }
 
 async function runGh(
@@ -502,15 +515,16 @@ async function resolvePrDescriptionGeneration(
 }
 
 async function readRepoRoot(ctx: SdlContext): Promise<Result<string, CommandFailure>> {
-  const args = ["rev-parse", "--show-toplevel"];
-  const result = await ctx.exec("git", args, { timeoutMs: VIEW_TIMEOUT_MS });
-  const failure = commandFailure({
-    result,
-    code: "git_repo_root_failed",
-    message: "Could not determine repository root.",
-  });
-  if (failure !== undefined) return { ok: false, error: failure };
-  return { ok: true, value: result.stdout.trim() };
+  const git = commandSteps("git", { timeoutMs: VIEW_TIMEOUT_MS });
+  const loaded = await runSdlCommandSequence(ctx, [
+    git.trimmedStdout(
+      "root",
+      ["rev-parse", "--show-toplevel"],
+      commandFailureMapper("git_repo_root_failed", "Could not determine repository root."),
+    ),
+  ]);
+  if (!loaded.ok) return { ok: false, error: loaded.error };
+  return { ok: true, value: loaded.outputs.root };
 }
 
 async function resolvePrDescriptionPrompt(input: {
@@ -828,10 +842,14 @@ function commandFailure(input: {
   message: string;
 }): CommandFailure | undefined {
   if (input.result.succeeded()) return undefined;
-  return {
-    code: input.code,
-    message: input.result.formatEvidence(input.message),
-  };
+  return commandFailureMapper(input.code, input.message)(input.result);
+}
+
+function commandFailureMapper(code: string, message: string): (result: SdlCommandResult) => CommandFailure {
+  return (result) => ({
+    code,
+    message: result.formatEvidence(message),
+  });
 }
 
 function parseGithubPrDetails(stdout: string): Result<GithubPrDetails, CommandFailure> {

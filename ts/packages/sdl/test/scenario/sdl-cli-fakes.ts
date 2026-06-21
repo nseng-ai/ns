@@ -77,19 +77,22 @@ export class ScriptedSdlTestContext implements SdlContext {
 		this.execCalls.push(call);
 		const index = this.execResponses.findIndex((response) => responseMatches(response.match, call));
 		if (index === -1) {
-			return execResult(
-				{ code: 99, stderr: `unexpected command: ${formatExecCall(call)}` },
-				{ command, args, cwd: this.cwd },
-			);
+			return execResult({
+				result: { code: 99, stderr: `unexpected command: ${formatExecCall(call)}` },
+				metadata: { command, args, cwd: this.cwd },
+			});
 		}
 		const [response] = this.execResponses.splice(index, 1);
 		if (response === undefined) {
-			return execResult(
-				{ code: 99, stderr: `missing command response: ${formatExecCall(call)}` },
-				{ command, args, cwd: this.cwd },
-			);
+			return execResult({
+				result: { code: 99, stderr: `missing command response: ${formatExecCall(call)}` },
+				metadata: { command, args, cwd: this.cwd },
+			});
 		}
-		const result = execResult(response.result, { command, args, cwd: this.cwd });
+		const result = execResult({
+			result: response.result,
+			metadata: { command, args, cwd: this.cwd },
+		});
 		options?.onStdout?.(result.stdout);
 		options?.onStderr?.(result.stderr);
 		return result;
@@ -150,10 +153,14 @@ export interface ExecResultMetadata {
 	cwd?: string | undefined;
 }
 
-export function execResult(
-	result: Partial<ExecResult> = {},
-	metadata: ExecResultMetadata = {},
-): SdlCommandResult {
+export interface ExecResultOptions {
+	result?: Partial<ExecResult> | undefined;
+	metadata?: ExecResultMetadata | undefined;
+}
+
+export function execResult(options: ExecResultOptions = {}): SdlCommandResult {
+	const result = options.result ?? {};
+	const metadata = options.metadata ?? {};
 	return createSdlCommandResult({
 		command: metadata.command ?? "command",
 		args: metadata.args ?? [],

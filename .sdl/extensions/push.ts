@@ -1,3 +1,4 @@
+import { commandSteps, runSdlCommandSequence } from "@sdl/sdl/command-sequence";
 import { defineExtension, failed, ok } from "@sdl/sdl/sdk";
 import type { SdlContext } from "@sdl/sdl/sdk";
 
@@ -22,21 +23,24 @@ export default defineExtension({
 });
 
 async function runPush(ctx: SdlContext) {
-	const statusResult = await ctx.exec("git", ["status", "--porcelain"]);
-	if (!statusResult.succeeded()) {
-		return failed(
-			statusResult.formatEvidence(
-				"Could not inspect the worktree status. `sdl push` did not run `git push`.",
-				{
-					guidance:
-						"Inspect the Git output, fix the repository state, or use `sdl submit` / `/sdl:submit` for the Graphite submit flow when appropriate.",
-				},
+	const git = commandSteps("git");
+	const checked = await runSdlCommandSequence(ctx, [
+		git.stdout("status", ["status", "--porcelain"], (result) =>
+			failed(
+				result.formatEvidence(
+					"Could not inspect the worktree status. `sdl push` did not run `git push`.",
+					{
+						guidance:
+							"Inspect the Git output, fix the repository state, or use `sdl submit` / `/sdl:submit` for the Graphite submit flow when appropriate.",
+					},
+				),
 			),
-		);
-	}
+		),
+	]);
+	if (!checked.ok) return checked.error;
 
-	if (statusResult.stdout.trim().length > 0) {
-		return failed(formatDirtyWorktreeMessage(ctx.cwd, statusResult.stdout));
+	if (checked.outputs.status.trim().length > 0) {
+		return failed(formatDirtyWorktreeMessage(ctx.cwd, checked.outputs.status));
 	}
 
 	const pushResult = await ctx.exec("git", ["push"], { timeoutMs: PUSH_TIMEOUT_MS });
