@@ -4,7 +4,10 @@ import { InMemoryGitGateway } from "@sdl/core/git/testing";
 import { ScriptedCommandExecApi } from "@sdl/core/testing";
 
 import type { RoasterContext } from "../../src/context.ts";
-import { FakeHarnessGateway, type HarnessGateway } from "../../src/gateways/harness.ts";
+import {
+	FakeReviewRunnerGateway,
+	type ReviewRunnerGateway,
+} from "../../src/gateways/review-runner.ts";
 import { FakeRoasterGitHubGateway, type RoasterGitHubGateway } from "../../src/gateways/github.ts";
 import { FakeLocalDiffGateway, type LocalDiffGateway } from "../../src/gateways/local-diff.ts";
 import {
@@ -20,7 +23,7 @@ export interface FakeRoasterContextOptions {
 	readonly reviewCatalog?: ReviewCatalogGateway | undefined;
 	readonly reviewLog?: ReviewLogGateway | undefined;
 	readonly github?: RoasterGitHubGateway | undefined;
-	readonly harness?: HarnessGateway | undefined;
+	readonly reviewRunner?: ReviewRunnerGateway | undefined;
 	readonly cwd?: string | undefined;
 	readonly env?: NodeJS.ProcessEnv | undefined;
 	readonly signal?: AbortSignal | undefined;
@@ -49,7 +52,7 @@ export function fakeRoasterContext(options: FakeRoasterContextOptions = {}): Roa
 		reviewCatalog: options.reviewCatalog ?? new FakeReviewCatalogGateway(),
 		reviewLog: options.reviewLog ?? new FakeReviewLogGateway(),
 		github: options.github ?? new FakeRoasterGitHubGateway(),
-		harness: options.harness ?? new FakeHarnessGateway(),
+		reviewRunner: options.reviewRunner ?? new FakeReviewRunnerGateway(),
 		cwd: options.cwd ?? "/repo",
 		env: options.env ?? {},
 		...(options.signal === undefined ? {} : { signal: options.signal }),

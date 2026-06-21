@@ -13,6 +13,7 @@ import {
 } from "./context.ts";
 import {
 	publishFindingsRequestSchema,
+	recordFindingsRequestSchema,
 	renderReviewList,
 	renderReviewLog,
 	renderReviewRun,
@@ -23,6 +24,7 @@ import {
 	reviewLogResultSchema,
 	reviewRunRequestSchema,
 	roastSkillListRequestSchema,
+	runRecordFindings,
 	roastSkillListResultSchema,
 	runPublishFindings,
 	runReviewByKey,
@@ -133,6 +135,14 @@ const entry = defineCli<RoasterRuntime, CliDeps, undefined>({
 			name: "exec",
 			description: "Operations for roaster automation.",
 			isHidden: true,
+		});
+		execGroup.command({
+			name: "record-findings",
+			description: "Record same-session structured findings as a Roaster review run.",
+			schema: recordFindingsRequestSchema,
+			resultSchema: reviewRunResultSchema,
+			handler: runRecordFindings,
+			renderHuman: renderReviewRun,
 		});
 		execGroup.command(
 			rawCommand({

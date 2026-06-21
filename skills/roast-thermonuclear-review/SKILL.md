@@ -8,10 +8,20 @@ description: Invoke the Thermonuclear Review Roaster review against a supplied d
 
 Use `reviews/thermonuclear-review.md` as the authoritative review definition. Do not duplicate or reinterpret the review rules from memory.
 
-If running inside this repository and the Roaster CLI is available, prefer:
+First read `reviews/thermonuclear-review.md`, then apply that review definition exactly to the supplied diff or current branch changes in this same session. Stay read-only and keep findings grounded in the diff.
+
+Use explicit automation only when the user asks for isolated runner execution or automatic review logs:
 
 ```bash
 roaster review run thermonuclear-review
 ```
 
-If reviewing inline, first read `reviews/thermonuclear-review.md`, then apply that review definition exactly to the supplied diff or current branch changes. Keep findings grounded in the diff.
+In Pi, the equivalent isolated runner surface is `roaster:run:thermonuclear-review`.
+
+For durable logging or publication after a same-session review, convert findings to `{ "findings": [...] }` and run:
+
+```bash
+roaster exec record-findings --review-key thermonuclear-review --format json < findings.json
+```
+
+Pipe that JSON envelope to `roaster exec publish-findings` when publishing to GitHub.

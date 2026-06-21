@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { catalogOptions, createRoasterRuntime, environmentOptions } from "../../src/context.ts";
 import type { RoasterResult } from "../../src/failures.ts";
-import type { HarnessGateway, RunReviewOptions } from "../../src/gateways/harness.ts";
+import type { ReviewRunnerGateway, RunReviewOptions } from "../../src/gateways/review-runner.ts";
 import type {
 	FindPrDiscussionCommentByMarkerOptions,
 	GitHubGatewayOptions,
@@ -13,7 +13,7 @@ import type { ReviewCatalogGateway } from "../../src/gateways/review-catalog.ts"
 import {
 	createFindingsReview,
 	createLocalDiff,
-	type HarnessReviewRequest,
+	type ReviewRunnerRequest,
 	type LocalDiff,
 	type PRChangedFile,
 	type PRDiscussionComment,
@@ -63,12 +63,12 @@ class RecordingReviewCatalogGateway implements ReviewCatalogGateway {
 	}
 }
 
-class RecordingHarnessGateway implements HarnessGateway {
-	readonly calls: { readonly request: HarnessReviewRequest; readonly options: RunReviewOptions }[] =
+class RecordingReviewRunnerGateway implements ReviewRunnerGateway {
+	readonly calls: { readonly request: ReviewRunnerRequest; readonly options: RunReviewOptions }[] =
 		[];
 
 	async runReview(
-		request: HarnessReviewRequest,
+		request: ReviewRunnerRequest,
 		options: RunReviewOptions,
 	): Promise<RoasterResult<ReviewExecutionResponse>> {
 		this.calls.push({ request, options });
@@ -139,7 +139,7 @@ describe("createRoasterRuntime", () => {
 		const localDiff = new RecordingLocalDiffGateway();
 		const reviewCatalog = new RecordingReviewCatalogGateway();
 		const github = new RecordingGitHubGateway();
-		const harness = new RecordingHarnessGateway();
+		const reviewRunner = new RecordingReviewRunnerGateway();
 		const env = { ROASTER_TEST: "1" };
 		const signal = new AbortController().signal;
 		const stderr: string[] = [];
@@ -147,7 +147,7 @@ describe("createRoasterRuntime", () => {
 			localDiff,
 			reviewCatalog,
 			github,
-			harness,
+			reviewRunner,
 			cwd: "/repo",
 			env,
 			signal,
@@ -164,13 +164,13 @@ describe("createRoasterRuntime", () => {
 		expect(ctx.reviewCatalog).toBe(reviewCatalog);
 		expect(ctx.reviewLog).toBe(context.reviewLog);
 		expect(ctx.github).toBe(github);
-		expect(ctx.harness).toBe(harness);
+		expect(ctx.reviewRunner).toBe(reviewRunner);
 		expect(ctx.runScope).toEqual({ cwd: "/repo", env, signal });
 
 		await ctx.localDiff.loadDiff({ ...runOptions, baseRef: "origin/main" });
 		await ctx.reviewCatalog.listReviewKeys(catalogRunOptions);
 		await ctx.reviewCatalog.loadReviewSource({ ...catalogRunOptions, key: "typescript-style" });
-		await ctx.harness.runReview(
+		await ctx.reviewRunner.runReview(
 			{
 				model: "sonnet",
 				reviewDefinition: sampleReviewDefinition,
@@ -200,9 +200,9 @@ describe("createRoasterRuntime", () => {
 		expect(localDiff.calls[0]?.signal).toBe(signal);
 		expect(reviewCatalog.listCalls[0]).toEqual({ cwd: "/repo", signal });
 		expect(reviewCatalog.sourceCalls[0]).toEqual({ cwd: "/repo", key: "typescript-style", signal });
-		expect(harness.calls[0]?.options).toMatchObject({ cwd: "/repo" });
-		expect(harness.calls[0]?.options.env).toBe(env);
-		expect(harness.calls[0]?.options.signal).toBe(signal);
+		expect(reviewRunner.calls[0]?.options).toMatchObject({ cwd: "/repo" });
+		expect(reviewRunner.calls[0]?.options.env).toBe(env);
+		expect(reviewRunner.calls[0]?.options.signal).toBe(signal);
 		expect(github.markerCalls[0]).toEqual({
 			cwd: "/repo",
 			env,

@@ -10,13 +10,13 @@ import { formatErrorMessage, mapFromRecordOrMap } from "@sdl/core/primitives";
 import type { RoasterResult } from "../failures.ts";
 import {
 	createFindingsReview,
-	harnessReviewRequestSchema,
+	reviewRunnerRequestSchema,
 	reviewExecutionResponseSchema,
-	type HarnessReviewRequest,
+	type ReviewRunnerRequest,
 	type ReviewExecutionResponse,
 } from "../models.ts";
-import { buildClaudeCodeArgs, parseClaudeCodeReviewOutput } from "./harness-output.ts";
-import { assembleReviewPrompt, systemPromptFindings } from "./harness-prompt.ts";
+import { buildClaudeCodeArgs, parseClaudeCodeReviewOutput } from "./claude-code-review-runner.ts";
+import { assembleReviewPrompt, systemPromptFindings } from "./review-runner-prompt.ts";
 
 export const CLAUDE_BINARY = "claude";
 
@@ -26,19 +26,19 @@ export interface RunReviewOptions {
 	readonly signal?: AbortSignal | undefined;
 }
 
-export interface HarnessGateway {
+export interface ReviewRunnerGateway {
 	runReview(
-		request: HarnessReviewRequest,
+		request: ReviewRunnerRequest,
 		options: RunReviewOptions,
 	): Promise<RoasterResult<ReviewExecutionResponse>>;
 }
 
-export interface RealHarnessGatewayOptions {
+export interface ClaudeCodeProcessReviewRunnerOptions {
 	readonly execApi: CommandExecApi;
 	readonly binaryResolver?: CommandResolver | undefined;
 }
 
-export interface FakeHarnessGatewayOptions {
+export interface FakeReviewRunnerGatewayOptions {
 	readonly resultsByReviewName?:
 		| ReadonlyMap<string, RoasterResult<ReviewExecutionResponse>>
 		| Record<string, RoasterResult<ReviewExecutionResponse>>
@@ -46,13 +46,13 @@ export interface FakeHarnessGatewayOptions {
 	readonly defaultResult?: RoasterResult<ReviewExecutionResponse> | undefined;
 }
 
-export class FakeHarnessGateway implements HarnessGateway {
+export class FakeReviewRunnerGateway implements ReviewRunnerGateway {
 	private readonly resultsByReviewName: Map<string, RoasterResult<ReviewExecutionResponse>>;
 	private readonly defaultResult: RoasterResult<ReviewExecutionResponse>;
-	private readonly callsInternal: { request: HarnessReviewRequest; options: RunReviewOptions }[] =
+	private readonly callsInternal: { request: ReviewRunnerRequest; options: RunReviewOptions }[] =
 		[];
 
-	constructor(options: FakeHarnessGatewayOptions = {}) {
+	constructor(options: FakeReviewRunnerGatewayOptions = {}) {
 		this.resultsByReviewName = new Map<string, RoasterResult<ReviewExecutionResponse>>();
 		for (const [key, value] of mapFromRecordOrMap(options.resultsByReviewName)) {
 			this.resultsByReviewName.set(key, copyResult(value));
@@ -66,7 +66,7 @@ export class FakeHarnessGateway implements HarnessGateway {
 	}
 
 	async runReview(
-		request: HarnessReviewRequest,
+		request: ReviewRunnerRequest,
 		options: RunReviewOptions,
 	): Promise<RoasterResult<ReviewExecutionResponse>> {
 		const copiedRequest = copyRequest(request);
@@ -77,7 +77,7 @@ export class FakeHarnessGateway implements HarnessGateway {
 	}
 
 	calls(): readonly {
-		readonly request: HarnessReviewRequest;
+		readonly request: ReviewRunnerRequest;
 		readonly options: RunReviewOptions;
 	}[] {
 		return this.callsInternal.map((call) => ({
@@ -87,27 +87,27 @@ export class FakeHarnessGateway implements HarnessGateway {
 	}
 }
 
-export class RealHarnessGateway implements HarnessGateway {
+export class ClaudeCodeProcessReviewRunner implements ReviewRunnerGateway {
 	private readonly execApi: CommandExecApi;
 	private readonly binaryResolver: CommandResolver;
 
-	constructor(options: RealHarnessGatewayOptions) {
+	constructor(options: ClaudeCodeProcessReviewRunnerOptions) {
 		this.execApi = options.execApi;
 		this.binaryResolver = options.binaryResolver ?? defaultCommandResolver;
 	}
 
 	async runReview(
-		request: HarnessReviewRequest,
+		request: ReviewRunnerRequest,
 		options: RunReviewOptions,
 	): Promise<RoasterResult<ReviewExecutionResponse>> {
 		if (request.model.trim() === "") {
-			return harnessError({
+			return runnerError({
 				type: "model_not_provided",
 				message: "A Claude Code model must be provided.",
 			});
 		}
 		if (!isClaudeCodeSupportedModel(request.model)) {
-			return harnessError({
+			return runnerError({
 				type: "model_not_supported_by_harness",
 				message: `Model is not supported by the Claude Code harness: ${request.model}`,
 			});
@@ -117,13 +117,13 @@ export class RealHarnessGateway implements HarnessGateway {
 		try {
 			resolvedBinary = this.binaryResolver(CLAUDE_BINARY);
 		} catch (error) {
-			return harnessError({
+			return runnerError({
 				type: "harness_invocation_failed",
 				message: `Failed to resolve Claude Code binary: ${formatErrorMessage(error)}`,
 			});
 		}
 		if (resolvedBinary === undefined) {
-			return harnessError({
+			return runnerError({
 				type: "harness_binary_missing",
 				message: "Claude Code binary 'claude' was not found on PATH.",
 			});
@@ -147,19 +147,19 @@ export class RealHarnessGateway implements HarnessGateway {
 		try {
 			result = await this.execApi.exec(CLAUDE_BINARY, args, execOptions);
 		} catch (error) {
-			return harnessError({
+			return runnerError({
 				type: "harness_invocation_failed",
 				message: `Failed to invoke Claude Code: ${formatErrorMessage(error)}`,
 			});
 		}
 
 		if (result.startupError !== undefined) {
-			return harnessError({ type: "harness_invocation_failed", message: result.startupError });
+			return runnerError({ type: "harness_invocation_failed", message: result.startupError });
 		}
 		if (result.code !== 0 || result.killed) {
-			return harnessError({
+			return runnerError({
 				type: "harness_execution_failed",
-				message: harnessExecutionMessage(result),
+				message: runnerExecutionMessage(result),
 			});
 		}
 
@@ -180,7 +180,7 @@ export function isClaudeCodeSupportedModel(model: string): boolean {
 	);
 }
 
-function harnessExecutionMessage(result: ExecResult): string {
+function runnerExecutionMessage(result: ExecResult): string {
 	const stderr = result.stderr.trim();
 	if (stderr !== "") return stderr;
 	const stdout = result.stdout.trimEnd();
@@ -193,8 +193,8 @@ function harnessExecutionMessage(result: ExecResult): string {
 		: `Claude Code exited with status ${result.code}.`;
 }
 
-function copyRequest(request: HarnessReviewRequest): HarnessReviewRequest {
-	return harnessReviewRequestSchema.parse(structuredClone(request));
+function copyRequest(request: ReviewRunnerRequest): ReviewRunnerRequest {
+	return reviewRunnerRequestSchema.parse(structuredClone(request));
 }
 
 function copyResult(
@@ -217,7 +217,7 @@ function copyRunReviewOptions(options: RunReviewOptions): RunReviewOptions {
 	};
 }
 
-function harnessError(
+function runnerError(
 	error: Extract<RoasterResult<never>, { readonly type: "error" }>["error"],
 ): RoasterResult<never> {
 	return { type: "error", error };

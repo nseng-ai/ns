@@ -92,6 +92,10 @@ function roastSkillSurfaceForReviewKey(key: string): string {
 	return `skill:roast-${key}`;
 }
 
+export function roasterRunSurfaceForReviewKey(key: string): string {
+	return `roaster:run:${key}`;
+}
+
 export function roastReviewPathForKey(key: string): string {
 	return `reviews/${key}.md`;
 }

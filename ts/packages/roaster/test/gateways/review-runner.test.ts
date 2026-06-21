@@ -1,12 +1,15 @@
 import { describe, expect, test } from "vitest";
 import { ScriptedCommandExecApi } from "@sdl/core/testing";
 
-import { FakeHarnessGateway, RealHarnessGateway } from "../../src/gateways/harness.ts";
-import { buildClaudeDiffFindingsJsonSchema } from "../../src/gateways/harness-output.ts";
+import {
+	FakeReviewRunnerGateway,
+	ClaudeCodeProcessReviewRunner,
+} from "../../src/gateways/review-runner.ts";
+import { buildClaudeDiffFindingsJsonSchema } from "../../src/gateways/claude-code-review-runner.ts";
 import {
 	createFindingsReview,
 	createLocalDiff,
-	type HarnessReviewRequest,
+	type ReviewRunnerRequest,
 	type ReviewExecutionResponse,
 } from "../../src/models.ts";
 
@@ -16,7 +19,7 @@ function request(
 		readonly reviewName?: string;
 		readonly diffText?: string;
 	} = {},
-): HarnessReviewRequest {
+): ReviewRunnerRequest {
 	const diffText = options.diffText ?? "diff --git a/src/app.ts b/src/app.ts\n+change\n";
 	return {
 		model: options.model ?? "haiku",
@@ -59,9 +62,9 @@ function claudeStdout(): string {
 	return JSON.stringify({ type: "result", structured_output: { findings: [] } });
 }
 
-describe("FakeHarnessGateway", () => {
+describe("FakeReviewRunnerGateway", () => {
 	test("returns default empty findings and records immutable request copies", async () => {
-		const gateway = new FakeHarnessGateway();
+		const gateway = new FakeReviewRunnerGateway();
 		const reviewRequest = request();
 
 		const result = await gateway.runReview(reviewRequest, { cwd: "/repo", env: { A: "1" } });
@@ -80,7 +83,7 @@ describe("FakeHarnessGateway", () => {
 			usage: null,
 			inputCoverage: null,
 		};
-		const gateway = new FakeHarnessGateway({
+		const gateway = new FakeReviewRunnerGateway({
 			resultsByReviewName: { custom: { type: "ok", value: configured } },
 		});
 
@@ -109,7 +112,7 @@ describe("FakeHarnessGateway", () => {
 			usage: null,
 			inputCoverage: null,
 		};
-		const gateway = new FakeHarnessGateway({
+		const gateway = new FakeReviewRunnerGateway({
 			resultsByReviewName: new Map([["custom", { type: "ok", value: configured }]]),
 		});
 
@@ -120,11 +123,11 @@ describe("FakeHarnessGateway", () => {
 	});
 });
 
-describe("RealHarnessGateway", () => {
+describe("ClaudeCodeProcessReviewRunner", () => {
 	test("resolves claude before spawning and invokes Claude Code with prompt on stdin", async () => {
 		const execApi = new ScriptedCommandExecApi([{ stdout: claudeStdout() }]);
 		const resolved: string[] = [];
-		const gateway = new RealHarnessGateway({
+		const gateway = new ClaudeCodeProcessReviewRunner({
 			execApi,
 			binaryResolver: (name) => {
 				resolved.push(name);
@@ -170,7 +173,7 @@ describe("RealHarnessGateway", () => {
 
 	test("missing binary returns harness_binary_missing without spawning", async () => {
 		const execApi = new ScriptedCommandExecApi([{ stdout: claudeStdout() }]);
-		const gateway = new RealHarnessGateway({ execApi, binaryResolver: () => undefined });
+		const gateway = new ClaudeCodeProcessReviewRunner({ execApi, binaryResolver: () => undefined });
 
 		const result = await gateway.runReview(request(), { cwd: "/repo" });
 
@@ -181,7 +184,10 @@ describe("RealHarnessGateway", () => {
 
 	test("rejects unsupported models before spawning", async () => {
 		const execApi = new ScriptedCommandExecApi([{ stdout: claudeStdout() }]);
-		const gateway = new RealHarnessGateway({ execApi, binaryResolver: () => "/usr/bin/claude" });
+		const gateway = new ClaudeCodeProcessReviewRunner({
+			execApi,
+			binaryResolver: () => "/usr/bin/claude",
+		});
 
 		const result = await gateway.runReview(request({ model: "gpt-4" }), { cwd: "/repo" });
 
@@ -194,7 +200,10 @@ describe("RealHarnessGateway", () => {
 		const execApi = new ScriptedCommandExecApi([
 			{ stdout: "last stdout line", stderr: "stderr wins", code: 2, killed: false },
 		]);
-		const gateway = new RealHarnessGateway({ execApi, binaryResolver: () => "/usr/bin/claude" });
+		const gateway = new ClaudeCodeProcessReviewRunner({
+			execApi,
+			binaryResolver: () => "/usr/bin/claude",
+		});
 
 		const result = await gateway.runReview(request(), { cwd: "/repo" });
 
@@ -207,7 +216,10 @@ describe("RealHarnessGateway", () => {
 
 	test("successful stdout returns input coverage", async () => {
 		const execApi = new ScriptedCommandExecApi([{ stdout: claudeStdout() }]);
-		const gateway = new RealHarnessGateway({ execApi, binaryResolver: () => "/usr/bin/claude" });
+		const gateway = new ClaudeCodeProcessReviewRunner({
+			execApi,
+			binaryResolver: () => "/usr/bin/claude",
+		});
 
 		const result = await gateway.runReview(request(), { cwd: "/repo" });
 

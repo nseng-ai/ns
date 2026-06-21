@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { runCli } from "../../src/cli.ts";
 import type { RoasterContext } from "../../src/context.ts";
-import { FakeHarnessGateway } from "../../src/gateways/harness.ts";
+import { FakeReviewRunnerGateway } from "../../src/gateways/review-runner.ts";
 import { FakeLocalDiffGateway } from "../../src/gateways/local-diff.ts";
 import { FakeReviewCatalogGateway } from "../../src/gateways/review-catalog.ts";
 import { FakeReviewLogGateway } from "../../src/gateways/review-log.ts";
@@ -118,7 +118,7 @@ function contextWithCatalog(
 		localDiff: new FakeLocalDiffGateway({
 			defaultDiff: { type: "ok", value: options.diff ?? diffForPath("app.py") },
 		}),
-		harness: new FakeHarnessGateway({
+		reviewRunner: new FakeReviewRunnerGateway({
 			defaultResult: {
 				type: "ok",
 				value: options.response ?? {
@@ -337,7 +337,7 @@ describe("roaster review CLI", () => {
 		);
 		expect(run.exitCode).toBe(0);
 		expect(run.stderr).toContain(
-			"resolved model=opus model_profile=<explicit> base_ref=master changed_paths=1",
+			"resolved model=opus model_profile=quick base_ref=master changed_paths=1",
 		);
 		const data = JSON.parse(run.stdout).data;
 		expect(data.reviewName).toBe(REVIEW_KEY);

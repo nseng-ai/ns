@@ -15,7 +15,7 @@ export type LocalDiffFailureType =
 	| "git_diff_failed"
 	| "project_config_invalid";
 
-export type HarnessFailureType =
+export type ReviewRunnerFailureType =
 	| "model_not_provided"
 	| "harness_binary_missing"
 	| "harness_invocation_failed"
@@ -24,7 +24,10 @@ export type HarnessFailureType =
 	| "review_execution_empty_output"
 	| "review_execution_invalid_json"
 	| "review_execution_invalid_response"
-	| "review_execution_invalid_findings";
+	| "review_execution_invalid_findings"
+	| "review_execution_blocked"
+	| "review_execution_cancelled"
+	| "review_execution_failed";
 
 export type GitHubGatewayFailureType =
 	| "github_cli_failed"
@@ -40,7 +43,7 @@ export type RoasterFailureType =
 	| ReviewDefinitionFailureType
 	| ReviewCatalogFailureType
 	| LocalDiffFailureType
-	| HarnessFailureType
+	| ReviewRunnerFailureType
 	| GitHubGatewayFailureType
 	| ReviewLogFailureType;
 
@@ -58,6 +61,6 @@ export type ReviewDefinitionFailure = RoasterFailure & {
 };
 export type ReviewCatalogFailure = RoasterFailure & { readonly type: ReviewCatalogFailureType };
 export type LocalDiffFailure = RoasterFailure & { readonly type: LocalDiffFailureType };
-export type HarnessFailure = RoasterFailure & { readonly type: HarnessFailureType };
+export type ReviewRunnerFailure = RoasterFailure & { readonly type: ReviewRunnerFailureType };
 export type GitHubGatewayFailure = RoasterFailure & { readonly type: GitHubGatewayFailureType };
 export type ReviewLogFailure = RoasterFailure & { readonly type: ReviewLogFailureType };

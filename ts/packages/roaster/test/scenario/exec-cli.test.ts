@@ -7,12 +7,16 @@ import {
 	type GitHubGatewayOptions,
 	type RoasterGitHubGateway,
 } from "../../src/gateways/github.ts";
-import type {
-	PRChangedFile,
-	PRDiscussionComment,
-	PRInlineCommentInput,
-	PRReviewComment,
-	ReviewFinding,
+import { FakeLocalDiffGateway } from "../../src/gateways/local-diff.ts";
+import { FakeReviewCatalogGateway } from "../../src/gateways/review-catalog.ts";
+import { FakeReviewLogGateway } from "../../src/gateways/review-log.ts";
+import {
+	createLocalDiff,
+	type PRChangedFile,
+	type PRDiscussionComment,
+	type PRInlineCommentInput,
+	type PRReviewComment,
+	type ReviewFinding,
 } from "../../src/models.ts";
 import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
 import {
@@ -29,16 +33,21 @@ interface RunResult {
 
 async function runRoaster(
 	args: readonly string[],
-	options: { readonly stdin?: string; readonly github?: RoasterGitHubGateway } = {},
+	options: {
+		readonly stdin?: string;
+		readonly github?: RoasterGitHubGateway;
+		readonly context?: RoasterContext;
+	} = {},
 ): Promise<RunResult> {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
-	const context: RoasterContext = fakeRoasterContext({
-		github: options.github,
+	const baseContext = options.context ?? fakeRoasterContext({ github: options.github });
+	const context: RoasterContext = {
+		...baseContext,
 		stdin: async () => options.stdin ?? "",
 		stdout: (text) => stdout.push(text),
 		stderr: (text) => stderr.push(text),
-	});
+	};
 	const exitCode = await runCli(args, { context });
 	return { exitCode, stdout: stdout.join(""), stderr: stderr.join("") };
 }
@@ -49,6 +58,14 @@ const EXEC_CLI_FINDINGS_ENVELOPE_OPTIONS = {
 	model: "sonnet",
 	baseRef: "master",
 } as const satisfies FindingsEnvelopeOptions;
+
+const REVIEW_SOURCE = `---
+description: Review Python diffs.
+model_profile: deep
+---
+
+Flag concrete issues.
+`;
 
 function failedEnvelope(): string {
 	return JSON.stringify({
@@ -120,13 +137,56 @@ async function findSummaryComment(
 }
 
 describe("roaster exec CLI", () => {
-	test("exec help lists the collapsed publication command", async () => {
+	test("exec help lists record and publication commands", async () => {
 		const run = await runRoaster(["exec", "--help"]);
 		expect(run.exitCode).toBe(0);
+		expect(run.stdout).toContain("record-findings");
 		expect(run.stdout).toContain("publish-findings");
 		expect(run.stdout).not.toContain("post-inline-findings");
 		expect(run.stdout).not.toContain("format-findings-comment");
 		expect(run.stdout).not.toContain("post-findings-comment");
+	});
+
+	test("record-findings rejects malformed stdin", async () => {
+		const run = await runRoaster(["exec", "record-findings", "--review-key", "dignified-python"], {
+			stdin: "not json",
+		});
+		expect(run.exitCode).toBe(2);
+		expect(run.stderr).toContain("record-findings stdin must be JSON");
+	});
+
+	test("record-findings emits a review-run envelope consumable by publish-findings", async () => {
+		const reviewLog = new FakeReviewLogGateway();
+		const record = await runRoaster(
+			["exec", "record-findings", "--review-key", "dignified-python", "--format", "json"],
+			{
+				stdin: JSON.stringify({ findings: [inlineFinding] }),
+				context: fakeRoasterContext({
+					reviewCatalog: new FakeReviewCatalogGateway({
+						reviewSourcesByKey: { "dignified-python": REVIEW_SOURCE },
+					}),
+					localDiff: new FakeLocalDiffGateway({
+						defaultDiff: {
+							type: "ok",
+							value: createLocalDiff({ baseRef: "master", diffText: "", files: [] }),
+						},
+					}),
+					reviewLog,
+				}),
+			},
+		);
+		expect(record.exitCode).toBe(0);
+		expect(record.stderr).toContain("recorded review log: reviews/dignified-python/");
+		expect(reviewLog.writtenEntries()).toHaveLength(1);
+		expect(JSON.parse(record.stdout).data.reviewName).toBe("dignified-python");
+
+		const gateway = new FakeRoasterGitHubGateway({ changedFilesByPr: changedFiles });
+		const publish = await runRoaster(["exec", "publish-findings", "--pr-number", "47"], {
+			stdin: record.stdout,
+			github: gateway,
+		});
+		expect(publish.exitCode).toBe(0);
+		expect(publish.stderr).toContain("inline findings: posted=1");
 	});
 
 	test("publish-findings rejects malformed stdin", async () => {

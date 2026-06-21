@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import type { HarnessReviewRequest, ReviewInputCoverage } from "../models.ts";
-import { promptSizedDiff } from "./harness-diff-cap.ts";
+import type { ReviewRunnerRequest, ReviewInputCoverage } from "../models.ts";
+import { promptSizedDiff } from "./review-runner-diff-cap.ts";
 
 export const MAX_PROMPT_CHANGED_PATHS = 200;
 
@@ -37,7 +37,7 @@ export function reviewPromptTemplate(): string {
 }
 
 export function assembleReviewPrompt(
-	request: Pick<HarnessReviewRequest, "reviewDefinition" | "target">,
+	request: Pick<ReviewRunnerRequest, "reviewDefinition" | "target">,
 ): AssembledReviewPrompt {
 	const sizedDiff = promptSizedDiff(request.target.localDiff);
 	const changedPaths = formatChangedPaths(request.target.localDiff.changedPaths);

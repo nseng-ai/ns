@@ -1,7 +1,10 @@
 import { NodeCommandExecApi, type CommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@sdl/core/git";
 
-import { RealHarnessGateway, type HarnessGateway } from "./gateways/harness.ts";
+import {
+	ClaudeCodeProcessReviewRunner,
+	type ReviewRunnerGateway,
+} from "./gateways/review-runner.ts";
 import { RealRoasterGitHubGateway, type RoasterGitHubGateway } from "./gateways/github.ts";
 import { RealLocalDiffGateway, type LocalDiffGateway } from "./gateways/local-diff.ts";
 import { RealReviewCatalogGateway, type ReviewCatalogGateway } from "./gateways/review-catalog.ts";
@@ -16,7 +19,7 @@ export interface RoasterContext {
 	readonly reviewCatalog: ReviewCatalogGateway;
 	readonly reviewLog: ReviewLogGateway;
 	readonly github: RoasterGitHubGateway;
-	readonly harness: HarnessGateway;
+	readonly reviewRunner: ReviewRunnerGateway;
 	readonly cwd: string;
 	readonly env: NodeJS.ProcessEnv;
 	readonly signal?: AbortSignal | undefined;
@@ -35,7 +38,7 @@ export interface CreateRealRoasterContextOptions {
 	readonly execApi?: CommandExecApi | undefined;
 	readonly gitGateway?: GitGateway | undefined;
 	readonly reviewLog?: ReviewLogGateway | undefined;
-	readonly harness?: HarnessGateway | undefined;
+	readonly reviewRunner?: ReviewRunnerGateway | undefined;
 }
 
 export interface RoasterRunScope {
@@ -62,7 +65,7 @@ export interface RoasterRuntime {
 	readonly reviewCatalog: ReviewCatalogGateway;
 	readonly reviewLog: ReviewLogGateway;
 	readonly github: RoasterGitHubGateway;
-	readonly harness: HarnessGateway;
+	readonly reviewRunner: ReviewRunnerGateway;
 	readonly stdin: () => Promise<string>;
 	readonly stderr: (text: string) => void;
 }
@@ -77,7 +80,7 @@ export function createRealRoasterContext(options: CreateRealRoasterContextOption
 		reviewCatalog: new RealReviewCatalogGateway({ gitGateway }),
 		reviewLog: options.reviewLog ?? new RealReviewLogGateway({ execApi }),
 		github: new RealRoasterGitHubGateway(execApi),
-		harness: options.harness ?? new RealHarnessGateway({ execApi }),
+		reviewRunner: options.reviewRunner ?? new ClaudeCodeProcessReviewRunner({ execApi }),
 		cwd: options.cwd,
 		env: options.env,
 		...(options.signal === undefined ? {} : { signal: options.signal }),
@@ -95,7 +98,7 @@ export function createRoasterRuntime(context: RoasterContext): RoasterRuntime {
 		reviewCatalog: context.reviewCatalog,
 		reviewLog: context.reviewLog,
 		github: context.github,
-		harness: context.harness,
+		reviewRunner: context.reviewRunner,
 		stdin: context.stdin,
 		stderr: context.stderr,
 	};

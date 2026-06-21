@@ -218,7 +218,6 @@ export const RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES = Symbol(
 export interface RunnerSubagentPi {
 	[RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES]?: RunnerSubagentDispatcherDependencies;
 	getThinkingLevel?: () => ThinkingLevel;
-	[key: string]: unknown;
 }
 
 export interface RunnerSubagentContext {

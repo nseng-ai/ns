@@ -4,7 +4,7 @@ import {
 	MAX_PROMPT_DIFF_FILE_TOKENS,
 	MAX_PROMPT_DIFF_TOKENS,
 	promptSizedDiff,
-} from "../../src/gateways/harness-diff-cap.ts";
+} from "../../src/gateways/review-runner-diff-cap.ts";
 import { createLocalDiff, type LocalDiff } from "../../src/models.ts";
 
 function diffFile(

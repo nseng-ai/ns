@@ -18,6 +18,7 @@ export interface LoadDiffOptions {
 	readonly env?: NodeJS.ProcessEnv | undefined;
 	readonly baseRef?: string | null | undefined;
 	readonly signal?: AbortSignal | undefined;
+	readonly excludeGlobs?: readonly string[] | undefined;
 }
 
 export interface LocalDiffGateway {
@@ -50,13 +51,14 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 		const baseRef = await this.resolveBaseRef(options, repoRoot.value);
 		if (baseRef.type === "error") return baseRef;
 
-		const config = await this.loadProjectConfig(repoRoot.value);
-		if (config.type === "error") return config;
+		const excludeGlobsResult = await this.resolveExcludeGlobs(options, repoRoot.value);
+		if (excludeGlobsResult.type === "error") return excludeGlobsResult;
+		const excludeGlobs = excludeGlobsResult.value;
 
-		const args = [...buildGitDiffArgs({ baseRef: baseRef.value, excludeGlobs: config.value })];
+		const args = [...buildGitDiffArgs({ baseRef: baseRef.value, excludeGlobs })];
 		const displayCommand = formatGitDiffDisplayCommand({
 			baseRef: baseRef.value,
-			excludeGlobs: config.value,
+			excludeGlobs,
 		});
 		let result;
 		try {
@@ -103,7 +105,12 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 		});
 	}
 
-	private async loadProjectConfig(repoRoot: string): Promise<RoasterResult<readonly string[]>> {
+	private async resolveExcludeGlobs(
+		options: LoadDiffOptions,
+		repoRoot: string,
+	): Promise<RoasterResult<readonly string[]>> {
+		if (options.excludeGlobs !== undefined) return { type: "ok", value: options.excludeGlobs };
+
 		const path = join(repoRoot, "sdl.toml");
 		let source: string;
 		try {
@@ -135,6 +142,7 @@ export class FakeLocalDiffGateway implements LocalDiffGateway {
 	private readonly diffsByBaseRef = new Map<string | null | undefined, RoasterResult<LocalDiff>>();
 	private readonly defaultDiff: RoasterResult<LocalDiff>;
 	private readonly requestedBaseRefsInternal: Array<string | null | undefined> = [];
+	private readonly requestedExcludeGlobsInternal: Array<readonly string[] | undefined> = [];
 
 	constructor(options: FakeLocalDiffGatewayOptions = {}) {
 		if (options.diffsByBaseRef instanceof Map) {
@@ -154,11 +162,18 @@ export class FakeLocalDiffGateway implements LocalDiffGateway {
 
 	async loadDiff(options: LoadDiffOptions): Promise<RoasterResult<LocalDiff>> {
 		this.requestedBaseRefsInternal.push(options.baseRef);
+		this.requestedExcludeGlobsInternal.push(options.excludeGlobs);
 		return copyResult(this.diffsByBaseRef.get(options.baseRef) ?? this.defaultDiff);
 	}
 
 	requestedBaseRefs(): readonly (string | null | undefined)[] {
 		return [...this.requestedBaseRefsInternal];
+	}
+
+	requestedExcludeGlobs(): readonly (readonly string[] | undefined)[] {
+		return this.requestedExcludeGlobsInternal.map((value) =>
+			value === undefined ? undefined : [...value],
+		);
 	}
 }
 
