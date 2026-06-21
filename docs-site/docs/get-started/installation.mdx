@@ -1,0 +1,51 @@
+---
+title: "Installation"
+description: "Install SDL tools one at a time, or use the SDL command when a workflow needs it."
+---
+
+SDL tools are independently adoptable CLIs. Install the tool you need; you do not have to adopt the whole suite first.
+
+## Requirements
+
+The current first-party tools are TypeScript CLIs. The source shims require:
+
+- Node 24.12 or newer.
+- pnpm 11 for workspace dependency installation.
+- An SDL checkout available to the shim.
+
+Install workspace dependencies when needed:
+
+```bash
+just ts-install
+# or
+pnpm --dir ts install
+```
+
+## Standalone tools
+
+Install public tools from an SDL checkout with source shims:
+
+```bash
+just install-slot
+just install-brmem
+just install-aretro
+just install-objective
+just install-pr-address
+just install-roaster
+```
+
+Each recipe places a console script on your `PATH`, such as `slot`, `brmem`, `aretro`, `objective`, `pr-address`, or `roaster`.
+
+You can also install the core public set together:
+
+```bash
+just install-tools
+```
+
+`install-tools` currently installs `slot`, `brmem`, `handoff`, `areg`, and `objective`. Install `aretro`, `pr-address`, and `roaster` separately when those workflows are needed.
+
+## SDL command
+
+Some environments also expose an `sdl` command for SDL-owned surfaces and extensions. Use the standalone command in examples unless a page explicitly says the SDL form matters.
+
+Standalone commands and SDL-routed commands should follow the same [CLI conventions](/docs/concepts/cli-conventions): human output by default, explicit machine output for scripts, and hidden `exec` commands for skills.

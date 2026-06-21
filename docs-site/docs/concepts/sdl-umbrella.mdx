@@ -1,0 +1,32 @@
+---
+title: "The SDL umbrella"
+description: "How standalone SDL tools compose without requiring one monolithic workflow."
+---
+
+SDL is a suite of standalone tools for plan-oriented agentic engineering. The core product rule is composability: each feature should make sense on its own before it participates in a broader workflow.
+
+## Standalone first
+
+```bash
+slot list
+brmem get plan.md
+objective list
+pr-address exec download-feedback --format json
+```
+
+Standalone commands are the canonical surface in most docs because they keep each tool independently adoptable. You can use `slot` for worktrees without Branch Memory, or Objectives without PR feedback tooling.
+
+## Composition when it helps
+
+The tools are designed to compose through explicit artifacts:
+
+- Git worktrees and branches for isolated implementation work.
+- Branch Memory entries for branch-scoped notes, plans, and handoffs.
+- Checked-in Objective records for durable narrative roadmap context.
+- JSON or Markdown command output for agent and automation boundaries.
+
+Composition should not create hidden coupling. A workflow that uses several tools should name the tool boundary it is crossing and prefer documented machine output over scraping human text.
+
+## SDL command surfaces
+
+Some installations expose SDL-owned commands or extension mirrors through an `sdl` CLI. Treat that as a convenient entry point, not a prerequisite for understanding an individual tool. When a page documents a standalone command, run that command directly unless the page says the SDL form is part of the contract.

@@ -1,0 +1,48 @@
+---
+title: "pr-address"
+description: "Download structured pull-request feedback for agent triage."
+---
+
+`pr-address` helps agents fetch PR review state through stable CLI operations instead of ad-hoc GitHub scraping.
+
+```bash
+pr-address exec download-feedback --format json
+```
+
+## Mental model
+
+PR feedback is structured review state, not freeform chat. `pr-address` keeps agent-facing operations in a hidden `exec` subgroup so human help stays focused while skills get stable JSON or Markdown-ready payloads.
+
+The current public workflow is read-oriented: download the relevant PR feedback, let a skill or agent triage it, and make any GitHub mutations through an explicit confirmed workflow.
+
+## Install
+
+`pr-address` is a TypeScript tool. Install it from an SDL checkout with `just install-pr-address`, which places a `pr-address` shim on your `PATH`.
+
+```bash
+just install-pr-address
+pr-address --help
+```
+
+## Common commands
+
+| Goal | Command | Boundary |
+| --- | --- | --- |
+| Download feedback for triage | `pr-address exec download-feedback` | Read-only GitHub |
+| Map branches to PRs | `pr-address exec map-branch-prs` | Read-only GitHub |
+| Get PR details | `pr-address exec pr-details` | Read-only GitHub |
+| Find a branch PR | `pr-address exec branch-pr` | Read-only GitHub |
+| List open PRs | `pr-address exec open-prs` | Read-only GitHub |
+| Fetch PR reviews | `pr-address exec pr-reviews` | Read-only GitHub |
+| Fetch review threads | `pr-address exec pr-review-threads` | Read-only GitHub |
+| Fetch discussion comments | `pr-address exec pr-discussion-comments` | Read-only GitHub |
+| Reply to a review thread | `pr-address exec reply-review-thread` | GitHub mutation |
+| Resolve a review thread | `pr-address exec resolve-review-thread` | GitHub mutation |
+
+## Agent interface
+
+Use the paired [pr-address skill](/docs/skills/pr-address) for review-feedback triage. For output and exit-code expectations, see [CLI conventions](/docs/concepts/cli-conventions).
+
+## See also
+
+- [Addressing PR feedback](/docs/guides/addressing-pr-feedback)

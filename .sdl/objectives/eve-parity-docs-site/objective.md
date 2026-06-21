@@ -118,10 +118,10 @@ not from a staged preservation artifact.
   local evidence supports this: a standalone `docs-site/` skeleton installs and
   builds with `@vercel/geistdocs` 1.7.3. Deeper feature parity still needs
   validation as machine routes, search, and content are added.
-- The former curated Starlight content (`docs-site/src/content/docs/**`) is
-  recoverable from git history and useful as reference material; rewriting prose
-  is expected, and no separate asset/content preservation step is required before
-  deleting the old app.
+- The former curated Starlight content (`docs-site/src/content/docs/**`) was
+  recoverable from git history and useful as reference material for the published
+  corpus port. The migrated corpus now lives under `docs-site/docs/**` as `.mdx`
+  pages with Fumadocs `meta.json` IA; no staged preservation artifact was needed.
 - A standalone (non-workspace) Next.js app coexists fine alongside the `ts/`
   pnpm workspace, as the current standalone Astro app already does.
 - Keeping md-tracking on (an external call to `geistdocs.com`) is acceptable
@@ -143,9 +143,10 @@ not from a staged preservation artifact.
   tools/skills index or be parked.
 - **Loss of working site during migration.** Deleting the Astro app before the
   Next.js app reaches parity leaves SDL without full published-site parity
-  mid-stream. Initial mitigation is in place: the replacement Next.js/geistdocs
-  skeleton builds locally. Remaining risk is product/content parity, not total
-  absence of a buildable docs app.
+  mid-stream. Mitigation is now stronger: the replacement Next.js/geistdocs app
+  builds locally with the migrated Get started / Concepts / Tools / Guides /
+  Skills corpus. Remaining risk is feature parity for machine routes, search,
+  marketing home, integrations, and launch readiness.
 - **md-tracking telemetry** sends page-fetch events off-repo to a third party.
   Owner-approved, but record it as a known external dependency.
 
@@ -166,9 +167,10 @@ not from a staged preservation artifact.
 - **Site identity/positioning copy** — tagline, hero headline, `siteId`,
   production URL/domain. eve: "The Framework for Building Agents" / "Like Next.js
   for web apps, but for agents." SDL needs its own.
-- **`md` vs `mdx`** default for content files, and which eve `source.config.ts`
-  niceties to carry (mermaid, last-modified plugin behavior on Vercel shallow
-  checkouts, the fence-label normalizer).
+- **Content file extension: resolved to `.mdx` for the migrated published
+  corpus.** The current port uses `.mdx` for all Get started / Concepts / Tools /
+  Guides / Skills pages. The `source.config.ts` niceties already include mermaid,
+  Geist shiki theme, the fence-label normalizer, and last-modified behavior.
 
 ## Background & Decision Log
 

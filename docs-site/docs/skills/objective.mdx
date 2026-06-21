@@ -1,0 +1,21 @@
+---
+title: "objective skill"
+description: "Agent guidance for creating, updating, and implementing durable Objectives."
+---
+
+The `objective` skill keeps long-running work grounded in checked-in Objective records rather than chat-only plans.
+
+```bash
+objective list
+```
+
+Use it when a session needs to understand Objective records, choose the next branch, record a Semantic Update, or close work with evidence. Objectives should remain human-readable Markdown that future sessions can inspect before acting.
+
+## What the skill adds
+
+- Reads the relevant Objective before recommending next work.
+- Treats Semantic Updates as meaningful evidence, not ceremonial status pings.
+- Keeps Objective Close distinct from archiving or deleting records.
+- Uses Tracking Gates to prompt for durable tracking when branch evidence has moved ahead of the record.
+
+See [`objective`](/docs/tools/objective) and [Objectives](/docs/concepts/objectives).
