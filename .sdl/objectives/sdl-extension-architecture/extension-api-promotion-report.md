@@ -7,7 +7,7 @@ the deliberate SDK-pressure promotion analysis the roadmap anticipates for the
 `cp` / `regenerate-pr` / `submit` migration slices — it converts accumulated
 duplication evidence into a concrete, ordered promotion backlog.
 
-Status: analysis/recommendation. No SDK helper is promoted by this document.
+Status: analysis plus first implementation slice. The #1 exec evidence helper promotion (`commandSucceeded()` + `formatCommandEvidence()`) is now implemented in `@sdl/sdl/sdk` and proven by the project-local `push` extension. The remaining ranked items are still recommendations, not yet promoted.
 
 ---
 
@@ -278,7 +278,7 @@ widened SDK like the other extensions, retiring the bundle.
 
 ## 8. Proof-of-mechanism (smallest viable first step)
 
-Promote #1 and convert `push.ts`:
+Implemented in the first SDK-promotion slice: promote #1 and convert `push.ts`:
 
 1. Add `commandSucceeded` + `formatCommandEvidence` to `sdk.ts` (re-export from
    `@sdl/core/exec`).

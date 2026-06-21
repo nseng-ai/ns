@@ -1,4 +1,4 @@
-import { defineExtension, ok, z } from "@sdl/sdl/sdk";
+import { commandSucceeded, defineExtension, formatCommandEvidence, ok, z } from "@sdl/sdl/sdk";
 import type { TextGenerationRequest, TextGenerationResult, TextGenerator } from "@sdl/sdl/sdk";
 
 type Assert<T extends true> = T;
@@ -74,6 +74,17 @@ const textGenerator: TextGenerator = {
 	},
 };
 
+const commandResult = { code: 0, stdout: "", stderr: "", killed: false };
+const commandOk: boolean = commandSucceeded(commandResult);
+const commandEvidence: string = formatCommandEvidence({
+	intro: "Command finished.",
+	command: "git status",
+	cwd: "/repo",
+	result: commandResult,
+});
+
 void extension;
 void commandlessExtension;
 void textGenerator;
+void commandOk;
+void commandEvidence;

@@ -199,7 +199,39 @@ export function normalizeExecResult(result: PiExecResultLike): ExecResult {
 }
 
 export function isSuccessfulExecResult(result: ExecResult): boolean {
+	return commandSucceeded(result);
+}
+
+export function commandSucceeded(result: ExecResult): boolean {
 	return result.code === 0 && !result.killed;
+}
+
+export interface FormatCommandEvidenceOptions {
+	intro: string;
+	command: string;
+	cwd: string;
+	result: ExecResult;
+	guidance?: string | undefined;
+}
+
+export function formatCommandEvidence(options: FormatCommandEvidenceOptions): string {
+	const sections = [
+		options.intro,
+		`Command: ${options.command}`,
+		`Cwd: ${options.cwd}`,
+		`Exit: ${options.result.code}`,
+		`Killed: ${options.result.killed}`,
+	];
+	if (options.guidance !== undefined) {
+		sections.push(options.guidance);
+	}
+	sections.push(
+		"stdout:",
+		formatCommandEvidenceOutput(options.result.stdout),
+		"stderr:",
+		formatCommandEvidenceOutput(options.result.stderr),
+	);
+	return sections.join("\n");
 }
 
 export function commandFailureReason(result: ExecResult): string {
@@ -260,6 +292,11 @@ export function formatOutputSection(
 	const normalizedOutput = stripTerminalEscapes(output).replace(/\r/g, "\n").trimEnd();
 	const tail = normalizedOutput.length > 0 ? tailText(normalizedOutput, options) : "";
 	return [`----- ${name} tail -----`, tail.length > 0 ? tail : "(empty)"].join("\n");
+}
+
+function formatCommandEvidenceOutput(output: string): string {
+	if (output === "") return "<empty>";
+	return output.endsWith("\n") ? output.trimEnd() : output;
 }
 
 export function formatCommandFailure(
