@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { formatCommand, type ExecResult } from "@sdl/core/exec";
+import { ScriptedQueue } from "@sdl/core/testing";
 import {
 	isGtDeleteMissingBranch,
 	outputTail,
@@ -130,13 +131,12 @@ interface WidgetUpdate {
 
 class FakePi implements LandStackExtensionAPI {
 	readonly execCalls: ExecCall[] = [];
-	readonly errors: string[] = [];
 	readonly messageRenderers = new Map<string, MessageRenderer>();
 	readonly messages: SentMessage[] = [];
-	private readonly script: ScriptedExec[];
+	private readonly script: ScriptedQueue<ScriptedExec>;
 
 	constructor(script: ScriptedExec[] = []) {
-		this.script = [...script];
+		this.script = new ScriptedQueue(script, (step) => step);
 	}
 
 	registerMessageRenderer(customType: string, renderer: MessageRenderer): void {
@@ -156,16 +156,15 @@ class FakePi implements LandStackExtensionAPI {
 		options?: { cwd?: string; timeout?: number },
 	): Promise<ExecResult> {
 		this.execCalls.push({ command, args: [...args], options });
-		const expected = this.script.shift();
-		if (!expected) {
-			const message = `unexpected exec: ${formatCommand(command, args)}`;
-			this.errors.push(message);
-			return execResult({ code: 99, stderr: message });
+		const missingStepMessage = `unexpected exec: ${formatCommand(command, args)}`;
+		const expected = this.script.shiftOrRecordError(missingStepMessage);
+		if (expected === undefined) {
+			return execResult({ code: 99, stderr: missingStepMessage });
 		}
 
 		if (expected.command !== command || !sameArgs(expected.args, args)) {
 			const message = `expected ${formatCommand(expected.command, expected.args)}, got ${formatCommand(command, args)}`;
-			this.errors.push(message);
+			this.script.recordError(message);
 			return execResult({ code: 99, stderr: message });
 		}
 
@@ -173,8 +172,7 @@ class FakePi implements LandStackExtensionAPI {
 	}
 
 	assertDone(): void {
-		expect(this.errors).toEqual([]);
-		expect(this.script).toEqual([]);
+		this.script.assertDone();
 	}
 }
 

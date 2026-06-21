@@ -12,6 +12,7 @@ import {
 	type BrmemExecGateway,
 } from "@sdl/core/brmem-cli";
 import type { PiExecResultLike } from "@sdl/core/exec";
+import { ScriptedQueue } from "@sdl/core/testing";
 
 const ROOT = "/repo";
 
@@ -29,24 +30,22 @@ type ScriptedExec =
 
 class FakeGateway implements BrmemExecGateway {
 	readonly calls: ExecCall[] = [];
-	readonly errors: string[] = [];
-	private readonly script: ScriptedExec[];
+	private readonly script: ScriptedQueue<ScriptedExec>;
 
 	constructor(script: ScriptedExec[]) {
-		this.script = [...script];
+		this.script = new ScriptedQueue(script, (step) => step);
 	}
 
 	async exec(command: string, args: string[], options?: ExecOptions): Promise<PiExecResultLike> {
 		this.calls.push({ command, args: [...args], options });
-		const expected = this.script.shift();
-		if (!expected) {
-			const message = `unexpected exec: ${command} ${args.join(" ")}`;
-			this.errors.push(message);
-			return { code: 99, stderr: message };
+		const missingStepMessage = `unexpected exec: ${command} ${args.join(" ")}`;
+		const expected = this.script.shiftOrRecordError(missingStepMessage);
+		if (expected === undefined) {
+			return { code: 99, stderr: missingStepMessage };
 		}
 		if (expected.command !== command || !sameArgs(expected.args, args)) {
 			const message = `expected ${expected.command} ${expected.args.join(" ")}, got ${command} ${args.join(" ")}`;
-			this.errors.push(message);
+			this.script.recordError(message);
 			return { code: 99, stderr: message };
 		}
 		if ("error" in expected) throw expected.error;
@@ -54,8 +53,7 @@ class FakeGateway implements BrmemExecGateway {
 	}
 
 	assertDone(): void {
-		expect(this.errors).toEqual([]);
-		expect(this.script).toEqual([]);
+		this.script.assertDone();
 	}
 }
 

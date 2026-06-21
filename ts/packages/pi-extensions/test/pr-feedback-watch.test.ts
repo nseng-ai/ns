@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 
+import { ScriptedQueue } from "@sdl/core/testing";
 import prFeedbackWatchExtension, {
 	buildDetectedFeedbackPrompt,
 	buildFeedbackFingerprint,
@@ -61,11 +62,10 @@ class FakePi implements ExtensionAPI {
 	readonly userMessages: string[] = [];
 	readonly customMessages: string[] = [];
 	readonly entries: Array<{ customType: string; data: unknown }> = [];
-	readonly errors: string[] = [];
-	private readonly script: ScriptedExec[];
+	private readonly script: ScriptedQueue<ScriptedExec>;
 
 	constructor(script: ScriptedExec[] = []) {
-		this.script = [...script];
+		this.script = new ScriptedQueue(script, (step) => step);
 	}
 
 	registerCommand(name: string, command: RegisteredCommand): void {
@@ -84,18 +84,17 @@ class FakePi implements ExtensionAPI {
 
 	async exec(command: string, args: string[]): Promise<ExecResult> {
 		this.calls.push({ command, args: [...args] });
-		const expected = this.script.shift();
+		const missingStepMessage = `unexpected exec: ${command} ${args.join(" ")}`;
+		const expected = this.script.shiftOrRecordError(missingStepMessage);
 		if (expected === undefined) {
-			const message = `unexpected exec: ${command} ${args.join(" ")}`;
-			this.errors.push(message);
-			return execResult({ code: 99, stderr: message });
+			return execResult({ code: 99, stderr: missingStepMessage });
 		}
 		if (expected.command !== command || !matchesArgs(expected.args, args)) {
 			const expectedArgs = Array.isArray(expected.args)
 				? expected.args.join(" ")
 				: (expected.description ?? "<custom args matcher>");
 			const message = `expected ${expected.command} ${expectedArgs}, got ${command} ${args.join(" ")}`;
-			this.errors.push(message);
+			this.script.recordError(message);
 			return execResult({ code: 99, stderr: message });
 		}
 		return execResult(expected.result);
@@ -114,8 +113,7 @@ class FakePi implements ExtensionAPI {
 	}
 
 	assertDone(): void {
-		expect(this.errors).toEqual([]);
-		expect(this.script).toEqual([]);
+		this.script.assertDone();
 	}
 }
 

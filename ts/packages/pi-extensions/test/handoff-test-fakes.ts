@@ -1,8 +1,8 @@
-import { expect } from "vitest";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { ScriptedQueue } from "@sdl/core/testing";
 import handoffExtension, {
 	type CommandContext,
 	type ExecResult,
@@ -64,7 +64,6 @@ export class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly tools = new Map<string, RegisteredTool>();
 	readonly execCalls: ExecCall[] = [];
-	readonly errors: string[] = [];
 	readonly renderers = new Map<string, MessageRenderer>();
 	readonly sentMessages: CustomMessage[] = [];
 	readonly sentUserMessages: string[] = [];
@@ -72,7 +71,7 @@ export class FakePi implements ExtensionAPI {
 	readonly registerMessageRenderer?: (customType: string, renderer: MessageRenderer) => void;
 	readonly sendMessage?: (message: CustomMessage) => void;
 	readonly registerTool?: (tool: RegisteredTool) => void;
-	private readonly script: ScriptedExec[];
+	private readonly script: ScriptedQueue<ScriptedExec>;
 	private readonly commandInfos: CommandInfo[];
 
 	constructor(
@@ -84,7 +83,7 @@ export class FakePi implements ExtensionAPI {
 			registerTool?: boolean;
 		} = {},
 	) {
-		this.script = [...script];
+		this.script = new ScriptedQueue(script, (step) => step);
 		this.commandInfos = [...commandInfos];
 		if (options.registerMessageRenderer ?? true) {
 			this.registerMessageRenderer = (customType: string, renderer: MessageRenderer): void => {
@@ -113,15 +112,14 @@ export class FakePi implements ExtensionAPI {
 		options?: { cwd?: string; timeout?: number; signal?: AbortSignal },
 	): Promise<ExecResult> {
 		this.execCalls.push({ command, args: [...args], options });
-		const expected = this.script.shift();
+		const missingStepMessage = `unexpected exec: ${command} ${args.join(" ")}`;
+		const expected = this.script.shiftOrRecordError(missingStepMessage);
 		if (expected === undefined) {
-			const message = `unexpected exec: ${command} ${args.join(" ")}`;
-			this.errors.push(message);
-			return execResult({ code: 99, stderr: message });
+			return execResult({ code: 99, stderr: missingStepMessage });
 		}
 		if (expected.command !== command || !sameArgs(expected.args, args)) {
 			const message = `expected ${expected.command} ${expected.args.join(" ")}, got ${command} ${args.join(" ")}`;
-			this.errors.push(message);
+			this.script.recordError(message);
 			return execResult({ code: 99, stderr: message });
 		}
 		return execResult(expected.result);
@@ -141,8 +139,7 @@ export class FakePi implements ExtensionAPI {
 	}
 
 	assertDone(): void {
-		expect(this.errors).toEqual([]);
-		expect(this.script).toEqual([]);
+		this.script.assertDone();
 	}
 }
 
