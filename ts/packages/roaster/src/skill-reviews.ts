@@ -5,7 +5,7 @@ import {
 	type ReviewSource,
 } from "./gateways/review-catalog.ts";
 import type { ReviewDefinition } from "./models.ts";
-import { parseReviewDefinition } from "./review-definition.ts";
+import { loadParsedReviewDefinition } from "./review-definition-loading.ts";
 
 export interface RoastSkillEntry {
 	readonly surface: string;
@@ -65,26 +65,19 @@ export async function loadRoastReviewDefinition(
 	options: LoadRoastReviewDefinitionOptions,
 ): Promise<RoastReviewLoadResult> {
 	const reviewCatalog = options.reviewCatalog ?? new RealReviewCatalogGateway();
-	const source = await reviewCatalog.loadReviewSource({
+	const loaded = await loadParsedReviewDefinition({
 		cwd: options.cwd,
 		...(options.signal === undefined ? {} : { signal: options.signal }),
+		reviewCatalog,
 		key: options.key,
 	});
-	if (source.type === "error") return source;
-
-	const parsed = parseReviewDefinition(source.value.source, { name: source.value.key });
-	if (parsed.type === "error") {
-		return {
-			type: "error",
-			error: reviewDefinitionInvalidFailure(source.value, parsed.error.message),
-		};
-	}
+	if (loaded.type === "error") return loaded;
 
 	return {
 		type: "ok",
-		entry: roastSkillEntryFromDefinition(source.value.key, parsed.definition),
-		source: source.value,
-		definition: parsed.definition,
+		entry: roastSkillEntryFromDefinition(loaded.value.source.key, loaded.value.definition),
+		source: loaded.value.source,
+		definition: loaded.value.definition,
 	};
 }
 
@@ -131,11 +124,4 @@ function humanizeKeyWord(word: string, index: number): string {
 	if (acronym !== undefined) return acronym;
 	if (index === 0) return `${lower.slice(0, 1).toUpperCase()}${lower.slice(1)}`;
 	return lower;
-}
-
-function reviewDefinitionInvalidFailure(source: ReviewSource, message: string): RoasterFailure {
-	return {
-		type: "review_definition_invalid",
-		message: `Review definition ${source.key} at ${source.path} is invalid: ${message}`,
-	};
 }

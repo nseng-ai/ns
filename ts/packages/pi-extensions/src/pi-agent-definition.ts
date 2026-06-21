@@ -1,8 +1,9 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { join } from "node:path";
 
 import { splitMarkdownFrontmatter, stripLineEnding } from "@sdl/core/markdown-frontmatter";
 import { formatErrorMessage } from "@sdl/core/primitives";
+import { findWorkspaceRootByMarkers } from "@sdl/core/workspace-root";
 
 export const PI_AGENT_DEFINITION_SCHEMA = "sdl.pi-agent.v1";
 
@@ -41,15 +42,13 @@ const SUPPORTED_FRONTMATTER_FIELDS = new Set<string>([
 ]);
 
 export function findSdlPiAgentsDir(cwd: string): string | undefined {
-	let current = resolve(cwd);
-	while (true) {
-		const candidate = join(current, ".sdl", "pi", "agents");
-		if (isDirectory(candidate)) return candidate;
-
-		const parent = dirname(current);
-		if (parent === current) return undefined;
-		current = parent;
-	}
+	const root = findWorkspaceRootByMarkers({
+		cwd,
+		markers: [join(".sdl", "pi", "agents")],
+		exists: isDirectory,
+	});
+	if (root === null) return undefined;
+	return join(root, ".sdl", "pi", "agents");
 }
 
 export function loadPiAgentDefinition(agentName: string, cwd: string): PiAgentDefinition {

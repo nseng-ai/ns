@@ -22,7 +22,7 @@ import {
 	type RoasterModelProfileKey,
 	type RoasterProjectConfig,
 } from "../project-config.ts";
-import { parseReviewDefinition } from "../review-definition.ts";
+import { loadParsedReviewDefinition } from "../review-definition-loading.ts";
 
 export interface RunRoasterReviewRequest {
 	readonly key: string;
@@ -142,22 +142,12 @@ export async function loadReviewExecutionContext(
 	ctx: RoasterRuntime,
 	request: LoadReviewExecutionContextRequest,
 ): Promise<RoasterResult<ReviewExecutionContext>> {
-	const source = await ctx.reviewCatalog.loadReviewSource({
+	const loaded = await loadParsedReviewDefinition({
 		...catalogOptions(ctx.runScope),
+		reviewCatalog: ctx.reviewCatalog,
 		key: request.reviewKey,
 	});
-	if (source.type === "error") return source;
-
-	const parsed = parseReviewDefinition(source.value.source, { name: source.value.key });
-	if (parsed.type === "error") {
-		return {
-			type: "error",
-			error: {
-				type: "review_definition_invalid",
-				message: parsed.error.message,
-			},
-		};
-	}
+	if (loaded.type === "error") return loaded;
 
 	const config = await loadProjectConfigFromContext(ctx);
 	if (config.type === "error") return config;
@@ -172,8 +162,8 @@ export async function loadReviewExecutionContext(
 	return {
 		type: "ok",
 		value: {
-			source: source.value,
-			definition: parsed.definition,
+			source: loaded.value.source,
+			definition: loaded.value.definition,
 			config: config.value,
 			diff: diff.value,
 		},
