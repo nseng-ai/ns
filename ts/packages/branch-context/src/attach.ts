@@ -2,6 +2,7 @@ import {
 	BRANCH_CONTEXT_NAMESPACE,
 	UNSUPPORTED_ATTACHED_PLAN_KEY,
 	buildBranchContextPlanKey,
+	isSupportedBranchContextPlanKey,
 } from "./constants.ts";
 import { normalizeRequestedBranchContextKey } from "./attached-plan.ts";
 import {
@@ -74,6 +75,8 @@ export async function attachBranchContextEntry(
 ): Promise<BranchContextAttachEvidence> {
 	const context = await resolveBranchContextPrimitiveResolution(options, params.branch);
 	const source = await resolveAttachSource(pi, params, options);
+	const before = await listBranchContextNamespace(context.brmem, context.branch);
+	assertBranchContextNamespaceSupported(context.branch, before);
 	await assertBrmemEntryAbsent(context.brmem, context.branch, source.key);
 	const data = await attachBranchContext({
 		brmem: context.brmem,
@@ -82,6 +85,8 @@ export async function attachBranchContextEntry(
 		key: source.key,
 		sourceFile: source.sourceFile,
 	});
+	const after = await listBranchContextNamespace(context.brmem, context.branch);
+	assertAttachChangedNamespaceByOneKey(context.branch, before, after, source.key);
 	return attachEvidence(data, source.planSlug);
 }
 
@@ -175,6 +180,22 @@ export class AttachBranchContextError extends Error {
 	}
 }
 
+export class BranchContextNamespaceInvalidError extends Error {
+	readonly code = "branch_context_namespace_invalid";
+
+	constructor(branch: string, unsupportedKeys: readonly string[]) {
+		super(
+			[
+				`Branch-context namespace on branch ${JSON.stringify(branch)} contains unsupported Entries; refusing to attach into an invalid namespace.`,
+				"",
+				"Unsupported keys:",
+				formatKeyList(unsupportedKeys),
+			].join("\n"),
+		);
+		this.name = "BranchContextNamespaceInvalidError";
+	}
+}
+
 export function formatAttachEvidence(evidence: BranchContextAttachEvidence): string {
 	return [
 		"Attached branch-context entry.",
@@ -198,9 +219,9 @@ export function formatListEvidence(branch: string, entries: readonly AttachedPla
 		const label =
 			entry.key === UNSUPPORTED_ATTACHED_PLAN_KEY
 				? " (unsupported legacy plan key)"
-				: entry.key.endsWith(".md")
+				: isSupportedBranchContextPlanKey(entry.key)
 					? " (plan)"
-					: "";
+					: " (unsupported)";
 		lines.push(`- ${entry.key}${label}`);
 	}
 	return lines.join("\n");
@@ -270,6 +291,11 @@ async function resolveAttachSource(
 			"Legacy branch-context key plan.md is no longer supported; attach the plan under a named Markdown key such as <slug>.md.",
 		);
 	}
+	if (!isSupportedBranchContextPlanKey(key)) {
+		throw new Error(
+			"Branch-context attach keys must be named Markdown plan keys derived from a valid plan slug, such as <slug>.md.",
+		);
+	}
 	return {
 		key,
 		sourceFile: await resolvePlanSourceFile(pi, {
@@ -310,6 +336,60 @@ async function resolveAttachBranch(
 			current.error.message,
 		].join("\n"),
 	);
+}
+
+async function listBranchContextNamespace(
+	brmem: BrmemGateway,
+	branch: string,
+): Promise<AttachedPlanEntry[]> {
+	const list = await listBranchContextPlans(brmem, { branch });
+	if (!list.ok) throw new Error(list.error.message);
+	return list.value;
+}
+
+function assertBranchContextNamespaceSupported(
+	branch: string,
+	entries: readonly AttachedPlanEntry[],
+): void {
+	const unsupportedKeys = entries
+		.map((entry) => entry.key)
+		.filter((key) => !isSupportedBranchContextPlanKey(key))
+		.sort();
+	if (unsupportedKeys.length === 0) return;
+	throw new BranchContextNamespaceInvalidError(branch, unsupportedKeys);
+}
+
+function assertAttachChangedNamespaceByOneKey(
+	branch: string,
+	before: readonly AttachedPlanEntry[],
+	after: readonly AttachedPlanEntry[],
+	attachedKey: string,
+): void {
+	assertBranchContextNamespaceSupported(branch, after);
+	const expectedKeys = new Set(before.map((entry) => entry.key));
+	expectedKeys.add(attachedKey);
+	const actualKeys = new Set(after.map((entry) => entry.key));
+	if (setsEqual(expectedKeys, actualKeys)) return;
+	throw new AttachBranchContextError(
+		"branch_context_namespace_invalid",
+		[
+			`Branch-context attach did not change namespace by exactly the intended key on branch ${JSON.stringify(branch)}.`,
+			`Expected keys: ${formatKeyList([...expectedKeys].sort())}`,
+			`Actual keys: ${formatKeyList([...actualKeys].sort())}`,
+		].join("\n"),
+	);
+}
+
+function setsEqual(left: ReadonlySet<string>, right: ReadonlySet<string>): boolean {
+	if (left.size !== right.size) return false;
+	for (const value of left) {
+		if (!right.has(value)) return false;
+	}
+	return true;
+}
+
+function formatKeyList(keys: readonly string[]): string {
+	return keys.length === 0 ? "(none)" : keys.map((key) => `- ${key}`).join("\n");
 }
 
 function planStoreOptions(options: BranchContextPrimitiveOptions): PlanStoreOptions {

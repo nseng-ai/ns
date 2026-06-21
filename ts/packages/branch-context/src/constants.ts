@@ -10,3 +10,10 @@ export function buildBranchContextPlanKey(slug: string): string {
 	}
 	return buildPlanFileName(slug);
 }
+
+export function isSupportedBranchContextPlanKey(key: string): boolean {
+	if (key === UNSUPPORTED_ATTACHED_PLAN_KEY) return false;
+	if (!key.endsWith(".md")) return false;
+	const slug = key.slice(0, -".md".length);
+	return validatePlanSlug(slug) === undefined;
+}

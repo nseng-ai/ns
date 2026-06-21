@@ -173,6 +173,30 @@ describe("RealGitBrmemGateway integration", () => {
 		}
 	});
 
+	it("builds Snapshot trees from only intended Entries, not the repository index", async () => {
+		const repo = createTempGitRepo();
+		try {
+			writeFileSync(join(repo.path, "tracked.md"), "tracked\n", "utf8");
+			repo.runGit(["add", "tracked.md"]);
+			writeFileSync(join(repo.path, "dirty.md"), "dirty\n", "utf8");
+
+			const gateway = new RealGitBrmemGateway(repo.path);
+			const written = await gateway.putEntry({
+				namespace: "base",
+				branch: "feat/x",
+				key: "body.md",
+				content: "hello",
+			});
+
+			expect(written).toMatchObject({ type: "ok" });
+			expect(repo.runGit(["ls-tree", "-r", "--name-only", "refs/brmem/base/feat---x"])).toBe(
+				"body.md\n",
+			);
+		} finally {
+			repo.cleanup();
+		}
+	});
+
 	it("fails safe without advancing refs when the exec adapter drops mktree stdin", async () => {
 		const repo = createTempGitRepo();
 		try {
@@ -193,6 +217,30 @@ describe("RealGitBrmemGateway integration", () => {
 			expect(snapshotRefExists(repo, "refs/brmem/base/main")).toBe(false);
 			expect(repo.runGit(["status", "--porcelain"])).toBe("");
 			expect(repo.runGit(["write-tree"]).trim()).toBe(beforeIndexTree);
+		} finally {
+			repo.cleanup();
+		}
+	});
+
+	it("skips an invalid Entry Key while listing a Snapshot tree and returns ok", async () => {
+		const repo = createTempGitRepo();
+		try {
+			// A Snapshot tree may capture a path that is not a valid Entry Key (the
+			// bracket fails key validation). Listing is tolerant: it skips the invalid
+			// key and returns ok with any valid keys still present, rather than aborting.
+			writeFileSync(join(repo.path, "bad[key].md"), "bad\n", "utf8");
+			writeFileSync(join(repo.path, "good.md"), "good\n", "utf8");
+			repo.runGit(["add", "bad[key].md", "good.md"]);
+			repo.runGit(["commit", "-m", "add bad repo path"]);
+			repo.runGit(["update-ref", "refs/brmem/base/feat---x", "HEAD"]);
+			const gateway = new RealGitBrmemGateway(repo.path);
+
+			const listed = await gateway.listEntries({ namespace: "base", branch: "feat/x" });
+
+			if (listed.type !== "ok") throw new Error("list should not abort on an invalid key");
+			const keys = listed.value.map((entry) => entry.key);
+			expect(keys).toContain("good.md");
+			expect(keys).not.toContain("bad[key].md");
 		} finally {
 			repo.cleanup();
 		}
