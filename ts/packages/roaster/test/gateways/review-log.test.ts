@@ -6,11 +6,11 @@ import { RealReviewLogGateway } from "../../src/gateways/review-log.ts";
 
 const scope = { cwd: "/repo", env: { PATH: "/bin" } };
 
-type ExecCall = {
+interface ExecCall {
 	readonly command: string;
 	readonly args: readonly string[];
 	readonly options?: ExecOptions | undefined;
-};
+}
 
 class EchoPutCommandExecApi implements CommandExecApi {
 	private readonly callsInternal: ExecCall[] = [];
