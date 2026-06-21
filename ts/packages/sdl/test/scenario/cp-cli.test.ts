@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync, readFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -7,13 +7,10 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import { listSdlCommands } from "@sdl/sdl/cli";
 
-import { executeSdlCommand } from "../../src/command-registry.ts";
-import { defaultCpCommand } from "../../src/default-commands/cp.ts";
 import {
-	formatExecCall,
+	formattedExecCalls,
 	parseJsonOutput,
 	runCliWithFakes,
-	ScriptedSdlTestContext,
 	type RunWithFakesOptions,
 	type ScriptedExecResponse,
 } from "./sdl-cli-fakes.ts";
@@ -23,12 +20,49 @@ const tempDirs: string[] = [];
 function runWithFakes(options: RunWithFakesOptions) {
 	return runCliWithFakes(options, {
 		execResponses: defaultExecResponses,
-		textGenerationResults: () => [{ ok: true, text: "unused" }],
+		textGenerationResults: () => [{ ok: true, text: defaultCpMessage() }],
 	});
 }
 
 function defaultExecResponses(): ScriptedExecResponse[] {
 	return [];
+}
+
+function dirtyCpExecResponses(): ScriptedExecResponse[] {
+	return [
+		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
+		{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n?? notes.md\n" } },
+		{
+			match: "git diff HEAD --no-ext-diff",
+			result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
+		},
+		{ match: "git add -A", result: {} },
+		{ match: /^git commit -F /, result: {} },
+		{ match: "git log -1 --oneline", result: { stdout: "abc123 [cp] Update checkpoint\n" } },
+	];
+}
+
+function cleanCpExecResponses(): ScriptedExecResponse[] {
+	return [
+		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
+		{ match: "git status --porcelain=v1", result: { stdout: "" } },
+		{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
+	];
+}
+
+function defaultCpMessage(): string {
+	return `[cp] Update checkpoint tests
+
+- Add CLI coverage`;
+}
+
+function runCpWithFakes(options: RunWithFakesOptions) {
+	return runCliWithFakes(options, {
+		execResponses: dirtyCpExecResponses,
+		textGenerationResults: () => [{ ok: true, text: defaultCpMessage() }],
+	});
 }
 
 async function createExtensionProject(
@@ -40,6 +74,18 @@ async function createExtensionProject(
 	const extensionPath = join(directory, ".sdl", "extensions", extensionFileName);
 	mkdirSync(dirname(extensionPath), { recursive: true });
 	writeFileSync(extensionPath, extensionSource);
+	return directory;
+}
+
+async function createCpProject(): Promise<string> {
+	const directory = await mkdtemp(join(tmpdir(), "sdl-cp-extension-project-"));
+	tempDirs.push(directory);
+	const extensionPath = join(directory, ".sdl", "extensions", "cp.ts");
+	mkdirSync(dirname(extensionPath), { recursive: true });
+	writeFileSync(
+		extensionPath,
+		readFileSync(join(process.cwd(), "..", ".sdl", "extensions", "cp.ts"), "utf8"),
+	);
 	return directory;
 }
 
@@ -241,7 +287,7 @@ export default defineExtension({
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe("hello\n");
 		expect(run.stderr.join("")).toBe("");
-		expect(run.context.execCalls.map(formatExecCall)).toEqual(["echo hello"]);
+		expect(formattedExecCalls(run.context)).toEqual(["echo hello"]);
 	});
 
 	test("selected SDL command entry help schema and invocation use the loaded request schema", async () => {
@@ -420,59 +466,36 @@ export default defineExtension({
 	});
 });
 
-function runInactiveCpWithFakes(options: RunWithFakesOptions) {
-	const stdout: string[] = [];
-	const stderr: string[] = [];
-	const cwd = options.cwd ?? "/work";
-	const homeDir = options.homeDir ?? `${cwd}/.home`;
-	const context = new ScriptedSdlTestContext(options.state, {
-		cwd,
-		env: { HOME: homeDir, ...(options.env ?? {}) },
-		execResponses: defaultInactiveCpExecResponses,
-		textGenerationResults: () => [{ ok: true, text: defaultInactiveCpMessage() }],
+describe("project-local cp extension behavior", () => {
+	test("project-local cp appears in help, selected help, and JSON schema", async () => {
+		const cwd = await createCpProject();
+
+		const topHelp = runCpWithFakes({ args: ["--help"], state: { exec: [] }, cwd });
+		expect(await topHelp.exit).toBe(0);
+		expect(topHelp.stdout.join("")).toContain("cp");
+		expect(topHelp.stdout.join("")).toContain("Run SDL command entry 'cp'.");
+		expect(topHelp.stderr.join("")).toBe("");
+
+		const commandHelp = runCpWithFakes({ args: ["cp", "--help"], state: { exec: [] }, cwd });
+		expect(await commandHelp.exit).toBe(0);
+		const help = commandHelp.stdout.join("");
+		expect(help).toContain("Usage: sdl cp");
+		expect(help).toContain("Create a checkpoint commit for the current diff.");
+		expect(help).toContain("--dry-run");
+		expect(help).toContain("SDL_CHECKPOINT_MODEL");
+		expect(help).toContain("SDL_DEV_CHECKPOINT_MODEL");
+
+		const schema = runCpWithFakes({ args: ["cp", "--json-schema"], state: { exec: [] }, cwd });
+		expect(await schema.exit).toBe(0);
+		expect(parseJsonOutput(schema)).toHaveProperty("input_json_schema");
 	});
-	return {
-		context,
-		stdout,
-		stderr,
-		exit: executeSdlCommand(context, defaultCpCommand, {}).then((result) => {
-			if (result.message !== "") {
-				const output = `${result.message}\n`;
-				if (result.ok) stdout.push(output);
-				else stderr.push(output);
-			}
-			return result.ok ? 0 : result.exitCode;
-		}),
-	};
-}
 
-function defaultInactiveCpExecResponses(): ScriptedExecResponse[] {
-	return [
-		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
-		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
-		{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n" } },
-		{
-			match: "git diff HEAD --no-ext-diff",
-			result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
-		},
-		{ match: "git add -A", result: {} },
-		{ match: /^git commit -F /, result: {} },
-		{ match: "git log -1 --oneline", result: { stdout: "abc123 [cp] Update checkpoint tests\n" } },
-	];
-}
-
-function defaultInactiveCpMessage(): string {
-	return `[cp] Update checkpoint tests
-
-- Add CLI coverage`;
-}
-
-describe("inactive default cp command behavior", () => {
 	test("drafts with the model gateway and commits a valid model message", async () => {
+		const cwd = await createCpProject();
 		const message = `[cp] Update CLI checkpoint
 
 - Add command table coverage`;
-		const run = runInactiveCpWithFakes({
+		const run = runCpWithFakes({
 			args: ["cp"],
 			state: {
 				textGeneration: [{ ok: true, text: message }],
@@ -492,12 +515,13 @@ describe("inactive default cp command behavior", () => {
 					},
 				],
 			},
+			cwd,
 		});
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe(`def456 [cp] Update CLI checkpoint\n${message}\n`);
 		expect(run.stderr.join("")).toBe("");
-		expect(run.context.execCalls.map(formatExecCall)).toEqual([
+		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",
 			"git symbolic-ref --short HEAD",
 			"git status --porcelain=v1",
@@ -522,43 +546,61 @@ describe("inactive default cp command behavior", () => {
 		);
 	});
 
-	test("checkpoint model can be selected by SDL environment", async () => {
-		const run = runInactiveCpWithFakes({
+	test("dry-run previews the checkpoint without staging, committing, or reading log", async () => {
+		const cwd = await createCpProject();
+		const run = runCpWithFakes({ args: ["cp", "--dry-run"], cwd });
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe(
+			`Dry run: would create checkpoint commit on feature/demo\n\n${defaultCpMessage()}\n`,
+		);
+		expect(run.stderr.join("")).toBe("");
+		expect(formattedExecCalls(run.context)).toEqual([
+			"git rev-parse --show-toplevel",
+			"git symbolic-ref --short HEAD",
+			"git status --porcelain=v1",
+			"git diff HEAD --no-ext-diff",
+		]);
+		expect(formattedExecCalls(run.context)).not.toContain("git add -A");
+		expect(formattedExecCalls(run.context)).not.toContain("git log -1 --oneline");
+	});
+
+	test("checkpoint model can be selected by SDL environment with legacy fallback", async () => {
+		const cwd = await createCpProject();
+		const selected = runCpWithFakes({
 			args: ["cp"],
-			state: { textGeneration: [{ ok: true, text: defaultInactiveCpMessage() }] },
 			env: {
 				SDL_CHECKPOINT_MODEL: "openai-codex/custom-mini",
 				SDL_DEV_CHECKPOINT_MODEL: "openai-codex/legacy",
 			},
+			cwd,
 		});
 
-		expect(await run.exit).toBe(0);
-		expect(run.context.modelCalls[0]?.modelRef).toBe("openai-codex/custom-mini");
-	});
+		expect(await selected.exit).toBe(0);
+		expect(selected.context.modelCalls[0]?.modelRef).toBe("openai-codex/custom-mini");
 
-	test("legacy checkpoint model environment is a fallback", async () => {
-		const run = runInactiveCpWithFakes({
+		const fallback = runCpWithFakes({
 			args: ["cp"],
 			env: { SDL_DEV_CHECKPOINT_MODEL: "openai-codex/legacy-mini" },
+			cwd,
 		});
-
-		expect(await run.exit).toBe(0);
-		expect(run.context.modelCalls[0]?.modelRef).toBe("openai-codex/legacy-mini");
+		expect(await fallback.exit).toBe(0);
+		expect(fallback.context.modelCalls[0]?.modelRef).toBe("openai-codex/legacy-mini");
 	});
 
 	test("model generation error exits 2 without committing", async () => {
-		const run = runInactiveCpWithFakes({
+		const cwd = await createCpProject();
+		const run = runCpWithFakes({
 			args: ["cp"],
-			state: {
-				textGeneration: [{ ok: false, error: "auth failed" }],
-			},
+			state: { textGeneration: [{ ok: false, error: "auth failed" }] },
+			cwd,
 		});
 
 		expect(await run.exit).toBe(2);
 		expect(run.stdout.join("")).toBe("");
 		expect(run.stderr.join("")).toBe("auth failed\n");
 		expect(run.context.modelCalls).toHaveLength(1);
-		expect(run.context.execCalls.map(formatExecCall)).toEqual([
+		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",
 			"git symbolic-ref --short HEAD",
 			"git status --porcelain=v1",
@@ -567,10 +609,11 @@ describe("inactive default cp command behavior", () => {
 	});
 
 	test("invalid first model output triggers one repair request and commits the repaired message", async () => {
+		const cwd = await createCpProject();
 		const repaired = `[cp] Repair checkpoint message
 
 - Keep only valid bullets`;
-		const run = runInactiveCpWithFakes({
+		const run = runCpWithFakes({
 			args: ["cp"],
 			state: {
 				textGeneration: [
@@ -578,6 +621,7 @@ describe("inactive default cp command behavior", () => {
 					{ ok: true, text: repaired },
 				],
 			},
+			cwd,
 		});
 
 		expect(await run.exit).toBe(0);
@@ -587,7 +631,7 @@ describe("inactive default cp command behavior", () => {
 			"## previous invalid draft\n\nnot a commit message",
 		);
 		expect(run.context.modelCalls[1]?.prompt).toContain("missing_cp_prefix");
-		expect(run.context.execCalls.map(formatExecCall)).toEqual([
+		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",
 			"git symbolic-ref --short HEAD",
 			"git status --porcelain=v1",
@@ -599,7 +643,8 @@ describe("inactive default cp command behavior", () => {
 	});
 
 	test("invalid first and repaired output exits 2 without committing", async () => {
-		const run = runInactiveCpWithFakes({
+		const cwd = await createCpProject();
+		const run = runCpWithFakes({
 			args: ["cp"],
 			state: {
 				textGeneration: [
@@ -607,6 +652,7 @@ describe("inactive default cp command behavior", () => {
 					{ ok: true, text: "still invalid" },
 				],
 			},
+			cwd,
 		});
 
 		expect(await run.exit).toBe(2);
@@ -616,7 +662,7 @@ describe("inactive default cp command behavior", () => {
 		);
 		expect(run.stderr.join("")).toContain("missing_cp_prefix");
 		expect(run.context.modelCalls).toHaveLength(2);
-		expect(run.context.execCalls.map(formatExecCall)).toEqual([
+		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",
 			"git symbolic-ref --short HEAD",
 			"git status --porcelain=v1",
@@ -625,23 +671,14 @@ describe("inactive default cp command behavior", () => {
 	});
 
 	test("clean worktree exits without model generation or committing", async () => {
-		const run = runInactiveCpWithFakes({
-			args: ["cp"],
-			state: {
-				exec: [
-					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
-					{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
-					{ match: "git status --porcelain=v1", result: { stdout: "" } },
-					{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
-				],
-			},
-		});
+		const cwd = await createCpProject();
+		const run = runCpWithFakes({ args: ["cp"], state: { exec: cleanCpExecResponses() }, cwd });
 
 		expect(await run.exit).toBe(1);
 		expect(run.stdout.join("")).toBe("");
 		expect(run.stderr.join("")).toBe("Working tree is clean; nothing to checkpoint.\n");
 		expect(run.context.modelCalls).toEqual([]);
-		expect(run.context.execCalls.map(formatExecCall)).toEqual([
+		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",
 			"git symbolic-ref --short HEAD",
 			"git status --porcelain=v1",
@@ -649,8 +686,9 @@ describe("inactive default cp command behavior", () => {
 		]);
 	});
 
-	test("trunk branch exits without model generation or committing", async () => {
-		const run = runInactiveCpWithFakes({
+	test("trunk branch exits before clean-worktree rejection or model generation", async () => {
+		const cwd = await createCpProject();
+		const run = runCpWithFakes({
 			args: ["cp"],
 			state: {
 				exec: [
@@ -660,6 +698,7 @@ describe("inactive default cp command behavior", () => {
 					{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
 				],
 			},
+			cwd,
 		});
 
 		expect(await run.exit).toBe(1);
@@ -667,7 +706,7 @@ describe("inactive default cp command behavior", () => {
 			"Refusing to create checkpoint commit on trunk branch: main\n",
 		);
 		expect(run.context.modelCalls).toEqual([]);
-		expect(run.context.execCalls.map(formatExecCall)).toEqual([
+		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",
 			"git symbolic-ref --short HEAD",
 			"git status --porcelain=v1",
@@ -675,8 +714,9 @@ describe("inactive default cp command behavior", () => {
 		]);
 	});
 
-	test("not-git repositories exit with a typed diagnostic", async () => {
-		const run = runInactiveCpWithFakes({
+	test("snapshot git failures exit with typed diagnostics", async () => {
+		const cwd = await createCpProject();
+		const notGit = runCpWithFakes({
 			args: ["cp"],
 			state: {
 				exec: [
@@ -686,19 +726,16 @@ describe("inactive default cp command behavior", () => {
 					},
 				],
 			},
+			cwd,
 		});
 
-		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toBe(
+		expect(await notGit.exit).toBe(2);
+		expect(notGit.stderr.join("")).toBe(
 			"Not inside a git repository.\nexit 128: fatal: not a git repository\n",
 		);
-		expect(run.context.modelCalls).toEqual([]);
-		expect(run.context.execCalls.map(formatExecCall)).toEqual(["git rev-parse --show-toplevel"]);
-	});
+		expect(notGit.context.modelCalls).toEqual([]);
 
-	test("detached HEAD exits with a typed diagnostic", async () => {
-		const run = runInactiveCpWithFakes({
+		const detached = runCpWithFakes({
 			args: ["cp"],
 			state: {
 				exec: [
@@ -709,22 +746,48 @@ describe("inactive default cp command behavior", () => {
 					},
 				],
 			},
+			cwd,
 		});
-
-		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toBe(
+		expect(await detached.exit).toBe(2);
+		expect(detached.stderr.join("")).toBe(
 			"Could not determine current branch.\nexit 1: fatal: ref HEAD is not a symbolic ref\n",
 		);
-		expect(run.context.modelCalls).toEqual([]);
-		expect(run.context.execCalls.map(formatExecCall)).toEqual([
-			"git rev-parse --show-toplevel",
-			"git symbolic-ref --short HEAD",
-		]);
+
+		const statusFailed = runCpWithFakes({
+			args: ["cp"],
+			state: {
+				exec: [
+					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+					{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
+					{ match: "git status --porcelain=v1", result: { code: 1, stderr: "index locked" } },
+				],
+			},
+			cwd,
+		});
+		expect(await statusFailed.exit).toBe(2);
+		expect(statusFailed.stderr.join("")).toBe(
+			"Could not inspect git status.\nexit 1: index locked\n",
+		);
+
+		const diffFailed = runCpWithFakes({
+			args: ["cp"],
+			state: {
+				exec: [
+					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+					{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
+					{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n" } },
+					{ match: "git diff HEAD --no-ext-diff", result: { code: 1, stderr: "diff failed" } },
+				],
+			},
+			cwd,
+		});
+		expect(await diffFailed.exit).toBe(2);
+		expect(diffFailed.stderr.join("")).toBe("Could not capture git diff.\nexit 1: diff failed\n");
 	});
 
-	test("git failures map to nonzero exits with useful stderr", async () => {
-		const run = runInactiveCpWithFakes({
+	test("commit operation failures exit with useful stderr", async () => {
+		const cwd = await createCpProject();
+		const addFailed = runCpWithFakes({
 			args: ["cp"],
 			state: {
 				exec: [
@@ -738,10 +801,43 @@ describe("inactive default cp command behavior", () => {
 					{ match: "git add -A", result: { code: 1, stderr: "index locked" } },
 				],
 			},
+			cwd,
 		});
 
-		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toBe("Failed to stage checkpoint changes.\nexit 1: index locked\n");
+		expect(await addFailed.exit).toBe(2);
+		expect(addFailed.stdout.join("")).toBe("");
+		expect(addFailed.stderr.join("")).toBe(
+			"Failed to stage checkpoint changes.\nexit 1: index locked\n",
+		);
+
+		const commitFailed = runCpWithFakes({
+			args: ["cp"],
+			state: {
+				exec: [
+					...dirtyCpExecResponses().slice(0, 5),
+					{ match: /^git commit -F /, result: { code: 1, stderr: "nothing to commit" } },
+				],
+			},
+			cwd,
+		});
+		expect(await commitFailed.exit).toBe(2);
+		expect(commitFailed.stderr.join("")).toBe(
+			"Checkpoint commit failed.\nexit 1: nothing to commit\n",
+		);
+
+		const logFailed = runCpWithFakes({
+			args: ["cp"],
+			state: {
+				exec: [
+					...dirtyCpExecResponses().slice(0, 6),
+					{ match: "git log -1 --oneline", result: { code: 1, stderr: "log failed" } },
+				],
+			},
+			cwd,
+		});
+		expect(await logFailed.exit).toBe(2);
+		expect(logFailed.stderr.join("")).toBe(
+			"Created checkpoint commit, but failed to read it back.\nexit 1: log failed\n",
+		);
 	});
 });

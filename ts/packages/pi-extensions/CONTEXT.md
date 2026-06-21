@@ -165,20 +165,20 @@ The Pi slash-command namespace for codebase/source-control or review workflows t
 *Avoid*: visibility flag, prototype marker, package prefix, migrated SDL workflow prefix.
 
 **Pending worktree snapshot**:
-A read-only capture of repository root, current branch, porcelain status, diff, and cleanliness used by `sdl changes` / `/sdl:changes` / `/sdl:code:changes` before presentation and by `/sdl:code:autobranch` before mutation. The `cp`/checkpoint SDL mirrors are unavailable during the project-local extension migration gap until their command entry migrates back.
-*Avoid*: stash, checkpoint, worktree status renderer, advertising unavailable `cp` mirrors.
+A read-only capture of repository root, current branch, porcelain status, diff, and cleanliness used by `sdl changes` / `/sdl:changes` / `/sdl:code:changes` before presentation, by project-local `sdl cp` / `/sdl:cp` before checkpoint mutation, and by `/sdl:code:autobranch` before mutation. Old checkpoint aliases such as `/code:cp`, `/code:checkpoint`, and `/sdl:code:checkpoint` remain unavailable.
+*Avoid*: stash, checkpoint, worktree status renderer, advertising unavailable old `cp` aliases.
 
 **Outstanding changes summary**:
 A read-only presentation of the current pending worktree state, including summary text and status-derived filenames, used by `sdl changes` / `/sdl:changes` / `/sdl:code:changes` before any checkpoint decision. The summary text is drafted through SDL text generation; when the model is unavailable or returns an invalid summary the command hard-errors rather than falling back to a deterministic summary.
 *Avoid*: checkpoint message, diffstat only, worktree status footer, Pi-only changes card.
 
 **Checkpoint message**:
-The validated commit message generated, repaired, or fallback-created from a pending worktree snapshot.
+The validated commit message generated or repaired from a pending worktree snapshot by project-local `sdl cp` / `/sdl:cp` or lower orchestration before a checkpoint commit.
 *Avoid*: checkpoint commit, PR title, branch slug.
 
 **Checkpoint commit**:
-A git commit created from pending worktree changes using a prepared checkpoint message.
-*Avoid*: checkpoint message, stash, branch creation.
+A git commit created from pending worktree changes using a prepared checkpoint message. The restored explicit Pi mirror is `/sdl:cp`; old `/code:*` and nested checkpoint aliases are not restored.
+*Avoid*: checkpoint message, stash, branch creation, old checkpoint alias.
 
 **Autobranch preparation**:
 A CCC-owned pre-transaction plan exposed through the `/sdl:code:autobranch` adapter: choose a branch slug/name and collect preflight facts before moving work. Dirty-worktree preparation also prepares a checkpoint message; clean latest-commit preparation inspects trunk/upstream/parent shape and derives a slug from the existing commit message and diff.
