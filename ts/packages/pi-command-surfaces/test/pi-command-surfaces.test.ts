@@ -29,6 +29,7 @@ describe("Pi command surfaces", () => {
 		expect(skillNames).toContain("pr-address");
 		expect(skillNames).not.toContain("objective-close");
 		expect(skillNames).toContain("code-workflows");
+		expect(skillNames).not.toContain("dignified-python");
 		expect(skillNames).not.toContain("objective-create");
 		expect(skillNames).not.toContain("code-gt-restack-resolve");
 		expect(skillNames).not.toContain("setup-dprint");
@@ -44,5 +45,6 @@ describe("Pi command surfaces", () => {
 		expect(surfaces).toEqual(expect.arrayContaining([...SPECIALIZED_PI_COMMAND_SURFACES]));
 		expect(surfaces).toContain("pr:address");
 		expect(surfaces).toContain("objective:close");
+		expect(surfaces).not.toContain("dignified:python");
 	});
 });

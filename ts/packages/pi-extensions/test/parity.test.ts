@@ -11,7 +11,6 @@ import handoffExtension from "../src/handoff.ts";
 import modelShortcutExtension from "../src/model-shortcuts.ts";
 import objectiveExtension from "../src/objective.ts";
 import prExtension from "../src/pr.ts";
-import roastExtension from "../src/roast.ts";
 import {
 	comparePiSurfaceParity,
 	formatParityComparisonFailure,
@@ -102,7 +101,6 @@ async function collectLivePiExtensionSurfaces(): Promise<LivePiSurface[]> {
 	await registerWithFakeHost(pi, modelShortcutExtension);
 	await registerWithFakeHost(pi, objectiveExtension);
 	await registerWithFakeHost(pi, prExtension);
-	await registerWithFakeHost(pi, roastExtension);
 	await registerWithFakeHost(pi, sdlExtension);
 	await registerWithFakeHost(pi, worktreeStatusExtension);
 
@@ -145,7 +143,7 @@ describe("Pi extension parity metadata", () => {
 	test("all @sdl/pi-extensions command surfaces have parity metadata", async () => {
 		const comparison = comparePiSurfaceParity({
 			liveSurfaces: await collectLivePiExtensionSurfaces(),
-			metadata: await loadPiExtensionParityRecords({ cwd: process.cwd() }),
+			metadata: loadPiExtensionParityRecords(),
 		});
 
 		if (
@@ -161,22 +159,6 @@ describe("Pi extension parity metadata", () => {
 			staleMetadata: [],
 			duplicateMetadataKeys: [],
 		});
-	});
-
-	test("fail-closes when dynamic roast parity metadata cannot load", async () => {
-		await expect(
-			loadPiExtensionParityRecords({
-				loadRoastEntries: async () => ({
-					type: "error",
-					error: {
-						type: "reviews_dir_missing",
-						message: "Reviews directory does not exist.",
-					},
-				}),
-			}),
-		).rejects.toThrow(
-			"Could not load Roaster roast parity metadata: Reviews directory does not exist.",
-		);
 	});
 
 	test("comparison reports live command surfaces missing exact metadata", () => {

@@ -286,10 +286,10 @@
       "sourceType": "local",
       "computedHash": "25cf816171ecf9305fdfb42d70464dd29e9af144042abab8eb92cc3138a386d7"
     },
-    "roast-asdl-typescript-style": {
-      "source": "skills/roast-asdl-typescript-style",
+    "roast-sdl-typescript-style": {
+      "source": "skills/roast-sdl-typescript-style",
       "sourceType": "local",
-      "computedHash": "cf944947ffd4c9bb64bbb9f6709237eb02974b8c2b9c246dfad4ce992c4c5803"
+      "computedHash": "741bd4dc7d1754efa64bba65c7462f553dcbdb30b140532d0be1cc1bca458f7c"
     },
     "roast-dignified-python": {
       "source": "skills/roast-dignified-python",

@@ -36,7 +36,7 @@ describe("Roaster skill review catalog", () => {
 			"Alpha description.",
 		]);
 		expect(loaded.value[0]).toMatchObject({
-			surface: "roast:zeta-review",
+			surface: "skill:roast-zeta-review",
 			title: "Zeta review",
 			label: "Roast: Zeta review",
 			defaultPrompt: "Run the Zeta review roast against the current branch changes.",
@@ -57,7 +57,7 @@ describe("Roaster skill review catalog", () => {
 
 		expect(loaded.type).toBe("ok");
 		if (loaded.type === "error") return;
-		expect(loaded.entry.surface).toBe("roast:alpha-review");
+		expect(loaded.entry.surface).toBe("skill:roast-alpha-review");
 		expect(loaded.source.source).toBe(REVIEW_SOURCE);
 		expect(loaded.definition.description).toBe("Fixture review description.");
 	});
@@ -92,7 +92,7 @@ describe("Roaster skill review catalog", () => {
 		expect(loaded.type).toBe("ok");
 		if (loaded.type === "error") return;
 		expect(loaded.entry).toMatchObject({
-			surface: "roast:dry-but-not-too-dry",
+			surface: "skill:roast-dry-but-not-too-dry",
 			reviewKey: "dry-but-not-too-dry",
 			title: "DRY but not too DRY",
 			label: "Roast: DRY but not too DRY",
