@@ -113,7 +113,23 @@ async function verifyCandidate(
 	candidate: ExistingBranchContextCandidate,
 ): Promise<CandidateVerification> {
 	if (candidate.requestedKey !== undefined) {
-		const key = candidate.requestedKey;
+		let key: string;
+		try {
+			key = selectAttachedPlanKey({
+				branch: candidate.branch,
+				requestedKey: candidate.requestedKey,
+				entries: [
+					{
+						branch: candidate.branch,
+						key: candidate.requestedKey,
+						namespace: BRANCH_CONTEXT_NAMESPACE,
+						refName: "",
+					},
+				],
+			});
+		} catch (error) {
+			return { type: "failure", message: error instanceof Error ? error.message : String(error) };
+		}
 		const presence = await brmem.attachmentPresence({
 			cwd: options.cwd,
 			branch: candidate.branch,
