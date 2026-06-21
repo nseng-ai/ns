@@ -271,7 +271,9 @@ function renderSinglePrInstructions(): string[] {
 		"## Instructions before responding",
 		"Triage and group the feedback above. Identify likely code, docs, and test changes. Ask clarifying questions for ambiguity.",
 		"",
-		"Do not edit files yet; propose a plan and wait for human confirmation. Do not resolve or reply to GitHub threads from this prompt.",
+		"Do not edit files yet; propose a plan and wait for human confirmation. Do not resolve or reply to GitHub threads during this initial triage prompt.",
+		"",
+		"If the human asks you to address the feedback, inspect the current repository state before acting. After implementing or verifying the fix and running appropriate validation, resolve review threads with `pr-address exec resolve-review-thread --thread-id <THREAD_ID> --format json` and reply with `pr-address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json`; do not use raw `gh api graphql` for those mutations.",
 	];
 }
 

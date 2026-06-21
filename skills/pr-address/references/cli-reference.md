@@ -1,6 +1,6 @@
 # pr-address exec CLI reference notes
 
-`pr-address exec` is now a transitional read-only feedback-download helper surface.
+`pr-address exec` is the machine-readable PR feedback primitive surface: feedback download, stack plumbing, structured PR reads, and confirmed review-thread mutations.
 
 ## JSON envelope
 
@@ -10,15 +10,45 @@ All retained `pr-address exec <command> --format json` helpers emit a machine en
 - negative/validation: `{ "exit_code": 1, "message": ..., "data": ... }`
 - invalid request/failure: `{ "exit_code": 2, "error_type": ..., "message": ... }`
 
-Use `--json-schema` before relying on a retained helper shape.
+Use `--json-schema` before relying on a helper shape.
 
-## Retained operation families
+## Current operation families
 
 - Feedback download: `download-feedback`.
-- Stack download plumbing: `map-branch-prs`, only as needed to map structured branch lists to PRs before per-PR downloads.
+- Stack download plumbing: `map-branch-prs`, used to map structured branch lists to PRs before per-PR downloads.
+- Read primitives: `pr-details`, `branch-pr`, `open-prs`, `pr-reviews`, `pr-review-threads`, `pr-discussion-comments`.
+- Mutation primitives: `reply-review-thread`, `resolve-review-thread`.
+
+## Examples
+
+```bash
+pr-address exec download-feedback --pr-number <pr-number> --format json
+pr-address exec map-branch-prs --format json
+pr-address exec pr-details --pr-number <pr-number> --format json
+pr-address exec branch-pr --branch <branch> --format json
+pr-address exec open-prs --format json
+pr-address exec pr-reviews --pr-number <pr-number> --format json
+pr-address exec pr-review-threads --pr-number <pr-number> --format json
+pr-address exec pr-review-threads --pr-number <pr-number> --include-resolved --format json
+pr-address exec pr-discussion-comments --pr-number <pr-number> --format json
+pr-address exec reply-review-thread --thread-id <THREAD_ID> --body "Fixed in <commit/branch>." --format json
+pr-address exec resolve-review-thread --thread-id <THREAD_ID> --format json
+```
+
+For multiple thread IDs, loop over the primitive instead of using raw GraphQL:
+
+```bash
+for thread_id in <THREAD_ID_1> <THREAD_ID_2> <THREAD_ID_3>; do
+  pr-address exec resolve-review-thread --thread-id "$thread_id" --format json
+done
+```
+
+## Safety policy
+
+Agents should use `/pr:download-feedback` or `/pr:download-stack-feedback` for initial triage, inspect the downloaded Markdown, ask for confirmation before code changes, and avoid resolving or replying during the initial triage prompt.
+
+After the human asks the agent to address feedback, current repo state has been inspected, fixes are implemented or verified, and appropriate validation has passed, use the mutation primitives above for review-thread replies/resolutions rather than raw `gh api graphql`.
 
 ## Retired operation families
 
-The old workflow engine is retired and deleted from the current CLI: payload sessions, classification templates, classification validation, planning, payload detail lookup, resolver-payload construction, GitHub mutation helpers, checkpoints, and finalization should not be used for new agent workflows.
-
-Agents should use `/pr:download-feedback` or `/pr:download-stack-feedback`, inspect the downloaded Markdown, ask for confirmation before code changes, and treat any future addressing workflow as a rebuild on top of the downloader foundation.
+The old workflow engine is retired and deleted from the current CLI: payload sessions, classification templates, classification validation, planning, payload detail lookup, resolver-payload construction, old batch GitHub mutation helpers, checkpoints, and finalization should not be used for new agent workflows.
