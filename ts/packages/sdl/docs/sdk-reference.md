@@ -11,7 +11,7 @@ import type { SdlContext, SdlResult } from "@sdl/sdl/sdk";
 
 Do not import SDL implementation modules (`@sdl/sdl/*` other than `./sdk`, `@sdl/core/*`, `@sdl/clinkr/*`). The SDK re-exports the few lower-package types an author needs; those are documented below as first-party SDK vocabulary, with their origin noted.
 
-The exports are grouped by the role they play when authoring a command: you **declare** an extension and its commands, your command **receives** an execution context, and it **returns** a result.
+The exports are grouped by the role they play when authoring a command: you **declare** an extension and its commands, your command **receives** an execution context, and it **returns** a result. Each entry carries a minimal worked example; the examples share a running `git`-driven command so they compose into a realistic extension.
 
 ---
 
@@ -38,6 +38,22 @@ function defineExtension(extension: SdlExtension): SdlExtension;
 - Use as the module's default export: `export default defineExtension({ ... })`.
 - Single-file extensions under `.sdl/extensions/` are leaf modules. Workspace packages must never import from them.
 
+**Example.**
+
+```ts
+import { defineExtension, ok } from "@sdl/sdl/sdk";
+
+export default defineExtension({
+  commands: [
+    {
+      name: "greet",
+      description: "Say hello.",
+      run: () => ok("hello"),
+    },
+  ],
+});
+```
+
 ### `SdlExtension`
 
 The shape of an SDL extension.
@@ -51,6 +67,14 @@ interface SdlExtension<TCommands extends readonly SdlCommand[] = readonly SdlCom
 **Fields.**
 
 - `commands?` — the extension's command contributions. Omit it for an extension that contributes no commands to the current SDL surface.
+
+**Example.**
+
+```ts
+// A commandless extension is valid — it simply contributes nothing to the
+// current SDL surface.
+export default defineExtension({});
+```
 
 ---
 
@@ -78,6 +102,23 @@ interface SdlCommand<S extends SdlCommandSchema = z.ZodObject> {
 - `positionals?` — maps schema field names to positional slots (`PositionalSpec`). Only keys present in the schema are valid.
 - `run(ctx, request)` — the command body. Receives the execution context and the parsed request (`z.output<schema>`), and returns an `SdlResult` (sync or async).
 
+**Example.** Declared inline so `request` is inferred from `schema`:
+
+```ts
+import { defineExtension, ok, z } from "@sdl/sdl/sdk";
+
+export default defineExtension({
+  commands: [
+    {
+      name: "greet",
+      description: "Greet someone.",
+      schema: z.object({ name: z.string().default("world") }),
+      run: (ctx, request) => ok(`hello ${request.name}`),
+    },
+  ],
+});
+```
+
 ### `SdlCommandSchema`
 
 ```ts
@@ -86,13 +127,35 @@ type SdlCommandSchema = z.ZodObject;
 
 The schema type a command may declare. Always a Zod object, built with the SDK's `z`.
 
+**Example.**
+
+```ts
+import { z } from "@sdl/sdl/sdk";
+import type { SdlCommandSchema } from "@sdl/sdl/sdk";
+
+const schema: SdlCommandSchema = z.object({ force: z.boolean().default(false) });
+```
+
 ### `SdlCommandRequest`
 
 ```ts
 type SdlCommandRequest<S extends SdlCommandSchema> = z.output<S>;
 ```
 
-The parsed-request type derived from a command's schema — the type `run` receives as its second argument.
+The parsed-request type derived from a command's schema — the type `run` receives as its second argument. Useful when `run` is a named function declared apart from the command object.
+
+**Example.**
+
+```ts
+import { z } from "@sdl/sdl/sdk";
+import type { SdlCommandRequest, SdlContext, SdlResult } from "@sdl/sdl/sdk";
+
+const schema = z.object({ slug: z.string().optional() });
+
+function runAutobranch(ctx: SdlContext, request: SdlCommandRequest<typeof schema>): SdlResult {
+  return ok(request.slug ?? "(auto)"); // request is { slug?: string }
+}
+```
 
 ### `PositionalSpec`
 
@@ -108,6 +171,18 @@ interface PositionalSpec {
 
 - `position` — the zero-based positional index this field reads from.
 
+**Example.** Map the `slug` option to the first positional, so `sdl autobranch my-feature` fills it:
+
+```ts
+{
+  name: "autobranch",
+  description: "Create a branch.",
+  schema: z.object({ slug: z.string().optional() }),
+  positionals: { slug: { position: 0 } },
+  run: (ctx, request) => ok(request.slug ?? "(auto)"),
+}
+```
+
 ### `commandSucceeded()`
 
 Tests whether an executed command succeeded.
@@ -116,7 +191,16 @@ Tests whether an executed command succeeded.
 function commandSucceeded(result: ExecResult): boolean;
 ```
 
-**Description.** Returns `true` only when the process exited with code `0` and was not killed. Use it to branch inside `run` after a `ctx.exec(...)` call. See `ExecResult` under [Execution context](#execution-context).
+**Description.** Returns `true` only when the process exited with code `0` and was not killed. Use it to branch inside `run` after a `ctx.exec(...)` call. See `ExecResult` under [Execution context](#execution-context). Prefer it over a bare `result.code === 0` check, which misses killed (e.g. timed-out) processes.
+
+**Example.**
+
+```ts
+const status = await ctx.exec("git", ["status", "--porcelain"]);
+if (!commandSucceeded(status)) {
+  return failed("Could not read git status.");
+}
+```
 
 ### `formatCommandEvidence()`
 
@@ -127,6 +211,20 @@ function formatCommandEvidence(options: FormatCommandEvidenceOptions): string;
 ```
 
 **Description.** Produces a multi-line string with the intro, the command, the cwd, exit code, killed flag, optional guidance, and the captured stdout/stderr. Pass the returned string to `ok()` or `failed()` as the result message.
+
+**Example.**
+
+```ts
+return failed(
+  formatCommandEvidence({
+    intro: "Could not inspect the worktree status.",
+    command: "git status --porcelain",
+    cwd: ctx.cwd,
+    result: status,
+    guidance: "Fix the repository state, then retry.",
+  }),
+);
+```
 
 ### `FormatCommandEvidenceOptions`
 
@@ -150,6 +248,8 @@ interface FormatCommandEvidenceOptions {
 - `result` — the `ExecResult` returned by `ctx.exec`.
 - `guidance?` — optional remediation guidance appended before the captured output.
 
+**Example.** Built and consumed in the `formatCommandEvidence()` example above.
+
 ---
 
 ## Results
@@ -166,6 +266,16 @@ type SdlResult =
 
 A discriminated union on `ok`. Construct values with `ok()` and `failed()` rather than building the literal by hand.
 
+**Example.**
+
+```ts
+import type { SdlContext, SdlResult } from "@sdl/sdl/sdk";
+
+function run(ctx: SdlContext): SdlResult {
+  return ctx.env["DRY_RUN"] ? ok("would run") : ok("ran");
+}
+```
+
 ### `ok()`
 
 Builds a success result.
@@ -175,6 +285,12 @@ function ok(message: string): SdlResult;
 ```
 
 **Parameters.** `message` — the success message printed to the user.
+
+**Example.**
+
+```ts
+return ok("Pushed the current branch.");
+```
 
 ### `failed()`
 
@@ -188,6 +304,12 @@ function failed(message: string, exitCode?: number): SdlResult;
 
 - `message` — the failure message printed to the user.
 - `exitCode?` — process exit code; defaults to `1`.
+
+**Example.**
+
+```ts
+return failed("Working tree is dirty; commit or stash first.", 2);
+```
 
 ---
 
@@ -222,6 +344,18 @@ interface SdlContext {
 - `confirm?` — optional interactive confirmation hook (`SdlConfirmPrompt`).
 - `extensions?` — project-local extension bag. A command owns any values it reads from it.
 
+**Example.**
+
+```ts
+async run(ctx: SdlContext) {
+  const root = await ctx.exec("git", ["rev-parse", "--show-toplevel"], {
+    timeoutMs: 30_000,
+  });
+  if (!commandSucceeded(root)) return failed("Not inside a git repository.", 2);
+  return ok(root.stdout.trim());
+}
+```
+
 ### `SdlExecOptions`
 
 Options for `ctx.exec`.
@@ -240,6 +374,16 @@ interface SdlExecOptions {
 - `timeoutMs?` — kill the process after this many milliseconds.
 - `stdin?` — string written to the process's stdin.
 - `onStdout?` / `onStderr?` — per-chunk output callbacks invoked as the process streams.
+
+**Example.** Feed a commit message over stdin and mirror live output:
+
+```ts
+await ctx.exec("git", ["commit", "-F", "-"], {
+  stdin: commitMessage,
+  timeoutMs: 30_000,
+  onStdout: (chunk) => ctx.onOutput?.("stdout", chunk),
+});
+```
 
 ### `ExecResult`
 
@@ -262,6 +406,15 @@ interface ExecResult {
 - `killed` — whether the process was killed (e.g. by timeout).
 - `startupError?` — present when the process could not be spawned.
 
+**Example.**
+
+```ts
+const log = await ctx.exec("git", ["log", "-1", "--oneline"]);
+if (commandSucceeded(log)) {
+  ctx.stdout?.(log.stdout.trim());
+}
+```
+
 ### `SdlOutputStream`
 
 ```ts
@@ -270,6 +423,15 @@ type SdlOutputStream = "stdout" | "stderr";
 
 Tags which stream a chunk belongs to in the `onOutput` hook.
 
+**Example.**
+
+```ts
+run(ctx: SdlContext) {
+  ctx.onOutput?.("stderr", "working…\n");
+  return ok("done");
+}
+```
+
 ### `SdlConfirmPrompt`
 
 ```ts
@@ -277,6 +439,15 @@ type SdlConfirmPrompt = (title: string, message: string) => Promise<boolean> | b
 ```
 
 The signature of the optional `ctx.confirm` hook. Returns (sync or async) whether the user approved.
+
+**Example.** Gate a destructive step; treat an absent hook as "not approved":
+
+```ts
+const approved = await ctx.confirm?.("Edit PR", "Update the PR body on GitHub?");
+if (approved !== true) {
+  return failed("Cancelled; GitHub was not modified.");
+}
+```
 
 ---
 
@@ -293,6 +464,20 @@ interface TextGenerator {
 ```
 
 **Description.** A single `generateText` method. The command owns prompt construction, output validation, and any repair policy; the generator only runs the request.
+
+**Example.**
+
+```ts
+const drafted = await ctx.textGenerator.generateText({
+  modelRef,
+  system: "You write terse [cp] checkpoint commit messages.",
+  prompt,
+  reasoning: "low",
+  operation: "checkpoint-message",
+});
+if (!drafted.ok) return failed(drafted.error);
+return ok(drafted.text);
+```
 
 ### `TextGenerationRequest`
 
@@ -316,6 +501,8 @@ interface TextGenerationRequest {
 - `reasoning?` — optional reasoning effort, `"minimal"` or `"low"`.
 - `operation?` — optional operation tag for host-side routing/telemetry.
 
+**Example.** Built and passed to `generateText` in the `TextGenerator` example above.
+
 ### `TextGenerationResult`
 
 ```ts
@@ -324,6 +511,16 @@ type TextGenerationResult = { ok: true; text: string } | { ok: false; error: str
 
 A discriminated union on `ok`: either the generated `text` or an `error` message.
 
+**Example.**
+
+```ts
+const result = await ctx.textGenerator.generateText(request);
+if (!result.ok) {
+  return failed(`Generation failed: ${result.error}`);
+}
+ctx.stdout?.(result.text);
+```
+
 ---
 
 ## Schema
@@ -331,6 +528,8 @@ A discriminated union on `ok`: either the generated `text` or an `error` message
 ### `z`
 
 The SDK re-exports `z` from [zod](https://zod.dev). Build command schemas with **this** `z` so schemas share the SDK's Zod identity rather than a separately-installed copy of zod. Its API is zod's own — see the zod documentation; it is not re-documented here.
+
+**Example.**
 
 ```ts
 import { z } from "@sdl/sdl/sdk";
