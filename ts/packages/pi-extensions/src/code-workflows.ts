@@ -1,3 +1,4 @@
+import { buildSkillInvocationPrompt, invokeRepoSkillPromptTurn } from "./skill-expansion.ts";
 import { truncateDisplayLine } from "./terminal-presentation.ts";
 import type {
 	CommandContext,
@@ -8,6 +9,7 @@ import type {
 import { definePiSurfaceParity } from "./parity.ts";
 
 export const CODE_WORKFLOWS_COMMAND_NAME = "code-workflows";
+export const GH_CI_DEBUG_COMMAND_NAME = "gh-ci-debug";
 export const CODE_WORKFLOWS_MESSAGE_TYPE = "code-workflows-selection";
 
 export const codeWorkflowsParity = definePiSurfaceParity([
@@ -24,6 +26,19 @@ export const codeWorkflowsParity = definePiSurfaceParity([
 		notes:
 			"The command is a Pi picker/prompt insertion convenience over portable skills and references.",
 	},
+	{
+		kind: "command",
+		surface: GH_CI_DEBUG_COMMAND_NAME,
+		workflow: "Start the gh-ci-debug code workflow directly from a top-level Pi command",
+		parity: "FULL",
+		cli: "none needed; invokes the portable code-workflows gh-ci-debug playbook",
+		skill: "code-workflows",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@sdl/pi-extensions",
+		sourceModule: "code-workflows",
+		notes:
+			"This is a turn-saving Pi command for the gh-ci-debug route; non-Pi agents use the code-workflows skill with the gh-ci-debug route.",
+	},
 ] as const);
 
 interface AutocompleteItem {
@@ -34,6 +49,7 @@ interface AutocompleteItem {
 
 interface RegisteredCommand {
 	description?: string;
+	argumentHint?: string;
 	getArgumentCompletions?: (prefix: string) => AutocompleteItem[] | null;
 	handler(args: string, ctx: CommandContext): Promise<void> | void;
 }
@@ -41,7 +57,13 @@ interface RegisteredCommand {
 interface CodeWorkflowsExtensionAPI {
 	registerCommand(name: string, command: RegisteredCommand): void;
 	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
+	getCommands?(): readonly {
+		name: string;
+		source: string;
+		sourceInfo: { path: string; baseDir?: string };
+	}[];
 	sendMessage?(message: CustomMessage): void;
+	sendUserMessage(content: string): Promise<void> | void;
 }
 
 type MessageRenderer = (
@@ -55,6 +77,7 @@ interface WorkflowRoute {
 	aliases: readonly string[];
 	reference: string;
 	summary: string;
+	menuVisibility: "visible" | "explicit-only";
 }
 
 interface SelectedWorkflowDetails {
@@ -63,36 +86,44 @@ interface SelectedWorkflowDetails {
 	prompt: string;
 }
 
+const CODE_WORKFLOWS_SKILL_NAME = "code-workflows";
+const GH_CI_DEBUG_ROUTE = "gh-ci-debug";
+
 const ROUTES = [
 	{
 		route: "delete-stack",
 		aliases: ["gt-delete-stack"],
 		reference: "skills/code-workflows/references/delete-stack.md",
 		summary: "delete a Graphite subtree with slot/PR/remote cleanup",
+		menuVisibility: "visible",
 	},
 	{
 		route: "stackify-branch",
 		aliases: ["gt-stackify-branch"],
 		reference: "skills/code-workflows/references/gt-stackify-branch.md",
 		summary: "split one branch into a clean Graphite stack",
+		menuVisibility: "visible",
 	},
 	{
 		route: "stacker-agent",
 		aliases: ["stacker"],
 		reference: "skills/code-workflows/references/stacker-agent.md",
 		summary: "serial multi-slice implementation coordinator",
+		menuVisibility: "visible",
 	},
 	{
 		route: "parity-review",
 		aliases: ["cross-harness-parity"],
 		reference: "skills/code-workflows/references/parity-review.md",
 		summary: "review Pi command changes for cross-harness parity",
+		menuVisibility: "visible",
 	},
 	{
 		route: "gh-ci-debug",
 		aliases: ["ci-debug"],
 		reference: "skills/code-workflows/references/gh-ci-debug.md",
 		summary: "diagnose a failing GitHub Actions run or PR check",
+		menuVisibility: "explicit-only",
 	},
 ] as const satisfies readonly WorkflowRoute[];
 
@@ -104,6 +135,13 @@ export default function codeWorkflowsExtension(pi: CodeWorkflowsExtensionAPI): v
 		handler: async (args, ctx) => {
 			await ctx.waitForIdle();
 			await showCodeWorkflowSelector(pi, ctx, args);
+		},
+	});
+	pi.registerCommand(GH_CI_DEBUG_COMMAND_NAME, {
+		description: "Diagnose a failing GitHub Actions run or PR check",
+		argumentHint: "[run URL, PR URL/number, or branch context]",
+		handler: async (args, ctx) => {
+			await invokeGhCiDebugWorkflow(pi, ctx, args);
 		},
 	});
 }
@@ -129,7 +167,9 @@ export async function showCodeWorkflowSelector(
 		return undefined;
 	}
 
-	const labelToRoute = new Map(ROUTES.map((route) => [formatWorkflowLabel(route), route]));
+	const labelToRoute = new Map(
+		menuWorkflowRoutes().map((route) => [formatWorkflowLabel(route), route]),
+	);
 	const selectedLabel = await ctx.ui.select("Select code workflow", [...labelToRoute.keys()]);
 	if (selectedLabel === undefined) {
 		ctx.ui.notify("Code workflow selection cancelled.", "info");
@@ -164,8 +204,32 @@ export function resolveWorkflowRoute(input: string): WorkflowRoute | undefined {
 export function formatWorkflowMenu(): string {
 	return [
 		"Available code workflows:",
-		...ROUTES.map((route) => `- ${route.route} — ${route.summary}`),
+		...menuWorkflowRoutes().map((route) => `- ${route.route} — ${route.summary}`),
 	].join("\n");
+}
+
+export async function invokeGhCiDebugWorkflow(
+	pi: CodeWorkflowsExtensionAPI,
+	ctx: CommandContext,
+	args: string,
+): Promise<void> {
+	await invokeRepoSkillPromptTurn({
+		host: pi,
+		ctx,
+		skillName: CODE_WORKFLOWS_SKILL_NAME,
+		successMessage: `Invoking ${GH_CI_DEBUG_COMMAND_NAME}.`,
+		fallbackMessage: `Could not load ${CODE_WORKFLOWS_SKILL_NAME} backing skill; invoking ${GH_CI_DEBUG_COMMAND_NAME} by name.`,
+		buildPrompt: (skillBlock) => buildGhCiDebugPrompt(skillBlock, args),
+	});
+}
+
+export function buildGhCiDebugPrompt(skillBlock: string | undefined, args: string): string {
+	return buildSkillInvocationPrompt({
+		skillName: CODE_WORKFLOWS_SKILL_NAME,
+		route: GH_CI_DEBUG_ROUTE,
+		initialRequest: args,
+		...(skillBlock === undefined ? {} : { skillBlock }),
+	});
 }
 
 export function formatWorkflowSelection(
@@ -206,6 +270,10 @@ export function renderCodeWorkflowMessage(
 		},
 		invalidate(): void {},
 	};
+}
+
+function menuWorkflowRoutes(): WorkflowRoute[] {
+	return ROUTES.filter((route) => route.menuVisibility === "visible");
 }
 
 function emitWorkflowSelection(

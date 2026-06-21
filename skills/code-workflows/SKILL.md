@@ -26,7 +26,7 @@ Lazy-loading router for rare code workflows. This skill keeps the installed surf
 ## Routing
 
 - If the user gives a route or alias, read the mapped reference and follow it as the active playbook.
-- If no route is supplied, show the menu below and ask which workflow to load.
+- If no route is supplied, show the menu below and ask which workflow to load. Do not include explicit-only routes such as `gh-ci-debug` in the menu; those remain callable by name and may have dedicated Pi commands.
 - Treat old standalone skill names as aliases when the user mentions them explicitly; those workflows are no longer installed as separate skills.
 - Resolve relative paths in loaded references from this router skill directory.
 
@@ -50,5 +50,4 @@ Which code workflow should I load?
 2. stackify-branch — split one branch into a clean Graphite stack
 3. stacker-agent — serial multi-slice implementation coordinator
 4. parity-review — review Pi command/tool changes for cross-harness parity
-5. gh-ci-debug — diagnose a failing GitHub Actions run or PR check
 ```

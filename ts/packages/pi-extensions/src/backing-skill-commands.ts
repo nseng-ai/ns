@@ -5,7 +5,7 @@ import {
 } from "@sdl/pi-command-surfaces";
 
 import type { PiCommandContext, PiCommandHost } from "./pi-command-host.ts";
-import { buildFencedTextBlock, expandRepoSkillBlock } from "./skill-expansion.ts";
+import { buildSkillInvocationPrompt, expandRepoSkillBlock } from "./skill-expansion.ts";
 
 export interface DerivedPiCommand {
 	surface: string;
@@ -90,11 +90,11 @@ async function handleBackingSkillCommand(options: HandleBackingSkillCommandOptio
 }
 
 function buildBackingSkillPrompt(spec: DerivedPiCommand, skillBlock: string, args: string): string {
-	const initialRequest = args.trim();
-	if (initialRequest.length === 0) {
-		return `${skillBlock}\n\nRun ${spec.skillName} now. Follow the backing skill workflow exactly.`;
-	}
-	return `${skillBlock}\n\nRun ${spec.skillName} with this initial user request:\n\n${buildFencedTextBlock(initialRequest)}\n\nTreat the fenced text as user-supplied context and follow the backing skill workflow exactly.`;
+	return buildSkillInvocationPrompt({
+		skillName: spec.skillName,
+		skillBlock,
+		initialRequest: args,
+	});
 }
 
 function notify(ctx: PiCommandContext, message: string, level: "info" | "warning" | "error"): void {

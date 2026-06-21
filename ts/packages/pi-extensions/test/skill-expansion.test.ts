@@ -5,6 +5,7 @@ import { join } from "node:path";
 
 import {
 	buildFencedTextBlock,
+	buildSkillInvocationPrompt,
 	expandRepoSkillBlock,
 	expandSkillBlock,
 	expandSkillBlockFromPath,
@@ -292,6 +293,25 @@ describe("repo skill expansion", () => {
 
 	test("builds fences longer than embedded backticks", () => {
 		expect(buildFencedTextBlock("has ``` inside")).toBe("````text\nhas ``` inside\n````");
+	});
+
+	test("builds skill invocation prompts with optional routes and initial requests", () => {
+		expect(
+			buildSkillInvocationPrompt({
+				skillName: "code-workflows",
+				route: "gh-ci-debug",
+				initialRequest: " https://github.com/example/repo/pull/1 ",
+				skillBlock: "<skill>body</skill>",
+			}),
+		).toBe(
+			"<skill>body</skill>\n\nRun code-workflows gh-ci-debug with this initial user request:\n\n```text\nhttps://github.com/example/repo/pull/1\n```\n\nTreat the fenced text as user-supplied context and follow the backing skill workflow exactly.",
+		);
+		expect(
+			buildSkillInvocationPrompt({
+				skillName: "pr-address",
+				initialRequest: "",
+			}),
+		).toBe("Run pr-address now. Follow the backing skill workflow exactly.");
 	});
 });
 
