@@ -169,9 +169,10 @@ not from a staged preservation artifact.
   `ts/` workspace with its own lockfile. It has a local `pnpm-workspace.yaml`
   only for pnpm build-script supply-chain policy (`allowBuilds` for `esbuild` and
   `sharp`), not to join the repo TypeScript workspace.
-- **Site identity/positioning copy** — tagline, hero headline, `siteId`,
-  production URL/domain. eve: "The Framework for Building Agents" / "Like Next.js
-  for web apps, but for agents." SDL needs its own.
+- **Site identity/positioning copy** — brand casing is resolved to lowercase
+  `sdl`; tagline, hero headline, `siteId`, and production URL/domain still need
+  launch-ready decisions. eve: "The Framework for Building Agents" / "Like
+  Next.js for web apps, but for agents." sdl needs its own.
 - **Content file extension: resolved to `.mdx` for the migrated published
   corpus.** The current port uses `.mdx` for all Get started / Concepts / Tools /
   Guides / Skills pages. The `source.config.ts` niceties already include mermaid,
