@@ -30,7 +30,13 @@ describe("RealGitBrmemGateway", () => {
 			},
 			{
 				command: "git",
-				args: ["ls-tree", "-r", "--format=%(path)%x09%(objectname)", "refs/brmem/base/feat---x"],
+				args: [
+					"ls-tree",
+					"-r",
+					"--full-tree",
+					"--format=%(path)%x09%(objectname)",
+					"refs/brmem/base/feat---x",
+				],
 				result: { stdout: "body.md\tbody-sha\nnested/plan.md\tplan-sha\n" },
 			},
 			{
@@ -69,13 +75,19 @@ describe("RealGitBrmemGateway", () => {
 			},
 			{
 				command: "git",
-				args: ["ls-tree", "-r", "--format=%(path)%x09%(objectname)", "refs/brmem/base/source"],
+				args: [
+					"ls-tree",
+					"-r",
+					"--full-tree",
+					"--format=%(path)%x09%(objectname)",
+					"refs/brmem/base/source",
+				],
 				result: { stdout: "foo.md\tblob-sha\n" },
 			},
 			{ command: "git", args: ["mktree"], result: { stdout: "tree-sha\n" } },
 			{
 				command: "git",
-				args: ["ls-tree", "-r", "--format=%(path)%x09%(objectname)", "tree-sha"],
+				args: ["ls-tree", "-r", "--full-tree", "--format=%(path)%x09%(objectname)", "tree-sha"],
 				result: { stdout: "foo.md\tblob-sha\n" },
 			},
 			{
