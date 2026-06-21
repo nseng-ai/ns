@@ -104,7 +104,7 @@
     "code-thermostack": {
       "source": "skills/code-thermostack",
       "sourceType": "local",
-      "computedHash": "aaadc10d685616994e102374eb957d1e347aedbe1ab3cb78ce5f6b12a6555881"
+      "computedHash": "f2c7aee6a102ab9d65cd71f2fcf7118b1fb0e230a7d508a6107f55c74154ec54"
     },
     "code-workflows": {
       "source": "skills/code-workflows",
@@ -285,6 +285,36 @@
       "source": "skills/refactor-swarm",
       "sourceType": "local",
       "computedHash": "25cf816171ecf9305fdfb42d70464dd29e9af144042abab8eb92cc3138a386d7"
+    },
+    "roast-asdl-typescript-style": {
+      "source": "skills/roast-asdl-typescript-style",
+      "sourceType": "local",
+      "computedHash": "cf944947ffd4c9bb64bbb9f6709237eb02974b8c2b9c246dfad4ce992c4c5803"
+    },
+    "roast-dignified-python": {
+      "source": "skills/roast-dignified-python",
+      "sourceType": "local",
+      "computedHash": "e96e13c4fce50bc24452df286fdb9632fa7610f43a04cc014a50c5738b4a3979"
+    },
+    "roast-dry-but-not-too-dry": {
+      "source": "skills/roast-dry-but-not-too-dry",
+      "sourceType": "local",
+      "computedHash": "9ed580dd1d8aa87de23e5b8f05ed4e7708e5e12cbdba766155ee5d22384fa3f3"
+    },
+    "roast-duplicative-abstractions": {
+      "source": "skills/roast-duplicative-abstractions",
+      "sourceType": "local",
+      "computedHash": "d210698074072c0241c5292ae29531b792e75088e8d2e577ac2946a8f80e0774"
+    },
+    "roast-improve-codebase-architecture": {
+      "source": "skills/roast-improve-codebase-architecture",
+      "sourceType": "local",
+      "computedHash": "72f72ca09700b1d039dfc9424fc0e3efd16a092e980c9da99794fb91dc77ce62"
+    },
+    "roast-thermonuclear-review": {
+      "source": "skills/roast-thermonuclear-review",
+      "sourceType": "local",
+      "computedHash": "cf6e74aa5d0f7f21877b9f00ed9be58fa0413477d8431239720eae10a8553764"
     },
     "sdl-submit": {
       "source": "skills/sdl-submit",

@@ -4,24 +4,21 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import type { BackingSkillCommandContext } from "../src/backing-skill-commands.ts";
-import roastExtension, { buildRoasterReviewPrompt, buildRoastPrompt } from "../src/roast.ts";
-import { buildFencedTextBlock, type SkillCommandInfo } from "../src/skill-expansion.ts";
+import roastExtension, {
+	buildRoasterReviewPrompt,
+	type RoastCommandContext,
+} from "../src/roast.ts";
+import { buildFencedTextBlock } from "../src/skill-expansion.ts";
 
 interface RegisteredCommand {
 	readonly description?: string;
 	readonly argumentHint?: string;
-	handler(args: string, ctx: BackingSkillCommandContext): Promise<void> | void;
+	handler(args: string, ctx: RoastCommandContext): Promise<void> | void;
 }
 
 class FakeRoastHost {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly sentUserMessages: string[] = [];
-	private readonly skillCommands: readonly SkillCommandInfo[];
-
-	constructor(skillCommands: readonly SkillCommandInfo[] = []) {
-		this.skillCommands = skillCommands;
-	}
 
 	registerCommand(name: string, command: RegisteredCommand): void {
 		if (this.commands.has(name)) throw new Error(`duplicate command: ${name}`);
@@ -31,18 +28,6 @@ class FakeRoastHost {
 	sendUserMessage(content: string): void {
 		this.sentUserMessages.push(content);
 	}
-
-	getCommands(): readonly SkillCommandInfo[] {
-		return this.skillCommands;
-	}
-}
-
-function commandInfo(skillName: string, path: string): SkillCommandInfo {
-	return {
-		name: `skill:${skillName}`,
-		source: "skill",
-		sourceInfo: { path },
-	};
 }
 
 function commandContext(cwd: string): {
@@ -51,7 +36,7 @@ function commandContext(cwd: string): {
 		level: "info" | "warning" | "error" | undefined;
 	}>;
 	readonly waitCount: () => number;
-	readonly ctx: BackingSkillCommandContext;
+	readonly ctx: RoastCommandContext;
 } {
 	const notifications: Array<{
 		message: string;
@@ -107,22 +92,20 @@ describe("roast Pi extension", () => {
 		);
 	});
 
-	test("immediately sends a skill-backed prompt with fenced raw args", async () => {
-		const tempDir = await mkdtemp(join(tmpdir(), "roast-extension-"));
+	test("sends a review-definition-backed prompt for thermonuclear review", async () => {
+		const tempDir = await mkdtemp(join(tmpdir(), "roast-review-definition-"));
 		try {
-			const cwd = join(tempDir, "repo");
-			const skillDir = join(tempDir, "agent-skills", "thermo-nuclear-code-quality-review");
-			const skillPath = join(skillDir, "SKILL.md");
+			const cwd = join(tempDir, "repo", "nested");
+			const reviewDir = join(tempDir, "repo", "reviews");
+			const reviewPath = join(reviewDir, "thermonuclear-review.md");
 			await mkdir(cwd, { recursive: true });
-			await mkdir(skillDir, { recursive: true });
+			await mkdir(reviewDir, { recursive: true });
 			await writeFile(
-				skillPath,
-				"---\nname: thermo-nuclear-code-quality-review\n---\n\n# Thermonuclear Review\n\nRoast hard.\n",
+				reviewPath,
+				"---\ndescription: Thermonuclear review\n---\n\n# Thermonuclear Review\n\nRoast hard.\n",
 				"utf8",
 			);
-			const host = new FakeRoastHost([
-				commandInfo("thermo-nuclear-code-quality-review", skillPath),
-			]);
+			const host = new FakeRoastHost();
 			roastExtension(host);
 			const context = commandContext(cwd);
 			const rawArgs = "review src/roast.ts and keep ``` fenced text safe";
@@ -131,12 +114,15 @@ describe("roast Pi extension", () => {
 
 			expect(context.waitCount()).toBe(1);
 			expect(context.notifications).toEqual([
-				{ message: "Starting Roast: ThermonuclearReview.", level: "info" },
+				{
+					message: "Starting Roast: ThermonuclearReview from reviews/thermonuclear-review.md.",
+					level: "info",
+				},
 			]);
 			expect(host.sentUserMessages).toHaveLength(1);
 			const prompt = host.sentUserMessages[0];
 			expect(prompt).toContain(
-				`<skill name="thermo-nuclear-code-quality-review" location="${skillPath}">`,
+				'<roaster-review-definition key="thermonuclear-review" path="reviews/thermonuclear-review.md">',
 			);
 			expect(prompt).toContain("# Thermonuclear Review");
 			expect(prompt).toContain("Run Roast: ThermonuclearReview now.");
@@ -147,7 +133,7 @@ describe("roast Pi extension", () => {
 		}
 	});
 
-	test("immediately sends a CI review-definition-backed prompt", async () => {
+	test("sends a CI review-definition-backed prompt", async () => {
 		const tempDir = await mkdtemp(join(tmpdir(), "roast-review-definition-"));
 		try {
 			const cwd = join(tempDir, "repo", "nested");
@@ -187,7 +173,7 @@ describe("roast Pi extension", () => {
 		}
 	});
 
-	test("sends a fallback prompt when the backing skill is unavailable", async () => {
+	test("sends a fallback prompt when the review definition is unavailable", async () => {
 		const tempDir = await mkdtemp(join(tmpdir(), "roast-extension-fallback-"));
 		try {
 			const cwd = join(tempDir, "repo");
@@ -202,38 +188,25 @@ describe("roast Pi extension", () => {
 			expect(context.notifications).toEqual([
 				{
 					message:
-						"improve-codebase-architecture skill was not found; sending fallback roast prompt.",
+						"Could not read reviews/improve-codebase-architecture.md; sending fallback roast prompt.",
 					level: "warning",
 				},
 			]);
 			expect(host.sentUserMessages).toHaveLength(1);
 			expect(host.sentUserMessages[0]).toContain(
-				"The backing skill improve-codebase-architecture was not available.",
+				"The Roaster review definition reviews/improve-codebase-architecture.md was not available.",
 			);
 			expect(host.sentUserMessages[0]).toContain(
-				"Run the Improve codebase architecture roast for the current repository.",
+				"Run the Improve codebase architecture roast against the current branch changes.",
 			);
 		} finally {
 			await rm(tempDir, { recursive: true, force: true });
 		}
 	});
 
-	test("prompt builders use the default prompt when no raw args are provided", () => {
-		const skillPrompt = buildRoastPrompt(
-			{
-				backing: "skill",
-				surface: "roast:fixture",
-				skillName: "fixture-skill",
-				title: "Fixture",
-				description: "Fixture description.",
-				defaultPrompt: "Run the fixture roast.",
-			},
-			"<skill>fixture</skill>",
-			"   ",
-		);
+	test("prompt builder uses the default prompt when no raw args are provided", () => {
 		const reviewPrompt = buildRoasterReviewPrompt(
 			{
-				backing: "review-definition",
 				surface: "roast:review-fixture",
 				reviewKey: "review-fixture",
 				reviewPath: "reviews/review-fixture.md",
@@ -245,10 +218,6 @@ describe("roast Pi extension", () => {
 			"   ",
 		);
 
-		expect(skillPrompt).toContain("<skill>fixture</skill>");
-		expect(skillPrompt).toContain("Run Roast: Fixture now.");
-		expect(skillPrompt).toContain("Run the fixture roast.");
-		expect(skillPrompt).not.toContain("Use this user-supplied review request/scope");
 		expect(reviewPrompt).toContain("# Review fixture");
 		expect(reviewPrompt).toContain("Run Roast: Review fixture now.");
 		expect(reviewPrompt).toContain("Run the review fixture roast.");
