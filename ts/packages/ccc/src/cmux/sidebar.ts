@@ -1,10 +1,13 @@
-import { objectiveChoiceMap } from "@sdl/pi-extension-runtime/objective-picker";
+import {
+	chooseActiveObjectiveSlug,
+	objectiveSelectionContextFromCommandContext,
+	type ObjectiveSelectionSpec,
+} from "@sdl/pi-extension-runtime/objective-selection";
 import { DEFAULT_FAST_MODEL_REF, resolveModelRef } from "@sdl/plans";
 import { expandRepoSkillBlock } from "@sdl/pi-extension-runtime/skill-expansion";
 import {
 	applyObjectiveSidebarFields,
 	formatObjectiveSidebarFields,
-	listObjectiveSidebarChoices,
 	readCurrentBranchSlug,
 	resolveObjectiveSelector,
 	validateObjectiveSidebarSlug,
@@ -26,6 +29,11 @@ const OBJECTIVE_SIDEBAR_COMMAND_NAME = "ccc:sidebar:objective-summary";
 const SKILL_NAME = "ccc-sidebar";
 const PI_SIDEBAR_STATUS_KEY = "pi:ccc-sidebar";
 const SIDEBAR_MODEL_ENV = "SDL_CCC_SIDEBAR_MODEL";
+const OBJECTIVE_SIDEBAR_SELECTION_SPEC = {
+	statusKey: PI_SIDEBAR_STATUS_KEY,
+	selectionTitle: "Select an active Objective for cmux sidebar",
+	compactDiffSuggestion: true,
+} satisfies ObjectiveSelectionSpec;
 
 interface RestoreState {
 	model?: ModelInfo;
@@ -223,43 +231,16 @@ async function resolveObjectiveSidebarSlug(
 		return selector.slug;
 	}
 
-	if (ctx.hasUI === false || ctx.ui.select === undefined) {
+	if (ctx.hasUI !== true || ctx.ui.select === undefined) {
 		notify(ctx, "Pass an Objective slug or .sdl/objectives/<slug> path.", "warning");
 		return undefined;
 	}
 
-	setStatus(ctx, "listing active Objectives…");
-	try {
-		const choicesResult = await listObjectiveSidebarChoices(pi, ctx.cwd);
-		if (choicesResult.type === "failed") {
-			notify(ctx, choicesResult.message, "error");
-			return undefined;
-		}
-
-		if (choicesResult.records.length === 0) {
-			notify(ctx, "No active Objectives. Create one with /objective:create.", "info");
-			return undefined;
-		}
-
-		const choices = objectiveChoiceMap(choicesResult.records);
-		const selected = await ctx.ui.select("Select an active Objective for cmux sidebar", [
-			...choices.keys(),
-		]);
-		if (!selected) {
-			notify(ctx, "Objective selection cancelled.", "info");
-			return undefined;
-		}
-
-		const slug = choices.get(selected);
-		if (slug === undefined) {
-			notify(ctx, "Objective selection could not be resolved.", "error");
-			return undefined;
-		}
-
-		return slug;
-	} finally {
-		setStatus(ctx, undefined);
-	}
+	return chooseActiveObjectiveSlug(
+		pi,
+		objectiveSelectionContextFromCommandContext(ctx),
+		OBJECTIVE_SIDEBAR_SELECTION_SPEC,
+	);
 }
 
 async function queueSessionSidebar(

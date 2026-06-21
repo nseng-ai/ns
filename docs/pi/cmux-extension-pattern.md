@@ -9,7 +9,7 @@ This guide captures the repo-local pattern for Pi commands that open cmux worksp
 - A manual sidebar update must target the workspace that launched this terminal, not whatever cmux workspace is focused now.
 - The behavior is repo-local to `sdl-tools` and should not become a global Pi extension.
 - The PR sidebar workflow needs a short semantic model pass but deterministic cmux mutation.
-- The Objective sidebar workflow needs deterministic formatting from an explicit Objective selector or UI picker selection.
+- The Objective sidebar workflow needs deterministic formatting from an explicit Objective selector or changed-Objective suggestion picker selection.
 
 ## Layering
 
@@ -111,7 +111,7 @@ Prompt-only length enforcement is intentional for PR sidebar for now. Do not add
 
 `/ccc:sidebar:pr-summary` summarizes current PR, branch, or active implementation work through the model-assisted `ccc-sidebar` skill. The Goal line describes the PR outcome, not the cmux update itself.
 
-`/ccc:sidebar:objective-summary [objective-slug-or-path]` formats an active sdl Objective deterministically. It accepts a slug or `.sdl/objectives/<slug>/...` path; if no selector is supplied, it opens a deterministic active-Objective picker like `/objective:update`. After selection, it validates the selected Objective slug/readability through `objective exec read-objective` and applies fixed fields through `pi.exec("ccc", [...])`: title/topline `obj:<objective-slug>` and description `<slot-slug>::<branch-slug>`. It does not queue a model prompt, read Objective prose, invoke the `ccc-sidebar` skill, or infer an Objective from branch, PR, hidden context, or conversation text.
+`/ccc:sidebar:objective-summary [objective-slug-or-path]` formats an active sdl Objective deterministically. It accepts a slug or `.sdl/objectives/<slug>/...` path; if no selector is supplied, it uses the same changed-Objective suggestion picker as `/objective:next`, including the `View other active Objectives…` escape hatch instead of silently auto-selecting. After selection, it validates the selected Objective slug/readability through `objective exec read-objective` and applies fixed fields through `pi.exec("ccc", [...])`: title/topline `obj:<objective-slug>` and description `<slot-slug>::<branch-slug>`. It does not queue a model prompt, read Objective prose, invoke the `ccc-sidebar` skill, or infer an Objective from branch, PR, hidden context, or conversation text.
 
 ## Apply through exec, not raw cmux
 

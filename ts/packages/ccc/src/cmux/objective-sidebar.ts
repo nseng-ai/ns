@@ -2,10 +2,6 @@ import { basename, isAbsolute, posix, relative, resolve, sep } from "node:path";
 
 import { formatCommand, formatOutputSection, tailText, type ExecResult } from "@sdl/core/exec";
 import { parseMachineEnvelopeData } from "@sdl/pi-extension-runtime/machine-envelope";
-import {
-	parseObjectiveList,
-	type ObjectiveListRecord,
-} from "@sdl/pi-extension-runtime/objective-list";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import type { ExtensionAPI } from "./types.ts";
 
@@ -41,16 +37,6 @@ export interface SidebarFields {
 export type ObjectiveSidebarValidationResult =
 	| {
 			type: "validated";
-	  }
-	| {
-			type: "failed";
-			message: string;
-	  };
-
-export type ObjectiveSidebarChoicesLoadResult =
-	| {
-			type: "loaded";
-			records: ObjectiveListRecord[];
 	  }
 	| {
 			type: "failed";
@@ -100,42 +86,6 @@ export function resolveObjectiveSelector(
 	}
 
 	return resolveRepoRelativeObjectiveSelector(trimmed);
-}
-
-export async function listObjectiveSidebarChoices(
-	pi: Pick<ExtensionAPI, "exec">,
-	cwd: string,
-): Promise<ObjectiveSidebarChoicesLoadResult> {
-	const args = ["list", "--minimal", "--format", "json"];
-	let result: ExecResult;
-	try {
-		result = await pi.exec("objective", args, { cwd, timeout: OBJECTIVE_READ_TIMEOUT_MS });
-	} catch (error) {
-		return {
-			type: "failed",
-			message: formatStartupFailure("Could not list active Objectives.", "objective", args, error),
-		};
-	}
-
-	const commandDisplay = formatCommand("objective", args);
-	if (result.killed || result.code !== 0) {
-		return {
-			type: "failed",
-			message: formatFailedEnvelopeOrExecFailure(
-				"Could not list active Objectives.",
-				commandDisplay,
-				result,
-				"objective list JSON",
-			),
-		};
-	}
-
-	const parsed = parseObjectiveList(result.stdout);
-	if (parsed.type !== "valid") {
-		return { type: "failed", message: parsed.message };
-	}
-
-	return { type: "loaded", records: parsed.list.records };
 }
 
 export async function validateObjectiveSidebarSlug(
