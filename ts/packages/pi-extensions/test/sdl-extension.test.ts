@@ -55,10 +55,10 @@ function createContext(cwd: string): CommandContext {
 	};
 }
 
-async function createOverrideProject(): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), "sdl-pi-override-"));
+async function createChangesProject(): Promise<string> {
+	const directory = await mkdtemp(join(tmpdir(), "sdl-pi-changes-"));
 	tempDirs.push(directory);
-	const extensionPath = join(directory, ".sdl", "extensions", "cp.ts");
+	const extensionPath = join(directory, ".sdl", "extensions", "changes.ts");
 	mkdirSync(dirname(extensionPath), { recursive: true });
 	writeFileSync(
 		extensionPath,
@@ -67,8 +67,8 @@ import { defineExtension, ok } from "@sdl/sdl/sdk";
 
 export default defineExtension({
 	commands: [{
-	name: "cp",
-	description: "Custom checkpoint",
+	name: "changes",
+	description: "Custom changes",
 	async run(ctx) {
 		const result = await ctx.exec("echo", ["pi-custom"]);
 		return ok(result.stdout.trim());
@@ -87,19 +87,14 @@ afterEach(() => {
 });
 
 describe("sdl Pi extension", () => {
-	test("exposes flat SDL commands first plus nested code-lifecycle aliases", () => {
+	test("exposes restored changes mirrors plus unrelated code-lifecycle commands", () => {
 		const pi = new FakePi();
 
 		sdlExtension(pi);
 
 		expect([...pi.commands.keys()]).toEqual([
 			"sdl:changes",
-			"sdl:cp",
-			"sdl:submit",
 			"sdl:code:changes",
-			"sdl:code:checkpoint",
-			"sdl:code:submit",
-			"sdl:code:regenerate-pr",
 			"sdl:code:autobranch",
 			"sdl:code:autoslot",
 			"sdl:code:land",
@@ -117,23 +112,16 @@ describe("sdl Pi extension", () => {
 		expect(pi.commands.has("code:push")).toBe(false);
 		expect(pi.commands.has("code:pr-regen")).toBe(false);
 		expect(pi.commands.has("sdl:regenerate-pr")).toBe(false);
+		expect(pi.commands.has("sdl:cp")).toBe(false);
+		expect(pi.commands.has("sdl:submit")).toBe(false);
+		expect(pi.commands.has("sdl:code:checkpoint")).toBe(false);
+		expect(pi.commands.has("sdl:code:submit")).toBe(false);
+		expect(pi.commands.has("sdl:code:regenerate-pr")).toBe(false);
 		expect(pi.commands.get("sdl:changes")?.description).toBe(
 			"sdl changes: Summarize outstanding worktree changes without committing.",
 		);
-		expect(pi.commands.get("sdl:cp")?.description).toBe(
-			"sdl cp: Create a checkpoint commit for the current diff.",
-		);
-		expect(pi.commands.get("sdl:submit")?.description).toBe(
-			"sdl submit: Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.",
-		);
 		expect(pi.commands.get("sdl:code:changes")?.description).toBe(
 			"sdl changes: Summarize outstanding worktree changes without committing.",
-		);
-		expect(pi.commands.get("sdl:code:checkpoint")?.description).toBe(
-			"sdl cp: Create a checkpoint commit for the current diff.",
-		);
-		expect(pi.commands.get("sdl:code:submit")?.description).toBe(
-			"sdl submit: Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.",
 		);
 		expect(pi.commands.get("sdl:code:autobranch")?.description).toBe(
 			"ccc autobranch: Create a Graphite branch from dirty worktree changes or the latest unpushed commit.",
@@ -146,22 +134,19 @@ describe("sdl Pi extension", () => {
 		expect(pi.commands.get("sdl:code:pull-trunk")?.description).toBe(
 			"Pull Graphite trunk without running full gt sync",
 		);
-		expect(pi.commands.get("sdl:code:regenerate-pr")?.description).toBe(
-			"sdl regenerate-pr: Regenerate the current branch PR's title and description with the sdl PR-description prompt.",
-		);
 		expect(pi.messageRenderers.has(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(true);
 		expect(pi.messageRenderers.has("code-changes-summary")).toBe(false);
 	});
 
-	test("runs the shared cp command-entry runner through the nested checkpoint alias", async () => {
-		const cwd = await createOverrideProject();
+	test("runs sdl changes through the nested changes alias", async () => {
+		const cwd = await createChangesProject();
 		const pi = new FakePi();
 		sdlExtension(pi);
 
 		const originalHome = process.env.HOME;
 		process.env.HOME = join(cwd, ".home");
 		try {
-			await commandFor(pi, "sdl:code:checkpoint").handler("", createContext(cwd));
+			await commandFor(pi, "sdl:code:changes").handler("", createContext(cwd));
 		} finally {
 			if (originalHome === undefined) {
 				delete process.env.HOME;

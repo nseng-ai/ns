@@ -70,25 +70,14 @@ afterEach(() => {
 });
 
 describe("extension registry", () => {
-	test("catalog includes all built-ins from the unified built-in command table", async () => {
+	test("catalog can be empty without built-ins or external extensions", async () => {
 		const workspace = await createWorkspace();
 
 		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
-		expect([...loaded.candidates.keys()]).toEqual(["changes", "cp", "regenerate-pr", "submit"]);
-		expect(loaded.commandInfos.map((info) => [info.name, info.description])).toEqual([
-			["changes", "Summarize outstanding worktree changes without committing."],
-			["cp", "Create a checkpoint commit for the current diff."],
-			[
-				"regenerate-pr",
-				"Regenerate the current branch PR's title and description with the sdl PR-description prompt.",
-			],
-			[
-				"submit",
-				"Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.",
-			],
-		]);
+		expect([...loaded.candidates.keys()]).toEqual([]);
+		expect(loaded.commandInfos).toEqual([]);
 	});
 
 	test("XDG global commands are loaded and legacy global commands are ignored", async () => {
@@ -127,7 +116,7 @@ describe("extension registry", () => {
 		expect(result).toEqual({ ok: true, message: "xdg greet" });
 	});
 
-	test("project overrides global and global overrides built-in without importing candidates", async () => {
+	test("project overrides global without importing candidates", async () => {
 		const workspace = await createWorkspace();
 		writeGlobalExtension(workspace, "cp.ts", commandEntry("cp", "global cp"));
 		writeGlobalExtension(workspace, "greet.ts", commandEntry("greet", "global greet"));
@@ -138,7 +127,7 @@ describe("extension registry", () => {
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
 		expect(
 			loaded.diagnostics.filter((diagnostic) => diagnostic.code === "extension_command_override"),
-		).toHaveLength(2);
+		).toHaveLength(1);
 		expect(loaded.commandInfos.find((info) => info.name === "cp")?.description).toBe(
 			"Run SDL command entry 'cp'.",
 		);
@@ -226,14 +215,7 @@ export default defineExtension({
 		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
-		expect([...loaded.candidates.keys()]).toEqual([
-			"bye",
-			"changes",
-			"cp",
-			"hello",
-			"regenerate-pr",
-			"submit",
-		]);
+		expect([...loaded.candidates.keys()]).toEqual(["bye", "hello"]);
 		const selected = loaded.candidates.get("bye");
 		expect(selected).toBeDefined();
 		if (selected === undefined) return;

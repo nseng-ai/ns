@@ -10,7 +10,10 @@ import {
 	formatManagedGeneratedRegion,
 	hashPrDescriptionPrompt,
 } from "@sdl/core/submit";
-import { runCli } from "@sdl/sdl/cli";
+import { listSdlCommands } from "@sdl/sdl/cli";
+
+import { executeSdlCommand } from "../../src/command-registry.ts";
+import { defaultSubmitCommand } from "../../src/default-commands/submit.ts";
 import type { TextGenerationResult } from "@sdl/sdl/sdk";
 
 import {
@@ -19,27 +22,81 @@ import {
 	ScriptedSdlTestContext,
 	type RunWithFakesOptions,
 	type ScriptedExecResponse,
-	type TestState,
 } from "./sdl-cli-fakes.ts";
 
 const PR_URL = "https://github.com/acme/repo/pull/123";
 const GRAPHITE_PR_URL = "https://app.graphite.com/github/pr/acme/repo/123";
 const LAGGING_VERIFICATION_PR_URL = "https://app.graphite.com/github/pr/dagster-io/sdl-tools/1517";
 
-function createSubmitContext(state: TestState = {}): ScriptedSdlTestContext {
-	return new ScriptedSdlTestContext(state, {
-		execResponses: successfulSubmitResponses,
-		textGenerationResults: () => [{ ok: true, text: defaultPrDescriptionText() }],
-		missingTextGenerationResult: () => ({ ok: true, text: defaultPrDescriptionText() }),
-	});
+function runUnavailableSubmitCli(args: readonly string[]) {
+	return runCliWithFakes(
+		{ args, state: { exec: [], textGeneration: [] } },
+		{
+			execResponses: () => [],
+			textGenerationResults: () => [],
+		},
+	);
 }
 
+describe("sdl submit CLI availability", () => {
+	test("submit is not registered as a built-in command after the kernel reset", () => {
+		expect(listSdlCommands().some((command) => command.name === "submit")).toBe(false);
+	});
+
+	test("submit help and invocation are unavailable rather than stubbed", async () => {
+		const help = runUnavailableSubmitCli(["submit", "--help"]);
+		expect(await help.exit).toBe(0);
+		expect(help.stdout.join("")).toContain("Usage: sdl");
+		expect(help.stdout.join("")).not.toContain("Usage: sdl submit");
+
+		for (const args of [["submit"], ["submit", "--no-restack"]] as const) {
+			const run = runUnavailableSubmitCli(args);
+
+			expect(await run.exit).not.toBe(0);
+			expect(run.stdout.join("")).toBe("");
+			expect(run.stderr.join("")).toMatch(/too many arguments|unknown/i);
+			expect(run.context.execCalls).toEqual([]);
+			expect(run.context.modelCalls).toEqual([]);
+		}
+	});
+});
+
 function runWithFakes(options: RunWithFakesOptions) {
-	return runCliWithFakes(options, {
+	const stdout: string[] = [];
+	const stderr: string[] = [];
+	const liveOutput: Array<{ stream: "stdout" | "stderr"; text: string }> = [];
+	const cwd = options.cwd ?? "/work";
+	const homeDir = options.homeDir ?? join(cwd, ".home");
+	const context = new ScriptedSdlTestContext(options.state, {
+		cwd,
+		env: { HOME: homeDir, ...(options.env ?? {}) },
 		execResponses: successfulSubmitResponses,
 		textGenerationResults: () => [{ ok: true, text: defaultPrDescriptionText() }],
 		missingTextGenerationResult: () => ({ ok: true, text: defaultPrDescriptionText() }),
 	});
+	context.stdout = (text) => stdout.push(text);
+	context.stderr = (text) => stderr.push(text);
+	context.onOutput = (stream, text) => liveOutput.push({ stream, text });
+	return {
+		context,
+		stdout,
+		stderr,
+		liveOutput,
+		exit: executeSdlCommand(
+			context,
+			defaultSubmitCommand,
+			submitRequestFromArgs(options.args),
+		).then((result) => (result.ok ? 0 : result.exitCode)),
+	};
+}
+
+function submitRequestFromArgs(args: readonly string[]): Record<string, boolean> {
+	const request: Record<string, boolean> = {};
+	for (const arg of args.slice(1)) {
+		if (arg === "--verbose") request.verbose = true;
+		if (arg === "--no-restack") request.restack = false;
+	}
+	return request;
 }
 
 function cleanCheckpointResponses(): ScriptedExecResponse[] {
@@ -125,28 +182,9 @@ function defaultPrDescriptionText(): string {
 	return "Generated PR\n\nGenerated body";
 }
 
-describe("sdl submit CLI", () => {
+describe("inactive default submit command", () => {
 	afterEach(() => {
 		vi.useRealTimers();
-	});
-
-	test("help and schema expose built-in submit without running subprocesses", async () => {
-		const helpRun = runWithFakes({ args: ["submit", "--help"], state: { exec: [] } });
-		expect(await helpRun.exit).toBe(0);
-		const help = helpRun.stdout.join("");
-		expect(help).toContain("Usage: sdl submit");
-		expect(help).toContain("--no-restack");
-		expect(help).toContain("--verbose");
-		expect(help).toContain("SDL_DEV_PR_DESCRIPTION_MODEL");
-		expect(help).toContain("SDL_DEV_PR_DESCRIPTION_PROMPT");
-		expect(help).toContain("SDL_SUBMIT_FAILURE_LOG_DIR");
-		expect(help).not.toContain("\n  --format");
-		expect(helpRun.context.execCalls).toEqual([]);
-
-		const schemaRun = runWithFakes({ args: ["submit", "--json-schema"], state: { exec: [] } });
-		expect(await schemaRun.exit).toBe(0);
-		expect(JSON.parse(schemaRun.stdout.join(""))).toHaveProperty("input_json_schema");
-		expect(schemaRun.context.execCalls).toEqual([]);
 	});
 
 	test("clean success submits, verifies current PR, prints quiet progress, and rewrites PR bodies", async () => {
@@ -377,33 +415,6 @@ describe("sdl submit CLI", () => {
 				{ stream: "stderr", text: "  … prepared pre-submit PR metadata for 1 branch\n" },
 			]),
 		);
-	});
-
-	test("direct CLI output gets live submit progress without an injected live-output hook", async () => {
-		const stdout: string[] = [];
-		const stderr: string[] = [];
-		const context = createSubmitContext();
-
-		expect(
-			await runCli(["submit"], {
-				context,
-				stdout: (text) => {
-					stdout.push(text);
-				},
-				stderr: (text) => {
-					stderr.push(text);
-				},
-			}),
-		).toBe(0);
-
-		expect(stderr.join("")).toContain("sdl submit\n");
-		expect(stderr.join("")).toContain(
-			"• Checking worktree and checkpointing pending changes if needed…",
-		);
-		expect(stderr.join("")).toContain("• Submit: running gt submit…");
-		expect(stdout.join("")).not.toContain("ready\n");
-		expect(stdout.join("")).not.toContain(`Submitted ${PR_URL}\n`);
-		expect(stdout.join("")).toContain("Submitted 1 PR:");
 	});
 
 	test("accepts submit-output PR links when current PR verification lags", async () => {
@@ -798,46 +809,6 @@ describe("sdl submit CLI", () => {
 		expect(await run.exit).toBe(0);
 		expect(confirmations).toEqual([]);
 		expect(formattedExecCalls(run.context)).toContain("gt restack --no-interactive");
-	});
-
-	test("runCli preserves hooks already present on an injected SdlContext", async () => {
-		const stdout: string[] = [];
-		const stderr: string[] = [];
-		const liveOutput: Array<{ stream: "stdout" | "stderr"; text: string }> = [];
-		const confirmations: string[] = [];
-		const context = createSubmitContext({
-			exec: [
-				...cleanCheckpointResponses(),
-				{
-					match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run",
-					result: { code: 1, stdout: "restack required before submit\n" },
-				},
-				{ match: "gt restack --no-interactive", result: { stdout: "restacked\n" } },
-				...successfulSubmitResponses().slice(cleanCheckpointResponses().length),
-			],
-			confirm: (title) => {
-				confirmations.push(title);
-				return true;
-			},
-		});
-		context.stdout = (text) => {
-			stdout.push(text);
-		};
-		context.stderr = (text) => {
-			stderr.push(text);
-		};
-		context.onOutput = (stream, text) => {
-			liveOutput.push({ stream, text });
-		};
-
-		expect(await runCli(["submit"], { context, homeDir: join(context.cwd, ".home") })).toBe(0);
-		expect(stdout.join("")).toContain("Submitted 1 PR:");
-		expect(stderr.join("")).toBe("");
-		expect(confirmations).toEqual([]);
-		expect(liveOutput).toEqual(
-			expect.arrayContaining([{ stream: "stderr", text: "• Preflight: running gt restack…\n" }]),
-		);
-		expect(liveOutput).not.toContainEqual({ stream: "stdout", text: "restacked\n" });
 	});
 
 	test("--no-restack preserves guided failure without running restack", async () => {

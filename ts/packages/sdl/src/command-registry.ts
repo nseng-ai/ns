@@ -1,7 +1,3 @@
-import { defaultChangesCommand } from "./default-commands/changes.ts";
-import { defaultCpCommand } from "./default-commands/cp.ts";
-import { defaultRegeneratePrCommand } from "./default-commands/regenerate-pr.ts";
-import { defaultSubmitCommand } from "./default-commands/submit.ts";
 import {
 	failed,
 	z,
@@ -10,14 +6,6 @@ import {
 	type SdlContext,
 	type SdlResult,
 } from "./sdk.ts";
-import {
-	CHANGES_MODEL_ENV,
-	CHECKPOINT_MODEL_ENV,
-	DEFAULT_CHECKPOINT_MODEL_REF,
-	DEFAULT_CHANGES_MODEL_REF,
-	LEGACY_CHANGES_MODEL_ENV,
-	LEGACY_CHECKPOINT_MODEL_ENV,
-} from "./text-generation.ts";
 
 export type SdlCommandSourceLevel = "built-in" | "global" | "project";
 
@@ -55,40 +43,7 @@ export interface BuiltInCommandDefinition {
 export const SDL_COMMAND_NAME_PATTERN = /^[a-z][a-z0-9-]*$/;
 export const SDL_COMMAND_NAME_RULE = "[a-z][a-z0-9-]*";
 
-export const builtInCommandDefinitions = {
-	changes: {
-		command: defaultChangesCommand,
-		summary: "Summarize outstanding worktree changes without committing.",
-		description: `Summarize outstanding worktree changes without committing.
-
-The command captures a pending worktree snapshot with read-only git commands. Clean worktrees print that there are no outstanding changes. Dirty worktrees ask the configured text-generation model for 1–4 reviewer-facing bullets, then print the bullets and raw porcelain status lines.
-
-Environment:
-  ${CHANGES_MODEL_ENV}  Model reference for generated changes summaries. Defaults to ${DEFAULT_CHANGES_MODEL_REF}. Falls back to ${LEGACY_CHANGES_MODEL_ENV} when unset.
-
-The command owns human stdout/stderr, has no alternate output-format flag, and does not stage, commit, stash, switch branches, run Graphite, or call GitHub.`,
-	},
-	cp: {
-		command: defaultCpCommand,
-		summary: "Create a checkpoint commit for the current diff.",
-		description: `Create a checkpoint commit for the current git diff using a model-authored message.
-
-Environment:
-  ${CHECKPOINT_MODEL_ENV}  Model reference for the checkpoint message. Defaults to ${DEFAULT_CHECKPOINT_MODEL_REF}. Falls back to ${LEGACY_CHECKPOINT_MODEL_ENV} when unset.`,
-	},
-	"regenerate-pr": {
-		command: defaultRegeneratePrCommand,
-		summary:
-			"Regenerate the current branch PR's title and description with the sdl PR-description prompt.",
-		description: defaultRegeneratePrCommand.description,
-	},
-	submit: {
-		command: defaultSubmitCommand,
-		summary:
-			"Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.",
-		description: defaultSubmitCommand.description,
-	},
-} as const satisfies Record<string, BuiltInCommandDefinition>;
+export const builtInCommandDefinitions: Readonly<Record<string, BuiltInCommandDefinition>> = {};
 
 const sdlCommandSchema = z.object({
 	name: z.string(),
@@ -131,9 +86,8 @@ export function commandInfoForLoadedCommand(
 	command: SdlCommand,
 	sourceLevel: SdlCommandSourceLevel,
 ): SdlCommandCliInfo {
-	if (sourceLevel === "built-in" && Object.hasOwn(builtInCommandDefinitions, command.name)) {
-		const definition =
-			builtInCommandDefinitions[command.name as keyof typeof builtInCommandDefinitions];
+	const definition = builtInCommandDefinitions[command.name];
+	if (sourceLevel === "built-in" && definition !== undefined) {
 		return {
 			name: command.name,
 			description: definition.summary,

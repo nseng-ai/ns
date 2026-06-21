@@ -165,8 +165,8 @@ The Pi slash-command namespace for codebase/source-control or review workflows t
 *Avoid*: visibility flag, prototype marker, package prefix, migrated SDL workflow prefix.
 
 **Pending worktree snapshot**:
-A read-only capture of repository root, current branch, porcelain status, diff, and cleanliness used by `sdl changes` / `/sdl:changes` / `/sdl:code:changes`, `sdl cp` / `/sdl:cp` / `/sdl:code:checkpoint`, and `/sdl:code:autobranch` before presentation or mutation.
-*Avoid*: stash, checkpoint, worktree status renderer.
+A read-only capture of repository root, current branch, porcelain status, diff, and cleanliness used by `sdl changes` / `/sdl:changes` / `/sdl:code:changes` before presentation and by `/sdl:code:autobranch` before mutation. The `cp`/checkpoint SDL mirrors are unavailable during the project-local extension migration gap until their command entry migrates back.
+*Avoid*: stash, checkpoint, worktree status renderer, advertising unavailable `cp` mirrors.
 
 **Outstanding changes summary**:
 A read-only presentation of the current pending worktree state, including summary text and status-derived filenames, used by `sdl changes` / `/sdl:changes` / `/sdl:code:changes` before any checkpoint decision. The summary text is drafted through SDL text generation; when the model is unavailable or returns an invalid summary the command hard-errors rather than falling back to a deterministic summary.

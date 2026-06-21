@@ -6,10 +6,14 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import { GENERATED_BODY_MARKER } from "@sdl/core/submit";
+import { listSdlCommands } from "@sdl/sdl/cli";
 
+import { executeSdlCommand } from "../../src/command-registry.ts";
+import { defaultRegeneratePrCommand } from "../../src/default-commands/regenerate-pr.ts";
 import {
 	formattedExecCalls,
 	runCliWithFakes,
+	ScriptedSdlTestContext,
 	type ScriptedExecResponse,
 	type TestState,
 } from "./sdl-cli-fakes.ts";
@@ -24,19 +28,62 @@ This regenerates the PR title and body with the sdl-owned prompt.
 - Adds title generation
 - Adds guarded body updates`;
 
+function runUnavailableRegeneratePrCli(args: readonly string[]) {
+	return runCliWithFakes(
+		{ args, state: { exec: [], textGeneration: [] } },
+		{
+			execResponses: () => [],
+			textGenerationResults: () => [],
+		},
+	);
+}
+
+describe("sdl regenerate-pr CLI availability", () => {
+	test("regenerate-pr is not registered as a built-in command after the kernel reset", () => {
+		expect(listSdlCommands().some((command) => command.name === "regenerate-pr")).toBe(false);
+	});
+
+	test("regenerate-pr help and invocation are unavailable rather than stubbed", async () => {
+		const help = runUnavailableRegeneratePrCli(["regenerate-pr", "--help"]);
+		expect(await help.exit).toBe(0);
+		expect(help.stdout.join("")).toContain("Usage: sdl");
+		expect(help.stdout.join("")).not.toContain("Usage: sdl regenerate-pr");
+
+		for (const args of [["regenerate-pr"], ["regenerate-pr", "--force"]] as const) {
+			const run = runUnavailableRegeneratePrCli(args);
+
+			expect(await run.exit).not.toBe(0);
+			expect(run.stdout.join("")).toBe("");
+			expect(run.stderr.join("")).toMatch(/too many arguments|unknown/i);
+			expect(run.context.execCalls).toEqual([]);
+			expect(run.context.modelCalls).toEqual([]);
+		}
+	});
+});
+
 function runWithFakes(
 	args: readonly string[],
 	state: TestState = {},
 	options: { env?: Record<string, string | undefined> } = {},
 ) {
-	return runCliWithFakes(
-		{ args, state, env: options.env },
-		{
-			execResponses: successfulRegeneratePrResponses,
-			textGenerationResults: () => [{ ok: true, text: generatedText }],
-			missingTextGenerationResult: () => ({ ok: true, text: generatedText }),
-		},
-	);
+	const stdout: string[] = [];
+	const stderr: string[] = [];
+	const context = new ScriptedSdlTestContext(state, {
+		env: { HOME: "/work/.home", ...(options.env ?? {}) },
+		execResponses: successfulRegeneratePrResponses,
+		textGenerationResults: () => [{ ok: true, text: generatedText }],
+		missingTextGenerationResult: () => ({ ok: true, text: generatedText }),
+	});
+	context.stdout = (text) => stdout.push(text);
+	context.stderr = (text) => stderr.push(text);
+	return {
+		context,
+		stdout,
+		stderr,
+		exit: executeSdlCommand(context, defaultRegeneratePrCommand, {
+			force: args.includes("--force"),
+		}).then((result) => (result.ok ? 0 : result.exitCode)),
+	};
 }
 
 function successfulRegeneratePrResponses(): ScriptedExecResponse[] {
@@ -76,41 +123,7 @@ function commitsJson(): string {
 	});
 }
 
-describe("sdl regenerate-pr CLI", () => {
-	test("help documents regenerate-pr behavior through clinkr", async () => {
-		const run = runWithFakes(["regenerate-pr", "--help"], { exec: [] });
-
-		expect(await run.exit).toBe(0);
-		const help = run.stdout.join("");
-		expect(help).toContain("Usage: sdl regenerate-pr");
-		expect(help).toContain("replacing any existing");
-		expect(help).toContain("body. The --force flag");
-		expect(help).toContain("SDL_DEV_PR_DESCRIPTION_MODEL");
-		expect(help).toContain("SDL_DEV_PR_DESCRIPTION_PROMPT");
-		expect(help).toContain("--force");
-		expect(help).toContain("--json-schema");
-		expect(help).not.toContain("\n  --format");
-		expect(run.context.execCalls).toEqual([]);
-	});
-
-	test("json schema is available without touching GitHub", async () => {
-		const run = runWithFakes(["regenerate-pr", "--json-schema"], { exec: [] });
-
-		expect(await run.exit).toBe(0);
-		const schema = JSON.parse(run.stdout.join("")) as Record<string, unknown>;
-		expect(schema).toHaveProperty("input_json_schema");
-		expect(schema).toHaveProperty("output_json_schema");
-		expect(run.context.execCalls).toEqual([]);
-	});
-
-	test("raw regenerate-pr rejects clinkr --format", async () => {
-		const run = runWithFakes(["regenerate-pr", "--format", "json"], { exec: [] });
-
-		expect(await run.exit).toBe(2);
-		expect(run.stderr.join("")).toContain("error: unknown option '--format'");
-		expect(run.context.execCalls).toEqual([]);
-	});
-
+describe("inactive default regenerate-pr command", () => {
 	test("regenerates the current branch PR with SDL-owned wording", async () => {
 		const run = runWithFakes(["regenerate-pr"]);
 
@@ -200,14 +213,5 @@ describe("sdl regenerate-pr CLI", () => {
 
 		expect(await run.exit).toBe(2);
 		expect(run.stderr.join("")).toContain("Could not read SDL_DEV_PR_DESCRIPTION_PROMPT");
-	});
-
-	test("unknown options exit 2", async () => {
-		const run = runWithFakes(["regenerate-pr", "--bogus"], { exec: [] });
-
-		expect(await run.exit).toBe(2);
-		expect(run.stderr.join("")).toContain("error: unknown option '--bogus'");
-		expect(run.stderr.join("")).not.toContain("Usage: sdl regenerate-pr");
-		expect(run.context.execCalls).toEqual([]);
 	});
 });

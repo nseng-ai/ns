@@ -82,7 +82,8 @@ Assumptions:
 
 Risks:
 
-- Removing built-in commands before restoring project-local equivalents may temporarily break local workflows. Mitigate by making the first slice small, testable, and focused on `changes` restoration.
+- Removing built-in commands before restoring project-local equivalents did intentionally create a temporary availability gap for `cp`, `submit`, and `regenerate-pr`; this is accepted as first-slice architecture evidence and should be closed by later project-local migration rows rather than by restoring stubs or built-ins.
+- Restoring `changes` as a direct SDK-only extension required localized duplication of git snapshot loading, model prompt/default selection, model-output validation, and output formatting. This is acceptable one-command duplication for the first slice, but it is now concrete SDK-pressure evidence to compare against later command migrations.
 - Extensions may be forced to shell out or duplicate internal logic too much if the SDK is too thin. Mitigate by allowing duplication briefly, then promoting repeated pain into deep kernel interfaces with test coverage.
 - The SDK may become overfit if every migrated command's convenience helper is exposed publicly. Mitigate by requiring concrete reuse evidence or a documented necessity before promotion.
 - Pi mirrors may drift from CLI discovery if they continue to hardcode command names. Mitigate by treating Pi as an adapter over SDL discovery or explicitly documenting project-local static mirrors when dynamic Pi registration is not possible.

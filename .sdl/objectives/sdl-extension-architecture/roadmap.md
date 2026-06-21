@@ -2,10 +2,9 @@
 
 ## Work
 
-- [ ] Reset the SDL CLI kernel and restore `changes` as the first project-local extension.
+- [x] Reset the SDL CLI kernel and restore `changes` as the first project-local extension.
   - Policy: direct execution after preview.
-  - Remove privileged domain-command registration from the SDL kernel, then restore the read-only `sdl changes` surface through `.sdl/extensions` using the public SDK.
-  - Evidence should include empty-kernel command catalog behavior, project-local `changes` scenario coverage, and source-search or test evidence that `changes` is not registered through a built-in command table.
+  - Evidence: local branch diff removes privileged domain-command registration from `ts/packages/sdl/src/command-registry.ts`, adds `.sdl/extensions/changes.ts` as an SDK-only direct project-local extension, rewrites SDL scenario/unit coverage for an empty built-in catalog and project-local `changes`, and leaves `cp`, `submit`, and `regenerate-pr` unavailable until later project-local migration slices. Verification: full Vitest suite, TypeScript typecheck/lint/format checks, dprint check, and source searches for default command registration and stale built-in/mirror wording.
 
 - [ ] Migrate checkpoint creation (`cp`) as a project-local mutating command extension.
   - Policy: direct execution after preview for code/docs/tests; ask before running a real mutating checkpoint command as validation.
@@ -22,9 +21,9 @@
   - Use this slice to test command composition, Graphite/GitHub boundaries, progress output, confirmation hooks, failure summarization, persistent logs, and lower-orchestration ownership.
   - Evidence should explicitly record which API pressures were handled in the extension and which, if any, became kernel/SDK additions.
 
-- [ ] Rework Pi SDL mirrors/adapters for project-local command ownership.
+- [~] Rework Pi SDL mirrors/adapters for project-local command ownership.
   - Policy: steer first if dynamic Pi registration or command taxonomy changes are proposed.
-  - Ensure Pi surfaces no longer imply `changes`, `cp`, `submit`, or `regenerate-pr` are universal SDL built-ins when their CLI behavior is project-local.
+  - Current evidence: first-slice Pi changes keep only the explicit `changes` mirrors delegating to `sdl changes`, remove unavailable `cp`, `submit`, and `regenerate-pr` mirror registration/parity records, and update narrow push/worktree-status guidance that would have advertised removed mirrors. The broader row remains active for later migrated commands and any dynamic Pi discovery decision.
   - Evidence should include parity/registration tests or documented limitations for project-local static mirrors.
 
 - [ ] Document the emerging SDL kernel and extension SDK model.
