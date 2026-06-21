@@ -97,13 +97,38 @@ export interface ScriptedCommandExecCall {
 
 export type ScriptedTextGenerationStep = TextGenerationResult | Promise<TextGenerationResult>;
 
+class ScriptedQueue<TStep> {
+	private readonly errors: string[] = [];
+	private readonly steps: TStep[];
+
+	constructor(steps: readonly TStep[], copyStep: (step: TStep) => TStep) {
+		this.steps = steps.map(copyStep);
+	}
+
+	shiftOrRecordError(message: string): TStep | undefined {
+		const stepValue = this.steps.shift();
+		if (stepValue === undefined) {
+			this.recordError(message);
+		}
+		return stepValue;
+	}
+
+	recordError(message: string): void {
+		this.errors.push(message);
+	}
+
+	assertDone(): void {
+		expect(this.errors).toEqual([]);
+		expect(this.steps).toEqual([]);
+	}
+}
+
 export class ScriptedCommandRunner {
 	private readonly callsInternal: RunnerCall[] = [];
-	private readonly errors: string[] = [];
-	private readonly script: ScriptStep[];
+	private readonly script: ScriptedQueue<ScriptStep>;
 
 	constructor(script: readonly ScriptStep[]) {
-		this.script = script.map(copyScriptStep);
+		this.script = new ScriptedQueue(script, copyScriptStep);
 	}
 
 	get calls(): readonly RunnerCall[] {
@@ -116,16 +141,15 @@ export class ScriptedCommandRunner {
 
 	readonly runner: CommandRunner = async (command, args, options = {}) => {
 		this.callsInternal.push({ command, args: [...args], cwd: options.cwd });
-		const expected = this.script.shift();
+		const missingStepMessage = `unexpected command: ${command} ${args.join(" ")}`;
+		const expected = this.script.shiftOrRecordError(missingStepMessage);
 		if (expected === undefined) {
-			const message = `unexpected command: ${command} ${args.join(" ")}`;
-			this.errors.push(message);
-			return result({ exitCode: 99, stderr: message });
+			return result({ exitCode: 99, stderr: missingStepMessage });
 		}
 
 		if (expected.command !== command || !sameArgs(expected.args, args)) {
 			const message = `expected ${expected.command} ${expected.args.join(" ")}, got ${command} ${args.join(" ")}`;
-			this.errors.push(message);
+			this.script.recordError(message);
 			return result({ exitCode: 99, stderr: message });
 		}
 
@@ -140,8 +164,7 @@ export class ScriptedCommandRunner {
 	};
 
 	assertDone(): void {
-		expect(this.errors).toEqual([]);
-		expect(this.script).toEqual([]);
+		this.script.assertDone();
 	}
 }
 
@@ -179,11 +202,10 @@ export class ScriptedCommandExecApi implements CommandExecApi {
 
 export class ScriptedTextGenerationGateway implements TextGenerationGateway {
 	private readonly requestsInternal: TextGenerationRequest[] = [];
-	private readonly errors: string[] = [];
-	private readonly script: ScriptedTextGenerationStep[];
+	private readonly script: ScriptedQueue<ScriptedTextGenerationStep>;
 
 	constructor(script: readonly ScriptedTextGenerationStep[]) {
-		this.script = [...script];
+		this.script = new ScriptedQueue(script, copyIdentity);
 	}
 
 	get requests(): readonly TextGenerationRequest[] {
@@ -192,18 +214,16 @@ export class ScriptedTextGenerationGateway implements TextGenerationGateway {
 
 	readonly generateText: TextGenerationGateway["generateText"] = async (request) => {
 		this.requestsInternal.push(copyTextGenerationRequest(request));
-		const result = this.script.shift();
+		const message = "unexpected text generation request";
+		const result = this.script.shiftOrRecordError(message);
 		if (result === undefined) {
-			const message = "unexpected text generation request";
-			this.errors.push(message);
 			return { ok: false, error: message };
 		}
 		return await result;
 	};
 
 	assertDone(): void {
-		expect(this.errors).toEqual([]);
-		expect(this.script).toEqual([]);
+		this.script.assertDone();
 	}
 }
 
@@ -454,6 +474,10 @@ function result(fields: ResultFields): ExecResult {
 		killed: fields.isKilled === true,
 		...(fields.startupError === undefined ? {} : { startupError: fields.startupError }),
 	};
+}
+
+function copyIdentity<TValue>(value: TValue): TValue {
+	return value;
 }
 
 function copyScriptStep(stepValue: ScriptStep): ScriptStep {

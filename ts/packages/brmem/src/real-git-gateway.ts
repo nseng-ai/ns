@@ -47,6 +47,19 @@ interface GitRunResult {
 	displayCommand: string;
 }
 
+interface SnapshotValidationContext {
+	namespace: string;
+	branch: string;
+	snapshotRef: string;
+}
+
+interface SnapshotInvalidKey {
+	key: string;
+	reason: string;
+}
+
+const SNAPSHOT_CORRUPT_SAMPLE_LIMIT = 5;
+
 export class RealGitBrmemGateway implements BrmemGateway {
 	private readonly cwd: string;
 	private readonly commands: CommandExecApi;
@@ -189,10 +202,16 @@ export class RealGitBrmemGateway implements BrmemGateway {
 			cwd: this.cwd,
 		});
 		const parentSha = parent.code === 0 ? parent.stdout.trim() : undefined;
-		const entries =
+		const entriesResult =
 			parentSha === undefined
-				? new Map<string, string>()
-				: await enumerateTreeEntries(this.commands, this.cwd, snapshotRef);
+				? brmemOk(new Map<string, string>())
+				: await loadSnapshotEntries(this.commands, this.cwd, {
+						namespace: options.namespace,
+						branch: options.branch,
+						snapshotRef,
+					});
+		if (entriesResult.type === "error") return entriesResult;
+		const entries = entriesResult.value;
 		const tempDir = mkdtempSync(join(tmpdir(), "brmem-blob-"));
 		try {
 			const blobPath = join(tempDir, "content");
@@ -241,7 +260,13 @@ export class RealGitBrmemGateway implements BrmemGateway {
 		});
 		if (parent.code !== 0)
 			return brmemError("key_not_found", `key ${JSON.stringify(options.key)} not found`);
-		const entries = await enumerateTreeEntries(this.commands, this.cwd, snapshotRef);
+		const entriesResult = await loadSnapshotEntries(this.commands, this.cwd, {
+			namespace: options.namespace,
+			branch: options.branch,
+			snapshotRef,
+		});
+		if (entriesResult.type === "error") return entriesResult;
+		const entries = entriesResult.value;
 		if (!entries.has(options.key))
 			return brmemError("key_not_found", `key ${JSON.stringify(options.key)} not found`);
 		entries.delete(options.key);
@@ -304,10 +329,12 @@ export class RealGitBrmemGateway implements BrmemGateway {
 		if (options.keyGlob === undefined) {
 			return this.copySnapshot({
 				namespace: options.namespace,
+				fromBranch: options.fromBranch,
 				toBranch: options.toBranch,
 				sourceRef,
 				sourceSha: sourceSha.stdout.trim(),
 				destRef,
+				destSha,
 				shouldOverwrite: options.shouldOverwrite,
 			});
 		}
@@ -386,10 +413,15 @@ export class RealGitBrmemGateway implements BrmemGateway {
 			if (parsed === undefined) continue;
 			if (!options.allNamespaces && parsed.namespace !== options.namespace) continue;
 			if (options.branch !== undefined && parsed.branch !== options.branch) continue;
-			const treeEntries = await enumerateTreeEntries(this.commands, this.cwd, snapshotRef);
+			const treeEntries = await loadSnapshotEntries(this.commands, this.cwd, {
+				namespace: parsed.namespace,
+				branch: parsed.branch,
+				snapshotRef,
+			});
+			if (treeEntries.type === "error") return treeEntries;
 			const updatedAtByPath = await enumerateEntryUpdatedAt(this.commands, this.cwd, snapshotRef);
 			if (updatedAtByPath.type === "error") return updatedAtByPath;
-			for (const path of treeEntries.keys()) {
+			for (const path of treeEntries.value.keys()) {
 				if (options.key !== undefined && path !== options.key) continue;
 				const updatedAt = updatedAtByPath.value.get(path);
 				if (updatedAt === undefined) {
@@ -406,17 +438,33 @@ export class RealGitBrmemGateway implements BrmemGateway {
 
 	private async copySnapshot(options: {
 		namespace: string;
+		fromBranch: string;
 		toBranch: string;
 		sourceRef: string;
 		sourceSha: string;
 		destRef: string;
+		destSha?: string | undefined;
 		shouldOverwrite: boolean;
 	}): Promise<BrmemResult<CopyEntriesResult>> {
-		const destEntries = await enumerateTreeEntries(this.commands, this.cwd, options.destRef);
-		if (destEntries.size > 0 && !options.shouldOverwrite) {
+		const sourceEntries = await loadSnapshotEntries(this.commands, this.cwd, {
+			namespace: options.namespace,
+			branch: options.fromBranch,
+			snapshotRef: options.sourceRef,
+		});
+		if (sourceEntries.type === "error") return sourceEntries;
+		const destEntries =
+			options.destSha === undefined
+				? brmemOk(new Map<string, string>())
+				: await loadSnapshotEntries(this.commands, this.cwd, {
+						namespace: options.namespace,
+						branch: options.toBranch,
+						snapshotRef: options.destRef,
+					});
+		if (destEntries.type === "error") return destEntries;
+		if (destEntries.value.size > 0 && !options.shouldOverwrite) {
 			return brmemError(
 				"copy_conflict",
-				`destination has conflicting entries: ${[...destEntries.keys()].sort().join(", ")}`,
+				`destination has conflicting entries: ${[...destEntries.value.keys()].sort().join(", ")}`,
 			);
 		}
 		const update = await runGit(this.commands, ["update-ref", options.destRef, options.sourceSha], {
@@ -428,9 +476,7 @@ export class RealGitBrmemGateway implements BrmemGateway {
 				"Could not update destination Snapshot Ref.",
 				update,
 			);
-		const entries = [
-			...(await enumerateTreeEntries(this.commands, this.cwd, options.sourceRef)).keys(),
-		]
+		const entries = [...sourceEntries.value.keys()]
 			.sort()
 			.map((key) => mustEntryRef(options.namespace, key, options.toBranch));
 		return brmemOk({ entries });
@@ -446,14 +492,26 @@ export class RealGitBrmemGateway implements BrmemGateway {
 		shouldOverwrite: boolean;
 		keyGlob: string;
 	}): Promise<BrmemResult<CopyEntriesResult>> {
-		const sourceMatching = [
-			...(await enumerateTreeEntries(this.commands, this.cwd, options.sourceRef)),
-		].filter(([key]) => keyGlobMatches(key, options.keyGlob));
-		if (sourceMatching.length === 0) return brmemOk({ entries: [] });
-		const destTree =
+		const sourceEntries = await loadSnapshotEntries(this.commands, this.cwd, {
+			namespace: options.namespace,
+			branch: options.fromBranch,
+			snapshotRef: options.sourceRef,
+		});
+		if (sourceEntries.type === "error") return sourceEntries;
+		const destEntries =
 			options.destSha === undefined
-				? new Map<string, string>()
-				: await enumerateTreeEntries(this.commands, this.cwd, options.destRef);
+				? brmemOk(new Map<string, string>())
+				: await loadSnapshotEntries(this.commands, this.cwd, {
+						namespace: options.namespace,
+						branch: options.toBranch,
+						snapshotRef: options.destRef,
+					});
+		if (destEntries.type === "error") return destEntries;
+		const sourceMatching = [...sourceEntries.value].filter(([key]) =>
+			keyGlobMatches(key, options.keyGlob),
+		);
+		if (sourceMatching.length === 0) return brmemOk({ entries: [] });
+		const destTree = destEntries.value;
 		const destMatching = [...destTree.keys()].filter((key) => keyGlobMatches(key, options.keyGlob));
 		if (destMatching.length > 0 && !options.shouldOverwrite) {
 			return brmemError(
@@ -572,16 +630,79 @@ async function runGit(
 	};
 }
 
+async function loadSnapshotEntries(
+	commands: CommandExecApi,
+	cwd: string,
+	context: SnapshotValidationContext,
+): Promise<BrmemResult<Map<string, string>>> {
+	const entries = await enumerateTreeEntries(commands, cwd, context.snapshotRef);
+	const invalidKeys = findInvalidSnapshotKeys(entries);
+	if (invalidKeys.length > 0) return snapshotCorruptError(context, invalidKeys);
+	return brmemOk(entries);
+}
+
+function findInvalidSnapshotKeys(
+	entries: ReadonlyMap<string, string>,
+): readonly SnapshotInvalidKey[] {
+	const invalidKeys: SnapshotInvalidKey[] = [];
+	for (const key of entries.keys()) {
+		const validation = validateEntryKey(key);
+		if (validation.type === "invalid") invalidKeys.push({ key, reason: validation.reason });
+	}
+	return invalidKeys.sort((left, right) => left.key.localeCompare(right.key));
+}
+
+function snapshotCorruptError<T>(
+	context: SnapshotValidationContext,
+	invalidKeys: readonly SnapshotInvalidKey[],
+): BrmemResult<T> {
+	return brmemError("snapshot_corrupt", formatSnapshotCorruptMessage(context, invalidKeys));
+}
+
+function formatSnapshotCorruptMessage(
+	context: SnapshotValidationContext,
+	invalidKeys: readonly SnapshotInvalidKey[],
+): string {
+	return [
+		`Snapshot Ref ${context.snapshotRef} contains ${invalidKeys.length} invalid Entry Key(s) in Namespace ${context.namespace} on Branch ${context.branch}.`,
+		`Invalid keys include: ${formatInvalidKeySamples(invalidKeys)}.`,
+		"Refusing to mutate corrupt Branch Memory; repair the Snapshot explicitly before retrying.",
+	].join(" ");
+}
+
+function formatInvalidKeySamples(invalidKeys: readonly SnapshotInvalidKey[]): string {
+	const samples = invalidKeys
+		.slice(0, SNAPSHOT_CORRUPT_SAMPLE_LIMIT)
+		.map((invalidKey) => `${invalidKey.key} (${invalidKey.reason})`);
+	const remaining = invalidKeys.length - samples.length;
+	if (remaining > 0) samples.push(`... and ${remaining} more`);
+	return samples.join("; ");
+}
+
+function validateWritableSnapshotEntries(entries: ReadonlyMap<string, string>): BrmemResult<void> {
+	const invalidKeys = findInvalidSnapshotKeys(entries);
+	if (invalidKeys.length === 0) return brmemOk(undefined);
+	return brmemError(
+		"snapshot_corrupt",
+		`Refusing to write Snapshot tree containing invalid Entry Key(s): ${formatInvalidKeySamples(invalidKeys)}.`,
+	);
+}
+
 async function buildTreeFromEntries(
 	commands: CommandExecApi,
 	cwd: string,
 	entries: ReadonlyMap<string, string>,
 ): Promise<BrmemResult<string>> {
+	const validation = validateWritableSnapshotEntries(entries);
+	if (validation.type === "error") return validation;
 	if (entries.size === 0) return brmemOk(EMPTY_TREE_SHA);
 	const tempDir = mkdtempSync(join(tmpdir(), "brmem-index-"));
 	try {
 		const indexPath = join(tempDir, "index");
 		const env = { ...process.env, GIT_INDEX_FILE: indexPath };
+		const readEmpty = await runGit(commands, ["read-tree", "--empty"], { cwd, env });
+		if (readEmpty.code !== 0)
+			return gitError("git_read_tree_failed", "Could not initialize Snapshot tree.", readEmpty);
 		for (const [path, blobSha] of entries) {
 			const update = await runGit(
 				commands,
