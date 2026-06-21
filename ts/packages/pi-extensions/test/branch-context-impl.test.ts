@@ -17,14 +17,14 @@ import {
 } from "./branch-context-extension-support.ts";
 
 describe("branch-context-impl", () => {
-	test("branch-context:impl waits, loads the attached plan, and sends an implementation prompt", async () => {
+	test("sdl:branch-context:impl-attached-plan waits, loads the attached plan, and sends an implementation prompt", async () => {
 		const events: string[] = [];
 		const pi = new FakePi([], events);
 		const fakes = createBranchContextOperationFakes({
 			loadBranchContextPlan: async () => attachedPlan({ refName: IMPL_REF }),
 		});
 		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("branch-context:impl");
+		const command = pi.commands.get("sdl:branch-context:impl-attached-plan");
 		expect(command).toBeDefined();
 		const context = createContext(events);
 
@@ -40,8 +40,8 @@ describe("branch-context-impl", () => {
 			{ message: "Loading attached branch-context plan…", level: "info" },
 		]);
 		expect(context.statuses).toEqual([
-			{ key: "branch-context:impl", value: "loading attached plan…" },
-			{ key: "branch-context:impl", value: undefined },
+			{ key: "sdl:branch-context:impl-attached-plan", value: "loading attached plan…" },
+			{ key: "sdl:branch-context:impl-attached-plan", value: undefined },
 		]);
 		expect(pi.sentMessages).toHaveLength(1);
 		expect(pi.sentMessages[0]?.customType).toBe("branch-context-output");
@@ -66,11 +66,11 @@ describe("branch-context-impl", () => {
 		expect(pi.sentUserMessages[0]).not.toContain("/skill:");
 	});
 
-	test("branch-context:impl passes a requested slug into attached-plan selection", async () => {
+	test("sdl:branch-context:impl-attached-plan passes a requested slug into attached-plan selection", async () => {
 		const pi = new FakePi();
 		const fakes = createBranchContextOperationFakes();
 		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("branch-context:impl");
+		const command = pi.commands.get("sdl:branch-context:impl-attached-plan");
 		const context = createContext();
 
 		await command?.handler(`  ${PLAN_SLUG}  `, context.ctx);
@@ -82,7 +82,7 @@ describe("branch-context-impl", () => {
 		expect(pi.sentUserMessages[0]).not.toContain("/skill:");
 	});
 
-	test("branch-context:impl presents saved-plan fallback evidence", async () => {
+	test("sdl:branch-context:impl-attached-plan presents saved-plan fallback evidence", async () => {
 		const planContent = "# Saved Impl Plan\n\n- Implement from the saved plan.\n";
 		const filePath = "/tmp/source-plan-store/branch-scoped-plan-extension.md";
 		const pi = new FakePi();
@@ -98,7 +98,7 @@ describe("branch-context-impl", () => {
 				}),
 		});
 		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("branch-context:impl");
+		const command = pi.commands.get("sdl:branch-context:impl-attached-plan");
 		const context = createContext();
 
 		await command?.handler("", context.ctx);
@@ -123,7 +123,7 @@ describe("branch-context-impl", () => {
 		expect(pi.sentUserMessages[0]).not.toContain("/skill:");
 	});
 
-	test("branch-context:impl presents load failures without sending an implementation prompt", async () => {
+	test("sdl:branch-context:impl-attached-plan presents load failures without sending an implementation prompt", async () => {
 		const pi = new FakePi();
 		const fakes = createBranchContextOperationFakes({
 			async loadBranchContextPlan() {
@@ -131,7 +131,7 @@ describe("branch-context-impl", () => {
 			},
 		});
 		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("branch-context:impl");
+		const command = pi.commands.get("sdl:branch-context:impl-attached-plan");
 		const context = createContext();
 
 		await command?.handler("", context.ctx);
@@ -145,6 +145,9 @@ describe("branch-context-impl", () => {
 			"Refusing to implement directly on trunk (`main`)",
 		);
 		expect(pi.execCalls).toEqual([]);
-		expect(context.statuses.at(-1)).toEqual({ key: "branch-context:impl", value: undefined });
+		expect(context.statuses.at(-1)).toEqual({
+			key: "sdl:branch-context:impl-attached-plan",
+			value: undefined,
+		});
 	});
 });

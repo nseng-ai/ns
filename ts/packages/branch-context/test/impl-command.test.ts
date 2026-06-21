@@ -8,7 +8,7 @@ import {
 
 describe("branch-context impl command contract", () => {
 	test("exports the Pi command name", () => {
-		expect(IMPL_BRANCH_CONTEXT_COMMAND_NAME).toBe("branch-context:impl");
+		expect(IMPL_BRANCH_CONTEXT_COMMAND_NAME).toBe("sdl:branch-context:impl-attached-plan");
 	});
 
 	test("formats default and keyed impl commands", () => {

@@ -1,6 +1,6 @@
 ---
 name: branch-context-impl
-description: Use when a user explicitly wants to implement from an attached branch-context plan on the current branch — "implement the branch context", "load the attached branch-context plan", "continue from the branch context plan" — or to continue a Pi `/branch-context:impl` handoff. Part of the branch-context skill family; see the `branch-context` umbrella for the shared lifecycle and safety contract.
+description: Use when a user explicitly wants to implement from an attached branch-context plan on the current branch — "implement the branch context", "load the attached branch-context plan", "continue from the branch context plan" — or to continue a Pi `/sdl:branch-context:impl-attached-plan` handoff. Part of the branch-context skill family; see the `branch-context` umbrella for the shared lifecycle and safety contract.
 ---
 
 # branch-context-impl
@@ -31,6 +31,6 @@ Reads the current branch by default and auto-selects the attached plan only when
 
 ## Recovery
 
-- No attached entry and saved-plan fallback also fails: report both failures and ask whether to run `branch-context-from-plan`, switch to the implementation branch, or pass an explicit saved plan to `/branch-context:from-plan` first.
+- No attached entry and saved-plan fallback also fails: report both failures and ask whether to run `branch-context-from-plan`, switch to the implementation branch, or pass an explicit saved plan to `/sdl:branch-context:from-plan` first.
 - Missing, unexpected, or ambiguous attached plan key: inspect `brmem list --namespace branch-context --branch <branch>` and rerun `load <key>` only when the user explicitly chooses the key.
 - Current branch is trunk/default/detached: stop and ask for the intended implementation branch.

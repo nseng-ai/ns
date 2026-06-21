@@ -23,9 +23,9 @@ export const KNOWN_PI_COMMAND_NAMESPACES = [
 ] as const;
 
 export const SPECIALIZED_SKILL_REPLACEMENTS: Readonly<Record<string, string>> = {
-	"branch-context-from-plan": "branch-context:from-plan",
-	"branch-context-impl": "branch-context:impl",
-	"enriched-plan-save": "enriched-plan:save",
+	"branch-context-from-plan": "sdl:branch-context:from-plan",
+	"branch-context-impl": "sdl:branch-context:impl-attached-plan",
+	"enriched-plan-save": "sdl:plan:save",
 	"handoff-create": "handoff:create",
 	"handoff-pickup": "handoff:pickup",
 	"objective-create": "objective:create",
@@ -55,6 +55,15 @@ export function derivePiReplacementCommand(
 	skillName: string,
 	namespaces: readonly string[] = KNOWN_PI_COMMAND_NAMESPACES,
 ): string | undefined {
+	for (const [specializedSkillName, surface] of Object.entries(SPECIALIZED_SKILL_REPLACEMENTS).sort(
+		(left, right) => right[0].length - left[0].length,
+	)) {
+		if (skillName === specializedSkillName) return surface;
+
+		const prefix = `${specializedSkillName}-`;
+		if (skillName.startsWith(prefix)) return `${surface}-${skillName.slice(prefix.length)}`;
+	}
+
 	for (const namespace of [...namespaces].sort((left, right) => right.length - left.length)) {
 		const prefix = `${namespace}-`;
 		if (skillName.startsWith(prefix)) return `${namespace}:${skillName.slice(prefix.length)}`;

@@ -259,8 +259,8 @@ async function resolveLatestSavedPlanFromSession(
 		case "not-found":
 			return {
 				error: [
-					"No saved plan from /enriched-plan:save was found in the current session branch.",
-					"Run /enriched-plan:save first, then rerun the dispatch command.",
+					"No saved plan from /sdl:plan:save was found in the current session branch.",
+					"Run /sdl:plan:save first, then rerun the dispatch command.",
 				].join("\n"),
 			};
 	}
@@ -474,7 +474,7 @@ Options:
   --dry-run    Show the selected plan and commands without mutating.
   --help, -h   Show this help.
 
-Run /enriched-plan:save first, then rerun /${config.commandName}.`;
+Run /sdl:plan:save first, then rerun /${config.commandName}.`;
 }
 
 async function openBranchInCmuxSurface(options: {

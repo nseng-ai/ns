@@ -49,11 +49,11 @@ Pi slash commands and CLI commands are equal first-class workflow surfaces over 
 
 Pi surfaces:
 
-- `/enriched-plan:save`
-- `/enriched-plan:grill-and-save` (Pi-only structured UI over the same Saved plan artifact)
-- `/branch-context:from-plan`
-- `/branch-context:upstack-impl-session`
-- `/branch-context:impl`
+- `/sdl:plan:save`
+- `/sdl:plan:grill-and-save` (Pi-only structured UI over the same Saved plan artifact)
+- `/sdl:branch-context:from-plan`
+- `/sdl:branch-context:upstack-impl-from-plan`
+- `/sdl:branch-context:impl-attached-plan`
 
 CLI surfaces:
 

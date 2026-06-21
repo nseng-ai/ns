@@ -37,8 +37,8 @@ describe("write_saved_plan_file tool", () => {
 		expect(tool.description).toContain("Codex-backed slug model");
 		expect(tool.promptSnippet).toContain("local plan store");
 		expect(tool.promptSnippet).toContain("self-contained");
-		expect(tool.promptGuidelines?.join("\n")).toContain("/enriched-plan:save");
-		expect(tool.promptGuidelines?.join("\n")).toContain("/enriched-plan:grill-and-save");
+		expect(tool.promptGuidelines?.join("\n")).toContain("/sdl:plan:save");
+		expect(tool.promptGuidelines?.join("\n")).toContain("/sdl:plan:grill-and-save");
 		expect(tool.promptGuidelines?.join("\n")).toContain("Do not generate or pass");
 		expect(tool.promptGuidelines?.join("\n")).toContain("fresh downstream implementation session");
 		expect(tool.promptGuidelines?.join("\n")).toContain("external/off-repo research");
@@ -124,22 +124,22 @@ describe("write_saved_plan_file tool", () => {
 			slug: PLAN_SLUG,
 		});
 		expect(toolContext.statuses).toContainEqual({
-			key: "enriched-plan:save",
+			key: "sdl:plan:save",
 			value: "Validating saved plan input…",
 		});
 		expect(toolContext.statuses).toContainEqual({
-			key: "enriched-plan:save",
+			key: "sdl:plan:save",
 			value: "Deriving saved-plan filename slug with Codex…",
 		});
 		expect(toolContext.statuses).toContainEqual({
-			key: "enriched-plan:save",
+			key: "sdl:plan:save",
 			value: `Derived slug ${PLAN_SLUG}; resolving repo/branch and writing plan file…`,
 		});
 		expect(toolContext.statuses).toContainEqual({
-			key: "enriched-plan:save",
+			key: "sdl:plan:save",
 			value: "Writing plan file…",
 		});
-		expect(toolContext.statuses.at(-1)).toEqual({ key: "enriched-plan:save", value: undefined });
+		expect(toolContext.statuses.at(-1)).toEqual({ key: "sdl:plan:save", value: undefined });
 		expect(result.content[0]?.text).toContain(`Slug: ${PLAN_SLUG}`);
 		expect(result.content[0]?.text).toContain(
 			`Slug model: ${DEFAULT_FAST_MODEL.provider}/${DEFAULT_FAST_MODEL.modelId}`,
@@ -156,7 +156,7 @@ describe("write_saved_plan_file tool", () => {
 		});
 	});
 
-	test("rejects assistant-provided saved-plan slugs so /enriched-plan:save cannot bypass Codex slugging", async () => {
+	test("rejects assistant-provided saved-plan slugs so /sdl:plan:save cannot bypass Codex slugging", async () => {
 		const pi = new FakePi();
 		registerBranchContextExtension(pi);
 		const tool = registeredTool(pi, "write_saved_plan_file");
@@ -185,8 +185,8 @@ describe("write_saved_plan_file tool", () => {
 
 		expect(pi.execCalls).toEqual([]);
 		expect(toolContext.statuses).toEqual([
-			{ key: "enriched-plan:save", value: "Validating saved plan input…" },
-			{ key: "enriched-plan:save", value: undefined },
+			{ key: "sdl:plan:save", value: "Validating saved plan input…" },
+			{ key: "sdl:plan:save", value: undefined },
 		]);
 	});
 

@@ -113,11 +113,11 @@ The shippable agent-skill capability made of the `branch-context` umbrella/refer
 *Avoid*: planned-branch skill family, one-off skill, internal docs dependency, hidden installation requirement.
 
 **Enriched-plan save prompt policy**:
-The checked-in `.sdl/prompts/plans-write.md` static prompt body consumed by `/enriched-plan:save` after the command dynamically injects its header and user steering; resolved inside the TypeScript Pi extension from the current Git root with built-in fallback for usability and symlink-safety checks.
+The checked-in `.sdl/prompts/plans-write.md` static prompt body consumed by `/sdl:plan:save` after the command dynamically injects its header and user steering; resolved inside the TypeScript Pi extension from the current Git root with built-in fallback for usability and symlink-safety checks.
 *Avoid*: Pi slash prompt template, saved plan content, Branch Memory attachment, mode selector.
 
 **Enriched-plan grill-and-save prompt**:
-The Pi-only embedded prompt consumed by `/enriched-plan:grill-and-save`; it requires the `grill_ask` structured UI for requirements grilling before saving a normal Saved plan with `write_saved_plan_file`.
+The Pi-only embedded prompt consumed by `/sdl:plan:grill-and-save`; it requires the `grill_ask` structured UI for requirements grilling before saving a normal Saved plan with `write_saved_plan_file`.
 *Avoid*: repo-editable prompt policy, cross-agent skill contract, new storage artifact, Branch Memory attachment.
 
 **Handoff artifact**:
