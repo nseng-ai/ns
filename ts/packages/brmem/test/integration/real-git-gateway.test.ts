@@ -1,6 +1,7 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -491,6 +492,63 @@ describe("RealGitBrmemGateway integration", () => {
 				type: "error",
 				error: { code: "detached_head" },
 			});
+		} finally {
+			repo.cleanup();
+		}
+	});
+
+	it("skips invalid Entry Keys when listing a corrupted Snapshot Ref instead of aborting", async () => {
+		const repo = createTempGitRepo();
+		try {
+			const gateway = new RealGitBrmemGateway(repo.path);
+			// Craft a poisoned snapshot whose tree contains a path that is not a valid
+			// Entry Key (the bracket fails key validation) alongside a valid Entry.
+			writeFileSync(join(repo.path, "good.md"), "good\n", "utf8");
+			mkdirSync(join(repo.path, "docs-site/app/[lang]/(home)"), { recursive: true });
+			writeFileSync(join(repo.path, "docs-site/app/[lang]/(home)/page.tsx"), "x\n", "utf8");
+			repo.runGit(["add", "good.md", "docs-site/app/[lang]/(home)/page.tsx"]);
+			const tree = repo.runGit(["write-tree"]).trim();
+			const commit = repo.runGit(["commit-tree", tree, "-m", "poison"]).trim();
+			repo.runGit(["update-ref", "refs/brmem/ns/branch-context/poison", commit]);
+
+			const listed = await gateway.listEntries({ namespace: "branch-context", branch: "poison" });
+			if (listed.type !== "ok") throw new Error("list should not abort on an invalid key");
+			const keys = listed.value.map((entry) => entry.key);
+			expect(keys).toContain("good.md");
+			expect(keys).not.toContain("docs-site/app/[lang]/(home)/page.tsx");
+		} finally {
+			repo.cleanup();
+		}
+	});
+
+	it("refuses to commit a Snapshot when temp-index isolation fails (GIT_INDEX_FILE dropped)", async () => {
+		const repo = createTempGitRepo();
+		try {
+			// Simulate an exec adapter (e.g. a host runtime) that drops GIT_INDEX_FILE,
+			// causing git to fall back to the repository index and capture the whole
+			// working tree. The write-path invariant must reject the resulting snapshot.
+			const real = new NodeCommandExecApi();
+			const envDropping: CommandExecApi = {
+				exec(command, args, options) {
+					if (options?.env === undefined) return real.exec(command, args, options);
+					const env = { ...options.env };
+					delete env.GIT_INDEX_FILE;
+					return real.exec(command, args, { ...options, env });
+				},
+			};
+			const gateway = new RealGitBrmemGateway(repo.path, envDropping);
+			const put = await gateway.putEntry({
+				namespace: "branch-context",
+				branch: "feat/x",
+				key: "plan.md",
+				content: "plan body",
+			});
+			expect(put).toMatchObject({ type: "error", error: { code: "snapshot_tree_mismatch" } });
+			// The corrupted snapshot must never have been written (rev-parse --verify
+			// exits non-zero for a missing ref, which runGit surfaces as a throw).
+			expect(() =>
+				repo.runGit(["rev-parse", "--verify", "refs/brmem/ns/branch-context/feat---x"]),
+			).toThrow();
 		} finally {
 			repo.cleanup();
 		}

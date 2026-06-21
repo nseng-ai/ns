@@ -436,6 +436,11 @@ export class RealGitBrmemGateway implements BrmemGateway {
 			if (updatedAtByPath.type === "error") return updatedAtByPath;
 			for (const path of treeEntries.value.keys()) {
 				if (options.key !== undefined && path !== options.key) continue;
+				// Defensive: a Snapshot Ref may contain paths that are not valid Entry
+				// Keys — e.g. a historically corrupted snapshot that captured unrelated
+				// working-tree files. Skip them so a single invalid path cannot abort
+				// listing for the entire namespace.
+				if (validateEntryKey(path).type === "invalid") continue;
 				const updatedAt = updatedAtByPath.value.get(path);
 				if (updatedAt === undefined) {
 					return brmemError(
