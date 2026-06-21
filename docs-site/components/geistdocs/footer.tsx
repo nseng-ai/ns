@@ -28,6 +28,12 @@ export function Footer({ config, copyright = `© ${new Date().getFullYear()} sdl
           >
             Documentation
           </Link>
+          <Link
+            className="text-gray-900 underline-offset-4 transition-colors hover:text-gray-1000 hover:underline"
+            href="/extensions"
+          >
+            Extensions
+          </Link>
         </div>
         <div className="flex items-center gap-2">
           <p className="text-center sm:text-left text-gray-800 text-sm">{copyright}</p>
