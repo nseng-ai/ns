@@ -13,8 +13,8 @@ import {
 	runListEntryToJson,
 } from "./reports.ts";
 import { listBundles, readBundle, resolveStoreRoot, VibechkError } from "./store.ts";
-import type { VibechkRepositoryGateway } from "./repository.ts";
-import { RealVibechkRepositoryGateway } from "./repository.ts";
+import type { VibechkWorkdirGateway } from "./repository.ts";
+import { RealVibechkWorkdirGateway } from "./repository.ts";
 import { buildProductionRunnerRegistry, type RunnerRegistry } from "./runners.ts";
 import { generateRunId } from "./ids.ts";
 import { executeRun } from "./workflow.ts";
@@ -25,7 +25,7 @@ export interface CliDeps {
 	stdout?: ((text: string) => void) | undefined;
 	stderr?: ((text: string) => void) | undefined;
 	runnerRegistry?: RunnerRegistry | undefined;
-	repositoryGatewayFactory?: ((workdir: string) => VibechkRepositoryGateway) | undefined;
+	repositoryGatewayFactory?: ((workdir: string) => VibechkWorkdirGateway) | undefined;
 	clock?: (() => Date) | undefined;
 	idGenerator?: (() => string) | undefined;
 	defaultRunnerName?: string | undefined;
@@ -35,7 +35,7 @@ interface VibechkCliContext {
 	cwd: string;
 	env: NodeJS.ProcessEnv;
 	runnerRegistry: RunnerRegistry;
-	repositoryGatewayFactory: (workdir: string) => VibechkRepositoryGateway;
+	repositoryGatewayFactory: (workdir: string) => VibechkWorkdirGateway;
 	clock: () => Date;
 	idGenerator: () => string;
 	defaultRunnerName: string;
@@ -75,7 +75,7 @@ const entry = defineCli<VibechkCliContext, CliDeps, undefined>({
 		const runnerRegistry = deps.runnerRegistry ?? buildProductionRunnerRegistry();
 		const repositoryGatewayFactory =
 			deps.repositoryGatewayFactory ??
-			((workdir: string) => new RealVibechkRepositoryGateway(workdir));
+			((workdir: string) => new RealVibechkWorkdirGateway({ workdir }));
 		const clock = deps.clock ?? (() => new Date());
 		const idGenerator = deps.idGenerator ?? generateRunId;
 		const defaultRunnerName = deps.defaultRunnerName ?? "claude";

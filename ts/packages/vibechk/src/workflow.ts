@@ -1,8 +1,8 @@
 import { readFile, stat, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
-import type { GitProvenance, RunBundle } from "./models.ts";
-import type { VibechkRepositoryGateway } from "./repository.ts";
+import type { RunBundle } from "./models.ts";
+import type { VibechkWorkdirGateway } from "./repository.ts";
 import type { Runner, RunnerResult } from "./runners.ts";
 import {
 	ARTIFACTS_DIR_NAME,
@@ -24,7 +24,7 @@ export interface RunExecutionResult {
 
 export interface RunDeps {
 	runner: Runner;
-	repository: VibechkRepositoryGateway;
+	repository: VibechkWorkdirGateway;
 	clock: () => Date;
 	idGenerator: () => string;
 	stdout: (text: string) => void;
@@ -47,10 +47,7 @@ export async function executeRun(options: RunExecutionOptions): Promise<RunExecu
 
 	const repository = deps.repository;
 
-	const repoRoot = await repository.repoRoot();
-	const startingBranch = await repository.currentBranch();
-	const startingCommit = await repository.currentCommit();
-	const remotes = await repository.remotes();
+	const gitProvenance = await repository.readProvenance();
 
 	if (!(await repository.isClean())) {
 		throw new VibechkError(
@@ -131,10 +128,10 @@ export async function executeRun(options: RunExecutionOptions): Promise<RunExecu
 			resultBranch = `vibechk/${runId}`;
 			await repository.createResultBranchAndCommit(resultBranch, `vibechk: capture run ${runId}`);
 			isBranchCreated = true;
-			await repository.checkout(startingBranch);
+			await repository.restoreBranch(gitProvenance.startingBranch);
 
 			if (!(await repository.isClean())) {
-				postRunError = `Workdir ${resolvedWorkdir} was not clean after restoring branch ${startingBranch}.`;
+				postRunError = `Workdir ${resolvedWorkdir} was not clean after restoring branch ${gitProvenance.startingBranch}.`;
 			}
 		}
 	} catch (error: unknown) {
@@ -154,13 +151,6 @@ export async function executeRun(options: RunExecutionOptions): Promise<RunExecu
 	const finishedAt = deps.clock();
 	const errorMessage = runnerError ?? postRunError;
 	const status = runnerResult.exitCode === 0 && errorMessage === null ? "success" : "failed";
-
-	const gitProvenance: GitProvenance = {
-		repoRoot,
-		startingBranch,
-		startingCommit,
-		remotes,
-	};
 
 	const bundle: RunBundle = {
 		schemaVersion: SCHEMA_VERSION,

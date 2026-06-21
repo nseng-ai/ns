@@ -1,4 +1,5 @@
-import type { VibechkRepositoryGateway } from "../../src/repository.ts";
+import type { GitProvenance } from "../../src/models.ts";
+import type { VibechkWorkdirGateway } from "../../src/repository.ts";
 
 export interface FakeGitState {
 	repoRoot: string;
@@ -10,9 +11,9 @@ export interface FakeGitState {
 	hasChanges: boolean;
 }
 
-export class FakeVibechkRepositoryGateway implements VibechkRepositoryGateway {
+export class FakeVibechkWorkdirGateway implements VibechkWorkdirGateway {
 	private state: FakeGitState;
-	private readonly checkoutHistory: string[] = [];
+	private readonly restoreHistory: string[] = [];
 	private readonly createdBranches: string[] = [];
 
 	constructor(state: Partial<FakeGitState> = {}) {
@@ -27,20 +28,13 @@ export class FakeVibechkRepositoryGateway implements VibechkRepositoryGateway {
 		};
 	}
 
-	async repoRoot(): Promise<string> {
-		return this.state.repoRoot;
-	}
-
-	async currentBranch(): Promise<string> {
-		return this.state.currentBranch;
-	}
-
-	async currentCommit(): Promise<string> {
-		return this.state.currentCommit;
-	}
-
-	async remotes(): Promise<Record<string, string>> {
-		return { ...this.state.remotes };
+	async readProvenance(): Promise<GitProvenance> {
+		return {
+			repoRoot: this.state.repoRoot,
+			startingBranch: this.state.currentBranch,
+			startingCommit: this.state.currentCommit,
+			remotes: { ...this.state.remotes },
+		};
 	}
 
 	async isClean(): Promise<boolean> {
@@ -62,20 +56,19 @@ export class FakeVibechkRepositoryGateway implements VibechkRepositoryGateway {
 		this.state.hasChanges = false;
 	}
 
-	async checkout(branch: string): Promise<void> {
-		this.checkoutHistory.push(branch);
+	async restoreBranch(branch: string): Promise<void> {
+		this.restoreHistory.push(branch);
 		this.state.currentBranch = branch;
 	}
 
-	getCheckoutHistory(): readonly string[] {
-		return [...this.checkoutHistory];
+	getRestoreHistory(): readonly string[] {
+		return [...this.restoreHistory];
 	}
 
 	getCreatedBranches(): readonly string[] {
 		return [...this.createdBranches];
 	}
 
-	// Test helpers to mutate state
 	setDiffPatch(diff: string): void {
 		this.state.diffPatch = diff;
 	}
