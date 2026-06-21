@@ -9,6 +9,7 @@ import {
 	replaceManagedRegion,
 } from "../managed-region.ts";
 import { formatErrorMessage, sha256Digest } from "../primitives.ts";
+import { normalizeTextOutput, trimOuterBlankLines } from "../text-normalization.ts";
 import { truncateTextHeadTail } from "../text-truncation.ts";
 import { prepareRepairedText } from "../text-repair.ts";
 import { formatElapsedMs } from "../time-format.ts";
@@ -340,7 +341,7 @@ export function buildPrDescriptionUserPrompt(input: PrDescriptionPromptContext):
 }
 
 export function parsePrDescriptionOutput(text: string): PrDescriptionValidationResult {
-	const normalized = stripOuterCodeFence(trimOuterBlankLines(text.replace(/\r/g, "")));
+	const normalized = normalizeTextOutput(text);
 	const lines = normalized.split("\n");
 	const titleIndex = lines.findIndex((line) => line.trim() !== "");
 	const title = titleIndex === -1 ? "" : (lines[titleIndex]?.trim() ?? "");
@@ -502,28 +503,6 @@ function isLockfileDiffSection(section: string): boolean {
 	if (match?.[1] !== undefined && LOCKFILE_BASENAMES.has(basename(match[1]))) return true;
 	if (match?.[2] !== undefined && LOCKFILE_BASENAMES.has(basename(match[2]))) return true;
 	return false;
-}
-
-function trimOuterBlankLines(text: string): string {
-	const lines = text.replace(/\r/g, "").split("\n");
-	while (lines.length > 0 && (lines[0]?.trim() ?? "") === "") {
-		lines.shift();
-	}
-	while (lines.length > 0 && (lines[lines.length - 1]?.trim() ?? "") === "") {
-		lines.pop();
-	}
-	return lines.join("\n");
-}
-
-function stripOuterCodeFence(text: string): string {
-	const trimmed = trimOuterBlankLines(text);
-	const lines = trimmed.split("\n");
-	const first = lines[0]?.trim() ?? "";
-	const last = lines[lines.length - 1]?.trim() ?? "";
-	if (lines.length >= 2 && /^```[\w-]*$/.test(first) && last === "```") {
-		return trimOuterBlankLines(lines.slice(1, -1).join("\n"));
-	}
-	return trimmed;
 }
 
 function resolvePromptPath(

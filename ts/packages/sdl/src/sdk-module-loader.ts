@@ -3,7 +3,19 @@ import { fileURLToPath } from "node:url";
 
 import { createJiti } from "jiti/static";
 
-import { commandSucceeded, defineExtension, failed, formatCommandEvidence, ok, z } from "./sdk.ts";
+import {
+	commandSucceeded,
+	defineExtension,
+	failed,
+	formatCommandEvidence,
+	normalizeTextOutput,
+	ok,
+	stripOuterCodeFence,
+	trimOuterBlankLines,
+	truncateTextHead,
+	truncateTextHeadTail,
+	z,
+} from "./sdk.ts";
 
 /** Module specifier that SDL command entries import the SDK from. */
 const SDK_SPECIFIER = "@sdl/sdl/sdk";
@@ -17,7 +29,12 @@ const sdlSdkVirtualModule = {
 	defineExtension,
 	failed,
 	formatCommandEvidence,
+	normalizeTextOutput,
 	ok,
+	stripOuterCodeFence,
+	trimOuterBlankLines,
+	truncateTextHead,
+	truncateTextHeadTail,
 	z,
 } satisfies Record<string, unknown>;
 

@@ -1,4 +1,9 @@
-import type { TextGenerator } from "@sdl/sdl/sdk";
+import {
+	normalizeTextOutput,
+	truncateTextHead,
+	truncateTextHeadTail,
+	type TextGenerator,
+} from "@sdl/sdl/sdk";
 import { prepareRepairedText } from "./text-helpers.ts";
 
 const CHECKPOINT_SYSTEM_PROMPT = `You write terse checkpoint commit messages for coding agents.
@@ -109,16 +114,18 @@ function buildCheckpointUserPrompt(input: {
 	if (!input.previousDraft || !input.validationFeedback) {
 		return base;
 	}
-	const previousDraft = truncateTextHead(
-		input.previousDraft,
-		CHECKPOINT_REPAIR_PREVIOUS_DRAFT_CHAR_LIMIT,
-		"previous invalid draft",
-	);
-	const validationFeedback = truncateTextHead(
-		input.validationFeedback,
-		CHECKPOINT_REPAIR_FEEDBACK_CHAR_LIMIT,
-		"validation feedback",
-	);
+	const previousDraft = truncateTextHead({
+		value: input.previousDraft,
+		maxChars: CHECKPOINT_REPAIR_PREVIOUS_DRAFT_CHAR_LIMIT,
+		buildMarker: (omittedChars) =>
+			`\n[... omitted ${omittedChars} chars from previous invalid draft ...]`,
+	});
+	const validationFeedback = truncateTextHead({
+		value: input.validationFeedback,
+		maxChars: CHECKPOINT_REPAIR_FEEDBACK_CHAR_LIMIT,
+		buildMarker: (omittedChars) =>
+			`\n[... omitted ${omittedChars} chars from validation feedback ...]`,
+	});
 	return `${base}\n## previous invalid draft\n\n${previousDraft}\n\n## validation feedback\n\n${validationFeedback}\n\nRewrite the checkpoint message so it satisfies every validation rule. Return only the corrected commit message.\n`;
 }
 
@@ -233,26 +240,37 @@ function buildCheckpointDiffPromptSection(input: { diff: string }): {
 	const fileSections = parseDiffFileSections(trimmedDiff);
 	if (fileSections.length === 0) {
 		return {
-			text: truncateTextHeadTail(
-				trimmedDiff,
-				CHECKPOINT_DIFF_PROMPT_CHAR_LIMIT,
-				"compacted diff without file sections",
-			),
+			text: truncateTextHeadTail({
+				value: trimmedDiff,
+				maxChars: CHECKPOINT_DIFF_PROMPT_CHAR_LIMIT,
+				headRatio: 0.5,
+				headRounding: "ceil",
+				buildMarker: (omittedChars) =>
+					`\n[... omitted ${omittedChars} chars from compacted diff without file sections ...]\n`,
+				shouldTrimHead: true,
+				shouldTrimTail: true,
+			}),
 			isCompacted: true,
 		};
 	}
 
 	const usedSections = fileSections.slice(0, CHECKPOINT_CHANGED_PATH_LIMIT);
-	const paths = truncateTextHead(
-		usedSections.map((section) => `- ${section.path}`).join("\n"),
-		CHECKPOINT_CHANGED_PATH_CHAR_LIMIT,
-		"changed path list",
-	);
+	const paths = truncateTextHead({
+		value: usedSections.map((section) => `- ${section.path}`).join("\n"),
+		maxChars: CHECKPOINT_CHANGED_PATH_CHAR_LIMIT,
+		buildMarker: (omittedChars) =>
+			`\n[... omitted ${omittedChars} chars from changed path list ...]`,
+	});
 	const excerpts = usedSections
-		.map(
-			(section) =>
-				`### ${section.path}\n\n${truncateTextHead(section.text, CHECKPOINT_PER_FILE_EXCERPT_CHAR_LIMIT, `${section.path} diff`)}`,
-		)
+		.map((section) => {
+			const excerpt = truncateTextHead({
+				value: section.text,
+				maxChars: CHECKPOINT_PER_FILE_EXCERPT_CHAR_LIMIT,
+				buildMarker: (omittedChars) =>
+					`\n[... omitted ${omittedChars} chars from ${section.path} diff ...]`,
+			});
+			return `### ${section.path}\n\n${excerpt}`;
+		})
 		.join("\n\n");
 	const omittedCount = fileSections.length - usedSections.length;
 	const omittedLine =
@@ -281,59 +299,8 @@ function parseDiffHeaderPath(header: string): string {
 	return header.replace(/^diff --git\s+/, "");
 }
 
-function normalizeTextOutput(output: string): string {
-	return stripOuterCodeFence(trimOuterBlankLines(output.replace(/\r\n?/g, "\n")));
-}
-
-function trimOuterBlankLines(text: string): string {
-	const lines = text.split("\n");
-	while (lines.length > 0 && (lines[0]?.trim() ?? "") === "") {
-		lines.shift();
-	}
-	while (lines.length > 0 && (lines[lines.length - 1]?.trim() ?? "") === "") {
-		lines.pop();
-	}
-	return lines.join("\n");
-}
-
-function stripOuterCodeFence(text: string): string {
-	const trimmed = trimOuterBlankLines(text);
-	const lines = trimmed.split("\n");
-	const first = lines[0]?.trim() ?? "";
-	const last = lines[lines.length - 1]?.trim() ?? "";
-	if (lines.length >= 2 && /^```[\w-]*$/.test(first) && last === "```") {
-		return trimOuterBlankLines(lines.slice(1, -1).join("\n"));
-	}
-	return trimmed;
-}
-
 function promptBlock(value: string, fallback: string): string {
 	const trimmed = value.trimEnd();
 	return trimmed.length === 0 ? fallback : trimmed;
 }
 
-function truncateTextHead(value: string, maxChars: number, label: string): string {
-	if (value.length <= maxChars) return value;
-	const omitted = value.length - maxChars;
-	return `${value.slice(0, maxChars).trimEnd()}\n[... omitted ${omitted} chars from ${label} ...]`;
-}
-
-function truncateTextHeadTail(
-	value: string,
-	maxChars: number,
-	label: string,
-	headRatio = 0.5,
-	markerPrefix = "[... omitted",
-): string {
-	if (value.length <= maxChars) return value;
-	const marker = (omitted: number) =>
-		markerPrefix === "[... TRUNCATED"
-			? `\n[... TRUNCATED ${omitted} chars ...]\n`
-			: `\n[... omitted ${omitted} chars from ${label} ...]\n`;
-	const markerBudget = marker(value.length).length;
-	const contentBudget = Math.max(0, maxChars - markerBudget);
-	const headChars = Math.ceil(contentBudget * headRatio);
-	const tailChars = contentBudget - headChars;
-	const omitted = value.length - headChars - tailChars;
-	return `${value.slice(0, headChars).trimEnd()}${marker(omitted)}${value.slice(value.length - tailChars).trimStart()}`;
-}

@@ -254,6 +254,67 @@ interface FormatCommandEvidenceOptions {
 
 ---
 
+## Text helpers
+
+### `normalizeTextOutput()`
+
+*Re-exported from `@sdl/core/text-normalization`.* Normalizes model text before validation.
+
+```ts
+function normalizeTextOutput(output: string): string;
+```
+
+Converts CRLF/CR line endings to `\n`, removes outer blank lines, and strips one enclosing Markdown code fence when the whole response is fenced.
+
+### `trimOuterBlankLines()`
+
+*Re-exported from `@sdl/core/text-normalization`.* Removes leading and trailing blank lines while preserving interior text.
+
+```ts
+function trimOuterBlankLines(text: string): string;
+```
+
+### `stripOuterCodeFence()`
+
+*Re-exported from `@sdl/core/text-normalization`.* Removes one outer Markdown code fence from a whole response.
+
+```ts
+function stripOuterCodeFence(text: string): string;
+```
+
+### `truncateTextHead()`
+
+*Re-exported from `@sdl/core/text-truncation`.* Keeps the head of a string inside a fixed character budget and appends a caller-defined marker.
+
+```ts
+function truncateTextHead(options: HeadTextTruncationOptions): string;
+```
+
+### `truncateTextHeadTail()`
+
+*Re-exported from `@sdl/core/text-truncation`.* Keeps head and tail excerpts inside a fixed character budget and inserts a caller-defined marker.
+
+```ts
+function truncateTextHeadTail(options: HeadTailTextTruncationOptions): string;
+```
+
+### `HeadTextTruncationOptions` / `HeadTailTextTruncationOptions`
+
+*Re-exported from `@sdl/core/text-truncation`.* Options for the truncation helpers.
+
+**Example.**
+
+```ts
+const excerpt = truncateTextHeadTail({
+  value: diff,
+  maxChars: 24_000,
+  headRatio: 0.7,
+  buildMarker: (omittedChars) => `\n[... omitted ${omittedChars} chars ...]\n`,
+});
+```
+
+---
+
 ## Results
 
 ### `SdlResult`

@@ -1,6 +1,11 @@
 import { basename } from "node:path";
 
-import type { TextGenerator } from "@sdl/sdl/sdk";
+import {
+  normalizeTextOutput,
+  trimOuterBlankLines,
+  truncateTextHeadTail,
+  type TextGenerator,
+} from "@sdl/sdl/sdk";
 
 const MAX_REPAIR_ATTEMPTS = 2;
 const DEFAULT_ATTEMPT_PROGRESS_HEARTBEAT_MS = 5_000;
@@ -352,7 +357,12 @@ function filterLockfileSections(diff: string): string {
 }
 
 function truncateDiff(diff: string, maxChars = PR_DESCRIPTION_MAX_DIFF_CHARS): string {
-  return truncateTextHeadTail(diff, maxChars, "truncated diff", 0.7, "[... TRUNCATED");
+  return truncateTextHeadTail({
+    value: diff,
+    maxChars,
+    headRatio: 0.7,
+    buildMarker: (omittedChars) => `\n[... TRUNCATED ${omittedChars} chars ...]\n`,
+  });
 }
 
 function formatPrContextLines(input: PrDescriptionPromptContext): string[] {
@@ -394,59 +404,7 @@ function isLockfileDiffSection(section: string): boolean {
   return false;
 }
 
-function normalizeTextOutput(output: string): string {
-  return stripOuterCodeFence(trimOuterBlankLines(output.replace(/\r\n?/g, "\n")));
-}
-
-function trimOuterBlankLines(text: string): string {
-  const lines = text.split("\n");
-  while (lines.length > 0 && (lines[0]?.trim() ?? "") === "") {
-    lines.shift();
-  }
-  while (lines.length > 0 && (lines[lines.length - 1]?.trim() ?? "") === "") {
-    lines.pop();
-  }
-  return lines.join("\n");
-}
-
-function stripOuterCodeFence(text: string): string {
-  const trimmed = trimOuterBlankLines(text);
-  const lines = trimmed.split("\n");
-  const first = lines[0]?.trim() ?? "";
-  const last = lines[lines.length - 1]?.trim() ?? "";
-  if (lines.length >= 2 && /^```[\w-]*$/.test(first) && last === "```") {
-    return trimOuterBlankLines(lines.slice(1, -1).join("\n"));
-  }
-  return trimmed;
-}
-
 function promptBlock(value: string, fallback: string): string {
   const trimmed = value.trimEnd();
   return trimmed.length === 0 ? fallback : trimmed;
-}
-
-function truncateTextHead(value: string, maxChars: number, label: string): string {
-  if (value.length <= maxChars) return value;
-  const omitted = value.length - maxChars;
-  return `${value.slice(0, maxChars).trimEnd()}\n[... omitted ${omitted} chars from ${label} ...]`;
-}
-
-function truncateTextHeadTail(
-  value: string,
-  maxChars: number,
-  label: string,
-  headRatio = 0.5,
-  markerPrefix = "[... omitted",
-): string {
-  if (value.length <= maxChars) return value;
-  const marker = (omitted: number) =>
-    markerPrefix === "[... TRUNCATED"
-      ? `\n[... TRUNCATED ${omitted} chars ...]\n`
-      : `\n[... omitted ${omitted} chars from ${label} ...]\n`;
-  const markerBudget = marker(value.length).length;
-  const contentBudget = Math.max(0, maxChars - markerBudget);
-  const headChars = Math.ceil(contentBudget * headRatio);
-  const tailChars = contentBudget - headChars;
-  const omitted = value.length - headChars - tailChars;
-  return `${value.slice(0, headChars).trimEnd()}${marker(omitted)}${value.slice(value.length - tailChars).trimStart()}`;
 }
