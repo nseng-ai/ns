@@ -17,7 +17,7 @@ export function buildRssResponse(lang = config.defaultLanguage): Response {
     id: baseUrl,
     link: baseUrl,
     language: lang,
-    copyright: `All rights reserved ${new Date().getFullYear()}, SDL`,
+    copyright: `All rights reserved ${new Date().getFullYear()}, sdl`,
   });
 
   for (const page of source.getPages(lang)) {
@@ -32,7 +32,7 @@ export function buildRssResponse(lang = config.defaultLanguage): Response {
       date: new Date(data.lastModified ?? new Date()),
       author: [
         {
-          name: "SDL",
+          name: "sdl",
         },
       ],
     });

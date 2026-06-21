@@ -22,6 +22,7 @@ function remarkNormalizeCodeLang() {
       };
 
       if (candidate.type === "code" && typeof candidate.lang === "string" && !validLang.test(candidate.lang)) {
+        // Remark transformers intentionally mutate owned MDAST nodes in place.
         candidate.meta = candidate.meta ? `${candidate.lang} ${candidate.meta}` : candidate.lang;
         candidate.lang = "text";
       }

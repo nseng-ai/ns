@@ -4,6 +4,10 @@ import { siteId } from "@/geistdocs";
 const PLATFORM_URL = "https://geistdocs.com/md-tracking";
 
 export async function trackMdRequest(event: TrackMarkdownRequestEvent): Promise<void> {
+  if (siteId == null) {
+    return;
+  }
+
   try {
     const response = await fetch(PLATFORM_URL, {
       method: "POST",
@@ -12,7 +16,7 @@ export async function trackMdRequest(event: TrackMarkdownRequestEvent): Promise<
       },
       body: JSON.stringify({
         ...event,
-        siteId: siteId ?? "sdl-docs",
+        siteId,
       }),
     });
 

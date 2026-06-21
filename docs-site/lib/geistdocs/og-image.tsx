@@ -47,7 +47,7 @@ export function createOgImageResponse({ lang, slug }: OgImageParams): ImageRespo
   }
 
   const data = page.data as OgPageData;
-  const pageTitle = data.title ?? "SDL Documentation";
+  const pageTitle = data.title ?? "sdl Documentation";
   const description = data.description ?? "Composable tooling for plan-oriented agentic engineering.";
 
   return new ImageResponse(
@@ -80,7 +80,7 @@ export function createOgImageResponse({ lang, slug }: OgImageParams): ImageRespo
             textTransform: "uppercase",
           }}
         >
-          SDL Docs
+          sdl Docs
         </div>
         <div
           style={{
