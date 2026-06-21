@@ -14,7 +14,7 @@ import { prepareRepairedText } from "../text-repair.ts";
 import { formatElapsedMs } from "../time-format.ts";
 
 import type { PrCommitMessage } from "./github-pr-gateway.ts";
-import { selectPrDescriptionModelRef, type TextGenerationGateway } from "./text-generation.ts";
+import { selectPrDescriptionModelRef, type TextGenerator } from "./text-generation.ts";
 
 export const PR_DESCRIPTION_PROMPT_ENV = "SDL_DEV_PR_DESCRIPTION_PROMPT";
 export const REPO_PR_DESCRIPTION_PROMPT_PATH = ".sdl/prompts/pr-description.md";
@@ -382,7 +382,7 @@ export function formatPrDescriptionValidationFeedback(
 }
 
 export async function preparePrDescription(input: {
-	textGeneration: TextGenerationGateway;
+	textGeneration: TextGenerator;
 	modelRef: string;
 	promptText: string;
 	context: PrDescriptionPromptContext;
@@ -546,7 +546,7 @@ async function isReadableFile(path: string): Promise<boolean> {
 }
 
 async function generatePrDescriptionText(
-	textGeneration: TextGenerationGateway,
+	textGeneration: TextGenerator,
 	modelRef: string,
 	system: string,
 	prompt: string,

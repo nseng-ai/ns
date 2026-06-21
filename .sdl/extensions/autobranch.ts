@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 
 import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
-import type { ExecResult, SdlContext, TextGenerationGateway } from "@sdl/sdl/sdk";
+import type { ExecResult, SdlContext, TextGenerator } from "@sdl/sdl/sdk";
 
 const GIT_FACT_TIMEOUT_MS = 30_000;
 const GIT_COMMIT_TIMEOUT_MS = 120_000;
@@ -1715,7 +1715,7 @@ function firstNonEmptyLine(value: string): string | undefined {
 async function prepareCheckpointMessage(input: {
   status: string;
   diff: string;
-  textGeneration: TextGenerationGateway;
+  textGeneration: TextGenerator;
   modelRef: string;
 }): Promise<PreparedCheckpointMessage> {
   let prompt = buildCheckpointUserPrompt({ status: input.status, diff: input.diff });
@@ -1755,7 +1755,7 @@ async function prepareCheckpointMessage(input: {
 }
 
 function generateCheckpointText(
-  textGeneration: TextGenerationGateway,
+  textGeneration: TextGenerator,
   modelRef: string,
   prompt: string,
 ): Promise<{ ok: true; text: string } | { ok: false; error: string }> {

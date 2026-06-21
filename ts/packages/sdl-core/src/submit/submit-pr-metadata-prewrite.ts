@@ -11,7 +11,7 @@ import {
 	type PromptSource,
 } from "./pr-description.ts";
 import { err, ok, type ErrorInfo, type GatewayResult } from "./result.ts";
-import type { TextGenerationGateway } from "./text-generation.ts";
+import type { TextGenerator } from "./text-generation.ts";
 
 const GT_LOG_STACK_ARGS = ["log", "--stack", "--reverse", "--no-interactive"] as const;
 const GT_TRUNK_ARGS = ["trunk", "--no-interactive"] as const;
@@ -286,7 +286,7 @@ export async function prepareSubmitPrMetadata(input: {
 	env: Record<string, string | undefined>;
 	gateway: SubmitMetadataGateway;
 	git: GitGateway;
-	textGeneration: TextGenerationGateway;
+	textGeneration: TextGenerator;
 	onProgress?: SubmitMetadataProgressListener;
 }): Promise<SubmitPrMetadataPrewriteResult> {
 	input.onProgress?.("inspecting Graphite stack before metadata preparation");
@@ -364,7 +364,7 @@ async function generateMetadataForBranches(input: {
 	cwd: string;
 	env: Record<string, string | undefined>;
 	git: GitGateway;
-	textGeneration: TextGenerationGateway;
+	textGeneration: TextGenerator;
 	branches: readonly SubmitStackNewBranch[];
 	onProgress?: SubmitMetadataProgressListener;
 }): Promise<

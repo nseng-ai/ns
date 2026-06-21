@@ -1,4 +1,5 @@
 import { defineExtension, ok, z } from "@sdl/sdl/sdk";
+import type { TextGenerationRequest, TextGenerationResult, TextGenerator } from "@sdl/sdl/sdk";
 
 type Assert<T extends true> = T;
 type IsAny<T> = 0 extends 1 & T ? true : false;
@@ -67,5 +68,12 @@ const extension = defineExtension({
 
 const commandlessExtension = defineExtension({});
 
+const textGenerator: TextGenerator = {
+	async generateText(request: TextGenerationRequest): Promise<TextGenerationResult> {
+		return { ok: true, text: request.prompt };
+	},
+};
+
 void extension;
 void commandlessExtension;
+void textGenerator;

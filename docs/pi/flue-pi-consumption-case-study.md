@@ -171,12 +171,12 @@ import { type Api, getModel, getModels, type KnownProvider, type Model,
 > same pi-ai model layer. `ts/packages/sdl/src/pi-text-generation.ts` parses the
 > identical `"provider/model-id"` specifier shape, resolves a
 > `PiAi.Model<PiAi.Api>` from a registry, and threads `Api`/`Model` types through
-> its own gateway interface — see `parsePiModelRef` and `PiModelRegistry`. The
-> difference is the registry source: sdl loads pi-coding-agent's
-> `ModelRegistry.create(AuthStorage.create())` (auth-aware, tied to `/login`)
-> rather than calling pi-ai's `getModel`/`registerApiProvider` directly. flue
-> builds a *provider registry*; sdl reuses pi-coding-agent's registry behind a
-> `TextGenerationGateway`.
+> its own text-generation capability interface — see `parsePiModelRef` and
+> `PiModelRegistry`. The difference is the registry source: sdl loads
+> pi-coding-agent's `ModelRegistry.create(AuthStorage.create())` (auth-aware,
+> tied to `/login`) rather than calling pi-ai's `getModel`/`registerApiProvider`
+> directly. flue builds a *provider registry*; sdl reuses pi-coding-agent's
+> registry behind a `TextGenerator`.
 
 ## 6. Custom Cloudflare provider built on pi-ai internals (`cloudflare/workers-ai-provider.ts`)
 
@@ -225,7 +225,7 @@ flue consumes pi's data model pervasively rather than defining its own:
   its on-disk chunk segments *are* pi-ai event objects.
 
 > **sdl contrast.** sdl uses pi-ai's **`completeSimple`** too, but for a much
-> narrower purpose: `sdl`'s `PiTextGenerationGateway` makes one-shot
+> narrower purpose: `sdl`'s `PiTextGenerator` makes one-shot
 > non-streaming text generations (`generateText`), building a single user
 > message with a `text` content block and reading back `response.content` /
 > `response.stopReason`. sdl does not aggregate `Usage`, persist

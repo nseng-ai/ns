@@ -9,7 +9,7 @@ export interface TextGenerationRequest {
 
 export type TextGenerationResult = { ok: true; text: string } | { ok: false; error: string };
 
-export interface TextGenerationGateway {
+export interface TextGenerator {
 	generateText(request: TextGenerationRequest): Promise<TextGenerationResult>;
 }
 

@@ -12,13 +12,13 @@ import {
 	type PrDescriptionGenerationResolution,
 	type PromptSource,
 } from "./pr-description.ts";
-import type { TextGenerationGateway } from "./text-generation.ts";
+import type { TextGenerator } from "./text-generation.ts";
 
 export interface PrDescriptionApplyOptions {
 	cwd: string;
 	env: Record<string, string | undefined>;
 	githubPr: GithubPrGateway;
-	textGeneration: TextGenerationGateway;
+	textGeneration: TextGenerator;
 	git: GitGateway;
 	generation?: Extract<PrDescriptionGenerationResolution, { ok: true }>;
 	onProgress?: (message: string) => void;

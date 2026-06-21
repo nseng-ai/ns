@@ -3,17 +3,17 @@ import { createInterface } from "node:readline/promises";
 
 import { runCommand } from "@sdl/core/exec";
 
-import { PiTextGenerationGateway } from "./pi-text-generation.ts";
+import { PiTextGenerator } from "./pi-text-generation.ts";
 import type { SdlConfirmPrompt, SdlContext } from "./sdk.ts";
-import type { TextGenerationGateway } from "./text-generation.ts";
+import type { TextGenerator } from "./text-generation.ts";
 
 export interface RealSdlCommandContextOptions {
 	cwd?: string;
 	env?: Record<string, string | undefined>;
 }
 
-export function createTextGenerationGateway(): TextGenerationGateway {
-	return new PiTextGenerationGateway();
+export function createTextGenerator(): TextGenerator {
+	return new PiTextGenerator();
 }
 
 export function createRealSdlCommandContext(
@@ -21,7 +21,7 @@ export function createRealSdlCommandContext(
 ): SdlContext {
 	const cwd = options.cwd ?? process.cwd();
 	const env = options.env ?? process.env;
-	const model = createTextGenerationGateway();
+	const model = createTextGenerator();
 	const confirm = createTerminalConfirmPrompt();
 	return {
 		cwd,
