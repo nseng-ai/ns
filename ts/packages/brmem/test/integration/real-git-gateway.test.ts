@@ -3,6 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import {
+	NodeCommandExecApi,
+	type CommandExecApi,
+	type ExecOptions,
+	type ExecResult,
+} from "@sdl/core/exec";
 import type { BrmemResult } from "../../src/contracts.ts";
 import type {
 	CopyEntriesResult,
@@ -60,6 +66,104 @@ describe("RealGitBrmemGateway integration", () => {
 			});
 			expect(checked).toMatchObject({ type: "found", value: { sizeBytes: 5 } });
 			expect(repo.runGit(["show", "refs/brmem/base/feat---x:body.md"])).toBe("hello");
+		} finally {
+			repo.cleanup();
+		}
+	});
+
+	it("writes mixed-depth Entry Keys as nested Snapshot tree entries", async () => {
+		const repo = createTempGitRepo();
+		try {
+			const gateway = new RealGitBrmemGateway(repo.path);
+			expect(
+				(
+					await gateway.putEntry({
+						namespace: "base",
+						branch: "main",
+						key: "a/b/c.md",
+						content: "C",
+					})
+				).type,
+			).toBe("ok");
+			expect(
+				(
+					await gateway.putEntry({
+						namespace: "base",
+						branch: "main",
+						key: "a/d.md",
+						content: "D",
+					})
+				).type,
+			).toBe("ok");
+			expect(
+				(
+					await gateway.putEntry({
+						namespace: "base",
+						branch: "main",
+						key: "z.md",
+						content: "Z",
+					})
+				).type,
+			).toBe("ok");
+
+			expect(
+				repo.runGit(["ls-tree", "-r", "--name-only", "refs/brmem/base/main"]).trim().split("\n"),
+			).toEqual(["a/b/c.md", "a/d.md", "z.md"]);
+			expect(
+				await gateway.getEntry({ namespace: "base", branch: "main", key: "a/b/c.md" }),
+			).toMatchObject({ type: "found", value: { content: "C" } });
+		} finally {
+			repo.cleanup();
+		}
+	});
+
+	it("does not mutate the main repo index when the exec adapter drops GIT_INDEX_FILE", async () => {
+		const repo = createTempGitRepo();
+		try {
+			const beforeIndexTree = repo.runGit(["write-tree"]).trim();
+			const gateway = new RealGitBrmemGateway(
+				repo.path,
+				new DroppingOptionsCommands({ dropEnv: true }),
+			);
+
+			const put = await gateway.putEntry({
+				namespace: "branch-context",
+				branch: "feat/x",
+				key: "plan.md",
+				content: "plan body",
+			});
+
+			expect(put).toMatchObject({ type: "ok" });
+			expect(repo.runGit(["status", "--porcelain"])).toBe("");
+			expect(repo.runGit(["write-tree"]).trim()).toBe(beforeIndexTree);
+			expect(
+				repo.runGit(["ls-tree", "-r", "--name-only", "refs/brmem/ns/branch-context/feat---x"]),
+			).toBe("plan.md\n");
+		} finally {
+			repo.cleanup();
+		}
+	});
+
+	it("fails safe without advancing refs when the exec adapter drops mktree stdin", async () => {
+		const repo = createTempGitRepo();
+		try {
+			const beforeIndexTree = repo.runGit(["write-tree"]).trim();
+			const gateway = new RealGitBrmemGateway(
+				repo.path,
+				new DroppingOptionsCommands({ dropStdin: true }),
+			);
+
+			const put = await gateway.putEntry({
+				namespace: "base",
+				branch: "main",
+				key: "plan.md",
+				content: "plan body",
+			});
+
+			expect(put).toMatchObject({ type: "error", error: { code: "snapshot_tree_mismatch" } });
+			expect(snapshotRefExists(repo, "refs/brmem/base/main")).toBe(false);
+			expect(repo.runGit(["status", "--porcelain"])).toBe("");
+			expect(repo.runGit(["write-tree"]).trim()).toBe(beforeIndexTree);
 		} finally {
 			repo.cleanup();
 		}
@@ -449,6 +553,37 @@ interface CorruptSnapshotOptions {
 interface CorruptSnapshotResult {
 	snapshotRef: string;
 	commitSha: string;
+}
+
+interface DroppingOptions {
+	dropEnv?: boolean;
+	dropStdin?: boolean;
+}
+
+class DroppingOptionsCommands implements CommandExecApi {
+	private readonly delegate = new NodeCommandExecApi();
+	private readonly shouldDropEnv: boolean;
+	private readonly shouldDropStdin: boolean;
+
+	constructor(options: DroppingOptions) {
+		this.shouldDropEnv = options.dropEnv ?? false;
+		this.shouldDropStdin = options.dropStdin ?? false;
+	}
+
+	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
+		return await this.delegate.exec(command, args, {
+			...(options?.cwd === undefined ? {} : { cwd: options.cwd }),
+			...(this.shouldDropEnv || options?.env === undefined ? {} : { env: options.env }),
+			...(options?.timeout === undefined ? {} : { timeout: options.timeout }),
+			...(options?.timeoutKillGraceMs === undefined
+				? {}
+				: { timeoutKillGraceMs: options.timeoutKillGraceMs }),
+			...(options?.signal === undefined ? {} : { signal: options.signal }),
+			...(this.shouldDropStdin || options?.stdin === undefined ? {} : { stdin: options.stdin }),
+			...(options?.onStdout === undefined ? {} : { onStdout: options.onStdout }),
+			...(options?.onStderr === undefined ? {} : { onStderr: options.onStderr }),
+		});
+	}
 }
 
 function createCorruptSnapshot(

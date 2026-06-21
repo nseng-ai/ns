@@ -53,7 +53,7 @@ describe("RealGitBrmemGateway", () => {
 		]);
 	});
 
-	it("initializes an empty temporary index before building a Snapshot tree", async () => {
+	it("builds Snapshot trees with git mktree stdin", async () => {
 		const commands = new RecordingCommands([
 			{ command: "git", args: ["check-ref-format", "--branch", "source"] },
 			{ command: "git", args: ["check-ref-format", "--branch", "dest"] },
@@ -72,12 +72,12 @@ describe("RealGitBrmemGateway", () => {
 				args: ["ls-tree", "-r", "--format=%(path)%x09%(objectname)", "refs/brmem/base/source"],
 				result: { stdout: "foo.md\tblob-sha\n" },
 			},
-			{ command: "git", args: ["read-tree", "--empty"] },
+			{ command: "git", args: ["mktree"], result: { stdout: "tree-sha\n" } },
 			{
 				command: "git",
-				args: ["update-index", "--add", "--cacheinfo", "100644,blob-sha,foo.md"],
+				args: ["ls-tree", "-r", "--format=%(path)%x09%(objectname)", "tree-sha"],
+				result: { stdout: "foo.md\tblob-sha\n" },
 			},
-			{ command: "git", args: ["write-tree"], result: { stdout: "tree-sha\n" } },
 			{
 				command: "git",
 				args: [
@@ -103,14 +103,11 @@ describe("RealGitBrmemGateway", () => {
 				})
 			).type,
 		).toBe("ok");
-		const readTreeIndex = commands.calls.findIndex((call) => call.args[0] === "read-tree");
-		const updateIndexIndex = commands.calls.findIndex((call) => call.args[0] === "update-index");
-		expect(readTreeIndex).toBeGreaterThan(-1);
-		expect(updateIndexIndex).toBeGreaterThan(readTreeIndex);
-		expect(commands.calls[readTreeIndex]?.options?.env?.GIT_INDEX_FILE).toEqual(expect.any(String));
-		expect(commands.calls[updateIndexIndex]?.options?.env?.GIT_INDEX_FILE).toBe(
-			commands.calls[readTreeIndex]?.options?.env?.GIT_INDEX_FILE,
-		);
+		const mktreeCall = commands.calls.find((call) => call.args[0] === "mktree");
+		expect(mktreeCall?.options?.stdin).toBe("100644 blob blob-sha\tfoo.md\n");
+		expect(commands.calls.some((call) => call.args[0] === "read-tree")).toBe(false);
+		expect(commands.calls.some((call) => call.args[0] === "update-index")).toBe(false);
+		expect(commands.calls.some((call) => call.args[0] === "write-tree")).toBe(false);
 	});
 
 	it("normalizes UTC timestamps from Git when checking an Entry", async () => {
