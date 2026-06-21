@@ -3,11 +3,13 @@ import { describe, expect, test } from "vitest";
 import prExtension, {
 	PR_DOWNLOAD_FEEDBACK_COMMAND_NAME,
 	PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME,
+	PR_PREVIEW_FEEDBACK_COMMAND_NAME,
 	type ExtensionAPI,
 	type ExtensionContext,
 	type ExecResult,
 	type RegisteredCommand,
 } from "../src/pr.ts";
+import { buildCountMismatchNotice } from "../src/pr-preview-feedback-view.ts";
 
 const ROOT = "/repo";
 
@@ -46,21 +48,35 @@ class FakePi implements ExtensionAPI {
 
 class FakeContext implements ExtensionContext {
 	readonly cwd = ROOT;
-	readonly hasUI = true;
+	readonly hasUI: boolean;
 	readonly notifications: Array<{ message: string; level: string | undefined }> = [];
 	readonly statuses: Array<{ key: string; value: string | undefined }> = [];
 	readonly editorTexts: string[] = [];
-	readonly ui = {
-		notify: (message: string, level?: "info" | "warning" | "error") => {
-			this.notifications.push({ message, level });
-		},
-		setStatus: (key: string, value: string | undefined) => {
-			this.statuses.push({ key, value });
-		},
-		setEditorText: (text: string) => {
-			this.editorTexts.push(text);
-		},
-	};
+	readonly customCalls: Array<{ options: unknown }> = [];
+	readonly ui: NonNullable<ExtensionContext["ui"]>;
+
+	constructor(options: { hasUI?: boolean; custom?: boolean } = {}) {
+		this.hasUI = options.hasUI ?? true;
+		this.ui = {
+			notify: (message: string, level?: "info" | "warning" | "error") => {
+				this.notifications.push({ message, level });
+			},
+			setStatus: (key: string, value: string | undefined) => {
+				this.statuses.push({ key, value });
+			},
+			setEditorText: (text: string) => {
+				this.editorTexts.push(text);
+			},
+			...(options.custom === false
+				? {}
+				: {
+						custom: async <T>(_factory: unknown, options: unknown): Promise<T> => {
+							this.customCalls.push({ options });
+							return undefined as T;
+						},
+					}),
+		};
+	}
 }
 
 function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
@@ -103,6 +119,45 @@ function counts(
 	};
 }
 
+function previewDownloadData(overrides: { prNumber?: number; counts?: object } = {}): object {
+	return {
+		found: true,
+		target: {
+			pr_number: overrides.prNumber ?? 123,
+			title: "Preview PR",
+			url: "https://example.test/pull/123",
+			branch: "feature-preview",
+			head_ref_name: "feature-preview",
+			base_ref_name: "main",
+		},
+		counts: overrides.counts ?? counts({ included_review_threads: 1 }),
+	};
+}
+
+function previewThreadsData(threadCount = 1): object {
+	return {
+		review_threads: Array.from({ length: threadCount }, (_unused, index) => ({
+			id: `thread-${index + 1}`,
+			path: "src/file.ts",
+			line: 10 + index,
+			start_line: null,
+			is_resolved: false,
+			is_outdated: false,
+			comments: [
+				{
+					id: 900 + index,
+					body: "Please fix this.",
+					author: "reviewer",
+					path: "src/file.ts",
+					line: 10 + index,
+					start_line: null,
+					created_at: "2026-06-20T00:00:00Z",
+				},
+			],
+		})),
+	};
+}
+
 async function runCommand(pi: FakePi, rawArgs = ""): Promise<FakeContext> {
 	return await runRegisteredCommand(pi, PR_DOWNLOAD_FEEDBACK_COMMAND_NAME, rawArgs);
 }
@@ -111,15 +166,23 @@ async function runStackCommand(pi: FakePi, rawArgs = ""): Promise<FakeContext> {
 	return await runRegisteredCommand(pi, PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME, rawArgs);
 }
 
+async function runPreviewCommand(
+	pi: FakePi,
+	rawArgs = "",
+	ctx = new FakeContext(),
+): Promise<FakeContext> {
+	return await runRegisteredCommand(pi, PR_PREVIEW_FEEDBACK_COMMAND_NAME, rawArgs, ctx);
+}
+
 async function runRegisteredCommand(
 	pi: FakePi,
 	commandName: string,
 	rawArgs: string,
+	ctx = new FakeContext(),
 ): Promise<FakeContext> {
 	prExtension(pi);
 	const command = pi.commands.get(commandName);
 	expect(command).toBeDefined();
-	const ctx = new FakeContext();
 	await command?.handler(rawArgs, ctx);
 	return ctx;
 }
@@ -133,6 +196,7 @@ describe("/pr:download-feedback", () => {
 		expect([...pi.commands.keys()]).toEqual([
 			PR_DOWNLOAD_FEEDBACK_COMMAND_NAME,
 			PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME,
+			PR_PREVIEW_FEEDBACK_COMMAND_NAME,
 		]);
 	});
 
@@ -201,6 +265,171 @@ describe("/pr:download-feedback", () => {
 		expect(ctx.editorTexts).toEqual([]);
 		expect(ctx.notifications).toEqual([
 			{ message: "Usage: /pr:download-feedback [pr-number]", level: "error" },
+		]);
+	});
+});
+
+describe("/pr:preview-feedback", () => {
+	test("rejects unsupported arguments with preview usage without running the CLI", async () => {
+		const pi = new FakePi();
+
+		const ctx = await runPreviewCommand(pi, "--bad");
+
+		expect(pi.calls).toEqual([]);
+		expect(ctx.customCalls).toEqual([]);
+		expect(ctx.notifications).toEqual([
+			{ message: "Usage: /pr:preview-feedback [pr-number]", level: "error" },
+		]);
+	});
+
+	test("requires interactive custom UI before running network commands", async () => {
+		const pi = new FakePi();
+		const ctx = new FakeContext({ hasUI: false, custom: false });
+
+		await runPreviewCommand(pi, "", ctx);
+
+		expect(pi.calls).toEqual([]);
+		expect(ctx.customCalls).toEqual([]);
+		expect(ctx.notifications).toEqual([
+			{
+				message: "PR feedback preview requires interactive Pi TUI custom UI.",
+				level: "error",
+			},
+		]);
+	});
+
+	test("loads current PR feedback, then review threads, then opens an overlay", async () => {
+		const pi = new FakePi([
+			execResult({ stdout: envelope(previewDownloadData({ prNumber: 456 })) }),
+			execResult({ stdout: envelope(previewThreadsData(1)) }),
+		]);
+
+		const ctx = await runPreviewCommand(pi);
+
+		expect(pi.calls).toEqual([
+			{ command: "pr-address", args: ["exec", "download-feedback", "--format", "json"] },
+			{
+				command: "pr-address",
+				args: ["exec", "pr-review-threads", "--pr-number", "456", "--format", "json"],
+			},
+		]);
+		expect(ctx.customCalls).toHaveLength(1);
+		expect(ctx.customCalls[0]?.options).toMatchObject({ overlay: true });
+		expect(ctx.editorTexts).toEqual([]);
+		expect(pi.userMessages).toEqual([]);
+		expect(ctx.statuses.at(0)).toEqual({
+			key: PR_PREVIEW_FEEDBACK_COMMAND_NAME,
+			value: "PR feedback preview: loading target…",
+		});
+		expect(ctx.statuses.at(-1)).toEqual({
+			key: PR_PREVIEW_FEEDBACK_COMMAND_NAME,
+			value: undefined,
+		});
+	});
+
+	test("forwards an explicit PR number to target loading and uses resolved target for threads", async () => {
+		const pi = new FakePi([
+			execResult({ stdout: envelope(previewDownloadData({ prNumber: 789 })) }),
+			execResult({ stdout: envelope(previewThreadsData(1)) }),
+		]);
+
+		await runPreviewCommand(pi, "123");
+
+		expect(pi.calls).toEqual([
+			{
+				command: "pr-address",
+				args: ["exec", "download-feedback", "--pr-number", "123", "--format", "json"],
+			},
+			{
+				command: "pr-address",
+				args: ["exec", "pr-review-threads", "--pr-number", "789", "--format", "json"],
+			},
+		]);
+	});
+
+	test("does not open a modal when download-feedback finds no PR", async () => {
+		const pi = new FakePi(
+			execResult({
+				stdout: negativeEnvelope({
+					found: false,
+					target: {
+						pr_number: null,
+						title: null,
+						url: null,
+						branch: "feature-preview",
+						head_ref_name: null,
+						base_ref_name: null,
+					},
+					counts: counts(),
+				}),
+				code: 1,
+			}),
+		);
+
+		const ctx = await runPreviewCommand(pi);
+
+		expect(pi.calls).toEqual([
+			{ command: "pr-address", args: ["exec", "download-feedback", "--format", "json"] },
+		]);
+		expect(ctx.customCalls).toEqual([]);
+		expect(ctx.notifications.at(-1)).toEqual({
+			message: "No open PR found for branch feature-preview.",
+			level: "warning",
+		});
+	});
+
+	test("malformed review thread output reports an error", async () => {
+		const pi = new FakePi([
+			execResult({ stdout: envelope(previewDownloadData({ prNumber: 456 })) }),
+			execResult({ stdout: "not json", stderr: "boom", code: 2 }),
+		]);
+
+		const ctx = await runPreviewCommand(pi);
+
+		expect(ctx.customCalls).toEqual([]);
+		expect(ctx.notifications.at(-1)?.level).toBe("error");
+		expect(ctx.notifications.at(-1)?.message).toContain(
+			"Malformed pr-address pr-review-threads #456",
+		);
+		expect(ctx.notifications.at(-1)?.message).toContain("boom");
+	});
+
+	test("opens an empty-state modal for zero unresolved threads", async () => {
+		const pi = new FakePi([
+			execResult({ stdout: envelope(previewDownloadData({ prNumber: 456 })) }),
+			execResult({ stdout: envelope(previewThreadsData(0)) }),
+		]);
+
+		const ctx = await runPreviewCommand(pi);
+
+		expect(ctx.customCalls).toHaveLength(1);
+		expect(ctx.customCalls[0]?.options).toMatchObject({ overlay: true });
+	});
+
+	test("count mismatch notice is exposed without throwing", () => {
+		const notice = buildCountMismatchNotice({
+			target: {
+				pr_number: 456,
+				title: "Preview PR",
+				url: null,
+				branch: "feature-preview",
+				head_ref_name: "feature-preview",
+				base_ref_name: "main",
+			},
+			counts: {
+				included_review_threads: 3,
+				included_reviews: 0,
+				included_discussion_comments: 0,
+				excluded_resolved_threads: 0,
+				excluded_empty_reviews: 0,
+				excluded_automation_comments: 0,
+			},
+			fetchedAt: new Date("2026-06-20T00:00:00Z"),
+			threads: [],
+		});
+
+		expect(notice).toEqual([
+			"Summary count was 3 unresolved threads when target summary loaded; actual thread rows fetched now: 0.",
 		]);
 	});
 });

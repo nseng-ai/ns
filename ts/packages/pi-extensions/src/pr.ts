@@ -1,5 +1,7 @@
 import { readFileSync } from "node:fs";
 
+import type { Theme } from "@earendil-works/pi-coding-agent";
+import type { Component, TUI } from "@earendil-works/pi-tui";
 import { formatZodError } from "@sdl/core/primitives";
 import { z } from "zod";
 
@@ -9,12 +11,22 @@ import {
 	type MachineEnvelopeDataParseResult,
 } from "./machine-envelope.ts";
 import { definePiSurfaceParity } from "./parity.ts";
+import {
+	PrPreviewFeedbackView,
+	type PrPreviewFeedbackComment,
+	type PrPreviewFeedbackCounts,
+	type PrPreviewFeedbackTarget,
+	type PrPreviewFeedbackThread,
+	type PrPreviewFeedbackViewModel,
+} from "./pr-preview-feedback-view.ts";
 
 export const PR_DOWNLOAD_FEEDBACK_COMMAND_NAME = "pr:download-feedback";
 export const PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME = "pr:download-stack-feedback";
+export const PR_PREVIEW_FEEDBACK_COMMAND_NAME = "pr:preview-feedback";
 
 const DOWNLOAD_FEEDBACK_STATUS_KEY = PR_DOWNLOAD_FEEDBACK_COMMAND_NAME;
 const DOWNLOAD_STACK_FEEDBACK_STATUS_KEY = PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME;
+const PREVIEW_FEEDBACK_STATUS_KEY = PR_PREVIEW_FEEDBACK_COMMAND_NAME;
 const COMMAND_TIMEOUT_MS = 60_000;
 const STACK_DISCOVERY_TIMEOUT_MS = 120_000;
 const STACK_FEEDBACK_INSTRUCTIONS = readFileSync(
@@ -57,8 +69,52 @@ const stackMarkdownDataSchema = z.looseObject({
 	counts: downloadFeedbackCountsSchema,
 });
 
+const nullablePreviewStringSchema = z.string().nullable();
+const nullablePreviewNumberSchema = z.number().int().nullable();
+
+const previewTargetSchema = z.looseObject({
+	pr_number: nullablePreviewNumberSchema,
+	title: nullablePreviewStringSchema,
+	url: nullablePreviewStringSchema,
+	branch: nullablePreviewStringSchema,
+	head_ref_name: nullablePreviewStringSchema,
+	base_ref_name: nullablePreviewStringSchema,
+});
+
+const previewDownloadFeedbackDataSchema = z.looseObject({
+	found: z.boolean(),
+	target: previewTargetSchema,
+	counts: downloadFeedbackCountsSchema,
+});
+
+const previewReviewCommentSchema = z.looseObject({
+	id: z.number().int(),
+	body: z.string(),
+	author: z.string(),
+	path: z.string(),
+	line: nullablePreviewNumberSchema,
+	start_line: nullablePreviewNumberSchema,
+	created_at: z.string(),
+});
+
+const previewReviewThreadSchema = z.looseObject({
+	id: z.string(),
+	path: z.string(),
+	line: nullablePreviewNumberSchema,
+	start_line: nullablePreviewNumberSchema,
+	is_resolved: z.boolean(),
+	is_outdated: z.boolean(),
+	comments: z.array(previewReviewCommentSchema),
+});
+
+const previewReviewThreadsDataSchema = z.looseObject({
+	review_threads: z.array(previewReviewThreadSchema),
+});
+
 type BranchPrEntry = z.output<typeof branchPrEntrySchema>;
 type DownloadFeedbackCounts = z.output<typeof downloadFeedbackCountsSchema>;
+type PreviewDownloadFeedbackData = z.output<typeof previewDownloadFeedbackDataSchema>;
+type PreviewReviewThreadsData = z.output<typeof previewReviewThreadsDataSchema>;
 
 interface StackFeedbackDownload {
 	entry: BranchPrEntry;
@@ -91,6 +147,19 @@ export const prExtensionParity = definePiSurfaceParity([
 		notes:
 			"Pi orchestrates stack discovery and editor prefill; slot owns Graphite stack discovery and pr-address owns PR feedback collection/Markdown rendering.",
 	},
+	{
+		kind: "command",
+		surface: PR_PREVIEW_FEEDBACK_COMMAND_NAME,
+		workflow: "Preview unresolved PR review threads in a read-only Pi modal overlay",
+		parity: "WAIVED",
+		fallback:
+			"Use pr-address exec download-feedback --format json, then pr-address exec pr-review-threads --pr-number <n> --format json.",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@sdl/pi-extensions",
+		sourceModule: "pr",
+		notes:
+			"The browser modal is Pi-native TUI/session behavior; pr-address owns portable read-only feedback collection.",
+	},
 ] as const);
 
 export interface ExecResult {
@@ -113,6 +182,15 @@ export interface ExtensionContext {
 		notify?(message: string, level?: "info" | "warning" | "error"): void;
 		setStatus?(key: string, value: string | undefined): void;
 		setEditorText?(text: string): void;
+		custom?<T>(
+			factory: (
+				tui: TUI,
+				theme: Theme,
+				keybindings: unknown,
+				done: (value: T) => void,
+			) => Component,
+			options?: unknown,
+		): Promise<T>;
 	};
 }
 
@@ -141,6 +219,12 @@ export default function prExtension(pi: ExtensionAPI): void {
 			await runPrDownloadStackFeedbackCommand(pi, rawArgs, ctx);
 		},
 	});
+	pi.registerCommand(PR_PREVIEW_FEEDBACK_COMMAND_NAME, {
+		description: "Preview unresolved PR review threads in a read-only modal overlay.",
+		handler: async (rawArgs, ctx) => {
+			await runPrPreviewFeedbackCommand(pi, rawArgs, ctx);
+		},
+	});
 }
 
 async function runPrDownloadFeedbackCommand(
@@ -148,7 +232,7 @@ async function runPrDownloadFeedbackCommand(
 	rawArgs: string,
 	ctx: ExtensionContext,
 ): Promise<void> {
-	const parsedArgs = parseDownloadFeedbackArgs(rawArgs);
+	const parsedArgs = parseOptionalPrNumberArgs(rawArgs, "Usage: /pr:download-feedback [pr-number]");
 	if (parsedArgs.type === "invalid") {
 		notify(ctx, parsedArgs.message, "error");
 		return;
@@ -241,19 +325,84 @@ async function runPrDownloadStackFeedbackCommand(
 	}
 }
 
+async function runPrPreviewFeedbackCommand(
+	pi: ExtensionAPI,
+	rawArgs: string,
+	ctx: ExtensionContext,
+): Promise<void> {
+	const parsedArgs = parseOptionalPrNumberArgs(rawArgs, "Usage: /pr:preview-feedback [pr-number]");
+	if (parsedArgs.type === "invalid") {
+		notify(ctx, parsedArgs.message, "error");
+		return;
+	}
+	if (ctx.hasUI !== true || ctx.ui?.custom === undefined) {
+		notify(ctx, "PR feedback preview requires interactive Pi TUI custom UI.", "error");
+		return;
+	}
+
+	ctx.ui.setStatus?.(PREVIEW_FEEDBACK_STATUS_KEY, "PR feedback preview: loading target…");
+	try {
+		const download = await loadPreviewFeedbackTarget(pi, ctx, parsedArgs.args);
+		if (download.type === "error") {
+			notify(ctx, download.message, "error");
+			return;
+		}
+		if (!download.value.found) {
+			notify(ctx, missingPreviewTargetMessage(download.value.target), "warning");
+			return;
+		}
+		const prNumber = download.value.target.pr_number;
+		if (prNumber === null || prNumber <= 0) {
+			notify(ctx, "PR feedback preview could not determine a positive target PR number.", "error");
+			return;
+		}
+
+		ctx.ui.setStatus?.(
+			PREVIEW_FEEDBACK_STATUS_KEY,
+			`PR feedback preview: loading #${prNumber} threads…`,
+		);
+		const threads = await loadPreviewReviewThreads(pi, ctx, prNumber);
+		if (threads.type === "error") {
+			notify(ctx, threads.message, "error");
+			return;
+		}
+
+		const model = buildPreviewFeedbackViewModel({
+			download: download.value,
+			threads: threads.value.review_threads,
+		});
+		await ctx.ui.custom<void>(
+			(tui, theme, _keybindings, done) =>
+				new PrPreviewFeedbackView({
+					tui,
+					theme,
+					model,
+					onClose: () => done(undefined),
+				}),
+			{
+				overlay: true,
+				overlayOptions: { width: "90%", maxHeight: "85%", margin: 1 },
+				onHandle: (handle: { focus(): void }) => handle.focus(),
+			},
+		);
+	} finally {
+		ctx.ui?.setStatus?.(PREVIEW_FEEDBACK_STATUS_KEY, undefined);
+	}
+}
+
 type ParsedDownloadFeedbackArgs =
 	| { type: "valid"; args: string[] }
 	| { type: "invalid"; message: string };
 
 type CommandResult<T> = { type: "ok"; value: T } | { type: "error"; message: string };
 
-function parseDownloadFeedbackArgs(rawArgs: string): ParsedDownloadFeedbackArgs {
+function parseOptionalPrNumberArgs(rawArgs: string, usage: string): ParsedDownloadFeedbackArgs {
 	const parsed = parseCliCommandArgs(rawArgs);
 	if (!parsed.ok) return { type: "invalid", message: parsed.error };
 	if (parsed.args.length === 0) return { type: "valid", args: [] };
 	if (parsed.args.length === 1 && isPositiveIntegerToken(parsed.args[0] ?? ""))
 		return { type: "valid", args: ["--pr-number", parsed.args[0] ?? ""] };
-	return { type: "invalid", message: "Usage: /pr:download-feedback [pr-number]" };
+	return { type: "invalid", message: usage };
 }
 
 function parseNoArgs(
@@ -331,6 +480,101 @@ async function downloadFeedbackForPr(
 		type: "ok",
 		value: { entry, markdown: parsed.value.markdown, counts: parsed.value.counts },
 	};
+}
+
+async function loadPreviewFeedbackTarget(
+	pi: ExtensionAPI,
+	ctx: ExtensionContext,
+	args: readonly string[],
+): Promise<CommandResult<PreviewDownloadFeedbackData>> {
+	const result = await pi.exec(
+		"pr-address",
+		["exec", "download-feedback", ...args, "--format", "json"],
+		{
+			cwd: ctx.cwd,
+			timeout: COMMAND_TIMEOUT_MS,
+		},
+	);
+	return parseEnvelopeWithSchema({
+		label: "pr-address download-feedback",
+		result,
+		schema: previewDownloadFeedbackDataSchema,
+		allowFailureData: true,
+	});
+}
+
+async function loadPreviewReviewThreads(
+	pi: ExtensionAPI,
+	ctx: ExtensionContext,
+	prNumber: number,
+): Promise<CommandResult<PreviewReviewThreadsData>> {
+	const result = await pi.exec(
+		"pr-address",
+		["exec", "pr-review-threads", "--pr-number", String(prNumber), "--format", "json"],
+		{ cwd: ctx.cwd, timeout: COMMAND_TIMEOUT_MS },
+	);
+	return parseEnvelopeWithSchema({
+		label: `pr-address pr-review-threads #${prNumber}`,
+		result,
+		schema: previewReviewThreadsDataSchema,
+	});
+}
+
+function buildPreviewFeedbackViewModel(options: {
+	download: PreviewDownloadFeedbackData;
+	threads: readonly z.output<typeof previewReviewThreadSchema>[];
+}): PrPreviewFeedbackViewModel {
+	const prNumber = options.download.target.pr_number;
+	if (prNumber === null || prNumber <= 0) {
+		throw new Error("preview feedback model requires a positive PR number");
+	}
+	return {
+		target: {
+			pr_number: prNumber,
+			title: options.download.target.title,
+			url: options.download.target.url,
+			branch: options.download.target.branch,
+			head_ref_name: options.download.target.head_ref_name,
+			base_ref_name: options.download.target.base_ref_name,
+		} satisfies PrPreviewFeedbackTarget,
+		counts: options.download.counts satisfies PrPreviewFeedbackCounts,
+		fetchedAt: new Date(),
+		threads: options.threads.map(previewThreadFromData),
+	};
+}
+
+function previewThreadFromData(
+	thread: z.output<typeof previewReviewThreadSchema>,
+): PrPreviewFeedbackThread {
+	return {
+		id: thread.id,
+		path: thread.path,
+		line: thread.line,
+		start_line: thread.start_line,
+		is_resolved: thread.is_resolved,
+		is_outdated: thread.is_outdated,
+		comments: thread.comments.map(previewCommentFromData),
+	};
+}
+
+function previewCommentFromData(
+	comment: z.output<typeof previewReviewCommentSchema>,
+): PrPreviewFeedbackComment {
+	return {
+		id: comment.id,
+		body: comment.body,
+		author: comment.author,
+		path: comment.path,
+		line: comment.line,
+		start_line: comment.start_line,
+		created_at: comment.created_at,
+	};
+}
+
+function missingPreviewTargetMessage(target: PreviewDownloadFeedbackData["target"]): string {
+	if (target.pr_number !== null) return `No PR found for PR ${target.pr_number}.`;
+	if (target.branch !== null) return `No open PR found for branch ${target.branch}.`;
+	return "No open PR found for the current branch.";
 }
 
 interface EnvelopeWithSchemaOptions<T> {
