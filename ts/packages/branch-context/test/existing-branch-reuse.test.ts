@@ -15,6 +15,7 @@ import { InMemoryBranchContextGraphiteGateway } from "./support/in-memory-graphi
 const CWD = "/repo";
 const SESSION_BRANCH = "branch-contexts/session-target";
 const SESSION_KEY = "session-target.md";
+const LEGACY_SESSION_KEY = "plan.md";
 const CURRENT_BRANCH = "branch-contexts/current-target";
 const CURRENT_KEY = "current-target.md";
 
@@ -119,6 +120,44 @@ describe("resolveExistingBranchContextReuse", () => {
 			{ cwd: CWD, branch: SESSION_BRANCH, key: SESSION_KEY },
 		]);
 		expect(git.currentBranchCalls).toEqual([]);
+	});
+
+	test("rejects legacy plan.md session candidates before presence verification", async () => {
+		const brmem = new InMemoryBranchContextBrmemGateway({
+			entries: [{ branch: SESSION_BRANCH, key: LEGACY_SESSION_KEY }],
+		});
+		const git = new InMemoryGitGateway({ currentBranch: { type: "detached" } });
+
+		const promise = resolveExistingBranchContextReuse(
+			pi,
+			{ sessionEntries: [sessionEntry(SESSION_BRANCH, LEGACY_SESSION_KEY)] },
+			{ cwd: CWD, context: branchContext({ git, brmem }) },
+		);
+
+		await expect(promise).rejects.toThrow(
+			/Legacy branch-context key plan\.md is no longer supported/,
+		);
+		expect(brmem.attachmentPresenceCalls).toEqual([]);
+	});
+
+	test("falls through to the current branch when legacy plan.md session evidence is rejected", async () => {
+		const brmem = new InMemoryBranchContextBrmemGateway({
+			entries: [
+				{ branch: SESSION_BRANCH, key: LEGACY_SESSION_KEY },
+				{ branch: CURRENT_BRANCH, key: CURRENT_KEY },
+			],
+		});
+		const git = new InMemoryGitGateway({ currentBranch: CURRENT_BRANCH });
+
+		const reuse = await resolveExistingBranchContextReuse(
+			pi,
+			{ sessionEntries: [sessionEntry(SESSION_BRANCH, LEGACY_SESSION_KEY)] },
+			{ cwd: CWD, context: branchContext({ git, brmem }) },
+		);
+
+		expect(reuse).toEqual({ branch: CURRENT_BRANCH, key: CURRENT_KEY, source: "current-branch" });
+		expect(brmem.attachmentPresenceCalls).toEqual([]);
+		expect(brmem.listAttachedPlansCalls).toEqual([{ cwd: CWD, branch: CURRENT_BRANCH }]);
 	});
 
 	test("rejects ambiguous session candidates before any gateway I/O", async () => {

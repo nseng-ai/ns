@@ -1182,7 +1182,7 @@ describe("land-stack pure helpers", () => {
 	});
 
 	test("detects worktree conflicts with injected path normalization", async () => {
-		const slotPath = "/Users/me/.slots/repos/repo/worktrees/slot-01";
+		const slotPath = "/Users/me/.local/state/sdl/slots/repos/repo/worktrees/slot-01";
 		const pi = new FakePi([
 			step("git", ["worktree", "list", "--porcelain"], {
 				stdout: worktreeOutput([
@@ -1206,15 +1206,38 @@ describe("land-stack pure helpers", () => {
 		]);
 	});
 
+	test("treats legacy .slots worktrees as manual worktree conflicts", async () => {
+		const legacySlotPath = "/Users/me/.slots/repos/repo/worktrees/slot-01";
+		const pi = new FakePi([
+			step("git", ["worktree", "list", "--porcelain"], {
+				stdout: worktreeOutput([
+					{ path: ROOT, branch: CURRENT },
+					{ path: legacySlotPath, branch: "feature-a" },
+				]),
+			}),
+		]);
+
+		const conflicts = expectSuccess(
+			await detectWorktreeConflicts(pi, ROOT, CURRENT, ["feature-a", CURRENT]),
+		);
+
+		pi.assertDone();
+		expect(conflicts).toEqual([
+			{ branch: CURRENT, path: ROOT, kind: "current" },
+			{ branch: "feature-a", path: legacySlotPath, kind: "manual-worktree" },
+		]);
+	});
+
 	test("detects managed slot paths and extracts slot names", () => {
 		const legacySlotPath = "/Users/me/.slots/repos/sdl-tools/worktrees/slot-04";
 		const xdgSlotPath = "/Users/me/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-04";
 		const windowsXdgSlotPath =
 			"C:\\Users\\me\\AppData\\Local\\sdl\\slots\\repos\\sdl-tools\\worktrees\\slot-04";
-		expect(isManagedSlotPath(legacySlotPath)).toBe(true);
+		expect(isManagedSlotPath(legacySlotPath)).toBe(false);
 		expect(isManagedSlotPath(xdgSlotPath)).toBe(true);
 		expect(isManagedSlotPath(windowsXdgSlotPath)).toBe(true);
 		expect(slotNameFromPath(xdgSlotPath)).toBe("slot-04");
+		expect(isManagedSlotPath("/tmp/slots/repos/repo/worktrees/slot-04")).toBe(false);
 		expect(isManagedSlotPath("/tmp/sdl-tools/worktrees/slot-04")).toBe(false);
 		expect(slotNameFromPath("/tmp/sdl-tools/worktrees/slot-04")).toBe("slot-04");
 	});
@@ -1299,7 +1322,7 @@ describe("land-stack pure helpers", () => {
 			managedSlotConflicts: [
 				{
 					branch: "feature-a",
-					path: "/Users/me/.slots/repos/repo/worktrees/slot-01",
+					path: "/Users/me/.local/state/sdl/slots/repos/repo/worktrees/slot-01",
 					kind: "managed-slot",
 				},
 			],
@@ -1819,7 +1842,7 @@ describe("land-stack command scenarios", () => {
 	});
 
 	test("--dry-run treats descendant slot checkouts as skipped maintenance", async () => {
-		const descendantSlotPath = "/Users/me/.slots/repos/repo/worktrees/slot-07";
+		const descendantSlotPath = "/Users/me/.local/state/sdl/slots/repos/repo/worktrees/slot-07";
 		const { pi, notifications, confirmations } = await runLandStack(
 			"--dry-run",
 			featureStackPreflight({
@@ -2040,7 +2063,7 @@ describe("land-stack command scenarios", () => {
 	});
 
 	test("descendant managed slot does not block landing and skips descendant maintenance", async () => {
-		const descendantSlotPath = "/Users/me/.slots/repos/repo/worktrees/slot-07";
+		const descendantSlotPath = "/Users/me/.local/state/sdl/slots/repos/repo/worktrees/slot-07";
 		const script = [
 			...featureStackPreflight({
 				worktrees: worktreeOutput([
@@ -2142,8 +2165,8 @@ describe("land-stack command scenarios", () => {
 	});
 
 	test("landing-scope managed slot cleanup is targeted and leaves descendant slots alone", async () => {
-		const landingSlotPath = "/Users/me/.slots/repos/repo/worktrees/slot-01";
-		const descendantSlotPath = "/Users/me/.slots/repos/repo/worktrees/slot-07";
+		const landingSlotPath = "/Users/me/.local/state/sdl/slots/repos/repo/worktrees/slot-01";
+		const descendantSlotPath = "/Users/me/.local/state/sdl/slots/repos/repo/worktrees/slot-07";
 		const initialWorktrees = worktreeOutput([
 			{ path: ROOT, branch: CURRENT },
 			{ path: landingSlotPath, branch: "feature-a" },
@@ -2191,7 +2214,7 @@ describe("land-stack command scenarios", () => {
 	});
 
 	test("non-interactive descendant-only slot conflict proceeds with --yes", async () => {
-		const descendantSlotPath = "/Users/me/.slots/repos/repo/worktrees/slot-07";
+		const descendantSlotPath = "/Users/me/.local/state/sdl/slots/repos/repo/worktrees/slot-07";
 		const script = [
 			...featureStackPreflight({
 				worktrees: worktreeOutput([
@@ -2874,7 +2897,10 @@ describe("land-stack command scenarios", () => {
 	test("frees landing slots before restack and submit/update when both are required", async () => {
 		const slotWorktrees = worktreeOutput([
 			{ path: ROOT, branch: "feature-a" },
-			{ path: "/Users/me/.slots/repos/repo/worktrees/slot-01", branch: "feature-a" },
+			{
+				path: "/Users/me/.local/state/sdl/slots/repos/repo/worktrees/slot-01",
+				branch: "feature-a",
+			},
 		]);
 		const submitArgs = [
 			"submit",
@@ -2985,7 +3011,10 @@ describe("land-stack command scenarios", () => {
 	test("stops when managed slot conflicts reappear after submit/update", async () => {
 		const slotWorktrees = worktreeOutput([
 			{ path: ROOT, branch: "feature-a" },
-			{ path: "/Users/me/.slots/repos/repo/worktrees/slot-01", branch: "feature-a" },
+			{
+				path: "/Users/me/.local/state/sdl/slots/repos/repo/worktrees/slot-01",
+				branch: "feature-a",
+			},
 		]);
 		const submitArgs = [
 			"submit",
@@ -3075,7 +3104,10 @@ describe("land-stack command scenarios", () => {
 	test("managed slot conflict asks for confirmation and frees targeted slots before merging", async () => {
 		const managedWorktrees = worktreeOutput([
 			{ path: ROOT, branch: "feature-a" },
-			{ path: "/Users/me/.slots/repos/repo/worktrees/slot-01", branch: "feature-a" },
+			{
+				path: "/Users/me/.local/state/sdl/slots/repos/repo/worktrees/slot-01",
+				branch: "feature-a",
+			},
 		]);
 		const script = [
 			...singleBranchPreflight(managedWorktrees),
@@ -3112,7 +3144,10 @@ describe("land-stack command scenarios", () => {
 	test("managed slot conflict in non-interactive mode refuses and does not free slots", async () => {
 		const managedWorktrees = worktreeOutput([
 			{ path: ROOT, branch: "feature-a" },
-			{ path: "/Users/me/.slots/repos/repo/worktrees/slot-01", branch: "feature-a" },
+			{
+				path: "/Users/me/.local/state/sdl/slots/repos/repo/worktrees/slot-01",
+				branch: "feature-a",
+			},
 		]);
 		const { pi } = await captureConsole(() =>
 			runLandStack("--yes", singleBranchPreflight(managedWorktrees), { hasUI: false }),
