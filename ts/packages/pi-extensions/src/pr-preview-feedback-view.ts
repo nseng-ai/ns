@@ -9,11 +9,7 @@ import {
 	type PrPreviewFeedbackThread,
 	type PrPreviewFeedbackViewModel,
 } from "./pr-preview-feedback-model.ts";
-import {
-	clamp,
-	fitToWidth,
-	reconcileScroll as reconcileViewportScroll,
-} from "./context-profiler/render.ts";
+import { clamp, fitToWidth, reconcileScroll } from "./context-profiler/render.ts";
 
 const FALLBACK_TERMINAL_ROWS = 24;
 const MIN_RENDER_WIDTH = 40;
@@ -120,7 +116,7 @@ export class PrPreviewFeedbackView implements Component {
 	private renderBody(width: number, rows: number): string[] {
 		if (this.model.threads.length === 0) return this.renderEmptyBody(width, rows);
 		this.selectedIndex = clamp(this.selectedIndex, 0, this.model.threads.length - 1);
-		this.listScroll = reconcileViewportScroll({
+		this.listScroll = reconcileScroll({
 			scroll: this.listScroll,
 			anchor: this.selectedIndex,
 			areaHeight: rows,

@@ -1,6 +1,6 @@
 import { GeistdocsDocsLayout as PackageDocsLayout } from "@vercel/geistdocs/layout";
 import type { ComponentProps, ReactNode } from "react";
-import { config } from "@/lib/geistdocs/config";
+import { geistdocsConfig } from "@/lib/geistdocs/config";
 
 interface DocsLayoutProps {
   children: ReactNode;
@@ -10,7 +10,7 @@ interface DocsLayoutProps {
 export function DocsLayout({ tree, children }: DocsLayoutProps) {
   return (
     <PackageDocsLayout
-      config={config}
+      config={geistdocsConfig}
       containerProps={{
         className: "bg-background-100 max-w-[1448px] mx-auto",
       }}

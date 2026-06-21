@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { config } from "@/lib/geistdocs/config";
+import { geistdocsConfig } from "@/lib/geistdocs/config";
 import { getPageImage, source } from "@/lib/geistdocs/source";
 
 interface OgImageParams {
@@ -24,7 +24,7 @@ interface RootOgStaticParams {
 const IMAGE_WIDTH = 1200;
 const IMAGE_HEIGHT = 630;
 
-export function getLocalizedOgStaticParams(lang = config.defaultLanguage): LocalizedOgStaticParams[] {
+export function getLocalizedOgStaticParams(lang = geistdocsConfig.defaultLanguage): LocalizedOgStaticParams[] {
   return source.getPages(lang).map((page) => ({
     lang: page.locale ?? lang,
     slug: getPageImage(page).segments,
@@ -32,7 +32,7 @@ export function getLocalizedOgStaticParams(lang = config.defaultLanguage): Local
 }
 
 export function getRootOgStaticParams(): RootOgStaticParams[] {
-  return getLocalizedOgStaticParams(config.defaultLanguage).map(({ slug }) => ({ slug }));
+  return getLocalizedOgStaticParams(geistdocsConfig.defaultLanguage).map(({ slug }) => ({ slug }));
 }
 
 export function createOgImageResponse({ lang, slug }: OgImageParams): ImageResponse | Response {

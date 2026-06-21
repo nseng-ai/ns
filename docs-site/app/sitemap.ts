@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { config } from "@/lib/geistdocs/config";
+import { geistdocsConfig } from "@/lib/geistdocs/config";
 import { source } from "@/lib/geistdocs/source";
 import { getSiteOrigin } from "@/lib/geistdocs/url";
 
@@ -13,7 +13,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const origin = getSiteOrigin();
   const url = (path: string): string => new URL(path, origin).toString();
 
-  const pages: MetadataRoute.Sitemap = source.getPages(config.defaultLanguage).map((page) => {
+  const pages: MetadataRoute.Sitemap = source.getPages(geistdocsConfig.defaultLanguage).map((page) => {
     const data = page.data as SitemapPageData;
 
     return {

@@ -130,7 +130,7 @@ export interface CommandContext extends BaseRuntimeContext {
 	newSession?(options?: NewSessionOptions): Promise<SessionReplacementResult>;
 }
 
-export interface ToolContext extends BaseRuntimeContext {}
+export type ToolContext = BaseRuntimeContext;
 
 export interface ExtensionAPI {
 	registerCommand(

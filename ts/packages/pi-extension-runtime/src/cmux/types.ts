@@ -90,7 +90,7 @@ export interface AgentEndContext {
 	ui: UiLike;
 }
 
-export interface SessionStartContext extends BaseContext {}
+export type SessionStartContext = BaseContext;
 
 export interface CommandDefinition {
 	description?: string;

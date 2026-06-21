@@ -12,7 +12,7 @@ import {
   translations,
 } from "@/geistdocs";
 
-export const config = defineConfig({
+export const geistdocsConfig = defineConfig({
   title,
   agent,
   defaultLanguage: "en",

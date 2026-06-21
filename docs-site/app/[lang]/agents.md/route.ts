@@ -1,8 +1,8 @@
 import { createAgentsRoute } from "@vercel/geistdocs/routes/agents";
-import { config } from "@/lib/geistdocs/config";
+import { geistdocsConfig } from "@/lib/geistdocs/config";
 
 const agentsRoute = createAgentsRoute({
-  config,
+  config: geistdocsConfig,
 });
 
 export const GET = agentsRoute.GET;

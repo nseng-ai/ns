@@ -1,10 +1,10 @@
 import { createSource } from "@vercel/geistdocs/source";
 import { docs } from "@/.source/server";
-import { config } from "./config";
+import { geistdocsConfig } from "./config";
 
 export const geistdocsSource = createSource({
   docs,
-  config,
+  config: geistdocsConfig,
   id: "docs",
   label: "Docs",
 });
