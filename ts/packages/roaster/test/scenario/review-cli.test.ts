@@ -377,6 +377,7 @@ describe("roaster review CLI", () => {
 		expect(entries).toHaveLength(1);
 		const entry = entries[0];
 		expect(entry?.namespace).toBe("roaster");
+		expect(entry?.branch).toBe("feature");
 		expect(entry?.key).toMatch(/^reviews\/dignified-python\/\d{4}-\d{2}-\d{2}T/);
 		expect(entry?.content).toContain("# Roaster Review: dignified-python");
 		expect(entry?.content).toContain("- Review key: `dignified-python`");
@@ -389,6 +390,26 @@ describe("roaster review CLI", () => {
 		expect(entry?.content).toContain("## Input Coverage");
 		expect(entry?.content).not.toContain("```json");
 		expect(entry?.content).not.toContain("payload");
+	});
+
+	test("review run accepts an explicit Branch Memory log branch", async () => {
+		const reviewLog = new FakeReviewLogGateway();
+		const run = await runRoaster(
+			["review", "run", REVIEW_KEY, "--model", "opus", "--log-branch", "pr/head"],
+			{
+				context: contextWithCatalog({
+					sources: { [REVIEW_KEY]: sampleSource() },
+					reviewLog,
+				}),
+			},
+		);
+
+		expect(run.exitCode).toBe(0);
+		const entries = reviewLog.writtenEntries();
+		expect(entries).toHaveLength(1);
+		expect(entries[0]?.branch).toBe("pr/head");
+		expect(entries[0]?.entryLocator).toContain("refs/brmem/ns/roaster/pr---head:");
+		expect(entries[0]?.content).toContain("- Branch: `pr/head`");
 	});
 
 	test("review run logging failure exits nonzero and preserves review result", async () => {

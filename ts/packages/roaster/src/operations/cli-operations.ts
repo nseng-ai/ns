@@ -81,6 +81,9 @@ export const reviewRunRequestSchema = z.object({
 	model: z.string().optional().describe("Concrete model override."),
 	modelProfile: z.string().optional().describe("Model profile override."),
 	baseRef: z.string().optional().describe("Base ref for the local diff."),
+	logBranch: nonBlankStringSchema
+		.optional()
+		.describe("Branch Memory branch for the review log. Defaults to the current branch."),
 });
 
 export type ReviewRunRequest = z.infer<typeof reviewRunRequestSchema>;
@@ -252,11 +255,12 @@ export async function runReviewByKey(
 		response.value,
 	);
 	const ranAt = new Date().toISOString();
-	const metadata = await reviewLogMetadata(ctx);
+	const metadata = await reviewLogMetadata(ctx, request.logBranch);
 	const logResult = await ctx.reviewLog.writeReviewLog({
 		...environmentOptions(ctx.runScope),
 		reviewKey: source.value.key,
 		ranAt,
+		...(request.logBranch === undefined ? {} : { branch: request.logBranch }),
 		content: renderReviewLogMarkdown(runResult, { ranAt, ...metadata }),
 	});
 	if (logResult.type === "error") {
@@ -386,12 +390,16 @@ async function loadDefinitions(
 	return { type: "ok", value: loaded };
 }
 
-async function reviewLogMetadata(ctx: RoasterRuntime): Promise<ReviewLogMetadata> {
+async function reviewLogMetadata(
+	ctx: RoasterRuntime,
+	logBranch: string | undefined,
+): Promise<ReviewLogMetadata> {
 	const options = environmentOptions(ctx.runScope);
-	const currentBranch = await ctx.gitGateway.currentBranch(options);
+	const currentBranch =
+		logBranch === undefined ? branchMetadataValue(await ctx.gitGateway.currentBranch(options)) : logBranch;
 	const headCommit = await ctx.gitGateway.headCommit(options);
 	return {
-		branch: branchMetadataValue(currentBranch),
+		branch: currentBranch,
 		headCommit: headCommit.ok
 			? headCommit.value
 			: unavailableMetadataValue(headCommit.error.message),

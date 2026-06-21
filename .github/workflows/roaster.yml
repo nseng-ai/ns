@@ -110,6 +110,7 @@ jobs:
           status=0
           output=$(pnpm --config.verify-deps-before-run=false --dir ts exec roaster review run "$REVIEW_KEY" \
             --base-ref "$BASE_REF" \
+            --log-branch "$GITHUB_HEAD_REF" \
             --format json) || status=$?
 
           echo "--- roaster envelope ---"

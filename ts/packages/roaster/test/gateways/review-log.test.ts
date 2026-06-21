@@ -29,6 +29,7 @@ describe("RealReviewLogGateway", () => {
 			...scope,
 			reviewKey: "typescript-style",
 			ranAt: "2026-06-20T18:42:11.123Z",
+			branch: "feature",
 			content: "# Review\n",
 		});
 
@@ -37,11 +38,13 @@ describe("RealReviewLogGateway", () => {
 		expect(result.value.key).toBe("reviews/typescript-style/2026-06-20T18-42-11-123Z.md");
 		const call = execApi.calls()[0];
 		expect(call?.command).toBe("brmem");
-		expect(call?.args.slice(0, 5)).toEqual([
+		expect(call?.args.slice(0, 7)).toEqual([
 			"put",
 			"reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
 			"--namespace",
 			"roaster",
+			"--branch",
+			"feature",
 			"--file",
 		]);
 		expect(call?.args.slice(-2)).toEqual(["--format", "json"]);

@@ -48,6 +48,7 @@ export interface ReviewLogWriteRequest extends RoasterEnvironmentOptions {
 	readonly reviewKey: string;
 	readonly content: string;
 	readonly ranAt: string;
+	readonly branch?: string | undefined;
 }
 
 export interface ReviewLogListRequest extends RoasterEnvironmentOptions {
@@ -103,6 +104,7 @@ export class RealReviewLogGateway implements ReviewLogGateway {
 					entryKey,
 					"--namespace",
 					ROASTER_REVIEW_LOG_NAMESPACE,
+					...(request.branch === undefined ? [] : ["--branch", request.branch]),
 					"--file",
 					filePath,
 					"--format",
@@ -247,11 +249,12 @@ export class FakeReviewLogGateway implements ReviewLogGateway {
 	): Promise<RoasterResult<ReviewLogWriteResult>> {
 		if (this.writeFailure !== undefined) return error(this.writeFailure);
 		const key = reviewLogEntryKey({ reviewKey: request.reviewKey, ranAt: request.ranAt });
+		const branch = request.branch ?? this.branch;
 		const entry: WrittenReviewLogEntry = {
 			namespace: ROASTER_REVIEW_LOG_NAMESPACE,
 			key,
-			branch: this.branch,
-			entryLocator: reviewLogEntryLocator(this.branch, key),
+			branch,
+			entryLocator: reviewLogEntryLocator(branch, key),
 			reviewKey: request.reviewKey,
 			ranAt: request.ranAt,
 			content: request.content,
