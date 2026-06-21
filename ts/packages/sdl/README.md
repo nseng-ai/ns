@@ -76,7 +76,7 @@ Discovery is side-effect-light: `sdl --help`, `sdl -h`, `sdl --version`, `sdl --
 
 The legacy `.sdl/commands/<command>.ts` path has been removed. It is not a compatibility fallback.
 
-Dynamic Pi `/sdl:*` mirrors are not part of this first general extension-loading slice. Existing exact mirrors such as `/sdl:changes`, `/sdl:cp`, and `/sdl:submit` continue to delegate to `sdl`; nested code-lifecycle mirrors such as `/sdl:code:regenerate-pr` may delegate to SDL commands without adding flat mirrors. Arbitrary SDL extension command entries are not dynamically mirrored into Pi.
+Dynamic Pi `/sdl:*` mirrors are not part of this first general extension-loading slice. In this repository, the exact `/sdl:changes` and nested `/sdl:code:changes` mirrors continue to delegate to `sdl changes` after the project-local extension is restored. Other repository workflow mirrors are unavailable until their SDL command entries migrate back. Arbitrary SDL extension command entries are not dynamically mirrored into Pi.
 
 ## Public SDL extension API
 
@@ -111,30 +111,7 @@ SDL command entries own their prompts, validation, repair policy, and exact exte
 
 ## `cp`
 
-Create a checkpoint commit for the current worktree diff.
-
-```bash
-sdl cp
-```
-
-Behavior:
-
-- refuses trunk branches (`main` and `master`);
-- refuses clean worktrees;
-- asks the configured text-generation gateway for a valid `[cp] ...` commit message;
-- makes one repair attempt for an invalid model draft;
-- stages all changes and commits with the prepared message;
-- prints the created commit summary followed by the commit message.
-
-Environment:
-
-- `SDL_CHECKPOINT_MODEL`: model reference for the checkpoint message.
-
-For compatibility with existing local environments, an unset `SDL_CHECKPOINT_MODEL` falls back to `SDL_DEV_CHECKPOINT_MODEL`.
-
-Projects may override `sdl cp` by contributing an SDL command entry named `cp` from project `.sdl/extensions` or XDG global `$XDG_DATA_HOME/sdl/extensions` (default `$HOME/.local/share/sdl/extensions`). When no SDL extension override exists, SDL uses the built-in `cp` implementation.
-
-Pi exposes the same capability as `/sdl:cp` through `.pi/extensions/sdl.ts`; `/code:cp` is not retained as a compatibility alias.
+Checkpoint creation is intentionally unavailable as an SDL command in the first project-local extension cutover. It is expected to return as a project-local SDL extension in a later migration slice. Until then, there is no built-in `sdl cp` implementation and no Pi mirror for checkpoint creation through SDL.
 
 ## `changes`
 
@@ -156,60 +133,15 @@ Environment:
 - `SDL_CHANGES_MODEL`: model reference for generated changes summaries.
 - `PI_DRAFT_MODEL`: transitional fallback for the old Pi changes-summary model selection.
 
-Pi exposes the same capability as `/sdl:changes`; `/code:changes` is not retained as a compatibility alias.
+Pi exposes the same capability as `/sdl:changes` and `/sdl:code:changes`; `/code:changes` is not retained as a compatibility alias.
 
 ## `submit`
 
-Checkpoint outstanding changes, then submit the current Graphite stack.
-
-```bash
-sdl submit [--no-restack] [--verbose]
-```
-
-Behavior:
-
-- runs the existing SDL checkpoint flow before submit when the worktree is dirty;
-- uses `@sdl/core/submit` for Graphite submit, PR metadata prewrite, current-PR verification, and PR-description generation;
-- prints concise phase-oriented progress by default while preserving captured Graphite output for PR-link extraction and failure diagnostics;
-- streams raw Graphite/subprocess output for debugging with `--verbose`;
-- skips model regeneration and `gh pr edit` for unchanged PR descriptions when the stored managed-region fingerprint matches the current GitHub PR diff patch id, prompt hash, and generator version;
-- when regeneration is needed, updates the PR title and replaces only the machine-owned generated body region, preserving human text outside it;
-- runs `gt restack --no-interactive` automatically when Graphite reports a required restack; `--no-restack` disables that automation and preserves the guided failure path;
-- keeps deterministic hand-written guidance for known Graphite failures as fallback and raw-log context;
-- for failed submit runs with stderr, asks the configured model for the primary concise failure summary and writes the complete raw stdout/stderr transcript under `$XDG_STATE_HOME/sdl/submit-failure-logs` by default (or `SDL_SUBMIT_FAILURE_LOG_DIR` when set) and prints the raw-log path;
-- exposes the Pi mirror as `/sdl:submit` from SDL command metadata.
-
-Environment:
-
-- `SDL_DEV_PR_DESCRIPTION_MODEL`: model reference for generated PR descriptions.
-- `SDL_DEV_PR_DESCRIPTION_PROMPT`: optional custom PR-description prompt file.
-- `SDL_SUBMIT_FAILURE_MODEL`: model reference for submit failure summarization.
-- `SDL_SUBMIT_FAILURE_LOG_DIR`: optional absolute directory (after `~/` expansion) under which submit-failure raw log directories are created.
-
-`submit` is a built-in SDL command, not a legacy repo-local `.sdl/commands/submit.ts` module. It can be overridden through an SDL command entry or manifest descriptor under `.sdl/extensions`. Legacy submit surfaces are not retained as compatibility surfaces.
+Graphite submit orchestration is intentionally unavailable as an SDL command in the first project-local extension cutover. It is expected to return as a project-local SDL extension in a later migration slice. Until then, there is no built-in `sdl submit` implementation and no Pi mirror for submit through SDL.
 
 ## `regenerate-pr`
 
-Regenerate the current branch PR title and body.
-
-```bash
-sdl regenerate-pr [--force]
-```
-
-Behavior:
-
-- resolves the current branch PR through GitHub;
-- reads commit messages and PR diff through `@sdl/core/submit`;
-- generates a replacement title/body with the PR-description prompt;
-- updates the PR title/body and writes success output with the PR number, URL, title, and prompt source;
-- accepts `--force` as a compatibility no-op and does not support `--format`.
-
-Environment:
-
-- `SDL_DEV_PR_DESCRIPTION_MODEL`: model reference for generated PR descriptions.
-- `SDL_DEV_PR_DESCRIPTION_PROMPT`: optional custom PR-description prompt file.
-
-Pi exposes this capability only as the nested `/sdl:code:regenerate-pr` adapter in this slice. There is no flat `/sdl:regenerate-pr` Pi mirror.
+PR metadata regeneration is intentionally unavailable as an SDL command in the first project-local extension cutover. It is expected to return as a project-local SDL extension in a later migration slice. Until then, there is no built-in `sdl regenerate-pr` implementation and no Pi mirror for PR regeneration through SDL.
 
 ## `pr-regen`
 
