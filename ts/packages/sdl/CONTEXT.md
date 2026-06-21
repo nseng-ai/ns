@@ -57,7 +57,7 @@ An SDL package subpath that exists so SDL workspace packages can share primitive
 *Avoid*: plugin API, public SDK, command-author import path.
 
 **Default SDL command**:
-A built-in SDL command implementation used when no global or project SDL command entry overrides it. The project-local extension cutover intentionally leaves the SDL kernel with no repository workflow domain defaults; `changes`, `cp`, and `submit` are restored in this repo as direct project-local extensions at `.sdl/extensions/changes.ts`, `.sdl/extensions/cp.ts`, and `.sdl/extensions/submit.ts`, while `regenerate-pr` is a planned project-local migration and is not a universal built-in during this gap.
+A built-in SDL command implementation used when no global or project SDL command entry overrides it. The project-local extension cutover intentionally leaves the SDL kernel with no repository workflow domain defaults; `changes`, `cp`, `submit`, and `regenerate-pr` are restored in this repo as direct project-local extensions at `.sdl/extensions/changes.ts`, `.sdl/extensions/cp.ts`, `.sdl/extensions/submit.ts`, and `.sdl/extensions/regenerate-pr.ts`, not as universal built-ins.
 *Avoid*: project override, mandatory plugin, external command entry, assuming a repository workflow command is built in.
 
 **Project override**:
@@ -65,7 +65,7 @@ A repo-local `.sdl/extensions` command entry or manifest descriptor that replace
 *Avoid*: compatibility alias, wrapper around old command name, global user plugin.
 
 **SDL Pi mirror**:
-A `/sdl:<name>` Pi command that delegates to the corresponding `sdl <name>` CLI behavior. During the project-local extension migration, `/sdl:changes`, `/sdl:cp`, `/sdl:submit`, and `/sdl:code:changes` are explicit mirrors for repo-local SDL commands; old checkpoint `/code:*`, nested checkpoint aliases, `/sdl:code:submit`, and legacy submit aliases are not restored, and `regenerate-pr` mirrors remain unavailable until its SDL command entry migrates back. The mirror is an adapter over SDL, not a separate implementation.
+A `/sdl:<name>` Pi command that delegates to the corresponding `sdl <name>` CLI behavior. During the project-local extension migration, `/sdl:changes`, `/sdl:cp`, `/sdl:submit`, `/sdl:regenerate-pr`, and `/sdl:code:changes` are explicit mirrors for repo-local SDL commands; old checkpoint `/code:*`, nested checkpoint aliases, `/sdl:code:submit`, `/sdl:code:regenerate-pr`, and legacy submit/PR-regeneration aliases are not restored. The mirror is an adapter over SDL, not a separate implementation.
 *Avoid*: parallel Pi implementation, `/code:*` replacement wrapper without SDL, independent behavior fork, dynamic arbitrary `/sdl:*` registration, advertising mirrors for unavailable SDL commands.
 
 **Hard cutover**:

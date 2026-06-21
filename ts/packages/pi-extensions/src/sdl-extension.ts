@@ -31,10 +31,15 @@ const SUBMIT_COMMAND_INFO = {
 	name: "submit",
 	description: "Checkpoint outstanding changes, then submit the current Graphite stack.",
 } as const satisfies SdlCommandInfo;
+const REGENERATE_PR_COMMAND_INFO = {
+	name: "regenerate-pr",
+	description: "Regenerate the current branch PR title and description.",
+} as const satisfies SdlCommandInfo;
 const SDL_DIRECT_COMMANDS = [
 	CHANGES_COMMAND_INFO,
 	CP_COMMAND_INFO,
 	SUBMIT_COMMAND_INFO,
+	REGENERATE_PR_COMMAND_INFO,
 ] as const satisfies readonly SdlCommandInfo[];
 const SDL_CODE_ALIAS_COMMANDS = [CHANGES_COMMAND_INFO] as const satisfies readonly SdlCommandInfo[];
 const SDL_CODE_COMMAND_ALIASES = {
@@ -77,6 +82,18 @@ export const sdlExtensionParity = definePiSurfaceParity([
 		sourceModule: "sdl-extension",
 		notes:
 			"Pi command delegates to sdl submit through registerCliCommandExtension; in this repo the CLI behavior is restored by the project-local .sdl/extensions/submit.ts extension. Nested /sdl:code:submit and legacy submit aliases are not restored.",
+	},
+	{
+		kind: "command",
+		surface: "sdl:regenerate-pr",
+		workflow: "Regenerate the current branch PR title and generated description region",
+		parity: "FULL",
+		cli: "sdl regenerate-pr",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@sdl/pi-extensions",
+		sourceModule: "sdl-extension",
+		notes:
+			"Pi command delegates to sdl regenerate-pr through registerCliCommandExtension; in this repo the CLI behavior is restored by the project-local .sdl/extensions/regenerate-pr.ts extension. Nested /sdl:code:regenerate-pr and legacy pr-regen aliases are not restored.",
 	},
 	{
 		kind: "command",

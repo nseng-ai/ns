@@ -191,30 +191,27 @@ Pi exposes the same capability as `/sdl:submit`. `/sdl:code:submit`, `/dev:submi
 
 ## `regenerate-pr`
 
-PR metadata regeneration is intentionally unavailable as an SDL command in the first project-local extension cutover. It is expected to return as a project-local SDL extension in a later migration slice. Until then, there is no built-in `sdl regenerate-pr` implementation and no Pi mirror for PR regeneration through SDL.
-
-## `pr-regen`
-
-Regenerate the current branch PR title and managed generated body region.
+Regenerate the current branch PR title and SDL-managed generated body region.
 
 ```bash
-sdl pr-regen
+sdl regenerate-pr [--force]
 ```
 
 Behavior:
 
-- resolves the current branch PR through GitHub;
+- resolves the current branch PR through `gh pr view --json number,url,title,body,headRefName,baseRefName`;
 - computes the same stable patch id as `gh pr diff <number> | git patch-id --stable`;
 - asks the configured PR-description model for a fresh title and body even when `sdl submit` would skip the PR as unchanged;
-- replaces only the open `<details>` managed generated body region and preserves human PR body text outside that region;
-- exposes the Pi mirror as `/sdl:pr-regen`.
+- replaces or inserts only the SDL-managed generated body region and preserves human PR body text outside that region;
+- asks for confirmation immediately before `gh pr edit`; if confirmation is declined or unavailable, GitHub is not edited;
+- accepts `--force` as a compatibility no-op that does not bypass confirmation.
 
 Environment matches PR description generation for `sdl submit`:
 
 - `SDL_DEV_PR_DESCRIPTION_MODEL`: model reference for generated PR descriptions.
 - `SDL_DEV_PR_DESCRIPTION_PROMPT`: optional custom PR-description prompt file.
 
-`sdl-dev pr-regen` and `/code:pr-regen` are not retained as compatibility surfaces.
+Pi exposes the same capability as `/sdl:regenerate-pr`. `sdl pr-regen`, `/sdl:pr-regen`, `/code:pr-regen`, and `/sdl:code:regenerate-pr` are not retained as compatibility surfaces.
 
 ## Testing future command migrations
 

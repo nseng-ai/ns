@@ -63,7 +63,7 @@ To regenerate the current branch PR explicitly, run:
 sdl regenerate-pr
 ```
 
-`submit` preserves unchanged generated descriptions by comparing the GitHub PR diff patch id, prompt hash, and generator version stored in the managed body region. Explicit `sdl regenerate-pr` always regenerates the current branch PR title and managed generated body region while preserving human-authored body text outside that region.
+`submit` preserves unchanged generated descriptions by comparing the GitHub PR diff patch id, prompt hash, and generator version stored in the managed body region. Explicit `sdl regenerate-pr` asks before editing GitHub, always regenerates the current branch PR title and managed generated body region, and preserves human-authored body text outside that region.
 
 ## Failure handling
 

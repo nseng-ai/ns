@@ -161,7 +161,7 @@ The parity-review convention that Pi model-visible tools are host-native bridges
 *Avoid*: custom-tool parity row, hidden command surface, tool as workflow owner.
 
 **Code command prefix**:
-The Pi slash-command namespace for codebase/source-control or review workflows that intentionally remain outside the SDL code-lifecycle family. The current project-owned code-prefix command is `/code:pr-feedback-watch`; migrated lifecycle workflows use primary SDL mirrors under `/sdl:*` or nested code-lifecycle surfaces under `/sdl:code:*`, not `/code:*` compatibility aliases.
+The Pi slash-command namespace for codebase/source-control or review workflows that intentionally remain outside the SDL code-lifecycle family. The current project-owned code-prefix command is `/code:pr-feedback-watch`; migrated lifecycle workflows use primary SDL mirrors under `/sdl:*` or nested code-lifecycle surfaces under `/sdl:code:*`, not `/code:*` compatibility aliases. PR metadata regeneration uses flat `/sdl:regenerate-pr`, not `/code:pr-regen` or `/sdl:code:regenerate-pr`.
 *Avoid*: visibility flag, prototype marker, package prefix, migrated SDL workflow prefix.
 
 **Pending worktree snapshot**:
