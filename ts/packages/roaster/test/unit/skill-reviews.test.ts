@@ -9,11 +9,7 @@ import {
 	loadRoastReviewDefinition,
 	loadRoastSkillEntries,
 	loadRoastSkillEntriesFromReviewsDirSync,
-	roastDefaultPromptForKey,
 	roastReviewPathForKey,
-	roastSkillLabelForKey,
-	roastSkillTitleForKey,
-	roastSurfaceForReviewKey,
 } from "../../src/skill-reviews.ts";
 
 const REVIEW_SOURCE = `---
@@ -53,20 +49,22 @@ description: TypeScript style description.
 			]);
 			expect(entries[0]).toMatchObject({
 				surface: "roast:asdl-typescript-style",
-				reviewPath: "reviews/asdl-typescript-style.md",
 				title: "ASDL TypeScript style",
 				label: "Roast: ASDL TypeScript style",
 				description: "TypeScript style description.",
 				defaultPrompt: "Run the ASDL TypeScript style roast against the current branch changes.",
 			});
+			expect(roastReviewPathForKey(entries[0]?.reviewKey ?? "")).toBe(
+				"reviews/asdl-typescript-style.md",
+			);
 			expect(entries[1]).toMatchObject({
 				surface: "roast:beta-review",
-				reviewPath: "reviews/beta-review.md",
 				title: "Beta review",
 				label: "Roast: Beta review",
 				description: "Fixture review description.",
 				defaultPrompt: "Run the Beta review roast against the current branch changes.",
 			});
+			expect(roastReviewPathForKey(entries[1]?.reviewKey ?? "")).toBe("reviews/beta-review.md");
 		} finally {
 			rmSync(reviewsDir, { recursive: true, force: true });
 		}
@@ -127,13 +125,26 @@ description: TypeScript style description.
 		});
 	});
 
-	test("derives surfaces, paths, labels, and default prompts from review keys", () => {
-		expect(roastSurfaceForReviewKey("dry-but-not-too-dry")).toBe("roast:dry-but-not-too-dry");
-		expect(roastReviewPathForKey("dry-but-not-too-dry")).toBe("reviews/dry-but-not-too-dry.md");
-		expect(roastSkillTitleForKey("dry-but-not-too-dry")).toBe("DRY but not too DRY");
-		expect(roastSkillLabelForKey("dry-but-not-too-dry")).toBe("Roast: DRY but not too DRY");
-		expect(roastDefaultPromptForKey("dry-but-not-too-dry")).toBe(
-			"Run the DRY but not too DRY roast against the current branch changes.",
-		);
+	test("derives surfaces, paths, labels, and default prompts from review keys", async () => {
+		const reviewCatalog = new FakeReviewCatalogGateway({
+			reviewSourcesByKey: { "dry-but-not-too-dry": REVIEW_SOURCE },
+		});
+
+		const loaded = await loadRoastReviewDefinition({
+			cwd: "/repo",
+			reviewCatalog,
+			key: "dry-but-not-too-dry",
+		});
+
+		expect(loaded.type).toBe("ok");
+		if (loaded.type === "error") return;
+		expect(loaded.entry).toMatchObject({
+			surface: "roast:dry-but-not-too-dry",
+			reviewKey: "dry-but-not-too-dry",
+			title: "DRY but not too DRY",
+			label: "Roast: DRY but not too DRY",
+			defaultPrompt: "Run the DRY but not too DRY roast against the current branch changes.",
+		});
+		expect(roastReviewPathForKey(loaded.entry.reviewKey)).toBe("reviews/dry-but-not-too-dry.md");
 	});
 });

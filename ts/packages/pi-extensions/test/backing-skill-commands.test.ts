@@ -8,14 +8,14 @@ import {
 	genericBackingSkillCommandSpecs,
 	registerBackingSkillCommands,
 	SPECIALIZED_PI_COMMAND_SURFACES,
-	type BackingSkillCommandContext,
 } from "../src/backing-skill-commands.ts";
+import type { PiCommandContext } from "../src/pi-command-host.ts";
 
 type RegisteredCommand = Parameters<typeof registerCommand>[1];
 
 function registerCommand(
 	_name: string,
-	_command: { handler(args: string, ctx: BackingSkillCommandContext): Promise<void> | void },
+	_command: { handler(args: string, ctx: PiCommandContext): Promise<void> | void },
 ): void {}
 
 class FakeBackingSkillHost {
@@ -31,7 +31,7 @@ class FakeBackingSkillHost {
 	}
 }
 
-function commandContext(cwd: string): BackingSkillCommandContext & {
+function commandContext(cwd: string): PiCommandContext & {
 	notifications: Array<{ message: string; level: string | undefined }>;
 } {
 	const notifications: Array<{ message: string; level: string | undefined }> = [];

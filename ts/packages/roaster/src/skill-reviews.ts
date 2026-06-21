@@ -14,7 +14,6 @@ import { parseReviewDefinition } from "./review-definition.ts";
 export interface RoastSkillEntry {
 	readonly surface: string;
 	readonly reviewKey: string;
-	readonly reviewPath: string;
 	readonly title: string;
 	readonly label: string;
 	readonly description: string;
@@ -114,7 +113,7 @@ export function loadRoastSkillEntriesFromReviewsDirSync(
 	return entries;
 }
 
-export function roastSurfaceForReviewKey(key: string): string {
+function roastSurfaceForReviewKey(key: string): string {
 	return `roast:${key}`;
 }
 
@@ -122,21 +121,17 @@ export function roastReviewPathForKey(key: string): string {
 	return `reviews/${key}.md`;
 }
 
-export function roastSkillTitleForKey(key: string): string {
+function roastSkillTitleForKey(key: string): string {
 	const words = key.split(/[/-]/u).filter((word) => word.length > 0);
 	return words.map((word, index) => humanizeKeyWord(word, index)).join(" ");
 }
 
-export function roastSkillLabelForKey(key: string): string {
+function roastSkillLabelForKey(key: string): string {
 	return `Roast: ${roastSkillTitleForKey(key)}`;
 }
 
-export function roastDefaultPromptForKey(key: string): string {
+function roastDefaultPromptForKey(key: string): string {
 	return `Run the ${roastSkillTitleForKey(key)} roast against the current branch changes.`;
-}
-
-export function roastSkillLabel(entry: RoastSkillEntry): string {
-	return entry.label;
 }
 
 function roastSkillEntryFromDefinition(key: string, definition: ReviewDefinition): RoastSkillEntry {
@@ -144,9 +139,8 @@ function roastSkillEntryFromDefinition(key: string, definition: ReviewDefinition
 	return {
 		surface: roastSurfaceForReviewKey(key),
 		reviewKey: key,
-		reviewPath: roastReviewPathForKey(key),
 		title,
-		label: `Roast: ${title}`,
+		label: roastSkillLabelForKey(key),
 		description: definition.description,
 		defaultPrompt: roastDefaultPromptForKey(key),
 	};
