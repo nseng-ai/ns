@@ -9,9 +9,9 @@ import type { Clock } from "../clock.ts";
 import type { CommandExecApi, CommandRunner, ExecOptions, ExecResult } from "../exec.ts";
 import type { ScheduledTimer, TimerScheduler } from "../timers.ts";
 import type {
-	TextGenerationGateway,
 	TextGenerationRequest,
 	TextGenerationResult,
+	TextGenerator,
 } from "../submit/text-generation.ts";
 
 export interface NodeRuntimeCliEntrypointOptions {
@@ -201,7 +201,7 @@ export class ScriptedCommandExecApi implements CommandExecApi {
 	}
 }
 
-export class ScriptedTextGenerationGateway implements TextGenerationGateway {
+export class ScriptedTextGenerator implements TextGenerator {
 	private readonly requestsInternal: TextGenerationRequest[] = [];
 	private readonly script: ScriptedQueue<ScriptedTextGenerationStep>;
 
@@ -213,7 +213,7 @@ export class ScriptedTextGenerationGateway implements TextGenerationGateway {
 		return this.requestsInternal.map(copyTextGenerationRequest);
 	}
 
-	readonly generateText: TextGenerationGateway["generateText"] = async (request) => {
+	readonly generateText: TextGenerator["generateText"] = async (request) => {
 		this.requestsInternal.push(copyTextGenerationRequest(request));
 		const message = "unexpected text generation request";
 		const result = this.script.shiftOrRecordError(message);

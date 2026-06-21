@@ -14,14 +14,14 @@ import {
 	type PromptSource,
 } from "./pr-description.ts";
 import type { PreparedSubmitPrMetadata } from "./submit-pr-metadata-prewrite.ts";
-import type { TextGenerationGateway } from "./text-generation.ts";
+import type { TextGenerator } from "./text-generation.ts";
 
 export interface PrDescriptionOrchestrationOptions {
 	cwd: string;
 	env: Record<string, string | undefined>;
 	git: GitGateway;
 	githubPr: GithubPrGateway;
-	textGeneration: TextGenerationGateway;
+	textGeneration: TextGenerator;
 	pr: GithubPrDetails;
 	generation?: Extract<PrDescriptionGenerationResolution, { ok: true }>;
 	prewrittenMetadata?: PreparedSubmitPrMetadata;

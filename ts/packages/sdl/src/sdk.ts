@@ -2,13 +2,13 @@ import type { PositionalSpec } from "@sdl/clinkr/raw";
 import type { ExecResult } from "@sdl/core/exec";
 import { z } from "zod";
 
-import type { TextGenerationGateway } from "./text-generation.ts";
+import type { TextGenerator } from "./text-generation.ts";
 
 export type { PositionalSpec } from "@sdl/clinkr/raw";
 export type { ExecResult } from "@sdl/core/exec";
 export { z } from "zod";
 export type {
-	TextGenerationGateway,
+	TextGenerator,
 	TextGenerationRequest,
 	TextGenerationResult,
 } from "./text-generation.ts";
@@ -31,7 +31,7 @@ export interface SdlContext {
 	/** Low-level argv execution hook. Project commands own the exact commands they run. */
 	exec(command: string, args: string[], options?: SdlExecOptions): Promise<ExecResult>;
 	/** Raw text-generation capability; SDL commands own prompts, validation, and repair policy. */
-	model: TextGenerationGateway;
+	model: TextGenerator;
 	/** Durable output for commands that need to stream multiple chunks before returning. */
 	stdout?: ((text: string) => void) | undefined;
 	/** Durable error output for commands that need to stream multiple chunks before returning. */

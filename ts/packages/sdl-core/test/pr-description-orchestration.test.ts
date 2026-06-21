@@ -13,7 +13,7 @@ import {
 	type PromptSource,
 	type StablePatchIdForPrResult,
 } from "@sdl/core/submit";
-import { ScriptedTextGenerationGateway } from "@sdl/core/testing";
+import { ScriptedTextGenerator } from "@sdl/core/testing";
 
 const PROMPT_SOURCE: PromptSource = { type: "builtin" };
 const GENERATION = {
@@ -93,7 +93,7 @@ describe("orchestratePrDescription", () => {
 		const githubPr = new FakeGithubPrGateway({
 			pr: prDetails({ title: "Prepared title", body: "Prepared body" }),
 		});
-		const textGeneration = new ScriptedTextGenerationGateway([]);
+		const textGeneration = new ScriptedTextGenerator([]);
 
 		const result = await orchestratePrDescription({
 			cwd: "/repo",
@@ -120,7 +120,7 @@ describe("orchestratePrDescription", () => {
 			env: {},
 			git: UNUSED_GIT,
 			githubPr,
-			textGeneration: new ScriptedTextGenerationGateway([]),
+			textGeneration: new ScriptedTextGenerator([]),
 			pr: DEFAULT_PR,
 			prewrittenMetadata: preparedMetadata({ title: "Prepared title", body: "Prepared body" }),
 		});
@@ -142,7 +142,7 @@ describe("orchestratePrDescription", () => {
 			generator: "sdl-pr-description-v2",
 		});
 		const githubPr = new FakeGithubPrGateway({ pr: prDetails({ body }) });
-		const textGeneration = new ScriptedTextGenerationGateway([]);
+		const textGeneration = new ScriptedTextGenerator([]);
 
 		const result = await orchestratePrDescription({
 			cwd: "/repo",
@@ -166,7 +166,7 @@ describe("orchestratePrDescription", () => {
 
 	test("generates and edits a managed generated region", async () => {
 		const githubPr = new FakeGithubPrGateway();
-		const textGeneration = new ScriptedTextGenerationGateway([
+		const textGeneration = new ScriptedTextGenerator([
 			{
 				ok: true,
 				text: "Generated title\n\nGenerated body\n\n## Key Changes\n\n- Adds behavior",
@@ -203,7 +203,7 @@ describe("orchestratePrDescription", () => {
 			generator: "sdl-pr-description-v2",
 		});
 		const githubPr = new FakeGithubPrGateway({ pr: prDetails({ body }) });
-		const textGeneration = new ScriptedTextGenerationGateway([
+		const textGeneration = new ScriptedTextGenerator([
 			{ ok: true, text: "Forced title\n\nForced body" },
 		]);
 

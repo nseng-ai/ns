@@ -80,7 +80,7 @@ export {
 	DEFAULT_PR_DESCRIPTION_MODEL_REF,
 	PR_DESCRIPTION_MODEL_ENV,
 	selectPrDescriptionModelRef,
-	type TextGenerationGateway,
+	type TextGenerator,
 	type TextGenerationRequest,
 	type TextGenerationResult,
 } from "./text-generation.ts";

@@ -4,7 +4,7 @@ import {
 	type CommandResult,
 	type PreparedCheckpointMessage,
 } from "@sdl/sdl/checkpoint-flow";
-import { createTextGenerationGateway } from "@sdl/sdl/context";
+import { createTextGenerator } from "@sdl/sdl/context";
 import type { PendingWorktreeSnapshot } from "@sdl/sdl/pending-worktree";
 import { selectCheckpointModelRef } from "@sdl/sdl/text-generation";
 
@@ -18,7 +18,7 @@ export async function prepareAutobranchCheckpointMessage(
 		status: snapshot.status,
 		diff: snapshot.diff,
 		modelRef: selectCheckpointModelRef(env),
-		textGeneration: createTextGenerationGateway(),
+		textGeneration: createTextGenerator(),
 	});
 }
 

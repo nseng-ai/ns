@@ -5,7 +5,7 @@ import { basename, isAbsolute, join, resolve } from "node:path";
 import process from "node:process";
 
 import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
-import type { ExecResult, SdlContext, TextGenerationGateway } from "@sdl/sdl/sdk";
+import type { ExecResult, SdlContext, TextGenerator } from "@sdl/sdl/sdk";
 
 // This project-local extension intentionally uses only the public SDL SDK import. The local
 // PR-description helpers below are SDK-pressure evidence for later command migrations, not new SDK API.
@@ -563,7 +563,7 @@ async function resolvePrDescriptionPrompt(input: {
 }
 
 async function preparePrDescription(input: {
-  textGeneration: TextGenerationGateway;
+  textGeneration: TextGenerator;
   modelRef: string;
   promptText: string;
   pr: GithubPrDetails;

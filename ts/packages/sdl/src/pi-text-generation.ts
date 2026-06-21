@@ -3,7 +3,7 @@ import type { Api, completeSimple, Model } from "@earendil-works/pi-ai";
 import { formatErrorMessage } from "@sdl/core/primitives";
 
 import type {
-	TextGenerationGateway,
+	TextGenerator,
 	TextGenerationRequest,
 	TextGenerationResult,
 } from "./text-generation.ts";
@@ -23,18 +23,18 @@ export interface PiModelRegistry {
 	getApiKeyAndHeaders(model: Model<Api>): Promise<ModelAuth>;
 }
 
-export interface PiTextGenerationGatewayOptions {
+export interface PiTextGeneratorOptions {
 	modelRegistry?: PiModelRegistry;
 	completeSimple?: CompleteSimpleFunction;
 	loadDefaultModelRegistry?: () => Promise<PiModelRegistry>;
 }
 
-export class PiTextGenerationGateway implements TextGenerationGateway {
+export class PiTextGenerator implements TextGenerator {
 	private readonly modelRegistry: PiModelRegistry | undefined;
 	private readonly completeSimple: CompleteSimpleFunction | undefined;
 	private readonly loadDefaultModelRegistry: () => Promise<PiModelRegistry>;
 
-	constructor(options: PiTextGenerationGatewayOptions = {}) {
+	constructor(options: PiTextGeneratorOptions = {}) {
 		this.modelRegistry = options.modelRegistry;
 		this.completeSimple = options.completeSimple;
 		this.loadDefaultModelRegistry = options.loadDefaultModelRegistry ?? loadDefaultModelRegistry;

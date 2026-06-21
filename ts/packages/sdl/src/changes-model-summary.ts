@@ -1,5 +1,5 @@
 import type { PendingWorktreeSnapshot } from "./pending-worktree.ts";
-import { selectChangesModelRef, type TextGenerationGateway } from "./text-generation.ts";
+import { selectChangesModelRef, type TextGenerator } from "./text-generation.ts";
 
 const CHANGES_SUMMARY_MAX_BULLETS = 4;
 const CHANGES_SUMMARY_MAX_TOKENS = 512;
@@ -55,7 +55,7 @@ export function validateChangesSummary(
 }
 
 export async function draftChangesSummary(input: {
-	model: TextGenerationGateway;
+	model: TextGenerator;
 	env: Record<string, string | undefined>;
 	snapshot: Pick<PendingWorktreeSnapshot, "branch" | "status" | "diff">;
 }): Promise<{ ok: true; summaryText: string } | { ok: false; error: string }> {
