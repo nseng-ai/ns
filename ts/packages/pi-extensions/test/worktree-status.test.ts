@@ -230,7 +230,7 @@ describe("worktree status extension registration and rendering", () => {
 		);
 		const footerLines = footer.render(200).map(stripTerminalEscapes);
 		expect(footerLines[0]).toBe(
-			"[wt] repo:repo wt:no-slot pwd:/repo | br:current-branch ↓:main commits:1 ↑:-",
+			"[wt] repo:repo wt:root pwd:/repo | br:current-branch ↓:main commits:1 ↑:-",
 		);
 		expect(footerLines[0]).not.toContain("stale-branch");
 		await pi.sessionShutdown?.();
@@ -367,6 +367,57 @@ describe("worktree status extension registration and rendering", () => {
 		}
 	});
 
+	test("custom footer formats repository root checkout as wt root and pwd dot", async () => {
+		const fixture = createRootCheckoutFixture();
+		const worktreeRoot = fixture.worktreeRoot;
+		try {
+			const pi = new LifecycleFakePi([]);
+			const statuses = new Map<string, string>();
+			let footerFactory: Parameters<NonNullable<ExtensionContext["ui"]["setFooter"]>>[0];
+			const ctx = testContext({
+				cwd: worktreeRoot,
+				sessionCwd: worktreeRoot,
+				statuses,
+				setFooter(factory) {
+					footerFactory = factory;
+				},
+				model: { id: "test-model", contextWindow: 272000 },
+			});
+			const loaders = fakeWorktreeStatusLoaders({
+				footerBranch: "feature/root",
+				localStatuses: [
+					queued(
+						localStatus({
+							identity: worktreeIdentity({
+								cwd: worktreeRoot,
+								head: { type: "branch", name: "feature/root" },
+							}),
+						}),
+					),
+				],
+			});
+
+			worktreeStatusExtension(pi as ExtensionAPI, { loaders });
+			await pi.sessionStart?.({}, ctx);
+
+			pi.assertDone();
+			expect(footerFactory).toBeDefined();
+			if (footerFactory === undefined) throw new Error("expected custom footer factory");
+			const footer = footerFactory(
+				{ requestRender() {} },
+				TEST_THEME,
+				footerData(statuses, "stale-branch"),
+			);
+
+			expect(stripTerminalEscapes(footer.render(200)[0] ?? "")).toBe(
+				"[wt] repo:sdl-tools wt:root pwd:. | br:feature/root ↓:main commits:1 ↑:-",
+			);
+			await pi.sessionShutdown?.();
+		} finally {
+			rmSync(fixture.tempRoot, { recursive: true, force: true });
+		}
+	});
+
 	test("custom footer formats linked worktree root as pwd dot", async () => {
 		const fixture = createLinkedWorktreeFixture("slot-04");
 		const worktreeRoot = fixture.worktreeRoot;
@@ -487,7 +538,7 @@ describe("worktree status extension registration and rendering", () => {
 
 		const footerLines = footer.render(200).map(stripTerminalEscapes);
 		expect(footerLines[0]).toBe(
-			`[wt] repo:${basename("/repo")} wt:no-slot pwd:/repo | br:feature/current ↓:main commits:1 ↑:-`,
+			`[wt] repo:${basename("/repo")} wt:root pwd:/repo | br:feature/current ↓:main commits:1 ↑:-`,
 		);
 		expect(footerLines[1]).toBe("[brmem] (pb-plan: handoffs-graphite-footer-lines.md)");
 		expect(footerLines[2]).toBe("[gh] no PR");
@@ -550,6 +601,15 @@ function testContext(options: TestContextOptions = {}): ExtensionContext {
 interface LinkedWorktreeFixture {
 	readonly tempRoot: string;
 	readonly worktreeRoot: string;
+}
+
+function createRootCheckoutFixture(): LinkedWorktreeFixture {
+	const tempRoot = mkdtempSync(join(tmpdir(), "sdl-worktree-footer-"));
+	const worktreeRoot = join(tempRoot, "sdl-tools");
+	const gitDir = join(worktreeRoot, ".git");
+	mkdirSync(gitDir, { recursive: true });
+	writeFileSync(join(gitDir, "HEAD"), "ref: refs/heads/feature/root\n");
+	return { tempRoot, worktreeRoot };
 }
 
 function createLinkedWorktreeFixture(worktreeName: string): LinkedWorktreeFixture {
