@@ -1,4 +1,4 @@
-import { derivePiReplacementSurface } from "@sdl/pi-command-surfaces";
+import { derivePiReplacementSurface, KNOWN_PI_COMMAND_NAMESPACES } from "@sdl/pi-command-surfaces";
 
 export {
 	KNOWN_PI_COMMAND_NAMESPACES,
@@ -16,7 +16,7 @@ export interface PiReplacementVerification {
 
 export function derivePiReplacementCommand(
 	skillName: string,
-	namespaces?: readonly string[],
+	namespaces: readonly string[] = KNOWN_PI_COMMAND_NAMESPACES,
 ): string | undefined {
 	return derivePiReplacementSurface(skillName, namespaces);
 }
