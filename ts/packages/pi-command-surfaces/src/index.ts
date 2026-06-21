@@ -85,7 +85,7 @@ export const SPECIALIZED_SKILL_REPLACEMENTS = {
 	"code-checkpoint": "sdl:cp",
 	"code-gt-restack-resolve": "code:gt-restack-resolve",
 	"code-just-fix": "code:just-fix",
-	"code-submit": "sdl:code:submit",
+	"code-submit": "sdl:submit",
 	"sdl-submit": "sdl:submit",
 	"ccc-sidebar": "ccc:sidebar:pr-summary",
 } as const satisfies Record<string, string>;

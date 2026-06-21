@@ -286,7 +286,7 @@ describe("sdl:code:push", () => {
 		]);
 		const content = messageText(pi.sentMessages[0]);
 		expect(content).toContain(
-			"The branch is likely out of sync or needs the Graphite submit flow; run it manually until the SDL submit extension migrates back.",
+			"The branch is likely out of sync or needs the Graphite submit flow; use `sdl submit` / `/sdl:submit` when appropriate.",
 		);
 		expect(content).toContain("stdout:\nrejected update");
 		expect(content).toContain("stderr:\nnon-fast-forward");

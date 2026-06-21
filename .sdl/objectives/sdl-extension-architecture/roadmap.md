@@ -15,14 +15,13 @@
   - Use this slice to pressure-test whether SDL needs a well-tested GitHub Gateway in the kernel/public SDK or whether this command should own its GitHub interactions through lower packages.
   - Evidence should cover selected command loading, request schema/options behavior, GitHub failure modes, and docs for project-local availability.
 
-- [ ] Migrate submit as the highest-pressure project-local command extension.
+- [x] Migrate submit as the highest-pressure project-local command extension.
   - Policy: direct execution after preview for implementation; ask before running real submit, restack, push, PR edit, or other external mutations.
-  - Use this slice to test command composition, Graphite/GitHub boundaries, progress output, confirmation hooks, failure summarization, persistent logs, and lower-orchestration ownership.
-  - Evidence should explicitly record which API pressures were handled in the extension and which, if any, became kernel/SDK additions.
+  - Evidence: `.sdl/extensions/submit.ts` restores `sdl submit` as an SDK-only project-local extension with local copies of checkpoint, Graphite submit, GitHub PR metadata, managed PR-description, raw-log, and model failure-summary orchestration; the SDL kernel remains empty of repository workflow built-ins; `ts/packages/sdl/src/default-commands/submit.ts` and `ts/packages/sdl/src/submit-failure-interpretation.ts` were removed; SDL scenario tests now load the project extension through the public CLI and preserve the previous submit behavior matrix with faked `git`/`gt`/`gh` commands. Pi restores only the flat `/sdl:submit` mirror, keeps `/sdl:code:submit` and legacy submit aliases absent, and maps the old command-skill replacement to the flat mirror. Validation: `pnpm --dir ts run test -- packages/sdl/test/scenario/submit-cli.test.ts packages/pi-extensions/test/sdl-extension.test.ts packages/pi-command-surfaces/test/pi-command-surfaces.test.ts packages/pi-extensions/test/push.test.ts packages/areg/test/gateways/real-gateways.test.ts` (Vitest full configured suite: 296 files / 2992 tests passed).
 
 - [~] Rework Pi SDL mirrors/adapters for project-local command ownership.
   - Policy: steer first if dynamic Pi registration or command taxonomy changes are proposed.
-  - Current evidence: first-slice Pi changes keep only the explicit `changes` mirrors delegating to `sdl changes`, remove unavailable `cp`, `submit`, and `regenerate-pr` mirror registration/parity records, and update narrow push/worktree-status guidance that would have advertised removed mirrors. The broader row remains active for later migrated commands and any dynamic Pi discovery decision.
+  - Current evidence: first-slice Pi changes kept only explicit `changes` mirrors; the `cp` slice restored flat `/sdl:cp`; the submit slice restored flat `/sdl:submit` only, left `/sdl:code:submit` and legacy submit aliases absent, and updated command-surface replacement/push guidance accordingly. The broader row remains active for later `regenerate-pr` migration and any dynamic Pi discovery decision.
   - Evidence should include parity/registration tests or documented limitations for project-local static mirrors.
 
 - [~] Document the emerging SDL kernel and extension SDK model.

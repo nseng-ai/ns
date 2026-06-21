@@ -162,7 +162,32 @@ Pi exposes the same capability as `/sdl:changes` and `/sdl:code:changes`; `/code
 
 ## `submit`
 
-Graphite submit orchestration is intentionally unavailable as an SDL command in the first project-local extension cutover. It is expected to return as a project-local SDL extension in a later migration slice. Until then, there is no built-in `sdl submit` implementation and no Pi mirror for submit through SDL.
+Checkpoint outstanding changes, then submit the current Graphite stack.
+
+```bash
+sdl submit [--no-restack] [--verbose]
+```
+
+Behavior:
+
+- checkpoints pending worktree changes before submission using the same `[cp]` checkpoint-message policy as `sdl cp`;
+- preflights Graphite submit readiness with `gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run`;
+- runs `gt restack --no-interactive` automatically when Graphite requires a restack, unless `--no-restack` is set;
+- prepares initial PR metadata for new single-commit stack branches before submission when possible;
+- submits with `gt submit -nps --no-ai --no-interactive --no-view --no-web`, verifies the current PR, and generates or validates managed PR descriptions through `gh pr view`, `gh pr diff`, `git patch-id --stable`, and `gh pr edit`;
+- writes raw submit-failure transcripts and asks the configured model for concise failure summaries when submission, restack, verification, checkpoint, or PR-description phases fail;
+- with `--verbose`, streams raw Graphite/subprocess stdout and stderr in addition to concise progress.
+
+Environment:
+
+- `SDL_CHECKPOINT_MODEL`: model reference for generated checkpoint messages.
+- `SDL_DEV_CHECKPOINT_MODEL`: transitional fallback for the old checkpoint model selection.
+- `SDL_DEV_PR_DESCRIPTION_MODEL`: model reference for generated PR descriptions.
+- `SDL_DEV_PR_DESCRIPTION_PROMPT`: optional custom PR-description prompt file.
+- `SDL_SUBMIT_FAILURE_MODEL`: model reference for generated submit-failure summaries.
+- `SDL_SUBMIT_FAILURE_LOG_DIR`: optional directory for raw submit-failure transcripts.
+
+Pi exposes the same capability as `/sdl:submit`. `/sdl:code:submit`, `/dev:submit`, `/submit`, and other legacy submit aliases are not restored.
 
 ## `regenerate-pr`
 

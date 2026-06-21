@@ -134,7 +134,7 @@ export async function runCodePush(
 			cwd: ctx.cwd,
 			result: statusResult,
 			guidance:
-				"Inspect the Git output, fix the repository state, or run the Graphite submit flow manually until the SDL submit extension migrates back.",
+				"Inspect the Git output, fix the repository state, or use `sdl submit` / `/sdl:submit` for the Graphite submit flow when appropriate.",
 		});
 		emitPushMessage(pi, ctx, {
 			content,
@@ -193,7 +193,7 @@ export async function runCodePush(
 
 	const content = formatPushEvidence({
 		intro:
-			"`git push` failed. The branch is likely out of sync or needs the Graphite submit flow; run it manually until the SDL submit extension migrates back.",
+			"`git push` failed. The branch is likely out of sync or needs the Graphite submit flow; use `sdl submit` / `/sdl:submit` when appropriate.",
 		command: "git push",
 		cwd: ctx.cwd,
 		result: pushResult,
@@ -267,7 +267,7 @@ export function formatPushEvidence(options: FormatPushEvidenceOptions): string {
 function formatDirtyWorktreeMessage(cwd: string, stdout: string): string {
 	return [
 		"`/sdl:code:push` requires a clean worktree and did not run `git push`.",
-		"Commit or stash outstanding changes first, or run the Graphite submit flow manually after the SDL submit extension migrates back.",
+		"Commit or stash outstanding changes first, or use `sdl submit` / `/sdl:submit` for the Graphite submit flow when appropriate.",
 		`Command: git status --porcelain`,
 		`Cwd: ${cwd}`,
 		"stdout:",
