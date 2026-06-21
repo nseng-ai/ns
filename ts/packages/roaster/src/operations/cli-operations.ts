@@ -17,11 +17,7 @@ import {
 import { applicableReviewKeys } from "../review-applicability.ts";
 import { parseReviewDefinition } from "../review-definition.ts";
 import { loadRoastSkillEntries, roastReviewPathForKey } from "../skill-reviews.ts";
-import {
-	loadProjectConfigFromContext,
-	runRoasterReview,
-	writeReviewRunLog,
-} from "./review-run.ts";
+import { loadProjectConfigFromContext, runRoasterReview, writeReviewRunLog } from "./review-run.ts";
 
 const nonBlankStringSchema = z.string().trim().min(1);
 

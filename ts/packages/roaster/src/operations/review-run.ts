@@ -219,7 +219,9 @@ async function reviewLogMetadata(
 ): Promise<ReviewLogMetadata> {
 	const options = environmentOptions(ctx.runScope);
 	const currentBranch =
-		logBranch === undefined ? branchMetadataValue(await ctx.gitGateway.currentBranch(options)) : logBranch;
+		logBranch === undefined
+			? branchMetadataValue(await ctx.gitGateway.currentBranch(options))
+			: logBranch;
 	const headCommit = await ctx.gitGateway.headCommit(options);
 	return {
 		branch: currentBranch,
@@ -251,7 +253,10 @@ export async function loadProjectConfigFromContext(
 ): Promise<RoasterResult<RoasterProjectConfig>> {
 	const repoRoot = await ctx.gitGateway.repoRoot(catalogOptions(ctx.runScope));
 	if (!repoRoot.ok) {
-		return { type: "error", error: { type: "repo_root_unavailable", message: repoRoot.error.message } };
+		return {
+			type: "error",
+			error: { type: "repo_root_unavailable", message: repoRoot.error.message },
+		};
 	}
 
 	const path = join(repoRoot.value, "sdl.toml");
