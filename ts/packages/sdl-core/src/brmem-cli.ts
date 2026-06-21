@@ -1,3 +1,6 @@
+import { existsSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+
 import {
 	MAX_ERROR_CHARS,
 	formatCommand,
@@ -16,13 +19,19 @@ export interface BrmemExecGateway {
 	exec(
 		command: string,
 		args: string[],
-		options?: { cwd?: string; timeout?: number; signal?: AbortSignal },
+		options?: { cwd?: string; env?: NodeJS.ProcessEnv; timeout?: number; signal?: AbortSignal },
 	): Promise<PiExecResultLike>;
+}
+
+export interface BrmemCommandCandidate {
+	command: string;
+	prefixArgs: string[];
 }
 
 export interface CompletedBrmemRun {
 	type: "completed";
-	command: "brmem";
+	candidate: BrmemCommandCandidate;
+	command: string;
 	args: string[];
 	displayCommand: string;
 	result: ExecResult;
@@ -30,19 +39,38 @@ export interface CompletedBrmemRun {
 
 export interface UnavailableBrmemRun {
 	type: "unavailable";
-	command: "brmem";
+	candidate: BrmemCommandCandidate;
+	command: string;
 	args: string[];
 	displayCommand: string;
 	failure: string;
 }
 
-export type BrmemRun = CompletedBrmemRun | UnavailableBrmemRun;
+export type BrmemCandidateRun = CompletedBrmemRun | UnavailableBrmemRun;
 
-export interface RunBrmemOptions {
+export interface NoAvailableBrmemCommandRun {
+	type: "unavailable";
+	failures: readonly UnavailableBrmemRun[];
+}
+
+export type FirstAvailableBrmemCommandRun = CompletedBrmemRun | NoAvailableBrmemCommandRun;
+
+export interface RunBrmemCandidateOptions {
+	gateway: BrmemExecGateway;
+	cwd: string;
+	candidate: BrmemCommandCandidate;
+	brmemArgs: readonly string[];
+	timeoutMs: number;
+	env?: NodeJS.ProcessEnv | undefined;
+	signal?: AbortSignal | undefined;
+}
+
+export interface RunFirstAvailableBrmemCommandOptions {
 	gateway: BrmemExecGateway;
 	cwd: string;
 	brmemArgs: readonly string[];
 	timeoutMs: number;
+	env?: NodeJS.ProcessEnv | undefined;
 	signal?: AbortSignal | undefined;
 }
 
@@ -61,6 +89,7 @@ export interface RunAvailableBrmemCommandOptions {
 	cwd: string;
 	brmemArgs: readonly string[];
 	timeoutMs?: number;
+	env?: NodeJS.ProcessEnv | undefined;
 	signal?: AbortSignal | undefined;
 }
 
@@ -103,31 +132,67 @@ export interface PutBrmemEntryFromFileOptions extends BrmemEntryLocator {
 	signal?: AbortSignal | undefined;
 }
 
-export async function runBrmem(options: RunBrmemOptions): Promise<BrmemRun> {
-	const { gateway, cwd, brmemArgs, timeoutMs, signal } = options;
-	const command = "brmem";
-	const args = [...brmemArgs];
-	const displayCommand = formatCommand(command, args);
+export function resolveBrmemCommandCandidates(
+	cwd: string,
+	options: { exists?: (path: string) => boolean } = {},
+): BrmemCommandCandidate[] {
+	const exists = options.exists ?? existsSync;
+	const candidates: BrmemCommandCandidate[] = [{ command: "brmem", prefixArgs: [] }];
+	const tsWorkspaceRoot = findTsWorkspaceRoot(cwd, exists);
+	if (tsWorkspaceRoot !== null) {
+		candidates.push({
+			command: "pnpm",
+			prefixArgs: [
+				"--config.verify-deps-before-run=false",
+				"--dir",
+				tsWorkspaceRoot,
+				"exec",
+				"brmem",
+			],
+		});
+	}
+	return candidates;
+}
+
+export async function runBrmemCandidate(
+	options: RunBrmemCandidateOptions,
+): Promise<BrmemCandidateRun> {
+	const { gateway, cwd, candidate, brmemArgs, timeoutMs, env, signal } = options;
+	const args = [...candidate.prefixArgs, ...brmemArgs];
+	const displayCommand = formatCommand(candidate.command, args);
 
 	try {
 		const result = normalizeExecResult(
-			await gateway.exec(command, args, execOptions(cwd, timeoutMs, signal)),
+			await gateway.exec(candidate.command, args, execOptions(cwd, timeoutMs, env, signal)),
 		);
 		if (isLikelyCommandNotFound(result)) {
 			return {
 				type: "unavailable",
-				command,
+				candidate,
+				command: candidate.command,
 				args,
 				displayCommand,
-				failure: formatCommandFailure("brmem command was unavailable", displayCommand, result),
+				failure: formatCommandFailure(
+					"brmem command candidate was unavailable",
+					displayCommand,
+					result,
+				),
 			};
 		}
 
-		return { type: "completed", command, args, displayCommand, result };
+		return {
+			type: "completed",
+			candidate,
+			command: candidate.command,
+			args,
+			displayCommand,
+			result,
+		};
 	} catch (error) {
 		return {
 			type: "unavailable",
-			command,
+			candidate,
+			command: candidate.command,
 			args,
 			displayCommand,
 			failure: formatStartupFailure(displayCommand, error),
@@ -135,20 +200,43 @@ export async function runBrmem(options: RunBrmemOptions): Promise<BrmemRun> {
 	}
 }
 
+export async function runFirstAvailableBrmemCommand(
+	options: RunFirstAvailableBrmemCommandOptions,
+): Promise<FirstAvailableBrmemCommandRun> {
+	const { gateway, cwd, brmemArgs, timeoutMs, env, signal } = options;
+	const failures: UnavailableBrmemRun[] = [];
+	for (const candidate of resolveBrmemCommandCandidates(cwd)) {
+		const run = await runBrmemCandidate({
+			gateway,
+			cwd,
+			candidate,
+			brmemArgs,
+			timeoutMs,
+			...(env === undefined ? {} : { env }),
+			signal,
+		});
+		if (run.type === "completed") return run;
+		failures.push(run);
+	}
+
+	return { type: "unavailable", failures };
+}
+
 export async function runAvailableBrmemCommand(
 	options: RunAvailableBrmemCommandOptions,
 ): Promise<BrmemCommandResult<CompletedBrmemRun>> {
-	const run = await runBrmem({
+	const run = await runFirstAvailableBrmemCommand({
 		gateway: options.gateway,
 		cwd: options.cwd,
 		brmemArgs: options.brmemArgs,
 		timeoutMs: options.timeoutMs ?? DEFAULT_BRMEM_TIMEOUT_MS,
+		...(options.env === undefined ? {} : { env: options.env }),
 		signal: options.signal,
 	});
 	if (run.type === "unavailable") {
 		return {
 			ok: false,
-			error: { code: "brmem_unavailable", message: formatBrmemUnavailableMessage(run) },
+			error: { code: "brmem_unavailable", message: formatBrmemUnavailableMessage(run.failures) },
 		};
 	}
 	return { ok: true, value: run };
@@ -316,15 +404,15 @@ export function parseBrmemPutData(stdout: string): BrmemPutData {
 	};
 }
 
-export function formatBrmemUnavailableMessage(failure: UnavailableBrmemRun): string {
+export function formatBrmemUnavailableMessage(failures: readonly UnavailableBrmemRun[]): string {
 	return [
 		"No brmem command available. Install the TypeScript-backed public shim with `just install-brmem` or `just install-tools`, then ensure `brmem` is on PATH.",
-		`\n${failure.failure}`,
+		...failures.map((failure) => `\n${failure.failure}`),
 	].join("\n");
 }
 
-export function formatBrmemUnavailableError(failure: UnavailableBrmemRun): Error {
-	return new Error(formatBrmemUnavailableMessage(failure));
+export function formatBrmemUnavailableError(failures: readonly UnavailableBrmemRun[]): Error {
+	return new Error(formatBrmemUnavailableMessage(failures));
 }
 
 export interface BrmemFieldParseContext {
@@ -461,11 +549,39 @@ function envelopeStatusText(envelope: Record<string, unknown>): string | undefin
 	return undefined;
 }
 
-function execOptions(cwd: string, timeout: number, signal: AbortSignal | undefined) {
-	if (signal === undefined) {
-		return { cwd, timeout };
+function findTsWorkspaceRoot(cwd: string, exists: (path: string) => boolean): string | null {
+	let current = resolve(cwd);
+	while (true) {
+		if (isTsWorkspaceRoot(current, exists)) return current;
+
+		const nestedTsRoot = join(current, "ts");
+		if (isTsWorkspaceRoot(nestedTsRoot, exists)) return nestedTsRoot;
+
+		const parent = dirname(current);
+		if (parent === current) return null;
+		current = parent;
 	}
-	return { cwd, timeout, signal };
+}
+
+function isTsWorkspaceRoot(path: string, exists: (path: string) => boolean): boolean {
+	return (
+		exists(join(path, "pnpm-workspace.yaml")) &&
+		exists(join(path, "packages", "brmem", "package.json"))
+	);
+}
+
+function execOptions(
+	cwd: string,
+	timeout: number,
+	env: NodeJS.ProcessEnv | undefined,
+	signal: AbortSignal | undefined,
+) {
+	return {
+		cwd,
+		timeout,
+		...(env === undefined ? {} : { env }),
+		...(signal === undefined ? {} : { signal }),
+	};
 }
 
 function formatStartupFailure(displayCommand: string, error: unknown): string {
