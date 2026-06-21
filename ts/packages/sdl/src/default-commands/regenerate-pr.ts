@@ -1,13 +1,11 @@
 import { RealGitGateway } from "@sdl/core/git";
 import {
-	applyGeneratedDescription,
-	decidePrBodyOverwrite,
 	DEFAULT_PR_DESCRIPTION_MODEL_REF,
+	orchestratePrDescription,
 	PR_DESCRIPTION_MODEL_ENV,
 	PR_DESCRIPTION_PROMPT_ENV,
 	RealGithubPrGateway,
 	REPO_PR_DESCRIPTION_PROMPT_PATH,
-	resolvePrDescriptionGeneration,
 	type PromptSource,
 } from "@sdl/core/submit";
 
@@ -46,54 +44,36 @@ The command owns its output and exit code. It does not support --format.`,
 			return failed("", 1);
 		}
 
-		const generation = await resolvePrDescriptionGeneration({ cwd: ctx.cwd, env: ctx.env, git });
-		if (!generation.ok) {
-			ctx.stderr?.(ensureTrailingNewline(generation.error));
-			return failed("", generation.exitCode ?? 1);
-		}
-
-		const decision = await decidePrBodyOverwrite({
-			pr: pr.value,
+		const result = await orchestratePrDescription({
 			cwd: ctx.cwd,
+			env: ctx.env,
+			git,
 			githubPr,
-			generation,
+			textGeneration: ctx.model,
+			target: { type: "details", pr: pr.value },
 			shouldForce: true,
 		});
-		if (decision.kind === "failed") {
-			ctx.stderr?.(ensureTrailingNewline(decision.error));
-			return failed("", 1);
+		if (result.type === "failed") {
+			ctx.stderr?.(ensureTrailingNewline(result.reason));
+			return failed("", result.exitCode ?? 1);
 		}
-		if (decision.kind === "skip") {
+		if (result.type === "matched" && result.match === "generated_fingerprint") {
 			ctx.stdout?.(
 				`PR title and description are already up to date.\nPR: #${pr.value.number} ${pr.value.url}\n`,
 			);
 			return ok("");
 		}
-
-		const applied = await applyGeneratedDescription({
-			pr: pr.value,
-			commits: decision.commits,
-			diff: decision.diff,
-			metadata: decision.metadata,
-			options: {
-				cwd: ctx.cwd,
-				env: ctx.env,
-				githubPr,
-				textGeneration: ctx.model,
-				git,
-			},
-		});
-		if (!applied.ok) {
-			ctx.stderr?.(ensureTrailingNewline(applied.error));
-			return failed("", applied.exitCode ?? 1);
+		if (result.type !== "generated") {
+			ctx.stderr?.("PR title and description were not regenerated.\n");
+			return failed("", 1);
 		}
 
 		ctx.stdout?.(
 			[
 				"Regenerated PR title and description.",
 				`PR: #${pr.value.number} ${pr.value.url}`,
-				`Title: ${applied.title}`,
-				`Prompt: ${formatPromptSourceLabel(applied.promptSource)}`,
+				`Title: ${result.title}`,
+				`Prompt: ${formatPromptSourceLabel(result.promptSource)}`,
 			].join("\n") + "\n",
 		);
 		return ok("");

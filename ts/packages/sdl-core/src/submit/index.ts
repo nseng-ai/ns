@@ -46,7 +46,12 @@ export {
 	type PrCommitMessage,
 	type StablePatchIdForPrResult,
 } from "./github-pr-gateway.ts";
-export { applyGeneratedDescription, decidePrBodyOverwrite } from "./pr-description-apply.ts";
+export {
+	orchestratePrDescription,
+	type PrDescriptionOrchestrationOptions,
+	type PrDescriptionOrchestrationResult,
+	type PrDescriptionTarget,
+} from "./pr-description-orchestration.ts";
 export {
 	appendGeneratedMarker,
 	buildPrDescriptionUserPrompt,
