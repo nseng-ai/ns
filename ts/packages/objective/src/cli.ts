@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { ClinkrGroup, execGroup as createExecGroup } from "@sdl/clinkr";
+import { ClinkrGroup } from "@sdl/clinkr";
 import { defineCli } from "@sdl/core/cli-entry";
 
 import { createRealObjectiveContext, type ObjectiveCliContext } from "./context.ts";
@@ -78,7 +78,11 @@ const entry = defineCli<ObjectiveCliContext, CliDeps, undefined>({
 			renderHuman: renderObjectiveListHuman,
 			renderMarkdown: renderObjectiveListMarkdown,
 		});
-		const execGroup = createExecGroup<ObjectiveCliContext>("Commands for use by objective skills.");
+		const execGroup = new ClinkrGroup<ObjectiveCliContext>({
+			name: "exec",
+			description: "Commands for use by objective skills.",
+			isHidden: true,
+		});
 		execGroup.command({
 			name: "list-candidates",
 			description: "List active Objective slug candidates for shell and agent autocomplete.",

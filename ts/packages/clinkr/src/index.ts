@@ -7,7 +7,7 @@ export type {
 	CreateClinkrInteractionOptions,
 	ResolveClinkrInteractionOptions,
 } from "./confirmation.ts";
-export { ClinkrGroup, execGroup } from "./group.ts";
+export { ClinkrGroup } from "./group.ts";
 export type {
 	ClinkrCommandSpec,
 	ClinkrGroupOptions,

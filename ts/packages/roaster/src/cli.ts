@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { ClinkrGroup, execGroup as createExecGroup } from "@sdl/clinkr";
+import { ClinkrGroup } from "@sdl/clinkr";
 import { rawCommand } from "@sdl/clinkr/raw";
 import { defineCli } from "@sdl/core/cli-entry";
 import { readStdin } from "@sdl/core/stdin";
@@ -116,7 +116,11 @@ const entry = defineCli<RoasterRuntime, CliDeps, undefined>({
 		});
 		root.group(roastGroup);
 
-		const execGroup = createExecGroup<RoasterRuntime>("Operations for roaster automation.");
+		const execGroup = new ClinkrGroup<RoasterRuntime>({
+			name: "exec",
+			description: "Operations for roaster automation.",
+			isHidden: true,
+		});
 		execGroup.command(
 			rawCommand({
 				name: "publish-findings",

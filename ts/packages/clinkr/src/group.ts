@@ -88,8 +88,6 @@ export interface ClinkrRunOptions<TContext> {
 	io?: ClinkrIo;
 }
 
-const DEFAULT_EXEC_GROUP_DESCRIPTION = "Commands for use by skills (not interactive users).";
-
 interface RegisteredCommand<TContext> {
 	name: string;
 	description?: string;
@@ -274,12 +272,6 @@ export class ClinkrGroup<TContext> {
 		if (childPath === undefined) return undefined;
 		return [head, ...childPath];
 	}
-}
-
-export function execGroup<TContext>(
-	description = DEFAULT_EXEC_GROUP_DESCRIPTION,
-): ClinkrGroup<TContext> {
-	return new ClinkrGroup<TContext>({ name: "exec", description, isHidden: true });
 }
 
 function executionOf<TContext, S extends z.ZodObject, T>(

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { ClinkrGroup, execGroup as createExecGroup } from "@sdl/clinkr";
+import { ClinkrGroup } from "@sdl/clinkr";
 import { defineCli } from "@sdl/core/cli-entry";
 
 import { createRealAretroContext, type AretroCliContext } from "./context.ts";
@@ -31,9 +31,11 @@ const entry = defineCli<AretroCliContext, CliDeps, undefined>({
 		return { type: "run", context: runContext, buildState: undefined };
 	},
 	configureCli: ({ root }) => {
-		const execGroup = createExecGroup<AretroCliContext>(
-			"Commands for use by skills (not interactive users).",
-		);
+		const execGroup = new ClinkrGroup<AretroCliContext>({
+			name: "exec",
+			description: "Commands for use by skills (not interactive users).",
+			isHidden: true,
+		});
 
 		execGroup.command({
 			name: "collect-evidence",

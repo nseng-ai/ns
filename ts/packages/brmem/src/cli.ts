@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { ClinkrGroup, execGroup as createExecGroup } from "@sdl/clinkr";
+import { ClinkrGroup } from "@sdl/clinkr";
 import { defineCli } from "@sdl/core/cli-entry";
 
 import { createRealBrmemContext, type BrmemCliContext } from "./context.ts";
@@ -126,9 +126,11 @@ const entry = defineCli<BrmemCliContext, CliDeps, undefined>({
 			handler: runSetupGit,
 			renderHuman: renderSetupGit,
 		});
-		const execGroup = createExecGroup<BrmemCliContext>(
-			"Commands for use by skills (not interactive users).",
-		);
+		const execGroup = new ClinkrGroup<BrmemCliContext>({
+			name: "exec",
+			description: "Commands for use by skills (not interactive users).",
+			isHidden: true,
+		});
 		execGroup.command({
 			name: "resolve-prompt",
 			description: "Resolve a Branch Memory prompt path.",

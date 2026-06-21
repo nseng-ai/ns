@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { ClinkrGroup, execGroup as createExecGroup } from "@sdl/clinkr";
+import { ClinkrGroup } from "@sdl/clinkr";
 import { defineCli } from "@sdl/core/cli-entry";
 import { readStdin } from "@sdl/core/stdin";
 
@@ -34,7 +34,11 @@ const entry = defineCli<PrAddressExecContext, CliDeps, readonly ExecOperation[]>
 		return { type: "run", context: execContext, buildState: operations };
 	},
 	configureCli: ({ root, buildState: operations }) => {
-		const execGroup = createExecGroup<PrAddressExecContext>("Operations for the pr-address skill.");
+		const execGroup = new ClinkrGroup<PrAddressExecContext>({
+			name: "exec",
+			description: "Operations for the pr-address skill.",
+			isHidden: true,
+		});
 		for (const operation of operations) operation.addTo(execGroup);
 		root.group(execGroup);
 	},

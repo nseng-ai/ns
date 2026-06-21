@@ -1,26 +1,12 @@
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
-import { ClinkrGroup, execGroup, ok } from "../src/index.ts";
+import { ClinkrGroup, ok } from "../src/index.ts";
 import { parseEnvelope, runForTest } from "../src/testing/index.ts";
 
 interface ProbeContext {
 	calls: string[];
 }
-
-describe("execGroup helper", () => {
-	test("builds the conventional hidden exec subgroup", () => {
-		const group = execGroup<ProbeContext>();
-		expect(group.name).toBe("exec");
-		expect(group.description).toBe("Commands for use by skills (not interactive users).");
-		expect(group.isHidden).toBe(true);
-	});
-
-	test("preserves a custom description", () => {
-		const group = execGroup<ProbeContext>("Custom operations.");
-		expect(group.description).toBe("Custom operations.");
-	});
-});
 
 function buildTree(): ClinkrGroup<ProbeContext> {
 	const root = new ClinkrGroup<ProbeContext>({ name: "root", description: "Root group." });
@@ -42,7 +28,11 @@ function buildTree(): ClinkrGroup<ProbeContext> {
 		},
 	});
 	root.group(sub);
-	const exec = execGroup<ProbeContext>("Skill-invoked operations.");
+	const exec = new ClinkrGroup<ProbeContext>({
+		name: "exec",
+		description: "Skill-invoked operations.",
+		isHidden: true,
+	});
 	exec.command({
 		name: "resolve",
 		schema: z.object({}),

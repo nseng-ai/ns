@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { ClinkrGroup, execGroup as createExecGroup } from "@sdl/clinkr";
+import { ClinkrGroup } from "@sdl/clinkr";
 import { defineCli } from "@sdl/core/cli-entry";
 
 import { createRealAregContext, type AregCliContext } from "./context.ts";
@@ -68,9 +68,11 @@ const entry = defineCli<AregCliContext, CliDeps, undefined>({
 			renderHuman: renderUpdateSkills,
 		});
 		root.group(buildSkillGroup());
-		const execGroup = createExecGroup<AregCliContext>(
-			"Commands for use by skills (not interactive users).",
-		);
+		const execGroup = new ClinkrGroup<AregCliContext>({
+			name: "exec",
+			description: "Commands for use by skills (not interactive users).",
+			isHidden: true,
+		});
 		execGroup.group(buildSkillxGroup());
 		root.group(execGroup);
 	},

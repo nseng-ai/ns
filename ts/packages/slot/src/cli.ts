@@ -2,7 +2,6 @@
 
 import {
 	ClinkrGroup,
-	execGroup,
 	isClinkrHumanOutputInvocation,
 	resolveClinkrInteraction,
 	type ClinkrInteraction,
@@ -307,7 +306,11 @@ function buildGtGroup(): ClinkrGroup<SlotCliContext> {
 		handler: runGtFreeStack,
 		renderHuman: renderGtFreeStack,
 	});
-	const exec = execGroup<SlotCliContext>("Skill-invoked Graphite operations.");
+	const exec = new ClinkrGroup<SlotCliContext>({
+		name: "exec",
+		description: "Skill-invoked Graphite operations.",
+		isHidden: true,
+	});
 	exec.command({
 		name: "stack-branches",
 		description: "Emit the current Graphite stack branch list for skill/agent invocation.",
