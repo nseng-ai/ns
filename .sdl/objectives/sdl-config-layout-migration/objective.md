@@ -57,3 +57,11 @@ Risks:
 - Which, if any, legacy filesystem fallbacks should be intentionally retained past the first cleanup pass because they protect common local data too strongly to delete immediately?
 - Does any active Branch Memory ref-layout compatibility still exist after the current SDL rename/XDG work, and if so what migration/export evidence is required before removing it?
 - Should the final cleanup produce a short operator note for users with old saved plans, slot pools, prompt templates, or extensions, even though no automatic migration is in scope?
+
+## Closure
+
+Outcome: completed. The Objective's target contract is now implemented as the post-landing state of PR #1969 on top of the earlier cleanup branch: SDL-owned user/global storage uses canonical XDG roots with the `sdl` application namespace, repository-owned resources use checked-in `.sdl/...` paths, branch-context attached plans require supported named Markdown keys, and land-stack managed-slot classification is limited to canonical `sdl/slots` worktree pools.
+
+Completion evidence is recorded in the three Semantic Updates under this Objective. The inventory update identified active compatibility surfaces and non-target historical/Pi-owned/durable-git references. The cleanup update removed the repo-owned filesystem/config fallbacks, refreshed active docs and agent guidance, and established that `refs/brmem/*` is canonical Branch Memory storage rather than legacy compatibility. The final hardening update fixed the remaining readiness blockers: stale session evidence with `key: "plan.md"` is rejected before Branch Memory presence checks, and legacy `.slots` worktrees are treated as manual conflicts rather than SDL-managed slots.
+
+Validation evidence includes focused package tests for the affected branch-context and CCC land-stack behavior, plus full repository gates through `just` after the final hardening slice. Remaining legacy-path mentions are historical provenance, Pi-owned/external layout, explicit no-fallback/user-local notes, generic plan-file fixtures, or negative assertions. Automatic migration/deletion of user-local legacy data remains intentionally out of scope.
