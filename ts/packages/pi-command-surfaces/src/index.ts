@@ -74,6 +74,7 @@ export const SPECIALIZED_SKILL_REPLACEMENTS = {
 	"enriched-plan-save": WRITE_PLAN_COMMAND_NAME,
 	"handoff-create": "handoff:create",
 	"handoff-pickup": "handoff:pickup",
+	"objective-close": "objective:close",
 	"objective-create": "objective:create",
 	"objective-current": "objective:current",
 	"objective-next": "objective:next",

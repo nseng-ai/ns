@@ -17,6 +17,7 @@ describe("Pi command surfaces", () => {
 		expect(derivePiReplacementSurface("branch-context-impl-extra")).toBe(
 			`${IMPL_BRANCH_CONTEXT_COMMAND_NAME}-extra`,
 		);
+		expect(derivePiReplacementSurface("objective-close")).toBe("objective:close");
 		expect(derivePiReplacementSurface("objective-stack-impl")).toBe("objective:stack-impl");
 		expect(derivePiReplacementSurface("foo-bar-baz")).toBe("foo:bar-baz");
 		expect(derivePiReplacementSurface("plain")).toBeUndefined();
@@ -26,7 +27,7 @@ describe("Pi command surfaces", () => {
 		const skillNames = genericCommandStyleSkillNames();
 
 		expect(skillNames).toContain("pr-address");
-		expect(skillNames).toContain("objective-close");
+		expect(skillNames).not.toContain("objective-close");
 		expect(skillNames).toContain("code-workflows");
 		expect(skillNames).not.toContain("objective-create");
 		expect(skillNames).not.toContain("code-gt-restack-resolve");

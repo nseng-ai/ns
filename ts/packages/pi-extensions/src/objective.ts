@@ -57,8 +57,8 @@ const OBJECTIVE_LIST_ARG_COMPLETIONS = [
 ] as const;
 const OBJECTIVE_LIST_STATUS_VALUES = ["all", "active", "open", "closed"] as const;
 
-type ObjectiveCommandName = "objective:next" | "objective:update";
-type ObjectiveSkillName = "objective-next" | "objective-update";
+type ObjectiveCommandName = "objective:next" | "objective:update" | "objective:close";
+type ObjectiveSkillName = "objective-next" | "objective-update" | "objective-close";
 
 interface ObjectiveCommandSpec extends ObjectiveSelectionSpec {
 	commandName: ObjectiveCommandName;
@@ -189,6 +189,18 @@ const OBJECTIVE_COMMANDS: ObjectiveCommandSpec[] = [
 		actionPrompt: "Run objective-update for this explicitly selected Objective slug or path:",
 		postSelectionReminder:
 			"\nAfter this explicit selection, follow objective-update's normal post-selection evidence workflow.",
+	},
+	{
+		commandName: "objective:close",
+		skillName: "objective-close",
+		description: "Pick an active Objective, then invoke objective-close for the selected slug.",
+		statusKey: "objective:close",
+		selectionTitle: "Select an active Objective to close",
+		fallbackPrompt:
+			"The objective-close skill was not found among loaded Pi skills. Follow the repository's Objective workflow anyway: close exactly one explicit Objective below only after confirming the closure outcome/rationale, then add ## Closure and closed.md without archiving, deleting, moving, or reopening the Objective.",
+		actionPrompt: "Run objective-close for this explicitly selected Objective slug or path:",
+		postSelectionReminder:
+			"\nAfter this explicit selection, follow objective-close's normal closure confirmation workflow before mutating Objective files.",
 	},
 ];
 
