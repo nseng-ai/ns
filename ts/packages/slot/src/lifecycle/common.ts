@@ -1,4 +1,4 @@
-import type { WorktreeOccupancy } from "../gateways/git.ts";
+import type { WorktreeOccupancy } from "../gateways/repository.ts";
 import type { SlotRecord } from "../inventory.ts";
 
 export interface SlotLifecycleFailure {

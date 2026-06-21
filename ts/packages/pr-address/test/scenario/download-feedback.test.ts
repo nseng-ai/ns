@@ -1,8 +1,9 @@
 import { describe, expect, test } from "vitest";
 
+import { InMemoryGitGateway } from "@sdl/core/git/testing";
+
 import {
 	InMemoryGithubPrFeedbackGateway,
-	InMemoryPrAddressGitGateway,
 	discussionComment,
 	prSummary,
 	review,
@@ -95,7 +96,7 @@ function defaultPrFeedback(): InMemoryGithubPrFeedbackGateway {
 describe("pr-address exec download-feedback", () => {
 	test("downloads current-branch PR feedback as a Markdown triage prompt", async () => {
 		const run = runScenario(["exec", "download-feedback", "--format", "json"], {
-			git: new InMemoryPrAddressGitGateway({ currentBranch: "feature/demo" }),
+			git: new InMemoryGitGateway({ currentBranch: "feature/demo" }),
 			prFeedback: defaultPrFeedback(),
 		});
 
@@ -173,7 +174,7 @@ describe("pr-address exec download-feedback", () => {
 		const run = runScenario(
 			["exec", "download-feedback", "--include-resolved", "--format", "json"],
 			{
-				git: new InMemoryPrAddressGitGateway({ currentBranch: "feature/demo" }),
+				git: new InMemoryGitGateway({ currentBranch: "feature/demo" }),
 				prFeedback: defaultPrFeedback(),
 			},
 		);
@@ -194,7 +195,7 @@ describe("pr-address exec download-feedback", () => {
 		const run = runScenario(
 			["exec", "download-feedback", "--pr-number", "42", "--format", "json"],
 			{
-				git: new InMemoryPrAddressGitGateway({ currentBranch: null }),
+				git: new InMemoryGitGateway({ currentBranch: { type: "detached" } }),
 				prFeedback: defaultPrFeedback(),
 			},
 		);
@@ -206,7 +207,7 @@ describe("pr-address exec download-feedback", () => {
 
 	test("returns a negative no-PR report with markdown", async () => {
 		const run = runScenario(["exec", "download-feedback", "--format", "json"], {
-			git: new InMemoryPrAddressGitGateway({ currentBranch: "feature/missing" }),
+			git: new InMemoryGitGateway({ currentBranch: "feature/missing" }),
 			prFeedback: defaultPrFeedback(),
 		});
 
@@ -221,7 +222,7 @@ describe("pr-address exec download-feedback", () => {
 
 	test("fails clearly on detached HEAD without --pr-number", async () => {
 		const run = runScenario(["exec", "download-feedback", "--format", "json"], {
-			git: new InMemoryPrAddressGitGateway({ currentBranch: null }),
+			git: new InMemoryGitGateway({ currentBranch: { type: "detached" } }),
 			prFeedback: defaultPrFeedback(),
 		});
 
@@ -234,7 +235,7 @@ describe("pr-address exec download-feedback", () => {
 	test("renders an empty-feedback report without mutating", async () => {
 		const pr = prSummary({ number: 7, title: "Quiet PR", headRefName: "feature/quiet" });
 		const run = runScenario(["exec", "download-feedback", "--format", "json"], {
-			git: new InMemoryPrAddressGitGateway({ currentBranch: "feature/quiet" }),
+			git: new InMemoryGitGateway({ currentBranch: "feature/quiet" }),
 			prFeedback: new InMemoryGithubPrFeedbackGateway({ prs: [pr] }),
 		});
 

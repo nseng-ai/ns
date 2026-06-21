@@ -15,18 +15,13 @@ import type {
 } from "@sdl/core/github-pr-feedback";
 import type { Result } from "@sdl/core/result";
 
-import type {
-	CurrentBranchResult,
-	GatewayFailure,
-	GatewayOptions,
-	PrAddressGitGateway,
-	RepoContextResult,
-} from "../../src/core/gateways.ts";
+import { InMemoryGitGateway } from "@sdl/core/git/testing";
+
 import type { PrAddressContext } from "../../src/context.ts";
 
 export function fakePrAddressContext(overrides: Partial<PrAddressContext> = {}): PrAddressContext {
 	return {
-		git: new InMemoryPrAddressGitGateway(),
+		git: new InMemoryGitGateway({ currentBranch: "main" }),
 		prFeedback: new InMemoryGithubPrFeedbackGateway(),
 		...overrides,
 	};
@@ -83,13 +78,6 @@ export interface ReviewThreadReplyLogEntry {
 
 export interface ResolveReviewThreadLogEntry {
 	threadId: string;
-}
-
-export interface InMemoryGitState {
-	currentBranch?: string | null | undefined;
-	currentBranchFailure?: GatewayFailure | undefined;
-	isInsideWorkTree?: boolean | undefined;
-	repoContextFailure?: GatewayFailure | undefined;
 }
 
 export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
@@ -242,33 +230,6 @@ export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway 
 			return { ok: false, error: fakePrFeedbackFailure("resolve failed", "resolveReviewThread") };
 		this.resolutionsInternal.push({ threadId: params.threadId });
 		return { ok: true, value: { threadId: params.threadId, isResolved: true } };
-	}
-}
-
-export class InMemoryPrAddressGitGateway implements PrAddressGitGateway {
-	private readonly currentBranch: string | null;
-	private readonly currentBranchFailure: GatewayFailure | undefined;
-	private readonly isConfiguredInsideWorkTree: boolean;
-	private readonly repoContextFailure: GatewayFailure | undefined;
-
-	constructor(state: InMemoryGitState = {}) {
-		this.currentBranch = state.currentBranch === undefined ? "main" : state.currentBranch;
-		this.currentBranchFailure = state.currentBranchFailure;
-		this.isConfiguredInsideWorkTree = state.isInsideWorkTree ?? true;
-		this.repoContextFailure = state.repoContextFailure;
-	}
-
-	async getCurrentBranch(_options: GatewayOptions): Promise<CurrentBranchResult> {
-		if (this.currentBranchFailure !== undefined)
-			return { type: "failure", error: this.currentBranchFailure };
-		if (this.currentBranch === null) return { type: "detached" };
-		return { type: "branch", branch: this.currentBranch };
-	}
-
-	async isInsideWorkTree(_options: GatewayOptions): Promise<RepoContextResult> {
-		if (this.repoContextFailure !== undefined)
-			return { type: "failure", failure: this.repoContextFailure };
-		return this.isConfiguredInsideWorkTree ? { type: "inside" } : { type: "outside" };
 	}
 }
 

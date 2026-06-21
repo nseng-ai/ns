@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { FakeRunner } from "../support/fake-runner.ts";
 import { runScenario } from "../support/run-scenario.ts";
 import { runCli } from "../../src/cli.ts";
-import { RealVibechkGitGateway } from "../../src/git.ts";
+import { RealVibechkRepositoryGateway } from "../../src/repository.ts";
 import { RunnerRegistry } from "../../src/runners.ts";
 
 describe("vibechk run real git integration", () => {
@@ -48,7 +48,7 @@ describe("vibechk run real git integration", () => {
 				stdout: (text) => stdout.push(text),
 				stderr: (text) => stderr.push(text),
 				runnerRegistry: new RunnerRegistry([fakeRunner]),
-				gitGatewayFactory: (workdir) => new RealVibechkGitGateway(workdir),
+				repositoryGatewayFactory: (workdir) => new RealVibechkRepositoryGateway(workdir),
 				clock: () => new Date("2026-05-23T12:00:00Z"),
 				idGenerator: () => "RealRun1",
 				defaultRunnerName: "fake",

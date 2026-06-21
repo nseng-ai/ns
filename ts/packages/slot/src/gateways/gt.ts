@@ -23,7 +23,7 @@ import {
 import { isRecord } from "@sdl/core/primitives";
 import { NodeCommandExecApi, type CommandExecApi } from "@sdl/core/exec";
 
-import type { SlotGitGateway } from "./git.ts";
+import type { SlotRepositoryGateway } from "./repository.ts";
 
 const SLOT_GT_TIMEOUT_MS = 10_000;
 
@@ -105,11 +105,11 @@ export interface GraphiteMetadataDbAccess {
 export class RealSlotGtGateway implements SlotGtGateway {
 	private readonly env: NodeJS.ProcessEnv;
 	private readonly execApi: CommandExecApi;
-	private readonly git: SlotGitGateway;
+	private readonly git: SlotRepositoryGateway;
 	private readonly metadataDbAccess: GraphiteMetadataDbAccess;
 
 	constructor(options: {
-		git: SlotGitGateway;
+		git: SlotRepositoryGateway;
 		env?: NodeJS.ProcessEnv | undefined;
 		execApi?: CommandExecApi | undefined;
 		metadataDbAccess?: GraphiteMetadataDbAccess | undefined;

@@ -7,12 +7,16 @@ import { describe, expect, it } from "vitest";
 import type { ExecResult } from "@sdl/core/exec";
 import { ScriptedCommandExecApi } from "@sdl/core/testing";
 import type { SlotCommandDiagnosticEvent, SlotDiagnosticSink } from "../../src/diagnostics.ts";
-import { RealSlotGitGateway } from "../../src/gateways/git.ts";
+import { RealSlotRepositoryGateway } from "../../src/gateways/repository.ts";
 
-describe("RealSlotGitGateway", () => {
+describe("RealSlotRepositoryGateway", () => {
 	it("runs git commands through the injected shared command exec API", async () => {
 		const execApi = scriptedExecApi({ stdout: "/repo\n", stderr: "", code: 0, killed: false });
-		const gateway = new RealSlotGitGateway({ cwd: "/repo", env: { PATH: "/fake/bin" }, execApi });
+		const gateway = new RealSlotRepositoryGateway({
+			cwd: "/repo",
+			env: { PATH: "/fake/bin" },
+			execApi,
+		});
 
 		await expect(gateway.getRepositoryRoot("/repo/subdir")).resolves.toBe("/repo");
 		expect(execApi.calls()).toEqual([gitCall(["rev-parse", "--show-toplevel"], "/repo/subdir")]);
@@ -23,7 +27,11 @@ describe("RealSlotGitGateway", () => {
 			{ stdout: "", stderr: "", code: 0, killed: false },
 			{ stdout: "", stderr: "missing", code: 1, killed: false },
 		]);
-		const gateway = new RealSlotGitGateway({ cwd: "/repo", env: { PATH: "/fake/bin" }, execApi });
+		const gateway = new RealSlotRepositoryGateway({
+			cwd: "/repo",
+			env: { PATH: "/fake/bin" },
+			execApi,
+		});
 
 		await expect(gateway.branchExists("master")).resolves.toBe(true);
 		await expect(gateway.branchExists("feature/a")).resolves.toBe(false);
@@ -38,7 +46,11 @@ describe("RealSlotGitGateway", () => {
 			{ stdout: "", stderr: "", code: 0, killed: false },
 			{ stdout: "", stderr: "", code: 0, killed: false },
 		]);
-		const gateway = new RealSlotGitGateway({ cwd: "/repo", env: { PATH: "/fake/bin" }, execApi });
+		const gateway = new RealSlotRepositoryGateway({
+			cwd: "/repo",
+			env: { PATH: "/fake/bin" },
+			execApi,
+		});
 
 		await expect(
 			gateway.createBranch("feature/a", "HEAD", { shouldForce: false }),
@@ -58,7 +70,11 @@ describe("RealSlotGitGateway", () => {
 			{ stdout: "master\n", stderr: "", code: 0, killed: false },
 			{ stdout: "", stderr: "", code: 0, killed: false },
 		]);
-		const gateway = new RealSlotGitGateway({ cwd: "/repo", env: { PATH: "/fake/bin" }, execApi });
+		const gateway = new RealSlotRepositoryGateway({
+			cwd: "/repo",
+			env: { PATH: "/fake/bin" },
+			execApi,
+		});
 
 		await expect(gateway.checkoutBranch("/repo/worktree", "feature/a")).resolves.toBeNull();
 		await expect(gateway.getPreviousBranch("/repo/worktree")).resolves.toBe("master");
@@ -77,7 +93,11 @@ describe("RealSlotGitGateway", () => {
 			code: 128,
 			killed: false,
 		});
-		const gateway = new RealSlotGitGateway({ cwd: "/repo", env: { PATH: "/fake/bin" }, execApi });
+		const gateway = new RealSlotRepositoryGateway({
+			cwd: "/repo",
+			env: { PATH: "/fake/bin" },
+			execApi,
+		});
 
 		await expect(
 			gateway.createBranch("feature/a", "HEAD", { shouldForce: false }),
@@ -87,7 +107,7 @@ describe("RealSlotGitGateway", () => {
 	it("emits labeled command diagnostics when a sink is injected", async () => {
 		const execApi = scriptedExecApi({ stdout: "/repo\n", stderr: "", code: 0, killed: false });
 		const diagnosticSink = new InMemoryDiagnosticSink();
-		const gateway = new RealSlotGitGateway({
+		const gateway = new RealSlotRepositoryGateway({
 			cwd: "/repo",
 			env: { PATH: "/fake/bin" },
 			execApi,
@@ -129,7 +149,7 @@ describe("RealSlotGitGateway", () => {
 				code: 0,
 				killed: false,
 			});
-			const gateway = new RealSlotGitGateway({
+			const gateway = new RealSlotRepositoryGateway({
 				cwd: fixture.worktreePath,
 				env: { PATH: "/fake/bin" },
 				execApi,
@@ -156,7 +176,7 @@ describe("RealSlotGitGateway", () => {
 				code: 0,
 				killed: false,
 			});
-			const gateway = new RealSlotGitGateway({
+			const gateway = new RealSlotRepositoryGateway({
 				cwd: fixture.worktreePath,
 				env: { PATH: "/fake/bin" },
 				execApi,
@@ -180,7 +200,7 @@ describe("RealSlotGitGateway", () => {
 				code: 0,
 				killed: false,
 			});
-			const gateway = new RealSlotGitGateway({
+			const gateway = new RealSlotRepositoryGateway({
 				cwd: fixture.worktreePath,
 				env: { PATH: "/fake/bin" },
 				execApi,
@@ -204,7 +224,7 @@ describe("RealSlotGitGateway", () => {
 				code: 0,
 				killed: false,
 			});
-			const gateway = new RealSlotGitGateway({
+			const gateway = new RealSlotRepositoryGateway({
 				cwd: fixture.worktreePath,
 				env: { PATH: "/fake/bin" },
 				execApi,
@@ -227,7 +247,7 @@ describe("RealSlotGitGateway", () => {
 				code: 0,
 				killed: false,
 			});
-			const gateway = new RealSlotGitGateway({
+			const gateway = new RealSlotRepositoryGateway({
 				cwd: fixture.worktreePath,
 				env: { PATH: "/fake/bin" },
 				execApi,

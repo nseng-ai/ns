@@ -1,6 +1,6 @@
 import { basename } from "node:path";
 
-import type { SlotGitGateway, WorktreeOccupancy } from "./gateways/git.ts";
+import type { SlotRepositoryGateway, WorktreeOccupancy } from "./gateways/repository.ts";
 import {
 	buildSlotInventory,
 	findByBranch,
@@ -41,7 +41,7 @@ export type CurrentCheckoutPlan =
 
 export async function planCheckout(
 	inventory: SlotInventory,
-	git: SlotGitGateway,
+	git: SlotRepositoryGateway,
 	branchName: string,
 ): Promise<CheckoutPlan> {
 	const match = findByBranch(inventory, branchName);
@@ -66,7 +66,7 @@ export async function planCheckout(
 }
 
 export async function planCurrentWtRedirect(
-	git: SlotGitGateway,
+	git: SlotRepositoryGateway,
 	options: { cwd: string; movingBranch: string },
 ): Promise<CurrentWorktreeRedirect> {
 	const previous = await git.getPreviousBranch(options.cwd);
@@ -125,7 +125,7 @@ export function inventoryWithoutCallerBranchOccupancy(
 }
 
 export async function planCurrentCheckout(
-	git: SlotGitGateway,
+	git: SlotRepositoryGateway,
 	options: { cwd: string; mainRepoRoot?: string | undefined },
 ): Promise<CurrentCheckoutPlan> {
 	const currentBranch = await git.getCurrentBranch(options.cwd);

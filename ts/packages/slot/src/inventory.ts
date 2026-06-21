@@ -1,6 +1,10 @@
 import { basename } from "node:path";
 
-import type { SlotGitGateway, WorktreeInfo, WorktreeOccupancy } from "./gateways/git.ts";
+import type {
+	SlotRepositoryGateway,
+	WorktreeInfo,
+	WorktreeOccupancy,
+} from "./gateways/repository.ts";
 import { extractSlotNumber } from "./naming.ts";
 
 export type SlotStatus = "assigned" | "available";
@@ -56,7 +60,7 @@ export function findBySlot(inventory: SlotInventory, slotName: string): SlotReco
 
 export async function lowestAvailable(
 	inventory: SlotInventory,
-	git: SlotGitGateway,
+	git: SlotRepositoryGateway,
 ): Promise<SlotRecord | null> {
 	for (const record of inventory.records) {
 		if (isSlotAvailable(record) && !(await git.hasUncommittedChanges(record.path))) return record;
@@ -65,7 +69,7 @@ export async function lowestAvailable(
 }
 
 export async function buildSlotInventory(
-	git: SlotGitGateway,
+	git: SlotRepositoryGateway,
 	options: { mainRepoRoot?: string | undefined } = {},
 ): Promise<SlotInventory> {
 	const branchOccupancies = await git.listBranchOccupancies();

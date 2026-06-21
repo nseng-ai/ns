@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { RealSlotGitGateway } from "../../src/gateways/git.ts";
+import { RealSlotRepositoryGateway } from "../../src/gateways/repository.ts";
 
 const execFileAsync = promisify(execFile);
 const roots: string[] = [];
@@ -15,10 +15,10 @@ afterEach(async () => {
 	await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
-describe("RealSlotGitGateway movement methods", () => {
+describe("RealSlotRepositoryGateway movement methods", () => {
 	it("checks branch presence, creates branches, checks out, and detaches in a throwaway repo", async () => {
 		const root = await makeRepo();
-		const gateway = new RealSlotGitGateway({ cwd: root, env: process.env });
+		const gateway = new RealSlotRepositoryGateway({ cwd: root, env: process.env });
 		expect(await gateway.branchExists("master")).toBe(true);
 		expect(await gateway.branchExists("feature/a")).toBe(false);
 		expect(await gateway.createBranch("feature/a", "HEAD", { shouldForce: false })).toBeNull();

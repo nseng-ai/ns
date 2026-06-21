@@ -1,26 +1,26 @@
 import { describe, expect, it } from "vitest";
 
 import { discoverRepoOrSentinel, ensureSlotsMetadataDir } from "../../src/repo-context.ts";
-import { FakeSlotGitGateway } from "../../src/gateways/fakes/git.ts";
+import { FakeSlotRepositoryGateway } from "../../src/gateways/fakes/repository.ts";
 import { FakeSlotStorageGateway } from "../../src/gateways/fakes/storage.ts";
 
 describe("repo context", () => {
 	it("returns a sentinel when the start path is missing", async () => {
-		const git = new FakeSlotGitGateway({ existingPaths: [] });
+		const git = new FakeSlotRepositoryGateway({ existingPaths: [] });
 		await expect(
 			discoverRepoOrSentinel({ cwd: "/missing", slotsRoot: "/slots", git }),
 		).resolves.toMatchObject({ type: "no_repo", errorType: "missing_start_path" });
 	});
 
 	it("returns a not-in-repo sentinel when no git common dir is found", async () => {
-		const git = new FakeSlotGitGateway({ existingPaths: ["/repo"], gitCommonDir: null });
+		const git = new FakeSlotRepositoryGateway({ existingPaths: ["/repo"], gitCommonDir: null });
 		await expect(
 			discoverRepoOrSentinel({ cwd: "/repo", slotsRoot: "/slots", git }),
 		).resolves.toMatchObject({ type: "no_repo", errorType: "not_in_repo" });
 	});
 
 	it("derives stable repo name and slots paths from the main repo root", async () => {
-		const git = new FakeSlotGitGateway({
+		const git = new FakeSlotRepositoryGateway({
 			existingPaths: ["/slot"],
 			gitCommonDir: "/repo/.git",
 			repositoryRoot: "/slot",

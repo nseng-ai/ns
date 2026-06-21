@@ -6,10 +6,10 @@ import type {
 	CurrentBranchResult,
 	GitCommandFailure,
 	LocalBranchTip,
-	SlotGitGateway,
+	SlotRepositoryGateway,
 	WorktreeInfo,
 	WorktreeOccupancy,
-} from "../git.ts";
+} from "../repository.ts";
 
 export type FakeSlotGitOperation =
 	| { type: "add-detached-worktree"; path: string; ref: string }
@@ -19,7 +19,7 @@ export type FakeSlotGitOperation =
 	| { type: "checkout-branch"; path: string; branch: string }
 	| { type: "detach-head"; path: string; ref: string };
 
-export interface FakeSlotGitGatewayOptions {
+export interface FakeSlotRepositoryGatewayOptions {
 	existingPaths?: readonly string[] | undefined;
 	gitCommonDir?: string | null | undefined;
 	repositoryRoot?: string | undefined;
@@ -37,7 +37,7 @@ export interface FakeSlotGitGatewayOptions {
 	deleteBranchFailures?: Readonly<Record<string, GitCommandFailure>> | undefined;
 }
 
-export class FakeSlotGitGateway implements SlotGitGateway {
+export class FakeSlotRepositoryGateway implements SlotRepositoryGateway {
 	private readonly existingPaths: ReadonlySet<string>;
 	private readonly gitCommonDirValue: string | null;
 	private readonly repositoryRootValue: string;
@@ -55,7 +55,7 @@ export class FakeSlotGitGateway implements SlotGitGateway {
 	private readonly deleteBranchFailures: Readonly<Record<string, GitCommandFailure>>;
 	private readonly log: FakeSlotGitOperation[] = [];
 
-	constructor(options: FakeSlotGitGatewayOptions = {}) {
+	constructor(options: FakeSlotRepositoryGatewayOptions = {}) {
 		this.existingPaths = new Set(options.existingPaths ?? ["/repo"]);
 		this.gitCommonDirValue =
 			options.gitCommonDir === undefined ? "/repo/.git" : options.gitCommonDir;

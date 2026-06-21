@@ -1,8 +1,9 @@
 import { describe, expect, test } from "vitest";
 
+import { InMemoryGitGateway } from "@sdl/core/git/testing";
+
 import {
 	InMemoryGithubPrFeedbackGateway,
-	InMemoryPrAddressGitGateway,
 	discussionComment,
 	prSummary,
 	review,
@@ -17,8 +18,11 @@ function dataFromJson(stdout: readonly string[]): unknown {
 describe("pr-address primitive exec commands", () => {
 	test("repo-required primitive operations fail on repository probe failure", async () => {
 		const run = runScenario(["exec", "open-prs", "--format", "json"], {
-			git: new InMemoryPrAddressGitGateway({
-				repoContextFailure: { code: "work_tree_probe_failed", message: "git probe exploded" },
+			git: new InMemoryGitGateway({
+				isInsideWorkTree: {
+					type: "failure",
+					error: { code: "work_tree_probe_failed", message: "git probe exploded" },
+				},
 			}),
 			prFeedback: new InMemoryGithubPrFeedbackGateway({ prs: [prSummary({ number: 12 })] }),
 		});

@@ -1,11 +1,12 @@
 import type { z } from "zod";
 
 import { failure, type ClinkrCommandSpec, type ClinkrGroup, type ClinkrHandler } from "@sdl/clinkr";
+import type { GitResult } from "@sdl/core/git";
 import type { GithubPrFeedbackFailure } from "@sdl/core/github-pr-feedback";
 import { errorDetailText } from "@sdl/core/result";
 
 import type { PrAddressContext } from "./context.ts";
-import type { GatewayFailure, GatewayOptions } from "./core/gateways.ts";
+import type { GatewayFailure, GatewayOptions, RepoContextResult } from "./core/gateways.ts";
 
 /** Handler-facing runtime for one exec operation; clinkr's io seam owns all output. */
 export interface PrAddressExecContext {
@@ -122,7 +123,9 @@ function withRepoContextPrecondition<S extends z.ZodObject, T>(
 	handler: ClinkrHandler<PrAddressExecContext, S, T>,
 ): ClinkrHandler<PrAddressExecContext, S, T> {
 	return async (ctx, request) => {
-		const probe = await ctx.context.git.isInsideWorkTree({ cwd: ctx.cwd, env: ctx.env });
+		const probe = repoContextFromGitProbe(
+			await ctx.context.git.isInsideWorkTree({ cwd: ctx.cwd, env: ctx.env }),
+		);
 		switch (probe.type) {
 			case "inside":
 				return handler(ctx, request);
@@ -135,4 +138,9 @@ function withRepoContextPrecondition<S extends z.ZodObject, T>(
 				return gatewayFailureExit("Failed to determine repository context", probe.failure);
 		}
 	};
+}
+
+export function repoContextFromGitProbe(result: GitResult<boolean>): RepoContextResult {
+	if (!result.ok) return { type: "failure", failure: result.error };
+	return result.value ? { type: "inside" } : { type: "outside" };
 }

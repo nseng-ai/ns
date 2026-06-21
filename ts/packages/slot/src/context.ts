@@ -4,7 +4,7 @@ import { resolveClinkrInteraction, type ClinkrInteraction } from "@sdl/clinkr";
 import { readStdinLine } from "@sdl/core/stdin";
 
 import { RealClipboardGateway, type ClipboardGateway } from "./gateways/clipboard.ts";
-import { RealSlotGitGateway, type SlotGitGateway } from "./gateways/git.ts";
+import { RealSlotRepositoryGateway, type SlotRepositoryGateway } from "./gateways/repository.ts";
 import { RealSlotGtGateway, type SlotGtGateway } from "./gateways/gt.ts";
 import { RealSlotPrGateway, type SlotPrGateway } from "./gateways/pr.ts";
 import { RealSlotStorageGateway, type SlotStorageGateway } from "./gateways/storage.ts";
@@ -16,7 +16,7 @@ import {
 
 export interface SlotCliContext {
 	repo: RepoDiscoveryResult;
-	git: SlotGitGateway;
+	git: SlotRepositoryGateway;
 	gt: SlotGtGateway;
 	pr: SlotPrGateway;
 	storage: SlotStorageGateway;
@@ -37,7 +37,7 @@ export async function createRealSlotContext(options: {
 }): Promise<SlotCliContext> {
 	const env = options.env ?? process.env;
 	const slotsRoot = resolveSlotsRoot(env);
-	const git = new RealSlotGitGateway({ cwd: options.cwd, env });
+	const git = new RealSlotRepositoryGateway({ cwd: options.cwd, env });
 	const repo = await discoverRepoOrSentinel({ cwd: options.cwd, slotsRoot, git });
 	const stderr = (text: string) => process.stderr.write(text);
 	return {

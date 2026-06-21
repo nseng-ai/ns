@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { RealSlotGtGateway } from "../../src/gateways/gt.ts";
-import { FakeSlotGitGateway } from "../../src/gateways/fakes/git.ts";
+import { FakeSlotRepositoryGateway } from "../../src/gateways/fakes/repository.ts";
 
 interface MetadataRow {
 	branch: string | number | null;
@@ -72,7 +72,7 @@ async function withMetadataDb(
 
 function gatewayFor(commonDir: string, currentBranch: string): RealSlotGtGateway {
 	return new RealSlotGtGateway({
-		git: new FakeSlotGitGateway({
+		git: new FakeSlotRepositoryGateway({
 			gitCommonDir: commonDir,
 			worktrees: [{ path: "/repo", branch: currentBranch }],
 		}),

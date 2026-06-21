@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { runScenario } from "../support/run-scenario.ts";
 import { FakeRunner } from "../support/fake-runner.ts";
-import { FakeGitGateway } from "../support/fake-git-gateway.ts";
+import { FakeVibechkRepositoryGateway } from "../support/fake-repository-gateway.ts";
 import { runCli } from "../../src/cli.ts";
 import { RunnerRegistry } from "../../src/runners.ts";
 
@@ -35,7 +35,7 @@ describe("vibechk run command", () => {
 			metricsByWorkdir: { workdir: { wallTimeSeconds: 1.5, totalTokens: 100 } },
 		});
 
-		const fakeGit = new FakeGitGateway({
+		const fakeRepository = new FakeVibechkRepositoryGateway({
 			repoRoot: "/tmp/repo",
 			currentBranch: "main",
 			currentCommit: "abc123",
@@ -44,8 +44,8 @@ describe("vibechk run command", () => {
 		});
 
 		// Set changes after runner executes
-		fakeGit.setHasChanges(true);
-		fakeGit.setDiffPatch("diff --git a/result.txt b/result.txt\n+result content\n");
+		fakeRepository.setHasChanges(true);
+		fakeRepository.setDiffPatch("diff --git a/result.txt b/result.txt\n+result content\n");
 
 		const stdout: string[] = [];
 		const stderr: string[] = [];
@@ -70,7 +70,7 @@ describe("vibechk run command", () => {
 				stdout: (text) => stdout.push(text),
 				stderr: (text) => stderr.push(text),
 				runnerRegistry: new RunnerRegistry([fakeRunner]),
-				gitGatewayFactory: () => fakeGit,
+				repositoryGatewayFactory: () => fakeRepository,
 				clock: () => new Date("2026-05-23T12:00:00Z"),
 				idGenerator: () => ids[idIndex++] ?? "fallback",
 				defaultRunnerName: "fake",
@@ -79,8 +79,8 @@ describe("vibechk run command", () => {
 
 		expect(exitCode).toBe(0);
 		expect(stdout.join("")).toContain("Run ID: testrun1");
-		expect(fakeGit.getCreatedBranches()).toEqual(["vibechk/testrun1"]);
-		expect(fakeGit.getCheckoutHistory()).toEqual(["main"]);
+		expect(fakeRepository.getCreatedBranches()).toEqual(["vibechk/testrun1"]);
+		expect(fakeRepository.getCheckoutHistory()).toEqual(["main"]);
 
 		const showRun = runScenario(["show", "testrun1", "--store", storeRoot]);
 		expect(await showRun.exit).toBe(0);
@@ -104,13 +104,13 @@ describe("vibechk run command", () => {
 			changesByWorkdir: { workdir: "failed output\n" },
 		});
 
-		const fakeGit = new FakeGitGateway({
+		const fakeRepository = new FakeVibechkRepositoryGateway({
 			currentBranch: "main",
 			isClean: true,
 		});
 
-		fakeGit.setHasChanges(true);
-		fakeGit.setDiffPatch("diff --git a/result.txt b/result.txt\n+failed output\n");
+		fakeRepository.setHasChanges(true);
+		fakeRepository.setDiffPatch("diff --git a/result.txt b/result.txt\n+failed output\n");
 
 		const stdout: string[] = [];
 		const stderr: string[] = [];
@@ -133,7 +133,7 @@ describe("vibechk run command", () => {
 				stdout: (text) => stdout.push(text),
 				stderr: (text) => stderr.push(text),
 				runnerRegistry: new RunnerRegistry([fakeRunner]),
-				gitGatewayFactory: () => fakeGit,
+				repositoryGatewayFactory: () => fakeRepository,
 				clock: () => new Date("2026-05-23T12:00:00Z"),
 				idGenerator: () => "failedrun",
 				defaultRunnerName: "fake",
@@ -157,7 +157,7 @@ describe("vibechk run command", () => {
 
 		const fakeRunner = new FakeRunner({});
 
-		const fakeGit = new FakeGitGateway({
+		const fakeRepository = new FakeVibechkRepositoryGateway({
 			currentBranch: "main",
 			isClean: true,
 			hasChanges: false,
@@ -185,7 +185,7 @@ describe("vibechk run command", () => {
 				stdout: (text) => stdout.push(text),
 				stderr: (text) => stderr.push(text),
 				runnerRegistry: new RunnerRegistry([fakeRunner]),
-				gitGatewayFactory: () => fakeGit,
+				repositoryGatewayFactory: () => fakeRepository,
 				clock: () => new Date("2026-05-23T12:00:00Z"),
 				idGenerator: () => "nochange",
 				defaultRunnerName: "fake",
@@ -193,8 +193,8 @@ describe("vibechk run command", () => {
 		);
 
 		expect(exitCode).toBe(0);
-		expect(fakeGit.getCreatedBranches()).toEqual([]);
-		expect(fakeGit.getCheckoutHistory()).toEqual([]);
+		expect(fakeRepository.getCreatedBranches()).toEqual([]);
+		expect(fakeRepository.getCheckoutHistory()).toEqual([]);
 
 		const showRun = runScenario(["show", "nochange", "--store", storeRoot]);
 		expect(await showRun.exit).toBe(0);
@@ -208,7 +208,7 @@ describe("vibechk run command", () => {
 		await writeFile(planPath, "# Plan\n", "utf-8");
 
 		const fakeRunner = new FakeRunner({});
-		const fakeGit = new FakeGitGateway({
+		const fakeRepository = new FakeVibechkRepositoryGateway({
 			currentBranch: "main",
 			isClean: false,
 		});
@@ -234,7 +234,7 @@ describe("vibechk run command", () => {
 				stdout: (text) => stdout.push(text),
 				stderr: (text) => stderr.push(text),
 				runnerRegistry: new RunnerRegistry([fakeRunner]),
-				gitGatewayFactory: () => fakeGit,
+				repositoryGatewayFactory: () => fakeRepository,
 				clock: () => new Date("2026-05-23T12:00:00Z"),
 				idGenerator: () => "shouldnotrun",
 				defaultRunnerName: "fake",
@@ -272,9 +272,12 @@ describe("vibechk run command", () => {
 		let timeIndex = 0;
 
 		const runBaseline = async (): Promise<number> => {
-			const fakeGit = new FakeGitGateway({ currentBranch: "main", isClean: true });
-			fakeGit.setHasChanges(true);
-			fakeGit.setDiffPatch("diff --git a/result.txt b/result.txt\n+baseline result\n");
+			const fakeRepository = new FakeVibechkRepositoryGateway({
+				currentBranch: "main",
+				isClean: true,
+			});
+			fakeRepository.setHasChanges(true);
+			fakeRepository.setDiffPatch("diff --git a/result.txt b/result.txt\n+baseline result\n");
 
 			const stdout: string[] = [];
 			const stderr: string[] = [];
@@ -297,7 +300,7 @@ describe("vibechk run command", () => {
 					stdout: (text) => stdout.push(text),
 					stderr: (text) => stderr.push(text),
 					runnerRegistry: new RunnerRegistry([fakeRunner]),
-					gitGatewayFactory: () => fakeGit,
+					repositoryGatewayFactory: () => fakeRepository,
 					clock: () => timestamps[timeIndex++] ?? new Date(),
 					idGenerator: () => ids[idIndex++] ?? "fallback",
 					defaultRunnerName: "fake",
@@ -306,9 +309,12 @@ describe("vibechk run command", () => {
 		};
 
 		const runTreatment = async (): Promise<number> => {
-			const fakeGit = new FakeGitGateway({ currentBranch: "main", isClean: true });
-			fakeGit.setHasChanges(true);
-			fakeGit.setDiffPatch("diff --git a/result.txt b/result.txt\n+treatment result\n");
+			const fakeRepository = new FakeVibechkRepositoryGateway({
+				currentBranch: "main",
+				isClean: true,
+			});
+			fakeRepository.setHasChanges(true);
+			fakeRepository.setDiffPatch("diff --git a/result.txt b/result.txt\n+treatment result\n");
 
 			const stdout: string[] = [];
 			const stderr: string[] = [];
@@ -331,7 +337,7 @@ describe("vibechk run command", () => {
 					stdout: (text) => stdout.push(text),
 					stderr: (text) => stderr.push(text),
 					runnerRegistry: new RunnerRegistry([fakeRunner]),
-					gitGatewayFactory: () => fakeGit,
+					repositoryGatewayFactory: () => fakeRepository,
 					clock: () => timestamps[timeIndex++] ?? new Date(),
 					idGenerator: () => ids[idIndex++] ?? "fallback",
 					defaultRunnerName: "fake",

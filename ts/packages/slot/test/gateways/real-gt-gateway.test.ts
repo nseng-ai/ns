@@ -9,7 +9,7 @@ import {
 	type GraphiteMetadataJsonQueryResult,
 	type GtCommandFailure,
 } from "../../src/gateways/gt.ts";
-import { FakeSlotGitGateway } from "../../src/gateways/fakes/git.ts";
+import { FakeSlotRepositoryGateway } from "../../src/gateways/fakes/repository.ts";
 
 interface MetadataRow {
 	branch_name: string | number | null;
@@ -370,7 +370,7 @@ function gatewayWithMetadata(options: {
 	});
 	return {
 		gateway: new RealSlotGtGateway({
-			git: new FakeSlotGitGateway({
+			git: new FakeSlotRepositoryGateway({
 				gitCommonDir: COMMON_DIR,
 				worktrees: [{ path: "/repo", branch: options.currentBranch }],
 			}),

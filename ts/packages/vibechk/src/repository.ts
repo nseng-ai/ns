@@ -23,7 +23,7 @@ export interface GitProvenance {
 	remotes: Record<string, string>;
 }
 
-export interface VibechkGitGateway {
+export interface VibechkRepositoryGateway {
 	repoRoot(): Promise<string>;
 	currentBranch(): Promise<string>;
 	currentCommit(): Promise<string>;
@@ -35,7 +35,7 @@ export interface VibechkGitGateway {
 	checkout(branch: string): Promise<void>;
 }
 
-export class RealVibechkGitGateway implements VibechkGitGateway {
+export class RealVibechkRepositoryGateway implements VibechkRepositoryGateway {
 	private readonly workdir: string;
 	private readonly execApi: CommandExecApi;
 	private readonly coreGit: GitGateway;
