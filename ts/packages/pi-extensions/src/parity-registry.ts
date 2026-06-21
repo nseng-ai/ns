@@ -1,6 +1,5 @@
 import type { RoastSkillEntry } from "@sdl/roaster";
 
-import { autobranchParity } from "./autobranch.ts";
 import { autoslotParity } from "./autoslot.ts";
 import { branchContextExtensionParity } from "./branch-context-extension.ts";
 import { claudeHandoffParity } from "./claude/handoff-command.ts";
@@ -32,7 +31,6 @@ export interface LoadPiExtensionParityRecordsOptions {
 }
 
 export const STATIC_PI_EXTENSION_PARITY_RECORDS = [
-	...autobranchParity,
 	...autoslotParity,
 	...branchContextExtensionParity,
 	...claudeHandoffParity,

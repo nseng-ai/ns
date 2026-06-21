@@ -1,8 +1,8 @@
 ---
 name: code-autobranch
-description: "Create a Graphite branch from dirty worktree changes or the latest unpushed commit by delegating to `ccc exec autobranch`."
+description: "Create a Graphite branch from dirty worktree changes or the latest unpushed commit by delegating to `sdl autobranch`."
 allowed-tools:
-  - "Bash(ccc exec autobranch*)"
+  - "Bash(sdl autobranch*)"
   - "Bash(git status*)"
 metadata:
   internal: true
@@ -10,7 +10,7 @@ metadata:
 
 # code-autobranch
 
-Create a Graphite branch from current work by delegating to the shared `ccc exec autobranch` CLI. This is the cross-harness skill path corresponding to Pi `/sdl:code:autobranch`; do not recreate the stash, Graphite, recovery, or checkpoint sequence by hand.
+Create a Graphite branch from current work by delegating to the public `sdl autobranch` CLI. This is the cross-harness skill path corresponding to Pi `/sdl:autobranch`; do not recreate the stash, Graphite, recovery, or checkpoint sequence by hand.
 
 ## When to use
 
@@ -27,13 +27,13 @@ git status --short --branch
 Run:
 
 ```bash
-ccc exec autobranch
+sdl autobranch
 ```
 
 With an explicit branch slug:
 
 ```bash
-ccc exec autobranch --slug <slug>
+sdl autobranch --slug <slug>
 ```
 
 The CLI owns two modes:
@@ -41,14 +41,15 @@ The CLI owns two modes:
 - Dirty worktree: stash pending tracked and untracked changes, create a Graphite branch with `gt create`, restore the stash, then create a checkpoint commit.
 - Clean worktree: only for an eligible latest unpushed non-root, non-merge commit with no Graphite child branches; create a recovery branch, reset the source branch to the parent, create a Graphite branch, move the commit there, verify the result, and clean up recovery evidence.
 
-Branch slug derivation routes through `@sdl/plans` model defaults and `SDL_SLUG_MODEL`. Checkpoint message generation uses SDL checkpoint text-generation settings, including `SDL_CHECKPOINT_MODEL` with legacy `SDL_DEV_CHECKPOINT_MODEL` fallback.
+Branch slug derivation uses the SDL slug model contract and `SDL_SLUG_MODEL`. Checkpoint message generation uses SDL checkpoint text-generation settings, including `SDL_CHECKPOINT_MODEL` with legacy `SDL_DEV_CHECKPOINT_MODEL` fallback.
 
 ## Failure handling
 
-If `ccc exec autobranch` fails, surface its output and stop. Do not manually replay the stash, `gt create`, reset, recovery-branch, or checkpoint sequence unless the user explicitly chooses a recovery path after seeing the failure.
+If `sdl autobranch` fails, surface its output and stop. Do not manually replay the stash, `gt create`, reset, recovery-branch, or checkpoint sequence unless the user explicitly chooses a recovery path after seeing the failure.
 
 ## Boundaries
 
 - Graphite/`gt` is part of this command contract.
 - This does not submit, land, restack, or create plain git branches.
-- Pi may add notification/status UX, but the mutation semantics belong to the shared CCC autobranch core.
+- Pi may add notification/status UX, but the public command boundary is `sdl autobranch` / `/sdl:autobranch`.
+- Hidden `ccc exec autobranch` remains available for internal compatibility; do not use it as the public/cross-harness path.

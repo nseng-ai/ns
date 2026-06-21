@@ -76,7 +76,7 @@ Discovery is side-effect-light: `sdl --help`, `sdl -h`, `sdl --version`, `sdl --
 
 The legacy `.sdl/commands/<command>.ts` path has been removed. It is not a compatibility fallback.
 
-Dynamic Pi `/sdl:*` mirrors are not part of this first general extension-loading slice. In this repository, the exact `/sdl:changes`, `/sdl:cp`, and nested `/sdl:code:changes` mirrors delegate to restored project-local SDL commands. Other repository workflow mirrors are unavailable until their SDL command entries migrate back. Arbitrary SDL extension command entries are not dynamically mirrored into Pi.
+Dynamic Pi `/sdl:*` mirrors are not part of this first general extension-loading slice. In this repository, the exact `/sdl:changes`, `/sdl:cp`, `/sdl:autobranch`, `/sdl:submit`, `/sdl:regenerate-pr`, and nested `/sdl:code:changes` mirrors delegate to restored project-local SDL commands. Other repository workflow mirrors are unavailable until their SDL command entries migrate back. Arbitrary SDL extension command entries are not dynamically mirrored into Pi.
 
 ## Public SDL extension API
 
@@ -137,6 +137,33 @@ Environment:
 - `SDL_DEV_CHECKPOINT_MODEL`: transitional fallback for the old checkpoint model selection.
 
 Pi exposes the same capability as `/sdl:cp`. Old compatibility aliases such as `/code:cp`, `/code:checkpoint`, `/sdl:code:cp`, and `/sdl:code:checkpoint` are not restored.
+
+## `autobranch`
+
+Create a Graphite branch from dirty worktree changes or the latest unpushed commit.
+
+```bash
+sdl autobranch
+sdl autobranch --slug <slug>
+```
+
+In this repository, `sdl autobranch` is provided by the project-local SDK-only single-file extension `.sdl/extensions/autobranch.ts`; it is not a universal built-in SDL command. Hidden `ccc exec autobranch` remains for CCC/internal compatibility, but the public agent and Pi boundary is `sdl autobranch` / `/sdl:autobranch`.
+
+Behavior:
+
+- dirty worktree mode stashes tracked and untracked changes, creates a Graphite branch with `gt create`, restores the stash, and creates a checkpoint commit;
+- clean worktree mode moves the latest eligible unpushed single-parent commit onto a new Graphite branch using a recovery branch, source reset, hard reset, HEAD verification, and cleanup;
+- refuses unsafe latest-commit cases such as trunk, pushed HEAD, root commits, merge commits, or Graphite child branches;
+- derives branch slugs with the SDL slug model unless `--slug` is supplied;
+- generates dirty-worktree checkpoint messages with the same `[cp]` checkpoint-message policy as `sdl cp`.
+
+Environment:
+
+- `SDL_SLUG_MODEL`: model reference for generated branch slugs.
+- `SDL_CHECKPOINT_MODEL`: model reference for generated checkpoint messages.
+- `SDL_DEV_CHECKPOINT_MODEL`: transitional fallback for the old checkpoint model selection.
+
+Pi exposes the same capability as `/sdl:autobranch`. `/sdl:code:autobranch`, `/code:autobranch`, and `/newbr` are not restored as compatibility surfaces.
 
 ## `changes`
 
