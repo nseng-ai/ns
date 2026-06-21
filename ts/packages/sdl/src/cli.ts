@@ -108,7 +108,7 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 		const context: SdlContext = {
 			cwd: resolvedCwd,
 			env: resolvedEnv,
-			model: baseContext.model,
+			textGenerator: baseContext.textGenerator,
 			exec: baseContext.exec.bind(baseContext),
 			stdout: resolvedStdout,
 			stderr: resolvedStderr,

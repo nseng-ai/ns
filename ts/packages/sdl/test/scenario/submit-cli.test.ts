@@ -1,4 +1,4 @@
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { copyFileSync, cpSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -29,6 +29,9 @@ const LAGGING_VERIFICATION_PR_URL = "https://app.graphite.com/github/pr/dagster-
 const SUBMIT_EXTENSION_SOURCE = fileURLToPath(
 	new URL("../../../../../.sdl/extensions/submit.ts", import.meta.url),
 );
+const SHARED_EXTENSION_HELPERS_SOURCE = fileURLToPath(
+	new URL("../../../../../.sdl/extensions/shared", import.meta.url),
+);
 const tempProjectDirs: string[] = [];
 
 afterEach(() => {
@@ -54,6 +57,9 @@ function createSubmitProject(): string {
 	const extensionPath = join(directory, ".sdl", "extensions", "submit.ts");
 	mkdirSync(dirname(extensionPath), { recursive: true });
 	copyFileSync(SUBMIT_EXTENSION_SOURCE, extensionPath);
+	cpSync(SHARED_EXTENSION_HELPERS_SOURCE, join(directory, ".sdl", "extensions", "shared"), {
+		recursive: true,
+	});
 	return directory;
 }
 
@@ -79,7 +85,7 @@ describe("sdl submit CLI availability", () => {
 			expect(run.stdout.join("")).toBe("");
 			expect(run.stderr.join("")).toMatch(/too many arguments|unknown/i);
 			expect(run.context.execCalls).toEqual([]);
-			expect(run.context.modelCalls).toEqual([]);
+			expect(run.context.textGeneratorCalls).toEqual([]);
 		}
 	});
 
@@ -307,7 +313,7 @@ describe("project-local submit extension", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("Skipped unchanged PR descriptions");
-		expect(run.context.modelCalls).toEqual([]);
+		expect(run.context.textGeneratorCalls).toEqual([]);
 		expect(formattedExecCalls(run.context)).not.toContain("gh pr view 123 --json commits");
 		expect(formattedExecCalls(run.context).some((call) => call.startsWith("gh pr edit 123"))).toBe(
 			false,
@@ -323,7 +329,7 @@ describe("project-local submit extension", () => {
 		const run = runWithFakes({ args: ["submit"], state: { textGeneration: [pendingModel] } });
 
 		await vi.waitFor(() => {
-			expect(run.context.modelCalls).toHaveLength(1);
+			expect(run.context.textGeneratorCalls).toHaveLength(1);
 		});
 		expect(run.liveOutput).toContainEqual({
 			stream: "stderr",
@@ -589,7 +595,7 @@ describe("project-local submit extension", () => {
 			"`sdl submit` checkpoints outstanding worktree changes before submitting.",
 		);
 		expect(error).toContain("Raw log:");
-		expect(run.context.modelCalls).toHaveLength(1);
+		expect(run.context.textGeneratorCalls).toHaveLength(1);
 	});
 
 	test("dirty worktree checkpoints before submitting", async () => {
@@ -711,7 +717,7 @@ describe("project-local submit extension", () => {
 		expect(error).not.toContain("----- AI interpretation (model-generated) -----");
 		expect(error).not.toContain("----- stdout -----");
 		expect(error).not.toContain("ERROR: Aborting submit because trunk branch is out of date");
-		expect(run.context.modelCalls).toHaveLength(1);
+		expect(run.context.textGeneratorCalls).toHaveLength(1);
 	});
 
 	test("unknown dry-run failure uses model-primary message and writes a raw log", async () => {
@@ -758,12 +764,12 @@ describe("project-local submit extension", () => {
 		expect(rawPath?.startsWith(logRoot)).toBe(true);
 		expect(await readFile(rawPath ?? "", "utf8")).toContain("full stdout details\nsecond line");
 		expect(await readFile(rawPath ?? "", "utf8")).toContain("mystery graphite failure");
-		expect(run.context.modelCalls).toHaveLength(1);
-		expect(run.context.modelCalls[0]?.modelRef).toBe("openai-codex/submit-summary");
-		expect(run.context.modelCalls[0]?.prompt).toContain(
+		expect(run.context.textGeneratorCalls).toHaveLength(1);
+		expect(run.context.textGeneratorCalls[0]?.modelRef).toBe("openai-codex/submit-summary");
+		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(
 			"Truncation: transcript was not truncated.",
 		);
-		expect(run.context.modelCalls[0]?.prompt).not.toContain("Raw log path:");
+		expect(run.context.textGeneratorCalls[0]?.prompt).not.toContain("Raw log path:");
 	});
 
 	test("unknown dry-run failure falls back to original stderr when model generation fails", async () => {
@@ -870,7 +876,7 @@ describe("project-local submit extension", () => {
 		);
 		expect(run.stderr.join("")).toContain("- src/app.ts");
 		expect(run.stderr.join("")).toContain("Raw log:");
-		expect(run.context.modelCalls).toHaveLength(1);
+		expect(run.context.textGeneratorCalls).toHaveLength(1);
 		expect(
 			formattedExecCalls(run.context).filter(
 				(call) => call === "gt submit -nps --no-ai --no-interactive --no-view --no-web",
@@ -919,8 +925,8 @@ describe("project-local submit extension", () => {
 		expect(error).not.toContain("----- AI interpretation (model-generated) -----");
 		expect(error).not.toContain("Graphite dry-run error:");
 		expect(error).not.toContain("WARNING: You must restack before submitting this stack.");
-		expect(run.context.modelCalls).toHaveLength(1);
-		expect(run.context.modelCalls[0]?.prompt).toContain(
+		expect(run.context.textGeneratorCalls).toHaveLength(1);
+		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(
 			"Graphite still requires restack after `sdl submit` already ran `gt restack --no-interactive`.",
 		);
 		const rawPath = error.match(/Raw log: (?<path>\S+)/u)?.groups?.path;
@@ -998,7 +1004,7 @@ describe("project-local submit extension", () => {
 			error.indexOf("Next step: Remove, delete, or reparent"),
 		);
 		expect(error.match(/^Raw log: /gmu)).toHaveLength(1);
-		expect(run.context.modelCalls[0]?.prompt).toContain(
+		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(
 			"because branch sdl-extension-api-followup-stack is empty",
 		);
 		const rawPath = error.match(/Raw log: (?<path>\S+)/u)?.groups?.path;
@@ -1065,6 +1071,6 @@ describe("project-local submit extension", () => {
 		expect(error).toContain(`#123 ${PR_URL}`);
 		expect(error).toContain("Could not update PR #123.");
 		expect(error).toContain("Raw log:");
-		expect(run.context.modelCalls).toHaveLength(2);
+		expect(run.context.textGeneratorCalls).toHaveLength(2);
 	});
 });

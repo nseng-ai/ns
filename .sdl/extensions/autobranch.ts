@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 
 import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
+import { prepareCheckpointMessage } from "./shared/text-helpers.ts";
 import type { ExecResult, SdlContext, TextGenerator } from "@sdl/sdl/sdk";
 
 const GIT_FACT_TIMEOUT_MS = 30_000;
@@ -472,7 +473,7 @@ async function prepareAutobranchPlan(
   const prepared = await prepareCheckpointMessage({
     status: snapshot.status,
     diff: snapshot.diff,
-    textGeneration: ctx.model,
+    textGenerator: ctx.textGenerator,
     modelRef: selectCheckpointModelRef(ctx.env),
   });
   if (!prepared.ok) {
@@ -1712,63 +1713,6 @@ function firstNonEmptyLine(value: string): string | undefined {
     .find((line) => line.length > 0);
 }
 
-async function prepareCheckpointMessage(input: {
-  status: string;
-  diff: string;
-  textGeneration: TextGenerator;
-  modelRef: string;
-}): Promise<PreparedCheckpointMessage> {
-  let prompt = buildCheckpointUserPrompt({ status: input.status, diff: input.diff });
-  let firstFeedback: string | undefined;
-  let latestFeedback = "";
-
-  for (let attempt = 1; attempt <= MAX_REPAIR_ATTEMPTS; attempt += 1) {
-    const generated = await generateCheckpointText(input.textGeneration, input.modelRef, prompt);
-    if (!generated.ok) return { ok: false, error: generated.error };
-
-    const validation = validateCheckpointMessage(generated.text);
-    if (validation.ok) {
-      return {
-        ok: true,
-        message: formatCheckpointMessage(validation.message),
-        source: attempt === 1 ? "model" : "repaired_model",
-        ...(firstFeedback === undefined ? {} : { feedback: firstFeedback }),
-      };
-    }
-
-    latestFeedback = formatCheckpointValidationFeedback(validation.issues);
-    firstFeedback ??= latestFeedback;
-    if (attempt < MAX_REPAIR_ATTEMPTS) {
-      prompt = buildCheckpointUserPrompt({
-        status: input.status,
-        diff: input.diff,
-        previousDraft: generated.text,
-        validationFeedback: latestFeedback,
-      });
-    }
-  }
-
-  return {
-    ok: false,
-    error: `Model produced an invalid checkpoint message after ${MAX_REPAIR_ATTEMPTS} attempts.\n${latestFeedback}`,
-  };
-}
-
-function generateCheckpointText(
-  textGeneration: TextGenerator,
-  modelRef: string,
-  prompt: string,
-): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
-  return textGeneration.generateText({
-    modelRef,
-    system: CHECKPOINT_SYSTEM_PROMPT,
-    prompt,
-    maxTokens: 512,
-    reasoning: "low",
-    operation: "checkpoint-message",
-  });
-}
-
 function selectCheckpointModelRef(env: Record<string, string | undefined>): string {
   return (
     firstEnvValue(env, CHECKPOINT_MODEL_ENV, LEGACY_CHECKPOINT_MODEL_ENV) ??
@@ -1787,26 +1731,6 @@ function firstEnvValue(
     }
   }
   return undefined;
-}
-
-function buildCheckpointUserPrompt(input: CheckpointPromptInput): string {
-  const diffSection = buildCheckpointDiffPromptSection({ diff: input.diff });
-  const diffHeading = diffSection.isCompacted ? "## git diff HEAD (compacted)" : "## git diff HEAD";
-  const base = `Draft a checkpoint commit message for this pending git state.\n\n## git status --porcelain\n\n${promptBlock(input.status, "(clean)")}\n\n${diffHeading}\n\n${diffSection.text}\n`;
-  if (!input.previousDraft || !input.validationFeedback) {
-    return base;
-  }
-  const previousDraft = compactPromptText(
-    input.previousDraft,
-    CHECKPOINT_REPAIR_PREVIOUS_DRAFT_CHAR_LIMIT,
-    "previous invalid draft",
-  );
-  const validationFeedback = compactPromptText(
-    input.validationFeedback,
-    CHECKPOINT_REPAIR_FEEDBACK_CHAR_LIMIT,
-    "validation feedback",
-  );
-  return `${base}\n## previous invalid draft\n\n${previousDraft}\n\n## validation feedback\n\n${validationFeedback}\n\nRewrite the checkpoint message so it satisfies every validation rule. Return only the corrected commit message.\n`;
 }
 
 async function createCommitWithPreparedMessage(

@@ -55,11 +55,11 @@ export function validateChangesSummary(
 }
 
 export async function draftChangesSummary(input: {
-	model: TextGenerator;
+	textGenerator: TextGenerator;
 	env: Record<string, string | undefined>;
 	snapshot: Pick<PendingWorktreeSnapshot, "branch" | "status" | "diff">;
 }): Promise<{ ok: true; summaryText: string } | { ok: false; error: string }> {
-	const drafted = await input.model.generateText({
+	const drafted = await input.textGenerator.generateText({
 		modelRef: selectChangesModelRef(input.env),
 		system: CHANGES_SUMMARY_SYSTEM_PROMPT,
 		prompt: buildChangesUserPrompt(input.snapshot),

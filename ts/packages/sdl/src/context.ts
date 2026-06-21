@@ -21,12 +21,12 @@ export function createRealSdlCommandContext(
 ): SdlContext {
 	const cwd = options.cwd ?? process.cwd();
 	const env = options.env ?? process.env;
-	const model = createTextGenerator();
+	const textGenerator = createTextGenerator();
 	const confirm = createTerminalConfirmPrompt();
 	return {
 		cwd,
 		env,
-		model,
+		textGenerator,
 		exec: async (command, args, execOptions = {}) => {
 			const result = await runCommand(command, args, {
 				cwd,

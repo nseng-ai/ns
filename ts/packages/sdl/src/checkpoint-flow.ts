@@ -71,14 +71,14 @@ export type PreparedCheckpointMessage =
 export async function prepareCheckpointMessage(input: {
 	status: string;
 	diff: string;
-	textGeneration: TextGenerator;
+	textGenerator: TextGenerator;
 	modelRef: string;
 }): Promise<PreparedCheckpointMessage> {
 	const initialPrompt = buildCheckpointUserPrompt({ status: input.status, diff: input.diff });
 	const prepared = await prepareRepairedText({
 		noun: "checkpoint message",
 		initialPrompt,
-		generate: (prompt) => generateCheckpointText(input.textGeneration, input.modelRef, prompt),
+		generate: (prompt) => generateCheckpointText(input.textGenerator, input.modelRef, prompt),
 		validate: (text) => {
 			const validation = validateCheckpointMessage(text);
 			if (validation.ok) return { ok: true, value: formatCheckpointMessage(validation.message) };
@@ -299,11 +299,11 @@ function promptBlock(value: string, emptyPlaceholder: string): string {
 }
 
 async function generateCheckpointText(
-	textGeneration: TextGenerator,
+	textGenerator: TextGenerator,
 	modelRef: string,
 	prompt: string,
 ): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
-	return textGeneration.generateText({
+	return textGenerator.generateText({
 		modelRef,
 		system: CHECKPOINT_SYSTEM_PROMPT,
 		prompt,

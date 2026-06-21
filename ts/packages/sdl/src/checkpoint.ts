@@ -39,7 +39,7 @@ export interface RunCheckpointCommandOptions {
 	cwd: string;
 	env: Record<string, string | undefined>;
 	gateway: CheckpointGateway;
-	textGeneration: TextGenerator;
+	textGenerator: TextGenerator;
 }
 
 export type CheckpointIfPendingResult =
@@ -138,7 +138,7 @@ async function createCheckpointFromSnapshot(
 	const prepared = await prepareCheckpointMessage({
 		status: snapshot.status,
 		diff: snapshot.diff,
-		textGeneration: options.textGeneration,
+		textGenerator: options.textGenerator,
 		modelRef,
 	});
 	if (!prepared.ok) {

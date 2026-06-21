@@ -106,7 +106,7 @@ describe("sdl push CLI", () => {
 		expect(run.stderr.join("")).toBe("");
 		expect(formattedExecCalls(run.context)).toEqual(["git status --porcelain", "git push"]);
 		expect(run.context.execCalls[1]?.options).toEqual({ timeoutMs: PUSH_TIMEOUT_MS });
-		expect(run.context.modelCalls).toEqual([]);
+		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
 	test("dirty status blocks git push and prints porcelain status", async () => {
@@ -130,7 +130,7 @@ describe("sdl push CLI", () => {
 		expect(error).toContain("sdl submit");
 		expect(run.stdout.join("")).toBe("");
 		expect(formattedExecCalls(run.context)).toEqual(["git status --porcelain"]);
-		expect(run.context.modelCalls).toEqual([]);
+		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
 	test("status failure blocks git push and includes command evidence", async () => {
@@ -156,7 +156,7 @@ describe("sdl push CLI", () => {
 		expect(error).toContain("fatal: not a git repository");
 		expect(error).toContain("sdl submit");
 		expect(formattedExecCalls(run.context)).toEqual(["git status --porcelain"]);
-		expect(run.context.modelCalls).toEqual([]);
+		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
 	test("nonzero git push fails with stdout stderr evidence and submit guidance", async () => {
@@ -186,7 +186,7 @@ describe("sdl push CLI", () => {
 		expect(error).toContain("/sdl:submit");
 		expect(formattedExecCalls(run.context)).toEqual(["git status --porcelain", "git push"]);
 		expect(run.context.execCalls[1]?.options).toEqual({ timeoutMs: PUSH_TIMEOUT_MS });
-		expect(run.context.modelCalls).toEqual([]);
+		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
 	test("killed git push is a failure even with exit code zero", async () => {
@@ -209,7 +209,7 @@ describe("sdl push CLI", () => {
 		expect(error).toContain("Killed: true");
 		expect(error).toContain("timed out");
 		expect(formattedExecCalls(run.context)).toEqual(["git status --porcelain", "git push"]);
-		expect(run.context.modelCalls).toEqual([]);
+		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
 	test("unexpected arguments fail before any git command", async () => {
@@ -220,6 +220,6 @@ describe("sdl push CLI", () => {
 		expect(run.stdout.join("")).toBe("");
 		expect(run.stderr.join("")).not.toBe("");
 		expect(run.context.execCalls).toEqual([]);
-		expect(run.context.modelCalls).toEqual([]);
+		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 });

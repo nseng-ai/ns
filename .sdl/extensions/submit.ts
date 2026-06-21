@@ -3,6 +3,7 @@ import { chmod, mkdir, mkdtemp as mkdtemp3, writeFile as writeFile3 } from "node
 import { join as join4 } from "node:path";
 import process2 from "node:process";
 import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
+import { prepareCheckpointMessage, preparePrDescription } from "./shared/text-helpers.ts";
 
 // ts/packages/sdl-core/src/exec.ts
 import { spawn } from "node:child_process";
@@ -1012,53 +1013,6 @@ function formatPrDescriptionValidationFeedback(issues) {
   return issues.map(formatPrDescriptionValidationIssue).join(`
 `);
 }
-async function preparePrDescription(input) {
-  const firstPrompt = buildPrDescriptionUserPrompt(input.context);
-  const prepared = await prepareRepairedText({
-    noun: "PR description",
-    initialPrompt: firstPrompt,
-    generate: (prompt) => generatePrDescriptionText(input.textGeneration, input.modelRef, input.promptText, prompt),
-    validate: (text) => {
-      const validation = parsePrDescriptionOutput(text);
-      if (validation.ok)
-        return { ok: true, value: validation.description };
-      return { ok: false, feedback: formatPrDescriptionValidationFeedback(validation.issues) };
-    },
-    buildRepairPrompt: ({ initialPrompt, previousDraft, feedback }) => `${initialPrompt}
-## previous invalid draft
-
-${previousDraft.trim()}
-
-## validation feedback
-
-${feedback}
-
-Rewrite the PR title and body so it satisfies every validation rule. Return only the corrected PR title and body.
-`,
-    onProgress: (event) => {
-      switch (event.type) {
-        case "attempt_started":
-          input.onProgress?.(`generating PR metadata (attempt ${event.attempt}/${event.maxAttempts})`);
-          break;
-        case "attempt_waiting":
-          input.onProgress?.(`still generating PR metadata (${formatElapsedMs(event.elapsedMs)} elapsed)`);
-          break;
-        case "attempt_invalid":
-          input.onProgress?.("PR metadata draft failed validation; requesting repair");
-          break;
-      }
-    }
-  });
-  if (!prepared.ok)
-    return prepared;
-  return {
-    ok: true,
-    title: prepared.value.title,
-    body: prepared.value.body,
-    source: prepared.source,
-    ...prepared.feedback === undefined ? {} : { feedback: prepared.feedback }
-  };
-}
 function filterLockfileSections(diff) {
   const sections = diff.split(/(?=^diff --git )/m);
   return sections.filter((section) => !isLockfileDiffSection(section)).join("");
@@ -1164,16 +1118,6 @@ async function isReadableFile(path) {
   } catch {
     return false;
   }
-}
-async function generatePrDescriptionText(textGeneration, modelRef, system, prompt) {
-  return textGeneration.generateText({
-    modelRef,
-    system,
-    prompt,
-    maxTokens: 2048,
-    reasoning: "low",
-    operation: "pr-description"
-  });
 }
 function formatPrDescriptionValidationIssue(issue) {
   switch (issue.type) {
@@ -1346,7 +1290,7 @@ async function prepareSubmitPrMetadata(input) {
     cwd: input.cwd,
     env: input.env,
     git: input.git,
-    textGeneration: input.textGeneration,
+    textGenerator: input.textGenerator,
     branches: newBranches,
     ...input.onProgress === undefined ? {} : { onProgress: input.onProgress }
   });
@@ -1401,7 +1345,7 @@ async function generateMetadataForBranches(input) {
     input.onProgress?.(`generating initial PR metadata for ${branch.branch} (${index + 1}/${input.branches.length})`);
     const currentTitle = branch.commitMessages[0]?.headline ?? branch.branch;
     const generated = await preparePrDescription({
-      textGeneration: input.textGeneration,
+      textGenerator: input.textGenerator,
       modelRef: generation.modelRef,
       promptText: generation.promptText,
       context: {
@@ -1540,7 +1484,7 @@ async function generatePrDescriptionForPr(pr, commits, options) {
   if (typeof diff !== "string")
     return diff;
   const prepared = await preparePrDescription({
-    textGeneration: options.textGeneration,
+    textGenerator: options.textGenerator,
     modelRef: generation.modelRef,
     promptText: generation.promptText,
     context: {
@@ -1689,7 +1633,7 @@ async function generateSubmitPrDescriptions(input) {
         cwd: input.cwd,
         env: input.prDescription.env,
         githubPr: input.prDescription.githubPr,
-        textGeneration: input.prDescription.textGeneration,
+        textGenerator: input.prDescription.textGenerator,
         git: input.prDescription.git,
         generation,
         ...input.onProgress === undefined ? {} : { onProgress: input.onProgress }
@@ -1940,7 +1884,7 @@ async function runSubmitCommand(options) {
     env: options.prDescription.env,
     gateway: options.metadataGateway,
     git: options.prDescription.git,
-    textGeneration: options.prDescription.textGeneration,
+    textGenerator: options.prDescription.textGenerator,
     onProgress: (message) => emitSubmitProgress(options, message)
   });
   if (prewrite.kind === "failed") {
@@ -2696,34 +2640,6 @@ var CHECKPOINT_CHANGED_PATH_CHAR_LIMIT = 6000;
 var CHECKPOINT_FINAL_SUMMARY_RESERVE_CHARS = 500;
 var CHECKPOINT_REPAIR_PREVIOUS_DRAFT_CHAR_LIMIT = 4000;
 var CHECKPOINT_REPAIR_FEEDBACK_CHAR_LIMIT = 4000;
-async function prepareCheckpointMessage(input) {
-  const initialPrompt = buildCheckpointUserPrompt({ status: input.status, diff: input.diff });
-  const prepared = await prepareRepairedText({
-    noun: "checkpoint message",
-    initialPrompt,
-    generate: (prompt) => generateCheckpointText(input.textGeneration, input.modelRef, prompt),
-    validate: (text) => {
-      const validation = validateCheckpointMessage(text);
-      if (validation.ok)
-        return { ok: true, value: formatCheckpointMessage(validation.message) };
-      return { ok: false, feedback: formatCheckpointValidationFeedback(validation.issues) };
-    },
-    buildRepairPrompt: ({ previousDraft, feedback }) => buildCheckpointUserPrompt({
-      status: input.status,
-      diff: input.diff,
-      previousDraft,
-      validationFeedback: feedback
-    })
-  });
-  if (!prepared.ok)
-    return prepared;
-  return {
-    ok: true,
-    message: prepared.value,
-    source: prepared.source,
-    ...prepared.feedback === undefined ? {} : { feedback: prepared.feedback }
-  };
-}
 function buildCheckpointUserPrompt(input) {
   const diffSection = buildCheckpointDiffPromptSection({ diff: input.diff });
   const diffHeading = diffSection.isCompacted ? "## git diff HEAD (compacted)" : "## git diff HEAD";
@@ -2939,16 +2855,6 @@ function compactPromptText(value, maxChars, label) {
 function promptBlock(value, emptyPlaceholder) {
   return value.trim().length === 0 ? emptyPlaceholder : value.trimEnd();
 }
-async function generateCheckpointText(textGeneration, modelRef, prompt) {
-  return textGeneration.generateText({
-    modelRef,
-    system: CHECKPOINT_SYSTEM_PROMPT,
-    prompt,
-    maxTokens: 512,
-    reasoning: "low",
-    operation: "checkpoint-message"
-  });
-}
 function formatCommandError(summary, result) {
   const details = result.stderr.trim() || result.stdout.trim();
   const killed = result.killed ? " (killed or timed out)" : "";
@@ -3073,7 +2979,7 @@ async function createCheckpointFromSnapshot(options, snapshot, modelRef) {
   const prepared = await prepareCheckpointMessage({
     status: snapshot.status,
     diff: snapshot.diff,
-    textGeneration: options.textGeneration,
+    textGenerator: options.textGenerator,
     modelRef
   });
   if (!prepared.ok) {
@@ -3197,7 +3103,7 @@ var submit_entry_default = defineExtension({
           cwd: ctx.cwd,
           env: ctx.env,
           gateway: new RealCheckpointGateway(runner),
-          textGeneration: ctx.model
+          textGenerator: ctx.textGenerator
         });
         if (checkpoint.kind === "failed") {
           const checkpointFailure = await maybeFormatSubmitFailureWithModel({
@@ -3220,7 +3126,7 @@ var submit_entry_default = defineExtension({
           shouldForwardCommandOutput: request.verbose,
           prDescription: {
             githubPr: new RealGithubPrGateway(runner),
-            textGeneration: ctx.model,
+            textGenerator: ctx.textGenerator,
             git: new LocalGitGateway(new SdlCommandExecApi(ctx)),
             env: ctx.env
           },
@@ -3335,7 +3241,7 @@ async function maybeFormatSubmitFailureWithModel(result, ctx) {
 }
 async function generateSubmitFailureInterpretation(input) {
   try {
-    const interpretation = await input.ctx.model.generateText({
+    const interpretation = await input.ctx.textGenerator.generateText({
       modelRef: selectSubmitFailureModelRef(input.ctx.env),
       operation: "submit-failure",
       reasoning: "low",

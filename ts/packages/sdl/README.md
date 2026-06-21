@@ -101,7 +101,7 @@ That SDK subpath is the public author API for SDL extensions. It exposes:
 - `ctx.cwd`: repository working directory for the command;
 - `ctx.env`: environment visible to the command;
 - `ctx.exec(command, args, options)`: low-level argv execution with timeout and stdout/stderr chunk callbacks;
-- `ctx.model`: raw text-generation capability;
+- `ctx.textGenerator`: text-generation capability;
 - optional durable output hooks (`ctx.stdout`, `ctx.stderr`), live-output hook (`ctx.onOutput`), and confirmation hook (`ctx.confirm`) for command-owned progress and prompts.
 
 SDL command entries own their prompts, validation, repair policy, and exact external commands. They should not import internal SDL implementation modules.

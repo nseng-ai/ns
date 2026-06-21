@@ -105,7 +105,7 @@ describe("extension registry", () => {
 				async exec() {
 					return { code: 0, stdout: "", stderr: "", killed: false };
 				},
-				model: {
+				textGenerator: {
 					async generateText() {
 						return { ok: true, text: "" };
 					},
@@ -148,7 +148,7 @@ describe("extension registry", () => {
 				async exec() {
 					return { code: 0, stdout: "", stderr: "", killed: false };
 				},
-				model: {
+				textGenerator: {
 					async generateText() {
 						return { ok: true, text: "" };
 					},
@@ -229,7 +229,7 @@ export default defineExtension({
 				async exec() {
 					return { code: 0, stdout: "", stderr: "", killed: false };
 				},
-				model: {
+				textGenerator: {
 					async generateText() {
 						return { ok: true, text: "" };
 					},

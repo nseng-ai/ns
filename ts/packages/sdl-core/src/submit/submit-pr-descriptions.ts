@@ -81,7 +81,7 @@ export async function generateSubmitPrDescriptions(input: {
 			cwd: input.cwd,
 			env: input.prDescription.env,
 			githubPr: input.prDescription.githubPr,
-			textGeneration: input.prDescription.textGeneration,
+			textGenerator: input.prDescription.textGenerator,
 			git: input.prDescription.git,
 			pr: viewed.value,
 			...(generation === undefined ? {} : { generation }),

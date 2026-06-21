@@ -5,6 +5,7 @@ import { basename, isAbsolute, join, resolve } from "node:path";
 import process from "node:process";
 
 import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
+import { preparePrDescription } from "./shared/text-helpers.ts";
 import type { ExecResult, SdlContext, TextGenerator } from "@sdl/sdl/sdk";
 
 // This project-local extension intentionally uses only the public SDL SDK import. The local
@@ -289,13 +290,19 @@ async function generateRegeneratedPrMetadata(
   if (!commits.ok) return { ok: false, error: commits.error.message };
 
   const prepared = await preparePrDescription({
-    textGeneration: ctx.model,
+    textGenerator: ctx.textGenerator,
     modelRef: generation.modelRef,
     promptText: generation.promptText,
-    pr,
-    commits: commits.value,
-    diff: patchId.value.diff,
-    promptSource: generation.promptSource,
+    context: {
+      kind: "github",
+      number: pr.number,
+      url: pr.url,
+      title: pr.title,
+      headRefName: pr.headRefName,
+      baseRefName: pr.baseRefName,
+      commitMessages: commits.value,
+      diff: patchId.value.diff,
+    },
   });
   if (!prepared.ok) return prepared;
 
@@ -311,7 +318,7 @@ async function generateRegeneratedPrMetadata(
     value: {
       title: prepared.title,
       fullBody: replaceOrInsertGeneratedRegion(pr.body, prepared.body, metadata),
-      promptSource: prepared.promptSource,
+      promptSource: generation.promptSource,
     },
   };
 }
@@ -515,6 +522,14 @@ async function resolvePrDescriptionGeneration(
   };
 }
 
+function selectPrDescriptionModelRef(env: Record<string, string | undefined>): string {
+  const modelRef = env[PR_DESCRIPTION_MODEL_ENV]?.trim();
+  if (modelRef !== undefined && modelRef !== "") {
+    return modelRef;
+  }
+  return DEFAULT_PR_DESCRIPTION_MODEL_REF;
+}
+
 async function readRepoRoot(ctx: SdlContext): Promise<Result<string, CommandFailure>> {
   const args = ["rev-parse", "--show-toplevel"];
   const result = await ctx.exec("git", args, { timeoutMs: VIEW_TIMEOUT_MS });
@@ -560,368 +575,6 @@ async function resolvePrDescriptionPrompt(input: {
   }
 
   return { ok: true, text: DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT, source: { type: "builtin" } };
-}
-
-async function preparePrDescription(input: {
-  textGeneration: TextGenerator;
-  modelRef: string;
-  promptText: string;
-  pr: GithubPrDetails;
-  commits: readonly PrCommitMessage[];
-  diff: string;
-  promptSource: PromptSource;
-}): Promise<PreparedPrDescription> {
-  const firstPrompt = buildPrDescriptionUserPrompt(input);
-  let prompt = firstPrompt;
-  let latestFeedback = "";
-
-  for (let attempt = 1; attempt <= MAX_GENERATION_ATTEMPTS; attempt += 1) {
-    const generated = await input.textGeneration.generateText({
-      modelRef: input.modelRef,
-      system: input.promptText,
-      prompt,
-      maxTokens: 2048,
-      reasoning: "low",
-      operation: "pr-description",
-    });
-    if (!generated.ok) return { ok: false, error: generated.error };
-
-    const validation = parsePrDescriptionOutput(generated.text);
-    if (validation.ok) {
-      return {
-        ok: true,
-        title: validation.description.title,
-        body: validation.description.body,
-        promptSource: input.promptSource,
-      };
-    }
-
-    latestFeedback = formatPrDescriptionValidationFeedback(validation.issues);
-    if (attempt < MAX_GENERATION_ATTEMPTS) {
-      prompt = `${firstPrompt}\n## previous invalid draft\n\n${generated.text.trim()}\n\n## validation feedback\n\n${latestFeedback}\n\nRewrite the PR title and body so it satisfies every validation rule. Return only the corrected PR title and body.\n`;
-    }
-  }
-
-  return {
-    ok: false,
-    error: `Model produced an invalid PR description after ${MAX_GENERATION_ATTEMPTS} attempts.\n${latestFeedback}`,
-  };
-}
-
-function buildPrDescriptionUserPrompt(input: {
-  pr: GithubPrDetails;
-  commits: readonly PrCommitMessage[];
-  diff: string;
-}): string {
-  const commitMessages = formatCommitMessages(input.commits);
-  const diff = truncateDiff(filterLockfileSections(input.diff));
-  const sections = [
-    [
-      "## Context",
-      "",
-      `- PR: #${input.pr.number} (${input.pr.url})`,
-      `- Current PR title (stale context only; regenerate from the diff): ${input.pr.title}`,
-      `- Head branch: ${input.pr.headRefName}`,
-      `- Base branch: ${input.pr.baseRefName}`,
-    ].join("\n"),
-  ];
-  if (commitMessages !== "") {
-    sections.push(`## Commit Messages\n\n${commitMessages}`);
-  }
-  sections.push(
-    `## Diff\n\n\`\`\`diff\n${diff.trimEnd()}\n\`\`\``,
-    "Generate a fresh PR title and body for this diff. Do not preserve an existing PR title unless the diff independently supports it:",
-  );
-  return `${sections.join("\n\n")}\n`;
-}
-
-function parsePrDescriptionOutput(text: string): PrDescriptionValidationResult {
-  const normalized = stripOuterCodeFence(trimOuterBlankLines(text.replace(/\r/g, "")));
-  const lines = normalized.split("\n");
-  const titleIndex = lines.findIndex((line) => line.trim() !== "");
-  const title = titleIndex === -1 ? "" : (lines[titleIndex]?.trim() ?? "");
-  const body = titleIndex === -1 ? "" : trimOuterBlankLines(lines.slice(titleIndex + 1).join("\n"));
-  return validatePrDescription({ title, body });
-}
-
-function validatePrDescription(description: { title: string; body: string }): PrDescriptionValidationResult {
-  const issues: PrDescriptionValidationIssue[] = [];
-  if (description.title.trim() === "") {
-    issues.push({ type: "empty_title" });
-  }
-  if (description.title.length > 120) {
-    issues.push({ type: "title_too_long", length: description.title.length, maxLength: 120 });
-  }
-  if (description.body.trim() === "") {
-    issues.push({ type: "empty_body" });
-  }
-  for (const line of description.body.split("\n")) {
-    if (/Generated with|Co-Authored-By/i.test(line)) {
-      issues.push({ type: "attribution_footer", text: line.trim() });
-    }
-  }
-  if (issues.length > 0) return { ok: false, issues };
-  return { ok: true, description: { title: description.title.trim(), body: description.body.trim() } };
-}
-
-function replaceOrInsertGeneratedRegion(
-  existingBody: string,
-  generatedBody: string,
-  metadata: PrDescriptionFingerprintMetadata,
-): string {
-  const region = formatManagedGeneratedRegion(generatedBody, metadata);
-  const parsed = parseManagedGeneratedRegion(existingBody);
-  if (parsed.type === "found") {
-    return replaceManagedRegion({
-      text: existingBody,
-      replacement: region,
-      start: parsed.start,
-      end: parsed.end,
-    });
-  }
-  if (parsed.type === "malformed") {
-    return replaceMalformedManagedRegionFromBegin({
-      text: existingBody,
-      beginPrefix: MANAGED_BODY_BEGIN_MARKER,
-      replacement: region,
-    });
-  }
-  if (existingBody.includes(GENERATED_BODY_MARKER)) return region;
-  const trimmedExisting = existingBody.trim();
-  return trimmedExisting === "" ? region : `${region}\n\n${trimmedExisting}`;
-}
-
-function formatManagedGeneratedRegion(
-  body: string,
-  metadata: PrDescriptionFingerprintMetadata,
-): string {
-  const begin = `${MANAGED_BODY_BEGIN_MARKER} version=${metadata.version} patch-id=${metadata.patchId} prompt=${metadata.promptHash} generator=${metadata.generator} -->`;
-  return [
-    begin,
-    "<details open>",
-    "<summary>Generated PR description</summary>",
-    "",
-    body.trim(),
-    "",
-    "</details>",
-    MANAGED_BODY_END_MARKER,
-  ].join("\n");
-}
-
-function parseManagedGeneratedRegion(body: string): ManagedGeneratedRegionParseResult {
-  const parsed = parseManagedRegion({
-    text: body,
-    markers: { beginPrefix: MANAGED_BODY_BEGIN_MARKER, end: MANAGED_BODY_END_MARKER },
-    parseMetadata: parseManagedRegionMetadata,
-    extractBody: extractManagedRegionBody,
-  });
-  if (parsed.type !== "found") return parsed;
-  return {
-    type: "found",
-    metadata: parsed.metadata,
-    body: parsed.body,
-    start: parsed.start,
-    end: parsed.end,
-  };
-}
-
-function parseManagedRegion<TMetadata>(input: {
-  text: string;
-  markers: ManagedRegionMarkers;
-  parseMetadata: (beginComment: string) => TMetadata | undefined;
-  extractBody: (rawBody: string) => string;
-}): ManagedRegionParseResult<TMetadata> {
-  const beginCount = countOccurrences(input.text, input.markers.beginPrefix);
-  const endCount = countOccurrences(input.text, input.markers.end);
-  if (beginCount === 0 && endCount === 0) return { type: "missing" };
-  if (beginCount === 0) return { type: "malformed", reason: "managed region begin marker is missing" };
-  if (endCount === 0) return { type: "malformed", reason: "managed region end marker is missing" };
-  if (beginCount > 1) return { type: "malformed", reason: "managed region begin marker is duplicated" };
-  if (endCount > 1) return { type: "malformed", reason: "managed region end marker is duplicated" };
-
-  const beginIndex = input.text.indexOf(input.markers.beginPrefix);
-  const endIndex = input.text.indexOf(input.markers.end);
-  if (endIndex < beginIndex) {
-    return { type: "malformed", reason: "managed region end marker appears before begin marker" };
-  }
-
-  const beginEndIndex = input.text.indexOf("-->", beginIndex);
-  if (beginEndIndex === -1) {
-    return { type: "malformed", reason: "managed region begin marker is unterminated" };
-  }
-  if (endIndex < beginEndIndex + 3) {
-    return { type: "malformed", reason: "managed region end marker appears inside begin comment" };
-  }
-
-  const beginComment = input.text.slice(beginIndex, beginEndIndex + 3);
-  const metadata = input.parseMetadata(beginComment);
-  if (metadata === undefined) return { type: "malformed", reason: "managed region metadata is invalid" };
-
-  const rawBody = input.text.slice(beginEndIndex + 3, endIndex);
-  return {
-    type: "found",
-    metadata,
-    body: input.extractBody(rawBody),
-    start: beginIndex,
-    end: endIndex + input.markers.end.length,
-    beginComment,
-    rawBody,
-  };
-}
-
-function replaceManagedRegion(input: {
-  text: string;
-  replacement: string;
-  start: number;
-  end: number;
-}): string {
-  return `${input.text.slice(0, input.start).trimEnd()}\n\n${input.replacement}\n\n${input.text.slice(input.end).trimStart()}`.trim();
-}
-
-function replaceMalformedManagedRegionFromBegin(input: {
-  text: string;
-  beginPrefix: string;
-  replacement: string;
-}): string {
-  const beginIndex = input.text.indexOf(input.beginPrefix);
-  if (beginIndex === -1) {
-    return input.text.trim() === "" ? input.replacement : `${input.replacement}\n\n${input.text.trimStart()}`;
-  }
-  return `${input.text.slice(0, beginIndex).trimEnd()}\n\n${input.replacement}`.trim();
-}
-
-function parseManagedRegionMetadata(comment: string): PrDescriptionFingerprintMetadata | undefined {
-  const fields = new Map<string, string>();
-  for (const match of comment.matchAll(/([a-z-]+)=([^\s>]+)/g)) {
-    const key = match[1];
-    const value = match[2];
-    if (key === undefined || value === undefined) continue;
-    fields.set(key, value);
-  }
-  const version = fields.get("version");
-  const patchId = fields.get("patch-id");
-  const promptHash = fields.get("prompt");
-  const generator = fields.get("generator");
-  if (
-    version !== "2" ||
-    patchId === undefined ||
-    promptHash === undefined ||
-    generator === undefined
-  ) {
-    return undefined;
-  }
-  return { version, patchId, promptHash, generator };
-}
-
-function extractManagedRegionBody(regionContents: string): string {
-  const normalized = regionContents.replace(/\r/g, "");
-  const match = normalized.match(
-    /<details open>\n<summary>Generated PR description<\/summary>\n\n([\s\S]*?)\n\n<\/details>/,
-  );
-  return match?.[1]?.trim() ?? normalized.trim();
-}
-
-function formatConfirmationMessage(input: {
-  pr: GithubPrDetails;
-  generated: GeneratedPrMetadata;
-  force: boolean;
-}): string {
-  return [
-    `PR: #${input.pr.number} ${input.pr.url}`,
-    `Old title: ${input.pr.title}`,
-    `New title: ${input.generated.title}`,
-    "Body update: replace/insert SDL-managed generated region; preserve human text outside it.",
-    `Mutation: gh pr edit ${input.pr.number} --title ${JSON.stringify(input.generated.title)} --body-file <tempfile>`,
-    input.force
-      ? "Note: --force was provided for compatibility, but it does not bypass this confirmation."
-      : "Note: --force is a compatibility no-op and does not bypass confirmation.",
-  ].join("\n");
-}
-
-function commandFailure(input: {
-  command: string;
-  args: readonly string[];
-  result: ExecResult;
-  code: string;
-  message: string;
-}): CommandFailure | undefined {
-  if (input.result.code === 0 && !input.result.killed) return undefined;
-  const details = [`Command: ${formatCommand(input.command, input.args)}`];
-  if (input.result.killed) details.push("Timed out: true");
-  if (input.result.stdout.trim() !== "") details.push(`stdout:\n${input.result.stdout.trimEnd()}`);
-  if (input.result.stderr.trim() !== "") details.push(`stderr:\n${input.result.stderr.trimEnd()}`);
-  return {
-    code: input.code,
-    message: `${input.message}\n${details.join("\n")}`,
-  };
-}
-
-function parseGithubPrDetails(stdout: string): Result<GithubPrDetails, CommandFailure> {
-  const parsed = parseJson(stdout);
-  if (!isRecord(parsed)) {
-    return {
-      ok: false,
-      error: {
-        code: "github_pr_view_parse_failed",
-        message: "GitHub PR view output was not a JSON object.",
-      },
-    };
-  }
-  if (
-    typeof parsed.number !== "number" ||
-    typeof parsed.url !== "string" ||
-    typeof parsed.title !== "string" ||
-    typeof parsed.headRefName !== "string" ||
-    typeof parsed.baseRefName !== "string"
-  ) {
-    return {
-      ok: false,
-      error: {
-        code: "github_pr_view_parse_failed",
-        message: "GitHub PR view output was missing required fields.",
-      },
-    };
-  }
-  return {
-    ok: true,
-    value: {
-      number: parsed.number,
-      url: parsed.url,
-      title: parsed.title,
-      body: typeof parsed.body === "string" ? parsed.body : "",
-      headRefName: parsed.headRefName,
-      baseRefName: parsed.baseRefName,
-    },
-  };
-}
-
-function parseJson(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return undefined;
-  }
-}
-
-function isGithubDiffTooLarge(result: ExecResult): boolean {
-  const output = `${result.stderr}\n${result.stdout}`;
-  return (
-    result.code === 1 &&
-    /diff exceeded the maximum number of lines|PullRequest\.diff too_large|HTTP 406/i.test(output)
-  );
-}
-
-function selectPrDescriptionModelRef(env: Record<string, string | undefined>): string {
-  const modelRef = env[PR_DESCRIPTION_MODEL_ENV]?.trim();
-  return modelRef === undefined || modelRef === "" ? DEFAULT_PR_DESCRIPTION_MODEL_REF : modelRef;
-}
-
-function hashPrDescriptionPrompt(promptText: string): string {
-  return `sha256:${sha256Digest(promptText)}`;
-}
-
-function sha256Digest(value: string): string {
-  return createHash("sha256").update(value, "utf8").digest("hex");
 }
 
 function filterLockfileSections(diff: string): string {
@@ -1051,6 +704,158 @@ function countOccurrences(content: string, needle: string): number {
 
 function formatPromptSourceLabel(source: PromptSource): string {
   return source.type === "builtin" ? "built-in" : source.path;
+}
+
+function formatConfirmationMessage(input: {
+  pr: GithubPrDetails;
+  generated: GeneratedPrMetadata;
+  force: boolean;
+}): string {
+  const lines = [
+    `PR #${input.pr.number}: ${input.pr.url}`,
+    `Current title: ${input.pr.title}`,
+    `New title: ${input.generated.title}`,
+    "",
+    "This will update the PR title and SDL-managed generated description region.",
+  ];
+  if (input.force) {
+    lines.push("", "--force was provided, but it is a compatibility no-op and does not bypass confirmation.");
+  }
+  return lines.join("\n");
+}
+
+function hashPrDescriptionPrompt(promptText: string): string {
+  return `sha256:${createHash("sha256").update(promptText, "utf8").digest("hex")}`;
+}
+
+function formatManagedGeneratedRegion(
+  body: string,
+  metadata: PrDescriptionFingerprintMetadata,
+): string {
+  const begin = `${MANAGED_BODY_BEGIN_MARKER} version=${metadata.version} patch-id=${metadata.patchId} prompt=${metadata.promptHash} generator=${metadata.generator} -->`;
+  return [
+    begin,
+    "<details open>",
+    "<summary>Generated PR description</summary>",
+    "",
+    body.trim(),
+    "",
+    "</details>",
+    MANAGED_BODY_END_MARKER,
+  ].join("\n");
+}
+
+function replaceOrInsertGeneratedRegion(
+  existingBody: string,
+  generatedBody: string,
+  metadata: PrDescriptionFingerprintMetadata,
+): string {
+  const region = formatManagedGeneratedRegion(generatedBody, metadata);
+  const parsed = parseManagedGeneratedRegion(existingBody);
+  if (parsed.type === "found") {
+    return `${existingBody.slice(0, parsed.start)}${region}${existingBody.slice(parsed.end)}`;
+  }
+  if (existingBody.includes(GENERATED_BODY_MARKER)) {
+    return region;
+  }
+  const trimmedExisting = existingBody.trim();
+  return trimmedExisting === "" ? region : `${region}\n\n${trimmedExisting}`;
+}
+
+function parseManagedGeneratedRegion(body: string): ManagedGeneratedRegionParseResult {
+  const start = body.indexOf(MANAGED_BODY_BEGIN_MARKER);
+  if (start === -1) return { type: "missing" };
+  const beginEnd = body.indexOf("-->", start);
+  if (beginEnd === -1) return { type: "malformed", reason: "missing begin marker close" };
+  const endStart = body.indexOf(MANAGED_BODY_END_MARKER, beginEnd);
+  if (endStart === -1) return { type: "malformed", reason: "missing end marker" };
+  const end = endStart + MANAGED_BODY_END_MARKER.length;
+  const metadata = parseManagedRegionMetadata(body.slice(start, beginEnd + 3));
+  if (metadata === undefined) return { type: "malformed", reason: "invalid metadata" };
+  return {
+    type: "found",
+    metadata,
+    body: extractManagedRegionBody(body.slice(beginEnd + 3, endStart)),
+    start,
+    end,
+  };
+}
+
+function parseManagedRegionMetadata(comment: string): PrDescriptionFingerprintMetadata | undefined {
+  const fields = new Map<string, string>();
+  for (const match of comment.matchAll(/([a-z-]+)=([^\s>]+)/g)) {
+    const key = match[1];
+    const value = match[2];
+    if (key !== undefined && value !== undefined) fields.set(key, value);
+  }
+  const version = fields.get("version");
+  const patchId = fields.get("patch-id");
+  const promptHash = fields.get("prompt");
+  const generator = fields.get("generator");
+  if (version !== "2" || patchId === undefined || promptHash === undefined || generator === undefined) {
+    return undefined;
+  }
+  return { version, patchId, promptHash, generator };
+}
+
+function extractManagedRegionBody(regionContents: string): string {
+  const normalized = regionContents.replace(/\r/g, "");
+  const match = normalized.match(/<details open>\n<summary>Generated PR description<\/summary>\n\n([\s\S]*?)\n\n<\/details>/);
+  return match?.[1]?.trim() ?? normalized.trim();
+}
+
+function parseJson(text: string): unknown {
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
+function parseGithubPrDetails(output: string): Result<GithubPrDetails, CommandFailure> {
+  const parsed = parseJson(output);
+  if (!isRecord(parsed)) {
+    return {
+      ok: false,
+      error: { code: "github_pr_parse_failed", message: "GitHub PR output had an unexpected shape." },
+    };
+  }
+  const number = parsed.number;
+  const url = parsed.url;
+  const title = parsed.title;
+  const body = parsed.body;
+  const headRefName = parsed.headRefName;
+  const baseRefName = parsed.baseRefName;
+  if (
+    typeof number !== "number" ||
+    typeof url !== "string" ||
+    typeof title !== "string" ||
+    typeof body !== "string" ||
+    typeof headRefName !== "string" ||
+    typeof baseRefName !== "string"
+  ) {
+    return {
+      ok: false,
+      error: { code: "github_pr_parse_failed", message: "GitHub PR output had an unexpected shape." },
+    };
+  }
+  return { ok: true, value: { number, url, title, body, headRefName, baseRefName } };
+}
+
+function commandFailure(input: {
+  command: string;
+  args: readonly string[];
+  result: ExecResult;
+  code: string;
+  message: string;
+}): CommandFailure | undefined {
+  if (input.result.code === 0) return undefined;
+  const details = input.result.stderr.trim() || input.result.stdout.trim();
+  const killed = input.result.killed ? " (killed or timed out)" : "";
+  const suffix = details
+    ? `\n${formatCommand(input.command, input.args)} exited ${input.result.code}${killed}: ${details}`
+    : `\n${formatCommand(input.command, input.args)} exited ${input.result.code}${killed}`;
+  return { code: input.code, message: `${input.message}${suffix}` };
 }
 
 function formatCommand(command: string, args: readonly string[]): string {

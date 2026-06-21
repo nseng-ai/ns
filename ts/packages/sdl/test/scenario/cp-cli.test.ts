@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync, writeFileSync, readFileSync } from "node:fs";
+import { cpSync, mkdirSync, rmSync, writeFileSync, readFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -85,6 +85,11 @@ async function createCpProject(): Promise<string> {
 	writeFileSync(
 		extensionPath,
 		readFileSync(join(process.cwd(), "..", ".sdl", "extensions", "cp.ts"), "utf8"),
+	);
+	cpSync(
+		join(process.cwd(), "..", ".sdl", "extensions", "shared"),
+		join(directory, ".sdl", "extensions", "shared"),
+		{ recursive: true },
 	);
 	return directory;
 }
@@ -183,7 +188,7 @@ describe("empty SDL kernel CLI help and parsing", () => {
 			expect(run.stdout.join("")).toBe("");
 			expect(run.stderr.join("")).toMatch(/too many arguments|unknown/i);
 			expect(run.context.execCalls).toEqual([]);
-			expect(run.context.modelCalls).toEqual([]);
+			expect(run.context.textGeneratorCalls).toEqual([]);
 		}
 	});
 });
@@ -410,7 +415,7 @@ export default defineExtension({
 			"Extension manifest command entry does not exist: ./missing.ts",
 		);
 		expect(run.context.execCalls).toEqual([]);
-		expect(run.context.modelCalls).toEqual([]);
+		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
 	test("SDL command entry schema must be a Zod object", async () => {
@@ -530,7 +535,7 @@ describe("project-local cp extension behavior", () => {
 			expect.stringMatching(/^git commit -F /),
 			"git log -1 --oneline",
 		]);
-		expect(run.context.modelCalls).toEqual([
+		expect(run.context.textGeneratorCalls).toEqual([
 			expect.objectContaining({
 				modelRef: "openai-codex/gpt-5.4-mini",
 				operation: "checkpoint-message",
@@ -538,10 +543,10 @@ describe("project-local cp extension behavior", () => {
 				reasoning: "low",
 			}),
 		]);
-		expect(run.context.modelCalls[0]?.prompt).toContain(
+		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(
 			"## git status --porcelain\n\n M src/app.ts",
 		);
-		expect(run.context.modelCalls[0]?.prompt).toContain(
+		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(
 			"## git diff HEAD\n\ndiff --git a/src/app.ts b/src/app.ts",
 		);
 	});
@@ -577,7 +582,7 @@ describe("project-local cp extension behavior", () => {
 		});
 
 		expect(await selected.exit).toBe(0);
-		expect(selected.context.modelCalls[0]?.modelRef).toBe("openai-codex/custom-mini");
+		expect(selected.context.textGeneratorCalls[0]?.modelRef).toBe("openai-codex/custom-mini");
 
 		const fallback = runCpWithFakes({
 			args: ["cp"],
@@ -585,7 +590,7 @@ describe("project-local cp extension behavior", () => {
 			cwd,
 		});
 		expect(await fallback.exit).toBe(0);
-		expect(fallback.context.modelCalls[0]?.modelRef).toBe("openai-codex/legacy-mini");
+		expect(fallback.context.textGeneratorCalls[0]?.modelRef).toBe("openai-codex/legacy-mini");
 	});
 
 	test("model generation error exits 2 without committing", async () => {
@@ -599,7 +604,7 @@ describe("project-local cp extension behavior", () => {
 		expect(await run.exit).toBe(2);
 		expect(run.stdout.join("")).toBe("");
 		expect(run.stderr.join("")).toBe("auth failed\n");
-		expect(run.context.modelCalls).toHaveLength(1);
+		expect(run.context.textGeneratorCalls).toHaveLength(1);
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",
 			"git symbolic-ref --short HEAD",
@@ -626,11 +631,11 @@ describe("project-local cp extension behavior", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.stderr.join("")).toBe("");
-		expect(run.context.modelCalls).toHaveLength(2);
-		expect(run.context.modelCalls[1]?.prompt).toContain(
+		expect(run.context.textGeneratorCalls).toHaveLength(2);
+		expect(run.context.textGeneratorCalls[1]?.prompt).toContain(
 			"## previous invalid draft\n\nnot a commit message",
 		);
-		expect(run.context.modelCalls[1]?.prompt).toContain("missing_cp_prefix");
+		expect(run.context.textGeneratorCalls[1]?.prompt).toContain("missing_cp_prefix");
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",
 			"git symbolic-ref --short HEAD",
@@ -661,7 +666,7 @@ describe("project-local cp extension behavior", () => {
 			"Model produced an invalid checkpoint message after 2 attempts.",
 		);
 		expect(run.stderr.join("")).toContain("missing_cp_prefix");
-		expect(run.context.modelCalls).toHaveLength(2);
+		expect(run.context.textGeneratorCalls).toHaveLength(2);
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",
 			"git symbolic-ref --short HEAD",
@@ -677,7 +682,7 @@ describe("project-local cp extension behavior", () => {
 		expect(await run.exit).toBe(1);
 		expect(run.stdout.join("")).toBe("");
 		expect(run.stderr.join("")).toBe("Working tree is clean; nothing to checkpoint.\n");
-		expect(run.context.modelCalls).toEqual([]);
+		expect(run.context.textGeneratorCalls).toEqual([]);
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",
 			"git symbolic-ref --short HEAD",
@@ -705,7 +710,7 @@ describe("project-local cp extension behavior", () => {
 		expect(run.stderr.join("")).toBe(
 			"Refusing to create checkpoint commit on trunk branch: main\n",
 		);
-		expect(run.context.modelCalls).toEqual([]);
+		expect(run.context.textGeneratorCalls).toEqual([]);
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",
 			"git symbolic-ref --short HEAD",
@@ -733,7 +738,7 @@ describe("project-local cp extension behavior", () => {
 		expect(notGit.stderr.join("")).toBe(
 			"Not inside a git repository.\nexit 128: fatal: not a git repository\n",
 		);
-		expect(notGit.context.modelCalls).toEqual([]);
+		expect(notGit.context.textGeneratorCalls).toEqual([]);
 
 		const detached = runCpWithFakes({
 			args: ["cp"],

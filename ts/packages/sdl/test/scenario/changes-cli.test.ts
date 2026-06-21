@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync, writeFileSync, readFileSync } from "node:fs";
+import { cpSync, mkdirSync, rmSync, writeFileSync, readFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -56,6 +56,11 @@ async function createChangesProject(): Promise<string> {
 		extensionPath,
 		readFileSync(join(process.cwd(), "..", ".sdl", "extensions", "changes.ts"), "utf8"),
 	);
+	cpSync(
+		join(process.cwd(), "..", ".sdl", "extensions", "shared"),
+		join(directory, ".sdl", "extensions", "shared"),
+		{ recursive: true },
+	);
 	return directory;
 }
 
@@ -111,7 +116,7 @@ describe("sdl changes CLI", () => {
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe("Working tree is clean; no outstanding changes.\n");
 		expect(run.stderr.join("")).toBe("");
-		expect(run.context.modelCalls).toEqual([]);
+		expect(run.context.textGeneratorCalls).toEqual([]);
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",
 			"git symbolic-ref --short HEAD",
@@ -146,7 +151,7 @@ describe("sdl changes CLI", () => {
 		expect(
 			formattedExecCalls(run.context).some((call) => /git (add|commit|stash)|^gt |^gh /.test(call)),
 		).toBe(false);
-		expect(run.context.modelCalls).toEqual([
+		expect(run.context.textGeneratorCalls).toEqual([
 			expect.objectContaining({
 				modelRef: "openai-codex/gpt-5.4-mini",
 				operation: "changes-summary",
@@ -154,9 +159,11 @@ describe("sdl changes CLI", () => {
 				reasoning: "low",
 			}),
 		]);
-		expect(run.context.modelCalls[0]?.prompt).toContain("## branch\n\nfeature/demo");
-		expect(run.context.modelCalls[0]?.prompt).toContain("M src/app.ts\n?? notes.md");
-		expect(run.context.modelCalls[0]?.prompt).toContain("diff --git a/src/app.ts b/src/app.ts");
+		expect(run.context.textGeneratorCalls[0]?.prompt).toContain("## branch\n\nfeature/demo");
+		expect(run.context.textGeneratorCalls[0]?.prompt).toContain("M src/app.ts\n?? notes.md");
+		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(
+			"diff --git a/src/app.ts b/src/app.ts",
+		);
 	});
 
 	test("changes model can be selected by SDL environment with legacy fallback", async () => {
@@ -171,7 +178,7 @@ describe("sdl changes CLI", () => {
 			cwd,
 		});
 		expect(await selected.exit).toBe(0);
-		expect(selected.context.modelCalls[0]?.modelRef).toBe("openai-codex/custom-mini");
+		expect(selected.context.textGeneratorCalls[0]?.modelRef).toBe("openai-codex/custom-mini");
 
 		const fallback = runWithFakes({
 			args: ["changes"],
@@ -180,7 +187,7 @@ describe("sdl changes CLI", () => {
 			cwd,
 		});
 		expect(await fallback.exit).toBe(0);
-		expect(fallback.context.modelCalls[0]?.modelRef).toBe("openai-codex/legacy-mini");
+		expect(fallback.context.textGeneratorCalls[0]?.modelRef).toBe("openai-codex/legacy-mini");
 	});
 
 	test("model generation and validation failures exit 2 without mutation", async () => {
@@ -232,7 +239,7 @@ describe("sdl changes CLI", () => {
 		expect(notGit.stderr.join("")).toBe(
 			"Not inside a git repository.\nexit 128: fatal: not a git repository\n",
 		);
-		expect(notGit.context.modelCalls).toEqual([]);
+		expect(notGit.context.textGeneratorCalls).toEqual([]);
 
 		const statusFailed = runWithFakes({
 			args: ["changes"],
@@ -249,7 +256,7 @@ describe("sdl changes CLI", () => {
 		expect(statusFailed.stderr.join("")).toBe(
 			"Could not inspect git status.\nexit 1: index locked\n",
 		);
-		expect(statusFailed.context.modelCalls).toEqual([]);
+		expect(statusFailed.context.textGeneratorCalls).toEqual([]);
 	});
 
 	test("raw status output is capped at 50 file lines", async () => {

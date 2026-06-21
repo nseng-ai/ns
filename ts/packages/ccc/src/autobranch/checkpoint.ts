@@ -18,7 +18,7 @@ export async function prepareAutobranchCheckpointMessage(
 		status: snapshot.status,
 		diff: snapshot.diff,
 		modelRef: selectCheckpointModelRef(env),
-		textGeneration: createTextGenerator(),
+		textGenerator: createTextGenerator(),
 	});
 }
 

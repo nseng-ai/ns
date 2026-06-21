@@ -286,7 +286,7 @@ export async function prepareSubmitPrMetadata(input: {
 	env: Record<string, string | undefined>;
 	gateway: SubmitMetadataGateway;
 	git: GitGateway;
-	textGeneration: TextGenerator;
+	textGenerator: TextGenerator;
 	onProgress?: SubmitMetadataProgressListener;
 }): Promise<SubmitPrMetadataPrewriteResult> {
 	input.onProgress?.("inspecting Graphite stack before metadata preparation");
@@ -317,7 +317,7 @@ export async function prepareSubmitPrMetadata(input: {
 		cwd: input.cwd,
 		env: input.env,
 		git: input.git,
-		textGeneration: input.textGeneration,
+		textGenerator: input.textGenerator,
 		branches: newBranches,
 		...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
 	});
@@ -364,7 +364,7 @@ async function generateMetadataForBranches(input: {
 	cwd: string;
 	env: Record<string, string | undefined>;
 	git: GitGateway;
-	textGeneration: TextGenerator;
+	textGenerator: TextGenerator;
 	branches: readonly SubmitStackNewBranch[];
 	onProgress?: SubmitMetadataProgressListener;
 }): Promise<
@@ -391,7 +391,7 @@ async function generateMetadataForBranches(input: {
 		);
 		const currentTitle = branch.commitMessages[0]?.headline ?? branch.branch;
 		const generated = await preparePrDescription({
-			textGeneration: input.textGeneration,
+			textGenerator: input.textGenerator,
 			modelRef: generation.modelRef,
 			promptText: generation.promptText,
 			context: {
