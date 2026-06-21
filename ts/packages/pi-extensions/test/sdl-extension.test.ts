@@ -56,7 +56,7 @@ function createContext(cwd: string): CommandContext {
 }
 
 async function createCommandProject(
-	commandName: "changes" | "cp" | "autobranch" | "submit" | "regenerate-pr",
+	commandName: "changes" | "cp" | "autobranch" | "submit" | "regenerate-pr" | "push",
 ): Promise<string> {
 	const directory = await mkdtemp(join(tmpdir(), `sdl-pi-${commandName}-`));
 	tempDirs.push(directory);
@@ -100,10 +100,10 @@ describe("sdl Pi extension", () => {
 			"sdl:autobranch",
 			"sdl:submit",
 			"sdl:regenerate-pr",
+			"sdl:push",
 			"sdl:code:changes",
 			"sdl:code:autoslot",
 			"sdl:code:land",
-			"sdl:code:push",
 			"sdl:code:pull-trunk",
 		]);
 		expect(pi.commands.has("code:changes")).toBe(false);
@@ -120,6 +120,7 @@ describe("sdl Pi extension", () => {
 		expect(pi.commands.has("sdl:code:checkpoint")).toBe(false);
 		expect(pi.commands.has("sdl:code:submit")).toBe(false);
 		expect(pi.commands.has("sdl:code:regenerate-pr")).toBe(false);
+		expect(pi.commands.has("sdl:code:push")).toBe(false);
 		expect(pi.commands.get("sdl:changes")?.description).toBe(
 			"sdl changes: Summarize outstanding worktree changes without committing.",
 		);
@@ -135,6 +136,9 @@ describe("sdl Pi extension", () => {
 		expect(pi.commands.get("sdl:regenerate-pr")?.description).toBe(
 			"sdl regenerate-pr: Regenerate the current branch PR title and description.",
 		);
+		expect(pi.commands.get("sdl:push")?.description).toBe(
+			"sdl push: Push already-committed work on the current branch with git push.",
+		);
 		expect(pi.commands.get("sdl:code:changes")?.description).toBe(
 			"sdl changes: Summarize outstanding worktree changes without committing.",
 		);
@@ -142,7 +146,6 @@ describe("sdl Pi extension", () => {
 		expect(pi.commands.get("sdl:code:land")?.description).toBe(
 			"Land the current PR or Graphite stack into trunk",
 		);
-		expect(pi.commands.get("sdl:code:push")?.description).toContain("git push");
 		expect(pi.commands.get("sdl:code:pull-trunk")?.description).toBe(
 			"Pull Graphite trunk without running full gt sync",
 		);
@@ -257,5 +260,27 @@ describe("sdl Pi extension", () => {
 		expect(pi.sentMessages).toHaveLength(1);
 		expect(String(pi.sentMessages[0]?.content)).toContain("pi-custom-regenerate-pr");
 		expect(pi.commands.has("sdl:code:regenerate-pr")).toBe(false);
+	});
+
+	test("runs sdl push through the flat direct SDL mirror only", async () => {
+		const cwd = await createCommandProject("push");
+		const pi = new FakePi();
+		sdlExtension(pi);
+
+		const originalHome = process.env.HOME;
+		process.env.HOME = join(cwd, ".home");
+		try {
+			await commandFor(pi, "sdl:push").handler("", createContext(cwd));
+		} finally {
+			if (originalHome === undefined) {
+				delete process.env.HOME;
+			} else {
+				process.env.HOME = originalHome;
+			}
+		}
+
+		expect(pi.sentMessages).toHaveLength(1);
+		expect(String(pi.sentMessages[0]?.content)).toContain("pi-custom-push");
+		expect(pi.commands.has("sdl:code:push")).toBe(false);
 	});
 });
