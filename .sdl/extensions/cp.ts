@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
-import type { ExecResult, SdlContext, TextGenerator } from "@sdl/sdl/sdk";
+import type { SdlCommandResult, SdlContext, TextGenerator } from "@sdl/sdl/sdk";
 
 // This project-local extension intentionally uses only the public SDL SDK import. The local
 // checkpoint helpers below are SDK-pressure evidence for later command migrations, not new SDK API.
@@ -61,10 +61,10 @@ interface PendingWorktreeSnapshot {
 }
 
 type PendingWorktreeError =
-  | { kind: "not_git_repo"; result: ExecResult }
-  | { kind: "detached_head"; result: ExecResult }
-  | { kind: "status_failed"; result: ExecResult }
-  | { kind: "diff_failed"; result: ExecResult };
+  | { kind: "not_git_repo"; result: SdlCommandResult }
+  | { kind: "detached_head"; result: SdlCommandResult }
+  | { kind: "status_failed"; result: SdlCommandResult }
+  | { kind: "diff_failed"; result: SdlCommandResult };
 
 interface CheckpointMessage {
   subject: string;
@@ -174,22 +174,22 @@ async function loadPendingWorktreeSnapshot(
   { ok: true; snapshot: PendingWorktreeSnapshot } | { ok: false; error: PendingWorktreeError }
 > {
   const root = await execGit(ctx, ["rev-parse", "--show-toplevel"], GIT_FACT_TIMEOUT_MS);
-  if (root.code !== 0) {
+  if (!root.succeeded()) {
     return { ok: false, error: { kind: "not_git_repo", result: root } };
   }
 
   const branch = await execGit(ctx, ["symbolic-ref", "--short", "HEAD"], GIT_FACT_TIMEOUT_MS);
-  if (branch.code !== 0) {
+  if (!branch.succeeded()) {
     return { ok: false, error: { kind: "detached_head", result: branch } };
   }
 
   const status = await execGit(ctx, ["status", "--porcelain=v1"], GIT_FACT_TIMEOUT_MS);
-  if (status.code !== 0) {
+  if (!status.succeeded()) {
     return { ok: false, error: { kind: "status_failed", result: status } };
   }
 
   const diff = await execGit(ctx, ["diff", "HEAD", "--no-ext-diff"], GIT_FACT_TIMEOUT_MS);
-  if (diff.code !== 0) {
+  if (!diff.succeeded()) {
     return { ok: false, error: { kind: "diff_failed", result: diff } };
   }
 
@@ -205,7 +205,7 @@ async function loadPendingWorktreeSnapshot(
   };
 }
 
-function execGit(ctx: SdlContext, args: string[], timeoutMs: number): Promise<ExecResult> {
+function execGit(ctx: SdlContext, args: string[], timeoutMs: number): Promise<SdlCommandResult> {
   return ctx.exec("git", args, { timeoutMs });
 }
 
@@ -316,20 +316,18 @@ async function createCommitWithPreparedMessage(
     await writeFile(messagePath, `${message}\n`, "utf8");
 
     const add = await execGit(ctx, ["add", "-A"], GIT_FACT_TIMEOUT_MS);
-    if (add.code !== 0) {
-      return { error: formatCommandError("Failed to stage checkpoint changes.", add) };
+    if (!add.succeeded()) {
+      return { error: add.formatEvidence("Failed to stage checkpoint changes.") };
     }
 
     const commit = await execGit(ctx, ["commit", "-F", messagePath], GIT_COMMIT_TIMEOUT_MS);
-    if (commit.code !== 0) {
-      return { error: formatCommandError("Checkpoint commit failed.", commit) };
+    if (!commit.succeeded()) {
+      return { error: commit.formatEvidence("Checkpoint commit failed.") };
     }
 
     const log = await execGit(ctx, ["log", "-1", "--oneline"], GIT_LOG_TIMEOUT_MS);
-    if (log.code !== 0) {
-      return {
-        error: formatCommandError("Created checkpoint commit, but failed to read it back.", log),
-      };
+    if (!log.succeeded()) {
+      return { error: log.formatEvidence("Created checkpoint commit, but failed to read it back.") };
     }
 
     return { summary: log.stdout.trim() };
@@ -692,28 +690,22 @@ function isTrailerLine(line: string): boolean {
 }
 
 function formatPendingWorktreeError(error: PendingWorktreeError): string {
-  const details = formatCommandDetails(error.result);
+  return error.result.formatEvidence(pendingWorktreeErrorIntro(error));
+}
+
+function pendingWorktreeErrorIntro(error: PendingWorktreeError): string {
   if (error.kind === "not_git_repo") {
-    return `Not inside a git repository.\n${details}`;
+    return "Not inside a git repository.";
   }
   if (error.kind === "detached_head") {
-    return `Could not determine current branch.\n${details}`;
+    return "Could not determine current branch.";
   }
   if (error.kind === "status_failed") {
-    return `Could not inspect git status.\n${details}`;
+    return "Could not inspect git status.";
   }
-  return `Could not capture git diff.\n${details}`;
+  return "Could not capture git diff.";
 }
 
-function formatCommandError(summary: string, result: ExecResult): string {
-  return [summary, formatCommandDetails(result)].join("\n");
-}
-
-function formatCommandDetails(result: ExecResult): string {
-  const details = result.stderr.trim() || result.stdout.trim();
-  const killed = result.killed ? " (killed or timed out)" : "";
-  return details ? `exit ${result.code}${killed}: ${details}` : `exit ${result.code}${killed}`;
-}
 
 function formatDryRunMessage(snapshot: PendingWorktreeSnapshot, message: string): string {
   return `Dry run: would create checkpoint commit on ${snapshot.branch}\n\n${message}`;

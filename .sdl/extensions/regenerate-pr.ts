@@ -5,7 +5,7 @@ import { basename, isAbsolute, join, resolve } from "node:path";
 import process from "node:process";
 
 import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
-import type { ExecResult, SdlContext, TextGenerator } from "@sdl/sdl/sdk";
+import type { ExecResult, SdlCommandResult, SdlContext, TextGenerator } from "@sdl/sdl/sdk";
 
 // This project-local extension intentionally uses only the public SDL SDK import. The local
 // PR-description helpers below are SDK-pressure evidence for later command migrations, not new SDK API.
@@ -245,8 +245,7 @@ export default defineExtension({
         }
 
         const edited = await editPr(ctx, {
-          cwd: ctx.cwd,
-          number: pr.value.number,
+                number: pr.value.number,
           title: generated.value.title,
           body: generated.value.fullBody,
         });
@@ -278,7 +277,6 @@ async function generateRegeneratedPrMetadata(
   if (!generation.ok) return generation;
 
   const patchId = await stablePatchIdForPr(ctx, {
-    cwd: ctx.cwd,
     number: pr.number,
     baseRefName: pr.baseRefName,
     headRefName: pr.headRefName,
@@ -327,8 +325,6 @@ async function getPrCommitMessages(
   const args = ["pr", "view", String(params.number), "--json", "commits"];
   const result = await runGh(ctx, args, VIEW_TIMEOUT_MS);
   const failure = commandFailure({
-    command: "gh",
-    args,
     result,
     code: "github_pr_commits_failed",
     message: `Could not read commit messages for PR #${params.number}.`,
@@ -365,8 +361,6 @@ async function getPrDiff(
   const args = ["pr", "diff", String(params.number)];
   const result = await runGh(ctx, args, DIFF_TIMEOUT_MS);
   const failure = commandFailure({
-    command: "gh",
-    args,
     result,
     code: "github_pr_diff_failed",
     message: `Could not read diff for PR #${params.number}.`,
@@ -401,8 +395,6 @@ async function stablePatchIdForPr(
     stdin: diff.value,
   });
   const failure = commandFailure({
-    command: "git",
-    args,
     result,
     code: "git_patch_id_failed",
     message: `Could not compute stable patch id for PR #${params.number}.`,
@@ -440,8 +432,6 @@ async function editPr(
       ];
       const result = await runGh(ctx, args, EDIT_TIMEOUT_MS);
       const failure = commandFailure({
-        command: "gh",
-        args,
         result,
         code: "github_pr_edit_failed",
         message: `Could not update PR #${params.number}.`,
@@ -458,8 +448,6 @@ async function viewPrWithArgs(
 ): Promise<Result<GithubPrDetails, CommandFailure>> {
   const result = await runGh(ctx, params.args, VIEW_TIMEOUT_MS);
   const failure = commandFailure({
-    command: "gh",
-    args: params.args,
     result,
     code: "github_pr_view_failed",
     message: "Could not read GitHub PR details.",
@@ -478,8 +466,6 @@ async function getLocalPrDiff(
   const args = ["diff", `${params.baseRefName}...${params.headRefName}`];
   const result = await ctx.exec("git", args, { timeoutMs: DIFF_TIMEOUT_MS });
   const failure = commandFailure({
-    command: "git",
-    args,
     result,
     code: "github_pr_local_diff_failed",
     message: `GitHub PR #${params.number} diff was too large for GitHub; could not read local diff for ${params.baseRefName}...${params.headRefName}.`,
@@ -492,7 +478,7 @@ async function runGh(
   ctx: SdlContext,
   args: readonly string[],
   timeoutMs: number,
-): Promise<ExecResult> {
+): Promise<SdlCommandResult> {
   return await ctx.exec("gh", [...args], { timeoutMs });
 }
 
@@ -519,8 +505,6 @@ async function readRepoRoot(ctx: SdlContext): Promise<Result<string, CommandFail
   const args = ["rev-parse", "--show-toplevel"];
   const result = await ctx.exec("git", args, { timeoutMs: VIEW_TIMEOUT_MS });
   const failure = commandFailure({
-    command: "git",
-    args,
     result,
     code: "git_repo_root_failed",
     message: "Could not determine repository root.",
@@ -839,20 +823,14 @@ function formatConfirmationMessage(input: {
 }
 
 function commandFailure(input: {
-  command: string;
-  args: readonly string[];
-  result: ExecResult;
+  result: SdlCommandResult;
   code: string;
   message: string;
 }): CommandFailure | undefined {
-  if (input.result.code === 0 && !input.result.killed) return undefined;
-  const details = [`Command: ${formatCommand(input.command, input.args)}`];
-  if (input.result.killed) details.push("Timed out: true");
-  if (input.result.stdout.trim() !== "") details.push(`stdout:\n${input.result.stdout.trimEnd()}`);
-  if (input.result.stderr.trim() !== "") details.push(`stderr:\n${input.result.stderr.trimEnd()}`);
+  if (input.result.succeeded()) return undefined;
   return {
     code: input.code,
-    message: `${input.message}\n${details.join("\n")}`,
+    message: input.result.formatEvidence(input.message),
   };
 }
 
@@ -1053,14 +1031,6 @@ function formatPromptSourceLabel(source: PromptSource): string {
   return source.type === "builtin" ? "built-in" : source.path;
 }
 
-function formatCommand(command: string, args: readonly string[]): string {
-  return [command, ...args].map(formatCommandArg).join(" ");
-}
-
-function formatCommandArg(arg: string): string {
-  if (/^[A-Za-z0-9_./:=@+-]+$/.test(arg)) return arg;
-  return JSON.stringify(arg);
-}
 
 function formatErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);

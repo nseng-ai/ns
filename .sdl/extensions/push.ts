@@ -1,10 +1,4 @@
-import {
-	commandSucceeded,
-	defineExtension,
-	failed,
-	formatCommandEvidence,
-	ok,
-} from "@sdl/sdl/sdk";
+import { defineExtension, failed, ok } from "@sdl/sdl/sdk";
 import type { SdlContext } from "@sdl/sdl/sdk";
 
 const PUSH_TIMEOUT_MS = 120_000;
@@ -29,16 +23,15 @@ export default defineExtension({
 
 async function runPush(ctx: SdlContext) {
 	const statusResult = await ctx.exec("git", ["status", "--porcelain"]);
-	if (!commandSucceeded(statusResult)) {
+	if (!statusResult.succeeded()) {
 		return failed(
-			formatCommandEvidence({
-				intro: "Could not inspect the worktree status. `sdl push` did not run `git push`.",
-				command: "git status --porcelain",
-				cwd: ctx.cwd,
-				result: statusResult,
-				guidance:
-					"Inspect the Git output, fix the repository state, or use `sdl submit` / `/sdl:submit` for the Graphite submit flow when appropriate.",
-			}),
+			statusResult.formatEvidence(
+				"Could not inspect the worktree status. `sdl push` did not run `git push`.",
+				{
+					guidance:
+						"Inspect the Git output, fix the repository state, or use `sdl submit` / `/sdl:submit` for the Graphite submit flow when appropriate.",
+				},
+			),
 		);
 	}
 
@@ -47,25 +40,14 @@ async function runPush(ctx: SdlContext) {
 	}
 
 	const pushResult = await ctx.exec("git", ["push"], { timeoutMs: PUSH_TIMEOUT_MS });
-	if (commandSucceeded(pushResult)) {
-		return ok(
-			formatCommandEvidence({
-				intro: "`git push` completed successfully.",
-				command: "git push",
-				cwd: ctx.cwd,
-				result: pushResult,
-			}),
-		);
+	if (pushResult.succeeded()) {
+		return ok(pushResult.formatEvidence("`git push` completed successfully."));
 	}
 
 	return failed(
-		formatCommandEvidence({
-			intro:
-				"`git push` failed. The branch is likely out of sync or needs the Graphite submit flow; use `sdl submit` / `/sdl:submit` when appropriate.",
-			command: "git push",
-			cwd: ctx.cwd,
-			result: pushResult,
-		}),
+		pushResult.formatEvidence(
+			"`git push` failed. The branch is likely out of sync or needs the Graphite submit flow; use `sdl submit` / `/sdl:submit` when appropriate.",
+		),
 	);
 }
 

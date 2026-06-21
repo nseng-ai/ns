@@ -13,6 +13,9 @@ describe("real SDL command context", () => {
 		});
 
 		expect(result).toMatchObject({ code: 0, stdout: "hello from stdin", stderr: "" });
+		expect(result.succeeded()).toBe(true);
+		expect(result.displayCommand).toContain(" -e ");
+		expect(result.formatEvidence("Command completed.")).toContain("Command completed.");
 	});
 
 	test("terminal confirmation accepts only explicit yes", () => {

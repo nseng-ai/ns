@@ -11,6 +11,7 @@ import {
 	loadSdlCommandCatalog,
 	loadSelectedSdlCommand,
 } from "../../src/extension-registry.ts";
+import { createSdlCommandResult } from "../../src/sdk.ts";
 
 const tempDirs: string[] = [];
 
@@ -47,6 +48,15 @@ function writeProjectManifest(workspace: Workspace, packageName: string, manifes
 function writeFile(path: string, source: string): void {
 	mkdirSync(dirname(path), { recursive: true });
 	writeFileSync(path, source);
+}
+
+function successfulExecResult(cwd: string, command: string, args: string[]) {
+	return createSdlCommandResult({
+		command,
+		args,
+		cwd,
+		result: { code: 0, stdout: "", stderr: "", killed: false },
+	});
 }
 
 function commandEntry(name: string, message: string): string {
@@ -102,8 +112,8 @@ describe("extension registry", () => {
 			{
 				cwd: workspace.cwd,
 				env: {},
-				async exec() {
-					return { code: 0, stdout: "", stderr: "", killed: false };
+				async exec(command, args) {
+					return successfulExecResult(workspace.cwd, command, args);
 				},
 				model: {
 					async generateText() {
@@ -145,8 +155,8 @@ describe("extension registry", () => {
 			{
 				cwd: workspace.cwd,
 				env: {},
-				async exec() {
-					return { code: 0, stdout: "", stderr: "", killed: false };
+				async exec(command, args) {
+					return successfulExecResult(workspace.cwd, command, args);
 				},
 				model: {
 					async generateText() {
@@ -226,8 +236,8 @@ export default defineExtension({
 			{
 				cwd: workspace.cwd,
 				env: {},
-				async exec() {
-					return { code: 0, stdout: "", stderr: "", killed: false };
+				async exec(command, args) {
+					return successfulExecResult(workspace.cwd, command, args);
 				},
 				model: {
 					async generateText() {

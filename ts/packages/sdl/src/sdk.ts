@@ -1,4 +1,10 @@
 import type { PositionalSpec } from "@sdl/clinkr/raw";
+import {
+	commandSucceeded,
+	formatCommand,
+	formatCommandEvidence,
+	type ExecResult as CoreExecResult,
+} from "@sdl/core/exec";
 import { z } from "zod";
 
 import type { TextGenerator } from "./text-generation.ts";
@@ -20,11 +26,59 @@ export interface SdlExecOptions {
 	onStderr?: ((text: string) => void) | undefined;
 }
 
-export interface ExecResult {
-	code: number;
-	stdout: string;
-	stderr: string;
-	killed: boolean;
+export type ExecResult = CoreExecResult;
+
+export interface SdlCommandEvidenceOptions {
+	/** Additional recovery or interpretation text appended to formatted command evidence. */
+	guidance?: string | undefined;
+	/** Override the captured display command when evidence must redact volatile arguments. */
+	displayCommand?: string | undefined;
+}
+
+/** Result returned by `SdlContext.exec()`, including command metadata and evidence helpers. */
+export interface SdlCommandResult extends ExecResult {
+	readonly command: string;
+	readonly args: readonly string[];
+	readonly cwd: string;
+	readonly displayCommand: string;
+	succeeded(): boolean;
+	formatEvidence(intro: string, options?: SdlCommandEvidenceOptions): string;
+}
+
+export interface CreateSdlCommandResultOptions {
+	command: string;
+	args: readonly string[];
+	cwd: string;
+	result: ExecResult;
+}
+
+/** Wrap a raw exec result with the SDL command metadata and helpers exposed by `ctx.exec()`. */
+export function createSdlCommandResult(options: CreateSdlCommandResultOptions): SdlCommandResult {
+	const args = Object.freeze([...options.args]);
+	const displayCommand = formatCommand(options.command, args);
+	const enriched: SdlCommandResult = {
+		code: options.result.code,
+		stdout: options.result.stdout,
+		stderr: options.result.stderr,
+		killed: options.result.killed,
+		...(options.result.startupError === undefined
+			? {}
+			: { startupError: options.result.startupError }),
+		command: options.command,
+		args,
+		cwd: options.cwd,
+		displayCommand,
+		succeeded: () => commandSucceeded(enriched),
+		formatEvidence: (intro, evidenceOptions = {}) =>
+			formatCommandEvidence({
+				intro,
+				command: evidenceOptions.displayCommand ?? enriched.displayCommand,
+				cwd: enriched.cwd,
+				result: enriched,
+				...(evidenceOptions.guidance === undefined ? {} : { guidance: evidenceOptions.guidance }),
+			}),
+	};
+	return enriched;
 }
 
 export type SdlOutputStream = "stdout" | "stderr";
@@ -36,7 +90,7 @@ export interface SdlContext {
 	/** Environment visible to SDL commands and shell execution. */
 	env: Record<string, string | undefined>;
 	/** Low-level argv execution hook. Project commands own the exact commands they run. */
-	exec(command: string, args: string[], options?: SdlExecOptions): Promise<ExecResult>;
+	exec(command: string, args: string[], options?: SdlExecOptions): Promise<SdlCommandResult>;
 	/** Raw text-generation capability; SDL commands own prompts, validation, and repair policy. */
 	model: TextGenerator;
 	/** Durable output for commands that need to stream multiple chunks before returning. */

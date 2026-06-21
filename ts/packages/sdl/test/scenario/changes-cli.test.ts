@@ -229,9 +229,12 @@ describe("sdl changes CLI", () => {
 			cwd,
 		});
 		expect(await notGit.exit).toBe(2);
-		expect(notGit.stderr.join("")).toBe(
-			"Not inside a git repository.\nexit 128: fatal: not a git repository\n",
-		);
+		const notGitError = notGit.stderr.join("");
+		expect(notGitError).toContain("Not inside a git repository.");
+		expect(notGitError).toContain("Command: git rev-parse --show-toplevel");
+		expect(notGitError).toContain("Exit: 128");
+		expect(notGitError).toContain("Killed: false");
+		expect(notGitError).toContain("stderr:\nfatal: not a git repository");
 		expect(notGit.context.modelCalls).toEqual([]);
 
 		const statusFailed = runWithFakes({
@@ -246,9 +249,11 @@ describe("sdl changes CLI", () => {
 			cwd,
 		});
 		expect(await statusFailed.exit).toBe(2);
-		expect(statusFailed.stderr.join("")).toBe(
-			"Could not inspect git status.\nexit 1: index locked\n",
-		);
+		const statusFailedError = statusFailed.stderr.join("");
+		expect(statusFailedError).toContain("Could not inspect git status.");
+		expect(statusFailedError).toContain("Command: git status --porcelain=v1");
+		expect(statusFailedError).toContain("Exit: 1");
+		expect(statusFailedError).toContain("stderr:\nindex locked");
 		expect(statusFailed.context.modelCalls).toEqual([]);
 	});
 

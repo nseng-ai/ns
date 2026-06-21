@@ -4,7 +4,7 @@ import { createInterface } from "node:readline/promises";
 import { runCommand } from "@sdl/core/exec";
 
 import { PiTextGenerator } from "./pi-text-generation.ts";
-import type { SdlConfirmPrompt, SdlContext } from "./sdk.ts";
+import { createSdlCommandResult, type SdlConfirmPrompt, type SdlContext } from "./sdk.ts";
 import type { TextGenerator } from "./text-generation.ts";
 
 export interface RealSdlCommandContextOptions {
@@ -36,12 +36,7 @@ export function createRealSdlCommandContext(
 				...(execOptions.onStdout === undefined ? {} : { onStdout: execOptions.onStdout }),
 				...(execOptions.onStderr === undefined ? {} : { onStderr: execOptions.onStderr }),
 			});
-			return {
-				code: result.code,
-				stdout: result.stdout,
-				stderr: result.stderr,
-				killed: result.killed,
-			};
+			return createSdlCommandResult({ command, args, cwd, result });
 		},
 		...(confirm === undefined ? {} : { confirm }),
 	};

@@ -1,9 +1,11 @@
 import { join } from "node:path";
 
 import { runCli } from "@sdl/sdl/cli";
+import { createSdlCommandResult } from "@sdl/sdl/sdk";
 import type {
 	SdlExecOptions,
 	ExecResult,
+	SdlCommandResult,
 	SdlConfirmPrompt,
 	SdlContext,
 	TextGenerationRequest,
@@ -70,18 +72,24 @@ export class ScriptedSdlTestContext implements SdlContext {
 		this.confirm = state.confirm;
 	}
 
-	async exec(command: string, args: string[], options?: SdlExecOptions): Promise<ExecResult> {
+	async exec(command: string, args: string[], options?: SdlExecOptions): Promise<SdlCommandResult> {
 		const call = { command, args: [...args], options };
 		this.execCalls.push(call);
 		const index = this.execResponses.findIndex((response) => responseMatches(response.match, call));
 		if (index === -1) {
-			return execResult({ code: 99, stderr: `unexpected command: ${formatExecCall(call)}` });
+			return execResult(
+				{ code: 99, stderr: `unexpected command: ${formatExecCall(call)}` },
+				{ command, args, cwd: this.cwd },
+			);
 		}
 		const [response] = this.execResponses.splice(index, 1);
 		if (response === undefined) {
-			return execResult({ code: 99, stderr: `missing command response: ${formatExecCall(call)}` });
+			return execResult(
+				{ code: 99, stderr: `missing command response: ${formatExecCall(call)}` },
+				{ command, args, cwd: this.cwd },
+			);
 		}
-		const result = execResult(response.result);
+		const result = execResult(response.result, { command, args, cwd: this.cwd });
 		options?.onStdout?.(result.stdout);
 		options?.onStderr?.(result.stderr);
 		return result;
@@ -136,13 +144,28 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 	};
 }
 
-export function execResult(result: Partial<ExecResult> = {}): ExecResult {
-	return {
-		code: result.code ?? 0,
-		stdout: result.stdout ?? "",
-		stderr: result.stderr ?? "",
-		killed: result.killed ?? false,
-	};
+export interface ExecResultMetadata {
+	command?: string | undefined;
+	args?: readonly string[] | undefined;
+	cwd?: string | undefined;
+}
+
+export function execResult(
+	result: Partial<ExecResult> = {},
+	metadata: ExecResultMetadata = {},
+): SdlCommandResult {
+	return createSdlCommandResult({
+		command: metadata.command ?? "command",
+		args: metadata.args ?? [],
+		cwd: metadata.cwd ?? "/work",
+		result: {
+			code: result.code ?? 0,
+			stdout: result.stdout ?? "",
+			stderr: result.stderr ?? "",
+			killed: result.killed ?? false,
+			...(result.startupError === undefined ? {} : { startupError: result.startupError }),
+		},
+	});
 }
 
 export function formatExecCall(call: ExecCall): string {

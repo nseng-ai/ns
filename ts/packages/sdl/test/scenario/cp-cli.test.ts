@@ -120,6 +120,17 @@ function writeFileSyncWithParents(path: string, source: string): void {
 	writeFileSync(path, source);
 }
 
+function expectCommandEvidence(
+	text: string,
+	expected: { intro: string; command: string; exit: number; stderr: string },
+): void {
+	expect(text).toContain(expected.intro);
+	expect(text).toContain(`Command: ${expected.command}`);
+	expect(text).toContain(`Exit: ${expected.exit}`);
+	expect(text).toContain("Killed: false");
+	expect(text).toContain(`stderr:\n${expected.stderr}`);
+}
+
 afterEach(() => {
 	for (const directory of tempDirs.splice(0)) {
 		rmSync(directory, { recursive: true, force: true });
@@ -730,9 +741,12 @@ describe("project-local cp extension behavior", () => {
 		});
 
 		expect(await notGit.exit).toBe(2);
-		expect(notGit.stderr.join("")).toBe(
-			"Not inside a git repository.\nexit 128: fatal: not a git repository\n",
-		);
+		expectCommandEvidence(notGit.stderr.join(""), {
+			intro: "Not inside a git repository.",
+			command: "git rev-parse --show-toplevel",
+			exit: 128,
+			stderr: "fatal: not a git repository",
+		});
 		expect(notGit.context.modelCalls).toEqual([]);
 
 		const detached = runCpWithFakes({
@@ -749,9 +763,12 @@ describe("project-local cp extension behavior", () => {
 			cwd,
 		});
 		expect(await detached.exit).toBe(2);
-		expect(detached.stderr.join("")).toBe(
-			"Could not determine current branch.\nexit 1: fatal: ref HEAD is not a symbolic ref\n",
-		);
+		expectCommandEvidence(detached.stderr.join(""), {
+			intro: "Could not determine current branch.",
+			command: "git symbolic-ref --short HEAD",
+			exit: 1,
+			stderr: "fatal: ref HEAD is not a symbolic ref",
+		});
 
 		const statusFailed = runCpWithFakes({
 			args: ["cp"],
@@ -765,9 +782,12 @@ describe("project-local cp extension behavior", () => {
 			cwd,
 		});
 		expect(await statusFailed.exit).toBe(2);
-		expect(statusFailed.stderr.join("")).toBe(
-			"Could not inspect git status.\nexit 1: index locked\n",
-		);
+		expectCommandEvidence(statusFailed.stderr.join(""), {
+			intro: "Could not inspect git status.",
+			command: "git status --porcelain=v1",
+			exit: 1,
+			stderr: "index locked",
+		});
 
 		const diffFailed = runCpWithFakes({
 			args: ["cp"],
@@ -782,7 +802,12 @@ describe("project-local cp extension behavior", () => {
 			cwd,
 		});
 		expect(await diffFailed.exit).toBe(2);
-		expect(diffFailed.stderr.join("")).toBe("Could not capture git diff.\nexit 1: diff failed\n");
+		expectCommandEvidence(diffFailed.stderr.join(""), {
+			intro: "Could not capture git diff.",
+			command: "git diff HEAD --no-ext-diff",
+			exit: 1,
+			stderr: "diff failed",
+		});
 	});
 
 	test("commit operation failures exit with useful stderr", async () => {
@@ -806,9 +831,12 @@ describe("project-local cp extension behavior", () => {
 
 		expect(await addFailed.exit).toBe(2);
 		expect(addFailed.stdout.join("")).toBe("");
-		expect(addFailed.stderr.join("")).toBe(
-			"Failed to stage checkpoint changes.\nexit 1: index locked\n",
-		);
+		expectCommandEvidence(addFailed.stderr.join(""), {
+			intro: "Failed to stage checkpoint changes.",
+			command: "git add -A",
+			exit: 1,
+			stderr: "index locked",
+		});
 
 		const commitFailed = runCpWithFakes({
 			args: ["cp"],
@@ -821,9 +849,12 @@ describe("project-local cp extension behavior", () => {
 			cwd,
 		});
 		expect(await commitFailed.exit).toBe(2);
-		expect(commitFailed.stderr.join("")).toBe(
-			"Checkpoint commit failed.\nexit 1: nothing to commit\n",
-		);
+		expectCommandEvidence(commitFailed.stderr.join(""), {
+			intro: "Checkpoint commit failed.",
+			command: "git commit -F ",
+			exit: 1,
+			stderr: "nothing to commit",
+		});
 
 		const logFailed = runCpWithFakes({
 			args: ["cp"],
@@ -836,8 +867,11 @@ describe("project-local cp extension behavior", () => {
 			cwd,
 		});
 		expect(await logFailed.exit).toBe(2);
-		expect(logFailed.stderr.join("")).toBe(
-			"Created checkpoint commit, but failed to read it back.\nexit 1: log failed\n",
-		);
+		expectCommandEvidence(logFailed.stderr.join(""), {
+			intro: "Created checkpoint commit, but failed to read it back.",
+			command: "git log -1 --oneline",
+			exit: 1,
+			stderr: "log failed",
+		});
 	});
 });

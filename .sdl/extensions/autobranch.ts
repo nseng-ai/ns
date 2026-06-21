@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 
 import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
-import type { ExecResult, SdlContext, TextGenerator } from "@sdl/sdl/sdk";
+import type { SdlCommandResult, SdlContext, TextGenerator } from "@sdl/sdl/sdk";
 
 const GIT_FACT_TIMEOUT_MS = 30_000;
 const GIT_COMMIT_TIMEOUT_MS = 120_000;
@@ -77,10 +77,10 @@ interface PendingWorktreeSnapshot {
 }
 
 type PendingWorktreeError =
-  | { kind: "not_git_repo"; result: ExecResult }
-  | { kind: "detached_head"; result: ExecResult }
-  | { kind: "status_failed"; result: ExecResult }
-  | { kind: "diff_failed"; result: ExecResult };
+  | { kind: "not_git_repo"; result: SdlCommandResult }
+  | { kind: "detached_head"; result: SdlCommandResult }
+  | { kind: "status_failed"; result: SdlCommandResult }
+  | { kind: "diff_failed"; result: SdlCommandResult };
 
 interface CheckpointMessage {
   subject: string;
@@ -372,22 +372,22 @@ async function loadPendingWorktreeSnapshot(
   { ok: true; snapshot: PendingWorktreeSnapshot } | { ok: false; error: PendingWorktreeError }
 > {
   const root = await execGit(ctx, ["rev-parse", "--show-toplevel"], GIT_FACT_TIMEOUT_MS);
-  if (root.code !== 0) {
+  if (!root.succeeded()) {
     return { ok: false, error: { kind: "not_git_repo", result: root } };
   }
 
   const branch = await execGit(ctx, ["symbolic-ref", "--short", "HEAD"], GIT_FACT_TIMEOUT_MS);
-  if (branch.code !== 0) {
+  if (!branch.succeeded()) {
     return { ok: false, error: { kind: "detached_head", result: branch } };
   }
 
   const status = await execGit(ctx, ["status", "--porcelain=v1"], GIT_FACT_TIMEOUT_MS);
-  if (status.code !== 0) {
+  if (!status.succeeded()) {
     return { ok: false, error: { kind: "status_failed", result: status } };
   }
 
   const diff = await execGit(ctx, ["diff", "HEAD", "--no-ext-diff"], GIT_FACT_TIMEOUT_MS);
-  if (diff.code !== 0) {
+  if (!diff.succeeded()) {
     return { ok: false, error: { kind: "diff_failed", result: diff } };
   }
 
@@ -403,11 +403,11 @@ async function loadPendingWorktreeSnapshot(
   };
 }
 
-function execGit(ctx: SdlContext, args: string[], timeoutMs: number): Promise<ExecResult> {
+function execGit(ctx: SdlContext, args: string[], timeoutMs: number): Promise<SdlCommandResult> {
   return ctx.exec("git", args, { timeoutMs });
 }
 
-function execGt(ctx: SdlContext, args: string[], timeoutMs: number): Promise<ExecResult> {
+function execGt(ctx: SdlContext, args: string[], timeoutMs: number): Promise<SdlCommandResult> {
   return ctx.exec("gt", args, { timeoutMs });
 }
 
@@ -527,7 +527,7 @@ async function readUntrackedSnippets(ctx: SdlContext, root: string): Promise<str
     ["ls-files", "--others", "--exclude-standard", "-z"],
     GIT_FACT_TIMEOUT_MS,
   );
-  if (listed.code !== 0 || listed.stdout.length === 0) {
+  if (!listed.succeeded() || listed.stdout.length === 0) {
     return "";
   }
 
@@ -679,8 +679,8 @@ async function stashPendingChanges(
     ["stash", "push", "--include-untracked", "-m", message],
     STASH_PUSH_TIMEOUT_MS,
   );
-  if (stashed.code !== 0) {
-    return { ok: false, kind: "stash_failed", error: formatCommandDetails(stashed) };
+  if (!stashed.succeeded()) {
+    return { ok: false, kind: "stash_failed", error: formatCommandFailureEvidence(stashed) };
   }
 
   const ref = await findStashRef(ctx, message);
@@ -695,8 +695,8 @@ async function findStashRef(
   message: string,
 ): Promise<{ ok: true; ref: string } | { ok: false; error: string }> {
   const listed = await execGit(ctx, ["stash", "list", "--format=%gd%x00%s"], GIT_FACT_TIMEOUT_MS);
-  if (listed.code !== 0) {
-    return { ok: false, error: formatCommandDetails(listed) };
+  if (!listed.succeeded()) {
+    return { ok: false, error: formatCommandFailureEvidence(listed) };
   }
   for (const line of listed.stdout.split("\n")) {
     const [ref, subject] = line.split("\0");
@@ -716,8 +716,8 @@ async function createGraphiteBranch(
     ["create", branchName, "--no-interactive", "--no-ai"],
     GT_CREATE_TIMEOUT_MS,
   );
-  if (created.code !== 0) {
-    return { ok: false, error: formatCommandDetails(created) };
+  if (!created.succeeded()) {
+    return { ok: false, error: formatCommandFailureEvidence(created) };
   }
   return { ok: true };
 }
@@ -727,8 +727,8 @@ async function restoreStash(
   ref: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const restored = await execGit(ctx, ["stash", "pop", ref], STASH_POP_TIMEOUT_MS);
-  if (restored.code !== 0) {
-    return { ok: false, error: formatCommandDetails(restored) };
+  if (!restored.succeeded()) {
+    return { ok: false, error: formatCommandFailureEvidence(restored) };
   }
   return { ok: true };
 }
@@ -833,8 +833,8 @@ async function loadLatestCommitFacts(
   snapshot: PendingWorktreeSnapshot,
 ): Promise<LatestCommitFactsResult> {
   const trunk = await execGt(ctx, ["trunk", "--no-interactive"], GT_TIMEOUT_MS);
-  if (trunk.code !== 0) {
-    return { ok: false, kind: "trunk_lookup_failed", error: formatCommandDetails(trunk) };
+  if (!trunk.succeeded()) {
+    return { ok: false, kind: "trunk_lookup_failed", error: formatCommandFailureEvidence(trunk) };
   }
   const trunkBranch = trunk.stdout
     .trim()
@@ -869,8 +869,8 @@ async function loadLatestCommitFacts(
     ["rev-list", "--parents", "-n", "1", "HEAD"],
     GIT_FACT_TIMEOUT_MS,
   );
-  if (parents.code !== 0) {
-    return { ok: false, kind: "commit_parent_lookup_failed", error: formatCommandDetails(parents) };
+  if (!parents.succeeded()) {
+    return { ok: false, kind: "commit_parent_lookup_failed", error: formatCommandFailureEvidence(parents) };
   }
   const [headSha, ...parentShas] = parents.stdout.trim().split(/\s+/).filter(Boolean);
   if (!headSha) {
@@ -891,11 +891,11 @@ async function loadLatestCommitFacts(
     execGit(ctx, ["log", "-1", "--format=%B"], GIT_FACT_TIMEOUT_MS),
     execGit(ctx, ["diff", "HEAD^", "HEAD", "--no-ext-diff"], GIT_FACT_TIMEOUT_MS),
   ]);
-  if (message.code !== 0) {
-    return { ok: false, kind: "commit_evidence_failed", error: formatCommandDetails(message) };
+  if (!message.succeeded()) {
+    return { ok: false, kind: "commit_evidence_failed", error: formatCommandFailureEvidence(message) };
   }
-  if (diff.code !== 0) {
-    return { ok: false, kind: "commit_evidence_failed", error: formatCommandDetails(diff) };
+  if (!diff.succeeded()) {
+    return { ok: false, kind: "commit_evidence_failed", error: formatCommandFailureEvidence(diff) };
   }
   const commitSubject = message.stdout.split("\n")[0]?.trim();
   const commitSummary = commitSubject ? `${shortSha(headSha)} ${commitSubject}` : shortSha(headSha);
@@ -919,8 +919,8 @@ async function inspectGraphiteChildBranches(
   ctx: SdlContext,
 ): Promise<{ ok: true; children: string[] } | { ok: false; error: string }> {
   const children = await execGt(ctx, ["children", "--no-interactive"], GT_TIMEOUT_MS);
-  if (children.code !== 0) {
-    return { ok: false, error: formatCommandDetails(children) };
+  if (!children.succeeded()) {
+    return { ok: false, error: formatCommandFailureEvidence(children) };
   }
   return { ok: true, children: nonEmptyLines(children.stdout) };
 }
@@ -985,8 +985,8 @@ async function runLatestCommitAutobranchTransaction(
     ["branch", backupBranch.name, plan.originalHeadSha],
     GIT_FACT_TIMEOUT_MS,
   );
-  if (backupCreated.code !== 0) {
-    return { ok: false, kind: "backup_create_failed", error: formatCommandDetails(backupCreated) };
+  if (!backupCreated.succeeded()) {
+    return { ok: false, kind: "backup_create_failed", error: formatCommandFailureEvidence(backupCreated) };
   }
 
   const resetSource = await resetSourceBranchToParent(ctx, plan);
@@ -1005,14 +1005,14 @@ async function runLatestCommitAutobranchTransaction(
     ["create", plan.branchName, "--no-interactive", "--no-ai"],
     GT_TIMEOUT_MS,
   );
-  if (created.code !== 0) {
+  if (!created.succeeded()) {
     const recovery = await restoreSourceAndDeleteCreatedBranch(ctx, plan);
     return {
       ok: false,
       kind: "graphite_create_failed",
       backupBranch: backupBranch.name,
       branchName: plan.branchName,
-      createError: formatCommandDetails(created),
+      createError: formatCommandFailureEvidence(created),
       ...recovery,
     };
   }
@@ -1022,40 +1022,40 @@ async function runLatestCommitAutobranchTransaction(
     ["reset", "--hard", plan.originalHeadSha],
     GIT_FACT_TIMEOUT_MS,
   );
-  if (resetBranch.code !== 0) {
+  if (!resetBranch.succeeded()) {
     const recovery = await restoreSourceAndDeleteCreatedBranch(ctx, plan);
     return {
       ok: false,
       kind: "branch_reset_failed",
       backupBranch: backupBranch.name,
       branchName: plan.branchName,
-      resetError: formatCommandDetails(resetBranch),
+      resetError: formatCommandFailureEvidence(resetBranch),
       ...recovery,
     };
   }
 
   const verified = await execGit(ctx, ["rev-parse", "HEAD"], GIT_FACT_TIMEOUT_MS);
   const actualHead = verified.stdout.trim();
-  if (verified.code !== 0 || actualHead !== plan.originalHeadSha) {
+  if (!verified.succeeded() || actualHead !== plan.originalHeadSha) {
     const recovery = await restoreSourceAndDeleteCreatedBranch(ctx, plan);
     return {
       ok: false,
       kind: "head_verify_failed",
       backupBranch: backupBranch.name,
       branchName: plan.branchName,
-      actualHead: actualHead.length > 0 ? actualHead : formatCommandDetails(verified),
+      actualHead: actualHead.length > 0 ? actualHead : formatCommandFailureEvidence(verified),
       ...recovery,
     };
   }
 
   const deleted = await execGit(ctx, ["branch", "-D", backupBranch.name], GIT_FACT_TIMEOUT_MS);
-  if (deleted.code !== 0) {
+  if (!deleted.succeeded()) {
     return {
       ok: true,
       commitSummary: plan.commitSummary,
       backupDeleted: false,
       backupBranch: backupBranch.name,
-      backupDeleteError: formatCommandDetails(deleted),
+      backupDeleteError: formatCommandFailureEvidence(deleted),
     };
   }
   return { ok: true, commitSummary: plan.commitSummary, backupDeleted: true };
@@ -1066,8 +1066,8 @@ async function resetSourceBranchToParent(
   plan: LatestCommitAutobranchPlan,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const currentBranch = await execGit(ctx, ["branch", "--show-current"], GIT_FACT_TIMEOUT_MS);
-  if (currentBranch.code !== 0) {
-    return { ok: false, error: formatCommandDetails(currentBranch) };
+  if (!currentBranch.succeeded()) {
+    return { ok: false, error: formatCommandFailureEvidence(currentBranch) };
   }
   if (currentBranch.stdout.trim() !== plan.sourceBranch) {
     return {
@@ -1077,8 +1077,8 @@ async function resetSourceBranchToParent(
   }
 
   const currentHead = await execGit(ctx, ["rev-parse", "HEAD"], GIT_FACT_TIMEOUT_MS);
-  if (currentHead.code !== 0) {
-    return { ok: false, error: formatCommandDetails(currentHead) };
+  if (!currentHead.succeeded()) {
+    return { ok: false, error: formatCommandFailureEvidence(currentHead) };
   }
   if (currentHead.stdout.trim() !== plan.originalHeadSha) {
     return {
@@ -1088,8 +1088,8 @@ async function resetSourceBranchToParent(
   }
 
   const reset = await execGit(ctx, ["reset", "--hard", plan.parentSha], GIT_FACT_TIMEOUT_MS);
-  if (reset.code !== 0) {
-    return { ok: false, error: formatCommandDetails(reset) };
+  if (!reset.succeeded()) {
+    return { ok: false, error: formatCommandFailureEvidence(reset) };
   }
   return { ok: true };
 }
@@ -1104,16 +1104,16 @@ async function recoverFromSourceResetFailure(
     execGit(ctx, ["rev-parse", "HEAD"], GIT_FACT_TIMEOUT_MS),
   ]);
   const isSourceUnchanged =
-    currentBranch.code === 0 &&
-    currentHead.code === 0 &&
+    currentBranch.succeeded() &&
+    currentHead.succeeded() &&
     currentBranch.stdout.trim() === plan.sourceBranch &&
     currentHead.stdout.trim() === plan.originalHeadSha;
   if (isSourceUnchanged) {
     const deleted = await execGit(ctx, ["branch", "-D", backupBranch], GIT_FACT_TIMEOUT_MS);
-    if (deleted.code === 0) {
+    if (deleted.succeeded()) {
       return { backupCleanup: "deleted" };
     }
-    return { backupCleanup: "delete_failed", backupDeleteError: formatCommandDetails(deleted) };
+    return { backupCleanup: "delete_failed", backupDeleteError: formatCommandFailureEvidence(deleted) };
   }
 
   return {
@@ -1127,16 +1127,16 @@ async function restoreSourceBranch(
   plan: LatestCommitAutobranchPlan,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const checkedOut = await execGit(ctx, ["checkout", plan.sourceBranch], GIT_FACT_TIMEOUT_MS);
-  if (checkedOut.code !== 0) {
-    return { ok: false, error: formatCommandDetails(checkedOut) };
+  if (!checkedOut.succeeded()) {
+    return { ok: false, error: formatCommandFailureEvidence(checkedOut) };
   }
   const restored = await execGit(
     ctx,
     ["reset", "--hard", plan.originalHeadSha],
     GIT_FACT_TIMEOUT_MS,
   );
-  if (restored.code !== 0) {
-    return { ok: false, error: formatCommandDetails(restored) };
+  if (!restored.succeeded()) {
+    return { ok: false, error: formatCommandFailureEvidence(restored) };
   }
   return { ok: true };
 }
@@ -1156,11 +1156,11 @@ async function restoreSourceAndDeleteCreatedBranch(
   }
 
   const deleted = await execGit(ctx, ["branch", "-D", plan.branchName], GIT_FACT_TIMEOUT_MS);
-  if (deleted.code !== 0) {
+  if (!deleted.succeeded()) {
     return {
       restored: true,
       createdBranchDeleted: false,
-      createdBranchDeleteError: formatCommandDetails(deleted),
+      createdBranchDeleteError: formatCommandFailureEvidence(deleted),
     };
   }
   return { restored: true, createdBranchDeleted: true };
@@ -1200,8 +1200,8 @@ function sanitizeBackupBranchSegment(value: string): string {
 
 async function inspectUpstreamHeadState(ctx: SdlContext): Promise<UpstreamHeadState> {
   const branch = await execGit(ctx, ["branch", "--show-current"], GIT_FACT_TIMEOUT_MS);
-  if (branch.code !== 0) {
-    return { type: "failed", error: formatCommandDetails(branch) };
+  if (!branch.succeeded()) {
+    return { type: "failed", error: formatCommandFailureEvidence(branch) };
   }
   const branchName = firstNonEmptyLine(branch.stdout);
   if (!branchName) {
@@ -1213,8 +1213,8 @@ async function inspectUpstreamHeadState(ctx: SdlContext): Promise<UpstreamHeadSt
     ["for-each-ref", "--format=%(upstream:short)", `refs/heads/${branchName}`],
     GIT_FACT_TIMEOUT_MS,
   );
-  if (upstream.code !== 0) {
-    return { type: "failed", error: formatCommandDetails(upstream) };
+  if (!upstream.succeeded()) {
+    return { type: "failed", error: formatCommandFailureEvidence(upstream) };
   }
 
   const upstreamName = firstNonEmptyLine(upstream.stdout);
@@ -1227,13 +1227,13 @@ async function inspectUpstreamHeadState(ctx: SdlContext): Promise<UpstreamHeadSt
     ["merge-base", "--is-ancestor", "HEAD", upstreamName],
     GIT_FACT_TIMEOUT_MS,
   );
-  if (containsHead.code === 0) {
+  if (containsHead.succeeded()) {
     return { type: "upstream_contains_head", upstream: upstreamName };
   }
   if (containsHead.code === 1) {
     return { type: "head_not_in_upstream", upstream: upstreamName };
   }
-  return { type: "failed", error: formatCommandDetails(containsHead) };
+  return { type: "failed", error: formatCommandFailureEvidence(containsHead) };
 }
 
 function prepareRequestedBranchSlug(slug: string | undefined): RequestedBranchSlugResult {
@@ -1281,19 +1281,15 @@ async function deriveBranchSlug(ctx: SdlContext, prompt: string): Promise<Branch
       continue;
     }
 
-    if (result.code !== 0 || result.killed) {
-      const status = result.killed
-        ? `exit code ${result.code}; process was killed or timed out`
-        : `exit code ${result.code}`;
+    if (!result.succeeded()) {
       return {
         ok: false,
-        formattedFailure: [
-          `Pi slug model command failed (${status}).`,
-          ...(hasRetriedKilledResult ? ["Retried once after a killed/timeout result."] : []),
-          `Command: ${displayCommand}`,
-          formatOutputSection("stdout", result.stdout, { maxChars: MAX_ERROR_CHARS, maxLines: 80 }),
-          formatOutputSection("stderr", result.stderr, { maxChars: MAX_ERROR_CHARS, maxLines: 80 }),
-        ].join("\n"),
+        formattedFailure: result.formatEvidence("Pi slug model command failed.", {
+          displayCommand,
+          ...(hasRetriedKilledResult
+            ? { guidance: "Retried once after a killed/timeout result." }
+            : {}),
+        }),
       };
     }
 
@@ -1385,7 +1381,7 @@ async function findAvailableBranchName<TName extends string>(
       ["check-ref-format", "--branch", candidate.name],
       GIT_FACT_TIMEOUT_MS,
     );
-    if (valid.code !== 0) continue;
+    if (!valid.succeeded()) continue;
     const exists = await execGit(
       ctx,
       ["show-ref", "--verify", "--quiet", `refs/heads/${candidate.name}`],
@@ -1442,18 +1438,22 @@ function finalizeBranchSlug(value: string): string | undefined {
 }
 
 function formatAutobranchSnapshotError(error: PendingWorktreeError): string {
-  const details = formatCommandDetails(error.result);
+  return error.result.formatEvidence(autobranchSnapshotErrorIntro(error));
+}
+
+function autobranchSnapshotErrorIntro(error: PendingWorktreeError): string {
   if (error.kind === "not_git_repo") {
-    return `Not inside a git repository.\n${details}`;
+    return "Not inside a git repository.";
   }
   if (error.kind === "detached_head") {
-    return `Detached HEAD; check out a branch before autobranching.\n${details}`;
+    return "Detached HEAD; check out a branch before autobranching.";
   }
   if (error.kind === "status_failed") {
-    return `Could not read git status.\n${details}`;
+    return "Could not read git status.";
   }
-  return `Could not read git diff.\n${details}`;
+  return "Could not read git diff.";
 }
+
 
 function formatAutobranchPreparationFailure(
   result: Extract<AutobranchPreparationResult, { ok: false }>,
@@ -1618,10 +1618,8 @@ function formatCreatedBranchCleanup(
   return `Could not delete incomplete branch ${result.branchName}: ${result.createdBranchDeleteError}`;
 }
 
-function formatCommandDetails(result: ExecResult): string {
-  const details = result.stderr.trim() || result.stdout.trim();
-  const killed = result.killed ? " (killed or timed out)" : "";
-  return details ? `exit ${result.code}${killed}: ${details}` : `exit ${result.code}${killed}`;
+function formatCommandFailureEvidence(result: SdlCommandResult): string {
+  return result.formatEvidence("Command failed.");
 }
 
 function formatCommand(command: string, args: readonly string[]): string {
@@ -1819,20 +1817,18 @@ async function createCommitWithPreparedMessage(
     await writeFile(messagePath, `${message}\n`, "utf8");
 
     const add = await execGit(ctx, ["add", "-A"], GIT_FACT_TIMEOUT_MS);
-    if (add.code !== 0) {
-      return { error: formatCommandError("Failed to stage checkpoint changes.", add) };
+    if (!add.succeeded()) {
+      return { error: add.formatEvidence("Failed to stage checkpoint changes.") };
     }
 
     const commit = await execGit(ctx, ["commit", "-F", messagePath], GIT_COMMIT_TIMEOUT_MS);
-    if (commit.code !== 0) {
-      return { error: formatCommandError("Checkpoint commit failed.", commit) };
+    if (!commit.succeeded()) {
+      return { error: commit.formatEvidence("Checkpoint commit failed.") };
     }
 
     const log = await execGit(ctx, ["log", "-1", "--oneline"], GIT_LOG_TIMEOUT_MS);
-    if (log.code !== 0) {
-      return {
-        error: formatCommandError("Created checkpoint commit, but failed to read it back.", log),
-      };
+    if (!log.succeeded()) {
+      return { error: log.formatEvidence("Created checkpoint commit, but failed to read it back.") };
     }
 
     return { summary: log.stdout.trim() };

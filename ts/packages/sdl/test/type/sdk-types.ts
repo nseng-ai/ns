@@ -1,5 +1,18 @@
-import { commandSucceeded, defineExtension, formatCommandEvidence, ok, z } from "@sdl/sdl/sdk";
-import type { TextGenerationRequest, TextGenerationResult, TextGenerator } from "@sdl/sdl/sdk";
+import {
+	commandSucceeded,
+	createSdlCommandResult,
+	defineExtension,
+	formatCommandEvidence,
+	ok,
+	z,
+} from "@sdl/sdl/sdk";
+import type {
+	ExecResult,
+	SdlCommandResult,
+	TextGenerationRequest,
+	TextGenerationResult,
+	TextGenerator,
+} from "@sdl/sdl/sdk";
 
 type Assert<T extends true> = T;
 type IsAny<T> = 0 extends 1 & T ? true : false;
@@ -74,7 +87,7 @@ const textGenerator: TextGenerator = {
 	},
 };
 
-const commandResult = { code: 0, stdout: "", stderr: "", killed: false };
+const commandResult: ExecResult = { code: 0, stdout: "", stderr: "", killed: false };
 const commandOk: boolean = commandSucceeded(commandResult);
 const commandEvidence: string = formatCommandEvidence({
 	intro: "Command finished.",
@@ -82,9 +95,25 @@ const commandEvidence: string = formatCommandEvidence({
 	cwd: "/repo",
 	result: commandResult,
 });
+const sdlCommandResult: SdlCommandResult = createSdlCommandResult({
+	command: "git",
+	args: ["status"],
+	cwd: "/repo",
+	result: commandResult,
+});
+const sdlCommandOk: boolean = sdlCommandResult.succeeded();
+const sdlCommandEvidence: string = sdlCommandResult.formatEvidence("Command finished.");
+const redactedSdlCommandEvidence: string = sdlCommandResult.formatEvidence("Command finished.", {
+	displayCommand: "git <redacted>",
+});
+const sdlCommandArgs: readonly string[] = sdlCommandResult.args;
 
 void extension;
 void commandlessExtension;
 void textGenerator;
 void commandOk;
 void commandEvidence;
+void sdlCommandOk;
+void sdlCommandEvidence;
+void redactedSdlCommandEvidence;
+void sdlCommandArgs;

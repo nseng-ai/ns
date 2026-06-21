@@ -1,5 +1,5 @@
 import { defineExtension, failed, ok } from "@sdl/sdl/sdk";
-import type { ExecResult, SdlContext } from "@sdl/sdl/sdk";
+import type { SdlCommandResult, SdlContext } from "@sdl/sdl/sdk";
 
 // This project-local extension intentionally uses only the public SDL SDK import. The local
 // workflow helpers below are SDK-pressure evidence for later command migrations, not new SDK API.
@@ -41,10 +41,10 @@ interface PendingWorktreeSnapshot {
 }
 
 type PendingWorktreeError =
-  | { kind: "not_git_repo"; result: ExecResult }
-  | { kind: "detached_head"; result: ExecResult }
-  | { kind: "status_failed"; result: ExecResult }
-  | { kind: "diff_failed"; result: ExecResult };
+  | { kind: "not_git_repo"; result: SdlCommandResult }
+  | { kind: "detached_head"; result: SdlCommandResult }
+  | { kind: "status_failed"; result: SdlCommandResult }
+  | { kind: "diff_failed"; result: SdlCommandResult };
 
 export default defineExtension({
   commands: [
@@ -79,22 +79,22 @@ async function loadPendingWorktreeSnapshot(
   { ok: true; snapshot: PendingWorktreeSnapshot } | { ok: false; error: PendingWorktreeError }
 > {
   const root = await execGit(ctx, ["rev-parse", "--show-toplevel"]);
-  if (root.code !== 0) {
+  if (!root.succeeded()) {
     return { ok: false, error: { kind: "not_git_repo", result: root } };
   }
 
   const branch = await execGit(ctx, ["symbolic-ref", "--short", "HEAD"]);
-  if (branch.code !== 0) {
+  if (!branch.succeeded()) {
     return { ok: false, error: { kind: "detached_head", result: branch } };
   }
 
   const status = await execGit(ctx, ["status", "--porcelain=v1"]);
-  if (status.code !== 0) {
+  if (!status.succeeded()) {
     return { ok: false, error: { kind: "status_failed", result: status } };
   }
 
   const diff = await execGit(ctx, ["diff", "HEAD", "--no-ext-diff"]);
-  if (diff.code !== 0) {
+  if (!diff.succeeded()) {
     return { ok: false, error: { kind: "diff_failed", result: diff } };
   }
 
@@ -110,7 +110,7 @@ async function loadPendingWorktreeSnapshot(
   };
 }
 
-function execGit(ctx: SdlContext, args: string[]): Promise<ExecResult> {
+function execGit(ctx: SdlContext, args: string[]): Promise<SdlCommandResult> {
   return ctx.exec("git", args, { timeoutMs: GIT_FACT_TIMEOUT_MS });
 }
 
@@ -259,21 +259,19 @@ function displayFileLines(fileLines: readonly string[]): string[] {
 }
 
 function formatPendingWorktreeError(error: PendingWorktreeError): string {
-  const details = formatPendingWorktreeCommandDetails(error.result);
-  if (error.kind === "not_git_repo") {
-    return `Not inside a git repository.\n${details}`;
-  }
-  if (error.kind === "detached_head") {
-    return `Could not determine current branch.\n${details}`;
-  }
-  if (error.kind === "status_failed") {
-    return `Could not inspect git status.\n${details}`;
-  }
-  return `Could not capture git diff.\n${details}`;
+  return error.result.formatEvidence(pendingWorktreeErrorIntro(error));
 }
 
-function formatPendingWorktreeCommandDetails(result: ExecResult): string {
-  const details = result.stderr.trim() || result.stdout.trim();
-  const killed = result.killed ? " (killed or timed out)" : "";
-  return details ? `exit ${result.code}${killed}: ${details}` : `exit ${result.code}${killed}`;
+function pendingWorktreeErrorIntro(error: PendingWorktreeError): string {
+  if (error.kind === "not_git_repo") {
+    return "Not inside a git repository.";
+  }
+  if (error.kind === "detached_head") {
+    return "Could not determine current branch.";
+  }
+  if (error.kind === "status_failed") {
+    return "Could not inspect git status.";
+  }
+  return "Could not capture git diff.";
 }
+
