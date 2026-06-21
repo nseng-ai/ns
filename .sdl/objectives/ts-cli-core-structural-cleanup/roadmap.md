@@ -34,15 +34,15 @@
       `ts-test`, `ts-deps-check`, `ts-guard`).
       See `references/branch-memory-access.md`.
 - [~] Collapse the `@asdl/core/brmem-cli` multi-candidate framework to a single
-      `runBrmem`; fix the duplicated candidate-loop at `ccc/worktree-status.ts`;
-      delete dead exports `graphqlErrorsFromJson`, `readOptionalBrmemBooleanField`.
-      Evidence: the current stack removed the candidate API and single-candidate
-      loop (`resolveBrmemCommandCandidates` / `runBrmemCandidate` /
-      `runFirstAvailableBrmemCommand`) in favor of `runBrmem`, and
-      `ccc/worktree-status.ts` now calls that single runner directly. A grep no
-      longer finds the candidate APIs or `graphqlErrorsFromJson`; the remaining
-      known open part is deleting `readOptionalBrmemBooleanField`.
-      See `references/branch-memory-access.md` and `references/asdl-core.md`.
+  `runBrmem`; fix the duplicated candidate-loop at `ccc/worktree-status.ts`;
+  delete dead exports `graphqlErrorsFromJson`, `readOptionalBrmemBooleanField`.
+  Evidence: the current stack removed the candidate API and single-candidate
+  loop (`resolveBrmemCommandCandidates` / `runBrmemCandidate` /
+  `runFirstAvailableBrmemCommand`) in favor of `runBrmem`, and
+  `ccc/worktree-status.ts` now calls that single runner directly. A grep no
+  longer finds the candidate APIs or `graphqlErrorsFromJson`; the remaining
+  known open part is deleting `readOptionalBrmemBooleanField`.
+  See `references/branch-memory-access.md` and `references/asdl-core.md`.
 - [ ] Compose core `GitGateway` inside `brmem/real-git-gateway.ts`; remove the
       duplicated `runGit`/`currentBranch`/branch-validation primitives.
       See `references/cross-package-dedup.md`.
