@@ -7,10 +7,13 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import { listSdlCommands } from "@sdl/sdl/cli";
 
+import { executeSdlCommand } from "../../src/command-registry.ts";
+import { defaultCpCommand } from "../../src/default-commands/cp.ts";
 import {
 	formatExecCall,
 	parseJsonOutput,
 	runCliWithFakes,
+	ScriptedSdlTestContext,
 	type RunWithFakesOptions,
 	type ScriptedExecResponse,
 } from "./sdl-cli-fakes.ts";
@@ -414,5 +417,331 @@ export default defineExtension({
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).not.toContain("hello");
 		expect(run.stderr.join("")).toBe("");
+	});
+});
+
+function runInactiveCpWithFakes(options: RunWithFakesOptions) {
+	const stdout: string[] = [];
+	const stderr: string[] = [];
+	const cwd = options.cwd ?? "/work";
+	const homeDir = options.homeDir ?? `${cwd}/.home`;
+	const context = new ScriptedSdlTestContext(options.state, {
+		cwd,
+		env: { HOME: homeDir, ...(options.env ?? {}) },
+		execResponses: defaultInactiveCpExecResponses,
+		textGenerationResults: () => [{ ok: true, text: defaultInactiveCpMessage() }],
+	});
+	return {
+		context,
+		stdout,
+		stderr,
+		exit: executeSdlCommand(context, defaultCpCommand, {}).then((result) => {
+			if (result.message !== "") {
+				const output = `${result.message}\n`;
+				if (result.ok) stdout.push(output);
+				else stderr.push(output);
+			}
+			return result.ok ? 0 : result.exitCode;
+		}),
+	};
+}
+
+function defaultInactiveCpExecResponses(): ScriptedExecResponse[] {
+	return [
+		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
+		{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n" } },
+		{
+			match: "git diff HEAD --no-ext-diff",
+			result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
+		},
+		{ match: "git add -A", result: {} },
+		{ match: /^git commit -F /, result: {} },
+		{ match: "git log -1 --oneline", result: { stdout: "abc123 [cp] Update checkpoint tests\n" } },
+	];
+}
+
+function defaultInactiveCpMessage(): string {
+	return `[cp] Update checkpoint tests
+
+- Add CLI coverage`;
+}
+
+describe("inactive default cp command behavior", () => {
+	test("drafts with the model gateway and commits a valid model message", async () => {
+		const message = `[cp] Update CLI checkpoint
+
+- Add command table coverage`;
+		const run = runInactiveCpWithFakes({
+			args: ["cp"],
+			state: {
+				textGeneration: [{ ok: true, text: message }],
+				exec: [
+					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+					{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
+					{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n" } },
+					{
+						match: "git diff HEAD --no-ext-diff",
+						result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
+					},
+					{ match: "git add -A", result: {} },
+					{ match: /^git commit -F /, result: {} },
+					{
+						match: "git log -1 --oneline",
+						result: { stdout: "def456 [cp] Update CLI checkpoint\n" },
+					},
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe(`def456 [cp] Update CLI checkpoint\n${message}\n`);
+		expect(run.stderr.join("")).toBe("");
+		expect(run.context.execCalls.map(formatExecCall)).toEqual([
+			"git rev-parse --show-toplevel",
+			"git symbolic-ref --short HEAD",
+			"git status --porcelain=v1",
+			"git diff HEAD --no-ext-diff",
+			"git add -A",
+			expect.stringMatching(/^git commit -F /),
+			"git log -1 --oneline",
+		]);
+		expect(run.context.modelCalls).toEqual([
+			expect.objectContaining({
+				modelRef: "openai-codex/gpt-5.4-mini",
+				operation: "checkpoint-message",
+				maxTokens: 512,
+				reasoning: "low",
+			}),
+		]);
+		expect(run.context.modelCalls[0]?.prompt).toContain(
+			"## git status --porcelain\n\n M src/app.ts",
+		);
+		expect(run.context.modelCalls[0]?.prompt).toContain(
+			"## git diff HEAD\n\ndiff --git a/src/app.ts b/src/app.ts",
+		);
+	});
+
+	test("checkpoint model can be selected by SDL environment", async () => {
+		const run = runInactiveCpWithFakes({
+			args: ["cp"],
+			state: { textGeneration: [{ ok: true, text: defaultInactiveCpMessage() }] },
+			env: {
+				SDL_CHECKPOINT_MODEL: "openai-codex/custom-mini",
+				SDL_DEV_CHECKPOINT_MODEL: "openai-codex/legacy",
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.context.modelCalls[0]?.modelRef).toBe("openai-codex/custom-mini");
+	});
+
+	test("legacy checkpoint model environment is a fallback", async () => {
+		const run = runInactiveCpWithFakes({
+			args: ["cp"],
+			env: { SDL_DEV_CHECKPOINT_MODEL: "openai-codex/legacy-mini" },
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.context.modelCalls[0]?.modelRef).toBe("openai-codex/legacy-mini");
+	});
+
+	test("model generation error exits 2 without committing", async () => {
+		const run = runInactiveCpWithFakes({
+			args: ["cp"],
+			state: {
+				textGeneration: [{ ok: false, error: "auth failed" }],
+			},
+		});
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toBe("auth failed\n");
+		expect(run.context.modelCalls).toHaveLength(1);
+		expect(run.context.execCalls.map(formatExecCall)).toEqual([
+			"git rev-parse --show-toplevel",
+			"git symbolic-ref --short HEAD",
+			"git status --porcelain=v1",
+			"git diff HEAD --no-ext-diff",
+		]);
+	});
+
+	test("invalid first model output triggers one repair request and commits the repaired message", async () => {
+		const repaired = `[cp] Repair checkpoint message
+
+- Keep only valid bullets`;
+		const run = runInactiveCpWithFakes({
+			args: ["cp"],
+			state: {
+				textGeneration: [
+					{ ok: true, text: "not a commit message" },
+					{ ok: true, text: repaired },
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stderr.join("")).toBe("");
+		expect(run.context.modelCalls).toHaveLength(2);
+		expect(run.context.modelCalls[1]?.prompt).toContain(
+			"## previous invalid draft\n\nnot a commit message",
+		);
+		expect(run.context.modelCalls[1]?.prompt).toContain("missing_cp_prefix");
+		expect(run.context.execCalls.map(formatExecCall)).toEqual([
+			"git rev-parse --show-toplevel",
+			"git symbolic-ref --short HEAD",
+			"git status --porcelain=v1",
+			"git diff HEAD --no-ext-diff",
+			"git add -A",
+			expect.stringMatching(/^git commit -F /),
+			"git log -1 --oneline",
+		]);
+	});
+
+	test("invalid first and repaired output exits 2 without committing", async () => {
+		const run = runInactiveCpWithFakes({
+			args: ["cp"],
+			state: {
+				textGeneration: [
+					{ ok: true, text: "not a commit message" },
+					{ ok: true, text: "still invalid" },
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toContain(
+			"Model produced an invalid checkpoint message after 2 attempts.",
+		);
+		expect(run.stderr.join("")).toContain("missing_cp_prefix");
+		expect(run.context.modelCalls).toHaveLength(2);
+		expect(run.context.execCalls.map(formatExecCall)).toEqual([
+			"git rev-parse --show-toplevel",
+			"git symbolic-ref --short HEAD",
+			"git status --porcelain=v1",
+			"git diff HEAD --no-ext-diff",
+		]);
+	});
+
+	test("clean worktree exits without model generation or committing", async () => {
+		const run = runInactiveCpWithFakes({
+			args: ["cp"],
+			state: {
+				exec: [
+					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+					{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
+					{ match: "git status --porcelain=v1", result: { stdout: "" } },
+					{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toBe("Working tree is clean; nothing to checkpoint.\n");
+		expect(run.context.modelCalls).toEqual([]);
+		expect(run.context.execCalls.map(formatExecCall)).toEqual([
+			"git rev-parse --show-toplevel",
+			"git symbolic-ref --short HEAD",
+			"git status --porcelain=v1",
+			"git diff HEAD --no-ext-diff",
+		]);
+	});
+
+	test("trunk branch exits without model generation or committing", async () => {
+		const run = runInactiveCpWithFakes({
+			args: ["cp"],
+			state: {
+				exec: [
+					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+					{ match: "git symbolic-ref --short HEAD", result: { stdout: "main\n" } },
+					{ match: "git status --porcelain=v1", result: { stdout: "" } },
+					{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(run.stderr.join("")).toBe(
+			"Refusing to create checkpoint commit on trunk branch: main\n",
+		);
+		expect(run.context.modelCalls).toEqual([]);
+		expect(run.context.execCalls.map(formatExecCall)).toEqual([
+			"git rev-parse --show-toplevel",
+			"git symbolic-ref --short HEAD",
+			"git status --porcelain=v1",
+			"git diff HEAD --no-ext-diff",
+		]);
+	});
+
+	test("not-git repositories exit with a typed diagnostic", async () => {
+		const run = runInactiveCpWithFakes({
+			args: ["cp"],
+			state: {
+				exec: [
+					{
+						match: "git rev-parse --show-toplevel",
+						result: { code: 128, stderr: "fatal: not a git repository" },
+					},
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toBe(
+			"Not inside a git repository.\nexit 128: fatal: not a git repository\n",
+		);
+		expect(run.context.modelCalls).toEqual([]);
+		expect(run.context.execCalls.map(formatExecCall)).toEqual(["git rev-parse --show-toplevel"]);
+	});
+
+	test("detached HEAD exits with a typed diagnostic", async () => {
+		const run = runInactiveCpWithFakes({
+			args: ["cp"],
+			state: {
+				exec: [
+					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+					{
+						match: "git symbolic-ref --short HEAD",
+						result: { code: 1, stderr: "fatal: ref HEAD is not a symbolic ref" },
+					},
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toBe(
+			"Could not determine current branch.\nexit 1: fatal: ref HEAD is not a symbolic ref\n",
+		);
+		expect(run.context.modelCalls).toEqual([]);
+		expect(run.context.execCalls.map(formatExecCall)).toEqual([
+			"git rev-parse --show-toplevel",
+			"git symbolic-ref --short HEAD",
+		]);
+	});
+
+	test("git failures map to nonzero exits with useful stderr", async () => {
+		const run = runInactiveCpWithFakes({
+			args: ["cp"],
+			state: {
+				exec: [
+					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+					{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
+					{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n" } },
+					{
+						match: "git diff HEAD --no-ext-diff",
+						result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
+					},
+					{ match: "git add -A", result: { code: 1, stderr: "index locked" } },
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toBe("Failed to stage checkpoint changes.\nexit 1: index locked\n");
 	});
 });
