@@ -33,21 +33,25 @@
       the normal TypeScript gates (`ts-format-check`, `ts-lint`, `ts-check`,
       `ts-test`, `ts-deps-check`, `ts-guard`).
       See `references/branch-memory-access.md`.
-- [~] Collapse the `@asdl/core/brmem-cli` multi-candidate framework to a single
-  `runBrmem`; fix the duplicated candidate-loop at `ccc/worktree-status.ts`;
-  delete dead exports `graphqlErrorsFromJson`, `readOptionalBrmemBooleanField`.
-  Evidence (against trunk): `graphqlErrorsFromJson` is deleted (grep finds no
-  occurrences), so this row is partially complete. The rest is still open on
-  trunk: `resolveBrmemCommandCandidates` / `runBrmemCandidate` /
-  `runFirstAvailableBrmemCommand` remain in
-  `ts/packages/sdl-core/src/brmem-cli.ts`, no single `runBrmem` exists yet,
-  `ts/packages/ccc/src/worktree-status.ts` still carries its own candidate loop,
-  and `readOptionalBrmemBooleanField` is still exported. An earlier update
-  (`updates/2026-06-21T154404Z-brmem-cli-runner-collapse.md`) recorded the
-  runner collapse as present "in the current stack," but that stack has not
-  reached trunk; see the corrective update
-  `updates/2026-06-22T101017Z-brmem-cli-collapse-not-on-trunk.md`.
-  See `references/branch-memory-access.md` and `references/asdl-core.md`.
+- [x] Collapse the `@sdl/core/brmem-cli` multi-candidate framework to a single
+      `runBrmem`; fix the duplicated candidate-loop at `ccc/worktree-status.ts`;
+      delete dead exports `graphqlErrorsFromJson`, `readOptionalBrmemBooleanField`.
+      Evidence: `@sdl/core/brmem-cli` now exports one runner, `runBrmem`, returning
+      `CompletedBrmemRun | { type: "unavailable"; failures }`; the public
+      candidate-iteration surface (`resolveBrmemCommandCandidates`,
+      `runBrmemCandidate`, `runFirstAvailableBrmemCommand`, and the candidate/option
+      types) is gone — grep across `ts/packages` finds zero occurrences of those
+      names plus `readOptionalBrmemBooleanField` and `graphqlErrorsFromJson`.
+      `ccc/worktree-status.ts:loadBrmemStatus` now calls `runBrmem` once instead of
+      looping `resolveBrmemCommandCandidates`. **Behavior preserved**: the
+      two-candidate fallback (PATH `brmem`, then
+      `pnpm --config.verify-deps-before-run=false --dir <tsRoot> exec brmem`) lives
+      inside `runBrmem` and is locked by a new fallback unit test — the original
+      review's "single hardcoded candidate" premise was stale (commit `0ae09c8d9`
+      added the fallback) and was deliberately NOT dropped. Gates green:
+      `just ts-format-check`, `just ts-lint`, `just ts-check`, `just ts-test`
+      (3022 passed), `just ts-deps-check`, `just ts-guard`.
+      See `references/branch-memory-access.md` and `references/asdl-core.md`.
 - [ ] Compose core `GitGateway` inside `brmem/real-git-gateway.ts`; remove the
       duplicated `runGit`/`currentBranch`/branch-validation primitives.
       See `references/cross-package-dedup.md`.

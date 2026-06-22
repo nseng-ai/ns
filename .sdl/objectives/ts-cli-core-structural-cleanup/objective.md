@@ -145,15 +145,19 @@ Risks:
   in-process `@sdl/brmem` gateway, its subprocess/JSON parse layer is gone, the
   dry-run preview no longer claims a `brmem put` command will run, and CLI
   scenario tests cover attach/list/get/check/delete failure diagnostics. The
-  related `@sdl/core/brmem-cli` candidate-framework collapse has NOT landed on
-  trunk: as of this reconciliation, `resolveBrmemCommandCandidates` /
-  `runBrmemCandidate` / `runFirstAvailableBrmemCommand` and
-  `readOptionalBrmemBooleanField` are all still present in
-  `ts/packages/sdl-core/src/brmem-cli.ts`, and `ccc/worktree-status.ts` still
-  carries its own candidate loop. Only `graphqlErrorsFromJson` has actually been
-  deleted on trunk. An earlier update recorded the collapse as present in an
-  unmerged stack; that stack has not reached trunk, so the row is genuinely
-  in-progress (one sub-item done) rather than nearly complete.
+  related `@sdl/core/brmem-cli` candidate-framework collapse is now complete:
+  `@sdl/core/brmem-cli` exports a single `runBrmem` runner, the public
+  candidate-iteration surface (`resolveBrmemCommandCandidates` /
+  `runBrmemCandidate` / `runFirstAvailableBrmemCommand` plus the candidate/option
+  types) and the dead `readOptionalBrmemBooleanField` are gone, and
+  `ccc/worktree-status.ts:loadBrmemStatus` calls `runBrmem` once instead of its
+  own candidate loop. The original "single hardcoded candidate" premise was
+  stale — the resolver returns up to two candidates (PATH `brmem` + `pnpm exec`
+  fallback, added in `0ae09c8d9`); that two-candidate behavior was deliberately
+  preserved inside `runBrmem` and is locked by a new fallback unit test, so the
+  collapse is byte-for-byte behavior-preserving. `graphqlErrorsFromJson` remains
+  deleted. All TS gates pass (`ts-format-check`, `ts-lint`, `ts-check`,
+  `ts-test`, `ts-deps-check`, `ts-guard`).
 - A shared `defineCli` helper touches all 15 CLIs at once; a subtle change to
   IO/exit-code/entry-guard semantics could regress every CLI simultaneously.
   Mitigate by landing it behind scenario-test coverage of `--version`,
