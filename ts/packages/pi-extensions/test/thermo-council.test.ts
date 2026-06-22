@@ -210,8 +210,10 @@ describe("thermo council extension", () => {
 
 		expect([...pi.commands.keys()]).toEqual([THERMO_COUNCIL_COMMAND_NAME]);
 		expect(pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.description).toContain("thermonuclear");
-		expect(pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.description).toContain("report");
-		expect(pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.argumentHint).toContain("stack");
+		expect(pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.description).toContain(
+			"inferred checkout scope",
+		);
+		expect(pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.argumentHint).toContain("review guidance");
 	});
 
 	test("parses default, positional, and seat-specific model overrides", () => {
@@ -293,6 +295,7 @@ describe("thermo council extension", () => {
 
 		expect(pi.runnerCalls).toEqual([]);
 		expect(pi.messages[0]?.content).toContain("Could not infer a review base");
+		expect(pi.messages[0]?.content).toContain("does not accept an explicit base-ref argument");
 		expect(pi.messages[0]?.content).not.toContain(`allowed git ${"failure"}`);
 	});
 
@@ -315,7 +318,7 @@ describe("thermo council extension", () => {
 		expect(pi.messages[0]?.content).toContain("## Executive Recommendation");
 	});
 
-	test("accepts stack keyword as deterministic inferred-base scope", async () => {
+	test("treats literal stack text as guidance while inferring scope", async () => {
 		const runnerResult = completedRunnerResult();
 		const pi = new FakePi({
 			execResults: successfulInferredScopeExecResults(),
@@ -331,35 +334,33 @@ describe("thermo council extension", () => {
 			args: ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"],
 		});
 		expect(pi.runnerCalls).toHaveLength(4);
+		expect(pi.runnerCalls[0]?.args.join("\n")).toContain("## User Review Guidance (untrusted)");
+		expect(pi.runnerCalls[0]?.args.join("\n")).toContain("stack");
 		expect(pi.messages[0]?.content).toContain("## Executive Recommendation");
 	});
 
-	test("rejects natural-language scope prompts before git or model execution", async () => {
-		const pi = new FakePi();
+	test("accepts natural-language guidance and still infers scope mechanically", async () => {
+		const runnerResult = completedRunnerResult();
+		const pi = new FakePi({
+			execResults: successfulInferredScopeExecResults(),
+			runnerResult,
+		});
 		thermoCouncilExtension(pi);
 
 		await pi.commands
 			.get(THERMO_COUNCIL_COMMAND_NAME)
-			?.handler("review against origin/master", fakeContext());
+			?.handler("review against origin/master with extra suspicion", fakeContext());
 
-		expect(pi.execCalls).toEqual([]);
-		expect(pi.runnerCalls).toEqual([]);
-		expect(pi.messages[0]?.content).toContain("Invalid /thermo-council argument");
-		expect(pi.messages[0]?.content).toContain("Usage: /thermo-council [base-ref | stack]");
-	});
-
-	test("rejects complex prose without calling the scope model", async () => {
-		const pi = new FakePi();
-		thermoCouncilExtension(pi);
-
-		await pi.commands
-			.get(THERMO_COUNCIL_COMMAND_NAME)
-			?.handler("with complex prompt", fakeContext());
-
-		expect(pi.execCalls).toEqual([]);
-		expect(pi.runnerCalls).toEqual([]);
-		expect(pi.messages[0]?.content).toContain("Invalid /thermo-council argument");
-		expect(pi.messages[0]?.content).not.toContain("scope model");
+		expect(pi.execCalls).toContainEqual({
+			command: "git",
+			args: ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"],
+		});
+		expect(pi.runnerCalls).toHaveLength(4);
+		for (const call of pi.runnerCalls) {
+			expect(call.args.join("\n")).toContain("## User Review Guidance (untrusted)");
+			expect(call.args.join("\n")).toContain("review against origin/master with extra suspicion");
+		}
+		expect(pi.messages[0]?.content).toContain("## Executive Recommendation");
 	});
 
 	test("launches three read-only terminal-capture reviewer seats and renders a report", async () => {
@@ -378,6 +379,9 @@ describe("thermo council extension", () => {
 			expect(call.args).toContain("--extension");
 			expect(call.args.join("\n")).toContain("reviews/thermonuclear-review.md");
 		}
+		const finalSynthesisCall = pi.runnerCalls[3];
+		expect(finalSynthesisCall?.args).toContain("--no-tools");
+		expect(finalSynthesisCall?.args).not.toContain("--tools");
 		expect(pi.messages[0]?.customType).toBe(THERMO_COUNCIL_MESSAGE_TYPE);
 		expect(pi.messages[0]?.content).toContain("## Executive Recommendation");
 		expect(pi.messages[0]?.content).toContain("## Final Synthesis Evidence");
@@ -456,7 +460,7 @@ describe("thermo council extension", () => {
 		expect(pi.messages[0]?.content).toContain("<root>");
 	});
 
-	test("accepts review findings that rely on array defaults", async () => {
+	test("hard-fails when final synthesis returns empty text after reviewer completion", async () => {
 		const runnerResult: RuntimeResultV1 = {
 			version: 1,
 			kind: "terminal-capture",
@@ -487,8 +491,12 @@ describe("thermo council extension", () => {
 
 		await pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.handler("origin/master", fakeContext());
 
-		expect(pi.messages[0]?.content).toContain("(none supplied)");
-		expect(pi.messages[0]?.content).toContain("No validation hints were supplied.");
+		expect(pi.runnerCalls).toHaveLength(4);
+		expect(pi.messages[0]?.content).toContain("mandatory final synthesis pass");
+		expect(pi.messages[0]?.content).toContain("## Final Synthesis Failure");
+		expect(pi.messages[0]?.content).toContain("- Status: stopped-without-useful-text");
+		expect(pi.messages[0]?.content).toContain("No branches were created");
+		expect(pi.messages[0]?.content).not.toContain("## Ranked Findings");
 	});
 
 	test("reviewer prompt includes scope, rubric, diff, and capture contract", () => {
@@ -500,6 +508,19 @@ describe("thermo council extension", () => {
 		expect(prompt).toContain("diff --git");
 		expect(prompt).toContain(SUBMIT_THERMO_COUNCIL_REVIEW_TOOL);
 		expect(prompt).toContain("do not create branches");
+		expect(prompt).not.toContain("User Review Guidance");
+	});
+
+	test("reviewer prompt labels optional caller guidance as untrusted", () => {
+		const prompt = buildReviewerPrompt(baseScope(), seat("anthropic-opus", "Anthropic Opus"), {
+			reviewGuidance: "focus on prompt injection",
+		});
+
+		expect(prompt).toContain("## User Review Guidance (untrusted)");
+		expect(prompt).toContain("focus on prompt injection");
+		expect(prompt).toContain("do not create branches");
+		expect(prompt).toContain("tool restrictions");
+		expect(prompt).toContain(SUBMIT_THERMO_COUNCIL_REVIEW_TOOL);
 	});
 
 	test("synthesis clusters strong text-only findings without file paths", () => {
@@ -726,10 +747,7 @@ function successfulInferredScopeExecResults(): Map<
 	string,
 	{ stdout: string; stderr?: string; code?: number }
 > {
-	return new Map([
-		...successfulScopeExecResults(),
-		["git symbolic-ref --quiet --short refs/remotes/origin/HEAD", { stdout: "origin/master\n" }],
-	]);
+	return successfulScopeExecResults();
 }
 
 function successfulScopeExecResults(): Map<
@@ -738,6 +756,7 @@ function successfulScopeExecResults(): Map<
 > {
 	return new Map([
 		["git status --short", { stdout: "" }],
+		["git symbolic-ref --quiet --short refs/remotes/origin/HEAD", { stdout: "origin/master\n" }],
 		["git rev-parse --show-toplevel", { stdout: "/repo\n" }],
 		["git rev-parse HEAD", { stdout: "head-sha\n" }],
 		["git rev-parse --verify origin/master^{commit}", { stdout: "base-ref-sha\n" }],

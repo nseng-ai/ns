@@ -50,8 +50,8 @@ export const thermoCouncilParity = definePiSurfaceParity([
 export default function thermoCouncilExtension(pi: ThermoCouncilExtensionAPI): void {
 	pi.registerCommand(THERMO_COUNCIL_COMMAND_NAME, {
 		description:
-			"Run a multi-model thermonuclear review council and present one session-local report",
-		argumentHint: "[base-ref | stack]",
+			"Run a multi-model thermonuclear review council over inferred checkout scope and present one session-local report",
+		argumentHint: "[review guidance]",
 		handler: async (args, ctx) => {
 			await ctx.waitForIdle?.();
 			await runThermoCouncilCommand(pi, ctx, args);
