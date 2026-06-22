@@ -2,15 +2,16 @@
 
 ## Work
 
-- [ ] Finalize the completion architecture boundary between Clinkr and SDL.
-  - Decide whether Clinkr owns only a pure completion planner or also owns reusable host-command helpers for `completion <shell>` and hidden resolver commands.
+- [x] Finalize the completion architecture boundary between Clinkr and SDL.
+  - Decision: Clinkr owns the pure static completion planner/API first; reusable host-command helpers for visible `completion <shell>` commands and hidden resolver commands are deferred to shell bridge / SDL integration work.
   - Treat completion as a Clinkr primitive because Clinkr owns the surface plan; avoid fighting Commander's deliberate parser-only scope through a Commander plugin.
   - Preserve SDL as the first proving consumer without baking SDL extension policy into Clinkr.
+  - Evidence: `ClinkrGroup.complete()` and `@sdl/clinkr/completion` expose tokenized static planning without requiring SDL imports or command-handler execution.
 
-- [ ] Build the static Clinkr completion engine.
+- [x] Build the static Clinkr completion engine.
   - Complete visible commands, visible options, implicit framework options, and enum choices from Clinkr/Commander command metadata without invoking handlers.
   - Prefer public Commander APIs plus Clinkr-owned surface metadata over private Commander fields.
-  - Evidence: focused Clinkr tests over nested groups, hidden groups, raw commands, rendered commands, positionals, option choices, and implicit help/version/runtime options.
+  - Evidence: focused Clinkr tests cover nested groups, hidden groups, raw commands, rendered commands, positionals, option choices, and implicit help/version/runtime options.
 
 - [ ] Add bash, zsh, and fish shell bridge generation.
   - Use a shell-facing resolver command or equivalent endpoint rather than embedding stale command snapshots in generated scripts.

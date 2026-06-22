@@ -74,7 +74,7 @@ Research findings captured for future implementers:
 
 ## Open Questions
 
-- Should Clinkr expose completion as a low-level pure API only, or also provide a standard hidden command and visible `completion <shell>` command helper for host CLIs?
+- Answered for the first slice: Clinkr exposes a low-level pure static completion planner/API first (`ClinkrGroup.complete()` plus `@sdl/clinkr/completion`). Standard hidden resolver commands and visible `completion <shell>` host-command helpers are deferred to the shell bridge / SDL integration slices rather than baked into the static planner.
 - What exact output contract should the resolver use: newline-delimited strings, tab-separated descriptions, JSON, or shell-specific rendering?
 - Should SDL suppress unrelated extension warnings during completion, redirect them to debug-only output, or include them only when completing an explicitly broken selected command?
 - How should dynamic/custom completion providers compose with default Clinkr completions: replace, append, filter, or callback-style fallback like yargs?

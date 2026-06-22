@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./completion": "./src/completion.ts",
     "./raw": "./src/raw/index.ts",
     "./testing": "./src/testing/index.ts"
   },
