@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import { createManualClock, createManualTimerScheduler } from "@sdl/core/testing";
 
 import {
+	normalizeChildToolAllowlist,
 	resolvePiInvocation,
 	dispatchRunnerSubagentProcess,
 } from "../src/runner-subagent/subagent-process.ts";
@@ -217,7 +218,7 @@ describe("runner subagent process dispatcher", () => {
 			ctx,
 			{
 				...options(),
-				tools: ["read", "submit_thermo_council_review", "block_thermo_council_review"],
+				tools: ["read", "complete_runner_subagent"],
 			},
 			runner.dependencies,
 		);
@@ -231,7 +232,7 @@ describe("runner subagent process dispatcher", () => {
 			"--extension",
 			"/tmp/pi-runner-subagent-runtime/runtime-extension.ts",
 			"--tools",
-			"read,submit_thermo_council_review,block_thermo_council_review",
+			"read,complete_runner_subagent",
 			"--session",
 			"/tmp/runner-subagent.jsonl",
 			"Do the delegated task.",
@@ -241,6 +242,13 @@ describe("runner subagent process dispatcher", () => {
 		const result = await running;
 
 		expect(result.status).toBe("stopped-without-terminal");
+	});
+
+	test("deduplicates normalized child tool allowlists in first-seen order", () => {
+		expect(normalizeChildToolAllowlist([" read ", "complete_runner_subagent", "read"])).toEqual([
+			"read",
+			"complete_runner_subagent",
+		]);
 	});
 
 	test("rejects invalid child tool allowlist before spawning", async () => {
@@ -257,6 +265,22 @@ describe("runner subagent process dispatcher", () => {
 		if (result.status === "error") {
 			expect(result.diagnostic).toContain("Invalid subagent tool allowlist");
 		}
+	});
+
+	test("rejects child tool allowlists that omit terminal capture tools before spawning", async () => {
+		const runner = createFakeRunnerSubagentDispatcher();
+		const result = await dispatchRunnerSubagentProcess(
+			pi,
+			ctx,
+			{ ...options(), tools: ["read"] },
+			runner.dependencies,
+		);
+
+		expect(runner.calls).toEqual([]);
+		expect(result.status).toBe("error");
+		if (result.status !== "error") return;
+		expect(result.diagnostic).toContain("missing terminal capture tool(s)");
+		expect(result.diagnostic).toContain("complete_runner_subagent");
 	});
 
 	test("passes inherited model and non-off thinking to child Pi and progress metadata", async () => {
@@ -1271,6 +1295,67 @@ describe("runner subagent process dispatcher", () => {
 			}),
 		);
 
+		await Promise.resolve();
+		expect(call.process.killSignals).toEqual(["SIGTERM"]);
+		call.process.close(null, "SIGTERM");
+		const result = await running;
+
+		expect(result.status).toBe("completed");
+		if (result.status !== "completed") return;
+		expect(result.terminal.input).toEqual({ summary: "done" });
+	});
+
+	test("waits for terminal runtime result persistence before terminating", async () => {
+		const manualClock = createManualClock(0);
+		const manualTimers = createManualTimerScheduler();
+		let runtimeResultWritten = false;
+		const runtimeResult = {
+			version: 1,
+			kind: "terminal-capture",
+			toolName: "complete_runner_subagent",
+			toolCallId: "tool-1",
+			status: "completed",
+			input: { summary: "done" },
+		} as const;
+		const runner = createFakeRunnerSubagentDispatcher({
+			clock: manualClock.clock,
+			timers: manualTimers.timers,
+		});
+		const running = dispatchRunnerSubagentProcess<{ summary: string }>(pi, ctx, options(), {
+			...runner.dependencies,
+			readRuntimeResult: () =>
+				runtimeResultWritten ? { type: "loaded", result: runtimeResult } : { type: "missing" },
+		});
+		const call = await waitForSpawn(runner.calls);
+
+		call.process.emitStdout(jsonLine({ type: "turn_start" }));
+		call.process.emitStdout(
+			jsonLine({
+				type: "tool_execution_start",
+				toolCallId: "tool-1",
+				toolName: "complete_runner_subagent",
+				args: {},
+			}),
+		);
+		call.process.emitStdout(
+			jsonLine({
+				type: "tool_execution_end",
+				toolCallId: "tool-1",
+				toolName: "complete_runner_subagent",
+				result: {},
+				isError: false,
+			}),
+		);
+		await Promise.resolve();
+
+		expect(call.process.killSignals).toEqual([]);
+		expect(manualTimers.pendingTimerCount()).toBe(1);
+
+		runtimeResultWritten = true;
+		manualClock.advanceMs(25);
+		manualTimers.advanceMs(25);
+		await Promise.resolve();
+
 		expect(call.process.killSignals).toEqual(["SIGTERM"]);
 		call.process.close(null, "SIGTERM");
 		const result = await running;
@@ -1318,6 +1403,7 @@ describe("runner subagent process dispatcher", () => {
 			}),
 		);
 
+		await Promise.resolve();
 		expect(call.process.killSignals).toEqual(["SIGTERM"]);
 		call.process.emitStdout(
 			'{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":"truncated',
@@ -1459,7 +1545,7 @@ describe("runner subagent process dispatcher", () => {
 		expect(result.protocolError.message).toContain("Terminal tool complete_runner_subagent failed");
 	});
 
-	test("returns protocol-error when terminal tools are mixed with sibling tool calls", async () => {
+	test("lets a valid terminal capture win over live protocol anomalies", async () => {
 		const runner = createFakeRunnerSubagentDispatcher({
 			runtimeResult: {
 				version: 1,
@@ -1484,13 +1570,14 @@ describe("runner subagent process dispatcher", () => {
 		call.process.emitStdout(
 			jsonLine({ type: "tool_execution_start", toolCallId: "tool-2", toolName: "bash", args: {} }),
 		);
+		await Promise.resolve();
 		call.process.close(0);
 		const result = await running;
 
 		expect(call.process.killSignals).toContain("SIGTERM");
-		expect(result.status).toBe("protocol-error");
-		if (result.status !== "protocol-error") return;
-		expect(result.protocolError.message).toContain("mixed with sibling tool calls");
+		expect(result.status).toBe("completed");
+		if (result.status !== "completed") return;
+		expect(result.terminal.input).toEqual({ summary: "done" });
 	});
 
 	test("returns an error before spawn for invalid terminal runtime config", async () => {

@@ -54,6 +54,8 @@ import {
 const DEFAULT_STDERR_LIMIT_BYTES = 8 * 1024;
 const DEFAULT_KILL_TIMEOUT_MS = 5_000;
 const LAUNCH_METADATA_HYDRATION_RETRY_MS = 50;
+const TERMINAL_RESULT_POLL_INTERVAL_MS = 25;
+const TERMINAL_RESULT_PERSISTENCE_TIMEOUT_MS = 1_000;
 const STOPPED_WITHOUT_TERMINAL_DIAGNOSTIC = "Subagent Pi stopped without terminal capture.";
 const STOPPED_WITHOUT_USEFUL_TEXT_DIAGNOSTIC =
 	"Subagent Pi stopped without useful final assistant text.";
@@ -152,6 +154,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 	let childToolAllowlist: readonly string[] | undefined;
 	try {
 		childToolAllowlist = normalizeChildToolAllowlist(options.tools);
+		validateChildToolAllowlistForTerminalTools(childToolAllowlist, terminalTools);
 	} catch (error) {
 		const progress = stoppedProgress({
 			title,
@@ -268,6 +271,8 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		let launchHydrationRetryTimer: ScheduledTimer | undefined;
 		let liveHydrationAttempts = 0;
 		let hydrationInFlight: Promise<void> | undefined;
+		let terminalResultPollTimer: ScheduledTimer | undefined;
+		let terminalResultPollStartedMs: number | undefined;
 		const removeAbortListeners: Array<() => void> = [];
 
 		const finish = (result: RunnerSubagentResult<TTerminalInput>) => {
@@ -276,18 +281,62 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 			for (const remove of removeAbortListeners) remove();
 			killTimer?.cancel();
 			launchHydrationRetryTimer?.cancel();
+			terminalResultPollTimer?.cancel();
 			void cleanupRuntimeFiles(runtimeFiles).finally(() => resolve(result));
 		};
 
 		const terminateChild = () => {
 			if (killRequested) return;
 			killRequested = true;
+			terminalResultPollTimer?.cancel();
 			parser.markTerminating();
 			updateEmitter.emit(updateFromSnapshot(parser.getSnapshot()), { force: true });
 			child.kill("SIGTERM");
 			killTimer = timers.setTimeout(() => {
 				if (!closed) child.kill("SIGKILL");
 			}, killTimeoutMs);
+		};
+
+		const scheduleTerminalResultTermination = () => {
+			if (runtimeFiles === undefined || killRequested || closed || cancelled) return;
+			if (terminalResultPollTimer !== undefined) return;
+			terminalResultPollStartedMs ??= clock.nowMs();
+			const startedMs = terminalResultPollStartedMs;
+			const pollRuntimeResult = () => {
+				terminalResultPollTimer = undefined;
+				if (killRequested || closed || cancelled) return;
+				void Promise.resolve(
+					(dependencies.readRuntimeResult ?? readRuntimeResultFile)(runtimeFiles.resultPath),
+				).then(
+					(read) => {
+						if (killRequested || closed || cancelled) return;
+						if (read.type === "loaded") {
+							terminateChild();
+							return;
+						}
+						if (clock.nowMs() - startedMs >= TERMINAL_RESULT_PERSISTENCE_TIMEOUT_MS) {
+							terminateChild();
+							return;
+						}
+						terminalResultPollTimer = timers.setTimeout(
+							pollRuntimeResult,
+							TERMINAL_RESULT_POLL_INTERVAL_MS,
+						);
+					},
+					() => {
+						if (killRequested || closed || cancelled) return;
+						if (clock.nowMs() - startedMs >= TERMINAL_RESULT_PERSISTENCE_TIMEOUT_MS) {
+							terminateChild();
+							return;
+						}
+						terminalResultPollTimer = timers.setTimeout(
+							pollRuntimeResult,
+							TERMINAL_RESULT_POLL_INTERVAL_MS,
+						);
+					},
+				);
+			};
+			pollRuntimeResult();
 		};
 
 		const cancel = () => {
@@ -363,8 +412,17 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 			const snapshot = parser.getSnapshot();
 			updateEmitter.emit(updateFromSnapshot(snapshot));
 			scheduleLiveLaunchHydration();
-			if (shouldTerminateChildForSnapshot(snapshot, runtimeFiles) && !cancelled) {
-				terminateChild();
+			const decision = decideChildTerminationForSnapshot(snapshot, runtimeFiles);
+			if (cancelled) return;
+			switch (decision.type) {
+				case "keep-running":
+					return;
+				case "terminate":
+					terminateChild();
+					return;
+				case "wait-for-terminal-result":
+					scheduleTerminalResultTermination();
+					return;
 			}
 		});
 
@@ -389,6 +447,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 			closed = true;
 			killTimer?.cancel();
 			launchHydrationRetryTimer?.cancel();
+			terminalResultPollTimer?.cancel();
 
 			void (async () => {
 				await hydrateLaunchMetadataBeforeClose();
@@ -453,13 +512,33 @@ export function normalizeChildToolAllowlist(
 	tools: readonly string[] | undefined,
 ): readonly string[] | undefined {
 	if (tools === undefined) return undefined;
-	return tools.map((tool) => {
+	const normalizedTools: string[] = [];
+	const seenTools = new Set<string>();
+	for (const tool of tools) {
 		const normalized = tool.trim();
 		if (normalized.length === 0) throw new Error("tool names must be non-empty");
 		if (normalized.includes(",")) throw new Error(`tool name must not contain a comma: ${tool}`);
 		if (/\s/.test(normalized)) throw new Error(`tool name must not contain whitespace: ${tool}`);
-		return normalized;
-	});
+		if (seenTools.has(normalized)) continue;
+		seenTools.add(normalized);
+		normalizedTools.push(normalized);
+	}
+	return normalizedTools;
+}
+
+function validateChildToolAllowlistForTerminalTools(
+	childToolAllowlist: readonly string[] | undefined,
+	terminalTools: readonly RunnerSubagentTerminalToolDefinition[],
+): void {
+	if (childToolAllowlist === undefined || terminalTools.length === 0) return;
+	const allowedTools = new Set(childToolAllowlist);
+	const missingTerminalTools = terminalTools
+		.map((tool) => tool.name)
+		.filter((toolName) => !allowedTools.has(toolName));
+	if (missingTerminalTools.length === 0) return;
+	throw new Error(
+		`child tool allowlist is missing terminal capture tool(s): ${missingTerminalTools.join(", ")}`,
+	);
 }
 
 function runnerSubagentReturnMode(options: RunnerSubagentOptions): RunnerSubagentReturnMode {
@@ -556,16 +635,40 @@ function updateFromSnapshot(snapshot: RunnerSubagentJsonEventParserSnapshot): Ru
 	return { progress: snapshot.progress, activity: snapshot.activity };
 }
 
-function shouldTerminateChildForSnapshot(
+type ChildTerminationDecision =
+	| { type: "keep-running" }
+	| {
+			type: "terminate";
+			reason:
+				| "non-terminal-protocol-error"
+				| "terminal-result-unavailable"
+				| "final-text-parse-error";
+	  }
+	| {
+			type: "wait-for-terminal-result";
+			reason: "terminal-succeeded" | "terminal-protocol-anomaly";
+	  };
+
+function decideChildTerminationForSnapshot(
 	snapshot: RunnerSubagentJsonEventParserSnapshot,
 	runtimeFiles: RunnerSubagentRuntimeFiles | undefined,
-): boolean {
-	if (snapshot.protocolError || snapshot.terminalSucceeded) return true;
-	if (!snapshot.error) return false;
-	// Terminal-mode subagents write their authoritative terminal outcome to a runtime file.
-	// Treat malformed live stdout as a progress-channel failure and let the child reach that
-	// file-backed terminal capture instead of killing it early.
-	return runtimeFiles === undefined;
+): ChildTerminationDecision {
+	if (snapshot.terminalSucceeded) {
+		if (runtimeFiles !== undefined) {
+			return { type: "wait-for-terminal-result", reason: "terminal-succeeded" };
+		}
+		return { type: "terminate", reason: "terminal-result-unavailable" };
+	}
+	if (snapshot.protocolError) {
+		if (runtimeFiles !== undefined && snapshot.terminalAttempted) {
+			return { type: "wait-for-terminal-result", reason: "terminal-protocol-anomaly" };
+		}
+		return { type: "terminate", reason: "non-terminal-protocol-error" };
+	}
+	if (snapshot.error && runtimeFiles === undefined) {
+		return { type: "terminate", reason: "final-text-parse-error" };
+	}
+	return { type: "keep-running" };
 }
 
 function updateSignature(update: RunnerSubagentUpdate): string {
@@ -643,15 +746,6 @@ async function resolveClosedRunnerSubagentResult<TTerminalInput>(
 		);
 	}
 
-	if (snapshot.protocolError) {
-		return protocolErrorResult(
-			title,
-			progress,
-			snapshot.protocolError.message,
-			snapshot.protocolError.event,
-		);
-	}
-
 	if (runtimeRead.result?.kind === "terminal-capture") {
 		const protocolDiagnostic = validateTerminalCapture(
 			runtimeRead.result,
@@ -661,6 +755,15 @@ async function resolveClosedRunnerSubagentResult<TTerminalInput>(
 			return protocolErrorResult(title, progress, protocolDiagnostic, runtimeRead.result);
 		}
 		return terminalCaptureResult<TTerminalInput>(title, progress, runtimeRead.result);
+	}
+
+	if (snapshot.protocolError) {
+		return protocolErrorResult(
+			title,
+			progress,
+			snapshot.protocolError.message,
+			snapshot.protocolError.event,
+		);
 	}
 
 	if (snapshot.error) {
