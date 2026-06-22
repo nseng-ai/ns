@@ -186,6 +186,7 @@ export const reviewRunResultSchema = z
 	.object({
 		reviewName: nonBlankStringSchema,
 		reviewPath: nonBlankStringSchema,
+		modelProfile: nonBlankStringSchema,
 		model: nonBlankStringSchema,
 		baseRef: nonBlankStringSchema,
 		format: z.literal("findings"),

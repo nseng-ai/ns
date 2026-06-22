@@ -77,6 +77,7 @@ export function parseFindingsPayloadResult(
 			payload: {
 				reviewName: identity.value.reviewName,
 				baseRef: identity.value.baseRef,
+				modelProfile: null,
 				count: 0,
 				findings: [],
 				inputCoverage: null,
@@ -188,6 +189,7 @@ function payloadFromReviewRunResult(
 		payload: {
 			reviewName: result.reviewName,
 			baseRef: result.baseRef,
+			modelProfile: result.modelProfile,
 			count: result.count,
 			findings: result.findings,
 			inputCoverage: result.inputCoverage,

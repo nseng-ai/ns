@@ -34,11 +34,11 @@ because two blocks look similar, and do not reward abstraction for its own sake.
 Suppress vague "extract a helper" comments unless the evidence passes the full
 rubric below.
 
-## Relationship to duplicative-abstractions
+## Relationship to duplicative-abstractions-tripwire
 
-`duplicative-abstractions.md` is the cheap canonical-helper scout. It emits
-investigation leads when new code appears to hand-roll infrastructure that may
-already have a repository helper.
+`duplicative-abstractions-tripwire.md` is the cheap duplicate-abstraction Tripwire/scout.
+It emits investigation leads when new code appears to hand-roll infrastructure
+that may already have a repository helper.
 
 This review is different: it is a final judgment review for meaningful
 duplication. Do not re-emit scout-style "possible existing helper" leads unless

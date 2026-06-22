@@ -1,11 +1,11 @@
 ---
 description: |
-  Enforce sdl's "dignified Python" coding standards on the supplied diff.
-  Flag concrete violations that a human reviewer would otherwise call out in
-  PR review: LBYL exception handling, pathlib over os.path, absolute
-  imports, no re-exports, modern type syntax, and other production-tested
-  patterns. Intended for cheap, per-diff detection; resolution stays with
-  the engineer in their normal higher-context workflow.
+  Dignified Python Tripwire: enforce sdl's "dignified Python" coding standards
+  on the supplied diff. Flag concrete violations that a human reviewer would
+  otherwise call out in PR review: LBYL exception handling, pathlib over
+  os.path, absolute imports, no re-exports, modern type syntax, and other
+  production-tested patterns. Intended for cheap, per-diff detection;
+  resolution stays with the engineer in their normal higher-context workflow.
 model_profile: quick
 applies_to:
   include:

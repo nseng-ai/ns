@@ -9,7 +9,7 @@ Current checkout facts:
 - Python workspace inventory: no active first-party Python workspace packages remain.
 - In-scope Python context targets: none. Former Python capability packages were ported to TypeScript, retired, or deleted as migration reference material.
 - TypeScript workspace inventory: 19 repo-local packages under `ts/packages/`. This map's TypeScript package-context coverage is intentionally partial pending a focused rebaseline.
-- Present context files: root `CONTEXT.md`, `ts/packages/handoff/CONTEXT.md`, `ts/packages/brmem/CONTEXT.md`, `ts/packages/pi-extension-runtime/CONTEXT.md`, `ts/packages/pi-extensions/CONTEXT.md`, `ts/packages/ccc/CONTEXT.md`, and `ts/packages/sdl/CONTEXT.md`.
+- Present context files: root `CONTEXT.md`, `ts/packages/handoff/CONTEXT.md`, `ts/packages/brmem/CONTEXT.md`, `ts/packages/pi-extension-runtime/CONTEXT.md`, `ts/packages/pi-extensions/CONTEXT.md`, `ts/packages/ccc/CONTEXT.md`, `ts/packages/sdl/CONTEXT.md`, and `ts/packages/roaster/CONTEXT.md`.
 - Future drift should be handled by focused rebaseline phases before final readback, not silently folded into unrelated package-context sessions.
 
 ## Contexts
@@ -23,13 +23,13 @@ Current checkout facts:
 - [@sdl/pi-extensions](./ts/packages/pi-extensions/CONTEXT.md) — repo-local Pi discovery adapters, engineered extension package, worktree-status/Pi footer lifecycle adapter language, enriched-plan/branch-context/checkpoint/handoff language, runner subagents, CCC command-prefix boundary, SDL command mirrors, and CLI bridge vocabulary. This file exists, but still needs a later focused refresh against the full current extension inventory.
 - [@sdl/ccc](./ts/packages/ccc/CONTEXT.md) — CCC (Cmux Command and Control) vocabulary for the private TypeScript orchestration layer that composes Pi, cmux, Graphite, Objective, handoff, branch-context, autobranch/land, and owns worktree-status observability without lower packages importing it.
 - [@sdl/sdl](./ts/packages/sdl/CONTEXT.md) — Source Development Lifecycle CLI vocabulary for SDL command surfaces, SDL extensions, SDL command entries, `@sdl/sdl/sdk` as the public SDL extension API, internal migration exports, SDL Pi mirrors, hard cutover, and lower orchestration ownership.
+- [@sdl/roaster](./ts/packages/roaster/CONTEXT.md) — PR-diff findings vocabulary for Roaster, review definitions, Tripwires, deep reviews, findings, findings comments, inline findings, and Branch Memory review logs.
 
 ### Planned TypeScript package contexts
 
 These are active TypeScript package context targets for later focused domain-language sessions. Do not recreate deleted Python package paths when authoring them.
 
 - `@sdl/areg` — agent-resource bootstrap and skill workflow vocabulary: `areg init`, `areg check`, `update-skills`, `skillx`, target agents, managed instruction blocks, installed skill directories, lockfile source types, skill metadata/issues, transient skill fetch/cleanup, and external `gh` / `npx skills` boundaries.
-- `@sdl/roaster` — CI PR-diff findings vocabulary: `Roaster`, review definitions, Claude Code review execution, review catalogs/sources, findings, inline commentability, severity, frontmatter, findings comments, and inline finding posting.
 - `@sdl/slot` — worktree slot vocabulary: slot records/inventory/status, repo context, slot GC/init/resize plans, shell directive files, explicit `slot gt` operations, and downstack-only stack release.
 - `@sdl/objective` — Objective CLI package vocabulary, including Objective records/statuses, archive/unarchive, checked-in Markdown storage, hidden `exec` commands, and checkout-local list behavior.
 - `@sdl/packagechk` — standalone package-name availability and claimability vocabulary for PyPI/npm checks, registry results, name normalization/validation, claim project specs, publish gateways, and parked Homebrew support.
@@ -68,7 +68,7 @@ These are current map seeds, not final readback output. Package-context phases s
 
 Carry these collisions forward to focused package-context phases. Do not finalize them here.
 
-- **Review / Comment**: distinguish GitHub PR reviews, review threads, review comments, discussion comments, roaster reviews, roaster findings, findings comments, and inline finding posting.
+- **Review / Comment**: distinguish Tripwires, Deep reviews, generic Roaster review definitions/runs, GitHub PR reviews, review threads, review comments, discussion comments, Roaster findings, Roaster findings comments, and inline finding posting.
 - **State / status**: separate Clinkr `ExitStatus`, Git worktree/file status, GitHub PR state, Objective statuses, slot inventory status, package-check status, vibechk run status, and handoff branch state.
 - **Active / root**: keep Active Objective Root, Objective Archive Root, repository root, Git common dir, Base Namespace, and Graphite trunk distinct.
 - **Branch / ref / start-point / snapshot-ref**: preserve Git Branch, Ref, Start point, brmem Snapshot Ref, Entry Locator, current branch, branch context, result branch, and Graphite stack node boundaries.

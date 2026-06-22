@@ -45,15 +45,15 @@ const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
 		expectedLocalOnly: true,
 	},
 	{
-		path: "../../../../../reviews/dignified-python.md",
-		name: "dignified-python",
+		path: "../../../../../reviews/dignified-python-tripwire.md",
+		name: "dignified-python-tripwire",
 		expectedModelProfile: "quick",
 		expectedApplicability: { include: ["**/*.py"], exclude: ["**/tests/**/*.py"] },
 		expectedLocalOnly: false,
 	},
 	{
-		path: "../../../../../reviews/sdl-typescript-style.md",
-		name: "sdl-typescript-style",
+		path: "../../../../../reviews/sdl-typescript-style-tripwire.md",
+		name: "sdl-typescript-style-tripwire",
 		expectedModelProfile: "quick",
 		expectedApplicability: {
 			include: ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"],
@@ -62,8 +62,8 @@ const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
 		expectedLocalOnly: false,
 	},
 	{
-		path: "../../../../../reviews/duplicative-abstractions.md",
-		name: "duplicative-abstractions",
+		path: "../../../../../reviews/duplicative-abstractions-tripwire.md",
+		name: "duplicative-abstractions-tripwire",
 		expectedModelProfile: "quick",
 		expectedApplicability: {
 			include: ["**/*.ts", "**/*.tsx", "**/*.py"],
@@ -114,12 +114,12 @@ describe("parseReviewDefinition", () => {
 					"---\n" +
 					"\n" +
 					"Flag concrete issues in the diff.\n",
-				{ name: "dignified-python" },
+				{ name: "dignified-python-tripwire" },
 			),
 		);
 
 		expect(definition).toEqual({
-			name: "dignified-python",
+			name: "dignified-python-tripwire",
 			description: "Review Python diffs for style violations.",
 			instructions: "Flag concrete issues in the diff.",
 			modelProfile: "sonnet",
@@ -159,7 +159,7 @@ describe("parseReviewDefinition", () => {
 					"---\n" +
 					"\n" +
 					"Flag concrete issues in the diff.\n",
-				{ name: "dignified-python" },
+				{ name: "dignified-python-tripwire" },
 			),
 		);
 
@@ -177,7 +177,7 @@ describe("parseReviewDefinition", () => {
 					"---\n" +
 					"\n" +
 					"Flag concrete issues in the diff.\n",
-				{ name: "dignified-python" },
+				{ name: "dignified-python-tripwire" },
 			),
 		);
 
@@ -209,7 +209,7 @@ describe("parseReviewDefinition", () => {
 			"invalid_instructions",
 		],
 	] as const)("rejects invalid definition: %s", (message, source, code) => {
-		const error = expectError(parseReviewDefinition(source, { name: "dignified-python" }));
+		const error = expectError(parseReviewDefinition(source, { name: "dignified-python-tripwire" }));
 
 		expect(error.code).toBe(code);
 		expect(error.message).toContain(message);
@@ -220,7 +220,7 @@ describe("parseReviewDefinition", () => {
 			expectError(
 				parseReviewDefinition(
 					"\n---\ndescription: Review Python diffs for style violations.\n---\n\nFlag concrete issues in the diff.\n",
-					{ name: "dignified-python" },
+					{ name: "dignified-python-tripwire" },
 				),
 			).code,
 		).toBe("missing_open_fence");
@@ -228,7 +228,7 @@ describe("parseReviewDefinition", () => {
 			expectError(
 				parseReviewDefinition(
 					" ---\ndescription: Review Python diffs for style violations.\n---\n\nFlag concrete issues in the diff.\n",
-					{ name: "dignified-python" },
+					{ name: "dignified-python-tripwire" },
 				),
 			).code,
 		).toBe("missing_open_fence");
@@ -236,7 +236,7 @@ describe("parseReviewDefinition", () => {
 			expectError(
 				parseReviewDefinition(
 					"--- \ndescription: Review Python diffs for style violations.\n---\n\nFlag concrete issues in the diff.\n",
-					{ name: "dignified-python" },
+					{ name: "dignified-python-tripwire" },
 				),
 			).code,
 		).toBe("missing_open_fence");
@@ -244,7 +244,7 @@ describe("parseReviewDefinition", () => {
 			expectError(
 				parseReviewDefinition(
 					"---\ndescription: Review Python diffs for style violations.\n ---\n\nFlag concrete issues in the diff.\n",
-					{ name: "dignified-python" },
+					{ name: "dignified-python-tripwire" },
 				),
 			).code,
 		).toBe("missing_close_fence");
@@ -252,7 +252,7 @@ describe("parseReviewDefinition", () => {
 			expectError(
 				parseReviewDefinition(
 					"---\ndescription: Review Python diffs for style violations.\n--- \n\nFlag concrete issues in the diff.\n",
-					{ name: "dignified-python" },
+					{ name: "dignified-python-tripwire" },
 				),
 			).code,
 		).toBe("missing_close_fence");
@@ -281,7 +281,7 @@ describe("parseReviewDefinition", () => {
 					"---\n" +
 					"\n" +
 					"Flag concrete issues in the diff.\n",
-				{ name: "dignified-python" },
+				{ name: "dignified-python-tripwire" },
 			),
 		);
 
@@ -297,7 +297,7 @@ describe("parseReviewDefinition", () => {
 			const definition = expectOk(
 				parseReviewDefinition(
 					`---\ndescription: Review Python diffs for style violations.\nmodel_profile: ${model}\n---\n\nFlag concrete issues in the diff.\n`,
-					{ name: "dignified-python" },
+					{ name: "dignified-python-tripwire" },
 				),
 			);
 
@@ -314,7 +314,7 @@ describe("parseReviewDefinition", () => {
 					"---\n" +
 					"\n" +
 					"Flag concrete issues in the diff.\n",
-				{ name: "dignified-python" },
+				{ name: "dignified-python-tripwire" },
 			),
 		);
 
@@ -330,7 +330,7 @@ describe("parseReviewDefinition", () => {
 					"---\n" +
 					"\n" +
 					"Flag concrete issues in the diff.\n",
-				{ name: "dignified-python" },
+				{ name: "dignified-python-tripwire" },
 			),
 		);
 
@@ -357,7 +357,7 @@ describe("parseReviewDefinition", () => {
 					"---\n" +
 					"\n" +
 					"Flag concrete issues in the diff.\n",
-				{ name: "dignified-python" },
+				{ name: "dignified-python-tripwire" },
 			),
 		);
 

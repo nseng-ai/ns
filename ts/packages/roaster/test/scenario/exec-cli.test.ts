@@ -53,8 +53,8 @@ async function runRoaster(
 }
 
 const EXEC_CLI_FINDINGS_ENVELOPE_OPTIONS = {
-	reviewName: "dignified-python",
-	reviewPath: "/repo/reviews/dignified-python.md",
+	reviewName: "dignified-python-tripwire",
+	reviewPath: "/repo/reviews/dignified-python-tripwire.md",
 	model: "sonnet",
 	baseRef: "master",
 } as const satisfies FindingsEnvelopeOptions;
@@ -148,9 +148,12 @@ describe("roaster exec CLI", () => {
 	});
 
 	test("record-findings rejects malformed stdin", async () => {
-		const run = await runRoaster(["exec", "record-findings", "--review-key", "dignified-python"], {
-			stdin: "not json",
-		});
+		const run = await runRoaster(
+			["exec", "record-findings", "--review-key", "dignified-python-tripwire"],
+			{
+				stdin: "not json",
+			},
+		);
 		expect(run.exitCode).toBe(2);
 		expect(run.stderr).toContain("record-findings stdin must be JSON");
 	});
@@ -158,12 +161,12 @@ describe("roaster exec CLI", () => {
 	test("record-findings emits a review-run envelope consumable by publish-findings", async () => {
 		const reviewLog = new FakeReviewLogGateway();
 		const record = await runRoaster(
-			["exec", "record-findings", "--review-key", "dignified-python", "--format", "json"],
+			["exec", "record-findings", "--review-key", "dignified-python-tripwire", "--format", "json"],
 			{
 				stdin: JSON.stringify({ findings: [inlineFinding] }),
 				context: fakeRoasterContext({
 					reviewCatalog: new FakeReviewCatalogGateway({
-						reviewSourcesByKey: { "dignified-python": REVIEW_SOURCE },
+						reviewSourcesByKey: { "dignified-python-tripwire": REVIEW_SOURCE },
 					}),
 					localDiff: new FakeLocalDiffGateway({
 						defaultDiff: {
@@ -176,9 +179,9 @@ describe("roaster exec CLI", () => {
 			},
 		);
 		expect(record.exitCode).toBe(0);
-		expect(record.stderr).toContain("recorded review log: reviews/dignified-python/");
+		expect(record.stderr).toContain("recorded review log: reviews/dignified-python-tripwire/");
 		expect(reviewLog.writtenEntries()).toHaveLength(1);
-		expect(JSON.parse(record.stdout).data.reviewName).toBe("dignified-python");
+		expect(JSON.parse(record.stdout).data.reviewName).toBe("dignified-python-tripwire");
 
 		const gateway = new FakeRoasterGitHubGateway({ changedFilesByPr: changedFiles });
 		const publish = await runRoaster(["exec", "publish-findings", "--pr-number", "47"], {
@@ -220,7 +223,7 @@ describe("roaster exec CLI", () => {
 		expect(empty.stderr).toContain("posted findings comment");
 		const emptyComment = await findSummaryComment(
 			emptyGateway,
-			"<!-- roaster:dignified-python -->",
+			"<!-- roaster:dignified-python-tripwire -->",
 		);
 		expect(emptyComment?.body).toContain("**No findings** against base `master`. ✅");
 
@@ -269,10 +272,14 @@ describe("roaster exec CLI", () => {
 
 		const createdReview = gateway.createdReviews()[0];
 		expect(createdReview?.comments).toHaveLength(1);
-		expect(createdReview?.comments[0]?.body).toContain("<!-- roaster-inline:dignified-python:");
+		expect(createdReview?.comments[0]?.body).toContain(
+			"<!-- roaster-inline:dignified-python-tripwire:",
+		);
+		expect(createdReview?.comments[0]?.body).toContain("_Tripwire: `dignified-python-tripwire`._");
 
-		const comment = await findSummaryComment(gateway, "<!-- roaster:dignified-python -->");
-		expect(comment?.body).toContain("<!-- roaster:dignified-python -->");
+		const comment = await findSummaryComment(gateway, "<!-- roaster:dignified-python-tripwire -->");
+		expect(comment?.body).toContain("<!-- roaster:dignified-python-tripwire -->");
+		expect(comment?.body).toContain("## roaster tripwire · `dignified-python-tripwire`");
 		expect(comment?.body).toContain("### Inline posting");
 		expect(comment?.body).toContain("Inline comments posted:** 1");
 		expect(comment?.body).toContain("Summary-only findings:** 1");
@@ -289,7 +296,7 @@ describe("roaster exec CLI", () => {
 		});
 		expect(first.exitCode).toBe(0);
 		const markerBody = firstGateway.createdReviews()[0]?.comments[0]?.body ?? "";
-		expect(markerBody).toContain("<!-- roaster-inline:dignified-python:");
+		expect(markerBody).toContain("<!-- roaster-inline:dignified-python-tripwire:");
 
 		const reviewComments = new Map<number, readonly PRReviewComment[]>([
 			[47, [{ author: "github-actions[bot]", body: markerBody }]],
@@ -303,7 +310,7 @@ describe("roaster exec CLI", () => {
 				[
 					{
 						id: 1,
-						body: "<!-- roaster:dignified-python -->\nold\n\n### Activity Log\n\n- old run\n",
+						body: "<!-- roaster:dignified-python-tripwire -->\nold\n\n### Activity Log\n\n- old run\n",
 						author: "github-actions[bot]",
 					},
 				],
@@ -324,7 +331,10 @@ describe("roaster exec CLI", () => {
 		);
 		expect(duplicate.stderr).toContain("updated findings comment");
 		expect(duplicateGateway.createdReviews()).toHaveLength(0);
-		const comment = await findSummaryComment(duplicateGateway, "<!-- roaster:dignified-python -->");
+		const comment = await findSummaryComment(
+			duplicateGateway,
+			"<!-- roaster:dignified-python-tripwire -->",
+		);
 		expect(comment?.body).toContain("Duplicate inline comments skipped:** 1");
 		expect(comment?.body).toContain("- old run");
 	});
@@ -348,7 +358,7 @@ describe("roaster exec CLI", () => {
 		expect(run.exitCode).toBe(0);
 		expect(run.stderr).toContain("api_error=validation failed");
 		expect(run.stderr).toContain("posted findings comment");
-		const comment = await findSummaryComment(gateway, "<!-- roaster:dignified-python -->");
+		const comment = await findSummaryComment(gateway, "<!-- roaster:dignified-python-tripwire -->");
 		expect(comment?.body).toContain("API error:** validation failed");
 	});
 });

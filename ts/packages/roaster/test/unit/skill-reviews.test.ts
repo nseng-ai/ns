@@ -38,8 +38,8 @@ describe("Roaster skill review catalog", () => {
 		expect(loaded.value[0]).toMatchObject({
 			surface: "skill:roast-zeta-review",
 			title: "Zeta review",
-			label: "Roast: Zeta review",
-			defaultPrompt: "Run the Zeta review roast against the current branch changes.",
+			label: "Tripwire: Zeta review",
+			defaultPrompt: "Run the Zeta review tripwire against the current branch changes.",
 		});
 		expect(reviewCatalog.requestedReviewKeys()).toEqual(["zeta-review", "alpha-review"]);
 	});
@@ -80,7 +80,9 @@ describe("Roaster skill review catalog", () => {
 
 	test("derives surfaces, paths, labels, and default prompts from review keys", async () => {
 		const reviewCatalog = new FakeReviewCatalogGateway({
-			reviewSourcesByKey: { "dry-but-not-too-dry": REVIEW_SOURCE },
+			reviewSourcesByKey: {
+				"dry-but-not-too-dry": REVIEW_SOURCE.replace("---\n", "---\nmodel_profile: deep\n"),
+			},
 		});
 
 		const loaded = await loadRoastReviewDefinition({

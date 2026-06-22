@@ -49,7 +49,7 @@ describe("reviewAppliesToPaths", () => {
 		expect(reviewAppliesToPaths(applicability, ["README.md"])).toBe(true);
 	});
 
-	test("test-only Python diff does not apply to dignified-python", () => {
+	test("test-only Python diff does not apply to dignified-python-tripwire", () => {
 		const applicability: ReviewApplicability = {
 			include: ["**/*.py"],
 			exclude: ["**/tests/**/*.py"],
@@ -62,7 +62,7 @@ describe("reviewAppliesToPaths", () => {
 		).toBe(false);
 	});
 
-	test("source Python diff applies to dignified-python", () => {
+	test("source Python diff applies to dignified-python-tripwire", () => {
 		const applicability: ReviewApplicability = {
 			include: ["**/*.py"],
 			exclude: ["**/tests/**/*.py"],

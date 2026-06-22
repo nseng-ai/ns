@@ -12,12 +12,15 @@ interface RunResult {
 }
 
 const REVIEW_SOURCES = {
-	"sdl-typescript-style": reviewSource("Enforce SDL's TypeScript style guide."),
-	"dignified-python": reviewSource("Enforce dignified Python standards."),
-	"dry-but-not-too-dry": reviewSource("Review duplicated code and structure."),
-	"duplicative-abstractions": reviewSource("Scout for duplicated infrastructure."),
-	"improve-codebase-architecture": reviewSource("Review architecture deepening opportunities."),
-	"thermonuclear-review": reviewSource("Run an extremely strict maintainability review."),
+	"sdl-typescript-style-tripwire": reviewSource("Enforce SDL's TypeScript style guide."),
+	"dignified-python-tripwire": reviewSource("Enforce dignified Python standards."),
+	"dry-but-not-too-dry": reviewSource("Review duplicated code and structure.", "deep"),
+	"duplicative-abstractions-tripwire": reviewSource("Scout for duplicated infrastructure."),
+	"improve-codebase-architecture": reviewSource(
+		"Review architecture deepening opportunities.",
+		"deep",
+	),
+	"thermonuclear-review": reviewSource("Run an extremely strict maintainability review.", "deep"),
 } as const;
 
 async function runRoaster(args: readonly string[]): Promise<RunResult> {
@@ -51,16 +54,16 @@ describe("roaster roast CLI", () => {
 		expect(run.exitCode).toBe(0);
 		expect(run.stdout).toContain("Roast skill entries: 6");
 		expect(run.stdout).toContain(
-			"- skill:roast-sdl-typescript-style — Roast: SDL TypeScript style (review: sdl-typescript-style)",
+			"- skill:sdl-typescript-style-tripwire — Tripwire: SDL TypeScript style (review: sdl-typescript-style-tripwire)",
 		);
 		expect(run.stdout).toContain(
-			"- skill:roast-dignified-python — Roast: Dignified Python (review: dignified-python)",
+			"- skill:dignified-python-tripwire — Tripwire: Dignified Python (review: dignified-python-tripwire)",
 		);
 		expect(run.stdout).toContain(
 			"- skill:roast-dry-but-not-too-dry — Roast: DRY but not too DRY (review: dry-but-not-too-dry)",
 		);
 		expect(run.stdout).toContain(
-			"- skill:roast-duplicative-abstractions — Roast: Duplicative abstractions (review: duplicative-abstractions)",
+			"- skill:duplicative-abstractions-tripwire — Tripwire: Duplicative abstractions (review: duplicative-abstractions-tripwire)",
 		);
 		expect(run.stdout).toContain(
 			"- skill:roast-improve-codebase-architecture — Roast: Improve codebase architecture (review: improve-codebase-architecture)",
@@ -76,21 +79,20 @@ describe("roaster roast CLI", () => {
 		expect(run.exitCode).toBe(0);
 		const envelope = JSON.parse(run.stdout);
 		expect(envelope.data.count).toBe(6);
-		expect(envelope.data.entries.map((entry: { surface: string }) => entry.surface)).toEqual(
-			[
-				"dignified-python",
-				"dry-but-not-too-dry",
-				"duplicative-abstractions",
-				"improve-codebase-architecture",
-				"sdl-typescript-style",
-				"thermonuclear-review",
-			].map((key) => `skill:roast-${key}`),
-		);
+		expect(envelope.data.entries.map((entry: { surface: string }) => entry.surface)).toEqual([
+			"skill:dignified-python-tripwire",
+			"skill:roast-dry-but-not-too-dry",
+			"skill:duplicative-abstractions-tripwire",
+			"skill:roast-improve-codebase-architecture",
+			"skill:sdl-typescript-style-tripwire",
+			"skill:roast-thermonuclear-review",
+		]);
 		expect(envelope.data.entries[4]).toMatchObject({
-			surface: "skill:roast-sdl-typescript-style",
-			label: "Roast: SDL TypeScript style",
-			review_key: "sdl-typescript-style",
-			review_path: "reviews/sdl-typescript-style.md",
+			surface: "skill:sdl-typescript-style-tripwire",
+			label: "Tripwire: SDL TypeScript style",
+			default_prompt: "Run the SDL TypeScript style tripwire against the current branch changes.",
+			review_key: "sdl-typescript-style-tripwire",
+			review_path: "reviews/sdl-typescript-style-tripwire.md",
 		});
 		expect(envelope.data.entries[5]).toMatchObject({
 			surface: "skill:roast-thermonuclear-review",
@@ -101,9 +103,10 @@ describe("roaster roast CLI", () => {
 	});
 });
 
-function reviewSource(description: string): string {
+function reviewSource(description: string, modelProfile = "quick"): string {
 	return `---
 description: ${JSON.stringify(description)}
+model_profile: ${modelProfile}
 ---
 
 # Review

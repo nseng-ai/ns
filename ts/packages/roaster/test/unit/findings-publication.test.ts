@@ -68,6 +68,7 @@ describe("renderFindingsComment", () => {
 		const body = renderFindingsComment({
 			reviewName: "typescript-style",
 			baseRef: "main",
+			modelProfile: null,
 			count: 0,
 			findings: [],
 			inputCoverage: null,
@@ -136,6 +137,7 @@ describe("payload parsers", () => {
 				data: {
 					reviewName: "typescript-style",
 					reviewPath: "reviews/typescript-style.md",
+					modelProfile: "quick",
 					model: "haiku",
 					baseRef: "main",
 					format: "findings",
@@ -147,7 +149,10 @@ describe("payload parsers", () => {
 			}),
 		);
 		expect(payloadResult.type).toBe("ok");
-		if (payloadResult.type === "ok") expect(payloadResult.payload.count).toBe(1);
+		if (payloadResult.type === "ok") {
+			expect(payloadResult.payload.modelProfile).toBe("quick");
+			expect(payloadResult.payload.count).toBe(1);
+		}
 	});
 
 	test("rejects old nested and snake case success envelopes", () => {
@@ -157,6 +162,7 @@ describe("payload parsers", () => {
 				data: {
 					reviewName: "typescript-style",
 					reviewPath: "reviews/typescript-style.md",
+					modelProfile: "quick",
 					model: "haiku",
 					baseRef: "main",
 					payload: { format: "findings", count: 1, findings: [WARNING_FINDING] },
@@ -207,6 +213,7 @@ describe("payload parsers", () => {
 				data: {
 					reviewName: "typescript-style",
 					reviewPath: "reviews/typescript-style.md",
+					modelProfile: "quick",
 					model: "haiku",
 					baseRef: "main",
 					format: "findings",
@@ -343,6 +350,7 @@ function payload(overrides: Partial<FindingsPayload>): FindingsPayload {
 	return {
 		reviewName: "typescript-style",
 		baseRef: "main",
+		modelProfile: "quick",
 		count: 1,
 		findings: [WARNING_FINDING],
 		inputCoverage: null,

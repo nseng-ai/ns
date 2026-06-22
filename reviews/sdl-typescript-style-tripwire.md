@@ -4,7 +4,7 @@
 # especially `core-rules.md`, `checklist.md`, and
 # `references/review-taste-and-process.md`) with the project overlay
 # (`skills/sdl-typescript/SKILL.md`). It is intentionally not a generic
-# TypeScript review; use `reviews/sdl-typescript-style.md` when reviewing this
+# TypeScript review; use `reviews/sdl-typescript-style-tripwire.md` when reviewing this
 # repo's TypeScript diffs.
 #
 # Regeneration instructions: when either source skill changes, refresh this file
@@ -13,17 +13,17 @@
 # to the NOT ACTIVE Tier B comment, preserve the frontmatter schema accepted by
 # Roaster, and then run:
 #
-#   dprint check reviews/sdl-typescript-style.md
+#   dprint check reviews/sdl-typescript-style-tripwire.md
 #   pnpm --dir ts exec vitest run packages/roaster/test/unit/review-definition.test.ts
 description: |
-  Enforce sdl's TypeScript style guide and sdl-tools TypeScript overlay on the
-  supplied diff. Flag concrete, mechanically detectable violations:
-  non-erasable TypeScript, ordinary `any`, banned double-casts, import-boundary
-  drift, strict-indexed-access bypasses, exact-optional-property drift, broad
-  casts, top-level arrow module logic, mutation of owned-boundary data, naming
-  hygiene, suppression hygiene, and other Tier A rules. Intended for cheap,
-  per-diff detection; resolution stays with the engineer in a later,
-  higher-context workflow.
+  SDL TypeScript style Tripwire: enforce sdl's TypeScript style guide and
+  sdl-tools TypeScript overlay on the supplied diff. Flag concrete,
+  mechanically detectable violations: non-erasable TypeScript, ordinary `any`,
+  banned double-casts, import-boundary drift, strict-indexed-access bypasses,
+  exact-optional-property drift, broad casts, top-level arrow module logic,
+  mutation of owned-boundary data, naming hygiene, suppression hygiene, and
+  other Tier A rules. Intended for cheap, per-diff detection; resolution stays
+  with the engineer in a later, higher-context workflow.
 model_profile: quick
 applies_to:
   include:

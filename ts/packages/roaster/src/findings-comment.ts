@@ -5,6 +5,7 @@ import {
 	type ReviewFinding,
 	type ReviewInputCoverage,
 } from "./models.ts";
+import { roasterReviewDisplayRole } from "./review-display.ts";
 
 const SUMMARY_MARKER_RE = /^<!-- (roaster:[^ ]+) -->$/;
 const INLINE_MARKER_PREFIX = "roaster-inline";
@@ -22,6 +23,7 @@ const SEVERITY_LABELS = {
 export interface FindingsPayload {
 	readonly reviewName: string;
 	readonly baseRef: string;
+	readonly modelProfile: string | null;
 	readonly count: number;
 	readonly findings: readonly ReviewFinding[];
 	readonly inputCoverage: ReviewInputCoverage | null;
@@ -49,7 +51,7 @@ export function renderFindingsComment(
 ): string {
 	const lines = [
 		summaryMarkerForReview(payload.reviewName),
-		`## roaster · \`${payload.reviewName}\``,
+		renderFindingsCommentHeading(payload),
 		"",
 	];
 	if (options.inlineStatus !== undefined && options.inlineStatus !== null) {
@@ -103,12 +105,12 @@ export function extractInlineMarkers(body: string): readonly string[] {
 export function renderInlineBody(
 	marker: string,
 	finding: ReviewFinding,
-	options: { readonly reviewName: string },
+	options: { readonly reviewName: string; readonly modelProfile?: string | null | undefined },
 ): string {
 	return [
 		marker,
 		`**${finding.severity}: ${finding.summary}**`,
-		`_Review: \`${options.reviewName}\`._`,
+		`_${inlineReviewLabel(options.modelProfile)}: \`${options.reviewName}\`._`,
 		"",
 		finding.details,
 		"",
@@ -131,6 +133,23 @@ export function preserveActivityLog(
 			...entries.map((entry) => `- ${entry}`),
 		].join("\n") + "\n"
 	);
+}
+
+function renderFindingsCommentHeading(payload: FindingsPayload): string {
+	if (
+		payload.modelProfile !== null &&
+		roasterReviewDisplayRole(payload.modelProfile) === "tripwire"
+	) {
+		return `## roaster tripwire · \`${payload.reviewName}\``;
+	}
+	return `## roaster · \`${payload.reviewName}\``;
+}
+
+function inlineReviewLabel(modelProfile: string | null | undefined): "Tripwire" | "Review" {
+	if (modelProfile !== null && modelProfile !== undefined) {
+		return roasterReviewDisplayRole(modelProfile) === "tripwire" ? "Tripwire" : "Review";
+	}
+	return "Review";
 }
 
 function renderInlinePostingStatus(status: InlinePostingStatus): string[] {
