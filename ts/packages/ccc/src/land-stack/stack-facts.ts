@@ -58,14 +58,14 @@ export async function loadCurrentBranch(
 	if (result.code !== 0) {
 		return failure(
 			landStackFailure(
-				`Detached HEAD; check out a branch before running /sdl:code:land.\n${formatCommandDetails(result, formatCommand("git", ["symbolic-ref", "--short", "HEAD"]))}`,
+				`Detached HEAD; check out a branch before running /sdl:flow:land.\n${formatCommandDetails(result, formatCommand("git", ["symbolic-ref", "--short", "HEAD"]))}`,
 			),
 		);
 	}
 	const branch = result.stdout.trim();
 	if (!branch) {
 		return failure(
-			landStackFailure("Could not resolve current branch before running /sdl:code:land."),
+			landStackFailure("Could not resolve current branch before running /sdl:flow:land."),
 		);
 	}
 	return success(branch);

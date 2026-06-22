@@ -14,7 +14,7 @@ export type DiscoveredExtensionCommandKind = "file" | "dir-index" | "package";
 
 export interface DiscoveredExtensionCommand extends Pick<
 	SdlCommandCandidate,
-	"name" | "description" | "fullDescription" | "entryPath"
+	"group" | "name" | "description" | "fullDescription" | "entryPath"
 > {
 	entryPath: string;
 	displayPath: string;
@@ -35,6 +35,7 @@ export interface ExtensionDiscoveryResult {
 }
 
 interface ParsedManifestCommandEntryFields {
+	group: string | undefined;
 	name: string | undefined;
 	description: string | undefined;
 	entry: string | undefined;
@@ -42,7 +43,7 @@ interface ParsedManifestCommandEntryFields {
 }
 
 interface ManifestCommandFieldSpec {
-	key: keyof ParsedManifestCommandEntryFields;
+	key: keyof Omit<ParsedManifestCommandEntryFields, "group">;
 	diagnosticField: string;
 	code: ExtensionDiscoveryDiagnostic["code"];
 	required: boolean;
@@ -183,7 +184,9 @@ export function discoverExtensionsInRoot(rootDir: string): ExtensionDiscoveryRes
 	}
 
 	return {
-		commands: commands.sort((left, right) => left.displayPath.localeCompare(right.displayPath)),
+		commands: commands.sort((left, right) =>
+			commandSortKey(left).localeCompare(commandSortKey(right)),
+		),
 		diagnostics,
 	};
 }
@@ -221,11 +224,21 @@ function discoverPackageCommands(
 			],
 		};
 	}
+	const packageGroup = readNonEmptyString(parsed.sdl.group);
+	const packageGroupDiagnostic = groupDiagnostic({
+		group: parsed.sdl.group,
+		packageJsonPath,
+		commandName: undefined,
+	});
+	if (packageGroupDiagnostic !== undefined) {
+		return { commands: [], diagnostics: [packageGroupDiagnostic] };
+	}
 	const entries = parsed.sdl.commands;
 	if (!Array.isArray(entries)) {
 		return {
 			commands: [],
 			diagnostics: [
+				...(packageGroupDiagnostic === undefined ? [] : [packageGroupDiagnostic]),
 				diagnostic(
 					"extension_manifest_commands_not_array",
 					`Extension manifest sdl.commands must be an array: ${packageJsonPath}.`,
@@ -238,7 +251,13 @@ function discoverPackageCommands(
 	const commands: DiscoveredExtensionCommand[] = [];
 	const diagnostics: ExtensionDiscoveryDiagnostic[] = [];
 	for (const entry of entries) {
-		const command = commandForManifestEntry({ rootDir, packageDir, packageJsonPath, entry });
+		const command = commandForManifestEntry({
+			rootDir,
+			packageDir,
+			packageJsonPath,
+			packageGroup,
+			entry,
+		});
 		if (command.ok) {
 			commands.push(command.command);
 		} else {
@@ -273,6 +292,7 @@ function commandForManifestEntry(options: {
 	rootDir: string;
 	packageDir: string;
 	packageJsonPath: string;
+	packageGroup: string | undefined;
 	entry: unknown;
 }):
 	| { ok: true; command: DiscoveredExtensionCommand }
@@ -291,6 +311,7 @@ function commandForManifestEntry(options: {
 	}
 	const parsedEntry = parseManifestCommandEntry({
 		entry: options.entry,
+		packageGroup: options.packageGroup,
 		packageJsonPath: options.packageJsonPath,
 	});
 	const diagnostics: ExtensionDiscoveryDiagnostic[] = [...parsedEntry.diagnostics];
@@ -339,6 +360,7 @@ function commandForManifestEntry(options: {
 		ok: true,
 		command: {
 			kind: "package",
+			...(parsedEntry.entry.group === undefined ? {} : { group: parsedEntry.entry.group }),
 			name: parsedEntry.entry.name,
 			description: parsedEntry.entry.description,
 			fullDescription: parsedEntry.entry.fullDescription,
@@ -442,6 +464,7 @@ function validateManifestEntryPath(options: {
 
 function parseManifestCommandEntry(options: {
 	entry: Record<string, unknown>;
+	packageGroup: string | undefined;
 	packageJsonPath: string;
 }): {
 	entry: ParsedManifestCommandEntryFields;
@@ -449,13 +472,23 @@ function parseManifestCommandEntry(options: {
 	commandName: string | undefined;
 } {
 	const commandName = readNonEmptyString(options.entry.name);
+	const rawEntryGroup = options.entry.group;
+	const entryGroup =
+		rawEntryGroup === undefined ? options.packageGroup : readNonEmptyString(rawEntryGroup);
 	const fields: ParsedManifestCommandEntryFields = {
+		group: entryGroup,
 		name: undefined,
 		description: undefined,
 		entry: undefined,
 		fullDescription: undefined,
 	};
 	const diagnostics: ExtensionDiscoveryDiagnostic[] = [];
+	const entryGroupDiagnostic = groupDiagnostic({
+		group: rawEntryGroup,
+		packageJsonPath: options.packageJsonPath,
+		commandName,
+	});
+	if (entryGroupDiagnostic !== undefined) diagnostics.push(entryGroupDiagnostic);
 
 	for (const field of MANIFEST_COMMAND_FIELDS) {
 		const rawValue = options.entry[field.key];
@@ -483,6 +516,21 @@ function parseManifestCommandEntry(options: {
 	}
 
 	return { entry: fields, diagnostics, commandName };
+}
+
+function groupDiagnostic(options: {
+	group: unknown;
+	packageJsonPath: string;
+	commandName: string | undefined;
+}): ExtensionDiscoveryDiagnostic | undefined {
+	if (options.group === undefined) return undefined;
+	const group = readNonEmptyString(options.group);
+	if (group !== undefined && SDL_COMMAND_NAME_PATTERN.test(group)) return undefined;
+	return diagnostic(
+		"extension_manifest_command_group_invalid",
+		`Extension manifest command group must match ${SDL_COMMAND_NAME_RULE}.`,
+		{ path: options.packageJsonPath, commandName: options.commandName },
+	);
 }
 
 function readNonEmptyString(value: unknown): string | undefined {
@@ -514,6 +562,10 @@ function isLoadableExtensionFile(name: string): boolean {
 
 function relativeDisplayPath(rootDir: string, entryPath: string): string {
 	return join(basename(rootDir), relative(rootDir, entryPath));
+}
+
+function commandSortKey(command: DiscoveredExtensionCommand): string {
+	return command.displayPath;
 }
 
 function diagnostic(

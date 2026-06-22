@@ -208,7 +208,7 @@ describe("real areg gateways", () => {
 						"sdl:branch-context:from-plan",
 						"sdl:branch-context:impl-attached-plan",
 						"sdl:plan:save",
-						"sdl:submit",
+						"sdl:flow:submit",
 					]),
 				},
 			});

@@ -181,7 +181,7 @@ interface PositionalSpec {
 
 - `position` — the zero-based positional index this field reads from.
 
-**Example.** Map the `slug` option to the first positional, so `sdl autobranch my-feature` fills it:
+**Example.** Map the `slug` option to the first positional, so `sdl flow autobranch my-feature` fills it:
 
 ```ts
 {

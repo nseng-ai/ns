@@ -167,7 +167,7 @@ describe("buildWritePlanPrompt", () => {
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("Subagent orchestration opportunities:");
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("Harness-neutral command guidance:");
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("Implementation checkpoint guidance:");
-		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("sdl cp");
+		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("sdl flow cp");
 		// PLAN-VERIFICATION-WORKSTREAM:START refactor-execution-strategy-guidance
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).toContain("Refactor execution strategy:");
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).toContain("`ts-morph-refactor`");
@@ -189,8 +189,8 @@ describe("buildWritePlanPrompt", () => {
 		expect(checkedInContent).toContain("Prefer native CLI commands");
 		expect(checkedInContent).toContain("harness-specific adapter");
 		expect(checkedInContent).toContain("Implementation checkpoint guidance:");
-		expect(checkedInContent).toContain("sdl cp");
-		expect(checkedInContent).not.toContain("/sdl:cp");
+		expect(checkedInContent).toContain("sdl flow cp");
+		expect(checkedInContent).not.toContain("/sdl:flow:cp");
 		expect(checkedInContent).not.toContain("/code:cp");
 		expect(checkedInContent).toContain("coherent standalone");
 		expect(checkedInContent).toContain("checkpoint ownership");

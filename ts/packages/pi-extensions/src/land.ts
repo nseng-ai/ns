@@ -7,11 +7,11 @@ export type ExtensionAPI = LandExtensionAPI;
 export const landParity = definePiSurfaceParity([
 	{
 		kind: "command",
-		surface: "sdl:code:land",
+		surface: "sdl:flow:land",
 		workflow: "Land the current PR or Graphite stack into trunk",
 		parity: "PARTIAL",
 		trackedGap:
-			"cross-harness-parity roadmap: add a clinkr-based CLI entry and skill for the unified /sdl:code:land orchestration.",
+			"cross-harness-parity roadmap: add a clinkr-based CLI entry and skill for the unified /sdl:flow:land orchestration.",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "land",

@@ -81,12 +81,12 @@ export const SPECIALIZED_SKILL_REPLACEMENTS = {
 	"objective-update": "objective:update",
 	"pi-grill-ui": "pi:grill-me",
 	"pi-grill-with-docs-ui": "pi:grill-with-docs",
-	"code-autobranch": "sdl:autobranch",
-	"code-checkpoint": "sdl:cp",
+	"code-autobranch": "sdl:flow:autobranch",
+	"code-checkpoint": "sdl:flow:cp",
 	"code-gt-restack-resolve": "code:gt-restack-resolve",
 	"code-just-fix": "code:just-fix",
-	"code-submit": "sdl:submit",
-	"sdl-submit": "sdl:submit",
+	"code-submit": "sdl:flow:submit",
+	"sdl-submit": "sdl:flow:submit",
 	"ccc-sidebar": "ccc:sidebar:pr-summary",
 } as const satisfies Record<string, string>;
 

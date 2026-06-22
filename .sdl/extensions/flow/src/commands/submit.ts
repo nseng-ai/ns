@@ -3,9 +3,9 @@ import { chmod, mkdir, mkdtemp as mkdtemp3, writeFile as writeFile3 } from "node
 import { join as join4 } from "node:path";
 import process2 from "node:process";
 import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
-import { prepareCheckpointMessage } from "./shared/checkpoint-message.ts";
-import { preparePrDescription } from "./shared/text-helpers.ts";
-import { selectCheckpointModelRef } from "./shared/text-generation.ts";
+import { prepareCheckpointMessage } from "../shared/checkpoint-message.ts";
+import { preparePrDescription } from "../shared/text-helpers.ts";
+import { selectCheckpointModelRef } from "../shared/text-generation.ts";
 
 // ts/packages/sdl-core/src/exec.ts
 import { spawn } from "node:child_process";
@@ -263,7 +263,7 @@ function formatSubmitSuccessText(prLinks, descriptions) {
 function formatSubmitSuccessFallbackText(stdout, stderr) {
   const lines = [
     "Submit succeeded, but no PR URLs were detected in output.",
-    "PR descriptions were not generated. Checkout a branch and run `sdl regenerate-pr` if needed."
+    "PR descriptions were not generated. Checkout a branch and run `sdl flow regenerate-pr` if needed."
   ];
   const outputTail = formatSubmitOutputTail(stdout, stderr);
   if (outputTail) {
@@ -323,17 +323,17 @@ function formatTrunkOutOfDatePreflightOutput(_output) {
     "Submission was not attempted.",
     "",
     "What to do next:",
-    "- Update or repair your local Graphite trunk checkout, then rerun `sdl submit`.",
+    "- Update or repair your local Graphite trunk checkout, then rerun `sdl flow submit`.",
     "- If Graphite reports a specific trunk-update problem, resolve that first.",
-    "- To inspect the raw Graphite dry-run output, rerun with `sdl submit --verbose` or run `gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run` manually."
+    "- To inspect the raw Graphite dry-run output, rerun with `sdl flow submit --verbose` or run `gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run` manually."
   ].join(`
 `);
 }
 function formatRestackRequiredOutput(output) {
   return [
     "Graphite requires a restack before submission.",
-    "Plain `sdl submit` normally runs `gt restack --downstack --no-interactive` automatically when required; this output means automatic restack was disabled or unavailable.",
-    "Run `gt restack --downstack`, resolve any conflicts, then run `sdl submit` again.",
+    "Plain `sdl flow submit` normally runs `gt restack --downstack --no-interactive` automatically when required; this output means automatic restack was disabled or unavailable.",
+    "Run `gt restack --downstack`, resolve any conflicts, then run `sdl flow submit` again.",
     "Submission was not attempted.",
     "",
     "$ gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run",
@@ -350,7 +350,7 @@ function formatRestackConfirmationPrompt(output) {
       "Graphite dry-run says restack is required before submission.",
       "Run `gt restack --downstack --no-interactive` now, then continue with submit?",
       "",
-      "If confirmed, sdl submit will run:",
+      "If confirmed, sdl flow submit will run:",
       "$ gt restack --downstack --no-interactive",
       "$ gt submit --no-edit --publish --no-stack --no-ai --no-interactive",
       "",
@@ -367,7 +367,7 @@ function formatRestackConfirmationPrompt(output) {
 function formatRestackDeclinedOutput(output) {
   return [
     "Restack was not run. Submission was not attempted.",
-    "Run `gt restack --downstack`, resolve any conflicts, then run `sdl submit` again.",
+    "Run `gt restack --downstack`, resolve any conflicts, then run `sdl flow submit` again.",
     "",
     "$ gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run",
     "",
@@ -382,7 +382,7 @@ function formatRestackConflictOutput(output, conflictedFiles) {
     "`gt restack --downstack` hit merge conflicts. Submission was not attempted.",
     "",
     ...fileLines,
-    "Resolve the conflicts, continue or abort the rebase as appropriate, then run `sdl submit` again.",
+    "Resolve the conflicts, continue or abort the rebase as appropriate, then run `sdl flow submit` again.",
     "",
     "$ gt restack --downstack --no-interactive",
     "",
@@ -394,7 +394,7 @@ function formatRestackConflictOutput(output, conflictedFiles) {
 function formatReadinessRecheckFailureOutput(output) {
   return [
     [
-      "Graphite still requires restack after `sdl submit` already ran `gt restack --downstack --no-interactive`.",
+      "Graphite still requires restack after `sdl flow submit` already ran `gt restack --downstack --no-interactive`.",
       "Submission was not attempted. PR metadata was not prepared."
     ].join(`
 `),
@@ -403,7 +403,7 @@ function formatReadinessRecheckFailureOutput(output) {
       "Next steps:",
       "- Run `gt restack --downstack` manually and resolve any conflicts, skipped branches, or stale branch state Graphite reports.",
       "- Verify readiness: `gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run`",
-      "- Then rerun: `sdl submit`"
+      "- Then rerun: `sdl flow submit`"
     ].join(`
 `),
     formatIndentedOutputBlock("Additional dry-run stdout:", output.stdout)
@@ -439,7 +439,7 @@ function formatSubmitFailureOutput(output, prewrittenMetadata) {
   return [
     reason,
     ...prewrittenMetadata.length === 0 ? [] : [
-      "Local PR metadata commit messages were prepared before submit; rerun sdl submit after resolving the Graphite failure."
+      "Local PR metadata commit messages were prepared before submit; rerun sdl flow submit after resolving the Graphite failure."
     ],
     "",
     "$ gt submit --no-edit --publish --no-stack --no-ai --no-interactive",
@@ -501,8 +501,8 @@ function assertNever(value) {
 }
 function formatNoCurrentPrRecoveryGuidance() {
   return [
-    "`sdl submit` checkpoints outstanding worktree changes before submitting.",
-    "If the branch still has no PR, inspect the Graphite output above and rerun `sdl submit` after resolving the reported issue."
+    "`sdl flow submit` checkpoints outstanding worktree changes before submitting.",
+    "If the branch still has no PR, inspect the Graphite output above and rerun `sdl flow submit` after resolving the reported issue."
   ];
 }
 function formatBufferedCommandSection(commandDisplay, output, timeoutMs) {
@@ -1684,7 +1684,7 @@ function formatPrDescriptionFailureText(prLinks, failures) {
     "Description failures:",
     ...failures.map(formatPrDescriptionFailureRow),
     "",
-    "Checkout the branch and run `sdl regenerate-pr` to regenerate its PR description."
+    "Checkout the branch and run `sdl flow regenerate-pr` to regenerate its PR description."
   ];
   return lines.join(`
 `);
@@ -2717,7 +2717,7 @@ var submit_entry_default = defineExtension({
       async run(ctx, request) {
         const runner = createSdlCommandRunner(ctx);
         const liveOutput = createSubmitLiveOutput(ctx);
-        emitSubmitProgress2(liveOutput, "sdl submit");
+        emitSubmitProgress2(liveOutput, "sdl flow submit");
         emitSubmitProgress2(liveOutput, "• Checking worktree and checkpointing pending changes if needed…");
         const checkpoint = await runCheckpointIfPending({
           cwd: ctx.cwd,
@@ -2886,7 +2886,7 @@ function selectSubmitFailureModelRef(env) {
 function buildSubmitFailureInterpretationPrompt(input) {
   const bounded = boundSubmitFailureTranscript(input.rawTranscript);
   return [
-    "Interpret this `sdl submit` failure for the user.",
+    "Interpret this `sdl flow submit` failure for the user.",
     "Your output is the primary user-facing error message.",
     "Output only plain terminal text: no Markdown headings, no bold markers, and no fenced code blocks.",
     "The first line must be the diagnosis.",
@@ -2979,7 +2979,7 @@ function renderRawFailureTranscript(result) {
     return renderLegacyRawFailureTranscript(result);
   }
   const lines = [
-    "sdl submit failure raw log",
+    "sdl flow submit failure raw log",
     `phase: ${transcript.phase}`,
     `exit code: ${result.exitCode}`
   ];
@@ -3000,7 +3000,7 @@ function renderRawFailureTranscript(result) {
 }
 function renderLegacyRawFailureTranscript(result) {
   return [
-    "sdl submit failure raw log",
+    "sdl flow submit failure raw log",
     "phase: unknown",
     `exit code: ${result.exitCode}`,
     "",

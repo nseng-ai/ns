@@ -3,13 +3,13 @@ import { readFile, stat } from "node:fs/promises";
 import { relative, resolve } from "node:path";
 
 import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
-import { prepareCheckpointMessage } from "./shared/text-helpers.ts";
+import { prepareCheckpointMessage } from "../shared/text-helpers.ts";
 import {
   CHECKPOINT_MODEL_ENV,
   DEFAULT_CHECKPOINT_MODEL_REF,
   LEGACY_CHECKPOINT_MODEL_ENV,
   selectCheckpointModelRef,
-} from "./shared/text-generation.ts";
+} from "../shared/text-generation.ts";
 import {
   createCommitWithPreparedMessage,
   execGit,
@@ -17,7 +17,7 @@ import {
   loadPendingWorktreeSnapshot,
   type PendingWorktreeError,
   type PendingWorktreeSnapshot,
-} from "./shared/worktree.ts";
+} from "../shared/worktree.ts";
 import type { ExecResult, SdlExtensionApi } from "@sdl/sdl/sdk";
 
 const GIT_FACT_TIMEOUT_MS = 30_000;

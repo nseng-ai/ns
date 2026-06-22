@@ -22,9 +22,16 @@ const SDL_SRC_DIR = dirname(SDL_SDK_DIR);
 
 /** Module specifier that SDL command entries import the SDK from. */
 const SDK_SPECIFIER = "@sdl/sdl/sdk";
+const CCC_AUTOSLOT_SPECIFIER = "@sdl/ccc/autoslot";
+const CCC_LAND_SPECIFIER = "@sdl/ccc/land";
+const CCC_TRUNK_PULL_SPECIFIER = "@sdl/ccc/trunk-pull";
 
 /** Absolute path to the SDK source module, used as the `alias` resolution target. */
 const SDK_MODULE_PATH = join(SDL_SDK_DIR, "index.ts");
+const CCC_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "ccc", "src");
+const CCC_AUTOSLOT_MODULE_PATH = join(CCC_SRC_DIR, "autoslot.ts");
+const CCC_LAND_MODULE_PATH = join(CCC_SRC_DIR, "land.ts");
+const CCC_TRUNK_PULL_MODULE_PATH = join(CCC_SRC_DIR, "trunk-pull.ts");
 
 const INTERNAL_MIGRATION_MODULE_PATHS = {
 	"@sdl/sdl/checkpoint": "checkpoint.ts",
@@ -82,6 +89,9 @@ export function createSdlJiti(): ReturnType<typeof createJiti> {
 		alias: {
 			...buildInternalMigrationAliases(),
 			[SDK_SPECIFIER]: SDK_MODULE_PATH,
+			[CCC_AUTOSLOT_SPECIFIER]: CCC_AUTOSLOT_MODULE_PATH,
+			[CCC_LAND_SPECIFIER]: CCC_LAND_MODULE_PATH,
+			[CCC_TRUNK_PULL_SPECIFIER]: CCC_TRUNK_PULL_MODULE_PATH,
 		},
 		moduleCache: false,
 		virtualModules: {

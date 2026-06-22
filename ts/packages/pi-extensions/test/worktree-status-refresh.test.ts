@@ -147,7 +147,7 @@ describe("worktree status refresh lifecycle", () => {
 		await pi.emitCommandFinished({
 			commandName: "sdl:changes",
 			cwd: "/repo",
-			source: "sdl changes",
+			source: "sdl flow changes",
 			status: "completed",
 			exitCode: 0,
 		});

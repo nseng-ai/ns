@@ -64,6 +64,8 @@ export interface CliCommandInfo {
 	description: string;
 	canAcceptPositionalArgs?: boolean;
 	startMessage?: string;
+	argvPrefix?: readonly string[];
+	displayName?: string;
 }
 
 export type CliCommandConfirmPrompt = (
@@ -195,7 +197,7 @@ export function registerCliCommandExtension(
 			host: pi,
 			commandName: piCommandName,
 			commandDefinition: {
-				description: `${spec.cliName} ${command.name}: ${command.description}`,
+				description: `${spec.cliName} ${commandDisplayName(command)}: ${command.description}`,
 				handler: async (rawArgs, ctx) => {
 					await runRegisteredCliCommand({
 						pi,
@@ -429,12 +431,12 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 	let stderr = "";
 	let hasLiveOutput = false;
 	let exitCode = 1;
-	const argv = [command.name, ...parsed.args];
+	const argv = [...commandArgvPrefix(command), ...parsed.args];
 	emitCliCommandStart(ctx, command.startMessage);
 	const progress = new LiveCommandProgress(ctx, {
 		argv,
 		cliName: spec.cliName,
-		commandName: command.name,
+		commandName: commandDisplayName(command),
 		piCommandName,
 	});
 	try {
@@ -527,7 +529,7 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 	emitPiExtensionCommandFinished(pi.events, {
 		commandName: piCommandName,
 		cwd: ctx.cwd,
-		source: `${spec.cliName} ${command.name}`,
+		source: `${spec.cliName} ${commandDisplayName(command)}`,
 		status: "completed",
 		exitCode: details.exitCode,
 	});
@@ -557,11 +559,11 @@ function buildOutputDetails(options: BuildOutputDetailsOptions): CliCommandOutpu
 	const { spec, command, piCommandName, rawArgs, args, cwd, result } = options;
 	return {
 		cliName: spec.cliName,
-		commandName: command.name,
+		commandName: commandDisplayName(command),
 		piCommandName,
 		rawArgs,
 		args: [...args],
-		argv: [command.name, ...args],
+		argv: [...commandArgvPrefix(command), ...args],
 		cwd,
 		exitCode: result.exitCode,
 		stdout: result.stdout,
@@ -609,6 +611,14 @@ function piCommandNameForCommand(spec: CliCommandExtensionSpec, command: CliComm
 		spec.piCommandNameForCommand?.(command) ??
 		`${spec.piNamespace}:${command.name}`
 	);
+}
+
+function commandArgvPrefix(command: CliCommandInfo): readonly string[] {
+	return command.argvPrefix ?? [command.name];
+}
+
+function commandDisplayName(command: CliCommandInfo): string {
+	return command.displayName ?? commandArgvPrefix(command).join(" ");
 }
 
 function isCliUsageError(details: CliCommandOutputDetails): boolean {

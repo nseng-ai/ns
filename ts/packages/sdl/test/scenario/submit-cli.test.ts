@@ -1,7 +1,7 @@
-import { copyFileSync, cpSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { cpSync, mkdtempSync, rmSync } from "node:fs";
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, test, vi } from "vitest";
@@ -26,11 +26,8 @@ import {
 const PR_URL = "https://github.com/acme/repo/pull/123";
 const GRAPHITE_PR_URL = "https://app.graphite.com/github/pr/acme/repo/123";
 const LAGGING_VERIFICATION_PR_URL = "https://app.graphite.com/github/pr/dagster-io/sdl-tools/1517";
-const SUBMIT_EXTENSION_SOURCE = fileURLToPath(
-	new URL("../../../../../.sdl/extensions/submit.ts", import.meta.url),
-);
-const SHARED_EXTENSION_HELPERS_SOURCE = fileURLToPath(
-	new URL("../../../../../.sdl/extensions/shared", import.meta.url),
+const FLOW_EXTENSION_SOURCE = fileURLToPath(
+	new URL("../../../../../.sdl/extensions/flow", import.meta.url),
 );
 const tempProjectDirs: string[] = [];
 
@@ -54,10 +51,7 @@ function runUnavailableSubmitCli(args: readonly string[]) {
 function createSubmitProject(): string {
 	const directory = mkdtempSyncCompat("sdl-submit-project-");
 	tempProjectDirs.push(directory);
-	const extensionPath = join(directory, ".sdl", "extensions", "submit.ts");
-	mkdirSync(dirname(extensionPath), { recursive: true });
-	copyFileSync(SUBMIT_EXTENSION_SOURCE, extensionPath);
-	cpSync(SHARED_EXTENSION_HELPERS_SOURCE, join(directory, ".sdl", "extensions", "shared"), {
+	cpSync(FLOW_EXTENSION_SOURCE, join(directory, ".sdl", "extensions", "flow"), {
 		recursive: true,
 	});
 	return directory;
@@ -67,18 +61,21 @@ function mkdtempSyncCompat(prefix: string): string {
 	return mkdtempSync(join(tmpdir(), prefix));
 }
 
-describe("sdl submit CLI availability", () => {
+describe("sdl flow submit CLI availability", () => {
 	test("submit is not registered as a built-in command after the kernel reset", () => {
 		expect(listSdlCommands().some((command) => command.name === "submit")).toBe(false);
 	});
 
 	test("submit help and invocation are unavailable without a project extension", async () => {
-		const help = runUnavailableSubmitCli(["submit", "--help"]);
+		const help = runUnavailableSubmitCli(["flow", "submit", "--help"]);
 		expect(await help.exit).toBe(0);
 		expect(help.stdout.join("")).toContain("Usage: sdl");
-		expect(help.stdout.join("")).not.toContain("Usage: sdl submit");
+		expect(help.stdout.join("")).not.toContain("Usage: sdl flow submit");
 
-		for (const args of [["submit"], ["submit", "--no-restack"]] as const) {
+		for (const args of [
+			["flow", "submit"],
+			["flow", "submit", "--no-restack"],
+		] as const) {
 			const run = runUnavailableSubmitCli(args);
 
 			expect(await run.exit).not.toBe(0);
@@ -92,7 +89,7 @@ describe("sdl submit CLI availability", () => {
 	test("project-local submit help exposes restored options and environment", async () => {
 		const cwd = createSubmitProject();
 		const help = runCliWithFakes(
-			{ args: ["submit", "--help"], cwd, state: { exec: [], textGeneration: [] } },
+			{ args: ["flow", "submit", "--help"], cwd, state: { exec: [], textGeneration: [] } },
 			{
 				execResponses: () => [],
 				textGenerationResults: () => [],
@@ -101,7 +98,7 @@ describe("sdl submit CLI availability", () => {
 
 		expect(await help.exit).toBe(0);
 		const output = help.stdout.join("");
-		expect(output).toContain("Usage: sdl submit");
+		expect(output).toContain("Usage: sdl flow submit");
 		expect(output).toContain("--no-restack");
 		expect(output).toContain("--verbose");
 		expect(output).toContain("SDL_DEV_PR_DESCRIPTION_MODEL");
@@ -206,7 +203,7 @@ function defaultPrDescriptionText(): string {
 
 describe("project-local submit extension", () => {
 	test("clean success submits, verifies current PR, prints quiet progress, and rewrites PR bodies", async () => {
-		const run = runWithFakes({ args: ["submit"] });
+		const run = runWithFakes({ args: ["flow", "submit"] });
 
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
@@ -219,7 +216,7 @@ describe("project-local submit extension", () => {
 		expect(run.stderr.join("")).toBe("");
 		expect(run.liveOutput).toEqual(
 			expect.arrayContaining([
-				{ stream: "stderr", text: "sdl submit\n" },
+				{ stream: "stderr", text: "sdl flow submit\n" },
 				{
 					stream: "stderr",
 					text: "• Checking worktree and checkpointing pending changes if needed…\n",
@@ -252,7 +249,7 @@ describe("project-local submit extension", () => {
 	});
 
 	test("--verbose streams raw Graphite output in addition to concise progress", async () => {
-		const run = runWithFakes({ args: ["submit", "--verbose"] });
+		const run = runWithFakes({ args: ["flow", "submit", "--verbose"] });
 
 		expect(await run.exit).toBe(0);
 		expect(run.liveOutput).toEqual(
@@ -273,7 +270,7 @@ describe("project-local submit extension", () => {
 			generator: PR_DESCRIPTION_GENERATOR_VERSION,
 		});
 		const run = runWithFakes({
-			args: ["submit"],
+			args: ["flow", "submit"],
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -329,7 +326,10 @@ describe("project-local submit extension", () => {
 		const pendingModel = new Promise<TextGenerationResult>((resolve) => {
 			resolveModel = resolve;
 		});
-		const run = runWithFakes({ args: ["submit"], state: { textGeneration: [pendingModel] } });
+		const run = runWithFakes({
+			args: ["flow", "submit"],
+			state: { textGeneration: [pendingModel] },
+		});
 
 		await vi.waitFor(
 			() => {
@@ -360,7 +360,7 @@ describe("project-local submit extension", () => {
 
 	test("pre-submit metadata preparation reports progress across large stacks", async () => {
 		const run = runWithFakes({
-			args: ["submit"],
+			args: ["flow", "submit"],
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -456,7 +456,7 @@ describe("project-local submit extension", () => {
 
 	test("accepts submit-output PR links when current PR verification lags", async () => {
 		const run = runWithFakes({
-			args: ["submit"],
+			args: ["flow", "submit"],
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -528,7 +528,7 @@ describe("project-local submit extension", () => {
 
 	test("deduplicates the submitted PR when Graphite and GitHub URL forms differ", async () => {
 		const run = runWithFakes({
-			args: ["submit"],
+			args: ["flow", "submit"],
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -581,7 +581,7 @@ describe("project-local submit extension", () => {
 
 	test("post-submit no-current-PR failure gives checkpoint guidance", async () => {
 		const run = runWithFakes({
-			args: ["submit"],
+			args: ["flow", "submit"],
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -618,7 +618,7 @@ describe("project-local submit extension", () => {
 		expect(error).toContain("gt submit exited 0, but the current branch still has no PR.");
 		expect(error).toContain("Submitted stack without PR URL");
 		expect(error).toContain(
-			"`sdl submit` checkpoints outstanding worktree changes before submitting.",
+			"`sdl flow submit` checkpoints outstanding worktree changes before submitting.",
 		);
 		expect(error).toContain("Raw log:");
 		expect(run.context.textGeneratorCalls).toHaveLength(1);
@@ -626,7 +626,7 @@ describe("project-local submit extension", () => {
 
 	test("dirty worktree checkpoints before submitting", async () => {
 		const run = runWithFakes({
-			args: ["submit"],
+			args: ["flow", "submit"],
 			state: {
 				exec: [
 					...dirtyCheckpointResponses(),
@@ -650,7 +650,7 @@ describe("project-local submit extension", () => {
 	test("checkpoint failure aborts before Graphite submit", async () => {
 		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
 		const run = runWithFakes({
-			args: ["submit"],
+			args: ["flow", "submit"],
 			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
 			state: {
 				exec: [
@@ -674,7 +674,7 @@ describe("project-local submit extension", () => {
 		expect(error).toContain("Checkpoint before submit failed. Submission was not attempted.");
 		expect(error).toContain("Raw log:");
 		expect(error).not.toContain(
-			"sdl submit failed, and the failure could not be interpreted automatically.",
+			"sdl flow submit failed, and the failure could not be interpreted automatically.",
 		);
 		expect(error).not.toContain("submit failure interpretation unavailable");
 		expect(formattedExecCalls(run.context).some((call) => call.startsWith("gt submit"))).toBe(
@@ -689,7 +689,7 @@ describe("project-local submit extension", () => {
 
 	test("restack-required dry-run runs restack by default", async () => {
 		const run = runWithFakes({
-			args: ["submit"],
+			args: ["flow", "submit"],
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -713,7 +713,7 @@ describe("project-local submit extension", () => {
 
 	test("trunk-out-of-date dry-run failure is deterministic and uses model summarization", async () => {
 		const run = runWithFakes({
-			args: ["submit"],
+			args: ["flow", "submit"],
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -751,7 +751,7 @@ describe("project-local submit extension", () => {
 	test("unknown dry-run failure uses model-primary message and writes a raw log", async () => {
 		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
 		const run = runWithFakes({
-			args: ["submit"],
+			args: ["flow", "submit"],
 			env: {
 				SDL_SUBMIT_FAILURE_LOG_DIR: logRoot,
 				SDL_SUBMIT_FAILURE_MODEL: "openai-codex/submit-summary",
@@ -804,7 +804,7 @@ describe("project-local submit extension", () => {
 	test("unknown dry-run failure falls back to original stderr when model generation fails", async () => {
 		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
 		const run = runWithFakes({
-			args: ["submit"],
+			args: ["flow", "submit"],
 			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
 			state: {
 				exec: [
@@ -824,7 +824,7 @@ describe("project-local submit extension", () => {
 		expect(error).toContain("raw stderr");
 		expect(error).toContain("Raw log:");
 		expect(error).not.toContain(
-			"sdl submit failed, and the failure could not be interpreted automatically.",
+			"sdl flow submit failed, and the failure could not be interpreted automatically.",
 		);
 		expect(error).not.toContain("model unavailable");
 		const rawPath = error.match(/Raw log: (?<path>\S+)/u)?.groups?.path;
@@ -835,7 +835,7 @@ describe("project-local submit extension", () => {
 	test("default restack does not prompt before submit", async () => {
 		const confirmations: Array<{ title: string; message: string }> = [];
 		const run = runWithFakes({
-			args: ["submit"],
+			args: ["flow", "submit"],
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -861,7 +861,7 @@ describe("project-local submit extension", () => {
 
 	test("--no-restack preserves guided failure without running restack", async () => {
 		const run = runWithFakes({
-			args: ["submit", "--no-restack"],
+			args: ["flow", "submit", "--no-restack"],
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -885,7 +885,7 @@ describe("project-local submit extension", () => {
 
 	test("restack conflicts are reported before submit", async () => {
 		const run = runWithFakes({
-			args: ["submit"],
+			args: ["flow", "submit"],
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -924,7 +924,7 @@ describe("project-local submit extension", () => {
 	test("readiness recheck failure is deterministic and uses model summarization", async () => {
 		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
 		const run = runWithFakes({
-			args: ["submit"],
+			args: ["flow", "submit"],
 			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
 			state: {
 				exec: [
@@ -966,7 +966,7 @@ describe("project-local submit extension", () => {
 		expect(error).not.toContain("WARNING: You must restack before submitting this stack.");
 		expect(run.context.textGeneratorCalls).toHaveLength(1);
 		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(
-			"Graphite still requires restack after `sdl submit` already ran `gt restack --downstack --no-interactive`.",
+			"Graphite still requires restack after `sdl flow submit` already ran `gt restack --downstack --no-interactive`.",
 		);
 		const rawPath = error.match(/Raw log: (?<path>\S+)/u)?.groups?.path;
 		expect(rawPath?.startsWith(logRoot)).toBe(true);
@@ -976,7 +976,7 @@ describe("project-local submit extension", () => {
 	test("empty-branch post-submit failure uses model-primary output and raw log path", async () => {
 		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
 		const run = runWithFakes({
-			args: ["submit"],
+			args: ["flow", "submit"],
 			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
 			state: {
 				exec: [
@@ -1057,7 +1057,7 @@ describe("project-local submit extension", () => {
 
 	test("description edit failure keeps submitted PR links visible", async () => {
 		const run = runWithFakes({
-			args: ["submit"],
+			args: ["flow", "submit"],
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),

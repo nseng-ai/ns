@@ -123,10 +123,10 @@ export async function confirmAndSubmitRequiredPrUpdates(
 					[
 						`GitHub PR metadata is behind local Graphite refs, but this context cannot ask for the required ${actionName} confirmation.`,
 						details,
-						`No PRs were landed. Run ${manualCommandText} manually, then rerun /sdl:code:land --yes.`,
+						`No PRs were landed. Run ${manualCommandText} manually, then rerun /sdl:flow:land --yes.`,
 					].join("\n"),
 					{
-						suggestedAction: `Run ${manualCommandText} manually, then rerun /sdl:code:land --yes.`,
+						suggestedAction: `Run ${manualCommandText} manually, then rerun /sdl:flow:land --yes.`,
 					},
 				),
 			);
@@ -152,7 +152,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 				landStackFailure("gt restack failed before any PRs were landed.", {
 					commandDisplay: formatCommand("gt", restackArgs),
 					result: restacked,
-					suggestedAction: `Resolve the restack failure, run ${formatCommand("gt", restackArgs)} and ${formatCommand("gt", submitArgs)} manually if appropriate, then rerun /sdl:code:land.`,
+					suggestedAction: `Resolve the restack failure, run ${formatCommand("gt", restackArgs)} and ${formatCommand("gt", submitArgs)} manually if appropriate, then rerun /sdl:flow:land.`,
 				}),
 			);
 		}
@@ -164,7 +164,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 			return failure(
 				landStackFailure(formatRemainingSubmitRestackRequirements(remainingRestack.value), {
 					suggestedAction:
-						"Free or detach the holding worktrees, restack the stack, then rerun /sdl:code:land.",
+						"Free or detach the holding worktrees, restack the stack, then rerun /sdl:flow:land.",
 				}),
 			);
 		}
@@ -177,7 +177,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 			landStackFailure("gt submit/update failed before any PRs were landed.", {
 				commandDisplay: formatCommand("gt", submitArgs),
 				result,
-				suggestedAction: `Resolve the submit failure, run ${formatCommand("gt", submitArgs)} manually if appropriate, then rerun /sdl:code:land.`,
+				suggestedAction: `Resolve the submit failure, run ${formatCommand("gt", submitArgs)} manually if appropriate, then rerun /sdl:flow:land.`,
 			}),
 		);
 	}
@@ -248,12 +248,12 @@ function formatRemainingManagedSlotConflicts(conflicts: WorktreeConflict[]): str
 export function residualPreMergeFailure(plan: LandingPlan): LandStackFailure | undefined {
 	if (plan.managedSlotConflicts.length > 0) {
 		return landStackFailure(formatRemainingManagedSlotConflicts(plan.managedSlotConflicts), {
-			suggestedAction: `Run ${formatCommand("slot", slotFreeArgs(plan.managedSlotConflicts))} manually, inspect worktrees, and rerun /sdl:code:land.`,
+			suggestedAction: `Run ${formatCommand("slot", slotFreeArgs(plan.managedSlotConflicts))} manually, inspect worktrees, and rerun /sdl:flow:land.`,
 		});
 	}
 	if (plan.prSubmitRequirements.length > 0) {
 		return landStackFailure(formatRemainingSubmitRequirements(plan.prSubmitRequirements), {
-			suggestedAction: `Run ${formatCommand("gt", submitUpdateArgs(plan.stack.landingTargetBranch))} manually, inspect PR heads, and rerun /sdl:code:land.`,
+			suggestedAction: `Run ${formatCommand("gt", submitUpdateArgs(plan.stack.landingTargetBranch))} manually, inspect PR heads, and rerun /sdl:flow:land.`,
 		});
 	}
 	return undefined;
@@ -281,7 +281,7 @@ export async function confirmAndFreeManagedSlots(
 					[
 						"Managed slot worktrees for landing branches block stack restack/ref updates, but this context cannot ask for the required slot cleanup confirmation.",
 						details,
-						`No PRs were landed. Run \`${commandDisplay}\` manually if appropriate, then rerun /sdl:code:land --yes.`,
+						`No PRs were landed. Run \`${commandDisplay}\` manually if appropriate, then rerun /sdl:flow:land --yes.`,
 					].join("\n"),
 				),
 			);
@@ -303,7 +303,7 @@ export async function confirmAndFreeManagedSlots(
 				commandDisplay,
 				result,
 				suggestedAction:
-					"Inspect the slot state, free or detach blocking landing-branch worktrees manually, then rerun /sdl:code:land.",
+					"Inspect the slot state, free or detach blocking landing-branch worktrees manually, then rerun /sdl:flow:land.",
 			}),
 		);
 	}
@@ -329,7 +329,7 @@ export async function confirmAndFreeManagedSlots(
 				].join("\n"),
 				{
 					suggestedAction:
-						"Resolve the remaining landing-branch worktree checkouts manually, then rerun /sdl:code:land.",
+						"Resolve the remaining landing-branch worktree checkouts manually, then rerun /sdl:flow:land.",
 				},
 			),
 		);
@@ -437,7 +437,7 @@ export async function runMergeLoop(
 					result: merge,
 					failedBranch: branch,
 					failedPr: currentPr.number,
-					suggestedAction: `Inspect PR #${currentPr.number}, resolve the merge rejection, then rerun /sdl:code:land from the desired branch.`,
+					suggestedAction: `Inspect PR #${currentPr.number}, resolve the merge rejection, then rerun /sdl:flow:land from the desired branch.`,
 				}),
 			);
 		}
@@ -518,7 +518,7 @@ function graphiteRefreshFailure(failureOptions: GraphiteRefreshFailureOptions): 
 				commandDisplay: getCommandDisplay,
 				result: got,
 				failedBranch: maintenanceBranch,
-				suggestedAction: `Switch/detach ${checkoutConflict.path} from ${checkoutConflict.branch}, then run ${getCommandDisplay} manually, inspect the stack, and rerun /sdl:code:land if appropriate.`,
+				suggestedAction: `Switch/detach ${checkoutConflict.path} from ${checkoutConflict.branch}, then run ${getCommandDisplay} manually, inspect the stack, and rerun /sdl:flow:land if appropriate.`,
 			},
 		);
 	}
@@ -527,7 +527,7 @@ function graphiteRefreshFailure(failureOptions: GraphiteRefreshFailureOptions): 
 		commandDisplay: getCommandDisplay,
 		result: got,
 		failedBranch: maintenanceBranch,
-		suggestedAction: `Run ${getCommandDisplay} manually, inspect the stack, and rerun /sdl:code:land if appropriate.`,
+		suggestedAction: `Run ${getCommandDisplay} manually, inspect the stack, and rerun /sdl:flow:land if appropriate.`,
 	});
 }
 
@@ -558,7 +558,7 @@ async function performGraphiteMaintenance(
 					`PR #${prNumber} merged, but could not verify local branch ${maintenance.branch} before refreshing it.\n${guardSha.failure.message}`,
 					{
 						failedBranch: maintenance.branch,
-						suggestedAction: `Inspect local branch ${maintenance.branch}, then rerun /sdl:code:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+						suggestedAction: `Inspect local branch ${maintenance.branch}, then rerun /sdl:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
 					},
 				),
 				warning: {
@@ -574,7 +574,7 @@ async function performGraphiteMaintenance(
 			return failOrWarn(severity, state.warnings, {
 				failure: landStackFailure(`PR #${prNumber} merged, but ${movedMessage}.`, {
 					failedBranch: maintenance.branch,
-					suggestedAction: `Inspect local branch ${maintenance.branch}, reconcile it with the remote, then rerun /sdl:code:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+					suggestedAction: `Inspect local branch ${maintenance.branch}, reconcile it with the remote, then rerun /sdl:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
 				}),
 				warning: {
 					message: `All target PRs were merged, but ${movedMessage}; local branch ${branch} cleanup and descendant restack/update were skipped.`,
@@ -676,7 +676,7 @@ async function performGraphiteMaintenance(
 				{
 					failedBranch: branch,
 					failedPr: prNumber,
-					suggestedAction: `Inspect the unexpected children, land or move them, then clean up local branch ${branch} manually before rerunning /sdl:code:land. ${LAND_BACKUP_RECOVERY_HINT}`,
+					suggestedAction: `Inspect the unexpected children, land or move them, then clean up local branch ${branch} manually before rerunning /sdl:flow:land. ${LAND_BACKUP_RECOVERY_HINT}`,
 				},
 			),
 			warning: {
@@ -715,7 +715,7 @@ async function performGraphiteMaintenance(
 						result: deletion.result,
 						failedBranch: branch,
 						failedPr: prNumber,
-						suggestedAction: `Delete or repair local Graphite branch ${branch} manually, then inspect the stack before rerunning /sdl:code:land.`,
+						suggestedAction: `Delete or repair local Graphite branch ${branch} manually, then inspect the stack before rerunning /sdl:flow:land.`,
 					},
 				),
 				warning: {
@@ -745,7 +745,7 @@ async function performGraphiteMaintenance(
 				commandDisplay: formatCommand("gt", restackArgs),
 				result: restacked,
 				failedBranch: maintenance.branch,
-				suggestedAction: `Resolve restack failures for ${maintenance.branch}, run gt submit/update, then rerun /sdl:code:land if appropriate.`,
+				suggestedAction: `Resolve restack failures for ${maintenance.branch}, run gt submit/update, then rerun /sdl:flow:land if appropriate.`,
 			}),
 			warning: {
 				message: formatRestackFailureMessage(prNumber, maintenance.branch, false),
@@ -769,7 +769,7 @@ async function performGraphiteMaintenance(
 					`PR #${prNumber} merged, but could not re-read local branch ${nextGetTarget} after restack.\n${refreshedSha.failure.message}`,
 					{
 						failedBranch: nextGetTarget,
-						suggestedAction: `Inspect local branch ${nextGetTarget}, then rerun /sdl:code:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+						suggestedAction: `Inspect local branch ${nextGetTarget}, then rerun /sdl:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
 					},
 				),
 			};
@@ -795,7 +795,7 @@ async function performGraphiteMaintenance(
 				commandDisplay: formatCommand("gt", submitArgs),
 				result: submitted,
 				failedBranch: maintenance.branch,
-				suggestedAction: `Update PR for ${maintenance.branch} manually, verify it targets ${stack.trunk}, then rerun /sdl:code:land if appropriate.`,
+				suggestedAction: `Update PR for ${maintenance.branch} manually, verify it targets ${stack.trunk}, then rerun /sdl:flow:land if appropriate.`,
 			}),
 			warning: {
 				message: formatSubmitFailureMessage(prNumber, maintenance.branch, false),

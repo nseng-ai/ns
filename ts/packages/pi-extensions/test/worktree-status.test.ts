@@ -531,7 +531,7 @@ describe("worktree status extension registration and rendering", () => {
 				return new Map([
 					...statuses,
 					["worktree-status", "[gt] future format that should be ignored\n[gh] stale text"],
-					["sdl-changes", "/sdl:changes running CLI command (23s)"],
+					["sdl-flow-changes", "/sdl:flow:changes running CLI command (23s)"],
 				]);
 			},
 		});
@@ -543,7 +543,7 @@ describe("worktree status extension registration and rendering", () => {
 		expect(footerLines[1]).toBe("[brmem] (pb-plan: handoffs-graphite-footer-lines.md)");
 		expect(footerLines[2]).toBe("[gh] no PR · refreshed 0s ago");
 		expect(footerLines[3]).toContain("18.2%/272k (auto)");
-		expect(footerLines.at(-1)).toBe("/sdl:changes running CLI command (23s)");
+		expect(footerLines.at(-1)).toBe("/sdl:flow:changes running CLI command (23s)");
 		expect(footerLines).not.toContain("[gt] future format that should be ignored");
 		expect(footerLines).not.toContain("[gh] stale text");
 		await pi.sessionShutdown?.();

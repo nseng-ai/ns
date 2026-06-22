@@ -1,7 +1,7 @@
-import { copyFileSync, cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, test } from "vitest";
@@ -19,11 +19,8 @@ import {
 } from "./sdl-cli-fakes.ts";
 
 const PR_URL = "https://github.com/acme/repo/pull/123";
-const REGENERATE_PR_EXTENSION_SOURCE = fileURLToPath(
-	new URL("../../../../../.sdl/extensions/regenerate-pr.ts", import.meta.url),
-);
-const SHARED_EXTENSION_HELPERS_SOURCE = fileURLToPath(
-	new URL("../../../../../.sdl/extensions/shared", import.meta.url),
+const FLOW_EXTENSION_SOURCE = fileURLToPath(
+	new URL("../../../../../.sdl/extensions/flow", import.meta.url),
 );
 const tempProjectDirs: string[] = [];
 const generatedText = `Improve PR descriptions
@@ -54,10 +51,7 @@ function runUnavailableRegeneratePrCli(args: readonly string[]) {
 function createRegeneratePrProject(): string {
 	const directory = mkdtempSyncCompat("sdl-regenerate-pr-project-");
 	tempProjectDirs.push(directory);
-	const extensionPath = join(directory, ".sdl", "extensions", "regenerate-pr.ts");
-	mkdirSync(dirname(extensionPath), { recursive: true });
-	copyFileSync(REGENERATE_PR_EXTENSION_SOURCE, extensionPath);
-	cpSync(SHARED_EXTENSION_HELPERS_SOURCE, join(directory, ".sdl", "extensions", "shared"), {
+	cpSync(FLOW_EXTENSION_SOURCE, join(directory, ".sdl", "extensions", "flow"), {
 		recursive: true,
 	});
 	return directory;
@@ -150,18 +144,21 @@ function bodyInspectingEditResponse(assertBody: (body: string) => void): Scripte
 	};
 }
 
-describe("sdl regenerate-pr CLI availability", () => {
+describe("sdl flow regenerate-pr CLI availability", () => {
 	test("regenerate-pr is not registered as a built-in command after the kernel reset", () => {
 		expect(listSdlCommands().some((command) => command.name === "regenerate-pr")).toBe(false);
 	});
 
 	test("regenerate-pr help and invocation are unavailable without a project extension", async () => {
-		const help = runUnavailableRegeneratePrCli(["regenerate-pr", "--help"]);
+		const help = runUnavailableRegeneratePrCli(["flow", "regenerate-pr", "--help"]);
 		expect(await help.exit).toBe(0);
 		expect(help.stdout.join("")).toContain("Usage: sdl");
-		expect(help.stdout.join("")).not.toContain("Usage: sdl regenerate-pr");
+		expect(help.stdout.join("")).not.toContain("Usage: sdl flow regenerate-pr");
 
-		for (const args of [["regenerate-pr"], ["regenerate-pr", "--force"]] as const) {
+		for (const args of [
+			["flow", "regenerate-pr"],
+			["flow", "regenerate-pr", "--force"],
+		] as const) {
 			const run = runUnavailableRegeneratePrCli(args);
 
 			expect(await run.exit).not.toBe(0);
@@ -176,31 +173,29 @@ describe("sdl regenerate-pr CLI availability", () => {
 		const cwd = createRegeneratePrProject();
 
 		const topHelp = runWithFakes({
-			args: ["--help"],
+			args: ["flow", "--help"],
 			state: { exec: [], textGeneration: [] },
 			cwd,
 		});
 		expect(await topHelp.exit).toBe(0);
 		expect(topHelp.stdout.join("")).toContain("regenerate-pr");
-		expect(topHelp.stdout.join("")).toContain(
-			"Regenerate the PR title and SDL-managed body region.",
-		);
+		expect(topHelp.stdout.join("")).toContain("Regenerate the current branch PR title");
 
 		const commandHelp = runWithFakes({
-			args: ["regenerate-pr", "--help"],
+			args: ["flow", "regenerate-pr", "--help"],
 			state: { exec: [], textGeneration: [] },
 			cwd,
 		});
 		expect(await commandHelp.exit).toBe(0);
 		const help = commandHelp.stdout.join("");
-		expect(help).toContain("Usage: sdl regenerate-pr");
+		expect(help).toContain("Usage: sdl flow regenerate-pr");
 		expect(help).toContain("Regenerate the current branch PR title");
 		expect(help).toContain("--force");
 		expect(help).toContain("SDL_DEV_PR_DESCRIPTION_MODEL");
 		expect(help).toContain("SDL_DEV_PR_DESCRIPTION_PROMPT");
 
 		const schema = runWithFakes({
-			args: ["regenerate-pr", "--json-schema"],
+			args: ["flow", "regenerate-pr", "--json-schema"],
 			state: { exec: [], textGeneration: [] },
 			cwd,
 		});
@@ -211,7 +206,7 @@ describe("sdl regenerate-pr CLI availability", () => {
 
 describe("project-local regenerate-pr extension", () => {
 	test("regenerates the current branch PR after confirmation", async () => {
-		const run = runWithFakes({ args: ["regenerate-pr"], state: { confirm: () => true } });
+		const run = runWithFakes({ args: ["flow", "regenerate-pr"], state: { confirm: () => true } });
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("Regenerated PR title and description.");
@@ -240,7 +235,7 @@ describe("project-local regenerate-pr extension", () => {
 
 	test("declined confirmation does not edit GitHub", async () => {
 		const run = runWithFakes({
-			args: ["regenerate-pr"],
+			args: ["flow", "regenerate-pr"],
 			state: { confirm: () => false, exec: successfulReadOnlyRegeneratePrResponses() },
 		});
 
@@ -253,7 +248,7 @@ describe("project-local regenerate-pr extension", () => {
 
 	test("missing confirmation channel does not edit GitHub", async () => {
 		const run = runWithFakes({
-			args: ["regenerate-pr"],
+			args: ["flow", "regenerate-pr"],
 			state: { exec: successfulReadOnlyRegeneratePrResponses() },
 		});
 
@@ -267,7 +262,7 @@ describe("project-local regenerate-pr extension", () => {
 	test("--force remains a compatibility no-op and still asks before editing", async () => {
 		let asked = false;
 		const run = runWithFakes({
-			args: ["regenerate-pr", "--force"],
+			args: ["flow", "regenerate-pr", "--force"],
 			state: {
 				confirm: (_title, message) => {
 					asked = true;
@@ -293,7 +288,7 @@ describe("project-local regenerate-pr extension", () => {
 		});
 		const existingBody = `Human intro\n\n${oldRegion}\n\nHuman footer`;
 		const run = runWithFakes({
-			args: ["regenerate-pr"],
+			args: ["flow", "regenerate-pr"],
 			state: {
 				confirm: () => true,
 				exec: [
@@ -313,7 +308,7 @@ describe("project-local regenerate-pr extension", () => {
 
 	test("reports no current PR clearly", async () => {
 		const run = runWithFakes({
-			args: ["regenerate-pr"],
+			args: ["flow", "regenerate-pr"],
 			state: {
 				confirm: () => true,
 				exec: [
@@ -332,7 +327,7 @@ describe("project-local regenerate-pr extension", () => {
 
 	test("uses the historical PR description model environment override", async () => {
 		const run = runWithFakes({
-			args: ["regenerate-pr"],
+			args: ["flow", "regenerate-pr"],
 			state: { confirm: () => true },
 			env: { SDL_DEV_PR_DESCRIPTION_MODEL: "openai-codex/custom-mini" },
 		});
@@ -346,7 +341,7 @@ describe("project-local regenerate-pr extension", () => {
 		await writeFile(promptPath, "custom system prompt", "utf8");
 		try {
 			const run = runWithFakes({
-				args: ["regenerate-pr"],
+				args: ["flow", "regenerate-pr"],
 				state: { confirm: () => true },
 				env: { SDL_DEV_PR_DESCRIPTION_PROMPT: promptPath },
 			});
@@ -361,7 +356,7 @@ describe("project-local regenerate-pr extension", () => {
 
 	test("unreadable prompt env path exits 2", async () => {
 		const run = runWithFakes({
-			args: ["regenerate-pr"],
+			args: ["flow", "regenerate-pr"],
 			state: { confirm: () => true },
 			env: { SDL_DEV_PR_DESCRIPTION_PROMPT: "/path/that/does/not/exist.md" },
 		});

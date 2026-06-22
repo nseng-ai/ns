@@ -19,8 +19,8 @@ describe("Pi command surfaces", () => {
 		);
 		expect(derivePiReplacementSurface("objective-close")).toBe("objective:close");
 		expect(derivePiReplacementSurface("objective-stack-impl")).toBe("objective:stack-impl");
-		expect(derivePiReplacementSurface("code-checkpoint")).toBe("sdl:cp");
-		expect(derivePiReplacementSurface("code-submit")).toBe("sdl:submit");
+		expect(derivePiReplacementSurface("code-checkpoint")).toBe("sdl:flow:cp");
+		expect(derivePiReplacementSurface("code-submit")).toBe("sdl:flow:submit");
 		expect(derivePiReplacementSurface("foo-bar-baz")).toBe("foo:bar-baz");
 		expect(derivePiReplacementSurface("plain")).toBeUndefined();
 	});

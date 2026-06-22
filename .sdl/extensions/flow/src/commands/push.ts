@@ -13,7 +13,7 @@ const PUSH_COMMAND_DESCRIPTION = `Push already-committed work on the current bra
 
 The command first runs git status --porcelain and requires a clean worktree before pushing. It then runs plain git push with a two-minute timeout. It has no intentional arguments or options.
 
-This is not a replacement for sdl submit. Use \`sdl submit\` / \`/sdl:submit\` when the current Graphite stack needs submission, PR metadata updates, or the full submit flow.`;
+This is not a replacement for sdl flow submit. Use \`sdl flow submit\` / \`/sdl:flow:submit\` when the current Graphite stack needs submission, PR metadata updates, or the full submit flow.`;
 
 export default defineExtension({
 	commands: [
@@ -33,12 +33,12 @@ async function runPush(ctx: SdlExtensionApi) {
 	if (!commandSucceeded(statusResult)) {
 		return failed(
 			formatCommandEvidence({
-				intro: "Could not inspect the worktree status. `sdl push` did not run `git push`.",
+				intro: "Could not inspect the worktree status. `sdl flow push` did not run `git push`.",
 				command: "git status --porcelain",
 				cwd: ctx.cwd,
 				result: statusResult,
 				guidance:
-					"Inspect the Git output, fix the repository state, or use `sdl submit` / `/sdl:submit` for the Graphite submit flow when appropriate.",
+					"Inspect the Git output, fix the repository state, or use `sdl flow submit` / `/sdl:flow:submit` for the Graphite submit flow when appropriate.",
 			}),
 		);
 	}
@@ -62,7 +62,7 @@ async function runPush(ctx: SdlExtensionApi) {
 	return failed(
 		formatCommandEvidence({
 			intro:
-				"`git push` failed. The branch is likely out of sync or needs the Graphite submit flow; use `sdl submit` / `/sdl:submit` when appropriate.",
+				"`git push` failed. The branch is likely out of sync or needs the Graphite submit flow; use `sdl flow submit` / `/sdl:flow:submit` when appropriate.",
 			command: "git push",
 			cwd: ctx.cwd,
 			result: pushResult,
@@ -72,8 +72,8 @@ async function runPush(ctx: SdlExtensionApi) {
 
 function formatDirtyWorktreeMessage(cwd: string, stdout: string): string {
 	return [
-		"`sdl push` requires a clean worktree and did not run `git push`.",
-		"Commit or stash outstanding changes first, or use `sdl submit` / `/sdl:submit` for the Graphite submit flow when appropriate.",
+		"`sdl flow push` requires a clean worktree and did not run `git push`.",
+		"Commit or stash outstanding changes first, or use `sdl flow submit` / `/sdl:flow:submit` for the Graphite submit flow when appropriate.",
 		"Command: git status --porcelain",
 		`Cwd: ${cwd}`,
 		"stdout:",

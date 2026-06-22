@@ -85,7 +85,7 @@ Discovery is side-effect-light: `sdl --version`, `sdl --runtime`, and unselected
 
 The legacy `.sdl/commands/<command>.ts` path has been removed. It is not a compatibility fallback.
 
-Dynamic Pi `/sdl:*` mirrors are not part of this first general extension-loading slice. In this repository, the exact `/sdl:changes`, `/sdl:cp`, `/sdl:autobranch`, `/sdl:submit`, `/sdl:regenerate-pr`, `/sdl:push`, and nested `/sdl:code:changes` mirrors delegate to restored project-local SDL commands. Arbitrary SDL extension command entries are not dynamically mirrored into Pi; new exact mirrors require an explicit Pi adapter and package tests.
+Dynamic Pi `/sdl:*` mirrors are not part of this first general extension-loading slice. In this repository, exact `/sdl:flow:*` mirrors delegate to the grouped project-local `sdl flow` lifecycle commands: changes, cp, autobranch, autoslot, submit, regenerate-pr, push, land, and pull-trunk. Arbitrary SDL extension command entries are not dynamically mirrored into Pi; new exact mirrors require an explicit Pi adapter and package tests.
 
 ## SDL extension API
 
@@ -113,11 +113,11 @@ The command-first promotion rule is evidence driven: copy or localize behavior w
 Create a checkpoint commit for the current diff.
 
 ```bash
-sdl cp
-sdl cp --dry-run
+sdl flow cp
+sdl flow cp --dry-run
 ```
 
-In this repository, `sdl cp` is provided by the project-local single-file extension `.sdl/extensions/cp.ts`; it is not a universal built-in SDL command.
+In this repository, `sdl flow cp` is provided by the project-local single-file extension `.sdl/extensions/flow/src/commands/cp.ts`; it is not a universal built-in SDL command.
 
 Behavior:
 
@@ -133,18 +133,18 @@ Environment:
 - `SDL_CHECKPOINT_MODEL`: model reference for generated checkpoint messages.
 - `SDL_DEV_CHECKPOINT_MODEL`: transitional fallback for the old checkpoint model selection.
 
-Pi exposes the same capability as `/sdl:cp`. Old compatibility aliases such as `/code:cp`, `/code:checkpoint`, `/sdl:code:cp`, and `/sdl:code:checkpoint` are not restored.
+Pi exposes the same capability as `/sdl:flow:cp`. Old compatibility aliases such as `/code:cp`, `/code:checkpoint`, `/sdl:code:cp`, and `/sdl:code:checkpoint` are not restored.
 
 ## `autobranch`
 
 Create a Graphite branch from dirty worktree changes or the latest unpushed commit.
 
 ```bash
-sdl autobranch
-sdl autobranch --slug <slug>
+sdl flow autobranch
+sdl flow autobranch --slug <slug>
 ```
 
-In this repository, `sdl autobranch` is provided by the project-local SDK-only single-file extension `.sdl/extensions/autobranch.ts`; it is not a universal built-in SDL command. Hidden `ccc exec autobranch` remains for CCC/internal compatibility, but the public agent and Pi boundary is `sdl autobranch` / `/sdl:autobranch`.
+In this repository, `sdl flow autobranch` is provided by the project-local SDK-only single-file extension `.sdl/extensions/flow/src/commands/autobranch.ts`; it is not a universal built-in SDL command. Hidden `ccc exec autobranch` remains for CCC/internal compatibility, but the public agent and Pi boundary is `sdl flow autobranch` / `/sdl:flow:autobranch`.
 
 Behavior:
 
@@ -152,7 +152,7 @@ Behavior:
 - clean worktree mode moves the latest eligible unpushed single-parent commit onto a new Graphite branch using a recovery branch, source reset, hard reset, HEAD verification, and cleanup;
 - refuses unsafe latest-commit cases such as trunk, pushed HEAD, root commits, merge commits, or Graphite child branches;
 - derives branch slugs with the SDL slug model unless `--slug` is supplied;
-- generates dirty-worktree checkpoint messages with the same `[cp]` checkpoint-message policy as `sdl cp`.
+- generates dirty-worktree checkpoint messages with the same `[cp]` checkpoint-message policy as `sdl flow cp`.
 
 Environment:
 
@@ -160,14 +160,14 @@ Environment:
 - `SDL_CHECKPOINT_MODEL`: model reference for generated checkpoint messages.
 - `SDL_DEV_CHECKPOINT_MODEL`: transitional fallback for the old checkpoint model selection.
 
-Pi exposes the same capability as `/sdl:autobranch`. `/sdl:code:autobranch`, `/code:autobranch`, and `/newbr` are not restored as compatibility surfaces.
+Pi exposes the same capability as `/sdl:flow:autobranch`. `/sdl:flow:autobranch`, `/code:autobranch`, and `/newbr` are not restored as compatibility surfaces.
 
 ## `changes`
 
 Summarize outstanding worktree changes without committing.
 
 ```bash
-sdl changes
+sdl flow changes
 ```
 
 Behavior:
@@ -182,19 +182,19 @@ Environment:
 - `SDL_CHANGES_MODEL`: model reference for generated changes summaries.
 - `PI_DRAFT_MODEL`: transitional fallback for the old Pi changes-summary model selection.
 
-Pi exposes the same capability as `/sdl:changes` and `/sdl:code:changes`; `/code:changes` is not retained as a compatibility alias.
+Pi exposes the same capability as `/sdl:flow:changes` and `/sdl:flow:changes`; `/code:changes` is not retained as a compatibility alias.
 
 ## `submit`
 
 Checkpoint outstanding changes, then submit the current Graphite branch and downstack ancestors.
 
 ```bash
-sdl submit [--no-restack] [--verbose]
+sdl flow submit [--no-restack] [--verbose]
 ```
 
 Behavior:
 
-- checkpoints pending worktree changes before submission using the same `[cp]` checkpoint-message policy as `sdl cp`;
+- checkpoints pending worktree changes before submission using the same `[cp]` checkpoint-message policy as `sdl flow cp`;
 - preflights Graphite submit readiness with `gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run`;
 - runs `gt restack --downstack --no-interactive` automatically when Graphite requires a restack, unless `--no-restack` is set;
 - prepares initial PR metadata for new single-commit branches in the current branch's downstack submit scope before submission when possible;
@@ -211,31 +211,31 @@ Environment:
 - `SDL_SUBMIT_FAILURE_MODEL`: model reference for generated submit-failure summaries.
 - `SDL_SUBMIT_FAILURE_LOG_DIR`: optional directory for raw submit-failure transcripts.
 
-Pi exposes the same capability as `/sdl:submit`. `/sdl:code:submit`, `/dev:submit`, `/submit`, and other legacy submit aliases are not restored.
+Pi exposes the same capability as `/sdl:flow:submit`. `/sdl:flow:submit`, `/dev:submit`, `/submit`, and other legacy submit aliases are not restored.
 
 ## `regenerate-pr`
 
 Regenerate the current branch PR title and SDL-managed generated body region.
 
 ```bash
-sdl regenerate-pr [--force]
+sdl flow regenerate-pr [--force]
 ```
 
 Behavior:
 
 - resolves the current branch PR through `gh pr view --json number,url,title,body,headRefName,baseRefName`;
 - computes the same stable patch id as `gh pr diff <number> | git patch-id --stable`;
-- asks the configured PR-description model for a fresh title and body even when `sdl submit` would skip the PR as unchanged;
+- asks the configured PR-description model for a fresh title and body even when `sdl flow submit` would skip the PR as unchanged;
 - replaces or inserts only the SDL-managed generated body region and preserves human PR body text outside that region;
 - asks for confirmation immediately before `gh pr edit`; if confirmation is declined or unavailable, GitHub is not edited;
 - accepts `--force` as a compatibility no-op that does not bypass confirmation.
 
-Environment matches PR description generation for `sdl submit`:
+Environment matches PR description generation for `sdl flow submit`:
 
 - `SDL_DEV_PR_DESCRIPTION_MODEL`: model reference for generated PR descriptions.
 - `SDL_DEV_PR_DESCRIPTION_PROMPT`: optional custom PR-description prompt file.
 
-Pi exposes the same capability as `/sdl:regenerate-pr`. `sdl pr-regen`, `/sdl:pr-regen`, `/code:pr-regen`, and `/sdl:code:regenerate-pr` are not retained as compatibility surfaces.
+Pi exposes the same capability as `/sdl:flow:regenerate-pr`. `sdl pr-regen`, `/sdl:pr-regen`, `/code:pr-regen`, and `/sdl:flow:regenerate-pr` are not retained as compatibility surfaces.
 
 ## Future extension classification
 

@@ -366,7 +366,7 @@ export function formatFailure(
 		}
 		lines.push(
 			"",
-			"Fix the reported issue, then rerun /sdl:code:land from the desired branch. Already-landed PRs will not be retried automatically.",
+			"Fix the reported issue, then rerun /sdl:flow:land from the desired branch. Already-landed PRs will not be retried automatically.",
 		);
 	} else if (landed.length > 0) {
 		lines.push("", "Already landed:");

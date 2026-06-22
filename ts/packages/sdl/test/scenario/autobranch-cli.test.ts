@@ -1,6 +1,6 @@
-import { copyFileSync, cpSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { cpSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, test, vi } from "vitest";
@@ -15,11 +15,8 @@ import {
 	type ScriptedExecResponse,
 } from "./sdl-cli-fakes.ts";
 
-const AUTOBRANCH_EXTENSION_SOURCE = fileURLToPath(
-	new URL("../../../../../.sdl/extensions/autobranch.ts", import.meta.url),
-);
-const SHARED_EXTENSION_HELPERS_SOURCE = fileURLToPath(
-	new URL("../../../../../.sdl/extensions/shared", import.meta.url),
+const FLOW_EXTENSION_SOURCE = fileURLToPath(
+	new URL("../../../../../.sdl/extensions/flow", import.meta.url),
 );
 const tempProjectDirs: string[] = [];
 const CHECKPOINT_MESSAGE = "[cp] Move pending work\n\n- Preserve current changes";
@@ -29,10 +26,7 @@ const PARENT_SHA = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 function createAutobranchProject(): string {
 	const directory = mkdtempSync(join(tmpdir(), "sdl-autobranch-project-"));
 	tempProjectDirs.push(directory);
-	const extensionPath = join(directory, ".sdl", "extensions", "autobranch.ts");
-	mkdirSync(dirname(extensionPath), { recursive: true });
-	copyFileSync(AUTOBRANCH_EXTENSION_SOURCE, extensionPath);
-	cpSync(SHARED_EXTENSION_HELPERS_SOURCE, join(directory, ".sdl", "extensions", "shared"), {
+	cpSync(FLOW_EXTENSION_SOURCE, join(directory, ".sdl", "extensions", "flow"), {
 		recursive: true,
 	});
 	return directory;
@@ -154,18 +148,21 @@ afterEach(() => {
 	}
 });
 
-describe("sdl autobranch CLI availability", () => {
+describe("sdl flow autobranch CLI availability", () => {
 	test("autobranch is not registered as a built-in command after the kernel reset", () => {
 		expect(listSdlCommands().some((command) => command.name === "autobranch")).toBe(false);
 	});
 
 	test("autobranch help and invocation are unavailable without a project extension", async () => {
-		const help = runUnavailableAutobranchCli(["autobranch", "--help"]);
+		const help = runUnavailableAutobranchCli(["flow", "autobranch", "--help"]);
 		expect(await help.exit).toBe(0);
 		expect(help.stdout.join("")).toContain("Usage: sdl");
-		expect(help.stdout.join("")).not.toContain("Usage: sdl autobranch");
+		expect(help.stdout.join("")).not.toContain("Usage: sdl flow autobranch");
 
-		for (const args of [["autobranch"], ["autobranch", "--slug", "x"]] as const) {
+		for (const args of [
+			["flow", "autobranch"],
+			["flow", "autobranch", "--slug", "x"],
+		] as const) {
 			const run = runUnavailableAutobranchCli(args);
 			expect(await run.exit).not.toBe(0);
 			expect(run.stdout.join("")).toBe("");
@@ -178,10 +175,10 @@ describe("sdl autobranch CLI availability", () => {
 	test("project-local autobranch appears in help and JSON schema", async () => {
 		const cwd = createAutobranchProject();
 
-		const help = runWithFakes({ args: ["autobranch", "--help"], cwd });
+		const help = runWithFakes({ args: ["flow", "autobranch", "--help"], cwd });
 		expect(await help.exit).toBe(0);
 		const output = help.stdout.join("");
-		expect(output).toContain("Usage: sdl autobranch");
+		expect(output).toContain("Usage: sdl flow autobranch");
 		expect(output).toContain("--slug");
 		expect(output).toContain("gt create");
 		expect(output).toContain("eligible unpushed non-merge commit");
@@ -189,7 +186,7 @@ describe("sdl autobranch CLI availability", () => {
 		expect(output).toContain("SDL_CHECKPOINT_MODEL");
 		expect(output).toContain("SDL_DEV_CHECKPOINT_MODEL");
 
-		const schema = runWithFakes({ args: ["autobranch", "--json-schema"], cwd });
+		const schema = runWithFakes({ args: ["flow", "autobranch", "--json-schema"], cwd });
 		expect(await schema.exit).toBe(0);
 		expect(parseJsonOutput(schema)).toHaveProperty("input_json_schema");
 		expect(schema.stdout.join("")).toContain("slug");
@@ -200,7 +197,7 @@ describe("project-local autobranch extension", () => {
 	test("moves dirty worktree changes to a Graphite branch and checkpoint commit", async () => {
 		vi.setSystemTime(new Date(123456789));
 		const run = runWithFakes({
-			args: ["autobranch", "--slug", "move-work"],
+			args: ["flow", "autobranch", "--slug", "move-work"],
 			state: {
 				exec: dirtyWorktreeResponses(),
 				textGeneration: [{ ok: true, text: CHECKPOINT_MESSAGE }],
@@ -245,7 +242,7 @@ describe("project-local autobranch extension", () => {
 	test("moves clean latest commit with recovery branch verification", async () => {
 		vi.setSystemTime(new Date(123456789));
 		const run = runWithFakes({
-			args: ["autobranch", "--slug", "extract-commit"],
+			args: ["flow", "autobranch", "--slug", "extract-commit"],
 			state: { exec: cleanLatestCommitResponses(), textGeneration: [] },
 		});
 
@@ -277,7 +274,7 @@ describe("project-local autobranch extension", () => {
 	test("writes latest-commit recovery cleanup warnings to stderr only", async () => {
 		vi.setSystemTime(new Date(123456789));
 		const run = runWithFakes({
-			args: ["autobranch", "--slug", "extract-commit"],
+			args: ["flow", "autobranch", "--slug", "extract-commit"],
 			state: { exec: cleanLatestCommitResponses({ backupDeleteCode: 1 }), textGeneration: [] },
 		});
 
@@ -291,7 +288,7 @@ describe("project-local autobranch extension", () => {
 
 	test("fails with actionable stderr and no success stdout", async () => {
 		const run = runWithFakes({
-			args: ["autobranch"],
+			args: ["flow", "autobranch"],
 			state: {
 				exec: [
 					{

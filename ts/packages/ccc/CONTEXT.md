@@ -33,7 +33,7 @@ The CCC-owned Pi slash commands users invoke with the `ccc` prefix, such as `/cc
 *Avoid*: `/cmux:*` compatibility alias, cmux CLI command, generic Pi extension command.
 
 **Stable non-`ccc` orchestration surface**:
-A public Pi command whose user-facing namespace remains outside `ccc` while CCC owns repo-opinionated implementation behind it, such as `/objective:stack-impl` or `/sdl:code:land`. Autobranch is now public SDL lifecycle surface `sdl autobranch` / `/sdl:autobranch`, with `ccc exec autobranch` retained as hidden internal compatibility.
+A public Pi command whose user-facing namespace remains outside `ccc` while CCC owns repo-opinionated implementation behind it, such as `/objective:stack-impl` or `/sdl:flow:land`. Autobranch is now public SDL lifecycle surface `sdl flow autobranch` / `/sdl:flow:autobranch`, with `ccc exec autobranch` retained as hidden internal compatibility.
 *Avoid*: compatibility alias, evidence that the lower adapter owns the workflow policy, old `/code:*` lifecycle alias.
 
 **Objective stack implementation orchestration**:
@@ -41,11 +41,11 @@ The CCC-owned launch/orchestration path behind public `/objective:stack-impl`: a
 *Avoid*: Objective store, Objective CLI semantics, normal Objective update workflow, new `/ccc:*` alias for stack implementation.
 
 **Autobranch compatibility flow**:
-The hidden CCC `ccc exec autobranch` implementation retained for internal compatibility, composing pending-worktree inspection, branch slug/name preparation, Graphite branch creation, stash/restore or latest-commit recovery mechanics, and checkpoint commit primitives into one repo source-control command flow. The public SDL lifecycle boundary is `sdl autobranch` / `/sdl:autobranch`.
-*Avoid*: public Pi registration adapter, current `/sdl:code:autobranch` surface, checkpoint primitive owner, plain branch creation helper, old `/code:autobranch` alias.
+The hidden CCC `ccc exec autobranch` implementation retained for internal compatibility, composing pending-worktree inspection, branch slug/name preparation, Graphite branch creation, stash/restore or latest-commit recovery mechanics, and checkpoint commit primitives into one repo source-control command flow. The public SDL lifecycle boundary is `sdl flow autobranch` / `/sdl:flow:autobranch`.
+*Avoid*: public Pi registration adapter, current `/sdl:flow:autobranch` surface, checkpoint primitive owner, plain branch creation helper, old `/code:autobranch` alias.
 
 **Land orchestration**:
-The CCC-owned implementation behind public unified `/sdl:code:land`, coordinating strict Graphite stack-shape discovery, isolated single-PR squash merging into `gt trunk`, stack-mode PR metadata validation/update prompts, managed landing-slot cleanup, bottom-to-current squash merges, and post-merge Graphite refresh/delete/restack/submit maintenance.
+The CCC-owned implementation behind public unified `/sdl:flow:land`, coordinating strict Graphite stack-shape discovery, isolated single-PR squash merging into `gt trunk`, stack-mode PR metadata validation/update prompts, managed landing-slot cleanup, bottom-to-current squash merges, and post-merge Graphite refresh/delete/restack/submit maintenance.
 *Avoid*: Pi registration adapter, separate stack landing command, general GitHub lifecycle owner, lower Graphite/GitHub gateway, old `/code:land` alias.
 
 **Worktree status observability**:

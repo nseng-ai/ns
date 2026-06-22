@@ -86,7 +86,7 @@ export async function buildLandingPlan(
 		return failure(
 			landStackFailure(formatManualWorktreeConflict(landingManualConflicts), {
 				suggestedAction:
-					"Detach those landing-branch worktrees or check out unrelated branches, then rerun /sdl:code:land.",
+					"Detach those landing-branch worktrees or check out unrelated branches, then rerun /sdl:flow:land.",
 			}),
 		);
 	}

@@ -10,14 +10,18 @@ import {
 
 export type SdlCommandSourceLevel = "built-in" | "global" | "project";
 
+export interface SdlCommandPath {
+	group?: string | undefined;
+	name: string;
+}
+
 export interface SdlCommandSourceInfo {
 	level: SdlCommandSourceLevel;
 	label: string;
 	path?: string | undefined;
 }
 
-export interface SdlCommandInfo {
-	name: string;
+export interface SdlCommandInfo extends SdlCommandPath {
 	description: string;
 }
 
@@ -64,6 +68,18 @@ const sdlResultSchema = z.discriminatedUnion("ok", [
 	z.object({ ok: z.literal(false), exitCode: z.number(), message: z.string() }),
 ]);
 
+export function commandKey(path: SdlCommandPath): string {
+	return path.group === undefined ? path.name : `${path.group}/${path.name}`;
+}
+
+export function commandDisplayName(path: SdlCommandPath): string {
+	return path.group === undefined ? path.name : `${path.group} ${path.name}`;
+}
+
+export function commandPathMatches(left: SdlCommandPath, right: SdlCommandPath): boolean {
+	return left.name === right.name && left.group === right.group;
+}
+
 export function listBuiltInSdlCommandCandidates(): BuiltInSdlCommandCandidate[] {
 	return Object.entries(builtInCommandDefinitions)
 		.map(([name, definition]) => ({
@@ -73,11 +89,12 @@ export function listBuiltInSdlCommandCandidates(): BuiltInSdlCommandCandidate[] 
 			source: { level: "built-in" as const, label: `built-in command ${name}` },
 			command: definition.command,
 		}))
-		.sort((left, right) => left.name.localeCompare(right.name));
+		.sort((left, right) => commandKey(left).localeCompare(commandKey(right)));
 }
 
 export function listStaticSdlCommandInfos(): SdlCommandCliInfo[] {
-	return listBuiltInSdlCommandCandidates().map(({ name, description, fullDescription }) => ({
+	return listBuiltInSdlCommandCandidates().map(({ group, name, description, fullDescription }) => ({
+		...(group === undefined ? {} : { group }),
 		name,
 		description,
 		fullDescription,
@@ -87,8 +104,9 @@ export function listStaticSdlCommandInfos(): SdlCommandCliInfo[] {
 export function commandInfoForLoadedCommand(
 	command: SdlCommand,
 	sourceLevel: SdlCommandSourceLevel,
+	path: SdlCommandPath,
 ): SdlCommandCliInfo {
-	const definition = builtInCommandDefinitions[command.name];
+	const definition = path.group === undefined ? builtInCommandDefinitions[command.name] : undefined;
 	if (sourceLevel === "built-in" && definition !== undefined) {
 		return {
 			name: command.name,
@@ -97,6 +115,7 @@ export function commandInfoForLoadedCommand(
 		};
 	}
 	return {
+		...(path.group === undefined ? {} : { group: path.group }),
 		name: command.name,
 		description: command.summary,
 		fullDescription: command.description,
@@ -105,9 +124,10 @@ export function commandInfoForLoadedCommand(
 
 export function validateSdlExtensionContribution(
 	contribution: unknown,
-	expectedCommandName: string,
+	expectedPath: SdlCommandPath | string,
 	sourceLabel: string,
 ): { ok: true; command: SdlCommand } | { ok: false; message: string } {
+	const expectedName = typeof expectedPath === "string" ? expectedPath : expectedPath.name;
 	const parsed = sdlExtensionSchema.safeParse(contribution);
 	if (!parsed.success) {
 		return {
@@ -116,11 +136,11 @@ export function validateSdlExtensionContribution(
 		};
 	}
 
-	const command = findCommandEntry(parsed.data, expectedCommandName);
+	const command = findCommandEntry(parsed.data, expectedName);
 	if (command === undefined) {
 		return {
 			ok: false,
-			message: `Invalid SDL extension contribution ${sourceLabel}: expected a command entry named "${expectedCommandName}" in commands[].`,
+			message: `Invalid SDL extension contribution ${sourceLabel}: expected a command entry named "${expectedName}" in commands[].`,
 		};
 	}
 

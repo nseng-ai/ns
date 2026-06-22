@@ -198,7 +198,7 @@ async function runLand(
 			: [...graphiteShapeSteps(options.stack ?? DB_SINGLE_BRANCH), ...script];
 	const pi = new FakePi(fullScript);
 	registerLandCommand(pi);
-	const command = pi.commands.get("sdl:code:land");
+	const command = pi.commands.get("sdl:flow:land");
 	expect(command).toBeDefined();
 	const context = createContext({ mode: options.mode });
 	await command?.handler(options.args ?? "", context.ctx);
@@ -282,14 +282,14 @@ function expectedMergeArgs(
 }
 
 describe("code land command registration", () => {
-	test("registers only the namespaced sdl:code:land command", () => {
+	test("registers only the namespaced sdl:flow:land command", () => {
 		const pi = new FakePi();
 		registerLandCommand(pi);
 
-		expect([...pi.commands.keys()]).toEqual(["sdl:code:land"]);
+		expect([...pi.commands.keys()]).toEqual(["sdl:flow:land"]);
 		expect(pi.commands.has("gh:land")).toBe(false);
 		expect(pi.commands.has("land")).toBe(false);
-		const command = pi.commands.get("sdl:code:land");
+		const command = pi.commands.get("sdl:flow:land");
 		expect(command?.description).toBe("Land the current PR or Graphite stack into trunk");
 		expect(command?.getArgumentCompletions?.("--")).toEqual([
 			{ value: "--yes", label: "--yes" },
@@ -307,7 +307,7 @@ describe("code land command", () => {
 			step("gh", expectedMergeArgs(), { stdout: "Merged pull request #42" }),
 		]);
 		registerLandCommand(pi);
-		const command = pi.commands.get("sdl:code:land");
+		const command = pi.commands.get("sdl:flow:land");
 		expect(command).toBeDefined();
 
 		const context = createContext();
@@ -326,7 +326,7 @@ describe("code land command", () => {
 		expect(pi.sentMessages).toEqual([
 			{
 				customType: "sdl-command-ack",
-				content: "→ /sdl:code:land received; starting…",
+				content: "→ /sdl:flow:land received; starting…",
 				display: true,
 			},
 		]);

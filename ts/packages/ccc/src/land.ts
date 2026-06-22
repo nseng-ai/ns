@@ -68,7 +68,7 @@ export interface LandExtensionAPI {
 	): Promise<ExecResult>;
 }
 
-const COMMAND_NAME = "sdl:code:land";
+const COMMAND_NAME = "sdl:flow:land";
 const PR_VIEW_FIELDS = "number,headRefName,baseRefName,title,body,headRefOid";
 const PR_VIEW_TIMEOUT_MS = 30_000;
 const PR_MERGE_TIMEOUT_MS = 120_000;
@@ -156,6 +156,54 @@ export function registerLandCommand(pi: LandExtensionAPI): void {
 			},
 		},
 	});
+}
+
+export interface LandCliInput {
+	cwd: string;
+	rawArgs: string;
+	exec(
+		command: string,
+		args: string[],
+		options?: { cwd?: string | undefined; timeout?: number | undefined },
+	): Promise<ExecResult>;
+	stdout(text: string): void;
+	stderr(text: string): void;
+}
+
+export async function runLandCli(input: LandCliInput): Promise<number> {
+	let handler: ((args: string, ctx: LandCommandContext) => Promise<void> | void) | undefined;
+	const api: LandExtensionAPI = {
+		registerCommand(_name, options) {
+			handler = options.handler;
+		},
+		exec: input.exec,
+	};
+	registerLandCommand(api);
+	if (handler === undefined) {
+		input.stderr("Land command registration failed.\n");
+		return 1;
+	}
+
+	let hasError = false;
+	await handler(input.rawArgs, {
+		cwd: input.cwd,
+		hasUI: false,
+		ui: {
+			notify(message, level) {
+				const output = `${message.trimEnd()}\n`;
+				if (level === "error") {
+					hasError = true;
+					input.stderr(output);
+					return;
+				}
+				input.stdout(output);
+			},
+			confirm: async () => false,
+			setStatus: () => {},
+		},
+		waitForIdle: async () => {},
+	});
+	return hasError ? 1 : 0;
 }
 
 export function isIsolatedFastPath(stack: StackSnapshot): boolean {

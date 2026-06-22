@@ -133,7 +133,7 @@ export function validateStrictMergeGate(input: {
 				{
 					failedBranch: input.branch,
 					failedPr: input.pr.number,
-					suggestedAction: `Run gt restack/submit for ${input.branch}, then rerun /sdl:code:land.`,
+					suggestedAction: `Run gt restack/submit for ${input.branch}, then rerun /sdl:flow:land.`,
 				},
 			),
 		);

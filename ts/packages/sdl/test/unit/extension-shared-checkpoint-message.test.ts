@@ -9,7 +9,7 @@ import { createSdlJiti } from "../../src/sdk/module-loader.ts";
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../..");
 const SHARED_CHECKPOINT_HELPER_PATH = join(
 	REPO_ROOT,
-	".sdl/extensions/shared/checkpoint-message.ts",
+	".sdl/extensions/flow/src/shared/checkpoint-message.ts",
 );
 
 interface SharedCheckpointModule {

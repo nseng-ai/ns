@@ -7,10 +7,14 @@ import { rawCommand } from "@sdl/clinkr/raw";
 import { defineCli } from "@sdl/core/cli-entry";
 
 import {
+	commandDisplayName,
+	commandKey,
+	commandPathMatches,
 	executeSdlCommand,
 	listStaticSdlCommandInfos,
 	type SdlCommandInfo,
 	type SdlCommandCliInfo,
+	type SdlCommandPath,
 } from "./command-registry.ts";
 import { createRealSdlCommandContext } from "./context.ts";
 import {
@@ -45,6 +49,7 @@ export interface SdlCliDeps {
 export interface BuildSdlCliOptions {
 	commandInfos?: readonly SdlCommandCliInfo[] | undefined;
 	selectedCommand?: SdlCommand | undefined;
+	selectedCommandPath?: SdlCommandPath | undefined;
 }
 
 export interface SdlCliContext {
@@ -58,6 +63,7 @@ export interface SdlCliContext {
 interface SdlCliBuildState {
 	commandInfos: readonly SdlCommandCliInfo[];
 	selectedCommand?: SdlCommand | undefined;
+	selectedCommandPath?: SdlCommandPath | undefined;
 }
 
 const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
@@ -74,14 +80,14 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 			cwd: resolvedCwd,
 			homeDir: deps.homeDir ?? resolvedEnv.HOME,
 		});
-		const selectedCommandName = requestedCommandName(args);
+		const selectedCommandKey = requestedCommandKey(args, commandCatalog.commandInfos);
 		const selectedCandidate =
-			selectedCommandName === undefined
+			selectedCommandKey === undefined
 				? undefined
-				: commandCatalog.candidates.get(selectedCommandName);
+				: commandCatalog.candidates.get(selectedCommandKey);
 		const diagnosticClassification = classifyExtensionDiagnosticsForInvocation({
 			diagnostics: commandCatalog.diagnostics,
-			requestedCommandName: selectedCommandName,
+			requestedCommandName: selectedCommandKey,
 			selectedCandidate,
 		});
 		if (diagnosticClassification.fatal.length > 0) {
@@ -91,7 +97,7 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 
 		let commandInfos = commandCatalog.commandInfos;
 		let listingDiagnostics: typeof diagnosticClassification.warnings = [];
-		if (selectedCommandName === undefined && !isStaticTopLevelMetadataRequest(args)) {
+		if (selectedCommandKey === undefined && !isStaticTopLevelMetadataRequest(args)) {
 			const loadedListing = await loadListingCommandInfos(commandCatalog);
 			commandInfos = loadedListing.commandInfos;
 			listingDiagnostics = loadedListing.diagnostics;
@@ -109,11 +115,12 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 		}
 		const selectedCommand = loadedSelectedCommand?.command;
 		const selectedSource = loadedSelectedCommand?.source;
+		const selectedPath = loadedSelectedCommand?.path;
 		commandInfos = commandInfosForSelectedCommand(
 			commandInfos,
-			selectedCommand === undefined || selectedSource === undefined
+			selectedCommand === undefined || selectedSource === undefined || selectedPath === undefined
 				? undefined
-				: { command: selectedCommand, source: selectedSource },
+				: { command: selectedCommand, source: selectedSource, path: selectedPath },
 		);
 
 		const baseContext =
@@ -141,20 +148,22 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 		return {
 			type: "run",
 			context: contextWithIO,
-			buildState: { commandInfos, selectedCommand },
+			buildState: { commandInfos, selectedCommand, selectedCommandPath: selectedPath },
 		};
 	},
 	configureCli: ({ root, buildState }) => {
+		const groups = new Map<string, ClinkrGroup<SdlCliContext>>();
 		for (const commandInfo of buildState.commandInfos) {
+			const parent = groupForCommand(root, groups, commandInfo);
 			const selectedCommand =
-				buildState.selectedCommand?.name === commandInfo.name
+				buildState.selectedCommandPath !== undefined &&
+				commandPathMatches(buildState.selectedCommandPath, commandInfo)
 					? buildState.selectedCommand
 					: undefined;
-			const commandName = commandInfo.name;
 			const schema = selectedCommand?.schema ?? z.object({});
-			root.command(
+			parent.command(
 				rawCommand({
-					name: commandName,
+					name: commandInfo.name,
 					description: commandInfo.fullDescription,
 					summary: commandInfo.description,
 					schema,
@@ -167,7 +176,7 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 								? {
 										ok: false as const,
 										exitCode: 2,
-										message: `Unknown SDL command: ${commandName}`,
+										message: `Unknown SDL command: ${commandDisplayName(commandInfo)}`,
 									}
 								: await executeSdlCommand(ctx.context, selectedCommand, request);
 						writeSdlResultOutput(result, ctx);
@@ -183,21 +192,58 @@ export function buildCli(options: BuildSdlCliOptions = {}): ClinkrGroup<SdlCliCo
 	return entry.buildCli({
 		commandInfos: options.commandInfos ?? listStaticSdlCommandInfos(),
 		selectedCommand: options.selectedCommand,
+		selectedCommandPath: options.selectedCommandPath,
 	});
 }
 
 export function listSdlCommands(): SdlCommandInfo[] {
-	return listStaticSdlCommandInfos().map(({ name, description }) => ({ name, description }));
+	return listStaticSdlCommandInfos().map(({ group, name, description }) => ({
+		...(group === undefined ? {} : { group }),
+		name,
+		description,
+	}));
 }
 
 export async function runCli(args: readonly string[], deps: SdlCliDeps = {}): Promise<number> {
 	return await entry.run(args, deps);
 }
 
-function requestedCommandName(args: readonly string[]): string | undefined {
+function requestedCommandKey(
+	args: readonly string[],
+	commandInfos: readonly SdlCommandCliInfo[],
+): string | undefined {
 	const firstArg = args[0];
 	if (firstArg === undefined || firstArg.startsWith("-")) return undefined;
-	return firstArg;
+
+	const knownGroups = new Set(
+		commandInfos.flatMap((commandInfo) =>
+			commandInfo.group === undefined ? [] : [commandInfo.group],
+		),
+	);
+	if (!knownGroups.has(firstArg)) return firstArg;
+
+	const secondArg = args[1];
+	if (secondArg === undefined || secondArg.startsWith("-")) return undefined;
+	return commandKey({ group: firstArg, name: secondArg });
+}
+
+function groupForCommand(
+	root: ClinkrGroup<SdlCliContext>,
+	groups: Map<string, ClinkrGroup<SdlCliContext>>,
+	commandInfo: SdlCommandCliInfo,
+): ClinkrGroup<SdlCliContext> {
+	if (commandInfo.group === undefined) return root;
+
+	const existing = groups.get(commandInfo.group);
+	if (existing !== undefined) return existing;
+
+	const group = new ClinkrGroup<SdlCliContext>({
+		name: commandInfo.group,
+		description: `SDL ${commandInfo.group} commands.`,
+	});
+	groups.set(commandInfo.group, group);
+	root.group(group);
+	return group;
 }
 
 function isStaticTopLevelMetadataRequest(args: readonly string[]): boolean {

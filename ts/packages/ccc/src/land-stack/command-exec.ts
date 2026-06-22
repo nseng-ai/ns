@@ -63,7 +63,7 @@ export function normalizeCommandFinish(
 	) {
 		return { result: { ...result, code: 0 }, note: `branch ${deleteBranch} already absent` };
 	}
-	// /sdl:code:land reads Graphite topology from Graphite's metadata database;
+	// /sdl:flow:land reads Graphite topology from Graphite's metadata database;
 	// avoid labeling unrelated sqlite3 commands just because the binary matches.
 	if (
 		command === "sqlite3" &&
