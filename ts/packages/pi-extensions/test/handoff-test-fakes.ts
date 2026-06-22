@@ -66,6 +66,8 @@ export class FakePi implements ExtensionAPI {
 	readonly execCalls: ExecCall[] = [];
 	readonly renderers = new Map<string, MessageRenderer>();
 	readonly sentMessages: CustomMessage[] = [];
+	readonly ackMessages: CustomMessage[] = [];
+	readonly progressMessages: CustomMessage[] = [];
 	readonly sentUserMessages: string[] = [];
 	readonly sentUserMessageCalls: SentUserMessageCall[] = [];
 	readonly registerMessageRenderer?: (customType: string, renderer: MessageRenderer) => void;
@@ -87,11 +89,20 @@ export class FakePi implements ExtensionAPI {
 		this.commandInfos = [...commandInfos];
 		if (options.registerMessageRenderer ?? true) {
 			this.registerMessageRenderer = (customType: string, renderer: MessageRenderer): void => {
+				if (customType === "sdl-command-ack") return;
 				this.renderers.set(customType, renderer);
 			};
 		}
 		if (options.sendMessage ?? true) {
 			this.sendMessage = (message: CustomMessage): void => {
+				if (message.customType === "sdl-command-ack") {
+					this.ackMessages.push(message);
+					return;
+				}
+				if (message.customType === "sdl-command-progress") {
+					this.progressMessages.push(message);
+					return;
+				}
 				this.sentMessages.push(message);
 			};
 		}

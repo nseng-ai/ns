@@ -117,6 +117,7 @@ External or personal surface:
 Rules:
 
 - Repo-owned Pi extension command families should use `/namespace:command` names when introduced or renamed. Use the domain/CLI namespace when obvious, such as `/objective:list`, `/objective:next`, or `/objective:stack-impl`. Reserve `/skill:<name>` for Pi's skill-command namespace and do not register extension commands under `skill:*`.
+- Repo-owned Pi slash commands must show immediate acknowledgement that the command was received, before waiting for Pi idle state or doing slow I/O. Engineered commands should use `withImmediateCommandAck` from `@sdl/pi-extension-runtime/command-ack` at the registration boundary. Default to transient status-line acknowledgement; use persistent message delivery only for flows where a transcript-visible breadcrumb is intentionally useful, such as `/sdl:code:land`.
 - Existing short top-level extension commands may remain when they are deliberately standalone or awaiting explicit disposition. Do not add legacy aliases only for autocomplete convenience; visible aliases increase surface area.
 - Avoid duplicate public slash-command names. If a wrapper and prompt share a name, choose one public entrypoint and make the other an internal asset, rename it, convert it to a skill, or document the intentional duplication.
 - Mutating commands that touch git or GitHub state need either engineered tests/adapters or explicit docs saying why the vibecoded command is retained and what safety checks it owns.

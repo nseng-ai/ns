@@ -66,6 +66,8 @@ interface RunCall {
 class FakePi implements CliCommandExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly sentMessages: CustomMessage[] = [];
+	readonly ackMessages: CustomMessage[] = [];
+	readonly progressMessages: CustomMessage[] = [];
 	readonly commandFinishedEvents: PiExtensionCommandFinishedEvent[] = [];
 	readonly messageRenderers = new Map<string, MessageRenderer>();
 	readonly events = {
@@ -82,11 +84,20 @@ class FakePi implements CliCommandExtensionAPI {
 	constructor(options: { registerMessageRenderer?: boolean; sendMessage?: boolean } = {}) {
 		if (options.registerMessageRenderer ?? true) {
 			this.registerMessageRenderer = (customType: string, renderer: MessageRenderer): void => {
+				if (customType === "sdl-command-ack") return;
 				this.messageRenderers.set(customType, renderer);
 			};
 		}
 		if (options.sendMessage ?? true) {
 			this.sendMessage = (message: CustomMessage): void => {
+				if (message.customType === "sdl-command-ack") {
+					this.ackMessages.push(message);
+					return;
+				}
+				if (message.customType === "sdl-command-progress") {
+					this.progressMessages.push(message);
+					return;
+				}
 				this.sentMessages.push(message);
 			};
 		}
@@ -544,6 +555,7 @@ describe("cli command extension helper", () => {
 		await confirmStarted;
 
 		expect(statuses).toEqual([]);
+		expect(pi.progressMessages).toEqual([]);
 		expect(widgets.at(-1)?.lines?.join("\n")).toContain("waiting for confirmation");
 
 		if (finishConfirm === undefined)
@@ -996,6 +1008,7 @@ describe("cli command extension helper", () => {
 		const liveWidgetText = widgets.at(-1)?.lines?.join("\n") ?? "";
 		expect(widgets.at(-1)?.placement).toBe("aboveEditor");
 		expect(statuses).toEqual([]);
+		expect(pi.progressMessages).toEqual([]);
 		expect(liveWidgetText).toContain("/dev:preview-status running CLI command");
 		expect(liveWidgetText).toContain("stdout: started");
 		expect(pi.sentMessages).toEqual([]);

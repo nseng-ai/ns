@@ -7,6 +7,7 @@ import { piExecApiToCommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@sdl/core/git";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { WRITE_GRILLED_PLAN_COMMAND_NAME, WRITE_PLAN_COMMAND_NAME } from "@sdl/pi-command-surfaces";
+import { sendCommandProgressOrNotify } from "@sdl/pi-extension-runtime/command-ack";
 import {
 	WRITE_SAVED_PLAN_FILE_TOOL_NAME,
 	deriveSavedPlanContentSlug,
@@ -254,7 +255,7 @@ export async function handleWritePlanCommand(
 	await ctx.waitForIdle();
 	const steering = args.trim();
 	if (ctx.hasUI) {
-		ctx.ui.notify(`Starting /${WRITE_PLAN_COMMAND_NAME} planning turn…`, "info");
+		sendCommandProgressOrNotify(pi, ctx, `Starting /${WRITE_PLAN_COMMAND_NAME} planning turn…`);
 	}
 	const promptBody = await resolveWritePlanPromptBody(pi, ctx.cwd);
 	if (promptBody.type === "fallback" && ctx.hasUI) {
@@ -271,7 +272,11 @@ export async function handleWriteGrilledPlanCommand(
 	await ctx.waitForIdle();
 	const steering = args.trim();
 	if (ctx.hasUI) {
-		ctx.ui.notify(`Starting /${WRITE_GRILLED_PLAN_COMMAND_NAME} planning grill…`, "info");
+		sendCommandProgressOrNotify(
+			pi,
+			ctx,
+			`Starting /${WRITE_GRILLED_PLAN_COMMAND_NAME} planning grill…`,
+		);
 	}
 	pi.sendUserMessage(buildWriteGrilledPlanPrompt(steering));
 }

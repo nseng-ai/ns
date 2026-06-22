@@ -1,3 +1,4 @@
+import { withImmediateCommandAck } from "@sdl/pi-extension-runtime/command-ack";
 import { definePiSurfaceParity } from "./parity.ts";
 
 const MODEL_SHORTCUTS = [
@@ -63,8 +64,9 @@ export interface ExtensionAPI {
 }
 
 export default function modelShortcutExtension(pi: ExtensionAPI): void {
+	const commandPi = withImmediateCommandAck(pi);
 	for (const shortcut of MODEL_SHORTCUTS) {
-		pi.registerCommand(shortcut.command, {
+		commandPi.registerCommand(shortcut.command, {
 			description: `Switch to ${modelRef(shortcut)}`,
 			handler: async (_args, ctx) => {
 				await switchToModel(pi, ctx, shortcut);

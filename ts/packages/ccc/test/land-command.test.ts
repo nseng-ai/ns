@@ -49,6 +49,7 @@ const DB_WITH_DESCENDANT = metadataDbJson([
 ]);
 
 type RegisteredCommand = Parameters<LandExtensionAPI["registerCommand"]>[1];
+type CustomMessage = Parameters<NonNullable<LandExtensionAPI["sendMessage"]>>[0];
 
 interface ExecCall {
 	command: string;
@@ -108,6 +109,19 @@ class FakePi implements LandExtensionAPI {
 
 	assertDone(): void {
 		this.script.assertDone();
+	}
+}
+
+class FakePiWithMessages extends FakePi {
+	readonly sentMessages: CustomMessage[] = [];
+	readonly renderers = new Map<string, unknown>();
+
+	registerMessageRenderer(customType: string, renderer: unknown): void {
+		this.renderers.set(customType, renderer);
+	}
+
+	sendMessage(message: CustomMessage): void {
+		this.sentMessages.push(message);
 	}
 }
 
@@ -286,6 +300,42 @@ describe("code land command registration", () => {
 });
 
 describe("code land command", () => {
+	test("acknowledges the command before waiting for idle", async () => {
+		const pi = new FakePiWithMessages([
+			...graphiteShapeSteps(DB_SINGLE_BRANCH),
+			step("gh", PR_VIEW_ARGS, { stdout: prView() }),
+			step("gh", expectedMergeArgs(), { stdout: "Merged pull request #42" }),
+		]);
+		registerLandCommand(pi);
+		const command = pi.commands.get("sdl:code:land");
+		expect(command).toBeDefined();
+
+		const context = createContext();
+		let releaseIdle: (() => void) | undefined;
+		let isWaitStarted = false;
+		context.ctx.waitForIdle = async () =>
+			new Promise<void>((resolve) => {
+				isWaitStarted = true;
+				releaseIdle = resolve;
+			});
+
+		const handlerPromise = Promise.resolve(command?.handler("", context.ctx));
+
+		expect(isWaitStarted).toBe(true);
+		expect(pi.execCalls).toEqual([]);
+		expect(pi.sentMessages).toEqual([
+			{
+				customType: "sdl-command-ack",
+				content: "→ /sdl:code:land received; starting…",
+				display: true,
+			},
+		]);
+
+		releaseIdle?.();
+		await handlerPromise;
+		pi.assertDone();
+	});
+
 	test("squash-merges the current PR with the PR title and body", async () => {
 		const { pi, notifications, waitForIdleCalls } = await runLand([
 			step("gh", PR_VIEW_ARGS, { stdout: prView() }),

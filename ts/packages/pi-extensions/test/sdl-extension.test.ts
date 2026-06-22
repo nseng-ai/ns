@@ -18,16 +18,27 @@ class FakePi implements SdlExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly messageRenderers = new Map<string, unknown>();
 	readonly sentMessages: CustomMessage[] = [];
+	readonly ackMessages: CustomMessage[] = [];
+	readonly progressMessages: CustomMessage[] = [];
 
 	registerCommand(name: string, command: RegisteredCommand): void {
 		this.commands.set(name, command);
 	}
 
 	registerMessageRenderer(customType: string, renderer: unknown): void {
+		if (customType === "sdl-command-ack") return;
 		this.messageRenderers.set(customType, renderer);
 	}
 
 	readonly sendMessage = (message: CustomMessage): void => {
+		if (message.customType === "sdl-command-ack") {
+			this.ackMessages.push(message);
+			return;
+		}
+		if (message.customType === "sdl-command-progress") {
+			this.progressMessages.push(message);
+			return;
+		}
 		this.sentMessages.push(message);
 	};
 
@@ -40,6 +51,14 @@ function commandFor(pi: FakePi, name: string): RegisteredCommand {
 	const command = pi.commands.get(name);
 	if (command === undefined) throw new Error(`Expected command to be registered: ${name}`);
 	return command;
+}
+
+function expectSingleCommandOutput(
+	messages: readonly CustomMessage[],
+	expectedOutput: string,
+): void {
+	expect(messages).toHaveLength(1);
+	expect(String(messages[0]?.content)).toContain(expectedOutput);
 }
 
 function createContext(cwd: string): CommandContext {
@@ -171,8 +190,7 @@ describe("sdl Pi extension", () => {
 			}
 		}
 
-		expect(pi.sentMessages).toHaveLength(1);
-		expect(String(pi.sentMessages[0]?.content)).toContain("pi-custom-changes");
+		expectSingleCommandOutput(pi.sentMessages, "pi-custom-changes");
 	});
 
 	test("runs sdl cp through the direct SDL mirror only", async () => {
@@ -192,8 +210,7 @@ describe("sdl Pi extension", () => {
 			}
 		}
 
-		expect(pi.sentMessages).toHaveLength(1);
-		expect(String(pi.sentMessages[0]?.content)).toContain("pi-custom-cp");
+		expectSingleCommandOutput(pi.sentMessages, "pi-custom-cp");
 		expect(pi.commands.has("sdl:code:cp")).toBe(false);
 	});
 
@@ -214,8 +231,7 @@ describe("sdl Pi extension", () => {
 			}
 		}
 
-		expect(pi.sentMessages).toHaveLength(1);
-		expect(String(pi.sentMessages[0]?.content)).toContain("pi-custom-autobranch");
+		expectSingleCommandOutput(pi.sentMessages, "pi-custom-autobranch");
 		expect(pi.commands.has("sdl:code:autobranch")).toBe(false);
 	});
 
@@ -236,8 +252,7 @@ describe("sdl Pi extension", () => {
 			}
 		}
 
-		expect(pi.sentMessages).toHaveLength(1);
-		expect(String(pi.sentMessages[0]?.content)).toContain("pi-custom-submit");
+		expectSingleCommandOutput(pi.sentMessages, "pi-custom-submit");
 		expect(pi.commands.has("sdl:code:submit")).toBe(false);
 	});
 
@@ -258,8 +273,7 @@ describe("sdl Pi extension", () => {
 			}
 		}
 
-		expect(pi.sentMessages).toHaveLength(1);
-		expect(String(pi.sentMessages[0]?.content)).toContain("pi-custom-regenerate-pr");
+		expectSingleCommandOutput(pi.sentMessages, "pi-custom-regenerate-pr");
 		expect(pi.commands.has("sdl:code:regenerate-pr")).toBe(false);
 	});
 
@@ -280,8 +294,7 @@ describe("sdl Pi extension", () => {
 			}
 		}
 
-		expect(pi.sentMessages).toHaveLength(1);
-		expect(String(pi.sentMessages[0]?.content)).toContain("pi-custom-push");
+		expectSingleCommandOutput(pi.sentMessages, "pi-custom-push");
 		expect(pi.commands.has("sdl:code:push")).toBe(false);
 	});
 });

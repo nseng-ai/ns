@@ -10,6 +10,7 @@ import {
 } from "@sdl/core/brmem-cli";
 import { formatCommand, formatShellArg } from "@sdl/core/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
+import { sendCommandProgressOrNotify } from "@sdl/pi-extension-runtime/command-ack";
 import {
 	generateBranchSlug,
 	MAX_BRANCH_SLUG_LENGTH,
@@ -94,7 +95,7 @@ export async function handleCccSlotDispatchPrompt(
 	}
 
 	await ctx.waitForIdle();
-	ctx.ui.notify("Generating branch name…", "info");
+	sendCommandProgressOrNotify(pi, ctx, "Generating branch name…");
 
 	const branch = await createTrackedBranchForPrompt(pi, ctx.cwd, prompt);
 	if ("error" in branch) {
@@ -102,7 +103,7 @@ export async function handleCccSlotDispatchPrompt(
 		return;
 	}
 
-	ctx.ui.notify("Storing dispatch prompt in Branch Memory…", "info");
+	sendCommandProgressOrNotify(pi, ctx, "Storing dispatch prompt in Branch Memory…");
 	const stored = await storeDispatchPromptPayload({
 		pi,
 		cwd: ctx.cwd,
