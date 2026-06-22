@@ -3,6 +3,10 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
+const SQLITE_TEST_TIMEOUT_MS = 10_000;
+const TEMP_ROOT_CLEANUP_RETRIES = 5;
+const TEMP_ROOT_CLEANUP_RETRY_DELAY_MS = 100;
+
 export interface MetadataBranchRow {
 	branchName: string;
 	parentBranchName?: string;
@@ -45,7 +49,7 @@ export function runSqliteStatements(dbPath: string, statements: readonly string[
 	const result = spawnSync("sqlite3", [dbPath], {
 		encoding: "utf8",
 		input: statements.join("\n"),
-		timeout: 1_000,
+		timeout: SQLITE_TEST_TIMEOUT_MS,
 	});
 	if (result.error !== undefined || result.status !== 0) {
 		throw new Error(`sqlite3 failed: ${result.error?.message ?? result.stderr}`);
@@ -60,7 +64,7 @@ export function readGraphiteMetadataChildren(gitDir: string, branch: string): st
 			join(gitDir, ".graphite_metadata.db"),
 			`SELECT children FROM branch_metadata WHERE branch_name = ${sqliteTextLiteral(branch)} LIMIT 1`,
 		],
-		{ encoding: "utf8", timeout: 1_000 },
+		{ encoding: "utf8", timeout: SQLITE_TEST_TIMEOUT_MS },
 	);
 	if (result.error !== undefined || result.status !== 0) {
 		throw new Error(`sqlite3 failed: ${result.error?.message ?? result.stderr}`);
@@ -140,6 +144,11 @@ export async function withTempRoot<T>(
 	try {
 		return await run(root);
 	} finally {
-		rmSync(root, { recursive: true, force: true });
+		rmSync(root, {
+			recursive: true,
+			force: true,
+			maxRetries: TEMP_ROOT_CLEANUP_RETRIES,
+			retryDelay: TEMP_ROOT_CLEANUP_RETRY_DELAY_MS,
+		});
 	}
 }

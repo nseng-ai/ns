@@ -10,6 +10,8 @@ import type { LandStackExtensionAPI } from "../../src/land-stack/types.ts";
 
 const COMMAND_TIMEOUT_MS = 60_000;
 const REAL_GT_TEST_TIMEOUT_MS = 5 * 60_000;
+const TEMP_ROOT_CLEANUP_RETRIES = 5;
+const TEMP_ROOT_CLEANUP_RETRY_DELAY_MS = 100;
 
 interface TempGraphiteRepo {
 	repoRoot: string;
@@ -96,7 +98,12 @@ async function withTempGraphiteRepo(run: (repo: TempGraphiteRepo) => Promise<voi
 		await initializeGraphiteStack(repoRoot, env);
 		await run({ repoRoot, env });
 	} finally {
-		await rm(tempRoot, { recursive: true, force: true });
+		await rm(tempRoot, {
+			recursive: true,
+			force: true,
+			maxRetries: TEMP_ROOT_CLEANUP_RETRIES,
+			retryDelay: TEMP_ROOT_CLEANUP_RETRY_DELAY_MS,
+		});
 	}
 }
 
