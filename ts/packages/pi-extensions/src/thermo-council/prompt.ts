@@ -5,7 +5,7 @@ export function buildReviewerPrompt(
 	scope: ThermoCouncilScope,
 	seat: ThermoCouncilSeatConfig,
 ): string {
-	const diffNotice = scope.diffTruncated
+	const diffNotice = scope.isDiffTruncated
 		? `The diff below was truncated to ${DIFF_PROMPT_LIMIT_CHARS} characters. Use the read tool for focused nearby context from changed files only.`
 		: "The full git diff is included below.";
 	return [

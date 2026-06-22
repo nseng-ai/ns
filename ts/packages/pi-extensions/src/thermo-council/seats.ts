@@ -1,6 +1,13 @@
 import type { ThermoCouncilSeatConfig } from "../thermo-council-contract.ts";
 import type { DefaultSeat, EnvReader } from "./types.ts";
 
+interface ModelOverrideOptions {
+	readonly seatSpecific: string | undefined;
+	readonly positional: string | undefined;
+	readonly defaultModel: string;
+	readonly label: string;
+}
+
 const DEFAULT_SEATS = [
 	{
 		id: "anthropic-opus",
@@ -27,7 +34,12 @@ export function parseThermoCouncilSeats(env: EnvReader): readonly ThermoCouncilS
 	return DEFAULT_SEATS.map((seat, index) => ({
 		id: seat.id,
 		label: seat.label,
-		model: modelOverride(env.get(seat.envVar), positionalModels[index], seat.model, seat.label),
+		model: modelOverride({
+			seatSpecific: env.get(seat.envVar),
+			positional: positionalModels[index],
+			defaultModel: seat.model,
+			label: seat.label,
+		}),
 	}));
 }
 
@@ -41,12 +53,12 @@ function parsePositionalModels(value: string | undefined): readonly string[] {
 	return entries;
 }
 
-function modelOverride(
-	seatSpecific: string | undefined,
-	positional: string | undefined,
-	defaultModel: string,
-	label: string,
-): string {
+function modelOverride({
+	seatSpecific,
+	positional,
+	defaultModel,
+	label,
+}: ModelOverrideOptions): string {
 	const candidate = seatSpecific?.trim() || positional?.trim() || defaultModel;
 	if (candidate.length === 0) throw new Error(`Empty model override for ${label}.`);
 	return candidate;

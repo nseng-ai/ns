@@ -27,6 +27,13 @@ import type { EnvReader, ThermoCouncilCommandContext, ThermoCouncilExtensionAPI 
 
 const STATUS_KEY = THERMO_COUNCIL_COMMAND_NAME;
 
+interface LaunchThermoCouncilReviewerOptions {
+	readonly pi: ThermoCouncilExtensionAPI;
+	readonly ctx: ThermoCouncilCommandContext;
+	readonly scope: ThermoCouncilScope;
+	readonly seat: ThermoCouncilSeatConfig;
+}
+
 export async function runThermoCouncilCommand(
 	pi: ThermoCouncilExtensionAPI,
 	ctx: ThermoCouncilCommandContext,
@@ -43,7 +50,7 @@ export async function runThermoCouncilCommand(
 		const seats = parseThermoCouncilSeats(processEnvReader());
 		setStatus(ctx, `launching ${seats.length} council seats…`);
 		const outcomes = await Promise.all(
-			seats.map((seat) => launchThermoCouncilReviewer(pi, ctx, scopeResult.scope, seat)),
+			seats.map((seat) => launchThermoCouncilReviewer({ pi, ctx, scope: scopeResult.scope, seat })),
 		);
 		setStatus(ctx, "synthesizing thermo council report…");
 		const report = renderThermoCouncilReport(scopeResult.scope, outcomes);
@@ -59,12 +66,12 @@ export async function runThermoCouncilCommand(
 	}
 }
 
-async function launchThermoCouncilReviewer(
-	pi: ThermoCouncilExtensionAPI,
-	ctx: ThermoCouncilCommandContext,
-	scope: ThermoCouncilScope,
-	seat: ThermoCouncilSeatConfig,
-): Promise<ThermoCouncilReviewerOutcome> {
+async function launchThermoCouncilReviewer({
+	pi,
+	ctx,
+	scope,
+	seat,
+}: LaunchThermoCouncilReviewerOptions): Promise<ThermoCouncilReviewerOutcome> {
 	const runnerCtx: RunnerSubagentContext = {
 		cwd: ctx.cwd,
 		...(ctx.signal === undefined ? {} : { signal: ctx.signal }),

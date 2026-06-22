@@ -25,7 +25,7 @@ export interface ThermoCouncilScope {
 	readonly diffStat: string;
 	readonly changedFiles: readonly string[];
 	readonly diffText: string;
-	readonly diffTruncated: boolean;
+	readonly isDiffTruncated: boolean;
 	readonly rubricText: string;
 }
 

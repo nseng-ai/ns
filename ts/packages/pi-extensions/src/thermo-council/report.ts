@@ -25,7 +25,7 @@ export function renderThermoCouncilReport(
 		`- Base: ${scope.baseRef} (${scope.baseSha})`,
 		`- Head: ${scope.headRef} (${scope.headSha})`,
 		`- Changed files: ${scope.changedFiles.length}`,
-		`- Diff included in reviewer prompts: ${scope.diffTruncated ? "truncated" : "full"}`,
+		`- Diff included in reviewer prompts: ${scope.isDiffTruncated ? "truncated" : "full"}`,
 		"",
 		"```text",
 		scope.diffStat,

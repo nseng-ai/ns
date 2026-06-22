@@ -132,7 +132,7 @@ function baseScope(overrides: Partial<ThermoCouncilScope> = {}): ThermoCouncilSc
 		diffStat: " src/file.ts | 2 ++",
 		changedFiles: ["src/file.ts"],
 		diffText: "diff --git a/src/file.ts b/src/file.ts",
-		diffTruncated: false,
+		isDiffTruncated: false,
 		rubricText: "Review strictly.",
 		...overrides,
 	};
@@ -225,6 +225,21 @@ describe("thermo council extension", () => {
 		expect(pi.runnerCalls).toEqual([]);
 		expect(pi.messages[0]?.content).toContain("Dirty worktree");
 		expect(pi.messages[0]?.content).toContain("No branches were created");
+	});
+
+	test("formats git failures through the shared exec failure helper", async () => {
+		const pi = new FakePi({
+			execResults: new Map([["git status --short", { stdout: "" }]]),
+		});
+		thermoCouncilExtension(pi);
+
+		await pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.handler("origin/master", fakeContext());
+
+		expect(pi.runnerCalls).toEqual([]);
+		expect(pi.messages[0]?.content).toContain("git command failed (exit code 1)");
+		expect(pi.messages[0]?.content).toContain("Command: git rev-parse --show-toplevel");
+		expect(pi.messages[0]?.content).toContain("----- stderr tail -----");
+		expect(pi.messages[0]?.content).toContain("missing fake exec");
 	});
 
 	test("launches three read-only terminal-capture reviewer seats and renders a report", async () => {
