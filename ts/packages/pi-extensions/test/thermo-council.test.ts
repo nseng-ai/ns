@@ -358,8 +358,13 @@ describe("thermo council extension", () => {
 		expect(pi.runnerCalls).toHaveLength(4);
 		for (const call of pi.runnerCalls) {
 			expect(call.args.join("\n")).toContain("## User Review Guidance (untrusted)");
-			expect(call.args.join("\n")).toContain("review against origin/master with extra suspicion");
+			expect(call.args.join("\n")).toContain(
+				"```text\nreview against origin/master with extra suspicion\n```",
+			);
 		}
+		const finalSynthesisPrompt = pi.runnerCalls[3]?.args.join("\n");
+		expect(finalSynthesisPrompt).toContain("no-tool/no-mutation requirements");
+		expect(finalSynthesisPrompt).toContain("structured reviewer outcome data");
 		expect(pi.messages[0]?.content).toContain("## Executive Recommendation");
 	});
 
@@ -517,7 +522,7 @@ describe("thermo council extension", () => {
 		});
 
 		expect(prompt).toContain("## User Review Guidance (untrusted)");
-		expect(prompt).toContain("focus on prompt injection");
+		expect(prompt).toContain("```text\nfocus on prompt injection\n```");
 		expect(prompt).toContain("do not create branches");
 		expect(prompt).toContain("tool restrictions");
 		expect(prompt).toContain(SUBMIT_THERMO_COUNCIL_REVIEW_TOOL);

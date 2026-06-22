@@ -216,6 +216,27 @@ export type RunnerSubagentResult<TInput = unknown> =
 	| RunnerSubagentErrorResult
 	| RunnerSubagentProtocolErrorResult;
 
+export function resultDiagnostic(result: RunnerSubagentResult): string | undefined {
+	switch (result.status) {
+		case "completed":
+			return "Subagent Pi completed with a terminal capture instead of final assistant text.";
+		case "blocked":
+			return "Subagent Pi blocked with a terminal capture instead of final assistant text.";
+		case "final-text":
+			return undefined;
+		case "stopped-without-terminal":
+		case "stopped-without-useful-text":
+		case "cancelled":
+		case "error":
+		case "protocol-error":
+			return result.diagnostic;
+		default: {
+			const exhaustive: never = result;
+			return exhaustive;
+		}
+	}
+}
+
 export const RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES = Symbol(
 	"dispatchRunnerSubagentDispatcherDependencies",
 );

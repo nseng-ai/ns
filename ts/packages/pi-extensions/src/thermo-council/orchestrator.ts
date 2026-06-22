@@ -16,6 +16,7 @@ import {
 } from "../thermo-council-contract.ts";
 import {
 	dispatchRunnerSubagent,
+	resultDiagnostic,
 	runnerSubagentPrimaryActivityPreview,
 	type JsonObject,
 	type RunnerSubagentContext,
@@ -270,7 +271,7 @@ export function reviewerOutcomeFromRunnerResult(
 		};
 	}
 
-	return failedOutcome(seat, result.sessionFile, failureDiagnostic(result));
+	return failedOutcome(seat, result.sessionFile, reviewerFailureDiagnostic(result));
 }
 
 function failedOutcome(
@@ -286,20 +287,10 @@ function failedOutcome(
 	};
 }
 
-function failureDiagnostic(result: RunnerSubagentResult<JsonObject>): string {
-	switch (result.status) {
-		case "cancelled":
-		case "error":
-		case "protocol-error":
-		case "stopped-without-terminal":
-		case "stopped-without-useful-text":
-			return result.diagnostic;
-		case "final-text":
-			return "Reviewer returned final text instead of terminal capture.";
-		case "completed":
-		case "blocked":
-			return `Unexpected reviewer result status: ${result.status}.`;
-	}
+function reviewerFailureDiagnostic(result: RunnerSubagentResult<JsonObject>): string {
+	if (result.status === "final-text")
+		return "Reviewer returned final text instead of terminal capture.";
+	return resultDiagnostic(result) ?? `Unexpected reviewer result status: ${result.status}.`;
 }
 
 function normalizeReview(data: z.infer<typeof reviewSchema>): ThermoCouncilReview {

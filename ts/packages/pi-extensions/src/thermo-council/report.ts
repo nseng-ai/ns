@@ -18,8 +18,7 @@ export function renderThermoCouncilReport(
 	const mainFindings = clusters.filter((cluster) => cluster.support.length > 1);
 	const singleFindings = clusters.filter((cluster) => cluster.support.length === 1);
 	return [
-		"# Thermo Council Report",
-		"",
+		...renderReportIntro(),
 		"## Scope",
 		`- Working directory: ${scope.cwd}`,
 		`- Base: ${scope.baseRef} (${scope.baseSha})`,
@@ -78,10 +77,9 @@ export function renderFinalSynthesisFailureReport({
 	sessionFile,
 }: RenderFinalSynthesisFailureReportOptions): string {
 	return [
-		"# Thermo Council Report",
-		"",
-		"/thermo-council reviewer seats completed, but the mandatory final synthesis pass did not produce a usable report.",
-		"",
+		...renderReportIntro(
+			"/thermo-council reviewer seats completed, but the mandatory final synthesis pass did not produce a usable report.",
+		),
 		"## Scope",
 		`- Working directory: ${scope.cwd}`,
 		`- Base: ${scope.baseRef} (${scope.baseSha})`,
@@ -103,16 +101,19 @@ export function renderFinalSynthesisFailureReport({
 
 export function renderFatalReport(message: string): string {
 	return [
-		"# Thermo Council Report",
-		"",
-		"/thermo-council stopped before launching reviewer seats.",
-		"",
+		...renderReportIntro("/thermo-council stopped before launching reviewer seats."),
 		"## Reason",
 		message,
 		"",
 		"## Safety Notes",
 		SAFETY_NOTE,
 	].join("\n");
+}
+
+function renderReportIntro(intro?: string): readonly string[] {
+	return intro === undefined
+		? ["# Thermo Council Report", ""]
+		: ["# Thermo Council Report", "", intro, ""];
 }
 
 function renderFindingClusters(clusters: readonly FindingCluster[]): readonly string[] {
@@ -216,10 +217,9 @@ function renderAllSeatsFailedReport(
 	outcomes: readonly ThermoCouncilReviewerOutcome[],
 ): string {
 	return [
-		"# Thermo Council Report",
-		"",
-		"No council seat completed, so /thermo-council did not synthesize review findings.",
-		"",
+		...renderReportIntro(
+			"No council seat completed, so /thermo-council did not synthesize review findings.",
+		),
 		"## Scope",
 		`- Base: ${scope.baseRef} (${scope.baseSha})`,
 		`- Head: ${scope.headRef} (${scope.headSha})`,

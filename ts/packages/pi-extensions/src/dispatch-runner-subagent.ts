@@ -13,6 +13,7 @@ import {
 import { resolveRunnerSubagentLaunch } from "./runner-subagent/subagent-process.ts";
 import {
 	dispatchRunnerSubagent,
+	resultDiagnostic,
 	type RunnerSubagentLaunchMetadata,
 	type RunnerSubagentPi,
 	type RunnerSubagentProgress,
@@ -30,6 +31,9 @@ import {
 	runnerSubagentSessionFileText,
 } from "./runner-subagent/presentation.ts";
 import { formatRunnerSubagentActivityWidgetLines } from "./runner-subagent/widget.ts";
+
+export { resultDiagnostic } from "./runner-subagent.ts";
+
 export const DISPATCH_RUNNER_SUBAGENT_TOOL_NAME = "dispatch_runner_subagent";
 export const MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS = 48_000;
 
@@ -349,27 +353,6 @@ export function formatDispatchRunnerSubagentProgress(progress: RunnerSubagentPro
 		...(progress.launch === undefined ? [] : [formatLaunchLine(progress.launch)]),
 		`Session file: ${runnerSubagentSessionFileText(progress)}`,
 	].join("\n");
-}
-
-export function resultDiagnostic(result: RunnerSubagentResult): string | undefined {
-	switch (result.status) {
-		case "completed":
-			return "Subagent Pi completed with a terminal capture instead of final assistant text.";
-		case "blocked":
-			return "Subagent Pi blocked with a terminal capture instead of final assistant text.";
-		case "final-text":
-			return undefined;
-		case "stopped-without-terminal":
-		case "stopped-without-useful-text":
-		case "cancelled":
-		case "error":
-		case "protocol-error":
-			return result.diagnostic;
-		default: {
-			const exhaustive: never = result;
-			return exhaustive;
-		}
-	}
 }
 
 function initialDispatchProgress(
