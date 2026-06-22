@@ -3488,7 +3488,7 @@ describe("loadStackSnapshot reconciles Graphite metadata against live local refs
 		const dbRows = metadataDbJson([
 			{ branch: TRUNK, children: ["feature-a"], trunk: true },
 			{ branch: "feature-a", parent: TRUNK, children: ["feature-b"] },
-			{ branch: "feature-b", parent: "feature-a", children: ["phantom"] },
+			{ branch: "feature-b", parent: "feature-a", children: ["phantom;touch-owned"] },
 		]);
 
 		const snapshot = expectSuccess(await loadSnapshot(dbRows, [TRUNK, "feature-a", "feature-b"]));
@@ -3497,7 +3497,9 @@ describe("loadStackSnapshot reconciles Graphite metadata against live local refs
 		expect(snapshot.descendantBranches).toEqual([]);
 		expect(
 			snapshot.warnings.some(
-				(warning) => warning.includes("phantom") && warning.includes("gt untrack phantom"),
+				(warning) =>
+					warning.includes("phantom;touch-owned") &&
+					warning.includes("gt untrack 'phantom;touch-owned'"),
 			),
 		).toBe(true);
 	});
