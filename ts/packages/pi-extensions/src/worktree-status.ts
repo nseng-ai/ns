@@ -57,7 +57,6 @@ import { renderStatusFooter } from "./worktree-status-footer-format.ts";
 export const WORKTREE_STATUS_REFRESH_COMMAND_NAME = "pi:worktree-status-refresh";
 
 const GH_STATUS_BACKGROUND_REFRESH_MIN_INTERVAL_MS = 30_000;
-const WORKTREE_STATUS_COUNTDOWN_RENDER_INTERVAL_MS = 1_000;
 
 const WORKTREE_STATUS_TOOL_REFRESH_NAMES = new Set(["bash", "edit", "write"]);
 
@@ -330,7 +329,6 @@ export default function worktreeStatusExtension(
 	let nextSessionId = 0;
 	let activeSession: ActiveSession | undefined;
 	let lastLinesKey: string | undefined;
-	let countdownRenderTimer: WorktreeStatusRefreshTimer | undefined;
 	let requestFooterRender: (() => void) | undefined;
 
 	function isActiveSession(session: ActiveSession): boolean {
@@ -384,26 +382,6 @@ export default function worktreeStatusExtension(
 				void refreshSession(session, { remoteRefresh: "cached" });
 			},
 		});
-		countdownRenderTimer = createWorktreeStatusRefreshTimer({
-			timers,
-			clock,
-			isActive: () => isActiveSession(session),
-			onTick: async () => {
-				if (nextGhRefreshCountdownMs(session) !== undefined) requestFooterRender?.();
-			},
-			intervalMs: WORKTREE_STATUS_COUNTDOWN_RENDER_INTERVAL_MS,
-		});
-	}
-
-	function clearCountdownRenderTimer(): void {
-		countdownRenderTimer?.close();
-		countdownRenderTimer = undefined;
-	}
-
-	function nextGhRefreshCountdownMs(session: ActiveSession): number | undefined {
-		const nextTickAtMs = session.refreshTimer?.nextTickAtMs();
-		if (nextTickAtMs === undefined) return undefined;
-		return Math.max(0, nextTickAtMs - clock.nowMs());
 	}
 
 	function closeActiveSession(): void {
@@ -411,7 +389,6 @@ export default function worktreeStatusExtension(
 		if (session !== undefined) {
 			session.closed = true;
 			session.abortController.abort();
-			clearCountdownRenderTimer();
 			session.refreshTimer?.close();
 			session.refreshTimer = undefined;
 			session.activityController?.close();
@@ -593,7 +570,6 @@ export default function worktreeStatusExtension(
 				render(width) {
 					const cwd = session.ctx.sessionManager?.getCwd() ?? session.ctx.cwd;
 					const branch = loaders.readFooterBranch(cwd, footerData) ?? "unknown";
-					const ghRefreshCountdownMs = nextGhRefreshCountdownMs(session);
 					return isActiveSession(session)
 						? renderStatusFooter({
 								ctx: session.ctx,
@@ -605,7 +581,6 @@ export default function worktreeStatusExtension(
 								fallbackRepo: fallbackRepoName(cwd),
 								worktreeStatus: combinedSessionStatus(session),
 								...(session.isDormant ? { isWorktreeStatusDormant: true } : {}),
-								...(ghRefreshCountdownMs === undefined ? {} : { ghRefreshCountdownMs }),
 							})
 						: [];
 				},
@@ -723,7 +698,6 @@ export default function worktreeStatusExtension(
 		await refreshSession(session, { remoteRefresh: "force" });
 		if (isActiveSession(session)) {
 			session.refreshTimer?.resume();
-			countdownRenderTimer?.resume();
 			requestFooterRender?.();
 		}
 	});

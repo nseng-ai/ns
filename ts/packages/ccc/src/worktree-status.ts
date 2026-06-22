@@ -21,7 +21,6 @@ import {
 	type GithubReviewThreadCounts,
 } from "@sdl/core/github-status";
 import { formatErrorMessage } from "@sdl/core/primitives";
-import { formatCountdownMs } from "@sdl/core/time-format";
 import { parseMachineEnvelopeData } from "@sdl/pi-extension-runtime/machine-envelope";
 import {
 	customMessageText,
@@ -642,7 +641,6 @@ export interface StatusTheme {
 
 export interface FormatWorktreeStatusOptions {
 	readonly theme?: StatusTheme | undefined;
-	readonly ghRefreshCountdownMs?: number | undefined;
 	readonly isDormant?: boolean | undefined;
 }
 
@@ -796,11 +794,6 @@ function formatGhPrDetailPieces(
 function appendGhPrStatusAnnotation(pieces: string[], options: FormatWorktreeStatusOptions): void {
 	if (options.isDormant === true) {
 		pieces.push(formatColoredSegment(DORMANT_GH_STATUS_ANNOTATION_TEXT, "dim", options.theme));
-	} else if (options.ghRefreshCountdownMs !== undefined) {
-		pieces.push(
-			formatColoredSegment(" · refresh ", "dim", options.theme),
-			formatColoredSegment(formatCountdownMs(options.ghRefreshCountdownMs), "dim", options.theme),
-		);
 	}
 }
 

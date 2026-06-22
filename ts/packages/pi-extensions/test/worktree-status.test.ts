@@ -236,7 +236,7 @@ describe("worktree status extension registration and rendering", () => {
 		await pi.sessionShutdown?.();
 	});
 
-	test("custom footer shows gh refresh countdown and resets after manual refresh", async () => {
+	test("custom footer omits gh refresh countdown", async () => {
 		const harness = createManualTimerHarness();
 		const availableGhStatus: WorktreeGhStatus = {
 			type: "available",
@@ -282,20 +282,20 @@ describe("worktree status extension registration and rendering", () => {
 			footerData(statuses, "feature/current"),
 		);
 		expect(footer.render(200).map(stripTerminalEscapes)).toContain(
-			"[gh] #1907 · comments 1/1 · actions 4⏳ · refresh 10s",
+			"[gh] #1907 · comments 1/1 · actions 4⏳",
 		);
 
 		harness.advanceMs(5_000);
 		await flushPromises();
-		expect(renderRequestCount).toBeGreaterThan(0);
+		expect(renderRequestCount).toBe(0);
 		expect(footer.render(200).map(stripTerminalEscapes)).toContain(
-			"[gh] #1907 · comments 1/1 · actions 4⏳ · refresh 5s",
+			"[gh] #1907 · comments 1/1 · actions 4⏳",
 		);
 
 		await command.handler("", ctx);
 
 		expect(footer.render(200).map(stripTerminalEscapes)).toContain(
-			"[gh] #1907 · comments 1/1 · actions 4⏳ · refresh 10s",
+			"[gh] #1907 · comments 1/1 · actions 4⏳",
 		);
 		pi.assertDone();
 		await pi.sessionShutdown?.();
