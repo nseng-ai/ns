@@ -2,6 +2,7 @@ import type { z } from "zod";
 
 import { runCommand, type CommandRunner, type ExecResult } from "../exec.ts";
 import { GITHUB_CLI_TIMEOUT_MS, runGitHubCli, type RunGitHubCliResult } from "../github-cli.ts";
+import type { MaybePromise } from "../primitives.ts";
 import type { Result } from "../result.ts";
 
 import {
@@ -71,8 +72,6 @@ type GhJsonParser<T> = (
 	schema: z.ZodType<T>,
 	context: GithubPrFeedbackFailureContext,
 ) => Result<T, GithubPrFeedbackFailure>;
-
-type MaybePromise<T> = T | Promise<T>;
 
 interface GraphqlPageInfo {
 	readonly hasNextPage: boolean;

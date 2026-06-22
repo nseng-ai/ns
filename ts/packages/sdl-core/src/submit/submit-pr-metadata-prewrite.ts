@@ -1,5 +1,6 @@
 import { runCommand, stripTerminalEscapes, type CommandRunner, type ExecResult } from "../exec.ts";
 import type { GitGateway } from "../git/index.ts";
+import type { MaybePromise } from "../primitives.ts";
 
 import { commandFailure } from "./command-failure.ts";
 import { formatItemCount } from "./format.ts";
@@ -55,8 +56,6 @@ interface SubmitStackBranchInfo {
 	parentBranch: string;
 	output: string;
 }
-
-type MaybePromise<T> = T | Promise<T>;
 
 type ParentBranchWalkStep<T> =
 	| { readonly type: "visit"; readonly parentBranch: string | undefined; readonly item: T }
@@ -221,6 +220,8 @@ export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 		return ok(undefined);
 	}
 
+	// Submit metadata walks parent branches lazily through `gt branch info` so it can stop at
+	// trunk without loading or trusting a full Graphite topology.
 	private async readSubmitBranchInfos(
 		cwd: string,
 		currentBranch: string,
