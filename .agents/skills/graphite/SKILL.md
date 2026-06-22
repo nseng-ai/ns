@@ -34,6 +34,7 @@ Work with Graphite (`gt`) for creating, navigating, and managing stacked pull re
 | Change branch parent | `gt track --parent <branch>` |
 | Rename current branch | `gt rename <new-name>` |
 | Move branch in stack | `gt move` |
+| Stop tracking a branch (keep the branch) | `gt untrack <branch> --force` |
 
 ---
 
@@ -255,6 +256,7 @@ enable the frontend warning (PR 2) to display it.
 | Problem | Solution |
 |---------|----------|
 | "Cannot perform this operation on untracked branch" | Run `gt track -p main` first |
+| Stale/dangling tracked branch (deleted in git, still in `gt` metadata) | `gt untrack <branch> --force` (see Untracking below) |
 | Stack parented on wrong branch | Use `gt track -p main` then `gt restack` |
 | Need to reorder PRs | Use `gt move` |
 | Conflicts during restack | Resolve conflicts, then `git rebase --continue` |
@@ -342,3 +344,15 @@ gt delete branch-to-delete -f -q --downstack
 gt checkout child-branch
 gt track --parent new-parent-branch
 ```
+
+### Untracking Branches (`gt untrack`)
+
+`gt untrack <branch>` stops Graphite from tracking a branch **without deleting the branch or its commits** — it edits only Graphite's metadata. Contrast with `gt delete`, which removes the branch itself.
+
+**Cascade gotcha (load-bearing):** `gt untrack <branch>` also untracks **all of that branch's children**. Untracking a branch partway up a stack silently drops tracking for everything above it. Only untrack a branch when you intend to drop its whole subtree, or when that subtree is already dead.
+
+- `-f` / `--force`: required to untrack a branch *that has children* without an interactive prompt.
+- For scripted use, combine with `--no-interactive`: `gt untrack <branch> --force --no-interactive`.
+- Untracking an already-untracked branch errors with "Cannot perform this operation on untracked branch" — when scripting a loop, treat that error as already-clean (a prior cascade may have removed it).
+
+**Reconciling stale/dangling metadata:** `gt`'s own plumbing (`gt ls`, `gt children`) silently hides tracked branches whose `refs/heads/<name>` no longer exists. Tooling that reads Graphite's metadata DB directly can still see these *dangling* branches. `gt untrack <dangling-branch>` reconciles the stored metadata to what `gt` already shows. Before untracking a dangling branch, confirm none of its metadata children still has a live local ref — otherwise the cascade will untrack a live branch too.

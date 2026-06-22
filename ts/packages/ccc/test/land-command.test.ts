@@ -23,12 +23,18 @@ const PR_VIEW_ARGS = [
 const PR_VIEW_TIMEOUT_MS = 30_000;
 const PR_MERGE_TIMEOUT_MS = 120_000;
 const GIT_TIMEOUT_MS = 30_000;
+const CORE_GIT_TIMEOUT_MS = 10_000;
 const GT_TIMEOUT_MS = 120_000;
 const SQLITE_TIMEOUT_MS = 30_000;
 const GIT_ROOT_ARGS = ["rev-parse", "--show-toplevel"];
 const GIT_CURRENT_ARGS = ["symbolic-ref", "--short", "HEAD"];
 const GT_TRUNK_ARGS = ["trunk", "--no-interactive"];
 const GIT_COMMON_DIR_ARGS = ["rev-parse", "--path-format=absolute", "--git-common-dir"];
+const GIT_FOR_EACH_REF_ARGS = [
+	"for-each-ref",
+	"--format=%(refname:short)%09%(committerdate:iso-strict)",
+	"refs/heads",
+];
 const DB_PATH = `${ROOT}/.git/.graphite_metadata.db`;
 const TOPOLOGY_ARGS = topologyArgs(DB_PATH);
 
@@ -185,24 +191,43 @@ async function runLand(
 	return { pi, ...context };
 }
 
+function metadataBranchNames(dbRows: string): string[] {
+	const parsed = JSON.parse(dbRows) as Array<{ branch_name?: unknown }>;
+	return parsed
+		.map((row) => row.branch_name)
+		.filter((name): name is string => typeof name === "string");
+}
+
 function graphiteShapeSteps(dbRows: string): ScriptedExec[] {
+	const liveBranches = metadataBranchNames(dbRows);
 	return [
 		step("git", GIT_ROOT_ARGS, { stdout: `${ROOT}\n` }),
 		step("git", GIT_CURRENT_ARGS, { stdout: `${CURRENT}\n` }),
 		step("gt", GT_TRUNK_ARGS, { stdout: `${TRUNK}\n` }),
 		step("git", GIT_COMMON_DIR_ARGS, { stdout: `${ROOT}/.git\n` }),
 		step("sqlite3", TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
+		step("git", GIT_FOR_EACH_REF_ARGS, {
+			stdout: liveBranches.length > 0 ? `${liveBranches.join("\n")}\n` : "",
+		}),
 	];
 }
 
-function expectedShapeCalls(): ExecCall[] {
-	return [
+function expectedShapeCalls(options: { forEachRef?: boolean } = {}): ExecCall[] {
+	const calls: ExecCall[] = [
 		{ command: "git", args: GIT_ROOT_ARGS, options: { cwd: ROOT, timeout: GIT_TIMEOUT_MS } },
 		{ command: "git", args: GIT_CURRENT_ARGS, options: { cwd: ROOT, timeout: GIT_TIMEOUT_MS } },
 		{ command: "gt", args: GT_TRUNK_ARGS, options: { cwd: ROOT, timeout: GT_TIMEOUT_MS } },
 		{ command: "git", args: GIT_COMMON_DIR_ARGS, options: { cwd: ROOT, timeout: GIT_TIMEOUT_MS } },
 		{ command: "sqlite3", args: TOPOLOGY_ARGS, options: { cwd: ROOT, timeout: SQLITE_TIMEOUT_MS } },
 	];
+	if (options.forEachRef !== false) {
+		calls.push({
+			command: "git",
+			args: GIT_FOR_EACH_REF_ARGS,
+			options: { cwd: ROOT, timeout: CORE_GIT_TIMEOUT_MS },
+		});
+	}
+	return calls;
 }
 
 function prView(
@@ -402,7 +427,7 @@ describe("code land command", () => {
 			step("gh", expectedMergeArgs(), { code: 1, stdout: "merge stdout", stderr: "merge stderr" }),
 		]);
 
-		expect(pi.execCalls).toHaveLength(7);
+		expect(pi.execCalls).toHaveLength(8);
 		expect(notifications).toEqual([
 			{ message: "Running gh pr merge -s with PR title/body as commit message…", level: "info" },
 			{
@@ -429,7 +454,7 @@ describe("code land command", () => {
 			{ stack: false },
 		);
 
-		expect(pi.execCalls).toEqual(expectedShapeCalls());
+		expect(pi.execCalls).toEqual(expectedShapeCalls({ forEachRef: false }));
 		expect(notifications[0]?.message).toContain(
 			`Graphite metadata DB at ${DB_PATH} is missing or unreadable; refusing to land.`,
 		);

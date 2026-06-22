@@ -5,8 +5,10 @@ import {
 	detectGraphiteForkViolations,
 	graphiteTrunkMarkerStatus,
 	hasExpectedGraphiteBranchMetadataSchema,
+	filterLiveBranchNames,
 	parseGraphiteBranchMetadataRows,
 	parseGraphiteChildren,
+	reconcileTopologyToLiveBranches,
 	walkFirstChildGraphiteDescendants,
 	walkGraphiteAncestors,
 	walkGraphiteSubtree,
@@ -210,5 +212,93 @@ describe("Graphite metadata core", () => {
 			terminusState: "unmarked",
 			markedTrunks: ["main"],
 		});
+	});
+
+	test("filterLiveBranchNames partitions on live membership and preserves order", () => {
+		expect(filterLiveBranchNames(["a", "b", "c"], new Set(["a", "c"]))).toEqual({
+			kept: ["a", "c"],
+			dropped: ["b"],
+		});
+		expect(filterLiveBranchNames([], new Set(["a"]))).toEqual({ kept: [], dropped: [] });
+	});
+
+	test("reconciles the dangling-child incident shape", () => {
+		const topology = parseRows([
+			{ branch_name: "master", children: '["A"]', validation_result: "TRUNK" },
+			{ branch_name: "A", parent_branch_name: "master", children: '["B"]' },
+			{ branch_name: "B", parent_branch_name: "A", children: "[]" },
+		]);
+
+		const { topology: reconciled, droppedBranches } = reconcileTopologyToLiveBranches(
+			topology,
+			new Set(["master", "A"]),
+		);
+
+		expect(droppedBranches).toEqual(["B"]);
+		expect(reconciled.has("B")).toBe(false);
+		expect(reconciled.get("A")?.children).toEqual([]);
+		expect(reconciled.get("master")?.children).toEqual(["A"]);
+	});
+
+	test("drops a dead fork sibling while keeping live siblings", () => {
+		const topology = parseRows([
+			{ branch_name: "a", children: '["live", "dead"]' },
+			{ branch_name: "live", parent_branch_name: "a", children: "[]" },
+			{ branch_name: "dead", parent_branch_name: "a", children: "[]" },
+		]);
+
+		const oneDead = reconcileTopologyToLiveBranches(topology, new Set(["a", "live"]));
+		expect(oneDead.topology.get("a")?.children).toEqual(["live"]);
+		expect(oneDead.droppedBranches).toEqual(["dead"]);
+
+		const bothLive = reconcileTopologyToLiveBranches(topology, new Set(["a", "live", "dead"]));
+		expect(bothLive.topology.get("a")?.children).toEqual(["live", "dead"]);
+		expect(bothLive.droppedBranches).toEqual([]);
+	});
+
+	test("reports a branch dropped as both row and child only once", () => {
+		const topology = parseRows([
+			{ branch_name: "a", children: '["gone"]' },
+			{ branch_name: "gone", parent_branch_name: "a", children: "[]" },
+		]);
+
+		const { droppedBranches } = reconcileTopologyToLiveBranches(topology, new Set(["a"]));
+		expect(droppedBranches).toEqual(["gone"]);
+	});
+
+	test("preserves parent, trunk marker, and corruption on survivors without mutating input", () => {
+		const topology = parseRows([
+			{ branch_name: "main", children: '["a"]', validation_result: "TRUNK" },
+			{ branch_name: "a", parent_branch_name: "main", children: "not json" },
+		]);
+		const before = topology.get("main")?.children;
+
+		const { topology: reconciled } = reconcileTopologyToLiveBranches(
+			topology,
+			new Set(["main", "a"]),
+		);
+
+		expect(reconciled.get("main")).toMatchObject({ isTrunkMarked: true });
+		expect(reconciled.get("a")).toMatchObject({
+			parent: "main",
+			childrenCorruption: { branch: "a", kind: "invalid_json" },
+		});
+		// Input topology is untouched.
+		expect(topology.get("main")?.children).toBe(before);
+		expect(topology.has("a")).toBe(true);
+	});
+
+	test("empty live set drops everything", () => {
+		const topology = parseRows([
+			{ branch_name: "main", children: '["a"]', validation_result: "TRUNK" },
+			{ branch_name: "a", parent_branch_name: "main", children: "[]" },
+		]);
+
+		const { topology: reconciled, droppedBranches } = reconcileTopologyToLiveBranches(
+			topology,
+			new Set(),
+		);
+		expect(reconciled.size).toBe(0);
+		expect(droppedBranches).toEqual(["a", "main"]);
 	});
 });
