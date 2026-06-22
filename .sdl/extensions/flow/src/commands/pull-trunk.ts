@@ -7,6 +7,7 @@ export default defineExtension({
 	commands: [
 		{
 			name: "pull-trunk",
+			summary: "Pull the configured Graphite trunk branch without running full gt sync.",
 			description: "Pull the configured Graphite trunk branch without running full gt sync.",
 			schema: pullTrunkSchema,
 			run: async (ctx) => {
