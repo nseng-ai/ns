@@ -69,7 +69,7 @@ export interface BuildChildPiArgsInput {
 	runtimeExtensionPath?: string;
 	model?: string;
 	launch?: RunnerSubagentLaunchMetadata;
-	tools?: readonly string[];
+	normalizedTools?: readonly string[];
 }
 
 export interface SpawnChildProcessOptions {
@@ -232,7 +232,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 			: { runtimeExtensionPath: runtimeFiles.extensionPath }),
 		...(options.model === undefined ? {} : { model: options.model }),
 		...(launch === undefined ? {} : { launch }),
-		...(childToolAllowlist === undefined ? {} : { tools: childToolAllowlist }),
+		...(childToolAllowlist === undefined ? {} : { normalizedTools: childToolAllowlist }),
 	});
 	const invocation = resolvePiInvocation(childArgs, dependencies);
 	const spawnChildProcess = dependencies.spawn ?? defaultSpawnChildProcess;
@@ -444,8 +444,7 @@ export function buildChildPiArgs(input: BuildChildPiArgsInput): string[] {
 	args.push("--no-extensions");
 	if (input.runtimeExtensionPath !== undefined)
 		args.push("--extension", input.runtimeExtensionPath);
-	const tools = normalizeChildToolAllowlist(input.tools);
-	if (tools !== undefined) args.push("--tools", tools.join(","));
+	if (input.normalizedTools !== undefined) args.push("--tools", input.normalizedTools.join(","));
 	args.push("--session", input.sessionFile, input.prompt);
 	return args;
 }

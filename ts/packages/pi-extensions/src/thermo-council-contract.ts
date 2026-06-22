@@ -126,7 +126,6 @@ export const submitThermoCouncilReviewTool: RunnerSubagentTerminalToolDefinition
 					required: [
 						"id",
 						"title",
-						"files",
 						"evidence",
 						"problem",
 						"proposedFix",
@@ -134,7 +133,6 @@ export const submitThermoCouncilReviewTool: RunnerSubagentTerminalToolDefinition
 						"dependencyNotes",
 						"confidence",
 						"severity",
-						"validationHints",
 					],
 					additionalProperties: false,
 				},

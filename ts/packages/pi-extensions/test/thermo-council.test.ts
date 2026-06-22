@@ -272,6 +272,37 @@ describe("thermo council extension", () => {
 		expect(pi.messages[0]?.content).toContain("No branches were created");
 	});
 
+	test("accepts review findings that rely on array defaults", async () => {
+		const runnerResult: RuntimeResultV1 = {
+			version: 1,
+			kind: "terminal-capture",
+			toolName: SUBMIT_THERMO_COUNCIL_REVIEW_TOOL,
+			status: "completed",
+			input: {
+				findings: [
+					{
+						id: "1",
+						title: "Schema defaults are accepted",
+						evidence: "The reviewer omitted optional array fields.",
+						problem: "Callers should not have to repeat empty arrays.",
+						proposedFix: "Let the Zod defaults fill them in.",
+						behaviorRisk: "No runtime behavior risk.",
+						dependencyNotes: "None",
+						confidence: "likely",
+						severity: "medium",
+					},
+				],
+			},
+		};
+		const pi = new FakePi({ execResults: successfulScopeExecResults(), runnerResult });
+		thermoCouncilExtension(pi);
+
+		await pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.handler("origin/master", fakeContext());
+
+		expect(pi.messages[0]?.content).toContain("(none supplied)");
+		expect(pi.messages[0]?.content).toContain("No validation hints were supplied.");
+	});
+
 	test("reviewer prompt includes scope, rubric, diff, and capture contract", () => {
 		const prompt = buildReviewerPrompt(baseScope(), seat("anthropic-opus", "Anthropic Opus"));
 
