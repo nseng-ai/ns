@@ -189,7 +189,9 @@ The resource-surface cleanup proceeds in small slices:
 
 ## Exposing SDL CLI commands through Pi
 
-Durable headless developer commands should live in a native CLI first where practical, then be mirrored into Pi under the domain namespace chosen by the project: primary `/sdl:changes`, `/sdl:cp`, `/sdl:submit`, `/sdl:regenerate-pr`, and `/sdl:push` SDL mirrors; and nested `/sdl:code:*` surfaces only when the code-lifecycle taxonomy remains the selected surface.
+Durable headless developer commands should live in a native CLI first where practical, then be mirrored into Pi under the domain namespace chosen by the project: primary `/sdl:changes`, `/sdl:cp`, `/sdl:autobranch`, `/sdl:submit`, `/sdl:regenerate-pr`, and `/sdl:push` SDL mirrors; and nested `/sdl:code:*` surfaces only when the code-lifecycle taxonomy remains the selected surface.
+
+SDL extension discovery is currently CLI-only. Pi does not dynamically register arbitrary `/sdl:<name>` commands from `.sdl/extensions` at runtime; exact Pi mirrors are static engineered adapters over selected SDL commands and need package tests/parity metadata when added or renamed. Treat dynamic Pi mirror discovery as future SDL/Pi design work, not an implicit property of project-local SDL extensions.
 
 ## CCC workspace/sidebar pattern
 

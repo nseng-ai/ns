@@ -344,7 +344,7 @@ describe("RealGitBrmemGateway integration", () => {
 		}
 	});
 
-	it("skips corrupt Snapshot Entry Keys while listing without throwing", async () => {
+	it("skips invalid Snapshot Entry Keys while listing without throwing", async () => {
 		const repo = createTempGitRepo();
 		try {
 			const gateway = realGitBrmemGateway(repo.path);

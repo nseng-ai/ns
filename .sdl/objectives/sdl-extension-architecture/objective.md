@@ -83,10 +83,10 @@ Assumptions:
 Risks:
 
 - Removing built-in commands before restoring project-local equivalents did intentionally create a temporary availability gap for `cp`, `submit`, and `regenerate-pr`; this is accepted as first-slice architecture evidence and should be closed by later project-local migration rows rather than by restoring stubs or built-ins.
-- Restoring `changes` as a direct SDK-only extension required localized duplication of git snapshot loading, model prompt/default selection, model-output validation, and output formatting. This is acceptable one-command duplication for the first slice, but it is now concrete SDK-pressure evidence to compare against later command migrations.
-- Extensions may be forced to shell out or duplicate internal logic too much if the SDK is too thin. Mitigate by allowing duplication briefly, then promoting repeated pain into deep kernel interfaces with test coverage.
+- Restoring `changes` as a direct SDK-only extension required localized duplication of git snapshot loading, model prompt/default selection, model-output validation, and output formatting. The repeated worktree-git subset has now been extracted into extension-owned shared helpers under `.sdl/extensions/shared/`, which de-risks project-local readability without promoting that seam to public SDK yet; model prompt/default, model-output validation, and output-formatting duplication remain SDK-pressure evidence to compare against later command migrations.
+- Extensions may be forced to shell out or duplicate internal logic too much if the SDK is too thin. Mitigate by allowing duplication briefly, extracting extension-owned shared helpers when multiple project-local commands prove a readable local seam, then promoting repeated pain into deep kernel interfaces with test coverage only when the helper should become public author API.
 - The SDK may become overfit if every migrated command's convenience helper is exposed publicly. Mitigate by requiring concrete reuse evidence or a documented necessity before promotion.
-- Pi mirrors may drift from CLI discovery if they continue to hardcode command names. Mitigate by treating Pi as an adapter over SDL discovery or explicitly documenting project-local static mirrors when dynamic Pi registration is not possible.
+- Pi mirrors may drift from CLI discovery if they continue to hardcode command names. The current mitigation is explicit documentation that project-local SDL extension discovery is CLI-only and exact `/sdl:*` mirrors are static engineered adapters requiring tests/parity metadata; dynamic Pi discovery remains future design work, not hidden current scope.
 - Closing `handoff-sdl-extension` may hide useful nested-command thinking. Mitigate by preserving it as a closed provenance Objective and parking Handoff as a future sophisticated workflow pressure test.
 
 ## Open Questions
@@ -94,5 +94,5 @@ Risks:
 - What is the smallest useful SDL kernel once all domain commands are removed?
 - Should project-local SDL command extensions eventually be able to contribute exact dynamic Pi mirrors, or should Pi keep static adapters for selected project commands?
 - Which repeated pain from `changes`, `cp`, `regenerate-pr`, and `submit` justifies first-class SDK interfaces for Git, GitHub, Branch Memory, model generation, output, confirmation, or command composition?
-- How should SDL document the difference between project-local extensions and future bundled first-party extensions?
+- Which parts of the documented project-local versus future bundled extension model should become follow-up Objectives rather than remaining parked design space?
 - After the command-first migration, which parked capability should become the first bundled/sophisticated extension pressure test: Handoff, Objectives, Slots, or another workflow?
