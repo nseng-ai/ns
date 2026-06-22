@@ -5,11 +5,14 @@ import {
   LEGACY_CHANGES_MODEL_ENV,
 } from "@sdl/sdl/text-generation";
 import { draftChangesSummary } from "./shared/text-helpers.ts";
-import type { ExecResult, SdlExtensionApi } from "@sdl/sdl/sdk";
+import {
+  formatPendingWorktreeError,
+  loadPendingWorktreeSnapshot,
+  type PendingWorktreeSnapshot,
+} from "./shared/worktree.ts";
 
 // This project-local extension uses the public SDL SDK plus internal migration
 // exports while duplicated workflow helpers move into package-owned modules.
-const GIT_FACT_TIMEOUT_MS = 30_000;
 const MAX_DISPLAY_FILE_LINES = 50;
 
 const CHANGES_COMMAND_DESCRIPTION = `Summarize outstanding worktree changes without committing.
@@ -20,20 +23,6 @@ Environment:
   ${CHANGES_MODEL_ENV}  Model reference for generated changes summaries. Defaults to ${DEFAULT_CHANGES_MODEL_REF}. Falls back to ${LEGACY_CHANGES_MODEL_ENV} when unset.
 
 The command owns human stdout/stderr, has no alternate output-format flag, and does not stage, commit, stash, switch branches, run Graphite, or call GitHub.`;
-
-interface PendingWorktreeSnapshot {
-  root: string;
-  branch: string;
-  status: string;
-  diff: string;
-  isClean: boolean;
-}
-
-type PendingWorktreeError =
-  | { kind: "not_git_repo"; result: ExecResult }
-  | { kind: "detached_head"; result: ExecResult }
-  | { kind: "status_failed"; result: ExecResult }
-  | { kind: "diff_failed"; result: ExecResult };
 
 export default defineExtension({
   commands: [
@@ -65,47 +54,6 @@ export default defineExtension({
     },
   ],
 });
-
-async function loadPendingWorktreeSnapshot(
-  ctx: SdlExtensionApi,
-): Promise<
-  { ok: true; snapshot: PendingWorktreeSnapshot } | { ok: false; error: PendingWorktreeError }
-> {
-  const root = await execGit(ctx, ["rev-parse", "--show-toplevel"]);
-  if (root.code !== 0) {
-    return { ok: false, error: { kind: "not_git_repo", result: root } };
-  }
-
-  const branch = await execGit(ctx, ["symbolic-ref", "--short", "HEAD"]);
-  if (branch.code !== 0) {
-    return { ok: false, error: { kind: "detached_head", result: branch } };
-  }
-
-  const status = await execGit(ctx, ["status", "--porcelain=v1"]);
-  if (status.code !== 0) {
-    return { ok: false, error: { kind: "status_failed", result: status } };
-  }
-
-  const diff = await execGit(ctx, ["diff", "HEAD", "--no-ext-diff"]);
-  if (diff.code !== 0) {
-    return { ok: false, error: { kind: "diff_failed", result: diff } };
-  }
-
-  return {
-    ok: true,
-    snapshot: {
-      root: root.stdout.trim(),
-      branch: branch.stdout.trim(),
-      status: status.stdout,
-      diff: diff.stdout,
-      isClean: status.stdout.trim().length === 0,
-    },
-  };
-}
-
-function execGit(ctx: SdlExtensionApi, args: string[]): Promise<ExecResult> {
-  return ctx.exec("git", args, { timeoutMs: GIT_FACT_TIMEOUT_MS });
-}
 
 function formatOutstandingChangesMessage(
   snapshot: PendingWorktreeSnapshot,
@@ -141,24 +89,4 @@ function displayFileLines(fileLines: readonly string[]): string[] {
     displayed.push(`... ${omitted} more file(s)`);
   }
   return displayed;
-}
-
-function formatPendingWorktreeError(error: PendingWorktreeError): string {
-  const details = formatPendingWorktreeCommandDetails(error.result);
-  if (error.kind === "not_git_repo") {
-    return `Not inside a git repository.\n${details}`;
-  }
-  if (error.kind === "detached_head") {
-    return `Could not determine current branch.\n${details}`;
-  }
-  if (error.kind === "status_failed") {
-    return `Could not inspect git status.\n${details}`;
-  }
-  return `Could not capture git diff.\n${details}`;
-}
-
-function formatPendingWorktreeCommandDetails(result: ExecResult): string {
-  const details = result.stderr.trim() || result.stdout.trim();
-  const killed = result.killed ? " (killed or timed out)" : "";
-  return details ? `exit ${result.code}${killed}: ${details}` : `exit ${result.code}${killed}`;
 }
