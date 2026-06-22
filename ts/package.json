@@ -29,6 +29,7 @@
     "@sdl/slot": "workspace:*",
     "@types/node": "catalog:",
     "@typescript/native-preview": "catalog:",
+    "@withgraphite/graphite-cli": "catalog:",
     "oxfmt": "catalog:",
     "oxlint": "catalog:",
     "sdlcc": "workspace:*",

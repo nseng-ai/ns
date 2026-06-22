@@ -92,8 +92,12 @@ export interface GraphiteMetadataDbAccess {
  * reads loose refs and `packed-refs` directly from the filesystem, keeping the
  * passive worktree-status path free of git subprocesses.
  */
+export type GraphiteBranchLookupResult =
+	| { type: "known"; branches: ReadonlySet<string> }
+	| { type: "unknown"; reason: "read-failed" | "unsupported-ref-storage" };
+
 export interface GraphiteBranchAccess {
-	listLocalBranches(commonGitDir: string): ReadonlySet<string>;
+	listLocalBranches(commonGitDir: string): GraphiteBranchLookupResult;
 }
 
 export interface LoadGraphiteMetadataStatusOptions {
@@ -266,18 +270,21 @@ export function loadGraphiteMetadataStatus(
 	if (row === undefined) return { type: "untracked", currentBranch: input.currentBranch };
 
 	// Reconcile children against live local refs so the "up" branch matches gt,
-	// which silently drops children whose refs/heads/<name> no longer exists.
+	// which silently drops children whose refs/heads/<name> no longer exists. If
+	// the passive filesystem scan cannot prove the live set, preserve metadata
+	// children rather than turning "unknown" into "definitely gone".
 	const branchAccess = options.branchAccess ?? defaultGraphiteBranchAccess;
-	const { kept } = filterLiveBranchNames(
-		row.children,
-		branchAccess.listLocalBranches(input.commonGitDir),
-	);
+	const liveBranches = branchAccess.listLocalBranches(input.commonGitDir);
+	const children =
+		liveBranches.type === "known"
+			? filterLiveBranchNames(row.children, liveBranches.branches).kept
+			: row.children;
 
 	return {
 		type: "tracked",
 		currentBranch: input.currentBranch,
 		parent: row.parent,
-		children: kept,
+		children,
 		isCurrentTrunk: row.isTrunkMarked,
 	};
 }
@@ -425,39 +432,46 @@ const HEADS_REF_PREFIX = "refs/heads/";
 const defaultGraphiteBranchAccess: GraphiteBranchAccess = {
 	listLocalBranches(commonGitDir) {
 		const branches = new Set<string>();
-		collectLooseBranchRefs(join(commonGitDir, "refs", "heads"), [], branches);
-		collectPackedBranchRefs(join(commonGitDir, "packed-refs"), branches);
-		return branches;
+		const looseRefsKnown = collectLooseBranchRefs(
+			join(commonGitDir, "refs", "heads"),
+			[],
+			branches,
+		);
+		const packedRefsKnown = collectPackedBranchRefs(join(commonGitDir, "packed-refs"), branches);
+		if (!looseRefsKnown) return { type: "unknown", reason: "unsupported-ref-storage" };
+		if (!packedRefsKnown) return { type: "unknown", reason: "read-failed" };
+		return { type: "known", branches };
 	},
 };
 
 // Loose refs live as files under refs/heads/**; the branch name is the path under
 // refs/heads/, so nested names (e.g. "objective-refresh/foo") are preserved.
-// Best-effort: any read error yields no entries for that subtree ("not live").
-function collectLooseBranchRefs(dir: string, prefix: readonly string[], out: Set<string>): void {
+function collectLooseBranchRefs(dir: string, prefix: readonly string[], out: Set<string>): boolean {
 	let entries: Dirent[];
 	try {
 		entries = readdirSync(dir, { withFileTypes: true });
 	} catch {
-		return;
+		return false;
 	}
 	for (const entry of entries) {
 		const segments = [...prefix, entry.name];
 		if (entry.isDirectory()) {
-			collectLooseBranchRefs(join(dir, entry.name), segments, out);
+			if (!collectLooseBranchRefs(join(dir, entry.name), segments, out)) return false;
 		} else if (entry.isFile()) {
 			out.add(segments.join("/"));
 		}
 	}
+	return true;
 }
 
 // packed-refs lines are "<oid> <refname>"; skip comment (#) and peeled (^) lines.
-function collectPackedBranchRefs(packedRefsPath: string, out: Set<string>): void {
+function collectPackedBranchRefs(packedRefsPath: string, out: Set<string>): boolean {
+	if (!existsSync(packedRefsPath)) return true;
 	let content: string;
 	try {
 		content = readFileSync(packedRefsPath, "utf8");
 	} catch {
-		return;
+		return false;
 	}
 	for (const line of content.split("\n")) {
 		const trimmed = line.trim();
@@ -467,6 +481,7 @@ function collectPackedBranchRefs(packedRefsPath: string, out: Set<string>): void
 		const refName = trimmed.slice(spaceIndex + 1).trim();
 		if (refName.startsWith(HEADS_REF_PREFIX)) out.add(refName.slice(HEADS_REF_PREFIX.length));
 	}
+	return true;
 }
 
 const graphiteSqliteJsonRunner = createGraphiteSqliteJsonRunner();

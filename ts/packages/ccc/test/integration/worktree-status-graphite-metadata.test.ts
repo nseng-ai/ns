@@ -10,6 +10,8 @@ import {
 	runSqliteStatements,
 	withTempRoot,
 	writeGraphiteMetadataDb,
+	writeLocalBranchRef,
+	writeLocalBranchRefsForMetadataChildren,
 } from "./worktree-status-fixtures.ts";
 
 const CURRENT_SDL_TOOLS_METADATA_FIXTURE = new URL(
@@ -22,11 +24,13 @@ const sqliteTest = sqliteAvailable ? test : test.skip;
 describe("Graphite metadata real sqlite integration", () => {
 	sqliteTest("loads branch topology from a real Graphite metadata database", async () => {
 		await withTempRoot(makeGitRepo("feature/current"), (root) => {
-			writeGraphiteMetadataDb(join(root, ".git"), [
+			const gitDir = join(root, ".git");
+			writeGraphiteMetadataDb(gitDir, [
 				{ branchName: "main", children: ["feature/current"], validationResult: "TRUNK" },
 				{ branchName: "feature/current", parentBranchName: "main", children: ["feature/child"] },
 				{ branchName: "feature/unrelated", parentBranchName: "main", children: ["feature/noise"] },
 			]);
+			writeLocalBranchRef(gitDir, "feature/child");
 
 			expect(
 				loadGraphiteMetadataStatus({
@@ -64,7 +68,9 @@ describe("Graphite metadata real sqlite integration", () => {
 
 	sqliteTest("parses the copied current sdl-tools Graphite database", async () => {
 		await withTempRoot(makeGitRepo("master"), (root) => {
-			copyFileSync(CURRENT_SDL_TOOLS_METADATA_FIXTURE, join(root, ".git", ".graphite_metadata.db"));
+			const gitDir = join(root, ".git");
+			copyFileSync(CURRENT_SDL_TOOLS_METADATA_FIXTURE, join(gitDir, ".graphite_metadata.db"));
+			writeLocalBranchRefsForMetadataChildren(gitDir, "master");
 
 			const status = loadGraphiteMetadataStatus({
 				commonGitDir: join(root, ".git"),

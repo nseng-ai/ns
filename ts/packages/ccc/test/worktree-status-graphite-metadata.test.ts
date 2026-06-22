@@ -10,6 +10,7 @@ import {
 	loadGraphiteMetadataStatus,
 	loadGraphiteMetadataStatusInWorker,
 	shutdownGraphiteMetadataWorker,
+	type GraphiteBranchLookupResult,
 	type GraphiteMetadataDbAccess,
 	type GraphiteMetadataJsonQueryResult,
 	type GraphiteMetadataStatus,
@@ -141,13 +142,22 @@ function branchRow(input: {
 
 function loadWithFake(
 	dbAccess: GraphiteMetadataDbAccess,
-	options: { currentBranch?: string; liveBranches?: Iterable<string> } = {},
+	options: {
+		currentBranch?: string | undefined;
+		liveBranches?: Iterable<string> | undefined;
+		branchLookup?: GraphiteBranchLookupResult | undefined;
+	} = {},
 ) {
 	const currentBranch = options.currentBranch ?? "feature/current";
-	const live = new Set(options.liveBranches ?? []);
+	const liveBranchLookup =
+		options.branchLookup ??
+		({
+			type: "known",
+			branches: new Set(options.liveBranches ?? []),
+		} satisfies GraphiteBranchLookupResult);
 	return loadGraphiteMetadataStatus(
 		{ commonGitDir: "/repo/.git", currentBranch },
-		{ dbAccess, branchAccess: { listLocalBranches: () => live } },
+		{ dbAccess, branchAccess: { listLocalBranches: () => liveBranchLookup } },
 	);
 }
 
@@ -339,6 +349,28 @@ describe("Graphite metadata status lookup", () => {
 		expect(loadWithFake(dbAccess, { liveBranches: ["feature/live"] })).toMatchObject({
 			type: "tracked",
 			children: ["feature/live"],
+		});
+	});
+
+	test("preserves metadata children when live branch enumeration is unknown", () => {
+		const dbAccess = new FakeGraphiteMetadataDbAccess({
+			responses: [
+				success(EXPECTED_SCHEMA_ROWS),
+				success([
+					branchRow({
+						branchName: "feature/current",
+						parentBranchName: "main",
+						children: ["feature/live", "feature/maybe-live"],
+					}),
+				]),
+			],
+		});
+
+		expect(
+			loadWithFake(dbAccess, { branchLookup: { type: "unknown", reason: "read-failed" } }),
+		).toMatchObject({
+			type: "tracked",
+			children: ["feature/live", "feature/maybe-live"],
 		});
 	});
 

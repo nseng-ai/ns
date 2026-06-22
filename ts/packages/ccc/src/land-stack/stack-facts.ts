@@ -201,9 +201,11 @@ export async function loadLiveLocalBranches(
 // surfaces a single non-fatal warning so the user can clean it up.
 function staleMetadataBranchWarnings(droppedBranches: readonly string[]): string[] {
 	if (droppedBranches.length === 0) return [];
-	const cleanup = droppedBranches.map((branch) => `gt untrack ${branch}`).join("; ");
+	const cleanup = droppedBranches
+		.map((branch) => formatCommand("gt", ["untrack", branch]))
+		.join("\n");
 	return [
-		`Ignored ${droppedBranches.length} stale Graphite metadata branch(es) with no local ref: ${droppedBranches.join(", ")}. Run ${cleanup} to clean up.`,
+		`Ignored ${droppedBranches.length} stale Graphite metadata branch(es) with no local ref: ${droppedBranches.join(", ")}. Run:\n${cleanup}`,
 	];
 }
 
