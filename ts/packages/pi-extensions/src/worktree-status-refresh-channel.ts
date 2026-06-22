@@ -72,7 +72,7 @@ function combineRefreshOptions(
 	return mode === "skip" ? {} : { remoteRefresh: mode };
 }
 
-function remoteRefreshMode(
+export function remoteRefreshMode(
 	options: WorktreeStatusRefreshOptions | undefined,
 ): WorktreeStatusRemoteRefreshMode {
 	return options?.remoteRefresh ?? "skip";

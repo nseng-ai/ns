@@ -43,6 +43,7 @@ import {
 } from "./worktree-status-activity.ts";
 import {
 	createWorktreeStatusRefreshChannel,
+	remoteRefreshMode,
 	type WorktreeStatusRefreshOptions,
 	type WorktreeStatusRemoteRefreshMode,
 } from "./worktree-status-refresh-channel.ts";
@@ -531,12 +532,6 @@ export default function worktreeStatusExtension(
 		if (snapshot === undefined) return true;
 		if (!sameWorktreeStatusIdentity(snapshot.identity, identity)) return true;
 		return clock.nowMs() - snapshot.fetchedAtMs >= GH_STATUS_BACKGROUND_REFRESH_MIN_INTERVAL_MS;
-	}
-
-	function remoteRefreshMode(
-		options: WorktreeStatusRefreshOptions,
-	): WorktreeStatusRemoteRefreshMode {
-		return options.remoteRefresh ?? "skip";
 	}
 
 	async function refreshAllImmediately(
