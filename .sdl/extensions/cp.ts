@@ -1,18 +1,18 @@
+import {
+  CHECKPOINT_MODEL_ENV,
+  DEFAULT_CHECKPOINT_MODEL_REF,
+  LEGACY_CHECKPOINT_MODEL_ENV,
+  selectCheckpointModelRef,
+} from "@sdl/sdl/text-generation";
 import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
 import { prepareCheckpointMessage } from "./shared/checkpoint-message.ts";
 import {
   createCommitWithPreparedMessage,
-  firstEnvValue,
   formatPendingWorktreeError,
   loadPendingWorktreeSnapshot,
   type PendingWorktreeSnapshot,
 } from "./shared/worktree.ts";
 
-// This project-local extension intentionally uses only the public SDL SDK import plus
-// extension-owned shared helpers.
-const DEFAULT_CHECKPOINT_MODEL_REF = "openai-codex/gpt-5.4-mini";
-const CHECKPOINT_MODEL_ENV = "SDL_CHECKPOINT_MODEL";
-const LEGACY_CHECKPOINT_MODEL_ENV = "SDL_DEV_CHECKPOINT_MODEL";
 const CP_COMMAND_DESCRIPTION = `Create a checkpoint commit for the current diff.
 
 The command captures the pending worktree, refuses main/master, refuses clean worktrees, asks the configured text-generation model for a validated [cp] commit message, stages all changes, commits with that message, and prints the resulting commit summary plus checkpoint message.
@@ -72,13 +72,6 @@ export default defineExtension({
     },
   ],
 });
-
-function selectCheckpointModelRef(env: Record<string, string | undefined>): string {
-  return (
-    firstEnvValue(env, CHECKPOINT_MODEL_ENV, LEGACY_CHECKPOINT_MODEL_ENV) ??
-    DEFAULT_CHECKPOINT_MODEL_REF
-  );
-}
 
 function formatDryRunMessage(snapshot: PendingWorktreeSnapshot, message: string): string {
   return `Dry run: would create checkpoint commit on ${snapshot.branch}\n\n${message}`;

@@ -13,6 +13,8 @@ Command schemas are [Zod](https://zod.dev) schemas. Import the SDK's `z` export 
 
 Do not import SDL implementation modules (`@sdl/sdl/*` other than `./sdk`, `@sdl/core/*`, `@sdl/clinkr/*`). The SDK re-exports the few lower-package types an author needs; those are documented below as first-party SDK vocabulary, with their origin noted.
 
+Exception for this repository's checked-in migration extensions: project-local modules under `.sdl/extensions/` may import `@sdl/sdl` subpaths listed as `internalMigrationExports` in `ts/packages/sdl/package.json` when that avoids copying canonical behavior during command migration. That exception is not part of the public SDL extension author API; global or third-party extensions should continue to import only `@sdl/sdl/sdk` unless a helper is explicitly promoted and documented here.
+
 The SDK is intentionally small. A command should own its workflow policy — prompts, validation, repair, external commands, GitHub/Graphite choreography, and confirmation boundaries — unless repeated command migrations prove a deeper kernel helper belongs in this author API. When a helper is promoted, this reference becomes the source of truth for the new public surface.
 
 The exports are grouped by the role they play when authoring a command: you **declare** an extension and its commands, your command **receives** an execution context, and it **returns** a result. Each entry carries a minimal worked example; the examples share a running `git`-driven command so they compose into a realistic extension.

@@ -18,24 +18,37 @@ test("virtual SDK module mirrors sdk.ts runtime value exports", async () => {
 	}
 });
 
-test("SDL jiti resolves internal migration package exports", async () => {
-	const checkpointFlowModule = await createSdlJiti().import<
-		typeof import("../../src/checkpoint-flow.ts")
-	>("@sdl/sdl/checkpoint-flow");
-	const changesModelSummaryModule = await createSdlJiti().import<
-		typeof import("../../src/changes-model-summary.ts")
-	>("@sdl/sdl/changes-model-summary");
-	const prDescriptionModule =
-		await createSdlJiti().import<typeof import("../../src/pr-description.ts")>(
-			"@sdl/sdl/pr-description",
-		);
-	const textGenerationModule = await createSdlJiti().import<
-		typeof import("../../src/text-generation.ts")
-	>("@sdl/sdl/text-generation");
+test("repo-local migration extensions can import internal migration subpaths", async () => {
+	const jiti = createSdlJiti();
 
+	const pendingWorktreeModule = await jiti.import<typeof import("../../src/pending-worktree.ts")>(
+		"@sdl/sdl/pending-worktree",
+	);
+	expect(typeof pendingWorktreeModule.loadPendingWorktreeSnapshot).toBe("function");
+	expect(typeof pendingWorktreeModule.formatPendingWorktreeCommandDetails).toBe("function");
+
+	const checkpointFlowModule = await jiti.import<typeof import("../../src/checkpoint-flow.ts")>(
+		"@sdl/sdl/checkpoint-flow",
+	);
 	expect(typeof checkpointFlowModule.prepareCheckpointMessage).toBe("function");
 	expect(typeof checkpointFlowModule.buildCheckpointUserPrompt).toBe("function");
+	expect(typeof checkpointFlowModule.createCommitWithPreparedMessage).toBe("function");
+
+	const changesModelSummaryModule = await jiti.import<
+		typeof import("../../src/changes-model-summary.ts")
+	>("@sdl/sdl/changes-model-summary");
 	expect(typeof changesModelSummaryModule.draftChangesSummary).toBe("function");
+
+	const prDescriptionModule =
+		await jiti.import<typeof import("../../src/pr-description.ts")>("@sdl/sdl/pr-description");
 	expect(typeof prDescriptionModule.preparePrDescription).toBe("function");
+
+	const textGenerationModule = await jiti.import<typeof import("../../src/text-generation.ts")>(
+		"@sdl/sdl/text-generation",
+	);
+	expect(textGenerationModule.CHECKPOINT_MODEL_ENV).toBe("SDL_CHECKPOINT_MODEL");
+	expect(textGenerationModule.CHANGES_MODEL_ENV).toBe("SDL_CHANGES_MODEL");
 	expect(typeof textGenerationModule.DEFAULT_CHANGES_MODEL_REF).toBe("string");
+	expect(typeof textGenerationModule.selectCheckpointModelRef).toBe("function");
+	expect(typeof textGenerationModule.selectChangesModelRef).toBe("function");
 });
