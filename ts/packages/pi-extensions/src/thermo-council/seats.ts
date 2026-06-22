@@ -31,6 +31,11 @@ const DEFAULT_SEATS = [
 
 export function parseThermoCouncilSeats(env: EnvReader): readonly ThermoCouncilSeatConfig[] {
 	const positionalModels = parsePositionalModels(env.get("THERMO_COUNCIL_MODELS"));
+	if (positionalModels.length > DEFAULT_SEATS.length) {
+		throw new Error(
+			`THERMO_COUNCIL_MODELS has ${positionalModels.length} entries but only ${DEFAULT_SEATS.length} council seats are configured.`,
+		);
+	}
 	return DEFAULT_SEATS.map((seat, index) => ({
 		id: seat.id,
 		label: seat.label,

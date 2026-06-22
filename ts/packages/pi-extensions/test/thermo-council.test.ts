@@ -222,6 +222,17 @@ describe("thermo council extension", () => {
 		).toThrow("entry 2 is empty");
 	});
 
+	test("rejects excess positional model override entries", () => {
+		expect(() =>
+			parseThermoCouncilSeats({
+				get: (name) =>
+					name === "THERMO_COUNCIL_MODELS"
+						? "anthropic/custom,openai/custom,google/custom,extra/model"
+						: undefined,
+			}),
+		).toThrow("THERMO_COUNCIL_MODELS has 4 entries but only 3 council seats are configured");
+	});
+
 	test("stops dirty preflight before reviewer launch", async () => {
 		const pi = new FakePi({
 			execResults: new Map([["git status --short", { stdout: " M src/file.ts\n" }]]),
@@ -248,6 +259,23 @@ describe("thermo council extension", () => {
 		expect(pi.messages[0]?.content).toContain("Command: git rev-parse --show-toplevel");
 		expect(pi.messages[0]?.content).toContain("----- stderr tail -----");
 		expect(pi.messages[0]?.content).toContain("missing fake exec");
+	});
+
+	test("omits internal allowed-git-failure text from base inference failures", async () => {
+		const pi = new FakePi({
+			execResults: new Map([
+				["git status --short", { stdout: "" }],
+				["git rev-parse --show-toplevel", { stdout: "/repo\n" }],
+				["git rev-parse HEAD", { stdout: "head-sha\n" }],
+			]),
+		});
+		thermoCouncilExtension(pi);
+
+		await pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.handler("", fakeContext());
+
+		expect(pi.runnerCalls).toEqual([]);
+		expect(pi.messages[0]?.content).toContain("Could not infer a review base");
+		expect(pi.messages[0]?.content).not.toContain(`allowed git ${"failure"}`);
 	});
 
 	test("launches three read-only terminal-capture reviewer seats and renders a report", async () => {
@@ -306,6 +334,40 @@ describe("thermo council extension", () => {
 		await running;
 	});
 
+	test("formats malformed completed reviewer payloads without throwing", async () => {
+		const runnerResult: RuntimeResultV1 = {
+			version: 1,
+			kind: "terminal-capture",
+			toolName: SUBMIT_THERMO_COUNCIL_REVIEW_TOOL,
+			status: "completed",
+			input: "not a review object",
+		};
+		const pi = new FakePi({ execResults: successfulScopeExecResults(), runnerResult });
+		thermoCouncilExtension(pi);
+
+		await pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.handler("origin/master", fakeContext());
+
+		expect(pi.messages[0]?.content).toContain("No council seat completed");
+		expect(pi.messages[0]?.content).toContain("<root>");
+	});
+
+	test("formats malformed blocked reviewer payloads without throwing", async () => {
+		const runnerResult: RuntimeResultV1 = {
+			version: 1,
+			kind: "terminal-capture",
+			toolName: BLOCK_THERMO_COUNCIL_REVIEW_TOOL,
+			status: "blocked",
+			input: "not a blocked payload",
+		};
+		const pi = new FakePi({ execResults: successfulScopeExecResults(), runnerResult });
+		thermoCouncilExtension(pi);
+
+		await pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.handler("origin/master", fakeContext());
+
+		expect(pi.messages[0]?.content).toContain("Blocked with malformed payload");
+		expect(pi.messages[0]?.content).toContain("<root>");
+	});
+
 	test("accepts review findings that rely on array defaults", async () => {
 		const runnerResult: RuntimeResultV1 = {
 			version: 1,
@@ -346,6 +408,109 @@ describe("thermo council extension", () => {
 		expect(prompt).toContain("diff --git");
 		expect(prompt).toContain(SUBMIT_THERMO_COUNCIL_REVIEW_TOOL);
 		expect(prompt).toContain("do not create branches");
+	});
+
+	test("synthesis clusters strong text-only findings without file paths", () => {
+		const opus = seat("anthropic-opus", "Opus");
+		const openai = seat("openai-high", "GPT");
+		const clusters = clusterFindings([
+			completedOutcome(opus, "Runner lifecycle waits for terminal result persistence", {
+				review: {
+					findings: [
+						{
+							id: "1",
+							title: "Runner lifecycle waits for terminal result persistence",
+							files: [],
+							evidence: "No file path was supplied.",
+							problem:
+								"Runner lifecycle terminal result persistence can race child termination before runtime capture writes.",
+							proposedFix:
+								"Make runner lifecycle wait for terminal result persistence before child termination.",
+							behaviorRisk: "Low behavior risk.",
+							dependencyNotes: "None",
+							confidence: "likely",
+							severity: "high",
+							validationHints: [],
+						},
+					],
+				},
+			}),
+			completedOutcome(openai, "Terminal result persistence in runner lifecycle", {
+				review: {
+					findings: [
+						{
+							id: "1",
+							title: "Terminal result persistence in runner lifecycle",
+							files: [],
+							evidence: "No file path was supplied.",
+							problem:
+								"Runner lifecycle terminal result persistence races when child termination happens before runtime capture writes.",
+							proposedFix:
+								"Wait for terminal result persistence before runner lifecycle child termination.",
+							behaviorRisk: "Low behavior risk.",
+							dependencyNotes: "None",
+							confidence: "likely",
+							severity: "high",
+							validationHints: [],
+						},
+					],
+				},
+			}),
+		]);
+
+		expect(clusters).toHaveLength(1);
+		expect(clusters[0]?.support.map((supportSeat) => supportSeat.id).sort()).toEqual([
+			"anthropic-opus",
+			"openai-high",
+		]);
+	});
+
+	test("synthesis keeps weak generic empty-file findings separate", () => {
+		const opus = seat("anthropic-opus", "Opus");
+		const openai = seat("openai-high", "GPT");
+		const clusters = clusterFindings([
+			completedOutcome(opus, "Review report clarity", {
+				review: {
+					findings: [
+						{
+							id: "1",
+							title: "Review report clarity",
+							files: [],
+							evidence: "Generic evidence.",
+							problem: "Review output has unclear wording for humans.",
+							proposedFix: "Clarify prose in the output.",
+							behaviorRisk: "Low behavior risk.",
+							dependencyNotes: "None",
+							confidence: "uncertain",
+							severity: "low",
+							validationHints: [],
+						},
+					],
+				},
+			}),
+			completedOutcome(openai, "Review report formatting", {
+				review: {
+					findings: [
+						{
+							id: "1",
+							title: "Review report formatting",
+							files: [],
+							evidence: "Generic evidence.",
+							problem: "Status table alignment could be easier to scan.",
+							proposedFix: "Adjust table formatting.",
+							behaviorRisk: "Low behavior risk.",
+							dependencyNotes: "None",
+							confidence: "uncertain",
+							severity: "low",
+							validationHints: [],
+						},
+					],
+				},
+			}),
+		]);
+
+		expect(clusters).toHaveLength(2);
+		expect(clusters.every((cluster) => cluster.support.length === 1)).toBe(true);
 	});
 
 	test("synthesis clusters overlapping findings and keeps single-model dissent visible", () => {

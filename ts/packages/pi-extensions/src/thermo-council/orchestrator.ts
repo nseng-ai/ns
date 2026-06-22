@@ -191,7 +191,7 @@ export function reviewerOutcomeFromRunnerResult(
 		}
 		const parsed = reviewSchema.safeParse(result.terminal.input);
 		if (!parsed.success) {
-			return failedOutcome(seat, result.sessionFile, z.prettifyError(parsed.error));
+			return failedOutcome(seat, result.sessionFile, formatZodError(parsed.error));
 		}
 		return {
 			type: "completed",
@@ -205,7 +205,7 @@ export function reviewerOutcomeFromRunnerResult(
 		const parsed = blockedReviewSchema.safeParse(result.terminal.input);
 		const reason = parsed.success
 			? formatBlockedReason(parsed.data)
-			: `Blocked with malformed payload: ${z.prettifyError(parsed.error)}`;
+			: `Blocked with malformed payload: ${formatZodError(parsed.error)}`;
 		return {
 			type: "blocked",
 			seat,
@@ -215,6 +215,15 @@ export function reviewerOutcomeFromRunnerResult(
 	}
 
 	return failedOutcome(seat, result.sessionFile, failureDiagnostic(result));
+}
+
+function formatZodError(error: z.ZodError): string {
+	return error.issues
+		.map((issue) => {
+			const path = issue.path.length === 0 ? "<root>" : issue.path.join(".");
+			return `${path}: ${issue.message}`;
+		})
+		.join("; ");
 }
 
 function failedOutcome(

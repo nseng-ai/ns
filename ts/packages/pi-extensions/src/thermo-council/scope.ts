@@ -1,4 +1,4 @@
-import { formatCommandResultFailure, normalizeExecResult } from "@sdl/core/exec";
+import { formatCommandResultFailure, normalizeExecResult, type ExecResult } from "@sdl/core/exec";
 
 import type {
 	ThermoCouncilCommandContext,
@@ -18,8 +18,25 @@ interface GitOptions {
 	readonly ctx: ThermoCouncilCommandContext;
 	readonly args: readonly string[];
 	readonly timeoutMs: number;
-	readonly allowFailure?: boolean;
 }
+
+interface LoadedGitResult {
+	readonly type: "loaded";
+	readonly stdout: string;
+	readonly stderr: string;
+}
+
+interface ProbeGitFailure {
+	readonly type: "failed";
+	readonly result: {
+		readonly code: number;
+		readonly stdout: string;
+		readonly stderr: string;
+		readonly args: readonly string[];
+	};
+}
+
+type ProbeGitResult = LoadedGitResult | ProbeGitFailure;
 
 export async function collectThermoCouncilScope(
 	pi: ThermoCouncilExtensionAPI,
@@ -134,22 +151,20 @@ async function inferBaseRef(
 	pi: ThermoCouncilExtensionAPI,
 	ctx: ThermoCouncilCommandContext,
 ): Promise<string | ScopeResultFailed> {
-	const originHead = await git({
+	const originHead = await probeGit({
 		pi,
 		ctx,
 		args: ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"],
 		timeoutMs: GIT_TIMEOUT_MS,
-		allowFailure: true,
 	});
 	if (originHead.type === "loaded" && originHead.stdout.trim() !== "")
 		return originHead.stdout.trim();
 	for (const candidate of ["origin/master", "origin/main", "master", "main"] as const) {
-		const result = await git({
+		const result = await probeGit({
 			pi,
 			ctx,
 			args: ["rev-parse", "--verify", `${candidate}^{commit}`],
 			timeoutMs: GIT_TIMEOUT_MS,
-			allowFailure: true,
 		});
 		if (result.type === "loaded") return candidate;
 	}
@@ -160,26 +175,35 @@ async function inferBaseRef(
 	};
 }
 
-async function git({
-	pi,
-	ctx,
-	args,
-	timeoutMs,
-	allowFailure = false,
-}: GitOptions): Promise<
-	{ readonly type: "loaded"; readonly stdout: string; readonly stderr: string } | ScopeResultFailed
-> {
-	const result = normalizeExecResult(
+async function git(options: GitOptions): Promise<LoadedGitResult | ScopeResultFailed> {
+	const result = await execGit(options);
+	if (result.code === 0) return { type: "loaded", stdout: result.stdout, stderr: result.stderr };
+	return {
+		type: "failed",
+		message: formatCommandResultFailure("git command failed", "git", options.args, result),
+	};
+}
+
+async function probeGit(options: GitOptions): Promise<ProbeGitResult> {
+	const result = await execGit(options);
+	if (result.code === 0) return { type: "loaded", stdout: result.stdout, stderr: result.stderr };
+	return {
+		type: "failed",
+		result: {
+			code: result.code,
+			stdout: result.stdout,
+			stderr: result.stderr,
+			args: [...options.args],
+		},
+	};
+}
+
+async function execGit({ pi, ctx, args, timeoutMs }: GitOptions): Promise<ExecResult> {
+	return normalizeExecResult(
 		await pi.exec("git", args, {
 			cwd: ctx.cwd,
 			timeout: timeoutMs,
 			...(ctx.signal === undefined ? {} : { signal: ctx.signal }),
 		}),
 	);
-	if (result.code === 0) return { type: "loaded", stdout: result.stdout, stderr: result.stderr };
-	if (allowFailure) return { type: "failed", message: "allowed git failure" };
-	return {
-		type: "failed",
-		message: formatCommandResultFailure("git command failed", "git", args, result),
-	};
 }
