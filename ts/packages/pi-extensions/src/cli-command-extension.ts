@@ -24,7 +24,8 @@ const LIVE_PROGRESS_STATUS_ID = "sdl-cli-command";
 const LIVE_PROGRESS_WIDGET_ID = "sdl-cli-command-output";
 const LIVE_PROGRESS_INTERVAL_MS = 1_000;
 const LIVE_PROGRESS_MAX_LINES = 8;
-const LIVE_PROGRESS_MAX_LINE_CHARS = 160;
+const LIVE_PROGRESS_WIDGET_OUTPUT_LINES = 1;
+const LIVE_PROGRESS_MAX_LINE_CHARS = 100;
 
 export const CLI_COMMAND_OUTPUT_MESSAGE_TYPE = "sdl-cli-command-output";
 
@@ -727,21 +728,26 @@ class LiveCommandProgress {
 
 	private widgetLines(elapsed: string): string[] {
 		const lines = [
-			`Running /${this.options.piCommandName} — ${this.phase} — ${elapsed} elapsed`,
-			`$ ${formatCommandForDisplay(this.options.cliName, this.options.argv)}`,
-			`stdout ${this.stdoutChars} chars, stderr ${this.stderrChars} chars`,
+			`/${this.options.piCommandName} ${this.phase} (${elapsed} elapsed)`,
+			`$ ${formatCommandForDisplay(this.options.cliName, this.options.argv)} · stdout ${this.stdoutChars}, stderr ${this.stderrChars}`,
 		];
 		const recentLines = this.recentOutputLines();
 		if (recentLines.length === 0) {
-			lines.push("No CLI output yet; still running.");
-			return lines;
+			lines.push("No CLI output yet.");
+			return lines.map(truncateLiveProgressLine);
 		}
 
-		lines.push("Recent CLI output:");
-		for (const line of recentLines) {
+		const shownLines = recentLines.slice(-LIVE_PROGRESS_WIDGET_OUTPUT_LINES);
+		const hiddenLineCount = recentLines.length - shownLines.length;
+		if (hiddenLineCount > 0) {
+			lines.push(
+				`… ${hiddenLineCount} earlier recent CLI line${hiddenLineCount === 1 ? "" : "s"} hidden`,
+			);
+		}
+		for (const line of shownLines) {
 			lines.push(formatLiveOutputLine(line));
 		}
-		return lines;
+		return lines.map(truncateLiveProgressLine);
 	}
 
 	private recordOutput(stream: OutputStreamName, text: string): void {

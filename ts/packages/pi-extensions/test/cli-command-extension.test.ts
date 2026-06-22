@@ -997,7 +997,7 @@ describe("cli command extension helper", () => {
 		expect(widgets.at(-1)?.placement).toBe("aboveEditor");
 		expect(statuses.at(-1)?.key).toBe("sdl-cli-command");
 		expect(statuses.at(-1)?.value).toContain("/dev:preview-status running CLI command");
-		expect(liveWidgetText).toContain("Running /dev:preview-status");
+		expect(liveWidgetText).toContain("/dev:preview-status running CLI command");
 		expect(liveWidgetText).toContain("stdout: started");
 		expect(pi.sentMessages).toEqual([]);
 
@@ -1082,7 +1082,7 @@ describe("cli command extension helper", () => {
 		await liveOutputObserved;
 
 		const liveWidgetText = widgets.at(-1)?.lines?.join("\n") ?? "";
-		expect(liveWidgetText).toContain("stdout: live stdout");
+		expect(liveWidgetText).toContain("… 1 earlier recent CLI line hidden");
 		expect(liveWidgetText).toContain("stderr: live stderr");
 		expect(liveWidgetText).not.toContain("final stdout");
 
