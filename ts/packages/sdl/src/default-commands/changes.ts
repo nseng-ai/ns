@@ -2,7 +2,7 @@ import { draftChangesSummary } from "../changes-model-summary.ts";
 import { formatOutstandingChangesMessage } from "../changes-summary.ts";
 import { formatCheckpointSnapshotError } from "../checkpoint.ts";
 import { loadPendingWorktreeSnapshot } from "../pending-worktree.ts";
-import { failed, ok, type SdlCommand } from "../sdk.ts";
+import { failed, ok, type SdlCommand } from "../sdk/index.ts";
 
 export const defaultChangesCommand = {
 	name: "changes",

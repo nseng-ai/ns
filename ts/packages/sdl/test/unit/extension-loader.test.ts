@@ -7,7 +7,7 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import { validateSdlExtensionContribution } from "../../src/command-registry.ts";
 import { loadSdlExtensionContribution } from "../../src/extension-loader.ts";
-import { z, type SdlCommand } from "../../src/sdk.ts";
+import { z, type SdlCommand } from "../../src/sdk/index.ts";
 
 const tempDirs: string[] = [];
 

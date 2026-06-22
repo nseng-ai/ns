@@ -9,7 +9,7 @@ import {
 	formatCheckpointValidationFeedback,
 	validateCheckpointMessage,
 } from "./checkpoint-message.ts";
-import type { TextGenerator } from "./text-generation.ts";
+import type { TextGenerator } from "./sdk/text-generation.ts";
 import { prepareRepairedText } from "./text-repair.ts";
 
 export const CHECKPOINT_SYSTEM_PROMPT = `You write terse checkpoint commit messages for coding agents.

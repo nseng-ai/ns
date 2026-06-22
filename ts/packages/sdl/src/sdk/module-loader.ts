@@ -15,15 +15,16 @@ import {
 	truncateTextHead,
 	truncateTextHeadTail,
 	z,
-} from "./sdk.ts";
+} from "./index.ts";
 
-const SDL_SRC_DIR = dirname(fileURLToPath(import.meta.url));
+const SDL_SDK_DIR = dirname(fileURLToPath(import.meta.url));
+const SDL_SRC_DIR = dirname(SDL_SDK_DIR);
 
 /** Module specifier that SDL command entries import the SDK from. */
 const SDK_SPECIFIER = "@sdl/sdl/sdk";
 
 /** Absolute path to the SDK source module, used as the `alias` resolution target. */
-const SDK_MODULE_PATH = join(SDL_SRC_DIR, "sdk.ts");
+const SDK_MODULE_PATH = join(SDL_SDK_DIR, "index.ts");
 
 const INTERNAL_MIGRATION_MODULE_PATHS = {
 	"@sdl/sdl/checkpoint": "checkpoint.ts",
@@ -33,9 +34,9 @@ const INTERNAL_MIGRATION_MODULE_PATHS = {
 	"@sdl/sdl/cli": "cli.ts",
 	"@sdl/sdl/context": "context.ts",
 	"@sdl/sdl/pending-worktree": "pending-worktree.ts",
-	"@sdl/sdl/pi-text-generation": "pi-text-generation.ts",
+	"@sdl/sdl/pi-text-generation": "sdk/pi-text-generation.ts",
 	"@sdl/sdl/pr-description": "pr-description.ts",
-	"@sdl/sdl/text-generation": "text-generation.ts",
+	"@sdl/sdl/text-generation": "sdk/text-generation.ts",
 	"@sdl/sdl/text-repair": "text-repair.ts",
 } as const;
 
@@ -48,7 +49,7 @@ function buildInternalMigrationAliases(): Record<string, string> {
 	);
 }
 
-// Keep this object in sync with all runtime value exports from sdk.ts; type-only exports are erased.
+// Keep this object in sync with all runtime value exports from sdk/index.ts; type-only exports are erased.
 const sdlSdkVirtualModule = {
 	commandSucceeded,
 	defineExtension,

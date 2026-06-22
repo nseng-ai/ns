@@ -12,10 +12,10 @@
     "./cli": "./src/cli.ts",
     "./context": "./src/context.ts",
     "./pending-worktree": "./src/pending-worktree.ts",
-    "./pi-text-generation": "./src/pi-text-generation.ts",
+    "./pi-text-generation": "./src/sdk/pi-text-generation.ts",
     "./pr-description": "./src/pr-description.ts",
-    "./sdk": "./src/sdk.ts",
-    "./text-generation": "./src/text-generation.ts",
+    "./sdk": "./src/sdk/index.ts",
+    "./text-generation": "./src/sdk/text-generation.ts",
     "./text-repair": "./src/text-repair.ts"
   },
   "sdl": {
