@@ -51,7 +51,7 @@ export default function thermoCouncilExtension(pi: ThermoCouncilExtensionAPI): v
 	pi.registerCommand(THERMO_COUNCIL_COMMAND_NAME, {
 		description:
 			"Run a multi-model thermonuclear review council and present one session-local report",
-		argumentHint: "[base-ref | scope prompt]",
+		argumentHint: "[base-ref | stack]",
 		handler: async (args, ctx) => {
 			await ctx.waitForIdle?.();
 			await runThermoCouncilCommand(pi, ctx, args);

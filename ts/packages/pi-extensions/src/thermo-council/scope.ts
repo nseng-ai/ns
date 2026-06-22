@@ -1,6 +1,4 @@
 import { formatCommandResultFailure, normalizeExecResult, type ExecResult } from "@sdl/core/exec";
-import { DEFAULT_FAST_MODEL, DEFAULT_FAST_MODEL_REF, resolveModelRef } from "@sdl/plans";
-
 import type {
 	ThermoCouncilCommandContext,
 	ThermoCouncilExtensionAPI,
@@ -44,7 +42,7 @@ export async function collectThermoCouncilScope(
 	ctx: ThermoCouncilCommandContext,
 	args: string,
 ): Promise<ScopeResult> {
-	const baseArg = await interpretBaseArg(pi, ctx, args);
+	const baseArg = interpretBaseArg(args);
 	if (baseArg.type === "failed") return baseArg;
 
 	const status = await git({ pi, ctx, args: ["status", "--short"], timeoutMs: GIT_TIMEOUT_MS });
@@ -135,171 +133,30 @@ export async function collectThermoCouncilScope(
 
 type BaseArgResult = { readonly type: "loaded"; readonly baseRef?: string } | ScopeResultFailed;
 
-type ScopePromptInterpretation =
-	| { readonly type: "automatic-base" }
-	| { readonly type: "base-ref"; readonly baseRef: string }
-	| { readonly type: "unsupported"; readonly reason: string };
-
-const SCOPE_MODEL_ENV = "THERMO_COUNCIL_SCOPE_MODEL";
-const SCOPE_MODEL_TIMEOUT_MS = 60_000;
-const SCOPE_INTERPRETER_SYSTEM_PROMPT = `Interpret the argument to a /thermo-council code review command.
-
-Return only compact JSON with one of these exact shapes:
-{"type":"automatic-base"}
-{"type":"base-ref","baseRef":"<single git revision token>"}
-{"type":"unsupported","reason":"<short reason>"}
-
-Semantics:
-- automatic-base means review the current branch/stack against the command's inferred repository base.
-- base-ref means the user identified a specific git base ref/revision to review HEAD against.
-- unsupported means the argument asks for anything outside choosing review scope/base.
-
-Rules:
-- Natural-language requests such as reviewing the current stack, whole stack, entire stack, or all changes in this stack should be automatic-base.
-- If the prompt explicitly says to compare against a named ref, return base-ref.
-- The baseRef must be a single token with no whitespace and must not start with "-".
-- Do not invent branch names. If no explicit ref is present, prefer automatic-base for stack/current-change scope requests.
-- Do not include Markdown, prose outside JSON, or extra keys.`;
-
-async function interpretBaseArg(
-	pi: ThermoCouncilExtensionAPI,
-	ctx: ThermoCouncilCommandContext,
-	args: string,
-): Promise<BaseArgResult> {
-	const trimmed = args.trim();
-	if (trimmed.length === 0) return { type: "loaded" };
-	if (!/\s/.test(trimmed)) return { type: "loaded", baseRef: trimmed };
-	const interpreted = await interpretScopePromptWithModel(pi, ctx, trimmed);
-	if (interpreted.type === "failed") return interpreted;
-	return baseArgFromScopePromptInterpretation(trimmed, interpreted.interpretation);
+function interpretBaseArg(args: string): BaseArgResult {
+	const tokens = args.trim().split(/\s+/).filter(Boolean);
+	if (tokens.length === 0) return { type: "loaded" };
+	if (tokens.length !== 1) return invalidScopeArgument(args);
+	const token = tokens[0];
+	if (token === undefined) return { type: "loaded" };
+	if (token === "stack") return { type: "loaded" };
+	if (!isValidBaseRefToken(token)) return invalidScopeArgument(args);
+	return { type: "loaded", baseRef: token };
 }
 
-async function interpretScopePromptWithModel(
-	pi: ThermoCouncilExtensionAPI,
-	ctx: ThermoCouncilCommandContext,
-	prompt: string,
-): Promise<
-	| { readonly type: "loaded"; readonly interpretation: ScopePromptInterpretation }
-	| ScopeResultFailed
-> {
-	const resolution = resolveModelRef(process.env, SCOPE_MODEL_ENV, DEFAULT_FAST_MODEL_REF);
-	if (!resolution.ok) return { type: "failed", message: resolution.error };
-	const model = resolution.value;
-	const result = await execPi(pi, ctx, buildScopeModelArgs(prompt, model), SCOPE_MODEL_TIMEOUT_MS);
-	if (result.code !== 0 || result.killed === true) {
-		return {
-			type: "failed",
-			message: formatCommandResultFailure(
-				"/thermo-council scope model failed",
-				"pi",
-				buildScopeModelDisplayArgs(model),
-				result,
-			),
-		};
-	}
-	const parsed = parseScopePromptInterpretation(result.stdout);
-	if (parsed.type === "failed") return parsed;
-	return { type: "loaded", interpretation: parsed.interpretation };
-}
-
-function baseArgFromScopePromptInterpretation(
-	prompt: string,
-	interpretation: ScopePromptInterpretation,
-): BaseArgResult {
-	switch (interpretation.type) {
-		case "automatic-base":
-			return { type: "loaded" };
-		case "base-ref":
-			if (!isValidBaseRefToken(interpretation.baseRef)) {
-				return {
-					type: "failed",
-					message: `Scope model returned an invalid base ref for /thermo-council: ${interpretation.baseRef}`,
-				};
-			}
-			return { type: "loaded", baseRef: interpretation.baseRef };
-		case "unsupported":
-			return {
-				type: "failed",
-				message: [
-					`Unsupported /thermo-council scope prompt: ${prompt}`,
-					interpretation.reason,
-					"Ask for a review scope/base, pass a single base ref, or omit the argument for automatic base inference.",
-				].join("\n"),
-			};
-	}
-}
-
-function parseScopePromptInterpretation(
-	output: string,
-):
-	| { readonly type: "loaded"; readonly interpretation: ScopePromptInterpretation }
-	| ScopeResultFailed {
-	let value: unknown;
-	try {
-		value = JSON.parse(output.trim());
-	} catch {
-		return {
-			type: "failed",
-			message: `Scope model returned non-JSON output for /thermo-council: ${output.trim()}`,
-		};
-	}
-	if (!isRecord(value) || typeof value.type !== "string") {
-		return { type: "failed", message: "Scope model returned malformed JSON for /thermo-council." };
-	}
-	if (value.type === "automatic-base")
-		return { type: "loaded", interpretation: { type: value.type } };
-	if (value.type === "base-ref" && typeof value.baseRef === "string") {
-		return {
-			type: "loaded",
-			interpretation: { type: value.type, baseRef: value.baseRef.trim() },
-		};
-	}
-	if (value.type === "unsupported" && typeof value.reason === "string") {
-		return {
-			type: "loaded",
-			interpretation: { type: value.type, reason: value.reason.trim() },
-		};
-	}
-	return { type: "failed", message: "Scope model returned unsupported JSON for /thermo-council." };
-}
-
-function buildScopeModelArgs(
-	prompt: string,
-	model: { readonly provider: string; readonly modelId: string } = DEFAULT_FAST_MODEL,
-): string[] {
-	return [
-		"--provider",
-		model.provider,
-		"--model",
-		model.modelId,
-		"--thinking",
-		"minimal",
-		"--no-session",
-		"--no-extensions",
-		"--no-skills",
-		"--no-prompt-templates",
-		"--no-context-files",
-		"--no-tools",
-		"--mode",
-		"text",
-		"--print",
-		`${SCOPE_INTERPRETER_SYSTEM_PROMPT}\n\nArgument:\n${JSON.stringify(prompt)}`,
-	];
-}
-
-function buildScopeModelDisplayArgs(model: {
-	readonly provider: string;
-	readonly modelId: string;
-}): string[] {
-	return buildScopeModelArgs("<scope-prompt>", model);
+function invalidScopeArgument(args: string): ScopeResultFailed {
+	return {
+		type: "failed",
+		message: [
+			`Invalid /thermo-council argument: ${args.trim()}`,
+			"Usage: /thermo-council [base-ref | stack]",
+			"Omit the argument to infer the base, pass one git ref to review HEAD against that ref, or pass `stack` to request inferred-base stack review.",
+		].join("\n"),
+	};
 }
 
 function isValidBaseRefToken(value: string): boolean {
 	return value.length > 0 && !value.startsWith("-") && !/\s/.test(value);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 async function inferBaseRef(
@@ -355,15 +212,6 @@ async function probeGit(options: GitOptions): Promise<ProbeGitResult> {
 
 async function execGit({ pi, ctx, args, timeoutMs }: GitOptions): Promise<ExecResult> {
 	return execCommand(pi, ctx, "git", args, timeoutMs);
-}
-
-async function execPi(
-	pi: ThermoCouncilExtensionAPI,
-	ctx: ThermoCouncilCommandContext,
-	args: readonly string[],
-	timeoutMs: number,
-): Promise<ExecResult> {
-	return execCommand(pi, ctx, "pi", args, timeoutMs);
 }
 
 async function execCommand(

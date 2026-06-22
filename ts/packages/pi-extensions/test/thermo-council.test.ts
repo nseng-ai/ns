@@ -206,7 +206,7 @@ describe("thermo council extension", () => {
 		expect([...pi.commands.keys()]).toEqual([THERMO_COUNCIL_COMMAND_NAME]);
 		expect(pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.description).toContain("thermonuclear");
 		expect(pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.description).toContain("report");
-		expect(pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.argumentHint).toContain("scope prompt");
+		expect(pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.argumentHint).toContain("stack");
 	});
 
 	test("parses default, positional, and seat-specific model overrides", () => {
@@ -291,19 +291,17 @@ describe("thermo council extension", () => {
 		expect(pi.messages[0]?.content).not.toContain(`allowed git ${"failure"}`);
 	});
 
-	test("accepts a model-interpreted natural-language entire-stack scope prompt", async () => {
+	test("uses inferred base when invoked without arguments", async () => {
 		const runnerResult = completedRunnerResult();
 		const pi = new FakePi({
 			execResults: successfulInferredScopeExecResults(),
-			execHandler: scopePromptExecHandler({ type: "automatic-base" }),
 			runnerResult,
 		});
 		thermoCouncilExtension(pi);
 
-		await pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.handler("this entire stack", fakeContext());
+		await pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.handler("", fakeContext());
 
-		expect(pi.execCalls[0]?.command).toBe("pi");
-		expect(pi.execCalls[0]?.args.join("\n")).toContain("this entire stack");
+		expect(pi.execCalls.map((call) => call.command)).not.toContain("pi");
 		expect(pi.execCalls).toContainEqual({
 			command: "git",
 			args: ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"],
@@ -312,45 +310,51 @@ describe("thermo council extension", () => {
 		expect(pi.messages[0]?.content).toContain("## Executive Recommendation");
 	});
 
-	test("uses a model-interpreted explicit base ref from prose", async () => {
+	test("accepts stack keyword as deterministic inferred-base scope", async () => {
 		const runnerResult = completedRunnerResult();
 		const pi = new FakePi({
-			execResults: successfulScopeExecResults(),
-			execHandler: scopePromptExecHandler({ type: "base-ref", baseRef: "origin/master" }),
+			execResults: successfulInferredScopeExecResults(),
 			runnerResult,
 		});
+		thermoCouncilExtension(pi);
+
+		await pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.handler("stack", fakeContext());
+
+		expect(pi.execCalls.map((call) => call.command)).not.toContain("pi");
+		expect(pi.execCalls).toContainEqual({
+			command: "git",
+			args: ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"],
+		});
+		expect(pi.runnerCalls).toHaveLength(4);
+		expect(pi.messages[0]?.content).toContain("## Executive Recommendation");
+	});
+
+	test("rejects natural-language scope prompts before git or model execution", async () => {
+		const pi = new FakePi();
 		thermoCouncilExtension(pi);
 
 		await pi.commands
 			.get(THERMO_COUNCIL_COMMAND_NAME)
 			?.handler("review against origin/master", fakeContext());
 
-		expect(pi.execCalls[0]?.command).toBe("pi");
-		expect(pi.execCalls).not.toContainEqual({
-			command: "git",
-			args: ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"],
-		});
-		expect(pi.runnerCalls).toHaveLength(4);
+		expect(pi.execCalls).toEqual([]);
+		expect(pi.runnerCalls).toEqual([]);
+		expect(pi.messages[0]?.content).toContain("Invalid /thermo-council argument");
+		expect(pi.messages[0]?.content).toContain("Usage: /thermo-council [base-ref | stack]");
 	});
 
-	test("rejects prose the scope model marks unsupported", async () => {
-		const pi = new FakePi({
-			execHandler: scopePromptExecHandler({
-				type: "unsupported",
-				reason: "The prompt asks for a bug theme, not a review base.",
-			}),
-		});
+	test("rejects complex prose without calling the scope model", async () => {
+		const pi = new FakePi();
 		thermoCouncilExtension(pi);
 
 		await pi.commands
 			.get(THERMO_COUNCIL_COMMAND_NAME)
-			?.handler("review the stack overflow fix", fakeContext());
+			?.handler("with complex prompt", fakeContext());
 
-		expect(pi.execCalls.map((call) => call.command)).toEqual(["pi"]);
+		expect(pi.execCalls).toEqual([]);
 		expect(pi.runnerCalls).toEqual([]);
-		expect(pi.messages[0]?.content).toContain("Unsupported /thermo-council scope prompt");
-		expect(pi.messages[0]?.content).toContain("bug theme");
-		expect(pi.messages[0]?.content).not.toContain("Ambiguous /thermo-council argument");
+		expect(pi.messages[0]?.content).toContain("Invalid /thermo-council argument");
+		expect(pi.messages[0]?.content).not.toContain("scope model");
 	});
 
 	test("launches three read-only terminal-capture reviewer seats and renders a report", async () => {
@@ -711,13 +715,6 @@ async function waitForSpawnCount(calls: readonly SpawnCall[], count: number): Pr
 		await new Promise((resolve) => setTimeout(resolve, 0));
 	}
 	throw new Error(`Expected ${count} child processes to be spawned.`);
-}
-
-function scopePromptExecHandler(response: unknown): FakeExecHandler {
-	return (command) => {
-		if (command !== "pi") return undefined;
-		return { stdout: `${JSON.stringify(response)}\n` };
-	};
 }
 
 function successfulInferredScopeExecResults(): Map<
