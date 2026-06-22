@@ -4,6 +4,7 @@
 
 - [ ] Finalize the completion architecture boundary between Clinkr and SDL.
   - Decide whether Clinkr owns only a pure completion planner or also owns reusable host-command helpers for `completion <shell>` and hidden resolver commands.
+  - Treat completion as a Clinkr primitive because Clinkr owns the surface plan; avoid fighting Commander's deliberate parser-only scope through a Commander plugin.
   - Preserve SDL as the first proving consumer without baking SDL extension policy into Clinkr.
 
 - [ ] Build the static Clinkr completion engine.
