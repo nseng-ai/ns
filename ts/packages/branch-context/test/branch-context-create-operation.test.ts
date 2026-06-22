@@ -107,16 +107,6 @@ describe("buildBranchContextCreateOperation", () => {
 			branchName: TARGET_BRANCH,
 		});
 	});
-
-	test("keeps creation-layer validation focused on target branch names", () => {
-		expect(() =>
-			buildBranchContextCreateOperation({
-				slug: PLAN_SLUG,
-				filePath: PLAN_FILE,
-				branchName: "bad branch",
-			}),
-		).toThrow("Invalid target branch name");
-	});
 });
 
 describe("branch-context create preview", () => {
@@ -181,6 +171,30 @@ describe("branch-context create preview", () => {
 });
 
 describe("branch-context create execution", () => {
+	test("invalid target branch refs fail before source file resolution, branch creation, or attachment", async () => {
+		const invalidBranch = "bad branch";
+		const git = new InMemoryGitGateway({ invalidBranchRefs: [invalidBranch] });
+		const brmem = new InMemoryBranchMemoryGateway();
+		const graphite = new InMemoryBranchContextGraphiteGateway();
+		const filePath = await makePlanFile();
+
+		await expect(
+			createBranchContextFromFile(
+				NO_COMMANDS,
+				{ slug: PLAN_SLUG, filePath, branchName: invalidBranch, branchCreation: "plain-git" },
+				{ cwd: ROOT, context: branchContext({ git, brmem, graphite }) },
+			),
+		).rejects.toThrow(`Invalid branch ref: ${invalidBranch}`);
+		expect(git.validateBranchRefCalls).toEqual([{ cwd: ROOT, branch: invalidBranch }]);
+		expect(git.headCommitCalls).toEqual([]);
+		expect(git.localBranchPresenceCalls).toEqual([]);
+		expect(git.createBranchAtHeadCalls).toEqual([]);
+		expect(brmem.attachmentPresenceCalls).toEqual([]);
+		expect(brmem.attachPlanCalls).toEqual([]);
+		expect(graphite.checkBranchTrackedCalls).toEqual([]);
+		expect(graphite.trackBranchCalls).toEqual([]);
+	});
+
 	test("Graphite creation checks parent trackedness before tracking the new branch", async () => {
 		const git = new InMemoryGitGateway({
 			optionalRepoRoot: { type: "missing" },

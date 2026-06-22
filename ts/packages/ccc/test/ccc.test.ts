@@ -366,8 +366,8 @@ describe("CCC cmux command suite", () => {
 				step("pi", buildSlugModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
 					stdout: `${PLAN_SLUG}\n`,
 				}),
-				gitRootStep(repoRoot),
 				step("git", ["check-ref-format", "--branch", PLAN_SLUG], {}),
+				gitRootStep(repoRoot),
 				headStep(),
 				step("git", ["rev-parse", "--verify", `refs/heads/${PLAN_SLUG}`], missingRevisionResult()),
 				gitCurrentBranchStep(),
@@ -474,8 +474,8 @@ describe("CCC cmux command suite", () => {
 				step("pi", buildSlugModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
 					stdout: `${PLAN_SLUG}\n`,
 				}),
-				gitRootStep(repoRoot),
 				step("git", ["check-ref-format", "--branch", PLAN_SLUG], {}),
+				gitRootStep(repoRoot),
 				headStep(),
 				step("git", ["rev-parse", "--verify", `refs/heads/${PLAN_SLUG}`], missingRevisionResult()),
 				gitCurrentBranchStep(),
@@ -580,8 +580,8 @@ describe("CCC cmux command suite", () => {
 				step("pi", buildSlugModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), {
 					stdout: `${PLAN_SLUG}\n`,
 				}),
-				gitRootStep(repoRoot),
 				step("git", ["check-ref-format", "--branch", PLAN_SLUG], {}),
+				gitRootStep(repoRoot),
 				headStep(),
 				step("git", ["rev-parse", "--verify", `refs/heads/${PLAN_SLUG}`], missingRevisionResult()),
 				gitCurrentBranchStep(),

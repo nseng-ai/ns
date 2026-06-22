@@ -20,12 +20,13 @@ export function createRealHandoffContext(
 	const cwd = options.cwd ?? process.cwd();
 	const env = options.env ?? process.env;
 	const execApi = new NodeCommandExecApi();
+	const git = new RealGitGateway(execApi);
 	const stderr = (text: string) => process.stderr.write(text);
 	return {
 		cwd,
 		env,
-		git: new RealGitGateway(execApi),
-		brmem: new RealGitBrmemGateway(cwd, execApi),
+		git,
+		brmem: new RealGitBrmemGateway({ cwd, commands: execApi, git }),
 		interaction: resolveClinkrInteraction({ stdin: readStdinLine, stderr }),
 		stderr,
 	};

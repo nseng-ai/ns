@@ -31,6 +31,7 @@ export type {
 export type { BrmemErrorInfo, BrmemOptionalResult, BrmemResult } from "./contracts.ts";
 export { brmemOk, brmemError, brmemFound, brmemMissing, brmemOptionalError } from "./contracts.ts";
 export { RealGitBrmemGateway } from "./real-git-gateway.ts";
+export type { RealGitBrmemGatewayOptions } from "./real-git-gateway.ts";
 export { FakeBrmemGateway } from "./fake-gateway.ts";
 export type {
 	FakeBrmemGatewayOptions,

@@ -22,10 +22,12 @@ export function createBranchContextContext(
 	options: { cwd?: string | undefined } = {},
 ): BranchContextContext {
 	const cwd = options.cwd ?? process.cwd();
+	const git = new RealGitGateway(commands);
+	const brmem = new RealGitBrmemGateway({ cwd, commands, git });
 	return {
 		commands,
-		git: new RealGitGateway(commands),
-		brmem: new RealGitBrmemGateway(cwd, commands),
+		git,
+		brmem,
 		graphite: new RealBranchContextGraphiteGateway(commands),
 	};
 }

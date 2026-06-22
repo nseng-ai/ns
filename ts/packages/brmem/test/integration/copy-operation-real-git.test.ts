@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import { NodeCommandExecApi, type StdinCapableCommandExecApi } from "@sdl/core/exec";
+import { RealGitGateway } from "@sdl/core/git";
+
 import { RealGitBrmemGateway } from "../../src/real-git-gateway.ts";
 import { mustSnapshotRef } from "../../src/ref-layout.ts";
 import { parseJsonOutput, runScenario } from "../support/run-scenario.ts";
@@ -9,7 +12,7 @@ describe("copy operation real-Git integration", () => {
 	it("wires public copy through RealGitBrmemGateway and preserves dry-run refs", async () => {
 		const repo = createTempGitRepo();
 		try {
-			const gateway = new RealGitBrmemGateway(repo.path);
+			const gateway = realGitBrmemGateway(repo.path);
 			expect(
 				(
 					await gateway.putEntry({
@@ -71,3 +74,10 @@ describe("copy operation real-Git integration", () => {
 		}
 	});
 });
+
+function realGitBrmemGateway(
+	cwd: string,
+	commands: StdinCapableCommandExecApi = new NodeCommandExecApi(),
+): RealGitBrmemGateway {
+	return new RealGitBrmemGateway({ cwd, commands, git: new RealGitGateway(commands) });
+}

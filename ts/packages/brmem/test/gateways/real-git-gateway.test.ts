@@ -1,24 +1,53 @@
 import { describe, expect, it } from "vitest";
 
 import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/exec";
+import { InMemoryGitGateway } from "@sdl/core/git/testing";
 
 import { RealGitBrmemGateway } from "../../src/real-git-gateway.ts";
 
 describe("RealGitBrmemGateway", () => {
-	it("runs git through the injected command executor", async () => {
-		const commands = new RecordingCommands([
-			{ command: "git", args: ["branch", "--show-current"], result: { stdout: "feat/x\n" } },
-		]);
-		const gateway = new RealGitBrmemGateway("/work", commands);
+	it("delegates current branch resolution to the injected Git gateway", async () => {
+		const commands = new RecordingCommands([]);
+		const git = new InMemoryGitGateway({ currentBranch: "feat/x" });
+		const gateway = realGitBrmemGateway("/work", commands, git);
 
 		expect(await gateway.currentBranch()).toEqual({ type: "ok", value: "feat/x" });
-		expect(commands.calls).toEqual([
-			{
-				command: "git",
-				args: ["branch", "--show-current"],
-				options: { cwd: "/work", env: process.env },
-			},
-		]);
+		expect(git.currentBranchCalls).toEqual([{ cwd: "/work" }]);
+		expect(commands.calls).toEqual([]);
+	});
+
+	it("short-circuits Branch Memory branch encoding validation before Git ref validation", async () => {
+		const commands = new RecordingCommands([]);
+		const git = new InMemoryGitGateway();
+		const gateway = realGitBrmemGateway("/work", commands, git);
+
+		expect(
+			await gateway.putEntry({
+				namespace: "base",
+				branch: "bad---branch",
+				key: "body.md",
+				content: "body",
+			}),
+		).toMatchObject({ type: "error", error: { code: "invalid_branch_name" } });
+		expect(git.validateBranchRefCalls).toEqual([]);
+		expect(commands.calls).toEqual([]);
+	});
+
+	it("maps delegated Git branch-ref validation failures to brmem branch errors", async () => {
+		const commands = new RecordingCommands([]);
+		const git = new InMemoryGitGateway({ invalidBranchRefs: ["bad branch"] });
+		const gateway = realGitBrmemGateway("/work", commands, git);
+
+		expect(
+			await gateway.putEntry({
+				namespace: "base",
+				branch: "bad branch",
+				key: "body.md",
+				content: "body",
+			}),
+		).toMatchObject({ type: "error", error: { code: "invalid_branch_name" } });
+		expect(git.validateBranchRefCalls).toEqual([{ cwd: "/work", branch: "bad branch" }]);
+		expect(commands.calls).toEqual([]);
 	});
 
 	it("normalizes UTC timestamps from Git when listing Entries", async () => {
@@ -47,7 +76,7 @@ describe("RealGitBrmemGateway", () => {
 				},
 			},
 		]);
-		const gateway = new RealGitBrmemGateway("/work", commands);
+		const gateway = realGitBrmemGateway("/work", commands);
 
 		const listed = await gateway.listEntries({ namespace: "base", branch: "feat/x" });
 
@@ -61,8 +90,6 @@ describe("RealGitBrmemGateway", () => {
 
 	it("builds Snapshot trees with git mktree stdin", async () => {
 		const commands = new RecordingCommands([
-			{ command: "git", args: ["check-ref-format", "--branch", "source"] },
-			{ command: "git", args: ["check-ref-format", "--branch", "dest"] },
 			{
 				command: "git",
 				args: ["rev-parse", "--verify", "refs/brmem/base/source"],
@@ -102,7 +129,7 @@ describe("RealGitBrmemGateway", () => {
 			},
 			{ command: "git", args: ["update-ref", "refs/brmem/base/dest", "commit-sha"] },
 		]);
-		const gateway = new RealGitBrmemGateway("/work", commands);
+		const gateway = realGitBrmemGateway("/work", commands);
 
 		expect(
 			(
@@ -124,7 +151,6 @@ describe("RealGitBrmemGateway", () => {
 
 	it("normalizes UTC timestamps from Git when checking an Entry", async () => {
 		const commands = new RecordingCommands([
-			{ command: "git", args: ["check-ref-format", "--branch", "feat/x"] },
 			{ command: "git", args: ["cat-file", "-e", "refs/brmem/base/feat---x:body.md"] },
 			{
 				command: "git",
@@ -142,7 +168,7 @@ describe("RealGitBrmemGateway", () => {
 				result: { stdout: "commit-sha\t2026-02-03T04:05:06.000Z\n" },
 			},
 		]);
-		const gateway = new RealGitBrmemGateway("/work", commands);
+		const gateway = realGitBrmemGateway("/work", commands);
 
 		const checked = await gateway.checkEntry({
 			namespace: "base",
@@ -156,6 +182,14 @@ describe("RealGitBrmemGateway", () => {
 		});
 	});
 });
+
+function realGitBrmemGateway(
+	cwd: string,
+	commands: RecordingCommands,
+	git = new InMemoryGitGateway(),
+): RealGitBrmemGateway {
+	return new RealGitBrmemGateway({ cwd, commands, git });
+}
 
 interface CommandStep {
 	command: string;

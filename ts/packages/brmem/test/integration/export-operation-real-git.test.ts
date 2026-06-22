@@ -4,6 +4,9 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { NodeCommandExecApi, type StdinCapableCommandExecApi } from "@sdl/core/exec";
+import { RealGitGateway } from "@sdl/core/git";
+
 import { RealGitBrmemGateway } from "../../src/real-git-gateway.ts";
 import { parseJsonOutput, runScenario } from "../support/run-scenario.ts";
 import { createTempGitRepo } from "../support/temp-git-repo.ts";
@@ -13,7 +16,7 @@ describe("export operation real-Git integration", () => {
 		const repo = createTempGitRepo();
 		const root = await makeTempDir();
 		try {
-			const gateway = new RealGitBrmemGateway(repo.path);
+			const gateway = realGitBrmemGateway(repo.path);
 			expect(
 				(
 					await gateway.putEntry({
@@ -53,6 +56,13 @@ describe("export operation real-Git integration", () => {
 		}
 	});
 });
+
+function realGitBrmemGateway(
+	cwd: string,
+	commands: StdinCapableCommandExecApi = new NodeCommandExecApi(),
+): RealGitBrmemGateway {
+	return new RealGitBrmemGateway({ cwd, commands, git: new RealGitGateway(commands) });
+}
 
 async function makeTempDir(): Promise<string> {
 	return await mkdtemp(join(tmpdir(), "brmem-export-test-"));
