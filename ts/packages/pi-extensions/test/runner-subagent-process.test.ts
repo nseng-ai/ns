@@ -248,7 +248,7 @@ describe("runner subagent process dispatcher", () => {
 		});
 	});
 
-	test("omits the thinking flag for off while preserving off launch metadata", async () => {
+	test("passes explicit off thinking to child Pi and progress metadata", async () => {
 		const runner = createFakeRunnerSubagentDispatcher({
 			sessionFile: "/tmp/runner-subagent.jsonl",
 		});
@@ -268,6 +268,8 @@ describe("runner subagent process dispatcher", () => {
 			"--mode",
 			"json",
 			"-p",
+			"--thinking",
+			"off",
 			"--no-extensions",
 			"--session",
 			"/tmp/runner-subagent.jsonl",
@@ -281,7 +283,7 @@ describe("runner subagent process dispatcher", () => {
 		expect(result.progress.launch).toEqual({
 			thinkingLevel: "off",
 			hasModelArg: false,
-			hasThinkingArg: false,
+			hasThinkingArg: true,
 		});
 	});
 
@@ -476,6 +478,77 @@ describe("runner subagent process dispatcher", () => {
 			hasModelArg: true,
 			hasThinkingArg: false,
 		});
+	});
+
+	test("hydrates startup launch metadata from the child session file", async () => {
+		const updates: RunnerSubagentUpdate[] = [];
+		const runner = createFakeRunnerSubagentDispatcher({
+			sessionFile: "/tmp/runner-subagent.jsonl",
+			sessionFileText: [
+				jsonLine({ type: "model_change", provider: "openai-codex", modelId: "gpt-5.4-mini" }),
+				jsonLine({ type: "thinking_level_change", thinkingLevel: "high" }),
+			].join(""),
+		});
+		const running = dispatchRunnerSubagentProcess(
+			{ getThinkingLevel: () => "medium" },
+			{ cwd: "/repo", model: { provider: "openai-codex", id: "gpt-5.5" } },
+			{
+				...finalTextOptions({ title: "Cheap classifier", model: "openai-codex/gpt-5.4-mini" }),
+				onProgress: (update) => updates.push(update),
+			},
+			runner.dependencies,
+		);
+		const call = await waitForSpawn(runner.calls);
+
+		call.process.emitStdout(jsonLine({ type: "session", version: 3, id: "child", cwd: "/repo" }));
+		await Promise.resolve();
+		await Promise.resolve();
+
+		expect(updates.some((update) => update.progress.launch?.observedThinkingLevel === "high")).toBe(
+			true,
+		);
+
+		call.process.emitStdout(finalTextMessage("Done."));
+		call.process.close(0);
+		const result = await running;
+
+		expect(result.status).toBe("final-text");
+		expect(result.progress.launch).toEqual({
+			requestedModel: "openai-codex/gpt-5.4-mini",
+			model: { provider: "openai-codex", id: "gpt-5.4-mini" },
+			thinkingLevel: "off",
+			observedThinkingLevel: "high",
+			hasModelArg: true,
+			hasThinkingArg: false,
+		});
+	});
+
+	test("session launch hydration read failures are nonfatal", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({
+			sessionFile: "/tmp/runner-subagent.jsonl",
+			sessionFileReadError: new Error("EACCES: permission denied"),
+		});
+		const running = dispatchRunnerSubagentProcess(
+			{ getThinkingLevel: () => "high" },
+			ctx,
+			finalTextOptions({ model: "openai-codex/gpt-5.4-mini" }),
+			runner.dependencies,
+		);
+		const call = await waitForSpawn(runner.calls);
+
+		call.process.emitStdout(jsonLine({ type: "session", version: 3, id: "child", cwd: "/repo" }));
+		call.process.emitStdout(finalTextMessage("Done."));
+		call.process.close(0);
+		const result = await running;
+
+		expect(result.status).toBe("final-text");
+		expect(result.progress.launch).toEqual({
+			requestedModel: "openai-codex/gpt-5.4-mini",
+			thinkingLevel: "off",
+			hasModelArg: true,
+			hasThinkingArg: false,
+		});
+		expect(result.usage).toEqual(expect.objectContaining({ reason: "session-read-error" }));
 	});
 
 	test("returns final assistant text for clean subagent completion in final-text mode", async () => {

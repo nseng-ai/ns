@@ -48,7 +48,10 @@ export function formatRunnerSubagentModelText(launch: RunnerSubagentLaunchMetada
 }
 
 export function formatRunnerSubagentThinkingText(launch: RunnerSubagentLaunchMetadata): string {
-	return launch.observedThinkingLevel ?? launch.thinkingLevel;
+	if (launch.observedThinkingLevel !== undefined) return launch.observedThinkingLevel;
+	if (launch.hasThinkingArg) return launch.thinkingLevel;
+	if (launch.requestedModel !== undefined) return "default (unobserved)";
+	return launch.thinkingLevel;
 }
 
 export function formatRunnerSubagentProgressWidgetLines(

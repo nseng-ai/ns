@@ -74,6 +74,11 @@ interface JsonEvent {
 	[key: string]: unknown;
 }
 
+type ParsedJsonEventLine =
+	| { type: "empty" }
+	| { type: "event"; event: JsonEvent }
+	| { type: "invalid"; line: string; cause: unknown };
+
 const MAX_LAUNCH_METADATA_TEXT_CHARS = 160;
 
 export class RunnerSubagentJsonEventParser {
@@ -128,6 +133,14 @@ export class RunnerSubagentJsonEventParser {
 		this.markStopped();
 	}
 
+	hydrateLaunchMetadataFromSessionJsonl(jsonl: string): boolean {
+		const before = JSON.stringify(this.launch ?? null);
+		for (const rawLine of jsonl.split("\n")) {
+			this.hydrateLaunchMetadataFromSessionLine(rawLine);
+		}
+		return JSON.stringify(this.launch ?? null) !== before;
+	}
+
 	markTerminating(): void {
 		if (this.state === "stopped") return;
 		this.state = "terminating";
@@ -170,23 +183,60 @@ export class RunnerSubagentJsonEventParser {
 	}
 
 	private processLine(rawLine: string): void {
+		const parsed = this.parseJsonEventLine(rawLine);
+		switch (parsed.type) {
+			case "empty":
+				return;
+			case "event":
+				this.processEvent(parsed.event);
+				return;
+			case "invalid":
+				this.fail(parsed.line, parsed.cause);
+				return;
+		}
+	}
+
+	private hydrateLaunchMetadataFromSessionLine(rawLine: string): void {
+		const parsed = this.parseJsonEventLine(rawLine);
+		if (parsed.type === "empty") return;
+		if (parsed.type === "invalid") {
+			// Session JSONL may be read while Pi is appending; malformed or partial lines are
+			// skipped during best-effort launch metadata hydration.
+			return;
+		}
+
+		switch (parsed.event.type) {
+			case "model_change":
+				this.captureModelChange(parsed.event);
+				return;
+			case "thinking_level_change":
+				this.captureThinkingLevelChange(parsed.event);
+				return;
+			default:
+				return;
+		}
+	}
+
+	private parseJsonEventLine(rawLine: string): ParsedJsonEventLine {
 		const line = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
-		if (line.trim().length === 0) return;
+		if (line.trim().length === 0) return { type: "empty" };
 
 		let event: unknown;
 		try {
 			event = JSON.parse(line);
 		} catch (error) {
-			this.fail(line, error);
-			return;
+			return { type: "invalid", line, cause: error };
 		}
 
 		if (!isJsonEvent(event)) {
-			this.fail(line, new Error("JSONL event must be an object with a string type."));
-			return;
+			return {
+				type: "invalid",
+				line,
+				cause: new Error("JSONL event must be an object with a string type."),
+			};
 		}
 
-		this.processEvent(event);
+		return { type: "event", event };
 	}
 
 	private processEvent(event: JsonEvent): void {

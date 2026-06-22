@@ -116,9 +116,32 @@ describe("runner subagent activity widget", () => {
 			"Subagent: (untitled)",
 			"State: starting",
 			"Model: openai-codex/gpt-5.4-mini:medium",
-			"Thinking: off",
+			"Thinking: default (unobserved)",
 			"Turns/tools: 0/0",
 		]);
+	});
+
+	test("renders intentional explicit off thinking as off", () => {
+		expect(
+			formatRunnerSubagentActivityWidgetLines(
+				{
+					progress: {
+						state: "starting",
+						toolCount: 0,
+						turnCount: 0,
+						elapsedMs: 0,
+						launch: {
+							requestedModel: "openai-codex/gpt-5.4-mini",
+							thinkingLevel: "off",
+							hasModelArg: true,
+							hasThinkingArg: true,
+						},
+					},
+					activity: {},
+				},
+				{ fallbackTitle: "(untitled)", includeElapsed: false },
+			),
+		).toContain("Thinking: off");
 	});
 
 	test("renders honest default model and off thinking metadata", () => {
