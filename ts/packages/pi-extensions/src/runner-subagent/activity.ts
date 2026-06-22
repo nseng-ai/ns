@@ -19,6 +19,12 @@ export function emptyRunnerSubagentActivity(): RunnerSubagentActivity {
 	return {};
 }
 
+export function runnerSubagentPrimaryActivityPreview(
+	activity: RunnerSubagentActivity,
+): string | undefined {
+	return activity.assistantPreview ?? activity.currentToolInputPreview;
+}
+
 export function previewJsonEventValue(
 	value: unknown,
 	limit = RUNNER_SUBAGENT_ACTIVITY_PREVIEW_CHARS,

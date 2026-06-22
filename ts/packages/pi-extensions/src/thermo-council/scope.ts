@@ -1,5 +1,4 @@
-import { formatCommandResultFailure, normalizeExecResult } from "@sdl/core/exec";
-
+import { formatCommandResultFailure, normalizeExecResult, type ExecResult } from "@sdl/core/exec";
 import type {
 	ThermoCouncilCommandContext,
 	ThermoCouncilExtensionAPI,
@@ -18,15 +17,32 @@ interface GitOptions {
 	readonly ctx: ThermoCouncilCommandContext;
 	readonly args: readonly string[];
 	readonly timeoutMs: number;
-	readonly allowFailure?: boolean;
 }
+
+interface LoadedGitResult {
+	readonly type: "loaded";
+	readonly stdout: string;
+	readonly stderr: string;
+}
+
+interface ProbeGitFailure {
+	readonly type: "failed";
+	readonly result: {
+		readonly code: number;
+		readonly stdout: string;
+		readonly stderr: string;
+		readonly args: readonly string[];
+	};
+}
+
+type ProbeGitResult = LoadedGitResult | ProbeGitFailure;
 
 export async function collectThermoCouncilScope(
 	pi: ThermoCouncilExtensionAPI,
 	ctx: ThermoCouncilCommandContext,
 	args: string,
 ): Promise<ScopeResult> {
-	const baseArg = parseBaseArg(args);
+	const baseArg = interpretBaseArg(args);
 	if (baseArg.type === "failed") return baseArg;
 
 	const status = await git({ pi, ctx, args: ["status", "--short"], timeoutMs: GIT_TIMEOUT_MS });
@@ -115,41 +131,52 @@ export async function collectThermoCouncilScope(
 	};
 }
 
-function parseBaseArg(
-	args: string,
-): { readonly type: "loaded"; readonly baseRef?: string } | ScopeResultFailed {
-	const trimmed = args.trim();
-	if (trimmed.length === 0) return { type: "loaded" };
-	if (/\s/.test(trimmed)) {
-		return {
-			type: "failed",
-			message:
-				"Ambiguous /thermo-council argument. Pass a single base ref, or omit the argument for automatic base inference.",
-		};
-	}
-	return { type: "loaded", baseRef: trimmed };
+type BaseArgResult = { readonly type: "loaded"; readonly baseRef?: string } | ScopeResultFailed;
+
+function interpretBaseArg(args: string): BaseArgResult {
+	const tokens = args.trim().split(/\s+/).filter(Boolean);
+	if (tokens.length === 0) return { type: "loaded" };
+	if (tokens.length !== 1) return invalidScopeArgument(args);
+	const token = tokens[0];
+	if (token === undefined) return { type: "loaded" };
+	if (token === "stack") return { type: "loaded" };
+	if (!isValidBaseRefToken(token)) return invalidScopeArgument(args);
+	return { type: "loaded", baseRef: token };
+}
+
+function invalidScopeArgument(args: string): ScopeResultFailed {
+	return {
+		type: "failed",
+		message: [
+			`Invalid /thermo-council argument: ${args.trim()}`,
+			"Usage: /thermo-council [base-ref | stack]",
+			"Omit the argument to infer the base, pass one git ref to review HEAD against that ref, or pass `stack` to request inferred-base stack review.",
+		].join("\n"),
+	};
+}
+
+function isValidBaseRefToken(value: string): boolean {
+	return value.length > 0 && !value.startsWith("-") && !/\s/.test(value);
 }
 
 async function inferBaseRef(
 	pi: ThermoCouncilExtensionAPI,
 	ctx: ThermoCouncilCommandContext,
 ): Promise<string | ScopeResultFailed> {
-	const originHead = await git({
+	const originHead = await probeGit({
 		pi,
 		ctx,
 		args: ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"],
 		timeoutMs: GIT_TIMEOUT_MS,
-		allowFailure: true,
 	});
 	if (originHead.type === "loaded" && originHead.stdout.trim() !== "")
 		return originHead.stdout.trim();
 	for (const candidate of ["origin/master", "origin/main", "master", "main"] as const) {
-		const result = await git({
+		const result = await probeGit({
 			pi,
 			ctx,
 			args: ["rev-parse", "--verify", `${candidate}^{commit}`],
 			timeoutMs: GIT_TIMEOUT_MS,
-			allowFailure: true,
 		});
 		if (result.type === "loaded") return candidate;
 	}
@@ -160,26 +187,45 @@ async function inferBaseRef(
 	};
 }
 
-async function git({
-	pi,
-	ctx,
-	args,
-	timeoutMs,
-	allowFailure = false,
-}: GitOptions): Promise<
-	{ readonly type: "loaded"; readonly stdout: string; readonly stderr: string } | ScopeResultFailed
-> {
-	const result = normalizeExecResult(
-		await pi.exec("git", args, {
+async function git(options: GitOptions): Promise<LoadedGitResult | ScopeResultFailed> {
+	const result = await execGit(options);
+	if (result.code === 0) return { type: "loaded", stdout: result.stdout, stderr: result.stderr };
+	return {
+		type: "failed",
+		message: formatCommandResultFailure("git command failed", "git", options.args, result),
+	};
+}
+
+async function probeGit(options: GitOptions): Promise<ProbeGitResult> {
+	const result = await execGit(options);
+	if (result.code === 0) return { type: "loaded", stdout: result.stdout, stderr: result.stderr };
+	return {
+		type: "failed",
+		result: {
+			code: result.code,
+			stdout: result.stdout,
+			stderr: result.stderr,
+			args: [...options.args],
+		},
+	};
+}
+
+async function execGit({ pi, ctx, args, timeoutMs }: GitOptions): Promise<ExecResult> {
+	return execCommand(pi, ctx, "git", args, timeoutMs);
+}
+
+async function execCommand(
+	pi: ThermoCouncilExtensionAPI,
+	ctx: ThermoCouncilCommandContext,
+	command: string,
+	args: readonly string[],
+	timeoutMs: number,
+): Promise<ExecResult> {
+	return normalizeExecResult(
+		await pi.exec(command, args, {
 			cwd: ctx.cwd,
 			timeout: timeoutMs,
 			...(ctx.signal === undefined ? {} : { signal: ctx.signal }),
 		}),
 	);
-	if (result.code === 0) return { type: "loaded", stdout: result.stdout, stderr: result.stderr };
-	if (allowFailure) return { type: "failed", message: "allowed git failure" };
-	return {
-		type: "failed",
-		message: formatCommandResultFailure("git command failed", "git", args, result),
-	};
 }

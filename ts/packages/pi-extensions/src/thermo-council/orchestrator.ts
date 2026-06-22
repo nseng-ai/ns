@@ -1,4 +1,6 @@
-import { z } from "zod";
+import type { z } from "zod";
+
+import { formatZodError } from "@sdl/core/primitives";
 
 import {
 	BLOCK_THERMO_COUNCIL_REVIEW_TOOL,
@@ -14,12 +16,14 @@ import {
 } from "../thermo-council-contract.ts";
 import {
 	dispatchRunnerSubagent,
+	runnerSubagentPrimaryActivityPreview,
 	type JsonObject,
 	type RunnerSubagentContext,
 	type RunnerSubagentResult,
 	type RunnerSubagentUpdate,
 } from "../runner-subagent.ts";
 import { THERMO_COUNCIL_COMMAND_NAME, THERMO_COUNCIL_MESSAGE_TYPE } from "./constants.ts";
+import { synthesizeThermoCouncilFinalReport } from "./final-synthesis.ts";
 import { buildReviewerPrompt } from "./prompt.ts";
 import { renderFatalReport, renderThermoCouncilReport } from "./report.ts";
 import { collectThermoCouncilScope } from "./scope.ts";
@@ -71,8 +75,17 @@ export async function runThermoCouncilCommand(
 				return outcome;
 			}),
 		);
-		setStatus(ctx, "synthesizing thermo council report…");
-		const report = renderThermoCouncilReport(scopeResult.scope, outcomes);
+		setStatus(ctx, "aggregating thermo council findings…");
+		const deterministicReport = renderThermoCouncilReport(scopeResult.scope, outcomes);
+		setStatus(ctx, "running final thermo council synthesis…");
+		const report = await synthesizeThermoCouncilFinalReport({
+			pi,
+			ctx,
+			scope: scopeResult.scope,
+			outcomes,
+			deterministicReport,
+			onProgress: (update) => setStatus(ctx, renderFinalSynthesisStatus(update)),
+		});
 		emitReport(pi, ctx, report);
 	} catch (error) {
 		emitReport(
@@ -147,7 +160,8 @@ function renderCouncilSeatProgress(state: CouncilSeatRunState): string {
 	const progress = state.update?.progress;
 	if (progress === undefined) return `${state.seat.label} queued`;
 	const activity = state.update?.activity;
-	const preview = activity?.assistantPreview ?? activity?.currentToolInputPreview;
+	const preview =
+		activity === undefined ? undefined : runnerSubagentPrimaryActivityPreview(activity);
 	if (preview !== undefined) return `${state.seat.label} ${progress.state}: ${preview}`;
 	if (progress.currentTool !== undefined)
 		return `${state.seat.label} ${progress.state} ${progress.currentTool}`;
@@ -165,6 +179,14 @@ function renderCouncilSeatOutcome(outcome: ThermoCouncilReviewerOutcome): string
 		case "failed":
 			return `${outcome.seat.label} failed`;
 	}
+}
+
+function renderFinalSynthesisStatus(update: RunnerSubagentUpdate): string {
+	const progress = update.progress;
+	const preview = runnerSubagentPrimaryActivityPreview(update.activity);
+	if (preview !== undefined) return compactStatus(`final synthesis ${progress.state}: ${preview}`);
+	if (progress.turnCount > 0) return `final synthesis ${progress.state} turn ${progress.turnCount}`;
+	return `final synthesis ${progress.state}`;
 }
 
 function compactStatus(value: string): string {
@@ -191,7 +213,7 @@ export function reviewerOutcomeFromRunnerResult(
 		}
 		const parsed = reviewSchema.safeParse(result.terminal.input);
 		if (!parsed.success) {
-			return failedOutcome(seat, result.sessionFile, z.prettifyError(parsed.error));
+			return failedOutcome(seat, result.sessionFile, formatZodError(parsed.error));
 		}
 		return {
 			type: "completed",
@@ -205,7 +227,7 @@ export function reviewerOutcomeFromRunnerResult(
 		const parsed = blockedReviewSchema.safeParse(result.terminal.input);
 		const reason = parsed.success
 			? formatBlockedReason(parsed.data)
-			: `Blocked with malformed payload: ${z.prettifyError(parsed.error)}`;
+			: `Blocked with malformed payload: ${formatZodError(parsed.error)}`;
 		return {
 			type: "blocked",
 			seat,

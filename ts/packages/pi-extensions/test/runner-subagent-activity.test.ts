@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
 	compactPreviewText,
 	previewJsonEventValue,
+	runnerSubagentPrimaryActivityPreview,
 	toolResultPreviewFromEvent,
 } from "../src/runner-subagent/activity.ts";
 
@@ -21,6 +22,18 @@ describe("runner subagent activity previews", () => {
 
 		expect(preview).toHaveLength(20);
 		expect(preview?.endsWith("…")).toBe(true);
+	});
+
+	test("selects assistant text as the primary inline activity preview", () => {
+		expect(
+			runnerSubagentPrimaryActivityPreview({
+				assistantPreview: "reading files",
+				currentToolInputPreview: '{"path":"README.md"}',
+			}),
+		).toBe("reading files");
+		expect(
+			runnerSubagentPrimaryActivityPreview({ currentToolInputPreview: '{"path":"README.md"}' }),
+		).toBe('{"path":"README.md"}');
 	});
 
 	test("prefers text content from tool result objects", () => {

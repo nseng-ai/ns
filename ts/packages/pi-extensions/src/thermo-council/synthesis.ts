@@ -51,14 +51,17 @@ function withSeatFindingId(
 }
 
 function shouldClusterFindings(left: ThermoCouncilFinding, right: ThermoCouncilFinding): boolean {
-	const fileOverlap = left.files.some((file) => right.files.includes(file));
-	if (!fileOverlap) return false;
 	const titleOverlap = termOverlap(left.title, right.title);
-	const problemOverlap = termOverlap(
+	const problemFixOverlap = termOverlap(
 		`${left.problem} ${left.proposedFix}`,
 		`${right.problem} ${right.proposedFix}`,
 	);
-	return titleOverlap >= 2 || problemOverlap >= 3;
+	if (left.files.length === 0 || right.files.length === 0) {
+		return (titleOverlap >= 3 && problemFixOverlap >= 5) || problemFixOverlap >= 8;
+	}
+	const fileOverlap = left.files.some((file) => right.files.includes(file));
+	if (!fileOverlap) return false;
+	return titleOverlap >= 2 || problemFixOverlap >= 3;
 }
 
 function termOverlap(left: string, right: string): number {

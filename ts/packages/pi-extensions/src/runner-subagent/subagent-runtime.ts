@@ -13,7 +13,7 @@ import type {
 } from "../runner-subagent.ts";
 
 const RUNTIME_VERSION = 1;
-const TOOL_NAME_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+export const RUNNER_SUBAGENT_TOOL_NAME_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 const RUNTIME_ROOT_PREFIX = "pi-runner-subagent-runtime-";
 
 export interface RuntimeConfigV1 {
@@ -307,9 +307,9 @@ export function validateTerminalToolDefinitions(
 				`Terminal tool at index ${index} must have a non-empty name.`,
 			);
 		}
-		if (!TOOL_NAME_PATTERN.test(tool.name)) {
+		if (!RUNNER_SUBAGENT_TOOL_NAME_PATTERN.test(tool.name)) {
 			throw new RuntimeConfigValidationError(
-				`Terminal tool "${tool.name}" must match ${TOOL_NAME_PATTERN.toString()} for Pi custom tool names.`,
+				`Terminal tool "${tool.name}" must match ${RUNNER_SUBAGENT_TOOL_NAME_PATTERN.toString()} for Pi custom tool names.`,
 			);
 		}
 		if (names.has(tool.name)) {

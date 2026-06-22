@@ -32,6 +32,7 @@ import type {
 	RunnerSubagentTerminalToolDefinition,
 } from "../runner-subagent.ts";
 import {
+	RUNNER_SUBAGENT_TOOL_NAME_PATTERN,
 	createDefaultRunnerSubagentRuntimeFiles,
 	readRuntimeResultFile,
 	type RunnerSubagentRuntimeFiles,
@@ -55,7 +56,7 @@ const DEFAULT_STDERR_LIMIT_BYTES = 8 * 1024;
 const DEFAULT_KILL_TIMEOUT_MS = 5_000;
 const LAUNCH_METADATA_HYDRATION_RETRY_MS = 50;
 const TERMINAL_RESULT_POLL_INTERVAL_MS = 25;
-const TERMINAL_RESULT_PERSISTENCE_TIMEOUT_MS = 1_000;
+const TERMINAL_RESULT_PERSISTENCE_TIMEOUT_MS = 5_000;
 const STOPPED_WITHOUT_TERMINAL_DIAGNOSTIC = "Subagent Pi stopped without terminal capture.";
 const STOPPED_WITHOUT_USEFUL_TEXT_DIAGNOSTIC =
 	"Subagent Pi stopped without useful final assistant text.";
@@ -121,6 +122,7 @@ export interface RunnerSubagentDispatcherDependencies {
 	existsSync?: (path: string) => boolean;
 	timers?: TimerScheduler;
 	killTimeoutMs?: number;
+	terminalResultPersistenceTimeoutMs?: number;
 	stderrLimitBytes?: number;
 }
 
@@ -241,6 +243,8 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 	const spawnChildProcess = dependencies.spawn ?? defaultSpawnChildProcess;
 	const timers = dependencies.timers ?? systemTimerScheduler;
 	const killTimeoutMs = dependencies.killTimeoutMs ?? DEFAULT_KILL_TIMEOUT_MS;
+	const terminalResultPersistenceTimeoutMs =
+		dependencies.terminalResultPersistenceTimeoutMs ?? TERMINAL_RESULT_PERSISTENCE_TIMEOUT_MS;
 	const readSessionFile = dependencies.readSessionFile ?? defaultReadSessionFile;
 
 	let child: SpawnedChildProcess;
@@ -297,43 +301,46 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 			}, killTimeoutMs);
 		};
 
+		const shouldContinueTerminalResultPolling = (startedMs: number) => {
+			if (killRequested || closed || cancelled) return false;
+			return clock.nowMs() - startedMs < terminalResultPersistenceTimeoutMs;
+		};
+
+		const scheduleNextTerminalResultPoll = (pollRuntimeResult: () => void) => {
+			terminalResultPollTimer = timers.setTimeout(
+				pollRuntimeResult,
+				TERMINAL_RESULT_POLL_INTERVAL_MS,
+			);
+		};
+
 		const scheduleTerminalResultTermination = () => {
+			// Keep this polling local: unlike worktree UI refresh timers, this is a
+			// one-shot terminal-result persistence barrier before child termination.
 			if (runtimeFiles === undefined || killRequested || closed || cancelled) return;
 			if (terminalResultPollTimer !== undefined) return;
 			terminalResultPollStartedMs ??= clock.nowMs();
 			const startedMs = terminalResultPollStartedMs;
+			const readRuntimeResult = dependencies.readRuntimeResult ?? readRuntimeResultFile;
+			const continueOrTerminate = () => {
+				if (shouldContinueTerminalResultPolling(startedMs)) {
+					scheduleNextTerminalResultPoll(pollRuntimeResult);
+					return;
+				}
+				if (!killRequested && !closed && !cancelled) terminateChild();
+			};
 			const pollRuntimeResult = () => {
 				terminalResultPollTimer = undefined;
 				if (killRequested || closed || cancelled) return;
-				void Promise.resolve(
-					(dependencies.readRuntimeResult ?? readRuntimeResultFile)(runtimeFiles.resultPath),
-				).then(
+				void Promise.resolve(readRuntimeResult(runtimeFiles.resultPath)).then(
 					(read) => {
 						if (killRequested || closed || cancelled) return;
 						if (read.type === "loaded") {
 							terminateChild();
 							return;
 						}
-						if (clock.nowMs() - startedMs >= TERMINAL_RESULT_PERSISTENCE_TIMEOUT_MS) {
-							terminateChild();
-							return;
-						}
-						terminalResultPollTimer = timers.setTimeout(
-							pollRuntimeResult,
-							TERMINAL_RESULT_POLL_INTERVAL_MS,
-						);
+						continueOrTerminate();
 					},
-					() => {
-						if (killRequested || closed || cancelled) return;
-						if (clock.nowMs() - startedMs >= TERMINAL_RESULT_PERSISTENCE_TIMEOUT_MS) {
-							terminateChild();
-							return;
-						}
-						terminalResultPollTimer = timers.setTimeout(
-							pollRuntimeResult,
-							TERMINAL_RESULT_POLL_INTERVAL_MS,
-						);
-					},
+					() => continueOrTerminate(),
 				);
 			};
 			pollRuntimeResult();
@@ -503,7 +510,13 @@ export function buildChildPiArgs(input: BuildChildPiArgsInput): string[] {
 	args.push("--no-extensions");
 	if (input.runtimeExtensionPath !== undefined)
 		args.push("--extension", input.runtimeExtensionPath);
-	if (input.normalizedTools !== undefined) args.push("--tools", input.normalizedTools.join(","));
+	if (input.normalizedTools !== undefined) {
+		if (input.normalizedTools.length === 0) {
+			args.push("--no-tools");
+		} else {
+			args.push("--tools", input.normalizedTools.join(","));
+		}
+	}
 	args.push("--session", input.sessionFile, input.prompt);
 	return args;
 }
@@ -517,8 +530,11 @@ export function normalizeChildToolAllowlist(
 	for (const tool of tools) {
 		const normalized = tool.trim();
 		if (normalized.length === 0) throw new Error("tool names must be non-empty");
-		if (normalized.includes(",")) throw new Error(`tool name must not contain a comma: ${tool}`);
-		if (/\s/.test(normalized)) throw new Error(`tool name must not contain whitespace: ${tool}`);
+		if (!RUNNER_SUBAGENT_TOOL_NAME_PATTERN.test(normalized)) {
+			throw new Error(
+				`tool name must match ${RUNNER_SUBAGENT_TOOL_NAME_PATTERN.toString()}: ${tool}`,
+			);
+		}
 		if (seenTools.has(normalized)) continue;
 		seenTools.add(normalized);
 		normalizedTools.push(normalized);
@@ -653,22 +669,38 @@ function decideChildTerminationForSnapshot(
 	snapshot: RunnerSubagentJsonEventParserSnapshot,
 	runtimeFiles: RunnerSubagentRuntimeFiles | undefined,
 ): ChildTerminationDecision {
-	if (snapshot.terminalSucceeded) {
-		if (runtimeFiles !== undefined) {
-			return { type: "wait-for-terminal-result", reason: "terminal-succeeded" };
-		}
-		return { type: "terminate", reason: "terminal-result-unavailable" };
+	if (snapshot.hasTerminalSucceeded) return terminalResultDecision(runtimeFiles);
+
+	if (
+		snapshot.terminalAttempted &&
+		runtimeFiles !== undefined &&
+		hasTerminalProtocolAnomaly(snapshot)
+	) {
+		return { type: "wait-for-terminal-result", reason: "terminal-protocol-anomaly" };
 	}
-	if (snapshot.protocolError) {
-		if (runtimeFiles !== undefined && snapshot.terminalAttempted) {
-			return { type: "wait-for-terminal-result", reason: "terminal-protocol-anomaly" };
-		}
-		return { type: "terminate", reason: "non-terminal-protocol-error" };
-	}
+
+	if (snapshot.protocolError) return { type: "terminate", reason: "non-terminal-protocol-error" };
 	if (snapshot.error && runtimeFiles === undefined) {
 		return { type: "terminate", reason: "final-text-parse-error" };
 	}
+	if (snapshot.terminalExecutionError) {
+		return { type: "terminate", reason: "non-terminal-protocol-error" };
+	}
+
 	return { type: "keep-running" };
+}
+
+function terminalResultDecision(
+	runtimeFiles: RunnerSubagentRuntimeFiles | undefined,
+): ChildTerminationDecision {
+	if (runtimeFiles !== undefined) {
+		return { type: "wait-for-terminal-result", reason: "terminal-succeeded" };
+	}
+	return { type: "terminate", reason: "terminal-result-unavailable" };
+}
+
+function hasTerminalProtocolAnomaly(snapshot: RunnerSubagentJsonEventParserSnapshot): boolean {
+	return Boolean(snapshot.protocolError ?? snapshot.error ?? snapshot.terminalExecutionError);
 }
 
 function updateSignature(update: RunnerSubagentUpdate): string {
