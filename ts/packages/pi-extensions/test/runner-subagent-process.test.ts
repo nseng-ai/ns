@@ -208,6 +208,57 @@ describe("runner subagent process dispatcher", () => {
 		expect(result.status).toBe("stopped-without-terminal");
 	});
 
+	test("passes child tool allowlist after runtime extension and before session args", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({
+			sessionFile: "/tmp/runner-subagent.jsonl",
+		});
+		const running = dispatchRunnerSubagentProcess(
+			pi,
+			ctx,
+			{
+				...options(),
+				tools: ["read", "submit_thermo_council_review", "block_thermo_council_review"],
+			},
+			runner.dependencies,
+		);
+		const call = await waitForSpawn(runner.calls);
+
+		expect(call.args).toEqual([
+			"--mode",
+			"json",
+			"-p",
+			"--no-extensions",
+			"--extension",
+			"/tmp/pi-runner-subagent-runtime/runtime-extension.ts",
+			"--tools",
+			"read,submit_thermo_council_review,block_thermo_council_review",
+			"--session",
+			"/tmp/runner-subagent.jsonl",
+			"Do the delegated task.",
+		]);
+
+		call.process.close(0);
+		const result = await running;
+
+		expect(result.status).toBe("stopped-without-terminal");
+	});
+
+	test("rejects invalid child tool allowlist before spawning", async () => {
+		const runner = createFakeRunnerSubagentDispatcher();
+		const result = await dispatchRunnerSubagentProcess(
+			pi,
+			ctx,
+			{ ...options(), tools: ["read", "bad tool"] },
+			runner.dependencies,
+		);
+
+		expect(runner.calls).toEqual([]);
+		expect(result.status).toBe("error");
+		if (result.status === "error") {
+			expect(result.diagnostic).toContain("Invalid subagent tool allowlist");
+		}
+	});
+
 	test("passes inherited model and non-off thinking to child Pi and progress metadata", async () => {
 		const runner = createFakeRunnerSubagentDispatcher({
 			sessionFile: "/tmp/runner-subagent.jsonl",

@@ -69,6 +69,7 @@ export interface BuildChildPiArgsInput {
 	runtimeExtensionPath?: string;
 	model?: string;
 	launch?: RunnerSubagentLaunchMetadata;
+	tools?: readonly string[];
 }
 
 export interface SpawnChildProcessOptions {
@@ -148,6 +149,24 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 
 	const returnMode = runnerSubagentReturnMode(options);
 	const terminalTools = runnerSubagentTerminalTools(options);
+	let childToolAllowlist: readonly string[] | undefined;
+	try {
+		childToolAllowlist = normalizeChildToolAllowlist(options.tools);
+	} catch (error) {
+		const progress = stoppedProgress({
+			title,
+			clock,
+			startTimeMs,
+			...(launch === undefined ? {} : { launch }),
+		});
+		updateEmitter.emit(updateFromProgress(progress), { force: true });
+		return errorResult(
+			title,
+			progress,
+			`Invalid subagent tool allowlist: ${formatErrorMessage(error)}`,
+			error,
+		);
+	}
 	let runtimeFiles: RunnerSubagentRuntimeFiles | undefined;
 	if (returnMode === "terminal" || terminalTools.length > 0) {
 		try {
@@ -213,6 +232,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 			: { runtimeExtensionPath: runtimeFiles.extensionPath }),
 		...(options.model === undefined ? {} : { model: options.model }),
 		...(launch === undefined ? {} : { launch }),
+		...(childToolAllowlist === undefined ? {} : { tools: childToolAllowlist }),
 	});
 	const invocation = resolvePiInvocation(childArgs, dependencies);
 	const spawnChildProcess = dependencies.spawn ?? defaultSpawnChildProcess;
@@ -424,8 +444,23 @@ export function buildChildPiArgs(input: BuildChildPiArgsInput): string[] {
 	args.push("--no-extensions");
 	if (input.runtimeExtensionPath !== undefined)
 		args.push("--extension", input.runtimeExtensionPath);
+	const tools = normalizeChildToolAllowlist(input.tools);
+	if (tools !== undefined) args.push("--tools", tools.join(","));
 	args.push("--session", input.sessionFile, input.prompt);
 	return args;
+}
+
+export function normalizeChildToolAllowlist(
+	tools: readonly string[] | undefined,
+): readonly string[] | undefined {
+	if (tools === undefined) return undefined;
+	return tools.map((tool) => {
+		const normalized = tool.trim();
+		if (normalized.length === 0) throw new Error("tool names must be non-empty");
+		if (normalized.includes(",")) throw new Error(`tool name must not contain a comma: ${tool}`);
+		if (/\s/.test(normalized)) throw new Error(`tool name must not contain whitespace: ${tool}`);
+		return normalized;
+	});
 }
 
 function runnerSubagentReturnMode(options: RunnerSubagentOptions): RunnerSubagentReturnMode {

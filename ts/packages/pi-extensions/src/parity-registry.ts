@@ -12,6 +12,7 @@ import { prFeedbackWatchParity } from "./pr-feedback-watch.ts";
 import { prExtensionParity } from "./pr.ts";
 import { sdlExtensionParity } from "./sdl-extension.ts";
 import { smartRestackParity } from "./smart-restack.ts";
+import { thermoCouncilParity } from "./thermo-council.ts";
 import { trunkPullParity } from "./trunk-pull.ts";
 import { worktreeStatusParity } from "./worktree-status.ts";
 import type { PiSurfaceParity } from "./parity.ts";
@@ -31,6 +32,7 @@ export const STATIC_PI_EXTENSION_PARITY_RECORDS = [
 	...prExtensionParity,
 	...sdlExtensionParity,
 	...smartRestackParity,
+	...thermoCouncilParity,
 	...trunkPullParity,
 	...worktreeStatusParity,
 ] as const;

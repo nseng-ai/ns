@@ -119,6 +119,7 @@ export type RunnerSubagentOptions = {
 	model?: string | undefined;
 	cwd?: string;
 	signal?: AbortSignal;
+	tools?: readonly string[];
 	onProgress?: RunnerSubagentProgressCallback;
 } & RunnerSubagentLaunchInput &
 	(
