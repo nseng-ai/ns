@@ -109,6 +109,11 @@ export interface BaseRuntimeContext {
 		notify(message: string, level?: NotifyLevel): void;
 		setEditorText?(value: string): void;
 		setStatus?(key: string, value: string | undefined): void;
+		setWidget?(
+			key: string,
+			content: string[] | undefined,
+			options?: { placement?: "aboveEditor" | "belowEditor" },
+		): void;
 		custom?<T>(
 			factory: (
 				tui: TuiHandle,

@@ -1,4 +1,9 @@
-import type { RunnerSubagentUpdate } from "../runner-subagent.ts";
+import type {
+	RunnerSubagentLaunchMetadata,
+	RunnerSubagentProgressCallback,
+	RunnerSubagentUpdate,
+} from "../runner-subagent.ts";
+import { emptyRunnerSubagentActivity } from "./activity.ts";
 import {
 	formatRunnerSubagentElapsed,
 	formatRunnerSubagentModelText,
@@ -20,7 +25,7 @@ type SetWidgetFunction = (
 
 export interface RunnerSubagentWidgetContext {
 	hasUI?: boolean;
-	ui?: object;
+	ui?: { setWidget?: SetWidgetFunction };
 }
 
 export function setRunnerSubagentWidget(
@@ -29,23 +34,46 @@ export function setRunnerSubagentWidget(
 	lines: string[] | undefined,
 ): void {
 	if (ctx.hasUI === false) return;
-	const setWidget = readSetWidget(ctx.ui);
-	if (setWidget === undefined) return;
 	try {
-		setWidget(key, lines, { placement: "aboveEditor" });
+		ctx.ui?.setWidget?.(key, lines, { placement: "aboveEditor" });
 	} catch {
 		// Widget updates are display-only and must not affect subagent execution.
 	}
 }
 
-function readSetWidget(ui: object | undefined): SetWidgetFunction | undefined {
-	if (ui === undefined) return undefined;
-	const candidate = (ui as { setWidget?: unknown }).setWidget;
-	return isSetWidgetFunction(candidate) ? candidate : undefined;
+export function buildInitialRunnerSubagentUpdate(input: {
+	title: string;
+	launch: RunnerSubagentLaunchMetadata;
+}): RunnerSubagentUpdate {
+	return {
+		progress: {
+			title: input.title,
+			state: "starting",
+			toolCount: 0,
+			turnCount: 0,
+			elapsedMs: 0,
+			launch: input.launch,
+		},
+		activity: emptyRunnerSubagentActivity(),
+	};
 }
 
-function isSetWidgetFunction(value: unknown): value is SetWidgetFunction {
-	return typeof value === "function";
+export async function withRunnerSubagentWidget<T>(
+	ctx: RunnerSubagentWidgetContext,
+	key: string,
+	input: { title: string; launch: RunnerSubagentLaunchMetadata },
+	run: (onProgress: RunnerSubagentProgressCallback) => Promise<T>,
+): Promise<T> {
+	const initialUpdate = buildInitialRunnerSubagentUpdate(input);
+	setRunnerSubagentWidget(ctx, key, formatRunnerSubagentActivityWidgetLines(initialUpdate));
+
+	try {
+		return await run((update) => {
+			setRunnerSubagentWidget(ctx, key, formatRunnerSubagentActivityWidgetLines(update));
+		});
+	} finally {
+		setRunnerSubagentWidget(ctx, key, undefined);
+	}
 }
 
 export function formatRunnerSubagentActivityWidgetLines(

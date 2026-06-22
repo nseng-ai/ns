@@ -5,30 +5,16 @@ import {
 	formatDispatchRunnerSubagentResult,
 	dispatchRunnerSubagentDetails,
 } from "./dispatch-runner-subagent.ts";
-import {
-	composePiAgentPrompt,
-	loadPiAgentDefinition,
-	type PiAgentDefinition,
-} from "./pi-agent-definition.ts";
+import { loadPiAgentDefinition, type PiAgentDefinition } from "./pi-agent-definition.ts";
 import { definePiSurfaceParity } from "./parity.ts";
+import type { CuratedRunnerSubagentContextAudit } from "./runner-subagent/curated-context.ts";
+import { prepareRunnerSubagentFinalTextDispatch } from "./runner-subagent/dispatch-preparation.ts";
 import {
-	buildCuratedRunnerSubagentContext,
-	type CuratedRunnerSubagentContextAudit,
-} from "./runner-subagent/curated-context.ts";
-import { resolveRunnerSubagentLaunch } from "./runner-subagent/subagent-process.ts";
-import {
-	defaultRunnerSubagentLaunchMetadata,
 	dispatchRunnerSubagent,
-	type RunnerSubagentLaunchMetadata,
 	type RunnerSubagentPi,
 	type RunnerSubagentResult,
-	type RunnerSubagentUpdate,
 } from "./runner-subagent.ts";
-import { emptyRunnerSubagentActivity } from "./runner-subagent/activity.ts";
-import {
-	formatRunnerSubagentActivityWidgetLines,
-	setRunnerSubagentWidget,
-} from "./runner-subagent/widget.ts";
+import { withRunnerSubagentWidget } from "./runner-subagent/widget.ts";
 import { truncateDisplayLine } from "./terminal-presentation.ts";
 import type {
 	CommandContext,
@@ -38,7 +24,7 @@ import type {
 } from "./handoff/runtime-types.ts";
 
 export const INVESTIGATE_COMMAND_NAME = "investigate";
-export const INVESTIGATOR_AGENT_NAME = "investigator";
+const INVESTIGATOR_AGENT_NAME = "investigator";
 export const INVESTIGATE_RESULT_MESSAGE_TYPE = "investigate-result";
 export const INVESTIGATOR_CHILD_TOOL_NAMES = ["read", "grep", "find", "ls", "bash"] as const;
 
@@ -111,16 +97,16 @@ export default function investigateExtension(
 	});
 }
 
-export async function runInvestigateCommand({
+async function runInvestigateCommand({
 	pi,
 	ctx,
 	args,
 	extensionOptions = {},
-}: RunInvestigateCommandInput): Promise<RunnerSubagentResult | undefined> {
+}: RunInvestigateCommandInput): Promise<void> {
 	const prompt = args.trim();
 	if (prompt.length === 0) {
 		ctx.ui.notify(USAGE, "error");
-		return undefined;
+		return;
 	}
 
 	const loadDefinition = extensionOptions.loadAgentDefinition ?? loadPiAgentDefinition;
@@ -132,41 +118,28 @@ export async function runInvestigateCommand({
 	}
 
 	const title = buildInvestigationTitle(prompt);
-	const curatedContext = await buildCuratedRunnerSubagentContext({
+	const { childPrompt, curatedContext, launch } = await prepareRunnerSubagentFinalTextDispatch({
+		pi,
+		ctx,
+		definition,
 		title,
 		prompt,
-		cwd: ctx.cwd,
-		execGit: (gitArgs, timeoutMs) =>
-			pi.exec("git", [...gitArgs], { cwd: ctx.cwd, timeout: timeoutMs }),
 	});
-	const childPrompt = `${composePiAgentPrompt(definition, { title, prompt })}\n\n${curatedContext.markdown}`;
-	const launch =
-		resolveRunnerSubagentLaunch(pi, ctx, {
-			prompt: childPrompt,
-			returnMode: "final-text",
-		}) ?? defaultRunnerSubagentLaunchMetadata();
-	setRunnerSubagentWidget(
+	const result = await withRunnerSubagentWidget(
 		ctx,
 		WIDGET_KEY,
-		formatRunnerSubagentActivityWidgetLines(initialInvestigationUpdate(title, launch)),
+		{ title, launch },
+		async (onProgress) =>
+			await dispatchRunnerSubagent(pi, ctx, {
+				title,
+				prompt: childPrompt,
+				returnMode: "final-text",
+				preResolvedLaunch: launch,
+				tools: INVESTIGATOR_CHILD_TOOL_NAMES,
+				onProgress,
+			}),
 	);
-
-	try {
-		const result = await dispatchRunnerSubagent(pi, ctx, {
-			title,
-			prompt: childPrompt,
-			returnMode: "final-text",
-			preResolvedLaunch: launch,
-			tools: INVESTIGATOR_CHILD_TOOL_NAMES,
-			onProgress: (update) => {
-				setRunnerSubagentWidget(ctx, WIDGET_KEY, formatRunnerSubagentActivityWidgetLines(update));
-			},
-		});
-		emitInvestigationResult({ pi, ctx, result, curatedContext: curatedContext.audit });
-		return result;
-	} finally {
-		setRunnerSubagentWidget(ctx, WIDGET_KEY, undefined);
-	}
+	emitInvestigationResult({ pi, ctx, result, curatedContext: curatedContext.audit });
 }
 
 export function buildInvestigationTitle(prompt: string): string {
@@ -182,12 +155,12 @@ export function buildInvestigationTitle(prompt: string): string {
 	return `${title.slice(0, MAX_TITLE_CHARS - 1)}…`;
 }
 
-export function renderInvestigationResultMessage(
+function renderInvestigationResultMessage(
 	message: CustomMessage,
 	_options: { expanded: boolean },
 	theme: RenderTheme,
 ): RenderComponent {
-	const content = typeof message.content === "string" ? message.content : String(message.content);
+	const content = message.content;
 	return {
 		render(width: number): string[] {
 			return content
@@ -237,23 +210,6 @@ function emitInvestigationResult({
 function formatInvestigationResultContent(result: RunnerSubagentResult): string {
 	if (result.status === "final-text") return result.finalText;
 	return formatDispatchRunnerSubagentResult(result);
-}
-
-function initialInvestigationUpdate(
-	title: string,
-	launch: RunnerSubagentLaunchMetadata,
-): RunnerSubagentUpdate {
-	return {
-		progress: {
-			title,
-			state: "starting",
-			toolCount: 0,
-			turnCount: 0,
-			elapsedMs: 0,
-			launch,
-		},
-		activity: emptyRunnerSubagentActivity(),
-	};
 }
 
 function styleInvestigationLine(line: string, index: number, theme: RenderTheme): string {
