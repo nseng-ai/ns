@@ -1542,19 +1542,47 @@ describe("runner subagent process dispatcher", () => {
 		expect(result.diagnostic).not.toContain("first diagnostic line");
 	});
 
-	test("maps malformed JSONL output to error", async () => {
+	test("maps malformed terminal-mode JSONL output to error after child close", async () => {
 		const runner = createFakeRunnerSubagentDispatcher();
 		const running = dispatchRunnerSubagentProcess(pi, ctx, options(), runner.dependencies);
 		const call = await waitForSpawn(runner.calls);
 
 		call.process.emitStdout("{bad json}\n");
+		expect(call.process.killSignals).toEqual([]);
 		call.process.close(0);
 		const result = await running;
 
-		expect(call.process.killSignals).toContain("SIGTERM");
 		expect(result.status).toBe("error");
 		if (result.status !== "error") return;
 		expect(result.diagnostic).toContain("Malformed runner subagent Pi JSONL output");
+	});
+
+	test("preserves terminal capture when live stdout JSONL is malformed before completion", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({
+			runtimeResult: {
+				version: 1,
+				kind: "terminal-capture",
+				toolName: "complete_runner_subagent",
+				status: "completed",
+				input: { summary: "done" },
+			},
+		});
+		const running = dispatchRunnerSubagentProcess<{ summary: string }>(
+			pi,
+			ctx,
+			options(),
+			runner.dependencies,
+		);
+		const call = await waitForSpawn(runner.calls);
+
+		call.process.emitStdout("{bad json}\n");
+		expect(call.process.killSignals).toEqual([]);
+		call.process.close(0);
+		const result = await running;
+
+		expect(result.status).toBe("completed");
+		if (result.status !== "completed") return;
+		expect(result.terminal.input).toEqual({ summary: "done" });
 	});
 
 	test("kills the subagent and returns cancelled on parent abort", async () => {

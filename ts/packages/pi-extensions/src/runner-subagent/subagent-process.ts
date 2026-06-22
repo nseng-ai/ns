@@ -363,7 +363,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 			const snapshot = parser.getSnapshot();
 			updateEmitter.emit(updateFromSnapshot(snapshot));
 			scheduleLiveLaunchHydration();
-			if ((snapshot.error || snapshot.protocolError || snapshot.terminalSucceeded) && !cancelled) {
+			if (shouldTerminateChildForSnapshot(snapshot, runtimeFiles) && !cancelled) {
 				terminateChild();
 			}
 		});
@@ -554,6 +554,18 @@ function updateFromProgress(progress: RunnerSubagentProgress): RunnerSubagentUpd
 
 function updateFromSnapshot(snapshot: RunnerSubagentJsonEventParserSnapshot): RunnerSubagentUpdate {
 	return { progress: snapshot.progress, activity: snapshot.activity };
+}
+
+function shouldTerminateChildForSnapshot(
+	snapshot: RunnerSubagentJsonEventParserSnapshot,
+	runtimeFiles: RunnerSubagentRuntimeFiles | undefined,
+): boolean {
+	if (snapshot.protocolError || snapshot.terminalSucceeded) return true;
+	if (!snapshot.error) return false;
+	// Terminal-mode subagents write their authoritative terminal outcome to a runtime file.
+	// Treat malformed live stdout as a progress-channel failure and let the child reach that
+	// file-backed terminal capture instead of killing it early.
+	return runtimeFiles === undefined;
 }
 
 function updateSignature(update: RunnerSubagentUpdate): string {
