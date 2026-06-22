@@ -36,12 +36,17 @@
 - [~] Collapse the `@asdl/core/brmem-cli` multi-candidate framework to a single
   `runBrmem`; fix the duplicated candidate-loop at `ccc/worktree-status.ts`;
   delete dead exports `graphqlErrorsFromJson`, `readOptionalBrmemBooleanField`.
-  Evidence: the current stack removed the candidate API and single-candidate
-  loop (`resolveBrmemCommandCandidates` / `runBrmemCandidate` /
-  `runFirstAvailableBrmemCommand`) in favor of `runBrmem`, and
-  `ccc/worktree-status.ts` now calls that single runner directly. A grep no
-  longer finds the candidate APIs or `graphqlErrorsFromJson`; the remaining
-  known open part is deleting `readOptionalBrmemBooleanField`.
+  Evidence (against trunk): `graphqlErrorsFromJson` is deleted (grep finds no
+  occurrences), so this row is partially complete. The rest is still open on
+  trunk: `resolveBrmemCommandCandidates` / `runBrmemCandidate` /
+  `runFirstAvailableBrmemCommand` remain in
+  `ts/packages/sdl-core/src/brmem-cli.ts`, no single `runBrmem` exists yet,
+  `ts/packages/ccc/src/worktree-status.ts` still carries its own candidate loop,
+  and `readOptionalBrmemBooleanField` is still exported. An earlier update
+  (`updates/2026-06-21T154404Z-brmem-cli-runner-collapse.md`) recorded the
+  runner collapse as present "in the current stack," but that stack has not
+  reached trunk; see the corrective update
+  `updates/2026-06-22T101017Z-brmem-cli-collapse-not-on-trunk.md`.
   See `references/branch-memory-access.md` and `references/asdl-core.md`.
 - [ ] Compose core `GitGateway` inside `brmem/real-git-gateway.ts`; remove the
       duplicated `runGit`/`currentBranch`/branch-validation primitives.

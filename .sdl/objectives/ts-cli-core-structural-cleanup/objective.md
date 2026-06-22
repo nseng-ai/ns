@@ -145,9 +145,15 @@ Risks:
   in-process `@sdl/brmem` gateway, its subprocess/JSON parse layer is gone, the
   dry-run preview no longer claims a `brmem put` command will run, and CLI
   scenario tests cover attach/list/get/check/delete failure diagnostics. The
-  related `@sdl/core/brmem-cli` candidate-framework collapse has landed in the
-  current stack; the remaining known cleanup in that row is the
-  `readOptionalBrmemBooleanField` dead export.
+  related `@sdl/core/brmem-cli` candidate-framework collapse has NOT landed on
+  trunk: as of this reconciliation, `resolveBrmemCommandCandidates` /
+  `runBrmemCandidate` / `runFirstAvailableBrmemCommand` and
+  `readOptionalBrmemBooleanField` are all still present in
+  `ts/packages/sdl-core/src/brmem-cli.ts`, and `ccc/worktree-status.ts` still
+  carries its own candidate loop. Only `graphqlErrorsFromJson` has actually been
+  deleted on trunk. An earlier update recorded the collapse as present in an
+  unmerged stack; that stack has not reached trunk, so the row is genuinely
+  in-progress (one sub-item done) rather than nearly complete.
 - A shared `defineCli` helper touches all 15 CLIs at once; a subtle change to
   IO/exit-code/entry-guard semantics could regress every CLI simultaneously.
   Mitigate by landing it behind scenario-test coverage of `--version`,
