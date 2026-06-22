@@ -17,3 +17,12 @@ test("virtual SDK module mirrors sdk.ts runtime value exports", async () => {
 		expect(virtualModule[sdkKey]).toBe(sdkModule[sdkKey]);
 	}
 });
+
+test("SDL jiti resolves the checkpoint-flow internal package export", async () => {
+	const checkpointFlowModule = await createSdlJiti().import<
+		typeof import("../../src/checkpoint-flow.ts")
+	>("@sdl/sdl/checkpoint-flow");
+
+	expect(typeof checkpointFlowModule.prepareCheckpointMessage).toBe("function");
+	expect(typeof checkpointFlowModule.buildCheckpointUserPrompt).toBe("function");
+});

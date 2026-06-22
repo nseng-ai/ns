@@ -19,9 +19,13 @@ import {
 
 /** Module specifier that SDL command entries import the SDK from. */
 const SDK_SPECIFIER = "@sdl/sdl/sdk";
+const CHECKPOINT_FLOW_SPECIFIER = "@sdl/sdl/checkpoint-flow";
+
+const SDL_SRC_DIR = dirname(fileURLToPath(import.meta.url));
 
 /** Absolute path to the SDK source module, used as the `alias` resolution target. */
-const SDK_MODULE_PATH = join(dirname(fileURLToPath(import.meta.url)), "sdk.ts");
+const SDK_MODULE_PATH = join(SDL_SRC_DIR, "sdk.ts");
+const CHECKPOINT_FLOW_MODULE_PATH = join(SDL_SRC_DIR, "checkpoint-flow.ts");
 
 // Keep this object in sync with all runtime value exports from sdk.ts; type-only exports are erased.
 const sdlSdkVirtualModule = {
@@ -50,6 +54,7 @@ export function createSdlJiti(): ReturnType<typeof createJiti> {
 	return createJiti(import.meta.url, {
 		alias: {
 			[SDK_SPECIFIER]: SDK_MODULE_PATH,
+			[CHECKPOINT_FLOW_SPECIFIER]: CHECKPOINT_FLOW_MODULE_PATH,
 		},
 		moduleCache: false,
 		virtualModules: {
