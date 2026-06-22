@@ -92,7 +92,7 @@ describe("sdl changes CLI", () => {
 		expect(await topHelp.exit).toBe(0);
 		const topLevelHelp = topHelp.stdout.join("");
 		expect(topLevelHelp).toContain("changes");
-		expect(topLevelHelp).toContain("Run SDL command entry 'changes'.");
+		expect(topLevelHelp).toContain("Summarize outstanding worktree changes without committing.");
 		expect(topHelp.stderr.join("")).toBe("");
 
 		const commandHelp = runWithFakes({ args: ["changes", "--help"], state: { exec: [] }, cwd });

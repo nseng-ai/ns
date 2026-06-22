@@ -182,7 +182,9 @@ describe("sdl regenerate-pr CLI availability", () => {
 		});
 		expect(await topHelp.exit).toBe(0);
 		expect(topHelp.stdout.join("")).toContain("regenerate-pr");
-		expect(topHelp.stdout.join("")).toContain("Run SDL command entry 'regenerate-pr'.");
+		expect(topHelp.stdout.join("")).toContain(
+			"Regenerate the PR title and SDL-managed body region.",
+		);
 
 		const commandHelp = runWithFakes({
 			args: ["regenerate-pr", "--help"],

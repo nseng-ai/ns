@@ -34,7 +34,8 @@ import { defineExtension, ok, z } from "@sdl/sdl/sdk";
 export default defineExtension({
 	commands: [{
 	name: "greet",
-	description: "Say hello.",
+	summary: "Say hello.",
+	description: "Say hello with details.",
 	schema: z.object({ loud: z.boolean().default(false) }),
 	run(_ctx, request) { return ok(request.loud ? "HELLO" : "hello"); },
 }],

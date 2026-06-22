@@ -18,6 +18,7 @@ import {
 import {
 	discoverExtensionsInRoot,
 	type DiscoveredExtensionCommand,
+	type DiscoveredExtensionCommandKind,
 	type ExtensionDiscoveryDiagnostic,
 } from "./extension-discovery.ts";
 import { loadSdlExtensionContribution, type ExtensionLoadDiagnostic } from "./extension-loader.ts";
@@ -36,6 +37,7 @@ export type ExtensionCommandCandidate = BuiltInSdlCommandCandidate | ExternalSdl
 
 export interface ExternalSdlCommandCandidate extends SdlCommandCandidate {
 	entryPath: string;
+	kind: DiscoveredExtensionCommandKind;
 }
 
 export type ExtensionDiagnostic = ExtensionErrorDiagnostic | ExtensionOverrideDiagnostic;
@@ -178,6 +180,33 @@ export async function loadSelectedSdlCommand(
 	return { ok: true, command: validation.command, source: candidate.source };
 }
 
+export async function loadListingCommandInfos(catalog: SdlCommandCatalog): Promise<{
+	commandInfos: readonly SdlCommandCliInfo[];
+	diagnostics: readonly ExtensionErrorDiagnostic[];
+}> {
+	const loadedInfos = await Promise.all(
+		[...catalog.candidates.values()].map(async (candidate) => {
+			if (isBuiltInCandidate(candidate) || candidate.kind === "package") {
+				return { commandInfo: staticCommandInfo(candidate), diagnostic: undefined };
+			}
+			const loaded = await loadSelectedSdlCommand(candidate);
+			if (!loaded.ok) {
+				return { commandInfo: staticCommandInfo(candidate), diagnostic: loaded.diagnostic };
+			}
+			return {
+				commandInfo: commandInfoForLoadedCommand(loaded.command, loaded.source.level),
+				diagnostic: undefined,
+			};
+		}),
+	);
+	return {
+		commandInfos: loadedInfos.map((loaded) => loaded.commandInfo),
+		diagnostics: loadedInfos.flatMap((loaded) =>
+			loaded.diagnostic === undefined ? [] : [loaded.diagnostic],
+		),
+	};
+}
+
 export function commandInfosForSelectedCommand(
 	commandInfos: readonly SdlCommandCliInfo[],
 	loaded: { command: SdlCommand; source: ExtensionSourceInfo } | undefined,
@@ -276,6 +305,7 @@ function externalCandidateForLevel(
 		description: command.description,
 		fullDescription: command.fullDescription,
 		entryPath: command.entryPath,
+		kind: command.kind,
 		source: { level, label: command.displayPath, path: command.entryPath },
 	};
 }
@@ -350,6 +380,14 @@ function sourceLevelRank(level: ExtensionSourceLevel): number {
 		throw new Error(`Missing SDL extension source-level order for ${level}.`);
 	}
 	return rank;
+}
+
+function staticCommandInfo(candidate: ExtensionCommandCandidate): SdlCommandCliInfo {
+	return {
+		name: candidate.name,
+		description: candidate.description,
+		fullDescription: candidate.fullDescription,
+	};
 }
 
 function isBuiltInCandidate(

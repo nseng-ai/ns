@@ -39,7 +39,7 @@ Global and project roots support these one-level entry shapes:
 .sdl/extensions/package-name/package.json
 ```
 
-Direct files and directory indexes infer one SDL command-entry name from the file or directory name. They appear in top-level help with a generic description until selected. Package manifests can provide top-level help metadata without executing TypeScript:
+Direct files and directory indexes infer one SDL command-entry name from the file or directory name. Top-level help eager-loads these non-package extension modules to show their explicit command summaries; if an import fails, help keeps the command visible with a generic placeholder and prints a warning. Package manifests provide top-level help metadata without executing TypeScript:
 
 ```json
 {
@@ -67,7 +67,8 @@ export default defineExtension({
   commands: [
     {
       name: "greet",
-      description: "Say hello.",
+      summary: "Say hello.",
+      description: "Say hello with custom project policy.",
       run() {
         return ok("hello");
       },
@@ -80,7 +81,7 @@ Command names must be flat and match `[a-z][a-z0-9-]*`. Nested groups, slashes, 
 
 Duplicate command names within one extension root are errors. Across roots, higher-precedence sources override lower-precedence sources: project overrides XDG global and built-in; XDG global overrides built-in. Overrides are recorded as non-fatal diagnostics.
 
-Discovery is side-effect-light: `sdl --help`, `sdl -h`, `sdl --version`, `sdl --runtime`, and unselected command lookup read only built-in definitions, filesystem entries, and JSON manifests. Malformed discovery entries that do not affect the selected command are printed as stderr warnings while the invocation continues and stdout remains reserved for primary output. Discovery diagnostics that affect the selected command are fatal, including higher-precedence broken overrides that would otherwise fall back to lower-precedence commands. SDL imports and validates exactly one external SDL extension contribution only when that command is selected, including selected-command help and JSON schema.
+Discovery is side-effect-light: `sdl --version`, `sdl --runtime`, and unselected command lookup read only built-in definitions, filesystem entries, and JSON manifests. Top-level help (`sdl`, `sdl --help`, and `sdl -h`) additionally imports and validates non-package direct-file and directory-index extension modules so the command list can show their real summaries; package manifest commands are not imported for the listing. Malformed discovery entries and help-time import failures that do not affect a selected command are printed as stderr warnings while the invocation continues and stdout remains reserved for primary output. Discovery diagnostics that affect the selected command are fatal, including higher-precedence broken overrides that would otherwise fall back to lower-precedence commands. SDL imports and validates exactly one external SDL extension contribution when a command is selected, including selected-command help and JSON schema.
 
 The legacy `.sdl/commands/<command>.ts` path has been removed. It is not a compatibility fallback.
 

@@ -217,6 +217,7 @@ export default defineExtension({
   commands: [
     {
       name: "regenerate-pr",
+      summary: "Regenerate the PR title and SDL-managed body region.",
       description: REGENERATE_PR_DESCRIPTION,
       schema: regeneratePrSchema,
       async run(ctx: SdlExtensionApi, request: RegeneratePrRequest) {
