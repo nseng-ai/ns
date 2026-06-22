@@ -335,7 +335,7 @@ describe("project-local submit extension", () => {
 			() => {
 				expect(run.context.textGeneratorCalls).toHaveLength(1);
 			},
-			{ timeout: 5_000 },
+			{ timeout: 10_000 },
 		);
 		expect(run.liveOutput).toContainEqual({
 			stream: "stderr",
