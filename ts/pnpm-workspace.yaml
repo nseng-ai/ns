@@ -13,6 +13,7 @@ catalog:
   '@pierre/diffs': ^1.2.10
   '@types/node': ^24.0.0
   '@typescript/native-preview': 7.0.0-dev.20260617.2
+  '@withgraphite/graphite-cli': ^1.8.6
   commander: ^14.0.0
   jiti: 2.7.0
   oxfmt: ^0.55.0

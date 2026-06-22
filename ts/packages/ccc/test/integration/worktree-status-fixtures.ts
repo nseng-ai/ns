@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 export interface MetadataBranchRow {
 	branchName: string;
@@ -52,6 +52,36 @@ export function runSqliteStatements(dbPath: string, statements: readonly string[
 	}
 }
 
+export function readGraphiteMetadataChildren(gitDir: string, branch: string): string[] {
+	const result = spawnSync(
+		"sqlite3",
+		[
+			"-json",
+			join(gitDir, ".graphite_metadata.db"),
+			`SELECT children FROM branch_metadata WHERE branch_name = ${sqliteTextLiteral(branch)} LIMIT 1`,
+		],
+		{ encoding: "utf8", timeout: 1_000 },
+	);
+	if (result.error !== undefined || result.status !== 0) {
+		throw new Error(`sqlite3 failed: ${result.error?.message ?? result.stderr}`);
+	}
+
+	const output = result.stdout.trim();
+	const rows: unknown = JSON.parse(output === "" ? "[]" : output);
+	if (!Array.isArray(rows)) return [];
+	const row = rows[0];
+	if (!isRecord(row) || typeof row.children !== "string") return [];
+	const children: unknown = JSON.parse(row.children);
+	if (!Array.isArray(children) || !children.every((child) => typeof child === "string")) {
+		throw new Error(`Graphite children for ${branch} were not a JSON string array`);
+	}
+	return children;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
+}
+
 function sqliteNullableTextLiteral(value: string | undefined | null): string {
 	return value == null ? "NULL" : sqliteTextLiteral(value);
 }
@@ -72,7 +102,20 @@ export function makeGitRepo(branch: string): string {
 	const gitDir = join(root, ".git");
 	mkdirSync(gitDir);
 	writeFileSync(join(gitDir, "HEAD"), `ref: refs/heads/${branch}\n`);
+	writeLocalBranchRef(gitDir, branch);
 	return root;
+}
+
+export function writeLocalBranchRef(gitDir: string, branch: string): void {
+	const refPath = join(gitDir, "refs", "heads", branch);
+	mkdirSync(dirname(refPath), { recursive: true });
+	writeFileSync(refPath, "0000000000000000000000000000000000000000\n");
+}
+
+export function writeLocalBranchRefsForMetadataChildren(gitDir: string, branch: string): void {
+	for (const child of readGraphiteMetadataChildren(gitDir, branch)) {
+		writeLocalBranchRef(gitDir, child);
+	}
 }
 
 export function makeGraphiteRepo(
