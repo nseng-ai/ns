@@ -689,11 +689,9 @@ export default function worktreeStatusExtension(
 
 	function registerExtensionCommandActivityHandler(): void {
 		if (typeof pi.events?.on !== "function") return;
-		// Extension command completion is best-effort activity/observability. Ordered
-		// worktree refresh for CLI-backed slash commands is requested through
-		// requestWorktreeStatusRefresh via CliCommandExtensionSpec.afterCommandComplete.
 		pi.events.on(PI_EXTENSION_COMMAND_FINISHED_EVENT, () => {
-			handleActiveSessionActivity();
+			recordActiveSessionActivity();
+			return refreshActiveSession({ remoteRefresh: "force" });
 		});
 	}
 

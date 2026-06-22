@@ -119,7 +119,7 @@ describe("worktree status refresh lifecycle", () => {
 		await pi.sessionShutdown?.();
 	});
 
-	test("extension command completion records activity without forcing immediate refresh", async () => {
+	test("extension command completion forces immediate GitHub refresh", async () => {
 		const harness = createManualTimerHarness();
 		const pi = new CommandEventLifecycleFakePi([]);
 		const loaders = fakeWorktreeStatusLoaders({
@@ -153,10 +153,10 @@ describe("worktree status refresh lifecycle", () => {
 		});
 		await flushPromises();
 
-		expect(loaders.localCalls).toHaveLength(1);
-		expect(loaders.ghCalls).toHaveLength(1);
+		expect(loaders.localCalls).toHaveLength(2);
+		expect(loaders.ghCalls).toHaveLength(2);
 		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
-			"[gt] ↓ main · ↑ - · 1 commit\n[gh] no PR",
+			"[gt] ↓ main · ↑ - · 1 commit · ✗\n[gh] no PR",
 		);
 
 		harness.advanceMs(WORKTREE_STATUS_DORMANT_AFTER_MS / 2 + 1);
