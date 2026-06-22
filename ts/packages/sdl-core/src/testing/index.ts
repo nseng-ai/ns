@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { mkdir, readFile, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
@@ -6,7 +7,13 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
 import type { Clock } from "../clock.ts";
-import type { CommandExecApi, CommandRunner, ExecOptions, ExecResult } from "../exec.ts";
+import {
+	NodeCommandExecApi,
+	type CommandExecApi,
+	type CommandRunner,
+	type ExecOptions,
+	type ExecResult,
+} from "../exec.ts";
 import type { ScheduledTimer, TimerScheduler } from "../timers.ts";
 import type {
 	TextGenerationRequest,
@@ -43,6 +50,34 @@ export interface TempRepoSkillOptions {
 	readonly skillName: string;
 	readonly markdown: string;
 	readonly prefix?: string;
+}
+
+export interface TempGitRepo {
+	readonly path: string;
+	runGit(args: readonly string[], options?: TempGitRepoRunOptions): string;
+	cleanup(): void;
+}
+
+export interface TempGitRepoOptions {
+	readonly prefix?: string;
+	readonly userEmail?: string;
+	readonly userName?: string;
+	readonly readmeText?: string;
+	readonly initialCommitMessage?: string;
+}
+
+export interface TempGitRepoRunOptions {
+	readonly input?: string | undefined;
+	readonly env?: NodeJS.ProcessEnv | undefined;
+}
+
+export interface DropExecOptionsFields {
+	readonly shouldDropEnv?: boolean;
+	readonly shouldDropStdin?: boolean;
+}
+
+export interface DroppingOptionsCommandExecApiOptions extends DropExecOptionsFields {
+	readonly delegate?: CommandExecApi;
 }
 
 export interface RunnerCall {
@@ -199,6 +234,53 @@ export class ScriptedCommandExecApi implements CommandExecApi {
 			...(call.options === undefined ? {} : { options: { ...call.options } }),
 		}));
 	}
+}
+
+export class DroppingOptionsCommandExecApi implements CommandExecApi {
+	// Some tests deliberately brand this wrapper as stdin-capable while dropping
+	// stdin to prove downstream runtime guards fail safe when adapters lie.
+	readonly supportsStdin = true as const;
+	private readonly delegate: CommandExecApi;
+	private readonly dropFields: DropExecOptionsFields;
+
+	constructor(options: DroppingOptionsCommandExecApiOptions = {}) {
+		this.delegate = options.delegate ?? new NodeCommandExecApi();
+		this.dropFields = {
+			...(options.shouldDropEnv === undefined ? {} : { shouldDropEnv: options.shouldDropEnv }),
+			...(options.shouldDropStdin === undefined
+				? {}
+				: { shouldDropStdin: options.shouldDropStdin }),
+		};
+	}
+
+	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
+		return await this.delegate.exec(
+			command,
+			args,
+			copyExecOptionsWithout(options, this.dropFields),
+		);
+	}
+}
+
+export function copyExecOptionsWithout(
+	options: ExecOptions | undefined,
+	dropFields: DropExecOptionsFields,
+): ExecOptions | undefined {
+	if (options === undefined) return undefined;
+	return {
+		...(options.cwd === undefined ? {} : { cwd: options.cwd }),
+		...(dropFields.shouldDropEnv === true || options.env === undefined ? {} : { env: options.env }),
+		...(options.timeout === undefined ? {} : { timeout: options.timeout }),
+		...(options.timeoutKillGraceMs === undefined
+			? {}
+			: { timeoutKillGraceMs: options.timeoutKillGraceMs }),
+		...(options.signal === undefined ? {} : { signal: options.signal }),
+		...(dropFields.shouldDropStdin === true || options.stdin === undefined
+			? {}
+			: { stdin: options.stdin }),
+		...(options.onStdout === undefined ? {} : { onStdout: options.onStdout }),
+		...(options.onStderr === undefined ? {} : { onStderr: options.onStderr }),
+	};
 }
 
 export class ScriptedTextGenerator implements TextGenerator {
@@ -414,6 +496,37 @@ export function createTempDirTracker(): TempDirTracker {
 			await Promise.all(
 				[...dirs, ...homes].map((dir) => rm(dir, { recursive: true, force: true })),
 			);
+		},
+	};
+}
+
+export function createTempGitRepo(options: TempGitRepoOptions = {}): TempGitRepo {
+	const path = mkdtempSync(join(tmpdir(), options.prefix ?? "sdl-git-test-"));
+	const runGit = (args: readonly string[], runOptions: TempGitRepoRunOptions = {}): string => {
+		const result = spawnSync("git", [...args], {
+			cwd: path,
+			input: runOptions.input,
+			encoding: "utf8",
+			...(runOptions.env === undefined ? {} : { env: runOptions.env }),
+		});
+		if (result.status !== 0) {
+			throw new Error(`git ${args.join(" ")} failed: ${result.stderr || result.stdout}`);
+		}
+		return result.stdout;
+	};
+
+	runGit(["init", "-b", "main"]);
+	runGit(["config", "user.email", options.userEmail ?? "sdl-test@example.com"]);
+	runGit(["config", "user.name", options.userName ?? "SDL Test"]);
+	writeFileSync(join(path, "README.md"), options.readmeText ?? "test repo\n", "utf8");
+	runGit(["add", "README.md"]);
+	runGit(["commit", "-m", options.initialCommitMessage ?? "initial"]);
+
+	return {
+		path,
+		runGit,
+		cleanup() {
+			rmSync(path, { recursive: true, force: true });
 		},
 	};
 }

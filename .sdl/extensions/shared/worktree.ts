@@ -1,14 +1,13 @@
-import { createCommitWithPreparedMessage } from "@sdl/sdl/checkpoint-flow";
-import {
-  formatPendingWorktreeCommandDetails,
-  loadPendingWorktreeSnapshot,
-  type WorktreeCommandResult,
-} from "@sdl/sdl/pending-worktree";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import type { ExecResult, SdlExtensionApi } from "@sdl/sdl/sdk";
 
-// Checked-in repo-local SDL migration extensions may use @sdl/sdl internal
-// migration exports to avoid copying canonical command primitives. This file
-// preserves the local extension-facing shapes and messages.
+const GIT_FACT_TIMEOUT_MS = 30_000;
+
+export type WorktreeCommandResult = ExecResult;
+
 export interface PendingWorktreeSnapshot {
   root: string;
   branch: string;
@@ -23,34 +22,39 @@ export type PendingWorktreeError =
   | { kind: "status_failed"; result: WorktreeCommandResult }
   | { kind: "diff_failed"; result: WorktreeCommandResult };
 
-async function loadExtensionPendingWorktreeSnapshot(
+export async function loadPendingWorktreeSnapshot(
   ctx: SdlExtensionApi,
 ): Promise<
   { ok: true; snapshot: PendingWorktreeSnapshot } | { ok: false; error: PendingWorktreeError }
 > {
-  const loaded = await loadPendingWorktreeSnapshot({
-    cwd: ctx.cwd,
-    execGit: (args, timeoutMs) => execGit(ctx, args, timeoutMs),
-  });
+  const root = await execGit(ctx, ["rev-parse", "--show-toplevel"], GIT_FACT_TIMEOUT_MS);
+  if (root.code !== 0) {
+    return { ok: false, error: { kind: "not_git_repo", result: root } };
+  }
 
-  if (!loaded.ok) {
-    return {
-      ok: false,
-      error: {
-        kind: loaded.error.kind,
-        result: loaded.error.result,
-      },
-    };
+  const branch = await execGit(ctx, ["symbolic-ref", "--short", "HEAD"], GIT_FACT_TIMEOUT_MS);
+  if (branch.code !== 0) {
+    return { ok: false, error: { kind: "detached_head", result: branch } };
+  }
+
+  const status = await execGit(ctx, ["status", "--porcelain=v1"], GIT_FACT_TIMEOUT_MS);
+  if (status.code !== 0) {
+    return { ok: false, error: { kind: "status_failed", result: status } };
+  }
+
+  const diff = await execGit(ctx, ["diff", "HEAD", "--no-ext-diff"], GIT_FACT_TIMEOUT_MS);
+  if (diff.code !== 0) {
+    return { ok: false, error: { kind: "diff_failed", result: diff } };
   }
 
   return {
     ok: true,
     snapshot: {
-      root: loaded.snapshot.root,
-      branch: loaded.snapshot.branch,
-      status: loaded.snapshot.status,
-      diff: loaded.snapshot.diff,
-      isClean: loaded.snapshot.clean,
+      root: root.stdout.trim(),
+      branch: branch.stdout.trim(),
+      status: status.stdout,
+      diff: diff.stdout,
+      isClean: status.stdout.trim().length === 0,
     },
   };
 }
@@ -63,15 +67,36 @@ export function execGit(
   return ctx.exec("git", [...args], { timeoutMs });
 }
 
-function createExtensionCommitWithPreparedMessage(
+export async function createCommitWithPreparedMessage(
   ctx: SdlExtensionApi,
   message: string,
 ): Promise<{ summary: string } | { error: string }> {
-  return createCommitWithPreparedMessage({
-    cwd: ctx.cwd,
-    message,
-    exec: (command, args, _cwd, timeoutMs) => ctx.exec(command, args, { timeoutMs }),
-  });
+  const tempDir = await mkdtemp(join(tmpdir(), "sdl-extension-cp-commit-"));
+  try {
+    const messagePath = join(tempDir, "message.txt");
+    await writeFile(messagePath, `${message}\n`, "utf8");
+
+    const add = await ctx.exec("git", ["add", "-A"], { timeoutMs: 30_000 });
+    if (add.code !== 0) {
+      return { error: formatCommandError("Failed to stage checkpoint changes.", add) };
+    }
+
+    const commit = await ctx.exec("git", ["commit", "-F", messagePath], { timeoutMs: 120_000 });
+    if (commit.code !== 0) {
+      return { error: formatCommandError("Checkpoint commit failed.", commit) };
+    }
+
+    const log = await ctx.exec("git", ["log", "-1", "--oneline"], { timeoutMs: 5_000 });
+    if (log.code !== 0) {
+      return {
+        error: formatCommandError("Created checkpoint commit, but failed to read it back.", log),
+      };
+    }
+
+    return { summary: log.stdout.trim() };
+  } finally {
+    await rm(tempDir, { force: true, recursive: true });
+  }
 }
 
 export function formatPendingWorktreeError(error: PendingWorktreeError): string {
@@ -93,10 +118,7 @@ export function formatCommandError(summary: string, result: ExecResult): string 
 }
 
 export function formatCommandDetails(result: WorktreeCommandResult): string {
-  return formatPendingWorktreeCommandDetails(result);
+  const details = result.stderr.trim() || result.stdout.trim();
+  const killed = result.killed ? " (killed or timed out)" : "";
+  return details ? `exit ${result.code}${killed}: ${details}` : `exit ${result.code}${killed}`;
 }
-
-export {
-  createExtensionCommitWithPreparedMessage as createCommitWithPreparedMessage,
-  loadExtensionPendingWorktreeSnapshot as loadPendingWorktreeSnapshot,
-};

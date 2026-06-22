@@ -3,7 +3,8 @@ import {
   CHANGES_MODEL_ENV,
   DEFAULT_CHANGES_MODEL_REF,
   LEGACY_CHANGES_MODEL_ENV,
-} from "@sdl/sdl/text-generation";
+  selectChangesModelRef,
+} from "./shared/text-generation.ts";
 import { draftChangesSummary } from "./shared/text-helpers.ts";
 import {
   formatPendingWorktreeError,
@@ -45,6 +46,7 @@ export default defineExtension({
           textGenerator: ctx.textGenerator,
           env: ctx.env,
           snapshot,
+          modelRef: selectChangesModelRef(ctx.env),
         });
         if (!summary.ok) {
           return failed(summary.error, 2);

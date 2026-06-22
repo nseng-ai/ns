@@ -2,14 +2,14 @@ import { Buffer } from "node:buffer";
 import { readFile, stat } from "node:fs/promises";
 import { relative, resolve } from "node:path";
 
+import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
+import { prepareCheckpointMessage } from "./shared/text-helpers.ts";
 import {
   CHECKPOINT_MODEL_ENV,
   DEFAULT_CHECKPOINT_MODEL_REF,
   LEGACY_CHECKPOINT_MODEL_ENV,
   selectCheckpointModelRef,
-} from "@sdl/sdl/text-generation";
-import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
-import { prepareCheckpointMessage } from "./shared/checkpoint-message.ts";
+} from "./shared/text-generation.ts";
 import {
   createCommitWithPreparedMessage,
   execGit,

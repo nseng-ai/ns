@@ -72,9 +72,10 @@ const sdlSdkVirtualModule = {
  * schemas share host SDK identity instead of resolving dependency copies from
  * `.sdl/extensions`.
  *
- * Checked-in repo-local migration extensions may also import package subpaths
- * listed as `internalMigrationExports`; aliases resolve those subpaths to this
- * source tree without making them part of the public SDK virtual module.
+ * Package-internal migration modules may still resolve package subpaths listed
+ * as `internalMigrationExports`; checked-in `.sdl/extensions` should keep
+ * repeated command-author helpers under `.sdl/extensions/shared/` until a
+ * later explicit SDK-promotion decision.
  */
 export function createSdlJiti(): ReturnType<typeof createJiti> {
 	return createJiti(import.meta.url, {
