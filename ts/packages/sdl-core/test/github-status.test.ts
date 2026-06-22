@@ -9,6 +9,7 @@ import {
 	githubWorktreePrStatusQuery,
 	normalizeGitRemoteUrl,
 	parseGithubWorktreePrStatusJson,
+	parseGithubWorktreePrStatusJsonResult,
 	tallyGithubStatusChecks,
 } from "@sdl/core/github-status";
 
@@ -100,11 +101,9 @@ describe("GitHub status boundary parsing", () => {
 	});
 
 	test("parses empty worktree PR status results and rejects malformed responses", () => {
-		expect(
-			parseGithubWorktreePrStatusJson(
-				JSON.stringify({ data: { repository: { pullRequests: { nodes: [] } } } }),
-			),
-		).toEqual([]);
+		const emptyResponse = JSON.stringify({ data: { repository: { pullRequests: { nodes: [] } } } });
+		expect(parseGithubWorktreePrStatusJson(emptyResponse)).toEqual([]);
+		expect(parseGithubWorktreePrStatusJsonResult(emptyResponse)).toEqual({ type: "ok", prs: [] });
 		expect(parseGithubWorktreePrStatusJson("not json")).toBeUndefined();
 		expect(
 			parseGithubWorktreePrStatusJson(JSON.stringify({ errors: [{ message: "rate limit" }] })),
@@ -112,6 +111,37 @@ describe("GitHub status boundary parsing", () => {
 		expect(
 			parseGithubWorktreePrStatusJson(JSON.stringify({ data: { repository: {} } })),
 		).toBeUndefined();
+	});
+
+	test("classifies worktree PR status parse failures", () => {
+		expect(
+			parseGithubWorktreePrStatusJsonResult(
+				"<!DOCTYPE html><html><head><title>Unicorn! &middot; GitHub</title></head><body></body></html>",
+			),
+		).toEqual({ type: "invalid-json", kind: "github-unicorn-html" });
+		expect(
+			parseGithubWorktreePrStatusJsonResult(
+				"<!DOCTYPE html><html><head><title>502</title></head></html>",
+			),
+		).toEqual({ type: "invalid-json", kind: "html" });
+		expect(parseGithubWorktreePrStatusJsonResult("not json")).toEqual({
+			type: "invalid-json",
+			kind: "non-json",
+		});
+		expect(
+			parseGithubWorktreePrStatusJsonResult(
+				JSON.stringify({ errors: [{ message: "API rate limit exceeded" }] }),
+			),
+		).toEqual({ type: "graphql-errors", messages: ["API rate limit exceeded"] });
+		expect(
+			parseGithubWorktreePrStatusJsonResult(JSON.stringify({ errors: [{ path: ["repository"] }] })),
+		).toEqual({
+			type: "graphql-errors",
+			messages: ["GitHub returned GraphQL errors without messages"],
+		});
+		expect(
+			parseGithubWorktreePrStatusJsonResult(JSON.stringify({ data: { repository: {} } })),
+		).toEqual({ type: "schema-mismatch" });
 	});
 
 	test("normalizes git remote URLs host-agnostically", () => {

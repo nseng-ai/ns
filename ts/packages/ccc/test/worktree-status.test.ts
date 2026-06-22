@@ -855,6 +855,102 @@ describe("composed local and gh worktree status loading", () => {
 		});
 		authPi.assertDone();
 
+		const unicornPi = new OrderlessFakePi([
+			brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+			remoteOriginStep(),
+			ghWorktreePrStep({
+				nodes: [],
+				result: {
+					stdout:
+						"<!DOCTYPE html><html><head><title>Unicorn! &middot; GitHub</title></head><body></body></html>",
+				},
+			}),
+			...basicGitStatusScript(),
+		]);
+		const unicornStatus = await loadComposedWorktreeStatus(unicornPi, ROOT);
+		expect(unicornStatus.gh).toEqual({
+			type: "unavailable",
+			message: "GitHub returned Unicorn HTML instead of JSON",
+		});
+		expect(formatWorktreeStatus(unicornStatus)).toContain(
+			"[gh] unavailable: GitHub returned Unicorn HTML instead of JSON",
+		);
+		unicornPi.assertDone();
+
+		const htmlPi = new OrderlessFakePi([
+			brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+			remoteOriginStep(),
+			ghWorktreePrStep({
+				nodes: [],
+				result: { stdout: "<!DOCTYPE html><html><head><title>502</title></head></html>" },
+			}),
+			...basicGitStatusScript(),
+		]);
+		const htmlStatus = await loadComposedWorktreeStatus(htmlPi, ROOT);
+		expect(htmlStatus.gh).toEqual({
+			type: "unavailable",
+			message: "GitHub returned non-JSON HTML instead of JSON",
+		});
+		expect(formatWorktreeStatus(htmlStatus)).toContain(
+			"[gh] unavailable: GitHub returned non-JSON HTML instead of JSON",
+		);
+		htmlPi.assertDone();
+
+		const nonJsonPi = new OrderlessFakePi([
+			brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+			remoteOriginStep(),
+			ghWorktreePrStep({ nodes: [], result: { stdout: "not json" } }),
+			...basicGitStatusScript(),
+		]);
+		const nonJsonStatus = await loadComposedWorktreeStatus(nonJsonPi, ROOT);
+		expect(nonJsonStatus.gh).toEqual({
+			type: "unavailable",
+			message: "GitHub returned non-JSON output instead of JSON",
+		});
+		expect(formatWorktreeStatus(nonJsonStatus)).toContain(
+			"[gh] unavailable: GitHub returned non-JSON output instead of JSON",
+		);
+		nonJsonPi.assertDone();
+
+		const graphQlPayloadPi = new OrderlessFakePi([
+			brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+			remoteOriginStep(),
+			ghWorktreePrStep({
+				nodes: [],
+				result: { stdout: JSON.stringify({ errors: [{ message: "API rate limit exceeded" }] }) },
+			}),
+			...basicGitStatusScript(),
+		]);
+		const graphQlPayloadStatus = await loadComposedWorktreeStatus(graphQlPayloadPi, ROOT);
+		expect(graphQlPayloadStatus.gh).toEqual({
+			type: "unavailable",
+			message: "GitHub GraphQL error: API rate limit exceeded",
+		});
+		expect(formatWorktreeStatus(graphQlPayloadStatus)).toContain(
+			"[gh] unavailable: GitHub GraphQL error: API rate limit exceeded",
+		);
+		expect(formatWorktreeStatus(graphQlPayloadStatus).join("\n")).not.toContain("exited 1");
+		graphQlPayloadPi.assertDone();
+
+		const schemaMismatchPi = new OrderlessFakePi([
+			brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+			remoteOriginStep(),
+			ghWorktreePrStep({
+				nodes: [],
+				result: { stdout: JSON.stringify({ data: { repository: {} } }) },
+			}),
+			...basicGitStatusScript(),
+		]);
+		const schemaMismatchStatus = await loadComposedWorktreeStatus(schemaMismatchPi, ROOT);
+		expect(schemaMismatchStatus.gh).toEqual({
+			type: "unavailable",
+			message: "GitHub returned unexpected GraphQL response shape",
+		});
+		expect(formatWorktreeStatus(schemaMismatchStatus)).toContain(
+			"[gh] unavailable: GitHub returned unexpected GraphQL response shape",
+		);
+		schemaMismatchPi.assertDone();
+
 		const graphQlPi = new OrderlessFakePi([
 			brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
 			remoteOriginStep(),

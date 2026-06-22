@@ -16,9 +16,10 @@ import { runGitHubCli } from "@sdl/core/github-cli";
 import {
 	githubRepositoryIdentityFromRemoteUrl,
 	githubWorktreePrStatusArgs,
-	parseGithubWorktreePrStatusJson,
+	parseGithubWorktreePrStatusJsonResult,
 	type GithubCheckTally,
 	type GithubReviewThreadCounts,
+	type GithubWorktreePrStatusParseResult,
 } from "@sdl/core/github-status";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { formatElapsedMs } from "@sdl/core/time-format";
@@ -487,9 +488,9 @@ async function loadGhStatus(
 		};
 	}
 
-	const prs = parseGithubWorktreePrStatusJson(result.result.stdout);
-	if (prs === undefined)
-		return { type: "unavailable", message: "could not parse gh worktree status output" };
+	const parsed = parseGithubWorktreePrStatusJsonResult(result.result.stdout);
+	if (parsed.type !== "ok") return { type: "unavailable", message: ghParseFailureMessage(parsed) };
+	const { prs } = parsed;
 	if (prs.length === 0) return { type: "no-pr" };
 	if (identity.headOid === undefined)
 		return { type: "unavailable", message: "could not verify local HEAD" };
@@ -514,6 +515,40 @@ async function loadGhStatus(
 		threads: pr.threads,
 		checks: pr.checks,
 	};
+}
+
+function ghParseFailureMessage(
+	result: Exclude<GithubWorktreePrStatusParseResult, { type: "ok" }>,
+): string {
+	switch (result.type) {
+		case "invalid-json":
+			return invalidJsonGhParseFailureMessage(result.kind);
+		case "graphql-errors":
+			return `GitHub GraphQL error: ${compactStatusDetail(result.messages.join("; "))}`;
+		case "schema-mismatch":
+			return "GitHub returned unexpected GraphQL response shape";
+		default:
+			return assertNever(result);
+	}
+}
+
+function invalidJsonGhParseFailureMessage(
+	kind: Extract<GithubWorktreePrStatusParseResult, { type: "invalid-json" }>["kind"],
+): string {
+	switch (kind) {
+		case "github-unicorn-html":
+			return "GitHub returned Unicorn HTML instead of JSON";
+		case "html":
+			return "GitHub returned non-JSON HTML instead of JSON";
+		case "non-json":
+			return "GitHub returned non-JSON output instead of JSON";
+		default:
+			return assertNever(kind);
+	}
+}
+
+function assertNever(value: never): never {
+	throw new Error(`Unexpected worktree GH status parse result: ${String(value)}`);
 }
 
 async function loadGitHubRepositoryIdentity(

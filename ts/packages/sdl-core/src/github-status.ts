@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { parseGraphqlErrors, parseJsonUnknown } from "./github-graphql-json.ts";
+import { isRecord } from "./primitives.ts";
 
 export interface GithubPrIdentity {
 	owner: string;
@@ -43,6 +44,12 @@ export interface GithubWorktreePrStatus {
 	threads: GithubReviewThreadCounts;
 	checks: GithubCheckTally;
 }
+
+export type GithubWorktreePrStatusParseResult =
+	| { type: "ok"; prs: GithubWorktreePrStatus[] }
+	| { type: "invalid-json"; kind: "github-unicorn-html" | "html" | "non-json" }
+	| { type: "graphql-errors"; messages: readonly string[] }
+	| { type: "schema-mismatch" };
 
 export const githubWorktreePrStatusQuery =
 	"query($owner:String!,$repo:String!,$headRefName:String!){repository(owner:$owner,name:$repo){pullRequests(first:2,states:OPEN,headRefName:$headRefName,orderBy:{field:UPDATED_AT,direction:DESC}){nodes{number url headRefName headRefOid statusCheckRollup{contexts(first:100){pageInfo{hasNextPage} nodes{__typename ... on CheckRun{status conclusion} ... on StatusContext{state}}}} reviewThreads(first:100){totalCount pageInfo{hasNextPage} nodes{isResolved}}}}}}";
@@ -189,24 +196,28 @@ export function githubRepositoryIdentityFromRemoteUrl(
 export function parseGithubWorktreePrStatusJson(
 	stdout: string,
 ): GithubWorktreePrStatus[] | undefined {
-	const parsed = parseGraphqlJson(stdout);
-	if (parsed === undefined) return undefined;
+	const result = parseGithubWorktreePrStatusJsonResult(stdout);
+	return result.type === "ok" ? result.prs : undefined;
+}
 
-	const result = githubWorktreePrStatusResponseSchema.safeParse(parsed);
-	if (!result.success) return undefined;
-	return result.data.data.repository.pullRequests.nodes.map((node) => {
-		const contexts = node.statusCheckRollup?.contexts;
-		return {
-			number: node.number,
-			url: node.url,
-			headRefName: node.headRefName,
-			headRefOid: node.headRefOid,
-			threads: reviewThreadCountsFromConnection(node.reviewThreads),
-			checks: tallyGithubStatusChecks(contexts?.nodes ?? [], {
-				hasMore: contexts?.pageInfo.hasNextPage ?? false,
-			}),
-		};
-	});
+export function parseGithubWorktreePrStatusJsonResult(
+	stdout: string,
+): GithubWorktreePrStatusParseResult {
+	const parsed = parseJsonUnknown(stdout);
+	if (parsed.type === "error") return { type: "invalid-json", kind: classifyInvalidJson(stdout) };
+
+	const graphqlErrors = parseGraphqlErrors(parsed.value);
+	if (
+		graphqlErrors.type === "ok" &&
+		graphqlErrors.errors !== undefined &&
+		graphqlErrors.errors.length > 0
+	) {
+		return { type: "graphql-errors", messages: graphqlErrorMessages(graphqlErrors.errors) };
+	}
+
+	const result = githubWorktreePrStatusResponseSchema.safeParse(parsed.value);
+	if (!result.success) return { type: "schema-mismatch" };
+	return { type: "ok", prs: githubWorktreePrStatusesFromResponse(result.data) };
 }
 
 export function classifyGithubStatusCheck(value: unknown): GithubCheckBucket {
@@ -293,13 +304,46 @@ function reviewThreadCountsFromConnection(
 	};
 }
 
-function parseGraphqlJson(text: string): unknown | undefined {
-	const parsed = parseJson(text);
-	if (parsed === undefined) return undefined;
-	const graphqlErrors = parseGraphqlErrors(parsed);
-	if (graphqlErrors.type === "invalid") return undefined;
-	if (graphqlErrors.errors !== undefined && graphqlErrors.errors.length > 0) return undefined;
-	return parsed;
+function githubWorktreePrStatusesFromResponse(
+	response: z.infer<typeof githubWorktreePrStatusResponseSchema>,
+): GithubWorktreePrStatus[] {
+	return response.data.repository.pullRequests.nodes.map((node) => {
+		const contexts = node.statusCheckRollup?.contexts;
+		return {
+			number: node.number,
+			url: node.url,
+			headRefName: node.headRefName,
+			headRefOid: node.headRefOid,
+			threads: reviewThreadCountsFromConnection(node.reviewThreads),
+			checks: tallyGithubStatusChecks(contexts?.nodes ?? [], {
+				hasMore: contexts?.pageInfo.hasNextPage ?? false,
+			}),
+		};
+	});
+}
+
+function classifyInvalidJson(stdout: string): "github-unicorn-html" | "html" | "non-json" {
+	const trimmed = stdout.trim();
+	if (looksLikeHtml(trimmed)) {
+		if (/Unicorn!/i.test(trimmed) && /GitHub/i.test(trimmed)) return "github-unicorn-html";
+		return "html";
+	}
+	return "non-json";
+}
+
+function looksLikeHtml(value: string): boolean {
+	return /^<(?:!doctype\s+html\b|html\b|head\b|body\b)/i.test(value);
+}
+
+function graphqlErrorMessages(errors: readonly unknown[]): readonly string[] {
+	const messages = errors.flatMap((error) => {
+		if (!isRecord(error)) return [];
+		const message = error.message;
+		if (typeof message !== "string") return [];
+		const trimmed = message.trim();
+		return trimmed.length > 0 ? [trimmed] : [];
+	});
+	return messages.length > 0 ? messages : ["GitHub returned GraphQL errors without messages"];
 }
 
 function classifyCheckRun(value: Record<string, unknown>): GithubCheckBucket {
@@ -320,10 +364,4 @@ function classifyStatusContext(value: Record<string, unknown>): GithubCheckBucke
 	if (state === "PENDING" || state === "EXPECTED") return "pending";
 	if (state !== undefined && FAILING_STATUS_CONTEXT_STATES.has(state)) return "failing";
 	return "unknown";
-}
-
-function parseJson(text: string): unknown | undefined {
-	const parsed = parseJsonUnknown(text);
-	if (parsed.type === "error") return undefined;
-	return parsed.value;
 }
