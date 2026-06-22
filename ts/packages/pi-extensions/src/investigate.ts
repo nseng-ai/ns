@@ -162,7 +162,7 @@ export async function runInvestigateCommand({
 				setRunnerSubagentWidget(ctx, WIDGET_KEY, formatRunnerSubagentActivityWidgetLines(update));
 			},
 		});
-		emitInvestigationResult(pi, ctx, result, curatedContext.audit);
+		emitInvestigationResult({ pi, ctx, result, curatedContext: curatedContext.audit });
 		return result;
 	} finally {
 		setRunnerSubagentWidget(ctx, WIDGET_KEY, undefined);
@@ -200,12 +200,19 @@ export function renderInvestigationResultMessage(
 	};
 }
 
-function emitInvestigationResult(
-	pi: Pick<InvestigateExtensionAPI, "sendMessage">,
-	ctx: CommandContext,
-	result: RunnerSubagentResult,
-	curatedContext: CuratedRunnerSubagentContextAudit,
-): void {
+interface EmitInvestigationResultInput {
+	pi: Pick<InvestigateExtensionAPI, "sendMessage">;
+	ctx: CommandContext;
+	result: RunnerSubagentResult;
+	curatedContext: CuratedRunnerSubagentContextAudit;
+}
+
+function emitInvestigationResult({
+	pi,
+	ctx,
+	result,
+	curatedContext,
+}: EmitInvestigationResultInput): void {
 	const content = formatInvestigationResultContent(result);
 	const details = dispatchRunnerSubagentDetails(result, { curatedContext });
 	if (pi.sendMessage !== undefined) {

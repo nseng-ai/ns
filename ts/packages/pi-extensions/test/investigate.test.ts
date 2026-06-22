@@ -46,6 +46,11 @@ interface WidgetRecord {
 	options?: { placement?: "aboveEditor" | "belowEditor" };
 }
 
+interface FakePiOptions {
+	dependencies?: RunnerSubagentDispatcherDependencies;
+	thinkingLevel?: ThinkingLevel;
+}
+
 class FakePi implements InvestigateExtensionAPI, RunnerSubagentPi {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly messages: CustomMessage[] = [];
@@ -60,11 +65,10 @@ class FakePi implements InvestigateExtensionAPI, RunnerSubagentPi {
 	[RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES]?: RunnerSubagentDispatcherDependencies;
 	private readonly thinkingLevel: ThinkingLevel;
 
-	constructor(
-		dependencies?: RunnerSubagentDispatcherDependencies,
-		options: { thinkingLevel?: ThinkingLevel } = {},
-	) {
-		if (dependencies !== undefined) this[RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES] = dependencies;
+	constructor(options: FakePiOptions = {}) {
+		if (options.dependencies !== undefined) {
+			this[RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES] = options.dependencies;
+		}
 		this.thinkingLevel = options.thinkingLevel ?? "off";
 	}
 
@@ -194,7 +198,7 @@ describe("investigate extension", () => {
 
 	test("blank prompt notifies usage and does not spawn a child", async () => {
 		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE });
-		const pi = new FakePi(runner.dependencies);
+		const pi = new FakePi({ dependencies: runner.dependencies });
 		const command = register(pi);
 		const ctx = makeContext();
 
@@ -210,7 +214,7 @@ describe("investigate extension", () => {
 
 	test("dispatches an investigator with curated context, inherited launch, and read-only child tools", async () => {
 		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE });
-		const pi = new FakePi(runner.dependencies, { thinkingLevel: "medium" });
+		const pi = new FakePi({ dependencies: runner.dependencies, thinkingLevel: "medium" });
 		const command = register(pi);
 		const ctx = makeContext({ model: { provider: "anthropic", id: "claude-sonnet-4-5" } });
 
@@ -280,7 +284,7 @@ describe("investigate extension", () => {
 
 	test("surfaces non-final statuses as diagnostics with session evidence", async () => {
 		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE });
-		const pi = new FakePi(runner.dependencies);
+		const pi = new FakePi({ dependencies: runner.dependencies });
 		const command = register(pi);
 		const ctx = makeContext();
 
