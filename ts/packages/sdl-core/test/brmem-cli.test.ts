@@ -9,11 +9,8 @@ import {
 	parseBrmemListEntries,
 	parseBrmemPutData,
 	putBrmemEntryFromFile,
-	resolveBrmemCommandCandidates,
 	runAvailableBrmemCommand,
-	runBrmemCandidate,
-	runFirstAvailableBrmemCommand,
-	type BrmemCommandCandidate,
+	runBrmem,
 	type BrmemExecGateway,
 } from "@sdl/core/brmem-cli";
 import type { PiExecResultLike } from "@sdl/core/exec";
@@ -82,191 +79,24 @@ function envelope(data: Record<string, unknown>, overrides: Record<string, unkno
 	return JSON.stringify({ exit_code: 0, data, ...overrides });
 }
 
-function fakeExists(paths: string[]): (path: string) => boolean {
-	const existing = new Set(paths);
-	return (path) => existing.has(path);
-}
-
-describe("resolveBrmemCommandCandidates", () => {
-	test("returns only PATH brmem", () => {
-		expect(resolveBrmemCommandCandidates("/repo/pkg", { exists: fakeExists([]) })).toEqual([
-			{ command: "brmem", prefixArgs: [] },
-		]);
-	});
-
-	test("adds the TS workspace brmem package as a pnpm fallback", () => {
-		const exists = fakeExists([
-			"/repo/ts/pnpm-workspace.yaml",
-			"/repo/ts/packages/brmem/package.json",
-		]);
-
-		expect(resolveBrmemCommandCandidates("/repo/pkg/app", { exists })).toEqual([
-			{ command: "brmem", prefixArgs: [] },
-			{
-				command: "pnpm",
-				prefixArgs: ["--config.verify-deps-before-run=false", "--dir", "/repo/ts", "exec", "brmem"],
-			},
-		]);
-	});
-
-	test("ignores old Python venv and uv fallback locations", () => {
-		expect(
-			resolveBrmemCommandCandidates("/repo/pkg/app", {
-				exists: fakeExists([
-					"/repo/.venv/bin/brmem",
-					"/repo/pkg/.venv/bin/brmem",
-					"/repo/pyproject.toml",
-					"/repo/pkg/pyproject.toml",
-				]),
-			}),
-		).toEqual([{ command: "brmem", prefixArgs: [] }]);
-	});
-});
-
-describe("runBrmemCandidate", () => {
-	test("prepends prefix args, formats display command, and passes execution options", async () => {
-		const signal = new AbortController().signal;
-		const candidate: BrmemCommandCandidate = {
-			command: "brmem-wrapper",
-			prefixArgs: ["--root", "/repo with space", "--"],
-		};
+describe("runBrmem", () => {
+	test("returns the completed PATH brmem run on success", async () => {
 		const gateway = new FakeGateway([
-			step(
-				"brmem-wrapper",
-				[
-					"--root",
-					"/repo with space",
-					"--",
-					"put",
-					"plans/key.md",
-					"--file",
-					"/tmp/plan with space.md",
-				],
-				{
-					code: 0,
-					stdout: "ok",
-				},
-			),
+			step("brmem", ["list", "--format", "json"], { code: 0, stdout: "{}" }),
 		]);
 
-		const run = await runBrmemCandidate({
+		const run = await runBrmem({
 			gateway,
 			cwd: ROOT,
-			candidate,
-			brmemArgs: ["put", "plans/key.md", "--file", "/tmp/plan with space.md"],
-			timeoutMs: 1234,
-			signal,
+			brmemArgs: ["list", "--format", "json"],
+			timeoutMs: 1000,
 		});
 
 		gateway.assertDone();
 		expect(run.type).toBe("completed");
-		expect(run.args).toEqual([
-			"--root",
-			"/repo with space",
-			"--",
-			"put",
-			"plans/key.md",
-			"--file",
-			"/tmp/plan with space.md",
-		]);
-		expect(run.displayCommand).toBe(
-			"brmem-wrapper --root '/repo with space' -- put plans/key.md --file '/tmp/plan with space.md'",
-		);
-		expect(gateway.calls[0]?.options).toEqual({ cwd: ROOT, timeout: 1234, signal });
-		if (run.type === "completed") {
-			expect(run.result).toEqual({ code: 0, stdout: "ok", stderr: "", killed: false });
-		}
-	});
-
-	test("returns unavailable when startup throws", async () => {
-		const candidate = { command: "brmem", prefixArgs: [] };
-		const gateway = new FakeGateway([errorStep("brmem", ["list"], new Error("spawn ENOENT"))]);
-
-		const run = await runBrmemCandidate({
-			gateway,
-			cwd: ROOT,
-			candidate,
-			brmemArgs: ["list"],
-			timeoutMs: 1000,
-		});
-
-		gateway.assertDone();
-		if (run.type !== "unavailable") {
-			throw new Error(`expected unavailable run, got ${run.type}`);
-		}
-		expect(run.failure).toContain("brmem command (failed before completion)");
-		expect(run.failure).toContain("spawn ENOENT");
-	});
-
-	test("preserves semantic nonzero and killed results as completed runs", async () => {
-		for (const result of [
-			{ code: 1, stderr: "absent" },
-			{ code: 2, stderr: "invalid" },
-			{ code: 127, killed: true, stderr: "command not found" },
-		]) {
-			const candidate = { command: "brmem", prefixArgs: [] };
-			const gateway = new FakeGateway([step("brmem", ["check", "plan.md"], result)]);
-
-			const run = await runBrmemCandidate({
-				gateway,
-				cwd: ROOT,
-				candidate,
-				brmemArgs: ["check", "plan.md"],
-				timeoutMs: 1000,
-			});
-
-			gateway.assertDone();
-			expect(run.type).toBe("completed");
-			if (run.type === "completed") expect(run.result.code).toBe(result.code);
-		}
-	});
-});
-
-describe("runFirstAvailableBrmemCommand", () => {
-	test("returns unavailable after a PATH brmem startup failure", async () => {
-		const gateway = new FakeGateway([
-			errorStep("brmem", ["list", "--format", "json"], new Error("spawn ENOENT")),
-		]);
-
-		const run = await runFirstAvailableBrmemCommand({
-			gateway,
-			cwd: ROOT,
-			brmemArgs: ["list", "--format", "json"],
-			timeoutMs: 1000,
-		});
-
-		gateway.assertDone();
-		expect(run.type).toBe("unavailable");
-		if (run.type !== "unavailable") throw new Error(`expected unavailable run, got ${run.type}`);
-		expect(run.failures).toHaveLength(1);
-		expect(run.failures[0]?.displayCommand).toBe("brmem list --format json");
-	});
-
-	test("returns unavailable after a PATH brmem command-not-found result", async () => {
-		const gateway = new FakeGateway([
-			step("brmem", ["list", "--format", "json"], {
-				code: 127,
-				stderr: "brmem: command not found",
-			}),
-		]);
-
-		const run = await runFirstAvailableBrmemCommand({
-			gateway,
-			cwd: ROOT,
-			brmemArgs: ["list", "--format", "json"],
-			timeoutMs: 1000,
-		});
-
-		gateway.assertDone();
-		expect(run.type).toBe("unavailable");
-		if (run.type !== "unavailable") throw new Error(`expected unavailable run, got ${run.type}`);
-		expect(run.failures).toHaveLength(1);
-		const message = formatBrmemUnavailableMessage(run.failures);
-		expect(message).toContain("No brmem command available");
-		expect(message).toContain("just install-brmem");
-		expect(message).toContain("just install-tools");
-		expect(message).toContain("Command: brmem list --format json");
-		expect(message).not.toContain("uv run");
+		if (run.type !== "completed") throw new Error(`expected completed run, got ${run.type}`);
+		expect(run.command).toBe("brmem");
+		expect(run.result.stdout).toBe("{}");
 	});
 
 	test("falls back to the TS workspace brmem command after PATH brmem is unavailable", async () => {
@@ -280,7 +110,7 @@ describe("runFirstAvailableBrmemCommand", () => {
 			),
 		]);
 
-		const run = await runFirstAvailableBrmemCommand({
+		const run = await runBrmem({
 			gateway,
 			cwd: workspaceRoot,
 			brmemArgs: ["list"],
@@ -294,16 +124,41 @@ describe("runFirstAvailableBrmemCommand", () => {
 		expect(run.result.stdout).toBe("{}");
 	});
 
-	test("returns unavailable after an explicit startupError result", async () => {
+	test("returns unavailable with plural failures when every candidate is unavailable", async () => {
+		const workspaceRoot = process.cwd();
 		const gateway = new FakeGateway([
-			step("brmem", ["list", "--format", "json"], {
-				code: 127,
-				stderr: "spawn brmem ENOENT",
-				startupError: "spawn brmem ENOENT",
-			}),
+			step("brmem", ["list"], { code: 127, stderr: "brmem: command not found" }),
+			step(
+				"pnpm",
+				["--config.verify-deps-before-run=false", "--dir", workspaceRoot, "exec", "brmem", "list"],
+				{ code: 127, stderr: "brmem: command not found" },
+			),
 		]);
 
-		const run = await runFirstAvailableBrmemCommand({
+		const run = await runBrmem({
+			gateway,
+			cwd: workspaceRoot,
+			brmemArgs: ["list"],
+			timeoutMs: 1000,
+		});
+
+		gateway.assertDone();
+		expect(run.type).toBe("unavailable");
+		if (run.type !== "unavailable") throw new Error(`expected unavailable run, got ${run.type}`);
+		expect(run.failures).toHaveLength(2);
+		const message = formatBrmemUnavailableMessage(run.failures);
+		expect(message).toContain("No brmem command available");
+		expect(message).toContain("just install-brmem");
+		expect(message).toContain("just install-tools");
+		expect(message).not.toContain("uv run");
+	});
+
+	test("returns unavailable after a PATH brmem startup failure", async () => {
+		const gateway = new FakeGateway([
+			errorStep("brmem", ["list", "--format", "json"], new Error("spawn ENOENT")),
+		]);
+
+		const run = await runBrmem({
 			gateway,
 			cwd: ROOT,
 			brmemArgs: ["list", "--format", "json"],
@@ -314,6 +169,9 @@ describe("runFirstAvailableBrmemCommand", () => {
 		expect(run.type).toBe("unavailable");
 		if (run.type !== "unavailable") throw new Error(`expected unavailable run, got ${run.type}`);
 		expect(run.failures).toHaveLength(1);
+		expect(run.failures[0]?.displayCommand).toBe("brmem list --format json");
+		expect(run.failures[0]?.failure).toContain("brmem command (failed before completion)");
+		expect(run.failures[0]?.failure).toContain("spawn ENOENT");
 	});
 });
 
@@ -809,7 +667,6 @@ describe("brmemCommandFailure", () => {
 	test("formats command output and preserves the display command", () => {
 		const error = brmemCommandFailure("brmem_put_failed", "brmem put failed", {
 			type: "completed",
-			candidate: { command: "brmem", prefixArgs: [] },
 			command: "brmem",
 			args: ["put", "plan.md"],
 			displayCommand: "brmem put plan.md",
@@ -827,7 +684,6 @@ describe("brmemCommandFailure", () => {
 	test("surfaces brmem machine-envelope status text", () => {
 		const error = brmemCommandFailure("brmem_put_failed", "brmem put failed", {
 			type: "completed",
-			candidate: { command: "brmem", prefixArgs: [] },
 			command: "brmem",
 			args: ["put", "plan.md"],
 			displayCommand: "brmem put plan.md",

@@ -23,14 +23,13 @@ export interface BrmemExecGateway {
 	): Promise<PiExecResultLike>;
 }
 
-export interface BrmemCommandCandidate {
+interface BrmemCommandCandidate {
 	command: string;
 	prefixArgs: string[];
 }
 
 export interface CompletedBrmemRun {
 	type: "completed";
-	candidate: BrmemCommandCandidate;
 	command: string;
 	args: string[];
 	displayCommand: string;
@@ -39,23 +38,19 @@ export interface CompletedBrmemRun {
 
 export interface UnavailableBrmemRun {
 	type: "unavailable";
-	candidate: BrmemCommandCandidate;
 	command: string;
 	args: string[];
 	displayCommand: string;
 	failure: string;
 }
 
-export type BrmemCandidateRun = CompletedBrmemRun | UnavailableBrmemRun;
+type BrmemCandidateRun = CompletedBrmemRun | UnavailableBrmemRun;
 
-export interface NoAvailableBrmemCommandRun {
-	type: "unavailable";
-	failures: readonly UnavailableBrmemRun[];
-}
+export type RunBrmemResult =
+	| CompletedBrmemRun
+	| { type: "unavailable"; failures: readonly UnavailableBrmemRun[] };
 
-export type FirstAvailableBrmemCommandRun = CompletedBrmemRun | NoAvailableBrmemCommandRun;
-
-export interface RunBrmemCandidateOptions {
+interface RunBrmemOnCandidateOptions {
 	gateway: BrmemExecGateway;
 	cwd: string;
 	candidate: BrmemCommandCandidate;
@@ -65,7 +60,7 @@ export interface RunBrmemCandidateOptions {
 	signal?: AbortSignal | undefined;
 }
 
-export interface RunFirstAvailableBrmemCommandOptions {
+export interface RunBrmemOptions {
 	gateway: BrmemExecGateway;
 	cwd: string;
 	brmemArgs: readonly string[];
@@ -153,7 +148,7 @@ export interface ListBrmemEntriesOptions {
 	readonly signal?: AbortSignal | undefined;
 }
 
-export function resolveBrmemCommandCandidates(
+function brmemCommandCandidates(
 	cwd: string,
 	options: { exists?: (path: string) => boolean } = {},
 ): BrmemCommandCandidate[] {
@@ -180,8 +175,8 @@ export function resolveBrmemCommandCandidates(
 	];
 }
 
-export async function runBrmemCandidate(
-	options: RunBrmemCandidateOptions,
+async function runBrmemOnCandidate(
+	options: RunBrmemOnCandidateOptions,
 ): Promise<BrmemCandidateRun> {
 	const { gateway, cwd, candidate, brmemArgs, timeoutMs, env, signal } = options;
 	const args = [...candidate.prefixArgs, ...brmemArgs];
@@ -194,7 +189,6 @@ export async function runBrmemCandidate(
 		if (isLikelyCommandNotFound(result)) {
 			return {
 				type: "unavailable",
-				candidate,
 				command: candidate.command,
 				args,
 				displayCommand,
@@ -208,7 +202,6 @@ export async function runBrmemCandidate(
 
 		return {
 			type: "completed",
-			candidate,
 			command: candidate.command,
 			args,
 			displayCommand,
@@ -217,7 +210,6 @@ export async function runBrmemCandidate(
 	} catch (error) {
 		return {
 			type: "unavailable",
-			candidate,
 			command: candidate.command,
 			args,
 			displayCommand,
@@ -226,13 +218,11 @@ export async function runBrmemCandidate(
 	}
 }
 
-export async function runFirstAvailableBrmemCommand(
-	options: RunFirstAvailableBrmemCommandOptions,
-): Promise<FirstAvailableBrmemCommandRun> {
+export async function runBrmem(options: RunBrmemOptions): Promise<RunBrmemResult> {
 	const { gateway, cwd, brmemArgs, timeoutMs, env, signal } = options;
 	const failures: UnavailableBrmemRun[] = [];
-	for (const candidate of resolveBrmemCommandCandidates(cwd)) {
-		const run = await runBrmemCandidate({
+	for (const candidate of brmemCommandCandidates(cwd)) {
+		const run = await runBrmemOnCandidate({
 			gateway,
 			cwd,
 			candidate,
@@ -251,7 +241,7 @@ export async function runFirstAvailableBrmemCommand(
 export async function runAvailableBrmemCommand(
 	options: RunAvailableBrmemCommandOptions,
 ): Promise<BrmemCommandResult<CompletedBrmemRun>> {
-	const run = await runFirstAvailableBrmemCommand({
+	const run = await runBrmem({
 		gateway: options.gateway,
 		cwd: options.cwd,
 		brmemArgs: options.brmemArgs,
@@ -506,23 +496,6 @@ export interface BrmemFieldParseContext {
 	commandName: string;
 	stdout: string;
 	pathPrefix?: string;
-}
-
-export function readOptionalBrmemBooleanField(
-	data: Record<string, unknown>,
-	field: string,
-	context: BrmemFieldParseContext,
-): boolean | undefined {
-	const value = data[field];
-	if (value === undefined) return undefined;
-	if (typeof value !== "boolean") {
-		throw malformedBrmemEnvelope(
-			context.commandName,
-			context.stdout,
-			`expected boolean field ${fieldPath(context, field)}`,
-		);
-	}
-	return value;
 }
 
 export function requireBrmemStringFields<const Field extends string>(
