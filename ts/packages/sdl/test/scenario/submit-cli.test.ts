@@ -148,7 +148,8 @@ function successfulSubmitResponses(): ScriptedExecResponse[] {
 	return [
 		...cleanCheckpointResponses(),
 		{
-			match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run",
+			match:
+				"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
 			result: { stdout: "ready\n" },
 		},
 		{
@@ -161,7 +162,7 @@ function successfulSubmitResponses(): ScriptedExecResponse[] {
 			result: { stdout: `Parent: main\nPR: ${PR_URL}\n` },
 		},
 		{
-			match: "gt submit -nps --no-ai --no-interactive --no-view --no-web",
+			match: "gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
 			result: { stdout: `Submitted ${PR_URL}\n` },
 		},
 		{ match: "gt branch info --no-interactive", result: { stdout: `Current PR: ${PR_URL}\n` } },
@@ -277,7 +278,8 @@ describe("project-local submit extension", () => {
 				exec: [
 					...cleanCheckpointResponses(),
 					{
-						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run",
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
 						result: { stdout: "ready\n" },
 					},
 					{
@@ -290,7 +292,8 @@ describe("project-local submit extension", () => {
 						result: { stdout: `Parent: main\nPR: ${PR_URL}\n` },
 					},
 					{
-						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web",
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
 						result: { stdout: `Submitted ${PR_URL}\n` },
 					},
 					{
@@ -362,12 +365,15 @@ describe("project-local submit extension", () => {
 				exec: [
 					...cleanCheckpointResponses(),
 					{
-						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run",
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
 						result: { stdout: "ready\n" },
 					},
 					{
 						match: "gt log --stack --reverse --no-interactive",
-						result: { stdout: "◯ main\n◯ feature/base\n◉ feature/top (current)\n" },
+						result: {
+							stdout: "◯ main\n◯ feature/base\n◉ feature/top (current)\n◯ feature/upstack\n",
+						},
 					},
 					{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 					{
@@ -389,7 +395,8 @@ describe("project-local submit extension", () => {
 					{ match: "git status --porcelain", result: { stdout: "" } },
 					{ match: "gt modify --no-interactive -m Generated PR -m Generated body", result: {} },
 					{
-						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web",
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
 						result: { stdout: `Submitted ${PR_URL}\n` },
 					},
 					{
@@ -417,17 +424,20 @@ describe("project-local submit extension", () => {
 		expect(output).not.toContain("Prepared initial PR metadata:");
 		expect(run.liveOutput).toEqual(
 			expect.arrayContaining([
-				{ stream: "stderr", text: "  … inspecting Graphite stack before metadata preparation\n" },
 				{
 					stream: "stderr",
-					text: "  … inspecting Graphite stack branch metadata for 2 branches\n",
+					text: "  … inspecting Graphite submit scope before metadata preparation\n",
+				},
+				{
+					stream: "stderr",
+					text: "  … inspecting Graphite submit branch metadata for 2 branches\n",
 				},
 				{ stream: "stderr", text: "  … inspecting PR metadata for feature/base (1/2)\n" },
 				{ stream: "stderr", text: "  … inspecting PR metadata for feature/top (2/2)\n" },
 				{ stream: "stderr", text: "  … reading local commits and diff for feature/top\n" },
 				{
 					stream: "stderr",
-					text: "  … found 2 stack branches; 1 new single-commit branch needs initial PR metadata\n",
+					text: "  … found 2 submit branches; 1 new single-commit branch needs initial PR metadata\n",
 				},
 				{ stream: "stderr", text: "  … generating initial PR metadata for feature/top (1/1)\n" },
 				{ stream: "stderr", text: "  … checking clean worktree before metadata amendment\n" },
@@ -435,6 +445,13 @@ describe("project-local submit extension", () => {
 				{ stream: "stderr", text: "  … prepared pre-submit PR metadata for 1 branch\n" },
 			]),
 		);
+		expect(formattedExecCalls(run.context)).not.toContain(
+			"gt branch info --no-interactive --branch feature/upstack",
+		);
+		expect(formattedExecCalls(run.context)).not.toContain(
+			"git log --format=%B%x00 feature/top..feature/upstack",
+		);
+		expect(formattedExecCalls(run.context)).not.toContain("git diff feature/top..feature/upstack");
 	});
 
 	test("accepts submit-output PR links when current PR verification lags", async () => {
@@ -444,7 +461,8 @@ describe("project-local submit extension", () => {
 				exec: [
 					...cleanCheckpointResponses(),
 					{
-						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run",
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
 						result: { stdout: "ready\n" },
 					},
 					{
@@ -457,7 +475,8 @@ describe("project-local submit extension", () => {
 						result: { stdout: `Parent: main\nPR: ${PR_URL}\n` },
 					},
 					{
-						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web",
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
 						result: {
 							stdout: `implicit-session-resolution-feedback-read-helpers: ${LAGGING_VERIFICATION_PR_URL} (created)\n`,
 						},
@@ -514,7 +533,8 @@ describe("project-local submit extension", () => {
 				exec: [
 					...cleanCheckpointResponses(),
 					{
-						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run",
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
 						result: { stdout: "ready\n" },
 					},
 					{
@@ -527,7 +547,8 @@ describe("project-local submit extension", () => {
 						result: { stdout: `Parent: main\nPR: ${PR_URL}\n` },
 					},
 					{
-						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web",
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
 						result: { stdout: `Submitted ${GRAPHITE_PR_URL}\n` },
 					},
 					{
@@ -565,7 +586,8 @@ describe("project-local submit extension", () => {
 				exec: [
 					...cleanCheckpointResponses(),
 					{
-						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run",
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
 						result: { stdout: "ready\n" },
 					},
 					{
@@ -578,7 +600,8 @@ describe("project-local submit extension", () => {
 						result: { stdout: `Parent: main\nPR: ${PR_URL}\n` },
 					},
 					{
-						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web",
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
 						result: { stdout: "Submitted stack without PR URL\n" },
 					},
 					{
@@ -619,7 +642,7 @@ describe("project-local submit extension", () => {
 			expect.arrayContaining([
 				"git add -A",
 				expect.stringMatching(/^git commit -F /),
-				"gt submit -nps --no-ai --no-interactive --no-view --no-web",
+				"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
 			]),
 		);
 	});
@@ -671,10 +694,11 @@ describe("project-local submit extension", () => {
 				exec: [
 					...cleanCheckpointResponses(),
 					{
-						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run",
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
 						result: { code: 1, stderr: "branch must be restacked before submitting\n" },
 					},
-					{ match: "gt restack --no-interactive", result: { stdout: "restacked\n" } },
+					{ match: "gt restack --downstack --no-interactive", result: { stdout: "restacked\n" } },
 					...successfulSubmitResponses().slice(cleanCheckpointResponses().length),
 				],
 				confirm: () => {
@@ -684,7 +708,7 @@ describe("project-local submit extension", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(formattedExecCalls(run.context)).toContain("gt restack --no-interactive");
+		expect(formattedExecCalls(run.context)).toContain("gt restack --downstack --no-interactive");
 	});
 
 	test("trunk-out-of-date dry-run failure is deterministic and uses model summarization", async () => {
@@ -694,7 +718,8 @@ describe("project-local submit extension", () => {
 				exec: [
 					...cleanCheckpointResponses(),
 					{
-						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run",
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
 						result: {
 							code: 1,
 							stdout: "Running submit in 'dry-run' mode...\n",
@@ -735,7 +760,8 @@ describe("project-local submit extension", () => {
 				exec: [
 					...cleanCheckpointResponses(),
 					{
-						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run",
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
 						result: {
 							code: 1,
 							stdout: "full stdout details\nsecond line\n",
@@ -784,7 +810,8 @@ describe("project-local submit extension", () => {
 				exec: [
 					...cleanCheckpointResponses(),
 					{
-						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run",
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
 						result: { code: 1, stdout: "raw stdout\n", stderr: "raw stderr\n" },
 					},
 				],
@@ -813,10 +840,11 @@ describe("project-local submit extension", () => {
 				exec: [
 					...cleanCheckpointResponses(),
 					{
-						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run",
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
 						result: { code: 1, stderr: "restack is required before submit\n" },
 					},
-					{ match: "gt restack --no-interactive", result: { stdout: "restacked\n" } },
+					{ match: "gt restack --downstack --no-interactive", result: { stdout: "restacked\n" } },
 					...successfulSubmitResponses().slice(cleanCheckpointResponses().length),
 				],
 				confirm: (title, message) => {
@@ -828,7 +856,7 @@ describe("project-local submit extension", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(confirmations).toEqual([]);
-		expect(formattedExecCalls(run.context)).toContain("gt restack --no-interactive");
+		expect(formattedExecCalls(run.context)).toContain("gt restack --downstack --no-interactive");
 	});
 
 	test("--no-restack preserves guided failure without running restack", async () => {
@@ -838,7 +866,8 @@ describe("project-local submit extension", () => {
 				exec: [
 					...cleanCheckpointResponses(),
 					{
-						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run",
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
 						result: { code: 1, stderr: "must be restacked before submit\n" },
 					},
 				],
@@ -849,7 +878,9 @@ describe("project-local submit extension", () => {
 		expect(await run.exit).toBe(1);
 		expect(run.stderr.join("")).toContain("Graphite requires a restack before submission.");
 		expect(run.stderr.join("")).toContain("Raw log:");
-		expect(formattedExecCalls(run.context)).not.toContain("gt restack --no-interactive");
+		expect(formattedExecCalls(run.context)).not.toContain(
+			"gt restack --downstack --no-interactive",
+		);
 	});
 
 	test("restack conflicts are reported before submit", async () => {
@@ -859,11 +890,12 @@ describe("project-local submit extension", () => {
 				exec: [
 					...cleanCheckpointResponses(),
 					{
-						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run",
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
 						result: { code: 1, stderr: "restack required before submit\n" },
 					},
 					{
-						match: "gt restack --no-interactive",
+						match: "gt restack --downstack --no-interactive",
 						result: { code: 1, stderr: "CONFLICT (content): src/app.ts\n" },
 					},
 					{ match: "git diff --name-only --diff-filter=U", result: { stdout: "src/app.ts\n" } },
@@ -875,14 +907,16 @@ describe("project-local submit extension", () => {
 
 		expect(await run.exit).toBe(1);
 		expect(run.stderr.join("")).toContain(
-			"`gt restack` hit merge conflicts. Submission was not attempted.",
+			"`gt restack --downstack` hit merge conflicts. Submission was not attempted.",
 		);
 		expect(run.stderr.join("")).toContain("- src/app.ts");
 		expect(run.stderr.join("")).toContain("Raw log:");
 		expect(run.context.textGeneratorCalls).toHaveLength(1);
 		expect(
 			formattedExecCalls(run.context).filter(
-				(call) => call === "gt submit -nps --no-ai --no-interactive --no-view --no-web",
+				(call) =>
+					call ===
+					"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
 			),
 		).toEqual([]);
 	});
@@ -896,12 +930,14 @@ describe("project-local submit extension", () => {
 				exec: [
 					...cleanCheckpointResponses(),
 					{
-						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run",
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
 						result: { code: 1, stderr: "restack required before submit\n" },
 					},
-					{ match: "gt restack --no-interactive", result: { stdout: "restacked\n" } },
+					{ match: "gt restack --downstack --no-interactive", result: { stdout: "restacked\n" } },
 					{
-						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run",
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
 						result: {
 							code: 1,
 							stdout:
@@ -930,7 +966,7 @@ describe("project-local submit extension", () => {
 		expect(error).not.toContain("WARNING: You must restack before submitting this stack.");
 		expect(run.context.textGeneratorCalls).toHaveLength(1);
 		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(
-			"Graphite still requires restack after `sdl submit` already ran `gt restack --no-interactive`.",
+			"Graphite still requires restack after `sdl submit` already ran `gt restack --downstack --no-interactive`.",
 		);
 		const rawPath = error.match(/Raw log: (?<path>\S+)/u)?.groups?.path;
 		expect(rawPath?.startsWith(logRoot)).toBe(true);
@@ -946,7 +982,8 @@ describe("project-local submit extension", () => {
 				exec: [
 					...cleanCheckpointResponses(),
 					{
-						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run",
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
 						result: { stdout: "ready\n" },
 					},
 					{
@@ -959,7 +996,8 @@ describe("project-local submit extension", () => {
 						result: { stdout: `Parent: main\nPR: ${PR_URL}\n` },
 					},
 					{
-						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web",
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
 						result: {
 							stdout: `Running in non-interactive mode. Inline prompts to fill PR fields will be skipped.
 
@@ -1024,7 +1062,8 @@ describe("project-local submit extension", () => {
 				exec: [
 					...cleanCheckpointResponses(),
 					{
-						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run",
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
 						result: { stdout: "ready\n" },
 					},
 					{
@@ -1037,7 +1076,8 @@ describe("project-local submit extension", () => {
 						result: { stdout: `Parent: main\nPR: ${PR_URL}\n` },
 					},
 					{
-						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web",
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
 						result: { stdout: `Submitted ${PR_URL}\n` },
 					},
 					{
