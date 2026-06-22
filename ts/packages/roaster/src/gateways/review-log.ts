@@ -9,6 +9,7 @@ import { withTemporaryFile } from "@sdl/core/temp-files";
 import type { RoasterEnvironmentOptions } from "../context.ts";
 import type { ReviewLogFailure, ReviewLogFailureType, RoasterResult } from "../failures.ts";
 import type { ReviewInputCoverage, ReviewRunResult, ReviewUsage } from "../models.ts";
+import { roasterReviewDisplayRole } from "../review-display.ts";
 
 export const ROASTER_REVIEW_LOG_NAMESPACE = "roaster";
 const REVIEW_LOG_PREFIX = "reviews";
@@ -221,7 +222,7 @@ export function renderReviewLogMarkdown(
 	metadata: ReviewLogMarkdownMetadata,
 ): string {
 	const lines = [
-		`# Roaster Review: ${result.reviewName}`,
+		renderReviewLogTitle(result),
 		"",
 		`- Ran at: ${metadata.ranAt}`,
 		`- Review key: \`${result.reviewName}\``,
@@ -229,6 +230,7 @@ export function renderReviewLogMarkdown(
 		`- Branch: \`${metadata.branch}\``,
 		`- Head commit: \`${metadata.headCommit}\``,
 		`- Base ref: \`${result.baseRef}\``,
+		`- Model profile: \`${result.modelProfile}\``,
 		`- Model: \`${result.model}\``,
 		`- Findings: ${result.count}`,
 		"",
@@ -253,6 +255,13 @@ export function renderReviewLogMarkdown(
 	if (result.usage !== null) lines.push(...renderUsage(result.usage));
 	if (result.inputCoverage !== null) lines.push(...renderInputCoverage(result.inputCoverage));
 	return `${trimTrailingBlankLines(lines).join("\n")}\n`;
+}
+
+function renderReviewLogTitle(result: ReviewRunResult): string {
+	if (roasterReviewDisplayRole(result.modelProfile) === "tripwire") {
+		return `# Roaster Tripwire: ${result.reviewName}`;
+	}
+	return `# Roaster Review: ${result.reviewName}`;
 }
 
 export function reviewLogEntryKey(options: {

@@ -14,10 +14,13 @@ interface RunResult {
 const REVIEW_SOURCES = {
 	"sdl-typescript-style": reviewSource("Enforce SDL's TypeScript style guide."),
 	"dignified-python": reviewSource("Enforce dignified Python standards."),
-	"dry-but-not-too-dry": reviewSource("Review duplicated code and structure."),
+	"dry-but-not-too-dry": reviewSource("Review duplicated code and structure.", "deep"),
 	"duplicative-abstractions": reviewSource("Scout for duplicated infrastructure."),
-	"improve-codebase-architecture": reviewSource("Review architecture deepening opportunities."),
-	"thermonuclear-review": reviewSource("Run an extremely strict maintainability review."),
+	"improve-codebase-architecture": reviewSource(
+		"Review architecture deepening opportunities.",
+		"deep",
+	),
+	"thermonuclear-review": reviewSource("Run an extremely strict maintainability review.", "deep"),
 } as const;
 
 async function runRoaster(args: readonly string[]): Promise<RunResult> {
@@ -51,16 +54,16 @@ describe("roaster roast CLI", () => {
 		expect(run.exitCode).toBe(0);
 		expect(run.stdout).toContain("Roast skill entries: 6");
 		expect(run.stdout).toContain(
-			"- skill:roast-sdl-typescript-style — Roast: SDL TypeScript style (review: sdl-typescript-style)",
+			"- skill:roast-sdl-typescript-style — Tripwire: SDL TypeScript style (review: sdl-typescript-style)",
 		);
 		expect(run.stdout).toContain(
-			"- skill:roast-dignified-python — Roast: Dignified Python (review: dignified-python)",
+			"- skill:roast-dignified-python — Tripwire: Dignified Python (review: dignified-python)",
 		);
 		expect(run.stdout).toContain(
 			"- skill:roast-dry-but-not-too-dry — Roast: DRY but not too DRY (review: dry-but-not-too-dry)",
 		);
 		expect(run.stdout).toContain(
-			"- skill:roast-duplicative-abstractions — Roast: Duplicative abstractions (review: duplicative-abstractions)",
+			"- skill:roast-duplicative-abstractions — Tripwire: Duplicative abstractions (review: duplicative-abstractions)",
 		);
 		expect(run.stdout).toContain(
 			"- skill:roast-improve-codebase-architecture — Roast: Improve codebase architecture (review: improve-codebase-architecture)",
@@ -88,7 +91,8 @@ describe("roaster roast CLI", () => {
 		);
 		expect(envelope.data.entries[4]).toMatchObject({
 			surface: "skill:roast-sdl-typescript-style",
-			label: "Roast: SDL TypeScript style",
+			label: "Tripwire: SDL TypeScript style",
+			default_prompt: "Run the SDL TypeScript style tripwire against the current branch changes.",
 			review_key: "sdl-typescript-style",
 			review_path: "reviews/sdl-typescript-style.md",
 		});
@@ -101,9 +105,10 @@ describe("roaster roast CLI", () => {
 	});
 });
 
-function reviewSource(description: string): string {
+function reviewSource(description: string, modelProfile = "quick"): string {
 	return `---
 description: ${JSON.stringify(description)}
+model_profile: ${modelProfile}
 ---
 
 # Review

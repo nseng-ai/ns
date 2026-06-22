@@ -197,6 +197,7 @@ describe("roaster domain schemas", () => {
 		const result = reviewRunResultSchema.parse({
 			reviewName: "typescript-style",
 			reviewPath: "reviews/typescript-style.md",
+			modelProfile: "quick",
 			model: "haiku",
 			baseRef: "main",
 			format: "findings",
@@ -206,6 +207,7 @@ describe("roaster domain schemas", () => {
 			inputCoverage: null,
 		});
 
+		expect(result.modelProfile).toBe("quick");
 		expect(result.count).toBe(0);
 		expect(() => reviewRunResultSchema.parse({ ...result, count: 1 })).toThrow();
 		expect(() =>

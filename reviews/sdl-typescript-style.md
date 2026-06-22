@@ -16,14 +16,14 @@
 #   dprint check reviews/sdl-typescript-style.md
 #   pnpm --dir ts exec vitest run packages/roaster/test/unit/review-definition.test.ts
 description: |
-  Enforce sdl's TypeScript style guide and sdl-tools TypeScript overlay on the
-  supplied diff. Flag concrete, mechanically detectable violations:
-  non-erasable TypeScript, ordinary `any`, banned double-casts, import-boundary
-  drift, strict-indexed-access bypasses, exact-optional-property drift, broad
-  casts, top-level arrow module logic, mutation of owned-boundary data, naming
-  hygiene, suppression hygiene, and other Tier A rules. Intended for cheap,
-  per-diff detection; resolution stays with the engineer in a later,
-  higher-context workflow.
+  SDL TypeScript style Tripwire: enforce sdl's TypeScript style guide and
+  sdl-tools TypeScript overlay on the supplied diff. Flag concrete,
+  mechanically detectable violations: non-erasable TypeScript, ordinary `any`,
+  banned double-casts, import-boundary drift, strict-indexed-access bypasses,
+  exact-optional-property drift, broad casts, top-level arrow module logic,
+  mutation of owned-boundary data, naming hygiene, suppression hygiene, and
+  other Tier A rules. Intended for cheap, per-diff detection; resolution stays
+  with the engineer in a later, higher-context workflow.
 model_profile: quick
 applies_to:
   include:

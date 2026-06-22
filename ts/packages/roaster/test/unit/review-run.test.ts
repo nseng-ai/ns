@@ -73,6 +73,7 @@ describe("runRoasterReview", () => {
 		if (outcome.type !== "completed") return;
 		expect(outcome.result).toMatchObject({
 			reviewName: "typescript-style",
+			modelProfile: "deep",
 			model: "opus",
 			baseRef: "main",
 			count: 1,

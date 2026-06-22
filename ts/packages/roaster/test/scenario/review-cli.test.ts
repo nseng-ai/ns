@@ -220,7 +220,10 @@ describe("roaster review CLI", () => {
 		expect(run.exitCode).toBe(0);
 		expect(run.stdout).toContain("Reviews directory: /repo/reviews");
 		expect(run.stdout).toContain("Reviews: 2");
-		expect(run.stdout).toContain("- dignified-python: Review Python diffs for style violations.");
+		expect(run.stdout).toContain("Tripwires: 2");
+		expect(run.stdout).toContain(
+			"- dignified-python: Review Python diffs for style violations. (model profile: quick)",
+		);
 	});
 
 	test("review list JSON includes keys and count", async () => {
@@ -343,6 +346,7 @@ describe("roaster review CLI", () => {
 		expect(data.reviewName).toBe(REVIEW_KEY);
 		expect(data.reviewPath).toBe("/repo/reviews/dignified-python.md");
 		expect(data.baseRef).toBe("master");
+		expect(data.modelProfile).toBe("quick");
 		expect(data.model).toBe("opus");
 		expect(data.inputCoverage).toBeNull();
 		expect(data.findings[0].summary).toBe("Avoid print");
@@ -379,9 +383,10 @@ describe("roaster review CLI", () => {
 		expect(entry?.namespace).toBe("roaster");
 		expect(entry?.branch).toBe("feature");
 		expect(entry?.key).toMatch(/^reviews\/dignified-python\/\d{4}-\d{2}-\d{2}T/);
-		expect(entry?.content).toContain("# Roaster Review: dignified-python");
+		expect(entry?.content).toContain("# Roaster Tripwire: dignified-python");
 		expect(entry?.content).toContain("- Review key: `dignified-python`");
 		expect(entry?.content).toContain("- Base ref: `master`");
+		expect(entry?.content).toContain("- Model profile: `quick`");
 		expect(entry?.content).toContain("- Model: `opus`");
 		expect(entry?.content).toContain("- Findings: 1");
 		expect(entry?.content).toContain("Avoid print");
@@ -443,7 +448,7 @@ describe("roaster review CLI", () => {
 			}),
 		});
 		expect(human.exitCode).toBe(1);
-		expect(human.stderr).toContain("Reviewer: dignified-python");
+		expect(human.stderr).toContain("Tripwire: dignified-python");
 		expect(human.stderr).toContain("failed to write Branch Memory review log");
 	});
 
@@ -452,6 +457,7 @@ describe("roaster review CLI", () => {
 			context: contextWithCatalog({ sources: { [REVIEW_KEY]: sampleSource() } }),
 		});
 		expect(success.exitCode).toBe(0);
+		expect(JSON.parse(success.stdout).data.modelProfile).toBe("quick");
 		expect(JSON.parse(success.stdout).data.model).toBe("haiku");
 
 		const reviewLog = new FakeReviewLogGateway();

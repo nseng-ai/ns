@@ -5,6 +5,7 @@ import {
 	type ReviewSource,
 } from "./gateways/review-catalog.ts";
 import type { ReviewDefinition } from "./models.ts";
+import { roasterReviewDisplayRole } from "./review-display.ts";
 import { loadParsedReviewDefinition } from "./review-definition-loading.ts";
 
 export interface RoastSkillEntry {
@@ -98,12 +99,16 @@ function roastSkillTitleForKey(key: string): string {
 	return words.map((word, index) => humanizeKeyWord(word, index)).join(" ");
 }
 
-function roastSkillLabelForKey(key: string): string {
-	return `Roast: ${roastSkillTitleForKey(key)}`;
+function roastSkillLabel(title: string, definition: ReviewDefinition): string {
+	if (roasterReviewDisplayRole(definition.modelProfile) === "tripwire") return `Tripwire: ${title}`;
+	return `Roast: ${title}`;
 }
 
-function roastDefaultPromptForKey(key: string): string {
-	return `Run the ${roastSkillTitleForKey(key)} roast against the current branch changes.`;
+function roastDefaultPrompt(title: string, definition: ReviewDefinition): string {
+	if (roasterReviewDisplayRole(definition.modelProfile) === "tripwire") {
+		return `Run the ${title} tripwire against the current branch changes.`;
+	}
+	return `Run the ${title} roast against the current branch changes.`;
 }
 
 function roastSkillEntryFromDefinition(key: string, definition: ReviewDefinition): RoastSkillEntry {
@@ -112,9 +117,9 @@ function roastSkillEntryFromDefinition(key: string, definition: ReviewDefinition
 		surface: roastSkillSurfaceForReviewKey(key),
 		reviewKey: key,
 		title,
-		label: roastSkillLabelForKey(key),
+		label: roastSkillLabel(title, definition),
 		description: definition.description,
-		defaultPrompt: roastDefaultPromptForKey(key),
+		defaultPrompt: roastDefaultPrompt(title, definition),
 	};
 }
 

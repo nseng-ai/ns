@@ -15,6 +15,7 @@ import {
 	type ReviewUsage,
 } from "../models.ts";
 import { applicableReviewKeys } from "../review-applicability.ts";
+import { roasterReviewDisplayRole, roasterReviewRoleLabel } from "../review-display.ts";
 import { loadParsedReviewDefinition } from "../review-definition-loading.ts";
 import { loadRoastSkillEntries, roastReviewPathForKey } from "../skill-reviews.ts";
 import { loadReviewExecutionContext, runRoasterReview, writeReviewRunLog } from "./review-run.ts";
@@ -54,6 +55,7 @@ export const roastSkillMetadataSchema = z.object({
 	review_path: nonBlankStringSchema,
 	title: nonBlankStringSchema,
 	description: nonBlankStringSchema,
+	default_prompt: nonBlankStringSchema,
 });
 
 export const roastSkillListRequestSchema = z.object({});
@@ -168,10 +170,19 @@ export async function runReviewList(
 
 export function renderReviewList(result: ReviewListResult): string {
 	const lines = [`Reviews directory: ${result.reviews_dir}`, `Reviews: ${result.count}`];
-	for (const review of result.reviews) {
-		const model = ` (model profile: ${review.model_profile})`;
-		const scope = review.local_only ? " [local-only]" : "";
-		lines.push(`- ${review.key}: ${review.description}${model}${scope}`);
+	const tripwires = result.reviews.filter(
+		(review) => roasterReviewDisplayRole(review.model_profile) === "tripwire",
+	);
+	const deepReviews = result.reviews.filter(
+		(review) => roasterReviewDisplayRole(review.model_profile) === "deep_review",
+	);
+	if (tripwires.length > 0) {
+		lines.push(`Tripwires: ${tripwires.length}`);
+		lines.push(...tripwires.map(renderReviewListEntry));
+	}
+	if (deepReviews.length > 0) {
+		lines.push(`Deep reviews: ${deepReviews.length}`);
+		lines.push(...deepReviews.map(renderReviewListEntry));
 	}
 	return lines.join("\n");
 }
@@ -193,6 +204,7 @@ export async function runRoastSkillList(
 		review_path: roastReviewPathForKey(entry.reviewKey),
 		title: entry.title,
 		description: entry.description,
+		default_prompt: entry.defaultPrompt,
 	}));
 	return ok(roastSkillListResultSchema.parse({ count: entries.length, entries }));
 }
@@ -225,7 +237,7 @@ export async function runReviewByKey(
 
 export function renderReviewRun(result: ReviewRunResult): string {
 	const lines = [
-		`Reviewer: ${result.reviewName}`,
+		`${roasterReviewRoleLabel(result.modelProfile)}: ${result.reviewName}`,
 		`Model: ${result.model}`,
 		`Base ref: ${result.baseRef}`,
 		`Findings: ${result.count}`,
@@ -257,11 +269,12 @@ export async function runRecordFindings(
 		...(request.baseRef === undefined ? {} : { baseRef: request.baseRef }),
 	});
 	if (loaded.type === "error") return failureFromRoaster(loaded.error);
-	const { source, diff } = loaded.value;
+	const { source, definition, diff } = loaded.value;
 
 	const result = reviewRunResultSchema.parse({
 		reviewName: source.key,
 		reviewPath: source.path,
+		modelProfile: definition.modelProfile,
 		model: request.model ?? "same-session",
 		baseRef: diff.baseRef,
 		format: "findings",
@@ -395,6 +408,12 @@ async function loadDefinitions(
 		loaded.push({ key: parsed.value.source.key, definition: parsed.value.definition });
 	}
 	return { type: "ok", value: loaded };
+}
+
+function renderReviewListEntry(review: ReviewListResult["reviews"][number]): string {
+	const model = ` (model profile: ${review.model_profile})`;
+	const scope = review.local_only ? " [local-only]" : "";
+	return `- ${review.key}: ${review.description}${model}${scope}`;
 }
 
 function reviewLogEntryResult(entry: ReviewLogEntry): ReviewLogResult["entries"][number] {

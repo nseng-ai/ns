@@ -62,7 +62,10 @@ export async function postInlineFindings(
 		comments.push({
 			path: item.target.path,
 			line: item.target.line,
-			body: renderInlineBody(marker, item.finding, { reviewName: payload.reviewName }),
+			body: renderInlineBody(marker, item.finding, {
+				reviewName: payload.reviewName,
+				modelProfile: payload.modelProfile,
+			}),
 		});
 	}
 

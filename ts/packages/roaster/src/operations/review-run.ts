@@ -119,6 +119,7 @@ export async function runRoasterReview(
 	const result = reviewRunResult(
 		source.key,
 		source.path,
+		model.modelProfile,
 		model.model,
 		diff.baseRef,
 		response.value,
@@ -201,6 +202,7 @@ function isReviewLogFailure(error: RoasterFailure): error is ReviewLogFailure {
 function reviewRunResult(
 	reviewName: string,
 	reviewPath: string,
+	modelProfile: string,
 	model: string,
 	baseRef: string,
 	response: ReviewExecutionResponse,
@@ -208,6 +210,7 @@ function reviewRunResult(
 	return reviewRunResultSchema.parse({
 		reviewName,
 		reviewPath,
+		modelProfile,
 		model,
 		baseRef,
 		format: response.payload.format,

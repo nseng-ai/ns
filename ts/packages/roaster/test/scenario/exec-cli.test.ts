@@ -270,9 +270,11 @@ describe("roaster exec CLI", () => {
 		const createdReview = gateway.createdReviews()[0];
 		expect(createdReview?.comments).toHaveLength(1);
 		expect(createdReview?.comments[0]?.body).toContain("<!-- roaster-inline:dignified-python:");
+		expect(createdReview?.comments[0]?.body).toContain("_Tripwire: `dignified-python`._");
 
 		const comment = await findSummaryComment(gateway, "<!-- roaster:dignified-python -->");
 		expect(comment?.body).toContain("<!-- roaster:dignified-python -->");
+		expect(comment?.body).toContain("## roaster tripwire · `dignified-python`");
 		expect(comment?.body).toContain("### Inline posting");
 		expect(comment?.body).toContain("Inline comments posted:** 1");
 		expect(comment?.body).toContain("Summary-only findings:** 1");

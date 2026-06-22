@@ -47,7 +47,7 @@ export interface CliDeps {
 const entry = defineCli<RoasterRuntime, CliDeps, undefined>({
 	metaUrl: import.meta.url,
 	runtime: "typescript",
-	description: "PR-diff findings runner.",
+	description: "PR-diff tripwire/review findings runner.",
 	prepareRun: ({ deps, cwd, env, io }) => {
 		if (deps.context !== undefined) {
 			return {
@@ -79,11 +79,11 @@ const entry = defineCli<RoasterRuntime, CliDeps, undefined>({
 		});
 		const reviewGroup = new ClinkrGroup<RoasterRuntime>({
 			name: "review",
-			description: "Review catalog and runner operations.",
+			description: "Tripwire/review catalog and runner operations.",
 		});
 		reviewGroup.command({
 			name: "list",
-			description: "List configured roaster reviews.",
+			description: "List configured roaster tripwires and reviews.",
 			schema: reviewListRequestSchema,
 			resultSchema: reviewListResultSchema,
 			handler: runReviewList,
@@ -99,7 +99,7 @@ const entry = defineCli<RoasterRuntime, CliDeps, undefined>({
 		});
 		reviewGroup.command({
 			name: "run",
-			description: "Run one roaster review against the local diff.",
+			description: "Run one roaster tripwire or review against the local diff.",
 			schema: reviewRunRequestSchema,
 			positionals: { key: { position: 0 } },
 			resultSchema: reviewRunResultSchema,

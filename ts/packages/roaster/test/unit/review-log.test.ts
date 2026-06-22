@@ -11,6 +11,7 @@ function runResult(overrides: Partial<ReviewRunResult> = {}): ReviewRunResult {
 	return {
 		reviewName: "team/review key",
 		reviewPath: "/repo/reviews/team/review key.md",
+		modelProfile: "deep",
 		model: "sonnet",
 		baseRef: "main",
 		format: "findings",
@@ -58,10 +59,22 @@ describe("review log helpers", () => {
 		);
 
 		expect(markdown).toContain("# Roaster Review: team/review key");
+		expect(markdown).toContain("- Model profile: `deep`");
 		expect(markdown).toContain("### 1. info — `unknown:—`");
 		expect(markdown).toContain("Readable **Markdown** details.");
 		expect(markdown).not.toContain("```json");
 		expect(markdown).not.toContain("<!--");
+	});
+
+	test("renders quick runs as tripwire Markdown reports", () => {
+		const markdown = renderReviewLogMarkdown(runResult({ modelProfile: "quick" }), {
+			ranAt: "2026-06-20T18:42:11.123Z",
+			branch: "feature",
+			headCommit: "abc123",
+		});
+
+		expect(markdown).toContain("# Roaster Tripwire: team/review key");
+		expect(markdown).toContain("- Model profile: `quick`");
 	});
 
 	test("renders a zero-finding Markdown report", () => {

@@ -47,6 +47,7 @@ describe("runRecordFindings", () => {
 		expect(exit.data).toMatchObject({
 			reviewName: "typescript-style",
 			reviewPath: "/repo/reviews/typescript-style.md",
+			modelProfile: "deep",
 			model: "same-session",
 			baseRef: "trunk",
 			format: "findings",
@@ -57,6 +58,7 @@ describe("runRecordFindings", () => {
 		expect(exit.data.findings).toEqual([FINDING]);
 		expect(reviewLog.writtenEntries()).toHaveLength(1);
 		expect(reviewLog.writtenEntries()[0]?.content).toContain("# Roaster Review: typescript-style");
+		expect(reviewLog.writtenEntries()[0]?.content).toContain("- Model profile: `deep`");
 		expect(stderr.join("")).toContain("recorded review log: reviews/typescript-style/");
 	});
 
