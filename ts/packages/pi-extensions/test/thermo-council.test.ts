@@ -35,7 +35,12 @@ interface ExecCall {
 	readonly args: readonly string[];
 }
 
-type FakeExecResult = { stdout: string; stderr?: string; code?: number };
+interface FakeExecResult {
+	readonly stdout: string;
+	readonly stderr?: string;
+	readonly code?: number;
+}
+
 type FakeExecHandler = (command: string, args: readonly string[]) => FakeExecResult | undefined;
 
 class FakePi {

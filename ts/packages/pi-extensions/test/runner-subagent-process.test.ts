@@ -244,6 +244,36 @@ describe("runner subagent process dispatcher", () => {
 		expect(result.status).toBe("stopped-without-terminal");
 	});
 
+	test("serializes an empty final-text tool allowlist as no-tools", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({
+			sessionFile: "/tmp/runner-subagent.jsonl",
+		});
+		const running = dispatchRunnerSubagentProcess(
+			pi,
+			ctx,
+			{ ...finalTextOptions(), tools: [] },
+			runner.dependencies,
+		);
+		const call = await waitForSpawn(runner.calls);
+
+		expect(call.args).toEqual([
+			"--mode",
+			"json",
+			"-p",
+			"--no-extensions",
+			"--no-tools",
+			"--session",
+			"/tmp/runner-subagent.jsonl",
+			"Do the delegated task.",
+		]);
+
+		call.process.emitStdout(finalTextMessage("Done."));
+		call.process.close(0);
+		const result = await running;
+
+		expect(result.status).toBe("final-text");
+	});
+
 	test("deduplicates normalized child tool allowlists in first-seen order", () => {
 		expect(normalizeChildToolAllowlist([" read ", "complete_runner_subagent", "read"])).toEqual([
 			"read",
@@ -1354,8 +1384,60 @@ describe("runner subagent process dispatcher", () => {
 		expect(manualTimers.pendingTimerCount()).toBe(1);
 
 		wasRuntimeResultWritten = true;
-		manualClock.advanceMs(25);
-		manualTimers.advanceMs(25);
+		manualClock.advanceMs(1_500);
+		manualTimers.advanceMs(1_500);
+		await Promise.resolve();
+
+		expect(call.process.killSignals).toEqual(["SIGTERM"]);
+		call.process.close(null, "SIGTERM");
+		const result = await running;
+
+		expect(result.status).toBe("completed");
+		if (result.status !== "completed") return;
+		expect(result.terminal.input).toEqual({ summary: "done" });
+	});
+
+	test("polls for terminal capture after malformed JSONL follows a terminal attempt", async () => {
+		const manualClock = createManualClock(0);
+		const manualTimers = createManualTimerScheduler();
+		let wasRuntimeResultWritten = false;
+		const runtimeResult = {
+			version: 1,
+			kind: "terminal-capture",
+			toolName: "complete_runner_subagent",
+			toolCallId: "tool-1",
+			status: "completed",
+			input: { summary: "done" },
+		} as const;
+		const runner = createFakeRunnerSubagentDispatcher({
+			clock: manualClock.clock,
+			timers: manualTimers.timers,
+		});
+		const running = dispatchRunnerSubagentProcess<{ summary: string }>(pi, ctx, options(), {
+			...runner.dependencies,
+			readRuntimeResult: () =>
+				wasRuntimeResultWritten ? { type: "loaded", result: runtimeResult } : { type: "missing" },
+		});
+		const call = await waitForSpawn(runner.calls);
+
+		call.process.emitStdout(jsonLine({ type: "turn_start" }));
+		call.process.emitStdout(
+			jsonLine({
+				type: "tool_execution_start",
+				toolCallId: "tool-1",
+				toolName: "complete_runner_subagent",
+				args: {},
+			}),
+		);
+		call.process.emitStdout("{bad json}\n");
+		await Promise.resolve();
+
+		expect(call.process.killSignals).toEqual([]);
+		expect(manualTimers.pendingTimerCount()).toBe(1);
+
+		wasRuntimeResultWritten = true;
+		manualClock.advanceMs(200);
+		manualTimers.advanceMs(200);
 		await Promise.resolve();
 
 		expect(call.process.killSignals).toEqual(["SIGTERM"]);

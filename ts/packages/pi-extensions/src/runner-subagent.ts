@@ -5,7 +5,11 @@ import {
 	type RunnerSubagentDispatcherDependencies,
 } from "./runner-subagent/subagent-process.ts";
 
-export type { RunnerSubagentActivity, RunnerSubagentUpdate } from "./runner-subagent/activity.ts";
+export {
+	runnerSubagentPrimaryActivityPreview,
+	type RunnerSubagentActivity,
+	type RunnerSubagentUpdate,
+} from "./runner-subagent/activity.ts";
 
 export type JsonObject = Record<string, unknown>;
 export type TypeBoxLikeSchema = object;

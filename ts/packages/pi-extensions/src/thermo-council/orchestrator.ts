@@ -16,6 +16,7 @@ import {
 } from "../thermo-council-contract.ts";
 import {
 	dispatchRunnerSubagent,
+	runnerSubagentPrimaryActivityPreview,
 	type JsonObject,
 	type RunnerSubagentContext,
 	type RunnerSubagentResult,
@@ -159,7 +160,8 @@ function renderCouncilSeatProgress(state: CouncilSeatRunState): string {
 	const progress = state.update?.progress;
 	if (progress === undefined) return `${state.seat.label} queued`;
 	const activity = state.update?.activity;
-	const preview = activity?.assistantPreview ?? activity?.currentToolInputPreview;
+	const preview =
+		activity === undefined ? undefined : runnerSubagentPrimaryActivityPreview(activity);
 	if (preview !== undefined) return `${state.seat.label} ${progress.state}: ${preview}`;
 	if (progress.currentTool !== undefined)
 		return `${state.seat.label} ${progress.state} ${progress.currentTool}`;
@@ -181,7 +183,7 @@ function renderCouncilSeatOutcome(outcome: ThermoCouncilReviewerOutcome): string
 
 function renderFinalSynthesisStatus(update: RunnerSubagentUpdate): string {
 	const progress = update.progress;
-	const preview = update.activity.assistantPreview ?? update.activity.currentToolInputPreview;
+	const preview = runnerSubagentPrimaryActivityPreview(update.activity);
 	if (preview !== undefined) return compactStatus(`final synthesis ${progress.state}: ${preview}`);
 	if (progress.turnCount > 0) return `final synthesis ${progress.state} turn ${progress.turnCount}`;
 	return `final synthesis ${progress.state}`;
