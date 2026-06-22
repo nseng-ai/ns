@@ -56,6 +56,12 @@ interface SubmitStackBranchInfo {
 	output: string;
 }
 
+type MaybePromise<T> = T | Promise<T>;
+
+type ParentBranchWalkStep<T> =
+	| { readonly type: "visit"; readonly parentBranch: string | undefined; readonly item: T }
+	| { readonly type: "stop" };
+
 export interface SubmitMetadataGateway {
 	inspectSubmitStack(
 		params: SubmitMetadataCommandParams,
@@ -220,41 +226,44 @@ export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 		currentBranch: string,
 		trunk: string,
 	): Promise<GatewayResult<SubmitStackBranchInfo[]>> {
-		const branchInfos: SubmitStackBranchInfo[] = [];
-		const visited = new Set<string>();
-		let branch: string | undefined = currentBranch;
+		const branchInfos = await walkParentBranchChain<SubmitStackBranchInfo>({
+			startBranch: currentBranch,
+			stopBranch: trunk,
+			cycleError: (branch) => ({
+				code: "submit_branch_parent_cycle",
+				message: `Graphite branch parent traversal looped at ${branch}.`,
+			}),
+			readStep: async (branch) => {
+				const info = await this.runGt(
+					[...GT_BRANCH_INFO_BASE_ARGS, branch],
+					cwd,
+					COMMAND_TIMEOUT_MS,
+				);
+				const infoError = commandError(
+					"gt",
+					[...GT_BRANCH_INFO_BASE_ARGS, branch],
+					info,
+					"submit_branch_info_failed",
+					`Could not inspect Graphite branch ${branch}.`,
+				);
+				if (infoError !== undefined) return err(infoError);
 
-		while (branch !== undefined && branch !== trunk) {
-			if (visited.has(branch)) {
-				return err({
-					code: "submit_branch_parent_cycle",
-					message: `Graphite branch parent traversal looped at ${branch}.`,
+				const parentBranch = parseParentBranch(info.stdout);
+				if (parentBranch === undefined) return ok({ type: "stop" });
+
+				return ok({
+					type: "visit",
+					parentBranch,
+					item: {
+						branch,
+						parentBranch,
+						output: `${info.stdout}\n${info.stderr}`,
+					},
 				});
-			}
-			visited.add(branch);
-
-			const info = await this.runGt([...GT_BRANCH_INFO_BASE_ARGS, branch], cwd, COMMAND_TIMEOUT_MS);
-			const infoError = commandError(
-				"gt",
-				[...GT_BRANCH_INFO_BASE_ARGS, branch],
-				info,
-				"submit_branch_info_failed",
-				`Could not inspect Graphite branch ${branch}.`,
-			);
-			if (infoError !== undefined) return err(infoError);
-
-			const parentBranch = parseParentBranch(info.stdout);
-			if (parentBranch === undefined) break;
-
-			branchInfos.push({
-				branch,
-				parentBranch,
-				output: `${info.stdout}\n${info.stderr}`,
-			});
-			branch = parentBranch;
-		}
-
-		return ok(branchInfos.reverse());
+			},
+		});
+		if (!branchInfos.ok) return branchInfos;
+		return ok(branchInfos.value.reverse());
 	}
 
 	private async readGraphiteTrunk(cwd: string): Promise<GatewayResult<string>> {
@@ -343,12 +352,15 @@ export async function prepareSubmitPrMetadata(input: {
 		return { kind: "failed", error: inspected.error.message, amendedBranches: [] };
 	}
 
-	const amendableBranches = findAmendableBranchNames(inspected.value);
+	const amendableBranches = await findAmendableBranchNames(inspected.value);
+	if (!amendableBranches.ok) {
+		return { kind: "failed", error: amendableBranches.error.message, amendedBranches: [] };
+	}
 	const newBranches = inspected.value.branches.filter(
 		(branch): branch is SubmitStackNewBranch =>
 			branch.kind === "new" &&
 			branch.commitMessages.length === 1 &&
-			amendableBranches.has(branch.branch),
+			amendableBranches.value.has(branch.branch),
 	);
 	input.onProgress?.(
 		formatMetadataPreparationDiscoveryProgress(inspected.value.branches.length, newBranches.length),
@@ -467,15 +479,48 @@ async function generateMetadataForBranches(input: {
 	return { kind: "prepared", prepared };
 }
 
-function findAmendableBranchNames(inspection: SubmitStackInspection): Set<string> {
+async function findAmendableBranchNames(
+	inspection: SubmitStackInspection,
+): Promise<GatewayResult<Set<string>>> {
 	const byBranch = new Map(inspection.branches.map((branch) => [branch.branch, branch]));
-	const amendable = new Set<string>();
-	let branchName: string | undefined = inspection.currentBranch;
-	while (branchName !== undefined && !amendable.has(branchName)) {
-		amendable.add(branchName);
-		branchName = byBranch.get(branchName)?.parentBranch;
+	const branchNames = await walkParentBranchChain<string>({
+		startBranch: inspection.currentBranch,
+		cycleError: (branch) => ({
+			code: "submit_amendable_parent_cycle",
+			message: `Submit branch amendment traversal looped at ${branch}.`,
+		}),
+		readStep: (branch) =>
+			ok({
+				type: "visit",
+				parentBranch: byBranch.get(branch)?.parentBranch,
+				item: branch,
+			}),
+	});
+	if (!branchNames.ok) return branchNames;
+	return ok(new Set(branchNames.value));
+}
+
+async function walkParentBranchChain<T>(input: {
+	readonly startBranch: string;
+	readonly stopBranch?: string;
+	readonly cycleError: (branch: string) => ErrorInfo;
+	readonly readStep: (branch: string) => MaybePromise<GatewayResult<ParentBranchWalkStep<T>>>;
+}): Promise<GatewayResult<T[]>> {
+	const items: T[] = [];
+	const visited = new Set<string>();
+	let branch: string | undefined = input.startBranch;
+	while (branch !== undefined && branch !== input.stopBranch) {
+		if (visited.has(branch)) return err(input.cycleError(branch));
+		visited.add(branch);
+
+		const step = await input.readStep(branch);
+		if (!step.ok) return step;
+		if (step.value.type === "stop") break;
+
+		items.push(step.value.item);
+		branch = step.value.parentBranch;
 	}
-	return amendable;
+	return ok(items);
 }
 
 function commandError(

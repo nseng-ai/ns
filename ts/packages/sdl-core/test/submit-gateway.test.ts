@@ -497,6 +497,27 @@ describe("RealSubmitMetadataGateway", () => {
 		runner.assertDone();
 	});
 
+	test("inspectSubmitStack fails on branch parent cycles", async () => {
+		const runner = new ScriptedCommandRunner([
+			step("gt", ["log", "--stack", "--reverse", "--no-interactive"], {
+				stdout: "◯ master\n│\n◯ feature/base\n│\n◉ feature/current (current)\n",
+			}),
+			step("gt", ["trunk", "--no-interactive"], { stdout: "master\n" }),
+			step("gt", ["branch", "info", "--no-interactive", "--branch", "feature/current"], {
+				stdout: "feature/current\n\nParent: feature/base\n",
+			}),
+			step("gt", ["branch", "info", "--no-interactive", "--branch", "feature/base"], {
+				stdout: "feature/base\n\nParent: feature/current\n",
+			}),
+		]);
+		const gateway = new RealSubmitMetadataGateway(runner.runner);
+
+		const result = await gateway.inspectSubmitStack({ cwd: "/repo" });
+
+		expect(result).toMatchObject({ ok: false, error: { code: "submit_branch_parent_cycle" } });
+		runner.assertDone();
+	});
+
 	test("amendBranchMetadataCommit uses Graphite modify without generated markers", async () => {
 		const runner = new ScriptedCommandRunner([
 			step("gt", ["modify", "--no-interactive", "-m", "Generated title", "-m", "Generated body"], {
