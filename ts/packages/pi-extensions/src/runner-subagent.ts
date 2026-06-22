@@ -56,6 +56,14 @@ export interface RunnerSubagentLaunchOptions {
 	thinkingLevel?: ThinkingLevel;
 }
 
+export function defaultRunnerSubagentLaunchMetadata(): RunnerSubagentLaunchMetadata {
+	return {
+		thinkingLevel: "off",
+		hasModelArg: false,
+		hasThinkingArg: false,
+	};
+}
+
 type RunnerSubagentLaunchInput =
 	| {
 			launch?: RunnerSubagentLaunchOptions;

@@ -12,6 +12,30 @@ export interface RunnerSubagentWidgetOptions {
 	includeElapsed?: boolean;
 }
 
+export interface RunnerSubagentWidgetContext {
+	hasUI?: boolean;
+	ui?: {
+		setWidget?(
+			key: string,
+			content: string[] | undefined,
+			options?: { placement?: "aboveEditor" | "belowEditor" },
+		): void;
+	};
+}
+
+export function setRunnerSubagentWidget(
+	ctx: RunnerSubagentWidgetContext,
+	key: string,
+	lines: string[] | undefined,
+): void {
+	if (ctx.hasUI === false) return;
+	try {
+		ctx.ui?.setWidget?.(key, lines, { placement: "aboveEditor" });
+	} catch {
+		// Widget updates are display-only and must not affect subagent execution.
+	}
+}
+
 export function formatRunnerSubagentActivityWidgetLines(
 	update: RunnerSubagentUpdate,
 	options: RunnerSubagentWidgetOptions = {},

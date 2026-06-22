@@ -12,6 +12,7 @@ import {
 } from "./runner-subagent/curated-context.ts";
 import { resolveRunnerSubagentLaunch } from "./runner-subagent/subagent-process.ts";
 import {
+	defaultRunnerSubagentLaunchMetadata,
 	dispatchRunnerSubagent,
 	resultDiagnostic,
 	type RunnerSubagentLaunchMetadata,
@@ -30,7 +31,10 @@ import {
 	runnerSubagentSessionFile,
 	runnerSubagentSessionFileText,
 } from "./runner-subagent/presentation.ts";
-import { formatRunnerSubagentActivityWidgetLines } from "./runner-subagent/widget.ts";
+import {
+	formatRunnerSubagentActivityWidgetLines,
+	setRunnerSubagentWidget,
+} from "./runner-subagent/widget.ts";
 
 export { resultDiagnostic } from "./runner-subagent.ts";
 
@@ -189,7 +193,11 @@ export default function dispatchRunnerSubagentExtension(
 					curatedContext: curatedContext.audit,
 				},
 			});
-			setWidget(ctx, formatRunnerSubagentActivityWidgetLines(initialUpdate));
+			setRunnerSubagentWidget(
+				ctx,
+				WIDGET_KEY,
+				formatRunnerSubagentActivityWidgetLines(initialUpdate),
+			);
 
 			try {
 				const result = await dispatchRunnerSubagent(
@@ -211,7 +219,11 @@ export default function dispatchRunnerSubagentExtension(
 								content: [{ type: "text", text: progressText }],
 								details: { status: "running", title: input.title, progress: update.progress },
 							});
-							setWidget(ctx, formatRunnerSubagentActivityWidgetLines(update));
+							setRunnerSubagentWidget(
+								ctx,
+								WIDGET_KEY,
+								formatRunnerSubagentActivityWidgetLines(update),
+							);
 						},
 					},
 				);
@@ -224,7 +236,7 @@ export default function dispatchRunnerSubagentExtension(
 					}),
 				};
 			} finally {
-				setWidget(ctx, undefined);
+				setRunnerSubagentWidget(ctx, WIDGET_KEY, undefined);
 			}
 		},
 	});
@@ -367,23 +379,6 @@ function initialDispatchProgress(
 		elapsedMs: 0,
 		launch,
 	};
-}
-
-function defaultRunnerSubagentLaunchMetadata(): RunnerSubagentLaunchMetadata {
-	return {
-		thinkingLevel: "off",
-		hasModelArg: false,
-		hasThinkingArg: false,
-	};
-}
-
-function setWidget(ctx: ExtensionContext, lines: string[] | undefined): void {
-	if (ctx.hasUI === false) return;
-	try {
-		ctx.ui?.setWidget?.(WIDGET_KEY, lines, { placement: "aboveEditor" });
-	} catch {
-		// UI updates are display-only and must not affect tool execution.
-	}
 }
 
 function validateDispatchRunnerSubagentInput(
