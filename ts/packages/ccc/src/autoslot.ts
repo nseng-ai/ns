@@ -113,7 +113,7 @@ async function createAutoslot(
 ): Promise<void> {
 	const startMessage =
 		"Starting /sdl:code:autoslot — runs once Pi finishes its current response, then creates a branch and moves it to a slot. Interrupt Pi to run it now.";
-	sendCommandProgressOrNotify(pi, ctx, startMessage);
+	sendCommandProgressOrNotify({ host: pi, ctx, message: startMessage });
 	const stopIdleStatus = startIdleWaitStatus(ctx.ui, STATUS_KEY);
 	try {
 		try {

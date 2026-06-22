@@ -8,6 +8,7 @@ export const IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE = "sdl-command-ack";
 export const IMMEDIATE_COMMAND_PROGRESS_MESSAGE_TYPE = "sdl-command-progress";
 
 const acknowledgedCommandsByContext = new WeakMap<object, Set<string>>();
+const commandProgressOptionsByContext = new WeakMap<object, ImmediateCommandAckOptions>();
 const COMMAND_ACK_HOST_SOURCE = Symbol("sdl.commandAckHostSource");
 const COMMAND_ACK_HOST_OPTIONS = Symbol("sdl.commandAckHostOptions");
 const COMMAND_PROGRESS_CONTEXT_MARKER = Symbol("sdl.commandProgressContext");
@@ -51,6 +52,9 @@ export interface CommandProgressNotifyContext<
 export interface SendCommandProgressOrNotifyOptions<
 	TLevel extends CommandProgressNotifyLevel = CommandProgressNotifyLevel,
 > {
+	host: object;
+	ctx: CommandProgressNotifyContext<TLevel>;
+	message: string;
 	level?: TLevel;
 	shouldNotifyWhenNoUi?: boolean;
 }
@@ -202,17 +206,23 @@ export function sendCommandProgressMessage(host: object, message: string): boole
 
 export function sendCommandProgressOrNotify<
 	TLevel extends CommandProgressNotifyLevel = CommandProgressNotifyLevel,
->(
-	host: object,
-	ctx: CommandProgressNotifyContext<TLevel>,
-	message: string,
-	options: SendCommandProgressOrNotifyOptions<TLevel> = {},
-): void {
+>(options: SendCommandProgressOrNotifyOptions<TLevel>): void {
+	const { host, ctx, message } = options;
 	const hasUi = ctx.hasUI !== false;
-	if (hasUi && sendCommandProgressMessage(host, message)) return;
-	if (!hasUi && options.shouldNotifyWhenNoUi !== true) return;
-	if (typeof ctx.ui?.notify !== "function") return;
-	ctx.ui.notify(message, options.level ?? "info");
+	const hostShape = commandAckHostSource(host) as ImmediateCommandAckHostShape;
+	const delivery = resolveCommandProgressHelperDelivery(host, hostShape, ctx);
+	if (delivery === "none") return;
+	if (!hasUi) {
+		if (options.shouldNotifyWhenNoUi === true) notifyCommandProgress(ctx, message, options.level);
+		return;
+	}
+	if (delivery === "message" && sendCommandProgressMessage(hostShape, message)) return;
+	if (delivery === "both") {
+		sendCommandProgressMessage(hostShape, message);
+		notifyCommandProgress(ctx, message, options.level);
+		return;
+	}
+	notifyCommandProgress(ctx, message, options.level);
 }
 
 function registerImmediateCommandMessageRenderer(
@@ -340,6 +350,8 @@ function wrapCommandContextForProgress(params: WrapCommandContextForProgressOpti
 	if ((ctx as { [COMMAND_PROGRESS_CONTEXT_MARKER]?: unknown })[COMMAND_PROGRESS_CONTEXT_MARKER]) {
 		return ctx;
 	}
+	const contextSource = commandContextSource(ctx);
+	commandProgressOptionsByContext.set(contextSource, options);
 	const delivery = resolveImmediateCommandProgressDelivery(host, options);
 	if (delivery === "status" || delivery === "none") return ctx;
 	const ui = (ctx as { ui?: unknown }).ui;
@@ -366,7 +378,7 @@ function wrapCommandContextForProgress(params: WrapCommandContextForProgressOpti
 	return new Proxy(ctx, {
 		get(target, property, receiver) {
 			if (property === COMMAND_PROGRESS_CONTEXT_MARKER) return true;
-			if (property === COMMAND_CONTEXT_SOURCE) return commandContextSource(ctx);
+			if (property === COMMAND_CONTEXT_SOURCE) return contextSource;
 			if (property === "ui") return wrappedUi;
 			return Reflect.get(target, property, receiver);
 		},
@@ -392,11 +404,44 @@ function resolveImmediateCommandProgressDelivery(
 	host: ImmediateCommandAckHostShape,
 	options: ImmediateCommandAckOptions,
 ): ImmediateCommandProgressDelivery {
-	if (options.progressDelivery === "message" || options.progressDelivery === "both") {
-		return canSendRenderedMessage(host) ? options.progressDelivery : "status";
+	return resolveProgressDeliveryOption(host, options.progressDelivery, "status");
+}
+
+function resolveCommandProgressHelperDelivery<TLevel extends CommandProgressNotifyLevel>(
+	host: object,
+	hostShape: ImmediateCommandAckHostShape,
+	ctx: CommandProgressNotifyContext<TLevel>,
+): ImmediateCommandProgressDelivery {
+	const options = commandProgressContextOptions(ctx) ?? commandAckHostOptions(host);
+	return resolveProgressDeliveryOption(hostShape, options?.progressDelivery, "message");
+}
+
+function resolveProgressDeliveryOption(
+	host: ImmediateCommandAckHostShape,
+	progressDelivery: ImmediateCommandProgressDelivery | undefined,
+	defaultDelivery: ImmediateCommandProgressDelivery,
+): ImmediateCommandProgressDelivery {
+	if (progressDelivery === "message" || progressDelivery === "both") {
+		return canSendRenderedMessage(host) ? progressDelivery : "status";
 	}
-	if (options.progressDelivery !== undefined) return options.progressDelivery;
-	return "status";
+	if (progressDelivery !== undefined) return progressDelivery;
+	return canSendRenderedMessage(host) ? defaultDelivery : "status";
+}
+
+function commandProgressContextOptions<TLevel extends CommandProgressNotifyLevel>(
+	ctx: CommandProgressNotifyContext<TLevel>,
+): ImmediateCommandAckOptions | undefined {
+	const contextSource = commandContextSource(ctx);
+	return commandProgressOptionsByContext.get(contextSource);
+}
+
+function notifyCommandProgress<TLevel extends CommandProgressNotifyLevel>(
+	ctx: CommandProgressNotifyContext<TLevel>,
+	message: string,
+	level: TLevel | undefined,
+): void {
+	if (typeof ctx.ui?.notify !== "function") return;
+	ctx.ui.notify(message, level ?? "info");
 }
 
 function isCommandDefinitionRecord(value: unknown): value is CommandDefinitionRecord {

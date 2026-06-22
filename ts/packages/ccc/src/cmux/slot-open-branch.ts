@@ -80,7 +80,11 @@ export async function handleCccSlotOpenBranch(
 	}
 
 	const branch = resolved.branchName;
-	sendCommandProgressOrNotify(pi, ctx, `Opening cmux workspace for ${branch}…`);
+	sendCommandProgressOrNotify({
+		host: pi,
+		ctx,
+		message: `Opening cmux workspace for ${branch}…`,
+	});
 
 	const launched = await openBranchInCmuxSlot({
 		pi,

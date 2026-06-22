@@ -14,6 +14,7 @@ import {
 interface CommandContext {
 	hasUI?: boolean;
 	ui?: {
+		notify?(message: string, level?: CommandProgressNotifyLevel): void;
 		setStatus(key: string, value: string | undefined): void;
 	};
 }
@@ -73,7 +74,7 @@ describe("sendCommandProgressOrNotify", () => {
 		const host = new FakeHost();
 		const { ctx, notifications } = createNotifyContext(true);
 
-		sendCommandProgressOrNotify(host, ctx, "Working…");
+		sendCommandProgressOrNotify({ host, ctx, message: "Working…" });
 
 		expect(host.renderers.has(IMMEDIATE_COMMAND_PROGRESS_MESSAGE_TYPE)).toBe(true);
 		expect(host.messages).toEqual([
@@ -89,15 +90,48 @@ describe("sendCommandProgressOrNotify", () => {
 	test("notifies with info when custom messages are unavailable", () => {
 		const { ctx, notifications } = createNotifyContext(true);
 
-		sendCommandProgressOrNotify({}, ctx, "Working…");
+		sendCommandProgressOrNotify({ host: {}, ctx, message: "Working…" });
 
+		expect(notifications).toEqual([["Working…", "info"]]);
+	});
+
+	test("honors wrapper status progress delivery for helper progress", () => {
+		const host = new FakeHost();
+		const wrapped = withImmediateCommandAck(host, { progressDelivery: "status" });
+		const notifications: Array<[string, CommandProgressNotifyLevel | undefined]> = [];
+
+		wrapped.registerCommand("demo:run", {
+			handler(_args, ctx) {
+				sendCommandProgressOrNotify({ host, ctx, message: "Working…" });
+			},
+		});
+		commandFor(host, "demo:run").handler("", {
+			hasUI: true,
+			ui: {
+				notify: (message, level) => notifications.push([message, level]),
+				setStatus() {},
+			},
+		});
+
+		expect(host.messages).toEqual([
+			{
+				customType: IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE,
+				content: "→ /demo:run received; starting…",
+				display: true,
+			},
+		]);
 		expect(notifications).toEqual([["Working…", "info"]]);
 	});
 
 	test("notifies with an explicit fallback level", () => {
 		const { ctx, notifications } = createNotifyContext(true);
 
-		sendCommandProgressOrNotify({}, ctx, "Still waiting…", { level: "warning" });
+		sendCommandProgressOrNotify({
+			host: {},
+			ctx,
+			message: "Still waiting…",
+			level: "warning",
+		});
 
 		expect(notifications).toEqual([["Still waiting…", "warning"]]);
 	});
@@ -106,7 +140,7 @@ describe("sendCommandProgressOrNotify", () => {
 		const host = new FakeHost();
 		const { ctx, notifications } = createNotifyContext(false);
 
-		sendCommandProgressOrNotify(host, ctx, "Working…");
+		sendCommandProgressOrNotify({ host, ctx, message: "Working…" });
 
 		expect(host.messages).toEqual([]);
 		expect(notifications).toEqual([]);
@@ -116,7 +150,12 @@ describe("sendCommandProgressOrNotify", () => {
 		const host = new FakeHost();
 		const { ctx, notifications } = createNotifyContext(false);
 
-		sendCommandProgressOrNotify(host, ctx, "Working…", { shouldNotifyWhenNoUi: true });
+		sendCommandProgressOrNotify({
+			host,
+			ctx,
+			message: "Working…",
+			shouldNotifyWhenNoUi: true,
+		});
 
 		expect(host.messages).toEqual([]);
 		expect(notifications).toEqual([["Working…", "info"]]);
@@ -126,7 +165,10 @@ describe("sendCommandProgressOrNotify", () => {
 		const host = new FakeHost();
 
 		expect(() =>
-			sendCommandProgressOrNotify(host, { hasUI: false, ui: {} }, "Working…", {
+			sendCommandProgressOrNotify({
+				host,
+				ctx: { hasUI: false, ui: {} },
+				message: "Working…",
 				shouldNotifyWhenNoUi: true,
 			}),
 		).not.toThrow();
@@ -356,6 +398,81 @@ describe("withImmediateCommandAck", () => {
 			},
 		]);
 		expect(statuses).toEqual([]);
+	});
+
+	test("nested progress delivery lets sub-registrars opt into message progress", () => {
+		const host = new FakeHost();
+		const wrapped = withImmediateCommandAck(
+			withImmediateCommandAck(host, { progressDelivery: "status" }),
+			{ progressDelivery: "message" },
+		);
+		const statuses: Array<[string, string | undefined]> = [];
+
+		wrapped.registerCommand("demo:run", {
+			handler(_args, ctx) {
+				ctx.ui?.setStatus("demo", "working…");
+				sendCommandProgressOrNotify({ host, ctx, message: "Helper progress…" });
+			},
+		});
+		commandFor(host, "demo:run").handler("", {
+			hasUI: true,
+			ui: {
+				setStatus: (key, value) => statuses.push([key, value]),
+			},
+		});
+
+		expect(host.messages).toEqual([
+			{
+				customType: IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE,
+				content: "→ /demo:run received; starting…",
+				display: true,
+			},
+			{
+				customType: IMMEDIATE_COMMAND_PROGRESS_MESSAGE_TYPE,
+				content: "→ working…",
+				display: true,
+			},
+			{
+				customType: IMMEDIATE_COMMAND_PROGRESS_MESSAGE_TYPE,
+				content: "→ Helper progress…",
+				display: true,
+			},
+		]);
+		expect(statuses).toEqual([]);
+	});
+
+	test("nested progress delivery lets sub-registrars keep progress status-only", () => {
+		const host = new FakeHost();
+		const wrapped = withImmediateCommandAck(
+			withImmediateCommandAck(host, { progressDelivery: "message" }),
+			{ progressDelivery: "status" },
+		);
+		const notifications: Array<[string, CommandProgressNotifyLevel | undefined]> = [];
+		const statuses: Array<[string, string | undefined]> = [];
+
+		wrapped.registerCommand("demo:run", {
+			handler(_args, ctx) {
+				ctx.ui?.setStatus("demo", "working…");
+				sendCommandProgressOrNotify({ host, ctx, message: "Helper progress…" });
+			},
+		});
+		commandFor(host, "demo:run").handler("", {
+			hasUI: true,
+			ui: {
+				notify: (message, level) => notifications.push([message, level]),
+				setStatus: (key, value) => statuses.push([key, value]),
+			},
+		});
+
+		expect(host.messages).toEqual([
+			{
+				customType: IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE,
+				content: "→ /demo:run received; starting…",
+				display: true,
+			},
+		]);
+		expect(statuses).toEqual([["demo", "working…"]]);
+		expect(notifications).toEqual([["Helper progress…", "info"]]);
 	});
 
 	test("does not acknowledge explicitly non-UI contexts", () => {

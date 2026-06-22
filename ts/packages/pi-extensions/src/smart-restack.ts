@@ -101,16 +101,21 @@ export async function runSmartRestack(
 	}
 
 	if (isRebaseInProgress(status)) {
-		sendCommandProgressOrNotify(
-			pi,
+		sendCommandProgressOrNotify({
+			host: pi,
 			ctx,
-			"Rebase/restack already in progress; starting LM-driven code-gt-restack-resolve from the current repository state.",
-		);
+			message:
+				"Rebase/restack already in progress; starting LM-driven code-gt-restack-resolve from the current repository state.",
+		});
 		await invokeLmResolver({ pi, ctx, args, promptContext: { type: "interrupted-restack" } });
 		return;
 	}
 
-	sendCommandProgressOrNotify(pi, ctx, "Running deterministic fast path: gt restack");
+	sendCommandProgressOrNotify({
+		host: pi,
+		ctx,
+		message: "Running deterministic fast path: gt restack",
+	});
 	const restack = await pi.exec("gt", ["restack"], {
 		cwd: ctx.cwd,
 		timeout: GT_RESTACK_TIMEOUT_MS,
@@ -217,7 +222,11 @@ async function invokeLmResolver(options: InvokeLmResolverOptions): Promise<void>
 		return;
 	}
 
-	sendCommandProgressOrNotify(pi, ctx, `Starting LM-driven ${RESTACK_RESOLVE_SKILL_NAME}.`);
+	sendCommandProgressOrNotify({
+		host: pi,
+		ctx,
+		message: `Starting LM-driven ${RESTACK_RESOLVE_SKILL_NAME}.`,
+	});
 	await pi.sendUserMessage(buildResolverPrompt(skillBlock, args, promptContext));
 }
 

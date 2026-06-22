@@ -37,10 +37,11 @@ Each extension declares its own `ExtensionAPI` with only the capabilities it use
 Every repo-owned Pi slash command must acknowledge receipt synchronously, before awaiting `ctx.waitForIdle()` or starting slow work. Use `withImmediateCommandAck` from `@sdl/pi-extension-runtime/command-ack` at the extension registration boundary instead of hand-writing per-command acknowledgements.
 
 - Default acknowledgement delivery is an above-fold dim transcript message when the host supports rendered custom messages; it falls back to a transient status line for minimal hosts.
-- Command `ctx.ui.setStatus(...)` keeps its original status/footer behavior by default. Above-fold transcript progress must be requested explicitly with `{ progressDelivery: "message" }`, `{ progressDelivery: "both" }`, or `sendCommandProgressOrNotify(...)`.
+- Command `ctx.ui.setStatus(...)` keeps its original status/footer behavior by default. Above-fold transcript progress from status calls must be requested explicitly with `{ progressDelivery: "message" }` or `{ progressDelivery: "both" }`.
+- `sendCommandProgressOrNotify({ host, ctx, message, level, shouldNotifyWhenNoUi })` defaults to above-fold dim transcript progress when rendered custom messages are available, but honors the current wrapper's `progressDelivery`: `"status"` uses the notification/status fallback only, `"message"` emits above-fold only, `"both"` emits both, and `"none"` suppresses helper progress.
 - Use `{ delivery: "status" }` only when the acknowledgement must stay out of the transcript.
 - Use `{ progressDelivery: "status" }` explicitly for ticker-heavy commands whose `setStatus` calls intentionally manage a persistent footer/lifecycle surface rather than command progress.
-- Wrap command-registering aggregate adapters once before passing the host to sub-registrars; nested wrapping is deduplicated by command/context.
+- Wrap command-registering aggregate adapters once before passing the host to sub-registrars. If a sub-registrar wraps again, its explicit `progressDelivery` takes precedence for the commands it registers; acknowledgement delivery is conservative, so an already message-capable/default wrapper keeps message acknowledgement unless `delivery: "status"` was selected at the first wrapping point. Nested acknowledgement emission is still deduplicated by command/context.
 - Vibecoded `.pi/extensions/*.ts` commands should use the same helper via the source import path until promoted into package code.
 - Tests for command timing should account for acknowledgement/progress messages before the command's own output.
 

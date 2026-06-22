@@ -271,7 +271,12 @@ function progress(pi: LandExtensionAPI, ctx: LandCommandContext, message: string
 		const output = message.endsWith("\n") ? message : `${message}\n`;
 		(ctx.printOutput ?? process.stdout).write(output);
 	}
-	sendCommandProgressOrNotify(pi, ctx, message, { shouldNotifyWhenNoUi: true });
+	sendCommandProgressOrNotify({
+		host: pi,
+		ctx,
+		message,
+		shouldNotifyWhenNoUi: true,
+	});
 }
 
 function notify(ctx: LandCommandContext, message: string, level: NotifyLevel): void {

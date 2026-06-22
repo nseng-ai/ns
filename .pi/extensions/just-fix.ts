@@ -83,7 +83,7 @@ ${justOutput}
 async function runJustThenInvokeSkill(pi: ExtensionAPI, ctx: CommandContext): Promise<void> {
 	await ctx.waitForIdle();
 
-	sendCommandProgressOrNotify(pi, ctx, "Running `just`…");
+	sendCommandProgressOrNotify({ host: pi, ctx, message: "Running `just`…" });
 	const result = await pi.exec("just", [], { cwd: ctx.cwd, timeout: JUST_TIMEOUT_MS });
 
 	if (result.code === 0 && !result.killed) {

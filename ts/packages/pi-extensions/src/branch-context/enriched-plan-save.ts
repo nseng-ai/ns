@@ -255,7 +255,11 @@ export async function handleWritePlanCommand(
 	await ctx.waitForIdle();
 	const steering = args.trim();
 	if (ctx.hasUI) {
-		sendCommandProgressOrNotify(pi, ctx, `Starting /${WRITE_PLAN_COMMAND_NAME} planning turn…`);
+		sendCommandProgressOrNotify({
+			host: pi,
+			ctx,
+			message: `Starting /${WRITE_PLAN_COMMAND_NAME} planning turn…`,
+		});
 	}
 	const promptBody = await resolveWritePlanPromptBody(pi, ctx.cwd);
 	if (promptBody.type === "fallback" && ctx.hasUI) {
@@ -272,11 +276,11 @@ export async function handleWriteGrilledPlanCommand(
 	await ctx.waitForIdle();
 	const steering = args.trim();
 	if (ctx.hasUI) {
-		sendCommandProgressOrNotify(
-			pi,
+		sendCommandProgressOrNotify({
+			host: pi,
 			ctx,
-			`Starting /${WRITE_GRILLED_PLAN_COMMAND_NAME} planning grill…`,
-		);
+			message: `Starting /${WRITE_GRILLED_PLAN_COMMAND_NAME} planning grill…`,
+		});
 	}
 	pi.sendUserMessage(buildWriteGrilledPlanPrompt(steering));
 }

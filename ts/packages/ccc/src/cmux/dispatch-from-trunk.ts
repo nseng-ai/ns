@@ -55,14 +55,18 @@ async function handleCccSlotDispatchFromTrunk(options: {
 		pi,
 		cwd: ctx.cwd,
 		prompt,
-		notify: (message) => sendCommandProgressOrNotify(pi, ctx, message),
+		notify: (message) => sendCommandProgressOrNotify({ host: pi, ctx, message }),
 	});
 	if ("error" in branch) {
 		ctx.ui.notify(branch.error, "error");
 		return;
 	}
 
-	sendCommandProgressOrNotify(pi, ctx, "Storing dispatch prompt in Branch Memory…");
+	sendCommandProgressOrNotify({
+		host: pi,
+		ctx,
+		message: "Storing dispatch prompt in Branch Memory…",
+	});
 	const stored = await storeDispatchPromptPayload({
 		pi,
 		cwd: ctx.cwd,

@@ -95,7 +95,7 @@ export async function handleCccSlotDispatchPrompt(
 	}
 
 	await ctx.waitForIdle();
-	sendCommandProgressOrNotify(pi, ctx, "Generating branch name…");
+	sendCommandProgressOrNotify({ host: pi, ctx, message: "Generating branch name…" });
 
 	const branch = await createTrackedBranchForPrompt(pi, ctx.cwd, prompt);
 	if ("error" in branch) {
@@ -103,7 +103,11 @@ export async function handleCccSlotDispatchPrompt(
 		return;
 	}
 
-	sendCommandProgressOrNotify(pi, ctx, "Storing dispatch prompt in Branch Memory…");
+	sendCommandProgressOrNotify({
+		host: pi,
+		ctx,
+		message: "Storing dispatch prompt in Branch Memory…",
+	});
 	const stored = await storeDispatchPromptPayload({
 		pi,
 		cwd: ctx.cwd,
