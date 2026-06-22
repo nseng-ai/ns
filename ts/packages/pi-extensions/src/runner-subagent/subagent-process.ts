@@ -69,6 +69,7 @@ export interface BuildChildPiArgsInput {
 	runtimeExtensionPath?: string;
 	model?: string;
 	launch?: RunnerSubagentLaunchMetadata;
+	normalizedTools?: readonly string[];
 }
 
 export interface SpawnChildProcessOptions {
@@ -148,6 +149,24 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 
 	const returnMode = runnerSubagentReturnMode(options);
 	const terminalTools = runnerSubagentTerminalTools(options);
+	let childToolAllowlist: readonly string[] | undefined;
+	try {
+		childToolAllowlist = normalizeChildToolAllowlist(options.tools);
+	} catch (error) {
+		const progress = stoppedProgress({
+			title,
+			clock,
+			startTimeMs,
+			...(launch === undefined ? {} : { launch }),
+		});
+		updateEmitter.emit(updateFromProgress(progress), { force: true });
+		return errorResult(
+			title,
+			progress,
+			`Invalid subagent tool allowlist: ${formatErrorMessage(error)}`,
+			error,
+		);
+	}
 	let runtimeFiles: RunnerSubagentRuntimeFiles | undefined;
 	if (returnMode === "terminal" || terminalTools.length > 0) {
 		try {
@@ -213,6 +232,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 			: { runtimeExtensionPath: runtimeFiles.extensionPath }),
 		...(options.model === undefined ? {} : { model: options.model }),
 		...(launch === undefined ? {} : { launch }),
+		...(childToolAllowlist === undefined ? {} : { normalizedTools: childToolAllowlist }),
 	});
 	const invocation = resolvePiInvocation(childArgs, dependencies);
 	const spawnChildProcess = dependencies.spawn ?? defaultSpawnChildProcess;
@@ -343,7 +363,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 			const snapshot = parser.getSnapshot();
 			updateEmitter.emit(updateFromSnapshot(snapshot));
 			scheduleLiveLaunchHydration();
-			if ((snapshot.error || snapshot.protocolError) && !cancelled) {
+			if (shouldTerminateChildForSnapshot(snapshot, runtimeFiles) && !cancelled) {
 				terminateChild();
 			}
 		});
@@ -424,8 +444,22 @@ export function buildChildPiArgs(input: BuildChildPiArgsInput): string[] {
 	args.push("--no-extensions");
 	if (input.runtimeExtensionPath !== undefined)
 		args.push("--extension", input.runtimeExtensionPath);
+	if (input.normalizedTools !== undefined) args.push("--tools", input.normalizedTools.join(","));
 	args.push("--session", input.sessionFile, input.prompt);
 	return args;
+}
+
+export function normalizeChildToolAllowlist(
+	tools: readonly string[] | undefined,
+): readonly string[] | undefined {
+	if (tools === undefined) return undefined;
+	return tools.map((tool) => {
+		const normalized = tool.trim();
+		if (normalized.length === 0) throw new Error("tool names must be non-empty");
+		if (normalized.includes(",")) throw new Error(`tool name must not contain a comma: ${tool}`);
+		if (/\s/.test(normalized)) throw new Error(`tool name must not contain whitespace: ${tool}`);
+		return normalized;
+	});
 }
 
 function runnerSubagentReturnMode(options: RunnerSubagentOptions): RunnerSubagentReturnMode {
@@ -522,6 +556,18 @@ function updateFromSnapshot(snapshot: RunnerSubagentJsonEventParserSnapshot): Ru
 	return { progress: snapshot.progress, activity: snapshot.activity };
 }
 
+function shouldTerminateChildForSnapshot(
+	snapshot: RunnerSubagentJsonEventParserSnapshot,
+	runtimeFiles: RunnerSubagentRuntimeFiles | undefined,
+): boolean {
+	if (snapshot.protocolError || snapshot.terminalSucceeded) return true;
+	if (!snapshot.error) return false;
+	// Terminal-mode subagents write their authoritative terminal outcome to a runtime file.
+	// Treat malformed live stdout as a progress-channel failure and let the child reach that
+	// file-backed terminal capture instead of killing it early.
+	return runtimeFiles === undefined;
+}
+
 function updateSignature(update: RunnerSubagentUpdate): string {
 	return [
 		update.progress.title ?? "",
@@ -585,10 +631,6 @@ async function resolveClosedRunnerSubagentResult<TTerminalInput>(
 		return cancelledResult(title, progress, abortReason(input.abortSignals));
 	}
 
-	if (snapshot.error) {
-		return errorResult(title, progress, snapshot.error.message, snapshot.error);
-	}
-
 	const runtimeRead: RuntimeResultReadOutcome = input.runtimeFiles
 		? await readRuntimeResultOutcome(input.runtimeFiles.resultPath, input.readRuntimeResult)
 		: {};
@@ -608,6 +650,21 @@ async function resolveClosedRunnerSubagentResult<TTerminalInput>(
 			snapshot.protocolError.message,
 			snapshot.protocolError.event,
 		);
+	}
+
+	if (runtimeRead.result?.kind === "terminal-capture") {
+		const protocolDiagnostic = validateTerminalCapture(
+			runtimeRead.result,
+			input.terminalToolStatuses,
+		);
+		if (protocolDiagnostic) {
+			return protocolErrorResult(title, progress, protocolDiagnostic, runtimeRead.result);
+		}
+		return terminalCaptureResult<TTerminalInput>(title, progress, runtimeRead.result);
+	}
+
+	if (snapshot.error) {
+		return errorResult(title, progress, snapshot.error.message, snapshot.error);
 	}
 
 	if (input.code !== 0) {
@@ -633,17 +690,6 @@ async function resolveClosedRunnerSubagentResult<TTerminalInput>(
 			`Failed to read subagent terminal runtime result: ${runtimeRead.failure.message}`,
 			runtimeRead.failure.cause,
 		);
-	}
-
-	if (runtimeRead.result?.kind === "terminal-capture") {
-		const protocolDiagnostic = validateTerminalCapture(
-			runtimeRead.result,
-			input.terminalToolStatuses,
-		);
-		if (protocolDiagnostic) {
-			return protocolErrorResult(title, progress, protocolDiagnostic, runtimeRead.result);
-		}
-		return terminalCaptureResult<TTerminalInput>(title, progress, runtimeRead.result);
 	}
 
 	if (snapshot.stopReason === "error" || snapshot.stopReason === "aborted") {

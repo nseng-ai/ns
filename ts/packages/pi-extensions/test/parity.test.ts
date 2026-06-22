@@ -20,6 +20,7 @@ import { loadPiExtensionParityRecords } from "../src/parity-registry.ts";
 import { definePiSurfaceParity } from "../src/parity.ts";
 import type { PiAgentDefinition } from "../src/pi-agent-definition.ts";
 import sdlExtension from "../src/sdl-extension.ts";
+import thermoCouncilExtension from "../src/thermo-council.ts";
 import worktreeStatusExtension from "../src/worktree-status.ts";
 
 interface RegisteredToolLike {
@@ -102,6 +103,7 @@ async function collectLivePiExtensionSurfaces(): Promise<LivePiSurface[]> {
 	await registerWithFakeHost(pi, objectiveExtension);
 	await registerWithFakeHost(pi, prExtension);
 	await registerWithFakeHost(pi, sdlExtension);
+	await registerWithFakeHost(pi, thermoCouncilExtension);
 	await registerWithFakeHost(pi, worktreeStatusExtension);
 
 	return pi.surfaces();
