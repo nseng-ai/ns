@@ -305,11 +305,11 @@ ${tail}`;
   return tail;
 }
 function formatPreflightFailureOutput(output) {
-  const reason = output.startupError ? `gt submit -nps --no-ai --no-interactive --dry-run could not start: ${output.startupError}. Submission was not attempted.` : output.killed ? `gt submit -nps --no-ai --no-interactive --dry-run timed out after ${CURRENT_PR_TIMEOUT_MS / 1000}s. Submission was not attempted.` : `gt submit -nps --no-ai --no-interactive --dry-run failed with exit code ${output.exitCode}. Submission was not attempted.`;
+  const reason = output.startupError ? `gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run could not start: ${output.startupError}. Submission was not attempted.` : output.killed ? `gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run timed out after ${CURRENT_PR_TIMEOUT_MS / 1000}s. Submission was not attempted.` : `gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run failed with exit code ${output.exitCode}. Submission was not attempted.`;
   return [
     reason,
     "",
-    "$ gt submit -nps --no-ai --no-interactive --dry-run",
+    "$ gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run",
     "",
     formatOutputSection("stdout", output.stdout),
     formatOutputSection("stderr", output.stderr)
@@ -324,18 +324,18 @@ function formatTrunkOutOfDatePreflightOutput(_output) {
     "What to do next:",
     "- Update or repair your local Graphite trunk checkout, then rerun `sdl submit`.",
     "- If Graphite reports a specific trunk-update problem, resolve that first.",
-    "- To inspect the raw Graphite dry-run output, rerun with `sdl submit --verbose` or run `gt submit -nps --no-ai --no-interactive --dry-run` manually."
+    "- To inspect the raw Graphite dry-run output, rerun with `sdl submit --verbose` or run `gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run` manually."
   ].join(`
 `);
 }
 function formatRestackRequiredOutput(output) {
   return [
     "Graphite requires a restack before submission.",
-    "Plain `sdl submit` normally runs `gt restack --no-interactive` automatically when required; this output means automatic restack was disabled or unavailable.",
-    "Run `gt restack`, resolve any conflicts, then run `sdl submit` again.",
+    "Plain `sdl submit` normally runs `gt restack --downstack --no-interactive` automatically when required; this output means automatic restack was disabled or unavailable.",
+    "Run `gt restack --downstack`, resolve any conflicts, then run `sdl submit` again.",
     "Submission was not attempted.",
     "",
-    "$ gt submit -nps --no-ai --no-interactive --dry-run",
+    "$ gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run",
     "",
     formatOutputSection("stdout", output.stdout),
     formatOutputSection("stderr", output.stderr)
@@ -347,15 +347,15 @@ function formatRestackConfirmationPrompt(output) {
     title: "Run gt restack before submit?",
     message: [
       "Graphite dry-run says restack is required before submission.",
-      "Run `gt restack --no-interactive` now, then continue with submit?",
+      "Run `gt restack --downstack --no-interactive` now, then continue with submit?",
       "",
       "If confirmed, sdl submit will run:",
-      "$ gt restack --no-interactive",
-      "$ gt submit -nps --no-ai --no-interactive",
+      "$ gt restack --downstack --no-interactive",
+      "$ gt submit --no-edit --publish --no-stack --no-ai --no-interactive",
       "",
       "If restack hits conflicts or fails, submission will stop before `gt submit`.",
       "",
-      "$ gt submit -nps --no-ai --no-interactive --dry-run",
+      "$ gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run",
       "",
       formatOutputSection("stdout", output.stdout),
       formatOutputSection("stderr", output.stderr)
@@ -366,9 +366,9 @@ function formatRestackConfirmationPrompt(output) {
 function formatRestackDeclinedOutput(output) {
   return [
     "Restack was not run. Submission was not attempted.",
-    "Run `gt restack`, resolve any conflicts, then run `sdl submit` again.",
+    "Run `gt restack --downstack`, resolve any conflicts, then run `sdl submit` again.",
     "",
-    "$ gt submit -nps --no-ai --no-interactive --dry-run",
+    "$ gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run",
     "",
     formatOutputSection("stdout", output.stdout),
     formatOutputSection("stderr", output.stderr)
@@ -378,12 +378,12 @@ function formatRestackDeclinedOutput(output) {
 function formatRestackConflictOutput(output, conflictedFiles) {
   const fileLines = conflictedFiles.length > 0 ? ["Conflicted files:", ...conflictedFiles.map((file) => `- ${file}`), ""] : [];
   return [
-    "`gt restack` hit merge conflicts. Submission was not attempted.",
+    "`gt restack --downstack` hit merge conflicts. Submission was not attempted.",
     "",
     ...fileLines,
     "Resolve the conflicts, continue or abort the rebase as appropriate, then run `sdl submit` again.",
     "",
-    "$ gt restack --no-interactive",
+    "$ gt restack --downstack --no-interactive",
     "",
     formatOutputSection("stdout", output.stdout),
     formatOutputSection("stderr", output.stderr)
@@ -393,15 +393,15 @@ function formatRestackConflictOutput(output, conflictedFiles) {
 function formatReadinessRecheckFailureOutput(output) {
   return [
     [
-      "Graphite still requires restack after `sdl submit` already ran `gt restack --no-interactive`.",
+      "Graphite still requires restack after `sdl submit` already ran `gt restack --downstack --no-interactive`.",
       "Submission was not attempted. PR metadata was not prepared."
     ].join(`
 `),
     formatIndentedOutputBlock("Graphite dry-run error:", output.stderr),
     [
       "Next steps:",
-      "- Run `gt restack` manually and resolve any conflicts, skipped branches, or stale stack state Graphite reports.",
-      "- Verify readiness: `gt submit -nps --no-ai --no-interactive --dry-run`",
+      "- Run `gt restack --downstack` manually and resolve any conflicts, skipped branches, or stale branch state Graphite reports.",
+      "- Verify readiness: `gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run`",
       "- Then rerun: `sdl submit`"
     ].join(`
 `),
@@ -411,11 +411,11 @@ function formatReadinessRecheckFailureOutput(output) {
 `);
 }
 function formatRestackFailureOutput(output) {
-  const reason = output.startupError ? `gt restack could not start: ${output.startupError}. Submission was not attempted.` : output.killed ? `gt restack timed out after ${RESTACK_TIMEOUT_MS / 1000}s. Submission was not attempted.` : `gt restack --no-interactive failed with exit code ${output.exitCode}. Submission was not attempted.`;
+  const reason = output.startupError ? `gt restack --downstack could not start: ${output.startupError}. Submission was not attempted.` : output.killed ? `gt restack --downstack timed out after ${RESTACK_TIMEOUT_MS / 1000}s. Submission was not attempted.` : `gt restack --downstack --no-interactive failed with exit code ${output.exitCode}. Submission was not attempted.`;
   return [
     reason,
     "",
-    "$ gt restack --no-interactive",
+    "$ gt restack --downstack --no-interactive",
     "",
     formatOutputSection("stdout", output.stdout),
     formatOutputSection("stderr", output.stderr)
@@ -434,14 +434,14 @@ function formatPrewriteFailureOutput(error, amendedBranches) {
 `);
 }
 function formatSubmitFailureOutput(output, prewrittenMetadata) {
-  const reason = output.startupError ? `gt submit -nps --no-ai --no-interactive could not start: ${output.startupError}.` : output.killed ? "gt submit -nps --no-ai --no-interactive timed out and was killed." : `gt submit -nps --no-ai --no-interactive failed with exit code ${output.exitCode}.`;
+  const reason = output.startupError ? `gt submit --no-edit --publish --no-stack --no-ai --no-interactive could not start: ${output.startupError}.` : output.killed ? "gt submit --no-edit --publish --no-stack --no-ai --no-interactive timed out and was killed." : `gt submit --no-edit --publish --no-stack --no-ai --no-interactive failed with exit code ${output.exitCode}.`;
   return [
     reason,
     ...prewrittenMetadata.length === 0 ? [] : [
       "Local PR metadata commit messages were prepared before submit; rerun sdl submit after resolving the Graphite failure."
     ],
     "",
-    "$ gt submit -nps --no-ai --no-interactive",
+    "$ gt submit --no-edit --publish --no-stack --no-ai --no-interactive",
     "",
     formatOutputSection("stdout", output.stdout),
     formatOutputSection("stderr", output.stderr)
@@ -455,7 +455,7 @@ function formatPostSubmitFailureOutput({
   return [
     formatPostSubmitFailureReason(submitted.semanticFailureCause, currentPr),
     "",
-    "$ gt submit -nps --no-ai --no-interactive",
+    "$ gt submit --no-edit --publish --no-stack --no-ai --no-interactive",
     "",
     formatOutputSection("stdout", submitted.output.stdout),
     formatOutputSection("stderr", submitted.output.stderr),
@@ -474,7 +474,7 @@ function formatPostSubmitFailureReason(semanticFailureCause, currentPr) {
 function formatSubmitSemanticFailureCause(cause) {
   switch (cause.kind) {
     case "empty_branch_skipped":
-      return cause.branchName === undefined ? "gt submit exited 0, but Graphite skipped submitting part of the stack because a branch is empty." : `gt submit exited 0, but Graphite skipped submitting part of the stack because branch ${cause.branchName} is empty.`;
+      return cause.branchName === undefined ? "gt submit exited 0, but Graphite skipped submitting part of the submit scope because a branch is empty." : `gt submit exited 0, but Graphite skipped submitting part of the submit scope because branch ${cause.branchName} is empty.`;
   }
   return assertNever(cause.kind);
 }
@@ -1156,57 +1156,50 @@ class RealSubmitMetadataGateway {
   }
   async inspectSubmitStack(params) {
     const log = await this.runGt([...GT_LOG_STACK_ARGS], params.cwd, COMMAND_TIMEOUT_MS);
-    const logError = commandError("gt", GT_LOG_STACK_ARGS, log, "submit_stack_inspection_failed", "Could not inspect the Graphite submit stack.");
+    const logError = commandError("gt", GT_LOG_STACK_ARGS, log, "submit_stack_inspection_failed", "Could not inspect the Graphite submit scope.");
     if (logError !== undefined)
       return resultErr(logError);
     const parsedLog = parseGtLogStack(log.stdout);
     if (parsedLog.branches.length === 0) {
       return resultErr({
         code: "submit_stack_empty",
-        message: "Graphite stack inspection did not return any branches."
+        message: "Graphite submit-scope inspection did not return any branches."
       });
     }
     if (parsedLog.currentBranch === undefined) {
       return resultErr({
         code: "submit_stack_current_unknown",
-        message: "Graphite stack inspection did not identify the current branch."
+        message: "Graphite submit-scope inspection did not identify the current branch."
       });
     }
     const trunk = await this.readGraphiteTrunk(params.cwd);
     if (!trunk.ok)
       return trunk;
-    const submitBranches = parsedLog.branches.filter((branch) => branch !== trunk.value);
-    params.onProgress?.(formatStackBranchMetadataProgress(submitBranches.length));
+    const submitBranchInfos = await this.readSubmitBranchInfos(params.cwd, parsedLog.currentBranch, trunk.value);
+    if (!submitBranchInfos.ok)
+      return submitBranchInfos;
+    params.onProgress?.(formatStackBranchMetadataProgress(submitBranchInfos.value.length));
     const branches = [];
-    for (const [index, branch] of submitBranches.entries()) {
-      params.onProgress?.(`inspecting PR metadata for ${branch} (${index + 1}/${submitBranches.length})`);
-      const info = await this.runGt([...GT_BRANCH_INFO_BASE_ARGS, branch], params.cwd, COMMAND_TIMEOUT_MS);
-      const infoError = commandError("gt", [...GT_BRANCH_INFO_BASE_ARGS, branch], info, "submit_branch_info_failed", `Could not inspect Graphite branch ${branch}.`);
-      if (infoError !== undefined)
-        return resultErr(infoError);
-      const parentBranch = parseParentBranch(info.stdout);
-      if (parentBranch === undefined) {
-        continue;
-      }
-      const existingPr = parseExistingPrFromBranchInfo(`${info.stdout}
-${info.stderr}`, branch);
+    for (const [index, info] of submitBranchInfos.value.entries()) {
+      params.onProgress?.(`inspecting PR metadata for ${info.branch} (${index + 1}/${submitBranchInfos.value.length})`);
+      const existingPr = parseExistingPrFromBranchInfo(info.output, info.branch);
       if (!existingPr.ok)
         return existingPr;
       if (existingPr.value !== undefined) {
-        branches.push({ kind: "existing", branch, parentBranch, pr: existingPr.value });
+        branches.push({ kind: "existing", branch: info.branch, parentBranch: info.parentBranch, pr: existingPr.value });
         continue;
       }
-      params.onProgress?.(`reading local commits and diff for ${branch}`);
-      const commitMessages = await this.readBranchCommitMessages(params.cwd, parentBranch, branch);
+      params.onProgress?.(`reading local commits and diff for ${info.branch}`);
+      const commitMessages = await this.readBranchCommitMessages(params.cwd, info.parentBranch, info.branch);
       if (!commitMessages.ok)
         return commitMessages;
-      const diff = await this.readBranchDiff(params.cwd, parentBranch, branch);
+      const diff = await this.readBranchDiff(params.cwd, info.parentBranch, info.branch);
       if (!diff.ok)
         return diff;
       branches.push({
         kind: "new",
-        branch,
-        parentBranch,
+        branch: info.branch,
+        parentBranch: info.parentBranch,
         commitMessages: commitMessages.value,
         diff: diff.value
       });
@@ -1233,6 +1226,34 @@ ${info.stderr}`, branch);
     if (resultError !== undefined)
       return resultErr(resultError);
     return resultOk(undefined);
+  }
+  async readSubmitBranchInfos(cwd, currentBranch, trunk) {
+    const branchInfos = [];
+    const visited = /* @__PURE__ */ new Set();
+    let branch = currentBranch;
+    while (branch !== undefined && branch !== trunk) {
+      if (visited.has(branch)) {
+        return resultErr({
+          code: "submit_branch_parent_cycle",
+          message: `Graphite branch parent traversal looped at ${branch}.`
+        });
+      }
+      visited.add(branch);
+      const info = await this.runGt([...GT_BRANCH_INFO_BASE_ARGS, branch], cwd, COMMAND_TIMEOUT_MS);
+      const infoError = commandError("gt", [...GT_BRANCH_INFO_BASE_ARGS, branch], info, "submit_branch_info_failed", `Could not inspect Graphite branch ${branch}.`);
+      if (infoError !== undefined)
+        return resultErr(infoError);
+      const parentBranch = parseParentBranch(info.stdout);
+      if (parentBranch === undefined)
+        break;
+      branchInfos.push({
+        branch,
+        parentBranch,
+        output: `${info.stdout}\n${info.stderr}`
+      });
+      branch = parentBranch;
+    }
+    return resultOk(branchInfos.reverse());
   }
   async readGraphiteTrunk(cwd) {
     const result = await this.runGt([...GT_TRUNK_ARGS], cwd, COMMAND_TIMEOUT_MS);
@@ -1272,7 +1293,7 @@ ${info.stderr}`, branch);
   }
 }
 async function prepareSubmitPrMetadata(input) {
-  input.onProgress?.("inspecting Graphite stack before metadata preparation");
+  input.onProgress?.("inspecting Graphite submit scope before metadata preparation");
   const inspected = await input.gateway.inspectSubmitStack({
     cwd: input.cwd,
     ...input.onProgress === undefined ? {} : { onProgress: input.onProgress }
@@ -1390,10 +1411,10 @@ function commandError(command, args, result, code, message) {
   return commandFailure({ command, args, result, code, message });
 }
 function formatStackBranchMetadataProgress(branchCount) {
-  return `inspecting Graphite stack branch metadata for ${formatItemCount(branchCount, "branch", "branches")}`;
+  return `inspecting Graphite submit branch metadata for ${formatItemCount(branchCount, "branch", "branches")}`;
 }
 function formatMetadataPreparationDiscoveryProgress(totalBranchCount, newBranchCount) {
-  return `found ${formatItemCount(totalBranchCount, "stack branch", "stack branches")}; ${formatItemCount(newBranchCount, "new single-commit branch", "new single-commit branches")} ${newBranchCount === 1 ? "needs" : "need"} initial PR metadata`;
+  return `found ${formatItemCount(totalBranchCount, "submit branch", "submit branches")}; ${formatItemCount(newBranchCount, "new single-commit branch", "new single-commit branches")} ${newBranchCount === 1 ? "needs" : "need"} initial PR metadata`;
 }
 function formatPreparedMetadataProgress(branchCount) {
   return `prepared pre-submit PR metadata for ${formatItemCount(branchCount, "branch", "branches")}`;
@@ -1700,7 +1721,9 @@ function formatPrDescriptionFailureRow(failure) {
 // ts/packages/sdl-core/src/submit/submit.ts
 var SUBMIT_ARGS = [
   "submit",
-  "-nps",
+  "--no-edit",
+  "--publish",
+  "--no-stack",
   "--no-ai",
   "--no-interactive",
   "--no-view",
@@ -1708,18 +1731,20 @@ var SUBMIT_ARGS = [
 ];
 var SUBMIT_DRY_RUN_ARGS = [
   "submit",
-  "-nps",
+  "--no-edit",
+  "--publish",
+  "--no-stack",
   "--no-ai",
   "--no-interactive",
   "--no-view",
   "--no-web",
   "--dry-run"
 ];
-var RESTACK_ARGS = ["restack", "--no-interactive"];
+var RESTACK_ARGS = ["restack", "--downstack", "--no-interactive"];
 var CURRENT_PR_ARGS = ["branch", "info", "--no-interactive"];
-var SUBMIT_COMMAND_DISPLAY = "gt submit -nps --no-ai --no-interactive";
-var SUBMIT_DRY_RUN_COMMAND_DISPLAY = "gt submit -nps --no-ai --no-interactive --dry-run";
-var RESTACK_COMMAND_DISPLAY = "gt restack --no-interactive";
+var SUBMIT_COMMAND_DISPLAY = "gt submit --no-edit --publish --no-stack --no-ai --no-interactive";
+var SUBMIT_DRY_RUN_COMMAND_DISPLAY = "gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run";
+var RESTACK_COMMAND_DISPLAY = "gt restack --downstack --no-interactive";
 var CURRENT_PR_COMMAND_DISPLAY = "gt branch info --no-interactive";
 var GIT_UNMERGED_ARGS = ["diff", "--name-only", "--diff-filter=U"];
 var GIT_STATUS_PORCELAIN_ARGS2 = ["status", "--porcelain"];
@@ -2690,7 +2715,7 @@ var submitSchema = z.object({
   restack: z.boolean().default(true).describe("Automatically run gt restack before submitting when Graphite requires it."),
   verbose: z.boolean().default(false).describe("Stream raw Graphite/subprocess output while submitting.")
 });
-var SUBMIT_COMMAND_DESCRIPTION = `Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.
+var SUBMIT_COMMAND_DESCRIPTION = `Checkpoint outstanding changes, then submit the current Graphite branch and downstack ancestors with gt submit --no-edit --publish --no-stack --no-ai --no-interactive.
 
 Environment:
   SDL_CHECKPOINT_MODEL           Model reference for generated checkpoint messages. Falls back to SDL_DEV_CHECKPOINT_MODEL.

@@ -175,7 +175,7 @@ Pi exposes the same capability as `/sdl:changes` and `/sdl:code:changes`; `/code
 
 ## `submit`
 
-Checkpoint outstanding changes, then submit the current Graphite stack.
+Checkpoint outstanding changes, then submit the current Graphite branch and downstack ancestors.
 
 ```bash
 sdl submit [--no-restack] [--verbose]
@@ -184,10 +184,10 @@ sdl submit [--no-restack] [--verbose]
 Behavior:
 
 - checkpoints pending worktree changes before submission using the same `[cp]` checkpoint-message policy as `sdl cp`;
-- preflights Graphite submit readiness with `gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run`;
-- runs `gt restack --no-interactive` automatically when Graphite requires a restack, unless `--no-restack` is set;
-- prepares initial PR metadata for new single-commit stack branches before submission when possible;
-- submits with `gt submit -nps --no-ai --no-interactive --no-view --no-web`, verifies the current PR, and generates or validates managed PR descriptions through `gh pr view`, `gh pr diff`, `git patch-id --stable`, and `gh pr edit`;
+- preflights Graphite submit readiness with `gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run`;
+- runs `gt restack --downstack --no-interactive` automatically when Graphite requires a restack, unless `--no-restack` is set;
+- prepares initial PR metadata for new single-commit branches in the current branch's downstack submit scope before submission when possible;
+- submits with `gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web`, verifies the current PR, and generates or validates managed PR descriptions through `gh pr view`, `gh pr diff`, `git patch-id --stable`, and `gh pr edit`;
 - writes raw submit-failure transcripts and asks the configured model for concise failure summaries when submission, restack, verification, checkpoint, or PR-description phases fail;
 - with `--verbose`, streams raw Graphite/subprocess stdout and stderr in addition to concise progress.
 

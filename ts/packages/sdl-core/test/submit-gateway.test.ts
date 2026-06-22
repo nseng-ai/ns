@@ -14,7 +14,17 @@ describe("RealSubmitGateway", () => {
 		const runner = new ScriptedCommandRunner([
 			step(
 				"gt",
-				["submit", "-nps", "--no-ai", "--no-interactive", "--no-view", "--no-web", "--dry-run"],
+				[
+					"submit",
+					"--no-edit",
+					"--publish",
+					"--no-stack",
+					"--no-ai",
+					"--no-interactive",
+					"--no-view",
+					"--no-web",
+					"--dry-run",
+				],
 				{ stdout: "ok\n" },
 			),
 		]);
@@ -26,7 +36,9 @@ describe("RealSubmitGateway", () => {
 				command: "gt",
 				args: [
 					"submit",
-					"-nps",
+					"--no-edit",
+					"--publish",
+					"--no-stack",
 					"--no-ai",
 					"--no-interactive",
 					"--no-view",
@@ -43,7 +55,17 @@ describe("RealSubmitGateway", () => {
 		const runner = new ScriptedCommandRunner([
 			step(
 				"gt",
-				["submit", "-nps", "--no-ai", "--no-interactive", "--no-view", "--no-web", "--dry-run"],
+				[
+					"submit",
+					"--no-edit",
+					"--publish",
+					"--no-stack",
+					"--no-ai",
+					"--no-interactive",
+					"--no-view",
+					"--no-web",
+					"--dry-run",
+				],
 				{ stdout: "dry-run stdout\n", stderr: "dry-run stderr\n" },
 			),
 		]);
@@ -68,7 +90,17 @@ describe("RealSubmitGateway", () => {
 		const runner = new ScriptedCommandRunner([
 			step(
 				"gt",
-				["submit", "-nps", "--no-ai", "--no-interactive", "--no-view", "--no-web", "--dry-run"],
+				[
+					"submit",
+					"--no-edit",
+					"--publish",
+					"--no-stack",
+					"--no-ai",
+					"--no-interactive",
+					"--no-view",
+					"--no-web",
+					"--dry-run",
+				],
 				{ exitCode: 1, stderr: "This stack must be restacked before submitting.\n" },
 			),
 		]);
@@ -84,7 +116,17 @@ describe("RealSubmitGateway", () => {
 		const runner = new ScriptedCommandRunner([
 			step(
 				"gt",
-				["submit", "-nps", "--no-ai", "--no-interactive", "--no-view", "--no-web", "--dry-run"],
+				[
+					"submit",
+					"--no-edit",
+					"--publish",
+					"--no-stack",
+					"--no-ai",
+					"--no-interactive",
+					"--no-view",
+					"--no-web",
+					"--dry-run",
+				],
 				{
 					exitCode: 1,
 					stderr:
@@ -102,7 +144,7 @@ describe("RealSubmitGateway", () => {
 
 	test("restackCurrentStack reports conflicts from git conflict facts", async () => {
 		const runner = new ScriptedCommandRunner([
-			step("gt", ["restack", "--no-interactive"], {
+			step("gt", ["restack", "--downstack", "--no-interactive"], {
 				exitCode: 1,
 				stderr: "CONFLICT (content): merge conflict\n",
 			}),
@@ -120,9 +162,22 @@ describe("RealSubmitGateway", () => {
 
 	test("submitCurrentStack extracts PR links from submit output", async () => {
 		const runner = new ScriptedCommandRunner([
-			step("gt", ["submit", "-nps", "--no-ai", "--no-interactive", "--no-view", "--no-web"], {
-				stdout: "Created https://github.com/acme/project/pull/456\n",
-			}),
+			step(
+				"gt",
+				[
+					"submit",
+					"--no-edit",
+					"--publish",
+					"--no-stack",
+					"--no-ai",
+					"--no-interactive",
+					"--no-view",
+					"--no-web",
+				],
+				{
+					stdout: "Created https://github.com/acme/project/pull/456\n",
+				},
+			),
 		]);
 		const gateway = new RealSubmitGateway(runner.runner);
 
@@ -137,10 +192,23 @@ describe("RealSubmitGateway", () => {
 
 	test("submitCurrentStack preserves semantic empty-branch failure from zero-exit output", async () => {
 		const runner = new ScriptedCommandRunner([
-			step("gt", ["submit", "-nps", "--no-ai", "--no-interactive", "--no-view", "--no-web"], {
-				stdout:
-					"This branch does not introduce any changes:\nGraphite will not be submitted because GitHub does not allow empty PRs.\n",
-			}),
+			step(
+				"gt",
+				[
+					"submit",
+					"--no-edit",
+					"--publish",
+					"--no-stack",
+					"--no-ai",
+					"--no-interactive",
+					"--no-view",
+					"--no-web",
+				],
+				{
+					stdout:
+						"This branch does not introduce any changes:\nGraphite will not be submitted because GitHub does not allow empty PRs.\n",
+				},
+			),
 		]);
 		const gateway = new RealSubmitGateway(runner.runner);
 
@@ -155,17 +223,30 @@ describe("RealSubmitGateway", () => {
 
 	test("submitCurrentStack extracts the empty branch from Graphite validation output", async () => {
 		const runner = new ScriptedCommandRunner([
-			step("gt", ["submit", "-nps", "--no-ai", "--no-interactive", "--no-view", "--no-web"], {
-				stdout: `🥞 Validating that this Graphite stack is ready to submit...
+			step(
+				"gt",
+				[
+					"submit",
+					"--no-edit",
+					"--publish",
+					"--no-stack",
+					"--no-ai",
+					"--no-interactive",
+					"--no-view",
+					"--no-web",
+				],
+				{
+					stdout: `🥞 Validating that this Graphite stack is ready to submit...
 ▸ sdl-extension-api-followup-stack
 
 📝 Preparing to submit PRs for the following branches...
 ▸ add-sdl-extension-api (No-op)
 `,
-				stderr: `WARNING: This branch does not introduce any changes:
+					stderr: `WARNING: This branch does not introduce any changes:
 WARNING: This branch and any dependent branches will not be submitted, as GitHub does not allow empty PRs.
 `,
-			}),
+				},
+			),
 		]);
 		const gateway = new RealSubmitGateway(runner.runner);
 
@@ -367,6 +448,52 @@ describe("RealSubmitMetadataGateway", () => {
 				],
 			},
 		});
+		runner.assertDone();
+	});
+
+	test("inspectSubmitStack ignores upstack descendants when reading branch metadata", async () => {
+		const runner = new ScriptedCommandRunner([
+			step("gt", ["log", "--stack", "--reverse", "--no-interactive"], {
+				stdout:
+					"◯ master\n│\n◯ downstack/base\n│\n◉ feature/current (current)\n│\n◯ feature/upstack\n",
+			}),
+			step("gt", ["trunk", "--no-interactive"], { stdout: "master\n" }),
+			step("gt", ["branch", "info", "--no-interactive", "--branch", "feature/current"], {
+				stdout:
+					"feature/current\n\nPR #789 (Open) Current PR\nhttps://github.com/acme/project/pull/789\n\nParent: downstack/base\n",
+			}),
+			step("gt", ["branch", "info", "--no-interactive", "--branch", "downstack/base"], {
+				stdout:
+					"downstack/base\n\nPR #456 (Open) Base PR\nhttps://github.com/acme/project/pull/456\n\nParent: master\n",
+			}),
+		]);
+		const gateway = new RealSubmitMetadataGateway(runner.runner);
+
+		const result = await gateway.inspectSubmitStack({ cwd: "/repo" });
+
+		expect(result).toEqual({
+			ok: true,
+			value: {
+				currentBranch: "feature/current",
+				branches: [
+					{
+						kind: "existing",
+						branch: "downstack/base",
+						parentBranch: "master",
+						pr: { label: "#456", url: "https://github.com/acme/project/pull/456" },
+					},
+					{
+						kind: "existing",
+						branch: "feature/current",
+						parentBranch: "downstack/base",
+						pr: { label: "#789", url: "https://github.com/acme/project/pull/789" },
+					},
+				],
+			},
+		});
+		expect(runner.calls.map((call) => call.args.join(" "))).not.toContain(
+			"branch info --no-interactive --branch feature/upstack",
+		);
 		runner.assertDone();
 	});
 

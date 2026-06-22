@@ -31,7 +31,9 @@ import type { TextGenerator } from "./text-generation.ts";
 
 const SUBMIT_ARGS = [
 	"submit",
-	"-nps",
+	"--no-edit",
+	"--publish",
+	"--no-stack",
 	"--no-ai",
 	"--no-interactive",
 	"--no-view",
@@ -39,18 +41,21 @@ const SUBMIT_ARGS = [
 ] as const;
 const SUBMIT_DRY_RUN_ARGS = [
 	"submit",
-	"-nps",
+	"--no-edit",
+	"--publish",
+	"--no-stack",
 	"--no-ai",
 	"--no-interactive",
 	"--no-view",
 	"--no-web",
 	"--dry-run",
 ] as const;
-const RESTACK_ARGS = ["restack", "--no-interactive"] as const;
+const RESTACK_ARGS = ["restack", "--downstack", "--no-interactive"] as const;
 const CURRENT_PR_ARGS = ["branch", "info", "--no-interactive"] as const;
-const SUBMIT_COMMAND_DISPLAY = "gt submit -nps --no-ai --no-interactive";
-const SUBMIT_DRY_RUN_COMMAND_DISPLAY = "gt submit -nps --no-ai --no-interactive --dry-run";
-const RESTACK_COMMAND_DISPLAY = "gt restack --no-interactive";
+const SUBMIT_COMMAND_DISPLAY = "gt submit --no-edit --publish --no-stack --no-ai --no-interactive";
+const SUBMIT_DRY_RUN_COMMAND_DISPLAY =
+	"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run";
+const RESTACK_COMMAND_DISPLAY = "gt restack --downstack --no-interactive";
 const CURRENT_PR_COMMAND_DISPLAY = "gt branch info --no-interactive";
 const GIT_UNMERGED_ARGS = ["diff", "--name-only", "--diff-filter=U"] as const;
 const GIT_STATUS_PORCELAIN_ARGS = ["status", "--porcelain"] as const;
