@@ -2,11 +2,11 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-	NodeCommandExecApi,
 	formatCommand,
 	type CommandExecApi,
 	type StdinCapableCommandExecApi,
 } from "@sdl/core/exec";
+import type { GitGateway } from "@sdl/core/git";
 
 import {
 	brmemError,
@@ -78,26 +78,33 @@ interface MktreeEntry {
 
 const SNAPSHOT_CORRUPT_SAMPLE_LIMIT = 5;
 
+export interface RealGitBrmemGatewayOptions {
+	cwd: string;
+	commands: StdinCapableCommandExecApi;
+	git: GitGateway;
+}
+
 export class RealGitBrmemGateway implements BrmemGateway {
 	private readonly cwd: string;
-	private readonly commands: CommandExecApi;
+	private readonly commands: StdinCapableCommandExecApi;
+	private readonly git: GitGateway;
 
-	constructor(cwd: string, commands: StdinCapableCommandExecApi = new NodeCommandExecApi()) {
-		this.cwd = cwd;
-		this.commands = commands;
+	constructor(options: RealGitBrmemGatewayOptions) {
+		this.cwd = options.cwd;
+		this.commands = options.commands;
+		this.git = options.git;
 	}
 
 	async currentBranch(): Promise<BrmemResult<string>> {
-		const result = await runGit(this.commands, ["branch", "--show-current"], { cwd: this.cwd });
-		if (result.code !== 0)
-			return gitError("current_branch_failed", "Could not resolve current branch.", result);
-		const branch = result.stdout.trim();
-		if (branch.length === 0)
+		const result = await this.git.currentBranch({ cwd: this.cwd });
+		if (result.type === "branch") return brmemOk(result.branch);
+		if (result.type === "detached") {
 			return brmemError(
 				"detached_head",
 				"Could not resolve current branch; HEAD appears detached.",
 			);
-		return brmemOk(branch);
+		}
+		return brmemError(result.error.code, result.error.message, result.error.displayCommand);
 	}
 
 	async listEntries(options: {
@@ -383,18 +390,14 @@ export class RealGitBrmemGateway implements BrmemGateway {
 				"invalid_branch_name",
 				formatInvalid("branch name", branch, branchValidation.reason),
 			);
-		const gitValidation = await runGit(this.commands, ["check-ref-format", "--branch", branch], {
-			cwd: this.cwd,
-		});
-		if (gitValidation.code !== 0)
-			return brmemError(
-				"invalid_branch_name",
-				commandMessage(
-					formatInvalid("branch name", branch, "invalid git branch name"),
-					gitValidation,
-				),
-				gitValidation.displayCommand,
-			);
+		const gitValidation = await this.git.validateBranchRef({ cwd: this.cwd, branch });
+		if (!gitValidation.ok) {
+			const code =
+				gitValidation.error.code === "branch_ref_invalid"
+					? "invalid_branch_name"
+					: gitValidation.error.code;
+			return brmemError(code, gitValidation.error.message, gitValidation.error.displayCommand);
+		}
 		return brmemOk(undefined);
 	}
 

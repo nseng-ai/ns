@@ -52,8 +52,19 @@
       `just ts-format-check`, `just ts-lint`, `just ts-check`, `just ts-test`
       (3022 passed), `just ts-deps-check`, `just ts-guard`.
       See `references/branch-memory-access.md` and `references/asdl-core.md`.
-- [ ] Compose core `GitGateway` inside `brmem/real-git-gateway.ts`; remove the
-      duplicated `runGit`/`currentBranch`/branch-validation primitives.
+- [x] Compose core `GitGateway` inside `brmem/real-git-gateway.ts`; remove the
+      duplicated `currentBranch` and Git branch-ref validation primitives while
+      keeping Branch Memory Snapshot object/ref plumbing local to brmem.
+      Evidence: `RealGitBrmemGateway` now requires an options object with shared
+      `commands` and `git` seams, delegates current-branch and Git branch-ref
+      checks to `GitGateway`, keeps brmem's `---` Snapshot Ref encoding pre-check,
+      and production contexts share one command executor between core Git and
+      brmem. `branch-context` now validates target branches only through
+      `GitGateway.validateBranchRef`; the old handwritten target-branch validator
+      is gone and invalid branches fail before plan-file I/O, branch creation, or
+      Branch Memory attachment. Gates green: focused brmem/branch-context/handoff
+      and core tests plus `just ts-format-check`, `just ts-lint`, `just ts-check`,
+      `just ts-test`, `just ts-deps-check`, `just ts-guard`.
       See `references/cross-package-dedup.md`.
 - [ ] Add `resolveBranchOrCurrent` to asdl-core and replace the 4 per-package
       copies; pick one canonical branch-name validator and remove the 3 divergent

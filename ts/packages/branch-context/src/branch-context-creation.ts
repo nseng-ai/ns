@@ -66,14 +66,13 @@ export async function createBranchContextFromFile(
 ): Promise<BranchContextEvidence> {
 	const operation = buildBranchContextCreateOperation(params);
 	const { git, brmem, graphite } = options.context;
+	await checkBranchRefFormat(git, options.cwd, operation.branch, options.signal);
 	const sourceFile = await resolvePlanSourceFile(pi, {
 		cwd: options.cwd,
 		rawFilePath: operation.filePath,
 		signal: options.signal,
 		git,
 	});
-
-	await checkBranchRefFormat(git, options.cwd, operation.branch, options.signal);
 	const startPoint = await resolveStartPoint(git, options.cwd, options.signal);
 	await assertLocalBranchAbsent(git, options.cwd, operation.branch, options.signal);
 	await assertBrmemEntryAbsent(brmem, operation.branch, operation.key);
@@ -121,11 +120,6 @@ export function buildBranchContextCreateOperation(
 	const slug = params.slug.trim();
 	const branchCreation = params.branchCreation ?? DEFAULT_BRANCH_CREATION_METHOD;
 	const branch = deriveTargetBranch(params.branchName, slug);
-	const branchError = validateTargetBranchName(branch);
-	if (branchError !== undefined) {
-		throw new Error(`Invalid target branch name: ${branchError}`);
-	}
-
 	const summary = normalizeSummary(params.summary);
 	const operationParams: CreateBranchContextFromFileParams = {
 		slug,
@@ -241,48 +235,6 @@ export function formatBranchContextCreateFailure(
 export function deriveTargetBranch(branchName: string | undefined, slug: string): string {
 	const trimmedBranchName = branchName?.trim();
 	return trimmedBranchName && trimmedBranchName.length > 0 ? trimmedBranchName : slug;
-}
-
-export function validateTargetBranchName(branch: string): string | undefined {
-	if (branch.length === 0) {
-		return "Branch name is required.";
-	}
-	if (/\s/.test(branch)) {
-		return "Branch name must not contain whitespace.";
-	}
-	if (/[\x00-\x1F\x7F]/.test(branch)) {
-		return "Branch name must not contain control characters.";
-	}
-	if (branch.startsWith("-")) {
-		return "Branch name must not start with a hyphen.";
-	}
-	if (branch.startsWith("/") || branch.endsWith("/")) {
-		return "Branch name must not start or end with a slash.";
-	}
-	if (branch.includes("//")) {
-		return "Branch name must not contain consecutive slashes.";
-	}
-	if (branch.includes("..")) {
-		return "Branch name must not contain `..`.";
-	}
-	if (branch.includes("@{")) {
-		return "Branch name must not contain `@{`.";
-	}
-	if (/[~^:?*[\\]/.test(branch)) {
-		return "Branch name must not contain Git ref metacharacters.";
-	}
-	if (branch.endsWith(".")) {
-		return "Branch name must not end with a dot.";
-	}
-	if (
-		branch
-			.split("/")
-			.some((segment) => segment === "" || segment === "." || segment.endsWith(".lock"))
-	) {
-		return "Branch name contains an invalid path segment.";
-	}
-
-	return undefined;
 }
 
 async function checkBranchRefFormat(

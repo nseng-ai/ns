@@ -157,7 +157,12 @@ Risks:
   preserved inside `runBrmem` and is locked by a new fallback unit test, so the
   collapse is byte-for-byte behavior-preserving. `graphqlErrorsFromJson` remains
   deleted. All TS gates pass (`ts-format-check`, `ts-lint`, `ts-check`,
-  `ts-test`, `ts-deps-check`, `ts-guard`).
+  `ts-test`, `ts-deps-check`, `ts-guard`). The brmem/core GitGateway composition
+  slice is also complete: brmem delegates current-branch and Git branch-ref facts
+  to core `GitGateway` while retaining its Branch Memory Snapshot Ref encoding
+  pre-check and local object/ref plumbing; `branch-context` no longer carries its
+  handwritten target-branch validator and validates target branches through core
+  Git before plan-file I/O or mutation. Full TS gates pass for that slice.
 - A shared `defineCli` helper touches all 15 CLIs at once; a subtle change to
   IO/exit-code/entry-guard semantics could regress every CLI simultaneously.
   Mitigate by landing it behind scenario-test coverage of `--version`,

@@ -11,6 +11,7 @@ import {
 	type ExecResult,
 	type StdinCapableCommandExecApi,
 } from "@sdl/core/exec";
+import { RealGitGateway } from "@sdl/core/git";
 import type { BrmemResult } from "../../src/contracts.ts";
 import type {
 	CopyEntriesResult,
@@ -26,7 +27,7 @@ describe("RealGitBrmemGateway integration", () => {
 	it("writes Snapshot Refs and reads/checks/lists Entries in a throwaway repository", async () => {
 		const repo = createTempGitRepo();
 		try {
-			const gateway = new RealGitBrmemGateway(repo.path);
+			const gateway = realGitBrmemGateway(repo.path);
 			await withCommitterDate("2026-02-03T04:05:06+00:00", async () => {
 				expect(
 					(
@@ -77,7 +78,7 @@ describe("RealGitBrmemGateway integration", () => {
 		const repo = createTempGitRepo();
 		try {
 			mkdirSync(join(repo.path, "ts"));
-			const gateway = new RealGitBrmemGateway(join(repo.path, "ts"));
+			const gateway = realGitBrmemGateway(join(repo.path, "ts"));
 			const key = "reviews/sdl-typescript-style/log.md";
 			expect(
 				(
@@ -104,7 +105,7 @@ describe("RealGitBrmemGateway integration", () => {
 	it("writes mixed-depth Entry Keys as nested Snapshot tree entries", async () => {
 		const repo = createTempGitRepo();
 		try {
-			const gateway = new RealGitBrmemGateway(repo.path);
+			const gateway = realGitBrmemGateway(repo.path);
 			expect(
 				(
 					await gateway.putEntry({
@@ -151,7 +152,7 @@ describe("RealGitBrmemGateway integration", () => {
 		const repo = createTempGitRepo();
 		try {
 			const beforeIndexTree = repo.runGit(["write-tree"]).trim();
-			const gateway = new RealGitBrmemGateway(
+			const gateway = realGitBrmemGateway(
 				repo.path,
 				new DroppingOptionsCommands({ dropEnv: true }),
 			);
@@ -178,7 +179,7 @@ describe("RealGitBrmemGateway integration", () => {
 		const repo = createTempGitRepo();
 		try {
 			const beforeIndexTree = repo.runGit(["write-tree"]).trim();
-			const gateway = new RealGitBrmemGateway(
+			const gateway = realGitBrmemGateway(
 				repo.path,
 				new DroppingOptionsCommands({ dropStdin: true }),
 			);
@@ -202,7 +203,7 @@ describe("RealGitBrmemGateway integration", () => {
 	it("deletes Entries while preserving siblings and leaving an empty Snapshot", async () => {
 		const repo = createTempGitRepo();
 		try {
-			const gateway = new RealGitBrmemGateway(repo.path);
+			const gateway = realGitBrmemGateway(repo.path);
 			await gateway.putEntry({ namespace: "base", branch: "main", key: "a", content: "A" });
 			await gateway.putEntry({ namespace: "base", branch: "main", key: "b", content: "B" });
 			expect(
@@ -229,7 +230,7 @@ describe("RealGitBrmemGateway integration", () => {
 	it("copies snapshots by reassigning the destination ref to the source commit", async () => {
 		const repo = createTempGitRepo();
 		try {
-			const gateway = new RealGitBrmemGateway(repo.path);
+			const gateway = realGitBrmemGateway(repo.path);
 			await gateway.putEntry({
 				namespace: "notes",
 				branch: "source",
@@ -253,7 +254,7 @@ describe("RealGitBrmemGateway integration", () => {
 	it("copies key globs while preserving non-matching destination Entries", async () => {
 		const repo = createTempGitRepo();
 		try {
-			const gateway = new RealGitBrmemGateway(repo.path);
+			const gateway = realGitBrmemGateway(repo.path);
 			await gateway.putEntry({
 				namespace: "base",
 				branch: "source",
@@ -314,7 +315,7 @@ describe("RealGitBrmemGateway integration", () => {
 	it("flags a glob conflict for a destination Entry that matches the glob but is absent from source", async () => {
 		const repo = createTempGitRepo();
 		try {
-			const gateway = new RealGitBrmemGateway(repo.path);
+			const gateway = realGitBrmemGateway(repo.path);
 			await gateway.putEntry({
 				namespace: "base",
 				branch: "source",
@@ -346,7 +347,7 @@ describe("RealGitBrmemGateway integration", () => {
 	it("skips corrupt Snapshot Entry Keys while listing without throwing", async () => {
 		const repo = createTempGitRepo();
 		try {
-			const gateway = new RealGitBrmemGateway(repo.path);
+			const gateway = realGitBrmemGateway(repo.path);
 			const corrupt = createCorruptSnapshot(repo, {
 				namespace: "notes",
 				branch: "source",
@@ -365,7 +366,7 @@ describe("RealGitBrmemGateway integration", () => {
 	it("refuses to put an Entry over a corrupt existing Snapshot", async () => {
 		const repo = createTempGitRepo();
 		try {
-			const gateway = new RealGitBrmemGateway(repo.path);
+			const gateway = realGitBrmemGateway(repo.path);
 			const corrupt = createCorruptSnapshot(repo, {
 				namespace: "base",
 				branch: "main",
@@ -389,7 +390,7 @@ describe("RealGitBrmemGateway integration", () => {
 	it("refuses to delete a valid Entry from a corrupt existing Snapshot", async () => {
 		const repo = createTempGitRepo();
 		try {
-			const gateway = new RealGitBrmemGateway(repo.path);
+			const gateway = realGitBrmemGateway(repo.path);
 			const corrupt = createCorruptSnapshot(repo, {
 				namespace: "base",
 				branch: "main",
@@ -415,7 +416,7 @@ describe("RealGitBrmemGateway integration", () => {
 	it("refuses full Namespace Copy from a corrupt source Snapshot", async () => {
 		const repo = createTempGitRepo();
 		try {
-			const gateway = new RealGitBrmemGateway(repo.path);
+			const gateway = realGitBrmemGateway(repo.path);
 			const corrupt = createCorruptSnapshot(repo, {
 				namespace: "notes",
 				branch: "source",
@@ -441,7 +442,7 @@ describe("RealGitBrmemGateway integration", () => {
 	it("refuses full Namespace Copy into a corrupt destination Snapshot even with overwrite", async () => {
 		const repo = createTempGitRepo();
 		try {
-			const gateway = new RealGitBrmemGateway(repo.path);
+			const gateway = realGitBrmemGateway(repo.path);
 			expect(
 				(
 					await gateway.putEntry({
@@ -475,7 +476,7 @@ describe("RealGitBrmemGateway integration", () => {
 	it("validates the whole source Snapshot before key-glob Namespace Copy", async () => {
 		const repo = createTempGitRepo();
 		try {
-			const gateway = new RealGitBrmemGateway(repo.path);
+			const gateway = realGitBrmemGateway(repo.path);
 			const corrupt = createCorruptSnapshot(repo, {
 				namespace: "base",
 				branch: "source",
@@ -505,7 +506,7 @@ describe("RealGitBrmemGateway integration", () => {
 	it("maps invalid branch names and detached current branch to structured errors", async () => {
 		const repo = createTempGitRepo();
 		try {
-			const gateway = new RealGitBrmemGateway(repo.path);
+			const gateway = realGitBrmemGateway(repo.path);
 			expect(
 				(
 					await gateway.putEntry({
@@ -529,7 +530,7 @@ describe("RealGitBrmemGateway integration", () => {
 	it("skips invalid Entry Keys when listing a corrupted Snapshot Ref instead of aborting", async () => {
 		const repo = createTempGitRepo();
 		try {
-			const gateway = new RealGitBrmemGateway(repo.path);
+			const gateway = realGitBrmemGateway(repo.path);
 			// Craft a poisoned snapshot whose tree contains a path that is not a valid
 			// Entry Key (the bracket fails key validation) alongside a valid Entry.
 			writeFileSync(join(repo.path, "good.md"), "good\n", "utf8");
@@ -566,7 +567,7 @@ describe("RealGitBrmemGateway integration", () => {
 					return real.exec(command, args, { ...options, env });
 				},
 			};
-			const gateway = new RealGitBrmemGateway(repo.path, envDropping);
+			const gateway = realGitBrmemGateway(repo.path, envDropping);
 			const put = await gateway.putEntry({
 				namespace: "branch-context",
 				branch: "feat/x",
@@ -586,7 +587,7 @@ describe("RealGitBrmemGateway integration", () => {
 		const repo = createTempGitRepo();
 		try {
 			repo.runGit(["remote", "add", "origin", "/tmp/brmem-setup-test-remote.git"]);
-			const gateway = new RealGitBrmemGateway(repo.path);
+			const gateway = realGitBrmemGateway(repo.path);
 
 			const found = await gateway.getRemoteConfig("origin");
 			expect(found).toMatchObject({
@@ -624,6 +625,13 @@ describe("RealGitBrmemGateway integration", () => {
 type SnapshotCorruptResult = BrmemResult<
 	readonly ListedEntry[] | PutEntryResult | DeleteEntryResult | CopyEntriesResult
 >;
+
+function realGitBrmemGateway(
+	cwd: string,
+	commands: StdinCapableCommandExecApi = new NodeCommandExecApi(),
+): RealGitBrmemGateway {
+	return new RealGitBrmemGateway({ cwd, commands, git: new RealGitGateway(commands) });
+}
 
 interface CorruptSnapshotEntry {
 	key: string;

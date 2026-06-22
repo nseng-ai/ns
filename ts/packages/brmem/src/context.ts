@@ -1,3 +1,5 @@
+import { NodeCommandExecApi } from "@sdl/core/exec";
+import { RealGitGateway } from "@sdl/core/git";
 import { readStdin } from "@sdl/core/stdin";
 
 import type { BrmemGateway } from "./gateway.ts";
@@ -19,8 +21,10 @@ export function createRealBrmemContext(
 ): BrmemCliContext {
 	const cwd = options.cwd ?? process.cwd();
 	const env = options.env ?? process.env;
+	const commands = new NodeCommandExecApi();
+	const git = new RealGitGateway(commands);
 	return {
-		gateway: new RealGitBrmemGateway(cwd),
+		gateway: new RealGitBrmemGateway({ cwd, commands, git }),
 		promptResolver: new RealBrmemPromptResolver({ env }),
 		cwd,
 		env,
