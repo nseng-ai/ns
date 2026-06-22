@@ -182,7 +182,10 @@ Repair the failed just run.
 				{ key: "just", value: "running just…" },
 				{ key: "just", value: undefined },
 			]);
-			expect(context.notifications).toContainEqual({ message: "Running `just`…", level: "info" });
+			expect(context.notifications).not.toContainEqual({
+				message: "Running `just`…",
+				level: "info",
+			});
 			expect(context.notifications).toContainEqual({
 				message: "`just` failed; invoking code-just-fix.",
 				level: "warning",

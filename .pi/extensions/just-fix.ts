@@ -81,7 +81,6 @@ async function runJustThenInvokeSkill(pi: ExtensionAPI, ctx: CommandContext): Pr
 
 	if (ctx.hasUI) {
 		ctx.ui.setStatus("just", "running just…");
-		ctx.ui.notify("Running `just`…", "info");
 	}
 
 	let result: ExecResult;

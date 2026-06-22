@@ -24,14 +24,15 @@ const LIVE_PROGRESS_STATUS_ID = "sdl-cli-command";
 const LIVE_PROGRESS_WIDGET_ID = "sdl-cli-command-output";
 const LIVE_PROGRESS_INTERVAL_MS = 1_000;
 const LIVE_PROGRESS_MAX_LINES = 8;
-const LIVE_PROGRESS_MAX_LINE_CHARS = 160;
+const LIVE_PROGRESS_WIDGET_OUTPUT_LINES = 1;
+const LIVE_PROGRESS_MAX_LINE_CHARS = 100;
 
 export const CLI_COMMAND_OUTPUT_MESSAGE_TYPE = "sdl-cli-command-output";
 
 type NotifyLevel = "info" | "warning" | "error";
 type TraceFields = Record<string, unknown>;
 type OutputStreamName = "stdout" | "stderr";
-type LiveProgressTarget = "none" | "status" | "widget" | "status_widget";
+type LiveProgressTarget = "none" | "status" | "widget";
 type CommandWidgetPlacement = "aboveEditor" | "belowEditor";
 
 interface CustomMessage {
@@ -628,6 +629,7 @@ class LiveCommandProgress {
 	private stdoutPending = "";
 	private stderrPending = "";
 	private outputLines: LiveOutputLine[] = [];
+	private lastStatusValue: string | undefined;
 	private timer: ReturnType<typeof setInterval> | undefined;
 	private isClosed = false;
 
@@ -703,32 +705,48 @@ class LiveCommandProgress {
 		if (this.target === "none" || this.isClosed) return;
 
 		const elapsed = formatElapsedMs(Date.now() - this.startedAt);
-		this.ctx.ui.setStatus?.(
-			LIVE_PROGRESS_STATUS_ID,
-			`/${this.options.piCommandName} ${this.phase} (${elapsed})`,
-		);
+		this.renderStatus(elapsed);
 		this.ctx.ui.setWidget?.(LIVE_PROGRESS_WIDGET_ID, this.widgetLines(elapsed), {
 			placement: "aboveEditor",
 		});
 	}
 
+	private renderStatus(elapsed: string): void {
+		if (this.target !== "status") return;
+
+		const value = this.statusValue(elapsed);
+		if (value === this.lastStatusValue) return;
+
+		this.lastStatusValue = value;
+		this.ctx.ui.setStatus?.(LIVE_PROGRESS_STATUS_ID, value);
+	}
+
+	private statusValue(elapsed: string): string {
+		return `/${this.options.piCommandName} ${this.phase} (${elapsed})`;
+	}
+
 	private widgetLines(elapsed: string): string[] {
 		const lines = [
-			`Running /${this.options.piCommandName} — ${this.phase} — ${elapsed} elapsed`,
-			`$ ${formatCommandForDisplay(this.options.cliName, this.options.argv)}`,
-			`stdout ${this.stdoutChars} chars, stderr ${this.stderrChars} chars`,
+			`/${this.options.piCommandName} ${this.phase} (${elapsed} elapsed)`,
+			`$ ${formatCommandForDisplay(this.options.cliName, this.options.argv)} · stdout ${this.stdoutChars}, stderr ${this.stderrChars}`,
 		];
 		const recentLines = this.recentOutputLines();
 		if (recentLines.length === 0) {
-			lines.push("No CLI output yet; still running.");
-			return lines;
+			lines.push("No CLI output yet.");
+			return lines.map((line) => truncateDisplayLine(line, LIVE_PROGRESS_MAX_LINE_CHARS));
 		}
 
-		lines.push("Recent CLI output:");
-		for (const line of recentLines) {
+		const shownLines = recentLines.slice(-LIVE_PROGRESS_WIDGET_OUTPUT_LINES);
+		const hiddenLineCount = recentLines.length - shownLines.length;
+		if (hiddenLineCount > 0) {
+			lines.push(
+				`… ${hiddenLineCount} earlier recent CLI line${hiddenLineCount === 1 ? "" : "s"} hidden`,
+			);
+		}
+		for (const line of shownLines) {
 			lines.push(formatLiveOutputLine(line));
 		}
-		return lines;
+		return lines.map((line) => truncateDisplayLine(line, LIVE_PROGRESS_MAX_LINE_CHARS));
 	}
 
 	private recordOutput(stream: OutputStreamName, text: string): void {
@@ -763,9 +781,8 @@ function liveProgressTarget(ctx: CommandContext): LiveProgressTarget {
 
 	const hasStatus = ctx.ui.setStatus !== undefined;
 	const hasWidget = ctx.ui.setWidget !== undefined;
-	if (hasStatus && hasWidget) return "status_widget";
-	if (hasStatus) return "status";
 	if (hasWidget) return "widget";
+	if (hasStatus) return "status";
 	return "none";
 }
 
@@ -779,12 +796,7 @@ function formatDisplayArg(arg: string): string {
 }
 
 function formatLiveOutputLine(line: LiveOutputLine): string {
-	return `${line.stream}: ${truncateLiveProgressLine(line.text)}`;
-}
-
-function truncateLiveProgressLine(text: string): string {
-	if (text.length <= LIVE_PROGRESS_MAX_LINE_CHARS) return text;
-	return `${text.slice(0, LIVE_PROGRESS_MAX_LINE_CHARS - 1)}…`;
+	return truncateDisplayLine(`${line.stream}: ${line.text}`, LIVE_PROGRESS_MAX_LINE_CHARS);
 }
 
 function emitCliCommandOutput(
