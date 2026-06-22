@@ -628,6 +628,7 @@ class LiveCommandProgress {
 	private stdoutPending = "";
 	private stderrPending = "";
 	private outputLines: LiveOutputLine[] = [];
+	private lastStatusValue: string | undefined;
 	private timer: ReturnType<typeof setInterval> | undefined;
 	private isClosed = false;
 
@@ -703,13 +704,25 @@ class LiveCommandProgress {
 		if (this.target === "none" || this.isClosed) return;
 
 		const elapsed = formatElapsedMs(Date.now() - this.startedAt);
-		this.ctx.ui.setStatus?.(
-			LIVE_PROGRESS_STATUS_ID,
-			`/${this.options.piCommandName} ${this.phase} (${elapsed})`,
-		);
+		this.renderStatus(elapsed);
 		this.ctx.ui.setWidget?.(LIVE_PROGRESS_WIDGET_ID, this.widgetLines(elapsed), {
 			placement: "aboveEditor",
 		});
+	}
+
+	private renderStatus(elapsed: string): void {
+		if (this.target !== "status" && this.target !== "status_widget") return;
+
+		const value = this.statusValue(elapsed);
+		if (value === this.lastStatusValue) return;
+
+		this.lastStatusValue = value;
+		this.ctx.ui.setStatus?.(LIVE_PROGRESS_STATUS_ID, value);
+	}
+
+	private statusValue(elapsed: string): string {
+		if (this.target === "status_widget") return `/${this.options.piCommandName} ${this.phase}`;
+		return `/${this.options.piCommandName} ${this.phase} (${elapsed})`;
 	}
 
 	private widgetLines(elapsed: string): string[] {

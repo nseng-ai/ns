@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
 import {
 	CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
@@ -1013,6 +1013,47 @@ describe("cli command extension helper", () => {
 		});
 		expect(notifications).toEqual([]);
 		expectSingleCliOutputMessage(pi, "stdout:\nstarted\n\nstderr:\nfinished\n");
+	});
+
+	test("keeps footer status stable while the live widget ticks", async () => {
+		vi.useFakeTimers();
+		try {
+			let markRunStarted: (() => void) | undefined;
+			const runStarted = new Promise<void>((resolve) => {
+				markRunStarted = resolve;
+			});
+			let finishRun: (() => void) | undefined;
+			const runFinished = new Promise<void>((resolve) => {
+				finishRun = resolve;
+			});
+			const pi = new FakePi();
+			registerFakeCli(pi, {
+				runCli: async (_args, deps) => {
+					deps.stderr("running elsewhere\n");
+					markRunStarted?.();
+					await runFinished;
+					return 0;
+				},
+			});
+			const { ctx, statuses, widgets } = createContext();
+
+			const commandPromise = commandFor(pi, "dev:preview-status").handler("", ctx);
+			await runStarted;
+
+			const statusValuesBeforeTicks = statuses.map((status) => status.value);
+			const widgetCountBeforeTicks = widgets.length;
+			await vi.advanceTimersByTimeAsync(3_000);
+
+			expect(statuses.map((status) => status.value)).toEqual(statusValuesBeforeTicks);
+			expect(widgets.length).toBeGreaterThan(widgetCountBeforeTicks);
+
+			if (finishRun === undefined) throw new Error("Expected run resolver to be initialized.");
+			finishRun();
+			await commandPromise;
+			expect(statuses.at(-1)).toEqual({ key: "sdl-cli-command", value: undefined });
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	test("streams live CLI output separately from final captured output", async () => {
