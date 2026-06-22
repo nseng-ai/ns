@@ -45,6 +45,13 @@ describe("PR description helpers", () => {
 		});
 	});
 
+	test("normalizes CRLF and lone CR separators at the parser boundary", () => {
+		const expected = parsePrDescriptionOutput(validDraft());
+
+		expect(parsePrDescriptionOutput(validDraft().replace(/\n/g, "\r\n"))).toEqual(expected);
+		expect(parsePrDescriptionOutput(validDraft().replace(/\n/g, "\r"))).toEqual(expected);
+	});
+
 	test("rejects empty body, overlong titles, and attribution footers", () => {
 		const parsed = parsePrDescriptionOutput(`${"x".repeat(121)}\n\nGenerated with Claude Code`);
 

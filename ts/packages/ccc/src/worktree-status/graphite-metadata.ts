@@ -1,5 +1,4 @@
-import { existsSync, readdirSync, readFileSync, type Dirent } from "node:fs";
-import { join } from "node:path";
+import { existsSync } from "node:fs";
 import { Worker } from "node:worker_threads";
 
 import {
@@ -13,6 +12,7 @@ import {
 	parseGraphiteBranchMetadataRows,
 	sqliteTextLiteral,
 } from "@sdl/core/graphite-metadata";
+import { readLocalBranchRefs, type LocalBranchRefReadResult } from "@sdl/core/git";
 import { isRecord } from "@sdl/pi-extension-runtime/cmux/primitives";
 const GRAPHITE_METADATA_UNAVAILABLE_REASONS = [
 	"missing-db",
@@ -22,6 +22,7 @@ const GRAPHITE_METADATA_UNAVAILABLE_REASONS = [
 	"schema-mismatch",
 	"not-a-git-repo",
 	"no-current-branch",
+	"branch-ref-read-failed",
 ] as const;
 export type GraphiteMetadataUnavailableReason =
 	(typeof GRAPHITE_METADATA_UNAVAILABLE_REASONS)[number];
@@ -92,12 +93,8 @@ export interface GraphiteMetadataDbAccess {
  * reads loose refs and `packed-refs` directly from the filesystem, keeping the
  * passive worktree-status path free of git subprocesses.
  */
-export type GraphiteBranchLookupResult =
-	| { type: "known"; branches: ReadonlySet<string> }
-	| { type: "unknown"; reason: "read-failed" | "unsupported-ref-storage" };
-
 export interface GraphiteBranchAccess {
-	listLocalBranches(commonGitDir: string): GraphiteBranchLookupResult;
+	listLocalBranches(commonGitDir: string): LocalBranchRefReadResult;
 }
 
 export interface LoadGraphiteMetadataStatusOptions {
@@ -271,14 +268,18 @@ export function loadGraphiteMetadataStatus(
 
 	// Reconcile children against live local refs so the "up" branch matches gt,
 	// which silently drops children whose refs/heads/<name> no longer exists. If
-	// the passive filesystem scan cannot prove the live set, preserve metadata
-	// children rather than turning "unknown" into "definitely gone".
+	// the passive filesystem scan cannot prove the live set, fail closed rather
+	// than turning unknown refs into definitely missing refs.
 	const branchAccess = options.branchAccess ?? defaultGraphiteBranchAccess;
 	const liveBranches = branchAccess.listLocalBranches(input.commonGitDir);
-	const children =
-		liveBranches.type === "known"
-			? filterLiveBranchNames(row.children, liveBranches.branches).kept
-			: row.children;
+	if (!liveBranches.ok) {
+		return {
+			type: "unavailable",
+			reason: "branch-ref-read-failed",
+			currentBranch: input.currentBranch,
+		};
+	}
+	const children = filterLiveBranchNames(row.children, liveBranches.branches).kept;
 
 	return {
 		type: "tracked",
@@ -427,62 +428,11 @@ const defaultGraphiteMetadataDbAccess: GraphiteMetadataDbAccess = {
 	},
 };
 
-const HEADS_REF_PREFIX = "refs/heads/";
-
 const defaultGraphiteBranchAccess: GraphiteBranchAccess = {
 	listLocalBranches(commonGitDir) {
-		const branches = new Set<string>();
-		const looseRefsKnown = collectLooseBranchRefs(
-			join(commonGitDir, "refs", "heads"),
-			[],
-			branches,
-		);
-		const packedRefsKnown = collectPackedBranchRefs(join(commonGitDir, "packed-refs"), branches);
-		if (!looseRefsKnown) return { type: "unknown", reason: "unsupported-ref-storage" };
-		if (!packedRefsKnown) return { type: "unknown", reason: "read-failed" };
-		return { type: "known", branches };
+		return readLocalBranchRefs(commonGitDir);
 	},
 };
-
-// Loose refs live as files under refs/heads/**; the branch name is the path under
-// refs/heads/, so nested names (e.g. "objective-refresh/foo") are preserved.
-function collectLooseBranchRefs(dir: string, prefix: readonly string[], out: Set<string>): boolean {
-	let entries: Dirent[];
-	try {
-		entries = readdirSync(dir, { withFileTypes: true });
-	} catch {
-		return false;
-	}
-	for (const entry of entries) {
-		const segments = [...prefix, entry.name];
-		if (entry.isDirectory()) {
-			if (!collectLooseBranchRefs(join(dir, entry.name), segments, out)) return false;
-		} else if (entry.isFile()) {
-			out.add(segments.join("/"));
-		}
-	}
-	return true;
-}
-
-// packed-refs lines are "<oid> <refname>"; skip comment (#) and peeled (^) lines.
-function collectPackedBranchRefs(packedRefsPath: string, out: Set<string>): boolean {
-	if (!existsSync(packedRefsPath)) return true;
-	let content: string;
-	try {
-		content = readFileSync(packedRefsPath, "utf8");
-	} catch {
-		return false;
-	}
-	for (const line of content.split("\n")) {
-		const trimmed = line.trim();
-		if (trimmed === "" || trimmed.startsWith("#") || trimmed.startsWith("^")) continue;
-		const spaceIndex = trimmed.indexOf(" ");
-		if (spaceIndex === -1) continue;
-		const refName = trimmed.slice(spaceIndex + 1).trim();
-		if (refName.startsWith(HEADS_REF_PREFIX)) out.add(refName.slice(HEADS_REF_PREFIX.length));
-	}
-	return true;
-}
 
 const graphiteSqliteJsonRunner = createGraphiteSqliteJsonRunner();
 

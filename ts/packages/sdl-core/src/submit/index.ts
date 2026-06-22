@@ -64,6 +64,7 @@ export {
 	MAX_DIFF_CHARS,
 	parseManagedGeneratedRegion,
 	parsePrDescriptionOutput,
+	preparePrDescription,
 	PR_DESCRIPTION_GENERATOR_VERSION,
 	PR_DESCRIPTION_PROMPT_ENV,
 	replaceOrInsertGeneratedRegion,
@@ -72,6 +73,8 @@ export {
 	REPO_PR_DESCRIPTION_PROMPT_PATH,
 	truncateDiff,
 	type PrDescriptionFingerprintMetadata,
+	type PrDescriptionPromptContext,
+	type PreparedPrDescription,
 	type PromptSource,
 } from "./pr-description.ts";
 export { commandFailure, type CommandFailureOptions } from "./command-failure.ts";
