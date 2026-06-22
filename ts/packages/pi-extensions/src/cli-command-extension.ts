@@ -32,7 +32,7 @@ export const CLI_COMMAND_OUTPUT_MESSAGE_TYPE = "sdl-cli-command-output";
 type NotifyLevel = "info" | "warning" | "error";
 type TraceFields = Record<string, unknown>;
 type OutputStreamName = "stdout" | "stderr";
-type LiveProgressTarget = "none" | "status" | "widget" | "status_widget";
+type LiveProgressTarget = "none" | "status" | "widget";
 type CommandWidgetPlacement = "aboveEditor" | "belowEditor";
 
 interface CustomMessage {
@@ -712,7 +712,7 @@ class LiveCommandProgress {
 	}
 
 	private renderStatus(elapsed: string): void {
-		if (this.target !== "status" && this.target !== "status_widget") return;
+		if (this.target !== "status") return;
 
 		const value = this.statusValue(elapsed);
 		if (value === this.lastStatusValue) return;
@@ -722,7 +722,6 @@ class LiveCommandProgress {
 	}
 
 	private statusValue(elapsed: string): string {
-		if (this.target === "status_widget") return `/${this.options.piCommandName} ${this.phase}`;
 		return `/${this.options.piCommandName} ${this.phase} (${elapsed})`;
 	}
 
@@ -734,7 +733,7 @@ class LiveCommandProgress {
 		const recentLines = this.recentOutputLines();
 		if (recentLines.length === 0) {
 			lines.push("No CLI output yet.");
-			return lines.map(truncateLiveProgressLine);
+			return lines.map((line) => truncateDisplayLine(line, LIVE_PROGRESS_MAX_LINE_CHARS));
 		}
 
 		const shownLines = recentLines.slice(-LIVE_PROGRESS_WIDGET_OUTPUT_LINES);
@@ -747,7 +746,7 @@ class LiveCommandProgress {
 		for (const line of shownLines) {
 			lines.push(formatLiveOutputLine(line));
 		}
-		return lines.map(truncateLiveProgressLine);
+		return lines.map((line) => truncateDisplayLine(line, LIVE_PROGRESS_MAX_LINE_CHARS));
 	}
 
 	private recordOutput(stream: OutputStreamName, text: string): void {
@@ -782,9 +781,8 @@ function liveProgressTarget(ctx: CommandContext): LiveProgressTarget {
 
 	const hasStatus = ctx.ui.setStatus !== undefined;
 	const hasWidget = ctx.ui.setWidget !== undefined;
-	if (hasStatus && hasWidget) return "status_widget";
-	if (hasStatus) return "status";
 	if (hasWidget) return "widget";
+	if (hasStatus) return "status";
 	return "none";
 }
 
@@ -798,12 +796,7 @@ function formatDisplayArg(arg: string): string {
 }
 
 function formatLiveOutputLine(line: LiveOutputLine): string {
-	return `${line.stream}: ${truncateLiveProgressLine(line.text)}`;
-}
-
-function truncateLiveProgressLine(text: string): string {
-	if (text.length <= LIVE_PROGRESS_MAX_LINE_CHARS) return text;
-	return `${text.slice(0, LIVE_PROGRESS_MAX_LINE_CHARS - 1)}…`;
+	return truncateDisplayLine(`${line.stream}: ${line.text}`, LIVE_PROGRESS_MAX_LINE_CHARS);
 }
 
 function emitCliCommandOutput(
