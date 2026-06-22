@@ -1,7 +1,9 @@
 import { existsSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 
-import { formatCommand } from "@sdl/core/exec";
+import { formatCommand, piExecApiToCommandExecApi } from "@sdl/core/exec";
+import { RealGitGateway } from "@sdl/core/git";
+import { reconcileTopologyToLiveBranches } from "@sdl/core/graphite-metadata";
 import { GIT_TIMEOUT_MS, GT_TIMEOUT_MS } from "./constants.ts";
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import {
@@ -137,20 +139,30 @@ export async function loadStackSnapshot(
 	const topology = await loadGraphiteTopology(pi, repoRoot, metadataDbPath);
 	if (topology.type === "failure") return topology;
 
+	// Graphite's own plumbing silently drops metadata rows/children whose local
+	// refs no longer exist; reconcile once here so the ancestor walk, fork gate,
+	// and descendant subtree all operate on the gt-equivalent (live-ref) view.
+	const liveBranches = await loadLiveLocalBranches(pi, repoRoot);
+	if (liveBranches.type === "failure") return liveBranches;
+	const { topology: reconciled, droppedBranches } = reconcileTopologyToLiveBranches(
+		topology.value,
+		liveBranches.value,
+	);
+
 	const landingBranches = derivePathToTrunk({
-		topology: topology.value,
+		topology: reconciled,
 		current,
 		trunk,
 		dbPath: metadataDbPath,
 	});
 	if (landingBranches.type === "failure") return landingBranches;
 
-	const violations = detectForkViolations(topology.value, landingBranches.value);
+	const violations = detectForkViolations(reconciled, landingBranches.value);
 	if (violations.length > 0) {
 		return failure(formatForkViolations(violations, trunk));
 	}
 
-	const descendantBranches = deriveDescendantSubtree(topology.value, current);
+	const descendantBranches = deriveDescendantSubtree(reconciled, current);
 	if (descendantBranches.type === "failure") return descendantBranches;
 
 	return success({
@@ -161,8 +173,38 @@ export async function loadStackSnapshot(
 		landingBranches: landingBranches.value,
 		remainingLandingBranches: [],
 		descendantBranches: descendantBranches.value,
-		warnings: trunkMarkerWarnings(topology.value, trunk),
+		warnings: [
+			...trunkMarkerWarnings(reconciled, trunk),
+			...staleMetadataBranchWarnings(droppedBranches),
+		],
 	});
+}
+
+export async function loadLiveLocalBranches(
+	pi: LandStackExtensionAPI,
+	repoRoot: string,
+): Promise<LandStackResult<ReadonlySet<string>>> {
+	const git = new RealGitGateway(piExecApiToCommandExecApi(pi));
+	const tips = await git.listLocalBranchTips({ cwd: repoRoot });
+	if (!tips.ok) {
+		return failure(
+			landStackFailure(
+				`Could not enumerate local branches to reconcile Graphite metadata.\n${tips.error.message}`,
+			),
+		);
+	}
+	return success(new Set(tips.value.map((tip) => tip.name)));
+}
+
+// A dangling child (a metadata row/child pointer for a branch deleted in git but
+// never `gt untrack`ed) is stale state, not a broken stack: land proceeds and
+// surfaces a single non-fatal warning so the user can clean it up.
+function staleMetadataBranchWarnings(droppedBranches: readonly string[]): string[] {
+	if (droppedBranches.length === 0) return [];
+	const cleanup = droppedBranches.map((branch) => `gt untrack ${branch}`).join("; ");
+	return [
+		`Ignored ${droppedBranches.length} stale Graphite metadata branch(es) with no local ref: ${droppedBranches.join(", ")}. Run ${cleanup} to clean up.`,
+	];
 }
 
 function trunkMarkerWarnings(topology: GraphiteTopology, trunk: string): string[] {

@@ -28,7 +28,7 @@ import {
 	formatPlan,
 	formatSuccessNotification,
 } from "../src/land-stack/presentation.ts";
-import { detectInProgressOperation } from "../src/land-stack/stack-facts.ts";
+import { detectInProgressOperation, loadStackSnapshot } from "../src/land-stack/stack-facts.ts";
 import type {
 	BranchPlan,
 	LandStackExtensionAPI,
@@ -38,6 +38,7 @@ import type {
 	LandingShape,
 	NotifyLevel,
 	PullRequestSnapshot,
+	StackSnapshot,
 } from "../src/land-stack/types.ts";
 import {
 	detectWorktreeConflicts,
@@ -361,13 +362,23 @@ function worktreeOutput(entries: Array<{ path: string; branch?: string }>): stri
 		.join("\n\n");
 }
 
+function metadataBranchNames(dbRows: string): string[] {
+	const parsed = JSON.parse(dbRows) as Array<{ branch_name?: unknown }>;
+	return parsed
+		.map((row) => row.branch_name)
+		.filter((name): name is string => typeof name === "string");
+}
+
 function repoIntro(
 	options: {
 		current?: string | undefined;
 		trunk?: string | undefined;
 		dbRows?: string | undefined;
+		liveBranches?: string[] | undefined;
 	} = {},
 ): ScriptedExec[] {
+	const dbRows = options.dbRows ?? DB_WITH_DESCENDANT;
+	const liveBranches = options.liveBranches ?? metadataBranchNames(dbRows);
 	return [
 		step("git", ["rev-parse", "--show-toplevel"], { stdout: `${ROOT}\n` }),
 		step("git", ["symbolic-ref", "--short", "HEAD"], { stdout: `${options.current ?? CURRENT}\n` }),
@@ -375,7 +386,14 @@ function repoIntro(
 		step("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], {
 			stdout: `${GIT_COMMON_DIR}\n`,
 		}),
-		step("sqlite3", TOPOLOGY_ARGS, { stdout: `${options.dbRows ?? DB_WITH_DESCENDANT}\n` }),
+		step("sqlite3", TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
+		step(
+			"git",
+			["for-each-ref", "--format=%(refname:short)%09%(committerdate:iso-strict)", "refs/heads"],
+			{
+				stdout: liveBranches.length > 0 ? `${liveBranches.join("\n")}\n` : "",
+			},
+		),
 	];
 }
 
@@ -3434,5 +3452,113 @@ describe("fork-safe topology and destructive-phase guards", () => {
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "restack")).toBe(
 			false,
 		);
+	});
+});
+
+describe("loadStackSnapshot reconciles Graphite metadata against live local refs", () => {
+	const FOR_EACH_REF_ARGS = [
+		"for-each-ref",
+		"--format=%(refname:short)%09%(committerdate:iso-strict)",
+		"refs/heads",
+	];
+
+	async function loadSnapshot(
+		dbRows: string,
+		liveBranches: string[],
+		current = CURRENT,
+	): Promise<LandStackResult<StackSnapshot>> {
+		const pi = new FakePi([
+			step("sqlite3", TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
+			step("git", FOR_EACH_REF_ARGS, {
+				stdout: liveBranches.length > 0 ? `${liveBranches.join("\n")}\n` : "",
+			}),
+		]);
+		const result = await loadStackSnapshot({
+			pi,
+			repoRoot: ROOT,
+			metadataDbPath: DB_PATH,
+			current,
+			trunk: TRUNK,
+		});
+		pi.assertDone();
+		return result;
+	}
+
+	test("ignores a dangling descendant child and warns instead of aborting", async () => {
+		const dbRows = metadataDbJson([
+			{ branch: TRUNK, children: ["feature-a"], trunk: true },
+			{ branch: "feature-a", parent: TRUNK, children: ["feature-b"] },
+			{ branch: "feature-b", parent: "feature-a", children: ["phantom"] },
+		]);
+
+		const snapshot = expectSuccess(await loadSnapshot(dbRows, [TRUNK, "feature-a", "feature-b"]));
+
+		expect(snapshot.landingBranches).toEqual(["feature-a", "feature-b"]);
+		expect(snapshot.descendantBranches).toEqual([]);
+		expect(
+			snapshot.warnings.some(
+				(warning) => warning.includes("phantom") && warning.includes("gt untrack phantom"),
+			),
+		).toBe(true);
+	});
+
+	test("does not fire the fork gate on a phantom sibling", async () => {
+		const dbRows = metadataDbJson([
+			{ branch: TRUNK, children: ["feature-a"], trunk: true },
+			{ branch: "feature-a", parent: TRUNK, children: ["feature-b", "phantom"] },
+			{ branch: "feature-b", parent: "feature-a", children: [] },
+		]);
+
+		const snapshot = expectSuccess(await loadSnapshot(dbRows, [TRUNK, "feature-a", "feature-b"]));
+
+		expect(snapshot.landingBranches).toEqual(["feature-a", "feature-b"]);
+		expect(snapshot.warnings.some((warning) => warning.includes("phantom"))).toBe(true);
+	});
+
+	test("still fires the fork gate on two live siblings", async () => {
+		const dbRows = metadataDbJson([
+			{ branch: TRUNK, children: ["feature-a"], trunk: true },
+			{ branch: "feature-a", parent: TRUNK, children: ["feature-b", "side"] },
+			{ branch: "feature-b", parent: "feature-a", children: [] },
+			{ branch: "side", parent: "feature-a", children: [] },
+		]);
+
+		const failure = expectFailure(
+			await loadSnapshot(dbRows, [TRUNK, "feature-a", "feature-b", "side"]),
+		);
+		expect(failure.message).toContain("forks at feature-a");
+	});
+
+	test("still fails when a real ancestor row has no live ref", async () => {
+		const dbRows = metadataDbJson([
+			{ branch: TRUNK, children: ["feature-a"], trunk: true },
+			{ branch: "feature-a", parent: TRUNK, children: ["feature-b"] },
+			{ branch: "feature-b", parent: "feature-a", children: [] },
+		]);
+
+		// feature-a is a genuine ancestor; dropping its ref leaves a broken stack, not stale state.
+		const failure = expectFailure(await loadSnapshot(dbRows, [TRUNK, "feature-b"]));
+		expect(failure.message).toContain("feature-a");
+	});
+
+	test("aborts when live-branch enumeration fails rather than dropping real branches", async () => {
+		const dbRows = metadataDbJson([
+			{ branch: TRUNK, children: ["feature-b"], trunk: true },
+			{ branch: "feature-b", parent: TRUNK, children: [] },
+		]);
+		const pi = new FakePi([
+			step("sqlite3", TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
+			step("git", FOR_EACH_REF_ARGS, { code: 128, stderr: "boom" }),
+		]);
+
+		const result = await loadStackSnapshot({
+			pi,
+			repoRoot: ROOT,
+			metadataDbPath: DB_PATH,
+			current: "feature-b",
+			trunk: TRUNK,
+		});
+		pi.assertDone();
+		expect(expectFailure(result).message).toContain("Could not enumerate local branches");
 	});
 });

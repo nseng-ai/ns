@@ -1,9 +1,11 @@
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, type Dirent } from "node:fs";
+import { join } from "node:path";
 import { Worker } from "node:worker_threads";
 
 import {
 	classifySqliteJsonResult,
 	createGraphiteSqliteJsonRunner,
+	filterLiveBranchNames,
 	GRAPHITE_BRANCH_METADATA_QUERY,
 	GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY,
 	graphiteMetadataDbPath,
@@ -85,8 +87,18 @@ export interface GraphiteMetadataDbAccess {
 	queryJson(dbPath: string, query: string): GraphiteMetadataJsonQueryResult;
 }
 
+/**
+ * Seam over live-branch enumeration so callers can fake it in tests. The default
+ * reads loose refs and `packed-refs` directly from the filesystem, keeping the
+ * passive worktree-status path free of git subprocesses.
+ */
+export interface GraphiteBranchAccess {
+	listLocalBranches(commonGitDir: string): ReadonlySet<string>;
+}
+
 export interface LoadGraphiteMetadataStatusOptions {
 	dbAccess?: GraphiteMetadataDbAccess | undefined;
+	branchAccess?: GraphiteBranchAccess | undefined;
 }
 
 const GRAPHITE_METADATA_LOOKUP_TIMEOUT_MS = 1_000;
@@ -253,11 +265,19 @@ export function loadGraphiteMetadataStatus(
 	const row = parsed.topology.get(input.currentBranch);
 	if (row === undefined) return { type: "untracked", currentBranch: input.currentBranch };
 
+	// Reconcile children against live local refs so the "up" branch matches gt,
+	// which silently drops children whose refs/heads/<name> no longer exists.
+	const branchAccess = options.branchAccess ?? defaultGraphiteBranchAccess;
+	const { kept } = filterLiveBranchNames(
+		row.children,
+		branchAccess.listLocalBranches(input.commonGitDir),
+	);
+
 	return {
 		type: "tracked",
 		currentBranch: input.currentBranch,
 		parent: row.parent,
-		children: row.children,
+		children: kept,
 		isCurrentTrunk: row.isTrunkMarked,
 	};
 }
@@ -399,6 +419,55 @@ const defaultGraphiteMetadataDbAccess: GraphiteMetadataDbAccess = {
 		return runSqliteJsonQuery(dbPath, query);
 	},
 };
+
+const HEADS_REF_PREFIX = "refs/heads/";
+
+const defaultGraphiteBranchAccess: GraphiteBranchAccess = {
+	listLocalBranches(commonGitDir) {
+		const branches = new Set<string>();
+		collectLooseBranchRefs(join(commonGitDir, "refs", "heads"), [], branches);
+		collectPackedBranchRefs(join(commonGitDir, "packed-refs"), branches);
+		return branches;
+	},
+};
+
+// Loose refs live as files under refs/heads/**; the branch name is the path under
+// refs/heads/, so nested names (e.g. "objective-refresh/foo") are preserved.
+// Best-effort: any read error yields no entries for that subtree ("not live").
+function collectLooseBranchRefs(dir: string, prefix: readonly string[], out: Set<string>): void {
+	let entries: Dirent[];
+	try {
+		entries = readdirSync(dir, { withFileTypes: true });
+	} catch {
+		return;
+	}
+	for (const entry of entries) {
+		const segments = [...prefix, entry.name];
+		if (entry.isDirectory()) {
+			collectLooseBranchRefs(join(dir, entry.name), segments, out);
+		} else if (entry.isFile()) {
+			out.add(segments.join("/"));
+		}
+	}
+}
+
+// packed-refs lines are "<oid> <refname>"; skip comment (#) and peeled (^) lines.
+function collectPackedBranchRefs(packedRefsPath: string, out: Set<string>): void {
+	let content: string;
+	try {
+		content = readFileSync(packedRefsPath, "utf8");
+	} catch {
+		return;
+	}
+	for (const line of content.split("\n")) {
+		const trimmed = line.trim();
+		if (trimmed === "" || trimmed.startsWith("#") || trimmed.startsWith("^")) continue;
+		const spaceIndex = trimmed.indexOf(" ");
+		if (spaceIndex === -1) continue;
+		const refName = trimmed.slice(spaceIndex + 1).trim();
+		if (refName.startsWith(HEADS_REF_PREFIX)) out.add(refName.slice(HEADS_REF_PREFIX.length));
+	}
+}
 
 const graphiteSqliteJsonRunner = createGraphiteSqliteJsonRunner();
 

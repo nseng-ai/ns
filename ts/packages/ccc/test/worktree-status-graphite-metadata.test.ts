@@ -1,3 +1,7 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { afterEach, describe, expect, test } from "vitest";
 
 import {
@@ -135,8 +139,16 @@ function branchRow(input: {
 	};
 }
 
-function loadWithFake(dbAccess: GraphiteMetadataDbAccess, currentBranch = "feature/current") {
-	return loadGraphiteMetadataStatus({ commonGitDir: "/repo/.git", currentBranch }, { dbAccess });
+function loadWithFake(
+	dbAccess: GraphiteMetadataDbAccess,
+	options: { currentBranch?: string; liveBranches?: Iterable<string> } = {},
+) {
+	const currentBranch = options.currentBranch ?? "feature/current";
+	const live = new Set(options.liveBranches ?? []);
+	return loadGraphiteMetadataStatus(
+		{ commonGitDir: "/repo/.git", currentBranch },
+		{ dbAccess, branchAccess: { listLocalBranches: () => live } },
+	);
 }
 
 afterEach(() => {
@@ -169,7 +181,7 @@ describe("Graphite metadata status lookup", () => {
 			],
 		});
 
-		expect(loadWithFake(dbAccess)).toEqual({
+		expect(loadWithFake(dbAccess, { liveBranches: ["feature/child"] })).toEqual({
 			type: "tracked",
 			currentBranch: "feature/current",
 			parent: "main",
@@ -193,7 +205,9 @@ describe("Graphite metadata status lookup", () => {
 			],
 		});
 
-		expect(loadWithFake(dbAccess, "main")).toEqual({
+		expect(
+			loadWithFake(dbAccess, { currentBranch: "main", liveBranches: ["feature/current"] }),
+		).toEqual({
 			type: "tracked",
 			currentBranch: "main",
 			parent: undefined,
@@ -256,9 +270,75 @@ describe("Graphite metadata status lookup", () => {
 			],
 		});
 
-		expect(loadWithFake(dbAccess)).toMatchObject({
+		expect(loadWithFake(dbAccess, { liveBranches: ["feature/one", "feature/two"] })).toMatchObject({
 			type: "tracked",
 			children: ["feature/one", "feature/two"],
+		});
+	});
+
+	test("default filesystem branch access honors loose and packed refs", () => {
+		const dir = mkdtempSync(join(tmpdir(), "ccc-graphite-refs-"));
+		try {
+			mkdirSync(join(dir, "refs", "heads", "nested"), { recursive: true });
+			writeFileSync(join(dir, "refs", "heads", "loose-branch"), "aaa\n");
+			writeFileSync(join(dir, "refs", "heads", "nested", "child"), "bbb\n");
+			writeFileSync(
+				join(dir, "packed-refs"),
+				"# pack-refs with: peeled fully-peeled sorted\n" +
+					"cccccccccccccccccccccccccccccccccccccccc refs/heads/packed-branch\n" +
+					"dddddddddddddddddddddddddddddddddddddddd refs/tags/v1\n" +
+					"^eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\n",
+			);
+
+			const dbPath = join(dir, ".graphite_metadata.db");
+			const dbAccess: GraphiteMetadataDbAccess = {
+				exists(path) {
+					expect(path).toBe(dbPath);
+					return true;
+				},
+				queryJson(_path, query) {
+					return query.includes("PRAGMA")
+						? success(EXPECTED_SCHEMA_ROWS)
+						: success([
+								branchRow({
+									branchName: "loose-branch",
+									children: ["packed-branch", "nested/child", "phantom"],
+								}),
+							]);
+				},
+			};
+
+			expect(
+				loadGraphiteMetadataStatus(
+					{ commonGitDir: dir, currentBranch: "loose-branch" },
+					{ dbAccess },
+				),
+			).toMatchObject({
+				type: "tracked",
+				children: ["packed-branch", "nested/child"],
+			});
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	test("drops children whose local ref is gone so the up branch matches gt", () => {
+		const dbAccess = new FakeGraphiteMetadataDbAccess({
+			responses: [
+				success(EXPECTED_SCHEMA_ROWS),
+				success([
+					branchRow({
+						branchName: "feature/current",
+						parentBranchName: "main",
+						children: ["feature/live", "feature/phantom"],
+					}),
+				]),
+			],
+		});
+
+		expect(loadWithFake(dbAccess, { liveBranches: ["feature/live"] })).toMatchObject({
+			type: "tracked",
+			children: ["feature/live"],
 		});
 	});
 
