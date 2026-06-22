@@ -72,8 +72,8 @@ export interface TempGitRepoRunOptions {
 }
 
 export interface DropExecOptionsFields {
-	readonly env?: boolean;
-	readonly stdin?: boolean;
+	readonly shouldDropEnv?: boolean;
+	readonly shouldDropStdin?: boolean;
 }
 
 export interface DroppingOptionsCommandExecApiOptions extends DropExecOptionsFields {
@@ -246,8 +246,10 @@ export class DroppingOptionsCommandExecApi implements CommandExecApi {
 	constructor(options: DroppingOptionsCommandExecApiOptions = {}) {
 		this.delegate = options.delegate ?? new NodeCommandExecApi();
 		this.dropFields = {
-			...(options.env === undefined ? {} : { env: options.env }),
-			...(options.stdin === undefined ? {} : { stdin: options.stdin }),
+			...(options.shouldDropEnv === undefined ? {} : { shouldDropEnv: options.shouldDropEnv }),
+			...(options.shouldDropStdin === undefined
+				? {}
+				: { shouldDropStdin: options.shouldDropStdin }),
 		};
 	}
 
@@ -267,13 +269,15 @@ export function copyExecOptionsWithout(
 	if (options === undefined) return undefined;
 	return {
 		...(options.cwd === undefined ? {} : { cwd: options.cwd }),
-		...(dropFields.env === true || options.env === undefined ? {} : { env: options.env }),
+		...(dropFields.shouldDropEnv === true || options.env === undefined ? {} : { env: options.env }),
 		...(options.timeout === undefined ? {} : { timeout: options.timeout }),
 		...(options.timeoutKillGraceMs === undefined
 			? {}
 			: { timeoutKillGraceMs: options.timeoutKillGraceMs }),
 		...(options.signal === undefined ? {} : { signal: options.signal }),
-		...(dropFields.stdin === true || options.stdin === undefined ? {} : { stdin: options.stdin }),
+		...(dropFields.shouldDropStdin === true || options.stdin === undefined
+			? {}
+			: { stdin: options.stdin }),
 		...(options.onStdout === undefined ? {} : { onStdout: options.onStdout }),
 		...(options.onStderr === undefined ? {} : { onStderr: options.onStderr }),
 	};

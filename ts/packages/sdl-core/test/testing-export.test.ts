@@ -131,12 +131,12 @@ test("exec option copying can drop selected fields", async () => {
 			timeout: 1_000,
 			stdin: "payload",
 		},
-		{ env: true, stdin: true },
+		{ shouldDropEnv: true, shouldDropStdin: true },
 	);
 	expect(copied).toEqual({ cwd: "/repo", timeout: 1_000 });
 
 	const delegate = new ScriptedCommandExecApi([{ stdout: "ok" }]);
-	const dropping = new DroppingOptionsCommandExecApi({ delegate, stdin: true });
+	const dropping = new DroppingOptionsCommandExecApi({ delegate, shouldDropStdin: true });
 	await expect(dropping.exec("git", ["mktree"], { stdin: "tree", cwd: "/repo" })).resolves.toEqual({
 		stdout: "ok",
 		stderr: "",

@@ -152,7 +152,7 @@ describe("RealGitBrmemGateway integration", () => {
 			const beforeIndexTree = repo.runGit(["write-tree"]).trim();
 			const gateway = realGitBrmemGateway(
 				repo.path,
-				new DroppingOptionsCommandExecApi({ env: true }),
+				new DroppingOptionsCommandExecApi({ shouldDropEnv: true }),
 			);
 
 			const put = await gateway.putEntry({
@@ -179,7 +179,7 @@ describe("RealGitBrmemGateway integration", () => {
 			const beforeIndexTree = repo.runGit(["write-tree"]).trim();
 			const gateway = realGitBrmemGateway(
 				repo.path,
-				new DroppingOptionsCommandExecApi({ stdin: true }),
+				new DroppingOptionsCommandExecApi({ shouldDropStdin: true }),
 			);
 
 			const put = await gateway.putEntry({

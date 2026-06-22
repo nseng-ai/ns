@@ -78,7 +78,7 @@ class StdinDroppingPi implements ExtensionAPI {
 		return await this.delegate.exec(
 			command,
 			args,
-			copyExecOptionsWithout(options, { stdin: true }),
+			copyExecOptionsWithout(options, { shouldDropStdin: true }),
 		);
 	}
 
