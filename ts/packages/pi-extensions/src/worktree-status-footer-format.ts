@@ -74,6 +74,7 @@ export interface StatusFooterRenderOptions {
 	fallbackRepo: string;
 	worktreeStatus?: WorktreeStatus | undefined;
 	isWorktreeStatusDormant?: boolean | undefined;
+	ghRefreshAgeMs?: number | undefined;
 }
 
 interface FooterExtensionStatusLines {
@@ -248,6 +249,7 @@ export function renderStatusFooter(options: StatusFooterRenderOptions): string[]
 		fallbackRepo,
 		worktreeStatus,
 		isWorktreeStatusDormant,
+		ghRefreshAgeMs,
 	} = options;
 	const identity = formatWorktreeFooterIdentity({
 		cwd,
@@ -265,6 +267,7 @@ export function renderStatusFooter(options: StatusFooterRenderOptions): string[]
 	for (const statusLine of formatStructuredFooterWorktreeLines(worktreeStatus, {
 		theme,
 		...(isWorktreeStatusDormant === true ? { isDormant: true } : {}),
+		...(ghRefreshAgeMs === undefined ? {} : { ghRefreshAgeMs }),
 	})) {
 		lines.push(truncateToWidth(statusLine, width, theme.fg("dim", "...")));
 	}

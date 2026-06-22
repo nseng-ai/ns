@@ -21,6 +21,7 @@ import {
 	type GithubReviewThreadCounts,
 } from "@sdl/core/github-status";
 import { formatErrorMessage } from "@sdl/core/primitives";
+import { formatElapsedMs } from "@sdl/core/time-format";
 import { parseMachineEnvelopeData } from "@sdl/pi-extension-runtime/machine-envelope";
 import {
 	customMessageText,
@@ -641,6 +642,7 @@ export interface StatusTheme {
 
 export interface FormatWorktreeStatusOptions {
 	readonly theme?: StatusTheme | undefined;
+	readonly ghRefreshAgeMs?: number | undefined;
 	readonly isDormant?: boolean | undefined;
 }
 
@@ -792,9 +794,21 @@ function formatGhPrDetailPieces(
 }
 
 function appendGhPrStatusAnnotation(pieces: string[], options: FormatWorktreeStatusOptions): void {
+	appendGhRefreshAgeAnnotation(pieces, options);
 	if (options.isDormant === true) {
 		pieces.push(formatColoredSegment(DORMANT_GH_STATUS_ANNOTATION_TEXT, "dim", options.theme));
 	}
+}
+
+function appendGhRefreshAgeAnnotation(
+	pieces: string[],
+	options: FormatWorktreeStatusOptions,
+): void {
+	if (options.ghRefreshAgeMs === undefined) return;
+	pieces.push(
+		formatColoredSegment(" · refreshed ", "dim", options.theme),
+		formatColoredSegment(`${formatElapsedMs(options.ghRefreshAgeMs)} ago`, "dim", options.theme),
+	);
 }
 
 function formatGhPrReference(
@@ -809,9 +823,11 @@ function formatGhStatusAnnotation(
 	statusLine: string,
 	options: FormatWorktreeStatusOptions,
 ): string {
+	const pieces = [statusLine];
+	appendGhRefreshAgeAnnotation(pieces, options);
 	if (options.isDormant === true)
-		return `${statusLine}${formatColoredSegment(DORMANT_GH_STATUS_ANNOTATION_TEXT, "dim", options.theme)}`;
-	return statusLine;
+		pieces.push(formatColoredSegment(DORMANT_GH_STATUS_ANNOTATION_TEXT, "dim", options.theme));
+	return pieces.join("");
 }
 
 function isGhStatusLandable(status: GhStatus): boolean {

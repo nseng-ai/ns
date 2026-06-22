@@ -57,6 +57,7 @@ import { renderStatusFooter } from "./worktree-status-footer-format.ts";
 export const WORKTREE_STATUS_REFRESH_COMMAND_NAME = "pi:worktree-status-refresh";
 
 const GH_STATUS_BACKGROUND_REFRESH_MIN_INTERVAL_MS = 30_000;
+const GH_STATUS_FRESHNESS_RENDER_INTERVAL_MS = 1_000;
 
 const WORKTREE_STATUS_TOOL_REFRESH_NAMES = new Set(["bash", "edit", "write"]);
 
@@ -329,6 +330,7 @@ export default function worktreeStatusExtension(
 	let nextSessionId = 0;
 	let activeSession: ActiveSession | undefined;
 	let lastLinesKey: string | undefined;
+	let freshnessRenderTimer: WorktreeStatusRefreshTimer | undefined;
 	let requestFooterRender: (() => void) | undefined;
 
 	function isActiveSession(session: ActiveSession): boolean {
@@ -382,6 +384,28 @@ export default function worktreeStatusExtension(
 				void refreshSession(session, { remoteRefresh: "cached" });
 			},
 		});
+		freshnessRenderTimer = createWorktreeStatusRefreshTimer({
+			timers,
+			clock,
+			isActive: () => isActiveSession(session),
+			onTick: async () => {
+				if (ghRefreshAgeMs(session) !== undefined) requestFooterRender?.();
+			},
+			intervalMs: GH_STATUS_FRESHNESS_RENDER_INTERVAL_MS,
+		});
+	}
+
+	function clearFreshnessRenderTimer(): void {
+		freshnessRenderTimer?.close();
+		freshnessRenderTimer = undefined;
+	}
+
+	function ghRefreshAgeMs(session: ActiveSession): number | undefined {
+		const localIdentity = session.localStatus?.identity;
+		const snapshot = session.ghStatusSnapshot;
+		if (localIdentity === undefined || snapshot === undefined) return undefined;
+		if (!sameWorktreeStatusIdentity(localIdentity, snapshot.identity)) return undefined;
+		return Math.max(0, clock.nowMs() - snapshot.fetchedAtMs);
 	}
 
 	function closeActiveSession(): void {
@@ -389,6 +413,7 @@ export default function worktreeStatusExtension(
 		if (session !== undefined) {
 			session.closed = true;
 			session.abortController.abort();
+			clearFreshnessRenderTimer();
 			session.refreshTimer?.close();
 			session.refreshTimer = undefined;
 			session.activityController?.close();
@@ -570,6 +595,7 @@ export default function worktreeStatusExtension(
 				render(width) {
 					const cwd = session.ctx.sessionManager?.getCwd() ?? session.ctx.cwd;
 					const branch = loaders.readFooterBranch(cwd, footerData) ?? "unknown";
+					const ghRefreshAge = ghRefreshAgeMs(session);
 					return isActiveSession(session)
 						? renderStatusFooter({
 								ctx: session.ctx,
@@ -581,6 +607,7 @@ export default function worktreeStatusExtension(
 								fallbackRepo: fallbackRepoName(cwd),
 								worktreeStatus: combinedSessionStatus(session),
 								...(session.isDormant ? { isWorktreeStatusDormant: true } : {}),
+								...(ghRefreshAge === undefined ? {} : { ghRefreshAgeMs: ghRefreshAge }),
 							})
 						: [];
 				},
@@ -698,6 +725,7 @@ export default function worktreeStatusExtension(
 		await refreshSession(session, { remoteRefresh: "force" });
 		if (isActiveSession(session)) {
 			session.refreshTimer?.resume();
+			freshnessRenderTimer?.resume();
 			requestFooterRender?.();
 		}
 	});
