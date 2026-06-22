@@ -63,20 +63,10 @@ export const investigateParity = definePiSurfaceParity([
 	},
 ] as const);
 
-interface InvestigationCommandContext extends CommandContext {
-	ui: CommandContext["ui"] & {
-		setWidget?(
-			key: string,
-			content: string[] | undefined,
-			options?: { placement?: "aboveEditor" | "belowEditor" },
-		): void;
-	};
-}
-
 interface RegisteredCommand {
 	description?: string;
 	argumentHint?: string;
-	handler(args: string, ctx: InvestigationCommandContext): Promise<void> | void;
+	handler(args: string, ctx: CommandContext): Promise<void> | void;
 }
 
 export interface InvestigateExtensionAPI extends RunnerSubagentPi {
@@ -98,15 +88,9 @@ export interface InvestigateExtensionOptions {
 	loadAgentDefinition?: (agentName: string, cwd: string) => PiAgentDefinition;
 }
 
-interface InvestigationResultDetails {
-	status: RunnerSubagentResult["status"];
-	curatedContext?: CuratedRunnerSubagentContextAudit;
-	[key: string]: unknown;
-}
-
 interface RunInvestigateCommandInput {
 	pi: InvestigateExtensionAPI;
-	ctx: InvestigationCommandContext;
+	ctx: CommandContext;
 	args: string;
 	extensionOptions?: InvestigateExtensionOptions;
 }
@@ -218,15 +202,12 @@ export function renderInvestigationResultMessage(
 
 function emitInvestigationResult(
 	pi: Pick<InvestigateExtensionAPI, "sendMessage">,
-	ctx: InvestigationCommandContext,
+	ctx: CommandContext,
 	result: RunnerSubagentResult,
 	curatedContext: CuratedRunnerSubagentContextAudit,
 ): void {
 	const content = formatInvestigationResultContent(result);
-	const details: InvestigationResultDetails = {
-		...dispatchRunnerSubagentDetails(result, { curatedContext }),
-		curatedContext,
-	};
+	const details = dispatchRunnerSubagentDetails(result, { curatedContext });
 	if (pi.sendMessage !== undefined) {
 		pi.sendMessage({
 			customType: INVESTIGATE_RESULT_MESSAGE_TYPE,

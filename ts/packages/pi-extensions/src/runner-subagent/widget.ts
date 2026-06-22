@@ -12,15 +12,15 @@ export interface RunnerSubagentWidgetOptions {
 	includeElapsed?: boolean;
 }
 
+type SetWidgetFunction = (
+	key: string,
+	content: string[] | undefined,
+	options?: { placement?: "aboveEditor" | "belowEditor" },
+) => void;
+
 export interface RunnerSubagentWidgetContext {
 	hasUI?: boolean;
-	ui?: {
-		setWidget?(
-			key: string,
-			content: string[] | undefined,
-			options?: { placement?: "aboveEditor" | "belowEditor" },
-		): void;
-	};
+	ui?: object;
 }
 
 export function setRunnerSubagentWidget(
@@ -29,11 +29,23 @@ export function setRunnerSubagentWidget(
 	lines: string[] | undefined,
 ): void {
 	if (ctx.hasUI === false) return;
+	const setWidget = readSetWidget(ctx.ui);
+	if (setWidget === undefined) return;
 	try {
-		ctx.ui?.setWidget?.(key, lines, { placement: "aboveEditor" });
+		setWidget(key, lines, { placement: "aboveEditor" });
 	} catch {
 		// Widget updates are display-only and must not affect subagent execution.
 	}
+}
+
+function readSetWidget(ui: object | undefined): SetWidgetFunction | undefined {
+	if (ui === undefined) return undefined;
+	const candidate = (ui as { setWidget?: unknown }).setWidget;
+	return isSetWidgetFunction(candidate) ? candidate : undefined;
+}
+
+function isSetWidgetFunction(value: unknown): value is SetWidgetFunction {
+	return typeof value === "function";
 }
 
 export function formatRunnerSubagentActivityWidgetLines(
