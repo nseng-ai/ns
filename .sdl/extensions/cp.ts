@@ -1,13 +1,17 @@
+import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
 import {
-  checkpoint,
-  defineExtension,
-  failed,
-  ok,
-  pendingWorktree,
-  textGeneration,
-  type SdkPendingWorktreeSnapshot,
-  z,
-} from "@sdl/sdl/sdk";
+  CHECKPOINT_MODEL_ENV,
+  DEFAULT_CHECKPOINT_MODEL_REF,
+  LEGACY_CHECKPOINT_MODEL_ENV,
+  selectCheckpointModelRef,
+} from "./shared/text-generation.ts";
+import { prepareCheckpointMessage } from "./shared/text-helpers.ts";
+import {
+  createCommitWithPreparedMessage,
+  formatPendingWorktreeError,
+  loadPendingWorktreeSnapshot,
+  type PendingWorktreeSnapshot,
+} from "./shared/worktree.ts";
 
 const CP_COMMAND_DESCRIPTION = `Create a checkpoint commit for the current diff.
 
@@ -16,7 +20,7 @@ The command captures the pending worktree, refuses main/master, refuses clean wo
 Use --dry-run to preview the model-authored checkpoint message without running git add, git commit, or git log.
 
 Environment:
-  ${textGeneration.CHECKPOINT_MODEL_ENV}  Model reference for generated checkpoint messages. Defaults to ${textGeneration.DEFAULT_CHECKPOINT_MODEL_REF}. Falls back to ${textGeneration.LEGACY_CHECKPOINT_MODEL_ENV} when unset.`;
+  ${CHECKPOINT_MODEL_ENV}  Model reference for generated checkpoint messages. Defaults to ${DEFAULT_CHECKPOINT_MODEL_REF}. Falls back to ${LEGACY_CHECKPOINT_MODEL_ENV} when unset.`;
 
 const cpRequestSchema = z.object({
   dryRun: z.boolean().default(false).describe("Preview the checkpoint message without staging or committing."),
@@ -32,9 +36,9 @@ export default defineExtension({
       description: CP_COMMAND_DESCRIPTION,
       schema: cpRequestSchema,
       async run(ctx, request: CpRequest) {
-        const loaded = await pendingWorktree.loadSnapshot(ctx);
+        const loaded = await loadPendingWorktreeSnapshot(ctx);
         if (!loaded.ok) {
-          return failed(pendingWorktree.formatError(loaded.error), 2);
+          return failed(formatPendingWorktreeError(loaded.error), 2);
         }
 
         const snapshot = loaded.snapshot;
@@ -45,11 +49,11 @@ export default defineExtension({
           return failed("Working tree is clean; nothing to checkpoint.", 1);
         }
 
-        const prepared = await checkpoint.prepareMessage({
+        const prepared = await prepareCheckpointMessage({
           status: snapshot.status,
           diff: snapshot.diff,
           textGenerator: ctx.textGenerator,
-          modelRef: textGeneration.selectCheckpointModelRef(ctx.env),
+          modelRef: selectCheckpointModelRef(ctx.env),
         });
         if (!prepared.ok) {
           return failed(prepared.error, 2);
@@ -59,7 +63,7 @@ export default defineExtension({
           return ok(formatDryRunMessage(snapshot, prepared.message));
         }
 
-        const committed = await checkpoint.createCommit(ctx, prepared.message);
+        const committed = await createCommitWithPreparedMessage(ctx, prepared.message);
         if ("error" in committed) {
           return failed(committed.error, 2);
         }
@@ -70,6 +74,6 @@ export default defineExtension({
   ],
 });
 
-function formatDryRunMessage(snapshot: SdkPendingWorktreeSnapshot, message: string): string {
+function formatDryRunMessage(snapshot: PendingWorktreeSnapshot, message: string): string {
   return `Dry run: would create checkpoint commit on ${snapshot.branch}\n\n${message}`;
 }

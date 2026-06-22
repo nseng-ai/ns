@@ -4,27 +4,13 @@ import { fileURLToPath } from "node:url";
 import { createJiti } from "jiti/static";
 
 import {
-	CHANGES_MODEL_ENV,
-	CHECKPOINT_MODEL_ENV,
-	DEFAULT_CHANGES_MODEL_REF,
-	DEFAULT_CHECKPOINT_MODEL_REF,
-	DEFAULT_SUBMIT_FAILURE_MODEL_REF,
-	LEGACY_CHANGES_MODEL_ENV,
-	LEGACY_CHECKPOINT_MODEL_ENV,
-	SUBMIT_FAILURE_MODEL_ENV,
-	checkpoint,
 	commandSucceeded,
 	defineExtension,
 	failed,
 	formatCommandEvidence,
 	normalizeTextOutput,
 	ok,
-	pendingWorktree,
-	selectChangesModelRef,
-	selectCheckpointModelRef,
-	selectSubmitFailureModelRef,
 	stripOuterCodeFence,
-	textGeneration,
 	trimOuterBlankLines,
 	truncateTextHead,
 	truncateTextHeadTail,
@@ -65,27 +51,13 @@ function buildInternalMigrationAliases(): Record<string, string> {
 
 // Keep this object in sync with all runtime value exports from sdk/index.ts; type-only exports are erased.
 const sdlSdkVirtualModule = {
-	CHANGES_MODEL_ENV,
-	CHECKPOINT_MODEL_ENV,
-	DEFAULT_CHANGES_MODEL_REF,
-	DEFAULT_CHECKPOINT_MODEL_REF,
-	DEFAULT_SUBMIT_FAILURE_MODEL_REF,
-	LEGACY_CHANGES_MODEL_ENV,
-	LEGACY_CHECKPOINT_MODEL_ENV,
-	SUBMIT_FAILURE_MODEL_ENV,
-	checkpoint,
 	commandSucceeded,
 	defineExtension,
 	failed,
 	formatCommandEvidence,
 	normalizeTextOutput,
 	ok,
-	pendingWorktree,
-	selectChangesModelRef,
-	selectCheckpointModelRef,
-	selectSubmitFailureModelRef,
 	stripOuterCodeFence,
-	textGeneration,
 	trimOuterBlankLines,
 	truncateTextHead,
 	truncateTextHeadTail,
@@ -101,8 +73,9 @@ const sdlSdkVirtualModule = {
  * `.sdl/extensions`.
  *
  * Package-internal migration modules may still resolve package subpaths listed
- * as `internalMigrationExports`; checked-in `.sdl/extensions` should use the
- * SDK virtual module for SDL-owned author helpers.
+ * as `internalMigrationExports`; checked-in `.sdl/extensions` should keep
+ * repeated command-author helpers under `.sdl/extensions/shared/` until a
+ * later explicit SDK-promotion decision.
  */
 export function createSdlJiti(): ReturnType<typeof createJiti> {
 	return createJiti(import.meta.url, {

@@ -11,9 +11,9 @@ import type { SdlExtensionApi, SdlResult } from "@sdl/sdl/sdk";
 
 Command schemas are [Zod](https://zod.dev) schemas. Import the SDK's `z` export so extension modules use the same schema identity as the SDL host.
 
-Do not import SDL implementation modules (`@sdl/sdl/*` other than `./sdk`, `@sdl/core/*`, `@sdl/clinkr/*`) from SDL extension authoring modules. Checked-in `.sdl/extensions` modules follow the same SDK-only rule; if repeated command migrations need shared SDL-owned behavior, promote a deliberate helper into `@sdl/sdl/sdk` and document it here instead of importing internal migration subpaths.
+Do not import SDL implementation modules (`@sdl/sdl/*` other than `./sdk`, `@sdl/core/*`, `@sdl/clinkr/*`) from SDL extension authoring modules. The SDK re-exports the few lower-package types an author needs; those are documented below as first-party SDK vocabulary, with their origin noted.
 
-`internalMigrationExports` in `ts/packages/sdl/package.json` are package/internal migration support for workspace code that has not completed a cutover. They are not extension-author API.
+For this repository's checked-in migration extensions, repeated command-author helper code should stay under `.sdl/extensions/shared/` until a later explicit decision promotes a stable helper into this SDK. `internalMigrationExports` in `ts/packages/sdl/package.json` exist for package/internal migration support, not as extension-author API.
 
 The SDK is intentionally small. A command should own its workflow policy — prompts, validation, repair, external commands, GitHub/Graphite choreography, and confirmation boundaries — unless repeated command migrations prove a deeper kernel helper belongs in this author API. When a helper is promoted, this reference becomes the source of truth for the new public surface.
 
@@ -592,68 +592,6 @@ if (!result.ok) {
 }
 ctx.stdout?.(result.text);
 ```
-
----
-
-## Command helper facades
-
-These namespaced facades are SDL-owned command-author helpers. They expose repeated lifecycle-command primitives without requiring extensions to import SDL implementation subpaths.
-
-### `pendingWorktree`
-
-Loads and formats a pending worktree snapshot using the command's `SdlExtensionApi`.
-
-```ts
-const loaded = await pendingWorktree.loadSnapshot(ctx);
-if (!loaded.ok) return failed(pendingWorktree.formatError(loaded.error), 2);
-if (loaded.snapshot.isClean) return ok("Working tree is clean.");
-```
-
-**Exports.**
-
-- `pendingWorktree.loadSnapshot(ctx)` — runs read-only git facts through `ctx.exec` and returns `SdkPendingWorktreeLoadResult`.
-- `pendingWorktree.formatError(error)` — formats extension-facing pending-worktree failures.
-- `pendingWorktree.formatCommandDetails(result)` — formats a low-level command result as `exit <code>...` details.
-- Types: `SdkPendingWorktreeSnapshot`, `SdkPendingWorktreeError`, `SdkPendingWorktreeLoadResult`, `SdkWorktreeCommandResult`.
-
-`SdkPendingWorktreeSnapshot` uses `isClean` as the author-facing clean-worktree predicate.
-
-### `checkpoint`
-
-Prepares validated checkpoint commit messages and creates checkpoint commits.
-
-```ts
-const prepared = await checkpoint.prepareMessage({
-  status: snapshot.status,
-  diff: snapshot.diff,
-  textGenerator: ctx.textGenerator,
-  modelRef: textGeneration.selectCheckpointModelRef(ctx.env),
-});
-if (!prepared.ok) return failed(prepared.error, 2);
-
-const committed = await checkpoint.createCommit(ctx, prepared.message);
-if ("error" in committed) return failed(committed.error, 2);
-```
-
-**Exports.**
-
-- `checkpoint.prepareMessage(options)` — routes to SDL's canonical checkpoint prompt, validation, and repair flow.
-- `checkpoint.createCommit(ctx, message)` — stages all changes, commits with the prepared message, and returns the created commit summary.
-- Types: `PrepareCheckpointMessageOptions`, `SdkPreparedCheckpointMessage`.
-
-### `textGeneration`
-
-Groups model-selection constants and helpers used by SDL lifecycle commands.
-
-```ts
-const modelRef = textGeneration.selectChangesModelRef(ctx.env);
-```
-
-**Exports.**
-
-- `textGeneration.selectCheckpointModelRef(env)`, `textGeneration.selectChangesModelRef(env)`, `textGeneration.selectSubmitFailureModelRef(env)`.
-- Object constants: `CHECKPOINT_MODEL_ENV`, `LEGACY_CHECKPOINT_MODEL_ENV`, `DEFAULT_CHECKPOINT_MODEL_REF`, `CHANGES_MODEL_ENV`, `LEGACY_CHANGES_MODEL_ENV`, `DEFAULT_CHANGES_MODEL_REF`, `SUBMIT_FAILURE_MODEL_ENV`, `DEFAULT_SUBMIT_FAILURE_MODEL_REF`.
-- The same constants and selector functions are also named exports from `@sdl/sdl/sdk` for compatibility with existing SDK callers.
 
 ---
 

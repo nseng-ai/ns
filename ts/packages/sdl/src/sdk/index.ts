@@ -27,35 +27,9 @@ export type {
 	HeadTailTextTruncationOptions,
 	HeadTextTruncationOptions,
 } from "@sdl/core/text-truncation";
-export { checkpoint } from "./checkpoint.ts";
-export type {
-	PrepareCheckpointMessageOptions,
-	SdkPreparedCheckpointMessage,
-} from "./checkpoint.ts";
-export { pendingWorktree } from "./pending-worktree.ts";
-export type {
-	SdkPendingWorktreeError,
-	SdkPendingWorktreeLoadResult,
-	SdkPendingWorktreeSnapshot,
-	SdkWorktreeCommandResult,
-} from "./pending-worktree.ts";
 export { failed, ok } from "./result.ts";
 export type { SdlResult } from "./result.ts";
 export { z } from "./schema.ts";
-export {
-	CHANGES_MODEL_ENV,
-	CHECKPOINT_MODEL_ENV,
-	DEFAULT_CHANGES_MODEL_REF,
-	DEFAULT_CHECKPOINT_MODEL_REF,
-	DEFAULT_SUBMIT_FAILURE_MODEL_REF,
-	LEGACY_CHANGES_MODEL_ENV,
-	LEGACY_CHECKPOINT_MODEL_ENV,
-	SUBMIT_FAILURE_MODEL_ENV,
-	selectChangesModelRef,
-	selectCheckpointModelRef,
-	selectSubmitFailureModelRef,
-	textGeneration,
-} from "./text-generation.ts";
 export type {
 	TextGenerator,
 	TextGenerationRequest,

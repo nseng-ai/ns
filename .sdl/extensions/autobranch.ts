@@ -2,19 +2,23 @@ import { Buffer } from "node:buffer";
 import { readFile, stat } from "node:fs/promises";
 import { relative, resolve } from "node:path";
 
+import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
+import { prepareCheckpointMessage } from "./shared/text-helpers.ts";
 import {
-  checkpoint,
-  defineExtension,
-  failed,
-  ok,
-  pendingWorktree,
-  textGeneration,
-  type ExecResult,
-  type SdkPendingWorktreeError,
-  type SdkPendingWorktreeSnapshot,
-  type SdlExtensionApi,
-  z,
-} from "@sdl/sdl/sdk";
+  CHECKPOINT_MODEL_ENV,
+  DEFAULT_CHECKPOINT_MODEL_REF,
+  LEGACY_CHECKPOINT_MODEL_ENV,
+  selectCheckpointModelRef,
+} from "./shared/text-generation.ts";
+import {
+  createCommitWithPreparedMessage,
+  execGit,
+  formatCommandDetails,
+  loadPendingWorktreeSnapshot,
+  type PendingWorktreeError,
+  type PendingWorktreeSnapshot,
+} from "./shared/worktree.ts";
+import type { ExecResult, SdlExtensionApi } from "@sdl/sdl/sdk";
 
 const GIT_FACT_TIMEOUT_MS = 30_000;
 const GT_CREATE_TIMEOUT_MS = 120_000;
@@ -39,7 +43,7 @@ Dirty worktree mode stashes pending changes, creates a Graphite branch, restores
 
 Environment:
   ${SLUG_MODEL_ENV}  Model reference for generated branch slugs. Defaults to ${DEFAULT_FAST_MODEL_REF}.
-  ${textGeneration.CHECKPOINT_MODEL_ENV}  Model reference for generated checkpoint messages. Defaults to ${textGeneration.DEFAULT_CHECKPOINT_MODEL_REF}. Falls back to ${textGeneration.LEGACY_CHECKPOINT_MODEL_ENV} when unset.`;
+  ${CHECKPOINT_MODEL_ENV}  Model reference for generated checkpoint messages. Defaults to ${DEFAULT_CHECKPOINT_MODEL_REF}. Falls back to ${LEGACY_CHECKPOINT_MODEL_ENV} when unset.`;
 
 const autobranchRequestSchema = z.object({
   slug: z
@@ -59,7 +63,7 @@ interface FileStat {
   isFile(): boolean;
 }
 
-interface AutobranchSnapshot extends SdkPendingWorktreeSnapshot {
+interface AutobranchSnapshot extends PendingWorktreeSnapshot {
   untracked: string;
 }
 
@@ -265,7 +269,7 @@ async function createAutobranchCheckpointFlow(
   ctx: SdlExtensionApi,
   args: ParsedAutobranchArgs,
 ): Promise<AutobranchFlowResult> {
-  const loaded = await pendingWorktree.loadSnapshot(ctx);
+  const loaded = await loadPendingWorktreeSnapshot(ctx);
   if (!loaded.ok) {
     return { ok: false, error: formatAutobranchSnapshotError(loaded.error) };
   }
@@ -286,22 +290,10 @@ function execGt(
   return ctx.exec("gt", [...args], { timeoutMs });
 }
 
-function execGit(
-  ctx: SdlExtensionApi,
-  args: readonly string[],
-  timeoutMs: number,
-): Promise<ExecResult> {
-  return ctx.exec("git", [...args], { timeoutMs });
-}
-
-function formatCommandDetails(result: ExecResult): string {
-  return pendingWorktree.formatCommandDetails(result);
-}
-
 async function runDirtyAutobranchFlow(
   ctx: SdlExtensionApi,
   args: ParsedAutobranchArgs,
-  snapshot: SdkPendingWorktreeSnapshot,
+  snapshot: PendingWorktreeSnapshot,
 ): Promise<AutobranchFlowResult> {
   const prepared = await prepareAutobranchPlan(ctx, args, snapshot);
   if (!prepared.ok) {
@@ -344,7 +336,7 @@ async function runDirtyAutobranchFlow(
 async function prepareAutobranchPlan(
   ctx: SdlExtensionApi,
   args: ParsedAutobranchArgs,
-  snapshot: SdkPendingWorktreeSnapshot,
+  snapshot: PendingWorktreeSnapshot,
 ): Promise<AutobranchPreparationResult> {
   const warnings: AutobranchPreparationWarning[] = [];
   const slug = await prepareBaseSlug(ctx, args, snapshot);
@@ -356,11 +348,11 @@ async function prepareAutobranchPlan(
     return { ok: false, kind: "branch_name_unavailable", baseSlug: slug.baseSlug };
   }
 
-  const prepared = await checkpoint.prepareMessage({
+  const prepared = await prepareCheckpointMessage({
     status: snapshot.status,
     diff: snapshot.diff,
     textGenerator: ctx.textGenerator,
-    modelRef: textGeneration.selectCheckpointModelRef(ctx.env),
+    modelRef: selectCheckpointModelRef(ctx.env),
   });
   if (!prepared.ok) {
     return { ok: false, kind: "checkpoint_prepare_failed", error: prepared.error };
@@ -394,7 +386,7 @@ type PreparedBaseSlugResult =
 async function prepareBaseSlug(
   ctx: SdlExtensionApi,
   args: ParsedAutobranchArgs,
-  snapshot: SdkPendingWorktreeSnapshot,
+  snapshot: PendingWorktreeSnapshot,
 ): Promise<PreparedBaseSlugResult> {
   const requested = prepareRequestedBranchSlug(args.slug);
   if (requested.kind === "invalid_requested_slug") {
@@ -545,7 +537,7 @@ async function runAutobranchTransaction(
     return { ok: false, kind: "restore_failed_after_branch_create", restoreError: restored.error };
   }
 
-  const committed = await checkpoint.createCommit(ctx, checkpointMessage);
+  const committed = await createCommitWithPreparedMessage(ctx, checkpointMessage);
   if ("error" in committed) {
     return { ok: false, kind: "commit_failed_after_branch_create", commitError: committed.error };
   }
@@ -623,7 +615,7 @@ async function restoreStash(
 async function createLatestCommitAutobranchFlow(
   ctx: SdlExtensionApi,
   args: ParsedAutobranchArgs,
-  snapshot: SdkPendingWorktreeSnapshot,
+  snapshot: PendingWorktreeSnapshot,
 ): Promise<AutobranchFlowResult> {
   const prepared = await prepareLatestCommitAutobranchPlan(ctx, args, snapshot);
   if (!prepared.ok) {
@@ -663,7 +655,7 @@ async function createLatestCommitAutobranchFlow(
 async function prepareLatestCommitAutobranchPlan(
   ctx: SdlExtensionApi,
   args: ParsedAutobranchArgs,
-  snapshot: SdkPendingWorktreeSnapshot,
+  snapshot: PendingWorktreeSnapshot,
 ): Promise<LatestCommitPreparationResult> {
   const requested = prepareRequestedBranchSlug(args.slug);
   if (requested.kind === "invalid_requested_slug") {
@@ -717,7 +709,7 @@ type LatestCommitFactsResult =
 
 async function loadLatestCommitFacts(
   ctx: SdlExtensionApi,
-  snapshot: SdkPendingWorktreeSnapshot,
+  snapshot: PendingWorktreeSnapshot,
 ): Promise<LatestCommitFactsResult> {
   const trunk = await execGt(ctx, ["trunk", "--no-interactive"], GT_TIMEOUT_MS);
   if (trunk.code !== 0) {
@@ -1328,7 +1320,7 @@ function finalizeBranchSlug(value: string): string | undefined {
   return trimmed || undefined;
 }
 
-function formatAutobranchSnapshotError(error: SdkPendingWorktreeError): string {
+function formatAutobranchSnapshotError(error: PendingWorktreeError): string {
   const details = formatCommandDetails(error.result);
   if (error.kind === "not_git_repo") {
     return `Not inside a git repository.\n${details}`;
