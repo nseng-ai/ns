@@ -194,18 +194,42 @@ describe("empty SDL kernel CLI help and parsing", () => {
 });
 
 describe("sdl extension contribution loading", () => {
-	test("project-only direct command appears in top-level help without importing the entry", async () => {
+	test("project-only direct command summary appears in top-level help", async () => {
 		const cwd = await createExtensionProject(
 			"hello.ts",
-			"throw new Error('should not import during help');\n",
+			`
+import { defineExtension, ok } from "@sdl/sdl/sdk";
+
+export default defineExtension({
+	commands: [{
+		name: "hello",
+		summary: "Say hello from help.",
+		description: "Say hello with details.",
+		run() { return ok("hello"); },
+	}],
+});
+`,
 		);
 		const run = runWithFakes({ args: ["--help"], state: { exec: [] }, cwd });
 
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
 		expect(help).toContain("hello");
-		expect(help).toContain("Run SDL command entry 'hello'.");
+		expect(help).toContain("Say hello from help.");
 		expect(run.stderr.join("")).toBe("");
+		expect(run.context.execCalls).toEqual([]);
+	});
+
+	test("throwing direct command keeps placeholder in top-level help and warns", async () => {
+		const cwd = await createExtensionProject("hello.ts", "throw new Error('module boom');\n");
+		const run = runWithFakes({ args: ["--help"], state: { exec: [] }, cwd });
+
+		expect(await run.exit).toBe(0);
+		const help = run.stdout.join("");
+		expect(help).toContain("hello");
+		expect(help).toContain("Run SDL command entry 'hello'.");
+		expect(run.stderr.join("")).toContain("Warning:");
+		expect(run.stderr.join("")).toContain("module boom");
 		expect(run.context.execCalls).toEqual([]);
 	});
 
@@ -244,6 +268,7 @@ import { defineExtension, ok, z } from "@sdl/sdl/sdk";
 export default defineExtension({
 	commands: [{
 	name: "cp",
+	summary: "Project cp override.",
 	description: "Project cp override with options.",
 	schema: z.object({ dryRun: z.boolean().default(false).describe("Preview the override.") }),
 	run() { return ok("unused"); },
@@ -274,6 +299,7 @@ import { defineExtension, ok } from "@sdl/sdl/sdk";
 export default defineExtension({
 	commands: [{
 	name: "hello",
+	summary: "Say hello.",
 	description: "Say hello",
 	async run(ctx) {
 		const result = await ctx.exec("echo", ["hello"]);
@@ -304,6 +330,7 @@ import { defineExtension, ok, z } from "@sdl/sdl/sdk";
 export default defineExtension({
 	commands: [{
 	name: "hello",
+	summary: "Say hello.",
 	description: "Say hello with options.",
 	schema: z.object({ loud: z.boolean().default(false).describe("Use loud output.") }),
 	run(_ctx, request) {
@@ -334,7 +361,8 @@ export default defineExtension({
 
 		const helpRun = runWithFakes({ args: ["--help"], state: { exec: [] }, cwd });
 		expect(await helpRun.exit).toBe(0);
-		expect(helpRun.stderr.join("")).toBe("");
+		expect(helpRun.stderr.join("")).toContain("Warning:");
+		expect(helpRun.stderr.join("")).toContain("module boom");
 
 		const selectedRun = runWithFakes({ args: ["hello"], state: { exec: [] }, cwd });
 		expect(await selectedRun.exit).toBe(2);
@@ -373,7 +401,7 @@ export default defineExtension({
 			`
 import { defineExtension, ok } from "@sdl/sdl/sdk";
 export default defineExtension({
-	commands: [{ name: "hello", description: "Hello", run() { return ok("hello"); } }],
+	commands: [{ name: "hello", summary: "Hello", description: "Hello", run() { return ok("hello"); } }],
 });
 `,
 		);
@@ -427,6 +455,7 @@ import { defineExtension } from "@sdl/sdl/sdk";
 export default defineExtension({
 	commands: [{
 		name: "hello",
+		summary: "Hello",
 		description: "Hello",
 		schema: { safeParse() { return { success: true, data: {} }; } },
 		run() { return { ok: true, message: "hello" }; },
@@ -459,7 +488,7 @@ export default defineExtension({
 			`
 import { defineExtension, ok } from "@sdl/sdl/sdk";
 export default defineExtension({
-	commands: [{ name: "hello", description: "Legacy hello", run() { return ok("legacy"); } }],
+	commands: [{ name: "hello", summary: "Legacy hello", description: "Legacy hello", run() { return ok("legacy"); } }],
 });
 `,
 		);
@@ -478,7 +507,7 @@ describe("project-local cp extension behavior", () => {
 		const topHelp = runCpWithFakes({ args: ["--help"], state: { exec: [] }, cwd });
 		expect(await topHelp.exit).toBe(0);
 		expect(topHelp.stdout.join("")).toContain("cp");
-		expect(topHelp.stdout.join("")).toContain("Run SDL command entry 'cp'.");
+		expect(topHelp.stdout.join("")).toContain("Create a checkpoint commit for the current diff.");
 		expect(topHelp.stderr.join("")).toBe("");
 
 		const commandHelp = runCpWithFakes({ args: ["cp", "--help"], state: { exec: [] }, cwd });

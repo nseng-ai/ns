@@ -32,6 +32,7 @@ export default defineExtension({
   commands: [
     {
       name: "cp",
+      summary: "Create a checkpoint commit for the current diff.",
       description: CP_COMMAND_DESCRIPTION,
       schema: cpRequestSchema,
       async run(ctx, request: CpRequest) {

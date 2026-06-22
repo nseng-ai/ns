@@ -6,6 +6,7 @@ import { failed, ok, type SdlCommand } from "../sdk/index.ts";
 
 export const defaultChangesCommand = {
 	name: "changes",
+	summary: "Summarize outstanding worktree changes without committing.",
 	description: "Summarize outstanding worktree changes without committing.",
 	async run(ctx) {
 		const loaded = await loadPendingWorktreeSnapshot({

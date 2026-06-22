@@ -11,6 +11,7 @@ export type SdlCommandRequest<S extends SdlCommandSchema> = z.output<S>;
 
 export interface SdlCommand<S extends SdlCommandSchema = z.ZodObject> {
 	name: string;
+	summary: string;
 	description: string;
 	schema?: S | undefined;
 	positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>> | undefined;

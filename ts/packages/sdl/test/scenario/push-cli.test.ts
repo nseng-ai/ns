@@ -77,7 +77,7 @@ describe("sdl push CLI", () => {
 		expect(await topHelp.exit).toBe(0);
 		const topLevelHelp = topHelp.stdout.join("");
 		expect(topLevelHelp).toContain("push");
-		expect(topLevelHelp).toContain("Run SDL command entry 'push'.");
+		expect(topLevelHelp).toContain("Push committed work on the current branch with git push.");
 		expect(topHelp.stderr.join("")).toBe("");
 
 		const commandHelp = runWithFakes({ args: ["push", "--help"], state: { exec: [] }, cwd });

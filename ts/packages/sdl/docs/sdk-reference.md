@@ -53,7 +53,8 @@ export default defineExtension({
   commands: [
     {
       name: "greet",
-      description: "Say hello.",
+      summary: "Say hello.",
+      description: "Say hello with details.",
       run: () => ok("hello"),
     },
   ],
@@ -93,6 +94,7 @@ One flat `sdl <name>` command contribution inside an extension's `commands` arra
 ```ts
 interface SdlCommand<S extends SdlCommandSchema = z.ZodObject> {
   name: string;
+  summary: string;
   description: string;
   schema?: S | undefined;
   positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>> | undefined;
@@ -103,7 +105,8 @@ interface SdlCommand<S extends SdlCommandSchema = z.ZodObject> {
 **Fields.**
 
 - `name` — the flat command name. Must match `[a-z][a-z0-9-]*`: no nested groups, slashes, colons, spaces, or uppercase.
-- `description` — one-line help text shown in `sdl --help`.
+- `summary` — required one-line text shown in `sdl --help`.
+- `description` — full help text shown in `sdl <cmd> --help`.
 - `schema?` — a Zod object schema (`SdlCommandSchema`) describing the command's options. Omit for a command with no parsed arguments.
 - `positionals?` — maps schema field names to positional slots (`PositionalSpec`). Only keys present in the schema are valid.
 - `run(ctx, request)` — the command body. Receives the execution context and the parsed request (`z.output<schema>`), and returns an `SdlResult` (sync or async).
@@ -117,7 +120,8 @@ export default defineExtension({
   commands: [
     {
       name: "greet",
-      description: "Greet someone.",
+      summary: "Greet someone.",
+      description: "Greet someone with a configurable name.",
       schema: z.object({ name: z.string().default("world") }),
       run: (ctx, request) => ok(`hello ${request.name}`),
     },
@@ -182,7 +186,8 @@ interface PositionalSpec {
 ```ts
 {
   name: "autobranch",
-  description: "Create a branch.",
+  summary: "Create a branch.",
+  description: "Create a branch with an optional slug.",
   schema: z.object({ slug: z.string().optional() }),
   positionals: { slug: { position: 0 } },
   run: (ctx, request) => ok(request.slug ?? "(auto)"),

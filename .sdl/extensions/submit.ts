@@ -2730,6 +2730,7 @@ var submit_entry_default = defineExtension({
   commands: [
     {
       name: "submit",
+      summary: "Checkpoint pending changes, then submit the Graphite stack with gt submit.",
       description: SUBMIT_COMMAND_DESCRIPTION,
       schema: submitSchema,
       async run(ctx, request) {

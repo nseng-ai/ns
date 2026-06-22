@@ -70,6 +70,7 @@ import { defineExtension, ok } from "@sdl/sdl/sdk";
 export default defineExtension({
 	commands: [{
 	name: "${commandName}",
+	summary: "Custom ${commandName}",
 	description: "Custom ${commandName}",
 	async run(ctx) {
 		const result = await ctx.exec("echo", ["pi-custom-${commandName}"]);

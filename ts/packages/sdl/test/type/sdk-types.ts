@@ -15,6 +15,7 @@ const extension = defineExtension({
 	commands: [
 		{
 			name: "first",
+			summary: "First.",
 			description: "First command.",
 			run() {
 				return ok("first");
@@ -22,6 +23,7 @@ const extension = defineExtension({
 		},
 		{
 			name: "second",
+			summary: "Second.",
 			description: "Second command.",
 			schema: z.object({ second: z.string() }),
 			run(_ctx, request) {
@@ -30,6 +32,7 @@ const extension = defineExtension({
 		},
 		{
 			name: "third",
+			summary: "Third.",
 			description: "Third command.",
 			schema: z.object({ third: z.number() }),
 			run(_ctx, request) {
@@ -38,6 +41,7 @@ const extension = defineExtension({
 		},
 		{
 			name: "fourth",
+			summary: "Fourth.",
 			description: "Fourth command.",
 			schema: z.object({ fourth: z.boolean() }),
 			run(_ctx, request) {
@@ -54,6 +58,7 @@ const extension = defineExtension({
 		},
 		{
 			name: "fifth",
+			summary: "Fifth.",
 			description: "Fifth command.",
 			schema: z.object({ fifth: z.string() }),
 			run(_ctx, request) {

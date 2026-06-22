@@ -247,6 +247,7 @@ export default defineExtension({
   commands: [
     {
       name: "autobranch",
+      summary: "Create a Graphite branch from dirty worktree changes or the latest unpushed commit.",
       description: AUTOBRANCH_DESCRIPTION,
       schema: autobranchRequestSchema,
       async run(ctx, request: AutobranchRequest) {

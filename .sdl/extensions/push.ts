@@ -19,6 +19,7 @@ export default defineExtension({
 	commands: [
 		{
 			name: "push",
+			summary: "Push committed work on the current branch with git push.",
 			description: PUSH_COMMAND_DESCRIPTION,
 			async run(ctx) {
 				return await runPush(ctx);

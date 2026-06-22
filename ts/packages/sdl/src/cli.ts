@@ -18,6 +18,7 @@ import {
 	commandInfosForSelectedCommand,
 	formatExtensionErrorDiagnostics,
 	formatExtensionWarningDiagnostics,
+	loadListingCommandInfos,
 	loadSdlCommandCatalog,
 	loadSelectedSdlCommand,
 } from "./extension-registry.ts";
@@ -87,8 +88,17 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 			resolvedStderr(`${formatExtensionErrorDiagnostics(diagnosticClassification.fatal)}\n`);
 			return { type: "handled", exitCode: 2 };
 		}
-		if (diagnosticClassification.warnings.length > 0) {
-			resolvedStderr(`${formatExtensionWarningDiagnostics(diagnosticClassification.warnings)}\n`);
+
+		let commandInfos = commandCatalog.commandInfos;
+		let listingDiagnostics: typeof diagnosticClassification.warnings = [];
+		if (selectedCommandName === undefined && !isStaticTopLevelMetadataRequest(args)) {
+			const loadedListing = await loadListingCommandInfos(commandCatalog);
+			commandInfos = loadedListing.commandInfos;
+			listingDiagnostics = loadedListing.diagnostics;
+		}
+		const warnings = [...diagnosticClassification.warnings, ...listingDiagnostics];
+		if (warnings.length > 0) {
+			resolvedStderr(`${formatExtensionWarningDiagnostics(warnings)}\n`);
 		}
 
 		const loadedSelectedCommand =
@@ -99,8 +109,8 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 		}
 		const selectedCommand = loadedSelectedCommand?.command;
 		const selectedSource = loadedSelectedCommand?.source;
-		const commandInfos = commandInfosForSelectedCommand(
-			commandCatalog.commandInfos,
+		commandInfos = commandInfosForSelectedCommand(
+			commandInfos,
 			selectedCommand === undefined || selectedSource === undefined
 				? undefined
 				: { command: selectedCommand, source: selectedSource },
@@ -188,6 +198,10 @@ function requestedCommandName(args: readonly string[]): string | undefined {
 	const firstArg = args[0];
 	if (firstArg === undefined || firstArg.startsWith("-")) return undefined;
 	return firstArg;
+}
+
+function isStaticTopLevelMetadataRequest(args: readonly string[]): boolean {
+	return args.includes("--version") || args.includes("--runtime");
 }
 
 function writeSdlResultOutput(

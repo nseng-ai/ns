@@ -28,6 +28,7 @@ export default defineExtension({
   commands: [
     {
       name: "changes",
+      summary: "Summarize outstanding worktree changes without committing.",
       description: CHANGES_COMMAND_DESCRIPTION,
       async run(ctx) {
         const loaded = await loadPendingWorktreeSnapshot(ctx);

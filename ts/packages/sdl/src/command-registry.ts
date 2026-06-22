@@ -48,6 +48,7 @@ export const builtInCommandDefinitions: Readonly<Record<string, BuiltInCommandDe
 
 const sdlCommandSchema = z.object({
 	name: z.string(),
+	summary: z.string(),
 	description: z.string(),
 	schema: z.custom<SdlCommandSchema>(isZodObjectSchema).optional(),
 	positionals: z.custom<SdlCommand["positionals"]>(isRecord).optional(),
@@ -97,7 +98,7 @@ export function commandInfoForLoadedCommand(
 	}
 	return {
 		name: command.name,
-		description: command.description,
+		description: command.summary,
 		fullDescription: command.description,
 	};
 }
@@ -188,6 +189,9 @@ function formatSdlCommandEntryIssue(issue: z.core.$ZodIssue): string {
 	if (field === "name") {
 		return "command name must be a string";
 	}
+	if (field === "summary") {
+		return "command summary must be a string";
+	}
 	if (field === "description") {
 		return "command description must be a string";
 	}
@@ -197,7 +201,7 @@ function formatSdlCommandEntryIssue(issue: z.core.$ZodIssue): string {
 	if (field === "run") {
 		return "command run must be a function";
 	}
-	return "command entry must include name, description, and run";
+	return "command entry must include name, summary, description, and run";
 }
 
 function isZodObjectSchema(value: unknown): value is SdlCommandSchema {

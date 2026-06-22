@@ -5,9 +5,11 @@ import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
+import { commandInfoForLoadedCommand } from "../../src/command-registry.ts";
 import {
 	classifyExtensionDiagnosticsForInvocation,
 	hasExtensionErrors,
+	loadListingCommandInfos,
 	loadSdlCommandCatalog,
 	loadSelectedSdlCommand,
 } from "../../src/extension-registry.ts";
@@ -56,6 +58,7 @@ import { defineExtension, ok } from "@sdl/sdl/sdk";
 export default defineExtension({
 	commands: [{
 	name: ${JSON.stringify(name)},
+	summary: ${JSON.stringify(`${name} summary`)},
 	description: ${JSON.stringify(`${name} command`)},
 	run() { return ok(${JSON.stringify(message)}); },
 }],
@@ -188,6 +191,108 @@ describe("extension registry", () => {
 		});
 	});
 
+	test("listing command infos eager-load direct command summaries", async () => {
+		const workspace = await createWorkspace();
+		writeProjectExtension(
+			workspace,
+			"hello.ts",
+			commandEntry("hello", "hello from loaded command"),
+		);
+
+		const catalog = await loadSdlCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+		});
+		const loaded = await loadListingCommandInfos(catalog);
+
+		expect(loaded.diagnostics).toEqual([]);
+		expect(loaded.commandInfos).toEqual([
+			{
+				name: "hello",
+				description: "hello summary",
+				fullDescription: "hello command",
+			},
+		]);
+	});
+
+	test("listing command infos preserve package manifest metadata without importing", async () => {
+		const workspace = await createWorkspace();
+		writeProjectManifest(workspace, "pkg", {
+			sdl: {
+				commands: [
+					{
+						name: "hello",
+						description: "Say hello.",
+						fullDescription: "Say hello with details.",
+						entry: "./src/hello.ts",
+					},
+				],
+			},
+		});
+		writeFile(
+			join(workspace.cwd, ".sdl", "extensions", "pkg", "src", "hello.ts"),
+			"throw new Error('should not import package commands for listing');\n",
+		);
+
+		const catalog = await loadSdlCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+		});
+		const loaded = await loadListingCommandInfos(catalog);
+
+		expect(loaded.diagnostics).toEqual([]);
+		expect(loaded.commandInfos).toEqual([
+			{
+				name: "hello",
+				description: "Say hello.",
+				fullDescription: "Say hello with details.",
+			},
+		]);
+	});
+
+	test("listing command infos keep placeholders and diagnose failed imports", async () => {
+		const workspace = await createWorkspace();
+		writeProjectExtension(workspace, "hello.ts", "throw new Error('listing boom');\n");
+
+		const catalog = await loadSdlCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+		});
+		const loaded = await loadListingCommandInfos(catalog);
+
+		expect(loaded.commandInfos).toEqual([
+			{
+				name: "hello",
+				description: "Run SDL command entry 'hello'.",
+				fullDescription: "Run SDL command entry 'hello'.",
+			},
+		]);
+		expect(loaded.diagnostics).toEqual([
+			expect.objectContaining({
+				code: "sdl_extension_contribution_import_failed",
+				commandName: "hello",
+			}),
+		]);
+	});
+
+	test("loaded command info uses explicit summary and full description", () => {
+		const info = commandInfoForLoadedCommand(
+			{
+				name: "hello",
+				summary: "Say hello.",
+				description: "Say hello.\n\nWith details.",
+				run: () => ({ ok: true, message: "hello" }),
+			},
+			"project",
+		);
+
+		expect(info).toEqual({
+			name: "hello",
+			description: "Say hello.",
+			fullDescription: "Say hello.\n\nWith details.",
+		});
+	});
+
 	test("one SDL extension module can contribute multiple manifest-listed commands", async () => {
 		const workspace = await createWorkspace();
 		writeProjectManifest(workspace, "pkg", {
@@ -205,8 +310,8 @@ import { defineExtension, ok } from "@sdl/sdl/sdk";
 
 export default defineExtension({
 	commands: [
-		{ name: "hello", description: "Say hello.", run() { return ok("hello"); } },
-		{ name: "bye", description: "Say bye.", run() { return ok("bye"); } },
+		{ name: "hello", summary: "Say hello.", description: "Say hello with details.", run() { return ok("hello"); } },
+		{ name: "bye", summary: "Say bye.", description: "Say bye with details.", run() { return ok("bye"); } },
 	],
 });
 `,
@@ -286,7 +391,12 @@ export default defineExtension({
 			description: "cp",
 			fullDescription: "cp",
 			source: { level: "built-in" as const, label: "built-in command cp" },
-			command: { name: "cp", description: "cp", run: () => ({ ok: true as const, message: "" }) },
+			command: {
+				name: "cp",
+				summary: "cp",
+				description: "cp",
+				run: () => ({ ok: true as const, message: "" }),
+			},
 		};
 
 		const classified = classifyExtensionDiagnosticsForInvocation({
@@ -326,6 +436,7 @@ export default defineExtension({
 				description: "cp",
 				fullDescription: "cp",
 				entryPath: "/project/cp.ts",
+				kind: "file",
 				source: { level: "project", label: "project cp", path: "/project/cp.ts" },
 			},
 		});
@@ -351,6 +462,7 @@ export default defineExtension({
 				description: "cp",
 				fullDescription: "cp",
 				entryPath: "/project/cp.ts",
+				kind: "file",
 				source: { level: "project", label: "project cp", path: "/project/cp.ts" },
 			},
 		});
@@ -378,7 +490,12 @@ export default defineExtension({
 				description: "cp",
 				fullDescription: "cp",
 				source: { level: "built-in", label: "built-in command cp" },
-				command: { name: "cp", description: "cp", run: () => ({ ok: true as const, message: "" }) },
+				command: {
+					name: "cp",
+					summary: "cp",
+					description: "cp",
+					run: () => ({ ok: true as const, message: "" }),
+				},
 			},
 		});
 
