@@ -46,6 +46,7 @@ class FakePi {
 	readonly [RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES]?: RunnerSubagentDispatcherDependencies;
 	private readonly execResults: Map<string, FakeExecResult>;
 	private readonly execHandler: FakeExecHandler | undefined;
+	private readonly finalSynthesisText: string;
 
 	constructor(
 		options: {
@@ -53,10 +54,12 @@ class FakePi {
 			execHandler?: FakeExecHandler;
 			runnerResult?: RuntimeResultV1;
 			runnerDependencies?: RunnerSubagentDispatcherDependencies;
+			finalSynthesisText?: string;
 		} = {},
 	) {
 		this.execResults = options.execResults ?? new Map();
 		this.execHandler = options.execHandler;
+		this.finalSynthesisText = options.finalSynthesisText ?? defaultFinalSynthesisText();
 		if (options.runnerDependencies !== undefined) {
 			this[RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES] = options.runnerDependencies;
 		} else if (options.runnerResult !== undefined) {
@@ -104,7 +107,10 @@ class FakePi {
 			spawn: (command, args, options) => {
 				const process = new FakeSpawnedChildProcess();
 				this.runnerCalls.push({ command, args: [...args], options, process });
-				queueMicrotask(() => process.close(0));
+				queueMicrotask(() => {
+					process.emitStdout(finalAssistantTextEvent(this.finalSynthesisText));
+					process.close(0);
+				});
 				return process;
 			},
 		};
@@ -302,8 +308,8 @@ describe("thermo council extension", () => {
 			command: "git",
 			args: ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"],
 		});
-		expect(pi.runnerCalls).toHaveLength(3);
-		expect(pi.messages[0]?.content).toContain("Base: origin/master (base-sha)");
+		expect(pi.runnerCalls).toHaveLength(4);
+		expect(pi.messages[0]?.content).toContain("## Executive Recommendation");
 	});
 
 	test("uses a model-interpreted explicit base ref from prose", async () => {
@@ -324,7 +330,7 @@ describe("thermo council extension", () => {
 			command: "git",
 			args: ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"],
 		});
-		expect(pi.runnerCalls).toHaveLength(3);
+		expect(pi.runnerCalls).toHaveLength(4);
 	});
 
 	test("rejects prose the scope model marks unsupported", async () => {
@@ -354,8 +360,8 @@ describe("thermo council extension", () => {
 
 		await pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.handler("origin/master", fakeContext());
 
-		expect(pi.runnerCalls).toHaveLength(3);
-		for (const call of pi.runnerCalls) {
+		expect(pi.runnerCalls).toHaveLength(4);
+		for (const call of pi.runnerCalls.slice(0, 3)) {
 			expect(call.args).toContain("--tools");
 			expect(call.args).toContain(
 				`read,${SUBMIT_THERMO_COUNCIL_REVIEW_TOOL},${BLOCK_THERMO_COUNCIL_REVIEW_TOOL}`,
@@ -364,7 +370,8 @@ describe("thermo council extension", () => {
 			expect(call.args.join("\n")).toContain("reviews/thermonuclear-review.md");
 		}
 		expect(pi.messages[0]?.customType).toBe(THERMO_COUNCIL_MESSAGE_TYPE);
-		expect(pi.messages[0]?.content).toContain("## Council Seat Status");
+		expect(pi.messages[0]?.content).toContain("## Executive Recommendation");
+		expect(pi.messages[0]?.content).toContain("## Final Synthesis Evidence");
 		expect(pi.messages[0]?.content).toContain("No branches were created");
 	});
 
@@ -399,7 +406,10 @@ describe("thermo council extension", () => {
 			),
 		).toBe(true);
 
-		for (const call of runner.calls) call.process.close(0);
+		for (const call of runner.calls.slice(0, 3)) call.process.close(0);
+		await waitForSpawnCount(runner.calls, 4);
+		runner.calls[3]?.process.emitStdout(finalAssistantTextEvent(defaultFinalSynthesisText()));
+		runner.calls[3]?.process.close(0);
 		await running;
 	});
 
@@ -459,7 +469,11 @@ describe("thermo council extension", () => {
 				],
 			},
 		};
-		const pi = new FakePi({ execResults: successfulScopeExecResults(), runnerResult });
+		const pi = new FakePi({
+			execResults: successfulScopeExecResults(),
+			runnerResult,
+			finalSynthesisText: "",
+		});
 		thermoCouncilExtension(pi);
 
 		await pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.handler("origin/master", fakeContext());
@@ -626,6 +640,42 @@ describe("thermo council extension", () => {
 		expect(report).toContain("model unavailable");
 	});
 });
+
+function defaultFinalSynthesisText(): string {
+	return [
+		"# Thermo Council Report",
+		"",
+		"## Executive Recommendation",
+		"- Fix the duplicated orchestration branching before landing.",
+		"",
+		"## Prioritized Recommendations",
+		"### 1. Consolidate orchestration branching",
+		"- Decision: fix now.",
+		"- Why: multiple seats reported the same maintainability issue.",
+		"- Evidence: Anthropic Opus:opus-1, OpenAI High:openai-1, Gemini High:gemini-1.",
+		"- Fix shape: use one typed lifecycle model.",
+		"- Validation: just ts-test.",
+		"",
+		"## Dissent / Lower-Priority Notes",
+		"None.",
+		"",
+		"## Council Audit Trail",
+		"- Synthesized from structured council findings.",
+	].join("\n");
+}
+
+function finalAssistantTextEvent(text: string): string {
+	return jsonLine({
+		type: "agent_end",
+		messages: [
+			{
+				role: "assistant",
+				stopReason: "stop",
+				content: [{ type: "text", text }],
+			},
+		],
+	});
+}
 
 function completedRunnerResult(): RuntimeResultV1 {
 	return {

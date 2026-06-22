@@ -22,6 +22,7 @@ import {
 	type RunnerSubagentUpdate,
 } from "../runner-subagent.ts";
 import { THERMO_COUNCIL_COMMAND_NAME, THERMO_COUNCIL_MESSAGE_TYPE } from "./constants.ts";
+import { synthesizeThermoCouncilFinalReport } from "./final-synthesis.ts";
 import { buildReviewerPrompt } from "./prompt.ts";
 import { renderFatalReport, renderThermoCouncilReport } from "./report.ts";
 import { collectThermoCouncilScope } from "./scope.ts";
@@ -73,8 +74,17 @@ export async function runThermoCouncilCommand(
 				return outcome;
 			}),
 		);
-		setStatus(ctx, "synthesizing thermo council report…");
-		const report = renderThermoCouncilReport(scopeResult.scope, outcomes);
+		setStatus(ctx, "aggregating thermo council findings…");
+		const deterministicReport = renderThermoCouncilReport(scopeResult.scope, outcomes);
+		setStatus(ctx, "running final thermo council synthesis…");
+		const report = await synthesizeThermoCouncilFinalReport({
+			pi,
+			ctx,
+			scope: scopeResult.scope,
+			outcomes,
+			deterministicReport,
+			onProgress: (update) => setStatus(ctx, renderFinalSynthesisStatus(update)),
+		});
 		emitReport(pi, ctx, report);
 	} catch (error) {
 		emitReport(
@@ -167,6 +177,14 @@ function renderCouncilSeatOutcome(outcome: ThermoCouncilReviewerOutcome): string
 		case "failed":
 			return `${outcome.seat.label} failed`;
 	}
+}
+
+function renderFinalSynthesisStatus(update: RunnerSubagentUpdate): string {
+	const progress = update.progress;
+	const preview = update.activity.assistantPreview ?? update.activity.currentToolInputPreview;
+	if (preview !== undefined) return compactStatus(`final synthesis ${progress.state}: ${preview}`);
+	if (progress.turnCount > 0) return `final synthesis ${progress.state} turn ${progress.turnCount}`;
+	return `final synthesis ${progress.state}`;
 }
 
 function compactStatus(value: string): string {
