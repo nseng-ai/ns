@@ -53,6 +53,7 @@ import {
 
 const DEFAULT_STDERR_LIMIT_BYTES = 8 * 1024;
 const DEFAULT_KILL_TIMEOUT_MS = 5_000;
+const LAUNCH_METADATA_HYDRATION_RETRY_MS = 50;
 const STOPPED_WITHOUT_TERMINAL_DIAGNOSTIC = "Subagent Pi stopped without terminal capture.";
 const STOPPED_WITHOUT_USEFUL_TEXT_DIAGNOSTIC =
 	"Subagent Pi stopped without useful final assistant text.";
@@ -217,6 +218,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 	const spawnChildProcess = dependencies.spawn ?? defaultSpawnChildProcess;
 	const timers = dependencies.timers ?? systemTimerScheduler;
 	const killTimeoutMs = dependencies.killTimeoutMs ?? DEFAULT_KILL_TIMEOUT_MS;
+	const readSessionFile = dependencies.readSessionFile ?? defaultReadSessionFile;
 
 	let child: SpawnedChildProcess;
 	try {
@@ -243,6 +245,9 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		let cancelled = false;
 		let killRequested = false;
 		let killTimer: ScheduledTimer | undefined;
+		let launchHydrationRetryTimer: ScheduledTimer | undefined;
+		let liveHydrationAttempts = 0;
+		let hydrationInFlight: Promise<void> | undefined;
 		const removeAbortListeners: Array<() => void> = [];
 
 		const finish = (result: RunnerSubagentResult<TTerminalInput>) => {
@@ -250,6 +255,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 			settled = true;
 			for (const remove of removeAbortListeners) remove();
 			killTimer?.cancel();
+			launchHydrationRetryTimer?.cancel();
 			void cleanupRuntimeFiles(runtimeFiles).finally(() => resolve(result));
 		};
 
@@ -269,6 +275,57 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 			terminateChild();
 		};
 
+		const hydrateLaunchMetadataFromSession = async (options: {
+			forceProgress: boolean;
+		}): Promise<boolean> => {
+			try {
+				const jsonl = await readSessionFile(sessionFile);
+				const changed = parser.hydrateLaunchMetadataFromSessionJsonl(jsonl);
+				if (changed && options.forceProgress) {
+					updateEmitter.emit(updateFromSnapshot(parser.getSnapshot()), { force: true });
+				}
+				return changed;
+			} catch {
+				// Session-file launch hydration is display-only and best-effort.
+				return false;
+			}
+		};
+
+		const shouldHydrateLaunchMetadata = () => {
+			const launchMetadata = parser.getSnapshot().progress.launch;
+			return (
+				launchMetadata === undefined ||
+				launchMetadata.model === undefined ||
+				launchMetadata.observedThinkingLevel === undefined
+			);
+		};
+
+		const scheduleLiveLaunchHydration = () => {
+			if (hydrationInFlight !== undefined) return;
+			if (liveHydrationAttempts >= 3) return;
+			if (!shouldHydrateLaunchMetadata()) return;
+			liveHydrationAttempts += 1;
+			hydrationInFlight = hydrateLaunchMetadataFromSession({ forceProgress: true })
+				.then((changed) => {
+					if (changed || closed || settled || liveHydrationAttempts >= 3) return;
+					if (!shouldHydrateLaunchMetadata()) return;
+					launchHydrationRetryTimer?.cancel();
+					launchHydrationRetryTimer = timers.setTimeout(() => {
+						launchHydrationRetryTimer = undefined;
+						scheduleLiveLaunchHydration();
+					}, LAUNCH_METADATA_HYDRATION_RETRY_MS);
+				})
+				.finally(() => {
+					hydrationInFlight = undefined;
+				});
+			void hydrationInFlight;
+		};
+
+		const hydrateLaunchMetadataBeforeClose = async () => {
+			if (hydrationInFlight !== undefined) await hydrationInFlight;
+			await hydrateLaunchMetadataFromSession({ forceProgress: false });
+		};
+
 		for (const signal of abortSignals) {
 			if (signal.aborted) {
 				cancel();
@@ -283,6 +340,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 			parser.pushChunk(chunk);
 			const snapshot = parser.getSnapshot();
 			updateEmitter.emit(updateFromSnapshot(snapshot));
+			scheduleLiveLaunchHydration();
 			if ((snapshot.error || snapshot.protocolError) && !cancelled) {
 				terminateChild();
 			}
@@ -308,28 +366,31 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		child.on("close", (code, closeSignal) => {
 			closed = true;
 			killTimer?.cancel();
-			parser.finish();
-			const snapshot = parser.getSnapshot();
-			updateEmitter.emit(updateFromSnapshot(snapshot), { force: true });
+			launchHydrationRetryTimer?.cancel();
 
-			void resolveClosedRunnerSubagentResult<TTerminalInput>({
-				title,
-				snapshot,
-				code,
-				closeSignal,
-				stderr: stderr.toString(),
-				cancelled,
-				abortSignals,
-				readRuntimeResult: dependencies.readRuntimeResult ?? readRuntimeResultFile,
-				returnMode,
-				...(runtimeFiles === undefined ? {} : { runtimeFiles }),
-				terminalToolStatuses: new Map(
-					terminalTools.map((tool) => [tool.name, tool.status] as const),
-				),
-			})
-				.then((result) =>
-					withRunnerSubagentUsage(result, dependencies.readSessionFile ?? defaultReadSessionFile),
-				)
+			void (async () => {
+				await hydrateLaunchMetadataBeforeClose();
+				parser.finish();
+				const snapshot = parser.getSnapshot();
+				updateEmitter.emit(updateFromSnapshot(snapshot), { force: true });
+
+				return await resolveClosedRunnerSubagentResult<TTerminalInput>({
+					title,
+					snapshot,
+					code,
+					closeSignal,
+					stderr: stderr.toString(),
+					cancelled,
+					abortSignals,
+					readRuntimeResult: dependencies.readRuntimeResult ?? readRuntimeResultFile,
+					returnMode,
+					...(runtimeFiles === undefined ? {} : { runtimeFiles }),
+					terminalToolStatuses: new Map(
+						terminalTools.map((tool) => [tool.name, tool.status] as const),
+					),
+				});
+			})()
+				.then((result) => withRunnerSubagentUsage(result, readSessionFile))
 				.then(finish, (error: unknown) => {
 					const progress = parser.getProgress();
 					finish(
@@ -396,7 +457,7 @@ export function resolveRunnerSubagentLaunch(
 		(requestedModel === undefined ? pi.getThinkingLevel?.() : undefined) ??
 		"off";
 	const hasThinkingArg =
-		thinkingLevel !== "off" && (hasExplicitThinking || requestedModel === undefined);
+		hasExplicitThinking || (thinkingLevel !== "off" && requestedModel === undefined);
 	return {
 		...(model === undefined ? {} : { model }),
 		...(requestedModel === undefined ? {} : { requestedModel }),

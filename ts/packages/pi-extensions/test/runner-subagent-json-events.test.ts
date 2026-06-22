@@ -66,6 +66,38 @@ describe("runner subagent JSON event parser", () => {
 		});
 	});
 
+	test("hydrates launch metadata from a child session JSONL snapshot", () => {
+		const parser = createRunnerSubagentJsonEventParser({
+			launch: {
+				requestedModel: "openai-codex/gpt-5.4-mini:medium",
+				thinkingLevel: "off",
+				hasModelArg: true,
+				hasThinkingArg: false,
+			},
+		});
+
+		const changed = parser.hydrateLaunchMetadataFromSessionJsonl(
+			[
+				jsonLine({ type: "session", id: "child" }),
+				"{bad complete line}\n",
+				jsonLine({ type: "model_change", provider: "openai-codex", modelId: "gpt-5.4-mini" }),
+				jsonLine({ type: "thinking_level_change", thinkingLevel: "high" }),
+				'{"type":"thinking_level_change"',
+			].join(""),
+		);
+
+		expect(changed).toBe(true);
+		expect(parser.getSnapshot().error).toBeUndefined();
+		expect(parser.getSnapshot().progress.launch).toEqual({
+			requestedModel: "openai-codex/gpt-5.4-mini:medium",
+			model: { provider: "openai-codex", id: "gpt-5.4-mini" },
+			thinkingLevel: "off",
+			observedThinkingLevel: "high",
+			hasModelArg: true,
+			hasThinkingArg: false,
+		});
+	});
+
 	test("sanitizes child-supplied launch model metadata", () => {
 		const parser = createRunnerSubagentJsonEventParser();
 		parser.pushChunk(

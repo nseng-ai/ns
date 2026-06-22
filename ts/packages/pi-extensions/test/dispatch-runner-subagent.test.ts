@@ -454,6 +454,51 @@ describe("dispatch_runner_subagent extension", () => {
 		expect(details.requestedModel).toBe("openai-codex/gpt-5.4-mini:medium");
 	});
 
+	test("hydrates observed thinking from the child session file for final tool text", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({
+			sessionFile: SESSION_FILE,
+			sessionFileText: [
+				jsonLine({ type: "model_change", provider: "openai-codex", modelId: "gpt-5.4-mini" }),
+				jsonLine({ type: "thinking_level_change", thinkingLevel: "high" }),
+			].join(""),
+		});
+		const pi = new FakePi(runner.dependencies, { thinkingLevel: "high" });
+		const tool = registerTool({ pi });
+		const updates: ToolResult[] = [];
+
+		const running = tool.execute(
+			"tool-1",
+			{ title: "Cheap classifier", prompt: "Classify feedback.", model: "openai/gpt-5.2" },
+			undefined,
+			(partial) => updates.push(partial),
+			{ cwd: ROOT, model: { provider: "openai-codex", id: "gpt-5.5" } },
+		);
+		const call = await waitForSpawn(runner.calls);
+
+		call.process.emitStdout(jsonLine({ type: "session", version: 3, id: "child", cwd: ROOT }));
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(updateTexts(updates)).toContain("Model: openai-codex/gpt-5.4-mini; Thinking: high");
+
+		call.process.emitStdout(finalTextMessage("Done."));
+		call.process.close(0);
+		const result = await running;
+		const text = result.content[0]?.text ?? "";
+		const details = result.details as Record<string, unknown>;
+
+		expect(text).toContain("Model: openai-codex/gpt-5.4-mini; Thinking: high");
+		expect((details.progress as Record<string, unknown>).launch as Record<string, unknown>).toEqual(
+			{
+				requestedModel: "openai/gpt-5.2",
+				model: { provider: "openai-codex", id: "gpt-5.4-mini" },
+				thinkingLevel: "off",
+				observedThinkingLevel: "high",
+				hasModelArg: true,
+				hasThinkingArg: false,
+			},
+		);
+	});
+
 	test("inherits provider for unqualified optional model patterns", async () => {
 		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE });
 		const pi = new FakePi(runner.dependencies, { thinkingLevel: "high" });
@@ -487,7 +532,7 @@ describe("dispatch_runner_subagent extension", () => {
 		const text = result.content[0]?.text ?? "";
 		const details = result.details as Record<string, unknown>;
 
-		expect(text).toContain("Model: openai-codex/gpt-5; Thinking: off");
+		expect(text).toContain("Model: openai-codex/gpt-5; Thinking: default (unobserved)");
 		expect(details.requestedModel).toBe("gpt-5");
 	});
 

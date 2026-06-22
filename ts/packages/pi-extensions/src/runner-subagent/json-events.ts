@@ -128,6 +128,14 @@ export class RunnerSubagentJsonEventParser {
 		this.markStopped();
 	}
 
+	hydrateLaunchMetadataFromSessionJsonl(jsonl: string): boolean {
+		const before = JSON.stringify(this.launch ?? null);
+		for (const rawLine of jsonl.split("\n")) {
+			this.hydrateLaunchMetadataFromSessionLine(rawLine);
+		}
+		return JSON.stringify(this.launch ?? null) !== before;
+	}
+
 	markTerminating(): void {
 		if (this.state === "stopped") return;
 		this.state = "terminating";
@@ -187,6 +195,30 @@ export class RunnerSubagentJsonEventParser {
 		}
 
 		this.processEvent(event);
+	}
+
+	private hydrateLaunchMetadataFromSessionLine(rawLine: string): void {
+		const line = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
+		if (line.trim().length === 0) return;
+
+		let event: unknown;
+		try {
+			event = JSON.parse(line);
+		} catch {
+			return;
+		}
+
+		if (!isJsonEvent(event)) return;
+		switch (event.type) {
+			case "model_change":
+				this.captureModelChange(event);
+				return;
+			case "thinking_level_change":
+				this.captureThinkingLevelChange(event);
+				return;
+			default:
+				return;
+		}
 	}
 
 	private processEvent(event: JsonEvent): void {
