@@ -9,6 +9,14 @@ import {
 } from "../exec.ts";
 import { formatErrorMessage } from "../primitives.ts";
 
+export {
+	readLocalBranchRefs,
+	type LocalBranchRefDirent,
+	type LocalBranchRefReaderFs,
+	type LocalBranchRefReadResult,
+	type ReadLocalBranchRefsOptions,
+} from "./ref-reader.ts";
+
 const GIT_TIMEOUT_MS = 10_000;
 
 export interface GitCwdParams {

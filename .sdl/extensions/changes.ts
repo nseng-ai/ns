@@ -1,18 +1,16 @@
 import { defineExtension, failed, ok } from "@sdl/sdl/sdk";
+import {
+  CHANGES_MODEL_ENV,
+  DEFAULT_CHANGES_MODEL_REF,
+  LEGACY_CHANGES_MODEL_ENV,
+} from "@sdl/sdl/text-generation";
 import { draftChangesSummary } from "./shared/text-helpers.ts";
 import type { ExecResult, SdlExtensionApi } from "@sdl/sdl/sdk";
 
-// This project-local extension intentionally uses only the public SDL SDK import. The local
-// workflow helpers below are SDK-pressure evidence for later command migrations, not new SDK API.
+// This project-local extension uses the public SDL SDK plus internal migration
+// exports while duplicated workflow helpers move into package-owned modules.
 const GIT_FACT_TIMEOUT_MS = 30_000;
-const DEFAULT_CHANGES_MODEL_REF = "openai-codex/gpt-5.4-mini";
-const CHANGES_MODEL_ENV = "SDL_CHANGES_MODEL";
-const LEGACY_CHANGES_MODEL_ENV = "PI_DRAFT_MODEL";
-const CHANGES_SUMMARY_MAX_BULLETS = 4;
-const CHANGES_SUMMARY_MAX_TOKENS = 512;
 const MAX_DISPLAY_FILE_LINES = 50;
-const INVALID_SUMMARY_ERROR =
-  'Model returned an invalid changes summary (expected 1–4 "- " bullets, no headers or code fences).';
 
 const CHANGES_COMMAND_DESCRIPTION = `Summarize outstanding worktree changes without committing.
 
@@ -22,16 +20,6 @@ Environment:
   ${CHANGES_MODEL_ENV}  Model reference for generated changes summaries. Defaults to ${DEFAULT_CHANGES_MODEL_REF}. Falls back to ${LEGACY_CHANGES_MODEL_ENV} when unset.
 
 The command owns human stdout/stderr, has no alternate output-format flag, and does not stage, commit, stash, switch branches, run Graphite, or call GitHub.`;
-
-const CHANGES_SUMMARY_SYSTEM_PROMPT = `You summarize a coding agent's outstanding worktree changes for a reviewer.
-
-Given git status and diff, output a short bullet summary:
-- Output 1 to 4 bullet lines, each starting with "- ".
-- No subject line, no "[cp]" prefix, no commit-message format.
-- No prose paragraphs, no markdown headers, no code fences, no trailers.
-- Group related files into a single bullet instead of listing every file separately.
-- Untracked file contents are not provided. Name untracked files only; never claim to have read their contents.
-- Optimize for a reviewer scanning the worktree to understand what changed.`;
 
 interface PendingWorktreeSnapshot {
   root: string;
@@ -67,7 +55,6 @@ export default defineExtension({
           textGenerator: ctx.textGenerator,
           env: ctx.env,
           snapshot,
-          modelRef: selectChangesModelRef(ctx.env),
         });
         if (!summary.ok) {
           return failed(summary.error, 2);
@@ -118,25 +105,6 @@ async function loadPendingWorktreeSnapshot(
 
 function execGit(ctx: SdlExtensionApi, args: string[]): Promise<ExecResult> {
   return ctx.exec("git", args, { timeoutMs: GIT_FACT_TIMEOUT_MS });
-}
-
-function selectChangesModelRef(env: Record<string, string | undefined>): string {
-  return (
-    firstEnvValue(env, CHANGES_MODEL_ENV, LEGACY_CHANGES_MODEL_ENV) ?? DEFAULT_CHANGES_MODEL_REF
-  );
-}
-
-function firstEnvValue(
-  env: Record<string, string | undefined>,
-  ...envNames: readonly string[]
-): string | undefined {
-  for (const envName of envNames) {
-    const value = env[envName]?.trim();
-    if (value !== undefined && value !== "") {
-      return value;
-    }
-  }
-  return undefined;
 }
 
 function formatOutstandingChangesMessage(

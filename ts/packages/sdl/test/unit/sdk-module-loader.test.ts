@@ -18,11 +18,24 @@ test("virtual SDK module mirrors sdk.ts runtime value exports", async () => {
 	}
 });
 
-test("SDL jiti resolves the checkpoint-flow internal package export", async () => {
+test("SDL jiti resolves internal migration package exports", async () => {
 	const checkpointFlowModule = await createSdlJiti().import<
 		typeof import("../../src/checkpoint-flow.ts")
 	>("@sdl/sdl/checkpoint-flow");
+	const changesModelSummaryModule = await createSdlJiti().import<
+		typeof import("../../src/changes-model-summary.ts")
+	>("@sdl/sdl/changes-model-summary");
+	const prDescriptionModule =
+		await createSdlJiti().import<typeof import("../../src/pr-description.ts")>(
+			"@sdl/sdl/pr-description",
+		);
+	const textGenerationModule = await createSdlJiti().import<
+		typeof import("../../src/text-generation.ts")
+	>("@sdl/sdl/text-generation");
 
 	expect(typeof checkpointFlowModule.prepareCheckpointMessage).toBe("function");
 	expect(typeof checkpointFlowModule.buildCheckpointUserPrompt).toBe("function");
+	expect(typeof changesModelSummaryModule.draftChangesSummary).toBe("function");
+	expect(typeof prDescriptionModule.preparePrDescription).toBe("function");
+	expect(typeof textGenerationModule.DEFAULT_CHANGES_MODEL_REF).toBe("string");
 });

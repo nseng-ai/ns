@@ -1,7 +1,3 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
 import { afterEach, describe, expect, test } from "vitest";
 
 import {
@@ -10,7 +6,6 @@ import {
 	loadGraphiteMetadataStatus,
 	loadGraphiteMetadataStatusInWorker,
 	shutdownGraphiteMetadataWorker,
-	type GraphiteBranchLookupResult,
 	type GraphiteMetadataDbAccess,
 	type GraphiteMetadataJsonQueryResult,
 	type GraphiteMetadataStatus,
@@ -18,6 +13,7 @@ import {
 	type GraphiteMetadataWorkerHandle,
 	type GraphiteMetadataWorkerRequest,
 } from "@sdl/ccc/worktree-status/graphite-metadata";
+import type { LocalBranchRefReadResult } from "@sdl/core/git";
 
 class NonRespondingMetadataWorker implements GraphiteMetadataWorkerHandle {
 	onmessage: ((event: { data: unknown }) => void) | null = null;
@@ -145,20 +141,30 @@ function loadWithFake(
 	options: {
 		currentBranch?: string | undefined;
 		liveBranches?: Iterable<string> | undefined;
-		branchLookup?: GraphiteBranchLookupResult | undefined;
+		branchLookup?: LocalBranchRefReadResult | undefined;
 	} = {},
 ) {
 	const currentBranch = options.currentBranch ?? "feature/current";
 	const liveBranchLookup =
 		options.branchLookup ??
 		({
-			type: "known",
+			ok: true,
 			branches: new Set(options.liveBranches ?? []),
-		} satisfies GraphiteBranchLookupResult);
+		} satisfies LocalBranchRefReadResult);
 	return loadGraphiteMetadataStatus(
 		{ commonGitDir: "/repo/.git", currentBranch },
 		{ dbAccess, branchAccess: { listLocalBranches: () => liveBranchLookup } },
 	);
+}
+
+function failedBranchLookup(): LocalBranchRefReadResult {
+	return {
+		ok: false,
+		reason: "branch-ref-read-failed",
+		message: "refs unavailable",
+		path: "/repo/.git/refs/heads",
+		error: new Error("refs unavailable"),
+	};
 }
 
 afterEach(() => {
@@ -286,52 +292,6 @@ describe("Graphite metadata status lookup", () => {
 		});
 	});
 
-	test("default filesystem branch access honors loose and packed refs", () => {
-		const dir = mkdtempSync(join(tmpdir(), "ccc-graphite-refs-"));
-		try {
-			mkdirSync(join(dir, "refs", "heads", "nested"), { recursive: true });
-			writeFileSync(join(dir, "refs", "heads", "loose-branch"), "aaa\n");
-			writeFileSync(join(dir, "refs", "heads", "nested", "child"), "bbb\n");
-			writeFileSync(
-				join(dir, "packed-refs"),
-				"# pack-refs with: peeled fully-peeled sorted\n" +
-					"cccccccccccccccccccccccccccccccccccccccc refs/heads/packed-branch\n" +
-					"dddddddddddddddddddddddddddddddddddddddd refs/tags/v1\n" +
-					"^eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\n",
-			);
-
-			const dbPath = join(dir, ".graphite_metadata.db");
-			const dbAccess: GraphiteMetadataDbAccess = {
-				exists(path) {
-					expect(path).toBe(dbPath);
-					return true;
-				},
-				queryJson(_path, query) {
-					return query.includes("PRAGMA")
-						? success(EXPECTED_SCHEMA_ROWS)
-						: success([
-								branchRow({
-									branchName: "loose-branch",
-									children: ["packed-branch", "nested/child", "phantom"],
-								}),
-							]);
-				},
-			};
-
-			expect(
-				loadGraphiteMetadataStatus(
-					{ commonGitDir: dir, currentBranch: "loose-branch" },
-					{ dbAccess },
-				),
-			).toMatchObject({
-				type: "tracked",
-				children: ["packed-branch", "nested/child"],
-			});
-		} finally {
-			rmSync(dir, { recursive: true, force: true });
-		}
-	});
-
 	test("drops children whose local ref is gone so the up branch matches gt", () => {
 		const dbAccess = new FakeGraphiteMetadataDbAccess({
 			responses: [
@@ -352,7 +312,7 @@ describe("Graphite metadata status lookup", () => {
 		});
 	});
 
-	test("preserves metadata children when live branch enumeration is unknown", () => {
+	test("fails closed when live branch enumeration is incomplete", () => {
 		const dbAccess = new FakeGraphiteMetadataDbAccess({
 			responses: [
 				success(EXPECTED_SCHEMA_ROWS),
@@ -366,11 +326,10 @@ describe("Graphite metadata status lookup", () => {
 			],
 		});
 
-		expect(
-			loadWithFake(dbAccess, { branchLookup: { type: "unknown", reason: "read-failed" } }),
-		).toMatchObject({
-			type: "tracked",
-			children: ["feature/live", "feature/maybe-live"],
+		expect(loadWithFake(dbAccess, { branchLookup: failedBranchLookup() })).toEqual({
+			type: "unavailable",
+			reason: "branch-ref-read-failed",
+			currentBranch: "feature/current",
 		});
 	});
 
