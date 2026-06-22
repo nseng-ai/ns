@@ -758,11 +758,13 @@ function formatGhStatusLine(
 
 	const pieces = formatGhPrDetailPieces(status, options);
 	if (status.type === "head-mismatch") {
-		pieces.push(formatColoredSegment(" · PR behind local", "warning", options.theme));
-		appendGhPrStatusAnnotation(pieces, options);
+		pieces.push(
+			formatColoredSegment(" · PR behind local", "warning", options.theme),
+			...formatGhStatusAnnotationPieces(options),
+		);
 		return pieces.join("");
 	}
-	appendGhPrStatusAnnotation(pieces, options);
+	pieces.push(...formatGhStatusAnnotationPieces(options));
 	if (isGhStatusLandable(status)) {
 		pieces.push(
 			formatColoredSegment(" · ", "dim", options.theme),
@@ -793,22 +795,18 @@ function formatGhPrDetailPieces(
 	];
 }
 
-function appendGhPrStatusAnnotation(pieces: string[], options: FormatWorktreeStatusOptions): void {
-	appendGhRefreshAgeAnnotation(pieces, options);
+function formatGhStatusAnnotationPieces(options: FormatWorktreeStatusOptions): string[] {
+	const pieces: string[] = [];
+	if (options.ghRefreshAgeMs !== undefined) {
+		pieces.push(
+			formatColoredSegment(" · refreshed ", "dim", options.theme),
+			formatColoredSegment(`${formatElapsedMs(options.ghRefreshAgeMs)} ago`, "dim", options.theme),
+		);
+	}
 	if (options.isDormant === true) {
 		pieces.push(formatColoredSegment(DORMANT_GH_STATUS_ANNOTATION_TEXT, "dim", options.theme));
 	}
-}
-
-function appendGhRefreshAgeAnnotation(
-	pieces: string[],
-	options: FormatWorktreeStatusOptions,
-): void {
-	if (options.ghRefreshAgeMs === undefined) return;
-	pieces.push(
-		formatColoredSegment(" · refreshed ", "dim", options.theme),
-		formatColoredSegment(`${formatElapsedMs(options.ghRefreshAgeMs)} ago`, "dim", options.theme),
-	);
+	return pieces;
 }
 
 function formatGhPrReference(
@@ -823,11 +821,7 @@ function formatGhStatusAnnotation(
 	statusLine: string,
 	options: FormatWorktreeStatusOptions,
 ): string {
-	const pieces = [statusLine];
-	appendGhRefreshAgeAnnotation(pieces, options);
-	if (options.isDormant === true)
-		pieces.push(formatColoredSegment(DORMANT_GH_STATUS_ANNOTATION_TEXT, "dim", options.theme));
-	return pieces.join("");
+	return [statusLine, ...formatGhStatusAnnotationPieces(options)].join("");
 }
 
 function isGhStatusLandable(status: GhStatus): boolean {
