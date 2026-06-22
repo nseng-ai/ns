@@ -42,6 +42,14 @@ export type CommandRunner = (
 	options?: ExecOptions,
 ) => Promise<ExecResult>;
 
+/**
+ * SDL's command execution gateway.
+ *
+ * This shape is intentionally compatible with Pi's extension-host `ctx.exec`,
+ * but SDL's `ExecOptions`/`ExecResult` contract is wider. Code that relies on
+ * behavior Pi does not provide, such as stdin piping, must require a narrower
+ * capability interface instead of this Pi-compatible base shape.
+ */
 export interface CommandExecApi {
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
 }
