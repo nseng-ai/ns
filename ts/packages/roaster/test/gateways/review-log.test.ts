@@ -97,10 +97,10 @@ describe("RealReviewLogGateway", () => {
 							},
 							{
 								namespace: "roaster",
-								key: "reviews/dignified-python/2026-06-20T18-40-11-123Z.md",
+								key: "reviews/dignified-python-tripwire/2026-06-20T18-40-11-123Z.md",
 								branch: "feature",
 								ref_name:
-									"refs/brmem/ns/roaster/feature:reviews/dignified-python/2026-06-20T18-40-11-123Z.md",
+									"refs/brmem/ns/roaster/feature:reviews/dignified-python-tripwire/2026-06-20T18-40-11-123Z.md",
 							},
 						],
 					},

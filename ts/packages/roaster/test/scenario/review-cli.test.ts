@@ -17,7 +17,7 @@ import {
 } from "../../src/models.ts";
 import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
 
-const REVIEW_KEY = "dignified-python";
+const REVIEW_KEY = "dignified-python-tripwire";
 
 interface RunResult {
 	readonly exitCode: number;
@@ -90,7 +90,7 @@ function diffForPath(path: string): LocalDiff {
 
 function applicableSources(): Record<string, string> {
 	return {
-		"dignified-python": sampleSource({
+		"dignified-python-tripwire": sampleSource({
 			appliesTo: "applies_to:\n  include:\n    - '**/*.py'\n  exclude:\n    - '**/tests/**/*.py'",
 		}),
 		"typescript-style": sampleSource({
@@ -214,7 +214,7 @@ describe("roaster review CLI", () => {
 		const run = await runRoaster(["review", "list"], {
 			context: contextWithCatalog({
 				sources: applicableSources(),
-				keys: ["dignified-python", "typescript-style"],
+				keys: ["dignified-python-tripwire", "typescript-style"],
 			}),
 		});
 		expect(run.exitCode).toBe(0);
@@ -222,7 +222,7 @@ describe("roaster review CLI", () => {
 		expect(run.stdout).toContain("Reviews: 2");
 		expect(run.stdout).toContain("Tripwires: 2");
 		expect(run.stdout).toContain(
-			"- dignified-python: Review Python diffs for style violations. (model profile: quick)",
+			"- dignified-python-tripwire: Review Python diffs for style violations. (model profile: quick)",
 		);
 	});
 
@@ -230,12 +230,12 @@ describe("roaster review CLI", () => {
 		const run = await runRoaster(["review", "list", "--format", "json"], {
 			context: contextWithCatalog({
 				sources: applicableSources(),
-				keys: ["dignified-python", "typescript-style"],
+				keys: ["dignified-python-tripwire", "typescript-style"],
 			}),
 		});
 		expect(run.exitCode).toBe(0);
 		const envelope = JSON.parse(run.stdout);
-		expect(envelope.data.keys).toEqual(["dignified-python", "typescript-style"]);
+		expect(envelope.data.keys).toEqual(["dignified-python-tripwire", "typescript-style"]);
 		expect(envelope.data.count).toBe(2);
 		expect(envelope.data.reviews[0].model_profile).toBe("quick");
 		expect(envelope.data.reviews[0].local_only).toBe(false);
@@ -275,7 +275,7 @@ describe("roaster review CLI", () => {
 			{
 				context: contextWithCatalog({
 					sources: applicableSources(),
-					keys: ["dignified-python", "typescript-style"],
+					keys: ["dignified-python-tripwire", "typescript-style"],
 					diff: diffForPath("src/app.ts"),
 				}),
 			},
@@ -298,11 +298,11 @@ describe("roaster review CLI", () => {
 							description: "Review TypeScript diffs for style violations.",
 							appliesTo: "applies_to:\n  include:\n    - '**/*.ts'",
 						}),
-						"dignified-python": sampleSource({
+						"dignified-python-tripwire": sampleSource({
 							appliesTo: "applies_to:\n  include:\n    - '**/*.py'",
 						}),
 					},
-					keys: ["local-typescript", "typescript-style", "dignified-python"],
+					keys: ["local-typescript", "typescript-style", "dignified-python-tripwire"],
 					diff: diffForPath("src/app.ts"),
 				}),
 			},
@@ -344,7 +344,7 @@ describe("roaster review CLI", () => {
 		);
 		const data = JSON.parse(run.stdout).data;
 		expect(data.reviewName).toBe(REVIEW_KEY);
-		expect(data.reviewPath).toBe("/repo/reviews/dignified-python.md");
+		expect(data.reviewPath).toBe("/repo/reviews/dignified-python-tripwire.md");
 		expect(data.baseRef).toBe("master");
 		expect(data.modelProfile).toBe("quick");
 		expect(data.model).toBe("opus");
@@ -382,9 +382,9 @@ describe("roaster review CLI", () => {
 		const entry = entries[0];
 		expect(entry?.namespace).toBe("roaster");
 		expect(entry?.branch).toBe("feature");
-		expect(entry?.key).toMatch(/^reviews\/dignified-python\/\d{4}-\d{2}-\d{2}T/);
-		expect(entry?.content).toContain("# Roaster Tripwire: dignified-python");
-		expect(entry?.content).toContain("- Review key: `dignified-python`");
+		expect(entry?.key).toMatch(/^reviews\/dignified-python-tripwire\/\d{4}-\d{2}-\d{2}T/);
+		expect(entry?.content).toContain("# Roaster Tripwire: dignified-python-tripwire");
+		expect(entry?.content).toContain("- Review key: `dignified-python-tripwire`");
 		expect(entry?.content).toContain("- Base ref: `master`");
 		expect(entry?.content).toContain("- Model profile: `quick`");
 		expect(entry?.content).toContain("- Model: `opus`");
@@ -448,7 +448,7 @@ describe("roaster review CLI", () => {
 			}),
 		});
 		expect(human.exitCode).toBe(1);
-		expect(human.stderr).toContain("Tripwire: dignified-python");
+		expect(human.stderr).toContain("Tripwire: dignified-python-tripwire");
 		expect(human.stderr).toContain("failed to write Branch Memory review log");
 	});
 
@@ -475,7 +475,7 @@ describe("roaster review CLI", () => {
 	test("review log lists entries and filters by review key", async () => {
 		const reviewLog = new FakeReviewLogGateway({
 			entries: [
-				{ key: "reviews/dignified-python/2026-06-20T18-42-11-123Z.md" },
+				{ key: "reviews/dignified-python-tripwire/2026-06-20T18-42-11-123Z.md" },
 				{ key: "reviews/typescript-style/2026-06-20T18-43-11-123Z.md" },
 			],
 		});
@@ -486,7 +486,7 @@ describe("roaster review CLI", () => {
 		expect(all.stdout).toContain("Roaster review logs: 2");
 		expect(all.stdout).toContain("reviews/typescript-style/2026-06-20T18-43-11-123Z.md");
 		expect(all.stdout).toContain(
-			"brmem get reviews/dignified-python/2026-06-20T18-42-11-123Z.md --namespace roaster",
+			"brmem get reviews/dignified-python-tripwire/2026-06-20T18-42-11-123Z.md --namespace roaster",
 		);
 
 		const filtered = await runRoaster(["review", "log", REVIEW_KEY, "--format", "json"], {
@@ -496,7 +496,9 @@ describe("roaster review CLI", () => {
 		const data = JSON.parse(filtered.stdout).data;
 		expect(data.count).toBe(1);
 		expect(data.reviewKey).toBe(REVIEW_KEY);
-		expect(data.entries[0].entryKey).toBe("reviews/dignified-python/2026-06-20T18-42-11-123Z.md");
+		expect(data.entries[0].entryKey).toBe(
+			"reviews/dignified-python-tripwire/2026-06-20T18-42-11-123Z.md",
+		);
 		expect(data.entries[0].entryLocator).toContain("refs/brmem/ns/roaster/");
 		expect(data.entries[0].ranAt).toBe("2026-06-20T18:42:11.123Z");
 	});

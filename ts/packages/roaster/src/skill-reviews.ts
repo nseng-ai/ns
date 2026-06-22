@@ -82,7 +82,13 @@ export async function loadRoastReviewDefinition(
 	};
 }
 
-function roastSkillSurfaceForReviewKey(key: string): string {
+function roastSkillSurfaceForDefinition(key: string, definition: ReviewDefinition): string {
+	if (
+		roasterReviewDisplayRole(definition.modelProfile) === "tripwire" &&
+		key.endsWith("-tripwire")
+	) {
+		return `skill:${key}`;
+	}
 	return `skill:roast-${key}`;
 }
 
@@ -94,8 +100,12 @@ export function roastReviewPathForKey(key: string): string {
 	return `reviews/${key}.md`;
 }
 
-function roastSkillTitleForKey(key: string): string {
-	const words = key.split(/[/-]/u).filter((word) => word.length > 0);
+function roastSkillTitleForDefinition(key: string, definition: ReviewDefinition): string {
+	const titleKey =
+		roasterReviewDisplayRole(definition.modelProfile) === "tripwire" && key.endsWith("-tripwire")
+			? key.slice(0, -"-tripwire".length)
+			: key;
+	const words = titleKey.split(/[/-]/u).filter((word) => word.length > 0);
 	return words.map((word, index) => humanizeKeyWord(word, index)).join(" ");
 }
 
@@ -112,9 +122,9 @@ function roastDefaultPrompt(title: string, definition: ReviewDefinition): string
 }
 
 function roastSkillEntryFromDefinition(key: string, definition: ReviewDefinition): RoastSkillEntry {
-	const title = roastSkillTitleForKey(key);
+	const title = roastSkillTitleForDefinition(key, definition);
 	return {
-		surface: roastSkillSurfaceForReviewKey(key),
+		surface: roastSkillSurfaceForDefinition(key, definition),
 		reviewKey: key,
 		title,
 		label: roastSkillLabel(title, definition),

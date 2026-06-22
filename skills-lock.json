@@ -1,11 +1,6 @@
 {
   "version": 1,
   "skills": {
-    "sdl-typescript": {
-      "source": "skills/sdl-typescript",
-      "sourceType": "local",
-      "computedHash": "7f5ae181ab4cfc8e44d49f5da0eabb63f17d5c9ea027ec7f2ab1e231691b8a33"
-    },
     "branch-context": {
       "source": "skills/branch-context",
       "sourceType": "local",
@@ -142,11 +137,21 @@
       "sourceType": "local",
       "computedHash": "9a5643a93e035bc14d1a1a789e789decc70bcab6d1a968911f4b5f329f178cf5"
     },
+    "dignified-python-tripwire": {
+      "source": "skills/dignified-python-tripwire",
+      "sourceType": "local",
+      "computedHash": "0b1f145b037ae62568b062a6672ecb75000ada9da44c5e1e282b19f26638c385"
+    },
     "domain-modeling": {
       "source": "mattpocock/skills",
       "sourceType": "github",
       "skillPath": "skills/engineering/domain-modeling/SKILL.md",
       "computedHash": "67343881f5def98487d56243155716110afbcbf22ec92421c882d532b941cb17"
+    },
+    "duplicative-abstractions-tripwire": {
+      "source": "skills/duplicative-abstractions-tripwire",
+      "sourceType": "local",
+      "computedHash": "4081510461e4d823b6a5c8415db15c0f245648898f4878fd3505e077aa106b7f"
     },
     "enriched-plan-save": {
       "source": "skills/enriched-plan-save",
@@ -286,25 +291,10 @@
       "sourceType": "local",
       "computedHash": "25cf816171ecf9305fdfb42d70464dd29e9af144042abab8eb92cc3138a386d7"
     },
-    "roast-sdl-typescript-style": {
-      "source": "skills/roast-sdl-typescript-style",
-      "sourceType": "local",
-      "computedHash": "741bd4dc7d1754efa64bba65c7462f553dcbdb30b140532d0be1cc1bca458f7c"
-    },
-    "roast-dignified-python": {
-      "source": "skills/roast-dignified-python",
-      "sourceType": "local",
-      "computedHash": "e96e13c4fce50bc24452df286fdb9632fa7610f43a04cc014a50c5738b4a3979"
-    },
     "roast-dry-but-not-too-dry": {
       "source": "skills/roast-dry-but-not-too-dry",
       "sourceType": "local",
       "computedHash": "9ed580dd1d8aa87de23e5b8f05ed4e7708e5e12cbdba766155ee5d22384fa3f3"
-    },
-    "roast-duplicative-abstractions": {
-      "source": "skills/roast-duplicative-abstractions",
-      "sourceType": "local",
-      "computedHash": "d210698074072c0241c5292ae29531b792e75088e8d2e577ac2946a8f80e0774"
     },
     "roast-improve-codebase-architecture": {
       "source": "skills/roast-improve-codebase-architecture",
@@ -320,6 +310,16 @@
       "source": "skills/sdl-submit",
       "sourceType": "local",
       "computedHash": "a9dbe016512d76a0e161586be6d3fd35b00d7955dfc296b29b411d375e80a1d9"
+    },
+    "sdl-typescript": {
+      "source": "skills/sdl-typescript",
+      "sourceType": "local",
+      "computedHash": "7f5ae181ab4cfc8e44d49f5da0eabb63f17d5c9ea027ec7f2ab1e231691b8a33"
+    },
+    "sdl-typescript-style-tripwire": {
+      "source": "skills/sdl-typescript-style-tripwire",
+      "sourceType": "local",
+      "computedHash": "ba1f488f99744ebb61ad2163af8fa5d9d11fb06872c32537f770258285ab4ca8"
     },
     "setup-dprint": {
       "source": "skills/setup-dprint",
