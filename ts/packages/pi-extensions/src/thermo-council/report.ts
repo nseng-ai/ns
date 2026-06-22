@@ -62,6 +62,45 @@ export function renderThermoCouncilReport(
 	].join("\n");
 }
 
+export interface RenderFinalSynthesisFailureReportOptions {
+	readonly scope: ThermoCouncilScope;
+	readonly outcomes: readonly ThermoCouncilReviewerOutcome[];
+	readonly status: string;
+	readonly diagnostic: string;
+	readonly sessionFile?: string;
+}
+
+export function renderFinalSynthesisFailureReport({
+	scope,
+	outcomes,
+	status,
+	diagnostic,
+	sessionFile,
+}: RenderFinalSynthesisFailureReportOptions): string {
+	return [
+		"# Thermo Council Report",
+		"",
+		"/thermo-council reviewer seats completed, but the mandatory final synthesis pass did not produce a usable report.",
+		"",
+		"## Scope",
+		`- Working directory: ${scope.cwd}`,
+		`- Base: ${scope.baseRef} (${scope.baseSha})`,
+		`- Head: ${scope.headRef} (${scope.headSha})`,
+		`- Changed files: ${scope.changedFiles.length}`,
+		"",
+		"## Council Seat Status",
+		renderSeatStatusTable(outcomes),
+		"",
+		"## Final Synthesis Failure",
+		`- Status: ${status}`,
+		`- Diagnostic: ${diagnostic}`,
+		`- Final synthesis session: ${sessionFile ?? "no child session file captured"}`,
+		"",
+		"## Safety Notes",
+		SAFETY_NOTE,
+	].join("\n");
+}
+
 export function renderFatalReport(message: string): string {
 	return [
 		"# Thermo Council Report",

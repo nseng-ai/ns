@@ -25,7 +25,11 @@ import {
 import { THERMO_COUNCIL_COMMAND_NAME, THERMO_COUNCIL_MESSAGE_TYPE } from "./constants.ts";
 import { synthesizeThermoCouncilFinalReport } from "./final-synthesis.ts";
 import { buildReviewerPrompt } from "./prompt.ts";
-import { renderFatalReport, renderThermoCouncilReport } from "./report.ts";
+import {
+	renderFatalReport,
+	renderFinalSynthesisFailureReport,
+	renderThermoCouncilReport,
+} from "./report.ts";
 import { collectThermoCouncilScope } from "./scope.ts";
 import { parseThermoCouncilSeats } from "./seats.ts";
 import type { EnvReader, ThermoCouncilCommandContext, ThermoCouncilExtensionAPI } from "./types.ts";
@@ -37,6 +41,7 @@ interface LaunchThermoCouncilReviewerOptions {
 	readonly ctx: ThermoCouncilCommandContext;
 	readonly scope: ThermoCouncilScope;
 	readonly seat: ThermoCouncilSeatConfig;
+	readonly reviewGuidance?: string;
 	readonly onProgress?: (update: RunnerSubagentUpdate) => void;
 }
 
@@ -53,7 +58,8 @@ export async function runThermoCouncilCommand(
 ): Promise<void> {
 	setStatus(ctx, "preflighting review scope…");
 	try {
-		const scopeResult = await collectThermoCouncilScope(pi, ctx, args);
+		const reviewGuidance = normalizeReviewGuidance(args);
+		const scopeResult = await collectThermoCouncilScope(pi, ctx);
 		if (scopeResult.type === "failed") {
 			emitReport(pi, ctx, renderFatalReport(scopeResult.message));
 			return;
@@ -69,6 +75,7 @@ export async function runThermoCouncilCommand(
 					ctx,
 					scope: scopeResult.scope,
 					seat,
+					...(reviewGuidance === undefined ? {} : { reviewGuidance }),
 					onProgress: (update) => progressTracker.recordProgress(seat, update),
 				});
 				progressTracker.recordOutcome(seat, outcome);
@@ -77,15 +84,32 @@ export async function runThermoCouncilCommand(
 		);
 		setStatus(ctx, "aggregating thermo council findings…");
 		const deterministicReport = renderThermoCouncilReport(scopeResult.scope, outcomes);
+		if (!outcomes.some((outcome) => outcome.type === "completed")) {
+			emitReport(pi, ctx, deterministicReport);
+			return;
+		}
 		setStatus(ctx, "running final thermo council synthesis…");
-		const report = await synthesizeThermoCouncilFinalReport({
+		const synthesisResult = await synthesizeThermoCouncilFinalReport({
 			pi,
 			ctx,
 			scope: scopeResult.scope,
 			outcomes,
 			deterministicReport,
+			...(reviewGuidance === undefined ? {} : { reviewGuidance }),
 			onProgress: (update) => setStatus(ctx, renderFinalSynthesisStatus(update)),
 		});
+		const report =
+			synthesisResult.type === "completed"
+				? synthesisResult.report
+				: renderFinalSynthesisFailureReport({
+						scope: scopeResult.scope,
+						outcomes,
+						status: synthesisResult.status,
+						diagnostic: synthesisResult.diagnostic,
+						...(synthesisResult.sessionFile === undefined
+							? {}
+							: { sessionFile: synthesisResult.sessionFile }),
+					});
 		emitReport(pi, ctx, report);
 	} catch (error) {
 		emitReport(
@@ -103,6 +127,7 @@ async function launchThermoCouncilReviewer({
 	ctx,
 	scope,
 	seat,
+	reviewGuidance,
 	onProgress,
 }: LaunchThermoCouncilReviewerOptions): Promise<ThermoCouncilReviewerOutcome> {
 	const runnerCtx: RunnerSubagentContext = {
@@ -110,10 +135,14 @@ async function launchThermoCouncilReviewer({
 		...(ctx.signal === undefined ? {} : { signal: ctx.signal }),
 		...(ctx.model === undefined ? {} : { model: ctx.model }),
 	};
+	const prompt =
+		reviewGuidance === undefined
+			? buildReviewerPrompt(scope, seat)
+			: buildReviewerPrompt(scope, seat, { reviewGuidance });
 	const result = await dispatchRunnerSubagent<JsonObject>(pi, runnerCtx, {
 		title: `Thermo council: ${seat.label}`,
 		model: seat.model,
-		prompt: buildReviewerPrompt(scope, seat),
+		prompt,
 		returnMode: "terminal",
 		terminalTools: [submitThermoCouncilReviewTool, blockThermoCouncilReviewTool],
 		tools: ["read", SUBMIT_THERMO_COUNCIL_REVIEW_TOOL, BLOCK_THERMO_COUNCIL_REVIEW_TOOL],
@@ -187,6 +216,11 @@ function renderFinalSynthesisStatus(update: RunnerSubagentUpdate): string {
 	if (preview !== undefined) return compactStatus(`final synthesis ${progress.state}: ${preview}`);
 	if (progress.turnCount > 0) return `final synthesis ${progress.state} turn ${progress.turnCount}`;
 	return `final synthesis ${progress.state}`;
+}
+
+function normalizeReviewGuidance(args: string): string | undefined {
+	const trimmed = args.trim();
+	return trimmed.length === 0 ? undefined : trimmed;
 }
 
 function compactStatus(value: string): string {

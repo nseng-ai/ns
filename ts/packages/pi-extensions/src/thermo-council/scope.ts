@@ -40,11 +40,7 @@ type ProbeGitResult = LoadedGitResult | ProbeGitFailure;
 export async function collectThermoCouncilScope(
 	pi: ThermoCouncilExtensionAPI,
 	ctx: ThermoCouncilCommandContext,
-	args: string,
 ): Promise<ScopeResult> {
-	const baseArg = interpretBaseArg(args);
-	if (baseArg.type === "failed") return baseArg;
-
 	const status = await git({ pi, ctx, args: ["status", "--short"], timeoutMs: GIT_TIMEOUT_MS });
 	if (status.type === "failed") return status;
 	if (status.stdout.trim() !== "") {
@@ -63,7 +59,7 @@ export async function collectThermoCouncilScope(
 	if (cwdResult.type === "failed") return cwdResult;
 	const headSha = await git({ pi, ctx, args: ["rev-parse", "HEAD"], timeoutMs: GIT_TIMEOUT_MS });
 	if (headSha.type === "failed") return headSha;
-	const baseRefResult = baseArg.baseRef ?? (await inferBaseRef(pi, ctx));
+	const baseRefResult = await inferBaseRef(pi, ctx);
 	if (typeof baseRefResult !== "string") return baseRefResult;
 	const baseCommit = await git({
 		pi,
@@ -131,34 +127,6 @@ export async function collectThermoCouncilScope(
 	};
 }
 
-type BaseArgResult = { readonly type: "loaded"; readonly baseRef?: string } | ScopeResultFailed;
-
-function interpretBaseArg(args: string): BaseArgResult {
-	const tokens = args.trim().split(/\s+/).filter(Boolean);
-	if (tokens.length === 0) return { type: "loaded" };
-	if (tokens.length !== 1) return invalidScopeArgument(args);
-	const token = tokens[0];
-	if (token === undefined) return { type: "loaded" };
-	if (token === "stack") return { type: "loaded" };
-	if (!isValidBaseRefToken(token)) return invalidScopeArgument(args);
-	return { type: "loaded", baseRef: token };
-}
-
-function invalidScopeArgument(args: string): ScopeResultFailed {
-	return {
-		type: "failed",
-		message: [
-			`Invalid /thermo-council argument: ${args.trim()}`,
-			"Usage: /thermo-council [base-ref | stack]",
-			"Omit the argument to infer the base, pass one git ref to review HEAD against that ref, or pass `stack` to request inferred-base stack review.",
-		].join("\n"),
-	};
-}
-
-function isValidBaseRefToken(value: string): boolean {
-	return value.length > 0 && !value.startsWith("-") && !/\s/.test(value);
-}
-
 async function inferBaseRef(
 	pi: ThermoCouncilExtensionAPI,
 	ctx: ThermoCouncilCommandContext,
@@ -183,7 +151,7 @@ async function inferBaseRef(
 	return {
 		type: "failed",
 		message:
-			"Could not infer a review base from origin/HEAD, origin/master, origin/main, master, or main. Pass an explicit base ref.",
+			"Could not infer a review base from origin/HEAD, origin/master, origin/main, master, or main. /thermo-council infers scope from the current checkout and does not accept an explicit base-ref argument.",
 	};
 }
 
