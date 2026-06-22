@@ -503,7 +503,10 @@ describe("worktree status formatting", () => {
 		).toBe("[gh] #1921 · comments 0/0 · actions 0✓ · PR behind local");
 	});
 
-	test("formats gh refresh countdowns on available PR status lines", () => {
+	test("formats gh refresh freshness ages on status lines", () => {
+		expect(formatGhStatus({ type: "no-pr" }, { ghRefreshAgeMs: 5_200 })).toBe(
+			"[gh] no PR · refreshed 5s ago",
+		);
 		expect(
 			formatGhStatus(
 				{
@@ -512,9 +515,9 @@ describe("worktree status formatting", () => {
 					threads: { unresolved: 0, total: 1, hasMore: false },
 					checks: { passing: 0, pending: 4, failing: 0, unknown: 0 },
 				},
-				{ ghRefreshCountdownMs: 29_200 },
+				{ ghRefreshAgeMs: 5_200 },
 			),
-		).toBe("[gh] #1907 · comments 1/1 · actions 4⏳ · refresh 30s");
+		).toBe("[gh] #1907 · comments 1/1 · actions 4⏳ · refreshed 5s ago");
 		expect(
 			formatGhStatus(
 				{
@@ -524,12 +527,12 @@ describe("worktree status formatting", () => {
 					checks: { passing: 0, pending: 4, failing: 0, unknown: 0 },
 					prHeadOid: "stale-pr-head",
 				},
-				{ ghRefreshCountdownMs: 29_200 },
+				{ ghRefreshAgeMs: 65_000 },
 			),
-		).toBe("[gh] #1907 · comments 1/1 · actions 4⏳ · PR behind local · refresh 30s");
+		).toBe("[gh] #1907 · comments 1/1 · actions 4⏳ · PR behind local · refreshed 1m 5s ago");
 	});
 
-	test("formats dormant state on the gh line instead of refresh countdowns", () => {
+	test("formats dormant state on the gh line", () => {
 		expect(formatGhStatus({ type: "no-pr" }, { isDormant: true })).toBe(
 			"[gh] no PR · dormant after 2m idle",
 		);
@@ -541,7 +544,7 @@ describe("worktree status formatting", () => {
 					threads: { unresolved: 0, total: 1, hasMore: false },
 					checks: { passing: 0, pending: 4, failing: 0, unknown: 0 },
 				},
-				{ ghRefreshCountdownMs: 29_200, isDormant: true },
+				{ isDormant: true },
 			),
 		).toBe("[gh] #1907 · comments 1/1 · actions 4⏳ · dormant after 2m idle");
 		expect(
@@ -553,7 +556,7 @@ describe("worktree status formatting", () => {
 					checks: { passing: 0, pending: 4, failing: 0, unknown: 0 },
 					prHeadOid: "stale-pr-head",
 				},
-				{ ghRefreshCountdownMs: 29_200, isDormant: true },
+				{ isDormant: true },
 			),
 		).toBe("[gh] #1907 · comments 1/1 · actions 4⏳ · PR behind local · dormant after 2m idle");
 	});

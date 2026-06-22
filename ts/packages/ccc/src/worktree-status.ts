@@ -21,7 +21,7 @@ import {
 	type GithubReviewThreadCounts,
 } from "@sdl/core/github-status";
 import { formatErrorMessage } from "@sdl/core/primitives";
-import { formatCountdownMs } from "@sdl/core/time-format";
+import { formatElapsedMs } from "@sdl/core/time-format";
 import { parseMachineEnvelopeData } from "@sdl/pi-extension-runtime/machine-envelope";
 import {
 	customMessageText,
@@ -642,7 +642,7 @@ export interface StatusTheme {
 
 export interface FormatWorktreeStatusOptions {
 	readonly theme?: StatusTheme | undefined;
-	readonly ghRefreshCountdownMs?: number | undefined;
+	readonly ghRefreshAgeMs?: number | undefined;
 	readonly isDormant?: boolean | undefined;
 }
 
@@ -758,11 +758,13 @@ function formatGhStatusLine(
 
 	const pieces = formatGhPrDetailPieces(status, options);
 	if (status.type === "head-mismatch") {
-		pieces.push(formatColoredSegment(" · PR behind local", "warning", options.theme));
-		appendGhPrStatusAnnotation(pieces, options);
+		pieces.push(
+			formatColoredSegment(" · PR behind local", "warning", options.theme),
+			...formatGhStatusAnnotationPieces(options),
+		);
 		return pieces.join("");
 	}
-	appendGhPrStatusAnnotation(pieces, options);
+	pieces.push(...formatGhStatusAnnotationPieces(options));
 	if (isGhStatusLandable(status)) {
 		pieces.push(
 			formatColoredSegment(" · ", "dim", options.theme),
@@ -793,15 +795,18 @@ function formatGhPrDetailPieces(
 	];
 }
 
-function appendGhPrStatusAnnotation(pieces: string[], options: FormatWorktreeStatusOptions): void {
-	if (options.isDormant === true) {
-		pieces.push(formatColoredSegment(DORMANT_GH_STATUS_ANNOTATION_TEXT, "dim", options.theme));
-	} else if (options.ghRefreshCountdownMs !== undefined) {
+function formatGhStatusAnnotationPieces(options: FormatWorktreeStatusOptions): string[] {
+	const pieces: string[] = [];
+	if (options.ghRefreshAgeMs !== undefined) {
 		pieces.push(
-			formatColoredSegment(" · refresh ", "dim", options.theme),
-			formatColoredSegment(formatCountdownMs(options.ghRefreshCountdownMs), "dim", options.theme),
+			formatColoredSegment(" · refreshed ", "dim", options.theme),
+			formatColoredSegment(`${formatElapsedMs(options.ghRefreshAgeMs)} ago`, "dim", options.theme),
 		);
 	}
+	if (options.isDormant === true) {
+		pieces.push(formatColoredSegment(DORMANT_GH_STATUS_ANNOTATION_TEXT, "dim", options.theme));
+	}
+	return pieces;
 }
 
 function formatGhPrReference(
@@ -816,9 +821,7 @@ function formatGhStatusAnnotation(
 	statusLine: string,
 	options: FormatWorktreeStatusOptions,
 ): string {
-	if (options.isDormant === true)
-		return `${statusLine}${formatColoredSegment(DORMANT_GH_STATUS_ANNOTATION_TEXT, "dim", options.theme)}`;
-	return statusLine;
+	return [statusLine, ...formatGhStatusAnnotationPieces(options)].join("");
 }
 
 function isGhStatusLandable(status: GhStatus): boolean {

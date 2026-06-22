@@ -236,7 +236,7 @@ describe("worktree status extension registration and rendering", () => {
 		await pi.sessionShutdown?.();
 	});
 
-	test("custom footer shows gh refresh countdown and resets after manual refresh", async () => {
+	test("custom footer shows gh refresh freshness age and resets after manual refresh", async () => {
 		const harness = createManualTimerHarness();
 		const availableGhStatus: WorktreeGhStatus = {
 			type: "available",
@@ -282,20 +282,20 @@ describe("worktree status extension registration and rendering", () => {
 			footerData(statuses, "feature/current"),
 		);
 		expect(footer.render(200).map(stripTerminalEscapes)).toContain(
-			"[gh] #1907 · comments 1/1 · actions 4⏳ · refresh 10s",
+			"[gh] #1907 · comments 1/1 · actions 4⏳ · refreshed 0s ago",
 		);
 
 		harness.advanceMs(5_000);
 		await flushPromises();
 		expect(renderRequestCount).toBeGreaterThan(0);
 		expect(footer.render(200).map(stripTerminalEscapes)).toContain(
-			"[gh] #1907 · comments 1/1 · actions 4⏳ · refresh 5s",
+			"[gh] #1907 · comments 1/1 · actions 4⏳ · refreshed 5s ago",
 		);
 
 		await command.handler("", ctx);
 
 		expect(footer.render(200).map(stripTerminalEscapes)).toContain(
-			"[gh] #1907 · comments 1/1 · actions 4⏳ · refresh 10s",
+			"[gh] #1907 · comments 1/1 · actions 4⏳ · refreshed 0s ago",
 		);
 		pi.assertDone();
 		await pi.sessionShutdown?.();
@@ -541,7 +541,7 @@ describe("worktree status extension registration and rendering", () => {
 			`[wt] repo:${basename("/repo")} wt:root pwd:/repo | br:feature/current ↓:main commits:1 ↑:-`,
 		);
 		expect(footerLines[1]).toBe("[brmem] (pb-plan: handoffs-graphite-footer-lines.md)");
-		expect(footerLines[2]).toBe("[gh] no PR");
+		expect(footerLines[2]).toBe("[gh] no PR · refreshed 0s ago");
 		expect(footerLines[3]).toContain("18.2%/272k (auto)");
 		expect(footerLines.at(-1)).toBe("/sdl:changes running CLI command (23s)");
 		expect(footerLines).not.toContain("[gt] future format that should be ignored");
