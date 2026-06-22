@@ -301,6 +301,8 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		};
 
 		const scheduleLiveLaunchHydration = () => {
+			// Keep this retry loop local: it is bounded and tied to parser metadata state plus
+			// forced progress emission, not a general-purpose polling abstraction.
 			if (hydrationInFlight !== undefined) return;
 			if (liveHydrationAttempts >= 3) return;
 			if (!shouldHydrateLaunchMetadata()) return;
