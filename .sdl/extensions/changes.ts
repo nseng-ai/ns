@@ -1,15 +1,12 @@
-import { defineExtension, failed, ok } from "@sdl/sdl/sdk";
 import {
-  CHANGES_MODEL_ENV,
-  DEFAULT_CHANGES_MODEL_REF,
-  LEGACY_CHANGES_MODEL_ENV,
-} from "@sdl/sdl/text-generation";
+  defineExtension,
+  failed,
+  ok,
+  pendingWorktree,
+  textGeneration,
+  type SdkPendingWorktreeSnapshot,
+} from "@sdl/sdl/sdk";
 import { draftChangesSummary } from "./shared/text-helpers.ts";
-import {
-  formatPendingWorktreeError,
-  loadPendingWorktreeSnapshot,
-  type PendingWorktreeSnapshot,
-} from "./shared/worktree.ts";
 
 // This project-local extension uses the public SDL SDK plus internal migration
 // exports while duplicated workflow helpers move into package-owned modules.
@@ -20,7 +17,7 @@ const CHANGES_COMMAND_DESCRIPTION = `Summarize outstanding worktree changes with
 The command captures a pending worktree snapshot with read-only git commands. Clean worktrees print that there are no outstanding changes. Dirty worktrees ask the configured text-generation model for 1–4 reviewer-facing bullets, then print the bullets and raw porcelain status lines.
 
 Environment:
-  ${CHANGES_MODEL_ENV}  Model reference for generated changes summaries. Defaults to ${DEFAULT_CHANGES_MODEL_REF}. Falls back to ${LEGACY_CHANGES_MODEL_ENV} when unset.
+  ${textGeneration.CHANGES_MODEL_ENV}  Model reference for generated changes summaries. Defaults to ${textGeneration.DEFAULT_CHANGES_MODEL_REF}. Falls back to ${textGeneration.LEGACY_CHANGES_MODEL_ENV} when unset.
 
 The command owns human stdout/stderr, has no alternate output-format flag, and does not stage, commit, stash, switch branches, run Graphite, or call GitHub.`;
 
@@ -31,9 +28,9 @@ export default defineExtension({
       summary: "Summarize outstanding worktree changes without committing.",
       description: CHANGES_COMMAND_DESCRIPTION,
       async run(ctx) {
-        const loaded = await loadPendingWorktreeSnapshot(ctx);
+        const loaded = await pendingWorktree.loadSnapshot(ctx);
         if (!loaded.ok) {
-          return failed(formatPendingWorktreeError(loaded.error), 2);
+          return failed(pendingWorktree.formatError(loaded.error), 2);
         }
 
         const snapshot = loaded.snapshot;
@@ -57,7 +54,7 @@ export default defineExtension({
 });
 
 function formatOutstandingChangesMessage(
-  snapshot: PendingWorktreeSnapshot,
+  snapshot: SdkPendingWorktreeSnapshot,
   summaryText: string,
 ): string {
   const lines = [`Outstanding changes on ${snapshot.branch}`, ""];

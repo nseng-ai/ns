@@ -4,14 +4,13 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import {
-	NodeCommandExecApi,
-	type CommandExecApi,
-	type ExecOptions,
-	type ExecResult,
-	type StdinCapableCommandExecApi,
-} from "@sdl/core/exec";
+import { NodeCommandExecApi, type StdinCapableCommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway } from "@sdl/core/git";
+import {
+	DroppingOptionsCommandExecApi,
+	createTempGitRepo,
+	type TempGitRepo,
+} from "@sdl/core/testing";
 import type { BrmemResult } from "../../src/contracts.ts";
 import type {
 	CopyEntriesResult,
@@ -21,7 +20,6 @@ import type {
 } from "../../src/gateway.ts";
 import { RealGitBrmemGateway } from "../../src/real-git-gateway.ts";
 import { mustSnapshotRef } from "../../src/ref-layout.ts";
-import { createTempGitRepo, type TempGitRepo } from "../support/temp-git-repo.ts";
 
 describe("RealGitBrmemGateway integration", () => {
 	it("writes Snapshot Refs and reads/checks/lists Entries in a throwaway repository", async () => {
@@ -154,7 +152,7 @@ describe("RealGitBrmemGateway integration", () => {
 			const beforeIndexTree = repo.runGit(["write-tree"]).trim();
 			const gateway = realGitBrmemGateway(
 				repo.path,
-				new DroppingOptionsCommands({ dropEnv: true }),
+				new DroppingOptionsCommandExecApi({ env: true }),
 			);
 
 			const put = await gateway.putEntry({
@@ -181,7 +179,7 @@ describe("RealGitBrmemGateway integration", () => {
 			const beforeIndexTree = repo.runGit(["write-tree"]).trim();
 			const gateway = realGitBrmemGateway(
 				repo.path,
-				new DroppingOptionsCommands({ dropStdin: true }),
+				new DroppingOptionsCommandExecApi({ stdin: true }),
 			);
 
 			const put = await gateway.putEntry({
@@ -647,40 +645,6 @@ interface CorruptSnapshotOptions {
 interface CorruptSnapshotResult {
 	snapshotRef: string;
 	commitSha: string;
-}
-
-interface DroppingOptions {
-	dropEnv?: boolean;
-	dropStdin?: boolean;
-}
-
-class DroppingOptionsCommands implements CommandExecApi {
-	// Deliberately asserts the stdin-capable brand so the integrity guard's
-	// runtime defense (catching an adapter that drops mktree stdin) stays testable.
-	readonly supportsStdin = true as const;
-	private readonly delegate = new NodeCommandExecApi();
-	private readonly shouldDropEnv: boolean;
-	private readonly shouldDropStdin: boolean;
-
-	constructor(options: DroppingOptions) {
-		this.shouldDropEnv = options.dropEnv ?? false;
-		this.shouldDropStdin = options.dropStdin ?? false;
-	}
-
-	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
-		return await this.delegate.exec(command, args, {
-			...(options?.cwd === undefined ? {} : { cwd: options.cwd }),
-			...(this.shouldDropEnv || options?.env === undefined ? {} : { env: options.env }),
-			...(options?.timeout === undefined ? {} : { timeout: options.timeout }),
-			...(options?.timeoutKillGraceMs === undefined
-				? {}
-				: { timeoutKillGraceMs: options.timeoutKillGraceMs }),
-			...(options?.signal === undefined ? {} : { signal: options.signal }),
-			...(this.shouldDropStdin || options?.stdin === undefined ? {} : { stdin: options.stdin }),
-			...(options?.onStdout === undefined ? {} : { onStdout: options.onStdout }),
-			...(options?.onStderr === undefined ? {} : { onStderr: options.onStderr }),
-		});
-	}
 }
 
 function createCorruptSnapshot(

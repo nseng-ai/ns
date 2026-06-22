@@ -3,11 +3,14 @@ import { readFile, stat } from "node:fs/promises";
 import { systemClock } from "@sdl/core/clock";
 import { systemTimerScheduler } from "@sdl/core/timers";
 import {
+	DroppingOptionsCommandExecApi,
 	brmemCheckJson,
+	copyExecOptionsWithout,
 	createDeferred,
 	createManualClock,
 	createManualTimerScheduler,
 	createTempDirTracker,
+	createTempGitRepo,
 	describeNodeRuntimeCliEntrypoint,
 	ScriptedCommandExecApi,
 	ScriptedCommandRunner,
@@ -21,6 +24,9 @@ import { expect, test } from "vitest";
 test("exports testing helpers through the package testing subpath", () => {
 	expect(typeof describeNodeRuntimeCliEntrypoint).toBe("function");
 	expect(typeof createTempDirTracker).toBe("function");
+	expect(typeof createTempGitRepo).toBe("function");
+	expect(typeof copyExecOptionsWithout).toBe("function");
+	expect(typeof DroppingOptionsCommandExecApi).toBe("function");
 	expect(typeof createDeferred).toBe("function");
 	expect(typeof createManualClock).toBe("function");
 	expect(typeof createManualTimerScheduler).toBe("function");
@@ -104,4 +110,40 @@ test("temp repo skill helper writes and removes a repo-local skill", async () =>
 	});
 
 	await expect(stat(repoDir)).rejects.toMatchObject({ code: "ENOENT" });
+});
+
+test("temp git repo helper initializes a committed main branch", () => {
+	const repo = createTempGitRepo({ prefix: "sdl-core-testing-git-" });
+	try {
+		expect(repo.runGit(["branch", "--show-current"])).toBe("main\n");
+		expect(repo.runGit(["status", "--porcelain"])).toBe("");
+		expect(repo.runGit(["log", "-1", "--format=%s"])).toBe("initial\n");
+	} finally {
+		repo.cleanup();
+	}
+});
+
+test("exec option copying can drop selected fields", async () => {
+	const copied = copyExecOptionsWithout(
+		{
+			cwd: "/repo",
+			env: { KEEP: "no" },
+			timeout: 1_000,
+			stdin: "payload",
+		},
+		{ env: true, stdin: true },
+	);
+	expect(copied).toEqual({ cwd: "/repo", timeout: 1_000 });
+
+	const delegate = new ScriptedCommandExecApi([{ stdout: "ok" }]);
+	const dropping = new DroppingOptionsCommandExecApi({ delegate, stdin: true });
+	await expect(dropping.exec("git", ["mktree"], { stdin: "tree", cwd: "/repo" })).resolves.toEqual({
+		stdout: "ok",
+		stderr: "",
+		code: 0,
+		killed: false,
+	});
+	expect(delegate.calls()).toEqual([
+		{ command: "git", args: ["mktree"], options: { cwd: "/repo" } },
+	]);
 });

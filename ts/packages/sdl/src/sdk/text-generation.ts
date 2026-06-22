@@ -41,6 +41,20 @@ export function selectSubmitFailureModelRef(env: Record<string, string | undefin
 	return firstEnvValue(env, SUBMIT_FAILURE_MODEL_ENV) ?? DEFAULT_SUBMIT_FAILURE_MODEL_REF;
 }
 
+export const textGeneration = {
+	CHECKPOINT_MODEL_ENV,
+	LEGACY_CHECKPOINT_MODEL_ENV,
+	DEFAULT_CHECKPOINT_MODEL_REF,
+	CHANGES_MODEL_ENV,
+	LEGACY_CHANGES_MODEL_ENV,
+	DEFAULT_CHANGES_MODEL_REF,
+	SUBMIT_FAILURE_MODEL_ENV,
+	DEFAULT_SUBMIT_FAILURE_MODEL_REF,
+	selectCheckpointModelRef,
+	selectChangesModelRef,
+	selectSubmitFailureModelRef,
+};
+
 function firstEnvValue(
 	env: Record<string, string | undefined>,
 	...envNames: string[]
