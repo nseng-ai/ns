@@ -42,8 +42,25 @@ export type CommandRunner = (
 	options?: ExecOptions,
 ) => Promise<ExecResult>;
 
+/**
+ * SDL's command execution gateway.
+ *
+ * This shape is intentionally compatible with Pi's extension-host `ctx.exec`,
+ * but SDL's `ExecOptions`/`ExecResult` contract is wider. Code that relies on
+ * behavior Pi does not provide, such as stdin piping, must require a narrower
+ * capability interface instead of this Pi-compatible base shape.
+ */
 export interface CommandExecApi {
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
+}
+
+/**
+ * A CommandExecApi whose exec implementation actually pipes `options.stdin` to the
+ * child process. The Pi host `exec` is intentionally NOT branded: it silently drops
+ * stdin, so code that drives `git mktree`/`git hash-object` etc. must require this brand.
+ */
+export interface StdinCapableCommandExecApi extends CommandExecApi {
+	readonly supportsStdin: true;
 }
 
 export function execApiToCommandRunner(execApi: CommandExecApi): CommandRunner {
@@ -82,7 +99,8 @@ export interface CommandPrefix {
 	args: string[];
 }
 
-export class NodeCommandExecApi implements CommandExecApi {
+export class NodeCommandExecApi implements StdinCapableCommandExecApi {
+	readonly supportsStdin = true as const;
 	async exec(command: string, args: string[], options: ExecOptions = {}): Promise<ExecResult> {
 		return runCommand(command, args, options);
 	}

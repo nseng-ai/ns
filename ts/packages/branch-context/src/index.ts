@@ -1,4 +1,8 @@
-export { createBranchContextContext, type BranchContextContext } from "./context.ts";
+export {
+	createBranchContextContext,
+	createRealBranchContextContext,
+	type BranchContextContext,
+} from "./context.ts";
 export {
 	BRANCH_CONTEXT_NAMESPACE,
 	buildBranchContextPlanKey,

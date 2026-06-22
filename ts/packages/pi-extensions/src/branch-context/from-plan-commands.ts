@@ -11,7 +11,7 @@ import {
 	buildBranchContextOutputMessage,
 	buildBranchContextPlanKey,
 	buildImplBranchContextPrompt,
-	createBranchContextContext,
+	createRealBranchContextContext,
 	derivePlanContentSlug,
 	deriveTargetBranch,
 	formatBranchContextEvidence,
@@ -144,7 +144,7 @@ function resolveBranchContextContext(
 	cwd: string,
 	options: BranchContextExtensionOptions,
 ) {
-	return options.createBranchContextContext?.(pi, cwd) ?? createBranchContextContext(pi, { cwd });
+	return options.createBranchContextContext?.(pi, cwd) ?? createRealBranchContextContext({ cwd });
 }
 
 export function parseCreateBranchContextArgs(rawArgs: string): CreateBranchContextArgs {

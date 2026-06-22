@@ -170,6 +170,7 @@ interface CommandCall {
 }
 
 class RecordingCommands implements CommandExecApi {
+	readonly supportsStdin = true as const;
 	readonly calls: CommandCall[] = [];
 	private readonly steps: CommandStep[];
 

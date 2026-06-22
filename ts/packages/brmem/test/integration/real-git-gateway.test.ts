@@ -9,6 +9,7 @@ import {
 	type CommandExecApi,
 	type ExecOptions,
 	type ExecResult,
+	type StdinCapableCommandExecApi,
 } from "@sdl/core/exec";
 import type { BrmemResult } from "../../src/contracts.ts";
 import type {
@@ -556,7 +557,8 @@ describe("RealGitBrmemGateway integration", () => {
 			// a temporary index. Dropping GIT_INDEX_FILE should not affect the written
 			// tree or accidentally capture the repository worktree.
 			const real = new NodeCommandExecApi();
-			const envDropping: CommandExecApi = {
+			const envDropping: StdinCapableCommandExecApi = {
+				supportsStdin: true,
 				exec(command, args, options) {
 					if (options?.env === undefined) return real.exec(command, args, options);
 					const env = { ...options.env };
@@ -645,6 +647,9 @@ interface DroppingOptions {
 }
 
 class DroppingOptionsCommands implements CommandExecApi {
+	// Deliberately asserts the stdin-capable brand so the integrity guard's
+	// runtime defense (catching an adapter that drops mktree stdin) stays testable.
+	readonly supportsStdin = true as const;
 	private readonly delegate = new NodeCommandExecApi();
 	private readonly shouldDropEnv: boolean;
 	private readonly shouldDropStdin: boolean;

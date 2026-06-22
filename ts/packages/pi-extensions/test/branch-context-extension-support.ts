@@ -13,7 +13,7 @@ import {
 	type LoadedAttachedPlan,
 } from "@sdl/branch-context";
 import { InMemoryBranchMemoryGateway } from "@sdl/branch-context/testing";
-import type { ExecOptions, ExecResult } from "@sdl/core/exec";
+import type { ExecOptions, ExecResult, StdinCapableCommandExecApi } from "@sdl/core/exec";
 import { ScriptedQueue } from "@sdl/core/testing";
 import {
 	DEFAULT_FAST_MODEL,
@@ -153,8 +153,12 @@ export function branchContextExtensionTestOptions(
 	return {
 		branchContextOperations: operations,
 		createBranchContextContext(pi, cwd) {
+			const stdinCapablePi: StdinCapableCommandExecApi = {
+				supportsStdin: true,
+				exec: (command, args, options) => pi.exec(command, args, options),
+			};
 			return {
-				...createBranchContextContext(pi, { cwd }),
+				...createBranchContextContext(stdinCapablePi, { cwd }),
 				brmem: new InMemoryBranchMemoryGateway({
 					currentBranch: SOURCE_BRANCH,
 					entries: entries.map((entry) => ({
