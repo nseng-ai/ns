@@ -17,7 +17,12 @@ import thermoCouncilExtension, {
 	type ThermoCouncilScope,
 	type ThermoCouncilSeatConfig,
 } from "../src/thermo-council.ts";
-import { FakeSpawnedChildProcess, type SpawnCall } from "./runner-subagent-fakes.ts";
+import {
+	FakeSpawnedChildProcess,
+	createFakeRunnerSubagentDispatcher,
+	jsonLine,
+	type SpawnCall,
+} from "./runner-subagent-fakes.ts";
 
 interface RegisteredCommand {
 	readonly description?: string;
@@ -42,10 +47,13 @@ class FakePi {
 		options: {
 			execResults?: Map<string, { stdout: string; stderr?: string; code?: number }>;
 			runnerResult?: RuntimeResultV1;
+			runnerDependencies?: RunnerSubagentDispatcherDependencies;
 		} = {},
 	) {
 		this.execResults = options.execResults ?? new Map();
-		if (options.runnerResult !== undefined) {
+		if (options.runnerDependencies !== undefined) {
+			this[RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES] = options.runnerDependencies;
+		} else if (options.runnerResult !== undefined) {
 			this[RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES] = this.runnerDependencies(options.runnerResult);
 		}
 	}
@@ -243,31 +251,7 @@ describe("thermo council extension", () => {
 	});
 
 	test("launches three read-only terminal-capture reviewer seats and renders a report", async () => {
-		const runnerResult: RuntimeResultV1 = {
-			version: 1,
-			kind: "terminal-capture",
-			toolName: SUBMIT_THERMO_COUNCIL_REVIEW_TOOL,
-			status: "completed",
-			input: {
-				summary: "Review complete.",
-				findings: [
-					{
-						id: "1",
-						title: "Duplicated orchestration branching",
-						files: ["src/file.ts"],
-						evidence: "The diff adds parallel branches for the same lifecycle.",
-						problem: "Duplicated branching makes orchestration harder to scan.",
-						proposedFix: "Use one typed lifecycle model.",
-						behaviorRisk: "Low risk if tests cover both modes.",
-						dependencyNotes: "None",
-						confidence: "likely",
-						severity: "high",
-						validationHints: ["just ts-test"],
-					},
-				],
-				disagreements: [],
-			},
-		};
+		const runnerResult = completedRunnerResult();
 		const pi = new FakePi({ execResults: successfulScopeExecResults(), runnerResult });
 		thermoCouncilExtension(pi);
 
@@ -285,6 +269,41 @@ describe("thermo council extension", () => {
 		expect(pi.messages[0]?.customType).toBe(THERMO_COUNCIL_MESSAGE_TYPE);
 		expect(pi.messages[0]?.content).toContain("## Council Seat Status");
 		expect(pi.messages[0]?.content).toContain("No branches were created");
+	});
+
+	test("surfaces live reviewer progress instead of staying on launch status", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({ runtimeResult: completedRunnerResult() });
+		const pi = new FakePi({
+			execResults: successfulScopeExecResults(),
+			runnerDependencies: runner.dependencies,
+		});
+		thermoCouncilExtension(pi);
+		const ctx = fakeContext();
+
+		const running = pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.handler("origin/master", ctx);
+		await waitForSpawnCount(runner.calls, 3);
+		runner.calls[0]?.process.emitStdout(jsonLine({ type: "agent_start" }));
+		runner.calls[0]?.process.emitStdout(jsonLine({ type: "turn_start" }));
+		runner.calls[0]?.process.emitStdout(
+			jsonLine({
+				type: "message_update",
+				message: {
+					role: "assistant",
+					content: [{ type: "text", text: "Inspecting changed files." }],
+				},
+			}),
+		);
+
+		expect(
+			ctx.ui.statuses.some(
+				(status) =>
+					status.includes("council 0/3 done") &&
+					status.includes("Anthropic Opus running: Inspecting changed files."),
+			),
+		).toBe(true);
+
+		for (const call of runner.calls) call.process.close(0);
+		await running;
 	});
 
 	test("accepts review findings that rely on array defaults", async () => {
@@ -373,6 +392,42 @@ describe("thermo council extension", () => {
 		expect(report).toContain("model unavailable");
 	});
 });
+
+function completedRunnerResult(): RuntimeResultV1 {
+	return {
+		version: 1,
+		kind: "terminal-capture",
+		toolName: SUBMIT_THERMO_COUNCIL_REVIEW_TOOL,
+		status: "completed",
+		input: {
+			summary: "Review complete.",
+			findings: [
+				{
+					id: "1",
+					title: "Duplicated orchestration branching",
+					files: ["src/file.ts"],
+					evidence: "The diff adds parallel branches for the same lifecycle.",
+					problem: "Duplicated branching makes orchestration harder to scan.",
+					proposedFix: "Use one typed lifecycle model.",
+					behaviorRisk: "Low risk if tests cover both modes.",
+					dependencyNotes: "None",
+					confidence: "likely",
+					severity: "high",
+					validationHints: ["just ts-test"],
+				},
+			],
+			disagreements: [],
+		},
+	};
+}
+
+async function waitForSpawnCount(calls: readonly SpawnCall[], count: number): Promise<void> {
+	for (let attempt = 0; attempt < 50; attempt += 1) {
+		if (calls.length >= count) return;
+		await new Promise((resolve) => setTimeout(resolve, 0));
+	}
+	throw new Error(`Expected ${count} child processes to be spawned.`);
+}
 
 function successfulScopeExecResults(): Map<
 	string,
