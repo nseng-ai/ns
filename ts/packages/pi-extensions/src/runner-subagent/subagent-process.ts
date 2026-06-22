@@ -619,10 +619,6 @@ async function resolveClosedRunnerSubagentResult<TTerminalInput>(
 		return cancelledResult(title, progress, abortReason(input.abortSignals));
 	}
 
-	if (snapshot.error) {
-		return errorResult(title, progress, snapshot.error.message, snapshot.error);
-	}
-
 	const runtimeRead: RuntimeResultReadOutcome = input.runtimeFiles
 		? await readRuntimeResultOutcome(input.runtimeFiles.resultPath, input.readRuntimeResult)
 		: {};
@@ -653,6 +649,10 @@ async function resolveClosedRunnerSubagentResult<TTerminalInput>(
 			return protocolErrorResult(title, progress, protocolDiagnostic, runtimeRead.result);
 		}
 		return terminalCaptureResult<TTerminalInput>(title, progress, runtimeRead.result);
+	}
+
+	if (snapshot.error) {
+		return errorResult(title, progress, snapshot.error.message, snapshot.error);
 	}
 
 	if (input.code !== 0) {
