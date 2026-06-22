@@ -32,6 +32,7 @@ import type {
 	RunnerSubagentTerminalToolDefinition,
 } from "../runner-subagent.ts";
 import {
+	RUNNER_SUBAGENT_TOOL_NAME_PATTERN,
 	createDefaultRunnerSubagentRuntimeFiles,
 	readRuntimeResultFile,
 	type RunnerSubagentRuntimeFiles,
@@ -298,6 +299,8 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		};
 
 		const scheduleTerminalResultTermination = () => {
+			// Keep this polling local: unlike worktree UI refresh timers, this is a
+			// one-shot terminal-result persistence barrier before child termination.
 			if (runtimeFiles === undefined || killRequested || closed || cancelled) return;
 			if (terminalResultPollTimer !== undefined) return;
 			terminalResultPollStartedMs ??= clock.nowMs();
@@ -517,8 +520,11 @@ export function normalizeChildToolAllowlist(
 	for (const tool of tools) {
 		const normalized = tool.trim();
 		if (normalized.length === 0) throw new Error("tool names must be non-empty");
-		if (normalized.includes(",")) throw new Error(`tool name must not contain a comma: ${tool}`);
-		if (/\s/.test(normalized)) throw new Error(`tool name must not contain whitespace: ${tool}`);
+		if (!RUNNER_SUBAGENT_TOOL_NAME_PATTERN.test(normalized)) {
+			throw new Error(
+				`tool name must match ${RUNNER_SUBAGENT_TOOL_NAME_PATTERN.toString()}: ${tool}`,
+			);
+		}
 		if (seenTools.has(normalized)) continue;
 		seenTools.add(normalized);
 		normalizedTools.push(normalized);
@@ -653,7 +659,7 @@ function decideChildTerminationForSnapshot(
 	snapshot: RunnerSubagentJsonEventParserSnapshot,
 	runtimeFiles: RunnerSubagentRuntimeFiles | undefined,
 ): ChildTerminationDecision {
-	if (snapshot.terminalSucceeded) {
+	if (snapshot.hasTerminalSucceeded) {
 		if (runtimeFiles !== undefined) {
 			return { type: "wait-for-terminal-result", reason: "terminal-succeeded" };
 		}

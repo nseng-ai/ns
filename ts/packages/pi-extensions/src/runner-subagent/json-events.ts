@@ -44,7 +44,7 @@ export interface RunnerSubagentJsonEventParserSnapshot {
 	progress: RunnerSubagentProgress;
 	activity: RunnerSubagentActivity;
 	terminalAttempted: boolean;
-	terminalSucceeded: boolean;
+	hasTerminalSucceeded: boolean;
 	sessionHeader?: RunnerSubagentJsonSessionHeader;
 	stopReason?: string;
 	errorMessage?: string;
@@ -102,7 +102,7 @@ export class RunnerSubagentJsonEventParser {
 	private activity: RunnerSubagentActivity = emptyRunnerSubagentActivity();
 	private parseError: RunnerSubagentJsonEventParserError | undefined;
 	private terminalAttempted = false;
-	private terminalSucceeded = false;
+	private hasTerminalSucceeded = false;
 	private protocolError: RunnerSubagentJsonProtocolError | undefined;
 	private terminalExecutionError: RunnerSubagentJsonTerminalExecutionError | undefined;
 	private currentTurnToolStarts: Array<{ toolName: string; toolCallId?: string }> = [];
@@ -159,7 +159,7 @@ export class RunnerSubagentJsonEventParser {
 			progress: this.getProgress(),
 			activity: { ...this.activity },
 			terminalAttempted: this.terminalAttempted,
-			terminalSucceeded: this.terminalSucceeded,
+			hasTerminalSucceeded: this.hasTerminalSucceeded,
 		};
 		if (this.sessionHeader) snapshot.sessionHeader = this.sessionHeader;
 		if (this.stopReason) snapshot.stopReason = this.stopReason;
@@ -407,7 +407,7 @@ export class RunnerSubagentJsonEventParser {
 	private recordToolEnd(event: JsonRecord): void {
 		if (typeof event.toolName !== "string" || !this.terminalToolNames.has(event.toolName)) return;
 		if (event.isError !== true) {
-			this.terminalSucceeded = true;
+			this.hasTerminalSucceeded = true;
 			return;
 		}
 		if (this.terminalExecutionError) return;

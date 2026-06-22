@@ -35,22 +35,28 @@ interface ExecCall {
 	readonly args: readonly string[];
 }
 
+type FakeExecResult = { stdout: string; stderr?: string; code?: number };
+type FakeExecHandler = (command: string, args: readonly string[]) => FakeExecResult | undefined;
+
 class FakePi {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly messages: Array<{ customType: string; content: string; display: boolean }> = [];
 	readonly execCalls: ExecCall[] = [];
 	readonly runnerCalls: SpawnCall[] = [];
 	readonly [RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES]?: RunnerSubagentDispatcherDependencies;
-	private readonly execResults: Map<string, { stdout: string; stderr?: string; code?: number }>;
+	private readonly execResults: Map<string, FakeExecResult>;
+	private readonly execHandler: FakeExecHandler | undefined;
 
 	constructor(
 		options: {
-			execResults?: Map<string, { stdout: string; stderr?: string; code?: number }>;
+			execResults?: Map<string, FakeExecResult>;
+			execHandler?: FakeExecHandler;
 			runnerResult?: RuntimeResultV1;
 			runnerDependencies?: RunnerSubagentDispatcherDependencies;
 		} = {},
 	) {
 		this.execResults = options.execResults ?? new Map();
+		this.execHandler = options.execHandler;
 		if (options.runnerDependencies !== undefined) {
 			this[RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES] = options.runnerDependencies;
 		} else if (options.runnerResult !== undefined) {
@@ -72,7 +78,7 @@ class FakePi {
 	): Promise<{ stdout: string; stderr: string; code: number }> {
 		this.execCalls.push({ command, args: [...args] });
 		const key = `${command} ${args.join(" ")}`;
-		const result = this.execResults.get(key);
+		const result = this.execHandler?.(command, args) ?? this.execResults.get(key);
 		if (result === undefined) return { stdout: "", stderr: `missing fake exec: ${key}`, code: 1 };
 		return { stdout: result.stdout, stderr: result.stderr ?? "", code: result.code ?? 0 };
 	}
@@ -194,6 +200,7 @@ describe("thermo council extension", () => {
 		expect([...pi.commands.keys()]).toEqual([THERMO_COUNCIL_COMMAND_NAME]);
 		expect(pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.description).toContain("thermonuclear");
 		expect(pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.description).toContain("report");
+		expect(pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.argumentHint).toContain("scope prompt");
 	});
 
 	test("parses default, positional, and seat-specific model overrides", () => {
@@ -276,6 +283,68 @@ describe("thermo council extension", () => {
 		expect(pi.runnerCalls).toEqual([]);
 		expect(pi.messages[0]?.content).toContain("Could not infer a review base");
 		expect(pi.messages[0]?.content).not.toContain(`allowed git ${"failure"}`);
+	});
+
+	test("accepts a model-interpreted natural-language entire-stack scope prompt", async () => {
+		const runnerResult = completedRunnerResult();
+		const pi = new FakePi({
+			execResults: successfulInferredScopeExecResults(),
+			execHandler: scopePromptExecHandler({ type: "automatic-base" }),
+			runnerResult,
+		});
+		thermoCouncilExtension(pi);
+
+		await pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.handler("this entire stack", fakeContext());
+
+		expect(pi.execCalls[0]?.command).toBe("pi");
+		expect(pi.execCalls[0]?.args.join("\n")).toContain("this entire stack");
+		expect(pi.execCalls).toContainEqual({
+			command: "git",
+			args: ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"],
+		});
+		expect(pi.runnerCalls).toHaveLength(3);
+		expect(pi.messages[0]?.content).toContain("Base: origin/master (base-sha)");
+	});
+
+	test("uses a model-interpreted explicit base ref from prose", async () => {
+		const runnerResult = completedRunnerResult();
+		const pi = new FakePi({
+			execResults: successfulScopeExecResults(),
+			execHandler: scopePromptExecHandler({ type: "base-ref", baseRef: "origin/master" }),
+			runnerResult,
+		});
+		thermoCouncilExtension(pi);
+
+		await pi.commands
+			.get(THERMO_COUNCIL_COMMAND_NAME)
+			?.handler("review against origin/master", fakeContext());
+
+		expect(pi.execCalls[0]?.command).toBe("pi");
+		expect(pi.execCalls).not.toContainEqual({
+			command: "git",
+			args: ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"],
+		});
+		expect(pi.runnerCalls).toHaveLength(3);
+	});
+
+	test("rejects prose the scope model marks unsupported", async () => {
+		const pi = new FakePi({
+			execHandler: scopePromptExecHandler({
+				type: "unsupported",
+				reason: "The prompt asks for a bug theme, not a review base.",
+			}),
+		});
+		thermoCouncilExtension(pi);
+
+		await pi.commands
+			.get(THERMO_COUNCIL_COMMAND_NAME)
+			?.handler("review the stack overflow fix", fakeContext());
+
+		expect(pi.execCalls.map((call) => call.command)).toEqual(["pi"]);
+		expect(pi.runnerCalls).toEqual([]);
+		expect(pi.messages[0]?.content).toContain("Unsupported /thermo-council scope prompt");
+		expect(pi.messages[0]?.content).toContain("bug theme");
+		expect(pi.messages[0]?.content).not.toContain("Ambiguous /thermo-council argument");
 	});
 
 	test("launches three read-only terminal-capture reviewer seats and renders a report", async () => {
@@ -592,6 +661,23 @@ async function waitForSpawnCount(calls: readonly SpawnCall[], count: number): Pr
 		await new Promise((resolve) => setTimeout(resolve, 0));
 	}
 	throw new Error(`Expected ${count} child processes to be spawned.`);
+}
+
+function scopePromptExecHandler(response: unknown): FakeExecHandler {
+	return (command) => {
+		if (command !== "pi") return undefined;
+		return { stdout: `${JSON.stringify(response)}\n` };
+	};
+}
+
+function successfulInferredScopeExecResults(): Map<
+	string,
+	{ stdout: string; stderr?: string; code?: number }
+> {
+	return new Map([
+		...successfulScopeExecResults(),
+		["git symbolic-ref --quiet --short refs/remotes/origin/HEAD", { stdout: "origin/master\n" }],
+	]);
 }
 
 function successfulScopeExecResults(): Map<

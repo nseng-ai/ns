@@ -1,4 +1,6 @@
-import { z } from "zod";
+import type { z } from "zod";
+
+import { formatZodError } from "@sdl/core/primitives";
 
 import {
 	BLOCK_THERMO_COUNCIL_REVIEW_TOOL,
@@ -215,15 +217,6 @@ export function reviewerOutcomeFromRunnerResult(
 	}
 
 	return failedOutcome(seat, result.sessionFile, failureDiagnostic(result));
-}
-
-function formatZodError(error: z.ZodError): string {
-	return error.issues
-		.map((issue) => {
-			const path = issue.path.length === 0 ? "<root>" : issue.path.join(".");
-			return `${path}: ${issue.message}`;
-		})
-		.join("; ");
 }
 
 function failedOutcome(

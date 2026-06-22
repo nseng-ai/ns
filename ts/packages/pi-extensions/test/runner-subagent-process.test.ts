@@ -252,18 +252,20 @@ describe("runner subagent process dispatcher", () => {
 	});
 
 	test("rejects invalid child tool allowlist before spawning", async () => {
-		const runner = createFakeRunnerSubagentDispatcher();
-		const result = await dispatchRunnerSubagentProcess(
-			pi,
-			ctx,
-			{ ...options(), tools: ["read", "bad tool"] },
-			runner.dependencies,
-		);
+		for (const toolName of ["bad tool", "bad,tool", "bad.tool", "a".repeat(65)]) {
+			const runner = createFakeRunnerSubagentDispatcher();
+			const result = await dispatchRunnerSubagentProcess(
+				pi,
+				ctx,
+				{ ...options(), tools: ["read", toolName] },
+				runner.dependencies,
+			);
 
-		expect(runner.calls).toEqual([]);
-		expect(result.status).toBe("error");
-		if (result.status === "error") {
-			expect(result.diagnostic).toContain("Invalid subagent tool allowlist");
+			expect(runner.calls).toEqual([]);
+			expect(result.status).toBe("error");
+			if (result.status === "error") {
+				expect(result.diagnostic).toContain("Invalid subagent tool allowlist");
+			}
 		}
 	});
 
@@ -1308,7 +1310,7 @@ describe("runner subagent process dispatcher", () => {
 	test("waits for terminal runtime result persistence before terminating", async () => {
 		const manualClock = createManualClock(0);
 		const manualTimers = createManualTimerScheduler();
-		let runtimeResultWritten = false;
+		let wasRuntimeResultWritten = false;
 		const runtimeResult = {
 			version: 1,
 			kind: "terminal-capture",
@@ -1324,7 +1326,7 @@ describe("runner subagent process dispatcher", () => {
 		const running = dispatchRunnerSubagentProcess<{ summary: string }>(pi, ctx, options(), {
 			...runner.dependencies,
 			readRuntimeResult: () =>
-				runtimeResultWritten ? { type: "loaded", result: runtimeResult } : { type: "missing" },
+				wasRuntimeResultWritten ? { type: "loaded", result: runtimeResult } : { type: "missing" },
 		});
 		const call = await waitForSpawn(runner.calls);
 
@@ -1351,7 +1353,7 @@ describe("runner subagent process dispatcher", () => {
 		expect(call.process.killSignals).toEqual([]);
 		expect(manualTimers.pendingTimerCount()).toBe(1);
 
-		runtimeResultWritten = true;
+		wasRuntimeResultWritten = true;
 		manualClock.advanceMs(25);
 		manualTimers.advanceMs(25);
 		await Promise.resolve();
