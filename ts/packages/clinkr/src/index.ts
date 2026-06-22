@@ -7,6 +7,16 @@ export type {
 	CreateClinkrInteractionOptions,
 	ResolveClinkrInteractionOptions,
 } from "./confirmation.ts";
+export { completeClinkrWords } from "./completion.ts";
+export type {
+	ClinkrCompletionCandidate,
+	ClinkrCompletionCandidateType,
+	ClinkrCompletionCommandPlan,
+	ClinkrCompletionGroupPlan,
+	ClinkrCompletionOptionPlan,
+	ClinkrCompletionRequest,
+	ClinkrCompletionResult,
+} from "./completion.ts";
 export { ClinkrGroup } from "./group.ts";
 export type {
 	ClinkrCommandSpec,

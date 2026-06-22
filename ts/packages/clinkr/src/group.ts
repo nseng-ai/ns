@@ -1,6 +1,16 @@
 import { Argument, Command, CommanderError, InvalidArgumentError, Option } from "commander";
 import { z } from "zod";
 
+import {
+	CLINKR_JSON_SCHEMA_OPTION,
+	CLINKR_RENDERED_COMMAND_OPTIONS,
+	completeClinkrWords,
+	completionOptionFromSurface,
+	type ClinkrCompletionCommandPlan,
+	type ClinkrCompletionGroupPlan,
+	type ClinkrCompletionRequest,
+	type ClinkrCompletionResult,
+} from "./completion.ts";
 import { emitExit, type RenderCapabilities } from "./emit.ts";
 import type { ClinkrExit } from "./exit.ts";
 import { clinkrFormatFromOption } from "./format.ts";
@@ -206,6 +216,11 @@ export class ClinkrGroup<TContext> {
 	 * `process.exit`. Expected failures come back as codes; unexpected handler
 	 * throws propagate raw (no envelope), matching Python clinkr crashes.
 	 */
+	/** Build static completion candidates without invoking command handlers. */
+	complete(request: ClinkrCompletionRequest): ClinkrCompletionResult {
+		return completeClinkrWords(this.buildCompletionPlan(true), request);
+	}
+
 	async run(argv: readonly string[], options: ClinkrRunOptions<TContext>): Promise<number> {
 		const io = options.io ?? createProcessIo();
 		const state: RunState = { exitCode: 0 };
@@ -230,6 +245,22 @@ export class ClinkrGroup<TContext> {
 			}
 			throw error;
 		}
+	}
+
+	private buildCompletionPlan(isRoot: boolean): ClinkrCompletionGroupPlan {
+		return {
+			name: this.name,
+			...(this.description === undefined ? {} : { description: this.description }),
+			isRoot,
+			isHidden: this.isHidden,
+			hasVersionOption: this.version !== undefined,
+			hasRuntimeOption: this.runtimeInfo !== undefined,
+			commands: this.registeredCommands.map((registered) => completionCommandPlan(registered)),
+			groups: this.subgroups.map((child) => child.buildCompletionPlan(false)),
+			...(this.defaultRegisteredCommand === undefined
+				? {}
+				: { defaultCommand: completionCommandPlan(this.defaultRegisteredCommand) }),
+		};
 	}
 
 	private buildCommand(options: BuildCommandOptions<TContext>): Command {
@@ -290,6 +321,26 @@ function executionOf<TContext, S extends z.ZodObject, T>(
 		renderMarkdown: spec.renderMarkdown as
 			| ((data: unknown, caps: RenderCapabilities) => string)
 			| undefined,
+	};
+}
+
+function completionCommandPlan<TContext>(
+	registered: RegisteredCommand<TContext>,
+): ClinkrCompletionCommandPlan {
+	const frameworkOptions =
+		registered.execution.type === "rendered"
+			? [...CLINKR_RENDERED_COMMAND_OPTIONS, CLINKR_JSON_SCHEMA_OPTION]
+			: [CLINKR_JSON_SCHEMA_OPTION];
+	return {
+		name: registered.name,
+		...(registered.summary === undefined && registered.description === undefined
+			? {}
+			: { description: registered.summary ?? registered.description }),
+		options: [
+			...registered.plan.options.map((option) => completionOptionFromSurface(option)),
+			...frameworkOptions,
+		],
+		positionals: registered.plan.positionals,
 	};
 }
 
