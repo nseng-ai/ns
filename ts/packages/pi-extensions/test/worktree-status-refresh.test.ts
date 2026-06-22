@@ -26,18 +26,20 @@ import worktreeStatusExtension, {
 import { WORKTREE_STATUS_DORMANT_AFTER_MS } from "../src/worktree-status-activity.ts";
 
 describe("worktree status refresh lifecycle", () => {
-	test("background timer limits GitHub refreshes to every fifteen seconds", async () => {
+	test("background timer refreshes local status without polling GitHub", async () => {
 		const harness = createManualTimerHarness();
-		const refreshBeforeInterval = deferred<void>();
-		const refreshAfterInterval = deferred<void>();
+		const firstTimerRefresh = deferred<void>();
+		const secondTimerRefresh = deferred<void>();
+		const thirdTimerRefresh = deferred<void>();
 		const pi = new LifecycleFakePi([]);
 		const loaders = fakeWorktreeStatusLoaders({
 			localStatuses: [
 				queued(localStatus()),
-				queued(localStatus(), () => refreshBeforeInterval.resolve()),
-				queued(localStatus(), () => refreshAfterInterval.resolve()),
+				queued(localStatus(), () => firstTimerRefresh.resolve()),
+				queued(localStatus(), () => secondTimerRefresh.resolve()),
+				queued(localStatus(), () => thirdTimerRefresh.resolve()),
 			],
-			ghStatuses: [queued({ type: "no-pr" }), queued({ type: "no-pr" })],
+			ghStatuses: [queued({ type: "no-pr" })],
 		});
 		const ctx = testContext();
 
@@ -51,20 +53,26 @@ describe("worktree status refresh lifecycle", () => {
 		expect(loaders.ghCalls).toHaveLength(1);
 
 		harness.advanceMs(10_000);
-		await refreshBeforeInterval.promise;
+		await firstTimerRefresh.promise;
 		await flushPromises();
 		expect(loaders.ghCalls).toHaveLength(1);
 
 		harness.advanceMs(10_000);
-		await refreshAfterInterval.promise;
+		await secondTimerRefresh.promise;
 		await flushPromises();
-		expect(loaders.ghCalls).toHaveLength(2);
+		expect(loaders.ghCalls).toHaveLength(1);
+
+		harness.advanceMs(10_000);
+		await thirdTimerRefresh.promise;
+		await flushPromises();
+		expect(loaders.ghCalls).toHaveLength(1);
 
 		pi.assertDone();
 		await pi.sessionShutdown?.();
 	});
 
-	test("mutating tool completion refreshes dirty footer state", async () => {
+	test("mutating tool completion refreshes dirty footer state without polling GitHub", async () => {
+		const harness = createManualTimerHarness();
 		const toolRefreshLoaded = deferred<void>();
 		const pi = new LifecycleFakePi([]);
 		const loaders = fakeWorktreeStatusLoaders({
@@ -77,8 +85,14 @@ describe("worktree status refresh lifecycle", () => {
 		const statuses = new Map<string, string | undefined>();
 		const ctx = testContext(statuses);
 
-		worktreeStatusExtension(pi as ExtensionAPI, { loaders, refreshIntervalMs: 60_000 });
+		worktreeStatusExtension(pi as ExtensionAPI, {
+			loaders,
+			timers: harness.timers,
+			clock: harness.clock,
+			refreshIntervalMs: 60_000,
+		});
 		await pi.sessionStart?.({}, ctx);
+		harness.advanceMs(30_000);
 		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
 			"[gt] ↓ main · ↑ - · 1 commit\n[gh] no PR",
 		);
@@ -155,7 +169,7 @@ describe("worktree status refresh lifecycle", () => {
 		await pi.sessionShutdown?.();
 	});
 
-	test("user message completion refreshes stale dirty footer state", async () => {
+	test("user message completion before TTL refreshes local status without polling GitHub", async () => {
 		const userMessageRefreshDirtyChecked = deferred<void>();
 		const pi = new LifecycleFakePi([]);
 		const loaders = fakeWorktreeStatusLoaders({
@@ -190,7 +204,45 @@ describe("worktree status refresh lifecycle", () => {
 		await pi.sessionShutdown?.();
 	});
 
-	test("turn completion refreshes footer without mutating tool event", async () => {
+	test("user message completion after TTL refreshes local status and polls GitHub", async () => {
+		const harness = createManualTimerHarness();
+		const userMessageRefreshChecked = deferred<void>();
+		const pi = new LifecycleFakePi([]);
+		const loaders = fakeWorktreeStatusLoaders({
+			localStatuses: [
+				queued(localStatus()),
+				queued(localStatus(), () => userMessageRefreshChecked.resolve()),
+			],
+			ghStatuses: [queued({ type: "no-pr" }), queued({ type: "no-pr" })],
+		});
+		const ctx = testContext();
+
+		worktreeStatusExtension(pi as ExtensionAPI, {
+			loaders,
+			timers: harness.timers,
+			clock: harness.clock,
+			refreshIntervalMs: 60_000,
+		});
+		await pi.sessionStart?.({}, ctx);
+		expect(loaders.ghCalls).toHaveLength(1);
+
+		harness.advanceMs(30_000);
+		await pi.emit(
+			"message_end",
+			{ type: "message_end", message: { role: "user", content: "check status" } },
+			ctx,
+		);
+		await userMessageRefreshChecked.promise;
+		await flushPromises();
+
+		pi.assertDone();
+		expect(loaders.localCalls).toHaveLength(2);
+		expect(loaders.ghCalls).toHaveLength(2);
+		await pi.sessionShutdown?.();
+	});
+
+	test("turn completion refreshes footer without polling GitHub", async () => {
+		const harness = createManualTimerHarness();
 		const turnRefreshDirtyChecked = deferred<void>();
 		const pi = new LifecycleFakePi([]);
 		const loaders = fakeWorktreeStatusLoaders({
@@ -205,8 +257,14 @@ describe("worktree status refresh lifecycle", () => {
 		const statuses = new Map<string, string | undefined>();
 		const ctx = testContext(statuses);
 
-		worktreeStatusExtension(pi as ExtensionAPI, { loaders, refreshIntervalMs: 60_000 });
+		worktreeStatusExtension(pi as ExtensionAPI, {
+			loaders,
+			timers: harness.timers,
+			clock: harness.clock,
+			refreshIntervalMs: 60_000,
+		});
 		await pi.sessionStart?.({}, ctx);
+		harness.advanceMs(30_000);
 		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
 			"[gt] ↓ main · ↑ - · 1 commit\n[gh] no PR",
 		);
@@ -223,7 +281,8 @@ describe("worktree status refresh lifecycle", () => {
 		await pi.sessionShutdown?.();
 	});
 
-	test("requestWorktreeStatusRefresh reruns active session local and forced remote status", async () => {
+	test("requestWorktreeStatusRefresh uses cached GitHub policy instead of forcing remote status", async () => {
+		const harness = createManualTimerHarness();
 		const pi = new LifecycleFakePi([]);
 		const loaders = fakeWorktreeStatusLoaders({
 			localStatuses: [
@@ -233,25 +292,43 @@ describe("worktree status refresh lifecycle", () => {
 						gt: gtStatus({ commits: { type: "count", count: 2 }, dirty: "yes" }),
 					}),
 				),
+				queued(
+					localStatus({
+						gt: gtStatus({ commits: { type: "count", count: 3 }, dirty: "yes" }),
+					}),
+				),
 			],
 			ghStatuses: [queued({ type: "no-pr" }), queued({ type: "no-pr" })],
 		});
 		const statuses = new Map<string, string | undefined>();
 		const ctx = testContext(statuses);
 
-		worktreeStatusExtension(pi as ExtensionAPI, { loaders });
+		worktreeStatusExtension(pi as ExtensionAPI, {
+			loaders,
+			timers: harness.timers,
+			clock: harness.clock,
+			refreshIntervalMs: 60_000,
+		});
 		await pi.sessionStart?.({}, ctx);
 		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
 			"[gt] ↓ main · ↑ - · 1 commit\n[gh] no PR",
 		);
 
 		await requestWorktreeStatusRefresh();
-
-		pi.assertDone();
 		expect(loaders.localCalls).toHaveLength(2);
-		expect(loaders.ghCalls).toHaveLength(2);
+		expect(loaders.ghCalls).toHaveLength(1);
 		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
 			"[gt] ↓ main · ↑ - · 2 commits · ✗\n[gh] no PR",
+		);
+
+		harness.advanceMs(30_000);
+		await requestWorktreeStatusRefresh();
+
+		pi.assertDone();
+		expect(loaders.localCalls).toHaveLength(3);
+		expect(loaders.ghCalls).toHaveLength(2);
+		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
+			"[gt] ↓ main · ↑ - · 3 commits · ✗\n[gh] no PR",
 		);
 		await pi.sessionShutdown?.();
 	});
@@ -318,6 +395,7 @@ describe("worktree status refresh lifecycle", () => {
 		await Promise.all([sessionStart, commandRefresh]);
 
 		expect(loaders.localCalls).toHaveLength(2);
+		expect(loaders.ghCalls).toHaveLength(2);
 		pi.assertDone();
 		await pi.sessionShutdown?.();
 	});

@@ -1,5 +1,7 @@
+export type WorktreeStatusRemoteRefreshMode = "skip" | "cached" | "force";
+
 export interface WorktreeStatusRefreshOptions {
-	readonly shouldForceRemote?: boolean;
+	readonly remoteRefresh?: WorktreeStatusRemoteRefreshMode | undefined;
 }
 
 export interface WorktreeStatusRefreshChannel<TSession> {
@@ -66,7 +68,21 @@ function combineRefreshOptions(
 	left: WorktreeStatusRefreshOptions | undefined,
 	right: WorktreeStatusRefreshOptions,
 ): WorktreeStatusRefreshOptions {
-	return left?.shouldForceRemote === true || right.shouldForceRemote === true
-		? { shouldForceRemote: true }
-		: {};
+	const mode = strongerRemoteRefreshMode(remoteRefreshMode(left), remoteRefreshMode(right));
+	return mode === "skip" ? {} : { remoteRefresh: mode };
+}
+
+function remoteRefreshMode(
+	options: WorktreeStatusRefreshOptions | undefined,
+): WorktreeStatusRemoteRefreshMode {
+	return options?.remoteRefresh ?? "skip";
+}
+
+function strongerRemoteRefreshMode(
+	left: WorktreeStatusRemoteRefreshMode,
+	right: WorktreeStatusRemoteRefreshMode,
+): WorktreeStatusRemoteRefreshMode {
+	if (left === "force" || right === "force") return "force";
+	if (left === "cached" || right === "cached") return "cached";
+	return "skip";
 }

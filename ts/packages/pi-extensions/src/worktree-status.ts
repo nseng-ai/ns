@@ -44,6 +44,7 @@ import {
 import {
 	createWorktreeStatusRefreshChannel,
 	type WorktreeStatusRefreshOptions,
+	type WorktreeStatusRemoteRefreshMode,
 } from "./worktree-status-refresh-channel.ts";
 import {
 	createWorktreeStatusRefreshTimer,
@@ -54,7 +55,7 @@ import { renderStatusFooter } from "./worktree-status-footer-format.ts";
 
 export const WORKTREE_STATUS_REFRESH_COMMAND_NAME = "pi:worktree-status-refresh";
 
-const GH_STATUS_BACKGROUND_REFRESH_MIN_INTERVAL_MS = 15_000;
+const GH_STATUS_BACKGROUND_REFRESH_MIN_INTERVAL_MS = 30_000;
 const WORKTREE_STATUS_COUNTDOWN_RENDER_INTERVAL_MS = 1_000;
 
 const WORKTREE_STATUS_TOOL_REFRESH_NAMES = new Set(["bash", "edit", "write"]);
@@ -379,7 +380,7 @@ export default function worktreeStatusExtension(
 				renderSessionStatus(session);
 			},
 			onWakeRefresh: () => {
-				void refreshSession(session, { shouldForceRemote: true });
+				void refreshSession(session, { remoteRefresh: "cached" });
 			},
 		});
 		countdownRenderTimer = createWorktreeStatusRefreshTimer({
@@ -494,9 +495,10 @@ export default function worktreeStatusExtension(
 	): Promise<void> {
 		if (!session.hasUI || !isActiveSession(session)) return;
 
+		const mode = remoteRefreshMode(options);
 		const fetchIdentity = options.identity ?? session.localStatus?.identity;
 		if (fetchIdentity === undefined) return;
-		if (shouldUseCachedGhStatus(session, fetchIdentity, options)) {
+		if (!shouldLoadGhStatus(session, fetchIdentity, mode)) {
 			renderSessionStatus(session);
 			return;
 		}
@@ -518,16 +520,23 @@ export default function worktreeStatusExtension(
 		renderSessionStatus(session);
 	}
 
-	function shouldUseCachedGhStatus(
+	function shouldLoadGhStatus(
 		session: ActiveSession,
 		identity: WorktreeStatusIdentity,
-		options: WorktreeStatusRefreshOptions,
+		mode: WorktreeStatusRemoteRefreshMode,
 	): boolean {
-		if (options.shouldForceRemote === true) return false;
+		if (mode === "skip") return false;
+		if (mode === "force") return true;
 		const snapshot = session.ghStatusSnapshot;
-		if (snapshot === undefined) return false;
-		if (!sameWorktreeStatusIdentity(snapshot.identity, identity)) return false;
-		return clock.nowMs() - snapshot.fetchedAtMs < GH_STATUS_BACKGROUND_REFRESH_MIN_INTERVAL_MS;
+		if (snapshot === undefined) return true;
+		if (!sameWorktreeStatusIdentity(snapshot.identity, identity)) return true;
+		return clock.nowMs() - snapshot.fetchedAtMs >= GH_STATUS_BACKGROUND_REFRESH_MIN_INTERVAL_MS;
+	}
+
+	function remoteRefreshMode(
+		options: WorktreeStatusRefreshOptions,
+	): WorktreeStatusRemoteRefreshMode {
+		return options.remoteRefresh ?? "skip";
 	}
 
 	async function refreshAllImmediately(
@@ -535,19 +544,22 @@ export default function worktreeStatusExtension(
 		options: WorktreeStatusRefreshOptions,
 	): Promise<void> {
 		if (!session.hasUI || !isActiveSession(session)) return;
-		if (session.isDormant && options.shouldForceRemote !== true) return;
+		const mode = remoteRefreshMode(options);
+		if (session.isDormant && mode !== "force") return;
 
 		const identity = await loaders.loadIdentity(pi, session.cwd, session.abortController.signal);
 		if (!isActiveSession(session)) return;
-		await Promise.all([
-			refreshLocalNowWithIdentity(session, identity),
-			refreshRemoteNowWithIdentity(session, { ...options, identity }),
-		]);
+		const refreshes = [refreshLocalNowWithIdentity(session, identity)];
+		if (mode !== "skip") {
+			refreshes.push(refreshRemoteNowWithIdentity(session, { ...options, identity }));
+		}
+		await Promise.all(refreshes);
 		if (!isActiveSession(session)) return;
 
 		const localIdentity = session.localStatus?.identity;
 		const remoteIdentity = session.ghStatusSnapshot?.identity;
 		if (
+			mode !== "skip" &&
 			localIdentity !== undefined &&
 			(remoteIdentity === undefined || !sameWorktreeStatusIdentity(localIdentity, remoteIdentity))
 		) {
@@ -634,7 +646,7 @@ export default function worktreeStatusExtension(
 		return refreshSession(session, options);
 	}
 
-	activeWorktreeStatusRefresh = () => refreshActiveSession({ shouldForceRemote: true });
+	activeWorktreeStatusRefresh = () => refreshActiveSession({ remoteRefresh: "cached" });
 
 	function refreshActiveSessionAfterToolExecution(event: unknown): void {
 		if (!shouldRefreshAfterToolExecution(event)) return;
@@ -660,7 +672,7 @@ export default function worktreeStatusExtension(
 			const session = activeSession;
 			if (session === undefined) return;
 			recordSessionActivity(session, { shouldRefreshOnWake: false });
-			await requestWorktreeStatusRefresh();
+			await refreshActiveSession({ remoteRefresh: "force" });
 		},
 	});
 
@@ -696,7 +708,9 @@ export default function worktreeStatusExtension(
 	registerWorktreeStatusActivityHandler("turn_end", () => void refreshActiveSession());
 	registerWorktreeStatusActivityHandler("message_start");
 	registerWorktreeStatusActivityHandler("message_end", (payload) => {
-		if (shouldRefreshAfterUserMessageEnd(payload)) void refreshActiveSession();
+		if (shouldRefreshAfterUserMessageEnd(payload)) {
+			void refreshActiveSession({ remoteRefresh: "cached" });
+		}
 	});
 	registerWorktreeStatusActivityHandler("tool_execution_start");
 	registerWorktreeStatusActivityHandler(
@@ -711,7 +725,7 @@ export default function worktreeStatusExtension(
 		const session = activateSession(ctx);
 		installStatusFooter(session);
 		installActivityTracking(session);
-		await refreshSession(session, { shouldForceRemote: true });
+		await refreshSession(session, { remoteRefresh: "force" });
 		if (isActiveSession(session)) {
 			session.refreshTimer?.resume();
 			countdownRenderTimer?.resume();
