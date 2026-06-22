@@ -9,7 +9,8 @@ This Objective supersedes the narrower `handoff-sdl-extension` Objective. Handof
 ## Scope
 
 - Reframe `@sdl/sdl` as an extension kernel rather than a package with privileged built-in lifecycle commands.
-- Start with project-local command extensions under `.sdl/extensions`, treating `changes`, `cp`, `regenerate-pr`, and `submit` as if a user authored them for this repository.
+- Start with project-local command extensions under `.sdl/extensions`, treating `changes`, `cp`, `regenerate-pr`, `submit`, and `land` as if a user authored them for this repository.
+  - `land` is a special case: it has no current `sdl land` built-in to remove. It exists today only as the Pi `/sdl:code:land` command delegating to the CCC land-stack orchestration (`@sdl/ccc/land`) with `PARTIAL` parity and no CLI/skill entry outside Pi. Migrating it means establishing `sdl land` as a project-local extension and reworking the Pi mirror to delegate, closing the cross-harness parity gap rather than removing a privileged built-in.
 - Use each command migration to discover and refine the minimal public SDL extension SDK.
   - Begin from the current `@sdl/sdl/sdk` surface where possible.
   - Promote only repeated, demonstrated pain into kernel-provided interfaces or public SDK helpers.
@@ -23,7 +24,7 @@ This Objective supersedes the narrower `handoff-sdl-extension` Objective. Handof
 ## Non-Goals
 
 - Do not exhaustively migrate every current SDL capability/package in this Objective. Broader capability modeling, bundled extensions, and sophisticated workflow migrations are parked until command-first learning produces a stable enough SDK/kernel model.
-- Do not create a privileged bundled-extension path for `cp`, `submit`, or similar repository workflow commands in the first pass; model them as project-local user-authored extensions.
+- Do not create a privileged bundled-extension path for `cp`, `submit`, `land`, or similar repository workflow commands in the first pass; model them as project-local user-authored extensions.
 - Do not design nested SDL CLI command trees, Handoff lifecycle commands, Objective migration, Slot migration, or extension-owned agent-resource installation as part of the initial command-first slices.
 - Do not keep long-lived compatibility aliases or duplicate public implementations when a command is intentionally moved into project-local SDL extension form.
 - Do not expose internal implementation modules as public SDK just to make the first migrated command easy.
@@ -31,7 +32,7 @@ This Objective supersedes the narrower `handoff-sdl-extension` Objective. Handof
 
 ## Completion Criteria
 
-- SDL's kernel command registry no longer imports or registers repository workflow domain commands such as `changes`, `cp`, `submit`, or `regenerate-pr` as privileged built-ins.
+- SDL's kernel command registry no longer imports or registers repository workflow domain commands such as `changes`, `cp`, `submit`, `regenerate-pr`, or `land` as privileged built-ins, and `land` gains a project-local `sdl land` surface rather than remaining a Pi-only CCC delegation.
 - This repository restores the selected command surfaces through project-local `.sdl/extensions` entries that exercise the same public SDK available to user-authored extensions.
 - The command migration sequence starts with a kernel reset plus a project-local `changes` extension, then uses mutating and GitHub/Graphite-heavy commands to test whether the SDK needs deeper Git, GitHub, Branch Memory, output, confirmation, or command-composition interfaces.
 - Each promoted SDK/kernel interface has concrete evidence from at least two command slices or a clearly documented single-command necessity.
@@ -64,7 +65,7 @@ Useful evidence includes targeted SDL CLI scenario tests, extension discovery/lo
 
 This Objective is execution-friendly for `objective-next` under the boundaries below.
 
-- Direct execution is allowed after a preview for one bounded command-first architecture slice, such as kernel reset plus `changes`, migrating `cp`, migrating `regenerate-pr`, migrating `submit`, updating Pi adapters for a migrated command, or documenting SDK/kernel learning from a completed slice.
+- Direct execution is allowed after a preview for one bounded command-first architecture slice, such as kernel reset plus `changes`, migrating `cp`, migrating `regenerate-pr`, migrating `submit`, migrating `land`, updating Pi adapters for a migrated command, or documenting SDK/kernel learning from a completed slice.
 - Steer or ask first when choosing command naming, deciding to promote a new public SDK interface, changing extension discovery precedence, introducing a compatibility alias, deciding a command should become bundled instead of project-local, or pulling a parked sophisticated capability such as Handoff, Objectives, or Slots back into active scope.
 - Work may edit repo-local TypeScript, tests, docs, context files, Pi extension adapters, project-local `.sdl/extensions` files, and Objective tracking for this Objective. Work may be left as local file changes on the current branch after the confirmed slice.
 - Validation before keeping work should include targeted tests/checks for touched packages and docs formatting where applicable. Full TypeScript validation is useful evidence for broad slices but should remain evidence, not a standalone roadmap row.
@@ -74,7 +75,8 @@ This Objective is execution-friendly for `objective-next` under the boundaries b
 
 Assumptions:
 
-- Modeling `changes`, `cp`, `regenerate-pr`, and `submit` as project-local user-authored extensions will expose more useful SDK design pressure than keeping them as SDL built-ins or first-party bundled extensions.
+- Modeling `changes`, `cp`, `regenerate-pr`, `submit`, and `land` as project-local user-authored extensions will expose more useful SDK design pressure than keeping them as SDL built-ins, first-party bundled extensions, or Pi-only delegations.
+- `land` exercises a distinct migration shape from the others: it starts as a Pi command over CCC land-stack orchestration with no CLI/skill entry, so its slice tests whether a project-local extension can both establish the missing `sdl land` CLI surface and reduce CCC-internal coupling, instead of only relocating an existing built-in.
 - A command-first migration is the right bottom-up path before designing bundled extensions or migrating sophisticated workflows like Handoff, Objectives, and Slots.
 - `@sdl/sdl/sdk` should remain the only public author API unless concrete migration evidence justifies adding or reshaping exports.
 - Project-local command discovery can preserve the user-facing `sdl <name>` surface in this repository without implying the command is universally available in every SDL installation.
@@ -93,6 +95,7 @@ Risks:
 
 - What is the smallest useful SDL kernel once all domain commands are removed?
 - Should project-local SDL command extensions eventually be able to contribute exact dynamic Pi mirrors, or should Pi keep static adapters for selected project commands?
-- Which repeated pain from `changes`, `cp`, `regenerate-pr`, and `submit` justifies first-class SDK interfaces for Git, GitHub, Branch Memory, model generation, output, confirmation, or command composition?
+- Which repeated pain from `changes`, `cp`, `regenerate-pr`, `submit`, and `land` justifies first-class SDK interfaces for Git, GitHub, Branch Memory, model generation, output, confirmation, or command composition?
+- Should `land` keep depending on the CCC land-stack orchestration (`@sdl/ccc/land`) from a project-local extension, or does its migration require promoting a public landing/Graphite-stack interface, and does the existing `@sdl/ccc/land` boundary count as an acceptable lower-package dependency for a project-local command?
 - Which parts of the documented project-local versus future bundled extension model should become follow-up Objectives rather than remaining parked design space?
 - After the command-first migration, which parked capability should become the first bundled/sophisticated extension pressure test: Handoff, Objectives, Slots, or another workflow?
