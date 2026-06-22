@@ -8,6 +8,7 @@ import {
 	formatImplBranchContextCommand,
 } from "@sdl/branch-context";
 import { InMemoryBranchMemoryGateway } from "@sdl/branch-context/testing";
+import type { StdinCapableCommandExecApi } from "@sdl/core/exec";
 import { withTempRepoSkill } from "@sdl/core/testing";
 import { buildSlugModelArgs } from "@sdl/plans";
 import registerCccExtension from "../src/ccc.ts";
@@ -61,8 +62,12 @@ function branchContextTestOptions(planStoreRoot: string): CccSlotDispatchPlanOpt
 	return {
 		planStoreRoot,
 		createBranchContextContext(pi, cwd) {
+			const stdinCapablePi: StdinCapableCommandExecApi = {
+				supportsStdin: true,
+				exec: (command, args, options) => pi.exec(command, args, options),
+			};
 			return {
-				...createBranchContextContext(pi, { cwd }),
+				...createBranchContextContext(stdinCapablePi, { cwd }),
 				brmem: new InMemoryBranchMemoryGateway({ currentBranch: SOURCE_BRANCH }),
 			};
 		},

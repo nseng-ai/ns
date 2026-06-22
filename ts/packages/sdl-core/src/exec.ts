@@ -46,6 +46,15 @@ export interface CommandExecApi {
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
 }
 
+/**
+ * A CommandExecApi whose exec implementation actually pipes `options.stdin` to the
+ * child process. The Pi host `exec` is intentionally NOT branded: it silently drops
+ * stdin, so code that drives `git mktree`/`git hash-object` etc. must require this brand.
+ */
+export interface StdinCapableCommandExecApi extends CommandExecApi {
+	readonly supportsStdin: true;
+}
+
 export function execApiToCommandRunner(execApi: CommandExecApi): CommandRunner {
 	return async (command, args, options) => await execApi.exec(command, [...args], options);
 }
@@ -82,7 +91,8 @@ export interface CommandPrefix {
 	args: string[];
 }
 
-export class NodeCommandExecApi implements CommandExecApi {
+export class NodeCommandExecApi implements StdinCapableCommandExecApi {
+	readonly supportsStdin = true as const;
 	async exec(command: string, args: string[], options: ExecOptions = {}): Promise<ExecResult> {
 		return runCommand(command, args, options);
 	}

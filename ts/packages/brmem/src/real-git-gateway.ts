@@ -1,7 +1,12 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { NodeCommandExecApi, formatCommand, type CommandExecApi } from "@sdl/core/exec";
+import {
+	NodeCommandExecApi,
+	formatCommand,
+	type CommandExecApi,
+	type StdinCapableCommandExecApi,
+} from "@sdl/core/exec";
 
 import {
 	brmemError,
@@ -77,7 +82,7 @@ export class RealGitBrmemGateway implements BrmemGateway {
 	private readonly cwd: string;
 	private readonly commands: CommandExecApi;
 
-	constructor(cwd: string, commands: CommandExecApi = new NodeCommandExecApi()) {
+	constructor(cwd: string, commands: StdinCapableCommandExecApi = new NodeCommandExecApi()) {
 		this.cwd = cwd;
 		this.commands = commands;
 	}

@@ -1,5 +1,9 @@
 import { RealGitBrmemGateway, type BrmemGateway } from "@sdl/brmem";
-import { NodeCommandExecApi, type CommandExecApi } from "@sdl/core/exec";
+import {
+	NodeCommandExecApi,
+	type CommandExecApi,
+	type StdinCapableCommandExecApi,
+} from "@sdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@sdl/core/git";
 import {
 	RealBranchContextGraphiteGateway,
@@ -14,7 +18,7 @@ export interface BranchContextContext {
 }
 
 export function createBranchContextContext(
-	commands: CommandExecApi,
+	commands: StdinCapableCommandExecApi,
 	options: { cwd?: string | undefined } = {},
 ): BranchContextContext {
 	const cwd = options.cwd ?? process.cwd();

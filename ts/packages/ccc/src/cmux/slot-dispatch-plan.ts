@@ -2,8 +2,8 @@ import {
 	BRANCH_CONTEXT_NAMESPACE,
 	buildBranchContextCreateOperation,
 	buildBranchContextOutputMessage,
-	createBranchContextContext,
 	createBranchContextFromFile,
+	createRealBranchContextContext,
 	derivePlanContentSlug,
 	formatBranchContextEvidence,
 	formatBranchContextCreateFailure,
@@ -229,7 +229,7 @@ function dispatchBranchContextContext(
 	cwd: string,
 	options: CccSlotDispatchPlanOptions,
 ): BranchContextContext {
-	return options.createBranchContextContext?.(pi, cwd) ?? createBranchContextContext(pi, { cwd });
+	return options.createBranchContextContext?.(pi, cwd) ?? createRealBranchContextContext({ cwd });
 }
 
 function parseCommandArgs(rawArgs: string): CommandArgs | { error: string } {
