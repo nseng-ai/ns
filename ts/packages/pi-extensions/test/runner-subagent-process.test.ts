@@ -1233,6 +1233,53 @@ describe("runner subagent process dispatcher", () => {
 		expect(result.sessionFile).toBe("/tmp/pi-runner-subagent.jsonl");
 	});
 
+	test("terminates a child after successful terminal tool execution", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({
+			runtimeResult: {
+				version: 1,
+				kind: "terminal-capture",
+				toolName: "complete_runner_subagent",
+				toolCallId: "tool-1",
+				status: "completed",
+				input: { summary: "done" },
+			},
+		});
+		const running = dispatchRunnerSubagentProcess<{ summary: string }>(
+			pi,
+			ctx,
+			options(),
+			runner.dependencies,
+		);
+		const call = await waitForSpawn(runner.calls);
+
+		call.process.emitStdout(jsonLine({ type: "turn_start" }));
+		call.process.emitStdout(
+			jsonLine({
+				type: "tool_execution_start",
+				toolCallId: "tool-1",
+				toolName: "complete_runner_subagent",
+				args: {},
+			}),
+		);
+		call.process.emitStdout(
+			jsonLine({
+				type: "tool_execution_end",
+				toolCallId: "tool-1",
+				toolName: "complete_runner_subagent",
+				result: {},
+				isError: false,
+			}),
+		);
+
+		expect(call.process.killSignals).toEqual(["SIGTERM"]);
+		call.process.close(null, "SIGTERM");
+		const result = await running;
+
+		expect(result.status).toBe("completed");
+		if (result.status !== "completed") return;
+		expect(result.terminal.input).toEqual({ summary: "done" });
+	});
+
 	test("maps a blocked terminal capture sink to a blocked result", async () => {
 		const runner = createFakeRunnerSubagentDispatcher({
 			runtimeResult: {

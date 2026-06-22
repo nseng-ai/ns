@@ -363,7 +363,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 			const snapshot = parser.getSnapshot();
 			updateEmitter.emit(updateFromSnapshot(snapshot));
 			scheduleLiveLaunchHydration();
-			if ((snapshot.error || snapshot.protocolError) && !cancelled) {
+			if ((snapshot.error || snapshot.protocolError || snapshot.terminalSucceeded) && !cancelled) {
 				terminateChild();
 			}
 		});
@@ -645,6 +645,17 @@ async function resolveClosedRunnerSubagentResult<TTerminalInput>(
 		);
 	}
 
+	if (runtimeRead.result?.kind === "terminal-capture") {
+		const protocolDiagnostic = validateTerminalCapture(
+			runtimeRead.result,
+			input.terminalToolStatuses,
+		);
+		if (protocolDiagnostic) {
+			return protocolErrorResult(title, progress, protocolDiagnostic, runtimeRead.result);
+		}
+		return terminalCaptureResult<TTerminalInput>(title, progress, runtimeRead.result);
+	}
+
 	if (input.code !== 0) {
 		return errorResult(
 			title,
@@ -668,17 +679,6 @@ async function resolveClosedRunnerSubagentResult<TTerminalInput>(
 			`Failed to read subagent terminal runtime result: ${runtimeRead.failure.message}`,
 			runtimeRead.failure.cause,
 		);
-	}
-
-	if (runtimeRead.result?.kind === "terminal-capture") {
-		const protocolDiagnostic = validateTerminalCapture(
-			runtimeRead.result,
-			input.terminalToolStatuses,
-		);
-		if (protocolDiagnostic) {
-			return protocolErrorResult(title, progress, protocolDiagnostic, runtimeRead.result);
-		}
-		return terminalCaptureResult<TTerminalInput>(title, progress, runtimeRead.result);
 	}
 
 	if (snapshot.stopReason === "error" || snapshot.stopReason === "aborted") {
