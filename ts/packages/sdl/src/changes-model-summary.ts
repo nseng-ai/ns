@@ -1,3 +1,5 @@
+import { normalizeTextOutput } from "@sdl/core/text-normalization";
+
 import type { PendingWorktreeSnapshot } from "./pending-worktree.ts";
 import { selectChangesModelRef, type TextGenerator } from "./text-generation.ts";
 
@@ -75,33 +77,5 @@ export async function draftChangesSummary(input: {
 }
 
 function normalizeChangesSummary(output: string): string {
-	const withoutCarriageReturns = output.replace(/\r\n?/g, "\n");
-	const trimmed = trimOuterBlankLines(withoutCarriageReturns);
-	return stripOuterCodeFence(trimmed);
-}
-
-function trimOuterBlankLines(text: string): string {
-	const lines = text.split("\n");
-	let start = 0;
-	let end = lines.length;
-	while (start < end && lines[start]?.trim() === "") {
-		start += 1;
-	}
-	while (end > start && lines[end - 1]?.trim() === "") {
-		end -= 1;
-	}
-	return lines.slice(start, end).join("\n");
-}
-
-function stripOuterCodeFence(text: string): string {
-	const lines = text.split("\n");
-	if (lines.length < 2) {
-		return text;
-	}
-	const firstLine = lines[0]?.trim() ?? "";
-	const lastLine = lines[lines.length - 1]?.trim() ?? "";
-	if (!/^```[a-zA-Z0-9_-]*$/.test(firstLine) || lastLine !== "```") {
-		return text;
-	}
-	return trimOuterBlankLines(lines.slice(1, -1).join("\n"));
+	return normalizeTextOutput(output);
 }

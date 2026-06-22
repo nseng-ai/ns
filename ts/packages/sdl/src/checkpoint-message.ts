@@ -1,3 +1,5 @@
+import { normalizeTextOutput } from "@sdl/core/text-normalization";
+
 export const CHECKPOINT_SUBJECT_MAX_LENGTH = 52;
 export const CHECKPOINT_MAX_BULLETS = 3;
 
@@ -24,9 +26,7 @@ export type CheckpointValidationResult =
 	| { ok: false; normalizedText: string; issues: CheckpointMessageIssue[] };
 
 export function normalizeCheckpointDraft(output: string): string {
-	const withoutCarriageReturns = output.replace(/\r\n?/g, "\n");
-	const trimmed = trimOuterBlankLines(withoutCarriageReturns);
-	return stripOuterCodeFence(trimmed);
+	return normalizeTextOutput(output);
 }
 
 export function validateCheckpointMessage(output: string): CheckpointValidationResult {
@@ -168,32 +168,6 @@ function buildCheckpointMessage(normalizedText: string): CheckpointMessage {
 	const blankLineIndex = subjectIndex + 1;
 	const bodyStart = lines[blankLineIndex] === "" ? blankLineIndex + 1 : blankLineIndex;
 	return { subject, bullets: lines.slice(bodyStart) };
-}
-
-function trimOuterBlankLines(text: string): string {
-	const lines = text.split("\n");
-	let start = 0;
-	let end = lines.length;
-	while (start < end && lines[start]?.trim() === "") {
-		start += 1;
-	}
-	while (end > start && lines[end - 1]?.trim() === "") {
-		end -= 1;
-	}
-	return lines.slice(start, end).join("\n");
-}
-
-function stripOuterCodeFence(text: string): string {
-	const lines = text.split("\n");
-	if (lines.length < 2) {
-		return text;
-	}
-	const firstLine = lines[0]?.trim() ?? "";
-	const lastLine = lines[lines.length - 1]?.trim() ?? "";
-	if (!/^```[a-zA-Z0-9_-]*$/.test(firstLine) || lastLine !== "```") {
-		return text;
-	}
-	return trimOuterBlankLines(lines.slice(1, -1).join("\n"));
 }
 
 function findSubjectIndex(lines: string[]): number {

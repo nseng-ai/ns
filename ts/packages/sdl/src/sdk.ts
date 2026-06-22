@@ -10,6 +10,16 @@ export { z };
 export type { PositionalSpec } from "@sdl/clinkr/raw";
 export { commandSucceeded, formatCommandEvidence } from "@sdl/core/exec";
 export type { ExecResult, FormatCommandEvidenceOptions } from "@sdl/core/exec";
+export {
+	normalizeTextOutput,
+	stripOuterCodeFence,
+	trimOuterBlankLines,
+} from "@sdl/core/text-normalization";
+export { truncateTextHead, truncateTextHeadTail } from "@sdl/core/text-truncation";
+export type {
+	HeadTailTextTruncationOptions,
+	HeadTextTruncationOptions,
+} from "@sdl/core/text-truncation";
 export type {
 	TextGenerator,
 	TextGenerationRequest,
