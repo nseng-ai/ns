@@ -21,6 +21,7 @@ This Objective supersedes the narrower `handoff-sdl-extension` Objective. Handof
   - Pi mirrors are static engineered adapters for selected project-local flow commands, not evidence that commands are universal built-ins or that arbitrary SDL extension commands are dynamically mirrored into Pi.
 - Document the emerging kernel/extension mental model, including classification rules for kernel services, project-local commands, future bundled extensions, internal migration exports, and parked sophisticated workflows.
 - Consolidate duplicated command-author code across the `flow` group through the project-local shared-helper tier and existing internal-migration-export subpaths, not new public SDK surface.
+  - Treat the checked-in `submit.ts` bundle as a first-class design input and eventual consumer for the whole consolidation track, not as a quarantined file to ignore until the final rewrite row.
   - Route command-local reimplementations — PR-description machinery, generic exec/format/JSON helpers, GitHub-PR access, and CCC-CLI delegation boilerplate — through `.sdl/extensions/flow/src/shared/`, re-exposing existing `@sdl/core/submit` and `@sdl/ccc` behavior via `@sdl/sdl/*` internal-migration-export subpaths.
   - Replace the checked-in `submit.ts` bundle with a readable hand-authored command that delegates to `@sdl/core/submit` orchestration, removing the bundled-artifact liability flagged in `.sdl/extensions/AGENTS.md`.
   - Keep this consolidation within the internal-migration-export and project-local shared-helper tiers; do not promote new `@sdl/sdl/sdk` author API as part of this track.
@@ -88,6 +89,7 @@ Assumptions:
 - Project-local grouped command discovery can preserve the user-facing `sdl flow <name>` surface in this repository without implying the command is universally available in every SDL installation.
 - Handoff's nested command-tree design remains valuable provenance, but it should not drive the first kernel/SDK shape before simpler commands have been re-modeled.
 - The PR-description machinery, `commandFailure`, GitHub-PR gateway, and submit orchestration that `regenerate-pr` and the `submit` bundle currently duplicate already exist in `@sdl/core/submit`, so flow shared-code consolidation is mostly re-exposure through internal-migration-export subpaths plus `shared/` re-exports rather than new behavior.
+- Shared-code consolidation should be designed holistically around the final `submit.ts` rewrite: even early helper extractions should be checked against submit's behavior matrix and likely delegating shape so they do not create throwaway seams that only fit `regenerate-pr` or `autobranch`.
 
 Risks:
 
@@ -97,7 +99,7 @@ Risks:
 - The SDK may become overfit if every migrated command's convenience helper is exposed publicly. Mitigate by requiring concrete reuse evidence or a documented necessity before promotion.
 - Pi mirrors may drift from CLI discovery if they continue to hardcode command names. The current mitigation is static grouped `/sdl:flow:*` mirror registration with package tests/parity metadata; dynamic Pi discovery remains future design work, not hidden current scope.
 - Closing `handoff-sdl-extension` may hide useful nested-command thinking. Mitigate by preserving it as a closed provenance Objective and parking Handoff as a future sophisticated workflow pressure test.
-- Rewriting the `submit.ts` bundle into a delegating command risks regressing the submit behavior matrix (preflight, restack confirmation, PR-metadata prewrite, semantic-failure detection). Mitigate by keeping faked `git`/`gt`/`gh` scenario coverage green across the rewrite and delegating to the already-tested `@sdl/core/submit` orchestration rather than reimplementing it.
+- Rewriting the `submit.ts` bundle into a delegating command risks regressing the submit behavior matrix (preflight, restack confirmation, PR-metadata prewrite, semantic-failure detection). Mitigate by treating submit as a first-class consumer during earlier shared-helper design, keeping faked `git`/`gt`/`gh` scenario coverage green across the rewrite, and delegating to the already-tested `@sdl/core/submit` orchestration rather than reimplementing it.
 - A shared GitHub-PR gateway seam could overreach the command-first evidence threshold. Mitigate by reusing the existing `@sdl/core/submit` `RealGithubPrGateway` through an internal-migration-export subpath and keeping the seam extension-local rather than promoting it to public SDK.
 
 ## Open Questions
