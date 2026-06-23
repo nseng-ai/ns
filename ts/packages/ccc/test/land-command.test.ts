@@ -4,6 +4,7 @@ import { ScriptedQueue } from "@sdl/core/testing";
 import {
 	parsePullRequestView,
 	registerLandCommand,
+	runLandCli,
 	type ExecResult,
 	type LandCommandContext,
 	type LandExtensionAPI,
@@ -525,6 +526,35 @@ describe("code land command", () => {
 		expect(notifications).toEqual([
 			{ message: "Cancelled before merge; no PRs were landed.", level: "info" },
 		]);
+		pi.assertDone();
+	});
+
+	test("CLI mode captures non-interactive stack refusals as failures", async () => {
+		const pi = new FakePi(graphiteShapeSteps(DB_WITH_DESCENDANT));
+		let stdout = "";
+		let stderr = "";
+
+		const exitCode = await runLandCli({
+			cwd: ROOT,
+			rawArgs: "",
+			exec: async (command, args, options) =>
+				await pi.exec(command, args, {
+					...(options?.cwd === undefined ? {} : { cwd: options.cwd }),
+					...(options?.timeout === undefined ? {} : { timeout: options.timeout }),
+				}),
+			stdout: (text) => {
+				stdout += text;
+			},
+			stderr: (text) => {
+				stderr += text;
+			},
+		});
+
+		expect(exitCode).toBe(1);
+		expect(stdout).toBe("");
+		expect(stderr).toBe(
+			"Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.\n",
+		);
 		pi.assertDone();
 	});
 
