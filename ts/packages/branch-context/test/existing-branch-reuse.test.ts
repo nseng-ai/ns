@@ -14,10 +14,10 @@ import { InMemoryBranchContextGraphiteGateway } from "./support/in-memory-graphi
 
 const CWD = "/repo";
 const SESSION_BRANCH = "branch-contexts/session-target";
-const SESSION_KEY = "session-target.md";
+const SESSION_KEY = "session-target-plan.md";
 const LEGACY_SESSION_KEY = "plan.md";
 const CURRENT_BRANCH = "branch-contexts/current-target";
-const CURRENT_KEY = "current-target.md";
+const CURRENT_KEY = "current-target-plan.md";
 
 const pi: CommandExecApi = {
 	exec: async () => {
@@ -65,7 +65,7 @@ function sessionEntry(branch: string, key: string): unknown {
 describe("resolveExistingBranchContextReuse", () => {
 	test("verifies an explicit branch without touching git", async () => {
 		const brmem = new InMemoryBranchMemoryGateway({
-			entries: [{ branch: "branch-contexts/explicit", key: "explicit-plan.md" }],
+			entries: [{ branch: "branch-contexts/explicit", key: "explicit-target-plan.md" }],
 		});
 		const git = new InMemoryGitGateway();
 
@@ -77,7 +77,7 @@ describe("resolveExistingBranchContextReuse", () => {
 
 		expect(reuse).toEqual({
 			branch: "branch-contexts/explicit",
-			key: "explicit-plan.md",
+			key: "explicit-target-plan.md",
 			source: "explicit-branch",
 		});
 		expect(brmem.listAttachedPlansCalls).toEqual([{ branch: "branch-contexts/explicit" }]);
@@ -166,7 +166,7 @@ describe("resolveExistingBranchContextReuse", () => {
 				{
 					sessionEntries: [
 						sessionEntry(SESSION_BRANCH, SESSION_KEY),
-						sessionEntry("branch-contexts/other", "other.md"),
+						sessionEntry("branch-contexts/other", "other-target-plan.md"),
 					],
 				},
 				{ cwd: CWD, context: branchContext({ git, brmem }) },

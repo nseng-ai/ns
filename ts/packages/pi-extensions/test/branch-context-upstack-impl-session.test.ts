@@ -23,7 +23,7 @@ import {
 	branchContextOutputMessageEntry,
 } from "./branch-context-extension-support.ts";
 
-const CUSTOM_PLAN_KEY = "custom-plan.md";
+const CUSTOM_PLAN_KEY = "custom-plan-key.md";
 const DEFAULT_IMPL_COMMAND = formatImplBranchContextCommand(PLAN_KEY);
 const CUSTOM_IMPL_COMMAND = formatImplBranchContextCommand(CUSTOM_PLAN_KEY);
 
@@ -327,8 +327,8 @@ describe("branch-context-upstack-impl-session", () => {
 		registerBranchContextExtension(
 			pi,
 			branchContextExtensionTestOptions(fakes.operations, [
-				{ branch, key: "alpha.md" },
-				{ branch, key: "beta.md" },
+				{ branch, key: "alpha-plan-entry.md" },
+				{ branch, key: "beta-plan-entry.md" },
 			]),
 		);
 		const command = pi.commands.get("sdl:branch-context:upstack-impl-from-plan");
@@ -341,8 +341,8 @@ describe("branch-context-upstack-impl-session", () => {
 		const content = pi.sentMessages[0]?.content ?? "";
 		expect(content).toContain("No existing branch context with an attached plan could be reused.");
 		expect(content).toContain("Multiple supported branch-context plan entries exist");
-		expect(content).toContain("- alpha.md");
-		expect(content).toContain("- beta.md");
+		expect(content).toContain("- alpha-plan-entry.md");
+		expect(content).toContain("- beta-plan-entry.md");
 		expect(context.replacementUserMessages).toEqual([]);
 	});
 

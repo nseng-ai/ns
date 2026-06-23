@@ -7,7 +7,11 @@ import {
 	listBranchContextPlans,
 	type AttachedPlanEntry,
 } from "./branch-memory.ts";
-import { BRANCH_CONTEXT_NAMESPACE, UNSUPPORTED_ATTACHED_PLAN_KEY } from "./constants.ts";
+import {
+	BRANCH_CONTEXT_NAMESPACE,
+	UNSUPPORTED_ATTACHED_PLAN_KEY,
+	isSupportedBranchContextPlanKey,
+} from "./constants.ts";
 import type { CommandExecApi } from "@sdl/core/exec";
 import type { GitGateway } from "@sdl/core/git";
 import { resolveSelectedSavedPlanFile } from "@sdl/plans";
@@ -375,10 +379,6 @@ function sortedUniqueKeys(entries: AttachedPlanEntry[]): string[] {
 	return [...new Set(entries.map((entry) => entry.key))].sort();
 }
 
-function isSupportedBranchContextPlanKey(key: string): boolean {
-	return key !== UNSUPPORTED_ATTACHED_PLAN_KEY && key.endsWith(".md");
-}
-
 function formatUnsupportedBranchContextPlanKeyMessage(branch: string, key: string): string {
 	if (key === UNSUPPORTED_ATTACHED_PLAN_KEY) {
 		return [
@@ -392,6 +392,6 @@ function formatUnsupportedBranchContextPlanKeyMessage(branch: string, key: strin
 	].join("\n");
 }
 
-function formatAvailableKeys(keys: string[]): string {
+export function formatAvailableKeys(keys: readonly string[]): string {
 	return keys.length > 0 ? keys.map((key) => `- ${key}`).join("\n") : "(none)";
 }

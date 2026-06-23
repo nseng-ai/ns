@@ -481,19 +481,17 @@ describe("branch-context exec", () => {
 		// no longer require --format json; they are accepted and ignored in human mode.
 	});
 
-	test("attach stores an arbitrary file under an exact key", async () => {
+	test("attach stores an arbitrary file under an exact plan key", async () => {
 		const repoRoot = await makeTempDir();
 		const outsideDir = await makeTempDir();
 		const sourceFile = join(outsideDir, "notes.md");
 		await writeFile(sourceFile, "# Notes\n", "utf8");
 		const branch = "branch-contexts/manual-context";
-		const run = runWithFakes(
-			["exec", "attach", "notes", "--file", sourceFile, "--format", "json"],
-			{
-				cwd: repoRoot,
-				git: { currentBranch: branch },
-			},
-		);
+		const key = "manual-notes-plan.md";
+		const run = runWithFakes(["exec", "attach", key, "--file", sourceFile, "--format", "json"], {
+			cwd: repoRoot,
+			git: { currentBranch: branch },
+		});
 
 		expect(await run.exit).toBe(0);
 		expect(parseJson(run)).toMatchObject({
@@ -501,12 +499,12 @@ describe("branch-context exec", () => {
 			data: {
 				branch,
 				namespace: BRANCH_CONTEXT_NAMESPACE,
-				key: "notes",
+				key,
 				source_file: sourceFile,
 			},
 		});
 		expect(run.brmem.attachPlanCalls).toMatchObject([
-			{ namespace: BRANCH_CONTEXT_NAMESPACE, branch, key: "notes", content: "# Notes\n" },
+			{ namespace: BRANCH_CONTEXT_NAMESPACE, branch, key, content: "# Notes\n" },
 		]);
 	});
 

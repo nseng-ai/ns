@@ -118,10 +118,13 @@ describe("loadAttachedPlan", () => {
 		expect(() =>
 			selectAttachedPlanKey({
 				branch: "branch-contexts/no-match",
-				entries: [attachedPlanEntry("beta.md"), attachedPlanEntry("alpha.md")],
+				entries: [
+					attachedPlanEntry("beta-plan-entry.md"),
+					attachedPlanEntry("alpha-plan-entry.md"),
+				],
 			}),
 		).toThrow(
-			/Multiple supported branch-context plan entries[\s\S]*Pass an explicit named Markdown branch-context key[\s\S]*- alpha\.md[\s\S]*- beta\.md/,
+			/Multiple supported branch-context plan entries[\s\S]*Pass an explicit named Markdown branch-context key[\s\S]*- alpha-plan-entry\.md[\s\S]*- beta-plan-entry\.md/,
 		);
 	});
 
@@ -129,10 +132,15 @@ describe("loadAttachedPlan", () => {
 		expect(() =>
 			selectAttachedPlanKey({
 				branch: PLAN_BRANCH,
-				requestedKey: "missing.md",
-				entries: [attachedPlanEntry("alpha.md"), attachedPlanEntry("beta.md")],
+				requestedKey: "missing-plan-entry.md",
+				entries: [
+					attachedPlanEntry("alpha-plan-entry.md"),
+					attachedPlanEntry("beta-plan-entry.md"),
+				],
 			}),
-		).toThrow(/Requested branch-context key `missing\.md`[\s\S]*- alpha\.md[\s\S]*- beta\.md/);
+		).toThrow(
+			/Requested branch-context key `missing-plan-entry\.md`[\s\S]*- alpha-plan-entry\.md[\s\S]*- beta-plan-entry\.md/,
+		);
 	});
 
 	test("rejects invalid requested keys before command selection", () => {

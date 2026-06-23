@@ -28,6 +28,7 @@ import type {
 } from "./gateway.ts";
 import { keyGlobMatches } from "./key-glob.ts";
 import {
+	buildEntryLocator,
 	compareEntries,
 	mustEntryRef,
 	mustSnapshotRef,
@@ -43,6 +44,7 @@ import {
 } from "./validation.ts";
 
 const EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
+const ZERO_OBJECT_SHA = "0000000000000000000000000000000000000000";
 const GIT_BLOB_MODE_FILE = "100644";
 const GIT_TREE_MODE = "040000";
 
@@ -261,11 +263,12 @@ export class RealGitBrmemGateway implements BrmemGateway {
 				"Could not create Branch Memory Snapshot commit.",
 				commit,
 			);
-		const update = await runGit(this.commands, ["update-ref", snapshotRef, commit.stdout.trim()], {
-			cwd: this.cwd,
+		const update = await updateSnapshotRef(this.commands, this.cwd, {
+			ref: snapshotRef,
+			newSha: commit.stdout.trim(),
+			expectedOldSha: parentSha,
 		});
-		if (update.code !== 0)
-			return gitError("git_update_ref_failed", "Could not update Snapshot Ref.", update);
+		if (update.type === "error") return update;
 		return brmemOk({
 			commitSha: commit.stdout.trim(),
 			entry: mustEntryRef(options.namespace, options.key, options.branch),
@@ -304,11 +307,12 @@ export class RealGitBrmemGateway implements BrmemGateway {
 		);
 		if (commit.code !== 0)
 			return gitError("git_commit_tree_failed", "Could not create delete Snapshot commit.", commit);
-		const update = await runGit(this.commands, ["update-ref", snapshotRef, commit.stdout.trim()], {
-			cwd: this.cwd,
+		const update = await updateSnapshotRef(this.commands, this.cwd, {
+			ref: snapshotRef,
+			newSha: commit.stdout.trim(),
+			expectedOldSha: parent.stdout.trim(),
 		});
-		if (update.code !== 0)
-			return gitError("git_update_ref_failed", "Could not update Snapshot Ref.", update);
+		if (update.type === "error") return update;
 		return brmemOk({
 			commitSha: commit.stdout.trim(),
 			entry: mustEntryRef(options.namespace, options.key, options.branch),
@@ -451,7 +455,20 @@ export class RealGitBrmemGateway implements BrmemGateway {
 						`Could not resolve Entry update metadata for ${JSON.stringify(path)}.`,
 					);
 				}
-				entries.push({ ...mustEntryRef(parsed.namespace, path, parsed.branch), updatedAt });
+				const locator = buildEntryLocator(parsed.namespace, path, parsed.branch);
+				if (locator.type === "error") {
+					return brmemError(
+						"invalid_snapshot_tree",
+						`Snapshot Ref ${JSON.stringify(snapshotRef)} contains invalid Entry Key ${JSON.stringify(path)}: ${locator.error.message}`,
+					);
+				}
+				entries.push({
+					namespace: parsed.namespace,
+					key: path,
+					branch: parsed.branch,
+					entryLocator: locator.value,
+					updatedAt,
+				});
 			}
 		}
 		return brmemOk(entries.sort(compareEntries));
@@ -488,15 +505,15 @@ export class RealGitBrmemGateway implements BrmemGateway {
 				`destination has conflicting entries: ${[...destEntries.value.keys()].sort().join(", ")}`,
 			);
 		}
-		const update = await runGit(this.commands, ["update-ref", options.destRef, options.sourceSha], {
+		const destShaResult = await runGit(this.commands, ["rev-parse", "--verify", options.destRef], {
 			cwd: this.cwd,
 		});
-		if (update.code !== 0)
-			return gitError(
-				"git_update_ref_failed",
-				"Could not update destination Snapshot Ref.",
-				update,
-			);
+		const update = await updateSnapshotRef(this.commands, this.cwd, {
+			ref: options.destRef,
+			newSha: options.sourceSha,
+			...(destShaResult.code === 0 ? { expectedOldSha: destShaResult.stdout.trim() } : {}),
+		});
+		if (update.type === "error") return update;
 		const entries = [...sourceEntries.value.keys()]
 			.sort()
 			.map((key) => mustEntryRef(options.namespace, key, options.toBranch));
@@ -555,17 +572,12 @@ export class RealGitBrmemGateway implements BrmemGateway {
 		const commit = await runGit(this.commands, commitArgs, { cwd: this.cwd });
 		if (commit.code !== 0)
 			return gitError("git_commit_tree_failed", "Could not create copy Snapshot commit.", commit);
-		const update = await runGit(
-			this.commands,
-			["update-ref", options.destRef, commit.stdout.trim()],
-			{ cwd: this.cwd },
-		);
-		if (update.code !== 0)
-			return gitError(
-				"git_update_ref_failed",
-				"Could not update destination Snapshot Ref.",
-				update,
-			);
+		const update = await updateSnapshotRef(this.commands, this.cwd, {
+			ref: options.destRef,
+			newSha: commit.stdout.trim(),
+			expectedOldSha: options.destSha,
+		});
+		if (update.type === "error") return update;
 		return brmemOk({
 			entries: sourceMatching
 				.map(([key]) => mustEntryRef(options.namespace, key, options.toBranch))
@@ -896,6 +908,27 @@ function parseEntryUpdateLog(stdout: string): Map<string, string> {
 			updatedAtByPath.set(path, normalizeBrmemTimestamp(currentUpdatedAt));
 	}
 	return updatedAtByPath;
+}
+
+async function updateSnapshotRef(
+	commands: CommandExecApi,
+	cwd: string,
+	options: { ref: string; newSha: string; expectedOldSha?: string | undefined },
+): Promise<BrmemResult<void>> {
+	const update = await runGit(
+		commands,
+		["update-ref", options.ref, options.newSha, options.expectedOldSha ?? ZERO_OBJECT_SHA],
+		{ cwd },
+	);
+	if (update.code === 0) return brmemOk(undefined);
+	return brmemError(
+		"snapshot_ref_changed",
+		commandMessage(
+			`Snapshot Ref ${JSON.stringify(options.ref)} changed before it could be updated.`,
+			update,
+		),
+		update.displayCommand,
+	);
 }
 
 function formatInvalid(label: string, value: string, reason: string): string {
