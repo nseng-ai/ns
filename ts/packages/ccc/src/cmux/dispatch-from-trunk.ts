@@ -185,11 +185,14 @@ async function refreshLocalTrunkBranch(options: {
 	if (isSuccessfulExecResult(refresh)) return { ok: true };
 	return {
 		ok: false,
-		message: formatCommandFailure(
-			formatTrunkRefreshFailureTitle(plan, trunkBranch),
-			formatCommand("git", plan.args),
-			refresh,
-		),
+		message: [
+			formatCommandFailure(
+				formatTrunkRefreshFailureTitle(plan, trunkBranch),
+				formatCommand("git", plan.args),
+				refresh,
+			),
+			`Cwd: ${plan.cwd}`,
+		].join("\n"),
 	};
 }
 
