@@ -42,7 +42,7 @@ describe("planLocalBranchRefreshFromWorktrees", () => {
 		).toEqual({
 			type: "pull-checked-out-branch",
 			cwd: "/trunk",
-			args: ["pull", "--ff-only", "origin", "master"],
+			args: ["pull", "origin", "master"],
 		});
 	});
 

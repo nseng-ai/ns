@@ -137,7 +137,7 @@ describe("sdl:flow:pull-trunk", () => {
 		const pi = new FakePi([
 			step("gt", ["trunk", "--no-interactive"], { stdout: "master\n" }),
 			step("git", ["worktree", "list", "--porcelain"], { stdout: worktreesPorcelain() }),
-			step("git", ["pull", "--ff-only", "origin", "master"], { stdout: "Already up to date.\n" }),
+			step("git", ["pull", "origin", "master"], { stdout: "Already up to date.\n" }),
 		]);
 		const ctx = createContext();
 
@@ -147,13 +147,13 @@ describe("sdl:flow:pull-trunk", () => {
 		expect(pi.execCalls.map((call) => [call.command, call.args, call.options?.cwd])).toEqual([
 			["gt", ["trunk", "--no-interactive"], "/repo"],
 			["git", ["worktree", "list", "--porcelain"], "/repo"],
-			["git", ["pull", "--ff-only", "origin", "master"], "/Users/schrockn/code/sdl-tools"],
+			["git", ["pull", "origin", "master"], "/Users/schrockn/code/sdl-tools"],
 		]);
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "sync")).toBe(
 			false,
 		);
 		expect(ctx.notifications[0]).toMatchObject({ level: "info" });
-		expect(ctx.notifications[0]?.message).toContain("Command: git pull --ff-only origin master");
+		expect(ctx.notifications[0]?.message).toContain("Command: git pull origin master");
 		expect(ctx.notifications[0]?.message).toContain("Cwd: /Users/schrockn/code/sdl-tools");
 	});
 

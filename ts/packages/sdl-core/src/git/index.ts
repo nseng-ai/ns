@@ -545,7 +545,7 @@ export function planLocalBranchRefreshFromWorktrees(
 		return {
 			type: "pull-checked-out-branch",
 			cwd: checkedOutPath,
-			args: ["pull", "--ff-only", "origin", options.branch],
+			args: ["pull", "origin", options.branch],
 		};
 	}
 
