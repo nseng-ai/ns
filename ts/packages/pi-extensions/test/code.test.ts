@@ -36,11 +36,12 @@ class FakePi {
 }
 
 describe("code extension registration", () => {
-	test("registers review-feedback watch and gt restack resolver", () => {
+	test("registers gt restack resolver but not PR feedback watcher", () => {
 		const pi = new FakePi();
 		codeExtension(pi);
 
-		expect([...pi.commands.keys()]).toEqual(["code:pr-feedback-watch", "code:gt-restack-resolve"]);
+		expect([...pi.commands.keys()]).toEqual(["code:gt-restack-resolve"]);
+		expect(pi.commands.has("pr:watch-feedback")).toBe(false);
 		expect(pi.commands.has("code:pr-regen")).toBe(false);
 		expect(pi.commands.has("code:push")).toBe(false);
 		expect(pi.commands.has("code:autobranch")).toBe(false);
@@ -50,7 +51,6 @@ describe("code extension registration", () => {
 		expect(pi.commands.has("code:changes")).toBe(false);
 		expect(pi.commands.has("code:cp")).toBe(false);
 		expect(pi.commands.has("code:submit")).toBe(false);
-		expect(pi.commands.get("code:pr-feedback-watch")?.description).toContain("current branch PR");
 		expect(pi.commands.get("code:gt-restack-resolve")?.description).toContain("gt restack");
 	});
 });

@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
 
-import { parseMachineEnvelopeData } from "../src/machine-envelope.ts";
+import {
+	parseMachineEnvelopeData,
+	parseMachineEnvelopeDataWithFailureData,
+} from "../src/machine-envelope.ts";
 
 describe("parseMachineEnvelopeData", () => {
 	test("parses a valid envelope with object data", () => {
@@ -109,7 +112,40 @@ describe("parseMachineEnvelopeData", () => {
 	});
 });
 
-type MachineEnvelopeResult = ReturnType<typeof parseMachineEnvelopeData>;
+describe("parseMachineEnvelopeDataWithFailureData", () => {
+	test("returns failure envelope data when explicitly allowed", () => {
+		expect(
+			parseMachineEnvelopeDataWithFailureData(
+				JSON.stringify({ exit_code: 1, message: "No PR", data: { markdown: "# Report" } }),
+				{ label: "test JSON", shouldAllowFailureData: true },
+			),
+		).toEqual({ type: "valid", data: { markdown: "# Report" } });
+	});
+
+	test("keeps malformed-envelope errors when failure data is not allowed", () => {
+		expectInvalid(
+			parseMachineEnvelopeDataWithFailureData(
+				JSON.stringify({ exit_code: 1, message: "No PR", data: { markdown: "# Report" } }),
+				{ label: "test JSON" },
+			),
+			/reported failure: exit_code 1/,
+		);
+	});
+
+	test("does not hide invalid JSON when fallback parsing fails", () => {
+		expectInvalid(
+			parseMachineEnvelopeDataWithFailureData("not json", {
+				label: "test JSON",
+				shouldAllowFailureData: true,
+			}),
+			/Malformed test JSON/,
+		);
+	});
+});
+
+type MachineEnvelopeResult = ReturnType<
+	typeof parseMachineEnvelopeData | typeof parseMachineEnvelopeDataWithFailureData
+>;
 
 function expectInvalid(result: MachineEnvelopeResult, pattern: RegExp): void {
 	expect(result.type).toBe("invalid");

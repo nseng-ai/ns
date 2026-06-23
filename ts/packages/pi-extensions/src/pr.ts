@@ -7,11 +7,10 @@ import { formatZodError } from "@sdl/core/primitives";
 import { z } from "zod";
 
 import { parseCliCommandArgs } from "./cli-command-extension.ts";
-import {
-	parseMachineEnvelopeData,
-	type MachineEnvelopeDataParseResult,
-} from "./machine-envelope.ts";
+import { parseMachineEnvelopeDataWithFailureData } from "./machine-envelope.ts";
 import { definePiSurfaceParity } from "./parity.ts";
+import { downloadPrFeedback, type ExecOptions, type ExecResult } from "./pr-feedback-download.ts";
+import prFeedbackWatchExtension from "./pr-feedback-watch.ts";
 import { createPrPreviewFeedbackCommand } from "./pr-preview-feedback-command.ts";
 
 export const PR_DOWNLOAD_FEEDBACK_COMMAND_NAME = "pr:download-feedback";
@@ -43,10 +42,6 @@ const branchPrEntrySchema = z.looseObject({
 
 const mapBranchPrsDataSchema = z.looseObject({
 	branch_prs: z.array(branchPrEntrySchema),
-});
-
-const markdownDataSchema = z.looseObject({
-	markdown: z.string(),
 });
 
 const downloadFeedbackCountsSchema = z.looseObject({
@@ -111,19 +106,6 @@ export const prExtensionParity = definePiSurfaceParity([
 	},
 ] as const);
 
-export interface ExecResult {
-	stdout: string;
-	stderr: string;
-	code: number;
-	killed?: boolean;
-}
-
-interface ExecOptions {
-	cwd?: string;
-	timeout?: number;
-	signal?: AbortSignal;
-}
-
 export interface ExtensionContext {
 	cwd: string;
 	hasUI?: boolean;
@@ -141,6 +123,18 @@ export interface ExtensionContext {
 			options?: unknown,
 		): Promise<T>;
 	};
+	waitForIdle?(): Promise<void>;
+	isIdle?(): boolean;
+	sessionManager?: {
+		getBranch?(): readonly SessionEntry[];
+		getEntries?(): readonly SessionEntry[];
+	};
+}
+
+interface SessionEntry {
+	type: string;
+	customType?: string;
+	data?: unknown;
 }
 
 export interface RegisteredCommand {
@@ -148,13 +142,28 @@ export interface RegisteredCommand {
 	handler(args: string, ctx: ExtensionContext): Promise<void> | void;
 }
 
+interface CustomMessage {
+	customType: string;
+	content: string;
+	display: boolean;
+	details?: unknown;
+}
+
 export interface ExtensionAPI {
 	registerCommand(name: string, command: RegisteredCommand): void;
+	on(
+		event: "session_start",
+		handler: (event: unknown, ctx: ExtensionContext) => Promise<void> | void,
+	): void;
+	on(event: "agent_end" | "session_shutdown", handler: () => Promise<void> | void): void;
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
 	sendUserMessage?(content: string, options?: unknown): void;
+	sendMessage?(message: CustomMessage, options?: unknown): void;
+	appendEntry?(customType: string, data?: unknown): void;
 }
 
 export default function prExtension(pi: ExtensionAPI): void {
+	prFeedbackWatchExtension(pi);
 	registerCommandWithImmediateAck({
 		host: pi,
 		commandName: PR_DOWNLOAD_FEEDBACK_COMMAND_NAME,
@@ -202,24 +211,24 @@ async function runPrDownloadFeedbackCommand(
 
 	ctx.ui?.setStatus?.(DOWNLOAD_FEEDBACK_STATUS_KEY, "PR feedback: downloading…");
 	try {
-		const args = ["exec", "download-feedback", ...parsedArgs.args, "--format", "json"];
-		const result = await pi.exec("pr-address", args, { cwd: ctx.cwd, timeout: COMMAND_TIMEOUT_MS });
-		const parsed = parseEnvelopeWithSchema({
-			label: "pr-address download-feedback",
-			result,
-			schema: markdownDataSchema,
-			allowFailureData: true,
+		const prNumber = parsedArgs.prNumber;
+		const downloaded = await downloadPrFeedback({
+			pi,
+			cwd: ctx.cwd,
+			...(prNumber === undefined ? {} : { prNumber }),
+			timeoutMs: COMMAND_TIMEOUT_MS,
+			shouldAllowFailureData: true,
 		});
-		if (parsed.type === "error") {
-			notify(ctx, parsed.message, "error");
+		if (downloaded.type === "error") {
+			notify(ctx, downloaded.message, "error");
 			return;
 		}
 
 		const message =
-			result.code === 0
+			downloaded.exitCode === 0
 				? "Downloaded PR feedback into the editor. Review/edit, then press Enter."
 				: "Downloaded PR feedback report into the editor. Review/edit, then press Enter.";
-		prefillEditor(ctx, parsed.value.markdown, message);
+		prefillEditor(ctx, downloaded.data.markdown, message);
 	} finally {
 		ctx.ui?.setStatus?.(DOWNLOAD_FEEDBACK_STATUS_KEY, undefined);
 	}
@@ -288,7 +297,7 @@ async function runPrDownloadStackFeedbackCommand(
 }
 
 type ParsedDownloadFeedbackArgs =
-	| { type: "valid"; args: string[] }
+	| { type: "valid"; args: string[]; prNumber?: number | undefined }
 	| { type: "invalid"; message: string };
 
 export type CommandResult<T> = { type: "ok"; value: T } | { type: "error"; message: string };
@@ -297,8 +306,9 @@ function parseOptionalPrNumberArgs(rawArgs: string, usage: string): ParsedDownlo
 	const parsed = parseCliCommandArgs(rawArgs);
 	if (!parsed.ok) return { type: "invalid", message: parsed.error };
 	if (parsed.args.length === 0) return { type: "valid", args: [] };
-	if (parsed.args.length === 1 && isPositiveIntegerToken(parsed.args[0] ?? ""))
-		return { type: "valid", args: ["--pr-number", parsed.args[0] ?? ""] };
+	const prNumberToken = parsed.args[0] ?? "";
+	if (parsed.args.length === 1 && isPositiveIntegerToken(prNumberToken))
+		return { type: "valid", args: ["--pr-number", prNumberToken], prNumber: Number(prNumberToken) };
 	return { type: "invalid", message: usage };
 }
 
@@ -391,40 +401,19 @@ export interface EnvelopeWithSchemaOptions<T> {
 }
 
 function parseEnvelopeWithSchema<T>(options: EnvelopeWithSchemaOptions<T>): CommandResult<T> {
-	const parsed = parseMachineEnvelopeData(options.result.stdout, {
+	const parsed = parseMachineEnvelopeDataWithFailureData(options.result.stdout, {
 		label: options.label,
 		stdoutTail: { maxLines: 20, maxChars: 2000 },
+		shouldAllowFailureData: options.allowFailureData,
 	});
-	const data = envelopeData(parsed, options);
-	if (data.type === "error") return data;
+	if (parsed.type === "invalid") {
+		return { type: "error", message: envelopeDetail(parsed, options.result) };
+	}
 
-	const schemaResult = options.schema.safeParse(data.value);
+	const schemaResult = options.schema.safeParse(parsed.data);
 	if (!schemaResult.success)
 		return { type: "error", message: schemaError(options.label, schemaResult.error) };
 	return { type: "ok", value: schemaResult.data };
-}
-
-function envelopeData(
-	parsed: MachineEnvelopeDataParseResult,
-	options: EnvelopeWithSchemaOptions<unknown>,
-): CommandResult<Record<string, unknown>> {
-	if (parsed.type === "valid") return { type: "ok", value: parsed.data };
-	if (options.allowFailureData === true) {
-		const failureData = failureEnvelopeData(options.result.stdout);
-		if (failureData !== undefined) return { type: "ok", value: failureData };
-	}
-	return { type: "error", message: envelopeDetail(parsed, options.result) };
-}
-
-function failureEnvelopeData(stdout: string): Record<string, unknown> | undefined {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(stdout);
-	} catch {
-		return undefined;
-	}
-	if (!isRecord(parsed) || parsed.exit_code !== 1 || !isRecord(parsed.data)) return undefined;
-	return parsed.data;
 }
 
 function buildStackDownloadFeedbackMarkdown(downloads: readonly StackFeedbackDownload[]): string {
@@ -538,8 +527,4 @@ function prefillEditor(ctx: ExtensionContext, markdown: string, message: string)
 
 function notify(ctx: ExtensionContext, message: string, level: "info" | "warning" | "error"): void {
 	ctx.ui?.notify?.(message, level);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }

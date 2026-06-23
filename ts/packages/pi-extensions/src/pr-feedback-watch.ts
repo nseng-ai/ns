@@ -5,12 +5,16 @@ import { githubPrIdentityFromUrl, type GithubPrIdentity } from "@sdl/core/github
 import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
 import { formatElapsedMs } from "@sdl/core/time-format";
 import { isRecord, stringField } from "./cmux/primitives.ts";
-import { parseMachineEnvelopeData } from "./machine-envelope.ts";
+import {
+	downloadPrFeedback,
+	type PrAddressRunner,
+	type PrFeedbackDownloadData,
+} from "./pr-feedback-download.ts";
 import type { SendMessageOptions, SendUserMessageOptions } from "./message-delivery.ts";
 import { definePiSurfaceParity } from "./parity.ts";
 import { unrefTimer } from "./timers.ts";
 
-export const PR_FEEDBACK_WATCH_COMMAND_NAME = "code:pr-feedback-watch";
+export const PR_FEEDBACK_WATCH_COMMAND_NAME = "pr:watch-feedback";
 
 export const prFeedbackWatchParity = definePiSurfaceParity([
 	{
@@ -28,8 +32,8 @@ export const prFeedbackWatchParity = definePiSurfaceParity([
 			"Pi owns opt-in live polling and prompt injection; pr-address owns portable read-only feedback download and normalization.",
 	},
 ] as const);
-export const PR_FEEDBACK_WATCH_MESSAGE_TYPE = "code-pr-feedback-watch";
-export const PR_FEEDBACK_WATCH_STATE_TYPE = "code-pr-feedback-watch-state";
+export const PR_FEEDBACK_WATCH_MESSAGE_TYPE = "pr-watch-feedback";
+export const PR_FEEDBACK_WATCH_STATE_TYPE = "pr-watch-feedback-state";
 
 const DEFAULT_INTERVAL_MS = 15_000;
 const MIN_INTERVAL_MS = 10_000;
@@ -102,33 +106,6 @@ export interface FilteredFeedbackItems {
 	actionableTriggerItems: FeedbackItemKey[];
 	ignoredItems: IgnoredFeedbackItem[];
 }
-
-export interface DownloadFeedbackData {
-	found: boolean;
-	target: {
-		pr_number?: number | null | undefined;
-		branch?: string | null | undefined;
-		title?: string | null | undefined;
-		url?: string | null | undefined;
-		head_ref_name?: string | null | undefined;
-		base_ref_name?: string | null | undefined;
-	};
-	counts: {
-		included_review_threads: number;
-		included_reviews: number;
-		included_discussion_comments: number;
-	};
-	markdown: string;
-}
-
-interface DownloadFeedbackDataParseInvalid {
-	type: "invalid";
-	message: string;
-}
-
-type DownloadFeedbackDataParseResult =
-	| { type: "valid"; data: DownloadFeedbackData }
-	| DownloadFeedbackDataParseInvalid;
 
 export interface ExecResult {
 	stdout: string;
@@ -228,11 +205,6 @@ export interface ExtensionAPI {
 
 type ExecGateway = Pick<ExtensionAPI, "exec">;
 
-export interface PrAddressRunner {
-	command: string;
-	baseArgs: string[];
-}
-
 export interface PrFeedbackWatchExtensionOptions {
 	runner?: PrAddressRunner;
 	minimumIntervalMs?: number;
@@ -248,7 +220,7 @@ interface ActiveSession {
 }
 
 interface FeedbackSnapshot {
-	data: DownloadFeedbackData;
+	data: PrFeedbackDownloadData;
 	items: FeedbackItemKey[];
 	ignoredItems: IgnoredFeedbackItem[];
 	headRefOid?: string | undefined;
@@ -291,7 +263,7 @@ interface WatchEventEntry {
 }
 
 interface DispatchPromptInput {
-	data: DownloadFeedbackData;
+	data: PrFeedbackDownloadData;
 	items: readonly FeedbackItemKey[];
 }
 
@@ -368,7 +340,7 @@ export function parseWatchCommandArgs(
 	const actionToken =
 		tokens.length === 0 ? "toggle" : hasExplicitAction ? explicitActionToken : "start";
 	if (!isWatchCommandAction(actionToken)) {
-		return { type: "invalid", message: `Unknown pr-feedback-watch action: ${actionToken}` };
+		return { type: "invalid", message: `Unknown pr-watch-feedback action: ${actionToken}` };
 	}
 	if ((actionToken === "stop" || actionToken === "status") && tokens.length > 1) {
 		return { type: "invalid", message: `${actionToken} does not accept options.` };
@@ -422,7 +394,7 @@ export function parseWatchCommandArgs(
 			index += 1;
 			continue;
 		}
-		return { type: "invalid", message: `Unknown pr-feedback-watch option: ${token}` };
+		return { type: "invalid", message: `Unknown pr-watch-feedback option: ${token}` };
 	}
 	if (hasDispatchExistingFlag && hasBaselineExistingFlag) {
 		return {
@@ -434,53 +406,7 @@ export function parseWatchCommandArgs(
 	return { type: "valid", action: actionToken, options };
 }
 
-export function parseDownloadFeedbackData(value: unknown): DownloadFeedbackDataParseResult {
-	if (!isRecord(value))
-		return { type: "invalid", message: "download-feedback data was not an object." };
-	const found = booleanField(value, "found");
-	if (found === undefined)
-		return { type: "invalid", message: "download-feedback data missing boolean found." };
-	if (!isRecord(value.target))
-		return { type: "invalid", message: "download-feedback data missing target." };
-	if (!isRecord(value.counts))
-		return { type: "invalid", message: "download-feedback data missing counts." };
-	const markdown = stringField(value, "markdown");
-	if (markdown === undefined)
-		return { type: "invalid", message: "download-feedback data missing markdown." };
-	for (const key of [
-		"included_review_threads",
-		"included_reviews",
-		"included_discussion_comments",
-	]) {
-		if (numberField(value.counts, key) === undefined)
-			return { type: "invalid", message: `download-feedback data missing numeric counts.${key}.` };
-	}
-	return {
-		type: "valid",
-		data: {
-			found,
-			target: {
-				pr_number: numberField(value.target, "pr_number") ?? null,
-				branch: stringField(value.target, "branch") ?? null,
-				title: stringField(value.target, "title") ?? null,
-				url: stringField(value.target, "url") ?? null,
-				head_ref_name: stringField(value.target, "head_ref_name") ?? null,
-				base_ref_name: stringField(value.target, "base_ref_name") ?? null,
-			},
-			counts: {
-				included_review_threads: requiredNumberField(value.counts, "included_review_threads"),
-				included_reviews: requiredNumberField(value.counts, "included_reviews"),
-				included_discussion_comments: requiredNumberField(
-					value.counts,
-					"included_discussion_comments",
-				),
-			},
-			markdown,
-		},
-	};
-}
-
-export function feedbackItemKeyFromDownload(data: DownloadFeedbackData): FeedbackItemKey[] {
+export function feedbackItemKeyFromDownload(data: PrFeedbackDownloadData): FeedbackItemKey[] {
 	if (!data.found) return [];
 	const prNumber = data.target.pr_number ?? "unknown";
 	const total =
@@ -667,11 +593,13 @@ export function buildDetectedFeedbackPrompt(input: DispatchPromptInput): string 
 		data.markdown,
 		"",
 		"Instructions:",
-		"- Triage the downloaded feedback above and propose a focused plan before editing.",
-		"- Do not push, submit, create branches, resolve threads, or reply on GitHub unless the human explicitly asks.",
-		"- If the human asks you to address feedback, inspect the current repository state before acting; after implementing or verifying fixes and running appropriate validation, resolve/reply to review threads with `pr-address exec resolve-review-thread --thread-id <THREAD_ID> --format json` / `pr-address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json` rather than raw `gh api graphql`.",
-		"- Ask before cross-cutting, complex, ambiguous, or dirty-tree work.",
-		"- Run appropriate tests before committing.",
+		"- Inspect the current repository state before acting.",
+		"- Automatically address straightforward feedback when it is localized, mechanically verifiable, low-risk, and does not require a product/design decision or broad refactor.",
+		"- For straightforward fixes: edit the minimal files and run appropriate validation. If validation passes, you must resolve every addressed review thread and, when useful, reply with a concise summary using `pr-address exec resolve-review-thread --thread-id <THREAD_ID> --format json` / `pr-address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json` rather than raw `gh api graphql`.",
+		"- If an addressed thread cannot be resolved or replied to after validation, report that failure in the final summary instead of silently leaving it open.",
+		"- Do not push, submit, create branches, or mutate unrelated GitHub state unless the human explicitly asks.",
+		"- Ask before cross-cutting, complex, ambiguous, human-authored, or dirty-tree work.",
+		"- After all automatic actions complete, summarize completed fixes, validation, GitHub thread actions, and present remaining feedback for human curation.",
 	);
 	return lines.join("\n");
 }
@@ -1144,35 +1072,25 @@ class PrFeedbackWatchController {
 	): Promise<{ type: "loaded"; snapshot: FeedbackSnapshot } | { type: "failed"; message: string }> {
 		const runner = await this.resolveRunner(session);
 		if (runner.type === "failed") return runner;
-		const result = await this.pi.exec(
-			runner.runner.command,
-			[...runner.runner.baseArgs, "exec", "download-feedback", "--format", "json"],
-			{ cwd: session.cwd, timeout: COMMAND_TIMEOUT_MS, signal: session.abortController.signal },
-		);
-		if (result.killed || result.code !== 0) {
-			return {
-				type: "failed",
-				message: `download-feedback failed: ${result.stderr.trim() || `exit code ${result.code}`}`,
-			};
-		}
-		const parsed = parseMachineEnvelopeData(result.stdout, {
-			label: "pr-address download-feedback JSON",
-			stdoutTail: { maxChars: 1_000 },
+		const download = await downloadPrFeedback({
+			pi: this.pi,
+			cwd: session.cwd,
+			timeoutMs: COMMAND_TIMEOUT_MS,
+			signal: session.abortController.signal,
+			runner: runner.runner,
 		});
-		if (parsed.type !== "valid") return { type: "failed", message: parsed.message };
-		const dataResult = parseDownloadFeedbackData(parsed.data);
-		if (dataResult.type === "invalid") return { type: "failed", message: dataResult.message };
+		if (download.type === "error") return { type: "failed", message: download.message };
 		const currentUserLoginPromise =
 			this.currentUserLogin === undefined
 				? loadCurrentGitHubLogin(this.pi, session.cwd, session.abortController.signal)
 				: Promise.resolve(this.currentUserLogin);
 		const headRefOidPromise =
-			dataResult.data.target.pr_number === undefined || dataResult.data.target.pr_number === null
+			download.data.target.pr_number === undefined || download.data.target.pr_number === null
 				? Promise.resolve(undefined)
 				: loadHeadRefOid(
 						this.pi,
 						session.cwd,
-						dataResult.data.target.pr_number,
+						download.data.target.pr_number,
 						session.abortController.signal,
 					);
 		const [currentUserLogin, headRefOid] = await Promise.all([
@@ -1180,13 +1098,13 @@ class PrFeedbackWatchController {
 			headRefOidPromise,
 		]);
 		this.currentUserLogin = currentUserLogin;
-		const filtered = filterIgnoredFeedback(feedbackItemKeyFromDownload(dataResult.data), {
+		const filtered = filterIgnoredFeedback(feedbackItemKeyFromDownload(download.data), {
 			currentUserLogin,
 		});
 		return {
 			type: "loaded",
 			snapshot: {
-				data: dataResult.data,
+				data: download.data,
 				items: filtered.actionableTriggerItems,
 				ignoredItems: filtered.ignoredItems,
 				headRefOid,
@@ -1842,15 +1760,4 @@ function idField(value: Record<string, unknown>, key: string): string | undefine
 function numberField(value: Record<string, unknown>, key: string): number | undefined {
 	const field = value[key];
 	return typeof field === "number" && Number.isFinite(field) ? field : undefined;
-}
-
-function requiredNumberField(value: Record<string, unknown>, key: string): number {
-	const field = numberField(value, key);
-	if (field === undefined) throw new Error(`Expected numeric field ${key} after validation.`);
-	return field;
-}
-
-function booleanField(value: Record<string, unknown>, key: string): boolean | undefined {
-	const field = value[key];
-	return typeof field === "boolean" ? field : undefined;
 }
