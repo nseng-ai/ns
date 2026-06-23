@@ -50,6 +50,7 @@
   "dependencies": {
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
+    "@sdl/graphite": "workspace:*",
     "@sdl/plans": "workspace:*",
     "@earendil-works/pi-ai": "catalog:",
     "@earendil-works/pi-coding-agent": "catalog:",
