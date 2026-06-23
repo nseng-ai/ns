@@ -711,21 +711,27 @@ describe("/pr:download-stack-feedback", () => {
 				}),
 			}),
 			execResult({
-				stdout: envelope({
-					markdown: pr101Markdown,
-					counts: counts({ included_review_threads: 1, excluded_resolved_threads: 2 }),
-				}),
+				stdout: envelope(
+					downloadFeedbackData({
+						markdown: pr101Markdown,
+						prNumber: 101,
+						countsOverrides: counts({ included_review_threads: 1, excluded_resolved_threads: 2 }),
+					}),
+				),
 			}),
 			execResult({
-				stdout: envelope({
-					markdown: pr102Markdown,
-					counts: counts({
-						included_discussion_comments: 3,
-						included_reviews: 1,
-						excluded_empty_reviews: 1,
-						excluded_automation_comments: 4,
+				stdout: envelope(
+					downloadFeedbackData({
+						markdown: pr102Markdown,
+						prNumber: 102,
+						countsOverrides: counts({
+							included_discussion_comments: 3,
+							included_reviews: 1,
+							excluded_empty_reviews: 1,
+							excluded_automation_comments: 4,
+						}),
 					}),
-				}),
+				),
 			}),
 		]);
 
