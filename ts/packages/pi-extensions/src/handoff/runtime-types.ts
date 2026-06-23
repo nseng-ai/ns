@@ -62,6 +62,11 @@ export type SetWidgetFunction = (
 	options?: { placement?: WidgetPlacement },
 ) => void;
 
+export interface WidgetRuntimeContext {
+	hasUI?: boolean;
+	ui?: { setWidget?: SetWidgetFunction };
+}
+
 export interface ToolResult<Details = unknown> {
 	content: Array<{ type: "text"; text: string }>;
 	details?: Details;
@@ -69,8 +74,6 @@ export interface ToolResult<Details = unknown> {
 	/** External Pi tool-result contract; Pi documents this field as `terminate`. */
 	terminate?: boolean;
 }
-
-export type RuntimeToolResult<Details = unknown> = ToolResult<Details>;
 
 export type SendUserMessageOptions = SessionUserMessageOptions;
 export type { SessionReplacementResult };
@@ -97,8 +100,6 @@ export interface ToolDefinition {
 		ctx: ToolContext,
 	): Promise<ToolResult> | ToolResult;
 }
-
-export type RuntimeToolDefinition = ToolDefinition;
 
 export type MessageRenderer = (
 	message: CustomMessage,
@@ -167,5 +168,3 @@ export interface ExtensionAPI {
 	sendMessage?(message: CustomMessage): void;
 	sendUserMessage(content: string, options?: SendUserMessageOptions): void;
 }
-
-export type RuntimeExtensionAPI = ExtensionAPI;

@@ -1,4 +1,4 @@
-import type { SetWidgetFunction } from "../handoff/runtime-types.ts";
+import type { WidgetRuntimeContext } from "../handoff/runtime-types.ts";
 import type {
 	RunnerSubagentLaunchMetadata,
 	RunnerSubagentProgressCallback,
@@ -18,13 +18,8 @@ export interface RunnerSubagentWidgetOptions {
 	includeElapsed?: boolean;
 }
 
-export interface RunnerSubagentWidgetContext {
-	hasUI?: boolean;
-	ui?: { setWidget?: SetWidgetFunction };
-}
-
 export function setRunnerSubagentWidget(
-	ctx: RunnerSubagentWidgetContext,
+	ctx: WidgetRuntimeContext,
 	key: string,
 	lines: string[] | undefined,
 ): void {
@@ -54,7 +49,7 @@ export function buildInitialRunnerSubagentUpdate(input: {
 }
 
 export interface WithRunnerSubagentWidgetOptions<T> {
-	ctx: RunnerSubagentWidgetContext;
+	ctx: WidgetRuntimeContext;
 	key: string;
 	initial: { title: string; launch: RunnerSubagentLaunchMetadata };
 	run: (onProgress: RunnerSubagentProgressCallback) => Promise<T>;

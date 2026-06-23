@@ -4,27 +4,21 @@ import {
 } from "./dispatch-runner-subagent.ts";
 import { loadPiAgentDefinition, type PiAgentDefinition } from "./pi-agent-definition.ts";
 import { definePiSurfaceParity } from "./parity.ts";
+import { renderInvestigationResultMessage } from "./investigate-renderer.ts";
+import { PI_INVESTIGATOR_CHILD_TOOL_NAMES } from "./investigator-policy.ts";
 import type { CuratedRunnerSubagentContextAudit } from "./runner-subagent/curated-context.ts";
 import { runFinalTextSubagent } from "./runner-subagent/dispatch-preparation.ts";
 import type { RunnerSubagentPi, RunnerSubagentResult } from "./runner-subagent.ts";
-import { truncateDisplayLine } from "./terminal-presentation.ts";
-import type {
-	CommandContext,
-	CustomMessage,
-	RuntimeExtensionAPI,
-	RenderComponent,
-	RenderTheme,
-} from "./handoff/runtime-types.ts";
+import type { CommandContext, ExtensionAPI } from "./handoff/runtime-types.ts";
 
 export const INVESTIGATE_COMMAND_NAME = "investigate";
 const INVESTIGATOR_AGENT_NAME = "investigator";
 export const INVESTIGATE_RESULT_MESSAGE_TYPE = "investigate-result";
-export const INVESTIGATOR_CHILD_TOOL_NAMES = ["read", "grep", "find", "ls"] as const;
+export { PI_INVESTIGATOR_CHILD_TOOL_NAMES } from "./investigator-policy.ts";
 
 const WIDGET_KEY = INVESTIGATE_COMMAND_NAME;
 const MAX_TITLE_CHARS = 80;
 const MAX_TITLE_WORDS = 10;
-const COLLAPSED_RESULT_PREVIEW_LINES = 24;
 const USAGE = "Usage: /investigate <prompt>";
 
 export const investigateParity = definePiSurfaceParity([
@@ -34,18 +28,18 @@ export const investigateParity = definePiSurfaceParity([
 		workflow: "Run a thorough read-only investigator subagent and return an evidence-backed report",
 		parity: "PARTIAL",
 		trackedGap:
-			"Claude Code has /investigate via a project skill and custom subagent, but there is no agent-neutral CLI surface yet.",
+			"Claude Code has /investigate via a project skill and custom subagent, but there is no agent-neutral CLI surface yet; child-tool policies intentionally differ by host.",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@sdl/pi-extensions",
 		sourceModule: "investigate",
 		notes:
-			"Pi and Claude Code both expose /investigate, but there is no standalone non-harness command yet.",
+			"Pi and Claude Code both expose /investigate, but there is no standalone non-harness command yet. Pi uses a no-Bash read-only child-tool allowlist; Claude Code keeps diagnostic Bash/Glob under its subagent contract.",
 	},
 ] as const);
 
 export type InvestigateExtensionAPI = RunnerSubagentPi &
 	Pick<
-		RuntimeExtensionAPI,
+		ExtensionAPI,
 		"exec" | "getThinkingLevel" | "registerCommand" | "registerMessageRenderer" | "sendMessage"
 	>;
 
@@ -105,7 +99,7 @@ async function runInvestigateCommand({
 		title,
 		prompt,
 		widgetKey: WIDGET_KEY,
-		tools: INVESTIGATOR_CHILD_TOOL_NAMES,
+		tools: PI_INVESTIGATOR_CHILD_TOOL_NAMES,
 	});
 	emitInvestigationResult({ pi, ctx, result, curatedContext: curatedContext.audit });
 }
@@ -117,36 +111,14 @@ export function buildInvestigationTitle(prompt: string): string {
 		.split(" ")
 		.filter((word) => word.length > 0);
 	const shortPrompt = words.slice(0, MAX_TITLE_WORDS).join(" ");
-	const suffix = words.length > MAX_TITLE_WORDS ? "…" : "";
-	const title = `Investigation: ${shortPrompt}${suffix}`;
-	if (title.length <= MAX_TITLE_CHARS) return title;
-	return `${title.slice(0, MAX_TITLE_CHARS - 1)}…`;
-}
-
-function renderInvestigationResultMessage(
-	message: CustomMessage,
-	options: { expanded: boolean },
-	theme: RenderTheme,
-): RenderComponent {
-	const contentLines = message.content.split("\n");
-	return {
-		render(width: number): string[] {
-			const lines = options.expanded ? contentLines : collapseInvestigationLines(contentLines);
-			return lines.map((line, index) =>
-				styleInvestigationLine(truncateDisplayLine(line, width), index, theme),
-			);
-		},
-		invalidate(): void {},
-	};
-}
-
-function collapseInvestigationLines(lines: readonly string[]): string[] {
-	if (lines.length <= COLLAPSED_RESULT_PREVIEW_LINES) return [...lines];
-	return [
-		...lines.slice(0, COLLAPSED_RESULT_PREVIEW_LINES),
-		"",
-		`[Investigation result collapsed: showing first ${COLLAPSED_RESULT_PREVIEW_LINES} of ${lines.length} lines. Expand to view the full report.]`,
-	];
+	const title = `Investigation: ${shortPrompt}`;
+	const isTruncated = words.length > MAX_TITLE_WORDS || title.length > MAX_TITLE_CHARS;
+	if (!isTruncated) return title;
+	const base = title
+		.slice(0, MAX_TITLE_CHARS - 1)
+		.trimEnd()
+		.replace(/…+$/u, "");
+	return `${base}…`;
 }
 
 interface EmitInvestigationResultInput {
@@ -186,19 +158,4 @@ function emitInvestigationResult({
 function formatInvestigationResultContent(result: RunnerSubagentResult): string {
 	if (result.status === "final-text") return result.finalText;
 	return formatDispatchRunnerSubagentResult(result);
-}
-
-function styleInvestigationLine(line: string, index: number, theme: RenderTheme): string {
-	if (line.length === 0) return line;
-	if (index === 0 || line.startsWith("## ")) {
-		return theme.fg("accent", theme.bold !== undefined ? theme.bold(line) : line);
-	}
-	if (
-		line.startsWith("Session file:") ||
-		line.startsWith("Status:") ||
-		line.startsWith("[Investigation result collapsed:")
-	) {
-		return theme.fg("muted", line);
-	}
-	return line;
 }

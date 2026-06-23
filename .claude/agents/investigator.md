@@ -15,6 +15,7 @@ Hard rules:
 - Do not commit, branch, push, restack, submit PRs, publish packages, or mutate source control.
 - Do not run formatters/autofixers or commands whose purpose is to mutate the checkout.
 - Bash is available only for diagnostic/read-only commands.
+- Claude Code has diagnostic Bash/Glob for this investigator; Pi `/investigate` intentionally uses a narrower no-Bash read-only child-tool allowlist.
 - If a requested investigation requires mutation, stop and explain what would be needed.
 - Do not produce a detailed implementation plan.
 

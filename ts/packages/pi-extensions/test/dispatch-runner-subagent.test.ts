@@ -18,8 +18,8 @@ import dispatchRunnerSubagentExtension, {
 	MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS,
 	DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
 	formatDispatchRunnerSubagentResult,
-	type ExtensionAPI,
-	type ToolDefinition,
+	type DispatchRunnerSubagentExtensionAPI,
+	type DispatchRunnerSubagentToolDefinition,
 	type ToolResult,
 } from "../src/dispatch-runner-subagent.ts";
 import {
@@ -52,8 +52,8 @@ type FakeExecHandler = (
 	options?: ExecOptions,
 ) => Promise<ExecResult> | ExecResult;
 
-class FakePi implements ExtensionAPI, RunnerSubagentPi {
-	readonly tools = new Map<string, ToolDefinition>();
+class FakePi implements DispatchRunnerSubagentExtensionAPI, RunnerSubagentPi {
+	readonly tools = new Map<string, DispatchRunnerSubagentToolDefinition>();
 	readonly execCalls: FakeExecCall[] = [];
 	execHandler: FakeExecHandler = () => ({ stdout: "", stderr: "", code: 0, killed: false });
 	[RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES]?: RunnerSubagentDispatcherDependencies;
@@ -81,7 +81,7 @@ class FakePi implements ExtensionAPI, RunnerSubagentPi {
 		return this.execHandler(command, args, options);
 	}
 
-	registerTool(tool: ToolDefinition): void {
+	registerTool(tool: DispatchRunnerSubagentToolDefinition): void {
 		this.tools.set(tool.name, tool);
 	}
 }
@@ -111,7 +111,7 @@ interface RegisterToolOptions {
 	definitionRoot?: string;
 }
 
-function registerTool(options: RegisterToolOptions = {}): ToolDefinition {
+function registerTool(options: RegisterToolOptions = {}): DispatchRunnerSubagentToolDefinition {
 	const pi = options.pi ?? new FakePi();
 	const definitionRoot = options.definitionRoot ?? createRunnerDefinitionRoot();
 	dispatchRunnerSubagentExtension(pi, { cwd: definitionRoot });
@@ -336,6 +336,47 @@ describe("dispatch_runner_subagent extension", () => {
 		expect(details.curatedContext).toEqual(
 			expect.objectContaining({ markdownChars: expect.any(Number) }),
 		);
+	});
+
+	test("trims title, prompt, and optional model before dispatching", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE });
+		const pi = new FakePi(runner.dependencies);
+		const tool = registerTool({ pi });
+		const updates: ToolResult[] = [];
+
+		const running = tool.execute(
+			"tool-1",
+			{
+				title: "  Slice subagent  ",
+				prompt: "\n\tDo focused work.  ",
+				model: " openai-codex/gpt-5.4-mini ",
+				extraIgnoredProperty: true,
+			},
+			undefined,
+			(partial) => updates.push(partial),
+			{ cwd: ROOT },
+		);
+		const call = await waitForSpawn(runner.calls);
+
+		expect(updates[0]?.content[0]?.text).toBe("Dispatching runner subagent: Slice subagent");
+		expect(call.args.slice(0, -1)).toEqual([
+			"--mode",
+			"json",
+			"-p",
+			"--model",
+			"openai-codex/gpt-5.4-mini",
+			"--no-extensions",
+			"--session",
+			SESSION_FILE,
+		]);
+		expect(call.args.at(-1)).toContain(composedFixturePrompt("Do focused work."));
+
+		call.process.emitStdout(finalTextMessage("Done."));
+		call.process.close(0);
+		const result = await running;
+		const details = result.details as Record<string, unknown>;
+		expect(details.title).toBe("Slice subagent");
+		expect(details.requestedModel).toBe("openai-codex/gpt-5.4-mini");
 	});
 
 	test("threads cwd and abort signal through curated git evidence collection", async () => {
@@ -925,6 +966,21 @@ describe("dispatch_runner_subagent extension", () => {
 				{ cwd: ROOT },
 			),
 		).rejects.toThrow(/model.*non-empty/);
+		expect(runner.calls).toEqual([]);
+	});
+
+	test("reports all dispatch input schema issues before spawning a subagent", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE });
+		const pi = new FakePi(runner.dependencies);
+		const tool = registerTool({ pi });
+
+		await expect(
+			tool.execute("tool-1", { title: "   ", prompt: "\n\t", model: "   " }, undefined, undefined, {
+				cwd: ROOT,
+			}),
+		).rejects.toThrow(
+			"title: dispatch_runner_subagent requires a non-empty title string.; prompt: dispatch_runner_subagent requires a non-empty prompt string.; model: dispatch_runner_subagent model must be a non-empty string when provided.",
+		);
 		expect(runner.calls).toEqual([]);
 	});
 

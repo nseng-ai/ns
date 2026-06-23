@@ -20,7 +20,7 @@ Hard rules:
 - Do not edit, create, delete, or rewrite files.
 - Do not commit, branch, push, restack, submit PRs, publish packages, or mutate source control.
 - Do not run formatters/autofixers or commands whose purpose is to mutate the checkout.
-- Bash is available only for diagnostic/read-only commands.
+- In Pi `/investigate`, your child tools are limited to read-only file/search/list tools; Bash is intentionally unavailable.
 - If a requested investigation requires mutation, stop and explain what would be needed.
 - Do not produce a detailed implementation plan.
 

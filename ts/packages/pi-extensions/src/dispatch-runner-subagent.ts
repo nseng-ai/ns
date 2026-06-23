@@ -1,3 +1,7 @@
+import { z } from "zod";
+
+import { formatZodError } from "@sdl/core/primitives";
+
 import { loadPiAgentDefinition, type PiAgentDefinition } from "./pi-agent-definition.ts";
 import type { CuratedRunnerSubagentContextAudit } from "./runner-subagent/curated-context.ts";
 import { runFinalTextSubagent } from "./runner-subagent/dispatch-preparation.ts";
@@ -10,10 +14,11 @@ import {
 	type RunnerSubagentUsageMetadata,
 } from "./runner-subagent.ts";
 import type {
-	RuntimeExtensionAPI,
-	RuntimeToolDefinition,
-	RuntimeToolResult,
+	ExtensionAPI,
 	ToolContext,
+	ToolDefinition,
+	ToolResult,
+	WidgetRuntimeContext,
 } from "./handoff/runtime-types.ts";
 import {
 	formatRunnerSubagentElapsed,
@@ -29,13 +34,23 @@ export const DISPATCH_RUNNER_SUBAGENT_TOOL_NAME = "dispatch_runner_subagent";
 export const MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS = 48_000;
 
 const WIDGET_KEY = DISPATCH_RUNNER_SUBAGENT_TOOL_NAME;
+const TITLE_VALIDATION_MESSAGE = "dispatch_runner_subagent requires a non-empty title string.";
+const PROMPT_VALIDATION_MESSAGE = "dispatch_runner_subagent requires a non-empty prompt string.";
+const MODEL_VALIDATION_MESSAGE =
+	"dispatch_runner_subagent model must be a non-empty string when provided.";
 
-export type ToolResult = RuntimeToolResult;
-export interface DispatchRunnerSubagentInput {
-	title: string;
-	prompt: string;
-	model?: string;
-}
+const dispatchRunnerSubagentInputSchema = z.object({
+	title: z.string({ error: TITLE_VALIDATION_MESSAGE }).trim().min(1, TITLE_VALIDATION_MESSAGE),
+	prompt: z.string({ error: PROMPT_VALIDATION_MESSAGE }).trim().min(1, PROMPT_VALIDATION_MESSAGE),
+	model: z
+		.string({ error: MODEL_VALIDATION_MESSAGE })
+		.trim()
+		.min(1, MODEL_VALIDATION_MESSAGE)
+		.optional(),
+});
+
+export type { ToolResult } from "./handoff/runtime-types.ts";
+export type DispatchRunnerSubagentInput = z.infer<typeof dispatchRunnerSubagentInputSchema>;
 
 export interface DispatchRunnerSubagentDetails {
 	status: RunnerSubagentResult["status"];
@@ -55,11 +70,15 @@ export interface DispatchRunnerSubagentDetails {
 }
 
 export type ExtensionContext = Pick<ToolContext, "cwd" | "model"> &
-	Partial<Pick<ToolContext, "hasUI" | "mode">> & {
+	Partial<Pick<ToolContext, "mode">> &
+	WidgetRuntimeContext & {
 		ui?: Partial<ToolContext["ui"]>;
 	};
 
-export interface ToolDefinition extends Omit<RuntimeToolDefinition, "execute" | "parameters"> {
+export interface DispatchRunnerSubagentToolDefinition extends Omit<
+	ToolDefinition,
+	"execute" | "parameters"
+> {
 	parameters: object;
 	execute(
 		toolCallId: string,
@@ -70,9 +89,9 @@ export interface ToolDefinition extends Omit<RuntimeToolDefinition, "execute" | 
 	): Promise<ToolResult>;
 }
 
-export type ExtensionAPI = RunnerSubagentPi &
-	Pick<RuntimeExtensionAPI, "exec" | "getThinkingLevel"> & {
-		registerTool(tool: ToolDefinition): void;
+export type DispatchRunnerSubagentExtensionAPI = RunnerSubagentPi &
+	Pick<ExtensionAPI, "exec" | "getThinkingLevel"> & {
+		registerTool(tool: DispatchRunnerSubagentToolDefinition): void;
 	};
 
 export interface DispatchRunnerSubagentExtensionOptions {
@@ -103,7 +122,7 @@ export const DISPATCH_RUNNER_SUBAGENT_PARAMETERS = {
 } as const;
 
 export default function dispatchRunnerSubagentExtension(
-	pi: ExtensionAPI,
+	pi: DispatchRunnerSubagentExtensionAPI,
 	options: DispatchRunnerSubagentExtensionOptions = {},
 ): void {
 	const loadAgentDefinition = options.loadAgentDefinition ?? loadPiAgentDefinition;
@@ -295,28 +314,12 @@ export function formatDispatchRunnerSubagentProgress(progress: RunnerSubagentPro
 }
 
 function validateDispatchRunnerSubagentInput(params: unknown): DispatchRunnerSubagentInput {
-	if (params === null || typeof params !== "object") {
+	if (params === null || typeof params !== "object" || Array.isArray(params)) {
 		throw new Error("dispatch_runner_subagent requires an object input.");
 	}
-	const input = params as Partial<DispatchRunnerSubagentInput>;
-	if (typeof input.title !== "string" || input.title.trim().length === 0) {
-		throw new Error("dispatch_runner_subagent requires a non-empty title string.");
-	}
-	if (typeof input.prompt !== "string" || input.prompt.trim().length === 0) {
-		throw new Error("dispatch_runner_subagent requires a non-empty prompt string.");
-	}
-	if (
-		input.model !== undefined &&
-		(typeof input.model !== "string" || input.model.trim().length === 0)
-	) {
-		throw new Error("dispatch_runner_subagent model must be a non-empty string when provided.");
-	}
-	const model = input.model?.trim();
-	return {
-		title: input.title.trim(),
-		prompt: input.prompt,
-		...(model === undefined ? {} : { model }),
-	};
+	const parsed = dispatchRunnerSubagentInputSchema.safeParse(params);
+	if (!parsed.success) throw new Error(formatZodError(parsed.error));
+	return parsed.data;
 }
 
 function formatLaunchLine(launch: RunnerSubagentLaunchMetadata): string {
