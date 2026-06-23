@@ -48,11 +48,19 @@ interface StatusUpdate {
 	value: string | undefined;
 }
 
+interface CustomMessage {
+	customType: string;
+	content: string;
+	display: boolean;
+}
+
 type JustFixExtension = (pi: FakePi) => void;
 
 class FakePi {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly execCalls: ExecCall[] = [];
+	readonly messages: CustomMessage[] = [];
+	readonly renderers = new Map<string, unknown>();
 	readonly sentUserMessages: string[] = [];
 	private readonly commandInfos: SkillCommandInfo[];
 	private readonly execResult: ExecResult;
@@ -64,6 +72,14 @@ class FakePi {
 
 	registerCommand(name: string, options: RegisteredCommand): void {
 		this.commands.set(name, options);
+	}
+
+	registerMessageRenderer(customType: string, renderer: unknown): void {
+		this.renderers.set(customType, renderer);
+	}
+
+	sendMessage(message: CustomMessage): void {
+		this.messages.push(message);
 	}
 
 	async exec(
@@ -178,18 +194,24 @@ Repair the failed just run.
 			expect(pi.execCalls).toEqual([
 				{ command: "just", args: [], options: { cwd: dir, timeout: JUST_TIMEOUT_MS } },
 			]);
-			expect(context.statuses).toEqual([
-				{ key: "just", value: "running just…" },
-				{ key: "just", value: undefined },
+			expect(context.statuses).toEqual([]);
+			expect(pi.messages).toEqual([
+				{
+					customType: "sdl-command-ack",
+					content: "→ /just received; starting…",
+					display: true,
+				},
+				{
+					customType: "sdl-command-progress",
+					content: "→ Running `just`…",
+					display: true,
+				},
 			]);
-			expect(context.notifications).not.toContainEqual({
-				message: "Running `just`…",
-				level: "info",
-			});
-			expect(context.notifications).toContainEqual({
-				message: "`just` failed; invoking code-just-fix.",
-				level: "warning",
-			});
+			expect(pi.renderers.has("sdl-command-ack")).toBe(true);
+			expect(pi.renderers.has("sdl-command-progress")).toBe(true);
+			expect(context.notifications).toEqual([
+				{ message: "`just` failed; invoking code-just-fix.", level: "warning" },
+			]);
 
 			const prompt = pi.sentUserMessages[0] ?? "";
 			expect(prompt).toContain(`<skill name="code-just-fix" location="${skillPath}">`);

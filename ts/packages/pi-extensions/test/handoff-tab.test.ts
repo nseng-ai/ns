@@ -88,6 +88,9 @@ describe("handoff-tab extension", () => {
 				{ message: "Starting ccc:handoff-tab workflow with content-derived slug…", level: "info" },
 			]);
 			expect(result.statuses).toEqual(["checking cmux context…", undefined]);
+			expect(result.pi.progressMessages).toEqual([]);
+			expect(result.pi.ackMessages).toHaveLength(1);
+			expect(result.pi.ackMessages[0]?.content).toBe("→ /ccc:handoff-tab received; starting…");
 			expect(result.pi.sentUserMessages).toHaveLength(1);
 			expect(result.pi.sentUserMessageCalls[0]?.options).toEqual({ deliverAs: "followUp" });
 			const prompt = result.pi.sentUserMessages[0] ?? "";

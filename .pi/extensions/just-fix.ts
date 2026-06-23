@@ -1,3 +1,7 @@
+import {
+	sendCommandProgressOrNotify,
+	withImmediateCommandAck,
+} from "../../ts/packages/pi-extension-runtime/src/command-ack.ts";
 import { expandRepoSkillBlock } from "../../ts/packages/pi-extensions/src/skill-expansion.ts";
 
 const JUST_TIMEOUT_MS = 10 * 60 * 1000;
@@ -79,18 +83,8 @@ ${justOutput}
 async function runJustThenInvokeSkill(pi: ExtensionAPI, ctx: CommandContext): Promise<void> {
 	await ctx.waitForIdle();
 
-	if (ctx.hasUI) {
-		ctx.ui.setStatus("just", "running just…");
-	}
-
-	let result: ExecResult;
-	try {
-		result = await pi.exec("just", [], { cwd: ctx.cwd, timeout: JUST_TIMEOUT_MS });
-	} finally {
-		if (ctx.hasUI) {
-			ctx.ui.setStatus("just", undefined);
-		}
-	}
+	sendCommandProgressOrNotify({ host: pi, ctx, message: "Running `just`…" });
+	const result = await pi.exec("just", [], { cwd: ctx.cwd, timeout: JUST_TIMEOUT_MS });
 
 	if (result.code === 0 && !result.killed) {
 		if (ctx.hasUI) {
@@ -117,7 +111,8 @@ async function runJustThenInvokeSkill(pi: ExtensionAPI, ctx: CommandContext): Pr
 }
 
 export default function justFixExtension(pi: ExtensionAPI): void {
-	pi.registerCommand("just", {
+	const commandPi = withImmediateCommandAck(pi);
+	commandPi.registerCommand("just", {
 		description: "Run `just`; if it fails, invoke code-just-fix.",
 		handler: async (_args, ctx) => runJustThenInvokeSkill(pi, ctx),
 	});

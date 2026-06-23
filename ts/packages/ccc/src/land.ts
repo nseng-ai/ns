@@ -1,5 +1,9 @@
 import { formatErrorMessage } from "@sdl/core/primitives";
 import {
+	sendCommandProgressOrNotify,
+	withImmediateCommandAck,
+} from "@sdl/pi-extension-runtime/command-ack";
+import {
 	executeStackLanding,
 	landArgumentCompletions,
 	parseArgs,
@@ -80,13 +84,12 @@ export interface ValidPullRequestView {
 
 export function registerLandCommand(pi: LandExtensionAPI): void {
 	registerLandStackRenderer(pi);
+	const commandPi = withImmediateCommandAck(pi);
 
-	pi.registerCommand(COMMAND_NAME, {
+	commandPi.registerCommand(COMMAND_NAME, {
 		description: "Land the current PR or Graphite stack into trunk",
 		getArgumentCompletions: landArgumentCompletions,
 		handler: async (rawArgs, ctx) => {
-			await ctx.waitForIdle();
-
 			const args = parseArgs(rawArgs);
 			if (args.type === "failure") {
 				presentBrief(
@@ -101,6 +104,8 @@ export function registerLandCommand(pi: LandExtensionAPI): void {
 				notify(ctx, usage(), "info");
 				return;
 			}
+
+			await ctx.waitForIdle();
 
 			const shape = await loadLandingShape(pi, ctx.cwd);
 			if (shape.type === "failure") {
@@ -228,7 +233,7 @@ async function runFastLand(
 		return;
 	}
 
-	notify(ctx, "Running gh pr merge -s with PR title/body as commit message…", "info");
+	progress(pi, ctx, "Running gh pr merge -s with PR title/body as commit message…");
 
 	const result = await pi.exec(
 		"gh",
@@ -259,6 +264,19 @@ async function runFastLand(
 
 	const message = `gh pr merge -s with PR title/body failed for PR #${pr.number} with exit code ${result.code}.`;
 	notify(ctx, output ? `${output}\n${message}` : message, "error");
+}
+
+function progress(pi: LandExtensionAPI, ctx: LandCommandContext, message: string): void {
+	if (ctx.mode === "print") {
+		const output = message.endsWith("\n") ? message : `${message}\n`;
+		(ctx.printOutput ?? process.stdout).write(output);
+	}
+	sendCommandProgressOrNotify({
+		host: pi,
+		ctx,
+		message,
+		shouldNotifyWhenNoUi: true,
+	});
 }
 
 function notify(ctx: LandCommandContext, message: string, level: NotifyLevel): void {

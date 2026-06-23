@@ -3,6 +3,7 @@ import {
 	genericCommandStyleSkillNames,
 	KNOWN_PI_COMMAND_NAMESPACES,
 } from "@sdl/pi-command-surfaces";
+import { withImmediateCommandAck } from "@sdl/pi-extension-runtime/command-ack";
 
 import type { PiCommandContext, PiCommandHost } from "./pi-command-host.ts";
 import { buildSkillInvocationPrompt, expandRepoSkillBlock } from "./skill-expansion.ts";
@@ -58,11 +59,13 @@ export function genericBackingSkillCommandSpecs(): DerivedPiCommand[] {
 }
 
 export function registerBackingSkillCommands(host: PiCommandHost): void {
+	const commandHost = withImmediateCommandAck(host);
 	for (const spec of genericBackingSkillCommandSpecs()) {
-		host.registerCommand(spec.surface, {
+		commandHost.registerCommand(spec.surface, {
 			description: `Invoke ${spec.skillName} as a command-converted backing skill.`,
 			argumentHint: "[initial request]",
-			handler: async (args, ctx) => handleBackingSkillCommand({ host, spec, args, ctx }),
+			handler: async (args, ctx) =>
+				handleBackingSkillCommand({ host: commandHost, spec, args, ctx }),
 		});
 	}
 }

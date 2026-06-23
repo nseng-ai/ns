@@ -1,4 +1,8 @@
 import { formatOutputSection, tailText, type ExecOptions, type ExecResult } from "@sdl/core/exec";
+import {
+	sendCommandProgressOrNotify,
+	withImmediateCommandAck,
+} from "@sdl/pi-extension-runtime/command-ack";
 
 import { buildFencedTextBlock, expandRepoSkillBlock } from "./skill-expansion.ts";
 import { definePiSurfaceParity } from "./parity.ts";
@@ -70,7 +74,8 @@ interface InvokeLmResolverOptions {
 }
 
 export default function smartRestackExtension(pi: SmartRestackExtensionAPI): void {
-	pi.registerCommand(SMART_RESTACK_COMMAND_NAME, {
+	const commandPi = withImmediateCommandAck(pi);
+	commandPi.registerCommand(SMART_RESTACK_COMMAND_NAME, {
 		description: "Run gt restack first; fall through to LM-assisted conflict resolution if needed",
 		argumentHint: "[context for resolver if needed]",
 		handler: async (args, ctx) => {
@@ -96,16 +101,21 @@ export async function runSmartRestack(
 	}
 
 	if (isRebaseInProgress(status)) {
-		notify(
+		sendCommandProgressOrNotify({
+			host: pi,
 			ctx,
-			"Rebase/restack already in progress; starting LM-driven code-gt-restack-resolve from the current repository state.",
-			"info",
-		);
+			message:
+				"Rebase/restack already in progress; starting LM-driven code-gt-restack-resolve from the current repository state.",
+		});
 		await invokeLmResolver({ pi, ctx, args, promptContext: { type: "interrupted-restack" } });
 		return;
 	}
 
-	notify(ctx, "Running deterministic fast path: gt restack", "info");
+	sendCommandProgressOrNotify({
+		host: pi,
+		ctx,
+		message: "Running deterministic fast path: gt restack",
+	});
 	const restack = await pi.exec("gt", ["restack"], {
 		cwd: ctx.cwd,
 		timeout: GT_RESTACK_TIMEOUT_MS,
@@ -212,7 +222,11 @@ async function invokeLmResolver(options: InvokeLmResolverOptions): Promise<void>
 		return;
 	}
 
-	notify(ctx, `Starting LM-driven ${RESTACK_RESOLVE_SKILL_NAME}.`, "info");
+	sendCommandProgressOrNotify({
+		host: pi,
+		ctx,
+		message: `Starting LM-driven ${RESTACK_RESOLVE_SKILL_NAME}.`,
+	});
 	await pi.sendUserMessage(buildResolverPrompt(skillBlock, args, promptContext));
 }
 

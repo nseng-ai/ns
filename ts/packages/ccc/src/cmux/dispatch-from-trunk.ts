@@ -1,5 +1,6 @@
 import { formatCommand, formatCommandFailure, isSuccessfulExecResult } from "@sdl/core/exec";
 import { planLocalBranchRefreshFromWorktrees, type LocalBranchRefreshPlan } from "@sdl/core/git";
+import { sendCommandProgressOrNotify } from "@sdl/pi-extension-runtime/command-ack";
 
 import {
 	buildBrmemPayloadPiLaunchCommand,
@@ -54,14 +55,18 @@ async function handleCccSlotDispatchFromTrunk(options: {
 		pi,
 		cwd: ctx.cwd,
 		prompt,
-		notify: (message) => ctx.ui.notify(message, "info"),
+		notify: (message) => sendCommandProgressOrNotify({ host: pi, ctx, message }),
 	});
 	if ("error" in branch) {
 		ctx.ui.notify(branch.error, "error");
 		return;
 	}
 
-	ctx.ui.notify("Storing dispatch prompt in Branch Memory…", "info");
+	sendCommandProgressOrNotify({
+		host: pi,
+		ctx,
+		message: "Storing dispatch prompt in Branch Memory…",
+	});
 	const stored = await storeDispatchPromptPayload({
 		pi,
 		cwd: ctx.cwd,

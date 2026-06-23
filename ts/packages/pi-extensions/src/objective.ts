@@ -1,4 +1,5 @@
 import { registerObjectiveStackImplCommand } from "@sdl/ccc/objective-stack-impl";
+import { withImmediateCommandAck } from "@sdl/pi-extension-runtime/command-ack";
 import { parseMachineEnvelopeData } from "@sdl/pi-extension-runtime/machine-envelope";
 import {
 	buildObjectiveSkillPrompt,
@@ -817,17 +818,18 @@ function presentCustomCliMessage(
 }
 
 export default function objectiveExtension(pi: ObjectiveExtensionAPI): void {
-	const objectiveCommandCompleter = createObjectiveCommandCompleter(pi);
+	const commandPi = withImmediateCommandAck(pi);
+	const objectiveCommandCompleter = createObjectiveCommandCompleter(commandPi);
 
 	for (const { spec, description } of CUSTOM_CLI_COMMANDS) {
-		pi.registerCommand(spec.commandName, {
+		commandPi.registerCommand(spec.commandName, {
 			description,
 			getArgumentCompletions: spec.completer,
 			handler: async (args, ctx) => handleCustomCliCommand(pi, spec, args, ctx),
 		});
 	}
 
-	pi.registerCommand(OBJECTIVE_CREATE_COMMAND.commandName, {
+	commandPi.registerCommand(OBJECTIVE_CREATE_COMMAND.commandName, {
 		description: OBJECTIVE_CREATE_COMMAND.description,
 		argumentHint: OBJECTIVE_CREATE_ARGUMENT_HINT,
 		handler: async (args, ctx) =>
@@ -835,7 +837,7 @@ export default function objectiveExtension(pi: ObjectiveExtensionAPI): void {
 	});
 
 	for (const spec of OBJECTIVE_COMMANDS) {
-		pi.registerCommand(spec.commandName, {
+		commandPi.registerCommand(spec.commandName, {
 			description: spec.description,
 			argumentHint: OBJECTIVE_SELECTOR_ARGUMENT_HINT,
 			getArgumentCompletions: objectiveCommandCompleter,
@@ -843,5 +845,5 @@ export default function objectiveExtension(pi: ObjectiveExtensionAPI): void {
 		});
 	}
 
-	registerObjectiveStackImplCommand(pi);
+	registerObjectiveStackImplCommand(commandPi);
 }

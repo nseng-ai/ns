@@ -16,6 +16,7 @@ type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
 class FakePi {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly messages: CustomMessage[] = [];
+	readonly ackMessages: CustomMessage[] = [];
 	readonly renderers = new Map<string, unknown>();
 	readonly sentUserMessages: string[] = [];
 
@@ -24,10 +25,15 @@ class FakePi {
 	}
 
 	registerMessageRenderer(customType: string, renderer: unknown): void {
+		if (customType === "sdl-command-ack") return;
 		this.renderers.set(customType, renderer);
 	}
 
 	sendMessage(message: CustomMessage): void {
+		if (message.customType === "sdl-command-ack") {
+			this.ackMessages.push(message);
+			return;
+		}
 		this.messages.push(message);
 	}
 

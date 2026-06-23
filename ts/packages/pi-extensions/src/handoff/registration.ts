@@ -1,3 +1,4 @@
+import { withImmediateCommandAck } from "@sdl/pi-extension-runtime/command-ack";
 import { definePiSurfaceParity } from "../parity.ts";
 import {
 	buildDeriveHandoffSlugTool,
@@ -86,34 +87,35 @@ export const handoffParity = definePiSurfaceParity([
 ] as const);
 
 export default function handoffExtension(pi: ExtensionAPI): void {
-	pi.registerMessageRenderer?.(HANDOFF_LIST_MESSAGE_TYPE, renderHandoffListMessage);
+	const commandPi = withImmediateCommandAck(pi);
+	commandPi.registerMessageRenderer?.(HANDOFF_LIST_MESSAGE_TYPE, renderHandoffListMessage);
 
-	if (pi.registerTool !== undefined) {
-		const selfWorkflow = createHandoffSelfWorkflow(pi);
-		pi.registerTool(buildDeriveHandoffSlugTool(pi));
-		pi.registerTool(buildHandoffTabLaunchTool(pi));
-		pi.registerTool(selfWorkflow.buildTool());
-		pi.registerCommand(HANDOFF_TAB_COMMAND_NAME, {
+	if (commandPi.registerTool !== undefined) {
+		const selfWorkflow = createHandoffSelfWorkflow(commandPi);
+		commandPi.registerTool(buildDeriveHandoffSlugTool(commandPi));
+		commandPi.registerTool(buildHandoffTabLaunchTool(commandPi));
+		commandPi.registerTool(selfWorkflow.buildTool());
+		commandPi.registerCommand(HANDOFF_TAB_COMMAND_NAME, {
 			description: "Create a handoff and open a focused cmux tab to pick it up.",
 			handler: async (args, ctx) => handleHandoffTabCommand(pi, args, ctx),
 		});
-		pi.registerCommand(HANDOFF_SELF_COMMAND_NAME, {
+		commandPi.registerCommand(HANDOFF_SELF_COMMAND_NAME, {
 			description: "Create a handoff, clear context, and pick it up in this Pi session.",
 			handler: async (args, ctx) => selfWorkflow.handleCommand(args, ctx),
 		});
 	}
 
-	pi.registerCommand(CREATE_HANDOFF_COMMAND_NAME, {
+	commandPi.registerCommand(CREATE_HANDOFF_COMMAND_NAME, {
 		description: "Create a directed handoff artifact for a future continuation.",
 		handler: async (args, ctx) => handleCreateHandoffCommand(pi, args, ctx),
 	});
 
-	pi.registerCommand(PICKUP_HANDOFF_COMMAND_NAME, {
+	commandPi.registerCommand(PICKUP_HANDOFF_COMMAND_NAME, {
 		description: "Pick up a handoff by slug, selector, or picker.",
 		handler: async (args, ctx) => handlePickupHandoffCommand(pi, args, ctx),
 	});
 
-	pi.registerCommand(LIST_HANDOFF_COMMAND_NAME, {
+	commandPi.registerCommand(LIST_HANDOFF_COMMAND_NAME, {
 		description: "List handoffs on this branch or across active branches.",
 		handler: async (args, ctx) => handleListHandoffCommand(pi, args, ctx),
 	});

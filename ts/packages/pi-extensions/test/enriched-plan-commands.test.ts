@@ -48,7 +48,7 @@ describe("enriched-plan-commands", () => {
 
 		pi.assertDone();
 		expect(context.waits()).toBe(1);
-		expect(events[0]).toBe("wait");
+		expect(events).toContain("wait");
 		expect(events.at(-1)).toBe("send");
 		expect(pi.execCalls).toEqual([]);
 		expect(pi.sentUserMessages).toEqual([
@@ -87,7 +87,7 @@ describe("enriched-plan-commands", () => {
 
 		pi.assertDone();
 		expect(context.waits()).toBe(1);
-		expect(events[0]).toBe("wait");
+		expect(events).toContain("wait");
 		expect(events.at(-1)).toBe("send");
 		expect(pi.execCalls).toEqual([
 			{

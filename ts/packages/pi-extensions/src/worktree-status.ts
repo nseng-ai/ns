@@ -1,5 +1,6 @@
 import { basename, resolve } from "node:path";
 
+import { withImmediateCommandAck } from "@sdl/pi-extension-runtime/command-ack";
 import type { CustomMessageContent } from "@sdl/pi-extension-runtime/terminal-presentation";
 
 import {
@@ -663,7 +664,8 @@ export default function worktreeStatusExtension(
 		return false;
 	}
 
-	pi.registerCommand?.(WORKTREE_STATUS_REFRESH_COMMAND_NAME, {
+	const commandPi = withImmediateCommandAck(pi);
+	commandPi.registerCommand?.(WORKTREE_STATUS_REFRESH_COMMAND_NAME, {
 		description: "Refresh the worktree status footer",
 		handler: async (_args, _ctx) => {
 			const session = activeSession;

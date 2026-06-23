@@ -334,11 +334,7 @@ export async function handleImplBranchContextCommand(
 ): Promise<void> {
 	await ctx.waitForIdle();
 	const trimmedArgs = args.trim();
-	if (ctx.hasUI) {
-		ctx.ui.notify("Loading attached branch-context plan…", "info");
-	}
-
-	ctx.ui.setStatus(IMPL_BRANCH_CONTEXT_STATUS_KEY, "loading attached plan…");
+	ctx.ui.setStatus(IMPL_BRANCH_CONTEXT_STATUS_KEY, "loading attached branch-context plan…");
 	try {
 		const operations = resolveBranchContextOperations(options);
 		const params = trimmedArgs.length > 0 ? { requestedKey: trimmedArgs } : {};

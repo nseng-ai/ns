@@ -326,6 +326,7 @@ describe("/pr:download-feedback", () => {
 			level: "info",
 		});
 		expect(ctx.statuses).toEqual([
+			{ key: "sdl-command-ack", value: "→ /pr:download-feedback received; starting…" },
 			{ key: PR_DOWNLOAD_FEEDBACK_COMMAND_NAME, value: "PR feedback: downloading…" },
 			{ key: PR_DOWNLOAD_FEEDBACK_COMMAND_NAME, value: undefined },
 		]);
@@ -429,6 +430,10 @@ describe("/pr:preview-feedback", () => {
 		expect(ctx.editorTexts).toEqual([]);
 		expect(pi.userMessages).toEqual([]);
 		expect(ctx.statuses.at(0)).toEqual({
+			key: "sdl-command-ack",
+			value: "→ /pr:preview-feedback received; starting…",
+		});
+		expect(ctx.statuses.at(1)).toEqual({
 			key: PR_PREVIEW_FEEDBACK_COMMAND_NAME,
 			value: "PR feedback preview: loading target…",
 		});
@@ -755,6 +760,10 @@ describe("/pr:download-stack-feedback", () => {
 			level: "info",
 		});
 		expect(ctx.statuses.at(0)).toEqual({
+			key: "sdl-command-ack",
+			value: "→ /pr:download-stack-feedback received; starting…",
+		});
+		expect(ctx.statuses.at(1)).toEqual({
 			key: PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME,
 			value: "PR stack feedback: discovering stack…",
 		});

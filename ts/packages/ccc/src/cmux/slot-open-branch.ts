@@ -1,4 +1,5 @@
 import { findLatestBranchContextEvidence, type BranchContextEvidence } from "@sdl/branch-context";
+import { sendCommandProgressOrNotify } from "@sdl/pi-extension-runtime/command-ack";
 
 import { openBranchInCmuxSlot } from "./slot.ts";
 import type {
@@ -79,7 +80,11 @@ export async function handleCccSlotOpenBranch(
 	}
 
 	const branch = resolved.branchName;
-	ctx.ui.notify(`Opening cmux workspace for ${branch}…`, "info");
+	sendCommandProgressOrNotify({
+		host: pi,
+		ctx,
+		message: `Opening cmux workspace for ${branch}…`,
+	});
 
 	const launched = await openBranchInCmuxSlot({
 		pi,

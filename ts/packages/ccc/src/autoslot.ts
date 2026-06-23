@@ -1,5 +1,9 @@
 import process from "node:process";
 
+import {
+	sendCommandProgressOrNotify,
+	withImmediateCommandAck,
+} from "@sdl/pi-extension-runtime/command-ack";
 import type { ExtensionAPI } from "@sdl/pi-extension-runtime/cmux/types";
 import {
 	commitAutobranchCheckpointMessage,
@@ -39,7 +43,8 @@ export interface AutoslotFlowInput extends AutobranchFlowInput {
 }
 
 export function registerAutoslotCommand(pi: AutoslotExtensionAPI): void {
-	pi.registerCommand(COMMAND_NAME, {
+	const commandPi = withImmediateCommandAck(pi, { progressDelivery: "status" });
+	commandPi.registerCommand(COMMAND_NAME, {
 		description:
 			"Create a Graphite branch from current work, then move it into a managed slot worktree",
 		handler: async (args, ctx) => {
@@ -106,10 +111,9 @@ async function createAutoslot(
 	ctx: AutobranchCommandContext,
 	args: ParsedAutobranchArgs,
 ): Promise<void> {
-	ctx.ui.notify(
-		"Starting /sdl:code:autoslot — runs once Pi finishes its current response, then creates a branch and moves it to a slot. Interrupt Pi to run it now.",
-		"info",
-	);
+	const startMessage =
+		"Starting /sdl:code:autoslot — runs once Pi finishes its current response, then creates a branch and moves it to a slot. Interrupt Pi to run it now.";
+	sendCommandProgressOrNotify({ host: pi, ctx, message: startMessage });
 	const stopIdleStatus = startIdleWaitStatus(ctx.ui, STATUS_KEY);
 	try {
 		try {
