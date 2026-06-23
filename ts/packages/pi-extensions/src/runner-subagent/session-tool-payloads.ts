@@ -1,3 +1,5 @@
+import { isRecord } from "../cmux/primitives.ts";
+
 export function extractRunnerSubagentToolCallPayloadsFromSessionJsonl(
 	jsonl: string,
 	toolName: string,
@@ -34,8 +36,4 @@ function collectRunnerSubagentToolCallPayloads(
 	for (const child of Object.values(value)) {
 		collectRunnerSubagentToolCallPayloads(child, toolName, payloads);
 	}
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
