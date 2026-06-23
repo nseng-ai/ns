@@ -1,7 +1,11 @@
 import { describe, expect, test, vi } from "vitest";
 
 import { ScriptedQueue } from "@sdl/core/testing";
-import { parseDownloadFeedbackData, type PrAddressRunner } from "../src/pr-feedback-download.ts";
+import {
+	parseDownloadFeedbackData,
+	type ExecResult,
+	type PrAddressRunner,
+} from "../src/pr-feedback-download.ts";
 import prFeedbackWatchExtension, {
 	buildDetectedFeedbackPrompt,
 	buildFeedbackFingerprint,
@@ -18,13 +22,6 @@ import prFeedbackWatchExtension, {
 
 const ROOT = "/repo";
 const RUNNER: PrAddressRunner = { command: "pr-address", baseArgs: [] };
-
-interface ExecResult {
-	stdout: string;
-	stderr: string;
-	code: number;
-	killed?: boolean;
-}
 
 interface ExecCall {
 	command: string;

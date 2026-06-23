@@ -9,7 +9,12 @@ import { z } from "zod";
 import { parseCliCommandArgs } from "./cli-command-extension.ts";
 import { parseMachineEnvelopeDataWithFailureData } from "./machine-envelope.ts";
 import { definePiSurfaceParity } from "./parity.ts";
-import { downloadPrFeedback, type ExecOptions, type ExecResult } from "./pr-feedback-download.ts";
+import {
+	downloadPrFeedback,
+	type ExecOptions,
+	type ExecResult,
+	type PrFeedbackDownloadCounts,
+} from "./pr-feedback-download.ts";
 import prFeedbackWatchExtension from "./pr-feedback-watch.ts";
 import { createPrPreviewFeedbackCommand } from "./pr-preview-feedback-command.ts";
 
@@ -44,26 +49,11 @@ const mapBranchPrsDataSchema = z.looseObject({
 	branch_prs: z.array(branchPrEntrySchema),
 });
 
-const downloadFeedbackCountsSchema = z.looseObject({
-	included_review_threads: z.number().int().nonnegative(),
-	included_reviews: z.number().int().nonnegative(),
-	included_discussion_comments: z.number().int().nonnegative(),
-	excluded_resolved_threads: z.number().int().nonnegative(),
-	excluded_empty_reviews: z.number().int().nonnegative(),
-	excluded_automation_comments: z.number().int().nonnegative(),
-});
-
-const stackMarkdownDataSchema = z.looseObject({
-	markdown: z.string(),
-	counts: downloadFeedbackCountsSchema,
-});
-
 type BranchPrEntry = z.output<typeof branchPrEntrySchema>;
-type DownloadFeedbackCounts = z.output<typeof downloadFeedbackCountsSchema>;
 interface StackFeedbackDownload {
 	entry: BranchPrEntry;
 	markdown: string;
-	counts: DownloadFeedbackCounts;
+	counts: PrFeedbackDownloadCounts;
 }
 
 export const prExtensionParity = definePiSurfaceParity([
@@ -375,21 +365,17 @@ async function downloadFeedbackForPr(
 	ctx: ExtensionContext,
 	entry: BranchPrEntry,
 ): Promise<CommandResult<StackFeedbackDownload>> {
-	const result = await pi.exec(
-		"pr-address",
-		["exec", "download-feedback", "--pr-number", String(entry.pr_number), "--format", "json"],
-		{ cwd: ctx.cwd, timeout: COMMAND_TIMEOUT_MS },
-	);
-	const parsed = parseEnvelopeWithSchema({
-		label: `pr-address download-feedback #${entry.pr_number}`,
-		result,
-		schema: stackMarkdownDataSchema,
-		allowFailureData: true,
+	const downloaded = await downloadPrFeedback({
+		pi,
+		cwd: ctx.cwd,
+		prNumber: entry.pr_number,
+		timeoutMs: COMMAND_TIMEOUT_MS,
+		shouldAllowFailureData: true,
 	});
-	if (parsed.type === "error") return parsed;
+	if (downloaded.type === "error") return { type: "error", message: downloaded.message };
 	return {
 		type: "ok",
-		value: { entry, markdown: parsed.value.markdown, counts: parsed.value.counts },
+		value: { entry, markdown: downloaded.data.markdown, counts: downloaded.data.counts },
 	};
 }
 
@@ -466,8 +452,8 @@ function renderStackDownloadFeedbackSummary(downloads: readonly StackFeedbackDow
 
 function sumDownloadFeedbackCounts(
 	downloads: readonly StackFeedbackDownload[],
-): DownloadFeedbackCounts {
-	return downloads.reduce<DownloadFeedbackCounts>(
+): PrFeedbackDownloadCounts {
+	return downloads.reduce<PrFeedbackDownloadCounts>(
 		(totals, download) => ({
 			included_review_threads:
 				totals.included_review_threads + download.counts.included_review_threads,

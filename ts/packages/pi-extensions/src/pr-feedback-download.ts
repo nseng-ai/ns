@@ -1,20 +1,10 @@
 import { formatZodError } from "@sdl/core/primitives";
+import type { ExecOptions, ExecResult } from "@sdl/core/exec";
 import { z } from "zod";
 
 import { parseMachineEnvelopeDataWithFailureData } from "./machine-envelope.ts";
 
-export interface ExecResult {
-	stdout: string;
-	stderr: string;
-	code: number;
-	killed?: boolean;
-}
-
-export interface ExecOptions {
-	cwd?: string;
-	timeout?: number;
-	signal?: AbortSignal;
-}
+export type { ExecOptions, ExecResult } from "@sdl/core/exec";
 
 export interface ExecGateway {
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
@@ -38,7 +28,7 @@ const prFeedbackDownloadTargetSchema = z.looseObject({
 	base_ref_name: nullableStringSchema,
 });
 
-const prFeedbackDownloadCountsSchema = z.looseObject({
+export const prFeedbackDownloadCountsSchema = z.looseObject({
 	included_review_threads: z.number().int().nonnegative(),
 	included_reviews: z.number().int().nonnegative(),
 	included_discussion_comments: z.number().int().nonnegative(),
@@ -54,6 +44,7 @@ export const prFeedbackDownloadDataSchema = z.looseObject({
 	markdown: z.string(),
 });
 
+export type PrFeedbackDownloadCounts = z.output<typeof prFeedbackDownloadCountsSchema>;
 export type PrFeedbackDownloadData = z.output<typeof prFeedbackDownloadDataSchema>;
 
 export type PrFeedbackDownloadParseResult =
