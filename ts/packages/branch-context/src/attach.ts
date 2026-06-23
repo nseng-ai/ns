@@ -4,7 +4,7 @@ import {
 	buildBranchContextPlanKey,
 	isSupportedBranchContextPlanKey,
 } from "./constants.ts";
-import { normalizeRequestedBranchContextKey } from "./attached-plan.ts";
+import { formatAvailableKeys, normalizeRequestedBranchContextKey } from "./attached-plan.ts";
 import {
 	attachBranchContextPlan,
 	checkBranchContextEntryPresence,
@@ -86,7 +86,12 @@ export async function attachBranchContextEntry(
 		sourceFile: source.sourceFile,
 	});
 	const after = await listBranchContextNamespace(context.brmem, context.branch);
-	assertAttachChangedNamespaceByOneKey(context.branch, before, after, source.key);
+	assertAttachChangedNamespaceByOneKey({
+		branch: context.branch,
+		before,
+		after,
+		attachedKey: source.key,
+	});
 	return attachEvidence(data, source.planSlug);
 }
 
@@ -189,7 +194,7 @@ export class BranchContextNamespaceInvalidError extends Error {
 				`Branch-context namespace on branch ${JSON.stringify(branch)} contains unsupported Entries; refusing to attach into an invalid namespace.`,
 				"",
 				"Unsupported keys:",
-				formatKeyList(unsupportedKeys),
+				formatAvailableKeys(unsupportedKeys),
 			].join("\n"),
 		);
 		this.name = "BranchContextNamespaceInvalidError";
@@ -359,37 +364,34 @@ function assertBranchContextNamespaceSupported(
 	throw new BranchContextNamespaceInvalidError(branch, unsupportedKeys);
 }
 
+interface AssertAttachChangedNamespaceByOneKeyOptions {
+	branch: string;
+	before: readonly AttachedPlanEntry[];
+	after: readonly AttachedPlanEntry[];
+	attachedKey: string;
+}
+
 function assertAttachChangedNamespaceByOneKey(
-	branch: string,
-	before: readonly AttachedPlanEntry[],
-	after: readonly AttachedPlanEntry[],
-	attachedKey: string,
+	options: AssertAttachChangedNamespaceByOneKeyOptions,
 ): void {
-	assertBranchContextNamespaceSupported(branch, after);
-	const expectedKeys = new Set(before.map((entry) => entry.key));
-	expectedKeys.add(attachedKey);
-	const actualKeys = new Set(after.map((entry) => entry.key));
-	if (setsEqual(expectedKeys, actualKeys)) return;
+	assertBranchContextNamespaceSupported(options.branch, options.after);
+	const expectedKeys = new Set(options.before.map((entry) => entry.key));
+	expectedKeys.add(options.attachedKey);
+	const actualKeys = new Set(options.after.map((entry) => entry.key));
+	if (
+		expectedKeys.size === actualKeys.size &&
+		[...expectedKeys].every((key) => actualKeys.has(key))
+	) {
+		return;
+	}
 	throw new AttachBranchContextError(
 		"branch_context_namespace_invalid",
 		[
-			`Branch-context attach did not change namespace by exactly the intended key on branch ${JSON.stringify(branch)}.`,
-			`Expected keys: ${formatKeyList([...expectedKeys].sort())}`,
-			`Actual keys: ${formatKeyList([...actualKeys].sort())}`,
+			`Branch-context attach did not change namespace by exactly the intended key on branch ${JSON.stringify(options.branch)}.`,
+			`Expected keys: ${formatAvailableKeys([...expectedKeys].sort())}`,
+			`Actual keys: ${formatAvailableKeys([...actualKeys].sort())}`,
 		].join("\n"),
 	);
-}
-
-function setsEqual(left: ReadonlySet<string>, right: ReadonlySet<string>): boolean {
-	if (left.size !== right.size) return false;
-	for (const value of left) {
-		if (!right.has(value)) return false;
-	}
-	return true;
-}
-
-function formatKeyList(keys: readonly string[]): string {
-	return keys.length === 0 ? "(none)" : keys.map((key) => `- ${key}`).join("\n");
 }
 
 function planStoreOptions(options: BranchContextPrimitiveOptions): PlanStoreOptions {

@@ -392,6 +392,6 @@ function formatUnsupportedBranchContextPlanKeyMessage(branch: string, key: strin
 	].join("\n");
 }
 
-function formatAvailableKeys(keys: string[]): string {
+export function formatAvailableKeys(keys: readonly string[]): string {
 	return keys.length > 0 ? keys.map((key) => `- ${key}`).join("\n") : "(none)";
 }

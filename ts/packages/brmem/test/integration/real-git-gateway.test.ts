@@ -180,7 +180,7 @@ describe("RealGitBrmemGateway integration", () => {
 			repo.runGit(["add", "tracked.md"]);
 			writeFileSync(join(repo.path, "dirty.md"), "dirty\n", "utf8");
 
-			const gateway = new RealGitBrmemGateway(repo.path);
+			const gateway = realGitBrmemGateway(repo.path);
 			const written = await gateway.putEntry({
 				namespace: "base",
 				branch: "feat/x",
@@ -233,7 +233,7 @@ describe("RealGitBrmemGateway integration", () => {
 			repo.runGit(["add", "bad[key].md", "good.md"]);
 			repo.runGit(["commit", "-m", "add bad repo path"]);
 			repo.runGit(["update-ref", "refs/brmem/base/feat---x", "HEAD"]);
-			const gateway = new RealGitBrmemGateway(repo.path);
+			const gateway = realGitBrmemGateway(repo.path);
 
 			const listed = await gateway.listEntries({ namespace: "base", branch: "feat/x" });
 

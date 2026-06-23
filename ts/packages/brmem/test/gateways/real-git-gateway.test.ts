@@ -127,7 +127,15 @@ describe("RealGitBrmemGateway", () => {
 				],
 				result: { stdout: "commit-sha\n" },
 			},
-			{ command: "git", args: ["update-ref", "refs/brmem/base/dest", "commit-sha"] },
+			{
+				command: "git",
+				args: [
+					"update-ref",
+					"refs/brmem/base/dest",
+					"commit-sha",
+					"0000000000000000000000000000000000000000",
+				],
+			},
 		]);
 		const gateway = realGitBrmemGateway("/work", commands);
 
