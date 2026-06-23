@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
 import { ScriptedQueue } from "@sdl/core/testing";
 import {
@@ -47,6 +47,12 @@ const DB_WITH_DESCENDANT = metadataDbJson([
 	{ branch: TRUNK, children: [CURRENT], trunk: true },
 	{ branch: CURRENT, parent: TRUNK, children: ["child-branch"] },
 	{ branch: "child-branch", parent: CURRENT, children: [] },
+]);
+const DB_WITH_FORKED_LANDING_PATH = metadataDbJson([
+	{ branch: TRUNK, children: ["fork-point"], trunk: true },
+	{ branch: "fork-point", parent: TRUNK, children: [CURRENT, "sibling-branch"] },
+	{ branch: CURRENT, parent: "fork-point", children: [] },
+	{ branch: "sibling-branch", parent: "fork-point", children: [] },
 ]);
 
 type RegisteredCommand = Parameters<LandExtensionAPI["registerCommand"]>[1];
@@ -297,6 +303,34 @@ describe("code land command registration", () => {
 			{ value: "--dry-run", label: "--dry-run" },
 			{ value: "--help", label: "--help" },
 		]);
+	});
+});
+
+describe("code land CLI bridge", () => {
+	test("returns failure when non-UI Graphite shape refusal is presented", async () => {
+		const pi = new FakePi(graphiteShapeSteps(DB_WITH_FORKED_LANDING_PATH));
+		const stdout: string[] = [];
+		const stderr: string[] = [];
+		const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+		let exitCode = 0;
+
+		try {
+			exitCode = await runLandCli({
+				cwd: ROOT,
+				rawArgs: "--dry-run",
+				exec: async (command, args, options) => await pi.exec(command, args, options),
+				stdout: (text) => stdout.push(text),
+				stderr: (text) => stderr.push(text),
+			});
+		} finally {
+			consoleError.mockRestore();
+		}
+
+		expect(exitCode).toBe(1);
+		expect(stdout.join("")).toBe("");
+		expect(stderr.join("")).toContain("land stopped.");
+		expect(stderr.join("")).toContain("Refusing to land: the stack forks at fork-point.");
+		pi.assertDone();
 	});
 });
 
