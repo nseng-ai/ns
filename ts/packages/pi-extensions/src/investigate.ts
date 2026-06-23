@@ -9,6 +9,7 @@ import { PI_INVESTIGATOR_CHILD_TOOL_NAMES } from "./investigator-policy.ts";
 import type { CuratedRunnerSubagentContextAudit } from "./runner-subagent/curated-context.ts";
 import { runFinalTextSubagent } from "./runner-subagent/dispatch-preparation.ts";
 import type { RunnerSubagentPi, RunnerSubagentResult } from "./runner-subagent.ts";
+import { buildConciseTitle } from "./runner-subagent/title.ts";
 import type { CommandContext, ExtensionAPI } from "./handoff/runtime-types.ts";
 
 export const INVESTIGATE_COMMAND_NAME = "investigate";
@@ -17,6 +18,7 @@ export const INVESTIGATE_RESULT_MESSAGE_TYPE = "investigate-result";
 export { PI_INVESTIGATOR_CHILD_TOOL_NAMES } from "./investigator-policy.ts";
 
 const WIDGET_KEY = INVESTIGATE_COMMAND_NAME;
+const INVESTIGATION_TITLE_PREFIX = "Investigation: ";
 const MAX_TITLE_CHARS = 80;
 const MAX_TITLE_WORDS = 10;
 const USAGE = "Usage: /investigate <prompt>";
@@ -105,20 +107,10 @@ async function runInvestigateCommand({
 }
 
 export function buildInvestigationTitle(prompt: string): string {
-	const words = prompt
-		.replace(/\s+/gu, " ")
-		.trim()
-		.split(" ")
-		.filter((word) => word.length > 0);
-	const shortPrompt = words.slice(0, MAX_TITLE_WORDS).join(" ");
-	const title = `Investigation: ${shortPrompt}`;
-	const isTruncated = words.length > MAX_TITLE_WORDS || title.length > MAX_TITLE_CHARS;
-	if (!isTruncated) return title;
-	const base = title
-		.slice(0, MAX_TITLE_CHARS - 1)
-		.trimEnd()
-		.replace(/…+$/u, "");
-	return `${base}…`;
+	return `${INVESTIGATION_TITLE_PREFIX}${buildConciseTitle(prompt, {
+		maxWords: MAX_TITLE_WORDS,
+		maxChars: MAX_TITLE_CHARS - INVESTIGATION_TITLE_PREFIX.length,
+	})}`;
 }
 
 interface EmitInvestigationResultInput {

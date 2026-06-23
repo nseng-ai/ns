@@ -16,7 +16,7 @@ import {
 	type CuratedRunnerSubagentContext,
 } from "./curated-context.ts";
 import { resolveRunnerSubagentLaunch } from "./subagent-process.ts";
-import { withRunnerSubagentWidget } from "./widget.ts";
+import { buildInitialRunnerSubagentUpdate, withRunnerSubagentWidget } from "./widget.ts";
 
 interface PrepareRunnerSubagentFinalTextDispatchInput {
 	pi: RunnerSubagentPi & {
@@ -70,17 +70,7 @@ export async function runFinalTextSubagent(
 	input.onStart?.({
 		curatedContext,
 		launch,
-		update: {
-			progress: {
-				title: input.title,
-				state: "starting",
-				toolCount: 0,
-				turnCount: 0,
-				elapsedMs: 0,
-				launch,
-			},
-			activity: {},
-		},
+		update: buildInitialRunnerSubagentUpdate({ title: input.title, launch }),
 	});
 	const result = await withRunnerSubagentWidget({
 		ctx: input.ctx,

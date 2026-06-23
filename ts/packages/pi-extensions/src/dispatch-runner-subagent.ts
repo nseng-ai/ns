@@ -13,13 +13,7 @@ import {
 	type RunnerSubagentResult,
 	type RunnerSubagentUsageMetadata,
 } from "./runner-subagent.ts";
-import type {
-	ExtensionAPI,
-	ToolContext,
-	ToolDefinition,
-	ToolResult,
-	WidgetRuntimeContext,
-} from "./handoff/runtime-types.ts";
+import type { ExtensionAPI, ToolDefinition } from "./handoff/runtime-types.ts";
 import {
 	formatRunnerSubagentElapsed,
 	formatRunnerSubagentModelText,
@@ -34,19 +28,11 @@ export const DISPATCH_RUNNER_SUBAGENT_TOOL_NAME = "dispatch_runner_subagent";
 export const MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS = 48_000;
 
 const WIDGET_KEY = DISPATCH_RUNNER_SUBAGENT_TOOL_NAME;
-const TITLE_VALIDATION_MESSAGE = "dispatch_runner_subagent requires a non-empty title string.";
-const PROMPT_VALIDATION_MESSAGE = "dispatch_runner_subagent requires a non-empty prompt string.";
-const MODEL_VALIDATION_MESSAGE =
-	"dispatch_runner_subagent model must be a non-empty string when provided.";
 
 const dispatchRunnerSubagentInputSchema = z.object({
-	title: z.string({ error: TITLE_VALIDATION_MESSAGE }).trim().min(1, TITLE_VALIDATION_MESSAGE),
-	prompt: z.string({ error: PROMPT_VALIDATION_MESSAGE }).trim().min(1, PROMPT_VALIDATION_MESSAGE),
-	model: z
-		.string({ error: MODEL_VALIDATION_MESSAGE })
-		.trim()
-		.min(1, MODEL_VALIDATION_MESSAGE)
-		.optional(),
+	title: z.string().trim().min(1),
+	prompt: z.string().trim().min(1),
+	model: z.string().trim().min(1).optional(),
 });
 
 export type { ToolResult } from "./handoff/runtime-types.ts";
@@ -69,29 +55,11 @@ export interface DispatchRunnerSubagentDetails {
 	protocolError?: unknown;
 }
 
-export type ExtensionContext = Pick<ToolContext, "cwd" | "model"> &
-	Partial<Pick<ToolContext, "mode">> &
-	WidgetRuntimeContext & {
-		ui?: Partial<ToolContext["ui"]>;
-	};
-
-export interface DispatchRunnerSubagentToolDefinition extends Omit<
-	ToolDefinition,
-	"execute" | "parameters"
-> {
-	parameters: object;
-	execute(
-		toolCallId: string,
-		params: unknown,
-		signal: AbortSignal | undefined,
-		onUpdate: ((partial: ToolResult) => void) | undefined,
-		ctx: ExtensionContext,
-	): Promise<ToolResult>;
-}
+export type DispatchRunnerSubagentToolDefinition = ToolDefinition;
 
 export type DispatchRunnerSubagentExtensionAPI = RunnerSubagentPi &
 	Pick<ExtensionAPI, "exec" | "getThinkingLevel"> & {
-		registerTool(tool: DispatchRunnerSubagentToolDefinition): void;
+		registerTool: NonNullable<ExtensionAPI["registerTool"]>;
 	};
 
 export interface DispatchRunnerSubagentExtensionOptions {
@@ -314,9 +282,6 @@ export function formatDispatchRunnerSubagentProgress(progress: RunnerSubagentPro
 }
 
 function validateDispatchRunnerSubagentInput(params: unknown): DispatchRunnerSubagentInput {
-	if (params === null || typeof params !== "object" || Array.isArray(params)) {
-		throw new Error("dispatch_runner_subagent requires an object input.");
-	}
 	const parsed = dispatchRunnerSubagentInputSchema.safeParse(params);
 	if (!parsed.success) throw new Error(formatZodError(parsed.error));
 	return parsed.data;
