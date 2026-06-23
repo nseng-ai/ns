@@ -1,7 +1,6 @@
-import { cpSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, test, vi } from "vitest";
 
@@ -14,10 +13,8 @@ import {
 	type RunWithFakesOptions,
 	type ScriptedExecResponse,
 } from "./sdl-cli-fakes.ts";
+import { installCheckedInFlowExtension } from "../helpers/flow-extension.ts";
 
-const FLOW_EXTENSION_SOURCE = fileURLToPath(
-	new URL("../../../../../.sdl/extensions/flow", import.meta.url),
-);
 const tempProjectDirs: string[] = [];
 const CHECKPOINT_MESSAGE = "[cp] Move pending work\n\n- Preserve current changes";
 const HEAD_SHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -26,9 +23,7 @@ const PARENT_SHA = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 function createAutobranchProject(): string {
 	const directory = mkdtempSync(join(tmpdir(), "sdl-autobranch-project-"));
 	tempProjectDirs.push(directory);
-	cpSync(FLOW_EXTENSION_SOURCE, join(directory, ".sdl", "extensions", "flow"), {
-		recursive: true,
-	});
+	installCheckedInFlowExtension(directory);
 	return directory;
 }
 

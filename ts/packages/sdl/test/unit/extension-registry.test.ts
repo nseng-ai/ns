@@ -1,8 +1,7 @@
-import { cpSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, test } from "vitest";
 
@@ -14,11 +13,9 @@ import {
 	loadSdlCommandCatalog,
 	loadSelectedSdlCommand,
 } from "../../src/extension-registry.ts";
+import { installCheckedInFlowExtension } from "../helpers/flow-extension.ts";
 
 const tempDirs: string[] = [];
-const FLOW_EXTENSION_SOURCE = fileURLToPath(
-	new URL("../../../../../.sdl/extensions/flow", import.meta.url),
-);
 
 interface Workspace {
 	cwd: string;
@@ -300,9 +297,7 @@ describe("extension registry", () => {
 
 	test("checked-in flow extension command entries load successfully", async () => {
 		const workspace = await createWorkspace();
-		const destination = join(workspace.cwd, ".sdl", "extensions", "flow");
-		mkdirSync(dirname(destination), { recursive: true });
-		cpSync(FLOW_EXTENSION_SOURCE, destination, { recursive: true });
+		installCheckedInFlowExtension(workspace.cwd);
 
 		const catalog = await loadSdlCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
 

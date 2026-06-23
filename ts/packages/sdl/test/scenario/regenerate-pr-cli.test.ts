@@ -1,8 +1,7 @@
-import { cpSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, test } from "vitest";
 
@@ -17,11 +16,9 @@ import {
 	type RunWithFakesOptions,
 	type ScriptedExecResponse,
 } from "./sdl-cli-fakes.ts";
+import { installCheckedInFlowExtension } from "../helpers/flow-extension.ts";
 
 const PR_URL = "https://github.com/acme/repo/pull/123";
-const FLOW_EXTENSION_SOURCE = fileURLToPath(
-	new URL("../../../../../.sdl/extensions/flow", import.meta.url),
-);
 const tempProjectDirs: string[] = [];
 const generatedText = `Improve PR descriptions
 
@@ -51,9 +48,7 @@ function runUnavailableRegeneratePrCli(args: readonly string[]) {
 function createRegeneratePrProject(): string {
 	const directory = mkdtempSyncCompat("sdl-regenerate-pr-project-");
 	tempProjectDirs.push(directory);
-	cpSync(FLOW_EXTENSION_SOURCE, join(directory, ".sdl", "extensions", "flow"), {
-		recursive: true,
-	});
+	installCheckedInFlowExtension(directory);
 	return directory;
 }
 
