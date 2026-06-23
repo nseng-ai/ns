@@ -1,5 +1,4 @@
-import { formatCommand, normalizeExecResult, type ExecResult } from "@sdl/core/exec";
-import { formatErrorMessage } from "@sdl/core/primitives";
+import { formatCommand, runNormalizedExecResult, type ExecResult } from "@sdl/core/exec";
 import {
 	customMessageText,
 	linkifyPrReferences,
@@ -121,22 +120,12 @@ export function withCommandStreaming(
 		async exec(command, args, options) {
 			const commandDisplay = formatCommandForDisplay(command, args);
 			commandStream.start(commandDisplay);
-			try {
-				const rawResult = await pi.exec(command, args, options);
-				const normalizedResult = normalizeExecResult(rawResult);
-				const finish = normalizeCommandFinish(command, args, normalizedResult);
-				commandStream.finish(commandDisplay, finish);
-				return finish.result;
-			} catch (error) {
-				const result: ExecResult = {
-					stdout: "",
-					stderr: formatErrorMessage(error),
-					code: 1,
-					killed: false,
-				};
-				commandStream.finish(commandDisplay, { result });
-				return result;
-			}
+			const result = await runNormalizedExecResult(
+				async () => await pi.exec(command, args, options),
+			);
+			const finish = normalizeCommandFinish(command, args, result);
+			commandStream.finish(commandDisplay, finish);
+			return finish.result;
 		},
 	};
 	if (pi.registerMessageRenderer !== undefined) {

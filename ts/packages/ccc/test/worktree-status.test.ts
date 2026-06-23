@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { githubWorktreePrStatusQuery } from "@sdl/core/github-status";
-import { ScriptedQueue } from "@sdl/core/testing";
+import { githubCheckRun, ScriptedQueue } from "@sdl/core/testing";
 import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 import type { GraphiteMetadataWorkerDiagnostic } from "@sdl/graphite/status";
 import {
@@ -324,15 +324,14 @@ function worktreePrCheckRun(options: {
 	startedAt?: string | undefined;
 	completedAt?: string | undefined;
 }): unknown {
-	return {
-		__typename: "CheckRun",
+	return githubCheckRun({
+		workflowName: options.workflowName ?? "fixture",
 		name: options.name,
 		status: options.status ?? "COMPLETED",
 		...(options.conclusion === undefined ? {} : { conclusion: options.conclusion }),
 		...(options.startedAt === undefined ? {} : { startedAt: options.startedAt }),
 		...(options.completedAt === undefined ? {} : { completedAt: options.completedAt }),
-		checkSuite: { workflowRun: { workflow: { name: options.workflowName ?? "fixture" } } },
-	};
+	});
 }
 
 const MARKER_THEME: StatusTheme = {

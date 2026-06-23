@@ -15,6 +15,7 @@ import {
 	isSuccessfulExecResult,
 	normalizeExecResult,
 	piExecApiToCommandExecApi,
+	runNormalizedExecResult,
 	shellQuote,
 	stripTerminalEscapes,
 	tailText,
@@ -80,6 +81,26 @@ describe("exec presentation helpers", () => {
 
 		expect(result).toEqual({ stdout: "out", stderr: "", code: 7, killed: false });
 		expect(calls).toEqual([{ command: "git", args: ["status"], cwd: "/repo" }]);
+	});
+
+	test("runs callbacks and normalizes pi-like exec results", async () => {
+		const result = await runNormalizedExecResult(async () => ({ code: 3 }));
+
+		expect(result).toEqual({ stdout: "", stderr: "", code: 3, killed: false });
+	});
+
+	test("converts thrown callback errors to startup failures", async () => {
+		const result = await runNormalizedExecResult(async () => {
+			throw new Error("spawn failed");
+		});
+
+		expect(result).toEqual({
+			stdout: "",
+			stderr: "spawn failed",
+			code: 127,
+			killed: false,
+			startupError: "spawn failed",
+		});
 	});
 
 	test("classifies successful exec results", () => {

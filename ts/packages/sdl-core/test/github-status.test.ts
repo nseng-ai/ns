@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 
+import { githubCheckRun } from "@sdl/core/testing";
 import {
 	classifyGithubStatusCheck,
 	githubPrIdentityFromUrl,
@@ -12,27 +13,6 @@ import {
 	parseGithubWorktreePrStatusJsonResult,
 	tallyGithubStatusChecks,
 } from "@sdl/core/github-status";
-
-interface CheckRunFixture {
-	workflowName: string;
-	name: string;
-	status: string;
-	conclusion?: string | undefined;
-	startedAt?: string | undefined;
-	completedAt?: string | undefined;
-}
-
-function checkRun(fixture: CheckRunFixture): unknown {
-	return {
-		__typename: "CheckRun",
-		name: fixture.name,
-		status: fixture.status,
-		...(fixture.conclusion === undefined ? {} : { conclusion: fixture.conclusion }),
-		...(fixture.startedAt === undefined ? {} : { startedAt: fixture.startedAt }),
-		...(fixture.completedAt === undefined ? {} : { completedAt: fixture.completedAt }),
-		checkSuite: { workflowRun: { workflow: { name: fixture.workflowName } } },
-	};
-}
 
 describe("GitHub status boundary parsing", () => {
 	test("extracts canonical GitHub PR identity", () => {
@@ -281,14 +261,14 @@ describe("GitHub status check classification", () => {
 	test("ignores a superseded canceled check run", () => {
 		expect(
 			tallyGithubStatusChecks([
-				checkRun({
+				githubCheckRun({
 					workflowName: "ci",
 					name: "test",
 					status: "COMPLETED",
 					conclusion: "CANCELLED",
 					completedAt: "2026-01-01T00:00:00Z",
 				}),
-				checkRun({
+				githubCheckRun({
 					workflowName: "ci",
 					name: "test",
 					status: "COMPLETED",
@@ -302,14 +282,14 @@ describe("GitHub status check classification", () => {
 	test("keeps the newest canceled or stale check run as failing", () => {
 		expect(
 			tallyGithubStatusChecks([
-				checkRun({
+				githubCheckRun({
 					workflowName: "ci",
 					name: "test",
 					status: "COMPLETED",
 					conclusion: "SUCCESS",
 					completedAt: "2026-01-01T00:00:00Z",
 				}),
-				checkRun({
+				githubCheckRun({
 					workflowName: "ci",
 					name: "test",
 					status: "COMPLETED",
@@ -323,14 +303,14 @@ describe("GitHub status check classification", () => {
 	test("keeps distinct workflow and check name pairs separate", () => {
 		expect(
 			tallyGithubStatusChecks([
-				checkRun({
+				githubCheckRun({
 					workflowName: "lint",
 					name: "required",
 					status: "COMPLETED",
 					conclusion: "SUCCESS",
 					completedAt: "2026-01-01T00:00:00Z",
 				}),
-				checkRun({
+				githubCheckRun({
 					workflowName: "test",
 					name: "required",
 					status: "COMPLETED",
@@ -373,13 +353,13 @@ describe("GitHub status check classification", () => {
 	test("uses the last returned check when matching identities have no timestamps", () => {
 		expect(
 			tallyGithubStatusChecks([
-				checkRun({
+				githubCheckRun({
 					workflowName: "ci",
 					name: "test",
 					status: "COMPLETED",
 					conclusion: "CANCELLED",
 				}),
-				checkRun({
+				githubCheckRun({
 					workflowName: "ci",
 					name: "test",
 					status: "COMPLETED",

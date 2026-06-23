@@ -132,6 +132,27 @@ export interface ScriptedCommandExecCall {
 
 export type ScriptedTextGenerationStep = TextGenerationResult | Promise<TextGenerationResult>;
 
+export interface GithubCheckRunFixture {
+	readonly workflowName: string;
+	readonly name: string;
+	readonly status: string;
+	readonly conclusion?: string | undefined;
+	readonly startedAt?: string | undefined;
+	readonly completedAt?: string | undefined;
+}
+
+export function githubCheckRun(fixture: GithubCheckRunFixture): unknown {
+	return {
+		__typename: "CheckRun",
+		name: fixture.name,
+		status: fixture.status,
+		...(fixture.conclusion === undefined ? {} : { conclusion: fixture.conclusion }),
+		...(fixture.startedAt === undefined ? {} : { startedAt: fixture.startedAt }),
+		...(fixture.completedAt === undefined ? {} : { completedAt: fixture.completedAt }),
+		checkSuite: { workflowRun: { workflow: { name: fixture.workflowName } } },
+	};
+}
+
 /** Internal monorepo testing helper for ordered scripted expectations. */
 export class ScriptedQueue<TStep> {
 	private readonly errors: string[] = [];
