@@ -28,13 +28,13 @@ interface AppendCommandStreamMessageOptions {
 }
 
 interface LandStackCommandStreamOptions {
-	mirrorFinishedCommandsToNonUi?: boolean;
+	shouldMirrorFinishedCommandsToNonUi?: boolean;
 }
 
 export class LandStackCommandStream {
 	private readonly pi: LandStackExtensionAPI;
 	private readonly ctx: LandStackCommandContext;
-	private readonly mirrorFinishedCommandsToNonUi: boolean;
+	private readonly shouldMirrorFinishedCommandsToNonUi: boolean;
 
 	constructor(
 		pi: LandStackExtensionAPI,
@@ -43,7 +43,7 @@ export class LandStackCommandStream {
 	) {
 		this.pi = pi;
 		this.ctx = ctx;
-		this.mirrorFinishedCommandsToNonUi = options.mirrorFinishedCommandsToNonUi ?? true;
+		this.shouldMirrorFinishedCommandsToNonUi = options.shouldMirrorFinishedCommandsToNonUi ?? true;
 	}
 
 	start(commandDisplay: string): void {
@@ -70,7 +70,7 @@ export class LandStackCommandStream {
 		}
 		this.append({
 			message: lines.join("\n"),
-			shouldMirrorToNonUi: this.mirrorFinishedCommandsToNonUi,
+			shouldMirrorToNonUi: this.shouldMirrorFinishedCommandsToNonUi,
 			level: result.code === 0 ? "info" : "error",
 		});
 	}

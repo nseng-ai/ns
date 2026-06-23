@@ -1,4 +1,4 @@
-import { normalizeExecResult } from "@sdl/core/exec";
+import { normalizeExecResult, type ExecOutputListener } from "@sdl/core/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import {
 	sendCommandProgressOrNotify,
@@ -131,7 +131,7 @@ async function runLandCommand(
 	await ctx.waitForIdle();
 
 	const commandStream = new LandStackCommandStream(pi, ctx, {
-		mirrorFinishedCommandsToNonUi: false,
+		shouldMirrorFinishedCommandsToNonUi: false,
 	});
 	const runtimePi = withCommandStreaming(pi, commandStream);
 	const runtimeLandPi: LandExtensionAPI = {
@@ -197,7 +197,7 @@ export interface LandCliInput {
 	): Promise<ExecResult>;
 	stdout(text: string): void;
 	stderr(text: string): void;
-	onOutput?: ((stream: "stdout" | "stderr", text: string) => void) | undefined;
+	onOutput?: ExecOutputListener | undefined;
 	confirm?: LandCliConfirmPrompt | undefined;
 }
 
@@ -231,14 +231,20 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 			confirm: async (title, message) =>
 				confirm === undefined ? false : await confirm(title, message),
 			setStatus: (_key, value) => {
-				if (value !== undefined) {
-					input.onOutput?.("stdout", `${value}\n`);
-				}
+				writeCliStatusToOutput(input.onOutput, value);
 			},
 		},
 		waitForIdle: async () => {},
 	});
 	return outcome.type === "failure" && outcome.failure.level === "error" ? 1 : 0;
+}
+
+function writeCliStatusToOutput(
+	onOutput: ExecOutputListener | undefined,
+	status: string | undefined,
+): void {
+	if (status === undefined) return;
+	onOutput?.("stdout", `${status}\n`);
 }
 
 export function isIsolatedFastPath(stack: StackSnapshot): boolean {
