@@ -15,9 +15,15 @@ import type {
 	LandStackExtensionAPI,
 	LandStackCommandContext,
 	LandedPr,
+	NotifyLevel,
 	RenderComponent,
 	RenderTheme,
 } from "./types.ts";
+
+interface AppendOptions {
+	mirrorToNonUi?: boolean;
+	level?: NotifyLevel;
+}
 
 export class LandStackCommandStream {
 	private readonly pi: LandStackExtensionAPI;
@@ -47,7 +53,10 @@ export class LandStackCommandStream {
 		if (result.code !== 0) {
 			lines.push(...commandStreamOutputLines(result));
 		}
-		this.append(lines.join("\n"));
+		this.append(lines.join("\n"), undefined, {
+			mirrorToNonUi: true,
+			level: result.code === 0 ? "info" : "error",
+		});
 	}
 
 	finishSuccess(message: string, details?: CommandStreamMessageDetails): void {
@@ -59,20 +68,31 @@ export class LandStackCommandStream {
 	}
 
 	note(message: string): void {
-		this.append(formatCommandStreamBlock("→", message));
+		this.append(formatCommandStreamBlock("→", message), undefined, {
+			mirrorToNonUi: true,
+			level: "info",
+		});
 	}
 
-	private append(message: string, details?: CommandStreamMessageDetails): void {
-		if (!this.ctx.hasUI || !this.pi.sendMessage) return;
-		const customMessage: CustomMessage = {
-			customType: COMMAND_STREAM_MESSAGE_TYPE,
-			content: message,
-			display: true,
-		};
-		if (details) {
-			customMessage.details = details;
+	private append(
+		message: string,
+		details?: CommandStreamMessageDetails,
+		options: AppendOptions = {},
+	): void {
+		if (this.ctx.hasUI && this.pi.sendMessage) {
+			const customMessage: CustomMessage = {
+				customType: COMMAND_STREAM_MESSAGE_TYPE,
+				content: message,
+				display: true,
+			};
+			if (details) {
+				customMessage.details = details;
+			}
+			this.pi.sendMessage(customMessage);
 		}
-		this.pi.sendMessage(customMessage);
+		if (!this.ctx.hasUI && options.mirrorToNonUi === true) {
+			this.ctx.ui.notify(message, options.level ?? "info");
+		}
 	}
 }
 

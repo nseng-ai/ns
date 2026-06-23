@@ -1436,6 +1436,45 @@ describe("land-stack pure helpers", () => {
 		expect(commandMessagesText(pi.messages)).not.toContain("read Graphite stack topology");
 	});
 
+	test("mirrors command finishes and notes to non-UI notifications", async () => {
+		const pi = new FakePi([
+			step("git", ["status"]),
+			step("git", ["fail"], { code: 2, stdout: "stdout line", stderr: "stderr line" }),
+		]);
+		const context = createContext({ hasUI: false });
+		const commandStream = new LandStackCommandStream(pi, context.ctx);
+		const streamed = withCommandStreaming(pi, commandStream);
+
+		commandStream.note("Preparing to land 1 PR through feature-a...");
+		await streamed.exec("git", ["status"], { cwd: ROOT });
+		await streamed.exec("git", ["fail"], { cwd: ROOT });
+
+		pi.assertDone();
+		expect(pi.messages).toEqual([]);
+		expect(context.notifications.map((notification) => notification.level)).toEqual([
+			"info",
+			"info",
+			"error",
+		]);
+		expect(context.notifications[0]?.message).toBe("→ Preparing to land 1 PR through feature-a...");
+		expect(context.notifications[1]?.message).toBe("✓ $ git status");
+		expect(context.notifications[2]?.message).toContain("✗ $ git fail — exit 2");
+		expect(context.notifications[2]?.message).toContain("stdout line");
+		expect(context.notifications[2]?.message).toContain("stderr line");
+	});
+
+	test("does not mirror final success or failure blocks to non-UI notifications", () => {
+		const pi = new FakePi();
+		const context = createContext({ hasUI: false });
+		const commandStream = new LandStackCommandStream(pi, context.ctx);
+
+		commandStream.finishSuccess("Landed 1 PR: #101 feature-a.");
+		commandStream.finishFailure("land stopped.");
+
+		expect(pi.messages).toEqual([]);
+		expect(context.notifications).toEqual([]);
+	});
+
 	test("formats success notifications with action-first warnings", () => {
 		const details = { prLinks: [{ number: 101, url: "https://github.example/pull/101" }] };
 		const successNotification = formatSuccessNotification(
@@ -2403,10 +2442,14 @@ describe("land-stack command scenarios", () => {
 		).toBe(true);
 		const streamText = commandMessagesText(messages);
 		expect(streamText).not.toContain("land-stack command stream");
+		expect(streamText).toContain("→ Preparing to land 1 PR through feature-a...");
 		expect(streamText).toContain("✓ $ git rev-parse --show-toplevel");
+		expect(streamText).toContain("→ Merging PR #101 feature-a...");
 		expect(streamText).toContain(
 			`✓ $ gh pr merge 101 --squash --match-head-commit ${SHA_A} --subject 'PR 101' --body '<PR body>'`,
 		);
+		expect(streamText).toContain("→ Merged and verified PR #101 feature-a.");
+		expect(streamText).toContain("→ Cleaning up local branch feature-a...");
 		expect(streamText).toContain("✓ Landed 1 PR: #101 feature-a.");
 		expect(streamText).toContain(
 			"Clean up any remaining local branches manually, for example by running `gt sync` or deleting branches directly.",

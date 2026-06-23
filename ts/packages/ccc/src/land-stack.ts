@@ -207,6 +207,7 @@ async function executeSinglePlanLanding(
 		}
 	}
 
+	commandStream.note(formatPreparingLandingMilestone(plan));
 	const readyPlan = await preparePlanForMerge({
 		runtimePi,
 		ctx,
@@ -353,6 +354,9 @@ async function executeChunkedStackLanding(
 		}
 		finalPlan = plan.value;
 
+		commandStream.note(
+			`Preparing chunk ${chunkIndex}: ${formatPreparingLandingMilestone(plan.value)}`,
+		);
 		const readyPlan = await preparePlanForMerge({
 			runtimePi,
 			ctx,
@@ -519,6 +523,10 @@ async function preparePlanForMerge(
 	}
 
 	return success(plan);
+}
+
+function formatPreparingLandingMilestone(plan: LandingPlan): string {
+	return `Preparing to land ${plan.stack.landingBranches.length} PR${plan.stack.landingBranches.length === 1 ? "" : "s"} through ${plan.stack.landingTargetBranch}...`;
 }
 
 function appendLandedChunk(
