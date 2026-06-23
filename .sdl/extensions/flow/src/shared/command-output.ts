@@ -1,4 +1,4 @@
-import { formatCommand, formatCommandDetails, type ExecResult } from "@sdl/sdl/sdk";
+import { commandSucceeded, formatCommand, formatCommandDetails, type ExecResult } from "@sdl/sdl/sdk";
 
 export interface FlowCommandFailure {
   code: string;
@@ -14,7 +14,7 @@ export interface FlowCommandFailureOptions {
 }
 
 export function commandFailure(options: FlowCommandFailureOptions): FlowCommandFailure | undefined {
-  if (options.result.code === 0 && !options.result.killed) return undefined;
+  if (commandSucceeded(options.result)) return undefined;
   const details = formatCommandDetails(options.result);
   const suffix = `\nCommand: ${formatCommand(options.command, options.args)}\n${details}`;
   return { code: options.code, message: `${options.message}${suffix}` };
