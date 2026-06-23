@@ -35,7 +35,8 @@
     "sdlcc": "workspace:*",
     "syncpack": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "@sdl/graphite": "workspace:*"
   },
   "workspaces": [
     "packages/*"

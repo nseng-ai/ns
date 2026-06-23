@@ -10,7 +10,7 @@ import {
 } from "@sdl/branch-context";
 import type { BranchContextContext } from "../src/context.ts";
 import { InMemoryBranchMemoryGateway } from "@sdl/branch-context/testing";
-import { InMemoryBranchContextGraphiteGateway } from "./support/in-memory-graphite-gateway.ts";
+import { InMemoryGraphiteBranchGateway } from "@sdl/graphite/testing";
 
 const CWD = "/repo";
 const SESSION_BRANCH = "branch-contexts/session-target";
@@ -32,7 +32,7 @@ function branchContext(
 		commands: pi,
 		git: overrides.git,
 		brmem: overrides.brmem,
-		graphite: new InMemoryBranchContextGraphiteGateway(),
+		graphite: new InMemoryGraphiteBranchGateway(),
 	};
 }
 

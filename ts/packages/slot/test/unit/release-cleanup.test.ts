@@ -6,7 +6,7 @@ import type { FreedSlot } from "../../src/lifecycle/release-target.ts";
 import { repoContext } from "../support/run-scenario.ts";
 import { FakeClipboardGateway } from "../../src/gateways/clipboard.ts";
 import { FakeSlotRepositoryGateway } from "../../src/gateways/fakes/repository.ts";
-import { FakeSlotGtGateway } from "../../src/gateways/fakes/gt.ts";
+import { FakeGraphiteStackGateway } from "@sdl/graphite/testing";
 import { FakeSlotPrGateway } from "../../src/gateways/fakes/pr.ts";
 import { FakeSlotStorageGateway } from "../../src/gateways/fakes/storage.ts";
 import type { RepoSlotContext } from "../../src/context.ts";
@@ -63,7 +63,7 @@ function context(options: {
 			worktrees: [{ path: "/repo", branch: "master" }],
 			localBranches: ["master", "feature/a"],
 		}),
-		gt: new FakeSlotGtGateway(),
+		gt: new FakeGraphiteStackGateway(),
 		pr: options.pr,
 		storage: new FakeSlotStorageGateway(),
 		clipboard: new FakeClipboardGateway(),

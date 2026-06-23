@@ -11,9 +11,9 @@ import {
 	hasExpectedGraphiteBranchMetadataSchema,
 	parseGraphiteBranchMetadataRows,
 	sqliteTextLiteral,
-} from "@sdl/core/graphite-metadata";
+} from "./metadata.ts";
 import { readLocalBranchRefs, type LocalBranchRefReadResult } from "@sdl/core/git";
-import { isRecord } from "@sdl/pi-extension-runtime/cmux/primitives";
+import { isRecord } from "@sdl/core/primitives";
 const GRAPHITE_METADATA_UNAVAILABLE_REASONS = [
 	"missing-db",
 	"sqlite-unavailable",
@@ -291,7 +291,7 @@ export function loadGraphiteMetadataStatus(
 }
 
 function createGraphiteMetadataWorker(): GraphiteMetadataWorkerHandle {
-	const worker = new Worker(new URL("./graphite-metadata-worker.ts", import.meta.url), {
+	const worker = new Worker(new URL("./status-worker.ts", import.meta.url), {
 		execArgv: [],
 	});
 	const handle: GraphiteMetadataWorkerHandle = {

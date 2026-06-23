@@ -6,6 +6,7 @@ import {
 	type ExecResult,
 } from "@sdl/core/exec";
 import { planLocalBranchRefreshFromWorktrees } from "@sdl/core/git";
+import { runGraphiteCommand } from "@sdl/graphite/branch";
 
 const GT_TIMEOUT_MS = 30_000;
 const GIT_TIMEOUT_MS = 2 * 60 * 1000;
@@ -36,9 +37,10 @@ export async function runTrunkPull(
 	commands: Pick<TrunkPullCliInput, "exec">,
 	cwd: string,
 ): Promise<{ ok: true; message: string } | { ok: false; message: string }> {
-	const trunkResult = await commands.exec("gt", ["trunk", "--no-interactive"], {
+	const trunkResult = await runGraphiteCommand(commands, {
 		cwd,
-		timeout: GT_TIMEOUT_MS,
+		args: ["trunk", "--no-interactive"],
+		timeoutMs: GT_TIMEOUT_MS,
 	});
 	if (!isSuccessfulExecResult(trunkResult)) {
 		return {

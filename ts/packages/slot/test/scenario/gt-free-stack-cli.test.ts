@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { fakeStackInfo } from "../../src/gateways/fakes/gt.ts";
+import { fakeStackInfo } from "@sdl/graphite/testing";
 import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";
 
 describe("slot gt free-stack CLI", () => {

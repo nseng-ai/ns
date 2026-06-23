@@ -17,7 +17,7 @@ import type { CommandExecApi } from "@sdl/core/exec";
 import { InMemoryBranchMemoryGateway } from "@sdl/branch-context/testing";
 import type { BranchContextContext } from "../src/context.ts";
 import { InMemoryGitGateway } from "@sdl/core/git/testing";
-import { InMemoryBranchContextGraphiteGateway } from "./support/in-memory-graphite-gateway.ts";
+import { InMemoryGraphiteBranchGateway } from "@sdl/graphite/testing";
 
 const PLAN_SLUG = "branch-scoped-plan";
 const PLAN_KEY = `${PLAN_SLUG}.md`;
@@ -41,7 +41,7 @@ function branchContext(overrides: Partial<BranchContextContext> = {}): BranchCon
 		commands,
 		git: overrides.git ?? new InMemoryGitGateway(),
 		brmem: overrides.brmem ?? new InMemoryBranchMemoryGateway(),
-		graphite: overrides.graphite ?? new InMemoryBranchContextGraphiteGateway(),
+		graphite: overrides.graphite ?? new InMemoryGraphiteBranchGateway(),
 	};
 }
 
@@ -175,7 +175,7 @@ describe("branch-context create execution", () => {
 		const invalidBranch = "bad branch";
 		const git = new InMemoryGitGateway({ invalidBranchRefs: [invalidBranch] });
 		const brmem = new InMemoryBranchMemoryGateway();
-		const graphite = new InMemoryBranchContextGraphiteGateway();
+		const graphite = new InMemoryGraphiteBranchGateway();
 		const filePath = await makePlanFile();
 
 		await expect(
@@ -202,7 +202,7 @@ describe("branch-context create execution", () => {
 			headCommit: START_POINT,
 		});
 		const brmem = new InMemoryBranchMemoryGateway();
-		const graphite = new InMemoryBranchContextGraphiteGateway();
+		const graphite = new InMemoryGraphiteBranchGateway();
 		const filePath = await makePlanFile();
 
 		const evidence = await createBranchContextFromFile(
@@ -241,7 +241,7 @@ describe("branch-context create execution", () => {
 			},
 		});
 		const brmem = new InMemoryBranchMemoryGateway();
-		const graphite = new InMemoryBranchContextGraphiteGateway();
+		const graphite = new InMemoryGraphiteBranchGateway();
 		const filePath = await makePlanFile();
 
 		await expect(
@@ -265,7 +265,7 @@ describe("branch-context create execution", () => {
 			headCommit: START_POINT,
 		});
 		const brmem = new InMemoryBranchMemoryGateway();
-		const graphite = new InMemoryBranchContextGraphiteGateway({
+		const graphite = new InMemoryGraphiteBranchGateway({
 			untrackedBranches: [SOURCE_BRANCH],
 			untrackedDetail: `ERROR: Cannot perform this operation on untracked branch ${SOURCE_BRANCH}.`,
 		});

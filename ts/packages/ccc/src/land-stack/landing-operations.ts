@@ -2,6 +2,8 @@ import { formatCommand, type ExecResult } from "@sdl/core/exec";
 import {
 	exec,
 	execRaw,
+	execGraphite,
+	execRawGraphite,
 	normalizeCommandFinish,
 	parseGitCheckedOutElsewhere,
 	shortSha,
@@ -146,7 +148,11 @@ export async function confirmAndSubmitRequiredPrUpdates(
 	if (restackTarget) {
 		const restackArgs = restackForSubmitArgs(restackTarget);
 		setStatus(ctx, `restacking ${restackTarget}...`);
-		const restacked = await exec(pi, "gt", restackArgs, plan.repoRoot, GT_MUTATION_TIMEOUT_MS);
+		const restacked = await execGraphite(pi, {
+			args: restackArgs,
+			cwd: plan.repoRoot,
+			timeoutMs: GT_MUTATION_TIMEOUT_MS,
+		});
 		if (restacked.code !== 0) {
 			return failure(
 				landStackFailure("gt restack failed before any PRs were landed.", {
@@ -171,7 +177,11 @@ export async function confirmAndSubmitRequiredPrUpdates(
 	}
 
 	setStatus(ctx, `submitting ${plan.stack.landingTargetBranch}...`);
-	const result = await exec(pi, "gt", submitArgs, plan.repoRoot, GT_MUTATION_TIMEOUT_MS);
+	const result = await execGraphite(pi, {
+		args: submitArgs,
+		cwd: plan.repoRoot,
+		timeoutMs: GT_MUTATION_TIMEOUT_MS,
+	});
 	if (result.code !== 0) {
 		return failure(
 			landStackFailure("gt submit/update failed before any PRs were landed.", {
@@ -607,7 +617,13 @@ async function performGraphiteMaintenance(
 						"gt",
 						getArgs,
 					)
-				: { result: await exec(pi, "gt", getArgs, repoRoot, GT_MUTATION_TIMEOUT_MS) };
+				: {
+						result: await execGraphite(pi, {
+							args: getArgs,
+							cwd: repoRoot,
+							timeoutMs: GT_MUTATION_TIMEOUT_MS,
+						}),
+					};
 		const got = getResult.result;
 		if (got.code !== 0) {
 			if (maintenance.kind === "required-next-landing") {
@@ -701,7 +717,11 @@ async function performGraphiteMaintenance(
 					branch,
 				})
 			: localBranchDeletionFromResult(
-					await exec(pi, "gt", deleteArgs, repoRoot, GT_MUTATION_TIMEOUT_MS),
+					await execGraphite(pi, {
+						args: deleteArgs,
+						cwd: repoRoot,
+						timeoutMs: GT_MUTATION_TIMEOUT_MS,
+					}),
 				);
 	switch (deletion.kind) {
 		case "deleted":
@@ -742,7 +762,11 @@ async function performGraphiteMaintenance(
 
 	setStatus(ctx, `restacking ${maintenance.branch}...`);
 	const restackArgs = ["restack", "--branch", maintenance.branch, "--upstack", "--no-interactive"];
-	const restacked = await exec(pi, "gt", restackArgs, repoRoot, GT_MUTATION_TIMEOUT_MS);
+	const restacked = await execGraphite(pi, {
+		args: restackArgs,
+		cwd: repoRoot,
+		timeoutMs: GT_MUTATION_TIMEOUT_MS,
+	});
 	if (restacked.code !== 0) {
 		return failOrWarn(severity, state.warnings, {
 			failure: landStackFailure(formatRestackFailureMessage(prNumber, maintenance.branch, true), {
@@ -792,7 +816,11 @@ async function performGraphiteMaintenance(
 		"--no-ai",
 		"--no-interactive",
 	];
-	const submitted = await exec(pi, "gt", submitArgs, repoRoot, GT_MUTATION_TIMEOUT_MS);
+	const submitted = await execGraphite(pi, {
+		args: submitArgs,
+		cwd: repoRoot,
+		timeoutMs: GT_MUTATION_TIMEOUT_MS,
+	});
 	if (submitted.code !== 0) {
 		return failOrWarn(severity, state.warnings, {
 			failure: landStackFailure(formatSubmitFailureMessage(prNumber, maintenance.branch, true), {
@@ -988,7 +1016,11 @@ async function deleteFinalLocalGraphiteBranch(
 	const deleteArgs = ["delete", branch, "-f", "-q"];
 	const commandDisplay = formatCommand("gt", deleteArgs);
 	commandStream.start(commandDisplay);
-	const result = await execRaw(pi, "gt", deleteArgs, repoRoot, GT_MUTATION_TIMEOUT_MS);
+	const result = await execRawGraphite(pi, {
+		args: deleteArgs,
+		cwd: repoRoot,
+		timeoutMs: GT_MUTATION_TIMEOUT_MS,
+	});
 	const finish = normalizeCommandFinish("gt", deleteArgs, result);
 	if (finish.result.code === 0) {
 		commandStream.finish(commandDisplay, finish);

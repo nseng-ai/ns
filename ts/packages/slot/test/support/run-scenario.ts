@@ -8,14 +8,17 @@ import {
 	FakeSlotRepositoryGateway,
 	type FakeSlotRepositoryGatewayOptions,
 } from "../../src/gateways/fakes/repository.ts";
-import { FakeSlotGtGateway, type FakeSlotGtGatewayOptions } from "../../src/gateways/fakes/gt.ts";
+import {
+	FakeGraphiteStackGateway,
+	type FakeGraphiteStackGatewayOptions,
+} from "@sdl/graphite/testing";
 import { FakeSlotPrGateway, type FakeSlotPrGatewayOptions } from "../../src/gateways/fakes/pr.ts";
 import { FakeSlotStorageGateway } from "../../src/gateways/fakes/storage.ts";
 import type { RepoContext } from "../../src/repo-context.ts";
 
 export interface ScenarioRunOptions {
 	git?: FakeSlotRepositoryGatewayOptions | undefined;
-	gt?: FakeSlotGtGatewayOptions | undefined;
+	gt?: FakeGraphiteStackGatewayOptions | undefined;
 	pr?: FakeSlotPrGatewayOptions | undefined;
 	cwd?: string | undefined;
 	stdin?: string | (() => Promise<string | null>) | undefined;
@@ -30,7 +33,7 @@ export interface ScenarioRun {
 	stdout: string[];
 	stderr: string[];
 	git: FakeSlotRepositoryGateway;
-	gt: FakeSlotGtGateway;
+	gt: FakeGraphiteStackGateway;
 	pr: FakeSlotPrGateway;
 	storage: FakeSlotStorageGateway;
 	context: SlotCliContext;
@@ -44,7 +47,7 @@ export function runScenario(
 	const stderr: string[] = [];
 	const cwd = options.cwd ?? "/repo";
 	const git = new FakeSlotRepositoryGateway(options.git);
-	const gt = new FakeSlotGtGateway(options.gt ?? {});
+	const gt = new FakeGraphiteStackGateway(options.gt ?? {});
 	const pr = new FakeSlotPrGateway(options.pr);
 	const storage = new FakeSlotStorageGateway();
 	const scenarioInteraction = createScenarioClinkrInteraction({

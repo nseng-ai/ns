@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import { githubWorktreePrStatusQuery } from "@sdl/core/github-status";
 import { ScriptedQueue } from "@sdl/core/testing";
 import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
-import type { GraphiteMetadataWorkerDiagnostic } from "@sdl/ccc/worktree-status/graphite-metadata";
+import type { GraphiteMetadataWorkerDiagnostic } from "@sdl/graphite/status";
 import {
 	formatGhStatus,
 	formatGtStatus,
@@ -24,7 +24,7 @@ import {
 	type WorktreeStatus,
 	type WorktreeStatusIdentity,
 } from "@sdl/ccc/worktree-status";
-import type { GraphiteMetadataStatus } from "@sdl/ccc/worktree-status/graphite-metadata";
+import type { GraphiteMetadataStatus } from "@sdl/graphite/status";
 
 const ROOT = "/repo";
 const HEAD_OID = "abc123";

@@ -1,7 +1,7 @@
 import type { BranchContextAttachData } from "./branch-memory.ts";
 import { attachBranchContext, assertBrmemEntryAbsent, AttachBranchContextError } from "./attach.ts";
 import { BRANCH_CONTEXT_NAMESPACE, buildBranchContextPlanKey } from "./constants.ts";
-import type { BranchContextGraphiteGateway } from "./graphite-gateway.ts";
+import type { GraphiteBranchGateway } from "@sdl/graphite/branch";
 import { formatCommand, type CommandExecApi } from "@sdl/core/exec";
 import type { GitGateway } from "@sdl/core/git";
 import { formatErrorMessage } from "@sdl/core/primitives";
@@ -301,7 +301,7 @@ type CreateGraphiteBranchOptions = CreatePlainGitBranchOptions;
 
 async function createBranchContext(
 	git: GitGateway,
-	graphite: BranchContextGraphiteGateway,
+	graphite: GraphiteBranchGateway,
 	options: CreateBranchContextOptions,
 ): Promise<void> {
 	if (options.method === "graphite") {
@@ -327,7 +327,7 @@ async function createPlainGitBranch(
 
 async function createGraphiteBranch(
 	git: GitGateway,
-	graphite: BranchContextGraphiteGateway,
+	graphite: GraphiteBranchGateway,
 	options: CreateGraphiteBranchOptions,
 ): Promise<void> {
 	const parentBranch = await resolveCurrentBranch(git, options.cwd, options.signal);

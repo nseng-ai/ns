@@ -1,6 +1,7 @@
 import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
 import { formatCommand, formatCommandFailure, isSuccessfulExecResult } from "@sdl/core/exec";
 import { planLocalBranchRefreshFromWorktrees, type LocalBranchRefreshPlan } from "@sdl/core/git";
+import { runGraphiteCommand } from "@sdl/graphite/branch";
 import { sendCommandProgressOrNotify } from "@sdl/pi-extension-runtime/command-ack";
 
 import {
@@ -115,11 +116,20 @@ export async function createTrackedBranchFromTrunkForPrompt(options: {
 }): Promise<BranchCreateResult | { error: string }> {
 	const { pi, cwd, prompt, notify } = options;
 	notify?.("Resolving Graphite trunk…");
-	const trunk = await runText(pi, cwd, "gt", ["trunk", "--no-interactive"]);
-	if (!trunk.ok) {
-		return { error: `Could not resolve Graphite trunk: ${trunk.message}` };
+	const trunk = await runGraphiteCommand(pi, {
+		cwd,
+		args: ["trunk", "--no-interactive"],
+	});
+	if (!isSuccessfulExecResult(trunk)) {
+		return {
+			error: formatCommandFailure(
+				"Could not resolve Graphite trunk.",
+				"gt trunk --no-interactive",
+				trunk,
+			),
+		};
 	}
-	const trunkBranch = firstNonEmptyLine(trunk.text);
+	const trunkBranch = firstNonEmptyLine(trunk.stdout);
 	if (trunkBranch === undefined) {
 		return { error: "gt trunk --no-interactive returned no branch." };
 	}

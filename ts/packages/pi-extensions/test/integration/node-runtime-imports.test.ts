@@ -25,7 +25,7 @@ const PROJECT_EXTENSION_ADAPTERS = [
 ] as const;
 
 const PI_EXTENSIONS_WORKSPACE_IMPORTS = [
-	"@sdl/ccc/worktree-status/graphite-metadata",
+	"@sdl/graphite/status",
 	"@sdl/core/exec",
 	"@sdl/branch-context",
 	"@sdl/plans",

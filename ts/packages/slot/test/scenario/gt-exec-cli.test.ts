@@ -1,10 +1,10 @@
 import type {
 	GraphiteBranchTopology,
 	GraphiteTopologyParseDiagnostics,
-} from "@sdl/core/graphite-metadata";
+} from "@sdl/graphite/metadata";
 import { describe, expect, it } from "vitest";
 
-import { fakeStackGraphInfo, fakeStackInfo } from "../../src/gateways/fakes/gt.ts";
+import { fakeStackGraphInfo, fakeStackInfo } from "@sdl/graphite/testing";
 import {
 	parseJsonOutput,
 	runScenario,

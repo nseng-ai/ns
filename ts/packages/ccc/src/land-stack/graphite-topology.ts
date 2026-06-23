@@ -10,7 +10,7 @@ import {
 	walkGraphiteSubtree,
 	type GraphiteTopology,
 	type GraphiteForkViolation,
-} from "@sdl/core/graphite-metadata";
+} from "@sdl/graphite/metadata";
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import { GIT_TIMEOUT_MS, SQLITE_TIMEOUT_MS } from "./constants.ts";
 import {
@@ -22,7 +22,7 @@ import {
 } from "./errors.ts";
 import type { LandStackExtensionAPI } from "./types.ts";
 
-export type { GraphiteTopology } from "@sdl/core/graphite-metadata";
+export type { GraphiteTopology } from "@sdl/graphite/metadata";
 
 export type ForkViolation = GraphiteForkViolation;
 

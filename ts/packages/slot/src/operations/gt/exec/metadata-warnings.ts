@@ -1,8 +1,4 @@
-import type {
-	ChildrenCorruption,
-	TrunkMarkerStatus,
-	WalkTermination,
-} from "../../../gateways/gt.ts";
+import type { ChildrenCorruption, TrunkMarkerStatus, WalkTermination } from "@sdl/graphite/stack";
 
 export type GraphiteWalkKind = "ancestor" | "descendant";
 export type GraphiteWalkLabel = "walk" | "selection";

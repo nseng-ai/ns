@@ -16,8 +16,7 @@
     "./trunk-pull": "./src/trunk-pull.ts",
     "./objective-stack-impl": "./src/objective-stack-impl.ts",
     "./branch-context-up-and-impl": "./src/branch-context-up-and-impl.ts",
-    "./worktree-status": "./src/worktree-status.ts",
-    "./worktree-status/graphite-metadata": "./src/worktree-status/graphite-metadata.ts"
+    "./worktree-status": "./src/worktree-status.ts"
   },
   "scripts": {
     "check": "tsgo -p tsconfig.json",
@@ -30,7 +29,8 @@
     "@sdl/branch-context": "workspace:*",
     "@sdl/plans": "workspace:*",
     "@sdl/sdl": "workspace:*",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@sdl/graphite": "workspace:*"
   },
   "devDependencies": {}
 }

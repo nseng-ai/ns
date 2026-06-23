@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { RealSlotGtGateway } from "../../src/gateways/gt.ts";
+import { RealGraphiteStackGateway } from "@sdl/graphite/stack";
 import { FakeSlotRepositoryGateway } from "../../src/gateways/fakes/repository.ts";
 
 interface MetadataRow {
@@ -18,7 +18,7 @@ interface MetadataRow {
 const canRunSqlite = spawnSync("sqlite3", ["--version"], { encoding: "utf8" }).status === 0;
 const sqliteIt = canRunSqlite ? it : it.skip;
 
-describe("RealSlotGtGateway sqlite metadata integration", () => {
+describe("RealGraphiteStackGateway sqlite metadata integration", () => {
 	sqliteIt("reads a happy linear stack through a real sqlite metadata DB", async () => {
 		await withMetadataDb(
 			{
@@ -62,7 +62,7 @@ describe("RealSlotGtGateway sqlite metadata integration", () => {
 
 async function withMetadataDb(
 	options: { currentBranch: string; rows: readonly MetadataRow[] },
-	run: (context: { gateway: RealSlotGtGateway; commonDir: string }) => Promise<void>,
+	run: (context: { gateway: RealGraphiteStackGateway; commonDir: string }) => Promise<void>,
 ): Promise<void> {
 	await withTempDir(async (commonDir) => {
 		createMetadataDb(join(commonDir, ".graphite_metadata.db"), options.rows);
@@ -70,8 +70,8 @@ async function withMetadataDb(
 	});
 }
 
-function gatewayFor(commonDir: string, currentBranch: string): RealSlotGtGateway {
-	return new RealSlotGtGateway({
+function gatewayFor(commonDir: string, currentBranch: string): RealGraphiteStackGateway {
+	return new RealGraphiteStackGateway({
 		git: new FakeSlotRepositoryGateway({
 			gitCommonDir: commonDir,
 			worktrees: [{ path: "/repo", branch: currentBranch }],

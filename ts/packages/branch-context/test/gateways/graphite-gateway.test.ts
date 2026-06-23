@@ -2,9 +2,9 @@ import { describe, expect, test } from "vitest";
 
 import type { ExecResult } from "@sdl/core/exec";
 import { ScriptedQueue } from "@sdl/core/testing";
-import { RealBranchContextGraphiteGateway } from "../../src/graphite-gateway.ts";
+import { RealGraphiteBranchGateway } from "@sdl/graphite/branch";
 import type { CommandExecApi, ExecOptions } from "@sdl/core/exec";
-import { InMemoryBranchContextGraphiteGateway } from "../support/in-memory-graphite-gateway.ts";
+import { InMemoryGraphiteBranchGateway } from "@sdl/graphite/testing";
 
 const ROOT = "/repo";
 const BRANCH = "branch-contexts/branch-scoped-plan";
@@ -88,7 +88,7 @@ function trackArgs(branch = BRANCH, parentBranch = PARENT_BRANCH): string[] {
 
 describe("in-memory branch-context graphite gateway", () => {
 	test("records trackedness checks and succeeds by default", async () => {
-		const graphite = new InMemoryBranchContextGraphiteGateway();
+		const graphite = new InMemoryGraphiteBranchGateway();
 
 		expect(await graphite.checkBranchTracked({ cwd: ROOT, branch: PARENT_BRANCH })).toEqual({
 			ok: true,
@@ -98,7 +98,7 @@ describe("in-memory branch-context graphite gateway", () => {
 	});
 
 	test("returns configured untracked branch checks", async () => {
-		const graphite = new InMemoryBranchContextGraphiteGateway({
+		const graphite = new InMemoryGraphiteBranchGateway({
 			untrackedBranches: [PARENT_BRANCH],
 			untrackedDetail: "untracked parent",
 		});
@@ -112,7 +112,7 @@ describe("in-memory branch-context graphite gateway", () => {
 	});
 
 	test("records track calls and succeeds by default", async () => {
-		const graphite = new InMemoryBranchContextGraphiteGateway();
+		const graphite = new InMemoryGraphiteBranchGateway();
 
 		expect(
 			await graphite.trackBranch({ cwd: ROOT, branch: BRANCH, parentBranch: PARENT_BRANCH }),
@@ -123,7 +123,7 @@ describe("in-memory branch-context graphite gateway", () => {
 	});
 
 	test("returns configured track failures", async () => {
-		const graphite = new InMemoryBranchContextGraphiteGateway({
+		const graphite = new InMemoryGraphiteBranchGateway({
 			trackFailure: { code: "graphite_track_failed", message: "Graphite failed." },
 		});
 
@@ -142,7 +142,7 @@ describe("in-memory branch-context graphite gateway", () => {
 describe("real branch-context graphite gateway", () => {
 	test("preserves trackedness command protocol", async () => {
 		const commands = new ScriptedCommands([step("gt", infoArgs())]);
-		const graphite = new RealBranchContextGraphiteGateway(commands);
+		const graphite = new RealGraphiteBranchGateway(commands);
 
 		expect(await graphite.checkBranchTracked({ cwd: ROOT, branch: PARENT_BRANCH })).toEqual({
 			ok: true,
@@ -157,7 +157,7 @@ describe("real branch-context graphite gateway", () => {
 	test("threads AbortSignal into the trackedness command", async () => {
 		const controller = new AbortController();
 		const commands = new ScriptedCommands([step("gt", infoArgs())]);
-		const graphite = new RealBranchContextGraphiteGateway(commands);
+		const graphite = new RealGraphiteBranchGateway(commands);
 
 		expect(
 			await graphite.checkBranchTracked({
@@ -181,7 +181,7 @@ describe("real branch-context graphite gateway", () => {
 				stderr: `ERROR: Cannot perform this operation on untracked branch ${PARENT_BRANCH}`,
 			}),
 		]);
-		const graphite = new RealBranchContextGraphiteGateway(commands);
+		const graphite = new RealGraphiteBranchGateway(commands);
 
 		const result = await graphite.checkBranchTracked({ cwd: ROOT, branch: PARENT_BRANCH });
 
@@ -198,7 +198,7 @@ describe("real branch-context graphite gateway", () => {
 		const commands = new ScriptedCommands([
 			errorStep("gt", infoArgs(), new Error("spawn gt ENOENT")),
 		]);
-		const graphite = new RealBranchContextGraphiteGateway(commands);
+		const graphite = new RealGraphiteBranchGateway(commands);
 
 		const result = await graphite.checkBranchTracked({ cwd: ROOT, branch: PARENT_BRANCH });
 
@@ -213,7 +213,7 @@ describe("real branch-context graphite gateway", () => {
 
 	test("preserves track command protocol", async () => {
 		const commands = new ScriptedCommands([step("gt", trackArgs())]);
-		const graphite = new RealBranchContextGraphiteGateway(commands);
+		const graphite = new RealGraphiteBranchGateway(commands);
 
 		expect(
 			await graphite.trackBranch({ cwd: ROOT, branch: BRANCH, parentBranch: PARENT_BRANCH }),
@@ -227,7 +227,7 @@ describe("real branch-context graphite gateway", () => {
 	test("threads AbortSignal into the track command", async () => {
 		const controller = new AbortController();
 		const commands = new ScriptedCommands([step("gt", trackArgs())]);
-		const graphite = new RealBranchContextGraphiteGateway(commands);
+		const graphite = new RealGraphiteBranchGateway(commands);
 
 		expect(
 			await graphite.trackBranch({
@@ -249,7 +249,7 @@ describe("real branch-context graphite gateway", () => {
 		const commands = new ScriptedCommands([
 			step("gt", trackArgs(), { code: 2, stderr: "parent branch is not tracked" }),
 		]);
-		const graphite = new RealBranchContextGraphiteGateway(commands);
+		const graphite = new RealGraphiteBranchGateway(commands);
 
 		const result = await graphite.trackBranch({
 			cwd: ROOT,
@@ -276,7 +276,7 @@ describe("real branch-context graphite gateway", () => {
 
 	test("returns killed track failures with timeout wording", async () => {
 		const commands = new ScriptedCommands([step("gt", trackArgs(), { code: 124, killed: true })]);
-		const graphite = new RealBranchContextGraphiteGateway(commands);
+		const graphite = new RealGraphiteBranchGateway(commands);
 
 		const result = await graphite.trackBranch({
 			cwd: ROOT,
@@ -295,7 +295,7 @@ describe("real branch-context graphite gateway", () => {
 		const commands = new ScriptedCommands([
 			errorStep("gt", trackArgs(), new Error("spawn gt ENOENT")),
 		]);
-		const graphite = new RealBranchContextGraphiteGateway(commands);
+		const graphite = new RealGraphiteBranchGateway(commands);
 
 		const result = await graphite.trackBranch({
 			cwd: ROOT,

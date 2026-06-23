@@ -9,8 +9,14 @@ import {
 	type BrmemCommandErrorInfo,
 	type BrmemPutData,
 } from "@sdl/core/brmem-cli";
-import { formatCommand, formatShellArg } from "@sdl/core/exec";
+import {
+	formatCommand,
+	formatCommandFailure,
+	formatShellArg,
+	isSuccessfulExecResult,
+} from "@sdl/core/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
+import { runGraphiteCommand } from "@sdl/graphite/branch";
 import { sendCommandProgressOrNotify } from "@sdl/pi-extension-runtime/command-ack";
 import {
 	generateBranchSlug,
@@ -195,18 +201,13 @@ export async function createTrackedBranchFromResolvedParent(options: {
 		return { error: `Failed to create branch ${branchName}${context}: ${create.message}` };
 	}
 
-	const track = await runText(pi, cwd, "gt", [
-		"track",
-		branchName,
-		"--parent",
-		parentBranch,
-		"--no-interactive",
-	]);
-	if (!track.ok) {
+	const trackArgs = ["track", branchName, "--parent", parentBranch, "--no-interactive"];
+	const track = await runGraphiteCommand(pi, { cwd, args: trackArgs });
+	if (!isSuccessfulExecResult(track)) {
 		return {
 			error: [
 				`Created git branch ${branchName}, but Graphite tracking failed:`,
-				track.message,
+				formatCommandFailure("gt track failed", formatCommand("gt", trackArgs), track),
 				"The slot/cmux prompt session was not launched.",
 			].join("\n"),
 		};

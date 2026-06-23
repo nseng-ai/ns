@@ -20,7 +20,6 @@
     "./exec": "./src/exec.ts",
     "./github-cli": "./src/github-cli.ts",
     "./github-pr-feedback": "./src/github-pr-feedback/index.ts",
-    "./graphite-metadata": "./src/graphite-metadata.ts",
     "./github-status": "./src/github-status.ts",
     "./stdin": "./src/stdin.ts",
     "./temp-files": "./src/temp-files.ts",

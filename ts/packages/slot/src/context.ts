@@ -5,7 +5,7 @@ import { readStdinLine } from "@sdl/core/stdin";
 
 import { RealClipboardGateway, type ClipboardGateway } from "./gateways/clipboard.ts";
 import { RealSlotRepositoryGateway, type SlotRepositoryGateway } from "./gateways/repository.ts";
-import { RealSlotGtGateway, type SlotGtGateway } from "./gateways/gt.ts";
+import { RealGraphiteStackGateway, type GraphiteStackGateway } from "@sdl/graphite/stack";
 import { RealSlotPrGateway, type SlotPrGateway } from "./gateways/pr.ts";
 import { RealSlotStorageGateway, type SlotStorageGateway } from "./gateways/storage.ts";
 import {
@@ -17,7 +17,7 @@ import {
 export interface SlotCliContext {
 	repo: RepoDiscoveryResult;
 	git: SlotRepositoryGateway;
-	gt: SlotGtGateway;
+	gt: GraphiteStackGateway;
 	pr: SlotPrGateway;
 	storage: SlotStorageGateway;
 	clipboard: ClipboardGateway;
@@ -43,7 +43,7 @@ export async function createRealSlotContext(options: {
 	return {
 		repo,
 		git,
-		gt: new RealSlotGtGateway({ env, git }),
+		gt: new RealGraphiteStackGateway({ env, git }),
 		pr: new RealSlotPrGateway({ cwd: options.cwd, env }),
 		storage: new RealSlotStorageGateway(),
 		clipboard: new RealClipboardGateway({ env }),

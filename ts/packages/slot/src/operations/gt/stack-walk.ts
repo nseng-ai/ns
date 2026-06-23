@@ -2,10 +2,10 @@ import {
 	walkGraphiteAncestors,
 	type GraphiteTopology,
 	type GraphiteWalkTermination,
-} from "@sdl/core/graphite-metadata";
+} from "@sdl/graphite/metadata";
 
 import { deduplicateOrderedStrings } from "../../collections.ts";
-import type { StackInfo } from "../../gateways/gt.ts";
+import type { StackInfo } from "@sdl/graphite/stack";
 
 export interface StackEdge {
 	parent: string;
