@@ -3,7 +3,12 @@ import { describe, expect, test } from "vitest";
 import type { RunnerSubagentDispatcherDependencies } from "../src/runner-subagent/subagent-process.ts";
 import type { RuntimeResultV1 } from "../src/runner-subagent/subagent-runtime.ts";
 import { createRuntimeConfig } from "../src/runner-subagent/subagent-runtime.ts";
-import { RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES } from "../src/runner-subagent.ts";
+import {
+	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,
+	type JsonObject,
+	type RunnerSubagentCompletedResult,
+	type RunnerSubagentStoppedWithoutTerminalResult,
+} from "../src/runner-subagent.ts";
 import thermoCouncilExtension, {
 	BLOCK_THERMO_COUNCIL_REVIEW_TOOL,
 	SUBMIT_THERMO_COUNCIL_REVIEW_TOOL,
@@ -17,6 +22,7 @@ import thermoCouncilExtension, {
 	type ThermoCouncilScope,
 	type ThermoCouncilSeatConfig,
 } from "../src/thermo-council.ts";
+import { reviewerOutcomeFromRunnerResult } from "../src/thermo-council/orchestrator.ts";
 import {
 	FakeSpawnedChildProcess,
 	createFakeRunnerSubagentDispatcher,
@@ -431,6 +437,42 @@ describe("thermo council extension", () => {
 		await running;
 	});
 
+	test("normalizes scalar validation hints in completed reviewer payloads", async () => {
+		const runnerResult: RuntimeResultV1 = {
+			version: 1,
+			kind: "terminal-capture",
+			toolName: SUBMIT_THERMO_COUNCIL_REVIEW_TOOL,
+			status: "completed",
+			input: {
+				summary: "Review complete.",
+				findings: [
+					{
+						id: "1",
+						title: "Duplicated orchestration branching",
+						files: ["src/file.ts"],
+						evidence: "The diff adds parallel branches for the same lifecycle.",
+						problem: "Duplicated branching makes orchestration harder to scan.",
+						proposedFix: "Use one typed lifecycle model.",
+						behaviorRisk: "Low risk if tests cover both modes.",
+						dependencyNotes: "None",
+						confidence: "likely",
+						severity: "high",
+						validationHints: "just ts-test",
+					},
+				],
+				disagreements: [],
+			},
+		};
+		const pi = new FakePi({ execResults: successfulScopeExecResults(), runnerResult });
+		thermoCouncilExtension(pi);
+
+		await pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.handler("origin/master", fakeContext());
+
+		expect(pi.runnerCalls).toHaveLength(4);
+		expect(pi.messages[0]?.content).toContain("## Executive Recommendation");
+		expect(pi.messages[0]?.content).not.toContain("No council seat completed");
+	});
+
 	test("formats malformed completed reviewer payloads without throwing", async () => {
 		const runnerResult: RuntimeResultV1 = {
 			version: 1,
@@ -446,6 +488,107 @@ describe("thermo council extension", () => {
 
 		expect(pi.messages[0]?.content).toContain("No council seat completed");
 		expect(pi.messages[0]?.content).toContain("<root>");
+	});
+
+	test("recovers malformed reviewer payloads from model-repaired final text", async () => {
+		const runner = createFakeRunnerSubagentDispatcher();
+		const pi = new FakePi({ runnerDependencies: runner.dependencies });
+		const running = reviewerOutcomeFromRunnerResult(
+			seat("anthropic-opus", "Anthropic Opus"),
+			malformedCompletedReviewerResult(),
+			{ pi, ctx: fakeContext() },
+		);
+		await waitForSpawnCount(runner.calls, 1);
+		runner.calls[0]?.process.emitStdout(
+			finalAssistantTextEvent(`Here is the repaired payload:\n${repairedReviewJson()}`),
+		);
+		runner.calls[0]?.process.close(0);
+
+		const outcome = await running;
+
+		expect(outcome.type).toBe("completed");
+		if (outcome.type !== "completed") return;
+		expect(outcome.review.findings[0]?.title).toBe("Recovered payload finding");
+		expect(outcome.review.findings[0]?.validationHints).toEqual(["just ts-test"]);
+	});
+
+	test("retries invalid model repairs once through bounded text repair", async () => {
+		const runner = createFakeRunnerSubagentDispatcher();
+		const pi = new FakePi({ runnerDependencies: runner.dependencies });
+		const running = reviewerOutcomeFromRunnerResult(
+			seat("openai-high", "OpenAI High"),
+			malformedCompletedReviewerResult(),
+			{ pi, ctx: fakeContext() },
+		);
+		await waitForSpawnCount(runner.calls, 1);
+		runner.calls[0]?.process.emitStdout(finalAssistantTextEvent("not json"));
+		runner.calls[0]?.process.close(0);
+		await waitForSpawnCount(runner.calls, 2);
+		runner.calls[1]?.process.emitStdout(finalAssistantTextEvent(repairedReviewJson()));
+		runner.calls[1]?.process.close(0);
+
+		const outcome = await running;
+
+		expect(runner.calls).toHaveLength(2);
+		expect(runner.calls[1]?.args.join("\n")).toContain("Your previous repair draft was invalid");
+		expect(runner.calls[1]?.args.join("\n")).toContain("response contains no JSON object");
+		expect(outcome.type).toBe("completed");
+	});
+
+	test("fails malformed reviewer payloads after bounded repair attempts", async () => {
+		const runner = createFakeRunnerSubagentDispatcher();
+		const pi = new FakePi({ runnerDependencies: runner.dependencies });
+		const running = reviewerOutcomeFromRunnerResult(
+			seat("gemini-high", "Gemini High"),
+			malformedCompletedReviewerResult(),
+			{ pi, ctx: fakeContext() },
+		);
+		await waitForSpawnCount(runner.calls, 1);
+		runner.calls[0]?.process.emitStdout(finalAssistantTextEvent("not json"));
+		runner.calls[0]?.process.close(0);
+		await waitForSpawnCount(runner.calls, 2);
+		runner.calls[1]?.process.emitStdout(finalAssistantTextEvent("still not json"));
+		runner.calls[1]?.process.close(0);
+
+		const outcome = await running;
+
+		expect(runner.calls).toHaveLength(2);
+		expect(outcome.type).toBe("failed");
+		if (outcome.type !== "failed") return;
+		expect(outcome.diagnostic).toContain("findings");
+	});
+
+	test("includes runner context when a reviewer stops without terminal capture", async () => {
+		const result = {
+			status: "stopped-without-terminal",
+			elapsedMs: 4_000,
+			progress: {
+				state: "stopped",
+				toolCount: 1,
+				turnCount: 1,
+				elapsedMs: 4_000,
+				launch: {
+					model: { provider: "google", id: "gemini-2.5-pro" },
+					thinkingLevel: "off",
+					observedThinkingLevel: "high",
+					hasModelArg: true,
+					hasThinkingArg: false,
+				},
+			},
+			diagnostic: "Subagent Pi stopped without terminal capture.",
+			stopReason: "stop",
+		} satisfies RunnerSubagentStoppedWithoutTerminalResult;
+
+		const outcome = await reviewerOutcomeFromRunnerResult(
+			seat("gemini-high", "Gemini High"),
+			result,
+		);
+
+		expect(outcome.type).toBe("failed");
+		if (outcome.type !== "failed") return;
+		expect(outcome.diagnostic).toBe(
+			"Subagent Pi stopped without terminal capture (status: stopped-without-terminal; stopReason: stop; turns: 1; tools: 1; model: google/gemini-2.5-pro; thinking: high).",
+		);
 	});
 
 	test("formats malformed blocked reviewer payloads without throwing", async () => {
@@ -709,6 +852,47 @@ function finalAssistantTextEvent(text: string): string {
 				content: [{ type: "text", text }],
 			},
 		],
+	});
+}
+
+function malformedCompletedReviewerResult(): RunnerSubagentCompletedResult<JsonObject> {
+	return {
+		status: "completed",
+		elapsedMs: 1,
+		progress: {
+			state: "stopped",
+			toolCount: 1,
+			turnCount: 1,
+			elapsedMs: 1,
+		},
+		sessionFile: "/tmp/malformed-reviewer.jsonl",
+		terminal: {
+			toolName: SUBMIT_THERMO_COUNCIL_REVIEW_TOOL,
+			status: "completed",
+			input: { findings: [{ title: "missing required fields" }] },
+		},
+	};
+}
+
+function repairedReviewJson(): string {
+	return JSON.stringify({
+		summary: "Recovered review.",
+		findings: [
+			{
+				id: "recovered-1",
+				title: "Recovered payload finding",
+				files: ["src/file.ts"],
+				evidence: "The malformed payload contained this finding title.",
+				problem: "The reviewer payload needed schema repair.",
+				proposedFix: "Normalize the malformed payload through repair validation.",
+				behaviorRisk: "Low risk when schema validation accepts the repaired payload.",
+				dependencyNotes: "None",
+				confidence: "likely",
+				severity: "medium",
+				validationHints: "just ts-test",
+			},
+		],
+		disagreements: [],
 	});
 }
 
