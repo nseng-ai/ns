@@ -8,7 +8,7 @@ import {
 	truncateDisplayLine,
 } from "@sdl/pi-extension-runtime/terminal-presentation";
 import { commandStreamOutputLines, normalizeCommandFinish } from "./command-exec.ts";
-import { COMMAND_STREAM_MESSAGE_TYPE } from "./constants.ts";
+import { COMMAND_STREAM_MESSAGE_TYPE, STATUS_KEY } from "./constants.ts";
 import type {
 	CommandStreamMessageDetails,
 	CustomMessage,
@@ -27,19 +27,32 @@ interface AppendCommandStreamMessageOptions {
 	level?: NotifyLevel;
 }
 
+interface LandStackCommandStreamOptions {
+	mirrorFinishedCommandsToNonUi?: boolean;
+}
+
 export class LandStackCommandStream {
 	private readonly pi: LandStackExtensionAPI;
 	private readonly ctx: LandStackCommandContext;
+	private readonly mirrorFinishedCommandsToNonUi: boolean;
 
-	constructor(pi: LandStackExtensionAPI, ctx: LandStackCommandContext) {
+	constructor(
+		pi: LandStackExtensionAPI,
+		ctx: LandStackCommandContext,
+		options: LandStackCommandStreamOptions = {},
+	) {
 		this.pi = pi;
 		this.ctx = ctx;
+		this.mirrorFinishedCommandsToNonUi = options.mirrorFinishedCommandsToNonUi ?? true;
 	}
 
-	start(_commandDisplay: string): void {
-		// The active operation is already reflected in the status line. Only completed
-		// command results are appended to chat so the log scrolls naturally instead of
-		// pinning a rewritten widget above the editor.
+	start(commandDisplay: string): void {
+		// Keep active subprocess visibility transient. Completed command results are
+		// appended separately, so the chat log does not pin a rewritten widget above
+		// the editor while a long-running Graphite/GitHub command is still pending.
+		if (this.ctx.hasUI) {
+			this.ctx.ui.setStatus(STATUS_KEY, `land: running ${commandDisplay}...`);
+		}
 	}
 
 	finish(commandDisplay: string, finish: { result: ExecResult; note?: string }): void {
@@ -57,7 +70,7 @@ export class LandStackCommandStream {
 		}
 		this.append({
 			message: lines.join("\n"),
-			shouldMirrorToNonUi: true,
+			shouldMirrorToNonUi: this.mirrorFinishedCommandsToNonUi,
 			level: result.code === 0 ? "info" : "error",
 		});
 	}
@@ -104,7 +117,7 @@ export function withCommandStreaming(
 	pi: LandStackExtensionAPI,
 	commandStream: LandStackCommandStream,
 ): LandStackExtensionAPI {
-	return {
+	const wrapped: LandStackExtensionAPI = {
 		async exec(command, args, options) {
 			const commandDisplay = formatCommandForDisplay(command, args);
 			commandStream.start(commandDisplay);
@@ -126,6 +139,17 @@ export function withCommandStreaming(
 			}
 		},
 	};
+	if (pi.registerMessageRenderer !== undefined) {
+		wrapped.registerMessageRenderer = (customType, renderer) => {
+			pi.registerMessageRenderer?.(customType, renderer);
+		};
+	}
+	if (pi.sendMessage !== undefined) {
+		wrapped.sendMessage = (message, options) => {
+			pi.sendMessage?.(message, options);
+		};
+	}
+	return wrapped;
 }
 
 export function formatCommandForDisplay(command: string, args: readonly string[]): string {

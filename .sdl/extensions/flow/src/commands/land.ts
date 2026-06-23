@@ -16,6 +16,7 @@ export default defineExtension({
 			run: async (ctx, request) => {
 				let stdout = "";
 				let stderr = "";
+				const onOutput = ctx.onOutput;
 				const rawArgs = [
 					request.yes === true ? "--yes" : undefined,
 					request.dryRun === true ? "--dry-run" : undefined,
@@ -27,6 +28,12 @@ export default defineExtension({
 						await ctx.exec(command, args, {
 							cwd: options?.cwd,
 							timeoutMs: options?.timeout,
+							...(onOutput === undefined
+								? {}
+								: {
+										onStdout: (text: string) => onOutput("stdout", text),
+										onStderr: (text: string) => onOutput("stderr", text),
+									}),
 						}),
 					stdout: (text) => {
 						stdout += text;
@@ -36,6 +43,7 @@ export default defineExtension({
 						stderr += text;
 						ctx.stderr?.(text);
 					},
+					...(onOutput === undefined ? {} : { onOutput }),
 					...(ctx.confirm === undefined ? {} : { confirm: ctx.confirm }),
 				});
 				if (exitCode === 0) return ok(stdout === "" ? "Land completed." : "");
