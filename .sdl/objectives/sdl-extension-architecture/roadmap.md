@@ -42,33 +42,78 @@
   - Policy: steer first before creating child Objectives for bundled or sophisticated capability migrations.
   - Evidence: `updates/2026-06-23-command-first-closure-boundary.md` records the final command-first disposition without creating child Objectives or closing this Objective. The update separates public SDK promotion, project-local shared helpers, lower-package delegation, static Pi mirrors, and future bundled-extension or sophisticated-workflow design. It parks dynamic Pi mirrors, bundled first-party extensions, nested command trees, and broader Handoff/Objectives/Slots/Branch Context/Roaster/PR Address/CCC/Pi workflow modeling as explicit follow-up space rather than hidden scope creep.
 
-## Flow shared-code consolidation
+## Flow capability-area consolidation
 
-This track reopens active work to remove duplicated command-author code across the `flow` group. It stays within the internal-migration-export and project-local shared-helper tiers and adds no new public `@sdl/sdl/sdk` surface. See `updates/2026-06-23-flow-shared-code-track.md` for the decision record. The rows below are not a license to ignore `submit.ts` until the final rewrite: every shared seam should be designed against the eventual readable submit delegation, and early extraction may touch or map `submit.ts` when that prevents throwaway helper shapes.
+This track reframes the flow shared-code work from function-level extraction to **capability-area consolidation**: the unit of work is a recurring feature area, not an individual helper. It stays within the internal-migration-export and project-local shared-helper tiers and adds **no** new public `@sdl/sdl/sdk` surface. Public SDK promotion remains deferred (per the Objective's command-first stance and the user's explicit "map readiness only" direction); each area instead carries a tracked SDK-readiness so a future graduation is one steer-first decision away, not a rediscovery. See `updates/2026-06-23-flow-shared-code-track.md` for the originating decision record.
 
-- [ ] Map flow shared seams holistically and extract foundational exec/format/JSON utilities.
+### Maturity ladder
+
+Every flow capability area sits on one rung and the rows below move it toward its target rung:
+
+1. **raw** — command-local logic built directly on kernel primitives (`ctx.exec`, `ctx.textGenerator`, `fs`/`os`/`path`); duplicated per command.
+2. **flow-shared** — extracted into `.sdl/extensions/flow/src/shared/`, consumed by ≥2 flow commands.
+3. **internal-export** — the real implementation lives in a workspace package and is re-exposed through an `@sdl/sdl/*` internal-migration-export subpath, then re-exported via `flow/src/shared/`. This is the ceiling for this track.
+4. **public-sdk** — graduated into `@sdl/sdl/sdk` as author API. **Deferred**; readiness is tracked, promotion is not done here.
+
+The kernel deliberately provides only low-level primitives (`SdlExtensionApi`: `exec`, `textGenerator`, `stdout`/`stderr`/`onOutput`, `confirm`, `env`, `cwd`). Every area below is domain logic layered on top of those primitives, which is why it recurs across commands.
+
+### Capability-area readiness matrix
+
+Durable reference; update the rung/readiness as rows land. "Consumers" lists the flow commands that exercise the area.
+
+| Area                                                                          | Consumers                                                                | Current rung                                                                                                                 | Target rung (this track)                                                     | SDK readiness                                   |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------- |
+| A1 Process exec + evidence                                                    | all                                                                      | public-sdk (`commandSucceeded`/`formatCommandEvidence`) + kernel `exec`; submit still carries a local `spawn`+`commandError` | flow-shared cleanup (fold submit onto kernel `exec` + shared failure-format) | graduated                                       |
+| A2 Git repository ops (snapshot/status/diff/branch/commit)                    | cp, changes, autobranch (via `worktree.ts`); submit, regenerate-pr (raw) | split: flow-shared for some, raw in submit/regenerate-pr                                                                     | one flow-shared git seam consumed by all flow commands                       | high (gateway shape proven ≥3 commands) — defer |
+| A3 GitHub-PR access (`gh pr view`, details, patch-id)                         | submit (own gateway), regenerate-pr (raw)                                | raw, duplicated 2× (real impl in `@sdl/core/submit/github-pr-gateway`)                                                       | internal-export (`@sdl/sdl/github-pr`) + flow-shared, both consumers         | high — defer (steer-first)                      |
+| A4 PR-description generation (managed region, prompt, truncation, validation) | submit, regenerate-pr                                                    | internal-export partial (`@sdl/sdl/pr-description`); submit duplicates                                                       | internal-export, both consumers                                              | medium                                          |
+| A5 Model gen + validate/repair loop                                           | changes, cp, autobranch, submit                                          | internal-export shims (`text-generation.ts`, `text-helpers.ts`) over `@sdl/sdl/*`; loop pattern re-coded per command         | flow-shared generate→validate→repair helper                                  | medium                                          |
+| A6 Graphite/stack ops (`gt submit/restack/branch info/trunk`)                 | submit, autobranch (raw); land (CCC delegation)                          | raw + lower-package delegation                                                                                               | **decision row** — own a flow-shared `gt` seam vs. accept CCC delegation     | uncertain (open question)                       |
+| A7 CCC CLI delegation (exec-adapter + stdio accumulation + exit→ok/fail)      | land, autoslot, pull-trunk                                               | raw, identical 3×                                                                                                            | flow-shared CCC runner helper                                                | low (helper only, never SDK)                    |
+| A8 Checkpoint/worktree snapshot                                               | cp, autobranch (via `worktree.ts`); submit (own)                         | flow-shared, submit not yet a consumer                                                                                       | submit consumes shared seam (folds into A2)                                  | medium (overlaps A2)                            |
+| A9 Scratch/temp prompt + message I/O (`fs`/`os`/`path`/`crypto`)              | submit, regenerate-pr, autobranch                                        | raw; one `mkdtemp` helper in `worktree.ts`                                                                                   | flow-shared scratch helper                                                   | low–medium                                      |
+
+### Sequencing rule
+
+Foundational primitives (A1, A9) first; then the gateways `submit` depends on (A2, A3); then generation/PR-description (A4, A5); then the boilerplate cleanups (A7) and the Graphite ownership call (A6); then the `submit` rewrite that consumes all of them; then docs + matrix update. `submit.ts` is a first-class design input throughout — every seam is shaped against its eventual readable delegation so no throwaway helpers are built.
+
+### Work
+
+- [ ] A1+A9 — Unify exec failure-formatting and scratch I/O foundations.
   - Policy: direct execution after preview for code/tests.
-  - Plan: inventory the repeated shell-quoting/`formatCommand`, output-tail/`stripTerminalEscapes`, and `isRecord`/`formatErrorMessage`/`parseJson` helpers across `regenerate-pr.ts`, `autobranch.ts`, and the `submit.ts` bundle; compare them with existing `@sdl/sdl/sdk`, `@sdl/core`, and `@sdl/core/submit` equivalents; then move the stable shared subset into `.sdl/extensions/flow/src/shared/` in a shape that supports the later readable submit delegation. Evidence target: the initial consumers import the shared helpers, local copies are deleted where safe, the submit bundle has an explicit compatibility/migration map for the helpers it will eventually consume, and SDL scenario/unit coverage for touched commands stays green.
+  - Plan: fold submit's local `spawn` wrapper and `commandError` onto the kernel `ctx.exec` + a single flow-shared command-failure formatter (reuse `formatCommandDetails`/`formatCommandError` already in `worktree.ts` and `@sdl/core/submit/command-failure`); extract the repeated `mkdtemp`/temp-prompt/message-file pattern (submit, regenerate-pr, autobranch) into one `flow/src/shared/scratch.ts` helper. Evidence target: submit no longer imports `node:child_process`; one scratch helper owns temp-file lifecycle; touched-command scenario/unit coverage stays green; submit's eventual consumption is mapped, not deferred.
 
-- [ ] Consolidate PR-description machinery behind shared helpers.
-  - Policy: direct execution after preview for code/tests; ask before mutating real GitHub PR state during validation.
-  - Plan: widen the `@sdl/sdl/pr-description` internal-migration-export subpath to re-expose the existing `@sdl/core/submit` PR-description surface (system prompt, managed-region parse/format, prompt/model resolution, lockfile filter, diff truncation, hash, validation), re-export it through `flow/src/shared/`, and rewrite `regenerate-pr.ts` to consume it while keeping the future submit delegation as the primary compatibility constraint. Evidence target: `regenerate-pr.ts` carries no local PR-description duplication, the shared wrapper names/types line up with `submit.ts`'s eventual replacement path, no new `@sdl/sdl/sdk` surface is added, and `regenerate-pr-cli` plus relevant submit scenario coverage stay green.
-
-- [ ] Introduce a shared GitHub-PR access seam for the flow group.
+- [ ] A2+A8 — Make one Git-ops seam the single source for all flow commands.
   - Policy: gateway-layer direction confirmed with the user; direct execution after preview for code/tests.
-  - Plan: re-expose `@sdl/core/submit`'s `RealGithubPrGateway` (plus `GithubPrDetails`, `PrCommitMessage`, `StablePatchIdForPrResult` types) through an internal-migration-export subpath and `flow/src/shared/`, and design `regenerate-pr` and the readable `submit` replacement as co-equal consumers instead of treating submit as a later afterthought. Evidence target: gh-PR plumbing lives in one shared seam, both consumers' needs are represented in the seam, and the seam stays extension-local with no public SDK promotion.
+  - Plan: promote `worktree.ts` (or a sibling `flow/src/shared/git.ts`) into the canonical git seam — snapshot/status/diff/branch/commit-with-message — and migrate submit and regenerate-pr off their private git runners onto it, collapsing A8 (checkpoint snapshot) into the same seam. Evidence target: no flow command calls `ctx.exec("git", …)` outside the shared seam; cp/changes/autobranch behavior unchanged; submit/regenerate-pr scenario coverage green; seam stays extension-local (readiness noted, no SDK promotion).
 
-- [ ] Consolidate the CCC-CLI delegation boilerplate.
+- [ ] A3 — Introduce one GitHub-PR access seam for the flow group.
+  - Policy: gateway-layer direction confirmed with the user; direct execution after preview for code/tests; ask before mutating real GitHub PR state during validation.
+  - Plan: re-expose `@sdl/core/submit`'s `RealGithubPrGateway` (plus `GithubPrDetails`, `PrCommitMessage`, `StablePatchIdForPrResult`) through an `@sdl/sdl/github-pr` internal-migration-export subpath and `flow/src/shared/`, with `regenerate-pr` and the readable `submit` replacement as co-equal consumers. Evidence target: gh-PR plumbing lives in one seam, both consumers represented, no `@sdl/sdl/sdk` surface added, scenario coverage green.
+
+- [ ] A4 — Consolidate PR-description generation behind the internal-export seam.
+  - Policy: direct execution after preview for code/tests; ask before mutating real GitHub PR state during validation.
+  - Plan: widen the `@sdl/sdl/pr-description` subpath to re-expose the full `@sdl/core/submit` PR-description surface (system prompt, managed-region parse/format, prompt/model resolution, lockfile filter, diff truncation, hash, validation), re-export through `flow/src/shared/`, and rewrite `regenerate-pr.ts` to consume it with submit's eventual delegation as the primary compatibility constraint. Evidence target: `regenerate-pr.ts` carries no local PR-description duplication, shared names/types line up with submit's replacement path, `regenerate-pr-cli` + relevant submit scenario coverage green.
+
+- [ ] A5 — Extract the model generate→validate→repair loop into a flow-shared helper.
   - Policy: direct execution after preview for code/tests.
-  - Plan: extract the identical exec-adapter + stdout/stderr accumulation + `exitCode → ok/failed` pattern in `land.ts`, `pull-trunk.ts`, and `autoslot.ts` into a single `flow/src/shared/` CCC-CLI runner helper. Evidence target: the three commands share one helper, delegation to `@sdl/ccc/*` is unchanged, and their scenario coverage stays green.
+  - Plan: unify the per-command generation loop (model-ref selection, `ctx.textGenerator` call, validation, `@sdl/sdl/text-repair` fallback) that changes/cp/autobranch/submit re-code into one `flow/src/shared/` generation helper layered on the existing `text-generation.ts`/`text-helpers.ts` shims. Evidence target: the four commands share one loop helper, model-ref/env selection behavior unchanged, generation scenario coverage green.
+
+- [ ] A6 — Decide Graphite/stack-ops ownership (decision row).
+  - Policy: **steer-first** — present options before implementing.
+  - Plan: decide whether flow should own a shared `gt` seam (consumed by submit + autobranch) or whether Graphite orchestration stays behind CCC delegation as `land` does. Capture the decision and rationale in an `updates/` record and resolve the matching Open Question. Evidence target: a written disposition; if a seam is chosen, submit/autobranch `gt` calls route through it; if delegation is chosen, the duplication is documented as accepted.
+
+- [ ] A7 — Consolidate CCC-CLI delegation boilerplate.
+  - Policy: direct execution after preview for code/tests.
+  - Plan: extract the identical exec-adapter + stdout/stderr accumulation + `exitCode → ok/failed` pattern in `land.ts`, `pull-trunk.ts`, and `autoslot.ts` into one `flow/src/shared/` CCC-CLI runner helper. Evidence target: the three commands share one helper, delegation to `@sdl/ccc/*` unchanged, scenario coverage green.
 
 - [ ] Replace the checked-in submit bundle with a readable delegating command.
   - Policy: direct execution after preview for implementation; ask before running real submit, restack, push, PR edit, or other external mutations.
-  - Plan: rewrite `flow/src/commands/submit.ts` from the ~3017-line checked-in bundle into a hand-authored command that delegates to `@sdl/core/submit` orchestration (`runSubmitCommand`/`orchestratePrDescription`) via an internal-migration-export subpath plus the shared PR-description/GitHub-PR/exec helpers, mirroring how `land` delegates to `@sdl/ccc/land`. Earlier consolidation rows should reduce the rewrite's risk by having already designed shared seams around submit's needs. Evidence target: `submit.ts` is readable hand-authored source with no inlined bundle, the submit behavior matrix stays covered by faked `git`/`gt`/`gh` scenario tests, and the `.sdl/extensions/AGENTS.md` bundled-artifact liability no longer applies to `flow`.
+  - Plan: rewrite `flow/src/commands/submit.ts` from the ~3017-line bundle into a hand-authored command that delegates to `@sdl/core/submit` orchestration (`runSubmitCommand`/`orchestratePrDescription`) via an internal-migration-export subpath plus the A1–A5 shared seams, mirroring how `land` delegates to `@sdl/ccc/land`. The earlier area rows exist to de-risk this rewrite. Evidence target: `submit.ts` is readable hand-authored source with no inlined bundle, the submit behavior matrix stays covered by faked `git`/`gt`/`gh` scenario tests, and the `.sdl/extensions/AGENTS.md` bundled-artifact liability no longer applies to `flow`.
 
-- [ ] Document the expanded internal-migration-export and shared-helper model.
+- [ ] Document the area model and refresh the readiness matrix.
   - Policy: direct execution after preview; steer-first before any wording that implies new public author API.
-  - Plan: update `.sdl/extensions/AGENTS.md`, the SDK reference, and SDL context language to describe the widened internal-migration-export subpaths and the `flow` shared-helper tier as the consolidation mechanism, and to record that no new public `@sdl/sdl/sdk` surface was promoted in this track. Evidence target: docs/context describe the shared-helper consolidation and explicitly note the deferred public-SDK promotion decision.
+  - Plan: update `.sdl/extensions/AGENTS.md`, the SDK reference, and SDL context language to describe the capability-area / maturity-ladder model and the widened internal-migration-export subpaths; refresh the readiness matrix above with final rungs; record that no new `@sdl/sdl/sdk` surface was promoted and that per-area SDK graduation remains the next steer-first decision. Evidence target: docs/context describe the area model and the deferred-promotion decision; the matrix reflects landed state.
 
 ## Parked
 
