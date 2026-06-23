@@ -3,9 +3,8 @@ import { access, readFile } from "node:fs/promises";
 import { basename, isAbsolute, join, resolve } from "node:path";
 import process from "node:process";
 
-import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
+import { defineExtension, failed, ok, withTemporaryFile, z } from "@sdl/sdl/sdk";
 import { commandFailure } from "../shared/command-output.ts";
-import { withFlowTemporaryFile } from "../shared/scratch.ts";
 import { preparePrDescription } from "../shared/text-helpers.ts";
 import type { ExecResult, SdlExtensionApi } from "@sdl/sdl/sdk";
 
@@ -435,7 +434,7 @@ async function editPr(
   ctx: SdlExtensionApi,
   params: { cwd: string; number: number; title: string; body: string },
 ): Promise<Result<void, CommandFailure>> {
-  return await withFlowTemporaryFile(
+  return await withTemporaryFile(
     { prefix: "sdl-dev-pr-body-", filename: "body.md", contents: `${params.body}\n` },
     async (bodyPath) => {
       const args = [

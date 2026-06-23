@@ -213,6 +213,55 @@ if (!commandSucceeded(status)) {
 }
 ```
 
+### `formatCommand()`
+
+Formats a command plus argv for user-facing display using shell-style quoting.
+
+```ts
+function formatCommand(command: string, args: readonly string[]): string;
+```
+
+**Example.**
+
+```ts
+formatCommand("gh", ["pr", "edit", "12", "--title", "hello world"]);
+// "gh pr edit 12 --title 'hello world'"
+```
+
+### `formatCommandDetails()`
+
+Formats concise command-result details for short command failure messages.
+
+```ts
+function formatCommandDetails(result: Pick<ExecResult, "stdout" | "stderr" | "code" | "killed">): string;
+```
+
+**Description.** Prefers non-empty trimmed stderr, otherwise non-empty trimmed stdout, and includes whether the process was killed or timed out.
+
+**Example.**
+
+```ts
+formatCommandDetails({ stdout: "", stderr: "fatal: nope", code: 128, killed: false });
+// "exit 128: fatal: nope"
+```
+
+### `formatCommandError()`
+
+Combines a short summary with `formatCommandDetails()`.
+
+```ts
+function formatCommandError(
+  summary: string,
+  result: Pick<ExecResult, "stdout" | "stderr" | "code" | "killed">,
+): string;
+```
+
+**Example.**
+
+```ts
+return failed(formatCommandError("Could not read git status.", status));
+```
+
 ### `formatCommandEvidence()`
 
 Formats a uniform, reviewer-facing evidence block describing a command invocation and its result.
@@ -484,6 +533,36 @@ interface ExecResult {
 const log = await ctx.exec("git", ["log", "-1", "--oneline"]);
 if (commandSucceeded(log)) {
   ctx.stdout?.(log.stdout.trim());
+}
+```
+
+### `withTemporaryFile()`
+
+Creates a temporary directory, writes one file inside it, runs a callback with that file path, and removes the directory afterward.
+
+```ts
+function withTemporaryFile<T>(
+  options: TemporaryFileOptions,
+  callback: (path: string) => Promise<T>,
+): Promise<T>;
+```
+
+**Example.**
+
+```ts
+await withTemporaryFile(
+  { prefix: "sdl-message-", filename: "message.md", contents: body },
+  async (path) => await ctx.exec("gh", ["pr", "edit", "--body-file", path]),
+);
+```
+
+### `TemporaryFileOptions`
+
+```ts
+interface TemporaryFileOptions {
+  readonly prefix: string;
+  readonly filename: string;
+  readonly contents: string;
 }
 ```
 

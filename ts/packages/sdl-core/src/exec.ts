@@ -274,6 +274,23 @@ export function commandFailureReason(result: ExecResult): string {
 	return stderr !== "" ? stderr : `exit code ${result.code}${result.killed ? " (killed)" : ""}`;
 }
 
+export function formatCommandError(
+	summary: string,
+	result: Pick<ExecResult, "stdout" | "stderr" | "code" | "killed">,
+): string {
+	return [summary, formatCommandDetails(result)].join("\n");
+}
+
+export function formatCommandDetails(
+	result: Pick<ExecResult, "stdout" | "stderr" | "code" | "killed">,
+): string {
+	const details = firstNonEmptyTrimmed(result.stderr, result.stdout);
+	const killed = result.killed ? " (killed or timed out)" : "";
+	return details === ""
+		? `exit ${result.code}${killed}`
+		: `exit ${result.code}${killed}: ${details}`;
+}
+
 export function formatCommand(command: string, args: readonly string[]): string {
 	return [command, ...args].map(formatShellArg).join(" ");
 }
@@ -332,6 +349,12 @@ export function formatOutputSection(
 function formatCommandEvidenceOutput(output: string): string {
 	if (output === "") return "<empty>";
 	return output.endsWith("\n") ? output.trimEnd() : output;
+}
+
+function firstNonEmptyTrimmed(primary: string, fallback: string): string {
+	const primaryDetails = primary.trim();
+	if (primaryDetails !== "") return primaryDetails;
+	return fallback.trim();
 }
 
 export function formatCommandFailure(

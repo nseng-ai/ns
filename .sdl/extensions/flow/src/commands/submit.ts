@@ -2,9 +2,8 @@
 import { chmod, mkdir, mkdtemp as mkdtemp3, writeFile as writeFile3 } from "node:fs/promises";
 import { join as join4 } from "node:path";
 import process2 from "node:process";
-import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
+import { defineExtension, failed, ok, withTemporaryFile, z } from "@sdl/sdl/sdk";
 import { prepareCheckpointMessage } from "../shared/checkpoint-message.ts";
-import { withFlowTemporaryFile } from "../shared/scratch.ts";
 import { preparePrDescription } from "../shared/text-helpers.ts";
 import { selectCheckpointModelRef } from "../shared/text-generation.ts";
 
@@ -2240,7 +2239,7 @@ class RealGithubPrGateway {
     return resultOk({ patchId, diff: diff.value });
   }
   async editPr(params) {
-    return await withFlowTemporaryFile({ prefix: "sdl-dev-pr-body-", filename: "body.md", contents: `${params.body}
+    return await withTemporaryFile({ prefix: "sdl-dev-pr-body-", filename: "body.md", contents: `${params.body}
 ` }, async (bodyPath) => {
       const args = [
         "pr",
@@ -2342,7 +2341,7 @@ function parseJson(text) {
 }
 // ts/packages/sdl/src/checkpoint-flow.ts
 async function createCommitWithPreparedMessage(input) {
-  return await withFlowTemporaryFile(
+  return await withTemporaryFile(
     { prefix: "pi-cp-commit-", filename: "message.txt", contents: `${input.message}
 ` },
     async (messagePath) => {

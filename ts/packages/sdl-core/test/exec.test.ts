@@ -5,6 +5,8 @@ import {
 	commandSucceeded,
 	execApiToCommandRunner,
 	formatCommand,
+	formatCommandDetails,
+	formatCommandError,
 	formatCommandEvidence,
 	formatCommandResultFailure,
 	formatCommandStartupFailure,
@@ -131,6 +133,29 @@ describe("exec presentation helpers", () => {
 		);
 		expect(formatShellArg("safe:value")).toBe("safe:value");
 		expect(shellQuote("can't")).toBe("'can'\\''t'");
+	});
+
+	test("formats concise command result details", () => {
+		expect(
+			formatCommandDetails({
+				stdout: "fallback",
+				stderr: " fatal: nope\n",
+				code: 1,
+				killed: false,
+			}),
+		).toBe("exit 1: fatal: nope");
+		expect(formatCommandDetails({ stdout: "fallback", stderr: "", code: 2, killed: true })).toBe(
+			"exit 2 (killed or timed out): fallback",
+		);
+		expect(formatCommandDetails({ stdout: "", stderr: "", code: 3, killed: false })).toBe("exit 3");
+		expect(
+			formatCommandError("Could not read git status.", {
+				stdout: "",
+				stderr: "fatal: not a repo",
+				code: 128,
+				killed: false,
+			}),
+		).toBe("Could not read git status.\nexit 128: fatal: not a repo");
 	});
 
 	test("strips terminal ANSI and OSC escapes", () => {

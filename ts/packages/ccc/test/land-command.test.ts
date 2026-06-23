@@ -458,7 +458,11 @@ describe("code land CLI bridge", () => {
 			exitCode = await runLandCli({
 				cwd: ROOT,
 				rawArgs: "--dry-run",
-				exec: async (command, args, options) => await pi.exec(command, args, options),
+				exec: async (command, args, options) =>
+					await pi.exec(command, args, {
+						...(options?.cwd === undefined ? {} : { cwd: options.cwd }),
+						...(options?.timeout === undefined ? {} : { timeout: options.timeout }),
+					}),
 				stdout: (text) => stdout.push(text),
 				stderr: (text) => stderr.push(text),
 			});

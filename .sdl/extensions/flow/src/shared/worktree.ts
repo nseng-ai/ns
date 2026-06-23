@@ -1,9 +1,10 @@
-import type { ExecResult, SdlExtensionApi } from "@sdl/sdl/sdk";
-
-import { formatCommandDetails, formatCommandError } from "./command-output.ts";
-import { withFlowTemporaryFile } from "./scratch.ts";
-
-export { formatCommandDetails, formatCommandError } from "./command-output.ts";
+import {
+  formatCommandDetails,
+  formatCommandError,
+  withTemporaryFile,
+  type ExecResult,
+  type SdlExtensionApi,
+} from "@sdl/sdl/sdk";
 
 const GIT_FACT_TIMEOUT_MS = 30_000;
 
@@ -72,7 +73,7 @@ export async function createCommitWithPreparedMessage(
   ctx: SdlExtensionApi,
   message: string,
 ): Promise<{ summary: string } | { error: string }> {
-  return await withFlowTemporaryFile(
+  return await withTemporaryFile(
     { prefix: "sdl-extension-cp-commit-", filename: "message.txt", contents: `${message}\n` },
     async (messagePath) => {
       const add = await ctx.exec("git", ["add", "-A"], { timeoutMs: 30_000 });

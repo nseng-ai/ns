@@ -2,6 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { formatCommandDetails } from "@sdl/core/exec";
 import { truncateTextHead, truncateTextHeadTail } from "@sdl/core/text-truncation";
 
 import {
@@ -314,12 +315,5 @@ async function generateCheckpointText(
 }
 
 function formatCommandError(summary: string, result: CommandResult): string {
-	const details = result.stderr.trim() || result.stdout.trim();
-	const killed = result.killed ? " (killed or timed out)" : "";
-	return [
-		summary,
-		details ? `exit ${result.code}${killed}: ${details}` : `exit ${result.code}${killed}`,
-	]
-		.filter(Boolean)
-		.join("\n");
+	return [summary, formatCommandDetails({ ...result, killed: result.killed ?? false })].join("\n");
 }

@@ -1,3 +1,5 @@
+import { formatCommandDetails } from "@sdl/core/exec";
+
 const GIT_FACT_TIMEOUT_MS = 30_000;
 
 export interface WorktreeCommandResult {
@@ -74,7 +76,5 @@ export async function loadPendingWorktreeSnapshot(input: {
 }
 
 export function formatPendingWorktreeCommandDetails(result: WorktreeCommandResult): string {
-	const details = result.stderr.trim() || result.stdout.trim();
-	const killed = result.killed ? " (killed or timed out)" : "";
-	return details ? `exit ${result.code}${killed}: ${details}` : `exit ${result.code}${killed}`;
+	return formatCommandDetails({ ...result, killed: result.killed ?? false });
 }
