@@ -1,7 +1,7 @@
 import { formatCommand, type ExecResult } from "@sdl/core/exec";
+import { GRAPHITE_COMMAND_NAME } from "@sdl/graphite/branch";
 import {
 	exec,
-	execRaw,
 	execGraphite,
 	execRawGraphite,
 	normalizeCommandFinish,
@@ -614,7 +614,6 @@ async function performGraphiteMaintenance(
 						options,
 						repoRoot,
 						getCommandDisplay,
-						"gt",
 						getArgs,
 					)
 				: {
@@ -845,22 +844,29 @@ async function runOptionalDescendantGraphiteCommand(
 	options: { commandStream?: LandStackCommandStream; unstreamedPi?: LandStackExtensionAPI },
 	repoRoot: string,
 	commandDisplay: string,
-	command: string,
 	args: string[],
 ): Promise<OptionalDescendantGraphiteCommandResult> {
 	if (!options.commandStream || !options.unstreamedPi) {
-		const result = await exec(pi, command, args, repoRoot, GT_MUTATION_TIMEOUT_MS);
+		const result = await execGraphite(pi, {
+			args,
+			cwd: repoRoot,
+			timeoutMs: GT_MUTATION_TIMEOUT_MS,
+		});
 		return optionalGraphiteCommandResult(result, parseOptionalCheckoutConflict(result));
 	}
 
 	options.commandStream.start(commandDisplay);
-	const raw = await execRaw(options.unstreamedPi, command, args, repoRoot, GT_MUTATION_TIMEOUT_MS);
+	const raw = await execRawGraphite(options.unstreamedPi, {
+		args,
+		cwd: repoRoot,
+		timeoutMs: GT_MUTATION_TIMEOUT_MS,
+	});
 	const rawCheckoutConflict = parseOptionalCheckoutConflict(raw);
 	if (rawCheckoutConflict) {
 		return optionalGraphiteCommandResult(raw, rawCheckoutConflict);
 	}
 
-	const finish = normalizeCommandFinish(command, args, raw);
+	const finish = normalizeCommandFinish(GRAPHITE_COMMAND_NAME, args, raw);
 	options.commandStream.finish(commandDisplay, finish);
 	return optionalGraphiteCommandResult(finish.result, parseOptionalCheckoutConflict(finish.result));
 }
@@ -1021,7 +1027,7 @@ async function deleteFinalLocalGraphiteBranch(
 		cwd: repoRoot,
 		timeoutMs: GT_MUTATION_TIMEOUT_MS,
 	});
-	const finish = normalizeCommandFinish("gt", deleteArgs, result);
+	const finish = normalizeCommandFinish(GRAPHITE_COMMAND_NAME, deleteArgs, result);
 	if (finish.result.code === 0) {
 		commandStream.finish(commandDisplay, finish);
 		return { kind: "deleted" };

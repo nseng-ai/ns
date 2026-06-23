@@ -1,3 +1,5 @@
+export type { PrewrittenPrMetadata } from "@sdl/core/submit";
+
 export {
 	RealSubmitGateway,
 	runSubmitCommand,
@@ -29,7 +31,6 @@ export {
 	parseParentBranch,
 	prepareSubmitPrMetadata,
 	type ParsedGtLogStack,
-	type PreparedSubmitPrMetadata,
 	type SubmitMetadataCommandParams,
 	type SubmitMetadataGateway,
 	type SubmitPrMetadataPrewriteResult,

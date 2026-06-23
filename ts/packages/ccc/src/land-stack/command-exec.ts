@@ -1,6 +1,8 @@
 import {
+	execApiToCommandRunner,
 	formatOutputSection,
 	normalizeExecResult,
+	piExecApiToCommandExecApi,
 	stripTerminalEscapes,
 	tailText,
 	type ExecResult,
@@ -69,7 +71,7 @@ export async function execRawGraphite(
 	options: ExecGraphiteOptions,
 ): Promise<ExecResult> {
 	try {
-		return normalizeExecResult(await runGraphiteCommand(pi, options));
+		return await runGraphiteCommand(execApiToCommandRunner(piExecApiToCommandExecApi(pi)), options);
 	} catch (error) {
 		return {
 			stdout: "",

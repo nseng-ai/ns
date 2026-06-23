@@ -9,13 +9,9 @@ import type { MaybePromise } from "@sdl/core/primitives";
 
 import { commandFailure } from "@sdl/core/submit";
 import { formatItemCount } from "@sdl/core/submit";
-import type { PrCommitMessage } from "@sdl/core/submit";
+import type { PrewrittenPrMetadata, PrCommitMessage } from "@sdl/core/submit";
 import { extractPrLinks, type SubmitPrLink } from "./gt-output.ts";
-import {
-	preparePrDescription,
-	resolvePrDescriptionGeneration,
-	type PromptSource,
-} from "@sdl/core/submit";
+import { preparePrDescription, resolvePrDescriptionGeneration } from "@sdl/core/submit";
 import { err, ok, type ErrorInfo, type GatewayResult } from "@sdl/core/submit";
 import type { TextGenerator } from "@sdl/core/submit";
 
@@ -80,17 +76,8 @@ export interface SubmitMetadataGateway {
 	}): Promise<GatewayResult<void>>;
 }
 
-export interface PreparedSubmitPrMetadata {
-	branch: string;
-	parentBranch: string;
-	title: string;
-	body: string;
-	commitRange: string;
-	promptSource: PromptSource;
-}
-
 export type SubmitPrMetadataPrewriteResult =
-	| { kind: "prepared"; prepared: PreparedSubmitPrMetadata[] }
+	| { kind: "prepared"; prepared: PrewrittenPrMetadata[] }
 	| { kind: "failed"; error: string; exitCode?: number; amendedBranches: string[] };
 
 export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
@@ -431,7 +418,7 @@ async function generateMetadataForBranches(input: {
 	branches: readonly SubmitStackNewBranch[];
 	onProgress?: SubmitMetadataProgressListener;
 }): Promise<
-	| { kind: "prepared"; prepared: PreparedSubmitPrMetadata[] }
+	| { kind: "prepared"; prepared: PrewrittenPrMetadata[] }
 	| { kind: "failed"; error: string; exitCode?: number }
 > {
 	const generation = await resolvePrDescriptionGeneration({
@@ -447,7 +434,7 @@ async function generateMetadataForBranches(input: {
 		};
 	}
 
-	const prepared: PreparedSubmitPrMetadata[] = [];
+	const prepared: PrewrittenPrMetadata[] = [];
 	for (const [index, branch] of input.branches.entries()) {
 		input.onProgress?.(
 			`generating initial PR metadata for ${branch.branch} (${index + 1}/${input.branches.length})`,

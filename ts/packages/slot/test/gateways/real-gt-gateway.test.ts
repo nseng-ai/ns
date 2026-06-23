@@ -2,13 +2,14 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY } from "@sdl/graphite/metadata";
 import {
-	RealGraphiteStackGateway,
+	GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY,
 	type GraphiteMetadataDbAccess,
-	type GraphiteMetadataJsonQueryResult,
-	type GtCommandFailure,
-} from "@sdl/graphite/stack";
+	type SqliteJsonError,
+	type SqliteJsonOutcome,
+} from "@sdl/graphite/metadata";
+import { RealGraphiteStackGateway } from "@sdl/graphite/stack";
+import { resultErr, resultOk } from "@sdl/core/result";
 import { FakeSlotRepositoryGateway } from "../../src/gateways/fakes/repository.ts";
 
 interface MetadataRow {
@@ -85,7 +86,7 @@ describe("RealGraphiteStackGateway stack metadata adapter", () => {
 		const { gateway } = gatewayWithMetadata({
 			currentBranch: "feature/a",
 			rows: [trunk("master")],
-			schema: { type: "success", data: [{ name: "branch_name" }] },
+			schema: resultOk([{ name: "branch_name" }]),
 		});
 
 		await expect(gateway.stack("/repo")).resolves.toMatchObject({
@@ -275,7 +276,7 @@ describe("RealGraphiteStackGateway stack metadata adapter", () => {
 	it("reports non-array metadata rows", async () => {
 		const { gateway } = gatewayWithMetadata({
 			currentBranch: "master",
-			rows: { type: "success", data: {} },
+			rows: resultOk({}),
 		});
 
 		await expect(gateway.stack("/repo")).resolves.toMatchObject({
@@ -356,16 +357,16 @@ function trunk(
 
 function gatewayWithMetadata(options: {
 	currentBranch: string;
-	rows: readonly MetadataRow[] | GraphiteMetadataJsonQueryResult;
+	rows: readonly MetadataRow[] | SqliteJsonOutcome;
 	exists?: boolean | undefined;
-	schema?: GraphiteMetadataJsonQueryResult | undefined;
+	schema?: SqliteJsonOutcome | undefined;
 }): { gateway: RealGraphiteStackGateway; dbAccess: FakeGraphiteMetadataDbAccess } {
-	const rows: GraphiteMetadataJsonQueryResult = isMetadataRows(options.rows)
-		? { type: "success", data: options.rows }
+	const rows: SqliteJsonOutcome = isMetadataRows(options.rows)
+		? resultOk(options.rows)
 		: options.rows;
 	const dbAccess = new FakeGraphiteMetadataDbAccess({
 		exists: options.exists ?? true,
-		schema: options.schema ?? { type: "success", data: expectedSchemaRows },
+		schema: options.schema ?? resultOk(expectedSchemaRows),
 		rows,
 	});
 	return {
@@ -381,28 +382,45 @@ function gatewayWithMetadata(options: {
 }
 
 function isMetadataRows(
-	value: readonly MetadataRow[] | GraphiteMetadataJsonQueryResult,
+	value: readonly MetadataRow[] | SqliteJsonOutcome,
 ): value is readonly MetadataRow[] {
 	return Array.isArray(value);
 }
 
-function failureResult(
-	message: string,
-	returnCode: number | null = null,
-): GraphiteMetadataJsonQueryResult {
-	return { type: "failure", failure: { message, returnCode } satisfies GtCommandFailure };
+function failureResult(message: string, returnCode: number | null = null): SqliteJsonOutcome {
+	return resultErr(sqliteErrorFromStackFailure(message, returnCode));
+}
+
+function sqliteErrorFromStackFailure(message: string, returnCode: number | null): SqliteJsonError {
+	if (message === "sqlite3 command not found while reading Graphite metadata") {
+		return {
+			type: "command-missing",
+			code: "sqlite-command-missing",
+			message: "sqlite3 command not found",
+		};
+	}
+	if (message === "Graphite metadata sqlite output was not valid JSON") {
+		return {
+			type: "invalid-json",
+			code: "sqlite-invalid-json",
+			message: "sqlite3 output was not valid JSON",
+		};
+	}
+	return {
+		type: "nonzero-exit",
+		code: "sqlite-nonzero-exit",
+		message: "sqlite3 exited with a nonzero status",
+		status: returnCode,
+		stderr: message,
+	};
 }
 
 class FakeGraphiteMetadataDbAccess implements GraphiteMetadataDbAccess {
 	private readonly hasMetadataDb: boolean;
-	private readonly schema: GraphiteMetadataJsonQueryResult;
-	private readonly rows: GraphiteMetadataJsonQueryResult;
+	private readonly schema: SqliteJsonOutcome;
+	private readonly rows: SqliteJsonOutcome;
 
-	constructor(options: {
-		exists: boolean;
-		schema: GraphiteMetadataJsonQueryResult;
-		rows: GraphiteMetadataJsonQueryResult;
-	}) {
+	constructor(options: { exists: boolean; schema: SqliteJsonOutcome; rows: SqliteJsonOutcome }) {
 		this.hasMetadataDb = options.exists;
 		this.schema = options.schema;
 		this.rows = options.rows;
@@ -412,7 +430,7 @@ class FakeGraphiteMetadataDbAccess implements GraphiteMetadataDbAccess {
 		return this.hasMetadataDb;
 	}
 
-	queryJson(_dbPath: string, query: string): GraphiteMetadataJsonQueryResult {
+	queryJson(_dbPath: string, query: string): SqliteJsonOutcome {
 		if (query === GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY) return this.schema;
 		return this.rows;
 	}
