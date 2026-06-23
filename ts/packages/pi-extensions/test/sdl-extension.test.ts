@@ -15,6 +15,7 @@ type FlowCommandName =
 	| "changes"
 	| "cp"
 	| "autobranch"
+	| "branch-latest-commit"
 	| "autoslot"
 	| "submit"
 	| "regenerate-pr"
@@ -26,6 +27,7 @@ const FLOW_COMMANDS = [
 	"changes",
 	"cp",
 	"autobranch",
+	"branch-latest-commit",
 	"autoslot",
 	"submit",
 	"regenerate-pr",
@@ -165,6 +167,9 @@ describe("sdl Pi extension", () => {
 		}
 		expect(pi.commands.get("sdl:flow:cp")?.description).toBe(
 			"sdl flow cp: Create a checkpoint commit for the current diff.",
+		);
+		expect(pi.commands.get("sdl:flow:branch-latest-commit")?.description).toBe(
+			"sdl flow branch-latest-commit: Move the latest eligible commit to a new Graphite child branch.",
 		);
 		expect(pi.commands.get("sdl:flow:autoslot")?.description).toContain("managed slot worktree");
 		expect(pi.commands.get("sdl:flow:land")?.description).toBe(

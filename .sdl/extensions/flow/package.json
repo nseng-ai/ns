@@ -18,6 +18,11 @@
         "entry": "./src/commands/autobranch.ts"
       },
       {
+        "name": "branch-latest-commit",
+        "description": "Move the latest eligible commit to a new Graphite child branch.",
+        "entry": "./src/commands/autobranch.ts"
+      },
+      {
         "name": "autoslot",
         "description": "Create a Graphite branch from current work, then move it into a managed slot worktree.",
         "entry": "./src/commands/autoslot.ts"
