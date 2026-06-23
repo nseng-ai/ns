@@ -69,6 +69,19 @@ describe("sdl flow push CLI", () => {
 		expect(topHelp.stderr.join("")).toBe("");
 	});
 
+	test("project-local flow package appears as a group in root help", async () => {
+		const cwd = await createPushProject();
+
+		const rootHelp = runWithFakes({ args: ["--help"], state: { exec: [] }, cwd });
+		expect(await rootHelp.exit).toBe(0);
+		const help = rootHelp.stdout.join("");
+		expect(help).toContain("flow");
+		expect(help).toContain("SDL flow commands.");
+		expect(help).not.toContain("push [options]");
+		expect(help).not.toContain("pull-trunk [options]");
+		expect(rootHelp.stderr.join("")).toBe("");
+	});
+
 	test("project-local push extension appears in help and selected schema", async () => {
 		const cwd = await createPushProject();
 

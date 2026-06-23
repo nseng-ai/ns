@@ -406,6 +406,7 @@ function sourceLevelRank(level: ExtensionSourceLevel): number {
 
 function staticCommandInfo(candidate: ExtensionCommandCandidate): SdlCommandCliInfo {
 	return {
+		...(candidate.group === undefined ? {} : { group: candidate.group }),
 		name: candidate.name,
 		description: candidate.description,
 		fullDescription: candidate.fullDescription,
