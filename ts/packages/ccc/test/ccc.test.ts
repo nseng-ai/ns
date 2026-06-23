@@ -968,7 +968,7 @@ describe("CCC cmux command suite", () => {
 						"",
 					].join("\n"),
 				}),
-				step("git", ["pull", "--ff-only", "origin", TRUNK_BRANCH], {}),
+				step("git", ["pull", "origin", TRUNK_BRANCH], {}),
 				step("git", ["rev-parse", TRUNK_BRANCH], { stdout: `${START_POINT}\n` }),
 				step(
 					"pi",
