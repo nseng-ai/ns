@@ -20,8 +20,10 @@ import type {
 	RenderTheme,
 } from "./types.ts";
 
-interface AppendOptions {
-	mirrorToNonUi?: boolean;
+interface AppendCommandStreamMessageOptions {
+	message: string;
+	details?: CommandStreamMessageDetails;
+	shouldMirrorToNonUi?: boolean;
 	level?: NotifyLevel;
 }
 
@@ -53,32 +55,34 @@ export class LandStackCommandStream {
 		if (result.code !== 0) {
 			lines.push(...commandStreamOutputLines(result));
 		}
-		this.append(lines.join("\n"), undefined, {
-			mirrorToNonUi: true,
+		this.append({
+			message: lines.join("\n"),
+			shouldMirrorToNonUi: true,
 			level: result.code === 0 ? "info" : "error",
 		});
 	}
 
 	finishSuccess(message: string, details?: CommandStreamMessageDetails): void {
-		this.append(formatCommandStreamBlock("✓", message), details);
+		this.append({
+			message: formatCommandStreamBlock("✓", message),
+			...(details === undefined ? {} : { details }),
+		});
 	}
 
 	finishFailure(message: string): void {
-		this.append(formatCommandStreamBlock("✗", message));
+		this.append({ message: formatCommandStreamBlock("✗", message) });
 	}
 
 	note(message: string): void {
-		this.append(formatCommandStreamBlock("→", message), undefined, {
-			mirrorToNonUi: true,
+		this.append({
+			message: formatCommandStreamBlock("→", message),
+			shouldMirrorToNonUi: true,
 			level: "info",
 		});
 	}
 
-	private append(
-		message: string,
-		details?: CommandStreamMessageDetails,
-		options: AppendOptions = {},
-	): void {
+	private append(options: AppendCommandStreamMessageOptions): void {
+		const { message, details } = options;
 		if (this.ctx.hasUI && this.pi.sendMessage) {
 			const customMessage: CustomMessage = {
 				customType: COMMAND_STREAM_MESSAGE_TYPE,
@@ -90,7 +94,7 @@ export class LandStackCommandStream {
 			}
 			this.pi.sendMessage(customMessage);
 		}
-		if (!this.ctx.hasUI && options.mirrorToNonUi === true) {
+		if (!this.ctx.hasUI && options.shouldMirrorToNonUi === true) {
 			this.ctx.ui.notify(message, options.level ?? "info");
 		}
 	}
