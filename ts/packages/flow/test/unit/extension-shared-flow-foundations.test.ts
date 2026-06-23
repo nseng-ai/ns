@@ -6,7 +6,9 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../..");
+const SHARED_GIT_PATH = join(REPO_ROOT, "ts/packages/flow/src/shared/git.ts");
 const SHARED_WORKTREE_PATH = join(REPO_ROOT, "ts/packages/flow/src/shared/worktree.ts");
+const PUSH_COMMAND_PATH = join(REPO_ROOT, "ts/packages/flow/src/commands/push.ts");
 const SUBMIT_COMMAND_PATH = join(REPO_ROOT, "ts/packages/flow/src/commands/submit.ts");
 const REGENERATE_PR_COMMAND_PATH = join(
 	REPO_ROOT,
@@ -66,7 +68,9 @@ describe("project extension shared flow foundations", () => {
 	test("flow commands use package-owned migration seams instead of bundled submit and PR internals", async () => {
 		const submitSource = await readFile(SUBMIT_COMMAND_PATH, "utf8");
 		const regeneratePrSource = await readFile(REGENERATE_PR_COMMAND_PATH, "utf8");
+		const sharedGitSource = await readFile(SHARED_GIT_PATH, "utf8");
 		const worktreeSource = await readFile(SHARED_WORKTREE_PATH, "utf8");
+		const pushSource = await readFile(PUSH_COMMAND_PATH, "utf8");
 
 		expect(submitSource).not.toContain("private/tmp/sdl-submit-extension-build");
 		expect(submitSource).not.toContain("ts/packages/sdl-core/src/submit");
@@ -75,7 +79,17 @@ describe("project extension shared flow foundations", () => {
 		expect(regeneratePrSource).not.toContain("parseManagedRegionMetadata");
 		expect(regeneratePrSource).not.toContain('ctx.exec("git"');
 		expect(regeneratePrSource).toContain("@sdl/sdl/pr-description");
+		expect(sharedGitSource).toContain("execFlowGit");
+		expect(sharedGitSource).toContain("readFlowGitPorcelainStatus");
+		expect(sharedGitSource).not.toContain("git push");
 		expect(worktreeSource).toContain("@sdl/sdl/pending-worktree");
+		expect(worktreeSource).toContain("./git.ts");
+		expect(worktreeSource).toContain("execFlowGit");
+		expect(worktreeSource).not.toContain('ctx.exec("git"');
 		expect(worktreeSource).not.toContain("isClean");
+		expect(pushSource).toContain("../shared/git.ts");
+		expect(pushSource).toContain("readFlowGitPorcelainStatus");
+		expect(pushSource).toContain("execFlowGit");
+		expect(pushSource).not.toContain('ctx.exec("git"');
 	});
 });

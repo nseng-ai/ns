@@ -8,6 +8,8 @@ import {
 } from "@sdl/sdl/sdk";
 import type { SdlExtensionApi } from "@sdl/sdl/sdk";
 
+import { execFlowGit, readFlowGitPorcelainStatus } from "../shared/git.ts";
+
 const PUSH_TIMEOUT_MS = 120_000;
 
 const PUSH_COMMAND_DESCRIPTION = `Push already-committed work on the current branch with plain git push.
@@ -30,25 +32,25 @@ export default defineExtension({
 });
 
 async function runPush(ctx: SdlExtensionApi) {
-	const statusResult = await ctx.exec("git", ["status", "--porcelain"]);
-	if (!commandSucceeded(statusResult)) {
+	const status = await readFlowGitPorcelainStatus(ctx);
+	if (!status.ok) {
 		return failed(
 			formatCommandEvidence({
 				intro: "Could not inspect the worktree status. `sdl flow push` did not run `git push`.",
 				command: "git status --porcelain",
 				cwd: ctx.cwd,
-				result: statusResult,
+				result: status.result,
 				guidance:
 					"Inspect the Git output, fix the repository state, or use `sdl flow submit` / `/sdl:flow:submit` for the Graphite submit flow when appropriate.",
 			}),
 		);
 	}
 
-	if (statusResult.stdout.trim().length > 0) {
-		return failed(formatDirtyWorktreeMessage(ctx.cwd, statusResult.stdout));
+	if (!status.clean) {
+		return failed(formatDirtyWorktreeMessage(ctx.cwd, status.stdout));
 	}
 
-	const pushResult = await ctx.exec("git", ["push"], { timeoutMs: PUSH_TIMEOUT_MS });
+	const pushResult = await execFlowGit(ctx, ["push"], PUSH_TIMEOUT_MS);
 	if (commandSucceeded(pushResult)) {
 		return ok(
 			formatCommandEvidence({
