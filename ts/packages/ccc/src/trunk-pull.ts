@@ -69,9 +69,10 @@ export async function runTrunkPull(
 	if (!isSuccessfulExecResult(updateResult)) {
 		return {
 			ok: false,
-			message: formatCommandFailure(
+			message: formatCommandFailureWithCwd(
 				`Could not update local trunk branch \`${trunk}\`.`,
 				formatCommand("git", planResult.args),
+				planResult.cwd,
 				updateResult,
 			),
 		};
@@ -114,6 +115,15 @@ async function planTrunkPull(
 		worktreePorcelain: worktreeResult.stdout,
 	});
 	return { ok: true, args: plan.args, cwd: plan.cwd };
+}
+
+function formatCommandFailureWithCwd(
+	title: string,
+	command: string,
+	cwd: string,
+	result: ExecResult,
+): string {
+	return [formatCommandFailure(title, command, result), `Cwd: ${cwd}`].join("\n");
 }
 
 function firstNonEmptyLine(text: string): string | undefined {

@@ -968,7 +968,7 @@ describe("CCC cmux command suite", () => {
 						"",
 					].join("\n"),
 				}),
-				step("git", ["pull", "origin", TRUNK_BRANCH], {}),
+				step("git", ["pull", "--ff-only", "origin", TRUNK_BRANCH], {}),
 				step("git", ["rev-parse", TRUNK_BRANCH], { stdout: `${START_POINT}\n` }),
 				step(
 					"pi",
@@ -1075,9 +1075,11 @@ describe("CCC cmux command suite", () => {
 			?.handler("Implement the cmux dispatch flow", ctx);
 
 		pi.assertDone();
-		expect(notificationMessages(ctx).join("\n")).toContain("Graphite trunk refresh failed");
-		expect(notificationMessages(ctx).join("\n")).toContain("no branch was created");
-		expect(notificationMessages(ctx).join("\n")).toContain("fetch failed");
+		const messages = notificationMessages(ctx).join("\n");
+		expect(messages).toContain("Graphite trunk refresh failed");
+		expect(messages).toContain("no branch was created");
+		expect(messages).toContain("fetch failed");
+		expect(messages).toContain("Cwd: /repo");
 		expect(pi.execCalls.some((call) => call.command === "git" && call.args[0] === "branch")).toBe(
 			false,
 		);
