@@ -14,13 +14,13 @@
       },
       {
         "name": "autobranch",
-        "description": "Create a Graphite branch from dirty worktree changes or the latest unpushed commit.",
+        "description": "Create a Graphite branch from dirty worktree changes.",
         "entry": "./src/commands/autobranch.ts"
       },
       {
         "name": "branch-latest-commit",
         "description": "Move the latest eligible commit to a new Graphite child branch.",
-        "entry": "./src/commands/autobranch.ts"
+        "entry": "./src/commands/branch-latest-commit.ts"
       },
       {
         "name": "autoslot",
