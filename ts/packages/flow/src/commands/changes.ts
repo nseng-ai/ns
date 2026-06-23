@@ -1,10 +1,10 @@
 import { defineExtension, failed, ok, type SdlCommand } from "@sdl/sdl/sdk";
+import { prepareFlowChangesSummary } from "../shared/model-generation.ts";
 import {
 	CHANGES_MODEL_ENV,
 	DEFAULT_CHANGES_MODEL_REF,
 	LEGACY_CHANGES_MODEL_ENV,
 } from "../shared/text-generation.ts";
-import { draftChangesSummary } from "../shared/text-helpers.ts";
 import {
 	formatPendingWorktreeError,
 	loadFlowPendingWorktreeSnapshot,
@@ -39,11 +39,7 @@ export const flowChangesCommand: SdlCommand = {
 			return ok("Working tree is clean; no outstanding changes.");
 		}
 
-		const summary = await draftChangesSummary({
-			textGenerator: ctx.textGenerator,
-			env: ctx.env,
-			snapshot,
-		});
+		const summary = await prepareFlowChangesSummary(ctx, snapshot);
 		if (!summary.ok) {
 			return failed(summary.error, 2);
 		}
