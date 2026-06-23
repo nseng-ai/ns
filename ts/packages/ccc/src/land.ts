@@ -168,6 +168,14 @@ async function runLandCommand(
 	});
 }
 
+/**
+ * Lower-level adapter used by the SDL CLI extension.
+ *
+ * This intentionally does not use `registerCliCommandExtension`: that helper lives
+ * above CCC in `@sdl/pi-extensions` and owns Pi slash-command registration and
+ * rendering. This adapter must stay below that package so SDL CLI execution can
+ * reuse CCC land orchestration without creating a CCC -> pi-extensions cycle.
+ */
 export interface LandCliInput {
 	cwd: string;
 	rawArgs: string;
