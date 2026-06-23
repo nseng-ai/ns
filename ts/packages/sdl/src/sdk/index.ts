@@ -30,6 +30,7 @@ export {
 	stripOuterCodeFence,
 	trimOuterBlankLines,
 } from "@sdl/core/text-normalization";
+export { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 export { truncateTextHead, truncateTextHeadTail } from "@sdl/core/text-truncation";
 export type {
 	HeadTailTextTruncationOptions,

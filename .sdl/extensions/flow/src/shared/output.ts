@@ -1,4 +1,4 @@
-import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
+import { stripTerminalEscapes } from "@sdl/sdl/sdk";
 
 export function formatCommand(command: string, args: readonly string[]): string {
   return [command, ...args].map(formatShellArg).join(" ");

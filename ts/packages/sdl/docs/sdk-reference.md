@@ -340,6 +340,14 @@ function trimOuterBlankLines(text: string): string;
 function stripOuterCodeFence(text: string): string;
 ```
 
+### `stripTerminalEscapes()`
+
+*Re-exported from `@sdl/core/terminal-escapes`.* Removes ANSI/terminal escape sequences from command output before display or parsing.
+
+```ts
+function stripTerminalEscapes(value: string): string;
+```
+
 ### `truncateTextHead()`
 
 *Re-exported from `@sdl/core/text-truncation`.* Keeps the head of a string inside a fixed character budget and appends a caller-defined marker.
