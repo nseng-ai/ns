@@ -158,6 +158,8 @@ export function registerLandCommand(pi: LandExtensionAPI): void {
 	});
 }
 
+export type LandCliConfirmPrompt = (title: string, message: string) => Promise<boolean> | boolean;
+
 export interface LandCliInput {
 	cwd: string;
 	rawArgs: string;
@@ -168,6 +170,7 @@ export interface LandCliInput {
 	): Promise<ExecResult>;
 	stdout(text: string): void;
 	stderr(text: string): void;
+	confirm?: LandCliConfirmPrompt | undefined;
 }
 
 export async function runLandCli(input: LandCliInput): Promise<number> {
@@ -185,9 +188,10 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 	}
 
 	let hasError = false;
+	const confirm = input.confirm;
 	await handler(input.rawArgs, {
 		cwd: input.cwd,
-		hasUI: false,
+		hasUI: confirm !== undefined,
 		ui: {
 			notify(message, level) {
 				const output = `${message.trimEnd()}\n`;
@@ -198,7 +202,8 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 				}
 				input.stdout(output);
 			},
-			confirm: async () => false,
+			confirm: async (title, message) =>
+				confirm === undefined ? false : await confirm(title, message),
 			setStatus: () => {},
 		},
 		waitForIdle: async () => {},
