@@ -85,7 +85,7 @@ Discovery is side-effect-light: `sdl --version`, `sdl --runtime`, and unselected
 
 The legacy `.sdl/commands/<command>.ts` path has been removed. It is not a compatibility fallback.
 
-Dynamic Pi `/sdl:*` mirrors are not part of this first general extension-loading slice. In this repository, exact `/sdl:flow:*` mirrors delegate to the grouped project-local `sdl flow` lifecycle commands: changes, cp, autobranch, autoslot, submit, regenerate-pr, push, land, and pull-trunk. Arbitrary SDL extension command entries are not dynamically mirrored into Pi; new exact mirrors require an explicit Pi adapter and package tests.
+Dynamic Pi `/sdl:*` mirrors are not part of this first general extension-loading slice. In this repository, exact `/sdl:flow:*` mirrors delegate to the grouped project-local `sdl flow` lifecycle commands: changes, cp, autobranch, branch-latest-commit, autoslot, submit, regenerate-pr, push, land, and pull-trunk. Arbitrary SDL extension command entries are not dynamically mirrored into Pi; new exact mirrors require an explicit Pi adapter and package tests.
 
 ## SDL extension API
 
@@ -160,7 +160,33 @@ Environment:
 - `SDL_CHECKPOINT_MODEL`: model reference for generated checkpoint messages.
 - `SDL_DEV_CHECKPOINT_MODEL`: transitional fallback for the old checkpoint model selection.
 
-Pi exposes the same capability as `/sdl:flow:autobranch`. `/sdl:flow:autobranch`, `/code:autobranch`, and `/newbr` are not restored as compatibility surfaces.
+Pi exposes the same capability as `/sdl:flow:autobranch`. Flat `/sdl:autobranch`, `/code:autobranch`, and `/newbr` are not restored as compatibility surfaces.
+
+## `branch-latest-commit`
+
+Move the latest eligible unpushed single-parent commit on a clean worktree to a new Graphite child branch.
+
+```bash
+sdl flow branch-latest-commit
+sdl flow branch-latest-commit --slug <slug>
+```
+
+In this repository, `sdl flow branch-latest-commit` is provided by the same project-local SDK-only extension module as `sdl flow autobranch`; it is a focused public surface for the clean latest-commit split workflow.
+
+Behavior:
+
+- requires a clean worktree and refuses pending changes with guidance to use `sdl flow autobranch` for dirty worktree changes;
+- moves the latest eligible unpushed single-parent commit onto a new Graphite child branch using the existing recovery branch, source reset, `gt create`, child hard reset, HEAD verification, and cleanup transaction;
+- derives branch slugs with the SDL slug model unless `--slug` is supplied;
+- stays local-only: it does not push, publish, submit, or update PRs.
+
+When the latest commit belongs on its own Graphite child branch, agents should use `sdl flow branch-latest-commit --slug <slug>` instead of manually running `git reset HEAD^` plus `gt create`.
+
+Pi exposes the same capability as `/sdl:flow:branch-latest-commit`.
+
+Environment:
+
+- `SDL_SLUG_MODEL`: model reference for generated branch slugs.
 
 ## `changes`
 

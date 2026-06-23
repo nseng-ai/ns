@@ -32,6 +32,10 @@ const SDL_FLOW_COMMANDS = [
 		"Create a Graphite branch from dirty worktree changes or the latest unpushed commit.",
 	),
 	flowCommand(
+		"branch-latest-commit",
+		"Move the latest eligible commit to a new Graphite child branch.",
+	),
+	flowCommand(
 		"autoslot",
 		"Create a Graphite branch from current work, then move it into a managed slot worktree.",
 	),

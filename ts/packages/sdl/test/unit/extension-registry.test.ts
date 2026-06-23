@@ -305,6 +305,7 @@ describe("extension registry", () => {
 		expect([...catalog.candidates.keys()]).toEqual([
 			"flow/autobranch",
 			"flow/autoslot",
+			"flow/branch-latest-commit",
 			"flow/changes",
 			"flow/cp",
 			"flow/land",

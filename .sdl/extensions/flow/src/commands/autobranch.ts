@@ -44,6 +44,15 @@ Environment:
   ${SLUG_MODEL_ENV}  Model reference for generated branch slugs. Defaults to ${DEFAULT_FAST_MODEL_REF}.
   ${CHECKPOINT_MODEL_ENV}  Model reference for generated checkpoint messages. Defaults to ${DEFAULT_CHECKPOINT_MODEL_REF}. Falls back to ${LEGACY_CHECKPOINT_MODEL_ENV} when unset.`;
 
+const BRANCH_LATEST_COMMIT_DESCRIPTION = `Move the latest eligible unpushed single-parent commit to a new Graphite child branch.
+
+This command requires a clean worktree. It creates a local-only Graphite branch with \`gt create\`, resets the source branch to the commit parent, hard-resets the new child branch to the original commit SHA, verifies HEAD, and cleans up recovery evidence. It does not push, publish, submit, or update PRs.
+
+Use \`sdl flow autobranch\` instead when pending dirty worktree changes should be moved to a new branch.
+
+Environment:
+  ${SLUG_MODEL_ENV}  Model reference for generated branch slugs. Defaults to ${DEFAULT_FAST_MODEL_REF}.`;
+
 const autobranchRequestSchema = z.object({
   slug: z
     .string()
@@ -51,7 +60,15 @@ const autobranchRequestSchema = z.object({
     .describe("Branch slug to use instead of deriving one from the worktree or latest commit."),
 });
 
+const branchLatestCommitRequestSchema = z.object({
+  slug: z
+    .string()
+    .optional()
+    .describe("Branch slug to use instead of deriving one from the latest commit."),
+});
+
 type AutobranchRequest = z.output<typeof autobranchRequestSchema>;
+type BranchLatestCommitRequest = z.output<typeof branchLatestCommitRequestSchema>;
 
 interface ParsedAutobranchArgs {
   slug?: string;
@@ -261,6 +278,23 @@ export default defineExtension({
         return ok(result.summary.trimEnd());
       },
     },
+    {
+      name: "branch-latest-commit",
+      summary: "Move the latest eligible commit to a new Graphite branch.",
+      description: BRANCH_LATEST_COMMIT_DESCRIPTION,
+      schema: branchLatestCommitRequestSchema,
+      async run(ctx, request: BranchLatestCommitRequest) {
+        const args: ParsedAutobranchArgs = request.slug === undefined ? {} : { slug: request.slug };
+        const result = await createBranchLatestCommitFlow(ctx, args);
+        if (!result.ok) {
+          return failed(result.error.trimEnd(), 1);
+        }
+        for (const warning of result.warnings) {
+          ctx.stderr?.(`${warning.trimEnd()}\n`);
+        }
+        return ok(result.summary.trimEnd());
+      },
+    },
   ],
 });
 
@@ -279,6 +313,27 @@ async function createAutobranchCheckpointFlow(
   }
 
   return runDirtyAutobranchFlow(ctx, args, snapshot);
+}
+
+async function createBranchLatestCommitFlow(
+  ctx: SdlExtensionApi,
+  args: ParsedAutobranchArgs,
+): Promise<AutobranchFlowResult> {
+  const loaded = await loadPendingWorktreeSnapshot(ctx);
+  if (!loaded.ok) {
+    return { ok: false, error: formatAutobranchSnapshotError(loaded.error) };
+  }
+
+  const snapshot = loaded.snapshot;
+  if (!snapshot.isClean) {
+    return {
+      ok: false,
+      error:
+        "Working tree has pending changes; use `sdl flow autobranch` to move dirty worktree changes to a new branch. `sdl flow branch-latest-commit` requires a clean worktree.",
+    };
+  }
+
+  return createLatestCommitAutobranchFlow(ctx, args, snapshot);
 }
 
 function execGt(
@@ -1258,22 +1313,57 @@ async function findAvailableBranchName<TName extends string>(
   candidates: Iterable<{ name: TName; hasSuffix: boolean }>,
 ): Promise<({ ok: true } & AvailableBranchName & { name: TName }) | undefined> {
   for (const candidate of candidates) {
-    const valid = await execGit(
-      ctx,
-      ["check-ref-format", "--branch", candidate.name],
-      GIT_FACT_TIMEOUT_MS,
-    );
-    if (valid.code !== 0) continue;
-    const exists = await execGit(
-      ctx,
-      ["show-ref", "--verify", "--quiet", `refs/heads/${candidate.name}`],
-      GIT_FACT_TIMEOUT_MS,
-    );
-    if (exists.code !== 0) {
+    const availability = await inspectBranchNameAvailability(ctx, candidate.name);
+    if (availability === "available") {
       return { ok: true, name: candidate.name, hasSuffix: candidate.hasSuffix };
     }
   }
   return undefined;
+}
+
+async function inspectBranchNameAvailability(
+  ctx: SdlExtensionApi,
+  candidate: string,
+): Promise<"available" | "unavailable"> {
+  const valid = await execGit(ctx, ["check-ref-format", "--branch", candidate], GIT_FACT_TIMEOUT_MS);
+  if (valid.code !== 0) return "unavailable";
+
+  const exact = await execGit(
+    ctx,
+    ["show-ref", "--verify", "--quiet", `refs/heads/${candidate}`],
+    GIT_FACT_TIMEOUT_MS,
+  );
+  if (exact.code === 0) return "unavailable";
+  if (exact.code !== 1) return "unavailable";
+
+  for (const prefix of branchRefParentPrefixes(candidate)) {
+    const parent = await execGit(
+      ctx,
+      ["show-ref", "--verify", "--quiet", `refs/heads/${prefix}`],
+      GIT_FACT_TIMEOUT_MS,
+    );
+    if (parent.code === 0) return "unavailable";
+    if (parent.code !== 1) return "unavailable";
+  }
+
+  const childRefs = await execGit(
+    ctx,
+    ["for-each-ref", "--format=%(refname:strip=2)", `refs/heads/${candidate}/*`],
+    GIT_FACT_TIMEOUT_MS,
+  );
+  if (childRefs.code !== 0) return "unavailable";
+  if (childRefs.stdout.trim().length > 0) return "unavailable";
+
+  return "available";
+}
+
+function branchRefParentPrefixes(candidate: string): string[] {
+  const segments = candidate.split("/");
+  const prefixes: string[] = [];
+  for (let index = 1; index < segments.length; index += 1) {
+    prefixes.push(segments.slice(0, index).join("/"));
+  }
+  return prefixes;
 }
 
 function* branchNameCandidates<TName extends string>(

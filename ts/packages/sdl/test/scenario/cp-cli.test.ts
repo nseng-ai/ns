@@ -501,7 +501,7 @@ describe("project-local cp extension behavior", () => {
 		const topHelp = runCpWithFakes({ args: ["flow", "--help"], state: { exec: [] }, cwd });
 		expect(await topHelp.exit).toBe(0);
 		expect(topHelp.stdout.join("")).toContain("cp");
-		expect(topHelp.stdout.join("")).toContain("Create a checkpoint commit for the current diff.");
+		expect(topHelp.stdout.join("")).toMatch(/Create a checkpoint commit for the current\s+diff\./);
 		expect(topHelp.stderr.join("")).toBe("");
 
 		const commandHelp = runCpWithFakes({
