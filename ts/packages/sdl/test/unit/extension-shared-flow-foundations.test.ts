@@ -1,54 +1,44 @@
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
+import { constants } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
 
-import { createSdlJiti } from "../../src/sdk/module-loader.ts";
-import type { ExecResult } from "../../src/sdk/index.ts";
-
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../..");
-const SHARED_COMMAND_OUTPUT_PATH = join(
-	REPO_ROOT,
-	".sdl/extensions/flow/src/shared/command-output.ts",
-);
 const SHARED_WORKTREE_PATH = join(REPO_ROOT, ".sdl/extensions/flow/src/shared/worktree.ts");
 const SUBMIT_COMMAND_PATH = join(REPO_ROOT, ".sdl/extensions/flow/src/commands/submit.ts");
 const REGENERATE_PR_COMMAND_PATH = join(
 	REPO_ROOT,
 	".sdl/extensions/flow/src/commands/regenerate-pr.ts",
 );
+const AUTOBRANCH_COMMAND_PATH = join(REPO_ROOT, ".sdl/extensions/flow/src/commands/autobranch.ts");
+const BRANCH_LATEST_COMMIT_COMMAND_PATH = join(
+	REPO_ROOT,
+	".sdl/extensions/flow/src/commands/branch-latest-commit.ts",
+);
 
-interface SharedCommandOutputModule {
-	commandFailure(options: {
-		command: string;
-		args: readonly string[];
-		result: ExecResult;
-		code: string;
-		message: string;
-	}): { code: string; message: string } | undefined;
-}
+const REMOVED_LOCAL_AUTOBRANCH_HELPERS = [
+	[".sdl/extensions/flow/src/shared", "branch-availability.ts"],
+	[".sdl/extensions/flow/src/shared", "branch-slugs.ts"],
+	[".sdl/extensions/flow/src/shared", "branch-slug-text.ts"],
+	[".sdl/extensions/flow/src/shared", ["latest", "commit", "autobranch.ts"].join("-")],
+] as const;
 
 describe("project extension shared flow foundations", () => {
-	test("preserves command failure and details formatting", async () => {
-		const commandOutputModule = await createSdlJiti().import(SHARED_COMMAND_OUTPUT_PATH);
-		assertSharedCommandOutputModule(commandOutputModule);
+	test("flow autobranch commands use the package-owned autobranch helpers", async () => {
+		const autobranchSource = await readFile(AUTOBRANCH_COMMAND_PATH, "utf8");
+		const branchLatestCommitSource = await readFile(BRANCH_LATEST_COMMIT_COMMAND_PATH, "utf8");
 
-		const result: ExecResult = { stdout: "", stderr: "fatal: nope", code: 1, killed: false };
-
-		expect(
-			commandOutputModule.commandFailure({
-				command: "gh",
-				args: ["pr", "edit", "12", "--title", "hello world"],
-				result,
-				code: "github_pr_edit_failed",
-				message: "Could not update PR #12.",
-			}),
-		).toEqual({
-			code: "github_pr_edit_failed",
-			message:
-				"Could not update PR #12.\nCommand: gh pr edit 12 --title 'hello world'\nexit 1: fatal: nope",
-		});
+		expect(autobranchSource).toContain("@sdl/autobranch/dirty-worktree");
+		expect(branchLatestCommitSource).toContain("@sdl/autobranch/latest-commit");
+		expect(autobranchSource).not.toContain(["../shared", "branch-slugs"].join("/"));
+		expect(branchLatestCommitSource).not.toContain(
+			["../shared", ["latest", "commit", "autobranch"].join("-")].join("/"),
+		);
+		for (const [directory, fileName] of REMOVED_LOCAL_AUTOBRANCH_HELPERS) {
+			await expect(access(join(REPO_ROOT, directory, fileName), constants.F_OK)).rejects.toThrow();
+		}
 	});
 
 	test("flow commands use package-owned migration seams instead of bundled submit and PR internals", async () => {
@@ -67,14 +57,3 @@ describe("project extension shared flow foundations", () => {
 		expect(worktreeSource).not.toContain("isClean");
 	});
 });
-
-function assertSharedCommandOutputModule(
-	value: unknown,
-): asserts value is SharedCommandOutputModule {
-	if (typeof value !== "object" || value === null) {
-		throw new Error("Expected shared command output module object.");
-	}
-	if (!("commandFailure" in value) || typeof value.commandFailure !== "function") {
-		throw new Error("Expected shared command output module to export commandFailure.");
-	}
-}

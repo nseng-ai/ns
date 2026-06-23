@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { DEFAULT_FAST_MODEL } from "@sdl/plans";
+import { DEFAULT_FAST_MODEL } from "@sdl/core/model-slug";
 import registerBranchContextExtension from "../src/branch-context-extension.ts";
 
 import {

@@ -12,7 +12,7 @@ import {
 	prepareAutobranchCheckpointMessage,
 } from "./autobranch/checkpoint.ts";
 import { createAutobranchCheckpointFlow, type AutobranchFlowInput } from "./autobranch/flow.ts";
-import type { ParsedAutobranchArgs } from "./autobranch/preparation.ts";
+import type { ParsedAutobranchArgs } from "@sdl/autobranch/dirty-worktree";
 import {
 	applyCmuxWorkspaceSummaryCommand,
 	cmuxWorkspaceSummaryRequestSchema,

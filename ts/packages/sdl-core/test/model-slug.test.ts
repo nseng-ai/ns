@@ -7,7 +7,7 @@ import {
 	SLUG_MODEL_ENV,
 	type SlugModelCommandResult,
 	type SlugModelExecOptions,
-} from "../src/index.ts";
+} from "../src/model-slug.ts";
 
 interface ExecCall {
 	command: string;

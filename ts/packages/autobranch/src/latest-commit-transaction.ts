@@ -1,7 +1,6 @@
-import type { CommandResult } from "@sdl/sdl/checkpoint-flow";
-
+import type { CommandResult } from "./shared.ts";
 import { branchNameCandidates, findAvailableBranchName } from "./branch-name.ts";
-import { formatCommandDetails } from "./shared.ts";
+import { formatAutobranchCommandDetails } from "./shared.ts";
 import { inspectUpstreamHeadState } from "./upstream.ts";
 import { normalizeBranchSlugText } from "@sdl/pi-extension-runtime/branch-slug";
 import type { LatestCommitAutobranchPlan } from "./latest-commit-preparation.ts";
@@ -104,7 +103,11 @@ export async function runLatestCommitAutobranchTransaction(
 		GIT_TIMEOUT_MS,
 	);
 	if (backupCreated.code !== 0) {
-		return { ok: false, kind: "backup_create_failed", error: formatCommandDetails(backupCreated) };
+		return {
+			ok: false,
+			kind: "backup_create_failed",
+			error: formatAutobranchCommandDetails(backupCreated),
+		};
 	}
 
 	const resetSource = await resetSourceBranchToParent(input);
@@ -131,7 +134,7 @@ export async function runLatestCommitAutobranchTransaction(
 			kind: "graphite_create_failed",
 			backupBranch: backupBranch.name,
 			branchName: input.plan.branchName,
-			createError: formatCommandDetails(created),
+			createError: formatAutobranchCommandDetails(created),
 			...recovery,
 		};
 	}
@@ -149,7 +152,7 @@ export async function runLatestCommitAutobranchTransaction(
 			kind: "branch_reset_failed",
 			backupBranch: backupBranch.name,
 			branchName: input.plan.branchName,
-			resetError: formatCommandDetails(resetBranch),
+			resetError: formatAutobranchCommandDetails(resetBranch),
 			...recovery,
 		};
 	}
@@ -163,7 +166,7 @@ export async function runLatestCommitAutobranchTransaction(
 			kind: "head_verify_failed",
 			backupBranch: backupBranch.name,
 			branchName: input.plan.branchName,
-			actualHead: actualHead.length > 0 ? actualHead : formatCommandDetails(verified),
+			actualHead: actualHead.length > 0 ? actualHead : formatAutobranchCommandDetails(verified),
 			...recovery,
 		};
 	}
@@ -180,7 +183,7 @@ export async function runLatestCommitAutobranchTransaction(
 			commitSummary: input.plan.commitSummary,
 			backupDeleted: false,
 			backupBranch: backupBranch.name,
-			backupDeleteError: formatCommandDetails(deleted),
+			backupDeleteError: formatAutobranchCommandDetails(deleted),
 		};
 	}
 	return { ok: true, commitSummary: input.plan.commitSummary, backupDeleted: true };
@@ -196,7 +199,7 @@ async function resetSourceBranchToParent(
 		GIT_TIMEOUT_MS,
 	);
 	if (currentBranch.code !== 0) {
-		return { ok: false, error: formatCommandDetails(currentBranch) };
+		return { ok: false, error: formatAutobranchCommandDetails(currentBranch) };
 	}
 	if (currentBranch.stdout.trim() !== input.plan.sourceBranch) {
 		return {
@@ -207,7 +210,7 @@ async function resetSourceBranchToParent(
 
 	const currentHead = await input.exec("git", ["rev-parse", "HEAD"], input.cwd, GIT_TIMEOUT_MS);
 	if (currentHead.code !== 0) {
-		return { ok: false, error: formatCommandDetails(currentHead) };
+		return { ok: false, error: formatAutobranchCommandDetails(currentHead) };
 	}
 	if (currentHead.stdout.trim() !== input.plan.originalHeadSha) {
 		return {
@@ -223,7 +226,7 @@ async function resetSourceBranchToParent(
 		GIT_TIMEOUT_MS,
 	);
 	if (reset.code !== 0) {
-		return { ok: false, error: formatCommandDetails(reset) };
+		return { ok: false, error: formatAutobranchCommandDetails(reset) };
 	}
 	return { ok: true };
 }
@@ -251,7 +254,10 @@ async function recoverFromSourceResetFailure(
 		if (deleted.code === 0) {
 			return { backupCleanup: "deleted" };
 		}
-		return { backupCleanup: "delete_failed", backupDeleteError: formatCommandDetails(deleted) };
+		return {
+			backupCleanup: "delete_failed",
+			backupDeleteError: formatAutobranchCommandDetails(deleted),
+		};
 	}
 
 	return {
@@ -270,7 +276,7 @@ async function restoreSourceBranch(
 		GIT_TIMEOUT_MS,
 	);
 	if (checkedOut.code !== 0) {
-		return { ok: false, error: formatCommandDetails(checkedOut) };
+		return { ok: false, error: formatAutobranchCommandDetails(checkedOut) };
 	}
 	const restored = await input.exec(
 		"git",
@@ -279,7 +285,7 @@ async function restoreSourceBranch(
 		GIT_TIMEOUT_MS,
 	);
 	if (restored.code !== 0) {
-		return { ok: false, error: formatCommandDetails(restored) };
+		return { ok: false, error: formatAutobranchCommandDetails(restored) };
 	}
 	return { ok: true };
 }
@@ -307,7 +313,7 @@ async function restoreSourceAndDeleteCreatedBranch(
 		return {
 			restored: true,
 			createdBranchDeleted: false,
-			createdBranchDeleteError: formatCommandDetails(deleted),
+			createdBranchDeleteError: formatAutobranchCommandDetails(deleted),
 		};
 	}
 	return { restored: true, createdBranchDeleted: true };

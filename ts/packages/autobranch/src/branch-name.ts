@@ -1,5 +1,4 @@
-import type { CommandResult } from "@sdl/sdl/checkpoint-flow";
-
+import type { CommandResult } from "./shared.ts";
 import {
 	MAX_BRANCH_SLUG_LENGTH,
 	trimBranchSlugToLength,
@@ -52,7 +51,7 @@ export async function findAvailableBranchName<TName extends string>(
 			input.cwd,
 			GIT_TIMEOUT_MS,
 		);
-		if (exists.code !== 0) {
+		if (exists.code === 1) {
 			return { ok: true, name: candidate.name, hasSuffix: candidate.hasSuffix };
 		}
 	}

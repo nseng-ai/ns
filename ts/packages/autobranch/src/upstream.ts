@@ -1,6 +1,5 @@
-import type { CommandResult } from "@sdl/sdl/checkpoint-flow";
-
-import { formatCommandDetails } from "./shared.ts";
+import type { CommandResult } from "./shared.ts";
+import { formatAutobranchCommandDetails } from "./shared.ts";
 
 const GIT_TIMEOUT_MS = 30_000;
 
@@ -20,7 +19,7 @@ export async function inspectUpstreamHeadState(
 ): Promise<UpstreamHeadState> {
 	const branch = await input.exec("git", ["branch", "--show-current"], input.cwd, GIT_TIMEOUT_MS);
 	if (branch.code !== 0) {
-		return { type: "failed", error: formatCommandDetails(branch) };
+		return { type: "failed", error: formatAutobranchCommandDetails(branch) };
 	}
 	const branchName = firstNonEmptyLine(branch.stdout);
 	if (!branchName) {
@@ -34,7 +33,7 @@ export async function inspectUpstreamHeadState(
 		GIT_TIMEOUT_MS,
 	);
 	if (upstream.code !== 0) {
-		return { type: "failed", error: formatCommandDetails(upstream) };
+		return { type: "failed", error: formatAutobranchCommandDetails(upstream) };
 	}
 
 	const upstreamName = firstNonEmptyLine(upstream.stdout);
@@ -54,7 +53,7 @@ export async function inspectUpstreamHeadState(
 	if (containsHead.code === 1) {
 		return { type: "head_not_in_upstream", upstream: upstreamName };
 	}
-	return { type: "failed", error: formatCommandDetails(containsHead) };
+	return { type: "failed", error: formatAutobranchCommandDetails(containsHead) };
 }
 
 function firstNonEmptyLine(value: string): string | undefined {

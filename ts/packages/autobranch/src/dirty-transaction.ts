@@ -1,6 +1,5 @@
-import type { CommandResult } from "@sdl/sdl/checkpoint-flow";
-
-import { formatCommandDetails } from "./shared.ts";
+import type { CommandResult } from "./shared.ts";
+import { formatAutobranchCommandDetails } from "./shared.ts";
 
 const GIT_FACT_TIMEOUT_MS = 30_000;
 const GT_CREATE_TIMEOUT_MS = 120_000;
@@ -93,7 +92,7 @@ async function stashPendingChanges(
 		STASH_PUSH_TIMEOUT_MS,
 	);
 	if (stashed.code !== 0) {
-		return { ok: false, kind: "stash_failed", error: formatCommandDetails(stashed) };
+		return { ok: false, kind: "stash_failed", error: formatAutobranchCommandDetails(stashed) };
 	}
 
 	const ref = await findStashRef(input, message);
@@ -114,7 +113,7 @@ async function findStashRef(
 		GIT_FACT_TIMEOUT_MS,
 	);
 	if (listed.code !== 0) {
-		return { ok: false, error: formatCommandDetails(listed) };
+		return { ok: false, error: formatAutobranchCommandDetails(listed) };
 	}
 	for (const line of listed.stdout.split("\n")) {
 		const [ref, subject] = line.split("\0");
@@ -135,7 +134,7 @@ async function createGraphiteBranch(
 		GT_CREATE_TIMEOUT_MS,
 	);
 	if (created.code !== 0) {
-		return { ok: false, error: formatCommandDetails(created) };
+		return { ok: false, error: formatAutobranchCommandDetails(created) };
 	}
 	return { ok: true };
 }
@@ -146,7 +145,7 @@ async function restoreStash(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
 	const restored = await input.exec("git", ["stash", "pop", ref], input.cwd, STASH_POP_TIMEOUT_MS);
 	if (restored.code !== 0) {
-		return { ok: false, error: formatCommandDetails(restored) };
+		return { ok: false, error: formatAutobranchCommandDetails(restored) };
 	}
 	return { ok: true };
 }

@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { DEFAULT_FAST_MODEL } from "@sdl/plans";
+import { DEFAULT_FAST_MODEL } from "@sdl/core/model-slug";
 import {
 	DEFAULT_WRITE_PLAN_PROMPT_BODY,
 	buildWriteGrilledPlanPrompt,

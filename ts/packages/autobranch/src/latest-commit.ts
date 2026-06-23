@@ -1,15 +1,36 @@
-import type { CommandResult } from "@sdl/sdl/checkpoint-flow";
-import type { PendingWorktreeSnapshot } from "@sdl/sdl/pending-worktree";
-
-import type { AutobranchFlowResult } from "./flow.ts";
+import type { CommandResult, PendingWorktreeSnapshot } from "./shared.ts";
+import type { AutobranchFlowResult, ParsedAutobranchArgs } from "./dirty-worktree.ts";
 import {
 	formatLatestCommitPreparationFailure,
 	formatLatestCommitTransactionFailure,
 } from "./latest-commit-formatting.ts";
 import { prepareLatestCommitAutobranchPlan } from "./latest-commit-preparation.ts";
 import { runLatestCommitAutobranchTransaction } from "./latest-commit-transaction.ts";
-import type { ParsedAutobranchArgs } from "./preparation.ts";
 import { shortSha } from "./short-sha.ts";
+
+export type { CommandResult, PendingWorktreeSnapshot } from "./shared.ts";
+
+export {
+	formatLatestCommitPreparationFailure,
+	formatLatestCommitTransactionFailure,
+} from "./latest-commit-formatting.ts";
+export {
+	loadLatestCommitFacts,
+	prepareLatestCommitAutobranchPlan,
+	type LatestCommitAutobranchPlan,
+	type LatestCommitFactsResult,
+	type LatestCommitPreparationInput,
+	type LatestCommitPreparationResult,
+} from "./latest-commit-preparation.ts";
+export {
+	runLatestCommitAutobranchTransaction,
+	type CreatedBranchRecovery,
+	type LatestCommitTransactionInput,
+	type LatestCommitTransactionResult,
+	type SourceResetFailureRecovery,
+} from "./latest-commit-transaction.ts";
+export { inspectUpstreamHeadState, type UpstreamHeadState } from "./upstream.ts";
+export { shortSha } from "./short-sha.ts";
 
 const GIT_TIMEOUT_MS = 30_000;
 

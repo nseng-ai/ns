@@ -1,10 +1,10 @@
-import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
-
 import {
   createLatestCommitAutobranchFlow,
-  type LatestCommitAutobranchArgs,
-} from "../shared/latest-commit-autobranch.ts";
-import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "../shared/branch-slugs.ts";
+  type LatestCommitAutobranchInput,
+} from "@sdl/autobranch/latest-commit";
+import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@sdl/core/model-slug";
+import { defineExtension, failed, ok, z, type SdlExtensionApi } from "@sdl/sdl/sdk";
+
 import { formatPendingWorktreeError, loadFlowPendingWorktreeSnapshot } from "../shared/worktree.ts";
 
 const BRANCH_LATEST_COMMIT_DESCRIPTION = `Move the latest eligible unpushed single-parent commit to a new Graphite child branch.
@@ -33,7 +33,7 @@ export default defineExtension({
       description: BRANCH_LATEST_COMMIT_DESCRIPTION,
       schema: branchLatestCommitRequestSchema,
       async run(ctx, request: BranchLatestCommitRequest) {
-        const args: LatestCommitAutobranchArgs =
+        const args: LatestCommitAutobranchInput["args"] =
           request.slug === undefined ? {} : { slug: request.slug };
         const loaded = await loadFlowPendingWorktreeSnapshot(ctx);
         if (!loaded.ok) {
@@ -48,7 +48,12 @@ export default defineExtension({
           );
         }
 
-        const result = await createLatestCommitAutobranchFlow(ctx, args, snapshot);
+        const result = await createLatestCommitAutobranchFlow({
+          cwd: snapshot.root,
+          args,
+          snapshot,
+          exec: (command, commandArgs, _cwd, timeout) => execExtensionCommand(ctx, command, commandArgs, timeout),
+        });
         if (!result.ok) {
           return failed(result.error.trimEnd(), 1);
         }
@@ -60,3 +65,12 @@ export default defineExtension({
     },
   ],
 });
+
+async function execExtensionCommand(
+  ctx: SdlExtensionApi,
+  command: string,
+  args: string[],
+  timeoutMs: number,
+) {
+  return ctx.exec(command, args, { timeoutMs });
+}

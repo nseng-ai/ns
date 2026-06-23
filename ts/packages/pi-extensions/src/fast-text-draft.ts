@@ -1,4 +1,4 @@
-import { DEFAULT_FAST_MODEL, DEFAULT_FAST_MODEL_REF, resolveModelRef } from "@sdl/plans";
+import { DEFAULT_FAST_MODEL, DEFAULT_FAST_MODEL_REF, resolveModelRef } from "@sdl/core/model-slug";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
