@@ -10,7 +10,7 @@ import {
 import { InMemoryBranchMemoryGateway } from "@sdl/branch-context/testing";
 import type { StdinCapableCommandExecApi } from "@sdl/core/exec";
 import { withTempRepoSkill } from "@sdl/core/testing";
-import { buildSlugModelArgs } from "@sdl/plans";
+import { buildSlugModelArgs } from "@sdl/core/model-slug";
 import registerCccExtension from "../src/ccc.ts";
 import { buildGptNanoTextArgs, buildSlugPrompt } from "../src/cmux/branch-slug.ts";
 import { registerCccSlotDispatchFromTrunkCommand } from "../src/cmux/dispatch-from-trunk.ts";

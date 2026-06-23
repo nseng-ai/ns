@@ -1,12 +1,11 @@
-import type { CommandResult } from "@sdl/sdl/checkpoint-flow";
-
-import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "@sdl/pi-extension-runtime/branch-slug";
+import type { CommandResult } from "./shared.ts";
 import {
 	deriveSlugWithModel,
 	formatSlugModelFailure,
 	SLUG_MODEL_TIMEOUT_MS,
 	type SlugModelFailure,
-} from "@sdl/plans";
+} from "@sdl/core/model-slug";
+import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "@sdl/pi-extension-runtime/branch-slug";
 import { truncateText } from "./shared.ts";
 
 export const MAX_DIFF_CHARS = 24_000;

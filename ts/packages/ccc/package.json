@@ -23,6 +23,7 @@
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/ccc/test"
   },
   "dependencies": {
+    "@sdl/autobranch": "workspace:*",
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
     "@sdl/pi-extension-runtime": "workspace:*",

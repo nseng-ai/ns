@@ -10,28 +10,6 @@ export {
 	type DeriveContentSlugInput,
 } from "./content-slug-derivation.ts";
 export {
-	DEFAULT_FAST_MODEL,
-	DEFAULT_FAST_MODEL_REF,
-	parseModelRef,
-	resolveModelRef,
-	type ModelRefResolution,
-	type ParsedModelRef,
-} from "./model-defaults.ts";
-export {
-	buildSlugModelArgs,
-	deriveSlugWithModel,
-	formatSlugModelFailure,
-	SLUG_MODEL_ENV,
-	SLUG_MODEL_THINKING,
-	SLUG_MODEL_TIMEOUT_MS,
-	type DeriveSlugWithModelInput,
-	type SlugModelCommandResult,
-	type SlugModelDerivationResult,
-	type SlugModelEvidence,
-	type SlugModelExecOptions,
-	type SlugModelFailure,
-} from "./model-slug.ts";
-export {
 	isPathInside,
 	normalizePlanFilePath,
 	normalizeSummary,

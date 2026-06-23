@@ -1,0 +1,24 @@
+{
+  "name": "@sdl/autobranch",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./branch-name": "./src/branch-name.ts",
+    "./slug": "./src/slug.ts",
+    "./dirty-worktree": "./src/dirty-worktree.ts",
+    "./latest-commit": "./src/latest-commit.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "check": "tsgo -p tsconfig.json",
+    "test": "cd ../.. && vitest run --config vitest.config.ts packages/autobranch/test"
+  },
+  "dependencies": {
+    "@sdl/core": "workspace:*",
+    "@sdl/pi-extension-runtime": "workspace:*"
+  },
+  "devDependencies": {}
+}

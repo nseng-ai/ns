@@ -1,6 +1,5 @@
+import { buildSlugModelArgs, DEFAULT_FAST_MODEL } from "@sdl/core/model-slug";
 import { describe, expect, test } from "vitest";
-
-import { buildSlugModelArgs, DEFAULT_FAST_MODEL } from "@sdl/plans";
 import {
 	buildHandoffContentSlugPrompt,
 	deriveHandoffContentSlug,

@@ -18,6 +18,7 @@
     "./timers": "./src/timers.ts",
     "./cli-entry": "./src/cli-entry.ts",
     "./exec": "./src/exec.ts",
+    "./model-slug": "./src/model-slug.ts",
     "./github-cli": "./src/github-cli.ts",
     "./github-pr-feedback": "./src/github-pr-feedback/index.ts",
     "./github-status": "./src/github-status.ts",

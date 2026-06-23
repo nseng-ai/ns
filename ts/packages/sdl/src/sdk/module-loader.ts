@@ -30,17 +30,24 @@ const CCC_AUTOSLOT_SPECIFIER = "@sdl/ccc/autoslot";
 const CCC_LAND_SPECIFIER = "@sdl/ccc/land";
 const CCC_TRUNK_PULL_SPECIFIER = "@sdl/ccc/trunk-pull";
 const CORE_EXEC_SPECIFIER = "@sdl/core/exec";
+const CORE_MODEL_SLUG_SPECIFIER = "@sdl/core/model-slug";
 const CORE_PRIMITIVES_SPECIFIER = "@sdl/core/primitives";
+const AUTOBRANCH_DIRTY_WORKTREE_SPECIFIER = "@sdl/autobranch/dirty-worktree";
+const AUTOBRANCH_LATEST_COMMIT_SPECIFIER = "@sdl/autobranch/latest-commit";
 
 /** Absolute path to the SDK source module, used as the `alias` resolution target. */
 const SDK_MODULE_PATH = join(SDL_SDK_DIR, "index.ts");
 const CCC_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "ccc", "src");
 const CORE_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "sdl-core", "src");
+const AUTOBRANCH_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "autobranch", "src");
 const CCC_AUTOSLOT_MODULE_PATH = join(CCC_SRC_DIR, "autoslot.ts");
 const CCC_LAND_MODULE_PATH = join(CCC_SRC_DIR, "land.ts");
 const CCC_TRUNK_PULL_MODULE_PATH = join(CCC_SRC_DIR, "trunk-pull.ts");
 const CORE_EXEC_MODULE_PATH = join(CORE_SRC_DIR, "exec.ts");
+const CORE_MODEL_SLUG_MODULE_PATH = join(CORE_SRC_DIR, "model-slug.ts");
 const CORE_PRIMITIVES_MODULE_PATH = join(CORE_SRC_DIR, "primitives.ts");
+const AUTOBRANCH_DIRTY_WORKTREE_MODULE_PATH = join(AUTOBRANCH_SRC_DIR, "dirty-worktree.ts");
+const AUTOBRANCH_LATEST_COMMIT_MODULE_PATH = join(AUTOBRANCH_SRC_DIR, "latest-commit.ts");
 
 const INTERNAL_MIGRATION_MODULE_PATHS = {
 	"@sdl/sdl/checkpoint": "checkpoint.ts",
@@ -108,7 +115,10 @@ export function createSdlJiti(): ReturnType<typeof createJiti> {
 			[CCC_LAND_SPECIFIER]: CCC_LAND_MODULE_PATH,
 			[CCC_TRUNK_PULL_SPECIFIER]: CCC_TRUNK_PULL_MODULE_PATH,
 			[CORE_EXEC_SPECIFIER]: CORE_EXEC_MODULE_PATH,
+			[CORE_MODEL_SLUG_SPECIFIER]: CORE_MODEL_SLUG_MODULE_PATH,
 			[CORE_PRIMITIVES_SPECIFIER]: CORE_PRIMITIVES_MODULE_PATH,
+			[AUTOBRANCH_DIRTY_WORKTREE_SPECIFIER]: AUTOBRANCH_DIRTY_WORKTREE_MODULE_PATH,
+			[AUTOBRANCH_LATEST_COMMIT_SPECIFIER]: AUTOBRANCH_LATEST_COMMIT_MODULE_PATH,
 		},
 		moduleCache: false,
 		virtualModules: {

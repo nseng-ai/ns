@@ -1,3 +1,4 @@
+import { buildSlugModelArgs, DEFAULT_FAST_MODEL } from "@sdl/core/model-slug";
 import { afterEach, expect } from "vitest";
 import { mkdir, mkdtemp, realpath, rm, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -16,10 +17,8 @@ import { InMemoryBranchMemoryGateway } from "@sdl/branch-context/testing";
 import type { ExecOptions, ExecResult, StdinCapableCommandExecApi } from "@sdl/core/exec";
 import { ScriptedQueue } from "@sdl/core/testing";
 import {
-	DEFAULT_FAST_MODEL,
 	buildRepoPlanStoreKey,
 	buildSavedPlanContentSlugPrompt,
-	buildSlugModelArgs,
 	encodeBranchForPlanPath,
 	normalizeRepoOriginUrl,
 	type SavedPlanFileEvidence,

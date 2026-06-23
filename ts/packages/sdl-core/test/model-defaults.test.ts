@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { DEFAULT_FAST_MODEL_REF, parseModelRef, resolveModelRef } from "../src/index.ts";
+import { DEFAULT_FAST_MODEL_REF, parseModelRef, resolveModelRef } from "../src/model-slug.ts";
 
 const ENV_VAR = "SDL_TEST_MODEL";
 

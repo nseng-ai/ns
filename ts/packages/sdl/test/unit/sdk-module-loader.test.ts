@@ -50,6 +50,8 @@ test("repo-local migration extensions can import internal migration subpaths", a
 
 	const submitModule = await jiti.import<typeof import("../../src/submit.ts")>("@sdl/sdl/submit");
 	expect(typeof submitModule.createSdlSubmitRuntime).toBe("function");
+	expect(typeof submitModule.RealSubmitGateway).toBe("function");
+	expect(() => new submitModule.RealSubmitGateway()).not.toThrow();
 	expect(typeof submitModule.runSubmitCommand).toBe("function");
 	expect(typeof submitModule.RealSubmitGateway).toBe("function");
 	expect(typeof submitModule.RealSubmitMetadataGateway).toBe("function");
@@ -74,4 +76,13 @@ test("repo-local migration extensions can import internal migration subpaths", a
 	expect(typeof textGenerationModule.DEFAULT_CHANGES_MODEL_REF).toBe("string");
 	expect(typeof textGenerationModule.selectCheckpointModelRef).toBe("function");
 	expect(typeof textGenerationModule.selectChangesModelRef).toBe("function");
+
+	const modelSlugModule =
+		await jiti.import<typeof import("@sdl/core/model-slug")>("@sdl/core/model-slug");
+	expect(typeof modelSlugModule.deriveSlugWithModel).toBe("function");
+
+	const autobranchModule = await jiti.import<typeof import("@sdl/autobranch/dirty-worktree")>(
+		"@sdl/autobranch/dirty-worktree",
+	);
+	expect(typeof autobranchModule.runDirtyAutobranchFlow).toBe("function");
 });

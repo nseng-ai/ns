@@ -1,4 +1,4 @@
-import { DEFAULT_FAST_MODEL_REF } from "@sdl/plans";
+import { DEFAULT_FAST_MODEL_REF } from "@sdl/core/model-slug";
 
 export interface TextGenerationRequest {
 	modelRef: string;

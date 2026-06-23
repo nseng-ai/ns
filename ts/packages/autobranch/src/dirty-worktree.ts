@@ -2,9 +2,8 @@ import { Buffer } from "node:buffer";
 import { readFile, stat } from "node:fs/promises";
 import { relative, resolve } from "node:path";
 import { formatErrorMessage } from "@sdl/core/primitives";
-import type { CommandResult } from "@sdl/sdl/checkpoint-flow";
-import type { PendingWorktreeSnapshot } from "@sdl/sdl/pending-worktree";
-
+import type { CommandResult } from "./shared.ts";
+import type { PendingWorktreeSnapshot } from "./shared.ts";
 import { chooseAvailableBranchName } from "./branch-name.ts";
 import {
 	buildBranchSlugPrompt,
@@ -13,6 +12,15 @@ import {
 	prepareRequestedBranchSlug,
 } from "./slug.ts";
 import { sanitizeBranchName } from "@sdl/pi-extension-runtime/branch-slug";
+import { runAutobranchTransaction, type AutobranchTransactionResult } from "./dirty-transaction.ts";
+
+export type { CommandResult, PendingWorktreeSnapshot } from "./shared.ts";
+
+export {
+	runAutobranchTransaction,
+	type AutobranchTransactionInput,
+	type AutobranchTransactionResult,
+} from "./dirty-transaction.ts";
 
 const GIT_TIMEOUT_MS = 30_000;
 const MAX_UNTRACKED_FILES = 12;
@@ -234,4 +242,135 @@ function fallbackSlugFromSnapshot(snapshot: AutobranchSnapshot): string | undefi
 		.map((path) => path.split("/").pop() ?? path)
 		.join(" ");
 	return sanitizeBranchName(`update ${basenameWords.length > 0 ? basenameWords : snapshot.branch}`);
+}
+
+export interface AutobranchFlowInput {
+	cwd: string;
+	args: ParsedAutobranchArgs;
+	snapshot: PendingWorktreeSnapshot;
+	exec: (command: string, args: string[], cwd: string, timeout: number) => Promise<CommandResult>;
+	prepareCheckpointMessage: (
+		snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">,
+	) => Promise<{ ok: true; message: string } | { ok: false; error: string }>;
+	commitPreparedCheckpointMessage: (
+		message: string,
+	) => Promise<{ summary: string } | { error: string }>;
+	readFile?: (path: string) => Promise<Uint8Array | string>;
+	stat?: (path: string) => Promise<FileStat>;
+	now?: (() => number) | undefined;
+}
+
+export type AutobranchFlowResult =
+	| { ok: true; summary: string; warnings: string[] }
+	| { ok: false; error: string };
+
+export async function runDirtyAutobranchFlow(
+	input: AutobranchFlowInput,
+): Promise<AutobranchFlowResult> {
+	const prepared = await prepareAutobranchPlan({
+		cwd: input.cwd,
+		args: input.args,
+		snapshot: input.snapshot,
+		exec: input.exec,
+		prepareCheckpointMessage: input.prepareCheckpointMessage,
+		...(input.readFile ? { readFile: input.readFile } : {}),
+		...(input.stat ? { stat: input.stat } : {}),
+	});
+	if (!prepared.ok) {
+		return { ok: false, error: formatAutobranchPreparationFailure(prepared) };
+	}
+
+	const warnings = prepared.warnings.map(formatAutobranchPreparationWarning);
+	const transaction = await runAutobranchTransaction({
+		cwd: input.cwd,
+		branchName: prepared.plan.branchName,
+		checkpointMessage: prepared.plan.checkpointMessage,
+		exec: input.exec,
+		commitPreparedCheckpointMessage: input.commitPreparedCheckpointMessage,
+		now: input.now,
+	});
+	if (!transaction.ok) {
+		return {
+			ok: false,
+			error: formatAutobranchTransactionFailure(transaction, prepared.plan.branchName),
+		};
+	}
+
+	const cleanliness = await input.exec(
+		"git",
+		["status", "--porcelain=v1"],
+		input.cwd,
+		GIT_TIMEOUT_MS,
+	);
+	const isClean = cleanliness.code === 0 && cleanliness.stdout.trim().length === 0;
+	const suffix = prepared.plan.hasSuffix
+		? ` (base slug ${prepared.plan.baseSlug} was unavailable)`
+		: "";
+
+	return {
+		ok: true,
+		summary: [
+			`New branch: ${prepared.plan.branchName}${suffix}`,
+			`Stacked on: ${input.snapshot.branch}`,
+			`Commit: ${transaction.commitSummary}`,
+			isClean
+				? "Working directory is clean."
+				: "Warning: working directory is not clean after checkpoint.",
+		].join("\n"),
+		warnings,
+	};
+}
+
+type AutobranchPreparationFailure = Extract<AutobranchPreparationResult, { ok: false }>;
+
+export function formatAutobranchPreparationFailure(result: AutobranchPreparationFailure): string {
+	if (result.kind === "invalid_requested_slug") {
+		return `Invalid branch slug: ${result.requestedSlug}`;
+	}
+	if (result.kind === "slug_generation_failed") {
+		return result.error;
+	}
+	if (result.kind === "branch_name_unavailable") {
+		return `Could not find an available branch name based on ${result.baseSlug}.`;
+	}
+	return result.error;
+}
+
+export function formatAutobranchPreparationWarning(warning: AutobranchPreparationWarning): string {
+	return `Slug model failed; using fallback branch name ${warning.fallbackSlug}.`;
+}
+
+type AutobranchTransactionFailure = Extract<AutobranchTransactionResult, { ok: false }>;
+
+export function formatAutobranchTransactionFailure(
+	result: AutobranchTransactionFailure,
+	branchName: string,
+): string {
+	if (result.kind === "stash_failed") {
+		return [`Failed to stash pending changes before branch creation.`, result.error].join("\n");
+	}
+	if (result.kind === "stash_ref_missing") {
+		return [
+			`Stashed pending changes, but could not find the new stash entry for ${result.stashMessage}.`,
+			"Inspect `git stash list` before continuing.",
+			result.error,
+		].join("\n");
+	}
+	if (result.kind === "graphite_create_failed") {
+		return [
+			`Failed to create Graphite branch ${branchName}.`,
+			result.createError,
+			result.restored
+				? "Restored pending changes to the original branch."
+				: `Could not restore pending changes: ${result.restoreError}`,
+		].join("\n");
+	}
+	if (result.kind === "restore_failed_after_branch_create") {
+		return [
+			`Created branch ${branchName}, but failed to restore pending changes from the stash.`,
+			result.restoreError,
+			"Inspect `git stash list` before continuing.",
+		].join("\n");
+	}
+	return `Branch ${branchName} exists, but checkpoint commit failed. Pending changes remain on that branch.\n${result.commitError}`;
 }

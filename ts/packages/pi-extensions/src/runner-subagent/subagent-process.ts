@@ -8,7 +8,7 @@ import { basename, join } from "node:path";
 import { systemClock, type Clock } from "@sdl/core/clock";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { systemTimerScheduler, type ScheduledTimer, type TimerScheduler } from "@sdl/core/timers";
-import { parseModelRef } from "@sdl/plans";
+import { parseModelRef } from "@sdl/core/model-slug";
 
 import type { ModelInfo } from "../cmux/types.ts";
 import type {

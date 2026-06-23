@@ -1,3 +1,4 @@
+import { buildSlugModelArgs, DEFAULT_FAST_MODEL } from "@sdl/core/model-slug";
 import { afterEach, describe, expect, test } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -8,7 +9,6 @@ import {
 	derivePlanContentSlug,
 	type PlanContentSlugEvidence,
 } from "../src/index.ts";
-import { buildSlugModelArgs, DEFAULT_FAST_MODEL } from "@sdl/plans";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/exec";
 
 const CWD = "/repo";

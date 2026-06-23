@@ -1,7 +1,5 @@
-import type { CommandResult } from "@sdl/sdl/checkpoint-flow";
-import type { PendingWorktreeSnapshot } from "@sdl/sdl/pending-worktree";
 import { runGraphiteCommand } from "@sdl/graphite/branch";
-
+import type { CommandResult, PendingWorktreeSnapshot } from "./shared.ts";
 import { chooseAvailableBranchName } from "./branch-name.ts";
 import {
 	buildBranchSlugPrompt,
@@ -9,9 +7,9 @@ import {
 	MAX_DIFF_CHARS,
 	prepareRequestedBranchSlug,
 } from "./slug.ts";
-import { formatCommandDetails } from "./shared.ts";
+import { formatAutobranchCommandDetails } from "./shared.ts";
 import { inspectUpstreamHeadState } from "./upstream.ts";
-import type { ParsedAutobranchArgs } from "./preparation.ts";
+import type { ParsedAutobranchArgs } from "./dirty-worktree.ts";
 import { shortSha } from "./short-sha.ts";
 
 const GIT_TIMEOUT_MS = 30_000;
@@ -137,7 +135,7 @@ export async function loadLatestCommitFacts(
 		{ cwd: input.cwd, args: ["trunk", "--no-interactive"], timeoutMs: GT_TIMEOUT_MS },
 	);
 	if (trunk.code !== 0) {
-		return { ok: false, kind: "trunk_lookup_failed", error: formatCommandDetails(trunk) };
+		return { ok: false, kind: "trunk_lookup_failed", error: formatAutobranchCommandDetails(trunk) };
 	}
 	const trunkBranch = trunk.stdout
 		.trim()
@@ -174,7 +172,11 @@ export async function loadLatestCommitFacts(
 		GIT_TIMEOUT_MS,
 	);
 	if (parents.code !== 0) {
-		return { ok: false, kind: "commit_parent_lookup_failed", error: formatCommandDetails(parents) };
+		return {
+			ok: false,
+			kind: "commit_parent_lookup_failed",
+			error: formatAutobranchCommandDetails(parents),
+		};
 	}
 	const [headSha, ...parentShas] = parents.stdout.trim().split(/\s+/).filter(Boolean);
 	if (!headSha) {
@@ -196,10 +198,18 @@ export async function loadLatestCommitFacts(
 		input.exec("git", ["diff", "HEAD^", "HEAD", "--no-ext-diff"], input.cwd, GIT_TIMEOUT_MS),
 	]);
 	if (message.code !== 0) {
-		return { ok: false, kind: "commit_evidence_failed", error: formatCommandDetails(message) };
+		return {
+			ok: false,
+			kind: "commit_evidence_failed",
+			error: formatAutobranchCommandDetails(message),
+		};
 	}
 	if (diff.code !== 0) {
-		return { ok: false, kind: "commit_evidence_failed", error: formatCommandDetails(diff) };
+		return {
+			ok: false,
+			kind: "commit_evidence_failed",
+			error: formatAutobranchCommandDetails(diff),
+		};
 	}
 	const commitSubject = message.stdout.split("\n")[0]?.trim();
 	const commitSummary = commitSubject ? `${shortSha(headSha)} ${commitSubject}` : shortSha(headSha);
@@ -229,7 +239,7 @@ async function inspectGraphiteChildBranches(
 		GT_TIMEOUT_MS,
 	);
 	if (children.code !== 0) {
-		return { ok: false, error: formatCommandDetails(children) };
+		return { ok: false, error: formatAutobranchCommandDetails(children) };
 	}
 	return { ok: true, children: nonEmptyLines(children.stdout) };
 }

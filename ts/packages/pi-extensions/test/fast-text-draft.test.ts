@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { DEFAULT_FAST_MODEL } from "@sdl/plans";
+import { DEFAULT_FAST_MODEL } from "@sdl/core/model-slug";
 import {
 	CLAUDE_CLI_MODEL,
 	DRAFT_MODEL_ENV,
