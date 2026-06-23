@@ -27,10 +27,7 @@ function flowCommand(name: string, description: string): FlowCommandInfo {
 const SDL_FLOW_COMMANDS = [
 	flowCommand("changes", "Summarize outstanding worktree changes without committing."),
 	flowCommand("cp", "Create a checkpoint commit for the current diff."),
-	flowCommand(
-		"autobranch",
-		"Create a Graphite branch from dirty worktree changes or the latest unpushed commit.",
-	),
+	flowCommand("autobranch", "Create a Graphite branch from dirty worktree changes."),
 	flowCommand(
 		"branch-latest-commit",
 		"Move the latest eligible commit to a new Graphite child branch.",

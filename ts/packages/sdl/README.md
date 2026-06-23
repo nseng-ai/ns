@@ -137,7 +137,7 @@ Pi exposes the same capability as `/sdl:flow:cp`. Old compatibility aliases such
 
 ## `autobranch`
 
-Create a Graphite branch from dirty worktree changes or the latest unpushed commit.
+Create a Graphite branch from dirty worktree changes.
 
 ```bash
 sdl flow autobranch
@@ -148,11 +148,10 @@ In this repository, `sdl flow autobranch` is provided by the project-local SDK-o
 
 Behavior:
 
-- dirty worktree mode stashes tracked and untracked changes, creates a Graphite branch with `gt create`, restores the stash, and creates a checkpoint commit;
-- clean worktree mode moves the latest eligible unpushed single-parent commit onto a new Graphite branch using a recovery branch, source reset, hard reset, HEAD verification, and cleanup;
-- refuses unsafe latest-commit cases such as trunk, pushed HEAD, root commits, merge commits, or Graphite child branches;
+- stashes tracked and untracked changes, creates a Graphite branch with `gt create`, restores the stash, and creates a checkpoint commit;
+- refuses clean worktrees with guidance to use `sdl flow branch-latest-commit` for latest-commit splitting;
 - derives branch slugs with the SDL slug model unless `--slug` is supplied;
-- generates dirty-worktree checkpoint messages with the same `[cp]` checkpoint-message policy as `sdl flow cp`.
+- generates checkpoint messages with the same `[cp]` checkpoint-message policy as `sdl flow cp`.
 
 Environment:
 
@@ -171,7 +170,7 @@ sdl flow branch-latest-commit
 sdl flow branch-latest-commit --slug <slug>
 ```
 
-In this repository, `sdl flow branch-latest-commit` is provided by the same project-local SDK-only extension module as `sdl flow autobranch`; it is a focused public surface for the clean latest-commit split workflow.
+In this repository, `sdl flow branch-latest-commit` is provided by the project-local SDK-only extension module `.sdl/extensions/flow/src/commands/branch-latest-commit.ts`; it is a focused public surface for the clean latest-commit split workflow.
 
 Behavior:
 
