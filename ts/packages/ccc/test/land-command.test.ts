@@ -507,6 +507,36 @@ describe("code land CLI bridge", () => {
 		expect(stdout.match(/Landed 1 PR: #42 feature-branch\./g)).toHaveLength(1);
 		pi.assertDone();
 	});
+
+	test("emits transient command status when the CLI bridge has UI confirmation", async () => {
+		const pi = new FakePi(graphiteShapeSteps(DB_WITH_FORKED_LANDING_PATH));
+		let stdout = "";
+		let stderr = "";
+		const liveOutput: string[] = [];
+
+		const exitCode = await runLandCli({
+			cwd: ROOT,
+			rawArgs: "--dry-run",
+			exec: async (command, args, options) => await pi.exec(command, args, options),
+			stdout: (text) => {
+				stdout += text;
+			},
+			stderr: (text) => {
+				stderr += text;
+			},
+			onOutput: (stream, text) => {
+				liveOutput.push(`${stream}:${text}`);
+			},
+			confirm: () => true,
+		});
+
+		expect(exitCode).toBe(1);
+		expect(stdout).toBe("");
+		expect(stderr).toContain("Refusing to land: the stack forks at fork-point.");
+		expect(liveOutput.join("")).toContain("stdout:land: running git rev-parse --show-toplevel...");
+		expect(liveOutput.join("")).toContain("stdout:land: running gt trunk --no-interactive...");
+		pi.assertDone();
+	});
 });
 
 describe("code land command", () => {

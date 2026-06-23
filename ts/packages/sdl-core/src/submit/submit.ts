@@ -1,4 +1,12 @@
-import { runCommand, stripTerminalEscapes, type CommandRunner, type ExecResult } from "../exec.ts";
+import {
+	outputListenerToExecCallbacks,
+	runCommand,
+	stripTerminalEscapes,
+	type CommandRunner,
+	type ExecOutputListener,
+	type ExecOutputStream,
+	type ExecResult,
+} from "../exec.ts";
 import type { GitGateway } from "../git/index.ts";
 
 import type { GithubPrGateway } from "./github-pr-gateway.ts";
@@ -72,8 +80,8 @@ export interface SubmitCommandOutput {
 	killed?: boolean;
 }
 
-export type SubmitOutputStream = "stdout" | "stderr";
-export type SubmitOutputListener = (stream: SubmitOutputStream, text: string) => void;
+export type SubmitOutputStream = ExecOutputStream;
+export type SubmitOutputListener = ExecOutputListener;
 
 export interface SubmitRestackConfirmationPrompt {
 	title: string;
@@ -324,12 +332,7 @@ export class RealSubmitGateway implements SubmitGateway {
 			await this.runner("gt", args, {
 				cwd,
 				timeout: timeoutMs,
-				...(onOutput === undefined
-					? {}
-					: {
-							onStdout: (text: string) => onOutput("stdout", text),
-							onStderr: (text: string) => onOutput("stderr", text),
-						}),
+				...outputListenerToExecCallbacks(onOutput),
 			}),
 		);
 	}

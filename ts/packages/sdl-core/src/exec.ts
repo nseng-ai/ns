@@ -21,6 +21,9 @@ export interface ExecResult {
 	startupError?: string;
 }
 
+export type ExecOutputStream = "stdout" | "stderr";
+export type ExecOutputListener = (stream: ExecOutputStream, text: string) => void;
+
 export interface ExecOptions {
 	cwd?: string;
 	env?: NodeJS.ProcessEnv;
@@ -30,6 +33,20 @@ export interface ExecOptions {
 	stdin?: string;
 	onStdout?: (text: string) => void;
 	onStderr?: (text: string) => void;
+}
+
+export function outputListenerToExecCallbacks(
+	onOutput: ExecOutputListener | undefined,
+): Pick<ExecOptions, "onStdout" | "onStderr"> {
+	if (onOutput === undefined) return {};
+	return {
+		onStdout(text) {
+			onOutput("stdout", text);
+		},
+		onStderr(text) {
+			onOutput("stderr", text);
+		},
+	};
 }
 
 export interface RunCommandOptions extends ExecOptions {

@@ -1,3 +1,4 @@
+import { normalizeExecResult, type ExecOutputListener } from "@sdl/core/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import {
 	sendCommandProgressOrNotify,
@@ -9,6 +10,7 @@ import {
 	parseArgs,
 	registerLandStackRenderer,
 } from "./land-stack.ts";
+import { LandStackCommandStream, withCommandStreaming } from "./land-stack/command-stream.ts";
 import { AUTO_CHUNK_LANDING_THRESHOLD } from "./land-stack/constants.ts";
 import {
 	completed,
@@ -128,7 +130,16 @@ async function runLandCommand(
 
 	await ctx.waitForIdle();
 
-	const shape = await loadLandingShape(pi, ctx.cwd);
+	const commandStream = new LandStackCommandStream(pi, ctx, {
+		shouldMirrorFinishedCommandsToNonUi: false,
+	});
+	const runtimePi = withCommandStreaming(pi, commandStream);
+	const runtimeLandPi: LandExtensionAPI = {
+		...pi,
+		exec: async (command, commandArgs, options) =>
+			normalizeExecResult(await runtimePi.exec(command, commandArgs, options)),
+	};
+	const shape = await loadLandingShape(runtimePi, ctx.cwd);
 	if (shape.type === "failure") {
 		presentBrief(
 			ctx,
@@ -149,7 +160,7 @@ async function runLandCommand(
 	}
 
 	if (isIsolatedFastPath(shape.value.stack)) {
-		return await runFastLand(pi, ctx, shape.value, { dryRun: args.value.dryRun });
+		return await runFastLand(runtimeLandPi, ctx, shape.value, { dryRun: args.value.dryRun });
 	}
 
 	if (shape.value.stack.landingBranches.length > AUTO_CHUNK_LANDING_THRESHOLD) {
@@ -186,6 +197,7 @@ export interface LandCliInput {
 	): Promise<ExecResult>;
 	stdout(text: string): void;
 	stderr(text: string): void;
+	onOutput?: ExecOutputListener | undefined;
 	confirm?: LandCliConfirmPrompt | undefined;
 }
 
@@ -218,11 +230,21 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 			},
 			confirm: async (title, message) =>
 				confirm === undefined ? false : await confirm(title, message),
-			setStatus: () => {},
+			setStatus: (_key, value) => {
+				writeCliStatusToOutput(input.onOutput, value);
+			},
 		},
 		waitForIdle: async () => {},
 	});
 	return outcome.type === "failure" && outcome.failure.level === "error" ? 1 : 0;
+}
+
+function writeCliStatusToOutput(
+	onOutput: ExecOutputListener | undefined,
+	status: string | undefined,
+): void {
+	if (status === undefined) return;
+	onOutput?.("stdout", `${status}\n`);
 }
 
 export function isIsolatedFastPath(stack: StackSnapshot): boolean {
