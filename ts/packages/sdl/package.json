@@ -15,6 +15,7 @@
     "./pi-text-generation": "./src/sdk/pi-text-generation.ts",
     "./pr-description": "./src/pr-description.ts",
     "./sdk": "./src/sdk/index.ts",
+    "./submit": "./src/submit.ts",
     "./temp-files": "./src/temp-files.ts",
     "./text-generation": "./src/sdk/text-generation.ts",
     "./text-repair": "./src/text-repair.ts"
@@ -33,6 +34,7 @@
       "./pending-worktree",
       "./pi-text-generation",
       "./pr-description",
+      "./submit",
       "./temp-files",
       "./text-generation",
       "./text-repair"

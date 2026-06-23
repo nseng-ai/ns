@@ -13,7 +13,7 @@ import {
 import {
   createCommitWithPreparedMessage,
   execGit,
-  loadPendingWorktreeSnapshot,
+  loadFlowPendingWorktreeSnapshot,
   type PendingWorktreeError,
   type PendingWorktreeSnapshot,
 } from "../shared/worktree.ts";
@@ -268,13 +268,13 @@ async function createAutobranchCheckpointFlow(
   ctx: SdlExtensionApi,
   args: ParsedAutobranchArgs,
 ): Promise<AutobranchFlowResult> {
-  const loaded = await loadPendingWorktreeSnapshot(ctx);
+  const loaded = await loadFlowPendingWorktreeSnapshot(ctx);
   if (!loaded.ok) {
     return { ok: false, error: formatAutobranchSnapshotError(loaded.error) };
   }
 
   const snapshot = loaded.snapshot;
-  if (snapshot.isClean) {
+  if (snapshot.clean) {
     return createLatestCommitAutobranchFlow(ctx, args, snapshot);
   }
 
@@ -313,7 +313,7 @@ async function runDirtyAutobranchFlow(
   }
 
   const cleanliness = await execGit(ctx, ["status", "--porcelain=v1"], GIT_FACT_TIMEOUT_MS);
-  const isClean = cleanliness.code === 0 && cleanliness.stdout.trim().length === 0;
+  const isWorkingTreeClean = cleanliness.code === 0 && cleanliness.stdout.trim().length === 0;
   const suffix = prepared.plan.hasSuffix
     ? ` (base slug ${prepared.plan.baseSlug} was unavailable)`
     : "";
@@ -324,7 +324,7 @@ async function runDirtyAutobranchFlow(
       `New branch: ${prepared.plan.branchName}${suffix}`,
       `Stacked on: ${snapshot.branch}`,
       `Commit: ${transaction.commitSummary}`,
-      isClean
+      isWorkingTreeClean
         ? "Working directory is clean."
         : "Warning: working directory is not clean after checkpoint.",
     ].join("\n"),
@@ -627,7 +627,7 @@ async function createLatestCommitAutobranchFlow(
   }
 
   const cleanliness = await execGit(ctx, ["status", "--porcelain=v1"], GIT_FACT_TIMEOUT_MS);
-  const isClean = cleanliness.code === 0 && cleanliness.stdout.trim().length === 0;
+  const isWorkingTreeClean = cleanliness.code === 0 && cleanliness.stdout.trim().length === 0;
   const suffix = prepared.plan.hasSuffix
     ? ` (base slug ${prepared.plan.baseSlug} was unavailable)`
     : "";
@@ -643,7 +643,7 @@ async function createLatestCommitAutobranchFlow(
       `New branch: ${prepared.plan.branchName}${suffix}`,
       `Moved commit: ${transaction.commitSummary}`,
       `Source branch ${prepared.plan.sourceBranch} reset to ${shortSha(prepared.plan.parentSha)}.`,
-      isClean
+      isWorkingTreeClean
         ? "Working directory is clean."
         : "Warning: working directory is not clean after latest-commit autobranch.",
     ].join("\n"),

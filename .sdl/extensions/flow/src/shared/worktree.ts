@@ -1,64 +1,23 @@
 import {
-  formatCommandDetails,
-  formatCommandError,
-  withTemporaryFile,
-  type ExecResult,
-  type SdlExtensionApi,
-} from "@sdl/sdl/sdk";
+  formatPendingWorktreeCommandDetails,
+  loadPendingWorktreeSnapshot,
+  type PendingWorktreeError,
+  type PendingWorktreeSnapshot,
+  type WorktreeCommandResult,
+} from "@sdl/sdl/pending-worktree";
+import { formatCommandError, withTemporaryFile, type ExecResult, type SdlExtensionApi } from "@sdl/sdl/sdk";
 
-const GIT_FACT_TIMEOUT_MS = 30_000;
+export type { PendingWorktreeError, PendingWorktreeSnapshot, WorktreeCommandResult };
 
-export type WorktreeCommandResult = ExecResult;
-
-export interface PendingWorktreeSnapshot {
-  root: string;
-  branch: string;
-  status: string;
-  diff: string;
-  isClean: boolean;
-}
-
-export type PendingWorktreeError =
-  | { kind: "not_git_repo"; result: WorktreeCommandResult }
-  | { kind: "detached_head"; result: WorktreeCommandResult }
-  | { kind: "status_failed"; result: WorktreeCommandResult }
-  | { kind: "diff_failed"; result: WorktreeCommandResult };
-
-export async function loadPendingWorktreeSnapshot(
+export async function loadFlowPendingWorktreeSnapshot(
   ctx: SdlExtensionApi,
 ): Promise<
   { ok: true; snapshot: PendingWorktreeSnapshot } | { ok: false; error: PendingWorktreeError }
 > {
-  const root = await execGit(ctx, ["rev-parse", "--show-toplevel"], GIT_FACT_TIMEOUT_MS);
-  if (root.code !== 0) {
-    return { ok: false, error: { kind: "not_git_repo", result: root } };
-  }
-
-  const branch = await execGit(ctx, ["symbolic-ref", "--short", "HEAD"], GIT_FACT_TIMEOUT_MS);
-  if (branch.code !== 0) {
-    return { ok: false, error: { kind: "detached_head", result: branch } };
-  }
-
-  const status = await execGit(ctx, ["status", "--porcelain=v1"], GIT_FACT_TIMEOUT_MS);
-  if (status.code !== 0) {
-    return { ok: false, error: { kind: "status_failed", result: status } };
-  }
-
-  const diff = await execGit(ctx, ["diff", "HEAD", "--no-ext-diff"], GIT_FACT_TIMEOUT_MS);
-  if (diff.code !== 0) {
-    return { ok: false, error: { kind: "diff_failed", result: diff } };
-  }
-
-  return {
-    ok: true,
-    snapshot: {
-      root: root.stdout.trim(),
-      branch: branch.stdout.trim(),
-      status: status.stdout,
-      diff: diff.stdout,
-      isClean: status.stdout.trim().length === 0,
-    },
-  };
+  return await loadPendingWorktreeSnapshot({
+    cwd: ctx.cwd,
+    execGit: (args, timeout) => execGit(ctx, args, timeout),
+  });
 }
 
 export function execGit(
@@ -99,7 +58,7 @@ export async function createCommitWithPreparedMessage(
 }
 
 export function formatPendingWorktreeError(error: PendingWorktreeError): string {
-  const details = formatCommandDetails(error.result);
+  const details = formatPendingWorktreeCommandDetails(error.result);
   if (error.kind === "not_git_repo") {
     return `Not inside a git repository.\n${details}`;
   }

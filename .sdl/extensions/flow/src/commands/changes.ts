@@ -8,7 +8,7 @@ import {
 import { draftChangesSummary } from "../shared/text-helpers.ts";
 import {
   formatPendingWorktreeError,
-  loadPendingWorktreeSnapshot,
+  loadFlowPendingWorktreeSnapshot,
   type PendingWorktreeSnapshot,
 } from "../shared/worktree.ts";
 
@@ -32,13 +32,13 @@ export default defineExtension({
       summary: "Summarize outstanding worktree changes without committing.",
       description: CHANGES_COMMAND_DESCRIPTION,
       async run(ctx) {
-        const loaded = await loadPendingWorktreeSnapshot(ctx);
+        const loaded = await loadFlowPendingWorktreeSnapshot(ctx);
         if (!loaded.ok) {
           return failed(formatPendingWorktreeError(loaded.error), 2);
         }
 
         const snapshot = loaded.snapshot;
-        if (snapshot.isClean) {
+        if (snapshot.clean) {
           return ok("Working tree is clean; no outstanding changes.");
         }
 

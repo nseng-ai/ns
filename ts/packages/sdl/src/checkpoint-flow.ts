@@ -1,7 +1,3 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
 import { formatCommandDetails } from "@sdl/core/exec";
 import { truncateTextHead, truncateTextHeadTail } from "@sdl/core/text-truncation";
 
@@ -12,6 +8,7 @@ import {
 } from "./checkpoint-message.ts";
 import type { TextGenerator } from "./sdk/text-generation.ts";
 import { prepareRepairedText } from "./text-repair.ts";
+import { withTemporaryFile } from "./temp-files.ts";
 
 export const CHECKPOINT_SYSTEM_PROMPT = `You write terse checkpoint commit messages for coding agents.
 
@@ -127,32 +124,29 @@ export async function createCommitWithPreparedMessage(input: {
 	cwd: string;
 	message: string;
 }): Promise<{ summary: string } | { error: string }> {
-	const tempDir = await mkdtemp(join(tmpdir(), "pi-cp-commit-"));
-	try {
-		const messagePath = join(tempDir, "message.txt");
-		await writeFile(messagePath, `${input.message}\n`, "utf8");
+	return await withTemporaryFile(
+		{ prefix: "pi-cp-commit-", filename: "message.txt", contents: `${input.message}\n` },
+		async (messagePath) => {
+			const add = await input.exec("git", ["add", "-A"], input.cwd, 30_000);
+			if (add.code !== 0) {
+				return { error: formatCommandError("Failed to stage checkpoint changes.", add) };
+			}
 
-		const add = await input.exec("git", ["add", "-A"], input.cwd, 30_000);
-		if (add.code !== 0) {
-			return { error: formatCommandError("Failed to stage checkpoint changes.", add) };
-		}
+			const commit = await input.exec("git", ["commit", "-F", messagePath], input.cwd, 120_000);
+			if (commit.code !== 0) {
+				return { error: formatCommandError("Checkpoint commit failed.", commit) };
+			}
 
-		const commit = await input.exec("git", ["commit", "-F", messagePath], input.cwd, 120_000);
-		if (commit.code !== 0) {
-			return { error: formatCommandError("Checkpoint commit failed.", commit) };
-		}
+			const log = await input.exec("git", ["log", "-1", "--oneline"], input.cwd, 5_000);
+			if (log.code !== 0) {
+				return {
+					error: formatCommandError("Created checkpoint commit, but failed to read it back.", log),
+				};
+			}
 
-		const log = await input.exec("git", ["log", "-1", "--oneline"], input.cwd, 5_000);
-		if (log.code !== 0) {
-			return {
-				error: formatCommandError("Created checkpoint commit, but failed to read it back.", log),
-			};
-		}
-
-		return { summary: log.stdout.trim() };
-	} finally {
-		await rm(tempDir, { force: true, recursive: true });
-	}
+			return { summary: log.stdout.trim() };
+		},
+	);
 }
 
 function buildCheckpointDiffPromptSection(input: {

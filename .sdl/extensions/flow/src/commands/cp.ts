@@ -9,7 +9,7 @@ import { prepareCheckpointMessage } from "../shared/text-helpers.ts";
 import {
   createCommitWithPreparedMessage,
   formatPendingWorktreeError,
-  loadPendingWorktreeSnapshot,
+  loadFlowPendingWorktreeSnapshot,
   type PendingWorktreeSnapshot,
 } from "../shared/worktree.ts";
 
@@ -36,7 +36,7 @@ export default defineExtension({
       description: CP_COMMAND_DESCRIPTION,
       schema: cpRequestSchema,
       async run(ctx, request: CpRequest) {
-        const loaded = await loadPendingWorktreeSnapshot(ctx);
+        const loaded = await loadFlowPendingWorktreeSnapshot(ctx);
         if (!loaded.ok) {
           return failed(formatPendingWorktreeError(loaded.error), 2);
         }
@@ -45,7 +45,7 @@ export default defineExtension({
         if (snapshot.branch === "main" || snapshot.branch === "master") {
           return failed(`Refusing to create checkpoint commit on trunk branch: ${snapshot.branch}`, 1);
         }
-        if (snapshot.isClean) {
+        if (snapshot.clean) {
           return failed("Working tree is clean; nothing to checkpoint.", 1);
         }
 

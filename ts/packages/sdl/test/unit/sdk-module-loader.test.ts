@@ -42,6 +42,13 @@ test("repo-local migration extensions can import internal migration subpaths", a
 	const prDescriptionModule =
 		await jiti.import<typeof import("../../src/pr-description.ts")>("@sdl/sdl/pr-description");
 	expect(typeof prDescriptionModule.preparePrDescription).toBe("function");
+	expect(typeof prDescriptionModule.prepareRegeneratedPrDescriptionForCurrentBranch).toBe(
+		"function",
+	);
+
+	const submitModule = await jiti.import<typeof import("../../src/submit.ts")>("@sdl/sdl/submit");
+	expect(typeof submitModule.createSdlSubmitRuntime).toBe("function");
+	expect(typeof submitModule.runSubmitCommand).toBe("function");
 
 	const textGenerationModule = await jiti.import<typeof import("../../src/sdk/text-generation.ts")>(
 		"@sdl/sdl/text-generation",
