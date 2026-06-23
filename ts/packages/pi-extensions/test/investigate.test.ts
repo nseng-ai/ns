@@ -6,7 +6,7 @@ import type { ModelInfo, ThinkingLevel } from "../src/cmux/types.ts";
 import investigateExtension, {
 	INVESTIGATE_COMMAND_NAME,
 	INVESTIGATE_RESULT_MESSAGE_TYPE,
-	INVESTIGATOR_CHILD_TOOL_NAMES,
+	PI_INVESTIGATOR_CHILD_TOOL_NAMES,
 	buildInvestigationTitle,
 	type InvestigateExtensionAPI,
 } from "../src/investigate.ts";
@@ -258,11 +258,11 @@ describe("investigate extension", () => {
 			"medium",
 			"--no-extensions",
 			"--tools",
-			INVESTIGATOR_CHILD_TOOL_NAMES.join(","),
+			PI_INVESTIGATOR_CHILD_TOOL_NAMES.join(","),
 			"--session",
 			SESSION_FILE,
 		]);
-		expect(INVESTIGATOR_CHILD_TOOL_NAMES).not.toContain("bash");
+		expect(PI_INVESTIGATOR_CHILD_TOOL_NAMES).not.toContain("bash");
 		expect(call.args).not.toContain("--extension");
 		expect(call.options.cwd).toBe(ROOT);
 		const childPrompt = call.args.at(-1) ?? "";
@@ -367,5 +367,16 @@ describe("investigate extension", () => {
 		expect(buildInvestigationTitle("one two three four five six seven eight nine ten eleven")).toBe(
 			"Investigation: one two three four five six seven eight nine ten…",
 		);
+	});
+
+	test("builds long progress titles with only one truncation ellipsis", () => {
+		const title = buildInvestigationTitle(
+			"supercalifragilisticexpialidocious pseudopseudohypoparathyroidism floccinaucinihilipilification antidisestablishmentarianism honorificabilitudinitatibus one two three four five six seven",
+		);
+
+		expect(title.length).toBeLessThanOrEqual(80);
+		expect(title.endsWith("…")).toBe(true);
+		expect(title).not.toMatch(/……$/u);
+		expect(title).not.toMatch(/….+…$/u);
 	});
 });

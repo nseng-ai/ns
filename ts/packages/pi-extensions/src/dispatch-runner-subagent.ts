@@ -1,3 +1,7 @@
+import { z } from "zod";
+
+import { formatZodError } from "@sdl/core/primitives";
+
 import { loadPiAgentDefinition, type PiAgentDefinition } from "./pi-agent-definition.ts";
 import type { CuratedRunnerSubagentContextAudit } from "./runner-subagent/curated-context.ts";
 import { runFinalTextSubagent } from "./runner-subagent/dispatch-preparation.ts";
@@ -9,12 +13,7 @@ import {
 	type RunnerSubagentResult,
 	type RunnerSubagentUsageMetadata,
 } from "./runner-subagent.ts";
-import type {
-	RuntimeExtensionAPI,
-	RuntimeToolDefinition,
-	RuntimeToolResult,
-	ToolContext,
-} from "./handoff/runtime-types.ts";
+import type { ExtensionAPI, ToolDefinition } from "./handoff/runtime-types.ts";
 import {
 	formatRunnerSubagentElapsed,
 	formatRunnerSubagentModelText,
@@ -30,12 +29,14 @@ export const MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS = 48_000;
 
 const WIDGET_KEY = DISPATCH_RUNNER_SUBAGENT_TOOL_NAME;
 
-export type ToolResult = RuntimeToolResult;
-export interface DispatchRunnerSubagentInput {
-	title: string;
-	prompt: string;
-	model?: string;
-}
+const dispatchRunnerSubagentInputSchema = z.object({
+	title: z.string().trim().min(1),
+	prompt: z.string().trim().min(1),
+	model: z.string().trim().min(1).optional(),
+});
+
+export type { ToolResult } from "./handoff/runtime-types.ts";
+export type DispatchRunnerSubagentInput = z.infer<typeof dispatchRunnerSubagentInputSchema>;
 
 export interface DispatchRunnerSubagentDetails {
 	status: RunnerSubagentResult["status"];
@@ -54,25 +55,11 @@ export interface DispatchRunnerSubagentDetails {
 	protocolError?: unknown;
 }
 
-export type ExtensionContext = Pick<ToolContext, "cwd" | "model"> &
-	Partial<Pick<ToolContext, "hasUI" | "mode">> & {
-		ui?: Partial<ToolContext["ui"]>;
-	};
+export type DispatchRunnerSubagentToolDefinition = ToolDefinition;
 
-export interface ToolDefinition extends Omit<RuntimeToolDefinition, "execute" | "parameters"> {
-	parameters: object;
-	execute(
-		toolCallId: string,
-		params: unknown,
-		signal: AbortSignal | undefined,
-		onUpdate: ((partial: ToolResult) => void) | undefined,
-		ctx: ExtensionContext,
-	): Promise<ToolResult>;
-}
-
-export type ExtensionAPI = RunnerSubagentPi &
-	Pick<RuntimeExtensionAPI, "exec" | "getThinkingLevel"> & {
-		registerTool(tool: ToolDefinition): void;
+export type DispatchRunnerSubagentExtensionAPI = RunnerSubagentPi &
+	Pick<ExtensionAPI, "exec" | "getThinkingLevel"> & {
+		registerTool: NonNullable<ExtensionAPI["registerTool"]>;
 	};
 
 export interface DispatchRunnerSubagentExtensionOptions {
@@ -103,7 +90,7 @@ export const DISPATCH_RUNNER_SUBAGENT_PARAMETERS = {
 } as const;
 
 export default function dispatchRunnerSubagentExtension(
-	pi: ExtensionAPI,
+	pi: DispatchRunnerSubagentExtensionAPI,
 	options: DispatchRunnerSubagentExtensionOptions = {},
 ): void {
 	const loadAgentDefinition = options.loadAgentDefinition ?? loadPiAgentDefinition;
@@ -295,28 +282,9 @@ export function formatDispatchRunnerSubagentProgress(progress: RunnerSubagentPro
 }
 
 function validateDispatchRunnerSubagentInput(params: unknown): DispatchRunnerSubagentInput {
-	if (params === null || typeof params !== "object") {
-		throw new Error("dispatch_runner_subagent requires an object input.");
-	}
-	const input = params as Partial<DispatchRunnerSubagentInput>;
-	if (typeof input.title !== "string" || input.title.trim().length === 0) {
-		throw new Error("dispatch_runner_subagent requires a non-empty title string.");
-	}
-	if (typeof input.prompt !== "string" || input.prompt.trim().length === 0) {
-		throw new Error("dispatch_runner_subagent requires a non-empty prompt string.");
-	}
-	if (
-		input.model !== undefined &&
-		(typeof input.model !== "string" || input.model.trim().length === 0)
-	) {
-		throw new Error("dispatch_runner_subagent model must be a non-empty string when provided.");
-	}
-	const model = input.model?.trim();
-	return {
-		title: input.title.trim(),
-		prompt: input.prompt,
-		...(model === undefined ? {} : { model }),
-	};
+	const parsed = dispatchRunnerSubagentInputSchema.safeParse(params);
+	if (!parsed.success) throw new Error(formatZodError(parsed.error));
+	return parsed.data;
 }
 
 function formatLaunchLine(launch: RunnerSubagentLaunchMetadata): string {
