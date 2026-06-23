@@ -558,6 +558,45 @@ describe("code land command", () => {
 		pi.assertDone();
 	});
 
+	test("CLI mode uses injected confirmation instead of requiring --yes", async () => {
+		const pi = new FakePi(graphiteShapeSteps(DB_WITH_DESCENDANT));
+		const confirmations: Confirmation[] = [];
+		let stdout = "";
+		let stderr = "";
+
+		const exitCode = await runLandCli({
+			cwd: ROOT,
+			rawArgs: "",
+			exec: async (command, args, options) =>
+				await pi.exec(command, args, {
+					...(options?.cwd === undefined ? {} : { cwd: options.cwd }),
+					...(options?.timeout === undefined ? {} : { timeout: options.timeout }),
+				}),
+			stdout: (text) => {
+				stdout += text;
+			},
+			stderr: (text) => {
+				stderr += text;
+			},
+			confirm: (title, message) => {
+				confirmations.push({ title, message });
+				return false;
+			},
+		});
+
+		expect(exitCode).toBe(0);
+		expect(confirmations).toEqual([
+			{
+				title: "Land stack?",
+				message:
+					"Land 1 PRs from feature-branch through feature-branch into main?\nDescendants above feature-branch will not be merged; this command will try to maintain them after landing.",
+			},
+		]);
+		expect(stdout).toBe("Cancelled before merge; no PRs were landed.\n");
+		expect(stderr).toBe("");
+		pi.assertDone();
+	});
+
 	test("supports fast-path dry-run without merging", async () => {
 		const { pi, notifications } = await runLand([step("gh", PR_VIEW_ARGS, { stdout: prView() })], {
 			args: "--dry-run",

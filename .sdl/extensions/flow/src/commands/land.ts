@@ -36,6 +36,7 @@ export default defineExtension({
 						stderr += text;
 						ctx.stderr?.(text);
 					},
+					...(ctx.confirm === undefined ? {} : { confirm: ctx.confirm }),
 				});
 				if (exitCode === 0) return ok(stdout === "" ? "Land completed." : "");
 				return failed(stderr === "" ? "Land failed." : "", exitCode);
