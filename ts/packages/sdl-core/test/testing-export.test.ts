@@ -10,6 +10,7 @@ import {
 	createManualClock,
 	createManualTimerScheduler,
 	createTempDirTracker,
+	githubCheckRun,
 	createTempGitRepo,
 	describeNodeRuntimeCliEntrypoint,
 	ScriptedCommandExecApi,
@@ -31,6 +32,7 @@ test("exports testing helpers through the package testing subpath", () => {
 	expect(typeof createManualClock).toBe("function");
 	expect(typeof createManualTimerScheduler).toBe("function");
 	expect(typeof withTempRepoSkill).toBe("function");
+	expect(typeof githubCheckRun).toBe("function");
 	expect(typeof ScriptedCommandRunner).toBe("function");
 	expect(typeof ScriptedCommandExecApi).toBe("function");
 	expect(typeof ScriptedQueue).toBe("function");

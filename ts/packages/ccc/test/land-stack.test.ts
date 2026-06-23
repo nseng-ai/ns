@@ -187,6 +187,7 @@ function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
 		stderr: overrides.stderr ?? "",
 		code: overrides.code ?? 0,
 		killed: overrides.killed ?? false,
+		...(overrides.startupError === undefined ? {} : { startupError: overrides.startupError }),
 	};
 }
 
@@ -1402,8 +1403,10 @@ describe("land-stack pure helpers", () => {
 
 		const result = await streamed.exec("git", ["status"], { cwd: ROOT });
 
-		expect(result).toEqual(execResult({ code: 1, stderr: "spawn failed" }));
-		expect(commandMessagesText(pi.messages)).toContain("✗ $ git status — exit 1");
+		expect(result).toEqual(
+			execResult({ code: 127, stderr: "spawn failed", startupError: "spawn failed" }),
+		);
+		expect(commandMessagesText(pi.messages)).toContain("✗ $ git status — exit 127");
 		expect(commandMessagesText(pi.messages)).toContain("spawn failed");
 	});
 

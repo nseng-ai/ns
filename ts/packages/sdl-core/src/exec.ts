@@ -233,6 +233,23 @@ export function normalizeExecResult(result: PiExecResultLike): ExecResult {
 	};
 }
 
+export async function runNormalizedExecResult(
+	run: () => Promise<PiExecResultLike>,
+): Promise<ExecResult> {
+	try {
+		return normalizeExecResult(await run());
+	} catch (error) {
+		const startupError = formatErrorMessage(error);
+		return {
+			stdout: "",
+			stderr: startupError,
+			code: STARTUP_FAILURE_EXIT_CODE,
+			killed: false,
+			startupError,
+		};
+	}
+}
+
 export function isSuccessfulExecResult(result: ExecResult): boolean {
 	return commandSucceeded(result);
 }
