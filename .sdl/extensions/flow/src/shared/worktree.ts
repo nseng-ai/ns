@@ -9,6 +9,8 @@ import { formatCommandError, withTemporaryFile, type ExecResult, type SdlExtensi
 
 export type { PendingWorktreeError, PendingWorktreeSnapshot, WorktreeCommandResult };
 
+export { formatCommandDetails } from "@sdl/sdl/sdk";
+
 export async function loadFlowPendingWorktreeSnapshot(
   ctx: SdlExtensionApi,
 ): Promise<

@@ -2,17 +2,19 @@ import { Buffer } from "node:buffer";
 import { readFile, stat } from "node:fs/promises";
 import { relative, resolve } from "node:path";
 
-import { defineExtension, failed, formatCommandDetails, ok, z } from "@sdl/sdl/sdk";
+import { defineExtension, failed, formatCommandDetails, ok, z, type SdlExtensionApi } from "@sdl/sdl/sdk";
+
+import { chooseAvailableBranchName } from "../shared/branch-availability.ts";
+import { sanitizeBranchName } from "../shared/branch-slug-text.ts";
 import {
   buildBranchSlugPrompt,
-  chooseAvailableBranchName,
   DEFAULT_FAST_MODEL_REF,
   deriveBranchSlug,
   MAX_DIFF_CHARS,
   prepareRequestedBranchSlug,
-  sanitizeBranchName,
   SLUG_MODEL_ENV,
 } from "../shared/branch-slugs.ts";
+import { execGt, GIT_FACT_TIMEOUT_MS, GT_CREATE_TIMEOUT_MS } from "../shared/command-exec.ts";
 import { prepareCheckpointMessage } from "../shared/text-helpers.ts";
 import {
   CHECKPOINT_MODEL_ENV,
@@ -23,14 +25,12 @@ import {
 import {
   createCommitWithPreparedMessage,
   execGit,
+  formatPendingWorktreeError,
   loadFlowPendingWorktreeSnapshot,
-  type PendingWorktreeError,
   type PendingWorktreeSnapshot,
 } from "../shared/worktree.ts";
-import type { ExecResult, SdlExtensionApi } from "@sdl/sdl/sdk";
+import { formatErrorMessage } from "../shared/output.ts";
 
-const GIT_FACT_TIMEOUT_MS = 30_000;
-const GT_CREATE_TIMEOUT_MS = 120_000;
 const STASH_PUSH_TIMEOUT_MS = 120_000;
 const STASH_POP_TIMEOUT_MS = 120_000;
 const MAX_UNTRACKED_FILES = 12;
@@ -135,7 +135,7 @@ async function createAutobranchCheckpointFlow(
 ): Promise<AutobranchFlowResult> {
   const loaded = await loadFlowPendingWorktreeSnapshot(ctx);
   if (!loaded.ok) {
-    return { ok: false, error: formatAutobranchSnapshotError(loaded.error) };
+    return { ok: false, error: formatPendingWorktreeError(loaded.error) };
   }
 
   const snapshot = loaded.snapshot;
@@ -148,14 +148,6 @@ async function createAutobranchCheckpointFlow(
   }
 
   return runDirtyAutobranchFlow(ctx, args, snapshot);
-}
-
-function execGt(
-  ctx: SdlExtensionApi,
-  args: readonly string[],
-  timeoutMs: number,
-): Promise<ExecResult> {
-  return ctx.exec("gt", [...args], { timeoutMs });
 }
 
 async function runDirtyAutobranchFlow(
@@ -480,20 +472,6 @@ async function restoreStash(
   return { ok: true };
 }
 
-function formatAutobranchSnapshotError(error: PendingWorktreeError): string {
-  const details = formatCommandDetails(error.result);
-  if (error.kind === "not_git_repo") {
-    return `Not inside a git repository.\n${details}`;
-  }
-  if (error.kind === "detached_head") {
-    return `Detached HEAD; check out a branch before autobranching.\n${details}`;
-  }
-  if (error.kind === "status_failed") {
-    return `Could not read git status.\n${details}`;
-  }
-  return `Could not read git diff.\n${details}`;
-}
-
 function formatAutobranchPreparationFailure(
   result: Extract<AutobranchPreparationResult, { ok: false }>,
 ): string {
@@ -545,9 +523,3 @@ function formatAutobranchTransactionFailure(
   }
   return `Branch ${branchName} exists, but checkpoint commit failed. Pending changes remain on that branch.\n${result.commitError}`;
 }
-
-
-function formatErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-

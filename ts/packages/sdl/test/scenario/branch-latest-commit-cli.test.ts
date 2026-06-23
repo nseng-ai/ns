@@ -22,31 +22,10 @@ const tempProjectDirs: string[] = [];
 const HEAD_SHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const PARENT_SHA = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
-function branchNameSuffix(index: number): string {
-	return index === 0 ? "" : `-${index + 1}`;
-}
-
-function branchParentPrefixes(branchName: string): string[] {
-	const segments = branchName.split("/");
-	const prefixes: string[] = [];
-	for (let index = 1; index < segments.length; index += 1) {
-		prefixes.push(segments.slice(0, index).join("/"));
-	}
-	return prefixes;
-}
-
 function availableBranchResponses(branchName: string): ScriptedExecResponse[] {
 	return [
 		{ match: `git check-ref-format --branch ${branchName}`, result: {} },
 		{ match: `git show-ref --verify --quiet refs/heads/${branchName}`, result: { code: 1 } },
-		...branchParentPrefixes(branchName).map((prefix) => ({
-			match: `git show-ref --verify --quiet refs/heads/${prefix}`,
-			result: { code: 1 },
-		})),
-		{
-			match: `git for-each-ref --format=%(refname:strip=2) refs/heads/${branchName}/*`,
-			result: { stdout: "" },
-		},
 	];
 }
 
@@ -55,45 +34,6 @@ function exactExistingBranchResponse(branchName: string): ScriptedExecResponse[]
 		{ match: `git check-ref-format --branch ${branchName}`, result: {} },
 		{ match: `git show-ref --verify --quiet refs/heads/${branchName}`, result: {} },
 	];
-}
-
-function childExistingBranchResponses(
-	branchName: string,
-	childBranch: string,
-): ScriptedExecResponse[] {
-	return [
-		{ match: `git check-ref-format --branch ${branchName}`, result: {} },
-		{ match: `git show-ref --verify --quiet refs/heads/${branchName}`, result: { code: 1 } },
-		...branchParentPrefixes(branchName).map((prefix) => ({
-			match: `git show-ref --verify --quiet refs/heads/${prefix}`,
-			result: { code: 1 },
-		})),
-		{
-			match: `git for-each-ref --format=%(refname:strip=2) refs/heads/${branchName}/*`,
-			result: { stdout: `${childBranch}\n` },
-		},
-	];
-}
-
-function parentCollisionExhaustionResponses(options: {
-	base: string;
-	parent: string;
-}): ScriptedExecResponse[] {
-	return Array.from(
-		{ length: 50 },
-		(_, index) => `${options.base}${branchNameSuffix(index)}`,
-	).flatMap((branchName) => [
-		{ match: `git check-ref-format --branch ${branchName}`, result: {} },
-		{ match: `git show-ref --verify --quiet refs/heads/${branchName}`, result: { code: 1 } },
-		...branchParentPrefixes(branchName).map((prefix) => ({
-			match: `git show-ref --verify --quiet refs/heads/${prefix}`,
-			result: { code: prefix === options.parent ? 0 : 1 },
-		})),
-		{
-			match: `git for-each-ref --format=%(refname:strip=2) refs/heads/${branchName}/*`,
-			result: { stdout: "" },
-		},
-	]);
 }
 
 function createBranchLatestCommitProject(): string {
@@ -326,58 +266,63 @@ describe("project-local branch-latest-commit extension", () => {
 		);
 	});
 
-	test("suffixes when an existing child blocks the requested branch", async () => {
+	test("surfaces Graphite branch-name conflicts through transaction recovery", async () => {
 		vi.setSystemTime(new Date(123456789));
 		const run = runWithFakes({
 			args: ["flow", "branch-latest-commit", "--slug", "extract-commit"],
 			state: {
-				exec: cleanLatestCommitResponses({
-					targetBranchName: "extract-commit-2",
-					targetAvailability: [
-						...childExistingBranchResponses("extract-commit", "extract-commit/child"),
-						...availableBranchResponses("extract-commit-2"),
-					],
-				}),
-				textGeneration: [],
-			},
-		});
-
-		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain(
-			"New branch: extract-commit-2 (base slug extract-commit was unavailable)",
-		);
-		expect(formattedExecCalls(run.context)).toContain(
-			"git for-each-ref --format=%(refname:strip=2) refs/heads/extract-commit/*",
-		);
-		expect(formattedExecCalls(run.context)).toContain(
-			"gt create extract-commit-2 --no-interactive --no-ai",
-		);
-	});
-
-	test("refuses before mutation when recovery branch names are exhausted by a parent ref", async () => {
-		vi.setSystemTime(new Date(123456789));
-		const run = runWithFakes({
-			args: ["flow", "branch-latest-commit", "--slug", "extract-commit"],
-			state: {
-				exec: cleanLatestCommitResponses({
-					backupAvailability: parentCollisionExhaustionResponses({
-						base: "autobranch-backup/feature/source/123456789",
-						parent: "autobranch-backup",
-					}),
-				}),
+				exec: [
+					...cleanLatestCommitResponses().slice(0, 21),
+					{
+						match: "gt create extract-commit --no-interactive --no-ai",
+						result: { code: 1, stderr: "fatal: cannot lock ref\n" },
+					},
+					{ match: "git checkout feature/source", result: {} },
+					{ match: `git reset --hard ${HEAD_SHA}`, result: {} },
+					{ match: "git branch -D extract-commit", result: { code: 1, stderr: "not found\n" } },
+				],
 				textGeneration: [],
 			},
 		});
 
 		expect(await run.exit).toBe(1);
 		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toContain("Could not find an available recovery branch name");
+		expect(run.stderr.join("")).toContain(
+			"Failed to create Graphite branch after resetting source branch.",
+		);
+		expect(run.stderr.join("")).toContain(
+			"Recovery branch: autobranch-backup/feature/source/123456789",
+		);
+		expect(run.stderr.join("")).toContain("fatal: cannot lock ref");
+		expect(run.stderr.join("")).toContain("Restored source branch to the original HEAD.");
+		expect(run.stderr.join("")).toContain("Could not delete incomplete branch extract-commit");
+	});
+
+	test("refuses before source reset when recovery branch creation hits an authoritative ref conflict", async () => {
+		vi.setSystemTime(new Date(123456789));
+		const run = runWithFakes({
+			args: ["flow", "branch-latest-commit", "--slug", "extract-commit"],
+			state: {
+				exec: [
+					...cleanLatestCommitResponses().slice(0, 17),
+					{
+						match: `git branch autobranch-backup/feature/source/123456789 ${HEAD_SHA}`,
+						result: { code: 128, stderr: "fatal: cannot lock ref\n" },
+					},
+				],
+				textGeneration: [],
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toContain(
+			"Failed to create recovery branch before moving latest commit.",
+		);
+		expect(run.stderr.join("")).toContain("fatal: cannot lock ref");
 		const calls = formattedExecCalls(run.context);
 		expect(calls).not.toContain(`git reset --hard ${PARENT_SHA}`);
 		expect(calls).not.toContain("gt create extract-commit --no-interactive --no-ai");
-		expect(calls).not.toContain(
-			`git branch autobranch-backup/feature/source/123456789 ${HEAD_SHA}`,
-		);
 	});
 
 	test("writes latest-commit recovery cleanup warnings to stderr only", async () => {

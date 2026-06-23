@@ -18,27 +18,10 @@ import { installCheckedInFlowExtension } from "../helpers/flow-extension.ts";
 const tempProjectDirs: string[] = [];
 const CHECKPOINT_MESSAGE = "[cp] Move pending work\n\n- Preserve current changes";
 
-function branchParentPrefixes(branchName: string): string[] {
-	const segments = branchName.split("/");
-	const prefixes: string[] = [];
-	for (let index = 1; index < segments.length; index += 1) {
-		prefixes.push(segments.slice(0, index).join("/"));
-	}
-	return prefixes;
-}
-
 function availableBranchResponses(branchName: string): ScriptedExecResponse[] {
 	return [
 		{ match: `git check-ref-format --branch ${branchName}`, result: {} },
 		{ match: `git show-ref --verify --quiet refs/heads/${branchName}`, result: { code: 1 } },
-		...branchParentPrefixes(branchName).map((prefix) => ({
-			match: `git show-ref --verify --quiet refs/heads/${prefix}`,
-			result: { code: 1 },
-		})),
-		{
-			match: `git for-each-ref --format=%(refname:strip=2) refs/heads/${branchName}/*`,
-			result: { stdout: "" },
-		},
 	];
 }
 
@@ -189,7 +172,6 @@ describe("project-local autobranch extension", () => {
 			"git diff HEAD --no-ext-diff",
 			"git check-ref-format --branch move-work",
 			"git show-ref --verify --quiet refs/heads/move-work",
-			"git for-each-ref --format=%(refname:strip=2) refs/heads/move-work/*",
 			"git stash push --include-untracked -m pi-autobranch:123456789:move-work",
 			"git stash list --format=%gd%x00%s",
 			"gt create move-work --no-interactive --no-ai",
@@ -205,6 +187,31 @@ describe("project-local autobranch extension", () => {
 			operation: "checkpoint-message",
 			modelRef: "openai-codex/gpt-5.4-mini",
 		});
+	});
+
+	test("restores stash when Graphite rejects a preflight-available branch name", async () => {
+		vi.setSystemTime(new Date(123456789));
+		const run = runWithFakes({
+			args: ["flow", "autobranch", "--slug", "move-work"],
+			state: {
+				exec: [
+					...dirtyWorktreeResponses().slice(0, 8),
+					{
+						match: "gt create move-work --no-interactive --no-ai",
+						result: { code: 1, stderr: "fatal: cannot lock ref\n" },
+					},
+					{ match: "git stash pop stash@{0}", result: {} },
+				],
+				textGeneration: [{ ok: true, text: CHECKPOINT_MESSAGE }],
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toContain("Failed to create Graphite branch move-work.");
+		expect(run.stderr.join("")).toContain("fatal: cannot lock ref");
+		expect(run.stderr.join("")).toContain("Restored pending changes to the original branch.");
+		expect(formattedExecCalls(run.context)).toContain("git stash pop stash@{0}");
 	});
 
 	test("refuses a clean worktree before Graphite, stash, or model calls", async () => {
