@@ -1,5 +1,11 @@
 import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
-import { formatCommand, formatCommandFailure, isSuccessfulExecResult } from "@sdl/core/exec";
+import {
+	execApiToCommandRunner,
+	formatCommand,
+	formatCommandFailure,
+	isSuccessfulExecResult,
+	piExecApiToCommandExecApi,
+} from "@sdl/core/exec";
 import { planLocalBranchRefreshFromWorktrees, type LocalBranchRefreshPlan } from "@sdl/core/git";
 import { runGraphiteCommand } from "@sdl/graphite/branch";
 import { sendCommandProgressOrNotify } from "@sdl/pi-extension-runtime/command-ack";
@@ -116,13 +122,10 @@ export async function createTrackedBranchFromTrunkForPrompt(options: {
 }): Promise<BranchCreateResult | { error: string }> {
 	const { pi, cwd, prompt, notify } = options;
 	notify?.("Resolving Graphite trunk…");
-	const trunk = await runGraphiteCommand(
-		(command, commandArgs, commandOptions) => pi.exec(command, [...commandArgs], commandOptions),
-		{
-			cwd,
-			args: ["trunk", "--no-interactive"],
-		},
-	);
+	const trunk = await runGraphiteCommand(execApiToCommandRunner(piExecApiToCommandExecApi(pi)), {
+		cwd,
+		args: ["trunk", "--no-interactive"],
+	});
 	if (!isSuccessfulExecResult(trunk)) {
 		return {
 			error: formatCommandFailure(

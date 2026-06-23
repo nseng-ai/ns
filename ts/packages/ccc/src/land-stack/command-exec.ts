@@ -1,9 +1,10 @@
 import {
+	execApiToCommandRunner,
 	formatOutputSection,
 	normalizeExecResult,
+	piExecApiToCommandExecApi,
 	stripTerminalEscapes,
 	tailText,
-	type CommandRunner,
 	type ExecResult,
 } from "@sdl/core/exec";
 import { GRAPHITE_COMMAND_NAME, runGraphiteCommand } from "@sdl/graphite/branch";
@@ -69,10 +70,8 @@ export async function execRawGraphite(
 	pi: LandStackExtensionAPI,
 	options: ExecGraphiteOptions,
 ): Promise<ExecResult> {
-	const runner: CommandRunner = async (command, commandArgs, options) =>
-		normalizeExecResult(await pi.exec(command, [...commandArgs], options));
 	try {
-		return await runGraphiteCommand(runner, options);
+		return await runGraphiteCommand(execApiToCommandRunner(piExecApiToCommandExecApi(pi)), options);
 	} catch (error) {
 		return {
 			stdout: "",

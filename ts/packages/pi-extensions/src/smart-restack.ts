@@ -1,4 +1,11 @@
-import { formatOutputSection, tailText, type ExecOptions, type ExecResult } from "@sdl/core/exec";
+import {
+	execApiToCommandRunner,
+	formatOutputSection,
+	piExecApiToCommandExecApi,
+	tailText,
+	type ExecOptions,
+	type ExecResult,
+} from "@sdl/core/exec";
 import { runGraphiteCommand } from "@sdl/graphite/branch";
 import {
 	sendCommandProgressOrNotify,
@@ -121,14 +128,11 @@ export async function runSmartRestack(
 		ctx,
 		message: "Running deterministic fast path: gt restack",
 	});
-	const restack = await runGraphiteCommand(
-		(command, commandArgs, commandOptions) => pi.exec(command, [...commandArgs], commandOptions),
-		{
-			cwd: ctx.cwd,
-			args: ["restack"],
-			timeoutMs: GT_RESTACK_TIMEOUT_MS,
-		},
-	);
+	const restack = await runGraphiteCommand(execApiToCommandRunner(piExecApiToCommandExecApi(pi)), {
+		cwd: ctx.cwd,
+		args: ["restack"],
+		timeoutMs: GT_RESTACK_TIMEOUT_MS,
+	});
 	if (restack.code === 0) {
 		notify(ctx, formatCleanRestackMessage(restack), "info");
 		return;

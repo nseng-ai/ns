@@ -10,10 +10,12 @@ import {
 	type BrmemPutData,
 } from "@sdl/core/brmem-cli";
 import {
+	execApiToCommandRunner,
 	formatCommand,
 	formatCommandFailure,
 	formatShellArg,
 	isSuccessfulExecResult,
+	piExecApiToCommandExecApi,
 } from "@sdl/core/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { runGraphiteCommand } from "@sdl/graphite/branch";
@@ -202,10 +204,10 @@ export async function createTrackedBranchFromResolvedParent(options: {
 	}
 
 	const trackArgs = ["track", branchName, "--parent", parentBranch, "--no-interactive"];
-	const track = await runGraphiteCommand(
-		(command, commandArgs, commandOptions) => pi.exec(command, [...commandArgs], commandOptions),
-		{ cwd, args: trackArgs },
-	);
+	const track = await runGraphiteCommand(execApiToCommandRunner(piExecApiToCommandExecApi(pi)), {
+		cwd,
+		args: trackArgs,
+	});
 	if (!isSuccessfulExecResult(track)) {
 		return {
 			error: [
