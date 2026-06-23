@@ -37,15 +37,19 @@ const OBJECTIVE_STACK_IMPL_COMMAND: ObjectiveStackImplCommandSpec = {
 };
 
 export function registerObjectiveStackImplCommand(host: ObjectiveStackImplHost): void {
-	registerCommandWithImmediateAck(host, OBJECTIVE_STACK_IMPL_COMMAND.commandName, {
-		description: OBJECTIVE_STACK_IMPL_COMMAND.description,
-		handler: async (args, ctx) =>
-			handleObjectiveStackImplCommand({
-				host,
-				spec: OBJECTIVE_STACK_IMPL_COMMAND,
-				args,
-				ctx: objectiveSelectionContextFromCommandContext(ctx),
-			}),
+	registerCommandWithImmediateAck({
+		host: host,
+		commandName: OBJECTIVE_STACK_IMPL_COMMAND.commandName,
+		commandDefinition: {
+			description: OBJECTIVE_STACK_IMPL_COMMAND.description,
+			handler: async (args, ctx) =>
+				handleObjectiveStackImplCommand({
+					host,
+					spec: OBJECTIVE_STACK_IMPL_COMMAND,
+					args,
+					ctx: objectiveSelectionContextFromCommandContext(ctx),
+				}),
+		},
 	});
 }
 

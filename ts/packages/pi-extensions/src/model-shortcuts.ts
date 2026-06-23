@@ -65,10 +65,14 @@ export interface ExtensionAPI {
 
 export default function modelShortcutExtension(pi: ExtensionAPI): void {
 	for (const shortcut of MODEL_SHORTCUTS) {
-		registerCommandWithImmediateAck(pi, shortcut.command, {
-			description: `Switch to ${modelRef(shortcut)}`,
-			handler: async (_args, ctx) => {
-				await switchToModel(pi, ctx, shortcut);
+		registerCommandWithImmediateAck({
+			host: pi,
+			commandName: shortcut.command,
+			commandDefinition: {
+				description: `Switch to ${modelRef(shortcut)}`,
+				handler: async (_args, ctx) => {
+					await switchToModel(pi, ctx, shortcut);
+				},
 			},
 		});
 	}

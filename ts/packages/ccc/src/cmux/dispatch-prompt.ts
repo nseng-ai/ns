@@ -76,11 +76,16 @@ export function registerCccSlotDispatchPromptCommand(
 	options: DispatchPromptPayloadOptions = {},
 ): void {
 	const payloadOptions = resolveDispatchPromptPayloadOptions(options);
-	registerCommandWithImmediateAck(pi, COMMAND_NAME, {
-		description: "Create a Graphite-tracked branch and dispatch a prompt in a new cmux workspace.",
-		argumentHint: "<prompt>",
-		handler: async (args, ctx) => {
-			await handleCccSlotDispatchPrompt({ pi, payloadOptions, args, ctx });
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: COMMAND_NAME,
+		commandDefinition: {
+			description:
+				"Create a Graphite-tracked branch and dispatch a prompt in a new cmux workspace.",
+			argumentHint: "<prompt>",
+			handler: async (args, ctx) => {
+				await handleCccSlotDispatchPrompt({ pi, payloadOptions, args, ctx });
+			},
 		},
 	});
 }
@@ -95,8 +100,8 @@ export async function handleCccSlotDispatchPrompt(
 		return;
 	}
 
-	await ctx.waitForIdle();
 	sendCommandProgressOrNotify({ host: pi, ctx, message: "Generating branch name…" });
+	await ctx.waitForIdle();
 
 	const branch = await createTrackedBranchForPrompt(pi, ctx.cwd, prompt);
 	if ("error" in branch) {

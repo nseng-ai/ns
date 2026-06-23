@@ -222,6 +222,10 @@ interface RegisteredCommand {
 	handler: (args: string, ctx: ExtensionContext) => Promise<void> | void;
 }
 
+interface CommandRegistrationExtensionAPI extends ExtensionAPI {
+	registerCommand(name: string, options: RegisteredCommand): void;
+}
+
 export interface ExtensionAPI {
 	readonly events?: PiExtensionCommandEventBus | undefined;
 	on(
@@ -664,16 +668,11 @@ export default function worktreeStatusExtension(
 		return false;
 	}
 
-	if (pi.registerCommand !== undefined) {
-		registerCommandWithImmediateAck(
-			{
-				registerCommand: pi.registerCommand.bind(pi),
-				...(pi.registerMessageRenderer === undefined
-					? {}
-					: { registerMessageRenderer: pi.registerMessageRenderer.bind(pi) }),
-			},
-			WORKTREE_STATUS_REFRESH_COMMAND_NAME,
-			{
+	if (hasCommandRegistration(pi)) {
+		registerCommandWithImmediateAck({
+			host: pi,
+			commandName: WORKTREE_STATUS_REFRESH_COMMAND_NAME,
+			commandDefinition: {
 				description: "Refresh the worktree status footer",
 				handler: async (_args, _ctx) => {
 					const session = activeSession;
@@ -682,7 +681,7 @@ export default function worktreeStatusExtension(
 					await refreshActiveSession({ remoteRefresh: "force" });
 				},
 			},
-		);
+		});
 	}
 
 	function handleActiveSessionActivity(afterRecordActivity?: () => void): void {
@@ -743,6 +742,10 @@ export default function worktreeStatusExtension(
 	pi.on("session_shutdown", async () => {
 		closeActiveSession();
 	});
+}
+
+function hasCommandRegistration(pi: ExtensionAPI): pi is CommandRegistrationExtensionAPI {
+	return pi.registerCommand !== undefined;
 }
 
 function currentFooterBranch(cwd: string, footerData: StatusFooterData): string | null {

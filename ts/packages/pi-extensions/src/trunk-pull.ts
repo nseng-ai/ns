@@ -58,10 +58,14 @@ export interface ExtensionAPI {
 }
 
 export default function trunkPullExtension(pi: ExtensionAPI): void {
-	registerCommandWithImmediateAck(pi, COMMAND_NAME, {
-		description: "Pull Graphite trunk without running full gt sync",
-		handler: async (args, ctx) => {
-			await runTrunkPull(pi, ctx, args);
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: COMMAND_NAME,
+		commandDefinition: {
+			description: "Pull Graphite trunk without running full gt sync",
+			handler: async (args, ctx) => {
+				await runTrunkPull(pi, ctx, args);
+			},
 		},
 	});
 }

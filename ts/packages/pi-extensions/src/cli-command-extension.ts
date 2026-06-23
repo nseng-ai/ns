@@ -191,17 +191,21 @@ export function registerCliCommandExtension(
 
 	for (const command of spec.commands) {
 		const piCommandName = piCommandNameForCommand(spec, command);
-		registerCommandWithImmediateAck(pi, piCommandName, {
-			description: `${spec.cliName} ${command.name}: ${command.description}`,
-			handler: async (rawArgs, ctx) => {
-				await runRegisteredCliCommand({
-					pi,
-					spec,
-					command,
-					piCommandName,
-					rawArgs,
-					ctx,
-				});
+		registerCommandWithImmediateAck({
+			host: pi,
+			commandName: piCommandName,
+			commandDefinition: {
+				description: `${spec.cliName} ${command.name}: ${command.description}`,
+				handler: async (rawArgs, ctx) => {
+					await runRegisteredCliCommand({
+						pi,
+						spec,
+						command,
+						piCommandName,
+						rawArgs,
+						ctx,
+					});
+				},
 			},
 		});
 	}

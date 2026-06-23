@@ -821,26 +821,38 @@ export default function objectiveExtension(pi: ObjectiveExtensionAPI): void {
 	const objectiveCommandCompleter = createObjectiveCommandCompleter(pi);
 
 	for (const { spec, description } of CUSTOM_CLI_COMMANDS) {
-		registerCommandWithImmediateAck(pi, spec.commandName, {
-			description,
-			getArgumentCompletions: spec.completer,
-			handler: async (args, ctx) => handleCustomCliCommand(pi, spec, args, ctx),
+		registerCommandWithImmediateAck({
+			host: pi,
+			commandName: spec.commandName,
+			commandDefinition: {
+				description,
+				getArgumentCompletions: spec.completer,
+				handler: async (args, ctx) => handleCustomCliCommand(pi, spec, args, ctx),
+			},
 		});
 	}
 
-	registerCommandWithImmediateAck(pi, OBJECTIVE_CREATE_COMMAND.commandName, {
-		description: OBJECTIVE_CREATE_COMMAND.description,
-		argumentHint: OBJECTIVE_CREATE_ARGUMENT_HINT,
-		handler: async (args, ctx) =>
-			handleObjectiveCreateCommand({ pi, spec: OBJECTIVE_CREATE_COMMAND, rawArgs: args, ctx }),
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: OBJECTIVE_CREATE_COMMAND.commandName,
+		commandDefinition: {
+			description: OBJECTIVE_CREATE_COMMAND.description,
+			argumentHint: OBJECTIVE_CREATE_ARGUMENT_HINT,
+			handler: async (args, ctx) =>
+				handleObjectiveCreateCommand({ pi, spec: OBJECTIVE_CREATE_COMMAND, rawArgs: args, ctx }),
+		},
 	});
 
 	for (const spec of OBJECTIVE_COMMANDS) {
-		registerCommandWithImmediateAck(pi, spec.commandName, {
-			description: spec.description,
-			argumentHint: OBJECTIVE_SELECTOR_ARGUMENT_HINT,
-			getArgumentCompletions: objectiveCommandCompleter,
-			handler: async (args, ctx) => handleObjectiveCommand(pi, spec, args, ctx),
+		registerCommandWithImmediateAck({
+			host: pi,
+			commandName: spec.commandName,
+			commandDefinition: {
+				description: spec.description,
+				argumentHint: OBJECTIVE_SELECTOR_ARGUMENT_HINT,
+				getArgumentCompletions: objectiveCommandCompleter,
+				handler: async (args, ctx) => handleObjectiveCommand(pi, spec, args, ctx),
+			},
 		});
 	}
 

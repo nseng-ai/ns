@@ -74,12 +74,17 @@ interface InvokeLmResolverOptions {
 }
 
 export default function smartRestackExtension(pi: SmartRestackExtensionAPI): void {
-	registerCommandWithImmediateAck(pi, SMART_RESTACK_COMMAND_NAME, {
-		description: "Run gt restack first; fall through to LM-assisted conflict resolution if needed",
-		argumentHint: "[context for resolver if needed]",
-		handler: async (args, ctx) => {
-			await ctx.waitForIdle?.();
-			await runSmartRestack(pi, ctx, args);
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: SMART_RESTACK_COMMAND_NAME,
+		commandDefinition: {
+			description:
+				"Run gt restack first; fall through to LM-assisted conflict resolution if needed",
+			argumentHint: "[context for resolver if needed]",
+			handler: async (args, ctx) => {
+				await ctx.waitForIdle?.();
+				await runSmartRestack(pi, ctx, args);
+			},
 		},
 	});
 }

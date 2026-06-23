@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
 	IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE,
 	IMMEDIATE_COMMAND_PROGRESS_MESSAGE_TYPE,
+	IMMEDIATE_COMMAND_ACK_STATUS_KEY,
 	registerCommandWithImmediateAck,
 	renderImmediateCommandAckMessage,
 	renderImmediateCommandProgressMessage,
@@ -81,17 +82,17 @@ describe("sendCommandProgressOrNotify", () => {
 		expect(notifications).toEqual([["Working…", "info"]]);
 	});
 
-	test("skips progress and notifications for non-UI contexts by default", () => {
+	test("notifies non-UI contexts by default", () => {
 		const host = new FakeCommandAckHost();
 		const { ctx, notifications } = createNotifyContext(false);
 
 		sendCommandProgressOrNotify({ host, ctx, message: "Working…" });
 
 		expect(host.messages).toEqual([]);
-		expect(notifications).toEqual([]);
+		expect(notifications).toEqual([["Working…", "info"]]);
 	});
 
-	test("can notify non-UI contexts when explicitly requested", () => {
+	test("can explicitly skip non-UI notifications", () => {
 		const host = new FakeCommandAckHost();
 		const { ctx, notifications } = createNotifyContext(false);
 
@@ -99,11 +100,11 @@ describe("sendCommandProgressOrNotify", () => {
 			host,
 			ctx,
 			message: "Working…",
-			shouldNotifyWhenNoUi: true,
+			shouldNotifyWhenNoUi: false,
 		});
 
 		expect(host.messages).toEqual([]);
-		expect(notifications).toEqual([["Working…", "info"]]);
+		expect(notifications).toEqual([]);
 	});
 
 	test("skips non-UI notification fallback when notify is unavailable", () => {
@@ -114,7 +115,6 @@ describe("sendCommandProgressOrNotify", () => {
 				host,
 				ctx: { hasUI: false, ui: {} },
 				message: "Working…",
-				shouldNotifyWhenNoUi: true,
 			}),
 		).not.toThrow();
 		expect(host.messages).toEqual([]);
@@ -127,10 +127,14 @@ describe("registerCommandWithImmediateAck", () => {
 		const calls: string[] = [];
 		const { ctx, statuses } = createStatusContext();
 
-		registerCommandWithImmediateAck(host, "demo:run", {
-			description: "Run demo",
-			handler(args) {
-				calls.push(args);
+		registerCommandWithImmediateAck({
+			host: host,
+			commandName: "demo:run",
+			commandDefinition: {
+				description: "Run demo",
+				handler(args) {
+					calls.push(args);
+				},
 			},
 		});
 
@@ -151,10 +155,14 @@ describe("registerCommandWithImmediateAck", () => {
 	test("preserves non-handler command definition fields", () => {
 		const host = new FakeCommandAckHost();
 
-		registerCommandWithImmediateAck(host, "demo:run", {
-			description: "Run demo",
-			argumentHint: "[flags]",
-			handler() {},
+		registerCommandWithImmediateAck({
+			host: host,
+			commandName: "demo:run",
+			commandDefinition: {
+				description: "Run demo",
+				argumentHint: "[flags]",
+				handler() {},
+			},
 		});
 
 		expect(commandFor(host, "demo:run")).toMatchObject({
@@ -167,12 +175,16 @@ describe("registerCommandWithImmediateAck", () => {
 		const host = new FakeCommandAckHost();
 		const { ctx, statuses } = createStatusContext();
 
-		registerCommandWithImmediateAck(host, "demo:run", {
-			handler(_args, commandCtx) {
-				commandCtx.ui?.setStatus?.("demo", "working…");
-				commandCtx.ui?.setStatus?.("demo", "working…");
-				commandCtx.ui?.setStatus?.("demo", "finishing…");
-				commandCtx.ui?.setStatus?.("demo", undefined);
+		registerCommandWithImmediateAck({
+			host: host,
+			commandName: "demo:run",
+			commandDefinition: {
+				handler(_args, commandCtx) {
+					commandCtx.ui?.setStatus?.("demo", "working…");
+					commandCtx.ui?.setStatus?.("demo", "working…");
+					commandCtx.ui?.setStatus?.("demo", "finishing…");
+					commandCtx.ui?.setStatus?.("demo", undefined);
+				},
 			},
 		});
 		commandFor(host, "demo:run").handler("", ctx);
@@ -202,22 +214,33 @@ describe("registerCommandWithImmediateAck", () => {
 		};
 		const { ctx, statuses } = createStatusContext();
 
-		registerCommandWithImmediateAck(host, "demo:run", {
-			handler(_args, commandCtx) {
-				commandCtx.ui?.setStatus?.("demo", "working…");
+		registerCommandWithImmediateAck({
+			host: host,
+			commandName: "demo:run",
+			commandDefinition: {
+				handler(_args, commandCtx) {
+					commandCtx.ui?.setStatus?.("demo", "working…");
+				},
 			},
 		});
 		host.commands.get("demo:run")?.handler("", ctx);
 
-		expect(statuses[0]).toEqual(["sdl-command-ack", "→ /demo:run received; starting…"]);
+		expect(statuses[0]).toEqual([
+			IMMEDIATE_COMMAND_ACK_STATUS_KEY,
+			"→ /demo:run received; starting…",
+		]);
 		expect(statuses[1]).toEqual(["demo", "working…"]);
 	});
 
 	test("does not acknowledge explicitly non-UI contexts", () => {
 		const host = new FakeCommandAckHost();
 
-		registerCommandWithImmediateAck(host, "demo:run", {
-			handler() {},
+		registerCommandWithImmediateAck({
+			host: host,
+			commandName: "demo:run",
+			commandDefinition: {
+				handler() {},
+			},
 		});
 		commandFor(host, "demo:run").handler("", { hasUI: false });
 
@@ -228,8 +251,12 @@ describe("registerCommandWithImmediateAck", () => {
 		const host = new FakeCommandAckHost();
 		const ctx = { hasUI: true };
 
-		registerCommandWithImmediateAck(host, "demo:run", {
-			handler() {},
+		registerCommandWithImmediateAck({
+			host: host,
+			commandName: "demo:run",
+			commandDefinition: {
+				handler() {},
+			},
 		});
 		const command = commandFor(host, "demo:run");
 		command.handler("", ctx);
@@ -247,9 +274,13 @@ describe("registerCommandWithImmediateAck", () => {
 	test("explicit progress helper emits transcript progress from command milestones", () => {
 		const host = new FakeCommandAckHost();
 
-		registerCommandWithImmediateAck(host, "demo:run", {
-			handler(_args, ctx) {
-				sendCommandProgressOrNotify({ host, ctx, message: "Working…" });
+		registerCommandWithImmediateAck({
+			host: host,
+			commandName: "demo:run",
+			commandDefinition: {
+				handler(_args, ctx) {
+					sendCommandProgressOrNotify({ host, ctx, message: "Working…" });
+				},
 			},
 		});
 		commandFor(host, "demo:run").handler("", { hasUI: true });

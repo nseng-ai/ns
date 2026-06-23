@@ -82,21 +82,33 @@ export function registerCccSidebarCommands(
 	pi: ExtensionAPI,
 	controller: CccSidebarController,
 ): void {
-	registerCommandWithImmediateAck(pi, SESSION_SIDEBAR_COMMAND_NAME, {
-		description: "Summarize this Pi session into the caller cmux sidebar.",
-		handler: async (_args, ctx) => controller.handleSessionCommand(ctx),
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: SESSION_SIDEBAR_COMMAND_NAME,
+		commandDefinition: {
+			description: "Summarize this Pi session into the caller cmux sidebar.",
+			handler: async (_args, ctx) => controller.handleSessionCommand(ctx),
+		},
 	});
 
-	registerCommandWithImmediateAck(pi, BRANCH_STATE_SIDEBAR_COMMAND_NAME, {
-		description:
-			"Summarize the current branch state versus its parent into the caller cmux sidebar.",
-		handler: async (_args, ctx) => controller.handleBranchStateCommand(ctx),
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: BRANCH_STATE_SIDEBAR_COMMAND_NAME,
+		commandDefinition: {
+			description:
+				"Summarize the current branch state versus its parent into the caller cmux sidebar.",
+			handler: async (_args, ctx) => controller.handleBranchStateCommand(ctx),
+		},
 	});
 
-	registerCommandWithImmediateAck(pi, OBJECTIVE_SIDEBAR_COMMAND_NAME, {
-		description: "Pick or format an sdl Objective into the caller cmux sidebar.",
-		argumentHint: "[objective-slug-or-path]",
-		handler: async (args, ctx) => controller.handleObjectiveCommand(args, ctx),
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: OBJECTIVE_SIDEBAR_COMMAND_NAME,
+		commandDefinition: {
+			description: "Pick or format an sdl Objective into the caller cmux sidebar.",
+			argumentHint: "[objective-slug-or-path]",
+			handler: async (args, ctx) => controller.handleObjectiveCommand(args, ctx),
+		},
 	});
 }
 

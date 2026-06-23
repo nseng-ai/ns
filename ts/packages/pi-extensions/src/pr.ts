@@ -155,30 +155,38 @@ export interface ExtensionAPI {
 }
 
 export default function prExtension(pi: ExtensionAPI): void {
-	registerCommandWithImmediateAck(pi, PR_DOWNLOAD_FEEDBACK_COMMAND_NAME, {
-		description: "Download current PR feedback into the editor as a triage prompt.",
-		handler: async (rawArgs, ctx) => {
-			await runPrDownloadFeedbackCommand(pi, rawArgs, ctx);
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: PR_DOWNLOAD_FEEDBACK_COMMAND_NAME,
+		commandDefinition: {
+			description: "Download current PR feedback into the editor as a triage prompt.",
+			handler: async (rawArgs, ctx) => {
+				await runPrDownloadFeedbackCommand(pi, rawArgs, ctx);
+			},
 		},
 	});
-	registerCommandWithImmediateAck(pi, PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME, {
-		description:
-			"Download feedback from every PR in the current Graphite downstack into the editor as a triage prompt.",
-		handler: async (rawArgs, ctx) => {
-			await runPrDownloadStackFeedbackCommand(pi, rawArgs, ctx);
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME,
+		commandDefinition: {
+			description:
+				"Download feedback from every PR in the current Graphite downstack into the editor as a triage prompt.",
+			handler: async (rawArgs, ctx) => {
+				await runPrDownloadStackFeedbackCommand(pi, rawArgs, ctx);
+			},
 		},
 	});
-	registerCommandWithImmediateAck(
-		pi,
-		PR_PREVIEW_FEEDBACK_COMMAND_NAME,
-		createPrPreviewFeedbackCommand(pi, {
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: PR_PREVIEW_FEEDBACK_COMMAND_NAME,
+		commandDefinition: createPrPreviewFeedbackCommand(pi, {
 			statusKey: PREVIEW_FEEDBACK_STATUS_KEY,
 			commandTimeoutMs: COMMAND_TIMEOUT_MS,
 			parseOptionalPrNumberArgs,
 			parseEnvelopeWithSchema,
 			notify,
 		}),
-	);
+	});
 }
 
 async function runPrDownloadFeedbackCommand(

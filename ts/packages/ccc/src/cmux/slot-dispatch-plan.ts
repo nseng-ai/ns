@@ -1,4 +1,7 @@
-import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
+import {
+	sendCommandProgressOrNotify,
+	registerCommandWithImmediateAck,
+} from "@sdl/pi-extension-runtime/command-ack";
 import {
 	BRANCH_CONTEXT_NAMESPACE,
 	buildBranchContextCreateOperation,
@@ -128,11 +131,15 @@ function registerDispatchPlanCommand(
 	config: DispatchPlanConfig,
 	options: CccSlotDispatchPlanOptions,
 ): void {
-	registerCommandWithImmediateAck(pi, config.commandName, {
-		description: `Dispatch the latest saved plan into a new cmux ${config.destination} for implementation.`,
-		argumentHint: "[--dry-run]",
-		handler: async (args, ctx) => {
-			await handleCommand({ pi, rawArgs: args, ctx, options, config });
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: config.commandName,
+		commandDefinition: {
+			description: `Dispatch the latest saved plan into a new cmux ${config.destination} for implementation.`,
+			argumentHint: "[--dry-run]",
+			handler: async (args, ctx) => {
+				await handleCommand({ pi, rawArgs: args, ctx, options, config });
+			},
 		},
 	});
 }
@@ -144,8 +151,6 @@ async function handleCommand({
 	options,
 	config,
 }: HandleCommandOptions): Promise<void> {
-	await ctx.waitForIdle();
-
 	const parsed = parseCommandArgs(rawArgs);
 	if ("error" in parsed) {
 		present(ctx, `${parsed.error}\n\n${formatUsage(config)}`, "error");
@@ -156,6 +161,13 @@ async function handleCommand({
 		present(ctx, formatUsage(config), "info");
 		return;
 	}
+
+	sendCommandProgressOrNotify({
+		host: pi,
+		ctx,
+		message: "Finding latest saved plan…",
+	});
+	await ctx.waitForIdle();
 
 	setStatus(ctx, config, "finding latest saved plan…");
 	try {

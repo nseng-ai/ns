@@ -24,12 +24,16 @@ export function registerCccClaudePlanTabCommand(
 	options: PromptFileOptions = {},
 ): void {
 	const promptOptions = resolvePromptFileOptions(options, PROMPT_DIR);
-	registerCommandWithImmediateAck(pi, COMMAND_NAME, {
-		description:
-			"Open a new cmux tab running Claude Code in plan mode, seeded with the provided prompt or last assistant message.",
-		argumentHint: "[seed prompt]",
-		handler: async (args, ctx) => {
-			await handleCccClaudePlanTab({ pi, ctx, args, promptOptions });
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: COMMAND_NAME,
+		commandDefinition: {
+			description:
+				"Open a new cmux tab running Claude Code in plan mode, seeded with the provided prompt or last assistant message.",
+			argumentHint: "[seed prompt]",
+			handler: async (args, ctx) => {
+				await handleCccClaudePlanTab({ pi, ctx, args, promptOptions });
+			},
 		},
 	});
 }

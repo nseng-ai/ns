@@ -6,8 +6,9 @@ import {
 
 export const IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE = "sdl-command-ack";
 export const IMMEDIATE_COMMAND_PROGRESS_MESSAGE_TYPE = "sdl-command-progress";
+export const IMMEDIATE_COMMAND_ACK_STATUS_KEY = "sdl-command-ack";
 
-const acknowledgedCommandsByContext = new WeakMap<object, Set<string>>();
+const acknowledgedCommandsByContext = new WeakMap<WeakKey, Set<string>>();
 
 export interface ImmediateCommandAckCustomMessage {
 	customType: string;
@@ -31,27 +32,47 @@ export type ImmediateCommandAckMessageRenderer = (
 	theme: ImmediateCommandAckRenderTheme,
 ) => ImmediateCommandAckRenderComponent;
 
-export type ImmediateCommandAckDelivery = "status" | "message";
-export type CommandProgressDelivery = "message" | "notify" | "both" | "none";
-export type CommandProgressNotifyLevel = "info" | "success" | "warning" | "error";
+export interface ImmediateCommandRenderedMessageHost {
+	registerMessageRenderer(
+		customType: string,
+		renderer: ImmediateCommandAckMessageRenderer,
+	): unknown;
+	sendMessage(message: ImmediateCommandAckCustomMessage): unknown;
+}
 
-export interface CommandProgressNotifyContext<
+export interface ImmediateCommandStatusContext {
+	hasUI?: boolean;
+	ui?: {
+		setStatus?(key: string, value: string | undefined): void;
+	};
+}
+
+export interface ImmediateCommandNotifyContext<
 	TLevel extends CommandProgressNotifyLevel = CommandProgressNotifyLevel,
 > {
 	hasUI?: boolean;
 	ui?: {
-		notify?: (message: string, level?: TLevel | "info") => void;
+		notify?(message: string, level?: TLevel | "info"): void;
 	};
 }
 
+export type ImmediateCommandAckDelivery = "status" | "message";
+export type CommandProgressDelivery = "message" | "notify" | "both" | "none";
+export type CommandProgressNotifyLevel = "info" | "success" | "warning" | "error";
+
 export interface SendCommandProgressOrNotifyOptions<
+	THost,
 	TLevel extends CommandProgressNotifyLevel = CommandProgressNotifyLevel,
 > {
-	host: object;
-	ctx: CommandProgressNotifyContext<TLevel>;
+	host: THost;
+	ctx: ImmediateCommandNotifyContext<TLevel>;
 	message: string;
 	delivery?: CommandProgressDelivery;
 	level?: TLevel;
+	/**
+	 * Defaults to true so headless command hosts that implement notify/print still surface progress.
+	 * Set false only when a caller intentionally wants progress to be UI-only.
+	 */
 	shouldNotifyWhenNoUi?: boolean;
 }
 
@@ -66,19 +87,27 @@ export interface ImmediateCommandAckCommandDefinition<TContext = unknown> {
 	handler(args: string, ctx: TContext): unknown;
 }
 
-export interface ImmediateCommandAckCommandRegistrar<TCommand> {
+export interface ImmediateCommandAckCommandRegistrar<TCommand = unknown> {
 	registerCommand(name: string, command: TCommand): unknown;
-	registerMessageRenderer?: unknown;
-	sendMessage?: unknown;
 }
 
-interface ImmediateCommandAckHostShape {
-	registerMessageRenderer?: unknown;
-	sendMessage?: unknown;
+type RegisteredCommandFor<THost> =
+	THost extends ImmediateCommandAckCommandRegistrar<infer TCommand> ? TCommand : never;
+
+type CommandContextFor<TCommand> =
+	TCommand extends ImmediateCommandAckCommandDefinition<infer TContext> ? TContext : never;
+
+export interface RegisterCommandWithImmediateAckOptions<
+	THost extends ImmediateCommandAckCommandRegistrar,
+> {
+	host: THost;
+	commandName: string;
+	commandDefinition: RegisteredCommandFor<THost>;
+	options?: ImmediateCommandAckOptions;
 }
 
-interface EmitImmediateCommandAckOptions {
-	host: ImmediateCommandAckHostShape;
+interface EmitImmediateCommandAckOptions<THost> {
+	host: THost;
 	commandName: string;
 	ctx: unknown;
 	options: ImmediateCommandAckOptions;
@@ -91,28 +120,27 @@ interface EmitStatusAckOptions {
 	clearDelayMs: number;
 }
 
-export function registerCommandWithImmediateAck<
-	TContext,
-	TCommand extends ImmediateCommandAckCommandDefinition<TContext>,
->(
-	host: ImmediateCommandAckCommandRegistrar<TCommand>,
-	commandName: string,
-	commandDefinition: TCommand,
-	options: ImmediateCommandAckOptions = {},
+export function registerCommandWithImmediateAck<THost extends ImmediateCommandAckCommandRegistrar>(
+	params: RegisterCommandWithImmediateAckOptions<THost>,
 ): unknown {
+	const { host, commandName, commandDefinition } = params;
+	const options = params.options ?? {};
 	if (resolveImmediateCommandAckDelivery(host, options) === "message") {
 		registerImmediateCommandAckRenderer(host);
 	}
-	return host.registerCommand(commandName, {
-		...commandDefinition,
+	type TCommand = RegisteredCommandFor<THost>;
+	type TContext = CommandContextFor<TCommand>;
+	const commandWithHandler = commandDefinition as ImmediateCommandAckCommandDefinition<TContext>;
+	const acknowledgedCommandDefinition = Object.assign({}, commandDefinition, {
 		handler(args: string, ctx: TContext): unknown {
 			emitImmediateCommandAck({ host, commandName, ctx, options });
-			return commandDefinition.handler(args, ctx);
+			return commandWithHandler.handler(args, ctx);
 		},
-	} as TCommand);
+	}) as TCommand;
+	return host.registerCommand(commandName, acknowledgedCommandDefinition);
 }
 
-export function registerImmediateCommandAckRenderer(host: object): void {
+export function registerImmediateCommandAckRenderer<THost>(host: THost): void {
 	registerImmediateCommandMessageRenderer(
 		host,
 		IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE,
@@ -120,7 +148,7 @@ export function registerImmediateCommandAckRenderer(host: object): void {
 	);
 }
 
-export function registerImmediateCommandProgressRenderer(host: object): void {
+export function registerImmediateCommandProgressRenderer<THost>(host: THost): void {
 	registerImmediateCommandMessageRenderer(
 		host,
 		IMMEDIATE_COMMAND_PROGRESS_MESSAGE_TYPE,
@@ -128,32 +156,28 @@ export function registerImmediateCommandProgressRenderer(host: object): void {
 	);
 }
 
-export function sendCommandProgressMessage(host: object, message: string): boolean {
-	const hostShape = host as ImmediateCommandAckHostShape;
-	if (!canSendRenderedMessage(hostShape)) return false;
-	const sendMessage = hostShape.sendMessage;
-	if (typeof sendMessage !== "function") return false;
+export function sendCommandProgressMessage<THost>(host: THost, message: string): boolean {
+	if (!isRenderedMessageHost(host)) return false;
 	registerImmediateCommandProgressRenderer(host);
-	Reflect.apply(sendMessage, host, [
-		{
-			customType: IMMEDIATE_COMMAND_PROGRESS_MESSAGE_TYPE,
-			content: defaultCommandProgressMessage(message),
-			display: true,
-		},
-	]);
+	host.sendMessage({
+		customType: IMMEDIATE_COMMAND_PROGRESS_MESSAGE_TYPE,
+		content: defaultCommandProgressMessage(message),
+		display: true,
+	});
 	return true;
 }
 
 export function sendCommandProgressOrNotify<
+	THost,
 	TLevel extends CommandProgressNotifyLevel = CommandProgressNotifyLevel,
->(options: SendCommandProgressOrNotifyOptions<TLevel>): void {
+>(options: SendCommandProgressOrNotifyOptions<THost, TLevel>): void {
 	const { host, ctx, message } = options;
 	const delivery = options.delivery ?? "message";
 	if (delivery === "none") return;
 
 	const hasUi = ctx.hasUI !== false;
 	if (!hasUi) {
-		if (options.shouldNotifyWhenNoUi === true && shouldNotifyForDelivery(delivery)) {
+		if (options.shouldNotifyWhenNoUi !== false && shouldNotifyForDelivery(delivery)) {
 			notifyCommandProgress(ctx, message, options.level);
 		}
 		return;
@@ -172,14 +196,13 @@ export function sendCommandProgressOrNotify<
 	if (!sentMessage) notifyCommandProgress(ctx, message, options.level);
 }
 
-function registerImmediateCommandMessageRenderer(
-	host: object,
+function registerImmediateCommandMessageRenderer<THost>(
+	host: THost,
 	customType: string,
 	renderer: ImmediateCommandAckMessageRenderer,
 ): void {
-	const registerMessageRenderer = (host as ImmediateCommandAckHostShape).registerMessageRenderer;
-	if (typeof registerMessageRenderer !== "function") return;
-	Reflect.apply(registerMessageRenderer, host, [customType, renderer]);
+	if (!isRendererRegistrationHost(host)) return;
+	host.registerMessageRenderer(customType, renderer);
 }
 
 export function renderImmediateCommandAckMessage(
@@ -211,7 +234,7 @@ function renderImmediateCommandDimMessage(
 	};
 }
 
-function emitImmediateCommandAck(params: EmitImmediateCommandAckOptions): void {
+function emitImmediateCommandAck<THost>(params: EmitImmediateCommandAckOptions<THost>): void {
 	const { host, commandName, ctx, options } = params;
 	if (!shouldAcknowledgeContext(ctx)) return;
 	const delivery = resolveImmediateCommandAckDelivery(host, options);
@@ -219,20 +242,18 @@ function emitImmediateCommandAck(params: EmitImmediateCommandAckOptions): void {
 	const message = options.messageForCommand?.(commandName) ?? defaultCommandAckMessage(commandName);
 
 	if (delivery === "message") {
-		if (typeof host.sendMessage !== "function") return;
-		Reflect.apply(host.sendMessage, host, [
-			{
-				customType: IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE,
-				content: message,
-				display: true,
-			},
-		]);
+		if (!isMessageSendHost(host)) return;
+		host.sendMessage({
+			customType: IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE,
+			content: message,
+			display: true,
+		});
 		return;
 	}
 
 	emitStatusAck({
 		ctx,
-		key: options.statusKey ?? "sdl-command-ack",
+		key: options.statusKey ?? IMMEDIATE_COMMAND_ACK_STATUS_KEY,
 		message,
 		clearDelayMs: options.statusClearDelayMs ?? 3_000,
 	});
@@ -246,18 +267,28 @@ function defaultCommandProgressMessage(message: string): string {
 	return message.startsWith("→ ") ? message : `→ ${message}`;
 }
 
-function resolveImmediateCommandAckDelivery(
-	host: ImmediateCommandAckHostShape,
+function resolveImmediateCommandAckDelivery<THost>(
+	host: THost,
 	options: ImmediateCommandAckOptions,
 ): ImmediateCommandAckDelivery {
 	if (options.delivery !== undefined) return options.delivery;
-	return canSendRenderedMessage(host) ? "message" : "status";
+	return isRenderedMessageHost(host) ? "message" : "status";
 }
 
-function canSendRenderedMessage(host: ImmediateCommandAckHostShape): boolean {
-	return (
-		typeof host.sendMessage === "function" && typeof host.registerMessageRenderer === "function"
-	);
+function isRendererRegistrationHost(
+	value: unknown,
+): value is Pick<ImmediateCommandRenderedMessageHost, "registerMessageRenderer"> {
+	return hasFunctionProperty(value, "registerMessageRenderer");
+}
+
+function isMessageSendHost(
+	value: unknown,
+): value is Pick<ImmediateCommandRenderedMessageHost, "sendMessage"> {
+	return hasFunctionProperty(value, "sendMessage");
+}
+
+function isRenderedMessageHost(value: unknown): value is ImmediateCommandRenderedMessageHost {
+	return isMessageSendHost(value) && isRendererRegistrationHost(value);
 }
 
 function shouldNotifyForDelivery(delivery: CommandProgressDelivery): boolean {
@@ -265,33 +296,30 @@ function shouldNotifyForDelivery(delivery: CommandProgressDelivery): boolean {
 }
 
 function notifyCommandProgress<TLevel extends CommandProgressNotifyLevel>(
-	ctx: CommandProgressNotifyContext<TLevel>,
+	ctx: ImmediateCommandNotifyContext<TLevel>,
 	message: string,
 	level: TLevel | undefined,
 ): void {
-	if (typeof ctx.ui?.notify !== "function") return;
-	ctx.ui.notify(message, level ?? "info");
+	ctx.ui?.notify?.(message, level ?? "info");
 }
 
 function shouldAcknowledgeContext(ctx: unknown): boolean {
-	if (typeof ctx !== "object" || ctx === null) return true;
-	const hasUI = (ctx as { hasUI?: unknown }).hasUI;
-	return hasUI !== false;
+	if (!hasRecordShape(ctx)) return true;
+	return ctx.hasUI !== false;
 }
 
 function emitStatusAck(params: EmitStatusAckOptions): void {
 	const { ctx, key, message, clearDelayMs } = params;
-	if (typeof ctx !== "object" || ctx === null) return;
-	const ui = (ctx as { ui?: { setStatus?: unknown } }).ui;
-	const setStatus = ui?.setStatus;
-	if (typeof setStatus !== "function") return;
+	if (!isImmediateCommandStatusContext(ctx)) return;
+	const setStatus = ctx.ui?.setStatus;
+	if (setStatus === undefined) return;
 	setStatus(key, message);
 	const timer = setTimeout(() => setStatus(key, undefined), clearDelayMs);
 	timer.unref?.();
 }
 
 function markAcknowledged(ctx: unknown, commandName: string): boolean {
-	if (typeof ctx !== "object" || ctx === null) return true;
+	if (!isWeakMapKey(ctx)) return true;
 	const existing = acknowledgedCommandsByContext.get(ctx);
 	if (existing?.has(commandName)) return false;
 	if (existing) {
@@ -300,4 +328,27 @@ function markAcknowledged(ctx: unknown, commandName: string): boolean {
 	}
 	acknowledgedCommandsByContext.set(ctx, new Set([commandName]));
 	return true;
+}
+
+function isImmediateCommandStatusContext(value: unknown): value is ImmediateCommandStatusContext {
+	if (!hasRecordShape(value)) return false;
+	const ui = value.ui;
+	if (ui === undefined) return true;
+	if (!hasRecordShape(ui)) return false;
+	return ui.setStatus === undefined || typeof ui.setStatus === "function";
+}
+
+function hasFunctionProperty<TName extends string>(
+	value: unknown,
+	name: TName,
+): value is Record<TName, (...args: never[]) => unknown> {
+	return hasRecordShape(value) && typeof value[name] === "function";
+}
+
+function hasRecordShape(value: unknown): value is Record<PropertyKey, unknown> {
+	return (typeof value === "object" && value !== null) || typeof value === "function";
+}
+
+function isWeakMapKey(value: unknown): value is WeakKey {
+	return (typeof value === "object" && value !== null) || typeof value === "symbol";
 }

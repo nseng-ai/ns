@@ -263,10 +263,14 @@ export function registerClaudeHandoffCommand(pi: ExtensionAPI, deps: ClaudeHando
 	if (launchToolRegistered) {
 		pi.registerTool?.(buildClaudeHandoffLaunchTool(pi, deps));
 	}
-	registerCommandWithImmediateAck(pi, CLAUDE_HANDOFF_COMMAND_NAME, {
-		description: "Create a handoff, then pick it up in an interactive Claude Code session.",
-		handler: async (args, ctx) =>
-			handleClaudeHandoffCommand({ pi, args, ctx, launchToolRegistered }),
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: CLAUDE_HANDOFF_COMMAND_NAME,
+		commandDefinition: {
+			description: "Create a handoff, then pick it up in an interactive Claude Code session.",
+			handler: async (args, ctx) =>
+				handleClaudeHandoffCommand({ pi, args, ctx, launchToolRegistered }),
+		},
 	});
 }
 

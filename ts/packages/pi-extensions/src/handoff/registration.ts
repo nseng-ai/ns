@@ -94,28 +94,48 @@ export default function handoffExtension(pi: ExtensionAPI): void {
 		pi.registerTool(buildDeriveHandoffSlugTool(pi));
 		pi.registerTool(buildHandoffTabLaunchTool(pi));
 		pi.registerTool(selfWorkflow.buildTool());
-		registerCommandWithImmediateAck(pi, HANDOFF_TAB_COMMAND_NAME, {
-			description: "Create a handoff and open a focused cmux tab to pick it up.",
-			handler: async (args, ctx) => handleHandoffTabCommand(pi, args, ctx),
+		registerCommandWithImmediateAck({
+			host: pi,
+			commandName: HANDOFF_TAB_COMMAND_NAME,
+			commandDefinition: {
+				description: "Create a handoff and open a focused cmux tab to pick it up.",
+				handler: async (args, ctx) => handleHandoffTabCommand(pi, args, ctx),
+			},
 		});
-		registerCommandWithImmediateAck(pi, HANDOFF_SELF_COMMAND_NAME, {
-			description: "Create a handoff, clear context, and pick it up in this Pi session.",
-			handler: async (args, ctx) => selfWorkflow.handleCommand(args, ctx),
+		registerCommandWithImmediateAck({
+			host: pi,
+			commandName: HANDOFF_SELF_COMMAND_NAME,
+			commandDefinition: {
+				description: "Create a handoff, clear context, and pick it up in this Pi session.",
+				handler: async (args, ctx) => selfWorkflow.handleCommand(args, ctx),
+			},
 		});
 	}
 
-	registerCommandWithImmediateAck(pi, CREATE_HANDOFF_COMMAND_NAME, {
-		description: "Create a directed handoff artifact for a future continuation.",
-		handler: async (args, ctx) => handleCreateHandoffCommand(pi, args, ctx),
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: CREATE_HANDOFF_COMMAND_NAME,
+		commandDefinition: {
+			description: "Create a directed handoff artifact for a future continuation.",
+			handler: async (args, ctx) => handleCreateHandoffCommand(pi, args, ctx),
+		},
 	});
 
-	registerCommandWithImmediateAck(pi, PICKUP_HANDOFF_COMMAND_NAME, {
-		description: "Pick up a handoff by slug, selector, or picker.",
-		handler: async (args, ctx) => handlePickupHandoffCommand(pi, args, ctx),
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: PICKUP_HANDOFF_COMMAND_NAME,
+		commandDefinition: {
+			description: "Pick up a handoff by slug, selector, or picker.",
+			handler: async (args, ctx) => handlePickupHandoffCommand(pi, args, ctx),
+		},
 	});
 
-	registerCommandWithImmediateAck(pi, LIST_HANDOFF_COMMAND_NAME, {
-		description: "List handoffs on this branch or across active branches.",
-		handler: async (args, ctx) => handleListHandoffCommand(pi, args, ctx),
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: LIST_HANDOFF_COMMAND_NAME,
+		commandDefinition: {
+			description: "List handoffs on this branch or across active branches.",
+			handler: async (args, ctx) => handleListHandoffCommand(pi, args, ctx),
+		},
 	});
 }

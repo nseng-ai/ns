@@ -60,10 +60,14 @@ export function genericBackingSkillCommandSpecs(): DerivedPiCommand[] {
 
 export function registerBackingSkillCommands(host: PiCommandHost): void {
 	for (const spec of genericBackingSkillCommandSpecs()) {
-		registerCommandWithImmediateAck(host, spec.surface, {
-			description: `Invoke ${spec.skillName} as a command-converted backing skill.`,
-			argumentHint: "[initial request]",
-			handler: async (args, ctx) => handleBackingSkillCommand({ host, spec, args, ctx }),
+		registerCommandWithImmediateAck({
+			host: host,
+			commandName: spec.surface,
+			commandDefinition: {
+				description: `Invoke ${spec.skillName} as a command-converted backing skill.`,
+				argumentHint: "[initial request]",
+				handler: async (args, ctx) => handleBackingSkillCommand({ host, spec, args, ctx }),
+			},
 		});
 	}
 }

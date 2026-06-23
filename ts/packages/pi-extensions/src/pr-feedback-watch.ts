@@ -301,46 +301,50 @@ export default function prFeedbackWatchExtension(
 ): void {
 	const controller = new PrFeedbackWatchController(pi, options);
 
-	registerCommandWithImmediateAck(pi, PR_FEEDBACK_WATCH_COMMAND_NAME, {
-		description:
-			"Watch the current branch PR for feedback; bare command starts with existing feedback or toggles off when active.",
-		handler: async (rawArgs, ctx) => {
-			const parsed = parseWatchCommandArgs(rawArgs, options.minimumIntervalMs ?? MIN_INTERVAL_MS);
-			if (parsed.type === "invalid") {
-				notify(ctx, parsed.message, "error");
-				return;
-			}
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: PR_FEEDBACK_WATCH_COMMAND_NAME,
+		commandDefinition: {
+			description:
+				"Watch the current branch PR for feedback; bare command starts with existing feedback or toggles off when active.",
+			handler: async (rawArgs, ctx) => {
+				const parsed = parseWatchCommandArgs(rawArgs, options.minimumIntervalMs ?? MIN_INTERVAL_MS);
+				if (parsed.type === "invalid") {
+					notify(ctx, parsed.message, "error");
+					return;
+				}
 
-			switch (parsed.action) {
-				case "toggle":
-					if (controller.status().isEnabled) {
+				switch (parsed.action) {
+					case "toggle":
+						if (controller.status().isEnabled) {
+							controller.stop("user");
+							notify(ctx, "PR feedback watch stopped.", "info");
+							return;
+						}
+						await ctx.waitForIdle?.();
+						await controller.start(ctx, parsed.options);
+						return;
+					case "start":
+						await ctx.waitForIdle?.();
+						await controller.start(ctx, parsed.options);
+						return;
+					case "once":
+						await ctx.waitForIdle?.();
+						await controller.once(ctx, parsed.options);
+						return;
+					case "stop":
 						controller.stop("user");
 						notify(ctx, "PR feedback watch stopped.", "info");
 						return;
+					case "status":
+						notify(ctx, formatWatchStatus(controller.status()), "info");
+						return;
+					default: {
+						const exhaustive: never = parsed.action;
+						return exhaustive;
 					}
-					await ctx.waitForIdle?.();
-					await controller.start(ctx, parsed.options);
-					return;
-				case "start":
-					await ctx.waitForIdle?.();
-					await controller.start(ctx, parsed.options);
-					return;
-				case "once":
-					await ctx.waitForIdle?.();
-					await controller.once(ctx, parsed.options);
-					return;
-				case "stop":
-					controller.stop("user");
-					notify(ctx, "PR feedback watch stopped.", "info");
-					return;
-				case "status":
-					notify(ctx, formatWatchStatus(controller.status()), "info");
-					return;
-				default: {
-					const exhaustive: never = parsed.action;
-					return exhaustive;
 				}
-			}
+			},
 		},
 	});
 

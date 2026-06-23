@@ -85,71 +85,75 @@ export interface ValidPullRequestView {
 export function registerLandCommand(pi: LandExtensionAPI): void {
 	registerLandStackRenderer(pi);
 
-	registerCommandWithImmediateAck(pi, COMMAND_NAME, {
-		description: "Land the current PR or Graphite stack into trunk",
-		getArgumentCompletions: landArgumentCompletions,
-		handler: async (rawArgs, ctx) => {
-			const args = parseArgs(rawArgs);
-			if (args.type === "failure") {
-				presentBrief(
-					ctx,
-					args.failure.message,
-					args.failure.level,
-					formatFailureNotification(args.failure),
-				);
-				return;
-			}
-			if (args.value.help) {
-				notify(ctx, usage(), "info");
-				return;
-			}
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: COMMAND_NAME,
+		commandDefinition: {
+			description: "Land the current PR or Graphite stack into trunk",
+			getArgumentCompletions: landArgumentCompletions,
+			handler: async (rawArgs, ctx) => {
+				const args = parseArgs(rawArgs);
+				if (args.type === "failure") {
+					presentBrief(
+						ctx,
+						args.failure.message,
+						args.failure.level,
+						formatFailureNotification(args.failure),
+					);
+					return;
+				}
+				if (args.value.help) {
+					notify(ctx, usage(), "info");
+					return;
+				}
 
-			await ctx.waitForIdle();
+				await ctx.waitForIdle();
 
-			const shape = await loadLandingShape(pi, ctx.cwd);
-			if (shape.type === "failure") {
-				presentBrief(
-					ctx,
-					formatFailure(shape.failure, []),
-					shape.failure.level,
-					formatFailureNotification(shape.failure),
-				);
-				return;
-			}
+				const shape = await loadLandingShape(pi, ctx.cwd);
+				if (shape.type === "failure") {
+					presentBrief(
+						ctx,
+						formatFailure(shape.failure, []),
+						shape.failure.level,
+						formatFailureNotification(shape.failure),
+					);
+					return;
+				}
 
-			if (
-				shape.value.stack.actualCurrentBranch === shape.value.stack.trunk ||
-				shape.value.stack.landingBranches.length === 0
-			) {
-				presentBrief(
-					ctx,
-					`Current branch is ${shape.value.stack.actualCurrentBranch}, which is trunk or has no PR path to land. Nothing to do.`,
-					"info",
-					`Current branch is ${shape.value.stack.actualCurrentBranch}, which is trunk or has no PR path to land. Nothing to do.`,
-				);
-				return;
-			}
+				if (
+					shape.value.stack.actualCurrentBranch === shape.value.stack.trunk ||
+					shape.value.stack.landingBranches.length === 0
+				) {
+					presentBrief(
+						ctx,
+						`Current branch is ${shape.value.stack.actualCurrentBranch}, which is trunk or has no PR path to land. Nothing to do.`,
+						"info",
+						`Current branch is ${shape.value.stack.actualCurrentBranch}, which is trunk or has no PR path to land. Nothing to do.`,
+					);
+					return;
+				}
 
-			if (isIsolatedFastPath(shape.value.stack)) {
-				await runFastLand(pi, ctx, shape.value, { dryRun: args.value.dryRun });
-				return;
-			}
+				if (isIsolatedFastPath(shape.value.stack)) {
+					await runFastLand(pi, ctx, shape.value, { dryRun: args.value.dryRun });
+					return;
+				}
 
-			if (shape.value.stack.landingBranches.length > AUTO_CHUNK_LANDING_THRESHOLD) {
-				await executeStackLanding(pi, ctx, args.value, { initialShape: shape.value });
-				return;
-			}
+				if (shape.value.stack.landingBranches.length > AUTO_CHUNK_LANDING_THRESHOLD) {
+					await executeStackLanding(pi, ctx, args.value, { initialShape: shape.value });
+					return;
+				}
 
-			const confirmed = await confirmStackModeIfNeeded(ctx, shape.value, {
-				dryRun: args.value.dryRun,
-				yes: args.value.yes,
-			});
-			if (!confirmed) return;
+				const confirmed = await confirmStackModeIfNeeded(ctx, shape.value, {
+					dryRun: args.value.dryRun,
+					yes: args.value.yes,
+				});
+				if (!confirmed) return;
 
-			await executeStackLanding(pi, ctx, args.value, {
-				skipMainConfirmation: true,
-				initialShape: shape.value,
-			});
+				await executeStackLanding(pi, ctx, args.value, {
+					skipMainConfirmation: true,
+					initialShape: shape.value,
+				});
+			},
 		},
 	});
 }
