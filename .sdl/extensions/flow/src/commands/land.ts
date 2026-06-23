@@ -10,6 +10,7 @@ export default defineExtension({
 	commands: [
 		{
 			name: "land",
+			summary: "Land the current PR or Graphite stack into trunk.",
 			description: "Land the current PR or Graphite stack into trunk.",
 			schema: landSchema,
 			run: async (ctx, request) => {
