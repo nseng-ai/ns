@@ -12,6 +12,8 @@ export default defineExtension({
 	commands: [
 		{
 			name: "autoslot",
+			summary:
+				"Create a Graphite branch from current work, then move it into a managed slot worktree.",
 			description:
 				"Create a Graphite branch from current work, then move it into a managed slot worktree.",
 			schema: autoslotSchema,

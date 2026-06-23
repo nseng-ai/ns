@@ -13,6 +13,7 @@ import {
 	loadSdlCommandCatalog,
 	loadSelectedSdlCommand,
 } from "../../src/extension-registry.ts";
+import { installCheckedInFlowExtension } from "../helpers/flow-extension.ts";
 
 const tempDirs: string[] = [];
 
@@ -292,6 +293,33 @@ describe("extension registry", () => {
 			description: "Say hello.",
 			fullDescription: "Say hello.\n\nWith details.",
 		});
+	});
+
+	test("checked-in flow extension command entries load successfully", async () => {
+		const workspace = await createWorkspace();
+		installCheckedInFlowExtension(workspace.cwd);
+
+		const catalog = await loadSdlCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+
+		expect(catalog.diagnostics).toEqual([]);
+		expect([...catalog.candidates.keys()]).toEqual([
+			"flow/autobranch",
+			"flow/autoslot",
+			"flow/changes",
+			"flow/cp",
+			"flow/land",
+			"flow/pull-trunk",
+			"flow/push",
+			"flow/regenerate-pr",
+			"flow/submit",
+		]);
+
+		const failures: string[] = [];
+		for (const [key, candidate] of catalog.candidates) {
+			const loaded = await loadSelectedSdlCommand(candidate);
+			if (!loaded.ok) failures.push(`${key}: ${loaded.diagnostic.message}`);
+		}
+		expect(failures).toEqual([]);
 	});
 
 	test("one SDL extension module can contribute multiple manifest-listed commands", async () => {

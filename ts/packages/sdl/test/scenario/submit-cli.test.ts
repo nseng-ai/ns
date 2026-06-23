@@ -1,8 +1,7 @@
-import { cpSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, test, vi } from "vitest";
 
@@ -22,13 +21,11 @@ import {
 	type RunWithFakesOptions,
 	type ScriptedExecResponse,
 } from "./sdl-cli-fakes.ts";
+import { installCheckedInFlowExtension } from "../helpers/flow-extension.ts";
 
 const PR_URL = "https://github.com/acme/repo/pull/123";
 const GRAPHITE_PR_URL = "https://app.graphite.com/github/pr/acme/repo/123";
 const LAGGING_VERIFICATION_PR_URL = "https://app.graphite.com/github/pr/dagster-io/sdl-tools/1517";
-const FLOW_EXTENSION_SOURCE = fileURLToPath(
-	new URL("../../../../../.sdl/extensions/flow", import.meta.url),
-);
 const tempProjectDirs: string[] = [];
 
 afterEach(() => {
@@ -51,9 +48,7 @@ function runUnavailableSubmitCli(args: readonly string[]) {
 function createSubmitProject(): string {
 	const directory = mkdtempSyncCompat("sdl-submit-project-");
 	tempProjectDirs.push(directory);
-	cpSync(FLOW_EXTENSION_SOURCE, join(directory, ".sdl", "extensions", "flow"), {
-		recursive: true,
-	});
+	installCheckedInFlowExtension(directory);
 	return directory;
 }
 
