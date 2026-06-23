@@ -1,6 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 
 import { ScriptedQueue } from "@sdl/core/testing";
+import { parseDownloadFeedbackData, type PrAddressRunner } from "../src/pr-feedback-download.ts";
 import prFeedbackWatchExtension, {
 	buildDetectedFeedbackPrompt,
 	buildFeedbackFingerprint,
@@ -8,13 +9,11 @@ import prFeedbackWatchExtension, {
 	filterIgnoredFeedback,
 	parseDiscussionCommentFingerprint,
 	parseGitHubPullRequestUrl,
-	parseDownloadFeedbackData,
 	parseReviewCommentFingerprint,
 	parseReviewFingerprint,
 	parseWatchCommandArgs,
 	type ExtensionAPI,
 	type ExtensionContext,
-	type PrAddressRunner,
 } from "../src/pr-feedback-watch.ts";
 
 const ROOT = "/repo";
@@ -123,8 +122,16 @@ class FakeContext implements ExtensionContext {
 	readonly notifications: Array<{ message: string; level: string | undefined }> = [];
 	readonly statuses = new Map<string, string | undefined>();
 	readonly editorTexts: string[] = [];
+	readonly sessionManager: NonNullable<ExtensionContext["sessionManager"]>;
 	waitForIdleCalls = 0;
 	isIdleState = true;
+	private readonly sessionEntries: readonly { type: string; customType?: string; data?: unknown }[];
+
+	constructor(entries: readonly { type: string; customType?: string; data?: unknown }[] = []) {
+		this.sessionEntries = entries;
+		this.sessionManager = { getBranch: () => this.sessionEntries };
+	}
+
 	readonly ui = {
 		notify: (message: string, level?: "info" | "warning" | "error") => {
 			this.notifications.push({ message, level });
@@ -305,6 +312,7 @@ function downloadData(commentIds: number[] = [10]): object {
 	return {
 		found: true,
 		target: {
+			kind: "github_pr",
 			pr_number: 123,
 			title: "PR title",
 			url: "https://github.com/acme/repo/pull/123",
@@ -536,7 +544,7 @@ describe("pr feedback watch extension", () => {
 		const pi = new FakePi();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
-		expect([...pi.commands.keys()]).toEqual(["code:pr-feedback-watch"]);
+		expect([...pi.commands.keys()]).toEqual(["pr:watch-feedback"]);
 		expect(pi.events).toEqual(["session_start", "agent_end", "session_shutdown"]);
 		expect(pi.calls).toEqual([]);
 	});
@@ -552,11 +560,42 @@ describe("pr feedback watch extension", () => {
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
-		await pi.commands.get("code:pr-feedback-watch")?.handler("", ctx);
+		await pi.commands.get("pr:watch-feedback")?.handler("", ctx);
 
 		expect(pi.userMessages).toHaveLength(1);
 		expect(pi.userMessages[0]).toContain("download-feedback:123:1");
 		expect(pi.userMessages[0]).not.toContain("download-feedback:ignored");
+		pi.assertDone();
+	});
+
+	test("ignores historical code-pr-feedback-watch state entries", async () => {
+		const pi = new FakePi([
+			downloadStep(downloadData()),
+			currentUserStep(),
+			headOidStep(),
+			...restFingerprintSteps(),
+			cleanStep(),
+		]);
+		const ctx = new FakeContext([
+			{
+				type: "custom",
+				customType: "code-pr-feedback-watch-state",
+				data: {
+					version: 1,
+					type: "dispatched",
+					branch: "feature/pr-watch",
+					prNumber: 123,
+					itemKeys: ["download-feedback:123:1"],
+					createdAt: "2026-06-07T00:00:00Z",
+				},
+			},
+		]);
+		prFeedbackWatchExtension(pi, { runner: RUNNER });
+
+		await pi.commands.get("pr:watch-feedback")?.handler("", ctx);
+
+		expect(pi.userMessages).toHaveLength(1);
+		expect(pi.userMessages[0]).toContain("download-feedback:123:1");
 		pi.assertDone();
 	});
 
@@ -573,7 +612,7 @@ describe("pr feedback watch extension", () => {
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
-		await pi.commands.get("code:pr-feedback-watch")?.handler("start --dispatch-existing", ctx);
+		await pi.commands.get("pr:watch-feedback")?.handler("start --dispatch-existing", ctx);
 		expect(pi.userMessages).toHaveLength(1);
 		expect(pi.userMessages[0]).toContain("download-feedback:123:1");
 
@@ -598,7 +637,7 @@ describe("pr feedback watch extension", () => {
 			const ctx = new FakeContext();
 			prFeedbackWatchExtension(pi, { runner: RUNNER });
 
-			await pi.commands.get("code:pr-feedback-watch")?.handler("start --baseline-existing", ctx);
+			await pi.commands.get("pr:watch-feedback")?.handler("start --baseline-existing", ctx);
 
 			expect(pi.userMessages).toEqual([]);
 			expect(
@@ -607,16 +646,16 @@ describe("pr feedback watch extension", () => {
 					.some((entry) => JSON.stringify(entry).includes("baseline")),
 			).toBe(true);
 			expect(ctx.notifications.at(-1)?.message).toContain("existing feedback was baselined");
-			expect(ctx.statuses.get("code:pr-feedback-watch")).toBe(
-				"PR #123 · feedback 0s/15s · [ci](pending:3 ok:4 fail:1) · /code:pr-feedback-watch stops",
+			expect(ctx.statuses.get("pr:watch-feedback")).toBe(
+				"PR #123 · feedback 0s/15s · [ci](pending:3 ok:4 fail:1) · /pr:watch-feedback stops",
 			);
 
 			vi.advanceTimersByTime(5_000);
-			expect(ctx.statuses.get("code:pr-feedback-watch")).toBe(
-				"PR #123 · feedback 5s/15s · [ci](pending:3 ok:4 fail:1) · /code:pr-feedback-watch stops",
+			expect(ctx.statuses.get("pr:watch-feedback")).toBe(
+				"PR #123 · feedback 5s/15s · [ci](pending:3 ok:4 fail:1) · /pr:watch-feedback stops",
 			);
 
-			await pi.commands.get("code:pr-feedback-watch")?.handler("stop", ctx);
+			await pi.commands.get("pr:watch-feedback")?.handler("stop", ctx);
 			pi.assertDone();
 		} finally {
 			vi.useRealTimers();
@@ -633,7 +672,7 @@ describe("pr feedback watch extension", () => {
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
-		await pi.commands.get("code:pr-feedback-watch")?.handler("once", ctx);
+		await pi.commands.get("pr:watch-feedback")?.handler("once", ctx);
 
 		expect(pi.userMessages).toHaveLength(1);
 		expect(pi.userMessages[0]).toContain("download-feedback:123:1");
@@ -645,7 +684,7 @@ describe("pr feedback watch extension", () => {
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
-		await pi.commands.get("code:pr-feedback-watch")?.handler("once --baseline-existing", ctx);
+		await pi.commands.get("pr:watch-feedback")?.handler("once --baseline-existing", ctx);
 
 		expect(pi.userMessages).toEqual([]);
 		expect(ctx.notifications.at(-1)?.message).toContain("baselined");
@@ -662,7 +701,7 @@ describe("pr feedback watch extension", () => {
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
-		await pi.commands.get("code:pr-feedback-watch")?.handler("once --dispatch-existing", ctx);
+		await pi.commands.get("pr:watch-feedback")?.handler("once --dispatch-existing", ctx);
 
 		expect(pi.userMessages).toHaveLength(1);
 		expect(pi.userMessages[0]).toContain("download-feedback:123:1");
@@ -681,8 +720,8 @@ describe("pr feedback watch extension", () => {
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
-		await pi.commands.get("code:pr-feedback-watch")?.handler("start --baseline-existing", ctx);
-		await pi.commands.get("code:pr-feedback-watch")?.handler("once --baseline-existing", ctx);
+		await pi.commands.get("pr:watch-feedback")?.handler("start --baseline-existing", ctx);
+		await pi.commands.get("pr:watch-feedback")?.handler("once --baseline-existing", ctx);
 
 		expect(pi.userMessages).toEqual([]);
 		expect(pi.calls.filter((call) => call.command === "pr-address")).toHaveLength(1);
@@ -705,9 +744,9 @@ describe("pr feedback watch extension", () => {
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
-		await pi.commands.get("code:pr-feedback-watch")?.handler("start --baseline-existing", ctx);
-		await pi.commands.get("code:pr-feedback-watch")?.handler("once --baseline-existing", ctx);
-		await pi.commands.get("code:pr-feedback-watch")?.handler("once --baseline-existing", ctx);
+		await pi.commands.get("pr:watch-feedback")?.handler("start --baseline-existing", ctx);
+		await pi.commands.get("pr:watch-feedback")?.handler("once --baseline-existing", ctx);
+		await pi.commands.get("pr:watch-feedback")?.handler("once --baseline-existing", ctx);
 
 		expect(pi.userMessages).toHaveLength(1);
 		expect(pi.userMessages[0]).toContain("review_comment:11:2026-06-07T00:00:11Z");
@@ -731,8 +770,8 @@ describe("pr feedback watch extension", () => {
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
-		await pi.commands.get("code:pr-feedback-watch")?.handler("start --baseline-existing", ctx);
-		await pi.commands.get("code:pr-feedback-watch")?.handler("once --baseline-existing", ctx);
+		await pi.commands.get("pr:watch-feedback")?.handler("start --baseline-existing", ctx);
+		await pi.commands.get("pr:watch-feedback")?.handler("once --baseline-existing", ctx);
 
 		expect(pi.userMessages).toEqual([]);
 		expect(pi.calls.filter((call) => call.command === "pr-address")).toHaveLength(2);
@@ -752,10 +791,10 @@ describe("pr feedback watch extension", () => {
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
 		await pi.commands
-			.get("code:pr-feedback-watch")
+			.get("pr:watch-feedback")
 			?.handler("start --baseline-existing --pause-on-dirty", ctx);
 		await pi.commands
-			.get("code:pr-feedback-watch")
+			.get("pr:watch-feedback")
 			?.handler("once --baseline-existing --pause-on-dirty", ctx);
 
 		expect(pi.userMessages).toEqual([]);
@@ -785,8 +824,8 @@ describe("pr feedback watch extension", () => {
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
-		await pi.commands.get("code:pr-feedback-watch")?.handler("start --baseline-existing", ctx);
-		await pi.commands.get("code:pr-feedback-watch")?.handler("once --baseline-existing", ctx);
+		await pi.commands.get("pr:watch-feedback")?.handler("start --baseline-existing", ctx);
+		await pi.commands.get("pr:watch-feedback")?.handler("once --baseline-existing", ctx);
 
 		expect(pi.userMessages).toEqual([]);
 		expect(ctx.notifications.at(-1)?.message).toContain("REST check failed");
@@ -805,7 +844,7 @@ describe("pr feedback watch extension", () => {
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
-		await pi.commands.get("code:pr-feedback-watch")?.handler("start --dispatch-existing", ctx);
+		await pi.commands.get("pr:watch-feedback")?.handler("start --dispatch-existing", ctx);
 
 		expect(pi.userMessages).toHaveLength(1);
 		expect(pi.userMessages[0]).toContain("download-feedback:123:1");
@@ -823,12 +862,12 @@ describe("pr feedback watch extension", () => {
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
-		await pi.commands.get("code:pr-feedback-watch")?.handler("", ctx);
-		await pi.commands.get("code:pr-feedback-watch")?.handler("", ctx);
+		await pi.commands.get("pr:watch-feedback")?.handler("", ctx);
+		await pi.commands.get("pr:watch-feedback")?.handler("", ctx);
 
 		expect(pi.userMessages).toHaveLength(1);
 		expect(ctx.notifications.at(-1)?.message).toBe("PR feedback watch stopped.");
-		expect(ctx.statuses.get("code:pr-feedback-watch")).toBeUndefined();
+		expect(ctx.statuses.get("pr:watch-feedback")).toBeUndefined();
 		expect(
 			pi.entries
 				.map((entry) => entry.data)
@@ -847,11 +886,11 @@ describe("pr feedback watch extension", () => {
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
-		await pi.commands.get("code:pr-feedback-watch")?.handler("start --baseline-existing", ctx);
-		await pi.commands.get("code:pr-feedback-watch")?.handler("stop", ctx);
+		await pi.commands.get("pr:watch-feedback")?.handler("start --baseline-existing", ctx);
+		await pi.commands.get("pr:watch-feedback")?.handler("stop", ctx);
 
 		expect(ctx.notifications.at(-1)?.message).toBe("PR feedback watch stopped.");
-		expect(ctx.statuses.get("code:pr-feedback-watch")).toBeUndefined();
+		expect(ctx.statuses.get("pr:watch-feedback")).toBeUndefined();
 		pi.assertDone();
 	});
 
@@ -869,13 +908,13 @@ describe("pr feedback watch extension", () => {
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
 		await pi.commands
-			.get("code:pr-feedback-watch")
+			.get("pr:watch-feedback")
 			?.handler("once --dispatch-existing --pause-on-dirty", ctx);
 		expect(pi.userMessages).toEqual([]);
 		expect(ctx.notifications.at(-1)?.message).toContain("dirty");
 
 		await pi.commands
-			.get("code:pr-feedback-watch")
+			.get("pr:watch-feedback")
 			?.handler("once --dispatch-existing --allow-dirty", ctx);
 		expect(pi.userMessages).toHaveLength(1);
 		pi.assertDone();

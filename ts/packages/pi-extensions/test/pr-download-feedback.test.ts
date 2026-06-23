@@ -6,9 +6,9 @@ import prExtension, {
 	PR_PREVIEW_FEEDBACK_COMMAND_NAME,
 	type ExtensionAPI,
 	type ExtensionContext,
-	type ExecResult,
 	type RegisteredCommand,
 } from "../src/pr.ts";
+import type { ExecResult } from "../src/pr-feedback-download.ts";
 import {
 	buildThreadDetailLines,
 	buildThreadRowLabel,
@@ -34,7 +34,9 @@ class FakePi implements ExtensionAPI {
 	private readonly results: ExecResult[];
 
 	constructor(
-		result: ExecResult | ExecResult[] = execResult({ stdout: envelope({ markdown: "# Prompt" }) }),
+		result: ExecResult | ExecResult[] = execResult({
+			stdout: envelope(downloadFeedbackData({ markdown: "# Prompt" })),
+		}),
 	) {
 		this.results = Array.isArray(result) ? [...result] : [result];
 		this.fallbackResult = this.results.at(-1) ?? execResult();
@@ -43,6 +45,8 @@ class FakePi implements ExtensionAPI {
 	registerCommand(name: string, command: RegisteredCommand): void {
 		this.commands.set(name, command);
 	}
+
+	on(_event: "session_start" | "agent_end" | "session_shutdown", _handler: unknown): void {}
 
 	async exec(command: string, args: string[]): Promise<ExecResult> {
 		this.calls.push({ command, args });
@@ -124,6 +128,32 @@ function counts(
 		excluded_resolved_threads: overrides.excluded_resolved_threads ?? 0,
 		excluded_empty_reviews: overrides.excluded_empty_reviews ?? 0,
 		excluded_automation_comments: overrides.excluded_automation_comments ?? 0,
+	};
+}
+
+function downloadFeedbackData(
+	overrides: {
+		markdown?: string;
+		found?: boolean;
+		prNumber?: number | null;
+		targetOverrides?: object;
+		countsOverrides?: object;
+	} = {},
+): object {
+	return {
+		found: overrides.found ?? true,
+		target: {
+			kind: "github_pr",
+			pr_number: overrides.prNumber ?? 123,
+			title: "Download PR",
+			url: "https://example.test/pull/123",
+			branch: "feature-download",
+			head_ref_name: "feature-download",
+			base_ref_name: "main",
+			...overrides.targetOverrides,
+		},
+		counts: overrides.countsOverrides ?? counts(),
+		markdown: overrides.markdown ?? "# Prompt",
 	};
 }
 
@@ -305,6 +335,7 @@ describe("/pr:download-feedback", () => {
 		prExtension(pi);
 
 		expect([...pi.commands.keys()]).toEqual([
+			"pr:watch-feedback",
 			PR_DOWNLOAD_FEEDBACK_COMMAND_NAME,
 			PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME,
 			PR_PREVIEW_FEEDBACK_COMMAND_NAME,
@@ -313,7 +344,7 @@ describe("/pr:download-feedback", () => {
 
 	test("downloads feedback and pre-fills the editor without sending a user message", async () => {
 		const markdown = "# PR feedback triage request\n\nDo not edit files yet.";
-		const pi = new FakePi(execResult({ stdout: envelope({ markdown }) }));
+		const pi = new FakePi(execResult({ stdout: envelope(downloadFeedbackData({ markdown })) }));
 
 		const ctx = await runCommand(pi);
 
@@ -334,7 +365,9 @@ describe("/pr:download-feedback", () => {
 	});
 
 	test("forwards a numeric argument as --pr-number", async () => {
-		const pi = new FakePi(execResult({ stdout: envelope({ markdown: "# Prompt" }) }));
+		const pi = new FakePi(
+			execResult({ stdout: envelope(downloadFeedbackData({ markdown: "# Prompt" })) }),
+		);
 
 		await runCommand(pi, "123");
 
@@ -348,7 +381,24 @@ describe("/pr:download-feedback", () => {
 
 	test("prefills returned markdown for a negative no-PR envelope", async () => {
 		const markdown = "# PR feedback triage request\n\nNo PR found.";
-		const pi = new FakePi(execResult({ stdout: negativeEnvelope({ markdown }), code: 1 }));
+		const pi = new FakePi(
+			execResult({
+				stdout: negativeEnvelope(
+					downloadFeedbackData({
+						found: false,
+						prNumber: null,
+						markdown,
+						targetOverrides: {
+							title: null,
+							url: null,
+							head_ref_name: null,
+							base_ref_name: null,
+						},
+					}),
+				),
+				code: 1,
+			}),
+		);
 
 		const ctx = await runCommand(pi);
 
