@@ -1,14 +1,14 @@
 import { RealGitGateway } from "@sdl/core/git";
+import { RealGithubPrGateway } from "@sdl/core/submit";
+import type { CommandRunner } from "@sdl/core/exec";
 import {
-	RealGithubPrGateway,
 	RealSubmitGateway,
 	RealSubmitMetadataGateway,
 	runSubmitCommand,
 	type RunSubmitCommandOptions,
 	type SubmitCommandResult,
 	type SubmitFailureTranscript,
-} from "@sdl/core/submit";
-import type { CommandRunner } from "@sdl/core/exec";
+} from "@sdl/graphite/submit";
 
 import { createSdlCommandRunner, SdlCommandExecApi } from "./default-commands/command-runner.ts";
 import type { SdlExtensionApi } from "./sdk/index.ts";
