@@ -14,6 +14,7 @@ import {
 } from "../shared/text-generation.ts";
 import {
   createCommitWithPreparedMessage,
+  execExtensionCommand,
   formatPendingWorktreeError,
   loadFlowPendingWorktreeSnapshot,
   type PendingWorktreeSnapshot,
@@ -89,13 +90,4 @@ async function createAutobranchCheckpointFlow(ctx: SdlExtensionApi, args: Parsed
       }),
     commitPreparedCheckpointMessage: (message) => createCommitWithPreparedMessage(ctx, message),
   });
-}
-
-async function execExtensionCommand(
-  ctx: SdlExtensionApi,
-  command: string,
-  args: string[],
-  timeoutMs: number,
-) {
-  return ctx.exec(command, args, { timeoutMs });
 }

@@ -2,8 +2,7 @@ import { Buffer } from "node:buffer";
 import { readFile, stat } from "node:fs/promises";
 import { relative, resolve } from "node:path";
 import { formatErrorMessage } from "@sdl/core/primitives";
-import type { CommandResult } from "./shared.ts";
-import type { PendingWorktreeSnapshot } from "./shared.ts";
+import { truncateText, type CommandResult, type PendingWorktreeSnapshot } from "./shared.ts";
 import { chooseAvailableBranchName } from "./branch-name.ts";
 import {
 	buildBranchSlugPrompt,
@@ -168,10 +167,7 @@ async function readUntrackedSnippets(
 				continue;
 			}
 			const text = buffer.toString("utf8");
-			const isTruncated = text.length > MAX_UNTRACKED_FILE_CHARS;
-			snippets.push(
-				`## ${file}\n${text.slice(0, MAX_UNTRACKED_FILE_CHARS)}${isTruncated ? "\n...[truncated]" : ""}`,
-			);
+			snippets.push(`## ${file}\n${truncateText(text, MAX_UNTRACKED_FILE_CHARS)}`);
 		} catch (error) {
 			snippets.push(`## ${file}\n[could not read: ${formatErrorMessage(error)}]`);
 		}
