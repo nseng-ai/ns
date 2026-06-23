@@ -11,6 +11,12 @@ import {
 } from "./land-stack.ts";
 import { AUTO_CHUNK_LANDING_THRESHOLD } from "./land-stack/constants.ts";
 import {
+	completed,
+	failure,
+	landStackFailure,
+	type LandStackOutcome,
+} from "./land-stack/errors.ts";
+import {
 	formatFailure,
 	formatFailureNotification,
 	presentBrief,
@@ -92,67 +98,7 @@ export function registerLandCommand(pi: LandExtensionAPI): void {
 			description: "Land the current PR or Graphite stack into trunk",
 			getArgumentCompletions: landArgumentCompletions,
 			handler: async (rawArgs, ctx) => {
-				const args = parseArgs(rawArgs);
-				if (args.type === "failure") {
-					presentBrief(
-						ctx,
-						args.failure.message,
-						args.failure.level,
-						formatFailureNotification(args.failure),
-					);
-					return;
-				}
-				if (args.value.help) {
-					notify(ctx, usage(), "info");
-					return;
-				}
-
-				await ctx.waitForIdle();
-
-				const shape = await loadLandingShape(pi, ctx.cwd);
-				if (shape.type === "failure") {
-					presentBrief(
-						ctx,
-						formatFailure(shape.failure, []),
-						shape.failure.level,
-						formatFailureNotification(shape.failure),
-					);
-					return;
-				}
-
-				if (
-					shape.value.stack.actualCurrentBranch === shape.value.stack.trunk ||
-					shape.value.stack.landingBranches.length === 0
-				) {
-					presentBrief(
-						ctx,
-						`Current branch is ${shape.value.stack.actualCurrentBranch}, which is trunk or has no PR path to land. Nothing to do.`,
-						"info",
-						`Current branch is ${shape.value.stack.actualCurrentBranch}, which is trunk or has no PR path to land. Nothing to do.`,
-					);
-					return;
-				}
-
-				if (isIsolatedFastPath(shape.value.stack)) {
-					await runFastLand(pi, ctx, shape.value, { dryRun: args.value.dryRun });
-					return;
-				}
-
-				if (shape.value.stack.landingBranches.length > AUTO_CHUNK_LANDING_THRESHOLD) {
-					await executeStackLanding(pi, ctx, args.value, { initialShape: shape.value });
-					return;
-				}
-
-				const confirmed = await confirmStackModeIfNeeded(ctx, shape.value, {
-					dryRun: args.value.dryRun,
-					yes: args.value.yes,
-				});
-				if (!confirmed) return;
-
-				await executeStackLanding(pi, ctx, args.value, {
-					skipMainConfirmation: true,
-					initialShape: shape.value,
-				});
+				await runLandCommand(pi, rawArgs, ctx);
 			},
 		},
 	});
@@ -160,13 +106,75 @@ export function registerLandCommand(pi: LandExtensionAPI): void {
 
 export type LandCliConfirmPrompt = (title: string, message: string) => Promise<boolean> | boolean;
 
+async function runLandCommand(
+	pi: LandExtensionAPI,
+	rawArgs: string,
+	ctx: LandCommandContext,
+): Promise<LandStackOutcome> {
+	const args = parseArgs(rawArgs);
+	if (args.type === "failure") {
+		presentBrief(
+			ctx,
+			args.failure.message,
+			args.failure.level,
+			formatFailureNotification(args.failure),
+		);
+		return failure(args.failure);
+	}
+	if (args.value.help) {
+		notify(ctx, usage(), "info");
+		return completed();
+	}
+
+	await ctx.waitForIdle();
+
+	const shape = await loadLandingShape(pi, ctx.cwd);
+	if (shape.type === "failure") {
+		presentBrief(
+			ctx,
+			formatFailure(shape.failure, []),
+			shape.failure.level,
+			formatFailureNotification(shape.failure),
+		);
+		return failure(shape.failure);
+	}
+
+	if (
+		shape.value.stack.actualCurrentBranch === shape.value.stack.trunk ||
+		shape.value.stack.landingBranches.length === 0
+	) {
+		const message = `Current branch is ${shape.value.stack.actualCurrentBranch}, which is trunk or has no PR path to land. Nothing to do.`;
+		presentBrief(ctx, message, "info", message);
+		return completed();
+	}
+
+	if (isIsolatedFastPath(shape.value.stack)) {
+		return await runFastLand(pi, ctx, shape.value, { dryRun: args.value.dryRun });
+	}
+
+	if (shape.value.stack.landingBranches.length > AUTO_CHUNK_LANDING_THRESHOLD) {
+		return await executeStackLanding(pi, ctx, args.value, { initialShape: shape.value });
+	}
+
+	const confirmationOutcome = await confirmStackModeIfNeeded(ctx, shape.value, {
+		dryRun: args.value.dryRun,
+		yes: args.value.yes,
+	});
+	if (confirmationOutcome.type === "failure") return confirmationOutcome;
+
+	return await executeStackLanding(pi, ctx, args.value, {
+		skipMainConfirmation: true,
+		initialShape: shape.value,
+	});
+}
+
 export interface LandCliInput {
 	cwd: string;
 	rawArgs: string;
 	exec(
 		command: string,
 		args: string[],
-		options?: { cwd?: string | undefined; timeout?: number | undefined },
+		options?: { cwd?: string; timeout?: number },
 	): Promise<ExecResult>;
 	stdout(text: string): void;
 	stderr(text: string): void;
@@ -174,29 +182,27 @@ export interface LandCliInput {
 }
 
 export async function runLandCli(input: LandCliInput): Promise<number> {
-	let handler: ((args: string, ctx: LandCommandContext) => Promise<void> | void) | undefined;
+	let didRegister = false;
 	const api: LandExtensionAPI = {
-		registerCommand(_name, options) {
-			handler = options.handler;
+		registerCommand() {
+			didRegister = true;
 		},
 		exec: input.exec,
 	};
 	registerLandCommand(api);
-	if (handler === undefined) {
+	if (!didRegister) {
 		input.stderr("Land command registration failed.\n");
 		return 1;
 	}
 
-	let hasError = false;
 	const confirm = input.confirm;
-	await handler(input.rawArgs, {
+	const outcome = await runLandCommand(api, input.rawArgs, {
 		cwd: input.cwd,
 		hasUI: confirm !== undefined,
 		ui: {
 			notify(message, level) {
 				const output = `${message.trimEnd()}\n`;
 				if (level === "error") {
-					hasError = true;
 					input.stderr(output);
 					return;
 				}
@@ -208,7 +214,7 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 		},
 		waitForIdle: async () => {},
 	});
-	return hasError ? 1 : 0;
+	return outcome.type === "failure" && outcome.failure.level === "error" ? 1 : 0;
 }
 
 export function isIsolatedFastPath(stack: StackSnapshot): boolean {
@@ -224,29 +230,35 @@ async function confirmStackModeIfNeeded(
 	ctx: LandCommandContext,
 	shape: LandingShape,
 	options: { dryRun: boolean; yes: boolean },
-): Promise<boolean> {
-	if (options.dryRun || options.yes) return true;
+): Promise<LandStackOutcome> {
+	if (options.dryRun || options.yes) return completed();
 	if (!ctx.hasUI) {
-		presentBrief(
-			ctx,
-			"Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.",
-			"error",
+		const landFailure = landStackFailure(
 			"Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.",
 		);
-		return false;
+		presentBrief(
+			ctx,
+			landFailure.message,
+			landFailure.level,
+			formatFailureNotification(landFailure),
+		);
+		return failure(landFailure);
 	}
 
 	const confirmed = await ctx.ui.confirm("Land stack?", formatUpfrontStackConfirmation(shape));
 	if (!confirmed) {
+		const landFailure = landStackFailure("Cancelled before merge; no PRs were landed.", {
+			level: "info",
+		});
 		presentBrief(
 			ctx,
-			"Cancelled before merge; no PRs were landed.",
-			"info",
-			"Cancelled before merge; no PRs were landed.",
+			landFailure.message,
+			landFailure.level,
+			formatFailureNotification(landFailure),
 		);
-		return false;
+		return failure(landFailure);
 	}
-	return true;
+	return completed();
 }
 
 function formatUpfrontStackConfirmation(shape: LandingShape): string {
@@ -268,25 +280,22 @@ async function runFastLand(
 	ctx: LandCommandContext,
 	target: LandingShape,
 	options: { dryRun: boolean },
-): Promise<void> {
+): Promise<LandStackOutcome> {
 	const pr = await loadPullRequest(pi, target.repoRoot);
 	if ("error" in pr) {
 		notify(ctx, pr.error, "error");
-		return;
+		return failure(landStackFailure(pr.error));
 	}
 
 	if (pr.baseRefName !== target.trunk) {
-		notify(
-			ctx,
-			`Refusing to land PR #${pr.number}: base branch is '${pr.baseRefName}', not Graphite trunk '${target.trunk}'. Merge not attempted.`,
-			"error",
-		);
-		return;
+		const message = `Refusing to land PR #${pr.number}: base branch is '${pr.baseRefName}', not Graphite trunk '${target.trunk}'. Merge not attempted.`;
+		notify(ctx, message, "error");
+		return failure(landStackFailure(message));
 	}
 
 	if (options.dryRun) {
 		notify(ctx, `Dry run only; would merge PR #${pr.number} into ${target.trunk}.`, "info");
-		return;
+		return completed();
 	}
 
 	progress(pi, ctx, "Running gh pr merge -s with PR title/body as commit message…");
@@ -315,11 +324,13 @@ async function runFastLand(
 	if (result.code === 0) {
 		const message = `Merged PR #${pr.number}; squash commit used PR title/body.`;
 		notify(ctx, output ? `${output}\n${message}` : message, "info");
-		return;
+		return completed();
 	}
 
 	const message = `gh pr merge -s with PR title/body failed for PR #${pr.number} with exit code ${result.code}.`;
-	notify(ctx, output ? `${output}\n${message}` : message, "error");
+	const fullMessage = output ? `${output}\n${message}` : message;
+	notify(ctx, fullMessage, "error");
+	return failure(landStackFailure(fullMessage));
 }
 
 function progress(pi: LandExtensionAPI, ctx: LandCommandContext, message: string): void {
