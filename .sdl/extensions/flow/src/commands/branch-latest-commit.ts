@@ -56,7 +56,8 @@ export default defineExtension({
           cwd: snapshot.root,
           args,
           snapshot,
-          exec: (command, commandArgs, _cwd, timeout) => execExtensionCommand(ctx, command, commandArgs, timeout),
+          exec: (command, commandArgs, _cwd, timeout) =>
+            execExtensionCommand({ ctx, command, args: commandArgs, timeoutMs: timeout }),
         });
         if (!result.ok) {
           return failed(result.error.trimEnd(), 1);

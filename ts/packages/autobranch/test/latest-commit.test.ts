@@ -56,6 +56,9 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 				return ok(`${snapshot.branch}\n`);
 			}
 			if (command === "git" && args[0] === "for-each-ref") {
+				if (args[1] === "--format=%(refname)") {
+					return ok();
+				}
 				if (upstreamMode === "failed") {
 					return fail("bad upstream state", 128);
 				}
@@ -145,6 +148,9 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 		exec: async (command, args) => {
 			events.push(`exec:${command} ${args.join(" ")}`);
 			if (command === "git" && args[0] === "for-each-ref") {
+				if (args[1] === "--format=%(refname)") {
+					return ok();
+				}
 				if (upstreamMode === "failed") {
 					return fail("bad upstream state", 128);
 				}

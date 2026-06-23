@@ -30,13 +30,15 @@ export function execGit(
   return ctx.exec("git", [...args], { timeoutMs });
 }
 
-export function execExtensionCommand(
-  ctx: SdlExtensionApi,
-  command: string,
-  args: string[],
-  timeoutMs: number,
-): Promise<ExecResult> {
-  return ctx.exec(command, args, { timeoutMs });
+interface ExecExtensionCommandOptions {
+  ctx: SdlExtensionApi;
+  command: string;
+  args: string[];
+  timeoutMs: number;
+}
+
+export function execExtensionCommand(options: ExecExtensionCommandOptions): Promise<ExecResult> {
+  return options.ctx.exec(options.command, options.args, { timeoutMs: options.timeoutMs });
 }
 
 export async function createCommitWithPreparedMessage(

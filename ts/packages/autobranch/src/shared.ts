@@ -1,4 +1,5 @@
 import { formatCommandDetails, type ExecResult } from "@sdl/core/exec";
+import { truncateTextHead } from "@sdl/core/text-truncation";
 
 export type CommandResult = Pick<ExecResult, "code" | "stdout" | "stderr"> & {
 	killed?: boolean;
@@ -27,5 +28,12 @@ export function truncateText(text: string, maxChars: number): string {
 	const normalizedMaxChars = Math.max(0, Math.trunc(maxChars));
 	if (text.length <= normalizedMaxChars) return text;
 	if (normalizedMaxChars === 0) return "…";
-	return `${text.slice(0, normalizedMaxChars)}\n…[truncated]`;
+
+	const marker = "\n…[truncated]";
+	return truncateTextHead({
+		value: `${text}${marker}`,
+		maxChars: normalizedMaxChars + marker.length,
+		buildMarker: () => marker,
+		shouldTrimHead: false,
+	});
 }
