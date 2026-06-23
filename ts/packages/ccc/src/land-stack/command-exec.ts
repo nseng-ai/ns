@@ -6,6 +6,7 @@ import {
 	stripTerminalEscapes,
 	tailText,
 	type ExecResult,
+	type PiExecResultLike,
 } from "@sdl/core/exec";
 import { GRAPHITE_COMMAND_NAME, runGraphiteCommand } from "@sdl/graphite/branch";
 import { GRAPHITE_METADATA_DB_NAME } from "@sdl/graphite/metadata";
@@ -40,16 +41,7 @@ export async function execRaw(
 	cwd: string,
 	timeout: number,
 ): Promise<ExecResult> {
-	try {
-		return normalizeExecResult(await pi.exec(command, args, { cwd, timeout }));
-	} catch (error) {
-		return {
-			stdout: "",
-			stderr: formatErrorMessage(error),
-			code: 1,
-			killed: false,
-		};
-	}
+	return execRawWithErrorHandling(async () => await pi.exec(command, args, { cwd, timeout }));
 }
 
 export interface ExecGraphiteOptions {
@@ -70,8 +62,15 @@ export async function execRawGraphite(
 	pi: LandStackExtensionAPI,
 	options: ExecGraphiteOptions,
 ): Promise<ExecResult> {
+	return execRawWithErrorHandling(
+		async () =>
+			await runGraphiteCommand(execApiToCommandRunner(piExecApiToCommandExecApi(pi)), options),
+	);
+}
+
+async function execRawWithErrorHandling(run: () => Promise<PiExecResultLike>): Promise<ExecResult> {
 	try {
-		return await runGraphiteCommand(execApiToCommandRunner(piExecApiToCommandExecApi(pi)), options);
+		return normalizeExecResult(await run());
 	} catch (error) {
 		return {
 			stdout: "",

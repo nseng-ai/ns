@@ -1,4 +1,5 @@
 import {
+	execApiToCommandRunner,
 	formatCommand,
 	formatCommandFailure,
 	type CommandExecApi,
@@ -50,6 +51,8 @@ export interface GraphiteCommandRunParams {
 	timeoutMs?: number | undefined;
 	env?: NodeJS.ProcessEnv | undefined;
 	signal?: AbortSignal | undefined;
+	onStdout?: ((text: string) => void) | undefined;
+	onStderr?: ((text: string) => void) | undefined;
 }
 
 interface CommandRun {
@@ -58,10 +61,10 @@ interface CommandRun {
 }
 
 export class RealGraphiteBranchGateway implements GraphiteBranchGateway {
-	private readonly pi: CommandExecApi;
+	private readonly runner: CommandRunner;
 
 	constructor(pi: CommandExecApi) {
-		this.pi = pi;
+		this.runner = execApiToCommandRunner(pi);
 	}
 
 	async checkBranchTracked(
@@ -71,11 +74,11 @@ export class RealGraphiteBranchGateway implements GraphiteBranchGateway {
 		const displayCommand = formatCommand(GRAPHITE_COMMAND_NAME, args);
 		let result: ExecResult;
 		try {
-			result = await this.pi.exec(
-				GRAPHITE_COMMAND_NAME,
+			result = await runGraphiteCommand(this.runner, {
+				cwd: params.cwd,
 				args,
-				execOptions({ cwd: params.cwd, timeout: GT_TIMEOUT_MS, signal: params.signal }),
-			);
+				signal: params.signal,
+			});
 		} catch (caught) {
 			return { ok: false, error: startupFailure(displayCommand, caught) };
 		}
@@ -99,11 +102,11 @@ export class RealGraphiteBranchGateway implements GraphiteBranchGateway {
 		const displayCommand = formatCommand(GRAPHITE_COMMAND_NAME, args);
 		let result: ExecResult;
 		try {
-			result = await this.pi.exec(
-				GRAPHITE_COMMAND_NAME,
+			result = await runGraphiteCommand(this.runner, {
+				cwd: params.cwd,
 				args,
-				execOptions({ cwd: params.cwd, timeout: GT_TIMEOUT_MS, signal: params.signal }),
-			);
+				signal: params.signal,
+			});
 		} catch (caught) {
 			return { ok: false, error: startupFailure(displayCommand, caught) };
 		}
@@ -130,6 +133,8 @@ export function runGraphiteCommand(
 			timeout: params.timeoutMs ?? GT_TIMEOUT_MS,
 			env: params.env,
 			signal: params.signal,
+			onStdout: params.onStdout,
+			onStderr: params.onStderr,
 		}),
 	);
 }
@@ -156,12 +161,16 @@ function execOptions(options: {
 	timeout: number;
 	env?: NodeJS.ProcessEnv | undefined;
 	signal?: AbortSignal | undefined;
+	onStdout?: ((text: string) => void) | undefined;
+	onStderr?: ((text: string) => void) | undefined;
 }): ExecOptions {
-	const { cwd, timeout, env, signal } = options;
+	const { cwd, timeout, env, signal, onStdout, onStderr } = options;
 	return {
 		cwd,
 		timeout,
 		...(env === undefined ? {} : { env }),
 		...(signal === undefined ? {} : { signal }),
+		...(onStdout === undefined ? {} : { onStdout }),
+		...(onStderr === undefined ? {} : { onStderr }),
 	};
 }

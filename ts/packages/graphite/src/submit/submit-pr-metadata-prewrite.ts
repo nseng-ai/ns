@@ -4,6 +4,7 @@ import {
 	type CommandRunner,
 	type ExecResult,
 } from "@sdl/core/exec";
+import { GRAPHITE_COMMAND_NAME, runGraphiteCommand } from "../branch.ts";
 import type { GitGateway } from "@sdl/core/git";
 import type { MaybePromise } from "@sdl/core/primitives";
 
@@ -92,7 +93,7 @@ export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 	): Promise<GatewayResult<SubmitStackInspection>> {
 		const log = await this.runGt([...GT_LOG_STACK_ARGS], params.cwd, COMMAND_TIMEOUT_MS);
 		const logError = commandError(
-			"gt",
+			GRAPHITE_COMMAND_NAME,
 			GT_LOG_STACK_ARGS,
 			log,
 			"submit_stack_inspection_failed",
@@ -202,7 +203,7 @@ export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 				: [...GT_MODIFY_BASE_ARGS, "--into", params.branch, "-m", params.title, "-m", params.body];
 		const result = await this.runGt(args, params.cwd, MODIFY_TIMEOUT_MS);
 		const resultError = commandError(
-			"gt",
+			GRAPHITE_COMMAND_NAME,
 			args,
 			result,
 			"submit_metadata_amend_failed",
@@ -233,7 +234,7 @@ export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 					COMMAND_TIMEOUT_MS,
 				);
 				const infoError = commandError(
-					"gt",
+					GRAPHITE_COMMAND_NAME,
 					[...GT_BRANCH_INFO_BASE_ARGS, branch],
 					info,
 					"submit_branch_info_failed",
@@ -262,7 +263,7 @@ export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 	private async readGraphiteTrunk(cwd: string): Promise<GatewayResult<string>> {
 		const result = await this.runGt([...GT_TRUNK_ARGS], cwd, COMMAND_TIMEOUT_MS);
 		const resultError = commandError(
-			"gt",
+			GRAPHITE_COMMAND_NAME,
 			GT_TRUNK_ARGS,
 			result,
 			"submit_trunk_inspection_failed",
@@ -320,7 +321,7 @@ export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 	}
 
 	private async runGt(args: string[], cwd: string, timeoutMs: number): Promise<ExecResult> {
-		return this.runner("gt", args, { cwd, timeout: timeoutMs });
+		return runGraphiteCommand(this.runner, { cwd, args, timeoutMs });
 	}
 
 	private async runGit(args: string[], cwd: string, timeoutMs: number): Promise<ExecResult> {
