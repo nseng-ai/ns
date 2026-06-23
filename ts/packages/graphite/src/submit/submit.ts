@@ -8,6 +8,7 @@ import {
 	type ExecResult,
 } from "@sdl/core/exec";
 import type { GitGateway } from "@sdl/core/git";
+import { runGraphiteCommand } from "../branch.ts";
 
 import type { GithubPrGateway } from "@sdl/core/submit";
 import { extractPrLinks, type SubmitPrLink } from "./gt-output.ts";
@@ -329,9 +330,10 @@ export class RealSubmitGateway implements SubmitGateway {
 	private async runGt(options: RunGtOptions): Promise<SubmitCommandOutput> {
 		const { args, cwd, timeoutMs, onOutput } = options;
 		return toSubmitCommandOutput(
-			await this.runner("gt", args, {
+			await runGraphiteCommand(this.runner, {
 				cwd,
-				timeout: timeoutMs,
+				args,
+				timeoutMs,
 				...outputListenerToExecCallbacks(onOutput),
 			}),
 		);

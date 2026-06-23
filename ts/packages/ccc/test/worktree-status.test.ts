@@ -227,19 +227,22 @@ function ghNoPrSteps(): ScriptedExec[] {
 	return [remoteOriginStep(), ghWorktreePrStep({ nodes: [] })];
 }
 
+interface WorktreePrNodeFixture {
+	number: number;
+	headOid?: string;
+	passingChecks?: number;
+	pendingChecks?: number;
+	failingChecks?: number;
+	unknownChecks?: number;
+	checkNodes?: readonly unknown[];
+	unresolvedThreads?: number;
+	totalThreads?: number;
+	threadsHasMore?: boolean;
+	checksHasMore?: boolean;
+}
+
 function ghWorktreePrStep(options: {
-	nodes: Array<{
-		number: number;
-		headOid?: string;
-		passingChecks?: number;
-		pendingChecks?: number;
-		failingChecks?: number;
-		unknownChecks?: number;
-		unresolvedThreads?: number;
-		totalThreads?: number;
-		threadsHasMore?: boolean;
-		checksHasMore?: boolean;
-	}>;
+	nodes: WorktreePrNodeFixture[];
 	result?: Partial<ExecResult> | undefined;
 }): ScriptedExec {
 	return step(
@@ -270,18 +273,7 @@ function ghWorktreePrStep(options: {
 	);
 }
 
-function worktreePrNode(options: {
-	number: number;
-	headOid?: string;
-	passingChecks?: number;
-	pendingChecks?: number;
-	failingChecks?: number;
-	unknownChecks?: number;
-	unresolvedThreads?: number;
-	totalThreads?: number;
-	threadsHasMore?: boolean;
-	checksHasMore?: boolean;
-}): unknown {
+function worktreePrNode(options: WorktreePrNodeFixture): unknown {
 	const unresolvedThreads = options.unresolvedThreads ?? 0;
 	const totalThreads = options.totalThreads ?? unresolvedThreads;
 	const resolvedThreads = Math.max(0, totalThreads - unresolvedThreads);
@@ -293,31 +285,7 @@ function worktreePrNode(options: {
 		statusCheckRollup: {
 			contexts: {
 				pageInfo: { hasNextPage: options.checksHasMore ?? false },
-				nodes: [
-					...Array.from({ length: options.passingChecks ?? 0 }, (_value, index) => ({
-						__typename: "CheckRun",
-						conclusion: "SUCCESS",
-						name: `passing-${index}`,
-						status: "COMPLETED",
-					})),
-					...Array.from({ length: options.pendingChecks ?? 0 }, (_value, index) => ({
-						__typename: "CheckRun",
-						name: `pending-${index}`,
-						status: "IN_PROGRESS",
-					})),
-					...Array.from({ length: options.failingChecks ?? 0 }, (_value, index) => ({
-						__typename: "CheckRun",
-						conclusion: "FAILURE",
-						name: `failed-${index}`,
-						status: "COMPLETED",
-					})),
-					...Array.from({ length: options.unknownChecks ?? 0 }, (_value, index) => ({
-						__typename: "CheckRun",
-						conclusion: "MYSTERY",
-						name: `unknown-${index}`,
-						status: "COMPLETED",
-					})),
-				],
+				nodes: options.checkNodes ?? defaultCheckNodes(options),
 			},
 		},
 		reviewThreads: {
@@ -328,6 +296,42 @@ function worktreePrNode(options: {
 				...Array.from({ length: resolvedThreads }, () => ({ isResolved: true })),
 			],
 		},
+	};
+}
+
+function defaultCheckNodes(options: WorktreePrNodeFixture): unknown[] {
+	return [
+		...Array.from({ length: options.passingChecks ?? 0 }, (_value, index) =>
+			worktreePrCheckRun({ name: `passing-${index}`, conclusion: "SUCCESS" }),
+		),
+		...Array.from({ length: options.pendingChecks ?? 0 }, (_value, index) =>
+			worktreePrCheckRun({ name: `pending-${index}`, status: "IN_PROGRESS" }),
+		),
+		...Array.from({ length: options.failingChecks ?? 0 }, (_value, index) =>
+			worktreePrCheckRun({ name: `failed-${index}`, conclusion: "FAILURE" }),
+		),
+		...Array.from({ length: options.unknownChecks ?? 0 }, (_value, index) =>
+			worktreePrCheckRun({ name: `unknown-${index}`, conclusion: "MYSTERY" }),
+		),
+	];
+}
+
+function worktreePrCheckRun(options: {
+	name: string;
+	workflowName?: string | undefined;
+	status?: string | undefined;
+	conclusion?: string | undefined;
+	startedAt?: string | undefined;
+	completedAt?: string | undefined;
+}): unknown {
+	return {
+		__typename: "CheckRun",
+		name: options.name,
+		status: options.status ?? "COMPLETED",
+		...(options.conclusion === undefined ? {} : { conclusion: options.conclusion }),
+		...(options.startedAt === undefined ? {} : { startedAt: options.startedAt }),
+		...(options.completedAt === undefined ? {} : { completedAt: options.completedAt }),
+		checkSuite: { workflowRun: { workflow: { name: options.workflowName ?? "fixture" } } },
 	};
 }
 
@@ -744,6 +748,53 @@ describe("composed local and gh worktree status loading", () => {
 		expect(formatWorktreeStatus(status).map(stripTerminalEscapes)).toContain(
 			"[gh] #1736 · comments 2/5 · actions 2⏳ 1✗",
 		);
+	});
+
+	test("dedupes superseded canceled check runs before formatting gh actions", async () => {
+		const pi = new OrderlessFakePi([
+			brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+			remoteOriginStep(),
+			ghWorktreePrStep({
+				nodes: [
+					{
+						number: 2066,
+						checkNodes: [
+							worktreePrCheckRun({
+								workflowName: "roaster",
+								name: "review",
+								conclusion: "CANCELLED",
+								completedAt: "2026-01-01T00:00:00Z",
+							}),
+							worktreePrCheckRun({
+								workflowName: "roaster",
+								name: "review",
+								conclusion: "SUCCESS",
+								completedAt: "2026-01-01T00:10:00Z",
+							}),
+							worktreePrCheckRun({
+								workflowName: "ci",
+								name: "test",
+								status: "IN_PROGRESS",
+								startedAt: "2026-01-01T00:11:00Z",
+							}),
+						],
+					},
+				],
+			}),
+			...basicGitStatusScript(),
+		]);
+
+		const status = await loadComposedWorktreeStatus(pi, ROOT);
+
+		pi.assertDone();
+		expect(status.gh).toMatchObject({
+			type: "available",
+			prNumber: 2066,
+			checks: { passing: 1, pending: 1, failing: 0, unknown: 0 },
+		});
+		const formatted = formatWorktreeStatus(status).map(stripTerminalEscapes);
+		expect(formatted).toContain("[gh] #2066 · comments 0/0 · actions 1⏳");
+		expect(formatted.join("\n")).not.toContain("✗");
 	});
 
 	test("preserves first returned PR details for a PR head OID mismatch", async () => {
