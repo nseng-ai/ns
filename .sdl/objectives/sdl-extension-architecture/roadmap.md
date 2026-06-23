@@ -38,10 +38,37 @@
   - Policy: direct execution after preview; steer first before finalizing public extension terminology that affects authors.
   - Evidence: SDL README/context language distinguishes the SDL kernel from project-local command policy, records grouped project-local extensions as the current command-first mechanism, keeps future bundled extensions as deferred design space, and documents the command-first SDK promotion rule. The SDK reference states that `@sdl/sdl/sdk` is intentionally small, owns curated lower-package re-exports as first-party author vocabulary, and remains the authoritative export inventory. Pi docs state that SDL extension discovery is CLI-oriented today and exact `/sdl:flow:*` mirrors are static engineered adapters requiring explicit package tests/parity metadata. `.sdl/extensions/AGENTS.md` records the readable extension boundary, helper-promotion escalation path, and generated/bundled artifact caution.
 
-- [~] Record the command-first closure boundary and spawn or park follow-up capability work.
+- [x] Record the command-first closure boundary and spawn or park follow-up capability work.
   - Policy: steer first before creating child Objectives for bundled or sophisticated capability migrations.
-  - Current evidence: the command-first migration has enough evidence to separate public SDK promotion, project-local/shared helper consolidation, lower-package delegation, static Pi mirrors, and future bundled-extension design. The remaining work is to write the final closure-boundary disposition: what commands-first proved, which SDK-pressure seams become follow-up candidates, and whether Handoff, Objectives, Slots, or another workflow should become the next pressure test.
-  - Evidence should include a final roadmap/status update that keeps broader capability modeling from becoming hidden scope creep.
+  - Evidence: `updates/2026-06-23-command-first-closure-boundary.md` records the final command-first disposition without creating child Objectives or closing this Objective. The update separates public SDK promotion, project-local shared helpers, lower-package delegation, static Pi mirrors, and future bundled-extension or sophisticated-workflow design. It parks dynamic Pi mirrors, bundled first-party extensions, nested command trees, and broader Handoff/Objectives/Slots/Branch Context/Roaster/PR Address/CCC/Pi workflow modeling as explicit follow-up space rather than hidden scope creep.
+
+## Flow shared-code consolidation
+
+This track reopens active work to remove duplicated command-author code across the `flow` group. It stays within the internal-migration-export and project-local shared-helper tiers and adds no new public `@sdl/sdl/sdk` surface. See `updates/2026-06-23-flow-shared-code-track.md` for the decision record.
+
+- [ ] Extract shared exec/format/JSON utilities for the flow group.
+  - Policy: direct execution after preview for code/tests.
+  - Plan: move the repeated shell-quoting/`formatCommand`, output-tail/`stripTerminalEscapes`, and `isRecord`/`formatErrorMessage`/`parseJson` helpers currently duplicated in `regenerate-pr.ts` and `autobranch.ts` into `.sdl/extensions/flow/src/shared/`, preferring `@sdl/sdl/sdk` or `@sdl/core` re-exports where an equivalent already exists. Evidence target: both commands import the shared helpers, local copies are deleted, and SDL scenario/unit coverage for those commands stays green.
+
+- [ ] Consolidate PR-description machinery behind shared helpers.
+  - Policy: direct execution after preview for code/tests; ask before mutating real GitHub PR state during validation.
+  - Plan: widen the `@sdl/sdl/pr-description` internal-migration-export subpath to re-expose the existing `@sdl/core/submit` PR-description surface (system prompt, managed-region parse/format, prompt/model resolution, lockfile filter, diff truncation, hash, validation), re-export it through `flow/src/shared/`, and rewrite `regenerate-pr.ts` to consume it, deleting its ~600 local helper lines. Evidence target: `regenerate-pr.ts` carries no local PR-description duplication, no new `@sdl/sdl/sdk` surface is added, and `regenerate-pr-cli` scenario tests stay green.
+
+- [ ] Introduce a shared GitHub-PR access seam for the flow group.
+  - Policy: gateway-layer direction confirmed with the user; direct execution after preview for code/tests.
+  - Plan: re-expose `@sdl/core/submit`'s `RealGithubPrGateway` (plus `GithubPrDetails`, `PrCommitMessage`, `StablePatchIdForPrResult` types) through an internal-migration-export subpath and `flow/src/shared/`, and have `regenerate-pr` (and later `submit`) consume it instead of hand-rolled `gh pr view/edit/diff/commits` plumbing. Evidence target: gh-PR plumbing lives in one shared seam, both consumers use it, and the seam stays extension-local with no public SDK promotion.
+
+- [ ] Consolidate the CCC-CLI delegation boilerplate.
+  - Policy: direct execution after preview for code/tests.
+  - Plan: extract the identical exec-adapter + stdout/stderr accumulation + `exitCode → ok/failed` pattern in `land.ts`, `pull-trunk.ts`, and `autoslot.ts` into a single `flow/src/shared/` CCC-CLI runner helper. Evidence target: the three commands share one helper, delegation to `@sdl/ccc/*` is unchanged, and their scenario coverage stays green.
+
+- [ ] Replace the checked-in submit bundle with a readable delegating command.
+  - Policy: direct execution after preview for implementation; ask before running real submit, restack, push, PR edit, or other external mutations.
+  - Plan: rewrite `flow/src/commands/submit.ts` from the ~3017-line checked-in bundle into a hand-authored command that delegates to `@sdl/core/submit` orchestration (`runSubmitCommand`/`orchestratePrDescription`) via an internal-migration-export subpath plus the shared PR-description/GitHub-PR/exec helpers, mirroring how `land` delegates to `@sdl/ccc/land`. Evidence target: `submit.ts` is readable hand-authored source with no inlined bundle, the submit behavior matrix stays covered by faked `git`/`gt`/`gh` scenario tests, and the `.sdl/extensions/AGENTS.md` bundled-artifact liability no longer applies to `flow`.
+
+- [ ] Document the expanded internal-migration-export and shared-helper model.
+  - Policy: direct execution after preview; steer-first before any wording that implies new public author API.
+  - Plan: update `.sdl/extensions/AGENTS.md`, the SDK reference, and SDL context language to describe the widened internal-migration-export subpaths and the `flow` shared-helper tier as the consolidation mechanism, and to record that no new public `@sdl/sdl/sdk` surface was promoted in this track. Evidence target: docs/context describe the shared-helper consolidation and explicitly note the deferred public-SDK promotion decision.
 
 ## Parked
 

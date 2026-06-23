@@ -20,6 +20,10 @@ This Objective supersedes the narrower `handoff-sdl-extension` Objective. Handof
   - The selected lifecycle commands should remain reachable as `sdl flow <name>` when the project-local flow extension is present.
   - Pi mirrors are static engineered adapters for selected project-local flow commands, not evidence that commands are universal built-ins or that arbitrary SDL extension commands are dynamically mirrored into Pi.
 - Document the emerging kernel/extension mental model, including classification rules for kernel services, project-local commands, future bundled extensions, internal migration exports, and parked sophisticated workflows.
+- Consolidate duplicated command-author code across the `flow` group through the project-local shared-helper tier and existing internal-migration-export subpaths, not new public SDK surface.
+  - Route command-local reimplementations — PR-description machinery, generic exec/format/JSON helpers, GitHub-PR access, and CCC-CLI delegation boilerplate — through `.sdl/extensions/flow/src/shared/`, re-exposing existing `@sdl/core/submit` and `@sdl/ccc` behavior via `@sdl/sdl/*` internal-migration-export subpaths.
+  - Replace the checked-in `submit.ts` bundle with a readable hand-authored command that delegates to `@sdl/core/submit` orchestration, removing the bundled-artifact liability flagged in `.sdl/extensions/AGENTS.md`.
+  - Keep this consolidation within the internal-migration-export and project-local shared-helper tiers; do not promote new `@sdl/sdl/sdk` author API as part of this track.
 - Close `handoff-sdl-extension` as subsumed by this broader command-first architecture track, preserving its content as provenance and parked future input.
 
 ## Non-Goals
@@ -41,6 +45,7 @@ This Objective supersedes the narrower `handoff-sdl-extension` Objective. Handof
 - The emerging architecture is documented in SDL docs/context language with clear terms for kernel, public extension SDK, project-local extension, future bundled extension, internal migration export, and static Pi mirror.
 - `handoff-sdl-extension` is closed as subsumed, with Handoff-specific nested command-tree work parked as future input rather than active parallel architecture work.
 - The Objective records a disposition for broader capability modeling: commands-first complete now, bundled/sophisticated capability migrations deferred to later child Objectives or follow-up Objectives.
+- The `flow` group's command-author duplication is consolidated: hand-written commands import shared helpers (or internal-migration-export-backed `shared/` re-exports) instead of re-implementing PR-description, exec/format/JSON, GitHub-PR, or CCC-CLI delegation logic; `submit` is a readable delegating command rather than a checked-in bundle; and no new public `@sdl/sdl/sdk` surface is added to achieve it.
 
 ## Definition of Progress
 
@@ -82,6 +87,7 @@ Assumptions:
 - `@sdl/sdl/sdk` should remain the public author API unless concrete migration evidence justifies adding or reshaping exports.
 - Project-local grouped command discovery can preserve the user-facing `sdl flow <name>` surface in this repository without implying the command is universally available in every SDL installation.
 - Handoff's nested command-tree design remains valuable provenance, but it should not drive the first kernel/SDK shape before simpler commands have been re-modeled.
+- The PR-description machinery, `commandFailure`, GitHub-PR gateway, and submit orchestration that `regenerate-pr` and the `submit` bundle currently duplicate already exist in `@sdl/core/submit`, so flow shared-code consolidation is mostly re-exposure through internal-migration-export subpaths plus `shared/` re-exports rather than new behavior.
 
 Risks:
 
@@ -91,6 +97,8 @@ Risks:
 - The SDK may become overfit if every migrated command's convenience helper is exposed publicly. Mitigate by requiring concrete reuse evidence or a documented necessity before promotion.
 - Pi mirrors may drift from CLI discovery if they continue to hardcode command names. The current mitigation is static grouped `/sdl:flow:*` mirror registration with package tests/parity metadata; dynamic Pi discovery remains future design work, not hidden current scope.
 - Closing `handoff-sdl-extension` may hide useful nested-command thinking. Mitigate by preserving it as a closed provenance Objective and parking Handoff as a future sophisticated workflow pressure test.
+- Rewriting the `submit.ts` bundle into a delegating command risks regressing the submit behavior matrix (preflight, restack confirmation, PR-metadata prewrite, semantic-failure detection). Mitigate by keeping faked `git`/`gt`/`gh` scenario coverage green across the rewrite and delegating to the already-tested `@sdl/core/submit` orchestration rather than reimplementing it.
+- A shared GitHub-PR gateway seam could overreach the command-first evidence threshold. Mitigate by reusing the existing `@sdl/core/submit` `RealGithubPrGateway` through an internal-migration-export subpath and keeping the seam extension-local rather than promoting it to public SDK.
 
 ## Open Questions
 
@@ -99,4 +107,5 @@ Risks:
 - Which repeated pain from `changes`, `cp`, `regenerate-pr`, `submit`, `land`, and adjacent flow commands justifies first-class SDK interfaces for Git, GitHub, Branch Memory, model generation, output, confirmation, or command composition? Exec evidence helpers have been promoted; other seams remain follow-up candidates rather than closure blockers.
 - Should `land` keep depending on the CCC land-stack orchestration (`@sdl/ccc/land`) from a project-local extension, or does its migration require promoting a public landing/Graphite-stack interface? For this command-first slice, the accepted answer is CCC delegation with no public landing SDK promotion; revisit only if another extension needs the same portable contract.
 - Which parts of the documented project-local versus future bundled extension model should become follow-up Objectives rather than remaining parked design space?
+- Once the `flow` shared-helper tier re-exposes most of `@sdl/core/submit`, which of those helpers (if any) have earned enough cross-extension evidence to graduate into the public `@sdl/sdl/sdk`? This track deliberately defers that promotion and keeps it as the next steer-first decision.
 - After the command-first migration, which parked capability should become the first bundled/sophisticated extension pressure test: Handoff, Objectives, Slots, or another workflow?
