@@ -180,8 +180,8 @@ describe("runner subagent activity widget", () => {
 
 	test("sets progress widgets and clears them after success", async () => {
 		const records: Array<{ value: string[] | undefined }> = [];
-		const result = await withRunnerSubagentWidget(
-			{
+		const result = await withRunnerSubagentWidget({
+			ctx: {
 				hasUI: true,
 				ui: {
 					setWidget(_key, value): void {
@@ -189,13 +189,13 @@ describe("runner subagent activity widget", () => {
 					},
 				},
 			},
-			"runner",
-			{ title: "Lifecycle", launch: METADATA_ONLY_LAUNCH },
-			async (onProgress) => {
+			key: "runner",
+			initial: { title: "Lifecycle", launch: METADATA_ONLY_LAUNCH },
+			run: async (onProgress) => {
 				onProgress(METADATA_ONLY_UPDATE);
 				return "done";
 			},
-		);
+		});
 
 		expect(result).toBe("done");
 		expect(records[0]?.value).toContain("Subagent: Lifecycle");
@@ -207,8 +207,8 @@ describe("runner subagent activity widget", () => {
 		const records: Array<{ value: string[] | undefined }> = [];
 
 		await expect(
-			withRunnerSubagentWidget(
-				{
+			withRunnerSubagentWidget({
+				ctx: {
 					hasUI: true,
 					ui: {
 						setWidget(_key, value): void {
@@ -216,12 +216,12 @@ describe("runner subagent activity widget", () => {
 						},
 					},
 				},
-				"runner",
-				{ title: "Lifecycle", launch: METADATA_ONLY_LAUNCH },
-				async () => {
+				key: "runner",
+				initial: { title: "Lifecycle", launch: METADATA_ONLY_LAUNCH },
+				run: async () => {
 					throw new Error("boom");
 				},
-			),
+			}),
 		).rejects.toThrow("boom");
 		expect(records.at(-1)).toEqual({ value: undefined });
 	});

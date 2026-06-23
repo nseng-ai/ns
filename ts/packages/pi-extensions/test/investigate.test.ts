@@ -16,7 +16,12 @@ import {
 	type RunnerSubagentPi,
 } from "../src/runner-subagent.ts";
 import type { RunnerSubagentDispatcherDependencies } from "../src/runner-subagent/subagent-process.ts";
-import type { CommandContext, CustomMessage } from "../src/handoff/runtime-types.ts";
+import type {
+	CommandContext,
+	CustomMessage,
+	MessageRenderer,
+	RenderTheme,
+} from "../src/handoff/runtime-types.ts";
 import {
 	createFakeRunnerSubagentDispatcher,
 	jsonLine,
@@ -54,7 +59,7 @@ interface FakePiOptions {
 class FakePi implements InvestigateExtensionAPI, RunnerSubagentPi {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly messages: CustomMessage[] = [];
-	readonly renderers = new Map<string, unknown>();
+	readonly renderers = new Map<string, MessageRenderer>();
 	readonly execCalls: FakeExecCall[] = [];
 	execHandler = (_command: string, _args: string[], _options?: ExecOptions): ExecResult => ({
 		stdout: "",
@@ -89,7 +94,7 @@ class FakePi implements InvestigateExtensionAPI, RunnerSubagentPi {
 		this.commands.set(name, command);
 	}
 
-	registerMessageRenderer(customType: string, renderer: unknown): void {
+	registerMessageRenderer(customType: string, renderer: MessageRenderer): void {
 		this.renderers.set(customType, renderer);
 	}
 
@@ -155,8 +160,10 @@ function register(
 		loadAgentDefinition: () => overrides.definition ?? fakeInvestigatorDefinition(),
 	});
 	const command = pi.commands.get(INVESTIGATE_COMMAND_NAME);
-	expect(command).toBeDefined();
-	return command!;
+	if (command === undefined) {
+		throw new Error(`Expected ${INVESTIGATE_COMMAND_NAME} command to be registered.`);
+	}
+	return command;
 }
 
 function fakeInvestigatorDefinition(
@@ -183,6 +190,17 @@ function finalTextMessage(text: string, stopReason = "stop"): string {
 			stopReason,
 		},
 	});
+}
+
+function identityTheme(): RenderTheme {
+	return {
+		fg(_color, text): string {
+			return text;
+		},
+		bold(text): string {
+			return text;
+		},
+	};
 }
 
 describe("investigate extension", () => {
@@ -244,6 +262,7 @@ describe("investigate extension", () => {
 			"--session",
 			SESSION_FILE,
 		]);
+		expect(INVESTIGATOR_CHILD_TOOL_NAMES).not.toContain("bash");
 		expect(call.args).not.toContain("--extension");
 		expect(call.options.cwd).toBe(ROOT);
 		const childPrompt = call.args.at(-1) ?? "";
@@ -314,6 +333,31 @@ describe("investigate extension", () => {
 		const ctx = makeContext();
 
 		await expect(command.handler("find facts", ctx)).rejects.toThrow(/declares toolName/);
+	});
+
+	test("collapses long investigation result messages unless expanded", () => {
+		const pi = new FakePi();
+		register(pi);
+		const renderer = pi.renderers.get(INVESTIGATE_RESULT_MESSAGE_TYPE);
+		if (renderer === undefined) {
+			throw new Error(`Expected ${INVESTIGATE_RESULT_MESSAGE_TYPE} renderer to be registered.`);
+		}
+		const content = Array.from({ length: 30 }, (_value, index) => `line-${index + 1}`).join("\n");
+		const message: CustomMessage = {
+			customType: INVESTIGATE_RESULT_MESSAGE_TYPE,
+			content,
+			display: true,
+		};
+
+		const collapsed = renderer(message, { expanded: false }, identityTheme()).render(120);
+		const expanded = renderer(message, { expanded: true }, identityTheme()).render(120);
+
+		expect(collapsed).toContain("line-24");
+		expect(collapsed).not.toContain("line-25");
+		expect(collapsed.at(-1)).toContain("Investigation result collapsed");
+		expect(expanded).toHaveLength(30);
+		expect(expanded).toContain("line-30");
+		expect(expanded.join("\n")).not.toContain("Investigation result collapsed");
 	});
 
 	test("builds short progress titles", () => {

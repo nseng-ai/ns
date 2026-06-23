@@ -1,3 +1,4 @@
+import type { SetWidgetFunction } from "../handoff/runtime-types.ts";
 import type {
 	RunnerSubagentLaunchMetadata,
 	RunnerSubagentProgressCallback,
@@ -16,12 +17,6 @@ export interface RunnerSubagentWidgetOptions {
 	fallbackTitle?: string;
 	includeElapsed?: boolean;
 }
-
-type SetWidgetFunction = (
-	key: string,
-	content: string[] | undefined,
-	options?: { placement?: "aboveEditor" | "belowEditor" },
-) => void;
 
 export interface RunnerSubagentWidgetContext {
 	hasUI?: boolean;
@@ -58,21 +53,33 @@ export function buildInitialRunnerSubagentUpdate(input: {
 	};
 }
 
+export interface WithRunnerSubagentWidgetOptions<T> {
+	ctx: RunnerSubagentWidgetContext;
+	key: string;
+	initial: { title: string; launch: RunnerSubagentLaunchMetadata };
+	run: (onProgress: RunnerSubagentProgressCallback) => Promise<T>;
+}
+
 export async function withRunnerSubagentWidget<T>(
-	ctx: RunnerSubagentWidgetContext,
-	key: string,
-	input: { title: string; launch: RunnerSubagentLaunchMetadata },
-	run: (onProgress: RunnerSubagentProgressCallback) => Promise<T>,
+	options: WithRunnerSubagentWidgetOptions<T>,
 ): Promise<T> {
-	const initialUpdate = buildInitialRunnerSubagentUpdate(input);
-	setRunnerSubagentWidget(ctx, key, formatRunnerSubagentActivityWidgetLines(initialUpdate));
+	const initialUpdate = buildInitialRunnerSubagentUpdate(options.initial);
+	setRunnerSubagentWidget(
+		options.ctx,
+		options.key,
+		formatRunnerSubagentActivityWidgetLines(initialUpdate),
+	);
 
 	try {
-		return await run((update) => {
-			setRunnerSubagentWidget(ctx, key, formatRunnerSubagentActivityWidgetLines(update));
+		return await options.run((update) => {
+			setRunnerSubagentWidget(
+				options.ctx,
+				options.key,
+				formatRunnerSubagentActivityWidgetLines(update),
+			);
 		});
 	} finally {
-		setRunnerSubagentWidget(ctx, key, undefined);
+		setRunnerSubagentWidget(options.ctx, options.key, undefined);
 	}
 }
 

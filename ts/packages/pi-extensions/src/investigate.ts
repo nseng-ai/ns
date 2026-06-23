@@ -1,6 +1,3 @@
-import type { ExecOptions, ExecResult } from "@sdl/core/exec";
-
-import type { ThinkingLevel } from "./cmux/types.ts";
 import {
 	formatDispatchRunnerSubagentResult,
 	dispatchRunnerSubagentDetails,
@@ -8,17 +5,13 @@ import {
 import { loadPiAgentDefinition, type PiAgentDefinition } from "./pi-agent-definition.ts";
 import { definePiSurfaceParity } from "./parity.ts";
 import type { CuratedRunnerSubagentContextAudit } from "./runner-subagent/curated-context.ts";
-import { prepareRunnerSubagentFinalTextDispatch } from "./runner-subagent/dispatch-preparation.ts";
-import {
-	dispatchRunnerSubagent,
-	type RunnerSubagentPi,
-	type RunnerSubagentResult,
-} from "./runner-subagent.ts";
-import { withRunnerSubagentWidget } from "./runner-subagent/widget.ts";
+import { runFinalTextSubagent } from "./runner-subagent/dispatch-preparation.ts";
+import type { RunnerSubagentPi, RunnerSubagentResult } from "./runner-subagent.ts";
 import { truncateDisplayLine } from "./terminal-presentation.ts";
 import type {
 	CommandContext,
 	CustomMessage,
+	RuntimeExtensionAPI,
 	RenderComponent,
 	RenderTheme,
 } from "./handoff/runtime-types.ts";
@@ -26,11 +19,12 @@ import type {
 export const INVESTIGATE_COMMAND_NAME = "investigate";
 const INVESTIGATOR_AGENT_NAME = "investigator";
 export const INVESTIGATE_RESULT_MESSAGE_TYPE = "investigate-result";
-export const INVESTIGATOR_CHILD_TOOL_NAMES = ["read", "grep", "find", "ls", "bash"] as const;
+export const INVESTIGATOR_CHILD_TOOL_NAMES = ["read", "grep", "find", "ls"] as const;
 
 const WIDGET_KEY = INVESTIGATE_COMMAND_NAME;
 const MAX_TITLE_CHARS = 80;
 const MAX_TITLE_WORDS = 10;
+const COLLAPSED_RESULT_PREVIEW_LINES = 24;
 const USAGE = "Usage: /investigate <prompt>";
 
 export const investigateParity = definePiSurfaceParity([
@@ -49,25 +43,11 @@ export const investigateParity = definePiSurfaceParity([
 	},
 ] as const);
 
-interface RegisteredCommand {
-	description?: string;
-	argumentHint?: string;
-	handler(args: string, ctx: CommandContext): Promise<void> | void;
-}
-
-export interface InvestigateExtensionAPI extends RunnerSubagentPi {
-	getThinkingLevel?: () => ThinkingLevel;
-	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
-	registerCommand(name: string, command: RegisteredCommand): void;
-	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
-	sendMessage?(message: CustomMessage): void;
-}
-
-type MessageRenderer = (
-	message: CustomMessage,
-	options: { expanded: boolean },
-	theme: RenderTheme,
-) => RenderComponent;
+export type InvestigateExtensionAPI = RunnerSubagentPi &
+	Pick<
+		RuntimeExtensionAPI,
+		"exec" | "getThinkingLevel" | "registerCommand" | "registerMessageRenderer" | "sendMessage"
+	>;
 
 export interface InvestigateExtensionOptions {
 	cwd?: string;
@@ -118,27 +98,15 @@ async function runInvestigateCommand({
 	}
 
 	const title = buildInvestigationTitle(prompt);
-	const { childPrompt, curatedContext, launch } = await prepareRunnerSubagentFinalTextDispatch({
+	const { result, curatedContext } = await runFinalTextSubagent({
 		pi,
 		ctx,
 		definition,
 		title,
 		prompt,
+		widgetKey: WIDGET_KEY,
+		tools: INVESTIGATOR_CHILD_TOOL_NAMES,
 	});
-	const result = await withRunnerSubagentWidget(
-		ctx,
-		WIDGET_KEY,
-		{ title, launch },
-		async (onProgress) =>
-			await dispatchRunnerSubagent(pi, ctx, {
-				title,
-				prompt: childPrompt,
-				returnMode: "final-text",
-				preResolvedLaunch: launch,
-				tools: INVESTIGATOR_CHILD_TOOL_NAMES,
-				onProgress,
-			}),
-	);
 	emitInvestigationResult({ pi, ctx, result, curatedContext: curatedContext.audit });
 }
 
@@ -157,20 +125,28 @@ export function buildInvestigationTitle(prompt: string): string {
 
 function renderInvestigationResultMessage(
 	message: CustomMessage,
-	_options: { expanded: boolean },
+	options: { expanded: boolean },
 	theme: RenderTheme,
 ): RenderComponent {
-	const content = message.content;
+	const contentLines = message.content.split("\n");
 	return {
 		render(width: number): string[] {
-			return content
-				.split("\n")
-				.map((line, index) =>
-					styleInvestigationLine(truncateDisplayLine(line, width), index, theme),
-				);
+			const lines = options.expanded ? contentLines : collapseInvestigationLines(contentLines);
+			return lines.map((line, index) =>
+				styleInvestigationLine(truncateDisplayLine(line, width), index, theme),
+			);
 		},
 		invalidate(): void {},
 	};
+}
+
+function collapseInvestigationLines(lines: readonly string[]): string[] {
+	if (lines.length <= COLLAPSED_RESULT_PREVIEW_LINES) return [...lines];
+	return [
+		...lines.slice(0, COLLAPSED_RESULT_PREVIEW_LINES),
+		"",
+		`[Investigation result collapsed: showing first ${COLLAPSED_RESULT_PREVIEW_LINES} of ${lines.length} lines. Expand to view the full report.]`,
+	];
 }
 
 interface EmitInvestigationResultInput {
@@ -217,7 +193,11 @@ function styleInvestigationLine(line: string, index: number, theme: RenderTheme)
 	if (index === 0 || line.startsWith("## ")) {
 		return theme.fg("accent", theme.bold !== undefined ? theme.bold(line) : line);
 	}
-	if (line.startsWith("Session file:") || line.startsWith("Status:")) {
+	if (
+		line.startsWith("Session file:") ||
+		line.startsWith("Status:") ||
+		line.startsWith("[Investigation result collapsed:")
+	) {
 		return theme.fg("muted", line);
 	}
 	return line;
