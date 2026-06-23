@@ -1,3 +1,5 @@
+import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
+
 export function formatCommand(command: string, args: readonly string[]): string {
   return [command, ...args].map(formatShellArg).join(" ");
 }
@@ -58,10 +60,6 @@ function applyLineLimit(
     text: lines.slice(-normalizedMaxLines).join("\n"),
     omittedLines: lines.length - normalizedMaxLines,
   };
-}
-
-export function stripTerminalEscapes(value: string): string {
-  return value.replace(/\u001B\[[0-?]*[ -/]*[@-~]/g, "");
 }
 
 export function formatErrorMessage(error: unknown): string {
