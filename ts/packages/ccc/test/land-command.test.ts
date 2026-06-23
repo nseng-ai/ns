@@ -322,15 +322,16 @@ describe("code land CLI bridge", () => {
 				stdout: (text) => stdout.push(text),
 				stderr: (text) => stderr.push(text),
 			});
+
+			expect(exitCode).toBe(1);
+			expect(stdout.join("")).toBe("");
+			expect(stderr.join("")).toContain("land stopped.");
+			expect(stderr.join("")).toContain("Refusing to land: the stack forks at fork-point.");
+			expect(consoleError).not.toHaveBeenCalled();
+			pi.assertDone();
 		} finally {
 			consoleError.mockRestore();
 		}
-
-		expect(exitCode).toBe(1);
-		expect(stdout.join("")).toBe("");
-		expect(stderr.join("")).toContain("land stopped.");
-		expect(stderr.join("")).toContain("Refusing to land: the stack forks at fork-point.");
-		pi.assertDone();
 	});
 });
 

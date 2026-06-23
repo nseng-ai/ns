@@ -479,9 +479,9 @@ export function extractRunnerSubagentToolCallPayloadsFromSessionJsonl(
 	toolName: string,
 ): unknown[] {
 	const payloads: unknown[] = [];
-	visitSessionJsonlEvents(jsonl, (event) =>
-		collectRunnerSubagentToolCallPayloads(event, toolName, payloads),
-	);
+	visitSessionJsonlEvents(jsonl, (event) => {
+		payloads.push(...collectRunnerSubagentToolCallPayloads(event, toolName));
+	});
 	return payloads;
 }
 
@@ -534,16 +534,15 @@ function visitSessionJsonlEvents(jsonl: string, visitor: (event: JsonEvent) => v
 	}
 }
 
-function collectRunnerSubagentToolCallPayloads(
-	value: unknown,
-	toolName: string,
-	payloads: unknown[],
-): void {
+function collectRunnerSubagentToolCallPayloads(value: unknown, toolName: string): unknown[] {
+	const payloads: unknown[] = [];
 	if (Array.isArray(value)) {
-		for (const item of value) collectRunnerSubagentToolCallPayloads(item, toolName, payloads);
-		return;
+		for (const item of value) {
+			payloads.push(...collectRunnerSubagentToolCallPayloads(item, toolName));
+		}
+		return payloads;
 	}
-	if (!isRecord(value)) return;
+	if (!isRecord(value)) return payloads;
 	if (
 		value.type === "toolCall" &&
 		value.name === toolName &&
@@ -552,8 +551,9 @@ function collectRunnerSubagentToolCallPayloads(
 		payloads.push(value.arguments);
 	}
 	for (const child of Object.values(value)) {
-		collectRunnerSubagentToolCallPayloads(child, toolName, payloads);
+		payloads.push(...collectRunnerSubagentToolCallPayloads(child, toolName));
 	}
+	return payloads;
 }
 
 function isJsonEvent(value: unknown): value is JsonEvent {
