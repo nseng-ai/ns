@@ -427,6 +427,7 @@ export async function runMergeLoop(
 			trunk: stack.trunk,
 		});
 		if (mergeGate.type === "failure") return mergeGate;
+		options.commandStream?.note(`Merging PR #${currentPr.number} ${branch}...`);
 		setStatus(ctx, `merging #${currentPr.number} ${branch} with PR title/body...`);
 		const mergeArgs = squashMergeArgs(currentPr);
 		const merge = await exec(pi, "gh", mergeArgs, repoRoot, GH_MERGE_TIMEOUT_MS);
@@ -479,6 +480,7 @@ export async function runMergeLoop(
 			title: currentPr.title,
 			...(prUrl ? { url: prUrl } : {}),
 		});
+		options.commandStream?.note(`Merged and verified PR #${currentPr.number} ${branch}.`);
 
 		const maintenance = await performGraphiteMaintenance({
 			pi,
@@ -583,6 +585,7 @@ async function performGraphiteMaintenance(
 			});
 		}
 
+		options.commandStream?.note(`Refreshing stack through ${maintenance.branch}...`);
 		setStatus(ctx, `refreshing stack through ${maintenance.branch}...`);
 		const getArgs = [
 			"get",
@@ -686,6 +689,7 @@ async function performGraphiteMaintenance(
 		});
 	}
 
+	options.commandStream?.note(`Cleaning up local branch ${branch}...`);
 	setStatus(ctx, `deleting local Graphite branch ${branch}...`);
 	const deleteArgs = ["delete", branch, "-f", "-q"];
 	const deletion =

@@ -23,6 +23,8 @@ const PR_VIEW_ARGS = [
 ];
 const PR_VIEW_TIMEOUT_MS = 30_000;
 const PR_MERGE_TIMEOUT_MS = 120_000;
+const STACK_PR_VIEW_FIELDS =
+	"number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
 const GIT_TIMEOUT_MS = 30_000;
 const CORE_GIT_TIMEOUT_MS = 10_000;
 const GT_TIMEOUT_MS = 120_000;
@@ -38,6 +40,9 @@ const GIT_FOR_EACH_REF_ARGS = [
 ];
 const DB_PATH = `${ROOT}/.git/.graphite_metadata.db`;
 const TOPOLOGY_ARGS = topologyArgs(DB_PATH);
+const SHA_CURRENT = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+const SHA_CHILD = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+const CHILD_BRANCH = "child-branch";
 
 const DB_SINGLE_BRANCH = metadataDbJson([
 	{ branch: TRUNK, children: [CURRENT], trunk: true },
@@ -45,8 +50,8 @@ const DB_SINGLE_BRANCH = metadataDbJson([
 ]);
 const DB_WITH_DESCENDANT = metadataDbJson([
 	{ branch: TRUNK, children: [CURRENT], trunk: true },
-	{ branch: CURRENT, parent: TRUNK, children: ["child-branch"] },
-	{ branch: "child-branch", parent: CURRENT, children: [] },
+	{ branch: CURRENT, parent: TRUNK, children: [CHILD_BRANCH] },
+	{ branch: CHILD_BRANCH, parent: CURRENT, children: [] },
 ]);
 const DB_WITH_FORKED_LANDING_PATH = metadataDbJson([
 	{ branch: TRUNK, children: ["fork-point"], trunk: true },
@@ -280,11 +285,146 @@ function expectedMergeArgs(
 		String(options.number ?? 42),
 		"-s",
 		"--match-head-commit",
-		options.sha ?? "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		options.sha ?? SHA_CURRENT,
 		"--subject",
 		options.title ?? "Ship feature",
 		"--body",
 		options.body ?? "Feature body",
+	];
+}
+
+function expectedStackMergeArgs(
+	options: { number?: number; sha?: string; title?: string; body?: string } = {},
+): string[] {
+	return [
+		"pr",
+		"merge",
+		String(options.number ?? 42),
+		"--squash",
+		"--match-head-commit",
+		options.sha ?? SHA_CURRENT,
+		"--subject",
+		options.title ?? "Ship feature",
+		"--body",
+		options.body ?? "Feature body",
+	];
+}
+
+function stackPrView(
+	options: {
+		number?: number;
+		branch?: string;
+		base?: string;
+		sha?: string;
+		state?: string;
+		mergedAt?: string | null;
+	} = {},
+): string {
+	return JSON.stringify({
+		number: options.number ?? 42,
+		title: "Ship feature",
+		body: "Feature body",
+		state: options.state ?? "OPEN",
+		isDraft: false,
+		headRefName: options.branch ?? CURRENT,
+		baseRefName: options.base ?? TRUNK,
+		headRefOid: options.sha ?? SHA_CURRENT,
+		mergeStateStatus: "CLEAN",
+		url: `https://github.example/pull/${options.number ?? 42}`,
+		mergedAt: options.mergedAt ?? null,
+	});
+}
+
+function cleanRepoChecks(): ScriptedExec[] {
+	return [
+		step("git", ["status", "--porcelain=v1"]),
+		step("git", ["rev-parse", "-q", "--verify", "MERGE_HEAD"], { code: 1 }),
+		step("git", ["rev-parse", "-q", "--verify", "CHERRY_PICK_HEAD"], { code: 1 }),
+		step("git", ["rev-parse", "-q", "--verify", "REVERT_HEAD"], { code: 1 }),
+		step("git", ["rev-parse", "--git-path", "rebase-merge"], { stdout: ".git/rebase-merge\n" }),
+		step("git", ["rev-parse", "--git-path", "rebase-apply"], { stdout: ".git/rebase-apply\n" }),
+	];
+}
+
+function worktreeOutput(entries: Array<{ path: string; branch?: string }>): string {
+	return entries
+		.map((entry) => {
+			const lines = [`worktree ${entry.path}`, "HEAD 0000000000000000000000000000000000000000"];
+			if (entry.branch) {
+				lines.push(`branch refs/heads/${entry.branch}`);
+			}
+			return lines.join("\n");
+		})
+		.join("\n\n");
+}
+
+function successfulStackLandingSteps(): ScriptedExec[] {
+	const worktrees = worktreeOutput([{ path: ROOT, branch: CURRENT }]);
+	return [
+		...cleanRepoChecks(),
+		step("git", ["show-ref", "--verify", `refs/heads/${CURRENT}`]),
+		step("git", ["rev-parse", "--verify", `refs/heads/${CURRENT}^{commit}`], {
+			stdout: `${SHA_CURRENT}\n`,
+		}),
+		step("gh", ["pr", "view", CURRENT, "--json", STACK_PR_VIEW_FIELDS], {
+			stdout: stackPrView(),
+		}),
+		step("git", ["worktree", "list", "--porcelain"], { stdout: worktrees }),
+		step("git", ["worktree", "list", "--porcelain"], { stdout: worktrees }),
+		step("git", [
+			"fetch",
+			"--quiet",
+			"--prune",
+			"--no-tags",
+			".",
+			"+refs/ccc/land-backup/*:refs/ccc/land-backup-prev/*",
+		]),
+		step("git", ["for-each-ref", "--format=%(refname)", "refs/ccc/land-backup"]),
+		step("git", ["rev-parse", "--verify", `refs/heads/${CURRENT}^{commit}`], {
+			stdout: `${SHA_CURRENT}\n`,
+		}),
+		step("git", ["update-ref", `refs/ccc/land-backup/${CURRENT}`, SHA_CURRENT]),
+		step("git", ["rev-parse", "--verify", `refs/heads/${CHILD_BRANCH}^{commit}`], {
+			stdout: `${SHA_CHILD}\n`,
+		}),
+		step("git", ["update-ref", `refs/ccc/land-backup/${CHILD_BRANCH}`, SHA_CHILD]),
+		step("git", ["rev-parse", "--verify", `refs/heads/${CURRENT}^{commit}`], {
+			stdout: `${SHA_CURRENT}\n`,
+		}),
+		step("gh", ["pr", "view", CURRENT, "--json", STACK_PR_VIEW_FIELDS], {
+			stdout: stackPrView(),
+		}),
+		step("gh", expectedStackMergeArgs(), { stdout: "Merged pull request #42" }),
+		step("gh", ["pr", "view", "42", "--json", STACK_PR_VIEW_FIELDS], {
+			stdout: stackPrView({ state: "MERGED", mergedAt: "2026-05-22T00:00:00Z" }),
+		}),
+		step("git", ["rev-parse", "--verify", `refs/heads/${CHILD_BRANCH}^{commit}`], {
+			stdout: `${SHA_CHILD}\n`,
+		}),
+		step("gt", [
+			"get",
+			CHILD_BRANCH,
+			"--downstack",
+			"--no-restack",
+			"--no-checkout",
+			"--force",
+			"--no-interactive",
+		]),
+		step("sqlite3", TOPOLOGY_ARGS, {
+			stdout: `${metadataDbJson([{ branch: CURRENT, children: [CHILD_BRANCH] }])}\n`,
+		}),
+		step("gt", ["delete", CURRENT, "-f", "-q"]),
+		step("gt", ["restack", "--branch", CHILD_BRANCH, "--upstack", "--no-interactive"]),
+		step("gt", [
+			"submit",
+			"--branch",
+			CHILD_BRANCH,
+			"--no-stack",
+			"--update-only",
+			"--no-edit",
+			"--no-ai",
+			"--no-interactive",
+		]),
 	];
 }
 
@@ -332,6 +472,40 @@ describe("code land CLI bridge", () => {
 		} finally {
 			consoleError.mockRestore();
 		}
+	});
+
+	test("prints live stack progress and one final success summary", async () => {
+		const pi = new FakePi([
+			...graphiteShapeSteps(DB_WITH_DESCENDANT),
+			...successfulStackLandingSteps(),
+		]);
+		let stdout = "";
+		let stderr = "";
+
+		const exitCode = await runLandCli({
+			cwd: ROOT,
+			rawArgs: "--yes",
+			exec: async (command, args, options) => await pi.exec(command, args, options),
+			stdout: (text) => {
+				stdout += text;
+			},
+			stderr: (text) => {
+				stderr += text;
+			},
+		});
+
+		expect(exitCode).toBe(0);
+		expect(stderr).toContain("✗ $ git rev-parse -q --verify MERGE_HEAD — exit 1");
+		expect(stderr).not.toContain("Landed 1 PR: #42 feature-branch.");
+		expect(stdout).toContain("→ Preparing to land 1 PR through feature-branch...");
+		expect(stdout).toContain("✓ $ git status --porcelain=v1");
+		expect(stdout).toContain("→ Merging PR #42 feature-branch...");
+		expect(stdout).toContain("→ Merged and verified PR #42 feature-branch.");
+		expect(stdout).toContain("→ Refreshing stack through child-branch...");
+		expect(stdout).toContain("→ Cleaning up local branch feature-branch...");
+		expect(stdout).toContain("Landed 1 PR: #42 feature-branch.");
+		expect(stdout.match(/Landed 1 PR: #42 feature-branch\./g)).toHaveLength(1);
+		pi.assertDone();
 	});
 });
 
