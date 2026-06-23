@@ -1,3 +1,7 @@
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, test } from "vitest";
 
 import type { RunnerSubagentDispatcherDependencies } from "../src/runner-subagent/subagent-process.ts";
@@ -471,6 +475,60 @@ describe("thermo council extension", () => {
 		expect(pi.runnerCalls).toHaveLength(4);
 		expect(pi.messages[0]?.content).toContain("## Executive Recommendation");
 		expect(pi.messages[0]?.content).not.toContain("No council seat completed");
+	});
+
+	test("recovers reviewer payloads from malformed session JSONL without repair context", async () => {
+		const sessionDir = await mkdtemp(join(tmpdir(), "thermo-council-session-"));
+		const sessionFile = join(sessionDir, "session.jsonl");
+		await writeFile(
+			sessionFile,
+			[
+				"{malformed line}\n",
+				jsonLine({
+					type: "toolCall",
+					name: SUBMIT_THERMO_COUNCIL_REVIEW_TOOL,
+					arguments: {
+						summary: "Recovered from session file.",
+						findings: [
+							{
+								id: "session-1",
+								title: "Session recovered finding",
+								files: ["src/file.ts"],
+								evidence: "The valid tool call survived a malformed preceding line.",
+								problem: "Reviewer ended with final text before terminal capture surfaced.",
+								proposedFix: "Recover the newest valid tool-call payload from the session file.",
+								behaviorRisk: "Low risk when JSONL recovery stays parser-backed and lenient.",
+								dependencyNotes: "None",
+								confidence: "likely",
+								severity: "medium",
+								validationHints: ["just ts-test"],
+							},
+						],
+						disagreements: [],
+					},
+				}),
+			].join(""),
+			"utf8",
+		);
+
+		const outcome = await reviewerOutcomeFromRunnerResult(seat("openai-high", "OpenAI High"), {
+			status: "final-text",
+			elapsedMs: 1,
+			progress: {
+				state: "stopped",
+				toolCount: 0,
+				turnCount: 1,
+				elapsedMs: 1,
+			},
+			sessionFile,
+			finalText: "unstructured final text",
+		});
+
+		expect(outcome.type).toBe("completed");
+		if (outcome.type !== "completed") return;
+		expect(outcome.review.summary).toBe("Recovered from session file.");
+		expect(outcome.review.findings[0]?.title).toBe("Session recovered finding");
+		expect(outcome.review.findings[0]?.validationHints).toEqual(["just ts-test"]);
 	});
 
 	test("formats malformed completed reviewer payloads without throwing", async () => {
