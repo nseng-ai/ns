@@ -23,9 +23,16 @@ const HEAD_SHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const PARENT_SHA = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
 function availableBranchResponses(branchName: string): ScriptedExecResponse[] {
+	const segments = branchName.split("/");
+	const parentResponses = segments.slice(1).map((_, index) => ({
+		match: `git show-ref --verify --quiet refs/heads/${segments.slice(0, index + 1).join("/")}`,
+		result: { code: 1 },
+	}));
 	return [
 		{ match: `git check-ref-format --branch ${branchName}`, result: {} },
 		{ match: `git show-ref --verify --quiet refs/heads/${branchName}`, result: { code: 1 } },
+		...parentResponses,
+		{ match: `git for-each-ref --format=%(refname) refs/heads/${branchName}/`, result: {} },
 	];
 }
 
@@ -272,7 +279,7 @@ describe("project-local branch-latest-commit extension", () => {
 			args: ["flow", "branch-latest-commit", "--slug", "extract-commit"],
 			state: {
 				exec: [
-					...cleanLatestCommitResponses().slice(0, 21),
+					...cleanLatestCommitResponses().slice(0, 26),
 					{
 						match: "gt create extract-commit --no-interactive --no-ai",
 						result: { code: 1, stderr: "fatal: cannot lock ref\n" },
@@ -304,7 +311,7 @@ describe("project-local branch-latest-commit extension", () => {
 			args: ["flow", "branch-latest-commit", "--slug", "extract-commit"],
 			state: {
 				exec: [
-					...cleanLatestCommitResponses().slice(0, 17),
+					...cleanLatestCommitResponses().slice(0, 22),
 					{
 						match: `git branch autobranch-backup/feature/source/123456789 ${HEAD_SHA}`,
 						result: { code: 128, stderr: "fatal: cannot lock ref\n" },

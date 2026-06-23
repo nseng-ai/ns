@@ -19,9 +19,16 @@ const tempProjectDirs: string[] = [];
 const CHECKPOINT_MESSAGE = "[cp] Move pending work\n\n- Preserve current changes";
 
 function availableBranchResponses(branchName: string): ScriptedExecResponse[] {
+	const segments = branchName.split("/");
+	const parentResponses = segments.slice(1).map((_, index) => ({
+		match: `git show-ref --verify --quiet refs/heads/${segments.slice(0, index + 1).join("/")}`,
+		result: { code: 1 },
+	}));
 	return [
 		{ match: `git check-ref-format --branch ${branchName}`, result: {} },
 		{ match: `git show-ref --verify --quiet refs/heads/${branchName}`, result: { code: 1 } },
+		...parentResponses,
+		{ match: `git for-each-ref --format=%(refname) refs/heads/${branchName}/`, result: {} },
 	];
 }
 
@@ -172,6 +179,7 @@ describe("project-local autobranch extension", () => {
 			"git diff HEAD --no-ext-diff",
 			"git check-ref-format --branch move-work",
 			"git show-ref --verify --quiet refs/heads/move-work",
+			"git for-each-ref --format=%(refname) refs/heads/move-work/",
 			"git stash push --include-untracked -m pi-autobranch:123456789:move-work",
 			"git stash list --format=%gd%x00%s",
 			"gt create move-work --no-interactive --no-ai",
@@ -195,7 +203,7 @@ describe("project-local autobranch extension", () => {
 			args: ["flow", "autobranch", "--slug", "move-work"],
 			state: {
 				exec: [
-					...dirtyWorktreeResponses().slice(0, 8),
+					...dirtyWorktreeResponses().slice(0, 9),
 					{
 						match: "gt create move-work --no-interactive --no-ai",
 						result: { code: 1, stderr: "fatal: cannot lock ref\n" },

@@ -3,9 +3,13 @@ import {
   type LatestCommitAutobranchInput,
 } from "@sdl/autobranch/latest-commit";
 import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@sdl/core/model-slug";
-import { defineExtension, failed, ok, z, type SdlExtensionApi } from "@sdl/sdl/sdk";
+import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
 
-import { formatPendingWorktreeError, loadFlowPendingWorktreeSnapshot } from "../shared/worktree.ts";
+import {
+  execExtensionCommand,
+  formatPendingWorktreeError,
+  loadFlowPendingWorktreeSnapshot,
+} from "../shared/worktree.ts";
 
 const BRANCH_LATEST_COMMIT_DESCRIPTION = `Move the latest eligible unpushed single-parent commit to a new Graphite child branch.
 
@@ -52,7 +56,8 @@ export default defineExtension({
           cwd: snapshot.root,
           args,
           snapshot,
-          exec: (command, commandArgs, _cwd, timeout) => execExtensionCommand(ctx, command, commandArgs, timeout),
+          exec: (command, commandArgs, _cwd, timeout) =>
+            execExtensionCommand({ ctx, command, args: commandArgs, timeoutMs: timeout }),
         });
         if (!result.ok) {
           return failed(result.error.trimEnd(), 1);
@@ -65,12 +70,3 @@ export default defineExtension({
     },
   ],
 });
-
-async function execExtensionCommand(
-  ctx: SdlExtensionApi,
-  command: string,
-  args: string[],
-  timeoutMs: number,
-) {
-  return ctx.exec(command, args, { timeoutMs });
-}

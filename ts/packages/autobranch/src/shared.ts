@@ -1,11 +1,9 @@
-import { formatCommandDetails } from "@sdl/core/exec";
+import { formatCommandDetails, type ExecResult } from "@sdl/core/exec";
+import { truncateTextHead } from "@sdl/core/text-truncation";
 
-export interface CommandResult {
-	code: number;
-	stdout: string;
-	stderr: string;
+export type CommandResult = Pick<ExecResult, "code" | "stdout" | "stderr"> & {
 	killed?: boolean;
-}
+};
 
 export type AutobranchExec = (
 	command: string,
@@ -27,8 +25,15 @@ export function formatAutobranchCommandDetails(result: CommandResult): string {
 }
 
 export function truncateText(text: string, maxChars: number): string {
-	if (text.length <= maxChars) {
-		return text;
-	}
-	return `${text.slice(0, maxChars)}\n...[truncated]`;
+	const normalizedMaxChars = Math.max(0, Math.trunc(maxChars));
+	if (text.length <= normalizedMaxChars) return text;
+	if (normalizedMaxChars === 0) return "…";
+
+	const marker = "\n…[truncated]";
+	return truncateTextHead({
+		value: `${text}${marker}`,
+		maxChars: normalizedMaxChars + marker.length,
+		buildMarker: () => marker,
+		shouldTrimHead: false,
+	});
 }

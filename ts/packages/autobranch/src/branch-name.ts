@@ -36,26 +36,56 @@ export async function findAvailableBranchName<TName extends string>(
 	candidates: Iterable<{ name: TName; hasSuffix: boolean }>,
 ): Promise<({ ok: true } & AvailableBranchName & { name: TName }) | undefined> {
 	for (const candidate of candidates) {
-		const valid = await input.exec(
-			"git",
-			["check-ref-format", "--branch", candidate.name],
-			input.cwd,
-			GIT_TIMEOUT_MS,
-		);
-		if (valid.code !== 0) {
-			continue;
-		}
-		const exists = await input.exec(
-			"git",
-			["show-ref", "--verify", "--quiet", `refs/heads/${candidate.name}`],
-			input.cwd,
-			GIT_TIMEOUT_MS,
-		);
-		if (exists.code === 1) {
+		if (await isBranchNameAvailable(input, candidate.name)) {
 			return { ok: true, name: candidate.name, hasSuffix: candidate.hasSuffix };
 		}
 	}
 	return undefined;
+}
+
+async function isBranchNameAvailable(
+	input: BranchNameAvailabilityInput,
+	branchName: string,
+): Promise<boolean> {
+	const valid = await input.exec(
+		"git",
+		["check-ref-format", "--branch", branchName],
+		input.cwd,
+		GIT_TIMEOUT_MS,
+	);
+	if (valid.code !== 0) return false;
+
+	const refsToCheck = [branchHeadRef(branchName), ...branchParentHeadRefs(branchName)];
+	for (const ref of refsToCheck) {
+		const exists = await input.exec(
+			"git",
+			["show-ref", "--verify", "--quiet", ref],
+			input.cwd,
+			GIT_TIMEOUT_MS,
+		);
+		if (exists.code !== 1) return false;
+	}
+
+	const childRefs = await input.exec(
+		"git",
+		["for-each-ref", "--format=%(refname)", `${branchHeadRef(branchName)}/`],
+		input.cwd,
+		GIT_TIMEOUT_MS,
+	);
+	return childRefs.code === 0 && childRefs.stdout.trim().length === 0;
+}
+
+function branchHeadRef(branchName: string): string {
+	return `refs/heads/${branchName}`;
+}
+
+function branchParentHeadRefs(branchName: string): string[] {
+	const segments = branchName.split("/");
+	const refs: string[] = [];
+	for (let index = 1; index < segments.length; index += 1) {
+		refs.push(branchHeadRef(segments.slice(0, index).join("/")));
+	}
+	return refs;
 }
 
 export function* branchNameCandidates<TName extends string>(
