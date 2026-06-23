@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 
-import { withImmediateCommandAck } from "@sdl/pi-extension-runtime/command-ack";
+import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Component, TUI } from "@earendil-works/pi-tui";
 import { formatZodError } from "@sdl/core/primitives";
@@ -155,21 +155,21 @@ export interface ExtensionAPI {
 }
 
 export default function prExtension(pi: ExtensionAPI): void {
-	const commandPi = withImmediateCommandAck(pi);
-	commandPi.registerCommand(PR_DOWNLOAD_FEEDBACK_COMMAND_NAME, {
+	registerCommandWithImmediateAck(pi, PR_DOWNLOAD_FEEDBACK_COMMAND_NAME, {
 		description: "Download current PR feedback into the editor as a triage prompt.",
 		handler: async (rawArgs, ctx) => {
 			await runPrDownloadFeedbackCommand(pi, rawArgs, ctx);
 		},
 	});
-	commandPi.registerCommand(PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME, {
+	registerCommandWithImmediateAck(pi, PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME, {
 		description:
 			"Download feedback from every PR in the current Graphite downstack into the editor as a triage prompt.",
 		handler: async (rawArgs, ctx) => {
 			await runPrDownloadStackFeedbackCommand(pi, rawArgs, ctx);
 		},
 	});
-	commandPi.registerCommand(
+	registerCommandWithImmediateAck(
+		pi,
 		PR_PREVIEW_FEEDBACK_COMMAND_NAME,
 		createPrPreviewFeedbackCommand(pi, {
 			statusKey: PREVIEW_FEEDBACK_STATUS_KEY,

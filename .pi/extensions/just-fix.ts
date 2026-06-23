@@ -1,6 +1,6 @@
 import {
 	sendCommandProgressOrNotify,
-	withImmediateCommandAck,
+	registerCommandWithImmediateAck,
 } from "../../ts/packages/pi-extension-runtime/src/command-ack.ts";
 import { expandRepoSkillBlock } from "../../ts/packages/pi-extensions/src/skill-expansion.ts";
 
@@ -111,8 +111,7 @@ async function runJustThenInvokeSkill(pi: ExtensionAPI, ctx: CommandContext): Pr
 }
 
 export default function justFixExtension(pi: ExtensionAPI): void {
-	const commandPi = withImmediateCommandAck(pi);
-	commandPi.registerCommand("just", {
+	registerCommandWithImmediateAck(pi, "just", {
 		description: "Run `just`; if it fails, invoke code-just-fix.",
 		handler: async (_args, ctx) => runJustThenInvokeSkill(pi, ctx),
 	});

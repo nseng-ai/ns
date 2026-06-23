@@ -1,3 +1,4 @@
+import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
 import {
 	BRANCH_CONTEXT_NAMESPACE,
 	buildBranchContextCreateOperation,
@@ -127,7 +128,7 @@ function registerDispatchPlanCommand(
 	config: DispatchPlanConfig,
 	options: CccSlotDispatchPlanOptions,
 ): void {
-	pi.registerCommand(config.commandName, {
+	registerCommandWithImmediateAck(pi, config.commandName, {
 		description: `Dispatch the latest saved plan into a new cmux ${config.destination} for implementation.`,
 		argumentHint: "[--dry-run]",
 		handler: async (args, ctx) => {

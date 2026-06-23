@@ -1,5 +1,4 @@
 import { IMPL_BRANCH_CONTEXT_COMMAND_NAME } from "@sdl/branch-context";
-import { withImmediateCommandAck } from "@sdl/pi-extension-runtime/command-ack";
 import {
 	WRITE_GRILLED_PLAN_COMMAND_NAME,
 	WRITE_PLAN_COMMAND_NAME,
@@ -125,7 +124,6 @@ export default function registerBranchContextExtension(
 	pi: ExtensionAPI,
 	options: BranchContextExtensionOptions = {},
 ): void {
-	const commandPi = withImmediateCommandAck(pi);
-	registerEnrichedPlanCommandsAndTools(commandPi, options);
-	registerBranchContextCommands(commandPi, options);
+	registerEnrichedPlanCommandsAndTools(pi, options);
+	registerBranchContextCommands(pi, options);
 }

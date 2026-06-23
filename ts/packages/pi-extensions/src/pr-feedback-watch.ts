@@ -2,7 +2,7 @@ import { accessSync, constants } from "node:fs";
 import { join } from "node:path";
 
 import { githubPrIdentityFromUrl, type GithubPrIdentity } from "@sdl/core/github-status";
-import { withImmediateCommandAck } from "@sdl/pi-extension-runtime/command-ack";
+import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
 import { formatElapsedMs } from "@sdl/core/time-format";
 import { isRecord, stringField } from "./cmux/primitives.ts";
 import { parseMachineEnvelopeData } from "./machine-envelope.ts";
@@ -299,10 +299,9 @@ export default function prFeedbackWatchExtension(
 	pi: ExtensionAPI,
 	options: PrFeedbackWatchExtensionOptions = {},
 ): void {
-	const commandPi = withImmediateCommandAck(pi);
-	const controller = new PrFeedbackWatchController(commandPi, options);
+	const controller = new PrFeedbackWatchController(pi, options);
 
-	commandPi.registerCommand(PR_FEEDBACK_WATCH_COMMAND_NAME, {
+	registerCommandWithImmediateAck(pi, PR_FEEDBACK_WATCH_COMMAND_NAME, {
 		description:
 			"Watch the current branch PR for feedback; bare command starts with existing feedback or toggles off when active.",
 		handler: async (rawArgs, ctx) => {

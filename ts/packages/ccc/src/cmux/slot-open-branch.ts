@@ -1,3 +1,4 @@
+import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
 import { findLatestBranchContextEvidence, type BranchContextEvidence } from "@sdl/branch-context";
 import { sendCommandProgressOrNotify } from "@sdl/pi-extension-runtime/command-ack";
 
@@ -40,7 +41,7 @@ export function registerCccSlotOpenBranchCommand(pi: ExtensionAPI): void {
 		);
 	});
 
-	pi.registerCommand(COMMAND_NAME, {
+	registerCommandWithImmediateAck(pi, COMMAND_NAME, {
 		description:
 			"Open a branch, or the latest branch context when omitted, in a new cmux workspace.",
 		argumentHint: "[branch]",

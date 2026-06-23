@@ -1,3 +1,4 @@
+import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
 import {
 	formatBranchContextUpAndImplFollowUpFlow,
 	runBranchContextUpAndImplLaunch,
@@ -851,19 +852,19 @@ export function registerBranchContextCommands(
 	pi: ExtensionAPI,
 	options: BranchContextExtensionOptions = {},
 ): void {
-	pi.registerCommand(CREATE_BRANCH_CONTEXT_COMMAND_NAME, {
+	registerCommandWithImmediateAck(pi, CREATE_BRANCH_CONTEXT_COMMAND_NAME, {
 		description:
 			"Create a branch context using a content-derived slug, then attach the saved plan in Branch Memory.",
 		handler: async (args, ctx) => handleCreateBranchContextCommand(pi, args, ctx, options),
 	});
 
-	pi.registerCommand(UP_AND_IMPL_COMMAND_NAME, {
+	registerCommandWithImmediateAck(pi, UP_AND_IMPL_COMMAND_NAME, {
 		description:
 			"Stack a branch context on the current branch with Graphite, check it out, and implement the attached plan in a fresh Pi session.",
 		handler: async (args, ctx) => handleUpAndImplCommand(pi, args, ctx, options),
 	});
 
-	pi.registerCommand(IMPL_BRANCH_CONTEXT_COMMAND_NAME, {
+	registerCommandWithImmediateAck(pi, IMPL_BRANCH_CONTEXT_COMMAND_NAME, {
 		description: "Implement from the attached or latest saved branch-context plan.",
 		handler: async (args, ctx) => handleImplBranchContextCommand(pi, args, ctx, options),
 	});

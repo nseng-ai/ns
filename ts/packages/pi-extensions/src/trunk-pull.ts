@@ -1,4 +1,4 @@
-import { withImmediateCommandAck } from "@sdl/pi-extension-runtime/command-ack";
+import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
 import {
 	formatCommand,
 	formatCommandFailure,
@@ -58,8 +58,7 @@ export interface ExtensionAPI {
 }
 
 export default function trunkPullExtension(pi: ExtensionAPI): void {
-	const commandPi = withImmediateCommandAck(pi);
-	commandPi.registerCommand(COMMAND_NAME, {
+	registerCommandWithImmediateAck(pi, COMMAND_NAME, {
 		description: "Pull Graphite trunk without running full gt sync",
 		handler: async (args, ctx) => {
 			await runTrunkPull(pi, ctx, args);

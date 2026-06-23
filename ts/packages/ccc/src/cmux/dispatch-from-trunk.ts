@@ -1,3 +1,4 @@
+import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
 import { formatCommand, formatCommandFailure, isSuccessfulExecResult } from "@sdl/core/exec";
 import { planLocalBranchRefreshFromWorktrees, type LocalBranchRefreshPlan } from "@sdl/core/git";
 import { sendCommandProgressOrNotify } from "@sdl/pi-extension-runtime/command-ack";
@@ -27,7 +28,7 @@ export function registerCccSlotDispatchFromTrunkCommand(
 	options: DispatchPromptPayloadOptions = {},
 ): void {
 	const payloadOptions = resolveDispatchPromptPayloadOptions(options);
-	pi.registerCommand(COMMAND_NAME, {
+	registerCommandWithImmediateAck(pi, COMMAND_NAME, {
 		description:
 			"Create a Graphite-tracked branch from refreshed trunk and dispatch a prompt in a new cmux workspace.",
 		argumentHint: "<prompt>",

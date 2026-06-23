@@ -1,6 +1,6 @@
 import { basename, resolve } from "node:path";
 
-import { withImmediateCommandAck } from "@sdl/pi-extension-runtime/command-ack";
+import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
 import type { CustomMessageContent } from "@sdl/pi-extension-runtime/terminal-presentation";
 
 import {
@@ -664,16 +664,26 @@ export default function worktreeStatusExtension(
 		return false;
 	}
 
-	const commandPi = withImmediateCommandAck(pi);
-	commandPi.registerCommand?.(WORKTREE_STATUS_REFRESH_COMMAND_NAME, {
-		description: "Refresh the worktree status footer",
-		handler: async (_args, _ctx) => {
-			const session = activeSession;
-			if (session === undefined) return;
-			recordSessionActivity(session, { shouldRefreshOnWake: false });
-			await refreshActiveSession({ remoteRefresh: "force" });
-		},
-	});
+	if (pi.registerCommand !== undefined) {
+		registerCommandWithImmediateAck(
+			{
+				registerCommand: pi.registerCommand.bind(pi),
+				...(pi.registerMessageRenderer === undefined
+					? {}
+					: { registerMessageRenderer: pi.registerMessageRenderer.bind(pi) }),
+			},
+			WORKTREE_STATUS_REFRESH_COMMAND_NAME,
+			{
+				description: "Refresh the worktree status footer",
+				handler: async (_args, _ctx) => {
+					const session = activeSession;
+					if (session === undefined) return;
+					recordSessionActivity(session, { shouldRefreshOnWake: false });
+					await refreshActiveSession({ remoteRefresh: "force" });
+				},
+			},
+		);
+	}
 
 	function handleActiveSessionActivity(afterRecordActivity?: () => void): void {
 		recordActiveSessionActivity();

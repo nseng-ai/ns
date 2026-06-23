@@ -1,3 +1,4 @@
+import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
 import type { Stats } from "node:fs";
 import { lstat, readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -529,12 +530,12 @@ export function registerEnrichedPlanCommandsAndTools(
 	pi: ExtensionAPI,
 	options: BranchContextExtensionOptions = {},
 ): void {
-	pi.registerCommand(WRITE_PLAN_COMMAND_NAME, {
+	registerCommandWithImmediateAck(pi, WRITE_PLAN_COMMAND_NAME, {
 		description: "Write and save a reviewed implementation plan in the local plan store.",
 		handler: async (args, ctx) => handleWritePlanCommand(pi, args, ctx),
 	});
 
-	pi.registerCommand(WRITE_GRILLED_PLAN_COMMAND_NAME, {
+	registerCommandWithImmediateAck(pi, WRITE_GRILLED_PLAN_COMMAND_NAME, {
 		description: "Write and save a grilled implementation plan using structured requirements UI.",
 		handler: async (args, ctx) => handleWriteGrilledPlanCommand(pi, args, ctx),
 	});

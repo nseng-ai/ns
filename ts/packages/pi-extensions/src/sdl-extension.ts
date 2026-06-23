@@ -1,4 +1,3 @@
-import { withImmediateCommandAck } from "@sdl/pi-extension-runtime/command-ack";
 import { runCli, type SdlCommandInfo } from "@sdl/sdl/cli";
 
 import autoslotExtension from "./autoslot.ts";
@@ -141,23 +140,22 @@ export const sdlExtensionParity = definePiSurfaceParity([
 ] as const);
 
 export default function sdlExtension(pi: SdlExtensionAPI): void {
-	const commandPi = withImmediateCommandAck(pi);
 	const sdlBaseSpec = {
 		cliName: "sdl",
 		piNamespace: "sdl",
 		afterCommandComplete: requestWorktreeStatusRefresh,
 		runCli,
 	} as const;
-	registerCliCommandExtension(commandPi, {
+	registerCliCommandExtension(pi, {
 		...sdlBaseSpec,
 		commands: SDL_DIRECT_COMMANDS,
 	});
-	registerCliCommandExtension(commandPi, {
+	registerCliCommandExtension(pi, {
 		...sdlBaseSpec,
 		commands: SDL_CODE_ALIAS_COMMANDS,
 		piCommandAliases: SDL_CODE_COMMAND_ALIASES,
 	});
-	autoslotExtension(commandPi);
-	landExtension(commandPi);
-	trunkPullExtension(commandPi);
+	autoslotExtension(pi);
+	landExtension(pi);
+	trunkPullExtension(pi);
 }

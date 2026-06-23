@@ -1,7 +1,7 @@
 import { formatErrorMessage } from "@sdl/core/primitives";
 import {
 	sendCommandProgressOrNotify,
-	withImmediateCommandAck,
+	registerCommandWithImmediateAck,
 } from "@sdl/pi-extension-runtime/command-ack";
 import {
 	executeStackLanding,
@@ -84,9 +84,8 @@ export interface ValidPullRequestView {
 
 export function registerLandCommand(pi: LandExtensionAPI): void {
 	registerLandStackRenderer(pi);
-	const commandPi = withImmediateCommandAck(pi);
 
-	commandPi.registerCommand(COMMAND_NAME, {
+	registerCommandWithImmediateAck(pi, COMMAND_NAME, {
 		description: "Land the current PR or Graphite stack into trunk",
 		getArgumentCompletions: landArgumentCompletions,
 		handler: async (rawArgs, ctx) => {

@@ -1,3 +1,4 @@
+import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -75,7 +76,7 @@ export function registerCccSlotDispatchPromptCommand(
 	options: DispatchPromptPayloadOptions = {},
 ): void {
 	const payloadOptions = resolveDispatchPromptPayloadOptions(options);
-	pi.registerCommand(COMMAND_NAME, {
+	registerCommandWithImmediateAck(pi, COMMAND_NAME, {
 		description: "Create a Graphite-tracked branch and dispatch a prompt in a new cmux workspace.",
 		argumentHint: "<prompt>",
 		handler: async (args, ctx) => {

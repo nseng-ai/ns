@@ -2,7 +2,7 @@ import process from "node:process";
 
 import {
 	sendCommandProgressOrNotify,
-	withImmediateCommandAck,
+	registerCommandWithImmediateAck,
 } from "@sdl/pi-extension-runtime/command-ack";
 import type { ExtensionAPI } from "@sdl/pi-extension-runtime/cmux/types";
 import {
@@ -43,8 +43,7 @@ export interface AutoslotFlowInput extends AutobranchFlowInput {
 }
 
 export function registerAutoslotCommand(pi: AutoslotExtensionAPI): void {
-	const commandPi = withImmediateCommandAck(pi, { progressDelivery: "status" });
-	commandPi.registerCommand(COMMAND_NAME, {
+	registerCommandWithImmediateAck(pi, COMMAND_NAME, {
 		description:
 			"Create a Graphite branch from current work, then move it into a managed slot worktree",
 		handler: async (args, ctx) => {

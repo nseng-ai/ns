@@ -1,3 +1,4 @@
+import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
 import {
 	buildHandoffLaunchPrompt,
 	buildHandoffLaunchTool,
@@ -262,7 +263,7 @@ export function registerClaudeHandoffCommand(pi: ExtensionAPI, deps: ClaudeHando
 	if (launchToolRegistered) {
 		pi.registerTool?.(buildClaudeHandoffLaunchTool(pi, deps));
 	}
-	pi.registerCommand(CLAUDE_HANDOFF_COMMAND_NAME, {
+	registerCommandWithImmediateAck(pi, CLAUDE_HANDOFF_COMMAND_NAME, {
 		description: "Create a handoff, then pick it up in an interactive Claude Code session.",
 		handler: async (args, ctx) =>
 			handleClaudeHandoffCommand({ pi, args, ctx, launchToolRegistered }),

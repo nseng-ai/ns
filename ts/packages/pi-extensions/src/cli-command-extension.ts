@@ -1,7 +1,7 @@
 import { appendFileSync } from "node:fs";
 import process from "node:process";
 
-import { withImmediateCommandAck } from "@sdl/pi-extension-runtime/command-ack";
+import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { formatElapsedMs } from "@sdl/core/time-format";
 import { ensurePrivateParentDirectorySync, requireSdlStatePath } from "@sdl/core/xdg";
@@ -179,27 +179,23 @@ export function registerCliCommandExtension(
 	spec: CliCommandExtensionSpec,
 ): void {
 	assertValidCommandSpec(spec);
-	const commandPi = withImmediateCommandAck(pi, { progressDelivery: "status" });
-	commandPi.registerMessageRenderer?.(
-		CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
-		renderCliCommandOutputMessage,
-	);
+	pi.registerMessageRenderer?.(CLI_COMMAND_OUTPUT_MESSAGE_TYPE, renderCliCommandOutputMessage);
 	traceCliCommand("register", {
 		bridgeMode: "custom-rendered-message-with-above-editor-live-stream",
 		cliName: spec.cliName,
 		commands: spec.commands.map((command) => command.name),
-		messageRendererAvailable: hasMessageRenderer(commandPi),
+		messageRendererAvailable: hasMessageRenderer(pi),
 		piNamespace: spec.piNamespace,
-		sendMessageAvailable: hasSendMessage(commandPi),
+		sendMessageAvailable: hasSendMessage(pi),
 	});
 
 	for (const command of spec.commands) {
 		const piCommandName = piCommandNameForCommand(spec, command);
-		commandPi.registerCommand(piCommandName, {
+		registerCommandWithImmediateAck(pi, piCommandName, {
 			description: `${spec.cliName} ${command.name}: ${command.description}`,
 			handler: async (rawArgs, ctx) => {
 				await runRegisteredCliCommand({
-					pi: commandPi,
+					pi,
 					spec,
 					command,
 					piCommandName,

@@ -1,3 +1,4 @@
+import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -23,7 +24,7 @@ export function registerCccClaudePlanTabCommand(
 	options: PromptFileOptions = {},
 ): void {
 	const promptOptions = resolvePromptFileOptions(options, PROMPT_DIR);
-	pi.registerCommand(COMMAND_NAME, {
+	registerCommandWithImmediateAck(pi, COMMAND_NAME, {
 		description:
 			"Open a new cmux tab running Claude Code in plan mode, seeded with the provided prompt or last assistant message.",
 		argumentHint: "[seed prompt]",
