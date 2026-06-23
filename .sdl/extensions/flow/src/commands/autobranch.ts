@@ -2,7 +2,7 @@ import { Buffer } from "node:buffer";
 import { readFile, stat } from "node:fs/promises";
 import { relative, resolve } from "node:path";
 
-import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
+import { defineExtension, failed, formatCommandDetails, ok, z } from "@sdl/sdl/sdk";
 import { prepareCheckpointMessage } from "../shared/text-helpers.ts";
 import {
   CHECKPOINT_MODEL_ENV,
@@ -13,7 +13,6 @@ import {
 import {
   createCommitWithPreparedMessage,
   execGit,
-  formatCommandDetails,
   loadPendingWorktreeSnapshot,
   type PendingWorktreeError,
   type PendingWorktreeSnapshot,

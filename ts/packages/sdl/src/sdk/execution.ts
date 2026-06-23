@@ -2,8 +2,16 @@ import type { ExecResult } from "@sdl/core/exec";
 
 import type { TextGenerator } from "./text-generation.ts";
 
-export { commandSucceeded, formatCommandEvidence } from "@sdl/core/exec";
+export {
+	commandSucceeded,
+	formatCommand,
+	formatCommandDetails,
+	formatCommandError,
+	formatCommandEvidence,
+} from "@sdl/core/exec";
 export type { ExecResult, FormatCommandEvidenceOptions } from "@sdl/core/exec";
+export { withTemporaryFile } from "@sdl/core/temp-files";
+export type { TemporaryFileOptions } from "@sdl/core/temp-files";
 
 export interface SdlExecOptions {
 	timeoutMs?: number;

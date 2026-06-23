@@ -1,8 +1,10 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
-import type { ExecResult, SdlExtensionApi } from "@sdl/sdl/sdk";
+import {
+  formatCommandDetails,
+  formatCommandError,
+  withTemporaryFile,
+  type ExecResult,
+  type SdlExtensionApi,
+} from "@sdl/sdl/sdk";
 
 const GIT_FACT_TIMEOUT_MS = 30_000;
 
@@ -71,32 +73,29 @@ export async function createCommitWithPreparedMessage(
   ctx: SdlExtensionApi,
   message: string,
 ): Promise<{ summary: string } | { error: string }> {
-  const tempDir = await mkdtemp(join(tmpdir(), "sdl-extension-cp-commit-"));
-  try {
-    const messagePath = join(tempDir, "message.txt");
-    await writeFile(messagePath, `${message}\n`, "utf8");
+  return await withTemporaryFile(
+    { prefix: "sdl-extension-cp-commit-", filename: "message.txt", contents: `${message}\n` },
+    async (messagePath) => {
+      const add = await ctx.exec("git", ["add", "-A"], { timeoutMs: 30_000 });
+      if (add.code !== 0) {
+        return { error: formatCommandError("Failed to stage checkpoint changes.", add) };
+      }
 
-    const add = await ctx.exec("git", ["add", "-A"], { timeoutMs: 30_000 });
-    if (add.code !== 0) {
-      return { error: formatCommandError("Failed to stage checkpoint changes.", add) };
-    }
+      const commit = await ctx.exec("git", ["commit", "-F", messagePath], { timeoutMs: 120_000 });
+      if (commit.code !== 0) {
+        return { error: formatCommandError("Checkpoint commit failed.", commit) };
+      }
 
-    const commit = await ctx.exec("git", ["commit", "-F", messagePath], { timeoutMs: 120_000 });
-    if (commit.code !== 0) {
-      return { error: formatCommandError("Checkpoint commit failed.", commit) };
-    }
+      const log = await ctx.exec("git", ["log", "-1", "--oneline"], { timeoutMs: 5_000 });
+      if (log.code !== 0) {
+        return {
+          error: formatCommandError("Created checkpoint commit, but failed to read it back.", log),
+        };
+      }
 
-    const log = await ctx.exec("git", ["log", "-1", "--oneline"], { timeoutMs: 5_000 });
-    if (log.code !== 0) {
-      return {
-        error: formatCommandError("Created checkpoint commit, but failed to read it back.", log),
-      };
-    }
-
-    return { summary: log.stdout.trim() };
-  } finally {
-    await rm(tempDir, { force: true, recursive: true });
-  }
+      return { summary: log.stdout.trim() };
+    },
+  );
 }
 
 export function formatPendingWorktreeError(error: PendingWorktreeError): string {
@@ -111,14 +110,4 @@ export function formatPendingWorktreeError(error: PendingWorktreeError): string 
     return `Could not inspect git status.\n${details}`;
   }
   return `Could not capture git diff.\n${details}`;
-}
-
-export function formatCommandError(summary: string, result: ExecResult): string {
-  return [summary, formatCommandDetails(result)].join("\n");
-}
-
-export function formatCommandDetails(result: WorktreeCommandResult): string {
-  const details = result.stderr.trim() || result.stdout.trim();
-  const killed = result.killed ? " (killed or timed out)" : "";
-  return details ? `exit ${result.code}${killed}: ${details}` : `exit ${result.code}${killed}`;
 }

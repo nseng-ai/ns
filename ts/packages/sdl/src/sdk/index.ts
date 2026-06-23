@@ -8,7 +8,14 @@ export type {
 	SdlCommandSchema,
 	SdlExtension,
 } from "./command.ts";
-export { commandSucceeded, formatCommandEvidence } from "./execution.ts";
+export {
+	commandSucceeded,
+	formatCommand,
+	formatCommandDetails,
+	formatCommandError,
+	formatCommandEvidence,
+	withTemporaryFile,
+} from "./execution.ts";
 export type {
 	ExecResult,
 	FormatCommandEvidenceOptions,
@@ -16,6 +23,7 @@ export type {
 	SdlExecOptions,
 	SdlExtensionApi,
 	SdlOutputStream,
+	TemporaryFileOptions,
 } from "./execution.ts";
 export {
 	normalizeTextOutput,

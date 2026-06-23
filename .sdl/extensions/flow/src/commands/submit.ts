@@ -2,13 +2,10 @@
 import { chmod, mkdir, mkdtemp as mkdtemp3, writeFile as writeFile3 } from "node:fs/promises";
 import { join as join4 } from "node:path";
 import process2 from "node:process";
-import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
+import { defineExtension, failed, ok, withTemporaryFile, z } from "@sdl/sdl/sdk";
 import { prepareCheckpointMessage } from "../shared/checkpoint-message.ts";
 import { preparePrDescription } from "../shared/text-helpers.ts";
 import { selectCheckpointModelRef } from "../shared/text-generation.ts";
-
-// ts/packages/sdl-core/src/exec.ts
-import { spawn } from "node:child_process";
 
 // ts/packages/sdl-core/src/primitives.ts
 import { createHash } from "node:crypto";
@@ -28,113 +25,7 @@ function stripTerminalEscapes(value) {
   return value.replace(TERMINAL_ESCAPE_PATTERN, "");
 }
 
-// ts/packages/sdl-core/src/timers.ts
-var systemTimerScheduler = {
-  setTimeout(callback, delayMs) {
-    const timeout = setTimeout(callback, delayMs);
-    return {
-      cancel: () => clearTimeout(timeout)
-    };
-  }
-};
-
 // ts/packages/sdl-core/src/exec.ts
-var DEFAULT_TIMEOUT_KILL_GRACE_MS = 5000;
-var TIMEOUT_EXIT_CODE = 124;
-var STARTUP_FAILURE_EXIT_CODE = 127;
-async function runCommand(command, args, options = {}) {
-  return new Promise((resolve) => {
-    const timers = options.timers ?? systemTimerScheduler;
-    let stdout = "";
-    let stderr = "";
-    let hasSettled = false;
-    let hasTimedOut = false;
-    let startupError;
-    let timeoutTimer;
-    let killTimer;
-    const spawnOptions = {
-      shell: false,
-      stdio: [options.stdin === undefined ? "ignore" : "pipe", "pipe", "pipe"]
-    };
-    if (options.cwd !== undefined) {
-      spawnOptions.cwd = options.cwd;
-    }
-    if (options.env !== undefined) {
-      spawnOptions.env = options.env;
-    }
-    if (options.signal !== undefined) {
-      spawnOptions.signal = options.signal;
-    }
-    const clearTimers = () => {
-      timeoutTimer?.cancel();
-      killTimer?.cancel();
-    };
-    const finish = (exitCode, killed) => {
-      if (hasSettled)
-        return;
-      hasSettled = true;
-      clearTimers();
-      resolve({
-        stdout,
-        stderr,
-        code: hasTimedOut ? TIMEOUT_EXIT_CODE : exitCode,
-        killed: hasTimedOut || killed,
-        ...startupError === undefined ? {} : { startupError }
-      });
-    };
-    const child = spawn(command, [...args], spawnOptions);
-    if (options.timeout !== undefined && options.timeout > 0) {
-      timeoutTimer = timers.setTimeout(() => {
-        hasTimedOut = true;
-        child.kill("SIGTERM");
-        const graceMs = options.timeoutKillGraceMs ?? DEFAULT_TIMEOUT_KILL_GRACE_MS;
-        if (graceMs <= 0) {
-          child.kill("SIGKILL");
-          return;
-        }
-        killTimer = timers.setTimeout(() => {
-          if (!hasSettled)
-            child.kill("SIGKILL");
-        }, graceMs);
-      }, options.timeout);
-    }
-    child.stdout?.setEncoding("utf8");
-    child.stderr?.setEncoding("utf8");
-    child.stdout?.on("data", (chunk) => {
-      stdout += chunk;
-      options.onStdout?.(chunk);
-    });
-    child.stderr?.on("data", (chunk) => {
-      stderr += chunk;
-      options.onStderr?.(chunk);
-    });
-    if (options.stdin !== undefined) {
-      child.stdin?.on("error", (error) => {
-        if (error.code === "EPIPE")
-          return;
-        if (stderr.length === 0)
-          stderr = error.message;
-      });
-      try {
-        child.stdin?.end(options.stdin);
-      } catch (error) {
-        const stdinError = error;
-        if (stdinError.code !== "EPIPE" && stderr.length === 0) {
-          stderr = formatErrorMessage(stdinError);
-        }
-      }
-    }
-    child.on("error", (error) => {
-      startupError = formatErrorMessage(error);
-      if (stderr.length === 0)
-        stderr = startupError;
-      finish(STARTUP_FAILURE_EXIT_CODE, false);
-    });
-    child.on("close", (code, signal) => {
-      finish(code ?? 1, signal !== null);
-    });
-  });
-}
 function formatCommand(command, args) {
   return [command, ...args].map(formatShellArg).join(" ");
 }
@@ -1152,7 +1043,7 @@ var MODIFY_TIMEOUT_MS = 600000;
 
 class RealSubmitMetadataGateway {
   runner;
-  constructor(runner = runCommand) {
+  constructor(runner) {
     this.runner = runner;
   }
   async inspectSubmitStack(params) {
@@ -1756,7 +1647,7 @@ var GIT_CHECK_TIMEOUT_MS = 30000;
 
 class RealSubmitGateway {
   runner;
-  constructor(runner = runCommand) {
+  constructor(runner) {
     this.runner = runner;
   }
   async checkSubmitReadiness(params) {
@@ -2244,21 +2135,6 @@ function githubCliExecOptions(options) {
   };
 }
 
-// ts/packages/sdl-core/src/temp-files.ts
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join as join2 } from "node:path";
-async function withTemporaryFile(options, callback) {
-  const directory = await mkdtemp(join2(tmpdir(), options.prefix));
-  try {
-    const path = join2(directory, options.filename);
-    await writeFile(path, options.contents, "utf8");
-    return await callback(path);
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-}
-
 // ts/packages/sdl-core/src/submit/github-pr-gateway.ts
 var PR_VIEW_FIELDS = "number,url,title,body,headRefName,baseRefName";
 var VIEW_TIMEOUT_MS = GITHUB_CLI_TIMEOUT_MS;
@@ -2268,7 +2144,7 @@ var EDIT_TIMEOUT_MS = 60000;
 
 class RealGithubPrGateway {
   runner;
-  constructor(runner = runCommand) {
+  constructor(runner) {
     this.runner = runner;
   }
   async viewCurrentBranchPr(params) {
@@ -2464,35 +2340,28 @@ function parseJson(text) {
   }
 }
 // ts/packages/sdl/src/checkpoint-flow.ts
-import { mkdtemp as mkdtemp2, rm as rm2, writeFile as writeFile2 } from "node:fs/promises";
-import { tmpdir as tmpdir2 } from "node:os";
-import { join as join3 } from "node:path";
-
-// ts/packages/sdl/src/checkpoint-flow.ts
 async function createCommitWithPreparedMessage(input) {
-  const tempDir = await mkdtemp2(join3(tmpdir2(), "pi-cp-commit-"));
-  try {
-    const messagePath = join3(tempDir, "message.txt");
-    await writeFile2(messagePath, `${input.message}
-`, "utf8");
-    const add = await input.exec("git", ["add", "-A"], input.cwd, 30000);
-    if (add.code !== 0) {
-      return { error: formatCommandError("Failed to stage checkpoint changes.", add) };
+  return await withTemporaryFile(
+    { prefix: "pi-cp-commit-", filename: "message.txt", contents: `${input.message}
+` },
+    async (messagePath) => {
+      const add = await input.exec("git", ["add", "-A"], input.cwd, 30000);
+      if (add.code !== 0) {
+        return { error: formatCommandError("Failed to stage checkpoint changes.", add) };
+      }
+      const commit = await input.exec("git", ["commit", "-F", messagePath], input.cwd, 120000);
+      if (commit.code !== 0) {
+        return { error: formatCommandError("Checkpoint commit failed.", commit) };
+      }
+      const log = await input.exec("git", ["log", "-1", "--oneline"], input.cwd, 5000);
+      if (log.code !== 0) {
+        return {
+          error: formatCommandError("Created checkpoint commit, but failed to read it back.", log)
+        };
+      }
+      return { summary: log.stdout.trim() };
     }
-    const commit = await input.exec("git", ["commit", "-F", messagePath], input.cwd, 120000);
-    if (commit.code !== 0) {
-      return { error: formatCommandError("Checkpoint commit failed.", commit) };
-    }
-    const log = await input.exec("git", ["log", "-1", "--oneline"], input.cwd, 5000);
-    if (log.code !== 0) {
-      return {
-        error: formatCommandError("Created checkpoint commit, but failed to read it back.", log)
-      };
-    }
-    return { summary: log.stdout.trim() };
-  } finally {
-    await rm2(tempDir, { force: true, recursive: true });
-  }
+  );
 }
 function formatCommandError(summary, result) {
   const details = result.stderr.trim() || result.stdout.trim();
@@ -2555,7 +2424,7 @@ function formatPendingWorktreeCommandDetails(result) {
 // ts/packages/sdl/src/checkpoint.ts
 class RealCheckpointGateway {
   runner;
-  constructor(runner = runCommand) {
+  constructor(runner) {
     this.runner = runner;
   }
   async loadPendingWorktreeSnapshot(params) {
