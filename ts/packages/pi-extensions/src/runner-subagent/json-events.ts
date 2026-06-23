@@ -1,5 +1,6 @@
 import { systemClock, type Clock } from "@sdl/core/clock";
 import { formatErrorMessage } from "@sdl/core/primitives";
+import { isRecord } from "../cmux/primitives.ts";
 import { isThinkingLevel } from "../cmux/types.ts";
 import type { RunnerSubagentLaunchMetadata, RunnerSubagentProgress } from "../runner-subagent.ts";
 import type { RunnerSubagentActivity } from "./activity.ts";
@@ -137,9 +138,7 @@ export class RunnerSubagentJsonEventParser {
 
 	hydrateLaunchMetadataFromSessionJsonl(jsonl: string): boolean {
 		const before = JSON.stringify(this.launch ?? null);
-		for (const rawLine of jsonl.split("\n")) {
-			this.hydrateLaunchMetadataFromSessionLine(rawLine);
-		}
+		visitSessionJsonlEvents(jsonl, (event) => this.hydrateLaunchMetadataFromSessionEvent(event));
 		return JSON.stringify(this.launch ?? null) !== before;
 	}
 
@@ -186,7 +185,7 @@ export class RunnerSubagentJsonEventParser {
 	}
 
 	private processLine(rawLine: string): void {
-		const parsed = this.parseJsonEventLine(rawLine);
+		const parsed = parseJsonEventLine(rawLine);
 		switch (parsed.type) {
 			case "empty":
 				return;
@@ -199,47 +198,17 @@ export class RunnerSubagentJsonEventParser {
 		}
 	}
 
-	private hydrateLaunchMetadataFromSessionLine(rawLine: string): void {
-		const parsed = this.parseJsonEventLine(rawLine);
-		if (parsed.type === "empty") return;
-		if (parsed.type === "invalid") {
-			// Session JSONL may be read while Pi is appending; malformed or partial lines are
-			// skipped during best-effort launch metadata hydration.
-			return;
-		}
-
-		switch (parsed.event.type) {
+	private hydrateLaunchMetadataFromSessionEvent(event: JsonEvent): void {
+		switch (event.type) {
 			case "model_change":
-				this.captureModelChange(parsed.event);
+				this.captureModelChange(event);
 				return;
 			case "thinking_level_change":
-				this.captureThinkingLevelChange(parsed.event);
+				this.captureThinkingLevelChange(event);
 				return;
 			default:
 				return;
 		}
-	}
-
-	private parseJsonEventLine(rawLine: string): ParsedJsonEventLine {
-		const line = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
-		if (line.trim().length === 0) return { type: "empty" };
-
-		let event: unknown;
-		try {
-			event = JSON.parse(line);
-		} catch (error) {
-			return { type: "invalid", line, cause: error };
-		}
-
-		if (!isJsonEvent(event)) {
-			return {
-				type: "invalid",
-				line,
-				cause: new Error("JSONL event must be an object with a string type."),
-			};
-		}
-
-		return { type: "event", event };
 	}
 
 	private processEvent(event: JsonEvent): void {
@@ -505,6 +474,17 @@ export function createRunnerSubagentJsonEventParser(
 	return new RunnerSubagentJsonEventParser(options);
 }
 
+export function extractRunnerSubagentToolCallPayloadsFromSessionJsonl(
+	jsonl: string,
+	toolName: string,
+): unknown[] {
+	const payloads: unknown[] = [];
+	visitSessionJsonlEvents(jsonl, (event) =>
+		collectRunnerSubagentToolCallPayloads(event, toolName, payloads),
+	);
+	return payloads;
+}
+
 export function captureAssistantTextFromMessage(message: unknown): string | undefined {
 	if (!isRecord(message) || message.role !== "assistant") return undefined;
 	return assistantTextFromContent(message.content);
@@ -525,6 +505,57 @@ function chunkToString(chunk: string | Uint8Array): string {
 	return typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8");
 }
 
+function parseJsonEventLine(rawLine: string): ParsedJsonEventLine {
+	const line = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
+	if (line.trim().length === 0) return { type: "empty" };
+
+	let event: unknown;
+	try {
+		event = JSON.parse(line);
+	} catch (error) {
+		return { type: "invalid", line, cause: error };
+	}
+
+	if (!isJsonEvent(event)) {
+		return {
+			type: "invalid",
+			line,
+			cause: new Error("JSONL event must be an object with a string type."),
+		};
+	}
+
+	return { type: "event", event };
+}
+
+function visitSessionJsonlEvents(jsonl: string, visitor: (event: JsonEvent) => void): void {
+	for (const rawLine of jsonl.split("\n")) {
+		const parsed = parseJsonEventLine(rawLine);
+		if (parsed.type === "event") visitor(parsed.event);
+	}
+}
+
+function collectRunnerSubagentToolCallPayloads(
+	value: unknown,
+	toolName: string,
+	payloads: unknown[],
+): void {
+	if (Array.isArray(value)) {
+		for (const item of value) collectRunnerSubagentToolCallPayloads(item, toolName, payloads);
+		return;
+	}
+	if (!isRecord(value)) return;
+	if (
+		value.type === "toolCall" &&
+		value.name === toolName &&
+		Object.prototype.hasOwnProperty.call(value, "arguments")
+	) {
+		payloads.push(value.arguments);
+	}
+	for (const child of Object.values(value)) {
+		collectRunnerSubagentToolCallPayloads(child, toolName, payloads);
+	}
+}
+
 function isJsonEvent(value: unknown): value is JsonEvent {
 	return isRecord(value) && typeof value.type === "string";
 }
@@ -537,9 +568,7 @@ function sanitizeLaunchMetadataText(value: string): string | undefined {
 		: sanitized.slice(0, MAX_LAUNCH_METADATA_TEXT_CHARS);
 }
 
-export function isRecord(value: unknown): value is JsonRecord {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+export { isRecord } from "../cmux/primitives.ts";
 
 function hasToolInputValue(event: JsonRecord): boolean {
 	return ["args", "arguments", "input"].some((key) =>

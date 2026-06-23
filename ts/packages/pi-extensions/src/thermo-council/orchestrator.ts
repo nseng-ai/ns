@@ -31,7 +31,7 @@ import {
 	type RunnerSubagentUpdate,
 } from "../runner-subagent.ts";
 import { parseLmJson } from "../context-profiler/lm-json.ts";
-import { extractRunnerSubagentToolCallPayloadsFromSessionJsonl } from "../runner-subagent/session-tool-payloads.ts";
+import { extractRunnerSubagentToolCallPayloadsFromSessionJsonl } from "../runner-subagent/json-events.ts";
 import { THERMO_COUNCIL_COMMAND_NAME, THERMO_COUNCIL_MESSAGE_TYPE } from "./constants.ts";
 import { synthesizeThermoCouncilFinalReport } from "./final-synthesis.ts";
 import { buildReviewerPrompt } from "./prompt.ts";
