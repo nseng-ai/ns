@@ -69,10 +69,19 @@ export type ThermoCouncilReviewerOutcome =
 			readonly diagnostic: string;
 	  };
 
+const stringListSchema = z.preprocess(
+	normalizeStringListInput,
+	z.array(z.string().trim().min(1)).default([]),
+);
+
+const stringListParameter = {
+	anyOf: [{ type: "array", items: { type: "string" } }, { type: "string" }],
+};
+
 export const findingSchema = z.object({
 	id: z.string().trim().min(1),
 	title: z.string().trim().min(1),
-	files: z.array(z.string().trim().min(1)).default([]),
+	files: stringListSchema,
 	evidence: z.string().trim().min(1),
 	problem: z.string().trim().min(1),
 	proposedFix: z.string().trim().min(1),
@@ -80,20 +89,31 @@ export const findingSchema = z.object({
 	dependencyNotes: z.string().trim().min(1),
 	confidence: z.enum(["trunk-likely", "likely", "uncertain", "speculative"]),
 	severity: z.enum(["critical", "high", "medium", "low"]),
-	validationHints: z.array(z.string().trim().min(1)).default([]),
+	validationHints: stringListSchema,
 });
 
 export const reviewSchema = z.object({
 	summary: z.string().trim().min(1).optional(),
 	findings: z.array(findingSchema).default([]),
-	disagreements: z.array(z.string().trim().min(1)).default([]),
+	disagreements: stringListSchema,
 });
 
 export const blockedReviewSchema = z.object({
 	reason: z.string().trim().min(1),
-	missingContext: z.array(z.string().trim().min(1)).default([]),
+	missingContext: stringListSchema,
 	suggestedRecovery: z.string().trim().optional(),
 });
+
+function normalizeStringListInput(value: unknown): unknown {
+	if (typeof value === "string") {
+		const trimmed = value.trim();
+		return trimmed.length === 0 ? [] : [trimmed];
+	}
+	if (!Array.isArray(value)) return value;
+	return value
+		.map((item) => (typeof item === "string" ? item.trim() : item))
+		.filter((item) => item !== "");
+}
 
 export const submitThermoCouncilReviewTool: RunnerSubagentTerminalToolDefinition = {
 	name: SUBMIT_THERMO_COUNCIL_REVIEW_TOOL,
@@ -110,7 +130,7 @@ export const submitThermoCouncilReviewTool: RunnerSubagentTerminalToolDefinition
 					properties: {
 						id: { type: "string" },
 						title: { type: "string" },
-						files: { type: "array", items: { type: "string" } },
+						files: stringListParameter,
 						evidence: { type: "string" },
 						problem: { type: "string" },
 						proposedFix: { type: "string" },
@@ -121,7 +141,7 @@ export const submitThermoCouncilReviewTool: RunnerSubagentTerminalToolDefinition
 							enum: ["trunk-likely", "likely", "uncertain", "speculative"],
 						},
 						severity: { type: "string", enum: ["critical", "high", "medium", "low"] },
-						validationHints: { type: "array", items: { type: "string" } },
+						validationHints: stringListParameter,
 					},
 					required: [
 						"id",
@@ -134,13 +154,11 @@ export const submitThermoCouncilReviewTool: RunnerSubagentTerminalToolDefinition
 						"confidence",
 						"severity",
 					],
-					additionalProperties: false,
 				},
 			},
-			disagreements: { type: "array", items: { type: "string" } },
+			disagreements: stringListParameter,
 		},
 		required: ["findings"],
-		additionalProperties: false,
 	},
 };
 
@@ -152,10 +170,9 @@ export const blockThermoCouncilReviewTool: RunnerSubagentTerminalToolDefinition 
 		type: "object",
 		properties: {
 			reason: { type: "string" },
-			missingContext: { type: "array", items: { type: "string" } },
+			missingContext: stringListParameter,
 			suggestedRecovery: { type: "string" },
 		},
 		required: ["reason"],
-		additionalProperties: false,
 	},
 };

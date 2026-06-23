@@ -41,7 +41,7 @@ Unreleased, private software. We can break backwards compatibility freely.
 - **Linting/Formatting**: oxlint/oxfmt for TypeScript; dprint for Markdown/TOML.
 - **Type checking**: tsgo through the `ts/` workspace scripts.
 - **Testing**: Vitest for TypeScript packages.
-- **Python invocation**: when an ad-hoc Python script is useful for repository maintenance, run it through `uv` (for example, `uv run python - <<'PY' ...`) rather than calling bare `python` or `python3`.
+- **Python invocation**: always run Python through `uv` (for example, `uv run python - <<'PY' ...`). Never call bare `python` or `python3`, including for quick one-off inspection scripts.
 
 ### Project Structure
 
