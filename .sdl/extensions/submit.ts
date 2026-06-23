@@ -5,6 +5,7 @@ import process2 from "node:process";
 import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
 import { prepareCheckpointMessage } from "./shared/checkpoint-message.ts";
 import { preparePrDescription } from "./shared/text-helpers.ts";
+import { selectCheckpointModelRef } from "./shared/text-generation.ts";
 
 // ts/packages/sdl-core/src/exec.ts
 import { spawn } from "node:child_process";
@@ -2549,26 +2550,6 @@ function formatPendingWorktreeCommandDetails(result) {
   const details = result.stderr.trim() || result.stdout.trim();
   const killed = result.killed ? " (killed or timed out)" : "";
   return details ? `exit ${result.code}${killed}: ${details}` : `exit ${result.code}${killed}`;
-}
-
-// ../../../../../../../../../../tmp/sdl-submit-extension-build/plans-shim.ts
-var DEFAULT_FAST_MODEL_REF = "openai-codex/gpt-5.4-mini";
-
-// ts/packages/sdl/src/text-generation.ts
-var DEFAULT_CHECKPOINT_MODEL_REF = DEFAULT_FAST_MODEL_REF;
-var CHECKPOINT_MODEL_ENV = "SDL_CHECKPOINT_MODEL";
-var LEGACY_CHECKPOINT_MODEL_ENV = "SDL_DEV_CHECKPOINT_MODEL";
-function selectCheckpointModelRef(env) {
-  return firstEnvValue(env, CHECKPOINT_MODEL_ENV, LEGACY_CHECKPOINT_MODEL_ENV) ?? DEFAULT_CHECKPOINT_MODEL_REF;
-}
-function firstEnvValue(env, ...envNames) {
-  for (const envName of envNames) {
-    const value = env[envName]?.trim();
-    if (value !== undefined && value !== "") {
-      return value;
-    }
-  }
-  return;
 }
 
 // ts/packages/sdl/src/checkpoint.ts
