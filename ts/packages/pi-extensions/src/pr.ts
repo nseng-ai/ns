@@ -7,10 +7,7 @@ import { formatZodError } from "@sdl/core/primitives";
 import { z } from "zod";
 
 import { parseCliCommandArgs } from "./cli-command-extension.ts";
-import {
-	parseMachineEnvelopeData,
-	type MachineEnvelopeDataParseResult,
-} from "./machine-envelope.ts";
+import { parseMachineEnvelopeDataWithFailureData } from "./machine-envelope.ts";
 import { definePiSurfaceParity } from "./parity.ts";
 import { downloadPrFeedback, type ExecOptions, type ExecResult } from "./pr-feedback-download.ts";
 import prFeedbackWatchExtension from "./pr-feedback-watch.ts";
@@ -404,40 +401,19 @@ export interface EnvelopeWithSchemaOptions<T> {
 }
 
 function parseEnvelopeWithSchema<T>(options: EnvelopeWithSchemaOptions<T>): CommandResult<T> {
-	const parsed = parseMachineEnvelopeData(options.result.stdout, {
+	const parsed = parseMachineEnvelopeDataWithFailureData(options.result.stdout, {
 		label: options.label,
 		stdoutTail: { maxLines: 20, maxChars: 2000 },
+		shouldAllowFailureData: options.allowFailureData,
 	});
-	const data = envelopeData(parsed, options);
-	if (data.type === "error") return data;
+	if (parsed.type === "invalid") {
+		return { type: "error", message: envelopeDetail(parsed, options.result) };
+	}
 
-	const schemaResult = options.schema.safeParse(data.value);
+	const schemaResult = options.schema.safeParse(parsed.data);
 	if (!schemaResult.success)
 		return { type: "error", message: schemaError(options.label, schemaResult.error) };
 	return { type: "ok", value: schemaResult.data };
-}
-
-function envelopeData(
-	parsed: MachineEnvelopeDataParseResult,
-	options: EnvelopeWithSchemaOptions<unknown>,
-): CommandResult<Record<string, unknown>> {
-	if (parsed.type === "valid") return { type: "ok", value: parsed.data };
-	if (options.allowFailureData === true) {
-		const failureData = failureEnvelopeData(options.result.stdout);
-		if (failureData !== undefined) return { type: "ok", value: failureData };
-	}
-	return { type: "error", message: envelopeDetail(parsed, options.result) };
-}
-
-function failureEnvelopeData(stdout: string): Record<string, unknown> | undefined {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(stdout);
-	} catch {
-		return undefined;
-	}
-	if (!isRecord(parsed) || parsed.exit_code !== 1 || !isRecord(parsed.data)) return undefined;
-	return parsed.data;
 }
 
 function buildStackDownloadFeedbackMarkdown(downloads: readonly StackFeedbackDownload[]): string {
@@ -551,8 +527,4 @@ function prefillEditor(ctx: ExtensionContext, markdown: string, message: string)
 
 function notify(ctx: ExtensionContext, message: string, level: "info" | "warning" | "error"): void {
 	ctx.ui?.notify?.(message, level);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }

@@ -1,8 +1,7 @@
 import { formatZodError } from "@sdl/core/primitives";
 import { z } from "zod";
 
-import { isRecord } from "./cmux/primitives.ts";
-import { parseMachineEnvelopeData } from "./machine-envelope.ts";
+import { parseMachineEnvelopeDataWithFailureData } from "./machine-envelope.ts";
 
 export interface ExecResult {
 	stdout: string;
@@ -130,26 +129,12 @@ function parseDownloadFeedbackEnvelopeData(
 	result: ExecResult,
 	shouldAllowFailureData: boolean,
 ): { type: "ok"; data: unknown } | { type: "error"; message: string } {
-	const parsed = parseMachineEnvelopeData(result.stdout, {
+	const parsed = parseMachineEnvelopeDataWithFailureData(result.stdout, {
 		label: "pr-address download-feedback JSON",
 		stdoutTail: { maxChars: 1_000 },
+		shouldAllowFailureData,
 	});
-	if (parsed.type === "valid") return { type: "ok", data: parsed.data };
-	if (shouldAllowFailureData) {
-		const failureData = failureEnvelopeData(result.stdout);
-		if (failureData !== undefined) return { type: "ok", data: failureData };
-	}
-	return { type: "error", message: parsed.message };
-}
-
-function failureEnvelopeData(stdout: string): Record<string, unknown> | undefined {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(stdout);
-	} catch {
-		// Malformed JSON means stdout is not a Clinkr failure envelope; report the original parse error.
-		return undefined;
-	}
-	if (!isRecord(parsed) || parsed.exit_code !== 1 || !isRecord(parsed.data)) return undefined;
-	return parsed.data;
+	return parsed.type === "valid"
+		? { type: "ok", data: parsed.data }
+		: { type: "error", message: parsed.message };
 }
