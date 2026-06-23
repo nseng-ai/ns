@@ -116,10 +116,13 @@ export async function createTrackedBranchFromTrunkForPrompt(options: {
 }): Promise<BranchCreateResult | { error: string }> {
 	const { pi, cwd, prompt, notify } = options;
 	notify?.("Resolving Graphite trunk…");
-	const trunk = await runGraphiteCommand(pi, {
-		cwd,
-		args: ["trunk", "--no-interactive"],
-	});
+	const trunk = await runGraphiteCommand(
+		(command, commandArgs, commandOptions) => pi.exec(command, [...commandArgs], commandOptions),
+		{
+			cwd,
+			args: ["trunk", "--no-interactive"],
+		},
+	);
 	if (!isSuccessfulExecResult(trunk)) {
 		return {
 			error: formatCommandFailure(

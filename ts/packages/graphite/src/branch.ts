@@ -2,6 +2,7 @@ import {
 	formatCommand,
 	formatCommandFailure,
 	type CommandExecApi,
+	type CommandRunner,
 	type ExecOptions,
 	type ExecResult,
 } from "@sdl/core/exec";
@@ -47,11 +48,8 @@ export interface GraphiteCommandRunParams {
 	cwd: string;
 	args: readonly string[];
 	timeoutMs?: number | undefined;
+	env?: NodeJS.ProcessEnv | undefined;
 	signal?: AbortSignal | undefined;
-}
-
-export interface GraphiteCommandExecApi<TResult> {
-	exec(command: string, args: string[], options?: ExecOptions): Promise<TResult>;
 }
 
 interface CommandRun {
@@ -70,13 +68,13 @@ export class RealGraphiteBranchGateway implements GraphiteBranchGateway {
 		params: GraphiteCheckBranchTrackedParams,
 	): Promise<GraphiteBranchTrackedResult> {
 		const args = ["info", params.branch, "--no-interactive"];
-		const displayCommand = formatCommand("gt", args);
+		const displayCommand = formatCommand(GRAPHITE_COMMAND_NAME, args);
 		let result: ExecResult;
 		try {
 			result = await this.pi.exec(
-				"gt",
+				GRAPHITE_COMMAND_NAME,
 				args,
-				execOptions(params.cwd, GT_TIMEOUT_MS, params.signal),
+				execOptions({ cwd: params.cwd, timeout: GT_TIMEOUT_MS, signal: params.signal }),
 			);
 		} catch (caught) {
 			return { ok: false, error: startupFailure(displayCommand, caught) };
@@ -98,13 +96,13 @@ export class RealGraphiteBranchGateway implements GraphiteBranchGateway {
 
 	async trackBranch(params: GraphiteTrackBranchParams): Promise<GraphiteOperationResult> {
 		const args = ["track", params.branch, "--parent", params.parentBranch, "--no-interactive"];
-		const displayCommand = formatCommand("gt", args);
+		const displayCommand = formatCommand(GRAPHITE_COMMAND_NAME, args);
 		let result: ExecResult;
 		try {
 			result = await this.pi.exec(
-				"gt",
+				GRAPHITE_COMMAND_NAME,
 				args,
-				execOptions(params.cwd, GT_TIMEOUT_MS, params.signal),
+				execOptions({ cwd: params.cwd, timeout: GT_TIMEOUT_MS, signal: params.signal }),
 			);
 		} catch (caught) {
 			return { ok: false, error: startupFailure(displayCommand, caught) };
@@ -120,14 +118,19 @@ export class RealGraphiteBranchGateway implements GraphiteBranchGateway {
 	}
 }
 
-export function runGraphiteCommand<TResult>(
-	api: GraphiteCommandExecApi<TResult>,
+export function runGraphiteCommand(
+	runner: CommandRunner,
 	params: GraphiteCommandRunParams,
-): Promise<TResult> {
-	return api.exec(
+): Promise<ExecResult> {
+	return runner(
 		GRAPHITE_COMMAND_NAME,
 		[...params.args],
-		execOptions(params.cwd, params.timeoutMs ?? GT_TIMEOUT_MS, params.signal),
+		execOptions({
+			cwd: params.cwd,
+			timeout: params.timeoutMs ?? GT_TIMEOUT_MS,
+			env: params.env,
+			signal: params.signal,
+		}),
 	);
 }
 
@@ -148,9 +151,17 @@ function failure(code: string, title: string, run: CommandRun): GraphiteErrorInf
 	};
 }
 
-function execOptions(cwd: string, timeout: number, signal: AbortSignal | undefined): ExecOptions {
-	if (signal === undefined) {
-		return { cwd, timeout };
-	}
-	return { cwd, timeout, signal };
+function execOptions(options: {
+	cwd: string;
+	timeout: number;
+	env?: NodeJS.ProcessEnv | undefined;
+	signal?: AbortSignal | undefined;
+}): ExecOptions {
+	const { cwd, timeout, env, signal } = options;
+	return {
+		cwd,
+		timeout,
+		...(env === undefined ? {} : { env }),
+		...(signal === undefined ? {} : { signal }),
+	};
 }

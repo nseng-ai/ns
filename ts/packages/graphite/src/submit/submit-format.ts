@@ -1,8 +1,8 @@
 import { stripTerminalEscapes } from "@sdl/core/exec";
+import type { PrewrittenPrMetadata } from "@sdl/core/submit";
 
 import type { SubmitPrLink } from "./gt-output.ts";
 import { formatPrLinkText, formatPrLinkTextRow } from "./submit-pr-link.ts";
-import type { PreparedSubmitPrMetadata } from "./submit-pr-metadata-prewrite.ts";
 import type {
 	CurrentPrVerificationResult,
 	SubmitCommandOutput,
@@ -263,7 +263,7 @@ export function formatPrewriteFailureOutput(
 
 export function formatSubmitFailureOutput(
 	output: SubmitCommandOutput,
-	prewrittenMetadata: readonly PreparedSubmitPrMetadata[],
+	prewrittenMetadata: readonly PrewrittenPrMetadata[],
 ): string {
 	const reason = output.startupError
 		? `gt submit --no-edit --publish --no-stack --no-ai --no-interactive could not start: ${output.startupError}.`

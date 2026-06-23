@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 import { errorCodeFromUnknown, isRecord } from "@sdl/core/primitives";
@@ -69,6 +70,24 @@ export type SqliteJsonError =
 	  };
 
 export type SqliteJsonOutcome = Result<unknown, SqliteJsonError>;
+
+export interface GraphiteMetadataDbAccess {
+	exists(dbPath: string): boolean;
+	queryJson(dbPath: string, query: string): SqliteJsonOutcome;
+}
+
+export function createGraphiteMetadataDbAccess(
+	sqliteRunner: SqliteJsonRunner = createGraphiteSqliteJsonRunner(),
+): GraphiteMetadataDbAccess {
+	return {
+		exists(dbPath) {
+			return existsSync(dbPath);
+		},
+		queryJson(dbPath, query) {
+			return classifySqliteJsonResult(sqliteRunner.run(dbPath, query));
+		},
+	};
+}
 
 export function classifySqliteJsonResult(result: SqliteJsonRunResult): SqliteJsonOutcome {
 	if (result.error !== undefined && result.error !== null) {

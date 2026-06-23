@@ -6,14 +6,14 @@ import {
 	loadGraphiteMetadataStatus,
 	loadGraphiteMetadataStatusInWorker,
 	shutdownGraphiteMetadataWorker,
-	type GraphiteMetadataDbAccess,
-	type GraphiteMetadataJsonQueryResult,
 	type GraphiteMetadataStatus,
 	type GraphiteMetadataWorkerDiagnostic,
 	type GraphiteMetadataWorkerHandle,
 	type GraphiteMetadataWorkerRequest,
 } from "@sdl/graphite/status";
 import type { LocalBranchRefReadResult } from "@sdl/core/git";
+import { resultErr, resultOk, type Result } from "@sdl/core/result";
+import type { GraphiteMetadataDbAccess, SqliteJsonError } from "@sdl/graphite/metadata";
 
 class NonRespondingMetadataWorker implements GraphiteMetadataWorkerHandle {
 	onmessage: ((event: { data: unknown }) => void) | null = null;
@@ -86,13 +86,13 @@ const EXPECTED_SCHEMA_ROWS = [
 
 class FakeGraphiteMetadataDbAccess implements GraphiteMetadataDbAccess {
 	readonly queries: string[] = [];
-	private readonly responses: GraphiteMetadataJsonQueryResult[];
+	private readonly responses: SqliteJsonOutcome[];
 	private readonly shouldExist: boolean;
 
 	constructor(
 		options: {
 			exists?: boolean | undefined;
-			responses?: readonly GraphiteMetadataJsonQueryResult[] | undefined;
+			responses?: readonly SqliteJsonOutcome[] | undefined;
 		} = {},
 	) {
 		this.shouldExist = options.exists ?? true;
@@ -104,21 +104,37 @@ class FakeGraphiteMetadataDbAccess implements GraphiteMetadataDbAccess {
 		return this.shouldExist;
 	}
 
-	queryJson(dbPath: string, query: string): GraphiteMetadataJsonQueryResult {
+	queryJson(dbPath: string, query: string): SqliteJsonOutcome {
 		expect(dbPath).toBe(DB_PATH);
 		this.queries.push(query);
-		return this.responses.shift() ?? { type: "failure", reason: "read-failed" };
+		return this.responses.shift() ?? failure("read-failed");
 	}
 }
 
-function success(data: unknown): GraphiteMetadataJsonQueryResult {
-	return { type: "success", data };
+type SqliteJsonOutcome = Result<unknown, SqliteJsonError>;
+
+function success(data: unknown): SqliteJsonOutcome {
+	return resultOk(data);
 }
 
-function failure(
-	reason: Extract<GraphiteMetadataJsonQueryResult, { type: "failure" }>["reason"],
-): GraphiteMetadataJsonQueryResult {
-	return { type: "failure", reason };
+function failure(reason: "sqlite-unavailable" | "read-failed"): SqliteJsonOutcome {
+	return resultErr(reason === "sqlite-unavailable" ? sqliteCommandMissing() : sqliteInvalidJson());
+}
+
+function sqliteCommandMissing(): SqliteJsonError {
+	return {
+		type: "command-missing",
+		code: "sqlite-command-missing",
+		message: "sqlite3 command not found",
+	};
+}
+
+function sqliteInvalidJson(): SqliteJsonError {
+	return {
+		type: "invalid-json",
+		code: "sqlite-invalid-json",
+		message: "sqlite3 output was not valid JSON",
+	};
 }
 
 function branchRow(input: {

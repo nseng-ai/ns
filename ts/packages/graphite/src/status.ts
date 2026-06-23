@@ -1,9 +1,7 @@
-import { existsSync } from "node:fs";
 import { Worker } from "node:worker_threads";
 
 import {
-	classifySqliteJsonResult,
-	createGraphiteSqliteJsonRunner,
+	createGraphiteMetadataDbAccess,
 	filterLiveBranchNames,
 	GRAPHITE_BRANCH_METADATA_QUERY,
 	GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY,
@@ -11,6 +9,8 @@ import {
 	hasExpectedGraphiteBranchMetadataSchema,
 	parseGraphiteBranchMetadataRows,
 	sqliteTextLiteral,
+	type GraphiteMetadataDbAccess,
+	type SqliteJsonError,
 } from "./metadata.ts";
 import { readLocalBranchRefs, type LocalBranchRefReadResult } from "@sdl/core/git";
 import { isRecord } from "@sdl/core/primitives";
@@ -74,18 +74,6 @@ export interface LoadGraphiteMetadataStatusInWorkerOptions {
 	timeoutMs?: number | undefined;
 	workerFactory?: GraphiteMetadataWorkerFactory | undefined;
 	onDiagnostic?: ((diagnostic: GraphiteMetadataWorkerDiagnostic) => void) | undefined;
-}
-
-export type GraphiteMetadataJsonQueryResult =
-	| { type: "success"; data: unknown }
-	| {
-			type: "failure";
-			reason: Extract<GraphiteMetadataUnavailableReason, "sqlite-unavailable" | "read-failed">;
-	  };
-
-export interface GraphiteMetadataDbAccess {
-	exists(dbPath: string): boolean;
-	queryJson(dbPath: string, query: string): GraphiteMetadataJsonQueryResult;
 }
 
 /**
@@ -243,10 +231,14 @@ export function loadGraphiteMetadataStatus(
 		return { type: "unavailable", reason: "missing-db", currentBranch: input.currentBranch };
 
 	const schemaRows = dbAccess.queryJson(dbPath, GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY);
-	if (schemaRows.type === "failure") {
-		return { type: "unavailable", reason: schemaRows.reason, currentBranch: input.currentBranch };
+	if (!schemaRows.ok) {
+		return {
+			type: "unavailable",
+			reason: statusReasonFromSqliteError(schemaRows.error),
+			currentBranch: input.currentBranch,
+		};
 	}
-	if (!hasExpectedGraphiteBranchMetadataSchema(schemaRows.data)) {
+	if (!hasExpectedGraphiteBranchMetadataSchema(schemaRows.value)) {
 		return { type: "unavailable", reason: "schema-mismatch", currentBranch: input.currentBranch };
 	}
 
@@ -256,11 +248,15 @@ export function loadGraphiteMetadataStatus(
 		"LIMIT 1",
 	].join(" ");
 	const rowResult = dbAccess.queryJson(dbPath, rowQuery);
-	if (rowResult.type === "failure") {
-		return { type: "unavailable", reason: rowResult.reason, currentBranch: input.currentBranch };
+	if (!rowResult.ok) {
+		return {
+			type: "unavailable",
+			reason: statusReasonFromSqliteError(rowResult.error),
+			currentBranch: input.currentBranch,
+		};
 	}
 
-	const parsed = parseGraphiteBranchMetadataRows(rowResult.data);
+	const parsed = parseGraphiteBranchMetadataRows(rowResult.value);
 	if (parsed.type !== "ok")
 		return { type: "unavailable", reason: "read-failed", currentBranch: input.currentBranch };
 	const row = parsed.topology.get(input.currentBranch);
@@ -419,14 +415,7 @@ function isGraphiteMetadataUnavailableReason(
 	return GRAPHITE_METADATA_UNAVAILABLE_REASONS.some((reason) => reason === value);
 }
 
-const defaultGraphiteMetadataDbAccess: GraphiteMetadataDbAccess = {
-	exists(dbPath) {
-		return existsSync(dbPath);
-	},
-	queryJson(dbPath, query) {
-		return runSqliteJsonQuery(dbPath, query);
-	},
-};
+const defaultGraphiteMetadataDbAccess = createGraphiteMetadataDbAccess();
 
 const defaultGraphiteBranchAccess: GraphiteBranchAccess = {
 	listLocalBranches(commonGitDir) {
@@ -434,18 +423,15 @@ const defaultGraphiteBranchAccess: GraphiteBranchAccess = {
 	},
 };
 
-const graphiteSqliteJsonRunner = createGraphiteSqliteJsonRunner();
-
-function runSqliteJsonQuery(dbPath: string, query: string): GraphiteMetadataJsonQueryResult {
-	const outcome = classifySqliteJsonResult(graphiteSqliteJsonRunner.run(dbPath, query));
-	if (outcome.ok) return { type: "success", data: outcome.value };
-	const sqliteError = outcome.error;
-	switch (sqliteError.type) {
+function statusReasonFromSqliteError(
+	error: SqliteJsonError,
+): Extract<GraphiteMetadataUnavailableReason, "sqlite-unavailable" | "read-failed"> {
+	switch (error.type) {
 		case "command-missing":
-			return { type: "failure", reason: "sqlite-unavailable" };
+			return "sqlite-unavailable";
 		case "exec-error":
 		case "nonzero-exit":
 		case "invalid-json":
-			return { type: "failure", reason: "read-failed" };
+			return "read-failed";
 	}
 }

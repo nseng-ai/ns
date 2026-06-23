@@ -37,11 +37,14 @@ export async function runTrunkPull(
 	commands: Pick<TrunkPullCliInput, "exec">,
 	cwd: string,
 ): Promise<{ ok: true; message: string } | { ok: false; message: string }> {
-	const trunkResult = await runGraphiteCommand(commands, {
-		cwd,
-		args: ["trunk", "--no-interactive"],
-		timeoutMs: GT_TIMEOUT_MS,
-	});
+	const trunkResult = await runGraphiteCommand(
+		(command, args, options) => commands.exec(command, [...args], options),
+		{
+			cwd,
+			args: ["trunk", "--no-interactive"],
+			timeoutMs: GT_TIMEOUT_MS,
+		},
+	);
 	if (!isSuccessfulExecResult(trunkResult)) {
 		return {
 			ok: false,

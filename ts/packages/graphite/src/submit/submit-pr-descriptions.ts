@@ -4,9 +4,9 @@ import {
 	type PrDescriptionGenerationResolution,
 } from "@sdl/core/submit";
 import { formatItemCount } from "@sdl/core/submit";
+import type { PrewrittenPrMetadata } from "@sdl/core/submit";
 import type { SubmitPrLink } from "./gt-output.ts";
 import { formatPrLinkTextRow, prNumberFromLink } from "./submit-pr-link.ts";
-import type { PreparedSubmitPrMetadata } from "./submit-pr-metadata-prewrite.ts";
 import type { SubmitPrDescriptionOptions } from "./submit.ts";
 
 export type SubmitPrDescriptionGenerationResult =
@@ -29,7 +29,7 @@ export async function generateSubmitPrDescriptions(input: {
 	cwd: string;
 	prDescription: SubmitPrDescriptionOptions;
 	prLinks: readonly SubmitPrLink[];
-	prewrittenMetadata?: readonly PreparedSubmitPrMetadata[];
+	prewrittenMetadata?: readonly PrewrittenPrMetadata[];
 	onProgress?: (message: string) => void;
 }): Promise<SubmitPrDescriptionGenerationResult> {
 	const generated: SubmitPrLink[] = [];

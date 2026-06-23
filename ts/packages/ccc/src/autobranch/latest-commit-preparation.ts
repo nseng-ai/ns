@@ -125,15 +125,14 @@ export async function loadLatestCommitFacts(
 	input: Pick<LatestCommitPreparationInput, "cwd" | "exec" | "snapshot">,
 ): Promise<LatestCommitFactsResult> {
 	const trunk = await runGraphiteCommand(
-		{
-			exec(command, args, options) {
-				return input.exec(
-					command,
-					args,
-					options?.cwd ?? input.cwd,
-					options?.timeout ?? GT_TIMEOUT_MS,
-				);
-			},
+		async (command, args, options) => {
+			const result = await input.exec(
+				command,
+				[...args],
+				options?.cwd ?? input.cwd,
+				options?.timeout ?? GT_TIMEOUT_MS,
+			);
+			return { ...result, killed: result.killed ?? false };
 		},
 		{ cwd: input.cwd, args: ["trunk", "--no-interactive"], timeoutMs: GT_TIMEOUT_MS },
 	);

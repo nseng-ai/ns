@@ -202,7 +202,10 @@ export async function createTrackedBranchFromResolvedParent(options: {
 	}
 
 	const trackArgs = ["track", branchName, "--parent", parentBranch, "--no-interactive"];
-	const track = await runGraphiteCommand(pi, { cwd, args: trackArgs });
+	const track = await runGraphiteCommand(
+		(command, commandArgs, commandOptions) => pi.exec(command, [...commandArgs], commandOptions),
+		{ cwd, args: trackArgs },
+	);
 	if (!isSuccessfulExecResult(track)) {
 		return {
 			error: [
