@@ -1,7 +1,8 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, test } from "vitest";
 
@@ -15,6 +16,9 @@ import {
 } from "../../src/extension-registry.ts";
 
 const tempDirs: string[] = [];
+const FLOW_EXTENSION_SOURCE = fileURLToPath(
+	new URL("../../../../../.sdl/extensions/flow", import.meta.url),
+);
 
 interface Workspace {
 	cwd: string;
@@ -292,6 +296,35 @@ describe("extension registry", () => {
 			description: "Say hello.",
 			fullDescription: "Say hello.\n\nWith details.",
 		});
+	});
+
+	test("checked-in flow extension command entries load successfully", async () => {
+		const workspace = await createWorkspace();
+		const destination = join(workspace.cwd, ".sdl", "extensions", "flow");
+		mkdirSync(dirname(destination), { recursive: true });
+		cpSync(FLOW_EXTENSION_SOURCE, destination, { recursive: true });
+
+		const catalog = await loadSdlCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+
+		expect(catalog.diagnostics).toEqual([]);
+		expect([...catalog.candidates.keys()]).toEqual([
+			"flow/autobranch",
+			"flow/autoslot",
+			"flow/changes",
+			"flow/cp",
+			"flow/land",
+			"flow/pull-trunk",
+			"flow/push",
+			"flow/regenerate-pr",
+			"flow/submit",
+		]);
+
+		const failures: string[] = [];
+		for (const [key, candidate] of catalog.candidates) {
+			const loaded = await loadSelectedSdlCommand(candidate);
+			if (!loaded.ok) failures.push(`${key}: ${loaded.diagnostic.message}`);
+		}
+		expect(failures).toEqual([]);
 	});
 
 	test("one SDL extension module can contribute multiple manifest-listed commands", async () => {
