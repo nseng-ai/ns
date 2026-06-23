@@ -13,6 +13,27 @@ import {
 	tallyGithubStatusChecks,
 } from "@sdl/core/github-status";
 
+interface CheckRunFixture {
+	workflowName: string;
+	name: string;
+	status: string;
+	conclusion?: string | undefined;
+	startedAt?: string | undefined;
+	completedAt?: string | undefined;
+}
+
+function checkRun(fixture: CheckRunFixture): unknown {
+	return {
+		__typename: "CheckRun",
+		name: fixture.name,
+		status: fixture.status,
+		...(fixture.conclusion === undefined ? {} : { conclusion: fixture.conclusion }),
+		...(fixture.startedAt === undefined ? {} : { startedAt: fixture.startedAt }),
+		...(fixture.completedAt === undefined ? {} : { completedAt: fixture.completedAt }),
+		checkSuite: { workflowRun: { workflow: { name: fixture.workflowName } } },
+	};
+}
+
 describe("GitHub status boundary parsing", () => {
 	test("extracts canonical GitHub PR identity", () => {
 		expect(
@@ -52,6 +73,11 @@ describe("GitHub status boundary parsing", () => {
 			"-f",
 			"headRefName=feature/current",
 		]);
+		expect(githubWorktreePrStatusQuery).toContain(
+			"name status conclusion startedAt completedAt detailsUrl",
+		);
+		expect(githubWorktreePrStatusQuery).toContain("checkSuite{workflowRun{workflow{name}}}");
+		expect(githubWorktreePrStatusQuery).toContain("context state createdAt targetUrl");
 	});
 
 	test("parses bounded worktree PR status GraphQL response with pagination flags", () => {
@@ -250,5 +276,116 @@ describe("GitHub status check classification", () => {
 				null,
 			]),
 		).toEqual({ passing: 1, pending: 1, failing: 1, unknown: 2 });
+	});
+
+	test("ignores a superseded canceled check run", () => {
+		expect(
+			tallyGithubStatusChecks([
+				checkRun({
+					workflowName: "ci",
+					name: "test",
+					status: "COMPLETED",
+					conclusion: "CANCELLED",
+					completedAt: "2026-01-01T00:00:00Z",
+				}),
+				checkRun({
+					workflowName: "ci",
+					name: "test",
+					status: "COMPLETED",
+					conclusion: "SUCCESS",
+					completedAt: "2026-01-01T00:05:00Z",
+				}),
+			]),
+		).toEqual({ passing: 1, pending: 0, failing: 0, unknown: 0 });
+	});
+
+	test("keeps the newest canceled or stale check run as failing", () => {
+		expect(
+			tallyGithubStatusChecks([
+				checkRun({
+					workflowName: "ci",
+					name: "test",
+					status: "COMPLETED",
+					conclusion: "SUCCESS",
+					completedAt: "2026-01-01T00:00:00Z",
+				}),
+				checkRun({
+					workflowName: "ci",
+					name: "test",
+					status: "COMPLETED",
+					conclusion: "STALE",
+					completedAt: "2026-01-01T00:05:00Z",
+				}),
+			]),
+		).toEqual({ passing: 0, pending: 0, failing: 1, unknown: 0 });
+	});
+
+	test("keeps distinct workflow and check name pairs separate", () => {
+		expect(
+			tallyGithubStatusChecks([
+				checkRun({
+					workflowName: "lint",
+					name: "required",
+					status: "COMPLETED",
+					conclusion: "SUCCESS",
+					completedAt: "2026-01-01T00:00:00Z",
+				}),
+				checkRun({
+					workflowName: "test",
+					name: "required",
+					status: "COMPLETED",
+					conclusion: "FAILURE",
+					completedAt: "2026-01-01T00:01:00Z",
+				}),
+			]),
+		).toEqual({ passing: 1, pending: 0, failing: 1, unknown: 0 });
+	});
+
+	test("dedupes status contexts by context name", () => {
+		expect(
+			tallyGithubStatusChecks([
+				{
+					__typename: "StatusContext",
+					context: "ci/provider",
+					state: "FAILURE",
+					createdAt: "2026-01-01T00:00:00Z",
+				},
+				{
+					__typename: "StatusContext",
+					context: "ci/provider",
+					state: "SUCCESS",
+					createdAt: "2026-01-01T00:05:00Z",
+				},
+			]),
+		).toEqual({ passing: 1, pending: 0, failing: 0, unknown: 0 });
+	});
+
+	test("preserves multiple unknown-identity entries", () => {
+		expect(
+			tallyGithubStatusChecks([
+				{ __typename: "CheckRun", status: "COMPLETED", conclusion: "MYSTERY" },
+				{ __typename: "StatusContext", state: "MYSTERY" },
+				null,
+			]),
+		).toEqual({ passing: 0, pending: 0, failing: 0, unknown: 3 });
+	});
+
+	test("uses the last returned check when matching identities have no timestamps", () => {
+		expect(
+			tallyGithubStatusChecks([
+				checkRun({
+					workflowName: "ci",
+					name: "test",
+					status: "COMPLETED",
+					conclusion: "CANCELLED",
+				}),
+				checkRun({
+					workflowName: "ci",
+					name: "test",
+					status: "COMPLETED",
+					conclusion: "SUCCESS",
+				}),
+			]),
+		).toEqual({ passing: 1, pending: 0, failing: 0, unknown: 0 });
 	});
 });

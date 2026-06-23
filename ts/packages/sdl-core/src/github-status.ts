@@ -52,7 +52,7 @@ export type GithubWorktreePrStatusParseResult =
 	| { type: "schema-mismatch" };
 
 export const githubWorktreePrStatusQuery =
-	"query($owner:String!,$repo:String!,$headRefName:String!){repository(owner:$owner,name:$repo){pullRequests(first:2,states:OPEN,headRefName:$headRefName,orderBy:{field:UPDATED_AT,direction:DESC}){nodes{number url headRefName headRefOid statusCheckRollup{contexts(first:100){pageInfo{hasNextPage} nodes{__typename ... on CheckRun{status conclusion} ... on StatusContext{state}}}} reviewThreads(first:100){totalCount pageInfo{hasNextPage} nodes{isResolved}}}}}}";
+	"query($owner:String!,$repo:String!,$headRefName:String!){repository(owner:$owner,name:$repo){pullRequests(first:2,states:OPEN,headRefName:$headRefName,orderBy:{field:UPDATED_AT,direction:DESC}){nodes{number url headRefName headRefOid statusCheckRollup{contexts(first:100){pageInfo{hasNextPage} nodes{__typename ... on CheckRun{name status conclusion startedAt completedAt detailsUrl checkSuite{workflowRun{workflow{name}}}} ... on StatusContext{context state createdAt targetUrl}}}} reviewThreads(first:100){totalCount pageInfo{hasNextPage} nodes{isResolved}}}}}}";
 
 const githubReviewThreadConnectionSchema = z
 	.object({
@@ -233,12 +233,100 @@ export function tallyGithubStatusChecks(
 	options: { hasMore?: boolean | undefined } = {},
 ): GithubCheckTally {
 	const tally: GithubCheckTally = { passing: 0, pending: 0, failing: 0, unknown: 0 };
-	for (const item of items) {
+	for (const item of latestGithubStatusChecks(items)) {
 		const bucket = classifyGithubStatusCheck(item);
 		tally[bucket] += 1;
 	}
 	if (options.hasMore === true) tally.hasMore = true;
 	return tally;
+}
+
+function latestGithubStatusChecks(items: readonly unknown[]): readonly unknown[] {
+	const latestByIdentity = new Map<string, { item: unknown; timestampMs: number | undefined }>();
+	const unknownIdentityItems: unknown[] = [];
+
+	for (const item of items) {
+		const identity = statusCheckIdentity(item);
+		if (identity === undefined) {
+			unknownIdentityItems.push(item);
+			continue;
+		}
+
+		const timestampMs = statusCheckTimestampMs(item);
+		const current = latestByIdentity.get(identity);
+		if (current === undefined || shouldReplaceStatusCheck(current.timestampMs, timestampMs)) {
+			latestByIdentity.set(identity, { item, timestampMs });
+		}
+	}
+
+	return [...latestByIdentity.values()].map((entry) => entry.item).concat(unknownIdentityItems);
+}
+
+function shouldReplaceStatusCheck(
+	currentTimestampMs: number | undefined,
+	candidateTimestampMs: number | undefined,
+): boolean {
+	if (candidateTimestampMs === undefined) return currentTimestampMs === undefined;
+	if (currentTimestampMs === undefined) return true;
+	return candidateTimestampMs >= currentTimestampMs;
+}
+
+function statusCheckIdentity(item: unknown): string | undefined {
+	if (!isRecord(item)) return undefined;
+	const typename = nonEmptyString(item.__typename);
+	if (typename === "CheckRun") return checkRunIdentity(item);
+	if (typename === "StatusContext") return statusContextIdentity(item);
+	return undefined;
+}
+
+function checkRunIdentity(item: Record<string, unknown>): string | undefined {
+	const name = nonEmptyString(item.name);
+	const workflowName = checkRunWorkflowName(item);
+	if (workflowName !== undefined && name !== undefined) return `check-run:${workflowName}:${name}`;
+	if (name !== undefined) return `check-run:${name}`;
+	const detailsUrl = nonEmptyString(item.detailsUrl);
+	return detailsUrl === undefined ? undefined : `check-run-url:${detailsUrl}`;
+}
+
+function checkRunWorkflowName(item: Record<string, unknown>): string | undefined {
+	const directWorkflowName = nonEmptyString(item.workflowName);
+	if (directWorkflowName !== undefined) return directWorkflowName;
+
+	const checkSuite = item.checkSuite;
+	if (!isRecord(checkSuite)) return undefined;
+	const workflowRun = checkSuite.workflowRun;
+	if (!isRecord(workflowRun)) return undefined;
+	const workflow = workflowRun.workflow;
+	if (!isRecord(workflow)) return undefined;
+	return nonEmptyString(workflow.name);
+}
+
+function statusContextIdentity(item: Record<string, unknown>): string | undefined {
+	const context = nonEmptyString(item.context);
+	if (context !== undefined) return `status-context:${context}`;
+	const targetUrl = nonEmptyString(item.targetUrl);
+	return targetUrl === undefined ? undefined : `status-context-url:${targetUrl}`;
+}
+
+function statusCheckTimestampMs(item: unknown): number | undefined {
+	if (!isRecord(item)) return undefined;
+	return (
+		dateTimestampMs(item.completedAt) ??
+		dateTimestampMs(item.startedAt) ??
+		dateTimestampMs(item.createdAt)
+	);
+}
+
+function dateTimestampMs(value: unknown): number | undefined {
+	if (typeof value !== "string") return undefined;
+	const timestampMs = Date.parse(value);
+	return Number.isNaN(timestampMs) ? undefined : timestampMs;
+}
+
+function nonEmptyString(value: unknown): string | undefined {
+	if (typeof value !== "string") return undefined;
+	const trimmed = value.trim();
+	return trimmed.length === 0 ? undefined : trimmed;
 }
 
 function repositoryIdentityFromParts(
