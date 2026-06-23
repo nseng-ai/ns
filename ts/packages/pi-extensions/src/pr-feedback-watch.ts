@@ -593,11 +593,12 @@ export function buildDetectedFeedbackPrompt(input: DispatchPromptInput): string 
 		data.markdown,
 		"",
 		"Instructions:",
-		"- Triage the downloaded feedback above and propose a focused plan before editing.",
-		"- Do not push, submit, create branches, resolve threads, or reply on GitHub unless the human explicitly asks.",
-		"- If the human asks you to address feedback, inspect the current repository state before acting; after implementing or verifying fixes and running appropriate validation, resolve/reply to review threads with `pr-address exec resolve-review-thread --thread-id <THREAD_ID> --format json` / `pr-address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json` rather than raw `gh api graphql`.",
-		"- Ask before cross-cutting, complex, ambiguous, or dirty-tree work.",
-		"- Run appropriate tests before committing.",
+		"- Inspect the current repository state before acting.",
+		"- Automatically address straightforward feedback when it is localized, mechanically verifiable, low-risk, and does not require a product/design decision or broad refactor.",
+		"- For straightforward fixes: edit the minimal files, run appropriate validation, then resolve/reply to the addressed review threads with `pr-address exec resolve-review-thread --thread-id <THREAD_ID> --format json` / `pr-address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json` rather than raw `gh api graphql`.",
+		"- Do not push, submit, create branches, or mutate unrelated GitHub state unless the human explicitly asks.",
+		"- Ask before cross-cutting, complex, ambiguous, human-authored, or dirty-tree work.",
+		"- After all automatic actions complete, summarize completed fixes, validation, GitHub thread actions, and present remaining feedback for human curation.",
 	);
 	return lines.join("\n");
 }

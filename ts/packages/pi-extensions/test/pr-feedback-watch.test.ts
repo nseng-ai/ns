@@ -407,7 +407,7 @@ describe("pr feedback watch download helpers", () => {
 		).toEqual(["download-feedback:123:1"]);
 	});
 
-	test("builds a constrained pr-address prompt", () => {
+	test("builds an automatic straightforward-fix prompt", () => {
 		const parsed = parseDownloadFeedbackData(downloadData());
 		expect(parsed.type).toBe("valid");
 		if (parsed.type !== "valid") return;
@@ -420,10 +420,11 @@ describe("pr feedback watch download helpers", () => {
 		expect(prompt).toContain("PR: #123 PR title");
 		expect(prompt).toContain("Downloaded feedback Markdown:");
 		expect(prompt).toContain("download/download-feedback:123:1");
+		expect(prompt).toContain("Inspect the current repository state before acting");
+		expect(prompt).toContain("Automatically address straightforward feedback");
+		expect(prompt).toContain("localized, mechanically verifiable, low-risk");
 		expect(prompt).toContain("Do not push, submit, create branches");
-		expect(prompt).toContain("Triage the downloaded feedback");
-		expect(prompt).toContain("If the human asks you to address feedback");
-		expect(prompt).toContain("inspect the current repository state before acting");
+		expect(prompt).toContain("present remaining feedback for human curation");
 		expect(prompt).toContain(
 			"pr-address exec resolve-review-thread --thread-id <THREAD_ID> --format json",
 		);
@@ -431,6 +432,8 @@ describe("pr feedback watch download helpers", () => {
 			"pr-address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json",
 		);
 		expect(prompt).toContain("rather than raw `gh api graphql`");
+		expect(prompt).not.toContain("Do not edit files yet");
+		expect(prompt).not.toContain("wait for human confirmation");
 	});
 });
 

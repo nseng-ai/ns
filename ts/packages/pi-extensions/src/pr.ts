@@ -220,7 +220,7 @@ async function runPrDownloadFeedbackCommand(
 			cwd: ctx.cwd,
 			...(prNumber === undefined ? {} : { prNumber }),
 			timeoutMs: COMMAND_TIMEOUT_MS,
-			allowFailureData: true,
+			shouldAllowFailureData: true,
 		});
 		if (downloaded.type === "error") {
 			notify(ctx, downloaded.message, "error");

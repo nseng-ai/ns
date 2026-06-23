@@ -72,7 +72,7 @@ export interface DownloadPrFeedbackOptions {
 	timeoutMs: number;
 	signal?: AbortSignal | undefined;
 	runner?: PrAddressRunner | undefined;
-	allowFailureData?: boolean | undefined;
+	shouldAllowFailureData?: boolean | undefined;
 }
 
 export function parseDownloadFeedbackData(value: unknown): PrFeedbackDownloadParseResult {
@@ -109,14 +109,17 @@ export async function downloadPrFeedback(
 	if (result.killed) {
 		return { type: "error", message: "download-feedback timed out." };
 	}
-	if (result.code !== 0 && options.allowFailureData !== true) {
+	if (result.code !== 0 && options.shouldAllowFailureData !== true) {
 		return {
 			type: "error",
 			message: `download-feedback failed: ${result.stderr.trim() || `exit code ${result.code}`}`,
 		};
 	}
 
-	const envelopeData = parseDownloadFeedbackEnvelopeData(result, options.allowFailureData === true);
+	const envelopeData = parseDownloadFeedbackEnvelopeData(
+		result,
+		options.shouldAllowFailureData === true,
+	);
 	if (envelopeData.type === "error") return envelopeData;
 	const parsedData = parseDownloadFeedbackData(envelopeData.data);
 	if (parsedData.type === "invalid") return { type: "error", message: parsedData.message };
@@ -125,14 +128,14 @@ export async function downloadPrFeedback(
 
 function parseDownloadFeedbackEnvelopeData(
 	result: ExecResult,
-	allowFailureData: boolean,
+	shouldAllowFailureData: boolean,
 ): { type: "ok"; data: unknown } | { type: "error"; message: string } {
 	const parsed = parseMachineEnvelopeData(result.stdout, {
 		label: "pr-address download-feedback JSON",
 		stdoutTail: { maxChars: 1_000 },
 	});
 	if (parsed.type === "valid") return { type: "ok", data: parsed.data };
-	if (allowFailureData) {
+	if (shouldAllowFailureData) {
 		const failureData = failureEnvelopeData(result.stdout);
 		if (failureData !== undefined) return { type: "ok", data: failureData };
 	}
@@ -144,6 +147,7 @@ function failureEnvelopeData(stdout: string): Record<string, unknown> | undefine
 	try {
 		parsed = JSON.parse(stdout);
 	} catch {
+		// Malformed JSON means stdout is not a Clinkr failure envelope; report the original parse error.
 		return undefined;
 	}
 	if (!isRecord(parsed) || parsed.exit_code !== 1 || !isRecord(parsed.data)) return undefined;
