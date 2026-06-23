@@ -1,3 +1,4 @@
+import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
 import type { Stats } from "node:fs";
 import { lstat, readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -252,15 +253,13 @@ export async function handleWritePlanCommand(
 	args: string,
 	ctx: CommandContext,
 ): Promise<void> {
-	await ctx.waitForIdle();
 	const steering = args.trim();
-	if (ctx.hasUI) {
-		sendCommandProgressOrNotify({
-			host: pi,
-			ctx,
-			message: `Starting /${WRITE_PLAN_COMMAND_NAME} planning turn…`,
-		});
-	}
+	sendCommandProgressOrNotify({
+		host: pi,
+		ctx,
+		message: `Starting /${WRITE_PLAN_COMMAND_NAME} planning turn…`,
+	});
+	await ctx.waitForIdle();
 	const promptBody = await resolveWritePlanPromptBody(pi, ctx.cwd);
 	if (promptBody.type === "fallback" && ctx.hasUI) {
 		ctx.ui.notify(promptBody.warning, "warning");
@@ -273,15 +272,13 @@ export async function handleWriteGrilledPlanCommand(
 	args: string,
 	ctx: CommandContext,
 ): Promise<void> {
-	await ctx.waitForIdle();
 	const steering = args.trim();
-	if (ctx.hasUI) {
-		sendCommandProgressOrNotify({
-			host: pi,
-			ctx,
-			message: `Starting /${WRITE_GRILLED_PLAN_COMMAND_NAME} planning grill…`,
-		});
-	}
+	sendCommandProgressOrNotify({
+		host: pi,
+		ctx,
+		message: `Starting /${WRITE_GRILLED_PLAN_COMMAND_NAME} planning grill…`,
+	});
+	await ctx.waitForIdle();
 	pi.sendUserMessage(buildWriteGrilledPlanPrompt(steering));
 }
 
@@ -529,14 +526,22 @@ export function registerEnrichedPlanCommandsAndTools(
 	pi: ExtensionAPI,
 	options: BranchContextExtensionOptions = {},
 ): void {
-	pi.registerCommand(WRITE_PLAN_COMMAND_NAME, {
-		description: "Write and save a reviewed implementation plan in the local plan store.",
-		handler: async (args, ctx) => handleWritePlanCommand(pi, args, ctx),
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: WRITE_PLAN_COMMAND_NAME,
+		commandDefinition: {
+			description: "Write and save a reviewed implementation plan in the local plan store.",
+			handler: async (args, ctx) => handleWritePlanCommand(pi, args, ctx),
+		},
 	});
 
-	pi.registerCommand(WRITE_GRILLED_PLAN_COMMAND_NAME, {
-		description: "Write and save a grilled implementation plan using structured requirements UI.",
-		handler: async (args, ctx) => handleWriteGrilledPlanCommand(pi, args, ctx),
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: WRITE_GRILLED_PLAN_COMMAND_NAME,
+		commandDefinition: {
+			description: "Write and save a grilled implementation plan using structured requirements UI.",
+			handler: async (args, ctx) => handleWriteGrilledPlanCommand(pi, args, ctx),
+		},
 	});
 
 	pi.registerTool(buildWriteSavedPlanFileTool(pi, options));

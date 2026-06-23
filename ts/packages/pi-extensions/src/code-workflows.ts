@@ -1,4 +1,4 @@
-import { withImmediateCommandAck } from "@sdl/pi-extension-runtime/command-ack";
+import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
 import { buildSkillInvocationPrompt, invokeRepoSkillPromptTurn } from "./skill-expansion.ts";
 import { truncateDisplayLine } from "./terminal-presentation.ts";
 import type {
@@ -129,21 +129,28 @@ const ROUTES = [
 ] as const satisfies readonly WorkflowRoute[];
 
 export default function codeWorkflowsExtension(pi: CodeWorkflowsExtensionAPI): void {
-	const commandPi = withImmediateCommandAck(pi);
-	commandPi.registerMessageRenderer?.(CODE_WORKFLOWS_MESSAGE_TYPE, renderCodeWorkflowMessage);
-	commandPi.registerCommand(CODE_WORKFLOWS_COMMAND_NAME, {
-		description: "Select a rare code workflow without starting a model turn",
-		getArgumentCompletions: completeWorkflowRoute,
-		handler: async (args, ctx) => {
-			await ctx.waitForIdle();
-			await showCodeWorkflowSelector(pi, ctx, args);
+	pi.registerMessageRenderer?.(CODE_WORKFLOWS_MESSAGE_TYPE, renderCodeWorkflowMessage);
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: CODE_WORKFLOWS_COMMAND_NAME,
+		commandDefinition: {
+			description: "Select a rare code workflow without starting a model turn",
+			getArgumentCompletions: completeWorkflowRoute,
+			handler: async (args, ctx) => {
+				await ctx.waitForIdle();
+				await showCodeWorkflowSelector(pi, ctx, args);
+			},
 		},
 	});
-	commandPi.registerCommand(GH_CI_DEBUG_COMMAND_NAME, {
-		description: "Diagnose a failing GitHub Actions run or PR check",
-		argumentHint: "[run URL, PR URL/number, or branch context]",
-		handler: async (args, ctx) => {
-			await invokeGhCiDebugWorkflow(pi, ctx, args);
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: GH_CI_DEBUG_COMMAND_NAME,
+		commandDefinition: {
+			description: "Diagnose a failing GitHub Actions run or PR check",
+			argumentHint: "[run URL, PR URL/number, or branch context]",
+			handler: async (args, ctx) => {
+				await invokeGhCiDebugWorkflow(pi, ctx, args);
+			},
 		},
 	});
 }

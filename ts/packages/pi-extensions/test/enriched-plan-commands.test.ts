@@ -185,6 +185,8 @@ describe("enriched-plan-commands", () => {
 
 		pi.assertDone();
 		expect(pi.sentUserMessages).toEqual([buildWritePlanPrompt("symlink")]);
-		expect(context.notifications).toEqual([]);
+		expect(context.notifications).toEqual([
+			{ message: "Starting /sdl:plan:save planning turn…", level: "info" },
+		]);
 	});
 });

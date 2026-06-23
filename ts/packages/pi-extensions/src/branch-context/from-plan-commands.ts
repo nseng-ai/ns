@@ -1,4 +1,8 @@
 import {
+	sendCommandProgressOrNotify,
+	registerCommandWithImmediateAck,
+} from "@sdl/pi-extension-runtime/command-ack";
+import {
 	formatBranchContextUpAndImplFollowUpFlow,
 	runBranchContextUpAndImplLaunch,
 } from "@sdl/ccc/branch-context-up-and-impl";
@@ -332,8 +336,13 @@ export async function handleImplBranchContextCommand(
 	ctx: CommandContext,
 	options: BranchContextExtensionOptions,
 ): Promise<void> {
-	await ctx.waitForIdle();
 	const trimmedArgs = args.trim();
+	sendCommandProgressOrNotify({
+		host: pi,
+		ctx,
+		message: "Loading attached branch-context plan…",
+	});
+	await ctx.waitForIdle();
 	ctx.ui.setStatus(IMPL_BRANCH_CONTEXT_STATUS_KEY, "loading attached branch-context plan…");
 	try {
 		const operations = resolveBranchContextOperations(options);
@@ -365,8 +374,6 @@ export async function handleCreateBranchContextCommand(
 	ctx: CommandContext,
 	options: BranchContextExtensionOptions,
 ): Promise<void> {
-	await ctx.waitForIdle();
-
 	let args: CreateBranchContextArgs;
 	try {
 		args = parseCreateBranchContextArgs(rawArgs);
@@ -385,9 +392,17 @@ export async function handleCreateBranchContextCommand(
 	}
 
 	if (args.help) {
+		await ctx.waitForIdle();
 		presentBranchContextMessage(pi, ctx, CREATE_BRANCH_CONTEXT_USAGE, { status: "usage" }, "info");
 		return;
 	}
+
+	sendCommandProgressOrNotify({
+		host: pi,
+		ctx,
+		message: "Finding saved plan for branch context…",
+	});
+	await ctx.waitForIdle();
 
 	let selected: SelectedSavedPlanFile;
 	ctx.ui.setStatus(BRANCH_CONTEXT_STATUS_KEY, "finding saved plan…");
@@ -465,8 +480,6 @@ export async function handleUpAndImplCommand(
 	ctx: CommandContext,
 	options: BranchContextExtensionOptions,
 ): Promise<void> {
-	await ctx.waitForIdle();
-
 	let args: CreateBranchContextArgs;
 	try {
 		args = parseCreateBranchContextArgs(rawArgs);
@@ -485,9 +498,17 @@ export async function handleUpAndImplCommand(
 	}
 
 	if (args.help) {
+		await ctx.waitForIdle();
 		presentBranchContextMessage(pi, ctx, UP_AND_IMPL_USAGE, { status: "usage" }, "info");
 		return;
 	}
+
+	sendCommandProgressOrNotify({
+		host: pi,
+		ctx,
+		message: "Finding saved plan for upstack branch-context implementation…",
+	});
+	await ctx.waitForIdle();
 
 	const previewOptions: BranchContextExtensionOptions = {
 		...options,
@@ -851,20 +872,32 @@ export function registerBranchContextCommands(
 	pi: ExtensionAPI,
 	options: BranchContextExtensionOptions = {},
 ): void {
-	pi.registerCommand(CREATE_BRANCH_CONTEXT_COMMAND_NAME, {
-		description:
-			"Create a branch context using a content-derived slug, then attach the saved plan in Branch Memory.",
-		handler: async (args, ctx) => handleCreateBranchContextCommand(pi, args, ctx, options),
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: CREATE_BRANCH_CONTEXT_COMMAND_NAME,
+		commandDefinition: {
+			description:
+				"Create a branch context using a content-derived slug, then attach the saved plan in Branch Memory.",
+			handler: async (args, ctx) => handleCreateBranchContextCommand(pi, args, ctx, options),
+		},
 	});
 
-	pi.registerCommand(UP_AND_IMPL_COMMAND_NAME, {
-		description:
-			"Stack a branch context on the current branch with Graphite, check it out, and implement the attached plan in a fresh Pi session.",
-		handler: async (args, ctx) => handleUpAndImplCommand(pi, args, ctx, options),
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: UP_AND_IMPL_COMMAND_NAME,
+		commandDefinition: {
+			description:
+				"Stack a branch context on the current branch with Graphite, check it out, and implement the attached plan in a fresh Pi session.",
+			handler: async (args, ctx) => handleUpAndImplCommand(pi, args, ctx, options),
+		},
 	});
 
-	pi.registerCommand(IMPL_BRANCH_CONTEXT_COMMAND_NAME, {
-		description: "Implement from the attached or latest saved branch-context plan.",
-		handler: async (args, ctx) => handleImplBranchContextCommand(pi, args, ctx, options),
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: IMPL_BRANCH_CONTEXT_COMMAND_NAME,
+		commandDefinition: {
+			description: "Implement from the attached or latest saved branch-context plan.",
+			handler: async (args, ctx) => handleImplBranchContextCommand(pi, args, ctx, options),
+		},
 	});
 }

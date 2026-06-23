@@ -9,7 +9,7 @@
  * failure never blocks the deterministic view.
  */
 
-import { withImmediateCommandAck } from "@sdl/pi-extension-runtime/command-ack";
+import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
 import type {
 	BeforeAgentStartEvent,
 	ContextEvent,
@@ -76,15 +76,18 @@ interface OverlaySession {
 }
 
 export function registerContextProfilerExtension(pi: ExtensionAPI): void {
-	const commandPi = withImmediateCommandAck(pi, { progressDelivery: "status" });
 	const runtime = new ProfilerRuntimeStore();
 	const segmentationCache = createSegmentationCacheCell();
 	const sessions = new OverlaySessionController();
 
-	commandPi.registerCommand(CONTEXT_PROFILER_COMMAND_NAME, {
-		description:
-			"Open the context profiler: a diagnostic, non-mutating overlay over this session's context",
-		handler: async (_args, ctx) => openProfiler({ ctx, runtime, segmentationCache, sessions }),
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: CONTEXT_PROFILER_COMMAND_NAME,
+		commandDefinition: {
+			description:
+				"Open the context profiler: a diagnostic, non-mutating overlay over this session's context",
+			handler: async (_args, ctx) => openProfiler({ ctx, runtime, segmentationCache, sessions }),
+		},
 	});
 
 	pi.on("before_agent_start", (event, _ctx) => runtime.handleBeforeAgentStart(event));

@@ -1,4 +1,4 @@
-import { withImmediateCommandAck } from "@sdl/pi-extension-runtime/command-ack";
+import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
 import type { GrillAskOutcome } from "./grill-ui/controller.ts";
 import { runGrillAskInlineUi } from "./grill-ui/inline-ui.ts";
 import {
@@ -316,18 +316,25 @@ export async function executeGrillAsk(
 }
 
 export function registerGrillUiExtension(pi: ExtensionAPI): void {
-	const commandPi = withImmediateCommandAck(pi);
-	commandPi.registerCommand(GRILL_UI_COMMAND_NAME, {
-		description: "Start a grill-me session that uses structured question UI.",
-		handler: async (args, ctx) => handleGrillUiCommand(pi, args, ctx),
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: GRILL_UI_COMMAND_NAME,
+		commandDefinition: {
+			description: "Start a grill-me session that uses structured question UI.",
+			handler: async (args, ctx) => handleGrillUiCommand(pi, args, ctx),
+		},
 	});
 
-	commandPi.registerCommand(GRILL_WITH_DOCS_UI_COMMAND_NAME, {
-		description: "Start a docs-aware grill-with-docs session that uses structured question UI.",
-		handler: async (args, ctx) => handleGrillWithDocsUiCommand(pi, args, ctx),
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: GRILL_WITH_DOCS_UI_COMMAND_NAME,
+		commandDefinition: {
+			description: "Start a docs-aware grill-with-docs session that uses structured question UI.",
+			handler: async (args, ctx) => handleGrillWithDocsUiCommand(pi, args, ctx),
+		},
 	});
 
-	commandPi.registerTool({
+	pi.registerTool({
 		name: GRILL_ASK_TOOL_NAME,
 		label: "Grill Ask",
 		description:

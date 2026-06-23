@@ -1,4 +1,4 @@
-import { withImmediateCommandAck } from "@sdl/pi-extension-runtime/command-ack";
+import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
 import {
 	buildObjectiveSkillPrompt,
 	chooseActiveObjectiveSlug,
@@ -37,16 +37,19 @@ const OBJECTIVE_STACK_IMPL_COMMAND: ObjectiveStackImplCommandSpec = {
 };
 
 export function registerObjectiveStackImplCommand(host: ObjectiveStackImplHost): void {
-	const commandHost = withImmediateCommandAck(host);
-	commandHost.registerCommand(OBJECTIVE_STACK_IMPL_COMMAND.commandName, {
-		description: OBJECTIVE_STACK_IMPL_COMMAND.description,
-		handler: async (args, ctx) =>
-			handleObjectiveStackImplCommand({
-				host: commandHost,
-				spec: OBJECTIVE_STACK_IMPL_COMMAND,
-				args,
-				ctx: objectiveSelectionContextFromCommandContext(ctx),
-			}),
+	registerCommandWithImmediateAck({
+		host: host,
+		commandName: OBJECTIVE_STACK_IMPL_COMMAND.commandName,
+		commandDefinition: {
+			description: OBJECTIVE_STACK_IMPL_COMMAND.description,
+			handler: async (args, ctx) =>
+				handleObjectiveStackImplCommand({
+					host,
+					spec: OBJECTIVE_STACK_IMPL_COMMAND,
+					args,
+					ctx: objectiveSelectionContextFromCommandContext(ctx),
+				}),
+		},
 	});
 }
 

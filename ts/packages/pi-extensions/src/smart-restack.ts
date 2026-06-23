@@ -1,7 +1,7 @@
 import { formatOutputSection, tailText, type ExecOptions, type ExecResult } from "@sdl/core/exec";
 import {
 	sendCommandProgressOrNotify,
-	withImmediateCommandAck,
+	registerCommandWithImmediateAck,
 } from "@sdl/pi-extension-runtime/command-ack";
 
 import { buildFencedTextBlock, expandRepoSkillBlock } from "./skill-expansion.ts";
@@ -74,13 +74,17 @@ interface InvokeLmResolverOptions {
 }
 
 export default function smartRestackExtension(pi: SmartRestackExtensionAPI): void {
-	const commandPi = withImmediateCommandAck(pi);
-	commandPi.registerCommand(SMART_RESTACK_COMMAND_NAME, {
-		description: "Run gt restack first; fall through to LM-assisted conflict resolution if needed",
-		argumentHint: "[context for resolver if needed]",
-		handler: async (args, ctx) => {
-			await ctx.waitForIdle?.();
-			await runSmartRestack(pi, ctx, args);
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: SMART_RESTACK_COMMAND_NAME,
+		commandDefinition: {
+			description:
+				"Run gt restack first; fall through to LM-assisted conflict resolution if needed",
+			argumentHint: "[context for resolver if needed]",
+			handler: async (args, ctx) => {
+				await ctx.waitForIdle?.();
+				await runSmartRestack(pi, ctx, args);
+			},
 		},
 	});
 }

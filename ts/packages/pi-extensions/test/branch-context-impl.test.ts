@@ -33,10 +33,13 @@ describe("branch-context-impl", () => {
 		pi.assertDone();
 		expect(context.waits()).toBe(1);
 		expect(events).toContain("wait");
+		expect(events.indexOf("notify")).toBeLessThan(events.indexOf("wait"));
 		expect(pi.execCalls).toEqual([]);
 		expect(fakes.loadPlanCalls).toHaveLength(1);
 		expect(fakes.loadPlanCalls[0]?.[1]).toEqual({});
-		expect(context.notifications).toEqual([]);
+		expect(context.notifications).toEqual([
+			{ message: "Loading attached branch-context plan…", level: "info" },
+		]);
 		expect(context.statuses).toEqual([
 			{
 				key: "sdl-command-ack",

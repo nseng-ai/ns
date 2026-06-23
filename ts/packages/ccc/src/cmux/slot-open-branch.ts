@@ -1,3 +1,4 @@
+import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
 import { findLatestBranchContextEvidence, type BranchContextEvidence } from "@sdl/branch-context";
 import { sendCommandProgressOrNotify } from "@sdl/pi-extension-runtime/command-ack";
 
@@ -40,16 +41,20 @@ export function registerCccSlotOpenBranchCommand(pi: ExtensionAPI): void {
 		);
 	});
 
-	pi.registerCommand(COMMAND_NAME, {
-		description:
-			"Open a branch, or the latest branch context when omitted, in a new cmux workspace.",
-		argumentHint: "[branch]",
-		getArgumentCompletions: async (argumentPrefix) => {
-			const completions = await getBranchCompletions(pi, currentCwd, argumentPrefix);
-			return completions.length > 0 ? completions : null;
-		},
-		handler: async (args, ctx) => {
-			await handleCccSlotOpenBranch({ pi, args, ctx });
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: COMMAND_NAME,
+		commandDefinition: {
+			description:
+				"Open a branch, or the latest branch context when omitted, in a new cmux workspace.",
+			argumentHint: "[branch]",
+			getArgumentCompletions: async (argumentPrefix) => {
+				const completions = await getBranchCompletions(pi, currentCwd, argumentPrefix);
+				return completions.length > 0 ? completions : null;
+			},
+			handler: async (args, ctx) => {
+				await handleCccSlotOpenBranch({ pi, args, ctx });
+			},
 		},
 	});
 }
@@ -58,9 +63,17 @@ export async function handleCccSlotOpenBranch(
 	options: HandleCccSlotOpenBranchOptions,
 ): Promise<void> {
 	const { pi, args, ctx } = options;
+	const explicitBranch = args.trim();
+	sendCommandProgressOrNotify({
+		host: pi,
+		ctx,
+		message:
+			explicitBranch.length > 0
+				? `Opening cmux workspace for ${explicitBranch}…`
+				: "Resolving branch context to open…",
+	});
 	await ctx.waitForIdle();
 
-	const explicitBranch = args.trim();
 	const resolved: ResolvedBranch =
 		explicitBranch.length > 0
 			? { branchName: explicitBranch, inferred: false }
@@ -80,11 +93,13 @@ export async function handleCccSlotOpenBranch(
 	}
 
 	const branch = resolved.branchName;
-	sendCommandProgressOrNotify({
-		host: pi,
-		ctx,
-		message: `Opening cmux workspace for ${branch}…`,
-	});
+	if (resolved.inferred) {
+		sendCommandProgressOrNotify({
+			host: pi,
+			ctx,
+			message: `Opening cmux workspace for ${branch}…`,
+		});
+	}
 
 	const launched = await openBranchInCmuxSlot({
 		pi,

@@ -1,3 +1,4 @@
+import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
 import { formatCommand, formatCommandFailure, isSuccessfulExecResult } from "@sdl/core/exec";
 import { planLocalBranchRefreshFromWorktrees, type LocalBranchRefreshPlan } from "@sdl/core/git";
 import { sendCommandProgressOrNotify } from "@sdl/pi-extension-runtime/command-ack";
@@ -27,12 +28,16 @@ export function registerCccSlotDispatchFromTrunkCommand(
 	options: DispatchPromptPayloadOptions = {},
 ): void {
 	const payloadOptions = resolveDispatchPromptPayloadOptions(options);
-	pi.registerCommand(COMMAND_NAME, {
-		description:
-			"Create a Graphite-tracked branch from refreshed trunk and dispatch a prompt in a new cmux workspace.",
-		argumentHint: "<prompt>",
-		handler: async (args, ctx) => {
-			await handleCccSlotDispatchFromTrunk({ pi, payloadOptions, args, ctx });
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: COMMAND_NAME,
+		commandDefinition: {
+			description:
+				"Create a Graphite-tracked branch from refreshed trunk and dispatch a prompt in a new cmux workspace.",
+			argumentHint: "<prompt>",
+			handler: async (args, ctx) => {
+				await handleCccSlotDispatchFromTrunk({ pi, payloadOptions, args, ctx });
+			},
 		},
 	});
 }
@@ -50,6 +55,7 @@ async function handleCccSlotDispatchFromTrunk(options: {
 		return;
 	}
 
+	sendCommandProgressOrNotify({ host: pi, ctx, message: "Resolving Graphite trunk…" });
 	await ctx.waitForIdle();
 	const branch = await createTrackedBranchFromTrunkForPrompt({
 		pi,

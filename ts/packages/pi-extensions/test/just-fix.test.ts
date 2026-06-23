@@ -194,7 +194,10 @@ Repair the failed just run.
 			expect(pi.execCalls).toEqual([
 				{ command: "just", args: [], options: { cwd: dir, timeout: JUST_TIMEOUT_MS } },
 			]);
-			expect(context.statuses).toEqual([]);
+			expect(context.statuses).toEqual([
+				{ key: "just", value: "running just…" },
+				{ key: "just", value: undefined },
+			]);
 			expect(pi.messages).toEqual([
 				{
 					customType: "sdl-command-ack",

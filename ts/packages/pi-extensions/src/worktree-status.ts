@@ -1,6 +1,6 @@
 import { basename, resolve } from "node:path";
 
-import { withImmediateCommandAck } from "@sdl/pi-extension-runtime/command-ack";
+import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
 import type { CustomMessageContent } from "@sdl/pi-extension-runtime/terminal-presentation";
 
 import {
@@ -220,6 +220,10 @@ type MessageRenderer = (
 interface RegisteredCommand {
 	description: string;
 	handler: (args: string, ctx: ExtensionContext) => Promise<void> | void;
+}
+
+interface CommandRegistrationExtensionAPI extends ExtensionAPI {
+	registerCommand(name: string, options: RegisteredCommand): void;
 }
 
 export interface ExtensionAPI {
@@ -664,16 +668,21 @@ export default function worktreeStatusExtension(
 		return false;
 	}
 
-	const commandPi = withImmediateCommandAck(pi);
-	commandPi.registerCommand?.(WORKTREE_STATUS_REFRESH_COMMAND_NAME, {
-		description: "Refresh the worktree status footer",
-		handler: async (_args, _ctx) => {
-			const session = activeSession;
-			if (session === undefined) return;
-			recordSessionActivity(session, { shouldRefreshOnWake: false });
-			await refreshActiveSession({ remoteRefresh: "force" });
-		},
-	});
+	if (hasCommandRegistration(pi)) {
+		registerCommandWithImmediateAck({
+			host: pi,
+			commandName: WORKTREE_STATUS_REFRESH_COMMAND_NAME,
+			commandDefinition: {
+				description: "Refresh the worktree status footer",
+				handler: async (_args, _ctx) => {
+					const session = activeSession;
+					if (session === undefined) return;
+					recordSessionActivity(session, { shouldRefreshOnWake: false });
+					await refreshActiveSession({ remoteRefresh: "force" });
+				},
+			},
+		});
+	}
 
 	function handleActiveSessionActivity(afterRecordActivity?: () => void): void {
 		recordActiveSessionActivity();
@@ -733,6 +742,10 @@ export default function worktreeStatusExtension(
 	pi.on("session_shutdown", async () => {
 		closeActiveSession();
 	});
+}
+
+function hasCommandRegistration(pi: ExtensionAPI): pi is CommandRegistrationExtensionAPI {
+	return pi.registerCommand !== undefined;
 }
 
 function currentFooterBranch(cwd: string, footerData: StatusFooterData): string | null {
