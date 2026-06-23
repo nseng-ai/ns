@@ -1,9 +1,9 @@
-import { orchestratePrDescription } from "./pr-description-orchestration.ts";
+import { orchestratePrDescription } from "@sdl/core/submit";
 import {
 	resolvePrDescriptionGeneration,
 	type PrDescriptionGenerationResolution,
-} from "./pr-description.ts";
-import { formatItemCount } from "./format.ts";
+} from "@sdl/core/submit";
+import { formatItemCount } from "@sdl/core/submit";
 import type { SubmitPrLink } from "./gt-output.ts";
 import { formatPrLinkTextRow, prNumberFromLink } from "./submit-pr-link.ts";
 import type { PreparedSubmitPrMetadata } from "./submit-pr-metadata-prewrite.ts";

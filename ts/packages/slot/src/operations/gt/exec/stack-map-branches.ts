@@ -4,13 +4,13 @@ import type {
 	GraphiteTopology,
 	GraphiteTopologyParseDiagnostics,
 	GraphiteWalkTermination,
-} from "@sdl/core/graphite-metadata";
+} from "@sdl/graphite/metadata";
 import { z } from "zod";
 
 import { deduplicateOrderedStrings } from "../../../collections.ts";
 import type { SlotCliContext } from "../../../context.ts";
 import type { LocalBranchTip } from "../../../gateways/repository.ts";
-import type { StackInfo } from "../../../gateways/gt.ts";
+import type { StackInfo } from "@sdl/graphite/stack";
 import { buildSlotInventory, type SlotRecord } from "../../../inventory.ts";
 import { resolveRepoAndCurrentBranch } from "../shared.ts";
 import {

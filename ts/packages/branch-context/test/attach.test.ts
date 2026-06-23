@@ -11,7 +11,7 @@ import { attachBranchContextEntry } from "../src/attach.ts";
 import { BRANCH_CONTEXT_NAMESPACE, buildBranchContextPlanKey } from "../src/constants.ts";
 import type { BranchContextContext } from "../src/context.ts";
 import { InMemoryBranchMemoryGateway } from "@sdl/branch-context/testing";
-import { InMemoryBranchContextGraphiteGateway } from "./support/in-memory-graphite-gateway.ts";
+import { InMemoryGraphiteBranchGateway } from "@sdl/graphite/testing";
 
 const ROOT = "/repo";
 const SOURCE_BRANCH = "feature/source-plan";
@@ -39,7 +39,7 @@ function branchContext(
 		commands: NO_COMMANDS,
 		git: overrides.git,
 		brmem: overrides.brmem,
-		graphite: new InMemoryBranchContextGraphiteGateway(),
+		graphite: new InMemoryGraphiteBranchGateway(),
 	};
 }
 

@@ -19,13 +19,11 @@ import {
 	type GraphiteTopology,
 	type GraphiteWalkTermination,
 	type SqliteJsonRunner,
-} from "@sdl/core/graphite-metadata";
-import { isRecord } from "@sdl/core/primitives";
+} from "./metadata.ts";
 import { NodeCommandExecApi, type CommandExecApi } from "@sdl/core/exec";
+import { isRecord } from "@sdl/core/primitives";
 
-import type { SlotRepositoryGateway } from "./repository.ts";
-
-const SLOT_GT_TIMEOUT_MS = 10_000;
+const GRAPHITE_STACK_COMMAND_TIMEOUT_MS = 10_000;
 
 export interface GtCommandFailure {
 	message: string;
@@ -85,12 +83,23 @@ export interface StackGraphInfo {
 	diagnostics: GraphiteTopologyParseDiagnostics;
 }
 
-export interface SlotGtGateway {
+export interface GraphiteStackGateway {
 	parentOf(cwd: string): Promise<ParentOfResult>;
 	childrenOf(cwd: string): Promise<ChildrenOfResult>;
 	trunk(cwd: string): Promise<TrunkResult>;
 	stack(cwd: string): Promise<StackResult>;
 	stackGraph(cwd: string): Promise<StackGraphResult>;
+}
+
+export interface GraphiteStackGitGateway {
+	getGitCommonDir(cwd: string): Promise<string | null>;
+	getCurrentBranch(
+		cwd: string,
+	): Promise<
+		| { type: "branch"; branch: string }
+		| { type: "detached" }
+		| { type: "failure"; failure: { message: string } }
+	>;
 }
 
 export type GraphiteMetadataJsonQueryResult =
@@ -102,14 +111,14 @@ export interface GraphiteMetadataDbAccess {
 	queryJson(dbPath: string, query: string): GraphiteMetadataJsonQueryResult;
 }
 
-export class RealSlotGtGateway implements SlotGtGateway {
+export class RealGraphiteStackGateway implements GraphiteStackGateway {
 	private readonly env: NodeJS.ProcessEnv;
 	private readonly execApi: CommandExecApi;
-	private readonly git: SlotRepositoryGateway;
+	private readonly git: GraphiteStackGitGateway;
 	private readonly metadataDbAccess: GraphiteMetadataDbAccess;
 
 	constructor(options: {
-		git: SlotRepositoryGateway;
+		git: GraphiteStackGitGateway;
 		env?: NodeJS.ProcessEnv | undefined;
 		execApi?: CommandExecApi | undefined;
 		metadataDbAccess?: GraphiteMetadataDbAccess | undefined;
@@ -217,7 +226,7 @@ export class RealSlotGtGateway implements SlotGtGateway {
 		const result = await this.execApi.exec(command, [...args], {
 			cwd,
 			env: this.env,
-			timeout: SLOT_GT_TIMEOUT_MS,
+			timeout: GRAPHITE_STACK_COMMAND_TIMEOUT_MS,
 		});
 		return {
 			isOk: result.code === 0 && !result.killed,

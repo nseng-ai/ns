@@ -3,9 +3,9 @@ import { isAbsolute, resolve } from "node:path";
 
 import { formatCommand, piExecApiToCommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway } from "@sdl/core/git";
-import { reconcileTopologyToLiveBranches } from "@sdl/core/graphite-metadata";
+import { reconcileTopologyToLiveBranches } from "@sdl/graphite/metadata";
 import { GIT_TIMEOUT_MS, GT_TIMEOUT_MS } from "./constants.ts";
-import { exec, formatCommandDetails } from "./command-exec.ts";
+import { exec, execGraphite, formatCommandDetails } from "./command-exec.ts";
 import {
 	completed,
 	failure,
@@ -75,7 +75,11 @@ export async function loadTrunk(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
 ): Promise<LandStackResult<string>> {
-	const result = await exec(pi, "gt", ["trunk", "--no-interactive"], repoRoot, GT_TIMEOUT_MS);
+	const result = await execGraphite(pi, {
+		args: ["trunk", "--no-interactive"],
+		cwd: repoRoot,
+		timeoutMs: GT_TIMEOUT_MS,
+	});
 	if (result.code !== 0) {
 		return failure(
 			landStackFailure(

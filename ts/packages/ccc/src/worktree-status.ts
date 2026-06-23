@@ -38,7 +38,7 @@ import {
 	type GraphiteMetadataStatus,
 	type GraphiteMetadataWorkerDiagnostic,
 	type LoadGraphiteMetadataStatusInWorkerOptions,
-} from "./worktree-status/graphite-metadata.ts";
+} from "@sdl/graphite/status";
 
 export const WORKTREE_STATUS_UI_KEY = "worktree-status";
 const COMMAND_TIMEOUT_MS = 5_000;

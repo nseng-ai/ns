@@ -2,13 +2,13 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY } from "@sdl/core/graphite-metadata";
+import { GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY } from "@sdl/graphite/metadata";
 import {
-	RealSlotGtGateway,
+	RealGraphiteStackGateway,
 	type GraphiteMetadataDbAccess,
 	type GraphiteMetadataJsonQueryResult,
 	type GtCommandFailure,
-} from "../../src/gateways/gt.ts";
+} from "@sdl/graphite/stack";
 import { FakeSlotRepositoryGateway } from "../../src/gateways/fakes/repository.ts";
 
 interface MetadataRow {
@@ -28,7 +28,7 @@ const expectedSchemaRows = [
 	{ name: "validation_result" },
 ] as const;
 
-describe("RealSlotGtGateway stack metadata adapter", () => {
+describe("RealGraphiteStackGateway stack metadata adapter", () => {
 	it("reads a happy linear stack with a clean trunk marker", async () => {
 		const { gateway } = gatewayWithMetadata({
 			currentBranch: "feature/a",
@@ -359,7 +359,7 @@ function gatewayWithMetadata(options: {
 	rows: readonly MetadataRow[] | GraphiteMetadataJsonQueryResult;
 	exists?: boolean | undefined;
 	schema?: GraphiteMetadataJsonQueryResult | undefined;
-}): { gateway: RealSlotGtGateway; dbAccess: FakeGraphiteMetadataDbAccess } {
+}): { gateway: RealGraphiteStackGateway; dbAccess: FakeGraphiteMetadataDbAccess } {
 	const rows: GraphiteMetadataJsonQueryResult = isMetadataRows(options.rows)
 		? { type: "success", data: options.rows }
 		: options.rows;
@@ -369,7 +369,7 @@ function gatewayWithMetadata(options: {
 		rows,
 	});
 	return {
-		gateway: new RealSlotGtGateway({
+		gateway: new RealGraphiteStackGateway({
 			git: new FakeSlotRepositoryGateway({
 				gitCommonDir: COMMON_DIR,
 				worktrees: [{ path: "/repo", branch: options.currentBranch }],

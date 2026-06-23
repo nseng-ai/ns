@@ -5,16 +5,13 @@ import {
 	type StdinCapableCommandExecApi,
 } from "@sdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@sdl/core/git";
-import {
-	RealBranchContextGraphiteGateway,
-	type BranchContextGraphiteGateway,
-} from "./graphite-gateway.ts";
+import { RealGraphiteBranchGateway, type GraphiteBranchGateway } from "@sdl/graphite/branch";
 
 export interface BranchContextContext {
 	commands: CommandExecApi;
 	git: GitGateway;
 	brmem: BrmemGateway;
-	graphite: BranchContextGraphiteGateway;
+	graphite: GraphiteBranchGateway;
 }
 
 export function createBranchContextContext(
@@ -28,7 +25,7 @@ export function createBranchContextContext(
 		commands,
 		git,
 		brmem,
-		graphite: new RealBranchContextGraphiteGateway(commands),
+		graphite: new RealGraphiteBranchGateway(commands),
 	};
 }
 

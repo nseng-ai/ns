@@ -5,8 +5,8 @@ import {
 	parseGtLogStack,
 	parseParentBranch,
 	RealSubmitMetadataGateway,
-} from "@sdl/core/submit";
-import { RealSubmitGateway } from "@sdl/core/submit";
+} from "@sdl/graphite/submit";
+import { RealSubmitGateway } from "@sdl/graphite/submit";
 import { ScriptedCommandRunner, startupErrorStep, step } from "@sdl/core/testing";
 
 describe("RealSubmitGateway", () => {

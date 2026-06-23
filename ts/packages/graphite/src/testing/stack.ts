@@ -1,22 +1,22 @@
 import type {
 	ChildrenOfResult,
 	ParentOfResult,
-	SlotGtGateway,
+	GraphiteStackGateway,
 	StackGraphInfo,
 	StackGraphResult,
 	StackInfo,
 	StackResult,
 	TrunkResult,
-} from "../gt.ts";
+} from "../stack.ts";
 
-export type FakeSlotGtOperation =
+export type FakeGraphiteStackOperation =
 	| { type: "parent-of"; cwd: string }
 	| { type: "children-of"; cwd: string }
 	| { type: "trunk"; cwd: string }
 	| { type: "stack"; cwd: string }
 	| { type: "stack-graph"; cwd: string };
 
-export interface FakeSlotGtGatewayOptions {
+export interface FakeGraphiteStackGatewayOptions {
 	parent?: ParentOfResult | undefined;
 	children?: ChildrenOfResult | undefined;
 	trunk?: TrunkResult | undefined;
@@ -24,15 +24,15 @@ export interface FakeSlotGtGatewayOptions {
 	stackGraph?: StackGraphResult | undefined;
 }
 
-export class FakeSlotGtGateway implements SlotGtGateway {
+export class FakeGraphiteStackGateway implements GraphiteStackGateway {
 	private readonly parentResult: ParentOfResult;
 	private readonly childrenResult: ChildrenOfResult;
 	private readonly trunkResult: TrunkResult;
 	private readonly stackResult: StackResult;
 	private readonly stackGraphResult: StackGraphResult;
-	private readonly log: FakeSlotGtOperation[] = [];
+	private readonly log: FakeGraphiteStackOperation[] = [];
 
-	constructor(options: FakeSlotGtGatewayOptions = {}) {
+	constructor(options: FakeGraphiteStackGatewayOptions = {}) {
 		this.parentResult = options.parent ?? { type: "no_parent" };
 		this.childrenResult = options.children ?? { type: "children", branches: [] };
 		this.trunkResult = options.trunk ?? { type: "trunk", branch: "master" };
@@ -65,7 +65,7 @@ export class FakeSlotGtGateway implements SlotGtGateway {
 		return copyStackGraphResult(this.stackGraphResult);
 	}
 
-	operations(): readonly FakeSlotGtOperation[] {
+	operations(): readonly FakeGraphiteStackOperation[] {
 		return this.log.map((operation) => ({ ...operation }));
 	}
 }

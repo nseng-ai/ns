@@ -1,5 +1,6 @@
 import type { CommandResult } from "@sdl/sdl/checkpoint-flow";
 import type { PendingWorktreeSnapshot } from "@sdl/sdl/pending-worktree";
+import { runGraphiteCommand } from "@sdl/graphite/branch";
 
 import { chooseAvailableBranchName } from "./branch-name.ts";
 import {
@@ -123,7 +124,19 @@ export async function prepareLatestCommitAutobranchPlan(
 export async function loadLatestCommitFacts(
 	input: Pick<LatestCommitPreparationInput, "cwd" | "exec" | "snapshot">,
 ): Promise<LatestCommitFactsResult> {
-	const trunk = await input.exec("gt", ["trunk", "--no-interactive"], input.cwd, GT_TIMEOUT_MS);
+	const trunk = await runGraphiteCommand(
+		{
+			exec(command, args, options) {
+				return input.exec(
+					command,
+					args,
+					options?.cwd ?? input.cwd,
+					options?.timeout ?? GT_TIMEOUT_MS,
+				);
+			},
+		},
+		{ cwd: input.cwd, args: ["trunk", "--no-interactive"], timeoutMs: GT_TIMEOUT_MS },
+	);
 	if (trunk.code !== 0) {
 		return { ok: false, kind: "trunk_lookup_failed", error: formatCommandDetails(trunk) };
 	}

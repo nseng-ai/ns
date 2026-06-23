@@ -6,10 +6,10 @@ import {
 	type ExecOutputListener,
 	type ExecOutputStream,
 	type ExecResult,
-} from "../exec.ts";
-import type { GitGateway } from "../git/index.ts";
+} from "@sdl/core/exec";
+import type { GitGateway } from "@sdl/core/git";
 
-import type { GithubPrGateway } from "./github-pr-gateway.ts";
+import type { GithubPrGateway } from "@sdl/core/submit";
 import { extractPrLinks, type SubmitPrLink } from "./gt-output.ts";
 import {
 	formatPostSubmitFailureOutput,
@@ -35,7 +35,7 @@ import {
 	generateSubmitPrDescriptions,
 } from "./submit-pr-descriptions.ts";
 import { prNumberFromLink } from "./submit-pr-link.ts";
-import type { TextGenerator } from "./text-generation.ts";
+import type { TextGenerator } from "@sdl/core/submit";
 
 const SUBMIT_ARGS = [
 	"submit",

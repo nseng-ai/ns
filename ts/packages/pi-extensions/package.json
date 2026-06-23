@@ -15,7 +15,8 @@
     "@sdl/branch-context": "workspace:*",
     "@sdl/plans": "workspace:*",
     "@sdl/sdl": "workspace:*",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@sdl/graphite": "workspace:*"
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",

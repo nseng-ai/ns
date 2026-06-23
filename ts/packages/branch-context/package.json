@@ -22,7 +22,8 @@
     "@sdl/core": "workspace:*",
     "@sdl/pi-command-surfaces": "workspace:*",
     "@sdl/plans": "workspace:*",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@sdl/graphite": "workspace:*"
   },
   "devDependencies": {}
 }

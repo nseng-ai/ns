@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { loadGraphiteMetadataStatus } from "@sdl/ccc/worktree-status/graphite-metadata";
+import { loadGraphiteMetadataStatus } from "@sdl/graphite/status";
 import {
 	makeGitRepo,
 	runSqliteStatements,
@@ -12,7 +12,7 @@ import {
 	writeGraphiteMetadataDb,
 	writeLocalBranchRef,
 	writeLocalBranchRefsForMetadataChildren,
-} from "./worktree-status-fixtures.ts";
+} from "./status-fixtures.ts";
 
 const CURRENT_SDL_TOOLS_METADATA_FIXTURE = new URL(
 	"../fixtures/graphite-metadata/sdl-tools-current.graphite_metadata.db",

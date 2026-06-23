@@ -12,7 +12,7 @@ import {
 	type GraphiteMetadataWorkerDiagnostic,
 	type GraphiteMetadataWorkerHandle,
 	type GraphiteMetadataWorkerRequest,
-} from "@sdl/ccc/worktree-status/graphite-metadata";
+} from "@sdl/graphite/status";
 import type { LocalBranchRefReadResult } from "@sdl/core/git";
 
 class NonRespondingMetadataWorker implements GraphiteMetadataWorkerHandle {

@@ -16,7 +16,7 @@ import type { CommandExecApi } from "@sdl/core/exec";
 import { InMemoryGitGateway } from "@sdl/core/git/testing";
 import { buildPlanFileName, buildRepoPlanStoreKey, encodeBranchForPlanPath } from "@sdl/plans";
 import { InMemoryBranchMemoryGateway } from "@sdl/branch-context/testing";
-import { InMemoryBranchContextGraphiteGateway } from "./support/in-memory-graphite-gateway.ts";
+import { InMemoryGraphiteBranchGateway } from "@sdl/graphite/testing";
 
 const ROOT = "/repo";
 const PLAN_SLUG = "branch-scoped-plan-extension";
@@ -45,7 +45,7 @@ function branchContext(overrides: Partial<BranchContextContext> = {}): BranchCon
 		brmem: new InMemoryBranchMemoryGateway({
 			entries: [{ branch: PLAN_BRANCH, key: PLAN_KEY, content: PLAN_CONTENT }],
 		}),
-		graphite: new InMemoryBranchContextGraphiteGateway(),
+		graphite: new InMemoryGraphiteBranchGateway(),
 		...overrides,
 	};
 }

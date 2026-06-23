@@ -12,9 +12,9 @@ import {
 	type InMemoryBrmemGatewayState,
 } from "@sdl/branch-context/testing";
 import {
-	InMemoryBranchContextGraphiteGateway,
+	InMemoryGraphiteBranchGateway,
 	type InMemoryGraphiteGatewayState,
-} from "./in-memory-graphite-gateway.ts";
+} from "@sdl/graphite/testing";
 
 export const SOURCE_BRANCH = "feature/source-plan";
 export const PLAN_SLUG = "branch-scoped-plan";
@@ -54,7 +54,7 @@ export interface CliRun {
 	commands: RecordingCommands;
 	git: InMemoryGitGateway;
 	brmem: InMemoryBranchMemoryGateway;
-	graphite: InMemoryBranchContextGraphiteGateway;
+	graphite: InMemoryGraphiteBranchGateway;
 }
 
 export interface RunWithFakesOptions {
@@ -103,7 +103,7 @@ export function runWithFakes(args: readonly string[], options: RunWithFakesOptio
 		...options.git,
 	});
 	const brmem = new InMemoryBranchMemoryGateway(options.brmem);
-	const graphite = new InMemoryBranchContextGraphiteGateway(options.graphite);
+	const graphite = new InMemoryGraphiteBranchGateway(options.graphite);
 	return {
 		stdout,
 		stderr,

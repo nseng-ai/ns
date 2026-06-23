@@ -25,7 +25,7 @@ import {
 	type WorktreeStatus,
 	type WorktreeStatusIdentity,
 } from "@sdl/ccc/worktree-status";
-import { shutdownGraphiteMetadataWorker } from "@sdl/ccc/worktree-status/graphite-metadata";
+import { shutdownGraphiteMetadataWorker } from "@sdl/graphite/status";
 
 import { systemClock, type Clock } from "@sdl/core/clock";
 import type { TimerScheduler } from "@sdl/core/timers";

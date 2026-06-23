@@ -6,6 +6,8 @@ import {
 	type ExecResult,
 } from "@sdl/core/exec";
 
+export const GRAPHITE_COMMAND_NAME = "gt";
+
 const GT_TIMEOUT_MS = 30_000;
 
 export interface GraphiteTrackBranchParams {
@@ -34,11 +36,22 @@ export type GraphiteBranchTrackedResult =
 	| { ok: true; tracked: false; detail: string }
 	| { ok: false; error: GraphiteErrorInfo };
 
-export interface BranchContextGraphiteGateway {
+export interface GraphiteBranchGateway {
 	checkBranchTracked(
 		params: GraphiteCheckBranchTrackedParams,
 	): Promise<GraphiteBranchTrackedResult>;
 	trackBranch(params: GraphiteTrackBranchParams): Promise<GraphiteOperationResult>;
+}
+
+export interface GraphiteCommandRunParams {
+	cwd: string;
+	args: readonly string[];
+	timeoutMs?: number | undefined;
+	signal?: AbortSignal | undefined;
+}
+
+export interface GraphiteCommandExecApi<TResult> {
+	exec(command: string, args: string[], options?: ExecOptions): Promise<TResult>;
 }
 
 interface CommandRun {
@@ -46,7 +59,7 @@ interface CommandRun {
 	displayCommand: string;
 }
 
-export class RealBranchContextGraphiteGateway implements BranchContextGraphiteGateway {
+export class RealGraphiteBranchGateway implements GraphiteBranchGateway {
 	private readonly pi: CommandExecApi;
 
 	constructor(pi: CommandExecApi) {
@@ -105,6 +118,17 @@ export class RealBranchContextGraphiteGateway implements BranchContextGraphiteGa
 		}
 		return { ok: true };
 	}
+}
+
+export function runGraphiteCommand<TResult>(
+	api: GraphiteCommandExecApi<TResult>,
+	params: GraphiteCommandRunParams,
+): Promise<TResult> {
+	return api.exec(
+		GRAPHITE_COMMAND_NAME,
+		[...params.args],
+		execOptions(params.cwd, params.timeoutMs ?? GT_TIMEOUT_MS, params.signal),
+	);
 }
 
 function startupFailure(displayCommand: string, caught: unknown): GraphiteErrorInfo {

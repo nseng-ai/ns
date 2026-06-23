@@ -13,8 +13,16 @@ import {
 	type PrDescriptionGenerationResolution,
 	type PromptSource,
 } from "./pr-description.ts";
-import type { PreparedSubmitPrMetadata } from "./submit-pr-metadata-prewrite.ts";
 import type { TextGenerator } from "./text-generation.ts";
+
+export interface PrewrittenPrMetadata {
+	branch: string;
+	parentBranch: string;
+	title: string;
+	body: string;
+	commitRange: string;
+	promptSource: PromptSource;
+}
 
 export interface PrDescriptionOrchestrationOptions {
 	cwd: string;
@@ -24,7 +32,7 @@ export interface PrDescriptionOrchestrationOptions {
 	textGenerator: TextGenerator;
 	pr: GithubPrDetails;
 	generation?: Extract<PrDescriptionGenerationResolution, { ok: true }>;
-	prewrittenMetadata?: PreparedSubmitPrMetadata;
+	prewrittenMetadata?: PrewrittenPrMetadata;
 	shouldForce?: boolean;
 	onProgress?: (message: string) => void;
 }
@@ -137,7 +145,7 @@ export async function orchestratePrDescription(
 async function reconcilePrewrittenPr(params: {
 	options: Pick<PrDescriptionOrchestrationOptions, "cwd" | "githubPr" | "onProgress">;
 	pr: GithubPrDetails;
-	metadata: PreparedSubmitPrMetadata;
+	metadata: PrewrittenPrMetadata;
 }): Promise<PrDescriptionOrchestrationResult> {
 	params.options.onProgress?.(`validating prewritten metadata for PR #${params.pr.number}`);
 	if (prMetadataMatches(params.pr.title, params.pr.body, params.metadata)) {
@@ -162,11 +170,7 @@ async function reconcilePrewrittenPr(params: {
 	};
 }
 
-function prMetadataMatches(
-	title: string,
-	body: string,
-	metadata: PreparedSubmitPrMetadata,
-): boolean {
+function prMetadataMatches(title: string, body: string, metadata: PrewrittenPrMetadata): boolean {
 	return title.trim() === metadata.title.trim() && body.trim() === metadata.body.trim();
 }
 

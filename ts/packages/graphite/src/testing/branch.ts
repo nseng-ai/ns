@@ -4,8 +4,8 @@ import type {
 	GraphiteErrorInfo,
 	GraphiteOperationResult,
 	GraphiteTrackBranchParams,
-	BranchContextGraphiteGateway,
-} from "../../src/graphite-gateway.ts";
+	GraphiteBranchGateway,
+} from "../branch.ts";
 
 export interface InMemoryGraphiteGatewayState {
 	checkFailure?: GraphiteErrorInfo | undefined;
@@ -25,7 +25,7 @@ export interface GraphiteTrackBranchCall {
 	parentBranch: string;
 }
 
-export class InMemoryBranchContextGraphiteGateway implements BranchContextGraphiteGateway {
+export class InMemoryGraphiteBranchGateway implements GraphiteBranchGateway {
 	private readonly checkFailure: GraphiteErrorInfo | undefined;
 	private readonly trackFailure: GraphiteErrorInfo | undefined;
 	private readonly untrackedBranches: ReadonlySet<string>;

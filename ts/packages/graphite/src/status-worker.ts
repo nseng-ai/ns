@@ -4,7 +4,7 @@ import {
 	graphiteMetadataWorkerRequestFromValue,
 	loadGraphiteMetadataStatus,
 	type GraphiteMetadataWorkerResponse,
-} from "./graphite-metadata.ts";
+} from "./status.ts";
 
 const port = parentPort;
 if (port !== null) {

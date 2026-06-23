@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 
-import { errorCodeFromUnknown, isRecord } from "./primitives.ts";
-import { resultErr, type Result } from "./result.ts";
+import { errorCodeFromUnknown, isRecord } from "@sdl/core/primitives";
+import { resultErr, type Result } from "@sdl/core/result";
 
 export const GRAPHITE_METADATA_SQLITE_QUERY_TIMEOUT_MS = 1_000;
 

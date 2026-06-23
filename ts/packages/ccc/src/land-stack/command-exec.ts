@@ -5,7 +5,8 @@ import {
 	tailText,
 	type ExecResult,
 } from "@sdl/core/exec";
-import { GRAPHITE_METADATA_DB_NAME } from "@sdl/core/graphite-metadata";
+import { GRAPHITE_COMMAND_NAME, runGraphiteCommand } from "@sdl/graphite/branch";
+import { GRAPHITE_METADATA_DB_NAME } from "@sdl/graphite/metadata";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import {
 	MAX_COMMAND_STREAM_OUTPUT_LINES,
@@ -49,12 +50,43 @@ export async function execRaw(
 	}
 }
 
+export interface ExecGraphiteOptions {
+	args: string[];
+	cwd: string;
+	timeoutMs: number;
+}
+
+export async function execGraphite(
+	pi: LandStackExtensionAPI,
+	options: ExecGraphiteOptions,
+): Promise<ExecResult> {
+	const result = await execRawGraphite(pi, options);
+	return normalizeCommandFinish(GRAPHITE_COMMAND_NAME, options.args, result).result;
+}
+
+export async function execRawGraphite(
+	pi: LandStackExtensionAPI,
+	options: ExecGraphiteOptions,
+): Promise<ExecResult> {
+	try {
+		return normalizeExecResult(await runGraphiteCommand(pi, options));
+	} catch (error) {
+		return {
+			stdout: "",
+			stderr: formatErrorMessage(error),
+			code: 1,
+			killed: false,
+		};
+	}
+}
+
 export function normalizeCommandFinish(
 	command: string,
 	args: string[],
 	result: ExecResult,
 ): CommandStreamFinish {
-	const deleteBranch = command === "gt" && args[0] === "delete" ? args[1] : undefined;
+	const deleteBranch =
+		command === GRAPHITE_COMMAND_NAME && args[0] === "delete" ? args[1] : undefined;
 	if (
 		deleteBranch &&
 		result.code !== 0 &&

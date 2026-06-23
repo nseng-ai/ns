@@ -1,18 +1,23 @@
-import { runCommand, stripTerminalEscapes, type CommandRunner, type ExecResult } from "../exec.ts";
-import type { GitGateway } from "../git/index.ts";
-import type { MaybePromise } from "../primitives.ts";
+import {
+	runCommand,
+	stripTerminalEscapes,
+	type CommandRunner,
+	type ExecResult,
+} from "@sdl/core/exec";
+import type { GitGateway } from "@sdl/core/git";
+import type { MaybePromise } from "@sdl/core/primitives";
 
-import { commandFailure } from "./command-failure.ts";
-import { formatItemCount } from "./format.ts";
-import type { PrCommitMessage } from "./github-pr-gateway.ts";
+import { commandFailure } from "@sdl/core/submit";
+import { formatItemCount } from "@sdl/core/submit";
+import type { PrCommitMessage } from "@sdl/core/submit";
 import { extractPrLinks, type SubmitPrLink } from "./gt-output.ts";
 import {
 	preparePrDescription,
 	resolvePrDescriptionGeneration,
 	type PromptSource,
-} from "./pr-description.ts";
-import { err, ok, type ErrorInfo, type GatewayResult } from "./result.ts";
-import type { TextGenerator } from "./text-generation.ts";
+} from "@sdl/core/submit";
+import { err, ok, type ErrorInfo, type GatewayResult } from "@sdl/core/submit";
+import type { TextGenerator } from "@sdl/core/submit";
 
 const GT_LOG_STACK_ARGS = ["log", "--stack", "--reverse", "--no-interactive"] as const;
 const GT_TRUNK_ARGS = ["trunk", "--no-interactive"] as const;
