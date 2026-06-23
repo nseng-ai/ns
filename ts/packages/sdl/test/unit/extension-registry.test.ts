@@ -284,6 +284,7 @@ describe("extension registry", () => {
 				run: () => ({ ok: true, message: "hello" }),
 			},
 			"project",
+			{ name: "hello" },
 		);
 
 		expect(info).toEqual({

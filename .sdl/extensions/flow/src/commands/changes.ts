@@ -4,13 +4,13 @@ import {
   DEFAULT_CHANGES_MODEL_REF,
   LEGACY_CHANGES_MODEL_ENV,
   selectChangesModelRef,
-} from "./shared/text-generation.ts";
-import { draftChangesSummary } from "./shared/text-helpers.ts";
+} from "../shared/text-generation.ts";
+import { draftChangesSummary } from "../shared/text-helpers.ts";
 import {
   formatPendingWorktreeError,
   loadPendingWorktreeSnapshot,
   type PendingWorktreeSnapshot,
-} from "./shared/worktree.ts";
+} from "../shared/worktree.ts";
 
 // This project-local extension uses the public SDL SDK plus internal migration
 // exports while duplicated workflow helpers move into package-owned modules.

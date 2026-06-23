@@ -1,6 +1,6 @@
 # @sdl/pi-extensions
 
-`@sdl/pi-extensions` is the repo-local engineered TypeScript layer for durable Pi extension behavior in sdl. Pi discovers checked-in project-local adapters under `.pi/extensions/`; adapters delegate stable, risky, reused, or test-worthy behavior to this private package. CCC (`@sdl/ccc`) is the separate private orchestration layer for repo-opinionated command-and-control workflows, owns the `ccc` Pi command prefix for cmux/workspace orchestration, and can own selected SDL code-lifecycle implementations such as `/sdl:code:land` while `autobranch` now uses the flat `/sdl:autobranch` mirror over `sdl autobranch`. Neutral shared helper contracts live below both packages in `@sdl/pi-extension-runtime`.
+`@sdl/pi-extensions` is the repo-local engineered TypeScript layer for durable Pi extension behavior in sdl. Pi discovers checked-in project-local adapters under `.pi/extensions/`; adapters delegate stable, risky, reused, or test-worthy behavior to this private package. CCC (`@sdl/ccc`) is the separate private orchestration layer for repo-opinionated command-and-control workflows, owns the `ccc` Pi command prefix for cmux/workspace orchestration, and can own selected SDL code-lifecycle implementations such as `/sdl:flow:land` while `autobranch` now uses the flat `/sdl:flow:autobranch` mirror over `sdl flow autobranch`. Neutral shared helper contracts live below both packages in `@sdl/pi-extension-runtime`.
 
 ## Language
 
@@ -53,16 +53,16 @@ The public Pi extension registration surface for `/objective:stack-impl`. The co
 *Avoid*: CCC command prefix alias, Objective storage owner, stack orchestration implementation body.
 
 **Autobranch mirror**:
-The public Pi extension registration surface for `/sdl:autobranch`. The command mirrors `sdl autobranch`, which is implemented in this repo by the SDK-only project-local SDL extension `.sdl/extensions/autobranch.ts`; hidden `ccc exec autobranch` remains internal compatibility evidence, not the public Pi adapter target.
-*Avoid*: nested `/sdl:code:autobranch`, old `/code:autobranch` compatibility alias, direct CCC CLI adapter as the public path.
+The public Pi extension registration surface for `/sdl:flow:autobranch`. The command mirrors `sdl flow autobranch`, which is implemented in this repo by the SDK-only project-local SDL extension `.sdl/extensions/flow/src/commands/autobranch.ts`; hidden `ccc exec autobranch` remains internal compatibility evidence, not the public Pi adapter target.
+*Avoid*: old `/sdl:autobranch`, old `/sdl:code:autobranch`, old `/code:autobranch` compatibility alias, direct CCC CLI adapter as the public path.
 
 **Land adapter**:
-The public Pi extension registration surface for unified `/sdl:code:land`. The command belongs to the SDL code-lifecycle family and is discovered through `@sdl/pi-extensions`, but Graphite stack-shape dispatch, single-PR fast landing, Graphite/GitHub/slot stack landing orchestration, and failure presentation are delegated to `@sdl/ccc/land`.
+The public Pi extension registration surface for unified `/sdl:flow:land`. The command belongs to the SDL code-lifecycle family and is discovered through `@sdl/pi-extensions`, but Graphite stack-shape dispatch, single-PR fast landing, Graphite/GitHub/slot stack landing orchestration, and failure presentation are delegated to `@sdl/ccc/land`.
 *Avoid*: PR view/merge policy owner, stack landing policy owner, direct Graphite/GitHub mutation owner, old `/code:land` compatibility alias.
 
 **Push mirror**:
-The public Pi extension registration surface for flat `/sdl:push`, a generic SDL CLI mirror over project-local `sdl push`. SDL owns the clean-worktree plain-`git push` behavior through `.sdl/extensions/push.ts`; Pi only registers and renders the generic CLI bridge output. Nested `/sdl:code:push` and legacy `/code:push` are not retained.
-*Avoid*: Pi-only push implementation, Graphite submit replacement, force-push or remote/branch argument pass-through, old `/sdl:code:push` compatibility alias.
+The public Pi extension registration surface for `/sdl:flow:push`, a generic SDL CLI mirror over project-local `sdl flow push`. SDL owns the clean-worktree plain-`git push` behavior through `.sdl/extensions/flow/src/commands/push.ts`; Pi only registers and renders the generic CLI bridge output. Old `/sdl:push`, `/sdl:code:push`, and `/code:push` aliases are not retained.
+*Avoid*: Pi-only push implementation, Graphite submit replacement, force-push or remote/branch argument pass-through, old `/sdl:flow:push` compatibility alias.
 
 **Worktree status adapter**:
 The Pi lifecycle module behind `.pi/extensions/worktree-status.ts`: registers the `worktree-status` renderer, reacts to session/tool/agent/shutdown events, manages active-session cancellation, watches Git/Branch Memory/worktree paths, installs the custom footer, and renders generic cwd/session/model/context/token/cost footer lines while delegating repo-operational status facts and presentation to `@sdl/ccc/worktree-status`.
@@ -165,32 +165,32 @@ The parity-review convention that Pi model-visible tools are host-native bridges
 *Avoid*: custom-tool parity row, hidden command surface, tool as workflow owner.
 
 **Code command prefix**:
-The Pi slash-command namespace for codebase/source-control or review workflows that intentionally remain outside the SDL code-lifecycle family. The current project-owned code-prefix command is `/code:pr-feedback-watch`; migrated lifecycle workflows use primary SDL mirrors under `/sdl:*` or selected nested code-lifecycle surfaces under `/sdl:code:*`, not `/code:*` compatibility aliases. PR metadata regeneration uses flat `/sdl:regenerate-pr`, not `/code:pr-regen` or `/sdl:code:regenerate-pr`; push uses flat `/sdl:push`, not `/sdl:code:push`.
+The Pi slash-command namespace for codebase/source-control or review workflows that intentionally remain outside the SDL flow lifecycle family. The current project-owned code-prefix command is `/code:pr-feedback-watch`; migrated lifecycle workflows use grouped SDL mirrors under `/sdl:flow:*`, not `/code:*` or `/sdl:code:*` compatibility aliases. PR metadata regeneration uses `/sdl:flow:regenerate-pr`, not `/code:pr-regen`; push uses `/sdl:flow:push`, not `/code:push`.
 *Avoid*: visibility flag, prototype marker, package prefix, migrated SDL workflow prefix.
 
 **Pending worktree snapshot**:
-A read-only capture of repository root, current branch, porcelain status, diff, and cleanliness used by `sdl changes` / `/sdl:changes` / `/sdl:code:changes` before presentation, by project-local `sdl cp` / `/sdl:cp` before checkpoint mutation, and by project-local `sdl autobranch` / `/sdl:autobranch` before mutation. Old checkpoint aliases such as `/code:cp`, `/code:checkpoint`, and `/sdl:code:checkpoint` remain unavailable.
+A read-only capture of repository root, current branch, porcelain status, diff, and cleanliness used by `sdl flow changes` / `/sdl:flow:changes` before presentation, by project-local `sdl flow cp` / `/sdl:flow:cp` before checkpoint mutation, and by project-local `sdl flow autobranch` / `/sdl:flow:autobranch` before mutation. Old checkpoint aliases such as `/code:cp`, `/code:checkpoint`, and `/sdl:code:checkpoint` remain unavailable.
 *Avoid*: stash, checkpoint, worktree status renderer, advertising unavailable old `cp` aliases.
 
 **Outstanding changes summary**:
-A read-only presentation of the current pending worktree state, including summary text and status-derived filenames, used by `sdl changes` / `/sdl:changes` / `/sdl:code:changes` before any checkpoint decision. The summary text is drafted through SDL text generation; when the model is unavailable or returns an invalid summary the command hard-errors rather than falling back to a deterministic summary.
+A read-only presentation of the current pending worktree state, including summary text and status-derived filenames, used by `sdl flow changes` / `/sdl:flow:changes` before any checkpoint decision. The summary text is drafted through SDL text generation; when the model is unavailable or returns an invalid summary the command hard-errors rather than falling back to a deterministic summary.
 *Avoid*: checkpoint message, diffstat only, worktree status footer, Pi-only changes card.
 
 **Checkpoint message**:
-The validated commit message generated or repaired from a pending worktree snapshot by project-local `sdl cp` / `/sdl:cp` or lower orchestration before a checkpoint commit.
+The validated commit message generated or repaired from a pending worktree snapshot by project-local `sdl flow cp` / `/sdl:flow:cp` or lower orchestration before a checkpoint commit.
 *Avoid*: checkpoint commit, PR title, branch slug.
 
 **Checkpoint commit**:
-A git commit created from pending worktree changes using a prepared checkpoint message. The restored explicit Pi mirror is `/sdl:cp`; old `/code:*` and nested checkpoint aliases are not restored.
+A git commit created from pending worktree changes using a prepared checkpoint message. The restored explicit Pi mirror is `/sdl:flow:cp`; old `/code:*` and nested checkpoint aliases are not restored.
 *Avoid*: checkpoint message, stash, branch creation, old checkpoint alias.
 
 **Autobranch preparation**:
-A pre-transaction plan used by `sdl autobranch` / `/sdl:autobranch`: choose a branch slug/name and collect preflight facts before moving work. Dirty-worktree preparation also prepares a checkpoint message; clean latest-commit preparation inspects trunk/upstream/parent shape and derives a slug from the existing commit message and diff.
-*Avoid*: Pi extension implementation ownership, nested `/sdl:code:autobranch`, branch transaction, stash operation, model prompt alone.
+A pre-transaction plan used by `sdl flow autobranch` / `/sdl:flow:autobranch`: choose a branch slug/name and collect preflight facts before moving work. Dirty-worktree preparation also prepares a checkpoint message; clean latest-commit preparation inspects trunk/upstream/parent shape and derives a slug from the existing commit message and diff.
+*Avoid*: Pi extension implementation ownership, old `/sdl:code:autobranch`, branch transaction, stash operation, model prompt alone.
 
 **Autobranch transaction**:
-The mutating `sdl autobranch` / `/sdl:autobranch` sequence. Dirty mode stashes pending changes, creates the branch, restores the stash, and writes a checkpoint commit; latest-commit mode creates a recovery branch, resets the source branch to the parent, creates the Graphite branch, hard-resets it to the original commit SHA, verifies the SHA, and cleans up recovery evidence.
-*Avoid*: Pi extension implementation ownership, nested `/sdl:code:autobranch`, preparation, plain git branch creation, restack.
+The mutating `sdl flow autobranch` / `/sdl:flow:autobranch` sequence. Dirty mode stashes pending changes, creates the branch, restores the stash, and writes a checkpoint commit; latest-commit mode creates a recovery branch, resets the source branch to the parent, creates the Graphite branch, hard-resets it to the original commit SHA, verifies the SHA, and cleans up recovery evidence.
+*Avoid*: Pi extension implementation ownership, old `/sdl:code:autobranch`, preparation, plain git branch creation, restack.
 
 **Runner subagent**:
 A fresh Pi subprocess launched by a parent extension with an isolated conversation and explicit return mode.

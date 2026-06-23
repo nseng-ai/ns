@@ -113,7 +113,7 @@ function createHarness(options: HarnessOptions = {}) {
 }
 
 describe("autoslot flow", () => {
-	test("registers only /sdl:code:autoslot", () => {
+	test("registers only /sdl:flow:autoslot", () => {
 		const commands = new Map<
 			string,
 			{
@@ -126,8 +126,8 @@ describe("autoslot flow", () => {
 			exec: async () => ({ code: 0, killed: false, stdout: "", stderr: "" }),
 		});
 
-		expect([...commands.keys()]).toEqual(["sdl:code:autoslot"]);
-		expect(commands.get("sdl:code:autoslot")?.description).toContain("managed slot worktree");
+		expect([...commands.keys()]).toEqual(["sdl:flow:autoslot"]);
+		expect(commands.get("sdl:flow:autoslot")?.description).toContain("managed slot worktree");
 	});
 
 	test("command reports start before waiting for idle", () => {
@@ -150,9 +150,9 @@ describe("autoslot flow", () => {
 				},
 			});
 
-			const command = commands.get("sdl:code:autoslot");
+			const command = commands.get("sdl:flow:autoslot");
 			if (command === undefined)
-				throw new Error("Expected sdl:code:autoslot command to be registered.");
+				throw new Error("Expected sdl:flow:autoslot command to be registered.");
 			void command.handler("", {
 				cwd: "/repo",
 				ui: {
@@ -169,11 +169,11 @@ describe("autoslot flow", () => {
 				{
 					level: "info",
 					message:
-						"Starting /sdl:code:autoslot — runs once Pi finishes its current response, then creates a branch and moves it to a slot. Interrupt Pi to run it now.",
+						"Starting /sdl:flow:autoslot — runs once Pi finishes its current response, then creates a branch and moves it to a slot. Interrupt Pi to run it now.",
 				},
 			]);
 			// First statuses are set synchronously, before the await, so the footer is never blank.
-			expect(statuses[0]).toBe("→ /sdl:code:autoslot received; starting…");
+			expect(statuses[0]).toBe("→ /sdl:flow:autoslot received; starting…");
 			expect(statuses[1]).toBe("waiting for Pi to finish responding (0s)");
 			// The ticker keeps the status alive while waitForIdle never resolves.
 			vi.advanceTimersByTime(2_000);

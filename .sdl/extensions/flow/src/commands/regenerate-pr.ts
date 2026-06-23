@@ -5,7 +5,7 @@ import { basename, isAbsolute, join, resolve } from "node:path";
 import process from "node:process";
 
 import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
-import { preparePrDescription } from "./shared/text-helpers.ts";
+import { preparePrDescription } from "../shared/text-helpers.ts";
 import type { ExecResult, SdlExtensionApi, TextGenerator } from "@sdl/sdl/sdk";
 
 // This project-local extension intentionally uses only the public SDL SDK import. The local

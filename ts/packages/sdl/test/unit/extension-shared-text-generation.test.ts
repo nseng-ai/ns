@@ -9,9 +9,9 @@ import { createSdlJiti } from "../../src/sdk/module-loader.ts";
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../..");
 const SHARED_TEXT_GENERATION_HELPER_PATH = join(
 	REPO_ROOT,
-	".sdl/extensions/shared/text-generation.ts",
+	".sdl/extensions/flow/src/shared/text-generation.ts",
 );
-const SUBMIT_EXTENSION_PATH = join(REPO_ROOT, ".sdl/extensions/submit.ts");
+const SUBMIT_EXTENSION_PATH = join(REPO_ROOT, ".sdl/extensions/flow/src/commands/submit.ts");
 
 type ModelSelector = (env: Record<string, string | undefined>) => string;
 

@@ -112,6 +112,29 @@ describe("extension discovery", () => {
 		]);
 	});
 
+	test("invalid package-level group suppresses manifest commands", async () => {
+		const root = await createTempDir();
+		writeFile(
+			join(root, "bad-group", "package.json"),
+			JSON.stringify({
+				sdl: {
+					group: "Bad",
+					commands: [{ name: "hello", description: "Hello.", entry: "./src/hello.ts" }],
+				},
+			}),
+		);
+		writeFile(join(root, "bad-group", "src", "hello.ts"));
+
+		const result = discoverExtensionsInRoot(root);
+
+		expect(result.commands).toEqual([]);
+		expect(result.diagnostics).toHaveLength(1);
+		expect(result.diagnostics[0]).toMatchObject({
+			code: "extension_manifest_command_group_invalid",
+		});
+		expect(result.diagnostics[0]?.commandName).toBeUndefined();
+	});
+
 	test("manifest sdl.commands must be an array", async () => {
 		const root = await createTempDir();
 		writeFile(

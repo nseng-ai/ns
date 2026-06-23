@@ -14,7 +14,7 @@ import type { ParsedAutobranchArgs } from "./autobranch/preparation.ts";
 import { startIdleWaitStatus } from "./idle-wait-status.ts";
 import { checkoutSlot } from "./slot-checkout.ts";
 
-const COMMAND_NAME = "sdl:code:autoslot";
+const COMMAND_NAME = "sdl:flow:autoslot";
 const STATUS_KEY = "autoslot";
 
 export interface AutobranchCommandContext {
@@ -42,6 +42,19 @@ export interface AutoslotFlowInput extends AutobranchFlowInput {
 	setStatus: (message: string | undefined) => void;
 }
 
+export interface AutoslotCliInput {
+	cwd: string;
+	env: Record<string, string | undefined>;
+	args: ParsedAutobranchArgs;
+	exec(
+		command: string,
+		args: string[],
+		options?: { cwd?: string | undefined; timeout?: number | undefined },
+	): Promise<{ stdout: string; stderr: string; code: number; killed: boolean }>;
+	stdout(text: string): void;
+	stderr(text: string): void;
+}
+
 export function registerAutoslotCommand(pi: AutoslotExtensionAPI): void {
 	registerCommandWithImmediateAck({
 		host: pi,
@@ -54,6 +67,42 @@ export function registerAutoslotCommand(pi: AutoslotExtensionAPI): void {
 			},
 		},
 	});
+}
+
+export async function runAutoslotCli(input: AutoslotCliInput): Promise<number> {
+	let hasError = false;
+	await createAutoslotFlow({
+		cwd: input.cwd,
+		args: input.args,
+		exec: (command, commandArgs, cwd, timeout) =>
+			input.exec(command, commandArgs, { cwd, timeout }),
+		prepareCheckpointMessage: (snapshot) => prepareAutobranchCheckpointMessage(snapshot, input.env),
+		commitPreparedCheckpointMessage: (message) =>
+			commitAutobranchCheckpointMessage(
+				(command, commandArgs, commandCwd, timeout) =>
+					input.exec(command, commandArgs, { cwd: commandCwd, timeout }),
+				input.cwd,
+				message,
+			),
+		notify: (message, level) => {
+			const output = `${message.trimEnd()}\n`;
+			if (level === "error") {
+				hasError = true;
+				input.stderr(output);
+				return;
+			}
+			if (level === "warning") {
+				input.stderr(output);
+				return;
+			}
+			input.stdout(output);
+		},
+		setStatus: () => {},
+		slotExec: {
+			exec: (command, args, options) => input.exec(command, args, options),
+		},
+	});
+	return hasError ? 1 : 0;
 }
 
 export async function createAutoslotFlow(input: AutoslotFlowInput): Promise<void> {
@@ -115,7 +164,7 @@ async function createAutoslot(
 	args: ParsedAutobranchArgs,
 ): Promise<void> {
 	const startMessage =
-		"Starting /sdl:code:autoslot — runs once Pi finishes its current response, then creates a branch and moves it to a slot. Interrupt Pi to run it now.";
+		"Starting /sdl:flow:autoslot — runs once Pi finishes its current response, then creates a branch and moves it to a slot. Interrupt Pi to run it now.";
 	sendCommandProgressOrNotify({ host: pi, ctx, message: startMessage, delivery: "notify" });
 	const stopIdleStatus = startIdleWaitStatus(ctx.ui, STATUS_KEY);
 	try {

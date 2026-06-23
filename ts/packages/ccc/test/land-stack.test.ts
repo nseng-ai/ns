@@ -1020,7 +1020,7 @@ describe("land-stack pure helpers", () => {
 		});
 		expect(expectSuccess(parseArgs("-y -h"))).toEqual({ yes: true, dryRun: false, help: true });
 		expect(expectFailure(parseArgs("--wat")).message).toContain(
-			"Unknown /sdl:code:land argument: --wat",
+			"Unknown /sdl:flow:land argument: --wat",
 		);
 	});
 
@@ -1843,7 +1843,7 @@ describe("land-stack command scenarios", () => {
 		expect(streamText).toContain("Already landed by chunk:");
 		expect(streamText).toContain("Chunk 1 through feature-8");
 		expect(streamText).toContain("Chunk 2 through feature-11: #209 feature-9");
-		expect(streamText).toContain("Fix the reported issue, then rerun /sdl:code:land");
+		expect(streamText).toContain("Fix the reported issue, then rerun /sdl:flow:land");
 		expect(streamText).toContain("Failed at: #210 feature-10");
 		expect(
 			pi.execCalls.some(
@@ -3282,7 +3282,7 @@ describe("fork-safe topology and destructive-phase guards", () => {
 		expect(notifications[0]?.message).toContain("Landing path expects feature-a -> feature-b");
 		expect(notifications[0]?.message).toContain("side (subtree: side -> side-2)");
 		expect(commandMessagesText(messages)).toContain(
-			"Land or move the sibling stack first (e.g. gt move --onto main), then rerun /sdl:code:land.",
+			"Land or move the sibling stack first (e.g. gt move --onto main), then rerun /sdl:flow:land.",
 		);
 		expect(pi.execCalls.some((call) => call.command === "gh")).toBe(false);
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] !== "trunk")).toBe(
@@ -3311,7 +3311,7 @@ describe("fork-safe topology and destructive-phase guards", () => {
 		pi.assertDone();
 		expect(notifications[0]?.level).toBe("error");
 		expect(notifications[0]?.message).toContain(
-			"current branch feature-b has 2 children (feature-c, feature-d); /sdl:code:land supports at most one descendant chain target.",
+			"current branch feature-b has 2 children (feature-c, feature-d); /sdl:flow:land supports at most one descendant chain target.",
 		);
 		expect(pi.execCalls.some((call) => call.command === "gh")).toBe(false);
 	});

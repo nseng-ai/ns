@@ -4,14 +4,14 @@ import {
   DEFAULT_CHECKPOINT_MODEL_REF,
   LEGACY_CHECKPOINT_MODEL_ENV,
   selectCheckpointModelRef,
-} from "./shared/text-generation.ts";
-import { prepareCheckpointMessage } from "./shared/text-helpers.ts";
+} from "../shared/text-generation.ts";
+import { prepareCheckpointMessage } from "../shared/text-helpers.ts";
 import {
   createCommitWithPreparedMessage,
   formatPendingWorktreeError,
   loadPendingWorktreeSnapshot,
   type PendingWorktreeSnapshot,
-} from "./shared/worktree.ts";
+} from "../shared/worktree.ts";
 
 const CP_COMMAND_DESCRIPTION = `Create a checkpoint commit for the current diff.
 

@@ -45,7 +45,7 @@ export function formatSubmitSuccessText(
 export function formatSubmitSuccessFallbackText(stdout: string, stderr: string): string {
 	const lines = [
 		"Submit succeeded, but no PR URLs were detected in output.",
-		"PR descriptions were not generated. Checkout a branch and run `sdl regenerate-pr` if needed.",
+		"PR descriptions were not generated. Checkout a branch and run `sdl flow regenerate-pr` if needed.",
 	];
 	const outputTail = formatSubmitOutputTail(stdout, stderr);
 	if (outputTail) {
@@ -120,17 +120,17 @@ export function formatTrunkOutOfDatePreflightOutput(_output: SubmitCommandOutput
 		"Submission was not attempted.",
 		"",
 		"What to do next:",
-		"- Update or repair your local Graphite trunk checkout, then rerun `sdl submit`.",
+		"- Update or repair your local Graphite trunk checkout, then rerun `sdl flow submit`.",
 		"- If Graphite reports a specific trunk-update problem, resolve that first.",
-		"- To inspect the raw Graphite dry-run output, rerun with `sdl submit --verbose` or run `gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run` manually.",
+		"- To inspect the raw Graphite dry-run output, rerun with `sdl flow submit --verbose` or run `gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run` manually.",
 	].join("\n");
 }
 
 export function formatRestackRequiredOutput(output: SubmitCommandOutput): string {
 	return [
 		"Graphite requires a restack before submission.",
-		"Plain `sdl submit` normally runs `gt restack --downstack --no-interactive` automatically when required; this output means automatic restack was disabled or unavailable.",
-		"Run `gt restack --downstack`, resolve any conflicts, then run `sdl submit` again.",
+		"Plain `sdl flow submit` normally runs `gt restack --downstack --no-interactive` automatically when required; this output means automatic restack was disabled or unavailable.",
+		"Run `gt restack --downstack`, resolve any conflicts, then run `sdl flow submit` again.",
 		"Submission was not attempted.",
 		"",
 		"$ gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run",
@@ -151,7 +151,7 @@ export function formatRestackConfirmationPrompt(
 			"Graphite dry-run says restack is required before submission.",
 			"Run `gt restack --downstack --no-interactive` now, then continue with submit?",
 			"",
-			"If confirmed, sdl submit will run:",
+			"If confirmed, sdl flow submit will run:",
 			"$ gt restack --downstack --no-interactive",
 			"$ gt submit --no-edit --publish --no-stack --no-ai --no-interactive",
 			"",
@@ -170,7 +170,7 @@ export function formatRestackConfirmationPrompt(
 export function formatRestackDeclinedOutput(output: SubmitCommandOutput): string {
 	return [
 		"Restack was not run. Submission was not attempted.",
-		"Run `gt restack --downstack`, resolve any conflicts, then run `sdl submit` again.",
+		"Run `gt restack --downstack`, resolve any conflicts, then run `sdl flow submit` again.",
 		"",
 		"$ gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run",
 		"",
@@ -194,7 +194,7 @@ export function formatRestackConflictOutput(
 		"`gt restack --downstack` hit merge conflicts. Submission was not attempted.",
 		"",
 		...fileLines,
-		"Resolve the conflicts, continue or abort the rebase as appropriate, then run `sdl submit` again.",
+		"Resolve the conflicts, continue or abort the rebase as appropriate, then run `sdl flow submit` again.",
 		"",
 		"$ gt restack --downstack --no-interactive",
 		"",
@@ -208,7 +208,7 @@ export function formatRestackConflictOutput(
 export function formatReadinessRecheckFailureOutput(output: SubmitCommandOutput): string {
 	return [
 		[
-			"Graphite still requires restack after `sdl submit` already ran `gt restack --downstack --no-interactive`.",
+			"Graphite still requires restack after `sdl flow submit` already ran `gt restack --downstack --no-interactive`.",
 			"Submission was not attempted. PR metadata was not prepared.",
 		].join("\n"),
 		formatIndentedOutputBlock("Graphite dry-run error:", output.stderr),
@@ -216,7 +216,7 @@ export function formatReadinessRecheckFailureOutput(output: SubmitCommandOutput)
 			"Next steps:",
 			"- Run `gt restack --downstack` manually and resolve any conflicts, skipped branches, or stale branch state Graphite reports.",
 			"- Verify readiness: `gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run`",
-			"- Then rerun: `sdl submit`",
+			"- Then rerun: `sdl flow submit`",
 		].join("\n"),
 		formatIndentedOutputBlock("Additional dry-run stdout:", output.stdout),
 	]
@@ -275,7 +275,7 @@ export function formatSubmitFailureOutput(
 		...(prewrittenMetadata.length === 0
 			? []
 			: [
-					"Local PR metadata commit messages were prepared before submit; rerun sdl submit after resolving the Graphite failure.",
+					"Local PR metadata commit messages were prepared before submit; rerun sdl flow submit after resolving the Graphite failure.",
 				]),
 		"",
 		"$ gt submit --no-edit --publish --no-stack --no-ai --no-interactive",
@@ -361,8 +361,8 @@ function assertNever(value: never): never {
 
 function formatNoCurrentPrRecoveryGuidance(): string[] {
 	return [
-		"`sdl submit` checkpoints outstanding worktree changes before submitting.",
-		"If the branch still has no PR, inspect the Graphite output above and rerun `sdl submit` after resolving the reported issue.",
+		"`sdl flow submit` checkpoints outstanding worktree changes before submitting.",
+		"If the branch still has no PR, inspect the Graphite output above and rerun `sdl flow submit` after resolving the reported issue.",
 	];
 }
 

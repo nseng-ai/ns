@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import trunkPullExtension, {
-	runTrunkPull,
+	runPiTrunkPull,
 	type CommandContext,
 	type ExecResult,
 	type ExtensionAPI,
@@ -92,14 +92,14 @@ function worktreesPorcelain(): string {
 	].join("\n");
 }
 
-describe("sdl:code:pull-trunk", () => {
+describe("sdl:flow:pull-trunk", () => {
 	test("registers the command", () => {
 		const pi = new FakePi();
 
 		trunkPullExtension(pi);
 
-		expect([...pi.commands.keys()]).toEqual(["sdl:code:pull-trunk"]);
-		expect(pi.commands.get("sdl:code:pull-trunk")?.description).toBe(
+		expect([...pi.commands.keys()]).toEqual(["sdl:flow:pull-trunk"]);
+		expect(pi.commands.get("sdl:flow:pull-trunk")?.description).toBe(
 			"Pull Graphite trunk without running full gt sync",
 		);
 	});
@@ -114,7 +114,7 @@ describe("sdl:code:pull-trunk", () => {
 		]);
 		const ctx = createContext();
 
-		const updated = await runTrunkPull(pi, ctx, "");
+		const updated = await runPiTrunkPull(pi, ctx, "");
 
 		expect(updated).toBe(true);
 		expect(ctx.idleCalls).toBe(1);
@@ -141,7 +141,7 @@ describe("sdl:code:pull-trunk", () => {
 		]);
 		const ctx = createContext();
 
-		const updated = await runTrunkPull(pi, ctx, "");
+		const updated = await runPiTrunkPull(pi, ctx, "");
 
 		expect(updated).toBe(true);
 		expect(pi.execCalls.map((call) => [call.command, call.args, call.options?.cwd])).toEqual([
@@ -161,7 +161,7 @@ describe("sdl:code:pull-trunk", () => {
 		const pi = new FakePi();
 		const ctx = createContext();
 
-		const updated = await runTrunkPull(pi, ctx, "--force");
+		const updated = await runPiTrunkPull(pi, ctx, "--force");
 
 		expect(updated).toBe(false);
 		expect(ctx.idleCalls).toBe(0);
@@ -176,7 +176,7 @@ describe("sdl:code:pull-trunk", () => {
 		]);
 		const ctx = createContext();
 
-		const updated = await runTrunkPull(pi, ctx, "");
+		const updated = await runPiTrunkPull(pi, ctx, "");
 
 		expect(updated).toBe(false);
 		expect(pi.execCalls).toHaveLength(1);
@@ -198,7 +198,7 @@ describe("sdl:code:pull-trunk", () => {
 		]);
 		const ctx = createContext();
 
-		const updated = await runTrunkPull(pi, ctx, "");
+		const updated = await runPiTrunkPull(pi, ctx, "");
 
 		expect(updated).toBe(false);
 		expect(ctx.notifications[0]).toMatchObject({ level: "error" });

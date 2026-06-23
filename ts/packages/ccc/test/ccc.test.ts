@@ -767,7 +767,7 @@ describe("CCC cmux command suite", () => {
 		pi.assertDone();
 		const promptText = await readFile(stagedPromptFile, "utf8");
 		expect(promptText).toContain("Implement the cmux dispatch flow");
-		expect(promptText).toContain("!sdl submit");
+		expect(promptText).toContain("!sdl flow submit");
 		expect(
 			notificationMessages(ctx).some((message) =>
 				message.includes(`Opened cmux workspace: ${BRANCH}`),
@@ -878,7 +878,7 @@ describe("CCC cmux command suite", () => {
 		const promptText = await readFile(stagedPromptFile, "utf8");
 		expect(promptText).toContain("Implement the cmux dispatch flow");
 		expect(promptText).toContain("created from refreshed Graphite trunk");
-		expect(promptText).toContain("!sdl submit");
+		expect(promptText).toContain("!sdl flow submit");
 		expect(
 			notificationMessages(ctx).some((message) =>
 				message.includes(`Opened cmux workspace: ${BRANCH}`),

@@ -4,6 +4,7 @@ import { ScriptedQueue } from "@sdl/core/testing";
 import {
 	parsePullRequestView,
 	registerLandCommand,
+	runLandCli,
 	type ExecResult,
 	type LandCommandContext,
 	type LandExtensionAPI,
@@ -198,7 +199,7 @@ async function runLand(
 			: [...graphiteShapeSteps(options.stack ?? DB_SINGLE_BRANCH), ...script];
 	const pi = new FakePi(fullScript);
 	registerLandCommand(pi);
-	const command = pi.commands.get("sdl:code:land");
+	const command = pi.commands.get("sdl:flow:land");
 	expect(command).toBeDefined();
 	const context = createContext({ mode: options.mode });
 	await command?.handler(options.args ?? "", context.ctx);
@@ -282,14 +283,14 @@ function expectedMergeArgs(
 }
 
 describe("code land command registration", () => {
-	test("registers only the namespaced sdl:code:land command", () => {
+	test("registers only the namespaced sdl:flow:land command", () => {
 		const pi = new FakePi();
 		registerLandCommand(pi);
 
-		expect([...pi.commands.keys()]).toEqual(["sdl:code:land"]);
+		expect([...pi.commands.keys()]).toEqual(["sdl:flow:land"]);
 		expect(pi.commands.has("gh:land")).toBe(false);
 		expect(pi.commands.has("land")).toBe(false);
-		const command = pi.commands.get("sdl:code:land");
+		const command = pi.commands.get("sdl:flow:land");
 		expect(command?.description).toBe("Land the current PR or Graphite stack into trunk");
 		expect(command?.getArgumentCompletions?.("--")).toEqual([
 			{ value: "--yes", label: "--yes" },
@@ -307,7 +308,7 @@ describe("code land command", () => {
 			step("gh", expectedMergeArgs(), { stdout: "Merged pull request #42" }),
 		]);
 		registerLandCommand(pi);
-		const command = pi.commands.get("sdl:code:land");
+		const command = pi.commands.get("sdl:flow:land");
 		expect(command).toBeDefined();
 
 		const context = createContext();
@@ -326,7 +327,7 @@ describe("code land command", () => {
 		expect(pi.sentMessages).toEqual([
 			{
 				customType: "sdl-command-ack",
-				content: "→ /sdl:code:land received; starting…",
+				content: "→ /sdl:flow:land received; starting…",
 				display: true,
 			},
 		]);
@@ -525,6 +526,35 @@ describe("code land command", () => {
 		expect(notifications).toEqual([
 			{ message: "Cancelled before merge; no PRs were landed.", level: "info" },
 		]);
+		pi.assertDone();
+	});
+
+	test("CLI mode captures non-interactive stack refusals as failures", async () => {
+		const pi = new FakePi(graphiteShapeSteps(DB_WITH_DESCENDANT));
+		let stdout = "";
+		let stderr = "";
+
+		const exitCode = await runLandCli({
+			cwd: ROOT,
+			rawArgs: "",
+			exec: async (command, args, options) =>
+				await pi.exec(command, args, {
+					...(options?.cwd === undefined ? {} : { cwd: options.cwd }),
+					...(options?.timeout === undefined ? {} : { timeout: options.timeout }),
+				}),
+			stdout: (text) => {
+				stdout += text;
+			},
+			stderr: (text) => {
+				stderr += text;
+			},
+		});
+
+		expect(exitCode).toBe(1);
+		expect(stdout).toBe("");
+		expect(stderr).toBe(
+			"Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.\n",
+		);
 		pi.assertDone();
 	});
 

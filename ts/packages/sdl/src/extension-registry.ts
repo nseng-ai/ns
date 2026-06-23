@@ -7,11 +7,14 @@ import {
 	SDL_COMMAND_NAME_PATTERN,
 	SDL_COMMAND_NAME_RULE,
 	commandInfoForLoadedCommand,
+	commandKey,
+	commandPathMatches,
 	listBuiltInSdlCommandCandidates,
 	validateSdlExtensionContribution,
 	type BuiltInSdlCommandCandidate,
 	type SdlCommandCandidate,
 	type SdlCommandCliInfo,
+	type SdlCommandPath,
 	type SdlCommandSourceInfo,
 	type SdlCommandSourceLevel,
 } from "./command-registry.ts";
@@ -61,7 +64,7 @@ export interface ExtensionOverrideDiagnostic {
 }
 
 export type SelectedSdlCommandLoadResult =
-	| { ok: true; command: SdlCommand; source: ExtensionSourceInfo }
+	| { ok: true; command: SdlCommand; source: ExtensionSourceInfo; path: SdlCommandPath }
 	| { ok: false; diagnostic: ExtensionErrorDiagnostic };
 
 export interface DiagnosticClassification {
@@ -116,27 +119,29 @@ export async function loadSdlCommandCatalog(
 		const validation = validateSourceCandidates(source.level, source.label, source.candidates);
 		diagnostics.push(...validation.diagnostics);
 		for (const candidate of validation.candidates) {
-			const existing = merged.get(candidate.name);
+			const key = commandKey(candidate);
+			const existing = merged.get(key);
 			if (existing !== undefined) {
 				diagnostics.push({
 					severity: "info",
 					code: "extension_command_override",
-					message: `SDL command ${candidate.name} from ${formatSource(candidate.source)} overrides ${formatSource(existing.source)}.`,
-					commandName: candidate.name,
+					message: `SDL command ${key} from ${formatSource(candidate.source)} overrides ${formatSource(existing.source)}.`,
+					commandName: key,
 					overriddenSource: existing.source,
 					overridingSource: candidate.source,
 				});
 			}
-			merged.set(candidate.name, candidate);
+			merged.set(key, candidate);
 		}
 	}
 
 	const sortedCandidates = [...merged.values()].sort((left, right) =>
-		left.name.localeCompare(right.name),
+		commandKey(left).localeCompare(commandKey(right)),
 	);
 	return {
-		candidates: new Map(sortedCandidates.map((candidate) => [candidate.name, candidate])),
+		candidates: new Map(sortedCandidates.map((candidate) => [commandKey(candidate), candidate])),
 		commandInfos: sortedCandidates.map((candidate) => ({
+			...(candidate.group === undefined ? {} : { group: candidate.group }),
 			name: candidate.name,
 			description: candidate.description,
 			fullDescription: candidate.fullDescription,
@@ -149,19 +154,23 @@ export async function loadSelectedSdlCommand(
 	candidate: ExtensionCommandCandidate,
 ): Promise<SelectedSdlCommandLoadResult> {
 	if (isBuiltInCandidate(candidate)) {
-		return { ok: true, command: candidate.command, source: candidate.source };
+		return { ok: true, command: candidate.command, source: candidate.source, path: candidate };
 	}
 
 	const loaded = await loadSdlExtensionContribution(candidate.entryPath);
 	if (!loaded.ok) {
 		return {
 			ok: false,
-			diagnostic: fromLoadDiagnostic(loaded.diagnostic, candidate.source.level, candidate.name),
+			diagnostic: fromLoadDiagnostic(
+				loaded.diagnostic,
+				candidate.source.level,
+				commandKey(candidate),
+			),
 		};
 	}
 	const validation = validateSdlExtensionContribution(
 		loaded.defaultExport,
-		candidate.name,
+		candidate,
 		formatSource(candidate.source),
 	);
 	if (!validation.ok) {
@@ -173,11 +182,11 @@ export async function loadSelectedSdlCommand(
 				message: validation.message,
 				path: candidate.entryPath,
 				sourceLevel: candidate.source.level,
-				commandName: candidate.name,
+				commandName: commandKey(candidate),
 			},
 		};
 	}
-	return { ok: true, command: validation.command, source: candidate.source };
+	return { ok: true, command: validation.command, source: candidate.source, path: candidate };
 }
 
 export async function loadListingCommandInfos(catalog: SdlCommandCatalog): Promise<{
@@ -194,7 +203,7 @@ export async function loadListingCommandInfos(catalog: SdlCommandCatalog): Promi
 				return { commandInfo: staticCommandInfo(candidate), diagnostic: loaded.diagnostic };
 			}
 			return {
-				commandInfo: commandInfoForLoadedCommand(loaded.command, loaded.source.level),
+				commandInfo: commandInfoForLoadedCommand(loaded.command, loaded.source.level, loaded.path),
 				diagnostic: undefined,
 			};
 		}),
@@ -209,11 +218,11 @@ export async function loadListingCommandInfos(catalog: SdlCommandCatalog): Promi
 
 export function commandInfosForSelectedCommand(
 	commandInfos: readonly SdlCommandCliInfo[],
-	loaded: { command: SdlCommand; source: ExtensionSourceInfo } | undefined,
+	loaded: { command: SdlCommand; source: ExtensionSourceInfo; path: SdlCommandPath } | undefined,
 ): readonly SdlCommandCliInfo[] {
 	if (loaded === undefined) return commandInfos;
-	const loadedInfo = commandInfoForLoadedCommand(loaded.command, loaded.source.level);
-	return commandInfos.map((info) => (info.name === loadedInfo.name ? loadedInfo : info));
+	const loadedInfo = commandInfoForLoadedCommand(loaded.command, loaded.source.level, loaded.path);
+	return commandInfos.map((info) => (commandPathMatches(info, loadedInfo) ? loadedInfo : info));
 }
 
 export function classifyExtensionDiagnosticsForInvocation(options: {
@@ -301,6 +310,7 @@ function externalCandidateForLevel(
 	level: "global" | "project",
 ): ExternalSdlCommandCandidate {
 	return {
+		...(command.group === undefined ? {} : { group: command.group }),
 		name: command.name,
 		description: command.description,
 		fullDescription: command.fullDescription,
@@ -328,7 +338,18 @@ function validateSourceCandidates(
 				message: `Invalid SDL command candidate from ${formatSource(candidate.source)}: command name must match ${SDL_COMMAND_NAME_RULE}.`,
 				...(candidate.source.path === undefined ? {} : { path: candidate.source.path }),
 				sourceLevel: candidate.source.level,
-				commandName: candidate.name,
+				commandName: commandKey(candidate),
+			});
+			continue;
+		}
+		if (candidate.group !== undefined && !SDL_COMMAND_NAME_PATTERN.test(candidate.group)) {
+			diagnostics.push({
+				severity: "error",
+				code: "extension_command_group_invalid",
+				message: `Invalid SDL command candidate from ${formatSource(candidate.source)}: command group must match ${SDL_COMMAND_NAME_RULE}.`,
+				...(candidate.source.path === undefined ? {} : { path: candidate.source.path }),
+				sourceLevel: candidate.source.level,
+				commandName: commandKey(candidate),
 			});
 			continue;
 		}
@@ -337,8 +358,9 @@ function validateSourceCandidates(
 
 	const candidatesByName = new Map<string, readonly ExtensionCommandCandidate[]>();
 	for (const candidate of validated) {
-		const existing = candidatesByName.get(candidate.name) ?? [];
-		candidatesByName.set(candidate.name, [...existing, candidate]);
+		const key = commandKey(candidate);
+		const existing = candidatesByName.get(key) ?? [];
+		candidatesByName.set(key, [...existing, candidate]);
 	}
 
 	const duplicateNames = new Set(
@@ -357,7 +379,7 @@ function validateSourceCandidates(
 		});
 	}
 	return {
-		candidates: validated.filter((candidate) => !duplicateNames.has(candidate.name)),
+		candidates: validated.filter((candidate) => !duplicateNames.has(commandKey(candidate))),
 		diagnostics,
 	};
 }
@@ -384,6 +406,7 @@ function sourceLevelRank(level: ExtensionSourceLevel): number {
 
 function staticCommandInfo(candidate: ExtensionCommandCandidate): SdlCommandCliInfo {
 	return {
+		...(candidate.group === undefined ? {} : { group: candidate.group }),
 		name: candidate.name,
 		description: candidate.description,
 		fullDescription: candidate.fullDescription,

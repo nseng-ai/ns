@@ -366,7 +366,7 @@ export function formatFailure(
 		}
 		lines.push(
 			"",
-			"Fix the reported issue, then rerun /sdl:code:land from the desired branch. Already-landed PRs will not be retried automatically.",
+			"Fix the reported issue, then rerun /sdl:flow:land from the desired branch. Already-landed PRs will not be retried automatically.",
 		);
 	} else if (landed.length > 0) {
 		lines.push("", "Already landed:");
@@ -461,15 +461,7 @@ export function presentBrief(
 	level: NotifyLevel,
 	uiMessage: string,
 ): void {
-	if (ctx.hasUI) {
-		ctx.ui.notify(uiMessage, level);
-		return;
-	}
-	if (level === "error") {
-		console.error(fullMessage);
-		return;
-	}
-	console.log(fullMessage);
+	ctx.ui.notify(ctx.hasUI ? uiMessage : fullMessage, level);
 }
 
 export function setStatus(ctx: LandStackCommandContext, message: string | undefined): void {

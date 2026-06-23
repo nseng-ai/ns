@@ -73,19 +73,19 @@ An SDL package subpath that exists so SDL workspace packages can share primitive
 *Avoid*: plugin API, public SDK, command-author import path.
 
 **Default SDL command**:
-A built-in SDL command implementation used when no global or project SDL command entry overrides it. The project-local extension cutover intentionally leaves the SDL kernel with no repository workflow domain defaults; `changes`, `cp`, `autobranch`, `submit`, and `regenerate-pr` are restored in this repo as direct project-local extensions at `.sdl/extensions/changes.ts`, `.sdl/extensions/cp.ts`, `.sdl/extensions/autobranch.ts`, `.sdl/extensions/submit.ts`, and `.sdl/extensions/regenerate-pr.ts`, not as universal built-ins.
+A built-in SDL command implementation used when no global or project SDL command entry overrides it. The grouped flow cutover intentionally leaves the SDL kernel with no repository workflow domain defaults; lifecycle commands are restored in this repo by the grouped project-local extension package at `.sdl/extensions/flow/`, not as universal built-ins.
 *Avoid*: project override, mandatory plugin, external command entry, assuming a repository workflow command is built in.
 
 **Project override**:
-A repo-local `.sdl/extensions` command entry or manifest descriptor that replaces a default or global command by contributing the same flat command name at project precedence.
+A repo-local `.sdl/extensions` command entry or manifest descriptor that replaces a default or global command by contributing the same command key at project precedence. Grouped command keys use `group/name`, for example `flow/cp`.
 *Avoid*: compatibility alias, wrapper around old command name, global user plugin.
 
 **SDL Pi mirror**:
-A `/sdl:<name>` Pi command that delegates to the corresponding `sdl <name>` CLI behavior. During the project-local extension migration, `/sdl:changes`, `/sdl:cp`, `/sdl:autobranch`, `/sdl:submit`, `/sdl:regenerate-pr`, `/sdl:push`, and `/sdl:code:changes` are explicit mirrors for repo-local SDL commands; old checkpoint `/code:*`, nested checkpoint aliases, `/sdl:code:autobranch`, `/sdl:code:submit`, `/sdl:code:regenerate-pr`, `/sdl:code:push`, and legacy submit/PR-regeneration/push aliases are not restored. The mirror is an adapter over SDL, not a separate implementation.
+A Pi command that delegates to corresponding SDL CLI behavior. Lifecycle mirrors now use `/sdl:flow:<name>` over `sdl flow <name>` for `changes`, `cp`, `autobranch`, `autoslot`, `submit`, `regenerate-pr`, `push`, `land`, and `pull-trunk`; old flat `/sdl:<name>`, `/sdl:code:<name>`, and `/code:*` lifecycle aliases are not restored. The mirror is an adapter over SDL, not a separate implementation.
 *Avoid*: parallel Pi implementation, `/code:*` replacement wrapper without SDL, independent behavior fork, dynamic arbitrary `/sdl:*` registration, advertising mirrors for unavailable SDL commands.
 
 **Hard cutover**:
-The migration policy that deletes old `sdl-dev <name>` and `/code:<name>` surfaces when a lifecycle command moves to SDL, unless a documented exception is approved first.
+The migration policy that deletes old top-level `sdl <name>`, flat `/sdl:<name>`, `/sdl:code:<name>`, `sdl-dev <name>`, and `/code:<name>` surfaces when a lifecycle command moves into the grouped SDL flow family, unless a documented exception is approved first.
 *Avoid*: long-lived compatibility alias, temporary old name, autocomplete convenience alias.
 
 **Lower orchestration owner**:

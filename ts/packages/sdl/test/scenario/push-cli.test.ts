@@ -1,7 +1,7 @@
-import { mkdirSync, rmSync, writeFileSync, readFileSync } from "node:fs";
+import { cpSync, rmSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
@@ -29,11 +29,10 @@ function runWithFakes(options: RunWithFakesOptions) {
 async function createPushProject(): Promise<string> {
 	const directory = await mkdtemp(join(tmpdir(), "sdl-push-extension-project-"));
 	tempDirs.push(directory);
-	const extensionPath = join(directory, ".sdl", "extensions", "push.ts");
-	mkdirSync(dirname(extensionPath), { recursive: true });
-	writeFileSync(
-		extensionPath,
-		readFileSync(join(process.cwd(), "..", ".sdl", "extensions", "push.ts"), "utf8"),
+	cpSync(
+		join(process.cwd(), "..", ".sdl", "extensions", "flow"),
+		join(directory, ".sdl", "extensions", "flow"),
+		{ recursive: true },
 	);
 	return directory;
 }
@@ -58,7 +57,7 @@ afterEach(() => {
 	}
 });
 
-describe("sdl push CLI", () => {
+describe("sdl flow push CLI", () => {
 	test("static command metadata remains empty without a project extension", async () => {
 		expect(listSdlCommands()).toEqual([]);
 
@@ -70,33 +69,58 @@ describe("sdl push CLI", () => {
 		expect(topHelp.stderr.join("")).toBe("");
 	});
 
+	test("project-local flow package appears as a group in root help", async () => {
+		const cwd = await createPushProject();
+
+		const rootHelp = runWithFakes({ args: ["--help"], state: { exec: [] }, cwd });
+		expect(await rootHelp.exit).toBe(0);
+		const help = rootHelp.stdout.join("");
+		expect(help).toContain("flow");
+		expect(help).toContain("SDL flow commands.");
+		expect(help).not.toContain("push [options]");
+		expect(help).not.toContain("pull-trunk [options]");
+		expect(rootHelp.stderr.join("")).toBe("");
+	});
+
 	test("project-local push extension appears in help and selected schema", async () => {
 		const cwd = await createPushProject();
 
-		const topHelp = runWithFakes({ args: ["--help"], state: { exec: [] }, cwd });
+		const topHelp = runWithFakes({ args: ["flow", "--help"], state: { exec: [] }, cwd });
 		expect(await topHelp.exit).toBe(0);
 		const topLevelHelp = topHelp.stdout.join("");
 		expect(topLevelHelp).toContain("push");
-		expect(topLevelHelp).toContain("Push committed work on the current branch with git push.");
+		expect(topLevelHelp).toContain("Push already-committed work on the current branch");
 		expect(topHelp.stderr.join("")).toBe("");
 
-		const commandHelp = runWithFakes({ args: ["push", "--help"], state: { exec: [] }, cwd });
+		const commandHelp = runWithFakes({
+			args: ["flow", "push", "--help"],
+			state: { exec: [] },
+			cwd,
+		});
 		expect(await commandHelp.exit).toBe(0);
 		const help = commandHelp.stdout.join("");
-		expect(help).toContain("Usage: sdl push");
+		expect(help).toContain("Usage: sdl flow push");
 		expect(help).toContain("plain git push");
 		expect(help).toContain("clean worktree");
-		expect(help).toContain("sdl submit");
+		expect(help).toContain("sdl flow submit");
 		expect(help).not.toContain("--format");
 
-		const schema = runWithFakes({ args: ["push", "--json-schema"], state: { exec: [] }, cwd });
+		const schema = runWithFakes({
+			args: ["flow", "push", "--json-schema"],
+			state: { exec: [] },
+			cwd,
+		});
 		expect(await schema.exit).toBe(0);
 		expect(parseJsonOutput(schema)).toHaveProperty("input_json_schema");
 	});
 
 	test("clean status runs git push with a two-minute timeout", async () => {
 		const cwd = await createPushProject();
-		const run = runWithFakes({ args: ["push"], state: { exec: cleanPushResponses() }, cwd });
+		const run = runWithFakes({
+			args: ["flow", "push"],
+			state: { exec: cleanPushResponses() },
+			cwd,
+		});
 
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
@@ -112,7 +136,7 @@ describe("sdl push CLI", () => {
 	test("dirty status blocks git push and prints porcelain status", async () => {
 		const cwd = await createPushProject();
 		const run = runWithFakes({
-			args: ["push"],
+			args: ["flow", "push"],
 			state: {
 				exec: [
 					{ match: "git status --porcelain", result: { stdout: " M src/app.ts\n?? notes.md\n" } },
@@ -127,7 +151,7 @@ describe("sdl push CLI", () => {
 		expect(error).toContain("did not run `git push`");
 		expect(error).toContain(" M src/app.ts");
 		expect(error).toContain("?? notes.md");
-		expect(error).toContain("sdl submit");
+		expect(error).toContain("sdl flow submit");
 		expect(run.stdout.join("")).toBe("");
 		expect(formattedExecCalls(run.context)).toEqual(["git status --porcelain"]);
 		expect(run.context.textGeneratorCalls).toEqual([]);
@@ -136,7 +160,7 @@ describe("sdl push CLI", () => {
 	test("status failure blocks git push and includes command evidence", async () => {
 		const cwd = await createPushProject();
 		const run = runWithFakes({
-			args: ["push"],
+			args: ["flow", "push"],
 			state: {
 				exec: [
 					{
@@ -154,7 +178,7 @@ describe("sdl push CLI", () => {
 		expect(error).toContain("Command: git status --porcelain");
 		expect(error).toContain("Exit: 128");
 		expect(error).toContain("fatal: not a git repository");
-		expect(error).toContain("sdl submit");
+		expect(error).toContain("sdl flow submit");
 		expect(formattedExecCalls(run.context)).toEqual(["git status --porcelain"]);
 		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
@@ -162,7 +186,7 @@ describe("sdl push CLI", () => {
 	test("nonzero git push fails with stdout stderr evidence and submit guidance", async () => {
 		const cwd = await createPushProject();
 		const run = runWithFakes({
-			args: ["push"],
+			args: ["flow", "push"],
 			state: {
 				exec: [
 					{ match: "git status --porcelain", result: { stdout: "" } },
@@ -182,8 +206,8 @@ describe("sdl push CLI", () => {
 		expect(error).toContain("Exit: 1");
 		expect(error).toContain("rejected update");
 		expect(error).toContain("non-fast-forward");
-		expect(error).toContain("sdl submit");
-		expect(error).toContain("/sdl:submit");
+		expect(error).toContain("sdl flow submit");
+		expect(error).toContain("/sdl:flow:submit");
 		expect(formattedExecCalls(run.context)).toEqual(["git status --porcelain", "git push"]);
 		expect(run.context.execCalls[1]?.options).toEqual({ timeoutMs: PUSH_TIMEOUT_MS });
 		expect(run.context.textGeneratorCalls).toEqual([]);
@@ -192,7 +216,7 @@ describe("sdl push CLI", () => {
 	test("killed git push is a failure even with exit code zero", async () => {
 		const cwd = await createPushProject();
 		const run = runWithFakes({
-			args: ["push"],
+			args: ["flow", "push"],
 			state: {
 				exec: [
 					{ match: "git status --porcelain", result: { stdout: "" } },
@@ -214,7 +238,7 @@ describe("sdl push CLI", () => {
 
 	test("unexpected arguments fail before any git command", async () => {
 		const cwd = await createPushProject();
-		const run = runWithFakes({ args: ["push", "unexpected"], state: { exec: [] }, cwd });
+		const run = runWithFakes({ args: ["flow", "push", "unexpected"], state: { exec: [] }, cwd });
 
 		expect(await run.exit).not.toBe(0);
 		expect(run.stdout.join("")).toBe("");

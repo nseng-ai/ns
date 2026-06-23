@@ -7,7 +7,7 @@ export type ExtensionAPI = AutoslotExtensionAPI;
 export const autoslotParity = definePiSurfaceParity([
 	{
 		kind: "command",
-		surface: "sdl:code:autoslot",
+		surface: "sdl:flow:autoslot",
 		workflow:
 			"Create a Graphite branch from current work, then move it into a managed slot worktree",
 		parity: "PARTIAL",

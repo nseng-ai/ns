@@ -1,7 +1,7 @@
-import { cpSync, mkdirSync, rmSync, writeFileSync, readFileSync } from "node:fs";
+import { cpSync, rmSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
@@ -50,15 +50,9 @@ function cleanSnapshotResponses(): ScriptedExecResponse[] {
 async function createChangesProject(): Promise<string> {
 	const directory = await mkdtemp(join(tmpdir(), "sdl-changes-extension-project-"));
 	tempDirs.push(directory);
-	const extensionPath = join(directory, ".sdl", "extensions", "changes.ts");
-	mkdirSync(dirname(extensionPath), { recursive: true });
-	writeFileSync(
-		extensionPath,
-		readFileSync(join(process.cwd(), "..", ".sdl", "extensions", "changes.ts"), "utf8"),
-	);
 	cpSync(
-		join(process.cwd(), "..", ".sdl", "extensions", "shared"),
-		join(directory, ".sdl", "extensions", "shared"),
+		join(process.cwd(), "..", ".sdl", "extensions", "flow"),
+		join(directory, ".sdl", "extensions", "flow"),
 		{ recursive: true },
 	);
 	return directory;
@@ -70,7 +64,7 @@ afterEach(() => {
 	}
 });
 
-describe("sdl changes CLI", () => {
+describe("sdl flow changes CLI", () => {
 	test("static SDL command metadata is empty after the kernel reset", async () => {
 		expect(listSdlCommands()).toEqual([]);
 
@@ -88,30 +82,42 @@ describe("sdl changes CLI", () => {
 	test("project-local direct changes extension appears in help and selected metadata", async () => {
 		const cwd = await createChangesProject();
 
-		const topHelp = runWithFakes({ args: ["--help"], state: { exec: [] }, cwd });
+		const topHelp = runWithFakes({ args: ["flow", "--help"], state: { exec: [] }, cwd });
 		expect(await topHelp.exit).toBe(0);
 		const topLevelHelp = topHelp.stdout.join("");
 		expect(topLevelHelp).toContain("changes");
-		expect(topLevelHelp).toContain("Summarize outstanding worktree changes without committing.");
+		expect(topLevelHelp).toContain("Summarize outstanding worktree changes without");
 		expect(topHelp.stderr.join("")).toBe("");
 
-		const commandHelp = runWithFakes({ args: ["changes", "--help"], state: { exec: [] }, cwd });
+		const commandHelp = runWithFakes({
+			args: ["flow", "changes", "--help"],
+			state: { exec: [] },
+			cwd,
+		});
 		expect(await commandHelp.exit).toBe(0);
 		const help = commandHelp.stdout.join("");
-		expect(help).toContain("Usage: sdl changes");
+		expect(help).toContain("Usage: sdl flow changes");
 		expect(help).toContain("read-only git commands");
 		expect(help).toContain("SDL_CHANGES_MODEL");
 		expect(help).toContain("PI_DRAFT_MODEL");
 		expect(help).not.toContain("--format");
 
-		const schema = runWithFakes({ args: ["changes", "--json-schema"], state: { exec: [] }, cwd });
+		const schema = runWithFakes({
+			args: ["flow", "changes", "--json-schema"],
+			state: { exec: [] },
+			cwd,
+		});
 		expect(await schema.exit).toBe(0);
 		expect(parseJsonOutput(schema)).toHaveProperty("input_json_schema");
 	});
 
 	test("clean worktree reports no outstanding changes without model generation", async () => {
 		const cwd = await createChangesProject();
-		const run = runWithFakes({ args: ["changes"], state: { exec: cleanSnapshotResponses() }, cwd });
+		const run = runWithFakes({
+			args: ["flow", "changes"],
+			state: { exec: cleanSnapshotResponses() },
+			cwd,
+		});
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe("Working tree is clean; no outstanding changes.\n");
@@ -128,7 +134,7 @@ describe("sdl changes CLI", () => {
 	test("dirty worktree prints model bullets and raw status without mutation", async () => {
 		const cwd = await createChangesProject();
 		const run = runWithFakes({
-			args: ["changes"],
+			args: ["flow", "changes"],
 			state: {
 				textGeneration: [{ ok: true, text: "- Update app behavior\n- Add reviewer notes" }],
 			},
@@ -169,7 +175,7 @@ describe("sdl changes CLI", () => {
 	test("changes model can be selected by SDL environment with legacy fallback", async () => {
 		const cwd = await createChangesProject();
 		const selected = runWithFakes({
-			args: ["changes"],
+			args: ["flow", "changes"],
 			state: { textGeneration: [{ ok: true, text: "- Summarize selected model" }] },
 			env: {
 				SDL_CHANGES_MODEL: "openai-codex/custom-mini",
@@ -181,7 +187,7 @@ describe("sdl changes CLI", () => {
 		expect(selected.context.textGeneratorCalls[0]?.modelRef).toBe("openai-codex/custom-mini");
 
 		const fallback = runWithFakes({
-			args: ["changes"],
+			args: ["flow", "changes"],
 			state: { textGeneration: [{ ok: true, text: "- Summarize fallback model" }] },
 			env: { PI_DRAFT_MODEL: "openai-codex/legacy-mini" },
 			cwd,
@@ -193,7 +199,7 @@ describe("sdl changes CLI", () => {
 	test("model generation and validation failures exit 2 without mutation", async () => {
 		const cwd = await createChangesProject();
 		const invalid = runWithFakes({
-			args: ["changes"],
+			args: ["flow", "changes"],
 			state: { textGeneration: [{ ok: true, text: "Summary\n- bullet" }] },
 			cwd,
 		});
@@ -208,7 +214,7 @@ describe("sdl changes CLI", () => {
 		]);
 
 		const failed = runWithFakes({
-			args: ["changes"],
+			args: ["flow", "changes"],
 			state: { textGeneration: [{ ok: false, error: "auth failed" }] },
 			cwd,
 		});
@@ -224,7 +230,7 @@ describe("sdl changes CLI", () => {
 	test("git errors fail with command details", async () => {
 		const cwd = await createChangesProject();
 		const notGit = runWithFakes({
-			args: ["changes"],
+			args: ["flow", "changes"],
 			state: {
 				exec: [
 					{
@@ -242,7 +248,7 @@ describe("sdl changes CLI", () => {
 		expect(notGit.context.textGeneratorCalls).toEqual([]);
 
 		const statusFailed = runWithFakes({
-			args: ["changes"],
+			args: ["flow", "changes"],
 			state: {
 				exec: [
 					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
@@ -263,7 +269,7 @@ describe("sdl changes CLI", () => {
 		const cwd = await createChangesProject();
 		const status = Array.from({ length: 52 }, (_value, index) => ` M file-${index}.ts`).join("\n");
 		const run = runWithFakes({
-			args: ["changes"],
+			args: ["flow", "changes"],
 			state: {
 				exec: [
 					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },

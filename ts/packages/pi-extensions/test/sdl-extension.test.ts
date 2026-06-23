@@ -11,7 +11,28 @@ import type { CommandContext } from "../src/cli-command-extension.ts";
 
 type RegisteredCommand = Parameters<SdlExtensionAPI["registerCommand"]>[1];
 type CustomMessage = Parameters<NonNullable<SdlExtensionAPI["sendMessage"]>>[0];
+type FlowCommandName =
+	| "changes"
+	| "cp"
+	| "autobranch"
+	| "autoslot"
+	| "submit"
+	| "regenerate-pr"
+	| "push"
+	| "land"
+	| "pull-trunk";
 
+const FLOW_COMMANDS = [
+	"changes",
+	"cp",
+	"autobranch",
+	"autoslot",
+	"submit",
+	"regenerate-pr",
+	"push",
+	"land",
+	"pull-trunk",
+] as const satisfies readonly FlowCommandName[];
 const tempDirs: string[] = [];
 
 class FakePi implements SdlExtensionAPI {
@@ -41,10 +62,6 @@ class FakePi implements SdlExtensionAPI {
 		}
 		this.sentMessages.push(message);
 	};
-
-	async exec(): Promise<{ stdout: string; stderr: string; code: number; killed: boolean }> {
-		throw new Error("unexpected exec during SDL extension registration");
-	}
 }
 
 function commandFor(pi: FakePi, name: string): RegisteredCommand {
@@ -74,15 +91,27 @@ function createContext(cwd: string): CommandContext {
 	};
 }
 
-async function createCommandProject(
-	commandName: "changes" | "cp" | "autobranch" | "submit" | "regenerate-pr" | "push",
-): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), `sdl-pi-${commandName}-`));
+async function createFlowCommandProject(commandName: FlowCommandName): Promise<string> {
+	const directory = await mkdtemp(join(tmpdir(), `sdl-pi-flow-${commandName}-`));
 	tempDirs.push(directory);
-	const extensionPath = join(directory, ".sdl", "extensions", `${commandName}.ts`);
-	mkdirSync(dirname(extensionPath), { recursive: true });
-	writeFileSync(
-		extensionPath,
+	const packageDir = join(directory, ".sdl", "extensions", "flow");
+	writeFileSyncWithParents(
+		join(packageDir, "package.json"),
+		JSON.stringify({
+			sdl: {
+				group: "flow",
+				commands: [
+					{
+						name: commandName,
+						description: `Custom ${commandName}`,
+						entry: `./src/commands/${commandName}.ts`,
+					},
+				],
+			},
+		}),
+	);
+	writeFileSyncWithParents(
+		join(packageDir, "src", "commands", `${commandName}.ts`),
 		`
 import { defineExtension, ok } from "@sdl/sdl/sdk";
 
@@ -102,6 +131,11 @@ export default defineExtension({
 	return directory;
 }
 
+function writeFileSyncWithParents(path: string, content: string): void {
+	mkdirSync(dirname(path), { recursive: true });
+	writeFileSync(path, content);
+}
+
 afterEach(() => {
 	for (const directory of tempDirs.splice(0)) {
 		rmSync(directory, { recursive: true, force: true });
@@ -109,12 +143,13 @@ afterEach(() => {
 });
 
 describe("sdl Pi extension", () => {
-	test("exposes restored SDL mirrors plus unrelated code-lifecycle commands", () => {
+	test("exposes only nested flow SDL lifecycle mirrors", () => {
 		const pi = new FakePi();
 
 		sdlExtension(pi);
 
-		expect([...pi.commands.keys()]).toEqual([
+		expect([...pi.commands.keys()]).toEqual(FLOW_COMMANDS.map((name) => `sdl:flow:${name}`));
+		for (const oldName of [
 			"sdl:changes",
 			"sdl:cp",
 			"sdl:autobranch",
@@ -125,176 +160,38 @@ describe("sdl Pi extension", () => {
 			"sdl:code:autoslot",
 			"sdl:code:land",
 			"sdl:code:pull-trunk",
-		]);
-		expect(pi.commands.has("code:changes")).toBe(false);
-		expect(pi.commands.has("code:cp")).toBe(false);
-		expect(pi.commands.has("code:checkpoint")).toBe(false);
-		expect(pi.commands.has("dev:cp")).toBe(false);
-		expect(pi.commands.has("code:submit")).toBe(false);
-		expect(pi.commands.has("code:autobranch")).toBe(false);
-		expect(pi.commands.has("sdl:code:autobranch")).toBe(false);
-		expect(pi.commands.has("code:autoslot")).toBe(false);
-		expect(pi.commands.has("code:land")).toBe(false);
-		expect(pi.commands.has("code:push")).toBe(false);
-		expect(pi.commands.has("code:pr-regen")).toBe(false);
-		expect(pi.commands.has("sdl:code:checkpoint")).toBe(false);
-		expect(pi.commands.has("sdl:code:submit")).toBe(false);
-		expect(pi.commands.has("sdl:code:regenerate-pr")).toBe(false);
-		expect(pi.commands.has("sdl:code:push")).toBe(false);
-		expect(pi.commands.get("sdl:changes")?.description).toBe(
-			"sdl changes: Summarize outstanding worktree changes without committing.",
+		]) {
+			expect(pi.commands.has(oldName)).toBe(false);
+		}
+		expect(pi.commands.get("sdl:flow:cp")?.description).toBe(
+			"sdl flow cp: Create a checkpoint commit for the current diff.",
 		);
-		expect(pi.commands.get("sdl:cp")?.description).toBe(
-			"sdl cp: Create a checkpoint commit for the current diff.",
-		);
-		expect(pi.commands.get("sdl:autobranch")?.description).toBe(
-			"sdl autobranch: Create a Graphite branch from dirty worktree changes or the latest unpushed commit.",
-		);
-		expect(pi.commands.get("sdl:submit")?.description).toBe(
-			"sdl submit: Checkpoint outstanding changes, then submit the current Graphite stack.",
-		);
-		expect(pi.commands.get("sdl:regenerate-pr")?.description).toBe(
-			"sdl regenerate-pr: Regenerate the current branch PR title and description.",
-		);
-		expect(pi.commands.get("sdl:push")?.description).toBe(
-			"sdl push: Push already-committed work on the current branch with git push.",
-		);
-		expect(pi.commands.get("sdl:code:changes")?.description).toBe(
-			"sdl changes: Summarize outstanding worktree changes without committing.",
-		);
-		expect(pi.commands.get("sdl:code:autoslot")?.description).toContain("managed slot worktree");
-		expect(pi.commands.get("sdl:code:land")?.description).toBe(
-			"Land the current PR or Graphite stack into trunk",
-		);
-		expect(pi.commands.get("sdl:code:pull-trunk")?.description).toBe(
-			"Pull Graphite trunk without running full gt sync",
+		expect(pi.commands.get("sdl:flow:autoslot")?.description).toContain("managed slot worktree");
+		expect(pi.commands.get("sdl:flow:land")?.description).toBe(
+			"sdl flow land: Land the current PR or Graphite stack into trunk.",
 		);
 		expect(pi.messageRenderers.has(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(true);
-		expect(pi.messageRenderers.has("code-changes-summary")).toBe(false);
 	});
 
-	test("runs sdl changes through the nested changes alias", async () => {
-		const cwd = await createCommandProject("changes");
-		const pi = new FakePi();
-		sdlExtension(pi);
+	for (const commandName of FLOW_COMMANDS) {
+		test(`runs sdl flow ${commandName} through the nested SDL mirror`, async () => {
+			const cwd = await createFlowCommandProject(commandName);
+			const pi = new FakePi();
+			sdlExtension(pi);
 
-		const originalHome = process.env.HOME;
-		process.env.HOME = join(cwd, ".home");
-		try {
-			await commandFor(pi, "sdl:code:changes").handler("", createContext(cwd));
-		} finally {
-			if (originalHome === undefined) {
-				delete process.env.HOME;
-			} else {
-				process.env.HOME = originalHome;
+			const originalHome = process.env.HOME;
+			process.env.HOME = join(cwd, ".home");
+			try {
+				await commandFor(pi, `sdl:flow:${commandName}`).handler("", createContext(cwd));
+			} finally {
+				if (originalHome === undefined) {
+					delete process.env.HOME;
+				} else {
+					process.env.HOME = originalHome;
+				}
 			}
-		}
 
-		expectSingleCommandOutput(pi.sentMessages, "pi-custom-changes");
-	});
-
-	test("runs sdl cp through the direct SDL mirror only", async () => {
-		const cwd = await createCommandProject("cp");
-		const pi = new FakePi();
-		sdlExtension(pi);
-
-		const originalHome = process.env.HOME;
-		process.env.HOME = join(cwd, ".home");
-		try {
-			await commandFor(pi, "sdl:cp").handler("", createContext(cwd));
-		} finally {
-			if (originalHome === undefined) {
-				delete process.env.HOME;
-			} else {
-				process.env.HOME = originalHome;
-			}
-		}
-
-		expectSingleCommandOutput(pi.sentMessages, "pi-custom-cp");
-		expect(pi.commands.has("sdl:code:cp")).toBe(false);
-	});
-
-	test("runs sdl autobranch through the flat direct SDL mirror only", async () => {
-		const cwd = await createCommandProject("autobranch");
-		const pi = new FakePi();
-		sdlExtension(pi);
-
-		const originalHome = process.env.HOME;
-		process.env.HOME = join(cwd, ".home");
-		try {
-			await commandFor(pi, "sdl:autobranch").handler("", createContext(cwd));
-		} finally {
-			if (originalHome === undefined) {
-				delete process.env.HOME;
-			} else {
-				process.env.HOME = originalHome;
-			}
-		}
-
-		expectSingleCommandOutput(pi.sentMessages, "pi-custom-autobranch");
-		expect(pi.commands.has("sdl:code:autobranch")).toBe(false);
-	});
-
-	test("runs sdl submit through the flat direct SDL mirror only", async () => {
-		const cwd = await createCommandProject("submit");
-		const pi = new FakePi();
-		sdlExtension(pi);
-
-		const originalHome = process.env.HOME;
-		process.env.HOME = join(cwd, ".home");
-		try {
-			await commandFor(pi, "sdl:submit").handler("", createContext(cwd));
-		} finally {
-			if (originalHome === undefined) {
-				delete process.env.HOME;
-			} else {
-				process.env.HOME = originalHome;
-			}
-		}
-
-		expectSingleCommandOutput(pi.sentMessages, "pi-custom-submit");
-		expect(pi.commands.has("sdl:code:submit")).toBe(false);
-	});
-
-	test("runs sdl regenerate-pr through the flat direct SDL mirror only", async () => {
-		const cwd = await createCommandProject("regenerate-pr");
-		const pi = new FakePi();
-		sdlExtension(pi);
-
-		const originalHome = process.env.HOME;
-		process.env.HOME = join(cwd, ".home");
-		try {
-			await commandFor(pi, "sdl:regenerate-pr").handler("", createContext(cwd));
-		} finally {
-			if (originalHome === undefined) {
-				delete process.env.HOME;
-			} else {
-				process.env.HOME = originalHome;
-			}
-		}
-
-		expectSingleCommandOutput(pi.sentMessages, "pi-custom-regenerate-pr");
-		expect(pi.commands.has("sdl:code:regenerate-pr")).toBe(false);
-	});
-
-	test("runs sdl push through the flat direct SDL mirror only", async () => {
-		const cwd = await createCommandProject("push");
-		const pi = new FakePi();
-		sdlExtension(pi);
-
-		const originalHome = process.env.HOME;
-		process.env.HOME = join(cwd, ".home");
-		try {
-			await commandFor(pi, "sdl:push").handler("", createContext(cwd));
-		} finally {
-			if (originalHome === undefined) {
-				delete process.env.HOME;
-			} else {
-				process.env.HOME = originalHome;
-			}
-		}
-
-		expectSingleCommandOutput(pi.sentMessages, "pi-custom-push");
-		expect(pi.commands.has("sdl:code:push")).toBe(false);
-	});
+			expectSingleCommandOutput(pi.sentMessages, `pi-custom-${commandName}`);
+		});
+	}
 });
