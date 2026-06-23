@@ -43,6 +43,7 @@ const INTERNAL_MIGRATION_MODULE_PATHS = {
 	"@sdl/sdl/pending-worktree": "pending-worktree.ts",
 	"@sdl/sdl/pi-text-generation": "sdk/pi-text-generation.ts",
 	"@sdl/sdl/pr-description": "pr-description.ts",
+	"@sdl/sdl/temp-files": "temp-files.ts",
 	"@sdl/sdl/text-generation": "sdk/text-generation.ts",
 	"@sdl/sdl/text-repair": "text-repair.ts",
 } as const;

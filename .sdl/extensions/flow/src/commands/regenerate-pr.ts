@@ -1,12 +1,13 @@
 import { createHash } from "node:crypto";
-import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { access, readFile } from "node:fs/promises";
 import { basename, isAbsolute, join, resolve } from "node:path";
 import process from "node:process";
 
 import { defineExtension, failed, ok, z } from "@sdl/sdl/sdk";
+import { commandFailure } from "../shared/command-output.ts";
+import { withFlowTemporaryFile } from "../shared/scratch.ts";
 import { preparePrDescription } from "../shared/text-helpers.ts";
-import type { ExecResult, SdlExtensionApi, TextGenerator } from "@sdl/sdl/sdk";
+import type { ExecResult, SdlExtensionApi } from "@sdl/sdl/sdk";
 
 // This project-local extension intentionally uses only the public SDL SDK import. The local
 // PR-description helpers below are SDK-pressure evidence for later command migrations, not new SDK API.
@@ -434,7 +435,7 @@ async function editPr(
   ctx: SdlExtensionApi,
   params: { cwd: string; number: number; title: string; body: string },
 ): Promise<Result<void, CommandFailure>> {
-  return await withTemporaryFile(
+  return await withFlowTemporaryFile(
     { prefix: "sdl-dev-pr-body-", filename: "body.md", contents: `${params.body}\n` },
     async (bodyPath) => {
       const args = [
@@ -678,20 +679,6 @@ async function isReadableFile(path: string): Promise<boolean> {
   }
 }
 
-async function withTemporaryFile<T>(
-  options: { prefix: string; filename: string; contents: string },
-  callback: (path: string) => Promise<T>,
-): Promise<T> {
-  const directory = await mkdtemp(join(tmpdir(), options.prefix));
-  try {
-    const path = join(directory, options.filename);
-    await writeFile(path, options.contents, "utf8");
-    return await callback(path);
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-}
-
 function countOccurrences(content: string, needle: string): number {
   let count = 0;
   let start = 0;
@@ -841,31 +828,6 @@ function parseGithubPrDetails(output: string): Result<GithubPrDetails, CommandFa
     };
   }
   return { ok: true, value: { number, url, title, body, headRefName, baseRefName } };
-}
-
-function commandFailure(input: {
-  command: string;
-  args: readonly string[];
-  result: ExecResult;
-  code: string;
-  message: string;
-}): CommandFailure | undefined {
-  if (input.result.code === 0) return undefined;
-  const details = input.result.stderr.trim() || input.result.stdout.trim();
-  const killed = input.result.killed ? " (killed or timed out)" : "";
-  const suffix = details
-    ? `\n${formatCommand(input.command, input.args)} exited ${input.result.code}${killed}: ${details}`
-    : `\n${formatCommand(input.command, input.args)} exited ${input.result.code}${killed}`;
-  return { code: input.code, message: `${input.message}${suffix}` };
-}
-
-function formatCommand(command: string, args: readonly string[]): string {
-  return [command, ...args].map(formatCommandArg).join(" ");
-}
-
-function formatCommandArg(arg: string): string {
-  if (/^[A-Za-z0-9_./:=@+-]+$/.test(arg)) return arg;
-  return JSON.stringify(arg);
 }
 
 function formatErrorMessage(error: unknown): string {
