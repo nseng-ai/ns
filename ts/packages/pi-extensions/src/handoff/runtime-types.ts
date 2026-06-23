@@ -54,6 +54,14 @@ export interface TuiHandle {
 	requestRender(force?: boolean): void;
 }
 
+export type WidgetPlacement = "aboveEditor" | "belowEditor";
+
+export type SetWidgetFunction = (
+	key: string,
+	content: string[] | undefined,
+	options?: { placement?: WidgetPlacement },
+) => void;
+
 export interface ToolResult<Details = unknown> {
 	content: Array<{ type: "text"; text: string }>;
 	details?: Details;
@@ -61,6 +69,8 @@ export interface ToolResult<Details = unknown> {
 	/** External Pi tool-result contract; Pi documents this field as `terminate`. */
 	terminate?: boolean;
 }
+
+export type RuntimeToolResult<Details = unknown> = ToolResult<Details>;
 
 export type SendUserMessageOptions = SessionUserMessageOptions;
 export type { SessionReplacementResult };
@@ -88,6 +98,8 @@ export interface ToolDefinition {
 	): Promise<ToolResult> | ToolResult;
 }
 
+export type RuntimeToolDefinition = ToolDefinition;
+
 export type MessageRenderer = (
 	message: CustomMessage,
 	options: { expanded: boolean },
@@ -109,6 +121,7 @@ export interface BaseRuntimeContext {
 		notify(message: string, level?: NotifyLevel): void;
 		setEditorText?(value: string): void;
 		setStatus?(key: string, value: string | undefined): void;
+		setWidget?: SetWidgetFunction;
 		custom?<T>(
 			factory: (
 				tui: TuiHandle,
@@ -137,6 +150,7 @@ export interface ExtensionAPI {
 		name: string,
 		options: {
 			description?: string;
+			argumentHint?: string;
 			getArgumentCompletions?: (prefix: string) => AutocompleteItem[] | null;
 			handler(args: string, ctx: CommandContext): Promise<void> | void;
 		},
@@ -153,3 +167,5 @@ export interface ExtensionAPI {
 	sendMessage?(message: CustomMessage): void;
 	sendUserMessage(content: string, options?: SendUserMessageOptions): void;
 }
+
+export type RuntimeExtensionAPI = ExtensionAPI;

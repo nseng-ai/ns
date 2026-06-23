@@ -8,6 +8,7 @@ import { registerContextProfilerExtension } from "../src/context-profiler.ts";
 import dispatchRunnerSubagentExtension from "../src/dispatch-runner-subagent.ts";
 import { registerGrillUiExtension } from "../src/grill-ui.ts";
 import handoffExtension from "../src/handoff.ts";
+import investigateExtension from "../src/investigate.ts";
 import modelShortcutExtension from "../src/model-shortcuts.ts";
 import objectiveExtension from "../src/objective.ts";
 import prExtension from "../src/pr.ts";
@@ -99,6 +100,7 @@ async function collectLivePiExtensionSurfaces(): Promise<LivePiSurface[]> {
 	await registerWithFakeHost(pi, registerDispatchRunnerSubagentWithFakeDefinition);
 	await registerWithFakeHost(pi, registerGrillUiExtension);
 	await registerWithFakeHost(pi, handoffExtension);
+	await registerWithFakeHost(pi, registerInvestigateWithFakeDefinition);
 	await registerWithFakeHost(pi, modelShortcutExtension);
 	await registerWithFakeHost(pi, objectiveExtension);
 	await registerWithFakeHost(pi, prExtension);
@@ -128,6 +130,12 @@ function registerDispatchRunnerSubagentWithFakeDefinition(
 	dispatchRunnerSubagentExtension(pi, { loadAgentDefinition: () => fakeRunnerAgentDefinition() });
 }
 
+function registerInvestigateWithFakeDefinition(
+	pi: Parameters<typeof investigateExtension>[0],
+): void {
+	investigateExtension(pi, { loadAgentDefinition: () => fakeInvestigatorAgentDefinition() });
+}
+
 function fakeRunnerAgentDefinition(): PiAgentDefinition {
 	return {
 		schema: "sdl.pi-agent.v1",
@@ -138,6 +146,19 @@ function fakeRunnerAgentDefinition(): PiAgentDefinition {
 		promptGuidelines: [],
 		body: "{{prompt}}",
 		filePath: "/fixture/.sdl/pi/agents/runner.md",
+	};
+}
+
+function fakeInvestigatorAgentDefinition(): PiAgentDefinition {
+	return {
+		schema: "sdl.pi-agent.v1",
+		name: "investigator",
+		toolName: "investigate",
+		label: "Investigator",
+		description: "Run a fixture investigation.",
+		promptGuidelines: [],
+		body: "Investigate this prompt:\n\n{{prompt}}",
+		filePath: "/fixture/.sdl/pi/agents/investigator.md",
 	};
 }
 

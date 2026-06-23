@@ -4,6 +4,7 @@ import { codeWorkflowsParity } from "./code-workflows.ts";
 import { contextProfilerParity } from "./context-profiler.ts";
 import { grillUiParity } from "./grill-ui.ts";
 import { handoffParity } from "./handoff.ts";
+import { investigateParity } from "./investigate.ts";
 import { modelShortcutParity } from "./model-shortcuts.ts";
 import { objectiveParity } from "./objective.ts";
 import { prFeedbackWatchParity } from "./pr-feedback-watch.ts";
@@ -21,6 +22,7 @@ export const STATIC_PI_EXTENSION_PARITY_RECORDS = [
 	...contextProfilerParity,
 	...grillUiParity,
 	...handoffParity,
+	...investigateParity,
 	...modelShortcutParity,
 	...objectiveParity,
 	...prFeedbackWatchParity,

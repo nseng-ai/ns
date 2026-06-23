@@ -64,6 +64,7 @@ function finalTextOptions(
 		model?: string;
 		signal?: AbortSignal;
 		terminalTools?: readonly RunnerSubagentTerminalToolDefinition[];
+		tools?: readonly string[];
 	} = {},
 ): RunnerSubagentOptions {
 	return {
@@ -74,6 +75,7 @@ function finalTextOptions(
 		...(overrides.model === undefined ? {} : { model: overrides.model }),
 		...(overrides.signal === undefined ? {} : { signal: overrides.signal }),
 		...(overrides.terminalTools === undefined ? {} : { terminalTools: overrides.terminalTools }),
+		...(overrides.tools === undefined ? {} : { tools: overrides.tools }),
 	};
 }
 
@@ -496,6 +498,37 @@ describe("runner subagent process dispatcher", () => {
 				message: { role: "assistant", content: [{ type: "text", text: "Done." }] },
 			}),
 		);
+		call.process.close(0);
+		const result = await running;
+
+		expect(result.status).toBe("final-text");
+	});
+
+	test("passes child built-in tool allowlist when supplied", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({
+			sessionFile: "/tmp/runner-subagent.jsonl",
+		});
+		const running = dispatchRunnerSubagentProcess(
+			pi,
+			ctx,
+			finalTextOptions({ tools: ["read", "grep", "find", "ls", "bash"] }),
+			runner.dependencies,
+		);
+		const call = await waitForSpawn(runner.calls);
+
+		expect(call.args).toEqual([
+			"--mode",
+			"json",
+			"-p",
+			"--no-extensions",
+			"--tools",
+			"read,grep,find,ls,bash",
+			"--session",
+			"/tmp/runner-subagent.jsonl",
+			"Do the delegated task.",
+		]);
+
+		call.process.emitStdout(finalTextMessage("Done."));
 		call.process.close(0);
 		const result = await running;
 

@@ -1,27 +1,20 @@
-import type { ExecOptions, ExecResult } from "@sdl/core/exec";
-
-import type { ModelInfo, ThinkingLevel } from "./cmux/types.ts";
+import { loadPiAgentDefinition, type PiAgentDefinition } from "./pi-agent-definition.ts";
+import type { CuratedRunnerSubagentContextAudit } from "./runner-subagent/curated-context.ts";
+import { runFinalTextSubagent } from "./runner-subagent/dispatch-preparation.ts";
 import {
-	composePiAgentPrompt,
-	loadPiAgentDefinition,
-	type PiAgentDefinition,
-} from "./pi-agent-definition.ts";
-import {
-	buildCuratedRunnerSubagentContext,
-	type CuratedRunnerSubagentContextAudit,
-} from "./runner-subagent/curated-context.ts";
-import { resolveRunnerSubagentLaunch } from "./runner-subagent/subagent-process.ts";
-import {
-	dispatchRunnerSubagent,
 	resultDiagnostic,
 	type RunnerSubagentLaunchMetadata,
 	type RunnerSubagentPi,
 	type RunnerSubagentProgress,
 	type RunnerSubagentResult,
-	type RunnerSubagentUpdate,
 	type RunnerSubagentUsageMetadata,
 } from "./runner-subagent.ts";
-import { emptyRunnerSubagentActivity } from "./runner-subagent/activity.ts";
+import type {
+	RuntimeExtensionAPI,
+	RuntimeToolDefinition,
+	RuntimeToolResult,
+	ToolContext,
+} from "./handoff/runtime-types.ts";
 import {
 	formatRunnerSubagentElapsed,
 	formatRunnerSubagentModelText,
@@ -30,8 +23,6 @@ import {
 	runnerSubagentSessionFile,
 	runnerSubagentSessionFileText,
 } from "./runner-subagent/presentation.ts";
-import { formatRunnerSubagentActivityWidgetLines } from "./runner-subagent/widget.ts";
-
 export { resultDiagnostic } from "./runner-subagent.ts";
 
 export const DISPATCH_RUNNER_SUBAGENT_TOOL_NAME = "dispatch_runner_subagent";
@@ -39,16 +30,7 @@ export const MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS = 48_000;
 
 const WIDGET_KEY = DISPATCH_RUNNER_SUBAGENT_TOOL_NAME;
 
-interface TextContent {
-	type: "text";
-	text: string;
-}
-
-export interface ToolResult {
-	content: TextContent[];
-	details?: unknown;
-}
-
+export type ToolResult = RuntimeToolResult;
 export interface DispatchRunnerSubagentInput {
 	title: string;
 	prompt: string;
@@ -72,41 +54,26 @@ export interface DispatchRunnerSubagentDetails {
 	protocolError?: unknown;
 }
 
-export interface ExtensionContext {
-	cwd: string;
-	model?: ModelInfo;
-	hasUI?: boolean;
-	ui?: {
-		setStatus?(key: string, text: string | undefined): void;
-		setWidget?(
-			key: string,
-			content: string[] | undefined,
-			options?: { placement?: "aboveEditor" | "belowEditor" },
-		): void;
+export type ExtensionContext = Pick<ToolContext, "cwd" | "model"> &
+	Partial<Pick<ToolContext, "hasUI" | "mode">> & {
+		ui?: Partial<ToolContext["ui"]>;
 	};
-}
 
-export interface ToolDefinition {
-	name: string;
-	label: string;
-	description: string;
-	promptSnippet?: string;
-	promptGuidelines?: string[];
+export interface ToolDefinition extends Omit<RuntimeToolDefinition, "execute" | "parameters"> {
 	parameters: object;
 	execute(
 		toolCallId: string,
-		params: DispatchRunnerSubagentInput,
+		params: unknown,
 		signal: AbortSignal | undefined,
 		onUpdate: ((partial: ToolResult) => void) | undefined,
 		ctx: ExtensionContext,
 	): Promise<ToolResult>;
 }
 
-export interface ExtensionAPI extends RunnerSubagentPi {
-	getThinkingLevel?: () => ThinkingLevel;
-	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
-	registerTool(tool: ToolDefinition): void;
-}
+export type ExtensionAPI = RunnerSubagentPi &
+	Pick<RuntimeExtensionAPI, "exec" | "getThinkingLevel"> & {
+		registerTool(tool: ToolDefinition): void;
+	};
 
 export interface DispatchRunnerSubagentExtensionOptions {
 	cwd?: string;
@@ -158,74 +125,46 @@ export default function dispatchRunnerSubagentExtension(
 		parameters: DISPATCH_RUNNER_SUBAGENT_PARAMETERS,
 		execute: async (_toolCallId, params, signal, onUpdate, ctx) => {
 			const input = validateDispatchRunnerSubagentInput(params);
-			const curatedContext = await buildCuratedRunnerSubagentContext({
+			const { result, curatedContext } = await runFinalTextSubagent({
+				pi,
+				ctx,
+				definition: runnerDefinition,
 				title: input.title,
 				prompt: input.prompt,
-				cwd: ctx.cwd,
-				execGit: (args, timeoutMs) =>
-					pi.exec("git", [...args], {
-						cwd: ctx.cwd,
-						timeout: timeoutMs,
-						...(signal === undefined ? {} : { signal }),
-					}),
-			});
-			const childPrompt = `${composePiAgentPrompt(runnerDefinition, input)}\n\n${curatedContext.markdown}`;
-			const launch =
-				resolveRunnerSubagentLaunch(pi, ctx, {
-					prompt: childPrompt,
-					returnMode: "final-text",
-					model: input.model,
-				}) ?? defaultRunnerSubagentLaunchMetadata();
-			const initialUpdate: RunnerSubagentUpdate = {
-				progress: initialDispatchProgress(input.title, launch),
-				activity: emptyRunnerSubagentActivity(),
-			};
-			onUpdate?.({
-				content: [{ type: "text", text: `Dispatching runner subagent: ${input.title}` }],
-				details: {
-					status: "starting",
-					title: input.title,
-					progress: initialUpdate.progress,
-					curatedContext: curatedContext.audit,
+				widgetKey: WIDGET_KEY,
+				...(input.model === undefined ? {} : { model: input.model }),
+				...(signal === undefined ? {} : { signal }),
+				onStart: (start) => {
+					onUpdate?.({
+						content: [{ type: "text", text: `Dispatching runner subagent: ${input.title}` }],
+						details: {
+							status: "starting",
+							title: input.title,
+							progress: start.update.progress,
+							curatedContext: start.curatedContext.audit,
+						},
+					});
+				},
+				onProgress: (update) => {
+					const progressText = formatDispatchRunnerSubagentProgress(update.progress);
+					onUpdate?.({
+						content: [{ type: "text", text: progressText }],
+						details: {
+							status: "running",
+							title: input.title,
+							progress: update.progress,
+						},
+					});
 				},
 			});
-			setWidget(ctx, formatRunnerSubagentActivityWidgetLines(initialUpdate));
 
-			try {
-				const result = await dispatchRunnerSubagent(
-					pi,
-					{
-						cwd: ctx.cwd,
-						...(signal === undefined ? {} : { signal }),
-						...(ctx.model === undefined ? {} : { model: ctx.model }),
-					},
-					{
-						title: input.title,
-						prompt: childPrompt,
-						...(input.model === undefined ? {} : { model: input.model }),
-						returnMode: "final-text",
-						preResolvedLaunch: launch,
-						onProgress: (update) => {
-							const progressText = formatDispatchRunnerSubagentProgress(update.progress);
-							onUpdate?.({
-								content: [{ type: "text", text: progressText }],
-								details: { status: "running", title: input.title, progress: update.progress },
-							});
-							setWidget(ctx, formatRunnerSubagentActivityWidgetLines(update));
-						},
-					},
-				);
-
-				return {
-					content: [{ type: "text", text: formatDispatchRunnerSubagentResult(result) }],
-					details: dispatchRunnerSubagentDetails(result, {
-						requestedModel: input.model,
-						curatedContext: curatedContext.audit,
-					}),
-				};
-			} finally {
-				setWidget(ctx, undefined);
-			}
+			return {
+				content: [{ type: "text", text: formatDispatchRunnerSubagentResult(result) }],
+				details: dispatchRunnerSubagentDetails(result, {
+					requestedModel: input.model,
+					curatedContext: curatedContext.audit,
+				}),
+			};
 		},
 	});
 }
@@ -355,56 +294,27 @@ export function formatDispatchRunnerSubagentProgress(progress: RunnerSubagentPro
 	].join("\n");
 }
 
-function initialDispatchProgress(
-	title: string,
-	launch: RunnerSubagentLaunchMetadata,
-): RunnerSubagentProgress {
-	return {
-		title,
-		state: "starting",
-		toolCount: 0,
-		turnCount: 0,
-		elapsedMs: 0,
-		launch,
-	};
-}
-
-function defaultRunnerSubagentLaunchMetadata(): RunnerSubagentLaunchMetadata {
-	return {
-		thinkingLevel: "off",
-		hasModelArg: false,
-		hasThinkingArg: false,
-	};
-}
-
-function setWidget(ctx: ExtensionContext, lines: string[] | undefined): void {
-	if (ctx.hasUI === false) return;
-	try {
-		ctx.ui?.setWidget?.(WIDGET_KEY, lines, { placement: "aboveEditor" });
-	} catch {
-		// UI updates are display-only and must not affect tool execution.
+function validateDispatchRunnerSubagentInput(params: unknown): DispatchRunnerSubagentInput {
+	if (params === null || typeof params !== "object") {
+		throw new Error("dispatch_runner_subagent requires an object input.");
 	}
-}
-
-function validateDispatchRunnerSubagentInput(
-	params: DispatchRunnerSubagentInput,
-): DispatchRunnerSubagentInput {
-	if (typeof params.title !== "string" || params.title.trim().length === 0) {
+	const input = params as Partial<DispatchRunnerSubagentInput>;
+	if (typeof input.title !== "string" || input.title.trim().length === 0) {
 		throw new Error("dispatch_runner_subagent requires a non-empty title string.");
 	}
-	if (typeof params.prompt !== "string" || params.prompt.trim().length === 0) {
+	if (typeof input.prompt !== "string" || input.prompt.trim().length === 0) {
 		throw new Error("dispatch_runner_subagent requires a non-empty prompt string.");
 	}
 	if (
-		params.model !== undefined &&
-		(typeof params.model !== "string" || params.model.trim().length === 0)
+		input.model !== undefined &&
+		(typeof input.model !== "string" || input.model.trim().length === 0)
 	) {
 		throw new Error("dispatch_runner_subagent model must be a non-empty string when provided.");
 	}
-	const model = params.model?.trim();
+	const model = input.model?.trim();
 	return {
-		title: params.title.trim(),
-		prompt: params.prompt,
+		title: input.title.trim(),
+		prompt: input.prompt,
 		...(model === undefined ? {} : { model }),
 	};
 }

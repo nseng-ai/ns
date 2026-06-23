@@ -1,4 +1,10 @@
-import type { RunnerSubagentUpdate } from "../runner-subagent.ts";
+import type { SetWidgetFunction } from "../handoff/runtime-types.ts";
+import type {
+	RunnerSubagentLaunchMetadata,
+	RunnerSubagentProgressCallback,
+	RunnerSubagentUpdate,
+} from "../runner-subagent.ts";
+import { emptyRunnerSubagentActivity } from "./activity.ts";
 import {
 	formatRunnerSubagentElapsed,
 	formatRunnerSubagentModelText,
@@ -10,6 +16,71 @@ import {
 export interface RunnerSubagentWidgetOptions {
 	fallbackTitle?: string;
 	includeElapsed?: boolean;
+}
+
+export interface RunnerSubagentWidgetContext {
+	hasUI?: boolean;
+	ui?: { setWidget?: SetWidgetFunction };
+}
+
+export function setRunnerSubagentWidget(
+	ctx: RunnerSubagentWidgetContext,
+	key: string,
+	lines: string[] | undefined,
+): void {
+	if (ctx.hasUI === false) return;
+	try {
+		ctx.ui?.setWidget?.(key, lines, { placement: "aboveEditor" });
+	} catch {
+		// Widget updates are display-only and must not affect subagent execution.
+	}
+}
+
+export function buildInitialRunnerSubagentUpdate(input: {
+	title: string;
+	launch: RunnerSubagentLaunchMetadata;
+}): RunnerSubagentUpdate {
+	return {
+		progress: {
+			title: input.title,
+			state: "starting",
+			toolCount: 0,
+			turnCount: 0,
+			elapsedMs: 0,
+			launch: input.launch,
+		},
+		activity: emptyRunnerSubagentActivity(),
+	};
+}
+
+export interface WithRunnerSubagentWidgetOptions<T> {
+	ctx: RunnerSubagentWidgetContext;
+	key: string;
+	initial: { title: string; launch: RunnerSubagentLaunchMetadata };
+	run: (onProgress: RunnerSubagentProgressCallback) => Promise<T>;
+}
+
+export async function withRunnerSubagentWidget<T>(
+	options: WithRunnerSubagentWidgetOptions<T>,
+): Promise<T> {
+	const initialUpdate = buildInitialRunnerSubagentUpdate(options.initial);
+	setRunnerSubagentWidget(
+		options.ctx,
+		options.key,
+		formatRunnerSubagentActivityWidgetLines(initialUpdate),
+	);
+
+	try {
+		return await options.run((update) => {
+			setRunnerSubagentWidget(
+				options.ctx,
+				options.key,
+				formatRunnerSubagentActivityWidgetLines(update),
+			);
+		});
+	} finally {
+		setRunnerSubagentWidget(options.ctx, options.key, undefined);
+	}
 }
 
 export function formatRunnerSubagentActivityWidgetLines(

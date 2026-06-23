@@ -1,7 +1,18 @@
 import { describe, expect, test } from "vitest";
 
 import type { RunnerSubagentUpdate } from "../src/runner-subagent.ts";
-import { formatRunnerSubagentActivityWidgetLines } from "../src/runner-subagent/widget.ts";
+import {
+	formatRunnerSubagentActivityWidgetLines,
+	setRunnerSubagentWidget,
+	withRunnerSubagentWidget,
+} from "../src/runner-subagent/widget.ts";
+
+const METADATA_ONLY_LAUNCH = {
+	model: { provider: "anthropic", id: "claude-sonnet-4-5" },
+	thinkingLevel: "medium",
+	hasModelArg: true,
+	hasThinkingArg: true,
+} as const;
 
 const METADATA_ONLY_UPDATE: RunnerSubagentUpdate = {
 	progress: {
@@ -12,12 +23,7 @@ const METADATA_ONLY_UPDATE: RunnerSubagentUpdate = {
 		turnCount: 1,
 		elapsedMs: 1_250,
 		sessionFile: "/tmp/progress.jsonl",
-		launch: {
-			model: { provider: "anthropic", id: "claude-sonnet-4-5" },
-			thinkingLevel: "medium",
-			hasModelArg: true,
-			hasThinkingArg: true,
-		},
+		launch: METADATA_ONLY_LAUNCH,
 	},
 	activity: {},
 };
@@ -170,5 +176,60 @@ describe("runner subagent activity widget", () => {
 			"Thinking: off",
 			"Turns/tools: 0/0",
 		]);
+	});
+
+	test("sets progress widgets and clears them after success", async () => {
+		const records: Array<{ value: string[] | undefined }> = [];
+		const result = await withRunnerSubagentWidget({
+			ctx: {
+				hasUI: true,
+				ui: {
+					setWidget(_key, value): void {
+						records.push({ value });
+					},
+				},
+			},
+			key: "runner",
+			initial: { title: "Lifecycle", launch: METADATA_ONLY_LAUNCH },
+			run: async (onProgress) => {
+				onProgress(METADATA_ONLY_UPDATE);
+				return "done";
+			},
+		});
+
+		expect(result).toBe("done");
+		expect(records[0]?.value).toContain("Subagent: Lifecycle");
+		expect(records.some((record) => record.value?.includes("Tool: read"))).toBe(true);
+		expect(records.at(-1)).toEqual({ value: undefined });
+	});
+
+	test("clears progress widgets after failure", async () => {
+		const records: Array<{ value: string[] | undefined }> = [];
+
+		await expect(
+			withRunnerSubagentWidget({
+				ctx: {
+					hasUI: true,
+					ui: {
+						setWidget(_key, value): void {
+							records.push({ value });
+						},
+					},
+				},
+				key: "runner",
+				initial: { title: "Lifecycle", launch: METADATA_ONLY_LAUNCH },
+				run: async () => {
+					throw new Error("boom");
+				},
+			}),
+		).rejects.toThrow("boom");
+		expect(records.at(-1)).toEqual({ value: undefined });
+	});
+
+	test("ignores absent widget UI", () => {
+		expect(() => setRunnerSubagentWidget({ hasUI: false }, "runner", ["line"])).not.toThrow();
+		expect(() =>
+			setRunnerSubagentWidget({ hasUI: true, ui: {} }, "runner", ["line"]),
+		).not.toThrow();
 	});
 });
