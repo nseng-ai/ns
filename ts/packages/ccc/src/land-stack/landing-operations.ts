@@ -258,7 +258,7 @@ function formatRemainingManagedSlotConflicts(conflicts: WorktreeConflict[]): str
 export function residualPreMergeFailure(plan: LandingPlan): LandStackFailure | undefined {
 	if (plan.managedSlotConflicts.length > 0) {
 		return landStackFailure(formatRemainingManagedSlotConflicts(plan.managedSlotConflicts), {
-			suggestedAction: `Run ${formatCommand("slot", slotFreeArgs(plan.managedSlotConflicts))} manually, inspect worktrees, and rerun /sdl:flow:land.`,
+			suggestedAction: `Run ${formatCommand("sdl", ["slot", ...slotFreeArgs(plan.managedSlotConflicts)])} manually, inspect worktrees, and rerun /sdl:flow:land.`,
 		});
 	}
 	if (plan.prSubmitRequirements.length > 0) {

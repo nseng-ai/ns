@@ -24,7 +24,7 @@ Scopes are not separate skills. This reference documents how an agent should gro
 
 This is an explicitly Graphite/topology workflow. It depends on Graphite plumbing to learn stack topology and worktree placement:
 
-- `slot gt exec stack-map-branches --format json` for the full branch graph and worktree map.
+- `sdl slot gt exec stack-map-branches --format json` for the full branch graph and worktree map.
 - `gt trunk`, `gt parent --no-interactive`, or `gt children --no-interactive` only when a single edge is needed.
 
 Never parse human-facing `gt ls`, `gt log`, or `gt branch info` output for machine topology decisions. If Graphite metadata is missing or stale, degrade affected Objectives rather than guessing.
@@ -70,7 +70,7 @@ Note: attribution is committed divergence only. Uncommitted-only edits on a bran
 ### 2. Topology and worktree map
 
 ```bash
-slot gt exec stack-map-branches --format json
+sdl slot gt exec stack-map-branches --format json
 ```
 
 The current command returns `.data.branches[]`, `.data.slots[]`, `.data.trunk`, and `.data.warnings[]`. Build these indexes:

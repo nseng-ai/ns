@@ -25,7 +25,7 @@ The result includes `markdown` for editor/session prefill plus target/count meta
 `/pr:download-stack-feedback` uses structured stack discovery plus per-PR downloads. `map-branch-prs` maps structured branch lists to PRs before download:
 
 ```bash
-slot gt exec stack-branches --format json \
+sdl slot gt exec stack-branches --format json \
   | pr-address exec map-branch-prs --format json
 ```
 

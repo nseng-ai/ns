@@ -48,7 +48,7 @@ Invocation authorizes validating, fixing, restacking, and `gt submit --no-intera
 
 4. **Restack after every fix commit**
    - After a fix commit, run `gt restack --no-interactive`. If this installed Graphite rejects `--no-interactive` for `gt restack`, retry once as `gt restack`; stop if Graphite opens or requires an interactive prompt.
-   - If restack fails because an in-scope branch is checked out in another slot, ask before running `slot gt free-stack`. Only retry restack after the user authorizes slot freeing.
+   - If restack fails because an in-scope branch is checked out in another slot, ask before running `sdl slot gt free-stack`. Only retry restack after the user authorizes slot freeing.
    - If restack enters a conflict/rebase state, use `code-gt-restack-resolve` from the current state.
    - After restack, verify `git status --short` is clean before continuing.
 

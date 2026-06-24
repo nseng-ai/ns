@@ -33,7 +33,7 @@ find skills -maxdepth 2 -name SKILL.md | sort
 
 Prefer the Graphite parent from `gt parent --no-interactive` as the branch diff base when available, because this repo uses Graphite stacks. If Graphite is unavailable, use a best-effort plain git base (`origin/master`, `master`, `origin/main`, `main`) without failing the review.
 
-Do not parse `gt branch info`, `gt ls`, `gt ls --stack`, or `gt log` display output for machine topology decisions. For current-stack topology use `slot gt exec stack-branches` or `slot gt exec stack-branches --format json`; reserve display commands only for human visual confirmation or diagnostics.
+Do not parse `gt branch info`, `gt ls`, `gt ls --stack`, or `gt log` display output for machine topology decisions. For current-stack topology use `sdl slot gt exec stack-branches` or `sdl slot gt exec stack-branches --format json`; reserve display commands only for human visual confirmation or diagnostics.
 
 For diff-scoped review, inspect changed files before the full inventory. For full-sweep review, inspect all registration sites and the current skill inventory.
 
