@@ -1,12 +1,11 @@
-import { NodeCommandExecApi, type CommandExecApi, type ExecOptions } from "@sdl/core/exec";
 import {
-	failed,
-	ok,
-	type ExecResult,
-	type SdlExecOptions,
-	type SdlExtensionApi,
-	type SdlResult,
-} from "@sdl/sdl/sdk";
+	NodeCommandExecApi,
+	outputListenerToExecCallbacks,
+	type CommandExecApi,
+	type ExecOptions,
+} from "@sdl/core/exec";
+import { SdlCommandExecApi } from "@sdl/extension-kit/command-runner";
+import { failed, ok, type ExecResult, type SdlExtensionApi, type SdlResult } from "@sdl/sdl/sdk";
 
 export interface FlowCccCliExecOptions {
 	cwd?: string | undefined;
@@ -70,10 +69,10 @@ interface ExecFlowCccCommandOptions {
 async function execFlowCccCommand(options: ExecFlowCccCommandOptions): Promise<ExecResult> {
 	const cwd = options.options?.cwd ?? options.ctx.cwd;
 	if (cwd === options.ctx.cwd) {
-		return await options.ctx.exec(
+		return await createScopedFlowCccExec(options.ctx).exec(
 			options.command,
 			[...options.args],
-			buildScopedSdlExecOptions(options),
+			buildScopedFlowCccExecOptions(options, cwd),
 		);
 	}
 	return await options.trustedExec.exec(
@@ -83,14 +82,22 @@ async function execFlowCccCommand(options: ExecFlowCccCommandOptions): Promise<E
 	);
 }
 
+function createScopedFlowCccExec(ctx: SdlExtensionApi): CommandExecApi {
+	return new SdlCommandExecApi(ctx);
+}
+
 function createTrustedFlowCccExec(): CommandExecApi {
 	return new NodeCommandExecApi();
 }
 
-function buildScopedSdlExecOptions(options: ExecFlowCccCommandOptions): SdlExecOptions {
+function buildScopedFlowCccExecOptions(
+	options: ExecFlowCccCommandOptions,
+	cwd: string,
+): ExecOptions {
 	return {
-		...(options.options?.timeout === undefined ? {} : { timeoutMs: options.options.timeout }),
-		...buildLiveOutputCallbacks(options),
+		cwd,
+		...(options.options?.timeout === undefined ? {} : { timeout: options.options.timeout }),
+		...buildFlowCccOutputCallbacks(options),
 	};
 }
 
@@ -102,17 +109,13 @@ function buildTrustedFlowCccExecOptions(
 		cwd,
 		env: options.ctx.env,
 		...(options.options?.timeout === undefined ? {} : { timeout: options.options.timeout }),
-		...buildLiveOutputCallbacks(options),
+		...buildFlowCccOutputCallbacks(options),
 	};
 }
 
-function buildLiveOutputCallbacks(
+function buildFlowCccOutputCallbacks(
 	options: ExecFlowCccCommandOptions,
 ): Pick<ExecOptions, "onStdout" | "onStderr"> {
-	const onOutput = options.ctx.onOutput;
-	if (!options.liveOutput.shouldForwardLiveOutput || onOutput === undefined) return {};
-	return {
-		onStdout: (text: string) => onOutput("stdout", text),
-		onStderr: (text: string) => onOutput("stderr", text),
-	};
+	if (!options.liveOutput.shouldForwardLiveOutput) return {};
+	return outputListenerToExecCallbacks(options.ctx.onOutput);
 }
