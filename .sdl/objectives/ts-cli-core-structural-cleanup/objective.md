@@ -18,6 +18,18 @@ every finding — is preserved under `references/` (start at `references/README.
 Scope and roadmap below summarize it; the reference files are the source of truth
 for implementation detail.
 
+This Objective is now the canonical home for tactical TypeScript structural
+cleanup and architecture-deepening findings that are *not* specifically
+extension-layering endgame work. It subsumes the still-live tactical rows from
+the closed `ts-cli-architecture-deepening` Objective (whose
+`improve-codebase-architecture` deepening pass surfaced shallow modules, leaky
+seams, and one-adapter watch-points across the TypeScript CLIs and `asdl-core`).
+Architectural layering and capability-extension migration work routes to
+`sdl-extension-architecture` (ADR 0009); general TS cleanup/deepening routes
+here. Migrated deepening rows keep the deletion-test / module-interface-depth-seam
+vocabulary they were captured in — the reasoning is carried across intact, not
+flattened into bare findings.
+
 ## Scope
 
 In scope — the verified review findings, grouped:
@@ -90,6 +102,15 @@ In scope — the verified review findings, grouped:
 - Do not "parallelize" the intentionally-sequential flows (land-stack merge loop
   ordering, gh rate-limited submit loops) — those are correctness constraints.
 - Do not touch vendored third-party code under `.agents/skills/`.
+- **ADR 0009 layering guardrail.** Do not move duplicated capability-domain logic
+  into below-SDK neutral packages merely because it is duplicated. Before pulling
+  shared code "down," classify it against ADR 0009 layering: neutral infra lives
+  below the SDK (`@sdl/core`, `@sdl/clinkr`, `@sdl/graphite`, `@sdl/brmem`),
+  above-SDK extension substrate lives in `@sdl/extension-kit`, capability domain
+  lives in its capability package / Peer API, and a temporary SDK-independent
+  primitive lives in `@sdl/domain-primitives-transitional`. Deduping a leaf helper
+  or policy is in scope; relocating capability-domain logic below the SDK to remove
+  duplication is not — that is `sdl-extension-architecture`'s migration work.
 
 ## Completion Criteria
 

@@ -1,5 +1,44 @@
 # TypeScript CLI Architecture Deepening
 
+## Closure
+
+Closed on 2026-06-24 as **subsumed**, without archiving — the directory, its
+`reference/` audit, and historical `updates/` stay in place as provenance.
+
+Outcome: this Objective's scope overlapped two surviving Objectives and was split
+between them. Tactical TypeScript cleanup/deepening was subsumed by
+`ts-cli-core-structural-cleanup`; capability-extension layering input was subsumed
+by `sdl-extension-architecture` (ADR 0009). Keeping all three open preserved an
+ambiguity that made `objective-next` routing unclear; closing this one resolves it
+while keeping the checked-in audit history.
+
+Disposition of the nine candidates:
+
+- **Shipped (provenance, stay `[x]`):** candidate 1 (collapse the PR-description
+  pipeline) and candidate 2 (make `TextGenerationGateway` a real seam) landed
+  here; the `## Work` rows and the
+  `updates/2026-06-21T170806Z-pr-description-orchestration-shipped.md` record
+  remain as evidence.
+- **Migrated to `ts-cli-core-structural-cleanup`:** candidate 3 (slot-dispatch
+  collapse), candidate 4 (occupancy reconciliation), candidate 5 (Graphite
+  stack-navigator), candidate 8 (objective-markdown validator), candidate 6
+  (Branch Memory entry locator, reframed as the next-layer deepening on that
+  Objective's shipped gateway migration), and candidate 7 (branch-context
+  plan-attachment module, reframed as a capability/domain seam and likely input to
+  the future branch-context capability-extension migration). Their roadmap rows
+  here are marked moved, not shipped.
+- **Parked in place:** candidate 9 (lift diff parsing into `asdl-core`) stays a
+  one-adapter watch-point under `## Parked` in this Objective's roadmap, bound by
+  the Completion Criteria lifecycle (stay a watch-point or be `rejected-with-ADR`
+  as an ADR-0007 amendment). It was deliberately **not** migrated into the
+  "no behavior changes / verified findings" survivor, which has no home for a
+  speculative ADR-tension watch-point.
+
+Caveat: the `reference/` reports and the migrated-candidate rationale remain useful
+evidence, but no future work should be driven from this Objective as an open
+backlog. Pick up the migrated candidates from `ts-cli-core-structural-cleanup`, and
+route any capability-extension layering through `sdl-extension-architecture`.
+
 ## Thesis
 
 A fresh `improve-codebase-architecture` pass over the TypeScript CLIs and `asdl-core` surfaced nine concrete deepening opportunities: shallow modules whose interface is nearly as wide as their implementation, leaky seams where storage and topology details escape into callers, and hypothetical seams with only one adapter. The deepening pattern — collapse a shallow module into a deeper one with a smaller interface and more leverage, and apply the deletion test to confirm complexity concentrates rather than scatters — applies cleanly to each. This Objective tracks turning those candidates into actual depth.
