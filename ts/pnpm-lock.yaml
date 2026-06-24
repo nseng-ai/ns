@@ -236,6 +236,9 @@ importers:
       '@sdl/sdl':
         specifier: workspace:*
         version: link:../sdl
+      '@sdl/slot':
+        specifier: workspace:*
+        version: link:../slot
       zod:
         specifier: 'catalog:'
         version: 4.4.3
