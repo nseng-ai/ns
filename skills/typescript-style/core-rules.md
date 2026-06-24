@@ -170,6 +170,10 @@ Full reasoning: `references/error-handling.md`.
   positional parameter lists when call sites need defaults, flags, or optional values.
 - **Keep engine functions readable.** A top-level dispatcher can be large if it is linear and names the
   phases; move real sub-work into small private helpers when it improves the narrative.
+- **Inline trivial single-use helpers unless they hide a real boundary.** A one-call-site helper whose
+  body is mostly direct delegation, option forwarding, or a one-line expression is suspect. Keep it only
+  when the helper names a domain concept, isolates volatility or unsafe details, preserves a meaningful
+  test seam, enforces an invariant, or makes a larger algorithm read at the right abstraction level.
 - **Inline one-use helpers.** A new module for one tiny function is usually needless indirection.
   Prefer a local closure that captures local state over a public helper with a long parameter list.
 - **Respect ownership-boundary immutability.** Do not mutate inputs, returned values, or shared/public
@@ -188,6 +192,9 @@ Full reasoning: `references/philosophy.md` plus the case studies.
 
 - **Name by role.** `create*` for factories, `build*` for derivations, `prepare*`/`execute*`/`finalize*`
   for pipelines, `normalize*` for boundary cleanup, `is*` for type guards.
+- **Names should not overpromise their generality.** Name the actual scope a symbol owns. Prefer
+  narrower names for code that owns a narrow capability; reserve broader names for APIs that truly own
+  the broader concept.
 - **Name booleans by predicate.** Prefer `is*`, `has*`, `should*`, or `can*` so conditions read as
   assertions. Type guards should be named `isX(value): value is X`.
 - **Use meaningful suffixes.** `*Options` for caller inputs, `*Config` for stable configuration,
