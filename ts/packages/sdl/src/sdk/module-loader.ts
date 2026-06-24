@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 
 import { createJiti } from "jiti/static";
 
+import { isRecord } from "@sdl/core/primitives";
+
 import {
 	commandSucceeded,
 	defineExtension,
@@ -125,10 +127,6 @@ function isFlowPackageJson(value: unknown): value is FlowPackageJson {
 
 function stripLeadingDotSlash(path: string): string {
 	return path.startsWith("./") ? path.slice("./".length) : path;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 // Keep this object in sync with all runtime value exports from sdk/index.ts; type-only exports are erased.
