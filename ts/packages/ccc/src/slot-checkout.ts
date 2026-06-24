@@ -1,11 +1,11 @@
 import {
 	checkoutBranchSlot,
 	checkoutCurrentSlot,
-	type SlotCheckoutResult as SlotPeerCheckoutResult,
-	type SlotCheckoutTarget as SlotPeerCheckoutTarget,
+	type SlotCheckoutResult,
+	type SlotCheckoutTarget,
 } from "@sdl/slot/api";
 
-export interface SlotCheckoutTarget {
+export interface CccSlotCheckoutTarget {
 	slotName: string;
 	branchName: string;
 	worktreePath: string;
@@ -14,14 +14,14 @@ export interface SlotCheckoutTarget {
 
 export type SlotCheckoutRef = { kind: "branch"; branchName: string } | { kind: "current" };
 
-export type SlotCheckoutResult =
-	| { ok: true; target: SlotCheckoutTarget }
+export type CccSlotCheckoutResult =
+	| { ok: true; target: CccSlotCheckoutTarget }
 	| { ok: false; error: string };
 
 export type SlotCheckoutFunction = (
 	input: SlotCheckoutInput,
 	ref: SlotCheckoutRef,
-) => Promise<SlotCheckoutResult>;
+) => Promise<CccSlotCheckoutResult>;
 
 export interface SlotCheckoutInput {
 	cwd: string;
@@ -32,7 +32,7 @@ export interface SlotCheckoutInput {
 export async function checkoutSlot(
 	input: SlotCheckoutInput,
 	ref: SlotCheckoutRef,
-): Promise<SlotCheckoutResult> {
+): Promise<CccSlotCheckoutResult> {
 	if (input.checkoutSlot !== undefined) {
 		return await input.checkoutSlot(input, ref);
 	}
@@ -49,7 +49,7 @@ export async function checkoutSlot(
 async function runPeerCheckout(
 	input: SlotCheckoutInput,
 	ref: SlotCheckoutRef,
-): Promise<SlotPeerCheckoutResult> {
+): Promise<SlotCheckoutResult> {
 	const options = {
 		cwd: input.cwd,
 		...(input.env === undefined ? {} : { env: input.env }),
@@ -59,7 +59,7 @@ async function runPeerCheckout(
 		: await checkoutCurrentSlot(options);
 }
 
-function mapPeerTarget(target: SlotPeerCheckoutTarget): SlotCheckoutTarget {
+function mapPeerTarget(target: SlotCheckoutTarget): CccSlotCheckoutTarget {
 	return {
 		slotName: target.slotName,
 		branchName: target.branchName,

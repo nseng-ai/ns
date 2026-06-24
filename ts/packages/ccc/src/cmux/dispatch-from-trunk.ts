@@ -23,6 +23,7 @@ import {
 } from "./dispatch-prompt.ts";
 import { getPiLaunchOptions } from "./pi-launch.ts";
 import { openBranchInCmuxSlot } from "./slot.ts";
+import type { SlotCheckoutFunction } from "../slot-checkout.ts";
 import type { CommandContext, ExtensionAPI } from "./types.ts";
 
 const COMMAND_NAME = "ccc:workspace:dispatch-from-trunk";
@@ -43,7 +44,13 @@ export function registerCccSlotDispatchFromTrunkCommand(
 				"Create a Graphite-tracked branch from refreshed trunk and dispatch a prompt in a new cmux workspace.",
 			argumentHint: "<prompt>",
 			handler: async (args, ctx) => {
-				await handleCccSlotDispatchFromTrunk({ pi, payloadOptions, args, ctx });
+				await handleCccSlotDispatchFromTrunk({
+					pi,
+					payloadOptions,
+					...(options.slotCheckout === undefined ? {} : { slotCheckout: options.slotCheckout }),
+					args,
+					ctx,
+				});
 			},
 		},
 	});
@@ -54,6 +61,7 @@ async function handleCccSlotDispatchFromTrunk(options: {
 	payloadOptions: ReturnType<typeof resolveDispatchPromptPayloadOptions>;
 	args: string;
 	ctx: CommandContext;
+	slotCheckout?: SlotCheckoutFunction;
 }): Promise<void> {
 	const { pi, payloadOptions, args, ctx } = options;
 	const prompt = args.trim();
@@ -99,6 +107,7 @@ async function handleCccSlotDispatchFromTrunk(options: {
 		branchName: branch.branchName,
 		command: buildBrmemPayloadPiLaunchCommand(branch.branchName, launchOptions),
 		description: `dispatch-from-trunk from ${branch.parentBranch}`,
+		...(options.slotCheckout === undefined ? {} : { slotCheckout: options.slotCheckout }),
 		notify: (message, level) => ctx.ui.notify(message, level),
 		successMessage: (target) =>
 			[

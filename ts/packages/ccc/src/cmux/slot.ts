@@ -1,8 +1,8 @@
 import { piExecApiToCommandExecApi } from "@sdl/core/exec";
 import {
 	checkoutSlot,
+	type CccSlotCheckoutTarget,
 	type SlotCheckoutFunction,
-	type SlotCheckoutTarget,
 } from "../slot-checkout.ts";
 import { RealCmuxGateway, type CmuxGatewayFailure } from "./gateway.ts";
 import { getWorktreeDescription } from "./worktree-description.ts";
@@ -21,7 +21,7 @@ export interface BranchCmuxSlotCheckoutOptions {
 export interface OpenBranchInCmuxSlotOptions extends BranchCmuxSlotCheckoutOptions {
 	command?: string;
 	description?: string;
-	successMessage?: (target: SlotCheckoutTarget) => string;
+	successMessage?: (target: CccSlotCheckoutTarget) => string;
 }
 
 export interface OpenCmuxWorkspaceOptions {
@@ -33,7 +33,7 @@ export interface OpenCmuxWorkspaceOptions {
 
 export async function checkoutBranchCmuxSlot(
 	options: BranchCmuxSlotCheckoutOptions,
-): Promise<SlotCheckoutTarget | { error: string }> {
+): Promise<CccSlotCheckoutTarget | { error: string }> {
 	const { cwd, branchName, notify, onStatus } = options;
 	onStatus?.("checking out branch slot…");
 	const checkout = await checkoutSlot(
@@ -55,7 +55,7 @@ export async function checkoutBranchCmuxSlot(
 
 export async function openBranchInCmuxSlot(
 	options: OpenBranchInCmuxSlotOptions,
-): Promise<SlotCheckoutTarget | { error: string }> {
+): Promise<CccSlotCheckoutTarget | { error: string }> {
 	const { pi, command, description, notify, onStatus, successMessage } = options;
 	const target = await checkoutBranchCmuxSlot(options);
 	if ("error" in target) return target;
@@ -85,7 +85,7 @@ export async function openBranchInCmuxSlot(
 
 export async function openCmuxWorkspace(
 	pi: Pick<ExtensionAPI, "exec">,
-	target: SlotCheckoutTarget,
+	target: CccSlotCheckoutTarget,
 	options: OpenCmuxWorkspaceOptions,
 ): Promise<{ ok: true } | { error: string }> {
 	const cmux = new RealCmuxGateway(piExecApiToCommandExecApi(pi));
@@ -104,7 +104,7 @@ export async function openCmuxWorkspace(
 }
 
 export function buildNewWorkspaceArgs(
-	target: SlotCheckoutTarget,
+	target: CccSlotCheckoutTarget,
 	options: Pick<OpenCmuxWorkspaceOptions, "description" | "command">,
 ): string[] {
 	const args = [
