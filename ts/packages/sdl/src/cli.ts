@@ -247,12 +247,14 @@ function buildSdlShellGroup(): ClinkrGroup<SdlCliContext> {
 	return buildShellGroup({
 		show: {
 			schema: sdlShellShowRequestSchema,
+			options: { shell: {} },
 			resultSchema: sdlShellShowResultSchema,
 			handler: runSdlShellShow,
 			renderHuman: renderSdlShellShow,
 		},
 		install: {
 			schema: sdlShellInstallRequestSchema,
+			options: { shell: {} },
 			resultSchema: sdlShellInstallResultSchema,
 			handler: runSdlShellInstall,
 			renderHuman: renderSdlShellInstall,

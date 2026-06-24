@@ -1,9 +1,9 @@
 import { fileURLToPath } from "node:url";
 
 import { shellQuote } from "@sdl/core/exec";
+import { createSlotClient, type SlotCheckoutFailure, type SlotClient } from "@sdl/slot/api";
 
 import { runRealCommand, type CommandOutput, type CommandRunner } from "./command-runner.ts";
-import { isRecord, stringField } from "./json-fields.ts";
 import {
 	choicesForCmuxActivationPlan,
 	planStackMapCmuxActivation,
@@ -20,7 +20,6 @@ import type { TabModuleDeps } from "./tabs/tab-module.ts";
 const SDLCC_CLI_ENTRYPOINT_PATH = fileURLToPath(new URL("./cli.ts", import.meta.url));
 
 const COMMAND_TIMEOUT_MS = 10_000;
-const SLOT_CHECKOUT_TIMEOUT_MS = 30_000;
 
 // The host's busy guard replaces the old `isActivating` flag, so effects only express *which*
 // async cmux activation to run; computing the plan needs the model, which interpretKey lacks.
@@ -44,9 +43,10 @@ export interface StackMapCmuxActivationExecutor {
 export interface CreateStackMapCmuxActivationExecutorOptions {
 	readonly cwd?: string | undefined;
 	readonly runCommand?: CommandRunner | undefined;
+	readonly slotClient?: SlotClient | undefined;
 }
 
-interface SlotCheckoutTarget {
+interface StackMapSlotCheckoutTarget {
 	readonly slotName: string;
 	readonly branchName: string;
 	readonly worktreePath: string;
@@ -83,6 +83,7 @@ export function createStackMapCmuxActivationExecutor(
 ): StackMapCmuxActivationExecutor {
 	const cwd = options.cwd ?? process.cwd();
 	const runCommand = options.runCommand ?? runRealCommand;
+	const slotClient = options.slotClient ?? createSlotClient({ cwd });
 	return {
 		async focusTab(target) {
 			const params = JSON.stringify({
@@ -100,7 +101,7 @@ export function createStackMapCmuxActivationExecutor(
 		async openNew(branch, slot) {
 			const checkout =
 				slot?.worktreePath === undefined
-					? await checkoutSlot(runCommand, cwd, branch)
+					? await checkoutSlot(slotClient, branch)
 					: { type: "checked-out" as const, target: slotTargetFromAssignment(branch, slot) };
 			if (checkout.type === "failed") return checkout;
 
@@ -192,41 +193,27 @@ async function executeActivationPlan(
 }
 
 async function checkoutSlot(
-	runCommand: CommandRunner,
-	cwd: string,
+	slotClient: SlotClient,
 	branch: string,
 ): Promise<
-	| { readonly type: "checked-out"; readonly target: SlotCheckoutTarget }
+	| { readonly type: "checked-out"; readonly target: StackMapSlotCheckoutTarget }
 	| { readonly type: "failed"; readonly message: string }
 > {
-	const args = ["slot", "checkout", branch, "--format", "json", "--no-clipboard"];
-	const result = await runCommand("sdl", args, { cwd, timeout: SLOT_CHECKOUT_TIMEOUT_MS });
-	if (result.code !== 0)
-		return { type: "failed", message: commandFailureMessage("sdl slot checkout", result) };
-	const target = parseSlotCheckoutTarget(result.stdout);
-	if (target === undefined)
-		return {
-			type: "failed",
-			message:
-				"sdl slot checkout returned unreadable JSON; expected slot_name, branch_name, and worktree_path.",
-		};
-	return { type: "checked-out", target };
+	const result = await slotClient.checkoutBranch({ branchName: branch });
+	if (!result.ok) return { type: "failed", message: formatSlotCheckoutFailure(result.failure) };
+	return { type: "checked-out", target: slotTargetFromPeer(result.target) };
 }
 
-function parseSlotCheckoutTarget(stdout: string): SlotCheckoutTarget | undefined {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(stdout);
-	} catch {
-		return undefined;
-	}
-	if (!isRecord(parsed) || !isRecord(parsed.data)) return undefined;
-	const slotName = stringField(parsed.data, "slot_name");
-	const branchName = stringField(parsed.data, "branch_name");
-	const worktreePath = stringField(parsed.data, "worktree_path");
-	if (slotName === undefined || branchName === undefined || worktreePath === undefined)
-		return undefined;
-	return { slotName, branchName, worktreePath };
+function formatSlotCheckoutFailure(failure: SlotCheckoutFailure): string {
+	return `sdl slot checkout failed (${failure.errorType}): ${failure.message}`;
+}
+
+function slotTargetFromPeer(target: StackMapSlotCheckoutTarget): StackMapSlotCheckoutTarget {
+	return {
+		slotName: target.slotName,
+		branchName: target.branchName,
+		worktreePath: target.worktreePath,
+	};
 }
 
 function openNewActivationPlan(
@@ -239,7 +226,7 @@ function openNewActivationPlan(
 function slotTargetFromAssignment(
 	branch: string,
 	slot: StackMapSlotAssignment,
-): SlotCheckoutTarget {
+): StackMapSlotCheckoutTarget {
 	return {
 		slotName: slot.slotName,
 		branchName: branch,

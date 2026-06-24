@@ -4,7 +4,6 @@ import {
 	resolveClinkrInteraction,
 	type ClinkrCommandSpec,
 	type ClinkrInteraction,
-	type OptionSpec,
 } from "@sdl/clinkr";
 import { defineCli } from "@sdl/core/cli-entry";
 import { readStdinLine } from "@sdl/core/stdin";
@@ -160,21 +159,13 @@ export function buildShellGroup<
 		name: "show",
 		description: "Print the parent-shell wrapper script.",
 		...options.show,
-		options: shellCommandOptions(options.show.options),
 	});
 	shell.command({
 		name: "install",
 		description: "Install the parent-shell wrapper in the detected or selected rc file.",
 		...options.install,
-		options: shellCommandOptions(options.install.options),
 	});
 	return shell;
-}
-
-function shellCommandOptions<TSchema extends z.ZodObject>(
-	options: Partial<Record<keyof z.output<TSchema> & string, OptionSpec>> | undefined,
-): Partial<Record<keyof z.output<TSchema> & string, OptionSpec>> {
-	return { shell: {}, ...options } as Partial<Record<keyof z.output<TSchema> & string, OptionSpec>>;
 }
 
 function configureSlotCommands<TContext extends SlotCliContext>(

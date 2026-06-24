@@ -17,6 +17,7 @@
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
     "@sdl/pi": "workspace:*",
+    "@sdl/slot": "workspace:*",
     "zod": "catalog:"
   }
 }
