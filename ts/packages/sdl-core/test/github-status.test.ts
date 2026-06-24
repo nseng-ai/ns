@@ -8,6 +8,7 @@ import {
 	githubRepositoryIdentityFromRemoteUrl,
 	githubWorktreePrStatusArgs,
 	githubWorktreePrStatusQuery,
+	normalizeGithubStatusChecks,
 	normalizeGitRemoteUrl,
 	parseGithubWorktreePrStatusJson,
 	parseGithubWorktreePrStatusJsonResult,
@@ -200,6 +201,56 @@ describe("GitHub status boundary parsing", () => {
 });
 
 describe("GitHub status check classification", () => {
+	test("normalizes latest checks and counts from the same deduped entries", () => {
+		const normalized = normalizeGithubStatusChecks(
+			[
+				{
+					__typename: "CheckRun",
+					name: "test",
+					status: "COMPLETED",
+					conclusion: "SUCCESS",
+					completedAt: "2026-06-01T00:00:00Z",
+					checkSuite: { workflowRun: { workflow: { name: "CI" } } },
+				},
+				{
+					__typename: "CheckRun",
+					name: "test",
+					status: "COMPLETED",
+					conclusion: "FAILURE",
+					completedAt: "2026-06-02T00:00:00Z",
+					checkSuite: { workflowRun: { workflow: { name: "CI" } } },
+				},
+				{
+					__typename: "StatusContext",
+					context: "lint",
+					state: "PENDING",
+					createdAt: "2026-06-02T00:00:00Z",
+					targetUrl: "https://example.com/lint",
+				},
+				{ __typename: "Mystery" },
+			],
+			{ hasMore: true },
+		);
+
+		expect(normalized.counts).toEqual({
+			passing: 0,
+			pending: 1,
+			failing: 1,
+			unknown: 1,
+			hasMore: true,
+		});
+		expect(normalized.checks).toMatchObject([
+			{ bucket: "failing", kind: "check_run", name: "test", workflowName: "CI" },
+			{
+				bucket: "pending",
+				kind: "status_context",
+				name: "lint",
+				targetUrl: "https://example.com/lint",
+			},
+			{ bucket: "unknown", kind: "unknown", name: "Unknown check" },
+		]);
+	});
+
 	test("classifies CheckRun and StatusContext states", () => {
 		expect(
 			classifyGithubStatusCheck({

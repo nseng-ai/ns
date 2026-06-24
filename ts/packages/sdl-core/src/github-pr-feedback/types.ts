@@ -1,3 +1,4 @@
+import type { GithubStatusChecks } from "../github-status.ts";
 import type { ErrorInfo, Result } from "../result.ts";
 
 export interface GithubPrFeedbackOptions {
@@ -77,6 +78,7 @@ export type GithubPrFeedbackOperation =
 	| "getPrReviews"
 	| "getPrReviewThreads"
 	| "getPrDiscussionComments"
+	| "getPrChecks"
 	| "replyToReviewThread"
 	| "resolveReviewThread";
 
@@ -128,6 +130,9 @@ export interface GithubPrFeedbackGateway {
 	getPrDiscussionComments(
 		params: GithubPrFeedbackOptions & { readonly prNumber: number },
 	): Promise<Result<readonly GithubPrDiscussionComment[], GithubPrFeedbackFailure>>;
+	getPrChecks(
+		params: GithubPrFeedbackOptions & { readonly prNumber: number },
+	): Promise<Result<GithubStatusChecks, GithubPrFeedbackFailure>>;
 	replyToReviewThread(
 		params: GithubPrFeedbackOptions & { readonly threadId: string; readonly body: string },
 	): Promise<Result<GithubReviewThreadReply, GithubPrFeedbackFailure>>;

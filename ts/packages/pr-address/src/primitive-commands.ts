@@ -1,11 +1,12 @@
 import { z } from "zod";
 
-import { ok, type ClinkrExit } from "@sdl/clinkr";
-import type { GithubPrFeedbackFailure } from "@sdl/core/github-pr-feedback";
+import { failure, ok, type ClinkrExit } from "@sdl/clinkr";
+import type { GithubPrFeedbackFailure, GithubPrSummary } from "@sdl/core/github-pr-feedback";
 import type { Result } from "@sdl/core/result";
 
 import {
 	defineExecOperation,
+	gatewayFailureExit,
 	gatewayOptions,
 	prFeedbackFailureExit,
 	type ExecOperation,
@@ -14,6 +15,7 @@ import {
 import {
 	openPrsResultSchema,
 	prDiscussionCommentsResultSchema,
+	prChecksResultSchema,
 	prLookupResultSchema,
 	prReviewsResultSchema,
 	prReviewThreadsResultSchema,
@@ -23,6 +25,7 @@ import {
 import {
 	discussionCommentsResult,
 	lookupResult,
+	prChecksResult,
 	openPrsResult,
 	replyReviewThreadResult,
 	resolveReviewThreadResult,
@@ -53,6 +56,7 @@ type OpenPrsResult = z.output<typeof openPrsResultSchema>;
 type PrReviewsResult = z.output<typeof prReviewsResultSchema>;
 type PrReviewThreadsResult = z.output<typeof prReviewThreadsResultSchema>;
 type PrDiscussionCommentsResult = z.output<typeof prDiscussionCommentsResultSchema>;
+type PrChecksResult = z.output<typeof prChecksResultSchema>;
 type ReplyReviewThreadResult = z.output<typeof replyReviewThreadResultSchema>;
 type ResolveReviewThreadResult = z.output<typeof resolveReviewThreadResultSchema>;
 
@@ -115,6 +119,16 @@ export const primitiveOperations: readonly ExecOperation[] = [
 			description: "Return PR discussion comments for one GitHub PR.",
 			schema: prNumberSchema,
 			handler: runPrDiscussionComments,
+		},
+	}),
+	defineExecOperation({
+		isRepoContextRequired: true,
+		resultSchema: prChecksResultSchema,
+		spec: {
+			name: "pr-checks",
+			description: "Return normalized GitHub PR checks for one PR or the current branch PR.",
+			schema: z.object({ prNumber: z.int().optional() }),
+			handler: runPrChecks,
 		},
 	}),
 	defineExecOperation({
@@ -218,6 +232,70 @@ async function runPrDiscussionComments(
 		failurePrefix: `Failed to fetch discussion comments for PR ${request.prNumber}`,
 		toPayload: discussionCommentsResult,
 	});
+}
+
+async function runPrChecks(
+	ctx: PrAddressExecContext,
+	request: { prNumber?: number | undefined },
+): Promise<ClinkrExit<PrChecksResult>> {
+	const target = await resolveChecksTarget(ctx, request.prNumber);
+	if (target.type === "failure") return target.exit;
+	if (target.type === "miss")
+		return ok(prChecksResult({ found: false, pr: null, branch: target.branch }));
+	const checks = await ctx.context.prFeedback.getPrChecks({
+		...gatewayOptions(ctx),
+		prNumber: target.pr.number,
+	});
+	if (!checks.ok)
+		return prFeedbackFailureExit(`Failed to fetch checks for PR ${target.pr.number}`, checks.error);
+	return ok(
+		prChecksResult({ found: true, pr: target.pr, branch: target.branch, checks: checks.value }),
+	);
+}
+
+async function resolveChecksTarget(
+	ctx: PrAddressExecContext,
+	prNumber: number | undefined,
+): Promise<
+	| { type: "found"; pr: GithubPrSummary; branch: string | null }
+	| { type: "miss"; branch: string | null }
+	| { type: "failure"; exit: ClinkrExit<PrChecksResult> }
+> {
+	if (prNumber !== undefined) {
+		const lookup = await ctx.context.prFeedback.getPr({ ...gatewayOptions(ctx), prNumber });
+		if (!lookup.ok)
+			return {
+				type: "failure",
+				exit: prFeedbackFailureExit(`Failed to look up PR ${prNumber}`, lookup.error),
+			};
+		if (!lookup.value.found) return { type: "miss", branch: null };
+		return { type: "found", pr: lookup.value.pr, branch: null };
+	}
+	const branch = await ctx.context.git.currentBranch(gatewayOptions(ctx));
+	if (branch.type === "failure")
+		return {
+			type: "failure",
+			exit: gatewayFailureExit("Failed to determine current branch", branch.error),
+		};
+	if (branch.type === "detached")
+		return {
+			type: "failure",
+			exit: failure(
+				"detached_head",
+				"Detached HEAD: pr-checks requires a checked-out branch or --pr-number.",
+			),
+		};
+	const lookup = await ctx.context.prFeedback.getPrForBranch({
+		...gatewayOptions(ctx),
+		branch: branch.branch,
+	});
+	if (!lookup.ok)
+		return {
+			type: "failure",
+			exit: prFeedbackFailureExit(`Failed to look up PR for branch ${branch.branch}`, lookup.error),
+		};
+	if (!lookup.value.found) return { type: "miss", branch: branch.branch };
+	return { type: "found", pr: lookup.value.pr, branch: branch.branch };
 }
 
 async function runReplyReviewThread(

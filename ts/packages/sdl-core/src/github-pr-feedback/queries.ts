@@ -33,6 +33,24 @@ query($owner: String!, $repo: String!, $number: Int!, $threadCursor: String) {
   }
 }`;
 
+export const prChecksQuery = `
+query($owner: String!, $repo: String!, $number: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      statusCheckRollup {
+        contexts(first: 100) {
+          pageInfo { hasNextPage }
+          nodes {
+            __typename
+            ... on CheckRun { name status conclusion startedAt completedAt detailsUrl checkSuite { workflowRun { workflow { name } } } }
+            ... on StatusContext { context state createdAt targetUrl }
+          }
+        }
+      }
+    }
+  }
+}`;
+
 export const reviewThreadCommentsQuery = `
 query($threadId: ID!, $commentCursor: String) {
   node(id: $threadId) {

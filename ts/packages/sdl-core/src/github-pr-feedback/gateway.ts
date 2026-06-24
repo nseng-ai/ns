@@ -1,5 +1,6 @@
 import type { z } from "zod";
 
+import { normalizeGithubStatusChecks, type GithubStatusChecks } from "../github-status.ts";
 import { runCommand, type CommandRunner, type ExecResult } from "../exec.ts";
 import { GITHUB_CLI_TIMEOUT_MS, runGitHubCli, type RunGitHubCliResult } from "../github-cli.ts";
 import type { MaybePromise } from "../primitives.ts";
@@ -7,6 +8,7 @@ import type { Result } from "../result.ts";
 
 import {
 	discussionCommentPageArgs,
+	prChecksArgs,
 	replyToReviewThreadArgs,
 	resolveReviewThreadArgs,
 	reviewThreadCommentPageArgs,
@@ -34,6 +36,7 @@ import {
 } from "./parsing.ts";
 import {
 	ghDiscussionCommentsResponseSchema,
+	ghPrChecksResponseSchema,
 	ghReplyReviewThreadResponseSchema,
 	ghResolveReviewThreadResponseSchema,
 	ghReviewThreadCommentsResponseSchema,
@@ -205,6 +208,25 @@ export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
 				feedbackOk(response.data.repository.pullRequest.comments),
 			mapNode: (comment) => feedbackOk(normalizeDiscussionComment(comment)),
 		});
+	}
+
+	async getPrChecks(
+		params: GithubPrFeedbackOptions & { readonly prNumber: number },
+	): Promise<Result<GithubStatusChecks, GithubPrFeedbackFailure>> {
+		const result = await this.runGhGraphqlJson({
+			operation: "getPrChecks",
+			args: prChecksArgs(params.prNumber),
+			params,
+			schema: ghPrChecksResponseSchema,
+			prNumber: params.prNumber,
+		});
+		if (!result.ok) return result;
+		const contexts = result.value.data.repository.pullRequest.statusCheckRollup?.contexts;
+		return feedbackOk(
+			normalizeGithubStatusChecks(contexts?.nodes ?? [], {
+				hasMore: contexts?.pageInfo.hasNextPage ?? false,
+			}),
+		);
 	}
 
 	async replyToReviewThread(

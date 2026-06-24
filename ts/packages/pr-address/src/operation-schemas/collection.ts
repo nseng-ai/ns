@@ -31,6 +31,55 @@ export const mapBranchPrsResultSchema = z.object({
 	summary: mapBranchPrsSummarySchema,
 });
 
+const prChecksTargetSchema = z.object({
+	kind: z.literal("github_pr"),
+	pr_number: nullableIntSchema,
+	branch: nullableStringSchema,
+	title: nullableStringSchema,
+	url: nullableStringSchema,
+	head_ref_name: nullableStringSchema,
+	base_ref_name: nullableStringSchema,
+	head_ref_oid: nullableStringSchema,
+});
+
+const prCheckBucketSchema = z.union([
+	z.literal("passing"),
+	z.literal("pending"),
+	z.literal("failing"),
+	z.literal("unknown"),
+]);
+
+export const prCheckEntrySchema = z.object({
+	bucket: prCheckBucketSchema,
+	kind: z.union([z.literal("check_run"), z.literal("status_context"), z.literal("unknown")]),
+	name: z.string(),
+	workflow_name: nullableStringSchema,
+	status: nullableStringSchema,
+	conclusion: nullableStringSchema,
+	state: nullableStringSchema,
+	started_at: nullableStringSchema,
+	completed_at: nullableStringSchema,
+	created_at: nullableStringSchema,
+	details_url: nullableStringSchema,
+	target_url: nullableStringSchema,
+	identity: nullableStringSchema,
+});
+
+const prChecksCountsSchema = z.object({
+	passing: z.int(),
+	pending: z.int(),
+	failing: z.int(),
+	unknown: z.int(),
+	has_more: z.boolean().optional(),
+});
+
+export const prChecksResultSchema = z.object({
+	found: z.boolean(),
+	target: prChecksTargetSchema,
+	counts: prChecksCountsSchema,
+	checks: z.array(prCheckEntrySchema),
+});
+
 const downloadFeedbackTargetSchema = z.object({
 	kind: z.literal("github_pr"),
 	pr_number: nullableIntSchema,

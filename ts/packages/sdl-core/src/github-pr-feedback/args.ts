@@ -1,5 +1,6 @@
 import {
 	discussionCommentsQuery,
+	prChecksQuery,
 	replyToReviewThreadMutation,
 	resolveReviewThreadMutation,
 	reviewThreadCommentsQuery,
@@ -58,6 +59,10 @@ export function reviewThreadPageArgs(
 		],
 		reviewThreadsQuery,
 	);
+}
+
+export function prChecksArgs(prNumber: number): string[] {
+	return graphqlArgs(repoPrFields(prNumber), prChecksQuery);
 }
 
 export function reviewThreadCommentPageArgs(threadId: string, commentCursor: string): string[] {
