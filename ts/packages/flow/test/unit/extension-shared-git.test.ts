@@ -18,7 +18,7 @@ interface FlowGitModule {
 		ctx: SdlExtensionApi,
 		timeoutMs?: number,
 	): Promise<
-		| { ok: true; clean: boolean; stdout: string; result: ExecResult }
+		| { ok: true; isClean: boolean; stdout: string; result: ExecResult }
 		| { ok: false; result: ExecResult }
 	>;
 }
@@ -52,13 +52,13 @@ describe("project extension shared Git helper", () => {
 
 		await expect(sharedModule.readFlowGitPorcelainStatus(api)).resolves.toEqual({
 			ok: true,
-			clean: true,
+			isClean: true,
 			stdout: "\n",
 			result: cleanResult,
 		});
 		await expect(sharedModule.readFlowGitPorcelainStatus(api)).resolves.toEqual({
 			ok: true,
-			clean: false,
+			isClean: false,
 			stdout: " M src/app.ts\n",
 			result: dirtyResult,
 		});

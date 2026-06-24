@@ -46,7 +46,7 @@ describe("project extension shared flow foundations", () => {
 		}
 	});
 
-	test("flow command cwd-capable runner adapters go through the scoped SDL exec guard", async () => {
+	test("flow CCC CLI commands delegate exec adaptation through the shared CCC CLI helper", async () => {
 		const autoslotSource = await readFile(AUTOSLOT_COMMAND_PATH, "utf8");
 		const landSource = await readFile(LAND_COMMAND_PATH, "utf8");
 		const pullTrunkSource = await readFile(PULL_TRUNK_COMMAND_PATH, "utf8");
@@ -58,7 +58,9 @@ describe("project extension shared flow foundations", () => {
 		expect(worktreeSource).toContain("createCliExecAdapter");
 		expect(worktreeSource).toContain("execOptions?.cwd");
 		for (const source of [autoslotSource, landSource, pullTrunkSource]) {
-			expect(source).toContain("createCliExecAdapter");
+			expect(source).toContain("runFlowCccCli");
+			expect(source).toContain("../shared/ccc-cli.ts");
+			expect(source).not.toContain("createCliExecAdapter");
 			expect(source).not.toContain("options?.cwd");
 		}
 		expect(autobranchSource).not.toContain("_cwd");

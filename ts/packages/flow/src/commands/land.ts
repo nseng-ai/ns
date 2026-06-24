@@ -1,7 +1,7 @@
 import { runLandCli } from "@sdl/ccc/land";
-import { defineExtension, failed, ok, z, type SdlCommand } from "@sdl/sdl/sdk";
+import { defineExtension, z, type SdlCommand } from "@sdl/sdl/sdk";
 
-import { createCliExecAdapter } from "../shared/worktree.ts";
+import { runFlowCccCli } from "../shared/ccc-cli.ts";
 
 const landSchema = z.object({
 	yes: z.boolean().optional().describe("Confirm stack landing without an interactive prompt."),
@@ -14,30 +14,27 @@ export const flowLandCommand: SdlCommand<typeof landSchema> = {
 	description: "Land the current PR or Graphite stack into trunk.",
 	schema: landSchema,
 	run: async (ctx, request) => {
-		let stdout = "";
-		let stderr = "";
 		const onOutput = ctx.onOutput;
 		const rawArgs = [
 			request.yes === true ? "--yes" : undefined,
 			request.dryRun === true ? "--dry-run" : undefined,
 		].filter((arg): arg is string => arg !== undefined);
-		const exitCode = await runLandCli({
-			cwd: ctx.cwd,
-			rawArgs: rawArgs.join(" "),
-			exec: createCliExecAdapter({ ctx, ...(onOutput === undefined ? {} : { onOutput }) }),
-			stdout: (text) => {
-				stdout += text;
-				ctx.stdout?.(text);
-			},
-			stderr: (text) => {
-				stderr += text;
-				ctx.stderr?.(text);
-			},
-			...(onOutput === undefined ? {} : { onOutput }),
-			...(ctx.confirm === undefined ? {} : { confirm: ctx.confirm }),
+		return await runFlowCccCli({
+			ctx,
+			successMessage: "Land completed.",
+			failureMessage: "Land failed.",
+			forwardLiveOutput: true,
+			run: async (io) =>
+				await runLandCli({
+					cwd: ctx.cwd,
+					rawArgs: rawArgs.join(" "),
+					exec: io.exec,
+					stdout: io.stdout,
+					stderr: io.stderr,
+					...(onOutput === undefined ? {} : { onOutput }),
+					...(ctx.confirm === undefined ? {} : { confirm: ctx.confirm }),
+				}),
 		});
-		if (exitCode === 0) return ok(stdout === "" ? "Land completed." : "");
-		return failed(stderr === "" ? "Land failed." : "", exitCode);
 	},
 };
 
