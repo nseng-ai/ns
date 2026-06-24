@@ -46,6 +46,7 @@ export interface AutobranchPreparationInput {
 	prepareCheckpointMessage: (
 		snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">,
 	) => Promise<{ ok: true; message: string } | { ok: false; error: string }>;
+	onPhase?: (message: string) => void;
 	readFile?: (path: string) => Promise<Uint8Array | string>;
 	stat?: (path: string) => Promise<FileStat>;
 }
@@ -74,6 +75,9 @@ export async function prepareAutobranchPlan(
 	input: AutobranchPreparationInput,
 ): Promise<AutobranchPreparationResult> {
 	const warnings: AutobranchPreparationWarning[] = [];
+	if (input.args.slug === undefined) {
+		input.onPhase?.("Deriving branch name…");
+	}
 	const slug = await prepareBaseSlug(input);
 	if (!slug.ok) {
 		return slug;
@@ -87,6 +91,7 @@ export async function prepareAutobranchPlan(
 		return { ok: false, kind: "branch_name_unavailable", baseSlug: slug.baseSlug };
 	}
 
+	input.onPhase?.("Drafting checkpoint message…");
 	const prepared = await input.prepareCheckpointMessage(input.snapshot);
 	if (!prepared.ok) {
 		return { ok: false, kind: "checkpoint_prepare_failed", error: prepared.error };
@@ -250,6 +255,7 @@ export interface AutobranchFlowInput {
 	commitPreparedCheckpointMessage: (
 		message: string,
 	) => Promise<{ summary: string } | { error: string }>;
+	onPhase?: (message: string) => void;
 	readFile?: (path: string) => Promise<Uint8Array | string>;
 	stat?: (path: string) => Promise<FileStat>;
 	now?: (() => number) | undefined;
@@ -268,6 +274,7 @@ export async function runDirtyAutobranchFlow(
 		snapshot: input.snapshot,
 		exec: input.exec,
 		prepareCheckpointMessage: input.prepareCheckpointMessage,
+		...(input.onPhase ? { onPhase: input.onPhase } : {}),
 		...(input.readFile ? { readFile: input.readFile } : {}),
 		...(input.stat ? { stat: input.stat } : {}),
 	});
@@ -276,6 +283,7 @@ export async function runDirtyAutobranchFlow(
 	}
 
 	const warnings = prepared.warnings.map(formatAutobranchPreparationWarning);
+	input.onPhase?.("Creating Graphite branch and checkpoint…");
 	const transaction = await runAutobranchTransaction({
 		cwd: input.cwd,
 		branchName: prepared.plan.branchName,
