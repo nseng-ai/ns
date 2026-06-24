@@ -2,7 +2,7 @@
 
 ## Work
 
-- [ ] Land the agent-era CLI design research survey doc under `docs/`.
+- [x] Land the agent-era CLI design research survey doc under `docs/`.
   - Synthesize clig.dev (human-first) + the agent-era sources (Anthropic
     "Writing effective tools for AI agents"; Speakeasy; Agent Layer; dev.to) +
     the Clinkr critique. Represent contradictory positions with citations, not a
@@ -29,9 +29,9 @@
 ## Parked
 
 - [ ] Contested/large Clinkr items deferred pending ADR acceptance: pagination
-  primitives, exit-code taxonomy, JSONL/streaming output, first-class command
-  aliases, a dry-run/declarative convention.
+      primitives, exit-code taxonomy, JSONL/streaming output, first-class command
+      aliases, a dry-run/declarative convention.
 - [ ] Coordinate change boundaries with `ts-cli-core-structural-cleanup`
-  (structural) and `clinkr-shell-completion` (completion) where edits touch
-  shared Clinkr code; resolve the sequencing question vs. the
-  `sdl-extension-architecture` pause.
+      (structural) and `clinkr-shell-completion` (completion) where edits touch
+      shared Clinkr code; resolve the sequencing question vs. the
+      `sdl-extension-architecture` pause.
