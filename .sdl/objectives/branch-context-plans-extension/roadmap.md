@@ -2,8 +2,8 @@
 
 ## Work
 
-- [ ] Inventory current branch-context/plans exports, consumers, and storage-sensitive semantics.
-  - Evidence: package-root exports and consumer imports are grouped by command face, Peer API candidate, testing-only surface, and storage/compatibility-sensitive behavior. Current saved-plan path, Branch Memory namespace/key, branch naming, and attached-plan selection semantics are explicitly recorded before code migration begins.
+- [x] Inventory current branch-context/plans exports, consumers, and storage-sensitive semantics.
+  - Evidence: `objective.md` now records broad root exports, absent Peer API subpaths, likely command/private surfaces, likely Peer API candidates, key `ccc` and Pi consumers, testing-only imports, and storage/compatibility-sensitive semantics for saved-plan paths, Branch Memory namespace/key, branch naming, slug derivation, and attached-plan selection. See `updates/2026-06-24-134905-inventory-baseline.md`.
 
 - [ ] Define the combined Peer API boundaries and package export-map target.
   - Evidence: proposed `@sdl/branch-context/api` and `@sdl/plans/api` surfaces are documented with which sibling consumers need each symbol, which symbols remain command-face/private/testing-only, and which current root exports should not become peer contract.
