@@ -27,7 +27,7 @@ interface RunFlowCccCliOptions {
 	ctx: SdlExtensionApi;
 	successMessage: string;
 	failureMessage: string;
-	forwardLiveOutput?: boolean | undefined;
+	shouldForwardLiveOutput?: boolean | undefined;
 	run(input: FlowCccCliRunnerInput): Promise<number>;
 }
 
@@ -122,7 +122,7 @@ describe("project extension shared CCC CLI helper", () => {
 			ctx: api,
 			successMessage: "completed",
 			failureMessage: "failed",
-			forwardLiveOutput: true,
+			shouldForwardLiveOutput: true,
 			run: async (io) => {
 				const execResult = await io.exec("gt", ["status"], { timeout: 9 });
 				return execResult.code;

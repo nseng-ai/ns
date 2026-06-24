@@ -60,7 +60,7 @@ export const COMMAND_STYLE_LOCAL_SKILLS = [
 	"python-fake-driven-test-layout",
 	"python-fake-driven-testing",
 	"refactor-swarm",
-	"sdl-submit",
+	"sdl-flow-submit",
 	"skill-audit",
 	"skill-management",
 	"typescript-fake-driven-testing",
@@ -86,7 +86,7 @@ export const SPECIALIZED_SKILL_REPLACEMENTS = {
 	"code-gt-restack-resolve": "code:gt-restack-resolve",
 	"code-just-fix": "code:just-fix",
 	"code-submit": "sdl:flow:submit",
-	"sdl-submit": "sdl:flow:submit",
+	"sdl-flow-submit": "sdl:flow:submit",
 	"ccc-sidebar": "ccc:sidebar:pr-summary",
 } as const satisfies Record<string, string>;
 

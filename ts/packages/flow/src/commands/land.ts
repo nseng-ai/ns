@@ -23,7 +23,7 @@ export const flowLandCommand: SdlCommand<typeof landSchema> = {
 			ctx,
 			successMessage: "Land completed.",
 			failureMessage: "Land failed.",
-			forwardLiveOutput: true,
+			shouldForwardLiveOutput: true,
 			run: async (io) =>
 				await runLandCli({
 					cwd: ctx.cwd,

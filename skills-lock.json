@@ -311,8 +311,8 @@
       "sourceType": "local",
       "computedHash": "cf6e74aa5d0f7f21877b9f00ed9be58fa0413477d8431239720eae10a8553764"
     },
-    "sdl-submit": {
-      "source": "skills/sdl-submit",
+    "sdl-flow-submit": {
+      "source": "skills/sdl-flow-submit",
       "sourceType": "local",
       "computedHash": "a9dbe016512d76a0e161586be6d3fd35b00d7955dfc296b29b411d375e80a1d9"
     },
