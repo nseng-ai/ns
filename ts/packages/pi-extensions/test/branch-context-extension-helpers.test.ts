@@ -236,7 +236,8 @@ describe("buildWriteGrilledPlanPrompt", () => {
 		expect(prompt).toContain("plan the grilled command variant");
 		expect(prompt).toContain("write_saved_plan_file");
 		expect(prompt).toContain("grill_ask");
-		expect(prompt).toContain("3–7");
+		expect(prompt).toContain("up to 12");
+		expect(prompt).toContain("may not require any user-facing questions");
 		expect(prompt).toContain("Inspect repository evidence before asking");
 		expect(prompt).toContain("If grill_ask is unavailable");
 		expect(prompt).toContain("ui_unavailable");
