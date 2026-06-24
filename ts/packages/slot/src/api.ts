@@ -8,8 +8,8 @@ export interface SlotCheckoutTarget {
 	branchName: string;
 	worktreePath: string;
 	cdCommand: string;
-	alreadyAssigned: boolean;
-	createdBranch: boolean;
+	isAlreadyAssigned: boolean;
+	hasCreatedBranch: boolean;
 	currentWorktreeNote: string | null;
 }
 
@@ -85,8 +85,8 @@ async function mapCheckoutResult(
 			branchName: result.outcome.branch_name,
 			worktreePath: result.outcome.worktree_path,
 			cdCommand: navigation.cd_command,
-			alreadyAssigned: result.outcome.already_assigned,
-			createdBranch: result.outcome.created_branch,
+			isAlreadyAssigned: result.outcome.already_assigned,
+			hasCreatedBranch: result.outcome.created_branch,
 			currentWorktreeNote: result.outcome.current_wt_note,
 		},
 	};

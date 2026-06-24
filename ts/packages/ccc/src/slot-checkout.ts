@@ -1,9 +1,4 @@
-import {
-	checkoutBranchSlot,
-	checkoutCurrentSlot,
-	type SlotCheckoutResult,
-	type SlotCheckoutTarget,
-} from "@sdl/slot/api";
+import { checkoutBranchSlot, checkoutCurrentSlot } from "@sdl/slot/api";
 
 export interface CccSlotCheckoutTarget {
 	slotName: string;
@@ -36,35 +31,28 @@ export async function checkoutSlot(
 	if (input.checkoutSlot !== undefined) {
 		return await input.checkoutSlot(input, ref);
 	}
-	const result = await runPeerCheckout(input, ref);
+	const options = {
+		cwd: input.cwd,
+		...(input.env === undefined ? {} : { env: input.env }),
+	};
+	const result =
+		ref.kind === "branch"
+			? await checkoutBranchSlot({ ...options, branchName: ref.branchName })
+			: await checkoutCurrentSlot(options);
 	if (!result.ok) {
 		return {
 			ok: false,
 			error: formatPeerCheckoutFailure(ref, result.failure),
 		};
 	}
-	return { ok: true, target: mapPeerTarget(result.target) };
-}
-
-async function runPeerCheckout(
-	input: SlotCheckoutInput,
-	ref: SlotCheckoutRef,
-): Promise<SlotCheckoutResult> {
-	const options = {
-		cwd: input.cwd,
-		...(input.env === undefined ? {} : { env: input.env }),
-	};
-	return ref.kind === "branch"
-		? await checkoutBranchSlot({ ...options, branchName: ref.branchName })
-		: await checkoutCurrentSlot(options);
-}
-
-function mapPeerTarget(target: SlotCheckoutTarget): CccSlotCheckoutTarget {
 	return {
-		slotName: target.slotName,
-		branchName: target.branchName,
-		worktreePath: target.worktreePath,
-		cdCommand: target.cdCommand,
+		ok: true,
+		target: {
+			slotName: result.target.slotName,
+			branchName: result.target.branchName,
+			worktreePath: result.target.worktreePath,
+			cdCommand: result.target.cdCommand,
+		},
 	};
 }
 

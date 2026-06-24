@@ -22,8 +22,8 @@ describe("Slot Peer API", () => {
 				branchName: "feature/a",
 				worktreePath: "/slots/repos/repo/worktrees/slot-01",
 				cdCommand: "cd /slots/repos/repo/worktrees/slot-01",
-				alreadyAssigned: false,
-				createdBranch: false,
+				isAlreadyAssigned: false,
+				hasCreatedBranch: false,
 				currentWorktreeNote: null,
 			},
 		});
@@ -59,8 +59,8 @@ describe("Slot Peer API", () => {
 				branchName: "feature/a",
 				worktreePath: "/slots/repos/repo/worktrees/slot-01",
 				cdCommand: "cd /slots/repos/repo/worktrees/slot-01",
-				alreadyAssigned: false,
-				createdBranch: false,
+				isAlreadyAssigned: false,
+				hasCreatedBranch: false,
 				currentWorktreeNote: null,
 			},
 		});
