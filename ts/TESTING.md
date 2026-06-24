@@ -36,12 +36,21 @@ Use integration tests for coverage that intentionally exercises real adapters or
 as cold Node CLI/import smoke tests, real Git repositories, sqlite-backed fixtures, or other subprocess or
 filesystem-heavy behavior that should remain available but not slow the default path.
 
+A test that creates a temporary Git repository by invoking real Git commands (`git init`, `git commit`,
+`git worktree`, or similar) is an integration test. Keep only fake-driven Git protocol coverage, injected
+`GitGateway` behavior, or inert `.git`-shaped fixture parsing in the default lane.
+
 ## Default-path test expectations
 
 Default-path tests should prefer small fake-driven seams:
 
 - Inject gateways instead of shelling out to real commands.
 - Use in-memory fakes for package-owned storage or process boundaries when possible.
+- Use temporary directories only for inert local fixtures, path-shape checks, file parsing, or extension
+  loading that does not require a real external tool or service.
+- Keep real Git, Graphite/sqlite, network, host-tool discovery, cold Node runtime, subprocess, and
+  wall-clock behavior out of the default lane unless the test is a deliberately cheap user-facing scenario
+  and there is no narrower boundary smoke to preserve the same confidence.
 - Assert the same behavior contract that a real-adapter integration test preserves at the boundary.
 - Keep package scenario tests focused on user-visible CLI behavior that does not require slow external
   setup.
