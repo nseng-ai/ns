@@ -411,7 +411,14 @@ function formatDryRun(options: FormatDryRunOptions): string {
 		plan.summary ? `Summary: ${plan.summary}` : undefined,
 		"",
 		branchContextPreview,
-		formatCommand("slot", ["checkout", operation.branch, "--format", "json", "--no-clipboard"]),
+		formatCommand("sdl", [
+			"slot",
+			"checkout",
+			operation.branch,
+			"--format",
+			"json",
+			"--no-clipboard",
+		]),
 		formatLaunchPreview({
 			destination: config.destination,
 			branch: operation.branch,

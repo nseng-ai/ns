@@ -82,7 +82,7 @@ export async function createAutoslotFlow(input: AutoslotFlowInput): Promise<void
 		input.io.notify(
 			[
 				`Autoslot created ${branchName}, but slot movement was skipped.`,
-				"The worktree is not clean; `slot checkout --current` requires a clean worktree.",
+				"The worktree is not clean; `sdl slot checkout --current` requires a clean worktree.",
 			].join("\n"),
 			"warning",
 		);
@@ -100,7 +100,7 @@ export async function createAutoslotFlow(input: AutoslotFlowInput): Promise<void
 	);
 	if (!slot.ok) {
 		input.io.notify(
-			[`Autoslot created ${branchName}, but slot checkout failed.`, "", slot.error].join("\n"),
+			[`Autoslot created ${branchName}, but sdl slot checkout failed.`, "", slot.error].join("\n"),
 			"error",
 		);
 		return;

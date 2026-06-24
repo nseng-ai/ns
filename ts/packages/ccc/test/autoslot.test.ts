@@ -102,7 +102,7 @@ function createHarness(options: HarnessOptions = {}) {
 					ok: false as const,
 					failure: {
 						errorType: "unexpected_branch_checkout",
-						message: "Unexpected branch slot checkout in autoslot test.",
+						message: "Unexpected branch sdl slot checkout in autoslot test.",
 					},
 				};
 			},
@@ -127,7 +127,7 @@ function createHarness(options: HarnessOptions = {}) {
 }
 
 describe("autoslot flow", () => {
-	test("successful dirty autoslot runs slot checkout current", async () => {
+	test("successful dirty autoslot runs sdl slot checkout current", async () => {
 		const harness = createHarness();
 
 		await createAutoslotFlow(harness.input);
@@ -150,7 +150,7 @@ describe("autoslot flow", () => {
 		});
 	});
 
-	test("successful latest-commit autoslot runs slot checkout current", async () => {
+	test("successful latest-commit autoslot runs sdl slot checkout current", async () => {
 		const harness = createHarness({ mode: "latest_commit" });
 
 		await createAutoslotFlow(harness.input);
@@ -166,7 +166,7 @@ describe("autoslot flow", () => {
 		expect(harness.notifications.at(-1)?.message).toContain("Worktree: /slots/slot-01");
 	});
 
-	test("branch creation failure skips slot checkout", async () => {
+	test("branch creation failure skips sdl slot checkout", async () => {
 		const harness = createHarness({
 			prepareResult: { ok: false, error: "checkpoint prep failed" },
 		});
@@ -181,7 +181,7 @@ describe("autoslot flow", () => {
 		});
 	});
 
-	test("dirty post-autoslot worktree warns and skips slot checkout", async () => {
+	test("dirty post-autoslot worktree warns and skips sdl slot checkout", async () => {
 		const harness = createHarness({ isDirtyAfterAutobranch: true });
 
 		await createAutoslotFlow(harness.input);
@@ -191,10 +191,10 @@ describe("autoslot flow", () => {
 		expect(harness.notifications.at(-1)?.message).toContain("slot movement was skipped");
 	});
 
-	test("slot checkout failure reports useful error after autobranch succeeds", async () => {
+	test("sdl slot checkout failure reports useful error after autobranch succeeds", async () => {
 		const harness = createHarness({
 			slotFailure:
-				"slot checkout --current failed (no_available_slot): No clean detached slot is available.",
+				"sdl slot checkout --current failed (no_available_slot): No clean detached slot is available.",
 		});
 
 		await createAutoslotFlow(harness.input);
@@ -202,7 +202,7 @@ describe("autoslot flow", () => {
 		expect(harness.events).toContain("slot-client:current");
 		expect(harness.notifications.at(-1)?.level).toBe("error");
 		expect(harness.notifications.at(-1)?.message).toContain(
-			"Autoslot created test-branch, but slot checkout failed.",
+			"Autoslot created test-branch, but sdl slot checkout failed.",
 		);
 		expect(harness.notifications.at(-1)?.message).toContain("No clean detached slot is available.");
 		expect(harness.statuses.at(-1)).toBe("Checking out branch slot…");

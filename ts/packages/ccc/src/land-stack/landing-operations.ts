@@ -274,7 +274,7 @@ export async function confirmAndFreeManagedSlots(
 ): Promise<LandStackOutcome> {
 	const { pi, ctx, plan } = options;
 	const freeArgs = slotFreeArgs(plan.managedSlotConflicts);
-	const commandDisplay = formatCommand("slot", freeArgs);
+	const commandDisplay = formatCommand("sdl", ["slot", ...freeArgs]);
 	const details = [
 		"Run targeted slot cleanup? This detaches/frees managed slots for landing branches only.",
 		"",
@@ -306,7 +306,7 @@ export async function confirmAndFreeManagedSlots(
 	}
 
 	setStatus(ctx, "freeing landing slots...");
-	const result = await exec(pi, "slot", freeArgs, plan.repoRoot, SLOT_TIMEOUT_MS);
+	const result = await exec(pi, "sdl", ["slot", ...freeArgs], plan.repoRoot, SLOT_TIMEOUT_MS);
 	if (result.code !== 0) {
 		return failure(
 			landStackFailure("Targeted slot cleanup failed before any PRs were landed.", {
@@ -333,7 +333,7 @@ export async function confirmAndFreeManagedSlots(
 		return failure(
 			landStackFailure(
 				[
-					"slot free completed, but landing branches are still checked out in other worktrees.",
+					"sdl slot free completed, but landing branches are still checked out in other worktrees.",
 					...remaining.map((conflict) => `- ${formatConflict(conflict)}`),
 					"No PRs were landed.",
 				].join("\n"),

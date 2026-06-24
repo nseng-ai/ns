@@ -67,13 +67,6 @@ install-sdl: (_install-ts-shim "sdl" "ts/packages/sdl/src/cli.ts" "just install-
     rm -f "{{justfile_directory()}}/.venv/bin/sdl"
     @echo "removed stale project venv sdl script if present"
 
-# Install the slot shim to ~/.local/bin so `slot` on PATH runs the
-# TypeScript CLI from source: the enclosing checkout's sources when invoked
-# inside an sdl checkout, this checkout's sources everywhere else.
-install-slot: (_install-ts-shim "slot" "ts/packages/slot/src/cli.ts" "just install-slot or just install-tools")
-    rm -f "{{justfile_directory()}}/.venv/bin/slot"
-    @echo "removed stale project venv slot script if present"
-
 # Install the pr-address shim to ~/.local/bin so `pr-address` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
 # inside an sdl checkout, this checkout's sources everywhere else.
@@ -155,8 +148,8 @@ refresh-skills: ts-install
     node {{justfile_directory()}}/ts/packages/areg/src/cli.ts update-skills --path {{justfile_directory()}}
 
 # Install public tools via TypeScript source shims.
-install-tools: install-sdl install-slot install-brmem install-handoff install-areg install-objective
-    @echo "installed: sdl, slot, brmem, handoff, areg, and objective (TypeScript shims)"
+install-tools: install-sdl install-brmem install-handoff install-areg install-objective
+    @echo "installed: sdl, brmem, handoff, areg, and objective (TypeScript shims)"
 
 clean:
     rm -rf dist/*.whl dist/*.tar.gz

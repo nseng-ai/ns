@@ -63,7 +63,7 @@ const testSlotClient = {
 			ok: false as const,
 			failure: {
 				errorType: "unexpected_current_checkout",
-				message: "Unexpected current slot checkout in cmux command test.",
+				message: "Unexpected current sdl slot checkout in cmux command test.",
 			},
 		};
 	},
@@ -383,7 +383,7 @@ describe("CCC cmux command suite", () => {
 		expect(content).toContain(`Source branch: ${SOURCE_BRANCH}`);
 		expect(content).toContain(`Branch: ${PLAN_SLUG}`);
 		expect(content).toContain(`Branch Memory key: ${PLAN_KEY}`);
-		expect(content).toContain("slot checkout");
+		expect(content).toContain("sdl slot checkout");
 		expect(content).toContain("cmux new-workspace");
 		expect(content).toContain(`--description 'dispatch-plan from ${SOURCE_BRANCH}'`);
 		expect(pi.execCalls.some(isDispatchMutationCommand)).toBe(false);
@@ -482,7 +482,7 @@ describe("CCC cmux command suite", () => {
 		expect(content).toContain(
 			"Dry run: no branch was created, no plan was attached, and no cmux surface was opened.",
 		);
-		expect(content).toContain("slot checkout");
+		expect(content).toContain("sdl slot checkout");
 		expect(content).toContain("cmux new-surface");
 		expect(content).toContain("cmux rename-tab");
 		expect(content).toContain("cmux send -- 'cd");
@@ -597,7 +597,7 @@ describe("CCC cmux command suite", () => {
 		expect(pi.thinkingLevels).toEqual([]);
 	});
 
-	test("ccc:surface:dispatch-plan stops before cmux surface launch when slot checkout fails", async () => {
+	test("ccc:surface:dispatch-plan stops before cmux surface launch when sdl slot checkout fails", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
 		const planFile = await writeCmuxPlanStoreFile(planStoreRoot, repoRoot, {

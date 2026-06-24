@@ -39,7 +39,7 @@ export async function runGtUp(ctx: SlotCliContext, request: GtUpRequest) {
 		return negative(`No upstack branch for '${resolved.currentBranch}'.`);
 	if (children.branches.length > 1)
 		return negative(
-			`Multiple upstack branches for '${resolved.currentBranch}': ${children.branches.join(", ")}. Run \`slot checkout <branch>\` for the branch you want.`,
+			`Multiple upstack branches for '${resolved.currentBranch}': ${children.branches.join(", ")}. Run \`sdl slot checkout <branch>\` for the branch you want.`,
 		);
 	const branch = children.branches[0] ?? "";
 	const resolution = await resolveOrCheckoutWorktreeForBranch(ctx, branch);

@@ -72,5 +72,5 @@ function formatPeerCheckoutFailure(
 }
 
 function checkoutCommandName(ref: SlotCheckoutRef): string {
-	return ref.kind === "branch" ? "slot checkout" : "slot checkout --current";
+	return ref.kind === "branch" ? "sdl slot checkout" : "sdl slot checkout --current";
 }

@@ -101,12 +101,12 @@ export async function checkoutCurrent(ctx: SlotCliContext): Promise<SlotCheckout
 	if (currentPlan.type === "detached_head")
 		return failure(
 			"detached_head",
-			`HEAD at ${currentPlan.cwd} is detached. Check out a branch before running \`slot checkout --current\`.`,
+			`HEAD at ${currentPlan.cwd} is detached. Check out a branch before running \`sdl slot checkout --current\`.`,
 		);
 	if (currentPlan.type === "dirty_worktree")
 		return failure(
 			"dirty_worktree",
-			`Current worktree at ${currentPlan.cwd} has uncommitted changes. Commit or stash before running \`slot checkout --current\`.`,
+			`Current worktree at ${currentPlan.cwd} has uncommitted changes. Commit or stash before running \`sdl slot checkout --current\`.`,
 		);
 	if (currentPlan.plan.type === "pool_full")
 		return {

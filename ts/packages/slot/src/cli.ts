@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 import {
 	ClinkrGroup,
 	isClinkrHumanOutputInvocation,
@@ -22,16 +20,6 @@ import {
 	renderClaim,
 	runClaim,
 } from "./operations/claim.ts";
-import {
-	completionInstallRequestSchema,
-	completionInstallResultSchema,
-	completionShowRequestSchema,
-	completionShowResultSchema,
-	renderCompletionInstall,
-	renderCompletionShow,
-	runCompletionInstall,
-	runCompletionShow,
-} from "./operations/completion.ts";
 import { freeRequestSchema, freeResultSchema, renderFree, runFree } from "./operations/free.ts";
 import { gcRequestSchema, gcResultSchema, renderGc, runGc } from "./operations/gc.ts";
 import {
@@ -73,16 +61,6 @@ import {
 	resizeResultSchema,
 	runResize,
 } from "./operations/resize.ts";
-import {
-	renderShellInstall,
-	renderShellShow,
-	runShellInstall,
-	runShellShow,
-	shellInstallRequestSchema,
-	shellInstallResultSchema,
-	shellShowRequestSchema,
-	shellShowResultSchema,
-} from "./operations/shell.ts";
 
 const entry = defineCli<SlotCliContext, CliDeps, undefined>({
 	metaUrl: import.meta.url,
@@ -125,16 +103,25 @@ export function buildCli(): ClinkrGroup<SlotCliContext> {
 	return entry.buildCli(undefined);
 }
 
-export function buildSlotCommandGroup<TContext extends SlotCliContext>(): ClinkrGroup<TContext> {
+export interface BuildSlotCommandGroupOptions<TContext extends SlotCliContext> {
+	shellGroup?: (() => ClinkrGroup<TContext>) | undefined;
+}
+
+export function buildSlotCommandGroup<TContext extends SlotCliContext>(
+	options: BuildSlotCommandGroupOptions<TContext> = {},
+): ClinkrGroup<TContext> {
 	const group = new ClinkrGroup<TContext>({
 		name: "slot",
 		description: "Manage the pool of Git-worktree-backed slots.",
 	});
-	configureSlotCommands(group);
+	configureSlotCommands(group, options);
 	return group;
 }
 
-function configureSlotCommands<TContext extends SlotCliContext>(root: ClinkrGroup<TContext>): void {
+function configureSlotCommands<TContext extends SlotCliContext>(
+	root: ClinkrGroup<TContext>,
+	options: BuildSlotCommandGroupOptions<TContext> = {},
+): void {
 	root.command({
 		name: "list",
 		description: "List worktree pool slots derived from Git worktree state.",
@@ -231,61 +218,8 @@ function configureSlotCommands<TContext extends SlotCliContext>(root: ClinkrGrou
 		handler: runResize,
 		renderHuman: renderResize,
 	});
-	root.group(buildShellGroup());
-	root.group(buildCompletionGroup());
+	if (options.shellGroup !== undefined) root.group(options.shellGroup());
 	root.group(buildGtGroup());
-}
-
-function buildShellGroup<TContext extends SlotCliContext>(): ClinkrGroup<TContext> {
-	const shell = new ClinkrGroup<TContext>({
-		name: "shell",
-		description: "Show or install parent-shell integration.",
-	});
-	shell.command({
-		name: "show",
-		description: "Print the parent-shell wrapper script.",
-		schema: shellShowRequestSchema,
-		options: { shell: {} },
-		resultSchema: shellShowResultSchema,
-		handler: runShellShow,
-		renderHuman: renderShellShow,
-	});
-	shell.command({
-		name: "install",
-		description: "Install the parent-shell wrapper in the detected or selected rc file.",
-		schema: shellInstallRequestSchema,
-		options: { shell: {} },
-		resultSchema: shellInstallResultSchema,
-		handler: runShellInstall,
-		renderHuman: renderShellInstall,
-	});
-	return shell;
-}
-
-function buildCompletionGroup<TContext extends SlotCliContext>(): ClinkrGroup<TContext> {
-	const completion = new ClinkrGroup<TContext>({
-		name: "completion",
-		description: "Show or install shell completion.",
-	});
-	completion.command({
-		name: "show",
-		description: "Print the shell completion script.",
-		schema: completionShowRequestSchema,
-		options: { shell: {} },
-		resultSchema: completionShowResultSchema,
-		handler: runCompletionShow,
-		renderHuman: renderCompletionShow,
-	});
-	completion.command({
-		name: "install",
-		description: "Install shell completion in the detected or selected rc file.",
-		schema: completionInstallRequestSchema,
-		options: { shell: {} },
-		resultSchema: completionInstallResultSchema,
-		handler: runCompletionInstall,
-		renderHuman: renderCompletionInstall,
-	});
-	return completion;
 }
 
 function buildGtGroup<TContext extends SlotCliContext>(): ClinkrGroup<TContext> {
@@ -347,5 +281,3 @@ function buildGtGroup<TContext extends SlotCliContext>(): ClinkrGroup<TContext> 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
 	return await entry.run(args, deps);
 }
-
-await entry.runIfMain({ isImportMetaMain: import.meta.main });

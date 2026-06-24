@@ -15,7 +15,7 @@ A migration slice should delete old command names and old `/code:<name>` Pi mirr
 
 ## Built-in Slot command face
 
-`sdl slot ...` is an in-process command-face alias for the standalone `slot` CLI. Standalone `slot` remains the canonical direct tool; the SDL alias exists so humans can reach the same Slot command surface through the `sdl` binary, including navigation commands and hidden agent-facing `slot gt exec ...` helpers.
+`sdl slot ...` is the only supported Slot CLI surface. `@sdl/slot` remains the implementation and Peer API owner, but the package no longer exposes a standalone `slot` executable. Humans and agents should invoke Slot operations through `sdl slot`, including navigation commands and hidden agent-facing `sdl slot gt exec ...` helpers.
 
 Parent-shell directory changes require opt-in shell integration because a child process cannot `cd` its parent shell:
 
@@ -23,9 +23,11 @@ Parent-shell directory changes require opt-in shell integration because a child 
 sdl shell show --shell zsh
 sdl shell install --shell zsh
 sdl shell install --shell bash
+sdl slot shell show --shell zsh
+sdl slot shell install --shell zsh
 ```
 
-The `sdl` wrapper uses `SDL_CD_DIRECTIVE_FILE` and is separate from `slot shell`, which continues to use `SLOT_CD_DIRECTIVE_FILE`. Programmatic first-party consumers should continue to use curated Slot Peer APIs such as `@sdl/slot/api` rather than parsing `sdl slot --format json` output.
+Both `sdl shell` and `sdl slot shell` install the canonical `sdl()` wrapper. The wrapper uses `SDL_CD_DIRECTIVE_FILE` and invokes `command sdl "$@"`; it does not install a `slot()` function. Programmatic first-party consumers should continue to use curated Slot Peer APIs such as `@sdl/slot/api` rather than parsing `sdl slot --format json` output.
 
 ## SDL extensions
 

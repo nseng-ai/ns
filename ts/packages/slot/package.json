@@ -2,7 +2,7 @@
 	"name": "@sdl/slot",
 	"version": "0.1.0",
 	"bin": {
-		"slot": "./src/cli.ts"
+		"sdl-slot-internal": "./src/cli.ts"
 	},
 	"files": [
 		"src"

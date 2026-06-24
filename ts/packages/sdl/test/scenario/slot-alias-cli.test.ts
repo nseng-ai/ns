@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { runCli } from "@sdl/sdl/cli";
 
-describe("sdl slot alias CLI", () => {
+describe("sdl slot CLI", () => {
 	it("mounts the Slot command tree under sdl slot", async () => {
 		const run = runScenario(["slot", "--help"]);
 		expect(await run.exit).toBe(0);
@@ -17,6 +17,17 @@ describe("sdl slot alias CLI", () => {
 		const run = runScenario(["slot", "gt", "exec", "stack-branches", "--help"]);
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("stack-branches");
+	});
+
+	it("shows canonical SDL shell integration from sdl slot shell", async () => {
+		const run = runScenario(["slot", "shell", "show", "--shell", "zsh"]);
+		expect(await run.exit).toBe(0);
+		const output = run.stdout.join("");
+		expect(output).toContain("sdl() {");
+		expect(output).toContain("SDL_CD_DIRECTIVE_FILE");
+		expect(output).toContain('command sdl "$@"');
+		expect(output).not.toContain("slot() {");
+		expect(output).not.toContain('command slot "$@"');
 	});
 });
 

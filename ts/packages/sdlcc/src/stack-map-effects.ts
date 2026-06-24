@@ -199,16 +199,16 @@ async function checkoutSlot(
 	| { readonly type: "checked-out"; readonly target: SlotCheckoutTarget }
 	| { readonly type: "failed"; readonly message: string }
 > {
-	const args = ["checkout", branch, "--format", "json", "--no-clipboard"];
-	const result = await runCommand("slot", args, { cwd, timeout: SLOT_CHECKOUT_TIMEOUT_MS });
+	const args = ["slot", "checkout", branch, "--format", "json", "--no-clipboard"];
+	const result = await runCommand("sdl", args, { cwd, timeout: SLOT_CHECKOUT_TIMEOUT_MS });
 	if (result.code !== 0)
-		return { type: "failed", message: commandFailureMessage("slot checkout", result) };
+		return { type: "failed", message: commandFailureMessage("sdl slot checkout", result) };
 	const target = parseSlotCheckoutTarget(result.stdout);
 	if (target === undefined)
 		return {
 			type: "failed",
 			message:
-				"slot checkout returned unreadable JSON; expected slot_name, branch_name, and worktree_path.",
+				"sdl slot checkout returned unreadable JSON; expected slot_name, branch_name, and worktree_path.",
 		};
 	return { type: "checked-out", target };
 }
