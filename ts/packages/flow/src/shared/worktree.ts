@@ -45,6 +45,33 @@ interface ExecExtensionCommandOptions {
 	onStderr?: ((text: string) => void) | undefined;
 }
 
+interface CliExecOptions {
+	cwd?: string | undefined;
+	timeout?: number | undefined;
+}
+
+interface CliExecAdapterOptions {
+	ctx: SdlExtensionApi;
+	onOutput?: ((stream: "stdout" | "stderr", text: string) => void) | undefined;
+}
+
+export function createCliExecAdapter(options: CliExecAdapterOptions) {
+	return async (command: string, args: string[], execOptions?: CliExecOptions) =>
+		await execExtensionCommand({
+			ctx: options.ctx,
+			command,
+			args,
+			...(execOptions?.cwd === undefined ? {} : { cwd: execOptions.cwd }),
+			...(execOptions?.timeout === undefined ? {} : { timeoutMs: execOptions.timeout }),
+			...(options.onOutput === undefined
+				? {}
+				: {
+						onStdout: (text: string) => options.onOutput?.("stdout", text),
+						onStderr: (text: string) => options.onOutput?.("stderr", text),
+					}),
+		});
+}
+
 export async function execExtensionCommand(
 	options: ExecExtensionCommandOptions,
 ): Promise<ExecResult> {

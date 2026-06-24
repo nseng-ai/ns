@@ -53,9 +53,11 @@ describe("project extension shared flow foundations", () => {
 		const worktreeSource = await readFile(SHARED_WORKTREE_PATH, "utf8");
 
 		expect(worktreeSource).toContain("refusing command cwd");
+		expect(worktreeSource).toContain("createCliExecAdapter");
+		expect(worktreeSource).toContain("execOptions?.cwd");
 		for (const source of [autoslotSource, landSource, pullTrunkSource]) {
-			expect(source).toContain("execExtensionCommand");
-			expect(source).toContain("options?.cwd");
+			expect(source).toContain("createCliExecAdapter");
+			expect(source).not.toContain("options?.cwd");
 		}
 		expect(autobranchSource).not.toContain("_cwd");
 		expect(branchLatestCommitSource).not.toContain("_cwd");
