@@ -1,5 +1,12 @@
-import { NodeCommandExecApi, type CommandExecApi } from "@sdl/core/exec";
-import { failed, ok, type ExecResult, type SdlExtensionApi, type SdlResult } from "@sdl/sdl/sdk";
+import { NodeCommandExecApi, type CommandExecApi, type ExecOptions } from "@sdl/core/exec";
+import {
+	failed,
+	ok,
+	type ExecResult,
+	type SdlExecOptions,
+	type SdlExtensionApi,
+	type SdlResult,
+} from "@sdl/sdl/sdk";
 
 export interface FlowCccCliExecOptions {
 	cwd?: string | undefined;
@@ -32,7 +39,7 @@ export async function runFlowCccCli(options: RunFlowCccCliOptions): Promise<SdlR
 		exec: async (command, args, execOptions) =>
 			await execFlowCccCommand({
 				ctx: options.ctx,
-				trustedExec: options.trustedExec ?? new NodeCommandExecApi(),
+				trustedExec: options.trustedExec ?? createTrustedFlowCccExec(),
 				command,
 				args,
 				options: execOptions,
@@ -61,25 +68,51 @@ interface ExecFlowCccCommandOptions {
 }
 
 async function execFlowCccCommand(options: ExecFlowCccCommandOptions): Promise<ExecResult> {
-	const onOutput = options.ctx.onOutput;
-	const outputOptions =
-		options.liveOutput.shouldForwardLiveOutput && onOutput !== undefined
-			? {
-					onStdout: (text: string) => onOutput("stdout", text),
-					onStderr: (text: string) => onOutput("stderr", text),
-				}
-			: {};
 	const cwd = options.options?.cwd ?? options.ctx.cwd;
 	if (cwd === options.ctx.cwd) {
-		return await options.ctx.exec(options.command, [...options.args], {
-			...(options.options?.timeout === undefined ? {} : { timeoutMs: options.options.timeout }),
-			...outputOptions,
-		});
+		return await options.ctx.exec(
+			options.command,
+			[...options.args],
+			buildScopedSdlExecOptions(options),
+		);
 	}
-	return await options.trustedExec.exec(options.command, [...options.args], {
+	return await options.trustedExec.exec(
+		options.command,
+		[...options.args],
+		buildTrustedFlowCccExecOptions(options, cwd),
+	);
+}
+
+function createTrustedFlowCccExec(): CommandExecApi {
+	return new NodeCommandExecApi();
+}
+
+function buildScopedSdlExecOptions(options: ExecFlowCccCommandOptions): SdlExecOptions {
+	return {
+		...(options.options?.timeout === undefined ? {} : { timeoutMs: options.options.timeout }),
+		...buildLiveOutputCallbacks(options),
+	};
+}
+
+function buildTrustedFlowCccExecOptions(
+	options: ExecFlowCccCommandOptions,
+	cwd: string,
+): ExecOptions {
+	return {
 		cwd,
 		env: options.ctx.env,
 		...(options.options?.timeout === undefined ? {} : { timeout: options.options.timeout }),
-		...outputOptions,
-	});
+		...buildLiveOutputCallbacks(options),
+	};
+}
+
+function buildLiveOutputCallbacks(
+	options: ExecFlowCccCommandOptions,
+): Pick<ExecOptions, "onStdout" | "onStderr"> {
+	const onOutput = options.ctx.onOutput;
+	if (!options.liveOutput.shouldForwardLiveOutput || onOutput === undefined) return {};
+	return {
+		onStdout: (text: string) => onOutput("stdout", text),
+		onStderr: (text: string) => onOutput("stderr", text),
+	};
 }
