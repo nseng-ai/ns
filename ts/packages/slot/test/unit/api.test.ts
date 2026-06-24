@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { checkoutBranchSlot, checkoutCurrentSlot } from "../../src/api.ts";
+import { createSlotClient } from "../../src/api.ts";
 import { runScenario, slotWorktree } from "../support/run-scenario.ts";
 
 describe("Slot Peer API", () => {
@@ -13,7 +13,8 @@ describe("Slot Peer API", () => {
 			},
 		});
 
-		const result = await checkoutCurrentSlot({ cwd: "/repo", context: run.context });
+		const slotClient = createSlotClient({ cwd: "/repo", context: run.context });
+		const result = await slotClient.checkoutCurrent();
 
 		expect(result).toEqual({
 			ok: true,
@@ -46,11 +47,8 @@ describe("Slot Peer API", () => {
 			clipboardResult: { type: "failure", reason: "subprocess_error", detail: "must not copy" },
 		});
 
-		const result = await checkoutBranchSlot({
-			cwd: "/repo",
-			context: run.context,
-			branchName: "feature/a",
-		});
+		const slotClient = createSlotClient({ cwd: "/repo", context: run.context });
+		const result = await slotClient.checkoutBranch({ branchName: "feature/a" });
 
 		expect(result).toMatchObject({
 			ok: true,
@@ -71,11 +69,8 @@ describe("Slot Peer API", () => {
 			git: { localBranches: ["master"], worktrees: [slotWorktree("slot-01")] },
 		});
 
-		const result = await checkoutBranchSlot({
-			cwd: "/repo",
-			context: run.context,
-			branchName: "feature/missing",
-		});
+		const slotClient = createSlotClient({ cwd: "/repo", context: run.context });
+		const result = await slotClient.checkoutBranch({ branchName: "feature/missing" });
 
 		expect(result).toEqual({
 			ok: false,

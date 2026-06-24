@@ -27,7 +27,8 @@ import { checkoutBranchCmuxSlot, openBranchInCmuxSlot } from "./slot.ts";
 import { launchFocusedCmuxTab, type FocusedCmuxTabLaunchResult } from "./focused-terminal-tab.ts";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
 import type { PiLaunchOptions } from "./pi-launch.ts";
-import type { CccSlotCheckoutTarget, SlotCheckoutFunction } from "../slot-checkout.ts";
+import type { SlotClient } from "@sdl/slot/api";
+import type { CccSlotCheckoutTarget } from "../slot-checkout.ts";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import type { CommandContext, ExtensionAPI, NotifyLevel } from "./types.ts";
 
@@ -107,7 +108,7 @@ export interface CccSlotDispatchPlanOptions {
 	createBranchContextContext?:
 		| ((pi: ExtensionAPI, cwd: string) => BranchContextContext)
 		| undefined;
-	slotCheckout?: SlotCheckoutFunction;
+	slotClient?: SlotClient;
 }
 
 export function registerCccSlotDispatchPlanCommand(
@@ -339,9 +340,9 @@ async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): P
 			branchName: operation.branch,
 			command: formatPiLaunchCommand(operation, launchOptions),
 			description: `dispatch-plan from ${checkout.directory.sourceBranch}`,
-			...(options.options.slotCheckout === undefined
+			...(options.options.slotClient === undefined
 				? {}
-				: { slotCheckout: options.options.slotCheckout }),
+				: { slotClient: options.options.slotClient }),
 			notify: (message, level) => ctx.ui.notify(message, level),
 			onStatus: (message) => setStatus(ctx, config, message),
 			successMessage: (target) => formatFinalSuccess({ operation, target, launchOptions }),
@@ -358,9 +359,7 @@ async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): P
 		tabTitle: operation.branch,
 		operation,
 		config,
-		...(options.options.slotCheckout === undefined
-			? {}
-			: { slotCheckout: options.options.slotCheckout }),
+		...(options.options.slotClient === undefined ? {} : { slotClient: options.options.slotClient }),
 	});
 }
 
@@ -517,14 +516,14 @@ async function openBranchInCmuxSurface(options: {
 	tabTitle: string;
 	operation: BranchContextCreateOperation;
 	config: DispatchPlanConfig;
-	slotCheckout?: SlotCheckoutFunction;
+	slotClient?: SlotClient;
 }): Promise<void> {
 	const { pi, ctx, cwd, branchName, command, tabTitle, operation, config } = options;
 	const target = await checkoutBranchCmuxSlot({
 		pi,
 		cwd,
 		branchName,
-		...(options.slotCheckout === undefined ? {} : { slotCheckout: options.slotCheckout }),
+		...(options.slotClient === undefined ? {} : { slotClient: options.slotClient }),
 		notify: (message, level) => ctx.ui.notify(message, level),
 		onStatus: (message) => setStatus(ctx, config, message),
 	});

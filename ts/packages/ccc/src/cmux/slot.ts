@@ -1,9 +1,6 @@
 import { piExecApiToCommandExecApi } from "@sdl/core/exec";
-import {
-	checkoutSlot,
-	type CccSlotCheckoutTarget,
-	type SlotCheckoutFunction,
-} from "../slot-checkout.ts";
+import type { SlotClient } from "@sdl/slot/api";
+import { checkoutSlot, type CccSlotCheckoutTarget } from "../slot-checkout.ts";
 import { RealCmuxGateway, type CmuxGatewayFailure } from "./gateway.ts";
 import { getWorktreeDescription } from "./worktree-description.ts";
 import type { ExtensionAPI, NotifyLevel } from "./types.ts";
@@ -13,7 +10,7 @@ export interface BranchCmuxSlotCheckoutOptions {
 	cwd: string;
 	branchName: string;
 	env?: NodeJS.ProcessEnv | Record<string, string | undefined>;
-	slotCheckout?: SlotCheckoutFunction;
+	slotClient?: SlotClient;
 	notify: (message: string, level: NotifyLevel) => void;
 	onStatus?: (message: string) => void;
 }
@@ -40,7 +37,7 @@ export async function checkoutBranchCmuxSlot(
 		{
 			cwd,
 			...(options.env === undefined ? {} : { env: options.env }),
-			...(options.slotCheckout === undefined ? {} : { checkoutSlot: options.slotCheckout }),
+			...(options.slotClient === undefined ? {} : { slotClient: options.slotClient }),
 		},
 		{ kind: "branch", branchName },
 	);

@@ -6,11 +6,12 @@ import {
 	prepareAutobranchCheckpointMessage,
 } from "./autobranch/checkpoint.ts";
 import { createAutobranchCheckpointFlow, type AutobranchFlowInput } from "./autobranch/flow.ts";
-import { checkoutSlot, type SlotCheckoutFunction } from "./slot-checkout.ts";
+import type { SlotClient } from "@sdl/slot/api";
+import { checkoutSlot } from "./slot-checkout.ts";
 
 export interface AutoslotFlowInput extends AutobranchFlowInput {
 	env?: NodeJS.ProcessEnv | Record<string, string | undefined>;
-	slotCheckout?: SlotCheckoutFunction;
+	slotClient?: SlotClient;
 	io: CommandIo;
 }
 
@@ -93,7 +94,7 @@ export async function createAutoslotFlow(input: AutoslotFlowInput): Promise<void
 		{
 			cwd: input.cwd,
 			...(input.env === undefined ? {} : { env: input.env }),
-			...(input.slotCheckout === undefined ? {} : { checkoutSlot: input.slotCheckout }),
+			...(input.slotClient === undefined ? {} : { slotClient: input.slotClient }),
 		},
 		{ kind: "current" },
 	);

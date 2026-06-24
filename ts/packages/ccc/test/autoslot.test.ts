@@ -74,20 +74,38 @@ function createHarness(options: HarnessOptions = {}) {
 		args: { slug: "test-branch" },
 		now: () => 123,
 		exec: (command, args) => exec(command, args),
-		slotCheckout: async (_input, ref) => {
-			events.push(
-				ref.kind === "current" ? "slot-api:current" : `slot-api:branch ${ref.branchName}`,
-			);
-			if (options.slotFailure !== undefined) return { ok: false, error: options.slotFailure };
-			return {
-				ok: true,
-				target: {
-					slotName: "slot-01",
-					branchName: "test-branch",
-					worktreePath: "/slots/slot-01",
-					cdCommand: "cd /slots/slot-01",
-				},
-			};
+		slotClient: {
+			async checkoutCurrent() {
+				events.push("slot-client:current");
+				if (options.slotFailure !== undefined) {
+					return {
+						ok: false as const,
+						failure: { errorType: "slot_failure", message: options.slotFailure },
+					};
+				}
+				return {
+					ok: true as const,
+					target: {
+						slotName: "slot-01",
+						branchName: "test-branch",
+						worktreePath: "/slots/slot-01",
+						cdCommand: "cd /slots/slot-01",
+						isAlreadyAssigned: false,
+						hasCreatedBranch: false,
+						currentWorktreeNote: null,
+					},
+				};
+			},
+			async checkoutBranch(options: { branchName: string }) {
+				events.push(`slot-client:branch ${options.branchName}`);
+				return {
+					ok: false as const,
+					failure: {
+						errorType: "unexpected_branch_checkout",
+						message: "Unexpected branch slot checkout in autoslot test.",
+					},
+				};
+			},
 		},
 		prepareCheckpointMessage: async () => {
 			events.push("prepare");
@@ -115,7 +133,7 @@ describe("autoslot flow", () => {
 		await createAutoslotFlow(harness.input);
 
 		expect(harness.events).toContain("commit");
-		expect(harness.events).toContain("slot-api:current");
+		expect(harness.events).toContain("slot-client:current");
 		expect(harness.statuses).toEqual([
 			"Inspecting worktree…",
 			"Drafting checkpoint message…",
@@ -139,7 +157,7 @@ describe("autoslot flow", () => {
 
 		expect(harness.events).toContain("exec:git reset --hard parent987654");
 		expect(harness.events).toContain("exec:gt create test-branch --no-interactive --no-ai");
-		expect(harness.events).toContain("slot-api:current");
+		expect(harness.events).toContain("slot-client:current");
 		expect(harness.statuses).toEqual([
 			"Inspecting worktree…",
 			"Creating Graphite branch from latest commit…",
@@ -155,7 +173,7 @@ describe("autoslot flow", () => {
 
 		await createAutoslotFlow(harness.input);
 
-		expect(harness.events.some((event) => event.startsWith("slot-api:"))).toBe(false);
+		expect(harness.events.some((event) => event.startsWith("slot-client:"))).toBe(false);
 		expect(harness.statuses).toEqual(["Inspecting worktree…", "Drafting checkpoint message…"]);
 		expect(harness.notifications).toContainEqual({
 			level: "error",
@@ -168,7 +186,7 @@ describe("autoslot flow", () => {
 
 		await createAutoslotFlow(harness.input);
 
-		expect(harness.events.some((event) => event.startsWith("slot-api:"))).toBe(false);
+		expect(harness.events.some((event) => event.startsWith("slot-client:"))).toBe(false);
 		expect(harness.notifications.at(-1)?.level).toBe("warning");
 		expect(harness.notifications.at(-1)?.message).toContain("slot movement was skipped");
 	});
@@ -181,7 +199,7 @@ describe("autoslot flow", () => {
 
 		await createAutoslotFlow(harness.input);
 
-		expect(harness.events).toContain("slot-api:current");
+		expect(harness.events).toContain("slot-client:current");
 		expect(harness.notifications.at(-1)?.level).toBe("error");
 		expect(harness.notifications.at(-1)?.message).toContain(
 			"Autoslot created test-branch, but slot checkout failed.",
