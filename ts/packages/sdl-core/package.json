@@ -6,6 +6,7 @@
     ".": "./src/index.ts",
     "./primitives": "./src/primitives.ts",
     "./result": "./src/result.ts",
+    "./command-io": "./src/command-io.ts",
     "./markdown-frontmatter": "./src/markdown-frontmatter.ts",
     "./managed-region": "./src/managed-region.ts",
     "./text-table": "./src/text-table.ts",
