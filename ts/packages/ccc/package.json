@@ -10,6 +10,7 @@
     ".": "./src/index.ts",
     "./cmux/focused-terminal-tab": "./src/cmux/focused-terminal-tab.ts",
     "./autoslot": "./src/autoslot.ts",
+    "./progress-sink": "./src/progress-sink.ts",
     "./cli": "./src/cli.ts",
     "./handoff-tab": "./src/handoff-tab.ts",
     "./land": "./src/land.ts",
