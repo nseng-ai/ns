@@ -1,0 +1,37 @@
+# @sdl/plans
+
+This context captures domain language for saved implementation plans and their local store.
+
+## Language
+
+**Saved Plan**:
+A Markdown implementation plan saved in the machine-local XDG enriched-plan store for later implementation or branch-context attachment.
+*Avoid*: hidden task, handoff artifact, Branch Memory entry
+
+**Local Plan Store**:
+The XDG state tree under `$XDG_STATE_HOME/sdl/enriched-plan/<repo>/<encoded-source-branch>/` (default `$HOME/.local/state/sdl/enriched-plan/...`) that stores **Saved Plan** files by repository identity and source branch.
+*Avoid*: Branch Memory, repo checkout, cache database
+
+**Source Branch Plan File**:
+A **Saved Plan** file tied to the source branch that produced it. The source branch affects the local plan-store path; it is not the future implementation branch.
+*Avoid*: attached plan, implementation branch plan, handoff locator
+
+**Saved-Plan Selection**:
+The workflow that chooses an explicit, session-evidence, or latest **Saved Plan** while validating repository, source-branch, filename, slug, and path-containment evidence.
+*Avoid*: branch-context selection, arbitrary Markdown lookup, unsafe fallback
+
+**Plan Store Directory Evidence**:
+The repository identity, source branch, encoded path keys, and directory path facts used to validate **Saved Plan** evidence before selecting a file.
+*Avoid*: untrusted session metadata, branch context, attachment evidence
+
+**Plans Command Face**:
+The CLI/Pi-facing shell that parses user intent, constructs real **Gateways** at the edge, writes/lists/selects plans, and presents user-facing output.
+*Avoid*: Plans Core, Peer API
+
+**Plans Peer API**:
+The curated `@sdl/plans/api` surface used by sibling packages for in-process composition without broad package-root imports.
+*Avoid*: private source import, command shell, root barrel contract
+
+**Plans Core**:
+Saved-plan path, evidence, and selection functions that accept resolved evidence or injected **Gateways** rather than raw host context. A core may still perform filesystem I/O through an explicit gateway or already-resolved path evidence.
+*Avoid*: command face, presentation formatter, real adapter construction

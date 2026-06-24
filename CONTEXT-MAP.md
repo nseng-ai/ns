@@ -9,7 +9,7 @@ Current checkout facts:
 - Python workspace inventory: no active first-party Python workspace packages remain.
 - In-scope Python context targets: none. Former Python capability packages were ported to TypeScript, retired, or deleted as migration reference material.
 - TypeScript workspace inventory: 21 repo-local packages under `ts/packages/`. This map's TypeScript package-context coverage is intentionally partial pending a focused rebaseline.
-- Present context files: root `CONTEXT.md`, `ts/packages/handoff/CONTEXT.md`, `ts/packages/brmem/CONTEXT.md`, `ts/packages/pi-extension-runtime/CONTEXT.md`, `ts/packages/pi-extensions/CONTEXT.md`, `ts/packages/ccc/CONTEXT.md`, `ts/packages/sdl/CONTEXT.md`, `ts/packages/roaster/CONTEXT.md`, and `ts/packages/graphite/CONTEXT.md`.
+- Present context files: root `CONTEXT.md`, `ts/packages/handoff/CONTEXT.md`, `ts/packages/brmem/CONTEXT.md`, `ts/packages/pi-extension-runtime/CONTEXT.md`, `ts/packages/pi-extensions/CONTEXT.md`, `ts/packages/ccc/CONTEXT.md`, `ts/packages/sdl/CONTEXT.md`, `ts/packages/roaster/CONTEXT.md`, `ts/packages/graphite/CONTEXT.md`, `ts/packages/plans/CONTEXT.md`, and `ts/packages/branch-context/CONTEXT.md`.
 - Future drift should be handled by focused rebaseline phases before final readback, not silently folded into unrelated package-context sessions.
 
 ## Contexts
@@ -25,6 +25,8 @@ Current checkout facts:
 - [@sdl/graphite](./ts/packages/graphite/CONTEXT.md) — reusable Graphite support vocabulary for direct `gt` command adapters, Graphite metadata DB parsing, topology/status/stack facts, submit support, testing fakes, and the direct `gt` invocation boundary.
 - [@sdl/sdl](./ts/packages/sdl/CONTEXT.md) — Source Development Lifecycle CLI vocabulary for SDL command surfaces, the SDL kernel, project-local and future bundled SDL extensions, SDL command entries, `@sdl/sdl/sdk` as the public SDL extension API, the command-first SDK promotion rule, internal migration exports, SDL Pi mirrors, hard cutover, and lower orchestration ownership.
 - [@sdl/roaster](./ts/packages/roaster/CONTEXT.md) — PR-diff findings vocabulary for Roaster, review definitions, Tripwires, deep reviews, findings, findings comments, inline findings, and Branch Memory review logs.
+- [@sdl/plans](./ts/packages/plans/CONTEXT.md) — saved-plan vocabulary for Saved Plans, the Local Plan Store, Source Branch Plan Files, Saved-Plan Selection, Plan Store Directory Evidence, the Plans Command Face, the Plans Peer API, and Plans Core boundaries.
+- [@sdl/branch-context](./ts/packages/branch-context/CONTEXT.md) — branch-context vocabulary for Branch Context, Attached Plan, Branch Context Creation, Branch Context Attach, the Branch Context Command Face, the Branch Context Peer API, and Branch Context Core boundaries.
 
 ### Planned TypeScript package contexts
 
@@ -64,7 +66,9 @@ These are current map seeds, not final readback output. Package-context phases s
 - **@sdl/sdl → @sdl/pi-extensions**: Pi runtime extensions mirror SDL commands as `/sdl:*` through thin adapters; SDL owns command behavior, and Pi owns runtime registration and presentation.
 - **@sdl/sdl → @sdl/ccc**: CCC may own project-specific orchestration internals for some workflows, while SDL can still own the public lifecycle command surface.
 - **@sdl/ccc → @sdl/pi-extension-runtime + @sdl/graphite + lower capabilities**: CCC owns multi-capability command orchestration behind the `ccc` Pi command prefix, selected repo workflow orchestration behind current non-`ccc` public surfaces such as `/objective:stack-impl`, `/sdl:code:autobranch`, and `/sdl:code:land`, and worktree-status observability facts/presentation. CCC composes injected GitHub/command execution capabilities, SDL checkpoint primitives, `@sdl/graphite` facts/mutations, GitHub/slot landing orchestration policy, and neutral `@sdl/pi-extension-runtime` helpers; lower capabilities such as `@sdl/pi-extension-runtime`, `@sdl/branch-context`, handoff, Objective, brmem, Git, and `@sdl/graphite` must not import `@sdl/ccc`.
-- **@sdl/branch-context → @sdl/graphite**: branch-context owns plan attachment, Branch Memory policy, and branch-context creation semantics while using `@sdl/graphite` for branch tracking and parent checks.
+- **@sdl/plans → Git/local plan store**: plans owns saved-plan path/evidence/selection semantics over repository identity and source-branch directory facts, using Git gateways to derive plan-store keys at the command or Peer API edge.
+- **@sdl/branch-context → @sdl/plans + @sdl/brmem + @sdl/graphite**: branch-context owns plan attachment, Branch Memory namespace/key policy, and branch-context creation semantics while consuming saved-plan sources from `@sdl/plans`, storing attachments through `@sdl/brmem`, and using `@sdl/graphite` for branch tracking and parent checks.
+- **Sibling capability packages → @sdl/branch-context/api + @sdl/plans/api**: sibling in-process consumers should use curated Peer API subpaths rather than package roots or private source imports when composing branch-context/plans behavior.
 - **@sdl/sdl/core → @sdl/graphite**: SDL submit flows use `@sdl/graphite/submit` for Graphite submit/restack/current-PR/metadata-prewrite support while generic PR description and GitHub gateway helpers remain in core/SDL owners.
 
 ## Flagged Ambiguities
