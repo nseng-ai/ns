@@ -29,7 +29,7 @@ import {
 import { getPiLaunchOptions, type PiLaunchOptions } from "./pi-launch.ts";
 import type { TextResult } from "./primitives.ts";
 import { openBranchInCmuxSlot } from "./slot.ts";
-import type { SlotCheckoutFunction } from "../slot-checkout.ts";
+import type { SlotClient } from "@sdl/slot/api";
 import type { CommandContext, ExtensionAPI } from "./types.ts";
 
 const COMMAND_NAME = "ccc:workspace:dispatch-prompt";
@@ -46,7 +46,7 @@ export interface DispatchPromptPayloadOptions {
 	stagingDir?: string;
 	now?: () => number;
 	shouldCleanupStagingFile?: boolean;
-	slotCheckout?: SlotCheckoutFunction;
+	slotClient?: SlotClient;
 }
 
 interface ResolvedDispatchPromptPayloadOptions {
@@ -58,7 +58,7 @@ interface ResolvedDispatchPromptPayloadOptions {
 export interface HandleCccSlotDispatchPromptOptions {
 	pi: Pick<ExtensionAPI, "exec" | "getThinkingLevel">;
 	payloadOptions: ResolvedDispatchPromptPayloadOptions;
-	slotCheckout?: SlotCheckoutFunction;
+	slotClient?: SlotClient;
 	args: string;
 	ctx: CommandContext;
 }
@@ -98,7 +98,7 @@ export function registerCccSlotDispatchPromptCommand(
 				await handleCccSlotDispatchPrompt({
 					pi,
 					payloadOptions,
-					...(options.slotCheckout === undefined ? {} : { slotCheckout: options.slotCheckout }),
+					...(options.slotClient === undefined ? {} : { slotClient: options.slotClient }),
 					args,
 					ctx,
 				});
@@ -150,7 +150,7 @@ export async function handleCccSlotDispatchPrompt(
 		branchName: branch.branchName,
 		command: buildBrmemPayloadPiLaunchCommand(branch.branchName, launchOptions),
 		description: `dispatch-prompt from ${branch.parentBranch}`,
-		...(options.slotCheckout === undefined ? {} : { slotCheckout: options.slotCheckout }),
+		...(options.slotClient === undefined ? {} : { slotClient: options.slotClient }),
 		notify: (message, level) => ctx.ui.notify(message, level),
 		successMessage: (target) =>
 			[

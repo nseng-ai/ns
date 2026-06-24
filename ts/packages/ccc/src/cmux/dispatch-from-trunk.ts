@@ -23,7 +23,7 @@ import {
 } from "./dispatch-prompt.ts";
 import { getPiLaunchOptions } from "./pi-launch.ts";
 import { openBranchInCmuxSlot } from "./slot.ts";
-import type { SlotCheckoutFunction } from "../slot-checkout.ts";
+import type { SlotClient } from "@sdl/slot/api";
 import type { CommandContext, ExtensionAPI } from "./types.ts";
 
 const COMMAND_NAME = "ccc:workspace:dispatch-from-trunk";
@@ -47,7 +47,7 @@ export function registerCccSlotDispatchFromTrunkCommand(
 				await handleCccSlotDispatchFromTrunk({
 					pi,
 					payloadOptions,
-					...(options.slotCheckout === undefined ? {} : { slotCheckout: options.slotCheckout }),
+					...(options.slotClient === undefined ? {} : { slotClient: options.slotClient }),
 					args,
 					ctx,
 				});
@@ -61,7 +61,7 @@ async function handleCccSlotDispatchFromTrunk(options: {
 	payloadOptions: ReturnType<typeof resolveDispatchPromptPayloadOptions>;
 	args: string;
 	ctx: CommandContext;
-	slotCheckout?: SlotCheckoutFunction;
+	slotClient?: SlotClient;
 }): Promise<void> {
 	const { pi, payloadOptions, args, ctx } = options;
 	const prompt = args.trim();
@@ -107,7 +107,7 @@ async function handleCccSlotDispatchFromTrunk(options: {
 		branchName: branch.branchName,
 		command: buildBrmemPayloadPiLaunchCommand(branch.branchName, launchOptions),
 		description: `dispatch-from-trunk from ${branch.parentBranch}`,
-		...(options.slotCheckout === undefined ? {} : { slotCheckout: options.slotCheckout }),
+		...(options.slotClient === undefined ? {} : { slotClient: options.slotClient }),
 		notify: (message, level) => ctx.ui.notify(message, level),
 		successMessage: (target) =>
 			[

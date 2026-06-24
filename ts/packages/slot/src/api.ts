@@ -22,38 +22,42 @@ export type SlotCheckoutResult =
 	| { ok: true; target: SlotCheckoutTarget }
 	| { ok: false; failure: SlotCheckoutFailure };
 
-export interface SlotCheckoutOptions {
+export interface SlotClientOptions {
 	cwd: string;
 	env?: NodeJS.ProcessEnv | Record<string, string | undefined>;
 	context?: SlotCliContext;
 }
 
-export interface SlotBranchCheckoutOptions extends SlotCheckoutOptions {
+export interface SlotBranchCheckoutOptions {
 	branchName: string;
 	shouldCreateBranch?: boolean;
 	base?: string | null;
 }
 
-export async function checkoutCurrentSlot(
-	options: SlotCheckoutOptions,
-): Promise<SlotCheckoutResult> {
-	const ctx = await resolveSlotContext(options);
-	const result = await checkoutCurrent(ctx);
-	return await mapCheckoutResult(ctx, result);
+export interface SlotClient {
+	checkoutCurrent(): Promise<SlotCheckoutResult>;
+	checkoutBranch(options: SlotBranchCheckoutOptions): Promise<SlotCheckoutResult>;
 }
 
-export async function checkoutBranchSlot(
-	options: SlotBranchCheckoutOptions,
-): Promise<SlotCheckoutResult> {
-	const ctx = await resolveSlotContext(options);
-	const result = await checkoutBranch(ctx, options.branchName, {
-		shouldCreateBranch: options.shouldCreateBranch ?? false,
-		base: options.base ?? null,
-	});
-	return await mapCheckoutResult(ctx, result);
+export function createSlotClient(options: SlotClientOptions): SlotClient {
+	return {
+		async checkoutCurrent() {
+			const ctx = await resolveSlotContext(options);
+			const result = await checkoutCurrent(ctx);
+			return await mapCheckoutResult(ctx, result);
+		},
+		async checkoutBranch(branchOptions) {
+			const ctx = await resolveSlotContext(options);
+			const result = await checkoutBranch(ctx, branchOptions.branchName, {
+				shouldCreateBranch: branchOptions.shouldCreateBranch ?? false,
+				base: branchOptions.base ?? null,
+			});
+			return await mapCheckoutResult(ctx, result);
+		},
+	};
 }
 
-async function resolveSlotContext(options: SlotCheckoutOptions): Promise<SlotCliContext> {
+async function resolveSlotContext(options: SlotClientOptions): Promise<SlotCliContext> {
 	if (options.context !== undefined) return options.context;
 	return await createRealSlotContext({
 		cwd: options.cwd,
