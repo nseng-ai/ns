@@ -11,8 +11,8 @@
 - [ ] Extract or identify gateway-injected cores for saved-plan selection and branch-context attachment workflows.
   - Evidence: domain functions can be exercised with injected gateways/fakes without raw Pi/SDL host context, while command faces remain thin adapters that build gateways and present output.
 
-- [ ] Migrate one `ccc` saved-plan dispatch/branch-context launch path to the curated Peer APIs.
-  - Evidence: `ccc` no longer imports broad branch-context/plans roots for that path, behavior is preserved by targeted tests, and no human-facing CLI output is parsed for machine decisions.
+- [x] Migrate one `ccc` saved-plan dispatch/branch-context launch path to the curated Peer APIs.
+  - Evidence: `ts/packages/ccc/src/cmux/slot-dispatch-plan.ts` now imports branch-context/plans behavior from `@sdl/branch-context/api` and `@sdl/plans/api`, with targeted `@sdl/ccc` checks/tests passing and no human-facing CLI output parsed for machine decisions. See `updates/2026-06-24-141357-peer-api-proof-path.md`.
 
 - [ ] Migrate Pi branch-context/enriched-plan adapters to the curated seams where they need in-process capability behavior.
   - Evidence: Pi adapters retain presentation ownership while delegating branch-context/plans behavior through Peer APIs or command faces as appropriate; existing Pi tests cover unchanged user-visible command behavior.
