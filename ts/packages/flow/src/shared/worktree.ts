@@ -12,6 +12,8 @@ import {
 	type SdlExtensionApi,
 } from "@sdl/sdl/sdk";
 
+import { execFlowGit } from "./git.ts";
+
 export type { PendingWorktreeError, PendingWorktreeSnapshot, WorktreeCommandResult };
 
 export { formatCommandDetails } from "@sdl/sdl/sdk";
@@ -32,7 +34,7 @@ export function execGit(
 	args: readonly string[],
 	timeoutMs: number,
 ): Promise<ExecResult> {
-	return ctx.exec("git", [...args], { timeoutMs });
+	return execFlowGit(ctx, args, timeoutMs);
 }
 
 interface ExecExtensionCommandOptions {
@@ -97,17 +99,17 @@ export async function createCommitWithPreparedMessage(
 	return await withTemporaryFile(
 		{ prefix: "sdl-extension-cp-commit-", filename: "message.txt", contents: `${message}\n` },
 		async (messagePath) => {
-			const add = await ctx.exec("git", ["add", "-A"], { timeoutMs: 30_000 });
+			const add = await execFlowGit(ctx, ["add", "-A"], 30_000);
 			if (add.code !== 0) {
 				return { error: formatCommandError("Failed to stage checkpoint changes.", add) };
 			}
 
-			const commit = await ctx.exec("git", ["commit", "-F", messagePath], { timeoutMs: 120_000 });
+			const commit = await execFlowGit(ctx, ["commit", "-F", messagePath], 120_000);
 			if (commit.code !== 0) {
 				return { error: formatCommandError("Checkpoint commit failed.", commit) };
 			}
 
-			const log = await ctx.exec("git", ["log", "-1", "--oneline"], { timeoutMs: 5_000 });
+			const log = await execFlowGit(ctx, ["log", "-1", "--oneline"], 5_000);
 			if (log.code !== 0) {
 				return {
 					error: formatCommandError("Created checkpoint commit, but failed to read it back.", log),
