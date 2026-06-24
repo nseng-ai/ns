@@ -2,6 +2,12 @@
 
 ## Work
 
+> **Blocked / sequencing note:** do not start new uncompleted rows from this
+> Objective until `sdl-extension-architecture` has advanced the ADR 0009
+> architecture endgame enough to rebaseline this roadmap. The completed rows stay
+> valid history. The remaining rows should be reclassified after that work into
+> neutral structural cleanup, capability-owned migration work, or obsolete debt.
+
 - [x] Shared `defineCli` helper in `@sdl/core/cli-entry` (runtimeInfo derivation,
       version reading, IO/cwd/env defaulting, `import.meta.main` entry guard);
       migrate all 15 `cli.ts` files onto it.
@@ -116,6 +122,72 @@
       `isRecord` (3×); import the canonical `gt restack`/`submit` arg builders
       instead of re-inlining; present `presentLandStackFailure` once instead of at
       15 early-return sites. See `references/ccc.md`.
+
+### Absorbed from `ts-cli-architecture-deepening` (subsumed)
+
+These deepening candidates migrated from the closed `ts-cli-architecture-deepening`
+Objective. They use the `improve-codebase-architecture` vocabulary (module /
+interface / depth / seam / deletion test); the reasoning is carried across intact,
+not flattened. The audit `reference/` directory remains in the closed Objective.
+They are especially subject to the blocked/sequencing note above: after
+`sdl-extension-architecture` lands its foundation, rebaseline these rows before
+implementing any of them.
+
+- [ ] **Collapse slot-dispatch into one orchestration module** (`ccc/cmux`) —
+      `dispatch-prompt.ts` (432), `dispatch-from-trunk.ts` (198), and
+      `slot-dispatch-plan.ts` (548) re-spell the same four-step sequence (branch →
+      Branch Memory payload → slot checkout → cmux workspace). Introduce a
+      `SlotDispatchPlan` module owning the sequence behind `(branch, payload,
+      metadata)`; the dispatch handlers become thin call sites. Deletion test:
+      complexity concentrates in one module instead of three. *Open Question
+      (carried): does `slot-dispatch-plan.ts` already contain most of the target
+      shape, making this a consolidation of the two handlers onto it rather than a
+      new module?*
+- [ ] **Hide occupancy reconciliation behind the slot inventory** (`slot`) —
+      `inventory.ts`, `planning.ts`, and `operations/gt/navigation.ts` each
+      re-derive slot state by pattern-matching `SlotRecord.branch === null`. A
+      reconciler module owns merging worktree state with occupancy metadata and
+      exposes `reconcile()` plus a pure occupancy lookup; `SlotRecord` becomes
+      immutable output. Deletion test: the `branch === null` discriminant stops
+      leaking into three callers.
+- [ ] **Put a stack-navigator adapter over Graphite's discriminants** (`slot/gt`)
+      — `SlotGtGateway` exposes raw topology discriminants and entangles git
+      checkout with Graphite reasoning, forcing tests to mock both gateways for one
+      move. A `GraphiteStackNavigator` adapter absorbs the discriminants and error
+      classification behind `{ branch | error }`. *Must stay inside the `slot gt`
+      boundary and use Graphite plumbing (`gt parent/children --no-interactive`),
+      never parsed display output (runtime Graphite-dependency boundary).*
+- [ ] **Pull objective-markdown rules into one validator** (`objective`) —
+      `ObjectiveStorage` only reads files while each operation re-applies its own
+      heading/structure rules. An `ObjectiveMarkdownValidator` owns
+      objective/roadmap/update structure so a schema change lands in one module;
+      I/O stays a thin gateway. *If a live `objective` capability migration takes
+      ownership of this surface first, cross-reference that ownership instead of
+      duplicating the validator here.*
+- [ ] **Deepen Branch Memory behind an entry locator** (`brmem` / `handoff` /
+      `branch-context`) — next-layer deepening on this Objective's *already-shipped*
+      gateway migration (in-process `BrmemGateway`, `@sdl/core/brmem-cli` collapse,
+      brmem/core `GitGateway` composition), not a duplicate of those completed rows.
+      Concentrate ref naming/encoding (`buildSnapshotRef`, `encodeBranchName`) +
+      validation that currently leak into brmem operations, handoff, and
+      branch-context behind a `BrmemEntryLocator.parse()` and a thin
+      `BrmemEntriesGateway`. Ref encoding/locator mechanics belong in `@sdl/brmem`
+      **only** as neutral Branch Memory storage infrastructure; any branch-context
+      capability-domain API shape must respect ADR 0009 layering (see the layering
+      guardrail in `objective.md`). *Widest blast radius — treat ref encoding as
+      compatible/append-only and cover it with the locator's own tests before
+      migrating callers.*
+- [ ] **Replace the shallow brmem adapter with a plan-attachment module**
+      (`branch-context`) — branch-context-side next layer composing onto the entry
+      locator above. The branch-context gateway is a shallow adapter over brmem CLI
+      output; `attach.ts` and `attached-plan.ts` still reference the namespace
+      constant and construct entry keys. A `PlanAttachmentStorage` module hides
+      namespace + key semantics so callers work in slugs. *This is a branch-context
+      capability/domain seam and a likely input to the future branch-context
+      capability-extension migration tracked by `sdl-extension-architecture`; classify
+      it against ADR 0009 layering before placing it. Does not subsume or conflict
+      with the parked `legacyCommand`-migration row below — that row is about the
+      CLI command-rendering path, this one is about Branch Memory plan storage.*
 
 ## Parked
 
