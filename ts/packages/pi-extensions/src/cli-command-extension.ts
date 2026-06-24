@@ -102,7 +102,6 @@ export interface CliCommandExtensionSpec {
 	afterCommandComplete?: (details: CliCommandOutputDetails) => Promise<void> | void;
 	env?: Record<string, string | undefined>;
 	piCommandAliases?: Readonly<Record<string, string>>;
-	piCommandNameForCommand?: (command: CliCommandInfo) => string;
 }
 
 export interface CommandContext {
@@ -192,7 +191,7 @@ export function registerCliCommandExtension(
 	});
 
 	for (const command of spec.commands) {
-		const piCommandName = piCommandNameForCommand(spec, command);
+		const piCommandName = resolvePiCommandName(spec, command);
 		registerCommandWithImmediateAck({
 			host: pi,
 			commandName: piCommandName,
@@ -605,12 +604,8 @@ function formatPiCommandInvocation(piCommandName: string, rawArgs: string): stri
 	return rawArgs === "" ? `/${piCommandName}` : `/${piCommandName} ${rawArgs}`;
 }
 
-function piCommandNameForCommand(spec: CliCommandExtensionSpec, command: CliCommandInfo): string {
-	return (
-		spec.piCommandAliases?.[command.name] ??
-		spec.piCommandNameForCommand?.(command) ??
-		`${spec.piNamespace}:${command.name}`
-	);
+function resolvePiCommandName(spec: CliCommandExtensionSpec, command: CliCommandInfo): string {
+	return spec.piCommandAliases?.[command.name] ?? `${spec.piNamespace}:${command.name}`;
 }
 
 function commandArgvPrefix(command: CliCommandInfo): readonly string[] {
@@ -998,12 +993,6 @@ function assertValidCommandSpec(spec: CliCommandExtensionSpec): void {
 	if (spec.piNamespace.trim() === "") {
 		throw new Error(`CLI command extension for ${spec.cliName} requires a non-empty piNamespace.`);
 	}
-	if (spec.piCommandAliases !== undefined && spec.piCommandNameForCommand !== undefined) {
-		throw new Error(
-			`CLI command extension for ${spec.cliName} cannot configure both piCommandAliases and piCommandNameForCommand.`,
-		);
-	}
-
 	const seenNames = new Set<string>();
 	const seenPiCommandNames = new Set<string>();
 	for (const command of spec.commands) {
@@ -1015,7 +1004,7 @@ function assertValidCommandSpec(spec: CliCommandExtensionSpec): void {
 		}
 		seenNames.add(command.name);
 
-		const piCommandName = piCommandNameForCommand(spec, command);
+		const piCommandName = resolvePiCommandName(spec, command);
 		if (piCommandName.trim() === "") {
 			throw new Error(
 				`CLI command extension for ${spec.cliName} resolved an empty Pi command name for ${command.name}.`,

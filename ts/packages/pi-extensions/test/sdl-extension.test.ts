@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { CLI_COMMAND_OUTPUT_MESSAGE_TYPE } from "../src/cli-command-extension.ts";
-import sdlExtension, { registerSdlExtension, type SdlExtensionAPI } from "../src/sdl-extension.ts";
+import sdlExtension, { type SdlExtensionAPI } from "../src/sdl-extension.ts";
 import type { CommandContext } from "../src/cli-command-extension.ts";
 
 type RegisteredCommand = Parameters<SdlExtensionAPI["registerCommand"]>[1];
@@ -125,7 +125,7 @@ describe("sdl Pi extension", () => {
 		test(`routes sdl flow ${commandName} to the SDL CLI with flow argv`, async () => {
 			const pi = new FakePi();
 			const runCliCalls: string[][] = [];
-			registerSdlExtension(pi, {
+			sdlExtension(pi, {
 				runCli: async (args, deps) => {
 					runCliCalls.push([...args]);
 					deps?.stdout?.(`pi-custom-${commandName}`);
