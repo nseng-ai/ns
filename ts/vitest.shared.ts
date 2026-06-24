@@ -1,4 +1,7 @@
-export const INTEGRATION_TEST_GLOB = "packages/*/test/integration/**/*.test.ts";
+export const INTEGRATION_TEST_GLOBS = [
+	"packages/*/test/integration/**/*.test.ts",
+	"packages/extensions/*/test/integration/**/*.test.ts",
+] as const;
 
 export const sharedTestConfig = {
 	environment: "node" as const,

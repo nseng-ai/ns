@@ -1,1 +1,1 @@
-export { default } from "@sdl/flow/commands/cp";
+export { default } from "sdl-flow/commands/cp";

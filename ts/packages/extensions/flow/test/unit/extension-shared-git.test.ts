@@ -5,8 +5,8 @@ import { describe, expect, test } from "vitest";
 
 import type { ExecResult, SdlExecOptions, SdlExtensionApi } from "@sdl/sdl/sdk";
 
-const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../..");
-const SHARED_GIT_HELPER_PATH = join(REPO_ROOT, "ts/packages/flow/src/shared/git.ts");
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../../..");
+const SHARED_GIT_HELPER_PATH = join(REPO_ROOT, "ts/packages/extensions/flow/src/shared/git.ts");
 
 interface FlowGitModule {
 	execFlowGit(

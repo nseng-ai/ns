@@ -1,5 +1,5 @@
 {
-	"name": "@sdl/flow",
+	"name": "sdl-flow",
 	"version": "0.1.0",
 	"private": true,
 	"files": [
@@ -20,7 +20,7 @@
 	},
 	"scripts": {
 		"check": "tsgo -p tsconfig.json",
-		"test": "cd ../.. && vitest run --config vitest.config.ts packages/flow/test"
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/extensions/flow/test"
 	},
 	"dependencies": {
 		"@sdl/autobranch": "workspace:*",

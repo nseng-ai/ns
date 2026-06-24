@@ -37,11 +37,12 @@
     "syncpack": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
-    "@sdl/flow": "workspace:*",
+    "sdl-flow": "workspace:*",
     "@sdl/graphite": "workspace:*"
   },
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "packages/extensions/*"
   ],
   "patchedDependencies": {
     "@earendil-works/pi-ai@0.79.1": "patches/@earendil-works%2Fpi-ai@0.79.1.patch"

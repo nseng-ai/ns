@@ -4,12 +4,12 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
 
-const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../..");
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../../..");
 const SHARED_TEXT_GENERATION_HELPER_PATH = join(
 	REPO_ROOT,
-	"ts/packages/flow/src/shared/text-generation.ts",
+	"ts/packages/extensions/flow/src/shared/text-generation.ts",
 );
-const SUBMIT_EXTENSION_PATH = join(REPO_ROOT, "ts/packages/flow/src/commands/submit.ts");
+const SUBMIT_EXTENSION_PATH = join(REPO_ROOT, "ts/packages/extensions/flow/src/commands/submit.ts");
 
 type ModelSelector = (env: Record<string, string | undefined>) => string;
 

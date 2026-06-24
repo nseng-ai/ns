@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -38,18 +39,7 @@ const CORE_TEXT_NORMALIZATION_SPECIFIER = "@sdl/core/text-normalization";
 const GRAPHITE_SUBMIT_SPECIFIER = "@sdl/graphite/submit";
 const AUTOBRANCH_DIRTY_WORKTREE_SPECIFIER = "@sdl/autobranch/dirty-worktree";
 const AUTOBRANCH_LATEST_COMMIT_SPECIFIER = "@sdl/autobranch/latest-commit";
-const FLOW_COMMAND_MODULE_PATHS = {
-	"@sdl/flow/commands/changes": "changes.ts",
-	"@sdl/flow/commands/cp": "cp.ts",
-	"@sdl/flow/commands/autobranch": "autobranch.ts",
-	"@sdl/flow/commands/branch-latest-commit": "branch-latest-commit.ts",
-	"@sdl/flow/commands/autoslot": "autoslot.ts",
-	"@sdl/flow/commands/submit": "submit.ts",
-	"@sdl/flow/commands/regenerate-pr": "regenerate-pr.ts",
-	"@sdl/flow/commands/push": "push.ts",
-	"@sdl/flow/commands/land": "land.ts",
-	"@sdl/flow/commands/pull-trunk": "pull-trunk.ts",
-} as const;
+const FLOW_PACKAGE_NAME = "sdl-flow";
 
 /** Absolute path to the SDK source module, used as the `alias` resolution target. */
 const SDK_MODULE_PATH = join(SDL_SDK_DIR, "index.ts");
@@ -57,7 +47,8 @@ const CCC_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "ccc", "src");
 const CORE_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "sdl-core", "src");
 const GRAPHITE_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "graphite", "src");
 const AUTOBRANCH_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "autobranch", "src");
-const FLOW_COMMANDS_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "flow", "src", "commands");
+const FLOW_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "extensions", "flow");
+const FLOW_PACKAGE_JSON_PATH = join(FLOW_PACKAGE_DIR, "package.json");
 const CCC_AUTOSLOT_MODULE_PATH = join(CCC_SRC_DIR, "autoslot.ts");
 const CCC_LAND_MODULE_PATH = join(CCC_SRC_DIR, "land.ts");
 const CCC_TRUNK_PULL_MODULE_PATH = join(CCC_SRC_DIR, "trunk-pull.ts");
@@ -93,12 +84,51 @@ function buildInternalMigrationAliases(): Record<string, string> {
 }
 
 function buildFlowCommandAliases(): Record<string, string> {
+	const packageJson = readFlowPackageJson();
+	if (packageJson.name !== FLOW_PACKAGE_NAME) {
+		throw new Error(
+			`Expected flow extension package name ${FLOW_PACKAGE_NAME}, found ${packageJson.name}.`,
+		);
+	}
+
 	return Object.fromEntries(
-		Object.entries(FLOW_COMMAND_MODULE_PATHS).map(([specifier, relativePath]) => [
-			specifier,
-			join(FLOW_COMMANDS_SRC_DIR, relativePath),
-		]),
+		Object.entries(packageJson.exports)
+			.filter(([subpath]) => subpath.startsWith("./commands/"))
+			.map(([subpath, target]) => [
+				`${FLOW_PACKAGE_NAME}/${subpath.slice("./".length)}`,
+				join(FLOW_PACKAGE_DIR, stripLeadingDotSlash(target)),
+			]),
 	);
+}
+
+function readFlowPackageJson(): FlowPackageJson {
+	const parsed: unknown = JSON.parse(readFileSync(FLOW_PACKAGE_JSON_PATH, "utf8"));
+	if (!isFlowPackageJson(parsed)) {
+		throw new Error(`Invalid ${FLOW_PACKAGE_NAME} package.json exports.`);
+	}
+	return parsed;
+}
+
+interface FlowPackageJson {
+	name: string;
+	exports: Record<string, string>;
+}
+
+function isFlowPackageJson(value: unknown): value is FlowPackageJson {
+	if (!isRecord(value)) return false;
+	if (typeof value.name !== "string") return false;
+	if (!isRecord(value.exports)) return false;
+	return Object.entries(value.exports).every(
+		([subpath, target]) => typeof subpath === "string" && typeof target === "string",
+	);
+}
+
+function stripLeadingDotSlash(path: string): string {
+	return path.startsWith("./") ? path.slice("./".length) : path;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 // Keep this object in sync with all runtime value exports from sdk/index.ts; type-only exports are erased.
@@ -130,9 +160,9 @@ const sdlSdkVirtualModule = {
  *
  * Package-internal migration modules may still resolve package subpaths listed
  * as `internalMigrationExports`. The repo-local flow manifest is currently a
- * checked-in adapter layer over the source-checkout `@sdl/flow` package, so the
- * command subpaths are also aliased narrowly here without adding general
- * `node_modules` package discovery.
+ * checked-in adapter layer over the source-checkout `sdl-flow` package, so the
+ * command subpaths are aliased narrowly from that package's `exports` map
+ * without adding general `node_modules` package discovery.
  */
 export function createSdlJiti(): ReturnType<typeof createJiti> {
 	return createJiti(import.meta.url, {

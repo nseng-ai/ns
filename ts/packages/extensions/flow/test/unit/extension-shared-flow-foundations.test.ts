@@ -5,29 +5,38 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
 
-const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../..");
-const SHARED_GIT_PATH = join(REPO_ROOT, "ts/packages/flow/src/shared/git.ts");
-const SHARED_WORKTREE_PATH = join(REPO_ROOT, "ts/packages/flow/src/shared/worktree.ts");
-const PUSH_COMMAND_PATH = join(REPO_ROOT, "ts/packages/flow/src/commands/push.ts");
-const SUBMIT_COMMAND_PATH = join(REPO_ROOT, "ts/packages/flow/src/commands/submit.ts");
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../../..");
+const SHARED_GIT_PATH = join(REPO_ROOT, "ts/packages/extensions/flow/src/shared/git.ts");
+const SHARED_WORKTREE_PATH = join(REPO_ROOT, "ts/packages/extensions/flow/src/shared/worktree.ts");
+const PUSH_COMMAND_PATH = join(REPO_ROOT, "ts/packages/extensions/flow/src/commands/push.ts");
+const SUBMIT_COMMAND_PATH = join(REPO_ROOT, "ts/packages/extensions/flow/src/commands/submit.ts");
 const REGENERATE_PR_COMMAND_PATH = join(
 	REPO_ROOT,
-	"ts/packages/flow/src/commands/regenerate-pr.ts",
+	"ts/packages/extensions/flow/src/commands/regenerate-pr.ts",
 );
-const AUTOBRANCH_COMMAND_PATH = join(REPO_ROOT, "ts/packages/flow/src/commands/autobranch.ts");
+const AUTOBRANCH_COMMAND_PATH = join(
+	REPO_ROOT,
+	"ts/packages/extensions/flow/src/commands/autobranch.ts",
+);
 const BRANCH_LATEST_COMMIT_COMMAND_PATH = join(
 	REPO_ROOT,
-	"ts/packages/flow/src/commands/branch-latest-commit.ts",
+	"ts/packages/extensions/flow/src/commands/branch-latest-commit.ts",
 );
-const AUTOSLOT_COMMAND_PATH = join(REPO_ROOT, "ts/packages/flow/src/commands/autoslot.ts");
-const LAND_COMMAND_PATH = join(REPO_ROOT, "ts/packages/flow/src/commands/land.ts");
-const PULL_TRUNK_COMMAND_PATH = join(REPO_ROOT, "ts/packages/flow/src/commands/pull-trunk.ts");
+const AUTOSLOT_COMMAND_PATH = join(
+	REPO_ROOT,
+	"ts/packages/extensions/flow/src/commands/autoslot.ts",
+);
+const LAND_COMMAND_PATH = join(REPO_ROOT, "ts/packages/extensions/flow/src/commands/land.ts");
+const PULL_TRUNK_COMMAND_PATH = join(
+	REPO_ROOT,
+	"ts/packages/extensions/flow/src/commands/pull-trunk.ts",
+);
 
 const REMOVED_LOCAL_AUTOBRANCH_HELPERS = [
-	["ts/packages/flow/src/shared", "branch-availability.ts"],
-	["ts/packages/flow/src/shared", "branch-slugs.ts"],
-	["ts/packages/flow/src/shared", "branch-slug-text.ts"],
-	["ts/packages/flow/src/shared", ["latest", "commit", "autobranch.ts"].join("-")],
+	["ts/packages/extensions/flow/src/shared", "branch-availability.ts"],
+	["ts/packages/extensions/flow/src/shared", "branch-slugs.ts"],
+	["ts/packages/extensions/flow/src/shared", "branch-slug-text.ts"],
+	["ts/packages/extensions/flow/src/shared", ["latest", "commit", "autobranch.ts"].join("-")],
 ] as const;
 
 describe("project extension shared flow foundations", () => {
