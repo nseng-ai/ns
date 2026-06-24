@@ -30,8 +30,11 @@ command syntax rather than behavior.
 - **Above the SDK — capability extensions:** flow, handoff, objective,
   branch-context, plans, pr-address, slot, roaster, aretro.
 
-`packagechk`, `vibechk`, and `areg` are standalone tools off this axis. The `pi-*`
-packages are a separate presentation host, not capability extensions.
+`packagechk`, `vibechk`, and `areg` are standalone tools off this axis. In
+particular, `packagechk` is scoped to public package-registry state and package-name
+claiming; it is not a home for workspace import-boundary checks, extension dependency
+DAG enforcement, or local package export-map policy. The `pi-*` packages are a separate
+presentation host, not capability extensions.
 
 **`ccc` is itself an orchestrator extension** that depends on peer capability
 extensions. It sits at the apex of a shallow, acyclic extension dependency graph;
