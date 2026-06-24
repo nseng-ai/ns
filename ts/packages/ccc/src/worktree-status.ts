@@ -825,7 +825,7 @@ function formatGhPrDetailPieces(
 			status.threads.unresolved > 0 ? "warning" : "dim",
 			options.theme,
 		),
-		formatColoredSegment(" · actions ", "dim", options.theme),
+		formatColoredSegment(" · checks ", "dim", options.theme),
 		...formatActionBucketSegments(status.checks, options.theme),
 	];
 }

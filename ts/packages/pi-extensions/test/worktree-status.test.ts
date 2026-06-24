@@ -105,7 +105,7 @@ describe("worktree status extension registration and rendering", () => {
 		worktreeStatusExtension(pi as ExtensionAPI, { loaders });
 		await pi.sessionStart?.({}, ctx);
 		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toContain(
-			"[gh] #1795 · comments 0/0 · actions 0✓ · PR behind local",
+			"[gh] #1795 · comments 0/0 · checks 0✓ · PR behind local",
 		);
 		const command = pi.commands.get(WORKTREE_STATUS_REFRESH_COMMAND_NAME);
 		expect(command).toBeDefined();
@@ -115,7 +115,7 @@ describe("worktree status extension registration and rendering", () => {
 
 		pi.assertDone();
 		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toContain(
-			"[gh] #1795 · comments 0/0 · actions 0✓ · landable",
+			"[gh] #1795 · comments 0/0 · checks 0✓ · landable",
 		);
 		expect(loaders.ghCalls).toHaveLength(2);
 		await pi.sessionShutdown?.();
@@ -282,20 +282,20 @@ describe("worktree status extension registration and rendering", () => {
 			footerData(statuses, "feature/current"),
 		);
 		expect(footer.render(200).map(stripTerminalEscapes)).toContain(
-			"[gh] #1907 · comments 1/1 · actions 4⏳ · refreshed 0s ago",
+			"[gh] #1907 · comments 1/1 · checks 4⏳ · refreshed 0s ago",
 		);
 
 		harness.advanceMs(5_000);
 		await flushPromises();
 		expect(renderRequestCount).toBeGreaterThan(0);
 		expect(footer.render(200).map(stripTerminalEscapes)).toContain(
-			"[gh] #1907 · comments 1/1 · actions 4⏳ · refreshed 5s ago",
+			"[gh] #1907 · comments 1/1 · checks 4⏳ · refreshed 5s ago",
 		);
 
 		await command.handler("", ctx);
 
 		expect(footer.render(200).map(stripTerminalEscapes)).toContain(
-			"[gh] #1907 · comments 1/1 · actions 4⏳ · refreshed 0s ago",
+			"[gh] #1907 · comments 1/1 · checks 4⏳ · refreshed 0s ago",
 		);
 		pi.assertDone();
 		await pi.sessionShutdown?.();
