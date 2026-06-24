@@ -83,6 +83,9 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:packages/sdl-core
+      '@sdl/extension-kit':
+        specifier: workspace:*
+        version: link:packages/extension-kit
       '@sdl/graphite':
         specifier: workspace:*
         version: link:packages/graphite
@@ -243,6 +246,15 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
 
+  packages/extension-kit:
+    dependencies:
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../sdl-core
+      '@sdl/sdl':
+        specifier: workspace:*
+        version: link:../sdl
+
   packages/extensions/flow:
     dependencies:
       '@sdl/autobranch':
@@ -254,6 +266,9 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../../sdl-core
+      '@sdl/extension-kit':
+        specifier: workspace:*
+        version: link:../../extension-kit
       '@sdl/graphite':
         specifier: workspace:*
         version: link:../../graphite

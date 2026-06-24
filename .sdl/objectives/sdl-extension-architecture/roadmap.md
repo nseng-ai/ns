@@ -122,9 +122,11 @@ Driven by `docs/adr/0009-extension-layering-and-peer-dependencies.md` and record
 
 ### Work
 
-- [ ] **1. Stand up `@sdl/extension-kit`** (above-SDK substrate).
+- [~] **1. Stand up `@sdl/extension-kit`** (above-SDK substrate).
   - Policy: direct execution after preview for code/tests.
   - Plan: relocate the `ctx`→gateway adapter (`SdlCommandExecApi`, today in `ts/packages/extensions/flow/src/shared/command-runner.ts`) and shared result/error shapes into a new `@sdl/extension-kit`; rewire flow's `cp`/`push`/`submit` to build gateways through it; add `InMemoryGitGateway`-backed unit tests for the relocated domain cores. Banks the testability win independent of everything else.
+  - Evidence so far: `@sdl/extension-kit` exists and owns the SDL host command runner, command execution helper, CLI exec adapter, SDL Git helper, porcelain-status helper, and `createSdlGitGateway`. Flow submit and PR-description runtime construction now build Git gateways through extension-kit; flow shared Git/worktree helpers consume extension-kit while retaining flow policy. `runPushCore()` is gateway-injected and covered by `InMemoryGitGateway` unit tests, while the command face preserves existing `sdl flow push` porcelain output behavior. See `updates/2026-06-24-extension-kit-flow-gateway-boundary.md`.
+  - Remaining: explicitly finish or disposition the cp construction seam before marking this row `[x]`.
 
 - [ ] **2. Lock the cross-capability conventions** (decision + docs row).
   - Policy: steer-first — these conventions bind every capability migration.

@@ -1,6 +1,6 @@
-import { RealGitGateway } from "@sdl/core/git";
 import { RealGithubPrGateway } from "@sdl/core/submit";
 import type { CommandRunner } from "@sdl/core/exec";
+import { createSdlCommandRunner, createSdlGitGateway } from "@sdl/extension-kit";
 import {
 	RealSubmitGateway,
 	RealSubmitMetadataGateway,
@@ -10,7 +10,6 @@ import {
 	type SubmitFailureTranscript,
 } from "@sdl/graphite/submit";
 
-import { createSdlCommandRunner, SdlCommandExecApi } from "./command-runner.ts";
 import type { SdlExtensionApi } from "@sdl/sdl/sdk";
 
 export { RealGithubPrGateway, RealSubmitGateway, RealSubmitMetadataGateway, runSubmitCommand };
@@ -33,7 +32,7 @@ export function createSdlSubmitRuntime(ctx: SdlExtensionApi): SdlSubmitRuntime {
 		prDescription: {
 			githubPr: new RealGithubPrGateway(commandRunner),
 			textGenerator: ctx.textGenerator,
-			git: new RealGitGateway(new SdlCommandExecApi(ctx)),
+			git: createSdlGitGateway(ctx),
 			env: ctx.env,
 		},
 	};

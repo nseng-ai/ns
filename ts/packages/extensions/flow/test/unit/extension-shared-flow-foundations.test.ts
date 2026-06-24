@@ -63,9 +63,9 @@ describe("project extension shared flow foundations", () => {
 		const branchLatestCommitSource = await readFile(BRANCH_LATEST_COMMIT_COMMAND_PATH, "utf8");
 		const worktreeSource = await readFile(SHARED_WORKTREE_PATH, "utf8");
 
-		expect(worktreeSource).toContain("refusing command cwd");
+		expect(worktreeSource).toContain("@sdl/extension-kit/git");
 		expect(worktreeSource).toContain("createCliExecAdapter");
-		expect(worktreeSource).toContain("execOptions?.cwd");
+		expect(worktreeSource).toContain("execSdlCommand");
 		for (const source of [autoslotSource, landSource, pullTrunkSource]) {
 			expect(source).toContain("runFlowCccCli");
 			expect(source).toContain("../shared/ccc-cli.ts");
@@ -90,8 +90,8 @@ describe("project extension shared flow foundations", () => {
 		expect(regeneratePrSource).not.toContain("parseManagedRegionMetadata");
 		expect(regeneratePrSource).not.toContain('ctx.exec("git"');
 		expect(regeneratePrSource).toContain("../shared/pr-description.ts");
-		expect(sharedGitSource).toContain("execFlowGit");
-		expect(sharedGitSource).toContain("readFlowGitPorcelainStatus");
+		expect(sharedGitSource).toContain("execSdlGit as execFlowGit");
+		expect(sharedGitSource).toContain("readSdlGitPorcelainStatus as readFlowGitPorcelainStatus");
 		expect(sharedGitSource).not.toContain("git push");
 		expect(worktreeSource).toContain("@sdl/sdl/pending-worktree");
 		expect(worktreeSource).toContain("./git.ts");
