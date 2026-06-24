@@ -185,15 +185,44 @@ async function loadCheckLogs(options: {
 	}
 	const args = githubActionsJobLogArgs(options.check.details_url ?? options.check.target_url);
 	if (args === null) return ["No GitHub Actions job log URL is available for this check."];
-	const result = await options.runtime.pi.exec("gh", args, {
+	const logResult = await loadGhTextCommand({
+		runtime: options.runtime,
+		ctx: options.ctx,
+		args,
+		failureLabel: `Failed to load logs with gh ${args.join(" ")}`,
+	});
+	if (logResult.type === "failed") return logResult.lines;
+	if (logResult.output === "") return ["GitHub returned an empty log for this check."];
+	return await summarizeCheckLogs({
+		ctx: options.ctx,
+		check: options.check,
+		output: logResult.output,
+	});
+}
+
+type GhTextCommandResult = { type: "loaded"; output: string } | { type: "failed"; lines: string[] };
+
+async function loadGhTextCommand(options: {
+	runtime: PrPreviewChecksCommandRuntime;
+	ctx: ExtensionContext;
+	args: string[];
+	failureLabel: string;
+}): Promise<GhTextCommandResult> {
+	const result = await options.runtime.pi.exec("gh", options.args, {
 		cwd: options.ctx.cwd,
 		timeout: options.runtime.commandTimeoutMs,
 	});
-	const output = result.stdout.trim() === "" ? result.stderr.trim() : result.stdout.trim();
-	if (result.code !== 0)
-		return [`Failed to load logs with gh ${args.join(" ")}:`, ...splitLogLines(output)];
-	if (output === "") return ["GitHub returned an empty log for this check."];
-	return await summarizeCheckLogs({ ctx: options.ctx, check: options.check, output });
+	const stdout = result.stdout.trim();
+	const stderr = result.stderr.trim();
+	const output = stdout === "" ? stderr : stdout;
+	if (result.killed) {
+		return { type: "failed", lines: [`${options.failureLabel}:`, "command timed out"] };
+	}
+	if (result.code !== 0) {
+		const lines = output === "" ? [`exit code ${result.code}`] : splitLogLines(output);
+		return { type: "failed", lines: [`${options.failureLabel}:`, ...lines] };
+	}
+	return { type: "loaded", output };
 }
 
 async function summarizeCheckLogs(options: {
