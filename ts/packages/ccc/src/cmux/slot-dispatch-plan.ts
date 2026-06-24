@@ -18,13 +18,13 @@ import {
 	type BranchContextCreateOperation,
 	type BranchContextEvidence,
 	type BranchContextOutputDetails,
-} from "@sdl/branch-context";
+} from "@sdl/branch-context/api";
 import {
 	findLatestSessionSavedPlanFile,
 	resolvePlanStoreDirectory,
 	type PlanStoreDirectoryEvidence,
 	type ValidatedSessionSavedPlan,
-} from "@sdl/plans";
+} from "@sdl/plans/api";
 import { formatCommand, formatShellArg } from "@sdl/core/exec";
 import { checkoutBranchCmuxSlot, openBranchInCmuxSlot } from "./slot.ts";
 import { launchFocusedCmuxTab, type FocusedCmuxTabLaunchResult } from "./focused-terminal-tab.ts";
