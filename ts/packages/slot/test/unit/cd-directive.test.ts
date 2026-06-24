@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
 	activeCdDirectivePath,
+	SDL_CD_DIRECTIVE_FILE,
 	SLOT_CD_DIRECTIVE_FILE,
 	type CdDirectiveFilesystem,
 	writeCdDirectiveIfActive,
@@ -58,6 +59,19 @@ describe("cd directive", () => {
 			}),
 		).resolves.toEqual({ status: "written", path: "/tmp/directive" });
 		expect(filesystem.writes()).toEqual([{ path: "/tmp/directive", content: "/worktree/path" }]);
+	});
+
+	it("uses the sdl directive file when the slot directive is absent", async () => {
+		const filesystem = new FakeDirectiveFilesystem();
+		await expect(
+			writeCdDirectiveIfActive("/worktree/path", {
+				env: { [SDL_CD_DIRECTIVE_FILE]: "/tmp/sdl-directive" },
+				filesystem,
+			}),
+		).resolves.toEqual({ status: "written", path: "/tmp/sdl-directive" });
+		expect(filesystem.writes()).toEqual([
+			{ path: "/tmp/sdl-directive", content: "/worktree/path" },
+		]);
 	});
 });
 

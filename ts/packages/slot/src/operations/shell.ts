@@ -7,6 +7,7 @@ import {
 	markerSurfaceInstallResultSchema,
 	markerSurfaceShowRequestSchema,
 	markerSurfaceShowResultSchema,
+	renderCommandCdWrapperScript,
 } from "../shell/marker-install-surface.ts";
 
 export const shellIntegrationBeginMarker = "# >>> slot shell integration >>>";
@@ -49,23 +50,5 @@ export function renderShellInstall(result: ShellInstallResult): string {
 }
 
 export function renderShellWrapperScript(): string {
-	return `slot() {
-  local _slot_cd_directive_file
-  local _slot_status
-  local _slot_destination
-
-  _slot_cd_directive_file="$(mktemp "\${TMPDIR:-/tmp}/slot-cd.XXXXXX")" || return 1
-  SLOT_CD_DIRECTIVE_FILE="$_slot_cd_directive_file" command slot "$@"
-  _slot_status=$?
-
-  if [ $_slot_status -eq 0 ] && [ -s "$_slot_cd_directive_file" ]; then
-    IFS= read -r _slot_destination < "$_slot_cd_directive_file" || true
-    rm -f "$_slot_cd_directive_file"
-    cd -- "$_slot_destination"
-    return $?
-  fi
-
-  rm -f "$_slot_cd_directive_file"
-  return $_slot_status
-}`;
+	return renderCommandCdWrapperScript({ commandName: "slot" });
 }

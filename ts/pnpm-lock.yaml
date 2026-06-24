@@ -450,6 +450,9 @@ importers:
       '@sdl/plans':
         specifier: workspace:*
         version: link:../plans
+      '@sdl/slot':
+        specifier: workspace:*
+        version: link:../slot
       jiti:
         specifier: 'catalog:'
         version: 2.7.0

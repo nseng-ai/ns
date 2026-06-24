@@ -105,105 +105,7 @@ const entry = defineCli<SlotCliContext, CliDeps, undefined>({
 		return { type: "run", context: runContext, buildState: undefined };
 	},
 	configureCli: ({ root }) => {
-		root.command({
-			name: "list",
-			description: "List worktree pool slots derived from Git worktree state.",
-			schema: listRequestSchema,
-			resultSchema: listResultSchema,
-			handler: runList,
-			renderHuman: renderList,
-		});
-		root.command({
-			name: "ls",
-			description: "Alias for list.",
-			schema: listRequestSchema,
-			resultSchema: listResultSchema,
-			handler: runList,
-			renderHuman: renderList,
-		});
-		root.command({
-			name: "checkout",
-			description: "Check out a branch into an available pool slot worktree.",
-			schema: checkoutRequestSchema,
-			positionals: { branchName: { position: 0 }, base: { position: 1 } },
-			options: { new: { short: "-b" } },
-			resultSchema: checkoutResultSchema,
-			handler: runCheckout,
-			renderHuman: renderCheckout,
-		});
-		root.command({
-			name: "co",
-			description: "Alias for checkout.",
-			schema: checkoutRequestSchema,
-			positionals: { branchName: { position: 0 }, base: { position: 1 } },
-			options: { new: { short: "-b" } },
-			resultSchema: checkoutResultSchema,
-			handler: runCheckout,
-			renderHuman: renderCheckout,
-		});
-		root.command({
-			name: "goto",
-			description: "Print/copy a cd command for an assigned slot.",
-			schema: gotoRequestSchema,
-			options: { num: { short: "-n" }, wt: { short: "-w" } },
-			resultSchema: gotoResultSchema,
-			handler: runGoto,
-			renderHuman: renderGoto,
-		});
-		root.command({
-			name: "claim",
-			description: "Move a local branch into the current managed slot or lowest available slot.",
-			schema: claimRequestSchema,
-			positionals: { branchName: { position: 0 } },
-			resultSchema: claimResultSchema,
-			handler: runClaim,
-			renderHuman: renderClaim,
-		});
-		root.command({
-			name: "free",
-			description: "Free assigned slots back to the pool.",
-			schema: freeRequestSchema,
-			options: {
-				num: { short: "-n" },
-				wt: { short: "-w" },
-				branch: { short: "-b" },
-				current: { short: "-c" },
-				yes: { short: "-y" },
-			},
-			resultSchema: freeResultSchema,
-			handler: runFree,
-			renderHuman: renderFree,
-		});
-		root.command({
-			name: "gc",
-			description: "Free slots whose pull requests have closed or merged.",
-			schema: gcRequestSchema,
-			options: { force: { short: "-f" } },
-			resultSchema: gcResultSchema,
-			handler: runGc,
-			renderHuman: renderGc,
-		});
-		root.command({
-			name: "init",
-			description: "Initialize the worktree pool with N detached slots at trunk.",
-			schema: initRequestSchema,
-			options: { size: {} },
-			resultSchema: initResultSchema,
-			handler: runInit,
-			renderHuman: renderInit,
-		});
-		root.command({
-			name: "resize",
-			description: "Grow or shrink the worktree pool to --size slots.",
-			schema: resizeRequestSchema,
-			options: { size: {} },
-			resultSchema: resizeResultSchema,
-			handler: runResize,
-			renderHuman: renderResize,
-		});
-		root.group(buildShellGroup());
-		root.group(buildCompletionGroup());
-		root.group(buildGtGroup());
+		configureSlotCommands(root);
 	},
 });
 
@@ -223,8 +125,119 @@ export function buildCli(): ClinkrGroup<SlotCliContext> {
 	return entry.buildCli(undefined);
 }
 
-function buildShellGroup(): ClinkrGroup<SlotCliContext> {
-	const shell = new ClinkrGroup<SlotCliContext>({
+export function buildSlotCommandGroup<TContext extends SlotCliContext>(): ClinkrGroup<TContext> {
+	const group = new ClinkrGroup<TContext>({
+		name: "slot",
+		description: "Manage the pool of Git-worktree-backed slots.",
+	});
+	configureSlotCommands(group);
+	return group;
+}
+
+function configureSlotCommands<TContext extends SlotCliContext>(root: ClinkrGroup<TContext>): void {
+	root.command({
+		name: "list",
+		description: "List worktree pool slots derived from Git worktree state.",
+		schema: listRequestSchema,
+		resultSchema: listResultSchema,
+		handler: runList,
+		renderHuman: renderList,
+	});
+	root.command({
+		name: "ls",
+		description: "Alias for list.",
+		schema: listRequestSchema,
+		resultSchema: listResultSchema,
+		handler: runList,
+		renderHuman: renderList,
+	});
+	root.command({
+		name: "checkout",
+		description: "Check out a branch into an available pool slot worktree.",
+		schema: checkoutRequestSchema,
+		positionals: { branchName: { position: 0 }, base: { position: 1 } },
+		options: { new: { short: "-b" } },
+		resultSchema: checkoutResultSchema,
+		handler: runCheckout,
+		renderHuman: renderCheckout,
+	});
+	root.command({
+		name: "co",
+		description: "Alias for checkout.",
+		schema: checkoutRequestSchema,
+		positionals: { branchName: { position: 0 }, base: { position: 1 } },
+		options: { new: { short: "-b" } },
+		resultSchema: checkoutResultSchema,
+		handler: runCheckout,
+		renderHuman: renderCheckout,
+	});
+	root.command({
+		name: "goto",
+		description: "Print/copy a cd command for an assigned slot.",
+		schema: gotoRequestSchema,
+		options: { num: { short: "-n" }, wt: { short: "-w" } },
+		resultSchema: gotoResultSchema,
+		handler: runGoto,
+		renderHuman: renderGoto,
+	});
+	root.command({
+		name: "claim",
+		description: "Move a local branch into the current managed slot or lowest available slot.",
+		schema: claimRequestSchema,
+		positionals: { branchName: { position: 0 } },
+		resultSchema: claimResultSchema,
+		handler: runClaim,
+		renderHuman: renderClaim,
+	});
+	root.command({
+		name: "free",
+		description: "Free assigned slots back to the pool.",
+		schema: freeRequestSchema,
+		options: {
+			num: { short: "-n" },
+			wt: { short: "-w" },
+			branch: { short: "-b" },
+			current: { short: "-c" },
+			yes: { short: "-y" },
+		},
+		resultSchema: freeResultSchema,
+		handler: runFree,
+		renderHuman: renderFree,
+	});
+	root.command({
+		name: "gc",
+		description: "Free slots whose pull requests have closed or merged.",
+		schema: gcRequestSchema,
+		options: { force: { short: "-f" } },
+		resultSchema: gcResultSchema,
+		handler: runGc,
+		renderHuman: renderGc,
+	});
+	root.command({
+		name: "init",
+		description: "Initialize the worktree pool with N detached slots at trunk.",
+		schema: initRequestSchema,
+		options: { size: {} },
+		resultSchema: initResultSchema,
+		handler: runInit,
+		renderHuman: renderInit,
+	});
+	root.command({
+		name: "resize",
+		description: "Grow or shrink the worktree pool to --size slots.",
+		schema: resizeRequestSchema,
+		options: { size: {} },
+		resultSchema: resizeResultSchema,
+		handler: runResize,
+		renderHuman: renderResize,
+	});
+	root.group(buildShellGroup());
+	root.group(buildCompletionGroup());
+	root.group(buildGtGroup());
+}
+
+function buildShellGroup<TContext extends SlotCliContext>(): ClinkrGroup<TContext> {
+	const shell = new ClinkrGroup<TContext>({
 		name: "shell",
 		description: "Show or install parent-shell integration.",
 	});
@@ -249,8 +262,8 @@ function buildShellGroup(): ClinkrGroup<SlotCliContext> {
 	return shell;
 }
 
-function buildCompletionGroup(): ClinkrGroup<SlotCliContext> {
-	const completion = new ClinkrGroup<SlotCliContext>({
+function buildCompletionGroup<TContext extends SlotCliContext>(): ClinkrGroup<TContext> {
+	const completion = new ClinkrGroup<TContext>({
 		name: "completion",
 		description: "Show or install shell completion.",
 	});
@@ -275,8 +288,8 @@ function buildCompletionGroup(): ClinkrGroup<SlotCliContext> {
 	return completion;
 }
 
-function buildGtGroup(): ClinkrGroup<SlotCliContext> {
-	const gt = new ClinkrGroup<SlotCliContext>({
+function buildGtGroup<TContext extends SlotCliContext>(): ClinkrGroup<TContext> {
+	const gt = new ClinkrGroup<TContext>({
 		name: "gt",
 		description:
 			"Navigate and free Graphite-aware slot stacks; metadata-backed stack commands require the sqlite3 CLI.",
@@ -306,7 +319,7 @@ function buildGtGroup(): ClinkrGroup<SlotCliContext> {
 		handler: runGtFreeStack,
 		renderHuman: renderGtFreeStack,
 	});
-	const exec = new ClinkrGroup<SlotCliContext>({
+	const exec = new ClinkrGroup<TContext>({
 		name: "exec",
 		description: "Skill-invoked Graphite operations.",
 		isHidden: true,
