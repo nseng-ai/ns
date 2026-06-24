@@ -57,10 +57,11 @@ Default-path tests should prefer small fake-driven seams:
 - Keep real Git, Graphite/sqlite, network, host-tool discovery, cold Node runtime, subprocess, and
   wall-clock behavior out of the default lane unless the test is a deliberately cheap user-facing scenario
   and there is no narrower boundary smoke to preserve the same confidence.
-- For SDL extension command behavior, statically import a known checked-in command module or use a
-  preloaded command object, execute it with a fake `SdlExtensionApi`, scripted command runner, scripted
-  text generation, and inert temp files, then keep a small integration smoke proving the real extension is
-  discoverable/loadable.
+- For SDL extension command behavior, test in the package that owns the command implementation. For the
+  grouped flow commands, `@sdl/flow` owns direct behavior tests: import package-owned command objects
+  such as `flowCpCommand`, execute them with a fake `SdlExtensionApi`, scripted command runner, scripted
+  text generation, and inert temp files, then keep a small SDL integration smoke proving the checked-in
+  `.sdl/extensions/flow` adapter manifest is discoverable/loadable through the real CLI loader.
 - Assert the same behavior contract that a real-adapter integration test preserves at the boundary.
 - Keep package scenario tests focused on user-visible CLI behavior that does not require slow external
   setup.

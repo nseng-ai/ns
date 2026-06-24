@@ -43,16 +43,16 @@ Direct files and directory indexes infer one SDL command-entry name from the fil
 
 ```json
 {
-  "sdl": {
-    "commands": [
-      {
-        "name": "greet",
-        "description": "Say hello.",
-        "fullDescription": "Say hello with custom project policy.",
-        "entry": "./src/greet.ts"
-      }
-    ]
-  }
+	"sdl": {
+		"commands": [
+			{
+				"name": "greet",
+				"description": "Say hello.",
+				"fullDescription": "Say hello with custom project policy.",
+				"entry": "./src/greet.ts"
+			}
+		]
+	}
 }
 ```
 
@@ -64,16 +64,16 @@ SDL extension modules default-export an extension object created with `defineExt
 import { defineExtension, ok } from "@sdl/sdl/sdk";
 
 export default defineExtension({
-  commands: [
-    {
-      name: "greet",
-      summary: "Say hello.",
-      description: "Say hello with custom project policy.",
-      run() {
-        return ok("hello");
-      },
-    },
-  ],
+	commands: [
+		{
+			name: "greet",
+			summary: "Say hello.",
+			description: "Say hello with custom project policy.",
+			run() {
+				return ok("hello");
+			},
+		},
+	],
 });
 ```
 
@@ -117,7 +117,7 @@ sdl flow cp
 sdl flow cp --dry-run
 ```
 
-In this repository, `sdl flow cp` is provided by the project-local single-file extension `.sdl/extensions/flow/src/commands/cp.ts`; it is not a universal built-in SDL command.
+In this repository, `sdl flow cp` is discovered through the project-local flow adapter manifest at `.sdl/extensions/flow`, with implementation owned by `@sdl/flow/commands/cp`; it is not a universal built-in SDL command.
 
 Behavior:
 
@@ -144,7 +144,7 @@ sdl flow autobranch
 sdl flow autobranch --slug <slug>
 ```
 
-In this repository, `sdl flow autobranch` is provided by the project-local SDK-only single-file extension `.sdl/extensions/flow/src/commands/autobranch.ts`; it is not a universal built-in SDL command. Hidden `ccc exec autobranch` remains for CCC/internal compatibility, but the public agent and Pi boundary is `sdl flow autobranch` / `/sdl:flow:autobranch`.
+In this repository, `sdl flow autobranch` is discovered through the project-local flow adapter manifest at `.sdl/extensions/flow`, with implementation owned by `@sdl/flow/commands/autobranch`; it is not a universal built-in SDL command. Hidden `ccc exec autobranch` remains for CCC/internal compatibility, but the public agent and Pi boundary is `sdl flow autobranch` / `/sdl:flow:autobranch`.
 
 Behavior:
 
@@ -170,7 +170,7 @@ sdl flow branch-latest-commit
 sdl flow branch-latest-commit --slug <slug>
 ```
 
-In this repository, `sdl flow branch-latest-commit` is provided by the project-local SDK-only extension module `.sdl/extensions/flow/src/commands/branch-latest-commit.ts`; it is a focused public surface for the clean latest-commit split workflow.
+In this repository, `sdl flow branch-latest-commit` is discovered through the project-local flow adapter manifest at `.sdl/extensions/flow`, with implementation owned by `@sdl/flow/commands/branch-latest-commit`; it is a focused public surface for the clean latest-commit split workflow.
 
 Behavior:
 

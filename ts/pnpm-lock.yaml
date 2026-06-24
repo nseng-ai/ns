@@ -83,6 +83,9 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:packages/sdl-core
+      '@sdl/flow':
+        specifier: workspace:*
+        version: link:packages/flow
       '@sdl/graphite':
         specifier: workspace:*
         version: link:packages/graphite
@@ -239,6 +242,21 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.4.3
+
+  packages/flow:
+    dependencies:
+      '@sdl/autobranch':
+        specifier: workspace:*
+        version: link:../autobranch
+      '@sdl/ccc':
+        specifier: workspace:*
+        version: link:../ccc
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../sdl-core
+      '@sdl/sdl':
+        specifier: workspace:*
+        version: link:../sdl
 
   packages/graphite:
     dependencies:

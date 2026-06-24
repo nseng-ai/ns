@@ -34,12 +34,25 @@ const CORE_MODEL_SLUG_SPECIFIER = "@sdl/core/model-slug";
 const CORE_PRIMITIVES_SPECIFIER = "@sdl/core/primitives";
 const AUTOBRANCH_DIRTY_WORKTREE_SPECIFIER = "@sdl/autobranch/dirty-worktree";
 const AUTOBRANCH_LATEST_COMMIT_SPECIFIER = "@sdl/autobranch/latest-commit";
+const FLOW_COMMAND_MODULE_PATHS = {
+	"@sdl/flow/commands/changes": "changes.ts",
+	"@sdl/flow/commands/cp": "cp.ts",
+	"@sdl/flow/commands/autobranch": "autobranch.ts",
+	"@sdl/flow/commands/branch-latest-commit": "branch-latest-commit.ts",
+	"@sdl/flow/commands/autoslot": "autoslot.ts",
+	"@sdl/flow/commands/submit": "submit.ts",
+	"@sdl/flow/commands/regenerate-pr": "regenerate-pr.ts",
+	"@sdl/flow/commands/push": "push.ts",
+	"@sdl/flow/commands/land": "land.ts",
+	"@sdl/flow/commands/pull-trunk": "pull-trunk.ts",
+} as const;
 
 /** Absolute path to the SDK source module, used as the `alias` resolution target. */
 const SDK_MODULE_PATH = join(SDL_SDK_DIR, "index.ts");
 const CCC_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "ccc", "src");
 const CORE_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "sdl-core", "src");
 const AUTOBRANCH_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "autobranch", "src");
+const FLOW_COMMANDS_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "flow", "src", "commands");
 const CCC_AUTOSLOT_MODULE_PATH = join(CCC_SRC_DIR, "autoslot.ts");
 const CCC_LAND_MODULE_PATH = join(CCC_SRC_DIR, "land.ts");
 const CCC_TRUNK_PULL_MODULE_PATH = join(CCC_SRC_DIR, "trunk-pull.ts");
@@ -74,6 +87,15 @@ function buildInternalMigrationAliases(): Record<string, string> {
 	);
 }
 
+function buildFlowCommandAliases(): Record<string, string> {
+	return Object.fromEntries(
+		Object.entries(FLOW_COMMAND_MODULE_PATHS).map(([specifier, relativePath]) => [
+			specifier,
+			join(FLOW_COMMANDS_SRC_DIR, relativePath),
+		]),
+	);
+}
+
 // Keep this object in sync with all runtime value exports from sdk/index.ts; type-only exports are erased.
 const sdlSdkVirtualModule = {
 	commandSucceeded,
@@ -102,14 +124,16 @@ const sdlSdkVirtualModule = {
  * `.sdl/extensions`.
  *
  * Package-internal migration modules may still resolve package subpaths listed
- * as `internalMigrationExports`; checked-in `.sdl/extensions` should keep
- * repeated command-author helpers under `.sdl/extensions/shared/` until a
- * later explicit SDK-promotion decision.
+ * as `internalMigrationExports`. The repo-local flow manifest is currently a
+ * checked-in adapter layer over the source-checkout `@sdl/flow` package, so the
+ * command subpaths are also aliased narrowly here without adding general
+ * `node_modules` package discovery.
  */
 export function createSdlJiti(): ReturnType<typeof createJiti> {
 	return createJiti(import.meta.url, {
 		alias: {
 			...buildInternalMigrationAliases(),
+			...buildFlowCommandAliases(),
 			[SDK_SPECIFIER]: SDK_MODULE_PATH,
 			[CCC_AUTOSLOT_SPECIFIER]: CCC_AUTOSLOT_MODULE_PATH,
 			[CCC_LAND_SPECIFIER]: CCC_LAND_MODULE_PATH,

@@ -1,13 +1,10 @@
 import { join } from "node:path";
 
-import cpFlowExtension from "../../../../../.sdl/extensions/flow/src/commands/cp.ts";
-import submitFlowExtension from "../../../../../.sdl/extensions/flow/src/commands/submit.ts";
-import {
-	executeSdlCommand,
-	validateSdlExtensionContribution,
-	type SdlCommandPath,
-} from "../../src/command-registry.ts";
-import type { SdlCommand, SdlExtensionApi, SdlResult } from "../../src/sdk/index.ts";
+import { flowCpCommand } from "../../src/commands/cp.ts";
+import { flowSubmitCommand } from "../../src/commands/submit.ts";
+import type { SdlCommand, SdlExtensionApi, SdlResult } from "@sdl/sdl/sdk";
+import { failed } from "@sdl/sdl/sdk";
+
 import {
 	ScriptedSdlTestContext,
 	type RunWithFakesDefaults,
@@ -31,12 +28,9 @@ interface FlowCommandFixture {
 	options: RunFlowCommandWithFakesOptions;
 }
 
-const cpCommand = loadFlowCommand(cpFlowExtension, { group: "flow", name: "cp" });
-const submitCommand = loadFlowCommand(submitFlowExtension, { group: "flow", name: "submit" });
-
 export function runFlowCpCommandWithFakes(options: RunFlowCommandWithFakesOptions = {}) {
 	return runFlowCommandWithFakes({
-		command: cpCommand,
+		command: flowCpCommand,
 		request: options.request ?? {},
 		options,
 		defaults: options.defaults ?? {
@@ -48,7 +42,7 @@ export function runFlowCpCommandWithFakes(options: RunFlowCommandWithFakesOption
 
 export function runFlowSubmitCommandWithFakes(options: RunFlowCommandWithFakesOptions = {}) {
 	return runFlowCommandWithFakes({
-		command: submitCommand,
+		command: flowSubmitCommand,
 		request: options.request ?? {},
 		options,
 		defaults: options.defaults ?? {
@@ -102,7 +96,17 @@ async function runFlowCommand(input: {
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
 }): Promise<number> {
-	const result = await executeSdlCommand(input.context, input.command, input.request);
+	const parsedRequest = input.command.schema?.safeParse(input.request) ?? {
+		success: true,
+		data: {},
+	};
+	if (!parsedRequest.success) {
+		const issue = parsedRequest.error.issues[0]?.message ?? "request did not match command schema";
+		const result = failed(`Invalid request for command ${input.command.name}: ${issue}`, 2);
+		writeSdlResultOutput(result, input);
+		return 2;
+	}
+	const result = await input.command.run(input.context, parsedRequest.data);
 	writeSdlResultOutput(result, input);
 	return result.ok ? 0 : result.exitCode;
 }
@@ -118,14 +122,6 @@ function writeSdlResultOutput(
 		return;
 	}
 	deps.stderr(output);
-}
-
-function loadFlowCommand(contribution: unknown, path: SdlCommandPath): SdlCommand {
-	const loaded = validateSdlExtensionContribution(contribution, path, `.sdl/extensions/flow/${path.name}`);
-	if (!loaded.ok) {
-		throw new Error(loaded.message);
-	}
-	return loaded.command;
 }
 
 function dirtyCpExecResponses(): ScriptedExecResponse[] {
