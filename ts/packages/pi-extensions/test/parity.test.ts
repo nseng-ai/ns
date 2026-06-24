@@ -141,7 +141,7 @@ function fakeRunnerAgentDefinition(): PiAgentDefinition {
 		schema: "sdl.pi-agent.v1",
 		name: "runner",
 		toolName: "dispatch_runner_subagent",
-		label: "Dispatch Runner Subagent",
+		label: "Dispatch Forked Pi Session",
 		description: "Dispatch a focused runner subagent fixture.",
 		promptGuidelines: [],
 		body: "{{prompt}}",

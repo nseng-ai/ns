@@ -27,7 +27,7 @@ export async function readRunnerSubagentUsageFromSessionFile(
 	if (sessionFile === undefined) {
 		return unavailableUsage({
 			reason: "missing-session-file",
-			diagnostic: "Subagent child session file path is missing; usage was not collected.",
+			diagnostic: "Forked Pi session file path is missing; usage was not collected.",
 		});
 	}
 
@@ -38,7 +38,7 @@ export async function readRunnerSubagentUsageFromSessionFile(
 		return unavailableUsage({
 			sessionFile,
 			reason: "session-read-error",
-			diagnostic: `Subagent child session file is not readable: ${formatErrorMessage(error)}`,
+			diagnostic: `Forked Pi session file is not readable: ${formatErrorMessage(error)}`,
 		});
 	}
 
@@ -54,7 +54,7 @@ function usageMetadataFromSessionJsonl(
 		return unavailableUsage({
 			...(options.sessionFile === undefined ? {} : { sessionFile: options.sessionFile }),
 			reason: "malformed-session-jsonl",
-			diagnostic: `Subagent child session JSONL is malformed on line ${parsed.line}: ${parsed.message}`,
+			diagnostic: `Forked Pi session JSONL is malformed on line ${parsed.line}: ${parsed.message}`,
 		});
 	}
 
@@ -63,7 +63,7 @@ function usageMetadataFromSessionJsonl(
 			...(options.sessionFile === undefined ? {} : { sessionFile: options.sessionFile }),
 			reason: "no-assistant-usage",
 			diagnostic:
-				"Subagent child session did not contain assistant messages with usable usage metadata.",
+				"Forked Pi session did not contain assistant messages with usable usage metadata.",
 		});
 	}
 

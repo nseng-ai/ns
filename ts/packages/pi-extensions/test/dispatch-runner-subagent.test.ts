@@ -219,16 +219,16 @@ function runnerDefinitionMarkdown(overrides: RunnerDefinitionOverrides = {}): st
 	const promptGuidelines = overrides.promptGuidelines ?? [
 		"Use dispatch_runner_subagent only for a focused delegated task where the subagent prompt includes all necessary context.",
 		"Use dispatch_runner_subagent sequentially in a shared worktree; inspect the returned status and sessionFile before deciding that work is complete.",
-		"Do not treat non-final-text statuses from dispatch_runner_subagent as completion; inspect diagnostics and the subagent session file first.",
+		"Do not treat non-final-text statuses from dispatch_runner_subagent as completion; inspect diagnostics and the forked Pi session file first.",
 	];
 	return [
 		"---",
 		"schema: sdl.pi-agent.v1",
 		"name: runner",
 		`toolName: ${overrides.toolName ?? DISPATCH_RUNNER_SUBAGENT_TOOL_NAME}`,
-		`label: ${overrides.label ?? "Dispatch Runner Subagent"}`,
-		`description: ${overrides.description ?? "Launch a focused subagent Pi session in the current cwd and return its final assistant text/status evidence."}`,
-		`promptSnippet: ${overrides.promptSnippet ?? "Launch a focused subagent Pi session in the current cwd and return final assistant text"}`,
+		`label: ${overrides.label ?? "Dispatch Forked Pi Session"}`,
+		`description: ${overrides.description ?? "Launch a focused forked Pi process in the current cwd and return its final assistant text/status evidence."}`,
+		`promptSnippet: ${overrides.promptSnippet ?? "Launch a focused forked Pi process in the current cwd and return final assistant text"}`,
 		"promptGuidelines:",
 		...promptGuidelines.map((guideline) => `  - ${guideline}`),
 		"---",
@@ -295,7 +295,7 @@ describe("dispatch_runner_subagent extension", () => {
 		);
 		const call = await waitForSpawn(runner.calls);
 
-		expect(updates[0]?.content?.[0]?.text).toBe("Dispatching runner subagent: Slice subagent");
+		expect(updates[0]?.content?.[0]?.text).toBe("Dispatching forked Pi process: Slice subagent");
 		expect(call.options.cwd).toBe(ROOT);
 		expect(call.args.slice(0, -1)).toEqual([
 			"--mode",
@@ -373,7 +373,7 @@ describe("dispatch_runner_subagent extension", () => {
 		);
 		const call = await waitForSpawn(runner.calls);
 
-		expect(updates[0]?.content?.[0]?.text).toBe("Dispatching runner subagent: Slice subagent");
+		expect(updates[0]?.content?.[0]?.text).toBe("Dispatching forked Pi process: Slice subagent");
 		expect(call.args.slice(0, -1)).toEqual([
 			"--mode",
 			"json",
@@ -659,7 +659,7 @@ describe("dispatch_runner_subagent extension", () => {
 		const partialText = updateTexts(updates);
 		const finalText = result.content[0]?.text ?? "";
 
-		expect(partialText).toContain("Dispatching runner subagent: Slice subagent");
+		expect(partialText).toContain("Dispatching forked Pi process: Slice subagent");
 		expect(partialText).toContain("State: running");
 		expect(partialText).toContain("current tool: read");
 		expect(partialText).toContain("turns: 1");
@@ -701,7 +701,7 @@ describe("dispatch_runner_subagent extension", () => {
 		expect(finalText).toContain("dispatch_runner_subagent result");
 		expect(finalText).toContain("Status: final-text");
 		expect(finalText).toContain("Subagent final answer.");
-		expect(finalText).not.toContain("Running runner subagent:");
+		expect(finalText).not.toContain("Running forked Pi process:");
 		expect(finalText).not.toContain("Assistant preview unique.");
 		expect(finalText).not.toContain("secret-input.txt");
 		expect(finalText).not.toContain("tool result preview unique");
@@ -791,12 +791,16 @@ describe("dispatch_runner_subagent extension", () => {
 		const details = result.details as Record<string, unknown>;
 
 		expect(text).toContain("Status: stopped-without-useful-text");
-		expect(text).toContain("Diagnostic: Subagent Pi stopped without useful final assistant text.");
+		expect(text).toContain(
+			"Diagnostic: Forked Pi process stopped without useful final assistant text.",
+		);
 		expect(text).toContain(
 			"Inspect the session file before treating this delegated task as complete.",
 		);
 		expect(details.status).toBe("stopped-without-useful-text");
-		expect(details.diagnostic).toBe("Subagent Pi stopped without useful final assistant text.");
+		expect(details.diagnostic).toBe(
+			"Forked Pi process stopped without useful final assistant text.",
+		);
 	});
 
 	test("formats non-final-text statuses as diagnostics instead of completion", () => {
@@ -827,8 +831,8 @@ describe("dispatch_runner_subagent extension", () => {
 			elapsedMs: 1_250,
 			progress,
 			sessionFile: SESSION_FILE,
-			diagnostic: "Subagent Pi exited with exit code 2.",
-			error: { message: "Subagent Pi exited with exit code 2." },
+			diagnostic: "Forked Pi process exited with exit code 2.",
+			error: { message: "Forked Pi process exited with exit code 2." },
 		};
 		const protocolError: RunnerSubagentResult = {
 			status: "protocol-error",
@@ -876,13 +880,13 @@ describe("dispatch_runner_subagent extension", () => {
 		const details = result.details as Record<string, unknown>;
 
 		expect(text).toContain("Status: error");
-		expect(text).toContain("Diagnostic: Subagent Pi exited with exit code 2.");
+		expect(text).toContain("Diagnostic: Forked Pi process exited with exit code 2.");
 		expect(text).toContain("subagent failed");
 		expect(details.status).toBe("error");
 		expect(details.sessionFile).toBe(SESSION_FILE);
 		expect(details.error).toEqual(
 			expect.objectContaining({
-				message: expect.stringContaining("Subagent Pi exited with exit code 2"),
+				message: expect.stringContaining("Forked Pi process exited with exit code 2"),
 			}),
 		);
 	});

@@ -50,6 +50,7 @@ jobs:
           else
             BASE_REF="${{ github.event.pull_request.base.ref }}"
           fi
+          git fetch origin "$BASE_REF:refs/remotes/origin/$BASE_REF"
 
           status=0
           output=$(pnpm --config.verify-deps-before-run=false --dir ts exec roaster review list --ci --applicable --base-ref "$BASE_REF" --format json) || status=$?
@@ -110,6 +111,7 @@ jobs:
           set -euo pipefail
 
           BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName --jq .baseRefName)
+          git fetch origin "$BASE_REF:refs/remotes/origin/$BASE_REF"
 
           status=0
           output=$(pnpm --config.verify-deps-before-run=false --dir ts exec roaster review run "$REVIEW_KEY" \

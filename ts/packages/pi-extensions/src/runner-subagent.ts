@@ -227,9 +227,9 @@ export type RunnerSubagentResult<TInput = unknown> =
 export function resultDiagnostic(result: RunnerSubagentResult): string | undefined {
 	switch (result.status) {
 		case "completed":
-			return "Subagent Pi completed with a terminal capture instead of final assistant text.";
+			return "Forked Pi process completed with a terminal capture instead of final assistant text.";
 		case "blocked":
-			return "Subagent Pi blocked with a terminal capture instead of final assistant text.";
+			return "Forked Pi process blocked with a terminal capture instead of final assistant text.";
 		case "final-text":
 			return undefined;
 		case "stopped-without-terminal":

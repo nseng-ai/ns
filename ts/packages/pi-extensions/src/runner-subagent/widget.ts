@@ -82,10 +82,10 @@ export function formatRunnerSubagentActivityWidgetLines(
 	update: RunnerSubagentUpdate,
 	options: RunnerSubagentWidgetOptions = {},
 ): string[] {
-	const { fallbackTitle = "(untitled subagent session)", includeElapsed = true } = options;
+	const { fallbackTitle = "(untitled forked Pi session)", includeElapsed = true } = options;
 	const { progress, activity } = update;
 	const lines = [
-		`Subagent: ${runnerSubagentDisplayTitle(progress, fallbackTitle)}`,
+		`Forked Pi: ${runnerSubagentDisplayTitle(progress, fallbackTitle)}`,
 		`State: ${progress.state}`,
 	];
 	if (progress.launch !== undefined) {

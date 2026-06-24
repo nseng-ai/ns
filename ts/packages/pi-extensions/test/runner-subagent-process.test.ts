@@ -461,9 +461,9 @@ describe("runner subagent process dispatcher", () => {
 				sessionFile: "/tmp/runner-subagent.jsonl",
 				reason: "no-assistant-usage",
 				diagnostic:
-					"Subagent child session did not contain assistant messages with usable usage metadata.",
+					"Forked Pi session did not contain assistant messages with usable usage metadata.",
 			},
-			diagnostic: "Subagent Pi stopped without terminal capture.",
+			diagnostic: "Forked Pi process stopped without terminal capture.",
 			stopReason: "end",
 		});
 	});
@@ -751,7 +751,7 @@ describe("runner subagent process dispatcher", () => {
 				sessionFile: "/tmp/runner-subagent.jsonl",
 				reason: "no-assistant-usage",
 				diagnostic:
-					"Subagent child session did not contain assistant messages with usable usage metadata.",
+					"Forked Pi session did not contain assistant messages with usable usage metadata.",
 			},
 			finalText: "Done.\nEvidence: tests passed.",
 			stopReason: "stop",
@@ -1038,7 +1038,9 @@ describe("runner subagent process dispatcher", () => {
 
 		expect(result.status).toBe("stopped-without-useful-text");
 		if (result.status !== "stopped-without-useful-text") return;
-		expect(result.diagnostic).toBe("Subagent Pi stopped without useful final assistant text.");
+		expect(result.diagnostic).toBe(
+			"Forked Pi process stopped without useful final assistant text.",
+		);
 		expect(result.stopReason).toBe("stop");
 	});
 
@@ -1095,7 +1097,7 @@ describe("runner subagent process dispatcher", () => {
 
 		expect(result.status).toBe("error");
 		if (result.status !== "error") return;
-		expect(result.diagnostic).toContain("Subagent Pi exited with exit code 2.");
+		expect(result.diagnostic).toContain("Forked Pi process exited with exit code 2.");
 		expect(result.diagnostic).toContain("second diagnostic line");
 		expect(result.diagnostic).not.toContain("first diagnostic line");
 	});
@@ -1722,7 +1724,7 @@ describe("runner subagent process dispatcher", () => {
 
 		expect(result.status).toBe("error");
 		if (result.status !== "error") return;
-		expect(result.diagnostic).toContain("Failed to spawn subagent Pi process: ENOENT pi");
+		expect(result.diagnostic).toContain("Failed to spawn forked Pi process: ENOENT pi");
 		expect(result.error.message).toBe("ENOENT pi");
 	});
 
@@ -1740,7 +1742,7 @@ describe("runner subagent process dispatcher", () => {
 
 		expect(result.status).toBe("error");
 		if (result.status !== "error") return;
-		expect(result.diagnostic).toContain("Subagent Pi exited with exit code 2.");
+		expect(result.diagnostic).toContain("Forked Pi process exited with exit code 2.");
 		expect(result.diagnostic).toContain("stderr:");
 		expect(result.diagnostic).toContain("second diagnostic line");
 		expect(result.diagnostic).not.toContain("first diagnostic line");
