@@ -13,7 +13,7 @@ Command schemas are [Zod](https://zod.dev) schemas. Import the SDK's `z` export 
 
 Do not import SDL implementation modules (`@sdl/sdl/*` other than `./sdk`, `@sdl/core/*`, `@sdl/clinkr/*`) from SDL extension authoring modules. The SDK re-exports the few lower-package types an author needs; those are documented below as first-party SDK vocabulary, with their origin noted.
 
-For this repository's checked-in grouped flow extension, repeated command-author helper code should stay under the owning package's helper layer, currently `.sdl/extensions/flow/src/shared/`, until a later explicit decision promotes a stable helper into this SDK. `internalMigrationExports` in `ts/packages/sdl/package.json` exist for package/internal migration support, not as extension-author API; importing or documenting those subpaths is not SDK promotion.
+For this repository's checked-in grouped flow extension, repeated command-author helper code should stay under the owning implementation package's helper layer, currently `ts/packages/extensions/flow/src/shared/` in `sdl-flow`, until a later explicit decision promotes a stable helper into this SDK. `internalMigrationExports` in `ts/packages/sdl/package.json` exist for package/internal migration support, not as extension-author API; importing or documenting those subpaths is not SDK promotion.
 
 The SDK is intentionally small. A command should own its workflow policy — prompts, validation, repair, external commands, GitHub/Graphite choreography, and confirmation boundaries — unless repeated command migrations prove a deeper kernel helper belongs in this author API. When a helper is promoted, this reference becomes the source of truth for the new public surface.
 

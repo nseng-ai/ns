@@ -6,6 +6,25 @@ SDL should become a small Source Development Lifecycle kernel whose useful workf
 
 This Objective supersedes the narrower `handoff-sdl-extension` Objective. Handoff remains useful as a future sophisticated workflow pressure test, but the architecture should first be proven with simpler project-local commands before committing to nested command trees, bundled extension shape, or Handoff-specific API design.
 
+**Phase 2 — architecture endgame (active).** The command-first experiment (Phase 1) is essentially complete and has proven the layered model. A design session resolved the full end-state and recorded it in `docs/adr/0009-extension-layering-and-peer-dependencies.md`. This Objective now owns driving that end-state to completion: the transitional holding-pen package deleted and all nine user-facing product capabilities modeled as extensions. The Architecture Model below is the target; Scope and Completion Criteria carry the Phase 2 work.
+
+## Architecture Model (ADR 0009)
+
+Three layers:
+
+- **Below the SDK — neutral infra (never domain):** `@sdl/core`, `@sdl/clinkr`, `@sdl/graphite`, `@sdl/brmem`.
+- **The SDK:** the `@sdl/sdl` kernel + `@sdl/sdl/sdk`, a thin host-primitives extension API.
+- **Above the SDK — capability extensions:** flow, handoff, objective, branch-context, plans, pr-address, slot, roaster, aretro, plus the shared `@sdl/extension-kit` substrate.
+
+Rules:
+
+- `ccc` is itself an orchestrator extension at the apex of a shallow, acyclic extension dependency DAG; capabilities are mostly leaves.
+- Each capability extension has **two faces**: a **command face** (`defineExtension()` contributions, loaded by the kernel) and a **Peer API** (`@sdl/<cap>/api`, a curated typed export consumed in-process by sibling extensions, chiefly `ccc`). Siblings depend on the Peer API only, never internals; the kernel loader is unaware of peer edges.
+- **Gateway-injected peer cores:** capability domain logic takes injected gateways (`GitGateway`, …), never raw `SdlExtensionApi`. `ctx` lives only in the command shell, which converts `ctx`→gateways at the edge via `@sdl/extension-kit`. This is what makes domain logic unit-testable with `InMemoryGitGateway`.
+- **Two new packages:** `@sdl/extension-kit` (above-SDK substrate: the `ctx`→gateway adapter + shared result/error shapes) and `@sdl/domain-primitives-transitional` (below-SDK disposable holding pen for the SDK-independent primitives currently tangled in `@sdl/sdl`, deleted once consumers migrate).
+- `internal-migration-export` is renamed **internal workspace export**; the dividing rule is SDK-dependence — `ctx`-dependent shared code lives above the SDK in `@sdl/extension-kit`, SDK-independent primitives below.
+- Standalone tools (`packagechk`, `vibechk`, `areg`) are off this axis; `pi-*` is a separate presentation host, not a capability extension.
+
 ## Scope
 
 - Reframe `@sdl/sdl` as an extension kernel rather than a package with privileged built-in lifecycle commands.
@@ -27,16 +46,29 @@ This Objective supersedes the narrower `handoff-sdl-extension` Objective. Handof
   - Keep this consolidation within the internal-migration-export and project-local shared-helper tiers; do not promote new `@sdl/sdl/sdk` author API as part of this track.
 - Close `handoff-sdl-extension` as subsumed by this broader command-first architecture track, preserving its content as provenance and parked future input.
 
+### Architecture endgame (Phase 2)
+
+- Stand up `@sdl/extension-kit` and relocate the `ctx`→gateway adapter (`SdlCommandExecApi`) and shared result/error shapes out of flow, so flow's `cp`/`push`/`submit` consume gateways through it and gain `InMemoryGitGateway`-backed domain tests.
+- Lock the cross-capability conventions: the Peer API subpath (`@sdl/<cap>/api`), the gateway-injected-core rule, and an exports-map mechanism that forbids deep sibling imports and cycles.
+- Stand up `@sdl/domain-primitives-transitional`, extract the SDK-independent domain primitives (`checkpoint-flow`, `pending-worktree`, `text-generation`, `temp-files`, …) out of `@sdl/sdl`, apply the internal-workspace-export rename, and repoint `ccc`/`pi-extensions`/flow.
+- Model each of the nine user-facing capabilities (flow, handoff, objective, branch-context, plans, pr-address, slot, roaster, aretro) as a capability extension with a gateway-injected domain core, a thin command face, and a Peer API where a sibling needs it. Per-capability migration is tracked as **child Objectives**, ordered by `ccc`-consumption; flow is the reference implementation.
+- Convert `ccc` into an orchestrator extension that depends on peers through their Peer APIs instead of `@sdl/sdl/*` internal subpaths.
+- Delete `@sdl/domain-primitives-transitional` once every capability is an extension and `ccc`/`pi-extensions` consume Peer APIs — its emptiness is the endgame's completion marker.
+
 ## Non-Goals
 
-- Do not exhaustively migrate every current SDL capability/package in this Objective. Broader capability modeling, bundled extensions, and sophisticated workflow migrations are parked until command-first learning produces a stable enough SDK/kernel model.
+- Do not migrate the standalone tools (`packagechk`, `vibechk`, `areg`) into the extension structure — they are off the extension axis. Phase 2 migrates only the nine product capabilities; the `pi-*` presentation host is adapted, not modeled as a capability extension.
+- Do not expand the `@sdl/sdl/sdk` contract with domain gateways (no `ctx.git`): gateways are derivable from `exec` and belong above the SDK in `@sdl/extension-kit`, not in the thin host-primitive API.
+- Do not treat `@sdl/domain-primitives-transitional` as a permanent home or let it accrue `ctx`-dependent code; it holds only SDK-independent primitives and must delete to zero.
 - Do not create a privileged bundled-extension path for `cp`, `submit`, `land`, or similar repository workflow commands in the first pass; model them as project-local flow commands.
-- Do not design nested SDL CLI command trees, Handoff lifecycle commands, Objective migration, Slot migration, or extension-owned agent-resource installation as part of the initial command-first slices.
+- Do not design nested SDL CLI command trees or extension-owned agent-resource installation as part of this Objective. (Capability migration for Handoff, Objective, Slot, etc. is now in Phase 2 scope; only nested command trees and agent-resource install remain parked.)
 - Do not keep long-lived compatibility aliases or duplicate public implementations when a command is intentionally moved into project-local SDL extension form.
 - Do not expose internal implementation modules as public SDK just to make a migrated command easy.
 - Do not add hidden registries, task databases, UUID state, or workflow-controller behavior to SDL extensions.
 
 ## Completion Criteria
+
+### Phase 1 — command-first (met)
 
 - SDL's kernel command registry no longer imports or registers repository workflow domain commands such as `changes`, `cp`, `submit`, `regenerate-pr`, or `land` as privileged built-ins, and `land` has a project-local `sdl flow land` surface rather than remaining a Pi-only CCC delegation.
 - This repository restores the selected command surfaces through project-local `.sdl/extensions/flow` entries that exercise SDL extension discovery and the author SDK boundary.
@@ -47,6 +79,14 @@ This Objective supersedes the narrower `handoff-sdl-extension` Objective. Handof
 - `handoff-sdl-extension` is closed as subsumed, with Handoff-specific nested command-tree work parked as future input rather than active parallel architecture work.
 - The Objective records a disposition for broader capability modeling: commands-first complete now, bundled/sophisticated capability migrations deferred to later child Objectives or follow-up Objectives.
 - The `flow` group's command-author duplication is consolidated: hand-written commands import shared helpers (or internal-migration-export-backed `shared/` re-exports) instead of re-implementing PR-description, exec/format/JSON, GitHub-PR, or CCC-CLI delegation logic; `submit` is a readable delegating command rather than a checked-in bundle; and no new public `@sdl/sdl/sdk` surface is added to achieve it.
+
+### Phase 2 — architecture endgame
+
+- `@sdl/extension-kit` exists and owns the `ctx`→gateway adapter and shared result/error shapes; flow's domain logic is tested against `InMemoryGitGateway` with no real `git` subprocess and no argv-string scripting.
+- The Peer API convention (`@sdl/<cap>/api`), the gateway-injected-core rule, and the deep-import/cycle guard are documented and enforced.
+- All nine user-facing capabilities (flow, handoff, objective, branch-context, plans, pr-address, slot, roaster, aretro) are above-SDK extensions with a thin command face and a gateway-injected domain core; each is tracked by a completed child Objective (flow excepted, as the in-repo reference).
+- `ccc` is an orchestrator extension that depends on peer capabilities through their Peer APIs, not through `@sdl/sdl/*` internal subpaths.
+- Below the SDK is domain-free: `@sdl/domain-primitives-transitional` has been deleted, and no below-SDK package imports capability domain logic.
 
 ## Definition of Progress
 
@@ -88,8 +128,8 @@ Assumptions:
 - `@sdl/sdl/sdk` should remain the public author API unless concrete migration evidence justifies adding or reshaping exports.
 - Project-local grouped command discovery can preserve the user-facing `sdl flow <name>` surface in this repository without implying the command is universally available in every SDL installation.
 - Handoff's nested command-tree design remains valuable provenance, but it should not drive the first kernel/SDK shape before simpler commands have been re-modeled.
-- The PR-description machinery, `commandFailure`, GitHub-PR gateway, and submit orchestration that `regenerate-pr` and the former `submit` bundle duplicated already exist in `@sdl/core/submit`/`@sdl/graphite`; the implemented consolidation route is now `@sdl/flow`-owned shared modules over those lower-package seams, not new public SDK behavior.
-  - Revised (2026-06-24): for command-author modules consumed **only** by flow, the accepted disposition is now to relocate them into `@sdl/flow` (`ts/packages/flow/src/shared/`) and import `@sdl/core/*`/`@sdl/graphite/*` directly, rather than keep them in `@sdl/sdl` behind `@sdl/sdl/*` internal-migration-export subpaths. The internal-export tier remains correct for genuinely shared seams (`checkpoint-flow`, `pending-worktree`, `text-generation`, `sdk`), which stay in `@sdl/sdl`. See `updates/2026-06-24-relocate-flow-only-modules.md`.
+- The PR-description machinery, `commandFailure`, GitHub-PR gateway, and submit orchestration that `regenerate-pr` and the former `submit` bundle duplicated already exist in `@sdl/core/submit`/`@sdl/graphite`; the implemented consolidation route is now `sdl-flow`-owned shared modules over those lower-package seams, not new public SDK behavior.
+  - Revised (2026-06-24): for command-author modules consumed **only** by flow, the accepted disposition is now to relocate them into `sdl-flow` (`ts/packages/extensions/flow/src/shared/`) and import `@sdl/core/*`/`@sdl/graphite/*` directly, rather than keep them in `@sdl/sdl` behind `@sdl/sdl/*` internal-migration-export subpaths. The internal-export tier remains correct for genuinely shared seams (`checkpoint-flow`, `pending-worktree`, `text-generation`, `sdk`), which stay in `@sdl/sdl`. See `updates/2026-06-24-relocate-flow-only-modules.md`.
 - Shared-code consolidation should remain holistic around submit's readable delegating shape: future helper extractions should still check submit's behavior matrix so they do not create throwaway seams that only fit `regenerate-pr` or `autobranch`.
 
 Risks:

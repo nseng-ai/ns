@@ -58,7 +58,7 @@ Default-path tests should prefer small fake-driven seams:
   wall-clock behavior out of the default lane unless the test is a deliberately cheap user-facing scenario
   and there is no narrower boundary smoke to preserve the same confidence.
 - For SDL extension command behavior, test in the package that owns the command implementation. For the
-  grouped flow commands, `@sdl/flow` owns direct behavior tests: import package-owned command objects
+  grouped flow commands, `sdl-flow` owns direct behavior tests: import package-owned command objects
   such as `flowCpCommand`, execute them with a fake `SdlExtensionApi`, scripted command runner, scripted
   text generation, and inert temp files, then keep a small SDL integration smoke proving the checked-in
   `.sdl/extensions/flow` adapter manifest is discoverable/loadable through the real CLI loader.
