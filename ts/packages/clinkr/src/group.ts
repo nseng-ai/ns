@@ -87,6 +87,8 @@ export interface ClinkrGroupOptions {
 	description?: string;
 	/** Suppresses this group from its parent's help; it stays invocable. */
 	isHidden?: boolean;
+	/** Sort direct child commands/groups alphabetically in generated help. */
+	sortChildren?: boolean;
 	/** Root-only package version exposed as `-V, --version`. */
 	version?: string;
 	/** Root-only runtime diagnostic text exposed as `--runtime`. */
@@ -149,6 +151,7 @@ export class ClinkrGroup<TContext> {
 	readonly isHidden: boolean;
 	private readonly version: string | undefined;
 	private readonly runtimeInfo: (() => string) | undefined;
+	private readonly sortChildren: boolean;
 	private registeredCommands: RegisteredCommand<TContext>[];
 	private subgroups: ClinkrGroup<TContext>[];
 	private defaultRegisteredCommand: RegisteredCommand<TContext> | undefined;
@@ -159,6 +162,7 @@ export class ClinkrGroup<TContext> {
 		this.isHidden = options.isHidden ?? false;
 		this.version = options.version;
 		this.runtimeInfo = options.runtimeInfo;
+		this.sortChildren = options.sortChildren ?? false;
 		this.registeredCommands = [];
 		this.subgroups = [];
 		this.defaultRegisteredCommand = undefined;
@@ -282,12 +286,23 @@ export class ClinkrGroup<TContext> {
 				state,
 			});
 		}
-		for (const registered of this.registeredCommands) {
-			command.addCommand(buildLeafCommand({ registered, context, io, state }));
-		}
-		for (const child of this.subgroups) {
-			command.addCommand(child.buildCommand({ context, io, state, isRoot: false }), {
-				hidden: child.isHidden,
+		const visibleChildren = [
+			...this.registeredCommands.map((registered) => ({
+				type: "command" as const,
+				name: registered.name,
+				registered,
+			})),
+			...this.subgroups.map((child) => ({ type: "group" as const, name: child.name, child })),
+		];
+		if (this.sortChildren)
+			visibleChildren.sort((left, right) => left.name.localeCompare(right.name));
+		for (const child of visibleChildren) {
+			if (child.type === "command") {
+				command.addCommand(buildLeafCommand({ registered: child.registered, context, io, state }));
+				continue;
+			}
+			command.addCommand(child.child.buildCommand({ context, io, state, isRoot: false }), {
+				hidden: child.child.isHidden,
 			});
 		}
 		return command;

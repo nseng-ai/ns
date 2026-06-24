@@ -77,6 +77,7 @@ export interface DefineCliBaseOptions<TContext, TDeps extends CliEntrypointDeps,
 	readonly metaUrl: string;
 	readonly runtime: CliRuntime;
 	readonly description: string;
+	readonly sortChildren?: boolean;
 	readonly prepareRun: (
 		input: CliPrepareRunInput<TDeps>,
 	) =>
@@ -182,6 +183,7 @@ export function defineCli<
 			description: buildInput.description,
 			version: buildInput.version,
 			runtimeInfo: buildInput.runtimeInfo,
+			sortChildren: options.sortChildren ?? false,
 		});
 		return options.configureCli({ ...buildInput, root }) ?? root;
 	};
