@@ -144,10 +144,6 @@ describe("CCC cmux command suite", () => {
 				expect(pi.setModels).toEqual([FAST_MODEL]);
 				expect(pi.thinkingLevels).toEqual(["minimal"]);
 				expect(ctx.statuses).toEqual([
-					{
-						key: "sdl-command-ack",
-						value: "→ /ccc:sidebar:session-summary received; starting…",
-					},
 					{ key: "pi:ccc-sidebar", value: "preparing cmux sidebar…" },
 					{ key: "pi:ccc-sidebar", value: undefined },
 				]);
@@ -224,10 +220,6 @@ describe("CCC cmux command suite", () => {
 				expect(pi.setModels).toEqual([FAST_MODEL]);
 				expect(pi.thinkingLevels).toEqual(["minimal"]);
 				expect(ctx.statuses).toEqual([
-					{
-						key: "sdl-command-ack",
-						value: "→ /ccc:sidebar:branch-state-summary received; starting…",
-					},
 					{ key: "pi:ccc-sidebar", value: "preparing cmux branch-state sidebar…" },
 					{ key: "pi:ccc-sidebar", value: undefined },
 				]);

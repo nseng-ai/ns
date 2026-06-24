@@ -194,23 +194,19 @@ Repair the failed just run.
 			expect(pi.execCalls).toEqual([
 				{ command: "just", args: [], options: { cwd: dir, timeout: JUST_TIMEOUT_MS } },
 			]);
+			// The generic command ack is suppressed by default; just owns its status.
 			expect(context.statuses).toEqual([
 				{ key: "just", value: "running just…" },
 				{ key: "just", value: undefined },
 			]);
 			expect(pi.messages).toEqual([
 				{
-					customType: "sdl-command-ack",
-					content: "→ /just received; starting…",
-					display: true,
-				},
-				{
 					customType: "sdl-command-progress",
 					content: "→ Running `just`…",
 					display: true,
 				},
 			]);
-			expect(pi.renderers.has("sdl-command-ack")).toBe(true);
+			expect(pi.renderers.has("sdl-command-ack")).toBe(false);
 			expect(pi.renderers.has("sdl-command-progress")).toBe(true);
 			expect(context.notifications).toEqual([
 				{ message: "`just` failed; invoking code-just-fix.", level: "warning" },

@@ -172,9 +172,8 @@ describe("autoslot flow", () => {
 						"Starting /sdl:flow:autoslot — runs once Pi finishes its current response, then creates a branch and moves it to a slot. Interrupt Pi to run it now.",
 				},
 			]);
-			// First statuses are set synchronously, before the await, so the footer is never blank.
-			expect(statuses[0]).toBe("→ /sdl:flow:autoslot received; starting…");
-			expect(statuses[1]).toBe("waiting for Pi to finish responding (0s)");
+			// Autoslot owns its footer progress; the generic command ack is suppressed by default.
+			expect(statuses[0]).toBe("waiting for Pi to finish responding (0s)");
 			// The ticker keeps the status alive while waitForIdle never resolves.
 			vi.advanceTimersByTime(2_000);
 			expect(statuses.at(-1)).toBe("waiting for Pi to finish responding (2s)");

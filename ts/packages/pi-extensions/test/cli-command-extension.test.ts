@@ -541,6 +541,8 @@ describe("cli command extension helper", () => {
 		const commandPromise = commandFor(pi, "dev:preview-status").handler("", ctx);
 		await confirmStarted;
 
+		// CLI-backed commands render their own live progress block, so they suppress
+		// the generic footer ack to avoid duplicate above/below-fold progress.
 		expect(statuses).toEqual([]);
 		expect(pi.progressMessages).toEqual([]);
 		expect(widgets.at(-1)?.lines?.join("\n")).toContain("waiting for confirmation");
@@ -994,6 +996,8 @@ describe("cli command extension helper", () => {
 
 		const liveWidgetText = widgets.at(-1)?.lines?.join("\n") ?? "";
 		expect(widgets.at(-1)?.placement).toBe("aboveEditor");
+		// CLI-backed commands render their own live progress block, so they suppress
+		// the generic footer ack to avoid duplicate above/below-fold progress.
 		expect(statuses).toEqual([]);
 		expect(pi.progressMessages).toEqual([]);
 		expect(liveWidgetText).toContain("/dev:preview-status running CLI command");
@@ -1072,11 +1076,15 @@ describe("cli command extension helper", () => {
 			const commandPromise = commandFor(pi, "dev:preview-status").handler("", ctx);
 			await runStarted;
 
-			const statusValuesBeforeTicks = statuses.map((status) => status.value);
+			// Ignore the transient auto-clearing ack status; this test isolates whether the
+			// live-widget ticks churn the footer status, not the one-shot ack lifecycle.
+			const withoutAck = (entries: StatusUpdate[]): (string | undefined)[] =>
+				entries.filter((status) => status.key !== "sdl-command-ack").map((status) => status.value);
+			const statusValuesBeforeTicks = withoutAck(statuses);
 			const widgetCountBeforeTicks = widgets.length;
 			await vi.advanceTimersByTimeAsync(3_000);
 
-			expect(statuses.map((status) => status.value)).toEqual(statusValuesBeforeTicks);
+			expect(withoutAck(statuses)).toEqual(statusValuesBeforeTicks);
 			expect(widgets.length).toBeGreaterThan(widgetCountBeforeTicks);
 
 			if (finishRun === undefined) throw new Error("Expected run resolver to be initialized.");

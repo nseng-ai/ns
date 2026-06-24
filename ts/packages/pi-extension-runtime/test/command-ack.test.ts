@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
 import {
 	IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE,
@@ -122,7 +122,7 @@ describe("sendCommandProgressOrNotify", () => {
 });
 
 describe("registerCommandWithImmediateAck", () => {
-	test("registers commands with an above-fold message acknowledgement by default", () => {
+	test("registers commands without a footer or transcript acknowledgement by default", () => {
 		const host = new FakeCommandAckHost();
 		const calls: string[] = [];
 		const { ctx, statuses } = createStatusContext();
@@ -138,18 +138,43 @@ describe("registerCommandWithImmediateAck", () => {
 			},
 		});
 
-		expect(host.renderers.has(IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE)).toBe(true);
+		expect(host.renderers.has(IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE)).toBe(false);
 		commandFor(host, "demo:run").handler("--flag", ctx);
 
-		expect(host.messages).toEqual([
-			{
-				customType: IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE,
-				content: "→ /demo:run received; starting…",
-				display: true,
-			},
-		]);
+		expect(host.messages).toEqual([]);
 		expect(statuses).toEqual([]);
 		expect(calls).toEqual(["--flag"]);
+	});
+
+	test("replaces the starting acknowledgement with started after the status delay", async () => {
+		vi.useFakeTimers();
+		try {
+			const host = new FakeCommandAckHost();
+			const { ctx, statuses } = createStatusContext();
+
+			registerCommandWithImmediateAck({
+				host: host,
+				commandName: "demo:run",
+				commandDefinition: {
+					handler() {},
+				},
+				options: { delivery: "status" },
+			});
+			commandFor(host, "demo:run").handler("", ctx);
+
+			expect(statuses).toEqual([
+				[IMMEDIATE_COMMAND_ACK_STATUS_KEY, "→ /demo:run received; starting…"],
+			]);
+
+			await vi.advanceTimersByTimeAsync(3_000);
+
+			expect(statuses).toEqual([
+				[IMMEDIATE_COMMAND_ACK_STATUS_KEY, "→ /demo:run received; starting…"],
+				[IMMEDIATE_COMMAND_ACK_STATUS_KEY, "→ /demo:run received; started"],
+			]);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	test("preserves non-handler command definition fields", () => {
@@ -171,7 +196,7 @@ describe("registerCommandWithImmediateAck", () => {
 		});
 	});
 
-	test("preserves command status progress as status by default", () => {
+	test("preserves command status progress as status without adding a default ack", () => {
 		const host = new FakeCommandAckHost();
 		const { ctx, statuses } = createStatusContext();
 
@@ -190,13 +215,7 @@ describe("registerCommandWithImmediateAck", () => {
 		commandFor(host, "demo:run").handler("", ctx);
 
 		expect(host.renderers.has(IMMEDIATE_COMMAND_PROGRESS_MESSAGE_TYPE)).toBe(false);
-		expect(host.messages).toEqual([
-			{
-				customType: IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE,
-				content: "→ /demo:run received; starting…",
-				display: true,
-			},
-		]);
+		expect(host.messages).toEqual([]);
 		expect(statuses).toEqual([
 			["demo", "working…"],
 			["demo", "working…"],
@@ -205,7 +224,7 @@ describe("registerCommandWithImmediateAck", () => {
 		]);
 	});
 
-	test("falls back to a transient status acknowledgement when custom messages are unavailable", () => {
+	test("can explicitly use a transient status acknowledgement", () => {
 		const host = {
 			commands: new Map<string, RegisteredCommand>(),
 			registerCommand(name: string, command: RegisteredCommand): void {
@@ -222,6 +241,7 @@ describe("registerCommandWithImmediateAck", () => {
 					commandCtx.ui?.setStatus?.("demo", "working…");
 				},
 			},
+			options: { delivery: "status" },
 		});
 		host.commands.get("demo:run")?.handler("", ctx);
 
@@ -247,9 +267,31 @@ describe("registerCommandWithImmediateAck", () => {
 		expect(host.messages).toEqual([]);
 	});
 
+	test("can suppress the acknowledgement when a command provides its own progress surface", () => {
+		const host = new FakeCommandAckHost();
+		const { ctx, statuses } = createStatusContext();
+		const calls: string[] = [];
+
+		registerCommandWithImmediateAck({
+			host: host,
+			commandName: "demo:run",
+			commandDefinition: {
+				handler(args) {
+					calls.push(args);
+				},
+			},
+			options: { delivery: "none" },
+		});
+		commandFor(host, "demo:run").handler("--flag", ctx);
+
+		expect(host.messages).toEqual([]);
+		expect(statuses).toEqual([]);
+		expect(calls).toEqual(["--flag"]);
+	});
+
 	test("deduplicates duplicate acknowledgement attempts for the same command context", () => {
 		const host = new FakeCommandAckHost();
-		const ctx = { hasUI: true };
+		const { ctx, statuses } = createStatusContext();
 
 		registerCommandWithImmediateAck({
 			host: host,
@@ -257,40 +299,36 @@ describe("registerCommandWithImmediateAck", () => {
 			commandDefinition: {
 				handler() {},
 			},
+			options: { delivery: "status" },
 		});
 		const command = commandFor(host, "demo:run");
 		command.handler("", ctx);
 		command.handler("again", ctx);
 
-		expect(host.messages).toEqual([
-			{
-				customType: IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE,
-				content: "→ /demo:run received; starting…",
-				display: true,
-			},
+		expect(host.messages).toEqual([]);
+		expect(statuses).toEqual([
+			[IMMEDIATE_COMMAND_ACK_STATUS_KEY, "→ /demo:run received; starting…"],
 		]);
 	});
 
 	test("explicit progress helper emits transcript progress from command milestones", () => {
 		const host = new FakeCommandAckHost();
+		const { ctx, statuses } = createStatusContext();
 
 		registerCommandWithImmediateAck({
 			host: host,
 			commandName: "demo:run",
 			commandDefinition: {
-				handler(_args, ctx) {
-					sendCommandProgressOrNotify({ host, ctx, message: "Working…" });
+				handler(_args, commandCtx) {
+					sendCommandProgressOrNotify({ host, ctx: commandCtx, message: "Working…" });
 				},
 			},
 		});
-		commandFor(host, "demo:run").handler("", { hasUI: true });
+		commandFor(host, "demo:run").handler("", ctx);
 
+		// The ack is suppressed by default; explicit progress is still a transcript message.
+		expect(statuses).toEqual([]);
 		expect(host.messages).toEqual([
-			{
-				customType: IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE,
-				content: "→ /demo:run received; starting…",
-				display: true,
-			},
 			{
 				customType: IMMEDIATE_COMMAND_PROGRESS_MESSAGE_TYPE,
 				content: "→ Working…",

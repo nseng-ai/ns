@@ -159,11 +159,13 @@ function createContext(options: { cwd?: string; mode?: LandCommandContext["mode"
 	notifications: Notification[];
 	confirmations: Confirmation[];
 	printed: string[];
+	statuses: Array<[string, string | undefined]>;
 	waitForIdleCalls: () => number;
 } {
 	const notifications: Notification[] = [];
 	const confirmations: Confirmation[] = [];
 	const printed: string[] = [];
+	const statuses: Array<[string, string | undefined]> = [];
 	let waits = 0;
 
 	const ctx: LandCommandContext = {
@@ -178,7 +180,9 @@ function createContext(options: { cwd?: string; mode?: LandCommandContext["mode"
 				confirmations.push({ title, message });
 				return false;
 			},
-			setStatus(): void {},
+			setStatus(key: string, value: string | undefined): void {
+				statuses.push([key, value]);
+			},
 		},
 		async waitForIdle(): Promise<void> {
 			waits += 1;
@@ -191,7 +195,7 @@ function createContext(options: { cwd?: string; mode?: LandCommandContext["mode"
 		},
 	};
 
-	return { ctx, notifications, confirmations, printed, waitForIdleCalls: () => waits };
+	return { ctx, notifications, confirmations, printed, statuses, waitForIdleCalls: () => waits };
 }
 
 async function runLand(
@@ -555,6 +559,7 @@ describe("code land command", () => {
 		expect(command).toBeDefined();
 
 		const context = createContext();
+		const { statuses } = context;
 		let releaseIdle: (() => void) | undefined;
 		let isWaitStarted = false;
 		context.ctx.waitForIdle = async () =>
@@ -567,13 +572,10 @@ describe("code land command", () => {
 
 		expect(isWaitStarted).toBe(true);
 		expect(pi.execCalls).toEqual([]);
-		expect(pi.sentMessages).toEqual([
-			{
-				customType: "sdl-command-ack",
-				content: "→ /sdl:flow:land received; starting…",
-				display: true,
-			},
-		]);
+		// Default command acknowledgements do not use the footer; this command reports
+		// progress through its own notifications/output.
+		expect(pi.sentMessages).toEqual([]);
+		expect(statuses).toEqual([]);
 
 		releaseIdle?.();
 		await handlerPromise;

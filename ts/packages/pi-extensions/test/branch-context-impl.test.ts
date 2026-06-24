@@ -42,10 +42,6 @@ describe("branch-context-impl", () => {
 		]);
 		expect(context.statuses).toEqual([
 			{
-				key: "sdl-command-ack",
-				value: "→ /sdl:branch-context:impl-attached-plan received; starting…",
-			},
-			{
 				key: "sdl:branch-context:impl-attached-plan",
 				value: "loading attached branch-context plan…",
 			},

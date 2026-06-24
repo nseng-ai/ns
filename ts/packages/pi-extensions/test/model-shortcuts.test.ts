@@ -149,6 +149,42 @@ describe("modelShortcutExtension", () => {
 		]);
 	});
 
+	test("does not emit a generic ack on a rendered-message host", async () => {
+		// Regression: on a rendered-message host (the real Pi host), the immediate ack
+		// used to append or set a generic command-running indicator. Model switches already
+		// emit their own completion notification, so they should not use the transcript or
+		// footer for a redundant ack.
+		const sentMessages: unknown[] = [];
+		const statusUpdates: { key: string; value: string | undefined }[] = [];
+		const model = { provider: "anthropic", id: "claude-opus-4-8" };
+		const pi = new FakePi();
+		// Make the host look like a rendered-message host, the condition that previously
+		// forced "message" delivery.
+		Object.assign(pi, {
+			registerMessageRenderer(): void {},
+			sendMessage(message: unknown): void {
+				sentMessages.push(message);
+			},
+		});
+		modelShortcutExtension(pi);
+
+		const { ctx } = createContext({ models: [model] });
+		const statusCtx = {
+			...ctx,
+			ui: {
+				...ctx.ui,
+				setStatus(key: string, value: string | undefined): void {
+					statusUpdates.push({ key, value });
+				},
+			},
+		};
+
+		await commandFor(pi, "model:opus").handler("", statusCtx);
+
+		expect(sentMessages).toEqual([]);
+		expect(statusUpdates).toEqual([]);
+	});
+
 	test("does not notify when UI is unavailable", async () => {
 		const model = { provider: "anthropic", id: "claude-haiku-4-5" };
 		const pi = new FakePi();

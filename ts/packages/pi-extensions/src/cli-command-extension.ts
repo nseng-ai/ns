@@ -208,6 +208,10 @@ export function registerCliCommandExtension(
 					});
 				},
 			},
+			// CLI-backed commands render their own live progress block above the editor.
+			// Suppress the generic footer ack so the same command-running state is not
+			// shown both above and below the fold.
+			options: { delivery: "none" },
 		});
 	}
 }
