@@ -1,15 +1,17 @@
-import { createSdlCommandRunner } from "@sdl/extension-kit/command-runner";
 import { defineExtension, failed, ok, z, type SdlCommand } from "@sdl/sdl/sdk";
 import type { TextGenerator } from "@sdl/sdl/text-generation";
-
-import { prepareFlowCheckpointMessage } from "../shared/model-generation.ts";
 import {
 	CHECKPOINT_MODEL_ENV,
 	DEFAULT_CHECKPOINT_MODEL_REF,
 	LEGACY_CHECKPOINT_MODEL_ENV,
 } from "../shared/text-generation.ts";
-import { formatPendingWorktreeError, type PendingWorktreeError } from "../shared/worktree.ts";
-import { RealCheckpointGateway, type CheckpointGateway } from "../shared/checkpoint.ts";
+import { formatPendingWorktreeError } from "../shared/worktree.ts";
+import {
+	createSdlCheckpointRuntime,
+	runCheckpointWorkflow,
+	type CheckpointGateway,
+	type CheckpointWorkflowResult,
+} from "../shared/checkpoint.ts";
 
 const CP_COMMAND_DESCRIPTION = `Create a checkpoint commit for the current diff.
 
@@ -35,12 +37,13 @@ export const flowCpCommand: SdlCommand<typeof cpRequestSchema> = {
 	description: CP_COMMAND_DESCRIPTION,
 	schema: cpRequestSchema,
 	async run(ctx, request: CpRequest) {
+		const runtime = createSdlCheckpointRuntime(ctx);
 		const result = await runCpCore({
 			cwd: ctx.cwd,
 			env: ctx.env,
 			textGenerator: ctx.textGenerator,
 			dryRun: request.dryRun,
-			checkpointGateway: new RealCheckpointGateway(createSdlCommandRunner(ctx)),
+			checkpointGateway: runtime.checkpointGateway,
 		});
 		return toCommandResult(result);
 	},
@@ -50,14 +53,7 @@ export default defineExtension({
 	commands: [flowCpCommand],
 });
 
-export type RunCpCoreResult =
-	| { type: "snapshot-failed"; error: PendingWorktreeError }
-	| { type: "trunk"; branch: string }
-	| { type: "clean" }
-	| { type: "message-failed"; error: string }
-	| { type: "dry-run"; branch: string; message: string }
-	| { type: "commit-failed"; error: string }
-	| { type: "committed"; summary: string; message: string };
+export type RunCpCoreResult = CheckpointWorkflowResult;
 
 export interface RunCpCoreOptions {
 	cwd: string;
@@ -68,32 +64,13 @@ export interface RunCpCoreOptions {
 }
 
 export async function runCpCore(options: RunCpCoreOptions): Promise<RunCpCoreResult> {
-	const loaded = await options.checkpointGateway.loadPendingWorktreeSnapshot({ cwd: options.cwd });
-	if (!loaded.ok) return { type: "snapshot-failed", error: loaded.error };
-
-	const snapshot = loaded.snapshot;
-	if (snapshot.branch === "main" || snapshot.branch === "master") {
-		return { type: "trunk", branch: snapshot.branch };
-	}
-	if (snapshot.clean) return { type: "clean" };
-
-	const prepared = await prepareFlowCheckpointMessage(
-		{ env: options.env, textGenerator: options.textGenerator },
-		snapshot,
-	);
-	if (!prepared.ok) return { type: "message-failed", error: prepared.error };
-
-	if (options.dryRun) {
-		return { type: "dry-run", branch: snapshot.branch, message: prepared.message };
-	}
-
-	const committed = await options.checkpointGateway.createCommitWithPreparedMessage({
+	return runCheckpointWorkflow({
 		cwd: options.cwd,
-		message: prepared.message,
+		env: options.env,
+		gateway: options.checkpointGateway,
+		textGenerator: options.textGenerator,
+		dryRun: options.dryRun,
 	});
-	if ("error" in committed) return { type: "commit-failed", error: committed.error };
-
-	return { type: "committed", summary: committed.summary, message: prepared.message };
 }
 
 function toCommandResult(result: RunCpCoreResult) {
