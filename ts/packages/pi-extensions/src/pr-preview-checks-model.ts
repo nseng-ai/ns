@@ -1,8 +1,4 @@
-import { truncateToWidth } from "@earendil-works/pi-tui";
-
 import { stripTerminalEscapes } from "./terminal-presentation.ts";
-
-const ROW_SUMMARY_WIDTH_COLUMNS = 46;
 
 export type PrPreviewCheckBucket = "failing" | "pending" | "unknown" | "passing";
 export type PrPreviewCheckKind = "check_run" | "status_context" | "unknown";
@@ -70,9 +66,7 @@ export function sortPreviewChecks(checks: readonly PrPreviewCheck[]): PrPreviewC
 }
 
 export function buildCheckRowLabel(check: PrPreviewCheck): string {
-	const title = stripTerminalEscapes(
-		truncateToWidth(check.name, ROW_SUMMARY_WIDTH_COLUMNS, "…", false),
-	);
+	const title = stripTerminalEscapes(check.name);
 	return [
 		bucketIcon(check.bucket),
 		check.bucket,
