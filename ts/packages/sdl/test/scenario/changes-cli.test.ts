@@ -1,74 +1,24 @@
-import { cpSync, rmSync } from "node:fs";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
-import { afterEach, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 
 import { listSdlCommands } from "@sdl/sdl/cli";
 
-import {
-	formattedExecCalls,
-	parseJsonOutput,
-	runCliWithFakes,
-	type RunWithFakesOptions,
-	type ScriptedExecResponse,
-} from "./sdl-cli-fakes.ts";
+import { runCliWithFakes } from "./sdl-cli-fakes.ts";
 
-const tempDirs: string[] = [];
-
-function runWithFakes(options: RunWithFakesOptions) {
-	return runCliWithFakes(options, {
-		execResponses: dirtySnapshotResponses,
-		textGenerationResults: () => [
-			{ ok: true, text: "- Update app behavior\n- Add notes for reviewers" },
-		],
-	});
-}
-
-function dirtySnapshotResponses(): ScriptedExecResponse[] {
-	return [
-		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
-		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
-		{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n?? notes.md\n" } },
+function runUnavailableChangesCli(args: readonly string[]) {
+	return runCliWithFakes(
+		{ args, state: { exec: [], textGeneration: [] } },
 		{
-			match: "git diff HEAD --no-ext-diff",
-			result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
+			execResponses: () => [],
+			textGenerationResults: () => [],
 		},
-	];
-}
-
-function cleanSnapshotResponses(): ScriptedExecResponse[] {
-	return [
-		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
-		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
-		{ match: "git status --porcelain=v1", result: { stdout: "" } },
-		{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
-	];
-}
-
-async function createChangesProject(): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), "sdl-changes-extension-project-"));
-	tempDirs.push(directory);
-	cpSync(
-		join(process.cwd(), "..", ".sdl", "extensions", "flow"),
-		join(directory, ".sdl", "extensions", "flow"),
-		{ recursive: true },
 	);
-	return directory;
 }
 
-afterEach(() => {
-	for (const directory of tempDirs.splice(0)) {
-		rmSync(directory, { recursive: true, force: true });
-	}
-});
-
-describe("sdl flow changes CLI", () => {
+describe("sdl flow changes CLI availability", () => {
 	test("static SDL command metadata is empty after the kernel reset", async () => {
 		expect(listSdlCommands()).toEqual([]);
 
-		const topHelp = runWithFakes({ args: ["--help"], state: { exec: [] } });
+		const topHelp = runUnavailableChangesCli(["--help"]);
 		expect(await topHelp.exit).toBe(0);
 		const help = topHelp.stdout.join("");
 		expect(help).toContain("Usage: sdl");
@@ -79,216 +29,17 @@ describe("sdl flow changes CLI", () => {
 		expect(topHelp.stderr.join("")).toBe("");
 	});
 
-	test("project-local direct changes extension appears in help and selected metadata", async () => {
-		const cwd = await createChangesProject();
+	test("changes help and invocation are unavailable without a project extension", async () => {
+		const help = runUnavailableChangesCli(["flow", "changes", "--help"]);
+		expect(await help.exit).toBe(0);
+		expect(help.stdout.join("")).toContain("Usage: sdl");
+		expect(help.stdout.join("")).not.toContain("Usage: sdl flow changes");
 
-		const topHelp = runWithFakes({ args: ["flow", "--help"], state: { exec: [] }, cwd });
-		expect(await topHelp.exit).toBe(0);
-		const topLevelHelp = topHelp.stdout.join("");
-		expect(topLevelHelp).toContain("changes");
-		expect(topLevelHelp).toContain("Summarize outstanding worktree changes without");
-		expect(topHelp.stderr.join("")).toBe("");
-
-		const commandHelp = runWithFakes({
-			args: ["flow", "changes", "--help"],
-			state: { exec: [] },
-			cwd,
-		});
-		expect(await commandHelp.exit).toBe(0);
-		const help = commandHelp.stdout.join("");
-		expect(help).toContain("Usage: sdl flow changes");
-		expect(help).toContain("read-only git commands");
-		expect(help).toContain("SDL_CHANGES_MODEL");
-		expect(help).toContain("PI_DRAFT_MODEL");
-		expect(help).not.toContain("--format");
-
-		const schema = runWithFakes({
-			args: ["flow", "changes", "--json-schema"],
-			state: { exec: [] },
-			cwd,
-		});
-		expect(await schema.exit).toBe(0);
-		expect(parseJsonOutput(schema)).toHaveProperty("input_json_schema");
-	});
-
-	test("clean worktree reports no outstanding changes without model generation", async () => {
-		const cwd = await createChangesProject();
-		const run = runWithFakes({
-			args: ["flow", "changes"],
-			state: { exec: cleanSnapshotResponses() },
-			cwd,
-		});
-
-		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toBe("Working tree is clean; no outstanding changes.\n");
-		expect(run.stderr.join("")).toBe("");
+		const run = runUnavailableChangesCli(["flow", "changes"]);
+		expect(await run.exit).not.toBe(0);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toMatch(/too many arguments|unknown/i);
+		expect(run.context.execCalls).toEqual([]);
 		expect(run.context.textGeneratorCalls).toEqual([]);
-		expect(formattedExecCalls(run.context)).toEqual([
-			"git rev-parse --show-toplevel",
-			"git symbolic-ref --short HEAD",
-			"git status --porcelain=v1",
-			"git diff HEAD --no-ext-diff",
-		]);
-	});
-
-	test("dirty worktree prints model bullets and raw status without mutation", async () => {
-		const cwd = await createChangesProject();
-		const run = runWithFakes({
-			args: ["flow", "changes"],
-			state: {
-				textGeneration: [{ ok: true, text: "- Update app behavior\n- Add reviewer notes" }],
-			},
-			cwd,
-		});
-
-		expect(await run.exit).toBe(0);
-		const output = run.stdout.join("");
-		expect(output).toContain("Outstanding changes on feature/demo");
-		expect(output).toContain("- Update app behavior");
-		expect(output).toContain("- Add reviewer notes");
-		expect(output).toContain("Files:\n M src/app.ts\n?? notes.md");
-		expect(run.stderr.join("")).toBe("");
-		expect(formattedExecCalls(run.context)).toEqual([
-			"git rev-parse --show-toplevel",
-			"git symbolic-ref --short HEAD",
-			"git status --porcelain=v1",
-			"git diff HEAD --no-ext-diff",
-		]);
-		expect(
-			formattedExecCalls(run.context).some((call) => /git (add|commit|stash)|^gt |^gh /.test(call)),
-		).toBe(false);
-		expect(run.context.textGeneratorCalls).toEqual([
-			expect.objectContaining({
-				modelRef: "openai-codex/gpt-5.4-mini",
-				operation: "changes-summary",
-				maxTokens: 512,
-				reasoning: "low",
-			}),
-		]);
-		expect(run.context.textGeneratorCalls[0]?.prompt).toContain("## branch\n\nfeature/demo");
-		expect(run.context.textGeneratorCalls[0]?.prompt).toContain("M src/app.ts\n?? notes.md");
-		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(
-			"diff --git a/src/app.ts b/src/app.ts",
-		);
-	});
-
-	test("changes model can be selected by SDL environment with legacy fallback", async () => {
-		const cwd = await createChangesProject();
-		const selected = runWithFakes({
-			args: ["flow", "changes"],
-			state: { textGeneration: [{ ok: true, text: "- Summarize selected model" }] },
-			env: {
-				SDL_CHANGES_MODEL: "openai-codex/custom-mini",
-				PI_DRAFT_MODEL: "openai-codex/legacy-mini",
-			},
-			cwd,
-		});
-		expect(await selected.exit).toBe(0);
-		expect(selected.context.textGeneratorCalls[0]?.modelRef).toBe("openai-codex/custom-mini");
-
-		const fallback = runWithFakes({
-			args: ["flow", "changes"],
-			state: { textGeneration: [{ ok: true, text: "- Summarize fallback model" }] },
-			env: { PI_DRAFT_MODEL: "openai-codex/legacy-mini" },
-			cwd,
-		});
-		expect(await fallback.exit).toBe(0);
-		expect(fallback.context.textGeneratorCalls[0]?.modelRef).toBe("openai-codex/legacy-mini");
-	});
-
-	test("model generation and validation failures exit 2 without mutation", async () => {
-		const cwd = await createChangesProject();
-		const invalid = runWithFakes({
-			args: ["flow", "changes"],
-			state: { textGeneration: [{ ok: true, text: "Summary\n- bullet" }] },
-			cwd,
-		});
-		expect(await invalid.exit).toBe(2);
-		expect(invalid.stdout.join("")).toBe("");
-		expect(invalid.stderr.join("")).toContain("Model returned an invalid changes summary");
-		expect(formattedExecCalls(invalid.context)).toEqual([
-			"git rev-parse --show-toplevel",
-			"git symbolic-ref --short HEAD",
-			"git status --porcelain=v1",
-			"git diff HEAD --no-ext-diff",
-		]);
-
-		const failed = runWithFakes({
-			args: ["flow", "changes"],
-			state: { textGeneration: [{ ok: false, error: "auth failed" }] },
-			cwd,
-		});
-		expect(await failed.exit).toBe(2);
-		expect(failed.stderr.join("")).toBe("auth failed\n");
-		expect(
-			formattedExecCalls(failed.context).some((call) =>
-				/git (add|commit|stash)|^gt |^gh /.test(call),
-			),
-		).toBe(false);
-	});
-
-	test("git errors fail with command details", async () => {
-		const cwd = await createChangesProject();
-		const notGit = runWithFakes({
-			args: ["flow", "changes"],
-			state: {
-				exec: [
-					{
-						match: "git rev-parse --show-toplevel",
-						result: { code: 128, stderr: "fatal: not a git repository" },
-					},
-				],
-			},
-			cwd,
-		});
-		expect(await notGit.exit).toBe(2);
-		expect(notGit.stderr.join("")).toBe(
-			"Not inside a git repository.\nexit 128: fatal: not a git repository\n",
-		);
-		expect(notGit.context.textGeneratorCalls).toEqual([]);
-
-		const statusFailed = runWithFakes({
-			args: ["flow", "changes"],
-			state: {
-				exec: [
-					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
-					{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
-					{ match: "git status --porcelain=v1", result: { code: 1, stderr: "index locked" } },
-				],
-			},
-			cwd,
-		});
-		expect(await statusFailed.exit).toBe(2);
-		expect(statusFailed.stderr.join("")).toBe(
-			"Could not inspect git status.\nexit 1: index locked\n",
-		);
-		expect(statusFailed.context.textGeneratorCalls).toEqual([]);
-	});
-
-	test("raw status output is capped at 50 file lines", async () => {
-		const cwd = await createChangesProject();
-		const status = Array.from({ length: 52 }, (_value, index) => ` M file-${index}.ts`).join("\n");
-		const run = runWithFakes({
-			args: ["flow", "changes"],
-			state: {
-				exec: [
-					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
-					{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
-					{ match: "git status --porcelain=v1", result: { stdout: status } },
-					{ match: "git diff HEAD --no-ext-diff", result: { stdout: "diff" } },
-				],
-				textGeneration: [{ ok: true, text: "- Update many files" }],
-			},
-			cwd,
-		});
-
-		expect(await run.exit).toBe(0);
-		const output = run.stdout.join("");
-		expect(output).toContain(
-			"Outstanding changes on feature/demo\n\n- Update many files\n\nFiles:",
-		);
-		expect(output).toContain(" M file-49.ts");
-		expect(output).not.toContain(" M file-50.ts");
-		expect(output).toContain("... 2 more file(s)");
 	});
 });
