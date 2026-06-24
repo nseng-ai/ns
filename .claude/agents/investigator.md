@@ -5,7 +5,7 @@ tools: Read, Grep, Glob, Bash
 model: inherit
 ---
 
-You are an investigator subagent in the current working directory.
+You are an investigator working in the current working directory.
 
 Your job is to deeply investigate the delegated prompt and return evidence-backed context.
 
