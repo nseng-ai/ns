@@ -106,7 +106,10 @@ function createHarness(options: HarnessOptions = {}) {
 			return { summary: "abc123 [cp] Update autoslot tests" };
 		},
 		notify: (message, level) => notifications.push({ message, level: level ?? "info" }),
-		setStatus: (message) => statuses.push(message),
+		progress: {
+			phase: (message) => statuses.push(message),
+			clear: () => statuses.push(undefined),
+		},
 	};
 
 	return { input, events, notifications, statuses };
@@ -190,6 +193,13 @@ describe("autoslot flow", () => {
 
 		expect(harness.events).toContain("commit");
 		expect(harness.events).toContain("slot:slot checkout --current --format json --no-clipboard");
+		expect(harness.statuses).toEqual([
+			"Inspecting worktree…",
+			"Drafting checkpoint message…",
+			"Creating Graphite branch and checkpoint…",
+			"Checking out branch slot…",
+			undefined,
+		]);
 		expect(harness.notifications.at(-1)).toEqual({
 			level: "info",
 			message: [
@@ -208,6 +218,12 @@ describe("autoslot flow", () => {
 		expect(harness.events).toContain("exec:git reset --hard parent987654");
 		expect(harness.events).toContain("exec:gt create test-branch --no-interactive --no-ai");
 		expect(harness.events).toContain("slot:slot checkout --current --format json --no-clipboard");
+		expect(harness.statuses).toEqual([
+			"Inspecting worktree…",
+			"Creating Graphite branch from latest commit…",
+			"Checking out branch slot…",
+			undefined,
+		]);
 		expect(harness.notifications.at(-1)?.message).toContain("Worktree: /slots/slot-01");
 	});
 
@@ -219,6 +235,11 @@ describe("autoslot flow", () => {
 		await createAutoslotFlow(harness.input);
 
 		expect(harness.events.some((event) => event.startsWith("slot:slot checkout"))).toBe(false);
+		expect(harness.statuses).toEqual([
+			"Inspecting worktree…",
+			"Drafting checkpoint message…",
+			undefined,
+		]);
 		expect(harness.notifications).toContainEqual({
 			level: "error",
 			message: "checkpoint prep failed",
@@ -252,6 +273,19 @@ describe("autoslot flow", () => {
 			"Autoslot created test-branch, but slot checkout failed.",
 		);
 		expect(harness.notifications.at(-1)?.message).toContain("No clean detached slot is available.");
+		expect(harness.statuses.at(-1)).toBeUndefined();
+	});
+
+	test("dirty autoslot without requested slug reports branch-name derivation", async () => {
+		const harness = createHarness();
+		harness.input.args = {};
+
+		await createAutoslotFlow(harness.input);
+
+		expect(harness.statuses).toContain("Deriving branch name…");
+		expect(harness.statuses.indexOf("Deriving branch name…")).toBeLessThan(
+			harness.statuses.indexOf("Drafting checkpoint message…"),
+		);
 	});
 });
 

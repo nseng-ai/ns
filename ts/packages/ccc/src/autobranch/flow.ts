@@ -25,6 +25,7 @@ export interface AutobranchFlowInput {
 	commitPreparedCheckpointMessage: (
 		message: string,
 	) => Promise<{ summary: string } | { error: string }>;
+	onPhase?: (message: string) => void;
 	readFile?: (path: string) => Promise<Uint8Array | string>;
 	stat?: (path: string) => Promise<FileStat>;
 	now?: (() => number) | undefined;
@@ -33,6 +34,7 @@ export interface AutobranchFlowInput {
 export async function createAutobranchCheckpointFlow(
 	input: AutobranchFlowInput,
 ): Promise<AutobranchFlowResult> {
+	input.onPhase?.("Inspecting worktree…");
 	const loaded = await loadPendingWorktreeSnapshot({
 		cwd: input.cwd,
 		execGit: (args, timeout) => input.exec("git", args, timeout),
@@ -48,6 +50,7 @@ export async function createAutobranchCheckpointFlow(
 			args: input.args,
 			snapshot,
 			exec: input.exec,
+			...(input.onPhase ? { onPhase: input.onPhase } : {}),
 			now: input.now,
 		});
 	}
@@ -59,6 +62,7 @@ export async function createAutobranchCheckpointFlow(
 		exec: input.exec,
 		prepareCheckpointMessage: input.prepareCheckpointMessage,
 		commitPreparedCheckpointMessage: input.commitPreparedCheckpointMessage,
+		...(input.onPhase ? { onPhase: input.onPhase } : {}),
 		...(input.readFile ? { readFile: input.readFile } : {}),
 		...(input.stat ? { stat: input.stat } : {}),
 		...(input.now ? { now: input.now } : {}),

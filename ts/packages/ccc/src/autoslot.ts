@@ -12,6 +12,11 @@ import {
 import { createAutobranchCheckpointFlow, type AutobranchFlowInput } from "./autobranch/flow.ts";
 import type { ParsedAutobranchArgs } from "@sdl/autobranch/dirty-worktree";
 import { startIdleWaitStatus } from "./idle-wait-status.ts";
+import {
+	createStatusProgressSink,
+	createStderrProgressSink,
+	type ProgressSink,
+} from "./progress-sink.ts";
 import { checkoutSlot } from "./slot-checkout.ts";
 
 const COMMAND_NAME = "sdl:flow:autoslot";
@@ -39,7 +44,7 @@ export interface AutoslotExtensionAPI extends Pick<ExtensionAPI, "exec"> {
 export interface AutoslotFlowInput extends AutobranchFlowInput {
 	slotExec: Pick<ExtensionAPI, "exec">;
 	notify: (message: string, level?: "info" | "warning" | "error") => void;
-	setStatus: (message: string | undefined) => void;
+	progress: ProgressSink;
 }
 
 export interface AutoslotCliInput {
@@ -97,7 +102,7 @@ export async function runAutoslotCli(input: AutoslotCliInput): Promise<number> {
 			}
 			input.stdout(output);
 		},
-		setStatus: () => {},
+		progress: createStderrProgressSink(input.stderr),
 		slotExec: {
 			exec: (command, args, options) => input.exec(command, args, options),
 		},
@@ -106,31 +111,36 @@ export async function runAutoslotCli(input: AutoslotCliInput): Promise<number> {
 }
 
 export async function createAutoslotFlow(input: AutoslotFlowInput): Promise<void> {
-	const createdBranch = await createAutobranchCheckpointFlow(input);
-	if (!createdBranch.ok) {
-		input.notify(createdBranch.error, "error");
-		return;
-	}
-
-	for (const warning of createdBranch.warnings) {
-		input.notify(warning, "warning");
-	}
-
-	const branchName = parseCreatedBranchName(createdBranch.summary);
-	const isCleanAfter = createdBranch.summary.includes("Working directory is clean.");
-	if (!isCleanAfter) {
-		input.notify(
-			[
-				`Autoslot created ${branchName}, but slot movement was skipped.`,
-				"The worktree is not clean; `slot checkout --current` requires a clean worktree.",
-			].join("\n"),
-			"warning",
-		);
-		return;
-	}
-
-	input.setStatus("checking out branch slot…");
 	try {
+		const createdBranch = await createAutobranchCheckpointFlow({
+			...input,
+			onPhase: (message) => {
+				input.progress.phase(message);
+			},
+		});
+		if (!createdBranch.ok) {
+			input.notify(createdBranch.error, "error");
+			return;
+		}
+
+		for (const warning of createdBranch.warnings) {
+			input.notify(warning, "warning");
+		}
+
+		const branchName = parseCreatedBranchName(createdBranch.summary);
+		const isCleanAfter = createdBranch.summary.includes("Working directory is clean.");
+		if (!isCleanAfter) {
+			input.notify(
+				[
+					`Autoslot created ${branchName}, but slot movement was skipped.`,
+					"The worktree is not clean; `slot checkout --current` requires a clean worktree.",
+				].join("\n"),
+				"warning",
+			);
+			return;
+		}
+
+		input.progress.phase("Checking out branch slot…");
 		const slot = await checkoutSlot(input.slotExec, input.cwd, { kind: "current" });
 		if (!slot.ok) {
 			input.notify(
@@ -149,7 +159,7 @@ export async function createAutoslotFlow(input: AutoslotFlowInput): Promise<void
 			"info",
 		);
 	} finally {
-		input.setStatus(undefined);
+		input.progress.clear?.();
 	}
 }
 
@@ -173,6 +183,9 @@ async function createAutoslot(
 		} finally {
 			stopIdleStatus();
 		}
+		const progress = createStatusProgressSink((message) => {
+			ctx.ui.setStatus(STATUS_KEY, message);
+		});
 		await createAutoslotFlow({
 			cwd: ctx.cwd,
 			args,
@@ -190,9 +203,7 @@ async function createAutoslot(
 			notify: (message, level) => {
 				ctx.ui.notify(message, level);
 			},
-			setStatus: (message) => {
-				ctx.ui.setStatus(STATUS_KEY, message);
-			},
+			progress,
 			slotExec: pi,
 		});
 	} finally {

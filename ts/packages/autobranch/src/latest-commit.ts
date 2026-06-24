@@ -39,6 +39,7 @@ export interface LatestCommitAutobranchInput {
 	args: ParsedAutobranchArgs;
 	snapshot: PendingWorktreeSnapshot;
 	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>;
+	onPhase?: (message: string) => void;
 	now?: (() => number) | undefined;
 }
 
@@ -50,6 +51,7 @@ export async function createLatestCommitAutobranchFlow(
 		return { ok: false, error: formatLatestCommitPreparationFailure(prepared) };
 	}
 
+	input.onPhase?.("Creating Graphite branch from latest commit…");
 	const transaction = await runLatestCommitAutobranchTransaction({
 		cwd: input.cwd,
 		plan: prepared.plan,
