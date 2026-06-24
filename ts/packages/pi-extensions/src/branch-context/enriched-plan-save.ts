@@ -15,7 +15,7 @@ import {
 	formatSavedPlanFileEvidence,
 	type SavedPlanContentSlugEvidence,
 	type SavedPlanFileEvidence,
-} from "@sdl/plans";
+} from "@sdl/plans/api";
 import { isRecord } from "../cmux/primitives.ts";
 import { GRILL_ASK_TOOL_NAME } from "../grill-ui.ts";
 import { resolveBranchContextOperations, resolvePlanStoreRootOption } from "./options.ts";

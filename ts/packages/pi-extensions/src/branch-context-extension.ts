@@ -1,4 +1,4 @@
-import { IMPL_BRANCH_CONTEXT_COMMAND_NAME } from "@sdl/branch-context";
+import { IMPL_BRANCH_CONTEXT_COMMAND_NAME } from "@sdl/pi-command-surfaces";
 import {
 	WRITE_GRILLED_PLAN_COMMAND_NAME,
 	WRITE_PLAN_COMMAND_NAME,

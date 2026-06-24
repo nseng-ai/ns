@@ -4,14 +4,14 @@ import type {
 	BranchCreationMethod,
 	createBranchContextFromFile,
 	loadBranchContextPlan,
-} from "@sdl/branch-context";
+} from "@sdl/branch-context/api";
 import type { ExecOptions, ExecResult } from "@sdl/core/exec";
 import type {
 	SessionReplacementContext,
 	SessionReplacementOptions,
 	SessionReplacementResult,
 } from "@sdl/pi-extension-runtime/session-replacement";
-import type { resolveSelectedSavedPlanFile, writeSavedPlanFile } from "@sdl/plans";
+import type { resolveSelectedSavedPlanFile, writeSavedPlanFile } from "@sdl/plans/api";
 import type { SendMessageOptions } from "../message-delivery.ts";
 
 export type NotifyLevel = "info" | "warning" | "error";

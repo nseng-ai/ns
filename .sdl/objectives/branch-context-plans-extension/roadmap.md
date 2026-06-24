@@ -14,8 +14,8 @@
 - [x] Migrate one `ccc` saved-plan dispatch/branch-context launch path to the curated Peer APIs.
   - Evidence: `ts/packages/ccc/src/cmux/slot-dispatch-plan.ts` now imports branch-context/plans behavior from `@sdl/branch-context/api` and `@sdl/plans/api`, with targeted `@sdl/ccc` checks/tests passing and no human-facing CLI output parsed for machine decisions. See `updates/2026-06-24-141357-peer-api-proof-path.md`.
 
-- [ ] Migrate Pi branch-context/enriched-plan adapters to the curated seams where they need in-process capability behavior.
-  - Evidence: Pi adapters retain presentation ownership while delegating branch-context/plans behavior through Peer APIs or command faces as appropriate; existing Pi tests cover unchanged user-visible command behavior.
+- [x] Migrate Pi branch-context/enriched-plan adapters to the curated seams where they need in-process capability behavior.
+  - Evidence: Pi adapter source now imports branch-context/plans behavior from `@sdl/branch-context/api` and `@sdl/plans/api`, while implementation command names come from `@sdl/pi-command-surfaces` and Pi presentation ownership is preserved. See `updates/2026-06-24-150630-pi-adapter-peer-api-migration.md`.
 
 - [ ] Retire obsolete broad/deep sibling imports and record the final boundary.
   - Evidence: import-boundary searches show sibling packages use Peer API subpaths or allowed testing surfaces; package docs/context and Objective updates capture the final branch-context/plans/ccc/pi-extension dependency stance.

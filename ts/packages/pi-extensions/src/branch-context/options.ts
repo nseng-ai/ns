@@ -2,8 +2,8 @@ import {
 	createBranchContextFromFile,
 	loadBranchContextPlan,
 	type BranchCreationMethod,
-} from "@sdl/branch-context";
-import { resolveSelectedSavedPlanFile, writeSavedPlanFile } from "@sdl/plans";
+} from "@sdl/branch-context/api";
+import { resolveSelectedSavedPlanFile, writeSavedPlanFile } from "@sdl/plans/api";
 import type { BranchContextExtensionOptions, BranchContextOperations } from "./host-types.ts";
 
 const realBranchContextOperations: BranchContextOperations = {

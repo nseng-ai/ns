@@ -9,6 +9,7 @@ import {
 import {
 	BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
 	BRANCH_CONTEXT_UPSTACK_IMPL_FROM_PLAN_COMMAND_NAME,
+	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 } from "@sdl/pi-command-surfaces";
 import {
 	BRANCH_CONTEXT_NAMESPACE,
@@ -22,19 +23,18 @@ import {
 	formatExistingBranchContextReuse,
 	formatImplBranchContextCommand,
 	formatLoadedAttachedPlanEvidence,
-	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 	resolveExistingBranchContextReuse,
 	type BranchContextEvidence,
 	type BranchContextOutputDetails,
 	type BranchCreationMethod,
 	type ExistingBranchContextReuse,
 	type PlanContentSlugEvidence,
-} from "@sdl/branch-context";
+} from "@sdl/branch-context/api";
 import {
 	NoSavedPlanAvailableError,
 	type RepoIdentitySource,
 	type SelectedSavedPlanFile,
-} from "@sdl/plans";
+} from "@sdl/plans/api";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import {
 	resolveBranchContextDefaultCreation,
