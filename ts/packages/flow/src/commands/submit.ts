@@ -8,7 +8,7 @@ import {
 	runSubmitCommand,
 	type SubmitCommandResult,
 } from "../shared/submit.ts";
-import { selectSubmitFailureModelRef } from "../shared/submit-model.ts";
+import { selectSubmitFailureModelRef } from "../shared/text-generation.ts";
 import {
 	defineExtension,
 	failed,
