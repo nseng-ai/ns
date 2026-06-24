@@ -105,7 +105,7 @@ describe("areg check CLI", () => {
 			}),
 		});
 
-		expect(await run.exit).toBe(0);
+		expect(await run.exit).toBe(1);
 		const body = JSON.parse(run.stdout.join(""));
 		expect(body.exit_code).toBe(1);
 		expect(body.data.issues).toEqual([
@@ -139,12 +139,12 @@ describe("areg check CLI", () => {
 			}),
 		});
 
-		expect(await run.exit).toBe(0);
-		const stdout = run.stdout.join("");
-		expect(stdout).toContain("skills/local/ does not exist");
-		expect(stdout).toContain(".agents/skills/local is a real directory, expected symlink");
-		expect(stdout).toContain(".agents/skills/remote is a symlink but should be a real directory");
-		expect(stdout).toContain("GitHub-sourced skill should not have skills/remote/ entry");
+		expect(await run.exit).toBe(1);
+		const stderr = run.stderr.join("");
+		expect(stderr).toContain("skills/local/ does not exist");
+		expect(stderr).toContain(".agents/skills/local is a real directory, expected symlink");
+		expect(stderr).toContain(".agents/skills/remote is a symlink but should be a real directory");
+		expect(stderr).toContain("GitHub-sourced skill should not have skills/remote/ entry");
 	});
 
 	test("reports SKILL.md frontmatter and invoke-only conversion failures", async () => {
@@ -179,12 +179,12 @@ describe("areg check CLI", () => {
 			}),
 		});
 
-		expect(await run.exit).toBe(0);
-		const stdout = run.stdout.join("");
-		expect(stdout).toContain("invalid description: exceeds maximum length of 1024 characters");
-		expect(stdout).toContain("skills/invoke/agents/openai.yaml missing for invoke-only skill");
-		expect(stdout).not.toContain(".pi/settings.json missing -skills/invoke");
-		expect(stdout).toContain("exists but SKILL.md does not set disable-model-invocation: true");
+		expect(await run.exit).toBe(1);
+		const stderr = run.stderr.join("");
+		expect(stderr).toContain("invalid description: exceeds maximum length of 1024 characters");
+		expect(stderr).toContain("skills/invoke/agents/openai.yaml missing for invoke-only skill");
+		expect(stderr).not.toContain(".pi/settings.json missing -skills/invoke");
+		expect(stderr).toContain("exists but SKILL.md does not set disable-model-invocation: true");
 	});
 
 	test("reports missing Pi exclusion for command-backed skill-kind facts", async () => {
@@ -204,8 +204,8 @@ describe("areg check CLI", () => {
 			}),
 		});
 
-		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain(
+		expect(await run.exit).toBe(1);
+		expect(run.stderr.join("")).toContain(
 			".pi/settings.json missing -skills/custom-command for command-backed skill",
 		);
 	});
@@ -295,8 +295,8 @@ describe("areg check CLI", () => {
 			}),
 		});
 
-		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain("expected /custom:command");
+		expect(await run.exit).toBe(1);
+		expect(run.stderr.join("")).toContain("expected /custom:command");
 	});
 
 	test("reports orphan, dangling, and AGENTS/CLAUDE pairing failures", async () => {
@@ -313,12 +313,12 @@ describe("areg check CLI", () => {
 			}),
 		});
 
-		expect(await run.exit).toBe(0);
-		const stdout = run.stdout.join("");
-		expect(stdout).toContain("Orphaned directory skills/orphan-local/");
-		expect(stdout).toContain("Orphaned directory .agents/skills/orphan-remote/");
-		expect(stdout).toContain("Dangling lockfile entry: no directories found on disk for ghost");
-		expect(stdout).toContain("CLAUDE.md at CLAUDE.md does not include peer AGENTS.md");
-		expect(stdout).toContain("CLAUDE.md at pkg/CLAUDE.md has no peer AGENTS.md");
+		expect(await run.exit).toBe(1);
+		const stderr = run.stderr.join("");
+		expect(stderr).toContain("Orphaned directory skills/orphan-local/");
+		expect(stderr).toContain("Orphaned directory .agents/skills/orphan-remote/");
+		expect(stderr).toContain("Dangling lockfile entry: no directories found on disk for ghost");
+		expect(stderr).toContain("CLAUDE.md at CLAUDE.md does not include peer AGENTS.md");
+		expect(stderr).toContain("CLAUDE.md at pkg/CLAUDE.md has no peer AGENTS.md");
 	});
 });
