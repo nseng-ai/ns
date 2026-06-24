@@ -1,6 +1,10 @@
 import { describe, expect, test, vi } from "vitest";
-import type { AutobranchCommandContext, AutoslotFlowInput } from "../src/autoslot.ts";
-import { createAutoslotFlow, registerAutoslotCommand } from "../src/autoslot.ts";
+import type {
+	AutobranchCommandContext,
+	AutoslotCliInput,
+	AutoslotFlowInput,
+} from "../src/autoslot.ts";
+import { createAutoslotFlow, registerAutoslotCommand, runAutoslotCli } from "../src/autoslot.ts";
 import { startIdleWaitStatus } from "../src/idle-wait-status.ts";
 import { fail, ok, type CommandResult } from "./autobranch-test-helpers.ts";
 
@@ -280,6 +284,37 @@ describe("autoslot flow", () => {
 		expect(harness.statuses.indexOf("Deriving branch name…")).toBeLessThan(
 			harness.statuses.indexOf("Drafting checkpoint message…"),
 		);
+	});
+
+	test("CLI routes phase output through onOutput and errors through stderr", async () => {
+		const stdout: string[] = [];
+		const stderr: string[] = [];
+		const output: Array<{ stream: "stdout" | "stderr"; text: string }> = [];
+		const input: AutoslotCliInput = {
+			cwd: "/repo",
+			env: {},
+			args: { slug: "test-branch" },
+			exec: async (command, args) => {
+				if (command === "git" && args[0] === "rev-parse" && args[1] === "--show-toplevel")
+					return { code: 0, killed: false, stdout: "/repo\n", stderr: "" };
+				if (command === "git" && args[0] === "symbolic-ref")
+					return { code: 0, killed: false, stdout: "source-branch\n", stderr: "" };
+				if (command === "git" && args[0] === "status")
+					return { code: 1, killed: false, stdout: "", stderr: "fatal: status failed\n" };
+				throw new Error(`unexpected exec: ${command} ${args.join(" ")}`);
+			},
+			stdout: (text) => stdout.push(text),
+			stderr: (text) => stderr.push(text),
+			onOutput: (stream, text) => output.push({ stream, text }),
+		};
+
+		const exitCode = await runAutoslotCli(input);
+
+		expect(exitCode).toBe(1);
+		expect(output).toEqual([{ stream: "stderr", text: "Inspecting worktree…\n" }]);
+		expect(stdout).toEqual([]);
+		expect(stderr.join("")).toContain("Could not read git status.");
+		expect(stderr.join("")).toContain("fatal: status failed");
 	});
 });
 

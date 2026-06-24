@@ -1,7 +1,7 @@
 import process from "node:process";
 
 import type { ParsedAutobranchArgs } from "@sdl/autobranch/dirty-worktree";
-import { runWithCommandIo, type CommandIo } from "@sdl/core/command-io";
+import { createCommandIo, runWithCommandIo, type CommandIo } from "@sdl/core/command-io";
 import {
 	sendCommandProgressOrNotify,
 	registerCommandWithImmediateAck,
@@ -152,29 +152,23 @@ export async function createAutoslotFlow(input: AutoslotFlowInput): Promise<void
 }
 
 function createAutoslotCliCommandIo(input: AutoslotCliInput, onError: () => void): CommandIo {
+	const io = createCommandIo({
+		...(input.onOutput === undefined
+			? {}
+			: { phaseTransient: (text: string) => input.onOutput?.("stderr", text) }),
+		phaseFallback: input.stderr,
+		notifyInfo: input.stdout,
+		notifyDiagnostic: input.stderr,
+	});
+
 	return {
-		phase: (message) => {
-			const line = `${message}\n`;
-			if (input.onOutput !== undefined) {
-				input.onOutput("stderr", line);
-				return;
-			}
-			input.stderr(line);
-		},
+		...io,
 		notify: (message, level = "info") => {
-			const output = `${message.trimEnd()}\n`;
 			if (level === "error") {
 				onError();
-				input.stderr(output);
-				return;
 			}
-			if (level === "warning") {
-				input.stderr(output);
-				return;
-			}
-			input.stdout(output);
+			io.notify(message, level);
 		},
-		clearPhase: () => {},
 	};
 }
 
