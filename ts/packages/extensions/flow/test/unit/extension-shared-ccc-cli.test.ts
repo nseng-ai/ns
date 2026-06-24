@@ -3,7 +3,8 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
 
-import type { ExecResult, SdlExecOptions, SdlExtensionApi, SdlResult } from "@sdl/sdl/sdk";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/exec";
+import type { SdlExecOptions, SdlExtensionApi, SdlResult } from "@sdl/sdl/sdk";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../../..");
 const SHARED_CCC_CLI_HELPER_PATH = join(
@@ -31,6 +32,7 @@ interface RunFlowCccCliOptions {
 	successMessage: string;
 	failureMessage: string;
 	shouldForwardLiveOutput?: boolean | undefined;
+	trustedExec?: CommandExecApi | undefined;
 	run(input: FlowCccCliRunnerInput): Promise<number>;
 }
 
@@ -38,23 +40,20 @@ interface FlowCccCliModule {
 	runFlowCccCli(options: RunFlowCccCliOptions): Promise<SdlResult>;
 }
 
-interface CapturedExecOptions extends SdlExecOptions {
-	cwd?: string | undefined;
-}
-
 interface ExecCall {
 	command: string;
 	args: string[];
-	options?: CapturedExecOptions | undefined;
+	options?: ExecOptions | SdlExecOptions | undefined;
 }
 
 describe("project extension shared CCC CLI helper", () => {
 	test("returns empty success result after forwarding emitted stdout", async () => {
 		const sharedModule = await loadFlowCccCliModule();
-		const { api, calls, stdout } = createFakeApi([makeExecResult()]);
+		const { api, trustedExec, calls, stdout } = createFakeApi([makeExecResult()]);
 
 		const result = await sharedModule.runFlowCccCli({
 			ctx: api,
+			trustedExec,
 			successMessage: "completed",
 			failureMessage: "failed",
 			run: async (io) => {
@@ -117,12 +116,13 @@ describe("project extension shared CCC CLI helper", () => {
 
 	test("optionally forwards exec live output through ctx.onOutput", async () => {
 		const sharedModule = await loadFlowCccCliModule();
-		const { api, calls, liveOutput } = createFakeApi([
+		const { api, trustedExec, calls, liveOutput } = createFakeApi([
 			makeExecResult({ stdout: "live out\n", stderr: "live err\n" }),
 		]);
 
 		const result = await sharedModule.runFlowCccCli({
 			ctx: api,
+			trustedExec,
 			successMessage: "completed",
 			failureMessage: "failed",
 			shouldForwardLiveOutput: true,
@@ -136,13 +136,45 @@ describe("project extension shared CCC CLI helper", () => {
 		expect(calls).toHaveLength(1);
 		expect(calls[0]?.command).toBe("gt");
 		expect(calls[0]?.args).toEqual(["status"]);
-		expect(calls[0]?.options?.timeoutMs).toBe(9);
+		expect(calls[0]?.options).toMatchObject({ timeoutMs: 9 });
 		expect(calls[0]?.options?.onStdout).toEqual(expect.any(Function));
 		expect(calls[0]?.options?.onStderr).toEqual(expect.any(Function));
 		expect(liveOutput).toEqual([
 			{ stream: "stdout", text: "live out\n" },
 			{ stream: "stderr", text: "live err\n" },
 		]);
+	});
+
+	test("routes trusted pull-trunk execution to alternate cwd without scoped-cwd refusal", async () => {
+		const sharedModule = await loadFlowCccCliModule();
+		const { api, trustedExec, calls } = createFakeApi([makeExecResult({ stdout: "updated\n" })]);
+
+		const result = await sharedModule.runFlowCccCli({
+			ctx: api,
+			trustedExec,
+			successMessage: "completed",
+			failureMessage: "failed",
+			run: async (io) => {
+				const execResult = await io.exec("git", ["pull", "--ff-only", "origin", "master"], {
+					cwd: "/trunk",
+					timeout: 42,
+				});
+				return execResult.code;
+			},
+		});
+
+		expect(result).toEqual({ ok: true, message: "completed" });
+		expect(calls).toEqual([
+			{
+				command: "git",
+				args: ["pull", "--ff-only", "origin", "master"],
+				options: { cwd: "/trunk", env: {}, timeout: 42 },
+			},
+		]);
+		expect(calls[0]?.options).toMatchObject({ cwd: "/trunk" });
+		expect(JSON.stringify(calls)).not.toContain(
+			"SDL command execution is scoped to /repo; refusing command cwd /trunk.",
+		);
 	});
 });
 
@@ -163,6 +195,7 @@ function assertFlowCccCliModule(value: unknown): asserts value is FlowCccCliModu
 
 function createFakeApi(results: readonly ExecResult[]): {
 	api: SdlExtensionApi;
+	trustedExec: CommandExecApi;
 	calls: ExecCall[];
 	stdout: string[];
 	stderr: string[];
@@ -174,6 +207,16 @@ function createFakeApi(results: readonly ExecResult[]): {
 	const stderr: string[] = [];
 	const liveOutput: Array<{ stream: "stdout" | "stderr"; text: string }> = [];
 	return {
+		trustedExec: {
+			async exec(command, args, options) {
+				calls.push({ command, args, ...(options === undefined ? {} : { options }) });
+				const result =
+					pending.shift() ?? makeExecResult({ code: 127, stderr: "missing exec response\n" });
+				options?.onStdout?.(result.stdout);
+				options?.onStderr?.(result.stderr);
+				return result;
+			},
+		},
 		api: {
 			cwd: "/repo",
 			env: {},
