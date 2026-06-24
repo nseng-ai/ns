@@ -115,36 +115,43 @@ export class PrPreviewChecksView implements Component {
 	private renderBody(width: number, rows: number): string[] {
 		if (this.model.checks.length === 0) return this.renderEmptyBody(width, rows);
 		this.selectedIndex = clamp(this.selectedIndex, 0, this.model.checks.length - 1);
+		const listRows = checkListRows({ totalRows: rows, checkCount: this.model.checks.length });
+		const detailRows = Math.max(1, rows - listRows - 2);
 		this.listScroll = reconcileScroll({
 			scroll: this.listScroll,
 			anchor: this.selectedIndex,
-			areaHeight: rows,
+			areaHeight: listRows,
 			totalLines: this.model.checks.length,
 		});
-		const preferredLeftWidth = clamp(Math.floor(width * 0.32), 28, 52);
-		const leftWidth = Math.min(preferredLeftWidth, Math.max(20, width - 24));
-		const rightWidth = Math.max(12, width - leftWidth - 3);
+		return [
+			...this.renderCheckListLines(width, listRows),
+			this.color("dim", "─".repeat(Math.max(1, width))),
+			this.color("muted", "Selected check details"),
+			...this.renderSelectedCheckDetailLines(width, detailRows),
+		];
+	}
+
+	private renderCheckListLines(width: number, rows: number): string[] {
 		const visibleChecks = this.model.checks.slice(this.listScroll, this.listScroll + rows);
+		return Array.from({ length: rows }, (_unused, row) => {
+			const check = visibleChecks[row];
+			if (check === undefined) return "";
+			return this.renderCheckRow(check, this.listScroll + row, width);
+		});
+	}
+
+	private renderSelectedCheckDetailLines(width: number, rows: number): string[] {
 		const detailLines = this.renderDetailLines(this.model.checks[this.selectedIndex]);
 		const viewport = sliceWrappedDetailLinesForViewport({
 			lines: detailLines,
-			width: rightWidth,
+			width,
 			rows,
 			scroll: this.detailScroll,
 		});
 		this.detailScroll = viewport.scroll;
-		const rightLines = viewport.lines;
-		const lines: string[] = [];
-		for (let row = 0; row < rows; row += 1) {
-			const check = visibleChecks[row];
-			const actualIndex = this.listScroll + row;
-			const left = check === undefined ? "" : this.renderCheckRow(check, actualIndex, leftWidth);
-			const right = rightLines[row] ?? "";
-			lines.push(
-				`${fitToWidth(left, leftWidth)} ${this.color("dim", "│")} ${fitToWidth(right, rightWidth)}`,
-			);
-		}
-		return lines;
+		return Array.from({ length: rows }, (_unused, row) =>
+			fitToWidth(viewport.lines[row] ?? "", width),
+		);
 	}
 
 	private renderEmptyBody(width: number, rows: number): string[] {
@@ -210,6 +217,12 @@ export class PrPreviewChecksView implements Component {
 	private boxLine(value: string, width: number): string {
 		return this.color("border", "│") + fitToWidth(value, width) + this.color("border", "│");
 	}
+}
+
+export function checkListRows(options: { totalRows: number; checkCount: number }): number {
+	const availableRows = Math.max(1, options.totalRows - 3);
+	const preferredRows = Math.max(4, Math.floor(options.totalRows * 0.55));
+	return clamp(Math.min(options.checkCount, preferredRows), 1, availableRows);
 }
 
 export function sliceWrappedDetailLinesForViewport(
