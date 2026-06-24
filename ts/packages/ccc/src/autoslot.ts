@@ -1,42 +1,12 @@
-import process from "node:process";
-
 import type { ParsedAutobranchArgs } from "@sdl/autobranch/dirty-worktree";
 import { createCommandIo, runWithCommandIo, type CommandIo } from "@sdl/core/command-io";
-import {
-	sendCommandProgressOrNotify,
-	registerCommandWithImmediateAck,
-} from "@sdl/pi-extension-runtime/command-ack";
-import { commandIoFromPiContext } from "@sdl/pi-extension-runtime/command-io";
 import type { ExtensionAPI } from "@sdl/pi-extension-runtime/cmux/types";
 import {
 	commitAutobranchCheckpointMessage,
 	prepareAutobranchCheckpointMessage,
 } from "./autobranch/checkpoint.ts";
 import { createAutobranchCheckpointFlow, type AutobranchFlowInput } from "./autobranch/flow.ts";
-import { startIdleWaitStatus } from "./idle-wait-status.ts";
 import { checkoutSlot } from "./slot-checkout.ts";
-
-const COMMAND_NAME = "sdl:flow:autoslot";
-const STATUS_KEY = "autoslot";
-
-export interface AutobranchCommandContext {
-	cwd: string;
-	ui: {
-		notify(message: string, level?: "info" | "warning" | "error"): void;
-		setStatus(key: string, value: string | undefined): void;
-	};
-	waitForIdle(): Promise<void>;
-}
-
-export interface AutoslotExtensionAPI extends Pick<ExtensionAPI, "exec"> {
-	registerCommand(
-		name: string,
-		options: {
-			description?: string;
-			handler(args: string, ctx: AutobranchCommandContext): Promise<void> | void;
-		},
-	): void;
-}
 
 export interface AutoslotFlowInput extends AutobranchFlowInput {
 	slotExec: Pick<ExtensionAPI, "exec">;
@@ -55,20 +25,6 @@ export interface AutoslotCliInput {
 	stdout(text: string): void;
 	stderr(text: string): void;
 	onOutput?: ((stream: "stdout" | "stderr", text: string) => void) | undefined;
-}
-
-export function registerAutoslotCommand(pi: AutoslotExtensionAPI): void {
-	registerCommandWithImmediateAck({
-		host: pi,
-		commandName: COMMAND_NAME,
-		commandDefinition: {
-			description:
-				"Create a Graphite branch from current work, then move it into a managed slot worktree",
-			handler: async (args, ctx) => {
-				await createAutoslot(pi, ctx, parseAutobranchArgs(args));
-			},
-		},
-	});
 }
 
 export async function runAutoslotCli(input: AutoslotCliInput): Promise<number> {
@@ -175,65 +131,4 @@ function createAutoslotCliCommandIo(input: AutoslotCliInput, onError: () => void
 function parseCreatedBranchName(summary: string): string {
 	const firstLine = summary.split("\n")[0] ?? "";
 	return firstLine.replace(/^New branch: /, "").replace(/ \(base slug .*\)$/, "");
-}
-
-async function createAutoslot(
-	pi: AutoslotExtensionAPI,
-	ctx: AutobranchCommandContext,
-	args: ParsedAutobranchArgs,
-): Promise<void> {
-	const startMessage =
-		"Starting /sdl:flow:autoslot — runs once Pi finishes its current response, then creates a branch and moves it to a slot. Interrupt Pi to run it now.";
-	sendCommandProgressOrNotify({ host: pi, ctx, message: startMessage, delivery: "notify" });
-	const stopIdleStatus = startIdleWaitStatus(ctx.ui, STATUS_KEY);
-	try {
-		try {
-			await ctx.waitForIdle();
-		} finally {
-			stopIdleStatus();
-		}
-		const io = commandIoFromPiContext(ctx, { statusKey: STATUS_KEY });
-		await runWithCommandIo(
-			io,
-			async (io) =>
-				await createAutoslotFlow({
-					cwd: ctx.cwd,
-					args,
-					exec: (command, commandArgs, timeout) =>
-						pi.exec(command, commandArgs, { cwd: ctx.cwd, timeout }),
-					prepareCheckpointMessage: (snapshot) =>
-						prepareAutobranchCheckpointMessage(snapshot, process.env),
-					commitPreparedCheckpointMessage: (message) =>
-						commitAutobranchCheckpointMessage(
-							(command, commandArgs, commandCwd, timeout) =>
-								pi.exec(command, commandArgs, { cwd: commandCwd, timeout }),
-							ctx.cwd,
-							message,
-						),
-					io,
-					slotExec: pi,
-				}),
-		);
-	} finally {
-		ctx.ui.setStatus(STATUS_KEY, undefined);
-	}
-}
-
-function parseAutobranchArgs(argsText: string): ParsedAutobranchArgs {
-	const parts = argsText.trim().split(/\s+/).filter(Boolean);
-	const parsed: ParsedAutobranchArgs = {};
-	for (let index = 0; index < parts.length; index += 1) {
-		const part = parts[index];
-		const next = parts[index + 1];
-		if (part === "--slug" && next) {
-			parsed.slug = next;
-			index += 1;
-		} else if (part?.startsWith("--slug=")) {
-			const value = part.slice("--slug=".length);
-			if (value) {
-				parsed.slug = value;
-			}
-		}
-	}
-	return parsed;
 }
