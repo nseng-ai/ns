@@ -113,11 +113,11 @@ The command-first promotion rule is evidence driven: copy or localize behavior w
 The grouped flow extension uses a conservative maturity ladder for repeated command-author seams:
 
 1. **Raw:** command-local logic built directly on kernel primitives such as `ctx.exec`, `ctx.textGenerator`, `ctx.stdout`, `ctx.stderr`, `ctx.confirm`, `ctx.env`, and `ctx.cwd`.
-2. **Flow-shared:** repeated repo-local mechanics extracted under `.sdl/extensions/flow/src/shared/`, for example current helpers for Git mechanics, checkpoint-message/model wiring, worktree facts, text helpers, and CCC CLI delegation.
+2. **Flow-shared:** repeated repo-local mechanics extracted under `ts/packages/extensions/flow/src/shared/` in the `sdl-flow` workspace package, for example current helpers for Git mechanics, checkpoint-message/model wiring, worktree facts, text helpers, and CCC CLI delegation.
 3. **Internal export:** package-owned behavior reached through documented `@sdl/sdl/*` internal-migration-export subpaths, such as submit orchestration, PR-description orchestration, checkpoint/pending-worktree helpers, temp files, and text repair/generation support.
 4. **Public SDK:** a separately approved promotion into `@sdl/sdl/sdk`. This remains deferred for the flow consolidation track except for already documented SDK exports.
 
-This ladder is a readiness model, not an automatic promotion pipeline. Flow-shared helpers keep this repository's grouped command package readable; internal migration exports support package-to-package migration; neither tier is public extension-author API.
+This ladder is a readiness model, not an automatic promotion pipeline. Flow-shared helpers keep this repository's grouped `sdl-flow` command package readable; internal migration exports support package-to-package migration; neither tier is public extension-author API.
 
 ## `cp`
 
@@ -128,7 +128,7 @@ sdl flow cp
 sdl flow cp --dry-run
 ```
 
-In this repository, `sdl flow cp` is discovered through the project-local flow adapter manifest at `.sdl/extensions/flow`, with implementation owned by `@sdl/flow/commands/cp`; it is not a universal built-in SDL command.
+In this repository, `sdl flow cp` is discovered through the project-local flow adapter manifest at `.sdl/extensions/flow`, with implementation owned by `sdl-flow/commands/cp`; it is not a universal built-in SDL command.
 
 Behavior:
 
@@ -155,7 +155,7 @@ sdl flow autobranch
 sdl flow autobranch --slug <slug>
 ```
 
-In this repository, `sdl flow autobranch` is discovered through the project-local flow adapter manifest at `.sdl/extensions/flow`, with implementation owned by `@sdl/flow/commands/autobranch`; it is not a universal built-in SDL command. Hidden `ccc exec autobranch` remains for CCC/internal compatibility, but the public agent and Pi boundary is `sdl flow autobranch` / `/sdl:flow:autobranch`.
+In this repository, `sdl flow autobranch` is discovered through the project-local flow adapter manifest at `.sdl/extensions/flow`, with implementation owned by `sdl-flow/commands/autobranch`; it is not a universal built-in SDL command. Hidden `ccc exec autobranch` remains for CCC/internal compatibility, but the public agent and Pi boundary is `sdl flow autobranch` / `/sdl:flow:autobranch`.
 
 Behavior:
 
@@ -181,7 +181,7 @@ sdl flow branch-latest-commit
 sdl flow branch-latest-commit --slug <slug>
 ```
 
-In this repository, `sdl flow branch-latest-commit` is discovered through the project-local flow adapter manifest at `.sdl/extensions/flow`, with implementation owned by `@sdl/flow/commands/branch-latest-commit`; it is a focused public surface for the clean latest-commit split workflow.
+In this repository, `sdl flow branch-latest-commit` is discovered through the project-local flow adapter manifest at `.sdl/extensions/flow`, with implementation owned by `sdl-flow/commands/branch-latest-commit`; it is a focused public surface for the clean latest-commit split workflow.
 
 Behavior:
 

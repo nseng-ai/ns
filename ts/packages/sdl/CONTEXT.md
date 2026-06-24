@@ -68,16 +68,16 @@ The abstract slot — the stable package subpath we promise to point SDL extensi
 The evidence rule for moving behavior into the SDL extension API: one command may copy or localize a seam while it is still being proven; shared helpers can live inside `.sdl/extensions/` when that keeps project-local authoring readable; promotion to `@sdl/sdl/sdk` requires repeated command evidence or a clearly documented single-command necessity. Promotion should create a deep author-facing interface, not expose internals for convenience.
 *Avoid*: one-command convenience export, importing implementation modules from extensions, treating duplication as automatically bad, hidden migration registry.
 
-**Internal migration export**:
-An SDL package subpath that exists so SDL workspace packages can share primitives during migration, but is not promised as a plugin-author API. `ts/packages/sdl/package.json` marks these as `sdl.internalMigrationExports`, distinct from `./sdk` as the only current `sdl.publicPluginApi` subpath.
-*Avoid*: plugin API, public SDK, command-author import path.
+**Internal workspace export**:
+An `@sdl/sdl` subpath shared across first-party workspace packages (`ccc`, `pi-extensions`, flow) but not promised through the Public author API. It carries SDK-independent primitives — code that takes explicit callbacks (`execGit`, a text generator) rather than `SdlExtensionApi`. The dividing rule between sharing mechanisms is SDK-dependence: `ctx`-dependent shared code belongs above the SDK in the Shared extension substrate; SDK-independent primitives stay here, below the SDK. (`package.json` field rename `sdl.internalMigrationExports` → `sdl.internalWorkspaceExports` pending; see ADR 0009.)
+*Avoid*: internal migration export, plugin API, public SDK, command-author import path, ctx-dependent shared code.
 
 **Flow capability-area maturity ladder**:
-The documentation/readiness model for recurring project-local flow command-author seams: `raw` command-local logic, `flow-shared` helpers under `.sdl/extensions/flow/src/shared/`, `internal-export` package-owned behavior reached through documented `@sdl/sdl/*` internal-migration-export subpaths, and deferred `public-sdk` promotion into `@sdl/sdl/sdk` only after a separate explicit SDK decision.
+The documentation/readiness model for recurring project-local flow command-author seams: `raw` command-local logic, `flow-shared` helpers under `ts/packages/extensions/flow/src/shared/` in the `sdl-flow` workspace package, `internal-export` package-owned behavior reached through documented `@sdl/sdl/*` Internal workspace export subpaths, and deferred `public-sdk` promotion into `@sdl/sdl/sdk` only after a separate explicit SDK decision. For capabilities beyond flow, the Extension layering model (ADR 0009) governs: the SDK stays thin host primitives, and shared `ctx`-dependent code lives above the SDK in the Shared extension substrate rather than being promoted into `@sdl/sdl/sdk`.
 *Avoid*: task status, automatic SDK promotion pipeline, proof that a helper is public author API, generic rule for all future extensions.
 
 **Flow-shared helper**:
-A helper owned by the grouped project-local flow extension package under `.sdl/extensions/flow/src/shared/`. It may keep repeated repo-local command authoring readable, but workspace packages must not import it and its existence does not create public SDK surface.
+A helper owned by the grouped project-local flow implementation package under `ts/packages/extensions/flow/src/shared/`. It may keep repeated repo-local command authoring readable, but packages outside the implementation should use deliberate package exports rather than importing private source files, and its existence does not create public SDK surface.
 *Avoid*: public SDK helper, package-owned primitive, bundled extension API, workspace dependency target.
 
 **Default SDL command**:
@@ -99,3 +99,35 @@ The migration policy that deletes old top-level `sdl <name>`, flat `/sdl:<name>`
 **Lower orchestration owner**:
 An internal package such as `@sdl/ccc` that may own implementation orchestration while SDL owns the public lifecycle command boundary.
 *Avoid*: public command namespace owner, reason to keep the old command surface, circular dependency.
+
+## Extension layering
+
+The end-state architecture for SDL capabilities relative to the extension API. Defined in ADR 0009. Below the SDK: neutral infra (`@sdl/core`, `@sdl/clinkr`, `@sdl/graphite`, `@sdl/brmem`). The SDK: the `@sdl/sdl` kernel plus `@sdl/sdl/sdk`. Above the SDK: capability extensions plus the Shared extension substrate.
+
+**Capability extension**:
+An above-SDK extension that contributes one Source Development Lifecycle capability — flow, handoff, objective, branch-context, plans, pr-address, slot, roaster, or aretro — depending only on host primitives, neutral infra, and curated peer surfaces. `ccc` is the orchestrator capability extension at the apex of the Extension dependency DAG.
+*Avoid*: standalone tool, kernel default, Pi runtime extension, below-SDK package, internal workspace export consumer.
+
+**Command face**:
+The capability-extension face the SDL kernel loads — `defineExtension()` command contributions registered as CLI and Pi mirror surfaces. The thin shell that converts `ctx` into gateways and calls the Gateway-injected peer core.
+*Avoid*: Peer API, programmatic sibling export, domain core, kernel internal.
+
+**Peer API**:
+The capability-extension face that sibling extensions consume — a curated, typed programmatic export imported in-process (chiefly by `ccc`). Siblings depend on the Peer API only, never on internal modules, and never by invoking the sibling's CLI.
+*Avoid*: command contribution, internal module import, CLI invocation of a sibling, `ctx`-passing API, peer guts.
+
+**Gateway-injected peer core**:
+The rule that capability domain logic and its Peer API take injected gateways such as `GitGateway`, never raw `SdlExtensionApi`. `ctx` lives only in the Command face, which converts `ctx`→gateways at the edge. This is what makes domain logic unit-testable with `InMemoryGitGateway`.
+*Avoid*: `ctx`-threaded domain logic, exec-string test seam, host access inside the domain core.
+
+**Extension dependency DAG**:
+The acyclic, shallow graph of extension→extension Peer API dependencies. Capabilities are mostly leaves; `ccc` is the apex orchestrator. These are ordinary package edges — the kernel loader is unaware of them.
+*Avoid*: kernel-resolved dependency, capability-to-capability web, cyclic peer import.
+
+**Shared extension substrate** (`@sdl/extension-kit`):
+The above-SDK package holding cross-cutting, capability-agnostic code shared among capability extensions — the `ctx`→gateway adapter and shared result/error shapes — distinct from capability-specific logic, which stays in each capability behind its Peer API.
+*Avoid*: capability-specific home, below-SDK package, public author API, kitchen-sink utilities, `@sdl/core`.
+
+**Transitional domain-primitives package** (`@sdl/domain-primitives-transitional`):
+A below-SDK package that temporarily holds the SDK-independent domain primitives currently tangled inside `@sdl/sdl` (pending-worktree, checkpoint-flow). Explicitly disposable: it deletes to zero once every capability is an above-SDK extension and `ccc`/`pi-extensions` consume Peer APIs instead of `@sdl/sdl/*` internal subpaths. The `-transitional` suffix is deliberate — it marks the dependency as debt at every import site.
+*Avoid*: permanent shared library, `@sdl/core` neutral infra, Shared extension substrate, forever-home.
