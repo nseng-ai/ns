@@ -48,7 +48,6 @@ import {
 	resetCmuxTestEnvironment,
 	savedPlanEntry,
 	skillCommand,
-	slotCheckoutJson,
 	step,
 	writeCmuxPlanStoreFile,
 } from "./ccc-test-harness.ts";
@@ -58,9 +57,33 @@ const SAVED_PLAN_FILE_NAME = `${SAVED_PLAN_FILENAME_SLUG}.md`;
 const PLAN_CONTENT = "# Plan\n";
 const DISPATCH_PROMPT_NAMESPACE = "ccc-dispatch";
 
+const testSlotCheckout = async (
+	_input: unknown,
+	ref: { kind: "branch"; branchName: string } | { kind: "current" },
+) => {
+	if (ref.kind === "current") {
+		return { ok: false as const, error: "Unexpected current slot checkout in cmux command test." };
+	}
+	return {
+		ok: true as const,
+		target: {
+			slotName: "slot-01",
+			branchName: ref.branchName,
+			worktreePath: "/slot/worktree",
+			cdCommand: "cd /slot/worktree",
+		},
+	};
+};
+
+const failingTestSlotCheckout = async () => ({
+	ok: false as const,
+	error: "slot checkout failed (slot_unavailable): slot unavailable",
+});
+
 function branchContextTestOptions(planStoreRoot: string): CccSlotDispatchPlanOptions {
 	return {
 		planStoreRoot,
+		slotCheckout: testSlotCheckout,
 		createBranchContextContext(pi, cwd) {
 			const stdinCapablePi: StdinCapableCommandExecApi = {
 				supportsStdin: true,
@@ -235,9 +258,6 @@ describe("CCC cmux command suite", () => {
 	test("ccc:workspace:open-branch opens explicit branch without queuing sidebar summary", async () => {
 		const pi = new FakePi({
 			script: [
-				step("slot", ["checkout", BRANCH, "--format", "json", "--no-clipboard"], {
-					stdout: slotCheckoutJson(BRANCH),
-				}),
 				step("git", ["remote", "get-url", "origin"], { stdout: "git@github.com:owner/repo.git\n" }),
 				step(
 					"cmux",
@@ -246,7 +266,7 @@ describe("CCC cmux command suite", () => {
 				),
 			],
 		});
-		registerCccSlotOpenBranchCommand(pi);
+		registerCccSlotOpenBranchCommand(pi, { slotCheckout: testSlotCheckout });
 		const ctx = new FakeCommandContext();
 
 		await pi.commands.get("ccc:workspace:open-branch")?.handler(BRANCH, ctx);
@@ -374,9 +394,6 @@ describe("CCC cmux command suite", () => {
 				step("gt", ["info", SOURCE_BRANCH, "--no-interactive"], {}),
 				step("git", ["branch", PLAN_SLUG, "HEAD"], {}),
 				step("gt", ["track", PLAN_SLUG, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),
-				step("slot", ["checkout", PLAN_SLUG, "--format", "json", "--no-clipboard"], {
-					stdout: slotCheckoutJson(PLAN_SLUG),
-				}),
 				step(
 					"cmux",
 					[
@@ -482,9 +499,6 @@ describe("CCC cmux command suite", () => {
 				step("gt", ["info", SOURCE_BRANCH, "--no-interactive"], {}),
 				step("git", ["branch", PLAN_SLUG, "HEAD"], {}),
 				step("gt", ["track", PLAN_SLUG, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),
-				step("slot", ["checkout", PLAN_SLUG, "--format", "json", "--no-clipboard"], {
-					stdout: slotCheckoutJson(PLAN_SLUG),
-				}),
 				step("cmux", ["identify", "--json", "--id-format", "both"], {
 					stdout: JSON.stringify({
 						caller: { workspace_id: "workspace-1", pane_id: "pane-1", window_id: "window-1" },
@@ -588,13 +602,12 @@ describe("CCC cmux command suite", () => {
 				step("gt", ["info", SOURCE_BRANCH, "--no-interactive"], {}),
 				step("git", ["branch", PLAN_SLUG, "HEAD"], {}),
 				step("gt", ["track", PLAN_SLUG, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),
-				step("slot", ["checkout", PLAN_SLUG, "--format", "json", "--no-clipboard"], {
-					code: 2,
-					stderr: "slot unavailable\n",
-				}),
 			],
 		});
-		registerCccSurfaceDispatchPlanCommand(pi, branchContextTestOptions(planStoreRoot));
+		registerCccSurfaceDispatchPlanCommand(pi, {
+			...branchContextTestOptions(planStoreRoot),
+			slotCheckout: failingTestSlotCheckout,
+		});
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
 			model: PREVIOUS_MODEL,
@@ -725,9 +738,6 @@ describe("CCC cmux command suite", () => {
 						stdout: dispatchPromptPutJson(stagedPromptFile),
 					},
 				),
-				step("slot", ["checkout", BRANCH, "--format", "json", "--no-clipboard"], {
-					stdout: slotCheckoutJson(BRANCH),
-				}),
 				step(
 					"cmux",
 					[
@@ -749,6 +759,7 @@ describe("CCC cmux command suite", () => {
 			stagingDir,
 			now: () => 123,
 			shouldCleanupStagingFile: false,
+			slotCheckout: testSlotCheckout,
 		});
 		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL });
 
@@ -835,9 +846,6 @@ describe("CCC cmux command suite", () => {
 						stdout: dispatchPromptPutJson(stagedPromptFile),
 					},
 				),
-				step("slot", ["checkout", BRANCH, "--format", "json", "--no-clipboard"], {
-					stdout: slotCheckoutJson(BRANCH),
-				}),
 				step(
 					"cmux",
 					[
@@ -859,6 +867,7 @@ describe("CCC cmux command suite", () => {
 			stagingDir,
 			now: () => 123,
 			shouldCleanupStagingFile: false,
+			slotCheckout: testSlotCheckout,
 		});
 		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL });
 
@@ -1004,9 +1013,6 @@ describe("CCC cmux command suite", () => {
 						stdout: dispatchPromptPutJson(stagedPromptFile),
 					},
 				),
-				step("slot", ["checkout", BRANCH, "--format", "json", "--no-clipboard"], {
-					stdout: slotCheckoutJson(BRANCH),
-				}),
 				step(
 					"cmux",
 					[
@@ -1028,6 +1034,7 @@ describe("CCC cmux command suite", () => {
 			stagingDir,
 			now: () => 123,
 			shouldCleanupStagingFile: false,
+			slotCheckout: testSlotCheckout,
 		});
 		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL });
 

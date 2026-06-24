@@ -2,9 +2,9 @@
 
 ## Work
 
-- [~] Introduce checkout Peer API and migrate CCC checkout consumers off CLI JSON parsing.
+- [x] Introduce checkout Peer API and migrate CCC checkout consumers off CLI JSON parsing.
   - Policy: direct execution for the bounded checkout slice; do not change the standalone `slot` CLI surface.
-  - Evidence so far: this branch adds `@sdl/slot/api` for current and named branch checkout and migrates CCC checkout adapters toward the Peer API.
+  - Evidence: `@sdl/slot/api` exports typed current and named branch checkout operations; CCC checkout flows consume the Peer API adapter/injection seam instead of `slot checkout --format json`; Slot and CCC package tests/checks passed on 2026-06-24.
 
 - [ ] Define Slot command-face strategy.
   - Decide how the existing `slot` CLI relates to any future `sdl slot ...` or Pi command faces, including compatibility expectations and docs.

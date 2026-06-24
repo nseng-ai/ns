@@ -4,6 +4,8 @@ TypeScript-backed `slot` CLI for working on multiple branches in parallel withou
 
 The standalone `slot` command is the default public surface. There is no TypeScript `sdl.plugins` analog.
 
+First-party sibling packages that need in-process checkout decisions should use the curated Peer API from `@sdl/slot/api`. The current checkout surface provides `checkoutCurrentSlot` and `checkoutBranchSlot` with typed results for machine decisions, and should be preferred over subprocess JSON parsing or deep imports of Slot internals. Broader command-face and Slot vocabulary decisions remain future work.
+
 ## Install/run model
 
 From an sdl checkout:
