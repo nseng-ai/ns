@@ -219,6 +219,7 @@ describe("areg update-skills CLI", () => {
 		]);
 		const body = JSON.parse(run.stdout.join(""));
 		expect(body).toMatchObject({
+			status: "failure",
 			exitCode: 2,
 			errorType: "skill_update_failed",
 			message: expect.stringContaining("1 skill(s) failed to update: alpha"),
@@ -230,6 +231,7 @@ describe("areg update-skills CLI", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join(""))).toEqual({
+			status: "ok",
 			exitCode: 0,
 			data: {
 				ok: true,

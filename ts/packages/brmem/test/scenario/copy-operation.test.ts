@@ -214,7 +214,12 @@ describe("copy operation", () => {
 			"json",
 		]);
 		expect(await missingFrom.exit).toBe(2);
-		expect(missingFrom.stderr.join("")).toContain("--from-branch");
+		expect(parseJsonOutput(missingFrom)).toMatchObject({
+			status: "usage_error",
+			exitCode: 2,
+			errorType: "usage_error",
+			message: expect.stringContaining("--from-branch"),
+		});
 
 		const missingTo = runScenario([
 			"copy",
@@ -225,7 +230,12 @@ describe("copy operation", () => {
 			"json",
 		]);
 		expect(await missingTo.exit).toBe(2);
-		expect(missingTo.stderr.join("")).toContain("--to-branch");
+		expect(parseJsonOutput(missingTo)).toMatchObject({
+			status: "usage_error",
+			exitCode: 2,
+			errorType: "usage_error",
+			message: expect.stringContaining("--to-branch"),
+		});
 	});
 
 	it("reports empty source and zero glob matches without mutating destination", async () => {

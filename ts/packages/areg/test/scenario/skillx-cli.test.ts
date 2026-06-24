@@ -32,6 +32,7 @@ describe("areg exec skillx CLI", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join(""))).toEqual({
+			status: "negative",
 			exitCode: 1,
 			message: "Empty input",
 			data: { success: false, error: "Empty input" },
@@ -48,6 +49,7 @@ describe("areg exec skillx CLI", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join(""))).toEqual({
+			status: "ok",
 			exitCode: 0,
 			data: { success: true, repo: "owner/repo", skills: ["alpha", "zeta"] },
 		});
@@ -63,6 +65,7 @@ describe("areg exec skillx CLI", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join(""))).toEqual({
+			status: "negative",
 			exitCode: 1,
 			message: "No skills directory found in owner/repo",
 			data: {
@@ -83,6 +86,7 @@ describe("areg exec skillx CLI", () => {
 
 		expect(await run.exit).toBe(2);
 		expect(JSON.parse(run.stdout.join(""))).toEqual({
+			status: "failure",
 			exitCode: 2,
 			errorType: "missing-tool",
 			message: "Required host tool is missing: gh",
@@ -102,6 +106,7 @@ describe("areg exec skillx CLI", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join(""))).toEqual({
+			status: "ok",
 			exitCode: 0,
 			data: {
 				success: true,
@@ -129,6 +134,7 @@ describe("areg exec skillx CLI", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join(""))).toEqual({
+			status: "ok",
 			exitCode: 0,
 			data: {
 				success: true,
@@ -187,6 +193,7 @@ describe("areg exec skillx CLI", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
+			status: "negative",
 			exitCode: 1,
 			message: "Skill 'demo' was not found in installed skills",
 			data: {
@@ -213,6 +220,7 @@ describe("areg exec skillx CLI", () => {
 		]);
 		expect(await okRun.exit).toBe(0);
 		expect(JSON.parse(okRun.stdout.join(""))).toEqual({
+			status: "ok",
 			exitCode: 0,
 			data: { success: true, removed: "/tmp/skillx.fake-1" },
 		});
@@ -225,6 +233,7 @@ describe("areg exec skillx CLI", () => {
 		);
 		expect(await failRun.exit).toBe(2);
 		expect(JSON.parse(failRun.stdout.join(""))).toEqual({
+			status: "failure",
 			exitCode: 2,
 			errorType: "cleanup_failed",
 			message: "Refusing cleanup",

@@ -89,7 +89,7 @@ export async function runCollectEvidence(
 			payloadReference = payloadStore.writeJsonArtifact({
 				descriptor: "aretro-collect-evidence",
 				role: "raw",
-				payload: { exit_code: 0, data: payloadData },
+				payload: { status: "ok", exitCode: 0, data: payloadData },
 			});
 		} catch (error) {
 			const payloadError = error instanceof PayloadError ? error : null;

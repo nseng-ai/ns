@@ -189,13 +189,18 @@ describe("pr-address exec map-branch-prs", () => {
 	});
 
 	test("rejects an unexpected positional argument with a commander usage error", async () => {
-		// PINNED CLINKR SEMANTICS: excess arguments are a raw commander usage
-		// error (stderr, exit 2), never a machine envelope.
+		// PINNED CLINKR SEMANTICS: excess arguments in JSON mode are emitted as
+		// usage-error machine envelopes on stdout.
 		const run = runScenario(["exec", "map-branch-prs", "extra", "--format", "json"], {
 			prFeedback: stackedPrFeedback(),
 		});
 		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe("");
+		expect(parseEnvelope(run)).toMatchObject({
+			status: "usage_error",
+			exitCode: 2,
+			errorType: "usage_error",
+			message: "error: too many arguments for 'map-branch-prs'. Expected 0 arguments but got 1.",
+		});
 		expect(run.stderr.join("")).toBe(
 			"error: too many arguments for 'map-branch-prs'. Expected 0 arguments but got 1.\n",
 		);

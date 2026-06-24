@@ -350,7 +350,7 @@ export function step(
 export function objectiveListStep(slugs: string[]): ScriptedExec {
 	return step("objective", ["list", "--minimal", "--format", "json"], {
 		stdout: JSON.stringify({
-			exit_code: 0,
+			exitCode: 0,
 			data: {
 				trunkBranch: "master",
 				rootPath: ".sdl/objectives",
@@ -369,7 +369,7 @@ export function objectiveListStep(slugs: string[]): ScriptedExec {
 export function objectiveReadStep(slug: string): ScriptedExec {
 	return step("objective", ["exec", "read-objective", slug, "--format", "json"], {
 		stdout: JSON.stringify({
-			exit_code: 0,
+			exitCode: 0,
 			data: {
 				status: "ok",
 				slug,
@@ -410,7 +410,7 @@ export function cmuxSummaryStep(title: string, description: string): ScriptedExe
 		],
 		{
 			stdout: JSON.stringify({
-				exit_code: 0,
+				exitCode: 0,
 				data: {
 					success: true,
 					title,
@@ -424,7 +424,7 @@ export function cmuxSummaryStep(title: string, description: string): ScriptedExe
 
 export function slotCheckoutJson(branch: string): string {
 	return JSON.stringify({
-		exit_code: 0,
+		exitCode: 0,
 		data: {
 			slot_name: "slot-01",
 			branch_name: branch,
@@ -437,7 +437,7 @@ export function slotCheckoutJson(branch: string): string {
 
 export function brmemPutJson(repoRoot: string, planFile: string): string {
 	return JSON.stringify({
-		exit_code: 0,
+		exitCode: 0,
 		data: {
 			namespace: "branch-context",
 			key: PLAN_KEY,

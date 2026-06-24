@@ -325,7 +325,7 @@ describe("cmux Objective sidebar", () => {
 				step("objective", ["exec", "read-objective", slug, "--format", "json"], {
 					code: 1,
 					stdout: JSON.stringify({
-						exit_code: 1,
+						exitCode: 1,
 						message: "Objective not found",
 						data: { status: "not_found" },
 					}),
@@ -351,7 +351,7 @@ describe("cmux Objective sidebar", () => {
 		const pi = new FakePi({
 			script: [
 				step("objective", ["exec", "read-objective", slug, "--format", "json"], {
-					stdout: JSON.stringify({ exit_code: 0, data: { status: "ok", slug: "other-objective" } }),
+					stdout: JSON.stringify({ exitCode: 0, data: { status: "ok", slug: "other-objective" } }),
 				}),
 			],
 		});
@@ -391,7 +391,7 @@ describe("cmux Objective sidebar", () => {
 					{
 						code: 1,
 						stdout: JSON.stringify({
-							exit_code: 1,
+							exitCode: 1,
 							message: "missing workspace",
 							data: { success: false },
 						}),

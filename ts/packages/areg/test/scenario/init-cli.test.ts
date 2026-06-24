@@ -195,6 +195,7 @@ describe("areg init CLI", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join(""))).toEqual({
+			status: "ok",
 			exitCode: 0,
 			data: {
 				project_dir: "/repo",

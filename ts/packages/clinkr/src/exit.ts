@@ -74,25 +74,25 @@ export interface ClinkrExitCodeOptions {
 	shellExitCode?: boolean | undefined;
 }
 
-const okMachineEnvelopeSchema = z.strictObject({
+export const okMachineEnvelopeSchema = z.strictObject({
 	status: z.literal("ok"),
 	exitCode: z.literal(0),
 	data: z.unknown(),
 });
-const negativeMachineEnvelopeSchema = z.strictObject({
+export const negativeMachineEnvelopeSchema = z.strictObject({
 	status: z.literal("negative"),
 	exitCode: z.literal(1),
 	message: z.string(),
 	data: z.unknown().optional(),
 });
-const failureMachineEnvelopeSchema = z.strictObject({
+export const failureMachineEnvelopeSchema = z.strictObject({
 	status: z.literal("failure"),
 	exitCode: z.literal(2),
 	errorType: z.string(),
 	message: z.string(),
 	data: z.unknown().optional(),
 });
-const usageErrorMachineEnvelopeSchema = z.strictObject({
+export const usageErrorMachineEnvelopeSchema = z.strictObject({
 	status: z.literal("usage_error"),
 	exitCode: z.literal(2),
 	errorType: z.string(),

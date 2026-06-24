@@ -90,7 +90,7 @@ function formatSlotCheckoutCliFailure(
 	if (failure.cliMessage !== undefined) {
 		return `${commandName} failed${status}: ${failure.cliMessage}`;
 	}
-	return `${commandName} failed with exit_code ${failure.exitCode}${status}.`;
+	return `${commandName} failed with exitCode ${failure.exitCode}${status}.`;
 }
 
 function formatSlotCheckoutUnreadableFailure(

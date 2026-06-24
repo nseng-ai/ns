@@ -74,6 +74,7 @@ describe("areg check CLI", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join(""))).toEqual({
+			status: "ok",
 			exitCode: 0,
 			data: { ok: true, project_dir: "/repo", issue_count: 0, issues: [] },
 		});

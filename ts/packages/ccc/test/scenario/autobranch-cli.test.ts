@@ -154,6 +154,7 @@ describe("ccc CLI", () => {
 		expect(exit).toBe(0);
 		expect(stderr.join("")).toBe("");
 		expect(JSON.parse(stdout.join(""))).toEqual({
+			status: "ok",
 			exitCode: 0,
 			data: {
 				success: true,
@@ -199,6 +200,7 @@ describe("ccc CLI", () => {
 		expect(missing).toBe(1);
 		expect(missingStderr.join("")).toBe("");
 		expect(JSON.parse(missingStdout.join(""))).toMatchObject({
+			status: "negative",
 			exitCode: 1,
 			message: "Provide --description.",
 			data: { success: false, error: { code: "missing_description" } },

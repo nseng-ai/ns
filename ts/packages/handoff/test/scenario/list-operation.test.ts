@@ -33,6 +33,7 @@ describe("handoff list", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
+			status: "ok",
 			exitCode: 0,
 			data: {
 				scope: "branch",

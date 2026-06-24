@@ -33,6 +33,7 @@ describe("brmem exec resolve-prompt", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
+			status: "ok",
 			exitCode: 0,
 			data: { path: projectPrompt("foo"), tier: "project" },
 		});
@@ -47,6 +48,7 @@ describe("brmem exec resolve-prompt", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
+			status: "ok",
 			exitCode: 0,
 			data: { path: xdgGlobalPrompt("foo"), tier: "global" },
 		});
@@ -61,6 +63,7 @@ describe("brmem exec resolve-prompt", () => {
 
 		expect(await run.exit).toBe(2);
 		expect(parseJsonOutput(run)).toMatchObject({
+			status: "failure",
 			exitCode: 2,
 			errorType: "prompt-not-found",
 		});
@@ -110,6 +113,7 @@ describe("brmem exec resolve-prompt", () => {
 
 		expect(await run.exit).toBe(2);
 		expect(parseJsonOutput(run)).toMatchObject({
+			status: "failure",
 			exitCode: 2,
 			errorType: "not-a-git-repo",
 		});

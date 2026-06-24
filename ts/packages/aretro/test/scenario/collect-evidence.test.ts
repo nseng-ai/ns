@@ -28,8 +28,8 @@ describe("aretro exec collect-evidence", () => {
 			{ context },
 		);
 		expect(await run.exit).toBe(0);
-		const result = parseJsonOutput(run) as { exit_code: number; data: unknown };
-		expect(result).toMatchObject({ exit_code: 0 });
+		const result = parseJsonOutput(run) as { exitCode: number; data: unknown };
+		expect(result).toMatchObject({ exitCode: 0 });
 		const envelope = result.data as Record<string, unknown>;
 		expect(envelope).toMatchObject({
 			success: true,
@@ -141,8 +141,8 @@ describe("aretro exec collect-evidence", () => {
 			{ context },
 		);
 		expect(await run.exit).toBe(1);
-		const result = parseJsonOutput(run) as { exit_code: number; data: Record<string, unknown> };
-		expect(result.exit_code).toBe(1);
+		const result = parseJsonOutput(run) as { exitCode: number; data: Record<string, unknown> };
+		expect(result.exitCode).toBe(1);
 		expect(result.data.success).toBe(false);
 		expect((result.data.error as Record<string, unknown>).code).toBe("not_a_git_repo");
 		expect(result.data.sessions).toEqual([]);

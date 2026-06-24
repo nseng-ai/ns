@@ -10,7 +10,11 @@ async function serveSchemaDocument(operation: string): Promise<Record<string, un
 	expect(await run.exit).toBe(0);
 	expect(run.stderr.join("")).toBe("");
 	const document = JSON.parse(run.stdout.join("")) as Record<string, unknown>;
-	expect(Object.keys(document).sort()).toEqual(["inputJsonSchema", "outputJsonSchema"]);
+	expect(Object.keys(document).sort()).toEqual([
+		"inputJsonSchema",
+		"machineEnvelopeJsonSchema",
+		"outputJsonSchema",
+	]);
 	return document;
 }
 
@@ -28,7 +32,11 @@ describe("pr-address exec --json-schema routes", () => {
 		const run = runScenario(["exec", "download-feedback", "--json-schema", "--format", "json"]);
 		expect(await run.exit).toBe(0);
 		const document = JSON.parse(run.stdout.join("")) as Record<string, unknown>;
-		expect(Object.keys(document).sort()).toEqual(["inputJsonSchema", "outputJsonSchema"]);
+		expect(Object.keys(document).sort()).toEqual([
+			"inputJsonSchema",
+			"machineEnvelopeJsonSchema",
+			"outputJsonSchema",
+		]);
 	});
 
 	test("--json-schema for unknown operations is a clinkr usage error", async () => {

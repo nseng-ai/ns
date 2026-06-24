@@ -9,6 +9,7 @@ import {
 	failure,
 	machineEnvelopeSchema,
 	negative,
+	negativeMachineEnvelopeSchema,
 	ok,
 	toMachineEnvelope,
 	type ClinkrExit,
@@ -91,6 +92,12 @@ describe("machineEnvelopeSchema", () => {
 		expect(machineEnvelopeSchema.safeParse({ exitCode: 3, message: "noncanonical" }).success).toBe(
 			false,
 		);
+	});
+
+	test("exports the canonical negative envelope schema", () => {
+		expect(
+			negativeMachineEnvelopeSchema.parse({ status: "negative", exitCode: 1, message: "nothing" }),
+		).toEqual({ status: "negative", exitCode: 1, message: "nothing" });
 	});
 });
 

@@ -243,13 +243,7 @@ export class ClinkrGroup<TContext> {
 			if (error instanceof CommanderError) {
 				const exitCode = exitCodeForCommanderError(error);
 				if (exitCode === 2 && clinkrFormatFromArgs(argv) === "json") {
-					io.stdout(
-						`${envelopeJsonText(
-							usageErrorMachineEnvelope(error.message, {
-								commanderCode: error.code,
-							}),
-						)}\n`,
-					);
+					emitUsageErrorJson(io, error.message, { commanderCode: error.code });
 				}
 				return exitCode;
 			}
@@ -403,6 +397,10 @@ function exitCodeForCommanderError(error: CommanderError): number {
 	return 2;
 }
 
+function emitUsageErrorJson(io: ClinkrIo, message: string, data: unknown): void {
+	io.stdout(`${envelopeJsonText(usageErrorMachineEnvelope(message, data))}\n`);
+}
+
 function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>): Command {
 	const { registered, io } = options;
 	const command = createContainedCommand(registered.name, io);
@@ -474,13 +472,9 @@ function configureCommandExecution<TContext>(
 				registered.execution.type === "rendered" &&
 				clinkrFormatFromOption(opts["format"]) === "json"
 			) {
-				io.stdout(
-					`${envelopeJsonText(
-						usageErrorMachineEnvelope(message, {
-							issues: parsed.error.issues.map((issue) => usageIssueData(registered.plan, issue)),
-						}),
-					)}\n`,
-				);
+				emitUsageErrorJson(io, message, {
+					issues: parsed.error.issues.map((issue) => usageIssueData(registered.plan, issue)),
+				});
 				state.exitCode = 2;
 				return;
 			}

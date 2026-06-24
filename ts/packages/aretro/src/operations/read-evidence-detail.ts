@@ -78,7 +78,7 @@ function validateSuccessEnvelope(envelope: JsonValue, payloadPath: string): void
 	if (typeof envelope !== "object" || envelope === null || Array.isArray(envelope)) {
 		throw new PayloadError("payload_lookup_failed", `Invalid envelope: ${payloadPath}`);
 	}
-	const exitCode = (envelope as Record<string, unknown>).exit_code;
+	const exitCode = (envelope as Record<string, unknown>).exitCode;
 	if (typeof exitCode !== "number" || exitCode !== 0) {
 		throw new PayloadError(
 			"payload_lookup_failed",

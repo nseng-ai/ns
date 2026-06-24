@@ -191,7 +191,7 @@ function jsonFailure(message: string): string {
 }
 
 function jsonSuccess(data: Record<string, unknown>): string {
-	return `${JSON.stringify({ exitCode: 0, data }, null, 2)}\n`;
+	return `${JSON.stringify({ status: "ok", exitCode: 0, data }, null, 2)}\n`;
 }
 
 function parseJson(run: CliRun): Record<string, unknown> {
@@ -270,9 +270,14 @@ describe("plans CLI help, version, and dispatch pins", () => {
 
 		const unknownJson = await runWithFakes(["exec", "bogus", "--format", "json"]);
 		expect(await unknownJson.exit).toBe(2);
-		expect(unknownJson.stdout.join("")).toBe("");
+		expect(parseJson(unknownJson)).toMatchObject({
+			status: "usage_error",
+			exitCode: 2,
+			errorType: "usage_error",
+			message: "error: unknown command 'bogus'",
+		});
 		expect(unknownJson.stderr.join("")).toBe("error: unknown command 'bogus'\n");
-		// PINNED CLINKR SEMANTICS: unknown exec operations bypass --format json.
+		// PINNED CLINKR SEMANTICS: unknown exec operations honor --format json.
 	});
 });
 
@@ -375,6 +380,7 @@ describe("plans list CLI pins", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJson(run)).toEqual({
+			status: "ok",
 			exitCode: 0,
 			data: {
 				plans: [
@@ -408,10 +414,13 @@ describe("plans exec save pins", () => {
 
 		const missingJson = await runWithFakes(["exec", "save", "--stdin", "--format", "json"]);
 		expect(await missingJson.exit).toBe(2);
-		expect(missingJson.stdout.join("")).toBe("");
-		expect(missingJson.stderr.join("")).toBe(
-			"error: --slug: Invalid input: expected string, received undefined\n",
-		);
+		expect(parseJson(missingJson)).toMatchObject({
+			status: "usage_error",
+			exitCode: 2,
+			errorType: "usage_error",
+			message: "error: --slug: Invalid input: expected string, received undefined",
+		});
+		expect(missingJson.stderr.join("")).toBe("");
 
 		const both = await runWithFakes([
 			"exec",
@@ -642,7 +651,12 @@ describe("plans exec resolve pins", () => {
 			{ cwd: fixture.repoRoot, git: fixture.git },
 		);
 		expect(await twoPositionals.exit).toBe(2);
-		expect(twoPositionals.stdout.join("")).toBe("");
+		expect(parseJson(twoPositionals)).toMatchObject({
+			status: "usage_error",
+			exitCode: 2,
+			errorType: "usage_error",
+			message: "error: too many arguments for 'resolve'. Expected 1 argument but got 2.",
+		});
 		expect(twoPositionals.stderr.join("")).toBe(
 			"error: too many arguments for 'resolve'. Expected 1 argument but got 2.\n",
 		);
@@ -728,6 +742,7 @@ describe("plans exec resolve pins", () => {
 		});
 		expect(await atPath.exit).toBe(0);
 		expect(parseJson(atPath)).toEqual({
+			status: "ok",
 			exitCode: 0,
 			data: {
 				source: "explicit",
@@ -745,6 +760,7 @@ describe("plans exec resolve pins", () => {
 		});
 		expect(await homePath.exit).toBe(0);
 		expect(parseJson(homePath)).toEqual({
+			status: "ok",
 			exitCode: 0,
 			data: {
 				source: "explicit",

@@ -126,7 +126,7 @@ export function jsonFailure(message: string): string {
 }
 
 export function jsonSuccess(data: Record<string, unknown>): string {
-	return `${JSON.stringify({ exitCode: 0, data }, null, 2)}\n`;
+	return `${JSON.stringify({ status: "ok", exitCode: 0, data }, null, 2)}\n`;
 }
 
 export function parseJson(run: CliRun): Record<string, unknown> {

@@ -2,6 +2,7 @@ import {
 	buildFailureMachineEnvelopeSchema,
 	buildSuccessMachineEnvelopeSchema,
 	machineEnvelopeSchema,
+	negativeMachineEnvelopeSchema,
 } from "@sdl/clinkr";
 import { formatErrorMessage, formatZodError } from "@sdl/core/primitives";
 import { z } from "zod";
@@ -41,6 +42,8 @@ const reviewRunShellNegativeEnvelopeSchema = z.strictObject({
 	data: reviewRunResultSchema,
 });
 
+const reviewRunNegativeEnvelopeSchema = negativeMachineEnvelopeSchema.omit({ data: true });
+
 const reviewRunFailureEnvelopeSchema = buildFailureMachineEnvelopeSchema({
 	errorTypeSchema: z.string().trim().min(1),
 });
@@ -69,23 +72,20 @@ export function parseFindingsPayloadResult(
 	const shellNegative = reviewRunShellNegativeEnvelopeSchema.safeParse(data.value);
 	if (shellNegative.success) return payloadFromReviewRunResult(shellNegative.data.data);
 
+	const negative = reviewRunNegativeEnvelopeSchema.safeParse(data.value);
+	if (negative.success) {
+		return payloadFromEnvelopeFailure(options, {
+			errorType: "negative",
+			message: negative.data.message,
+		});
+	}
+
 	const failure = reviewRunFailureEnvelopeSchema.safeParse(data.value);
 	if (failure.success) {
-		const identity = fallbackFailureIdentity(options);
-		if (identity.type === "error") return payloadError(identity.error.message);
-		return {
-			type: "ok",
-			payload: {
-				reviewName: identity.value.reviewName,
-				baseRef: identity.value.baseRef,
-				modelProfile: null,
-				count: 0,
-				findings: [],
-				inputCoverage: null,
-				errorType: failure.data.errorType,
-				errorMessage: failure.data.message,
-			},
-		};
+		return payloadFromEnvelopeFailure(options, {
+			errorType: failure.data.errorType,
+			message: failure.data.message,
+		});
 	}
 
 	return payloadError(`invalid review-run envelope: ${formatZodError(success.error)}`);
@@ -196,6 +196,27 @@ function payloadFromReviewRunResult(
 			inputCoverage: result.inputCoverage,
 			errorType: null,
 			errorMessage: null,
+		},
+	};
+}
+
+function payloadFromEnvelopeFailure(
+	options: { readonly fallbackReviewName?: string; readonly fallbackBaseRef?: string },
+	failure: { readonly errorType: string; readonly message: string },
+): FindingsPayloadParseResult {
+	const identity = fallbackFailureIdentity(options);
+	if (identity.type === "error") return payloadError(identity.error.message);
+	return {
+		type: "ok",
+		payload: {
+			reviewName: identity.value.reviewName,
+			baseRef: identity.value.baseRef,
+			modelProfile: null,
+			count: 0,
+			findings: [],
+			inputCoverage: null,
+			errorType: failure.errorType,
+			errorMessage: failure.message,
 		},
 	};
 }

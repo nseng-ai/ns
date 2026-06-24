@@ -133,6 +133,7 @@ describe("payload parsers", () => {
 	test("parses ok findings envelopes", () => {
 		const payloadResult = parseFindingsPayloadResult(
 			JSON.stringify({
+				status: "ok",
 				exitCode: 0,
 				data: {
 					reviewName: "typescript-style",
@@ -158,6 +159,7 @@ describe("payload parsers", () => {
 	test("rejects old nested and snake case success envelopes", () => {
 		const nested = parseFindingsPayloadResult(
 			JSON.stringify({
+				status: "ok",
 				exitCode: 0,
 				data: {
 					reviewName: "typescript-style",
@@ -173,6 +175,7 @@ describe("payload parsers", () => {
 		);
 		const snakeCase = parseFindingsPayloadResult(
 			JSON.stringify({
+				status: "ok",
 				exitCode: 0,
 				data: {
 					review_name: "typescript-style",
@@ -208,6 +211,7 @@ describe("payload parsers", () => {
 	test("parses shell-negative review result envelopes as findings payloads", () => {
 		const result = parseFindingsPayloadResult(
 			JSON.stringify({
+				status: "negative",
 				exitCode: 1,
 				message: "failed to write Branch Memory review log",
 				data: {
@@ -247,7 +251,7 @@ describe("payload parsers", () => {
 
 	test("parses negative envelopes as renderable payloads", () => {
 		const result = parseFindingsPayloadResult(
-			JSON.stringify({ exitCode: 1, errorType: "negative", message: "no findings" }),
+			JSON.stringify({ status: "negative", exitCode: 1, message: "no findings" }),
 			{ fallbackReviewName: "review", fallbackBaseRef: "base" },
 		);
 
@@ -267,7 +271,9 @@ describe("payload parsers", () => {
 
 		expect(result.type).toBe("error");
 		if (result.type === "error") {
-			expect(result.error.message).toBe("expected a clinkr envelope with top-level 'exitCode'");
+			expect(result.error.message).toBe(
+				"expected a clinkr envelope with top-level 'status' and 'exitCode'",
+			);
 		}
 	});
 });
