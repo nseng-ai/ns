@@ -20,7 +20,7 @@ export function formatRunnerSubagentElapsed(elapsedMs: number): string {
 
 export function runnerSubagentDisplayTitle(
 	source: RunnerSubagentPresentationSource,
-	fallback = "(untitled subagent session)",
+	fallback = "(untitled forked Pi session)",
 ): string {
 	const title = "progress" in source ? (source.title ?? source.progress.title) : source.title;
 	return title ?? fallback;
@@ -58,9 +58,9 @@ export function formatRunnerSubagentProgressWidgetLines(
 	progress: RunnerSubagentProgress,
 	options: RunnerSubagentProgressWidgetOptions = {},
 ): string[] {
-	const { fallbackTitle = "(untitled subagent session)", includeElapsed = true } = options;
+	const { fallbackTitle = "(untitled forked Pi session)", includeElapsed = true } = options;
 	const lines = [
-		`Subagent: ${runnerSubagentDisplayTitle(progress, fallbackTitle)}`,
+		`Forked Pi: ${runnerSubagentDisplayTitle(progress, fallbackTitle)}`,
 		`State: ${progress.state}`,
 	];
 	if (progress.currentTool !== undefined) lines.push(`Tool: ${progress.currentTool}`);

@@ -254,9 +254,9 @@ describe("dispatchRunnerSubagent local contract", () => {
 				sessionFile: "/tmp/contract-runner-subagent.jsonl",
 				reason: "no-assistant-usage",
 				diagnostic:
-					"Subagent child session did not contain assistant messages with usable usage metadata.",
+					"Forked Pi session did not contain assistant messages with usable usage metadata.",
 			},
-			diagnostic: "Subagent Pi stopped without terminal capture.",
+			diagnostic: "Forked Pi process stopped without terminal capture.",
 		});
 		expect(call.options.cwd).toBe("/repo/packages/example");
 	});

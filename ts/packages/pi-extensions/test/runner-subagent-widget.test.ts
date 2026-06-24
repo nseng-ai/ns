@@ -31,7 +31,7 @@ const METADATA_ONLY_UPDATE: RunnerSubagentUpdate = {
 describe("runner subagent activity widget", () => {
 	test("renders metadata-only updates like the compact progress widget", () => {
 		expect(formatRunnerSubagentActivityWidgetLines(METADATA_ONLY_UPDATE)).toEqual([
-			"Subagent: Progress title",
+			"Forked Pi: Progress title",
 			"State: running",
 			"Model: anthropic/claude-sonnet-4-5",
 			"Thinking: medium",
@@ -54,7 +54,7 @@ describe("runner subagent activity widget", () => {
 				},
 			}),
 		).toEqual([
-			"Subagent: Progress title",
+			"Forked Pi: Progress title",
 			"State: running",
 			"Model: anthropic/claude-sonnet-4-5",
 			"Thinking: medium",
@@ -95,7 +95,7 @@ describe("runner subagent activity widget", () => {
 				},
 				{ fallbackTitle: "(untitled)", includeElapsed: false },
 			),
-		).toEqual(["Subagent: (untitled)", "State: starting", "Turns/tools: 0/0"]);
+		).toEqual(["Forked Pi: (untitled)", "State: starting", "Turns/tools: 0/0"]);
 	});
 
 	test("renders requested model patterns before observed child model events", () => {
@@ -119,7 +119,7 @@ describe("runner subagent activity widget", () => {
 				{ fallbackTitle: "(untitled)", includeElapsed: false },
 			),
 		).toEqual([
-			"Subagent: (untitled)",
+			"Forked Pi: (untitled)",
 			"State: starting",
 			"Model: openai-codex/gpt-5.4-mini:medium",
 			"Thinking: default (unobserved)",
@@ -170,7 +170,7 @@ describe("runner subagent activity widget", () => {
 				{ fallbackTitle: "(untitled)", includeElapsed: false },
 			),
 		).toEqual([
-			"Subagent: (untitled)",
+			"Forked Pi: (untitled)",
 			"State: starting",
 			"Model: default (not specified)",
 			"Thinking: off",
@@ -198,7 +198,7 @@ describe("runner subagent activity widget", () => {
 		});
 
 		expect(result).toBe("done");
-		expect(records[0]?.value).toContain("Subagent: Lifecycle");
+		expect(records[0]?.value).toContain("Forked Pi: Lifecycle");
 		expect(records.some((record) => record.value?.includes("Tool: read"))).toBe(true);
 		expect(records.at(-1)).toEqual({ value: undefined });
 	});

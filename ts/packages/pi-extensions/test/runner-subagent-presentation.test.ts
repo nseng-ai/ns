@@ -80,7 +80,7 @@ describe("runner subagent presentation helpers", () => {
 
 	test("formats progress widget lines with optional elapsed display", () => {
 		expect(formatRunnerSubagentProgressWidgetLines(PROGRESS)).toEqual([
-			"Subagent: Progress title",
+			"Forked Pi: Progress title",
 			"State: running",
 			"Tool: read",
 			"Turns/tools: 1/2",
@@ -101,7 +101,7 @@ describe("runner subagent presentation helpers", () => {
 				includeElapsed: false,
 			}),
 		).toEqual([
-			"Subagent: (untitled)",
+			"Forked Pi: (untitled)",
 			"State: running",
 			"Tool: read",
 			"Turns/tools: 1/2",

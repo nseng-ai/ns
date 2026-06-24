@@ -72,17 +72,17 @@ export const DISPATCH_RUNNER_SUBAGENT_PARAMETERS = {
 	properties: {
 		title: {
 			type: "string",
-			description: "Concise title for the runner subagent artifact/progress.",
+			description: "Concise title for the forked Pi process artifact/progress.",
 		},
 		prompt: {
 			type: "string",
 			description:
-				"Complete prompt for the subagent. An auto-curated context packet (git status/diff summary and excerpts of backtick-mentioned files) is appended automatically; do not paste large file contents the subagent can read itself.",
+				"Complete prompt for the forked Pi process. An auto-curated context packet (git status/diff summary and excerpts of backtick-mentioned files) is appended automatically; do not paste large file contents the forked process can read itself.",
 		},
 		model: {
 			type: "string",
 			description:
-				"Optional Pi --model pattern for the child runner subagent. Unqualified patterns inherit the current session provider. Use only when the delegated task is safe for that model.",
+				"Optional Pi --model pattern for the forked Pi process. Unqualified patterns inherit the current session provider. Use only when the delegated task is safe for that model.",
 		},
 	},
 	required: ["title", "prompt"],
@@ -123,7 +123,7 @@ export default function dispatchRunnerSubagentExtension(
 				...(signal === undefined ? {} : { signal }),
 				onStart: (start) => {
 					onUpdate?.({
-						content: [{ type: "text", text: `Dispatching runner subagent: ${input.title}` }],
+						content: [{ type: "text", text: `Dispatching forked Pi process: ${input.title}` }],
 						details: {
 							status: "starting",
 							title: input.title,
@@ -159,7 +159,7 @@ export default function dispatchRunnerSubagentExtension(
 export function formatDispatchRunnerSubagentResult(result: RunnerSubagentResult): string {
 	const sessionFile = runnerSubagentSessionFile(result);
 	const lines = [
-		"dispatch_runner_subagent result",
+		"dispatch_runner_subagent result (forked Pi process)",
 		`Status: ${result.status}`,
 		`Title: ${runnerSubagentDisplayTitle(result)}`,
 		...(result.progress.launch === undefined ? [] : [formatLaunchLine(result.progress.launch)]),
@@ -176,7 +176,7 @@ export function formatDispatchRunnerSubagentResult(result: RunnerSubagentResult)
 		if (finalText.truncated) {
 			lines.push(
 				"",
-				`[Final text truncated to ${MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS} of ${finalText.originalChars} characters. Full text available in subagent session file: ${sessionFile ?? "(not available)"}.]`,
+				`[Final text truncated to ${MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS} of ${finalText.originalChars} characters. Full text available in forked Pi session file: ${sessionFile ?? "(not available)"}.]`,
 			);
 		}
 		return lines.join("\n");
@@ -186,7 +186,7 @@ export function formatDispatchRunnerSubagentResult(result: RunnerSubagentResult)
 	if (diagnostic !== undefined) lines.push(`Diagnostic: ${diagnostic}`);
 	lines.push(
 		"",
-		"The subagent did not produce usable final text. Inspect the session file before treating this delegated task as complete.",
+		"The forked Pi process did not produce usable final text. Inspect the session file before treating this delegated task as complete.",
 	);
 	return lines.join("\n");
 }
@@ -274,7 +274,7 @@ export function formatDispatchRunnerSubagentProgress(progress: RunnerSubagentPro
 	const currentTool =
 		progress.currentTool === undefined ? "" : `; current tool: ${progress.currentTool}`;
 	return [
-		`Running runner subagent: ${runnerSubagentDisplayTitle(progress)}`,
+		`Running forked Pi process: ${runnerSubagentDisplayTitle(progress)}`,
 		`State: ${progress.state}; turns: ${progress.turnCount}; tools: ${progress.toolCount}${currentTool}; elapsed: ${formatElapsed(progress.elapsedMs)}`,
 		...(progress.launch === undefined ? [] : [formatLaunchLine(progress.launch)]),
 		`Session file: ${runnerSubagentSessionFileText(progress)}`,

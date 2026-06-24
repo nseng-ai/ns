@@ -57,9 +57,9 @@ const DEFAULT_KILL_TIMEOUT_MS = 5_000;
 const LAUNCH_METADATA_HYDRATION_RETRY_MS = 50;
 const TERMINAL_RESULT_POLL_INTERVAL_MS = 25;
 const TERMINAL_RESULT_PERSISTENCE_TIMEOUT_MS = 5_000;
-const STOPPED_WITHOUT_TERMINAL_DIAGNOSTIC = "Subagent Pi stopped without terminal capture.";
+const STOPPED_WITHOUT_TERMINAL_DIAGNOSTIC = "Forked Pi process stopped without terminal capture.";
 const STOPPED_WITHOUT_USEFUL_TEXT_DIAGNOSTIC =
-	"Subagent Pi stopped without useful final assistant text.";
+	"Forked Pi process stopped without useful final assistant text.";
 
 export interface PiInvocation {
 	command: string;
@@ -213,7 +213,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		return errorResult(
 			title,
 			progress,
-			`Failed to create subagent session file: ${formatErrorMessage(error)}`,
+			`Failed to create forked Pi session file: ${formatErrorMessage(error)}`,
 			error,
 		);
 	}
@@ -261,7 +261,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		return errorResult(
 			title,
 			parser.getProgress(),
-			`Failed to spawn subagent Pi process: ${formatErrorMessage(error)}`,
+			`Failed to spawn forked Pi process: ${formatErrorMessage(error)}`,
 			error,
 		);
 	}
@@ -444,7 +444,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 				errorResult(
 					title,
 					parser.getProgress(),
-					`Failed to spawn subagent Pi process: ${error.message}`,
+					`Failed to spawn forked Pi process: ${error.message}`,
 					error,
 				),
 			);
@@ -969,7 +969,7 @@ async function withRunnerSubagentUsage<TTerminalInput>(
 			source: "child-session-file",
 			...(sessionFile === undefined ? {} : { sessionFile }),
 			reason: "session-read-error",
-			diagnostic: `Unexpected error while collecting subagent child session usage: ${formatErrorMessage(error)}`,
+			diagnostic: `Unexpected error while collecting forked Pi session usage: ${formatErrorMessage(error)}`,
 		};
 	}
 	return { ...result, usage };
@@ -1035,7 +1035,7 @@ function cancelledResult(
 		elapsedMs: progress.elapsedMs,
 		progress,
 		...(progress.sessionFile === undefined ? {} : { sessionFile: progress.sessionFile }),
-		diagnostic: "Subagent cancelled by parent abort signal.",
+		diagnostic: "Forked Pi process cancelled by parent abort signal.",
 		...(reason === undefined ? {} : { reason }),
 	};
 }
@@ -1124,7 +1124,7 @@ function nonzeroExitDiagnostic(
 	const exitText = code === null ? "without an exit code" : `with exit code ${code}`;
 	const signalText = signal ? ` after signal ${signal}` : "";
 	const stderrText = stderr.trim().length > 0 ? `\n\nstderr:\n${stderr}` : "";
-	return `Subagent Pi exited ${exitText}${signalText}.${stderrText}`;
+	return `Forked Pi process exited ${exitText}${signalText}.${stderrText}`;
 }
 
 function uniqueAbortSignals(...signals: Array<AbortSignal | undefined>): AbortSignal[] {

@@ -633,7 +633,7 @@ describe("thermo council extension", () => {
 					hasThinkingArg: false,
 				},
 			},
-			diagnostic: "Subagent Pi stopped without terminal capture.",
+			diagnostic: "Forked Pi process stopped without terminal capture.",
 			stopReason: "stop",
 		} satisfies RunnerSubagentStoppedWithoutTerminalResult;
 
@@ -645,7 +645,7 @@ describe("thermo council extension", () => {
 		expect(outcome.type).toBe("failed");
 		if (outcome.type !== "failed") return;
 		expect(outcome.diagnostic).toBe(
-			"Subagent Pi stopped without terminal capture (status: stopped-without-terminal; stopReason: stop; turns: 1; tools: 1; model: google/gemini-2.5-pro; thinking: high).",
+			"Forked Pi process stopped without terminal capture (status: stopped-without-terminal; stopReason: stop; turns: 1; tools: 1; model: google/gemini-2.5-pro; thinking: high).",
 		);
 	});
 
