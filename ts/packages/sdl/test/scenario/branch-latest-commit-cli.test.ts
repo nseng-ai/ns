@@ -177,7 +177,7 @@ describe("sdl flow branch-latest-commit CLI availability", () => {
 
 		const schema = runWithFakes({ args: ["flow", "branch-latest-commit", "--json-schema"], cwd });
 		expect(await schema.exit).toBe(0);
-		expect(parseJsonOutput(schema)).toHaveProperty("input_json_schema");
+		expect(parseJsonOutput(schema)).toHaveProperty("inputJsonSchema");
 		expect(schema.stdout.join("")).toContain("latest commit");
 		expect(schema.stdout.join("")).toContain("slug");
 	});

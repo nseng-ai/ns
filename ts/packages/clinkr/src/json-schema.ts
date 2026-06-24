@@ -1,17 +1,24 @@
 import { z } from "zod";
 
+import { buildMachineEnvelopeSchema } from "./exit.ts";
+
 export interface JsonSchemaDocument {
-	input_json_schema: unknown;
-	output_json_schema: unknown;
+	inputJsonSchema: unknown;
+	outputJsonSchema: unknown;
+	machineEnvelopeJsonSchema: unknown;
 }
 
 export function buildJsonSchemaDocument(
 	requestSchema: z.ZodObject,
 	resultSchema: z.ZodType | undefined,
 ): JsonSchemaDocument {
+	const outputSchema = resultSchema ?? z.unknown();
 	return {
-		input_json_schema: z.toJSONSchema(requestSchema, { io: "input" }),
-		output_json_schema:
+		inputJsonSchema: z.toJSONSchema(requestSchema, { io: "input" }),
+		outputJsonSchema:
 			resultSchema === undefined ? {} : z.toJSONSchema(resultSchema, { io: "output" }),
+		machineEnvelopeJsonSchema: z.toJSONSchema(buildMachineEnvelopeSchema(outputSchema), {
+			io: "output",
+		}),
 	};
 }

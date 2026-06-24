@@ -34,7 +34,7 @@ describe("checked-in flow SDL extension loading", () => {
 
 		const schema = runWithRealFlowExtension({ args: ["flow", "cp", "--json-schema"], cwd });
 		expect(await schema.exit).toBe(0);
-		expect(parseJsonOutput(schema)).toHaveProperty("input_json_schema");
+		expect(parseJsonOutput(schema)).toHaveProperty("inputJsonSchema");
 	});
 
 	test("real loader reaches a simple cp invocation path", async () => {
@@ -73,7 +73,7 @@ describe("checked-in flow SDL extension loading", () => {
 
 		const schema = runWithRealFlowExtension({ args: ["flow", "changes", "--json-schema"], cwd });
 		expect(await schema.exit).toBe(0);
-		expect(parseJsonOutput(schema)).toHaveProperty("input_json_schema");
+		expect(parseJsonOutput(schema)).toHaveProperty("inputJsonSchema");
 	});
 
 	test("real loader exposes regenerate-pr help and JSON schema metadata", async () => {
@@ -94,7 +94,7 @@ describe("checked-in flow SDL extension loading", () => {
 			cwd,
 		});
 		expect(await schema.exit).toBe(0);
-		expect(parseJsonOutput(schema)).toHaveProperty("input_json_schema");
+		expect(parseJsonOutput(schema)).toHaveProperty("inputJsonSchema");
 	});
 
 	test("real loader exposes submit help metadata", async () => {

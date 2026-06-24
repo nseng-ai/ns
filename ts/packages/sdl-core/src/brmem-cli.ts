@@ -540,9 +540,9 @@ export function parseBrmemMachineEnvelopeData(
 		throw malformedMachineEnvelope(stdout, label, "expected an envelope object");
 	}
 
-	const envelopeExitCode = parsed.exit_code;
+	const envelopeExitCode = parsed.exitCode;
 	if (typeof envelopeExitCode !== "number" || !Number.isFinite(envelopeExitCode)) {
-		throw malformedMachineEnvelope(stdout, label, "expected numeric exit_code 0");
+		throw malformedMachineEnvelope(stdout, label, "expected numeric exitCode 0");
 	}
 
 	if (envelopeExitCode !== 0) {
@@ -551,7 +551,7 @@ export function parseBrmemMachineEnvelopeData(
 		throw malformedMachineEnvelope(
 			stdout,
 			label,
-			`expected envelope exit_code 0, got exit_code ${envelopeExitCode}${suffix}`,
+			`expected envelope exitCode 0, got exitCode ${envelopeExitCode}${suffix}`,
 		);
 	}
 

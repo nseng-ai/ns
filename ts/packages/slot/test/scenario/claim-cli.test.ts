@@ -172,7 +172,7 @@ describe("slot claim CLI", () => {
 			},
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ error_type: "dirty_source_slot" });
+		expect(parseJsonOutput(run)).toMatchObject({ errorType: "dirty_source_slot" });
 		expect(run.git.operations()).toEqual([]);
 	});
 });

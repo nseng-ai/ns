@@ -23,9 +23,12 @@ describe("pi extension runtime helpers", () => {
 
 	test("parses successful machine-envelope data", () => {
 		expect(
-			parseMachineEnvelopeData(JSON.stringify({ exit_code: 0, data: { success: true } }), {
-				label: "example JSON",
-			}),
+			parseMachineEnvelopeData(
+				JSON.stringify({ status: "ok", exitCode: 0, data: { success: true } }),
+				{
+					label: "example JSON",
+				},
+			),
 		).toEqual({
 			type: "valid",
 			data: { success: true },
@@ -35,7 +38,7 @@ describe("pi extension runtime helpers", () => {
 	test("parses failure machine-envelope data", () => {
 		expect(
 			parseMachineEnvelopeData(
-				JSON.stringify({ exit_code: 3, error_type: "no_available_slot", message: "No slot." }),
+				JSON.stringify({ exitCode: 3, errorType: "no_available_slot", message: "No slot." }),
 				{ label: "example JSON" },
 			),
 		).toEqual({
@@ -43,7 +46,7 @@ describe("pi extension runtime helpers", () => {
 			exitCode: 3,
 			errorType: "no_available_slot",
 			cliMessage: "No slot.",
-			message: "example JSON reported failure: exit_code 3: error_type no_available_slot: No slot.",
+			message: "example JSON reported failure: exitCode 3: errorType no_available_slot: No slot.",
 		});
 	});
 
@@ -111,7 +114,7 @@ describe("pi extension runtime helpers", () => {
 					killed: false,
 					stderr: "",
 					stdout: JSON.stringify({
-						exit_code: 0,
+						exitCode: 0,
 						data: {
 							trunkBranch: "master",
 							rootPath: "/repo",
@@ -158,7 +161,7 @@ describe("pi extension runtime helpers", () => {
 				killed: false,
 				stderr: "",
 				stdout: JSON.stringify({
-					exit_code: 0,
+					exitCode: 0,
 					data: {
 						trunkBranch: "master",
 						rootPath: "/repo",

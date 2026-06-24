@@ -18,7 +18,7 @@ describe("handoff delete", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
-			exit_code: 0,
+			exitCode: 0,
 			data: {
 				branch: "feat/x",
 				slug: "alpha",
@@ -82,27 +82,27 @@ describe("handoff delete", () => {
 	test("validates slug, branch, not-found, and detached head", async () => {
 		const md = runScenario(["delete", "alpha.md", "--format", "json"]);
 		expect(await md.exit).toBe(2);
-		expect(parseJsonOutput(md)).toMatchObject({ error_type: "invalid_handoff_slug" });
+		expect(parseJsonOutput(md)).toMatchObject({ errorType: "invalid_handoff_slug" });
 
 		const slash = runScenario(["delete", "nested/alpha", "--format", "json"]);
 		expect(await slash.exit).toBe(2);
-		expect(parseJsonOutput(slash)).toMatchObject({ error_type: "invalid_handoff_slug" });
+		expect(parseJsonOutput(slash)).toMatchObject({ errorType: "invalid_handoff_slug" });
 
 		const underscore = runScenario(["delete", "alpha_beta", "--format", "json"]);
 		expect(await underscore.exit).toBe(2);
 		expect(parseJsonOutput(underscore)).toMatchObject({
-			error_type: "invalid_handoff_slug",
+			errorType: "invalid_handoff_slug",
 			message: "handoff slug must use lowercase letters, numbers, and single interior dashes only.",
 		});
 
 		const branch = runScenario(["delete", "--branch", "feat---x", "alpha", "--format", "json"]);
 		expect(await branch.exit).toBe(2);
-		expect(parseJsonOutput(branch)).toMatchObject({ error_type: "invalid_branch_name" });
+		expect(parseJsonOutput(branch)).toMatchObject({ errorType: "invalid_branch_name" });
 
 		const missing = runScenario(["delete", "--force", "missing", "--format", "json"]);
 		expect(await missing.exit).toBe(2);
 		expect(parseJsonOutput(missing)).toMatchObject({
-			error_type: "handoff_not_found",
+			errorType: "handoff_not_found",
 			message: "No handoff `missing` found on branch `feat/x`.",
 		});
 
@@ -110,6 +110,6 @@ describe("handoff delete", () => {
 			gitState: { currentBranch: { type: "detached" } },
 		});
 		expect(await detached.exit).toBe(2);
-		expect(parseJsonOutput(detached)).toMatchObject({ error_type: "detached_head" });
+		expect(parseJsonOutput(detached)).toMatchObject({ errorType: "detached_head" });
 	});
 });

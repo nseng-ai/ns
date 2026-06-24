@@ -13,7 +13,7 @@ describe("objective exec runner-subagent-usage", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
-			exit_code: 0,
+			exitCode: 0,
 			data: {
 				sessions: [
 					{
@@ -94,7 +94,7 @@ describe("objective exec runner-subagent-usage", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
-			exit_code: 1,
+			exitCode: 1,
 			message:
 				"Missing session file (missing_session_file). Pass at least one Pi runner subagent JSONL file.",
 			data: {

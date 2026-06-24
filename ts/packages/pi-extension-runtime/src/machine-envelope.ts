@@ -45,9 +45,9 @@ export function parseMachineEnvelopeData(
 		return invalidMachineEnvelope(stdout, options, "expected an envelope object");
 	}
 
-	const envelopeExitCode = parsed.exit_code;
+	const envelopeExitCode = parsed.exitCode;
 	if (typeof envelopeExitCode !== "number" || !Number.isFinite(envelopeExitCode)) {
-		return invalidMachineEnvelope(stdout, options, "expected numeric exit_code 0");
+		return invalidMachineEnvelope(stdout, options, "expected numeric exitCode 0");
 	}
 
 	if (envelopeExitCode !== 0) {
@@ -92,13 +92,13 @@ function failureMachineEnvelope({
 	exitCode,
 }: FailureMachineEnvelopeOptions): MachineEnvelopeDataParseFailure {
 	const errorType =
-		typeof envelope.error_type === "string" && envelope.error_type.length > 0
-			? envelope.error_type
+		typeof envelope.errorType === "string" && envelope.errorType.length > 0
+			? envelope.errorType
 			: undefined;
 	const cliMessage = envelopeStatusText(envelope);
 	const details = [
-		`exit_code ${exitCode}`,
-		...(errorType === undefined ? [] : [`error_type ${errorType}`]),
+		`exitCode ${exitCode}`,
+		...(errorType === undefined ? [] : [`errorType ${errorType}`]),
 		...(cliMessage === undefined ? [] : [cliMessage]),
 	];
 	return {

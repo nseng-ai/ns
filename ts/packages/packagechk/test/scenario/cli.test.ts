@@ -72,7 +72,7 @@ describe("packagechk CLI", () => {
 
 		expect(run.code).toBe(1);
 		expect(JSON.parse(run.stdout)).toEqual({
-			exit_code: 1,
+			exitCode: 1,
 			name: SAMPLE,
 			schema_version: 1,
 			results: [

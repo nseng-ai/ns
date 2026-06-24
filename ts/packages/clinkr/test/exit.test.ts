@@ -60,25 +60,35 @@ describe("exitCodeForExit", () => {
 
 describe("machineEnvelopeSchema", () => {
 	test("parses representative clinkr envelopes", () => {
-		expect(machineEnvelopeSchema.parse({ exit_code: 0, data: { ok: true } })).toEqual({
-			exit_code: 0,
+		expect(machineEnvelopeSchema.parse({ status: "ok", exitCode: 0, data: { ok: true } })).toEqual({
+			status: "ok",
+			exitCode: 0,
 			data: { ok: true },
 		});
-		expect(machineEnvelopeSchema.parse({ exit_code: 1, message: "nothing to do" })).toEqual({
-			exit_code: 1,
+		expect(
+			machineEnvelopeSchema.parse({ status: "negative", exitCode: 1, message: "nothing to do" }),
+		).toEqual({
+			status: "negative",
+			exitCode: 1,
 			message: "nothing to do",
 		});
 		expect(
-			machineEnvelopeSchema.parse({ exit_code: 2, error_type: "boom", message: "bad" }),
+			machineEnvelopeSchema.parse({
+				status: "failure",
+				exitCode: 2,
+				errorType: "boom",
+				message: "bad",
+			}),
 		).toEqual({
-			exit_code: 2,
-			error_type: "boom",
+			status: "failure",
+			exitCode: 2,
+			errorType: "boom",
 			message: "bad",
 		});
 	});
 
 	test("rejects noncanonical exit codes", () => {
-		expect(machineEnvelopeSchema.safeParse({ exit_code: 3, message: "noncanonical" }).success).toBe(
+		expect(machineEnvelopeSchema.safeParse({ exitCode: 3, message: "noncanonical" }).success).toBe(
 			false,
 		);
 	});
@@ -88,13 +98,18 @@ describe("machine envelope schema builders", () => {
 	test("builds strict success envelopes around a data schema", () => {
 		const schema = buildSuccessMachineEnvelopeSchema(z.object({ value: z.number() }));
 
-		expect(schema.parse({ exit_code: 0, data: { value: 1 } })).toEqual({
-			exit_code: 0,
+		expect(schema.parse({ status: "ok", exitCode: 0, data: { value: 1 } })).toEqual({
+			status: "ok",
+			exitCode: 0,
 			data: { value: 1 },
 		});
-		expect(schema.safeParse({ exit_code: 1, data: { value: 1 } }).success).toBe(false);
-		expect(schema.safeParse({ exit_code: 0, data: { value: "1" } }).success).toBe(false);
-		expect(schema.safeParse({ exit_code: 0, data: { value: 1 }, extra: true }).success).toBe(false);
+		expect(schema.safeParse({ exitCode: 1, data: { value: 1 } }).success).toBe(false);
+		expect(schema.safeParse({ status: "ok", exitCode: 0, data: { value: "1" } }).success).toBe(
+			false,
+		);
+		expect(
+			schema.safeParse({ status: "ok", exitCode: 0, data: { value: 1 }, extra: true }).success,
+		).toBe(false);
 	});
 
 	test("builds strict failure envelopes with configurable validation", () => {
@@ -102,44 +117,60 @@ describe("machine envelope schema builders", () => {
 			errorTypeSchema: z.string().trim().min(1),
 		});
 
-		expect(schema.parse({ exit_code: 2, error_type: "boom", message: "bad" })).toEqual({
-			exit_code: 2,
-			error_type: "boom",
+		expect(
+			schema.parse({ status: "failure", exitCode: 2, errorType: "boom", message: "bad" }),
+		).toEqual({
+			status: "failure",
+			exitCode: 2,
+			errorType: "boom",
 			message: "bad",
 		});
 		expect(
-			schema.parse({ exit_code: 1, error_type: "negative", message: "nothing to do" }),
-		).toEqual({ exit_code: 1, error_type: "negative", message: "nothing to do" });
-		expect(schema.safeParse({ exit_code: 0, error_type: "boom", message: "bad" }).success).toBe(
+			schema.parse({
+				status: "negative",
+				exitCode: 1,
+				errorType: "negative",
+				message: "nothing to do",
+			}),
+		).toEqual({ status: "negative", exitCode: 1, errorType: "negative", message: "nothing to do" });
+		expect(schema.safeParse({ exitCode: 0, errorType: "boom", message: "bad" }).success).toBe(
 			false,
 		);
-		expect(schema.safeParse({ exit_code: 2, error_type: " ", message: "bad" }).success).toBe(false);
 		expect(
-			schema.safeParse({ exit_code: 2, error_type: "boom", message: "bad", data: {} }).success,
+			schema.safeParse({ status: "failure", exitCode: 2, errorType: " ", message: "bad" }).success,
 		).toBe(false);
+		expect(
+			schema.safeParse({
+				status: "failure",
+				exitCode: 2,
+				errorType: "boom",
+				message: "bad",
+				data: {},
+			}).success,
+		).toBe(true);
 	});
 });
 
 describe("toMachineEnvelope", () => {
-	test("ok envelope carries exit_code and data only", () => {
+	test("ok envelope carries exitCode and data only", () => {
 		const envelope = toMachineEnvelope(ok({ name: "x" }));
-		expect(envelope).toEqual({ exit_code: 0, data: { name: "x" } });
-		expect(Object.keys(envelope)).toEqual(["exit_code", "data"]);
+		expect(envelope).toEqual({ status: "ok", exitCode: 0, data: { name: "x" } });
+		expect(Object.keys(envelope)).toEqual(["status", "exitCode", "data"]);
 	});
 
-	test("negative envelope without data omits the data key and uses semantic exit_code 1", () => {
+	test("negative envelope without data omits the data key and uses semantic exitCode 1", () => {
 		const envelope = toMachineEnvelope(negative("no plans found"));
-		expect(envelope).toEqual({ exit_code: 1, message: "no plans found" });
-		expect(Object.keys(envelope)).toEqual(["exit_code", "message"]);
+		expect(envelope).toEqual({ status: "negative", exitCode: 1, message: "no plans found" });
+		expect(Object.keys(envelope)).toEqual(["status", "exitCode", "message"]);
 	});
 
-	test("negative envelope with data orders keys exit_code, message, data", () => {
+	test("negative envelope with data orders keys exitCode, message, data", () => {
 		const envelope = toMachineEnvelope(negative("empty", { count: 0 }));
-		expect(Object.keys(envelope)).toEqual(["exit_code", "message", "data"]);
+		expect(Object.keys(envelope)).toEqual(["status", "exitCode", "message", "data"]);
 		expect(envelope.data).toEqual({ count: 0 });
 	});
 
-	test("failure envelope orders keys exit_code, error_type, message", () => {
+	test("failure envelope orders keys exitCode, errorType, message", () => {
 		const exit: ClinkrExit<never> = {
 			type: "failure",
 			errorType: "missing_branch",
@@ -147,27 +178,31 @@ describe("toMachineEnvelope", () => {
 		};
 		const envelope = toMachineEnvelope(exit);
 		expect(envelope).toEqual({
-			exit_code: 2,
-			error_type: "missing_branch",
+			status: "failure",
+			exitCode: 2,
+			errorType: "missing_branch",
 			message: "branch not found",
 		});
-		expect(Object.keys(envelope)).toEqual(["exit_code", "error_type", "message"]);
+		expect(Object.keys(envelope)).toEqual(["status", "exitCode", "errorType", "message"]);
 	});
 });
 
 describe("machineEnvelopeSchema", () => {
 	test("accepts the machine envelopes emitted by clinkr exits", () => {
 		expect(machineEnvelopeSchema.parse(toMachineEnvelope(ok({ value: 1 })))).toEqual({
-			exit_code: 0,
+			status: "ok",
+			exitCode: 0,
 			data: { value: 1 },
 		});
 		expect(machineEnvelopeSchema.parse(toMachineEnvelope(negative("nothing to do")))).toEqual({
-			exit_code: 1,
+			status: "negative",
+			exitCode: 1,
 			message: "nothing to do",
 		});
 		expect(machineEnvelopeSchema.parse(toMachineEnvelope(failure("boom", "bad")))).toEqual({
-			exit_code: 2,
-			error_type: "boom",
+			status: "failure",
+			exitCode: 2,
+			errorType: "boom",
 			message: "bad",
 		});
 	});
@@ -177,19 +212,19 @@ describe("envelopeJsonText", () => {
 	test("serializes like Python json.dumps(value, indent=2)", () => {
 		const exit: ClinkrExit<never> = { type: "failure", errorType: "boom", message: "bad" };
 		const text = envelopeJsonText(toMachineEnvelope(exit));
-		expect(text).toBe('{\n  "exit_code": 2,\n  "error_type": "boom",\n  "message": "bad"\n}');
+		expect(text).toBe(
+			'{\n  "status": "failure",\n  "exitCode": 2,\n  "errorType": "boom",\n  "message": "bad"\n}',
+		);
 	});
 
-	test("escapes non-ASCII characters like ensure_ascii", () => {
-		expect(envelopeJsonText({ name: "héllo — café" })).toBe(
-			'{\n  "name": "h\\u00e9llo \\u2014 caf\\u00e9"\n}',
-		);
+	test("preserves non-ASCII characters", () => {
+		expect(envelopeJsonText({ name: "héllo — café" })).toBe('{\n  "name": "héllo — café"\n}');
 	});
 
 	test("nested data serializes with two-space indentation", () => {
 		const envelope = toMachineEnvelope(ok({ items: ["a"], total: 1 }));
 		expect(envelopeJsonText(envelope)).toBe(
-			'{\n  "exit_code": 0,\n  "data": {\n    "items": [\n      "a"\n    ],\n    "total": 1\n  }\n}',
+			'{\n  "status": "ok",\n  "exitCode": 0,\n  "data": {\n    "items": [\n      "a"\n    ],\n    "total": 1\n  }\n}',
 		);
 	});
 });

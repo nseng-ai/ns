@@ -33,7 +33,7 @@ describe("handoff list", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
-			exit_code: 0,
+			exitCode: 0,
 			data: {
 				scope: "branch",
 				branch: "feat/x",
@@ -151,12 +151,12 @@ describe("handoff list", () => {
 			gitState: { currentBranch: { type: "detached" } },
 		});
 		expect(await detached.exit).toBe(2);
-		expect(parseJsonOutput(detached)).toMatchObject({ error_type: "detached_head" });
+		expect(parseJsonOutput(detached)).toMatchObject({ errorType: "detached_head" });
 
 		const conflict = runScenario(["list", "--branch", "feat/x", "--all", "--format", "json"]);
 		expect(await conflict.exit).toBe(2);
 		expect(parseJsonOutput(conflict)).toMatchObject({
-			error_type: "branch_and_all_conflict",
+			errorType: "branch_and_all_conflict",
 			message: "--branch and --all are mutually exclusive.",
 		});
 	});

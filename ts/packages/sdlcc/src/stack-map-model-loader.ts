@@ -194,11 +194,11 @@ function parseMachineEnvelopeData(
 		};
 	}
 	if (!isRecord(parsed)) return { type: "failure", message: `${label} was not a JSON object.` };
-	const exitCode = parsed.exit_code;
+	const exitCode = parsed.exitCode;
 	if (exitCode !== 0)
 		return {
 			type: "failure",
-			message: `${label} reported failure exit_code ${String(exitCode)}: ${stringField(parsed, "message") ?? "no message"}`,
+			message: `${label} reported failure exitCode ${String(exitCode)}: ${stringField(parsed, "message") ?? "no message"}`,
 		};
 	if (!("data" in parsed)) return { type: "failure", message: `${label} did not include data.` };
 	return { type: "success", data: parsed.data };

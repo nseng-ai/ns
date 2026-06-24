@@ -348,7 +348,7 @@ export function startupErrorStep(
 }
 
 export function brmemCheckJson(present: boolean): string {
-	return JSON.stringify({ exit_code: 0, data: { present } });
+	return JSON.stringify({ exitCode: 0, data: { present } });
 }
 
 export function createDeferred<T>(): Deferred<T> {

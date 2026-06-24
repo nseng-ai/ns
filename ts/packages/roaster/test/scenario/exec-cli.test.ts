@@ -69,8 +69,9 @@ Flag concrete issues.
 
 function failedEnvelope(): string {
 	return JSON.stringify({
-		exit_code: 2,
-		error_type: "harness_binary_missing",
+		status: "failure",
+		exitCode: 2,
+		errorType: "harness_binary_missing",
 		message: "claude not found",
 	});
 }

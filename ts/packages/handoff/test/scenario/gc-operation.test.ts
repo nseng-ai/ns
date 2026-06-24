@@ -156,7 +156,7 @@ describe("handoff gc", () => {
 		const run = runScenario(["gc", "--dry-run", "--force", "--format", "json"]);
 		expect(await run.exit).toBe(2);
 		expect(parseJsonOutput(run)).toMatchObject({
-			error_type: "conflicting_flags",
+			errorType: "conflicting_flags",
 			message: "--dry-run and --force are mutually exclusive.",
 		});
 	});

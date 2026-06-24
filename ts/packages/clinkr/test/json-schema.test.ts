@@ -11,21 +11,26 @@ describe("buildJsonSchemaDocument", () => {
 			z.object({ name: z.string() }),
 			z.object({ created: z.boolean() }),
 		);
-		expect(Object.keys(document)).toEqual(["input_json_schema", "output_json_schema"]);
-		expect(document.input_json_schema).toMatchObject({
+		expect(Object.keys(document)).toEqual([
+			"inputJsonSchema",
+			"outputJsonSchema",
+			"machineEnvelopeJsonSchema",
+		]);
+		expect(document.inputJsonSchema).toMatchObject({
 			type: "object",
 			properties: { name: { type: "string" } },
 			required: ["name"],
 		});
-		expect(document.output_json_schema).toMatchObject({
+		expect(document.outputJsonSchema).toMatchObject({
 			type: "object",
 			properties: { created: { type: "boolean" } },
 		});
+		expect(document.machineEnvelopeJsonSchema).toMatchObject({ oneOf: expect.any(Array) });
 	});
 
 	test("an absent result schema yields the anything schema", () => {
 		const document = buildJsonSchemaDocument(z.object({}), undefined);
-		expect(document.output_json_schema).toEqual({});
+		expect(document.outputJsonSchema).toEqual({});
 	});
 });
 
@@ -46,7 +51,11 @@ describe("--json-schema flag", () => {
 		expect(run.exitCode).toBe(0);
 		expect(run.stderr).toBe("");
 		const document = JSON.parse(run.stdout) as Record<string, unknown>;
-		expect(Object.keys(document)).toEqual(["input_json_schema", "output_json_schema"]);
+		expect(Object.keys(document)).toEqual([
+			"inputJsonSchema",
+			"outputJsonSchema",
+			"machineEnvelopeJsonSchema",
+		]);
 	});
 
 	test("is eager: runs before required-argument validation", async () => {
@@ -62,8 +71,8 @@ describe("--json-schema flag", () => {
 		});
 		expect(run.exitCode).toBe(0);
 		const document = JSON.parse(run.stdout) as Record<string, unknown>;
-		expect(document).not.toHaveProperty("exit_code");
-		expect(document).toHaveProperty("input_json_schema");
+		expect(document).not.toHaveProperty("exitCode");
+		expect(document).toHaveProperty("inputJsonSchema");
 	});
 
 	test("the handler does not run", async () => {
@@ -84,8 +93,9 @@ describe("--json-schema flag", () => {
 
 describe("schemaDocument override", () => {
 	const pinnedDocument = {
-		input_json_schema: { type: "object", title: "pinned input" },
-		output_json_schema: { type: "object", title: "pinned output" },
+		inputJsonSchema: { type: "object", title: "pinned input" },
+		outputJsonSchema: { type: "object", title: "pinned output" },
+		machineEnvelopeJsonSchema: { type: "object", title: "pinned envelope" },
 	};
 
 	function buildGroup(): ClinkrGroup<null> {
@@ -125,10 +135,10 @@ describe("schemaDocument override", () => {
 		const run = await runForTest(group, ["make", "--json-schema"], { context: null });
 		expect(run.exitCode).toBe(0);
 		const document = JSON.parse(run.stdout) as Record<string, unknown>;
-		expect(document["input_json_schema"]).toMatchObject({
+		expect(document["inputJsonSchema"]).toMatchObject({
 			type: "object",
 			required: ["name"],
 		});
-		expect(document["output_json_schema"]).toMatchObject({ type: "object" });
+		expect(document["outputJsonSchema"]).toMatchObject({ type: "object" });
 	});
 });

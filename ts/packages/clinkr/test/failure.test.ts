@@ -38,8 +38,9 @@ describe("ClinkrFailure conversion", () => {
 		const run = await runForTest(group, ["explode", "--format", "json"], { context: null });
 		expect(run.exitCode).toBe(2);
 		expect(JSON.parse(run.stdout)).toEqual({
-			exit_code: 2,
-			error_type: "missing_branch",
+			status: "failure",
+			exitCode: 2,
+			errorType: "missing_branch",
 			message: "no such branch",
 		});
 	});

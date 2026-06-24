@@ -187,11 +187,11 @@ async function writePlanFile(
 }
 
 function jsonFailure(message: string): string {
-	return `${JSON.stringify({ exit_code: 2, error_type: "plans_error", message }, null, 2)}\n`;
+	return `${JSON.stringify({ status: "failure", exitCode: 2, errorType: "plans_error", message }, null, 2)}\n`;
 }
 
 function jsonSuccess(data: Record<string, unknown>): string {
-	return `${JSON.stringify({ exit_code: 0, data }, null, 2)}\n`;
+	return `${JSON.stringify({ exitCode: 0, data }, null, 2)}\n`;
 }
 
 function parseJson(run: CliRun): Record<string, unknown> {
@@ -375,7 +375,7 @@ describe("plans list CLI pins", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJson(run)).toEqual({
-			exit_code: 0,
+			exitCode: 0,
 			data: {
 				plans: [
 					{
@@ -530,7 +530,7 @@ describe("plans exec save pins", () => {
 			},
 		);
 		expect(await noSummary.exit).toBe(0);
-		expect(parseJson(noSummary)).toMatchObject({ exit_code: 0, data: {} });
+		expect(parseJson(noSummary)).toMatchObject({ status: "ok", exitCode: 0, data: {} });
 
 		const humanFixture = await makeFixture();
 		const humanPath = join(
@@ -627,8 +627,8 @@ describe("plans exec save pins", () => {
 		);
 		expect(await missingJson.exit).toBe(2);
 		expect(parseJson(missingJson)).toMatchObject({
-			exit_code: 2,
-			error_type: "plans_error",
+			exitCode: 2,
+			errorType: "plans_error",
 			message: expect.stringContaining("ENOENT"),
 		});
 	});
@@ -728,7 +728,7 @@ describe("plans exec resolve pins", () => {
 		});
 		expect(await atPath.exit).toBe(0);
 		expect(parseJson(atPath)).toEqual({
-			exit_code: 0,
+			exitCode: 0,
 			data: {
 				source: "explicit",
 				file_path: realExplicit,
@@ -745,7 +745,7 @@ describe("plans exec resolve pins", () => {
 		});
 		expect(await homePath.exit).toBe(0);
 		expect(parseJson(homePath)).toEqual({
-			exit_code: 0,
+			exitCode: 0,
 			data: {
 				source: "explicit",
 				file_path: await realpath(homePlan),

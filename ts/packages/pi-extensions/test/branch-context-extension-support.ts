@@ -441,7 +441,8 @@ function brmemListEnvelope(
 	entries: Array<{ key: string; branch?: string; namespace?: string; refName?: string }>,
 ): string {
 	return JSON.stringify({
-		exit_code: 0,
+		status: "ok",
+		exitCode: 0,
 		data: {
 			namespace: BRANCH_CONTEXT_NAMESPACE,
 			key: null,

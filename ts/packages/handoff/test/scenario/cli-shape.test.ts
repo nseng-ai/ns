@@ -59,8 +59,8 @@ describe("handoff CLI shape", () => {
 		});
 		expect(await run.exit).toBe(2);
 		expect(parseJsonOutput(run)).toMatchObject({
-			exit_code: 2,
-			error_type: "not-a-git-repo",
+			exitCode: 2,
+			errorType: "not-a-git-repo",
 			message: "fatal: not a git repository",
 		});
 	});

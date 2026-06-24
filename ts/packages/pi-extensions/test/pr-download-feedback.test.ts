@@ -102,11 +102,11 @@ function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
 }
 
 function envelope(data: object): string {
-	return JSON.stringify({ exit_code: 0, data });
+	return JSON.stringify({ exitCode: 0, data });
 }
 
 function negativeEnvelope(data: object): string {
-	return JSON.stringify({ exit_code: 1, message: "No PR found", data });
+	return JSON.stringify({ status: "negative", exitCode: 1, message: "No PR found", data });
 }
 
 function counts(

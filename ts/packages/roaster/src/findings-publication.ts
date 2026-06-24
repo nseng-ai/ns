@@ -35,7 +35,8 @@ import { reviewRunResultSchema, type PostInlineFindingsResult } from "./models.t
 const reviewRunSuccessEnvelopeSchema = buildSuccessMachineEnvelopeSchema(reviewRunResultSchema);
 
 const reviewRunShellNegativeEnvelopeSchema = z.strictObject({
-	exit_code: z.literal(1),
+	status: z.literal("negative"),
+	exitCode: z.literal(1),
 	message: z.string(),
 	data: reviewRunResultSchema,
 });
@@ -60,7 +61,7 @@ export function parseFindingsPayloadResult(
 	const data = parseJson(raw);
 	if (data.type === "error") return payloadError(data.message);
 	if (!machineEnvelopeSchema.safeParse(data.value).success)
-		return payloadError("expected a clinkr envelope with top-level 'exit_code'");
+		return payloadError("expected a clinkr envelope with top-level 'status' and 'exitCode'");
 
 	const success = reviewRunSuccessEnvelopeSchema.safeParse(data.value);
 	if (success.success) return payloadFromReviewRunResult(success.data.data);
@@ -81,7 +82,7 @@ export function parseFindingsPayloadResult(
 				count: 0,
 				findings: [],
 				inputCoverage: null,
-				errorType: failure.data.error_type,
+				errorType: failure.data.errorType,
 				errorMessage: failure.data.message,
 			},
 		};

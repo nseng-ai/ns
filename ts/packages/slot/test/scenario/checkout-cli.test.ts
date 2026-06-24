@@ -52,7 +52,7 @@ describe("slot checkout CLI", () => {
 			git: { localBranches: ["master"], worktrees: [slotWorktree("slot-01")] },
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ error_type: "branch_missing" });
+		expect(parseJsonOutput(run)).toMatchObject({ errorType: "branch_missing" });
 		expect(run.git.operations()).toEqual([]);
 	});
 
@@ -86,7 +86,7 @@ describe("slot checkout CLI", () => {
 			},
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ error_type: "branch_in_use" });
+		expect(parseJsonOutput(run)).toMatchObject({ errorType: "branch_in_use" });
 	});
 
 	it("--current redirects only after allocation is executable", async () => {
@@ -107,6 +107,6 @@ describe("slot checkout CLI", () => {
 	it("rejects invalid argument combinations", async () => {
 		const run = runScenario(["checkout", "feature/a", "base", "--format", "json"]);
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ error_type: "base_without_new" });
+		expect(parseJsonOutput(run)).toMatchObject({ errorType: "base_without_new" });
 	});
 });

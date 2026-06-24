@@ -14,7 +14,7 @@ describe("objective exec read-objective", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
-			exit_code: 0,
+			exitCode: 0,
 			data: {
 				status: "ok",
 				error: null,
@@ -142,7 +142,7 @@ describe("objective exec read-objective", () => {
 		expect(run.stderr.join("")).not.toContain("Usage:");
 		expect(run.stdout.join("")).not.toContain("Usage:");
 		expect(parseJsonOutput(run)).toEqual({
-			exit_code: 1,
+			exitCode: 1,
 			message: "Missing Objective slug. Pass an explicit slug.",
 			data: emptyReadData({ status: "missing_slug", error: "missing_slug" }),
 		});
@@ -153,7 +153,7 @@ describe("objective exec read-objective", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
-			exit_code: 1,
+			exitCode: 1,
 			message: "Invalid Objective slug 'foo/bar'. Pass a single slug, not a path.",
 			data: emptyReadData({ status: "invalid_slug", error: "invalid_slug" }),
 		});
@@ -166,7 +166,7 @@ describe("objective exec read-objective", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
-			exit_code: 1,
+			exitCode: 1,
 			message: "No Objective record found for slug 'alpha'.",
 			data: emptyReadData({
 				status: "not_found",

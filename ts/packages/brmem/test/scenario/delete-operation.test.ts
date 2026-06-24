@@ -41,7 +41,7 @@ describe("delete operation", () => {
 		expect(await run.exit).toBe(0);
 		const parsed = JSON.parse(run.stdout.join(""));
 		expect(parsed).toMatchObject({
-			exit_code: 0,
+			exitCode: 0,
 			data: {
 				namespace: "scratch",
 				key: "plan/plan.md",
@@ -79,7 +79,7 @@ describe("delete operation", () => {
 		);
 		expect(await json.exit).toBe(2);
 		const parsed = JSON.parse(json.stdout.join(""));
-		expect(parsed).toMatchObject({ exit_code: 2, error_type: "key_not_found" });
+		expect(parsed).toMatchObject({ status: "failure", exitCode: 2, errorType: "key_not_found" });
 		expect(parsed.message).toContain("No Entry to delete");
 	});
 
@@ -136,7 +136,7 @@ describe("delete operation", () => {
 			{ gateway },
 		);
 		expect(await secondDelete.exit).toBe(2);
-		expect(JSON.parse(secondDelete.stdout.join(""))).toMatchObject({ error_type: "key_not_found" });
+		expect(JSON.parse(secondDelete.stdout.join(""))).toMatchObject({ errorType: "key_not_found" });
 	});
 
 	it("validates namespace, key, and branch before deleting", async () => {
@@ -150,15 +150,15 @@ describe("delete operation", () => {
 		]);
 		expect(await invalidNamespace.exit).toBe(2);
 		expect(JSON.parse(invalidNamespace.stdout.join(""))).toMatchObject({
-			exit_code: 2,
-			error_type: "invalid_namespace",
+			exitCode: 2,
+			errorType: "invalid_namespace",
 		});
 
 		const invalidKey = runScenario(["delete", "bad key", "--format", "json"]);
 		expect(await invalidKey.exit).toBe(2);
 		expect(JSON.parse(invalidKey.stdout.join(""))).toMatchObject({
-			exit_code: 2,
-			error_type: "invalid_key",
+			exitCode: 2,
+			errorType: "invalid_key",
 		});
 
 		const invalidBranch = runScenario([
@@ -171,8 +171,8 @@ describe("delete operation", () => {
 		]);
 		expect(await invalidBranch.exit).toBe(2);
 		expect(JSON.parse(invalidBranch.stdout.join(""))).toMatchObject({
-			exit_code: 2,
-			error_type: "invalid_branch_name",
+			exitCode: 2,
+			errorType: "invalid_branch_name",
 		});
 	});
 
@@ -191,8 +191,8 @@ describe("delete operation", () => {
 		});
 		expect(await detached.exit).toBe(2);
 		expect(JSON.parse(detached.stdout.join(""))).toMatchObject({
-			exit_code: 2,
-			error_type: "detached_head",
+			exitCode: 2,
+			errorType: "detached_head",
 		});
 	});
 
@@ -200,8 +200,8 @@ describe("delete operation", () => {
 		const run = runScenario(["delete", "--json-schema"]);
 		expect(await run.exit).toBe(0);
 		const document = JSON.parse(run.stdout.join(""));
-		expect(document).toHaveProperty("input_json_schema");
-		expect(document).toHaveProperty("output_json_schema");
+		expect(document).toHaveProperty("inputJsonSchema");
+		expect(document).toHaveProperty("outputJsonSchema");
 	});
 
 	it("maps non-key gateway failures through the shared gateway failure path", async () => {
@@ -214,8 +214,8 @@ describe("delete operation", () => {
 		});
 		expect(await run.exit).toBe(2);
 		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
-			exit_code: 2,
-			error_type: "git_update_ref_failed",
+			exitCode: 2,
+			errorType: "git_update_ref_failed",
 			message: "boom",
 		});
 	});

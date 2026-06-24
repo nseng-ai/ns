@@ -43,7 +43,7 @@ describe("slot free CLI", () => {
 			},
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ error_type: "invalid_slot_args" });
+		expect(parseJsonOutput(run)).toMatchObject({ errorType: "invalid_slot_args" });
 		expect(run.stdout.join("")).toContain(
 			"slot-03 holds 'feature/rebasing' with a rebase in progress",
 		);
@@ -83,7 +83,7 @@ describe("slot free CLI", () => {
 			pr: { prsByBranch: { "feature/a": { number: 12, state: "OPEN" } } },
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ error_type: "confirmation_required" });
+		expect(parseJsonOutput(run)).toMatchObject({ errorType: "confirmation_required" });
 		expect(run.git.operations()).toEqual([]);
 	});
 

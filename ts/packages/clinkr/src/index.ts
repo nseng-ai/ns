@@ -27,6 +27,7 @@ export type {
 } from "./group.ts";
 export {
 	buildFailureMachineEnvelopeSchema,
+	buildMachineEnvelopeSchema,
 	buildSuccessMachineEnvelopeSchema,
 	envelopeJsonText,
 	exitCodeForExit,
@@ -36,6 +37,7 @@ export {
 	ok,
 	shellNegative,
 	toMachineEnvelope,
+	usageErrorMachineEnvelope,
 } from "./exit.ts";
 export type {
 	BuildFailureMachineEnvelopeSchemaOptions,

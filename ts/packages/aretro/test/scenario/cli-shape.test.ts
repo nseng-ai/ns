@@ -155,7 +155,10 @@ describe("aretro exec read-evidence-detail", () => {
 	});
 
 	it("rejects non-success and unsupported-schema payload envelopes", async () => {
-		const nonSuccessPath = writePayloadEnvelope({ exit_code: 1, message: "nope" }, "non-success");
+		const nonSuccessPath = writePayloadEnvelope(
+			{ status: "negative", exit_code: 1, message: "nope" },
+			"non-success",
+		);
 		const nonSuccess = runScenario([
 			"exec",
 			"read-evidence-detail",
@@ -173,7 +176,7 @@ describe("aretro exec read-evidence-detail", () => {
 		});
 
 		const unsupportedSchemaPath = writePayloadEnvelope(
-			{ exit_code: 0, data: { schema_version: 2 } },
+			{ status: "ok", exit_code: 0, data: { schema_version: 2 } },
 			"unsupported-schema",
 		);
 		const unsupportedSchema = runScenario([

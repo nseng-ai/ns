@@ -106,8 +106,8 @@ describe("raw-exit escape hatch", () => {
 			const run = await runForTest(group, ["act", "--json-schema"], { context: null });
 			expect(run.exitCode).toBe(0);
 			const schema = JSON.parse(run.stdout);
-			expect(schema).toHaveProperty("input_json_schema");
-			expect(schema).toHaveProperty("output_json_schema");
+			expect(schema).toHaveProperty("inputJsonSchema");
+			expect(schema).toHaveProperty("outputJsonSchema");
 		});
 	});
 
@@ -285,7 +285,7 @@ describe("raw-exit escape hatch", () => {
 			});
 			expect(normalRun.exitCode).toBe(0);
 			const envelope = parseEnvelope(normalRun.stdout);
-			expect(envelope.exit_code).toBe(0);
+			expect(envelope.exitCode).toBe(0);
 		});
 	});
 

@@ -125,7 +125,8 @@ describe("loadStackMapModel", () => {
 				options: CommandOptions = {},
 			): Promise<CommandOutput> => {
 				calls.push(`${options.cwd}$ ${command} ${args.join(" ")}`);
-				if (command === "slot") return successJson({ exit_code: 0, data: stackMapGraphFixture() });
+				if (command === "slot")
+					return successJson({ status: "ok", exitCode: 0, data: stackMapGraphFixture() });
 				if (command === "cmux")
 					return successJson(cmuxTreeFixture({ includeExplicitWorktree: true }));
 				return { code: 2, stdout: "", stderr: `unexpected command ${command}`, killed: false };

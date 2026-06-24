@@ -36,7 +36,7 @@ describe("put operation", () => {
 		);
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
-			exit_code: 0,
+			exitCode: 0,
 			data: {
 				namespace: "branch-context",
 				key: "plan.md",
@@ -82,7 +82,7 @@ describe("put operation", () => {
 		});
 		expect(await jsonStdin.exit).toBe(0);
 		expect(JSON.parse(jsonStdin.stdout.join(""))).toMatchObject({
-			exit_code: 0,
+			exitCode: 0,
 			data: {
 				namespace: "base",
 				key: "stdin.md",
@@ -107,15 +107,15 @@ describe("put operation", () => {
 		const missing = runScenario(["put", "missing.md", "--format", "json"]);
 		expect(await missing.exit).toBe(2);
 		expect(JSON.parse(missing.stdout.join(""))).toMatchObject({
-			exit_code: 2,
-			error_type: "source_file_missing",
+			exitCode: 2,
+			errorType: "source_file_missing",
 		});
 
 		const noBasename = runScenario(["put", ".", "--format", "json"]);
 		expect(await noBasename.exit).toBe(2);
 		expect(JSON.parse(noBasename.stdout.join(""))).toMatchObject({
-			exit_code: 2,
-			error_type: "source_file_missing",
+			exitCode: 2,
+			errorType: "source_file_missing",
 		});
 
 		const unreadable = runScenario(
@@ -126,8 +126,8 @@ describe("put operation", () => {
 		);
 		expect(await unreadable.exit).toBe(2);
 		expect(JSON.parse(unreadable.stdout.join(""))).toMatchObject({
-			exit_code: 2,
-			error_type: "source_file_unreadable",
+			exitCode: 2,
+			errorType: "source_file_unreadable",
 		});
 	});
 
@@ -140,8 +140,8 @@ describe("put operation", () => {
 		);
 		expect(await invalidNamespace.exit).toBe(2);
 		expect(JSON.parse(invalidNamespace.stdout.join(""))).toMatchObject({
-			exit_code: 2,
-			error_type: "invalid_namespace",
+			exitCode: 2,
+			errorType: "invalid_namespace",
 		});
 
 		const invalidKey = runScenario(["put", "bad key", "--file", "note.md", "--format", "json"], {
@@ -149,8 +149,8 @@ describe("put operation", () => {
 		});
 		expect(await invalidKey.exit).toBe(2);
 		expect(JSON.parse(invalidKey.stdout.join(""))).toMatchObject({
-			exit_code: 2,
-			error_type: "invalid_key",
+			exitCode: 2,
+			errorType: "invalid_key",
 		});
 
 		const invalidBranch = runScenario(
@@ -161,8 +161,8 @@ describe("put operation", () => {
 		);
 		expect(await invalidBranch.exit).toBe(2);
 		expect(JSON.parse(invalidBranch.stdout.join(""))).toMatchObject({
-			exit_code: 2,
-			error_type: "invalid_branch_name",
+			exitCode: 2,
+			errorType: "invalid_branch_name",
 		});
 	});
 
@@ -185,8 +185,8 @@ describe("put operation", () => {
 		});
 		expect(await run.exit).toBe(2);
 		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
-			exit_code: 2,
-			error_type: "detached_head",
+			exitCode: 2,
+			errorType: "detached_head",
 		});
 	});
 
@@ -255,8 +255,8 @@ describe("put operation", () => {
 		});
 		expect(await oversized.exit).toBe(2);
 		expect(JSON.parse(oversized.stdout.join(""))).toMatchObject({
-			exit_code: 2,
-			error_type: "entry_too_large",
+			exitCode: 2,
+			errorType: "entry_too_large",
 		});
 		expect(JSON.parse(oversized.stdout.join("")).message).toContain("capped at 1 MiB");
 
@@ -272,8 +272,8 @@ describe("put operation", () => {
 		});
 		expect(await nul.exit).toBe(2);
 		expect(JSON.parse(nul.stdout.join(""))).toMatchObject({
-			exit_code: 2,
-			error_type: "entry_appears_binary",
+			exitCode: 2,
+			errorType: "entry_appears_binary",
 		});
 
 		const forcedNul = runScenario(["put", "nul.md", "--file", "nul.md", "--force"], {
@@ -290,8 +290,8 @@ describe("put operation", () => {
 		);
 		expect(await invalidUtf8.exit).toBe(2);
 		expect(JSON.parse(invalidUtf8.stdout.join(""))).toMatchObject({
-			exit_code: 2,
-			error_type: "entry_not_utf8",
+			exitCode: 2,
+			errorType: "entry_not_utf8",
 		});
 	});
 
@@ -299,7 +299,7 @@ describe("put operation", () => {
 		const run = runScenario(["put", "--json-schema"]);
 		expect(await run.exit).toBe(0);
 		const document = JSON.parse(run.stdout.join(""));
-		expect(document).toHaveProperty("input_json_schema");
-		expect(document).toHaveProperty("output_json_schema");
+		expect(document).toHaveProperty("inputJsonSchema");
+		expect(document).toHaveProperty("outputJsonSchema");
 	});
 });

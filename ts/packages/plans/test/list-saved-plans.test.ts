@@ -219,7 +219,7 @@ describe("plans list CLI", () => {
 		expect(exitCode).toBe(0);
 		const payload = parseJsonListPayload(output.stdoutText());
 		expect(payload).toMatchObject({
-			exit_code: 0,
+			exitCode: 0,
 			data: {
 				plans: [
 					{
@@ -271,7 +271,7 @@ describe("plans exec CLI", () => {
 		expect(output.stderrText()).toBe("");
 		const payload = JSON.parse(output.stdoutText());
 		expect(payload).toMatchObject({
-			exit_code: 0,
+			exitCode: 0,
 			data: {
 				slug: "branch-scoped-plan",
 				repo_key: "gh--owner--repo",
@@ -302,7 +302,7 @@ describe("plans exec CLI", () => {
 		});
 		expect(explicitExitCode).toBe(0);
 		expect(JSON.parse(explicitOutput.stdoutText())).toMatchObject({
-			exit_code: 0,
+			exitCode: 0,
 			data: {
 				source: "explicit",
 				file_path: await realpath(explicitPlan),
@@ -335,7 +335,7 @@ describe("plans exec CLI", () => {
 		});
 		expect(latestExitCode).toBe(0);
 		expect(JSON.parse(latestOutput.stdoutText())).toMatchObject({
-			exit_code: 0,
+			exitCode: 0,
 			data: {
 				source: "latest",
 				slug: "newer-plan-file",
@@ -353,7 +353,7 @@ interface Fixture {
 }
 
 interface JsonListPayload {
-	exit_code: 0;
+	exitCode: 0;
 	data: { plans: JsonListPlan[] };
 }
 
@@ -372,7 +372,7 @@ function parseJsonListPayload(text: string): JsonListPayload {
 function isJsonListPayload(value: unknown): value is JsonListPayload {
 	return (
 		isRecord(value) &&
-		value.exit_code === 0 &&
+		value.exitCode === 0 &&
 		isRecord(value.data) &&
 		Array.isArray(value.data.plans) &&
 		value.data.plans.every(isJsonListPlan)

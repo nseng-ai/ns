@@ -102,7 +102,7 @@ describe("slot list CLI", () => {
 		const run = runScenario(["ls", "--format", "json"], { git: nonEmptyListGit });
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
-			exit_code: 0,
+			exitCode: 0,
 			data: {
 				pool_size: 3,
 				repo_name: "repo",

@@ -29,7 +29,7 @@ describe("pr-address primitive exec commands", () => {
 
 		expect(await run.exit).toBe(2);
 		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
-			error_type: "pr_gateway_failure",
+			errorType: "pr_gateway_failure",
 			message: "Failed to determine repository context: git probe exploded",
 		});
 	});
@@ -192,7 +192,7 @@ describe("pr-address primitive exec commands", () => {
 		);
 		expect(await lookupRun.exit).toBe(2);
 		expect(JSON.parse(lookupRun.stdout.join(""))).toMatchObject({
-			error_type: "pr_gateway_failure",
+			errorType: "pr_gateway_failure",
 			message: "Failed to look up PR 500: gh auth failed",
 		});
 
@@ -215,7 +215,7 @@ describe("pr-address primitive exec commands", () => {
 		);
 		expect(await run.exit).toBe(2);
 		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
-			error_type: "pr_gateway_failure",
+			errorType: "pr_gateway_failure",
 			message: "Failed to reply to review thread RT_fail: reply failed",
 		});
 		expect(prFeedback.replies).toEqual([]);

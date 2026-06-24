@@ -111,7 +111,7 @@ describe("sdl flow push CLI", () => {
 			cwd,
 		});
 		expect(await schema.exit).toBe(0);
-		expect(parseJsonOutput(schema)).toHaveProperty("input_json_schema");
+		expect(parseJsonOutput(schema)).toHaveProperty("inputJsonSchema");
 	});
 
 	test("clean status runs git push with a two-minute timeout", async () => {

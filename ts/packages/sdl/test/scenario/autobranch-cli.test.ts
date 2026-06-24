@@ -145,7 +145,7 @@ describe("sdl flow autobranch CLI availability", () => {
 
 		const schema = runWithFakes({ args: ["flow", "autobranch", "--json-schema"], cwd });
 		expect(await schema.exit).toBe(0);
-		expect(parseJsonOutput(schema)).toHaveProperty("input_json_schema");
+		expect(parseJsonOutput(schema)).toHaveProperty("inputJsonSchema");
 		expect(schema.stdout.join("")).toContain("slug");
 	});
 });

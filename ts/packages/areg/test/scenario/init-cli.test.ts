@@ -195,7 +195,7 @@ describe("areg init CLI", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join(""))).toEqual({
-			exit_code: 0,
+			exitCode: 0,
 			data: {
 				project_dir: "/repo",
 				agents: ["codex", "claude-code"],
@@ -215,7 +215,7 @@ describe("areg init CLI", () => {
 		expect(await run.exit).toBe(1);
 		const output = JSON.parse(run.stdout.join(""));
 		expect(output).toMatchObject({
-			exit_code: 1,
+			exitCode: 1,
 			data: {
 				mutation_failed: true,
 				project_dir: "/repo",
@@ -248,7 +248,7 @@ describe("areg init CLI", () => {
 		expect(await run.exit).toBe(1);
 		const output = JSON.parse(run.stdout.join(""));
 		expect(output).toMatchObject({
-			exit_code: 1,
+			exitCode: 1,
 			data: {
 				mutation_failed: true,
 				operations: [
@@ -278,7 +278,7 @@ describe("areg init CLI", () => {
 		expect(await run.exit).toBe(1);
 		const output = JSON.parse(run.stdout.join(""));
 		expect(output).toMatchObject({
-			exit_code: 1,
+			exitCode: 1,
 			data: {
 				mutation_failed: true,
 				operations: [

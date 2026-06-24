@@ -29,7 +29,7 @@ function depsWith(runCommand: TabModuleDeps["runCommand"]): TabModuleDeps {
 }
 
 function envelope(data: unknown): string {
-	return JSON.stringify({ exit_code: 0, data });
+	return JSON.stringify({ exitCode: 0, data });
 }
 
 describe("objectiveTabModule.loadModel", () => {

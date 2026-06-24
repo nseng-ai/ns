@@ -8,7 +8,7 @@ import {
 describe("parseMachineEnvelopeData", () => {
 	test("parses a valid envelope with object data", () => {
 		const result = parseMachineEnvelopeData(
-			JSON.stringify({ exit_code: 0, data: { ok: true, count: 2 } }),
+			JSON.stringify({ status: "ok", exitCode: 0, data: { ok: true, count: 2 } }),
 			{
 				label: "test JSON",
 			},
@@ -28,21 +28,21 @@ describe("parseMachineEnvelopeData", () => {
 		);
 	});
 
-	test("rejects missing or non-numeric exit_code", () => {
-		for (const envelope of [{ data: {} }, { exit_code: "0", data: {} }]) {
+	test("rejects missing or non-numeric exitCode", () => {
+		for (const envelope of [{ data: {} }, { exitCode: "0", data: {} }]) {
 			expectInvalid(
 				parseMachineEnvelopeData(JSON.stringify(envelope), { label: "test JSON" }),
-				/expected numeric exit_code/,
+				/expected numeric exitCode/,
 			);
 		}
 	});
 
-	test("reports nonzero exit_code as a structured failure", () => {
+	test("reports nonzero exitCode as a structured failure", () => {
 		expect(
 			parseMachineEnvelopeData(
 				JSON.stringify({
-					exit_code: 2,
-					error_type: "command_failed",
+					exitCode: 2,
+					errorType: "command_failed",
 					message: "command failed",
 					data: {},
 				}),
@@ -55,14 +55,13 @@ describe("parseMachineEnvelopeData", () => {
 			exitCode: 2,
 			errorType: "command_failed",
 			cliMessage: "command failed",
-			message:
-				"test JSON reported failure: exit_code 2: error_type command_failed: command failed.",
+			message: "test JSON reported failure: exitCode 2: errorType command_failed: command failed.",
 		});
 	});
 
-	test("includes error_type and stdout tail in failure messages", () => {
+	test("includes errorType and stdout tail in failure messages", () => {
 		const result = parseMachineEnvelopeData(
-			JSON.stringify({ exit_code: 4, error_type: "no_slot", message: "No slot." }),
+			JSON.stringify({ exitCode: 4, errorType: "no_slot", message: "No slot." }),
 			{
 				label: "test JSON",
 				stdoutTail: { maxChars: 100, maxLines: 1 },
@@ -71,7 +70,7 @@ describe("parseMachineEnvelopeData", () => {
 
 		expect(result.type).toBe("failure");
 		if (result.type === "failure") {
-			expect(result.message).toContain("error_type no_slot");
+			expect(result.message).toContain("errorType no_slot");
 			expect(result.message).toContain("No slot.");
 			expect(result.message).toContain("stdout tail:");
 		}
@@ -80,7 +79,7 @@ describe("parseMachineEnvelopeData", () => {
 	test("rejects missing, null, array, or scalar data", () => {
 		for (const data of [undefined, null, [], "value", 7]) {
 			expectInvalid(
-				parseMachineEnvelopeData(JSON.stringify({ exit_code: 0, data }), { label: "test JSON" }),
+				parseMachineEnvelopeData(JSON.stringify({ exitCode: 0, data }), { label: "test JSON" }),
 				/expected a data object/,
 			);
 		}
@@ -116,7 +115,12 @@ describe("parseMachineEnvelopeDataWithFailureData", () => {
 	test("returns failure envelope data when explicitly allowed", () => {
 		expect(
 			parseMachineEnvelopeDataWithFailureData(
-				JSON.stringify({ exit_code: 1, message: "No PR", data: { markdown: "# Report" } }),
+				JSON.stringify({
+					status: "negative",
+					exitCode: 1,
+					message: "No PR",
+					data: { markdown: "# Report" },
+				}),
 				{ label: "test JSON", shouldAllowFailureData: true },
 			),
 		).toEqual({ type: "valid", data: { markdown: "# Report" } });
@@ -125,10 +129,15 @@ describe("parseMachineEnvelopeDataWithFailureData", () => {
 	test("keeps malformed-envelope errors when failure data is not allowed", () => {
 		expectInvalid(
 			parseMachineEnvelopeDataWithFailureData(
-				JSON.stringify({ exit_code: 1, message: "No PR", data: { markdown: "# Report" } }),
+				JSON.stringify({
+					status: "negative",
+					exitCode: 1,
+					message: "No PR",
+					data: { markdown: "# Report" },
+				}),
 				{ label: "test JSON" },
 			),
-			/reported failure: exit_code 1/,
+			/reported failure: exitCode 1/,
 		);
 	});
 

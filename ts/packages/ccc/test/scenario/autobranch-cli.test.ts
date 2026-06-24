@@ -154,7 +154,7 @@ describe("ccc CLI", () => {
 		expect(exit).toBe(0);
 		expect(stderr.join("")).toBe("");
 		expect(JSON.parse(stdout.join(""))).toEqual({
-			exit_code: 0,
+			exitCode: 0,
 			data: {
 				success: true,
 				workspace: "workspace:16",
@@ -199,7 +199,7 @@ describe("ccc CLI", () => {
 		expect(missing).toBe(1);
 		expect(missingStderr.join("")).toBe("");
 		expect(JSON.parse(missingStdout.join(""))).toMatchObject({
-			exit_code: 1,
+			exitCode: 1,
 			message: "Provide --description.",
 			data: { success: false, error: { code: "missing_description" } },
 		});
@@ -229,14 +229,14 @@ describe("ccc CLI", () => {
 
 		expect(failed).toBe(1);
 		expect(JSON.parse(failedStdout.join(""))).toMatchObject({
-			exit_code: 1,
+			exitCode: 1,
 			data: {
 				success: false,
 				error: {
 					code: "rename_workspace_failed",
 					command_failure: {
 						command: ["cmux", "workspace", "rename", "workspace:16", "--title", "fail"],
-						exit_code: 2,
+						exitCode: 2,
 						stderr: "workspace not found",
 					},
 				},

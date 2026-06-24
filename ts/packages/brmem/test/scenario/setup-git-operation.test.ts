@@ -17,8 +17,8 @@ describe("setup-git operation", () => {
 		const schema = runScenario(["setup-git", "--json-schema"]);
 		expect(await schema.exit).toBe(0);
 		const document = parseJsonOutput(schema) as Record<string, unknown>;
-		expect(document).toHaveProperty("input_json_schema");
-		expect(document).toHaveProperty("output_json_schema");
+		expect(document).toHaveProperty("inputJsonSchema");
+		expect(document).toHaveProperty("outputJsonSchema");
 	});
 
 	it("adds default push preservation, Branch Memory push, and non-force Branch Memory fetch for fresh config", async () => {
@@ -111,7 +111,7 @@ describe("setup-git operation", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
-			exit_code: 0,
+			exitCode: 0,
 			data: {
 				remote: "upstream",
 				dry_run: true,
@@ -140,12 +140,16 @@ describe("setup-git operation", () => {
 		});
 		expect(await missing.exit).toBe(2);
 		expect(parseJsonOutput(missing)).toMatchObject({
-			exit_code: 2,
-			error_type: "remote_not_found",
+			exitCode: 2,
+			errorType: "remote_not_found",
 		});
 
 		const invalid = runScenario(["setup-git", "--remote", "", "--format", "json"]);
 		expect(await invalid.exit).toBe(2);
-		expect(parseJsonOutput(invalid)).toMatchObject({ exit_code: 2, error_type: "invalid_remote" });
+		expect(parseJsonOutput(invalid)).toMatchObject({
+			status: "failure",
+			exitCode: 2,
+			errorType: "invalid_remote",
+		});
 	});
 });

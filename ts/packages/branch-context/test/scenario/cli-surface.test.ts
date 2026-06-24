@@ -268,7 +268,7 @@ describe("branch-context CLI surface pinning", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJson(run)).toMatchObject({
-			exit_code: 0,
+			exitCode: 0,
 			data: {
 				slug: PLAN_SLUG,
 				branch: PLAN_SLUG,
@@ -301,7 +301,7 @@ describe("branch-context CLI surface pinning", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJson(run)).toEqual({
-			exit_code: 0,
+			exitCode: 0,
 			data: {
 				slug: PLAN_SLUG,
 				branch: PLAN_SLUG,
@@ -407,7 +407,7 @@ describe("branch-context CLI surface pinning", () => {
 		expect(run.stdout.join("")).toBe(
 			`${JSON.stringify(
 				{
-					exit_code: 0,
+					exitCode: 0,
 					data: {
 						slug: PLAN_SLUG,
 						branch,
@@ -438,7 +438,7 @@ describe("branch-context CLI surface pinning", () => {
 		});
 		expect(await placedAfterFlag.exit).toBe(0);
 		expect(parseJson(placedAfterFlag)).toEqual({
-			exit_code: 0,
+			exitCode: 0,
 			data: {
 				branch,
 				namespace: BRANCH_CONTEXT_NAMESPACE,

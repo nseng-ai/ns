@@ -12,8 +12,8 @@ import {
 	type ClinkrCompletionResult,
 } from "./completion.ts";
 import { emitExit, type RenderCapabilities } from "./emit.ts";
-import type { ClinkrExit } from "./exit.ts";
-import { clinkrFormatFromOption } from "./format.ts";
+import { envelopeJsonText, type ClinkrExit, usageErrorMachineEnvelope } from "./exit.ts";
+import { clinkrFormatFromArgs, clinkrFormatFromOption } from "./format.ts";
 import { ClinkrFailure } from "./failure.ts";
 import { createProcessIo, type ClinkrIo } from "./io.ts";
 import { buildJsonSchemaDocument, type JsonSchemaDocument } from "./json-schema.ts";
@@ -241,7 +241,17 @@ export class ClinkrGroup<TContext> {
 			return state.exitCode;
 		} catch (error) {
 			if (error instanceof CommanderError) {
-				return exitCodeForCommanderError(error);
+				const exitCode = exitCodeForCommanderError(error);
+				if (exitCode === 2 && clinkrFormatFromArgs(argv) === "json") {
+					io.stdout(
+						`${envelopeJsonText(
+							usageErrorMachineEnvelope(error.message, {
+								commanderCode: error.code,
+							}),
+						)}\n`,
+					);
+				}
+				return exitCode;
 			}
 			throw error;
 		}
@@ -459,9 +469,22 @@ function configureCommandExecution<TContext>(
 		}
 		const parsed = registered.schema.safeParse(raw);
 		if (!parsed.success) {
-			// Usage-error channel: raw message to stderr, exit 2, never enveloped
-			// (even under --format json) — Python clinkr parity.
-			io.stderr(formatUsageError(parsed.error, registered.plan));
+			const message = formatUsageError(parsed.error, registered.plan).trimEnd();
+			if (
+				registered.execution.type === "rendered" &&
+				clinkrFormatFromOption(opts["format"]) === "json"
+			) {
+				io.stdout(
+					`${envelopeJsonText(
+						usageErrorMachineEnvelope(message, {
+							issues: parsed.error.issues.map((issue) => usageIssueData(registered.plan, issue)),
+						}),
+					)}\n`,
+				);
+				state.exitCode = 2;
+				return;
+			}
+			io.stderr(`${message}\n`);
 			state.exitCode = 2;
 			return;
 		}
@@ -472,7 +495,12 @@ function configureCommandExecution<TContext>(
 				} catch (error) {
 					if (!(error instanceof ClinkrFailure)) throw error;
 					state.exitCode = emitExit(
-						{ type: "failure", errorType: error.errorType, message: error.message },
+						{
+							type: "failure",
+							errorType: error.errorType,
+							message: error.message,
+							...(error.data === undefined ? {} : { data: error.data }),
+						},
 						{ format: "human", io },
 					);
 				}
@@ -484,7 +512,12 @@ function configureCommandExecution<TContext>(
 					exit = await registered.execution.handler(context, parsed.data);
 				} catch (error) {
 					if (!(error instanceof ClinkrFailure)) throw error;
-					exit = { type: "failure", errorType: error.errorType, message: error.message };
+					exit = {
+						type: "failure",
+						errorType: error.errorType,
+						message: error.message,
+						...(error.data === undefined ? {} : { data: error.data }),
+					};
 				}
 				state.exitCode = emitExit(exit, {
 					format,
@@ -570,6 +603,17 @@ function formatUsageError(error: z.ZodError, plan: SurfacePlan): string {
 			: `error: ${surface}: ${issue.message}`;
 	});
 	return `${lines.join("\n")}\n`;
+}
+
+function usageIssueData(plan: SurfacePlan, issue: z.core.$ZodIssue): Record<string, unknown> {
+	return {
+		path: issue.path,
+		message: issue.message,
+		code: issue.code,
+		...(surfaceNameForIssue(plan, issue) === undefined
+			? {}
+			: { surface: surfaceNameForIssue(plan, issue) }),
+	};
 }
 
 function surfaceNameForIssue(plan: SurfacePlan, issue: z.core.$ZodIssue): string | undefined {
