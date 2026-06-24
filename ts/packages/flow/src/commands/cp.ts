@@ -1,11 +1,10 @@
 import { defineExtension, failed, ok, z, type SdlCommand } from "@sdl/sdl/sdk";
+import { prepareFlowCheckpointMessage } from "../shared/model-generation.ts";
 import {
 	CHECKPOINT_MODEL_ENV,
 	DEFAULT_CHECKPOINT_MODEL_REF,
 	LEGACY_CHECKPOINT_MODEL_ENV,
-	selectCheckpointModelRef,
 } from "../shared/text-generation.ts";
-import { prepareCheckpointMessage } from "../shared/text-helpers.ts";
 import {
 	createCommitWithPreparedMessage,
 	formatPendingWorktreeError,
@@ -50,12 +49,7 @@ export const flowCpCommand: SdlCommand<typeof cpRequestSchema> = {
 			return failed("Working tree is clean; nothing to checkpoint.", 1);
 		}
 
-		const prepared = await prepareCheckpointMessage({
-			status: snapshot.status,
-			diff: snapshot.diff,
-			textGenerator: ctx.textGenerator,
-			modelRef: selectCheckpointModelRef(ctx.env),
-		});
+		const prepared = await prepareFlowCheckpointMessage(ctx, snapshot);
 		if (!prepared.ok) {
 			return failed(prepared.error, 2);
 		}

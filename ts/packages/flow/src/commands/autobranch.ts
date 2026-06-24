@@ -9,12 +9,11 @@ import {
 	type SdlExtensionApi,
 } from "@sdl/sdl/sdk";
 
-import { prepareCheckpointMessage } from "../shared/text-helpers.ts";
+import { prepareFlowCheckpointMessage } from "../shared/model-generation.ts";
 import {
 	CHECKPOINT_MODEL_ENV,
 	DEFAULT_CHECKPOINT_MODEL_REF,
 	LEGACY_CHECKPOINT_MODEL_ENV,
-	selectCheckpointModelRef,
 } from "../shared/text-generation.ts";
 import {
 	createCommitWithPreparedMessage,
@@ -87,12 +86,7 @@ async function createAutobranchCheckpointFlow(ctx: SdlExtensionApi, args: Parsed
 		exec: (command, commandArgs, timeout) =>
 			execExtensionCommand({ ctx, command, args: commandArgs, timeoutMs: timeout }),
 		prepareCheckpointMessage: (pendingSnapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">) =>
-			prepareCheckpointMessage({
-				status: pendingSnapshot.status,
-				diff: pendingSnapshot.diff,
-				textGenerator: ctx.textGenerator,
-				modelRef: selectCheckpointModelRef(ctx.env),
-			}),
+			prepareFlowCheckpointMessage(ctx, pendingSnapshot),
 		commitPreparedCheckpointMessage: (message) => createCommitWithPreparedMessage(ctx, message),
 	});
 }
