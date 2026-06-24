@@ -75,10 +75,6 @@ describe("cmux Objective sidebar", () => {
 		expect(pi.setModels).toEqual([]);
 		expect(pi.thinkingLevels).toEqual([]);
 		expect(ctx.statuses).toEqual([
-			{
-				key: "sdl-command-ack",
-				value: "→ /ccc:sidebar:objective-summary received; starting…",
-			},
 			{ key: "pi:ccc-sidebar", value: "preparing cmux Objective sidebar…" },
 			{ key: "pi:ccc-sidebar", value: undefined },
 		]);

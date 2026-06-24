@@ -56,7 +56,7 @@ export interface ImmediateCommandNotifyContext<
 	};
 }
 
-export type ImmediateCommandAckDelivery = "status" | "message";
+export type ImmediateCommandAckDelivery = "status" | "message" | "none";
 export type CommandProgressDelivery = "message" | "notify" | "both" | "none";
 export type CommandProgressNotifyLevel = "info" | "success" | "warning" | "error";
 
@@ -117,6 +117,7 @@ interface EmitStatusAckOptions {
 	ctx: unknown;
 	key: string;
 	message: string;
+	startedMessage: string;
 	clearDelayMs: number;
 }
 
@@ -238,6 +239,7 @@ function emitImmediateCommandAck<THost>(params: EmitImmediateCommandAckOptions<T
 	const { host, commandName, ctx, options } = params;
 	if (!shouldAcknowledgeContext(ctx)) return;
 	const delivery = resolveImmediateCommandAckDelivery(host, options);
+	if (delivery === "none") return;
 	if (!markAcknowledged(ctx, commandName)) return;
 	const message = options.messageForCommand?.(commandName) ?? defaultCommandAckMessage(commandName);
 
@@ -255,6 +257,7 @@ function emitImmediateCommandAck<THost>(params: EmitImmediateCommandAckOptions<T
 		ctx,
 		key: options.statusKey ?? IMMEDIATE_COMMAND_ACK_STATUS_KEY,
 		message,
+		startedMessage: defaultCommandAckStartedMessage(commandName),
 		clearDelayMs: options.statusClearDelayMs ?? 3_000,
 	});
 }
@@ -263,16 +266,23 @@ function defaultCommandAckMessage(commandName: string): string {
 	return `→ /${commandName} received; starting…`;
 }
 
+function defaultCommandAckStartedMessage(commandName: string): string {
+	return `→ /${commandName} received; started`;
+}
+
 function defaultCommandProgressMessage(message: string): string {
 	return message.startsWith("→ ") ? message : `→ ${message}`;
 }
 
 function resolveImmediateCommandAckDelivery<THost>(
-	host: THost,
+	_host: THost,
 	options: ImmediateCommandAckOptions,
 ): ImmediateCommandAckDelivery {
-	if (options.delivery !== undefined) return options.delivery;
-	return isRenderedMessageHost(host) ? "message" : "status";
+	// Acknowledgements are opt-in. Most commands already provide their own durable or live
+	// progress surface, and a default footer status duplicates that state below the fold.
+	// Callers that genuinely need a persistent transcript breadcrumb opt in with delivery:
+	// "message". Callers that need a footer status opt in with delivery: "status".
+	return options.delivery ?? "none";
 }
 
 function isRendererRegistrationHost(
@@ -309,12 +319,12 @@ function shouldAcknowledgeContext(ctx: unknown): boolean {
 }
 
 function emitStatusAck(params: EmitStatusAckOptions): void {
-	const { ctx, key, message, clearDelayMs } = params;
+	const { ctx, key, message, startedMessage, clearDelayMs } = params;
 	if (!isImmediateCommandStatusContext(ctx)) return;
 	const setStatus = ctx.ui?.setStatus;
 	if (setStatus === undefined) return;
 	setStatus(key, message);
-	const timer = setTimeout(() => setStatus(key, undefined), clearDelayMs);
+	const timer = setTimeout(() => setStatus(key, startedMessage), clearDelayMs);
 	timer.unref?.();
 }
 
