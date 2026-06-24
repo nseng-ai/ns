@@ -12,7 +12,7 @@ import {
 import { createAutobranchCheckpointFlow, type AutobranchFlowInput } from "./autobranch/flow.ts";
 import type { ParsedAutobranchArgs } from "@sdl/autobranch/dirty-worktree";
 import { startIdleWaitStatus } from "./idle-wait-status.ts";
-import { checkoutSlot } from "./slot-checkout.ts";
+import { checkoutSlot, type SlotCheckoutFunction } from "./slot-checkout.ts";
 
 const COMMAND_NAME = "sdl:flow:autoslot";
 const STATUS_KEY = "autoslot";
@@ -37,7 +37,8 @@ export interface AutoslotExtensionAPI extends Pick<ExtensionAPI, "exec"> {
 }
 
 export interface AutoslotFlowInput extends AutobranchFlowInput {
-	slotExec: Pick<ExtensionAPI, "exec">;
+	env?: NodeJS.ProcessEnv | Record<string, string | undefined>;
+	slotCheckout?: SlotCheckoutFunction;
 	notify: (message: string, level?: "info" | "warning" | "error") => void;
 	setStatus: (message: string | undefined) => void;
 }
@@ -98,9 +99,7 @@ export async function runAutoslotCli(input: AutoslotCliInput): Promise<number> {
 			input.stdout(output);
 		},
 		setStatus: () => {},
-		slotExec: {
-			exec: (command, args, options) => input.exec(command, args, options),
-		},
+		env: input.env,
 	});
 	return hasError ? 1 : 0;
 }
@@ -131,7 +130,14 @@ export async function createAutoslotFlow(input: AutoslotFlowInput): Promise<void
 
 	input.setStatus("checking out branch slot…");
 	try {
-		const slot = await checkoutSlot(input.slotExec, input.cwd, { kind: "current" });
+		const slot = await checkoutSlot(
+			{
+				cwd: input.cwd,
+				...(input.env === undefined ? {} : { env: input.env }),
+				...(input.slotCheckout === undefined ? {} : { checkoutSlot: input.slotCheckout }),
+			},
+			{ kind: "current" },
+		);
 		if (!slot.ok) {
 			input.notify(
 				[`Autoslot created ${branchName}, but slot checkout failed.`, "", slot.error].join("\n"),
@@ -193,7 +199,7 @@ async function createAutoslot(
 			setStatus: (message) => {
 				ctx.ui.setStatus(STATUS_KEY, message);
 			},
-			slotExec: pi,
+			env: process.env,
 		});
 	} finally {
 		ctx.ui.setStatus(STATUS_KEY, undefined);

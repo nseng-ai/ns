@@ -8,7 +8,7 @@ interface HarnessOptions {
 	mode?: "dirty" | "latest_commit";
 	prepareResult?: { ok: true; message: string } | { ok: false; error: string };
 	isDirtyAfterAutobranch?: boolean;
-	slotStdout?: string;
+	slotFailure?: string;
 }
 
 function createHarness(options: HarnessOptions = {}) {
@@ -75,27 +75,20 @@ function createHarness(options: HarnessOptions = {}) {
 		args: { slug: "test-branch" },
 		now: () => 123,
 		exec: (command, args) => exec(command, args),
-		slotExec: {
-			exec: async (command, args) => {
-				events.push(`slot:${command} ${args.join(" ")}`);
-				return {
-					code: options.slotStdout === undefined ? 0 : 3,
-					killed: false,
-					stdout:
-						options.slotStdout ??
-						JSON.stringify({
-							exit_code: 0,
-							data: {
-								slot_name: "slot-01",
-								branch_name: "test-branch",
-								worktree_path: "/slots/slot-01",
-								cd_command: "cd /slots/slot-01",
-								already_assigned: false,
-							},
-						}),
-					stderr: "",
-				};
-			},
+		slotCheckout: async (_input, ref) => {
+			events.push(
+				ref.kind === "current" ? "slot-api:current" : `slot-api:branch ${ref.branchName}`,
+			);
+			if (options.slotFailure !== undefined) return { ok: false, error: options.slotFailure };
+			return {
+				ok: true,
+				target: {
+					slotName: "slot-01",
+					branchName: "test-branch",
+					worktreePath: "/slots/slot-01",
+					cdCommand: "cd /slots/slot-01",
+				},
+			};
 		},
 		prepareCheckpointMessage: async () => {
 			events.push("prepare");
@@ -189,7 +182,7 @@ describe("autoslot flow", () => {
 		await createAutoslotFlow(harness.input);
 
 		expect(harness.events).toContain("commit");
-		expect(harness.events).toContain("slot:slot checkout --current --format json --no-clipboard");
+		expect(harness.events).toContain("slot-api:current");
 		expect(harness.notifications.at(-1)).toEqual({
 			level: "info",
 			message: [
@@ -207,7 +200,7 @@ describe("autoslot flow", () => {
 
 		expect(harness.events).toContain("exec:git reset --hard parent987654");
 		expect(harness.events).toContain("exec:gt create test-branch --no-interactive --no-ai");
-		expect(harness.events).toContain("slot:slot checkout --current --format json --no-clipboard");
+		expect(harness.events).toContain("slot-api:current");
 		expect(harness.notifications.at(-1)?.message).toContain("Worktree: /slots/slot-01");
 	});
 
@@ -218,7 +211,7 @@ describe("autoslot flow", () => {
 
 		await createAutoslotFlow(harness.input);
 
-		expect(harness.events.some((event) => event.startsWith("slot:slot checkout"))).toBe(false);
+		expect(harness.events.some((event) => event.startsWith("slot-api:"))).toBe(false);
 		expect(harness.notifications).toContainEqual({
 			level: "error",
 			message: "checkpoint prep failed",
@@ -230,23 +223,20 @@ describe("autoslot flow", () => {
 
 		await createAutoslotFlow(harness.input);
 
-		expect(harness.events.some((event) => event.startsWith("slot:slot checkout"))).toBe(false);
+		expect(harness.events.some((event) => event.startsWith("slot-api:"))).toBe(false);
 		expect(harness.notifications.at(-1)?.level).toBe("warning");
 		expect(harness.notifications.at(-1)?.message).toContain("slot movement was skipped");
 	});
 
 	test("slot checkout failure reports useful error after autobranch succeeds", async () => {
 		const harness = createHarness({
-			slotStdout: JSON.stringify({
-				exit_code: 3,
-				error_type: "no_available_slot",
-				message: "No clean detached slot is available.",
-			}),
+			slotFailure:
+				"slot checkout --current failed (no_available_slot): No clean detached slot is available.",
 		});
 
 		await createAutoslotFlow(harness.input);
 
-		expect(harness.events).toContain("slot:slot checkout --current --format json --no-clipboard");
+		expect(harness.events).toContain("slot-api:current");
 		expect(harness.notifications.at(-1)?.level).toBe("error");
 		expect(harness.notifications.at(-1)?.message).toContain(
 			"Autoslot created test-branch, but slot checkout failed.",

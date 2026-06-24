@@ -30,6 +30,7 @@
     "@sdl/branch-context": "workspace:*",
     "@sdl/plans": "workspace:*",
     "@sdl/sdl": "workspace:*",
+    "@sdl/slot": "workspace:*",
     "zod": "catalog:",
     "@sdl/graphite": "workspace:*"
   },
