@@ -1,6 +1,8 @@
 import { runTrunkPullCli } from "@sdl/ccc/trunk-pull";
 import { defineExtension, failed, ok, z, type SdlCommand } from "@sdl/sdl/sdk";
 
+import { execExtensionCommand } from "../shared/worktree.ts";
+
 const pullTrunkSchema = z.object({});
 
 export const flowPullTrunkCommand: SdlCommand<typeof pullTrunkSchema> = {
@@ -14,11 +16,13 @@ export const flowPullTrunkCommand: SdlCommand<typeof pullTrunkSchema> = {
 		const exitCode = await runTrunkPullCli({
 			cwd: ctx.cwd,
 			exec: async (command, args, options) =>
-				await ctx.exec(
+				await execExtensionCommand({
+					ctx,
 					command,
 					args,
-					options?.timeout === undefined ? {} : { timeoutMs: options.timeout },
-				),
+					...(options?.cwd === undefined ? {} : { cwd: options.cwd }),
+					...(options?.timeout === undefined ? {} : { timeoutMs: options.timeout }),
+				}),
 			stdout: (text) => {
 				stdout += text;
 				ctx.stdout?.(text);

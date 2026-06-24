@@ -8,7 +8,7 @@ const GIT_TIMEOUT_MS = 30_000;
 
 export interface BranchNameAvailabilityInput {
 	cwd: string;
-	exec: (command: string, args: string[], cwd: string, timeout: number) => Promise<CommandResult>;
+	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>;
 }
 
 export interface AvailableBranchName {
@@ -50,7 +50,6 @@ async function isBranchNameAvailable(
 	const valid = await input.exec(
 		"git",
 		["check-ref-format", "--branch", branchName],
-		input.cwd,
 		GIT_TIMEOUT_MS,
 	);
 	if (valid.code !== 0) return false;
@@ -60,7 +59,6 @@ async function isBranchNameAvailable(
 		const exists = await input.exec(
 			"git",
 			["show-ref", "--verify", "--quiet", ref],
-			input.cwd,
 			GIT_TIMEOUT_MS,
 		);
 		if (exists.code !== 1) return false;
@@ -69,7 +67,6 @@ async function isBranchNameAvailable(
 	const childRefs = await input.exec(
 		"git",
 		["for-each-ref", "--format=%(refname)", `${branchHeadRef(branchName)}/`],
-		input.cwd,
 		GIT_TIMEOUT_MS,
 	);
 	return childRefs.code === 0 && childRefs.stdout.trim().length === 0;

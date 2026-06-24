@@ -54,7 +54,7 @@ export const flowBranchLatestCommitCommand: SdlCommand<typeof branchLatestCommit
 			cwd: snapshot.root,
 			args,
 			snapshot,
-			exec: (command, commandArgs, _cwd, timeout) =>
+			exec: (command, commandArgs, timeout) =>
 				execExtensionCommand({ ctx, command, args: commandArgs, timeoutMs: timeout }),
 		});
 		if (!result.ok) {

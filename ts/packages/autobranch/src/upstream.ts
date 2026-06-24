@@ -11,13 +11,13 @@ export type UpstreamHeadState =
 
 export interface UpstreamHeadStateInput {
 	cwd: string;
-	exec: (command: string, args: string[], cwd: string, timeout: number) => Promise<CommandResult>;
+	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>;
 }
 
 export async function inspectUpstreamHeadState(
 	input: UpstreamHeadStateInput,
 ): Promise<UpstreamHeadState> {
-	const branch = await input.exec("git", ["branch", "--show-current"], input.cwd, GIT_TIMEOUT_MS);
+	const branch = await input.exec("git", ["branch", "--show-current"], GIT_TIMEOUT_MS);
 	if (branch.code !== 0) {
 		return { type: "failed", error: formatAutobranchCommandDetails(branch) };
 	}
@@ -29,7 +29,6 @@ export async function inspectUpstreamHeadState(
 	const upstream = await input.exec(
 		"git",
 		["for-each-ref", "--format=%(upstream:short)", `refs/heads/${branchName}`],
-		input.cwd,
 		GIT_TIMEOUT_MS,
 	);
 	if (upstream.code !== 0) {
@@ -44,7 +43,6 @@ export async function inspectUpstreamHeadState(
 	const containsHead = await input.exec(
 		"git",
 		["merge-base", "--is-ancestor", "HEAD", upstreamName],
-		input.cwd,
 		GIT_TIMEOUT_MS,
 	);
 	if (containsHead.code === 0) {

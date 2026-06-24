@@ -1,6 +1,8 @@
 import { runLandCli } from "@sdl/ccc/land";
 import { defineExtension, failed, ok, z, type SdlCommand } from "@sdl/sdl/sdk";
 
+import { execExtensionCommand } from "../shared/worktree.ts";
+
 const landSchema = z.object({
 	yes: z.boolean().optional().describe("Confirm stack landing without an interactive prompt."),
 	dryRun: z.boolean().optional().describe("Show what would land without merging PRs."),
@@ -23,7 +25,11 @@ export const flowLandCommand: SdlCommand<typeof landSchema> = {
 			cwd: ctx.cwd,
 			rawArgs: rawArgs.join(" "),
 			exec: async (command, args, options) =>
-				await ctx.exec(command, args, {
+				await execExtensionCommand({
+					ctx,
+					command,
+					args,
+					...(options?.cwd === undefined ? {} : { cwd: options.cwd }),
 					...(options?.timeout === undefined ? {} : { timeoutMs: options.timeout }),
 					...(onOutput === undefined
 						? {}

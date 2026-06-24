@@ -39,11 +39,28 @@ interface ExecExtensionCommandOptions {
 	ctx: SdlExtensionApi;
 	command: string;
 	args: string[];
-	timeoutMs: number;
+	cwd?: string | undefined;
+	timeoutMs?: number | undefined;
+	onStdout?: ((text: string) => void) | undefined;
+	onStderr?: ((text: string) => void) | undefined;
 }
 
-export function execExtensionCommand(options: ExecExtensionCommandOptions): Promise<ExecResult> {
-	return options.ctx.exec(options.command, options.args, { timeoutMs: options.timeoutMs });
+export async function execExtensionCommand(
+	options: ExecExtensionCommandOptions,
+): Promise<ExecResult> {
+	if (options.cwd !== undefined && options.cwd !== options.ctx.cwd) {
+		return {
+			code: 2,
+			stdout: "",
+			stderr: `SDL command execution is scoped to ${options.ctx.cwd}; refusing command cwd ${options.cwd}.`,
+			killed: false,
+		};
+	}
+	return await options.ctx.exec(options.command, options.args, {
+		...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
+		...(options.onStdout === undefined ? {} : { onStdout: options.onStdout }),
+		...(options.onStderr === undefined ? {} : { onStderr: options.onStderr }),
+	});
 }
 
 export async function createCommitWithPreparedMessage(

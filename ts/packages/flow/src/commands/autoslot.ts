@@ -1,6 +1,8 @@
 import { runAutoslotCli } from "@sdl/ccc/autoslot";
 import { defineExtension, failed, ok, z, type SdlCommand } from "@sdl/sdl/sdk";
 
+import { execExtensionCommand } from "../shared/worktree.ts";
+
 const autoslotSchema = z.object({
 	slug: z
 		.string()
@@ -22,11 +24,13 @@ export const flowAutoslotCommand: SdlCommand<typeof autoslotSchema> = {
 			env: ctx.env,
 			args: request.slug === undefined ? {} : { slug: request.slug },
 			exec: async (command, args, options) =>
-				await ctx.exec(
+				await execExtensionCommand({
+					ctx,
 					command,
 					args,
-					options?.timeout === undefined ? {} : { timeoutMs: options.timeout },
-				),
+					...(options?.cwd === undefined ? {} : { cwd: options.cwd }),
+					...(options?.timeout === undefined ? {} : { timeoutMs: options.timeout }),
+				}),
 			stdout: (text) => {
 				stdout += text;
 				ctx.stdout?.(text);

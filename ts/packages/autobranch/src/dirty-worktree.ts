@@ -42,7 +42,7 @@ export interface AutobranchPreparationInput {
 	cwd: string;
 	args: ParsedAutobranchArgs;
 	snapshot: PendingWorktreeSnapshot;
-	exec: (command: string, args: string[], cwd: string, timeout: number) => Promise<CommandResult>;
+	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>;
 	prepareCheckpointMessage: (
 		snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">,
 	) => Promise<{ ok: true; message: string } | { ok: false; error: string }>;
@@ -137,7 +137,6 @@ async function readUntrackedSnippets(
 	const listed = await input.exec(
 		"git",
 		["ls-files", "--others", "--exclude-standard", "-z"],
-		input.cwd,
 		GIT_TIMEOUT_MS,
 	);
 	if (listed.code !== 0 || listed.stdout.length === 0) {
@@ -244,7 +243,7 @@ export interface AutobranchFlowInput {
 	cwd: string;
 	args: ParsedAutobranchArgs;
 	snapshot: PendingWorktreeSnapshot;
-	exec: (command: string, args: string[], cwd: string, timeout: number) => Promise<CommandResult>;
+	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>;
 	prepareCheckpointMessage: (
 		snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">,
 	) => Promise<{ ok: true; message: string } | { ok: false; error: string }>;
@@ -292,12 +291,7 @@ export async function runDirtyAutobranchFlow(
 		};
 	}
 
-	const cleanliness = await input.exec(
-		"git",
-		["status", "--porcelain=v1"],
-		input.cwd,
-		GIT_TIMEOUT_MS,
-	);
+	const cleanliness = await input.exec("git", ["status", "--porcelain=v1"], GIT_TIMEOUT_MS);
 	const isClean = cleanliness.code === 0 && cleanliness.stdout.trim().length === 0;
 	const suffix = prepared.plan.hasSuffix
 		? ` (base slug ${prepared.plan.baseSlug} was unavailable)`

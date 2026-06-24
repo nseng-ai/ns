@@ -10,7 +10,7 @@ export interface AutobranchTransactionInput {
 	cwd: string;
 	branchName: string;
 	checkpointMessage: string;
-	exec: (command: string, args: string[], cwd: string, timeout: number) => Promise<CommandResult>;
+	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>;
 	commitPreparedCheckpointMessage: (
 		message: string,
 	) => Promise<{ summary: string } | { error: string }>;
@@ -88,7 +88,6 @@ async function stashPendingChanges(
 	const stashed = await input.exec(
 		"git",
 		["stash", "push", "--include-untracked", "-m", message],
-		input.cwd,
 		STASH_PUSH_TIMEOUT_MS,
 	);
 	if (stashed.code !== 0) {
@@ -109,7 +108,6 @@ async function findStashRef(
 	const listed = await input.exec(
 		"git",
 		["stash", "list", "--format=%gd%x00%s"],
-		input.cwd,
 		GIT_FACT_TIMEOUT_MS,
 	);
 	if (listed.code !== 0) {
@@ -130,7 +128,6 @@ async function createGraphiteBranch(
 	const created = await input.exec(
 		"gt",
 		["create", input.branchName, "--no-interactive", "--no-ai"],
-		input.cwd,
 		GT_CREATE_TIMEOUT_MS,
 	);
 	if (created.code !== 0) {
@@ -143,7 +140,7 @@ async function restoreStash(
 	input: TransactionExecutionInput,
 	ref: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-	const restored = await input.exec("git", ["stash", "pop", ref], input.cwd, STASH_POP_TIMEOUT_MS);
+	const restored = await input.exec("git", ["stash", "pop", ref], STASH_POP_TIMEOUT_MS);
 	if (restored.code !== 0) {
 		return { ok: false, error: formatAutobranchCommandDetails(restored) };
 	}

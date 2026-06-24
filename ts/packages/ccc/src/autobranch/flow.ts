@@ -18,7 +18,7 @@ export type { AutobranchFlowResult, FileStat, ParsedAutobranchArgs };
 export interface AutobranchFlowInput {
 	cwd: string;
 	args: ParsedAutobranchArgs;
-	exec: (command: string, args: string[], cwd: string, timeout: number) => Promise<CommandResult>;
+	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>;
 	prepareCheckpointMessage: (
 		snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">,
 	) => Promise<{ ok: true; message: string } | { ok: false; error: string }>;
@@ -35,7 +35,7 @@ export async function createAutobranchCheckpointFlow(
 ): Promise<AutobranchFlowResult> {
 	const loaded = await loadPendingWorktreeSnapshot({
 		cwd: input.cwd,
-		execGit: (args, timeout) => input.exec("git", args, input.cwd, timeout),
+		execGit: (args, timeout) => input.exec("git", args, timeout),
 	});
 	if (!loaded.ok) {
 		return { ok: false, error: formatAutobranchSnapshotError(loaded.error) };

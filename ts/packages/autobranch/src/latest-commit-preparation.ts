@@ -19,7 +19,7 @@ export interface LatestCommitPreparationInput {
 	cwd: string;
 	args: ParsedAutobranchArgs;
 	snapshot: PendingWorktreeSnapshot;
-	exec: (command: string, args: string[], cwd: string, timeout: number) => Promise<CommandResult>;
+	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>;
 }
 
 interface LatestCommitFacts {
@@ -124,12 +124,7 @@ export async function loadLatestCommitFacts(
 ): Promise<LatestCommitFactsResult> {
 	const trunk = await runGraphiteCommand(
 		async (command, args, options) => {
-			const result = await input.exec(
-				command,
-				[...args],
-				options?.cwd ?? input.cwd,
-				options?.timeout ?? GT_TIMEOUT_MS,
-			);
+			const result = await input.exec(command, [...args], options?.timeout ?? GT_TIMEOUT_MS);
 			return { ...result, killed: result.killed ?? false };
 		},
 		{ cwd: input.cwd, args: ["trunk", "--no-interactive"], timeoutMs: GT_TIMEOUT_MS },
@@ -168,7 +163,6 @@ export async function loadLatestCommitFacts(
 	const parents = await input.exec(
 		"git",
 		["rev-list", "--parents", "-n", "1", "HEAD"],
-		input.cwd,
 		GIT_TIMEOUT_MS,
 	);
 	if (parents.code !== 0) {
@@ -194,8 +188,8 @@ export async function loadLatestCommitFacts(
 	}
 
 	const [message, diff] = await Promise.all([
-		input.exec("git", ["log", "-1", "--format=%B"], input.cwd, GIT_TIMEOUT_MS),
-		input.exec("git", ["diff", "HEAD^", "HEAD", "--no-ext-diff"], input.cwd, GIT_TIMEOUT_MS),
+		input.exec("git", ["log", "-1", "--format=%B"], GIT_TIMEOUT_MS),
+		input.exec("git", ["diff", "HEAD^", "HEAD", "--no-ext-diff"], GIT_TIMEOUT_MS),
 	]);
 	if (message.code !== 0) {
 		return {
@@ -232,12 +226,7 @@ export async function loadLatestCommitFacts(
 async function inspectGraphiteChildBranches(
 	input: Pick<LatestCommitPreparationInput, "cwd" | "exec">,
 ): Promise<{ ok: true; children: string[] } | { ok: false; error: string }> {
-	const children = await input.exec(
-		"gt",
-		["children", "--no-interactive"],
-		input.cwd,
-		GT_TIMEOUT_MS,
-	);
+	const children = await input.exec("gt", ["children", "--no-interactive"], GT_TIMEOUT_MS);
 	if (children.code !== 0) {
 		return { ok: false, error: formatAutobranchCommandDetails(children) };
 	}

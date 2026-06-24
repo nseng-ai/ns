@@ -74,8 +74,8 @@ export async function runAutoslotCli(input: AutoslotCliInput): Promise<number> {
 	await createAutoslotFlow({
 		cwd: input.cwd,
 		args: input.args,
-		exec: (command, commandArgs, cwd, timeout) =>
-			input.exec(command, commandArgs, { cwd, timeout }),
+		exec: (command, commandArgs, timeout) =>
+			input.exec(command, commandArgs, { cwd: input.cwd, timeout }),
 		prepareCheckpointMessage: (snapshot) => prepareAutobranchCheckpointMessage(snapshot, input.env),
 		commitPreparedCheckpointMessage: (message) =>
 			commitAutobranchCheckpointMessage(
@@ -176,7 +176,8 @@ async function createAutoslot(
 		await createAutoslotFlow({
 			cwd: ctx.cwd,
 			args,
-			exec: (command, commandArgs, cwd, timeout) => pi.exec(command, commandArgs, { cwd, timeout }),
+			exec: (command, commandArgs, timeout) =>
+				pi.exec(command, commandArgs, { cwd: ctx.cwd, timeout }),
 			prepareCheckpointMessage: (snapshot) =>
 				prepareAutobranchCheckpointMessage(snapshot, process.env),
 			commitPreparedCheckpointMessage: (message) =>

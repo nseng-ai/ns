@@ -36,23 +36,25 @@ function createLandProject(): string {
 }
 
 function runWithFakes(options: RunWithFakesOptions) {
+	const cwd = options.cwd ?? createLandProject();
 	return runCliWithFakes(
-		{ ...options, cwd: options.cwd ?? createLandProject() },
+		{ ...options, cwd },
 		{
-			execResponses: () => landStackShapeResponses(),
+			execResponses: () => landStackShapeResponses(cwd),
 			textGenerationResults: () => [],
 		},
 	);
 }
 
-function landStackShapeResponses(): ScriptedExecResponse[] {
+function landStackShapeResponses(cwd: string | undefined): ScriptedExecResponse[] {
+	const repoRoot = cwd ?? "/work";
 	return [
-		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+		{ match: "git rev-parse --show-toplevel", result: { stdout: `${repoRoot}\n` } },
 		{ match: "git symbolic-ref --short HEAD", result: { stdout: `${CURRENT}\n` } },
 		{ match: "gt trunk --no-interactive", result: { stdout: `${TRUNK}\n` } },
 		{
 			match: "git rev-parse --path-format=absolute --git-common-dir",
-			result: { stdout: "/work/.git\n" },
+			result: { stdout: `${repoRoot}/.git\n` },
 		},
 		{ match: (call) => call.command === "sqlite3", result: { stdout: `${metadataDbJson()}\n` } },
 		{
@@ -117,7 +119,7 @@ describe("sdl flow land", () => {
 			"git symbolic-ref --short HEAD",
 			"gt trunk --no-interactive",
 			"git rev-parse --path-format=absolute --git-common-dir",
-			expect.stringContaining("sqlite3 -readonly -json /work/.git/.graphite_metadata.db"),
+			expect.stringContaining("sqlite3 -readonly -json "),
 			"git for-each-ref --format=%(refname:short)%09%(committerdate:iso-strict) refs/heads",
 		]);
 	});
