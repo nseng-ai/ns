@@ -1,12 +1,7 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-
-import { afterEach, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 
 import { CLI_COMMAND_OUTPUT_MESSAGE_TYPE } from "../src/cli-command-extension.ts";
-import sdlExtension, { type SdlExtensionAPI } from "../src/sdl-extension.ts";
+import sdlExtension, { registerSdlExtension, type SdlExtensionAPI } from "../src/sdl-extension.ts";
 import type { CommandContext } from "../src/cli-command-extension.ts";
 
 type RegisteredCommand = Parameters<SdlExtensionAPI["registerCommand"]>[1];
@@ -35,7 +30,6 @@ const FLOW_COMMANDS = [
 	"land",
 	"pull-trunk",
 ] as const satisfies readonly FlowCommandName[];
-const tempDirs: string[] = [];
 
 class FakePi implements SdlExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
@@ -93,57 +87,6 @@ function createContext(cwd: string): CommandContext {
 	};
 }
 
-async function createFlowCommandProject(commandName: FlowCommandName): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), `sdl-pi-flow-${commandName}-`));
-	tempDirs.push(directory);
-	const packageDir = join(directory, ".sdl", "extensions", "flow");
-	writeFileSyncWithParents(
-		join(packageDir, "package.json"),
-		JSON.stringify({
-			sdl: {
-				group: "flow",
-				commands: [
-					{
-						name: commandName,
-						description: `Custom ${commandName}`,
-						entry: `./src/commands/${commandName}.ts`,
-					},
-				],
-			},
-		}),
-	);
-	writeFileSyncWithParents(
-		join(packageDir, "src", "commands", `${commandName}.ts`),
-		`
-import { defineExtension, ok } from "@sdl/sdl/sdk";
-
-export default defineExtension({
-	commands: [{
-	name: "${commandName}",
-	summary: "Custom ${commandName}",
-	description: "Custom ${commandName}",
-	async run(ctx) {
-		const result = await ctx.exec("echo", ["pi-custom-${commandName}"]);
-		return ok(result.stdout.trim());
-	},
-}],
-});
-`,
-	);
-	return directory;
-}
-
-function writeFileSyncWithParents(path: string, content: string): void {
-	mkdirSync(dirname(path), { recursive: true });
-	writeFileSync(path, content);
-}
-
-afterEach(() => {
-	for (const directory of tempDirs.splice(0)) {
-		rmSync(directory, { recursive: true, force: true });
-	}
-});
-
 describe("sdl Pi extension", () => {
 	test("exposes only nested flow SDL lifecycle mirrors", () => {
 		const pi = new FakePi();
@@ -179,23 +122,20 @@ describe("sdl Pi extension", () => {
 	});
 
 	for (const commandName of FLOW_COMMANDS) {
-		test(`runs sdl flow ${commandName} through the nested SDL mirror`, async () => {
-			const cwd = await createFlowCommandProject(commandName);
+		test(`routes sdl flow ${commandName} to the SDL CLI with flow argv`, async () => {
 			const pi = new FakePi();
-			sdlExtension(pi);
+			const runCliCalls: string[][] = [];
+			registerSdlExtension(pi, {
+				runCli: async (args, deps) => {
+					runCliCalls.push([...args]);
+					deps?.stdout?.(`pi-custom-${commandName}`);
+					return 0;
+				},
+			});
 
-			const originalHome = process.env.HOME;
-			process.env.HOME = join(cwd, ".home");
-			try {
-				await commandFor(pi, `sdl:flow:${commandName}`).handler("", createContext(cwd));
-			} finally {
-				if (originalHome === undefined) {
-					delete process.env.HOME;
-				} else {
-					process.env.HOME = originalHome;
-				}
-			}
+			await commandFor(pi, `sdl:flow:${commandName}`).handler("", createContext("/work"));
 
+			expect(runCliCalls).toEqual([["flow", commandName]]);
 			expectSingleCommandOutput(pi.sentMessages, `pi-custom-${commandName}`);
 		});
 	}
