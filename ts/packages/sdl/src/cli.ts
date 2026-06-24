@@ -2,9 +2,12 @@
 
 import { z } from "zod";
 
-import { ClinkrGroup } from "@sdl/clinkr";
+import { ClinkrGroup, isClinkrHumanOutputInvocation, resolveClinkrInteraction } from "@sdl/clinkr";
 import { rawCommand } from "@sdl/clinkr/raw";
 import { defineCli } from "@sdl/core/cli-entry";
+import { readStdinLine } from "@sdl/core/stdin";
+import { buildSlotCommandGroup } from "@sdl/slot/command-face";
+import { createRealSlotContext, type SlotCliContext } from "@sdl/slot";
 
 import {
 	commandDisplayName,
@@ -32,6 +35,16 @@ import type {
 	SdlExtensionApi,
 	SdlOutputStream,
 } from "./sdk/index.ts";
+import {
+	renderSdlShellInstall,
+	renderSdlShellShow,
+	runSdlShellInstall,
+	runSdlShellShow,
+	sdlShellInstallRequestSchema,
+	sdlShellInstallResultSchema,
+	sdlShellShowRequestSchema,
+	sdlShellShowResultSchema,
+} from "./operations/shell.ts";
 
 export type { SdlCommandInfo } from "./command-registry.ts";
 
@@ -52,12 +65,9 @@ export interface BuildSdlCliOptions {
 	selectedCommandPath?: SdlCommandPath | undefined;
 }
 
-export interface SdlCliContext {
+export interface SdlCliContext extends SlotCliContext {
 	context: SdlExtensionApi;
-	cwd: string;
-	env: Record<string, string | undefined>;
 	stdout: (text: string) => void;
-	stderr: (text: string) => void;
 }
 
 interface SdlCliBuildState {
@@ -138,12 +148,16 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 			...(confirm === undefined ? {} : { confirm }),
 			...(baseContext.extensions === undefined ? {} : { extensions: baseContext.extensions }),
 		};
+		const slotContext = await createRealSlotContext({ cwd: resolvedCwd, env: resolvedEnv });
 		const contextWithIO: SdlCliContext = {
+			...slotContext,
 			context,
 			cwd: resolvedCwd,
 			env: resolvedEnv,
 			stdout: resolvedStdout,
 			stderr: resolvedStderr,
+			interaction: resolveClinkrInteraction({ stdin: readStdinLine, stderr: resolvedStderr }),
+			shouldWriteCdDirective: isClinkrHumanOutputInvocation(args),
 		};
 		return {
 			type: "run",
@@ -152,6 +166,8 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 		};
 	},
 	configureCli: ({ root, buildState }) => {
+		root.group(buildSlotCommandGroup<SdlCliContext>());
+		root.group(buildSdlShellGroup());
 		const groups = new Map<string, ClinkrGroup<SdlCliContext>>();
 		for (const commandInfo of buildState.commandInfos) {
 			const parent = groupForCommand(root, groups, commandInfo);
@@ -225,6 +241,32 @@ function requestedCommandKey(
 	const secondArg = args[1];
 	if (secondArg === undefined || secondArg.startsWith("-")) return undefined;
 	return commandKey({ group: firstArg, name: secondArg });
+}
+
+function buildSdlShellGroup(): ClinkrGroup<SdlCliContext> {
+	const shell = new ClinkrGroup<SdlCliContext>({
+		name: "shell",
+		description: "Show or install parent-shell integration.",
+	});
+	shell.command({
+		name: "show",
+		description: "Print the parent-shell wrapper script.",
+		schema: sdlShellShowRequestSchema,
+		options: { shell: {} },
+		resultSchema: sdlShellShowResultSchema,
+		handler: runSdlShellShow,
+		renderHuman: renderSdlShellShow,
+	});
+	shell.command({
+		name: "install",
+		description: "Install the parent-shell wrapper in the detected or selected rc file.",
+		schema: sdlShellInstallRequestSchema,
+		options: { shell: {} },
+		resultSchema: sdlShellInstallResultSchema,
+		handler: runSdlShellInstall,
+		renderHuman: renderSdlShellInstall,
+	});
+	return shell;
 }
 
 function groupForCommand(

@@ -1,53 +1,54 @@
 {
-  "name": "@sdl/sdl",
-  "version": "0.1.0",
-  "private": true,
-  "description": "Emerging customer-facing Source Development Lifecycle CLI.",
-  "type": "module",
-  "exports": {
-    "./checkpoint-flow": "./src/checkpoint-flow.ts",
-    "./checkpoint-message": "./src/checkpoint-message.ts",
-    "./cli": "./src/cli.ts",
-    "./context": "./src/context.ts",
-    "./pending-worktree": "./src/pending-worktree.ts",
-    "./pi-text-generation": "./src/sdk/pi-text-generation.ts",
-    "./sdk": "./src/sdk/index.ts",
-    "./temp-files": "./src/temp-files.ts",
-    "./text-generation": "./src/sdk/text-generation.ts",
-    "./text-repair": "./src/text-repair.ts"
-  },
-  "sdl": {
-    "publicPluginApi": [
-      "./sdk"
-    ],
-    "internalMigrationExports": [
-      "./checkpoint-flow",
-      "./checkpoint-message",
-      "./cli",
-      "./context",
-      "./pending-worktree",
-      "./pi-text-generation",
-      "./temp-files",
-      "./text-generation",
-      "./text-repair"
-    ]
-  },
-  "bin": {
-    "sdl": "./src/cli.ts"
-  },
-  "scripts": {
-    "check": "tsgo -p tsconfig.json",
-    "test": "cd ../.. && vitest run --config vitest.config.ts packages/sdl/test"
-  },
-  "dependencies": {
-    "@sdl/autobranch": "workspace:*",
-    "@sdl/clinkr": "workspace:*",
-    "@sdl/core": "workspace:*",
-    "@sdl/graphite": "workspace:*",
-    "@sdl/plans": "workspace:*",
-    "@earendil-works/pi-ai": "catalog:",
-    "@earendil-works/pi-coding-agent": "catalog:",
-    "jiti": "catalog:",
-    "zod": "catalog:"
-  }
+	"name": "@sdl/sdl",
+	"version": "0.1.0",
+	"private": true,
+	"description": "Emerging customer-facing Source Development Lifecycle CLI.",
+	"bin": {
+		"sdl": "./src/cli.ts"
+	},
+	"type": "module",
+	"exports": {
+		"./checkpoint-flow": "./src/checkpoint-flow.ts",
+		"./checkpoint-message": "./src/checkpoint-message.ts",
+		"./cli": "./src/cli.ts",
+		"./context": "./src/context.ts",
+		"./pending-worktree": "./src/pending-worktree.ts",
+		"./pi-text-generation": "./src/sdk/pi-text-generation.ts",
+		"./sdk": "./src/sdk/index.ts",
+		"./temp-files": "./src/temp-files.ts",
+		"./text-generation": "./src/sdk/text-generation.ts",
+		"./text-repair": "./src/text-repair.ts"
+	},
+	"scripts": {
+		"check": "tsgo -p tsconfig.json",
+		"test": "cd ../.. && vitest run --config vitest.config.ts packages/sdl/test"
+	},
+	"dependencies": {
+		"@earendil-works/pi-ai": "catalog:",
+		"@earendil-works/pi-coding-agent": "catalog:",
+		"@sdl/autobranch": "workspace:*",
+		"@sdl/clinkr": "workspace:*",
+		"@sdl/core": "workspace:*",
+		"@sdl/graphite": "workspace:*",
+		"@sdl/plans": "workspace:*",
+		"@sdl/slot": "workspace:*",
+		"jiti": "catalog:",
+		"zod": "catalog:"
+	},
+	"sdl": {
+		"publicPluginApi": [
+			"./sdk"
+		],
+		"internalMigrationExports": [
+			"./checkpoint-flow",
+			"./checkpoint-message",
+			"./cli",
+			"./context",
+			"./pending-worktree",
+			"./pi-text-generation",
+			"./temp-files",
+			"./text-generation",
+			"./text-repair"
+		]
+	}
 }

@@ -6,8 +6,8 @@
   - Policy: direct execution for the bounded checkout slice; do not change the standalone `slot` CLI surface.
   - Evidence so far: this branch adds `@sdl/slot/api` for current and named branch checkout and migrates CCC checkout adapters toward the Peer API.
 
-- [ ] Define Slot command-face strategy.
-  - Decide how the existing `slot` CLI relates to any future `sdl slot ...` or Pi command faces, including compatibility expectations and docs.
+- [x] Define Slot command-face strategy.
+  - `slot` remains the canonical direct human command. `sdl slot ...` is an in-process SDL command-face alias over the same Slot command implementation, with separate opt-in `sdl shell` integration for parent-shell navigation.
 
 - [ ] Decide and migrate `slot gt` Peer API needs.
   - Inventory stack discovery/free-stack consumers, choose which operations deserve curated Peer APIs, and avoid broad internal exports.

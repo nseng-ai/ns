@@ -2,7 +2,7 @@
 
 TypeScript-backed `slot` CLI for working on multiple branches in parallel without stashing, losing your place, or waiting for a clean working tree. `slot` gives each in-flight branch its own dedicated Git worktree, so switching contexts is just `cd` and every other branch keeps its editor state, terminal state, running processes, and uncommitted changes.
 
-The standalone `slot` command is the default human command surface. First-party sibling packages should use the repo-bound `SlotClient` from `@sdl/slot/api` for in-process Slot decisions instead of subprocess JSON parsing or deep imports. `SlotClient` currently exposes checkout operations for moving the current branch or a named branch into managed slots.
+The standalone `slot` command remains the canonical direct human command surface. `sdl slot ...` is also available as an SDL command-face alias over the same in-process Slot command implementation; it is not a separate machine API and does not deprecate `slot`. First-party sibling packages should use the repo-bound `SlotClient` from `@sdl/slot/api` for in-process Slot decisions instead of subprocess JSON parsing or deep imports. `SlotClient` currently exposes checkout operations for moving the current branch or a named branch into managed slots.
 
 There is no TypeScript `sdl.plugins` analog.
 
@@ -79,6 +79,8 @@ slot shell install --shell bash
 ```
 
 `slot shell install` appends an idempotent marked block to `.zshrc` or `.bashrc`. The wrapper defines a shell function named `slot`, creates a temporary directive file, invokes the real CLI with `SLOT_CD_DIRECTIVE_FILE=<temp> command slot "$@"`, reads a successful human navigation directive, and performs `cd -- <path>` in the parent shell.
+
+For the SDL alias, use `sdl shell show --shell zsh` or `sdl shell install --shell zsh|bash`. That wrapper defines a shell function named `sdl` and uses the distinct `SDL_CD_DIRECTIVE_FILE` variable so successful human-output navigation commands such as `sdl slot checkout`, `sdl slot goto`, `sdl slot gt up`, and `sdl slot gt down` can move the parent shell. Existing `slot shell` behavior and markers are unchanged.
 
 Navigation directives are used by human-output navigation commands such as `slot checkout`, `slot goto`, `slot gt up`, and `slot gt down`. `--format json` and `--json-schema` do not write cd directives, so machine-readable calls do not move the parent shell. `--no-clipboard` skips clipboard writes only; it does not disable an active parent-shell `cd`.
 

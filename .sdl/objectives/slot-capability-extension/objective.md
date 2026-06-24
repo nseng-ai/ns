@@ -16,7 +16,7 @@ Slot should become an above-SDK capability extension with a curated `@sdl/slot/a
 ## Non-Goals
 
 - Do not remove or deprecate the existing standalone `slot` CLI during the first Peer API slices.
-- Do not add `sdl slot ...` command faces until command-face compatibility and ownership are deliberately designed.
+- Do not remove or deprecate standalone `slot`; any SDL command face must preserve documented compatibility and ownership boundaries.
 - Do not make sibling packages deep-import Slot internals.
 - Do not treat CLI JSON invocation as the Peer API.
 
