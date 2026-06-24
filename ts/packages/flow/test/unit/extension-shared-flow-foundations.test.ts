@@ -6,23 +6,23 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../..");
-const SHARED_WORKTREE_PATH = join(REPO_ROOT, ".sdl/extensions/flow/src/shared/worktree.ts");
-const SUBMIT_COMMAND_PATH = join(REPO_ROOT, ".sdl/extensions/flow/src/commands/submit.ts");
+const SHARED_WORKTREE_PATH = join(REPO_ROOT, "ts/packages/flow/src/shared/worktree.ts");
+const SUBMIT_COMMAND_PATH = join(REPO_ROOT, "ts/packages/flow/src/commands/submit.ts");
 const REGENERATE_PR_COMMAND_PATH = join(
 	REPO_ROOT,
-	".sdl/extensions/flow/src/commands/regenerate-pr.ts",
+	"ts/packages/flow/src/commands/regenerate-pr.ts",
 );
-const AUTOBRANCH_COMMAND_PATH = join(REPO_ROOT, ".sdl/extensions/flow/src/commands/autobranch.ts");
+const AUTOBRANCH_COMMAND_PATH = join(REPO_ROOT, "ts/packages/flow/src/commands/autobranch.ts");
 const BRANCH_LATEST_COMMIT_COMMAND_PATH = join(
 	REPO_ROOT,
-	".sdl/extensions/flow/src/commands/branch-latest-commit.ts",
+	"ts/packages/flow/src/commands/branch-latest-commit.ts",
 );
 
 const REMOVED_LOCAL_AUTOBRANCH_HELPERS = [
-	[".sdl/extensions/flow/src/shared", "branch-availability.ts"],
-	[".sdl/extensions/flow/src/shared", "branch-slugs.ts"],
-	[".sdl/extensions/flow/src/shared", "branch-slug-text.ts"],
-	[".sdl/extensions/flow/src/shared", ["latest", "commit", "autobranch.ts"].join("-")],
+	["ts/packages/flow/src/shared", "branch-availability.ts"],
+	["ts/packages/flow/src/shared", "branch-slugs.ts"],
+	["ts/packages/flow/src/shared", "branch-slug-text.ts"],
+	["ts/packages/flow/src/shared", ["latest", "commit", "autobranch.ts"].join("-")],
 ] as const;
 
 describe("project extension shared flow foundations", () => {

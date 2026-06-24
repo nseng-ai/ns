@@ -4,10 +4,8 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
 
-import { createSdlJiti } from "../../src/sdk/module-loader.ts";
-
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../..");
-const SHARED_TEXT_HELPER_PATH = join(REPO_ROOT, ".sdl/extensions/flow/src/shared/text-helpers.ts");
+const SHARED_TEXT_HELPER_PATH = join(REPO_ROOT, "ts/packages/flow/src/shared/text-helpers.ts");
 
 interface SharedTextHelpersModule {
 	draftChangesSummary: unknown;
@@ -16,7 +14,7 @@ interface SharedTextHelpersModule {
 
 describe("project extension shared text helpers", () => {
 	test("reach package implementations instead of carrying copied text flows", async () => {
-		const sharedModule = await createSdlJiti().import(SHARED_TEXT_HELPER_PATH);
+		const sharedModule = await import(SHARED_TEXT_HELPER_PATH);
 		assertSharedTextHelpersModule(sharedModule);
 
 		expect(typeof sharedModule.draftChangesSummary).toBe("function");

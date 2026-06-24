@@ -37,6 +37,7 @@
     "syncpack": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
+    "@sdl/flow": "workspace:*",
     "@sdl/graphite": "workspace:*"
   },
   "workspaces": [

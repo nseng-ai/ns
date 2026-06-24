@@ -4,14 +4,12 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
 
-import { createSdlJiti } from "../../src/sdk/module-loader.ts";
-
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../..");
 const SHARED_TEXT_GENERATION_HELPER_PATH = join(
 	REPO_ROOT,
-	".sdl/extensions/flow/src/shared/text-generation.ts",
+	"ts/packages/flow/src/shared/text-generation.ts",
 );
-const SUBMIT_EXTENSION_PATH = join(REPO_ROOT, ".sdl/extensions/flow/src/commands/submit.ts");
+const SUBMIT_EXTENSION_PATH = join(REPO_ROOT, "ts/packages/flow/src/commands/submit.ts");
 
 type ModelSelector = (env: Record<string, string | undefined>) => string;
 
@@ -24,13 +22,10 @@ interface SharedTextGenerationModule {
 
 describe("project extension shared text generation helper", () => {
 	test("reaches the package implementation through the extension loader", async () => {
-		const jiti = createSdlJiti();
-		const sharedModule = await jiti.import(SHARED_TEXT_GENERATION_HELPER_PATH);
+		const sharedModule = await import(SHARED_TEXT_GENERATION_HELPER_PATH);
 		assertSharedTextGenerationModule(sharedModule);
 
-		const canonicalModule = await jiti.import<typeof import("../../src/sdk/text-generation.ts")>(
-			"@sdl/sdl/text-generation",
-		);
+		const canonicalModule = await import("@sdl/sdl/text-generation");
 
 		expect(sharedModule.CHECKPOINT_MODEL_ENV).toBe(canonicalModule.CHECKPOINT_MODEL_ENV);
 		expect(sharedModule.CHANGES_MODEL_ENV).toBe(canonicalModule.CHANGES_MODEL_ENV);
