@@ -20,7 +20,7 @@
     "publicPluginApi": [
       "./sdk"
     ],
-    "internalMigrationExports": [
+    "internalWorkspaceExports": [
       "./checkpoint-flow",
       "./checkpoint-message",
       "./cli",

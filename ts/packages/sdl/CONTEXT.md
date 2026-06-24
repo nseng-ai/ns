@@ -69,7 +69,7 @@ The evidence rule for moving behavior into the SDL extension API: one command ma
 *Avoid*: one-command convenience export, importing implementation modules from extensions, treating duplication as automatically bad, hidden migration registry.
 
 **Internal workspace export**:
-An `@sdl/sdl` subpath shared across first-party workspace packages (`ccc`, `pi-extensions`, flow) but not promised through the Public author API. It carries SDK-independent primitives — code that takes explicit callbacks (`execGit`, a text generator) rather than `SdlExtensionApi`. The dividing rule between sharing mechanisms is SDK-dependence: `ctx`-dependent shared code belongs above the SDK in the Shared extension substrate; SDK-independent primitives stay here, below the SDK. (`package.json` field rename `sdl.internalMigrationExports` → `sdl.internalWorkspaceExports` pending; see ADR 0009.)
+An `@sdl/sdl` subpath shared across first-party workspace packages (`ccc`, `pi-extensions`, flow) but not promised through the Public author API. It carries SDK-independent primitives — code that takes explicit callbacks (`execGit`, a text generator) rather than `SdlExtensionApi`. The dividing rule between sharing mechanisms is SDK-dependence: `ctx`-dependent shared code belongs above the SDK in the Shared extension substrate; SDK-independent primitives stay here, below the SDK. Package metadata records these subpaths under `sdl.internalWorkspaceExports`.
 *Avoid*: internal migration export, plugin API, public SDK, command-author import path, ctx-dependent shared code.
 
 **Flow capability-area maturity ladder**:
@@ -113,7 +113,7 @@ The capability-extension face the SDL kernel loads — `defineExtension()` comma
 *Avoid*: Peer API, programmatic sibling export, domain core, kernel internal.
 
 **Peer API**:
-The capability-extension face that sibling extensions consume — a curated, typed programmatic export imported in-process (chiefly by `ccc`). Siblings depend on the Peer API only, never on internal modules, and never by invoking the sibling's CLI.
+The capability-extension face that sibling extensions consume — a curated, typed programmatic export imported in-process (chiefly by `ccc`) through the required `@sdl/<cap>/api` subpath. Siblings depend on the Peer API only, never on internal modules, package-private subpaths, or the sibling's CLI.
 *Avoid*: command contribution, internal module import, CLI invocation of a sibling, `ctx`-passing API, peer guts.
 
 **Gateway-injected peer core**:
@@ -121,7 +121,7 @@ The rule that capability domain logic and its Peer API take injected gateways su
 *Avoid*: `ctx`-threaded domain logic, exec-string test seam, host access inside the domain core.
 
 **Extension dependency DAG**:
-The acyclic, shallow graph of extension→extension Peer API dependencies. Capabilities are mostly leaves; `ccc` is the apex orchestrator. These are ordinary package edges — the kernel loader is unaware of them.
+The acyclic, shallow graph of extension→extension dependencies through `@sdl/<cap>/api` Peer API subpaths. Capabilities are mostly leaves; `ccc` is the apex orchestrator. These are ordinary package edges — the kernel loader is unaware of them.
 *Avoid*: kernel-resolved dependency, capability-to-capability web, cyclic peer import.
 
 **Shared extension substrate** (`@sdl/extension-kit`):

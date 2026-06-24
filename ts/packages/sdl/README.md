@@ -104,9 +104,11 @@ Single-file SDL extension modules such as `.sdl/extensions/<name>.ts` are leaf a
 
 The command-first promotion rule is evidence driven: copy or localize behavior while one command is proving a seam, extract shared helpers inside the owning `.sdl/extensions/` package only when that keeps project-local authoring readable, and promote a helper into `@sdl/sdl/sdk` only after multiple command slices prove the shape or a single-command necessity is explicitly documented. Promotion should deepen the kernel boundary; it should not merely make one command easier by exposing implementation internals.
 
-## Internal migration exports
+## Internal workspace exports and Peer APIs
 
-`@sdl/sdl/package.json` marks only `./sdk` as `sdl.publicPluginApi`. Other package subpaths are `sdl.internalMigrationExports`: they exist so SDL workspace packages can share primitives during migration, but they are not plugin-author APIs and should not be documented as stable extension surfaces.
+`@sdl/sdl/package.json` marks only `./sdk` as `sdl.publicPluginApi`. Other `@sdl/sdl` package subpaths are `sdl.internalWorkspaceExports`: they exist so SDL workspace packages can share primitives during migration, but they are not plugin-author APIs and should not be documented as stable extension surfaces.
+
+Sibling capability packages use Peer APIs, not the SDL SDK, for deliberate in-process dependencies. The ratified Peer API convention is `@sdl/<cap>/api`; package roots and command faces are not sibling domain APIs unless the owning package documents that surface explicitly.
 
 ## Flow capability-area maturity
 
@@ -114,10 +116,10 @@ The grouped flow extension uses a conservative maturity ladder for repeated comm
 
 1. **Raw:** command-local logic built directly on kernel primitives such as `ctx.exec`, `ctx.textGenerator`, `ctx.stdout`, `ctx.stderr`, `ctx.confirm`, `ctx.env`, and `ctx.cwd`.
 2. **Flow-shared:** repeated repo-local mechanics extracted under `ts/packages/extensions/flow/src/shared/` in the `sdl-flow` workspace package, for example current helpers for Git mechanics, checkpoint-message/model wiring, worktree facts, text helpers, and CCC CLI delegation.
-3. **Internal export:** package-owned behavior reached through documented `@sdl/sdl/*` internal-migration-export subpaths, such as submit orchestration, PR-description orchestration, checkpoint/pending-worktree helpers, temp files, and text repair/generation support.
+3. **Internal export:** package-owned behavior reached through documented `@sdl/sdl/*` internal-workspace-export subpaths, such as submit orchestration, PR-description orchestration, checkpoint/pending-worktree helpers, temp files, and text repair/generation support.
 4. **Public SDK:** a separately approved promotion into `@sdl/sdl/sdk`. This remains deferred for the flow consolidation track except for already documented SDK exports.
 
-This ladder is a readiness model, not an automatic promotion pipeline. Flow-shared helpers keep this repository's grouped `sdl-flow` command package readable; internal migration exports support package-to-package migration; neither tier is public extension-author API.
+This ladder is a readiness model, not an automatic promotion pipeline. Flow-shared helpers keep this repository's grouped `sdl-flow` command package readable; internal workspace exports support package-to-package migration; neither tier is public extension-author API.
 
 ## `cp`
 
@@ -280,7 +282,7 @@ Use these cut lines when deciding where a lifecycle workflow belongs:
 - **Kernel service:** discovery, loading, precedence, command presentation, execution/context primitives, and small author helpers with proven reuse or explicit necessity.
 - **Project-local extension:** repo-specific workflow policy, prompts, external command choreography, and command names that should travel with this checkout but not every SDL installation.
 - **Future bundled extension:** reusable first-party workflow behavior whose portable contract has been proven outside a single repository; still out of scope for the current command-first migration.
-- **Internal migration export:** package-to-package sharing during migration, not an author API and not a reason for `.sdl/extensions/*.ts` files to import implementation modules.
+- **Internal workspace export:** package-to-package sharing during migration, not an author API and not a reason for `.sdl/extensions/*.ts` files to import implementation modules.
 
 ## Testing future command migrations
 

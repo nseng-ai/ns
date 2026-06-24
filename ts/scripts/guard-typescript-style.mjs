@@ -21,6 +21,28 @@ const skippedDirectoryNames = new Set([
 const BAN_AS_UNKNOWN_AS = "SDL_TS_BAN_AS_UNKNOWN_AS";
 const BAN_IMPORT_ALIAS_FOR_FIRST_PARTY = "SDL_TS_BAN_IMPORT_ALIAS_FOR_FIRST_PARTY";
 const BAN_EMPTY_INTERFACE_EXTENDS = "SDL_TS_BAN_EMPTY_INTERFACE_EXTENDS";
+const BAN_CAPABILITY_PRIVATE_PEER_IMPORT = "SDL_TS_BAN_CAPABILITY_PRIVATE_PEER_IMPORT";
+
+const capabilityPackageNames = new Set([
+  "@sdl/aretro",
+  "@sdl/branch-context",
+  "@sdl/ccc",
+  "@sdl/handoff",
+  "@sdl/objective",
+  "@sdl/plans",
+  "@sdl/pr-address",
+  "@sdl/roaster",
+  "@sdl/slot",
+  "sdl-flow",
+]);
+const neutralPeerPackageNames = new Set([
+  "@sdl/brmem",
+  "@sdl/clinkr",
+  "@sdl/core",
+  "@sdl/extension-kit",
+  "@sdl/graphite",
+]);
+const packageMetadataByName = loadPackageMetadata();
 
 /** @type {Array<{ rule: string; path: string; line: number; column: number; text: string }>} */
 const matches = [];
@@ -30,7 +52,7 @@ scanDirectory(repoRoot);
 
 if (matches.length === 0) {
   console.log(
-    "OK: TypeScript style guard found no banned double-casts, first-party import aliases, or empty interface-extension aliases.",
+    "OK: TypeScript style guard found no banned double-casts, first-party import aliases, empty interface-extension aliases, or private capability peer imports.",
   );
   process.exit(0);
 }
@@ -42,6 +64,9 @@ console.error(
 );
 console.error(
   `${BAN_EMPTY_INTERFACE_EXTENDS}: empty \`interface X extends Y {}\` aliases are banned; use \`type X = Y\` or add real members.`,
+);
+console.error(
+  `${BAN_CAPABILITY_PRIVATE_PEER_IMPORT}: capability packages may import sibling capabilities through curated package exports such as \`@sdl/<cap>/api\`, but not private/deep \`src\`, \`internal\`, or undeclared capability subpaths.`,
 );
 console.error("");
 for (const match of matches) {
@@ -104,6 +129,10 @@ function collectViolations(content, path) {
       violations.push(buildViolation(BAN_EMPTY_INTERFACE_EXTENDS, path, sourceFile, node));
     }
 
+    if (ts.isImportDeclaration(node) && isPrivateCapabilityPeerImport(node, path)) {
+      violations.push(buildViolation(BAN_CAPABILITY_PRIVATE_PEER_IMPORT, path, sourceFile, node.moduleSpecifier));
+    }
+
     if (isAsUnknownAsExpression(node)) {
       violations.push(buildViolation(BAN_AS_UNKNOWN_AS, path, sourceFile, node));
     }
@@ -119,6 +148,96 @@ function isFirstPartyImportDeclaration(node) {
   const specifier = moduleSpecifierText(node);
   if (specifier === undefined) return false;
   return isFirstPartyModuleSpecifier(specifier);
+}
+
+function isPrivateCapabilityPeerImport(node, path) {
+  const specifier = moduleSpecifierText(node);
+  if (specifier === undefined) return false;
+
+  const importerPackageName = packageNameForPath(path);
+  if (importerPackageName === undefined) return false;
+  if (!capabilityPackageNames.has(importerPackageName)) return false;
+
+  const importedPackageName = packageNameForSpecifier(specifier);
+  if (importedPackageName === undefined) return false;
+  if (importedPackageName === importerPackageName) return false;
+  if (neutralPeerPackageNames.has(importedPackageName)) return false;
+  if (importedPackageName === "@sdl/sdl") return false;
+  if (!capabilityPackageNames.has(importedPackageName)) return false;
+
+  const importedSubpath = packageSubpathForSpecifier(specifier, importedPackageName);
+  if (importedSubpath === ".") return false;
+  if (importedSubpath === "./api") return false;
+  if (isPrivateCapabilitySubpath(importedSubpath)) return true;
+
+  const importedPackageMetadata = packageMetadataByName.get(importedPackageName);
+  if (importedPackageMetadata === undefined) return true;
+  return !importedPackageMetadata.exportSubpaths.has(importedSubpath);
+}
+
+function packageNameForPath(path) {
+  for (const metadata of packageMetadataByName.values()) {
+    if (path === metadata.packageJsonPath) return metadata.name;
+    if (path.startsWith(`${metadata.packageDir}/`)) return metadata.name;
+  }
+  return undefined;
+}
+
+function packageNameForSpecifier(specifier) {
+  if (specifier === "sdl-flow" || specifier.startsWith("sdl-flow/")) return "sdl-flow";
+  if (!specifier.startsWith("@sdl/")) return undefined;
+  const parts = specifier.split("/");
+  if (parts.length < 2) return undefined;
+  return `${parts[0]}/${parts[1]}`;
+}
+
+function packageSubpathForSpecifier(specifier, packageName) {
+  if (specifier === packageName) return ".";
+  return `.${specifier.slice(packageName.length)}`;
+}
+
+function isPrivateCapabilitySubpath(subpath) {
+  return subpath.startsWith("./src/") || subpath === "./internal" || subpath.startsWith("./internal/");
+}
+
+function loadPackageMetadata() {
+  /** @type {Map<string, { name: string; packageDir: string; packageJsonPath: string; exportSubpaths: Set<string> }>} */
+  const metadataByName = new Map();
+  for (const packageJsonPath of findPackageJsonFiles(join(repoRoot, "ts", "packages"))) {
+    const packageDir = packageJsonPath.slice(0, -"/package.json".length);
+    const parsed = JSON.parse(readFileSync(packageJsonPath, "utf8"));
+    if (typeof parsed.name !== "string") continue;
+    metadataByName.set(parsed.name, {
+      name: parsed.name,
+      packageDir: relative(repoRoot, packageDir),
+      packageJsonPath: relative(repoRoot, packageJsonPath),
+      exportSubpaths: collectExportSubpaths(parsed.exports),
+    });
+  }
+  return metadataByName;
+}
+
+function findPackageJsonFiles(directory) {
+  /** @type {string[]} */
+  const paths = [];
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const fullPath = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      if (!skippedDirectoryNames.has(entry.name)) paths.push(...findPackageJsonFiles(fullPath));
+      continue;
+    }
+    if (entry.isFile() && entry.name === "package.json") paths.push(fullPath);
+  }
+  return paths;
+}
+
+function collectExportSubpaths(exportsField) {
+  if (exportsField === undefined) return new Set(["."]);
+  if (typeof exportsField === "string") return new Set(["."]);
+  if (exportsField === null || typeof exportsField !== "object" || Array.isArray(exportsField)) {
+    return new Set();
+  }
+  return new Set(Object.keys(exportsField));
 }
 
 function moduleSpecifierText(node) {
@@ -198,6 +317,36 @@ function runAdversarialReview() {
       expectedRules: [],
     },
     {
+      name: "capability peer api import is allowed",
+      code: 'import { createHandoff } from "@sdl/handoff/api";',
+      path: "ts/packages/ccc/src/peer.ts",
+      expectedRules: [],
+    },
+    {
+      name: "capability private src import is rejected",
+      code: 'import { createHandoff } from "@sdl/handoff/src/create.ts";',
+      path: "ts/packages/ccc/src/peer.ts",
+      expectedRules: [BAN_CAPABILITY_PRIVATE_PEER_IMPORT],
+    },
+    {
+      name: "capability undeclared subpath import is rejected",
+      code: 'import { createHandoff } from "@sdl/handoff/private-helper";',
+      path: "ts/packages/ccc/src/peer.ts",
+      expectedRules: [BAN_CAPABILITY_PRIVATE_PEER_IMPORT],
+    },
+    {
+      name: "neutral infra import is allowed for capabilities",
+      code: 'import { RealGitGateway } from "@sdl/core/git";',
+      path: "ts/packages/ccc/src/peer.ts",
+      expectedRules: [],
+    },
+    {
+      name: "extension-kit import is allowed for capabilities",
+      code: 'import { createSdlGitGateway } from "@sdl/extension-kit";',
+      path: "ts/packages/ccc/src/peer.ts",
+      expectedRules: [],
+    },
+    {
       name: "node namespace import is allowed",
       code: 'import * as path from "node:path";',
       expectedRules: [],
@@ -260,9 +409,10 @@ function runAdversarialReview() {
   ];
 
   for (const testCase of cases) {
-    const actualRules = collectViolations(testCase.code, `adversarial/${testCase.name}.ts`).map(
-      (violation) => violation.rule,
-    );
+    const actualRules = collectViolations(
+      testCase.code,
+      testCase.path ?? `adversarial/${testCase.name}.ts`,
+    ).map((violation) => violation.rule);
     const expected = [...testCase.expectedRules].sort();
     const actual = [...actualRules].sort();
     if (expected.join("\n") !== actual.join("\n")) {
