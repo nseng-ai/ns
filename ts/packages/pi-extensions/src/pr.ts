@@ -17,6 +17,7 @@ import {
 } from "./pr-feedback-download.ts";
 import prFeedbackWatchExtension from "./pr-feedback-watch.ts";
 import { createPrPreviewChecksCommand } from "./pr-preview-checks-command.ts";
+import type { PiModelRegistryLike } from "./pi-model-call.ts";
 import { createPrPreviewFeedbackCommand } from "./pr-preview-feedback-command.ts";
 
 export const PR_DOWNLOAD_FEEDBACK_COMMAND_NAME = "pr:download-feedback";
@@ -112,6 +113,7 @@ export const prExtensionParity = definePiSurfaceParity([
 
 export interface ExtensionContext {
 	cwd: string;
+	modelRegistry?: PiModelRegistryLike | undefined;
 	hasUI?: boolean;
 	ui?: {
 		notify?(message: string, level?: "info" | "warning" | "error"): void;

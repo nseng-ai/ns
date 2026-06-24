@@ -1,7 +1,9 @@
+import { DEFAULT_FAST_MODEL } from "@sdl/core/model-slug";
 import { z } from "zod";
 
+import { callPiModelText } from "./pi-model-call.ts";
 import { PrPreviewChecksView, type PrPreviewChecksViewModel } from "./pr-preview-checks-view.ts";
-import { sortPreviewChecks } from "./pr-preview-checks-model.ts";
+import { sortPreviewChecks, type PrPreviewCheck } from "./pr-preview-checks-model.ts";
 import type {
 	CommandResult,
 	EnvelopeWithSchemaOptions,
@@ -11,6 +13,8 @@ import type {
 
 const nullablePreviewStringSchema = z.string().nullable();
 const nullablePreviewNumberSchema = z.number().int().nullable();
+const MAX_LOG_SUMMARY_INPUT_CHARS = 80_000;
+const LOG_SUMMARY_MAX_TOKENS = 900;
 
 const previewChecksTargetSchema = z.looseObject({
 	pr_number: nullablePreviewNumberSchema,
@@ -128,7 +132,13 @@ async function runPrPreviewChecksCommand(options: {
 		const model = buildPreviewChecksViewModel(data.value, prNumber);
 		await ctx.ui.custom<void>(
 			(tui, theme, _keybindings, done) =>
-				new PrPreviewChecksView({ tui, theme, model, onClose: () => done(undefined) }),
+				new PrPreviewChecksView({
+					tui,
+					theme,
+					model,
+					onClose: () => done(undefined),
+					onLoadLogs: async (check) => await loadCheckLogs({ runtime, ctx, check }),
+				}),
 			{
 				overlay: true,
 				overlayOptions: { width: "90%", maxHeight: "85%", margin: 1 },
@@ -158,6 +168,107 @@ async function execPrChecks(options: {
 		result,
 		schema: previewChecksDataSchema,
 	});
+}
+
+async function loadCheckLogs(options: {
+	runtime: PrPreviewChecksCommandRuntime;
+	ctx: ExtensionContext;
+	check: PrPreviewCheck;
+}): Promise<string[]> {
+	if (isIncompleteCheck(options.check)) {
+		return [
+			"Logs are not available yet because this check is still running.",
+			"",
+			`Status: ${options.check.status ?? options.check.state ?? "pending"}`,
+			"Refresh after the check completes, then press l again to summarize logs.",
+		];
+	}
+	const args = githubActionsJobLogArgs(options.check.details_url ?? options.check.target_url);
+	if (args === null) return ["No GitHub Actions job log URL is available for this check."];
+	const result = await options.runtime.pi.exec("gh", args, {
+		cwd: options.ctx.cwd,
+		timeout: options.runtime.commandTimeoutMs,
+	});
+	const output = result.stdout.trim() === "" ? result.stderr.trim() : result.stdout.trim();
+	if (result.code !== 0)
+		return [`Failed to load logs with gh ${args.join(" ")}:`, ...splitLogLines(output)];
+	if (output === "") return ["GitHub returned an empty log for this check."];
+	return await summarizeCheckLogs({ ctx: options.ctx, check: options.check, output });
+}
+
+async function summarizeCheckLogs(options: {
+	ctx: ExtensionContext;
+	check: PrPreviewCheck;
+	output: string;
+}): Promise<string[]> {
+	if (options.ctx.modelRegistry === undefined) {
+		return [
+			"Log summary unavailable: Pi model registry is not available.",
+			"",
+			...splitLogLines(options.output),
+		];
+	}
+	const result = await callPiModelText({
+		registry: options.ctx.modelRegistry,
+		provider: DEFAULT_FAST_MODEL.provider,
+		modelId: DEFAULT_FAST_MODEL.modelId,
+		systemPrompt: LOG_SUMMARY_SYSTEM_PROMPT,
+		userText: buildLogSummaryPrompt(options.check, options.output),
+		maxTokens: LOG_SUMMARY_MAX_TOKENS,
+		reasoning: "minimal",
+		timeoutMs: 120_000,
+	});
+	if (!result.ok) {
+		return [
+			`Log summary unavailable (${result.reason}${result.message === null ? "" : `: ${result.message}`}).`,
+			"",
+			...splitLogLines(options.output),
+		];
+	}
+	const summary = result.text.trim();
+	if (summary === "") return ["Log summary unavailable: model returned an empty summary."];
+	return splitLogLines(summary);
+}
+
+const LOG_SUMMARY_SYSTEM_PROMPT = `You summarize GitHub Actions job logs for a coding agent.
+Prioritize actionable diagnosis over completeness.
+If there are errors, surface exact error messages, nearby command/file/path context, failing step names, and likely next fix.
+If no clear error exists, say what the log shows and what to inspect next.
+Do not include generic CI advice. Keep it concise and structured.`;
+
+function buildLogSummaryPrompt(check: PrPreviewCheck, output: string): string {
+	const normalized = output.slice(Math.max(0, output.length - MAX_LOG_SUMMARY_INPUT_CHARS));
+	const truncationNote =
+		output.length > normalized.length ? "Only the tail of the log is included.\n" : "";
+	return [
+		`Check: ${check.workflow_name ?? "(no workflow)"} / ${check.name}`,
+		`Status: ${check.status ?? "?"}`,
+		`Conclusion: ${check.conclusion ?? "?"}`,
+		truncationNote,
+		"Log:",
+		normalized,
+	].join("\n");
+}
+
+export function splitLogLines(output: string): string[] {
+	return output.split(/\r\n|\r|\n/u).map((line) => line.replaceAll("\t", "  "));
+}
+
+export function isIncompleteCheck(check: PrPreviewCheck): boolean {
+	const state = check.status ?? check.state;
+	if (state === null) return check.bucket === "pending";
+	return /^(queued|pending|in_progress|requested|waiting)$/iu.test(state);
+}
+
+export function githubActionsJobLogArgs(url: string | null): string[] | null {
+	if (url === null) return null;
+	const parsed =
+		/^https:\/\/github\.com\/[^/]+\/[^/]+\/actions\/runs\/(\d+)\/job\/(\d+)(?:\b|[/?#])/u.exec(url);
+	if (parsed === null) return null;
+	const runId = parsed[1];
+	const jobId = parsed[2];
+	if (runId === undefined || jobId === undefined) return null;
+	return ["run", "view", runId, "--job", jobId, "--log"];
 }
 
 function buildPreviewChecksViewModel(
