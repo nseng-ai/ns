@@ -5,17 +5,13 @@
   "description": "Emerging customer-facing Source Development Lifecycle CLI.",
   "type": "module",
   "exports": {
-    "./checkpoint": "./src/checkpoint.ts",
     "./checkpoint-flow": "./src/checkpoint-flow.ts",
     "./checkpoint-message": "./src/checkpoint-message.ts",
-    "./changes-model-summary": "./src/changes-model-summary.ts",
     "./cli": "./src/cli.ts",
     "./context": "./src/context.ts",
     "./pending-worktree": "./src/pending-worktree.ts",
     "./pi-text-generation": "./src/sdk/pi-text-generation.ts",
-    "./pr-description": "./src/pr-description.ts",
     "./sdk": "./src/sdk/index.ts",
-    "./submit": "./src/submit.ts",
     "./temp-files": "./src/temp-files.ts",
     "./text-generation": "./src/sdk/text-generation.ts",
     "./text-repair": "./src/text-repair.ts"
@@ -25,16 +21,12 @@
       "./sdk"
     ],
     "internalMigrationExports": [
-      "./checkpoint",
       "./checkpoint-flow",
       "./checkpoint-message",
-      "./changes-model-summary",
       "./cli",
       "./context",
       "./pending-worktree",
       "./pi-text-generation",
-      "./pr-description",
-      "./submit",
       "./temp-files",
       "./text-generation",
       "./text-repair"

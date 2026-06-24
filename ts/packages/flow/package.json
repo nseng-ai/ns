@@ -26,6 +26,7 @@
 		"@sdl/autobranch": "workspace:*",
 		"@sdl/ccc": "workspace:*",
 		"@sdl/core": "workspace:*",
+		"@sdl/graphite": "workspace:*",
 		"@sdl/sdl": "workspace:*"
 	},
 	"devDependencies": {}

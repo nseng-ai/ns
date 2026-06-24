@@ -40,7 +40,6 @@ const CCC_WORKSPACE_IMPORTS = [
 ] as const;
 
 const SDL_EXPORT_IMPORTS = [
-	"@sdl/sdl/checkpoint",
 	"@sdl/sdl/checkpoint-flow",
 	"@sdl/sdl/checkpoint-message",
 	"@sdl/sdl/cli",
@@ -97,7 +96,7 @@ describe("Node runtime import smoke", () => {
 		});
 
 		expectSuccessfulNodeRun(result);
-		expect(result.stdout).toContain("imported 10 package specifiers");
+		expect(result.stdout).toContain("imported 9 package specifiers");
 	});
 });
 

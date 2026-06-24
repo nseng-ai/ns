@@ -254,6 +254,9 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../sdl-core
+      '@sdl/graphite':
+        specifier: workspace:*
+        version: link:../graphite
       '@sdl/sdl':
         specifier: workspace:*
         version: link:../sdl

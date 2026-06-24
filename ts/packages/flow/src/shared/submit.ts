@@ -10,8 +10,8 @@ import {
 	type SubmitFailureTranscript,
 } from "@sdl/graphite/submit";
 
-import { createSdlCommandRunner, SdlCommandExecApi } from "./default-commands/command-runner.ts";
-import type { SdlExtensionApi } from "./sdk/index.ts";
+import { createSdlCommandRunner, SdlCommandExecApi } from "./command-runner.ts";
+import type { SdlExtensionApi } from "@sdl/sdl/sdk";
 
 export { RealGithubPrGateway, RealSubmitGateway, RealSubmitMetadataGateway, runSubmitCommand };
 export type { RunSubmitCommandOptions, SubmitCommandResult, SubmitFailureTranscript };

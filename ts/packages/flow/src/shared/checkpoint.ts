@@ -3,14 +3,14 @@ import {
 	createCommitWithPreparedMessage,
 	prepareCheckpointMessage,
 	type CommandResult,
-} from "./checkpoint-flow.ts";
+} from "@sdl/sdl/checkpoint-flow";
 import {
 	formatPendingWorktreeCommandDetails,
 	loadPendingWorktreeSnapshot,
 	type PendingWorktreeError,
 	type PendingWorktreeSnapshot,
-} from "./pending-worktree.ts";
-import { selectCheckpointModelRef, type TextGenerator } from "./sdk/text-generation.ts";
+} from "@sdl/sdl/pending-worktree";
+import { selectCheckpointModelRef, type TextGenerator } from "@sdl/sdl/text-generation";
 
 export interface CheckpointGateway {
 	loadPendingWorktreeSnapshot(params: { cwd: string }): Promise<

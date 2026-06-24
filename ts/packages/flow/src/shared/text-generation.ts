@@ -3,8 +3,11 @@ export {
 	CHECKPOINT_MODEL_ENV,
 	DEFAULT_CHANGES_MODEL_REF,
 	DEFAULT_CHECKPOINT_MODEL_REF,
+	DEFAULT_SUBMIT_FAILURE_MODEL_REF,
 	LEGACY_CHANGES_MODEL_ENV,
 	LEGACY_CHECKPOINT_MODEL_ENV,
+	SUBMIT_FAILURE_MODEL_ENV,
 	selectChangesModelRef,
 	selectCheckpointModelRef,
+	selectSubmitFailureModelRef,
 } from "@sdl/sdl/text-generation";
