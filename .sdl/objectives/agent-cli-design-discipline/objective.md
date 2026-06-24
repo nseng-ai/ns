@@ -117,9 +117,13 @@ the high-agreement changes, and parking the contested or large ones as backlog.
   Clinkr-grounded overlay references the internal `@sdl/clinkr` package, and the
   skill-conventions bar public skills from referencing sdl-internal module paths
   — which pushes toward internal, but this needs an explicit call.
-- How to reconcile the contested exit-code question: adopt a richer numeric
-  exit-code taxonomy (3=not-found, 4=permission, …) vs. keep 0/1/2 and rely on
-  the envelope's `error_type` (current Clinkr design). ADR required.
+- Exit-code semantics are decided in ADR 0010: keep process exit codes coarse
+  and stable (0 success, 1 semantic/operational failure, 2
+  usage/invocation/config failure) and make the machine envelope the
+  authoritative surface for detailed failure semantics through disciplined
+  `error_type`/`code` plus structured `data`/details. The ADR preserves dissent
+  for richer numeric taxonomies as useful for specialized shell-only automation
+  but not Clinkr's default.
 - Does any change to `--format json` output (compaction, streaming/JSONL,
   enveloping usage errors) violate the Python-parity contract, and if so is the
   contract still load-bearing? ADR required.

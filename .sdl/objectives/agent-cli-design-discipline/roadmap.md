@@ -16,6 +16,9 @@
   - Candidates: exit-code taxonomy vs. envelope `error_type`; JSON
     compaction/streaming vs. Python-parity contract; pagination/truncation
     strategy; confirmation/danger tiers. Each ADR records decision + dissent.
+  - ADR 0010 records the exit-code decision: keep process exit codes
+    coarse/stable and put detailed failure semantics in the structured machine
+    envelope; dissent for richer numeric taxonomies is preserved.
 - [ ] Author and register the `sdl-cli-design` skill.
   - Clinkr-grounded overlay; `normal`/ambient via `areg`. Sections: basics as
     hard gates, human tier (clig.dev), agent/`exec` tier (agent-era), naming,
