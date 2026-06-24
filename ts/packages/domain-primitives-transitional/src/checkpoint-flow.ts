@@ -6,7 +6,7 @@ import {
 	formatCheckpointValidationFeedback,
 	validateCheckpointMessage,
 } from "./checkpoint-message.ts";
-import type { TextGenerator } from "./sdk/text-generation.ts";
+import type { TextGenerator } from "./text-generation.ts";
 import { prepareRepairedText } from "./text-repair.ts";
 import { withTemporaryFile } from "./temp-files.ts";
 

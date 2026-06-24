@@ -1,6 +1,6 @@
 export { draftChangesSummary } from "./changes-model-summary.ts";
-export { prepareCheckpointMessage } from "@sdl/sdl/checkpoint-flow";
-export type { PreparedCheckpointMessage } from "@sdl/sdl/checkpoint-flow";
+export { prepareCheckpointMessage } from "@sdl/domain-primitives-transitional/checkpoint-flow";
+export type { PreparedCheckpointMessage } from "@sdl/domain-primitives-transitional/checkpoint-flow";
 export { preparePrDescription } from "./pr-description.ts";
 export type {
 	PrCommitMessage,

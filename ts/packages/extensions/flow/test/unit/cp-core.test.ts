@@ -4,7 +4,7 @@ import type {
 	TextGenerationRequest,
 	TextGenerationResult,
 	TextGenerator,
-} from "@sdl/sdl/text-generation";
+} from "@sdl/domain-primitives-transitional/text-generation";
 
 import { runCpCore } from "../../src/commands/cp.ts";
 import type { CheckpointGateway } from "../../src/shared/checkpoint.ts";

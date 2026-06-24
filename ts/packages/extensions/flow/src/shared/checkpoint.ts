@@ -4,15 +4,18 @@ import {
 	createCommitWithPreparedMessage,
 	prepareCheckpointMessage,
 	type CommandResult,
-} from "@sdl/sdl/checkpoint-flow";
+} from "@sdl/domain-primitives-transitional/checkpoint-flow";
 import type { SdlExtensionApi } from "@sdl/sdl/sdk";
 import {
 	formatPendingWorktreeCommandDetails,
 	loadPendingWorktreeSnapshot,
 	type PendingWorktreeError,
 	type PendingWorktreeSnapshot,
-} from "@sdl/sdl/pending-worktree";
-import { selectCheckpointModelRef, type TextGenerator } from "@sdl/sdl/text-generation";
+} from "@sdl/domain-primitives-transitional/pending-worktree";
+import {
+	selectCheckpointModelRef,
+	type TextGenerator,
+} from "@sdl/domain-primitives-transitional/text-generation";
 
 export interface CheckpointGateway {
 	loadPendingWorktreeSnapshot(params: { cwd: string }): Promise<

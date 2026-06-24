@@ -106,7 +106,9 @@ The command-first promotion rule is evidence driven: copy or localize behavior w
 
 ## Internal workspace exports and Peer APIs
 
-`@sdl/sdl/package.json` marks only `./sdk` as `sdl.publicPluginApi`. Other `@sdl/sdl` package subpaths are `sdl.internalWorkspaceExports`: they exist so SDL workspace packages can share primitives during migration, but they are not plugin-author APIs and should not be documented as stable extension surfaces.
+`@sdl/sdl/package.json` marks only `./sdk` as `sdl.publicPluginApi`. Remaining non-SDK `@sdl/sdl` subpaths are narrow `sdl.internalWorkspaceExports` for SDL-owned kernel/presentation surfaces such as CLI/context/Pi text-generation integration; they are not plugin-author APIs and should not be documented as stable extension surfaces.
+
+SDK-independent domain primitives that used to live behind `@sdl/sdl/*` internal subpaths now live in the disposable below-SDK package `@sdl/domain-primitives-transitional/*`. That package is internal workspace debt, not public SDK author API.
 
 Sibling capability packages use Peer APIs, not the SDL SDK, for deliberate in-process dependencies. The ratified Peer API convention is `@sdl/<cap>/api`; package roots and command faces are not sibling domain APIs unless the owning package documents that surface explicitly.
 
@@ -116,7 +118,7 @@ The grouped flow extension uses a conservative maturity ladder for repeated comm
 
 1. **Raw:** command-local logic built directly on kernel primitives such as `ctx.exec`, `ctx.textGenerator`, `ctx.stdout`, `ctx.stderr`, `ctx.confirm`, `ctx.env`, and `ctx.cwd`.
 2. **Flow-shared:** repeated repo-local mechanics extracted under `ts/packages/extensions/flow/src/shared/` in the `sdl-flow` workspace package, for example current helpers for Git mechanics, checkpoint-message/model wiring, worktree facts, text helpers, and CCC CLI delegation.
-3. **Internal export:** package-owned behavior reached through documented `@sdl/sdl/*` internal-workspace-export subpaths, such as submit orchestration, PR-description orchestration, checkpoint/pending-worktree helpers, temp files, and text repair/generation support.
+3. **Internal export / transitional primitive:** package-owned behavior reached through documented internal workspace subpaths. SDL-owned kernel/presentation seams stay under `@sdl/sdl/*`; SDK-independent checkpoint/worktree/temp/text primitives live under `@sdl/domain-primitives-transitional/*` until capability migrations delete that package.
 4. **Public SDK:** a separately approved promotion into `@sdl/sdl/sdk`. This remains deferred for the flow consolidation track except for already documented SDK exports.
 
 This ladder is a readiness model, not an automatic promotion pipeline. Flow-shared helpers keep this repository's grouped `sdl-flow` command package readable; internal workspace exports support package-to-package migration; neither tier is public extension-author API.

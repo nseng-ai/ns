@@ -4,7 +4,7 @@ import {
 	type PendingWorktreeError,
 	type PendingWorktreeSnapshot,
 	type WorktreeCommandResult,
-} from "@sdl/sdl/pending-worktree";
+} from "@sdl/domain-primitives-transitional/pending-worktree";
 import { createSdlCliExecAdapter, execSdlCommand } from "@sdl/extension-kit/git";
 import {
 	formatCommandError,

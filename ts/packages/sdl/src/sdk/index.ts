@@ -42,4 +42,4 @@ export type {
 	TextGenerator,
 	TextGenerationRequest,
 	TextGenerationResult,
-} from "./text-generation.ts";
+} from "@sdl/domain-primitives-transitional/text-generation";

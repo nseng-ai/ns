@@ -25,7 +25,7 @@ describe("project extension shared checkpoint message helper", () => {
 	test("keeps the helper as a package re-export shim", async () => {
 		const source = await readFile(SHARED_CHECKPOINT_HELPER_PATH, "utf8");
 
-		expect(source).toContain("@sdl/sdl/checkpoint-flow");
+		expect(source).toContain("@sdl/domain-primitives-transitional/checkpoint-flow");
 		expect(source).not.toContain("function buildCheckpointUserPrompt");
 		expect(source).not.toContain("function validateCheckpointMessage");
 		expect(source).not.toContain("function buildCheckpointDiffPromptSection");

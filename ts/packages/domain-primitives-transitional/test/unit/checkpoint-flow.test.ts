@@ -5,12 +5,12 @@ import {
 	createCommitWithPreparedMessage,
 	prepareCheckpointMessage,
 	type CommandResult,
-} from "@sdl/sdl/checkpoint-flow";
+} from "@sdl/domain-primitives-transitional/checkpoint-flow";
 import type {
 	TextGenerator,
 	TextGenerationRequest,
 	TextGenerationResult,
-} from "@sdl/sdl/text-generation";
+} from "@sdl/domain-primitives-transitional/text-generation";
 
 const validMessage = `[cp] Update checkpoint tests
 
