@@ -1,16 +1,16 @@
 ---
-name: sdl-submit
+name: sdl-flow-submit
 disable-model-invocation: true
-description: "Command: sdl-submit"
+description: "Command: sdl-flow-submit"
 allowed-tools:
-  - "Bash(sdl submit*)"
+  - "Bash(sdl flow submit*)"
 metadata:
   internal: true
 ---
 
-# sdl-submit
+# sdl-flow-submit
 
-Submit or update the current Graphite stack by delegating to the repo-local `sdl submit` command. This is the cross-harness path for `/sdl:submit`; do not run a parallel hand-written `gt submit` sequence unless the CLI is unavailable and the user explicitly accepts the fallback.
+Submit or update the current Graphite stack by delegating to the repo-local `sdl flow submit` command. This is the cross-harness path for `/sdl:flow:submit`; do not run a parallel hand-written `gt submit` sequence unless the CLI is unavailable and the user explicitly accepts the fallback.
 
 ## When to use
 
@@ -21,12 +21,12 @@ Use only when the user explicitly asks to submit or update the current Graphite 
 Run from the repository root:
 
 ```bash
-sdl submit
+sdl flow submit
 ```
 
 The CLI owns the orchestration:
 
-- if the worktree is dirty, first creates a checkpoint with `sdl cp`;
+- if the worktree is dirty, first creates a checkpoint with `sdl flow cp`;
 - checks submit readiness with `gt submit -nps --no-ai --no-interactive --dry-run`;
 - runs `gt submit -nps --no-ai --no-interactive` to submit/update the current stack;
 - verifies that the current branch has a PR after submit;
@@ -41,7 +41,7 @@ If the CLI says a restack is required:
 - in a non-interactive/headless invocation, rerun only with explicit user approval:
 
 ```bash
-sdl submit --restack
+sdl flow submit --restack
 ```
 
 Automatic checkpointing uses SDL checkpoint environment variables:
@@ -60,10 +60,10 @@ Submit failure interpretation uses `SDL_SUBMIT_FAILURE_MODEL`, defaulting to the
 To regenerate the current branch PR explicitly, run:
 
 ```bash
-sdl regenerate-pr
+sdl flow regenerate-pr
 ```
 
-`submit` preserves unchanged generated descriptions by comparing the GitHub PR diff patch id, prompt hash, and generator version stored in the managed body region. Explicit `sdl regenerate-pr` asks before editing GitHub, always regenerates the current branch PR title and managed generated body region, and preserves human-authored body text outside that region.
+`sdl flow submit` preserves unchanged generated descriptions by comparing the GitHub PR diff patch id, prompt hash, and generator version stored in the managed body region. Explicit `sdl flow regenerate-pr` asks before editing GitHub, always regenerates the current branch PR title and managed generated body region, and preserves human-authored body text outside that region.
 
 ## Failure handling
 
@@ -73,4 +73,4 @@ Surface CLI output directly, including any `AI interpretation` section. Do not b
 
 - This skill submits/updates PRs; require explicit user intent.
 - It does not land/merge PRs.
-- It edits PR titles/bodies through `sdl submit` or explicit `sdl regenerate-pr`; managed generated content is machine-owned, while human PR body text outside the managed region is preserved.
+- It edits PR titles/bodies through `sdl flow submit` or explicit `sdl flow regenerate-pr`; managed generated content is machine-owned, while human PR body text outside the managed region is preserved.

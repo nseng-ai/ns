@@ -21,7 +21,7 @@ export interface RunFlowCccCliOptions {
 	ctx: SdlExtensionApi;
 	successMessage: string;
 	failureMessage: string;
-	forwardLiveOutput?: boolean | undefined;
+	shouldForwardLiveOutput?: boolean | undefined;
 	run(input: FlowCccCliRunnerInput): Promise<number>;
 }
 
@@ -35,7 +35,7 @@ export async function runFlowCccCli(options: RunFlowCccCliOptions): Promise<SdlR
 				command,
 				args,
 				options: execOptions,
-				liveOutput: { forwardLiveOutput: options.forwardLiveOutput === true },
+				liveOutput: { shouldForwardLiveOutput: options.shouldForwardLiveOutput === true },
 			}),
 		stdout: (text) => {
 			stdout += text;
@@ -55,7 +55,7 @@ interface ExecFlowCccCommandOptions {
 	command: string;
 	args: string[];
 	options: FlowCccCliExecOptions | undefined;
-	liveOutput: { forwardLiveOutput: boolean };
+	liveOutput: { shouldForwardLiveOutput: boolean };
 }
 
 async function execFlowCccCommand(options: ExecFlowCccCommandOptions): Promise<ExecResult> {
@@ -66,7 +66,7 @@ async function execFlowCccCommand(options: ExecFlowCccCommandOptions): Promise<E
 		args: [...options.args],
 		...(options.options?.cwd === undefined ? {} : { cwd: options.options.cwd }),
 		...(options.options?.timeout === undefined ? {} : { timeoutMs: options.options.timeout }),
-		...(options.liveOutput.forwardLiveOutput && onOutput !== undefined
+		...(options.liveOutput.shouldForwardLiveOutput && onOutput !== undefined
 			? {
 					onStdout: (text: string) => onOutput("stdout", text),
 					onStderr: (text: string) => onOutput("stderr", text),
