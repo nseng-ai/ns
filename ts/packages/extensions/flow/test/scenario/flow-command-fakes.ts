@@ -1,6 +1,8 @@
 import { join } from "node:path";
 
+import { flowChangesCommand } from "../../src/commands/changes.ts";
 import { flowCpCommand } from "../../src/commands/cp.ts";
+import { flowRegeneratePrCommand } from "../../src/commands/regenerate-pr.ts";
 import { flowSubmitCommand } from "../../src/commands/submit.ts";
 import type { SdlCommand, SdlExtensionApi, SdlResult } from "@sdl/sdl/sdk";
 import { failed } from "@sdl/sdl/sdk";
@@ -36,6 +38,32 @@ export function runFlowCpCommandWithFakes(options: RunFlowCommandWithFakesOption
 		defaults: options.defaults ?? {
 			execResponses: dirtyCpExecResponses,
 			textGenerationResults: () => [{ ok: true, text: defaultCpMessage() }],
+		},
+	});
+}
+
+export function runFlowChangesCommandWithFakes(options: RunFlowCommandWithFakesOptions = {}) {
+	return runFlowCommandWithFakes({
+		command: flowChangesCommand,
+		request: options.request ?? {},
+		options,
+		defaults: options.defaults ?? {
+			execResponses: dirtyChangesExecResponses,
+			textGenerationResults: () => [
+				{ ok: true, text: "- Update app behavior\n- Add notes for reviewers" },
+			],
+		},
+	});
+}
+
+export function runFlowRegeneratePrCommandWithFakes(options: RunFlowCommandWithFakesOptions = {}) {
+	return runFlowCommandWithFakes({
+		command: flowRegeneratePrCommand,
+		request: options.request ?? {},
+		options,
+		defaults: options.defaults ?? {
+			execResponses: () => [],
+			textGenerationResults: () => [],
 		},
 	});
 }
@@ -122,6 +150,18 @@ function writeSdlResultOutput(
 		return;
 	}
 	deps.stderr(output);
+}
+
+function dirtyChangesExecResponses(): ScriptedExecResponse[] {
+	return [
+		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
+		{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n?? notes.md\n" } },
+		{
+			match: "git diff HEAD --no-ext-diff",
+			result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
+		},
+	];
 }
 
 function dirtyCpExecResponses(): ScriptedExecResponse[] {

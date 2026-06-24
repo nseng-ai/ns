@@ -59,6 +59,44 @@ describe("checked-in flow SDL extension loading", () => {
 		expect(run.context.textGeneratorCalls).toHaveLength(1);
 	});
 
+	test("real loader exposes changes help and JSON schema metadata", async () => {
+		const cwd = await createFlowProject();
+
+		const help = runWithRealFlowExtension({ args: ["flow", "changes", "--help"], cwd });
+		expect(await help.exit).toBe(0);
+		const output = help.stdout.join("");
+		expect(output).toContain("Usage: sdl flow changes");
+		expect(output).toContain("read-only git commands");
+		expect(output).toContain("SDL_CHANGES_MODEL");
+		expect(output).toContain("PI_DRAFT_MODEL");
+		expect(help.stderr.join("")).toBe("");
+
+		const schema = runWithRealFlowExtension({ args: ["flow", "changes", "--json-schema"], cwd });
+		expect(await schema.exit).toBe(0);
+		expect(parseJsonOutput(schema)).toHaveProperty("input_json_schema");
+	});
+
+	test("real loader exposes regenerate-pr help and JSON schema metadata", async () => {
+		const cwd = await createFlowProject();
+
+		const help = runWithRealFlowExtension({ args: ["flow", "regenerate-pr", "--help"], cwd });
+		expect(await help.exit).toBe(0);
+		const output = help.stdout.join("");
+		expect(output).toContain("Usage: sdl flow regenerate-pr");
+		expect(output).toContain("Regenerate the current branch PR title");
+		expect(output).toContain("--force");
+		expect(output).toContain("SDL_DEV_PR_DESCRIPTION_MODEL");
+		expect(output).toContain("SDL_DEV_PR_DESCRIPTION_PROMPT");
+		expect(help.stderr.join("")).toBe("");
+
+		const schema = runWithRealFlowExtension({
+			args: ["flow", "regenerate-pr", "--json-schema"],
+			cwd,
+		});
+		expect(await schema.exit).toBe(0);
+		expect(parseJsonOutput(schema)).toHaveProperty("input_json_schema");
+	});
+
 	test("real loader exposes submit help metadata", async () => {
 		const cwd = await createFlowProject();
 		const help = runWithRealFlowExtension({ args: ["flow", "submit", "--help"], cwd });
