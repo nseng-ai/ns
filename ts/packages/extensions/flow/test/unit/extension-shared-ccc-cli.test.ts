@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
 import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/exec";
-import type { SdlExtensionApi, SdlResult } from "@sdl/sdl/sdk";
+import type { SdlExecOptions, SdlExtensionApi, SdlResult } from "@sdl/sdl/sdk";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../../..");
 const SHARED_CCC_CLI_HELPER_PATH = join(
@@ -43,7 +43,7 @@ interface FlowCccCliModule {
 interface ExecCall {
 	command: string;
 	args: string[];
-	options?: ExecOptions | undefined;
+	options?: ExecOptions | SdlExecOptions | undefined;
 }
 
 describe("project extension shared CCC CLI helper", () => {
@@ -65,9 +65,7 @@ describe("project extension shared CCC CLI helper", () => {
 
 		expect(result).toEqual({ ok: true, message: "" });
 		expect(stdout).toEqual(["done\n"]);
-		expect(calls).toEqual([
-			{ command: "git", args: ["status"], options: { cwd: "/repo", env: {}, timeout: 42 } },
-		]);
+		expect(calls).toEqual([{ command: "git", args: ["status"], options: { timeoutMs: 42 } }]);
 	});
 
 	test("returns fallback success message when the runner emits no stdout", async () => {
@@ -138,8 +136,7 @@ describe("project extension shared CCC CLI helper", () => {
 		expect(calls).toHaveLength(1);
 		expect(calls[0]?.command).toBe("gt");
 		expect(calls[0]?.args).toEqual(["status"]);
-		expect(calls[0]?.options?.cwd).toBe("/repo");
-		expect(calls[0]?.options?.timeout).toBe(9);
+		expect(calls[0]?.options).toMatchObject({ timeoutMs: 9 });
 		expect(calls[0]?.options?.onStdout).toEqual(expect.any(Function));
 		expect(calls[0]?.options?.onStderr).toEqual(expect.any(Function));
 		expect(liveOutput).toEqual([
@@ -174,7 +171,7 @@ describe("project extension shared CCC CLI helper", () => {
 				options: { cwd: "/trunk", env: {}, timeout: 42 },
 			},
 		]);
-		expect(calls[0]?.options?.cwd).not.toBe(api.cwd);
+		expect(calls[0]?.options).toMatchObject({ cwd: "/trunk" });
 		expect(JSON.stringify(calls)).not.toContain(
 			"SDL command execution is scoped to /repo; refusing command cwd /trunk.",
 		);
@@ -228,8 +225,13 @@ function createFakeApi(results: readonly ExecResult[]): {
 					return { ok: false, error: "unexpected model call" };
 				},
 			},
-			async exec() {
-				return makeExecResult({ code: 127, stderr: "unexpected ctx.exec call\n" });
+			async exec(command, args, options) {
+				calls.push({ command, args, ...(options === undefined ? {} : { options }) });
+				const result =
+					pending.shift() ?? makeExecResult({ code: 127, stderr: "missing exec response\n" });
+				options?.onStdout?.(result.stdout);
+				options?.onStderr?.(result.stderr);
+				return result;
 			},
 			stdout: (text) => {
 				stdout.push(text);

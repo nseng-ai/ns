@@ -62,15 +62,24 @@ interface ExecFlowCccCommandOptions {
 
 async function execFlowCccCommand(options: ExecFlowCccCommandOptions): Promise<ExecResult> {
 	const onOutput = options.ctx.onOutput;
-	return await options.trustedExec.exec(options.command, [...options.args], {
-		cwd: options.options?.cwd ?? options.ctx.cwd,
-		env: options.ctx.env,
-		...(options.options?.timeout === undefined ? {} : { timeout: options.options.timeout }),
-		...(options.liveOutput.shouldForwardLiveOutput && onOutput !== undefined
+	const outputOptions =
+		options.liveOutput.shouldForwardLiveOutput && onOutput !== undefined
 			? {
 					onStdout: (text: string) => onOutput("stdout", text),
 					onStderr: (text: string) => onOutput("stderr", text),
 				}
-			: {}),
+			: {};
+	const cwd = options.options?.cwd ?? options.ctx.cwd;
+	if (cwd === options.ctx.cwd) {
+		return await options.ctx.exec(options.command, [...options.args], {
+			...(options.options?.timeout === undefined ? {} : { timeoutMs: options.options.timeout }),
+			...outputOptions,
+		});
+	}
+	return await options.trustedExec.exec(options.command, [...options.args], {
+		cwd,
+		env: options.ctx.env,
+		...(options.options?.timeout === undefined ? {} : { timeout: options.options.timeout }),
+		...outputOptions,
 	});
 }
