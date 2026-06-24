@@ -60,7 +60,7 @@ export const sdlExtensionParity = definePiSurfaceParity(
 	})),
 );
 
-export interface SdlExtensionDeps {
+export interface SdlExtensionOptions {
 	/**
 	 * Seam for the SDL CLI runner. Defaults to the real {@link runCli}, which
 	 * discovers and dynamically imports project-local `.sdl/extensions` commands.
@@ -70,17 +70,12 @@ export interface SdlExtensionDeps {
 	runCli?: typeof runCli;
 }
 
-export function registerSdlExtension(pi: SdlExtensionAPI, deps: SdlExtensionDeps = {}): void {
+export default function sdlExtension(pi: SdlExtensionAPI, options: SdlExtensionOptions = {}): void {
 	registerCliCommandExtension(pi, {
 		cliName: "sdl",
 		piNamespace: "sdl:flow",
 		commands: SDL_FLOW_COMMANDS,
-		piCommandNameForCommand: (command) => `sdl:flow:${command.name}`,
 		afterCommandComplete: requestWorktreeStatusRefresh,
-		runCli: deps.runCli ?? runCli,
+		runCli: options.runCli ?? runCli,
 	});
-}
-
-export default function sdlExtension(pi: SdlExtensionAPI): void {
-	registerSdlExtension(pi);
 }

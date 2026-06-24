@@ -355,19 +355,6 @@ describe("cli command extension helper", () => {
 		expectSingleCliOutputMessage(pi, "ok\n");
 	});
 
-	test("supports dynamic Pi command names when aliases are not configured", async () => {
-		const pi = new FakePi();
-		registerCliCommandExtension(pi, {
-			cliName: "fake-dev",
-			piNamespace: "dev",
-			commands: [{ name: "cp", description: "Create a checkpoint." }],
-			piCommandNameForCommand: () => "dev:checkpoint",
-			runCli: () => 0,
-		});
-
-		expect([...pi.commands.keys()]).toEqual(["dev:checkpoint"]);
-	});
-
 	test("invokes the CLI runner after idle with parsed args, cwd, env, and captured output", async () => {
 		const pi = new FakePi();
 		const order: string[] = [];
@@ -1191,24 +1178,6 @@ describe("cli command extension helper", () => {
 				runCli: () => 0,
 			});
 		}).toThrow("Duplicate fake-cli Pi command name: dev:same");
-		expect(pi.commands.size).toBe(0);
-	});
-
-	test("rejects simultaneous Pi command aliases and dynamic command-name callbacks", () => {
-		const pi = new FakePi();
-
-		expect(() => {
-			registerCliCommandExtension(pi, {
-				cliName: "fake-dev",
-				piNamespace: "dev",
-				commands: [{ name: "cp", description: "Create a checkpoint." }],
-				piCommandAliases: { cp: "dev:checkpoint" },
-				piCommandNameForCommand: () => "dev:checkpoint",
-				runCli: () => 0,
-			});
-		}).toThrow(
-			"CLI command extension for fake-dev cannot configure both piCommandAliases and piCommandNameForCommand.",
-		);
 		expect(pi.commands.size).toBe(0);
 	});
 });
