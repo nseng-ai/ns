@@ -6,7 +6,8 @@ import {
 	ok,
 	type SdlCommand,
 } from "@sdl/sdl/sdk";
-import type { SdlExtensionApi } from "@sdl/sdl/sdk";
+import type { ExecResult, SdlExtensionApi } from "@sdl/sdl/sdk";
+import type { GitErrorInfo, GitGateway } from "@sdl/core/git";
 
 import { execFlowGit, readFlowGitPorcelainStatus } from "../shared/git.ts";
 
@@ -31,19 +32,34 @@ export default defineExtension({
 	commands: [flowPushCommand],
 });
 
+export type RunPushCoreResult =
+	| { type: "dirty" }
+	| { type: "status-failed"; error: GitErrorInfo }
+	| { type: "pushed"; result: ExecResult }
+	| { type: "push-failed"; result: ExecResult };
+
+export interface RunPushCoreOptions {
+	git: GitGateway;
+	cwd: string;
+	push: () => Promise<ExecResult>;
+}
+
+export async function runPushCore(options: RunPushCoreOptions): Promise<RunPushCoreResult> {
+	const status = await options.git.hasUncommittedChangesUnder({
+		cwd: options.cwd,
+		relativePath: ".",
+	});
+	if (!status.ok) return { type: "status-failed", error: status.error };
+	if (status.value) return { type: "dirty" };
+
+	const result = await options.push();
+	return commandSucceeded(result) ? { type: "pushed", result } : { type: "push-failed", result };
+}
+
 async function runPush(ctx: SdlExtensionApi) {
 	const status = await readFlowGitPorcelainStatus(ctx);
 	if (!status.ok) {
-		return failed(
-			formatCommandEvidence({
-				intro: "Could not inspect the worktree status. `sdl flow push` did not run `git push`.",
-				command: "git status --porcelain",
-				cwd: ctx.cwd,
-				result: status.result,
-				guidance:
-					"Inspect the Git output, fix the repository state, or use `sdl flow submit` / `/sdl:flow:submit` for the Graphite submit flow when appropriate.",
-			}),
-		);
+		return failed(formatStatusFailure(ctx.cwd, status.result));
 	}
 
 	if (!status.isClean) {
@@ -71,6 +87,17 @@ async function runPush(ctx: SdlExtensionApi) {
 			result: pushResult,
 		}),
 	);
+}
+
+function formatStatusFailure(cwd: string, result: ExecResult): string {
+	return formatCommandEvidence({
+		intro: "Could not inspect the worktree status. `sdl flow push` did not run `git push`.",
+		command: "git status --porcelain",
+		cwd,
+		result,
+		guidance:
+			"Inspect the Git output, fix the repository state, or use `sdl flow submit` / `/sdl:flow:submit` for the Graphite submit flow when appropriate.",
+	});
 }
 
 function formatDirtyWorktreeMessage(cwd: string, stdout: string): string {
