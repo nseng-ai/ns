@@ -4,8 +4,11 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
 
-const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../..");
-const SHARED_TEXT_HELPER_PATH = join(REPO_ROOT, "ts/packages/flow/src/shared/text-helpers.ts");
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../../..");
+const SHARED_TEXT_HELPER_PATH = join(
+	REPO_ROOT,
+	"ts/packages/extensions/flow/src/shared/text-helpers.ts",
+);
 
 interface SharedTextHelpersModule {
 	draftChangesSummary: unknown;

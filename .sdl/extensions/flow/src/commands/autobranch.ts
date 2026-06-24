@@ -1,1 +1,1 @@
-export { default } from "@sdl/flow/commands/autobranch";
+export { default } from "sdl-flow/commands/autobranch";

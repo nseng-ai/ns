@@ -1,1 +1,1 @@
-export { default } from "@sdl/flow/commands/pull-trunk";
+export { default } from "sdl-flow/commands/pull-trunk";

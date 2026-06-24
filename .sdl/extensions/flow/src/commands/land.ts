@@ -1,1 +1,1 @@
-export { default } from "@sdl/flow/commands/land";
+export { default } from "sdl-flow/commands/land";

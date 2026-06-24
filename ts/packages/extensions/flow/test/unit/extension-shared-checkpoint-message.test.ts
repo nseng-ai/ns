@@ -4,10 +4,10 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
 
-const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../..");
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../../..");
 const SHARED_CHECKPOINT_HELPER_PATH = join(
 	REPO_ROOT,
-	"ts/packages/flow/src/shared/checkpoint-message.ts",
+	"ts/packages/extensions/flow/src/shared/checkpoint-message.ts",
 );
 
 interface SharedCheckpointModule {

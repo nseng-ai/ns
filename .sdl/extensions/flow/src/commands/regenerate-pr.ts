@@ -1,1 +1,1 @@
-export { default } from "@sdl/flow/commands/regenerate-pr";
+export { default } from "sdl-flow/commands/regenerate-pr";

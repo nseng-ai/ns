@@ -1,1 +1,1 @@
-export { default } from "@sdl/flow/commands/submit";
+export { default } from "sdl-flow/commands/submit";
