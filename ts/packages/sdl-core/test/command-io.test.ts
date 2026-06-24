@@ -24,10 +24,10 @@ describe("createCommandIo", () => {
 		expect(fallback).toEqual(["Fallback phase\n"]);
 	});
 
-	test("suppress drops phase", () => {
+	test("shouldSuppress drops phase", () => {
 		const fallback: string[] = [];
 
-		createCommandIo({ suppress: true, phaseFallback: (text) => fallback.push(text) }).phase(
+		createCommandIo({ shouldSuppress: true, phaseFallback: (text) => fallback.push(text) }).phase(
 			"Hidden phase",
 		);
 
@@ -70,7 +70,7 @@ describe("createCommandIo", () => {
 		const ui: Array<{ message: string; level: string | undefined }> = [];
 
 		createCommandIo({
-			suppress: true,
+			shouldSuppress: true,
 			notifyInfo: (text) => info.push(text),
 			notifyDiagnostic: (text) => diagnostic.push(text),
 		}).notify("Machine-safe");

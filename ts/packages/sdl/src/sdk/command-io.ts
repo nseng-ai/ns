@@ -4,7 +4,7 @@ import type { SdlExtensionApi } from "./execution.ts";
 
 export interface SdlExtensionCommandIoOptions {
 	statusKey?: string;
-	suppress?: boolean;
+	shouldSuppress?: boolean;
 }
 
 export function commandIoFromSdlExtensionApi(
@@ -18,6 +18,6 @@ export function commandIoFromSdlExtensionApi(
 		...(ctx.stderr === undefined ? {} : { phaseFallback: ctx.stderr }),
 		...(ctx.stdout === undefined ? {} : { notifyInfo: ctx.stdout }),
 		...(ctx.stderr === undefined ? {} : { notifyDiagnostic: ctx.stderr }),
-		...(options.suppress === undefined ? {} : { suppress: options.suppress }),
+		...(options.shouldSuppress === undefined ? {} : { shouldSuppress: options.shouldSuppress }),
 	});
 }

@@ -60,7 +60,7 @@ describe("commandIoFromSdlExtensionApi", () => {
 				stderr: (text) => stderr.push(text),
 				onOutput: (_stream, text) => live.push(text),
 			}),
-			{ suppress: true },
+			{ shouldSuppress: true },
 		);
 
 		io.phase("Hidden");

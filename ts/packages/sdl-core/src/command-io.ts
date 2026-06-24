@@ -23,7 +23,7 @@ export interface CommandIoChannels {
 	/** Notification via Pi UI (level-aware), when present. */
 	notifyUi?: (message: string, level?: NotifyLevel) => void;
 	/** Suppress transient phase entirely (machine/structured output). */
-	suppress?: boolean;
+	shouldSuppress?: boolean;
 }
 
 export const noopCommandIo: CommandIo = {
@@ -46,7 +46,7 @@ export async function runWithCommandIo<T>(
 export function createCommandIo(channels: CommandIoChannels): CommandIo {
 	return {
 		phase: (message) => {
-			if (channels.suppress === true) return;
+			if (channels.shouldSuppress === true) return;
 			if (channels.phaseSticky !== undefined) {
 				channels.phaseSticky(message);
 				return;
@@ -64,7 +64,7 @@ export function createCommandIo(channels: CommandIoChannels): CommandIo {
 				return;
 			}
 			const line = `${message.trimEnd()}\n`;
-			if (level === "info" && channels.suppress !== true) {
+			if (level === "info" && channels.shouldSuppress !== true) {
 				channels.notifyInfo?.(line);
 				return;
 			}

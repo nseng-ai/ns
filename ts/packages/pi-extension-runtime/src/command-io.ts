@@ -9,7 +9,7 @@ interface PiCommandIoContext {
 
 export interface PiCommandIoOptions {
 	statusKey: string;
-	suppress?: boolean;
+	shouldSuppress?: boolean;
 }
 
 export function commandIoFromPiContext(
@@ -23,6 +23,6 @@ export function commandIoFromPiContext(
 					phaseSticky: (value: string | undefined) => ctx.ui.setStatus?.(options.statusKey, value),
 				}),
 		notifyUi: (message, level) => ctx.ui.notify(message, level),
-		...(options.suppress === undefined ? {} : { suppress: options.suppress }),
+		...(options.shouldSuppress === undefined ? {} : { shouldSuppress: options.shouldSuppress }),
 	});
 }
