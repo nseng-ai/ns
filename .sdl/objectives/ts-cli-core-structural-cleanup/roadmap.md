@@ -2,6 +2,12 @@
 
 ## Work
 
+> **Blocked / sequencing note:** do not start new uncompleted rows from this
+> Objective until `sdl-extension-architecture` has advanced the ADR 0009
+> architecture endgame enough to rebaseline this roadmap. The completed rows stay
+> valid history. The remaining rows should be reclassified after that work into
+> neutral structural cleanup, capability-owned migration work, or obsolete debt.
+
 - [x] Shared `defineCli` helper in `@sdl/core/cli-entry` (runtimeInfo derivation,
       version reading, IO/cwd/env defaulting, `import.meta.main` entry guard);
       migrate all 15 `cli.ts` files onto it.
@@ -123,6 +129,9 @@ These deepening candidates migrated from the closed `ts-cli-architecture-deepeni
 Objective. They use the `improve-codebase-architecture` vocabulary (module /
 interface / depth / seam / deletion test); the reasoning is carried across intact,
 not flattened. The audit `reference/` directory remains in the closed Objective.
+They are especially subject to the blocked/sequencing note above: after
+`sdl-extension-architecture` lands its foundation, rebaseline these rows before
+implementing any of them.
 
 - [ ] **Collapse slot-dispatch into one orchestration module** (`ccc/cmux`) —
       `dispatch-prompt.ts` (432), `dispatch-from-trunk.ts` (198), and

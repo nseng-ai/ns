@@ -26,7 +26,11 @@ the closed `ts-cli-architecture-deepening` Objective (whose
 seams, and one-adapter watch-points across the TypeScript CLIs and `asdl-core`).
 Architectural layering and capability-extension migration work routes to
 `sdl-extension-architecture` (ADR 0009); general TS cleanup/deepening routes
-here. Migrated deepening rows keep the deletion-test / module-interface-depth-seam
+here. **Sequencing update:** remaining unstarted cleanup/deepening work is paused
+behind the active `sdl-extension-architecture` endgame. Resume this Objective only
+after the extension architecture foundation has landed enough to rebaseline which
+rows remain neutral structural cleanup versus capability-extension migration work.
+Migrated deepening rows keep the deletion-test / module-interface-depth-seam
 vocabulary they were captured in — the reasoning is carried across intact, not
 flattened into bare findings.
 
@@ -145,8 +149,11 @@ Assumptions:
   `branch-context` shells out while `handoff` uses the gateway; the `.` export
   has one bare importer; `graphqlErrorsFromJson`/`readOptionalBrmemBooleanField`
   are dead; `areg/real-gateways.ts` holds 6 gateway classes).
-- The work is decomposable into many small, independently reviewable changes;
-  most items are pure subtraction and do not depend on each other.
+- Revised sequencing: the remaining open work should not be decomposed or picked
+  up independently until `sdl-extension-architecture` advances the ADR 0009
+  endgame far enough for a fresh rebaseline. Some rows are pure neutral cleanup,
+  but several are architecture-sensitive and could be invalidated, moved, or
+  reframed by capability-extension migration.
 - The CLI scenario tests plus `just` are a sufficient behavior-parity net for
   refactors of this shape.
 - The original `execGroup(description?)` recommendation over-weighted repeated
