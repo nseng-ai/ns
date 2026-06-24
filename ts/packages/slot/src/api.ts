@@ -1,7 +1,7 @@
 import type { SlotCliContext } from "./context.ts";
 import { createRealSlotContext } from "./context.ts";
 import { checkoutBranch, checkoutCurrent } from "./lifecycle/checkout.ts";
-import { buildNavigationResultFields } from "./navigation-result.ts";
+import { prepareCheckoutNavigationResult } from "./navigation-result.ts";
 
 export interface SlotCheckoutTarget {
 	slotName: string;
@@ -69,29 +69,28 @@ async function mapCheckoutResult(
 	ctx: SlotCliContext,
 	result: Awaited<ReturnType<typeof checkoutCurrent>>,
 ): Promise<SlotCheckoutResult> {
-	if (result.type === "failure") {
+	const prepared = await prepareCheckoutNavigationResult(ctx, result, {
+		shouldSkipClipboard: true,
+	});
+	if (prepared.type === "failure") {
 		return {
 			ok: false,
 			failure: {
-				errorType: result.failure.error_type,
-				message: result.failure.message,
+				errorType: prepared.failure.error_type,
+				message: prepared.failure.message,
 			},
 		};
 	}
-	const navigation = await buildNavigationResultFields(ctx, {
-		worktreePath: result.outcome.worktree_path,
-		shouldSkipClipboard: true,
-	});
 	return {
 		ok: true,
 		target: {
-			slotName: result.outcome.slot_name,
-			branchName: result.outcome.branch_name,
-			worktreePath: result.outcome.worktree_path,
-			cdCommand: navigation.cd_command,
-			isAlreadyAssigned: result.outcome.already_assigned,
-			hasCreatedBranch: result.outcome.created_branch,
-			currentWorktreeNote: result.outcome.current_wt_note,
+			slotName: prepared.outcome.slot_name,
+			branchName: prepared.outcome.branch_name,
+			worktreePath: prepared.outcome.worktree_path,
+			cdCommand: prepared.navigation.cd_command,
+			isAlreadyAssigned: prepared.outcome.already_assigned,
+			hasCreatedBranch: prepared.outcome.created_branch,
+			currentWorktreeNote: prepared.outcome.current_wt_note,
 		},
 	};
 }

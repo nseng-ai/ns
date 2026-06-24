@@ -2,10 +2,13 @@ import {
 	ClinkrGroup,
 	isClinkrHumanOutputInvocation,
 	resolveClinkrInteraction,
+	type ClinkrCommandSpec,
 	type ClinkrInteraction,
+	type OptionSpec,
 } from "@sdl/clinkr";
 import { defineCli } from "@sdl/core/cli-entry";
 import { readStdinLine } from "@sdl/core/stdin";
+import type { z } from "zod";
 
 import { createRealSlotContext, type SlotCliContext } from "./context.ts";
 import {
@@ -103,6 +106,22 @@ export function buildCli(): ClinkrGroup<SlotCliContext> {
 	return entry.buildCli(undefined);
 }
 
+type ShellCommandSpec<TContext extends SlotCliContext, S extends z.ZodObject, T> = Omit<
+	ClinkrCommandSpec<TContext, S, T>,
+	"name" | "description"
+>;
+
+export interface BuildShellGroupOptions<
+	TContext extends SlotCliContext,
+	TShowSchema extends z.ZodObject = z.ZodObject,
+	TShowResult = unknown,
+	TInstallSchema extends z.ZodObject = z.ZodObject,
+	TInstallResult = unknown,
+> {
+	show: ShellCommandSpec<TContext, TShowSchema, TShowResult>;
+	install: ShellCommandSpec<TContext, TInstallSchema, TInstallResult>;
+}
+
 export interface BuildSlotCommandGroupOptions<TContext extends SlotCliContext> {
 	shellGroup?: (() => ClinkrGroup<TContext>) | undefined;
 }
@@ -116,6 +135,46 @@ export function buildSlotCommandGroup<TContext extends SlotCliContext>(
 	});
 	configureSlotCommands(group, options);
 	return group;
+}
+
+export function buildShellGroup<
+	TContext extends SlotCliContext,
+	TShowSchema extends z.ZodObject,
+	TShowResult,
+	TInstallSchema extends z.ZodObject,
+	TInstallResult,
+>(
+	options: BuildShellGroupOptions<
+		TContext,
+		TShowSchema,
+		TShowResult,
+		TInstallSchema,
+		TInstallResult
+	>,
+): ClinkrGroup<TContext> {
+	const shell = new ClinkrGroup<TContext>({
+		name: "shell",
+		description: "Show or install parent-shell integration.",
+	});
+	shell.command({
+		name: "show",
+		description: "Print the parent-shell wrapper script.",
+		...options.show,
+		options: shellCommandOptions(options.show.options),
+	});
+	shell.command({
+		name: "install",
+		description: "Install the parent-shell wrapper in the detected or selected rc file.",
+		...options.install,
+		options: shellCommandOptions(options.install.options),
+	});
+	return shell;
+}
+
+function shellCommandOptions<TSchema extends z.ZodObject>(
+	options: Partial<Record<keyof z.output<TSchema> & string, OptionSpec>> | undefined,
+): Partial<Record<keyof z.output<TSchema> & string, OptionSpec>> {
+	return { shell: {}, ...options } as Partial<Record<keyof z.output<TSchema> & string, OptionSpec>>;
 }
 
 function configureSlotCommands<TContext extends SlotCliContext>(
