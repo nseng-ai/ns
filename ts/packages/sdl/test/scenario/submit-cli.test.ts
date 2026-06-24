@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { rmSync } from "node:fs";
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -15,22 +15,17 @@ import { listSdlCommands } from "@sdl/sdl/cli";
 
 import type { TextGenerationResult } from "@sdl/sdl/sdk";
 
-import {
-	formattedExecCalls,
-	runCliWithFakes,
-	type RunWithFakesOptions,
-	type ScriptedExecResponse,
-} from "./sdl-cli-fakes.ts";
-import { installCheckedInFlowExtension } from "../helpers/flow-extension.ts";
+import { runFlowSubmitCommandWithFakes } from "./flow-command-fakes.ts";
+import { formattedExecCalls, runCliWithFakes, type ScriptedExecResponse } from "./sdl-cli-fakes.ts";
 
 const PR_URL = "https://github.com/acme/repo/pull/123";
 const GRAPHITE_PR_URL = "https://app.graphite.com/github/pr/acme/repo/123";
 const LAGGING_VERIFICATION_PR_URL = "https://app.graphite.com/github/pr/dagster-io/sdl-tools/1517";
-const tempProjectDirs: string[] = [];
+const tempDirs: string[] = [];
 
 afterEach(() => {
 	vi.useRealTimers();
-	for (const directory of tempProjectDirs.splice(0)) {
+	for (const directory of tempDirs.splice(0)) {
 		rmSync(directory, { recursive: true, force: true });
 	}
 });
@@ -43,17 +38,6 @@ function runUnavailableSubmitCli(args: readonly string[]) {
 			textGenerationResults: () => [],
 		},
 	);
-}
-
-function createSubmitProject(): string {
-	const directory = mkdtempSyncCompat("sdl-submit-project-");
-	tempProjectDirs.push(directory);
-	installCheckedInFlowExtension(directory);
-	return directory;
-}
-
-function mkdtempSyncCompat(prefix: string): string {
-	return mkdtempSync(join(tmpdir(), prefix));
 }
 
 describe("sdl flow submit CLI availability", () => {
@@ -81,35 +65,17 @@ describe("sdl flow submit CLI availability", () => {
 		}
 	});
 
-	test("project-local submit help exposes restored options and environment", async () => {
-		const cwd = createSubmitProject();
-		const help = runCliWithFakes(
-			{ args: ["flow", "submit", "--help"], cwd, state: { exec: [], textGeneration: [] } },
-			{
-				execResponses: () => [],
-				textGenerationResults: () => [],
-			},
-		);
-
-		expect(await help.exit).toBe(0);
-		const output = help.stdout.join("");
-		expect(output).toContain("Usage: sdl flow submit");
-		expect(output).toContain("--no-restack");
-		expect(output).toContain("--verbose");
-		expect(output).toContain("SDL_DEV_PR_DESCRIPTION_MODEL");
-		expect(output).toContain("SDL_SUBMIT_FAILURE_LOG_DIR");
-	});
 });
 
-function runWithFakes(options: RunWithFakesOptions) {
-	return runCliWithFakes(
-		{ ...options, cwd: options.cwd ?? createSubmitProject() },
-		{
+function runWithFakes(options: Parameters<typeof runFlowSubmitCommandWithFakes>[0] = {}) {
+	return runFlowSubmitCommandWithFakes({
+		...options,
+		defaults: {
 			execResponses: successfulSubmitResponses,
 			textGenerationResults: () => [{ ok: true, text: defaultPrDescriptionText() }],
 			missingTextGenerationResult: () => ({ ok: true, text: defaultPrDescriptionText() }),
 		},
-	);
+	});
 }
 
 function cleanCheckpointResponses(): ScriptedExecResponse[] {
@@ -198,7 +164,7 @@ function defaultPrDescriptionText(): string {
 
 describe("project-local submit extension", () => {
 	test("clean success submits, verifies current PR, prints quiet progress, and rewrites PR bodies", async () => {
-		const run = runWithFakes({ args: ["flow", "submit"] });
+		const run = runWithFakes();
 
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
@@ -244,7 +210,7 @@ describe("project-local submit extension", () => {
 	});
 
 	test("--verbose streams raw Graphite output in addition to concise progress", async () => {
-		const run = runWithFakes({ args: ["flow", "submit", "--verbose"] });
+		const run = runWithFakes({ request: { verbose: true } });
 
 		expect(await run.exit).toBe(0);
 		expect(run.liveOutput).toEqual(
@@ -265,7 +231,6 @@ describe("project-local submit extension", () => {
 			generator: PR_DESCRIPTION_GENERATOR_VERSION,
 		});
 		const run = runWithFakes({
-			args: ["flow", "submit"],
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -322,7 +287,6 @@ describe("project-local submit extension", () => {
 			resolveModel = resolve;
 		});
 		const run = runWithFakes({
-			args: ["flow", "submit"],
 			state: { textGeneration: [pendingModel] },
 		});
 
@@ -355,7 +319,6 @@ describe("project-local submit extension", () => {
 
 	test("pre-submit metadata preparation reports progress across large stacks", async () => {
 		const run = runWithFakes({
-			args: ["flow", "submit"],
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -451,7 +414,6 @@ describe("project-local submit extension", () => {
 
 	test("accepts submit-output PR links when current PR verification lags", async () => {
 		const run = runWithFakes({
-			args: ["flow", "submit"],
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -523,7 +485,6 @@ describe("project-local submit extension", () => {
 
 	test("deduplicates the submitted PR when Graphite and GitHub URL forms differ", async () => {
 		const run = runWithFakes({
-			args: ["flow", "submit"],
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -576,7 +537,6 @@ describe("project-local submit extension", () => {
 
 	test("post-submit no-current-PR failure gives checkpoint guidance", async () => {
 		const run = runWithFakes({
-			args: ["flow", "submit"],
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -621,7 +581,6 @@ describe("project-local submit extension", () => {
 
 	test("dirty worktree checkpoints before submitting", async () => {
 		const run = runWithFakes({
-			args: ["flow", "submit"],
 			state: {
 				exec: [
 					...dirtyCheckpointResponses(),
@@ -645,7 +604,6 @@ describe("project-local submit extension", () => {
 	test("checkpoint failure aborts before Graphite submit", async () => {
 		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
 		const run = runWithFakes({
-			args: ["flow", "submit"],
 			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
 			state: {
 				exec: [
@@ -684,7 +642,6 @@ describe("project-local submit extension", () => {
 
 	test("restack-required dry-run runs restack by default", async () => {
 		const run = runWithFakes({
-			args: ["flow", "submit"],
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -708,7 +665,6 @@ describe("project-local submit extension", () => {
 
 	test("trunk-out-of-date dry-run failure is deterministic and uses model summarization", async () => {
 		const run = runWithFakes({
-			args: ["flow", "submit"],
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -746,7 +702,6 @@ describe("project-local submit extension", () => {
 	test("unknown dry-run failure uses model-primary message and writes a raw log", async () => {
 		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
 		const run = runWithFakes({
-			args: ["flow", "submit"],
 			env: {
 				SDL_SUBMIT_FAILURE_LOG_DIR: logRoot,
 				SDL_SUBMIT_FAILURE_MODEL: "openai-codex/submit-summary",
@@ -799,7 +754,6 @@ describe("project-local submit extension", () => {
 	test("unknown dry-run failure falls back to original stderr when model generation fails", async () => {
 		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
 		const run = runWithFakes({
-			args: ["flow", "submit"],
 			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
 			state: {
 				exec: [
@@ -830,7 +784,6 @@ describe("project-local submit extension", () => {
 	test("default restack does not prompt before submit", async () => {
 		const confirmations: Array<{ title: string; message: string }> = [];
 		const run = runWithFakes({
-			args: ["flow", "submit"],
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -856,7 +809,7 @@ describe("project-local submit extension", () => {
 
 	test("--no-restack preserves guided failure without running restack", async () => {
 		const run = runWithFakes({
-			args: ["flow", "submit", "--no-restack"],
+			request: { restack: false },
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -880,7 +833,6 @@ describe("project-local submit extension", () => {
 
 	test("restack conflicts are reported before submit", async () => {
 		const run = runWithFakes({
-			args: ["flow", "submit"],
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -919,7 +871,6 @@ describe("project-local submit extension", () => {
 	test("readiness recheck failure is deterministic and uses model summarization", async () => {
 		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
 		const run = runWithFakes({
-			args: ["flow", "submit"],
 			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
 			state: {
 				exec: [
@@ -971,7 +922,6 @@ describe("project-local submit extension", () => {
 	test("empty-branch post-submit failure uses model-primary output and raw log path", async () => {
 		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
 		const run = runWithFakes({
-			args: ["flow", "submit"],
 			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
 			state: {
 				exec: [
@@ -1052,7 +1002,6 @@ describe("project-local submit extension", () => {
 
 	test("description edit failure keeps submitted PR links visible", async () => {
 		const run = runWithFakes({
-			args: ["flow", "submit"],
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),

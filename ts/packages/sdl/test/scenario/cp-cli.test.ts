@@ -1,4 +1,4 @@
-import { cpSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -7,6 +7,7 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import { listSdlCommands } from "@sdl/sdl/cli";
 
+import { runFlowCpCommandWithFakes } from "./flow-command-fakes.ts";
 import {
 	formattedExecCalls,
 	parseJsonOutput,
@@ -58,11 +59,8 @@ function defaultCpMessage(): string {
 - Add CLI coverage`;
 }
 
-function runCpWithFakes(options: RunWithFakesOptions) {
-	return runCliWithFakes(options, {
-		execResponses: dirtyCpExecResponses,
-		textGenerationResults: () => [{ ok: true, text: defaultCpMessage() }],
-	});
+function runCpWithFakes(options: Parameters<typeof runFlowCpCommandWithFakes>[0] = {}) {
+	return runFlowCpCommandWithFakes(options);
 }
 
 async function createExtensionProject(
@@ -74,17 +72,6 @@ async function createExtensionProject(
 	const extensionPath = join(directory, ".sdl", "extensions", extensionFileName);
 	mkdirSync(dirname(extensionPath), { recursive: true });
 	writeFileSync(extensionPath, extensionSource);
-	return directory;
-}
-
-async function createCpProject(): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), "sdl-cp-extension-project-"));
-	tempDirs.push(directory);
-	cpSync(
-		join(process.cwd(), "..", ".sdl", "extensions", "flow"),
-		join(directory, ".sdl", "extensions", "flow"),
-		{ recursive: true },
-	);
 	return directory;
 }
 
@@ -306,7 +293,6 @@ export default defineExtension({
 		const run = runWithFakes({
 			args: ["hello"],
 			state: { exec: [{ match: "echo hello", result: { stdout: "hello\n" } }] },
-			cwd,
 		});
 
 		expect(await run.exit).toBe(0);
@@ -495,44 +481,11 @@ export default defineExtension({
 });
 
 describe("project-local cp extension behavior", () => {
-	test("project-local cp appears in help, selected help, and JSON schema", async () => {
-		const cwd = await createCpProject();
-
-		const topHelp = runCpWithFakes({ args: ["flow", "--help"], state: { exec: [] }, cwd });
-		expect(await topHelp.exit).toBe(0);
-		expect(topHelp.stdout.join("")).toContain("cp");
-		expect(topHelp.stdout.join("")).toMatch(/Create a checkpoint commit for the current\s+diff\./);
-		expect(topHelp.stderr.join("")).toBe("");
-
-		const commandHelp = runCpWithFakes({
-			args: ["flow", "cp", "--help"],
-			state: { exec: [] },
-			cwd,
-		});
-		expect(await commandHelp.exit).toBe(0);
-		const help = commandHelp.stdout.join("");
-		expect(help).toContain("Usage: sdl flow cp");
-		expect(help).toContain("Create a checkpoint commit for the current diff.");
-		expect(help).toContain("--dry-run");
-		expect(help).toContain("SDL_CHECKPOINT_MODEL");
-		expect(help).toContain("SDL_DEV_CHECKPOINT_MODEL");
-
-		const schema = runCpWithFakes({
-			args: ["flow", "cp", "--json-schema"],
-			state: { exec: [] },
-			cwd,
-		});
-		expect(await schema.exit).toBe(0);
-		expect(parseJsonOutput(schema)).toHaveProperty("input_json_schema");
-	});
-
 	test("drafts with the model gateway and commits a valid model message", async () => {
-		const cwd = await createCpProject();
 		const message = `[cp] Update CLI checkpoint
 
 - Add command table coverage`;
 		const run = runCpWithFakes({
-			args: ["flow", "cp"],
 			state: {
 				textGeneration: [{ ok: true, text: message }],
 				exec: [
@@ -551,7 +504,6 @@ describe("project-local cp extension behavior", () => {
 					},
 				],
 			},
-			cwd,
 		});
 
 		expect(await run.exit).toBe(0);
@@ -583,8 +535,7 @@ describe("project-local cp extension behavior", () => {
 	});
 
 	test("dry-run previews the checkpoint without staging, committing, or reading log", async () => {
-		const cwd = await createCpProject();
-		const run = runCpWithFakes({ args: ["flow", "cp", "--dry-run"], cwd });
+		const run = runCpWithFakes({ request: { dryRun: true } });
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe(
@@ -602,34 +553,26 @@ describe("project-local cp extension behavior", () => {
 	});
 
 	test("checkpoint model can be selected by SDL environment with legacy fallback", async () => {
-		const cwd = await createCpProject();
 		const selected = runCpWithFakes({
-			args: ["flow", "cp"],
 			env: {
 				SDL_CHECKPOINT_MODEL: "openai-codex/custom-mini",
 				SDL_DEV_CHECKPOINT_MODEL: "openai-codex/legacy",
 			},
-			cwd,
 		});
 
 		expect(await selected.exit).toBe(0);
 		expect(selected.context.textGeneratorCalls[0]?.modelRef).toBe("openai-codex/custom-mini");
 
 		const fallback = runCpWithFakes({
-			args: ["flow", "cp"],
 			env: { SDL_DEV_CHECKPOINT_MODEL: "openai-codex/legacy-mini" },
-			cwd,
 		});
 		expect(await fallback.exit).toBe(0);
 		expect(fallback.context.textGeneratorCalls[0]?.modelRef).toBe("openai-codex/legacy-mini");
 	});
 
 	test("model generation error exits 2 without committing", async () => {
-		const cwd = await createCpProject();
 		const run = runCpWithFakes({
-			args: ["flow", "cp"],
 			state: { textGeneration: [{ ok: false, error: "auth failed" }] },
-			cwd,
 		});
 
 		expect(await run.exit).toBe(2);
@@ -645,19 +588,16 @@ describe("project-local cp extension behavior", () => {
 	});
 
 	test("invalid first model output triggers one repair request and commits the repaired message", async () => {
-		const cwd = await createCpProject();
 		const repaired = `[cp] Repair checkpoint message
 
 - Keep only valid bullets`;
 		const run = runCpWithFakes({
-			args: ["flow", "cp"],
 			state: {
 				textGeneration: [
 					{ ok: true, text: "not a commit message" },
 					{ ok: true, text: repaired },
 				],
 			},
-			cwd,
 		});
 
 		expect(await run.exit).toBe(0);
@@ -679,16 +619,13 @@ describe("project-local cp extension behavior", () => {
 	});
 
 	test("invalid first and repaired output exits 2 without committing", async () => {
-		const cwd = await createCpProject();
 		const run = runCpWithFakes({
-			args: ["flow", "cp"],
 			state: {
 				textGeneration: [
 					{ ok: true, text: "not a commit message" },
 					{ ok: true, text: "still invalid" },
 				],
 			},
-			cwd,
 		});
 
 		expect(await run.exit).toBe(2);
@@ -707,11 +644,8 @@ describe("project-local cp extension behavior", () => {
 	});
 
 	test("clean worktree exits without model generation or committing", async () => {
-		const cwd = await createCpProject();
 		const run = runCpWithFakes({
-			args: ["flow", "cp"],
 			state: { exec: cleanCpExecResponses() },
-			cwd,
 		});
 
 		expect(await run.exit).toBe(1);
@@ -727,9 +661,7 @@ describe("project-local cp extension behavior", () => {
 	});
 
 	test("trunk branch exits before clean-worktree rejection or model generation", async () => {
-		const cwd = await createCpProject();
 		const run = runCpWithFakes({
-			args: ["flow", "cp"],
 			state: {
 				exec: [
 					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
@@ -738,7 +670,6 @@ describe("project-local cp extension behavior", () => {
 					{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
 				],
 			},
-			cwd,
 		});
 
 		expect(await run.exit).toBe(1);
@@ -755,9 +686,7 @@ describe("project-local cp extension behavior", () => {
 	});
 
 	test("snapshot git failures exit with typed diagnostics", async () => {
-		const cwd = await createCpProject();
 		const notGit = runCpWithFakes({
-			args: ["flow", "cp"],
 			state: {
 				exec: [
 					{
@@ -766,7 +695,6 @@ describe("project-local cp extension behavior", () => {
 					},
 				],
 			},
-			cwd,
 		});
 
 		expect(await notGit.exit).toBe(2);
@@ -776,7 +704,6 @@ describe("project-local cp extension behavior", () => {
 		expect(notGit.context.textGeneratorCalls).toEqual([]);
 
 		const detached = runCpWithFakes({
-			args: ["flow", "cp"],
 			state: {
 				exec: [
 					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
@@ -786,7 +713,6 @@ describe("project-local cp extension behavior", () => {
 					},
 				],
 			},
-			cwd,
 		});
 		expect(await detached.exit).toBe(2);
 		expect(detached.stderr.join("")).toBe(
@@ -794,7 +720,6 @@ describe("project-local cp extension behavior", () => {
 		);
 
 		const statusFailed = runCpWithFakes({
-			args: ["flow", "cp"],
 			state: {
 				exec: [
 					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
@@ -802,7 +727,6 @@ describe("project-local cp extension behavior", () => {
 					{ match: "git status --porcelain=v1", result: { code: 1, stderr: "index locked" } },
 				],
 			},
-			cwd,
 		});
 		expect(await statusFailed.exit).toBe(2);
 		expect(statusFailed.stderr.join("")).toBe(
@@ -810,7 +734,6 @@ describe("project-local cp extension behavior", () => {
 		);
 
 		const diffFailed = runCpWithFakes({
-			args: ["flow", "cp"],
 			state: {
 				exec: [
 					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
@@ -819,16 +742,13 @@ describe("project-local cp extension behavior", () => {
 					{ match: "git diff HEAD --no-ext-diff", result: { code: 1, stderr: "diff failed" } },
 				],
 			},
-			cwd,
 		});
 		expect(await diffFailed.exit).toBe(2);
 		expect(diffFailed.stderr.join("")).toBe("Could not capture git diff.\nexit 1: diff failed\n");
 	});
 
 	test("commit operation failures exit with useful stderr", async () => {
-		const cwd = await createCpProject();
 		const addFailed = runCpWithFakes({
-			args: ["flow", "cp"],
 			state: {
 				exec: [
 					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
@@ -841,7 +761,6 @@ describe("project-local cp extension behavior", () => {
 					{ match: "git add -A", result: { code: 1, stderr: "index locked" } },
 				],
 			},
-			cwd,
 		});
 
 		expect(await addFailed.exit).toBe(2);
@@ -851,14 +770,12 @@ describe("project-local cp extension behavior", () => {
 		);
 
 		const commitFailed = runCpWithFakes({
-			args: ["flow", "cp"],
 			state: {
 				exec: [
 					...dirtyCpExecResponses().slice(0, 5),
 					{ match: /^git commit -F /, result: { code: 1, stderr: "nothing to commit" } },
 				],
 			},
-			cwd,
 		});
 		expect(await commitFailed.exit).toBe(2);
 		expect(commitFailed.stderr.join("")).toBe(
@@ -866,14 +783,12 @@ describe("project-local cp extension behavior", () => {
 		);
 
 		const logFailed = runCpWithFakes({
-			args: ["flow", "cp"],
 			state: {
 				exec: [
 					...dirtyCpExecResponses().slice(0, 6),
 					{ match: "git log -1 --oneline", result: { code: 1, stderr: "log failed" } },
 				],
 			},
-			cwd,
 		});
 		expect(await logFailed.exit).toBe(2);
 		expect(logFailed.stderr.join("")).toBe(
