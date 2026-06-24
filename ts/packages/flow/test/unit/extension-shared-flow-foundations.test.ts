@@ -17,6 +17,9 @@ const BRANCH_LATEST_COMMIT_COMMAND_PATH = join(
 	REPO_ROOT,
 	"ts/packages/flow/src/commands/branch-latest-commit.ts",
 );
+const AUTOSLOT_COMMAND_PATH = join(REPO_ROOT, "ts/packages/flow/src/commands/autoslot.ts");
+const LAND_COMMAND_PATH = join(REPO_ROOT, "ts/packages/flow/src/commands/land.ts");
+const PULL_TRUNK_COMMAND_PATH = join(REPO_ROOT, "ts/packages/flow/src/commands/pull-trunk.ts");
 
 const REMOVED_LOCAL_AUTOBRANCH_HELPERS = [
 	["ts/packages/flow/src/shared", "branch-availability.ts"],
@@ -39,6 +42,25 @@ describe("project extension shared flow foundations", () => {
 		for (const [directory, fileName] of REMOVED_LOCAL_AUTOBRANCH_HELPERS) {
 			await expect(access(join(REPO_ROOT, directory, fileName), constants.F_OK)).rejects.toThrow();
 		}
+	});
+
+	test("flow command cwd-capable runner adapters go through the scoped SDL exec guard", async () => {
+		const autoslotSource = await readFile(AUTOSLOT_COMMAND_PATH, "utf8");
+		const landSource = await readFile(LAND_COMMAND_PATH, "utf8");
+		const pullTrunkSource = await readFile(PULL_TRUNK_COMMAND_PATH, "utf8");
+		const autobranchSource = await readFile(AUTOBRANCH_COMMAND_PATH, "utf8");
+		const branchLatestCommitSource = await readFile(BRANCH_LATEST_COMMIT_COMMAND_PATH, "utf8");
+		const worktreeSource = await readFile(SHARED_WORKTREE_PATH, "utf8");
+
+		expect(worktreeSource).toContain("refusing command cwd");
+		expect(worktreeSource).toContain("createCliExecAdapter");
+		expect(worktreeSource).toContain("execOptions?.cwd");
+		for (const source of [autoslotSource, landSource, pullTrunkSource]) {
+			expect(source).toContain("createCliExecAdapter");
+			expect(source).not.toContain("options?.cwd");
+		}
+		expect(autobranchSource).not.toContain("_cwd");
+		expect(branchLatestCommitSource).not.toContain("_cwd");
 	});
 
 	test("flow commands use package-owned migration seams instead of bundled submit and PR internals", async () => {

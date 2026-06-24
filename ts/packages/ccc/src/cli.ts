@@ -130,8 +130,8 @@ async function handleAutobranch(ctx: CccCliContext, request: AutobranchRequest):
 	const result = await createAutobranchCheckpointFlow({
 		cwd: ctx.cwd,
 		args,
-		exec: (command, commandArgs, cwd, timeout) =>
-			ctx.commands.exec(command, commandArgs, { cwd, timeout, env: ctx.env }),
+		exec: (command, commandArgs, timeout) =>
+			ctx.commands.exec(command, commandArgs, { cwd: ctx.cwd, timeout, env: ctx.env }),
 		prepareCheckpointMessage:
 			autobranch.prepareCheckpointMessage ??
 			((snapshot) => prepareAutobranchCheckpointMessage(snapshot, ctx.env)),

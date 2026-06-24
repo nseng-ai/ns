@@ -84,7 +84,7 @@ async function createAutobranchCheckpointFlow(ctx: SdlExtensionApi, args: Parsed
 		cwd: snapshot.root,
 		args,
 		snapshot,
-		exec: (command, commandArgs, _cwd, timeout) =>
+		exec: (command, commandArgs, timeout) =>
 			execExtensionCommand({ ctx, command, args: commandArgs, timeoutMs: timeout }),
 		prepareCheckpointMessage: (pendingSnapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">) =>
 			prepareCheckpointMessage({

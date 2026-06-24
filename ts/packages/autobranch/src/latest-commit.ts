@@ -38,7 +38,7 @@ export interface LatestCommitAutobranchInput {
 	cwd: string;
 	args: ParsedAutobranchArgs;
 	snapshot: PendingWorktreeSnapshot;
-	exec: (command: string, args: string[], cwd: string, timeout: number) => Promise<CommandResult>;
+	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>;
 	now?: (() => number) | undefined;
 }
 
@@ -60,12 +60,7 @@ export async function createLatestCommitAutobranchFlow(
 		return { ok: false, error: formatLatestCommitTransactionFailure(transaction) };
 	}
 
-	const cleanliness = await input.exec(
-		"git",
-		["status", "--porcelain=v1"],
-		input.cwd,
-		GIT_TIMEOUT_MS,
-	);
+	const cleanliness = await input.exec("git", ["status", "--porcelain=v1"], GIT_TIMEOUT_MS);
 	const isClean = cleanliness.code === 0 && cleanliness.stdout.trim().length === 0;
 	const suffix = prepared.plan.hasSuffix
 		? ` (base slug ${prepared.plan.baseSlug} was unavailable)`

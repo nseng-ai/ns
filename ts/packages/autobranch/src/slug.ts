@@ -40,7 +40,7 @@ export interface BranchSlugPromptInput {
 export interface BranchSlugDerivationInput {
 	cwd: string;
 	prompt: string;
-	exec: (command: string, args: string[], cwd: string, timeout: number) => Promise<CommandResult>;
+	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>;
 }
 
 export type BranchSlugModelResult =
@@ -84,7 +84,7 @@ export async function deriveBranchSlug(
 		slugKind: "branch slug",
 		normalizeOutput: sanitizeBranchName,
 		exec: (command, args, options) =>
-			input.exec(command, args, options.cwd ?? input.cwd, options.timeout ?? SLUG_MODEL_TIMEOUT_MS),
+			input.exec(command, args, options.timeout ?? SLUG_MODEL_TIMEOUT_MS),
 	});
 	if (result.ok) {
 		return { ok: true, baseSlug: result.evidence.slug, source: "model" };

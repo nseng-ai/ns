@@ -1,6 +1,8 @@
 import { runLandCli } from "@sdl/ccc/land";
 import { defineExtension, failed, ok, z, type SdlCommand } from "@sdl/sdl/sdk";
 
+import { createCliExecAdapter } from "../shared/worktree.ts";
+
 const landSchema = z.object({
 	yes: z.boolean().optional().describe("Confirm stack landing without an interactive prompt."),
 	dryRun: z.boolean().optional().describe("Show what would land without merging PRs."),
@@ -22,16 +24,7 @@ export const flowLandCommand: SdlCommand<typeof landSchema> = {
 		const exitCode = await runLandCli({
 			cwd: ctx.cwd,
 			rawArgs: rawArgs.join(" "),
-			exec: async (command, args, options) =>
-				await ctx.exec(command, args, {
-					...(options?.timeout === undefined ? {} : { timeoutMs: options.timeout }),
-					...(onOutput === undefined
-						? {}
-						: {
-								onStdout: (text: string) => onOutput("stdout", text),
-								onStderr: (text: string) => onOutput("stderr", text),
-							}),
-				}),
+			exec: createCliExecAdapter({ ctx, ...(onOutput === undefined ? {} : { onOutput }) }),
 			stdout: (text) => {
 				stdout += text;
 				ctx.stdout?.(text);
