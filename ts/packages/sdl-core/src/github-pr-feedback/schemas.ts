@@ -120,6 +120,28 @@ export const ghReviewThreadsResponseSchema = z
 	})
 	.loose();
 
+export const ghPrChecksResponseSchema = z
+	.object({
+		data: z.object({
+			repository: z.object({
+				pullRequest: z.object({
+					statusCheckRollup: z
+						.object({
+							contexts: z
+								.object({
+									nodes: z.array(z.unknown()),
+									pageInfo: z.object({ hasNextPage: z.boolean() }).loose(),
+								})
+								.loose(),
+						})
+						.loose()
+						.nullable(),
+				}),
+			}),
+		}),
+	})
+	.loose();
+
 export const ghReviewThreadCommentsResponseSchema = z
 	.object({
 		data: z.object({

@@ -4,6 +4,7 @@ export const EXEC_OPERATION_NAMES: ReadonlySet<string> = new Set([
 	"download-feedback",
 	"map-branch-prs",
 	"open-prs",
+	"pr-checks",
 	"pr-details",
 	"pr-discussion-comments",
 	"pr-review-threads",

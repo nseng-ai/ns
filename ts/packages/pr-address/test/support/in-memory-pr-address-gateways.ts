@@ -1,3 +1,4 @@
+import type { GithubStatusChecks } from "@sdl/core/github-status";
 import type {
 	GithubPrDiscussionComment,
 	GithubPrFeedbackFailure,
@@ -60,6 +61,7 @@ export interface InMemoryPrFeedbackState {
 		| ReadonlyMap<number, readonly GithubPrDiscussionComment[]>
 		| Record<number, readonly GithubPrDiscussionComment[]>
 		| undefined;
+	checks?: ReadonlyMap<number, GithubStatusChecks> | Record<number, GithubStatusChecks> | undefined;
 	listOpenPrsFailure?: GithubPrFeedbackFailure | undefined;
 	lookupFailureBranches?: ReadonlySet<string> | undefined;
 	lookupFailurePrNumbers?: ReadonlySet<number> | undefined;
@@ -86,6 +88,7 @@ export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway 
 	private readonly reviews: ReadonlyMap<number, readonly GithubPrReview[]>;
 	private readonly reviewThreads: ReadonlyMap<number, readonly GithubPrReviewThread[]>;
 	private readonly discussionComments: ReadonlyMap<number, readonly GithubPrDiscussionComment[]>;
+	private readonly checks: ReadonlyMap<number, GithubStatusChecks>;
 	private readonly listOpenPrsFailure: GithubPrFeedbackFailure | undefined;
 	private readonly lookupFailureBranches: ReadonlySet<string>;
 	private readonly lookupFailurePrNumbers: ReadonlySet<number>;
@@ -112,6 +115,7 @@ export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway 
 		this.reviews = numberMap(state.reviews);
 		this.reviewThreads = numberMap(state.reviewThreads);
 		this.discussionComments = numberMap(state.discussionComments);
+		this.checks = numberMap(state.checks);
 		this.listOpenPrsFailure = state.listOpenPrsFailure;
 		this.lookupFailureBranches = state.lookupFailureBranches ?? new Set();
 		this.lookupFailurePrNumbers = state.lookupFailurePrNumbers ?? new Set();
@@ -197,6 +201,20 @@ export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway 
 				error: fakePrFeedbackFailure(FAKE_GH_AUTH_FAILED_STDERR, "getPrDiscussionComments"),
 			};
 		return { ok: true, value: clone(this.discussionComments.get(params.prNumber) ?? []) };
+	}
+
+	async getPrChecks(
+		params: GithubPrFeedbackOptions & { readonly prNumber: number },
+	): Promise<Result<GithubStatusChecks, GithubPrFeedbackFailure>> {
+		return {
+			ok: true,
+			value: clone(
+				this.checks.get(params.prNumber) ?? {
+					counts: { passing: 0, pending: 0, failing: 0, unknown: 0 },
+					checks: [],
+				},
+			),
+		};
 	}
 
 	async replyToReviewThread(

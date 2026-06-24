@@ -71,6 +71,28 @@ describe("pr-address primitive exec commands", () => {
 	test("returns structured read primitive payloads", async () => {
 		const prFeedback = new InMemoryGithubPrFeedbackGateway({
 			prs: [prSummary({ number: 12 })],
+			checks: {
+				12: {
+					counts: { passing: 1, pending: 0, failing: 1, unknown: 0 },
+					checks: [
+						{
+							bucket: "failing",
+							kind: "check_run",
+							name: "test",
+							workflowName: "CI",
+							status: "COMPLETED",
+							conclusion: "FAILURE",
+							state: null,
+							startedAt: null,
+							completedAt: "2026-06-01T00:00:00Z",
+							createdAt: null,
+							detailsUrl: "https://github.com/acme/repo/actions/runs/1",
+							targetUrl: null,
+							identity: "check-run:CI:test",
+						},
+					],
+				},
+			},
 			reviews: { 12: [review({ id: "R1" })] },
 			reviewThreads: {
 				12: [
@@ -115,6 +137,17 @@ describe("pr-address primitive exec commands", () => {
 		);
 		expect(await comments.exit).toBe(0);
 		expect(dataFromJson(comments.stdout)).toMatchObject({ discussion_comments: [{ id: 90 }] });
+
+		const checks = runScenario(["exec", "pr-checks", "--pr-number", "12", "--format", "json"], {
+			prFeedback,
+		});
+		expect(await checks.exit).toBe(0);
+		expect(dataFromJson(checks.stdout)).toMatchObject({
+			found: true,
+			target: { pr_number: 12 },
+			counts: { failing: 1, passing: 1 },
+			checks: [{ bucket: "failing", kind: "check_run", workflow_name: "CI", name: "test" }],
+		});
 	});
 
 	test("returns structured mutation payloads and records fake side effects", async () => {

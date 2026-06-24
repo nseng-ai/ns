@@ -16,15 +16,18 @@ import {
 	type PrFeedbackDownloadCounts,
 } from "./pr-feedback-download.ts";
 import prFeedbackWatchExtension from "./pr-feedback-watch.ts";
+import { createPrPreviewChecksCommand } from "./pr-preview-checks-command.ts";
 import { createPrPreviewFeedbackCommand } from "./pr-preview-feedback-command.ts";
 
 export const PR_DOWNLOAD_FEEDBACK_COMMAND_NAME = "pr:download-feedback";
 export const PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME = "pr:download-stack-feedback";
 export const PR_PREVIEW_FEEDBACK_COMMAND_NAME = "pr:preview-feedback";
+export const PR_PREVIEW_CHECKS_COMMAND_NAME = "pr:preview-checks";
 
 const DOWNLOAD_FEEDBACK_STATUS_KEY = PR_DOWNLOAD_FEEDBACK_COMMAND_NAME;
 const DOWNLOAD_STACK_FEEDBACK_STATUS_KEY = PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME;
 const PREVIEW_FEEDBACK_STATUS_KEY = PR_PREVIEW_FEEDBACK_COMMAND_NAME;
+const PREVIEW_CHECKS_STATUS_KEY = PR_PREVIEW_CHECKS_COMMAND_NAME;
 const COMMAND_TIMEOUT_MS = 60_000;
 const STACK_DISCOVERY_TIMEOUT_MS = 120_000;
 const STACK_FEEDBACK_INSTRUCTIONS = readFileSync(
@@ -93,6 +96,17 @@ export const prExtensionParity = definePiSurfaceParity([
 		sourceModule: "pr",
 		notes:
 			"The browser modal is Pi-native TUI/session behavior; pr-address owns portable read-only feedback collection.",
+	},
+	{
+		kind: "command",
+		surface: PR_PREVIEW_CHECKS_COMMAND_NAME,
+		workflow: "Preview GitHub PR checks in a read-only Pi modal overlay",
+		parity: "WAIVED",
+		fallback: "Use pr-address exec pr-checks [--pr-number <n>] --format json.",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@sdl/pi-extensions",
+		sourceModule: "pr",
+		notes: "Pi owns modal/session UI; pr-address owns portable check collection.",
 	},
 ] as const);
 
@@ -180,6 +194,17 @@ export default function prExtension(pi: ExtensionAPI): void {
 		commandName: PR_PREVIEW_FEEDBACK_COMMAND_NAME,
 		commandDefinition: createPrPreviewFeedbackCommand(pi, {
 			statusKey: PREVIEW_FEEDBACK_STATUS_KEY,
+			commandTimeoutMs: COMMAND_TIMEOUT_MS,
+			parseOptionalPrNumberArgs,
+			parseEnvelopeWithSchema,
+			notify,
+		}),
+	});
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: PR_PREVIEW_CHECKS_COMMAND_NAME,
+		commandDefinition: createPrPreviewChecksCommand(pi, {
+			statusKey: PREVIEW_CHECKS_STATUS_KEY,
 			commandTimeoutMs: COMMAND_TIMEOUT_MS,
 			parseOptionalPrNumberArgs,
 			parseEnvelopeWithSchema,

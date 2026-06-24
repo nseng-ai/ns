@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 
+import type { GithubStatusChecks } from "@sdl/core/github-status";
 import type {
 	GithubPrDiscussionComment,
 	GithubPrFeedbackFailure,
@@ -80,6 +81,10 @@ class ControlledFeedbackGateway implements GithubPrFeedbackGateway {
 	async getPrDiscussionComments(): Promise<DiscussionCommentsResult> {
 		this.startedInternal.push("discussionComments");
 		return await this.discussionComments.promise;
+	}
+
+	async getPrChecks(): Promise<Result<GithubStatusChecks, GithubPrFeedbackFailure>> {
+		throw new Error("Unexpected getPrChecks call");
 	}
 
 	async replyToReviewThread(): Promise<Result<GithubReviewThreadReply, GithubPrFeedbackFailure>> {

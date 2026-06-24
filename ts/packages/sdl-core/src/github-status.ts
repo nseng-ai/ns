@@ -30,6 +30,29 @@ export interface GithubCheckTally {
 	hasMore?: boolean | undefined;
 }
 
+export type GithubStatusCheckKind = "check_run" | "status_context" | "unknown";
+
+export interface GithubStatusCheckEntry {
+	readonly bucket: GithubCheckBucket;
+	readonly kind: GithubStatusCheckKind;
+	readonly name: string;
+	readonly workflowName: string | null;
+	readonly status: string | null;
+	readonly conclusion: string | null;
+	readonly state: string | null;
+	readonly startedAt: string | null;
+	readonly completedAt: string | null;
+	readonly createdAt: string | null;
+	readonly detailsUrl: string | null;
+	readonly targetUrl: string | null;
+	readonly identity: string | null;
+}
+
+export interface GithubStatusChecks {
+	readonly counts: GithubCheckTally;
+	readonly checks: readonly GithubStatusCheckEntry[];
+}
+
 export interface GithubWorktreePrStatusArgs {
 	owner: string;
 	repo: string;
@@ -232,13 +255,81 @@ export function tallyGithubStatusChecks(
 	items: readonly unknown[],
 	options: { hasMore?: boolean | undefined } = {},
 ): GithubCheckTally {
-	const tally: GithubCheckTally = { passing: 0, pending: 0, failing: 0, unknown: 0 };
-	for (const item of latestGithubStatusChecks(items)) {
-		const bucket = classifyGithubStatusCheck(item);
-		tally[bucket] += 1;
+	return normalizeGithubStatusChecks(items, options).counts;
+}
+
+export function normalizeGithubStatusChecks(
+	items: readonly unknown[],
+	options: { hasMore?: boolean | undefined } = {},
+): GithubStatusChecks {
+	const checks = latestGithubStatusChecks(items).map(normalizeGithubStatusCheck);
+	const counts: GithubCheckTally = { passing: 0, pending: 0, failing: 0, unknown: 0 };
+	for (const check of checks) counts[check.bucket] += 1;
+	if (options.hasMore === true) counts.hasMore = true;
+	return { counts, checks };
+}
+
+function normalizeGithubStatusCheck(item: unknown): GithubStatusCheckEntry {
+	if (!isRecord(item)) return unknownStatusCheckEntry(item);
+	const typename = nonEmptyString(item.__typename);
+	const bucket = classifyGithubStatusCheck(item);
+	const identity = statusCheckIdentity(item) ?? null;
+	if (typename === "CheckRun") {
+		const name = nonEmptyString(item.name) ?? "Unknown check";
+		return {
+			bucket,
+			kind: "check_run",
+			name,
+			workflowName: checkRunWorkflowName(item) ?? null,
+			status: nonEmptyString(item.status) ?? null,
+			conclusion: nonEmptyString(item.conclusion) ?? null,
+			state: null,
+			startedAt: nonEmptyString(item.startedAt) ?? null,
+			completedAt: nonEmptyString(item.completedAt) ?? null,
+			createdAt: null,
+			detailsUrl: nonEmptyString(item.detailsUrl) ?? null,
+			targetUrl: null,
+			identity,
+		};
 	}
-	if (options.hasMore === true) tally.hasMore = true;
-	return tally;
+	if (typename === "StatusContext") {
+		const name = nonEmptyString(item.context) ?? "Unknown status context";
+		return {
+			bucket,
+			kind: "status_context",
+			name,
+			workflowName: null,
+			status: null,
+			conclusion: null,
+			state: nonEmptyString(item.state) ?? null,
+			startedAt: null,
+			completedAt: null,
+			createdAt: nonEmptyString(item.createdAt) ?? null,
+			detailsUrl: null,
+			targetUrl: nonEmptyString(item.targetUrl) ?? null,
+			identity,
+		};
+	}
+	return unknownStatusCheckEntry(item);
+}
+
+function unknownStatusCheckEntry(item: unknown): GithubStatusCheckEntry {
+	const identity = statusCheckIdentity(item) ?? null;
+	return {
+		bucket: "unknown",
+		kind: "unknown",
+		name: "Unknown check",
+		workflowName: null,
+		status: null,
+		conclusion: null,
+		state: null,
+		startedAt: null,
+		completedAt: null,
+		createdAt: null,
+		detailsUrl: null,
+		targetUrl: null,
+		identity,
+	};
 }
 
 function latestGithubStatusChecks(items: readonly unknown[]): readonly unknown[] {

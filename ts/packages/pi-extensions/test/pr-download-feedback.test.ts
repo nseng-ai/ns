@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import prExtension, {
 	PR_DOWNLOAD_FEEDBACK_COMMAND_NAME,
 	PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME,
+	PR_PREVIEW_CHECKS_COMMAND_NAME,
 	PR_PREVIEW_FEEDBACK_COMMAND_NAME,
 	type ExtensionAPI,
 	type ExtensionContext,
@@ -339,6 +340,7 @@ describe("/pr:download-feedback", () => {
 			PR_DOWNLOAD_FEEDBACK_COMMAND_NAME,
 			PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME,
 			PR_PREVIEW_FEEDBACK_COMMAND_NAME,
+			PR_PREVIEW_CHECKS_COMMAND_NAME,
 		]);
 	});
 

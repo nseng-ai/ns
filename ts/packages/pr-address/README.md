@@ -10,7 +10,7 @@ The retained foundation is:
 
 - `pr-address exec download-feedback [--pr-number <number>] --format json` for Markdown triage context.
 - `pr-address exec map-branch-prs --format json` as minimal branch-to-PR lookup plumbing for `/pr:download-stack-feedback`.
-- Read primitives: `pr-details`, `branch-pr`, `open-prs`, `pr-reviews`, `pr-review-threads`, and `pr-discussion-comments`.
+- Read primitives: `pr-details`, `branch-pr`, `open-prs`, `pr-reviews`, `pr-review-threads`, `pr-discussion-comments`, and `pr-checks`.
 - Mutation primitives: `reply-review-thread` and `resolve-review-thread`.
 
 The `download-feedback` result includes Markdown intended for session/editor prefill. It is triage-only and must not mutate GitHub. After human direction, current-state inspection, implementation or verification, and appropriate validation, review-thread mutations should use the primitive commands instead of raw `gh api graphql`.
@@ -29,6 +29,7 @@ The `download-feedback` result includes Markdown intended for session/editor pre
 node ts/packages/pr-address/src/cli.ts --help
 pr-address exec download-feedback --pr-number <pr-number> --format json
 pr-address exec pr-review-threads --pr-number <pr-number> --include-resolved --format json
+pr-address exec pr-checks [--pr-number <pr-number>] --format json
 pr-address exec reply-review-thread --thread-id <THREAD_ID> --body "Fixed in <commit/branch>." --format json
 pr-address exec resolve-review-thread --thread-id <THREAD_ID> --format json
 ```
