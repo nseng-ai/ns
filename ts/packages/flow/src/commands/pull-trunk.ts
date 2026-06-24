@@ -1,7 +1,7 @@
 import { runTrunkPullCli } from "@sdl/ccc/trunk-pull";
-import { defineExtension, failed, ok, z, type SdlCommand } from "@sdl/sdl/sdk";
+import { defineExtension, z, type SdlCommand } from "@sdl/sdl/sdk";
 
-import { createCliExecAdapter } from "../shared/worktree.ts";
+import { runFlowCccCli } from "../shared/ccc-cli.ts";
 
 const pullTrunkSchema = z.object({});
 
@@ -10,24 +10,19 @@ export const flowPullTrunkCommand: SdlCommand<typeof pullTrunkSchema> = {
 	summary: "Pull the configured Graphite trunk branch without running full gt sync.",
 	description: "Pull the configured Graphite trunk branch without running full gt sync.",
 	schema: pullTrunkSchema,
-	run: async (ctx) => {
-		let stdout = "";
-		let stderr = "";
-		const exitCode = await runTrunkPullCli({
-			cwd: ctx.cwd,
-			exec: createCliExecAdapter({ ctx }),
-			stdout: (text) => {
-				stdout += text;
-				ctx.stdout?.(text);
-			},
-			stderr: (text) => {
-				stderr += text;
-				ctx.stderr?.(text);
-			},
-		});
-		if (exitCode === 0) return ok(stdout === "" ? "Pull trunk completed." : "");
-		return failed(stderr === "" ? "Pull trunk failed." : "", exitCode);
-	},
+	run: async (ctx) =>
+		await runFlowCccCli({
+			ctx,
+			successMessage: "Pull trunk completed.",
+			failureMessage: "Pull trunk failed.",
+			run: async (io) =>
+				await runTrunkPullCli({
+					cwd: ctx.cwd,
+					exec: io.exec,
+					stdout: io.stdout,
+					stderr: io.stderr,
+				}),
+		}),
 };
 
 export default defineExtension({

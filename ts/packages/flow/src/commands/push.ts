@@ -46,7 +46,7 @@ async function runPush(ctx: SdlExtensionApi) {
 		);
 	}
 
-	if (!status.clean) {
+	if (!status.isClean) {
 		return failed(formatDirtyWorktreeMessage(ctx.cwd, status.stdout));
 	}
 

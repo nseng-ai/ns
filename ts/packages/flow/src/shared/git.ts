@@ -1,7 +1,7 @@
 import { commandSucceeded, type ExecResult, type SdlExtensionApi } from "@sdl/sdl/sdk";
 
 export type FlowGitPorcelainStatusResult =
-	| { ok: true; clean: boolean; stdout: string; result: ExecResult }
+	| { ok: true; isClean: boolean; stdout: string; result: ExecResult }
 	| { ok: false; result: ExecResult };
 
 export async function execFlowGit(
@@ -25,5 +25,5 @@ export async function readFlowGitPorcelainStatus(
 	}
 
 	const stdout = result.stdout;
-	return { ok: true, clean: stdout.trim().length === 0, stdout, result };
+	return { ok: true, isClean: stdout.trim().length === 0, stdout, result };
 }

@@ -1,7 +1,7 @@
 import { runAutoslotCli } from "@sdl/ccc/autoslot";
-import { defineExtension, failed, ok, z, type SdlCommand } from "@sdl/sdl/sdk";
+import { defineExtension, z, type SdlCommand } from "@sdl/sdl/sdk";
 
-import { createCliExecAdapter } from "../shared/worktree.ts";
+import { runFlowCccCli } from "../shared/ccc-cli.ts";
 
 const autoslotSchema = z.object({
 	slug: z
@@ -16,26 +16,21 @@ export const flowAutoslotCommand: SdlCommand<typeof autoslotSchema> = {
 	description:
 		"Create a Graphite branch from current work, then move it into a managed slot worktree.",
 	schema: autoslotSchema,
-	run: async (ctx, request) => {
-		let stdout = "";
-		let stderr = "";
-		const exitCode = await runAutoslotCli({
-			cwd: ctx.cwd,
-			env: ctx.env,
-			args: request.slug === undefined ? {} : { slug: request.slug },
-			exec: createCliExecAdapter({ ctx }),
-			stdout: (text) => {
-				stdout += text;
-				ctx.stdout?.(text);
-			},
-			stderr: (text) => {
-				stderr += text;
-				ctx.stderr?.(text);
-			},
-		});
-		if (exitCode === 0) return ok(stdout === "" ? "Autoslot completed." : "");
-		return failed(stderr === "" ? "Autoslot failed." : "", exitCode);
-	},
+	run: async (ctx, request) =>
+		await runFlowCccCli({
+			ctx,
+			successMessage: "Autoslot completed.",
+			failureMessage: "Autoslot failed.",
+			run: async (io) =>
+				await runAutoslotCli({
+					cwd: ctx.cwd,
+					env: ctx.env,
+					args: request.slug === undefined ? {} : { slug: request.slug },
+					exec: io.exec,
+					stdout: io.stdout,
+					stderr: io.stderr,
+				}),
+		}),
 };
 
 export default defineExtension({

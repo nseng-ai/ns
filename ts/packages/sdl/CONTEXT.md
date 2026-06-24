@@ -1,6 +1,6 @@
 # @sdl/sdl
 
-`@sdl/sdl` uses SDL to mean **Source Development Lifecycle**, not Software Development Lifecycle. It owns the public command boundary for software-development-lifecycle workflows that have migrated into SDL: users invoke them as `sdl <name>` and may have thin Pi mirrors at `/sdl:<name>`. Project-specific SDL behavior is allowed when it belongs to that lifecycle, and authors use only the public SDL extension API.
+`@sdl/sdl` uses SDL to mean **Source Development Lifecycle**, not Software Development Lifecycle. It owns the public command boundary for software-development-lifecycle workflows that have migrated into SDL. Generic extension commands may appear as `sdl <name>`, while this repository's current grouped flow lifecycle commands appear as `sdl flow <name>` with static Pi mirrors at `/sdl:flow:<name>`. Project-specific SDL behavior is allowed when it belongs to that lifecycle, and authors use only the public SDL extension API.
 
 ## Language
 
@@ -13,7 +13,7 @@ The expanded meaning of `sdl`: the user-facing CLI for source-control and softwa
 *Avoid*: Software Development Lifecycle as the expansion of SDL in this package, Source Data Language, generic script runner, synonym for all SDL tools.
 
 **SDL command surface**:
-The user-facing invocation pair for a migrated lifecycle command: `sdl <name>` plus optional `/sdl:<name>` Pi mirror when implemented.
+The user-facing invocation pair for a migrated lifecycle command. Generic SDL extension commands may be `sdl <name>` with optional `/sdl:<name>` mirrors; the current project-local flow commands are grouped as `sdl flow <name>` with static `/sdl:flow:<name>` Pi mirrors.
 *Avoid*: `sdl-dev` command for migrated workflows, `/code:*` target namespace, compatibility alias.
 
 **SDL kernel**:
@@ -25,7 +25,7 @@ Repo-local or global lifecycle behavior exposed through SDL because it belongs t
 *Avoid*: Pi runtime extension, reason to stay outside SDL, hidden task, factory registration side effect, command-required or single-command-only model.
 
 **Project-local SDL extension**:
-A checked-in repository extension under `<repo>/.sdl/extensions` that contributes lifecycle behavior for that checkout. It can restore a familiar `sdl <name>` surface for this repo without implying the command is built into every SDL installation.
+A checked-in repository extension under `<repo>/.sdl/extensions` that contributes lifecycle behavior for that checkout. It can restore familiar repository command surfaces, including grouped surfaces such as `sdl flow <name>`, without implying the command is built into every SDL installation.
 *Avoid*: default SDL command, universal command, compatibility alias, bundled first-party extension, package implementation module.
 
 **Future bundled SDL extension**:
@@ -37,7 +37,7 @@ A direct `.sdl/extensions/<name>.ts` or `.sdl/extensions/<name>.js` authoring mo
 *Avoid*: shared package module, helper library, internal migration export, public SDK source.
 
 **SDL command entry**:
-A command contribution inside an SDL extension's `commands` array. It names and implements one flat `sdl <name>` command.
+A command contribution inside an SDL extension's `commands` array. It names and implements one command entry; when the owning manifest declares a group such as `flow`, the user-facing CLI surface is grouped as `sdl flow <name>`.
 *Avoid*: SDL extension itself, YAML command spec, nested task database, arbitrary internal import, Pi extension command.
 
 **SDL extension discovery**:
@@ -49,7 +49,7 @@ The SDL CLI step that imports and validates exactly one external SDL extension c
 *Avoid*: loading all extension code to discover command names, partial registration state from failed modules, bricking static help/version/runtime for unrelated malformed entries.
 
 **CLI-only dynamic SDL extension loading**:
-The current boundary for dynamically discovered SDL extensions: `sdl <name>` can be registered from `.sdl/extensions`, while exact dynamic `/sdl:<name>` Pi mirrors remain deferred until Pi has a registration-time cwd/discovery design or a different command model.
+The current boundary for dynamically discovered SDL extensions: CLI commands can be registered from `.sdl/extensions` as flat entries or manifest-grouped entries, while exact dynamic Pi mirrors remain deferred until Pi has a registration-time cwd/discovery design or a different command model.
 *Avoid*: accidental dynamic Pi mirror registration, assuming invocation-time `ctx.cwd` can create new exact Pi command names.
 
 **Flat first-pass command name**:
@@ -69,8 +69,16 @@ The evidence rule for moving behavior into the SDL extension API: one command ma
 *Avoid*: one-command convenience export, importing implementation modules from extensions, treating duplication as automatically bad, hidden migration registry.
 
 **Internal migration export**:
-An SDL package subpath that exists so SDL workspace packages can share primitives during migration, but is not promised as a plugin-author API.
+An SDL package subpath that exists so SDL workspace packages can share primitives during migration, but is not promised as a plugin-author API. `ts/packages/sdl/package.json` marks these as `sdl.internalMigrationExports`, distinct from `./sdk` as the only current `sdl.publicPluginApi` subpath.
 *Avoid*: plugin API, public SDK, command-author import path.
+
+**Flow capability-area maturity ladder**:
+The documentation/readiness model for recurring project-local flow command-author seams: `raw` command-local logic, `flow-shared` helpers under `.sdl/extensions/flow/src/shared/`, `internal-export` package-owned behavior reached through documented `@sdl/sdl/*` internal-migration-export subpaths, and deferred `public-sdk` promotion into `@sdl/sdl/sdk` only after a separate explicit SDK decision.
+*Avoid*: task status, automatic SDK promotion pipeline, proof that a helper is public author API, generic rule for all future extensions.
+
+**Flow-shared helper**:
+A helper owned by the grouped project-local flow extension package under `.sdl/extensions/flow/src/shared/`. It may keep repeated repo-local command authoring readable, but workspace packages must not import it and its existence does not create public SDK surface.
+*Avoid*: public SDK helper, package-owned primitive, bundled extension API, workspace dependency target.
 
 **Default SDL command**:
 A built-in SDL command implementation used when no global or project SDL command entry overrides it. The grouped flow cutover intentionally leaves the SDL kernel with no repository workflow domain defaults; lifecycle commands are restored in this repo by the grouped project-local extension package at `.sdl/extensions/flow/`, not as universal built-ins.

@@ -6,10 +6,10 @@ The retired `sdl-dev` package no longer owns current command surfaces. Lower pac
 
 ## Command ownership and hard cutover
 
-Migrated lifecycle commands target these surfaces:
+Migrated lifecycle commands target one deliberate SDL command surface. Generic extension commands may be flat (`sdl <name>`), but this repository's current lifecycle flow commands are grouped:
 
-- CLI: `sdl <name>`
-- Pi, when a mirror exists: `/sdl:<name>`
+- CLI: `sdl flow <name>`
+- Pi, when a mirror exists: `/sdl:flow:<name>`
 
 A migration slice should delete old command names and old `/code:<name>` Pi mirrors in the same slice unless an explicit, documented exception is approved before implementation. Do not keep compatibility aliases only for autocomplete or habit.
 
@@ -19,7 +19,7 @@ SDL treats project-specific lifecycle behavior as first-class. SDL extensions ca
 
 The SDL kernel owns the stable host mechanics: command discovery, precedence, selected extension loading, CLI presentation, argument/schema parsing, the execution context, and the public author API. It should not own repository workflow policy such as checkpoint wording, PR-description prompts, Graphite submit orchestration, or project-specific GitHub behavior unless that policy has deliberately become a reusable kernel service.
 
-Project-local SDL extensions own repo-specific command behavior. In this repository, commands such as `changes`, `cp`, `autobranch`, `submit`, `regenerate-pr`, and `push` are checked in under `.sdl/extensions/`; their presence here does not make them universal built-in SDL commands.
+Project-local SDL extensions own repo-specific command behavior. In this repository, flow commands such as `changes`, `cp`, `autobranch`, `submit`, `regenerate-pr`, and `push` are checked in under the grouped `.sdl/extensions/flow/` package; their presence here does not make them universal built-in SDL commands.
 
 Future bundled first-party extensions are still a design space, not the current mechanism for this command-first migration. A workflow should become bundled only after the project-local form proves a stable reusable contract and the repository-specific policy has been separated from the portable behavior.
 
@@ -102,11 +102,22 @@ SDL command entries own their prompts, validation, repair policy, and exact exte
 
 Single-file SDL extension modules such as `.sdl/extensions/<name>.ts` are leaf authoring surfaces, not shared libraries. Workspace packages must not import from them. If package code needs behavior first proven inside a single-file extension, move or copy the reusable contract into a package-owned module and expose it deliberately through `@sdl/sdl/sdk` or another documented package export; do not create a package → extension dependency.
 
-The command-first promotion rule is evidence driven: copy or localize behavior while one command is proving a seam, extract shared helpers inside `.sdl/extensions/` only when that keeps project-local authoring readable, and promote a helper into `@sdl/sdl/sdk` only after multiple command slices prove the shape or a single-command necessity is explicitly documented. Promotion should deepen the kernel boundary; it should not merely make one command easier by exposing implementation internals.
+The command-first promotion rule is evidence driven: copy or localize behavior while one command is proving a seam, extract shared helpers inside the owning `.sdl/extensions/` package only when that keeps project-local authoring readable, and promote a helper into `@sdl/sdl/sdk` only after multiple command slices prove the shape or a single-command necessity is explicitly documented. Promotion should deepen the kernel boundary; it should not merely make one command easier by exposing implementation internals.
 
 ## Internal migration exports
 
 `@sdl/sdl/package.json` marks only `./sdk` as `sdl.publicPluginApi`. Other package subpaths are `sdl.internalMigrationExports`: they exist so SDL workspace packages can share primitives during migration, but they are not plugin-author APIs and should not be documented as stable extension surfaces.
+
+## Flow capability-area maturity
+
+The grouped flow extension uses a conservative maturity ladder for repeated command-author seams:
+
+1. **Raw:** command-local logic built directly on kernel primitives such as `ctx.exec`, `ctx.textGenerator`, `ctx.stdout`, `ctx.stderr`, `ctx.confirm`, `ctx.env`, and `ctx.cwd`.
+2. **Flow-shared:** repeated repo-local mechanics extracted under `.sdl/extensions/flow/src/shared/`, for example current helpers for Git mechanics, checkpoint-message/model wiring, worktree facts, text helpers, and CCC CLI delegation.
+3. **Internal export:** package-owned behavior reached through documented `@sdl/sdl/*` internal-migration-export subpaths, such as submit orchestration, PR-description orchestration, checkpoint/pending-worktree helpers, temp files, and text repair/generation support.
+4. **Public SDK:** a separately approved promotion into `@sdl/sdl/sdk`. This remains deferred for the flow consolidation track except for already documented SDK exports.
+
+This ladder is a readiness model, not an automatic promotion pipeline. Flow-shared helpers keep this repository's grouped command package readable; internal migration exports support package-to-package migration; neither tier is public extension-author API.
 
 ## `cp`
 
@@ -207,7 +218,7 @@ Environment:
 - `SDL_CHANGES_MODEL`: model reference for generated changes summaries.
 - `PI_DRAFT_MODEL`: transitional fallback for the old Pi changes-summary model selection.
 
-Pi exposes the same capability as `/sdl:flow:changes` and `/sdl:flow:changes`; `/code:changes` is not retained as a compatibility alias.
+Pi exposes the same capability as `/sdl:flow:changes`; `/code:changes` is not retained as a compatibility alias.
 
 ## `submit`
 
@@ -236,7 +247,7 @@ Environment:
 - `SDL_SUBMIT_FAILURE_MODEL`: model reference for generated submit-failure summaries.
 - `SDL_SUBMIT_FAILURE_LOG_DIR`: optional directory for raw submit-failure transcripts.
 
-Pi exposes the same capability as `/sdl:flow:submit`. `/sdl:flow:submit`, `/dev:submit`, `/submit`, and other legacy submit aliases are not restored.
+Pi exposes the same capability as `/sdl:flow:submit`. `/dev:submit`, `/submit`, and other legacy submit aliases are not restored.
 
 ## `regenerate-pr`
 
@@ -260,7 +271,7 @@ Environment matches PR description generation for `sdl flow submit`:
 - `SDL_DEV_PR_DESCRIPTION_MODEL`: model reference for generated PR descriptions.
 - `SDL_DEV_PR_DESCRIPTION_PROMPT`: optional custom PR-description prompt file.
 
-Pi exposes the same capability as `/sdl:flow:regenerate-pr`. `sdl pr-regen`, `/sdl:pr-regen`, `/code:pr-regen`, and `/sdl:flow:regenerate-pr` are not retained as compatibility surfaces.
+Pi exposes the same capability as `/sdl:flow:regenerate-pr`. `sdl pr-regen`, `/sdl:pr-regen`, and `/code:pr-regen` are not retained as compatibility surfaces.
 
 ## Future extension classification
 
@@ -275,6 +286,6 @@ Use these cut lines when deciding where a lifecycle workflow belongs:
 
 Future SDL command slices should update tests and docs with the command surface change:
 
-- SDL CLI scenario tests should cover user-facing `sdl <name>` behavior, including project/global SDL extension command entries when relevant.
-- Pi registration and parity tests should cover `/sdl:<name>` mirrors when a command is exposed in Pi.
+- SDL CLI scenario tests should cover the user-facing surface being introduced, such as `sdl flow <name>` for this repository's grouped flow commands or `sdl <name>` for a flat extension entry.
+- Pi registration and parity tests should cover the exact mirror, such as `/sdl:flow:<name>` for grouped flow commands, when a command is exposed in Pi.
 - Source searches should prove stale old command names and `/code:<name>` surfaces were deleted or are mentioned only as explicitly labeled migration-away context.
