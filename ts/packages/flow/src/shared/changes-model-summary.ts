@@ -1,7 +1,7 @@
 import { normalizeTextOutput } from "@sdl/core/text-normalization";
 
-import type { PendingWorktreeSnapshot } from "./pending-worktree.ts";
-import { selectChangesModelRef, type TextGenerator } from "./sdk/text-generation.ts";
+import type { PendingWorktreeSnapshot } from "@sdl/sdl/pending-worktree";
+import { selectChangesModelRef, type TextGenerator } from "@sdl/sdl/text-generation";
 
 const CHANGES_SUMMARY_MAX_BULLETS = 4;
 const CHANGES_SUMMARY_MAX_TOKENS = 512;

@@ -1,7 +1,5 @@
 import { expect, test } from "vitest";
 
-import type { CommandRunner } from "@sdl/core/exec";
-
 import { createSdlJiti } from "../../src/sdk/module-loader.ts";
 
 function sortedKeys(value: object): string[] {
@@ -35,38 +33,6 @@ test("repo-local migration extensions can import internal migration subpaths", a
 	expect(typeof checkpointFlowModule.prepareCheckpointMessage).toBe("function");
 	expect(typeof checkpointFlowModule.buildCheckpointUserPrompt).toBe("function");
 	expect(typeof checkpointFlowModule.createCommitWithPreparedMessage).toBe("function");
-
-	const changesModelSummaryModule = await jiti.import<
-		typeof import("../../src/changes-model-summary.ts")
-	>("@sdl/sdl/changes-model-summary");
-	expect(typeof changesModelSummaryModule.draftChangesSummary).toBe("function");
-
-	const prDescriptionModule =
-		await jiti.import<typeof import("../../src/pr-description.ts")>("@sdl/sdl/pr-description");
-	expect(typeof prDescriptionModule.preparePrDescription).toBe("function");
-	expect(typeof prDescriptionModule.prepareRegeneratedPrDescriptionForCurrentBranch).toBe(
-		"function",
-	);
-
-	const submitModule = await jiti.import<typeof import("../../src/submit.ts")>("@sdl/sdl/submit");
-	expect(typeof submitModule.createSdlSubmitRuntime).toBe("function");
-	expect(typeof submitModule.RealSubmitGateway).toBe("function");
-	expect(() => new submitModule.RealSubmitGateway()).not.toThrow();
-	expect(typeof submitModule.runSubmitCommand).toBe("function");
-	expect(typeof submitModule.RealSubmitGateway).toBe("function");
-	expect(typeof submitModule.RealSubmitMetadataGateway).toBe("function");
-	const commandRunner: CommandRunner = async () => ({
-		stdout: "",
-		stderr: "",
-		code: 0,
-		killed: false,
-	});
-	expect(new submitModule.RealSubmitGateway(commandRunner)).toBeInstanceOf(
-		submitModule.RealSubmitGateway,
-	);
-	expect(new submitModule.RealSubmitMetadataGateway(commandRunner)).toBeInstanceOf(
-		submitModule.RealSubmitMetadataGateway,
-	);
 
 	const textGenerationModule = await jiti.import<typeof import("../../src/sdk/text-generation.ts")>(
 		"@sdl/sdl/text-generation",

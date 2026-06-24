@@ -2,13 +2,13 @@ import { chmod, mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import process from "node:process";
 
-import { RealCheckpointGateway, runCheckpointIfPending } from "@sdl/sdl/checkpoint";
+import { RealCheckpointGateway, runCheckpointIfPending } from "../shared/checkpoint.ts";
 import {
 	createSdlSubmitRuntime,
 	runSubmitCommand,
 	type SubmitCommandResult,
-} from "@sdl/sdl/submit";
-import { selectSubmitFailureModelRef } from "@sdl/sdl/text-generation";
+} from "../shared/submit.ts";
+import { selectSubmitFailureModelRef } from "../shared/submit-model.ts";
 import {
 	defineExtension,
 	failed,

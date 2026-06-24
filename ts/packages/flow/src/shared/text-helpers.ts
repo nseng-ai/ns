@@ -1,9 +1,9 @@
-export { draftChangesSummary } from "@sdl/sdl/changes-model-summary";
+export { draftChangesSummary } from "./changes-model-summary.ts";
 export { prepareCheckpointMessage } from "@sdl/sdl/checkpoint-flow";
 export type { PreparedCheckpointMessage } from "@sdl/sdl/checkpoint-flow";
-export { preparePrDescription } from "@sdl/sdl/pr-description";
+export { preparePrDescription } from "./pr-description.ts";
 export type {
 	PrCommitMessage,
 	PrDescriptionPromptContext,
 	PreparedPrDescription,
-} from "@sdl/sdl/pr-description";
+} from "./pr-description.ts";

@@ -24,8 +24,8 @@ describe("project extension shared text helpers", () => {
 	test("keep the helper as package re-export shims", async () => {
 		const source = await readFile(SHARED_TEXT_HELPER_PATH, "utf8");
 
-		expect(source).toContain("@sdl/sdl/changes-model-summary");
-		expect(source).toContain("@sdl/sdl/pr-description");
+		expect(source).toContain("./changes-model-summary.ts");
+		expect(source).toContain("./pr-description.ts");
 		expect(source).not.toContain("function parsePrDescriptionOutput");
 		expect(source).not.toContain("prepareRepairedText");
 		expect(source).not.toContain("CHANGES_SUMMARY_SYSTEM_PROMPT");

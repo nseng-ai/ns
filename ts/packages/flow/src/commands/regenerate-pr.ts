@@ -4,7 +4,7 @@ import {
 	formatPromptSourceLabel,
 	prepareRegeneratedPrDescriptionForCurrentBranch,
 	type RegeneratedPrDescription,
-} from "@sdl/sdl/pr-description";
+} from "../shared/pr-description.ts";
 import {
 	defineExtension,
 	failed,

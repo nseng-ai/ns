@@ -14,8 +14,8 @@ import {
 } from "@sdl/core/submit";
 import type { TextGenerator } from "@sdl/core/submit";
 
-import { createSdlCommandRunner, SdlCommandExecApi } from "./default-commands/command-runner.ts";
-import type { SdlExtensionApi } from "./sdk/index.ts";
+import { createSdlCommandRunner, SdlCommandExecApi } from "./command-runner.ts";
+import type { SdlExtensionApi } from "@sdl/sdl/sdk";
 
 export { preparePrDescription } from "@sdl/core/submit";
 export type {
