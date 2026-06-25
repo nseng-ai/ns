@@ -27,7 +27,7 @@ import {
 import { RealGitGateway, type GitGateway } from "@sdl/core/git";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { resultErr, resultOk } from "@sdl/core/result";
-import { deriveVisiblePiReplacementSurfaces } from "@sdl/pi-command-surfaces";
+import { deriveVisiblePiReplacementSurfaces } from "@sdl/pi/commands";
 
 import type {
 	AregCheckPairingDirectory,
@@ -65,10 +65,9 @@ import { sortStrings } from "./sort.ts";
 const COMMAND_TIMEOUT_MS = 60_000;
 const PI_GENERIC_REPLACEMENT_ADAPTER_RELATIVE_PATH = ".pi/extensions/backing-skill-commands.ts";
 const PI_GENERIC_REPLACEMENT_PACKAGE_MODULE_RELATIVE_PATH =
-	"ts/packages/pi-extensions/src/backing-skill-commands.ts";
-// AREG intentionally does not import @sdl/pi-extensions: pi-extensions is a leaf
-// package for project-local Pi adapters, so shared command surfaces live in the
-// neutral @sdl/pi-command-surfaces package instead.
+	"ts/packages/pi/src/extensions/backing-skill-commands.ts";
+// AREG imports only the neutral @sdl/pi/commands surface, not project-local
+// Pi extension entrypoints under ts/packages/pi/src/**.
 const AREG_VISIBLE_REPLACEMENT_SURFACES = deriveVisiblePiReplacementSurfaces();
 
 interface ResolveAllowedTargetOptions {

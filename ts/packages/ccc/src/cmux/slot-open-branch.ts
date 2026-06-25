@@ -5,7 +5,7 @@ import {
 import {
 	registerCommandWithImmediateAck,
 	sendCommandProgressOrNotify,
-} from "@sdl/pi-extension-runtime/command-ack";
+} from "@sdl/pi/commands/ack";
 
 import { openBranchInCmuxSlot } from "./slot.ts";
 import type {

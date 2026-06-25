@@ -1,0 +1,670 @@
+import { describe, expect, test } from "vitest";
+
+import handoffExtension, {
+	HANDOFF_LIST_MESSAGE_TYPE,
+	buildCreateHandoffPrompt,
+	buildPickupHandoffPrompt,
+	deriveHandoffPreview,
+	formatHandoffListPlain,
+	formatHandoffPickupCommand,
+	groupHandoffListItemsByBranch,
+	parseHandoffItemsFromBrmemList,
+	parseHandoffKeysFromBrmemList,
+	parseListHandoffArgs,
+	parsePickupHandoffArgs,
+	renderHandoffListMessage,
+	resolveHandoffKey,
+	type HandoffListMessageDetails,
+	type HandoffListMessageItem,
+} from "../src/handoff/extension.ts";
+import {
+	BRANCH,
+	FakePi,
+	ROOT,
+	branchStep,
+	brmemListJson,
+	getStep,
+	listAllStep,
+	listStep,
+	runCommand,
+	skillCommandInfo,
+	withTempSkill,
+	type CustomMessage,
+} from "./handoff-test-fakes.ts";
+
+function noopTheme(): { fg(_color: string, text: string): string; bold(text: string): string } {
+	return {
+		fg(_color: string, text: string): string {
+			return text;
+		},
+		bold(text: string): string {
+			return text;
+		},
+	};
+}
+
+function taggedTheme(): { fg(color: string, text: string): string; bold(text: string): string } {
+	return {
+		fg(color: string, text: string): string {
+			return `<${color}>${text}</${color}>`;
+		},
+		bold(text: string): string {
+			return `<bold>${text}</bold>`;
+		},
+	};
+}
+
+function renderMessageText(message: CustomMessage, width = 120): string {
+	return renderHandoffListMessage(message, { expanded: false }, noopTheme())
+		.render(width)
+		.join("\n");
+}
+
+interface InvalidHandoffParseResult {
+	type: "invalid" | "valid";
+	message?: string;
+}
+
+function expectInvalidHandoffParse(result: InvalidHandoffParseResult, pattern: RegExp): void {
+	expect(result.type).toBe("invalid");
+	if (result.type === "invalid") {
+		expect(result.message).toMatch(pattern);
+	}
+}
+
+describe("handoff extension", () => {
+	test("registers core handoff commands and list renderer without tool support", () => {
+		const pi = new FakePi([], [], { registerTool: false });
+
+		handoffExtension(pi);
+
+		expect([...pi.commands.keys()].sort()).toEqual([
+			"handoff:create",
+			"handoff:list",
+			"handoff:pickup",
+		]);
+		expect(pi.commands.has("ccc:handoff-tab")).toBe(false);
+		expect(pi.commands.has("handoff:load")).toBe(false);
+		expect(pi.commands.has("brmem-handoff")).toBe(false);
+		expect(pi.commands.has("brmem-pickup-handoff")).toBe(false);
+		expect([...pi.renderers.keys()]).toEqual([HANDOFF_LIST_MESSAGE_TYPE]);
+		expect([...pi.tools.keys()]).toEqual([]);
+		expect(pi.commands.get("handoff:create")?.description).toBe(
+			"Create a directed handoff artifact for a future continuation.",
+		);
+		expect(pi.commands.get("handoff:pickup")?.description).toBe(
+			"Pick up a handoff by slug, selector, or picker.",
+		);
+		expect(pi.commands.get("handoff:list")?.description).toBe(
+			"List handoffs on this branch or across active branches.",
+		);
+	});
+
+	test("create command expands the handoff-create skill when available", async () => {
+		await withTempSkill(async (skillPath, repoDir) => {
+			const result = await runCommand(
+				"handoff:create",
+				"resume extension frontend work",
+				[],
+				{ cwd: repoDir },
+				[skillCommandInfo(skillPath)],
+			);
+
+			result.pi.assertDone();
+			expect(result.waitForIdleCalls()).toBe(1);
+			expect(result.pi.sentUserMessages).toHaveLength(1);
+			expect(result.pi.sentUserMessages[0]).toContain(
+				`<skill name="handoff-create" location="${skillPath}">`,
+			);
+			expect(result.pi.sentUserMessages[0]).toContain("Create a handoff from the skill body.");
+			expect(result.pi.sentUserMessages[0]).toContain("resume extension frontend work");
+			expect(result.notifications).toEqual([
+				{ message: "Starting handoff create workflow…", level: "info" },
+			]);
+		});
+	});
+
+	test("create fallback uses the handoff namespace and semantic slug key", async () => {
+		const result = await runCommand("handoff:create", "handoff focus");
+
+		result.pi.assertDone();
+		expect(result.pi.sentUserMessages[0]).toContain("Storage contract:");
+		expect(result.pi.sentUserMessages[0]).toContain("Namespace: `handoff`");
+		expect(result.pi.sentUserMessages[0]).toContain(
+			"brmem check <semantic-slug>.md --namespace handoff --branch <branch>",
+		);
+		expect(result.pi.sentUserMessages[0]).toContain(
+			"brmem put <semantic-slug>.md --namespace handoff --branch <branch> --file /dev/stdin",
+		);
+		expect(result.pi.sentUserMessages[0]).toContain("do not create a temporary artifact file");
+		expect(result.pi.sentUserMessages[0]).toContain("HANDOFF_EOF");
+		expect(result.pi.sentUserMessages[0]).toContain("handoff focus");
+		expect(result.pi.sentUserMessages[0]).not.toContain("--file <artifact.md>");
+		expect(result.pi.sentUserMessages[0]).not.toContain("Create a temporary Markdown file");
+		expect(result.pi.sentUserMessages[0]).not.toContain("session-artifacts");
+		expect(result.pi.sentUserMessages[0]).not.toContain("handoffs/<semantic-slug>");
+		expect(result.notifications).toEqual([
+			{
+				message:
+					"handoff-create skill was not found; using fallback handoff-create workflow prompt.",
+				level: "warning",
+			},
+		]);
+	});
+
+	test("create with no args prompts for focus and continues when supplied", async () => {
+		const result = await runCommand("handoff:create", "", [], {
+			inputResponse: "continue the list command",
+		});
+
+		result.pi.assertDone();
+		expect(result.inputs).toEqual([
+			{
+				title: "What should the future session continue from this handoff?",
+				placeholder: undefined,
+			},
+		]);
+		expect(result.pi.sentUserMessages).toHaveLength(1);
+		expect(result.pi.sentUserMessages[0]).toContain("continue the list command");
+	});
+
+	test("create with no args and cancelled input stops without create prompt", async () => {
+		const result = await runCommand("handoff:create", "");
+
+		result.pi.assertDone();
+		expect(result.inputs).toHaveLength(1);
+		expect(result.notifications).toEqual([
+			{ message: "Continuation focus is required to create a handoff.", level: "warning" },
+		]);
+		expect(result.pi.sentUserMessages).toEqual([]);
+	});
+
+	test("create with no input UI asks the assistant to request focus without creating", async () => {
+		const result = await runCommand("handoff:create", "", [], {
+			hasUI: false,
+			inputUnavailable: true,
+		});
+
+		result.pi.assertDone();
+		expect(result.pi.sentUserMessages).toEqual([
+			"Ask the user exactly this question before creating a handoff: What should the future session continue from this handoff?\n\nDo not create a handoff until the user answers with a meaningful continuation focus.",
+		]);
+		expect(result.notifications).toEqual([]);
+	});
+
+	test("pickup command picks up an explicit slug from the current branch", async () => {
+		const artifact = "# Handoff: Continue tests\n\n## Next Steps\n\nRun the tests.";
+		const result = await runCommand("handoff:pickup", "continue-tests", [
+			branchStep(),
+			listStep(BRANCH, ["continue-tests.md"]),
+			getStep(BRANCH, "continue-tests.md", artifact),
+		]);
+
+		result.pi.assertDone();
+		expect(result.pi.execCalls).toEqual([
+			{
+				command: "git",
+				args: ["branch", "--show-current"],
+				options: { cwd: ROOT, timeout: 10_000 },
+			},
+			{
+				command: "handoff",
+				args: ["list", "--branch", BRANCH, "--format", "json"],
+				options: { cwd: ROOT, timeout: 30_000 },
+			},
+			{
+				command: "brmem",
+				args: ["get", "continue-tests.md", "--namespace", "handoff", "--branch", BRANCH],
+				options: { cwd: ROOT, timeout: 30_000 },
+			},
+		]);
+		expect(result.selections).toEqual([]);
+		expect(result.notifications.at(-1)).toEqual({
+			message: `Picked up handoff continue-tests from branch ${BRANCH}.`,
+			level: "info",
+		});
+		expect(result.pi.sentUserMessages[0]).toContain(`Branch: ${BRANCH}`);
+		expect(result.pi.sentUserMessages[0]).toContain("Namespace: handoff");
+		expect(result.pi.sentUserMessages[0]).toContain("Entry: continue-tests.md");
+		expect(result.pi.sentUserMessages[0]).toContain("present a concise handoff summary");
+		expect(result.pi.sentUserMessages[0]).toContain("wait for the user's instruction");
+		expect(result.pi.sentUserMessages[0]).toContain(artifact);
+		expect(result.pi.sentUserMessages[0]).not.toContain("continue with the concrete next step");
+		expect(result.pi.sentUserMessages[0]).not.toContain("session-artifacts");
+	});
+
+	test("pickup command uses an explicit branch and key without reading current branch", async () => {
+		const result = await runCommand("handoff:pickup", "--branch other/branch foo.md", [
+			listStep("other/branch", ["foo.md"]),
+			getStep("other/branch", "foo.md", "# Handoff"),
+		]);
+
+		result.pi.assertDone();
+		expect(result.pi.execCalls.map((call) => call.command)).toEqual(["handoff", "brmem"]);
+		expect(result.pi.sentUserMessages[0]).toContain("Branch: other/branch");
+		expect(result.pi.sentUserMessages[0]).toContain("Entry: foo.md");
+	});
+
+	test("pickup command opens a picker with slug and preview labels", async () => {
+		const result = await runCommand(
+			"handoff:pickup",
+			"",
+			[
+				branchStep(),
+				listStep(BRANCH, ["alpha.md", "bravo.md"]),
+				getStep(BRANCH, "alpha.md", "Continuation focus: Alpha next step\n"),
+				getStep(BRANCH, "bravo.md", "# Bravo title\n\nBody"),
+				getStep(BRANCH, "bravo.md", "# Bravo title\n\nBody"),
+			],
+			{ selectIndex: 1 },
+		);
+
+		result.pi.assertDone();
+		expect(result.selections).toEqual([
+			{
+				title: `Select handoff on ${BRANCH}`,
+				items: ["alpha — Alpha next step", "bravo — Bravo title"],
+			},
+		]);
+		expect(result.pi.sentUserMessages[0]).toContain("Entry: bravo.md");
+	});
+
+	test("pickup command asks for a slug when multiple handoffs exist without picker UI", async () => {
+		const result = await runCommand(
+			"handoff:pickup",
+			"",
+			[branchStep(), listStep(BRANCH, ["alpha.md", "bravo.md"])],
+			{ hasUI: false },
+		);
+
+		result.pi.assertDone();
+		expect(result.pi.sentUserMessages).toEqual([]);
+		expect(result.notifications).toEqual([
+			{
+				message: `Found multiple handoffs on branch ${BRANCH}:\n\nalpha\nbravo\n\nRerun with a slug.`,
+				level: "warning",
+			},
+		]);
+	});
+
+	test("list current branch sends a card-style custom message", async () => {
+		const result = await runCommand("handoff:list", "", [
+			branchStep(),
+			listStep(BRANCH, ["address-review-feedback.md"]),
+			getStep(
+				BRANCH,
+				"address-review-feedback.md",
+				"Continuation focus: Address review feedback\n",
+			),
+		]);
+
+		result.pi.assertDone();
+		expect(result.pi.execCalls.map((call) => [call.command, call.args])).toEqual([
+			["git", ["branch", "--show-current"]],
+			["handoff", ["list", "--branch", BRANCH, "--format", "json"]],
+			[
+				"brmem",
+				["get", "address-review-feedback.md", "--namespace", "handoff", "--branch", BRANCH],
+			],
+		]);
+		expect(result.notifications).toEqual([]);
+		expect(result.pi.sentMessages).toHaveLength(1);
+
+		const message = result.pi.sentMessages[0];
+		expect(message).toEqual({
+			customType: HANDOFF_LIST_MESSAGE_TYPE,
+			content: `Handoffs on ${BRANCH}\n\n  1. address-review-feedback\n     Address review feedback\n     → /handoff:pickup address-review-feedback`,
+			display: true,
+			details: {
+				mode: "branch",
+				branch: BRANCH,
+				items: [
+					{
+						branch: BRANCH,
+						key: "address-review-feedback.md",
+						slug: "address-review-feedback",
+						preview: "Address review feedback",
+					},
+				],
+			},
+		});
+		expect(message).toBeDefined();
+		if (message === undefined) {
+			throw new Error("list command did not send a message");
+		}
+		const rendered = renderMessageText(message);
+		expect(rendered).toContain(`Handoffs on ${BRANCH}`);
+		expect(rendered).toContain("address-review-feedback");
+		expect(rendered).toContain("Address review feedback");
+		expect(rendered).toContain("/handoff:pickup address-review-feedback");
+		expect(rendered).not.toContain("address-review-feedback.md");
+		expect(rendered).not.toContain("Slug | Preview");
+	});
+
+	test("list all branches sends grouped pickup commands", async () => {
+		const result = await runCommand("handoff:list", "--all", [
+			listAllStep([
+				{ key: "alpha.md", branch: "feat/a" },
+				{ key: "bravo.md", branch: "feat/b" },
+			]),
+			getStep("feat/a", "alpha.md", "# Alpha handoff\n"),
+			getStep("feat/b", "bravo.md", "Continuation focus: Bravo work\n"),
+		]);
+
+		result.pi.assertDone();
+		expect(result.pi.execCalls.map((call) => call.command)).toEqual(["handoff", "brmem", "brmem"]);
+		expect(result.notifications).toEqual([]);
+		expect(result.pi.sentMessages).toHaveLength(1);
+
+		const message = result.pi.sentMessages[0];
+		expect(message).toBeDefined();
+		if (message === undefined) {
+			throw new Error("list command did not send a message");
+		}
+		expect(message.details).toEqual({
+			mode: "all-branches",
+			items: [
+				{ branch: "feat/a", key: "alpha.md", slug: "alpha", preview: "Alpha handoff" },
+				{ branch: "feat/b", key: "bravo.md", slug: "bravo", preview: "Bravo work" },
+			],
+		});
+		const rendered = renderMessageText(message);
+		expect(rendered).toContain("Handoffs across branches");
+		expect(rendered).toContain("feat/a\n  1. alpha");
+		expect(rendered).toContain("→ /handoff:pickup --branch feat/a alpha");
+		expect(rendered).toContain("feat/b\n  2. bravo");
+		expect(rendered).toContain("→ /handoff:pickup --branch feat/b bravo");
+		expect(rendered).not.toContain("Branch | Slug | Preview");
+		expect(rendered).not.toContain("alpha.md");
+	});
+
+	test("list falls back to a notification when custom messages are unavailable", async () => {
+		const result = await runCommand(
+			"handoff:list",
+			"",
+			[
+				branchStep(),
+				listStep(BRANCH, ["address-review-feedback.md"]),
+				getStep(
+					BRANCH,
+					"address-review-feedback.md",
+					"Continuation focus: Address review feedback\n",
+				),
+			],
+			{},
+			[],
+			{ sendMessage: false },
+		);
+
+		result.pi.assertDone();
+		expect(result.pi.sentMessages).toEqual([]);
+		expect(result.notifications).toEqual([
+			{
+				message: `Handoffs on ${BRANCH}\n\n  1. address-review-feedback\n     Address review feedback\n     → /handoff:pickup address-review-feedback`,
+				level: "info",
+			},
+		]);
+	});
+
+	test("list parser rejects branch plus all branches", async () => {
+		const result = await runCommand("handoff:list", "--branch feat/x --all");
+
+		result.pi.assertDone();
+		expect(result.pi.execCalls).toEqual([]);
+		expect(result.notifications[0]?.message).toContain(
+			"--branch and --all are mutually exclusive.",
+		);
+		expect(result.notifications[0]?.level).toBe("error");
+	});
+
+	test("list empty messages distinguish current branch and all branches", async () => {
+		const current = await runCommand("handoff:list", "", [branchStep(), listStep(BRANCH, [])]);
+		const all = await runCommand("handoff:list", "--all", [listAllStep([])]);
+
+		current.pi.assertDone();
+		all.pi.assertDone();
+		expect(current.notifications).toContainEqual({
+			message: `No handoffs found on branch ${BRANCH}.`,
+			level: "info",
+		});
+		expect(all.notifications).toContainEqual({
+			message: "No handoffs found across active branches.",
+			level: "info",
+		});
+	});
+});
+
+describe("handoff pure helpers", () => {
+	test("parses pickup args", () => {
+		expect(parsePickupHandoffArgs("--branch feature/x foo.md")).toEqual({
+			type: "valid",
+			args: {
+				help: false,
+				branch: "feature/x",
+				selector: ["foo.md"],
+			},
+		});
+		expect(parsePickupHandoffArgs("review feedback")).toEqual({
+			type: "valid",
+			args: { help: false, selector: ["review", "feedback"] },
+		});
+		expectInvalidHandoffParse(parsePickupHandoffArgs("handoffs/foo.md"), /cannot contain '\/'/);
+	});
+
+	test("parses list args", () => {
+		expect(parseListHandoffArgs("--branch=feature/x")).toEqual({
+			type: "valid",
+			args: {
+				help: false,
+				branch: "feature/x",
+				allBranches: false,
+			},
+		});
+		expect(parseListHandoffArgs("--all")).toEqual({
+			type: "valid",
+			args: { help: false, allBranches: true },
+		});
+		expectInvalidHandoffParse(
+			parseListHandoffArgs("--branch feature/x --all"),
+			/mutually exclusive/,
+		);
+	});
+
+	test("filters brmem list output to flat handoff markdown keys", () => {
+		expect(
+			parseHandoffKeysFromBrmemList(
+				brmemListJson(["bravo.md", "notes/ignore.md", "handoffs/old.md", "alpha.md", "bravo.md"]),
+			),
+		).toEqual({ type: "valid", keys: ["alpha.md", "bravo.md"] });
+	});
+
+	test("rejects invalid handoff list JSON as data", () => {
+		expectInvalidHandoffParse(
+			parseHandoffItemsFromBrmemList("{"),
+			/Failed to parse handoff list JSON/,
+		);
+	});
+
+	test("rejects handoff list JSON without handoffs or entries as data", () => {
+		expectInvalidHandoffParse(
+			parseHandoffItemsFromBrmemList(JSON.stringify({ data: {} })),
+			/did not contain handoffs or entries array/,
+		);
+	});
+
+	test("resolves exact keys normalized slugs search terms and ambiguity", () => {
+		const keys = ["address-review-feedback.md", "add-pickup-handoff-command.md"];
+		expect(resolveHandoffKey(["address-review-feedback.md"], keys)).toEqual({
+			key: "address-review-feedback.md",
+		});
+		expect(resolveHandoffKey(["add-pickup-handoff-command"], keys)).toEqual({
+			key: "add-pickup-handoff-command.md",
+		});
+		expect(resolveHandoffKey(["review", "feedback"], keys)).toEqual({
+			key: "address-review-feedback.md",
+		});
+		expect(resolveHandoffKey([], keys)).toEqual({ ambiguousKeys: keys });
+		expect(resolveHandoffKey(["handoffs/address-review-feedback.md"], keys)).toEqual({});
+	});
+
+	test("pickup prompt fences artifacts that contain markdown fences", () => {
+		const prompt = buildPickupHandoffPrompt(BRANCH, "foo.md", "```text\ninside\n```");
+
+		expect(prompt).toContain("````markdown");
+		expect(prompt).toContain("```text\ninside\n```");
+		expect(prompt).toContain("Technical locator:");
+		expect(prompt).toContain("Namespace: handoff");
+		expect(prompt).toContain("Entry: foo.md");
+		expect(prompt).toContain("present a concise handoff summary");
+		expect(prompt).toContain("wait for the user's instruction");
+		expect(prompt).not.toContain("continue with the concrete next step");
+	});
+
+	test("create prompt includes fallback and focus", () => {
+		const prompt = buildCreateHandoffPrompt(undefined, "ship the frontend command");
+
+		expect(prompt).toContain("Storage contract:");
+		expect(prompt).toContain("ship the frontend command");
+		expect(prompt).toContain(
+			"brmem check <semantic-slug>.md --namespace handoff --branch <branch>",
+		);
+		expect(prompt).toContain(
+			"brmem put <semantic-slug>.md --namespace handoff --branch <branch> --file /dev/stdin",
+		);
+		expect(prompt).toContain("HANDOFF_EOF");
+		expect(prompt).not.toContain("--file <artifact.md>");
+		expect(prompt).not.toContain("Create a temporary Markdown file");
+	});
+
+	test("preview prefers continuation focus and otherwise headings", () => {
+		expect(deriveHandoffPreview("Continuation focus: Finish the tests\n# Later")).toBe(
+			"Finish the tests",
+		);
+		expect(deriveHandoffPreview("# Handoff: Continue docs\n\nBody")).toBe("Handoff: Continue docs");
+	});
+
+	test("formats handoff list cards and pickup commands without storage keys", () => {
+		const item: HandoffListMessageItem = {
+			branch: "feature/docs",
+			key: "ship-docs.md",
+			slug: "ship-docs",
+			preview: "Ship the docs update",
+		};
+		const details: HandoffListMessageDetails = {
+			mode: "branch",
+			branch: "feature/docs",
+			items: [item],
+		};
+
+		expect(formatHandoffPickupCommand(item, "branch")).toBe("/handoff:pickup ship-docs");
+		expect(formatHandoffPickupCommand(item, "all-branches")).toBe(
+			"/handoff:pickup --branch feature/docs ship-docs",
+		);
+		expect(formatHandoffListPlain(details)).toBe(
+			"Handoffs on feature/docs\n\n  1. ship-docs\n     Ship the docs update\n     → /handoff:pickup ship-docs",
+		);
+		expect(formatHandoffListPlain(details)).not.toContain("ship-docs.md");
+	});
+
+	test("groups all-branches list items with stable numbering", () => {
+		const alpha: HandoffListMessageItem = {
+			branch: "feat/a",
+			key: "alpha.md",
+			slug: "alpha",
+			preview: "Alpha",
+		};
+		const aardvark: HandoffListMessageItem = {
+			branch: "feat/a",
+			key: "aardvark.md",
+			slug: "aardvark",
+			preview: "Aardvark",
+		};
+		const bravo: HandoffListMessageItem = {
+			branch: "feat/b",
+			key: "bravo.md",
+			slug: "bravo",
+			preview: "Bravo",
+		};
+		const items = [alpha, aardvark, bravo];
+
+		expect(groupHandoffListItemsByBranch(items)).toEqual([
+			{
+				branch: "feat/a",
+				items: [
+					{ index: 1, item: alpha },
+					{ index: 2, item: aardvark },
+				],
+			},
+			{ branch: "feat/b", items: [{ index: 3, item: bravo }] },
+		]);
+	});
+
+	test("renderer falls back to content for malformed details", () => {
+		const component = renderHandoffListMessage(
+			{
+				customType: HANDOFF_LIST_MESSAGE_TYPE,
+				content: "line one\nline two",
+				display: true,
+				details: { mode: "branch" },
+			},
+			{ expanded: false },
+			noopTheme(),
+		);
+
+		expect(component.render(20)).toEqual(["line one", "line two"]);
+	});
+
+	test("renderer truncates display lines to the available width", () => {
+		const details: HandoffListMessageDetails = {
+			mode: "branch",
+			branch: "feature/with-a-very-long-branch-name",
+			items: [
+				{
+					branch: "feature/with-a-very-long-branch-name",
+					key: "very-long-handoff-slug.md",
+					slug: "very-long-handoff-slug",
+					preview: "This preview is intentionally too long for the target render width",
+				},
+			],
+		};
+		const component = renderHandoffListMessage(
+			{
+				customType: HANDOFF_LIST_MESSAGE_TYPE,
+				content: formatHandoffListPlain(details),
+				display: true,
+				details,
+			},
+			{ expanded: false },
+			noopTheme(),
+		);
+
+		expect(component.render(24)).toContain("Handoffs on feature/wit…");
+		expect(component.render(24).some((line) => line.endsWith("…"))).toBe(true);
+	});
+
+	test("renderer applies theme colors to header slug branch and command", () => {
+		const details: HandoffListMessageDetails = {
+			mode: "all-branches",
+			items: [{ branch: "feat/a", key: "alpha.md", slug: "alpha", preview: "Alpha work" }],
+		};
+		const component = renderHandoffListMessage(
+			{
+				customType: HANDOFF_LIST_MESSAGE_TYPE,
+				content: formatHandoffListPlain(details),
+				display: true,
+				details,
+			},
+			{ expanded: false },
+			taggedTheme(),
+		);
+
+		expect(component.render(120)).toEqual([
+			"<accent><bold>Handoffs across branches</bold></accent>",
+			"",
+			"<accent>feat/a</accent>",
+			"<dim>  1. </dim><accent><bold>alpha</bold></accent>",
+			"     Alpha work",
+			"<muted>     → /handoff:pickup --branch feat/a alpha</muted>",
+		]);
+	});
+});

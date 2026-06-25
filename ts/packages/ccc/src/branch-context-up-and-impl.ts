@@ -7,7 +7,7 @@ import type {
 	SessionReplacementContext,
 	SessionReplacementOptions,
 	SessionReplacementResult,
-} from "@sdl/pi-extension-runtime/session-replacement";
+} from "@sdl/pi/sessions/replacement";
 import { setLaunchStatus, type LaunchStatusUi, type LaunchStatusUpdater } from "./launch-status.ts";
 
 export interface BranchContextUpAndImplHost {

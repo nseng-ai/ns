@@ -1,3 +1,3 @@
-import objectiveExtension from "../../ts/packages/pi-extensions/src/objective.ts";
+import objectiveExtension from "../../ts/packages/pi/src/objectives/extension.ts";
 
 export default objectiveExtension;

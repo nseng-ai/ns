@@ -1,4 +1,4 @@
-import type { CommandIo } from "@sdl/core/command-io";
+import { createCommandIo, type CommandIo } from "@sdl/core/command-io";
 import { formatCommand, runNormalizedExecResult, type ExecResult } from "@sdl/core/exec";
 import {
 	customMessageText,
@@ -6,7 +6,7 @@ import {
 	prLinksDetailsFor,
 	prLinksFromDetails,
 	truncateDisplayLine,
-} from "@sdl/pi-extension-runtime/terminal-presentation";
+} from "@sdl/pi/terminal/presentation";
 import { commandStreamOutputLines, normalizeCommandFinish } from "./command-exec.ts";
 import { COMMAND_STREAM_MESSAGE_TYPE, STATUS_KEY } from "./constants.ts";
 import type {
@@ -15,46 +15,63 @@ import type {
 	LandStackExtensionAPI,
 	LandStackCommandContext,
 	LandedPr,
-	NotifyLevel,
 	RenderComponent,
 	RenderTheme,
 } from "./types.ts";
 
-interface AppendCommandStreamMessageOptions {
-	message: string;
-	details?: CommandStreamMessageDetails;
-	shouldMirrorToNonUi?: boolean;
-	level?: NotifyLevel;
-}
-
 interface LandStackCommandStreamOptions {
-	progressIo?: CommandIo;
+	/** Emit transient "running command" status. Off for non-interactive CLI. */
+	showRunningCommandStatus?: boolean;
+	/** Mirror completed-command results to text-only fallback sinks. */
 	shouldMirrorFinishedCommandsToNonUi?: boolean;
 }
 
+/**
+ * Builds the Pi-slash-command CommandIo for land orchestration. Transient
+ * running-command status maps to the Pi status footer; durable command-stream
+ * entries become `COMMAND_STREAM_MESSAGE_TYPE` custom scrollback messages (with
+ * optional PR-link details) rendered by `registerLandStackRenderer`. CLI surfaces
+ * build a text-only CommandIo instead (see `createCccCliCommandIo`), so the same
+ * `LandStackCommandStream` emission path serves both without per-call branching.
+ */
+export function createLandUiCommandIo(
+	pi: Pick<LandStackExtensionAPI, "sendMessage">,
+	ctx: Pick<LandStackCommandContext, "ui">,
+): CommandIo {
+	return createCommandIo({
+		phaseSticky: (value) => ctx.ui.setStatus(STATUS_KEY, value),
+		notifyUi: (message, level) => ctx.ui.notify(message, level),
+		richMessage: (text, { details }) => {
+			const customMessage: CustomMessage = {
+				customType: COMMAND_STREAM_MESSAGE_TYPE,
+				content: text,
+				display: true,
+			};
+			if (details !== undefined) {
+				customMessage.details = details;
+			}
+			pi.sendMessage?.(customMessage);
+		},
+	});
+}
+
 export class LandStackCommandStream {
-	private readonly pi: LandStackExtensionAPI;
-	private readonly ctx: LandStackCommandContext;
-	private readonly progressIo: CommandIo | undefined;
+	private readonly io: CommandIo;
+	private readonly showRunningCommandStatus: boolean;
 	private readonly shouldMirrorFinishedCommandsToNonUi: boolean;
 
-	constructor(
-		pi: LandStackExtensionAPI,
-		ctx: LandStackCommandContext,
-		options: LandStackCommandStreamOptions = {},
-	) {
-		this.pi = pi;
-		this.ctx = ctx;
-		this.progressIo = options.progressIo;
+	constructor(io: CommandIo, options: LandStackCommandStreamOptions = {}) {
+		this.io = io;
+		this.showRunningCommandStatus = options.showRunningCommandStatus ?? false;
 		this.shouldMirrorFinishedCommandsToNonUi = options.shouldMirrorFinishedCommandsToNonUi ?? true;
 	}
 
 	start(commandDisplay: string): void {
-		// Keep active subprocess visibility transient. Completed command results are
-		// appended separately, so the chat log does not pin a rewritten widget above
-		// the editor while a long-running Graphite/GitHub command is still pending.
-		if (this.ctx.hasUI) {
-			this.ctx.ui.setStatus(STATUS_KEY, `land: running ${commandDisplay}...`);
+		// Keep active subprocess visibility transient: completed command results are
+		// emitted separately, so a long-running Graphite/GitHub command does not pin a
+		// rewritten widget above the editor while it is still pending.
+		if (this.showRunningCommandStatus) {
+			this.io.phase(`land: running ${commandDisplay}...`);
 		}
 	}
 
@@ -71,54 +88,25 @@ export class LandStackCommandStream {
 		if (result.code !== 0) {
 			lines.push(...commandStreamOutputLines(result));
 		}
-		this.append({
-			message: lines.join("\n"),
-			shouldMirrorToNonUi: this.shouldMirrorFinishedCommandsToNonUi,
+		this.io.message(lines.join("\n"), {
 			level: result.code === 0 ? "info" : "error",
+			richOnly: !this.shouldMirrorFinishedCommandsToNonUi,
 		});
 	}
 
 	finishSuccess(message: string, details?: CommandStreamMessageDetails): void {
-		this.append({
-			message: formatCommandStreamBlock("✓", message),
+		this.io.message(formatCommandStreamBlock("✓", message), {
+			richOnly: true,
 			...(details === undefined ? {} : { details }),
 		});
 	}
 
 	finishFailure(message: string): void {
-		this.append({ message: formatCommandStreamBlock("✗", message) });
+		this.io.message(formatCommandStreamBlock("✗", message), { richOnly: true });
 	}
 
 	note(message: string): void {
-		this.append({
-			message: formatCommandStreamBlock("→", message),
-			shouldMirrorToNonUi: true,
-			level: "info",
-		});
-	}
-
-	private append(options: AppendCommandStreamMessageOptions): void {
-		const { message, details } = options;
-		if (this.ctx.hasUI && this.pi.sendMessage) {
-			const customMessage: CustomMessage = {
-				customType: COMMAND_STREAM_MESSAGE_TYPE,
-				content: message,
-				display: true,
-			};
-			if (details) {
-				customMessage.details = details;
-			}
-			this.pi.sendMessage(customMessage);
-			return;
-		}
-		if (options.shouldMirrorToNonUi !== true) return;
-		if (this.progressIo !== undefined) {
-			this.progressIo.phase(message);
-			return;
-		}
-		if (!this.ctx.hasUI) {
-			this.ctx.ui.notify(message, options.level ?? "info");
-		}
+		this.io.message(formatCommandStreamBlock("→", message), { level: "info" });
 	}
 }
 

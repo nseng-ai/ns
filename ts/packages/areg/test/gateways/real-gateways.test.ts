@@ -155,7 +155,7 @@ describe("real areg gateways", () => {
 			await mkdir(path.join(project, "skills", "demo", "agents"), { recursive: true });
 			await mkdir(path.join(project, ".agents", "skills"), { recursive: true });
 			await mkdir(path.join(project, ".pi", "extensions"), { recursive: true });
-			await mkdir(path.join(project, "ts", "packages", "pi-extensions", "src"), {
+			await mkdir(path.join(project, "ts", "packages", "pi", "src", "extensions"), {
 				recursive: true,
 			});
 			await writeFile(path.join(project, "skills", "demo", "SKILL.md"), "---\nname: demo\n---\n");
@@ -173,7 +173,15 @@ describe("real areg gateways", () => {
 				"export {};\n",
 			);
 			await writeFile(
-				path.join(project, "ts", "packages", "pi-extensions", "src", "backing-skill-commands.ts"),
+				path.join(
+					project,
+					"ts",
+					"packages",
+					"pi",
+					"src",
+					"extensions",
+					"backing-skill-commands.ts",
+				),
 				"export {};\n",
 			);
 			await symlink(

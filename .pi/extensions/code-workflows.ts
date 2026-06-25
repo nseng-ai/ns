@@ -1,3 +1,3 @@
-import codeWorkflowsExtension from "../../ts/packages/pi-extensions/src/code-workflows.ts";
+import codeWorkflowsExtension from "../../ts/packages/pi/src/flow/code-workflows.ts";
 
 export default codeWorkflowsExtension;

@@ -3,7 +3,7 @@ import {
 	linkifyPrReferences,
 	prLinksFromDetails,
 	truncateDisplayLine,
-} from "@sdl/pi-extension-runtime/terminal-presentation";
+} from "@sdl/pi/terminal/presentation";
 import { formatCommandDetails, shortSha } from "./command-exec.ts";
 import {
 	AUTO_CHUNK_LANDING_SIZE,

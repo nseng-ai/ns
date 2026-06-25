@@ -10,7 +10,7 @@ import {
 	MAX_DIFF_CHARS,
 	prepareRequestedBranchSlug,
 } from "./slug.ts";
-import { sanitizeBranchName } from "@sdl/pi-extension-runtime/branch-slug";
+import { sanitizeBranchName } from "@sdl/pi/branches/slug";
 import { runAutobranchTransaction, type AutobranchTransactionResult } from "./dirty-transaction.ts";
 
 export type { CommandResult, PendingWorktreeSnapshot } from "./shared.ts";

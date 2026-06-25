@@ -1,8 +1,5 @@
 import type { CommandResult } from "./shared.ts";
-import {
-	MAX_BRANCH_SLUG_LENGTH,
-	trimBranchSlugToLength,
-} from "@sdl/pi-extension-runtime/branch-slug";
+import { MAX_BRANCH_SLUG_LENGTH, trimBranchSlugToLength } from "@sdl/pi/branches/slug";
 
 const GIT_TIMEOUT_MS = 30_000;
 

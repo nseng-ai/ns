@@ -1,6 +1,7 @@
 import type { ParsedAutobranchArgs } from "@sdl/autobranch/dirty-worktree";
-import { createCommandIo, runWithCommandIo, type CommandIo } from "@sdl/core/command-io";
-import type { ExtensionAPI } from "@sdl/pi-extension-runtime/cmux/types";
+import { runWithCommandIo, type CommandIo } from "@sdl/core/command-io";
+import type { ExtensionAPI } from "@sdl/pi/cmux/types";
+import { createCccCliCommandIo } from "./cli-command-io.ts";
 import {
 	commitAutobranchCheckpointMessage,
 	prepareAutobranchCheckpointMessage,
@@ -29,8 +30,10 @@ export interface AutoslotCliInput {
 
 export async function runAutoslotCli(input: AutoslotCliInput): Promise<number> {
 	let hasError = false;
-	const io = createAutoslotCliCommandIo(input, () => {
-		hasError = true;
+	const io = createCccCliCommandIo(input, {
+		onNotifyError: () => {
+			hasError = true;
+		},
 	});
 	await runWithCommandIo(
 		io,
@@ -105,27 +108,6 @@ export async function createAutoslotFlow(input: AutoslotFlowInput): Promise<void
 		].join("\n"),
 		"info",
 	);
-}
-
-function createAutoslotCliCommandIo(input: AutoslotCliInput, onError: () => void): CommandIo {
-	const io = createCommandIo({
-		...(input.onOutput === undefined
-			? {}
-			: { phaseTransient: (text: string) => input.onOutput?.("stderr", text) }),
-		phaseFallback: input.stderr,
-		notifyInfo: input.stdout,
-		notifyDiagnostic: input.stderr,
-	});
-
-	return {
-		...io,
-		notify: (message, level = "info") => {
-			if (level === "error") {
-				onError();
-			}
-			io.notify(message, level);
-		},
-	};
 }
 
 function parseCreatedBranchName(summary: string): string {

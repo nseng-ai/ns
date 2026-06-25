@@ -25,7 +25,7 @@ SDL first-party adaptations live under `skills/<name>/`. Their `.agents/skills/<
 ## SDL-owned overlays
 
 - `skills/pi-grill-ui` and `skills/pi-grill-with-docs-ui` are Pi structured grill UI backend skills. They must stay self-contained because fallback prompts must work even when skill expansion fails.
-- `ts/packages/pi-extensions/src/grill-ui.ts` fallback prompt snippets must preserve the same structured grill behavior as the backend skills.
+- `ts/packages/pi/src/grill-ui.ts` fallback prompt snippets must preserve the same structured grill behavior as the backend skills.
 - SDL's validation-scope policy lives in repo/project instructions and first-party Pi prompts; do not rely on upstream Matt wrappers to carry it.
 - `CONTEXT-MAP.md` routing is SDL-specific and should be preserved in docs-aware Pi/SDL layers.
 - Branch-context, handoff, Objective, Graphite, CCC, and SDL workflows are SDL-native. Do not replace them with Matt workflow skills without a separate product decision.
@@ -65,8 +65,8 @@ Keep these surfaces self-contained:
 
 - `skills/pi-grill-ui/SKILL.md`
 - `skills/pi-grill-with-docs-ui/SKILL.md`
-- `ts/packages/pi-extensions/src/grill-ui.ts` fallback prompt blocks
-- `ts/packages/pi-extensions/test/grill-ui.test.ts`
+- `ts/packages/pi/src/grill-ui.ts` fallback prompt blocks
+- `ts/packages/pi/test/grill-ui.test.ts`
 
 They must continue to require `grill_ask` for user-facing questions when available, one question per tool call, explicit choices, recommendations, `estimatedRemaining`, freeform/status/end paths, no routine validation-scope questions, status-request re-asking, and docs-aware `Documentation updates:` reporting for `/pi:grill-with-docs`.
 

@@ -1,4 +1,4 @@
-import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
+import { registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
 import {
 	buildObjectiveSkillPrompt,
 	chooseActiveObjectiveSlug,
@@ -6,8 +6,8 @@ import {
 	type ObjectiveSelectionContext,
 	type ObjectiveSelectionHost,
 	type ObjectiveSelectionSpec,
-} from "@sdl/pi-extension-runtime/objective-selection";
-import { invokeRepoSkillPromptTurn } from "@sdl/pi-extension-runtime/skill-expansion";
+} from "@sdl/pi/objectives/selection";
+import { invokeRepoSkillPromptTurn } from "@sdl/pi/skills/expansion";
 import type { CommandDefinition } from "./cmux/types.ts";
 
 interface ObjectiveStackImplCommandSpec extends ObjectiveSelectionSpec {

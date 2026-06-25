@@ -2,7 +2,7 @@ import type { CommandResult } from "./shared.ts";
 import { branchNameCandidates, findAvailableBranchName } from "./branch-name.ts";
 import { formatAutobranchCommandDetails } from "./shared.ts";
 import { inspectUpstreamHeadState } from "./upstream.ts";
-import { normalizeBranchSlugText } from "@sdl/pi-extension-runtime/branch-slug";
+import { normalizeBranchSlugText } from "@sdl/pi/branches/slug";
 import type { LatestCommitAutobranchPlan } from "./latest-commit-preparation.ts";
 
 const GIT_TIMEOUT_MS = 30_000;

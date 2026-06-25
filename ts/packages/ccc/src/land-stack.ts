@@ -3,6 +3,7 @@ import { formatErrorMessage } from "@sdl/core/primitives";
 import {
 	LandStackCommandStream,
 	commandStreamDetailsForLanded,
+	createLandUiCommandIo,
 	renderCommandStreamMessage,
 	withCommandStreaming,
 } from "./land-stack/command-stream.ts";
@@ -59,7 +60,7 @@ import type {
 export type { LandStackExtensionAPI } from "./land-stack/types.ts";
 
 export interface ExecuteStackLandingOptions {
-	progressIo?: CommandIo;
+	io?: CommandIo;
 	skipMainConfirmation?: boolean;
 	initialShape?: LandingShape;
 }
@@ -88,9 +89,10 @@ export async function executeStackLanding(
 	const landed: LandedPr[] = [];
 	const landedChunks: LandedChunk[] = [];
 	const warnings: LandingWarning[] = [];
-	const commandStreamOptions =
-		options.progressIo === undefined ? {} : { progressIo: options.progressIo };
-	const commandStream = new LandStackCommandStream(pi, ctx, commandStreamOptions);
+	const io = options.io ?? createLandUiCommandIo(pi, ctx);
+	const commandStream = new LandStackCommandStream(io, {
+		showRunningCommandStatus: ctx.hasUI,
+	});
 	const runtimePi = withCommandStreaming(pi, commandStream);
 	try {
 		if (parsedArgs.help) {
@@ -98,7 +100,6 @@ export async function executeStackLanding(
 			return completed();
 		}
 
-		options.progressIo?.phase("Preflighting landing stack...");
 		setStatus(ctx, "preflighting...");
 		const shape = options.initialShape
 			? success(options.initialShape)

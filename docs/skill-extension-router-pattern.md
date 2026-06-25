@@ -54,7 +54,7 @@ A Pi selector command can make route choice ergonomic without expanding the inst
 - Do not call `sendUserMessage` or otherwise start an LM turn automatically.
 - Let the user manually send the displayed prompt when ready.
 
-Durable or risky selector behavior belongs in `ts/packages/pi-extensions/` with tests. Project-local `.pi/extensions/` files should remain thin adapters when the behavior has been promoted. If the selector is still experimental and repo-local, document why it remains in the project-local extension layer.
+Durable or risky selector behavior belongs in `ts/packages/pi/` with tests. Project-local `.pi/extensions/` files should remain thin adapters when the behavior has been promoted. If the selector is still experimental and repo-local, document why it remains in the project-local extension layer.
 
 ## Validation
 
@@ -74,4 +74,4 @@ INSTALL_INTERNAL_SKILLS=1 npx skills list | rg "<router-name>"
 just areg-check
 ```
 
-For selector code changes, load the TypeScript style skill before editing and run the relevant package checks/tests, normally through the repo `just` targets or the changed package's `pnpm --dir ts/packages/pi-extensions ...` scripts.
+For selector code changes, load the TypeScript style skill before editing and run the relevant package checks/tests, normally through the repo `just` targets or the changed package's `pnpm --dir ts/packages/pi ...` scripts.
