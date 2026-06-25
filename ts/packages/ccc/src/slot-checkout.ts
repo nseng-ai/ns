@@ -1,76 +1,36 @@
-import {
-	createSlotClient,
-	type SlotClient,
-	type SlotCheckoutResult,
-	type SlotCheckoutTarget,
-} from "@sdl/slot/api";
+import type { SlotCheckoutResult, SlotCheckoutTarget, SlotClient } from "@sdl/slot/api";
 
-export type { SlotClient } from "@sdl/slot/api";
-
-export interface CccSlotCheckoutTarget {
-	slotName: string;
-	branchName: string;
-	worktreePath: string;
-	cdCommand: string;
-}
+export type { SlotCheckoutTarget, SlotClient } from "@sdl/slot/api";
 
 export type SlotCheckoutRef = { kind: "branch"; branchName: string } | { kind: "current" };
 
-export type CccSlotCheckoutResult =
-	| { ok: true; target: CccSlotCheckoutTarget }
+export type CheckoutSlotResult =
+	| { ok: true; target: SlotCheckoutTarget }
 	| { ok: false; error: string };
 
-export interface SlotCheckoutInput {
-	cwd: string;
-	env?: NodeJS.ProcessEnv | Record<string, string | undefined>;
-	slotClient?: SlotClient;
-}
-
 export async function checkoutSlot(
-	input: SlotCheckoutInput,
+	slotClient: SlotClient,
 	ref: SlotCheckoutRef,
-): Promise<CccSlotCheckoutResult> {
-	const result = await runPeerCheckout(input, ref);
+): Promise<CheckoutSlotResult> {
+	const result = await runPeerCheckout(slotClient, ref);
 	if (!result.ok) {
 		return {
 			ok: false,
-			error: formatPeerCheckoutFailure(ref, result.failure),
+			error: formatPeerCheckoutFailure(result.failure),
 		};
 	}
-	return { ok: true, target: mapPeerTarget(result.target) };
+	return { ok: true, target: result.target };
 }
 
 async function runPeerCheckout(
-	input: SlotCheckoutInput,
+	slotClient: SlotClient,
 	ref: SlotCheckoutRef,
 ): Promise<SlotCheckoutResult> {
-	const slotClient =
-		input.slotClient ??
-		createSlotClient({
-			cwd: input.cwd,
-			...(input.env === undefined ? {} : { env: input.env }),
-		});
 	return ref.kind === "branch"
 		? await slotClient.checkoutBranch({ branchName: ref.branchName })
 		: await slotClient.checkoutCurrent();
 }
 
-function mapPeerTarget(target: SlotCheckoutTarget): CccSlotCheckoutTarget {
-	return {
-		slotName: target.slotName,
-		branchName: target.branchName,
-		worktreePath: target.worktreePath,
-		cdCommand: target.cdCommand,
-	};
-}
-
-function formatPeerCheckoutFailure(
-	ref: SlotCheckoutRef,
-	failure: { errorType: string; message: string },
-): string {
-	return `${checkoutCommandName(ref)} failed (${failure.errorType}): ${failure.message}`;
-}
-
-function checkoutCommandName(ref: SlotCheckoutRef): string {
-	return ref.kind === "branch" ? "sdl slot checkout" : "sdl slot checkout --current";
+function formatPeerCheckoutFailure(failure: { errorType: string; message: string }): string {
+	return `Slot checkout failed (${failure.errorType}): ${failure.message}`;
 }

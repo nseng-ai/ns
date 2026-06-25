@@ -145,7 +145,7 @@ describe("autoslot flow", () => {
 			message: [
 				"Autoslot moved test-branch to slot-01.",
 				"Worktree: /slots/slot-01",
-				"slot co test-branch",
+				"sdl slot co test-branch",
 			].join("\n"),
 		});
 	});

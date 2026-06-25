@@ -3,11 +3,7 @@ import { z } from "zod";
 
 import type { SlotCliContext } from "../context.ts";
 import { checkoutBranch, checkoutCurrent } from "../lifecycle/checkout.ts";
-import {
-	prepareCheckoutNavigationResult,
-	renderNavigationFooter,
-	writeNavigationCdDirective,
-} from "../navigation-result.ts";
+import { finalizeCheckoutNavigation, renderNavigationFooter } from "../navigation-result.ts";
 import { extractSlotNumber } from "../naming.ts";
 
 export const checkoutRequestSchema = z.object({
@@ -56,9 +52,9 @@ export async function runCheckout(ctx: SlotCliContext, request: CheckoutRequest)
 			});
 	if (lifecycleResult.type === "failure")
 		return failure(lifecycleResult.failure.error_type, lifecycleResult.failure.message);
-	await writeNavigationCdDirective(ctx, lifecycleResult.outcome.worktree_path);
-	const prepared = await prepareCheckoutNavigationResult(ctx, lifecycleResult, {
-		shouldSkipClipboard: !request.clipboard,
+	const prepared = await finalizeCheckoutNavigation(ctx, lifecycleResult, {
+		shouldCopyClipboard: request.clipboard,
+		shouldWriteCdDirective: ctx.shouldWriteCdDirective,
 	});
 	if (prepared.type === "failure")
 		return failure(prepared.failure.error_type, prepared.failure.message);

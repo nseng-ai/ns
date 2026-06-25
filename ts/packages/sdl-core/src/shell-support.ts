@@ -1,13 +1,15 @@
+import { existsSync } from "node:fs";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { basename, dirname, join } from "node:path";
+
 import { failure, ok } from "@sdl/clinkr";
 import { z } from "zod";
 
-import type { SlotCliContext } from "../context.ts";
-import {
-	installMarkerBlock,
-	rcPathForShell,
-	resolveRequestedShell,
-	type SupportedShell,
-} from "./rc-install.ts";
+import { managedRegionBounds } from "./managed-region.ts";
+
+const SUPPORTED_SHELLS = ["zsh", "bash"] as const;
+type SupportedShell = (typeof SUPPORTED_SHELLS)[number];
 
 export const markerSurfaceShowRequestSchema = z.object({
 	shell: z
@@ -33,6 +35,10 @@ export type MarkerSurfaceShowRequest = z.infer<typeof markerSurfaceShowRequestSc
 export type MarkerSurfaceInstallRequest = z.infer<typeof markerSurfaceInstallRequestSchema>;
 export type MarkerSurfaceShowResult = z.infer<typeof markerSurfaceShowResultSchema>;
 export type MarkerSurfaceInstallResult = z.infer<typeof markerSurfaceInstallResultSchema>;
+
+export interface MarkerInstallSurfaceContext {
+	readonly env: Record<string, string | undefined>;
+}
 
 export interface MarkerInstallSurfaceConfig {
 	readonly beginMarker: string;
@@ -76,13 +82,13 @@ export function buildMarkerInstallSurface(config: MarkerInstallSurfaceConfig) {
 		installRequestSchema: markerSurfaceInstallRequestSchema,
 		showResultSchema: markerSurfaceShowResultSchema,
 		installResultSchema: markerSurfaceInstallResultSchema,
-		async runShow(ctx: SlotCliContext, request: MarkerSurfaceShowRequest) {
+		async runShow(ctx: MarkerInstallSurfaceContext, request: MarkerSurfaceShowRequest) {
 			const selected = resolveRequestedShell(request.shell, ctx.env);
 			if (selected.type === "failure")
 				return failure(selected.failure.type, selected.failure.message);
 			return ok({ shell: selected.shell, script: config.renderPayload(selected.shell) });
 		},
-		async runInstall(ctx: SlotCliContext, request: MarkerSurfaceInstallRequest) {
+		async runInstall(ctx: MarkerInstallSurfaceContext, request: MarkerSurfaceInstallRequest) {
 			const selected = resolveRequestedShell(request.shell, ctx.env);
 			if (selected.type === "failure")
 				return failure(selected.failure.type, selected.failure.message);
@@ -108,4 +114,81 @@ export function buildMarkerInstallSurface(config: MarkerInstallSurfaceConfig) {
 			return config.installedMessage(result);
 		},
 	};
+}
+
+interface UnsupportedShellFailure {
+	type: "unsupported_shell";
+	message: string;
+}
+
+interface InstallMarkerBlockOptions {
+	rcPath: string;
+	beginMarker: string;
+	payload: string;
+	endMarker: string;
+}
+
+interface InstallMarkerBlockResult {
+	rcPath: string;
+	isAlreadyInstalled: boolean;
+}
+
+function resolveRequestedShell(
+	raw: string | undefined,
+	env: Record<string, string | undefined>,
+): { type: "ok"; shell: SupportedShell } | { type: "failure"; failure: UnsupportedShellFailure } {
+	if (raw === undefined) return { type: "ok", shell: detectShell(env) };
+	if (isSupportedShell(raw)) return { type: "ok", shell: raw };
+	return { type: "failure", failure: unsupportedShellFailure(raw) };
+}
+
+function detectShell(env: Record<string, string | undefined>): SupportedShell {
+	const shellName = basename(env.SHELL ?? "");
+	if (isSupportedShell(shellName)) return shellName;
+	return "zsh";
+}
+
+function rcPathForShell(shell: SupportedShell, env: Record<string, string | undefined>): string {
+	const home = env.HOME ?? homedir();
+	return join(home, shell === "zsh" ? ".zshrc" : ".bashrc");
+}
+
+function buildMarkerBlock(options: {
+	beginMarker: string;
+	payload: string;
+	endMarker: string;
+}): string {
+	return `\n${options.beginMarker}\n${trimTrailingNewline(options.payload)}\n${options.endMarker}\n`;
+}
+
+async function installMarkerBlock(
+	options: InstallMarkerBlockOptions,
+): Promise<InstallMarkerBlockResult> {
+	const existing = existsSync(options.rcPath) ? await readFile(options.rcPath, "utf8") : "";
+	const bounds = managedRegionBounds({
+		text: existing,
+		startMarker: options.beginMarker,
+		endMarker: options.endMarker,
+	});
+	if (bounds.type !== "missing") return { rcPath: options.rcPath, isAlreadyInstalled: true };
+	await mkdir(dirname(options.rcPath), { recursive: true });
+	const block = buildMarkerBlock(options);
+	const separator = existing.length > 0 && !existing.endsWith("\n") ? "\n" : "";
+	await writeFile(options.rcPath, `${existing}${separator}${block}`, "utf8");
+	return { rcPath: options.rcPath, isAlreadyInstalled: false };
+}
+
+function isSupportedShell(value: string): value is SupportedShell {
+	return SUPPORTED_SHELLS.includes(value as SupportedShell);
+}
+
+function unsupportedShellFailure(shell: string): UnsupportedShellFailure {
+	return {
+		type: "unsupported_shell",
+		message: `Shell '${shell}' is not supported. Supported shells: zsh, bash.`,
+	};
+}
+
+function trimTrailingNewline(value: string): string {
+	return value.endsWith("\n") ? value.slice(0, -1) : value;
 }

@@ -27,8 +27,7 @@ import { checkoutBranchCmuxSlot, openBranchInCmuxSlot } from "./slot.ts";
 import { launchFocusedCmuxTab, type FocusedCmuxTabLaunchResult } from "./focused-terminal-tab.ts";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
 import type { PiLaunchOptions } from "./pi-launch.ts";
-import type { SlotClient } from "@sdl/slot/api";
-import type { CccSlotCheckoutTarget } from "../slot-checkout.ts";
+import type { SlotCheckoutTarget, SlotClient } from "@sdl/slot/api";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import type { CommandContext, ExtensionAPI, NotifyLevel } from "./types.ts";
 
@@ -93,13 +92,13 @@ interface FormatDryRunOptions {
 
 interface FormatFinalSuccessOptions {
 	operation: Pick<BranchContextCreateOperation, "branch" | "key">;
-	target: CccSlotCheckoutTarget;
+	target: SlotCheckoutTarget;
 	launchOptions: PiLaunchOptions;
 }
 
 interface FormatSurfaceSuccessOptions {
 	operation: Pick<BranchContextCreateOperation, "branch" | "key">;
-	target: CccSlotCheckoutTarget;
+	target: SlotCheckoutTarget;
 	launch: Extract<FocusedCmuxTabLaunchResult, { type: "launched" }>;
 }
 
@@ -571,7 +570,7 @@ function formatSurfaceStageStatus(
 
 function formatCmuxSurfaceFailure(
 	branchName: string,
-	target: CccSlotCheckoutTarget,
+	target: SlotCheckoutTarget,
 	launch: Extract<FocusedCmuxTabLaunchResult, { type: "failed" }>,
 ): string {
 	return [

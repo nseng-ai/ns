@@ -11,8 +11,7 @@
 	"exports": {
 		".": "./src/index.ts",
 		"./api": "./src/api.ts",
-		"./command-face": "./src/cli.ts",
-		"./shell-support": "./src/shell/marker-install-surface.ts"
+		"./command-face": "./src/cli.ts"
 	},
 	"scripts": {
 		"check": "tsgo -p tsconfig.json",

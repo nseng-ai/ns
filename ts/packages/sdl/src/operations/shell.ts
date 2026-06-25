@@ -7,7 +7,7 @@ import {
 	markerSurfaceShowRequestSchema,
 	markerSurfaceShowResultSchema,
 	renderCommandCdWrapperScript,
-} from "@sdl/slot/shell-support";
+} from "@sdl/core/shell-support";
 
 import type { SdlCliContext } from "../cli.ts";
 

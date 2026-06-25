@@ -2,11 +2,16 @@
 
 import { z } from "zod";
 
-import { ClinkrGroup, isClinkrHumanOutputInvocation, resolveClinkrInteraction } from "@sdl/clinkr";
+import {
+	ClinkrGroup,
+	isClinkrHumanOutputInvocation,
+	resolveClinkrInteraction,
+	type ClinkrCommandSpec,
+} from "@sdl/clinkr";
 import { rawCommand } from "@sdl/clinkr/raw";
 import { defineCli } from "@sdl/core/cli-entry";
 import { readStdinLine } from "@sdl/core/stdin";
-import { buildShellGroup, buildSlotCommandGroup } from "@sdl/slot/command-face";
+import { buildSlotCommandGroup } from "@sdl/slot/command-face";
 import { createRealSlotContext, type SlotCliContext } from "@sdl/slot";
 
 import {
@@ -166,7 +171,9 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 		};
 	},
 	configureCli: ({ root, buildState }) => {
-		root.group(buildSlotCommandGroup<SdlCliContext>({ shellGroup: buildSdlShellGroup }));
+		const slotGroup = buildSlotCommandGroup<SdlCliContext>();
+		slotGroup.group(buildSdlShellGroup());
+		root.group(slotGroup);
 		root.group(buildSdlShellGroup());
 		const groups = new Map<string, ClinkrGroup<SdlCliContext>>();
 		for (const commandInfo of buildState.commandInfos) {
@@ -243,23 +250,50 @@ function requestedCommandKey(
 	return commandKey({ group: firstArg, name: secondArg });
 }
 
+type ShellCommandSchema = z.ZodObject<{ shell: z.ZodOptional<z.ZodString> }>;
+
+type ShellCommandSpec<T> = Omit<
+	ClinkrCommandSpec<SdlCliContext, ShellCommandSchema, T>,
+	"name" | "description"
+>;
+
+// Keep this shell command face SDL-owned instead of resurrecting the old generic Slot
+// builder. The reusable abstraction we expect here is future typed shell contributions
+// rendered by SDL inside one managed shell integration, not extension-owned rc-file
+// mutation or a Slot-owned command helper.
 function buildSdlShellGroup(): ClinkrGroup<SdlCliContext> {
-	return buildShellGroup({
-		show: {
+	const shell = new ClinkrGroup<SdlCliContext>({
+		name: "shell",
+		description: "Show or install parent-shell integration.",
+	});
+	shell.command({
+		name: "show",
+		description: "Print the parent-shell wrapper script.",
+		...withShellOption({
 			schema: sdlShellShowRequestSchema,
-			options: { shell: {} },
 			resultSchema: sdlShellShowResultSchema,
 			handler: runSdlShellShow,
 			renderHuman: renderSdlShellShow,
-		},
-		install: {
+		}),
+	});
+	shell.command({
+		name: "install",
+		description: "Install the parent-shell wrapper in the detected or selected rc file.",
+		...withShellOption({
 			schema: sdlShellInstallRequestSchema,
-			options: { shell: {} },
 			resultSchema: sdlShellInstallResultSchema,
 			handler: runSdlShellInstall,
 			renderHuman: renderSdlShellInstall,
-		},
+		}),
 	});
+	return shell;
+}
+
+function withShellOption<T>(spec: ShellCommandSpec<T>): ShellCommandSpec<T> {
+	return {
+		...spec,
+		options: { shell: {}, ...(spec.options ?? {}) },
+	};
 }
 
 function groupForCommand(
