@@ -1,4 +1,4 @@
-# ADR 0012: The Domain-Package Layer sits above extension-kit; the Presentation Host holds no domain
+# ADR 0012: Extensions sit above the Extension Kit; the Presentation Host holds no domain
 
 ## Status
 
@@ -13,45 +13,38 @@ sub-layers, and the boundary between them matters for where domain logic is allo
 live. Separately, capability domain logic is today stranded in the `@sdl/pi`
 **Presentation Host** rather than in its owning capability — for example
 `@sdl/pi/objectives` owns the Objective selection/diff/list rules, and `ccc` consumes
-them via `@sdl/pi/objectives/selection`. That is the orchestrator depending on the
-presentation host for domain, an inversion ADR 0009 did not name explicitly.
+them via `@sdl/pi/objectives/selection`. That is CCC depending on the presentation
+host for domain, an inversion ADR 0009 did not name explicitly.
 
 ## Decision
 
-**The "above the SDK" tier is two sub-layers.** `@sdl/extension-kit` is a thin,
-capability-agnostic **Above-SDK Substrate** (the `ctx`→gateway adapter + shared
-result/error shapes). Above it sits the **Domain-Package Layer**: the capability
-packages that depend on extension-kit and hold most domain logic.
+**The "above the SDK" tier is two sub-layers.** `@sdl/extension-kit` is the thin,
+capability-agnostic **Extension Kit** (the `ctx`→gateway adapter + shared result/error
+shapes). Above it sit the **Extensions**: the first-party capability packages that
+depend on the Extension Kit and hold most domain logic.
 
-**Domain logic lives only in the Domain-Package Layer.** The `@sdl/pi` Presentation
-Host and the `@sdl/sdl` kernel must not own capability domain. When a sibling needs
-capability domain in-process, it consumes that capability's Peer API
-(`@sdl/<cap>/api`) — it does not reach into the Presentation Host. Capability domain
-currently stranded in `@sdl/pi/*` is relocated into its owning Capability Package and
-re-consumed through the Peer API; the Presentation Host keeps only UI and runtime
-registration.
+**Domain logic lives only in the Extensions.** The `@sdl/pi` Presentation Host and the
+`@sdl/sdl` kernel must not own capability domain. When a sibling needs capability domain
+in-process, it consumes that extension's Peer API (`@sdl/<cap>/api`) — it does not reach
+into the Presentation Host. Capability domain currently stranded in `@sdl/pi/*` is
+relocated into its owning extension and re-consumed through the Peer API; the
+Presentation Host keeps only UI and runtime registration.
 
 ```text
-ccc (Orchestrator Extension, apex)        @sdl/pi (Presentation Host, off-axis)
-                 \                                   /
-                  \         consume via @sdl/<cap>/api Peer APIs
-                   v                               v
-+-----------------------------------------------------------+
-|  DOMAIN-PACKAGE LAYER  (above extension-kit)              |  <- most domain logic
-|  @sdl/objective, @sdl/handoff, @sdl/slot,                 |
-|  @sdl/branch-context, @sdl/plans, @sdl/pr-address, ...    |
-|  each: Domain Core + Peer API (@sdl/<cap>/api) + thin     |
-|  Command Face                                            |
-+-----------------------------------------------------------+
-                           | depends on
-+-----------------------------------------------------------+
-|  @sdl/extension-kit  (Above-SDK Substrate, stays thin)    |  <- ctx->gateway adapter
-|                                                          |     + shared result/error shapes
-+-----------------------------------------------------------+
-                           |
-@sdl/sdl kernel + @sdl/sdl/sdk   (the SDK)
-                           |
-Neutral Infra: @sdl/core, @sdl/clinkr, @sdl/graphite, @sdl/brmem
+CCC (composes other extensions)            @sdl/pi  (Presentation Host, off-axis)
+         \                                       /
+          consume capability domain via @sdl/<cap>/api Peer APIs
+          v                                      v
+Extensions  (first-party, above the Extension Kit)            <- most domain logic
+    flow, objective, handoff, slot, branch-context,
+    plans, pr-address, roaster, aretro, CCC
+    each = Command Face + Peer API over a gateway-injected Domain Core
+        |  built on
+Extension Kit  (@sdl/extension-kit, thin)                    <- ctx->gateway adapter
+        |                                                       + shared result/error shapes
+SDK  (@sdl/sdl kernel + @sdl/sdl/sdk)
+        |
+Neutral Infra  (@sdl/core, @sdl/clinkr, @sdl/graphite, @sdl/brmem)
 ```
 
 ## Consequences
@@ -61,16 +54,16 @@ Neutral Infra: @sdl/core, @sdl/clinkr, @sdl/graphite, @sdl/brmem
 - Phase-2 completion of the `sdl-extension-architecture` Objective requires that no
   capability domain remains in `@sdl/pi`; the Presentation Host consumes capability
   domain through Peer APIs only.
-- Each per-capability migration gains a structural test: `@sdl/<cap>` sits in the
-  Domain-Package Layer (depends on `@sdl/extension-kit`), owns its Domain Core there,
-  and does not scatter domain into `@sdl/pi` or `@sdl/sdl`.
+- Each per-capability migration gains a structural test: `@sdl/<cap>` sits among the
+  Extensions (depends on the Extension Kit), owns its Domain Core there, and does not
+  scatter domain into `@sdl/pi` or `@sdl/sdl`.
 - `@sdl/extension-kit` is held to its thin-substrate role: shared, capability-agnostic
   plumbing only — it is not a second home for domain logic.
 
 ## The SDK boundary is permeable over time, gated on generality
 
-The boundary between the above-SDK layers (Above-SDK Substrate + Domain-Package Layer)
-and the SDK is deliberately permeable *downward*: over time a domain concept or
+The boundary between the above-SDK layers (the Extension Kit + the Extensions) and the
+SDK is deliberately permeable *downward*: over time a domain concept or
 primitive may graduate from a capability or from extension-kit *into* the SDK — but only
 after it proves general worth (repeated across capabilities, broadly applicable, no
 longer capability-specific). This is the layering expression of the existing

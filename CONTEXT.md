@@ -78,36 +78,36 @@ Deterministic code that consumes one or more **Gateways** to produce or transfor
 
 ### Extension Layering
 
-The SDL extension stack, bottom to top: **Neutral Infra** below the SDK (`@sdl/core`, `@sdl/clinkr`, `@sdl/graphite`, `@sdl/brmem`), the SDK kernel (`@sdl/sdl` + `@sdl/sdl/sdk`), the **Above-SDK Substrate**, and the **Domain-Package Layer** above it. ADR 0012 holds the layering diagram, the rule that domain lives only in the Domain-Package Layer, and the rule that the SDK boundary is permeable downward only to concepts that prove general worth (opinionated patterns such as gateways stay above the SDK); these terms name its parts.
+The SDL extension stack, bottom to top: **Neutral Infra** below the SDK (`@sdl/core`, `@sdl/clinkr`, `@sdl/graphite`, `@sdl/brmem`), the SDK (`@sdl/sdl` kernel + `@sdl/sdl/sdk`), the **Extension Kit**, and the **Extensions** built on it. ADR 0012 holds the layering diagram, the rule that capability domain lives in extensions and never in the **Presentation Host** or kernel, and the rule that the SDK boundary is permeable downward only to concepts that prove general worth (opinionated patterns such as gateways stay above the SDK); these terms name its parts.
 
-**Above-SDK Substrate**:
-The thin, capability-agnostic package (`@sdl/extension-kit`) directly above the SDK that holds shared extension plumbing — the `ctx`→**Gateway** adapter and shared result/error shapes — and never capability domain.
-*Avoid*: extension framework, kit layer, domain home
+**Extension**:
+A package that adds an SDL capability on top of the **Extension Kit**, exposing a **Command Face** and, where a sibling needs it, a **Peer API** over a gateway-injected **Domain Core**.
+*Avoid*: plugin, built-in, bundled command
 
-**Domain-Package Layer**:
-The layer of **Capability Packages** above the **Above-SDK Substrate** that depend on it and hold most domain logic; the canonical home for capability domain, not the **Presentation Host** or the SDK kernel.
-*Avoid*: capability layer, extensions layer, business-logic layer
+**First-party extension**:
+An SDL-shipped, SDL-owned **Extension** (flow, objective, handoff, slot, branch-context, plans, pr-address, roaster, aretro, and **CCC**), as opposed to a third-party extension.
+*Avoid*: built-in extension, bundled extension (reserve for packaging), core extension
 
-**Capability Package**:
-One package in the **Domain-Package Layer** that owns a single SDL capability's domain, exposing a **Command Face** and a **Peer API** over a gateway-injected **Domain Core** (`@sdl/objective`, `@sdl/slot`, `@sdl/handoff`, …).
-*Avoid*: feature package, plugin
+**Extension Kit**:
+The shared substrate (`@sdl/extension-kit`) that **Extensions** are built on — the `ctx`→**Gateway** adapter and shared result/error shapes; it holds no capability domain.
+*Avoid*: extension framework, above-SDK substrate, extension-kit core
 
 **Command Face**:
-A **Capability Package**'s kernel-loaded CLI/Pi command contributions — the thin shell that converts `ctx`→**Gateways** and calls the **Domain Core**.
+An **Extension**'s kernel-loaded CLI/Pi command contributions — the thin shell that converts `ctx`→**Gateways** and calls the **Domain Core**.
 *Avoid*: CLI surface (alone), command layer
 
 **Peer API**:
-A **Capability Package**'s curated, typed in-process export at the required `@sdl/<cap>/api` subpath, consumed by sibling capabilities and the **Orchestrator Extension** — never package roots or internals.
+An **Extension**'s curated, typed in-process export at the required `@sdl/<cap>/api` subpath, consumed by sibling extensions (chiefly **CCC**) — never package roots or internals.
 *Avoid*: public API, package-root export, internal subpath
 
 **Domain Core**:
-The gateway-injected **Domain logic** behind a **Peer API** and **Command Face** that takes `GitGateway`-style **Gateways**, never raw `ctx`, so it is unit-testable with in-memory fakes.
+The gateway-injected **Domain logic** behind an **Extension**'s **Peer API** and **Command Face** that takes `GitGateway`-style **Gateways**, never raw `ctx`, so it is unit-testable with in-memory fakes.
 *Avoid*: service, manager, raw-ctx core
-
-**Orchestrator Extension**:
-The apex extension (`ccc`) of the acyclic extension dependency graph that composes peer **Capability Packages** only through their **Peer APIs**.
-*Avoid*: controller, coordinator, below-the-line peer
 
 **Presentation Host**:
 A rendering/runtime host (`@sdl/pi`, the `pi-*` packages) that owns UI and runtime registration but no capability domain, consuming capability domain through **Peer APIs**.
 *Avoid*: Pi extension layer (as a domain home), presentation layer owning domain
+
+**CCC**:
+A **first-party extension** (the cmux command-and-control surface) that composes cmux, Graphite, and other first-party extensions through their **Peer APIs**; it depends on those extensions but holds no privileged tier or status.
+*Avoid*: orchestrator extension, apex extension, kernel orchestrator
