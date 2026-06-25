@@ -1,4 +1,5 @@
 import type { SlotCliContext } from "./context.ts";
+import type { SlotCheckoutOutcome, SlotCheckoutResult } from "./lifecycle/checkout.ts";
 import { writeCdDirectiveIfActive } from "./shell/cd-directive.ts";
 
 export interface NavigationResultFields {
@@ -18,6 +19,23 @@ export async function writeNavigationCdDirective(
 		env: ctx.env,
 		isEnabled: ctx.shouldWriteCdDirective,
 	});
+}
+
+export type PreparedCheckoutNavigationResult =
+	| { type: "failure"; failure: Extract<SlotCheckoutResult, { type: "failure" }>["failure"] }
+	| { type: "success"; outcome: SlotCheckoutOutcome; navigation: NavigationResultFields };
+
+export async function prepareCheckoutNavigationResult(
+	ctx: SlotCliContext,
+	result: SlotCheckoutResult,
+	options: { shouldSkipClipboard: boolean },
+): Promise<PreparedCheckoutNavigationResult> {
+	if (result.type === "failure") return { type: "failure", failure: result.failure };
+	const navigation = await buildNavigationResultFields(ctx, {
+		worktreePath: result.outcome.worktree_path,
+		shouldSkipClipboard: options.shouldSkipClipboard,
+	});
+	return { type: "success", outcome: result.outcome, navigation };
 }
 
 export async function buildNavigationResultFields(

@@ -6,7 +6,7 @@ import { ClinkrGroup, isClinkrHumanOutputInvocation, resolveClinkrInteraction } 
 import { rawCommand } from "@sdl/clinkr/raw";
 import { defineCli } from "@sdl/core/cli-entry";
 import { readStdinLine } from "@sdl/core/stdin";
-import { buildSlotCommandGroup } from "@sdl/slot/command-face";
+import { buildShellGroup, buildSlotCommandGroup } from "@sdl/slot/command-face";
 import { createRealSlotContext, type SlotCliContext } from "@sdl/slot";
 
 import {
@@ -244,29 +244,20 @@ function requestedCommandKey(
 }
 
 function buildSdlShellGroup(): ClinkrGroup<SdlCliContext> {
-	const shell = new ClinkrGroup<SdlCliContext>({
-		name: "shell",
-		description: "Show or install parent-shell integration.",
+	return buildShellGroup({
+		show: {
+			schema: sdlShellShowRequestSchema,
+			resultSchema: sdlShellShowResultSchema,
+			handler: runSdlShellShow,
+			renderHuman: renderSdlShellShow,
+		},
+		install: {
+			schema: sdlShellInstallRequestSchema,
+			resultSchema: sdlShellInstallResultSchema,
+			handler: runSdlShellInstall,
+			renderHuman: renderSdlShellInstall,
+		},
 	});
-	shell.command({
-		name: "show",
-		description: "Print the parent-shell wrapper script.",
-		schema: sdlShellShowRequestSchema,
-		options: { shell: {} },
-		resultSchema: sdlShellShowResultSchema,
-		handler: runSdlShellShow,
-		renderHuman: renderSdlShellShow,
-	});
-	shell.command({
-		name: "install",
-		description: "Install the parent-shell wrapper in the detected or selected rc file.",
-		schema: sdlShellInstallRequestSchema,
-		options: { shell: {} },
-		resultSchema: sdlShellInstallResultSchema,
-		handler: runSdlShellInstall,
-		renderHuman: renderSdlShellInstall,
-	});
-	return shell;
 }
 
 function groupForCommand(
