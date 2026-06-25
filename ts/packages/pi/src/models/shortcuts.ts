@@ -1,4 +1,5 @@
 import { registerCommandWithImmediateAck } from "../commands/ack.ts";
+import { notifyCommandUi, type NotifiableCommandContext } from "../command-helpers.ts";
 import { definePiSurfaceParity } from "../parity/extension.ts";
 
 const MODEL_SHORTCUTS = [
@@ -27,8 +28,6 @@ export const modelShortcutParity = definePiSurfaceParity(
 	})),
 );
 
-type NotifyLevel = "info" | "warning" | "error";
-
 interface ModelShortcut {
 	command: string;
 	provider: string;
@@ -44,12 +43,8 @@ interface ModelRegistry {
 	find(provider: string, modelId: string): ModelInfo | undefined;
 }
 
-interface CommandContext {
-	hasUI?: boolean;
+interface CommandContext extends NotifiableCommandContext {
 	modelRegistry: ModelRegistry;
-	ui: {
-		notify(message: string, level?: NotifyLevel): void;
-	};
 }
 
 export interface ExtensionAPI {
@@ -86,25 +81,19 @@ async function switchToModel(
 	const ref = modelRef(shortcut);
 	const model = ctx.modelRegistry.find(shortcut.provider, shortcut.modelId);
 	if (model === undefined) {
-		notify(ctx, `Model ${ref} not found.`, "error");
+		notifyCommandUi(ctx, `Model ${ref} not found.`, "error");
 		return;
 	}
 
 	const switched = await pi.setModel(model);
 	if (!switched) {
-		notify(ctx, `Model ${ref} is unavailable; run /login or configure Pi auth.`, "error");
+		notifyCommandUi(ctx, `Model ${ref} is unavailable; run /login or configure Pi auth.`, "error");
 		return;
 	}
 
-	notify(ctx, `Switched model to ${ref}.`, "info");
+	notifyCommandUi(ctx, `Switched model to ${ref}.`, "info");
 }
 
 function modelRef(shortcut: ModelShortcut): string {
 	return `${shortcut.provider}/${shortcut.modelId}`;
-}
-
-function notify(ctx: CommandContext, message: string, level: NotifyLevel): void {
-	if (ctx.hasUI !== false) {
-		ctx.ui.notify(message, level);
-	}
 }
