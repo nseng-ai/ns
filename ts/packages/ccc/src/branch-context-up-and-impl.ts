@@ -1,4 +1,7 @@
-import { formatImplBranchContextCommand, type BranchContextEvidence } from "@sdl/branch-context";
+import {
+	formatImplBranchContextCommand,
+	type BranchContextEvidence,
+} from "@sdl/branch-context/api";
 import type { ExecResult } from "@sdl/core/exec";
 import type {
 	SessionReplacementContext,

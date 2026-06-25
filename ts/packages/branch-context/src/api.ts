@@ -28,5 +28,6 @@ export { formatImplBranchContextCommand } from "./impl-command.ts";
 export { derivePlanContentSlug, type PlanContentSlugEvidence } from "./plan-content-slug.ts";
 export {
 	buildBranchContextOutputMessage,
+	findLatestBranchContextEvidence,
 	type BranchContextOutputDetails,
 } from "./session-artifact.ts";
