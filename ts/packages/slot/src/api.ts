@@ -1,7 +1,7 @@
 import type { SlotCliContext } from "./context.ts";
 import { createRealSlotContext } from "./context.ts";
 import { checkoutBranch, checkoutCurrent } from "./lifecycle/checkout.ts";
-import { prepareCheckoutNavigationResult } from "./navigation-result.ts";
+import { finalizeCheckoutNavigation } from "./navigation-result.ts";
 
 export interface SlotCheckoutTarget {
 	slotName: string;
@@ -18,6 +18,11 @@ export interface SlotCheckoutFailure {
 	message: string;
 }
 
+export interface SlotCheckoutSideEffects {
+	shouldCopyClipboard: boolean;
+	shouldWriteCdDirective: boolean;
+}
+
 export type SlotCheckoutResult =
 	| { ok: true; target: SlotCheckoutTarget }
 	| { ok: false; failure: SlotCheckoutFailure };
@@ -26,6 +31,7 @@ export interface SlotClientOptions {
 	cwd: string;
 	env?: NodeJS.ProcessEnv | Record<string, string | undefined>;
 	context?: SlotCliContext;
+	sideEffects?: SlotCheckoutSideEffects;
 }
 
 export interface SlotBranchCheckoutOptions {
@@ -44,7 +50,7 @@ export function createSlotClient(options: SlotClientOptions): SlotClient {
 		async checkoutCurrent() {
 			const ctx = await resolveSlotContext(options);
 			const result = await checkoutCurrent(ctx);
-			return await mapCheckoutResult(ctx, result);
+			return await mapCheckoutResult(ctx, result, resolveSlotCheckoutSideEffects(options));
 		},
 		async checkoutBranch(branchOptions) {
 			const ctx = await resolveSlotContext(options);
@@ -52,7 +58,7 @@ export function createSlotClient(options: SlotClientOptions): SlotClient {
 				shouldCreateBranch: branchOptions.shouldCreateBranch ?? false,
 				base: branchOptions.base ?? null,
 			});
-			return await mapCheckoutResult(ctx, result);
+			return await mapCheckoutResult(ctx, result, resolveSlotCheckoutSideEffects(options));
 		},
 	};
 }
@@ -65,13 +71,16 @@ async function resolveSlotContext(options: SlotClientOptions): Promise<SlotCliCo
 	});
 }
 
+function resolveSlotCheckoutSideEffects(options: SlotClientOptions): SlotCheckoutSideEffects {
+	return options.sideEffects ?? { shouldCopyClipboard: false, shouldWriteCdDirective: false };
+}
+
 async function mapCheckoutResult(
 	ctx: SlotCliContext,
 	result: Awaited<ReturnType<typeof checkoutCurrent>>,
+	sideEffects: SlotCheckoutSideEffects,
 ): Promise<SlotCheckoutResult> {
-	const prepared = await prepareCheckoutNavigationResult(ctx, result, {
-		shouldSkipClipboard: true,
-	});
+	const prepared = await finalizeCheckoutNavigation(ctx, result, sideEffects);
 	if (prepared.type === "failure") {
 		return {
 			ok: false,

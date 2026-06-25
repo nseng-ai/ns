@@ -137,9 +137,10 @@ Driven by `docs/adr/0009-extension-layering-and-peer-dependencies.md` and record
   - Plan: extract the SDK-independent domain primitives (`checkpoint-flow`, `pending-worktree`, `text-generation`, `temp-files`, …) out of `@sdl/sdl` into the new package; apply the `internal-migration-export` → `internal workspace export` rename (incl. the `package.json` field); repoint `ccc`/`pi-extensions`/flow consumers.
   - Evidence: `@sdl/domain-primitives-transitional` now owns the mirrored primitive subpaths for checkpoint flow/message, pending-worktree, temp-files, text-generation, and text-repair. `@sdl/sdl` no longer exports the moved primitive subpaths, while its stable SDK entrypoint imports the moved text-generation implementation to preserve public SDK behavior without restoring old internal primitive shims. Flow, CCC, and Pi-extension consumers now import the transitional package directly; jiti module loading aliases the new transitional subpaths for repo-local extension execution. Validation included `pnpm --dir ts run check` and stale-specifier searches confirming no live code/test imports of the moved `@sdl/sdl/*` primitive subpaths.
 
-- [ ] **4. Per-capability migration → child Objectives** (fan-out, ordered by `ccc`-consumption).
+- [~] **4. Per-capability migration → child Objectives** (fan-out, ordered by `ccc`-consumption).
   - Policy: steer-first — each capability migration is spawned as its own child Objective when picked up.
   - Plan: model each capability as an above-SDK extension with a thin command face and a gateway-injected domain core, exposing a Peer API where a sibling needs it. Order: capabilities `ccc` already reaches into via internal subpaths first (each retires a transitional dependency), then the rest. Targets: handoff, objective, slot, branch-context, plans, pr-address, roaster, aretro. flow is the in-repo reference, not a child Objective.
+  - Progress: Slot has completed its child Objective (`slot-capability-extension`): `@sdl/slot/api` is the curated checkout Peer API for sibling in-process consumers, supported command usage is through `sdl slot ...`, `sdl slot gt` has explicit command-face dispositions, SDL owns shell mounting/parent-shell navigation, and `ts/packages/slot/CONTEXT.md` records the durable boundary.
 
 - [ ] **5. Convert `ccc` into an orchestrator extension.**
   - Policy: steer-first.

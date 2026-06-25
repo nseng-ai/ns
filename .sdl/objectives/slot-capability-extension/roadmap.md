@@ -15,5 +15,5 @@
   - Classification: CCC checkout/autoslot/cmux dispatch and SDLCC stack-map workspace checkout use the Slot Peer API because they compose checkout into in-process orchestration and tests; SDLCC stack-map model loading, Pi PR stack-feedback discovery, CCC dispatch dry-run previews, and land-stack managed-slot cleanup use the supported `sdl slot ...` command face because they are agent/human command workflows or explicit subprocess command executions; no remaining deep `@sdl/slot/src/...` imports were found in the inspected orchestration/runtime packages.
   - Cleanup evidence: stale user-facing references to standalone `slot ...` were rewritten to `sdl slot ...` where the inventory found them; PR #2131 removed SDLCC's `sdl slot checkout --format json` activation subprocess and JSON parsing path.
 
-- [ ] Document Slot vocabulary/context and above-SDK boundary.
-  - Add focused Slot context/docs when the migration needs durable terms beyond the existing ADR 0009 vocabulary.
+- [x] Document Slot vocabulary/context and above-SDK boundary.
+  - Evidence: `ts/packages/slot/CONTEXT.md` now defines Slot Pool/Record/Inventory, Slot Repo Context, Slot Checkout Target, Slot Command Face, Slot Peer API, checkout side-effect policy, parent-shell navigation, Slot Shell Mount, and `sdl slot gt` helper terms; `CONTEXT-MAP.md` now lists Slot as a present context and updates relationship/ambiguity wording to the current `sdl slot ...` command-face and Peer API boundary.

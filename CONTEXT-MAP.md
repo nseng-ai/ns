@@ -9,7 +9,7 @@ Current checkout facts:
 - Python workspace inventory: no active first-party Python workspace packages remain.
 - In-scope Python context targets: none. Former Python capability packages were ported to TypeScript, retired, or deleted as migration reference material.
 - TypeScript workspace inventory: 19 repo-local packages under `ts/packages/`. This map's TypeScript package-context coverage is intentionally partial pending a focused rebaseline.
-- Present context files: root `CONTEXT.md`, `ts/packages/handoff/CONTEXT.md`, `ts/packages/brmem/CONTEXT.md`, `ts/packages/pi/CONTEXT.md`, `ts/packages/ccc/CONTEXT.md`, `ts/packages/sdl/CONTEXT.md`, `ts/packages/roaster/CONTEXT.md`, `ts/packages/graphite/CONTEXT.md`, `ts/packages/plans/CONTEXT.md`, and `ts/packages/branch-context/CONTEXT.md`.
+- Present context files: root `CONTEXT.md`, `ts/packages/handoff/CONTEXT.md`, `ts/packages/brmem/CONTEXT.md`, `ts/packages/pi/CONTEXT.md`, `ts/packages/ccc/CONTEXT.md`, `ts/packages/sdl/CONTEXT.md`, `ts/packages/roaster/CONTEXT.md`, `ts/packages/graphite/CONTEXT.md`, `ts/packages/plans/CONTEXT.md`, `ts/packages/branch-context/CONTEXT.md`, and `ts/packages/slot/CONTEXT.md`.
 - Future drift should be handled by focused rebaseline phases before final readback, not silently folded into unrelated package-context sessions.
 
 ## Contexts
@@ -26,13 +26,13 @@ Current checkout facts:
 - [@sdl/roaster](./ts/packages/roaster/CONTEXT.md) — PR-diff findings vocabulary for Roaster, review definitions, Tripwires, deep reviews, findings, findings comments, inline findings, and Branch Memory review logs.
 - [@sdl/plans](./ts/packages/plans/CONTEXT.md) — saved-plan vocabulary for Saved Plans, the Local Plan Store, Source Branch Plan Files, Saved-Plan Selection, Plan Store Directory Evidence, the Plans Command Face, the Plans Peer API, and Plans Core boundaries.
 - [@sdl/branch-context](./ts/packages/branch-context/CONTEXT.md) — branch-context vocabulary for Branch Context, Attached Plan, Branch Context Creation, Branch Context Attach, the Branch Context Command Face, the Branch Context Peer API, and Branch Context Core boundaries.
+- [@sdl/slot](./ts/packages/slot/CONTEXT.md) — worktree slot vocabulary for Slots, Slot Pool, Slot Records/Inventory, Slot Repo Context, Slot Checkout Target, the `sdl slot ...` Command Face, the `@sdl/slot/api` Peer API, checkout side-effect policy, SDL-owned parent-shell navigation/shell mounts, and `sdl slot gt` command helpers.
 
 ### Planned TypeScript package contexts
 
 These are active TypeScript package context targets for later focused domain-language sessions. Do not recreate deleted Python package paths when authoring them.
 
 - `@sdl/areg` — agent-resource bootstrap and skill workflow vocabulary: `areg init`, `areg check`, `update-skills`, `skillx`, target agents, managed instruction blocks, installed skill directories, lockfile source types, skill metadata/issues, transient skill fetch/cleanup, and external `gh` / `npx skills` boundaries.
-- `@sdl/slot` — worktree slot vocabulary: slot records/inventory/status, repo context, slot GC/init/resize plans, shell directive files, explicit `slot gt` operations, and downstack-only stack release.
 - `@sdl/objective` — Objective CLI package vocabulary, including Objective records/statuses, archive/unarchive, checked-in Markdown storage, hidden `exec` commands, and checkout-local list behavior.
 - `@sdl/packagechk` — standalone package-name availability and claimability vocabulary for PyPI/npm checks, registry results, name normalization/validation, claim project specs, publish gateways, and parked Homebrew support.
 - `@sdl/aretro` — deterministic branch-retrospective evidence vocabulary: `collect-evidence`, branch resolution sources, session query/source/warning DTOs, session summaries, aggregate metrics, `EvidenceItemDto`, and the boundary between evidence collection and recommendation judgment.
@@ -54,7 +54,7 @@ These are current map seeds, not final readback output. Package-context phases s
 - **@sdl/brmem → @sdl/core + @sdl/clinkr**: brmem uses TypeScript Git helpers and Clinkr command vocabulary to expose branch-scoped text storage.
 - **@sdl/handoff → @sdl/brmem CLI + @sdl/core.git + @sdl/clinkr**: handoff artifacts use Branch Memory storage through the public `brmem` CLI while presenting a user-facing handoff inventory and garbage-collection model.
 - **@sdl/roaster → GitHub + Git + project config + Clinkr-style command presentation**: roaster consumes GitHub PR types, local-diff/git facts, shared project config, and TypeScript command presentation.
-- **@sdl/slot → Git + GitHub + @sdl/graphite + shell/worktree boundaries**: slot owns worktree slot lifecycle and the `slot gt` command surface while asking `@sdl/graphite` for Graphite stack/navigation facts.
+- **@sdl/slot → Git + GitHub + @sdl/graphite + SDL shell/worktree boundaries**: slot owns worktree slot lifecycle and the `sdl slot gt` command surface while asking `@sdl/graphite` for Graphite stack/navigation facts; Slot exposes in-process checkout composition through `@sdl/slot/api`, while SDL owns `sdl shell ...` and the compatibility `sdl slot shell ...` mount over neutral `@sdl/core/shell-support` helpers.
 - **@sdl/objective → Git + Clinkr-style command presentation**: Objective CLI inventory uses Git path-touch facts for checkout-local list metadata. Do not reintroduce Objective → brmem as a storage edge.
 - **@sdl/packagechk → external package registries**: packagechk is standalone; it owns package-name availability/claimability checks at registry and publish-gateway boundaries.
 - **@sdl/aretro → session evidence + Git + Clinkr-style command presentation**: aretro collects deterministic branch/session/git evidence and leaves recommendation judgment to the `branch-retro` skill.
@@ -66,7 +66,7 @@ These are current map seeds, not final readback output. Package-context phases s
 - **@sdl/ccc → @sdl/pi + @sdl/graphite + lower capabilities**: CCC owns multi-capability command orchestration behind the `ccc` Pi command prefix, selected repo workflow orchestration behind current non-`ccc` public surfaces such as `/objective:stack-impl`, `/sdl:flow:autobranch`, and `/sdl:flow:land`, and worktree-status observability facts/presentation. CCC composes injected GitHub/command execution capabilities, SDL checkpoint primitives, `@sdl/graphite` facts/mutations, GitHub/slot landing orchestration policy, and neutral `@sdl/pi` helpers. The unified Pi package may delegate selected project-local adapters back to CCC, so this is an intentional private package cycle rather than a public API promise.
 - **@sdl/plans → Git/local plan store**: plans owns saved-plan path/evidence/selection semantics over repository identity and source-branch directory facts, using Git gateways to derive plan-store keys at the command or Peer API edge.
 - **@sdl/branch-context → @sdl/plans + @sdl/brmem + @sdl/graphite**: branch-context owns plan attachment, Branch Memory namespace/key policy, and branch-context creation semantics while consuming saved-plan sources from `@sdl/plans`, storing attachments through `@sdl/brmem`, and using `@sdl/graphite` for branch tracking and parent checks.
-- **Sibling capability packages → @sdl/branch-context/api + @sdl/plans/api**: sibling in-process consumers should use curated Peer API subpaths rather than package roots or private source imports when composing branch-context/plans behavior.
+- **Sibling capability packages → @sdl/branch-context/api + @sdl/plans/api + @sdl/slot/api**: sibling in-process consumers should use curated Peer API subpaths rather than package roots or private source imports when composing branch-context, plans, or Slot behavior.
 - **@sdl/sdl/core → @sdl/graphite**: SDL submit flows use `@sdl/graphite/submit` for Graphite submit/restack/current-PR/metadata-prewrite support while generic PR description and GitHub gateway helpers remain in core/SDL owners.
 
 ## Flagged Ambiguities
@@ -77,7 +77,7 @@ Carry these collisions forward to focused package-context phases. Do not finaliz
 - **State / status**: separate Clinkr `ExitStatus`, Git worktree/file status, GitHub PR state, Objective statuses, slot inventory status, package-check status, vibechk run status, and handoff branch state.
 - **Active / root**: keep Active Objective Root, Objective Archive Root, repository root, Git common dir, Base Namespace, and Graphite trunk distinct.
 - **Branch / ref / start-point / snapshot-ref**: preserve Git Branch, Ref, Start point, brmem Snapshot Ref, Entry Locator, current branch, branch context, result branch, and Graphite stack node boundaries.
-- **Graphite stack operations**: distinguish `@sdl/graphite` as the support package for Graphite command adapters/facts, `slot gt` as the slot-owned command surface, SDL submit as a public workflow using Graphite submit support, and CCC-owned landing/autobranch orchestration.
+- **Graphite stack operations**: distinguish `@sdl/graphite` as the support package for Graphite command adapters/facts, `sdl slot gt` as the slot-owned command surface, SDL submit as a public workflow using Graphite submit support, and CCC-owned landing/autobranch orchestration.
 - **Evidence / finding**: distinguish Objective completion evidence, aretro deterministic evidence items, roaster findings, vibechk metrics/reports, and branch-retro recommendation judgment.
 - **Plan / attachment / handoff**: distinguish enriched plan, saved plan, source branch plan file, branch context, attached plan, Branch Memory attachment, handoff artifact, continuation focus, and handoff technical locator.
 - **Skill / agent / resource**: reconcile areg target-agent/resource language, skill-management/skillx public workflow language, and Pi extension skill-expansion helpers.

@@ -6,7 +6,7 @@ import {
 	prepareAutobranchCheckpointMessage,
 } from "./autobranch/checkpoint.ts";
 import { createAutobranchCheckpointFlow, type AutobranchFlowInput } from "./autobranch/flow.ts";
-import type { SlotClient } from "@sdl/slot/api";
+import { createSlotClient, type SlotClient } from "@sdl/slot/api";
 import { checkoutSlot } from "./slot-checkout.ts";
 
 export interface AutoslotFlowInput extends AutobranchFlowInput {
@@ -90,14 +90,14 @@ export async function createAutoslotFlow(input: AutoslotFlowInput): Promise<void
 	}
 
 	input.io.phase("Checking out branch slot…");
-	const slot = await checkoutSlot(
-		{
+	const slotClient =
+		input.slotClient ??
+		createSlotClient({
 			cwd: input.cwd,
 			...(input.env === undefined ? {} : { env: input.env }),
-			...(input.slotClient === undefined ? {} : { slotClient: input.slotClient }),
-		},
-		{ kind: "current" },
-	);
+			sideEffects: { shouldCopyClipboard: false, shouldWriteCdDirective: false },
+		});
+	const slot = await checkoutSlot(slotClient, { kind: "current" });
 	if (!slot.ok) {
 		input.io.notify(
 			[`Autoslot created ${branchName}, but sdl slot checkout failed.`, "", slot.error].join("\n"),
@@ -110,7 +110,7 @@ export async function createAutoslotFlow(input: AutoslotFlowInput): Promise<void
 		[
 			`Autoslot moved ${slot.target.branchName} to ${slot.target.slotName}.`,
 			`Worktree: ${slot.target.worktreePath}`,
-			`slot co ${slot.target.branchName}`,
+			`sdl slot co ${slot.target.branchName}`,
 		].join("\n"),
 		"info",
 	);

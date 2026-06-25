@@ -11,6 +11,11 @@ export interface NavigationResultFields {
 	clipboard_failure_detail: string | null;
 }
 
+export interface CheckoutNavigationSideEffects {
+	shouldCopyClipboard: boolean;
+	shouldWriteCdDirective: boolean;
+}
+
 export async function writeNavigationCdDirective(
 	ctx: SlotCliContext,
 	worktreePath: string,
@@ -24,6 +29,19 @@ export async function writeNavigationCdDirective(
 export type PreparedCheckoutNavigationResult =
 	| { type: "failure"; failure: Extract<SlotCheckoutResult, { type: "failure" }>["failure"] }
 	| { type: "success"; outcome: SlotCheckoutOutcome; navigation: NavigationResultFields };
+
+export async function finalizeCheckoutNavigation(
+	ctx: SlotCliContext,
+	result: SlotCheckoutResult,
+	sideEffects: CheckoutNavigationSideEffects,
+): Promise<PreparedCheckoutNavigationResult> {
+	if (result.type === "failure") return { type: "failure", failure: result.failure };
+	if (sideEffects.shouldWriteCdDirective)
+		await writeNavigationCdDirective(ctx, result.outcome.worktree_path);
+	return await prepareCheckoutNavigationResult(ctx, result, {
+		shouldSkipClipboard: !sideEffects.shouldCopyClipboard,
+	});
+}
 
 export async function prepareCheckoutNavigationResult(
 	ctx: SlotCliContext,

@@ -2,12 +2,10 @@ import {
 	ClinkrGroup,
 	isClinkrHumanOutputInvocation,
 	resolveClinkrInteraction,
-	type ClinkrCommandSpec,
 	type ClinkrInteraction,
 } from "@sdl/clinkr";
 import { defineCli } from "@sdl/core/cli-entry";
 import { readStdinLine } from "@sdl/core/stdin";
-import type { z } from "zod";
 
 import { createRealSlotContext, type SlotCliContext } from "./context.ts";
 import {
@@ -105,73 +103,16 @@ export function buildCli(): ClinkrGroup<SlotCliContext> {
 	return entry.buildCli(undefined);
 }
 
-type ShellCommandSpec<TContext extends SlotCliContext, S extends z.ZodObject, T> = Omit<
-	ClinkrCommandSpec<TContext, S, T>,
-	"name" | "description"
->;
-
-export interface BuildShellGroupOptions<
-	TContext extends SlotCliContext,
-	TShowSchema extends z.ZodObject = z.ZodObject,
-	TShowResult = unknown,
-	TInstallSchema extends z.ZodObject = z.ZodObject,
-	TInstallResult = unknown,
-> {
-	show: ShellCommandSpec<TContext, TShowSchema, TShowResult>;
-	install: ShellCommandSpec<TContext, TInstallSchema, TInstallResult>;
-}
-
-export interface BuildSlotCommandGroupOptions<TContext extends SlotCliContext> {
-	shellGroup?: (() => ClinkrGroup<TContext>) | undefined;
-}
-
-export function buildSlotCommandGroup<TContext extends SlotCliContext>(
-	options: BuildSlotCommandGroupOptions<TContext> = {},
-): ClinkrGroup<TContext> {
+export function buildSlotCommandGroup<TContext extends SlotCliContext>(): ClinkrGroup<TContext> {
 	const group = new ClinkrGroup<TContext>({
 		name: "slot",
 		description: "Manage the pool of Git-worktree-backed slots.",
 	});
-	configureSlotCommands(group, options);
+	configureSlotCommands(group);
 	return group;
 }
 
-export function buildShellGroup<
-	TContext extends SlotCliContext,
-	TShowSchema extends z.ZodObject,
-	TShowResult,
-	TInstallSchema extends z.ZodObject,
-	TInstallResult,
->(
-	options: BuildShellGroupOptions<
-		TContext,
-		TShowSchema,
-		TShowResult,
-		TInstallSchema,
-		TInstallResult
-	>,
-): ClinkrGroup<TContext> {
-	const shell = new ClinkrGroup<TContext>({
-		name: "shell",
-		description: "Show or install parent-shell integration.",
-	});
-	shell.command({
-		name: "show",
-		description: "Print the parent-shell wrapper script.",
-		...options.show,
-	});
-	shell.command({
-		name: "install",
-		description: "Install the parent-shell wrapper in the detected or selected rc file.",
-		...options.install,
-	});
-	return shell;
-}
-
-function configureSlotCommands<TContext extends SlotCliContext>(
-	root: ClinkrGroup<TContext>,
-	options: BuildSlotCommandGroupOptions<TContext> = {},
-): void {
+function configureSlotCommands<TContext extends SlotCliContext>(root: ClinkrGroup<TContext>): void {
 	root.command({
 		name: "list",
 		description: "List worktree pool slots derived from Git worktree state.",
@@ -268,7 +209,6 @@ function configureSlotCommands<TContext extends SlotCliContext>(
 		handler: runResize,
 		renderHuman: renderResize,
 	});
-	if (options.shellGroup !== undefined) root.group(options.shellGroup());
 	root.group(buildGtGroup());
 }
 

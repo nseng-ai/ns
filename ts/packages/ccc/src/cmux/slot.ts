@@ -1,6 +1,6 @@
 import { piExecApiToCommandExecApi } from "@sdl/core/exec";
-import type { SlotClient } from "@sdl/slot/api";
-import { checkoutSlot, type CccSlotCheckoutTarget } from "../slot-checkout.ts";
+import { createSlotClient, type SlotCheckoutTarget, type SlotClient } from "@sdl/slot/api";
+import { checkoutSlot } from "../slot-checkout.ts";
 import { RealCmuxGateway, type CmuxGatewayFailure } from "./gateway.ts";
 import { getWorktreeDescription } from "./worktree-description.ts";
 import type { ExtensionAPI, NotifyLevel } from "./types.ts";
@@ -18,7 +18,7 @@ export interface BranchCmuxSlotCheckoutOptions {
 export interface OpenBranchInCmuxSlotOptions extends BranchCmuxSlotCheckoutOptions {
 	command?: string;
 	description?: string;
-	successMessage?: (target: CccSlotCheckoutTarget) => string;
+	successMessage?: (target: SlotCheckoutTarget) => string;
 }
 
 export interface OpenCmuxWorkspaceOptions {
@@ -30,17 +30,17 @@ export interface OpenCmuxWorkspaceOptions {
 
 export async function checkoutBranchCmuxSlot(
 	options: BranchCmuxSlotCheckoutOptions,
-): Promise<CccSlotCheckoutTarget | { error: string }> {
+): Promise<SlotCheckoutTarget | { error: string }> {
 	const { cwd, branchName, notify, onStatus } = options;
 	onStatus?.("checking out branch slot…");
-	const checkout = await checkoutSlot(
-		{
+	const slotClient =
+		options.slotClient ??
+		createSlotClient({
 			cwd,
 			...(options.env === undefined ? {} : { env: options.env }),
-			...(options.slotClient === undefined ? {} : { slotClient: options.slotClient }),
-		},
-		{ kind: "branch", branchName },
-	);
+			sideEffects: { shouldCopyClipboard: false, shouldWriteCdDirective: false },
+		});
+	const checkout = await checkoutSlot(slotClient, { kind: "branch", branchName });
 	if (!checkout.ok) {
 		const error = { error: checkout.error };
 		notify(formatSlotCheckoutFailure(branchName, checkout.error), "error");
@@ -52,7 +52,7 @@ export async function checkoutBranchCmuxSlot(
 
 export async function openBranchInCmuxSlot(
 	options: OpenBranchInCmuxSlotOptions,
-): Promise<CccSlotCheckoutTarget | { error: string }> {
+): Promise<SlotCheckoutTarget | { error: string }> {
 	const { pi, command, description, notify, onStatus, successMessage } = options;
 	const target = await checkoutBranchCmuxSlot(options);
 	if ("error" in target) return target;
@@ -82,7 +82,7 @@ export async function openBranchInCmuxSlot(
 
 export async function openCmuxWorkspace(
 	pi: Pick<ExtensionAPI, "exec">,
-	target: CccSlotCheckoutTarget,
+	target: SlotCheckoutTarget,
 	options: OpenCmuxWorkspaceOptions,
 ): Promise<{ ok: true } | { error: string }> {
 	const cmux = new RealCmuxGateway(piExecApiToCommandExecApi(pi));
@@ -101,7 +101,7 @@ export async function openCmuxWorkspace(
 }
 
 export function buildNewWorkspaceArgs(
-	target: CccSlotCheckoutTarget,
+	target: SlotCheckoutTarget,
 	options: Pick<OpenCmuxWorkspaceOptions, "description" | "command">,
 ): string[] {
 	const args = [

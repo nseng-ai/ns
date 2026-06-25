@@ -1,7 +1,12 @@
 import { fileURLToPath } from "node:url";
 
 import { shellQuote } from "@sdl/core/exec";
-import { createSlotClient, type SlotCheckoutFailure, type SlotClient } from "@sdl/slot/api";
+import {
+	createSlotClient,
+	type SlotCheckoutFailure,
+	type SlotCheckoutTarget,
+	type SlotClient,
+} from "@sdl/slot/api";
 
 import { runRealCommand, type CommandOutput, type CommandRunner } from "./command-runner.ts";
 import {
@@ -46,11 +51,10 @@ export interface CreateStackMapCmuxActivationExecutorOptions {
 	readonly slotClient?: SlotClient | undefined;
 }
 
-interface StackMapSlotCheckoutTarget {
-	readonly slotName: string;
-	readonly branchName: string;
-	readonly worktreePath: string;
-}
+type StackMapSlotCheckoutTarget = Pick<
+	SlotCheckoutTarget,
+	"slotName" | "branchName" | "worktreePath"
+>;
 
 export async function runStackMapEffect(
 	model: StackMapModel,
@@ -201,19 +205,11 @@ async function checkoutSlot(
 > {
 	const result = await slotClient.checkoutBranch({ branchName: branch });
 	if (!result.ok) return { type: "failed", message: formatSlotCheckoutFailure(result.failure) };
-	return { type: "checked-out", target: slotTargetFromPeer(result.target) };
+	return { type: "checked-out", target: result.target };
 }
 
 function formatSlotCheckoutFailure(failure: SlotCheckoutFailure): string {
 	return `sdl slot checkout failed (${failure.errorType}): ${failure.message}`;
-}
-
-function slotTargetFromPeer(target: StackMapSlotCheckoutTarget): StackMapSlotCheckoutTarget {
-	return {
-		slotName: target.slotName,
-		branchName: target.branchName,
-		worktreePath: target.worktreePath,
-	};
 }
 
 function openNewActivationPlan(
