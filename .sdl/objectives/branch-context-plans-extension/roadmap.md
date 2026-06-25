@@ -8,8 +8,8 @@
 - [x] Define the combined Peer API boundaries and package export-map target.
   - Evidence: `@sdl/branch-context/api` and `@sdl/plans/api` now exist as additive package export-map subpaths for the `ccc` dispatch-plan proof path, with root exports preserved and exclusions recorded. See `updates/2026-06-24-141357-peer-api-proof-path.md`.
 
-- [ ] Extract or identify gateway-injected cores for saved-plan selection and branch-context attachment workflows.
-  - Evidence: domain functions can be exercised with injected gateways/fakes without raw Pi/SDL host context, while command faces remain thin adapters that build gateways and present output.
+- [x] Extract or identify gateway-injected cores for saved-plan selection and branch-context attachment workflows.
+  - Evidence: `@sdl/plans` saved-plan parsing/validation/latest-selection functions are identified as existing Plans Core over path/evidence inputs and injected Git-backed plan-store options; `@sdl/branch-context` now has a resolved-source Branch Context Core exercised with injected Git/Branch Memory/Graphite fakes. Package context docs record the command-face / Peer API / core boundary. See `updates/2026-06-24-143347-gateway-core-seam-map.md`.
 
 - [x] Migrate one `ccc` saved-plan dispatch/branch-context launch path to the curated Peer APIs.
   - Evidence: `ts/packages/ccc/src/cmux/slot-dispatch-plan.ts` now imports branch-context/plans behavior from `@sdl/branch-context/api` and `@sdl/plans/api`, with targeted `@sdl/ccc` checks/tests passing and no human-facing CLI output parsed for machine decisions. See `updates/2026-06-24-141357-peer-api-proof-path.md`.

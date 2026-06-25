@@ -1,6 +1,7 @@
 import type { BranchContextAttachData } from "./branch-memory.ts";
 import { attachBranchContext, assertBrmemEntryAbsent, AttachBranchContextError } from "./attach.ts";
 import { BRANCH_CONTEXT_NAMESPACE, buildBranchContextPlanKey } from "./constants.ts";
+import type { BrmemGateway } from "@sdl/brmem";
 import type { GraphiteBranchGateway } from "@sdl/graphite/branch";
 import { formatCommand, type CommandExecApi } from "@sdl/core/exec";
 import type { GitGateway } from "@sdl/core/git";
@@ -59,6 +60,16 @@ export interface BranchContextCreatePreviewContext {
 	graphiteParentBranch?: string;
 }
 
+export interface CreateBranchContextFromResolvedSourceOptions {
+	cwd: string;
+	operation: BranchContextCreateOperation;
+	sourceFile: string;
+	git: GitGateway;
+	brmem: BrmemGateway;
+	graphite: GraphiteBranchGateway;
+	signal?: AbortSignal | undefined;
+}
+
 export async function createBranchContextFromFile(
 	pi: CommandExecApi,
 	params: CreateBranchContextFromFileParams,
@@ -73,44 +84,59 @@ export async function createBranchContextFromFile(
 		signal: options.signal,
 		git,
 	});
-	const startPoint = await resolveStartPoint(git, options.cwd, options.signal);
-	await assertLocalBranchAbsent(git, options.cwd, operation.branch, options.signal);
-	await assertBrmemEntryAbsent(brmem, operation.branch, operation.key);
-	await createBranchContext(git, graphite, {
+	return createBranchContextFromResolvedSource({
 		cwd: options.cwd,
-		method: operation.branchCreation,
-		branch: operation.branch,
+		operation,
+		sourceFile,
+		git,
+		brmem,
+		graphite,
+		signal: options.signal,
+	});
+}
+
+export async function createBranchContextFromResolvedSource(
+	options: CreateBranchContextFromResolvedSourceOptions,
+): Promise<BranchContextEvidence> {
+	await checkBranchRefFormat(options.git, options.cwd, options.operation.branch, options.signal);
+	const startPoint = await resolveStartPoint(options.git, options.cwd, options.signal);
+	await assertLocalBranchAbsent(options.git, options.cwd, options.operation.branch, options.signal);
+	await assertBrmemEntryAbsent(options.brmem, options.operation.branch, options.operation.key);
+	await createBranchContext(options.git, options.graphite, {
+		cwd: options.cwd,
+		method: options.operation.branchCreation,
+		branch: options.operation.branch,
 		signal: options.signal,
 	});
 
 	let attach: BranchContextAttachData;
 	try {
 		attach = await attachBranchContext({
-			brmem,
+			brmem: options.brmem,
 			cwd: options.cwd,
-			branch: operation.branch,
-			key: operation.key,
-			sourceFile,
+			branch: options.operation.branch,
+			key: options.operation.key,
+			sourceFile: options.sourceFile,
 		});
 	} catch (error) {
 		throw partialFailureError({
 			title: attachFailureTitle(error instanceof AttachBranchContextError ? error.code : "unknown"),
-			branch: operation.branch,
-			branchCreation: operation.branchCreation,
+			branch: options.operation.branch,
+			branchCreation: options.operation.branchCreation,
 			startPoint,
 			namespace: BRANCH_CONTEXT_NAMESPACE,
-			key: operation.key,
-			sourceFile,
+			key: options.operation.key,
+			sourceFile: options.sourceFile,
 			cause: formatErrorMessage(error),
 		});
 	}
 
 	return buildEvidence({
 		data: attach,
-		slug: operation.slug,
-		branchCreation: operation.branchCreation,
+		slug: options.operation.slug,
+		branchCreation: options.operation.branchCreation,
 		startPoint,
-		summary: operation.summary,
+		summary: options.operation.summary,
 	});
 }
 

@@ -8,6 +8,7 @@ import {
 	BRANCH_CONTEXT_NAMESPACE,
 	buildBranchContextCreateOperation,
 	createBranchContextFromFile,
+	createBranchContextFromResolvedSource,
 	formatBranchContextCreateFailure,
 	formatBranchContextCreatePreview,
 	formatBranchContextEvidence,
@@ -171,6 +172,56 @@ describe("branch-context create preview", () => {
 });
 
 describe("branch-context create execution", () => {
+	test("resolved-source core creates and attaches through injected gateways", async () => {
+		const git = new InMemoryGitGateway({
+			optionalRepoRoot: { type: "missing" },
+			headCommit: START_POINT,
+		});
+		const brmem = new InMemoryBranchMemoryGateway();
+		const graphite = new InMemoryGraphiteBranchGateway();
+		const sourceFile = await makePlanFile();
+		const operation = buildBranchContextCreateOperation({
+			slug: PLAN_SLUG,
+			filePath: PLAN_FILE,
+			branchName: TARGET_BRANCH,
+			branchCreation: "plain-git",
+			summary: "Attach the saved plan.",
+		});
+
+		const evidence = await createBranchContextFromResolvedSource({
+			cwd: ROOT,
+			operation,
+			sourceFile,
+			git,
+			brmem,
+			graphite,
+		});
+
+		expect(evidence).toMatchObject({
+			slug: PLAN_SLUG,
+			branch: TARGET_BRANCH,
+			branchCreation: "plain-git",
+			startPoint: START_POINT,
+			key: PLAN_KEY,
+			sourceFile,
+			summary: "Attach the saved plan.",
+		});
+		expect(git.validateBranchRefCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH }]);
+		expect(git.headCommitCalls).toEqual([{ cwd: ROOT }]);
+		expect(git.localBranchPresenceCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH }]);
+		expect(git.createBranchAtHeadCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH }]);
+		expect(graphite.checkBranchTrackedCalls).toEqual([]);
+		expect(graphite.trackBranchCalls).toEqual([]);
+		expect(brmem.attachPlanCalls).toMatchObject([
+			{
+				namespace: BRANCH_CONTEXT_NAMESPACE,
+				branch: TARGET_BRANCH,
+				key: PLAN_KEY,
+				content: "# Plan\n",
+			},
+		]);
+	});
+
 	test("invalid target branch refs fail before source file resolution, branch creation, or attachment", async () => {
 		const invalidBranch = "bad branch";
 		const git = new InMemoryGitGateway({ invalidBranchRefs: [invalidBranch] });
