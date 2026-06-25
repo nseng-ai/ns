@@ -211,7 +211,7 @@ function parseStackMapGraphData(
 	data: unknown,
 ): { type: "success"; data: StackMapGraphData } | { type: "failure"; message: string } {
 	if (!isRecord(data))
-		return { type: "failure", message: "slot gt stack-map data was not an object." };
+		return { type: "failure", message: "sdl slot gt stack-map data was not an object." };
 	const branches = branchArrayField(data, "branches");
 	const trunk = stringField(data, "trunk");
 	const current = stringField(data, "current");
@@ -228,7 +228,8 @@ function parseStackMapGraphData(
 	) {
 		return {
 			type: "failure",
-			message: "slot gt stack-map data was missing branches/trunk/current/edges/slots/warnings.",
+			message:
+				"sdl slot gt stack-map data was missing branches/trunk/current/edges/slots/warnings.",
 		};
 	}
 	return { type: "success", data: { branches, trunk, current, edges, slots, warnings } };

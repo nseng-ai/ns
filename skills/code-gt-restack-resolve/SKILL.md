@@ -41,7 +41,7 @@ When the engine's Driver contract asks for overrides, use:
 - **Extra bail-out condition:** a conflict surfaces in a branch **outside the
   selected scope** (an upstack branch during downstack scope, or a
   sibling/unrelated stack during any scope)
-- **Post-completion checks:** `git status` is clean; `slot gt exec stack-branches --format json` answers structured topology; `gt log` / `gt ls` may be used only as visual confirmation
+- **Post-completion checks:** `git status` is clean; `sdl slot gt exec stack-branches --format json` answers structured topology; `gt log` / `gt ls` may be used only as visual confirmation
 - **Subagent model tier:** the strong/smart implementation tier; never the cheap/fast review tier
 - **Escalation channel:** `return-to-parent`. A driven conflict subagent must
   not prompt the user. If escalation is required, it leaves the rebase stopped,
@@ -122,10 +122,10 @@ outside this rule — escalate per the normal engine policy.
 
 Set `RESTACK_SCOPE` before running any restack command.
 
-| User intent                                                                                    | Scope            | Slot consolidation command       | Restack command          |
-| ---------------------------------------------------------------------------------------------- | ---------------- | -------------------------------- | ------------------------ |
-| Generic "restack and resolve", "restack", "intelligent/auto restack", or ambiguous request     | `full` (default) | `slot gt free-stack`             | `gt restack`             |
-| Explicit "downstack restack", "ancestors only", "rebase up to where I am", or confirmed prompt | `downstack`      | `slot gt free-stack --downstack` | `gt restack --downstack` |
+| User intent                                                                                    | Scope            | Slot consolidation command           | Restack command          |
+| ---------------------------------------------------------------------------------------------- | ---------------- | ------------------------------------ | ------------------------ |
+| Generic "restack and resolve", "restack", "intelligent/auto restack", or ambiguous request     | `full` (default) | `sdl slot gt free-stack`             | `gt restack`             |
+| Explicit "downstack restack", "ancestors only", "rebase up to where I am", or confirmed prompt | `downstack`      | `sdl slot gt free-stack --downstack` | `gt restack --downstack` |
 
 Rules:
 
@@ -137,7 +137,7 @@ Rules:
   result is identical). There are no upstack slots to free either, so skip the
   consolidation prompt too unless an in-scope **ancestor** is checked out in
   another slot. If richer topology is needed, use
-  `slot gt exec stack-branches --format json` instead of reading display output.
+  `sdl slot gt exec stack-branches --format json` instead of reading display output.
 - When in doubt, ask — **but only when scope actually changes the outcome**
   (i.e., the current branch has upstack descendants).
 - Do not auto-checkout to the tip. Run the command from the user's current
@@ -154,7 +154,7 @@ If the current branch has no upstack descendants (the single-PR / tip case from
 **Choose scope**), skip this step entirely unless an in-scope **ancestor**
 branch is itself checked out in another slot.
 
-The `slot gt free-stack` command is **mutating**: it releases matching slots by
+The `sdl slot gt free-stack` command is **mutating**: it releases matching slots by
 detaching them at trunk — `--format json` is a machine-readable record of what
 was freed, not a dry-run. If the user has not already authorized freeing stack
 slots, ask before running it.
@@ -296,7 +296,7 @@ current_repository_state: <git status summary>
 
 When the selected restack command reports there is nothing left to restack:
 
-- Run a final `git status` (clean) and `slot gt exec stack-branches --format json`
+- Run a final `git status` (clean) and `sdl slot gt exec stack-branches --format json`
   for structured topology confirmation. `gt log` / `gt ls` may be shown as
   human visual confirmation only; do not parse their display output for machine
   decisions.
