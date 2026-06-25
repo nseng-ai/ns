@@ -1,6 +1,7 @@
 import { DEFAULT_FAST_MODEL } from "@sdl/core/model-slug";
 import { z } from "zod";
 
+import { loadGhCommand } from "./gh-command.ts";
 import { callPiModelText } from "./pi-model-call.ts";
 import { PrPreviewChecksView, type PrPreviewChecksViewModel } from "./pr-preview-checks-view.ts";
 import { sortPreviewChecks, type PrPreviewCheck } from "./pr-preview-checks-model.ts";
@@ -208,20 +209,18 @@ async function loadGhTextCommand(options: {
 	args: string[];
 	failureLabel: string;
 }): Promise<GhTextCommandResult> {
-	const result = await options.runtime.pi.exec("gh", options.args, {
+	const result = await loadGhCommand({
+		pi: options.runtime.pi,
+		args: options.args,
 		cwd: options.ctx.cwd,
-		timeout: options.runtime.commandTimeoutMs,
+		timeoutMs: options.runtime.commandTimeoutMs,
 	});
+	if (result.type === "failed") {
+		return { type: "failed", lines: [`${options.failureLabel}:`, ...splitLogLines(result.detail)] };
+	}
 	const stdout = result.stdout.trim();
 	const stderr = result.stderr.trim();
 	const output = stdout === "" ? stderr : stdout;
-	if (result.killed) {
-		return { type: "failed", lines: [`${options.failureLabel}:`, "command timed out"] };
-	}
-	if (result.code !== 0) {
-		const lines = output === "" ? [`exit code ${result.code}`] : splitLogLines(output);
-		return { type: "failed", lines: [`${options.failureLabel}:`, ...lines] };
-	}
 	return { type: "loaded", output };
 }
 

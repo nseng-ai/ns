@@ -1,6 +1,7 @@
 import { githubPrIdentityFromUrl } from "@sdl/core/github-status";
 
 import { isRecord, stringField } from "../cmux/primitives.ts";
+import { loadGhCommand } from "../gh-command.ts";
 
 import { GIT_TIMEOUT_MS, REST_FINGERPRINT_SKEW_MS } from "./constants.ts";
 import {
@@ -193,15 +194,16 @@ async function ghApiJson(options: GhApiJsonOptions): Promise<GhApiJsonResult> {
 
 async function ghJsonCommand(options: GhJsonCommandOptions): Promise<GhJsonCommandResult> {
 	const { pi, cwd, args, label, signal, shouldAllowNonZeroWithStdout = false } = options;
-	const result = await pi.exec("gh", args, execOptions(cwd, GIT_TIMEOUT_MS, signal));
-	if (
-		result.killed ||
-		(result.code !== 0 && (!shouldAllowNonZeroWithStdout || result.stdout.trim().length === 0))
-	) {
-		return {
-			type: "failed",
-			message: `${label} failed: ${result.stderr.trim() || `exit code ${result.code}`}`,
-		};
+	const result = await loadGhCommand({
+		pi,
+		args,
+		cwd,
+		timeoutMs: GIT_TIMEOUT_MS,
+		signal,
+		shouldAllowNonZeroWithStdout,
+	});
+	if (result.type === "failed") {
+		return { type: "failed", message: `${label} failed: ${result.detail}` };
 	}
 	try {
 		return { type: "loaded", value: JSON.parse(result.stdout) };
