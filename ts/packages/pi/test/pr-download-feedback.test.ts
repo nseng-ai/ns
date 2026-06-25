@@ -734,8 +734,8 @@ describe("/pr:download-stack-feedback", () => {
 
 		expect(pi.calls).toEqual([
 			{
-				command: "slot",
-				args: ["gt", "exec", "stack-branches", "--downstack", "--format", "json"],
+				command: "sdl",
+				args: ["slot", "gt", "exec", "stack-branches", "--downstack", "--format", "json"],
 			},
 			{
 				command: "pr-address",
@@ -828,8 +828,8 @@ describe("/pr:download-stack-feedback", () => {
 
 		expect(pi.calls).toEqual([
 			{
-				command: "slot",
-				args: ["gt", "exec", "stack-branches", "--downstack", "--format", "json"],
+				command: "sdl",
+				args: ["slot", "gt", "exec", "stack-branches", "--downstack", "--format", "json"],
 			},
 		]);
 		expect(ctx.editorTexts).toEqual([]);
@@ -846,7 +846,9 @@ describe("/pr:download-stack-feedback", () => {
 
 		expect(ctx.editorTexts).toEqual([]);
 		expect(ctx.notifications.at(-1)?.level).toBe("error");
-		expect(ctx.notifications.at(-1)?.message).toContain("Malformed slot gt exec stack-branches");
+		expect(ctx.notifications.at(-1)?.message).toContain(
+			"Malformed sdl slot gt exec stack-branches",
+		);
 		expect(ctx.notifications.at(-1)?.message).toContain("boom");
 	});
 

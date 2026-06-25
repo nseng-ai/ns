@@ -97,7 +97,7 @@ describe("buildStackMapModelFromGraph", () => {
 
 		expect(model.title).toBe("sdlcc stack map");
 		expect(model.diagnostics).toContain(
-			"Loaded from `slot gt exec stack-map-branches --format json`.",
+			"Loaded from `sdl slot gt exec stack-map-branches --format json`.",
 		);
 		expect(model.diagnostics).toContain("graph warning");
 		expect(model.trunk.children?.map((branch) => branch.name)).toEqual([
@@ -125,7 +125,7 @@ describe("loadStackMapModel", () => {
 				options: CommandOptions = {},
 			): Promise<CommandOutput> => {
 				calls.push(`${options.cwd}$ ${command} ${args.join(" ")}`);
-				if (command === "slot")
+				if (command === "sdl")
 					return successJson({ status: "ok", exitCode: 0, data: stackMapGraphFixture() });
 				if (command === "cmux")
 					return successJson(cmuxTreeFixture({ includeExplicitWorktree: true }));
@@ -135,7 +135,7 @@ describe("loadStackMapModel", () => {
 
 		expect(calls.sort()).toEqual([
 			"/repo$ cmux tree --json --all",
-			"/repo$ slot gt exec stack-map-branches --format json",
+			"/repo$ sdl slot gt exec stack-map-branches --format json",
 		]);
 		expect(model.trunk.children?.map((branch) => branch.name)).toEqual([
 			"feature/a",

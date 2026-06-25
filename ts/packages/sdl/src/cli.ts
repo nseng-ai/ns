@@ -166,7 +166,7 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 		};
 	},
 	configureCli: ({ root, buildState }) => {
-		root.group(buildSlotCommandGroup<SdlCliContext>());
+		root.group(buildSlotCommandGroup<SdlCliContext>({ shellGroup: buildSdlShellGroup }));
 		root.group(buildSdlShellGroup());
 		const groups = new Map<string, ClinkrGroup<SdlCliContext>>();
 		for (const commandInfo of buildState.commandInfos) {

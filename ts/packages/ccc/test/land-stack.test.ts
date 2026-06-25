@@ -1950,7 +1950,7 @@ describe("land-stack command scenarios", () => {
 		).toBe(false);
 	});
 
-	test("--dry-run treats descendant slot checkouts as skipped maintenance", async () => {
+	test("--dry-run treats descendant sdl slot checkouts as skipped maintenance", async () => {
 		const descendantSlotPath = "/Users/me/.local/state/sdl/slots/repos/repo/worktrees/slot-07";
 		const { pi, notifications, confirmations } = await runLandStack(
 			"--dry-run",
@@ -2283,7 +2283,7 @@ describe("land-stack command scenarios", () => {
 		]);
 		const script = [
 			...featureStackPreflight({ worktrees: initialWorktrees }),
-			step("slot", ["free", "--wt", "slot-01"]),
+			step("sdl", ["slot", "free", "--wt", "slot-01"]),
 			...cleanRepoChecks(),
 			step("git", ["worktree", "list", "--porcelain"], {
 				stdout: worktreeOutput([
@@ -2306,7 +2306,8 @@ describe("land-stack command scenarios", () => {
 		expect(confirmations[0]?.message).not.toContain("slot-07 feature-c");
 		expect(
 			pi.execCalls.some(
-				(call) => call.command === "slot" && sameArgs(call.args, ["free", "--wt", "slot-01"]),
+				(call) =>
+					call.command === "sdl" && sameArgs(call.args, ["slot", "free", "--wt", "slot-01"]),
 			),
 		).toBe(true);
 		expect(
@@ -3028,7 +3029,7 @@ describe("land-stack command scenarios", () => {
 		const script = [
 			...singleBranchPreflightWithRefs({ localSha: SHA_B, prSha: SHA_A, worktrees: slotWorktrees }),
 			submitRestackRecheckStep({ stdout: `${SHA_C}\n` }),
-			step("slot", ["free", "--wt", "slot-01"]),
+			step("sdl", ["slot", "free", "--wt", "slot-01"]),
 			...cleanRepoChecks(),
 			step("git", ["worktree", "list", "--porcelain"], {
 				stdout: worktreeOutput([{ path: ROOT, branch: "feature-a" }]),
@@ -3069,7 +3070,9 @@ describe("land-stack command scenarios", () => {
 			"Free landing slots?",
 			"Run gt restack + submit/update?",
 		]);
-		const slotIndex = pi.execCalls.findIndex((call) => call.command === "slot");
+		const slotIndex = pi.execCalls.findIndex(
+			(call) => call.command === "sdl" && call.args[0] === "slot",
+		);
 		const restackIndex = pi.execCalls.findIndex(
 			(call) => call.command === "gt" && call.args[0] === "restack",
 		);
@@ -3142,7 +3145,7 @@ describe("land-stack command scenarios", () => {
 		const script = [
 			...singleBranchPreflightWithRefs({ localSha: SHA_B, prSha: SHA_A, worktrees: slotWorktrees }),
 			submitRestackRecheckStep(),
-			step("slot", ["free", "--wt", "slot-01"]),
+			step("sdl", ["slot", "free", "--wt", "slot-01"]),
 			...cleanRepoChecks(),
 			step("git", ["worktree", "list", "--porcelain"], {
 				stdout: worktreeOutput([{ path: ROOT, branch: "feature-a" }]),
@@ -3224,7 +3227,7 @@ describe("land-stack command scenarios", () => {
 		]);
 		const script = [
 			...singleBranchPreflight(managedWorktrees),
-			step("slot", ["free", "--wt", "slot-01"]),
+			step("sdl", ["slot", "free", "--wt", "slot-01"]),
 			...cleanRepoChecks(),
 			step("git", ["worktree", "list", "--porcelain"], {
 				stdout: worktreeOutput([{ path: ROOT, branch: "feature-a" }]),
@@ -3240,8 +3243,10 @@ describe("land-stack command scenarios", () => {
 		expect(confirmations).toHaveLength(1);
 		expect(confirmations[0]?.title).toBe("Free landing slots?");
 		expect(confirmations[0]?.message).toContain("slot-01 feature-a");
-		expect(confirmations[0]?.message).toContain("Command: slot free --wt slot-01");
-		expect(pi.execCalls.findIndex((call) => call.command === "slot")).toBeLessThan(
+		expect(confirmations[0]?.message).toContain("Command: sdl slot free --wt slot-01");
+		expect(
+			pi.execCalls.findIndex((call) => call.command === "sdl" && call.args[0] === "slot"),
+		).toBeLessThan(
 			pi.execCalls.findIndex((call) => call.command === "gh" && call.args[1] === "merge"),
 		);
 		expect(

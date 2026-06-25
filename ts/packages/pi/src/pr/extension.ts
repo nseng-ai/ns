@@ -78,7 +78,7 @@ export const prExtensionParity = definePiSurfaceParity([
 		workflow:
 			"Download every PR's feedback from the current Graphite downstack into the Pi editor as one triage prompt",
 		parity: "FULL",
-		cli: "slot gt exec stack-branches --downstack + pr-address exec map-branch-prs + pr-address exec download-feedback",
+		cli: "sdl slot gt exec stack-branches --downstack + pr-address exec map-branch-prs + pr-address exec download-feedback",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@sdl/pi",
 		sourceModule: "pr",
@@ -350,15 +350,15 @@ async function loadStackBranches(
 	ctx: ExtensionContext,
 ): Promise<{ type: "ok"; branches: string[] } | { type: "error"; message: string }> {
 	const result = await pi.exec(
-		"slot",
-		["gt", "exec", "stack-branches", "--downstack", "--format", "json"],
+		"sdl",
+		["slot", "gt", "exec", "stack-branches", "--downstack", "--format", "json"],
 		{
 			cwd: ctx.cwd,
 			timeout: STACK_DISCOVERY_TIMEOUT_MS,
 		},
 	);
 	const parsed = parseEnvelopeWithSchema({
-		label: "slot gt exec stack-branches",
+		label: "sdl slot gt exec stack-branches",
 		result,
 		schema: stackBranchesDataSchema,
 		allowFailureData: true,

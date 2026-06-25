@@ -106,7 +106,7 @@ export function buildStackMapModelFromGraph(
 	const model: StackMapModel = {
 		title: "sdlcc stack map",
 		diagnostics: [
-			"Loaded from `slot gt exec stack-map-branches --format json`.",
+			"Loaded from `sdl slot gt exec stack-map-branches --format json`.",
 			...graph.warnings,
 			...(options.diagnostics ?? []),
 		].filter((diagnostic) => diagnostic.length > 0),
@@ -143,11 +143,14 @@ async function loadStackMapGraph(
 	cwd: string,
 ): Promise<{ type: "success"; data: StackMapGraphData } | { type: "failure"; message: string }> {
 	const result = await runCommand(
-		"slot",
-		["gt", "exec", "stack-map-branches", "--format", "json"],
+		"sdl",
+		["slot", "gt", "exec", "stack-map-branches", "--format", "json"],
 		{ cwd, timeout: COMMAND_TIMEOUT_MS },
 	);
-	const parsed = parseMachineEnvelopeData(result.stdout, "slot gt exec stack-map-branches JSON");
+	const parsed = parseMachineEnvelopeData(
+		result.stdout,
+		"sdl slot gt exec stack-map-branches JSON",
+	);
 	if (parsed.type === "failure") {
 		return {
 			type: "failure",
