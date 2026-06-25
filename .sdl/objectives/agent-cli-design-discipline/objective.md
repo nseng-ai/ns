@@ -139,6 +139,13 @@ the high-agreement changes, and parking the contested or large ones as backlog.
 - ADR 0013 answers the negative process-exit default question: `negative(...)`
   is shell-visible non-success by default; harmless empty/no-op successes should
   return explicit `ok(...)` results.
+- ADR 0014 answers the confirmation/danger-tier question: four authoring danger
+  tiers, TTY-gated prompting, non-interactive fail-fast, dry-run as `ok(...)`, and
+  the `--yes`/`-y` (Tier 2 confirm) vs `--force`/`-f` (Tier 3 precondition
+  override) verb split; tiers are `sdl-cli-design` authoring discipline, not a new
+  Clinkr framework type. Authored under the `clinkr-confirmation-danger-tiers`
+  subobjective, whose Clinkr audit/conformance + handback slice is still in
+  flight.
 - Should the agent-ergonomics Clinkr changes proceed now or wait behind the
   `sdl-extension-architecture` endgame that currently pauses
   `ts-cli-core-structural-cleanup`?

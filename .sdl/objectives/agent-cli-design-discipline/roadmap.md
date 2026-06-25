@@ -14,9 +14,18 @@
     resolved; error-type discipline can proceed as skill guidance; output volume,
     negative process-exit defaults, and danger tiers remain ADR-needed; dry-run /
     force / aliases stay backlog unless a danger-tier ADR pulls them forward.
-- [~] Record ADRs in `docs/adr/` for each contested decision.
-  - Candidates still remaining: confirmation/danger tiers. Each ADR records
+- [x] Record ADRs in `docs/adr/` for each contested decision.
+  - All contested decisions surfaced by the survey/gap audit now have ADRs
+    (0010–0014); no contested-ADR candidates remain. Each ADR records
     decision + dissent.
+  - ADR 0014 records the confirmation/danger-tier decision (authored under the
+    `clinkr-confirmation-danger-tiers` subobjective): four danger tiers
+    (0 read-only, 1 scoped/reversible, 2 destructive/external, 3 high blast
+    radius), TTY-gated prompting, non-interactive fail-fast, dry-run as `ok(...)`,
+    and the `--yes`/`-y` (Tier 2 confirm) vs `--force`/`-f` (Tier 3 precondition
+    override) verb split. Tiers stay `sdl-cli-design` authoring discipline rather
+    than a new Clinkr framework type; `ClinkrInteraction.confirm` remains the
+    only confirmation primitive for now.
   - ADR 0010 records the exit-code decision: keep process exit codes
     coarse/stable and put detailed failure semantics in the structured machine
     envelope; dissent for richer numeric taxonomies is preserved.
