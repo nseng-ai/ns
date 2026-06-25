@@ -29,6 +29,7 @@ import {
 import { getPiLaunchOptions, type PiLaunchOptions } from "./pi-launch.ts";
 import type { TextResult } from "./primitives.ts";
 import { openBranchInCmuxSlot } from "./slot.ts";
+import { createCccSlotClient } from "../slot-checkout.ts";
 import type { SlotClient } from "@sdl/slot/api";
 import type { CommandContext, ExtensionAPI } from "./types.ts";
 
@@ -150,7 +151,7 @@ export async function handleCccSlotDispatchPrompt(
 		branchName: branch.branchName,
 		command: buildBrmemPayloadPiLaunchCommand(branch.branchName, launchOptions),
 		description: `dispatch-prompt from ${branch.parentBranch}`,
-		...(options.slotClient === undefined ? {} : { slotClient: options.slotClient }),
+		slotClient: options.slotClient ?? createCccSlotClient({ cwd: ctx.cwd }),
 		notify: (message, level) => ctx.ui.notify(message, level),
 		successMessage: (target) =>
 			[

@@ -11,7 +11,12 @@ export interface NavigationResultFields {
 	clipboard_failure_detail: string | null;
 }
 
-export interface CheckoutNavigationSideEffects {
+/**
+ * Canonical side-effect contract for checkout navigation. The Peer API
+ * (`api.ts`) re-exports this as `SlotCheckoutSideEffects`; both edges bind to
+ * this single type so the two surfaces cannot drift.
+ */
+export interface CheckoutSideEffects {
 	shouldCopyClipboard: boolean;
 	shouldWriteCdDirective: boolean;
 }
@@ -19,10 +24,11 @@ export interface CheckoutNavigationSideEffects {
 export async function writeNavigationCdDirective(
 	ctx: SlotCliContext,
 	worktreePath: string,
+	shouldWrite: boolean,
 ): Promise<void> {
 	await writeCdDirectiveIfActive(worktreePath, {
 		env: ctx.env,
-		isEnabled: ctx.shouldWriteCdDirective,
+		isEnabled: shouldWrite,
 	});
 }
 
@@ -33,11 +39,14 @@ export type PreparedCheckoutNavigationResult =
 export async function finalizeCheckoutNavigation(
 	ctx: SlotCliContext,
 	result: SlotCheckoutResult,
-	sideEffects: CheckoutNavigationSideEffects,
+	sideEffects: CheckoutSideEffects,
 ): Promise<PreparedCheckoutNavigationResult> {
 	if (result.type === "failure") return { type: "failure", failure: result.failure };
-	if (sideEffects.shouldWriteCdDirective)
-		await writeNavigationCdDirective(ctx, result.outcome.worktree_path);
+	await writeNavigationCdDirective(
+		ctx,
+		result.outcome.worktree_path,
+		sideEffects.shouldWriteCdDirective,
+	);
 	return await prepareCheckoutNavigationResult(ctx, result, {
 		shouldSkipClipboard: !sideEffects.shouldCopyClipboard,
 	});

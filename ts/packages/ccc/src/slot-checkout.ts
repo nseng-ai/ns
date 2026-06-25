@@ -1,12 +1,35 @@
-import type { SlotCheckoutResult, SlotCheckoutTarget, SlotClient } from "@sdl/slot/api";
+import {
+	createSlotClient,
+	type SlotCheckoutFailure,
+	type SlotCheckoutResult,
+	type SlotCheckoutTarget,
+	type SlotClient,
+} from "@sdl/slot/api";
 
-export type { SlotCheckoutTarget, SlotClient } from "@sdl/slot/api";
+export type { SlotCheckoutFailure, SlotCheckoutTarget, SlotClient } from "@sdl/slot/api";
 
 export type SlotCheckoutRef = { kind: "branch"; branchName: string } | { kind: "current" };
 
 export type CheckoutSlotResult =
 	| { ok: true; target: SlotCheckoutTarget }
-	| { ok: false; error: string };
+	| { ok: false; failure: SlotCheckoutFailure };
+
+/**
+ * Composition-root factory for CCC's in-process slot checkouts. Construction is
+ * centralized here so command handlers (the composition roots) build one client
+ * per invocation instead of scattering the side-effect defaults across leaf
+ * helpers.
+ */
+export function createCccSlotClient(options: {
+	cwd: string;
+	env?: NodeJS.ProcessEnv | Record<string, string | undefined>;
+}): SlotClient {
+	return createSlotClient({
+		cwd: options.cwd,
+		...(options.env === undefined ? {} : { env: options.env }),
+		sideEffects: { shouldCopyClipboard: false, shouldWriteCdDirective: false },
+	});
+}
 
 export async function checkoutSlot(
 	slotClient: SlotClient,
@@ -14,10 +37,7 @@ export async function checkoutSlot(
 ): Promise<CheckoutSlotResult> {
 	const result = await runPeerCheckout(slotClient, ref);
 	if (!result.ok) {
-		return {
-			ok: false,
-			error: formatPeerCheckoutFailure(result.failure),
-		};
+		return { ok: false, failure: result.failure };
 	}
 	return { ok: true, target: result.target };
 }
@@ -31,6 +51,7 @@ async function runPeerCheckout(
 		: await slotClient.checkoutCurrent();
 }
 
-function formatPeerCheckoutFailure(failure: { errorType: string; message: string }): string {
+/** Format a structured slot-checkout failure for human-facing display. */
+export function formatSlotCheckoutFailureCause(failure: SlotCheckoutFailure): string {
 	return `Slot checkout failed (${failure.errorType}): ${failure.message}`;
 }

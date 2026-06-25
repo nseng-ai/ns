@@ -24,6 +24,7 @@ import {
 } from "@sdl/plans/api";
 import { formatCommand, formatShellArg } from "@sdl/core/exec";
 import { checkoutBranchCmuxSlot, openBranchInCmuxSlot } from "./slot.ts";
+import { createCccSlotClient } from "../slot-checkout.ts";
 import { launchFocusedCmuxTab, type FocusedCmuxTabLaunchResult } from "./focused-terminal-tab.ts";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
 import type { PiLaunchOptions } from "./pi-launch.ts";
@@ -339,9 +340,8 @@ async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): P
 			branchName: operation.branch,
 			command: formatPiLaunchCommand(operation, launchOptions),
 			description: `dispatch-plan from ${checkout.directory.sourceBranch}`,
-			...(options.options.slotClient === undefined
-				? {}
-				: { slotClient: options.options.slotClient }),
+			slotClient:
+				options.options.slotClient ?? createCccSlotClient({ cwd: checkout.directory.repoRoot }),
 			notify: (message, level) => ctx.ui.notify(message, level),
 			onStatus: (message) => setStatus(ctx, config, message),
 			successMessage: (target) => formatFinalSuccess({ operation, target, launchOptions }),
@@ -529,7 +529,7 @@ async function openBranchInCmuxSurface(options: {
 		pi,
 		cwd,
 		branchName,
-		...(options.slotClient === undefined ? {} : { slotClient: options.slotClient }),
+		slotClient: options.slotClient ?? createCccSlotClient({ cwd }),
 		notify: (message, level) => ctx.ui.notify(message, level),
 		onStatus: (message) => setStatus(ctx, config, message),
 	});

@@ -1,6 +1,6 @@
 import { piExecApiToCommandExecApi } from "@sdl/core/exec";
-import { createSlotClient, type SlotCheckoutTarget, type SlotClient } from "@sdl/slot/api";
-import { checkoutSlot } from "../slot-checkout.ts";
+import type { SlotCheckoutTarget, SlotClient } from "@sdl/slot/api";
+import { checkoutSlot, formatSlotCheckoutFailureCause } from "../slot-checkout.ts";
 import { RealCmuxGateway, type CmuxGatewayFailure } from "./gateway.ts";
 import { getWorktreeDescription } from "./worktree-description.ts";
 import type { ExtensionAPI, NotifyLevel } from "./types.ts";
@@ -10,7 +10,7 @@ export interface BranchCmuxSlotCheckoutOptions {
 	cwd: string;
 	branchName: string;
 	env?: NodeJS.ProcessEnv | Record<string, string | undefined>;
-	slotClient?: SlotClient;
+	slotClient: SlotClient;
 	notify: (message: string, level: NotifyLevel) => void;
 	onStatus?: (message: string) => void;
 }
@@ -31,20 +31,13 @@ export interface OpenCmuxWorkspaceOptions {
 export async function checkoutBranchCmuxSlot(
 	options: BranchCmuxSlotCheckoutOptions,
 ): Promise<SlotCheckoutTarget | { error: string }> {
-	const { cwd, branchName, notify, onStatus } = options;
+	const { branchName, notify, onStatus } = options;
 	onStatus?.("checking out branch slot…");
-	const slotClient =
-		options.slotClient ??
-		createSlotClient({
-			cwd,
-			...(options.env === undefined ? {} : { env: options.env }),
-			sideEffects: { shouldCopyClipboard: false, shouldWriteCdDirective: false },
-		});
-	const checkout = await checkoutSlot(slotClient, { kind: "branch", branchName });
+	const checkout = await checkoutSlot(options.slotClient, { kind: "branch", branchName });
 	if (!checkout.ok) {
-		const error = { error: checkout.error };
-		notify(formatSlotCheckoutFailure(branchName, checkout.error), "error");
-		return error;
+		const cause = formatSlotCheckoutFailureCause(checkout.failure);
+		notify(formatSlotCheckoutFailure(branchName, cause), "error");
+		return { error: cause };
 	}
 
 	return checkout.target;

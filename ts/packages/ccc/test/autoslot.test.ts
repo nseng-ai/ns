@@ -89,7 +89,6 @@ function createHarness(options: HarnessOptions = {}) {
 						slotName: "slot-01",
 						branchName: "test-branch",
 						worktreePath: "/slots/slot-01",
-						cdCommand: "cd /slots/slot-01",
 						isAlreadyAssigned: false,
 						hasCreatedBranch: false,
 						currentWorktreeNote: null,

@@ -172,6 +172,10 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 	},
 	configureCli: ({ root, buildState }) => {
 		const slotGroup = buildSlotCommandGroup<SdlCliContext>();
+		// The SDL-owned shell group is intentionally mounted at both `sdl slot shell`
+		// (back-compat with the historical slot alias) and `sdl shell` (the canonical
+		// top-level face). The duplicate help entry is the cost of that compatibility
+		// promise, not an accidental double-mount.
 		slotGroup.group(buildSdlShellGroup());
 		root.group(slotGroup);
 		root.group(buildSdlShellGroup());
@@ -261,6 +265,14 @@ type ShellCommandSpec<T> = Omit<
 // builder. The reusable abstraction we expect here is future typed shell contributions
 // rendered by SDL inside one managed shell integration, not extension-owned rc-file
 // mutation or a Slot-owned command helper.
+//
+// Intended shell-ownership boundary (target end-state; consolidation deferred):
+//   - Slot exposes worktree paths only and stays out of shell-integration concerns.
+//   - SDL/core owns wrapper-script generation, the parent-shell integration, and
+//     mounting (this group) as one cohesive unit.
+// Known deferred drift from that boundary: cd-directive generation still lives in
+// Slot's `navigation-result.ts`/`shell/cd-directive.ts`. That is the next consolidation
+// step, not a sanctioned long-term split — do not add new shell-integration logic to Slot.
 function buildSdlShellGroup(): ClinkrGroup<SdlCliContext> {
 	const shell = new ClinkrGroup<SdlCliContext>({
 		name: "shell",

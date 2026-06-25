@@ -329,7 +329,6 @@ describe("createStackMapCmuxActivationExecutor", () => {
 						slotName: "slot-02",
 						branchName,
 						worktreePath: "/repo/slot-02",
-						cdCommand: "cd /repo/slot-02",
 						isAlreadyAssigned: false,
 						hasCreatedBranch: false,
 						currentWorktreeNote: null,
