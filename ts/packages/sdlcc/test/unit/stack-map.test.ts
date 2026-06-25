@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import type { SlotClient } from "@sdl/slot/api";
 
 import {
 	buildStackMapModelFromGraph,
@@ -310,6 +311,85 @@ describe("createStackMapCmuxActivationExecutor", () => {
 		expect(calls).toEqual([
 			'/repo$ cmux rpc surface.focus {"surface_id":"surface:117","workspace_id":"workspace:45","window_id":"window:1"}',
 		]);
+	});
+
+	test("opens a new workspace after peer API checkout when slot has no worktree path", async () => {
+		const calls: string[] = [];
+		const checkedOutBranches: string[] = [];
+		const slotClient = {
+			checkoutCurrent: async () => ({
+				ok: false,
+				failure: { errorType: "unsupported", message: "not used" },
+			}),
+			checkoutBranch: async ({ branchName }) => {
+				checkedOutBranches.push(branchName);
+				return {
+					ok: true,
+					target: {
+						slotName: "slot-02",
+						branchName,
+						worktreePath: "/repo/slot-02",
+						cdCommand: "cd /repo/slot-02",
+						isAlreadyAssigned: false,
+						hasCreatedBranch: false,
+						currentWorktreeNote: null,
+					},
+				};
+			},
+		} satisfies SlotClient;
+		const executor = createStackMapCmuxActivationExecutor({
+			cwd: "/repo",
+			slotClient,
+			runCommand: async (command, args, options = {}) => {
+				calls.push(`${options.cwd}$ ${command} ${args.join(" ")}`);
+				return { code: 0, stdout: "{}", stderr: "", killed: false };
+			},
+		});
+
+		await expect(
+			executor.openNew("feature/child-with-longer-name", {
+				slotName: "slot-02",
+				branch: "feature/child-with-longer-name",
+				status: "assigned",
+			}),
+		).resolves.toEqual({
+			type: "opened",
+			message: "Opened cmux workspace for feature/child-with-longer-name in slot-02.",
+		});
+		expect(checkedOutBranches).toEqual(["feature/child-with-longer-name"]);
+		expect(calls).toHaveLength(1);
+		expect(calls[0]).toContain(
+			"/repo/slot-02$ cmux new-workspace --name feature/child-with-longer-name",
+		);
+		expect(calls.join("\n")).not.toContain("sdl slot checkout");
+	});
+
+	test("reports peer API checkout failures", async () => {
+		const calls: string[] = [];
+		const slotClient = {
+			checkoutCurrent: async () => ({
+				ok: false,
+				failure: { errorType: "unsupported", message: "not used" },
+			}),
+			checkoutBranch: async () => ({
+				ok: false,
+				failure: { errorType: "no_available_slot", message: "No free slots." },
+			}),
+		} satisfies SlotClient;
+		const executor = createStackMapCmuxActivationExecutor({
+			cwd: "/repo",
+			slotClient,
+			runCommand: async (command, args, options = {}) => {
+				calls.push(`${options.cwd}$ ${command} ${args.join(" ")}`);
+				return { code: 0, stdout: "{}", stderr: "", killed: false };
+			},
+		});
+
+		await expect(executor.openNew("feature/current")).resolves.toEqual({
+			type: "failed",
+			message: "sdl slot checkout failed (no_available_slot): No free slots.",
+		});
+		expect(calls).toEqual([]);
 	});
 
 	test("opens a new workspace in an existing slot worktree", async () => {
