@@ -1,5 +1,4 @@
 import type { SlotCliContext } from "./context.ts";
-import type { SlotCheckoutOutcome, SlotCheckoutResult } from "./lifecycle/checkout.ts";
 import { writeCdDirectiveIfActive } from "./shell/cd-directive.ts";
 
 export interface NavigationResultFields {
@@ -21,58 +20,27 @@ export interface CheckoutSideEffects {
 	shouldWriteCdDirective: boolean;
 }
 
-export async function writeNavigationCdDirective(
+export async function prepareNavigation(
 	ctx: SlotCliContext,
 	worktreePath: string,
-	shouldWrite: boolean,
-): Promise<void> {
+	sideEffects: CheckoutSideEffects,
+): Promise<NavigationResultFields> {
 	await writeCdDirectiveIfActive(worktreePath, {
 		env: ctx.env,
-		isEnabled: shouldWrite,
+		isEnabled: sideEffects.shouldWriteCdDirective,
 	});
+	return await buildNavigationResultFields(ctx, worktreePath, sideEffects.shouldCopyClipboard);
 }
 
-export type PreparedCheckoutNavigationResult =
-	| { type: "failure"; failure: Extract<SlotCheckoutResult, { type: "failure" }>["failure"] }
-	| { type: "success"; outcome: SlotCheckoutOutcome; navigation: NavigationResultFields };
-
-export async function finalizeCheckoutNavigation(
+async function buildNavigationResultFields(
 	ctx: SlotCliContext,
-	result: SlotCheckoutResult,
-	sideEffects: CheckoutSideEffects,
-): Promise<PreparedCheckoutNavigationResult> {
-	if (result.type === "failure") return { type: "failure", failure: result.failure };
-	await writeNavigationCdDirective(
-		ctx,
-		result.outcome.worktree_path,
-		sideEffects.shouldWriteCdDirective,
-	);
-	return await prepareCheckoutNavigationResult(ctx, result, {
-		shouldSkipClipboard: !sideEffects.shouldCopyClipboard,
-	});
-}
-
-export async function prepareCheckoutNavigationResult(
-	ctx: SlotCliContext,
-	result: SlotCheckoutResult,
-	options: { shouldSkipClipboard: boolean },
-): Promise<PreparedCheckoutNavigationResult> {
-	if (result.type === "failure") return { type: "failure", failure: result.failure };
-	const navigation = await buildNavigationResultFields(ctx, {
-		worktreePath: result.outcome.worktree_path,
-		shouldSkipClipboard: options.shouldSkipClipboard,
-	});
-	return { type: "success", outcome: result.outcome, navigation };
-}
-
-export async function buildNavigationResultFields(
-	ctx: SlotCliContext,
-	options: { worktreePath: string; shouldSkipClipboard: boolean },
+	worktreePath: string,
+	shouldCopyClipboard: boolean,
 ): Promise<NavigationResultFields> {
-	const cdCommand = `cd ${options.worktreePath}`;
-	if (options.shouldSkipClipboard) {
+	const cdCommand = `cd ${worktreePath}`;
+	if (!shouldCopyClipboard) {
 		return {
-			worktree_path: options.worktreePath,
+			worktree_path: worktreePath,
 			cd_command: cdCommand,
 			clipboard_copied: false,
 			clipboard_skipped: true,
@@ -83,7 +51,7 @@ export async function buildNavigationResultFields(
 	const copyResult = await ctx.clipboard.copy(cdCommand);
 	if (copyResult.type === "copied") {
 		return {
-			worktree_path: options.worktreePath,
+			worktree_path: worktreePath,
 			cd_command: cdCommand,
 			clipboard_copied: true,
 			clipboard_skipped: false,
@@ -92,7 +60,7 @@ export async function buildNavigationResultFields(
 		};
 	}
 	return {
-		worktree_path: options.worktreePath,
+		worktree_path: worktreePath,
 		cd_command: cdCommand,
 		clipboard_copied: false,
 		clipboard_skipped: false,

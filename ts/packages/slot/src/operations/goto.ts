@@ -3,11 +3,7 @@ import { z } from "zod";
 
 import type { RepoSlotContext, SlotCliContext } from "../context.ts";
 import { buildSlotInventory, findBySlot } from "../inventory.ts";
-import {
-	buildNavigationResultFields,
-	renderNavigationFooter,
-	writeNavigationCdDirective,
-} from "../navigation-result.ts";
+import { prepareNavigation, renderNavigationFooter } from "../navigation-result.ts";
 import { poolSize } from "../inventory.ts";
 import { resolveNum, resolveWt } from "../selectors.ts";
 
@@ -64,10 +60,9 @@ export async function runGoto(ctx: SlotCliContext, request: GotoRequest) {
 			"worktree_missing",
 			`Worktree for ${slotName} is missing at ${record.path}. Run \`sdl slot free --wt ${slotName}\` to clear the stale assignment.`,
 		);
-	await writeNavigationCdDirective(repoCtx, record.path, repoCtx.shouldWriteCdDirective);
-	const navigation = await buildNavigationResultFields(repoCtx, {
-		worktreePath: record.path,
-		shouldSkipClipboard: !request.clipboard,
+	const navigation = await prepareNavigation(repoCtx, record.path, {
+		shouldCopyClipboard: request.clipboard,
+		shouldWriteCdDirective: repoCtx.shouldWriteCdDirective,
 	});
 	return ok({
 		slot_name: slotName,
