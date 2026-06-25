@@ -1,3 +1,4 @@
+import type { CommandIo } from "@sdl/core/command-io";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import {
 	LandStackCommandStream,
@@ -58,6 +59,7 @@ import type {
 export type { LandStackExtensionAPI } from "./land-stack/types.ts";
 
 export interface ExecuteStackLandingOptions {
+	progressIo?: CommandIo;
 	skipMainConfirmation?: boolean;
 	initialShape?: LandingShape;
 }
@@ -86,7 +88,9 @@ export async function executeStackLanding(
 	const landed: LandedPr[] = [];
 	const landedChunks: LandedChunk[] = [];
 	const warnings: LandingWarning[] = [];
-	const commandStream = new LandStackCommandStream(pi, ctx);
+	const commandStreamOptions =
+		options.progressIo === undefined ? {} : { progressIo: options.progressIo };
+	const commandStream = new LandStackCommandStream(pi, ctx, commandStreamOptions);
 	const runtimePi = withCommandStreaming(pi, commandStream);
 	try {
 		if (parsedArgs.help) {
@@ -94,6 +98,7 @@ export async function executeStackLanding(
 			return completed();
 		}
 
+		options.progressIo?.phase("Preflighting landing stack...");
 		setStatus(ctx, "preflighting...");
 		const shape = options.initialShape
 			? success(options.initialShape)
@@ -493,6 +498,7 @@ async function preparePlanForMerge(
 			});
 			return submitOutcome;
 		}
+		commandStream.note("Rechecking landing preflight...");
 		setStatus(ctx, "rechecking preflight...");
 		const rechecked = await buildLandingPlan(runtimePi, ctx.cwd, {
 			allowSubmitRequiredState: true,

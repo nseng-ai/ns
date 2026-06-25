@@ -1,3 +1,4 @@
+import type { CommandIo } from "@sdl/core/command-io";
 import { formatCommand, runNormalizedExecResult, type ExecResult } from "@sdl/core/exec";
 import {
 	customMessageText,
@@ -27,12 +28,14 @@ interface AppendCommandStreamMessageOptions {
 }
 
 interface LandStackCommandStreamOptions {
+	progressIo?: CommandIo;
 	shouldMirrorFinishedCommandsToNonUi?: boolean;
 }
 
 export class LandStackCommandStream {
 	private readonly pi: LandStackExtensionAPI;
 	private readonly ctx: LandStackCommandContext;
+	private readonly progressIo: CommandIo | undefined;
 	private readonly shouldMirrorFinishedCommandsToNonUi: boolean;
 
 	constructor(
@@ -42,6 +45,7 @@ export class LandStackCommandStream {
 	) {
 		this.pi = pi;
 		this.ctx = ctx;
+		this.progressIo = options.progressIo;
 		this.shouldMirrorFinishedCommandsToNonUi = options.shouldMirrorFinishedCommandsToNonUi ?? true;
 	}
 
@@ -105,8 +109,14 @@ export class LandStackCommandStream {
 				customMessage.details = details;
 			}
 			this.pi.sendMessage(customMessage);
+			return;
 		}
-		if (!this.ctx.hasUI && options.shouldMirrorToNonUi === true) {
+		if (options.shouldMirrorToNonUi !== true) return;
+		if (this.progressIo !== undefined) {
+			this.progressIo.phase(message);
+			return;
+		}
+		if (!this.ctx.hasUI) {
 			this.ctx.ui.notify(message, options.level ?? "info");
 		}
 	}

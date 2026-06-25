@@ -504,15 +504,89 @@ describe("code land CLI bridge", () => {
 
 		expect(exitCode).toBe(0);
 		expect(stderr).toContain("✗ $ git rev-parse -q --verify MERGE_HEAD — exit 1");
+		expect(stderr).toContain("→ Preparing to land 1 PR through feature-branch...");
+		expect(stderr).toContain("✓ $ git status --porcelain=v1");
+		expect(stderr).toContain("→ Merging PR #42 feature-branch...");
+		expect(stderr).toContain("→ Merged and verified PR #42 feature-branch.");
+		expect(stderr).toContain("→ Refreshing stack through child-branch...");
+		expect(stderr).toContain("→ Cleaning up local branch feature-branch...");
 		expect(stderr).not.toContain("Landed 1 PR: #42 feature-branch.");
-		expect(stdout).toContain("→ Preparing to land 1 PR through feature-branch...");
-		expect(stdout).toContain("✓ $ git status --porcelain=v1");
-		expect(stdout).toContain("→ Merging PR #42 feature-branch...");
-		expect(stdout).toContain("→ Merged and verified PR #42 feature-branch.");
-		expect(stdout).toContain("→ Refreshing stack through child-branch...");
-		expect(stdout).toContain("→ Cleaning up local branch feature-branch...");
 		expect(stdout).toContain("Landed 1 PR: #42 feature-branch.");
 		expect(stdout.match(/Landed 1 PR: #42 feature-branch\./g)).toHaveLength(1);
+		pi.assertDone();
+	});
+
+	test("prints intermediate progress after injected confirmation", async () => {
+		const pi = new FakePi([
+			...graphiteShapeSteps(DB_WITH_DESCENDANT),
+			...successfulStackLandingSteps(),
+		]);
+		const confirmations: Confirmation[] = [];
+		let stdout = "";
+		let stderr = "";
+
+		const exitCode = await runLandCli({
+			cwd: ROOT,
+			rawArgs: "",
+			exec: async (command, args, options) => await pi.exec(command, args, options),
+			stdout: (text) => {
+				stdout += text;
+			},
+			stderr: (text) => {
+				stderr += text;
+			},
+			confirm: (title, message) => {
+				confirmations.push({ title, message });
+				return true;
+			},
+		});
+
+		expect(exitCode).toBe(0);
+		expect(confirmations).toHaveLength(1);
+		expect(stderr).toContain("→ Preparing to land 1 PR through feature-branch...");
+		expect(stderr).toContain("→ Merging PR #42 feature-branch...");
+		expect(stderr).toContain("→ Merged and verified PR #42 feature-branch.");
+		expect(stderr).toContain("→ Refreshing stack through child-branch...");
+		expect(stderr).toContain("→ Cleaning up local branch feature-branch...");
+		expect(stderr).not.toContain("Landed 1 PR: #42 feature-branch.");
+		expect(stdout).not.toBe("");
+		pi.assertDone();
+	});
+
+	test("routes intermediate progress through onOutput when available", async () => {
+		const pi = new FakePi([
+			...graphiteShapeSteps(DB_WITH_DESCENDANT),
+			...successfulStackLandingSteps(),
+		]);
+		let stdout = "";
+		let stderr = "";
+		const liveOutput: string[] = [];
+
+		const exitCode = await runLandCli({
+			cwd: ROOT,
+			rawArgs: "",
+			exec: async (command, args, options) => await pi.exec(command, args, options),
+			stdout: (text) => {
+				stdout += text;
+			},
+			stderr: (text) => {
+				stderr += text;
+			},
+			onOutput: (stream, text) => {
+				liveOutput.push(`${stream}:${text}`);
+			},
+			confirm: () => true,
+		});
+
+		expect(exitCode).toBe(0);
+		expect(stderr).toBe("");
+		expect(liveOutput.join("")).toContain(
+			"stderr:→ Preparing to land 1 PR through feature-branch...",
+		);
+		expect(liveOutput.join("")).toContain("stderr:→ Merging PR #42 feature-branch...");
+		expect(liveOutput.join("")).toContain("stderr:→ Cleaning up local branch feature-branch...");
+		expect(liveOutput.join("")).not.toContain("Landed 1 PR: #42 feature-branch.");
+		expect(stdout).not.toBe("");
 		pi.assertDone();
 	});
 
@@ -541,8 +615,8 @@ describe("code land CLI bridge", () => {
 		expect(exitCode).toBe(1);
 		expect(stdout).toBe("");
 		expect(stderr).toContain("Refusing to land: the stack forks at fork-point.");
-		expect(liveOutput.join("")).toContain("stdout:land: running git rev-parse --show-toplevel...");
-		expect(liveOutput.join("")).toContain("stdout:land: running gt trunk --no-interactive...");
+		expect(liveOutput.join("")).toContain("stderr:land: running git rev-parse --show-toplevel...");
+		expect(liveOutput.join("")).toContain("stderr:land: running gt trunk --no-interactive...");
 		pi.assertDone();
 	});
 });
@@ -838,7 +912,8 @@ describe("code land command", () => {
 			},
 		]);
 		expect(stdout).toBe("Cancelled before merge; no PRs were landed.\n");
-		expect(stderr).toBe("");
+		expect(stderr).toContain("land: running git rev-parse --show-toplevel...");
+		expect(stderr).toContain("land: running gt trunk --no-interactive...");
 		pi.assertDone();
 	});
 
