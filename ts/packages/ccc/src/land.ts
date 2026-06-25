@@ -139,7 +139,7 @@ async function runLandCommand(
 	await ctx.waitForIdle();
 
 	const commandStream = new LandStackCommandStream(progressIo ?? createLandUiCommandIo(pi, ctx), {
-		showRunningCommandStatus: progressIo !== undefined && ctx.hasUI,
+		shouldShowRunningCommandStatus: progressIo !== undefined && ctx.hasUI,
 		shouldMirrorFinishedCommandsToNonUi: false,
 	});
 	const runtimePi = withCommandStreaming(pi, commandStream);

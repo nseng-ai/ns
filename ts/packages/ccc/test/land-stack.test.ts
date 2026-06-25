@@ -1484,7 +1484,7 @@ describe("land-stack pure helpers", () => {
 			phase: (message) => context.notifications.push({ message, level: "info" }),
 			notify: (message, level) => context.notifications.push({ message, level }),
 			message: (message, options) => {
-				if (options?.richOnly === true) return;
+				if (options?.isRichOnly === true) return;
 				context.notifications.push({ message, level: options?.level });
 			},
 			clearPhase: () => {},
@@ -1516,7 +1516,7 @@ describe("land-stack pure helpers", () => {
 			phase: (message) => context.notifications.push({ message, level: "info" }),
 			notify: (message, level) => context.notifications.push({ message, level }),
 			message: (message, options) => {
-				if (options?.richOnly === true) return;
+				if (options?.isRichOnly === true) return;
 				context.notifications.push({ message, level: options?.level });
 			},
 			clearPhase: () => {},

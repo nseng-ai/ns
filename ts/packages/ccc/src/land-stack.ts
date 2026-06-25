@@ -91,7 +91,7 @@ export async function executeStackLanding(
 	const warnings: LandingWarning[] = [];
 	const io = options.io ?? createLandUiCommandIo(pi, ctx);
 	const commandStream = new LandStackCommandStream(io, {
-		showRunningCommandStatus: ctx.hasUI,
+		shouldShowRunningCommandStatus: ctx.hasUI,
 	});
 	const runtimePi = withCommandStreaming(pi, commandStream);
 	try {

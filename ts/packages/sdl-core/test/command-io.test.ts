@@ -124,11 +124,11 @@ describe("message", () => {
 		expect(fallback).toEqual(["Progress line\n"]);
 	});
 
-	test("drops richOnly messages when no rich sink exists", () => {
+	test("drops isRichOnly messages when no rich sink exists", () => {
 		const fallback: string[] = [];
 		const io = createCommandIo({ phaseFallback: (text) => fallback.push(text) });
 
-		io.message("Final summary", { richOnly: true });
+		io.message("Final summary", { isRichOnly: true });
 
 		expect(fallback).toEqual([]);
 	});

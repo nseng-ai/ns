@@ -21,7 +21,7 @@ import type {
 
 interface LandStackCommandStreamOptions {
 	/** Emit transient "running command" status. Off for non-interactive CLI. */
-	showRunningCommandStatus?: boolean;
+	shouldShowRunningCommandStatus?: boolean;
 	/** Mirror completed-command results to text-only fallback sinks. */
 	shouldMirrorFinishedCommandsToNonUi?: boolean;
 }
@@ -57,12 +57,12 @@ export function createLandUiCommandIo(
 
 export class LandStackCommandStream {
 	private readonly io: CommandIo;
-	private readonly showRunningCommandStatus: boolean;
+	private readonly shouldShowRunningCommandStatus: boolean;
 	private readonly shouldMirrorFinishedCommandsToNonUi: boolean;
 
 	constructor(io: CommandIo, options: LandStackCommandStreamOptions = {}) {
 		this.io = io;
-		this.showRunningCommandStatus = options.showRunningCommandStatus ?? false;
+		this.shouldShowRunningCommandStatus = options.shouldShowRunningCommandStatus ?? false;
 		this.shouldMirrorFinishedCommandsToNonUi = options.shouldMirrorFinishedCommandsToNonUi ?? true;
 	}
 
@@ -70,7 +70,7 @@ export class LandStackCommandStream {
 		// Keep active subprocess visibility transient: completed command results are
 		// emitted separately, so a long-running Graphite/GitHub command does not pin a
 		// rewritten widget above the editor while it is still pending.
-		if (this.showRunningCommandStatus) {
+		if (this.shouldShowRunningCommandStatus) {
 			this.io.phase(`land: running ${commandDisplay}...`);
 		}
 	}
@@ -90,19 +90,19 @@ export class LandStackCommandStream {
 		}
 		this.io.message(lines.join("\n"), {
 			level: result.code === 0 ? "info" : "error",
-			richOnly: !this.shouldMirrorFinishedCommandsToNonUi,
+			isRichOnly: !this.shouldMirrorFinishedCommandsToNonUi,
 		});
 	}
 
 	finishSuccess(message: string, details?: CommandStreamMessageDetails): void {
 		this.io.message(formatCommandStreamBlock("✓", message), {
-			richOnly: true,
+			isRichOnly: true,
 			...(details === undefined ? {} : { details }),
 		});
 	}
 
 	finishFailure(message: string): void {
-		this.io.message(formatCommandStreamBlock("✗", message), { richOnly: true });
+		this.io.message(formatCommandStreamBlock("✗", message), { isRichOnly: true });
 	}
 
 	note(message: string): void {

@@ -13,7 +13,7 @@ export interface CommandMessageOptions {
 	 * Use for content already delivered through another durable channel (e.g. a
 	 * CLI summary printed via notify) so it is not duplicated in fallback output.
 	 */
-	richOnly?: boolean;
+	isRichOnly?: boolean;
 }
 
 export interface CommandIo {
@@ -24,7 +24,7 @@ export interface CommandIo {
 	/**
 	 * Durable, human-facing scrollback message. Rich sinks (e.g. Pi custom
 	 * messages) receive `details`; text-only sinks render the message as transient
-	 * phase text, or drop it entirely when `richOnly` is set.
+	 * phase text, or drop it entirely when `isRichOnly` is set.
 	 */
 	message(message: string, options?: CommandMessageOptions): void;
 	/** Clears any sticky transient phase (no-op for append-only sinks). */
@@ -47,7 +47,7 @@ export interface CommandIoChannels {
 	/**
 	 * Rich scrollback sink that renders durable messages and can carry opaque
 	 * structured presentation details (e.g. a Pi custom message). When absent,
-	 * `message` falls back to transient phase text (or is dropped when richOnly).
+	 * `message` falls back to transient phase text (or is dropped when isRichOnly).
 	 */
 	richMessage?: (message: string, options: { level: NotifyLevel; details?: unknown }) => void;
 	/** Suppress transient phase entirely (machine/structured output). */
@@ -109,7 +109,7 @@ export function createCommandIo(channels: CommandIoChannels): CommandIo {
 			});
 			return;
 		}
-		if (options.richOnly === true) return;
+		if (options.isRichOnly === true) return;
 		// Text-only sinks render durable scrollback as transient progress text.
 		phase(text);
 	}
