@@ -2,9 +2,10 @@
 
 ## Work
 
-- [ ] Write the confirmation/danger-tier ADR.
-  - Capture the tier model, non-interactive fail-fast behavior, prompt rules, `--yes` semantics, `--force` semantics, dry-run/preview expectations, and the accepted Tier 3 stance that generic `--yes` may be valid when paired with clear safeguards.
-  - Preserve dissent for first-class Clinkr danger metadata versus command-local flexibility.
+- [x] Write the confirmation/danger-tier ADR.
+  - Recorded as `docs/adr/0014-clinkr-confirmation-danger-tiers.md`: four danger tiers (0 read-only, 1 scoped/reversible, 2 destructive/external, 3 high blast radius), non-interactive fail-fast behavior, TTY-gated prompts, dry-run/preview returning `ok(...)`, and the `--yes`/`-y` (Tier 2) versus `--force`/`-f` (Tier 3) verb split.
+  - Tier 3 standardizes on `--force`/`-f`, matching the existing `-f`/`--force` convention on `brmem put`, `handoff delete`, `handoff gc`, `slot gc`.
+  - Dissent preserved: first-class Clinkr danger metadata versus command-local flexibility; generic-`--yes`-for-Tier-3 and typed-confirmation-for-all-Tier-3 both recorded as rejected alternatives.
 - [ ] Audit Clinkr against the accepted ADR.
   - Compare current confirmation/interaction behavior, rendered command options, machine-envelope behavior, and schema surfaces to the policy.
   - Identify the minimal framework/runtime/schema/test deltas needed for conformance, or explicitly justify why no framework code change is appropriate.
