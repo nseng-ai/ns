@@ -98,7 +98,6 @@ export async function createBranchContextFromFile(
 export async function createBranchContextFromResolvedSource(
 	options: CreateBranchContextFromResolvedSourceOptions,
 ): Promise<BranchContextEvidence> {
-	await checkBranchRefFormat(options.git, options.cwd, options.operation.branch, options.signal);
 	const startPoint = await resolveStartPoint(options.git, options.cwd, options.signal);
 	await assertLocalBranchAbsent(options.git, options.cwd, options.operation.branch, options.signal);
 	await assertBrmemEntryAbsent(options.brmem, options.operation.branch, options.operation.key);

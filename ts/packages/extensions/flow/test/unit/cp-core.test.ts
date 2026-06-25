@@ -119,7 +119,7 @@ describe("flow cp core", () => {
 		const gateway = new FakeCheckpointGateway({ loaded: { ok: true, snapshot: dirtySnapshot() } });
 
 		const result = await runCpCore(
-			defaultOptions({ checkpointGateway: gateway, textGenerator, dryRun: true }),
+			defaultOptions({ checkpointGateway: gateway, textGenerator, isDryRun: true }),
 		);
 
 		expect(result).toEqual({
@@ -174,14 +174,14 @@ describe("flow cp core", () => {
 function defaultOptions(overrides: {
 	checkpointGateway: CheckpointGateway;
 	textGenerator: TextGenerator;
-	dryRun?: boolean;
+	isDryRun?: boolean;
 }) {
 	return {
 		cwd: "/repo",
 		env: {},
 		checkpointGateway: overrides.checkpointGateway,
 		textGenerator: overrides.textGenerator,
-		dryRun: overrides.dryRun ?? false,
+		isDryRun: overrides.isDryRun ?? false,
 	};
 }
 
