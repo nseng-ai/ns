@@ -5,6 +5,7 @@ import {
 import { registerCommandWithImmediateAck, sendCommandProgressOrNotify } from "@sdl/pi/commands/ack";
 
 import { openBranchInCmuxSlot } from "./slot.ts";
+import { createCccSlotClient } from "../slot-checkout.ts";
 import type { SlotClient } from "@sdl/slot/api";
 import type {
 	AutocompleteItem,
@@ -116,9 +117,7 @@ export async function handleCccSlotOpenBranch(
 		pi,
 		cwd: ctx.cwd,
 		branchName: branch,
-		...(options.options?.slotClient === undefined
-			? {}
-			: { slotClient: options.options.slotClient }),
+		slotClient: options.options?.slotClient ?? createCccSlotClient({ cwd: ctx.cwd }),
 		notify: (message, level) => ctx.ui.notify(message, level),
 	});
 	if ("error" in launched) {

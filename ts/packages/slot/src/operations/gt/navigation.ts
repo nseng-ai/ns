@@ -67,7 +67,7 @@ export async function buildGtNavigationResult(
 	resolution: WorktreeResolution,
 	options: { shouldSkipClipboard: boolean },
 ): Promise<GtNavigationResult> {
-	await writeNavigationCdDirective(ctx, resolution.target.worktreePath);
+	await writeNavigationCdDirective(ctx, resolution.target.worktreePath, ctx.shouldWriteCdDirective);
 	const navigation = await buildNavigationResultFields(ctx, {
 		worktreePath: resolution.target.worktreePath,
 		shouldSkipClipboard: options.shouldSkipClipboard,

@@ -6,12 +6,16 @@ import {
 	prepareAutobranchCheckpointMessage,
 } from "./autobranch/checkpoint.ts";
 import { createAutobranchCheckpointFlow, type AutobranchFlowInput } from "./autobranch/flow.ts";
-import { createSlotClient, type SlotClient } from "@sdl/slot/api";
-import { checkoutSlot } from "./slot-checkout.ts";
+import type { SlotClient } from "@sdl/slot/api";
+import {
+	checkoutSlot,
+	createCccSlotClient,
+	formatSlotCheckoutFailureCause,
+} from "./slot-checkout.ts";
 
 export interface AutoslotFlowInput extends AutobranchFlowInput {
 	env?: NodeJS.ProcessEnv | Record<string, string | undefined>;
-	slotClient?: SlotClient;
+	slotClient: SlotClient;
 	io: CommandIo;
 }
 
@@ -55,6 +59,7 @@ export async function runAutoslotCli(input: AutoslotCliInput): Promise<number> {
 					),
 				io,
 				env: input.env,
+				slotClient: createCccSlotClient({ cwd: input.cwd, env: input.env }),
 			}),
 	);
 	return hasError ? 1 : 0;
@@ -90,17 +95,14 @@ export async function createAutoslotFlow(input: AutoslotFlowInput): Promise<void
 	}
 
 	input.io.phase("Checking out branch slot…");
-	const slotClient =
-		input.slotClient ??
-		createSlotClient({
-			cwd: input.cwd,
-			...(input.env === undefined ? {} : { env: input.env }),
-			sideEffects: { shouldCopyClipboard: false, shouldWriteCdDirective: false },
-		});
-	const slot = await checkoutSlot(slotClient, { kind: "current" });
+	const slot = await checkoutSlot(input.slotClient, { kind: "current" });
 	if (!slot.ok) {
 		input.io.notify(
-			[`Autoslot created ${branchName}, but sdl slot checkout failed.`, "", slot.error].join("\n"),
+			[
+				`Autoslot created ${branchName}, but sdl slot checkout failed.`,
+				"",
+				formatSlotCheckoutFailureCause(slot.failure),
+			].join("\n"),
 			"error",
 		);
 		return;

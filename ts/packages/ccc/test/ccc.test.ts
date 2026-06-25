@@ -74,7 +74,6 @@ const testSlotClient = {
 				slotName: "slot-01",
 				branchName: options.branchName,
 				worktreePath: "/slot/worktree",
-				cdCommand: "cd /slot/worktree",
 				isAlreadyAssigned: false,
 				hasCreatedBranch: false,
 				currentWorktreeNote: null,

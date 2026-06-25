@@ -64,7 +64,7 @@ export async function runGoto(ctx: SlotCliContext, request: GotoRequest) {
 			"worktree_missing",
 			`Worktree for ${slotName} is missing at ${record.path}. Run \`sdl slot free --wt ${slotName}\` to clear the stale assignment.`,
 		);
-	await writeNavigationCdDirective(repoCtx, record.path);
+	await writeNavigationCdDirective(repoCtx, record.path, repoCtx.shouldWriteCdDirective);
 	const navigation = await buildNavigationResultFields(repoCtx, {
 		worktreePath: record.path,
 		shouldSkipClipboard: !request.clipboard,

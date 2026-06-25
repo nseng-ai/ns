@@ -1,13 +1,12 @@
 import type { SlotCliContext } from "./context.ts";
 import { createRealSlotContext } from "./context.ts";
 import { checkoutBranch, checkoutCurrent } from "./lifecycle/checkout.ts";
-import { finalizeCheckoutNavigation } from "./navigation-result.ts";
+import { finalizeCheckoutNavigation, type CheckoutSideEffects } from "./navigation-result.ts";
 
 export interface SlotCheckoutTarget {
 	slotName: string;
 	branchName: string;
 	worktreePath: string;
-	cdCommand: string;
 	isAlreadyAssigned: boolean;
 	hasCreatedBranch: boolean;
 	currentWorktreeNote: string | null;
@@ -18,10 +17,8 @@ export interface SlotCheckoutFailure {
 	message: string;
 }
 
-export interface SlotCheckoutSideEffects {
-	shouldCopyClipboard: boolean;
-	shouldWriteCdDirective: boolean;
-}
+/** Machine-facing side-effect contract; canonical definition in `navigation-result.ts`. */
+export type SlotCheckoutSideEffects = CheckoutSideEffects;
 
 export type SlotCheckoutResult =
 	| { ok: true; target: SlotCheckoutTarget }
@@ -96,7 +93,6 @@ async function mapCheckoutResult(
 			slotName: prepared.outcome.slot_name,
 			branchName: prepared.outcome.branch_name,
 			worktreePath: prepared.outcome.worktree_path,
-			cdCommand: prepared.navigation.cd_command,
 			isAlreadyAssigned: prepared.outcome.already_assigned,
 			hasCreatedBranch: prepared.outcome.created_branch,
 			currentWorktreeNote: prepared.outcome.current_wt_note,

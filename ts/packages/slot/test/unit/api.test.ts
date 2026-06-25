@@ -28,7 +28,6 @@ describe("Slot Peer API", () => {
 				slotName: "slot-01",
 				branchName: "feature/a",
 				worktreePath: "/slots/repos/repo/worktrees/slot-01",
-				cdCommand: "cd /slots/repos/repo/worktrees/slot-01",
 				isAlreadyAssigned: false,
 				hasCreatedBranch: false,
 				currentWorktreeNote: null,
@@ -63,7 +62,6 @@ describe("Slot Peer API", () => {
 				slotName: "slot-01",
 				branchName: "feature/a",
 				worktreePath: "/slots/repos/repo/worktrees/slot-01",
-				cdCommand: "cd /slots/repos/repo/worktrees/slot-01",
 				isAlreadyAssigned: false,
 				hasCreatedBranch: false,
 				currentWorktreeNote: null,
@@ -110,6 +108,34 @@ describe("Slot Peer API", () => {
 			const slotClient = createSlotClient({
 				cwd: "/repo",
 				context: run.context,
+				sideEffects: { shouldCopyClipboard: false, shouldWriteCdDirective: true },
+			});
+
+			const result = await slotClient.checkoutBranch({ branchName: "feature/a" });
+
+			expect(result.ok).toBe(true);
+			expect(await readFile(directivePath, "utf8")).toBe("/slots/repos/repo/worktrees/slot-01");
+		} finally {
+			await rm(home, { recursive: true, force: true });
+		}
+	});
+
+	it("honors the side-effect cd directive flag independent of ctx.shouldWriteCdDirective", async () => {
+		const home = await mkdtemp(join(tmpdir(), "slot-api-directive-ctx-"));
+		try {
+			const directivePath = join(home, "directive");
+			const run = runScenario([], {
+				env: { PATH: "/fake/bin", [SDL_CD_DIRECTIVE_FILE]: directivePath },
+				git: {
+					localBranches: ["master", "feature/a"],
+					worktrees: [slotWorktree("slot-01")],
+				},
+			});
+			// Simulate a non-CLI (Peer API) context where the CLI-only flag is false;
+			// the explicit side-effect opt-in must still drive the write.
+			const slotClient = createSlotClient({
+				cwd: "/repo",
+				context: { ...run.context, shouldWriteCdDirective: false },
 				sideEffects: { shouldCopyClipboard: false, shouldWriteCdDirective: true },
 			});
 
