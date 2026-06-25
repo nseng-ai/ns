@@ -31,6 +31,7 @@ interface HarnessOptions {
 function createHarness(options: HarnessOptions = {}) {
 	const world = createGitWorldExec(options);
 	const events: string[] = world.events;
+	const phases: string[] = [];
 	const preparedSnapshots: Array<Pick<PendingWorktreeSnapshot, "status" | "diff">> = [];
 	const prepareResult = options.prepareResult ?? {
 		ok: true,
@@ -52,9 +53,10 @@ function createHarness(options: HarnessOptions = {}) {
 			events.push("commit");
 			return commitResult;
 		},
+		onPhase: (message) => phases.push(message),
 	};
 
-	return { input, events, preparedSnapshots };
+	return { input, events, phases, preparedSnapshots };
 }
 
 function expectError(result: Awaited<ReturnType<typeof createAutobranchCheckpointFlow>>): string {
@@ -129,6 +131,31 @@ describe("createAutobranchCheckpointFlow", () => {
 		expect(result.summary).toContain("New branch: test-branch");
 		expect(result.summary).toContain("Stacked on: feature/base");
 		expect(result.summary).toContain("Commit: abc123 [cp] Update checkpoint tests");
+	});
+
+	test("dirty worktree emits human-facing phase progress", async () => {
+		const harness = createHarness();
+
+		expectSuccess(await createAutobranchCheckpointFlow(harness.input));
+
+		expect(harness.phases).toEqual([
+			"Inspecting worktree…",
+			"Drafting checkpoint message…",
+			"Creating Graphite branch and checkpoint…",
+		]);
+	});
+
+	test("phase progress includes branch-name derivation when no slug is requested", async () => {
+		const harness = createHarness({ args: {} });
+
+		expectSuccess(await createAutobranchCheckpointFlow(harness.input));
+
+		expect(harness.phases).toEqual([
+			"Inspecting worktree…",
+			"Deriving branch name…",
+			"Drafting checkpoint message…",
+			"Creating Graphite branch and checkpoint…",
+		]);
 	});
 
 	test("dirty worktree with no upstream keeps the existing path", async () => {

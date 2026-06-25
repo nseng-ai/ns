@@ -1,4 +1,5 @@
 import { runDirtyAutobranchFlow, type ParsedAutobranchArgs } from "@sdl/autobranch/dirty-worktree";
+import { createForwardingProgressSink, type ProgressSink } from "@sdl/ccc/progress-sink";
 import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@sdl/core/model-slug";
 import {
 	defineExtension,
@@ -49,7 +50,8 @@ export const flowAutobranchCommand: SdlCommand<typeof autobranchRequestSchema> =
 	schema: autobranchRequestSchema,
 	async run(ctx, request: AutobranchRequest) {
 		const args: ParsedAutobranchArgs = request.slug === undefined ? {} : { slug: request.slug };
-		const result = await createAutobranchCheckpointFlow(ctx, args);
+		const progress = createForwardingProgressSink({ onOutput: ctx.onOutput, stderr: ctx.stderr });
+		const result = await createAutobranchCheckpointFlow(ctx, args, progress);
 		if (!result.ok) {
 			return failed(result.error.trimEnd(), 1);
 		}
@@ -64,7 +66,12 @@ export default defineExtension({
 	commands: [flowAutobranchCommand],
 });
 
-async function createAutobranchCheckpointFlow(ctx: SdlExtensionApi, args: ParsedAutobranchArgs) {
+async function createAutobranchCheckpointFlow(
+	ctx: SdlExtensionApi,
+	args: ParsedAutobranchArgs,
+	progress: ProgressSink,
+) {
+	progress.phase("Inspecting worktree…");
 	const loaded = await loadFlowPendingWorktreeSnapshot(ctx);
 	if (!loaded.ok) {
 		return { ok: false as const, error: formatPendingWorktreeError(loaded.error) };
@@ -88,5 +95,6 @@ async function createAutobranchCheckpointFlow(ctx: SdlExtensionApi, args: Parsed
 		prepareCheckpointMessage: (pendingSnapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">) =>
 			prepareFlowCheckpointMessage(ctx, pendingSnapshot),
 		commitPreparedCheckpointMessage: (message) => createCommitWithPreparedMessage(ctx, message),
+		onPhase: (message) => progress.phase(message),
 	});
 }
