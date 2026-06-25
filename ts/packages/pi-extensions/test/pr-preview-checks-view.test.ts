@@ -1,12 +1,19 @@
+import type { Theme } from "@earendil-works/pi-coding-agent";
+import type { TUI } from "@earendil-works/pi-tui";
 import { describe, expect, test } from "vitest";
 
 import {
+	checkLogUnavailableReason,
 	githubActionsJobLogArgs,
 	isIncompleteCheck,
 	splitLogLines,
 } from "../src/pr-preview-checks-command.ts";
-import { buildCheckRowLabel } from "../src/pr-preview-checks-model.ts";
-import { checkListRows } from "../src/pr-preview-checks-view.ts";
+import { buildCheckRowLabel, type PrPreviewCheck } from "../src/pr-preview-checks-model.ts";
+import {
+	checkListRows,
+	PrPreviewChecksView,
+	type PrPreviewChecksViewModel,
+} from "../src/pr-preview-checks-view.ts";
 
 describe("PR checks preview vertical layout", () => {
 	test("allocates rows for a full-width check list above selected details", () => {
@@ -51,6 +58,77 @@ describe("PR checks preview vertical layout", () => {
 		]);
 	});
 
+	test("explains canceled check logs without calling gh", () => {
+		const lines = checkLogUnavailableReason({
+			...previewCheck("review"),
+			workflow_name: "roaster",
+			conclusion: "CANCELED",
+		});
+
+		expect(lines).toEqual([
+			"Logs are not available because this check was canceled.",
+			"",
+			"Check: roaster / review",
+			"Conclusion: CANCELED",
+			"GitHub can omit job logs for checks that never ran or were canceled before log upload.",
+		]);
+	});
+
+	test("caches loaded log summaries by selected check", async () => {
+		const alpha = previewCheck("alpha-check");
+		const beta = previewCheck("beta-check");
+		const alphaSummary = createDeferred<readonly string[]>();
+		const loadCalls: string[] = [];
+		const view = new PrPreviewChecksView({
+			tui: fakeTui(),
+			theme: identityTheme(),
+			model: previewModel([alpha, beta]),
+			onClose: () => {},
+			onLoadLogs: (check) => {
+				loadCalls.push(check.name);
+				return check === alpha
+					? alphaSummary.promise
+					: Promise.resolve([`summary for ${check.name}`]);
+			},
+		});
+
+		view.handleInput("l");
+		view.handleInput("j");
+		alphaSummary.resolve(["summary for alpha-check"]);
+		await flushPromises();
+
+		expect(renderText(view)).toContain("alpha-check");
+		expect(renderText(view)).toContain("beta-check");
+		expect(selectedDetailsText(view)).toContain("beta-check");
+		expect(selectedDetailsText(view)).not.toContain("summary for alpha-check");
+
+		view.handleInput("k");
+		expect(selectedDetailsText(view)).toContain("summary for alpha-check");
+
+		view.handleInput("l");
+		expect(loadCalls).toEqual(["alpha-check"]);
+	});
+
+	test("releases loading state when a log summary request times out", async () => {
+		const view = new PrPreviewChecksView({
+			tui: fakeTui(),
+			theme: identityTheme(),
+			model: previewModel([previewCheck("stuck-check")]),
+			onClose: () => {},
+			onLoadLogs: () => new Promise<readonly string[]>(() => {}),
+			logLoadTimeoutMs: 1,
+		});
+
+		view.handleInput("l");
+		expect(selectedDetailsText(view)).toContain("Loading and summarizing selected check logs");
+
+		await sleep(5);
+		await flushPromises();
+
+		expect(selectedDetailsText(view)).toContain("Log summary timed out after 1s");
+		expect(selectedDetailsText(view)).not.toContain("Loading and summarizing selected check logs");
+	});
+
 	test("keeps long check names available for full-width row rendering", () => {
 		const label = buildCheckRowLabel({
 			bucket: "failing",
@@ -72,3 +150,93 @@ describe("PR checks preview vertical layout", () => {
 		expect(label).not.toContain("…");
 	});
 });
+
+function previewCheck(name: string): PrPreviewCheck {
+	return {
+		bucket: "failing",
+		kind: "check_run",
+		name,
+		workflow_name: "ci",
+		status: "COMPLETED",
+		conclusion: "FAILURE",
+		state: null,
+		started_at: null,
+		completed_at: null,
+		created_at: null,
+		details_url: null,
+		target_url: null,
+		identity: null,
+	};
+}
+
+function previewModel(checks: readonly PrPreviewCheck[]): PrPreviewChecksViewModel {
+	return {
+		target: {
+			pr_number: 123,
+			title: "Preview checks",
+			url: null,
+			branch: "feature/checks",
+			head_ref_name: "feature/checks",
+			base_ref_name: "main",
+			head_ref_oid: null,
+		},
+		counts: { failing: checks.length, pending: 0, unknown: 0, passing: 0 },
+		fetchedAt: new Date("2026-06-25T00:00:00Z"),
+		checks,
+	};
+}
+
+function fakeTui(): TUI {
+	return {
+		terminal: { rows: 18 },
+		requestRender() {},
+	} as TUI;
+}
+
+function identityTheme(): Theme {
+	return {
+		fg(_color: string, text: string): string {
+			return text;
+		},
+		bg(_color: string, text: string): string {
+			return text;
+		},
+	} as Theme;
+}
+
+interface Deferred<T> {
+	promise: Promise<T>;
+	resolve(value: T): void;
+}
+
+function createDeferred<T>(): Deferred<T> {
+	let resolve: ((value: T) => void) | undefined;
+	const promise = new Promise<T>((resolvePromise) => {
+		resolve = resolvePromise;
+	});
+	return {
+		promise,
+		resolve(value) {
+			if (resolve === undefined) throw new Error("Deferred promise was not initialized.");
+			resolve(value);
+		},
+	};
+}
+
+async function flushPromises(): Promise<void> {
+	for (let index = 0; index < 3; index++) await Promise.resolve();
+}
+
+async function sleep(timeoutMs: number): Promise<void> {
+	await new Promise<void>((resolve) => setTimeout(resolve, timeoutMs));
+}
+
+function renderText(view: PrPreviewChecksView): string {
+	return view.render(120).join("\n");
+}
+
+function selectedDetailsText(view: PrPreviewChecksView): string {
+	const lines = view.render(120);
+	const detailsIndex = lines.findIndex((line) => line.includes("Selected check details"));
+	return lines.slice(Math.max(0, detailsIndex)).join("\n");
+}
