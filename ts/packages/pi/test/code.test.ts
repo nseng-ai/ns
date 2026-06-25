@@ -40,7 +40,7 @@ describe("code extension registration", () => {
 		const pi = new FakePi();
 		codeExtension(pi);
 
-		expect([...pi.commands.keys()]).toEqual(["code:gt-restack-resolve"]);
+		expect([...pi.commands.keys()]).toEqual(["code:gt-restack-resolve", "gt:squash-stack"]);
 		expect(pi.commands.has("pr:watch-feedback")).toBe(false);
 		expect(pi.commands.has("code:pr-regen")).toBe(false);
 		expect(pi.commands.has("code:push")).toBe(false);
@@ -52,5 +52,6 @@ describe("code extension registration", () => {
 		expect(pi.commands.has("code:cp")).toBe(false);
 		expect(pi.commands.has("code:submit")).toBe(false);
 		expect(pi.commands.get("code:gt-restack-resolve")?.description).toContain("gt restack");
+		expect(pi.commands.get("gt:squash-stack")?.description).toContain("gt squash");
 	});
 });
