@@ -18,7 +18,7 @@
   "dependencies": {
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
-    "@sdl/pi-extension-runtime": "workspace:*",
+    "@sdl/pi": "workspace:*",
     "zod": "catalog:"
   }
 }

@@ -2,10 +2,7 @@ import {
 	findLatestBranchContextEvidence,
 	type BranchContextEvidence,
 } from "@sdl/branch-context/api";
-import {
-	registerCommandWithImmediateAck,
-	sendCommandProgressOrNotify,
-} from "@sdl/pi-extension-runtime/command-ack";
+import { registerCommandWithImmediateAck, sendCommandProgressOrNotify } from "@sdl/pi/commands/ack";
 
 import { openBranchInCmuxSlot } from "./slot.ts";
 import type {

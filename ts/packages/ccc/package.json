@@ -29,7 +29,7 @@
     "@sdl/core": "workspace:*",
     "@sdl/domain-primitives-transitional": "workspace:*",
     "@sdl/graphite": "workspace:*",
-    "@sdl/pi-extension-runtime": "workspace:*",
+    "@sdl/pi": "workspace:*",
     "@sdl/plans": "workspace:*",
     "@sdl/sdl": "workspace:*",
     "zod": "catalog:"

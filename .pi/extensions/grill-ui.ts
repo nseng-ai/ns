@@ -1,3 +1,3 @@
-import { registerGrillUiExtension } from "../../ts/packages/pi-extensions/src/grill-ui.ts";
+import { registerGrillUiExtension } from "../../ts/packages/pi/src/grill/extension.ts";
 
 export default registerGrillUiExtension;

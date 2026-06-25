@@ -69,7 +69,7 @@ The evidence rule for moving behavior into the SDL extension API: one command ma
 *Avoid*: one-command convenience export, importing implementation modules from extensions, treating duplication as automatically bad, hidden migration registry.
 
 **Internal workspace export**:
-An `@sdl/sdl` subpath shared across first-party workspace packages (`ccc`, `pi-extensions`, flow) but not promised through the Public author API. It carries SDK-independent primitives — code that takes explicit callbacks (`execGit`, a text generator) rather than `SdlExtensionApi`. The dividing rule between sharing mechanisms is SDK-dependence: `ctx`-dependent shared code belongs above the SDK in the Shared extension substrate; SDK-independent primitives stay here, below the SDK. Package metadata records these subpaths under `sdl.internalWorkspaceExports`.
+An `@sdl/sdl` subpath shared across first-party workspace packages (`ccc`, `pi`, flow) but not promised through the Public author API. It carries SDK-independent primitives — code that takes explicit callbacks (`execGit`, a text generator) rather than `SdlExtensionApi`. The dividing rule between sharing mechanisms is SDK-dependence: `ctx`-dependent shared code belongs above the SDK in the Shared extension substrate; SDK-independent primitives stay here, below the SDK. Package metadata records these subpaths under `sdl.internalWorkspaceExports`.
 *Avoid*: internal migration export, plugin API, public SDK, command-author import path, ctx-dependent shared code.
 
 **Flow capability-area maturity ladder**:
@@ -129,5 +129,5 @@ The above-SDK package holding cross-cutting, capability-agnostic code shared amo
 *Avoid*: capability-specific home, below-SDK package, public author API, kitchen-sink utilities, `@sdl/core`.
 
 **Transitional domain-primitives package** (`@sdl/domain-primitives-transitional`):
-A below-SDK package that temporarily holds SDK-independent domain primitives extracted out of `@sdl/sdl` (checkpoint-flow/message, pending-worktree, temp-files, text-generation, text-repair). Explicitly disposable: it deletes to zero once every capability is an above-SDK extension and `ccc`/`pi-extensions` consume Peer APIs instead of transitional primitive subpaths. The `-transitional` suffix is deliberate — it marks the dependency as debt at every import site.
+A below-SDK package that temporarily holds SDK-independent domain primitives extracted out of `@sdl/sdl` (checkpoint-flow/message, pending-worktree, temp-files, text-generation, text-repair). Explicitly disposable: it deletes to zero once every capability is an above-SDK extension and `ccc`/`pi` consume Peer APIs instead of transitional primitive subpaths. The `-transitional` suffix is deliberate — it marks the dependency as debt at every import site.
 *Avoid*: permanent shared library, `@sdl/core` neutral infra, Shared extension substrate, forever-home.

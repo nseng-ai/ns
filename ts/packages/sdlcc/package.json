@@ -13,10 +13,10 @@
     "stack-map": "bun src/cli.ts"
   },
   "dependencies": {
+    "@opentui/core": "catalog:",
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
-    "@sdl/pi-extension-runtime": "workspace:*",
-    "@opentui/core": "catalog:",
+    "@sdl/pi": "workspace:*",
     "zod": "catalog:"
   }
 }

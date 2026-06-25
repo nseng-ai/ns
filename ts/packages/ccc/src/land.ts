@@ -1,17 +1,18 @@
 import { createCommandIo, runWithCommandIo, type CommandIo } from "@sdl/core/command-io";
 import { normalizeExecResult, type ExecOutputListener } from "@sdl/core/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
-import {
-	sendCommandProgressOrNotify,
-	registerCommandWithImmediateAck,
-} from "@sdl/pi-extension-runtime/command-ack";
+import { sendCommandProgressOrNotify, registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
 import {
 	executeStackLanding,
 	landArgumentCompletions,
 	parseArgs,
 	registerLandStackRenderer,
 } from "./land-stack.ts";
-import { LandStackCommandStream, withCommandStreaming } from "./land-stack/command-stream.ts";
+import {
+	createLandUiCommandIo,
+	LandStackCommandStream,
+	withCommandStreaming,
+} from "./land-stack/command-stream.ts";
 import { AUTO_CHUNK_LANDING_THRESHOLD } from "./land-stack/constants.ts";
 import {
 	completed,
@@ -137,8 +138,8 @@ async function runLandCommand(
 
 	await ctx.waitForIdle();
 
-	const commandStream = new LandStackCommandStream(pi, ctx, {
-		...(progressIo === undefined ? {} : { progressIo }),
+	const commandStream = new LandStackCommandStream(progressIo ?? createLandUiCommandIo(pi, ctx), {
+		shouldShowRunningCommandStatus: progressIo !== undefined && ctx.hasUI,
 		shouldMirrorFinishedCommandsToNonUi: false,
 	});
 	const runtimePi = withCommandStreaming(pi, commandStream);
@@ -177,7 +178,7 @@ async function runLandCommand(
 	if (shape.value.stack.landingBranches.length > AUTO_CHUNK_LANDING_THRESHOLD) {
 		return await executeStackLanding(pi, ctx, args.value, {
 			initialShape: shape.value,
-			...(progressIo === undefined ? {} : { progressIo }),
+			...(progressIo === undefined ? {} : { io: progressIo }),
 		});
 	}
 
@@ -190,7 +191,7 @@ async function runLandCommand(
 	return await executeStackLanding(pi, ctx, args.value, {
 		skipMainConfirmation: true,
 		initialShape: shape.value,
-		...(progressIo === undefined ? {} : { progressIo }),
+		...(progressIo === undefined ? {} : { io: progressIo }),
 	});
 }
 
@@ -198,9 +199,9 @@ async function runLandCommand(
  * Lower-level adapter used by the SDL CLI extension.
  *
  * This intentionally does not use `registerCliCommandExtension`: that helper lives
- * above CCC in `@sdl/pi-extensions` and owns Pi slash-command registration and
+ * above CCC in `@sdl/pi` and owns Pi slash-command registration and
  * rendering. This adapter must stay below that package so SDL CLI execution can
- * reuse CCC land orchestration without creating a CCC -> pi-extensions cycle.
+ * reuse CCC land orchestration through the intentional private CCC/Pi package cycle.
  */
 export interface LandCliInput {
 	cwd: string;

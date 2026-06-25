@@ -10,7 +10,11 @@ import {
 	stripAnsi,
 } from "../src/land-stack/command-exec.ts";
 import { landStackFailure, type LandStackResult } from "../src/land-stack/errors.ts";
-import { LandStackCommandStream, withCommandStreaming } from "../src/land-stack/command-stream.ts";
+import {
+	createLandUiCommandIo,
+	LandStackCommandStream,
+	withCommandStreaming,
+} from "../src/land-stack/command-stream.ts";
 import { executeStackLanding, parseArgs, registerLandStackRenderer } from "../src/land-stack.ts";
 import {
 	derivePathToTrunk,
@@ -1398,7 +1402,7 @@ describe("land-stack pure helpers", () => {
 
 		const pi = new ThrowingPi();
 		const context = createContext();
-		const commandStream = new LandStackCommandStream(pi, context.ctx);
+		const commandStream = new LandStackCommandStream(createLandUiCommandIo(pi, context.ctx));
 		const streamed = withCommandStreaming(pi, commandStream);
 
 		const result = await streamed.exec("git", ["status"], { cwd: ROOT });
@@ -1413,7 +1417,7 @@ describe("land-stack pure helpers", () => {
 	test("labels successful sqlite3 topology reads in the command stream", async () => {
 		const pi = new FakePi([step("sqlite3", ["-json", DB_PATH, "select 1"])]);
 		const context = createContext();
-		const commandStream = new LandStackCommandStream(pi, context.ctx);
+		const commandStream = new LandStackCommandStream(createLandUiCommandIo(pi, context.ctx));
 		const streamed = withCommandStreaming(pi, commandStream);
 
 		await streamed.exec("sqlite3", ["-json", DB_PATH, "select 1"], { cwd: ROOT });
@@ -1427,7 +1431,7 @@ describe("land-stack pure helpers", () => {
 	test("does not label unrelated sqlite3 commands as Graphite topology reads", async () => {
 		const pi = new FakePi([step("sqlite3", ["-json", "/tmp/other.db", "select 1"])]);
 		const context = createContext();
-		const commandStream = new LandStackCommandStream(pi, context.ctx);
+		const commandStream = new LandStackCommandStream(createLandUiCommandIo(pi, context.ctx));
 		const streamed = withCommandStreaming(pi, commandStream);
 
 		await streamed.exec("sqlite3", ["-json", "/tmp/other.db", "select 1"], { cwd: ROOT });
@@ -1443,13 +1447,7 @@ describe("land-stack pure helpers", () => {
 		const pi = new FakePi();
 		const context = createContext({ hasUI: true });
 		const phases: string[] = [];
-		const commandStream = new LandStackCommandStream(pi, context.ctx, {
-			progressIo: {
-				phase: (message) => phases.push(message),
-				notify: () => {},
-				clearPhase: () => {},
-			},
-		});
+		const commandStream = new LandStackCommandStream(createLandUiCommandIo(pi, context.ctx));
 
 		commandStream.note("Preparing to land 1 PR through feature-a...");
 
@@ -1461,17 +1459,13 @@ describe("land-stack pure helpers", () => {
 	});
 
 	test("mirrors UI command stream messages through progress IO when no renderer is available", () => {
-		const pi: LandStackExtensionAPI = {
-			exec: async () => execResult(),
-		};
 		const context = createContext({ hasUI: true });
 		const phases: string[] = [];
-		const commandStream = new LandStackCommandStream(pi, context.ctx, {
-			progressIo: {
-				phase: (message) => phases.push(message),
-				notify: () => {},
-				clearPhase: () => {},
-			},
+		const commandStream = new LandStackCommandStream({
+			phase: (message) => phases.push(message),
+			notify: () => {},
+			message: (message) => phases.push(message),
+			clearPhase: () => {},
 		});
 
 		commandStream.note("Preparing to land 1 PR through feature-a...");
@@ -1486,7 +1480,15 @@ describe("land-stack pure helpers", () => {
 			step("git", ["fail"], { code: 2, stdout: "stdout line", stderr: "stderr line" }),
 		]);
 		const context = createContext({ hasUI: false });
-		const commandStream = new LandStackCommandStream(pi, context.ctx);
+		const commandStream = new LandStackCommandStream({
+			phase: (message) => context.notifications.push({ message, level: "info" }),
+			notify: (message, level) => context.notifications.push({ message, level }),
+			message: (message, options) => {
+				if (options?.isRichOnly === true) return;
+				context.notifications.push({ message, level: options?.level });
+			},
+			clearPhase: () => {},
+		});
 		const streamed = withCommandStreaming(pi, commandStream);
 
 		commandStream.note("Preparing to land 1 PR through feature-a...");
@@ -1510,7 +1512,15 @@ describe("land-stack pure helpers", () => {
 	test("does not mirror final success or failure blocks to non-UI notifications", () => {
 		const pi = new FakePi();
 		const context = createContext({ hasUI: false });
-		const commandStream = new LandStackCommandStream(pi, context.ctx);
+		const commandStream = new LandStackCommandStream({
+			phase: (message) => context.notifications.push({ message, level: "info" }),
+			notify: (message, level) => context.notifications.push({ message, level }),
+			message: (message, options) => {
+				if (options?.isRichOnly === true) return;
+				context.notifications.push({ message, level: options?.level });
+			},
+			clearPhase: () => {},
+		});
 
 		commandStream.finishSuccess("Landed 1 PR: #101 feature-a.");
 		commandStream.finishFailure("land stopped.");

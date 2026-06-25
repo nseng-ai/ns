@@ -1,6 +1,6 @@
 import { formatCommand, formatOutputSection } from "@sdl/core/exec";
-import { parseMachineEnvelopeData } from "@sdl/pi-extension-runtime/machine-envelope";
-import type { ExecResult, ExtensionAPI } from "@sdl/pi-extension-runtime/cmux/types";
+import { parseMachineEnvelopeData } from "@sdl/pi/runtime/machine-envelope";
+import type { ExecResult, ExtensionAPI } from "@sdl/pi/cmux/types";
 
 const SLOT_TIMEOUT_MS = 30_000;
 const MAX_ERROR_CHARS = 4_000;

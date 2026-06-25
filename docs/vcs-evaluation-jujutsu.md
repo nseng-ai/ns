@@ -158,4 +158,4 @@ is mostly editing ergonomics plus op-log undo, a full replacement does not clear
 - jj-spr (stacked PRs against GitHub): <https://github.com/jennings/jj-spr>
 - In-repo domain language: root `CONTEXT.md` / `CONTEXT-MAP.md`,
   `ts/packages/brmem/CONTEXT.md` (Branch Memory), `ts/packages/ccc/CONTEXT.md`, and
-  `ts/packages/pi-extensions/CONTEXT.md` (worktree/Pi integration).
+  `ts/packages/pi/CONTEXT.md` (worktree/Pi integration).

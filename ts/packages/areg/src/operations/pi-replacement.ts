@@ -1,9 +1,6 @@
-import { derivePiReplacementSurface, KNOWN_PI_COMMAND_NAMESPACES } from "@sdl/pi-command-surfaces";
+import { derivePiReplacementSurface, KNOWN_PI_COMMAND_NAMESPACES } from "@sdl/pi/commands";
 
-export {
-	KNOWN_PI_COMMAND_NAMESPACES,
-	SPECIALIZED_SKILL_REPLACEMENTS,
-} from "@sdl/pi-command-surfaces";
+export { KNOWN_PI_COMMAND_NAMESPACES, SPECIALIZED_SKILL_REPLACEMENTS } from "@sdl/pi/commands";
 
 export interface PiReplacementFacts {
 	verifiedSurfaces: readonly string[];

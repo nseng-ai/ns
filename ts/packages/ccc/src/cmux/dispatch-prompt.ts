@@ -1,4 +1,4 @@
-import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
+import { registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -19,7 +19,7 @@ import {
 } from "@sdl/core/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { runGraphiteCommand } from "@sdl/graphite/branch";
-import { sendCommandProgressOrNotify } from "@sdl/pi-extension-runtime/command-ack";
+import { sendCommandProgressOrNotify } from "@sdl/pi/commands/ack";
 import {
 	generateBranchSlug,
 	MAX_BRANCH_SLUG_LENGTH,

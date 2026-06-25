@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@sdl/core": "workspace:*",
-    "@sdl/pi-extension-runtime": "workspace:*"
+    "@sdl/pi": "workspace:*"
   },
   "devDependencies": {}
 }

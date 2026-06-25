@@ -23,7 +23,7 @@ import {
 } from "@sdl/core/github-status";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { formatElapsedMs } from "@sdl/core/time-format";
-import { parseMachineEnvelopeData } from "@sdl/pi-extension-runtime/machine-envelope";
+import { parseMachineEnvelopeData } from "@sdl/pi/runtime/machine-envelope";
 import {
 	customMessageText,
 	linkifyPrReferences,
@@ -31,7 +31,7 @@ import {
 	safeTerminalHyperlink,
 	truncateDisplayLine,
 	type CustomMessageContent,
-} from "@sdl/pi-extension-runtime/terminal-presentation";
+} from "@sdl/pi/terminal/presentation";
 
 import {
 	loadGraphiteMetadataStatusInWorker,

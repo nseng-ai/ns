@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { ObjectiveList } from "@sdl/pi-extension-runtime/objective-list";
+import type { ObjectiveList } from "@sdl/pi/objectives/list";
 
 import { objectiveTabModule, type ObjectiveTabState } from "../../src/objective-tab.ts";
 import type { CommandOptions, CommandOutput } from "../../src/command-runner.ts";

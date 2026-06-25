@@ -66,7 +66,7 @@ HTTP routing (Hono), durable submissions, session persistence, skills,
 sandboxed tools (`just-bash`), MCP, and Cloudflare/Node deployment.
 
 > **sdl contrast.** sdl does **not** depend on `pi-agent-core` and never
-> constructs an `Agent`. sdl's `ts/packages/pi-extensions` and `ts/packages/sdl`
+> constructs an `Agent`. sdl's `ts/packages/pi` and `ts/packages/sdl`
 > depend on `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, and
 > `@earendil-works/pi-ai` (pinned `0.79.1`). flue wraps the agent *loop*; sdl
 > plugs into the agent *host*. The loop is flue's to own; for sdl the loop

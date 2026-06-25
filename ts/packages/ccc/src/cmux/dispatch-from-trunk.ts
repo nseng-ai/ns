@@ -1,4 +1,4 @@
-import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
+import { registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
 import {
 	execApiToCommandRunner,
 	formatCommand,
@@ -8,7 +8,7 @@ import {
 } from "@sdl/core/exec";
 import { planLocalBranchRefreshFromWorktrees, type LocalBranchRefreshPlan } from "@sdl/core/git";
 import { runGraphiteCommand } from "@sdl/graphite/branch";
-import { sendCommandProgressOrNotify } from "@sdl/pi-extension-runtime/command-ack";
+import { sendCommandProgressOrNotify } from "@sdl/pi/commands/ack";
 
 import {
 	buildBrmemPayloadPiLaunchCommand,

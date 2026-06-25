@@ -13,7 +13,7 @@ describe("pathMatchesPattern", () => {
 		["**/*.py", "packages/pkg/src/app.py"],
 		["**/tests/**/*.py", "tests/test_x.py"],
 		["**/tests/**/*.py", "packages/pkg/tests/unit/test_x.py"],
-		["**/*.ts", "ts/packages/pi-extensions/test/planned-branch-extension.test.ts"],
+		["**/*.ts", "ts/packages/pi/test/planned-branch-extension.test.ts"],
 	])("matches %s against %s", (pattern, path) => {
 		expect(pathMatchesPattern(path, pattern)).toBe(true);
 	});

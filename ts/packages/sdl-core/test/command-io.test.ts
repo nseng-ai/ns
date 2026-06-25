@@ -85,6 +85,55 @@ describe("createCommandIo", () => {
 	});
 });
 
+describe("message", () => {
+	test("routes to the rich sink with details when present", () => {
+		const rich: Array<{ text: string; level: string; details: unknown }> = [];
+		const fallback: string[] = [];
+		const io = createCommandIo({
+			richMessage: (text, options) =>
+				rich.push({ text, level: options.level, details: options.details }),
+			phaseFallback: (text) => fallback.push(text),
+		});
+
+		io.message("Landed #101", { level: "info", details: { prLinks: [{ number: 101 }] } });
+
+		expect(rich).toEqual([
+			{ text: "Landed #101", level: "info", details: { prLinks: [{ number: 101 }] } },
+		]);
+		expect(fallback).toEqual([]);
+	});
+
+	test("omits details for the rich sink when not provided", () => {
+		const rich: Array<{ text: string; options: { level: string; details?: unknown } }> = [];
+		const io = createCommandIo({
+			richMessage: (text, options) => rich.push({ text, options }),
+		});
+
+		io.message("Working...", { level: "warning" });
+
+		expect(rich).toEqual([{ text: "Working...", options: { level: "warning" } }]);
+		expect("details" in (rich[0]?.options ?? {})).toBe(false);
+	});
+
+	test("falls back to phase text when no rich sink exists", () => {
+		const fallback: string[] = [];
+		const io = createCommandIo({ phaseFallback: (text) => fallback.push(text) });
+
+		io.message("Progress line");
+
+		expect(fallback).toEqual(["Progress line\n"]);
+	});
+
+	test("drops isRichOnly messages when no rich sink exists", () => {
+		const fallback: string[] = [];
+		const io = createCommandIo({ phaseFallback: (text) => fallback.push(text) });
+
+		io.message("Final summary", { isRichOnly: true });
+
+		expect(fallback).toEqual([]);
+	});
+});
+
 describe("runWithCommandIo", () => {
 	test("clears phase on success and thrown error", async () => {
 		const events: string[] = [];

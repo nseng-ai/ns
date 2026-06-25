@@ -20,7 +20,7 @@ import type {
 	SessionStartContext,
 	ThinkingLevel,
 } from "../src/cmux/types.ts";
-import type { SkillCommandInfo } from "@sdl/pi-extension-runtime/skill-expansion";
+import type { SkillCommandInfo } from "@sdl/pi/skills/expansion";
 
 import { ScriptedQueue } from "@sdl/core/testing";
 

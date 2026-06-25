@@ -1,7 +1,4 @@
-import {
-	sendCommandProgressOrNotify,
-	registerCommandWithImmediateAck,
-} from "@sdl/pi-extension-runtime/command-ack";
+import { sendCommandProgressOrNotify, registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
 import {
 	BRANCH_CONTEXT_NAMESPACE,
 	buildBranchContextCreateOperation,

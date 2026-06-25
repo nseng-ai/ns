@@ -1,4 +1,4 @@
-import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
+import { registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
 import { homedir } from "node:os";
 import { join } from "node:path";
 

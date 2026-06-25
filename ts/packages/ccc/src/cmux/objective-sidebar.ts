@@ -1,7 +1,7 @@
 import { basename, isAbsolute, posix, relative, resolve, sep } from "node:path";
 
 import { formatCommand, formatOutputSection, tailText, type ExecResult } from "@sdl/core/exec";
-import { parseMachineEnvelopeData } from "@sdl/pi-extension-runtime/machine-envelope";
+import { parseMachineEnvelopeData } from "@sdl/pi/runtime/machine-envelope";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import type { ExtensionAPI } from "./types.ts";
 

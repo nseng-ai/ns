@@ -1,3 +1,3 @@
-import modelShortcutExtension from "../../ts/packages/pi-extensions/src/model-shortcuts.ts";
+import modelShortcutExtension from "../../ts/packages/pi/src/models/shortcuts.ts";
 
 export default modelShortcutExtension;

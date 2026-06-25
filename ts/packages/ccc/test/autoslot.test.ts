@@ -107,6 +107,7 @@ function createHarness(options: HarnessOptions = {}) {
 		io: {
 			phase: (message) => statuses.push(message),
 			notify: (message, level) => notifications.push({ message, level: level ?? "info" }),
+			message: () => {},
 			clearPhase: () => statuses.push(undefined),
 		},
 	};

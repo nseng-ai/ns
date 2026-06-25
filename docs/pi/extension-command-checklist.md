@@ -6,7 +6,7 @@ It combines Pi's upstream extension API with this repo's command-registration po
 ## Ground rules
 
 - Pi extension commands are registered with `pi.registerCommand(name, { description, handler, ... })`; `name` is the command without the leading `/`.
-- Project-local discovery adapters live under `.pi/extensions/`; durable tested implementation lives under `ts/packages/pi-extensions/` or, for CCC-owned orchestration, `ts/packages/ccc/`.
+- Project-local discovery adapters live under `.pi/extensions/`; durable tested implementation lives under `ts/packages/pi/` or, for CCC-owned orchestration, `ts/packages/ccc/`.
 - Command handlers receive Pi's `ExtensionCommandContext`. Use command-only methods such as `ctx.waitForIdle()` only inside command handlers.
 - `ctx.ui.setStatus(...)` is footer/status UI. It is not transcript progress.
 - Above-fold transcript progress is explicit: use `sendCommandProgressOrNotify(...)` or `sendCommandProgressMessage(...)` at selected milestones.
@@ -15,10 +15,10 @@ It combines Pi's upstream extension API with this repo's command-registration po
 ## Registration pattern
 
 Every repo-owned Pi slash command should acknowledge receipt synchronously before it waits for idle state or starts slow I/O.
-Use `registerCommandWithImmediateAck` from `@sdl/pi-extension-runtime/command-ack` at each registration site:
+Use `registerCommandWithImmediateAck` from `@sdl/pi/commands/ack` at each registration site:
 
 ```ts
-import { registerCommandWithImmediateAck } from "@sdl/pi-extension-runtime/command-ack";
+import { registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
 
 export function registerExampleCommand(pi: ExampleExtensionAPI): void {
 	registerCommandWithImmediateAck({
@@ -78,7 +78,7 @@ For CCC-owned orchestration, read `ts/packages/ccc/AGENTS.md` before changing pr
 
 Before editing:
 
-- [ ] Identify the owning layer: `.pi/extensions/` discovery adapter, `@sdl/pi-extensions` engineered behavior, or `@sdl/ccc` orchestration.
+- [ ] Identify the owning layer: `.pi/extensions/` discovery adapter, `@sdl/pi` engineered behavior, or `@sdl/ccc` orchestration.
 - [ ] Read the relevant package `AGENTS.md` and `CONTEXT.md` before naming new concepts.
 - [ ] Pick a command namespace by workflow ownership, not file location (`/sdl:*`, `/objective:*`, `/handoff:*`, `/ccc:*`, `/pi:*`, etc.).
 - [ ] Check for existing command names with `rg` or Pi RPC inventory; avoid duplicate public slash commands unless intentionally documented.
