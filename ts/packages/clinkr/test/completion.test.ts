@@ -93,7 +93,7 @@ describe("clinkr static completion", () => {
 		expect(longValues).toContain("--mode");
 		expect(longValues).toContain("--dry-run");
 		expect(longValues).toContain("--format");
-		expect(longValues).toContain("--shell-exit-code");
+		expect(longValues).not.toContain("--shell" + "-exit-code");
 		expect(longValues).toContain("--json-schema");
 		expect(longValues).toContain("--help");
 		expect(allFlagValues).toContain("-h");
@@ -104,7 +104,7 @@ describe("clinkr static completion", () => {
 
 		expect(values).toContain("--json-schema");
 		expect(values).not.toContain("--format");
-		expect(values).not.toContain("--shell-exit-code");
+		expect(values).not.toContain("--shell" + "-exit-code");
 	});
 
 	test("suggests root-only framework options only at the root", () => {

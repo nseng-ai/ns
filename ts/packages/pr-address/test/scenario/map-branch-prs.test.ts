@@ -94,7 +94,7 @@ describe("pr-address exec map-branch-prs", () => {
 			prFeedback: stackedPrFeedback(),
 			stdin: JSON.stringify({ branches: ["feature-a", "no-such-branch", "feature-merged"] }),
 		});
-		expect(await run.exit).toBe(0);
+		expect(await run.exit).toBe(1);
 		const envelope = parseEnvelope(run);
 		expect(envelope.exitCode).toBe(1);
 		expect(envelope.message).toBe("No open PR found for branches: no-such-branch, feature-merged");
@@ -126,7 +126,7 @@ describe("pr-address exec map-branch-prs", () => {
 			prFeedback,
 			stdin: JSON.stringify({ branches: ["feature-shared"] }),
 		});
-		expect(await run.exit).toBe(0);
+		expect(await run.exit).toBe(1);
 		const envelope = parseEnvelope(run);
 		expect(envelope.exitCode).toBe(1);
 		expect(envelope.message).toBe("Multiple open PRs found for branches: feature-shared");

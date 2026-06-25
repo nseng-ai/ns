@@ -45,12 +45,8 @@ describe("exitCodeForExit", () => {
 		expect(exitCodeForExit(ok({ value: 1 }))).toBe(0);
 	});
 
-	test("negative maps to 0 by default", () => {
-		expect(exitCodeForExit(negative("nothing to do"))).toBe(0);
-	});
-
-	test("negative maps to 1 in shell exit code mode", () => {
-		expect(exitCodeForExit(negative("nothing to do"), { shellExitCode: true })).toBe(1);
+	test("negative maps to 1", () => {
+		expect(exitCodeForExit(negative("nothing to do"))).toBe(1);
 	});
 
 	test("failure maps to 2", () => {

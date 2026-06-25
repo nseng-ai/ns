@@ -89,7 +89,7 @@ describe("slot gt navigation CLI", () => {
 			git: { worktrees: [{ path: "/repo", branch: "feature/current" }] },
 			gt: { children: { type: "children", branches: ["feature/a", "feature/b"] } },
 		});
-		expect(await run.exit).toBe(0);
+		expect(await run.exit).toBe(1);
 		expect(parseJsonOutput(run)).toMatchObject({
 			exitCode: 1,
 			message:

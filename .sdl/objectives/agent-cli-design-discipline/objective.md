@@ -120,13 +120,14 @@ the high-agreement changes, and parking the contested or large ones as backlog.
   Clinkr-grounded overlay references the internal `@sdl/clinkr` package, and the
   skill-conventions bar public skills from referencing sdl-internal module paths
   — which pushes toward internal, but this needs an explicit call.
-- Exit-code semantics are decided in ADR 0010: keep process exit codes coarse
-  and stable (0 success, 1 semantic/operational failure, 2
-  usage/invocation/config failure) and make the machine envelope the
+- Exit-code semantics are decided by ADR 0010 plus ADR 0013. ADR 0010 keeps
+  process exit codes coarse and stable and makes the machine envelope the
   authoritative surface for detailed failure semantics through disciplined
-  `error_type`/`code` plus structured `data`/details. The ADR preserves dissent
-  for richer numeric taxonomies as useful for specialized shell-only automation
-  but not Clinkr's default.
+  `error_type`/`code` plus structured `data`/details. ADR 0013 narrows Clinkr's
+  practical taxonomy to `ok=0`, `negative=1`, and `failure/usage_error=2`, and
+  removes the redundant shell-exit opt-in surface. The ADRs preserve dissent for
+  richer numeric taxonomies as useful for specialized shell-only automation but
+  not Clinkr's default.
 - ADR 0011 answers the core `--format json` envelope/parity question for
   TypeScript Clinkr: the Python-parity contract is not load-bearing for the TS
   machine envelope, camelCase discriminated envelopes are the contract, and
@@ -135,6 +136,9 @@ the high-agreement changes, and parking the contested or large ones as backlog.
   compact/pagination/JSONL framework API, treat bounded machine output as
   command-local `sdl-cli-design` guidance, and revisit framework extraction only
   after repeated command pressure or one severe agent-context failure.
+- ADR 0013 answers the negative process-exit default question: `negative(...)`
+  is shell-visible non-success by default; harmless empty/no-op successes should
+  return explicit `ok(...)` results.
 - Should the agent-ergonomics Clinkr changes proceed now or wait behind the
   `sdl-extension-architecture` endgame that currently pauses
   `ts-cli-core-structural-cleanup`?

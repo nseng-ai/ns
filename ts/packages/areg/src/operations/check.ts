@@ -1,4 +1,4 @@
-import { failure, ok, shellNegative, type ClinkrExit } from "@sdl/clinkr";
+import { failure, ok, negative, type ClinkrExit } from "@sdl/clinkr";
 import type { Result } from "@sdl/core/result";
 import { z } from "zod";
 
@@ -105,11 +105,11 @@ export async function runCheck(
 		if (!isPathStateError(piSettings.error))
 			return failure("pi_settings_invalid", piSettings.error.message);
 		const report = piSettingsPathFailureReport(inspection.projectDir, piSettings.error.message);
-		return shellNegative(formatCheckReport(report), report);
+		return negative(formatCheckReport(report), report);
 	}
 	const report = buildCheckReport(inspection, lockfileResult.value, piSettings.value.exclusions);
 	if (report.ok) return ok(report);
-	return shellNegative(formatCheckReport(report), report);
+	return negative(formatCheckReport(report), report);
 }
 
 export function renderCheck(report: CheckReport): string {

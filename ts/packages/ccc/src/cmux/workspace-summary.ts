@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { shellNegative, ok, type ClinkrExit } from "@sdl/clinkr";
+import { negative, ok, type ClinkrExit } from "@sdl/clinkr";
 import type { CommandExecApi } from "@sdl/core/exec";
 import { RealCmuxGateway, type CmuxGateway, type CmuxGatewayFailure } from "./gateway.ts";
 
@@ -205,7 +205,7 @@ function failedExit(
 						},
 		},
 	};
-	return shellNegative(failure.message, result);
+	return negative(failure.message, result);
 }
 
 function nonBlank(value: string | undefined): string | undefined {

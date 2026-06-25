@@ -1,4 +1,4 @@
-import { failure, ok, shellNegative, type ClinkrExit } from "@sdl/clinkr";
+import { failure, ok, negative, type ClinkrExit } from "@sdl/clinkr";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { z } from "zod";
 
@@ -227,7 +227,7 @@ export async function runReviewByKey(
 		`resolved model=${outcome.progress.model} model_profile=${outcome.progress.modelProfile} base_ref=${outcome.progress.baseRef} changed_paths=${outcome.progress.changedPathCount}\n`,
 	);
 	if (outcome.type === "completed_log_failed") {
-		return shellNegative(
+		return negative(
 			`${renderReviewRun(outcome.result)}\n\nroaster: failed to write Branch Memory review log:\n${outcome.error.message}`,
 			outcome.result,
 		);
@@ -286,7 +286,7 @@ export async function runRecordFindings(
 
 	const logResult = await writeReviewRunLog(ctx, { reviewKey: source.key, result });
 	if (logResult.type === "error") {
-		return shellNegative(
+		return negative(
 			`${renderReviewRun(result)}\n\nroaster: failed to write Branch Memory review log:\n${logResult.error.message}`,
 			result,
 		);

@@ -105,7 +105,7 @@ describe("objective check", () => {
 			},
 		});
 
-		expect(await run.exit).toBe(0);
+		expect(await run.exit).toBe(1);
 		const output = parseJsonOutput(run);
 		expect(output).toMatchObject({
 			exitCode: 1,
@@ -137,7 +137,7 @@ describe("objective check", () => {
 			},
 		});
 
-		expect(await run.exit).toBe(0);
+		expect(await run.exit).toBe(1);
 		expect(parseJsonOutput(run)).toMatchObject({
 			exitCode: 1,
 			message: "Objective check failed for slug 'done': 1 error(s), 0 warning(s).",
@@ -152,7 +152,7 @@ describe("objective check", () => {
 
 	test("missing and invalid slugs return stable negative envelopes", async () => {
 		const missing = runScenario(["check", "--format", "json"]);
-		expect(await missing.exit).toBe(0);
+		expect(await missing.exit).toBe(1);
 		expect(parseJsonOutput(missing)).toMatchObject({
 			exitCode: 1,
 			message: "Missing Objective slug. Pass an explicit slug.",
@@ -160,7 +160,7 @@ describe("objective check", () => {
 		});
 
 		const invalid = runScenario(["check", "foo/bar", "--format", "json"]);
-		expect(await invalid.exit).toBe(0);
+		expect(await invalid.exit).toBe(1);
 		expect(parseJsonOutput(invalid)).toMatchObject({
 			exitCode: 1,
 			message: "Invalid Objective slug 'foo/bar'. Pass a single slug, not a path.",

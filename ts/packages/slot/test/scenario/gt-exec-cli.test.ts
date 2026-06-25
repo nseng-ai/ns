@@ -75,7 +75,7 @@ describe("slot gt exec stack-branches CLI", () => {
 				},
 			},
 		});
-		expect(await run.exit).toBe(0);
+		expect(await run.exit).toBe(1);
 		expect(parseJsonOutput(run)).toMatchObject({
 			exitCode: 1,
 			message: "On trunk 'master'; no stack is checked out.",

@@ -156,7 +156,7 @@ describe("objective archive", () => {
 			context: contextFor(fake),
 		});
 
-		expect(await run.exit).toBe(0);
+		expect(await run.exit).toBe(1);
 		expect(parseJsonOutput(run)).toEqual({
 			status: "negative",
 			exitCode: 1,
@@ -191,7 +191,7 @@ describe("objective archive", () => {
 			context: contextFor(fake),
 		});
 
-		expect(await run.exit).toBe(0);
+		expect(await run.exit).toBe(1);
 		expect(parseJsonOutput(run)).toEqual({
 			status: "negative",
 			exitCode: 1,
@@ -223,7 +223,7 @@ describe("objective archive", () => {
 		const invalid = runScenario(["archive", "foo/bar", "--format", "json"], {
 			fake: { records: [{ slug: "alpha" }] },
 		});
-		expect(await invalid.exit).toBe(0);
+		expect(await invalid.exit).toBe(1);
 		expect(parseJsonOutput(invalid)).toEqual({
 			status: "negative",
 			exitCode: 1,
@@ -242,7 +242,7 @@ describe("objective archive", () => {
 		});
 
 		const missing = runScenario(["archive", "--format", "json"]);
-		expect(await missing.exit).toBe(0);
+		expect(await missing.exit).toBe(1);
 		expect(missing.stderr.join("")).not.toContain("Usage:");
 		expect(parseJsonOutput(missing)).toEqual({
 			status: "negative",
@@ -267,7 +267,7 @@ describe("objective archive", () => {
 			fake: { files: { ".sdl/objectives/alpha": "not a directory\n" } },
 		});
 
-		expect(await run.exit).toBe(0);
+		expect(await run.exit).toBe(1);
 		expect(parseJsonOutput(run)).toEqual({
 			status: "negative",
 			exitCode: 1,

@@ -57,7 +57,7 @@ describe("slot goto CLI", () => {
 		const run = runScenario(["goto", "-n", "1", "--format", "json"], {
 			git: { worktrees: [slotWorktree("slot-01")] },
 		});
-		expect(await run.exit).toBe(0);
+		expect(await run.exit).toBe(1);
 		expect(parseJsonOutput(run)).toMatchObject({
 			exitCode: 1,
 			message: "slot-01 is not currently assigned. Run `slot list` to see the pool.",

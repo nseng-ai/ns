@@ -38,7 +38,6 @@ export {
 	negativeMachineEnvelopeSchema,
 	ok,
 	okMachineEnvelopeSchema,
-	shellNegative,
 	toMachineEnvelope,
 	usageErrorMachineEnvelope,
 	usageErrorMachineEnvelopeSchema,
@@ -46,12 +45,10 @@ export {
 export type {
 	BuildFailureMachineEnvelopeSchemaOptions,
 	ClinkrExit,
-	ClinkrExitCodeOptions,
 	ClinkrFailureExit,
 	ClinkrNegativeExit,
 	ClinkrOkExit,
 	ClinkrOkRenderOverrides,
-	ClinkrShellNegativeExit,
 	MachineEnvelope,
 } from "./exit.ts";
 export { ClinkrFailure } from "./failure.ts";

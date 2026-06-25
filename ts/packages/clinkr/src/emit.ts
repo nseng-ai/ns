@@ -20,7 +20,6 @@ export interface EmitExitOptions<T> {
 	io: ClinkrIo;
 	renderHuman?: ((data: T, caps: RenderCapabilities) => string) | undefined;
 	renderMarkdown?: ((data: T, caps: RenderCapabilities) => string) | undefined;
-	shellExitCode?: boolean | undefined;
 }
 
 /**
@@ -29,7 +28,7 @@ export interface EmitExitOptions<T> {
 export function emitExit<T>(exit: ClinkrExit<T>, options: EmitExitOptions<T>): number {
 	if (options.format === "json") {
 		options.io.stdout(`${envelopeJsonText(toMachineEnvelope(exit))}\n`);
-		return exitCodeForExit(exit, { shellExitCode: options.shellExitCode });
+		return exitCodeForExit(exit);
 	}
 	switch (exit.type) {
 		case "ok": {
@@ -37,13 +36,6 @@ export function emitExit<T>(exit: ClinkrExit<T>, options: EmitExitOptions<T>): n
 			return 0;
 		}
 		case "negative":
-			if (options.shellExitCode === true) {
-				options.io.stderr(`${exit.message}\n`);
-				return 1;
-			}
-			options.io.stdout(`${exit.message}\n`);
-			return 0;
-		case "shell-negative":
 			options.io.stderr(`${exit.message}\n`);
 			return 1;
 		case "failure":

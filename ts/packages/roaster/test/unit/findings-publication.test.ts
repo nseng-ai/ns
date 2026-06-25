@@ -208,7 +208,7 @@ describe("payload parsers", () => {
 		}
 	});
 
-	test("parses shell-negative review result envelopes as findings payloads", () => {
+	test("parses negative review result envelopes as findings payloads", () => {
 		const result = parseFindingsPayloadResult(
 			JSON.stringify({
 				status: "negative",

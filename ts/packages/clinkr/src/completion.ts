@@ -74,11 +74,6 @@ export const CLINKR_RENDERED_COMMAND_OPTIONS: readonly ClinkrCompletionOptionPla
 		kind: { type: "enum", values: ["human", "json", "markdown", "md"] },
 		description: "Output format.",
 	},
-	{
-		flags: ["--shell-exit-code"],
-		kind: { type: "boolean" },
-		description: "Use shell-visible Clinkr semantic exit codes; negative exits 1 instead of 0.",
-	},
 ];
 
 export const CLINKR_JSON_SCHEMA_OPTION: ClinkrCompletionOptionPlan = {

@@ -16,12 +16,6 @@ export interface ClinkrNegativeExit<T> {
 	data?: T;
 }
 
-export interface ClinkrShellNegativeExit<T> {
-	type: "shell-negative";
-	message: string;
-	data?: T;
-}
-
 export interface ClinkrFailureExit {
 	type: "failure";
 	errorType: string;
@@ -29,11 +23,7 @@ export interface ClinkrFailureExit {
 	data?: unknown;
 }
 
-export type ClinkrExit<T> =
-	| ClinkrOkExit<T>
-	| ClinkrNegativeExit<T>
-	| ClinkrShellNegativeExit<T>
-	| ClinkrFailureExit;
+export type ClinkrExit<T> = ClinkrOkExit<T> | ClinkrNegativeExit<T> | ClinkrFailureExit;
 
 export interface OkMachineEnvelope {
 	status: "ok";
@@ -69,10 +59,6 @@ export type MachineEnvelope =
 	| NegativeMachineEnvelope
 	| FailureMachineEnvelope
 	| UsageErrorMachineEnvelope;
-
-export interface ClinkrExitCodeOptions {
-	shellExitCode?: boolean | undefined;
-}
 
 export const okMachineEnvelopeSchema = z.strictObject({
 	status: z.literal("ok"),
@@ -163,25 +149,15 @@ export function negative<T = never>(message: string, data?: T): ClinkrNegativeEx
 	return { type: "negative", message, data };
 }
 
-export function shellNegative<T = never>(message: string, data?: T): ClinkrShellNegativeExit<T> {
-	if (data === undefined) return { type: "shell-negative", message };
-	return { type: "shell-negative", message, data };
-}
-
 export function failure(errorType: string, message: string, data?: unknown): ClinkrFailureExit {
 	return { type: "failure", errorType, message, ...(data === undefined ? {} : { data }) };
 }
 
-export function exitCodeForExit(
-	exit: ClinkrExit<unknown>,
-	options: ClinkrExitCodeOptions = {},
-): 0 | 1 | 2 {
+export function exitCodeForExit(exit: ClinkrExit<unknown>): 0 | 1 | 2 {
 	switch (exit.type) {
 		case "ok":
 			return 0;
 		case "negative":
-			return options.shellExitCode === true ? 1 : 0;
-		case "shell-negative":
 			return 1;
 		case "failure":
 			return 2;
@@ -193,7 +169,6 @@ export function toMachineEnvelope(exit: ClinkrExit<unknown>): MachineEnvelope {
 		case "ok":
 			return { status: "ok", exitCode: 0, data: exit.data };
 		case "negative":
-		case "shell-negative":
 			return {
 				status: "negative",
 				exitCode: 1,

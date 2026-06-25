@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { randomBytes } from "node:crypto";
 
-import { failure, negative, ok, type ClinkrExit } from "@sdl/clinkr";
+import { failure, ok, type ClinkrExit } from "@sdl/clinkr";
 import { z } from "zod";
 
 import type { BrmemCliContext } from "../context.ts";
@@ -108,7 +108,8 @@ export async function runExport(ctx: BrmemCliContext, request: ExportRequest) {
 	const entriesResult = await ctx.gateway.listEntries({ namespace, branch });
 	if (entriesResult.type === "error") return gatewayFailure<ExportResult>(entriesResult.error);
 	const entries = [...entriesResult.value].sort(compareEntries);
-	if (entries.length === 0) return negative(emptySelectionMessage(namespace, branch), baseResult);
+	if (entries.length === 0)
+		return ok(baseResult, { human: emptySelectionMessage(namespace, branch) });
 
 	const prepared = await prepareExports(ctx, entries, outputDir);
 	if (prepared.type === "failure") return prepared.exit;
