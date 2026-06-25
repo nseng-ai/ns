@@ -12,7 +12,7 @@ Avoid: describing Roaster runs as remediation workflows or as agents that edit c
 
 ### Review definition
 
-A Markdown catalog entry under `reviews/<key>.md` with frontmatter and instructions that defines what Roaster should check.
+A Markdown catalog entry under `.sdl/reviews/<key>.md` with frontmatter and instructions that defines what Roaster should check.
 
 Avoid: calling review definitions GitHub PR reviews, or treating the catalog key as a GitHub review identity.
 

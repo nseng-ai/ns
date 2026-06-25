@@ -196,7 +196,7 @@ describe("roaster domain schemas", () => {
 	test("validates review run result contract", () => {
 		const result = reviewRunResultSchema.parse({
 			reviewName: "typescript-style",
-			reviewPath: "reviews/typescript-style.md",
+			reviewPath: ".sdl/reviews/typescript-style.md",
 			modelProfile: "quick",
 			model: "haiku",
 			baseRef: "main",

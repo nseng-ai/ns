@@ -137,7 +137,7 @@ describe("payload parsers", () => {
 				exitCode: 0,
 				data: {
 					reviewName: "typescript-style",
-					reviewPath: "reviews/typescript-style.md",
+					reviewPath: ".sdl/reviews/typescript-style.md",
 					modelProfile: "quick",
 					model: "haiku",
 					baseRef: "main",
@@ -163,7 +163,7 @@ describe("payload parsers", () => {
 				exitCode: 0,
 				data: {
 					reviewName: "typescript-style",
-					reviewPath: "reviews/typescript-style.md",
+					reviewPath: ".sdl/reviews/typescript-style.md",
 					modelProfile: "quick",
 					model: "haiku",
 					baseRef: "main",
@@ -179,7 +179,7 @@ describe("payload parsers", () => {
 				exitCode: 0,
 				data: {
 					review_name: "typescript-style",
-					review_path: "reviews/typescript-style.md",
+					review_path: ".sdl/reviews/typescript-style.md",
 					model: "haiku",
 					base_ref: "main",
 					format: "findings",
@@ -216,7 +216,7 @@ describe("payload parsers", () => {
 				message: "failed to write Branch Memory review log",
 				data: {
 					reviewName: "typescript-style",
-					reviewPath: "reviews/typescript-style.md",
+					reviewPath: ".sdl/reviews/typescript-style.md",
 					modelProfile: "quick",
 					model: "haiku",
 					baseRef: "main",

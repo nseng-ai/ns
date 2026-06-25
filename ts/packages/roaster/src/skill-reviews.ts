@@ -97,7 +97,7 @@ export function roasterRunSurfaceForReviewKey(key: string): string {
 }
 
 export function roastReviewPathForKey(key: string): string {
-	return `reviews/${key}.md`;
+	return `.sdl/reviews/${key}.md`;
 }
 
 function roastSkillTitleForDefinition(key: string, definition: ReviewDefinition): string {

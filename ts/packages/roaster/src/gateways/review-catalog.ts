@@ -8,6 +8,7 @@ import { mapFromRecordOrMap } from "@sdl/core/primitives";
 import type { ReviewCatalogFailure, RoasterResult } from "../failures.ts";
 import { isMissingFileError } from "./filesystem-errors.ts";
 
+const SDL_DIRNAME = ".sdl";
 const REVIEWS_DIRNAME = "reviews";
 
 export interface ReviewSource {
@@ -117,7 +118,7 @@ export class RealReviewCatalogGateway implements ReviewCatalogGateway {
 		const repoRoot = await this.gitGateway.repoRoot({ cwd, signal });
 		if (!repoRoot.ok)
 			return error({ type: "reviews_dir_missing", message: repoRoot.error.message });
-		return { type: "ok", value: join(repoRoot.value, REVIEWS_DIRNAME) };
+		return { type: "ok", value: join(repoRoot.value, SDL_DIRNAME, REVIEWS_DIRNAME) };
 	}
 }
 
@@ -148,7 +149,7 @@ export class FakeReviewCatalogGateway implements ReviewCatalogGateway {
 		this.reviewSourceFailuresByKey = mapFromRecordOrMap(options.reviewSourceFailuresByKey);
 		this.reviewKeys = options.reviewKeys === undefined ? null : [...options.reviewKeys];
 		this.listReviewKeysFailure = options.listReviewKeysFailure ?? null;
-		this.reviewsDirValue = options.reviewsDir ?? "/repo/reviews";
+		this.reviewsDirValue = options.reviewsDir ?? "/repo/.sdl/reviews";
 	}
 
 	async listReviewKeys(_options: {

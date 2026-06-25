@@ -18,7 +18,7 @@ export function buildFindingsEnvelope(
 		exitCode: 0,
 		data: {
 			reviewName,
-			reviewPath: options.reviewPath ?? `reviews/${reviewName}.md`,
+			reviewPath: options.reviewPath ?? `.sdl/reviews/${reviewName}.md`,
 			modelProfile: options.modelProfile ?? "quick",
 			model: options.model ?? "haiku",
 			baseRef: options.baseRef ?? "main",

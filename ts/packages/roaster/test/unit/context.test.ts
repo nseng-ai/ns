@@ -52,14 +52,17 @@ class RecordingReviewCatalogGateway implements ReviewCatalogGateway {
 		options: Parameters<ReviewCatalogGateway["listReviewKeys"]>[0],
 	): ReturnType<ReviewCatalogGateway["listReviewKeys"]> {
 		this.listCalls.push(options);
-		return { type: "ok", value: { reviewsDir: "/repo/reviews", keys: ["typescript-style"] } };
+		return { type: "ok", value: { reviewsDir: "/repo/.sdl/reviews", keys: ["typescript-style"] } };
 	}
 
 	async loadReviewSource(
 		options: Parameters<ReviewCatalogGateway["loadReviewSource"]>[0],
 	): ReturnType<ReviewCatalogGateway["loadReviewSource"]> {
 		this.sourceCalls.push(options);
-		return { type: "ok", value: { key: options.key, path: "/repo/reviews/type.md", source: "" } };
+		return {
+			type: "ok",
+			value: { key: options.key, path: "/repo/.sdl/reviews/type.md", source: "" },
+		};
 	}
 }
 
