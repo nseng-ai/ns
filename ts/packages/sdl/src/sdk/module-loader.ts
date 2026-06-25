@@ -88,21 +88,24 @@ const DOMAIN_PRIMITIVES_TRANSITIONAL_MODULE_PATHS = {
 
 function buildInternalWorkspaceAliases(): Record<string, string> {
 	return {
-		...Object.fromEntries(
-			Object.entries(SDL_INTERNAL_WORKSPACE_MODULE_PATHS).map(([specifier, relativePath]) => [
-				specifier,
-				join(SDL_SRC_DIR, relativePath),
-			]),
-		),
-		...Object.fromEntries(
-			Object.entries(DOMAIN_PRIMITIVES_TRANSITIONAL_MODULE_PATHS).map(
-				([specifier, relativePath]) => [
-					specifier,
-					join(DOMAIN_PRIMITIVES_TRANSITIONAL_SRC_DIR, relativePath),
-				],
-			),
+		...buildModuleAliasMap(SDL_SRC_DIR, SDL_INTERNAL_WORKSPACE_MODULE_PATHS),
+		...buildModuleAliasMap(
+			DOMAIN_PRIMITIVES_TRANSITIONAL_SRC_DIR,
+			DOMAIN_PRIMITIVES_TRANSITIONAL_MODULE_PATHS,
 		),
 	};
+}
+
+function buildModuleAliasMap(
+	baseDir: string,
+	modulePaths: Record<string, string>,
+): Record<string, string> {
+	return Object.fromEntries(
+		Object.entries(modulePaths).map(([specifier, relativePath]) => [
+			specifier,
+			join(baseDir, relativePath),
+		]),
+	);
 }
 
 function buildFlowCommandAliases(): Record<string, string> {

@@ -42,7 +42,7 @@ export const flowCpCommand: SdlCommand<typeof cpRequestSchema> = {
 			cwd: ctx.cwd,
 			env: ctx.env,
 			textGenerator: ctx.textGenerator,
-			dryRun: request.dryRun,
+			isDryRun: request.dryRun,
 			checkpointGateway: runtime.checkpointGateway,
 		});
 		return toCommandResult(result);
@@ -59,7 +59,7 @@ export interface RunCpCoreOptions {
 	cwd: string;
 	env: Record<string, string | undefined>;
 	textGenerator: TextGenerator;
-	dryRun: boolean;
+	isDryRun: boolean;
 	checkpointGateway: CheckpointGateway;
 }
 
@@ -69,7 +69,7 @@ export async function runCpCore(options: RunCpCoreOptions): Promise<RunCpCoreRes
 		env: options.env,
 		gateway: options.checkpointGateway,
 		textGenerator: options.textGenerator,
-		dryRun: options.dryRun,
+		dryRun: options.isDryRun,
 	});
 }
 

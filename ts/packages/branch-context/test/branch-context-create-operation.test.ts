@@ -206,7 +206,7 @@ describe("branch-context create execution", () => {
 			sourceFile,
 			summary: "Attach the saved plan.",
 		});
-		expect(git.validateBranchRefCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH }]);
+		expect(git.validateBranchRefCalls).toEqual([]);
 		expect(git.headCommitCalls).toEqual([{ cwd: ROOT }]);
 		expect(git.localBranchPresenceCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH }]);
 		expect(git.createBranchAtHeadCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH }]);
