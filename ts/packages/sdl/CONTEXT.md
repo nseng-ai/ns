@@ -108,17 +108,15 @@ The end-state architecture for SDL capabilities relative to the SDL extension AP
 An above-SDK extension that contributes one Source Development Lifecycle capability — flow, handoff, objective, branch-context, plans, pr-address, slot, roaster, or aretro — depending only on host primitives, neutral infra, and curated provider Capability APIs. `ccc` is the highest-fan-out consumer in the Extension Dependency Graph, not a privileged tier.
 *Avoid*: standalone tool, kernel default, Pi runtime extension, below-SDK package, internal workspace export consumer.
 
-**Command face**:
-The capability face the SDL kernel loads — `defineExtension()` command contributions registered as CLI and Pi mirror surfaces. The thin shell that converts `ctx` into gateways and calls the Gateway-injected capability core.
-*Avoid*: Capability API, programmatic consumer export, domain core, kernel internal.
+The kernel-loaded command surface — `defineExtension()` command contributions registered as CLI and Pi mirror surfaces — is the thin shell that converts `ctx` into gateways and calls the **Gateway-injected capability core**; it is an ordinary architectural layer, not a defined term.
 
 **Capability API**:
 The capability face that a downstream **consumer** extension imports — a curated, typed programmatic export consumed in-process (chiefly by `ccc`) through the required `@sdl/<cap>/api` subpath. Consumers depend on the Capability API only, never on internal modules, package-private subpaths, or the provider's CLI.
 *Avoid*: Peer API, command contribution, internal module import, CLI invocation of a provider, `ctx`-passing API, provider guts.
 
 **Gateway-injected capability core**:
-The rule that capability domain logic and its Capability API take injected gateways such as `GitGateway`, never raw `SdlExtensionApi`. `ctx` lives only in the Command face, which converts `ctx`→gateways at the edge. This is what makes domain logic unit-testable with `InMemoryGitGateway`.
-*Avoid*: `ctx`-threaded domain logic, exec-string test seam, host access inside the domain core.
+The rule that capability domain logic and its Capability API take injected gateways such as `GitGateway`, never raw `SdlExtensionApi`. `ctx` lives only in the kernel-loaded command surface, which converts `ctx`→gateways at the edge. This is what makes domain logic unit-testable with `InMemoryGitGateway`.
+*Avoid*: `ctx`-threaded domain logic, exec-string test seam, host access inside the domain logic.
 
 **Extension Dependency Graph**:
 The acyclic, shallow graph of consumer→provider dependencies through `@sdl/<cap>/api` Capability API subpaths. Capabilities are mostly leaves (providers); `ccc` is the highest-fan-out consumer. These are ordinary package edges — the kernel loader is unaware of them. The graph must stay acyclic; a cycle is debt (see the `@sdl/pi` ↔ `@sdl/ccc` cycle tracked by the `sdl-extension-architecture` Objective).

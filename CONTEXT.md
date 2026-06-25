@@ -78,7 +78,7 @@ Deterministic code that consumes one or more **Gateways** to produce or transfor
 
 ### Extension Layering
 
-The SDL extension stack, bottom to top: **Neutral Infra** below the SDK (`@sdl/core`, `@sdl/clinkr`, `@sdl/graphite`, `@sdl/brmem`), the SDK (`@sdl/sdl` kernel + `@sdl/sdl/sdk`), the **Capability Kit**, and the **Capabilities** (first-party **Extensions**) built on it. Those first-party extensions form an **Extension Dependency Graph** that must stay acyclic. ADR 0012 holds the layering diagram and the rule that capability domain lives in the capabilities and never in the **Presentation Host** or kernel; ADR 0009 holds the dependency-graph invariant. The SDK boundary is permeable downward only to concepts that prove general worth (opinionated patterns such as gateways stay above the SDK). These terms name its parts.
+The SDL extension stack, bottom to top: **Neutral Infra** below the SDK (`@sdl/core`, `@sdl/clinkr`, `@sdl/graphite`, `@sdl/brmem`), the SDK (`@sdl/sdl` kernel + `@sdl/sdl/sdk`), the **Capability Kit**, and the **Capabilities** (first-party **Extensions**) built on it. Those first-party extensions form an **Extension Dependency Graph** that must stay acyclic. ADR 0012 holds the layering diagram and the rule that capability domain lives in the capabilities and never in the `@sdl/pi` runtime host or kernel; ADR 0009 holds the dependency-graph invariant. The SDK boundary is permeable downward only to concepts that prove general worth (opinionated patterns such as gateways stay above the SDK). These terms name its parts.
 
 The two leading nouns are orthogonal, not synonyms: an **Extension** is the technical construct; a **Capability** is a feature area implemented as one.
 
@@ -87,7 +87,7 @@ The technical construct — a package that plugs into the SDK via `defineExtensi
 *Avoid*: plugin, built-in, bundled command, "extension API" (bare — write `@sdl/sdl/sdk` "SDL extension API" or "Pi runtime extension API")
 
 **Capability**:
-A core SDL feature area (objectives, handoff, slot, flow, …) implemented as a first-party **Extension** built on the **Capability Kit**. It mandatorily exposes a **Command Face** over a gateway-injected **Domain Core**, and adds a **Capability API** only when a **consumer** extension depends on it in-process.
+A first-party SDL feature area (objectives, handoff, slot, flow, …) — a set of domain capabilities packaged as an **Extension** built on the **Capability Kit**. It exposes kernel-loaded CLI/Pi commands, and adds a **Capability API** only when a **consumer** extension depends on it in-process.
 *Avoid*: plugin, built-in, the bare construct "extension" (the extension is the mechanism; the capability is the feature area)
 
 **First-party extension**:
@@ -98,25 +98,13 @@ An SDL-shipped, SDL-owned **Extension** that implements a **Capability** (flow, 
 The shared substrate (`@sdl/capability-kit`) that first-party **Capabilities** are built on — the `ctx`→**Gateway** adapter and shared result/error shapes. It is agnostic about *which* capability (holds no capability domain) but is purpose-built for building capabilities. The name **"Extension Kit"** is reserved for a future general substrate for building *all* extensions, third-party included; do not apply it to this first-party kit.
 *Avoid*: Extension Kit (reserved name), extension framework, above-SDK substrate, capability-kit core
 
-**Command Face**:
-A **Capability**'s kernel-loaded CLI/Pi command contributions — the thin shell that converts `ctx`→**Gateways** and calls the **Domain Core**.
-*Avoid*: CLI surface (alone), command layer, "extension API" (bare)
-
 **Capability API**:
 A **Capability**'s curated, typed in-process export at the required `@sdl/<cap>/api` subpath, imported by a **consumer** (downstream) extension (chiefly **CCC**) — never package roots or internals. Added only where a consumer needs it.
 *Avoid*: Peer API, sibling API, public API, package-root export, internal subpath, "extension API" (bare)
 
-**Domain Core**:
-The gateway-injected **Domain logic** behind a **Capability**'s **Capability API** and **Command Face** that takes `GitGateway`-style **Gateways**, never raw `ctx`, so it is unit-testable with in-memory fakes.
-*Avoid*: service, manager, raw-ctx core
-
 **Consumer / Provider**:
 The directed edge of the **Extension Dependency Graph**: a **consumer** (downstream) extension depends on a **provider** (upstream) extension by importing its **Capability API**. The graph is acyclic — a cycle is debt, not design.
 *Avoid*: sibling, peer, peer dependency
-
-**Presentation Host**:
-A rendering/runtime host (`@sdl/pi`, the `pi-*` packages) that owns UI and runtime registration but no capability domain, consuming capability domain through **Capability APIs**.
-*Avoid*: Pi extension layer (as a domain home), presentation layer owning domain
 
 **CCC**:
 A **first-party extension** (the cmux command-and-control surface) that composes cmux, Graphite, and other first-party extensions through their **Capability APIs**; it is the highest-fan-out **consumer** in the **Extension Dependency Graph** but holds no privileged tier or status.

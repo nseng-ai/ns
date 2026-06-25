@@ -28,9 +28,7 @@ The resolved repository facts that let Slot relate the current checkout, the mai
 The canonical result shape describing where a branch was placed or already lives, including branch name, slot/worktree path, parent-shell `cd` command, and checkout-state notes.
 *Avoid*: CCC checkout DTO, parsed CLI JSON, display text
 
-**Slot Command Face**:
-The user- and agent-facing command surface mounted as `sdl slot ...`, including lifecycle commands, human output, machine-readable output, and command-only Graphite helpers.
-*Avoid*: standalone `slot` executable, top-level slot shim, Capability API, private source import
+The `sdl slot ...` command surface — the user- and agent-facing commands mounted as `sdl slot ...`, including lifecycle commands, human output, machine-readable output, and command-only Graphite helpers — is an ordinary architectural layer, not a defined term.
 
 **Slot Capability API**:
 The curated `@sdl/slot/api` surface for downstream in-process consumers that need Slot behavior without invoking the CLI or importing private modules.

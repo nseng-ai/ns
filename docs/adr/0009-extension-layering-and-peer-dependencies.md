@@ -42,8 +42,8 @@ capabilities are mostly leaves (providers). `ccc` holds no privileged tier.
 
 **Each capability has two faces.**
 
-- **Command Face** — `defineExtension()` command contributions, loaded by the
-  kernel for CLI/Pi surfaces.
+- Its kernel-loaded commands — `defineExtension()` command contributions, loaded by
+  the kernel for CLI/Pi surfaces.
 - **Capability API** — a curated, typed programmatic export imported in-process by
   a downstream **consumer** extension (chiefly `ccc`) through the required `@sdl/<cap>/api`
   subpath convention. Consumers depend on that curated subpath only, never on
@@ -96,7 +96,7 @@ belongs above the SDK in the substrate; SDK-independent primitives stay below.
   undeclared capability subpaths.
 - **The Extension Dependency Graph must stay acyclic.** A cycle between extensions is
   debt, not design. The known current violation is the `@sdl/pi` ↔ `@sdl/ccc` cycle
-  (the Presentation Host delegating orchestration to `ccc` while `ccc` imports host
+  (the `@sdl/pi` runtime host delegating orchestration to `ccc` while `ccc` imports host
   domain); breaking it is tracked by the `sdl-extension-architecture` Objective. Full
   topological cycle analysis in `just ts-guard` enforces this invariant as migrations
   create concrete consumer→provider edges.

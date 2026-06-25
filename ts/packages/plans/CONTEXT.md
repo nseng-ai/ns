@@ -24,14 +24,8 @@ The workflow that chooses an explicit, session-evidence, or latest **Saved Plan*
 The repository identity, source branch, encoded path keys, and directory path facts used to validate **Saved Plan** evidence before selecting a file.
 *Avoid*: untrusted session metadata, branch context, attachment evidence
 
-**Plans Command Face**:
-The CLI/Pi-facing shell that parses user intent, constructs real **Gateways** at the edge, writes/lists/selects plans, and presents user-facing output.
-*Avoid*: Plans Core, Capability API
+The package's command surface (the CLI/Pi-facing shell that parses user intent, constructs real **Gateways** at the edge, writes/lists/selects plans, and presents user-facing output) and its domain logic (saved-plan path, evidence, and selection functions that take resolved evidence or injected **Gateways** rather than raw host context, and may perform filesystem I/O through an explicit gateway or already-resolved path evidence) are ordinary architectural layers, not defined terms.
 
 **Plans Capability API**:
 The curated `@sdl/plans/api` surface used by downstream consumer packages and their tests for in-process saved-plan composition without broad package-root imports. It includes saved-plan path, evidence, selection, and slug-prompt helpers needed by consumer composition and test fixtures. Owning `@sdl/plans` tests may still import the package root when covering root compatibility.
 *Avoid*: private source import, command shell, root barrel contract
-
-**Plans Core**:
-Saved-plan path, evidence, and selection functions that accept resolved evidence or injected **Gateways** rather than raw host context. A core may still perform filesystem I/O through an explicit gateway or already-resolved path evidence.
-*Avoid*: command face, presentation formatter, real adapter construction
