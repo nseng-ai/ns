@@ -45,11 +45,15 @@ capabilities are mostly leaves.
 - **Command face** — `defineExtension()` command contributions, loaded by the
   kernel for CLI/Pi surfaces.
 - **Peer API** — a curated, typed programmatic export consumed in-process by
-  sibling extensions (chiefly `ccc`). Siblings depend on the curated peer subpath
-  only, never on internals.
+  sibling extensions (chiefly `ccc`) through the required `@sdl/<cap>/api`
+  subpath convention. Siblings depend on that curated peer subpath only, never on
+  internals.
 
 Peer dependencies are ordinary package edges in the module graph; the **kernel
 loader is unaware of them** and still loads each command face independently.
+Package roots and command faces are not sibling domain APIs unless their package
+documentation separately says so: the kernel loads command faces, while sibling
+extensions import Peer APIs in-process.
 
 **Peer cores are gateway-injected.** Capability domain logic and its Peer API take
 injected gateways (`GitGateway`, etc.), never raw `SdlExtensionApi`. `ctx` lives
@@ -80,13 +84,19 @@ belongs above the SDK in the substrate; SDK-independent primitives stay below.
 - Gateway-injected peer cores are unit-testable with `InMemoryGitGateway` — no real
   git subprocess and no argv-string scripting. This is the original motivation,
   resolved structurally rather than per-test.
-- Each capability must deliberately design its Peer API. Depending on a peer's guts
-  is banned — the same boundary discipline as the SDK, one layer up.
+- Each capability must deliberately design its Peer API at `@sdl/<cap>/api`.
+  Depending on a peer's guts is banned — the same boundary discipline as the SDK,
+  one layer up.
 - Migration is incremental and the lower domain-primitives package is disposable; in
   the end-state no permanent below-SDK consumer of domain logic remains.
-- Open follow-ups, not decided here: the exact Peer API subpath convention, the
-  DAG-enforcement mechanism (exports map / lint), and the sequencing of extracting
-  domain logic out of `@sdl/sdl`.
+- Lightweight enforcement is part of the convention lock: package `exports` maps
+  define curated subpaths, and `just ts-guard` rejects capability-to-capability
+  private/deep imports such as `@sdl/<cap>/src/...`, `@sdl/<cap>/internal...`, and
+  undeclared capability subpaths. Full topological DAG/cycle analysis can be
+  strengthened later when migrations create concrete peer edges; this ADR only
+  requires the lightweight boundary guard now.
+- Open follow-up, not decided here: the sequencing of extracting domain logic out
+  of `@sdl/sdl`.
 
 ## Rejected Alternatives
 

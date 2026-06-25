@@ -1,9 +1,11 @@
 import { runCommand, type CommandRunner, type ExecResult } from "@sdl/core/exec";
+import { createSdlCommandRunner } from "@sdl/extension-kit/command-runner";
 import {
 	createCommitWithPreparedMessage,
 	prepareCheckpointMessage,
 	type CommandResult,
 } from "@sdl/sdl/checkpoint-flow";
+import type { SdlExtensionApi } from "@sdl/sdl/sdk";
 import {
 	formatPendingWorktreeCommandDetails,
 	loadPendingWorktreeSnapshot,
@@ -35,12 +37,35 @@ export interface CheckpointCommandResult {
 	stderr: string;
 }
 
+export interface SdlCheckpointRuntime {
+	checkpointGateway: CheckpointGateway;
+}
+
+export function createSdlCheckpointRuntime(ctx: SdlExtensionApi): SdlCheckpointRuntime {
+	return {
+		checkpointGateway: new RealCheckpointGateway(createSdlCommandRunner(ctx)),
+	};
+}
+
 export interface RunCheckpointCommandOptions {
 	cwd: string;
 	env: Record<string, string | undefined>;
 	gateway: CheckpointGateway;
 	textGenerator: TextGenerator;
 }
+
+export interface RunCheckpointWorkflowOptions extends RunCheckpointCommandOptions {
+	dryRun: boolean;
+}
+
+export type CheckpointWorkflowResult =
+	| { type: "snapshot-failed"; error: PendingWorktreeError }
+	| { type: "trunk"; branch: string }
+	| { type: "clean" }
+	| { type: "message-failed"; error: string }
+	| { type: "dry-run"; branch: string; message: string }
+	| { type: "commit-failed"; error: string }
+	| { type: "committed"; summary: string; message: string };
 
 export type CheckpointIfPendingResult =
 	| {
@@ -103,61 +128,69 @@ export class RealCheckpointGateway implements CheckpointGateway {
 export async function runCheckpointIfPending(
 	options: RunCheckpointCommandOptions,
 ): Promise<CheckpointIfPendingResult> {
-	const loaded = await options.gateway.loadPendingWorktreeSnapshot({ cwd: options.cwd });
-	if (!loaded.ok) {
-		return { kind: "failed", output: failure(2, formatCheckpointSnapshotError(loaded.error)) };
+	const result = await runCheckpointWorkflow({ ...options, dryRun: false });
+	switch (result.type) {
+		case "snapshot-failed":
+			return { kind: "failed", output: failure(2, formatCheckpointSnapshotError(result.error)) };
+		case "clean":
+			return { kind: "clean" };
+		case "trunk":
+			return {
+				kind: "failed",
+				output: failure(
+					1,
+					`Refusing to create checkpoint commit on trunk branch: ${result.branch}`,
+				),
+			};
+		case "message-failed":
+			return { kind: "failed", output: failure(2, result.error) };
+		case "commit-failed":
+			return { kind: "failed", output: failure(2, result.error) };
+		case "committed":
+			return {
+				kind: "checkpointed",
+				output: {
+					exitCode: 0,
+					stdout: `${result.summary}\n${result.message}\n`,
+					stderr: "",
+				},
+			};
+		case "dry-run":
+			throw new Error("runCheckpointIfPending does not support dry-run checkpoint results.");
 	}
-
-	const snapshot = loaded.snapshot;
-	if (snapshot.clean) {
-		return { kind: "clean" };
-	}
-	if (snapshot.branch === "main" || snapshot.branch === "master") {
-		return {
-			kind: "failed",
-			output: failure(
-				1,
-				`Refusing to create checkpoint commit on trunk branch: ${snapshot.branch}`,
-			),
-		};
-	}
-
-	const output = await createCheckpointFromSnapshot(
-		options,
-		snapshot,
-		selectCheckpointModelRef(options.env),
-	);
-	return output.exitCode === 0 ? { kind: "checkpointed", output } : { kind: "failed", output };
 }
 
-async function createCheckpointFromSnapshot(
-	options: RunCheckpointCommandOptions,
-	snapshot: PendingWorktreeSnapshot,
-	modelRef: string,
-): Promise<CheckpointCommandResult> {
+export async function runCheckpointWorkflow(
+	options: RunCheckpointWorkflowOptions,
+): Promise<CheckpointWorkflowResult> {
+	const loaded = await options.gateway.loadPendingWorktreeSnapshot({ cwd: options.cwd });
+	if (!loaded.ok) return { type: "snapshot-failed", error: loaded.error };
+
+	const snapshot = loaded.snapshot;
+	if (snapshot.branch === "main" || snapshot.branch === "master") {
+		return { type: "trunk", branch: snapshot.branch };
+	}
+	if (snapshot.clean) return { type: "clean" };
+
 	const prepared = await prepareCheckpointMessage({
 		status: snapshot.status,
 		diff: snapshot.diff,
 		textGenerator: options.textGenerator,
-		modelRef,
+		modelRef: selectCheckpointModelRef(options.env),
 	});
-	if (!prepared.ok) {
-		return failure(2, prepared.error);
+	if (!prepared.ok) return { type: "message-failed", error: prepared.error };
+
+	if (options.dryRun) {
+		return { type: "dry-run", branch: snapshot.branch, message: prepared.message };
 	}
 
 	const committed = await options.gateway.createCommitWithPreparedMessage({
 		cwd: options.cwd,
 		message: prepared.message,
 	});
-	if ("error" in committed) {
-		return failure(2, committed.error);
-	}
+	if ("error" in committed) return { type: "commit-failed", error: committed.error };
 
-	return {
-		exitCode: 0,
-		stdout: `${committed.summary}\n${prepared.message}\n`,
-		stderr: "",
-	};
+	return { type: "committed", summary: committed.summary, message: prepared.message };
 }
 
 export function formatCheckpointSnapshotError(error: PendingWorktreeError): string {

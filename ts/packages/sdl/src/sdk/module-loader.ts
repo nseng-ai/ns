@@ -64,7 +64,7 @@ const GRAPHITE_SUBMIT_MODULE_PATH = join(GRAPHITE_SRC_DIR, "submit", "index.ts")
 const AUTOBRANCH_DIRTY_WORKTREE_MODULE_PATH = join(AUTOBRANCH_SRC_DIR, "dirty-worktree.ts");
 const AUTOBRANCH_LATEST_COMMIT_MODULE_PATH = join(AUTOBRANCH_SRC_DIR, "latest-commit.ts");
 
-const INTERNAL_MIGRATION_MODULE_PATHS = {
+const INTERNAL_WORKSPACE_MODULE_PATHS = {
 	"@sdl/sdl/checkpoint-flow": "checkpoint-flow.ts",
 	"@sdl/sdl/checkpoint-message": "checkpoint-message.ts",
 	"@sdl/sdl/cli": "cli.ts",
@@ -76,9 +76,9 @@ const INTERNAL_MIGRATION_MODULE_PATHS = {
 	"@sdl/sdl/text-repair": "text-repair.ts",
 } as const;
 
-function buildInternalMigrationAliases(): Record<string, string> {
+function buildInternalWorkspaceAliases(): Record<string, string> {
 	return Object.fromEntries(
-		Object.entries(INTERNAL_MIGRATION_MODULE_PATHS).map(([specifier, relativePath]) => [
+		Object.entries(INTERNAL_WORKSPACE_MODULE_PATHS).map(([specifier, relativePath]) => [
 			specifier,
 			join(SDL_SRC_DIR, relativePath),
 		]),
@@ -156,8 +156,8 @@ const sdlSdkVirtualModule = {
  * schemas share host SDK identity instead of resolving dependency copies from
  * `.sdl/extensions`.
  *
- * Package-internal migration modules may still resolve package subpaths listed
- * as `internalMigrationExports`. The repo-local flow manifest is currently a
+ * Package-internal workspace modules may still resolve package subpaths listed
+ * as `internalWorkspaceExports`. The repo-local flow manifest is currently a
  * checked-in adapter layer over the source-checkout `sdl-flow` package, so the
  * command subpaths are aliased narrowly from that package's `exports` map
  * without adding general `node_modules` package discovery.
@@ -165,7 +165,7 @@ const sdlSdkVirtualModule = {
 export function createSdlJiti(): ReturnType<typeof createJiti> {
 	return createJiti(import.meta.url, {
 		alias: {
-			...buildInternalMigrationAliases(),
+			...buildInternalWorkspaceAliases(),
 			...buildFlowCommandAliases(),
 			[SDK_SPECIFIER]: SDK_MODULE_PATH,
 			[CCC_AUTOSLOT_SPECIFIER]: CCC_AUTOSLOT_MODULE_PATH,
