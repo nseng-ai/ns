@@ -28,12 +28,18 @@ export type {
 	PrPreviewChecksViewModel,
 } from "./pr-preview-checks-model.ts";
 
+export interface PrPreviewCheckLogLoadOptions {
+	signal: AbortSignal;
+}
+
 export interface PrPreviewChecksViewOptions {
 	tui: TUI;
 	theme: Theme;
 	model: PrPreviewChecksViewModel;
 	onClose: () => void;
-	onLoadLogs?: ((check: PrPreviewCheck) => Promise<readonly string[]>) | undefined;
+	onLoadLogs?:
+		| ((check: PrPreviewCheck, options: PrPreviewCheckLogLoadOptions) => Promise<readonly string[]>)
+		| undefined;
 	logLoadTimeoutMs?: number | undefined;
 }
 
@@ -55,7 +61,9 @@ export class PrPreviewChecksView implements Component {
 	private readonly theme: Theme;
 	private readonly model: PrPreviewChecksViewModel;
 	private readonly onClose: () => void;
-	private readonly onLoadLogs: ((check: PrPreviewCheck) => Promise<readonly string[]>) | undefined;
+	private readonly onLoadLogs:
+		| ((check: PrPreviewCheck, options: PrPreviewCheckLogLoadOptions) => Promise<readonly string[]>)
+		| undefined;
 	private readonly logLoadTimeoutMs: number;
 	private selectedIndex: number;
 	private listScroll: number;
@@ -245,13 +253,15 @@ export class PrPreviewChecksView implements Component {
 		this.logCache.set(check, { type: "loading" });
 		this.detailScroll = 0;
 		this.tui.requestRender();
+		const signal = createLogLoadSignal(this.logLoadTimeoutMs);
 		try {
-			const lines = await withTimeout(this.onLoadLogs(check), this.logLoadTimeoutMs);
+			const lines = await this.onLoadLogs(check, { signal });
+			if (signal.aborted) throw signal.reason;
 			this.logCache.set(check, { type: "loaded", lines: [...lines] });
 		} catch (error) {
 			this.logCache.set(check, {
 				type: "failed",
-				lines: [error instanceof Error ? error.message : String(error)],
+				lines: [formatLogLoadError(error, signal, this.logLoadTimeoutMs)],
 			});
 		} finally {
 			this.tui.requestRender();
@@ -320,25 +330,21 @@ function wrapDetailLines(lines: readonly string[], width: number): string[] {
 	});
 }
 
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-	if (timeoutMs <= 0) return await promise;
-	let timeoutId: ReturnType<typeof setTimeout> | undefined;
-	try {
-		return await Promise.race([
-			promise,
-			new Promise<T>((_resolve, reject) => {
-				timeoutId = setTimeout(() => {
-					reject(
-						new Error(
-							`Log summary timed out after ${formatDurationSeconds(timeoutMs)}. Press l to retry.`,
-						),
-					);
-				}, timeoutMs);
-			}),
-		]);
-	} finally {
-		if (timeoutId !== undefined) clearTimeout(timeoutId);
+function createLogLoadSignal(timeoutMs: number): AbortSignal {
+	if (timeoutMs <= 0) return new AbortController().signal;
+	return AbortSignal.timeout(timeoutMs);
+}
+
+function formatLogLoadError(error: unknown, signal: AbortSignal, timeoutMs: number): string {
+	if (signal.aborted || isAbortError(error)) {
+		return `Log summary timed out after ${formatDurationSeconds(timeoutMs)}. Press l to retry.`;
 	}
+	return error instanceof Error ? error.message : String(error);
+}
+
+function isAbortError(error: unknown): boolean {
+	if (typeof error !== "object" || error === null || !("name" in error)) return false;
+	return error.name === "AbortError" || error.name === "TimeoutError";
 }
 
 function formatDurationSeconds(timeoutMs: number): string {

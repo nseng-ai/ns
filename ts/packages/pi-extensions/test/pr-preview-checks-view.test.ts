@@ -1,5 +1,6 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { TUI } from "@earendil-works/pi-tui";
+import { createDeferred } from "@sdl/core/testing";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -115,7 +116,12 @@ describe("PR checks preview vertical layout", () => {
 			theme: identityTheme(),
 			model: previewModel([previewCheck("stuck-check")]),
 			onClose: () => {},
-			onLoadLogs: () => new Promise<readonly string[]>(() => {}),
+			onLoadLogs: (_check, options) =>
+				new Promise<readonly string[]>((_resolve, reject) => {
+					options.signal.addEventListener("abort", () => reject(options.signal.reason), {
+						once: true,
+					});
+				}),
 			logLoadTimeoutMs: 1,
 		});
 
@@ -202,25 +208,6 @@ function identityTheme(): Theme {
 			return text;
 		},
 	} as Theme;
-}
-
-interface Deferred<T> {
-	promise: Promise<T>;
-	resolve(value: T): void;
-}
-
-function createDeferred<T>(): Deferred<T> {
-	let resolve: ((value: T) => void) | undefined;
-	const promise = new Promise<T>((resolvePromise) => {
-		resolve = resolvePromise;
-	});
-	return {
-		promise,
-		resolve(value) {
-			if (resolve === undefined) throw new Error("Deferred promise was not initialized.");
-			resolve(value);
-		},
-	};
 }
 
 async function flushPromises(): Promise<void> {
