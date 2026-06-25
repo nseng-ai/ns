@@ -29,7 +29,7 @@ The CLI/Pi-facing shell that parses user intent, constructs real **Gateways** at
 *Avoid*: Plans Core, Peer API
 
 **Plans Peer API**:
-The curated `@sdl/plans/api` surface used by sibling packages for in-process composition without broad package-root imports.
+The curated `@sdl/plans/api` surface used by sibling runtime packages and their tests for in-process saved-plan composition without broad package-root imports. It includes saved-plan path, evidence, selection, and slug-prompt helpers needed by sibling composition and test fixtures. Owning `@sdl/plans` tests may still import the package root when covering root compatibility.
 *Avoid*: private source import, command shell, root barrel contract
 
 **Plans Core**:

@@ -25,9 +25,9 @@ The CLI/Pi-facing shell that parses arguments, builds real **Gateways**, resolve
 *Avoid*: Branch Context Core, Peer API, presentation-neutral workflow
 
 **Branch Context Peer API**:
-The curated `@sdl/branch-context/api` surface used by sibling packages for in-process composition without broad package-root imports.
+The curated `@sdl/branch-context/api` surface used by sibling runtime packages and their tests for in-process composition without broad package-root imports. Owning `@sdl/branch-context` tests may still import the package root when covering root compatibility.
 *Avoid*: private source import, command shell, root barrel contract
 
 **Branch Context Core**:
-Branch-context workflow logic over injected Git, Branch Memory, and Graphite **Gateways** plus resolved source values. It does not accept raw host context, construct real adapters, or format user-facing prose.
+Branch-context workflow logic over injected Git, Branch Memory, and Graphite **Gateways** plus resolved source values. It does not accept raw host context, construct real adapters, or format user-facing prose. Its dependency on `@sdl/plans` is intentional for saved-plan sources, naming, validation, and selection.
 *Avoid*: command face, formatting helper, gateway bag, real adapter construction

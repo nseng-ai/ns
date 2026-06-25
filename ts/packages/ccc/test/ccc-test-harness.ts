@@ -2,7 +2,11 @@ import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
-import { buildRepoPlanStoreKey, encodeBranchForPlanPath, normalizeRepoOriginUrl } from "@sdl/plans";
+import {
+	buildRepoPlanStoreKey,
+	encodeBranchForPlanPath,
+	normalizeRepoOriginUrl,
+} from "@sdl/plans/api";
 import type {
 	AgentEndContext,
 	AutocompleteProvider,
