@@ -94,10 +94,11 @@ the high-agreement changes, and parking the contested or large ones as backlog.
 
 **Risks**
 
-- **Python-parity contract**: Clinkr's machine envelope is documented as
-  byte-identical to Python clinkr (`ensure_ascii`, key order, `indent=2`).
-  Changing JSON output (e.g. compaction) or the envelope shape could break that
-  parity contract — this needs an explicit ADR before any output-format change.
+- **Python-parity contract resolved for TypeScript machine envelopes**: ADR 0011
+  explicitly drops the old byte-identical Python clinkr contract for TypeScript
+  `--format json` machine envelopes and accepts a TS-native camelCase,
+  discriminated envelope. Python parity may still matter as historical context,
+  but it is no longer a blocker for the TypeScript envelope shape.
 - **Coordination overlap**: agent-ergonomics Clinkr changes touch the same files
   as `ts-cli-core-structural-cleanup` (structural) and `clinkr-shell-completion`
   (completion). Risk of conflicting edits; mitigation is to keep each change
@@ -124,9 +125,11 @@ the high-agreement changes, and parking the contested or large ones as backlog.
   `error_type`/`code` plus structured `data`/details. The ADR preserves dissent
   for richer numeric taxonomies as useful for specialized shell-only automation
   but not Clinkr's default.
-- Does any change to `--format json` output (compaction, streaming/JSONL,
-  enveloping usage errors) violate the Python-parity contract, and if so is the
-  contract still load-bearing? ADR required.
+- ADR 0011 answers the core `--format json` envelope/parity question for
+  TypeScript Clinkr: the Python-parity contract is not load-bearing for the TS
+  machine envelope, camelCase discriminated envelopes are the contract, and
+  JSON-mode usage errors are enveloped. Compaction, pagination, and streaming /
+  JSONL still need separate output-volume decisions.
 - Should the agent-ergonomics Clinkr changes proceed now or wait behind the
   `sdl-extension-architecture` endgame that currently pauses
   `ts-cli-core-structural-cleanup`?

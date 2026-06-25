@@ -18,7 +18,7 @@ surface. The survey explicitly leaves open whether SDL should standardize richer
 numeric exit codes, keep simple `0`/`1`/`2` process semantics and rely on envelope
 fields, or define a hybrid.
 
-The Clinkr gap audit in `docs/clinkr-agent-era-gap-audit.md` shows why this must
+The Clinkr gap audit in `.sdl/objectives/agent-cli-design-discipline/references/clinkr-agent-era-gap-audit.md` shows why this must
 be decided before changing APIs. Clinkr currently has a typed machine envelope
 with `exit_code`, optional `error_type`, optional `message`, and optional `data`,
 but `error_type` is unconstrained. Handler failures can be represented as machine
