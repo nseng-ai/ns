@@ -1,16 +1,16 @@
 import type { ParsedAutobranchArgs } from "@sdl/autobranch/dirty-worktree";
 import { runWithCommandIo, type CommandIo } from "@sdl/core/command-io";
-import type { ExtensionAPI } from "@sdl/pi/cmux/types";
 import { createCccCliCommandIo } from "./cli-command-io.ts";
 import {
 	commitAutobranchCheckpointMessage,
 	prepareAutobranchCheckpointMessage,
 } from "./autobranch/checkpoint.ts";
 import { createAutobranchCheckpointFlow, type AutobranchFlowInput } from "./autobranch/flow.ts";
-import { checkoutSlot } from "./slot-checkout.ts";
+import { checkoutSlot, type SlotCheckoutFunction } from "./slot-checkout.ts";
 
 export interface AutoslotFlowInput extends AutobranchFlowInput {
-	slotExec: Pick<ExtensionAPI, "exec">;
+	env?: NodeJS.ProcessEnv | Record<string, string | undefined>;
+	slotCheckout?: SlotCheckoutFunction;
 	io: CommandIo;
 }
 
@@ -53,9 +53,7 @@ export async function runAutoslotCli(input: AutoslotCliInput): Promise<number> {
 						message,
 					),
 				io,
-				slotExec: {
-					exec: (command, args, options) => input.exec(command, args, options),
-				},
+				env: input.env,
 			}),
 	);
 	return hasError ? 1 : 0;
@@ -91,7 +89,14 @@ export async function createAutoslotFlow(input: AutoslotFlowInput): Promise<void
 	}
 
 	input.io.phase("Checking out branch slot…");
-	const slot = await checkoutSlot(input.slotExec, input.cwd, { kind: "current" });
+	const slot = await checkoutSlot(
+		{
+			cwd: input.cwd,
+			...(input.env === undefined ? {} : { env: input.env }),
+			...(input.slotCheckout === undefined ? {} : { checkoutSlot: input.slotCheckout }),
+		},
+		{ kind: "current" },
+	);
 	if (!slot.ok) {
 		input.io.notify(
 			[`Autoslot created ${branchName}, but slot checkout failed.`, "", slot.error].join("\n"),

@@ -29,6 +29,7 @@ import {
 import { getPiLaunchOptions, type PiLaunchOptions } from "./pi-launch.ts";
 import type { TextResult } from "./primitives.ts";
 import { openBranchInCmuxSlot } from "./slot.ts";
+import type { SlotCheckoutFunction } from "../slot-checkout.ts";
 import type { CommandContext, ExtensionAPI } from "./types.ts";
 
 const COMMAND_NAME = "ccc:workspace:dispatch-prompt";
@@ -45,6 +46,7 @@ export interface DispatchPromptPayloadOptions {
 	stagingDir?: string;
 	now?: () => number;
 	shouldCleanupStagingFile?: boolean;
+	slotCheckout?: SlotCheckoutFunction;
 }
 
 interface ResolvedDispatchPromptPayloadOptions {
@@ -56,6 +58,7 @@ interface ResolvedDispatchPromptPayloadOptions {
 export interface HandleCccSlotDispatchPromptOptions {
 	pi: Pick<ExtensionAPI, "exec" | "getThinkingLevel">;
 	payloadOptions: ResolvedDispatchPromptPayloadOptions;
+	slotCheckout?: SlotCheckoutFunction;
 	args: string;
 	ctx: CommandContext;
 }
@@ -92,7 +95,13 @@ export function registerCccSlotDispatchPromptCommand(
 				"Create a Graphite-tracked branch and dispatch a prompt in a new cmux workspace.",
 			argumentHint: "<prompt>",
 			handler: async (args, ctx) => {
-				await handleCccSlotDispatchPrompt({ pi, payloadOptions, args, ctx });
+				await handleCccSlotDispatchPrompt({
+					pi,
+					payloadOptions,
+					...(options.slotCheckout === undefined ? {} : { slotCheckout: options.slotCheckout }),
+					args,
+					ctx,
+				});
 			},
 		},
 	});
@@ -141,6 +150,7 @@ export async function handleCccSlotDispatchPrompt(
 		branchName: branch.branchName,
 		command: buildBrmemPayloadPiLaunchCommand(branch.branchName, launchOptions),
 		description: `dispatch-prompt from ${branch.parentBranch}`,
+		...(options.slotCheckout === undefined ? {} : { slotCheckout: options.slotCheckout }),
 		notify: (message, level) => ctx.ui.notify(message, level),
 		successMessage: (target) =>
 			[

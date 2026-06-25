@@ -5,6 +5,7 @@ import {
 import { registerCommandWithImmediateAck, sendCommandProgressOrNotify } from "@sdl/pi/commands/ack";
 
 import { openBranchInCmuxSlot } from "./slot.ts";
+import type { SlotCheckoutFunction } from "../slot-checkout.ts";
 import type {
 	AutocompleteItem,
 	AutocompleteProvider,
@@ -23,17 +24,25 @@ type ResolvedBranch =
 	| { inferred: true; branchName: string; evidence: BranchContextEvidence }
 	| { error: string };
 
+export interface CccSlotOpenBranchOptions {
+	slotCheckout?: SlotCheckoutFunction;
+}
+
 export interface HandleCccSlotOpenBranchOptions {
 	pi: Pick<ExtensionAPI, "exec">;
 	args: string;
 	ctx: CommandContext;
+	options?: CccSlotOpenBranchOptions;
 }
 
 const COMMAND_NAME = "ccc:workspace:open-branch";
 const MAX_COMPLETIONS = 30;
 const BRANCH_FORMAT = "%(refname:short)\t%(refname)";
 
-export function registerCccSlotOpenBranchCommand(pi: ExtensionAPI): void {
+export function registerCccSlotOpenBranchCommand(
+	pi: ExtensionAPI,
+	options: CccSlotOpenBranchOptions = {},
+): void {
 	let currentCwd = process.cwd();
 
 	pi.on("session_start", async (_event, ctx) => {
@@ -55,7 +64,7 @@ export function registerCccSlotOpenBranchCommand(pi: ExtensionAPI): void {
 				return completions.length > 0 ? completions : null;
 			},
 			handler: async (args, ctx) => {
-				await handleCccSlotOpenBranch({ pi, args, ctx });
+				await handleCccSlotOpenBranch({ pi, args, ctx, options });
 			},
 		},
 	});
@@ -107,6 +116,9 @@ export async function handleCccSlotOpenBranch(
 		pi,
 		cwd: ctx.cwd,
 		branchName: branch,
+		...(options.options?.slotCheckout === undefined
+			? {}
+			: { slotCheckout: options.options.slotCheckout }),
 		notify: (message, level) => ctx.ui.notify(message, level),
 	});
 	if ("error" in launched) {
