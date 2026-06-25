@@ -28,6 +28,7 @@ export interface PrPreviewChecksViewOptions {
 	theme: Theme;
 	model: PrPreviewChecksViewModel;
 	onClose: () => void;
+	onLoadLogs?: ((check: PrPreviewCheck) => Promise<readonly string[]>) | undefined;
 }
 
 export interface WrappedDetailViewportOptions {
@@ -48,18 +49,24 @@ export class PrPreviewChecksView implements Component {
 	private readonly theme: Theme;
 	private readonly model: PrPreviewChecksViewModel;
 	private readonly onClose: () => void;
+	private readonly onLoadLogs: ((check: PrPreviewCheck) => Promise<readonly string[]>) | undefined;
 	private selectedIndex: number;
 	private listScroll: number;
 	private detailScroll: number;
+	private logLines: readonly string[] | null;
+	private isLoadingLogs: boolean;
 
 	constructor(options: PrPreviewChecksViewOptions) {
 		this.tui = options.tui;
 		this.theme = options.theme;
 		this.model = options.model;
 		this.onClose = options.onClose;
+		this.onLoadLogs = options.onLoadLogs;
 		this.selectedIndex = 0;
 		this.listScroll = 0;
 		this.detailScroll = 0;
+		this.logLines = null;
+		this.isLoadingLogs = false;
 	}
 
 	render(width: number): string[] {
@@ -69,7 +76,7 @@ export class PrPreviewChecksView implements Component {
 		const header = buildPreviewHeaderLines(this.model).map((line) => this.color("text", line));
 		const footer = this.color(
 			"dim",
-			"↑↓/jk select · PgUp/PgDn scroll details · q/esc close · preview only",
+			"↑↓/jk select · l summarize logs · PgUp/PgDn scroll details · q/esc close",
 		);
 		const chromeRows = 2 + header.length + 1 + 1;
 		const bodyRows = Math.max(1, height - chromeRows);
@@ -103,6 +110,10 @@ export class PrPreviewChecksView implements Component {
 		}
 		if (matchesKey(data, Key.pageUp)) {
 			this.scrollDetails(-8);
+			return;
+		}
+		if (data === "l") {
+			void this.loadSelectedCheckLogs();
 		}
 	}
 
@@ -160,6 +171,9 @@ export class PrPreviewChecksView implements Component {
 	}
 
 	private renderDetailLines(check: PrPreviewCheck | undefined): string[] {
+		if (this.isLoadingLogs)
+			return [this.color("muted", "Loading and summarizing selected check logs…")];
+		if (this.logLines !== null) return this.logLines.map((line) => this.color("text", line));
 		return buildCheckDetailRows(check).map((row) => this.renderDetailLine(row));
 	}
 
@@ -195,12 +209,31 @@ export class PrPreviewChecksView implements Component {
 		if (next === this.selectedIndex) return;
 		this.selectedIndex = next;
 		this.detailScroll = 0;
+		this.logLines = null;
+		this.isLoadingLogs = false;
 		this.tui.requestRender();
 	}
 
 	private scrollDetails(delta: number): void {
 		this.detailScroll = Math.max(0, this.detailScroll + delta);
 		this.tui.requestRender();
+	}
+
+	private async loadSelectedCheckLogs(): Promise<void> {
+		const check = this.model.checks[this.selectedIndex];
+		if (check === undefined || this.onLoadLogs === undefined || this.isLoadingLogs) return;
+		this.isLoadingLogs = true;
+		this.logLines = null;
+		this.detailScroll = 0;
+		this.tui.requestRender();
+		try {
+			this.logLines = await this.onLoadLogs(check);
+		} catch (error) {
+			this.logLines = [error instanceof Error ? error.message : String(error)];
+		} finally {
+			this.isLoadingLogs = false;
+			this.tui.requestRender();
+		}
 	}
 
 	private color(color: PreviewThemeColor, value: string): string {
