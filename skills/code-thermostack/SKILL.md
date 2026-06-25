@@ -30,14 +30,14 @@ Thermostack is a parent-orchestrated workflow: the main agent owns preflight, ra
 4. Determine and record `STACK_BASE_REF`, the base of the current Graphite stack, before dispatching the reviewer. This is the default review base. Prefer Graphite plumbing and repository trunk/base facts over display output. If the current branch is the bottom branch, `gt parent --no-interactive` is usually the stack base; if the current branch is higher in a stack, walk parent relationships until the first non-stack/trunk ancestor. If the stack base is ambiguous, stop and ask rather than reviewing the wrong diff.
 5. Sanity-check the review scope with `git diff --stat "$STACK_BASE_REF"...HEAD` and `git diff --name-only "$STACK_BASE_REF"...HEAD`. The diff must reflect the intended stack changes. Never compare `$BASE_BRANCH...HEAD` when `BASE_BRANCH` is the checked-out branch; that produces an empty review.
 6. Check for existing generated branches for this base. Stop if branches matching the exact base prefix already exist (for example `$BASE_BRANCH/thermo-*`) unless the user explicitly chooses a recovery path.
-7. Confirm the thermonuclear Roaster review definition is readable at `reviews/thermonuclear-review.md`. This review definition is the authoritative thermonuclear review content for Thermostack; the `roast-thermonuclear-review` skill is only a thin invoke-only wrapper around it.
+7. Confirm the thermonuclear Roaster review definition is readable at `.sdl/reviews/thermonuclear-review.md`. This review definition is the authoritative thermonuclear review content for Thermostack; the `roast-thermonuclear-review` skill is only a thin invoke-only wrapper around it.
 
 ## 2. Collect thermonuclear findings
 
 Dispatch one fresh review-only subagent when the harness supports subagents; do not use inline review as a convenience fallback in a subagent-capable harness. The reviewer must edit nothing. Use a prompt with these requirements:
 
 ```text
-Review the current stack changes only: use the diff from recorded stack base `STACK_BASE_REF` to current `HEAD` (`STACK_BASE_REF...HEAD`). Do not compare the checked-out branch name `BASE_BRANCH` to `HEAD`; that is the target branch and may equal `HEAD`. Explicitly load/read `reviews/thermonuclear-review.md`, then perform that thermonuclear maintainability review against the stack diff.
+Review the current stack changes only: use the diff from recorded stack base `STACK_BASE_REF` to current `HEAD` (`STACK_BASE_REF...HEAD`). Do not compare the checked-out branch name `BASE_BRANCH` to `HEAD`; that is the target branch and may equal `HEAD`. Explicitly load/read `.sdl/reviews/thermonuclear-review.md`, then perform that thermonuclear maintainability review against the stack diff.
 
 Do not edit files. Return structured findings. For each finding include:
 - id
@@ -54,7 +54,7 @@ Do not edit files. Return structured findings. For each finding include:
 Prioritize structural regressions, missed code-judo simplifications, spaghetti/branching growth, boundary/type-contract issues, file-size/decomposition, modularity, and maintainability. Include high-risk/high-reward findings too; do not omit speculative but plausible improvements.
 ```
 
-If the harness genuinely has no subagent capability, run the review inline after reading `reviews/thermonuclear-review.md` and label the resulting proposal as **degraded confidence: inline review, no fresh subagent**.
+If the harness genuinely has no subagent capability, run the review inline after reading `.sdl/reviews/thermonuclear-review.md` and label the resulting proposal as **degraded confidence: inline review, no fresh subagent**.
 
 If the reviewer returns vague prose instead of structured findings, restructure it into the fields above before ranking. Do not proceed from ambiguous bullets.
 

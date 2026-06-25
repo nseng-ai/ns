@@ -6,9 +6,9 @@ description: Invoke the Thermonuclear Review Roaster review against a supplied d
 
 # Roast: Thermonuclear Review
 
-Use `reviews/thermonuclear-review.md` as the authoritative review definition. Do not duplicate or reinterpret the review rules from memory.
+Use `.sdl/reviews/thermonuclear-review.md` as the authoritative review definition. Do not duplicate or reinterpret the review rules from memory.
 
-First read `reviews/thermonuclear-review.md`, then apply that review definition exactly to the supplied diff or current branch changes in this same session. Stay read-only and keep findings grounded in the diff.
+First read `.sdl/reviews/thermonuclear-review.md`, then apply that review definition exactly to the supplied diff or current branch changes in this same session. Stay read-only and keep findings grounded in the diff.
 
 Use explicit automation only when the user asks for isolated runner execution or automatic review logs:
 

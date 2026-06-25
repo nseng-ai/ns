@@ -46,7 +46,7 @@ describe("runRecordFindings", () => {
 		if (exit.type !== "ok") return;
 		expect(exit.data).toMatchObject({
 			reviewName: "typescript-style",
-			reviewPath: "/repo/reviews/typescript-style.md",
+			reviewPath: "/repo/.sdl/reviews/typescript-style.md",
 			modelProfile: "deep",
 			model: "same-session",
 			baseRef: "trunk",

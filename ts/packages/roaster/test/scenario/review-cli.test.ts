@@ -113,7 +113,7 @@ function contextWithCatalog(
 		reviewCatalog: new FakeReviewCatalogGateway({
 			reviewSourcesByKey: options.sources,
 			reviewKeys: options.keys,
-			reviewsDir: "/repo/reviews",
+			reviewsDir: "/repo/.sdl/reviews",
 		}),
 		localDiff: new FakeLocalDiffGateway({
 			defaultDiff: { type: "ok", value: options.diff ?? diffForPath("app.py") },
@@ -218,7 +218,7 @@ describe("roaster review CLI", () => {
 			}),
 		});
 		expect(run.exitCode).toBe(0);
-		expect(run.stdout).toContain("Reviews directory: /repo/reviews");
+		expect(run.stdout).toContain("Reviews directory: /repo/.sdl/reviews");
 		expect(run.stdout).toContain("Reviews: 2");
 		expect(run.stdout).toContain("Tripwires: 2");
 		expect(run.stdout).toContain(
@@ -344,7 +344,7 @@ describe("roaster review CLI", () => {
 		);
 		const data = JSON.parse(run.stdout).data;
 		expect(data.reviewName).toBe(REVIEW_KEY);
-		expect(data.reviewPath).toBe("/repo/reviews/dignified-python-tripwire.md");
+		expect(data.reviewPath).toBe("/repo/.sdl/reviews/dignified-python-tripwire.md");
 		expect(data.baseRef).toBe("master");
 		expect(data.modelProfile).toBe("quick");
 		expect(data.model).toBe("opus");

@@ -92,13 +92,13 @@ describe("roaster roast CLI", () => {
 			label: "Tripwire: SDL TypeScript style",
 			default_prompt: "Run the SDL TypeScript style tripwire against the current branch changes.",
 			review_key: "sdl-typescript-style-tripwire",
-			review_path: "reviews/sdl-typescript-style-tripwire.md",
+			review_path: ".sdl/reviews/sdl-typescript-style-tripwire.md",
 		});
 		expect(envelope.data.entries[5]).toMatchObject({
 			surface: "skill:roast-thermonuclear-review",
 			label: "Roast: Thermonuclear review",
 			review_key: "thermonuclear-review",
-			review_path: "reviews/thermonuclear-review.md",
+			review_path: ".sdl/reviews/thermonuclear-review.md",
 		});
 	});
 });

@@ -54,7 +54,7 @@ async function runRoaster(
 
 const EXEC_CLI_FINDINGS_ENVELOPE_OPTIONS = {
 	reviewName: "dignified-python-tripwire",
-	reviewPath: "/repo/reviews/dignified-python-tripwire.md",
+	reviewPath: "/repo/.sdl/reviews/dignified-python-tripwire.md",
 	model: "sonnet",
 	baseRef: "master",
 } as const satisfies FindingsEnvelopeOptions;

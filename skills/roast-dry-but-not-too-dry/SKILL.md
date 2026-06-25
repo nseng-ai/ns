@@ -6,9 +6,9 @@ description: Invoke the DRY but not too DRY Roaster review against a supplied di
 
 # Roast: DRY but not too DRY
 
-Use `reviews/dry-but-not-too-dry.md` as the authoritative review definition. Do not duplicate or reinterpret the review rules from memory.
+Use `.sdl/reviews/dry-but-not-too-dry.md` as the authoritative review definition. Do not duplicate or reinterpret the review rules from memory.
 
-First read `reviews/dry-but-not-too-dry.md`, then apply that review definition exactly to the supplied diff or current branch changes in this same session. Stay read-only and keep findings grounded in the diff.
+First read `.sdl/reviews/dry-but-not-too-dry.md`, then apply that review definition exactly to the supplied diff or current branch changes in this same session. Stay read-only and keep findings grounded in the diff.
 
 Use explicit automation only when the user asks for isolated runner execution or automatic review logs:
 

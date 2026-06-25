@@ -17,7 +17,7 @@ interface RealReviewCase {
 
 const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
 	{
-		path: "../../../../../reviews/thermonuclear-review.md",
+		path: "../../../../../.sdl/reviews/thermonuclear-review.md",
 		name: "thermonuclear-review",
 		expectedModelProfile: "deep",
 		expectedApplicability: {
@@ -27,7 +27,7 @@ const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
 		expectedLocalOnly: true,
 	},
 	{
-		path: "../../../../../reviews/improve-codebase-architecture.md",
+		path: "../../../../../.sdl/reviews/improve-codebase-architecture.md",
 		name: "improve-codebase-architecture",
 		expectedModelProfile: "deep",
 		expectedApplicability: {
@@ -45,14 +45,14 @@ const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
 		expectedLocalOnly: true,
 	},
 	{
-		path: "../../../../../reviews/dignified-python-tripwire.md",
+		path: "../../../../../.sdl/reviews/dignified-python-tripwire.md",
 		name: "dignified-python-tripwire",
 		expectedModelProfile: "quick",
 		expectedApplicability: { include: ["**/*.py"], exclude: ["**/tests/**/*.py"] },
 		expectedLocalOnly: false,
 	},
 	{
-		path: "../../../../../reviews/sdl-typescript-style-tripwire.md",
+		path: "../../../../../.sdl/reviews/sdl-typescript-style-tripwire.md",
 		name: "sdl-typescript-style-tripwire",
 		expectedModelProfile: "quick",
 		expectedApplicability: {
@@ -62,7 +62,7 @@ const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
 		expectedLocalOnly: false,
 	},
 	{
-		path: "../../../../../reviews/duplicative-abstractions-tripwire.md",
+		path: "../../../../../.sdl/reviews/duplicative-abstractions-tripwire.md",
 		name: "duplicative-abstractions-tripwire",
 		expectedModelProfile: "quick",
 		expectedApplicability: {
@@ -72,7 +72,7 @@ const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
 		expectedLocalOnly: false,
 	},
 	{
-		path: "../../../../../reviews/dry-but-not-too-dry.md",
+		path: "../../../../../.sdl/reviews/dry-but-not-too-dry.md",
 		name: "dry-but-not-too-dry",
 		expectedModelProfile: "deep",
 		expectedApplicability: {
