@@ -97,6 +97,18 @@ Roadmap rows represent semantic Objective work: deliverables, decisions, de-risk
 - `## Objective Impact`
 - `## Follow-Ups`
 
+### Objective PR evidence
+
+Objective PR evidence is durable evidence from material Objective PRs: PRs that directly advance, de-risk, or complete the selected Objective. Record it when it helps explain progress, completion evidence, risk reduction, closure-adjacent decisions, or useful breadcrumbs. Do not record every associated branch or PR as a changelog.
+
+Detailed PR evidence belongs in new Semantic Updates, and closure-relevant PR evidence belongs in `objective.md` `## Closure` prose when an Objective closes. Use this Markdown bullet convention when a list is clearer than prose:
+
+```markdown
+- PR #123: <short summary/title> — <Objective impact>
+```
+
+Optional branch names, URLs, or explicit status words may be included only when useful as evidence or breadcrumbs. Use `merged` wording only when merge state has been confirmed by PR evidence; otherwise use status-aware wording such as current PR, open PR, draft PR, or PR evidence. PR evidence is not a separate ledger, `prs.md`, machine-readable registry, schema, hidden state, or workflow driver.
+
 `closed.md` is a minimal Closure Marker. Its existence means closed; closure meaning belongs in `objective.md`.
 
 ## Selection

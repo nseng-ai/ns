@@ -36,12 +36,21 @@ Do not auto-select from candidate count or changed/touched files. Never infer Ob
 2. If already closed, stop unless the user explicitly asks to amend closure context.
 3. Confirm the closure outcome is clear: completed or intentionally abandoned, with concise evidence or rationale.
 4. Add or update `## Closure` in `objective.md` with outcome, key evidence, remaining assumptions or risks, caveats, and follow-ups if any.
-5. Write `closed.md` as a minimal Closure Marker. Put closure meaning in `objective.md`, not in `closed.md`.
-6. Leave `.sdl/objectives/<slug>/` in place. Do not archive as part of close, delete the record, or implement a reopen workflow. If the user explicitly wants retirement from active discovery, use `objective archive <slug>` after or instead of closure, depending on intent.
+5. When material PR evidence supports the completed or abandoned outcome, summarize it in `## Closure` with PR numbers and Objective impact. Use the shared Objective PR evidence bullet convention when a list is clearer than prose:
+
+   ```markdown
+   - PR #123: <short summary/title> — <Objective impact>
+   ```
+
+   Closure PR evidence is not a broad PR ledger and should not trigger historical backfill. Use `merged` wording only when merge state has been confirmed by PR evidence; otherwise use status-aware wording such as current PR, open PR, draft PR, or PR evidence.
+6. Write `closed.md` as a minimal Closure Marker. Put closure meaning in `objective.md`, not in `closed.md`.
+7. Leave `.sdl/objectives/<slug>/` in place. Do not archive as part of close, delete the record, or implement a reopen workflow. If the user explicitly wants retirement from active discovery, use `objective archive <slug>` after or instead of closure, depending on intent.
 
 ## Closure timing
 
 Closure does not have to wait for the closing work to land on the trunk branch. When the same branch and PR that finishes the Objective also writes `## Closure` and `closed.md`, the merge of that PR is the closure event on the trunk. Couple Objective tracking with the work that triggered it: prefer closing on the branch that ships the final work over carrying closure to a follow-up PR.
+
+Do not create a duplicate Semantic Update solely for closure. Create one only when closure introduces distinct semantic information beyond the normal update guidance.
 
 ## Stop / ask
 

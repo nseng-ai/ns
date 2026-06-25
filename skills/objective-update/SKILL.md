@@ -54,7 +54,8 @@ Write the selected Objective as if the current git changes or current-branch PR 
 
 - The implementation and Objective edit may land atomically in one PR; do not require merge first.
 - Do not keep a roadmap row `[~]` merely because the implementing PR is open; if evidence completes it, write the post-landing state.
-- Do not write branch changelogs. Mention branch names, PR numbers, review status, or merge status only as durable evidence, useful breadcrumbs, or confidence qualifiers.
+- Do not write branch changelogs or PR changelogs. Mention branch names, PR numbers, review status, or merge status only as durable evidence, useful breadcrumbs, or confidence qualifiers.
+- Current branch or current PR evidence may support post-landing Objective content, but actual merge-state wording must remain status-aware: use current PR, open PR, draft PR, or PR evidence unless explicit PR evidence confirms the PR is merged.
 - Open, draft, or unmerged PR state alone is not uncertainty. If evidence is incomplete, failing, disputed, or otherwise uncertain, ask or record a risk/follow-up instead of inventing completion.
 
 ## Read and collect evidence after selection
@@ -113,6 +114,14 @@ Compare request, evidence, and selected Objective files; update durable Markdown
 Write a new Semantic Update for a distinct finding, blocker, decision, risk change, completion event, or follow-up slice that materially changes roadmap state. For maintenance-only durable edits with no new semantic information, write no update and say so explicitly. If later evidence corrects, supersedes, or contextualizes an older update, write a new update that states the newer durable meaning and, when useful, notes older updates are historical records.
 
 Never amend an existing update for stale evidence, corrected counts, renamed concepts, same-branch/PR verification wording, duplicate shipped/progress wording, typo cleanup, formatting cleanup, closure, or any other reason.
+
+When a material Objective PR directly advances, de-risks, or completes the selected Objective, record it in the new Semantic Update as Objective PR evidence using the shared bullet convention when helpful:
+
+```markdown
+- PR #123: <short summary/title> — <Objective impact>
+```
+
+PR evidence remains optional; do not require GitHub evidence when local branch evidence is sufficient and the update does not claim PR, review, CI, or merge state. Do not record every associated branch/PR. Use merged PR wording only after `gh pr view` or other explicit evidence confirms merge state.
 
 ### Verification evidence
 
