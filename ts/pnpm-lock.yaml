@@ -77,15 +77,15 @@ importers:
       '@sdl/brmem':
         specifier: workspace:*
         version: link:packages/brmem
+      '@sdl/capability-kit':
+        specifier: workspace:*
+        version: link:packages/sdl-capability-kit
       '@sdl/ccc':
         specifier: workspace:*
         version: link:packages/ccc
       '@sdl/core':
         specifier: workspace:*
         version: link:packages/sdl-core
-      '@sdl/extension-kit':
-        specifier: workspace:*
-        version: link:packages/extension-kit
       '@sdl/graphite':
         specifier: workspace:*
         version: link:packages/graphite
@@ -258,20 +258,14 @@ importers:
         specifier: workspace:*
         version: link:../sdl-core
 
-  packages/extension-kit:
-    dependencies:
-      '@sdl/core':
-        specifier: workspace:*
-        version: link:../sdl-core
-      '@sdl/sdl':
-        specifier: workspace:*
-        version: link:../sdl
-
   packages/extensions/flow:
     dependencies:
       '@sdl/autobranch':
         specifier: workspace:*
         version: link:../../autobranch
+      '@sdl/capability-kit':
+        specifier: workspace:*
+        version: link:../../sdl-capability-kit
       '@sdl/ccc':
         specifier: workspace:*
         version: link:../../ccc
@@ -281,9 +275,6 @@ importers:
       '@sdl/domain-primitives-transitional':
         specifier: workspace:*
         version: link:../../domain-primitives-transitional
-      '@sdl/extension-kit':
-        specifier: workspace:*
-        version: link:../../extension-kit
       '@sdl/graphite':
         specifier: workspace:*
         version: link:../../graphite
@@ -459,6 +450,15 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.4.3
+
+  packages/sdl-capability-kit:
+    dependencies:
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../sdl-core
+      '@sdl/sdl':
+        specifier: workspace:*
+        version: link:../sdl
 
   packages/sdl-core:
     dependencies:

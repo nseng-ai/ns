@@ -1,5 +1,5 @@
 import { runCommand, type CommandRunner, type ExecResult } from "@sdl/core/exec";
-import { createSdlCommandRunner } from "@sdl/extension-kit/command-runner";
+import { createSdlCommandRunner } from "@sdl/capability-kit/command-runner";
 import {
 	createCommitWithPreparedMessage,
 	prepareCheckpointMessage,

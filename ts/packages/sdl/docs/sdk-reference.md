@@ -13,7 +13,7 @@ Command schemas are [Zod](https://zod.dev) schemas. Import the SDK's `z` export 
 
 Do not import SDL implementation modules (`@sdl/sdl/*` other than `./sdk`, `@sdl/core/*`, `@sdl/clinkr/*`) from SDL extension authoring modules. The SDK re-exports the few lower-package types an author needs; those are documented below as first-party SDK vocabulary, with their origin noted.
 
-Peer APIs such as `@sdl/<cap>/api` are sibling capability surfaces above the SDK, not part of `@sdl/sdl/sdk` and not general extension-author API. They are for first-party capability packages that deliberately depend on each other in-process; command authors still import only this SDK unless a capability's package documentation explicitly tells them otherwise.
+Capability APIs such as `@sdl/<cap>/api` are consumer/provider capability surfaces above the SDK, not part of `@sdl/sdl/sdk` and not general SDL extension-author API. They are for first-party capability packages that deliberately depend on each other in-process; command authors still import only this SDK unless a capability's package documentation explicitly tells them otherwise.
 
 For this repository's checked-in grouped flow extension, repeated command-author helper code should stay under the owning implementation package's helper layer, currently `ts/packages/extensions/flow/src/shared/` in `sdl-flow`, until a later explicit decision promotes a stable helper into this SDK. `internalWorkspaceExports` in `ts/packages/sdl/package.json` and transitional primitive subpaths under `@sdl/domain-primitives-transitional/*` exist for package/internal workspace sharing during migration, not as extension-author API; importing or documenting those subpaths is not SDK promotion.
 

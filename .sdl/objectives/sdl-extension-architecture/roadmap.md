@@ -122,14 +122,14 @@ Driven by `docs/adr/0009-extension-layering-and-peer-dependencies.md` and record
 
 ### Work
 
-- [x] **1. Stand up `@sdl/extension-kit`** (above-SDK substrate).
+- [x] **1. Stand up `@sdl/capability-kit`** (above-SDK substrate; landed as `@sdl/extension-kit`, later renamed — see `updates/2026-06-25-extension-ontology-new-order.md`).
   - Policy: direct execution after preview for code/tests.
   - Plan: relocate the `ctx`→gateway adapter (`SdlCommandExecApi`, today in `ts/packages/extensions/flow/src/shared/command-runner.ts`) and shared result/error shapes into a new `@sdl/extension-kit`; rewire flow's `cp`/`push`/`submit` to build gateways through it; add `InMemoryGitGateway`-backed unit tests for the relocated domain cores. Banks the testability win independent of everything else.
   - Evidence: `@sdl/extension-kit` owns the SDL host command runner, command execution helper, CLI exec adapter, SDL Git helper, porcelain-status helper, and `createSdlGitGateway`. Flow submit and PR-description runtime construction build Git gateways through extension-kit; flow shared Git/worktree helpers consume extension-kit while retaining flow policy. `runPushCore()` is gateway-injected and covered by `InMemoryGitGateway` unit tests. `flow cp` now exports gateway-injected `runCpCore()`, with fake-gateway unit coverage for snapshot failures, trunk/clean refusals, dry-run, message failure, commit failure, and success; the command face builds `RealCheckpointGateway` through `createSdlCommandRunner(ctx)` while preserving existing scenario/integration behavior. Mutating checkpoint operations remain flow-local rather than widening `@sdl/core` `GitGateway`. See `updates/2026-06-24-extension-kit-flow-gateway-boundary.md` and `updates/2026-06-24-gateway-injected-flow-cp-core.md`.
 
 - [x] **2. Lock the cross-capability conventions** (decision + docs row).
   - Policy: steer-first — these conventions bind every capability migration.
-  - Plan: ratify the Peer API subpath (`@sdl/<cap>/api`), the gateway-injected-core rule, and the exports-map mechanism that forbids deep sibling imports and cycles. Resolve the ADR 0009 open items (peer-subpath mechanics, DAG-enforcement mechanism). Document in the SDK reference + CONTEXT.
+  - Plan: ratify the Capability API subpath (`@sdl/<cap>/api`), the gateway-injected-core rule, and the exports-map mechanism that forbids deep consumer→provider imports and cycles. Resolve the ADR 0009 open items (Capability API subpath mechanics, acyclic-graph enforcement mechanism). Document in the SDK reference + CONTEXT.
   - Evidence: ADR 0009, SDL CONTEXT, README, and SDK reference now ratify `@sdl/<cap>/api` as the sibling Peer API convention, distinguish command faces from Peer APIs, and keep `@sdl/sdl/sdk` as the public author API rather than a peer-capability surface. `just ts-guard` includes `SDL_TS_BAN_CAPABILITY_PRIVATE_PEER_IMPORT`, with self-tests for allowed Peer API, neutral infra, and extension-kit imports and rejected private/deep capability imports. `@sdl/sdl` package metadata now uses `sdl.internalWorkspaceExports` after reader search found no runtime metadata reader; runtime aliases remain explicit module-loader state. See `updates/2026-06-24-peer-api-conventions-guard.md`.
 
 - [x] **3. Stand up `@sdl/domain-primitives-transitional`** (below-SDK holding pen) and de-tangle the kernel.
@@ -139,12 +139,12 @@ Driven by `docs/adr/0009-extension-layering-and-peer-dependencies.md` and record
 
 - [~] **4. Per-capability migration → child Objectives** (fan-out, ordered by `ccc`-consumption).
   - Policy: steer-first — each capability migration is spawned as its own child Objective when picked up.
-  - Plan: model each capability as an above-SDK extension with a thin command face and a gateway-injected domain core, exposing a Peer API where a sibling needs it. Order: capabilities `ccc` already reaches into via internal subpaths first (each retires a transitional dependency), then the rest. Targets: handoff, objective, slot, branch-context, plans, pr-address, roaster, aretro. flow is the in-repo reference, not a child Objective.
+  - Plan: model each capability as an above-SDK Capability with a thin Command Face and a gateway-injected Domain Core, exposing a Capability API where a consumer needs it. Order: capabilities `ccc` already reaches into via internal subpaths first (each retires a transitional dependency), then the rest. Targets: handoff, objective, slot, branch-context, plans, pr-address, roaster, aretro. flow is the in-repo reference, not a child Objective.
   - Progress: Slot has completed its child Objective (`slot-capability-extension`): `@sdl/slot/api` is the curated checkout Peer API for sibling in-process consumers, supported command usage is through `sdl slot ...`, `sdl slot gt` has explicit command-face dispositions, SDL owns shell mounting/parent-shell navigation, and `ts/packages/slot/CONTEXT.md` records the durable boundary.
 
-- [ ] **5. Convert `ccc` into an orchestrator extension.**
+- [ ] **5. Make `ccc` a clean consumer and enforce the acyclic Extension Dependency Graph.**
   - Policy: steer-first.
-  - Plan: depend on peer capabilities through their `@sdl/<cap>/api` Peer APIs instead of `@sdl/sdl/*` internal subpaths; place `ccc` at the apex of the extension DAG.
+  - Plan: depend on provider capabilities through their `@sdl/<cap>/api` Capability APIs instead of `@sdl/sdl/*` internal subpaths; `ccc` is the highest-fan-out consumer with no privileged tier. Break the `@sdl/pi` ↔ `@sdl/ccc` bidirectional package cycle (tracked debt under the acyclic invariant): relocate the objectives domain stranded in the `@sdl/pi` Presentation Host into its owning Capability (re-consumed via its Capability API), pick a single Pi/CCC delegation direction, and land a topological acyclicity check in `just ts-guard`. See `updates/2026-06-25-extension-ontology-new-order.md`.
 
 - [ ] **6. Delete `@sdl/domain-primitives-transitional`** (completion marker).
   - Policy: direct execution after preview once steps 4–5 are done.

@@ -39,7 +39,7 @@ const neutralPeerPackageNames = new Set([
   "@sdl/brmem",
   "@sdl/clinkr",
   "@sdl/core",
-  "@sdl/extension-kit",
+  "@sdl/capability-kit",
   "@sdl/graphite",
 ]);
 const packageMetadataByName = loadPackageMetadata();
@@ -341,8 +341,8 @@ function runAdversarialReview() {
       expectedRules: [],
     },
     {
-      name: "extension-kit import is allowed for capabilities",
-      code: 'import { createSdlGitGateway } from "@sdl/extension-kit";',
+      name: "capability-kit import is allowed for capabilities",
+      code: 'import { createSdlGitGateway } from "@sdl/capability-kit";',
       path: "ts/packages/ccc/src/peer.ts",
       expectedRules: [],
     },

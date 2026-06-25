@@ -1,6 +1,6 @@
 import { RealGithubPrGateway } from "@sdl/core/submit";
 import type { CommandRunner } from "@sdl/core/exec";
-import { createSdlCommandRunner, createSdlGitGateway } from "@sdl/extension-kit";
+import { createSdlCommandRunner, createSdlGitGateway } from "@sdl/capability-kit";
 import {
 	RealSubmitGateway,
 	RealSubmitMetadataGateway,

@@ -26,10 +26,10 @@ The repository identity, source branch, encoded path keys, and directory path fa
 
 **Plans Command Face**:
 The CLI/Pi-facing shell that parses user intent, constructs real **Gateways** at the edge, writes/lists/selects plans, and presents user-facing output.
-*Avoid*: Plans Core, Peer API
+*Avoid*: Plans Core, Capability API
 
-**Plans Peer API**:
-The curated `@sdl/plans/api` surface used by sibling runtime packages and their tests for in-process saved-plan composition without broad package-root imports. It includes saved-plan path, evidence, selection, and slug-prompt helpers needed by sibling composition and test fixtures. Owning `@sdl/plans` tests may still import the package root when covering root compatibility.
+**Plans Capability API**:
+The curated `@sdl/plans/api` surface used by downstream consumer packages and their tests for in-process saved-plan composition without broad package-root imports. It includes saved-plan path, evidence, selection, and slug-prompt helpers needed by consumer composition and test fixtures. Owning `@sdl/plans` tests may still import the package root when covering root compatibility.
 *Avoid*: private source import, command shell, root barrel contract
 
 **Plans Core**:

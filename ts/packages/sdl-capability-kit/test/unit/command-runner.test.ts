@@ -3,8 +3,8 @@ import { describe, expect, test } from "vitest";
 import type { ExecResult } from "@sdl/core/exec";
 import type { SdlExecOptions, SdlExtensionApi } from "@sdl/sdl/sdk";
 
-import { createSdlCommandRunner, SdlCommandExecApi } from "@sdl/extension-kit/command-runner";
-import { execSdlGit, readSdlGitPorcelainStatus } from "@sdl/extension-kit/git";
+import { createSdlCommandRunner, SdlCommandExecApi } from "@sdl/capability-kit/command-runner";
+import { execSdlGit, readSdlGitPorcelainStatus } from "@sdl/capability-kit/git";
 
 interface ExecCall {
 	command: string;

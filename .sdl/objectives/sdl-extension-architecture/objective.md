@@ -6,24 +6,27 @@ SDL should become a small Source Development Lifecycle kernel whose useful workf
 
 This Objective supersedes the narrower `handoff-sdl-extension` Objective. Handoff remains useful as a future sophisticated workflow pressure test, but the architecture should first be proven with simpler project-local commands before committing to nested command trees, bundled extension shape, or Handoff-specific API design.
 
-**Phase 2 — architecture endgame (active).** The command-first experiment (Phase 1) is essentially complete and has proven the layered model. A design session resolved the full end-state and recorded it in `docs/adr/0009-extension-layering-and-peer-dependencies.md`. This Objective now owns driving that end-state to completion: the transitional holding-pen package deleted and all nine user-facing product capabilities modeled as extensions. The Architecture Model below is the target; Scope and Completion Criteria carry the Phase 2 work.
+**Phase 2 — architecture endgame (active).** The command-first experiment (Phase 1) is essentially complete and has proven the layered model. A design session resolved the full end-state and recorded it in `docs/adr/0009-extension-layering-and-peer-dependencies.md`, refined by `docs/adr/0012-domain-package-layer-above-extension-kit.md` (above-SDK tier split + domain-placement rule). This Objective now owns driving that end-state to completion: the transitional holding-pen package deleted and all nine user-facing product capabilities modeled as extensions. The Architecture Model below is the target; Scope and Completion Criteria carry the Phase 2 work.
 
-## Architecture Model (ADR 0009)
+## Architecture Model (ADR 0009 + 0012)
+
+**Extension vs Capability (orthogonal).** An **Extension** is the technical construct — a package that plugs into the SDK via `defineExtension()`, third-party-buildable. A **Capability** is a first-party SDL feature area (objectives, handoff, slot, flow, …) implemented *as* an Extension. Construct/topology terms use "Extension"; tier/feature terms use "Capability." "Extension" stays the unit noun (not renamed to "Capability Package").
 
 Three layers:
 
 - **Below the SDK — neutral infra (never domain):** `@sdl/core`, `@sdl/clinkr`, `@sdl/graphite`, `@sdl/brmem`.
-- **The SDK:** the `@sdl/sdl` kernel + `@sdl/sdl/sdk`, a thin host-primitives extension API.
-- **Above the SDK — capability extensions:** flow, handoff, objective, branch-context, plans, pr-address, slot, roaster, aretro, plus the shared `@sdl/extension-kit` substrate.
+- **The SDK:** the `@sdl/sdl` kernel + `@sdl/sdl/sdk`, a thin SDL extension API of host primitives.
+- **Above the SDK — Capabilities:** flow, handoff, objective, branch-context, plans, pr-address, slot, roaster, aretro, built on the shared `@sdl/capability-kit` (the **Capability Kit**). "Extension Kit" is a reserved name for a hypothetical future substrate for building *all* extensions, third-party included; it does not name the first-party kit.
 
 Rules:
 
-- `ccc` is itself an orchestrator extension at the apex of a shallow, acyclic extension dependency DAG; capabilities are mostly leaves.
-- Each capability extension has **two faces**: a **command face** (`defineExtension()` contributions, loaded by the kernel) and a **Peer API** (`@sdl/<cap>/api`, a curated typed export consumed in-process by sibling extensions, chiefly `ccc`). Siblings depend on the Peer API only, never internals; the kernel loader is unaware of peer edges.
-- **Gateway-injected peer cores:** capability domain logic takes injected gateways (`GitGateway`, …), never raw `SdlExtensionApi`. `ctx` lives only in the command shell, which converts `ctx`→gateways at the edge via `@sdl/extension-kit`. This is what makes domain logic unit-testable with `InMemoryGitGateway`.
-- **Two new packages:** `@sdl/extension-kit` (above-SDK substrate: the `ctx`→gateway adapter + shared result/error shapes) and `@sdl/domain-primitives-transitional` (below-SDK disposable holding pen for the SDK-independent primitives currently tangled in `@sdl/sdl`, deleted once consumers migrate).
-- `internal-migration-export` is renamed **internal workspace export**; the dividing rule is SDK-dependence — `ctx`-dependent shared code lives above the SDK in `@sdl/extension-kit`, SDK-independent primitives below.
-- Standalone tools (`packagechk`, `vibechk`, `areg`) are off this axis; `pi-*` is a separate presentation host, not a capability extension.
+- The **Extension Dependency Graph** (consumer→provider package edges) **must be acyclic** — a cycle is debt, not design. `ccc` is the **highest-fan-out consumer** in that graph; it holds **no privileged tier** and capabilities are mostly leaves (providers).
+- A Capability mandatorily exposes a **Command Face** (`defineExtension()` contributions, loaded by the kernel) over a gateway-injected **Domain Core**, and adds a **Capability API** (`@sdl/<cap>/api`, a curated typed in-process export) **only where a consumer depends on it** — the Capability API is not a mandatory face (only ~3 of ~10 ship an `/api`). A **consumer** extension depends on a **provider**'s Capability API only, never on internals; the kernel loader is unaware of these edges.
+- **Gateway-injected capability cores:** capability domain logic takes injected gateways (`GitGateway`, …), never raw `SdlExtensionApi`. `ctx` lives only in the command shell, which converts `ctx`→gateways at the edge via `@sdl/capability-kit`. This is what makes domain logic unit-testable with `InMemoryGitGateway`.
+- **Domain logic lives only in Capabilities** — never in the Presentation Host (`@sdl/pi`) or the kernel (`@sdl/sdl`). The Capability Kit is capability-agnostic (holds no domain) but purpose-built for building capabilities.
+- **Two packages:** `@sdl/capability-kit` (above-SDK substrate: the `ctx`→gateway adapter + shared result/error shapes) and `@sdl/domain-primitives-transitional` (below-SDK disposable holding pen for the SDK-independent primitives currently tangled in `@sdl/sdl`, deleted once consumers migrate).
+- `internal-migration-export` is renamed **internal workspace export**; the dividing rule is SDK-dependence — `ctx`-dependent shared code lives above the SDK in `@sdl/capability-kit`, SDK-independent primitives below.
+- Standalone tools (`packagechk`, `vibechk`, `areg`) are off this axis; `pi-*` is a separate **Presentation Host**, not a Capability.
 
 ## Scope
 
@@ -49,12 +52,13 @@ Rules:
 
 ### Architecture endgame (Phase 2)
 
-- Stand up `@sdl/extension-kit` and relocate the `ctx`→gateway adapter (`SdlCommandExecApi`) and shared result/error shapes out of flow, so flow's `cp`/`push`/`submit` consume gateways through it and gain `InMemoryGitGateway`-backed domain tests.
-- Lock the cross-capability conventions: the Peer API subpath (`@sdl/<cap>/api`), the gateway-injected-core rule, and an exports-map mechanism that forbids deep sibling imports and cycles.
+- Stand up `@sdl/capability-kit` (the **Capability Kit**) and relocate the `ctx`→gateway adapter (`SdlCommandExecApi`) and shared result/error shapes out of flow, so flow's `cp`/`push`/`submit` consume gateways through it and gain `InMemoryGitGateway`-backed domain tests.
+- Lock the cross-capability conventions: the Capability API subpath (`@sdl/<cap>/api`), the gateway-injected-core rule, and an exports-map mechanism that forbids deep consumer→provider imports and cycles.
 - Stand up `@sdl/domain-primitives-transitional`, extract the SDK-independent domain primitives (`checkpoint-flow`, `pending-worktree`, `text-generation`, `temp-files`, …) out of `@sdl/sdl`, apply the internal-workspace-export rename, and repoint `ccc`/`pi-extensions`/flow.
-- Model each of the nine user-facing capabilities (flow, handoff, objective, branch-context, plans, pr-address, slot, roaster, aretro) as a capability extension with a gateway-injected domain core, a thin command face, and a Peer API where a sibling needs it. Per-capability migration is tracked as **child Objectives**, ordered by `ccc`-consumption; flow is the reference implementation.
-- Convert `ccc` into an orchestrator extension that depends on peers through their Peer APIs instead of `@sdl/sdl/*` internal subpaths.
-- Delete `@sdl/domain-primitives-transitional` once every capability is an extension and `ccc`/`pi-extensions` consume Peer APIs — its emptiness is the endgame's completion marker.
+- Model each of the nine user-facing capabilities (flow, handoff, objective, branch-context, plans, pr-address, slot, roaster, aretro) as a Capability with a gateway-injected Domain Core, a thin Command Face, and a Capability API where a consumer needs it. Per-capability migration is tracked as **child Objectives**, ordered by `ccc`-consumption; flow is the reference implementation.
+- Break the `@sdl/pi` ↔ `@sdl/ccc` package cycle to satisfy the acyclic Extension Dependency Graph: relocate the objectives domain stranded in the `@sdl/pi` Presentation Host into its owning Capability (re-consumed via its Capability API), pick a single Pi/CCC delegation direction, and land a topological acyclicity check in `just ts-guard`.
+- Convert `ccc` into the highest-fan-out consumer that depends on providers through their Capability APIs instead of `@sdl/sdl/*` internal subpaths; it holds no privileged tier.
+- Delete `@sdl/domain-primitives-transitional` once every capability is an extension and `ccc`/`pi-extensions` consume Capability APIs — its emptiness is the endgame's completion marker.
 
 ## Non-Goals
 
@@ -83,11 +87,12 @@ Rules:
 
 ### Phase 2 — architecture endgame
 
-- `@sdl/extension-kit` exists and owns the `ctx`→gateway adapter and shared result/error shapes; flow's domain logic is tested against `InMemoryGitGateway` with no real `git` subprocess and no argv-string scripting.
-- The Peer API convention (`@sdl/<cap>/api`), the gateway-injected-core rule, and the deep-import/cycle guard are documented and enforced.
-- All nine user-facing capabilities (flow, handoff, objective, branch-context, plans, pr-address, slot, roaster, aretro) are above-SDK extensions with a thin command face and a gateway-injected domain core; each is tracked by a completed child Objective (flow excepted, as the in-repo reference).
-- `ccc` is an orchestrator extension that depends on peer capabilities through their Peer APIs, not through `@sdl/sdl/*` internal subpaths.
-- Below the SDK is domain-free: `@sdl/domain-primitives-transitional` has been deleted, and no below-SDK package imports capability domain logic.
+- `@sdl/capability-kit` exists and owns the `ctx`→gateway adapter and shared result/error shapes; flow's domain logic is tested against `InMemoryGitGateway` with no real `git` subprocess and no argv-string scripting.
+- The Capability API convention (`@sdl/<cap>/api`), the gateway-injected-core rule, and the deep-import/cycle guard are documented and enforced.
+- The Extension Dependency Graph is acyclic and enforced: the `@sdl/pi` ↔ `@sdl/ccc` cycle is broken and a topological check in `just ts-guard` keeps the graph acyclic.
+- All nine user-facing capabilities (flow, handoff, objective, branch-context, plans, pr-address, slot, roaster, aretro) are above-SDK Capabilities with a thin Command Face and a gateway-injected Domain Core; each is tracked by a completed child Objective (flow excepted, as the in-repo reference).
+- `ccc` is the highest-fan-out consumer that depends on provider Capabilities through their Capability APIs, not through `@sdl/sdl/*` internal subpaths, and holds no privileged tier.
+- Below the SDK is domain-free: `@sdl/domain-primitives-transitional` has been deleted, and no below-SDK package imports capability domain logic. Domain logic lives only in Capabilities, never in the Presentation Host (`@sdl/pi`) or kernel.
 
 ## Definition of Progress
 
@@ -132,6 +137,7 @@ Assumptions:
 - The PR-description machinery, `commandFailure`, GitHub-PR gateway, and submit orchestration that `regenerate-pr` and the former `submit` bundle duplicated already exist in `@sdl/core/submit`/`@sdl/graphite`; the implemented consolidation route is now `sdl-flow`-owned shared modules over those lower-package seams, not new public SDK behavior.
   - Revised (2026-06-24): for command-author modules consumed **only** by flow, the accepted disposition is now to relocate them into `sdl-flow` (`ts/packages/extensions/flow/src/shared/`) and import `@sdl/core/*`/`@sdl/graphite/*` directly, rather than keep them in `@sdl/sdl` behind `@sdl/sdl/*` internal-migration-export subpaths. The internal-export tier remains correct for genuinely shared seams (`checkpoint-flow`, `pending-worktree`, `text-generation`, `sdk`), which stay in `@sdl/sdl`. See `updates/2026-06-24-relocate-flow-only-modules.md`.
 - Shared-code consolidation should remain holistic around submit's readable delegating shape: future helper extractions should still check submit's behavior matrix so they do not create throwaway seams that only fit `regenerate-pr` or `autobranch`.
+- The extension system has two orthogonal concepts: an **Extension** (the technical construct) and a **Capability** (a first-party feature area implemented as one). A Capability's only mandatory face is a Command Face over a gateway-injected Domain Core; a Capability API is added only where a consumer depends on it in-process (~3 of ~10 capabilities currently ship an `/api`). The vocabulary canon — Extension/Capability split, `@sdl/capability-kit`/Capability Kit with "Extension Kit" reserved, Capability API, consumer/provider, the acyclic Extension Dependency Graph — is ratified in `CONTEXT.md`, `CONTEXT-MAP.md`, ADR 0009, and ADR 0012. See `updates/2026-06-25-extension-ontology-new-order.md`.
 
 Risks:
 
@@ -143,6 +149,7 @@ Risks:
 - Closing `handoff-sdl-extension` may hide useful nested-command thinking. Mitigate by preserving it as a closed provenance Objective and parking Handoff as a future sophisticated workflow pressure test.
 - The readable `submit.ts` delegation has de-risked the former checked-in bundle liability, but submit can still regress through its command-local terminal-output and failure-summarization policy. Mitigate by keeping faked `git`/`gt`/`gh` scenario coverage green whenever the package-owned submit seam or flow wrapper changes.
 - A shared GitHub-PR gateway seam could still overreach the command-first evidence threshold if promoted too far. The current mitigation is to reuse `@sdl/core/submit`'s `RealGithubPrGateway` through package-owned internal-migration-export seams and defer any public SDK or standalone GitHub-PR subpath until another consumer proves it.
+- The `@sdl/pi` ↔ `@sdl/ccc` package dependency is a real **bidirectional cycle**: both declare each other `workspace:*` and import each other. CCC imports objectives domain stranded in the `@sdl/pi` Presentation Host (`@sdl/pi/objectives/selection`, `/terminal/presentation`, `/commands/ack`), and `@sdl/pi` imports orchestration from `@sdl/ccc` (`/objective-stack-impl`, `/worktree-status`, `/handoff-tab`, `/cmux/focused-terminal-tab`). Under the new acyclic Extension Dependency Graph invariant this is **tracked debt, not design** (reclassified from the former "intentional cycle"). Mitigate via the Phase 2 cycle-break (roadmap step 5): relocate the objectives domain out of `@sdl/pi` into its owning Capability (re-consumed through its Capability API), pick a single Pi/CCC delegation direction, and land a `ts-guard` acyclicity check. Until then the invariant is documented but not yet enforced.
 
 ## Open Questions
 
@@ -153,3 +160,4 @@ Risks:
 - Which parts of the documented project-local versus future bundled extension model should become follow-up Objectives rather than remaining parked design space?
 - After the package-owned submit and PR-description seams re-exposed much of `@sdl/core/submit`, which helpers (if any) have earned enough cross-extension evidence to graduate into the public `@sdl/sdl/sdk`? This track deliberately defers that promotion and keeps it as a later steer-first decision.
 - After the command-first migration, which parked capability should become the first bundled/sophisticated extension pressure test: Handoff, Objectives, Slots, or another workflow?
+- Which single delegation direction should break the `@sdl/pi` ↔ `@sdl/ccc` cycle: should the Presentation Host depend on CCC orchestration, or should CCC compose capabilities so Pi need not depend on it? The acyclic invariant requires picking one; the objectives domain must first leave `@sdl/pi` for its owning Capability regardless of direction.

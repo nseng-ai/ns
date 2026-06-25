@@ -39,9 +39,9 @@ There is intentionally no root barrel export. Import the exact primitive subpath
 Do not add:
 
 - public SDL extension-author API — that belongs in `@sdl/sdl/sdk` after an explicit SDK promotion decision;
-- `ctx`-dependent extension helper code — shared extension substrate belongs above the SDK, usually in `@sdl/extension-kit` or the owning capability package;
+- `ctx`-dependent extension helper code — shared capability substrate belongs above the SDK, usually in `@sdl/capability-kit` or the owning capability package;
 - command faces, CLI registration, Pi mirrors, or presentation policy;
-- capability Peer APIs — use the `@sdl/<cap>/api` convention in the owning capability package;
+- Capability APIs — use the `@sdl/<cap>/api` convention in the owning capability package;
 - dependencies on `@sdl/sdl`.
 
 The dependency direction is important: this package is below the SDL SDK/kernel. If a helper needs to import `@sdl/sdl`, it does not belong here.
@@ -65,8 +65,8 @@ This package is successful when it can be deleted.
 Delete it after:
 
 1. each capability has moved to its above-SDK package/extension boundary;
-2. sibling capability dependencies use Peer APIs such as `@sdl/<cap>/api` instead of transitional primitive subpaths;
-3. CCC consumes capability Peer APIs as an orchestrator extension rather than reaching into transitional primitives;
+2. consumer→provider capability dependencies use Capability APIs such as `@sdl/<cap>/api` instead of transitional primitive subpaths;
+3. CCC consumes Capability APIs as the highest-fan-out consumer rather than reaching into transitional primitives;
 4. no workspace package imports `@sdl/domain-primitives-transitional/*`.
 
 Until then, keep this package small, boring, and obviously temporary.

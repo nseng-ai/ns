@@ -6,7 +6,7 @@ This package contains unified Pi runtime helper and extension modules. Keep exte
 
 `@sdl/pi` is a private package with two kinds of modules:
 
-- neutral helper subpaths exported as `@sdl/pi/...` for sibling packages such as CCC, Objective, branch-context, autobranch, and sdlcc;
+- neutral helper subpaths exported as `@sdl/pi/...` for other workspace packages such as CCC, Objective, branch-context, autobranch, and sdlcc;
 - project-local Pi extension entrypoints imported by `.pi/extensions/*.ts` discovery adapters.
 
 Other workspace packages may import curated neutral `@sdl/pi/...` exports. They must not import project-local extension entrypoints or deep-import `ts/packages/pi/src/**` as helpers. If a non-Pi package needs behavior that currently lives only in a project-local entrypoint, extract a neutral helper subpath or move the orchestration to the owning package instead.

@@ -22,10 +22,10 @@ The workflow that attaches an existing plan source to a branch-context key while
 
 **Branch Context Command Face**:
 The CLI/Pi-facing shell that parses arguments, builds real **Gateways**, resolves host-context inputs, and formats user output.
-*Avoid*: Branch Context Core, Peer API, presentation-neutral workflow
+*Avoid*: Branch Context Core, Capability API, presentation-neutral workflow
 
-**Branch Context Peer API**:
-The curated `@sdl/branch-context/api` surface used by sibling runtime packages and their tests for in-process composition without broad package-root imports. Owning `@sdl/branch-context` tests may still import the package root when covering root compatibility.
+**Branch Context Capability API**:
+The curated `@sdl/branch-context/api` surface used by downstream consumer packages and their tests for in-process composition without broad package-root imports. Owning `@sdl/branch-context` tests may still import the package root when covering root compatibility.
 *Avoid*: private source import, command shell, root barrel contract
 
 **Branch Context Core**:

@@ -1,6 +1,6 @@
 # @sdl/slot
 
-`@sdl/slot` owns Slot domain logic, operations, command-group construction, and the Slot Peer API. The supported command-line surface is **only** through the SDL binary:
+`@sdl/slot` owns Slot domain logic, operations, command-group construction, and the Slot Capability API. The supported command-line surface is **only** through the SDL binary:
 
 ```bash
 sdl slot list
