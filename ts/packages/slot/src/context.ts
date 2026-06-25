@@ -48,7 +48,11 @@ export async function createRealSlotContext(options: {
 		storage: new RealSlotStorageGateway(),
 		clipboard: new RealClipboardGateway({ env }),
 		cwd: options.cwd,
-		interaction: resolveClinkrInteraction({ stdin: readStdinLine, stderr }),
+		interaction: resolveClinkrInteraction({
+			stdin: readStdinLine,
+			stderr,
+			isInteractive: () => process.stdin.isTTY === true,
+		}),
 		stderr,
 		env,
 		slotsRoot,

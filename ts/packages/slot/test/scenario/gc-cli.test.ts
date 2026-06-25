@@ -93,7 +93,7 @@ describe("slot gc CLI", () => {
 		expect(run.git.operations()).toEqual([]);
 	});
 
-	it("requires --force for destructive JSON gc", async () => {
+	it("non-interactive destructive gc without --force fails as usageError", async () => {
 		const run = runScenario(["gc", "--format", "json"], {
 			git: {
 				worktrees: [slotWorktree("slot-01", "feature/merged")],
@@ -102,7 +102,12 @@ describe("slot gc CLI", () => {
 			pr: { prsByBranch: { "feature/merged": { number: 1, state: "MERGED" } } },
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ errorType: "confirmation_required" });
+		expect(parseJsonOutput(run)).toMatchObject({
+			status: "usageError",
+			exitCode: 2,
+			errorType: "usageError",
+			data: { missingFlag: "--force" },
+		});
 		expect(run.git.operations()).toEqual([]);
 	});
 

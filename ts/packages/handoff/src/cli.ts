@@ -54,6 +54,7 @@ const entry = defineCli<HandoffCliContext, CliDeps, undefined>({
 				interaction: deps.interaction,
 				stdin: deps.stdin ?? readStdinLine,
 				stderr: io.stderr,
+				isInteractive: () => deps.stdin !== undefined || process.stdin.isTTY === true,
 			}),
 			stderr: io.stderr,
 		};
@@ -75,7 +76,7 @@ const entry = defineCli<HandoffCliContext, CliDeps, undefined>({
 			description: "Delete one handoff by exact slug.",
 			schema: deleteRequestSchema,
 			positionals: { slug: { position: 0 } },
-			options: { force: { short: "-f" } },
+			options: { yes: { short: "-y" } },
 			resultSchema: deleteResultSchema,
 			handler: runDelete,
 			renderHuman: renderDelete,

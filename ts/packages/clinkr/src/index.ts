@@ -39,6 +39,7 @@ export {
 	ok,
 	okMachineEnvelopeSchema,
 	toMachineEnvelope,
+	usageError,
 	usageErrorMachineEnvelope,
 	usageErrorMachineEnvelopeSchema,
 } from "./exit.ts";
@@ -49,6 +50,7 @@ export type {
 	ClinkrNegativeExit,
 	ClinkrOkExit,
 	ClinkrOkRenderOverrides,
+	ClinkrUsageErrorExit,
 	MachineEnvelope,
 } from "./exit.ts";
 export { ClinkrFailure } from "./failure.ts";

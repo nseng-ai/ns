@@ -147,7 +147,7 @@ Standalone TypeScript CLI commands:
 
 ```text
 handoff list [--branch <branch> | --all] [--include-deleted]
-handoff delete [--branch <branch>] [-f|--force] <semantic-slug>
+handoff delete [--branch <branch>] [-y|--yes] <semantic-slug>
 handoff gc [--dry-run|-f]
 ```
 
@@ -197,12 +197,12 @@ handoff list --all
 handoff list --all --format json
 handoff list --all --include-deleted
 handoff list --all --include-deleted --format json
-handoff delete [--branch <branch>] [-f|--force] <semantic-slug>
+handoff delete [--branch <branch>] [-y|--yes] <semantic-slug>
 handoff gc --dry-run
 brmem get <semantic-slug>.md --namespace handoff --branch <branch>
 ```
 
-`handoff delete` removes exactly one handoff from the target branch by exact slug. Pass `--branch <branch>` to remove a handoff from a non-current or locally deleted branch; pass `--force` to skip the confirmation prompt.
+`handoff delete` removes exactly one handoff from the target branch by exact slug. Pass `--branch <branch>` to remove a handoff from a non-current or locally deleted branch; pass `--yes` to skip the confirmation prompt.
 
 `handoff gc` deletes handoffs whose local branch no longer exists. Use `handoff gc --dry-run` to preview candidates and `handoff gc --force` to delete without prompting. Garbage collection deletes handoff entries only; it does not delete git branches, remote branches, Graphite state, or non-handoff Branch Memory entries.
 

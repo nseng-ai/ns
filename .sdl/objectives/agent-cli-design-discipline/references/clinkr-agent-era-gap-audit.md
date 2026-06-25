@@ -24,7 +24,7 @@ Classifications:
 | Exit-code taxonomy vs structured envelope               | Resolved                   | ADR 0010; `exitCodeForExit` keeps `0/1/2` process codes in `ts/packages/clinkr/src/exit.ts:175-188`                                                                                                                                                                                       | Reflect in `sdl-cli-design`                                                                                      |
 | Python-parity snake_case envelope vs TS-native contract | Resolved                   | ADR 0011; camelCase envelope interfaces in `ts/packages/clinkr/src/exit.ts:38-65`                                                                                                                                                                                                         | Reflect in `sdl-cli-design`                                                                                      |
 | Failure exits lack structured recovery data             | Resolved                   | `ClinkrFailureExit.data` and failure envelopes preserve `data` in `ts/packages/clinkr/src/exit.ts:25-29`, `171-172`, `203-210`; thrown `ClinkrFailure` propagation preserves `data` in `ts/packages/clinkr/src/group.ts:509-514`                                                          | Reflect in `sdl-cli-design`; encourage command-specific data schemas                                             |
-| Usage errors bypass JSON envelope                       | Mostly resolved            | Zod/request validation errors emit `usage_error` envelopes in JSON mode in `ts/packages/clinkr/src/group.ts:468-480`; ADR 0011 explicitly limits Commander parse-error enveloping in `docs/adr/0011-clinkr-ts-native-json-envelope.md:37-41`                                              | No immediate code work unless a concrete Commander parse-error case matters                                      |
+| Usage errors bypass JSON envelope                       | Mostly resolved            | Zod/request validation errors emit `usageError` envelopes in JSON mode in `ts/packages/clinkr/src/group.ts:468-480`; ADR 0011 explicitly limits Commander parse-error enveloping in `docs/adr/0011-clinkr-ts-native-json-envelope.md:37-41`                                               | No immediate code work unless a concrete Commander parse-error case matters                                      |
 | Machine envelope schema not published                   | Resolved                   | `machineEnvelopeJsonSchema` is part of the schema document in `ts/packages/clinkr/src/json-schema.ts:5-23`                                                                                                                                                                                | Reflect in `sdl-cli-design`                                                                                      |
 | Unconstrained `errorType` strings                       | Land-now                   | Base interfaces/schemas still accept any string in `ts/packages/clinkr/src/exit.ts:25-29`, `88-93`, `110-140`; ADR 0010 directs disciplined `error_type`/`code` values                                                                                                                    | Add authoring guidance and optional per-command failure schema/examples before a global taxonomy                 |
 | Negative outcomes default to process exit `0`           | ADR-needed                 | `negative` maps to process exit `0` unless `--shell-exit-code` is set in `ts/packages/clinkr/src/exit.ts:175-184`; rendered commands expose `--shell-exit-code` in `ts/packages/clinkr/src/group.ts:436-441`                                                                              | Decide whether to keep compatibility/default human semantics or make semantic negatives shell-visible by default |
@@ -39,7 +39,7 @@ Classifications:
 
 ADR 0010 and ADR 0011 resolve the Objective's largest prior uncertainty. Clinkr
 now has a TS-native discriminated machine envelope for `ok`, `negative`,
-`failure`, and `usage_error` outcomes. The runtime types and schemas expose
+`failure`, and `usageError` outcomes. The runtime types and schemas expose
 camelCase `status`, `exitCode`, `errorType`, `message`, and optional `data`
 fields (`ts/packages/clinkr/src/exit.ts:38-108`). `--json-schema` publishes the
 actual machine envelope schema alongside input and output schemas
@@ -66,7 +66,7 @@ machine consumers.
 ### 3. Usage errors are machine-readable for the important Zod path
 
 Rendered commands in JSON mode now turn schema/request validation failures into a
-`usage_error` envelope with structured issue data (`ts/packages/clinkr/src/group.ts:468-480`). That resolves the common agent path where an LLM passes a bad
+`usageError` envelope with structured issue data (`ts/packages/clinkr/src/group.ts:468-480`). That resolves the common agent path where an LLM passes a bad
 flag value or omits a required modeled argument.
 
 ADR 0011 intentionally leaves Commander-level parse errors conditional: those may

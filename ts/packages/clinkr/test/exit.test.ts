@@ -12,8 +12,24 @@ import {
 	negativeMachineEnvelopeSchema,
 	ok,
 	toMachineEnvelope,
+	usageError,
 	type ClinkrExit,
 } from "../src/exit.ts";
+
+describe("usageError", () => {
+	test("builds a handler-reachable usage error exit", () => {
+		expect(usageError("missing --yes", { missingFlag: "--yes" })).toEqual({
+			type: "usageError",
+			errorType: "usageError",
+			message: "missing --yes",
+			data: { missingFlag: "--yes" },
+		});
+	});
+
+	test("maps to exit code 2", () => {
+		expect(exitCodeForExit(usageError("missing flag"))).toBe(2);
+	});
+});
 
 describe("failure", () => {
 	test("builds a failure exit with errorType and message", () => {
@@ -81,6 +97,21 @@ describe("machineEnvelopeSchema", () => {
 			exitCode: 2,
 			errorType: "boom",
 			message: "bad",
+		});
+		expect(
+			machineEnvelopeSchema.parse({
+				status: "usageError",
+				exitCode: 2,
+				errorType: "usageError",
+				message: "missing flag",
+				data: { missingFlag: "--yes" },
+			}),
+		).toEqual({
+			status: "usageError",
+			exitCode: 2,
+			errorType: "usageError",
+			message: "missing flag",
+			data: { missingFlag: "--yes" },
 		});
 	});
 
@@ -188,6 +219,18 @@ describe("toMachineEnvelope", () => {
 		});
 		expect(Object.keys(envelope)).toEqual(["status", "exitCode", "errorType", "message"]);
 	});
+
+	test("usage error envelope uses camelCase status and fixed error type", () => {
+		const envelope = toMachineEnvelope(usageError("missing flag", { missingFlag: "--force" }));
+		expect(envelope).toEqual({
+			status: "usageError",
+			exitCode: 2,
+			errorType: "usageError",
+			message: "missing flag",
+			data: { missingFlag: "--force" },
+		});
+		expect(Object.keys(envelope)).toEqual(["status", "exitCode", "errorType", "message", "data"]);
+	});
 });
 
 describe("machineEnvelopeSchema", () => {
@@ -207,6 +250,12 @@ describe("machineEnvelopeSchema", () => {
 			exitCode: 2,
 			errorType: "boom",
 			message: "bad",
+		});
+		expect(machineEnvelopeSchema.parse(toMachineEnvelope(usageError("bad args")))).toEqual({
+			status: "usageError",
+			exitCode: 2,
+			errorType: "usageError",
+			message: "bad args",
 		});
 	});
 });

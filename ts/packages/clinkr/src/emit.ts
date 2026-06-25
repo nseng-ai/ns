@@ -41,6 +41,9 @@ export function emitExit<T>(exit: ClinkrExit<T>, options: EmitExitOptions<T>): n
 		case "failure":
 			options.io.stderr(`error: ${exit.message}\n`);
 			return 2;
+		case "usageError":
+			options.io.stderr(`error: ${exit.message}\n`);
+			return 2;
 	}
 }
 

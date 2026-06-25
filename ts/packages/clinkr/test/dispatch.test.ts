@@ -1,7 +1,14 @@
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
-import { ClinkrFailure, ClinkrGroup, negative, ok, type ClinkrExit } from "../src/index.ts";
+import {
+	ClinkrFailure,
+	ClinkrGroup,
+	negative,
+	ok,
+	usageError,
+	type ClinkrExit,
+} from "../src/index.ts";
 import { parseEnvelope, runForTest } from "../src/testing/index.ts";
 
 function buildGroup(): ClinkrGroup<null> {
@@ -20,6 +27,11 @@ function buildGroup(): ClinkrGroup<null> {
 		name: "no-data",
 		schema: z.object({}),
 		handler: async (): Promise<ClinkrExit<{ count: number }>> => negative("empty", { count: 0 }),
+	});
+	group.command({
+		name: "usage",
+		schema: z.object({}),
+		handler: async () => usageError("missing --yes", { missingFlag: "--yes" }),
 	});
 	group.command({
 		name: "fail",
@@ -51,6 +63,13 @@ describe("human mode", () => {
 		expect(run.exitCode).toBe(2);
 		expect(run.stdout).toBe("");
 		expect(run.stderr).toBe("error: it broke\n");
+	});
+
+	test("usage errors write an error-prefixed message to stderr and exit 2", async () => {
+		const run = await runForTest(buildGroup(), ["usage"], { context: null });
+		expect(run.exitCode).toBe(2);
+		expect(run.stdout).toBe("");
+		expect(run.stderr).toBe("error: missing --yes\n");
 	});
 });
 
@@ -91,6 +110,19 @@ describe("json mode", () => {
 			exitCode: 2,
 			errorType: "boom",
 			message: "it broke",
+		});
+		expect(run.stderr).toBe("");
+	});
+
+	test("usage error emits a usageError envelope and exits 2", async () => {
+		const run = await runForTest(buildGroup(), ["usage", "--format", "json"], { context: null });
+		expect(run.exitCode).toBe(2);
+		expect(parseEnvelope(run.stdout)).toEqual({
+			status: "usageError",
+			exitCode: 2,
+			errorType: "usageError",
+			message: "missing --yes",
+			data: { missingFlag: "--yes" },
 		});
 		expect(run.stderr).toBe("");
 	});

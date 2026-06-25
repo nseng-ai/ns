@@ -265,9 +265,9 @@ describe("plans CLI help, version, and dispatch pins", () => {
 		const unknownJson = await runWithFakes(["exec", "bogus", "--format", "json"]);
 		expect(await unknownJson.exit).toBe(2);
 		expect(parseJson(unknownJson)).toMatchObject({
-			status: "usage_error",
+			status: "usageError",
 			exitCode: 2,
-			errorType: "usage_error",
+			errorType: "usageError",
 			message: "error: unknown command 'bogus'",
 		});
 		expect(unknownJson.stderr.join("")).toBe("error: unknown command 'bogus'\n");
@@ -409,9 +409,9 @@ describe("plans exec save pins", () => {
 		const missingJson = await runWithFakes(["exec", "save", "--stdin", "--format", "json"]);
 		expect(await missingJson.exit).toBe(2);
 		expect(parseJson(missingJson)).toMatchObject({
-			status: "usage_error",
+			status: "usageError",
 			exitCode: 2,
-			errorType: "usage_error",
+			errorType: "usageError",
 			message: "error: --slug: Invalid input: expected string, received undefined",
 		});
 		expect(missingJson.stderr.join("")).toBe("");
@@ -646,9 +646,9 @@ describe("plans exec resolve pins", () => {
 		);
 		expect(await twoPositionals.exit).toBe(2);
 		expect(parseJson(twoPositionals)).toMatchObject({
-			status: "usage_error",
+			status: "usageError",
 			exitCode: 2,
-			errorType: "usage_error",
+			errorType: "usageError",
 			message: "error: too many arguments for 'resolve'. Expected 1 argument but got 2.",
 		});
 		expect(twoPositionals.stderr.join("")).toBe(

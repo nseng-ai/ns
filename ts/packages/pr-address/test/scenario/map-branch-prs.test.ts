@@ -196,9 +196,9 @@ describe("pr-address exec map-branch-prs", () => {
 		});
 		expect(await run.exit).toBe(2);
 		expect(parseEnvelope(run)).toMatchObject({
-			status: "usage_error",
+			status: "usageError",
 			exitCode: 2,
-			errorType: "usage_error",
+			errorType: "usageError",
 			message: "error: too many arguments for 'map-branch-prs'. Expected 0 arguments but got 1.",
 		});
 		expect(run.stderr.join("")).toBe(

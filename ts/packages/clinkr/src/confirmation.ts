@@ -16,11 +16,13 @@ export type ConfirmationResult = { type: "confirmed" } | { type: "declined" } | 
  */
 export interface ClinkrInteraction {
 	confirm(request: ConfirmationRequest): Promise<ConfirmationResult>;
+	isInteractive(): boolean;
 }
 
 export interface CreateClinkrInteractionOptions {
 	stdin: () => Promise<string | null>;
 	stderr: (text: string) => void;
+	isInteractive?: (() => boolean) | undefined;
 }
 
 export interface ResolveClinkrInteractionOptions extends CreateClinkrInteractionOptions {
@@ -32,6 +34,7 @@ export function createClinkrInteraction(
 ): ClinkrInteraction {
 	return {
 		confirm: (request) => confirmWithLineReader(options, request),
+		isInteractive: () => options.isInteractive?.() ?? false,
 	};
 }
 

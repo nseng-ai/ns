@@ -540,7 +540,7 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 			rawArgs,
 			reason: `Restored /${piCommandName} after a CLI usage error.`,
 		});
-		traceCliCommand("usage_error_restored", { commandName: command.name, piCommandName, restored });
+		traceCliCommand("usageError_restored", { commandName: command.name, piCommandName, restored });
 	}
 	await spec.afterCommandComplete?.(details);
 }

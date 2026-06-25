@@ -140,6 +140,30 @@ describe("handoff gc", () => {
 		).toBe("stale");
 	});
 
+	test("non-interactive gc without --force fails as usageError", async () => {
+		const gateway = new FakeBrmemGateway();
+		await putHandoffEntry(gateway, {
+			key: "stale.md",
+			branch: "feat/deleted",
+			content: "stale",
+		});
+		const run = runScenario(["gc", "--format", "json"], {
+			brmem: gateway,
+			gitState: { currentBranch: { type: "detached" }, existingBranches: [] },
+		});
+
+		expect(await run.exit).toBe(2);
+		expect(parseJsonOutput(run)).toMatchObject({
+			status: "usageError",
+			exitCode: 2,
+			errorType: "usageError",
+			data: { missingFlag: "--force" },
+		});
+		expect(await getEntryContent(gateway, { key: "stale.md", branch: "feat/deleted" })).toBe(
+			"stale",
+		);
+	});
+
 	test("no candidates skips prompt", async () => {
 		const gateway = new FakeBrmemGateway();
 		await putHandoffEntry(gateway, { key: "live.md", branch: "feat/live", content: "live" });

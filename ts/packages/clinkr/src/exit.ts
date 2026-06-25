@@ -23,7 +23,18 @@ export interface ClinkrFailureExit {
 	data?: unknown;
 }
 
-export type ClinkrExit<T> = ClinkrOkExit<T> | ClinkrNegativeExit<T> | ClinkrFailureExit;
+export interface ClinkrUsageErrorExit {
+	type: "usageError";
+	errorType: "usageError";
+	message: string;
+	data?: unknown;
+}
+
+export type ClinkrExit<T> =
+	| ClinkrOkExit<T>
+	| ClinkrNegativeExit<T>
+	| ClinkrFailureExit
+	| ClinkrUsageErrorExit;
 
 export interface OkMachineEnvelope {
 	status: "ok";
@@ -47,9 +58,9 @@ export interface FailureMachineEnvelope {
 }
 
 export interface UsageErrorMachineEnvelope {
-	status: "usage_error";
+	status: "usageError";
 	exitCode: 2;
-	errorType: string;
+	errorType: "usageError";
 	message: string;
 	data?: unknown;
 }
@@ -79,9 +90,9 @@ export const failureMachineEnvelopeSchema = z.strictObject({
 	data: z.unknown().optional(),
 });
 export const usageErrorMachineEnvelopeSchema = z.strictObject({
-	status: z.literal("usage_error"),
+	status: z.literal("usageError"),
 	exitCode: z.literal(2),
-	errorType: z.string(),
+	errorType: z.literal("usageError"),
 	message: z.string(),
 	data: z.unknown().optional(),
 });
@@ -94,7 +105,7 @@ export const machineEnvelopeSchema = z.discriminatedUnion("status", [
 ]);
 
 export interface BuildFailureMachineEnvelopeSchemaOptions {
-	readonly statusSchema?: z.ZodType<"negative" | "failure" | "usage_error">;
+	readonly statusSchema?: z.ZodType<"negative" | "failure" | "usageError">;
 	readonly exitCodeSchema?: z.ZodType<1 | 2>;
 	readonly errorTypeSchema?: z.ZodType<string>;
 	readonly messageSchema?: z.ZodType<string>;
@@ -153,6 +164,15 @@ export function failure(errorType: string, message: string, data?: unknown): Cli
 	return { type: "failure", errorType, message, ...(data === undefined ? {} : { data }) };
 }
 
+export function usageError(message: string, data?: unknown): ClinkrUsageErrorExit {
+	return {
+		type: "usageError",
+		errorType: "usageError",
+		message,
+		...(data === undefined ? {} : { data }),
+	};
+}
+
 export function exitCodeForExit(exit: ClinkrExit<unknown>): 0 | 1 | 2 {
 	switch (exit.type) {
 		case "ok":
@@ -160,6 +180,8 @@ export function exitCodeForExit(exit: ClinkrExit<unknown>): 0 | 1 | 2 {
 		case "negative":
 			return 1;
 		case "failure":
+			return 2;
+		case "usageError":
 			return 2;
 	}
 }
@@ -183,6 +205,8 @@ export function toMachineEnvelope(exit: ClinkrExit<unknown>): MachineEnvelope {
 				message: exit.message,
 				...(exit.data === undefined ? {} : { data: exit.data }),
 			};
+		case "usageError":
+			return usageErrorMachineEnvelope(exit.message, exit.data);
 	}
 }
 
@@ -191,9 +215,9 @@ export function usageErrorMachineEnvelope(
 	data?: unknown,
 ): UsageErrorMachineEnvelope {
 	return {
-		status: "usage_error",
+		status: "usageError",
 		exitCode: 2,
-		errorType: "usage_error",
+		errorType: "usageError",
 		message,
 		...(data === undefined ? {} : { data }),
 	};
