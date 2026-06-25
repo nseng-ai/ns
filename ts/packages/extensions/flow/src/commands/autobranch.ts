@@ -1,6 +1,7 @@
 import { runDirtyAutobranchFlow, type ParsedAutobranchArgs } from "@sdl/autobranch/dirty-worktree";
-import { createForwardingProgressSink, type ProgressSink } from "@sdl/ccc/progress-sink";
+import { runWithCommandIo, type CommandIo } from "@sdl/core/command-io";
 import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@sdl/core/model-slug";
+import { commandIoFromSdlExtensionApi } from "@sdl/sdl/command-io";
 import {
 	defineExtension,
 	failed,
@@ -50,15 +51,17 @@ export const flowAutobranchCommand: SdlCommand<typeof autobranchRequestSchema> =
 	schema: autobranchRequestSchema,
 	async run(ctx, request: AutobranchRequest) {
 		const args: ParsedAutobranchArgs = request.slug === undefined ? {} : { slug: request.slug };
-		const progress = createForwardingProgressSink({ onOutput: ctx.onOutput, stderr: ctx.stderr });
-		const result = await createAutobranchCheckpointFlow(ctx, args, progress);
-		if (!result.ok) {
-			return failed(result.error.trimEnd(), 1);
-		}
-		for (const warning of result.warnings) {
-			ctx.stderr?.(`${warning.trimEnd()}\n`);
-		}
-		return ok(result.summary.trimEnd());
+		const io = commandIoFromSdlExtensionApi(ctx);
+		return await runWithCommandIo(io, async (io) => {
+			const result = await createAutobranchCheckpointFlow(ctx, args, io);
+			if (!result.ok) {
+				return failed(result.error.trimEnd(), 1);
+			}
+			for (const warning of result.warnings) {
+				ctx.stderr?.(`${warning.trimEnd()}\n`);
+			}
+			return ok(result.summary.trimEnd());
+		});
 	},
 };
 
@@ -69,9 +72,9 @@ export default defineExtension({
 async function createAutobranchCheckpointFlow(
 	ctx: SdlExtensionApi,
 	args: ParsedAutobranchArgs,
-	progress: ProgressSink,
+	io: CommandIo,
 ) {
-	progress.phase("Inspecting worktree…");
+	io.phase("Inspecting worktree…");
 	const loaded = await loadFlowPendingWorktreeSnapshot(ctx);
 	if (!loaded.ok) {
 		return { ok: false as const, error: formatPendingWorktreeError(loaded.error) };
@@ -95,6 +98,6 @@ async function createAutobranchCheckpointFlow(
 		prepareCheckpointMessage: (pendingSnapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">) =>
 			prepareFlowCheckpointMessage(ctx, pendingSnapshot),
 		commitPreparedCheckpointMessage: (message) => createCommitWithPreparedMessage(ctx, message),
-		onPhase: (message) => progress.phase(message),
+		onPhase: (message) => io.phase(message),
 	});
 }

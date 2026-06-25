@@ -6,6 +6,7 @@
     ".": "./src/index.ts",
     "./branch-slug": "./src/branch-slug.ts",
     "./command-ack": "./src/command-ack.ts",
+    "./command-io": "./src/command-io.ts",
     "./machine-envelope": "./src/machine-envelope.ts",
     "./objective-list": "./src/objective-list.ts",
     "./objective-picker": "./src/objective-picker.ts",

@@ -1,6 +1,10 @@
 import { describe, expect, test, vi } from "vitest";
-import type { AutobranchCommandContext, AutoslotFlowInput } from "../src/autoslot.ts";
-import { createAutoslotFlow, registerAutoslotCommand } from "../src/autoslot.ts";
+import type {
+	AutobranchCommandContext,
+	AutoslotCliInput,
+	AutoslotFlowInput,
+} from "../src/autoslot.ts";
+import { createAutoslotFlow, registerAutoslotCommand, runAutoslotCli } from "../src/autoslot.ts";
 import { startIdleWaitStatus } from "../src/idle-wait-status.ts";
 import { fail, ok, type CommandResult } from "./autobranch-test-helpers.ts";
 
@@ -105,10 +109,10 @@ function createHarness(options: HarnessOptions = {}) {
 			events.push("commit");
 			return { summary: "abc123 [cp] Update autoslot tests" };
 		},
-		notify: (message, level) => notifications.push({ message, level: level ?? "info" }),
-		progress: {
+		io: {
 			phase: (message) => statuses.push(message),
-			clear: () => statuses.push(undefined),
+			notify: (message, level) => notifications.push({ message, level: level ?? "info" }),
+			clearPhase: () => statuses.push(undefined),
 		},
 	};
 
@@ -198,7 +202,6 @@ describe("autoslot flow", () => {
 			"Drafting checkpoint message…",
 			"Creating Graphite branch and checkpoint…",
 			"Checking out branch slot…",
-			undefined,
 		]);
 		expect(harness.notifications.at(-1)).toEqual({
 			level: "info",
@@ -222,7 +225,6 @@ describe("autoslot flow", () => {
 			"Inspecting worktree…",
 			"Creating Graphite branch from latest commit…",
 			"Checking out branch slot…",
-			undefined,
 		]);
 		expect(harness.notifications.at(-1)?.message).toContain("Worktree: /slots/slot-01");
 	});
@@ -235,11 +237,7 @@ describe("autoslot flow", () => {
 		await createAutoslotFlow(harness.input);
 
 		expect(harness.events.some((event) => event.startsWith("slot:slot checkout"))).toBe(false);
-		expect(harness.statuses).toEqual([
-			"Inspecting worktree…",
-			"Drafting checkpoint message…",
-			undefined,
-		]);
+		expect(harness.statuses).toEqual(["Inspecting worktree…", "Drafting checkpoint message…"]);
 		expect(harness.notifications).toContainEqual({
 			level: "error",
 			message: "checkpoint prep failed",
@@ -273,7 +271,7 @@ describe("autoslot flow", () => {
 			"Autoslot created test-branch, but slot checkout failed.",
 		);
 		expect(harness.notifications.at(-1)?.message).toContain("No clean detached slot is available.");
-		expect(harness.statuses.at(-1)).toBeUndefined();
+		expect(harness.statuses.at(-1)).toBe("Checking out branch slot…");
 	});
 
 	test("dirty autoslot without requested slug reports branch-name derivation", async () => {
@@ -286,6 +284,37 @@ describe("autoslot flow", () => {
 		expect(harness.statuses.indexOf("Deriving branch name…")).toBeLessThan(
 			harness.statuses.indexOf("Drafting checkpoint message…"),
 		);
+	});
+
+	test("CLI routes phase output through onOutput and errors through stderr", async () => {
+		const stdout: string[] = [];
+		const stderr: string[] = [];
+		const output: Array<{ stream: "stdout" | "stderr"; text: string }> = [];
+		const input: AutoslotCliInput = {
+			cwd: "/repo",
+			env: {},
+			args: { slug: "test-branch" },
+			exec: async (command, args) => {
+				if (command === "git" && args[0] === "rev-parse" && args[1] === "--show-toplevel")
+					return { code: 0, killed: false, stdout: "/repo\n", stderr: "" };
+				if (command === "git" && args[0] === "symbolic-ref")
+					return { code: 0, killed: false, stdout: "source-branch\n", stderr: "" };
+				if (command === "git" && args[0] === "status")
+					return { code: 1, killed: false, stdout: "", stderr: "fatal: status failed\n" };
+				throw new Error(`unexpected exec: ${command} ${args.join(" ")}`);
+			},
+			stdout: (text) => stdout.push(text),
+			stderr: (text) => stderr.push(text),
+			onOutput: (stream, text) => output.push({ stream, text }),
+		};
+
+		const exitCode = await runAutoslotCli(input);
+
+		expect(exitCode).toBe(1);
+		expect(output).toEqual([{ stream: "stderr", text: "Inspecting worktree…\n" }]);
+		expect(stdout).toEqual([]);
+		expect(stderr.join("")).toContain("Could not read git status.");
+		expect(stderr.join("")).toContain("fatal: status failed");
 	});
 });
 

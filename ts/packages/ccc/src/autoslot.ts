@@ -1,22 +1,19 @@
 import process from "node:process";
 
+import type { ParsedAutobranchArgs } from "@sdl/autobranch/dirty-worktree";
+import { createCommandIo, runWithCommandIo, type CommandIo } from "@sdl/core/command-io";
 import {
 	sendCommandProgressOrNotify,
 	registerCommandWithImmediateAck,
 } from "@sdl/pi-extension-runtime/command-ack";
+import { commandIoFromPiContext } from "@sdl/pi-extension-runtime/command-io";
 import type { ExtensionAPI } from "@sdl/pi-extension-runtime/cmux/types";
 import {
 	commitAutobranchCheckpointMessage,
 	prepareAutobranchCheckpointMessage,
 } from "./autobranch/checkpoint.ts";
 import { createAutobranchCheckpointFlow, type AutobranchFlowInput } from "./autobranch/flow.ts";
-import type { ParsedAutobranchArgs } from "@sdl/autobranch/dirty-worktree";
 import { startIdleWaitStatus } from "./idle-wait-status.ts";
-import {
-	createStatusProgressSink,
-	createStderrProgressSink,
-	type ProgressSink,
-} from "./progress-sink.ts";
 import { checkoutSlot } from "./slot-checkout.ts";
 
 const COMMAND_NAME = "sdl:flow:autoslot";
@@ -43,8 +40,7 @@ export interface AutoslotExtensionAPI extends Pick<ExtensionAPI, "exec"> {
 
 export interface AutoslotFlowInput extends AutobranchFlowInput {
 	slotExec: Pick<ExtensionAPI, "exec">;
-	notify: (message: string, level?: "info" | "warning" | "error") => void;
-	progress: ProgressSink;
+	io: CommandIo;
 }
 
 export interface AutoslotCliInput {
@@ -58,6 +54,7 @@ export interface AutoslotCliInput {
 	): Promise<{ stdout: string; stderr: string; code: number; killed: boolean }>;
 	stdout(text: string): void;
 	stderr(text: string): void;
+	onOutput?: ((stream: "stdout" | "stderr", text: string) => void) | undefined;
 }
 
 export function registerAutoslotCommand(pi: AutoslotExtensionAPI): void {
@@ -76,91 +73,103 @@ export function registerAutoslotCommand(pi: AutoslotExtensionAPI): void {
 
 export async function runAutoslotCli(input: AutoslotCliInput): Promise<number> {
 	let hasError = false;
-	await createAutoslotFlow({
-		cwd: input.cwd,
-		args: input.args,
-		exec: (command, commandArgs, timeout) =>
-			input.exec(command, commandArgs, { cwd: input.cwd, timeout }),
-		prepareCheckpointMessage: (snapshot) => prepareAutobranchCheckpointMessage(snapshot, input.env),
-		commitPreparedCheckpointMessage: (message) =>
-			commitAutobranchCheckpointMessage(
-				(command, commandArgs, commandCwd, timeout) =>
-					input.exec(command, commandArgs, { cwd: commandCwd, timeout }),
-				input.cwd,
-				message,
-			),
-		notify: (message, level) => {
-			const output = `${message.trimEnd()}\n`;
-			if (level === "error") {
-				hasError = true;
-				input.stderr(output);
-				return;
-			}
-			if (level === "warning") {
-				input.stderr(output);
-				return;
-			}
-			input.stdout(output);
-		},
-		progress: createStderrProgressSink(input.stderr),
-		slotExec: {
-			exec: (command, args, options) => input.exec(command, args, options),
-		},
+	const io = createAutoslotCliCommandIo(input, () => {
+		hasError = true;
 	});
+	await runWithCommandIo(
+		io,
+		async (io) =>
+			await createAutoslotFlow({
+				cwd: input.cwd,
+				args: input.args,
+				exec: (command, commandArgs, timeout) =>
+					input.exec(command, commandArgs, { cwd: input.cwd, timeout }),
+				prepareCheckpointMessage: (snapshot) =>
+					prepareAutobranchCheckpointMessage(snapshot, input.env),
+				commitPreparedCheckpointMessage: (message) =>
+					commitAutobranchCheckpointMessage(
+						(command, commandArgs, commandCwd, timeout) =>
+							input.exec(command, commandArgs, { cwd: commandCwd, timeout }),
+						input.cwd,
+						message,
+					),
+				io,
+				slotExec: {
+					exec: (command, args, options) => input.exec(command, args, options),
+				},
+			}),
+	);
 	return hasError ? 1 : 0;
 }
 
 export async function createAutoslotFlow(input: AutoslotFlowInput): Promise<void> {
-	try {
-		const createdBranch = await createAutobranchCheckpointFlow({
-			...input,
-			onPhase: (message) => {
-				input.progress.phase(message);
-			},
-		});
-		if (!createdBranch.ok) {
-			input.notify(createdBranch.error, "error");
-			return;
-		}
-
-		for (const warning of createdBranch.warnings) {
-			input.notify(warning, "warning");
-		}
-
-		const branchName = parseCreatedBranchName(createdBranch.summary);
-		const isCleanAfter = createdBranch.summary.includes("Working directory is clean.");
-		if (!isCleanAfter) {
-			input.notify(
-				[
-					`Autoslot created ${branchName}, but slot movement was skipped.`,
-					"The worktree is not clean; `slot checkout --current` requires a clean worktree.",
-				].join("\n"),
-				"warning",
-			);
-			return;
-		}
-
-		input.progress.phase("Checking out branch slot…");
-		const slot = await checkoutSlot(input.slotExec, input.cwd, { kind: "current" });
-		if (!slot.ok) {
-			input.notify(
-				[`Autoslot created ${branchName}, but slot checkout failed.`, "", slot.error].join("\n"),
-				"error",
-			);
-			return;
-		}
-
-		input.notify(
-			[
-				`Autoslot moved ${slot.target.branchName} to ${slot.target.slotName}.`,
-				`Worktree: ${slot.target.worktreePath}`,
-				`slot co ${slot.target.branchName}`,
-			].join("\n"),
-			"info",
-		);
-	} finally {
-		input.progress.clear?.();
+	const createdBranch = await createAutobranchCheckpointFlow({
+		...input,
+		onPhase: (message) => {
+			input.io.phase(message);
+		},
+	});
+	if (!createdBranch.ok) {
+		input.io.notify(createdBranch.error, "error");
+		return;
 	}
+
+	for (const warning of createdBranch.warnings) {
+		input.io.notify(warning, "warning");
+	}
+
+	const branchName = parseCreatedBranchName(createdBranch.summary);
+	const isCleanAfter = createdBranch.summary.includes("Working directory is clean.");
+	if (!isCleanAfter) {
+		input.io.notify(
+			[
+				`Autoslot created ${branchName}, but slot movement was skipped.`,
+				"The worktree is not clean; `slot checkout --current` requires a clean worktree.",
+			].join("\n"),
+			"warning",
+		);
+		return;
+	}
+
+	input.io.phase("Checking out branch slot…");
+	const slot = await checkoutSlot(input.slotExec, input.cwd, { kind: "current" });
+	if (!slot.ok) {
+		input.io.notify(
+			[`Autoslot created ${branchName}, but slot checkout failed.`, "", slot.error].join("\n"),
+			"error",
+		);
+		return;
+	}
+
+	input.io.notify(
+		[
+			`Autoslot moved ${slot.target.branchName} to ${slot.target.slotName}.`,
+			`Worktree: ${slot.target.worktreePath}`,
+			`slot co ${slot.target.branchName}`,
+		].join("\n"),
+		"info",
+	);
+}
+
+function createAutoslotCliCommandIo(input: AutoslotCliInput, onError: () => void): CommandIo {
+	const io = createCommandIo({
+		...(input.onOutput === undefined
+			? {}
+			: { phaseTransient: (text: string) => input.onOutput?.("stderr", text) }),
+		phaseFallback: input.stderr,
+		notifyInfo: input.stdout,
+		notifyDiagnostic: input.stderr,
+	});
+
+	return {
+		...io,
+		notify: (message, level = "info") => {
+			if (level === "error") {
+				onError();
+			}
+			io.notify(message, level);
+		},
+	};
 }
 
 function parseCreatedBranchName(summary: string): string {
@@ -183,29 +192,28 @@ async function createAutoslot(
 		} finally {
 			stopIdleStatus();
 		}
-		const progress = createStatusProgressSink((message) => {
-			ctx.ui.setStatus(STATUS_KEY, message);
-		});
-		await createAutoslotFlow({
-			cwd: ctx.cwd,
-			args,
-			exec: (command, commandArgs, timeout) =>
-				pi.exec(command, commandArgs, { cwd: ctx.cwd, timeout }),
-			prepareCheckpointMessage: (snapshot) =>
-				prepareAutobranchCheckpointMessage(snapshot, process.env),
-			commitPreparedCheckpointMessage: (message) =>
-				commitAutobranchCheckpointMessage(
-					(command, commandArgs, commandCwd, timeout) =>
-						pi.exec(command, commandArgs, { cwd: commandCwd, timeout }),
-					ctx.cwd,
-					message,
-				),
-			notify: (message, level) => {
-				ctx.ui.notify(message, level);
-			},
-			progress,
-			slotExec: pi,
-		});
+		const io = commandIoFromPiContext(ctx, { statusKey: STATUS_KEY });
+		await runWithCommandIo(
+			io,
+			async (io) =>
+				await createAutoslotFlow({
+					cwd: ctx.cwd,
+					args,
+					exec: (command, commandArgs, timeout) =>
+						pi.exec(command, commandArgs, { cwd: ctx.cwd, timeout }),
+					prepareCheckpointMessage: (snapshot) =>
+						prepareAutobranchCheckpointMessage(snapshot, process.env),
+					commitPreparedCheckpointMessage: (message) =>
+						commitAutobranchCheckpointMessage(
+							(command, commandArgs, commandCwd, timeout) =>
+								pi.exec(command, commandArgs, { cwd: commandCwd, timeout }),
+							ctx.cwd,
+							message,
+						),
+					io,
+					slotExec: pi,
+				}),
+		);
 	} finally {
 		ctx.ui.setStatus(STATUS_KEY, undefined);
 	}
