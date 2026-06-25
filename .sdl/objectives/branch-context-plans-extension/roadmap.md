@@ -17,8 +17,8 @@
 - [x] Migrate Pi branch-context/enriched-plan adapters to the curated seams where they need in-process capability behavior.
   - Evidence: Pi adapter source now imports branch-context/plans behavior from `@sdl/branch-context/api` and `@sdl/plans/api`, while implementation command names come from `@sdl/pi-command-surfaces` and Pi presentation ownership is preserved. See `updates/2026-06-24-150630-pi-adapter-peer-api-migration.md`.
 
-- [ ] Retire obsolete broad/deep sibling imports and record the final boundary.
-  - Evidence: import-boundary searches show sibling packages use Peer API subpaths or allowed testing surfaces; package docs/context and Objective updates capture the final branch-context/plans/ccc/pi-extension dependency stance.
+- [~] Retire obsolete broad/deep sibling imports and record the final boundary.
+  - Evidence so far: `ccc` source imports in `branch-context-up-and-impl.ts` and `cmux/slot-open-branch.ts` now use `@sdl/branch-context/api`, and the Peer API exports `findLatestBranchContextEvidence` for the inferred-branch path. Source import-boundary search over `ts/packages/ccc/src`, `ts/packages/pi-extensions/src`, and `ts/packages/extensions` shows no remaining broad `@sdl/branch-context` or `@sdl/plans` source imports. Validation passed for `@sdl/branch-context` check, `@sdl/ccc` check, and `@sdl/ccc` tests. Remaining: decide whether broad test imports are allowed public-surface coverage or should be migrated, then record the final branch-context/plans/ccc/pi-extension dependency stance in package docs/context and Objective tracking.
 
 ## Parked
 
