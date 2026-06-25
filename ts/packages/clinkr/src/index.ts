@@ -27,15 +27,21 @@ export type {
 } from "./group.ts";
 export {
 	buildFailureMachineEnvelopeSchema,
+	buildMachineEnvelopeSchema,
 	buildSuccessMachineEnvelopeSchema,
 	envelopeJsonText,
 	exitCodeForExit,
 	failure,
+	failureMachineEnvelopeSchema,
 	machineEnvelopeSchema,
 	negative,
+	negativeMachineEnvelopeSchema,
 	ok,
+	okMachineEnvelopeSchema,
 	shellNegative,
 	toMachineEnvelope,
+	usageErrorMachineEnvelope,
+	usageErrorMachineEnvelopeSchema,
 } from "./exit.ts";
 export type {
 	BuildFailureMachineEnvelopeSchemaOptions,

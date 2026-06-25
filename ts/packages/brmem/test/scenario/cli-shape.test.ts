@@ -37,8 +37,8 @@ describe("brmem CLI shape", () => {
 		const run = runScenario(["exec", "resolve-prompt", "some", "--format", "json"]);
 		expect(await run.exit).toBe(2);
 		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
-			exit_code: 2,
-			error_type: "prompt-not-found",
+			exitCode: 2,
+			errorType: "prompt-not-found",
 		});
 	});
 });

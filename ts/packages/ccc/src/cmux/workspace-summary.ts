@@ -22,7 +22,7 @@ export const cmuxWorkspaceSummaryRequestSchema = z.strictObject({
 
 const cmuxCommandFailureSchema = z.strictObject({
 	command: z.array(z.string()),
-	exit_code: z.number().int(),
+	exitCode: z.number().int(),
 	stdout: z.string(),
 	stderr: z.string(),
 });
@@ -199,7 +199,7 @@ function failedExit(
 					? null
 					: {
 							command: failure.commandFailure.command,
-							exit_code: failure.commandFailure.exitCode,
+							exitCode: failure.commandFailure.exitCode,
 							stdout: failure.commandFailure.stdout,
 							stderr: failure.commandFailure.stderr,
 						},

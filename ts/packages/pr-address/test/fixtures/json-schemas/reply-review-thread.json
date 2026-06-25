@@ -1,5 +1,5 @@
 {
-  "input_json_schema": {
+  "inputJsonSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
@@ -15,7 +15,7 @@
       "body"
     ]
   },
-  "output_json_schema": {
+  "outputJsonSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {

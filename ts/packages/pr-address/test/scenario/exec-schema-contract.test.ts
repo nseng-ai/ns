@@ -6,7 +6,7 @@ import { EXEC_OPERATIONS } from "../../src/exec-commands.ts";
 
 /**
  * Known deltas between clinkr parse-schema option surface and published
- * `input_json_schema` document properties. Each entry MUST have a comment
+ * `inputJsonSchema` document properties. Each entry MUST have a comment
  * explaining the delta rationale; do not bulk-allowlist.
  */
 const CONTRACT_DELTAS: Record<string, string[]> = {};

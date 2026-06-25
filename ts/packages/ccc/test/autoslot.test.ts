@@ -83,7 +83,7 @@ function createHarness(options: HarnessOptions = {}) {
 					stdout:
 						options.slotStdout ??
 						JSON.stringify({
-							exit_code: 0,
+							exitCode: 0,
 							data: {
 								slot_name: "slot-01",
 								branch_name: "test-branch",
@@ -182,8 +182,8 @@ describe("autoslot flow", () => {
 	test("slot checkout failure reports useful error after autobranch succeeds", async () => {
 		const harness = createHarness({
 			slotStdout: JSON.stringify({
-				exit_code: 3,
-				error_type: "no_available_slot",
+				exitCode: 3,
+				errorType: "no_available_slot",
 				message: "No clean detached slot is available.",
 			}),
 		});

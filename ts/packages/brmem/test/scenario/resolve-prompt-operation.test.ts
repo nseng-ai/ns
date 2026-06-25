@@ -33,7 +33,8 @@ describe("brmem exec resolve-prompt", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
-			exit_code: 0,
+			status: "ok",
+			exitCode: 0,
 			data: { path: projectPrompt("foo"), tier: "project" },
 		});
 	});
@@ -47,7 +48,8 @@ describe("brmem exec resolve-prompt", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
-			exit_code: 0,
+			status: "ok",
+			exitCode: 0,
 			data: { path: xdgGlobalPrompt("foo"), tier: "global" },
 		});
 	});
@@ -61,8 +63,9 @@ describe("brmem exec resolve-prompt", () => {
 
 		expect(await run.exit).toBe(2);
 		expect(parseJsonOutput(run)).toMatchObject({
-			exit_code: 2,
-			error_type: "prompt-not-found",
+			status: "failure",
+			exitCode: 2,
+			errorType: "prompt-not-found",
 		});
 	});
 
@@ -87,12 +90,12 @@ describe("brmem exec resolve-prompt", () => {
 
 		expect(await run.exit).toBe(2);
 		const payload = parseJsonOutput(run) as {
-			exit_code: number;
-			error_type: string;
+			exitCode: number;
+			errorType: string;
 			message: string;
 		};
-		expect(payload.exit_code).toBe(2);
-		expect(payload.error_type).toBe("prompt-not-found");
+		expect(payload.exitCode).toBe(2);
+		expect(payload.errorType).toBe("prompt-not-found");
 		expect(payload.message).toContain(projectPrompt("foo"));
 		expect(payload.message).toContain(xdgGlobalPrompt("foo"));
 		expect(payload.message).not.toContain(legacyProjectPrompt("foo"));
@@ -110,8 +113,9 @@ describe("brmem exec resolve-prompt", () => {
 
 		expect(await run.exit).toBe(2);
 		expect(parseJsonOutput(run)).toMatchObject({
-			exit_code: 2,
-			error_type: "not-a-git-repo",
+			status: "failure",
+			exitCode: 2,
+			errorType: "not-a-git-repo",
 		});
 		const payload = parseJsonOutput(run) as { message: string };
 		expect(payload.message).toContain("Not inside a git repository");

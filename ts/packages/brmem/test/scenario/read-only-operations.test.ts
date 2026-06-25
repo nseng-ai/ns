@@ -62,7 +62,7 @@ describe("read-only brmem operations", () => {
 		});
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
-			exit_code: 0,
+			exitCode: 0,
 			data: {
 				namespace: "notes",
 				key: "plan/body.md",
@@ -79,7 +79,7 @@ describe("read-only brmem operations", () => {
 		});
 		expect(await present.exit).toBe(0);
 		expect(JSON.parse(present.stdout.join(""))).toMatchObject({
-			exit_code: 0,
+			exitCode: 0,
 			data: {
 				namespace: "base",
 				key: "scratch",
@@ -95,7 +95,7 @@ describe("read-only brmem operations", () => {
 		});
 		expect(await missing.exit).toBe(0);
 		expect(JSON.parse(missing.stdout.join(""))).toMatchObject({
-			exit_code: 0,
+			exitCode: 0,
 			data: {
 				namespace: "base",
 				key: "missing",
@@ -161,8 +161,8 @@ describe("read-only brmem operations", () => {
 		});
 		expect(await run.exit).toBe(2);
 		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
-			exit_code: 2,
-			error_type: "invalid_key",
+			exitCode: 2,
+			errorType: "invalid_key",
 		});
 	});
 
@@ -206,8 +206,8 @@ describe("read-only brmem operations", () => {
 		});
 		expect(await conflict.exit).toBe(2);
 		expect(JSON.parse(conflict.stdout.join(""))).toMatchObject({
-			exit_code: 2,
-			error_type: "base_and_namespace_conflict",
+			exitCode: 2,
+			errorType: "base_and_namespace_conflict",
 		});
 	});
 

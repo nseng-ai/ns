@@ -294,7 +294,7 @@ export default defineExtension({
 
 		const schemaRun = runWithFakes({ args: ["hello", "--json-schema"], state: { exec: [] }, cwd });
 		expect(await schemaRun.exit).toBe(0);
-		expect(parseJsonOutput(schemaRun)).toHaveProperty("input_json_schema");
+		expect(parseJsonOutput(schemaRun)).toHaveProperty("inputJsonSchema");
 
 		const invokeRun = runWithFakes({ args: ["hello", "--loud"], state: { exec: [] }, cwd });
 		expect(await invokeRun.exit).toBe(0);

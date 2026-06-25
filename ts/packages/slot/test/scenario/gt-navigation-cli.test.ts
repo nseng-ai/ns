@@ -91,7 +91,7 @@ describe("slot gt navigation CLI", () => {
 		});
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
-			exit_code: 1,
+			exitCode: 1,
 			message:
 				"Multiple upstack branches for 'feature/current': feature/a, feature/b. Run `slot checkout <branch>` for the branch you want.",
 		});

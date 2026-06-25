@@ -7,10 +7,10 @@ import {
 import { runScenario } from "../support/run-scenario.ts";
 
 interface MachineEnvelope {
-	exit_code: number;
+	exitCode: number;
 	data?: MapBranchPrsData;
 	message?: string;
-	error_type?: string;
+	errorType?: string;
 }
 
 interface MapBranchPrsData {
@@ -65,7 +65,7 @@ describe("pr-address exec map-branch-prs", () => {
 		});
 		expect(await run.exit).toBe(0);
 		const envelope = parseEnvelope(run);
-		expect(envelope.exit_code).toBe(0);
+		expect(envelope.exitCode).toBe(0);
 		expect(envelope.data?.branch_prs).toEqual([
 			{
 				branch: "feature-b",
@@ -96,7 +96,7 @@ describe("pr-address exec map-branch-prs", () => {
 		});
 		expect(await run.exit).toBe(0);
 		const envelope = parseEnvelope(run);
-		expect(envelope.exit_code).toBe(1);
+		expect(envelope.exitCode).toBe(1);
 		expect(envelope.message).toBe("No open PR found for branches: no-such-branch, feature-merged");
 		expect(envelope.data?.branch_prs.map((entry) => entry.pr_number)).toEqual([11]);
 		expect(envelope.data?.missing_branches).toEqual(["no-such-branch", "feature-merged"]);
@@ -128,7 +128,7 @@ describe("pr-address exec map-branch-prs", () => {
 		});
 		expect(await run.exit).toBe(0);
 		const envelope = parseEnvelope(run);
-		expect(envelope.exit_code).toBe(1);
+		expect(envelope.exitCode).toBe(1);
 		expect(envelope.message).toBe("Multiple open PRs found for branches: feature-shared");
 		expect(envelope.data?.branch_prs).toEqual([]);
 		expect(envelope.data?.ambiguous_branches).toEqual([
@@ -150,7 +150,7 @@ describe("pr-address exec map-branch-prs", () => {
 		});
 		expect(await run.exit).toBe(2);
 		const envelope = parseEnvelope(run);
-		expect(envelope.error_type).toBe("invalid_request");
+		expect(envelope.errorType).toBe("invalid_request");
 		expect(envelope.message).toBe("map-branch-prs branches contain duplicates: feature-a");
 	});
 
@@ -161,7 +161,7 @@ describe("pr-address exec map-branch-prs", () => {
 		});
 		expect(await run.exit).toBe(2);
 		const envelope = parseEnvelope(run);
-		expect(envelope.error_type).toBe("invalid_request");
+		expect(envelope.errorType).toBe("invalid_request");
 		expect(envelope.message).toBe("map-branch-prs requires at least one branch.");
 	});
 
@@ -179,23 +179,28 @@ describe("pr-address exec map-branch-prs", () => {
 	test("rejects empty stdin with invalid_request", async () => {
 		const run = runScenario(mapArgs(), { prFeedback: stackedPrFeedback(), stdin: "" });
 		expect(await run.exit).toBe(2);
-		expect(parseEnvelope(run).error_type).toBe("invalid_request");
+		expect(parseEnvelope(run).errorType).toBe("invalid_request");
 	});
 
 	test("rejects malformed JSON with invalid_json", async () => {
 		const run = runScenario(mapArgs(), { prFeedback: stackedPrFeedback(), stdin: "{not json" });
 		expect(await run.exit).toBe(2);
-		expect(parseEnvelope(run).error_type).toBe("invalid_json");
+		expect(parseEnvelope(run).errorType).toBe("invalid_json");
 	});
 
 	test("rejects an unexpected positional argument with a commander usage error", async () => {
-		// PINNED CLINKR SEMANTICS: excess arguments are a raw commander usage
-		// error (stderr, exit 2), never a machine envelope.
+		// PINNED CLINKR SEMANTICS: excess arguments in JSON mode are emitted as
+		// usage-error machine envelopes on stdout.
 		const run = runScenario(["exec", "map-branch-prs", "extra", "--format", "json"], {
 			prFeedback: stackedPrFeedback(),
 		});
 		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe("");
+		expect(parseEnvelope(run)).toMatchObject({
+			status: "usage_error",
+			exitCode: 2,
+			errorType: "usage_error",
+			message: "error: too many arguments for 'map-branch-prs'. Expected 0 arguments but got 1.",
+		});
 		expect(run.stderr.join("")).toBe(
 			"error: too many arguments for 'map-branch-prs'. Expected 0 arguments but got 1.\n",
 		);
@@ -215,7 +220,7 @@ describe("pr-address exec map-branch-prs", () => {
 		});
 		expect(await run.exit).toBe(2);
 		const envelope = parseEnvelope(run);
-		expect(envelope.error_type).toBe("pr_gateway_failure");
+		expect(envelope.errorType).toBe("pr_gateway_failure");
 		expect(envelope.message).toBe("Failed to list open PRs: gh: network down");
 	});
 });

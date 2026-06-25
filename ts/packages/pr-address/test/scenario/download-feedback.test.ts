@@ -228,7 +228,7 @@ describe("pr-address exec download-feedback", () => {
 
 		expect(await run.exit).toBe(2);
 		const envelope = parseEnvelope(run.stdout);
-		expect(envelope.error_type).toBe("detached_head");
+		expect(envelope.errorType).toBe("detached_head");
 		expect(envelope.message).toContain("requires a checked-out branch or --pr-number");
 	});
 

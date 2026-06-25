@@ -5,10 +5,12 @@
  */
 export class ClinkrFailure extends Error {
 	errorType: string;
+	data: unknown | undefined;
 
-	constructor(options: { errorType: string; message: string }) {
+	constructor(options: { errorType: string; message: string; data?: unknown }) {
 		super(options.message);
 		this.name = "ClinkrFailure";
 		this.errorType = options.errorType;
+		this.data = options.data;
 	}
 }

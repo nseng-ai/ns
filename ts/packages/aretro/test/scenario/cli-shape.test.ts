@@ -65,7 +65,7 @@ describe("aretro exec collect-evidence", () => {
 		]);
 		expect(await run.exit).toBe(0);
 		const result = parseJsonOutput(run);
-		expect(result).toMatchObject({ exit_code: 0 });
+		expect(result).toMatchObject({ exitCode: 0 });
 		const envelope = (result as { data: Record<string, unknown> }).data;
 		expect(envelope.success).toBe(true);
 		expect(envelope.repo).toMatchObject({
@@ -115,9 +115,9 @@ describe("aretro exec read-evidence-detail", () => {
 	it("requires --payload-path and --json-pointer options", async () => {
 		const run = runScenario(["exec", "read-evidence-detail", "--format", "json"]);
 		expect(await run.exit).not.toBe(0);
-		const stderr = run.stderr.join("");
-		expect(stderr).toContain("--payload-path");
-		expect(stderr).toContain("--json-pointer");
+		const output = run.stdout.join("");
+		expect(output).toContain("--payload-path");
+		expect(output).toContain("--json-pointer");
 	});
 
 	it("rejects invalid payload path", async () => {
@@ -132,9 +132,9 @@ describe("aretro exec read-evidence-detail", () => {
 			"json",
 		]);
 		expect(await run.exit).toBe(2);
-		const result = parseJsonOutput(run) as { exit_code: number; error_type: string };
-		expect(result.exit_code).toBe(2);
-		expect(result.error_type).toBe("payload_lookup_failed");
+		const result = parseJsonOutput(run) as { exitCode: number; errorType: string };
+		expect(result.exitCode).toBe(2);
+		expect(result.errorType).toBe("payload_lookup_failed");
 	});
 
 	it("rejects pointers outside payload data", async () => {
@@ -149,13 +149,16 @@ describe("aretro exec read-evidence-detail", () => {
 			"json",
 		]);
 		expect(await run.exit).toBe(2);
-		const result = parseJsonOutput(run) as { exit_code: number; error_type: string };
-		expect(result.exit_code).toBe(2);
-		expect(result.error_type).toBe("invalid_request");
+		const result = parseJsonOutput(run) as { exitCode: number; errorType: string };
+		expect(result.exitCode).toBe(2);
+		expect(result.errorType).toBe("invalid_request");
 	});
 
 	it("rejects non-success and unsupported-schema payload envelopes", async () => {
-		const nonSuccessPath = writePayloadEnvelope({ exit_code: 1, message: "nope" }, "non-success");
+		const nonSuccessPath = writePayloadEnvelope(
+			{ status: "negative", exitCode: 1, message: "nope" },
+			"non-success",
+		);
 		const nonSuccess = runScenario([
 			"exec",
 			"read-evidence-detail",
@@ -168,12 +171,12 @@ describe("aretro exec read-evidence-detail", () => {
 		]);
 		expect(await nonSuccess.exit).toBe(2);
 		expect(parseJsonOutput(nonSuccess)).toMatchObject({
-			exit_code: 2,
-			error_type: "payload_lookup_failed",
+			exitCode: 2,
+			errorType: "payload_lookup_failed",
 		});
 
 		const unsupportedSchemaPath = writePayloadEnvelope(
-			{ exit_code: 0, data: { schema_version: 2 } },
+			{ status: "ok", exitCode: 0, data: { schema_version: 2 } },
 			"unsupported-schema",
 		);
 		const unsupportedSchema = runScenario([
@@ -188,8 +191,8 @@ describe("aretro exec read-evidence-detail", () => {
 		]);
 		expect(await unsupportedSchema.exit).toBe(2);
 		expect(parseJsonOutput(unsupportedSchema)).toMatchObject({
-			exit_code: 2,
-			error_type: "payload_lookup_failed",
+			exitCode: 2,
+			errorType: "payload_lookup_failed",
 		});
 	});
 });

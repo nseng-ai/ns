@@ -189,7 +189,7 @@ async function triggerAgentEnd(pi: FakePi): Promise<void> {
 }
 
 function envelope(data: object): string {
-	return JSON.stringify({ exit_code: 0, data });
+	return JSON.stringify({ exitCode: 0, data });
 }
 
 function downloadStep(data: object): ScriptedExec {

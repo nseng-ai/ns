@@ -84,7 +84,7 @@ describe("slot gc CLI", () => {
 		});
 		expect(await run.exit).toBe(2);
 		expect(parseJsonOutput(run)).toMatchObject({
-			error_type: "pr_lookup_failed",
+			errorType: "pr_lookup_failed",
 			message: "GraphQL failed",
 		});
 		expect(run.pr.operations()).toEqual([
@@ -102,7 +102,7 @@ describe("slot gc CLI", () => {
 			pr: { prsByBranch: { "feature/merged": { number: 1, state: "MERGED" } } },
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ error_type: "confirmation_required" });
+		expect(parseJsonOutput(run)).toMatchObject({ errorType: "confirmation_required" });
 		expect(run.git.operations()).toEqual([]);
 	});
 
@@ -193,6 +193,6 @@ describe("slot gc CLI", () => {
 	it("--dry-run conflicts with --force", async () => {
 		const run = runScenario(["gc", "--dry-run", "--force", "--format", "json"]);
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ error_type: "conflicting_flags" });
+		expect(parseJsonOutput(run)).toMatchObject({ errorType: "conflicting_flags" });
 	});
 });

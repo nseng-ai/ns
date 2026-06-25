@@ -70,12 +70,12 @@ describe("--format dispatch", () => {
 
 	test("--format json emits the machine envelope", async () => {
 		const run = await runForTest(buildGroup(), ["win", "--format", "json"], { context: null });
-		expect(parseEnvelope(run.stdout)).toEqual({ exit_code: 0, data: { answer: 42 } });
+		expect(parseEnvelope(run.stdout)).toEqual({ status: "ok", exitCode: 0, data: { answer: 42 } });
 	});
 
 	test("--format=json equals-syntax works", async () => {
 		const run = await runForTest(buildGroup(), ["win", "--format=json"], { context: null });
-		expect(parseEnvelope(run.stdout)).toEqual({ exit_code: 0, data: { answer: 42 } });
+		expect(parseEnvelope(run.stdout)).toEqual({ status: "ok", exitCode: 0, data: { answer: 42 } });
 	});
 
 	test("--format human is explicit and valid", async () => {
@@ -120,7 +120,7 @@ describe("--format dispatch", () => {
 	test("--format json emits the machine envelope without calling renderMarkdown", async () => {
 		const { group, markdownCalls } = buildMarkdownGroup();
 		const run = await runForTest(group, ["win", "--format", "json"], { context: null });
-		expect(parseEnvelope(run.stdout)).toEqual({ exit_code: 0, data: { answer: 42 } });
+		expect(parseEnvelope(run.stdout)).toEqual({ status: "ok", exitCode: 0, data: { answer: 42 } });
 		expect(markdownCalls()).toBe(0);
 	});
 
@@ -142,6 +142,10 @@ describe("--format dispatch", () => {
 		const jsonRun = await runForTest(group, ["win", "--format", "md", "--format", "json"], {
 			context: null,
 		});
-		expect(parseEnvelope(jsonRun.stdout)).toEqual({ exit_code: 0, data: { answer: 42 } });
+		expect(parseEnvelope(jsonRun.stdout)).toEqual({
+			status: "ok",
+			exitCode: 0,
+			data: { answer: 42 },
+		});
 	});
 });

@@ -156,9 +156,14 @@ describe("branch-context CLI help, version, and dispatch pins", () => {
 
 		const unknownExecJson = runWithFakes(["exec", "bogus", "--format", "json"], { cwd: repoRoot });
 		expect(await unknownExecJson.exit).toBe(2);
-		expect(unknownExecJson.stdout.join("")).toBe("");
+		expect(parseJson(unknownExecJson)).toMatchObject({
+			status: "usage_error",
+			exitCode: 2,
+			errorType: "usage_error",
+			message: "error: unknown command 'bogus'",
+		});
 		expect(unknownExecJson.stderr.join("")).toBe("error: unknown command 'bogus'\n");
-		// PINNED CLINKR SEMANTICS: unknown exec operations bypass --format json.
+		// PINNED CLINKR SEMANTICS: unknown exec operations honor --format json on stdout.
 	});
 });
 
@@ -180,7 +185,12 @@ describe("branch-context CLI parse failures", () => {
 		});
 
 		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe("");
+		expect(parseJson(run)).toMatchObject({
+			status: "usage_error",
+			exitCode: 2,
+			errorType: "usage_error",
+			message: "error: too many arguments for 'from-plan'. Expected 0 arguments but got 1.",
+		});
 		expect(run.stderr.join("")).toBe(
 			"error: too many arguments for 'from-plan'. Expected 0 arguments but got 1.\n",
 		);
@@ -215,10 +225,15 @@ describe("branch-context CLI parse failures", () => {
 
 		const json = runWithFakes(["exec", "load", "--format", "json", "--bogus"], { cwd: repoRoot });
 		expect(await json.exit).toBe(2);
-		expect(json.stdout.join("")).toBe("");
+		expect(parseJson(json)).toMatchObject({
+			status: "usage_error",
+			exitCode: 2,
+			errorType: "usage_error",
+			message: "error: unknown option '--bogus'",
+		});
 		expect(json.stderr.join("")).toBe("error: unknown option '--bogus'\n");
 		expect(json.commands.execCalls).toEqual([]);
-		// PINNED CLINKR SEMANTICS: usage errors are raw stderr, never JSON-enveloped.
+		// PINNED CLINKR SEMANTICS: usage errors honor --format json on stdout.
 	});
 
 	test("pins invalid branch context slug failures in human and JSON modes", async () => {
@@ -268,7 +283,8 @@ describe("branch-context CLI surface pinning", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJson(run)).toMatchObject({
-			exit_code: 0,
+			status: "ok",
+			exitCode: 0,
 			data: {
 				slug: PLAN_SLUG,
 				branch: PLAN_SLUG,
@@ -301,7 +317,8 @@ describe("branch-context CLI surface pinning", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJson(run)).toEqual({
-			exit_code: 0,
+			status: "ok",
+			exitCode: 0,
 			data: {
 				slug: PLAN_SLUG,
 				branch: PLAN_SLUG,
@@ -356,9 +373,14 @@ describe("branch-context CLI surface pinning", () => {
 			},
 		);
 		expect(await json.exit).toBe(2);
-		expect(json.stdout.join("")).toBe("");
+		expect(parseJson(json)).toMatchObject({
+			status: "usage_error",
+			exitCode: 2,
+			errorType: "usage_error",
+			message: message.trimEnd(),
+		});
 		expect(json.stderr.join("")).toBe(message);
-		// PINNED CLINKR SEMANTICS: enum choice errors are raw stderr, never JSON-enveloped.
+		// PINNED CLINKR SEMANTICS: enum choice errors honor --format json on stdout.
 	});
 
 	test("accepts --format human explicitly", async () => {
@@ -407,7 +429,8 @@ describe("branch-context CLI surface pinning", () => {
 		expect(run.stdout.join("")).toBe(
 			`${JSON.stringify(
 				{
-					exit_code: 0,
+					status: "ok",
+					exitCode: 0,
 					data: {
 						slug: PLAN_SLUG,
 						branch,
@@ -438,7 +461,8 @@ describe("branch-context CLI surface pinning", () => {
 		});
 		expect(await placedAfterFlag.exit).toBe(0);
 		expect(parseJson(placedAfterFlag)).toEqual({
-			exit_code: 0,
+			status: "ok",
+			exitCode: 0,
 			data: {
 				branch,
 				namespace: BRANCH_CONTEXT_NAMESPACE,
@@ -454,10 +478,15 @@ describe("branch-context CLI surface pinning", () => {
 			cwd: repoRoot,
 		});
 		expect(await duplicate.exit).toBe(2);
-		expect(duplicate.stdout.join("")).toBe("");
+		expect(parseJson(duplicate)).toMatchObject({
+			status: "usage_error",
+			exitCode: 2,
+			errorType: "usage_error",
+			message: "error: too many arguments for 'load'. Expected 1 argument but got 2.",
+		});
 		expect(duplicate.stderr.join("")).toBe(
 			"error: too many arguments for 'load'. Expected 1 argument but got 2.\n",
 		);
-		// PINNED CLINKR SEMANTICS: excess positionals are a raw commander usage error, never JSON-enveloped.
+		// PINNED CLINKR SEMANTICS: excess positionals honor --format json on stdout.
 	});
 });

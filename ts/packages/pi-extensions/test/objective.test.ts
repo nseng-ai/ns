@@ -371,7 +371,8 @@ function objectiveListFromRecords(
 	trunkBranch: string = TRUNK,
 ): string {
 	return JSON.stringify({
-		exit_code: 0,
+		status: "ok",
+		exitCode: 0,
 		data: {
 			trunkBranch: trunkBranch,
 			rootPath: ".sdl/objectives",
@@ -394,7 +395,8 @@ function listStep(slugs: string[], trunkBranch: string = TRUNK): ScriptedExec {
 
 function objectiveCandidatesFromRecords(records: Array<{ slug: string; status: string }>): string {
 	return JSON.stringify({
-		exit_code: 0,
+		status: "ok",
+		exitCode: 0,
 		data: {
 			records,
 		},

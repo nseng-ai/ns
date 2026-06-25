@@ -34,8 +34,8 @@ describe("export operation", () => {
 		});
 		expect(await schema.exit).toBe(0);
 		const document = JSON.parse(schema.stdout.join(""));
-		expect(document).toHaveProperty("input_json_schema");
-		expect(document).toHaveProperty("output_json_schema");
+		expect(document).toHaveProperty("inputJsonSchema");
+		expect(document).toHaveProperty("outputJsonSchema");
 	});
 
 	it("exports only Base Namespace Entries by default and prints useful human output", async () => {
@@ -101,7 +101,7 @@ describe("export operation", () => {
 			);
 			expect(await base.exit).toBe(0);
 			expect(parseJsonOutput(base)).toMatchObject({
-				exit_code: 0,
+				exitCode: 0,
 				data: {
 					namespace: "base",
 					branch: "main",
@@ -176,8 +176,8 @@ describe("export operation", () => {
 			);
 			expect(await detached.exit).toBe(2);
 			expect(parseJsonOutput(detached)).toMatchObject({
-				exit_code: 2,
-				error_type: "detached_head",
+				exitCode: 2,
+				errorType: "detached_head",
 			});
 		} finally {
 			await rm(root, { recursive: true, force: true });
@@ -231,7 +231,7 @@ describe("export operation", () => {
 			});
 			expect(await run.exit).toBe(0);
 			expect(parseJsonOutput(run)).toMatchObject({
-				exit_code: 1,
+				exitCode: 1,
 				message: "No base Entries found on Branch main.",
 				data: { exported: [], output_dir: outputDir },
 			});
@@ -248,7 +248,7 @@ describe("export operation", () => {
 			);
 			expect(await named.exit).toBe(0);
 			expect(parseJsonOutput(named)).toMatchObject({
-				exit_code: 1,
+				exitCode: 1,
 				message: "No Entries found on Branch main in Namespace scratch.",
 				data: { exported: [], output_dir: namedOutputDir },
 			});
@@ -272,7 +272,7 @@ describe("export operation", () => {
 			);
 			expect(await run.exit).toBe(1);
 			expect(parseJsonOutput(run)).toMatchObject({
-				exit_code: 1,
+				exitCode: 1,
 				message: "No base Entries found on Branch main.",
 			});
 		} finally {
@@ -295,7 +295,7 @@ describe("export operation", () => {
 				},
 			});
 			expect(await conflict.exit).toBe(2);
-			expect(parseJsonOutput(conflict)).toMatchObject({ error_type: "target_exists" });
+			expect(parseJsonOutput(conflict)).toMatchObject({ errorType: "target_exists" });
 			expect(await readFile(join(conflictDir, "a.md"), "utf8")).toBe("old");
 			await expect(readFile(join(conflictDir, "b.md"), "utf8")).rejects.toMatchObject({
 				code: "ENOENT",
@@ -321,7 +321,7 @@ describe("export operation", () => {
 				},
 			);
 			expect(await dirTarget.exit).toBe(2);
-			expect(parseJsonOutput(dirTarget)).toMatchObject({ error_type: "target_is_directory" });
+			expect(parseJsonOutput(dirTarget)).toMatchObject({ errorType: "target_is_directory" });
 
 			const outputFile = join(root, "not-dir");
 			await writeFile(outputFile, "file", "utf8");
@@ -329,7 +329,7 @@ describe("export operation", () => {
 				fake: { entries: [{ namespace: "base", branch: "main", key: "x.md", content: "x" }] },
 			});
 			expect(await notDir.exit).toBe(2);
-			expect(parseJsonOutput(notDir)).toMatchObject({ error_type: "output_dir_not_directory" });
+			expect(parseJsonOutput(notDir)).toMatchObject({ errorType: "output_dir_not_directory" });
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
@@ -363,7 +363,7 @@ describe("export operation", () => {
 				},
 			);
 			expect(await conflict.exit).toBe(2);
-			expect(parseJsonOutput(conflict)).toMatchObject({ error_type: "target_exists" });
+			expect(parseJsonOutput(conflict)).toMatchObject({ errorType: "target_exists" });
 
 			const overwrite = runScenario(
 				["export", "--output-dir", conflictDir, "--dry-run", "--overwrite"],
@@ -388,7 +388,7 @@ describe("export operation", () => {
 				fake: { entries: [{ namespace: "base", branch: "main", key: "x.md", content: "x" }] },
 			});
 			expect(await brokenOutput.exit).toBe(2);
-			expect(parseJsonOutput(brokenOutput)).toMatchObject({ error_type: "unsafe_output_dir" });
+			expect(parseJsonOutput(brokenOutput)).toMatchObject({ errorType: "unsafe_output_dir" });
 
 			const targetDir = join(root, "target-link");
 			await mkdir(targetDir);
@@ -397,7 +397,7 @@ describe("export operation", () => {
 				fake: { entries: [{ namespace: "base", branch: "main", key: "x.md", content: "x" }] },
 			});
 			expect(await targetLink.exit).toBe(2);
-			expect(parseJsonOutput(targetLink)).toMatchObject({ error_type: "unsafe_target_path" });
+			expect(parseJsonOutput(targetLink)).toMatchObject({ errorType: "unsafe_target_path" });
 
 			const parentFileDir = join(root, "parent-file");
 			await mkdir(parentFileDir);
@@ -411,7 +411,7 @@ describe("export operation", () => {
 				},
 			);
 			expect(await parentFile.exit).toBe(2);
-			expect(parseJsonOutput(parentFile)).toMatchObject({ error_type: "parent_not_directory" });
+			expect(parseJsonOutput(parentFile)).toMatchObject({ errorType: "parent_not_directory" });
 
 			const parentLinkDir = join(root, "parent-link");
 			await mkdir(parentLinkDir);
@@ -426,7 +426,7 @@ describe("export operation", () => {
 				},
 			);
 			expect(await parentLink.exit).toBe(2);
-			expect(parseJsonOutput(parentLink)).toMatchObject({ error_type: "unsafe_parent_path" });
+			expect(parseJsonOutput(parentLink)).toMatchObject({ errorType: "unsafe_parent_path" });
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
@@ -446,7 +446,7 @@ describe("export operation", () => {
 				},
 			});
 			expect(await run.exit).toBe(2);
-			expect(parseJsonOutput(run)).toMatchObject({ error_type: "unsafe_parent_path" });
+			expect(parseJsonOutput(run)).toMatchObject({ errorType: "unsafe_parent_path" });
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
@@ -462,14 +462,14 @@ describe("export operation", () => {
 				},
 			);
 			expect(await unsafe.exit).toBe(2);
-			expect(parseJsonOutput(unsafe)).toMatchObject({ error_type: "unsafe_key" });
+			expect(parseJsonOutput(unsafe)).toMatchObject({ errorType: "unsafe_key" });
 
 			const duplicate = runScenario(
 				["export", "--output-dir", join(root, "duplicate"), "--format", "json"],
 				{ gateway: new DuplicateListGateway() },
 			);
 			expect(await duplicate.exit).toBe(2);
-			expect(parseJsonOutput(duplicate)).toMatchObject({ error_type: "duplicate_target_path" });
+			expect(parseJsonOutput(duplicate)).toMatchObject({ errorType: "duplicate_target_path" });
 
 			const missingDiagnostic = runScenario(
 				["export", "--output-dir", join(root, "missing-diagnostic"), "--format", "json"],
@@ -477,7 +477,7 @@ describe("export operation", () => {
 			);
 			expect(await missingDiagnostic.exit).toBe(2);
 			expect(parseJsonOutput(missingDiagnostic)).toMatchObject({
-				error_type: "entry_diagnostic_missing",
+				errorType: "entry_diagnostic_missing",
 			});
 
 			const missingContent = runScenario(
@@ -486,7 +486,7 @@ describe("export operation", () => {
 			);
 			expect(await missingContent.exit).toBe(2);
 			expect(parseJsonOutput(missingContent)).toMatchObject({
-				error_type: "entry_content_missing",
+				errorType: "entry_content_missing",
 			});
 
 			const listFailure = runScenario(
@@ -497,7 +497,7 @@ describe("export operation", () => {
 			);
 			expect(await listFailure.exit).toBe(2);
 			expect(parseJsonOutput(listFailure)).toMatchObject({
-				error_type: "git_failure",
+				errorType: "git_failure",
 				message: "boom",
 			});
 		} finally {

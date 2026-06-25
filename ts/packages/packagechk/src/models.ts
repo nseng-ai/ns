@@ -106,7 +106,7 @@ export function reportToJson(report: PackageCheckReport): Record<string, unknown
 	return {
 		schema_version: 1,
 		name: report.inputName,
-		exit_code: reportExitCode(report),
+		exitCode: reportExitCode(report),
 		results: report.results.map(registryCheckResultToJson),
 	};
 }

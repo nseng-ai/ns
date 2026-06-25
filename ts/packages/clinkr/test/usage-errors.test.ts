@@ -41,12 +41,15 @@ describe("usage errors", () => {
 		expect(run.stderr).toContain("--name");
 	});
 
-	test("missing required option is never enveloped, even in json mode", async () => {
+	test("missing required option is enveloped in json mode", async () => {
 		const run = await runForTest(buildGroup(), ["echo", "--format", "json"], { context: null });
 		expect(run.exitCode).toBe(2);
-		expect(run.stdout).toBe("");
-		expect(run.stderr).toContain("--name");
-		expect(run.stderr).not.toContain("exit_code");
+		expect(JSON.parse(run.stdout)).toMatchObject({
+			status: "usage_error",
+			exitCode: 2,
+			errorType: "usage_error",
+		});
+		expect(run.stderr).toBe("");
 	});
 
 	test("missing required positional exits 2 with the positional named", async () => {

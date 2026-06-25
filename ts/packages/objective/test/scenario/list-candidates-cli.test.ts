@@ -27,7 +27,8 @@ describe("objective exec list-candidates", () => {
 		expect(await run.exit).toBe(0);
 		const payload = parseJsonOutput(run);
 		expect(payload).toEqual({
-			exit_code: 0,
+			status: "ok",
+			exitCode: 0,
 			data: {
 				records: [
 					{ slug: "alpha", status: "open" },

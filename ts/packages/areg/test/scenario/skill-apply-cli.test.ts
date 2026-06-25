@@ -203,7 +203,7 @@ describe("areg skill apply CLI", () => {
 		expect(await run.exit).toBe(1);
 		const output = JSON.parse(run.stdout.join(""));
 		expect(output).toMatchObject({
-			exit_code: 1,
+			exitCode: 1,
 			data: {
 				mutation_failed: true,
 				project_dir: "/repo",

@@ -609,7 +609,7 @@ describe("composed local and gh worktree status loading", () => {
 		const pi = new OrderlessFakePi([
 			brmemListStep({
 				stdout: JSON.stringify({
-					exit_code: 0,
+					exitCode: 0,
 					data: {
 						entries: [
 							{ namespace: "base", key: "scratch/note.md" },
@@ -632,7 +632,7 @@ describe("composed local and gh worktree status loading", () => {
 		const pi = new OrderlessFakePi([
 			brmemListStep({
 				stdout: JSON.stringify({
-					exit_code: 0,
+					exitCode: 0,
 					data: {
 						entries: [
 							{ namespace: "handoff", key: "resume-resource-audit-session.md" },
@@ -668,7 +668,7 @@ describe("composed local and gh worktree status loading", () => {
 		const malformedEntriesPi = new OrderlessFakePi([
 			brmemListStep({
 				stdout: JSON.stringify({
-					exit_code: 0,
+					exitCode: 0,
 					data: {
 						entries: [
 							{ namespace: "notes", key: "adapter/details.md" },
@@ -716,7 +716,7 @@ describe("composed local and gh worktree status loading", () => {
 
 	test("loads gh status for current branch PR landability", async () => {
 		const pi = new OrderlessFakePi([
-			brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+			brmemListStep({ stdout: JSON.stringify({ exitCode: 0, data: { entries: [] } }) }),
 			remoteOriginStep(),
 			ghWorktreePrStep({
 				nodes: [
@@ -751,7 +751,7 @@ describe("composed local and gh worktree status loading", () => {
 
 	test("dedupes superseded canceled check runs before formatting gh actions", async () => {
 		const pi = new OrderlessFakePi([
-			brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+			brmemListStep({ stdout: JSON.stringify({ exitCode: 0, data: { entries: [] } }) }),
 			remoteOriginStep(),
 			ghWorktreePrStep({
 				nodes: [
@@ -798,7 +798,7 @@ describe("composed local and gh worktree status loading", () => {
 
 	test("preserves first returned PR details for a PR head OID mismatch", async () => {
 		const pi = new OrderlessFakePi([
-			brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+			brmemListStep({ stdout: JSON.stringify({ exitCode: 0, data: { entries: [] } }) }),
 			remoteOriginStep(),
 			ghWorktreePrStep({
 				nodes: [
@@ -828,7 +828,7 @@ describe("composed local and gh worktree status loading", () => {
 
 	test("unknown gh checks block landability", async () => {
 		const pi = new OrderlessFakePi([
-			brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+			brmemListStep({ stdout: JSON.stringify({ exitCode: 0, data: { entries: [] } }) }),
 			remoteOriginStep(),
 			ghWorktreePrStep({
 				nodes: [{ number: 1736, passingChecks: 4, unknownChecks: 1 }],
@@ -847,7 +847,7 @@ describe("composed local and gh worktree status loading", () => {
 
 	test("loads local worktree status without invoking gh", async () => {
 		const pi = new OrderlessFakePi([
-			brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+			brmemListStep({ stdout: JSON.stringify({ exitCode: 0, data: { entries: [] } }) }),
 			...basicGitStatusScript(),
 		]);
 
@@ -886,7 +886,7 @@ describe("composed local and gh worktree status loading", () => {
 
 	test("classifies no-PR, auth failure, and GraphQL failure GH responses", async () => {
 		const noPrPi = new OrderlessFakePi([
-			brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+			brmemListStep({ stdout: JSON.stringify({ exitCode: 0, data: { entries: [] } }) }),
 			...ghNoPrSteps(),
 			...basicGitStatusScript(),
 		]);
@@ -894,7 +894,7 @@ describe("composed local and gh worktree status loading", () => {
 		noPrPi.assertDone();
 
 		const authPi = new OrderlessFakePi([
-			brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+			brmemListStep({ stdout: JSON.stringify({ exitCode: 0, data: { entries: [] } }) }),
 			remoteOriginStep(),
 			ghWorktreePrStep({ nodes: [], result: { code: 1, stderr: "HTTP 401: Bad credentials" } }),
 			...basicGitStatusScript(),
@@ -906,7 +906,7 @@ describe("composed local and gh worktree status loading", () => {
 		authPi.assertDone();
 
 		const unicornPi = new OrderlessFakePi([
-			brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+			brmemListStep({ stdout: JSON.stringify({ exitCode: 0, data: { entries: [] } }) }),
 			remoteOriginStep(),
 			ghWorktreePrStep({
 				nodes: [],
@@ -928,7 +928,7 @@ describe("composed local and gh worktree status loading", () => {
 		unicornPi.assertDone();
 
 		const htmlPi = new OrderlessFakePi([
-			brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+			brmemListStep({ stdout: JSON.stringify({ exitCode: 0, data: { entries: [] } }) }),
 			remoteOriginStep(),
 			ghWorktreePrStep({
 				nodes: [],
@@ -947,7 +947,7 @@ describe("composed local and gh worktree status loading", () => {
 		htmlPi.assertDone();
 
 		const nonJsonPi = new OrderlessFakePi([
-			brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+			brmemListStep({ stdout: JSON.stringify({ exitCode: 0, data: { entries: [] } }) }),
 			remoteOriginStep(),
 			ghWorktreePrStep({ nodes: [], result: { stdout: "not json" } }),
 			...basicGitStatusScript(),
@@ -963,7 +963,7 @@ describe("composed local and gh worktree status loading", () => {
 		nonJsonPi.assertDone();
 
 		const graphQlPayloadPi = new OrderlessFakePi([
-			brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+			brmemListStep({ stdout: JSON.stringify({ exitCode: 0, data: { entries: [] } }) }),
 			remoteOriginStep(),
 			ghWorktreePrStep({
 				nodes: [],
@@ -983,7 +983,7 @@ describe("composed local and gh worktree status loading", () => {
 		graphQlPayloadPi.assertDone();
 
 		const schemaMismatchPi = new OrderlessFakePi([
-			brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+			brmemListStep({ stdout: JSON.stringify({ exitCode: 0, data: { entries: [] } }) }),
 			remoteOriginStep(),
 			ghWorktreePrStep({
 				nodes: [],
@@ -1002,7 +1002,7 @@ describe("composed local and gh worktree status loading", () => {
 		schemaMismatchPi.assertDone();
 
 		const graphQlPi = new OrderlessFakePi([
-			brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+			brmemListStep({ stdout: JSON.stringify({ exitCode: 0, data: { entries: [] } }) }),
 			remoteOriginStep(),
 			ghWorktreePrStep({
 				nodes: [],

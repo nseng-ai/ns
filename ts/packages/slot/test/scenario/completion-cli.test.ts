@@ -43,7 +43,7 @@ describe("slot completion CLI", () => {
 		const run = runScenario(["completion", "show", "--shell", "fish", "--format", "json"]);
 		expect(await run.exit).toBe(2);
 		expect(parseJsonOutput(run)).toMatchObject({
-			error_type: "unsupported_shell",
+			errorType: "unsupported_shell",
 			message: "Shell 'fish' is not supported. Supported shells: zsh, bash.",
 		});
 	});

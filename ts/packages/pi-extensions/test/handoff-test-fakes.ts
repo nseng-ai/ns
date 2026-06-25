@@ -172,7 +172,11 @@ export function branchStep(branch = BRANCH): ScriptedExec {
 }
 
 export function checkStep(branch: string, key: string, exists: boolean): ScriptedExec {
-	const payload = { exit_code: 0, data: { key, namespace: "handoff", branch, present: exists } };
+	const payload = {
+		status: "ok",
+		exitCode: 0,
+		data: { key, namespace: "handoff", branch, present: exists },
+	};
 	return step(
 		"brmem",
 		["check", key, "--namespace", "handoff", "--branch", branch, "--format", "json"],
@@ -514,7 +518,8 @@ export function listJson(
 	branch: string | null = BRANCH,
 ): string {
 	return JSON.stringify({
-		exit_code: 0,
+		status: "ok",
+		exitCode: 0,
 		data: {
 			scope: branch === null ? "all-branches" : "branch",
 			branch,
@@ -540,7 +545,8 @@ export function brmemListJson(
 	branch: string | null = BRANCH,
 ): string {
 	return JSON.stringify({
-		exit_code: 0,
+		status: "ok",
+		exitCode: 0,
 		data: {
 			namespace: "handoff",
 			key: null,

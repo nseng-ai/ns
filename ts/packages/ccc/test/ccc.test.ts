@@ -79,7 +79,7 @@ const TRUNK_BRANCH = "master";
 
 function dispatchPromptPutJson(sourceFile: string): string {
 	return JSON.stringify({
-		exit_code: 0,
+		exitCode: 0,
 		data: {
 			namespace: DISPATCH_PROMPT_NAMESPACE,
 			key: DISPATCH_PROMPT_KEY,

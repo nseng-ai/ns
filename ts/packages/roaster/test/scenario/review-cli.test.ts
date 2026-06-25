@@ -318,7 +318,7 @@ describe("roaster review CLI", () => {
 		});
 		expect(run.exitCode).toBe(2);
 		const envelope = JSON.parse(run.stdout);
-		expect(envelope.error_type).toBe("review_definition_invalid");
+		expect(envelope.errorType).toBe("review_definition_invalid");
 	});
 
 	test("review run succeeds with explicit model and emits progress to stderr", async () => {
@@ -436,7 +436,7 @@ describe("roaster review CLI", () => {
 
 		expect(run.exitCode).toBe(1);
 		const envelope = JSON.parse(run.stdout);
-		expect(envelope.exit_code).toBe(1);
+		expect(envelope.exitCode).toBe(1);
 		expect(envelope.message).toContain("failed to write Branch Memory review log");
 		expect(envelope.data.reviewName).toBe(REVIEW_KEY);
 		expect(envelope.data.findings).toEqual([]);
@@ -468,7 +468,7 @@ describe("roaster review CLI", () => {
 			}),
 		});
 		expect(failure.exitCode).toBe(2);
-		expect(JSON.parse(failure.stdout).error_type).toBe("review_definition_invalid");
+		expect(JSON.parse(failure.stdout).errorType).toBe("review_definition_invalid");
 		expect(reviewLog.writtenEntries()).toEqual([]);
 	});
 

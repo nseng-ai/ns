@@ -10,7 +10,11 @@ async function serveSchemaDocument(operation: string): Promise<Record<string, un
 	expect(await run.exit).toBe(0);
 	expect(run.stderr.join("")).toBe("");
 	const document = JSON.parse(run.stdout.join("")) as Record<string, unknown>;
-	expect(Object.keys(document).sort()).toEqual(["input_json_schema", "output_json_schema"]);
+	expect(Object.keys(document).sort()).toEqual([
+		"inputJsonSchema",
+		"machineEnvelopeJsonSchema",
+		"outputJsonSchema",
+	]);
 	return document;
 }
 
@@ -18,9 +22,9 @@ describe("pr-address exec --json-schema routes", () => {
 	for (const operation of OPERATION_NAMES) {
 		test(`${operation} serves a useful canonical schema document`, async () => {
 			const document = await serveSchemaDocument(operation);
-			expect(document["input_json_schema"]).toEqual(expect.objectContaining({ type: "object" }));
-			expect(document["output_json_schema"]).toEqual(expect.objectContaining({ type: "object" }));
-			expect(document["output_json_schema"]).not.toEqual({});
+			expect(document["inputJsonSchema"]).toEqual(expect.objectContaining({ type: "object" }));
+			expect(document["outputJsonSchema"]).toEqual(expect.objectContaining({ type: "object" }));
+			expect(document["outputJsonSchema"]).not.toEqual({});
 		});
 	}
 
@@ -28,7 +32,11 @@ describe("pr-address exec --json-schema routes", () => {
 		const run = runScenario(["exec", "download-feedback", "--json-schema", "--format", "json"]);
 		expect(await run.exit).toBe(0);
 		const document = JSON.parse(run.stdout.join("")) as Record<string, unknown>;
-		expect(Object.keys(document).sort()).toEqual(["input_json_schema", "output_json_schema"]);
+		expect(Object.keys(document).sort()).toEqual([
+			"inputJsonSchema",
+			"machineEnvelopeJsonSchema",
+			"outputJsonSchema",
+		]);
 	});
 
 	test("--json-schema for unknown operations is a clinkr usage error", async () => {

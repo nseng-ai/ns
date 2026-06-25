@@ -66,7 +66,8 @@ describe("objective archive", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
-			exit_code: 0,
+			status: "ok",
+			exitCode: 0,
 			data: archiveData({
 				status: "archived",
 				error: null,
@@ -113,7 +114,8 @@ describe("objective archive", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
-			exit_code: 0,
+			status: "ok",
+			exitCode: 0,
 			data: archiveData({
 				status: "unarchived",
 				error: null,
@@ -156,7 +158,8 @@ describe("objective archive", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
-			exit_code: 1,
+			status: "negative",
+			exitCode: 1,
 			message: "No active Objective record found for slug 'ghost' at .sdl/objectives/ghost.",
 			data: archiveData({
 				status: "source_not_found",
@@ -190,7 +193,8 @@ describe("objective archive", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
-			exit_code: 1,
+			status: "negative",
+			exitCode: 1,
 			message:
 				"Destination already exists for slug 'alpha': .sdl/objective-archive/alpha. Refusing to merge or overwrite.",
 			data: archiveData({
@@ -221,7 +225,8 @@ describe("objective archive", () => {
 		});
 		expect(await invalid.exit).toBe(0);
 		expect(parseJsonOutput(invalid)).toEqual({
-			exit_code: 1,
+			status: "negative",
+			exitCode: 1,
 			message: "Invalid Objective slug 'foo/bar'. Pass a single slug, not a path.",
 			data: archiveData({
 				status: "invalid_slug",
@@ -240,7 +245,8 @@ describe("objective archive", () => {
 		expect(await missing.exit).toBe(0);
 		expect(missing.stderr.join("")).not.toContain("Usage:");
 		expect(parseJsonOutput(missing)).toEqual({
-			exit_code: 1,
+			status: "negative",
+			exitCode: 1,
 			message: "Missing Objective slug. Pass an explicit slug.",
 			data: archiveData({
 				status: "missing_slug",
@@ -263,7 +269,8 @@ describe("objective archive", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
-			exit_code: 1,
+			status: "negative",
+			exitCode: 1,
 			message: "Objective source path for slug 'alpha' is not a directory: .sdl/objectives/alpha.",
 			data: archiveData({
 				status: "source_not_directory",
@@ -292,7 +299,8 @@ describe("objective archive", () => {
 		});
 		expect(await list.exit).toBe(0);
 		expect(parseJsonOutput(list)).toEqual({
-			exit_code: 0,
+			status: "ok",
+			exitCode: 0,
 			data: {
 				trunkBranch: "master",
 				rootPath: ".sdl/objectives",

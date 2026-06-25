@@ -74,7 +74,8 @@ describe("areg check CLI", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join(""))).toEqual({
-			exit_code: 0,
+			status: "ok",
+			exitCode: 0,
 			data: { ok: true, project_dir: "/repo", issue_count: 0, issues: [] },
 		});
 	});
@@ -107,7 +108,7 @@ describe("areg check CLI", () => {
 
 		expect(await run.exit).toBe(1);
 		const body = JSON.parse(run.stdout.join(""));
-		expect(body.exit_code).toBe(1);
+		expect(body.exitCode).toBe(1);
 		expect(body.data.issues).toEqual([
 			expect.objectContaining({
 				skill: "demo",

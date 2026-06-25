@@ -42,11 +42,11 @@ describe("parseObjectiveList", () => {
 	});
 
 	test("rejects a nonzero envelope exit code", () => {
-		expectInvalid(parseObjectiveList(JSON.stringify({ exit_code: 2, data: {} })), /exit_code 2/);
+		expectInvalid(parseObjectiveList(JSON.stringify({ exitCode: 2, data: {} })), /exitCode 2/);
 	});
 
 	test("rejects missing data", () => {
-		expectInvalid(parseObjectiveList(JSON.stringify({ exit_code: 0 })), /expected a data object/);
+		expectInvalid(parseObjectiveList(JSON.stringify({ exitCode: 0 })), /expected a data object/);
 	});
 
 	test("rejects invalid top-level fields", () => {
@@ -94,7 +94,7 @@ describe("parseObjectiveList", () => {
 		expectInvalid(
 			parseObjectiveList(
 				JSON.stringify({
-					exit_code: 0,
+					exitCode: 0,
 					data: {
 						base_branch: "main",
 						trunkBranch: "main",
@@ -123,7 +123,8 @@ function expectInvalid(result: ObjectiveListResult, pattern: RegExp): void {
 
 function envelope(dataOverrides: Record<string, unknown> = {}): string {
 	return JSON.stringify({
-		exit_code: 0,
+		status: "ok",
+		exitCode: 0,
 		data: {
 			trunkBranch: "main",
 			rootPath: ".sdl/objectives",

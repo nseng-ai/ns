@@ -50,7 +50,7 @@ describe("slot goto CLI", () => {
 			git: { worktrees: [slotWorktree("slot-01", "a")] },
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ error_type: "conflicting_slot_args" });
+		expect(parseJsonOutput(run)).toMatchObject({ errorType: "conflicting_slot_args" });
 	});
 
 	it("returns negative for an unassigned slot", async () => {
@@ -59,7 +59,7 @@ describe("slot goto CLI", () => {
 		});
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
-			exit_code: 1,
+			exitCode: 1,
 			message: "slot-01 is not currently assigned. Run `slot list` to see the pool.",
 		});
 	});

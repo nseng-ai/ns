@@ -77,7 +77,7 @@ describe("slot gt exec stack-branches CLI", () => {
 		});
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
-			exit_code: 1,
+			exitCode: 1,
 			message: "On trunk 'master'; no stack is checked out.",
 			data: { branches: [] },
 		});
@@ -100,7 +100,7 @@ describe("slot gt exec stack-branches CLI", () => {
 			gt: { stack: { type: "stack", stack } },
 		});
 		expect(await full.exit).toBe(2);
-		expect(parseJsonOutput(full)).toMatchObject({ error_type: "forked_stack" });
+		expect(parseJsonOutput(full)).toMatchObject({ errorType: "forked_stack" });
 		const down = runScenario(["gt", "exec", "stack-branches", "--downstack"], {
 			git: { worktrees: [{ path: "/repo", branch: "feature/current" }] },
 			gt: { stack: { type: "stack", stack } },
@@ -425,7 +425,7 @@ describe("slot gt exec stack-map-branches CLI", () => {
 				testCase.options,
 			);
 			expect(await run.exit, testCase.name).toBe(2);
-			expect(parseJsonOutput(run), testCase.name).toMatchObject({ error_type: testCase.errorType });
+			expect(parseJsonOutput(run), testCase.name).toMatchObject({ errorType: testCase.errorType });
 		}
 	});
 });

@@ -82,7 +82,7 @@ describe("renderHuman", () => {
 		const { group, renderCalls } = buildGroup("ok");
 		const run = await runForTest(group, ["act", "--format", "json"], { context: null });
 		expect(run.exitCode).toBe(0);
-		expect(JSON.parse(run.stdout)).toEqual({ exit_code: 0, data: { count: 2 } });
+		expect(JSON.parse(run.stdout)).toEqual({ status: "ok", exitCode: 0, data: { count: 2 } });
 		expect(renderCalls()).toBe(0);
 	});
 
@@ -124,7 +124,7 @@ describe("renderHuman", () => {
 		});
 		const run = await runForTest(group, ["act", "--format", "json"], { context: null });
 		expect(run.exitCode).toBe(0);
-		expect(JSON.parse(run.stdout)).toEqual({ exit_code: 0, data: { count: 2 } });
+		expect(JSON.parse(run.stdout)).toEqual({ status: "ok", exitCode: 0, data: { count: 2 } });
 		expect(run.stdout).not.toContain("human");
 		expect(run.stdout).not.toContain("markdown");
 	});
@@ -159,7 +159,7 @@ describe("renderMarkdown", () => {
 		});
 		const run = await runForTest(group, ["act", "--format", "json"], { context: null });
 		expect(run.exitCode).toBe(0);
-		expect(JSON.parse(run.stdout)).toEqual({ exit_code: 0, data: { count: 2 } });
+		expect(JSON.parse(run.stdout)).toEqual({ status: "ok", exitCode: 0, data: { count: 2 } });
 		expect(markdownCalls()).toBe(0);
 	});
 

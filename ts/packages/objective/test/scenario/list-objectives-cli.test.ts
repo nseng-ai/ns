@@ -39,7 +39,8 @@ describe("objective list", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
-			exit_code: 0,
+			status: "ok",
+			exitCode: 0,
 			data: {
 				trunkBranch: "master",
 				rootPath: ".sdl/objectives",
@@ -92,7 +93,8 @@ describe("objective list", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
-			exit_code: 0,
+			status: "ok",
+			exitCode: 0,
 			data: {
 				trunkBranch: "master",
 				rootPath: ".sdl/objectives",
@@ -156,7 +158,8 @@ describe("objective list", () => {
 		expect(await human.exit).toBe(0);
 		expect(await markdown.exit).toBe(0);
 		expect(parseJsonOutput(json)).toEqual({
-			exit_code: 0,
+			status: "ok",
+			exitCode: 0,
 			data: {
 				trunkBranch: "master",
 				rootPath: ".sdl/objectives",
@@ -175,7 +178,8 @@ describe("objective list", () => {
 			},
 		});
 		expect(parseJsonOutput(minimalJson)).toEqual({
-			exit_code: 0,
+			status: "ok",
+			exitCode: 0,
 			data: {
 				trunkBranch: "master",
 				rootPath: ".sdl/objectives",
@@ -226,7 +230,8 @@ describe("objective list", () => {
 		expect(await human.exit).toBe(0);
 		expect(await markdown.exit).toBe(0);
 		expect(parseJsonOutput(json)).toEqual({
-			exit_code: 0,
+			status: "ok",
+			exitCode: 0,
 			data: {
 				trunkBranch: "master",
 				rootPath: ".sdl/objectives",
@@ -335,8 +340,9 @@ describe("objective list", () => {
 
 		expect(await run.exit).toBe(2);
 		expect(parseJsonOutput(run)).toEqual({
-			exit_code: 2,
-			error_type: "git_failed",
+			status: "failure",
+			exitCode: 2,
+			errorType: "git_failed",
 			message: "branch tips failed",
 		});
 	});

@@ -76,7 +76,7 @@ function errorStep(command: string, args: string[], error: Error): ScriptedExec 
 }
 
 function envelope(data: Record<string, unknown>, overrides: Record<string, unknown> = {}): string {
-	return JSON.stringify({ exit_code: 0, data, ...overrides });
+	return JSON.stringify({ exitCode: 0, data, ...overrides });
 }
 
 describe("runBrmem", () => {
@@ -690,7 +690,7 @@ describe("brmemCommandFailure", () => {
 			result: {
 				code: 1,
 				killed: false,
-				stdout: JSON.stringify({ exit_code: 1, message: "Source file is too large" }),
+				stdout: JSON.stringify({ exitCode: 1, message: "Source file is too large" }),
 				stderr: "",
 			},
 		});
@@ -724,9 +724,9 @@ describe("parseBrmemPutData", () => {
 	test("throws for malformed envelopes", () => {
 		expect(() => parseBrmemPutData("{")).toThrow(/Malformed brmem put JSON: invalid JSON/);
 		expect(() =>
-			parseBrmemPutData(envelope(validData, { exit_code: 2, message: "failed" })),
-		).toThrow(/exit_code 2: failed/);
-		expect(() => parseBrmemPutData(JSON.stringify({ exit_code: 0 }))).toThrow(
+			parseBrmemPutData(envelope(validData, { exitCode: 2, message: "failed" })),
+		).toThrow(/exitCode 2: failed/);
+		expect(() => parseBrmemPutData(JSON.stringify({ exitCode: 0 }))).toThrow(
 			/expected a data object/,
 		);
 	});
@@ -742,7 +742,7 @@ describe("parseBrmemPutData", () => {
 
 	test("includes a bounded stdout tail in malformed-output messages", () => {
 		const longStdout = JSON.stringify({
-			exit_code: 0,
+			exitCode: 0,
 			data: { ...validData, source_file: 123 },
 			padding: "x".repeat(5_000),
 		});

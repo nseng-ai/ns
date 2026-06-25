@@ -28,7 +28,7 @@ describe("slot init CLI", () => {
 	it("rejects invalid sizes", async () => {
 		const run = runScenario(["init", "--size", "100", "--format", "json"]);
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ error_type: "invalid_size" });
+		expect(parseJsonOutput(run)).toMatchObject({ errorType: "invalid_size" });
 	});
 
 	it("rejects already initialized pools", async () => {
@@ -36,7 +36,7 @@ describe("slot init CLI", () => {
 			git: { worktrees: [slotWorktree("slot-01", null)] },
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ error_type: "pool_already_initialized" });
+		expect(parseJsonOutput(run)).toMatchObject({ errorType: "pool_already_initialized" });
 	});
 });
 
@@ -108,8 +108,8 @@ describe("slot resize CLI", () => {
 			},
 		});
 		expect(await run.exit).toBe(2);
-		const output = parseJsonOutput(run) as { message: string; error_type: string };
-		expect(output.error_type).toBe("resize_unsafe");
+		const output = parseJsonOutput(run) as { message: string; errorType: string };
+		expect(output.errorType).toBe("resize_unsafe");
 		expect(output.message).toContain("slot-02 is assigned to 'feature/a'");
 		expect(output.message).toContain(
 			"slot-03 at /slots/repos/repo/worktrees/slot-03 has uncommitted changes",

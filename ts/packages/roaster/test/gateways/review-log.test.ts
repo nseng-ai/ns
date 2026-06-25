@@ -27,7 +27,7 @@ class EchoPutCommandExecApi implements CommandExecApi {
 			killed: false,
 			stderr: "",
 			stdout: JSON.stringify({
-				exit_code: 0,
+				exitCode: 0,
 				data: {
 					namespace: "roaster",
 					key: "reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
@@ -85,7 +85,7 @@ describe("RealReviewLogGateway", () => {
 		const execApi = new ScriptedCommandExecApi([
 			{
 				stdout: JSON.stringify({
-					exit_code: 0,
+					exitCode: 0,
 					data: {
 						entries: [
 							{
@@ -144,7 +144,7 @@ describe("RealReviewLogGateway", () => {
 				{
 					code: 1,
 					stdout: JSON.stringify({
-						exit_code: 1,
+						exitCode: 1,
 						message: "Source file is 2 MiB; Branch Memory Entries are capped at 1 MiB",
 					}),
 				},

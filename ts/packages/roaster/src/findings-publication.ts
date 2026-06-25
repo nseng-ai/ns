@@ -2,6 +2,7 @@ import {
 	buildFailureMachineEnvelopeSchema,
 	buildSuccessMachineEnvelopeSchema,
 	machineEnvelopeSchema,
+	negativeMachineEnvelopeSchema,
 } from "@sdl/clinkr";
 import { formatErrorMessage, formatZodError } from "@sdl/core/primitives";
 import { z } from "zod";
@@ -35,10 +36,13 @@ import { reviewRunResultSchema, type PostInlineFindingsResult } from "./models.t
 const reviewRunSuccessEnvelopeSchema = buildSuccessMachineEnvelopeSchema(reviewRunResultSchema);
 
 const reviewRunShellNegativeEnvelopeSchema = z.strictObject({
-	exit_code: z.literal(1),
+	status: z.literal("negative"),
+	exitCode: z.literal(1),
 	message: z.string(),
 	data: reviewRunResultSchema,
 });
+
+const reviewRunNegativeEnvelopeSchema = negativeMachineEnvelopeSchema.omit({ data: true });
 
 const reviewRunFailureEnvelopeSchema = buildFailureMachineEnvelopeSchema({
 	errorTypeSchema: z.string().trim().min(1),
@@ -60,7 +64,7 @@ export function parseFindingsPayloadResult(
 	const data = parseJson(raw);
 	if (data.type === "error") return payloadError(data.message);
 	if (!machineEnvelopeSchema.safeParse(data.value).success)
-		return payloadError("expected a clinkr envelope with top-level 'exit_code'");
+		return payloadError("expected a clinkr envelope with top-level 'status' and 'exitCode'");
 
 	const success = reviewRunSuccessEnvelopeSchema.safeParse(data.value);
 	if (success.success) return payloadFromReviewRunResult(success.data.data);
@@ -68,23 +72,20 @@ export function parseFindingsPayloadResult(
 	const shellNegative = reviewRunShellNegativeEnvelopeSchema.safeParse(data.value);
 	if (shellNegative.success) return payloadFromReviewRunResult(shellNegative.data.data);
 
+	const negative = reviewRunNegativeEnvelopeSchema.safeParse(data.value);
+	if (negative.success) {
+		return payloadFromEnvelopeFailure(options, {
+			errorType: "negative",
+			message: negative.data.message,
+		});
+	}
+
 	const failure = reviewRunFailureEnvelopeSchema.safeParse(data.value);
 	if (failure.success) {
-		const identity = fallbackFailureIdentity(options);
-		if (identity.type === "error") return payloadError(identity.error.message);
-		return {
-			type: "ok",
-			payload: {
-				reviewName: identity.value.reviewName,
-				baseRef: identity.value.baseRef,
-				modelProfile: null,
-				count: 0,
-				findings: [],
-				inputCoverage: null,
-				errorType: failure.data.error_type,
-				errorMessage: failure.data.message,
-			},
-		};
+		return payloadFromEnvelopeFailure(options, {
+			errorType: failure.data.errorType,
+			message: failure.data.message,
+		});
 	}
 
 	return payloadError(`invalid review-run envelope: ${formatZodError(success.error)}`);
@@ -195,6 +196,27 @@ function payloadFromReviewRunResult(
 			inputCoverage: result.inputCoverage,
 			errorType: null,
 			errorMessage: null,
+		},
+	};
+}
+
+function payloadFromEnvelopeFailure(
+	options: { readonly fallbackReviewName?: string; readonly fallbackBaseRef?: string },
+	failure: { readonly errorType: string; readonly message: string },
+): FindingsPayloadParseResult {
+	const identity = fallbackFailureIdentity(options);
+	if (identity.type === "error") return payloadError(identity.error.message);
+	return {
+		type: "ok",
+		payload: {
+			reviewName: identity.value.reviewName,
+			baseRef: identity.value.baseRef,
+			modelProfile: null,
+			count: 0,
+			findings: [],
+			inputCoverage: null,
+			errorType: failure.errorType,
+			errorMessage: failure.message,
 		},
 	};
 }

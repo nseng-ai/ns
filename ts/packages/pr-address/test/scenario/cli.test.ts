@@ -72,10 +72,14 @@ describe("pr-address CLI", () => {
 			const run = runScenario(["exec", operation, "--json-schema"]);
 			expect(await run.exit).toBe(0);
 			const payload = JSON.parse(run.stdout.join("")) as Record<string, unknown>;
-			expect(Object.keys(payload).sort()).toEqual(["input_json_schema", "output_json_schema"]);
-			expect(payload["input_json_schema"]).toEqual(expect.objectContaining({ type: "object" }));
-			expect(payload["output_json_schema"]).toEqual(expect.objectContaining({ type: "object" }));
-			expect(payload["output_json_schema"]).not.toEqual({});
+			expect(Object.keys(payload).sort()).toEqual([
+				"inputJsonSchema",
+				"machineEnvelopeJsonSchema",
+				"outputJsonSchema",
+			]);
+			expect(payload["inputJsonSchema"]).toEqual(expect.objectContaining({ type: "object" }));
+			expect(payload["outputJsonSchema"]).toEqual(expect.objectContaining({ type: "object" }));
+			expect(payload["outputJsonSchema"]).not.toEqual({});
 		}
 	});
 
@@ -114,7 +118,8 @@ describe("pr-address CLI", () => {
 		});
 		expect(await negativeRun.exit).toBe(0);
 		expect(JSON.parse(negativeRun.stdout.join(""))).toEqual({
-			exit_code: 1,
+			status: "negative",
+			exitCode: 1,
 			message: "not valid",
 			data: { valid: false },
 		});
@@ -124,15 +129,17 @@ describe("pr-address CLI", () => {
 		});
 		expect(await failureRun.exit).toBe(2);
 		expect(JSON.parse(failureRun.stdout.join(""))).toEqual({
-			exit_code: 2,
-			error_type: "invalid_request",
+			status: "failure",
+			exitCode: 2,
+			errorType: "invalid_request",
 			message: "bad input",
 		});
 
 		expect(exitCodeForExit(ok({}))).toBe(0);
 		expect(toMachineEnvelope(failure("invalid_request", "bad input"))).toEqual({
-			exit_code: 2,
-			error_type: "invalid_request",
+			status: "failure",
+			exitCode: 2,
+			errorType: "invalid_request",
 			message: "bad input",
 		});
 	});

@@ -38,7 +38,7 @@ test("exports testing helpers through the package testing subpath", () => {
 	expect(typeof ScriptedQueue).toBe("function");
 	expect(typeof ScriptedTextGenerator).toBe("function");
 	expect(typeof step).toBe("function");
-	expect(brmemCheckJson(true)).toBe(JSON.stringify({ exit_code: 0, data: { present: true } }));
+	expect(brmemCheckJson(true)).toBe(JSON.stringify({ exitCode: 0, data: { present: true } }));
 });
 
 test("exports clock and timer seams through package subpaths", () => {

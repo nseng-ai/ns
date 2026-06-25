@@ -43,6 +43,6 @@ function failureEnvelopeData(stdout: string): Record<string, unknown> | undefine
 		// Malformed JSON means stdout is not a Clinkr failure envelope; report the original parse error.
 		return undefined;
 	}
-	if (!isRecord(parsed) || parsed.exit_code !== 1 || !isRecord(parsed.data)) return undefined;
+	if (!isRecord(parsed) || parsed.exitCode !== 1 || !isRecord(parsed.data)) return undefined;
 	return parsed.data;
 }
