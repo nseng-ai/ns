@@ -255,6 +255,8 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 }
 
 function createLandCliCommandIo(input: LandCliInput): CommandIo {
+	// Keep this as a narrow CCC CLI edge adapter over the existing CommandIo primitive;
+	// reusing the SDL SDK adapter would couple this lower land path to SdlExtensionApi.
 	return createCommandIo({
 		...(input.onOutput === undefined
 			? {}
