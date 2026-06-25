@@ -1,6 +1,7 @@
 import { githubPrIdentityFromUrl } from "@sdl/core/github-status";
 
 import { isRecord, stringField } from "../cmux/primitives.ts";
+import { loadGhCommand } from "../gh-command.ts";
 
 import { GIT_TIMEOUT_MS, REST_FINGERPRINT_SKEW_MS } from "./constants.ts";
 import {
@@ -14,7 +15,6 @@ import type {
 	PrCheckSummary,
 	PrFeedbackWatchGithubPrIdentity,
 } from "./model.ts";
-import { execOptions } from "./runtime.ts";
 import type { ExecGateway } from "./types.ts";
 
 interface LoadRestFingerprintOptions {
@@ -65,13 +65,14 @@ export async function loadCurrentGitHubLogin(
 	cwd: string,
 	signal?: AbortSignal,
 ): Promise<string | undefined> {
-	const result = await pi.exec(
-		"gh",
-		["api", "user", "--jq", ".login"],
-		execOptions(cwd, GIT_TIMEOUT_MS, signal),
-	);
-	if (result.killed || result.code !== 0) return undefined;
-	return result.stdout.trim() || undefined;
+	const result = await loadGhCommand({
+		pi,
+		args: ["api", "user", "--jq", ".login"],
+		cwd,
+		timeoutMs: GIT_TIMEOUT_MS,
+		signal,
+	});
+	return result.type === "loaded" ? result.stdout.trim() || undefined : undefined;
 }
 
 export async function loadHeadRefOid(
@@ -80,13 +81,14 @@ export async function loadHeadRefOid(
 	prNumber: number,
 	signal?: AbortSignal,
 ): Promise<string | undefined> {
-	const result = await pi.exec(
-		"gh",
-		["pr", "view", String(prNumber), "--json", "headRefOid", "--jq", ".headRefOid"],
-		execOptions(cwd, GIT_TIMEOUT_MS, signal),
-	);
-	if (result.killed || result.code !== 0) return undefined;
-	return result.stdout.trim() || undefined;
+	const result = await loadGhCommand({
+		pi,
+		args: ["pr", "view", String(prNumber), "--json", "headRefOid", "--jq", ".headRefOid"],
+		cwd,
+		timeoutMs: GIT_TIMEOUT_MS,
+		signal,
+	});
+	return result.type === "loaded" ? result.stdout.trim() || undefined : undefined;
 }
 
 export async function loadPrCheckSummary(
@@ -193,15 +195,16 @@ async function ghApiJson(options: GhApiJsonOptions): Promise<GhApiJsonResult> {
 
 async function ghJsonCommand(options: GhJsonCommandOptions): Promise<GhJsonCommandResult> {
 	const { pi, cwd, args, label, signal, shouldAllowNonZeroWithStdout = false } = options;
-	const result = await pi.exec("gh", args, execOptions(cwd, GIT_TIMEOUT_MS, signal));
-	if (
-		result.killed ||
-		(result.code !== 0 && (!shouldAllowNonZeroWithStdout || result.stdout.trim().length === 0))
-	) {
-		return {
-			type: "failed",
-			message: `${label} failed: ${result.stderr.trim() || `exit code ${result.code}`}`,
-		};
+	const result = await loadGhCommand({
+		pi,
+		args,
+		cwd,
+		timeoutMs: GIT_TIMEOUT_MS,
+		signal,
+		shouldAllowNonZeroWithStdout,
+	});
+	if (result.type === "failed") {
+		return { type: "failed", message: `${label} failed: ${result.detail}` };
 	}
 	try {
 		return { type: "loaded", value: JSON.parse(result.stdout) };

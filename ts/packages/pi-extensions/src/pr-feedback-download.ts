@@ -1,14 +1,12 @@
 import { formatZodError } from "@sdl/core/primitives";
-import type { ExecOptions, ExecResult } from "@sdl/core/exec";
+import type { ExecResult } from "./exec-gateway.ts";
+import type { ExecGateway } from "./exec-gateway.ts";
 import { z } from "zod";
 
 import { parseMachineEnvelopeDataWithFailureData } from "./machine-envelope.ts";
 
-export type { ExecOptions, ExecResult } from "@sdl/core/exec";
-
-export interface ExecGateway {
-	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
-}
+export type { ExecOptions, ExecResult } from "./exec-gateway.ts";
+export type { ExecGateway } from "./exec-gateway.ts";
 
 export interface PrAddressRunner {
 	command: string;

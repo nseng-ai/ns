@@ -3,6 +3,7 @@ import { posix } from "node:path";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 
 import { stripTerminalEscapes } from "./terminal-presentation.ts";
+import { splitTextLines } from "./text-lines.ts";
 
 const ROW_SUMMARY_WIDTH_COLUMNS = 46;
 
@@ -203,8 +204,7 @@ function firstNonEmptyLine(lines: readonly string[]): string {
 }
 
 function normalizeCommentBodyLines(body: string): string[] {
-	return body
-		.split(/\r\n|\r|\n/u)
+	return splitTextLines(body)
 		.map(normalizeCommentBodyLine)
 		.filter((line): line is string => line !== null);
 }
