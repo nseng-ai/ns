@@ -15,8 +15,7 @@
     negative process-exit defaults, and danger tiers remain ADR-needed; dry-run /
     force / aliases stay backlog unless a danger-tier ADR pulls them forward.
 - [~] Record ADRs in `docs/adr/` for each contested decision.
-  - Candidates still remaining: output-volume strategy (compact JSON plus
-    pagination/truncation/streaming boundaries); negative process-exit default;
+  - Candidates still remaining: negative process-exit default and
     confirmation/danger tiers. Each ADR records decision + dissent.
   - ADR 0010 records the exit-code decision: keep process exit codes
     coarse/stable and put detailed failure semantics in the structured machine
@@ -25,6 +24,10 @@
     Python-parity snake_case contract, publish camelCase discriminated machine
     envelopes with `status`/`exitCode`, preserve structured failure `data`, and
     envelope JSON-mode usage errors.
+  - ADR 0012 records the output-volume discipline decision: keep pretty JSON and
+    add no compact/pagination/JSONL framework API now; teach command-local
+    bounded-output guidance in `sdl-cli-design` and reopen framework extraction
+    only after repeated command pressure or one severe agent-context failure.
 - [ ] Author and register the `sdl-cli-design` skill.
   - Clinkr-grounded overlay; `normal`/ambient via `areg`. Sections: basics as
     hard gates, human tier (clig.dev), agent/`exec` tier (agent-era), naming,
@@ -39,9 +42,12 @@
 
 ## Parked
 
-- [ ] Contested/large Clinkr items deferred pending ADR acceptance: pagination
-      primitives, JSONL/streaming output, first-class command aliases, a
-      dry-run/declarative convention.
+- [ ] Output-volume framework features parked by ADR 0012 until repeated command
+      pressure or one severe agent-context failure justifies extraction: compact
+      JSON, generic pagination/truncation/range primitives, generic
+      bounded-result wrappers, and JSONL/streaming output.
+- [ ] Other contested/large Clinkr items deferred pending ADR acceptance:
+      first-class command aliases and a dry-run/declarative convention.
 - [ ] Coordinate change boundaries with `ts-cli-core-structural-cleanup`
       (structural) and `clinkr-shell-completion` (completion) where edits touch
       shared Clinkr code; resolve the sequencing question vs. the

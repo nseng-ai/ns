@@ -48,8 +48,8 @@ the high-agreement changes, and parking the contested or large ones as backlog.
   checklist — each rule mapped to the Clinkr API that satisfies it, and current
   Clinkr limitations flagged as "design around until ADR lands."
 - **Clinkr evolution (parallel)**: from the gap list, decide every item via ADR;
-  land the high-agreement changes (e.g. structured `data` on failure exits,
-  output compaction) with tests; park contested/large items as backlog rows.
+  land the high-agreement changes (e.g. structured `data` on failure exits) with
+  tests; park contested/large or YAGNI items as backlog rows.
 - ADRs gate Clinkr code changes and any contested skill rules; uncontested skill
   scaffolding may proceed in parallel with the survey/ADR work.
 
@@ -90,7 +90,9 @@ the high-agreement changes, and parking the contested or large ones as backlog.
   discipline shifts materially, ADRs may need revisiting (acceptable: ADRs are
   superseded, not silently edited).
 - Most high-agreement Clinkr changes are additive/backward-compatible
-  (e.g. adding `data` to failure exits, an opt-in compaction mode).
+  (e.g. adding `data` to failure exits). ADR 0012 intentionally parked compact
+  JSON and generic output-volume APIs as YAGNI until concrete command evidence
+  justifies extraction.
 
 **Risks**
 
@@ -128,8 +130,11 @@ the high-agreement changes, and parking the contested or large ones as backlog.
 - ADR 0011 answers the core `--format json` envelope/parity question for
   TypeScript Clinkr: the Python-parity contract is not load-bearing for the TS
   machine envelope, camelCase discriminated envelopes are the contract, and
-  JSON-mode usage errors are enveloped. Compaction, pagination, and streaming /
-  JSONL still need separate output-volume decisions.
+  JSON-mode usage errors are enveloped.
+- ADR 0012 answers the output-volume question for now: keep pretty JSON, add no
+  compact/pagination/JSONL framework API, treat bounded machine output as
+  command-local `sdl-cli-design` guidance, and revisit framework extraction only
+  after repeated command pressure or one severe agent-context failure.
 - Should the agent-ergonomics Clinkr changes proceed now or wait behind the
   `sdl-extension-architecture` endgame that currently pauses
   `ts-cli-core-structural-cleanup`?
