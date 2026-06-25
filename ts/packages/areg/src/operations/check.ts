@@ -1,4 +1,4 @@
-import { failure, negative, ok, shellNegative, type ClinkrExit } from "@sdl/clinkr";
+import { failure, ok, shellNegative, type ClinkrExit } from "@sdl/clinkr";
 import type { Result } from "@sdl/core/result";
 import { z } from "zod";
 
@@ -109,7 +109,7 @@ export async function runCheck(
 	}
 	const report = buildCheckReport(inspection, lockfileResult.value, piSettings.value.exclusions);
 	if (report.ok) return ok(report);
-	return negative(formatCheckReport(report), report);
+	return shellNegative(formatCheckReport(report), report);
 }
 
 export function renderCheck(report: CheckReport): string {
