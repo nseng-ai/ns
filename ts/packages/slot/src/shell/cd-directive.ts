@@ -3,6 +3,7 @@ import { writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 
 export const SLOT_CD_DIRECTIVE_FILE = "SLOT_CD_DIRECTIVE_FILE";
+export const SDL_CD_DIRECTIVE_FILE = "SDL_CD_DIRECTIVE_FILE";
 
 export type CdDirectiveResult =
 	| { status: "inactive"; path: string | null }
@@ -31,7 +32,7 @@ export class RealCdDirectiveFilesystem implements CdDirectiveFilesystem {
 }
 
 export function activeCdDirectivePath(env: NodeJS.ProcessEnv = process.env): string | null {
-	const path = env[SLOT_CD_DIRECTIVE_FILE];
+	const path = env[SLOT_CD_DIRECTIVE_FILE] ?? env[SDL_CD_DIRECTIVE_FILE];
 	if (path === undefined || path === "") return null;
 	return path;
 }

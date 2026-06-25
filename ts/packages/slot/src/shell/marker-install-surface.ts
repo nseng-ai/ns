@@ -42,6 +42,34 @@ export interface MarkerInstallSurfaceConfig {
 	readonly installedMessage: (result: MarkerSurfaceInstallResult) => string;
 }
 
+export interface CommandCdWrapperScriptOptions {
+	readonly commandName: string;
+}
+
+export function renderCommandCdWrapperScript(options: CommandCdWrapperScriptOptions): string {
+	const localPrefix = `_${options.commandName}`;
+	const directiveEnvVar = `${options.commandName.toUpperCase()}_CD_DIRECTIVE_FILE`;
+	return `${options.commandName}() {
+  local ${localPrefix}_cd_directive_file
+  local ${localPrefix}_status
+  local ${localPrefix}_destination
+
+  ${localPrefix}_cd_directive_file="$(mktemp "\${TMPDIR:-/tmp}/${options.commandName}-cd.XXXXXX")" || return 1
+  ${directiveEnvVar}="$${localPrefix}_cd_directive_file" command ${options.commandName} "$@"
+  ${localPrefix}_status=$?
+
+  if [ $${localPrefix}_status -eq 0 ] && [ -s "$${localPrefix}_cd_directive_file" ]; then
+    IFS= read -r ${localPrefix}_destination < "$${localPrefix}_cd_directive_file" || true
+    rm -f "$${localPrefix}_cd_directive_file"
+    cd -- "$${localPrefix}_destination"
+    return $?
+  fi
+
+  rm -f "$${localPrefix}_cd_directive_file"
+  return $${localPrefix}_status
+}`;
+}
+
 export function buildMarkerInstallSurface(config: MarkerInstallSurfaceConfig) {
 	return {
 		showRequestSchema: markerSurfaceShowRequestSchema,
