@@ -37,6 +37,7 @@ Use these step skills for explicit workflow requests:
 - `objective-refresh`: non-closing verified rebaseline for active Objective records. It may append Semantic Updates but never creates `closed.md` or `## Closure`.
 - `objective-close`: explicit close only. It records `## Closure` and writes the Closure Marker without deleting checked-in history.
 - `objective-stack-impl`: parent orchestration for implementing one Objective as small slices or a Graphite stack. It uses Objective updates as checkpoints, but does not own the general Objective lifecycle.
+- `objective-review-briefing`: read-only producer for post-merge delivered-scope review briefings. It reconstructs an Objective's delivering PR/commit/file basis and stores a review-agnostic briefing in the objective-owned `objective-review` Branch Memory namespace; it does not mutate Objective records or run a review lens.
 
 When a step skill triggers, use this `objective` skill first for shared model and safety rules, then follow the self-contained step workflow.
 
