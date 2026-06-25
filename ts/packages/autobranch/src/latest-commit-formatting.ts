@@ -10,10 +10,6 @@ export function formatLatestCommitPreparationFailure(
 	result: Extract<LatestCommitPreparationResult, { ok: false }>,
 ): string {
 	switch (result.kind) {
-		case "trunk_lookup_failed":
-			return `Could not resolve Graphite trunk; refusing to move latest commit.\n${result.error}`;
-		case "trunk_refusal":
-			return `Refusing to move latest commit from Graphite trunk branch ${result.branch}.`;
 		case "upstream_check_failed":
 			return `Could not determine whether HEAD is already in the current branch upstream.\n${result.error}`;
 		case "pushed_head_refusal":
