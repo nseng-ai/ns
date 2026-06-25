@@ -63,6 +63,17 @@ sendCommandProgressOrNotify({ host: pi, ctx, message: "Running example commandâ€
 
 Guard no-UI flows deliberately. Use `shouldNotifyWhenNoUi: true` only when the non-UI caller still needs a notification fallback.
 
+### Cross CLI/Pi progress
+
+If the same workflow is reachable from both an SDL CLI command and a Pi slash-command mirror, do not solve progress only with Pi helpers or `ctx.ui.setStatus(...)`. Put the progress seam in the lower orchestration layer with `CommandIo` from `@sdl/core/command-io`:
+
+- use `io.phase(...)` for human-facing intermediate progress;
+- use durable command presentation or `io.notify(...)` for final summaries and diagnostics;
+- in CLI adapters, route phases to `ctx.onOutput?.("stderr", text)` when available, otherwise to `stderr`;
+- in Pi rendered flows, avoid duplicating a custom `pi.sendMessage(...)` stream through `CommandIo`; use `CommandIo` as the fallback when no rendered/live message path exists.
+
+For CCC-owned orchestration, read `ts/packages/ccc/AGENTS.md` before changing progress behavior. `sendCommandProgressOrNotify(...)` remains the right primitive for Pi-only adapter milestones; `CommandIo` is the portable seam for shared CLI/Pi execution.
+
 ## Checklist for adding or changing a command
 
 Before editing:

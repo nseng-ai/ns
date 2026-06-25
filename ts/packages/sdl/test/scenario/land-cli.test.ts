@@ -18,6 +18,7 @@ const FLOW_EXTENSION_SOURCE = fileURLToPath(
 const TRUNK = "main";
 const CURRENT = "feature-branch";
 const CHILD = "child-branch";
+const SHA_CURRENT = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const tempProjectDirs: string[] = [];
 
 afterEach(() => {
@@ -64,6 +65,53 @@ function landStackShapeResponses(cwd: string | undefined): ScriptedExecResponse[
 	];
 }
 
+function progressAfterConfirmationResponses(cwd: string): ScriptedExecResponse[] {
+	return [
+		...landStackShapeResponses(cwd),
+		{ match: "git status --porcelain=v1", result: {} },
+		{ match: "git rev-parse -q --verify MERGE_HEAD", result: { code: 1 } },
+		{ match: "git rev-parse -q --verify CHERRY_PICK_HEAD", result: { code: 1 } },
+		{ match: "git rev-parse -q --verify REVERT_HEAD", result: { code: 1 } },
+		{ match: "git rev-parse --git-path rebase-merge", result: { stdout: ".git/rebase-merge\n" } },
+		{ match: "git rev-parse --git-path rebase-apply", result: { stdout: ".git/rebase-apply\n" } },
+		{ match: `git show-ref --verify refs/heads/${CURRENT}`, result: {} },
+		{
+			match: `git rev-parse --verify refs/heads/${CURRENT}^{commit}`,
+			result: { stdout: `${SHA_CURRENT}\n` },
+		},
+		{
+			match: `gh pr view ${CURRENT} --json number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt`,
+			result: { stdout: `${stackPrView()}\n` },
+		},
+		{ match: "git worktree list --porcelain", result: { stdout: worktreeOutput(cwd) } },
+		{ match: "git worktree list --porcelain", result: { stdout: worktreeOutput(cwd) } },
+	];
+}
+
+function stackPrView(): string {
+	return JSON.stringify({
+		number: 42,
+		title: "Ship feature",
+		body: "Feature body",
+		state: "OPEN",
+		isDraft: false,
+		headRefName: CURRENT,
+		baseRefName: TRUNK,
+		headRefOid: SHA_CURRENT,
+		mergeStateStatus: "CLEAN",
+		url: "https://github.example/pull/42",
+		mergedAt: null,
+	});
+}
+
+function worktreeOutput(cwd: string): string {
+	return [
+		`worktree ${cwd}`,
+		"HEAD 0000000000000000000000000000000000000000",
+		`branch refs/heads/${CURRENT}`,
+	].join("\n");
+}
+
 function metadataDbJson(): string {
 	return JSON.stringify([
 		metadataRow({ branch: TRUNK, children: [CURRENT], trunk: true }),
@@ -91,6 +139,34 @@ function formatExecCall(call: ExecCall): string {
 }
 
 describe("sdl flow land", () => {
+	test("emits live progress after the SDL confirmation hook approves landing", async () => {
+		const cwd = createLandProject();
+		const confirmations: Array<{ title: string; message: string }> = [];
+		const run = runWithFakes({
+			cwd,
+			args: ["flow", "land"],
+			state: {
+				exec: progressAfterConfirmationResponses(cwd),
+				confirm: (title, message) => {
+					confirmations.push({ title, message });
+					return true;
+				},
+			},
+		});
+
+		await expect(run.exit).resolves.toBe(1);
+
+		expect(confirmations).toHaveLength(1);
+		expect(run.liveOutput).toContainEqual(
+			expect.objectContaining({
+				stream: "stderr",
+				text: expect.stringContaining("→ Preparing to land 1 PR through feature-branch..."),
+			}),
+		);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toContain("land stopped:");
+	});
+
 	test("uses the SDL confirmation hook instead of requiring --yes", async () => {
 		const confirmations: Array<{ title: string; message: string }> = [];
 		const run = runWithFakes({

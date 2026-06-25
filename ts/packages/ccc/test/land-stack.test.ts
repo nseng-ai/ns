@@ -1439,6 +1439,47 @@ describe("land-stack pure helpers", () => {
 		expect(commandMessagesText(pi.messages)).not.toContain("read Graphite stack topology");
 	});
 
+	test("does not duplicate rendered UI command stream messages through progress IO", () => {
+		const pi = new FakePi();
+		const context = createContext({ hasUI: true });
+		const phases: string[] = [];
+		const commandStream = new LandStackCommandStream(pi, context.ctx, {
+			progressIo: {
+				phase: (message) => phases.push(message),
+				notify: () => {},
+				clearPhase: () => {},
+			},
+		});
+
+		commandStream.note("Preparing to land 1 PR through feature-a...");
+
+		expect(commandMessagesText(pi.messages)).toContain(
+			"→ Preparing to land 1 PR through feature-a...",
+		);
+		expect(phases).toEqual([]);
+		expect(context.notifications).toEqual([]);
+	});
+
+	test("mirrors UI command stream messages through progress IO when no renderer is available", () => {
+		const pi: LandStackExtensionAPI = {
+			exec: async () => execResult(),
+		};
+		const context = createContext({ hasUI: true });
+		const phases: string[] = [];
+		const commandStream = new LandStackCommandStream(pi, context.ctx, {
+			progressIo: {
+				phase: (message) => phases.push(message),
+				notify: () => {},
+				clearPhase: () => {},
+			},
+		});
+
+		commandStream.note("Preparing to land 1 PR through feature-a...");
+
+		expect(phases).toEqual(["→ Preparing to land 1 PR through feature-a..."]);
+		expect(context.notifications).toEqual([]);
+	});
+
 	test("mirrors command finishes and notes to non-UI notifications", async () => {
 		const pi = new FakePi([
 			step("git", ["status"]),

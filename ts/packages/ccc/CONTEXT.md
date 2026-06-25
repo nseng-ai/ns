@@ -48,6 +48,10 @@ The hidden CCC `ccc exec autobranch` implementation retained for internal compat
 The CCC-owned implementation behind public unified `/sdl:flow:land`, coordinating strict Graphite stack-shape discovery, isolated single-PR squash merging into `gt trunk`, stack-mode PR metadata validation/update prompts, managed landing-slot cleanup, bottom-to-current squash merges, and post-merge Graphite refresh/delete/restack/submit maintenance.
 *Avoid*: Pi registration adapter, separate stack landing command, general GitHub lifecycle owner, lower Graphite/GitHub gateway, old `/code:land` alias.
 
+**Portable command progress**:
+Human-facing intermediate progress for CCC workflows that can run through both SDL CLI and Pi command mirrors. The canonical seam is `CommandIo` from `@sdl/core/command-io`, threaded through lower orchestration and adapted at the edge to CLI `onOutput`/stderr, durable notifications, or Pi-rendered messages without duplication.
+*Avoid*: Pi-only status as a CLI progress solution, bespoke per-command progress sink, machine-readable event protocol, final result summary.
+
 **Worktree status observability**:
 The CCC-owned operational model and presentation for repository status surfaced through the `worktree-status` Pi renderer: Branch Memory scope summaries, Graphite metadata-derived down/up state, branch-local commit marker, dirty marker, Graphite metadata diagnostics, and PR hyperlink rendering.
 *Avoid*: Pi footer lifecycle, session manager, filesystem watcher scheduling, Branch Memory storage owner, Graphite primitive owner.

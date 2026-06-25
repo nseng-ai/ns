@@ -1,3 +1,4 @@
+import { createCommandIo, runWithCommandIo, type CommandIo } from "@sdl/core/command-io";
 import { normalizeExecResult, type ExecOutputListener } from "@sdl/core/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import {
@@ -108,11 +109,17 @@ export function registerLandCommand(pi: LandExtensionAPI): void {
 
 export type LandCliConfirmPrompt = (title: string, message: string) => Promise<boolean> | boolean;
 
+interface RunLandCommandOptions {
+	progressIo?: CommandIo;
+}
+
 async function runLandCommand(
 	pi: LandExtensionAPI,
 	rawArgs: string,
 	ctx: LandCommandContext,
+	options: RunLandCommandOptions = {},
 ): Promise<LandStackOutcome> {
+	const progressIo = options.progressIo;
 	const args = parseArgs(rawArgs);
 	if (args.type === "failure") {
 		presentBrief(
@@ -131,6 +138,7 @@ async function runLandCommand(
 	await ctx.waitForIdle();
 
 	const commandStream = new LandStackCommandStream(pi, ctx, {
+		...(progressIo === undefined ? {} : { progressIo }),
 		shouldMirrorFinishedCommandsToNonUi: false,
 	});
 	const runtimePi = withCommandStreaming(pi, commandStream);
@@ -160,11 +168,17 @@ async function runLandCommand(
 	}
 
 	if (isIsolatedFastPath(shape.value.stack)) {
-		return await runFastLand(runtimeLandPi, ctx, shape.value, { dryRun: args.value.dryRun });
+		return await runFastLand(runtimeLandPi, ctx, shape.value, {
+			dryRun: args.value.dryRun,
+			...(progressIo === undefined ? {} : { progressIo }),
+		});
 	}
 
 	if (shape.value.stack.landingBranches.length > AUTO_CHUNK_LANDING_THRESHOLD) {
-		return await executeStackLanding(pi, ctx, args.value, { initialShape: shape.value });
+		return await executeStackLanding(pi, ctx, args.value, {
+			initialShape: shape.value,
+			...(progressIo === undefined ? {} : { progressIo }),
+		});
 	}
 
 	const confirmationOutcome = await confirmStackModeIfNeeded(ctx, shape.value, {
@@ -176,6 +190,7 @@ async function runLandCommand(
 	return await executeStackLanding(pi, ctx, args.value, {
 		skipMainConfirmation: true,
 		initialShape: shape.value,
+		...(progressIo === undefined ? {} : { progressIo }),
 	});
 }
 
@@ -216,35 +231,47 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 	}
 
 	const confirm = input.confirm;
-	const outcome = await runLandCommand(api, input.rawArgs, {
-		cwd: input.cwd,
-		hasUI: confirm !== undefined,
-		ui: {
-			notify(message, level) {
-				const output = `${message.trimEnd()}\n`;
-				if (level === "error") {
-					input.stderr(output);
-					return;
-				}
-				input.stdout(output);
-			},
-			confirm: async (title, message) =>
-				confirm === undefined ? false : await confirm(title, message),
-			setStatus: (_key, value) => {
-				writeCliStatusToOutput(input.onOutput, value);
-			},
-		},
-		waitForIdle: async () => {},
-	});
+	const progressIo = createLandCliCommandIo(input);
+	const outcome = await runWithCommandIo(
+		progressIo,
+		async () =>
+			await runLandCommand(
+				api,
+				input.rawArgs,
+				{
+					cwd: input.cwd,
+					hasUI: confirm !== undefined,
+					ui: {
+						notify(message, level) {
+							progressIo.notify(message, level === "success" ? "info" : level);
+						},
+						confirm: async (title, message) =>
+							confirm === undefined ? false : await confirm(title, message),
+						setStatus: (_key, value) => {
+							if (value !== undefined) progressIo.phase(value);
+						},
+					},
+					waitForIdle: async () => {},
+				},
+				{ progressIo },
+			),
+	);
 	return outcome.type === "failure" && outcome.failure.level === "error" ? 1 : 0;
 }
 
-function writeCliStatusToOutput(
-	onOutput: ExecOutputListener | undefined,
-	status: string | undefined,
-): void {
-	if (status === undefined) return;
-	onOutput?.("stdout", `${status}\n`);
+function createLandCliCommandIo(input: LandCliInput): CommandIo {
+	// Keep this as a narrow CCC CLI edge adapter over the existing CommandIo primitive;
+	// the same edge mapping also appears in autoslot, but extracting it would add a
+	// second wrapper abstraction instead of just adapting local callbacks to CommandIo.
+	// Reusing the SDL SDK adapter would couple this lower land path to SdlExtensionApi.
+	return createCommandIo({
+		...(input.onOutput === undefined
+			? {}
+			: { phaseTransient: (text: string) => input.onOutput?.("stderr", text) }),
+		phaseFallback: input.stderr,
+		notifyInfo: input.stdout,
+		notifyDiagnostic: input.stderr,
+	});
 }
 
 export function isIsolatedFastPath(stack: StackSnapshot): boolean {
@@ -309,7 +336,7 @@ async function runFastLand(
 	pi: LandExtensionAPI,
 	ctx: LandCommandContext,
 	target: LandingShape,
-	options: { dryRun: boolean },
+	options: { dryRun: boolean; progressIo?: CommandIo },
 ): Promise<LandStackOutcome> {
 	const pr = await loadPullRequest(pi, target.repoRoot);
 	if ("error" in pr) {
@@ -328,7 +355,14 @@ async function runFastLand(
 		return completed();
 	}
 
-	progress(pi, ctx, "Running gh pr merge -s with PR title/body as commit message…");
+	const progressOptions =
+		options.progressIo === undefined ? {} : { progressIo: options.progressIo };
+	progress(
+		pi,
+		ctx,
+		"Running gh pr merge -s with PR title/body as commit message…",
+		progressOptions,
+	);
 
 	const result = await pi.exec(
 		"gh",
@@ -363,10 +397,19 @@ async function runFastLand(
 	return failure(landStackFailure(fullMessage));
 }
 
-function progress(pi: LandExtensionAPI, ctx: LandCommandContext, message: string): void {
+function progress(
+	pi: LandExtensionAPI,
+	ctx: LandCommandContext,
+	message: string,
+	options: { progressIo?: CommandIo } = {},
+): void {
 	if (ctx.mode === "print") {
 		const output = message.endsWith("\n") ? message : `${message}\n`;
 		(ctx.printOutput ?? process.stdout).write(output);
+	}
+	if (options.progressIo !== undefined) {
+		options.progressIo.phase(message);
+		return;
 	}
 	sendCommandProgressOrNotify({
 		host: pi,
