@@ -313,7 +313,7 @@
     "sdl-cli-design": {
       "source": "skills/sdl-cli-design",
       "sourceType": "local",
-      "computedHash": "17b6fbaf7224b040f1b068d59f30bb1e05c49381b5488859c48f88cd821946ce"
+      "computedHash": "7cb62ecce29161393e08481fad4f021c344ab810478a0042e0773a9b82e3135a"
     },
     "sdl-flow-submit": {
       "source": "skills/sdl-flow-submit",
