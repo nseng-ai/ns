@@ -57,33 +57,51 @@ const SAVED_PLAN_FILE_NAME = `${SAVED_PLAN_FILENAME_SLUG}.md`;
 const PLAN_CONTENT = "# Plan\n";
 const DISPATCH_PROMPT_NAMESPACE = "ccc-dispatch";
 
-const testSlotCheckout = async (
-	_input: unknown,
-	ref: { kind: "branch"; branchName: string } | { kind: "current" },
-) => {
-	if (ref.kind === "current") {
-		return { ok: false as const, error: "Unexpected current slot checkout in cmux command test." };
-	}
-	return {
-		ok: true as const,
-		target: {
-			slotName: "slot-01",
-			branchName: ref.branchName,
-			worktreePath: "/slot/worktree",
-			cdCommand: "cd /slot/worktree",
-		},
-	};
+const testSlotClient = {
+	async checkoutCurrent() {
+		return {
+			ok: false as const,
+			failure: {
+				errorType: "unexpected_current_checkout",
+				message: "Unexpected current slot checkout in cmux command test.",
+			},
+		};
+	},
+	async checkoutBranch(options: { branchName: string }) {
+		return {
+			ok: true as const,
+			target: {
+				slotName: "slot-01",
+				branchName: options.branchName,
+				worktreePath: "/slot/worktree",
+				cdCommand: "cd /slot/worktree",
+				isAlreadyAssigned: false,
+				hasCreatedBranch: false,
+				currentWorktreeNote: null,
+			},
+		};
+	},
 };
 
-const failingTestSlotCheckout = async () => ({
-	ok: false as const,
-	error: "slot checkout failed (slot_unavailable): slot unavailable",
-});
+const failingTestSlotClient = {
+	async checkoutCurrent() {
+		return {
+			ok: false as const,
+			failure: { errorType: "slot_unavailable", message: "slot unavailable" },
+		};
+	},
+	async checkoutBranch() {
+		return {
+			ok: false as const,
+			failure: { errorType: "slot_unavailable", message: "slot unavailable" },
+		};
+	},
+};
 
 function branchContextTestOptions(planStoreRoot: string): CccSlotDispatchPlanOptions {
 	return {
 		planStoreRoot,
-		slotCheckout: testSlotCheckout,
+		slotClient: testSlotClient,
 		createBranchContextContext(pi, cwd) {
 			const stdinCapablePi: StdinCapableCommandExecApi = {
 				supportsStdin: true,
@@ -266,7 +284,7 @@ describe("CCC cmux command suite", () => {
 				),
 			],
 		});
-		registerCccSlotOpenBranchCommand(pi, { slotCheckout: testSlotCheckout });
+		registerCccSlotOpenBranchCommand(pi, { slotClient: testSlotClient });
 		const ctx = new FakeCommandContext();
 
 		await pi.commands.get("ccc:workspace:open-branch")?.handler(BRANCH, ctx);
@@ -606,7 +624,7 @@ describe("CCC cmux command suite", () => {
 		});
 		registerCccSurfaceDispatchPlanCommand(pi, {
 			...branchContextTestOptions(planStoreRoot),
-			slotCheckout: failingTestSlotCheckout,
+			slotClient: failingTestSlotClient,
 		});
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
@@ -759,7 +777,7 @@ describe("CCC cmux command suite", () => {
 			stagingDir,
 			now: () => 123,
 			shouldCleanupStagingFile: false,
-			slotCheckout: testSlotCheckout,
+			slotClient: testSlotClient,
 		});
 		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL });
 
@@ -867,7 +885,7 @@ describe("CCC cmux command suite", () => {
 			stagingDir,
 			now: () => 123,
 			shouldCleanupStagingFile: false,
-			slotCheckout: testSlotCheckout,
+			slotClient: testSlotClient,
 		});
 		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL });
 
@@ -1034,7 +1052,7 @@ describe("CCC cmux command suite", () => {
 			stagingDir,
 			now: () => 123,
 			shouldCleanupStagingFile: false,
-			slotCheckout: testSlotCheckout,
+			slotClient: testSlotClient,
 		});
 		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL });
 

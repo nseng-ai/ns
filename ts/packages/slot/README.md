@@ -2,7 +2,9 @@
 
 TypeScript-backed `slot` CLI for working on multiple branches in parallel without stashing, losing your place, or waiting for a clean working tree. `slot` gives each in-flight branch its own dedicated Git worktree, so switching contexts is just `cd` and every other branch keeps its editor state, terminal state, running processes, and uncommitted changes.
 
-The standalone `slot` command is the default public surface. There is no TypeScript `sdl.plugins` analog.
+The standalone `slot` command is the default human command surface. First-party sibling packages should use the repo-bound `SlotClient` from `@sdl/slot/api` for in-process Slot decisions instead of subprocess JSON parsing or deep imports. `SlotClient` currently exposes checkout operations for moving the current branch or a named branch into managed slots.
+
+There is no TypeScript `sdl.plugins` analog.
 
 ## Install/run model
 

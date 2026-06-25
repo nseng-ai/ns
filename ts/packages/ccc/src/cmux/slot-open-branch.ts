@@ -5,7 +5,7 @@ import {
 import { registerCommandWithImmediateAck, sendCommandProgressOrNotify } from "@sdl/pi/commands/ack";
 
 import { openBranchInCmuxSlot } from "./slot.ts";
-import type { SlotCheckoutFunction } from "../slot-checkout.ts";
+import type { SlotClient } from "@sdl/slot/api";
 import type {
 	AutocompleteItem,
 	AutocompleteProvider,
@@ -25,7 +25,7 @@ type ResolvedBranch =
 	| { error: string };
 
 export interface CccSlotOpenBranchOptions {
-	slotCheckout?: SlotCheckoutFunction;
+	slotClient?: SlotClient;
 }
 
 export interface HandleCccSlotOpenBranchOptions {
@@ -116,9 +116,9 @@ export async function handleCccSlotOpenBranch(
 		pi,
 		cwd: ctx.cwd,
 		branchName: branch,
-		...(options.options?.slotCheckout === undefined
+		...(options.options?.slotClient === undefined
 			? {}
-			: { slotCheckout: options.options.slotCheckout }),
+			: { slotClient: options.options.slotClient }),
 		notify: (message, level) => ctx.ui.notify(message, level),
 	});
 	if ("error" in launched) {
