@@ -109,12 +109,17 @@ export function registerLandCommand(pi: LandExtensionAPI): void {
 
 export type LandCliConfirmPrompt = (title: string, message: string) => Promise<boolean> | boolean;
 
+interface RunLandCommandOptions {
+	progressIo?: CommandIo;
+}
+
 async function runLandCommand(
 	pi: LandExtensionAPI,
 	rawArgs: string,
 	ctx: LandCommandContext,
-	progressIo?: CommandIo,
+	options: RunLandCommandOptions = {},
 ): Promise<LandStackOutcome> {
+	const progressIo = options.progressIo;
 	const args = parseArgs(rawArgs);
 	if (args.type === "failure") {
 		presentBrief(
@@ -248,7 +253,7 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 					},
 					waitForIdle: async () => {},
 				},
-				progressIo,
+				{ progressIo },
 			),
 	);
 	return outcome.type === "failure" && outcome.failure.level === "error" ? 1 : 0;
@@ -256,7 +261,9 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 
 function createLandCliCommandIo(input: LandCliInput): CommandIo {
 	// Keep this as a narrow CCC CLI edge adapter over the existing CommandIo primitive;
-	// reusing the SDL SDK adapter would couple this lower land path to SdlExtensionApi.
+	// the same edge mapping also appears in autoslot, but extracting it would add a
+	// second wrapper abstraction instead of just adapting local callbacks to CommandIo.
+	// Reusing the SDL SDK adapter would couple this lower land path to SdlExtensionApi.
 	return createCommandIo({
 		...(input.onOutput === undefined
 			? {}
