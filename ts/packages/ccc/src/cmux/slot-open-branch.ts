@@ -1,4 +1,7 @@
-import { findLatestBranchContextEvidence, type BranchContextEvidence } from "@sdl/branch-context/api";
+import {
+	findLatestBranchContextEvidence,
+	type BranchContextEvidence,
+} from "@sdl/branch-context/api";
 import {
 	registerCommandWithImmediateAck,
 	sendCommandProgressOrNotify,
