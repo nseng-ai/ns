@@ -1,9 +1,9 @@
-import type { ExecOptions, ExecResult } from "@sdl/core/exec";
+import type { ExecOptions, ExecResult } from "../exec-gateway.ts";
 
 import type { SendMessageOptions, SendUserMessageOptions } from "../message-delivery.ts";
 import type { PrAddressRunner } from "../pr-feedback-download.ts";
 
-export type { ExecOptions, ExecResult } from "@sdl/core/exec";
+export type { ExecOptions, ExecResult } from "../exec-gateway.ts";
 
 interface CustomMessage {
 	customType: string;
@@ -52,7 +52,7 @@ export interface ExtensionAPI {
 	appendEntry?(customType: string, data?: unknown): void;
 }
 
-export type ExecGateway = Pick<ExtensionAPI, "exec">;
+export type { ExecGateway } from "../exec-gateway.ts";
 
 export interface PrFeedbackWatchExtensionOptions {
 	runner?: PrAddressRunner;

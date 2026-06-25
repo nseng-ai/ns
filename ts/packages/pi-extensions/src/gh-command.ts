@@ -1,11 +1,7 @@
-import type { ExecOptions, ExecResult } from "@sdl/core/exec";
-
-export interface GhCommandGateway {
-	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
-}
+import type { ExecGateway } from "./exec-gateway.ts";
 
 export interface LoadGhCommandOptions {
-	pi: GhCommandGateway;
+	pi: ExecGateway;
 	args: string[];
 	cwd: string;
 	timeoutMs: number;

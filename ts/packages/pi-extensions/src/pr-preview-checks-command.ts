@@ -2,6 +2,7 @@ import { DEFAULT_FAST_MODEL } from "@sdl/core/model-slug";
 import { z } from "zod";
 
 import { loadGhCommand } from "./gh-command.ts";
+import { splitTextLines } from "./text-lines.ts";
 import { callPiModelText } from "./pi-model-call.ts";
 import { PrPreviewChecksView, type PrPreviewChecksViewModel } from "./pr-preview-checks-view.ts";
 import { sortPreviewChecks, type PrPreviewCheck } from "./pr-preview-checks-model.ts";
@@ -279,7 +280,7 @@ function buildLogSummaryPrompt(check: PrPreviewCheck, output: string): string {
 }
 
 export function splitLogLines(output: string): string[] {
-	return output.split(/\r\n|\r|\n/u).map((line) => line.replaceAll("\t", "  "));
+	return splitTextLines(output).map((line) => line.replaceAll("\t", "  "));
 }
 
 export function isIncompleteCheck(check: PrPreviewCheck): boolean {
