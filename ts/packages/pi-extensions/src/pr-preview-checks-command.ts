@@ -4,7 +4,11 @@ import { z } from "zod";
 import { loadGhCommand } from "./gh-command.ts";
 import { splitTextLines } from "./text-lines.ts";
 import { callPiModelText } from "./pi-model-call.ts";
-import { PrPreviewChecksView, type PrPreviewChecksViewModel } from "./pr-preview-checks-view.ts";
+import {
+	PrPreviewChecksView,
+	type PrPreviewCheckLogLoadOptions,
+	type PrPreviewChecksViewModel,
+} from "./pr-preview-checks-view.ts";
 import { sortPreviewChecks, type PrPreviewCheck } from "./pr-preview-checks-model.ts";
 import type {
 	CommandResult,
@@ -139,7 +143,8 @@ async function runPrPreviewChecksCommand(options: {
 					theme,
 					model,
 					onClose: () => done(undefined),
-					onLoadLogs: async (check) => await loadCheckLogs({ runtime, ctx, check }),
+					onLoadLogs: async (check, loadOptions: PrPreviewCheckLogLoadOptions) =>
+						await loadCheckLogs({ runtime, ctx, check, signal: loadOptions.signal }),
 				}),
 			{
 				overlay: true,
@@ -176,6 +181,7 @@ async function loadCheckLogs(options: {
 	runtime: PrPreviewChecksCommandRuntime;
 	ctx: ExtensionContext;
 	check: PrPreviewCheck;
+	signal?: AbortSignal | undefined;
 }): Promise<string[]> {
 	if (isIncompleteCheck(options.check)) {
 		return [
@@ -194,13 +200,16 @@ async function loadCheckLogs(options: {
 		ctx: options.ctx,
 		args,
 		failureLabel: `Failed to load logs with gh ${args.join(" ")}`,
+		signal: options.signal,
 	});
+	throwIfSignalAborted(options.signal);
 	if (logResult.type === "failed") return logResult.lines;
 	if (logResult.output === "") return ["GitHub returned an empty log for this check."];
 	return await summarizeCheckLogs({
 		ctx: options.ctx,
 		check: options.check,
 		output: logResult.output,
+		signal: options.signal,
 	});
 }
 
@@ -211,13 +220,16 @@ async function loadGhTextCommand(options: {
 	ctx: ExtensionContext;
 	args: string[];
 	failureLabel: string;
+	signal?: AbortSignal | undefined;
 }): Promise<GhTextCommandResult> {
 	const result = await loadGhCommand({
 		pi: options.runtime.pi,
 		args: options.args,
 		cwd: options.ctx.cwd,
 		timeoutMs: options.runtime.commandTimeoutMs,
+		signal: options.signal,
 	});
+	throwIfSignalAborted(options.signal);
 	if (result.type === "failed") {
 		return { type: "failed", lines: [`${options.failureLabel}:`, ...splitLogLines(result.detail)] };
 	}
@@ -231,6 +243,7 @@ async function summarizeCheckLogs(options: {
 	ctx: ExtensionContext;
 	check: PrPreviewCheck;
 	output: string;
+	signal?: AbortSignal | undefined;
 }): Promise<string[]> {
 	if (options.ctx.modelRegistry === undefined) {
 		return [
@@ -248,7 +261,9 @@ async function summarizeCheckLogs(options: {
 		maxTokens: LOG_SUMMARY_MAX_TOKENS,
 		reasoning: "minimal",
 		timeoutMs: 120_000,
+		...(options.signal === undefined ? {} : { signal: options.signal }),
 	});
+	throwIfSignalAborted(options.signal);
 	if (!result.ok) {
 		return [
 			`Log summary unavailable (${result.reason}${result.message === null ? "" : `: ${result.message}`}).`,
@@ -259,6 +274,10 @@ async function summarizeCheckLogs(options: {
 	const summary = result.text.trim();
 	if (summary === "") return ["Log summary unavailable: model returned an empty summary."];
 	return splitLogLines(summary);
+}
+
+function throwIfSignalAborted(signal: AbortSignal | undefined): void {
+	if (signal?.aborted) throw signal.reason ?? new Error("Operation aborted.");
 }
 
 const LOG_SUMMARY_SYSTEM_PROMPT = `You summarize GitHub Actions job logs for a coding agent.
