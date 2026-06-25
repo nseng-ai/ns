@@ -12,7 +12,7 @@ import {
 	createBranchContextContext,
 	type BranchContextEvidence,
 	type LoadedAttachedPlan,
-} from "@sdl/branch-context";
+} from "@sdl/branch-context/api";
 import { InMemoryBranchMemoryGateway } from "@sdl/branch-context/testing";
 import type { ExecOptions, ExecResult, StdinCapableCommandExecApi } from "@sdl/core/exec";
 import { ScriptedQueue } from "@sdl/core/testing";
@@ -23,7 +23,7 @@ import {
 	normalizeRepoOriginUrl,
 	type SavedPlanFileEvidence,
 	type SelectedSavedPlanFile,
-} from "@sdl/plans";
+} from "@sdl/plans/api";
 import {
 	DEFAULT_WRITE_PLAN_PROMPT_BODY,
 	type BranchContextExtensionOptions,

@@ -81,7 +81,17 @@ Risks:
 
 ## Open Questions
 
-- Should the long-term public package root remain a human-facing convenience export, or should sibling packages move exclusively to Peer API subpaths for branch-context/plans behavior?
-- Which exact pieces belong in `@sdl/plans/api` versus `@sdl/branch-context/api` once saved-plan dispatch is decomposed?
-- Should plan-content slug derivation live with plans, branch-context, or a small shared seam after the combined capability is split internally?
-- Which `ccc` dispatch-plan flows should migrate first as proof of the Peer API shape?
+Resolved during this migration:
+
+- Sibling runtime packages and sibling tests should use Peer API subpaths for branch-context/plans behavior; package roots remain compatibility/public-surface exports, and owner-package tests may still import roots for root coverage.
+- `@sdl/plans/api` owns saved-plan store, selection, write, slug, and saved-plan evidence helpers; `@sdl/branch-context/api` owns branch-context creation/attachment, attached-plan loading, implementation command formatting, session evidence, existing-branch reuse, and branch-context slug helpers.
+- Plan-content slug derivation remains exported from the package that owns each user-visible flow for now: plans for saved plans, branch-context for branch-context plan content. No shared extraction was needed to complete the sibling Peer API migration.
+- `ccc` dispatch-plan was the first proof path, followed by remaining `ccc` source launch/evidence imports and then sibling test imports.
+
+## Closure
+
+Completed as a child slice of `sdl-extension-architecture` Phase 2. The branch-context/plans capability now has curated `@sdl/branch-context/api` and `@sdl/plans/api` Peer API subpaths, documented command-face / Peer API / core boundaries, gateway-injected branch-context creation core coverage, plans saved-plan core seam identification, and migrated `ccc`/Pi extension source plus sibling tests away from broad package-root consumption.
+
+Completion evidence includes the recorded package context docs, roadmap Semantic Updates, final sibling-boundary import search over `ts/packages/ccc/src`, `ts/packages/ccc/test`, `ts/packages/pi-extensions/src`, and `ts/packages/pi-extensions/test`, PR #2138 review-thread resolution for the duplicated command string, and full `just` passing on the final branch state.
+
+Parked items remain outside this Objective: dynamic arbitrary Pi mirroring, renaming existing user-facing commands, changing saved-plan/Branch Memory storage compatibility, and converting `ccc` itself into the orchestrator extension under the parent Objective.

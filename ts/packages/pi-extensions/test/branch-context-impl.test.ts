@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { BRANCH_CONTEXT_NAMESPACE } from "@sdl/branch-context";
+import { BRANCH_CONTEXT_NAMESPACE } from "@sdl/branch-context/api";
 import registerBranchContextExtension from "../src/branch-context-extension.ts";
 
 import {
