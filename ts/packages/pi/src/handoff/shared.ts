@@ -1,5 +1,10 @@
 import { checkBrmemEntry } from "@sdl/core/brmem-cli";
-import { formatCommand, tailText, type ExecResult } from "@sdl/core/exec";
+import {
+	formatCommand,
+	formatCommandFailure,
+	formatCommandStartupFailure,
+	type ExecResult,
+} from "@sdl/core/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE } from "@sdl/handoff/identity";
 import { expandRepoSkillBlock, type ExpandedSkillBlock } from "../skills/expansion.ts";
@@ -20,7 +25,6 @@ export const BRMEM_TIMEOUT_MS = 30_000;
 export const HANDOFF_SELF_WORKFLOW_TIMEOUT_MS = 10 * 60_000;
 export const GIT_TIMEOUT_MS = 10_000;
 export const CMUX_TIMEOUT_MS = 10_000;
-export const MAX_ERROR_CHARS = 4_000;
 export const CREATE_FOCUS_QUESTION = "What should the future session continue from this handoff?";
 export const HANDOFF_TAB_STATUS_KEY = HANDOFF_TAB_COMMAND_NAME;
 export const HANDOFF_SELF_STATUS_KEY = HANDOFF_SELF_COMMAND_NAME;
@@ -181,20 +185,11 @@ export function createHandoffStartMessage(
 }
 
 export function formatExecFailure(commandDisplay: string, result: ExecResult): string {
-	const status = result.killed
-		? `exit code ${result.code}; process was killed or timed out`
-		: `exit code ${result.code}`;
-	const stdout = result.stdout.trimEnd() || "(empty)";
-	const stderr = result.stderr.trimEnd() || "(empty)";
-	return truncateError(
-		`command failed (${status}).\n\n$ ${commandDisplay}\n\nstdout:\n${stdout}\n\nstderr:\n${stderr}`,
-	);
+	return formatCommandFailure("command failed", commandDisplay, result);
 }
 
 export function formatStartupFailure(commandDisplay: string, error: unknown): string {
-	return truncateError(
-		`command failed before completion.\n\n$ ${commandDisplay}\n\nerror:\n${formatErrorMessage(error)}`,
-	);
+	return formatCommandStartupFailure("command failed", commandDisplay, error);
 }
 
 export function fencedBlock(language: string, content: string): string {
@@ -203,8 +198,4 @@ export function fencedBlock(language: string, content: string): string {
 		fence += "`";
 	}
 	return `${fence}${language}\n${content.trimEnd()}\n${fence}`;
-}
-
-function truncateError(message: string): string {
-	return tailText(message, { maxChars: MAX_ERROR_CHARS });
 }

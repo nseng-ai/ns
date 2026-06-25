@@ -1,16 +1,15 @@
 import {
 	execApiToCommandRunner,
-	formatOutputSection,
 	piExecApiToCommandExecApi,
-	tailText,
 	type ExecOptions,
 	type ExecResult,
 } from "@sdl/core/exec";
 import { runGraphiteCommand } from "@sdl/graphite/branch";
 import { sendCommandProgressOrNotify, registerCommandWithImmediateAck } from "../commands/ack.ts";
 
-import { buildFencedTextBlock, expandRepoSkillBlock } from "../skills/expansion.ts";
+import { formatCommandOutput, notifyCommandUi } from "../command-helpers.ts";
 import { definePiSurfaceParity } from "../parity/extension.ts";
+import { buildFencedTextBlock, expandRepoSkillBlock } from "../skills/expansion.ts";
 
 export const SMART_RESTACK_COMMAND_NAME = "code:gt-restack-resolve";
 
@@ -101,9 +100,9 @@ export async function runSmartRestack(
 ): Promise<void> {
 	const status = await pi.exec("git", ["status"], { cwd: ctx.cwd, timeout: GIT_STATUS_TIMEOUT_MS });
 	if (status.code !== 0) {
-		notify(
+		notifyCommandUi(
 			ctx,
-			`Cannot inspect repository state with git status; not starting gt restack.\n\n${formatCommandOutput(status)}`,
+			`Cannot inspect repository state with git status; not starting gt restack.\n\n${formatCommandOutput(status, COMMAND_OUTPUT_TAIL_OPTIONS)}`,
 			"error",
 		);
 		return;
@@ -131,7 +130,7 @@ export async function runSmartRestack(
 		timeoutMs: GT_RESTACK_TIMEOUT_MS,
 	});
 	if (restack.code === 0) {
-		notify(ctx, formatCleanRestackMessage(restack), "info");
+		notifyCommandUi(ctx, formatCleanRestackMessage(restack), "info");
 		return;
 	}
 
@@ -142,7 +141,7 @@ async function handleRestackFailure(options: HandleRestackFailureOptions): Promi
 	const { pi, ctx, args, restack } = options;
 	const failureMessage = formatRestackFailureMessage(restack);
 	if (ctx.hasUI === false || ctx.ui.select === undefined) {
-		notify(
+		notifyCommandUi(
 			ctx,
 			`${failureMessage}\n\nNo selection UI is available, so no LM turn was started and no abort was run. Run /code:gt-restack-resolve to resolve from the stopped repository state, leave it for manual handling, or run git rebase --abort to abort.`,
 			"warning",
@@ -161,13 +160,17 @@ async function handleRestackFailure(options: HandleRestackFailureOptions): Promi
 			return;
 		case LEAVE_STOPPED_OPTION:
 		case undefined:
-			notify(ctx, `${failureMessage}\n\nRebase left stopped for manual handling.`, "warning");
+			notifyCommandUi(
+				ctx,
+				`${failureMessage}\n\nRebase left stopped for manual handling.`,
+				"warning",
+			);
 			return;
 		case ABORT_REBASE_OPTION:
 			await abortRebase(pi, ctx);
 			return;
 		default:
-			notify(
+			notifyCommandUi(
 				ctx,
 				`${failureMessage}\n\nUnrecognized selection; rebase left stopped for manual handling.`,
 				"warning",
@@ -185,35 +188,27 @@ function isRebaseInProgress(result: ExecResult): boolean {
 }
 
 function formatCleanRestackMessage(result: ExecResult): string {
-	return ["gt restack completed cleanly. No LM turn was started.", formatCommandOutput(result)]
+	return [
+		"gt restack completed cleanly. No LM turn was started.",
+		formatCommandOutput(result, COMMAND_OUTPUT_TAIL_OPTIONS),
+	]
 		.filter((part) => part.length > 0)
 		.join("\n\n");
 }
 
 function formatRestackFailureMessage(result: ExecResult): string {
-	return [`gt restack exited with code ${result.code}.`, formatCommandOutput(result)]
+	return [
+		`gt restack exited with code ${result.code}.`,
+		formatCommandOutput(result, COMMAND_OUTPUT_TAIL_OPTIONS),
+	]
 		.filter((part) => part.length > 0)
 		.join("\n\n");
-}
-
-function formatCommandOutput(result: ExecResult): string {
-	const parts: string[] = [];
-	if (result.stdout.trim().length > 0)
-		parts.push(formatOutputSection("stdout", result.stdout, COMMAND_OUTPUT_TAIL_OPTIONS));
-	if (result.stderr.trim().length > 0)
-		parts.push(formatOutputSection("stderr", result.stderr, COMMAND_OUTPUT_TAIL_OPTIONS));
-	if (result.startupError !== undefined && result.startupError.length > 0) {
-		parts.push(
-			`startup error:\n${tailText(result.startupError.trimEnd(), COMMAND_OUTPUT_TAIL_OPTIONS)}`,
-		);
-	}
-	return parts.join("\n\n");
 }
 
 async function invokeLmResolver(options: InvokeLmResolverOptions): Promise<void> {
 	const { pi, ctx, args, promptContext } = options;
 	if (pi.sendUserMessage === undefined) {
-		notify(
+		notifyCommandUi(
 			ctx,
 			`Cannot start ${RESTACK_RESOLVE_SKILL_NAME}: this Pi host does not expose sendUserMessage.`,
 			"error",
@@ -228,7 +223,7 @@ async function invokeLmResolver(options: InvokeLmResolverOptions): Promise<void>
 		).block;
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
-		notify(ctx, `Could not read ${RESTACK_RESOLVE_SKILL_NAME}: ${message}`, "error");
+		notifyCommandUi(ctx, `Could not read ${RESTACK_RESOLVE_SKILL_NAME}: ${message}`, "error");
 		return;
 	}
 
@@ -256,22 +251,18 @@ function buildResolverPrompt(
 }
 
 async function abortRebase(pi: SmartRestackExtensionAPI, ctx: CommandContext): Promise<void> {
-	notify(ctx, "Aborting rebase with git rebase --abort.", "warning");
+	notifyCommandUi(ctx, "Aborting rebase with git rebase --abort.", "warning");
 	const abort = await pi.exec("git", ["rebase", "--abort"], {
 		cwd: ctx.cwd,
 		timeout: GIT_ABORT_TIMEOUT_MS,
 	});
 	if (abort.code === 0) {
-		notify(ctx, "Rebase aborted. No LM turn was started.", "info");
+		notifyCommandUi(ctx, "Rebase aborted. No LM turn was started.", "info");
 		return;
 	}
-	notify(
+	notifyCommandUi(
 		ctx,
-		`git rebase --abort exited with code ${abort.code}.\n\n${formatCommandOutput(abort)}`,
+		`git rebase --abort exited with code ${abort.code}.\n\n${formatCommandOutput(abort, COMMAND_OUTPUT_TAIL_OPTIONS)}`,
 		"error",
 	);
-}
-
-function notify(ctx: CommandContext, message: string, level: "info" | "warning" | "error"): void {
-	if (ctx.hasUI !== false) ctx.ui.notify(message, level);
 }

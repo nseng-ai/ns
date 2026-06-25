@@ -4,6 +4,7 @@ import {
 	KNOWN_PI_COMMAND_NAMESPACES,
 } from "../commands/surfaces.ts";
 import { registerCommandWithImmediateAck } from "../commands/ack.ts";
+import { notifyCommandUi } from "../command-helpers.ts";
 
 import type { PiCommandContext, PiCommandHost } from "../runtime/command-host.ts";
 import { buildSkillInvocationPrompt, expandRepoSkillBlock } from "../skills/expansion.ts";
@@ -82,11 +83,11 @@ async function handleBackingSkillCommand(options: HandleBackingSkillCommandOptio
 		skillBlock = (await expandRepoSkillBlock({ cwd: ctx.cwd, skillName: spec.skillName })).block;
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
-		notify(ctx, `Could not read ${spec.skillName} backing skill: ${message}`, "error");
+		notifyCommandUi(ctx, `Could not read ${spec.skillName} backing skill: ${message}`, "error");
 		return;
 	}
 
-	notify(
+	notifyCommandUi(
 		ctx,
 		`Invoking ${spec.skillName}${args.trim().length > 0 ? " with initial context" : ""}.`,
 		"info",
@@ -100,10 +101,4 @@ function buildBackingSkillPrompt(spec: DerivedPiCommand, skillBlock: string, arg
 		skillBlock,
 		initialRequest: args,
 	});
-}
-
-function notify(ctx: PiCommandContext, message: string, level: "info" | "warning" | "error"): void {
-	if (ctx.hasUI !== false) {
-		ctx.ui.notify(message, level);
-	}
 }
