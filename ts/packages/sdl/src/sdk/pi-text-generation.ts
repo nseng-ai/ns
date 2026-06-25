@@ -6,7 +6,7 @@ import type {
 	TextGenerator,
 	TextGenerationRequest,
 	TextGenerationResult,
-} from "./text-generation.ts";
+} from "@sdl/domain-primitives-transitional/text-generation";
 
 const DEFAULT_MAX_TOKENS = 512;
 const DEFAULT_REASONING = "low";

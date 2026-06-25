@@ -36,19 +36,19 @@ const CCC_WORKSPACE_IMPORTS = [
 	"@sdl/core/exec",
 	"@sdl/branch-context",
 	"@sdl/plans",
-	"@sdl/sdl/checkpoint-flow",
+	"@sdl/domain-primitives-transitional/checkpoint-flow",
 ] as const;
 
 const SDL_EXPORT_IMPORTS = [
-	"@sdl/sdl/checkpoint-flow",
-	"@sdl/sdl/checkpoint-message",
+	"@sdl/domain-primitives-transitional/checkpoint-flow",
+	"@sdl/domain-primitives-transitional/checkpoint-message",
 	"@sdl/sdl/cli",
 	"@sdl/sdl/context",
-	"@sdl/sdl/pending-worktree",
+	"@sdl/domain-primitives-transitional/pending-worktree",
 	"@sdl/sdl/pi-text-generation",
 	"@sdl/sdl/sdk",
-	"@sdl/sdl/text-generation",
-	"@sdl/sdl/text-repair",
+	"@sdl/domain-primitives-transitional/text-generation",
+	"@sdl/domain-primitives-transitional/text-repair",
 ] as const;
 
 interface NodeEvalOptions {

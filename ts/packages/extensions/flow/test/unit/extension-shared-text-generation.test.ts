@@ -25,7 +25,7 @@ describe("project extension shared text generation helper", () => {
 		const sharedModule = await import(SHARED_TEXT_GENERATION_HELPER_PATH);
 		assertSharedTextGenerationModule(sharedModule);
 
-		const canonicalModule = await import("@sdl/sdl/text-generation");
+		const canonicalModule = await import("@sdl/domain-primitives-transitional/text-generation");
 
 		expect(sharedModule.CHECKPOINT_MODEL_ENV).toBe(canonicalModule.CHECKPOINT_MODEL_ENV);
 		expect(sharedModule.CHANGES_MODEL_ENV).toBe(canonicalModule.CHANGES_MODEL_ENV);
@@ -41,7 +41,7 @@ describe("project extension shared text generation helper", () => {
 		const sharedSource = await readFile(SHARED_TEXT_GENERATION_HELPER_PATH, "utf8");
 		const submitSource = await readFile(SUBMIT_EXTENSION_PATH, "utf8");
 
-		expect(sharedSource).toContain("@sdl/sdl/text-generation");
+		expect(sharedSource).toContain("@sdl/domain-primitives-transitional/text-generation");
 		expect(sharedSource).not.toContain("function firstEnvValue");
 		expect(sharedSource).not.toContain("DEFAULT_FAST_MODEL_REF");
 

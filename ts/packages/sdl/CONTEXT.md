@@ -73,7 +73,7 @@ An `@sdl/sdl` subpath shared across first-party workspace packages (`ccc`, `pi-e
 *Avoid*: internal migration export, plugin API, public SDK, command-author import path, ctx-dependent shared code.
 
 **Flow capability-area maturity ladder**:
-The documentation/readiness model for recurring project-local flow command-author seams: `raw` command-local logic, `flow-shared` helpers under `ts/packages/extensions/flow/src/shared/` in the `sdl-flow` workspace package, `internal-export` package-owned behavior reached through documented `@sdl/sdl/*` Internal workspace export subpaths, and deferred `public-sdk` promotion into `@sdl/sdl/sdk` only after a separate explicit SDK decision. For capabilities beyond flow, the Extension layering model (ADR 0009) governs: the SDK stays thin host primitives, and shared `ctx`-dependent code lives above the SDK in the Shared extension substrate rather than being promoted into `@sdl/sdl/sdk`.
+The documentation/readiness model for recurring project-local flow command-author seams: `raw` command-local logic, `flow-shared` helpers under `ts/packages/extensions/flow/src/shared/` in the `sdl-flow` workspace package, internal workspace exports for package-owned migration seams, transitional primitives under `@sdl/domain-primitives-transitional/*` while they remain debt, and deferred `public-sdk` promotion into `@sdl/sdl/sdk` only after a separate explicit SDK decision. For capabilities beyond flow, the Extension layering model (ADR 0009) governs: the SDK stays thin host primitives, and shared `ctx`-dependent code lives above the SDK in the Shared extension substrate rather than being promoted into `@sdl/sdl/sdk`.
 *Avoid*: task status, automatic SDK promotion pipeline, proof that a helper is public author API, generic rule for all future extensions.
 
 **Flow-shared helper**:
@@ -129,5 +129,5 @@ The above-SDK package holding cross-cutting, capability-agnostic code shared amo
 *Avoid*: capability-specific home, below-SDK package, public author API, kitchen-sink utilities, `@sdl/core`.
 
 **Transitional domain-primitives package** (`@sdl/domain-primitives-transitional`):
-A below-SDK package that temporarily holds the SDK-independent domain primitives currently tangled inside `@sdl/sdl` (pending-worktree, checkpoint-flow). Explicitly disposable: it deletes to zero once every capability is an above-SDK extension and `ccc`/`pi-extensions` consume Peer APIs instead of `@sdl/sdl/*` internal subpaths. The `-transitional` suffix is deliberate — it marks the dependency as debt at every import site.
+A below-SDK package that temporarily holds SDK-independent domain primitives extracted out of `@sdl/sdl` (checkpoint-flow/message, pending-worktree, temp-files, text-generation, text-repair). Explicitly disposable: it deletes to zero once every capability is an above-SDK extension and `ccc`/`pi-extensions` consume Peer APIs instead of transitional primitive subpaths. The `-transitional` suffix is deliberate — it marks the dependency as debt at every import site.
 *Avoid*: permanent shared library, `@sdl/core` neutral infra, Shared extension substrate, forever-home.

@@ -5,13 +5,13 @@ import {
 	type ParsedAutobranchArgs,
 } from "@sdl/autobranch/dirty-worktree";
 import { createLatestCommitAutobranchFlow } from "@sdl/autobranch/latest-commit";
-import type { CommandResult } from "@sdl/sdl/checkpoint-flow";
+import type { CommandResult } from "@sdl/domain-primitives-transitional/checkpoint-flow";
 import {
 	formatPendingWorktreeCommandDetails,
 	loadPendingWorktreeSnapshot,
 	type PendingWorktreeError,
 	type PendingWorktreeSnapshot,
-} from "@sdl/sdl/pending-worktree";
+} from "@sdl/domain-primitives-transitional/pending-worktree";
 
 export type { AutobranchFlowResult, FileStat, ParsedAutobranchArgs };
 

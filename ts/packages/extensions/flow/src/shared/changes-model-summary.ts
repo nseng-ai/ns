@@ -1,7 +1,10 @@
 import { normalizeTextOutput } from "@sdl/core/text-normalization";
 
-import type { PendingWorktreeSnapshot } from "@sdl/sdl/pending-worktree";
-import { selectChangesModelRef, type TextGenerator } from "@sdl/sdl/text-generation";
+import type { PendingWorktreeSnapshot } from "@sdl/domain-primitives-transitional/pending-worktree";
+import {
+	selectChangesModelRef,
+	type TextGenerator,
+} from "@sdl/domain-primitives-transitional/text-generation";
 
 const CHANGES_SUMMARY_MAX_BULLETS = 4;
 const CHANGES_SUMMARY_MAX_TOKENS = 512;

@@ -7,16 +7,17 @@
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/pi-extensions/test"
   },
   "dependencies": {
-    "@sdl/core": "workspace:*",
+    "@sdl/branch-context": "workspace:*",
     "@sdl/ccc": "workspace:*",
+    "@sdl/core": "workspace:*",
+    "@sdl/domain-primitives-transitional": "workspace:*",
+    "@sdl/graphite": "workspace:*",
     "@sdl/handoff": "workspace:*",
     "@sdl/pi-command-surfaces": "workspace:*",
     "@sdl/pi-extension-runtime": "workspace:*",
-    "@sdl/branch-context": "workspace:*",
     "@sdl/plans": "workspace:*",
     "@sdl/sdl": "workspace:*",
-    "zod": "catalog:",
-    "@sdl/graphite": "workspace:*"
+    "zod": "catalog:"
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
