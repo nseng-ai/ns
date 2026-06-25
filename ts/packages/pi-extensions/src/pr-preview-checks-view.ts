@@ -13,8 +13,13 @@ import { clamp, fitToWidth, reconcileScroll } from "./context-profiler/render.ts
 
 const FALLBACK_TERMINAL_ROWS = 24;
 const MIN_RENDER_WIDTH = 40;
+const DEFAULT_LOG_LOAD_TIMEOUT_MS = 90_000;
 
 type PreviewThemeColor = "text" | "muted" | "accent" | "warning" | "dim" | "border";
+type CheckLogCacheEntry =
+	| { type: "loading" }
+	| { type: "loaded"; lines: readonly string[] }
+	| { type: "failed"; lines: readonly string[] };
 
 export type {
 	PrPreviewChecksCounts,
@@ -29,6 +34,7 @@ export interface PrPreviewChecksViewOptions {
 	model: PrPreviewChecksViewModel;
 	onClose: () => void;
 	onLoadLogs?: ((check: PrPreviewCheck) => Promise<readonly string[]>) | undefined;
+	logLoadTimeoutMs?: number | undefined;
 }
 
 export interface WrappedDetailViewportOptions {
@@ -50,11 +56,11 @@ export class PrPreviewChecksView implements Component {
 	private readonly model: PrPreviewChecksViewModel;
 	private readonly onClose: () => void;
 	private readonly onLoadLogs: ((check: PrPreviewCheck) => Promise<readonly string[]>) | undefined;
+	private readonly logLoadTimeoutMs: number;
 	private selectedIndex: number;
 	private listScroll: number;
 	private detailScroll: number;
-	private logLines: readonly string[] | null;
-	private isLoadingLogs: boolean;
+	private readonly logCache: Map<PrPreviewCheck, CheckLogCacheEntry>;
 
 	constructor(options: PrPreviewChecksViewOptions) {
 		this.tui = options.tui;
@@ -62,11 +68,11 @@ export class PrPreviewChecksView implements Component {
 		this.model = options.model;
 		this.onClose = options.onClose;
 		this.onLoadLogs = options.onLoadLogs;
+		this.logLoadTimeoutMs = options.logLoadTimeoutMs ?? DEFAULT_LOG_LOAD_TIMEOUT_MS;
 		this.selectedIndex = 0;
 		this.listScroll = 0;
 		this.detailScroll = 0;
-		this.logLines = null;
-		this.isLoadingLogs = false;
+		this.logCache = new Map();
 	}
 
 	render(width: number): string[] {
@@ -171,9 +177,18 @@ export class PrPreviewChecksView implements Component {
 	}
 
 	private renderDetailLines(check: PrPreviewCheck | undefined): string[] {
-		if (this.isLoadingLogs)
-			return [this.color("muted", "Loading and summarizing selected check logs…")];
-		if (this.logLines !== null) return this.logLines.map((line) => this.color("text", line));
+		const cached = check === undefined ? undefined : this.logCache.get(check);
+		if (cached?.type === "loading") {
+			return [
+				this.color(
+					"muted",
+					`Loading and summarizing selected check logs… (timeout ${formatDurationSeconds(this.logLoadTimeoutMs)})`,
+				),
+			];
+		}
+		if (cached?.type === "loaded" || cached?.type === "failed") {
+			return cached.lines.map((line) => this.color("text", line));
+		}
 		return buildCheckDetailRows(check).map((row) => this.renderDetailLine(row));
 	}
 
@@ -209,8 +224,6 @@ export class PrPreviewChecksView implements Component {
 		if (next === this.selectedIndex) return;
 		this.selectedIndex = next;
 		this.detailScroll = 0;
-		this.logLines = null;
-		this.isLoadingLogs = false;
 		this.tui.requestRender();
 	}
 
@@ -221,17 +234,26 @@ export class PrPreviewChecksView implements Component {
 
 	private async loadSelectedCheckLogs(): Promise<void> {
 		const check = this.model.checks[this.selectedIndex];
-		if (check === undefined || this.onLoadLogs === undefined || this.isLoadingLogs) return;
-		this.isLoadingLogs = true;
-		this.logLines = null;
+		if (check === undefined || this.onLoadLogs === undefined) return;
+		const cached = this.logCache.get(check);
+		if (cached?.type === "loading") return;
+		if (cached?.type === "loaded") {
+			this.detailScroll = 0;
+			this.tui.requestRender();
+			return;
+		}
+		this.logCache.set(check, { type: "loading" });
 		this.detailScroll = 0;
 		this.tui.requestRender();
 		try {
-			this.logLines = await this.onLoadLogs(check);
+			const lines = await withTimeout(this.onLoadLogs(check), this.logLoadTimeoutMs);
+			this.logCache.set(check, { type: "loaded", lines: [...lines] });
 		} catch (error) {
-			this.logLines = [error instanceof Error ? error.message : String(error)];
+			this.logCache.set(check, {
+				type: "failed",
+				lines: [error instanceof Error ? error.message : String(error)],
+			});
 		} finally {
-			this.isLoadingLogs = false;
 			this.tui.requestRender();
 		}
 	}
@@ -296,4 +318,29 @@ function wrapDetailLines(lines: readonly string[], width: number): string[] {
 		const wrapped = wrapTextWithAnsi(line, Math.max(1, width));
 		return wrapped.length === 0 ? [""] : wrapped;
 	});
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+	if (timeoutMs <= 0) return await promise;
+	let timeoutId: ReturnType<typeof setTimeout> | undefined;
+	try {
+		return await Promise.race([
+			promise,
+			new Promise<T>((_resolve, reject) => {
+				timeoutId = setTimeout(() => {
+					reject(
+						new Error(
+							`Log summary timed out after ${formatDurationSeconds(timeoutMs)}. Press l to retry.`,
+						),
+					);
+				}, timeoutMs);
+			}),
+		]);
+	} finally {
+		if (timeoutId !== undefined) clearTimeout(timeoutId);
+	}
+}
+
+function formatDurationSeconds(timeoutMs: number): string {
+	return `${Math.max(1, Math.ceil(timeoutMs / 1000))}s`;
 }

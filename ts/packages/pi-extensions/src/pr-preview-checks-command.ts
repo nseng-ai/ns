@@ -185,6 +185,8 @@ async function loadCheckLogs(options: {
 			"Refresh after the check completes, then press l again to summarize logs.",
 		];
 	}
+	const unavailableReason = checkLogUnavailableReason(options.check);
+	if (unavailableReason !== null) return unavailableReason;
 	const args = githubActionsJobLogArgs(options.check.details_url ?? options.check.target_url);
 	if (args === null) return ["No GitHub Actions job log URL is available for this check."];
 	const logResult = await loadGhTextCommand({
@@ -287,6 +289,21 @@ export function isIncompleteCheck(check: PrPreviewCheck): boolean {
 	const state = check.status ?? check.state;
 	if (state === null) return check.bucket === "pending";
 	return /^(queued|pending|in_progress|requested|waiting)$/iu.test(state);
+}
+
+export function checkLogUnavailableReason(check: PrPreviewCheck): string[] | null {
+	const conclusion = check.conclusion?.toLowerCase();
+	if (conclusion !== "canceled" && conclusion !== "cancelled" && conclusion !== "skipped") {
+		return null;
+	}
+	const label = conclusion === "skipped" ? "skipped" : "canceled";
+	return [
+		`Logs are not available because this check was ${label}.`,
+		"",
+		`Check: ${check.workflow_name ?? "(no workflow)"} / ${check.name}`,
+		`Conclusion: ${check.conclusion ?? label}`,
+		"GitHub can omit job logs for checks that never ran or were canceled before log upload.",
+	];
 }
 
 export function githubActionsJobLogArgs(url: string | null): string[] | null {
