@@ -3,7 +3,6 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
 
-import { failure, ok } from "@sdl/clinkr";
 import { z } from "zod";
 
 import { managedRegionBounds } from "./managed-region.ts";
@@ -36,18 +35,6 @@ export type MarkerSurfaceInstallRequest = z.infer<typeof markerSurfaceInstallReq
 export type MarkerSurfaceShowResult = z.infer<typeof markerSurfaceShowResultSchema>;
 export type MarkerSurfaceInstallResult = z.infer<typeof markerSurfaceInstallResultSchema>;
 
-export interface MarkerInstallSurfaceContext {
-	readonly env: Record<string, string | undefined>;
-}
-
-export interface MarkerInstallSurfaceConfig {
-	readonly beginMarker: string;
-	readonly endMarker: string;
-	readonly renderPayload: (shell: SupportedShell) => string;
-	readonly alreadyInstalledMessage: (result: MarkerSurfaceInstallResult) => string;
-	readonly installedMessage: (result: MarkerSurfaceInstallResult) => string;
-}
-
 export interface CommandCdWrapperScriptOptions {
 	readonly commandName: string;
 }
@@ -76,46 +63,6 @@ export function renderCommandCdWrapperScript(options: CommandCdWrapperScriptOpti
 }`;
 }
 
-export function buildMarkerInstallSurface(config: MarkerInstallSurfaceConfig) {
-	return {
-		showRequestSchema: markerSurfaceShowRequestSchema,
-		installRequestSchema: markerSurfaceInstallRequestSchema,
-		showResultSchema: markerSurfaceShowResultSchema,
-		installResultSchema: markerSurfaceInstallResultSchema,
-		async runShow(ctx: MarkerInstallSurfaceContext, request: MarkerSurfaceShowRequest) {
-			const selected = resolveRequestedShell(request.shell, ctx.env);
-			if (selected.type === "failure")
-				return failure(selected.failure.type, selected.failure.message);
-			return ok({ shell: selected.shell, script: config.renderPayload(selected.shell) });
-		},
-		async runInstall(ctx: MarkerInstallSurfaceContext, request: MarkerSurfaceInstallRequest) {
-			const selected = resolveRequestedShell(request.shell, ctx.env);
-			if (selected.type === "failure")
-				return failure(selected.failure.type, selected.failure.message);
-			const payload = config.renderPayload(selected.shell);
-			const rcPath = rcPathForShell(selected.shell, ctx.env);
-			const installed = await installMarkerBlock({
-				rcPath,
-				beginMarker: config.beginMarker,
-				payload,
-				endMarker: config.endMarker,
-			});
-			return ok({
-				shell: selected.shell,
-				rc_path: installed.rcPath,
-				is_already_installed: installed.isAlreadyInstalled,
-			});
-		},
-		renderShow(result: MarkerSurfaceShowResult): string {
-			return result.script;
-		},
-		renderInstall(result: MarkerSurfaceInstallResult): string {
-			if (result.is_already_installed) return config.alreadyInstalledMessage(result);
-			return config.installedMessage(result);
-		},
-	};
-}
-
 interface UnsupportedShellFailure {
 	type: "unsupported_shell";
 	message: string;
@@ -133,7 +80,7 @@ interface InstallMarkerBlockResult {
 	isAlreadyInstalled: boolean;
 }
 
-function resolveRequestedShell(
+export function resolveRequestedShell(
 	raw: string | undefined,
 	env: Record<string, string | undefined>,
 ): { type: "ok"; shell: SupportedShell } | { type: "failure"; failure: UnsupportedShellFailure } {
@@ -148,7 +95,10 @@ function detectShell(env: Record<string, string | undefined>): SupportedShell {
 	return "zsh";
 }
 
-function rcPathForShell(shell: SupportedShell, env: Record<string, string | undefined>): string {
+export function rcPathForShell(
+	shell: SupportedShell,
+	env: Record<string, string | undefined>,
+): string {
 	const home = env.HOME ?? homedir();
 	return join(home, shell === "zsh" ? ".zshrc" : ".bashrc");
 }
@@ -161,7 +111,7 @@ function buildMarkerBlock(options: {
 	return `\n${options.beginMarker}\n${trimTrailingNewline(options.payload)}\n${options.endMarker}\n`;
 }
 
-async function installMarkerBlock(
+export async function installMarkerBlock(
 	options: InstallMarkerBlockOptions,
 ): Promise<InstallMarkerBlockResult> {
 	const existing = existsSync(options.rcPath) ? await readFile(options.rcPath, "utf8") : "";

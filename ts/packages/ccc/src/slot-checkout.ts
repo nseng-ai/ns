@@ -2,17 +2,17 @@ import {
 	createSlotClient,
 	type SlotCheckoutFailure,
 	type SlotCheckoutResult,
-	type SlotCheckoutTarget,
 	type SlotClient,
 } from "@sdl/slot/api";
 
-export type { SlotCheckoutFailure, SlotCheckoutTarget, SlotClient } from "@sdl/slot/api";
+export type {
+	SlotCheckoutFailure,
+	SlotCheckoutResult,
+	SlotCheckoutTarget,
+	SlotClient,
+} from "@sdl/slot/api";
 
 export type SlotCheckoutRef = { kind: "branch"; branchName: string } | { kind: "current" };
-
-export type CheckoutSlotResult =
-	| { ok: true; target: SlotCheckoutTarget }
-	| { ok: false; failure: SlotCheckoutFailure };
 
 /**
  * Composition-root factory for CCC's in-process slot checkouts. Construction is
@@ -32,17 +32,6 @@ export function createCccSlotClient(options: {
 }
 
 export async function checkoutSlot(
-	slotClient: SlotClient,
-	ref: SlotCheckoutRef,
-): Promise<CheckoutSlotResult> {
-	const result = await runPeerCheckout(slotClient, ref);
-	if (!result.ok) {
-		return { ok: false, failure: result.failure };
-	}
-	return { ok: true, target: result.target };
-}
-
-async function runPeerCheckout(
 	slotClient: SlotClient,
 	ref: SlotCheckoutRef,
 ): Promise<SlotCheckoutResult> {

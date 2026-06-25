@@ -29,7 +29,7 @@ export async function runGtDown(ctx: SlotCliContext, request: GtDownRequest) {
 	if (resolution.type === "failure") return resolution;
 	return ok(
 		await buildGtNavigationResult(ctx, resolution.resolution, {
-			shouldSkipClipboard: !request.clipboard,
+			shouldCopyClipboard: request.clipboard,
 		}),
 	);
 }

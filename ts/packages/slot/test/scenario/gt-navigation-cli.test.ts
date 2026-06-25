@@ -41,11 +41,11 @@ describe("slot gt navigation CLI", () => {
 			data: {
 				slot_name: "slot-01",
 				branch_name: "feature/child",
-				is_already_assigned: true,
+				already_assigned: true,
 				cd_command: "cd /slots/repos/repo/worktrees/slot-01",
 			},
 		});
-		expect(output).not.toMatchObject({ data: { already_assigned: expect.anything() } });
+		expect(output).not.toMatchObject({ data: { is_already_assigned: expect.anything() } });
 		expect(run.gt.operations()).toEqual([{ type: "children-of", cwd: "/repo" }]);
 		expect(run.git.operations()).toEqual([]);
 	});
@@ -64,14 +64,14 @@ describe("slot gt navigation CLI", () => {
 			data: {
 				slot_name: "slot-01",
 				branch_name: "feature/parent",
-				is_already_assigned: false,
-				is_clipboard_skipped: true,
+				already_assigned: false,
+				clipboard_skipped: true,
 			},
 		});
 		expect(output).not.toMatchObject({
 			data: {
-				already_assigned: expect.anything(),
-				clipboard_skipped: expect.anything(),
+				is_already_assigned: expect.anything(),
+				is_clipboard_skipped: expect.anything(),
 				was_clipboard_skipped: expect.anything(),
 			},
 		});

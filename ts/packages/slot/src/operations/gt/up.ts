@@ -14,9 +14,9 @@ export const gtNavigationResultSchema = z.object({
 	branch_name: z.string(),
 	worktree_path: z.string(),
 	cd_command: z.string(),
-	is_already_assigned: z.boolean(),
-	is_clipboard_copied: z.boolean(),
-	is_clipboard_skipped: z.boolean(),
+	already_assigned: z.boolean(),
+	clipboard_copied: z.boolean(),
+	clipboard_skipped: z.boolean(),
 	clipboard_failure_reason: z
 		.union([z.literal("backend_missing"), z.literal("subprocess_error")])
 		.nullable(),
@@ -46,7 +46,7 @@ export async function runGtUp(ctx: SlotCliContext, request: GtUpRequest) {
 	if (resolution.type === "failure") return resolution;
 	return ok(
 		await buildGtNavigationResult(ctx, resolution.resolution, {
-			shouldSkipClipboard: !request.clipboard,
+			shouldCopyClipboard: request.clipboard,
 		}),
 	);
 }
