@@ -8,10 +8,7 @@ import { runGraphiteCommand } from "@sdl/graphite/branch";
 import { z } from "zod";
 
 import { formatCommandOutput, notifyCommandUi } from "../command-helpers.ts";
-import {
-	registerCommandWithImmediateAck,
-	sendCommandProgressOrNotify,
-} from "../commands/ack.ts";
+import { registerCommandWithImmediateAck, sendCommandProgressOrNotify } from "../commands/ack.ts";
 import { definePiSurfaceParity } from "../parity/extension.ts";
 
 export const STACK_SQUASH_COMMAND_NAME = "gt:squash-stack";
