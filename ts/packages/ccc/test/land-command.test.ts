@@ -229,13 +229,19 @@ function metadataBranchNames(dbRows: string): string[] {
 }
 
 function graphiteShapeSteps(dbRows: string): ScriptedExec[] {
+	return graphiteShapeStepsForRoot(ROOT, dbRows);
+}
+
+function graphiteShapeStepsForRoot(root: string, dbRows: string): ScriptedExec[] {
 	const liveBranches = metadataBranchNames(dbRows);
 	return [
-		step("git", GIT_ROOT_ARGS, { stdout: `${ROOT}\n` }),
+		step("git", GIT_ROOT_ARGS, { stdout: `${root}\n` }),
 		step("git", GIT_CURRENT_ARGS, { stdout: `${CURRENT}\n` }),
 		step("gt", GT_TRUNK_ARGS, { stdout: `${TRUNK}\n` }),
-		step("git", GIT_COMMON_DIR_ARGS, { stdout: `${ROOT}/.git\n` }),
-		step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
+		step("git", GIT_COMMON_DIR_ARGS, { stdout: `${root}/.git\n` }),
+		step(TOPOLOGY_COMMAND, topologyArgs(`${root}/.git/.graphite_metadata.db`), {
+			stdout: `${dbRows}\n`,
+		}),
 		step("git", GIT_FOR_EACH_REF_ARGS, {
 			stdout: liveBranches.length > 0 ? `${liveBranches.join("\n")}\n` : "",
 		}),
@@ -449,6 +455,8 @@ describe("code land command registration", () => {
 		expect(command?.getArgumentCompletions?.("--")).toEqual([
 			{ value: "--yes", label: "--yes" },
 			{ value: "--dry-run", label: "--dry-run" },
+			{ value: "--free", label: "--free" },
+			{ value: "--force", label: "--force" },
 			{ value: "--help", label: "--help" },
 		]);
 	});
@@ -683,6 +691,67 @@ describe("code land command", () => {
 				level: "info",
 			},
 		]);
+		pi.assertDone();
+	});
+
+	test("--free --force frees the current managed slot and deletes the local Graphite branch after fast-path landing", async () => {
+		const slotRoot = "/Users/me/.local/state/sdl/slots/repos/repo/worktrees/slot-01";
+		const pi = new FakePi([
+			...graphiteShapeStepsForRoot(slotRoot, DB_SINGLE_BRANCH),
+			step("gh", PR_VIEW_ARGS, { stdout: prView() }),
+			step("gh", expectedMergeArgs(), { stdout: "Merged pull request #42" }),
+			step("sdl", ["slot", "free", "--wt", "slot-01"]),
+			step("gt", ["delete", CURRENT, "-f", "-q"]),
+		]);
+		registerLandCommand(pi);
+		const command = pi.commands.get("sdl:flow:land");
+		const context = createContext({ cwd: slotRoot });
+
+		await command?.handler("--free --force", context.ctx);
+
+		expect(context.confirmations).toEqual([]);
+		expect(pi.execCalls.slice(-2)).toEqual([
+			{
+				command: "sdl",
+				args: ["slot", "free", "--wt", "slot-01"],
+				options: { cwd: slotRoot, timeout: 120_000 },
+			},
+			{
+				command: "gt",
+				args: ["delete", CURRENT, "-f", "-q"],
+				options: { cwd: slotRoot, timeout: 600_000 },
+			},
+		]);
+		expect(context.notifications.at(-1)).toEqual({
+			message: `Post-landing cleanup complete: freed slot-01 and deleted local branch ${CURRENT}.`,
+			level: "success",
+		});
+		pi.assertDone();
+	});
+
+	test("--free asks before post-landing cleanup", async () => {
+		const slotRoot = "/Users/me/.local/state/sdl/slots/repos/repo/worktrees/slot-01";
+		const pi = new FakePi([
+			...graphiteShapeStepsForRoot(slotRoot, DB_SINGLE_BRANCH),
+			step("gh", PR_VIEW_ARGS, { stdout: prView() }),
+			step("gh", expectedMergeArgs(), { stdout: "Merged pull request #42" }),
+		]);
+		registerLandCommand(pi);
+		const command = pi.commands.get("sdl:flow:land");
+		const context = createContext({ cwd: slotRoot });
+
+		await command?.handler("--free", context.ctx);
+
+		expect(context.confirmations).toEqual([
+			{
+				title: "Free current slot and delete local branch?",
+				message: expect.stringContaining("$ sdl slot free --wt slot-01"),
+			},
+		]);
+		expect(context.notifications.at(-1)).toEqual({
+			message: `land stopped: Cancelled post-landing cleanup; PRs were landed but slot-01 and local branch ${CURRENT} were kept.`,
+			level: "warning",
+		});
 		pi.assertDone();
 	});
 

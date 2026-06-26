@@ -1,5 +1,5 @@
 import { createCommandIo, runWithCommandIo, type CommandIo } from "@sdl/core/command-io";
-import { normalizeExecResult, type ExecOutputListener } from "@sdl/core/exec";
+import { formatCommand, normalizeExecResult, type ExecOutputListener } from "@sdl/core/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { sendCommandProgressOrNotify, registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
 import {
@@ -13,17 +13,23 @@ import {
 	LandStackCommandStream,
 	withCommandStreaming,
 } from "./land-stack/command-stream.ts";
-import { AUTO_CHUNK_LANDING_THRESHOLD } from "./land-stack/constants.ts";
+import {
+	AUTO_CHUNK_LANDING_THRESHOLD,
+	GT_MUTATION_TIMEOUT_MS,
+	SLOT_TIMEOUT_MS,
+} from "./land-stack/constants.ts";
 import {
 	completed,
 	failure,
 	landStackFailure,
 	type LandStackOutcome,
 } from "./land-stack/errors.ts";
+import { exec, execGraphite } from "./land-stack/command-exec.ts";
 import {
 	formatFailure,
 	formatFailureNotification,
 	presentBrief,
+	setStatus,
 	usage,
 } from "./land-stack/presentation.ts";
 import { loadLandingShape } from "./land-stack/stack-facts.ts";
@@ -31,11 +37,14 @@ import type {
 	AutocompleteItem,
 	CustomMessage,
 	LandStackCommandContext,
+	LandStackExtensionAPI,
 	LandingShape,
 	MessageRenderer,
 	NotifyLevel,
+	ParsedArgs,
 	StackSnapshot,
 } from "./land-stack/types.ts";
+import { isManagedSlotPath, slotNameFromPath } from "./land-stack/worktrees.ts";
 
 export type { NotifyLevel } from "./land-stack/types.ts";
 
@@ -169,16 +178,30 @@ async function runLandCommand(
 	}
 
 	if (isIsolatedFastPath(shape.value.stack)) {
-		return await runFastLand(runtimeLandPi, ctx, shape.value, {
+		const outcome = await runFastLand(runtimeLandPi, ctx, shape.value, {
 			dryRun: args.value.dryRun,
 			...(progressIo === undefined ? {} : { progressIo }),
+		});
+		if (outcome.type === "failure") return outcome;
+		return await runPostLandingSlotCleanup({
+			pi: runtimeLandPi,
+			ctx,
+			args: args.value,
+			shape: shape.value,
 		});
 	}
 
 	if (shape.value.stack.landingBranches.length > AUTO_CHUNK_LANDING_THRESHOLD) {
-		return await executeStackLanding(pi, ctx, args.value, {
+		const outcome = await executeStackLanding(pi, ctx, args.value, {
 			initialShape: shape.value,
 			...(progressIo === undefined ? {} : { io: progressIo }),
+		});
+		if (outcome.type === "failure") return outcome;
+		return await runPostLandingSlotCleanup({
+			pi: runtimePi,
+			ctx,
+			args: args.value,
+			shape: shape.value,
 		});
 	}
 
@@ -188,10 +211,17 @@ async function runLandCommand(
 	});
 	if (confirmationOutcome.type === "failure") return confirmationOutcome;
 
-	return await executeStackLanding(pi, ctx, args.value, {
+	const outcome = await executeStackLanding(pi, ctx, args.value, {
 		skipMainConfirmation: true,
 		initialShape: shape.value,
 		...(progressIo === undefined ? {} : { io: progressIo }),
+	});
+	if (outcome.type === "failure") return outcome;
+	return await runPostLandingSlotCleanup({
+		pi: runtimePi,
+		ctx,
+		args: args.value,
+		shape: shape.value,
 	});
 }
 
@@ -331,6 +361,164 @@ function formatUpfrontStackConfirmation(shape: LandingShape): string {
 		);
 	}
 	return lines.join("\n");
+}
+
+interface RunPostLandingSlotCleanupOptions {
+	pi: LandStackExtensionAPI;
+	ctx: LandCommandContext;
+	args: ParsedArgs;
+	shape: LandingShape;
+}
+
+async function runPostLandingSlotCleanup({
+	pi,
+	ctx,
+	args,
+	shape,
+}: RunPostLandingSlotCleanupOptions): Promise<LandStackOutcome> {
+	if (!args.free || args.dryRun) return completed();
+
+	const slotName = isManagedSlotPath(shape.repoRoot) ? slotNameFromPath(shape.repoRoot) : undefined;
+	if (slotName === undefined) {
+		const message = `Post-landing --free requested, but current worktree ${shape.repoRoot} is not a managed slot; kept local branch ${shape.stack.actualCurrentBranch}.`;
+		notify(ctx, message, "info");
+		return completed();
+	}
+
+	const cleanupDetails = formatPostLandingCleanupDetails({
+		branch: shape.stack.actualCurrentBranch,
+		repoRoot: shape.repoRoot,
+		slotName,
+	});
+	if (!args.force && !args.yes) {
+		if (!ctx.hasUI) {
+			const landFailure = landStackFailure(
+				[
+					"PRs were landed, but post-landing slot cleanup requires confirmation in non-interactive mode.",
+					cleanupDetails,
+					"Run the commands manually, or use --free --force for post-landing cleanup next time.",
+				].join("\n\n"),
+				{
+					suggestedAction: postLandingCleanupSuggestedAction(
+						slotName,
+						shape.stack.actualCurrentBranch,
+					),
+				},
+			);
+			presentBrief(
+				ctx,
+				landFailure.message,
+				landFailure.level,
+				formatFailureNotification(landFailure),
+			);
+			return failure(landFailure);
+		}
+
+		const confirmed = await ctx.ui.confirm(
+			"Free current slot and delete local branch?",
+			cleanupDetails,
+		);
+		if (!confirmed) {
+			const landFailure = landStackFailure(
+				`Cancelled post-landing cleanup; PRs were landed but ${slotName} and local branch ${shape.stack.actualCurrentBranch} were kept.`,
+				{
+					level: "warning",
+					suggestedAction: postLandingCleanupSuggestedAction(
+						slotName,
+						shape.stack.actualCurrentBranch,
+					),
+				},
+			);
+			presentBrief(
+				ctx,
+				landFailure.message,
+				landFailure.level,
+				formatFailureNotification(landFailure),
+			);
+			return failure(landFailure);
+		}
+	}
+
+	try {
+		setStatus(ctx, `freeing ${slotName}...`);
+		const freeArgs = ["slot", "free", "--wt", slotName];
+		const freeResult = await exec(pi, "sdl", freeArgs, shape.repoRoot, SLOT_TIMEOUT_MS);
+		if (freeResult.code !== 0) {
+			const landFailure = landStackFailure(`PRs were landed, but freeing ${slotName} failed.`, {
+				commandDisplay: formatCommand("sdl", freeArgs),
+				result: freeResult,
+				suggestedAction: postLandingCleanupSuggestedAction(
+					slotName,
+					shape.stack.actualCurrentBranch,
+				),
+			});
+			presentBrief(
+				ctx,
+				landFailure.message,
+				landFailure.level,
+				formatFailureNotification(landFailure),
+			);
+			return failure(landFailure);
+		}
+
+		setStatus(ctx, `deleting ${shape.stack.actualCurrentBranch}...`);
+		const deleteArgs = ["delete", shape.stack.actualCurrentBranch, "-f", "-q"];
+		const deleteResult = await execGraphite(pi, {
+			args: deleteArgs,
+			cwd: shape.repoRoot,
+			timeoutMs: GT_MUTATION_TIMEOUT_MS,
+		});
+		if (deleteResult.code !== 0) {
+			const landFailure = landStackFailure(
+				`PRs were landed and ${slotName} was freed, but deleting local branch ${shape.stack.actualCurrentBranch} failed.`,
+				{
+					commandDisplay: formatCommand("gt", deleteArgs),
+					result: deleteResult,
+					suggestedAction: `Delete local branch ${shape.stack.actualCurrentBranch} manually when safe.`,
+				},
+			);
+			presentBrief(
+				ctx,
+				landFailure.message,
+				landFailure.level,
+				formatFailureNotification(landFailure),
+			);
+			return failure(landFailure);
+		}
+	} finally {
+		setStatus(ctx, undefined);
+	}
+
+	notify(
+		ctx,
+		`Post-landing cleanup complete: freed ${slotName} and deleted local branch ${shape.stack.actualCurrentBranch}.`,
+		"success",
+	);
+	return completed();
+}
+
+function formatPostLandingCleanupDetails(options: {
+	branch: string;
+	repoRoot: string;
+	slotName: string;
+}): string {
+	const freeCommand = formatCommand("sdl", ["slot", "free", "--wt", options.slotName]);
+	const deleteCommand = formatCommand("gt", ["delete", options.branch, "-f", "-q"]);
+	return [
+		"Post-landing --free cleanup will detach the current managed slot to trunk, then delete the landed local Graphite branch.",
+		"",
+		`Slot: ${options.slotName}`,
+		`Worktree: ${options.repoRoot}`,
+		`Local branch: ${options.branch}`,
+		"",
+		"Commands:",
+		`$ ${freeCommand}`,
+		`$ ${deleteCommand}`,
+	].join("\n");
+}
+
+function postLandingCleanupSuggestedAction(slotName: string, branch: string): string {
+	return `Run ${formatCommand("sdl", ["slot", "free", "--wt", slotName])}, then ${formatCommand("gt", ["delete", branch, "-f", "-q"])} when safe.`;
 }
 
 async function runFastLand(

@@ -6,6 +6,13 @@ import { runFlowCccCli } from "../shared/ccc-cli.ts";
 const landSchema = z.object({
 	yes: z.boolean().optional().describe("Confirm stack landing without an interactive prompt."),
 	dryRun: z.boolean().optional().describe("Show what would land without merging PRs."),
+	free: z
+		.boolean()
+		.optional()
+		.describe(
+			"After successful landing, free the current managed slot and delete the landed local branch.",
+		),
+	force: z.boolean().optional().describe("Skip the post-landing --free confirmation."),
 });
 
 export const flowLandCommand: SdlCommand<typeof landSchema> = {
@@ -18,6 +25,8 @@ export const flowLandCommand: SdlCommand<typeof landSchema> = {
 		const rawArgs = [
 			request.yes === true ? "--yes" : undefined,
 			request.dryRun === true ? "--dry-run" : undefined,
+			request.free === true ? "--free" : undefined,
+			request.force === true ? "--force" : undefined,
 		].filter((arg): arg is string => arg !== undefined);
 		return await runFlowCccCli({
 			ctx,

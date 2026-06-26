@@ -64,6 +64,8 @@ export interface LandStackExtensionAPI {
 export interface ParsedArgs {
 	yes: boolean;
 	dryRun: boolean;
+	free: boolean;
+	force: boolean;
 	help: boolean;
 }
 
