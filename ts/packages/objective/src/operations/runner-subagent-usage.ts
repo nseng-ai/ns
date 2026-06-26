@@ -8,7 +8,7 @@ import {
 	type RuntimeRunnerSubagentUsageCostTotals,
 	type RunnerSubagentUsageRecord,
 	type RuntimeRunnerSubagentUsageTotals,
-} from "@sdl/pi/runner-subagents/usage";
+} from "@sdl/core/runner-usage";
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";

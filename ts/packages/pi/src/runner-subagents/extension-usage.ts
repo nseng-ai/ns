@@ -4,7 +4,7 @@ import {
 	parseRunnerSubagentUsageJsonl,
 	type RuntimeRunnerSubagentUsageCostTotals,
 	type RuntimeRunnerSubagentUsageTotals,
-} from "./usage.ts";
+} from "@sdl/core/runner-usage";
 
 import { formatErrorMessage } from "@sdl/core/primitives";
 import type {

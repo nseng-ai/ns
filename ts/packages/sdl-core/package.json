@@ -32,6 +32,7 @@
     "./workspace-root": "./src/workspace-root.ts",
     "./testing": "./src/testing/index.ts",
     "./submit": "./src/submit/index.ts",
+    "./runner-usage": "./src/runner-usage.ts",
     "./text-repair": "./src/text-repair.ts"
   },
   "files": [
