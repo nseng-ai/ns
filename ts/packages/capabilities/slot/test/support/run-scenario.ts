@@ -74,6 +74,8 @@ export function runScenario(
 			...(options.stdin === undefined ? {} : { injectedStdin: stdin }),
 		});
 	const repo = options.repo ?? repoContext();
+	// Slot package scenarios exercise the mounted command face directly. Entrypoint
+	// metadata (`--version`/`--runtime`) is covered by the owning `sdl` CLI tests.
 	const context: SlotCliContext = {
 		repo,
 		git,

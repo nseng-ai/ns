@@ -18,11 +18,12 @@ It is an evidence map, not an ADR and not a remediation. It mirrors the format o
 (including nested groups and hidden `exec` subgroups) was classified.
 
 **Framework-enforced gates are treated as conformant by construction** and were
-spot-verified, not re-derived: every CLI builds on `@sdl/core/cli-entry`
-`defineCli` (so `-h`/`--version`/`--runtime` are wired centrally), all `exec`
-subgroups use `isHidden: true`, and the camelCase machine envelope, `0/1/2` exit
-codes, enveloped Zod usage errors, and published `--json-schema` are inherited
-framework behavior (ADR 0011/0013).
+spot-verified, not re-derived: every CLI entrypoint package builds on
+`@sdl/core/cli-entry` `defineCli` (so `-h`/`--version`/`--runtime` are wired
+centrally), while the `@sdl/slot` command group is intentionally only mounted
+under the owning `sdl` entrypoint. All `exec` subgroups use `isHidden: true`, and
+the camelCase machine envelope, `0/1/2` exit codes, enveloped Zod usage errors,
+and published `--json-schema` are inherited framework behavior (ADR 0011/0013).
 
 The audit focuses on the four **command-local discipline** areas that the
 framework does not enforce:

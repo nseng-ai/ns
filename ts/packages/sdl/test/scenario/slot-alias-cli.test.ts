@@ -3,6 +3,18 @@ import { describe, expect, it } from "vitest";
 import { runCli } from "@sdl/sdl/cli";
 
 describe("sdl slot CLI", () => {
+	it("keeps CLI metadata on the owning sdl entrypoint", async () => {
+		const version = runScenario(["--version"]);
+		expect(await version.exit).toBe(0);
+		expect(version.stdout.join("")).toBe("0.1.0\n");
+
+		const runtime = runScenario(["--runtime"]);
+		expect(await runtime.exit).toBe(0);
+		expect(runtime.stdout.join("")).toBe(
+			"runtime: typescript\nentry_point: @sdl/sdl bin sdl -> ts/packages/sdl/src/cli.ts\n",
+		);
+	});
+
 	it("mounts the Slot command tree under sdl slot", async () => {
 		const run = runScenario(["slot", "--help"]);
 		expect(await run.exit).toBe(0);

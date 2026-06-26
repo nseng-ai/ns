@@ -43,7 +43,7 @@ const sampleListResult: ListResult = {
 	],
 };
 
-describe("slot list CLI", () => {
+describe("slot list command group", () => {
 	it("shows list, ls, init, and resize in help", async () => {
 		const run = runScenario(["--help"]);
 		expect(await run.exit).toBe(0);
