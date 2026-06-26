@@ -21,6 +21,7 @@ import type {
 	ThinkingLevel,
 } from "../src/cmux/types.ts";
 import type { SkillCommandInfo } from "@sdl/pi/skills/expansion";
+import { parseMachineEnvelopeData } from "@sdl/core/machine-envelope";
 import {
 	parseObjectiveListData,
 	type ObjectiveListParseResult,
@@ -434,65 +435,12 @@ export function objectiveStatusStep(
 	});
 }
 
-interface ObjectiveListEnvelopeValid {
-	type: "valid";
-	data: Record<string, unknown>;
-}
-
-interface ObjectiveListEnvelopeInvalid {
-	type: "invalid";
-	message: string;
-}
-
-type ObjectiveListEnvelopeResult = ObjectiveListEnvelopeValid | ObjectiveListEnvelopeInvalid;
-
 function parseObjectiveListStdout(stdout: string): ObjectiveListParseResult {
-	const envelope = parseObjectiveListEnvelope(stdout);
-	if (envelope.type === "invalid") {
-		return envelope;
+	const envelope = parseMachineEnvelopeData(stdout, { label: "objective list JSON" });
+	if (envelope.type !== "valid") {
+		return { type: "invalid", message: envelope.message };
 	}
 	return parseObjectiveListData(envelope.data);
-}
-
-function parseObjectiveListEnvelope(stdout: string): ObjectiveListEnvelopeResult {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(stdout);
-	} catch (error) {
-		return invalidObjectiveListEnvelope(`invalid JSON: ${formatObjectiveListError(error)}`);
-	}
-
-	if (!isRecord(parsed)) {
-		return invalidObjectiveListEnvelope("expected an envelope object");
-	}
-
-	const exitCode = parsed.exitCode;
-	if (typeof exitCode !== "number" || !Number.isFinite(exitCode)) {
-		return invalidObjectiveListEnvelope("expected numeric exitCode 0");
-	}
-
-	if (exitCode !== 0) {
-		return invalidObjectiveListEnvelope(`reported failure with exitCode ${exitCode}`);
-	}
-
-	const data = parsed.data;
-	if (!isRecord(data)) {
-		return invalidObjectiveListEnvelope("expected a data object");
-	}
-
-	return { type: "valid", data };
-}
-
-function invalidObjectiveListEnvelope(reason: string): ObjectiveListEnvelopeInvalid {
-	return { type: "invalid", message: `Invalid objective list JSON: ${reason}.` };
-}
-
-function formatObjectiveListError(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null;
 }
 
 export function cmuxSummaryStep(title: string, description: string): ScriptedExec {

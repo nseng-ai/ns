@@ -121,13 +121,21 @@ describe("parseObjectiveStatusChangedSlugs", () => {
 describe("Objective picker policy", () => {
 	test("changedActiveObjectiveSelection returns undefined when there are no changed active records", () => {
 		expect(
-			changedActiveObjectiveSelection(objectiveList(["alpha"]), "master", ["bravo"]),
+			changedActiveObjectiveSelection({
+				objectiveList: objectiveList(["alpha"]),
+				trunkBranch: "master",
+				allChangedSlugs: ["bravo"],
+			}),
 		).toBeUndefined();
 	});
 
 	test("changedActiveObjectiveSelection returns selection when changed slugs intersect active records", () => {
 		expect(
-			changedActiveObjectiveSelection(objectiveList(["alpha", "bravo"]), "master", ["bravo"]),
+			changedActiveObjectiveSelection({
+				objectiveList: objectiveList(["alpha", "bravo"]),
+				trunkBranch: "master",
+				allChangedSlugs: ["bravo"],
+			}),
 		).toEqual({
 			trunkBranch: "master",
 			changeBasisLabel: "changed vs master",
@@ -137,19 +145,21 @@ describe("Objective picker policy", () => {
 	});
 
 	test("changed active slugs follow Objective list record order", () => {
-		const selection = changedActiveObjectiveSelection(
-			objectiveList(["charlie", "alpha", "bravo"]),
-			"master",
-			["bravo", "charlie"],
-		);
+		const selection = changedActiveObjectiveSelection({
+			objectiveList: objectiveList(["charlie", "alpha", "bravo"]),
+			trunkBranch: "master",
+			allChangedSlugs: ["bravo", "charlie"],
+		});
 
 		expect(selection?.changedActiveSlugs).toEqual(["charlie", "bravo"]);
 	});
 
 	test("changed slugs not present in active records do not produce suggestions", () => {
-		const selection = changedActiveObjectiveSelection(objectiveList(["alpha", "bravo"]), "master", [
-			"closed",
-		]);
+		const selection = changedActiveObjectiveSelection({
+			objectiveList: objectiveList(["alpha", "bravo"]),
+			trunkBranch: "master",
+			allChangedSlugs: ["closed"],
+		});
 
 		expect(selection).toBeUndefined();
 	});

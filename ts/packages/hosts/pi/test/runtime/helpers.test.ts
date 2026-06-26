@@ -133,7 +133,7 @@ describe("pi extension runtime helpers", () => {
 			{
 				statusKey: "objective:test",
 				selectionTitle: "Select an Objective",
-				compactDiffSuggestion: true,
+				shouldCompactDiffSuggestion: true,
 			},
 		);
 

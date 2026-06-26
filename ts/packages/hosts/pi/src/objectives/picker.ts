@@ -9,4 +9,7 @@ export {
 	parseObjectiveStatusChangedSlugs,
 } from "@sdl/objective/api";
 
-export type { ObjectiveDiffSelection } from "@sdl/objective/api";
+export type {
+	ChangedActiveObjectiveSelectionOptions,
+	ObjectiveDiffSelection,
+} from "@sdl/objective/api";
