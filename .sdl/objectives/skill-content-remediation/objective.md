@@ -40,7 +40,7 @@ Risks). Systemic #1/#2/#3 are already complete and unaffected.
      and reconcile deliberately-explicit skills to `invoke-only` (no verified Pi
      replacement) or `command-backed` (a verified Pi replacement exists — membership in
      `COMMAND_STYLE_LOCAL_SKILLS` + the `real-gateways.ts` allowlist, which auto-generates
-     a backing command; a skill with one *cannot* be `invoke-only`). Affects `sdl-submit`,
+     a backing command; a skill with one *cannot* be `invoke-only`). Affects `sdl-flow-submit`,
      `objective-close`, `objective-create`, `code-workflows`, `changelog-update`,
      `code-checkpoint`, `code-just-fix`, and the `setup-*` / `create-*` family
      (`code-autobranch` already carries a real `normal` description). **Resolved/applied:**

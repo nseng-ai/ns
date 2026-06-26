@@ -12,8 +12,8 @@
       version reading, IO/cwd/env defaulting, `import.meta.main` entry guard);
       migrate all 15 `cli.ts` files onto it.
       See `references/cli-wiring-layer.md`. Pure subtraction; done first.
-      Evidence: `defineCli` exists in `ts/packages/sdl-core/src/cli-entry.ts`, all 15
-      `ts/packages/*/src/cli.ts` files consume it, no old hand-written
+      Evidence: `defineCli` exists in `ts/packages/infra/core/src/cli-entry.ts`, all
+      `ts/packages/**/src/cli.ts` entrypoints (14 at HEAD) consume it, no old hand-written
       `const VERSION`/`runtimeInfo`/`readPackageVersion` implementations remain in
       those entrypoints, package-local `sdlcc` `--runtime` coverage now exists, and
       `just ts-format-check && just ts-lint && just ts-check && just ts-test` passed.
@@ -26,8 +26,8 @@
       evidence that it prevents plausible drift or removes substantial mental
       load.
 - [x] Unify Branch-Memory access: point `branch-context` at the in-process
-      `@asdl/brmem` `BrmemGateway`; delete the parsing half of its
-      `brmem-gateway.ts` and its `@asdl/core/brmem-cli` dependency.
+      `@sdl/brmem` `BrmemGateway`; delete the parsing half of its
+      `brmem-gateway.ts` and its `@sdl/core/brmem-cli` dependency.
       Decision: `branch-context` should use the in-process gateway rather than a
       user-installed `brmem` shim, so implementation can proceed.
       Evidence: `branch-context` now uses `RealGitBrmemGateway` / `BrmemGateway`,
@@ -72,29 +72,39 @@
       and core tests plus `just ts-format-check`, `just ts-lint`, `just ts-check`,
       `just ts-test`, `just ts-deps-check`, `just ts-guard`.
       See `references/cross-package-dedup.md`.
-- [ ] Add `resolveBranchOrCurrent` to asdl-core and replace the 4 per-package
-      copies; pick one canonical branch-name validator and remove the 3 divergent
-      rule-sets. See `references/cross-package-dedup.md`.
+- [ ] Add `resolveBranchOrCurrent` to `@sdl/core` and replace the per-package
+      copies; pick one canonical branch-name validator and remove the divergent
+      rule-sets. Note: no `resolveBranchOrCurrent` symbol exists yet (the helper was
+      proposed, never added); re-verify the per-package copy count post-rehome before
+      picking this up — the review's "4 copies / 3 rule-sets" tallies predate the
+      workspace rehome and the GitHub-gateway-layering refactor.
+      See `references/cross-package-dedup.md`.
 - [ ] Export `ghAuthorSchema`/`normalizeAuthor`/`numericGithubIdentity` from the
       `github-pr-feedback` barrel; delete roaster's divergent leaf-helper copies
       (resolves the `numericId` id-policy drift).
       See `references/cross-package-dedup.md`.
-- [ ] Delete the vestigial `@asdl/core` root `.` export; repoint the single bare
-      importer (`pi-extensions/harness-session.ts`) at `/primitives`.
+- [ ] Delete the vestigial `@sdl/core` root `.` export (still present:
+      `"." : "./src/index.ts"` in `ts/packages/infra/core/package.json`); repoint the
+      single bare importer (now `ts/packages/hosts/pi/src/sessions/harness-session.ts`,
+      importing `truncatedSha256Digest`) at `/primitives`.
       See `references/asdl-core.md`.
-- [ ] Decompose `areg/real-gateways.ts` (1358) per-gateway into `src/gateways/*`
+- [ ] Decompose `areg/real-gateways.ts` (1383 at HEAD,
+      `ts/packages/tools/areg/src/real-gateways.ts`) per-gateway into `src/gateways/*`
       + extract `project-fs.ts`; collapse the `init`/`skill-kind` policy fork to a
       `{isAllowed, codePrefix}` descriptor; extract a shared pure
       `classifySkillSpecResolution` so the fake stops reimplementing policy.
       See `references/areg.md`.
 - [ ] Decompose `ccc performGraphiteMaintenance` (270-line god-function) per
       phase, resolving `maintenance.kind` into a plan object once; split
-      `landing-operations.ts` (1010) and move message-English to `presentation.ts`.
+      `landing-operations.ts` (1052 at HEAD, `ts/packages/ccc/src/land-stack/`) and
+      move message-English to `presentation.ts`.
       Highest-risk item — land test coverage first. See `references/ccc.md`.
-- [ ] Unify ccc Graphite-metadata reads into one `loadGraphiteTopology` in
-      `@asdl/core/graphite-metadata`; route `land-stack` git facts through
-      `RealGitGateway` and GitHub access through `@asdl/core/github-cli`.
-      See `references/ccc.md`.
+- [ ] Unify ccc Graphite-metadata reads into one `loadGraphiteTopology` (two read
+      paths today: `ccc/src/land-stack/graphite-topology.ts` and `stack-facts.ts`);
+      confirm canonical home at pickup — original target `@sdl/core/graphite-metadata`,
+      but the newer `@sdl/graphite` infra package may now be the owner. Route
+      `land-stack` git facts through `RealGitGateway` and GitHub access through
+      `@sdl/core/github-cli`. See `references/ccc.md`.
 - [ ] sdlcc: replace the hand-rolled validation tower in
       `stack-map-model-loader.ts` with Zod boundary schemas; delete the
       parsed-but-unread `edges` (and its required-gate), `surfaceType`, `tty`.
@@ -103,7 +113,7 @@
       `pi-json-accessors.ts`; unify the two divergent `bashExecution` count paths.
       See `references/per-package-cleanups.md`.
 - [ ] sdl: replace the reflective `MANIFEST_COMMAND_FIELDS` engine in
-      `extension-discovery.ts` (531) with a Zod schema; de-dup the
+      `extension-discovery.ts` (583 at HEAD) with a Zod schema; de-dup the
       `index.ts`/`index.js` dir-index block. See `references/per-package-cleanups.md`.
 - [ ] packagechk: collapse `ClaimPolicy`/`ClaimPlan` (N=2 over-abstraction) into
       two linear `runPypiClaim`/`runNpmClaim` functions sharing small helpers.

@@ -9,7 +9,7 @@
       `areg check`. Done across two slices: the objective-family five set to `normal`
       (real trigger descriptions written, update `2026-06-19T180857`); the `setup-*`
       family set to `invoke-only` (no verified Pi replacement); and eight skills with
-      verified Pi replacements (`sdl-submit`, `code-checkpoint`, `code-just-fix`,
+      verified Pi replacements (`sdl-flow-submit`, `code-checkpoint`, `code-just-fix`,
       `code-workflows`, `changelog-update`, `create-bun-typescript-project`,
       `create-python-dev-cli`, `create-python-package`) set to `command-backed` (model
       invocation disabled + `.pi/settings.json -skills` exclusion, slash-command surfaces
@@ -19,7 +19,7 @@
       a backing command), and a skill with one cannot be `invoke-only`; the `setup-*`
       removal only de-verified that family. Evidence: `areg check` "All skills OK";
       descriptions left as minimal `Command: <name>` stubs (update `2026-06-19T202008`).
-      Residual body-content work for `sdl-submit` / `objective-close` / `objective-create`
+      Residual body-content work for `sdl-flow-submit` / `objective-close` / `objective-create`
       is tracked under the from-scratch-rewrite row, not here. Taxonomy in
       `docs/skill-conventions.md` § Skill Invocation Kinds.
 - [x] Systemic #2 — single-source the grill-loop core shared by `pi-grill-ui` and
@@ -122,7 +122,9 @@
     conflict-resolution stakes): remove the externally-gated TEMPORARY TS-toolchain block
     (see Parked), then a surgical pass on the twice-written TS-toolchain rule.
   - `pr-address` — **prune-to-stub** (retired-workflow tombstone), not a rewrite.
-  - `sdl-submit` — **move-to-reference**: relocate the env-var catalog to a reference file.
+  - `sdl-flow-submit` (renamed from `sdl-submit`; Pi surface `sdl:flow:submit`) —
+    **move-to-reference**: relocate the env-var catalog to a reference file. Still
+    unstarted — `skills/sdl-flow-submit/` has no `references/` dir.
   - `objective-close` — **surgical** (already clean, lift 1).
   - `objective-create` — rewrite; body work beyond its (already-set) description.
   - New elevation candidates (clarity/sprawl, not duplication — re-audit
