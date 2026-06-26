@@ -2,7 +2,7 @@
 
 ## Thesis
 
-Objective should become an above-SDK capability extension: the objectives domain currently stranded in the `@sdl/pi` Presentation Host (`@sdl/pi/objectives/{selection,picker,list,extension}.ts`) relocates into its owning `@sdl/objective` Capability, which exposes a curated `@sdl/objective/api` Capability API for in-process sibling consumers (`ccc`, `sdlcc`) over a gateway-injected Domain Core. Because `ccc` reaches into the objectives domain through `@sdl/pi`, this migration is the load-bearing prerequisite for breaking the `@sdl/pi` ↔ `@sdl/ccc` bidirectional package cycle. This child Objective owns that cycle-break end-to-end: relocate the domain, expose the Capability API, repoint consumers, pick a single Pi/CCC delegation direction, and land the `just ts-guard` topological acyclicity check that enforces the acyclic Extension Dependency Graph.
+Objective should become an above-SDK capability extension: the objectives domain currently stranded in the `@sdl/pi` Presentation Host (`@sdl/pi/objectives/{selection,picker,list,extension}.ts`) relocates into its owning `@sdl/objective` Capability, which exposes a curated `@sdl/objective/api` Capability API for in-process sibling consumers (`ccc`, `sdlcc`) over a gateway-injected Domain Core. Because `ccc` reaches into the objectives domain through `@sdl/pi`, this migration is the load-bearing prerequisite for breaking the `@sdl/pi` ↔ `@sdl/ccc` bidirectional package cycle. This child Objective owns that cycle-break end-to-end, but the implementation path is now explicitly split into four independently reviewable slices: neutralize the runner-usage dependency, relocate Objective domain logic into `@sdl/objective/api`, repoint consumers, then perform the riskier Pi→CCC cycle break. The `just ts-guard` topological acyclicity check remains a later follow-up after the real graph is acyclic, not part of the relocation slices.
 
 This is a child Objective of `sdl-extension-architecture` (Phase 2, roadmap step 4 fan-out), and it additionally absorbs the cycle-break + acyclicity-enforcement portion of parent step 5. The parent retains the broader "convert `ccc` into the highest-fan-out clean consumer across all capabilities" work, which depends on the remaining step-4 capability migrations.
 
@@ -15,9 +15,9 @@ This is a child Objective of `sdl-extension-architecture` (Phase 2, roadmap step
   - `ccc`: `ts/packages/ccc/src/objective-stack-impl.ts` and `ts/packages/ccc/src/cmux/sidebar.ts` (both import `@sdl/pi/objectives/selection`).
   - `sdlcc`: `ts/packages/sdlcc/src/objective-tab.ts` (imports `@sdl/pi/objectives/list`).
 - Resolve the reverse `@sdl/objective` → `@sdl/pi` entanglement: `@sdl/objective` currently declares `@sdl/pi` as a dependency and imports `@sdl/pi/runner-subagents/usage` from `src/operations/runner-subagent-usage.ts`. Decide the correct home for that runner-subagent-usage seam so the capability does not depend back into the Presentation Host.
-- Pick the single Pi/CCC delegation direction and break the `@sdl/pi` ↔ `@sdl/ccc` bidirectional package cycle (today both declare each other `workspace:*`; `@sdl/pi` imports `@sdl/ccc/{worktree-status,cmux/focused-terminal-tab,trunk-pull,objective-stack-impl,land,handoff-tab,branch-context-up-and-impl}` while `@sdl/ccc` imports `@sdl/pi/{objectives/selection,commands/ack,terminal/presentation,...}`).
-- Land a topological acyclicity check for the Extension Dependency Graph wired into `just ts-guard` (alongside `ts/scripts/guard-typescript-style.mjs`), with self-tests for an acyclic graph passing and a synthetic cycle failing.
-- Document the objective capability boundary and the acyclicity invariant in `ts/packages/objective/CONTEXT.md` and register it in `CONTEXT-MAP.md`.
+- Execute the chosen Pi/CCC delegation direction as its own risky slice: `@sdl/ccc` may continue depending on neutral `@sdl/pi` helper subpaths, while `@sdl/pi` must stop importing `@sdl/ccc` and must drop the `@sdl/ccc` package dependency. Current Pi→CCC imports include `worktree-status`, `cmux/focused-terminal-tab`, `trunk-pull`, `objective-stack-impl`, `land`, `handoff-tab`, and `branch-context-up-and-impl`; CCC→Pi neutral-helper imports such as `commands/ack` and `terminal/presentation` may remain.
+- After the real package graph is acyclic, land a topological acyclicity check for the Extension Dependency Graph wired into `just ts-guard` (alongside `ts/scripts/guard-typescript-style.mjs`), with self-tests for an acyclic graph passing and a synthetic cycle failing.
+- Document the objective capability boundary and the acyclicity invariant in `ts/packages/objective/CONTEXT.md` and register it in `CONTEXT-MAP.md` after the relocation and cycle-break seams have landed.
 
 ## Non-Goals
 
@@ -33,7 +33,7 @@ This is a child Objective of `sdl-extension-architecture` (Phase 2, roadmap step
 - The relocated domain logic is a gateway-injected Domain Core with in-memory-gateway unit tests and no raw `ctx` dependency.
 - `ccc` (`objective-stack-impl.ts`, `cmux/sidebar.ts`) and `sdlcc` (`objective-tab.ts`) consume `@sdl/objective/api` instead of `@sdl/pi/objectives/*`.
 - `@sdl/objective` no longer depends on `@sdl/pi`; the runner-subagent-usage seam has a documented non-Presentation-Host home.
-- The `@sdl/pi` ↔ `@sdl/ccc` bidirectional package cycle is gone: a single delegation direction is chosen and only that direction's edges remain, with neither package importing the other's removed side.
+- The `@sdl/pi` ↔ `@sdl/ccc` bidirectional package cycle is gone under the chosen direction: `@sdl/ccc` may import neutral `@sdl/pi` helpers, but `@sdl/pi` imports no `@sdl/ccc` subpaths and does not declare `@sdl/ccc`.
 - `just ts-guard` enforces a topological acyclicity check over the Extension Dependency Graph, with self-tests covering an acyclic pass and a synthetic-cycle fail; `just` is green.
 - `ts/packages/objective/CONTEXT.md` documents the durable capability/Domain-Core/Capability-API and acyclicity boundary and is registered in `CONTEXT-MAP.md`.
 
@@ -43,18 +43,20 @@ Assumptions:
 
 - The `@sdl/<cap>/api` convention and gateway-injected-core rule ratified for Slot/Branch-Context/Plans apply cleanly to objective; `@sdl/objective/api` can be consumed by `ccc`/`sdlcc` without reintroducing a package cycle (Slot validated this shape for a `ccc`/`sdlcc`-consumed capability).
 - The objectives domain in `@sdl/pi/objectives/*` is separable from genuine Pi presentation concerns; `extension.ts` (~860 lines) likely mixes domain selection/listing logic with Pi-specific presentation that should stay behind a thin shell.
-- Breaking the Pi↔CCC cycle is mostly unblocked once the objectives domain leaves `@sdl/pi`, because objectives/selection is a primary `ccc`→`@sdl/pi` edge; the remaining `@sdl/pi`→`@sdl/ccc` edges (worktree-status, cmux, land, handoff-tab, branch-context) and `@sdl/ccc`→`@sdl/pi` edges (commands/ack, terminal/presentation) must still be resolved by the chosen delegation direction.
+- The current broad implementation plan is too large for one pass; the durable path is four separate slices with independent gates: runner-usage neutralization, Objective API relocation, consumer repoint, and Pi→CCC cycle break.
+- The runner-subagent usage JSONL parser/totals seam belongs in neutral `@sdl/core/runner-usage`, so `@sdl/objective` can consume it without importing the Pi Presentation Host.
+- The chosen Pi/CCC direction is settled for this Objective: `@sdl/ccc` may continue to import neutral `@sdl/pi` helper subpaths, while `@sdl/pi` must remove all imports of `@sdl/ccc` and its `@sdl/ccc` dependency.
+- The topological acyclicity guard should not be implemented until after the real graph is acyclic; use stale-edge greps and TypeScript validation as interim gates.
 
 Risks:
 
-- The Pi/CCC delegation-direction choice is a steer-first architectural decision (which package depends on which); picking wrong forces churn. Mitigate by surfacing the directional options and edge inventory before executing the cut.
+- The old all-in-one relocation/cycle-break plan is too expansive for one implementation branch. Mitigate by treating the four slices as separate branches/PRs where possible, each with its own stale-edge gate.
 - `@sdl/pi/objectives/extension.ts` may entangle Pi presentation with domain logic such that a clean Domain-Core extraction is larger than the other three files combined. Mitigate by carving the gateway-injected core first and leaving a thin Pi presentation shell.
-- The `@sdl/objective` → `@sdl/pi/runner-subagents/usage` dependency could quietly re-create a cycle if repointed naively. Mitigate by relocating the runner-subagent-usage seam to neutral infra or its owning capability rather than cross-importing the Presentation Host.
+- The `@sdl/objective` → `@sdl/pi/runner-subagents/usage` dependency could quietly re-create a cycle if repointed naively. Mitigate by relocating the runner-subagent-usage seam to `@sdl/core/runner-usage` before Pi imports the expanded `@sdl/objective/api` surface.
 - The topological acyclicity guard could be over- or under-strict (false greens/reds) if it parses the wrong edge set. Mitigate with explicit acyclic-pass and synthetic-cycle-fail self-tests, mirroring the `SDL_TS_BAN_CAPABILITY_PRIVATE_PEER_IMPORT` self-test pattern.
 
 ## Open Questions
 
-- Which single delegation direction breaks the `@sdl/pi` ↔ `@sdl/ccc` cycle: should the Presentation Host (`@sdl/pi`) depend on `@sdl/ccc` orchestration, or should `@sdl/ccc` compose capabilities so `@sdl/pi` need not depend on it? The objectives domain must leave `@sdl/pi` regardless; the direction choice governs the remaining non-objective edges.
-- Where should the `@sdl/pi/runner-subagents/usage` seam that `@sdl/objective` consumes live so neither the capability nor the Presentation Host imports the other — neutral infra, the objective capability itself, or another owner?
 - How much of `@sdl/pi/objectives/extension.ts` is genuine Pi presentation that should remain as a thin Pi shell versus domain logic that belongs in the `@sdl/objective` Domain Core?
-- Should the acyclicity check derive the Extension Dependency Graph from `package.json` `workspace:*` edges, from actual import specifiers, or both, to avoid false greens where a `package.json` edge exists without imports (or vice versa)?
+- During the Pi→CCC cycle-break slice, can every current `/objective:stack-impl`, worktree-status, handoff-tab, branch-context upstack, cmux focused-terminal-tab, land, and trunk-pull behavior be preserved by moving registration/orchestration ownership without renaming user-visible commands?
+- Should the later acyclicity check derive the Extension Dependency Graph from `package.json` `workspace:*` edges, from actual import specifiers, or both, to avoid false greens where a `package.json` edge exists without imports (or vice versa)?
