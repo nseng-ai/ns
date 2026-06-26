@@ -13,6 +13,8 @@
   - Move/adapt parser/totals tests from `ts/packages/pi/test/runner-subagents/usage.test.ts` to `ts/packages/sdl-core/test/...` so core owns the primitive.
   - Remove `@sdl/pi` from `ts/packages/objective/package.json` once `ts/packages/objective/src/operations/runner-subagent-usage.ts` no longer imports the Presentation Host.
   - Gate: `rg "@sdl/pi" ts/packages/objective/src ts/packages/objective/package.json` should have no matches; run relevant core/objective/Pi tests and typecheck for the touched packages.
+  - Policy: this is the preferred first `objective-stack-impl` slice. Keep it narrow to neutralizing runner-usage ownership and manifest cleanup; do not relocate Objective selection/list/picker logic in this branch.
+  - Evidence: record the new `@sdl/core/runner-usage` export, the import repoints, moved/adapted tests, package manifest changes, stale-edge grep output, and validation commands/results.
 
 - [ ] Objective API relocation slice.
   - Move Objective-specific list parsing, picker policy, changed-objective suggestion policy, Objective skill prompt construction, Objective-selection orchestration, `/objective:list` argument/completion policy, and Objective candidate JSON parsing out of `@sdl/pi/objectives/*` into `@sdl/objective`.
@@ -20,18 +22,24 @@
   - Keep Pi runtime concerns in thin Pi shells only: command registration, immediate acknowledgement, Pi `CommandContext` adaptation, notifications, `sendMessage`, skill expansion, and runtime-specific presentation.
   - Move pure/domain tests from Pi to Objective; keep Pi tests only for Pi `CommandContext` adaptation, command registration, acknowledgement/presentation, skill expansion, prompt delivery, and autocomplete integration.
   - Gate: Objective/Pi package tests plus `pnpm --dir ts run check` should pass.
+  - Policy: execute only after the runner-usage neutralization slice is complete or explicitly accounted for in the preview. Keep CCC/SDLCC production consumer repoints out of this branch except where a temporary compatibility re-export is needed for typecheck.
+  - Evidence: record the Objective-owned modules/exports created, what remains in Pi shells, pure tests moved to Objective, Pi behavior tests retained, and targeted validation results.
 
 - [ ] Consumer repoint slice.
   - Repoint `ts/packages/ccc/src/objective-stack-impl.ts` and `ts/packages/ccc/src/cmux/sidebar.ts` from `@sdl/pi/objectives/selection` to `@sdl/objective/api` for Objective selection helpers/specs.
   - Repoint `ts/packages/sdlcc/src/objective-tab.ts` and `ts/packages/sdlcc/test/unit/objective-tab.test.ts` from `@sdl/pi/objectives/list` to `@sdl/objective/api`.
   - Adjust package manifests: add `@sdl/objective` to consumers that now import it, keep `@sdl/pi` in `@sdl/ccc` for neutral helper subpaths, and remove `@sdl/pi` from `sdlcc` if no non-Objective imports remain.
   - Gate: `rg "@sdl/pi/objectives" ts/packages` should show no production consumer imports; run relevant ccc/sdlcc/Pi/Objective tests and typecheck.
+  - Policy: execute only after `@sdl/objective/api` exposes the selection/list helpers needed by CCC and SDLCC. Keep Pi→CCC cycle-break work out of this branch unless an import must move only to preserve the consumer repoint.
+  - Evidence: record every production/test consumer import changed, manifest dependency updates, stale `@sdl/pi/objectives` grep output, and validation commands/results.
 
 - [ ] Separate risky slice: Pi→CCC cycle break.
   - Execute the chosen direction: `@sdl/ccc` may depend on neutral `@sdl/pi` helper subpaths, but `@sdl/pi` must stop importing `@sdl/ccc` and must remove `@sdl/ccc` from `ts/packages/pi/package.json`.
   - Move/remove Pi imports of CCC by relocating registration/orchestration ownership for `objective:stack-impl`, worktree-status, handoff-tab, branch-context upstack implementation, cmux focused-terminal-tab, old flow wrappers (`land`, `trunk-pull`), and parity records.
   - Preserve existing user-visible command names and behaviors; only ownership and dependency direction should change. Project-local `.pi/extensions/*.ts` adapters may import CCC directly where they are the discovery/registration surface.
   - Gate: `rg "@sdl/ccc" ts/packages/pi/src ts/packages/pi/package.json` should have no matches; run Pi/CCC tests, `.pi/extensions` import smoke checks for changed adapters, and the TypeScript baseline.
+  - Policy: treat this as a separate high-risk `objective-stack-impl` preview after the Objective relocation and consumer-repoint slices. Stop before renaming/removing user-visible commands or moving neutral Pi helper subpaths contrary to the chosen CCC→Pi-helper direction.
+  - Evidence: record each Pi→CCC edge removed, where registration/orchestration moved, package manifest/lockfile updates, adapter import-smoke results, stale `@sdl/ccc` grep output, and validation commands/results.
 
 ## Parked
 
