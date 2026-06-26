@@ -43,7 +43,7 @@ Tracked packages with no recorded context decision yet — neither Present nor P
 
 Out of scope per the map: `sdl-initiatives` (no tracked package exists) and `sdl-reviewer` (historical identity replaced by `roaster`). Do not recreate either unless the package itself returns as a tracked package.
 
-Each context-writing phase is expected to explicitly invoke `grill-me` for focused terminology/readback decisions, or `grill-with-docs` when the same grilling session should update documentation inline. A package context may be accepted from an adjacent Objective only when it conforms to this Objective's contract: Language entries with `Avoid:` aliases where relevant, followed by Relationships, with map-level collisions either resolved locally or carried forward deliberately.
+Each context-writing phase is expected to explicitly invoke `grill-me` for focused terminology/readback decisions, or `grill-with-docs` when the same grilling session should update documentation inline. The format those sessions write to is the `domain-modeling` skill's `CONTEXT-FORMAT.md` / `ADR-FORMAT.md` contract (see Assumptions). A package context may be accepted from an adjacent Objective only when it conforms to that contract: `## Language` entries with tight glossary definitions and `_Avoid_:` aliases where relevant, followed by the map's Relationships, with map-level collisions either resolved locally or carried forward deliberately.
 
 ## Non-Goals
 
@@ -74,6 +74,8 @@ Do not keep changes that:
 - Invent package vocabulary not supported by source/docs.
 - Turn context files into generated registries, schemas, lifecycle state, or task databases.
 - Expand a context-writing slice into broad implementation work.
+- Add implementation details, specs, or scratch notes to a `CONTEXT.md` — per the `domain-modeling` skill it is a glossary and nothing else.
+- Add general programming concepts (timeouts, error types, utility patterns) to a `CONTEXT.md` rather than terms unique to that context.
 
 Useful evidence includes:
 
@@ -100,7 +102,7 @@ This Objective is execution-friendly for `objective-next` under the boundaries b
 
 Assumptions:
 
-- The `grill-with-docs` output shape remains the right context format: Language entries, `Avoid:` aliases where useful, and Relationships. This Objective is not designing a new documentation framework.
+- The canonical format contract for `CONTEXT.md`, `CONTEXT-MAP.md`, and ADRs is owned by the `domain-modeling` skill (`.agents/skills/domain-modeling/`), not invented here. `CONTEXT-FORMAT.md` defines the `# {Context Name}` + one/two-sentence description + `## Language` shape, where each entry is `**Term**:`, a tight one-or-two-sentence definition of what the term *is* (not what it does), and an italic `_Avoid_:` alias list; `CONTEXT.md` is a glossary only and must stay devoid of implementation details, holding only project-specific terms (not general programming concepts). `CONTEXT-MAP.md` is a Contexts list plus Relationships. `ADR-FORMAT.md` defines `docs/adr/` with sequential `NNNN-slug.md` numbering and a one-to-three-sentence body, optional Status/Considered Options/Consequences only when they add value. `grill-me` and `grill-with-docs` are the interview/session *mechanisms* that produce and update these files; the *format* is the skill's. This Objective is not designing a new documentation framework — it keeps the repo's files conformant to the `domain-modeling` shape.
 - The post-rename baseline is all-TypeScript: 23 tracked packages under `ts/packages/`, named `@sdl/*` except the unscoped `sdlcc` and `sdl-flow`, with no tracked Python workspace packages. Ten packages have present contexts (`handoff`, `brmem`, `ccc`, `pi`, `graphite`, `sdl`, `roaster`, `plans`, `branch-context`, `slot`); the rest are either planned, undecided, or out-of-scope in the map.
 - `CONTEXT-MAP.md`'s **Present** section is already ahead of where the prior record assumed: it lists all ten landed package contexts. The remaining map gaps are concentrated in (1) a stale Inventory Baseline count and (2) packages with no recorded context decision — not in the map's Present framing.
 - Bottom-up sequencing still helps: each remaining package-context session should be independently reviewable and leave durable value even if closure is deferred.
