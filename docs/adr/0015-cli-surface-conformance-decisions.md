@@ -58,11 +58,11 @@ genuinely-raw commands.
 
 ### 2. Hidden `exec` destructive/external writes — operation arguments are sufficient intent (lower-friction exception; refines ADR 0014)
 
-For hidden `exec` commands that write external state — `pr-address exec
-reply-review-thread` and `resolve-review-thread` — the explicit command name plus
-its required operation arguments constitute sufficient explicit intent. These
-commands do **not** require an added `--yes`/confirmation flag or interactive
-gate.
+For hidden `exec` commands that write destructive or external state — examples
+include `branch-context exec delete`, `pr-address exec reply-review-thread`, and
+`pr-address exec resolve-review-thread` — the explicit command name plus its
+required operation arguments constitute sufficient explicit intent. These commands
+do **not** require an added `--yes`/confirmation flag or interactive gate.
 
 This is a **deliberate lower-friction exception** to a conservative reading of the
 Tier 2 human-confirm model, made because the `exec` surface is agent-only, never
@@ -72,8 +72,9 @@ as: the required operation arguments themselves are the explicit authorization.
 Future work must not silently "fix" these into confirmation-gated commands; doing
 so would re-open a decided question.
 
-This exception is scoped to agent-only hidden `exec` external writes. It does not
-relax the Tier 2 `--yes`/`-y` requirement for human-facing destructive commands.
+This exception is scoped to agent-only hidden `exec` destructive/external writes.
+It does not relax the Tier 2 `--yes`/`-y` requirement for human-facing destructive
+commands.
 
 ### 3. `ccc land` single-PR fast path — auto-merge is intentional (lower-friction exception)
 
@@ -135,8 +136,8 @@ The dotfile rule should not be over-applied to environment-driven metadata write
 
 - Every previously `ADR-needed` row in `docs/cli-surface-conformance-audit.md` is
   now classifiable. Specifically:
-  - `pr-address reply-review-thread` / `resolve-review-thread` (a):
-    conformant by decision 2.
+  - `branch-context exec delete`, `pr-address exec reply-review-thread`, and
+    `pr-address exec resolve-review-thread` (a): conformant by decision 2.
   - `pr-address` query-miss vs action-miss (d): conformant by decision 4.
   - `branch-context exec check` empty/absent (d): conformant by decision 5.
   - `ccc land` single-PR fast path (a): conformant by decision 3 (rest of the Pi
