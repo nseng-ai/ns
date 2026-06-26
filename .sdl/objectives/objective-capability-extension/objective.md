@@ -85,7 +85,7 @@ Assumptions:
 Risks:
 
 - The old all-in-one relocation/cycle-break plan is too expansive for one implementation branch. Mitigate by treating the four slices as separate branches/PRs where possible, each with its own stale-edge gate.
-- `@sdl/pi/objectives/extension.ts` may entangle Pi presentation with domain logic such that a clean Domain-Core extraction is larger than the other three files combined. Mitigate by carving the gateway-injected core first and leaving a thin Pi presentation shell.
+- The `@sdl/pi/objectives/extension.ts` presentation/domain entanglement is partly de-risked: Objective-owned command specs, list-argument policy, candidate parsing, picker policy, list JSON parsing, and prompt helpers now live behind `@sdl/objective/api`, while Pi retains command registration, acknowledgement, notifications, `sendMessage`, skill expansion, autocomplete wiring, and presentation. Continue to keep production consumer repoints separate from Pi→CCC ownership changes.
 - The `@sdl/objective` → `@sdl/pi/runner-subagents/usage` dependency risk is de-risked for the runner-usage seam: the parser/totals primitive now lives in `@sdl/core/runner-usage`, `@sdl/objective` no longer imports or declares `@sdl/pi`, and Pi keeps only a compatibility re-export for remaining callers. Continue to guard against reintroducing `@sdl/objective` → `@sdl/pi` during Objective API relocation.
 - The topological acyclicity guard could be over- or under-strict (false greens/reds) if it parses the wrong edge set. Mitigate with explicit acyclic-pass and synthetic-cycle-fail self-tests, mirroring the `SDL_TS_BAN_CAPABILITY_PRIVATE_PEER_IMPORT` self-test pattern.
 

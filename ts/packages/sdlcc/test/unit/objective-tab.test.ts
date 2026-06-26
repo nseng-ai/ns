@@ -12,9 +12,19 @@ const LIST: ObjectiveList = {
 	statusFilter: "active",
 	namesOnly: false,
 	records: [
-		{ slug: "alpha", status: "open", latestUpdateIso: "2026-06-01T00:00:00Z" },
-		{ slug: "beta", status: "open", latestUpdateIso: null },
-		{ slug: "gamma", status: "closed", latestUpdateIso: "2026-06-10T00:00:00Z" },
+		{
+			slug: "alpha",
+			status: "open",
+			latestUpdateIso: "2026-06-01T00:00:00Z",
+			hasOutstandingChanges: false,
+		},
+		{ slug: "beta", status: "open", latestUpdateIso: null, hasOutstandingChanges: false },
+		{
+			slug: "gamma",
+			status: "closed",
+			latestUpdateIso: "2026-06-10T00:00:00Z",
+			hasOutstandingChanges: false,
+		},
 	],
 };
 
@@ -64,7 +74,12 @@ describe("objectiveTabModule.loadModel", () => {
 
 		const model = await objectiveTabModule.loadModel(depsWith(runCommand));
 		expect(model.records).toEqual([
-			{ slug: "alpha", status: "open", latestUpdateIso: "2026-06-01T00:00:00Z" },
+			{
+				slug: "alpha",
+				status: "open",
+				latestUpdateIso: "2026-06-01T00:00:00Z",
+				hasOutstandingChanges: false,
+			},
 		]);
 		expect(calls).toEqual([
 			{

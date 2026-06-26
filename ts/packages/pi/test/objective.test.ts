@@ -5,8 +5,6 @@ import { join } from "node:path";
 
 import { ScriptedQueue } from "@sdl/core/testing";
 import objectiveExtension, {
-	completeObjectiveListArgs,
-	parseObjectiveListArgs,
 	type CommandContext,
 	type ExecResult,
 	type ObjectiveExtensionAPI,
@@ -382,6 +380,7 @@ function objectiveListFromRecords(
 				slug: record.slug,
 				status: record.status,
 				latestUpdateIso: record.latestUpdateIso,
+				hasOutstandingChanges: false,
 			})),
 		},
 	});
@@ -423,10 +422,6 @@ function statusStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedE
 	});
 }
 
-function completionValues(prefix: string): string[] {
-	return completeObjectiveListArgs(prefix)?.map((item) => item.value) ?? [];
-}
-
 async function objectiveCommandCompletions(
 	commandName: ObjectiveCommandName,
 	prefix: string,
@@ -447,70 +442,7 @@ async function objectiveCommandCompletions(
 	return { pi, items };
 }
 
-function expectInvalidObjectiveListArgs(
-	result: ReturnType<typeof parseObjectiveListArgs>,
-	pattern: RegExp,
-): void {
-	expect(result.type).toBe("invalid");
-	if (result.type === "invalid") {
-		expect(result.message).toMatch(pattern);
-	}
-}
-
 describe("objective:list command", () => {
-	test("completions advertise checkout-local options and status values", () => {
-		expect(completionValues("")).toEqual(["--names", "--minimal", "--status", "--help", "-h"]);
-		expect(completionValues("")).not.toContain("--current");
-		expect(completionValues("")).not.toContain("--view");
-		expect(completionValues("--status ")).toEqual(["all", "active", "open", "closed"]);
-		expect(completionValues("--status=o")).toEqual(["--status=open"]);
-		expect(completionValues("--view")).toEqual([]);
-	});
-
-	test("parses accepted checkout-local list arguments", () => {
-		expect(parseObjectiveListArgs("--names --minimal --status all")).toEqual({
-			type: "valid",
-			args: {
-				args: ["--names", "--minimal", "--status", "all"],
-				help: false,
-			},
-		});
-		expect(parseObjectiveListArgs("--status=closed")).toEqual({
-			type: "valid",
-			args: {
-				args: ["--status", "closed"],
-				help: false,
-			},
-		});
-		expect(parseObjectiveListArgs("--help")).toEqual({
-			type: "valid",
-			args: { args: [], help: true },
-		});
-	});
-
-	test("rejects removed and unsupported list arguments", () => {
-		expectInvalidObjectiveListArgs(
-			parseObjectiveListArgs("--current"),
-			/--current is no longer supported/,
-		);
-		expectInvalidObjectiveListArgs(
-			parseObjectiveListArgs("--view detail"),
-			/--view is no longer supported/,
-		);
-		expectInvalidObjectiveListArgs(
-			parseObjectiveListArgs("--status in-flight"),
-			/Unsupported --status value: in-flight/,
-		);
-		expectInvalidObjectiveListArgs(
-			parseObjectiveListArgs("--format json"),
-			/--format is controlled/,
-		);
-		expectInvalidObjectiveListArgs(
-			parseObjectiveListArgs("--json-schema"),
-			/--json-schema is not supported/,
-		);
-	});
-
 	test("forwards accepted status arguments with markdown format controlled by the extension", async () => {
 		const result = await runObjectiveList("--names --minimal --status all", [
 			step(

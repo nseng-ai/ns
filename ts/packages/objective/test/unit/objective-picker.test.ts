@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { ObjectiveList, ObjectiveListRecord } from "../src/objectives/list.ts";
+import type { ObjectiveList, ObjectiveListRecord } from "../../src/api.ts";
 import {
 	changedActiveObjectiveSelection,
 	formatObjectiveChoice,
@@ -10,7 +10,7 @@ import {
 	parseObjectiveDiffChangedSlugs,
 	parseObjectiveStatusChangedSlugs,
 	type ObjectiveDiffSelection,
-} from "../src/objectives/picker.ts";
+} from "../../src/api.ts";
 
 describe("parseObjectiveDiffChangedSlugs", () => {
 	test("modified Objective path produces a slug", () => {
@@ -224,13 +224,14 @@ function objectiveList(slugs: string[]): ObjectiveList {
 
 function record(
 	slug: string,
-	options: { status?: string; latestUpdateIso?: string | null } = {},
+	options: { status?: "open" | "closed"; latestUpdateIso?: string | null } = {},
 ): ObjectiveListRecord {
 	return {
 		slug,
 		status: options.status ?? "open",
 		latestUpdateIso:
 			"latestUpdateIso" in options ? (options.latestUpdateIso ?? null) : "2026-05-20T10:00:00Z",
+		hasOutstandingChanges: false,
 	};
 }
 

@@ -364,6 +364,7 @@ export function objectiveListStep(slugs: string[]): ScriptedExec {
 					slug,
 					status: "open",
 					latestUpdateIso: `2026-01-${String(index + 1).padStart(2, "0")}T00:00:00Z`,
+					hasOutstandingChanges: false,
 				})),
 			},
 		}),

@@ -15,9 +15,47 @@ import {
 	matchesStatusFilter,
 	type ListObjectivesRequest,
 	type ObjectiveListResult,
+	type ObjectiveListRecord,
 } from "./operations/list-objectives.ts";
 import { readObjectiveRecord, type ReadObjectiveResult } from "./operations/read-objective.ts";
 import type { ObjectiveRecordStatus } from "./storage.ts";
+import { parseObjectiveListData, type ObjectiveListParseResult } from "./objective-list-json.ts";
+import {
+	VIEW_OTHER_OBJECTIVES_CHOICE,
+	changedActiveObjectiveSelection,
+	formatObjectiveChoice,
+	objectiveChoiceMap,
+	objectiveDiffPickerTitle,
+	objectiveRecordsWithChangedFirst,
+	parseObjectiveDiffChangedSlugs,
+	parseObjectiveStatusChangedSlugs,
+	type ObjectiveDiffSelection,
+} from "./objective-picker.ts";
+import {
+	buildObjectiveSkillPrompt,
+	changedSelectionNotificationBasis,
+	type BuildObjectiveSkillPromptOptions,
+	type ObjectiveSelectionSpec,
+	type ObjectiveSkillPromptSpec,
+} from "./objective-selection.ts";
+import {
+	completeObjectiveListArgs,
+	parseObjectiveListArgs,
+	type ObjectiveListArgsParseResult,
+	type ObjectiveListParsedArgs,
+} from "./objective-cli-args.ts";
+import {
+	objectiveCompletionItem,
+	parseObjectiveCandidatesData,
+	type ObjectiveCandidatesParseResult,
+	type ObjectiveCliCompletionItem,
+} from "./objective-candidates.ts";
+import {
+	objectiveCommandSpecs,
+	objectiveCreateCommandSpec,
+	type ObjectiveCommandSpec,
+	type ObjectiveCreateCommandSpec,
+} from "./objective-command-specs.ts";
 
 export interface ObjectiveApiFailure {
 	errorType: string;
@@ -111,5 +149,42 @@ function toFailure(error: { code: string; message: string }): ObjectiveApiFailur
 	return { errorType: error.code, message: error.message };
 }
 
-export type { ObjectiveCliContext } from "./context.ts";
-export type { ObjectiveListResult, ReadObjectiveResult };
+export {
+	parseObjectiveListData,
+	VIEW_OTHER_OBJECTIVES_CHOICE,
+	changedActiveObjectiveSelection,
+	formatObjectiveChoice,
+	objectiveChoiceMap,
+	objectiveDiffPickerTitle,
+	objectiveRecordsWithChangedFirst,
+	parseObjectiveDiffChangedSlugs,
+	parseObjectiveStatusChangedSlugs,
+	buildObjectiveSkillPrompt,
+	changedSelectionNotificationBasis,
+	completeObjectiveListArgs,
+	parseObjectiveListArgs,
+	objectiveCompletionItem,
+	parseObjectiveCandidatesData,
+	objectiveCommandSpecs,
+	objectiveCreateCommandSpec,
+};
+
+export type {
+	ObjectiveCliContext,
+	ObjectiveListResult,
+	ObjectiveListRecord,
+	ReadObjectiveResult,
+	ObjectiveListParseResult,
+	ObjectiveDiffSelection,
+	ObjectiveSelectionSpec,
+	ObjectiveSkillPromptSpec,
+	BuildObjectiveSkillPromptOptions,
+	ObjectiveListParsedArgs,
+	ObjectiveListArgsParseResult,
+	ObjectiveCliCompletionItem,
+	ObjectiveCandidatesParseResult,
+	ObjectiveCommandSpec,
+	ObjectiveCreateCommandSpec,
+};
+
+export type ObjectiveList = ObjectiveListResult;
