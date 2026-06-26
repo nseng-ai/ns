@@ -1,20 +1,34 @@
-import { Key, matchesKey, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { Key, matchesKey } from "@earendil-works/pi-tui";
 import type { Component, TUI } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 
 import {
 	buildThreadDetailRows,
 	buildThreadRowLabel,
+	threadSeverityLevel,
+	type FeedbackSeverityLevel,
 	type PrPreviewFeedbackDetailRow,
 	type PrPreviewFeedbackThread,
 	type PrPreviewFeedbackViewModel,
 } from "./preview-feedback-model.ts";
 import { clamp, fitToWidth, reconcileScroll } from "../context-profiler/render.ts";
+import {
+	PREVIEW_OVERLAY_MARGIN,
+	PREVIEW_OVERLAY_MAX_HEIGHT_RATIO,
+	sliceWrappedDetailLinesForViewport,
+	wrapDetailLines,
+} from "./preview-view-utilities.ts";
+import type {
+	WrappedDetailViewport,
+	WrappedDetailViewportOptions,
+} from "./preview-view-utilities.ts";
 
 const FALLBACK_TERMINAL_ROWS = 24;
 const MIN_RENDER_WIDTH = 40;
 
-type PreviewThemeColor = "text" | "muted" | "accent" | "warning" | "dim" | "border";
+export { PREVIEW_OVERLAY_MARGIN, PREVIEW_OVERLAY_MAX_HEIGHT_RATIO };
+
+type PreviewThemeColor = "text" | "muted" | "accent" | "warning" | "error" | "dim" | "border";
 
 export type {
 	PrPreviewFeedbackComment,
@@ -31,18 +45,8 @@ export interface PrPreviewFeedbackViewOptions {
 	onClose: () => void;
 }
 
-export interface WrappedDetailViewportOptions {
-	lines: readonly string[];
-	width: number;
-	rows: number;
-	scroll: number;
-}
-
-export interface WrappedDetailViewport {
-	lines: string[];
-	scroll: number;
-	maxScroll: number;
-}
+export { sliceWrappedDetailLinesForViewport };
+export type { WrappedDetailViewport, WrappedDetailViewportOptions };
 
 export class PrPreviewFeedbackView implements Component {
 	private readonly tui: TUI;
@@ -66,13 +70,13 @@ export class PrPreviewFeedbackView implements Component {
 	render(width: number): string[] {
 		const safeWidth = Math.max(MIN_RENDER_WIDTH, width);
 		const innerWidth = Math.max(1, safeWidth - 2);
-		const height = Math.max(10, this.terminalRows());
+		const height = this.modalRows();
 		const header = buildPreviewHeaderLines(this.model).map((line) => this.color("text", line));
 		const footer = this.color(
 			"dim",
-			"↑↓/jk select · PgUp/PgDn scroll details · q/esc close · preview only",
+			"↑↓/jk select · PgUp/PgDn scroll · q/esc close · preview only",
 		);
-		const chromeRows = 2 + header.length + 1 + 1;
+		const chromeRows = 2 + header.length + 1 + 1 + 1;
 		const bodyRows = Math.max(1, height - chromeRows);
 		const body = this.renderBody(innerWidth, bodyRows);
 		return [
@@ -80,6 +84,7 @@ export class PrPreviewFeedbackView implements Component {
 			...header.map((line) => this.boxLine(line, innerWidth)),
 			this.border({ left: "├", fill: "─", right: "┤", width: safeWidth }),
 			...body.map((line) => this.boxLine(line, innerWidth)),
+			this.border({ left: "├", fill: "─", right: "┤", width: safeWidth }),
 			this.boxLine(footer, innerWidth),
 			this.border({ left: "└", fill: "─", right: "┘", width: safeWidth }),
 		].map((line) => fitToWidth(line, width));
@@ -104,6 +109,7 @@ export class PrPreviewFeedbackView implements Component {
 		}
 		if (matchesKey(data, Key.pageUp)) {
 			this.scrollDetails(-8);
+			return;
 		}
 	}
 
@@ -113,39 +119,60 @@ export class PrPreviewFeedbackView implements Component {
 		return this.tui.terminal.rows ?? FALLBACK_TERMINAL_ROWS;
 	}
 
+	/**
+	 * Number of rows the modal may render before the host overlay clips it. Mirrors
+	 * the TUI's `maxHeight = min(floor(rows * ratio), rows - 2 * margin)` so the
+	 * footer and bottom border stay inside the visible overlay.
+	 */
+	private modalRows(): number {
+		const rows = this.terminalRows();
+		const available = Math.max(1, rows - 2 * PREVIEW_OVERLAY_MARGIN);
+		const budget = Math.min(Math.floor(rows * PREVIEW_OVERLAY_MAX_HEIGHT_RATIO), available);
+		return Math.max(1, budget);
+	}
+
 	private renderBody(width: number, rows: number): string[] {
 		if (this.model.threads.length === 0) return this.renderEmptyBody(width, rows);
 		this.selectedIndex = clamp(this.selectedIndex, 0, this.model.threads.length - 1);
+		const listRows = feedbackListRows({
+			bodyRows: rows,
+			threadCount: this.model.threads.length,
+		});
+		const detailRows = Math.max(1, rows - listRows - 1);
 		this.listScroll = reconcileScroll({
 			scroll: this.listScroll,
 			anchor: this.selectedIndex,
-			areaHeight: rows,
+			areaHeight: listRows,
 			totalLines: this.model.threads.length,
 		});
-		const preferredLeftWidth = clamp(Math.floor(width * 0.32), 28, 52);
-		const leftWidth = Math.min(preferredLeftWidth, Math.max(20, width - 24));
-		const rightWidth = Math.max(12, width - leftWidth - 3);
+		return [
+			...this.renderThreadListLines(width, listRows),
+			this.color("dim", "─".repeat(Math.max(1, width))),
+			...this.renderSelectedThreadDetailLines(width, detailRows),
+		];
+	}
+
+	private renderThreadListLines(width: number, rows: number): string[] {
 		const visibleThreads = this.model.threads.slice(this.listScroll, this.listScroll + rows);
+		return Array.from({ length: rows }, (_unused, row) => {
+			const thread = visibleThreads[row];
+			if (thread === undefined) return "";
+			return this.renderThreadRow(thread, this.listScroll + row, width);
+		});
+	}
+
+	private renderSelectedThreadDetailLines(width: number, rows: number): string[] {
 		const detailLines = this.renderDetailLines(this.model.threads[this.selectedIndex]);
 		const viewport = sliceWrappedDetailLinesForViewport({
 			lines: detailLines,
-			width: rightWidth,
+			width,
 			rows,
 			scroll: this.detailScroll,
 		});
 		this.detailScroll = viewport.scroll;
-		const rightLines = viewport.lines;
-		const lines: string[] = [];
-		for (let row = 0; row < rows; row += 1) {
-			const thread = visibleThreads[row];
-			const actualIndex = this.listScroll + row;
-			const left = thread === undefined ? "" : this.renderThreadRow(thread, actualIndex, leftWidth);
-			const right = rightLines[row] ?? "";
-			lines.push(
-				`${fitToWidth(left, leftWidth)} ${this.color("dim", "│")} ${fitToWidth(right, rightWidth)}`,
-			);
-		}
-		return lines;
+		return Array.from({ length: rows }, (_unused, row) =>
+			fitToWidth(viewport.lines[row] ?? "", width),
+		);
 	}
 
 	private renderEmptyBody(width: number, rows: number): string[] {
@@ -154,7 +181,17 @@ export class PrPreviewFeedbackView implements Component {
 	}
 
 	private renderDetailLines(thread: PrPreviewFeedbackThread | undefined): string[] {
-		return buildThreadDetailRows(thread).map((row) => this.renderDetailLine(row));
+		const rows = buildThreadDetailRows(thread);
+		const lines: string[] = [];
+		let previousRole: PrPreviewFeedbackDetailRow["role"] | null = null;
+		for (const row of rows) {
+			if (row.role === "evidence" && previousRole !== "evidence") {
+				lines.push(this.color("muted", "  EVIDENCE"));
+			}
+			lines.push(this.renderDetailLine(row));
+			previousRole = row.role;
+		}
+		return lines;
 	}
 
 	private renderDetailLine(row: PrPreviewFeedbackDetailRow): string {
@@ -164,9 +201,9 @@ export class PrPreviewFeedbackView implements Component {
 			case "review":
 				return this.color("muted", `  ${row.text}`);
 			case "body":
-				return this.color("text", `  │ ${row.text}`);
+				return this.color("text", `  ▏ ${row.text}`);
 			case "evidence":
-				return this.color("warning", `  Evidence: ${row.text}`);
+				return this.color("warning", `  · ${row.text}`);
 			case "source":
 				return this.color("dim", `  ${row.text}`);
 			case "comment":
@@ -182,9 +219,30 @@ export class PrPreviewFeedbackView implements Component {
 		width: number,
 	): string {
 		const prefix = actualIndex === this.selectedIndex ? "> " : "  ";
-		const row = fitToWidth(`${prefix}${buildThreadRowLabel(thread)}`, width);
-		if (actualIndex !== this.selectedIndex) return this.color("text", row);
-		return this.theme.bg("selectedBg", this.color("accent", row));
+		const level = threadSeverityLevel(thread);
+		const icon = severityIcon(level);
+		const label = buildThreadRowLabel(thread);
+		if (actualIndex === this.selectedIndex) {
+			const row = fitToWidth(`${prefix}${icon} ${label}`, width);
+			return this.theme.bg("selectedBg", this.color("accent", row));
+		}
+		const severityColor = severityThemeColor(level);
+		const coloredRow = `${this.color("text", prefix)}${this.color(severityColor, icon)} ${this.colorizeRowLabel(label, level, severityColor)}`;
+		return fitToWidth(coloredRow, width);
+	}
+
+	private colorizeRowLabel(
+		label: string,
+		level: FeedbackSeverityLevel | null,
+		severityColor: PreviewThemeColor,
+	): string {
+		if (level === null) return this.color("text", label);
+		return label
+			.split(" · ")
+			.map((segment) =>
+				segment === level ? this.color(severityColor, segment) : this.color("text", segment),
+			)
+			.join(this.color("text", " · "));
 	}
 
 	private moveSelection(delta: number): void {
@@ -217,17 +275,21 @@ export class PrPreviewFeedbackView implements Component {
 	}
 }
 
-export function sliceWrappedDetailLinesForViewport(
-	options: WrappedDetailViewportOptions,
-): WrappedDetailViewport {
-	const wrappedDetailLines = wrapDetailLines(options.lines, options.width);
-	const maxScroll = Math.max(0, wrappedDetailLines.length - options.rows);
-	const scroll = clamp(options.scroll, 0, maxScroll);
-	return {
-		lines: wrappedDetailLines.slice(scroll, scroll + options.rows),
-		scroll,
-		maxScroll,
-	};
+export function feedbackListRows(options: { bodyRows: number; threadCount: number }): number {
+	const preferred = Math.max(3, Math.floor(options.bodyRows * 0.3));
+	return clamp(Math.min(options.threadCount, preferred), 1, options.bodyRows - 5);
+}
+
+function severityIcon(level: FeedbackSeverityLevel | null): string {
+	if (level === "error") return "✕";
+	if (level === "warning") return "⚠";
+	return "·";
+}
+
+function severityThemeColor(level: FeedbackSeverityLevel | null): PreviewThemeColor {
+	if (level === "error") return "error";
+	if (level === "warning") return "warning";
+	return "dim";
 }
 
 export function buildPreviewHeaderLines(model: PrPreviewFeedbackViewModel): string[] {
@@ -259,12 +321,4 @@ export function buildEmptyStateLines(model: PrPreviewFeedbackViewModel): string[
 		`Automation-like discussion comments excluded: ${model.counts.excluded_automation_comments}`,
 		...buildCountMismatchNotice(model),
 	];
-}
-
-function wrapDetailLines(lines: readonly string[], width: number): string[] {
-	return lines.flatMap((line) => {
-		if (line === "") return [""];
-		const wrapped = wrapTextWithAnsi(line, Math.max(1, width));
-		return wrapped.length === 0 ? [""] : wrapped;
-	});
 }
