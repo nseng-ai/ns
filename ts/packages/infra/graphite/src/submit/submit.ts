@@ -233,7 +233,7 @@ export class RealSubmitGateway implements SubmitGateway {
 			args: SUBMIT_DRY_RUN_ARGS,
 			cwd: params.cwd,
 			timeoutMs: CURRENT_PR_TIMEOUT_MS,
-			...(params.onOutput === undefined ? {} : { onOutput: params.onOutput }),
+			...optionalOutputListenerParam(params.onOutput),
 		});
 		if (isSuccessfulOutput(output)) {
 			return { kind: "ready", output };
@@ -252,7 +252,7 @@ export class RealSubmitGateway implements SubmitGateway {
 			args: RESTACK_ARGS,
 			cwd: params.cwd,
 			timeoutMs: RESTACK_TIMEOUT_MS,
-			...(params.onOutput === undefined ? {} : { onOutput: params.onOutput }),
+			...optionalOutputListenerParam(params.onOutput),
 		});
 		if (isSuccessfulOutput(output)) {
 			return { kind: "success", output };
@@ -271,7 +271,7 @@ export class RealSubmitGateway implements SubmitGateway {
 			args: SUBMIT_ARGS,
 			cwd: params.cwd,
 			timeoutMs: SUBMIT_TIMEOUT_MS,
-			...(params.onOutput === undefined ? {} : { onOutput: params.onOutput }),
+			...optionalOutputListenerParam(params.onOutput),
 		});
 		if (!isSuccessfulOutput(output)) {
 			return { kind: "failed", output };
@@ -294,7 +294,7 @@ export class RealSubmitGateway implements SubmitGateway {
 			args: CURRENT_PR_ARGS,
 			cwd: params.cwd,
 			timeoutMs: CURRENT_PR_TIMEOUT_MS,
-			...(params.onOutput === undefined ? {} : { onOutput: params.onOutput }),
+			...optionalOutputListenerParam(params.onOutput),
 		});
 		if (output.startupError !== undefined) {
 			return { kind: "failed", output, cause: "startup_error" };
@@ -432,7 +432,7 @@ export async function runSubmitCommand(
 	}
 
 	emitSubmitProgress(options, "running gt submit");
-	const submitted = await options.gateway.submitCurrentStack(commandParams);
+	const submitted = await options.gateway.submitCurrentStack(submitStreamingCommandParams(options));
 	if (submitted.kind === "failed") {
 		return failure(
 			normalizedFailureExitCode(submitted.output),
@@ -551,10 +551,29 @@ function submitCommandParams(
 ): SubmitCommandParams {
 	return {
 		cwd: options.cwd,
-		...(options.shouldForwardCommandOutput === false || options.onOutput === undefined
-			? {}
-			: { onOutput: options.onOutput }),
+		...optionalOutputListenerParam(
+			options.shouldForwardCommandOutput === false ? undefined : options.onOutput,
+		),
 	};
+}
+
+// The `gt submit` phase always streams its raw output live so the user can watch
+// Graphite create/update PRs in real time, independent of --verbose. The other
+// phases (preflight dry-run, restack, verification) remain gated by --verbose via
+// submitCommandParams to keep default output concise.
+function submitStreamingCommandParams(
+	options: Pick<RunSubmitCommandOptions, "cwd" | "onOutput">,
+): SubmitCommandParams {
+	return {
+		cwd: options.cwd,
+		...optionalOutputListenerParam(options.onOutput),
+	};
+}
+
+function optionalOutputListenerParam(
+	onOutput: SubmitOutputListener | undefined,
+): Pick<SubmitCommandParams, "onOutput"> {
+	return onOutput === undefined ? {} : { onOutput };
 }
 
 function emitSubmitProgress(
