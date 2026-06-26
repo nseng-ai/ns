@@ -2,18 +2,18 @@
 
 ## Work
 
-Pause note: remaining uncompleted v1 product feature work is blocked on `.asdl/objectives/vibechk-typescript-port/`, which owns the TypeScript migration of the already-implemented surface. Do not implement `publish`, `codex`, `pi`, or final publish-smoke closure work in Python while that migration is active.
+State note: the already-implemented surface now lives in TypeScript as `@sdl/vibechk` at `ts/packages/tools/vibechk/`. The TypeScript cutover (owned by the now-closed `vibechk-typescript-port` Objective) is complete and the Python package is retired, so the remaining v1 product rows (`publish`, `codex`, `pi`, real publish smoke) are unblocked and proceed in TypeScript.
 
-- [x] Scaffold the standalone `packages/vibechk` workspace package and `vibechk` CLI with help/version behavior.
-- [x] Implement a thin `run -> show -> diff` walking skeleton that can run the same plan in two prepared workdirs and render comparison evidence, even with one real runner, minimal bundle metadata, no `publish`, and some metrics as `null`.
-- [x] Add only the bundle store and run-id support required by the walking skeleton: store root resolution, 8-character ids, plan snapshot, raw transcript/artifacts, basic metadata, diff patch, and enough prefix resolution for `show`/`diff`.
-- [x] Implement the minimal runner contract plus the first real subprocess adapter and a `FakeRunner` seam; defer full `claude`/`codex`/`pi` parity until the loop works.
+- [x] Scaffold the standalone `vibechk` workspace package and `vibechk` CLI with help/version/runtime behavior.
+- [x] Implement a thin `run -> show -> diff` walking skeleton that runs the same plan in two prepared workdirs and renders comparison evidence (one real runner, minimal bundle metadata, no `publish`, some metrics `null`).
+- [x] Add the bundle store and run-id support: store root resolution, 8-character ids, plan snapshot, raw transcript/artifacts, basic metadata, diff patch, and prefix resolution for `show`/`diff`.
+- [x] Implement the minimal runner contract plus the first real subprocess adapter (`claude`) and a `FakeRunner` seam; full `codex`/`pi` parity deferred.
 - [x] Implement git workdir preconditions, provenance capture, diff capture, local `vibechk/<run-id>` branch creation, and switch-back behavior needed by real runs.
 - [x] Make single-run and comparison Markdown reports useful enough to paste into a PR manually, including branch refs, plan, metrics or `null`s, and config differences.
-- [x] Harden the store surface after the loop works: collision handling, complete prefix-resolution errors, XDG/$VIBECHK_HOME/--store precedence, and `vibechk runs` tabular/JSON listing.
-- [ ] Add remaining runner adapters and normalization coverage for `claude`, `codex`, and `pi`.
+- [x] Harden the store surface: collision handling, complete prefix-resolution errors, XDG/$VIBECHK_HOME/--store precedence, and `vibechk runs` tabular/JSON listing.
+- [ ] Add remaining runner adapters and normalization coverage for `codex` and `pi` (`claude` done).
 - [ ] Implement GitHub PR reference resolution, fence replacement, branch-on-remote validation, and `publish` through `gh`.
-- [~] Expand fake-driven unit and scenario coverage for the canonical comparison flow, single-run flow, runner selection and per-runner metric normalization, failure modes, no-change runs, report rendering, publish idempotency, and remaining runner/publish hardening.
+- [~] Expand fake-driven unit and scenario coverage for the canonical comparison flow, single-run flow, runner selection and per-runner metric normalization, failure modes, no-change runs, and report rendering; publish idempotency and `codex`/`pi` normalization coverage remain.
 - [ ] Run a real GitHub PR publish smoke and record closure evidence for insertion, replacement, and no-op republish behavior.
 - [ ] Run the final repo validation suite after the remaining v1 feature work.
 
