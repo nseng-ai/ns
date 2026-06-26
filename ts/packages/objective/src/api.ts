@@ -5,8 +5,8 @@
 //
 // Row 1 of the `objective-capability-extension` Objective establishes this
 // facade over the existing read/list operations. The objectives selection and
-// skill-prompt surface currently stranded in `@sdl/pi/objectives/*` is relocated
-// onto this same client in a later row.
+// skill-prompt surface currently stranded in Pi's objectives modules is
+// relocated onto this same client in a later row.
 
 import type { ObjectiveCliContext } from "./context.ts";
 import { createRealObjectiveContext } from "./context.ts";
