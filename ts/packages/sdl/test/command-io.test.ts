@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { commandIoFromSdlExtensionApi } from "../src/sdk/command-io.ts";
-import type { SdlExtensionApi } from "../src/sdk/index.ts";
+import type { SdlExtensionApi } from "sdl-sdk";
 
 function createCtx(overrides: Partial<SdlExtensionApi>): SdlExtensionApi {
 	return {

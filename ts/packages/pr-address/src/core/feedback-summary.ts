@@ -1,4 +1,4 @@
-import type { GithubPrDiscussionComment } from "@sdl/core/github-pr-feedback";
+import type { GithubPrDiscussionComment } from "../api.ts";
 
 const BODY_MARKERS: ReadonlyArray<readonly [marker: string, label: string]> = [
 	["<!-- roaster:", "roaster_marker"],

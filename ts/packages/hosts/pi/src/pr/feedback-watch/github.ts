@@ -1,4 +1,4 @@
-import { githubPrIdentityFromUrl } from "@sdl/core/github-status";
+import { githubPrIdentityFromUrl } from "@sdl/core/github-identity";
 
 import { isRecord, stringField } from "../../cmux/primitives.ts";
 import { loadGhCommand } from "../gh-command.ts";

@@ -1,4 +1,4 @@
-import { defineExtension, failed, ok, z, type SdlCommand } from "@sdl/sdl/sdk";
+import { defineExtension, failed, ok, z, type SdlCommand } from "sdl-sdk";
 import type { TextGenerator } from "@sdl/domain-primitives-transitional/text-generation";
 import {
 	CHECKPOINT_MODEL_ENV,

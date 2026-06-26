@@ -1,0 +1,21 @@
+{
+	"name": "sdl-sdk",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"files": [
+		"src"
+	],
+	"scripts": {
+		"check": "tsgo -p tsconfig.json"
+	},
+	"dependencies": {
+		"@sdl/clinkr": "workspace:*",
+		"@sdl/core": "workspace:*",
+		"@sdl/domain-primitives-transitional": "workspace:*",
+		"zod": "catalog:"
+	}
+}

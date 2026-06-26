@@ -11,13 +11,13 @@ import {
 	withTemporaryFile,
 	type ExecResult,
 	type SdlExtensionApi,
-} from "@sdl/sdl/sdk";
+} from "sdl-sdk";
 
 import { execFlowGit } from "./git.ts";
 
 export type { PendingWorktreeError, PendingWorktreeSnapshot, WorktreeCommandResult };
 
-export { formatCommandDetails } from "@sdl/sdl/sdk";
+export { formatCommandDetails } from "sdl-sdk";
 
 export async function loadFlowPendingWorktreeSnapshot(
 	ctx: SdlExtensionApi,

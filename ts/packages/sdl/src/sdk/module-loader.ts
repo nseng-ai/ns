@@ -22,13 +22,13 @@ import {
 	truncateTextHeadTail,
 	withTemporaryFile,
 	z,
-} from "./index.ts";
+} from "sdl-sdk";
 
 const SDL_SDK_DIR = dirname(fileURLToPath(import.meta.url));
 const SDL_SRC_DIR = dirname(SDL_SDK_DIR);
 
 /** Module specifier that SDL command entries import the SDK from. */
-const SDK_SPECIFIER = "@sdl/sdl/sdk";
+const SDK_SPECIFIER = "sdl-sdk";
 const CCC_AUTOSLOT_SPECIFIER = "@sdl/ccc/autoslot";
 const CCC_LAND_SPECIFIER = "@sdl/ccc/land";
 const CCC_TRUNK_PULL_SPECIFIER = "@sdl/ccc/trunk-pull";
@@ -43,8 +43,6 @@ const AUTOBRANCH_DIRTY_WORKTREE_SPECIFIER = "@sdl/autobranch/dirty-worktree";
 const AUTOBRANCH_LATEST_COMMIT_SPECIFIER = "@sdl/autobranch/latest-commit";
 const FLOW_PACKAGE_NAME = "sdl-flow";
 
-/** Absolute path to the SDK source module, used as the `alias` resolution target. */
-const SDK_MODULE_PATH = join(SDL_SDK_DIR, "index.ts");
 const CCC_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "ccc", "src");
 const CORE_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "infra", "core", "src");
 const GRAPHITE_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "infra", "graphite", "src");
@@ -153,7 +151,7 @@ function stripLeadingDotSlash(path: string): string {
 	return path.startsWith("./") ? path.slice("./".length) : path;
 }
 
-// Keep this object in sync with all runtime value exports from sdk/index.ts; type-only exports are erased.
+// Keep this object in sync with all runtime value exports from sdl-sdk; type-only exports are erased.
 const sdlSdkVirtualModule = {
 	commandSucceeded,
 	defineExtension,
@@ -175,7 +173,7 @@ const sdlSdkVirtualModule = {
 /**
  * Create the SDL-aware jiti instance used for user-authored modules.
  *
- * The load-bearing option is `virtualModules`: it binds `@sdl/sdl/sdk` to the
+ * The load-bearing option is `virtualModules`: it binds `sdl-sdk` to the
  * exact SDK object imported by this process, so command-entry commands and
  * schemas share host SDK identity instead of resolving dependency copies from
  * `.sdl/extensions`.
@@ -191,7 +189,6 @@ export function createSdlJiti(): ReturnType<typeof createJiti> {
 		alias: {
 			...buildInternalWorkspaceAliases(),
 			...buildFlowCommandAliases(),
-			[SDK_SPECIFIER]: SDK_MODULE_PATH,
 			[CCC_AUTOSLOT_SPECIFIER]: CCC_AUTOSLOT_MODULE_PATH,
 			[CCC_LAND_SPECIFIER]: CCC_LAND_MODULE_PATH,
 			[CCC_TRUNK_PULL_SPECIFIER]: CCC_TRUNK_PULL_MODULE_PATH,

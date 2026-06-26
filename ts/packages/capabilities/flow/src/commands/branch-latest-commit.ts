@@ -3,7 +3,7 @@ import {
 	type LatestCommitAutobranchInput,
 } from "@sdl/autobranch/latest-commit";
 import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@sdl/core/model-slug";
-import { defineExtension, failed, ok, z, type SdlCommand } from "@sdl/sdl/sdk";
+import { defineExtension, failed, ok, z, type SdlCommand } from "sdl-sdk";
 
 import {
 	execExtensionCommand,

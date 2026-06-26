@@ -1,5 +1,4 @@
-import type { GithubStatusChecks } from "../github-status.ts";
-import type { ErrorInfo, Result } from "../result.ts";
+import type { ErrorInfo } from "../result.ts";
 
 export interface GithubPrFeedbackOptions {
 	readonly cwd: string;
@@ -110,33 +109,3 @@ export interface GithubPrLookupMiss {
 export type GithubPrLookupOutcome =
 	| { readonly found: true; readonly pr: GithubPrSummary }
 	| { readonly found: false; readonly miss: GithubPrLookupMiss };
-
-export interface GithubPrFeedbackGateway {
-	getPr(
-		params: GithubPrFeedbackOptions & { readonly prNumber: number },
-	): Promise<Result<GithubPrLookupOutcome, GithubPrFeedbackFailure>>;
-	getPrForBranch(
-		params: GithubPrFeedbackOptions & { readonly branch: string },
-	): Promise<Result<GithubPrLookupOutcome, GithubPrFeedbackFailure>>;
-	listOpenPrs(
-		params: GithubPrFeedbackOptions,
-	): Promise<Result<readonly GithubPrSummary[], GithubPrFeedbackFailure>>;
-	getPrReviews(
-		params: GithubPrFeedbackOptions & { readonly prNumber: number },
-	): Promise<Result<readonly GithubPrReview[], GithubPrFeedbackFailure>>;
-	getPrReviewThreads(
-		params: GithubPrFeedbackOptions & { readonly prNumber: number },
-	): Promise<Result<readonly GithubPrReviewThread[], GithubPrFeedbackFailure>>;
-	getPrDiscussionComments(
-		params: GithubPrFeedbackOptions & { readonly prNumber: number },
-	): Promise<Result<readonly GithubPrDiscussionComment[], GithubPrFeedbackFailure>>;
-	getPrChecks(
-		params: GithubPrFeedbackOptions & { readonly prNumber: number },
-	): Promise<Result<GithubStatusChecks, GithubPrFeedbackFailure>>;
-	replyToReviewThread(
-		params: GithubPrFeedbackOptions & { readonly threadId: string; readonly body: string },
-	): Promise<Result<GithubReviewThreadReply, GithubPrFeedbackFailure>>;
-	resolveReviewThread(
-		params: GithubPrFeedbackOptions & { readonly threadId: string },
-	): Promise<Result<GithubReviewThreadState, GithubPrFeedbackFailure>>;
-}

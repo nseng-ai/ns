@@ -7,7 +7,7 @@ Disposable below-SDK holding pen for SDL domain primitives that are shared by cu
 SDL is being split into clear layers:
 
 1. **Below SDK:** neutral infrastructure such as `@sdl/core`, `@sdl/clinkr`, `@sdl/graphite`, and `@sdl/brmem`.
-2. **SDK/kernel:** `@sdl/sdl` and `@sdl/sdl/sdk`, the small public host API used by SDL extension authors.
+2. **SDK/kernel:** the SDL kernel (`@sdl/sdl`) plus the `sdl-sdk` package, the small public host API used by SDL extension authors.
 3. **Above SDK:** product capabilities such as flow, handoff, objectives, branch-context, plans, PR address, slots, roaster, aretro, and CCC orchestration.
 
 Before this package existed, some SDK-independent domain primitives lived in `@sdl/sdl` and were consumed through internal workspace subpaths such as `@sdl/sdl/pending-worktree` and `@sdl/sdl/checkpoint-flow`. That made the SDL kernel look like the owner of workflow policy and shared product-domain helpers.
@@ -38,7 +38,7 @@ There is intentionally no root barrel export. Import the exact primitive subpath
 
 Do not add:
 
-- public SDL extension-author API — that belongs in `@sdl/sdl/sdk` after an explicit SDK promotion decision;
+- public SDL extension-author API — that belongs in `sdl-sdk` after an explicit SDK promotion decision;
 - `ctx`-dependent extension helper code — shared capability substrate belongs above the SDK, usually in `@sdl/capability-kit` or the owning capability package;
 - command faces, CLI registration, Pi mirrors, or presentation policy;
 - Capability APIs — use the `@sdl/<cap>/api` convention in the owning capability package;

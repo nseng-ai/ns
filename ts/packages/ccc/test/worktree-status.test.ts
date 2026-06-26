@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { githubWorktreePrStatusQuery } from "@sdl/core/github-status";
+import { githubWorktreePrStatusQuery } from "@sdl/core/github-pr-status";
 import { githubCheckRun, ScriptedQueue } from "@sdl/core/testing";
 import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 import type { GraphiteMetadataWorkerDiagnostic } from "@sdl/graphite/status";

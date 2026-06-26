@@ -11,7 +11,7 @@ import {
 	formatManagedGeneratedRegion,
 	hashPrDescriptionPrompt,
 } from "@sdl/core/submit";
-import type { TextGenerationResult } from "@sdl/sdl/sdk";
+import type { TextGenerationResult } from "sdl-sdk";
 
 import { runFlowSubmitCommandWithFakes } from "./flow-command-fakes.ts";
 import { formattedExecCalls, type ScriptedExecResponse } from "./sdl-cli-fakes.ts";

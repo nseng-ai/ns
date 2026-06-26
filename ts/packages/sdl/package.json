@@ -8,13 +8,10 @@
     "./cli": "./src/cli.ts",
     "./command-io": "./src/sdk/command-io.ts",
     "./context": "./src/context.ts",
-    "./pi-text-generation": "./src/sdk/pi-text-generation.ts",
-    "./sdk": "./src/sdk/index.ts"
+    "./pi-text-generation": "./src/sdk/pi-text-generation.ts"
   },
   "sdl": {
-    "publicPluginApi": [
-      "./sdk"
-    ],
+    "publicPluginApi": [],
     "internalWorkspaceExports": [
       "./cli",
       "./command-io",
@@ -39,6 +36,7 @@
     "@sdl/graphite": "workspace:*",
     "@sdl/plans": "workspace:*",
     "@sdl/slot": "workspace:*",
+    "sdl-sdk": "workspace:*",
     "jiti": "catalog:",
     "zod": "catalog:"
   }

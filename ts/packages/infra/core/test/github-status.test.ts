@@ -2,18 +2,20 @@ import { describe, expect, test } from "vitest";
 
 import { githubCheckRun } from "@sdl/core/testing";
 import {
-	classifyGithubStatusCheck,
 	githubPrIdentityFromUrl,
 	githubRepositoryIdentityFromNormalizedRemoteUrl,
 	githubRepositoryIdentityFromRemoteUrl,
+	normalizeGitRemoteUrl,
+} from "@sdl/core/github-identity";
+import {
+	classifyGithubStatusCheck,
 	githubWorktreePrStatusArgs,
 	githubWorktreePrStatusQuery,
 	normalizeGithubStatusChecks,
-	normalizeGitRemoteUrl,
 	parseGithubWorktreePrStatusJson,
 	parseGithubWorktreePrStatusJsonResult,
 	tallyGithubStatusChecks,
-} from "@sdl/core/github-status";
+} from "@sdl/core/github-pr-status";
 
 describe("GitHub status boundary parsing", () => {
 	test("extracts canonical GitHub PR identity", () => {

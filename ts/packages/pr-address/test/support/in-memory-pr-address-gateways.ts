@@ -1,4 +1,3 @@
-import type { GithubStatusChecks } from "@sdl/core/github-status";
 import type {
 	GithubPrDiscussionComment,
 	GithubPrFeedbackFailure,
@@ -13,7 +12,8 @@ import type {
 	GithubPrSummary,
 	GithubReviewThreadReply,
 	GithubReviewThreadState,
-} from "@sdl/core/github-pr-feedback";
+	GithubStatusChecks,
+} from "@sdl/pr-address/api";
 import type { Result } from "@sdl/core/result";
 
 import { InMemoryGitGateway } from "@sdl/core/git/testing";

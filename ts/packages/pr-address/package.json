@@ -2,6 +2,9 @@
   "name": "@sdl/pr-address",
   "version": "0.1.0",
   "type": "module",
+  "exports": {
+    "./api": "./src/api.ts"
+  },
   "files": [
     "src"
   ],

@@ -8,7 +8,7 @@ import { RealGitGateway, type GitGateway } from "@sdl/core/git";
 import {
 	githubRepositoryIdentityFromNormalizedRemoteUrl,
 	normalizeGitRemoteUrl,
-} from "@sdl/core/github-status";
+} from "@sdl/core/github-identity";
 import { normalizeSummary, validatePlanSlug } from "./plan-persistence.ts";
 import { isRecord } from "@sdl/core/primitives";
 import { ensurePrivateParentDirectory, requireXdgPath, resolveSdlXdgPath } from "@sdl/core/xdg";

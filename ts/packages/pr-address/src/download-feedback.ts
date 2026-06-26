@@ -6,7 +6,7 @@ import type {
 	GithubPrReview,
 	GithubPrReviewThread,
 	GithubPrSummary,
-} from "@sdl/core/github-pr-feedback";
+} from "./api.ts";
 import {
 	fetchFeedbackSnapshot,
 	reviewsForRequest,

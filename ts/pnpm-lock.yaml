@@ -200,6 +200,9 @@ importers:
       '@sdl/sdl':
         specifier: workspace:*
         version: link:../../sdl
+      sdl-sdk:
+        specifier: workspace:*
+        version: link:../../sdl-sdk
 
   packages/capabilities/slot:
     dependencies:
@@ -299,6 +302,9 @@ importers:
       '@sdl/sdl':
         specifier: workspace:*
         version: link:../../sdl
+      sdl-sdk:
+        specifier: workspace:*
+        version: link:../../sdl-sdk
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -465,6 +471,9 @@ importers:
       jiti:
         specifier: 'catalog:'
         version: 2.7.0
+      sdl-sdk:
+        specifier: workspace:*
+        version: link:../sdl-sdk
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -474,9 +483,24 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../infra/core
-      '@sdl/sdl':
+      sdl-sdk:
         specifier: workspace:*
-        version: link:../sdl
+        version: link:../sdl-sdk
+
+  packages/sdl-sdk:
+    dependencies:
+      '@sdl/clinkr':
+        specifier: workspace:*
+        version: link:../infra/clinkr
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../infra/core
+      '@sdl/domain-primitives-transitional':
+        specifier: workspace:*
+        version: link:../infra/domain-primitives-transitional
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
 
   packages/tools/areg:
     dependencies:

@@ -1,10 +1,10 @@
-import { commandSucceeded, defineExtension, formatCommandEvidence, ok, z } from "@sdl/sdl/sdk";
+import { commandSucceeded, defineExtension, formatCommandEvidence, ok, z } from "sdl-sdk";
 import type {
 	SdlExtensionApi,
 	TextGenerationRequest,
 	TextGenerationResult,
 	TextGenerator,
-} from "@sdl/sdl/sdk";
+} from "sdl-sdk";
 
 type Assert<T extends true> = T;
 type IsAny<T> = 0 extends 1 & T ? true : false;

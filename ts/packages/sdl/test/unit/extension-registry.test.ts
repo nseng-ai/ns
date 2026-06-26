@@ -53,7 +53,7 @@ function writeFile(path: string, source: string): void {
 
 function commandEntry(name: string, message: string): string {
 	return `
-import { defineExtension, ok } from "@sdl/sdl/sdk";
+import { defineExtension, ok } from "sdl-sdk";
 
 export default defineExtension({
 	commands: [{
@@ -307,7 +307,7 @@ describe("extension registry", () => {
 		writeFile(
 			join(workspace.cwd, ".sdl", "extensions", "pkg", "src", "commands.ts"),
 			`
-import { defineExtension, ok } from "@sdl/sdl/sdk";
+import { defineExtension, ok } from "sdl-sdk";
 
 export default defineExtension({
 	commands: [

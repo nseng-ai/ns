@@ -1,6 +1,6 @@
 import type { CommandExecApi, CommandRunner, ExecOptions, ExecResult } from "@sdl/core/exec";
 
-import type { SdlExecOptions, SdlExtensionApi } from "@sdl/sdl/sdk";
+import type { SdlExecOptions, SdlExtensionApi } from "sdl-sdk";
 
 export function createSdlCommandRunner(ctx: SdlExtensionApi): CommandRunner {
 	return async (command, args, options) => {

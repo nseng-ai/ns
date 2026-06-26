@@ -1,4 +1,4 @@
-import type { GithubPrIdentity } from "@sdl/core/github-status";
+import type { GithubPrIdentity } from "@sdl/core/github-identity";
 
 import type { PrFeedbackDownloadData } from "../feedback-download.ts";
 

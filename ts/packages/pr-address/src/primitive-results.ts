@@ -1,6 +1,5 @@
 import type { z } from "zod";
 
-import type { GithubStatusChecks } from "@sdl/core/github-status";
 import type {
 	GithubPrDiscussionComment,
 	GithubPrLookupOutcome,
@@ -8,7 +7,8 @@ import type {
 	GithubPrReviewComment,
 	GithubPrReviewThread,
 	GithubPrSummary,
-} from "@sdl/core/github-pr-feedback";
+	GithubStatusChecks,
+} from "./api.ts";
 
 import type {
 	openPrsResultSchema,

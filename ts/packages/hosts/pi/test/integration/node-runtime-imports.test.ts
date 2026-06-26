@@ -46,7 +46,7 @@ const SDL_EXPORT_IMPORTS = [
 	"@sdl/sdl/context",
 	"@sdl/domain-primitives-transitional/pending-worktree",
 	"@sdl/sdl/pi-text-generation",
-	"@sdl/sdl/sdk",
+	"sdl-sdk",
 	"@sdl/domain-primitives-transitional/text-generation",
 	"@sdl/domain-primitives-transitional/text-repair",
 ] as const;
