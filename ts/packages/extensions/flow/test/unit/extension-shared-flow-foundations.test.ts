@@ -63,7 +63,7 @@ describe("project extension shared flow foundations", () => {
 		const branchLatestCommitSource = await readFile(BRANCH_LATEST_COMMIT_COMMAND_PATH, "utf8");
 		const worktreeSource = await readFile(SHARED_WORKTREE_PATH, "utf8");
 
-		expect(worktreeSource).toContain("@sdl/extension-kit/git");
+		expect(worktreeSource).toContain("@sdl/capability-kit/git");
 		expect(worktreeSource).toContain("createCliExecAdapter");
 		expect(worktreeSource).toContain("execSdlCommand");
 		for (const source of [autoslotSource, landSource, pullTrunkSource]) {

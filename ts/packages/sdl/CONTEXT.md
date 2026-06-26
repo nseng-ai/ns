@@ -102,32 +102,30 @@ An internal package such as `@sdl/ccc` that may own implementation orchestration
 
 ## Extension layering
 
-The end-state architecture for SDL capabilities relative to the extension API. Defined in ADR 0009. Below the SDK: neutral infra (`@sdl/core`, `@sdl/clinkr`, `@sdl/graphite`, `@sdl/brmem`). The SDK: the `@sdl/sdl` kernel plus `@sdl/sdl/sdk`. Above the SDK: capability extensions plus the Shared extension substrate.
+The end-state architecture for SDL capabilities relative to the SDL extension API (`@sdl/sdl/sdk`). Defined in ADR 0009. Below the SDK: neutral infra (`@sdl/core`, `@sdl/clinkr`, `@sdl/graphite`, `@sdl/brmem`). The SDK: the `@sdl/sdl` kernel plus `@sdl/sdl/sdk`. Above the SDK: the Capability Kit plus the Capabilities (first-party extensions) built on it.
 
 **Capability extension**:
-An above-SDK extension that contributes one Source Development Lifecycle capability — flow, handoff, objective, branch-context, plans, pr-address, slot, roaster, or aretro — depending only on host primitives, neutral infra, and curated peer surfaces. `ccc` is the orchestrator capability extension at the apex of the Extension dependency DAG.
+An above-SDK extension that contributes one Source Development Lifecycle capability — flow, handoff, objective, branch-context, plans, pr-address, slot, roaster, or aretro — depending only on host primitives, neutral infra, and curated provider Capability APIs. `ccc` is the highest-fan-out consumer in the Extension Dependency Graph, not a privileged tier.
 *Avoid*: standalone tool, kernel default, Pi runtime extension, below-SDK package, internal workspace export consumer.
 
-**Command face**:
-The capability-extension face the SDL kernel loads — `defineExtension()` command contributions registered as CLI and Pi mirror surfaces. The thin shell that converts `ctx` into gateways and calls the Gateway-injected peer core.
-*Avoid*: Peer API, programmatic sibling export, domain core, kernel internal.
+The kernel-loaded command surface — `defineExtension()` command contributions registered as CLI and Pi mirror surfaces — is the thin shell that converts `ctx` into gateways and calls the **Gateway-injected capability core**; it is an ordinary architectural layer, not a defined term.
 
-**Peer API**:
-The capability-extension face that sibling extensions consume — a curated, typed programmatic export imported in-process (chiefly by `ccc`) through the required `@sdl/<cap>/api` subpath. Siblings depend on the Peer API only, never on internal modules, package-private subpaths, or the sibling's CLI.
-*Avoid*: command contribution, internal module import, CLI invocation of a sibling, `ctx`-passing API, peer guts.
+**Capability API**:
+The capability face that a downstream **consumer** extension imports — a curated, typed programmatic export consumed in-process (chiefly by `ccc`) through the required `@sdl/<cap>/api` subpath. Consumers depend on the Capability API only, never on internal modules, package-private subpaths, or the provider's CLI.
+*Avoid*: Peer API, command contribution, internal module import, CLI invocation of a provider, `ctx`-passing API, provider guts.
 
-**Gateway-injected peer core**:
-The rule that capability domain logic and its Peer API take injected gateways such as `GitGateway`, never raw `SdlExtensionApi`. `ctx` lives only in the Command face, which converts `ctx`→gateways at the edge. This is what makes domain logic unit-testable with `InMemoryGitGateway`.
-*Avoid*: `ctx`-threaded domain logic, exec-string test seam, host access inside the domain core.
+**Gateway-injected capability core**:
+The rule that capability domain logic and its Capability API take injected gateways such as `GitGateway`, never raw `SdlExtensionApi`. `ctx` lives only in the kernel-loaded command surface, which converts `ctx`→gateways at the edge. This is what makes domain logic unit-testable with `InMemoryGitGateway`.
+*Avoid*: `ctx`-threaded domain logic, exec-string test seam, host access inside the domain logic.
 
-**Extension dependency DAG**:
-The acyclic, shallow graph of extension→extension dependencies through `@sdl/<cap>/api` Peer API subpaths. Capabilities are mostly leaves; `ccc` is the apex orchestrator. These are ordinary package edges — the kernel loader is unaware of them.
-*Avoid*: kernel-resolved dependency, capability-to-capability web, cyclic peer import.
+**Extension Dependency Graph**:
+The acyclic, shallow graph of consumer→provider dependencies through `@sdl/<cap>/api` Capability API subpaths. Capabilities are mostly leaves (providers); `ccc` is the highest-fan-out consumer. These are ordinary package edges — the kernel loader is unaware of them. The graph must stay acyclic; a cycle is debt (see the `@sdl/pi` ↔ `@sdl/ccc` cycle tracked by the `sdl-extension-architecture` Objective).
+*Avoid*: kernel-resolved dependency, capability-to-capability web, cyclic dependency edge.
 
-**Shared extension substrate** (`@sdl/extension-kit`):
-The above-SDK package holding cross-cutting, capability-agnostic code shared among capability extensions — the `ctx`→gateway adapter and shared result/error shapes — distinct from capability-specific logic, which stays in each capability behind its Peer API.
-*Avoid*: capability-specific home, below-SDK package, public author API, kitchen-sink utilities, `@sdl/core`.
+**Capability Kit** (`@sdl/capability-kit`):
+The above-SDK package holding cross-cutting, capability-agnostic code shared among capabilities — the `ctx`→gateway adapter and shared result/error shapes — distinct from capability-specific logic, which stays in each capability behind its Capability API. The name "Extension Kit" is reserved for a future general all-extensions substrate.
+*Avoid*: Extension Kit (reserved name), capability-specific home, below-SDK package, public author API, kitchen-sink utilities, `@sdl/core`.
 
 **Transitional domain-primitives package** (`@sdl/domain-primitives-transitional`):
-A below-SDK package that temporarily holds SDK-independent domain primitives extracted out of `@sdl/sdl` (checkpoint-flow/message, pending-worktree, temp-files, text-generation, text-repair). Explicitly disposable: it deletes to zero once every capability is an above-SDK extension and `ccc`/`pi` consume Peer APIs instead of transitional primitive subpaths. The `-transitional` suffix is deliberate — it marks the dependency as debt at every import site.
+A below-SDK package that temporarily holds SDK-independent domain primitives extracted out of `@sdl/sdl` (checkpoint-flow/message, pending-worktree, temp-files, text-generation, text-repair). Explicitly disposable: it deletes to zero once every capability is an above-SDK extension and `ccc`/`pi` consume Capability APIs instead of transitional primitive subpaths. The `-transitional` suffix is deliberate — it marks the dependency as debt at every import site.
 *Avoid*: permanent shared library, `@sdl/core` neutral infra, Shared extension substrate, forever-home.

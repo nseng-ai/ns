@@ -9,7 +9,7 @@ import { FakeClipboardGateway } from "../../src/gateways/clipboard.ts";
 import { SDL_CD_DIRECTIVE_FILE } from "../../src/shell/cd-directive.ts";
 import { runScenario, slotWorktree } from "../support/run-scenario.ts";
 
-describe("Slot Peer API", () => {
+describe("Slot Capability API", () => {
 	it("checks out the current branch and maps checkout outcome to camelCase", async () => {
 		const run = runScenario([], {
 			git: {
@@ -131,7 +131,7 @@ describe("Slot Peer API", () => {
 					worktrees: [slotWorktree("slot-01")],
 				},
 			});
-			// Simulate a non-CLI (Peer API) context where the CLI-only flag is false;
+			// Simulate a non-CLI (Capability API) context where the CLI-only flag is false;
 			// the explicit side-effect opt-in must still drive the write.
 			const slotClient = createSlotClient({
 				cwd: "/repo",
@@ -148,7 +148,7 @@ describe("Slot Peer API", () => {
 		}
 	});
 
-	it("maps lifecycle failures to typed Peer API failures", async () => {
+	it("maps lifecycle failures to typed Capability API failures", async () => {
 		const run = runScenario([], {
 			git: { localBranches: ["master"], worktrees: [slotWorktree("slot-01")] },
 		});

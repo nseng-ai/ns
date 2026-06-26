@@ -1,6 +1,6 @@
 # @sdl/pi
 
-`@sdl/pi` is the unified private TypeScript workspace package for this repository's Pi runtime integration. It contains both neutral Pi helper subpaths consumed by sibling packages and engineered project-local Pi extension implementations used by `.pi/extensions/*.ts` discovery adapters. CCC (`@sdl/ccc`) remains the separate orchestration layer for repo-opinionated command-and-control workflows; after the single-package cutover CCC may consume neutral `@sdl/pi/...` helper subpaths, while `@sdl/pi` adapters may delegate selected public command implementations to CCC-owned orchestration.
+`@sdl/pi` is the unified private TypeScript workspace package for this repository's Pi runtime integration. It contains both neutral Pi helper subpaths consumed by other workspace packages and engineered project-local Pi extension implementations used by `.pi/extensions/*.ts` discovery adapters. CCC (`@sdl/ccc`) remains the separate orchestration layer for repo-opinionated command-and-control workflows; after the single-package cutover CCC may consume neutral `@sdl/pi/...` helper subpaths, while `@sdl/pi` adapters may delegate selected public command implementations to CCC-owned orchestration.
 
 ## Language
 
@@ -21,7 +21,7 @@ A tested implementation area under `ts/packages/pi/src/<domain>/` for project-lo
 *Avoid*: old package boundary, leaf package, one root barrel.
 
 **Neutral Pi helper subpath**:
-A curated `@sdl/pi/...` package export for helper code intentionally reusable by sibling packages, including command acknowledgement, command I/O, command names, branch slug normalization, machine-envelope parsing, Objective selection/list/picker helpers, session replacement, skill expansion, terminal presentation, runner-subagent usage, and cmux/Pi runtime types.
+A curated `@sdl/pi/...` package export for helper code intentionally reusable by other workspace packages, including command acknowledgement, command I/O, command names, branch slug normalization, machine-envelope parsing, Objective selection/list/picker helpers, session replacement, skill expansion, terminal presentation, runner-subagent usage, and cmux/Pi runtime types.
 *Avoid*: project-local extension entrypoint, CCC orchestration, private source deep import.
 
 **Project-local extension entrypoint**:

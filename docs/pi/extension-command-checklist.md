@@ -1,7 +1,7 @@
 # Pi Extension Command Checklist
 
 This checklist is for agents adding, changing, or reviewing repo-owned Pi slash commands in this repository.
-It combines Pi's upstream extension API with this repo's command-registration policy.
+It combines the Pi runtime extension API with this repo's command-registration policy.
 
 ## Ground rules
 

@@ -15,7 +15,7 @@ A migration slice should delete old command names and old `/code:<name>` Pi mirr
 
 ## Built-in Slot command face
 
-`sdl slot ...` is the only supported Slot CLI surface. `@sdl/slot` remains the implementation and Peer API owner, but the package no longer exposes a standalone `slot` executable. Humans and agents should invoke Slot operations through `sdl slot`, including navigation commands and hidden agent-facing `sdl slot gt exec ...` helpers.
+`sdl slot ...` is the only supported Slot CLI surface. `@sdl/slot` remains the implementation and Capability API owner, but the package no longer exposes a standalone `slot` executable. Humans and agents should invoke Slot operations through `sdl slot`, including navigation commands and hidden agent-facing `sdl slot gt exec ...` helpers.
 
 Parent-shell directory changes require opt-in shell integration because a child process cannot `cd` its parent shell:
 
@@ -27,7 +27,7 @@ sdl slot shell show --shell zsh
 sdl slot shell install --shell zsh
 ```
 
-Both `sdl shell` and `sdl slot shell` install the canonical `sdl()` wrapper. The wrapper uses `SDL_CD_DIRECTIVE_FILE` and invokes `command sdl "$@"`; it does not install a `slot()` function. Programmatic first-party consumers should continue to use curated Slot Peer APIs such as `@sdl/slot/api` rather than parsing `sdl slot --format json` output.
+Both `sdl shell` and `sdl slot shell` install the canonical `sdl()` wrapper. The wrapper uses `SDL_CD_DIRECTIVE_FILE` and invokes `command sdl "$@"`; it does not install a `slot()` function. Programmatic first-party consumers should continue to use curated Slot Capability APIs such as `@sdl/slot/api` rather than parsing `sdl slot --format json` output.
 
 ## SDL extensions
 
@@ -120,13 +120,13 @@ Single-file SDL extension modules such as `.sdl/extensions/<name>.ts` are leaf a
 
 The command-first promotion rule is evidence driven: copy or localize behavior while one command is proving a seam, extract shared helpers inside the owning `.sdl/extensions/` package only when that keeps project-local authoring readable, and promote a helper into `@sdl/sdl/sdk` only after multiple command slices prove the shape or a single-command necessity is explicitly documented. Promotion should deepen the kernel boundary; it should not merely make one command easier by exposing implementation internals.
 
-## Internal workspace exports and Peer APIs
+## Internal workspace exports and Capability APIs
 
 `@sdl/sdl/package.json` marks only `./sdk` as `sdl.publicPluginApi`. Remaining non-SDK `@sdl/sdl` subpaths are narrow `sdl.internalWorkspaceExports` for SDL-owned kernel/presentation surfaces such as CLI/context/Pi text-generation integration; they are not plugin-author APIs and should not be documented as stable extension surfaces.
 
 SDK-independent domain primitives that used to live behind `@sdl/sdl/*` internal subpaths now live in the disposable below-SDK package `@sdl/domain-primitives-transitional/*`. That package is internal workspace debt, not public SDK author API.
 
-Sibling capability packages use Peer APIs, not the SDL SDK, for deliberate in-process dependencies. The ratified Peer API convention is `@sdl/<cap>/api`; package roots and command faces are not sibling domain APIs unless the owning package documents that surface explicitly.
+Consumer capability packages use Capability APIs, not the SDL SDK, for deliberate in-process dependencies. The ratified Capability API convention is `@sdl/<cap>/api`; package roots and command faces are not consumer-facing domain APIs unless the owning package documents that surface explicitly.
 
 ## Flow capability-area maturity
 

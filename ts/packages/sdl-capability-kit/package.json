@@ -1,5 +1,5 @@
 {
-	"name": "@sdl/extension-kit",
+	"name": "@sdl/capability-kit",
 	"version": "0.1.0",
 	"private": true,
 	"files": [
@@ -13,7 +13,7 @@
 	},
 	"scripts": {
 		"check": "tsgo -p tsconfig.json",
-		"test": "cd ../.. && vitest run --config vitest.config.ts packages/extension-kit/test"
+		"test": "cd ../.. && vitest run --config vitest.config.ts packages/sdl-capability-kit/test"
 	},
 	"dependencies": {
 		"@sdl/core": "workspace:*",

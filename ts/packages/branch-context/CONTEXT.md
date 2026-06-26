@@ -20,14 +20,8 @@ The workflow that derives a target operation, creates or tracks a branch, and st
 The workflow that attaches an existing plan source to a branch-context key while preserving Branch Memory namespace and key invariants.
 *Avoid*: Branch Memory put, saved-plan write, handoff pickup
 
-**Branch Context Command Face**:
-The CLI/Pi-facing shell that parses arguments, builds real **Gateways**, resolves host-context inputs, and formats user output.
-*Avoid*: Branch Context Core, Peer API, presentation-neutral workflow
+The package's command surface (the CLI/Pi-facing shell that parses arguments, builds real **Gateways**, resolves host-context inputs, and formats user output) and its domain logic (branch-context workflow logic over injected Git, Branch Memory, and Graphite **Gateways** plus resolved source values, which does not accept raw host context, construct real adapters, or format user-facing prose) are ordinary architectural layers, not defined terms. That domain logic's dependency on `@sdl/plans` is intentional for saved-plan sources, naming, validation, and selection.
 
-**Branch Context Peer API**:
-The curated `@sdl/branch-context/api` surface used by sibling runtime packages and their tests for in-process composition without broad package-root imports. Owning `@sdl/branch-context` tests may still import the package root when covering root compatibility.
+**Branch Context Capability API**:
+The curated `@sdl/branch-context/api` surface used by downstream consumer packages and their tests for in-process composition without broad package-root imports. Owning `@sdl/branch-context` tests may still import the package root when covering root compatibility.
 *Avoid*: private source import, command shell, root barrel contract
-
-**Branch Context Core**:
-Branch-context workflow logic over injected Git, Branch Memory, and Graphite **Gateways** plus resolved source values. It does not accept raw host context, construct real adapters, or format user-facing prose. Its dependency on `@sdl/plans` is intentional for saved-plan sources, naming, validation, and selection.
-*Avoid*: command face, formatting helper, gateway bag, real adapter construction

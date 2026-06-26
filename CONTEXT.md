@@ -75,3 +75,37 @@ The canonical interface to an external or non-deterministic capability — proce
 **Domain logic**:
 Deterministic code that consumes one or more **Gateways** to produce or transform domain values, such as assembling a worktree's status from several `ExecGateway` calls. It is not a seam to the outside world: substituting domain logic in a test fakes logic you own, so prefer faking the **Gateway** beneath it. Name domain logic with a domain-specific verb (`load`, `read`, `resolve`, `assemble`, …, chosen for the domain action, not a mandated prefix); do not mint `…Loader` noun-types or a `loaders`/`…Dependencies` collection that dresses stateless functions up as a stateful collaborator.
 *Avoid*: business logic, application logic, loader, `…Loader` type, `…Dependencies` injection bag
+
+### Extension Layering
+
+The SDL extension stack, bottom to top: **Neutral Infra** below the SDK (`@sdl/core`, `@sdl/clinkr`, `@sdl/graphite`, `@sdl/brmem`), the SDK (`@sdl/sdl` kernel + `@sdl/sdl/sdk`), the **Capability Kit**, and the **Capabilities** (first-party **Extensions**) built on it. Those first-party extensions form an **Extension Dependency Graph** that must stay acyclic. ADR 0012 holds the layering diagram and the rule that capability domain lives in the capabilities and never in the `@sdl/pi` runtime host or kernel; ADR 0009 holds the dependency-graph invariant. The SDK boundary is permeable downward only to concepts that prove general worth (opinionated patterns such as gateways stay above the SDK). These terms name its parts.
+
+The two leading nouns are orthogonal, not synonyms: an **Extension** is the technical construct; a **Capability** is a feature area implemented as one.
+
+**Extension**:
+The technical construct — a package that plugs into the SDK via `defineExtension()`. General and third-party-buildable: a first-party extension implements a **Capability**, but the construct is open to third-party extensions that are not SDL capabilities.
+*Avoid*: plugin, built-in, bundled command, "extension API" (bare — write `@sdl/sdl/sdk` "SDL extension API" or "Pi runtime extension API")
+
+**Capability**:
+A first-party SDL feature area (objectives, handoff, slot, flow, …) — a set of domain capabilities packaged as an **Extension** built on the **Capability Kit**. It exposes kernel-loaded CLI/Pi commands, and adds a **Capability API** only when a **consumer** extension depends on it in-process.
+*Avoid*: plugin, built-in, the bare construct "extension" (the extension is the mechanism; the capability is the feature area)
+
+**First-party extension**:
+An SDL-shipped, SDL-owned **Extension** that implements a **Capability** (flow, objective, handoff, slot, branch-context, plans, pr-address, roaster, aretro, and **CCC**), as opposed to a third-party extension.
+*Avoid*: built-in extension, bundled extension (reserve for packaging), core extension
+
+**Capability Kit**:
+The shared substrate (`@sdl/capability-kit`) that first-party **Capabilities** are built on — the `ctx`→**Gateway** adapter and shared result/error shapes. It is agnostic about *which* capability (holds no capability domain) but is purpose-built for building capabilities. The name **"Extension Kit"** is reserved for a future general substrate for building *all* extensions, third-party included; do not apply it to this first-party kit.
+*Avoid*: Extension Kit (reserved name), extension framework, above-SDK substrate, capability-kit core
+
+**Capability API**:
+A **Capability**'s curated, typed in-process export at the required `@sdl/<cap>/api` subpath, imported by a **consumer** (downstream) extension (chiefly **CCC**) — never package roots or internals. Added only where a consumer needs it.
+*Avoid*: Peer API, sibling API, public API, package-root export, internal subpath, "extension API" (bare)
+
+**Consumer / Provider**:
+The directed edge of the **Extension Dependency Graph**: a **consumer** (downstream) extension depends on a **provider** (upstream) extension by importing its **Capability API**. The graph is acyclic — a cycle is debt, not design.
+*Avoid*: sibling, peer, peer dependency
+
+**CCC**:
+A **first-party extension** (the cmux command-and-control surface) that composes cmux, Graphite, and other first-party extensions through their **Capability APIs**; it is the highest-fan-out **consumer** in the **Extension Dependency Graph** but holds no privileged tier or status.
+*Avoid*: orchestrator extension, apex extension, kernel orchestrator

@@ -14,7 +14,7 @@ import {
 } from "@sdl/core/submit";
 import type { TextGenerator } from "@sdl/core/submit";
 
-import { createSdlCommandRunner, createSdlGitGateway } from "@sdl/extension-kit";
+import { createSdlCommandRunner, createSdlGitGateway } from "@sdl/capability-kit";
 import type { SdlExtensionApi } from "@sdl/sdl/sdk";
 
 export { preparePrDescription } from "@sdl/core/submit";

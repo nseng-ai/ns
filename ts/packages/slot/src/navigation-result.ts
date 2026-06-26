@@ -11,7 +11,7 @@ export interface NavigationResultFields {
 }
 
 /**
- * Canonical side-effect contract for checkout navigation. The Peer API
+ * Canonical side-effect contract for checkout navigation. The Capability API
  * (`api.ts`) re-exports this as `SlotCheckoutSideEffects`; both edges bind to
  * this single type so the two surfaces cannot drift.
  */
