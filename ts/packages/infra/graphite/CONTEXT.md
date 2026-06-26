@@ -13,8 +13,8 @@ A real gateway or helper that invokes the `gt` binary and converts command outpu
 *Avoid*: workflow policy, command surface, presentation renderer.
 
 **Graphite metadata DB**:
-Graphite's local sqlite metadata database and the schema/query/parsing helpers for branch rows, parent/child relationships, trunk markers, and child-list corruption diagnostics.
-*Avoid*: Git refs, Branch Memory, authoritative remote state.
+Graphite's local sqlite metadata database and the schema/query/parsing helpers for branch rows, parent/child relationships, trunk markers, and child-list corruption diagnostics. Source code must not ad-hoc shell out to `sqlite3` against this database from workflow logic; route reads through code SDL controls, such as `@sdl/graphite` metadata helpers or a hidden `sdl flow exec ...` operation that owns the exact query and output contract.
+*Avoid*: Git refs, Branch Memory, authoritative remote state, command-local raw sqlite query.
 
 **Graphite topology**:
 The metadata-derived parent/child graph used for stack walking, fork detection, subtree traversal, and live-ref reconciliation.

@@ -138,6 +138,10 @@ export const GRAPHITE_BRANCH_METADATA_QUERY =
 	"SELECT branch_name, parent_branch_name, children, validation_result FROM branch_metadata";
 export const GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY = "PRAGMA table_info(branch_metadata)";
 
+export function graphiteBranchMetadataReadonlyJsonArgs(dbPath: string): string[] {
+	return ["-readonly", "-json", dbPath, GRAPHITE_BRANCH_METADATA_QUERY];
+}
+
 export function graphiteMetadataDbPath(commonGitDir: string): string {
 	return join(commonGitDir, GRAPHITE_METADATA_DB_NAME);
 }

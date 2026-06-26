@@ -2,7 +2,6 @@ import { join } from "node:path";
 
 import { formatCommand } from "@sdl/core/exec";
 import {
-	GRAPHITE_BRANCH_METADATA_QUERY,
 	GRAPHITE_METADATA_DB_NAME,
 	detectGraphiteForkViolations,
 	parseGraphiteBranchMetadataRows,
@@ -51,12 +50,12 @@ export async function loadGraphiteTopology(
 	repoRoot: string,
 	dbPath: string,
 ): Promise<LandStackResult<GraphiteTopology>> {
-	const args = ["-readonly", "-json", dbPath, GRAPHITE_BRANCH_METADATA_QUERY];
-	const result = await exec(pi, "sqlite3", args, repoRoot, SQLITE_TIMEOUT_MS);
+	const args = ["flow", "exec", "read-graphite-branch-metadata", "--db-path", dbPath];
+	const result = await exec(pi, "sdl", args, repoRoot, SQLITE_TIMEOUT_MS);
 	if (result.code !== 0) {
 		return failure(
 			landStackFailure(classifyTopologyReadFailure(result.stderr, dbPath), {
-				commandDisplay: formatCommand("sqlite3", args),
+				commandDisplay: formatCommand("sdl", args),
 				result,
 			}),
 		);
@@ -68,9 +67,9 @@ export async function loadGraphiteTopology(
 	} catch {
 		return failure(
 			landStackFailure(
-				`sqlite3 returned unparsable JSON for the Graphite metadata DB at ${dbPath}; refusing to land.`,
+				`sdl flow exec returned unparsable JSON for the Graphite metadata DB at ${dbPath}; refusing to land.`,
 				{
-					commandDisplay: formatCommand("sqlite3", args),
+					commandDisplay: formatCommand("sdl", args),
 					result,
 				},
 			),
@@ -80,9 +79,9 @@ export async function loadGraphiteTopology(
 	if (parsed.type === "not_array") {
 		return failure(
 			landStackFailure(
-				`sqlite3 returned non-array JSON for the Graphite metadata DB at ${dbPath}; refusing to land.`,
+				`sdl flow exec returned non-array JSON for the Graphite metadata DB at ${dbPath}; refusing to land.`,
 				{
-					commandDisplay: formatCommand("sqlite3", args),
+					commandDisplay: formatCommand("sdl", args),
 					result,
 				},
 			),
