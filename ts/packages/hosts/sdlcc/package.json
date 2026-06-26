@@ -16,7 +16,7 @@
     "@opentui/core": "catalog:",
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
-    "@sdl/pi": "workspace:*",
+    "@sdl/objective": "workspace:*",
     "@sdl/slot": "workspace:*",
     "zod": "catalog:"
   }

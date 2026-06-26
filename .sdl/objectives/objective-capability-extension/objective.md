@@ -75,7 +75,7 @@ This Objective is execution-friendly for `objective-stack-impl` under the bounda
 
 Assumptions:
 
-- The `@sdl/<cap>/api` convention and gateway-injected-core rule ratified for Slot/Branch-Context/Plans apply cleanly to objective; `@sdl/objective/api` can be consumed by `ccc`/`sdlcc` without reintroducing a package cycle (Slot validated this shape for a `ccc`/`sdlcc`-consumed capability).
+- The `@sdl/<cap>/api` convention and gateway-injected-core rule ratified for Slot/Branch-Context/Plans apply cleanly to objective; this is now validated for `ccc`/`sdlcc` consumption through `@sdl/objective/api` without reintroducing an Objective↔Pi package cycle.
 - The objectives domain in `@sdl/pi/objectives/*` is separable from genuine Pi presentation concerns; `extension.ts` (~860 lines) likely mixes domain selection/listing logic with Pi-specific presentation that should stay behind a thin shell.
 - The current broad implementation plan is too large for one pass; the durable path is four separate slices with independent gates: runner-usage neutralization, Objective API relocation, consumer repoint, and Pi→CCC cycle break.
 - The runner-subagent usage JSONL parser/totals seam belongs in neutral `@sdl/core/runner-usage`, so `@sdl/objective` can consume it without importing the Pi Presentation Host.

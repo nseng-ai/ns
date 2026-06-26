@@ -5,6 +5,7 @@ import {
 	buildObjectiveSkillPrompt,
 	chooseActiveObjectiveSlug,
 	objectiveSelectionContextFromCommandContext,
+	withObjectiveCliSelectionHost,
 } from "./selection.ts";
 
 import {
@@ -597,5 +598,5 @@ export default function objectiveExtension(pi: ObjectiveExtensionAPI): void {
 		});
 	}
 
-	registerObjectiveStackImplCommand(pi);
+	registerObjectiveStackImplCommand(withObjectiveCliSelectionHost(pi));
 }
