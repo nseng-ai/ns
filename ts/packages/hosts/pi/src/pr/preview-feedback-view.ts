@@ -15,6 +15,7 @@ const FALLBACK_TERMINAL_ROWS = 24;
 const MIN_RENDER_WIDTH = 40;
 
 type PreviewThemeColor = "text" | "muted" | "accent" | "warning" | "dim" | "border";
+type PrPreviewFeedbackViewMode = "rich" | "compact";
 
 export type {
 	PrPreviewFeedbackComment,
@@ -52,6 +53,7 @@ export class PrPreviewFeedbackView implements Component {
 	private selectedIndex: number;
 	private listScroll: number;
 	private detailScroll: number;
+	private viewMode: PrPreviewFeedbackViewMode;
 
 	constructor(options: PrPreviewFeedbackViewOptions) {
 		this.tui = options.tui;
@@ -61,6 +63,7 @@ export class PrPreviewFeedbackView implements Component {
 		this.selectedIndex = 0;
 		this.listScroll = 0;
 		this.detailScroll = 0;
+		this.viewMode = "rich";
 	}
 
 	render(width: number): string[] {
@@ -70,7 +73,7 @@ export class PrPreviewFeedbackView implements Component {
 		const header = buildPreviewHeaderLines(this.model).map((line) => this.color("text", line));
 		const footer = this.color(
 			"dim",
-			"↑↓/jk select · PgUp/PgDn scroll details · q/esc close · preview only",
+			`↑↓/jk select · v view: ${this.viewMode} · PgUp/PgDn scroll details · q/esc close · preview only`,
 		);
 		const chromeRows = 2 + header.length + 1 + 1;
 		const bodyRows = Math.max(1, height - chromeRows);
@@ -98,6 +101,10 @@ export class PrPreviewFeedbackView implements Component {
 			this.moveSelection(-1);
 			return;
 		}
+		if (data === "v") {
+			this.toggleViewMode();
+			return;
+		}
 		if (matchesKey(data, Key.pageDown) || data === " ") {
 			this.scrollDetails(8);
 			return;
@@ -116,36 +123,46 @@ export class PrPreviewFeedbackView implements Component {
 	private renderBody(width: number, rows: number): string[] {
 		if (this.model.threads.length === 0) return this.renderEmptyBody(width, rows);
 		this.selectedIndex = clamp(this.selectedIndex, 0, this.model.threads.length - 1);
+		const listRows = threadListRows({ totalRows: rows, threadCount: this.model.threads.length });
+		const detailRows = Math.max(1, rows - listRows - 2);
 		this.listScroll = reconcileScroll({
 			scroll: this.listScroll,
 			anchor: this.selectedIndex,
-			areaHeight: rows,
+			areaHeight: listRows,
 			totalLines: this.model.threads.length,
 		});
-		const preferredLeftWidth = clamp(Math.floor(width * 0.32), 28, 52);
-		const leftWidth = Math.min(preferredLeftWidth, Math.max(20, width - 24));
-		const rightWidth = Math.max(12, width - leftWidth - 3);
+		return [
+			...this.renderThreadListLines(width, listRows),
+			this.color("dim", "─".repeat(Math.max(1, width))),
+			this.color(
+				"muted",
+				`Selected review thread ${this.selectedIndex + 1}/${this.model.threads.length} · ${this.viewMode} view`,
+			),
+			...this.renderSelectedThreadDetailLines(width, detailRows),
+		];
+	}
+
+	private renderThreadListLines(width: number, rows: number): string[] {
 		const visibleThreads = this.model.threads.slice(this.listScroll, this.listScroll + rows);
+		return Array.from({ length: rows }, (_unused, row) => {
+			const thread = visibleThreads[row];
+			if (thread === undefined) return "";
+			return this.renderThreadRow(thread, this.listScroll + row, width);
+		});
+	}
+
+	private renderSelectedThreadDetailLines(width: number, rows: number): string[] {
 		const detailLines = this.renderDetailLines(this.model.threads[this.selectedIndex]);
 		const viewport = sliceWrappedDetailLinesForViewport({
 			lines: detailLines,
-			width: rightWidth,
+			width,
 			rows,
 			scroll: this.detailScroll,
 		});
 		this.detailScroll = viewport.scroll;
-		const rightLines = viewport.lines;
-		const lines: string[] = [];
-		for (let row = 0; row < rows; row += 1) {
-			const thread = visibleThreads[row];
-			const actualIndex = this.listScroll + row;
-			const left = thread === undefined ? "" : this.renderThreadRow(thread, actualIndex, leftWidth);
-			const right = rightLines[row] ?? "";
-			lines.push(
-				`${fitToWidth(left, leftWidth)} ${this.color("dim", "│")} ${fitToWidth(right, rightWidth)}`,
-			);
-		}
-		return lines;
+		return Array.from({ length: rows }, (_unused, row) =>
+			fitToWidth(viewport.lines[row] ?? "", width),
+		);
 	}
 
 	private renderEmptyBody(width: number, rows: number): string[] {
@@ -154,7 +171,51 @@ export class PrPreviewFeedbackView implements Component {
 	}
 
 	private renderDetailLines(thread: PrPreviewFeedbackThread | undefined): string[] {
-		return buildThreadDetailRows(thread).map((row) => this.renderDetailLine(row));
+		if (this.viewMode === "compact") {
+			return buildThreadDetailRows(thread).map((row) => this.renderDetailLine(row));
+		}
+		return this.renderRichDetailLines(thread);
+	}
+
+	private renderRichDetailLines(thread: PrPreviewFeedbackThread | undefined): string[] {
+		const rows = buildThreadDetailRows(thread);
+		const finding = rows.find((row) => row.role === "finding")?.text ?? "No thread selected.";
+		const metadata = thread === undefined ? [] : this.richMetadataParts(thread, rows);
+		const lines = [
+			this.color("accent", `▣ ${finding}`),
+			...(metadata.length === 0 ? [] : [this.color("muted", `  ${metadata.join(" · ")}`)]),
+			"",
+		];
+		let skippedHeaderFinding = false;
+		let skippedHeaderReview = false;
+		let skippedHeaderSource = false;
+		for (const row of rows) {
+			if (row.role === "finding" && !skippedHeaderFinding) {
+				skippedHeaderFinding = true;
+				continue;
+			}
+			if (row.role === "review" && !skippedHeaderReview) {
+				skippedHeaderReview = true;
+				continue;
+			}
+			if (row.role === "source" && !skippedHeaderSource) {
+				skippedHeaderSource = true;
+				continue;
+			}
+			lines.push(this.renderRichDetailLine(row));
+		}
+		return lines;
+	}
+
+	private richMetadataParts(
+		thread: PrPreviewFeedbackThread,
+		rows: readonly PrPreviewFeedbackDetailRow[],
+	): string[] {
+		const review = rows.find((row) => row.role === "review")?.text;
+		const source = rows.find((row) => row.role === "source")?.text;
+		return [review, formatThreadCommentSummary(thread), source].filter(
+			(part): part is string => part !== undefined && part !== "",
+		);
 	}
 
 	private renderDetailLine(row: PrPreviewFeedbackDetailRow): string {
@@ -171,6 +232,25 @@ export class PrPreviewFeedbackView implements Component {
 				return this.color("dim", `  ${row.text}`);
 			case "comment":
 				return this.color("muted", row.text);
+			case "spacer":
+				return "";
+		}
+	}
+
+	private renderRichDetailLine(row: PrPreviewFeedbackDetailRow): string {
+		switch (row.role) {
+			case "finding":
+				return this.color("accent", `  ▣ ${row.text}`);
+			case "review":
+				return this.color("muted", `  ${row.text}`);
+			case "body":
+				return this.color("text", `  │ ${row.text}`);
+			case "evidence":
+				return this.color("warning", `  Evidence: ${row.text}`);
+			case "source":
+				return this.color("dim", `  Source: ${row.text}`);
+			case "comment":
+				return this.color("muted", `  ─ ${row.text}`);
 			case "spacer":
 				return "";
 		}
@@ -201,6 +281,12 @@ export class PrPreviewFeedbackView implements Component {
 		this.tui.requestRender();
 	}
 
+	private toggleViewMode(): void {
+		this.viewMode = this.viewMode === "rich" ? "compact" : "rich";
+		this.detailScroll = 0;
+		this.tui.requestRender();
+	}
+
 	private color(color: PreviewThemeColor, value: string): string {
 		return this.theme.fg(color, value);
 	}
@@ -215,6 +301,12 @@ export class PrPreviewFeedbackView implements Component {
 	private boxLine(value: string, width: number): string {
 		return this.color("border", "│") + fitToWidth(value, width) + this.color("border", "│");
 	}
+}
+
+export function threadListRows(options: { totalRows: number; threadCount: number }): number {
+	const availableRows = Math.max(1, options.totalRows - 3);
+	const preferredRows = Math.max(4, Math.floor(options.totalRows * 0.55));
+	return clamp(Math.min(options.threadCount, preferredRows), 1, availableRows);
 }
 
 export function sliceWrappedDetailLinesForViewport(
@@ -259,6 +351,15 @@ export function buildEmptyStateLines(model: PrPreviewFeedbackViewModel): string[
 		`Automation-like discussion comments excluded: ${model.counts.excluded_automation_comments}`,
 		...buildCountMismatchNotice(model),
 	];
+}
+
+function formatThreadCommentSummary(thread: PrPreviewFeedbackThread): string {
+	const comments =
+		thread.comments.length === 1 ? "1 comment" : `${thread.comments.length} comments`;
+	const status = [thread.is_outdated ? "outdated" : null, thread.is_resolved ? "resolved" : null]
+		.filter((part): part is string => part !== null)
+		.join(", ");
+	return status === "" ? comments : `${comments} · ${status}`;
 }
 
 function wrapDetailLines(lines: readonly string[], width: number): string[] {
