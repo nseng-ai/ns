@@ -95,24 +95,9 @@ A skill is a set of local instructions to follow that is stored in a `SKILL.md` 
 
 ### How to use skills
 
-- Discovery: Rely on installed skills and their `SKILL.md` frontmatter. Do not maintain a duplicate list in this file.
-- Trigger rules: If the user names an installed skill (with `$SkillName` or plain text) OR the task clearly matches an installed skill, you must use that skill for that turn. Multiple mentions mean use them all. Do not carry skills across turns unless re-mentioned.
-- Missing/blocked: If a named skill is not installed or its `SKILL.md` cannot be read, say so briefly and continue with the best fallback.
-- How to use a skill (progressive disclosure):
-  1. After deciding to use a skill, open its `SKILL.md`. Read only enough to follow the workflow.
-  2. When `SKILL.md` references relative paths, resolve them relative to the skill directory first.
-  3. If `SKILL.md` points to extra folders such as `references/`, load only the specific files needed for the request; don't bulk-load everything.
-  4. If `scripts/` exist, prefer running or patching them instead of retyping large code blocks.
-  5. If `assets/` or templates exist, reuse them instead of recreating from scratch.
-- Coordination and sequencing:
-  - If multiple skills apply, choose the minimal set that covers the request and state the order you'll use them.
-  - Announce which skill(s) you're using and why in one short line.
-  - If you skip an obvious skill, say why.
-- Context hygiene:
-  - Keep context small: summarize long sections instead of pasting them; only load extra files when needed.
-  - Avoid deep reference-chasing: prefer opening only files directly linked from `SKILL.md` unless you're blocked.
-  - When variants exist, pick only the relevant reference file(s) and note that choice.
-- Safety and fallback: If a skill can't be applied cleanly, state the issue, pick the next-best approach, and continue.
+- **Trigger rules**: If the user names an installed skill (with `$SkillName` or plain text) OR the task clearly matches an installed skill, you must use that skill for that turn. Multiple mentions mean use them all. Do not carry skills across turns unless re-mentioned.
+- **Progressive disclosure of skill internals**: open the `SKILL.md` and read only enough to follow the workflow; resolve relative paths from the skill directory; load only the specific `references/` file the request needs (don't bulk-load); prefer running or patching `scripts/` over retyping large code blocks; reuse `assets/`/templates instead of recreating them.
+- **Missing/blocked**: If a named skill is not installed or its `SKILL.md` cannot be read, say so briefly and continue with the best fallback.
 
 Skill-authoring and skill-management conventions live in `docs/skill-conventions.md` — read it before creating, editing, installing, renaming, or publishing skills, or before touching anything under `skills/` or `.agents/skills/`. One fact from it is load-bearing repo-wide: real directories under `.agents/skills/` are vendored third-party code; all code review agents must ignore their embedded upstream code for normal linting, typechecking, review, and cleanup expectations, and should only flag integration-boundary issues unless explicitly asked to review the vendored dependency itself — details in `docs/skill-conventions.md`.
 
@@ -120,54 +105,31 @@ Skill-authoring and skill-management conventions live in `docs/skill-conventions
 
 ### CLI Design Discipline (`sdl-cli-design`)
 
-The canonical authority for **authoring** sdl CLIs — hard gates, the human tier (clig.dev), the agent/`exec` tier, danger tiers, naming, the Clinkr API map, and a pre-ship checklist — is the internal `sdl-cli-design` skill (`skills/sdl-cli-design/SKILL.md`, ADRs `docs/adr/0010`–`0014`). It is invoke-only: load it via `/skill:sdl-cli-design` whenever you design, author, or review a CLI command, command group, `exec` subgroup, machine output shape, exit/error behavior, or destructive flow.
+Invoke-only: load `/skill:sdl-cli-design` (`skills/sdl-cli-design/SKILL.md`) whenever you design, author, or review a CLI command, command group, `exec` subgroup, machine output shape, exit/error behavior, or destructive flow. The skill holds the full reasoning; two binding hard gates stay ambient here:
 
-Two binding hard gates stay ambient here; the skill holds the full reasoning:
-
-- **CLI scenario tests** must cover `--version`, `--runtime`, and `-h` alongside operation tests when those surfaces are part of the user-facing contract. Tests live in the owning package test tree (for example, `ts/packages/roaster/test/scenario/`).
-- **Skill/agent-only commands** MUST be registered under a nested `exec` `ClinkrGroup` constructed with `isHidden: true` (immutable after construction) — e.g., `brmem exec resolve-prompt`, `ccc exec cmux-workspace-summary`. This keeps top-level `--help` focused on commands a human would type.
-
-The historical Python `sdl.plugins` smoke-test surface has been retired; do not add new Python plugin tests unless a new Python plugin system is deliberately reintroduced.
+- **CLI scenario tests** must cover `--version`, `--runtime`, and `-h` alongside operation tests when those surfaces are part of the user-facing contract.
+- **Skill/agent-only commands** MUST be registered under a nested `exec` `ClinkrGroup` constructed with `isHidden: true` (immutable after construction), keeping top-level `--help` focused on commands a human would type.
 
 ### TypeScript Style
 
-When writing, reviewing, or refactoring TypeScript, strictly follow the `typescript-style` skill (`.agents/skills/typescript-style/SKILL.md`) and the repo-specific `sdl-typescript` overlay (`.agents/skills/sdl-typescript/SKILL.md`).
-
-- Load the skill before TypeScript work and read `.agents/skills/typescript-style/core-rules.md` before implementation.
-- Load `.agents/skills/sdl-typescript/SKILL.md` for sdl-tools' TypeScript toolchain, import, compiler-baseline, local-ban rules, and tsgo-only typecheck policy.
-- Use `.agents/skills/typescript-style/idioms.md` for coding idioms and `.agents/skills/typescript-style/checklist.md` before declaring TypeScript work complete.
-- Load the relevant `.agents/skills/typescript-style/references/` document before designing TypeScript abstractions covered by the skill, including backend/provider boundaries, error handling, plugin/extension APIs, stateful workflow/context code, or TUI code.
-- Treat the skill as the default TypeScript authority while still honoring the skill's precedence rules for explicit project tooling, public API compatibility, and established local conventions.
+Before any TypeScript work, load the `typescript-style` skill (`.agents/skills/typescript-style/SKILL.md`) and the repo-specific `sdl-typescript` overlay (`.agents/skills/sdl-typescript/SKILL.md`); they carry their own conditional-loading guidance (core rules, idioms, checklist, and `references/` for specific abstractions) and the precedence rules for explicit project tooling and established local conventions.
 
 ### TypeScript Test Execution
 
-Current `ts/` package tests are Vitest-backed. The TS test suite is expected to be fast: for TS implementation plans, grill sessions, and completion criteria, default to running the full TS validation commands instead of asking whether to narrow validation scope. For TypeScript typechecking in this repo, use tsgo only through `just ts-check` or `pnpm --dir ts run check`; do not use legacy compiler routes unless the user explicitly asks for parity/debugging. Use pnpm/Vitest commands such as `pnpm --dir ts run test`, `pnpm --dir ts run check`, package scripts when debugging a specific failure, or `just ts-test`. Do not add new package tests that depend on Bun's test runner.
+`ts/` package tests are Vitest-backed and fast: default to running the full TS validation suite rather than asking whether to narrow scope. Typecheck only through tsgo via `just ts-check` or `pnpm --dir ts run check` — no legacy compiler routes unless the user explicitly asks for parity/debugging. Do not add new package tests that depend on Bun's test runner.
 
-If you are working in an out-of-scope template or standalone Bun project that intentionally still uses Bun's test runner, run direct Bun tests sequentially: `bun test --sequential`.
+The only exception: in an out-of-scope template or standalone Bun project that intentionally still uses Bun's runner, run direct Bun tests sequentially (`bun test --sequential`).
 
 ## Source Control & GitHub
 
 ### Branch Creation and PR Submission (Graphite)
 
-This repo uses Graphite (`gt`) as the default tool for branch and PR workflow. Whenever you create branches, amend commits, submit or update PRs, or navigate and reshape stacks, always consult the `graphite` skill (`.claude/skills/graphite/SKILL.md`) first. Prefer `gt` over raw `git` for these operations:
-
-- Creating branches: use `gt create <name> -m "<msg>"` instead of `git checkout -b` + `git commit`.
-- Amending the current branch: use `gt modify -m "<msg>"` instead of `git commit --amend`.
-- Submitting / updating PRs: use `gt submit --no-interactive` instead of `git push` / `gh pr create`.
-- Navigating and reshaping stacks: `gt up` / `gt down` / `gt ls` / `gt restack` / `gt move`.
-
-Fall back to raw `git` only when `gt` cannot express the operation (e.g., surgical `git rebase` during conflict resolution — see the `graphite` skill's "Surgical Rebasing" section).
+This repo uses Graphite (`gt`) as the default tool for branch and PR workflow. Whenever you create branches, amend commits, submit or update PRs, or navigate and reshape stacks, consult the `graphite` skill (`.claude/skills/graphite/SKILL.md`) first and prefer `gt` over raw `git`. Fall back to raw `git` only when `gt` cannot express the operation (e.g., surgical `git rebase` during conflict resolution — see the skill's "Surgical Rebasing" section).
 
 ### Runtime Graphite Dependency Boundary
 
-Graphite is the contributor workflow tool for this repo, but runtime package code must not depend on Graphite by default. Before accepting a Graphite gateway, constructing a real Graphite adapter, shelling out to `gt`, or adding Graphite to a CLI context, first check whether the same behavior can be satisfied through the git gateway.
-
-- Use `GitGateway` for ordinary repository facts: current branch, trunk/base branch, local branch existence, refs, commit ranges, patch IDs, and worktrees.
-- A command or command group may depend on Graphite only when Graphite is part of its explicit user-facing contract: the command path, help text, and docs should name Graphite or `gt`, and the behavior should require Graphite stack metadata rather than plain git history.
-- `slot gt` is the canonical opt-in Graphite command group and should be excluded from Graphite-boundary audits. Its name is the contract.
-- Do not parse human-facing Graphite display output (`gt ls`, `gt ls --stack`, `gt log`, `gt branch info`) for machine topology decisions. Use Graphite plumbing such as `gt parent --no-interactive` / `gt children --no-interactive`, or `slot gt exec stack-branches` / `--format json` for current-stack topology. Display commands are fine for human visual confirmation only.
-- Do not introduce Graphite dependencies into generic workflows, package contexts, or skill `exec` helpers as a convenience for stack discovery. If a workflow needs Graphite-specific stack semantics, put that behavior behind an explicit Graphite-named command or command group.
+Runtime package code must not depend on Graphite by default; prefer `GitGateway`. Before adding any Graphite dependency (gateway, `gt` shell-out, Graphite in a CLI context) to runtime code, read `docs/graphite-dependency-boundary.md`. (`slot gt` is the sanctioned exception.)
 
 ### GitHub Backend Interactions
 
-When adding or editing any code that interacts with the GitHub backend — whether through GraphQL queries, REST API calls, or `gh` CLI commands — always consult the `code-gh` skill (`.claude/skills/code-gh/SKILL.md`) and its references first. This ensures correct API selection (REST vs GraphQL), proper rate-limit awareness, and consistency with existing gateway patterns.
+When adding or editing code that interacts with the GitHub backend (GraphQL, REST, or `gh` CLI), consult the `code-gh` skill (`.claude/skills/code-gh/SKILL.md`) first for correct API selection, rate-limit awareness, and gateway consistency.
