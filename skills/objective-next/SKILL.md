@@ -1,5 +1,6 @@
 ---
 name: objective-next
+disable-model-invocation: true
 description: "Recommend the next useful work for an active Objective. Use when asking what to do next on an existing Objective: 'what's next on this objective', 'recommend next work', 'next step for objective X'. Recommend-first by default; routes clear stale tracking through objective-update before continuing, and may route to confirmed execution when durable Objective policy allows it. To create a new Objective use objective-create."
 ---
 

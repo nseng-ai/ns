@@ -1,5 +1,6 @@
 ---
 name: objective-stack-impl
+disable-model-invocation: true
 description: Implement one sdl Objective as a small Graphite stack from the current agent session. Use when the user asks to implement an Objective as a stack outside the Pi /objective:stack-impl picker, or when a wrapper injects an explicit slug.
 ---
 

@@ -1,5 +1,6 @@
 ---
 name: dignified-python
+disable-model-invocation: true
 description: "Production Python coding standards with automatic version detection (3.10-3.13). Use when writing, reviewing, or refactoring Python to ensure adherence to modern type syntax, LBYL exception handling, pathlib operations, ABC-based interfaces, and production-tested patterns."
 references:
   - dignified-python-core

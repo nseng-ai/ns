@@ -1,5 +1,6 @@
 ---
 name: ccc-available-work
+disable-model-invocation: true
 description: "Use when the user asks what branch or Objective work can be continued right now, which branches are available because no cmux workspace/tab is open, or which live Objectives/branches are not already active in cmux. Produces a read-only continuation recommendation from cmux, Git/Graphite, Objective, PR, and diff evidence."
 metadata:
   internal: true

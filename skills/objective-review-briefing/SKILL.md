@@ -1,5 +1,6 @@
 ---
 name: objective-review-briefing
+disable-model-invocation: true
 description: "Use when asked to create, produce, reconstruct, or write a review briefing/basis for an sdl Objective, especially post-merge Objective review, closed Objective review, delivered-scope review, Objective archaeology, or materializing an Objective's delivered PR/commit set for arbitrary downstream review. Produces an objective-owned Branch Memory briefing and is read-only on Objective records."
 metadata:
   internal: true

@@ -1,5 +1,6 @@
 ---
 name: ccc-sidebar
+disable-model-invocation: true
 description: Use when /ccc:sidebar:session-summary or /ccc:sidebar:branch-state-summary asks a Pi session to update the caller cmux sidebar/workspace card; generate compact title and one-line Goal/State description, then run one ccc exec command. /ccc:sidebar:objective-summary is handled directly by deterministic extension code and should not invoke this skill.
 metadata:
   internal: true

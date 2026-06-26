@@ -1,5 +1,6 @@
 ---
 name: code-gt-linearize-descendants
+disable-model-invocation: true
 description: Use when the user asks to linearize, reorder, consolidate, or collapse descendants of a specific Graphite stack branch; identify independent descendant PRs; or clean up accidental Graphite stack forks. Produces a proposal first, then mutates only after confirmation.
 ---
 

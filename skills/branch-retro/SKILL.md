@@ -1,5 +1,6 @@
 ---
 name: branch-retro
+disable-model-invocation: true
 description: "Use when the user asks for a branch/session retrospective, wants to know what would have made branch work faster/smaller/higher quality, or asks to run/interpret `aretro` evidence. Collects deterministic evidence with `aretro exec collect-evidence` and turns it into semantic recommendations without editing files unless requested."
 allowed-tools:
   - "Bash(*aretro-run *)"

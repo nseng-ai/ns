@@ -1,5 +1,6 @@
 ---
 name: python-fake-driven-testing
+disable-model-invocation: true
 description: "Python fake-driven testing architecture. Use when writing or reviewing tests for code with external dependencies, gateway interfaces, fakes, or mock-to-fake conversion."
 ---
 

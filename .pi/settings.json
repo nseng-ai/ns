@@ -8,6 +8,25 @@
     "-skills/code-just-fix",
     "-skills/create-bun-typescript-project",
     "-skills/create-python-dev-cli",
-    "-skills/create-python-package"
+    "-skills/create-python-package",
+    "-skills/branch-context-from-plan",
+    "-skills/branch-context-impl",
+    "-skills/ccc-sidebar",
+    "-skills/enriched-plan-save",
+    "-skills/handoff-create",
+    "-skills/handoff-pickup",
+    "-skills/objective-close",
+    "-skills/objective-create",
+    "-skills/objective-next",
+    "-skills/objective-stack-impl",
+    "-skills/objective-update",
+    "-skills/pi-grill-ui",
+    "-skills/pi-grill-with-docs-ui",
+    "-skills/branch-retro",
+    "-skills/code-autobranch",
+    "-skills/context-bundle-analysis",
+    "-skills/refactor-swarm",
+    "-skills/python-fake-driven-test-layout",
+    "-skills/python-fake-driven-testing"
   ]
 }

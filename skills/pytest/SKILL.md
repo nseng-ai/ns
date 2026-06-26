@@ -1,5 +1,6 @@
 ---
 name: pytest
+disable-model-invocation: true
 description: "Pytest style guide. Use when writing or reviewing pytest tests: fixtures vs. helpers, module-level `test_*` functions, `parametrize`, `tmp_path`, `monkeypatch`, `capsys`, `unittest.mock.patch`, or `conftest.py` cleanup. For gateway/fake architecture, use `python-fake-driven-testing`."
 ---
 

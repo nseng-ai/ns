@@ -1,5 +1,6 @@
 ---
 name: context-bundle-analysis
+disable-model-invocation: true
 description: "Analyze a frozen context-profiler bundle (a context-profiles/<sessionId>/<ordinal>/ directory) and deliver opinionated, advisory findings: a context-failure diagnosis (poisoning, distraction, confusion, clash) and a recommended action (prune, quarantine, handoff, no-action) per finding. Use when the user asks to analyze a context bundle or context profile, analyze a context window captured from another session, or run a context-rot analysis on a bundle."
 ---
 
