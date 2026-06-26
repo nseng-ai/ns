@@ -40,11 +40,17 @@
   - ADR 0013 records the negative process-exit default decision: `ok=0`,
     `negative=1`, and `failure/usageError=2`; remove the redundant
     `--shell-exit-code` and `shellNegative` surfaces.
-- [ ] Author and register the `sdl-cli-design` skill.
-  - Clinkr-grounded overlay; `normal`/ambient via `areg`. Sections: basics as
-    hard gates, human tier (clig.dev), agent/`exec` tier (agent-era), naming,
-    pre-ship checklist. Map each rule to the Clinkr API that satisfies it; flag
-    current Clinkr limitations to design around. Resolve public-vs-internal first.
+- [x] Author and register the `sdl-cli-design` skill.
+  - Landed at `skills/sdl-cli-design/` as a Clinkr-grounded overlay: lean
+    `SKILL.md` (hard gates, tier overview, naming, output-volume discipline,
+    pre-ship checklist, known limitations) plus `references/` (`human-tier.md`,
+    `agent-exec-tier.md`, `danger-tiers.md`, `clinkr-api-map.md`). Each rule maps
+    to the Clinkr API that satisfies it and flags current limitations to design
+    around. Resolved internal (`metadata.internal: true`).
+  - Invocation kind is `invoke-only` (not `normal`): a deliberate deviation,
+    registered via `areg skill apply invoke-only`. The two binding hard gates
+    (scenario `--version`/`--runtime`/`-h`; hidden `exec` subgroups) stay ambient
+    in `AGENTS.md`, which now points to the skill for the full reasoning.
 - [x] Land the high-agreement Clinkr changes accepted by ADRs.
   - ADR 0011's high-agreement envelope reset has landed: structured failure
     `data` is preserved, JSON-mode usage errors are enveloped, machine envelope
