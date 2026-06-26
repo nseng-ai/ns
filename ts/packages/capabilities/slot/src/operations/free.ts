@@ -4,12 +4,17 @@ import { z } from "zod";
 import { deduplicateOrderedStrings } from "../collections.ts";
 import type { RepoSlotContext, SlotCliContext } from "../context.ts";
 import { buildSlotInventory, findByBranch, poolSize, type SlotInventory } from "../inventory.ts";
-import { executeFreePlan, planFreeSlots } from "../lifecycle/free.ts";
+import {
+	executeFreePlan,
+	planFreeSlots,
+	type SlotFreeProgressReporter,
+} from "../lifecycle/free.ts";
 import {
 	executeReleaseCleanup,
 	planReleaseCleanup,
 	SLOT_RELEASE_ALL_CLEANUP_ACTIONS,
 	type SlotFreeCleanupResult,
+	type SlotReleaseCleanupProgressReporter,
 } from "../lifecycle/release-cleanup.ts";
 import type { FreedSlot } from "../lifecycle/release-target.ts";
 import { resolveCurrent, resolveNum, resolveWt } from "../selectors.ts";
@@ -38,6 +43,13 @@ export const freeResultSchema = z.object({
 export type FreeRequest = z.infer<typeof freeRequestSchema>;
 export type FreeResult = z.infer<typeof freeResultSchema>;
 
+interface FreeAllProgressReporter {
+	checkingCleanup: (slotCount: number) => void;
+	writePromptBreak: () => void;
+	freeProgress: SlotFreeProgressReporter;
+	cleanupProgress: SlotReleaseCleanupProgressReporter;
+}
+
 export async function runFree(ctx: SlotCliContext, request: FreeRequest) {
 	if (ctx.repo.type !== "repo") return failure(ctx.repo.errorType, ctx.repo.message);
 	const repoCtx: RepoSlotContext = { ...ctx, repo: ctx.repo };
@@ -57,6 +69,8 @@ export async function runFree(ctx: SlotCliContext, request: FreeRequest) {
 		preflightErrors: resolved.errors,
 	});
 	if (plan.type === "failure") return failure(plan.failure.error_type, plan.failure.message);
+	const progress = createFreeAllProgressReporter(repoCtx, request, plan.outcome.targets.length);
+	progress?.checkingCleanup(plan.outcome.targets.length);
 	const previewCleanup = await planReleaseCleanup({
 		ctx: repoCtx,
 		targets: plan.outcome.targets,
@@ -94,8 +108,9 @@ export async function runFree(ctx: SlotCliContext, request: FreeRequest) {
 					isCancelled: true,
 				}),
 			);
+		progress?.writePromptBreak();
 	}
-	const executed = await executeFreePlan(repoCtx, plan.outcome);
+	const executed = await executeFreePlan(repoCtx, plan.outcome, progress?.freeProgress);
 	if (executed.type === "failure")
 		return failure(executed.failure.error_type, executed.failure.message);
 	const cleanup = await executeReleaseCleanup({
@@ -103,6 +118,7 @@ export async function runFree(ctx: SlotCliContext, request: FreeRequest) {
 		targets: executed.outcome.freed,
 		cleanupActions,
 		trunkBranch: plan.outcome.trunk_branch,
+		...(progress === null ? {} : { progress: progress.cleanupProgress }),
 	});
 	const result = buildFreeResult({
 		freed: executed.outcome.freed,
@@ -166,6 +182,43 @@ function resolveTargets(
 		else errors.push(result.message);
 	}
 	return { slotNames: deduplicateOrderedStrings(slotNames), errors, skipped };
+}
+
+function createFreeAllProgressReporter(
+	ctx: RepoSlotContext,
+	request: FreeRequest,
+	targetCount: number,
+): FreeAllProgressReporter | null {
+	if (!request.all || !ctx.shouldWriteCdDirective || targetCount === 0) return null;
+	return {
+		checkingCleanup: (slotCount) => {
+			ctx.stderr(`Checking cleanup actions for ${slotCount} slot(s)…\n`);
+		},
+		writePromptBreak: () => {
+			ctx.stderr("\n");
+		},
+		freeProgress: (event) => {
+			ctx.stderr(`Freeing ${event.target.slot_name} (${event.target.branch_name})…\n`);
+		},
+		cleanupProgress: (event) => {
+			switch (event.type) {
+				case "pr_lookup_started":
+					ctx.stderr(`Checking PR for ${event.target.branch_name}…\n`);
+					return;
+				case "pr_close_started":
+					ctx.stderr(`Closing PR #${event.prNumber}…\n`);
+					return;
+				case "local_branch_lookup_started":
+					ctx.stderr(`Checking local branch ${event.target.branch_name}…\n`);
+					return;
+				case "local_branch_delete_started":
+					ctx.stderr(`Deleting local branch ${event.target.branch_name}…\n`);
+					return;
+				case "cleanup_finished":
+					return;
+			}
+		},
+	};
 }
 
 function buildFreeResult(options: {
