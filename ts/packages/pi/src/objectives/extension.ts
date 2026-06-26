@@ -5,7 +5,6 @@ import {
 	buildObjectiveSkillPrompt,
 	chooseActiveObjectiveSlug,
 	objectiveSelectionContextFromCommandContext,
-	type ObjectiveSelectionSpec,
 } from "./selection.ts";
 
 import {
@@ -14,6 +13,17 @@ import {
 	formatCommandStartupFailure,
 	type ExecResult,
 } from "@sdl/core/exec";
+import {
+	completeObjectiveListArgs,
+	objectiveCommandSpecs,
+	objectiveCompletionItem,
+	objectiveCreateCommandSpec,
+	parseObjectiveCandidatesData,
+	parseObjectiveListArgs,
+	type ObjectiveCandidatesParseResult,
+	type ObjectiveCommandSpec,
+	type ObjectiveCreateCommandSpec,
+} from "@sdl/objective/api";
 import { definePiSurfaceParity } from "../parity/extension.ts";
 import {
 	buildFencedTextBlock,
@@ -30,6 +40,8 @@ import type {
 
 export type { CommandContext, NotifyLevel, SessionStartContext } from "../cmux/types.ts";
 export type { ExecResult } from "@sdl/core/exec";
+export { completeObjectiveListArgs, parseObjectiveListArgs } from "@sdl/objective/api";
+export type { ObjectiveListArgsParseResult, ObjectiveListParsedArgs } from "@sdl/objective/api";
 export type ObjectiveExtensionAPI = Pick<
 	ExtensionAPI,
 	"on" | "registerCommand" | "exec" | "getCommands" | "sendMessage" | "sendUserMessage"
@@ -38,8 +50,6 @@ export type ObjectiveExtensionAPI = Pick<
 const OBJECTIVE_LIST_TIMEOUT_MS = 30_000;
 const OBJECTIVE_LIST_COMMAND_NAME = "objective:list";
 const OBJECTIVE_LIST_MESSAGE_TYPE = "objective-list-output";
-const OBJECTIVE_CREATE_COMMAND_NAME = "objective:create";
-const OBJECTIVE_CREATE_SKILL_NAME = "objective-create";
 const OBJECTIVE_SELECTOR_ARGUMENT_HINT = "[objective-slug-or-path]";
 const OBJECTIVE_CREATE_ARGUMENT_HINT = "[objective-slug-title-or-context]";
 const OBJECTIVE_COMPLETION_CACHE_TTL_MS = 10_000;
@@ -49,34 +59,6 @@ const OBJECTIVE_LIST_USAGE = `Usage: /objective:list [--names] [--minimal] [--st
 
 Shows \`objective list\` output in chat. Output format is controlled by the Pi extension; --format and --json-schema are not supported.`;
 
-const OBJECTIVE_LIST_ARG_COMPLETIONS = [
-	"--names",
-	"--minimal",
-	"--status",
-	"--help",
-	"-h",
-] as const;
-const OBJECTIVE_LIST_STATUS_VALUES = ["all", "active", "open", "closed"] as const;
-
-type ObjectiveCommandName = "objective:next" | "objective:update" | "objective:close";
-type ObjectiveSkillName = "objective-next" | "objective-update" | "objective-close";
-
-interface ObjectiveCommandSpec extends ObjectiveSelectionSpec {
-	commandName: ObjectiveCommandName;
-	skillName: ObjectiveSkillName;
-	description: string;
-	fallbackPrompt: string;
-	actionPrompt: string;
-	postSelectionReminder?: string;
-}
-
-interface ObjectiveCreateCommandSpec {
-	commandName: typeof OBJECTIVE_CREATE_COMMAND_NAME;
-	skillName: typeof OBJECTIVE_CREATE_SKILL_NAME;
-	description: string;
-	actionPrompt: string;
-}
-
 interface InvokeObjectiveCreateSkillOptions {
 	pi: ObjectiveExtensionAPI;
 	ctx: CommandContext;
@@ -85,15 +67,6 @@ interface InvokeObjectiveCreateSkillOptions {
 }
 
 type HandleObjectiveCreateCommandOptions = InvokeObjectiveCreateSkillOptions;
-
-export interface ObjectiveListParsedArgs {
-	args: string[];
-	help: boolean;
-}
-
-export type ObjectiveListArgsParseResult =
-	| { type: "valid"; args: ObjectiveListParsedArgs }
-	| { type: "invalid"; message: string };
 
 interface CustomCliParsedArgs {
 	args: string[];
@@ -112,22 +85,6 @@ interface CustomCliArgsParseInvalid {
 
 type CustomCliArgsParseResult = CustomCliArgsParseValid | CustomCliArgsParseInvalid;
 
-type ForbiddenObjectiveListArgsParseResult = { type: "valid" } | CustomCliArgsParseInvalid;
-
-interface ObjectiveListStatusParseValid {
-	type: "valid";
-	value: (typeof OBJECTIVE_LIST_STATUS_VALUES)[number];
-}
-
-interface ObjectiveListStatusParseInvalid {
-	type: "invalid";
-	message: string;
-}
-
-type ObjectiveListStatusParseResult =
-	| ObjectiveListStatusParseValid
-	| ObjectiveListStatusParseInvalid;
-
 interface CustomCliMessageDetails {
 	status: "success" | "failure" | "rejected";
 	command: string;
@@ -139,15 +96,6 @@ interface CustomCliMessageDetails {
 	stderrChars?: number;
 }
 
-interface ObjectiveCandidateRecord {
-	slug: string;
-	status: string;
-}
-
-type ObjectiveCandidatesParseResult =
-	| { type: "valid"; records: ObjectiveCandidateRecord[] }
-	| { type: "invalid"; message: string };
-
 interface CustomCliCommandSpec {
 	commandName: string;
 	messageType: string;
@@ -157,55 +105,6 @@ interface CustomCliCommandSpec {
 	buildArgs: (parsed: CustomCliParsedArgs) => string[];
 	completer: (prefix: string) => AutocompleteItem[] | null;
 }
-
-const OBJECTIVE_CREATE_COMMAND: ObjectiveCreateCommandSpec = {
-	commandName: OBJECTIVE_CREATE_COMMAND_NAME,
-	skillName: OBJECTIVE_CREATE_SKILL_NAME,
-	description:
-		"Read objective-create backing Markdown to interview for and create a new Objective.",
-	actionPrompt: "Run objective-create with this initial user request:",
-};
-
-const OBJECTIVE_COMMANDS: ObjectiveCommandSpec[] = [
-	{
-		commandName: "objective:next",
-		skillName: "objective-next",
-		description:
-			"Pick an active Objective, then invoke objective-next to recommend, steer planning, or offer confirmed execution when Objective policy allows it.",
-		statusKey: "objective:next",
-		selectionTitle: "Select an active Objective for next work or execution preview",
-		fallbackPrompt:
-			"The objective-next skill was not found among loaded Pi skills. Follow the repository's Objective workflow anyway for the explicit Objective below: apply the Tracking Gate, auto-run objective-update before continuing when clear current-branch or worktree progress for this same Objective is missing from tracking, recommend the next useful work, and include a best-effort work-left estimate as semantic steps or slices, not calendar time. Estimate either until Objective completion or, when the remaining path is unclear, until the next discovery or decision step where additional work can be identified. Only offer execution when the Objective contains explicit Runner Policy / Definition of Progress prose allowing it. If execution is offered, present an upfront preview and wait for explicit confirmation before material action. Do not use hidden ledgers, task files, private queues, Branch Memory run state, or alternate Objective stores. Do not submit PRs or perform external side effects unless included in the confirmed preview scope.",
-		actionPrompt: "Run objective-next for this explicitly selected Objective slug or path:",
-		postSelectionReminder:
-			"\nThis explicit objective-next invocation preauthorizes update-and-continue when the Tracking Gate finds clear material current-branch or worktree progress for this same Objective that is absent from Objective tracking: run objective-update for this selected Objective, reread the Objective and repo evidence, reapply the gate, then continue. Ask before updating only when evidence, Objective fit, or update scope is ambiguous.",
-		compactDiffSuggestion: true,
-	},
-	{
-		commandName: "objective:update",
-		skillName: "objective-update",
-		description: "Pick an active Objective, then invoke objective-update for the selected slug.",
-		statusKey: "objective:update",
-		selectionTitle: "Select an active Objective to update",
-		fallbackPrompt:
-			"The objective-update skill was not found among loaded Pi skills. Follow the repository's Objective workflow anyway: update tracking for exactly one explicit Objective below.",
-		actionPrompt: "Run objective-update for this explicitly selected Objective slug or path:",
-		postSelectionReminder:
-			"\nAfter this explicit selection, follow objective-update's normal post-selection evidence workflow.",
-	},
-	{
-		commandName: "objective:close",
-		skillName: "objective-close",
-		description: "Pick an active Objective, then invoke objective-close for the selected slug.",
-		statusKey: "objective:close",
-		selectionTitle: "Select an active Objective to close",
-		fallbackPrompt:
-			"The objective-close skill was not found among loaded Pi skills. Follow the repository's Objective workflow anyway: close exactly one explicit Objective below only after confirming the closure outcome/rationale, then add ## Closure and closed.md without archiving, deleting, moving, or reopening the Objective.",
-		actionPrompt: "Run objective-close for this explicitly selected Objective slug or path:",
-		postSelectionReminder:
-			"\nAfter this explicit selection, follow objective-close's normal closure confirmation workflow before mutating Objective files.",
-	},
-];
 
 async function invokeObjectiveSkill(
 	pi: ObjectiveExtensionAPI,
@@ -332,123 +231,8 @@ function tokenizeArgumentString(args: string): string[] {
 	return args.trim().split(/\s+/).filter(Boolean);
 }
 
-export function parseObjectiveListArgs(rawArgs: string): ObjectiveListArgsParseResult {
-	const tokens = tokenizeArgumentString(rawArgs);
-	const forbiddenArgsResult = findForbiddenObjectiveListArg(tokens);
-	if (forbiddenArgsResult.type === "invalid") {
-		return forbiddenArgsResult;
-	}
-
-	const args: string[] = [];
-	let help = false;
-	for (let index = 0; index < tokens.length; index += 1) {
-		const token = tokens[index] ?? "";
-		if (token === "--help" || token === "-h") {
-			help = true;
-			continue;
-		}
-		if (token === "--names" || token === "--minimal") {
-			args.push(token);
-			continue;
-		}
-		if (token === "--status") {
-			const value = tokens[index + 1];
-			if (!value || value.startsWith("--")) {
-				return { type: "invalid", message: "--status requires one of: all, active, open, closed." };
-			}
-			const parsedStatus = parseObjectiveListStatus(value);
-			if (parsedStatus.type === "invalid") {
-				return parsedStatus;
-			}
-			args.push("--status", parsedStatus.value);
-			index += 1;
-			continue;
-		}
-		if (token.startsWith("--status=")) {
-			const parsedStatus = parseObjectiveListStatus(token.slice("--status=".length));
-			if (parsedStatus.type === "invalid") {
-				return parsedStatus;
-			}
-			args.push("--status", parsedStatus.value);
-			continue;
-		}
-		if (token === "--current" || token.startsWith("--current=")) {
-			return {
-				type: "invalid",
-				message: "--current is no longer supported by the checkout-local Objective list command.",
-			};
-		}
-		if (token === "--view" || token.startsWith("--view=")) {
-			return {
-				type: "invalid",
-				message: "--view is no longer supported by the checkout-local Objective list command.",
-			};
-		}
-
-		return {
-			type: "invalid",
-			message: `Unsupported /${OBJECTIVE_LIST_COMMAND_NAME} argument: ${token}.`,
-		};
-	}
-
-	return { type: "valid", args: { args, help } };
-}
-
-function findForbiddenObjectiveListArg(tokens: string[]): ForbiddenObjectiveListArgsParseResult {
-	for (const token of tokens) {
-		if (token === "--format" || token.startsWith("--format=")) {
-			return {
-				type: "invalid",
-				message: "--format is controlled by the Pi extension and is not supported here.",
-			};
-		}
-		if (token === "--json-schema" || token.startsWith("--json-schema=")) {
-			return { type: "invalid", message: "--json-schema is not supported by /objective:list." };
-		}
-	}
-	return { type: "valid" };
-}
-
-function parseObjectiveListStatus(value: string): ObjectiveListStatusParseResult {
-	if ((OBJECTIVE_LIST_STATUS_VALUES as readonly string[]).includes(value)) {
-		return { type: "valid", value: value as (typeof OBJECTIVE_LIST_STATUS_VALUES)[number] };
-	}
-
-	return {
-		type: "invalid",
-		message: `Unsupported --status value: ${value || "(empty)"}. Expected all, active, open, or closed.`,
-	};
-}
-
 function customCliUsage(spec: CustomCliCommandSpec, error: string): string {
 	return `Error: ${error}\n\n${spec.usage}`;
-}
-
-export function completeObjectiveListArgs(prefix: string): AutocompleteItem[] | null {
-	const tokens = tokenizeArgumentString(prefix);
-	const endsWithWhitespace = /\s$/.test(prefix);
-	const currentToken = endsWithWhitespace ? "" : (tokens[tokens.length - 1] ?? "");
-	const previousToken = endsWithWhitespace ? tokens[tokens.length - 1] : tokens[tokens.length - 2];
-
-	if (currentToken.startsWith("--status=")) {
-		const valuePrefix = currentToken.slice("--status=".length);
-		return matchingCompletions(
-			OBJECTIVE_LIST_STATUS_VALUES.map((value) => `--status=${value}`),
-			`--status=${valuePrefix}`,
-		);
-	}
-
-	const candidates =
-		previousToken === "--status" ? OBJECTIVE_LIST_STATUS_VALUES : OBJECTIVE_LIST_ARG_COMPLETIONS;
-	return matchingCompletions(candidates, currentToken);
-}
-
-function matchingCompletions(
-	candidates: readonly string[],
-	currentToken: string,
-): AutocompleteItem[] | null {
-	const filtered = candidates.filter((candidate) => candidate.startsWith(currentToken));
-	return filtered.length > 0 ? filtered.map((value) => ({ value, label: value })) : null;
 }
 
 function createObjectiveCommandCompleter(
@@ -538,61 +322,13 @@ function objectiveCompletionExecOptions(cwd: string | undefined): ExecOptions {
 	return { cwd, timeout: OBJECTIVE_LIST_TIMEOUT_MS };
 }
 
-function objectiveCompletionItem(record: ObjectiveCandidateRecord): AutocompleteItem {
-	if (record.status === "") {
-		return { value: record.slug, label: record.slug };
-	}
-	return { value: record.slug, label: record.slug, description: record.status };
-}
-
 function parseObjectiveCandidates(stdout: string): ObjectiveCandidatesParseResult {
 	const envelope = parseMachineEnvelopeData(stdout, { label: "objective candidates JSON" });
 	if (envelope.type !== "valid") {
 		return { type: "invalid", message: envelope.message };
 	}
 
-	const records = envelope.data.records;
-	if (!Array.isArray(records)) {
-		return { type: "invalid", message: "Invalid objective candidates JSON: expected records." };
-	}
-
-	const parsedRecords: ObjectiveCandidateRecord[] = [];
-	for (let index = 0; index < records.length; index += 1) {
-		const parsedRecord = parseObjectiveCandidateRecord(records[index], index);
-		if (parsedRecord.type === "invalid") {
-			return parsedRecord;
-		}
-		parsedRecords.push(parsedRecord.record);
-	}
-
-	return { type: "valid", records: parsedRecords };
-}
-
-function parseObjectiveCandidateRecord(
-	value: unknown,
-	index: number,
-): { type: "valid"; record: ObjectiveCandidateRecord } | { type: "invalid"; message: string } {
-	if (!isRecord(value)) {
-		return {
-			type: "invalid",
-			message: `Invalid Objective candidate at index ${index}: expected an object.`,
-		};
-	}
-
-	const slug = value.slug;
-	const status = value.status;
-	if (typeof slug !== "string" || typeof status !== "string") {
-		return {
-			type: "invalid",
-			message: `Invalid Objective candidate at index ${index}: expected slug and status.`,
-		};
-	}
-
-	return { type: "valid", record: { slug, status } };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
+	return parseObjectiveCandidatesData(envelope.data);
 }
 
 const OBJECTIVE_LIST_SPEC: CustomCliCommandSpec = {
@@ -629,18 +365,18 @@ export const objectiveParity = definePiSurfaceParity([
 	},
 	{
 		kind: "command",
-		surface: OBJECTIVE_CREATE_COMMAND.commandName,
-		workflow: OBJECTIVE_CREATE_COMMAND.description,
+		surface: objectiveCreateCommandSpec.commandName,
+		workflow: objectiveCreateCommandSpec.description,
 		parity: "FULL",
 		cli: "objective exec read-objective plus direct Objective Markdown creation",
-		skill: OBJECTIVE_CREATE_COMMAND.skillName,
+		skill: objectiveCreateCommandSpec.skillName,
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@sdl/pi",
 		sourceModule: "objective",
 		notes:
 			"Pi command is a light typeahead-friendly wrapper that expands the portable objective-create skill and preserves any initial user request as context.",
 	},
-	...OBJECTIVE_COMMANDS.map(
+	...objectiveCommandSpecs.map(
 		(spec) =>
 			({
 				kind: "command",
@@ -834,16 +570,21 @@ export default function objectiveExtension(pi: ObjectiveExtensionAPI): void {
 
 	registerCommandWithImmediateAck({
 		host: pi,
-		commandName: OBJECTIVE_CREATE_COMMAND.commandName,
+		commandName: objectiveCreateCommandSpec.commandName,
 		commandDefinition: {
-			description: OBJECTIVE_CREATE_COMMAND.description,
+			description: objectiveCreateCommandSpec.description,
 			argumentHint: OBJECTIVE_CREATE_ARGUMENT_HINT,
 			handler: async (args, ctx) =>
-				handleObjectiveCreateCommand({ pi, spec: OBJECTIVE_CREATE_COMMAND, rawArgs: args, ctx }),
+				handleObjectiveCreateCommand({
+					pi,
+					spec: objectiveCreateCommandSpec,
+					rawArgs: args,
+					ctx,
+				}),
 		},
 	});
 
-	for (const spec of OBJECTIVE_COMMANDS) {
+	for (const spec of objectiveCommandSpecs) {
 		registerCommandWithImmediateAck({
 			host: pi,
 			commandName: spec.commandName,

@@ -14,14 +14,12 @@
   - Removed `@sdl/pi` from `ts/packages/objective/package.json` after `ts/packages/objective/src/operations/runner-subagent-usage.ts` stopped importing the Presentation Host.
   - Evidence: `rg "@sdl/pi" ts/packages/objective/src ts/packages/objective/package.json` produced no matches. Parent-side validation passed: `pnpm --dir ts --filter @sdl/core test`, `pnpm --dir ts --filter @sdl/pi test`, `pnpm --dir ts --filter @sdl/objective test`, `pnpm --dir ts run check`, `just ts-deps-check`, and `just ts-guard`.
 
-- [ ] Objective API relocation slice.
-  - Move Objective-specific list parsing, picker policy, changed-objective suggestion policy, Objective skill prompt construction, Objective-selection orchestration, `/objective:list` argument/completion policy, and Objective candidate JSON parsing out of `@sdl/pi/objectives/*` into `@sdl/objective`.
-  - Export the relocated surface from `@sdl/objective/api` as `createObjectiveClient(...)` plus named helper exports for pure parsers, prompt builders, selection-policy helpers, and small host/context interfaces.
-  - Keep Pi runtime concerns in thin Pi shells only: command registration, immediate acknowledgement, Pi `CommandContext` adaptation, notifications, `sendMessage`, skill expansion, and runtime-specific presentation.
-  - Move pure/domain tests from Pi to Objective; keep Pi tests only for Pi `CommandContext` adaptation, command registration, acknowledgement/presentation, skill expansion, prompt delivery, and autocomplete integration.
-  - Gate: Objective/Pi package tests plus `pnpm --dir ts run check` should pass.
-  - Policy: execute only after the runner-usage neutralization slice is complete or explicitly accounted for in the preview. Keep CCC/SDLCC production consumer repoints out of this branch except where a temporary compatibility re-export is needed for typecheck.
-  - Evidence: record the Objective-owned modules/exports created, what remains in Pi shells, pure tests moved to Objective, Pi behavior tests retained, and targeted validation results.
+- [x] Objective API relocation slice.
+  - Moved Objective-specific list JSON parsing, picker policy, changed-objective suggestion policy, Objective skill prompt construction helpers, `/objective:list` argument/completion policy, Objective candidate JSON parsing, and Objective command specs out of Pi ownership into `@sdl/objective` modules.
+  - Exported the relocated surface from `@sdl/objective/api` alongside `createObjectiveClient(...)` as named helper exports for future `ccc`/`sdlcc` consumer repoints.
+  - Kept Pi runtime concerns in thin shells: `@sdl/pi/objectives/list` unwraps the Pi machine envelope and delegates Objective list data parsing; `picker` is a compatibility re-export; `selection` retains Pi `CommandContext`/host-command orchestration while consuming Objective-owned prompt/policy helpers; `extension` retains registration, acknowledgement, notifications, `sendMessage`, skill expansion, autocomplete wiring, and presentation.
+  - Moved pure/domain tests from Pi to Objective and retained Pi tests for envelope parsing and Pi behavior. `sdlcc` test fixtures were updated for the Objective list record shape while production consumer repoint remains for the next slice.
+  - Evidence: `rg "@sdl/pi" ts/packages/objective/src ts/packages/objective/package.json` produced no matches; no machine-envelope module was moved into Objective. Parent-side validation passed: `pnpm --dir ts --filter @sdl/objective test`, `pnpm --dir ts --filter @sdl/pi test`, `pnpm --dir ts --filter sdlcc test`, `pnpm --dir ts --filter @sdl/ccc test`, `pnpm --dir ts run check`, `just ts-format-check`, `just ts-lint`, `just ts-deps-check`, `just ts-guard`, and `just ts-test`.
 
 - [ ] Consumer repoint slice.
   - Repoint `ts/packages/ccc/src/objective-stack-impl.ts` and `ts/packages/ccc/src/cmux/sidebar.ts` from `@sdl/pi/objectives/selection` to `@sdl/objective/api` for Objective selection helpers/specs.

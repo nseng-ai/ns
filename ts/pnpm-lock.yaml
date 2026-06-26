@@ -347,6 +347,9 @@ importers:
       '@sdl/handoff':
         specifier: workspace:*
         version: link:../handoff
+      '@sdl/objective':
+        specifier: workspace:*
+        version: link:../objective
       '@sdl/plans':
         specifier: workspace:*
         version: link:../plans
