@@ -1,6 +1,6 @@
 ---
 name: branch-context
-description: "Use for explicit branch-context lifecycle, reference, diagnostics, admin, or repair work: branch-context, branch context, enriched-plan Local plan store, Source branch plan file, branch-context slug, Attached plan, Branch Memory attachment, change source branch, move/copy saved plan, retarget plan, inspect plan store, repair branch-context metadata, or Pi commands `/sdl:branch-context:from-plan`, `/sdl:branch-context:upstack-impl-from-plan`, `/sdl:branch-context:impl-attached-plan`. Do not use for generic planning, generic branch creation, or generic implementation requests unless branch-context intent is explicit."
+description: "Explicit branch-context (branch context) work: enriched-plan local plan store, source branch plan file, branch-context slug, attached plan, Branch Memory attachment, change source branch, move/copy/retarget saved plan, inspect plan store, repair branch-context metadata, or Pi commands `/sdl:branch-context:from-plan`, `/sdl:branch-context:upstack-impl-from-plan`, `/sdl:branch-context:impl-attached-plan`. Not for generic planning, branch creation, or implementation unless branch-context intent is explicit."
 ---
 
 # branch-context

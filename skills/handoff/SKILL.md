@@ -1,6 +1,6 @@
 ---
 name: handoff
-description: "Use for explicit handoff lifecycle, reference, diagnostics, administration, cleanup, or Pi command questions: handoff artifact, continuation focus, create a handoff, pick up a handoff, handoff namespace, copy handoff, move handoff, delete handoff, handoff gc, /handoff:create, /handoff:pickup, or /handoff:list. For create execution use handoff-create; for pickup/list/summary execution use handoff-pickup."
+description: "Explicit handoff work: handoff artifact, continuation focus, create/pick up a handoff, handoff namespace, copy/move/delete handoff, handoff gc, /handoff:create, /handoff:pickup, /handoff:list. For create execution use handoff-create; for pickup/list/summary use handoff-pickup."
 ---
 
 # handoff
