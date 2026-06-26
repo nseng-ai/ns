@@ -33,8 +33,9 @@ The four command-local areas:
 - Resolving the six ADR-needed design questions the audit surfaced, because
   several gate dependent remediation (recorded as ADRs or amendments).
 - Landing high-confidence (`land-now-fix`) remediations with scenario tests,
-  using the conformant references as templates: `handoff delete` (Tier 2),
-  `handoff gc` / `slot gc` (Tier 3), `brmem put` (Tier 3 `--force`).
+  using the conformant human-facing references as templates: `handoff delete`
+  (Tier 2), `handoff gc` / `slot gc` (Tier 3), `brmem put` (Tier 3 `--force`),
+  while preserving ADR 0015's hidden-`exec` no-prompt carve-out.
 - Safety-first sequencing: area (a) danger tiers, then (d) exit semantics, then
   (c) `errorType`, then (b) output bounding.
 
@@ -60,9 +61,10 @@ The four command-local areas:
   source of truth. (Done — seeded this Objective.)
 - The six ADR-needed decisions are recorded as ADRs or ADR amendments, and each
   dependent remediation is then either landed or parked per that decision.
-- All `land-now-fix` area (a) danger-tier gaps are remediated with scenario tests
-  (interactive confirm, `--yes`/`--force` bypass, non-interactive `usageError`),
-  or explicitly reclassified with rationale.
+- All human-facing `land-now-fix` area (a) danger-tier gaps are remediated with
+  scenario tests (interactive confirm, `--yes`/`--force` bypass,
+  non-interactive `usageError`), while hidden `exec` destructive/external writes
+  are explicitly reclassified or kept conformant under ADR 0015 #2 with rationale.
 - The `land-now-fix` area (d) exit-semantics and area (c) `errorType` fixes are
   applied across the enumerated commands; cross-cutting wrappers
   (`branch-context`/`plans` generic error-collapse) are replaced with modeled
@@ -94,8 +96,10 @@ Risks:
   `vibechk run`, `roaster publish-findings`, and `ccc autobranch` disappear.
   Hence decisions must precede their dependent remediation rows.
 - **Cross-cutting blast radius:** replacing the shared `runClinkrCommand`
-  error-collapse wrapper, or introducing a shared confirmation helper, touches
-  shared code and requires broader validation than a single package.
+  error-collapse wrapper, or introducing a shared confirmation helper for
+  human-facing commands, touches shared code and requires broader validation than
+  a single package. Do not apply such a helper to hidden `exec` commands solely
+  for human Tier 2 symmetry.
 - **Contested tier judgments:** `brmem delete` (tombstone recoverable → Tier 1
   vs Tier 2), `vibechk run` (branch switch + arbitrary runner → Tier 1 vs Tier 2),
   and `sdl shell install` / `sdlcc cmux report` (dotfile/external write → Tier 1
@@ -108,7 +112,8 @@ The six ADR-needed questions are **resolved** by
 `docs/adr/0015-cli-surface-conformance-decisions.md` (Accepted; see update
 `20260626T103959Z-decision-gate-resolved.md`). Resolutions: (1) raw-exit narrow
 exemption — finite-result raw commands migrate to the envelope; (2) hidden `exec`
-external writes — operation args are sufficient intent, no added confirm flag;
+destructive/external writes — operation args are sufficient intent, no added
+confirm flag;
 (3) `ccc land` single-PR auto-merge — intentional (Pi surface); (4) query-miss
 `ok(found:false)` vs action-miss `negative`; (5) empty-success / presence-query
 `ok` ratified; (6) user-dotfile writes are Tier 2, explicit output-path and

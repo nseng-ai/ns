@@ -78,12 +78,12 @@ are `shell show`/`shell install`. All other `sdl ...` commands are either the
 
 | #  | Area | Finding                                                                                                                                | Command(s)                                                                                                                                                       | Classification                                        |
 | -- | ---- | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| 1  | a    | Tier 2 destructive, no `--yes` / no confirm — deletes immediately                                                                      | `branch-context exec delete`, `brmem delete`                                                                                                                     | land-now-fix                                          |
+| 1  | a    | Human-facing Tier 2 destructive/user-environment write lacks `--yes` / TTY-gated confirmation                                          | `brmem delete`, `sdl shell install`                                                                                                                              | land-now-fix                                          |
 | 2  | a    | Confirm prompt not `isInteractive()`-gated; can hang / silently decline non-interactively                                              | `areg init`, `areg skill apply`, `packagechk claim-pypi/claim-npm`                                                                                               | land-now-fix                                          |
 | 3  | a    | Confirm gate keys on output-format proxy not `isInteractive()`; `failure("confirmation_required")` instead of flag-naming `usageError` | `slot free --all`                                                                                                                                                | land-now-fix                                          |
 | 4  | a    | Wrong confirm verb: `--skip-confirmation` instead of `--yes`/`-y` (Tier 2/3 publish)                                                   | `packagechk claim-pypi/claim-npm`                                                                                                                                | land-now-fix                                          |
 | 5  | a    | Single-PR land fast path merges to trunk with no confirmation while stack paths confirm                                                | `ccc land` (Pi surface)                                                                                                                                          | conformant (ADR 0015 #3: intentional)                 |
-| 6  | a    | External GitHub write (Tier 2) with no confirm flag / interactive gate; agent-only hidden `exec`                                       | `pr-address exec reply-review-thread`, `resolve-review-thread`                                                                                                   | conformant (ADR 0015 #2: args suffice)                |
+| 6  | a    | Hidden `exec` destructive/external write with no confirm flag; agent/script-only required args are sufficient intent                   | `branch-context exec delete`, `pr-address exec reply-review-thread`, `pr-address exec resolve-review-thread`                                                     | conformant (ADR 0015 #2: args suffice)                |
 | 7  | d    | Operational/IO mutation failures returned as `negative` (exit 1) where `failure` (exit 2) is correct                                   | `areg init`, `areg skill apply`, `aretro exec collect-evidence`, `ccc exec cmux-workspace-summary`                                                               | land-now-fix                                          |
 | 8  | d    | Real not-found / no-match returned as `failure` (exit 2) where `negative` (exit 1) is correct                                          | `brmem get/delete/copy`, `plans exec resolve`                                                                                                                    | land-now-fix                                          |
 | 9  | d    | Missing required input returned as `negative`/`failure` where `usageError` is correct                                                  | `objective exec runner-subagent-usage`, `ccc exec cmux-workspace-summary`                                                                                        | land-now-fix                                          |
@@ -103,12 +103,16 @@ are `shell show`/`shell install`. All other `sdl ...` commands are either the
    reserve `failure("aborted")` for genuine aborts. These are the templates for
    remediating areas (a)/(d).
 
-2. **Danger-tier gaps cluster in two shapes:** (i) Tier 2 deletes with *no*
-   confirmation at all (`branch-context exec delete`, `brmem delete`), and (ii)
-   commands that *do* confirm but gate on the wrong signal — a private prompt
-   gateway (`areg`, `packagechk`) or an output-format proxy (`slot free`) — instead
-   of `isInteractive()`, so they can hang or silently decline non-interactively
-   rather than failing fast with a flag-naming `usageError`.
+2. **Danger-tier gaps cluster in human-facing command surfaces.** The live gaps are
+   (i) human-facing Tier 2 destructive/user-environment writes with *no*
+   confirmation at all (`brmem delete`, `sdl shell install`), and (ii) commands
+   that *do* confirm but gate on the wrong signal — a private
+   prompt gateway (`areg`, `packagechk`) or an output-format proxy (`slot free`) —
+   instead of `isInteractive()`, so they can hang or silently decline
+   non-interactively rather than failing fast with a flag-naming `usageError`.
+   Hidden `exec` destructive/external writes are agent/script-only; by ADR 0015 #2
+   their required operation arguments are sufficient intent, so they should not be
+   retrofitted with prompts or `--yes` solely for human Tier 2 symmetry.
 
 3. **`negative`/`failure`/`usageError` exit semantics are inconsistently applied.**
    The same conceptual outcome is modeled differently across packages: not-found is
@@ -208,31 +212,32 @@ under hidden `exec`).
 
 ### branch-context
 
-| Command          | Mutating?                | Area | Finding                                                                                                                                                                 | Classification | Evidence (file:line)                                       |
-| ---------------- | ------------------------ | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | ---------------------------------------------------------- |
-| `exec from-plan` | Yes                      | a    | Tier 1: creates branch + brmem ref; additive, refuses overwrite, no override path → no confirm needed                                                                   | conformant     | `cli.ts:126`; `branch-context-creation.ts:102-103,289-310` |
-| `exec from-plan` | Yes                      | c    | All failures collapse to generic `branch_context_error`; `failure()` message-only, no `data`                                                                            | land-now-fix   | `cli.ts:39,184`; `cli-entry.ts:156`                        |
-| `exec load`      | Partial (opt file write) | a    | Tier 1: only external write is requested `--prompt-file`; no destructive action                                                                                         | conformant     | `cli.ts:213-218`                                           |
-| `exec load`      | Partial                  | b    | Can emit full plan + impl prompt (opt-in); single requested doc, `byte_count` exposed → bounded enough                                                                  | conformant     | `cli.ts:219-223,399`; `attached-plan.ts:193`               |
-| `exec load`      | Partial                  | c    | Generic catch-all errorType, no recovery `data`                                                                                                                         | land-now-fix   | `cli.ts:206`; `cli-entry.ts:156`                           |
-| `exec attach`    | Yes                      | a    | Tier 1: additive, refuses overwrite (`assertBrmemEntryAbsent`), reversible                                                                                              | conformant     | `cli.ts:139`; `attach.ts:80,141-161`                       |
-| `exec attach`    | Yes                      | c    | Generic `branch_context_error`, no structured `data`                                                                                                                    | land-now-fix   | `cli.ts:232`; `cli-entry.ts:156`                           |
-| `exec list`      | No                       | b    | Returns all namespace entries, no completion/bound state; domain set tiny                                                                                               | conformant     | `cli.ts:247-248,323-341`                                   |
-| `exec list`      | No                       | d    | Empty → `ok` with empty `entries` — correct                                                                                                                             | conformant     | `cli.ts:248`; `attach.ts:219-221`                          |
-| `exec list`      | No                       | c    | Generic catch-all errorType, no `data`                                                                                                                                  | land-now-fix   | `cli.ts:246`; `cli-entry.ts:156`                           |
-| `exec check`     | No                       | d    | Absent entry → `ok(present:false)` (exit 0) — presence-predicate ratified by ADR 0015 #5                                                                                | conformant     | `attach.ts:119-124`; `cli.ts:258,363-375`                  |
-| `exec check`     | No                       | c    | Generic catch-all errorType, no `data`                                                                                                                                  | land-now-fix   | `cli.ts:256`; `cli-entry.ts:156`                           |
-| `exec delete`    | Yes                      | a    | Tier 2 destructive (brmem-ref deletion): no `--yes`/`-y`, no confirmation, no non-interactive fail-fast — deletes immediately. Diverges from `handoff delete` precedent | land-now-fix   | `cli.ts:159-165,262-270`; `attach.ts:127-139`              |
-| `exec delete`    | Yes                      | c    | Generic catch-all errorType, no `data`                                                                                                                                  | land-now-fix   | `cli.ts:266`; `cli-entry.ts:156`                           |
+| Command          | Mutating?                | Area | Finding                                                                                                                                                             | Classification | Evidence (file:line)                                       |
+| ---------------- | ------------------------ | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | ---------------------------------------------------------- |
+| `exec from-plan` | Yes                      | a    | Tier 1: creates branch + brmem ref; additive, refuses overwrite, no override path → no confirm needed                                                               | conformant     | `cli.ts:126`; `branch-context-creation.ts:102-103,289-310` |
+| `exec from-plan` | Yes                      | c    | All failures collapse to generic `branch_context_error`; `failure()` message-only, no `data`                                                                        | land-now-fix   | `cli.ts:39,184`; `cli-entry.ts:156`                        |
+| `exec load`      | Partial (opt file write) | a    | Tier 1: only external write is requested `--prompt-file`; no destructive action                                                                                     | conformant     | `cli.ts:213-218`                                           |
+| `exec load`      | Partial                  | b    | Can emit full plan + impl prompt (opt-in); single requested doc, `byte_count` exposed → bounded enough                                                              | conformant     | `cli.ts:219-223,399`; `attached-plan.ts:193`               |
+| `exec load`      | Partial                  | c    | Generic catch-all errorType, no recovery `data`                                                                                                                     | land-now-fix   | `cli.ts:206`; `cli-entry.ts:156`                           |
+| `exec attach`    | Yes                      | a    | Tier 1: additive, refuses overwrite (`assertBrmemEntryAbsent`), reversible                                                                                          | conformant     | `cli.ts:139`; `attach.ts:80,141-161`                       |
+| `exec attach`    | Yes                      | c    | Generic `branch_context_error`, no structured `data`                                                                                                                | land-now-fix   | `cli.ts:232`; `cli-entry.ts:156`                           |
+| `exec list`      | No                       | b    | Returns all namespace entries, no completion/bound state; domain set tiny                                                                                           | conformant     | `cli.ts:247-248,323-341`                                   |
+| `exec list`      | No                       | d    | Empty → `ok` with empty `entries` — correct                                                                                                                         | conformant     | `cli.ts:248`; `attach.ts:219-221`                          |
+| `exec list`      | No                       | c    | Generic catch-all errorType, no `data`                                                                                                                              | land-now-fix   | `cli.ts:246`; `cli-entry.ts:156`                           |
+| `exec check`     | No                       | d    | Absent entry → `ok(present:false)` (exit 0) — presence-predicate ratified by ADR 0015 #5                                                                            | conformant     | `attach.ts:119-124`; `cli.ts:258,363-375`                  |
+| `exec check`     | No                       | c    | Generic catch-all errorType, no `data`                                                                                                                              | land-now-fix   | `cli.ts:256`; `cli-entry.ts:156`                           |
+| `exec delete`    | Yes                      | a    | Destructive Branch Memory deletion, but under hidden agent/script-only `exec`; operation args are sufficient intent and no prompt/`--yes` is required (ADR 0015 #2) | conformant     | `cli.ts:159-165,262-270`; `attach.ts:127-139`              |
+| `exec delete`    | Yes                      | c    | Generic catch-all errorType, no `data`                                                                                                                              | land-now-fix   | `cli.ts:266`; `cli-entry.ts:156`                           |
 
 **branch-context notes:** Dominant gap is errorType discipline: every command funnels
 thrown errors through `runClinkrCommand(BRANCH_CONTEXT_ERROR_TYPE, ...)`, emitting
 `failure("branch_context_error", message)` with no `data` (`cli-entry.ts:156`), so
-distinct modeled failures collapse into one opaque type. Second concrete gap is
-`exec delete`: Tier 2 destructive with no `--yes` confirmation nor non-interactive
-fail-fast. `from-plan`/`attach` are correctly additive Tier 1; `list` empty-as-`ok`
-is correct. `check` returning `ok(present:false)` is ratified as conformant (ADR 0015 #5)
-call. No prompts exist anywhere → no hang risk.
+distinct modeled failures collapse into one opaque type. The former `exec delete`
+confirmation concern is reclassified as conformant by ADR 0015 #2: hidden `exec`
+commands are agent/script-only, and the delete key/branch arguments supply intent.
+`from-plan`/`attach` are correctly additive Tier 1; `list` empty-as-`ok` is correct.
+`check` returning `ok(present:false)` is ratified as conformant (ADR 0015 #5). No
+prompts exist anywhere → no hang risk.
 
 ### brmem
 
@@ -579,12 +584,14 @@ negative/exit semantics → (c) errorType → (b) output bounding.** Use the con
 references (`handoff delete`/`gc`, `slot gc`, `brmem put`) as templates.
 
 1. **Area (a), land-now (safety):** add `--yes`/`-y` + `requireInteractiveOrUsageError`
-   gating to `branch-context exec delete`, `brmem delete`, and `sdl shell install`
-   (Tier 2 per ADR 0015 #6); re-gate `areg init`,
-   `areg skill apply`, `packagechk claim-pypi/claim-npm`, and `slot free --all` onto
+   gating to human-facing `brmem delete` and `sdl shell install` (Tier 2 per ADR
+   0015 #6 for the dotfile write); re-gate `areg init`, `areg skill apply`,
+   `packagechk claim-pypi/claim-npm`, and `slot free --all` onto
    `isInteractive()`/`requireInteractiveOrUsageError`; rename packagechk's
    `--skip-confirmation` to `--yes`/`-y`. Land each with scenario tests (interactive
-   confirm, `--yes` bypass, non-interactive `usageError`).
+   confirm, `--yes` bypass, non-interactive `usageError`). Do not add confirmation
+   solely to hidden `exec` destructive/external writes; ADR 0015 #2 classifies their
+   required operation arguments as sufficient intent.
 2. **Area (d), land-now:** apply a not-found→`negative` / bad-or-missing-arg→`usageError`
    / operational-error→`failure` decision table to `areg`, `aretro collect-evidence`,
    `brmem get/delete/copy`, `plans exec resolve`, `objective runner-subagent-usage`,
@@ -602,9 +609,10 @@ The six contested design calls this audit surfaced are now resolved by
 `docs/adr/0015-cli-surface-conformance-decisions.md`. Each row's classification
 above has been updated accordingly.
 
-1. **Agent-only `exec` destructive writes (pr-address `reply`/`resolve-review-thread`):**
-   resolved by ADR 0015 #2 — the required operation arguments are sufficient intent on
-   the agent-only hidden `exec` surface; no added confirm flag. Rows → conformant.
+1. **Agent-only `exec` destructive/external writes (`branch-context exec delete`,
+   pr-address `reply`/`resolve-review-thread`):** resolved by ADR 0015 #2 — the
+   required operation arguments are sufficient intent on the agent-only hidden
+   `exec` surface; no added confirm flag. Rows → conformant.
 2. **`ccc land` single-PR fast path:** resolved by ADR 0015 #3 — auto-merge is
    intentional (Pi surface, not Clinkr). Row → conformant.
 3. **`rawCommand`/`isRawExit` envelope exemption:** resolved by ADR 0015 #1 — narrow
