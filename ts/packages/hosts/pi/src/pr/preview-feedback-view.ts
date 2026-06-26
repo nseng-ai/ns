@@ -5,6 +5,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import {
 	buildThreadDetailRows,
 	buildThreadRowLabel,
+	threadSeverityLevel,
 	type PrPreviewFeedbackDetailRow,
 	type PrPreviewFeedbackThread,
 	type PrPreviewFeedbackViewModel,
@@ -14,7 +15,8 @@ import { clamp, fitToWidth, reconcileScroll } from "../context-profiler/render.t
 const FALLBACK_TERMINAL_ROWS = 24;
 const MIN_RENDER_WIDTH = 40;
 
-type PreviewThemeColor = "text" | "muted" | "accent" | "warning" | "dim" | "border";
+type PreviewThemeColor = "text" | "muted" | "accent" | "warning" | "error" | "dim" | "border";
+type PreviewFeedbackMode = "rich" | "compact";
 
 export type {
 	PrPreviewFeedbackComment,
@@ -52,6 +54,7 @@ export class PrPreviewFeedbackView implements Component {
 	private selectedIndex: number;
 	private listScroll: number;
 	private detailScroll: number;
+	private mode: PreviewFeedbackMode;
 
 	constructor(options: PrPreviewFeedbackViewOptions) {
 		this.tui = options.tui;
@@ -61,6 +64,7 @@ export class PrPreviewFeedbackView implements Component {
 		this.selectedIndex = 0;
 		this.listScroll = 0;
 		this.detailScroll = 0;
+		this.mode = "rich";
 	}
 
 	render(width: number): string[] {
@@ -70,7 +74,7 @@ export class PrPreviewFeedbackView implements Component {
 		const header = buildPreviewHeaderLines(this.model).map((line) => this.color("text", line));
 		const footer = this.color(
 			"dim",
-			"↑↓/jk select · PgUp/PgDn scroll details · q/esc close · preview only",
+			`↑↓/jk select · PgUp/PgDn scroll · v rich/compact (${this.mode}) · q/esc close · preview only`,
 		);
 		const chromeRows = 2 + header.length + 1 + 1;
 		const bodyRows = Math.max(1, height - chromeRows);
@@ -104,6 +108,12 @@ export class PrPreviewFeedbackView implements Component {
 		}
 		if (matchesKey(data, Key.pageUp)) {
 			this.scrollDetails(-8);
+			return;
+		}
+		if (data === "v") {
+			this.mode = this.mode === "rich" ? "compact" : "rich";
+			this.detailScroll = 0;
+			this.tui.requestRender();
 		}
 	}
 
@@ -116,36 +126,46 @@ export class PrPreviewFeedbackView implements Component {
 	private renderBody(width: number, rows: number): string[] {
 		if (this.model.threads.length === 0) return this.renderEmptyBody(width, rows);
 		this.selectedIndex = clamp(this.selectedIndex, 0, this.model.threads.length - 1);
+		const listRows = feedbackListRows({
+			bodyRows: rows,
+			threadCount: this.model.threads.length,
+			mode: this.mode,
+		});
+		const detailRows = Math.max(1, rows - listRows - 1);
 		this.listScroll = reconcileScroll({
 			scroll: this.listScroll,
 			anchor: this.selectedIndex,
-			areaHeight: rows,
+			areaHeight: listRows,
 			totalLines: this.model.threads.length,
 		});
-		const preferredLeftWidth = clamp(Math.floor(width * 0.32), 28, 52);
-		const leftWidth = Math.min(preferredLeftWidth, Math.max(20, width - 24));
-		const rightWidth = Math.max(12, width - leftWidth - 3);
+		return [
+			...this.renderThreadListLines(width, listRows),
+			this.color("dim", "─".repeat(Math.max(1, width))),
+			...this.renderSelectedThreadDetailLines(width, detailRows),
+		];
+	}
+
+	private renderThreadListLines(width: number, rows: number): string[] {
 		const visibleThreads = this.model.threads.slice(this.listScroll, this.listScroll + rows);
+		return Array.from({ length: rows }, (_unused, row) => {
+			const thread = visibleThreads[row];
+			if (thread === undefined) return "";
+			return this.renderThreadRow(thread, this.listScroll + row, width);
+		});
+	}
+
+	private renderSelectedThreadDetailLines(width: number, rows: number): string[] {
 		const detailLines = this.renderDetailLines(this.model.threads[this.selectedIndex]);
 		const viewport = sliceWrappedDetailLinesForViewport({
 			lines: detailLines,
-			width: rightWidth,
+			width,
 			rows,
 			scroll: this.detailScroll,
 		});
 		this.detailScroll = viewport.scroll;
-		const rightLines = viewport.lines;
-		const lines: string[] = [];
-		for (let row = 0; row < rows; row += 1) {
-			const thread = visibleThreads[row];
-			const actualIndex = this.listScroll + row;
-			const left = thread === undefined ? "" : this.renderThreadRow(thread, actualIndex, leftWidth);
-			const right = rightLines[row] ?? "";
-			lines.push(
-				`${fitToWidth(left, leftWidth)} ${this.color("dim", "│")} ${fitToWidth(right, rightWidth)}`,
-			);
-		}
-		return lines;
+		return Array.from({ length: rows }, (_unused, row) =>
+			fitToWidth(viewport.lines[row] ?? "", width),
+		);
 	}
 
 	private renderEmptyBody(width: number, rows: number): string[] {
@@ -154,19 +174,35 @@ export class PrPreviewFeedbackView implements Component {
 	}
 
 	private renderDetailLines(thread: PrPreviewFeedbackThread | undefined): string[] {
-		return buildThreadDetailRows(thread).map((row) => this.renderDetailLine(row));
+		const rows = buildThreadDetailRows(thread);
+		return this.mode === "compact"
+			? this.renderCompactDetailLines(rows)
+			: this.renderRichDetailLines(rows);
 	}
 
-	private renderDetailLine(row: PrPreviewFeedbackDetailRow): string {
+	private renderRichDetailLines(rows: readonly PrPreviewFeedbackDetailRow[]): string[] {
+		const lines: string[] = [];
+		let previousRole: PrPreviewFeedbackDetailRow["role"] | null = null;
+		for (const row of rows) {
+			if (row.role === "evidence" && previousRole !== "evidence") {
+				lines.push(this.color("muted", "  EVIDENCE"));
+			}
+			lines.push(this.renderRichDetailLine(row));
+			previousRole = row.role;
+		}
+		return lines;
+	}
+
+	private renderRichDetailLine(row: PrPreviewFeedbackDetailRow): string {
 		switch (row.role) {
 			case "finding":
 				return this.color("accent", `▣ ${row.text}`);
 			case "review":
 				return this.color("muted", `  ${row.text}`);
 			case "body":
-				return this.color("text", `  │ ${row.text}`);
+				return this.color("text", `  ▏ ${row.text}`);
 			case "evidence":
-				return this.color("warning", `  Evidence: ${row.text}`);
+				return this.color("warning", `  · ${row.text}`);
 			case "source":
 				return this.color("dim", `  ${row.text}`);
 			case "comment":
@@ -176,15 +212,50 @@ export class PrPreviewFeedbackView implements Component {
 		}
 	}
 
+	private renderCompactDetailLines(rows: readonly PrPreviewFeedbackDetailRow[]): string[] {
+		const lines: string[] = [];
+		for (const row of rows) {
+			if (row.role === "finding") {
+				lines.push(this.color("accent", `▣ ${row.text}`));
+			} else if (row.role === "body") {
+				lines.push(this.color("text", row.text));
+			} else if (row.role === "comment") {
+				lines.push(this.color("muted", row.text));
+			}
+		}
+		return lines;
+	}
+
 	private renderThreadRow(
 		thread: PrPreviewFeedbackThread,
 		actualIndex: number,
 		width: number,
 	): string {
 		const prefix = actualIndex === this.selectedIndex ? "> " : "  ";
-		const row = fitToWidth(`${prefix}${buildThreadRowLabel(thread)}`, width);
-		if (actualIndex !== this.selectedIndex) return this.color("text", row);
-		return this.theme.bg("selectedBg", this.color("accent", row));
+		const level = threadSeverityLevel(thread);
+		const icon = severityIcon(level);
+		const label = buildThreadRowLabel(thread);
+		if (actualIndex === this.selectedIndex) {
+			const row = fitToWidth(`${prefix}${icon} ${label}`, width);
+			return this.theme.bg("selectedBg", this.color("accent", row));
+		}
+		const severityColor = severityThemeColor(level);
+		const coloredRow = `${this.color("text", prefix)}${this.color(severityColor, icon)} ${this.colorizeRowLabel(label, level, severityColor)}`;
+		return fitToWidth(coloredRow, width);
+	}
+
+	private colorizeRowLabel(
+		label: string,
+		level: "info" | "warning" | "error" | null,
+		severityColor: PreviewThemeColor,
+	): string {
+		if (level === null) return this.color("text", label);
+		return label
+			.split(" · ")
+			.map((segment) =>
+				segment === level ? this.color(severityColor, segment) : this.color("text", segment),
+			)
+			.join(this.color("text", " · "));
 	}
 
 	private moveSelection(delta: number): void {
@@ -215,6 +286,31 @@ export class PrPreviewFeedbackView implements Component {
 	private boxLine(value: string, width: number): string {
 		return this.color("border", "│") + fitToWidth(value, width) + this.color("border", "│");
 	}
+}
+
+export function feedbackListRows(options: {
+	bodyRows: number;
+	threadCount: number;
+	mode: PreviewFeedbackMode;
+}): number {
+	if (options.mode === "compact") {
+		const preferred = Math.max(5, Math.floor(options.bodyRows * 0.6));
+		return clamp(Math.min(options.threadCount, preferred), 1, options.bodyRows - 2);
+	}
+	const preferred = Math.max(3, Math.floor(options.bodyRows * 0.3));
+	return clamp(Math.min(options.threadCount, preferred), 1, options.bodyRows - 5);
+}
+
+function severityIcon(level: "info" | "warning" | "error" | null): string {
+	if (level === "error") return "✕";
+	if (level === "warning") return "⚠";
+	return "·";
+}
+
+function severityThemeColor(level: "info" | "warning" | "error" | null): PreviewThemeColor {
+	if (level === "error") return "error";
+	if (level === "warning") return "warning";
+	return "dim";
 }
 
 export function sliceWrappedDetailLinesForViewport(

@@ -87,6 +87,14 @@ export function buildThreadDetailLines(thread: PrPreviewFeedbackThread | undefin
 	return buildThreadDetailRows(thread).map(formatThreadDetailRowText);
 }
 
+export function threadSeverityLevel(
+	thread: PrPreviewFeedbackThread,
+): "info" | "warning" | "error" | null {
+	const level = parseCommentBody(thread.comments[0]?.body ?? "").level;
+	if (level === "info" || level === "warning" || level === "error") return level;
+	return null;
+}
+
 export function buildThreadDetailRows(
 	thread: PrPreviewFeedbackThread | undefined,
 ): PrPreviewFeedbackDetailRow[] {
