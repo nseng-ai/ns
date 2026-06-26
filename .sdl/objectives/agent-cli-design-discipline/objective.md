@@ -48,8 +48,8 @@ the high-agreement changes, and parking the contested or large ones as backlog.
   checklist — each rule mapped to the Clinkr API that satisfies it, and current
   Clinkr limitations flagged as "design around until ADR lands."
 - **Clinkr evolution (parallel)**: from the gap list, decide every item via ADR;
-  land the high-agreement changes (e.g. structured `data` on failure exits,
-  output compaction) with tests; park contested/large items as backlog rows.
+  land the high-agreement changes (e.g. structured `data` on failure exits) with
+  tests; park contested/large or YAGNI items as backlog rows.
 - ADRs gate Clinkr code changes and any contested skill rules; uncontested skill
   scaffolding may proceed in parallel with the survey/ADR work.
 
@@ -90,14 +90,17 @@ the high-agreement changes, and parking the contested or large ones as backlog.
   discipline shifts materially, ADRs may need revisiting (acceptable: ADRs are
   superseded, not silently edited).
 - Most high-agreement Clinkr changes are additive/backward-compatible
-  (e.g. adding `data` to failure exits, an opt-in compaction mode).
+  (e.g. adding `data` to failure exits). ADR 0012 intentionally parked compact
+  JSON and generic output-volume APIs as YAGNI until concrete command evidence
+  justifies extraction.
 
 **Risks**
 
-- **Python-parity contract**: Clinkr's machine envelope is documented as
-  byte-identical to Python clinkr (`ensure_ascii`, key order, `indent=2`).
-  Changing JSON output (e.g. compaction) or the envelope shape could break that
-  parity contract — this needs an explicit ADR before any output-format change.
+- **Python-parity contract resolved for TypeScript machine envelopes**: ADR 0011
+  explicitly drops the old byte-identical Python clinkr contract for TypeScript
+  `--format json` machine envelopes and accepts a TS-native camelCase,
+  discriminated envelope. Python parity may still matter as historical context,
+  but it is no longer a blocker for the TypeScript envelope shape.
 - **Coordination overlap**: agent-ergonomics Clinkr changes touch the same files
   as `ts-cli-core-structural-cleanup` (structural) and `clinkr-shell-completion`
   (completion). Risk of conflicting edits; mitigation is to keep each change
@@ -124,9 +127,14 @@ the high-agreement changes, and parking the contested or large ones as backlog.
   `error_type`/`code` plus structured `data`/details. The ADR preserves dissent
   for richer numeric taxonomies as useful for specialized shell-only automation
   but not Clinkr's default.
-- Does any change to `--format json` output (compaction, streaming/JSONL,
-  enveloping usage errors) violate the Python-parity contract, and if so is the
-  contract still load-bearing? ADR required.
+- ADR 0011 answers the core `--format json` envelope/parity question for
+  TypeScript Clinkr: the Python-parity contract is not load-bearing for the TS
+  machine envelope, camelCase discriminated envelopes are the contract, and
+  JSON-mode usage errors are enveloped.
+- ADR 0012 answers the output-volume question for now: keep pretty JSON, add no
+  compact/pagination/JSONL framework API, treat bounded machine output as
+  command-local `sdl-cli-design` guidance, and revisit framework extraction only
+  after repeated command pressure or one severe agent-context failure.
 - Should the agent-ergonomics Clinkr changes proceed now or wait behind the
   `sdl-extension-architecture` endgame that currently pauses
   `ts-cli-core-structural-cleanup`?
