@@ -57,7 +57,9 @@ describe("GitHub status boundary parsing", () => {
 		expect(githubWorktreePrStatusQuery).toContain(
 			"name status conclusion startedAt completedAt detailsUrl",
 		);
-		expect(githubWorktreePrStatusQuery).toContain("checkSuite{workflowRun{workflow{name}}}");
+		expect(githubWorktreePrStatusQuery).toContain(
+			"checkSuite{workflowRun{databaseId runNumber runAttempt createdAt updatedAt workflow{name}}}",
+		);
 		expect(githubWorktreePrStatusQuery).toContain("context state createdAt targetUrl");
 	});
 
@@ -351,6 +353,74 @@ describe("GitHub status check classification", () => {
 		).toEqual({ passing: 0, pending: 0, failing: 1, unknown: 0 });
 	});
 
+	test("ignores check runs from older workflow runs even when matrix names change", () => {
+		expect(
+			tallyGithubStatusChecks([
+				githubWorkflowCheckRun({
+					workflowName: "roaster",
+					workflowRunDatabaseId: 100,
+					workflowRunUpdatedAt: "2026-06-26T14:18:05Z",
+					name: "review",
+					status: "COMPLETED",
+					conclusion: "CANCELLED",
+					completedAt: "2026-06-26T14:18:05Z",
+				}),
+				githubWorkflowCheckRun({
+					workflowName: "roaster",
+					workflowRunDatabaseId: 101,
+					workflowRunUpdatedAt: "2026-06-26T14:22:00Z",
+					name: "discover",
+					status: "COMPLETED",
+					conclusion: "SUCCESS",
+					completedAt: "2026-06-26T14:18:40Z",
+				}),
+				githubWorkflowCheckRun({
+					workflowName: "roaster",
+					workflowRunDatabaseId: 101,
+					workflowRunUpdatedAt: "2026-06-26T14:22:00Z",
+					name: "review (duplicative-abstractions-tripwire)",
+					status: "COMPLETED",
+					conclusion: "SUCCESS",
+					completedAt: "2026-06-26T14:21:23Z",
+				}),
+				githubWorkflowCheckRun({
+					workflowName: "roaster",
+					workflowRunDatabaseId: 101,
+					workflowRunUpdatedAt: "2026-06-26T14:22:00Z",
+					name: "review (sdl-typescript-style-tripwire)",
+					status: "COMPLETED",
+					conclusion: "SUCCESS",
+					completedAt: "2026-06-26T14:22:00Z",
+				}),
+			]),
+		).toEqual({ passing: 3, pending: 0, failing: 0, unknown: 0 });
+	});
+
+	test("keeps a canceled check run from the latest workflow run as failing", () => {
+		expect(
+			tallyGithubStatusChecks([
+				githubWorkflowCheckRun({
+					workflowName: "roaster",
+					workflowRunDatabaseId: 100,
+					workflowRunUpdatedAt: "2026-06-26T14:18:05Z",
+					name: "review",
+					status: "COMPLETED",
+					conclusion: "SUCCESS",
+					completedAt: "2026-06-26T14:18:05Z",
+				}),
+				githubWorkflowCheckRun({
+					workflowName: "roaster",
+					workflowRunDatabaseId: 101,
+					workflowRunUpdatedAt: "2026-06-26T14:22:00Z",
+					name: "review",
+					status: "COMPLETED",
+					conclusion: "CANCELLED",
+					completedAt: "2026-06-26T14:22:00Z",
+				}),
+			]),
+		).toEqual({ passing: 0, pending: 0, failing: 1, unknown: 0 });
+	});
+
 	test("keeps distinct workflow and check name pairs separate", () => {
 		expect(
 			tallyGithubStatusChecks([
@@ -420,3 +490,30 @@ describe("GitHub status check classification", () => {
 		).toEqual({ passing: 1, pending: 0, failing: 0, unknown: 0 });
 	});
 });
+
+interface GithubWorkflowCheckRunFixture {
+	readonly workflowName: string;
+	readonly workflowRunDatabaseId: number;
+	readonly workflowRunUpdatedAt: string;
+	readonly name: string;
+	readonly status: string;
+	readonly conclusion: string;
+	readonly completedAt: string;
+}
+
+function githubWorkflowCheckRun(fixture: GithubWorkflowCheckRunFixture): unknown {
+	return {
+		__typename: "CheckRun",
+		name: fixture.name,
+		status: fixture.status,
+		conclusion: fixture.conclusion,
+		completedAt: fixture.completedAt,
+		checkSuite: {
+			workflowRun: {
+				databaseId: fixture.workflowRunDatabaseId,
+				updatedAt: fixture.workflowRunUpdatedAt,
+				workflow: { name: fixture.workflowName },
+			},
+		},
+	};
+}
