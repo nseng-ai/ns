@@ -65,9 +65,9 @@ import { sortStrings } from "./sort.ts";
 const COMMAND_TIMEOUT_MS = 60_000;
 const PI_GENERIC_REPLACEMENT_ADAPTER_RELATIVE_PATH = ".pi/extensions/backing-skill-commands.ts";
 const PI_GENERIC_REPLACEMENT_PACKAGE_MODULE_RELATIVE_PATH =
-	"ts/packages/pi/src/extensions/backing-skill-commands.ts";
+	"ts/packages/hosts/pi/src/extensions/backing-skill-commands.ts";
 // AREG imports only the neutral @sdl/pi/commands surface, not project-local
-// Pi extension entrypoints under ts/packages/pi/src/**.
+// Pi extension entrypoints under ts/packages/hosts/pi/src/**.
 const AREG_VISIBLE_REPLACEMENT_SURFACES = deriveVisiblePiReplacementSurfaces();
 
 interface ResolveAllowedTargetOptions {
