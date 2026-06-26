@@ -17,6 +17,13 @@ export interface SlotFreeOutcome {
 	freed: readonly FreedSlot[];
 }
 
+export interface SlotFreeProgressEvent {
+	type: "release_started";
+	target: FreedSlot;
+}
+
+export type SlotFreeProgressReporter = (event: SlotFreeProgressEvent) => void;
+
 export async function planFreeSlots(
 	ctx: RepoSlotContext,
 	slotNames: readonly string[],
@@ -45,11 +52,13 @@ export async function planFreeSlots(
 export async function executeFreePlan(
 	ctx: RepoSlotContext,
 	plan: SlotFreePlan,
+	progress?: SlotFreeProgressReporter | undefined,
 ): Promise<LifecycleResult<SlotFreeOutcome>> {
 	if (plan.targets.length === 0) return { type: "ok", outcome: { freed: [] } };
 	const inventory = await buildSlotInventory(ctx.git, { mainRepoRoot: ctx.repo.mainRepoRoot });
 	const freed: FreedSlot[] = [];
 	for (const target of plan.targets) {
+		progress?.({ type: "release_started", target });
 		const result = await releaseAssignedSlotTarget({
 			git: ctx.git,
 			inventory,

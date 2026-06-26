@@ -31,7 +31,17 @@ export interface ExecuteReleaseCleanupOptions {
 	targets: readonly FreedSlot[];
 	cleanupActions: readonly SlotFreeCleanupAction[];
 	trunkBranch?: string | undefined;
+	progress?: SlotReleaseCleanupProgressReporter | undefined;
 }
+
+export type SlotReleaseCleanupProgressEvent =
+	| { type: "pr_lookup_started"; target: FreedSlot }
+	| { type: "pr_close_started"; target: FreedSlot; prNumber: number }
+	| { type: "local_branch_lookup_started"; target: FreedSlot }
+	| { type: "local_branch_delete_started"; target: FreedSlot }
+	| { type: "cleanup_finished"; result: SlotFreeCleanupResult };
+
+export type SlotReleaseCleanupProgressReporter = (event: SlotReleaseCleanupProgressEvent) => void;
 
 interface CleanupForTargetsOptions {
 	ctx: RepoSlotContext;
@@ -39,6 +49,14 @@ interface CleanupForTargetsOptions {
 	cleanupActions: readonly SlotFreeCleanupAction[];
 	trunkBranch?: string | undefined;
 	shouldExecute: boolean;
+	progress?: SlotReleaseCleanupProgressReporter | undefined;
+}
+
+interface CleanupPrOptions {
+	ctx: RepoSlotContext;
+	target: FreedSlot;
+	shouldExecute: boolean;
+	progress?: SlotReleaseCleanupProgressReporter | undefined;
 }
 
 interface CleanupLocalBranchOptions {
@@ -46,6 +64,7 @@ interface CleanupLocalBranchOptions {
 	target: FreedSlot;
 	trunkBranch: string;
 	shouldExecute: boolean;
+	progress?: SlotReleaseCleanupProgressReporter | undefined;
 }
 
 interface CleanupResultOptions {
@@ -81,55 +100,79 @@ async function cleanupForTargets(
 		for (const action of options.cleanupActions) {
 			const result =
 				action === "pr"
-					? await cleanupPr(options.ctx, target, options.shouldExecute)
+					? await cleanupPr({
+							ctx: options.ctx,
+							target,
+							shouldExecute: options.shouldExecute,
+							...(options.progress === undefined ? {} : { progress: options.progress }),
+						})
 					: await cleanupLocalBranch({
 							ctx: options.ctx,
 							target,
 							trunkBranch: requireTrunkBranch(trunkBranch),
 							shouldExecute: options.shouldExecute,
+							...(options.progress === undefined ? {} : { progress: options.progress }),
 						});
 			results.push(result);
+			options.progress?.({ type: "cleanup_finished", result });
 			if (result.status === "error") return results;
 		}
 	}
 	return results;
 }
 
-async function cleanupPr(
-	ctx: RepoSlotContext,
-	target: FreedSlot,
-	shouldExecute: boolean,
-): Promise<SlotFreeCleanupResult> {
-	const lookup = await ctx.pr.getPrForBranch(target.branch_name);
+async function cleanupPr(options: CleanupPrOptions): Promise<SlotFreeCleanupResult> {
+	options.progress?.({ type: "pr_lookup_started", target: options.target });
+	const lookup = await options.ctx.pr.getPrForBranch(options.target.branch_name);
 	if (lookup.type === "miss")
-		return cleanupResult({ target, action: "pr", status: "skipped", message: "no matching PR" });
+		return cleanupResult({
+			target: options.target,
+			action: "pr",
+			status: "skipped",
+			message: "no matching PR",
+		});
 	if (lookup.type === "failure")
 		return cleanupResult({
-			target,
+			target: options.target,
 			action: "pr",
 			status: "error",
 			message: prFailureMessage(lookup.failure),
 		});
 	if (lookup.pr.state === "CLOSED" || lookup.pr.state === "MERGED")
 		return cleanupResult({
-			target,
+			target: options.target,
 			action: "pr",
 			status: "skipped",
 			prNumber: lookup.pr.number,
 			message: `PR is already ${lookup.pr.state.toLowerCase()}`,
 		});
-	if (!shouldExecute)
-		return cleanupResult({ target, action: "pr", status: "planned", prNumber: lookup.pr.number });
-	const close = await ctx.pr.closePr(lookup.pr.number);
+	if (!options.shouldExecute)
+		return cleanupResult({
+			target: options.target,
+			action: "pr",
+			status: "planned",
+			prNumber: lookup.pr.number,
+		});
+	options.progress?.({
+		type: "pr_close_started",
+		target: options.target,
+		prNumber: lookup.pr.number,
+	});
+	const close = await options.ctx.pr.closePr(lookup.pr.number);
 	if (close.type === "failure")
 		return cleanupResult({
-			target,
+			target: options.target,
 			action: "pr",
 			status: "error",
 			prNumber: lookup.pr.number,
 			message: prFailureMessage(close.failure),
 		});
-	return cleanupResult({ target, action: "pr", status: "success", prNumber: lookup.pr.number });
+	return cleanupResult({
+		target: options.target,
+		action: "pr",
+		status: "success",
+		prNumber: lookup.pr.number,
+	});
 }
 
 async function cleanupLocalBranch(
@@ -144,6 +187,7 @@ async function cleanupLocalBranch(
 		});
 	if (!options.shouldExecute)
 		return cleanupResult({ target: options.target, action: "local_branch", status: "planned" });
+	options.progress?.({ type: "local_branch_lookup_started", target: options.target });
 	if (!(await options.ctx.git.branchExists(options.target.branch_name)))
 		return cleanupResult({
 			target: options.target,
@@ -151,6 +195,7 @@ async function cleanupLocalBranch(
 			status: "skipped",
 			message: "already absent",
 		});
+	options.progress?.({ type: "local_branch_delete_started", target: options.target });
 	const failure = await options.ctx.git.deleteLocalBranch(options.target.branch_name, {
 		shouldForce: true,
 	});
