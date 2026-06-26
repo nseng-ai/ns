@@ -107,7 +107,7 @@ export const skillKindShowRequestSchema = z.object({
 		.string()
 		.default(".")
 		.describe("Project directory or subdirectory to inspect (default: current directory)."),
-	skill: z.string().describe("Local skill name or path-like skill spec."),
+	skill: z.string().describe("Installed skill name or path-like skill spec."),
 });
 
 export const skillKindApplyRequestSchema = z.object({
@@ -118,7 +118,7 @@ export const skillKindApplyRequestSchema = z.object({
 	dryRun: z.boolean().default(false).describe("Show planned edits without writing files."),
 	yes: z.boolean().default(false).describe("Approve deletion prompts for managed artifacts."),
 	kind: z.enum(SKILL_INVOCATION_KINDS).describe("Desired skill invocation kind."),
-	skills: z.array(z.string()).min(1).describe("Local skill names or path-like skill specs."),
+	skills: z.array(z.string()).min(1).describe("Installed skill names or path-like skill specs."),
 });
 
 export const skillKindListResultSchema = z.object({
@@ -151,11 +151,11 @@ export type SkillKindApplyResult = z.infer<typeof skillKindApplyResultSchema>;
 export function buildSkillGroup(): ClinkrGroup<AregCliContext> {
 	const skillGroup = new ClinkrGroup<AregCliContext>({
 		name: "skill",
-		description: "Inspect and reconcile local skill invocation metadata.",
+		description: "Inspect and reconcile installed skill invocation metadata.",
 	});
 	skillGroup.command({
 		name: "list",
-		description: "List local skill invocation status.",
+		description: "List installed skill invocation status.",
 		schema: skillKindListRequestSchema,
 		resultSchema: skillKindListResultSchema,
 		handler: runSkillKindList,
@@ -163,7 +163,7 @@ export function buildSkillGroup(): ClinkrGroup<AregCliContext> {
 	});
 	skillGroup.command({
 		name: "show",
-		description: "Show invocation status for one local skill.",
+		description: "Show invocation status for one installed skill.",
 		schema: skillKindShowRequestSchema,
 		positionals: { skill: { position: 0 } },
 		resultSchema: skillKindShowResultSchema,
@@ -207,7 +207,7 @@ export async function runSkillKindShow(
 ): Promise<ClinkrExit<SkillKindShowResult>> {
 	const resolved = await inspectResolvedProject(ctx, request.path);
 	if (resolved.type === "error") return failure("project_inspection_failed", resolved.message);
-	const resolvedSkill = await ctx.project.resolveLocalSkillSpec({
+	const resolvedSkill = await ctx.project.resolveSkillKindSpec({
 		projectDir: resolved.value.projectDir,
 		spec: request.skill,
 		cwd: ctx.cwd,
@@ -224,7 +224,7 @@ export async function runSkillKindShow(
 	const record = records.value.find((candidate) => candidate.skill === resolvedSkill.skillName);
 	if (record === undefined) {
 		return negative(
-			`Local skill not found: ${request.skill}`,
+			`Managed skill not found: ${request.skill}`,
 			emptyShowResult(resolved.value.projectDir, resolvedSkill.skillName),
 		);
 	}
@@ -241,7 +241,7 @@ export async function runSkillKindApply(
 	const plans: SkillKindApplyPlan[] = [];
 	let planningInspection = resolved.value.inspection;
 	for (const spec of request.skills) {
-		const resolvedSkill = await ctx.project.resolveLocalSkillSpec({
+		const resolvedSkill = await ctx.project.resolveSkillKindSpec({
 			projectDir,
 			spec,
 			cwd: ctx.cwd,
@@ -334,7 +334,7 @@ export function renderSkillKindList(
 	result: SkillKindListResult,
 	caps: RenderCapabilities = { canEmitAnsi: false },
 ): string {
-	if (result.skills.length === 0) return "No local skills found.";
+	if (result.skills.length === 0) return "No managed skills found.";
 	const includeNotes = result.skills.some((record) => record.notes.length > 0);
 	const columns: TextTableColumn[] = [
 		{ header: "SKILL", style: "bold-cyan" },

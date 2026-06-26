@@ -6,6 +6,7 @@ description: >
   directly call mock.patch() as context managers. Essential when test_*.py files
   patch module-level attributes like subprocess.run, shutil.which, os.environ, or
   other system calls. Covers both making source code injectable AND rewriting tests.
+disable-model-invocation: true
 ---
 
 # Refactoring Mocks to Fakes

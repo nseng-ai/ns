@@ -138,11 +138,11 @@ export function buildSkillKindRecords(
 		if (skill.skillMd.type !== "file")
 			return err({
 				code: "skill_not_found",
-				message: `skills/${skill.name}/SKILL.md does not exist`,
+				message: `${skill.baseRelativePath}/SKILL.md does not exist`,
 			});
 		const frontmatter = inspectSkillFrontmatter(
 			skill.skillMd.text,
-			`skills/${skill.name}/SKILL.md`,
+			`${skill.baseRelativePath}/SKILL.md`,
 		);
 		if (!frontmatter.ok) return frontmatter;
 		const replacement = verifyPiReplacement(skill.name, inspection.replacement);
@@ -163,22 +163,22 @@ export function validateInspectableSkill(skill: AregSkillKindSkillInspection): R
 	if (skill.skillDir.type === "symlink")
 		return err({
 			code: "path_symlink",
-			message: `skills/${skill.name} is a symlink but should be a real directory (canonical source)`,
+			message: `${skill.baseRelativePath} is a symlink; refusing to manage invocation metadata`,
 		});
 	if (skill.skillDir.type !== "directory")
 		return err({
 			code: "skill_not_found",
-			message: `Local skill missing canonical source: skills/${skill.name}/ does not exist`,
+			message: `Managed skill missing source: ${skill.baseRelativePath}/ does not exist`,
 		});
 	if (skill.skillMd.type === "symlink")
 		return err({
 			code: "path_symlink",
-			message: `skills/${skill.name}/SKILL.md is a symlink but should be a real file (canonical source)`,
+			message: `${skill.baseRelativePath}/SKILL.md is a symlink; refusing to manage invocation metadata`,
 		});
 	if (skill.skillMd.type !== "file")
 		return err({
 			code: "skill_not_found",
-			message: `skills/${skill.name}/SKILL.md does not exist`,
+			message: `${skill.baseRelativePath}/SKILL.md does not exist`,
 		});
 	return { ok: true, value: undefined };
 }

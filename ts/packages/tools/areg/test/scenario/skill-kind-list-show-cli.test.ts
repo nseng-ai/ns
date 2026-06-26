@@ -39,11 +39,11 @@ function skill(
 }
 
 describe("areg skill list/show CLI", () => {
-	test("list reports no local skills", async () => {
+	test("list reports no managed skills", async () => {
 		const run = runScenario(["skill", "list"], { project: { localSkills: [] } });
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toBe("No local skills found.\n");
+		expect(run.stdout.join("")).toBe("No managed skills found.\n");
 		expect(run.stderr.join("")).toBe("");
 	});
 
@@ -109,9 +109,14 @@ describe("areg skill list/show CLI", () => {
 		expect(plainOutput).not.toContain(String.fromCharCode(0x1b));
 	});
 
-	test("list JSON uses snake_case boundary fields", async () => {
+	test("list JSON uses snake_case boundary fields for first-party and vendored skills", async () => {
 		const run = runScenario(["skill", "list", "--format", "json"], {
-			project: { localSkills: [skill("demo-skill")] },
+			project: {
+				localSkills: [
+					skill("demo-skill"),
+					skill("vendored-skill", undefined, { sourceType: "vendored" }),
+				],
+			},
 		});
 
 		expect(await run.exit).toBe(0);
@@ -136,6 +141,29 @@ describe("areg skill list/show CLI", () => {
 						surface: "demo:skill",
 						label: "replacement-missing:demo:skill",
 						advice: expect.stringContaining("Skill 'demo-skill' would hide /skill:demo-skill"),
+					},
+					notes: [],
+				},
+				{
+					skill: "vendored-skill",
+					kind: "normal",
+					model_invocation: "enabled",
+					native_direct: "enabled",
+					pi_extension: "n/a",
+					artifacts: {
+						disable_model_invocation: false,
+						codex_sidecar: false,
+						user_invocable_key_present: false,
+						user_invocable_false: false,
+						pi_excluded: false,
+					},
+					replacement: {
+						verified: false,
+						surface: "vendored:skill",
+						label: "replacement-missing:vendored:skill",
+						advice: expect.stringContaining(
+							"Skill 'vendored-skill' would hide /skill:vendored-skill",
+						),
 					},
 					notes: [],
 				},

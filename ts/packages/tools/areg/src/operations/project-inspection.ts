@@ -127,10 +127,10 @@ export async function inspectSkillKindProject(
 		piDir: facts.piDir,
 		piSettings: facts.piSettings,
 		replacement: facts.replacement,
-		skills: await collectLocalSkillKindInspections(
+		skills: await collectSkillKindInspections(
 			ctx,
 			facts.projectDir,
-			facts.skillInventory.localSkillKindNames,
+			facts.skillInventory.skillKindNames,
 		),
 	};
 }
@@ -145,13 +145,13 @@ export async function collectCheckSkillInspections(
 	);
 }
 
-export async function collectLocalSkillKindInspections(
+export async function collectSkillKindInspections(
 	ctx: AregCliContext,
 	projectDir: string,
 	skillNames: readonly string[],
 ): Promise<readonly AregSkillKindSkillInspection[]> {
 	return await collectSkillInspections(skillNames, (skillName) =>
-		ctx.project.inspectLocalSkill({ projectDir, skillName, env: ctx.env }),
+		ctx.project.inspectSkillKindSkill({ projectDir, skillName, env: ctx.env }),
 	);
 }
 

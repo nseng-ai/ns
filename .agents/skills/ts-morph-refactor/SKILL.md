@@ -1,6 +1,7 @@
 ---
 name: ts-morph-refactor
 description: Perform TypeScript refactoring using ts-morph AST manipulation. Use for renaming symbols, moving declarations, propagating interface changes, adding methods to implementations, renaming parameters, or setting return types across the codebase. Requires ts-morph package.
+disable-model-invocation: true
 ---
 
 # TypeScript Refactoring with ts-morph

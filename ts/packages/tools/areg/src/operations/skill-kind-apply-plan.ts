@@ -90,13 +90,13 @@ export function buildSkillKindApplyPlan(
 ): Result<SkillKindApplyPlan> {
 	const skill = inspection.skills.find((candidate) => candidate.name === skillName);
 	if (skill === undefined)
-		return err({ code: "skill_not_found", message: `Local skill not found: ${skillName}` });
+		return err({ code: "skill_not_found", message: `Managed skill not found: ${skillName}` });
 	const readiness = validateInspectableSkill(skill);
 	if (!readiness.ok) return readiness;
 	if (skill.skillMd.type !== "file")
 		return err({
 			code: "skill_not_found",
-			message: `skills/${skill.name}/SKILL.md does not exist`,
+			message: `${skill.baseRelativePath}/SKILL.md does not exist`,
 		});
 	if (kind === "command-backed") {
 		const replacement = verifyPiReplacement(skill.name, inspection.replacement);
@@ -108,7 +108,7 @@ export function buildSkillKindApplyPlan(
 	}
 	const piSettings = parsePiSettings(inspection.piDir, inspection.piSettings);
 	if (!piSettings.ok) return piSettings;
-	const frontmatter = planFrontmatterOperation(skill.name, skill.skillMd.text, kind);
+	const frontmatter = planFrontmatterOperation(skill.baseRelativePath, skill.skillMd.text, kind);
 	if (!frontmatter.ok) return frontmatter;
 	const sidecar = planSidecarOperations(skill, kind);
 	if (!sidecar.ok) return sidecar;
@@ -147,16 +147,19 @@ export function skillAfterPlannedApply(
 	let skillMd = skill.skillMd;
 	let openaiPolicy = skill.openaiPolicy;
 	for (const operation of plan.operations) {
-		if (operation.type === "write" && operation.relativePath === `skills/${skill.name}/SKILL.md`)
+		if (
+			operation.type === "write" &&
+			operation.relativePath === `${skill.baseRelativePath}/SKILL.md`
+		)
 			skillMd = { type: "file", text: operation.content };
 		if (
 			operation.type === "write" &&
-			operation.relativePath === `skills/${skill.name}/agents/openai.yaml`
+			operation.relativePath === `${skill.baseRelativePath}/agents/openai.yaml`
 		)
 			openaiPolicy = { type: "file", text: operation.content };
 		if (
 			operation.type === "delete" &&
-			operation.relativePath === `skills/${skill.name}/agents/openai.yaml`
+			operation.relativePath === `${skill.baseRelativePath}/agents/openai.yaml`
 		)
 			openaiPolicy = { type: "missing" };
 	}
@@ -167,8 +170,8 @@ export function planSidecarOperations(
 	skill: AregSkillKindSkillInspection,
 	kind: SkillInvocationKind,
 ): Result<readonly PlannedApplyOperation[]> {
-	const relativePath = `skills/${skill.name}/agents/openai.yaml`;
-	const agentsDir = `skills/${skill.name}/agents`;
+	const relativePath = `${skill.baseRelativePath}/agents/openai.yaml`;
+	const agentsDir = `${skill.baseRelativePath}/agents`;
 	const shouldExist = kind === "invoke-only" || kind === "command-backed";
 	if (shouldExist) {
 		if (skill.openaiPolicy.type === "symlink")

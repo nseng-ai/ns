@@ -21,6 +21,8 @@ describe("Pi command surfaces", () => {
 		expect(derivePiReplacementSurface("objective-stack-impl")).toBe("objective:stack-impl");
 		expect(derivePiReplacementSurface("code-checkpoint")).toBe("sdl:flow:cp");
 		expect(derivePiReplacementSurface("code-submit")).toBe("sdl:flow:submit");
+		expect(derivePiReplacementSurface("pytest")).toBe("python:pytest");
+		expect(derivePiReplacementSurface("skillx")).toBe("skill:x");
 		expect(derivePiReplacementSurface("foo-bar-baz")).toBe("foo:bar-baz");
 		expect(derivePiReplacementSurface("plain")).toBeUndefined();
 	});
@@ -31,10 +33,18 @@ describe("Pi command surfaces", () => {
 		expect(skillNames).toContain("pr-address");
 		expect(skillNames).not.toContain("objective-close");
 		expect(skillNames).toContain("code-workflows");
-		expect(skillNames).not.toContain("dignified-python");
+		expect(skillNames).toEqual(
+			expect.arrayContaining([
+				"dignified-python",
+				"setup-dprint",
+				"setup-dprint-gh-ci",
+				"setup-graphite",
+				"setup-pypi-publish",
+				"setup-python-gh-ci",
+			]),
+		);
 		expect(skillNames).not.toContain("objective-create");
 		expect(skillNames).not.toContain("code-gt-restack-resolve");
-		expect(skillNames).not.toContain("setup-dprint");
 		expect(genericCommandStyleSkillNames(["plain", "foo-bar", "objective-create"])).toEqual([
 			"foo-bar",
 		]);
@@ -47,6 +57,10 @@ describe("Pi command surfaces", () => {
 		expect(surfaces).toEqual(expect.arrayContaining([...SPECIALIZED_PI_COMMAND_SURFACES]));
 		expect(surfaces).toContain("pr:address");
 		expect(surfaces).toContain("objective:close");
-		expect(surfaces).not.toContain("dignified:python");
+		expect(surfaces).toContain("setup:dprint");
+		expect(surfaces).toContain("setup:python-gh-ci");
+		expect(surfaces).toContain("dignified:python");
+		expect(surfaces).toContain("python:pytest");
+		expect(surfaces).toContain("skill:x");
 	});
 });
