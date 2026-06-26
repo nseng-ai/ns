@@ -40,7 +40,7 @@ const entry = defineCli<PackagechkCliContext, CliDeps, undefined>({
 				interaction: deps.interaction,
 				stdin: deps.stdin ?? readStdinLine,
 				stderr: io.stderr,
-				isInteractive: () => deps.stdin !== undefined || process.stdin.isTTY === true,
+				injectedStdin: deps.stdin,
 			}),
 		};
 		return { type: "run", context, buildState: undefined };

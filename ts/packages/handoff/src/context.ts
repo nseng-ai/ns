@@ -30,7 +30,6 @@ export function createRealHandoffContext(
 		interaction: resolveClinkrInteraction({
 			stdin: readStdinLine,
 			stderr,
-			isInteractive: () => process.stdin.isTTY === true,
 		}),
 		stderr,
 	};

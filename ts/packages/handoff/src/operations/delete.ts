@@ -1,4 +1,4 @@
-import { failure, ok, usageError } from "@sdl/clinkr";
+import { failure, ok, requireInteractiveOrUsageError } from "@sdl/clinkr";
 import { z } from "zod";
 
 import type { HandoffCliContext } from "../context.ts";
@@ -37,12 +37,12 @@ export async function runDelete(ctx: HandoffCliContext, request: DeleteRequest) 
 	if (target.type === "error") return failure(target.error.code, target.error.message);
 
 	if (!request.yes) {
-		if (!ctx.interaction.isInteractive()) {
-			return usageError("Deleting a handoff requires --yes when non-interactive.", {
-				missingFlag: "--yes",
-				howToSupply: "Pass --yes (or -y) to confirm deletion without prompting.",
-			});
-		}
+		const gate = requireInteractiveOrUsageError(ctx.interaction, {
+			message: "Deleting a handoff requires --yes when non-interactive.",
+			missingFlag: "--yes",
+			howToSupply: "Pass --yes (or -y) to confirm deletion without prompting.",
+		});
+		if (gate) return gate;
 		const confirmed = await ctx.interaction.confirm({
 			message: `Delete handoff \`${target.value.slug}\` on branch \`${target.value.branch}\`?`,
 			defaultAnswer: "no",

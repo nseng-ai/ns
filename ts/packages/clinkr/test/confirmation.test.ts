@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import { createClinkrInteraction, resolveClinkrInteraction } from "../src/index.ts";
+import {
+	createClinkrInteraction,
+	requireInteractiveOrUsageError,
+	resolveClinkrInteraction,
+} from "../src/index.ts";
 
 async function confirm(input: string, defaultAnswer: "yes" | "no") {
 	const stderr: string[] = [];
@@ -117,5 +121,60 @@ describe("ClinkrInteraction.confirm", () => {
 			isInteractive: () => true,
 		});
 		expect(interaction.isInteractive()).toBe(true);
+	});
+
+	test("treats a defined injectedStdin as interactive when isInteractive is omitted", () => {
+		const interaction = createClinkrInteraction({
+			stdin: async () => "y",
+			stderr: () => {},
+			injectedStdin: async () => "y",
+		});
+		expect(interaction.isInteractive()).toBe(true);
+	});
+
+	test("defaults to non-interactive with neither injectedStdin nor isInteractive", () => {
+		const interaction = createClinkrInteraction({ stdin: async () => "y", stderr: () => {} });
+		expect(interaction.isInteractive()).toBe(false);
+	});
+
+	test("explicit isInteractive wins over a defined injectedStdin", () => {
+		const interaction = createClinkrInteraction({
+			stdin: async () => "y",
+			stderr: () => {},
+			injectedStdin: async () => "y",
+			isInteractive: () => false,
+		});
+		expect(interaction.isInteractive()).toBe(false);
+	});
+});
+
+describe("requireInteractiveOrUsageError", () => {
+	const opts = {
+		message: "Requires --yes when non-interactive.",
+		missingFlag: "--yes",
+		howToSupply: "Pass --yes to confirm.",
+	};
+
+	test("returns undefined when interactive", () => {
+		const interaction = createClinkrInteraction({
+			stdin: async () => "y",
+			stderr: () => {},
+			isInteractive: () => true,
+		});
+		expect(requireInteractiveOrUsageError(interaction, opts)).toBeUndefined();
+	});
+
+	test("returns a usageError exit when non-interactive", () => {
+		const interaction = createClinkrInteraction({
+			stdin: async () => "y",
+			stderr: () => {},
+			isInteractive: () => false,
+		});
+		expect(requireInteractiveOrUsageError(interaction, opts)).toEqual({
+			type: "usageError",
+			errorType: "usageError",
+			message: opts.message,
+			data: { missingFlag: opts.missingFlag, howToSupply: opts.howToSupply },
+		});
 	});
 });
