@@ -26,9 +26,29 @@ The four kinds are a 2×2 over two independent questions — *does the model aut
 Norms and gotchas this taxonomy makes non-obvious:
 
 - **`description: "Command: <name>"` with the real description in a leading HTML comment is the *rendered output* of an explicit-only kind, not a freehand token-saving convention to copy by hand.** A skill that is kind `normal` but carries a `Command: <name>` stub is **misconfigured**: it is advertised to the model (ambient) with nothing to route on — "listed but unroutable." Fix it by either writing a real `normal` trigger description or reconciling it to an explicit-only kind via `areg skill apply`; don't just paste the stub.
-- **`invoke-only` vs `command-backed`.** `invoke-only` is the light, default explicit-only kind — zero ambient on Claude Code + Pi, still invocable via `/skill:name`, no extra dependency. `command-backed` additionally hides the raw `/skill:name` in Pi and routes to a namespaced Pi extension (`/ns:cmd`); `areg skill apply command-backed` only succeeds when that replacement extension already exists and verifies (see `.pi/extensions/`). Don't reach for `command-backed` unless the Pi replacement is built. No skill currently uses `command-backed` (the kind is supported but unexemplified); most explicit-only conversions should target `invoke-only`.
+- **`invoke-only` vs `command-backed`.** `invoke-only` is the light, default explicit-only kind — zero ambient on Claude Code + Pi, still invocable via `/skill:name`, no extra dependency. `command-backed` additionally hides the raw `/skill:name` in Pi and routes to a namespaced Pi extension (`/ns:cmd`); `areg skill apply command-backed` only succeeds when that replacement extension already exists and verifies (see `.pi/extensions/`). Use `command-backed` only when the verified Pi replacement is the preferred user surface; otherwise use `invoke-only`.
 - **Invocation kind is orthogonal to visibility.** `metadata.internal: true` (non-public / not externally installable) is a *separate* axis from the invocation kind. A skill can be internal and `normal`, or public and `invoke-only`, etc. Do not infer one axis from the other.
 - **Codex can't go zero-ambient.** Claude Code and Pi both honor `disable-model-invocation: true` (the entry leaves the model's context); Codex keeps the description ambient and only blocks implicit invocation. The full per-harness mechanics — flags honored, ambient token cost, read roots, namespacing — live in [Harness skill/command/prompt invocation mechanics](harness-skill-invocation.md). This section is the repo's *managed taxonomy* layered on top of those mechanics.
+
+### Skill Invocation Decision Policy
+
+ADR 0016 (`docs/adr/0016-skill-invocation-context-budget.md`) records the durable decision behind this policy.
+
+Ambient skill frontmatter is a shared context budget. Default by domain, not by habit: make a skill `normal` only when the model must discover it from ordinary user language, and an eligibility category below applies. Otherwise make it explicit-only with `areg skill apply invoke-only <skill>` or, when a verified namespaced Pi replacement is the preferred surface, `areg skill apply command-backed <skill>`.
+
+Use these buckets:
+
+1. **Ambient routers and standards (`normal`)** — keep broad entrypoints and always-relevant coding guidance model-invoked when automatic discovery prevents mistakes. Eligible categories are:
+   - umbrella/router skills that route a family of explicit leaf workflows, such as `handoff`, `objective`, or `branch-context`;
+   - common coding or repo standards that should fire during ordinary implementation, such as TypeScript style overlays;
+   - safety-sensitive workflows where missing the skill is worse than paying the frontmatter cost, such as merge-conflict resolution;
+   - broad external-boundary guidance where the agent must choose the right API/tooling before acting, such as GitHub or PR-feedback workflows.
+2. **Command-backed workflows (`command-backed`)** — use for explicit workflows whose preferred user surface is a verified namespaced Pi command. `areg` writes `disable-model-invocation: true`, the Codex `agents/openai.yaml` sidecar, and the `.pi/settings.json` skill exclusion together.
+3. **Invoke-only workflows (`invoke-only`)** — use for specialized, rare, setup, migration, language-specific, or admin skills that remain useful by name but should not consume ambient context. This is the default explicit-only kind when there is no verified Pi replacement command.
+4. **Internal backend skills** — keep implementation-support skills explicit-only unless an extension wrapper requires model discovery. Internal visibility (`metadata.internal: true`) is not an invocation kind; still manage the invocation kind through `areg`.
+5. **Vendored/upstream skills** — treat real directories under `.agents/skills/` as a separate review class. Do not casually rewrite upstream content, but local invocation-kind changes are allowed when ambient token cost is material and the decision is recorded. Prefer upstream overlays, wrapper skills, or a documented fork/update policy when the change would drift from the source project.
+
+Do not maintain a full skill-kind table in this document. Use representative examples here for policy, and `areg skill list` / `areg skill show <name>` for live state.
 
 ### Public Skill Authoring — No Internal References
 
