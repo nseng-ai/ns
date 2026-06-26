@@ -15,8 +15,16 @@ import { clamp, fitToWidth, reconcileScroll } from "../context-profiler/render.t
 const FALLBACK_TERMINAL_ROWS = 24;
 const MIN_RENDER_WIDTH = 40;
 
+/**
+ * Overlay sizing the host applies to this modal. The TUI clips the modal's
+ * rendered lines to `floor(rows * MAX_HEIGHT_RATIO)` (capped by the margin), so
+ * the modal must size itself to the same budget or its footer/bottom border get
+ * sliced off. Keep these in sync with `overlayOptions` at the mount site.
+ */
+export const PREVIEW_OVERLAY_MAX_HEIGHT_RATIO = 0.85;
+export const PREVIEW_OVERLAY_MARGIN = 1;
+
 type PreviewThemeColor = "text" | "muted" | "accent" | "warning" | "error" | "dim" | "border";
-type PreviewFeedbackMode = "rich" | "compact";
 
 export type {
 	PrPreviewFeedbackComment,
@@ -54,7 +62,6 @@ export class PrPreviewFeedbackView implements Component {
 	private selectedIndex: number;
 	private listScroll: number;
 	private detailScroll: number;
-	private mode: PreviewFeedbackMode;
 
 	constructor(options: PrPreviewFeedbackViewOptions) {
 		this.tui = options.tui;
@@ -64,19 +71,18 @@ export class PrPreviewFeedbackView implements Component {
 		this.selectedIndex = 0;
 		this.listScroll = 0;
 		this.detailScroll = 0;
-		this.mode = "rich";
 	}
 
 	render(width: number): string[] {
 		const safeWidth = Math.max(MIN_RENDER_WIDTH, width);
 		const innerWidth = Math.max(1, safeWidth - 2);
-		const height = Math.max(10, this.terminalRows());
+		const height = this.modalRows();
 		const header = buildPreviewHeaderLines(this.model).map((line) => this.color("text", line));
 		const footer = this.color(
 			"dim",
-			`↑↓/jk select · PgUp/PgDn scroll · v rich/compact (${this.mode}) · q/esc close · preview only`,
+			"↑↓/jk select · PgUp/PgDn scroll · q/esc close · preview only",
 		);
-		const chromeRows = 2 + header.length + 1 + 1;
+		const chromeRows = 2 + header.length + 1 + 1 + 1;
 		const bodyRows = Math.max(1, height - chromeRows);
 		const body = this.renderBody(innerWidth, bodyRows);
 		return [
@@ -84,6 +90,7 @@ export class PrPreviewFeedbackView implements Component {
 			...header.map((line) => this.boxLine(line, innerWidth)),
 			this.border({ left: "├", fill: "─", right: "┤", width: safeWidth }),
 			...body.map((line) => this.boxLine(line, innerWidth)),
+			this.border({ left: "├", fill: "─", right: "┤", width: safeWidth }),
 			this.boxLine(footer, innerWidth),
 			this.border({ left: "└", fill: "─", right: "┘", width: safeWidth }),
 		].map((line) => fitToWidth(line, width));
@@ -110,11 +117,6 @@ export class PrPreviewFeedbackView implements Component {
 			this.scrollDetails(-8);
 			return;
 		}
-		if (data === "v") {
-			this.mode = this.mode === "rich" ? "compact" : "rich";
-			this.detailScroll = 0;
-			this.tui.requestRender();
-		}
 	}
 
 	invalidate(): void {}
@@ -123,13 +125,24 @@ export class PrPreviewFeedbackView implements Component {
 		return this.tui.terminal.rows ?? FALLBACK_TERMINAL_ROWS;
 	}
 
+	/**
+	 * Number of rows the modal may render before the host overlay clips it. Mirrors
+	 * the TUI's `maxHeight = min(floor(rows * ratio), rows - 2 * margin)` so the
+	 * footer and bottom border stay inside the visible overlay.
+	 */
+	private modalRows(): number {
+		const rows = this.terminalRows();
+		const available = Math.max(1, rows - 2 * PREVIEW_OVERLAY_MARGIN);
+		const budget = Math.min(Math.floor(rows * PREVIEW_OVERLAY_MAX_HEIGHT_RATIO), available);
+		return Math.max(1, budget);
+	}
+
 	private renderBody(width: number, rows: number): string[] {
 		if (this.model.threads.length === 0) return this.renderEmptyBody(width, rows);
 		this.selectedIndex = clamp(this.selectedIndex, 0, this.model.threads.length - 1);
 		const listRows = feedbackListRows({
 			bodyRows: rows,
 			threadCount: this.model.threads.length,
-			mode: this.mode,
 		});
 		const detailRows = Math.max(1, rows - listRows - 1);
 		this.listScroll = reconcileScroll({
@@ -175,25 +188,19 @@ export class PrPreviewFeedbackView implements Component {
 
 	private renderDetailLines(thread: PrPreviewFeedbackThread | undefined): string[] {
 		const rows = buildThreadDetailRows(thread);
-		return this.mode === "compact"
-			? this.renderCompactDetailLines(rows)
-			: this.renderRichDetailLines(rows);
-	}
-
-	private renderRichDetailLines(rows: readonly PrPreviewFeedbackDetailRow[]): string[] {
 		const lines: string[] = [];
 		let previousRole: PrPreviewFeedbackDetailRow["role"] | null = null;
 		for (const row of rows) {
 			if (row.role === "evidence" && previousRole !== "evidence") {
 				lines.push(this.color("muted", "  EVIDENCE"));
 			}
-			lines.push(this.renderRichDetailLine(row));
+			lines.push(this.renderDetailLine(row));
 			previousRole = row.role;
 		}
 		return lines;
 	}
 
-	private renderRichDetailLine(row: PrPreviewFeedbackDetailRow): string {
+	private renderDetailLine(row: PrPreviewFeedbackDetailRow): string {
 		switch (row.role) {
 			case "finding":
 				return this.color("accent", `▣ ${row.text}`);
@@ -210,20 +217,6 @@ export class PrPreviewFeedbackView implements Component {
 			case "spacer":
 				return "";
 		}
-	}
-
-	private renderCompactDetailLines(rows: readonly PrPreviewFeedbackDetailRow[]): string[] {
-		const lines: string[] = [];
-		for (const row of rows) {
-			if (row.role === "finding") {
-				lines.push(this.color("accent", `▣ ${row.text}`));
-			} else if (row.role === "body") {
-				lines.push(this.color("text", row.text));
-			} else if (row.role === "comment") {
-				lines.push(this.color("muted", row.text));
-			}
-		}
-		return lines;
 	}
 
 	private renderThreadRow(
@@ -288,15 +281,7 @@ export class PrPreviewFeedbackView implements Component {
 	}
 }
 
-export function feedbackListRows(options: {
-	bodyRows: number;
-	threadCount: number;
-	mode: PreviewFeedbackMode;
-}): number {
-	if (options.mode === "compact") {
-		const preferred = Math.max(5, Math.floor(options.bodyRows * 0.6));
-		return clamp(Math.min(options.threadCount, preferred), 1, options.bodyRows - 2);
-	}
+export function feedbackListRows(options: { bodyRows: number; threadCount: number }): number {
 	const preferred = Math.max(3, Math.floor(options.bodyRows * 0.3));
 	return clamp(Math.min(options.threadCount, preferred), 1, options.bodyRows - 5);
 }

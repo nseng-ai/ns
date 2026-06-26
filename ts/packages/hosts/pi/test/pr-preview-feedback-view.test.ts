@@ -9,21 +9,10 @@ import type {
 import { feedbackListRows, PrPreviewFeedbackView } from "../src/pr/preview-feedback-view.ts";
 
 describe("feedbackListRows layout helper", () => {
-	test("rich mode keeps the list compact so detail dominates", () => {
-		expect(feedbackListRows({ bodyRows: 20, threadCount: 12, mode: "rich" })).toBe(6);
-		expect(feedbackListRows({ bodyRows: 8, threadCount: 12, mode: "rich" })).toBe(3);
-		expect(feedbackListRows({ bodyRows: 20, threadCount: 2, mode: "rich" })).toBe(2);
-	});
-
-	test("compact mode grows the list for triage scanning", () => {
-		expect(feedbackListRows({ bodyRows: 20, threadCount: 12, mode: "compact" })).toBe(12);
-		expect(feedbackListRows({ bodyRows: 8, threadCount: 12, mode: "compact" })).toBe(5);
-	});
-
-	test("compact allocates more list rows than rich for the same inputs", () => {
-		const rich = feedbackListRows({ bodyRows: 24, threadCount: 12, mode: "rich" });
-		const compact = feedbackListRows({ bodyRows: 24, threadCount: 12, mode: "compact" });
-		expect(compact).toBeGreaterThan(rich);
+	test("keeps the list compact so detail dominates", () => {
+		expect(feedbackListRows({ bodyRows: 20, threadCount: 12 })).toBe(6);
+		expect(feedbackListRows({ bodyRows: 8, threadCount: 12 })).toBe(3);
+		expect(feedbackListRows({ bodyRows: 20, threadCount: 2 })).toBe(2);
 	});
 });
 
@@ -35,7 +24,6 @@ describe("PR feedback preview horizontal layout", () => {
 		expect(text).toContain("▏ ");
 		expect(text).toContain("EVIDENCE");
 		expect(text).toContain("github-actions");
-		expect(text).toContain("v rich/compact (rich)");
 	});
 
 	test("stacks the thread list above the detail without a side-by-side column", () => {
@@ -48,22 +36,6 @@ describe("PR feedback preview horizontal layout", () => {
 		expect(labelIndex).toBeGreaterThanOrEqual(0);
 		expect(bodyIndex).toBeGreaterThan(labelIndex);
 		expect(lines.some((line) => line.includes("─".repeat(10)))).toBe(true);
-	});
-
-	test("v toggles to compact triage and back to rich", () => {
-		const view = newView(threadFixtures());
-
-		view.handleInput("v");
-		const compact = renderText(view);
-		expect(compact).not.toContain("▏ ");
-		expect(compact).not.toContain("EVIDENCE");
-		expect(compact).toContain("v rich/compact (compact)");
-		expect(countThreadRows(compact)).toBeGreaterThan(countThreadRows(renderRich()));
-
-		view.handleInput("v");
-		const richAgain = renderText(view);
-		expect(richAgain).toContain("▏ ");
-		expect(richAgain).toContain("EVIDENCE");
 	});
 
 	test("severity icons and level tokens carry severity colors on unselected rows", () => {
@@ -110,15 +82,26 @@ describe("PR feedback preview horizontal layout", () => {
 		view.handleInput(" ");
 		const scrolled = selectedDetailText(view);
 		expect(scrolled).not.toEqual(initial);
+	});
 
-		view.handleInput("v");
-		view.handleInput("v");
+	test("renders within the overlay height budget so the bottom border stays visible", () => {
+		// Terminal is 30 rows; the host overlay clips to floor(rows * 0.85) = 25 rows.
+		// The modal must fit that budget, otherwise its footer and bottom border are sliced off.
+		const lines = newView(threadFixtures()).render(120);
+		expect(lines.length).toBeLessThanOrEqual(Math.floor(30 * 0.85));
+
+		expect(lines[0]).toContain("┌");
+		const lastLine = lines[lines.length - 1];
+		expect(lastLine).toContain("└");
+		expect(lastLine).toContain("┘");
+
+		// A divider separates the detail body from the footer (mirrors the header divider).
+		const footerIndex = lines.findIndex((line) => line.includes("q/esc close"));
+		expect(footerIndex).toBeGreaterThan(0);
+		expect(lines[footerIndex - 1]).toContain("├");
+		expect(lines[footerIndex - 1]).toContain("┤");
 	});
 });
-
-function renderRich(): string {
-	return renderText(newView(threadFixtures()));
-}
 
 function threadFixtures(): PrPreviewFeedbackThread[] {
 	return [
@@ -299,8 +282,4 @@ function selectedDetailText(view: PrPreviewFeedbackView): string {
 	const lines = view.render(120);
 	const separatorIndex = lines.findIndex((line) => line.includes("─".repeat(10)));
 	return lines.slice(Math.max(0, separatorIndex)).join("\n");
-}
-
-function countThreadRows(text: string): number {
-	return text.split("\n").filter((line) => /L\d+ /.test(line)).length;
 }
