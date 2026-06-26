@@ -158,8 +158,10 @@ describe("project-local submit extension", () => {
 				{ stream: "stderr", text: "  … finished PR #123 description\n" },
 			]),
 		);
+		// The gt submit phase streams its raw output live even without --verbose.
+		expect(run.liveOutput).toContainEqual({ stream: "stdout", text: `Submitted ${PR_URL}\n` });
+		// Preflight dry-run output stays quiet unless --verbose is passed.
 		expect(run.liveOutput).not.toContainEqual({ stream: "stdout", text: "ready\n" });
-		expect(run.liveOutput).not.toContainEqual({ stream: "stdout", text: `Submitted ${PR_URL}\n` });
 		expect(formattedExecCalls(run.context)).toContain("gt branch info --no-interactive");
 		expect(formattedExecCalls(run.context)).not.toContain(
 			"gt branch info --no-interactive --branch main",
