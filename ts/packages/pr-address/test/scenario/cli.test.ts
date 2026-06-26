@@ -116,7 +116,7 @@ describe("pr-address CLI", () => {
 		const negativeRun = runScenario(["exec", "envelope", "negative", "--format", "json"], {
 			operations,
 		});
-		expect(await negativeRun.exit).toBe(0);
+		expect(await negativeRun.exit).toBe(1);
 		expect(JSON.parse(negativeRun.stdout.join(""))).toEqual({
 			status: "negative",
 			exitCode: 1,

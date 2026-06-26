@@ -139,7 +139,7 @@ describe("objective exec read-objective", () => {
 	test("missing slug returns a stable negative JSON envelope without usage", async () => {
 		const run = runScenario(["exec", "read-objective", "--format", "json"]);
 
-		expect(await run.exit).toBe(0);
+		expect(await run.exit).toBe(1);
 		expect(run.stderr.join("")).not.toContain("Usage:");
 		expect(run.stdout.join("")).not.toContain("Usage:");
 		expect(parseJsonOutput(run)).toEqual({
@@ -153,7 +153,7 @@ describe("objective exec read-objective", () => {
 	test("invalid slug returns a stable negative JSON envelope", async () => {
 		const run = runScenario(["exec", "read-objective", "foo/bar", "--format", "json"]);
 
-		expect(await run.exit).toBe(0);
+		expect(await run.exit).toBe(1);
 		expect(parseJsonOutput(run)).toEqual({
 			status: "negative",
 			exitCode: 1,
@@ -167,7 +167,7 @@ describe("objective exec read-objective", () => {
 			fake: { records: [], directories: [".sdl/objective-archive/alpha"] },
 		});
 
-		expect(await run.exit).toBe(0);
+		expect(await run.exit).toBe(1);
 		expect(parseJsonOutput(run)).toEqual({
 			status: "negative",
 			exitCode: 1,

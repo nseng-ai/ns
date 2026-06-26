@@ -1,4 +1,4 @@
-import { ok, shellNegative } from "@sdl/clinkr";
+import { ok, negative } from "@sdl/clinkr";
 import { z } from "zod";
 
 import type { AretroCliContext } from "../context.ts";
@@ -234,7 +234,7 @@ function collectFailure(
 		error: options.error,
 		warnings: [...options.warnings],
 	});
-	return shellNegative(options.error.message, result);
+	return negative(options.error.message, result);
 }
 
 interface ResolvedBranch {

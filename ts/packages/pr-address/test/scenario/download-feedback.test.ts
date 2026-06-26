@@ -211,7 +211,7 @@ describe("pr-address exec download-feedback", () => {
 			prFeedback: defaultPrFeedback(),
 		});
 
-		expect(await run.exit).toBe(0);
+		expect(await run.exit).toBe(1);
 		const data = dataFrom(run.stdout);
 		expect(data.found).toBe(false);
 		expect(data.markdown).toContain("No PR found for branch feature/missing");

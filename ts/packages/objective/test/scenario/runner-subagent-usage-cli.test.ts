@@ -93,7 +93,7 @@ describe("objective exec runner-subagent-usage", () => {
 	test("missing args return a negative canonical JSON envelope", async () => {
 		const run = runScenario(["exec", "runner-subagent-usage", "--format", "json"]);
 
-		expect(await run.exit).toBe(0);
+		expect(await run.exit).toBe(1);
 		expect(parseJsonOutput(run)).toEqual({
 			status: "negative",
 			exitCode: 1,

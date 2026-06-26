@@ -433,12 +433,6 @@ function configureCommandExecution<TContext>(
 				.choices(["human", "json", "markdown", "md"])
 				.default("human"),
 		);
-		command.addOption(
-			new Option(
-				"--shell-exit-code",
-				"Use shell-visible Clinkr semantic exit codes; negative exits 1 instead of 0.",
-			),
-		);
 	}
 	command.addOption(
 		new Option("--json-schema", "Print the JSON Schema for this command's input/output and exit."),
@@ -518,7 +512,6 @@ function configureCommandExecution<TContext>(
 					io,
 					renderHuman: registered.execution.renderHuman,
 					renderMarkdown: registered.execution.renderMarkdown,
-					shellExitCode: opts["shellExitCode"] === true,
 				});
 				return;
 			}

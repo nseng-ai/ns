@@ -30,7 +30,7 @@ describe("areg exec skillx CLI", () => {
 	test("parse failure uses Clinkr negative envelope under --format json", async () => {
 		const run = runScenario(["exec", "skillx", "parse", "", "--format", "json"]);
 
-		expect(await run.exit).toBe(0);
+		expect(await run.exit).toBe(1);
 		expect(JSON.parse(run.stdout.join(""))).toEqual({
 			status: "negative",
 			exitCode: 1,
@@ -63,7 +63,7 @@ describe("areg exec skillx CLI", () => {
 			},
 		);
 
-		expect(await run.exit).toBe(0);
+		expect(await run.exit).toBe(1);
 		expect(JSON.parse(run.stdout.join(""))).toEqual({
 			status: "negative",
 			exitCode: 1,
@@ -164,7 +164,7 @@ describe("areg exec skillx CLI", () => {
 			{ context },
 		);
 
-		expect(await run.exit).toBe(0);
+		expect(await run.exit).toBe(1);
 		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
 			exitCode: 1,
 			data: {
@@ -191,7 +191,7 @@ describe("areg exec skillx CLI", () => {
 			{ context },
 		);
 
-		expect(await run.exit).toBe(0);
+		expect(await run.exit).toBe(1);
 		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
 			status: "negative",
 			exitCode: 1,

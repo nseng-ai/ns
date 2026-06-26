@@ -220,7 +220,7 @@ describe("export operation", () => {
 		}
 	});
 
-	it("returns negative exit 0 for empty selection without creating the output directory", async () => {
+	it("returns empty ok result for empty selection without creating the output directory", async () => {
 		const root = await makeTempDir();
 		try {
 			const outputDir = join(root, "empty");
@@ -231,8 +231,7 @@ describe("export operation", () => {
 			});
 			expect(await run.exit).toBe(0);
 			expect(parseJsonOutput(run)).toMatchObject({
-				exitCode: 1,
-				message: "No base Entries found on Branch main.",
+				exitCode: 0,
 				data: { exported: [], output_dir: outputDir },
 			});
 			await expect(readFile(outputDir, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
@@ -248,33 +247,10 @@ describe("export operation", () => {
 			);
 			expect(await named.exit).toBe(0);
 			expect(parseJsonOutput(named)).toMatchObject({
-				exitCode: 1,
-				message: "No Entries found on Branch main in Namespace scratch.",
+				exitCode: 0,
 				data: { exported: [], output_dir: namedOutputDir },
 			});
 			await expect(readFile(namedOutputDir, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
-		} finally {
-			await rm(root, { recursive: true, force: true });
-		}
-	});
-
-	it("supports shell exit code mode for empty export selection", async () => {
-		const root = await makeTempDir();
-		try {
-			const outputDir = join(root, "empty-shell");
-			const run = runScenario(
-				["export", "--output-dir", outputDir, "--format", "json", "--shell-exit-code"],
-				{
-					fake: {
-						entries: [{ namespace: "scratch", branch: "main", key: "other.md", content: "other" }],
-					},
-				},
-			);
-			expect(await run.exit).toBe(1);
-			expect(parseJsonOutput(run)).toMatchObject({
-				exitCode: 1,
-				message: "No base Entries found on Branch main.",
-			});
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}

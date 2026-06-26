@@ -69,14 +69,14 @@ export function parseFindingsPayloadResult(
 	const success = reviewRunSuccessEnvelopeSchema.safeParse(data.value);
 	if (success.success) return payloadFromReviewRunResult(success.data.data);
 
-	const shellNegative = reviewRunShellNegativeEnvelopeSchema.safeParse(data.value);
-	if (shellNegative.success) return payloadFromReviewRunResult(shellNegative.data.data);
+	const negativeResult = reviewRunShellNegativeEnvelopeSchema.safeParse(data.value);
+	if (negativeResult.success) return payloadFromReviewRunResult(negativeResult.data.data);
 
-	const negative = reviewRunNegativeEnvelopeSchema.safeParse(data.value);
-	if (negative.success) {
+	const negativeEnvelope = reviewRunNegativeEnvelopeSchema.safeParse(data.value);
+	if (negativeEnvelope.success) {
 		return payloadFromEnvelopeFailure(options, {
 			errorType: "negative",
-			message: negative.data.message,
+			message: negativeEnvelope.data.message,
 		});
 	}
 

@@ -111,7 +111,7 @@ describe("runRecordFindings", () => {
 		expect(reviewLog.writtenEntries()).toEqual([]);
 	});
 
-	test("log write failure exits shell-negative while preserving the review result", async () => {
+	test("log write failure exits negative while preserving the review result", async () => {
 		const reviewLog = new FakeReviewLogGateway({
 			writeFailure: { type: "review_log_write_failed", message: "brmem put failed" },
 		});
@@ -131,8 +131,8 @@ describe("runRecordFindings", () => {
 			model: "pi/sonnet",
 		});
 
-		expect(exit.type).toBe("shell-negative");
-		if (exit.type !== "shell-negative") return;
+		expect(exit.type).toBe("negative");
+		if (exit.type !== "negative") return;
 		expect(exit.message).toContain("failed to write Branch Memory review log");
 		expect(exit.data?.reviewName).toBe("typescript-style");
 		expect(exit.data?.model).toBe("pi/sonnet");

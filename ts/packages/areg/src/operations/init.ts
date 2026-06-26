@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { failure, ok, shellNegative, type ClinkrExit } from "@sdl/clinkr";
+import { failure, ok, negative, type ClinkrExit } from "@sdl/clinkr";
 import { managedRegionBounds } from "@sdl/core/managed-region";
 import { resultErr, type Result } from "@sdl/core/result";
 import { z } from "zod";
@@ -120,7 +120,7 @@ interface InitMutationFailureOptions {
 }
 
 function initMutationFailure(options: InitMutationFailureOptions): ClinkrExit<InitResult> {
-	return shellNegative(options.message, {
+	return negative(options.message, {
 		mutation_failed: true,
 		project_dir: options.projectDir,
 		agents: [...options.agents],

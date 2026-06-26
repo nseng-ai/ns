@@ -15,8 +15,8 @@
     negative process-exit defaults, and danger tiers remain ADR-needed; dry-run /
     force / aliases stay backlog unless a danger-tier ADR pulls them forward.
 - [~] Record ADRs in `docs/adr/` for each contested decision.
-  - Candidates still remaining: negative process-exit default and
-    confirmation/danger tiers. Each ADR records decision + dissent.
+  - Candidates still remaining: confirmation/danger tiers. Each ADR records
+    decision + dissent.
   - ADR 0010 records the exit-code decision: keep process exit codes
     coarse/stable and put detailed failure semantics in the structured machine
     envelope; dissent for richer numeric taxonomies is preserved.
@@ -28,6 +28,9 @@
     add no compact/pagination/JSONL framework API now; teach command-local
     bounded-output guidance in `sdl-cli-design` and reopen framework extraction
     only after repeated command pressure or one severe agent-context failure.
+  - ADR 0013 records the negative process-exit default decision: `ok=0`,
+    `negative=1`, and `failure/usage_error=2`; remove the redundant
+    `--shell-exit-code` and `shellNegative` surfaces.
 - [ ] Author and register the `sdl-cli-design` skill.
   - Clinkr-grounded overlay; `normal`/ambient via `areg`. Sections: basics as
     hard gates, human tier (clig.dev), agent/`exec` tier (agent-era), naming,
@@ -37,8 +40,13 @@
   - ADR 0011's high-agreement envelope reset has landed: structured failure
     `data` is preserved, JSON-mode usage errors are enveloped, machine envelope
     schemas are published, and TS package tests/consumers were migrated to the
-    new camelCase contract. Remaining implementation work should be gated by the
-    remaining ADRs rather than by the old Python-parity concern.
+    new camelCase contract.
+  - ADR 0013's negative-default migration has landed in Clinkr: rendered
+    `negative(...)` exits `1` by default, human/markdown negative messages go to
+    stderr, JSON envelopes remain stdout with `exitCode: 1`, and the redundant
+    `--shell-exit-code` / `shellNegative` split is removed. Remaining
+    implementation work should be gated by the remaining ADRs rather than by the
+    old Python-parity concern.
 
 ## Parked
 

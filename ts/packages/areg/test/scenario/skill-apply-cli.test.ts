@@ -170,7 +170,7 @@ describe("areg skill apply CLI", () => {
 			yes: false,
 		});
 
-		expect(result.type).toBe("shell-negative");
+		expect(result.type).toBe("negative");
 		expect(project.text("skills/alpha/SKILL.md")).toBeUndefined();
 		expect(mutationOperations(project.operations())).toEqual([]);
 		expect(result).toMatchObject({
@@ -242,7 +242,7 @@ describe("areg skill apply CLI", () => {
 			yes: false,
 		});
 
-		expect(result.type).toBe("shell-negative");
+		expect(result.type).toBe("negative");
 		expect(project.text("skills/alpha/SKILL.md")).toContain("disable-model-invocation: true");
 		expect(project.text("skills/beta/SKILL.md")).toBeUndefined();
 		expect(result).toMatchObject({
@@ -310,8 +310,8 @@ describe("areg skill apply CLI", () => {
 		});
 
 		expect(result).toMatchObject({
-			type: "negative",
-			message: "Declined to apply normal to beta.",
+			type: "ok",
+			human: "Declined to apply normal to beta.",
 		});
 		expect(prompt.operations()).toHaveLength(2);
 		expect(

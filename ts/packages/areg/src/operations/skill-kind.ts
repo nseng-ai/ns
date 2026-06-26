@@ -2,7 +2,6 @@ import {
 	failure,
 	negative,
 	ok,
-	shellNegative,
 	type ClinkrExit,
 	ClinkrGroup,
 	type RenderCapabilities,
@@ -274,12 +273,15 @@ export async function runSkillKindApply(
 				defaultValue: false,
 			});
 			if (!confirmed)
-				return negative(`Declined to apply ${request.kind} to ${plan.skill}.`, {
-					project_dir: projectDir,
-					kind: request.kind,
-					dry_run: request.dryRun,
-					skills: [],
-				});
+				return ok(
+					{
+						project_dir: projectDir,
+						kind: request.kind,
+						dry_run: request.dryRun,
+						skills: [],
+					},
+					{ human: `Declined to apply ${request.kind} to ${plan.skill}.` },
+				);
 		}
 	}
 	const applyResult = await applyProjectMutationPlan({
@@ -291,7 +293,7 @@ export async function runSkillKindApply(
 		removeEmptyDirs: plans.flatMap(plannedRemoveEmptyDirs),
 	});
 	if (!applyResult.ok) {
-		return shellNegative(applyResult.error.message, {
+		return negative(applyResult.error.message, {
 			project_dir: projectDir,
 			kind: request.kind,
 			dry_run: false,
@@ -322,9 +324,9 @@ export async function runSkillKindApply(
 
 function skillKindRecordsFailure<T>(
 	error: { code: string; message: string },
-	shellNegativeData: T,
+	negativeData: T,
 ): ClinkrExit<T> {
-	if (isPathStateError(error)) return shellNegative(error.message, shellNegativeData);
+	if (isPathStateError(error)) return negative(error.message, negativeData);
 	return failure("skill_records_invalid", error.message);
 }
 

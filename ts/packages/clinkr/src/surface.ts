@@ -43,7 +43,7 @@ export interface PositionalSpec {
 }
 
 /** Keys that collide with options clinkr itself adds to every command. */
-const RESERVED_KEYS = new Set(["format", "jsonSchema", "shellExitCode"]);
+const RESERVED_KEYS = new Set(["format", "jsonSchema"]);
 
 interface UnwrappedField {
 	inner: z.ZodType;
