@@ -1,135 +1,60 @@
-# SDL — Agent Onboarding
+# SDL Agent Instructions
 
-## Read This First
+## What SDL is
 
-Every agent session starts with zero context: no memory of prior sessions, no accumulated familiarity with this repo. This file is the entire day-one onboarding — anything not written here, or routed to from here, does not exist for the agent. (That is also a deliberate reminder to humans editing this repo: if a rule matters, it must be written down and reachable from here.)
+SDL (Source Development Lifecycle) is private, unreleased, agent-first tooling for running multi-session, multi-branch software work in a git-native way. It gives agents and humans a shared set of capabilities — durable planning **Objectives**, worktree **slots**, **branch-context** and branch memory, directed **handoffs**, and Graphite-based PR stacking — surfaced both as CLIs (`sdl`, `slot`, `objective`, `brmem`, …) and as Pi `/sdl:*` slash-commands. Assume you are one of many agents starting cold on this repo: orient yourself with the docs below before acting.
 
-Agent instructions live in four tiers:
+## Scope
 
-1. **Root `AGENTS.md`** (this file) — repo-wide onboarding, always loaded into every session.
-2. **Nested `AGENTS.md` files** — directory-scoped onboarding, read when working in that area.
-3. **Skills** — on-demand procedural manuals, loaded when a task matches.
-4. **CONTEXT files** — domain language for an area, entered via `CONTEXT-MAP.md` (see "Domain Language" below).
+This root `AGENTS.md` contains only repo-wide rules needed before choosing a directory, skill, or context file. Put directory rules in nested `AGENTS.md`, procedural detail in skills, and domain language in `CONTEXT.md`. Before editing under a subdirectory, read the nearest applicable nested `AGENTS.md` if present.
 
-Placement policy: root `AGENTS.md` holds only rules that apply repo-wide AND are needed before an agent can pick the right skill or directory — every line here is paid for in tokens by every agent, every session. Directory-scoped rules go in that directory's `AGENTS.md`; procedural depth goes in skills. Every rule must be self-contained for a reader with zero prior sessions — no tribal references.
+## Repo facts
 
-## Orientation
+- SDL is private, unreleased software; breaking changes are allowed.
+- First-party implementation is TypeScript on Node 24+.
+- Package workspace: `ts/` with pnpm.
+- Default repo validation entrypoint: `just`.
+- Python: always use `uv` (for example, `uv run python ...`); never call bare `python` or `python3`.
 
-### What is SDL?
+## Architecture rules
 
-SDL is a composable toolkit for plan-oriented agentic engineering: tooling that helps humans and agents plan work, implement it in isolated environments, and carry context across sessions.
+- Prefer composable features with explicit dependencies over hidden integration.
+- Durable state should be git-native: refs, branches, GitHub issues/PRs where collaboration warrants; avoid hidden databases/ad-hoc state files.
+- Keep units small and testable: pure transformations plus Gateway interfaces for external I/O.
+- Port thoughtfully; do not copy abstractions unchanged when simpler designs fit.
 
-**The goal**: each feature should be usable on its own, without buying into the entire system. A team should be able to adopt just the plan workflow, etc., without pulling in unrelated machinery.
+## Context and routing
 
-Major features:
+- For planning, design, or naming in a domain area, start at `CONTEXT-MAP.md`, then read the relevant `CONTEXT.md`.
+- Use canonical terms and honor each term's *Avoid* list; treat map ambiguities as live distinctions.
+- Edit `CONTEXT.md` files only when explicitly asked or doing domain-language work. If ordinary work reveals drift, report it instead of silently fixing it.
 
-- **Plans and branch contexts** — write an implementation plan, attach it to a branch, implement from it in a fresh session.
-- **Worktree slots** — parallel isolated checkouts for concurrent agent sessions.
-- **Branch Memory and handoffs** — branch-scoped durable context that carries decisions between sessions.
-- **Objectives** — tracked units of planned work with priorities.
-- **PR feedback tooling** — classify, plan, and resolve review feedback end-to-end (`pr-address`).
+## Hard gates
 
-### Status
+- **Never commit on `main` or `master`**. If a commit/checkpoint is needed there, first switch/create a feature branch.
+- Prefer LBYL (look before you leap) over EAFP.
+- Keep features decoupled; do not reach into unrelated subsystems.
+- Do not give calendar-time or effort-duration estimates unless the user asks.
 
-Unreleased, private software. We can break backwards compatibility freely.
+## Formatting and validation
 
-### Tech Stack
-
-- **Language**: TypeScript on Node 24+ for first-party toolkit implementations.
-- **CLI**: TypeScript standalone CLIs built with the repo's Clinkr-style command framework.
-- **Package manager**: pnpm workspace under `ts/`.
-- **Linting/Formatting**: oxlint/oxfmt for TypeScript; dprint for Markdown/TOML.
-- **Type checking**: tsgo through the `ts/` workspace scripts.
-- **Testing**: Vitest for TypeScript packages.
-- **Python invocation**: always run Python through `uv` (for example, `uv run python - <<'PY' ...`). Never call bare `python` or `python3`, including for quick one-off inspection scripts.
-
-### Project Structure
-
-```
-sdl/
-├── ts/packages/       # First-party TypeScript packages and CLIs
-├── skills/            # Repo-owned agent skills
-├── docs/              # Documentation
-├── .sdl/objectives/  # Durable Objective records
-└── justfile           # Repository orchestration over TS/docs checks
-```
-
-### Design Principles
-
-1. **Composability over integration** — each feature works standalone. No hidden coupling between subsystems.
-2. **Git-native storage** — durable state lives in git-native mechanisms: branch-scoped refs (Branch Memory), branches, and GitHub issues/PRs where collaboration warrants. Never hidden databases or ad-hoc state files.
-3. **Small, testable units** — pure functions and data transformations over complex class hierarchies. Gateway interfaces for external I/O.
-4. **Port, don't copy** — when porting existing code, rethink the design. Simplify interfaces, remove unnecessary abstractions, and cut dependencies.
-
-## Domain Language
-
-`CONTEXT-MAP.md` at the repo root is the entry point to the repo's domain language: it inventories the `CONTEXT.md` files that exist and are planned, candidate relationships between them, and flagged ambiguities.
-
-Before planning, designing, or naming things in an area, read that area's `CONTEXT.md` — route to it via the map. Use the canonical terms in code, docs, and PRs; treat each term's *Avoid* list as binding anti-vocabulary; the map's flagged ambiguities are live distinctions to respect, not noise.
-
-Edit CONTEXT files deliberately, never incidentally: only when the task is explicitly about domain language (a grill-with-docs session, a focused context/rebaseline session, or direct user instruction). If ordinary work surfaces drift between code and a CONTEXT file, report it as a finding — never fix it silently.
-
-## Ground Rules
-
-- **Never commit directly to `main` or `master`**. Treat either trunk branch as a hard stop for commit creation: switch to or create a feature branch first, and do not run `git commit`, `gt modify`, or any equivalent command while checked out there.
-- Prefer LBYL (look before you leap) over EAFP (easier to ask forgiveness).
-- Keep features decoupled. A feature should declare its dependencies explicitly, not reach into other subsystems.
-
-### Planning and Estimates
-
-- Do not provide calendar-time or effort-duration estimates for engineering work unless the user explicitly asks for them. Prefer dependency order, migration shape, scope/risk notes, and concrete next actions.
-
-### Fixing Lint and Format Failures
-
-When `just` reports a lint or format failure, do not hand-edit files to satisfy the formatter. Run the corresponding autofix recipe instead:
-
-- `dprint check` failures (Markdown / TOML) → `just dprint-fix`
-- TypeScript formatting failures → `just ts-format-fix`
-- TypeScript lint autofixable failures → `just ts-lint-fix`
-
-After autofixing, re-run `just` to confirm the suite is green. Only edit files by hand when the failure is a real lint/type/test bug that the autofixer cannot resolve.
+- `just` is the default repo validation entrypoint. If it reports a `dprint check` formatting failure, run `just dprint-fix` instead of hand-editing formatter output, then rerun validation.
+- TypeScript format/lint autofixers (`just ts-format-fix`, `just ts-lint-fix`) and the rest of the `ts/` rules live in `ts/AGENTS.md`.
 
 ## Skills
 
-A skill is a set of local instructions to follow that is stored in a `SKILL.md` file. Installed skills are discovered natively from the on-disk skill directories and their `SKILL.md` frontmatter. `AGENTS.md` is for project instructions, not a hand-maintained skill index.
+- Use a skill when the user names it or the task matches its description. Multiple named skills mean use all; do not carry skills across turns unless re-mentioned.
+- Read the skill's `SKILL.md` progressively; resolve relative paths from the skill directory; load only needed `references/`; prefer scripts/assets/templates over retyping large blocks.
+- If a named skill is missing or unreadable, say so briefly and continue with the best fallback.
+- Before creating, editing, installing, renaming, publishing skills, or touching `skills/` or `.agents/skills/`, read `docs/skill-conventions.md`.
+- Review boundary: real directories under `.agents/skills/` are vendored third-party code. Review agents ignore embedded upstream code for normal lint/type/cleanup expectations and flag only integration-boundary issues unless explicitly asked to review the vendored dependency itself.
 
-### How to use skills
+## TypeScript and CLI work
 
-- **Trigger rules**: If the user names an installed skill (with `$SkillName` or plain text) OR the task clearly matches an installed skill, you must use that skill for that turn. Multiple mentions mean use them all. Do not carry skills across turns unless re-mentioned.
-- **Progressive disclosure of skill internals**: open the `SKILL.md` and read only enough to follow the workflow; resolve relative paths from the skill directory; load only the specific `references/` file the request needs (don't bulk-load); prefer running or patching `scripts/` over retyping large code blocks; reuse `assets/`/templates instead of recreating them.
-- **Missing/blocked**: If a named skill is not installed or its `SKILL.md` cannot be read, say so briefly and continue with the best fallback.
+- Procedural rules for editing under `ts/` (tsgo typecheck, Vitest suite, Bun ban, format/lint autofixers) and for authoring CLI commands live in `ts/AGENTS.md`. Read it before editing any `.ts` file or designing a CLI surface.
 
-Skill-authoring and skill-management conventions live in `docs/skill-conventions.md` — read it before creating, editing, installing, renaming, or publishing skills, or before touching anything under `skills/` or `.agents/skills/`. One fact from it is load-bearing repo-wide: real directories under `.agents/skills/` are vendored third-party code; all code review agents must ignore their embedded upstream code for normal linting, typechecking, review, and cleanup expectations, and should only flag integration-boundary issues unless explicitly asked to review the vendored dependency itself — details in `docs/skill-conventions.md`.
+## Git, Graphite, GitHub
 
-## Code Conventions
-
-### CLI Design Discipline (`sdl-cli-design`)
-
-Invoke-only: load `/skill:sdl-cli-design` (`skills/sdl-cli-design/SKILL.md`) whenever you design, author, or review a CLI command, command group, `exec` subgroup, machine output shape, exit/error behavior, or destructive flow. The skill holds the full reasoning; two binding hard gates stay ambient here:
-
-- **CLI scenario tests** must cover `--version`, `--runtime`, and `-h` alongside operation tests when those surfaces are part of the user-facing contract.
-- **Skill/agent-only commands** MUST be registered under a nested `exec` `ClinkrGroup` constructed with `isHidden: true` (immutable after construction), keeping top-level `--help` focused on commands a human would type.
-
-### TypeScript Style
-
-Before any TypeScript work, load the `typescript-style` skill (`.agents/skills/typescript-style/SKILL.md`) and the repo-specific `sdl-typescript` overlay (`.agents/skills/sdl-typescript/SKILL.md`); they carry their own conditional-loading guidance (core rules, idioms, checklist, and `references/` for specific abstractions) and the precedence rules for explicit project tooling and established local conventions.
-
-### TypeScript Test Execution
-
-`ts/` package tests are Vitest-backed and fast: default to running the full TS validation suite rather than asking whether to narrow scope. Typecheck only through tsgo via `just ts-check` or `pnpm --dir ts run check` — no legacy compiler routes unless the user explicitly asks for parity/debugging. Do not add new package tests that depend on Bun's test runner.
-
-The only exception: in an out-of-scope template or standalone Bun project that intentionally still uses Bun's runner, run direct Bun tests sequentially (`bun test --sequential`).
-
-## Source Control & GitHub
-
-### Branch Creation and PR Submission (Graphite)
-
-This repo uses Graphite (`gt`) as the default tool for branch and PR workflow. Whenever you create branches, amend commits, submit or update PRs, or navigate and reshape stacks, consult the `graphite` skill (`.claude/skills/graphite/SKILL.md`) first and prefer `gt` over raw `git`. Fall back to raw `git` only when `gt` cannot express the operation (e.g., surgical `git rebase` during conflict resolution — see the skill's "Surgical Rebasing" section).
-
-### Runtime Graphite Dependency Boundary
-
-Runtime package code must not depend on Graphite by default; prefer `GitGateway`. Before adding any Graphite dependency (gateway, `gt` shell-out, Graphite in a CLI context) to runtime code, read `docs/graphite-dependency-boundary.md`. (`slot gt` is the sanctioned exception.)
-
-### GitHub Backend Interactions
-
-When adding or editing code that interacts with the GitHub backend (GraphQL, REST, or `gh` CLI), consult the `code-gh` skill (`.claude/skills/code-gh/SKILL.md`) first for correct API selection, rate-limit awareness, and gateway consistency.
+- This repo uses Graphite (`gt`) as the default tool for branch and PR workflow; for branch creation, commits/amends, PR submit/update, and stack navigation/reshaping, read `.claude/skills/graphite/SKILL.md` and prefer `gt` over raw `git` where possible.
+- Runtime package code must not depend on Graphite by default; prefer `GitGateway`. Before adding any runtime Graphite dependency, read `docs/graphite-dependency-boundary.md`. `slot gt` is the sanctioned exception.
+- For GitHub backend work via GraphQL, REST, or `gh`, read `.claude/skills/code-gh/SKILL.md`.
