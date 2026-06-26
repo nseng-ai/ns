@@ -6,6 +6,9 @@ import { stripTerminalEscapes } from "../terminal/presentation.ts";
 import { splitTextLines } from "../shared/text-lines.ts";
 
 const ROW_SUMMARY_WIDTH_COLUMNS = 46;
+const FEEDBACK_SEVERITY_LEVELS = ["info", "warning", "error"] as const;
+
+export type FeedbackSeverityLevel = (typeof FEEDBACK_SEVERITY_LEVELS)[number];
 
 export interface PrPreviewFeedbackCounts {
 	included_review_threads: number;
@@ -58,7 +61,7 @@ export interface PrPreviewFeedbackDetailRow {
 }
 
 interface ParsedCommentBody {
-	level: string | null;
+	level: FeedbackSeverityLevel | null;
 	title: string;
 	review: string | null;
 	details: readonly string[];
@@ -87,12 +90,8 @@ export function buildThreadDetailLines(thread: PrPreviewFeedbackThread | undefin
 	return buildThreadDetailRows(thread).map(formatThreadDetailRowText);
 }
 
-export function threadSeverityLevel(
-	thread: PrPreviewFeedbackThread,
-): "info" | "warning" | "error" | null {
-	const level = parseCommentBody(thread.comments[0]?.body ?? "").level;
-	if (level === "info" || level === "warning" || level === "error") return level;
-	return null;
+export function threadSeverityLevel(thread: PrPreviewFeedbackThread): FeedbackSeverityLevel | null {
+	return parseCommentBody(thread.comments[0]?.body ?? "").level;
 }
 
 export function buildThreadDetailRows(
@@ -176,7 +175,7 @@ function parseCommentBody(body: string): ParsedCommentBody {
 	const lines = normalizeCommentBodyLines(body);
 	const firstLine = firstNonEmptyLine(lines);
 	const titleMatch = /^(?<level>info|warning|error):\s*(?<title>.*)$/u.exec(firstLine);
-	const level = titleMatch?.groups?.level ?? null;
+	const level = normalizeFeedbackSeverityLevel(titleMatch?.groups?.level);
 	const title = titleMatch?.groups?.title ?? firstLine;
 	const details: string[] = [];
 	const evidence: string[] = [];
@@ -209,6 +208,16 @@ function trimBlankLines(lines: readonly string[]): string[] {
 
 function firstNonEmptyLine(lines: readonly string[]): string {
 	return lines.find((line) => line.trim() !== "")?.trim() ?? "";
+}
+
+function normalizeFeedbackSeverityLevel(level: string | undefined): FeedbackSeverityLevel | null {
+	if (isFeedbackSeverityLevel(level)) return level;
+	return null;
+}
+
+function isFeedbackSeverityLevel(level: string | undefined): level is FeedbackSeverityLevel {
+	if (level === undefined) return false;
+	return (FEEDBACK_SEVERITY_LEVELS as readonly string[]).includes(level);
 }
 
 function normalizeCommentBodyLines(body: string): string[] {

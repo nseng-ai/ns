@@ -1,4 +1,4 @@
-import { Key, matchesKey, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { Key, matchesKey } from "@earendil-works/pi-tui";
 import type { Component, TUI } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 
@@ -6,23 +6,27 @@ import {
 	buildThreadDetailRows,
 	buildThreadRowLabel,
 	threadSeverityLevel,
+	type FeedbackSeverityLevel,
 	type PrPreviewFeedbackDetailRow,
 	type PrPreviewFeedbackThread,
 	type PrPreviewFeedbackViewModel,
 } from "./preview-feedback-model.ts";
 import { clamp, fitToWidth, reconcileScroll } from "../context-profiler/render.ts";
+import {
+	PREVIEW_OVERLAY_MARGIN,
+	PREVIEW_OVERLAY_MAX_HEIGHT_RATIO,
+	sliceWrappedDetailLinesForViewport,
+	wrapDetailLines,
+} from "./preview-view-utilities.ts";
+import type {
+	WrappedDetailViewport,
+	WrappedDetailViewportOptions,
+} from "./preview-view-utilities.ts";
 
 const FALLBACK_TERMINAL_ROWS = 24;
 const MIN_RENDER_WIDTH = 40;
 
-/**
- * Overlay sizing the host applies to this modal. The TUI clips the modal's
- * rendered lines to `floor(rows * MAX_HEIGHT_RATIO)` (capped by the margin), so
- * the modal must size itself to the same budget or its footer/bottom border get
- * sliced off. Keep these in sync with `overlayOptions` at the mount site.
- */
-export const PREVIEW_OVERLAY_MAX_HEIGHT_RATIO = 0.85;
-export const PREVIEW_OVERLAY_MARGIN = 1;
+export { PREVIEW_OVERLAY_MARGIN, PREVIEW_OVERLAY_MAX_HEIGHT_RATIO };
 
 type PreviewThemeColor = "text" | "muted" | "accent" | "warning" | "error" | "dim" | "border";
 
@@ -41,18 +45,8 @@ export interface PrPreviewFeedbackViewOptions {
 	onClose: () => void;
 }
 
-export interface WrappedDetailViewportOptions {
-	lines: readonly string[];
-	width: number;
-	rows: number;
-	scroll: number;
-}
-
-export interface WrappedDetailViewport {
-	lines: string[];
-	scroll: number;
-	maxScroll: number;
-}
+export { sliceWrappedDetailLinesForViewport };
+export type { WrappedDetailViewport, WrappedDetailViewportOptions };
 
 export class PrPreviewFeedbackView implements Component {
 	private readonly tui: TUI;
@@ -239,7 +233,7 @@ export class PrPreviewFeedbackView implements Component {
 
 	private colorizeRowLabel(
 		label: string,
-		level: "info" | "warning" | "error" | null,
+		level: FeedbackSeverityLevel | null,
 		severityColor: PreviewThemeColor,
 	): string {
 		if (level === null) return this.color("text", label);
@@ -286,29 +280,16 @@ export function feedbackListRows(options: { bodyRows: number; threadCount: numbe
 	return clamp(Math.min(options.threadCount, preferred), 1, options.bodyRows - 5);
 }
 
-function severityIcon(level: "info" | "warning" | "error" | null): string {
+function severityIcon(level: FeedbackSeverityLevel | null): string {
 	if (level === "error") return "✕";
 	if (level === "warning") return "⚠";
 	return "·";
 }
 
-function severityThemeColor(level: "info" | "warning" | "error" | null): PreviewThemeColor {
+function severityThemeColor(level: FeedbackSeverityLevel | null): PreviewThemeColor {
 	if (level === "error") return "error";
 	if (level === "warning") return "warning";
 	return "dim";
-}
-
-export function sliceWrappedDetailLinesForViewport(
-	options: WrappedDetailViewportOptions,
-): WrappedDetailViewport {
-	const wrappedDetailLines = wrapDetailLines(options.lines, options.width);
-	const maxScroll = Math.max(0, wrappedDetailLines.length - options.rows);
-	const scroll = clamp(options.scroll, 0, maxScroll);
-	return {
-		lines: wrappedDetailLines.slice(scroll, scroll + options.rows),
-		scroll,
-		maxScroll,
-	};
 }
 
 export function buildPreviewHeaderLines(model: PrPreviewFeedbackViewModel): string[] {
@@ -340,12 +321,4 @@ export function buildEmptyStateLines(model: PrPreviewFeedbackViewModel): string[
 		`Automation-like discussion comments excluded: ${model.counts.excluded_automation_comments}`,
 		...buildCountMismatchNotice(model),
 	];
-}
-
-function wrapDetailLines(lines: readonly string[], width: number): string[] {
-	return lines.flatMap((line) => {
-		if (line === "") return [""];
-		const wrapped = wrapTextWithAnsi(line, Math.max(1, width));
-		return wrapped.length === 0 ? [""] : wrapped;
-	});
 }

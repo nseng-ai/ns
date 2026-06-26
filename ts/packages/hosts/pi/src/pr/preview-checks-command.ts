@@ -9,6 +9,10 @@ import {
 	type PrPreviewCheckLogLoadOptions,
 	type PrPreviewChecksViewModel,
 } from "./preview-checks-view.ts";
+import {
+	PREVIEW_OVERLAY_MARGIN,
+	PREVIEW_OVERLAY_MAX_HEIGHT_RATIO,
+} from "./preview-view-utilities.ts";
 import { sortPreviewChecks, type PrPreviewCheck } from "./preview-checks-model.ts";
 import type {
 	CommandResult,
@@ -148,7 +152,11 @@ async function runPrPreviewChecksCommand(options: {
 				}),
 			{
 				overlay: true,
-				overlayOptions: { width: "90%", maxHeight: "85%", margin: 1 },
+				overlayOptions: {
+					width: "90%",
+					maxHeight: `${Math.round(PREVIEW_OVERLAY_MAX_HEIGHT_RATIO * 100)}%`,
+					margin: PREVIEW_OVERLAY_MARGIN,
+				},
 				onHandle: (handle: { focus(): void }) => handle.focus(),
 			},
 		);

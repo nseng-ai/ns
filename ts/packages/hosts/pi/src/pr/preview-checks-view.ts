@@ -1,4 +1,4 @@
-import { Key, matchesKey, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { Key, matchesKey } from "@earendil-works/pi-tui";
 import type { Component, TUI } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 
@@ -10,6 +10,11 @@ import {
 	type PrPreviewChecksViewModel,
 } from "./preview-checks-model.ts";
 import { clamp, fitToWidth, reconcileScroll } from "../context-profiler/render.ts";
+import { sliceWrappedDetailLinesForViewport, wrapDetailLines } from "./preview-view-utilities.ts";
+import type {
+	WrappedDetailViewport,
+	WrappedDetailViewportOptions,
+} from "./preview-view-utilities.ts";
 
 const FALLBACK_TERMINAL_ROWS = 24;
 const MIN_RENDER_WIDTH = 40;
@@ -43,18 +48,8 @@ export interface PrPreviewChecksViewOptions {
 	logLoadTimeoutMs?: number | undefined;
 }
 
-export interface WrappedDetailViewportOptions {
-	lines: readonly string[];
-	width: number;
-	rows: number;
-	scroll: number;
-}
-
-export interface WrappedDetailViewport {
-	lines: string[];
-	scroll: number;
-	maxScroll: number;
-}
+export { sliceWrappedDetailLinesForViewport };
+export type { WrappedDetailViewport, WrappedDetailViewportOptions };
 
 export class PrPreviewChecksView implements Component {
 	private readonly tui: TUI;
@@ -290,19 +285,6 @@ export function checkListRows(options: { totalRows: number; checkCount: number }
 	return clamp(Math.min(options.checkCount, preferredRows), 1, availableRows);
 }
 
-export function sliceWrappedDetailLinesForViewport(
-	options: WrappedDetailViewportOptions,
-): WrappedDetailViewport {
-	const wrappedDetailLines = wrapDetailLines(options.lines, options.width);
-	const maxScroll = Math.max(0, wrappedDetailLines.length - options.rows);
-	const scroll = clamp(options.scroll, 0, maxScroll);
-	return {
-		lines: wrappedDetailLines.slice(scroll, scroll + options.rows),
-		scroll,
-		maxScroll,
-	};
-}
-
 export function buildPreviewHeaderLines(model: PrPreviewChecksViewModel): string[] {
 	const head = model.target.head_ref_name ?? model.target.branch ?? "?";
 	const base = model.target.base_ref_name ?? "?";
@@ -320,14 +302,6 @@ export function buildEmptyStateLines(model: PrPreviewChecksViewModel): string[] 
 		"",
 		"This preview is read-only. It does not fetch logs or inject session text.",
 	];
-}
-
-function wrapDetailLines(lines: readonly string[], width: number): string[] {
-	return lines.flatMap((line) => {
-		if (line === "") return [""];
-		const wrapped = wrapTextWithAnsi(line, Math.max(1, width));
-		return wrapped.length === 0 ? [""] : wrapped;
-	});
 }
 
 function createLogLoadSignal(timeoutMs: number): AbortSignal {

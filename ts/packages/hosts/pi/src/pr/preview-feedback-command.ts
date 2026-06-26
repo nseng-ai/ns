@@ -1,11 +1,10 @@
 import { z } from "zod";
 
+import { PrPreviewFeedbackView, type PrPreviewFeedbackViewModel } from "./preview-feedback-view.ts";
 import {
 	PREVIEW_OVERLAY_MARGIN,
 	PREVIEW_OVERLAY_MAX_HEIGHT_RATIO,
-	PrPreviewFeedbackView,
-	type PrPreviewFeedbackViewModel,
-} from "./preview-feedback-view.ts";
+} from "./preview-view-utilities.ts";
 import type {
 	PrPreviewFeedbackComment,
 	PrPreviewFeedbackCounts,
