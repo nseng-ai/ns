@@ -118,20 +118,16 @@ Skill-authoring and skill-management conventions live in `docs/skill-conventions
 
 ## Code Conventions
 
-### CLI Scenario Testing Convention
+### CLI Design Discipline (`sdl-cli-design`)
 
-TypeScript standalone CLI scenario tests live in the owning package test tree (for example, `ts/packages/roaster/test/scenario/`). Include `--version`, `--runtime`, and `-h` coverage alongside operation tests when those surfaces are part of the user-facing contract.
+The canonical authority for **authoring** sdl CLIs — hard gates, the human tier (clig.dev), the agent/`exec` tier, danger tiers, naming, the Clinkr API map, and a pre-ship checklist — is the internal `sdl-cli-design` skill (`skills/sdl-cli-design/SKILL.md`, ADRs `docs/adr/0010`–`0014`). It is invoke-only: load it via `/skill:sdl-cli-design` whenever you design, author, or review a CLI command, command group, `exec` subgroup, machine output shape, exit/error behavior, or destructive flow.
+
+Two binding hard gates stay ambient here; the skill holds the full reasoning:
+
+- **CLI scenario tests** must cover `--version`, `--runtime`, and `-h` alongside operation tests when those surfaces are part of the user-facing contract. Tests live in the owning package test tree (for example, `ts/packages/roaster/test/scenario/`).
+- **Skill/agent-only commands** MUST be registered under a nested `exec` `ClinkrGroup` constructed with `isHidden: true` (immutable after construction) — e.g., `brmem exec resolve-prompt`, `ccc exec cmux-workspace-summary`. This keeps top-level `--help` focused on commands a human would type.
 
 The historical Python `sdl.plugins` smoke-test surface has been retired; do not add new Python plugin tests unless a new Python plugin system is deliberately reintroduced.
-
-### Skill-Invoked CLI Commands (exec Subgroups)
-
-CLI commands intended for skill/agent invocation rather than interactive humans MUST be registered under a nested `exec` ClinkrGroup inside the package's outer group — e.g., `brmem exec resolve-prompt`, `roaster exec format-findings-comment`. This keeps user-facing top-level help focused on commands a human would actually type.
-
-- **Visibility:** the `exec` subgroup MUST be `hidden = True`. Users do not discover these commands by reading top-level `--help`; they discover them by reading the skill that drives them. Pass `hidden=True` as a kwarg to the `ClinkrGroup` constructor — by convention `ClinkrGroup` is treated as immutable after construction, so do not mutate `.hidden` afterward. Hiding only affects help-text rendering, not invocability — `pkg exec <op>` continues to work.
-- **Layout:** operation files for exec commands live in the owning TypeScript package, typically under an `exec` or `operations` module that the outer CLI group mounts.
-- **Naming:** prefer noun-or-verb-phrase command names (`resolve-prompt`, `get-reviews`) — the `exec` namespace already implies the actor, so the verb does not need to.
-- **Canonical examples:** TypeScript roaster registers hidden publication helpers in `ts/packages/roaster/src/cli.ts`; TypeScript CCC exposes deterministic agent helpers such as `ccc exec cmux-workspace-summary` from `ts/packages/ccc/src/cli.ts`.
 
 ### TypeScript Style
 

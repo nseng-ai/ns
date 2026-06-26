@@ -151,3 +151,48 @@ the high-agreement changes, and parking the contested or large ones as backlog.
 - Should the agent-ergonomics Clinkr changes proceed now or wait behind the
   `sdl-extension-architecture` endgame that currently pauses
   `ts-cli-core-structural-cleanup`?
+
+## Closure
+
+Closed 2026-06-26. All Completion Criteria are met:
+
+- **Research survey** checked in: `docs/agent-era-cli-design-survey.md`
+  (human-first clig.dev vs agent-era Anthropic/Speakeasy/Agent Layer, contested
+  positions preserved with sources).
+- **ADRs for every contested decision**, each recording decision + dissent:
+  `docs/adr/0010` (exit-code semantics), `0011` (TS-native JSON envelope),
+  `0012` (output-volume discipline), `0013` (negative process-exit default),
+  `0014` (confirmation/danger tiers).
+- **High-agreement Clinkr changes landed with tests:** ADR 0011 envelope reset
+  (camelCase discriminated envelope, structured failure `data`, enveloped
+  usage errors, published machine-envelope schema), ADR 0013 negative-default
+  migration, and ADR 0014 conformance (`usageError(...)`,
+  `ClinkrInteraction.isInteractive()`, `handoff delete` Tier 2 `--yes`,
+  `handoff gc`/`slot gc` Tier 3 `--force`, non-interactive fail-fast). ADR 0012
+  output-volume framework features intentionally parked.
+- **`sdl-cli-design` skill authored and registered:** `skills/sdl-cli-design/`
+  (lean `SKILL.md` + `references/`), internal (`metadata.internal: true`),
+  reflecting ADR 0010–0014 outcomes with a pre-ship checklist anchored to each
+  ADR and Clinkr API symbol. `areg check` → All skills OK; `just dprint-check`
+  clean.
+
+**Deviation recorded:** the skill is registered `invoke-only`, not the `normal`/
+ambient kind named in the original Scope/Completion Criteria. Decided in the
+closing session's grill: the skill only fires when authoring/reviewing a CLI, so
+a recurring ambient-context cost was not justified. To avoid losing always-on
+enforcement, root `AGENTS.md` retains the two binding hard gates (scenario
+`--version`/`--runtime`/`-h` coverage; hidden `exec` subgroups) as ambient stubs
+and points to `sdl-cli-design` for the full reasoning (absorb-the-depth,
+keep-the-gate-pointer).
+
+**Parked backlog** (durable, not blockers): output-volume framework features
+(compact JSON, generic pagination/truncation/range primitives, bounded-result
+wrappers, JSONL/streaming) per ADR 0012; first-class command aliases; a
+declarative dry-run convention; first-class danger-tier metadata; and typed
+`--confirm` phrases. Reopen on the recorded evidence thresholds (repeated command
+pressure or one severe agent-context failure for output volume; a concrete
+command need for the danger-tier/confirm items).
+
+The public-vs-internal open question is resolved: internal. The
+`clinkr-confirmation-danger-tiers` subobjective (closed) delivered the ADR 0014
+conformance absorbed here.
