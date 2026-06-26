@@ -26,7 +26,7 @@ Present contexts (landed)
 
 Map catch-up — package inventory
 
-- [ ] Reconcile `CONTEXT-MAP.md`'s Inventory Baseline with the tree: the baseline says "19 repo-local packages" while 23 `ts/packages/*` package.json files are tracked. Re-derive the exact count, refresh the Inventory Baseline's present-context list, and confirm the undecided-package list before any final readback.
+- [~] Reconcile `CONTEXT-MAP.md`'s Inventory Baseline with the tree. Done (update `2026-06-26T105219Z`): count corrected "19" → **23** with the verifying command inline, the two unscoped exceptions (`sdlcc`, `sdl-flow`) recorded, and remaining-coverage framing refreshed; `dprint-check` passes. Remaining: confirming the undecided-package list is owned by the "Undecided packages — record a map decision" row below, so this row closes when that decision row lands.
 
 Planned package contexts
 

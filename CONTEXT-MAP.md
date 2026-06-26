@@ -8,7 +8,7 @@ Current checkout facts:
 
 - Python workspace inventory: no active first-party Python workspace packages remain.
 - In-scope Python context targets: none. Former Python capability packages were ported to TypeScript, retired, or deleted as migration reference material.
-- TypeScript workspace inventory: 19 repo-local packages under `ts/packages/`. This map's TypeScript package-context coverage is intentionally partial pending a focused rebaseline.
+- TypeScript workspace inventory: 23 repo-local packages under `ts/packages/` (`git ls-files 'ts/packages/*/package.json' | wc -l` = 23), named `@sdl/*` with two unscoped exceptions — `sdlcc` (`ts/packages/sdlcc`) and `sdl-flow` (`ts/packages/extensions/flow`). Ten have present context files; the rest are Planned, undecided (awaiting a recorded map decision), or out of scope. This map's TypeScript package-context coverage is intentionally partial pending the remaining focused rebaseline phases.
 - Present context files: root `CONTEXT.md`, `ts/packages/handoff/CONTEXT.md`, `ts/packages/brmem/CONTEXT.md`, `ts/packages/pi/CONTEXT.md`, `ts/packages/ccc/CONTEXT.md`, `ts/packages/sdl/CONTEXT.md`, `ts/packages/roaster/CONTEXT.md`, `ts/packages/graphite/CONTEXT.md`, `ts/packages/plans/CONTEXT.md`, `ts/packages/branch-context/CONTEXT.md`, and `ts/packages/slot/CONTEXT.md`.
 - Future drift should be handled by focused rebaseline phases before final readback, not silently folded into unrelated package-context sessions.
 
