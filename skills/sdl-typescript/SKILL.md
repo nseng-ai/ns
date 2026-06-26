@@ -1,6 +1,6 @@
 ---
 name: sdl-typescript
-description: "Project-specific TypeScript overlay for sdl-tools. Use when editing or reviewing TypeScript in this repo: tsconfig baseline, pnpm/Vitest/oxlint/oxfmt/tsgo commands, relative .ts imports, workspace subpath exports, exactOptionalPropertyTypes spread idiom, and the as unknown as hard ban."
+description: "TypeScript overlay for sdl-tools. Use when editing or reviewing TS in this repo: tsconfig baseline, pnpm/Vitest/oxlint/oxfmt/tsgo commands, relative .ts imports, workspace subpath exports, exactOptionalPropertyTypes spread idiom, and the `as unknown as` hard ban."
 references:
   - references/internal-import-alternatives
 ---

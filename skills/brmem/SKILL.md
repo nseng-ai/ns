@@ -1,6 +1,6 @@
 ---
 name: brmem
-description: "Use when a task needs branch-scoped durable memory with the `brmem` CLI: storing, reading, listing, checking, deleting, or copying text context tied to a git branch, or resolving `.sdl/prompts/...` or XDG global prompt plugins. Use whenever the user mentions brmem, Branch Memory, stashing branch-scoped notes/context, carrying scratch state across sessions, or asks how an agent should call `brmem`."
+description: "Branch-scoped durable memory via the `brmem` CLI: store, read, list, check, delete, or copy text context tied to a git branch, or resolve `.sdl/prompts/...` or XDG global prompt plugins. Use when the user mentions brmem, Branch Memory, stashing branch-scoped notes/context, carrying scratch state across sessions, or how an agent should call `brmem`."
 allowed-tools:
   - "Bash(brmem *)"
   - "Bash(git *)"
