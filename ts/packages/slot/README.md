@@ -22,6 +22,7 @@ Install the SDL tool shim with the repository tool installation flow, then invok
 - `sdl slot checkout --current` moves the current branch into a managed slot.
 - `sdl slot list` renders the pool from `git worktree list`.
 - `sdl slot goto`, `sdl slot claim`, `sdl slot free`, `sdl slot gc`, and `sdl slot resize` provide the remaining slot lifecycle operations.
+- `sdl slot foreach -- git clean -fd` runs a command in every managed slot worktree (sequentially, in slot-number order). It aborts when any slot has a git operation in progress, and prompts for confirmation unless `-y`/`--yes` is passed. Pass the command after `--`; flag-bearing commands (e.g. `-fd`) require the `--` separator.
 - `sdl slot gt ...` contains Graphite-aware slot navigation and hidden agent exec helpers.
 
 A full pool fails with `pool_full`; run `sdl slot free` or `sdl slot resize` first.

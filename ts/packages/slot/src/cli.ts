@@ -20,6 +20,12 @@ import {
 	renderClaim,
 	runClaim,
 } from "./operations/claim.ts";
+import {
+	foreachRequestSchema,
+	foreachResultSchema,
+	renderForeach,
+	runForeach,
+} from "./operations/foreach.ts";
 import { freeRequestSchema, freeResultSchema, renderFree, runFree } from "./operations/free.ts";
 import { gcRequestSchema, gcResultSchema, renderGc, runGc } from "./operations/gc.ts";
 import {
@@ -182,6 +188,16 @@ function configureSlotCommands<TContext extends SlotCliContext>(root: ClinkrGrou
 		resultSchema: freeResultSchema,
 		handler: runFree,
 		renderHuman: renderFree,
+	});
+	root.command({
+		name: "foreach",
+		description: "Run a command in every managed slot worktree.",
+		schema: foreachRequestSchema,
+		positionals: { command: { position: 0 } },
+		options: { yes: { short: "-y" } },
+		resultSchema: foreachResultSchema,
+		handler: runForeach,
+		renderHuman: renderForeach,
 	});
 	root.command({
 		name: "gc",

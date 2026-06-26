@@ -4,6 +4,7 @@ import { resolveClinkrInteraction, type ClinkrInteraction } from "@sdl/clinkr";
 import { readStdinLine } from "@sdl/core/stdin";
 
 import { RealClipboardGateway, type ClipboardGateway } from "./gateways/clipboard.ts";
+import { RealSlotCommandGateway, type SlotCommandGateway } from "./gateways/command.ts";
 import { RealSlotRepositoryGateway, type SlotRepositoryGateway } from "./gateways/repository.ts";
 import { RealGraphiteStackGateway, type GraphiteStackGateway } from "@sdl/graphite/stack";
 import { RealSlotPrGateway, type SlotPrGateway } from "./gateways/pr.ts";
@@ -21,6 +22,7 @@ export interface SlotCliContext {
 	pr: SlotPrGateway;
 	storage: SlotStorageGateway;
 	clipboard: ClipboardGateway;
+	command: SlotCommandGateway;
 	cwd: string;
 	interaction: ClinkrInteraction;
 	stderr: (text: string) => void;
@@ -47,6 +49,7 @@ export async function createRealSlotContext(options: {
 		pr: new RealSlotPrGateway({ cwd: options.cwd, env }),
 		storage: new RealSlotStorageGateway(),
 		clipboard: new RealClipboardGateway({ env }),
+		command: new RealSlotCommandGateway(),
 		cwd: options.cwd,
 		interaction: resolveClinkrInteraction({
 			stdin: readStdinLine,

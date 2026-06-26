@@ -5,6 +5,10 @@ import { runCli, type CliDeps } from "../../src/cli.ts";
 import type { SlotCliContext } from "../../src/context.ts";
 import { FakeClipboardGateway, type ClipboardCopyResult } from "../../src/gateways/clipboard.ts";
 import {
+	FakeSlotCommandGateway,
+	type FakeSlotCommandGatewayOptions,
+} from "../../src/gateways/fakes/command.ts";
+import {
 	FakeSlotRepositoryGateway,
 	type FakeSlotRepositoryGatewayOptions,
 } from "../../src/gateways/fakes/repository.ts";
@@ -26,6 +30,7 @@ export interface ScenarioRunOptions {
 	env?: NodeJS.ProcessEnv | undefined;
 	repo?: RepoContext | { type: "no_repo"; errorType: "not_in_repo"; message: string } | undefined;
 	clipboardResult?: ClipboardCopyResult | undefined;
+	command?: FakeSlotCommandGatewayOptions | undefined;
 }
 
 export interface ScenarioRun {
@@ -36,6 +41,7 @@ export interface ScenarioRun {
 	gt: FakeGraphiteStackGateway;
 	pr: FakeSlotPrGateway;
 	storage: FakeSlotStorageGateway;
+	command: FakeSlotCommandGateway;
 	context: SlotCliContext;
 }
 
@@ -50,6 +56,7 @@ export function runScenario(
 	const gt = new FakeGraphiteStackGateway(options.gt ?? {});
 	const pr = new FakeSlotPrGateway(options.pr);
 	const storage = new FakeSlotStorageGateway();
+	const command = new FakeSlotCommandGateway(options.command);
 	const scenarioInteraction = createScenarioClinkrInteraction({
 		hasStdin: options.stdin !== undefined,
 		confirmations: options.confirmations,
@@ -62,6 +69,7 @@ export function runScenario(
 		pr,
 		storage,
 		clipboard: new FakeClipboardGateway(options.clipboardResult),
+		command,
 		cwd,
 		interaction: scenarioInteraction.contextInteraction,
 		stderr: (text) => stderr.push(text),
@@ -83,7 +91,7 @@ export function runScenario(
 		scenarioInteraction.assertComplete();
 		return code;
 	});
-	return { exit, stdout, stderr, git, gt, pr, storage, context };
+	return { exit, stdout, stderr, git, gt, pr, storage, command, context };
 }
 
 export function parseJsonOutput(run: ScenarioRun): unknown {

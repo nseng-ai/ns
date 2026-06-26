@@ -5,6 +5,7 @@ import { executeReleaseCleanup, planReleaseCleanup } from "../../src/lifecycle/r
 import type { FreedSlot } from "../../src/lifecycle/release-target.ts";
 import { repoContext } from "../support/run-scenario.ts";
 import { FakeClipboardGateway } from "../../src/gateways/clipboard.ts";
+import { FakeSlotCommandGateway } from "../../src/gateways/fakes/command.ts";
 import { FakeSlotRepositoryGateway } from "../../src/gateways/fakes/repository.ts";
 import { FakeGraphiteStackGateway } from "@sdl/graphite/testing";
 import { FakeSlotPrGateway } from "../../src/gateways/fakes/pr.ts";
@@ -67,6 +68,7 @@ function context(options: {
 		pr: options.pr,
 		storage: new FakeSlotStorageGateway(),
 		clipboard: new FakeClipboardGateway(),
+		command: new FakeSlotCommandGateway(),
 		cwd: "/repo",
 		interaction: createFakeClinkrInteraction().interaction,
 		stderr: () => {},
