@@ -18,7 +18,7 @@ const OBJECTIVE_LIST_STATUS_VALUES = [
 
 export interface ObjectiveListParsedArgs {
 	args: string[];
-	help: boolean;
+	isHelpRequested: boolean;
 }
 
 export type ObjectiveListArgsParseResult =
@@ -34,18 +34,23 @@ type ObjectiveListStatusParseResult =
 	| { type: "invalid"; message: string };
 
 export function parseObjectiveListArgs(rawArgs: string): ObjectiveListArgsParseResult {
-	const tokens = tokenizeArgumentString(rawArgs);
+	return parseObjectiveListArgTokens(tokenizeArgumentString(rawArgs));
+}
+
+export function parseObjectiveListArgTokens(
+	tokens: readonly string[],
+): ObjectiveListArgsParseResult {
 	const forbiddenArgsResult = findForbiddenObjectiveListArg(tokens);
 	if (forbiddenArgsResult.type === "invalid") {
 		return forbiddenArgsResult;
 	}
 
 	const args: string[] = [];
-	let help = false;
+	let isHelpRequested = false;
 	for (let index = 0; index < tokens.length; index += 1) {
 		const token = tokens[index] ?? "";
 		if (token === "--help" || token === "-h") {
-			help = true;
+			isHelpRequested = true;
 			continue;
 		}
 		if (token === "--names" || token === "--minimal") {
@@ -95,7 +100,7 @@ export function parseObjectiveListArgs(rawArgs: string): ObjectiveListArgsParseR
 		};
 	}
 
-	return { type: "valid", args: { args, help } };
+	return { type: "valid", args: { args, isHelpRequested } };
 }
 
 export function completeObjectiveListArgs(prefix: string): ObjectiveCliCompletionItem[] | null {
@@ -133,7 +138,9 @@ function matchingCompletions(
 	return filtered.map((value) => ({ value, label: value }));
 }
 
-function findForbiddenObjectiveListArg(tokens: string[]): ForbiddenObjectiveListArgsParseResult {
+function findForbiddenObjectiveListArg(
+	tokens: readonly string[],
+): ForbiddenObjectiveListArgsParseResult {
 	for (const token of tokens) {
 		if (token === "--format" || token.startsWith("--format=")) {
 			return {

@@ -56,6 +56,13 @@ type MessageRenderer = (
 	theme: RenderTheme,
 ) => RenderComponent;
 
+export interface CliCommandCompletionItem {
+	value: string;
+	label?: string;
+}
+
+export type CliCommandArgumentMapper = (args: readonly string[]) => ParsedCliCommandArgs;
+
 export interface CliCommandInfo {
 	name: string;
 	description: string;
@@ -63,6 +70,9 @@ export interface CliCommandInfo {
 	startMessage?: string;
 	argvPrefix?: readonly string[];
 	displayName?: string;
+	argumentHint?: string;
+	getArgumentCompletions?: (prefix: string) => CliCommandCompletionItem[] | null;
+	mapParsedArgs?: CliCommandArgumentMapper;
 }
 
 export type CliCommandConfirmPrompt = (
@@ -103,7 +113,7 @@ export interface CliCommandExtensionSpec {
 
 export interface CommandContext {
 	cwd: string;
-	hasUI: boolean;
+	hasUI?: boolean;
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
 		confirm?(title: string, message: string): Promise<boolean> | boolean;
@@ -124,6 +134,10 @@ export interface CliCommandExtensionAPI {
 		name: string,
 		options: {
 			description?: string;
+			argumentHint?: string;
+			getArgumentCompletions?: (
+				prefix: string,
+			) => Promise<CliCommandCompletionItem[] | null> | CliCommandCompletionItem[] | null;
 			handler(args: string, ctx: CommandContext): Promise<void> | void;
 		},
 	): void;
@@ -194,6 +208,10 @@ export function registerCliCommandExtension(
 			commandName: piCommandName,
 			commandDefinition: {
 				description: `${spec.cliName} ${commandDisplayName(command)}: ${command.description}`,
+				...(command.argumentHint === undefined ? {} : { argumentHint: command.argumentHint }),
+				...(command.getArgumentCompletions === undefined
+					? {}
+					: { getArgumentCompletions: command.getArgumentCompletions }),
 				handler: async (rawArgs, ctx) => {
 					await runRegisteredCliCommand({
 						pi,
@@ -392,7 +410,43 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 		return;
 	}
 
-	if (startsWithPositionalArgs(parsed.args) && command.canAcceptPositionalArgs !== true) {
+	const mapped = command.mapParsedArgs?.(parsed.args) ?? parsed;
+	if (!mapped.ok) {
+		const restored = restoreCommandInvocationToEditor({
+			ctx,
+			piCommandName,
+			rawArgs,
+			reason: `Could not run /${piCommandName}: ${mapped.error}`,
+		});
+		traceCliCommand("argument_map_error", {
+			args: parsed.args,
+			commandName: command.name,
+			error: mapped.error,
+			piCommandName,
+			restored,
+		});
+		emitCliCommandOutput(
+			pi,
+			ctx,
+			buildOutputDetails({
+				spec,
+				command,
+				piCommandName,
+				rawArgs,
+				args: parsed.args,
+				cwd: ctx.cwd,
+				result: {
+					exitCode: 2,
+					stdout: "",
+					stderr: `Error: ${mapped.error}\n`,
+				},
+			}),
+		);
+		return;
+	}
+	const commandArgs = mapped.args;
+
+	if (startsWithPositionalArgs(commandArgs) && command.canAcceptPositionalArgs !== true) {
 		const restored = restoreCommandInvocationToEditor({
 			ctx,
 			piCommandName,
@@ -400,7 +454,7 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 			reason: `Not running /${piCommandName}: text after the command looks like prose, not options.`,
 		});
 		traceCliCommand("positional_args_rejected", {
-			args: parsed.args,
+			args: commandArgs,
 			commandName: command.name,
 			piCommandName,
 			restored,
@@ -414,7 +468,7 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 					command,
 					piCommandName,
 					rawArgs,
-					args: parsed.args,
+					args: commandArgs,
 					cwd: ctx.cwd,
 					result: {
 						exitCode: 2,
@@ -431,7 +485,7 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 	let stderr = "";
 	let hasLiveOutput = false;
 	let exitCode = 1;
-	const argv = [...commandArgvPrefix(command), ...parsed.args];
+	const argv = [...commandArgvPrefix(command), ...commandArgs];
 	emitCliCommandStart(ctx, command.startMessage);
 	const progress = new LiveCommandProgress(ctx, {
 		argv,
@@ -515,7 +569,7 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 		command,
 		piCommandName,
 		rawArgs,
-		args: parsed.args,
+		args: commandArgs,
 		cwd: ctx.cwd,
 		result: {
 			exitCode,

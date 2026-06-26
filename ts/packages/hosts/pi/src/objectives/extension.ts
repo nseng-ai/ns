@@ -1,5 +1,10 @@
 import { registerObjectiveStackImplCommand } from "@sdl/ccc/objective-stack-impl";
 import { registerCommandWithImmediateAck } from "../commands/ack.ts";
+import {
+	registerCliCommandExtension,
+	type CliCommandExtensionAPI,
+	type ParsedCliCommandArgs,
+} from "../commands/cli-extension.ts";
 import { parseMachineEnvelopeData } from "../runtime/machine-envelope.ts";
 import {
 	buildObjectiveSkillPrompt,
@@ -8,19 +13,14 @@ import {
 	withObjectiveCliSelectionHost,
 } from "./selection.ts";
 
-import {
-	formatCommand,
-	formatCommandFailure,
-	formatCommandStartupFailure,
-	type ExecResult,
-} from "@sdl/core/exec";
+import { type ExecResult } from "@sdl/core/exec";
 import {
 	completeObjectiveListArgs,
 	objectiveCommandSpecs,
 	objectiveCompletionItem,
 	objectiveCreateCommandSpec,
 	parseObjectiveCandidatesData,
-	parseObjectiveListArgs,
+	parseObjectiveListArgTokens,
 	type ObjectiveCandidatesParseResult,
 	type ObjectiveCommandSpec,
 	type ObjectiveCreateCommandSpec,
@@ -31,34 +31,30 @@ import {
 	expandRepoSkillBlock,
 	invokeRepoSkillPromptTurn,
 } from "../skills/expansion.ts";
-import type {
-	AutocompleteItem,
-	CommandContext,
-	ExecOptions,
-	ExtensionAPI,
-	NotifyLevel,
-} from "../cmux/types.ts";
+import type { AutocompleteItem, CommandContext, ExecOptions, ExtensionAPI } from "../cmux/types.ts";
 
 export type { CommandContext, NotifyLevel, SessionStartContext } from "../cmux/types.ts";
 export type { ExecResult } from "@sdl/core/exec";
-export { completeObjectiveListArgs, parseObjectiveListArgs } from "@sdl/objective/api";
+export {
+	completeObjectiveListArgs,
+	parseObjectiveListArgTokens,
+	parseObjectiveListArgs,
+} from "@sdl/objective/api";
 export type { ObjectiveListArgsParseResult, ObjectiveListParsedArgs } from "@sdl/objective/api";
 export type ObjectiveExtensionAPI = Pick<
 	ExtensionAPI,
 	"on" | "registerCommand" | "exec" | "getCommands" | "sendMessage" | "sendUserMessage"
->;
+> &
+	Pick<CliCommandExtensionAPI, "events" | "registerMessageRenderer">;
 
 const OBJECTIVE_LIST_TIMEOUT_MS = 30_000;
 const OBJECTIVE_LIST_COMMAND_NAME = "objective:list";
-const OBJECTIVE_LIST_MESSAGE_TYPE = "objective-list-output";
+const OBJECTIVE_LIST_ARGUMENT_HINT =
+	"[--names] [--minimal] [--status all|active|open|closed] [--help]";
 const OBJECTIVE_SELECTOR_ARGUMENT_HINT = "[objective-slug-or-path]";
 const OBJECTIVE_CREATE_ARGUMENT_HINT = "[objective-slug-title-or-context]";
 const OBJECTIVE_COMPLETION_CACHE_TTL_MS = 10_000;
 const ACTIVE_OBJECTIVE_CANDIDATES_ARGS = ["exec", "list-candidates", "--format", "json"] as const;
-
-const OBJECTIVE_LIST_USAGE = `Usage: /objective:list [--names] [--minimal] [--status all|active|open|closed] [--help]
-
-Shows \`objective list\` output in chat. Output format is controlled by the Pi extension; --format and --json-schema are not supported.`;
 
 interface InvokeObjectiveCreateSkillOptions {
 	pi: ObjectiveExtensionAPI;
@@ -68,44 +64,6 @@ interface InvokeObjectiveCreateSkillOptions {
 }
 
 type HandleObjectiveCreateCommandOptions = InvokeObjectiveCreateSkillOptions;
-
-interface CustomCliParsedArgs {
-	args: string[];
-	help: boolean;
-}
-
-interface CustomCliArgsParseValid {
-	type: "valid";
-	args: CustomCliParsedArgs;
-}
-
-interface CustomCliArgsParseInvalid {
-	type: "invalid";
-	message: string;
-}
-
-type CustomCliArgsParseResult = CustomCliArgsParseValid | CustomCliArgsParseInvalid;
-
-interface CustomCliMessageDetails {
-	status: "success" | "failure" | "rejected";
-	command: string;
-	args: string[];
-	cwd: string;
-	code?: number;
-	killed?: boolean;
-	stdoutChars?: number;
-	stderrChars?: number;
-}
-
-interface CustomCliCommandSpec {
-	commandName: string;
-	messageType: string;
-	timeoutMs: number;
-	usage: string;
-	parseArgs: (raw: string) => CustomCliArgsParseResult;
-	buildArgs: (parsed: CustomCliParsedArgs) => string[];
-	completer: (prefix: string) => AutocompleteItem[] | null;
-}
 
 async function invokeObjectiveSkill(
 	pi: ObjectiveExtensionAPI,
@@ -228,14 +186,6 @@ async function handleObjectiveCommand(
 	}
 }
 
-function tokenizeArgumentString(args: string): string[] {
-	return args.trim().split(/\s+/).filter(Boolean);
-}
-
-function customCliUsage(spec: CustomCliCommandSpec, error: string): string {
-	return `Error: ${error}\n\n${spec.usage}`;
-}
-
 function createObjectiveCommandCompleter(
 	pi: ObjectiveExtensionAPI,
 ): (prefix: string) => Promise<AutocompleteItem[] | null> {
@@ -332,23 +282,27 @@ function parseObjectiveCandidates(stdout: string): ObjectiveCandidatesParseResul
 	return parseObjectiveCandidatesData(envelope.data);
 }
 
-const OBJECTIVE_LIST_SPEC: CustomCliCommandSpec = {
-	commandName: OBJECTIVE_LIST_COMMAND_NAME,
-	messageType: OBJECTIVE_LIST_MESSAGE_TYPE,
-	timeoutMs: OBJECTIVE_LIST_TIMEOUT_MS,
-	usage: OBJECTIVE_LIST_USAGE,
-	parseArgs: (raw) => parseObjectiveListArgs(raw),
-	buildArgs: (parsed) =>
-		parsed.help ? ["list", "--help"] : ["list", ...parsed.args, "--format", "markdown"],
-	completer: completeObjectiveListArgs,
-};
+const OBJECTIVE_LIST_COMMAND = {
+	name: "list",
+	description: "List active Objectives in this repository without invoking the agent.",
+	displayName: "list",
+	argumentHint: OBJECTIVE_LIST_ARGUMENT_HINT,
+	getArgumentCompletions: completeObjectiveListArgs,
+	mapParsedArgs: mapObjectiveListBridgeArgs,
+} as const;
 
-const CUSTOM_CLI_COMMANDS: { spec: CustomCliCommandSpec; description: string }[] = [
-	{
-		spec: OBJECTIVE_LIST_SPEC,
-		description: "List active Objectives in this repository without invoking the agent.",
-	},
-];
+function mapObjectiveListBridgeArgs(args: readonly string[]): ParsedCliCommandArgs {
+	const parsed = parseObjectiveListArgTokens(args);
+	if (parsed.type === "invalid") {
+		return { ok: false, error: parsed.message };
+	}
+
+	if (parsed.args.isHelpRequested) {
+		return { ok: true, args: ["--help"] };
+	}
+
+	return { ok: true, args: [...parsed.args.args, "--format", "markdown"] };
+}
 
 export const objectiveParity = definePiSurfaceParity([
 	{
@@ -362,7 +316,7 @@ export const objectiveParity = definePiSurfaceParity([
 		sourcePackage: "@sdl/pi",
 		sourceModule: "objective",
 		notes:
-			"Pi command formats objective list output in chat while delegating inventory to the Objective CLI.",
+			"Pi command delegates through registerCliCommandExtension and keeps output format controlled by the Objective Pi adapter.",
 	},
 	{
 		kind: "command",
@@ -409,165 +363,23 @@ export const objectiveParity = definePiSurfaceParity([
 	},
 ] as const);
 
-async function handleCustomCliCommand(
-	pi: ObjectiveExtensionAPI,
-	spec: CustomCliCommandSpec,
-	rawArgs: string,
-	ctx: CommandContext,
-): Promise<void> {
-	await ctx.waitForIdle();
-
-	const parsedArgs = spec.parseArgs(rawArgs);
-	if (parsedArgs.type === "invalid") {
-		presentCustomCliMessage(
-			pi,
-			ctx,
-			spec,
-			customCliUsage(spec, parsedArgs.message),
-			{
-				status: "rejected",
-				command: spec.commandName,
-				args: tokenizeArgumentString(rawArgs),
-				cwd: ctx.cwd,
-			},
-			"warning",
-		);
-		return;
-	}
-
-	const commandArgs = spec.buildArgs(parsedArgs.args);
-	const commandDisplay = formatCommand("objective", commandArgs);
-
-	if (ctx.hasUI) {
-		ctx.ui.setStatus?.(spec.commandName, `running ${commandDisplay}…`);
-	}
-
-	let result: ExecResult;
-	try {
-		result = await pi.exec("objective", commandArgs, {
-			cwd: ctx.cwd,
-			timeout: spec.timeoutMs,
-		});
-	} catch (error) {
-		presentCustomCliMessage(
-			pi,
-			ctx,
-			spec,
-			formatCommandStartupFailure("objective command failed", commandDisplay, error),
-			buildCustomCliDetails("failure", commandDisplay, commandArgs, ctx),
-			"error",
-		);
-		return;
-	} finally {
-		if (ctx.hasUI) {
-			ctx.ui.setStatus?.(spec.commandName, undefined);
-		}
-	}
-
-	if (result.code !== 0 || result.killed) {
-		presentCustomCliMessage(
-			pi,
-			ctx,
-			spec,
-			formatCommandFailure("objective command failed", commandDisplay, result),
-			buildCustomCliDetails("failure", commandDisplay, commandArgs, ctx, result),
-			"error",
-		);
-		return;
-	}
-
-	presentCustomCliMessage(
-		pi,
-		ctx,
-		spec,
-		objectiveCommandOutputContent(result),
-		buildCustomCliDetails("success", commandDisplay, commandArgs, ctx, result),
-		"info",
-	);
-}
-
-function buildCustomCliDetails(
-	status: "success" | "failure",
-	command: string,
-	args: string[],
-	ctx: CommandContext,
-	result?: ExecResult,
-): CustomCliMessageDetails {
-	const base: CustomCliMessageDetails = {
-		status,
-		command,
-		args,
-		cwd: ctx.cwd,
-	};
-
-	if (!result) {
-		return base;
-	}
-
-	return {
-		...base,
-		code: result.code,
-		killed: result.killed,
-		stdoutChars: result.stdout.length,
-		stderrChars: result.stderr.length,
-	};
-}
-
-function objectiveCommandOutputContent(result: ExecResult): string {
-	const stdout = result.stdout.trimEnd();
-	if (stdout) {
-		return stdout;
-	}
-
-	const stderr = result.stderr.trimEnd();
-	return stderr || "(empty)";
-}
-
-function presentCustomCliMessage(
-	pi: ObjectiveExtensionAPI,
-	ctx: CommandContext,
-	spec: CustomCliCommandSpec,
-	content: string,
-	details: CustomCliMessageDetails,
-	level: NotifyLevel,
-): void {
-	if (pi.sendMessage) {
-		pi.sendMessage({
-			customType: spec.messageType,
-			content,
-			display: true,
-			details,
-		});
-		return;
-	}
-
-	if (ctx.hasUI) {
-		ctx.ui.notify(content, level);
-		return;
-	}
-
-	if (level === "error") {
-		console.error(content);
-		return;
-	}
-
-	console.log(content);
-}
-
 export default function objectiveExtension(pi: ObjectiveExtensionAPI): void {
 	const objectiveCommandCompleter = createObjectiveCommandCompleter(pi);
 
-	for (const { spec, description } of CUSTOM_CLI_COMMANDS) {
-		registerCommandWithImmediateAck({
-			host: pi,
-			commandName: spec.commandName,
-			commandDefinition: {
-				description,
-				getArgumentCompletions: spec.completer,
-				handler: async (args, ctx) => handleCustomCliCommand(pi, spec, args, ctx),
-			},
-		});
-	}
+	registerCliCommandExtension(pi, {
+		cliName: "objective",
+		piNamespace: "objective",
+		commands: [OBJECTIVE_LIST_COMMAND],
+		runCli: async (argv, deps) => {
+			const result = await pi.exec("objective", [...argv], {
+				cwd: deps.cwd,
+				timeout: OBJECTIVE_LIST_TIMEOUT_MS,
+			});
+			deps.stdout(result.stdout);
+			deps.stderr(result.stderr);
+			return result.killed ? 124 : result.code;
+		},
+	});
 
 	registerCommandWithImmediateAck({
 		host: pi,
