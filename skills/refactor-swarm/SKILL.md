@@ -1,5 +1,6 @@
 ---
 name: refactor-swarm
+disable-model-invocation: true
 description: "Parallel file-local refactors across many files using a swarm of agents on the harness's cheapest fast model tier. Use when the same shape of refactor applies to 5+ files, each file is transformable from its own contents plus a shared brief (no cross-file coordination), and light per-file judgment is acceptable. Not for refactors where judgment must be unified across files."
 ---
 

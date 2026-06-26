@@ -1,5 +1,6 @@
 ---
 name: code-autobranch
+disable-model-invocation: true
 description: "Create a Graphite branch from dirty worktree changes or the latest unpushed commit by delegating to `sdl autobranch`."
 allowed-tools:
   - "Bash(sdl autobranch*)"

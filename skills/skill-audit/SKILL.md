@@ -1,5 +1,6 @@
 ---
 name: skill-audit
+disable-model-invocation: true
 description: "Audit and improve agent skills. Use when reviewing or editing skills for token efficiency, clarity, concision, trigger quality, progressive disclosure, install layout, or CLI push-down opportunities."
 ---
 
@@ -37,7 +38,7 @@ Check:
 - `name` matches directory/install name.
 - `description` says when to use, not full workflow.
 - Task skill descriptions are narrow but discoverable.
-- Explicit command skills use exactly `description: "Command: <skill-name>"`.
+- Explicit command-backed skills are reconciled with `areg skill apply command-backed`; do not hand-edit descriptions or invocation flags.
 - No duplicate skill index in `AGENTS.md`.
 - Optional references are real and only loaded conditionally.
 
@@ -45,7 +46,7 @@ Red flags:
 
 - Broad trigger words that make the skill load too often.
 - Description repeats body content.
-- Command skill describes the domain instead of using command marker.
+- Normal/ambient skill has no real trigger description.
 - Missing H1 matching skill identity.
 - Passive/abstract description that causes undertriggering.
 

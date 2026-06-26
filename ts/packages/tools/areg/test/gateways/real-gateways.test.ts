@@ -153,7 +153,9 @@ describe("real areg gateways", () => {
 		try {
 			const project = path.join(root, "project");
 			await mkdir(path.join(project, "skills", "demo", "agents"), { recursive: true });
-			await mkdir(path.join(project, ".agents", "skills"), { recursive: true });
+			await mkdir(path.join(project, ".agents", "skills", "vendored", "agents"), {
+				recursive: true,
+			});
 			await mkdir(path.join(project, ".pi", "extensions"), { recursive: true });
 			await mkdir(path.join(project, "ts", "packages", "hosts", "pi", "src", "extensions"), {
 				recursive: true,
@@ -162,6 +164,14 @@ describe("real areg gateways", () => {
 			await writeFile(path.join(project, "skills", "demo", "README.md"), "nested docs\n");
 			await writeFile(
 				path.join(project, "skills", "demo", "agents", "openai.yaml"),
+				"policy:\n  allow_implicit_invocation: false\n",
+			);
+			await writeFile(
+				path.join(project, ".agents", "skills", "vendored", "SKILL.md"),
+				"---\nname: vendored\n---\n",
+			);
+			await writeFile(
+				path.join(project, ".agents", "skills", "vendored", "agents", "openai.yaml"),
 				"policy:\n  allow_implicit_invocation: false\n",
 			);
 			await writeFile(
@@ -200,9 +210,14 @@ describe("real areg gateways", () => {
 				projectDir: base.projectDir,
 				env: {},
 			});
-			const skill = await gateway.inspectLocalSkill({
+			const skill = await gateway.inspectSkillKindSkill({
 				projectDir: base.projectDir,
 				skillName: "demo",
+				env: {},
+			});
+			const vendored = await gateway.inspectSkillKindSkill({
+				projectDir: base.projectDir,
+				skillName: "vendored",
 				env: {},
 			});
 
@@ -221,15 +236,25 @@ describe("real areg gateways", () => {
 					]),
 				},
 			});
-			expect(inventory.localSkillKindNames).toEqual(["demo"]);
+			expect(inventory.skillKindNames).toEqual(["demo", "vendored"]);
 			expect(skill).toMatchObject({
 				name: "demo",
+				sourceType: "local",
+				baseRelativePath: "skills/demo",
 				skillDir: { type: "directory" },
 				skillMd: { type: "file", text: "---\nname: demo\n---\n" },
 				openaiPolicy: { type: "file" },
 			});
+			expect(vendored).toMatchObject({
+				name: "vendored",
+				sourceType: "vendored",
+				baseRelativePath: ".agents/skills/vendored",
+				skillDir: { type: "directory" },
+				skillMd: { type: "file", text: "---\nname: vendored\n---\n" },
+				openaiPolicy: { type: "file" },
+			});
 			expect(
-				await gateway.resolveLocalSkillSpec({
+				await gateway.resolveSkillKindSpec({
 					projectDir: project,
 					spec: path.join(project, ".agents", "skills", "demo"),
 					cwd: project,
@@ -237,7 +262,15 @@ describe("real areg gateways", () => {
 				}),
 			).toEqual({ type: "ok", skillName: "demo" });
 			expect(
-				await gateway.resolveLocalSkillSpec({
+				await gateway.resolveSkillKindSpec({
+					projectDir: project,
+					spec: path.join(project, ".agents", "skills", "vendored", "SKILL.md"),
+					cwd: project,
+					env: {},
+				}),
+			).toEqual({ type: "ok", skillName: "vendored" });
+			expect(
+				await gateway.resolveSkillKindSpec({
 					projectDir: project,
 					spec: path.join(project, "skills", "demo", "README.md"),
 					cwd: project,
@@ -254,7 +287,12 @@ describe("real areg gateways", () => {
 		try {
 			const project = path.join(root, "project");
 			await mkdir(path.join(project, "skills", "demo"), { recursive: true });
+			await mkdir(path.join(project, ".agents", "skills", "vendored"), { recursive: true });
 			await writeFile(path.join(project, "skills", "demo", "SKILL.md"), "---\nname: demo\n---\n");
+			await writeFile(
+				path.join(project, ".agents", "skills", "vendored", "SKILL.md"),
+				"---\nname: vendored\n---\n",
+			);
 			const gateway = new RealAregProjectGateway();
 
 			const firstWrite = await gateway.writeTextFile({
@@ -284,8 +322,18 @@ describe("real areg gateways", () => {
 				policy: "skill-kind",
 				env: {},
 			});
+			const vendoredWrite = await gateway.writeTextFile({
+				projectDir: project,
+				relativePath: ".agents/skills/vendored/agents/openai.yaml",
+				content: "policy:\n  allow_implicit_invocation: false\n",
+				description: "Codex openai.yaml",
+				createParent: true,
+				policy: "skill-kind",
+				env: {},
+			});
 
-			expect([firstWrite, secondWrite, thirdWrite]).toEqual([
+			expect([firstWrite, secondWrite, thirdWrite, vendoredWrite]).toEqual([
+				{ ok: true },
 				{ ok: true },
 				{ ok: true },
 				{ ok: true },

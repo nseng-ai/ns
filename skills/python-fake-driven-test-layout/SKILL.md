@@ -1,5 +1,6 @@
 ---
 name: python-fake-driven-test-layout
+disable-model-invocation: true
 description: "Per-package test directory layout for fake-driven Python projects: `tests/{unit,integration,scenario,gateways}/`, optional `tests/conformance/`, and what belongs where. Use when creating a package, reorganizing tests, or placing a new test file. Defers architecture to `python-fake-driven-testing` and pytest mechanics to `pytest`."
 ---
 

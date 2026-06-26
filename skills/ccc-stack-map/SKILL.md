@@ -1,5 +1,6 @@
 ---
 name: ccc-stack-map
+disable-model-invocation: true
 description: "Use when the user asks to map, overlay, inspect, or understand open cmux workspaces/tabs against a Graphite stack: cmux stack map, open workspaces on graphite, what branches are active in cmux, overlay cmux tabs on gt ls, which cmux workspace corresponds to which checked-out branch, or branch/worktree drift across cmux. Produces a read-only cmux × Graphite overlay; do not mutate cmux/Git/Graphite unless the user separately asks for cleanup."
 metadata:
   internal: true

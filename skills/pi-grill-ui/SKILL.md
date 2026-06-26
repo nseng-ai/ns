@@ -1,5 +1,6 @@
 ---
 name: pi-grill-ui
+disable-model-invocation: true
 description: Internal backend skill for the Pi /pi:grill-me extension. Supplies grill-me interview behavior while the extension supplies structured grill_ask UI instructions.
 metadata:
   internal: true

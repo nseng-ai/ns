@@ -118,8 +118,12 @@ export interface AregCheckPairingDirectory {
 	claudeText?: string | undefined;
 }
 
+export type AregSkillKindSourceType = "local" | "vendored";
+
 export interface AregSkillKindSkillInspection {
 	name: string;
+	sourceType: AregSkillKindSourceType;
+	baseRelativePath: string;
 	skillDir: AregPathState;
 	skillMd: AregTextFileState;
 	openaiPolicy: AregTextFileState;
@@ -171,7 +175,7 @@ export interface AregSkillNameInventory {
 	skillsDirectoryNames: readonly string[];
 	agentsSkillNames: readonly string[];
 	claudeSkillNames: readonly string[];
-	localSkillKindNames: readonly string[];
+	skillKindNames: readonly string[];
 }
 
 export interface AregSkillKindResolveRequest {
@@ -233,12 +237,12 @@ export interface AregProjectGateway {
 	inspectPiArtifacts(request: AregProjectDirRequest): Promise<AregPiArtifactsInspection>;
 	inspectSkillNameInventory(request: AregProjectDirRequest): Promise<AregSkillNameInventory>;
 	inspectCheckSkill(request: AregSkillInspectionRequest): Promise<AregCheckSkillInspection>;
-	inspectLocalSkill(request: AregSkillInspectionRequest): Promise<AregSkillKindSkillInspection>;
+	inspectSkillKindSkill(request: AregSkillInspectionRequest): Promise<AregSkillKindSkillInspection>;
 	inspectPairingDirectories(
 		request: AregProjectDirRequest,
 	): Promise<readonly AregCheckPairingDirectory[]>;
 	readLocallyExcludedSkillNames(request: AregProjectDirRequest): Promise<readonly string[]>;
-	resolveLocalSkillSpec(request: AregSkillKindResolveRequest): Promise<AregSkillKindResolveResult>;
+	resolveSkillKindSpec(request: AregSkillKindResolveRequest): Promise<AregSkillKindResolveResult>;
 	preflightWriteTextFile(request: AregProjectTextWriteRequest): Promise<AregProjectMutationResult>;
 	preflightDeleteFile(request: AregProjectFileDeleteRequest): Promise<AregProjectMutationResult>;
 	preflightRemoveEmptyDir(

@@ -42,10 +42,10 @@ export type FakeAregProjectOperation =
 	| { type: "inspect-pi-artifacts"; projectDir: string }
 	| { type: "inspect-skill-name-inventory"; projectDir: string }
 	| { type: "inspect-check-skill"; projectDir: string; skillName: string }
-	| { type: "inspect-local-skill"; projectDir: string; skillName: string }
+	| { type: "inspect-skill-kind-skill"; projectDir: string; skillName: string }
 	| { type: "inspect-pairing-directories"; projectDir: string }
 	| { type: "read-locally-excluded-skill-names"; projectDir: string }
-	| { type: "resolve-local-skill-spec"; projectDir: string; spec: string; cwd: string }
+	| { type: "resolve-skill-kind-spec"; projectDir: string; spec: string; cwd: string }
 	| ({ type: "preflight-write-text-file" } & Omit<AregProjectTextWriteRequest, "env">)
 	| ({ type: "preflight-delete-file" } & Omit<AregProjectFileDeleteRequest, "env">)
 	| ({ type: "preflight-remove-empty-dir" } & Omit<AregProjectRemoveEmptyDirRequest, "env">)
@@ -65,6 +65,8 @@ export interface FakeAregCheckSkillOptions {
 
 export interface FakeAregSkillKindSkillOptions {
 	name: string;
+	sourceType?: "local" | "vendored" | undefined;
+	baseRelativePath?: string | undefined;
 	skillDir?: AregPathState | undefined;
 	skillMd?: AregTextFileState | string | undefined;
 	openaiPolicy?: AregTextFileState | string | undefined;
@@ -206,7 +208,7 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 			skillsDirectoryNames: [...this.skillsDirectoryNames],
 			agentsSkillNames: [...this.agentsSkillNames],
 			claudeSkillNames: [...this.claudeSkillNames],
-			localSkillKindNames: this.localSkills.map((skill) => skill.name),
+			skillKindNames: this.localSkills.map((skill) => skill.name),
 		};
 	}
 
@@ -220,16 +222,18 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 		return skill === undefined ? missingCheckSkill(request.skillName) : copyCheckSkill(skill);
 	}
 
-	async inspectLocalSkill(
+	async inspectSkillKindSkill(
 		request: AregSkillInspectionRequest,
 	): Promise<AregSkillKindSkillInspection> {
 		this.log.push({
-			type: "inspect-local-skill",
+			type: "inspect-skill-kind-skill",
 			projectDir: request.projectDir,
 			skillName: request.skillName,
 		});
 		const skill = this.localSkills.find((candidate) => candidate.name === request.skillName);
-		return skill === undefined ? missingLocalSkill(request.skillName) : copySkillKindSkill(skill);
+		return skill === undefined
+			? missingSkillKindSkill(request.skillName)
+			: copySkillKindSkill(skill);
 	}
 
 	async inspectPairingDirectories(
@@ -244,11 +248,11 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 		return [...this.excludedSkillNames];
 	}
 
-	async resolveLocalSkillSpec(
+	async resolveSkillKindSpec(
 		request: AregSkillKindResolveRequest,
 	): Promise<AregSkillKindResolveResult> {
 		this.log.push({
-			type: "resolve-local-skill-spec",
+			type: "resolve-skill-kind-spec",
 			projectDir: request.projectDir,
 			spec: request.spec,
 			cwd: request.cwd,
@@ -262,7 +266,7 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 				type: "error",
 				error: {
 					code: "skill-kind-missing-skill",
-					message: `Local skill not found: ${request.spec}`,
+					message: `Managed skill not found: ${request.spec}`,
 				},
 			};
 		if (skill.skillDir.type === "symlink")
@@ -270,7 +274,7 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 				type: "error",
 				error: {
 					code: "skill-kind-symlink-skill-dir",
-					message: `skills/${skillName} is a symlink but should be a real directory (canonical source)`,
+					message: `${skill.baseRelativePath} is a symlink; refusing to manage invocation metadata`,
 				},
 			};
 		if (skill.skillDir.type !== "directory")
@@ -278,7 +282,7 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 				type: "error",
 				error: {
 					code: "skill-kind-missing-skill",
-					message: `Local skill not found: ${request.spec}`,
+					message: `Managed skill not found: ${request.spec}`,
 				},
 			};
 		if (skill.skillMd.type === "symlink")
@@ -286,7 +290,7 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 				type: "error",
 				error: {
 					code: "skill-kind-symlink-skill-md",
-					message: `skills/${skillName}/SKILL.md is a symlink but should be a real file (canonical source)`,
+					message: `${skill.baseRelativePath}/SKILL.md is a symlink; refusing to manage invocation metadata`,
 				},
 			};
 		if (skill.skillMd.type !== "file")
@@ -294,7 +298,7 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 				type: "error",
 				error: {
 					code: "skill-kind-missing-skill-md",
-					message: `skills/${skillName}/SKILL.md does not exist`,
+					message: `${skill.baseRelativePath}/SKILL.md does not exist`,
 				},
 			};
 		return { type: "ok", skillName };
@@ -670,8 +674,13 @@ function copyFakeCheckSkill(skill: FakeAregCheckSkillOptions): AregCheckSkillIns
 function copyFakeSkillKindSkill(
 	skill: FakeAregSkillKindSkillOptions,
 ): AregSkillKindSkillInspection {
+	const sourceType = skill.sourceType ?? "local";
 	return {
 		name: skill.name,
+		sourceType,
+		baseRelativePath:
+			skill.baseRelativePath ??
+			(sourceType === "local" ? `skills/${skill.name}` : `.agents/skills/${skill.name}`),
 		skillDir: copyPathState(skill.skillDir ?? { type: "directory" }),
 		skillMd: normalizeTextFileState(
 			skill.skillMd ?? `---\nname: ${skill.name}\ndescription: ${skill.name}\n---\n`,
@@ -695,6 +704,8 @@ function copyCheckSkill(skill: AregCheckSkillInspection): AregCheckSkillInspecti
 function copySkillKindSkill(skill: AregSkillKindSkillInspection): AregSkillKindSkillInspection {
 	return {
 		name: skill.name,
+		sourceType: skill.sourceType,
+		baseRelativePath: skill.baseRelativePath,
 		skillDir: copyPathState(skill.skillDir),
 		skillMd: copyTextFileState(skill.skillMd),
 		openaiPolicy: copyTextFileState(skill.openaiPolicy),
@@ -714,9 +725,16 @@ function missingCheckSkill(name: string): AregCheckSkillInspection {
 	};
 }
 
-function missingLocalSkill(name: string): AregSkillKindSkillInspection {
+function missingSkillKindSkill(name: string): AregSkillKindSkillInspection {
 	const missing = { type: "missing" as const };
-	return { name, skillDir: missing, skillMd: missing, openaiPolicy: missing };
+	return {
+		name,
+		sourceType: "local",
+		baseRelativePath: `skills/${name}`,
+		skillDir: missing,
+		skillMd: missing,
+		openaiPolicy: missing,
+	};
 }
 
 function fakeResolveSkillName(spec: string): string {
@@ -735,11 +753,7 @@ function skillForRelativePath(
 	skills: readonly AregSkillKindSkillInspection[],
 	relativePath: string,
 ): AregSkillKindSkillInspection | undefined {
-	const parts = relativePath.split("/");
-	if (parts[0] !== "skills") return undefined;
-	const skillName = parts[1];
-	if (skillName === undefined) return undefined;
-	return skills.find((skill) => skill.name === skillName);
+	return skills.find((skill) => relativePath.startsWith(`${skill.baseRelativePath}/`));
 }
 
 function normalizeTextFileState(value: AregTextFileState | object | string): AregTextFileState {

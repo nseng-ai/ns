@@ -97,7 +97,7 @@ describe("areg gateway fakes", () => {
 
 		const pi = await project.inspectPiArtifacts({ projectDir: "/repo", env: {} });
 		const inventory = await project.inspectSkillNameInventory({ projectDir: "/repo", env: {} });
-		const first = await project.inspectLocalSkill({
+		const first = await project.inspectSkillKindSkill({
 			projectDir: "/repo",
 			skillName: "demo",
 			env: {},
@@ -106,21 +106,21 @@ describe("areg gateway fakes", () => {
 			piSettings: { type: "file", text: expect.stringContaining("-skills/demo") },
 			replacement: { verifiedSurfaces: ["demo"] },
 		});
-		expect(inventory.localSkillKindNames).toEqual(["demo"]);
+		expect(inventory.skillKindNames).toEqual(["demo"]);
 		expect(first).toMatchObject({
 			name: "demo",
 			skillDir: { type: "directory" },
 			skillMd: { type: "file", text: "---\nname: demo\n---\n" },
 		});
 		if (first.skillMd.type === "file") first.skillMd.text = "mutated";
-		const second = await project.inspectLocalSkill({
+		const second = await project.inspectSkillKindSkill({
 			projectDir: "/repo",
 			skillName: "demo",
 			env: {},
 		});
 		expect(second.skillMd).toMatchObject({ type: "file", text: "---\nname: demo\n---\n" });
 		expect(
-			await project.resolveLocalSkillSpec({
+			await project.resolveSkillKindSpec({
 				projectDir: "/repo",
 				spec: "skills/demo/SKILL.md",
 				cwd: "/repo",
@@ -128,7 +128,7 @@ describe("areg gateway fakes", () => {
 			}),
 		).toEqual({ type: "ok", skillName: "demo" });
 		expect(
-			await project.resolveLocalSkillSpec({
+			await project.resolveSkillKindSpec({
 				projectDir: "/repo",
 				spec: "missing",
 				cwd: "/repo",
@@ -146,7 +146,7 @@ describe("areg gateway fakes", () => {
 				env: {},
 			}),
 		).toMatchObject({ ok: true });
-		const afterApply = await project.inspectLocalSkill({
+		const afterApply = await project.inspectSkillKindSkill({
 			projectDir: "/repo",
 			skillName: "demo",
 			env: {},

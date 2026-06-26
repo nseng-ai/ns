@@ -9,11 +9,11 @@ import {
 import type { PlannedApplyOperation } from "./skill-kind-apply-plan.ts";
 
 export function planFrontmatterOperation(
-	skillName: string,
+	baseRelativePath: string,
 	text: string,
 	kind: SkillInvocationKind,
 ): Result<PlannedApplyOperation> {
-	const relativePath = `skills/${skillName}/SKILL.md`;
+	const relativePath = `${baseRelativePath}/SKILL.md`;
 	// Inference parses frontmatter into normalized key/value facts, while apply planning
 	// rewrites source text and must preserve delimiter bounds, line endings, unrelated
 	// keys, and body text. Keep the parse and rewrite paths separate even though both

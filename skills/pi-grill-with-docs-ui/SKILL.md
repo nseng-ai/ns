@@ -1,5 +1,6 @@
 ---
 name: pi-grill-with-docs-ui
+disable-model-invocation: true
 description: Internal backend skill for the Pi /pi:grill-with-docs extension. Supplies docs-aware grill-with-docs behavior while the extension supplies structured grill_ask UI instructions.
 metadata:
   internal: true

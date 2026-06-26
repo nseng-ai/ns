@@ -111,7 +111,7 @@ Repo-owned project surface:
 
 External or personal surface:
 
-- Real directories under `.agents/skills/<name>/` are vendored or GitHub-sourced skills. They are live in Pi by default, but they are not repo products. Keep them as-shipped and exclude them from deep audits unless a task explicitly updates that vendored skill. Runtime policy: keep them enabled by default as developer aids; remove or disable them only through explicit skill-management work. No repo implementation change is required by this policy.
+- Real directories under `.agents/skills/<name>/` are vendored or GitHub-sourced skills. They are not repo products. Keep them as-shipped and exclude them from deep audits unless a task explicitly updates that vendored skill. Runtime policy: invocation-kind overlays for vendored skills are managed by `areg skill apply`; remove or disable them only through explicit skill-management work.
 - User-local resources under `~/.pi/agent/...` may appear in a developer's Pi RPC inventory. Treat `gh-pr`, `stack-latest`, and similar local workflow commands as advisory personal-resource findings, not closure-critical repo cleanup. The CCC workspace/sidebar command suite is now project-local for this repo.
 
 Rules:
@@ -123,7 +123,7 @@ Rules:
 - Avoid duplicate public slash-command names. If a wrapper and prompt share a name, choose one public entrypoint and make the other an internal asset, rename it, convert it to a skill, or document the intentional duplication.
 - Mutating commands that touch git or GitHub state need either engineered tests/adapters or explicit docs saying why the vibecoded command is retained and what safety checks it owns.
 - Command descriptions should distinguish adjacent commands in autocomplete. If two command names intentionally share behavior, say which one is the alias or focused entrypoint.
-- For local command skills, use `description: "Command: <skill-name>"` rather than bare `Command`; keep richer routing in the skill body or original-description comment.
+- For command-backed skills, use `areg skill apply command-backed <skill>` after the replacement command exists; do not hand-edit `description: "Command: <skill-name>"` stubs or invocation-kind artifacts.
 
 ### Command namespace conventions
 

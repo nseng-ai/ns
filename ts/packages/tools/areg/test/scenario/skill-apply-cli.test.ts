@@ -74,6 +74,23 @@ describe("areg skill apply CLI", () => {
 		);
 	});
 
+	test("apply invoke-only manages vendored installed skills under .agents", async () => {
+		const run = runScenario(["skill", "apply", "invoke-only", "vendored"], {
+			project: { localSkills: [skill("vendored", undefined, { sourceType: "vendored" })] },
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stderr.join("")).toBe("");
+		expect(run.stdout.join("")).toContain(
+			[
+				"Applying invoke-only to vendored...",
+				"Wrote .agents/skills/vendored/SKILL.md",
+				"Wrote .agents/skills/vendored/agents/openai.yaml",
+				"Skipped .pi/settings.json: -skills/vendored absent",
+			].join("\n"),
+		);
+	});
+
 	test("dry-run plans command-backed without writing or prompting", async () => {
 		const run = runScenario(["skill", "apply", "--dry-run", "command-backed", "demo-skill"], {
 			project: {

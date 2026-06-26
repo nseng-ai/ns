@@ -97,8 +97,8 @@ export async function runCheck(
 	if (!lockfileResult.ok) {
 		return failure("lockfile_invalid", lockfileResult.error.message);
 	}
-	const hasLocalSkills = lockfileResult.value.skills.some((skill) => skill.sourceType === "local");
-	const piSettings = hasLocalSkills
+	const hasManagedSkills = lockfileResult.value.skills.length > 0;
+	const piSettings = hasManagedSkills
 		? parsePiSettings(inspection.piDir, inspection.piSettings)
 		: { ok: true as const, value: { exclusions: [] } };
 	if (!piSettings.ok) {
@@ -129,8 +129,7 @@ export function buildCheckReport(
 		if (entry.sourceType === "local") issues.push(...checkLocalSkill(entry, inspected));
 		if (entry.sourceType !== "local") issues.push(...checkRemoteSkill(entry, inspected));
 		issues.push(...checkSkillMd(entry, inspected));
-		if (entry.sourceType === "local")
-			issues.push(...checkSkillInvocationKind({ entry, inspected, inspection, piExclusions }));
+		issues.push(...checkSkillInvocationKind({ entry, inspected, inspection, piExclusions }));
 	}
 	issues.push(...checkLockfileHashes(lockfile));
 	issues.push(...checkOrphansAndDangling(lockfile, inspection));
@@ -307,13 +306,19 @@ interface CheckSkillInvocationKindOptions {
 	piExclusions: readonly string[];
 }
 
+function skillBaseRelativePath(entry: LockfileSkill): string {
+	return entry.sourceType === "local" ? `skills/${entry.name}` : `.agents/skills/${entry.name}`;
+}
+
 function checkSkillInvocationKind(options: CheckSkillInvocationKindOptions): CheckIssue[] {
 	const { entry, inspected, inspection, piExclusions } = options;
-	if (inspected.localSkillMd.type !== "file") return [];
-	const frontmatter = inspectSkillFrontmatter(
-		inspected.localSkillMd.text,
-		`skills/${entry.name}/SKILL.md`,
-	);
+	const relativePath =
+		entry.sourceType === "local"
+			? `skills/${entry.name}/SKILL.md`
+			: `.agents/skills/${entry.name}/SKILL.md`;
+	const skillMd = entry.sourceType === "local" ? inspected.localSkillMd : inspected.remoteSkillMd;
+	if (skillMd.type !== "file") return [];
+	const frontmatter = inspectSkillFrontmatter(skillMd.text, relativePath);
 	if (!frontmatter.ok) return [];
 	const isPiExcluded = piExclusions.includes(`-skills/${entry.name}`);
 	const replacement = verifyPiReplacement(entry.name, inspection.replacement);
@@ -330,7 +335,7 @@ function checkSkillInvocationKind(options: CheckSkillInvocationKindOptions): Che
 			issue(
 				entry.name,
 				"invoke_only_missing_openai_policy",
-				`skills/${entry.name}/agents/openai.yaml missing for invoke-only skill`,
+				`${skillBaseRelativePath(entry)}/agents/openai.yaml missing for invoke-only skill`,
 			),
 		);
 	if (!record.artifacts.isModelInvocationDisabled && record.artifacts.hasCodexSidecar)
@@ -338,7 +343,7 @@ function checkSkillInvocationKind(options: CheckSkillInvocationKindOptions): Che
 			issue(
 				entry.name,
 				"openai_policy_without_invoke_only",
-				`skills/${entry.name}/agents/openai.yaml exists but SKILL.md does not set disable-model-invocation: true`,
+				`${skillBaseRelativePath(entry)}/agents/openai.yaml exists but SKILL.md does not set disable-model-invocation: true`,
 			),
 		);
 	if (
