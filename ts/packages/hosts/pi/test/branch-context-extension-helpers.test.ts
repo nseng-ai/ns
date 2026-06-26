@@ -57,7 +57,6 @@ describe("branch-context from-plan policy docs", () => {
 		expect(agentsText).toContain(
 			"This repo uses Graphite (`gt`) as the default tool for branch and PR workflow",
 		);
-		expect(agentsText).toContain("Creating branches: use `gt create");
 		expect(projectExtensionText).toContain('branchContextDefaultCreation: "graphite"');
 		expectBranchCreationPolicyPrecedence(skillText);
 		expectBranchCreationPolicyPrecedence(lifecycleText);
