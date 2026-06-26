@@ -32,6 +32,12 @@ flags with these distinct meanings.
 - **Precondition override stays a failure path.** A blocked precondition without
   `--force` returns `failure(...)` (exit 2), with `errorType`/`data` explaining
   what to override and how.
+- **User-environment writes outside the repo are Tier 2** (ADR 0015 #6). Writing
+  dotfiles, shell config, or external tool state mutates the user's environment
+  beyond the project, so gate it with `--yes`/`-y` + `requireInteractiveOrUsageError`
+  (e.g. `sdl shell install`). An explicit user-requested output path
+  (`--output <path>`) stays Tier 1, and reversible external metadata keyed by
+  caller-supplied IDs (not a user dotfile) stays Tier 1.
 
 ## Landed conformance (reference examples)
 

@@ -104,8 +104,15 @@ Risks:
 
 ## Open Questions
 
-The six ADR-needed questions are tracked as in-scope decision rows on the roadmap;
-each gates its dependent remediation:
+The six ADR-needed questions are **resolved** by
+`docs/adr/0015-cli-surface-conformance-decisions.md` (Accepted; see update
+`20260626T103959Z-decision-gate-resolved.md`). Resolutions: (1) raw-exit narrow
+exemption — finite-result raw commands migrate to the envelope; (2) hidden `exec`
+external writes — operation args are sufficient intent, no added confirm flag;
+(3) `ccc land` single-PR auto-merge — intentional (Pi surface); (4) query-miss
+`ok(found:false)` vs action-miss `negative`; (5) empty-success / presence-query
+`ok` ratified; (6) user-dotfile writes are Tier 2, explicit output-path and
+env-keyed metadata writes stay Tier 1. The original questions, for the record:
 
 1. Do human-tier Tier 2 confirm rules apply to agent-only hidden `exec`
    destructive writes (`pr-address reply/resolve-review-thread`), or does the

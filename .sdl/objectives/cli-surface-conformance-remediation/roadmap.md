@@ -6,8 +6,11 @@
       checklist with file:line evidence (`docs/cli-surface-conformance-audit.md`).
       Seeds this Objective; treated as the source of truth.
 
-- [ ] **Decision (gates remediation):** record the six ADR-needed design calls as
-      ADRs/amendments, sequenced before their dependent remediation rows.
+- [x] **Decision (gates remediation):** the six ADR-needed design calls are
+      recorded in one omnibus ADR, `docs/adr/0015-cli-surface-conformance-decisions.md`
+      (Accepted), and every dependent row in the conformance audit is reclassified
+      (no row remains `ADR-needed`). See update
+      `20260626T103959Z-decision-gate-resolved.md`.
   - rawCommand envelope exemption (gates (c)/(d) for `packagechk`, `sdlcc cmux
     report`, `vibechk run`, `roaster publish-findings`, `ccc autobranch`).
   - Agent-only `exec` destructive-write confirmation model (gates `pr-address`
