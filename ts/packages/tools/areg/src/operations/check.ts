@@ -15,7 +15,11 @@ import {
 } from "./lockfile.ts";
 import { derivePiReplacementCommand, verifyPiReplacement } from "./pi-replacement.ts";
 import { parsePiSettings } from "./pi-settings.ts";
-import { inferSkillKindRecord, inspectSkillFrontmatter } from "./skill-kind-inference.ts";
+import {
+	inferSkillKindRecord,
+	inspectSkillFrontmatter,
+	isManagedOpenaiPolicyContent,
+} from "./skill-kind-inference.ts";
 import { inspectCheckProject, type AregCheckProjectInspection } from "./project-inspection.ts";
 
 const CHECK_ISSUE_CODES = [
@@ -32,6 +36,7 @@ const CHECK_ISSUE_CODES = [
 	"invalid_skill_md",
 	"invoke_only_missing_openai_policy",
 	"openai_policy_without_invoke_only",
+	"non_managed_openai_policy",
 	"command_converted_missing_pi_exclusion",
 	"command_converted_missing_pi_replacement",
 	"agents_not_real_dir",
@@ -344,6 +349,17 @@ function checkSkillInvocationKind(options: CheckSkillInvocationKindOptions): Che
 				entry.name,
 				"openai_policy_without_invoke_only",
 				`${skillBaseRelativePath(entry)}/agents/openai.yaml exists but SKILL.md does not set disable-model-invocation: true`,
+			),
+		);
+	if (
+		inspected.openaiPolicy.type === "file" &&
+		!isManagedOpenaiPolicyContent(inspected.openaiPolicy.text)
+	)
+		issues.push(
+			issue(
+				entry.name,
+				"non_managed_openai_policy",
+				`${skillBaseRelativePath(entry)}/agents/openai.yaml exists with non-managed content`,
 			),
 		);
 	if (

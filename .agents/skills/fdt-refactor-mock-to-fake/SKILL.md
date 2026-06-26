@@ -1,12 +1,12 @@
 ---
 name: fdt-refactor-mock-to-fake
+disable-model-invocation: true
 description: >
   Refactor tests that use unittest.mock.patch or MagicMock into erk's gateway-based
   fake pattern. Use when tests import unittest.mock, use @patch decorators, or
   directly call mock.patch() as context managers. Essential when test_*.py files
   patch module-level attributes like subprocess.run, shutil.which, os.environ, or
   other system calls. Covers both making source code injectable AND rewriting tests.
-disable-model-invocation: true
 ---
 
 # Refactoring Mocks to Fakes

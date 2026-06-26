@@ -1,7 +1,7 @@
 ---
 name: ts-morph-analyze
-description: Analyze TypeScript code structure using ts-morph. Use for summarizing class/interface APIs, listing exports, showing inheritance hierarchies, or extracting interfaces from classes. Outputs signatures without implementation details.
 disable-model-invocation: true
+description: Analyze TypeScript code structure using ts-morph. Use for summarizing class/interface APIs, listing exports, showing inheritance hierarchies, or extracting interfaces from classes. Outputs signatures without implementation details.
 ---
 
 # TypeScript Code Analysis with ts-morph

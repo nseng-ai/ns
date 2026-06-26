@@ -188,6 +188,40 @@ describe("areg check CLI", () => {
 		expect(stderr).toContain("exists but SKILL.md does not set disable-model-invocation: true");
 	});
 
+	test("reports non-managed skill invocation sidecars", async () => {
+		const run = runScenario(["check"], {
+			project: project({
+				lockfile: {
+					version: 1,
+					skills: { local: localEntry("local"), remote: remoteEntry() },
+				},
+				checkSkills: [
+					localSkill("local", {
+						localSkillMd: {
+							type: "file",
+							text: "---\nname: local\ndisable-model-invocation: true\n---\n",
+						},
+						openaiPolicy: { type: "file", text: "allow_implicit_invocation: false\n" },
+					}),
+					remoteSkill("remote", {
+						remoteSkillMd: {
+							type: "file",
+							text: "---\nname: remote\ndisable-model-invocation: true\n---\n",
+						},
+						openaiPolicy: { type: "file", text: "allow_implicit_invocation: false\n" },
+					}),
+				],
+			}),
+		});
+
+		expect(await run.exit).toBe(1);
+		const stderr = run.stderr.join("");
+		expect(stderr).toContain("skills/local/agents/openai.yaml exists with non-managed content");
+		expect(stderr).toContain(
+			".agents/skills/remote/agents/openai.yaml exists with non-managed content",
+		);
+	});
+
 	test("reports missing Pi exclusion for command-backed skill-kind facts", async () => {
 		const run = runScenario(["check"], {
 			project: project({
