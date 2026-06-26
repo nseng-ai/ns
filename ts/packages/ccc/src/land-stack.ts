@@ -74,7 +74,7 @@ export function registerLandStackRenderer(
 export function landArgumentCompletions(
 	prefix: string,
 ): Array<{ value: string; label: string }> | null {
-	const options = ["--yes", "--dry-run", "--help"];
+	const options = ["--yes", "--dry-run", "--free", "--force", "--help"];
 	const token = prefix.trim().split(/\s+/).pop() ?? "";
 	const filtered = options.filter((option) => option.startsWith(token));
 	return filtered.length > 0 ? filtered.map((option) => ({ value: option, label: option })) : null;
@@ -562,7 +562,13 @@ function presentLandStackFailure(options: PresentLandStackFailureOptions): void 
 }
 
 export function parseArgs(argsText: string): LandStackResult<ParsedArgs> {
-	const parsed: ParsedArgs = { yes: false, dryRun: false, help: false };
+	const parsed: ParsedArgs = {
+		yes: false,
+		dryRun: false,
+		free: false,
+		force: false,
+		help: false,
+	};
 	const parts = argsText.trim().split(/\s+/).filter(Boolean);
 
 	for (const part of parts) {
@@ -570,6 +576,10 @@ export function parseArgs(argsText: string): LandStackResult<ParsedArgs> {
 			parsed.yes = true;
 		} else if (part === "--dry-run") {
 			parsed.dryRun = true;
+		} else if (part === "--free") {
+			parsed.free = true;
+		} else if (part === "--force" || part === "-f") {
+			parsed.force = true;
 		} else if (part === "--help" || part === "-h") {
 			parsed.help = true;
 		} else {

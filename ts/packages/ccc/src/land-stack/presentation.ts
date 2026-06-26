@@ -188,18 +188,20 @@ function formatDescendantMaintenancePlan(maintenance: DescendantMaintenancePlan)
 export function usage(): string {
 	return [
 		"Usage:",
-		`/${COMMAND_NAME} [--yes] [--dry-run] [--help]`,
+		`/${COMMAND_NAME} [--yes] [--dry-run] [--free] [--force] [--help]`,
 		"",
 		"Lands the current PR or Graphite stack into gt trunk.",
 		"Fast path requires Graphite to prove an isolated single-PR stack. Stack path lands bottom branch through current branch, one PR at a time, and maintains descendants when possible.",
 		`Stacks with more than ${AUTO_CHUNK_LANDING_THRESHOLD} PRs are landed automatically in chunks of ${AUTO_CHUNK_LANDING_SIZE} without switching this worktree to each chunk tip.`,
 		"Stack mode requires a clean repo, non-draft open PRs, bottom PR based on gt trunk, and no landing-branch manual worktree conflicts; descendant worktree conflicts skip optional post-landing restack/update.",
-		"Landing-branch managed slot cleanup is confirmed before any PR submit/update; final local branch cleanup retains a branch that is still checked out in this worktree.",
+		"Landing-branch managed slot cleanup is confirmed before any PR submit/update; final local branch cleanup retains a branch that is still checked out in this worktree unless --free is requested from a managed slot.",
 		"",
 		"Options:",
-		"  --yes, -y    Skip stack/global landing confirmation. In single-plan mode, landing-branch managed slot cleanup and PR submit/update still require explicit UI confirmation; in chunked mode, --yes approves the full chunked operation.",
-		"  --dry-run    Show the full or chunked plan and exit before mutating refs or PRs.",
-		"  --help, -h   Show this help.",
+		"  --yes, -y       Skip stack/global landing confirmation. In single-plan mode, landing-branch managed slot cleanup and PR submit/update still require explicit UI confirmation; in chunked mode, --yes approves the full chunked operation.",
+		"  --dry-run       Show the full or chunked plan and exit before mutating refs or PRs.",
+		"  --free          After successful landing, free the current managed slot and delete the landed local branch.",
+		"  --force, -f     Skip the post-landing --free confirmation.",
+		"  --help, -h      Show this help.",
 	].join("\n");
 }
 
