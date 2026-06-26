@@ -7,7 +7,7 @@ import {
 	validateCheckpointMessage,
 } from "./checkpoint-message.ts";
 import type { TextGenerator } from "./text-generation.ts";
-import { prepareRepairedText } from "./text-repair.ts";
+import { prepareRepairedText, type TextRepairProgressEvent } from "./text-repair.ts";
 import { withTemporaryFile } from "./temp-files.ts";
 
 export const CHECKPOINT_SYSTEM_PROMPT = `You write terse checkpoint commit messages for coding agents.
@@ -71,6 +71,7 @@ export async function prepareCheckpointMessage(input: {
 	diff: string;
 	textGenerator: TextGenerator;
 	modelRef: string;
+	onProgress?: (event: TextRepairProgressEvent) => void;
 }): Promise<PreparedCheckpointMessage> {
 	const initialPrompt = buildCheckpointUserPrompt({ status: input.status, diff: input.diff });
 	const prepared = await prepareRepairedText({
@@ -89,6 +90,7 @@ export async function prepareCheckpointMessage(input: {
 				previousDraft,
 				validationFeedback: feedback,
 			}),
+		...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
 	});
 	if (!prepared.ok) return prepared;
 	return {

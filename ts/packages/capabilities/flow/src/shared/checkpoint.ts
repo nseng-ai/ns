@@ -1,5 +1,7 @@
 import { runCommand, type CommandRunner, type ExecResult } from "@sdl/core/exec";
+import { formatElapsedMs } from "@sdl/core/time-format";
 import { createSdlCommandRunner } from "@sdl/capability-kit/command-runner";
+import type { TextRepairProgressEvent } from "@sdl/domain-primitives-transitional/text-repair";
 import {
 	createCommitWithPreparedMessage,
 	prepareCheckpointMessage,
@@ -59,6 +61,8 @@ export interface RunCheckpointCommandOptions {
 
 export interface RunCheckpointWorkflowOptions extends RunCheckpointCommandOptions {
 	dryRun: boolean;
+	/** Optional transient progress reporter for long-running checkpoint phases. */
+	onProgress?: ((message: string) => void) | undefined;
 }
 
 export type CheckpointWorkflowResult =
@@ -166,6 +170,8 @@ export async function runCheckpointIfPending(
 export async function runCheckpointWorkflow(
 	options: RunCheckpointWorkflowOptions,
 ): Promise<CheckpointWorkflowResult> {
+	const reportProgress = options.onProgress;
+	reportProgress?.("\u2022 Inspecting worktree\u2026");
 	const loaded = await options.gateway.loadPendingWorktreeSnapshot({ cwd: options.cwd });
 	if (!loaded.ok) return { type: "snapshot-failed", error: loaded.error };
 
@@ -180,6 +186,9 @@ export async function runCheckpointWorkflow(
 		diff: snapshot.diff,
 		textGenerator: options.textGenerator,
 		modelRef: selectCheckpointModelRef(options.env),
+		...(reportProgress === undefined
+			? {}
+			: { onProgress: (event) => reportProgress(formatCheckpointProgressEvent(event)) }),
 	});
 	if (!prepared.ok) return { type: "message-failed", error: prepared.error };
 
@@ -187,6 +196,7 @@ export async function runCheckpointWorkflow(
 		return { type: "dry-run", branch: snapshot.branch, message: prepared.message };
 	}
 
+	reportProgress?.("\u2022 Creating checkpoint commit\u2026");
 	const committed = await options.gateway.createCommitWithPreparedMessage({
 		cwd: options.cwd,
 		message: prepared.message,
@@ -194,6 +204,19 @@ export async function runCheckpointWorkflow(
 	if ("error" in committed) return { type: "commit-failed", error: committed.error };
 
 	return { type: "committed", summary: committed.summary, message: prepared.message };
+}
+
+function formatCheckpointProgressEvent(event: TextRepairProgressEvent): string {
+	switch (event.type) {
+		case "attempt_started":
+			return event.attempt === 1
+				? "\u2022 Generating checkpoint message with model\u2026"
+				: `  \u2026 regenerating checkpoint message (attempt ${event.attempt}/${event.maxAttempts})`;
+		case "attempt_waiting":
+			return `  \u2026 still generating checkpoint message (${formatElapsedMs(event.elapsedMs)} elapsed)`;
+		case "attempt_invalid":
+			return "  \u2026 checkpoint message draft failed validation; requesting repair";
+	}
 }
 
 export function formatCheckpointSnapshotError(error: PendingWorktreeError): string {

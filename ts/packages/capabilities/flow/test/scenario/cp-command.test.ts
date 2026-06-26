@@ -1,4 +1,5 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
+import type { TextGenerationResult } from "sdl-sdk";
 
 import { runFlowCpCommandWithFakes } from "./flow-command-fakes.ts";
 import { formattedExecCalls, type ScriptedExecResponse } from "./sdl-cli-fakes.ts";
@@ -89,6 +90,58 @@ describe("project-local cp extension behavior", () => {
 		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(
 			"## git diff HEAD\n\ndiff --git a/src/app.ts b/src/app.ts",
 		);
+	});
+
+	test("emits live progress for the long-running checkpoint phases", async () => {
+		const run = runCpWithFakes();
+
+		expect(await run.exit).toBe(0);
+		expect(run.liveOutput).toEqual([
+			{ stream: "stderr", text: "sdl flow cp\n" },
+			{ stream: "stderr", text: "• Inspecting worktree…\n" },
+			{ stream: "stderr", text: "• Generating checkpoint message with model…\n" },
+			{ stream: "stderr", text: "• Creating checkpoint commit…\n" },
+		]);
+		expect(run.stderr.join("")).toBe("");
+	});
+
+	test("checkpoint message progress includes an elapsed counter while waiting", async () => {
+		vi.useFakeTimers();
+		try {
+			let resolveModel: ((result: TextGenerationResult) => void) | undefined;
+			const pendingModel = new Promise<TextGenerationResult>((resolve) => {
+				resolveModel = resolve;
+			});
+			const run = runCpWithFakes({ state: { textGeneration: [pendingModel] } });
+
+			await vi.waitFor(
+				() => {
+					expect(run.context.textGeneratorCalls).toHaveLength(1);
+				},
+				{ timeout: 10_000 },
+			);
+			expect(run.liveOutput).toContainEqual({
+				stream: "stderr",
+				text: "• Generating checkpoint message with model…\n",
+			});
+
+			await vi.advanceTimersByTimeAsync(5_000);
+			expect(run.liveOutput).toContainEqual({
+				stream: "stderr",
+				text: "  … still generating checkpoint message (5s elapsed)\n",
+			});
+
+			await vi.advanceTimersByTimeAsync(5_000);
+			expect(run.liveOutput).toContainEqual({
+				stream: "stderr",
+				text: "  … still generating checkpoint message (10s elapsed)\n",
+			});
+
+			resolveModel?.({ ok: true, text: defaultCpMessage() });
+			expect(await run.exit).toBe(0);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	test("dry-run previews the checkpoint without staging, committing, or reading log", async () => {

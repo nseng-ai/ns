@@ -12,6 +12,7 @@ import {
 	type CheckpointGateway,
 	type CheckpointWorkflowResult,
 } from "../shared/checkpoint.ts";
+import { createFlowLiveOutput, emitFlowProgress } from "../shared/live-output.ts";
 
 const CP_COMMAND_DESCRIPTION = `Create a checkpoint commit for the current diff.
 
@@ -38,12 +39,17 @@ export const flowCpCommand: SdlCommand<typeof cpRequestSchema> = {
 	schema: cpRequestSchema,
 	async run(ctx, request: CpRequest) {
 		const runtime = createSdlCheckpointRuntime(ctx);
+		const liveOutput = createFlowLiveOutput(ctx);
+		emitFlowProgress(liveOutput, "sdl flow cp");
 		const result = await runCpCore({
 			cwd: ctx.cwd,
 			env: ctx.env,
 			textGenerator: ctx.textGenerator,
 			isDryRun: request.dryRun,
 			checkpointGateway: runtime.checkpointGateway,
+			...(liveOutput === undefined
+				? {}
+				: { onProgress: (message: string) => emitFlowProgress(liveOutput, message) }),
 		});
 		return toCommandResult(result);
 	},
@@ -61,6 +67,7 @@ export interface RunCpCoreOptions {
 	textGenerator: TextGenerator;
 	isDryRun: boolean;
 	checkpointGateway: CheckpointGateway;
+	onProgress?: ((message: string) => void) | undefined;
 }
 
 export async function runCpCore(options: RunCpCoreOptions): Promise<RunCpCoreResult> {
@@ -70,6 +77,7 @@ export async function runCpCore(options: RunCpCoreOptions): Promise<RunCpCoreRes
 		gateway: options.checkpointGateway,
 		textGenerator: options.textGenerator,
 		dryRun: options.isDryRun,
+		...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
 	});
 }
 
