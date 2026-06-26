@@ -105,7 +105,7 @@ export async function runReadObjective(
 	ctx: ObjectiveCliContext,
 	request: ReadObjectiveRequest,
 ): Promise<ClinkrExit<ReadObjectiveResult>> {
-	const result = await readObjective(ctx.storage, request.slug);
+	const result = await readObjectiveRecord(ctx.storage, request.slug);
 	if (result.type === "storage-error") return failure(result.error.code, result.error.message);
 	const slugValidationError = handleObjectiveSlugValidationErrors(result.value, request.slug);
 	if (slugValidationError !== null) return slugValidationError;
@@ -146,7 +146,7 @@ export function renderReadObjective(result: ReadObjectiveResult): string {
 	return removeOneTrailingNewline(parts.join(""));
 }
 
-async function readObjective(
+export async function readObjectiveRecord(
 	storage: ObjectiveStorage,
 	slug: string | undefined,
 ): Promise<

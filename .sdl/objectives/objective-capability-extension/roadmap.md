@@ -2,10 +2,10 @@
 
 ## Work
 
-- [ ] Establish the `@sdl/objective/api` Capability API surface and the gateway-injected Domain Core boundary.
+- [x] Establish the `@sdl/objective/api` Capability API surface and the gateway-injected Domain Core boundary.
   - Decide the curated `@sdl/objective/api` export shape that `ccc`/`sdlcc` need (selection + listing surface), following the `@sdl/slot/api`/`@sdl/branch-context/api`/`@sdl/plans/api` precedent. Add the `./api` subpath to `ts/packages/objective/package.json` exports.
   - Define the Domain Core seam so relocated logic takes injected gateways (via `@sdl/capability-kit`), not raw `ctx`.
-  - Evidence: `@sdl/objective/api` resolves; a placeholder/curated surface compiles; convention matches existing `/api` capabilities.
+  - Evidence: `ts/packages/objective/src/api.ts` is the `@sdl/objective/api` Capability API — a full `createObjectiveClient(...)` facade (chosen shape #2, mirroring `@sdl/slot/api`'s `createSlotClient`) returning clean `ok/failure` results for `listObjectives`, `readObjective`, and `listActiveCandidates`, with no `ClinkrExit`/command-face leakage. `ts/packages/objective/package.json` exports `./api` and `./command-face`. The Domain Core seam is the already-gateway-injected `ObjectiveCliContext` (git + storage gateways), injectable via `ObjectiveClientOptions.context`. `read-objective.ts`'s inner reader was exported as `readObjectiveRecord` so the API avoids the `ClinkrExit` wrapper. New unit coverage in `test/unit/api.test.ts` exercises active-candidate filtering, default/override status filters, ok/not_found reads, and storage-failure mapping against `FakeObjectiveStorageGateway` + `InMemoryGitGateway`. Validation: `pnpm --dir ts run check` (tsgo), objective suite (73 tests incl. 6 new), `just ts-format-check`, `just ts-lint`, `just ts-guard`, `just ts-deps-check` all green. The Pi selection/skill-prompt surface (`@sdl/pi/objectives/*`) is intentionally not relocated here; it joins this client in row 2.
 
 - [ ] Relocate the objectives domain out of `@sdl/pi/objectives/*` into `@sdl/objective`.
   - Move `selection.ts`, `picker.ts`, `list.ts`, and the domain portions of `extension.ts` into `@sdl/objective`, refactored into a gateway-injected Domain Core; leave any genuine Pi presentation as a thin shell.
