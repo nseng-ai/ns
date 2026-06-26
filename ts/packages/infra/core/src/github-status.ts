@@ -75,7 +75,7 @@ export type GithubWorktreePrStatusParseResult =
 	| { type: "schema-mismatch" };
 
 export const githubWorktreePrStatusQuery =
-	"query($owner:String!,$repo:String!,$headRefName:String!){repository(owner:$owner,name:$repo){pullRequests(first:2,states:OPEN,headRefName:$headRefName,orderBy:{field:UPDATED_AT,direction:DESC}){nodes{number url headRefName headRefOid statusCheckRollup{contexts(first:100){pageInfo{hasNextPage} nodes{__typename ... on CheckRun{name status conclusion startedAt completedAt detailsUrl checkSuite{workflowRun{workflow{name}}}} ... on StatusContext{context state createdAt targetUrl}}}} reviewThreads(first:100){totalCount pageInfo{hasNextPage} nodes{isResolved}}}}}}";
+	"query($owner:String!,$repo:String!,$headRefName:String!){repository(owner:$owner,name:$repo){pullRequests(first:2,states:OPEN,headRefName:$headRefName,orderBy:{field:UPDATED_AT,direction:DESC}){nodes{number url headRefName headRefOid statusCheckRollup{contexts(first:100){pageInfo{hasNextPage} nodes{__typename ... on CheckRun{name status conclusion startedAt completedAt detailsUrl checkSuite{workflowRun{databaseId runNumber runAttempt createdAt updatedAt workflow{name}}}} ... on StatusContext{context state createdAt targetUrl}}}} reviewThreads(first:100){totalCount pageInfo{hasNextPage} nodes{isResolved}}}}}}";
 
 const githubReviewThreadConnectionSchema = z
 	.object({
@@ -336,7 +336,7 @@ function latestGithubStatusChecks(items: readonly unknown[]): readonly unknown[]
 	const latestByIdentity = new Map<string, { item: unknown; timestampMs: number | undefined }>();
 	const unknownIdentityItems: unknown[] = [];
 
-	for (const item of items) {
+	for (const item of ignoreSupersededWorkflowRunChecks(items)) {
 		const identity = statusCheckIdentity(item);
 		if (identity === undefined) {
 			unknownIdentityItems.push(item);
@@ -351,6 +351,141 @@ function latestGithubStatusChecks(items: readonly unknown[]): readonly unknown[]
 	}
 
 	return [...latestByIdentity.values()].map((entry) => entry.item).concat(unknownIdentityItems);
+}
+
+interface WorkflowRunFacts {
+	readonly workflowKey: string;
+	readonly runKey: string;
+	readonly runNumber: number | undefined;
+	readonly runAttempt: number | undefined;
+	readonly databaseId: number | undefined;
+	readonly timestampMs: number | undefined;
+	readonly itemIndex: number;
+}
+
+function ignoreSupersededWorkflowRunChecks(items: readonly unknown[]): readonly unknown[] {
+	// Workflow-run filtering happens before per-check dedupe because a rerun can change
+	// the job matrix names while still superseding every job from the older run.
+	const entries = items.map((item, itemIndex) => ({
+		item,
+		run: workflowRunFactsFromCheckRun(item, itemIndex),
+	}));
+	const latestByWorkflow = new Map<string, WorkflowRunFacts>();
+
+	for (const entry of entries) {
+		if (entry.run === undefined) continue;
+		const current = latestByWorkflow.get(entry.run.workflowKey);
+		if (current === undefined || shouldReplaceWorkflowRun(current, entry.run)) {
+			latestByWorkflow.set(entry.run.workflowKey, entry.run);
+		}
+	}
+
+	return entries
+		.filter((entry) => {
+			if (entry.run === undefined) return true;
+			return latestByWorkflow.get(entry.run.workflowKey)?.runKey === entry.run.runKey;
+		})
+		.map((entry) => entry.item);
+}
+
+function workflowRunFactsFromCheckRun(
+	item: unknown,
+	itemIndex: number,
+): WorkflowRunFacts | undefined {
+	if (!isRecord(item)) return undefined;
+	if (nonEmptyString(item.__typename) !== "CheckRun") return undefined;
+
+	const workflowName = checkRunWorkflowName(item);
+	const workflowRun = checkRunWorkflowRun(item);
+	if (workflowName === undefined || workflowRun === undefined) return undefined;
+
+	const runKey = workflowRunKey(workflowRun, workflowName);
+	if (runKey === undefined) return undefined;
+
+	return {
+		workflowKey: `workflow:${workflowName}`,
+		runKey,
+		runNumber: numericValue(workflowRun.runNumber),
+		runAttempt: numericValue(workflowRun.runAttempt),
+		databaseId: numericValue(workflowRun.databaseId),
+		timestampMs:
+			dateTimestampMs(workflowRun.updatedAt) ??
+			dateTimestampMs(workflowRun.createdAt) ??
+			statusCheckTimestampMs(item),
+		itemIndex,
+	};
+}
+
+function checkRunWorkflowRun(item: Record<string, unknown>): Record<string, unknown> | undefined {
+	const checkSuite = item.checkSuite;
+	if (!isRecord(checkSuite)) return undefined;
+	const workflowRun = checkSuite.workflowRun;
+	return isRecord(workflowRun) ? workflowRun : undefined;
+}
+
+function workflowRunKey(
+	workflowRun: Record<string, unknown>,
+	workflowName: string,
+): string | undefined {
+	const id = nonEmptyString(workflowRun.id);
+	if (id !== undefined) return `workflow-run-id:${id}`;
+
+	const databaseId = numericValue(workflowRun.databaseId);
+	if (databaseId !== undefined) return `workflow-run-database-id:${databaseId}`;
+
+	const runNumber = numericValue(workflowRun.runNumber);
+	if (runNumber !== undefined) {
+		return `workflow-run-number:${workflowName}:${runNumber}:${numericValue(workflowRun.runAttempt) ?? 0}`;
+	}
+
+	const timestampMs =
+		dateTimestampMs(workflowRun.updatedAt) ?? dateTimestampMs(workflowRun.createdAt);
+	return timestampMs === undefined
+		? undefined
+		: `workflow-run-timestamp:${workflowName}:${timestampMs}`;
+}
+
+function shouldReplaceWorkflowRun(current: WorkflowRunFacts, candidate: WorkflowRunFacts): boolean {
+	if (
+		current.runNumber !== undefined &&
+		candidate.runNumber !== undefined &&
+		current.runNumber !== candidate.runNumber
+	) {
+		return candidate.runNumber > current.runNumber;
+	}
+
+	if (
+		current.runAttempt !== undefined &&
+		candidate.runAttempt !== undefined &&
+		current.runAttempt !== candidate.runAttempt
+	) {
+		return candidate.runAttempt > current.runAttempt;
+	}
+
+	if (
+		current.timestampMs !== undefined &&
+		candidate.timestampMs !== undefined &&
+		current.timestampMs !== candidate.timestampMs
+	) {
+		return candidate.timestampMs > current.timestampMs;
+	}
+
+	if (
+		current.databaseId !== undefined &&
+		candidate.databaseId !== undefined &&
+		current.databaseId !== candidate.databaseId
+	) {
+		return candidate.databaseId > current.databaseId;
+	}
+
+	return candidate.itemIndex > current.itemIndex;
+}
+
+function numericValue(value: unknown): number | undefined {
+	if (typeof value === "number" && Number.isFinite(value)) return value;
+	if (typeof value !== "string" || value.trim().length === 0) return undefined;
+	const parsed = Number(value);
+	return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 function shouldReplaceStatusCheck(
