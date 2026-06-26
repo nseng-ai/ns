@@ -3,7 +3,7 @@ import type { ObjectiveDiffSelection } from "./objective-picker.ts";
 export interface ObjectiveSelectionSpec {
 	statusKey: string;
 	selectionTitle: string;
-	compactDiffSuggestion?: boolean;
+	shouldCompactDiffSuggestion?: boolean;
 }
 
 export interface ObjectiveSkillPromptSpec {

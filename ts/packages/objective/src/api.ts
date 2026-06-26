@@ -30,6 +30,7 @@ import {
 	objectiveRecordsWithChangedFirst,
 	parseObjectiveDiffChangedSlugs,
 	parseObjectiveStatusChangedSlugs,
+	type ChangedActiveObjectiveSelectionOptions,
 	type ObjectiveDiffSelection,
 } from "./objective-picker.ts";
 import {
@@ -300,12 +301,12 @@ async function changedObjectiveSelection(
 				? `changed vs ${trunkBranch}`
 				: "changed";
 
-	return changedActiveObjectiveSelection(
+	return changedActiveObjectiveSelection({
 		objectiveList,
 		trunkBranch,
 		allChangedSlugs,
 		changeBasisLabel,
-	);
+	});
 }
 
 async function objectiveDiffChangedSlugs(
@@ -454,7 +455,7 @@ export async function chooseActiveObjectiveSlug(
 	}
 
 	const changedSelection = await changedObjectiveSelection({ host, ctx, objectiveList, spec });
-	if (changedSelection && spec.compactDiffSuggestion) {
+	if (changedSelection && spec.shouldCompactDiffSuggestion) {
 		return selectChangedObjectivesOrOther({
 			ctx,
 			spec,
@@ -505,6 +506,7 @@ export type {
 	ObjectiveListRecord,
 	ReadObjectiveResult,
 	ObjectiveListParseResult,
+	ChangedActiveObjectiveSelectionOptions,
 	ObjectiveDiffSelection,
 	ObjectiveSelectionSpec,
 	ObjectiveSkillPromptSpec,

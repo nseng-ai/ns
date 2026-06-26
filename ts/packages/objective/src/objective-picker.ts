@@ -11,6 +11,13 @@ export interface ObjectiveDiffSelection {
 	changedActiveSlugs: string[];
 }
 
+export interface ChangedActiveObjectiveSelectionOptions {
+	objectiveList: ObjectiveList;
+	trunkBranch: string;
+	allChangedSlugs: readonly string[];
+	changeBasisLabel?: string;
+}
+
 export function parseObjectiveDiffChangedSlugs(stdout: string): string[] {
 	const slugs = new Set<string>();
 	for (const line of stdout.split(/\r?\n/)) {
@@ -57,11 +64,10 @@ export function parseObjectiveStatusChangedSlugs(stdout: string): string[] {
 }
 
 export function changedActiveObjectiveSelection(
-	objectiveList: ObjectiveList,
-	trunkBranch: string,
-	allChangedSlugs: string[],
-	changeBasisLabel: string = defaultChangeBasisLabel(trunkBranch),
+	options: ChangedActiveObjectiveSelectionOptions,
 ): ObjectiveDiffSelection | undefined {
+	const { objectiveList, trunkBranch, allChangedSlugs } = options;
+	const changeBasisLabel = options.changeBasisLabel ?? defaultChangeBasisLabel(trunkBranch);
 	const uniqueChangedSlugs = [...new Set(allChangedSlugs)].sort((left, right) =>
 		left.localeCompare(right),
 	);

@@ -1,8 +1,8 @@
 import { DEFAULT_FAST_MODEL_REF, resolveModelRef } from "@sdl/core/model-slug";
 import { registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
+import { objectiveSelectionContextFromCommandContext } from "@sdl/pi/objectives/selection";
 import { chooseActiveObjectiveSlug, type ObjectiveSelectionSpec } from "@sdl/objective/api";
 import { expandRepoSkillBlock } from "@sdl/pi/skills/expansion";
-import { objectiveSelectionContextFromCommandContext } from "../objective-selection-context.ts";
 import {
 	applyObjectiveSidebarFields,
 	formatObjectiveSidebarFields,
@@ -30,7 +30,7 @@ const SIDEBAR_MODEL_ENV = "SDL_CCC_SIDEBAR_MODEL";
 const OBJECTIVE_SIDEBAR_SELECTION_SPEC = {
 	statusKey: PI_SIDEBAR_STATUS_KEY,
 	selectionTitle: "Select an active Objective for cmux sidebar",
-	compactDiffSuggestion: true,
+	shouldCompactDiffSuggestion: true,
 } satisfies ObjectiveSelectionSpec;
 
 interface RestoreState {

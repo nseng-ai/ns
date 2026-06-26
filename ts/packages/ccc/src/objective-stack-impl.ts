@@ -1,4 +1,5 @@
 import { registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
+import { objectiveSelectionContextFromCommandContext } from "@sdl/pi/objectives/selection";
 import {
 	buildObjectiveSkillPrompt,
 	chooseActiveObjectiveSlug,
@@ -7,7 +8,6 @@ import {
 	type ObjectiveSelectionSpec,
 } from "@sdl/objective/api";
 import { invokeRepoSkillPromptTurn } from "@sdl/pi/skills/expansion";
-import { objectiveSelectionContextFromCommandContext } from "./objective-selection-context.ts";
 import type { CommandDefinition } from "./cmux/types.ts";
 
 interface ObjectiveStackImplCommandSpec extends ObjectiveSelectionSpec {
@@ -30,7 +30,7 @@ const OBJECTIVE_STACK_IMPL_COMMAND: ObjectiveStackImplCommandSpec = {
 		"Pick an active Objective, then invoke the portable Objective stack implementation skill for the selected slug.",
 	statusKey: "objective:stack-impl",
 	selectionTitle: "Select an active Objective for stack implementation",
-	compactDiffSuggestion: true,
+	shouldCompactDiffSuggestion: true,
 	fallbackPrompt:
 		"The objective-stack-impl skill was not found among loaded Pi skills. Follow the repository's Objective stack implementation workflow anyway: orchestrate implementation of one explicit Objective as a small Graphite stack from this session. Require user confirmation before execution, run at most one runner subagent at a time, record Objective updates for material progress, and do not submit PRs automatically.",
 	actionPrompt: "Run objective-stack-impl for this explicitly selected Objective slug or path:",
