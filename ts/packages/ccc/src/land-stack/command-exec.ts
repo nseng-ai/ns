@@ -8,7 +8,6 @@ import {
 	type ExecResult,
 } from "@sdl/core/exec";
 import { GRAPHITE_COMMAND_NAME, runGraphiteCommand } from "@sdl/graphite/branch";
-import { GRAPHITE_METADATA_DB_NAME } from "@sdl/graphite/metadata";
 import {
 	MAX_COMMAND_STREAM_OUTPUT_LINES,
 	MAX_OUTPUT_TAIL_CHARS,
@@ -81,12 +80,14 @@ export function normalizeCommandFinish(
 	) {
 		return { result: { ...result, code: 0 }, note: `branch ${deleteBranch} already absent` };
 	}
-	// /sdl:flow:land reads Graphite topology from Graphite's metadata database;
-	// avoid labeling unrelated sqlite3 commands just because the binary matches.
+	// /sdl:flow:land reads Graphite topology through a controlled SDL flow exec command;
+	// avoid labeling unrelated sdl invocations just because the binary matches.
 	if (
-		command === "sqlite3" &&
+		command === "sdl" &&
 		result.code === 0 &&
-		args.some((arg) => arg.endsWith(GRAPHITE_METADATA_DB_NAME))
+		args[0] === "flow" &&
+		args[1] === "exec" &&
+		args[2] === "read-graphite-branch-metadata"
 	) {
 		return { result, note: "read Graphite stack topology" };
 	}

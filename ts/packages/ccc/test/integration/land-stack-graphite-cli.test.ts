@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import { formatCommandResultFailure, runCommand, type ExecResult } from "@sdl/core/exec";
+import { graphiteBranchMetadataReadonlyJsonArgs } from "@sdl/graphite/metadata";
 import { loadStackSnapshot } from "../../src/land-stack/stack-facts.ts";
 import type { LandStackExtensionAPI } from "../../src/land-stack/types.ts";
 
@@ -186,6 +187,19 @@ async function sqliteJson(options: SqliteJsonOptions): Promise<unknown> {
 function makeLandStackPi(env: NodeJS.ProcessEnv): LandStackExtensionAPI {
 	return {
 		async exec(command, args, options = {}) {
+			if (
+				command === "sdl" &&
+				args[0] === "flow" &&
+				args[1] === "exec" &&
+				args[2] === "read-graphite-branch-metadata" &&
+				args[3] === "--db-path" &&
+				args[4] !== undefined
+			) {
+				return await runCommand("sqlite3", graphiteBranchMetadataReadonlyJsonArgs(args[4]), {
+					...options,
+					env,
+				});
+			}
 			return await runCommand(command, args, {
 				...options,
 				env,

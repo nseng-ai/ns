@@ -10,7 +10,7 @@ import {
 	type LandExtensionAPI,
 	type NotifyLevel,
 } from "@sdl/ccc/land";
-import { metadataDbJson, topologyArgs } from "./land-test-helpers.ts";
+import { metadataDbJson, TOPOLOGY_COMMAND, topologyArgs } from "./land-test-helpers.ts";
 
 const ROOT = "/repo";
 const CURRENT = "feature-branch";
@@ -235,7 +235,7 @@ function graphiteShapeSteps(dbRows: string): ScriptedExec[] {
 		step("git", GIT_CURRENT_ARGS, { stdout: `${CURRENT}\n` }),
 		step("gt", GT_TRUNK_ARGS, { stdout: `${TRUNK}\n` }),
 		step("git", GIT_COMMON_DIR_ARGS, { stdout: `${ROOT}/.git\n` }),
-		step("sqlite3", TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
+		step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
 		step("git", GIT_FOR_EACH_REF_ARGS, {
 			stdout: liveBranches.length > 0 ? `${liveBranches.join("\n")}\n` : "",
 		}),
@@ -248,7 +248,11 @@ function expectedShapeCalls(options: { forEachRef?: boolean } = {}): ExecCall[] 
 		{ command: "git", args: GIT_CURRENT_ARGS, options: { cwd: ROOT, timeout: GIT_TIMEOUT_MS } },
 		{ command: "gt", args: GT_TRUNK_ARGS, options: { cwd: ROOT, timeout: GT_TIMEOUT_MS } },
 		{ command: "git", args: GIT_COMMON_DIR_ARGS, options: { cwd: ROOT, timeout: GIT_TIMEOUT_MS } },
-		{ command: "sqlite3", args: TOPOLOGY_ARGS, options: { cwd: ROOT, timeout: SQLITE_TIMEOUT_MS } },
+		{
+			command: TOPOLOGY_COMMAND,
+			args: TOPOLOGY_ARGS,
+			options: { cwd: ROOT, timeout: SQLITE_TIMEOUT_MS },
+		},
 	];
 	if (options.forEachRef !== false) {
 		calls.push({
@@ -414,7 +418,7 @@ function successfulStackLandingSteps(): ScriptedExec[] {
 			"--force",
 			"--no-interactive",
 		]),
-		step("sqlite3", TOPOLOGY_ARGS, {
+		step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, {
 			stdout: `${metadataDbJson([{ branch: CURRENT, children: [CHILD_BRANCH] }])}\n`,
 		}),
 		step("gt", ["delete", CURRENT, "-f", "-q"]),
@@ -816,7 +820,7 @@ describe("code land command", () => {
 				step("git", GIT_CURRENT_ARGS, { stdout: `${CURRENT}\n` }),
 				step("gt", GT_TRUNK_ARGS, { stdout: `${TRUNK}\n` }),
 				step("git", GIT_COMMON_DIR_ARGS, { stdout: `${ROOT}/.git\n` }),
-				step("sqlite3", TOPOLOGY_ARGS, {
+				step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, {
 					code: 1,
 					stderr: "Error: unable to open database file\n",
 				}),

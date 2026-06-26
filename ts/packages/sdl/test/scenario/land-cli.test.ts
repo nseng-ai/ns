@@ -57,7 +57,14 @@ function landStackShapeResponses(cwd: string | undefined): ScriptedExecResponse[
 			match: "git rev-parse --path-format=absolute --git-common-dir",
 			result: { stdout: `${repoRoot}/.git\n` },
 		},
-		{ match: (call) => call.command === "sqlite3", result: { stdout: `${metadataDbJson()}\n` } },
+		{
+			match: (call) =>
+				call.command === "sdl" &&
+				call.args[0] === "flow" &&
+				call.args[1] === "exec" &&
+				call.args[2] === "read-graphite-branch-metadata",
+			result: { stdout: `${metadataDbJson()}\n` },
+		},
 		{
 			match: "git for-each-ref --format=%(refname:short)%09%(committerdate:iso-strict) refs/heads",
 			result: { stdout: `${TRUNK}\n${CURRENT}\n${CHILD}\n` },
@@ -167,6 +174,44 @@ describe("sdl flow land", () => {
 		expect(run.stderr.join("")).toContain("land stopped:");
 	});
 
+	test("flow exec metadata operation is invocable but hidden from flow help", async () => {
+		const cwd = createLandProject();
+
+		const flowHelp = runWithFakes({ cwd, args: ["flow", "--help"], state: { exec: [] } });
+		await expect(flowHelp.exit).resolves.toBe(0);
+		expect(flowHelp.stdout.join("")).not.toContain("exec");
+		expect(flowHelp.stdout.join("")).not.toContain("read-graphite-branch-metadata");
+
+		const execHelp = runWithFakes({ cwd, args: ["flow", "exec", "--help"], state: { exec: [] } });
+		await expect(execHelp.exit).resolves.toBe(0);
+		expect(execHelp.stdout.join("")).toContain("read-graphite-branch-metadata");
+	});
+
+	test("flow exec reads Graphite branch metadata through the controlled sqlite query", async () => {
+		const cwd = createLandProject();
+		const dbPath = `${cwd}/.git/.graphite_metadata.db`;
+		const dbRows = metadataDbJson();
+		const run = runWithFakes({
+			cwd,
+			args: ["flow", "exec", "read-graphite-branch-metadata", "--db-path", dbPath],
+			state: {
+				exec: [
+					{
+						match: (call) =>
+							call.command === "sqlite3" &&
+							formatExecCall(call) ===
+								`sqlite3 -readonly -json ${dbPath} SELECT branch_name, parent_branch_name, children, validation_result FROM branch_metadata`,
+						result: { stdout: `${dbRows}\n` },
+					},
+				],
+			},
+		});
+
+		await expect(run.exit).resolves.toBe(0);
+		expect(run.stdout.join("")).toBe(`${dbRows}\n`);
+		expect(run.stderr.join("")).toBe("");
+	});
+
 	test("uses the SDL confirmation hook instead of requiring --yes", async () => {
 		const confirmations: Array<{ title: string; message: string }> = [];
 		const run = runWithFakes({
@@ -195,7 +240,7 @@ describe("sdl flow land", () => {
 			"git symbolic-ref --short HEAD",
 			"gt trunk --no-interactive",
 			"git rev-parse --path-format=absolute --git-common-dir",
-			expect.stringContaining("sqlite3 -readonly -json "),
+			expect.stringContaining("sdl flow exec read-graphite-branch-metadata --db-path "),
 			"git for-each-ref --format=%(refname:short)%09%(committerdate:iso-strict) refs/heads",
 		]);
 	});

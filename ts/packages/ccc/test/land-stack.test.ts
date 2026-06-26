@@ -50,7 +50,7 @@ import {
 	parseWorktreeList,
 	slotNameFromPath,
 } from "../src/land-stack/worktrees.ts";
-import { metadataDbJson, topologyArgs } from "./land-test-helpers.ts";
+import { metadataDbJson, TOPOLOGY_COMMAND, topologyArgs } from "./land-test-helpers.ts";
 
 const PR_FIELDS =
 	"number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
@@ -391,7 +391,7 @@ function repoIntro(
 		step("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], {
 			stdout: `${GIT_COMMON_DIR}\n`,
 		}),
-		step("sqlite3", TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
+		step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
 		step(
 			"git",
 			["for-each-ref", "--format=%(refname:short)%09%(committerdate:iso-strict)", "refs/heads"],
@@ -442,7 +442,9 @@ function guardShaStep(branch: string, sha: string): ScriptedExec {
 }
 
 function childrenRecheckStep(branch: string, children: string[]): ScriptedExec {
-	return step("sqlite3", TOPOLOGY_ARGS, { stdout: `${metadataDbJson([{ branch, children }])}\n` });
+	return step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, {
+		stdout: `${metadataDbJson([{ branch, children }])}\n`,
+	});
 }
 
 function cleanRepoChecks(): ScriptedExec[] {
@@ -1414,32 +1416,30 @@ describe("land-stack pure helpers", () => {
 		expect(commandMessagesText(pi.messages)).toContain("spawn failed");
 	});
 
-	test("labels successful sqlite3 topology reads in the command stream", async () => {
-		const pi = new FakePi([step("sqlite3", ["-json", DB_PATH, "select 1"])]);
+	test("labels successful flow exec topology reads in the command stream", async () => {
+		const pi = new FakePi([step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS)]);
 		const context = createContext();
 		const commandStream = new LandStackCommandStream(createLandUiCommandIo(pi, context.ctx));
 		const streamed = withCommandStreaming(pi, commandStream);
 
-		await streamed.exec("sqlite3", ["-json", DB_PATH, "select 1"], { cwd: ROOT });
+		await streamed.exec(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { cwd: ROOT });
 
 		pi.assertDone();
 		expect(commandMessagesText(pi.messages)).toContain(
-			"✓ $ sqlite3 -json /repo/.git/.graphite_metadata.db 'select 1' — read Graphite stack topology",
+			"✓ $ sdl flow exec read-graphite-branch-metadata --db-path /repo/.git/.graphite_metadata.db — read Graphite stack topology",
 		);
 	});
 
-	test("does not label unrelated sqlite3 commands as Graphite topology reads", async () => {
-		const pi = new FakePi([step("sqlite3", ["-json", "/tmp/other.db", "select 1"])]);
+	test("does not label unrelated sdl commands as Graphite topology reads", async () => {
+		const pi = new FakePi([step("sdl", ["flow", "changes"])]);
 		const context = createContext();
 		const commandStream = new LandStackCommandStream(createLandUiCommandIo(pi, context.ctx));
 		const streamed = withCommandStreaming(pi, commandStream);
 
-		await streamed.exec("sqlite3", ["-json", "/tmp/other.db", "select 1"], { cwd: ROOT });
+		await streamed.exec("sdl", ["flow", "changes"], { cwd: ROOT });
 
 		pi.assertDone();
-		expect(commandMessagesText(pi.messages)).toContain(
-			"✓ $ sqlite3 -json /tmp/other.db 'select 1'",
-		);
+		expect(commandMessagesText(pi.messages)).toContain("✓ $ sdl flow changes");
 		expect(commandMessagesText(pi.messages)).not.toContain("read Graphite stack topology");
 	});
 
@@ -2924,7 +2924,7 @@ describe("land-stack command scenarios", () => {
 			(call) => call.command === "gt" && sameArgs(call.args, submitArgs),
 		);
 		const recheckStackIndex = pi.execCalls.findIndex(
-			(call) => call.command === "sqlite3" && sameArgs(call.args, TOPOLOGY_ARGS),
+			(call) => call.command === TOPOLOGY_COMMAND && sameArgs(call.args, TOPOLOGY_ARGS),
 		);
 		const mergeIndex = pi.execCalls.findIndex(
 			(call) => call.command === "gh" && call.args[1] === "merge",
@@ -2935,7 +2935,7 @@ describe("land-stack command scenarios", () => {
 		expect(
 			pi.execCalls
 				.slice(0, mergeIndex)
-				.filter((call) => call.command === "sqlite3" && sameArgs(call.args, TOPOLOGY_ARGS)),
+				.filter((call) => call.command === TOPOLOGY_COMMAND && sameArgs(call.args, TOPOLOGY_ARGS)),
 		).toHaveLength(1);
 		expect(context.notifications.at(-1)?.level).toBe("success");
 	});
@@ -3435,7 +3435,10 @@ describe("fork-safe topology and destructive-phase guards", () => {
 	test("fails closed when the Graphite metadata DB is missing or unreadable", async () => {
 		const script = [
 			...repoIntro().slice(0, 4),
-			step("sqlite3", TOPOLOGY_ARGS, { code: 1, stderr: "Error: unable to open database file\n" }),
+			step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, {
+				code: 1,
+				stderr: "Error: unable to open database file\n",
+			}),
 		];
 		const { pi, notifications } = await runLandStack("--yes", script);
 
@@ -3449,7 +3452,7 @@ describe("fork-safe topology and destructive-phase guards", () => {
 	test("fails closed when sqlite3 cannot run", async () => {
 		const script = [
 			...repoIntro().slice(0, 4),
-			step("sqlite3", TOPOLOGY_ARGS, { code: 1, stderr: "spawn sqlite3 ENOENT" }),
+			step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { code: 1, stderr: "spawn sqlite3 ENOENT" }),
 		];
 		const { pi, notifications } = await runLandStack("--yes", script);
 
@@ -3570,7 +3573,7 @@ describe("loadStackSnapshot reconciles Graphite metadata against live local refs
 		current = CURRENT,
 	): Promise<LandStackResult<StackSnapshot>> {
 		const pi = new FakePi([
-			step("sqlite3", TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
+			step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
 			step("git", FOR_EACH_REF_ARGS, {
 				stdout: liveBranches.length > 0 ? `${liveBranches.join("\n")}\n` : "",
 			}),
@@ -3651,7 +3654,7 @@ describe("loadStackSnapshot reconciles Graphite metadata against live local refs
 			{ branch: "feature-b", parent: TRUNK, children: [] },
 		]);
 		const pi = new FakePi([
-			step("sqlite3", TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
+			step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
 			step("git", FOR_EACH_REF_ARGS, { code: 128, stderr: "boom" }),
 		]);
 

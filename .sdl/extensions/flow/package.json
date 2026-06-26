@@ -51,6 +51,11 @@
         "name": "pull-trunk",
         "description": "Pull the configured Graphite trunk branch without running full gt sync.",
         "entry": "./src/commands/pull-trunk.ts"
+      },
+      {
+        "name": "exec-read-graphite-branch-metadata",
+        "description": "Read Graphite branch metadata for flow internals.",
+        "entry": "./src/commands/exec-read-graphite-branch-metadata.ts"
       }
     ]
   }

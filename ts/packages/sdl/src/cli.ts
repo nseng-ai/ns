@@ -193,7 +193,7 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 			const schema = selectedCommand?.schema ?? z.object({});
 			parent.command(
 				rawCommand({
-					name: commandInfo.name,
+					name: cliLeafCommandName(commandInfo),
 					description: commandInfo.fullDescription,
 					summary: commandInfo.description,
 					schema,
@@ -254,7 +254,31 @@ function requestedCommandKey(
 
 	const secondArg = args[1];
 	if (secondArg === undefined || secondArg.startsWith("-")) return undefined;
+	if (secondArg === SDL_EXEC_GROUP_NAME) {
+		const execCommand = args[2];
+		if (execCommand === undefined || execCommand.startsWith("-")) return undefined;
+		return commandKey({ group: firstArg, name: execInternalCommandName(execCommand) });
+	}
 	return commandKey({ group: firstArg, name: secondArg });
+}
+
+const SDL_EXEC_GROUP_NAME = "exec";
+// Dynamic SDL extensions are one group deep today. A grouped command named
+// `exec-<name>` is mounted as hidden `sdl <group> exec <name>` so agent-only
+// operations keep the same nested exec contract as first-party Clinkr groups.
+const SDL_EXEC_COMMAND_PREFIX = "exec-";
+
+function isGroupedExecCommand(commandInfo: SdlCommandCliInfo): boolean {
+	return commandInfo.group !== undefined && commandInfo.name.startsWith(SDL_EXEC_COMMAND_PREFIX);
+}
+
+function execInternalCommandName(displayName: string): string {
+	return `${SDL_EXEC_COMMAND_PREFIX}${displayName}`;
+}
+
+function cliLeafCommandName(commandInfo: SdlCommandCliInfo): string {
+	if (!isGroupedExecCommand(commandInfo)) return commandInfo.name;
+	return commandInfo.name.slice(SDL_EXEC_COMMAND_PREFIX.length);
 }
 
 type ShellCommandSchema = z.ZodObject<{ shell: z.ZodOptional<z.ZodString> }>;
@@ -318,14 +342,36 @@ function groupForCommand(
 ): ClinkrGroup<SdlCliContext> {
 	if (commandInfo.group === undefined) return root;
 
-	const existing = groups.get(commandInfo.group);
+	const group = topLevelGroupForCommand(root, groups, commandInfo.group);
+	if (!isGroupedExecCommand(commandInfo)) return group;
+
+	const execGroupKey = `${commandInfo.group}/${SDL_EXEC_GROUP_NAME}`;
+	const existing = groups.get(execGroupKey);
+	if (existing !== undefined) return existing;
+
+	const exec = new ClinkrGroup<SdlCliContext>({
+		name: SDL_EXEC_GROUP_NAME,
+		description: `Skill-invoked SDL ${commandInfo.group} operations.`,
+		isHidden: true,
+	});
+	groups.set(execGroupKey, exec);
+	group.group(exec);
+	return exec;
+}
+
+function topLevelGroupForCommand(
+	root: ClinkrGroup<SdlCliContext>,
+	groups: Map<string, ClinkrGroup<SdlCliContext>>,
+	groupName: string,
+): ClinkrGroup<SdlCliContext> {
+	const existing = groups.get(groupName);
 	if (existing !== undefined) return existing;
 
 	const group = new ClinkrGroup<SdlCliContext>({
-		name: commandInfo.group,
-		description: `SDL ${commandInfo.group} commands.`,
+		name: groupName,
+		description: `SDL ${groupName} commands.`,
 	});
-	groups.set(commandInfo.group, group);
+	groups.set(groupName, group);
 	root.group(group);
 	return group;
 }
