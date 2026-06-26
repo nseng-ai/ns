@@ -1,9 +1,6 @@
 {
 	"name": "@sdl/slot",
 	"version": "0.1.0",
-	"bin": {
-		"sdl-slot-internal": "./src/cli.ts"
-	},
 	"files": [
 		"src"
 	],
@@ -11,7 +8,7 @@
 	"exports": {
 		".": "./src/index.ts",
 		"./api": "./src/api.ts",
-		"./command-face": "./src/cli.ts"
+		"./command-face": "./src/command-face.ts"
 	},
 	"scripts": {
 		"check": "tsgo -p tsconfig.json",

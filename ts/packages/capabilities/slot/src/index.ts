@@ -1,4 +1,3 @@
-export { buildCli, runCli, VERSION } from "./cli.ts";
 export { createRealSlotContext } from "./context.ts";
 export type { SlotCliContext } from "./context.ts";
 export { generateSlotName, extractSlotNumber } from "./naming.ts";

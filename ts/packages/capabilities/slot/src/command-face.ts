@@ -1,13 +1,10 @@
-import {
-	ClinkrGroup,
-	isClinkrHumanOutputInvocation,
-	resolveClinkrInteraction,
-	type ClinkrInteraction,
-} from "@sdl/clinkr";
-import { defineCli } from "@sdl/core/cli-entry";
-import { readStdinLine } from "@sdl/core/stdin";
+// Slot intentionally exports a mountable command face rather than a standalone
+// `defineCli` entrypoint. The supported user-facing surface is `sdl slot ...`,
+// so root CLI metadata such as `--version` and `--runtime` stays owned by
+// `@sdl/sdl` instead of this capability package.
+import { ClinkrGroup } from "@sdl/clinkr";
 
-import { createRealSlotContext, type SlotCliContext } from "./context.ts";
+import type { SlotCliContext } from "./context.ts";
 import {
 	checkoutRequestSchema,
 	checkoutResultSchema,
@@ -35,12 +32,6 @@ import {
 	runGtDown,
 } from "./operations/gt/down.ts";
 import {
-	gtFreeStackRequestSchema,
-	gtFreeStackResultSchema,
-	renderGtFreeStack,
-	runGtFreeStack,
-} from "./operations/gt/free-stack.ts";
-import {
 	gtStackBranchesRequestSchema,
 	gtStackBranchesResultSchema,
 	renderStackBranches,
@@ -52,6 +43,12 @@ import {
 	renderStackMapBranches,
 	runGtStackMapBranches,
 } from "./operations/gt/exec/stack-map-branches.ts";
+import {
+	gtFreeStackRequestSchema,
+	gtFreeStackResultSchema,
+	renderGtFreeStack,
+	runGtFreeStack,
+} from "./operations/gt/free-stack.ts";
 import {
 	gtNavigationResultSchema,
 	gtUpRequestSchema,
@@ -67,48 +64,6 @@ import {
 	resizeResultSchema,
 	runResize,
 } from "./operations/resize.ts";
-
-const entry = defineCli<SlotCliContext, CliDeps, undefined>({
-	metaUrl: import.meta.url,
-	runtime: "typescript",
-	description: "Manage the pool of Git-worktree-backed slots.",
-	prepareRun: async ({ args, deps, cwd, env, io }) => {
-		const context = deps.context ?? (await createRealSlotContext({ cwd, env }));
-		const runContext: SlotCliContext = {
-			...context,
-			cwd,
-			env: deps.env ?? context.env,
-			interaction: resolveClinkrInteraction({
-				interaction: deps.interaction,
-				stdin: deps.stdin ?? readStdinLine,
-				stderr: io.stderr,
-				injectedStdin: deps.stdin,
-			}),
-			stderr: io.stderr,
-			shouldWriteCdDirective: isClinkrHumanOutputInvocation(args),
-		};
-		return { type: "run", context: runContext, buildState: undefined };
-	},
-	configureCli: ({ root }) => {
-		configureSlotCommands(root);
-	},
-});
-
-export const VERSION = entry.version;
-
-export interface CliDeps {
-	context?: SlotCliContext | undefined;
-	cwd?: string | undefined;
-	env?: NodeJS.ProcessEnv | undefined;
-	stdout?: ((text: string) => void) | undefined;
-	stderr?: ((text: string) => void) | undefined;
-	stdin?: (() => Promise<string | null>) | undefined;
-	interaction?: ClinkrInteraction | undefined;
-}
-
-export function buildCli(): ClinkrGroup<SlotCliContext> {
-	return entry.buildCli(undefined);
-}
 
 export function buildSlotCommandGroup<TContext extends SlotCliContext>(): ClinkrGroup<TContext> {
 	const group = new ClinkrGroup<TContext>({
@@ -283,8 +238,4 @@ function buildGtGroup<TContext extends SlotCliContext>(): ClinkrGroup<TContext> 
 	});
 	gt.group(exec);
 	return gt;
-}
-
-export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
-	return await entry.run(args, deps);
 }
