@@ -1,5 +1,6 @@
 ---
 name: code-resolve-merge-conflicts
+disable-model-invocation: true
 description: "Resolve merge conflicts from an in-progress rebase or merge. Use when a rebase/merge hits conflicts and the user wants intelligent resolution. Also the per-conflict engine that driver skills (e.g. code-gt-restack-resolve) invoke."
 allowed-tools:
   - "Bash(git status *)"
