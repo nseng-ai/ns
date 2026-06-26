@@ -37,6 +37,40 @@ This is a child Objective of `sdl-extension-architecture` (Phase 2, roadmap step
 - `just ts-guard` enforces a topological acyclicity check over the Extension Dependency Graph, with self-tests covering an acyclic pass and a synthetic-cycle fail; `just` is green.
 - `ts/packages/objective/CONTEXT.md` documents the durable capability/Domain-Core/Capability-API and acyclicity boundary and is registered in `CONTEXT-MAP.md`.
 
+## Definition of Progress
+
+Progress is keepable when:
+
+- A roadmap slice lands as an independently reviewable Graphite branch/PR with one clear thesis and no unrelated ownership moves bundled into it.
+- The slice reduces a concrete dependency edge or domain-placement ambiguity recorded in this Objective, and its stale-edge gate is recorded in the slice's Objective update.
+- TypeScript tests/typecheck relevant to the touched packages pass, or any failing validation is narrow, understood, and recorded as a blocker before keeping work.
+- Objective tracking is updated after each material slice with the files/edges changed, validation run, and the next remaining slice.
+
+Do not keep changes that:
+
+- Reintroduce `@sdl/objective` → `@sdl/pi`, retain a production consumer import from `@sdl/pi/objectives/*` after the consumer-repoint slice, or leave `@sdl/pi` importing `@sdl/ccc` after the cycle-break slice.
+- Mix the runner-usage neutralization, Objective API relocation, consumer repoint, and Pi→CCC cycle break into one unreviewable branch without explicit renewed user approval.
+- Rename or remove user-visible Pi slash commands merely to satisfy package topology.
+- Implement the parked acyclicity guard or final context documentation before the real graph is ready unless the user explicitly changes the slice scope.
+
+Useful evidence includes:
+
+- Stale-edge grep output for the relevant slice, especially `rg "@sdl/pi" ts/packages/objective/src ts/packages/objective/package.json`, `rg "@sdl/pi/objectives" ts/packages`, and `rg "@sdl/ccc" ts/packages/pi/src ts/packages/pi/package.json`.
+- Package-level tests for touched packages and `pnpm --dir ts run check`/`just ts-check` when practical.
+- `git diff --name-status` and package manifest review showing dependency-direction changes are intentional.
+- Import smoke checks for changed `.pi/extensions/*.ts` adapters during the Pi→CCC cycle-break slice.
+
+## Runner Policy
+
+This Objective is execution-friendly for `objective-stack-impl` under the boundaries below.
+
+- Direct stack execution is allowed when the preview proposes one to three branches that map to the current open roadmap slices, with at most one branch per slice unless the parent session explains why a slice needs another reviewable split.
+- Prefer starting with the bottom runner-usage neutralization slice. Continue to Objective API relocation only after the parent verifies that `@sdl/objective` no longer imports or declares `@sdl/pi`; continue to consumer repoint only after the Objective API exports the needed selection/list helpers; treat the Pi→CCC cycle break as a separate high-risk preview.
+- Steer or ask first when a slice requires touching files outside its roadmap row, changing user-visible command names, moving neutral Pi helper subpaths contrary to the chosen CCC→Pi-helper direction, or implementing parked guard/docs work.
+- Runner subagents may edit source, tests, package manifests, lockfiles, and Objective tracking files necessary for the confirmed slice, but they must not commit, submit PRs, mutate Branch Memory, or create hidden ledgers. The parent session owns Graphite branch operations, validation interpretation, commits/amends, and Objective updates.
+- Validation before keeping work should include the row's stale-edge grep plus targeted package tests and TypeScript typecheck for touched packages; broader `just`/`just ts-*` gates are preferred before stopping a completed stack when practical.
+- PR submission, GitHub mutation, Objective closure, acyclicity-guard implementation, and final context documentation will not happen unless explicitly requested or included in a confirmed preview.
+
 ## Assumptions and Risks
 
 Assumptions:
