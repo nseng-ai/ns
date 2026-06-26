@@ -28,6 +28,8 @@ export const NATIVE_DIRECT_STATUSES = ["enabled", "partial", "mixed"] as const;
 export const PI_EXTENSION_STATUSES = ["n/a", "enabled", "missing"] as const;
 export const DISABLE_MODEL_INVOCATION_KEY = "disable-model-invocation";
 export const USER_INVOCABLE_KEY = "user-invocable";
+export const MANAGED_OPENAI_POLICY = "policy:\n  allow_implicit_invocation: false\n";
+const LEGACY_BARE_OPENAI_POLICY = "allow_implicit_invocation: false\n";
 
 export type SkillInvocationKind = (typeof SKILL_INVOCATION_KINDS)[number];
 export type InferredSkillInvocationKind = (typeof INFERRED_SKILL_INVOCATION_KINDS)[number];
@@ -124,6 +126,14 @@ export function inferSkillKindRecord(options: {
 			replacement: options.replacement,
 		}),
 	};
+}
+
+export function isManagedOpenaiPolicyContent(text: string): boolean {
+	return text === MANAGED_OPENAI_POLICY;
+}
+
+export function isLegacyBareOpenaiPolicyContent(text: string): boolean {
+	return text === LEGACY_BARE_OPENAI_POLICY;
 }
 
 export function buildSkillKindRecords(

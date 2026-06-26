@@ -74,9 +74,12 @@ describe("areg skill apply CLI", () => {
 		);
 	});
 
-	test("apply invoke-only manages vendored installed skills under .agents", async () => {
+	test("apply invoke-only writes managed wrapper sidecars for vendored installed skills", async () => {
+		const project = new FakeAregProjectGateway({
+			localSkills: [skill("vendored", undefined, { sourceType: "vendored" })],
+		});
 		const run = runScenario(["skill", "apply", "invoke-only", "vendored"], {
-			project: { localSkills: [skill("vendored", undefined, { sourceType: "vendored" })] },
+			context: contextWithProject(project),
 		});
 
 		expect(await run.exit).toBe(0);
@@ -88,6 +91,28 @@ describe("areg skill apply CLI", () => {
 				"Wrote .agents/skills/vendored/agents/openai.yaml",
 				"Skipped .pi/settings.json: -skills/vendored absent",
 			].join("\n"),
+		);
+		expect(project.text(".agents/skills/vendored/agents/openai.yaml")).toBe(
+			"policy:\n  allow_implicit_invocation: false\n",
+		);
+	});
+
+	test("apply invoke-only migrates legacy bare sidecar content", async () => {
+		const project = new FakeAregProjectGateway({
+			localSkills: [
+				skill("vendored", "---\nname: vendored\ndisable-model-invocation: true\n---\n", {
+					sourceType: "vendored",
+					openaiPolicy: "allow_implicit_invocation: false\n",
+				}),
+			],
+		});
+		const run = runScenario(["skill", "apply", "invoke-only", "vendored"], {
+			context: contextWithProject(project),
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(project.text(".agents/skills/vendored/agents/openai.yaml")).toBe(
+			"policy:\n  allow_implicit_invocation: false\n",
 		);
 	});
 

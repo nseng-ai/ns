@@ -15,6 +15,9 @@ import {
 } from "./project-mutations.ts";
 import { planFrontmatterOperation } from "./skill-kind-frontmatter.ts";
 import {
+	isLegacyBareOpenaiPolicyContent,
+	isManagedOpenaiPolicyContent,
+	MANAGED_OPENAI_POLICY,
 	type SkillInvocationKind,
 	type SkillKindProjectInspection,
 	validateInspectableSkill,
@@ -80,8 +83,6 @@ export interface SkillKindApplySkipStatusResult {
 export type SkillKindApplyOperationStatusResult =
 	| ProjectMutationOperationStatusRecord
 	| SkillKindApplySkipStatusResult;
-
-const MANAGED_OPENAI_POLICY = "policy:\n  allow_implicit_invocation: false\n";
 
 export function buildSkillKindApplyPlan(
 	inspection: SkillKindProjectInspection,
@@ -180,22 +181,35 @@ export function planSidecarOperations(
 				message: `${relativePath} is a symlink; refusing to manage it.`,
 			});
 		if (skill.openaiPolicy.type === "file") {
-			if (skill.openaiPolicy.text !== MANAGED_OPENAI_POLICY)
-				return err({
-					code: "non_managed_openai_policy",
-					message: `${relativePath} exists with non-managed content; resolve it manually before applying ${kind}.`,
-				});
-			return {
-				ok: true,
-				value: [
-					{
-						type: "skip",
-						relativePath,
-						description: "Codex openai.yaml",
-						reason: "Codex openai.yaml already current",
-					},
-				],
-			};
+			if (isManagedOpenaiPolicyContent(skill.openaiPolicy.text))
+				return {
+					ok: true,
+					value: [
+						{
+							type: "skip",
+							relativePath,
+							description: "Codex openai.yaml",
+							reason: "Codex openai.yaml already current",
+						},
+					],
+				};
+			if (isLegacyBareOpenaiPolicyContent(skill.openaiPolicy.text))
+				return {
+					ok: true,
+					value: [
+						{
+							type: "write",
+							relativePath,
+							description: "Codex openai.yaml",
+							content: MANAGED_OPENAI_POLICY,
+							shouldCreateParent: true,
+						},
+					],
+				};
+			return err({
+				code: "non_managed_openai_policy",
+				message: `${relativePath} exists with non-managed content; resolve it manually before applying ${kind}.`,
+			});
 		}
 		if (skill.openaiPolicy.type !== "missing")
 			return err({ code: "path_not_file", message: `${relativePath} exists but is not a file.` });
@@ -231,7 +245,7 @@ export function planSidecarOperations(
 		});
 	if (skill.openaiPolicy.type !== "file")
 		return err({ code: "path_not_file", message: `${relativePath} exists but is not a file.` });
-	if (skill.openaiPolicy.text !== MANAGED_OPENAI_POLICY)
+	if (!isManagedOpenaiPolicyContent(skill.openaiPolicy.text))
 		return err({
 			code: "non_managed_openai_policy",
 			message: `${relativePath} exists with non-managed content; resolve it manually before applying ${kind}.`,
