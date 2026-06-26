@@ -17,7 +17,10 @@ export interface SlotFreeOutcome {
 	freed: readonly FreedSlot[];
 }
 
-export type SlotFreeProgressEvent = { type: "release_started"; target: FreedSlot };
+export interface SlotFreeProgressEvent {
+	type: "release_started";
+	target: FreedSlot;
+}
 
 export type SlotFreeProgressReporter = (event: SlotFreeProgressEvent) => void;
 
