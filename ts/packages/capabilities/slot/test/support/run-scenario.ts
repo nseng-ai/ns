@@ -1,7 +1,11 @@
-import type { ConfirmationResult } from "@sdl/clinkr";
-import { createOneShotStdinAdapter, createScenarioClinkrInteraction } from "@sdl/clinkr/testing";
+import {
+	isClinkrHumanOutputInvocation,
+	resolveClinkrInteraction,
+	type ConfirmationResult,
+} from "@sdl/clinkr";
+import { createFakeClinkrInteraction, createOneShotStdinAdapter } from "@sdl/clinkr/testing";
 
-import { runCli, type CliDeps } from "../../src/cli.ts";
+import { buildSlotCommandGroup } from "../../src/command-face.ts";
 import type { SlotCliContext } from "../../src/context.ts";
 import { FakeClipboardGateway, type ClipboardCopyResult } from "../../src/gateways/clipboard.ts";
 import {
@@ -57,10 +61,18 @@ export function runScenario(
 	const pr = new FakeSlotPrGateway(options.pr);
 	const storage = new FakeSlotStorageGateway();
 	const command = new FakeSlotCommandGateway(options.command);
-	const scenarioInteraction = createScenarioClinkrInteraction({
-		hasStdin: options.stdin !== undefined,
-		confirmations: options.confirmations,
-	});
+	const stdin = createOneShotStdinAdapter(options.stdin);
+	const fakeInteraction =
+		options.confirmations === undefined
+			? undefined
+			: createFakeClinkrInteraction({ confirmations: options.confirmations, isInteractive: true });
+	const interaction =
+		fakeInteraction?.interaction ??
+		resolveClinkrInteraction({
+			stdin,
+			stderr: (text) => stderr.push(text),
+			...(options.stdin === undefined ? {} : { injectedStdin: stdin }),
+		});
 	const repo = options.repo ?? repoContext();
 	const context: SlotCliContext = {
 		repo,
@@ -71,26 +83,25 @@ export function runScenario(
 		clipboard: new FakeClipboardGateway(options.clipboardResult),
 		command,
 		cwd,
-		interaction: scenarioInteraction.contextInteraction,
+		interaction,
 		stderr: (text) => stderr.push(text),
 		env: options.env ?? { PATH: "/fake/bin" },
 		slotsRoot: "/slots",
-		shouldWriteCdDirective: true,
+		shouldWriteCdDirective: isClinkrHumanOutputInvocation(args),
 	};
-	const deps: CliDeps = {
-		context,
-		cwd,
-		env: context.env,
-		stdout: (text) => stdout.push(text),
-		stderr: (text) => stderr.push(text),
-		...(scenarioInteraction.depsInteraction === undefined
-			? { stdin: createOneShotStdinAdapter(options.stdin) }
-			: { interaction: scenarioInteraction.depsInteraction }),
-	};
-	const exit = runCli(args, deps).then((code) => {
-		scenarioInteraction.assertComplete();
-		return code;
-	});
+	const exit = buildSlotCommandGroup<SlotCliContext>()
+		.run(args, {
+			context,
+			io: {
+				stdout: (text) => stdout.push(text),
+				stderr: (text) => stderr.push(text),
+				canEmitAnsi: false,
+			},
+		})
+		.then((code) => {
+			fakeInteraction?.assertComplete();
+			return code;
+		});
 	return { exit, stdout, stderr, git, gt, pr, storage, command, context };
 }
 

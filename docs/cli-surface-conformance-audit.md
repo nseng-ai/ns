@@ -13,7 +13,8 @@ It is an evidence map, not an ADR and not a remediation. It mirrors the format o
 
 ## Scope and method
 
-15 CLI packages were enumerated (`ts/packages/*/src/cli.ts`) and each leaf command
+14 CLI entrypoint packages were enumerated (`ts/packages/*/src/cli.ts`), plus the
+`@sdl/slot` command group that is mounted only under `sdl slot`; each leaf command
 (including nested groups and hidden `exec` subgroups) was classified.
 
 **Framework-enforced gates are treated as conformant by construction** and were
@@ -64,7 +65,7 @@ framework does not enforce:
 | roaster        | `review list/ls/run/log`, `roast list`, `exec record-findings/publish-findings`                                                                                               | `publish-findings` is raw-exit                                              |
 | sdl            | `shell show/install` (local; dual-mounted under `sdl` and `sdl slot`); mounts `@sdl/slot` group + runtime extension commands                                                  | umbrella; no static built-ins (`builtInCommandDefinitions = {}`)            |
 | sdlcc          | `cmux report`                                                                                                                                                                 | TUI app; `cmux report` is `rawCommand`                                      |
-| slot           | `list/ls`, `checkout/co`, `goto`, `claim`, `free`, `gc`, `init`, `resize`, `gt up/down/free-stack`, `gt exec stack-branches/stack-map-branches`                               | **reference** Tier 3 (`gc`)                                                 |
+| slot group     | `list/ls`, `checkout/co`, `goto`, `claim`, `free`, `gc`, `init`, `resize`, `gt up/down/free-stack`, `gt exec stack-branches/stack-map-branches`                               | mounted under `sdl slot`; **reference** Tier 3 (`gc`)                       |
 | vibechk        | `runs`, `show`, `diff`, `run`                                                                                                                                                 | `run` is raw-exit; no failure envelope anywhere                             |
 
 `sdl` umbrella note: the only commands physically defined under `ts/packages/sdl/src/`
@@ -466,7 +467,7 @@ Command tree:
 - `sdl shell show` — LOCAL (`cli.ts:284`; op `operations/shell.ts:30`)
 - `sdl shell install` — LOCAL (`cli.ts:294`; op `operations/shell.ts:36`)
 - `sdl slot shell show` / `sdl slot shell install` — LOCAL (same group, dual-mounted via `cli.ts:182`)
-- `sdl slot ...` group — defined in `@sdl/slot` (`slot/src/cli.ts:107`); audited under **slot**: `list/ls/checkout/co/goto/claim/free/gc/init/resize`, `gt up/down/free-stack`, `gt exec stack-branches/stack-map-branches`
+- `sdl slot ...` group — defined in `@sdl/slot` (`slot/src/command-face.ts`); audited under **slot**: `list/ls/checkout/co/goto/claim/free/gc/init/resize`, `gt up/down/free-stack`, `gt exec stack-branches/stack-map-branches`
 - Dynamic extension commands — runtime-loaded from project/global extensions (`cli.ts:185-217`); no static built-ins (`command-registry.ts:51`); defined outside this package
 
 | Command                                          | Mutating? | Area | Finding                                                                                                                                            | Classification | Evidence (file:line)                                                 |
@@ -478,7 +479,7 @@ Command tree:
 | `sdl shell install`                              | Yes       | c    | Shared `unsupported_shell` failure lacks structured `data`                                                                                         | land-now-fix   | `operations/shell.ts:38`; `sdl-core/src/shell-support.ts:135-140`    |
 | `sdl shell install`                              | Yes       | d    | Already-installed → `ok(is_already_installed:true)` — correct                                                                                      | conformant     | `operations/shell.ts:45-49`                                          |
 | `sdl shell install`                              | Yes       | b    | Single bounded result object                                                                                                                       | conformant     | `operations/shell.ts:45-49`                                          |
-| `sdl slot ...` (all slot/gt commands)            | n/a       | all  | defined in `@sdl/slot`; audited under **slot**                                                                                                     | parked         | `slot/src/cli.ts:107`                                                |
+| `sdl slot ...` (all slot/gt commands)            | n/a       | all  | defined in `@sdl/slot`; audited under **slot**                                                                                                     | parked         | `slot/src/command-face.ts`                                           |
 | dynamic extension commands                       | varies    | all  | runtime-loaded from extensions; not statically defined here                                                                                        | parked         | `cli.ts:185-217`                                                     |
 
 **sdl notes:** Substantive local surface is tiny — only `shell show`/`shell install`
