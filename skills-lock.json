@@ -381,6 +381,12 @@
       "sourceType": "local",
       "computedHash": "baa9a4fa29c889e3f1bfe718cf8bc94033408f74280473899f19d772121e8cd9"
     },
+    "tdd": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/tdd/SKILL.md",
+      "computedHash": "d5ca5c8ae0615f343f1cfd71591f4a586046d77b1f36e8d67b8f643bad51043e"
+    },
     "thermo-nuclear-code-quality-review": {
       "source": "cursor/plugins",
       "sourceType": "github",
