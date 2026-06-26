@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import {
 	completeObjectiveListArgs,
+	parseObjectiveListArgTokens,
 	parseObjectiveListArgs,
 	type ObjectiveListArgsParseResult,
 } from "../../src/api.ts";
@@ -19,19 +20,29 @@ describe("objective list argument policy", () => {
 			type: "valid",
 			args: {
 				args: ["--names", "--minimal", "--status", "all"],
-				help: false,
+				isHelpRequested: false,
 			},
 		});
 		expect(parseObjectiveListArgs("--status=closed")).toEqual({
 			type: "valid",
 			args: {
 				args: ["--status", "closed"],
-				help: false,
+				isHelpRequested: false,
 			},
 		});
 		expect(parseObjectiveListArgs("--help")).toEqual({
 			type: "valid",
-			args: { args: [], help: true },
+			args: { args: [], isHelpRequested: true },
+		});
+	});
+
+	test("parses already-tokenized checkout-local list arguments", () => {
+		expect(parseObjectiveListArgTokens(["--names", "--status", "open"])).toEqual({
+			type: "valid",
+			args: {
+				args: ["--names", "--status", "open"],
+				isHelpRequested: false,
+			},
 		});
 	});
 

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { ScriptedQueue } from "@sdl/core/testing";
+import { CLI_COMMAND_OUTPUT_MESSAGE_TYPE } from "../src/commands/cli-extension.ts";
 import objectiveExtension, {
 	type CommandContext,
 	type ExecResult,
@@ -32,6 +33,7 @@ const ACTION_PROMPTS: Record<ObjectiveCommandName, string> = {
 };
 
 type RegisteredCommand = Parameters<ObjectiveExtensionAPI["registerCommand"]>[1];
+type MessageRenderer = Parameters<NonNullable<ObjectiveExtensionAPI["registerMessageRenderer"]>>[1];
 type CommandInfo = ReturnType<ObjectiveExtensionAPI["getCommands"]>[number];
 
 interface ExecCall {
@@ -64,8 +66,14 @@ type SessionStartHandler = (_event: unknown, ctx: SessionStartContext) => Promis
 class FakePi implements ObjectiveExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly execCalls: ExecCall[] = [];
+	readonly messageRenderers = new Map<string, MessageRenderer>();
 	readonly sentMessages: Parameters<NonNullable<ObjectiveExtensionAPI["sendMessage"]>>[0][] = [];
 	readonly sentUserMessages: string[] = [];
+	readonly sendMessage = (
+		message: Parameters<NonNullable<ObjectiveExtensionAPI["sendMessage"]>>[0],
+	): void => {
+		this.sentMessages.push(message);
+	};
 	private readonly script: ScriptedQueue<ScriptedExec>;
 	private readonly commandInfos: ReturnType<ObjectiveExtensionAPI["getCommands"]>;
 	private readonly eventHandlers: Record<EventName, Array<AgentEndHandler | SessionStartHandler>> =
@@ -92,6 +100,10 @@ class FakePi implements ObjectiveExtensionAPI {
 		this.commands.set(name, options);
 	}
 
+	registerMessageRenderer(customType: string, renderer: MessageRenderer): void {
+		this.messageRenderers.set(customType, renderer);
+	}
+
 	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
 		this.execCalls.push({ command, args: [...args], options });
 		const missingStepMessage = `unexpected exec: ${command} ${args.join(" ")}`;
@@ -115,10 +127,6 @@ class FakePi implements ObjectiveExtensionAPI {
 
 	getCommands(): ReturnType<ObjectiveExtensionAPI["getCommands"]> {
 		return this.commandInfos;
-	}
-
-	sendMessage(message: Parameters<NonNullable<ObjectiveExtensionAPI["sendMessage"]>>[0]): void {
-		this.sentMessages.push(message);
 	}
 
 	sendUserMessage(content: string): void {
@@ -458,17 +466,59 @@ describe("objective:list command", () => {
 			args: ["list", "--names", "--minimal", "--status", "all", "--format", "markdown"],
 			options: { cwd: ROOT, timeout: 30_000 },
 		});
-		expect(result.pi.sentMessages[0]?.content).toBe("alpha");
+		expect(result.pi.messageRenderers.has(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(true);
+		expect(result.pi.sentMessages[0]).toMatchObject({
+			customType: CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
+			content: "alpha\n",
+			details: {
+				argv: ["list", "--names", "--minimal", "--status", "all", "--format", "markdown"],
+			},
+		});
 	});
 
-	test("rejects removed flags before invoking objective list", async () => {
+	test("forwards help without forcing markdown format", async () => {
+		const result = await runObjectiveList("--help", [
+			step("objective", ["list", "--help"], { stdout: "usage\n" }),
+		]);
+
+		result.pi.assertDone();
+		expect(result.pi.execCalls[0]).toEqual({
+			command: "objective",
+			args: ["list", "--help"],
+			options: { cwd: ROOT, timeout: 30_000 },
+		});
+		expect(result.pi.sentMessages[0]).toMatchObject({
+			customType: CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
+			content: "usage\n",
+		});
+	});
+
+	test("rejects removed and adapter-owned flags before invoking objective list", async () => {
 		const current = await runObjectiveList("--current");
 		const view = await runObjectiveList("--view detail");
+		const format = await runObjectiveList("--format json");
+		const jsonSchema = await runObjectiveList("--json-schema");
 
 		expect(current.pi.execCalls).toEqual([]);
 		expect(view.pi.execCalls).toEqual([]);
+		expect(format.pi.execCalls).toEqual([]);
+		expect(jsonSchema.pi.execCalls).toEqual([]);
 		expect(current.pi.sentMessages[0]?.content).toContain("--current is no longer supported");
 		expect(view.pi.sentMessages[0]?.content).toContain("--view is no longer supported");
+		expect(format.pi.sentMessages[0]?.content).toContain("--format is controlled");
+		expect(jsonSchema.pi.sentMessages[0]?.content).toContain("--json-schema is not supported");
+	});
+
+	test("registers objective list argument completions through the bridge", async () => {
+		const pi = new FakePi();
+		objectiveExtension(pi);
+		const command = pi.commands.get("objective:list");
+		expect(command?.getArgumentCompletions?.("--status ")).toEqual([
+			{ value: "all", label: "all" },
+			{ value: "active", label: "active" },
+			{ value: "open", label: "open" },
+			{ value: "closed", label: "closed" },
+		]);
 	});
 });
 

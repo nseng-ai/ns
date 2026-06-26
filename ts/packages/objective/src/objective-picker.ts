@@ -52,10 +52,16 @@ export function parseObjectiveStatusChangedSlugs(stdout: string): string[] {
 			continue;
 		}
 
-		addObjectiveSlugFromPath(slugs, path);
+		const slug = objectiveSlugFromPath(path);
+		if (slug) {
+			slugs.add(slug);
+		}
 		if (isRenameOrCopyStatus(status)) {
 			const secondPath = entries[index + 1] ?? "";
-			addObjectiveSlugFromPath(slugs, secondPath);
+			const secondSlug = objectiveSlugFromPath(secondPath);
+			if (secondSlug) {
+				slugs.add(secondSlug);
+			}
 			index += 1;
 		}
 	}
@@ -156,13 +162,6 @@ function changedObjectivePathsFromNameStatusLine(line: string): string[] {
 
 	const path = fields[1];
 	return path ? [path] : [];
-}
-
-function addObjectiveSlugFromPath(slugs: Set<string>, path: string): void {
-	const slug = objectiveSlugFromPath(path);
-	if (slug) {
-		slugs.add(slug);
-	}
 }
 
 function objectiveSlugFromPath(path: string): string | undefined {

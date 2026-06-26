@@ -42,6 +42,7 @@ import {
 } from "./objective-selection.ts";
 import {
 	completeObjectiveListArgs,
+	parseObjectiveListArgTokens,
 	parseObjectiveListArgs,
 	type ObjectiveListArgsParseResult,
 	type ObjectiveListParsedArgs,
@@ -493,6 +494,7 @@ export {
 	buildObjectiveSkillPrompt,
 	changedSelectionNotificationBasis,
 	completeObjectiveListArgs,
+	parseObjectiveListArgTokens,
 	parseObjectiveListArgs,
 	objectiveCompletionItem,
 	parseObjectiveCandidatesData,

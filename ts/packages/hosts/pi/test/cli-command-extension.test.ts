@@ -329,6 +329,88 @@ describe("cli command extension helper", () => {
 		expect(pi.messageRenderers.has(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(true);
 	});
 
+	test("passes command-specific argument hints and completions through registration", async () => {
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			commands: [
+				{
+					name: "preview-status",
+					description: "Print a preview status.",
+					argumentHint: "[--json]",
+					getArgumentCompletions: (prefix) =>
+						prefix === "--" ? [{ value: "--json", label: "--json" }] : null,
+				},
+			],
+		});
+
+		const command = commandFor(pi, "dev:preview-status");
+
+		expect(command.argumentHint).toBe("[--json]");
+		expect(await command.getArgumentCompletions?.("--")).toEqual([
+			{ value: "--json", label: "--json" },
+		]);
+	});
+
+	test("maps parsed command arguments before invoking the CLI runner", async () => {
+		const pi = new FakePi();
+		const calls: RunCall[] = [];
+		registerFakeCli(pi, {
+			commands: [
+				{
+					name: "preview-status",
+					description: "Print a preview status.",
+					mapParsedArgs: (args) => ({ ok: true, args: [...args, "--format", "markdown"] }),
+				},
+			],
+			runCli: (args, deps) => {
+				calls.push({ args: [...args], cwd: deps.cwd, env: deps.env });
+				deps.stdout("ok\n");
+				return 0;
+			},
+		});
+		const { ctx } = createContext();
+
+		await commandFor(pi, "dev:preview-status").handler("--minimal", ctx);
+
+		expect(calls).toEqual([
+			{
+				args: ["preview-status", "--minimal", "--format", "markdown"],
+				cwd: "/repo",
+				env: process.env,
+			},
+		]);
+		expectSingleCliOutputMessage(pi, "ok\n");
+	});
+
+	test("reports argument mapper rejections without invoking the CLI runner", async () => {
+		const pi = new FakePi();
+		let runnerCalled = false;
+		registerFakeCli(pi, {
+			commands: [
+				{
+					name: "preview-status",
+					description: "Print a preview status.",
+					mapParsedArgs: () => ({ ok: false, error: "--format is controlled by Pi." }),
+				},
+			],
+			runCli: () => {
+				runnerCalled = true;
+				return 0;
+			},
+		});
+		const { ctx, editorTexts } = createContext();
+
+		await commandFor(pi, "dev:preview-status").handler("--format json", ctx);
+
+		expect(runnerCalled).toBe(false);
+		expect(editorTexts).toEqual(["/dev:preview-status --format json"]);
+		expectSingleCliOutputMessage(
+			pi,
+			"fake-cli preview-status exited with code 2.\n\nstderr:\nError: --format is controlled by Pi.\n",
+			"error",
+		);
+	});
+
 	test("registers an explicit Pi command alias while preserving the CLI argv command name", async () => {
 		const pi = new FakePi();
 		const calls: RunCall[] = [];
