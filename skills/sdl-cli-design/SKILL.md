@@ -135,6 +135,15 @@ before shipping a command.
       output, a representative `usageError`, and a representative `failure`
       envelope.
 
+## Raw-exit is a narrow exemption (ADR 0015)
+
+`rawCommand` / `isRawExit` opts out of the envelope, `resultSchema`, and
+`--json-schema`. It is sanctioned **only** when the command's core contract is a
+TUI, a streaming protocol, or process-control / third-party command passthrough.
+Ordinary agent-facing, finite-result commands must use the Clinkr envelope; do not
+reach for `rawCommand` as a shortcut. Even a genuinely-raw command must map real
+backend failures to exit `2`, never exit `1` (exit `1` is semantic non-success).
+
 ## Known Clinkr limitations (design around until an ADR lands)
 
 - No framework compact/pagination/truncation/JSONL mode (ADR 0012 parked).

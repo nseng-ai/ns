@@ -42,13 +42,14 @@ and may drift — re-grep before quoting line numbers.
 
 ## ADR index
 
-| ADR                                                     | Decision                                                                              |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `docs/adr/0010-clinkr-exit-code-semantics.md`           | Coarse stable exit codes; detail in the envelope.                                     |
-| `docs/adr/0011-clinkr-ts-native-json-envelope.md`       | TS-native camelCase discriminated envelope; enveloped usage errors; published schema. |
-| `docs/adr/0012-clinkr-output-volume-discipline.md`      | No framework output-volume API; bounded output is command-local.                      |
-| `docs/adr/0013-clinkr-negative-process-exit-default.md` | `negative=1`; removed `--shell-exit-code`/`shellNegative`.                            |
-| `docs/adr/0014-clinkr-confirmation-danger-tiers.md`     | Four danger tiers; `--yes`/`-y` vs `--force`/`-f`; dry-run as `ok`.                   |
+| ADR                                                     | Decision                                                                                     |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `docs/adr/0010-clinkr-exit-code-semantics.md`           | Coarse stable exit codes; detail in the envelope.                                            |
+| `docs/adr/0011-clinkr-ts-native-json-envelope.md`       | TS-native camelCase discriminated envelope; enveloped usage errors; published schema.        |
+| `docs/adr/0012-clinkr-output-volume-discipline.md`      | No framework output-volume API; bounded output is command-local.                             |
+| `docs/adr/0013-clinkr-negative-process-exit-default.md` | `negative=1`; removed `--shell-exit-code`/`shellNegative`.                                   |
+| `docs/adr/0014-clinkr-confirmation-danger-tiers.md`     | Four danger tiers; `--yes`/`-y` vs `--force`/`-f`; dry-run as `ok`.                          |
+| `docs/adr/0015-cli-surface-conformance-decisions.md`    | Raw-exit narrow exemption; hidden-`exec` write intent; miss/empty semantics; dotfile Tier 2. |
 
 ## Survey + audit provenance
 

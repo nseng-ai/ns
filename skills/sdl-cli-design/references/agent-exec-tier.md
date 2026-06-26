@@ -34,7 +34,13 @@ for AI agents", Speakeasy, Agent Layer (see the survey).
   (ADR 0011). Use `requireInteractiveOrUsageError` / handler-returned
   `usageError(...)` for missing-authorization in non-interactive mode.
 - **No prompts in the agent path.** Agent/`exec` commands must never block on a
-  prompt; require a flag and fail fast with a `usageError` naming it.
+  prompt. For a hidden `exec` command that performs an external/destructive write,
+  the required operation arguments themselves are sufficient explicit intent
+  (ADR 0015 #2) — a separate `--yes`/confirmation flag is not required (e.g.
+  `pr-address exec reply-review-thread`). Where a command does gate on a flag,
+  fail fast non-interactively with a `usageError` naming it rather than prompting.
+  This carve-out is scoped to agent-only hidden `exec`; human-facing Tier 2
+  destructive commands still require `--yes`/`-y`.
 - **Hidden `exec` subgroup for skill-only ops.** Operations meant for skills/agents
   rather than interactive humans live under an `exec` `ClinkrGroup` constructed
   with `isHidden: true` (AGENTS.md "Skill-Invoked CLI Commands"). Keep top-level
