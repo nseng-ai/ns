@@ -14,15 +14,15 @@ Present contexts (landed)
 - [x] Root `CONTEXT.md` — Objective-system vocabulary plus the repo-wide Architecture Boundaries (Gateway / Domain logic) section.
 - [x] `CONTEXT-MAP.md` Present section rebaselined to the all-TypeScript, all-`@sdl/*` world: it lists all ten landed package contexts. (Its Inventory Baseline count and Planned section still lag — see the map catch-up row.)
 - [x] `ts/packages/handoff/CONTEXT.md` — `@sdl/handoff` directed handoff artifact vocabulary over Branch Memory storage.
-- [x] `ts/packages/brmem/CONTEXT.md` — `@sdl/brmem` Branch Memory primitive vocabulary.
+- [x] `ts/packages/infra/brmem/CONTEXT.md` — `@sdl/brmem` Branch Memory primitive vocabulary.
 - [x] `ts/packages/ccc/CONTEXT.md` — `@sdl/ccc` orchestration-layer vocabulary (accepted from an adjacent Objective).
-- [x] `ts/packages/pi/CONTEXT.md` — `@sdl/pi` unified Pi package vocabulary (absorbed the former `pi-extension-runtime`, `pi-extensions`, and `pi-command-surfaces` packages).
-- [x] `ts/packages/graphite/CONTEXT.md` — `@sdl/graphite` reusable Graphite support vocabulary (accepted from an adjacent Objective).
+- [x] `ts/packages/hosts/pi/CONTEXT.md` — `@sdl/pi` unified Pi package vocabulary (absorbed the former `pi-extension-runtime`, `pi-extensions`, and `pi-command-surfaces` packages).
+- [x] `ts/packages/infra/graphite/CONTEXT.md` — `@sdl/graphite` reusable Graphite support vocabulary (accepted from an adjacent Objective).
 - [x] `ts/packages/sdl/CONTEXT.md` — `@sdl/sdl` Source Development Lifecycle CLI vocabulary, including `@sdl/sdl/sdk` as the public SDL extension API.
 - [x] `ts/packages/roaster/CONTEXT.md` — `@sdl/roaster` PR-diff findings vocabulary (landed from an adjacent Objective).
 - [x] `ts/packages/plans/CONTEXT.md` — `@sdl/plans` saved-plan vocabulary (landed from an adjacent Objective).
 - [x] `ts/packages/branch-context/CONTEXT.md` — `@sdl/branch-context` branch-context vocabulary (landed from an adjacent Objective).
-- [x] `ts/packages/slot/CONTEXT.md` — `@sdl/slot` worktree slot vocabulary, including the `sdl slot` Command Face and `sdl slot gt` helpers (landed from an adjacent Objective).
+- [x] `ts/packages/capabilities/slot/CONTEXT.md` — `@sdl/slot` worktree slot vocabulary, including the `sdl slot` Command Face and `sdl slot gt` helpers (landed from an adjacent Objective).
 
 Map catch-up — package inventory
 
@@ -40,7 +40,7 @@ These rows mirror the *Planned TypeScript package contexts* in `CONTEXT-MAP.md`.
 
 Undecided packages — record a map decision
 
-- [ ] Record a deliberate context decision (planned / accepted-from-adjacent / out-of-scope with a revisit trigger) for each tracked package currently absent from the map's context sections. Previously-undecided survivors: `@sdl/core` (dir `ts/packages/sdl-core`), `@sdl/clinkr`, `@sdl/pr-address`, and the unscoped `sdlcc`. Newly-added packages also needing a first decision: `@sdl/autobranch`, `@sdl/domain-primitives-transitional`, `@sdl/extension-kit`, and the unscoped `sdl-flow` (dir `ts/packages/extensions/flow`). Do not leave silent absence.
+- [ ] Record a deliberate context decision (planned / accepted-from-adjacent / out-of-scope with a revisit trigger) for each tracked package currently absent from the map's context sections. Previously-undecided survivors: `@sdl/core` (dir `ts/packages/infra/core`), `@sdl/clinkr`, `@sdl/pr-address`, and the unscoped `sdlcc`. Newly-added packages also needing a first decision: `@sdl/autobranch`, `@sdl/domain-primitives-transitional`, `@sdl/extension-kit`, and the unscoped `sdl-flow` (dir `ts/packages/capabilities/flow`). Do not leave silent absence.
 
 Refresh and finalize
 

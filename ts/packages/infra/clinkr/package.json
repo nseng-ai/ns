@@ -1,0 +1,22 @@
+{
+  "name": "@sdl/clinkr",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./completion": "./src/completion.ts",
+    "./raw": "./src/raw/index.ts",
+    "./testing": "./src/testing/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "check": "tsgo -p tsconfig.json",
+    "test": "cd ../../.. && vitest run --config vitest.config.ts packages/infra/clinkr/test"
+  },
+  "dependencies": {
+    "commander": "catalog:",
+    "zod": "catalog:"
+  }
+}

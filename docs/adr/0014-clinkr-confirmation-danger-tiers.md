@@ -20,7 +20,7 @@ The Clinkr gap audit
 (`.sdl/objectives/agent-cli-design-discipline/references/clinkr-agent-era-gap-audit.md`)
 found that Clinkr has an interactive yes/no seam only:
 `ClinkrInteraction.confirm` takes a `message` plus `defaultAnswer` and returns
-`confirmed` / `declined` / `aborted` (`ts/packages/clinkr/src/confirmation.ts`).
+`confirmed` / `declined` / `aborted` (`ts/packages/infra/clinkr/src/confirmation.ts`).
 That seam is useful plumbing, but it does not by itself express destructive
 severity, typed previews, required confirmation phrases, `--force` semantics,
 dry-run requirements, or non-interactive fail-fast behavior. The audit

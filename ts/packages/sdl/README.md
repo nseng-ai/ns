@@ -133,7 +133,7 @@ Consumer capability packages use Capability APIs, not the SDL SDK, for deliberat
 The grouped flow extension uses a conservative maturity ladder for repeated command-author seams:
 
 1. **Raw:** command-local logic built directly on kernel primitives such as `ctx.exec`, `ctx.textGenerator`, `ctx.stdout`, `ctx.stderr`, `ctx.confirm`, `ctx.env`, and `ctx.cwd`.
-2. **Flow-shared:** repeated repo-local mechanics extracted under `ts/packages/extensions/flow/src/shared/` in the `sdl-flow` workspace package, for example current helpers for Git mechanics, checkpoint-message/model wiring, worktree facts, text helpers, and CCC CLI delegation.
+2. **Flow-shared:** repeated repo-local mechanics extracted under `ts/packages/capabilities/flow/src/shared/` in the `sdl-flow` workspace package, for example current helpers for Git mechanics, checkpoint-message/model wiring, worktree facts, text helpers, and CCC CLI delegation.
 3. **Internal export / transitional primitive:** package-owned behavior reached through documented internal workspace subpaths. SDL-owned kernel/presentation seams stay under `@sdl/sdl/*`; SDK-independent checkpoint/worktree/temp/text primitives live under `@sdl/domain-primitives-transitional/*` until capability migrations delete that package.
 4. **Public SDK:** a separately approved promotion into `@sdl/sdl/sdk`. This remains deferred for the flow consolidation track except for already documented SDK exports.
 

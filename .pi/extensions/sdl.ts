@@ -1,3 +1,3 @@
-import sdlExtension from "../../ts/packages/pi/src/flow/sdl-extension.ts";
+import sdlExtension from "../../ts/packages/hosts/pi/src/flow/sdl-extension.ts";
 
 export default sdlExtension;

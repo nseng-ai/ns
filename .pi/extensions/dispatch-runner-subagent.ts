@@ -1,3 +1,3 @@
-import dispatchRunnerSubagentExtension from "../../ts/packages/pi/src/runner-subagents/dispatch-extension.ts";
+import dispatchRunnerSubagentExtension from "../../ts/packages/hosts/pi/src/runner-subagents/dispatch-extension.ts";
 
 export default dispatchRunnerSubagentExtension;

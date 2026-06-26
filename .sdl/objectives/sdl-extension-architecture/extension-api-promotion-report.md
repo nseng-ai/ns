@@ -53,13 +53,13 @@ one of two unsatisfying options:
 - **Inline** (`cp` / `autobranch` / `regenerate-pr` / `push` / `changes`) —
   readable, but copy-paste that drifts.
 - **Bundle** (`submit`) — reuses the real `@sdl/core`, but ships a 3491-line
-  untyped esbuild artifact (embedded `// ts/packages/sdl-core/src/...` section
+  untyped esbuild artifact (embedded `// ts/packages/infra/core/src/...` section
   markers, `mkdtemp3` / `join4` import renames, `/tmp/sdl-submit-extension-build/`
   header). Reusable but not understandable.
 
 Crucially, the reusable primitives **already exist**:
 
-- `ts/packages/sdl-core/` — `exec`, `result`, `managed-region`,
+- `ts/packages/infra/core/` — `exec`, `result`, `managed-region`,
   `text-truncation`, `text-repair`, `temp-files`, `github-cli`,
   `graphite-metadata`, `git/`, `submit/*`, `primitives`, `time-format`,
   `terminal-escapes`, `text-table`.

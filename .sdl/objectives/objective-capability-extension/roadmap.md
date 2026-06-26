@@ -8,9 +8,9 @@
   - Evidence: `ts/packages/objective/src/api.ts` is the `@sdl/objective/api` Capability API — a full `createObjectiveClient(...)` facade (chosen shape #2, mirroring `@sdl/slot/api`'s `createSlotClient`) returning clean `ok/failure` results for `listObjectives`, `readObjective`, and `listActiveCandidates`, with no `ClinkrExit`/command-face leakage. `ts/packages/objective/package.json` exports `./api` and `./command-face`. The Domain Core seam is the already-gateway-injected `ObjectiveCliContext` (git + storage gateways), injectable via `ObjectiveClientOptions.context`. `read-objective.ts`'s inner reader was exported as `readObjectiveRecord` so the API avoids the `ClinkrExit` wrapper. New unit coverage in `test/unit/api.test.ts` exercises active-candidate filtering, default/override status filters, ok/not_found reads, and storage-failure mapping against `FakeObjectiveStorageGateway` + `InMemoryGitGateway`. Validation: `pnpm --dir ts run check` (tsgo), objective suite (73 tests incl. 6 new), `just ts-format-check`, `just ts-lint`, `just ts-guard`, `just ts-deps-check` all green. The Pi selection/skill-prompt surface (`@sdl/pi/objectives/*`) is intentionally not relocated here; it joins this client in row 2.
 
 - [x] Bottom slice: runner-usage neutralization.
-  - Moved the shared runner-subagent usage JSONL parser/totals primitives from `@sdl/pi/runner-subagents/usage` to the neutral `@sdl/core/runner-usage` export backed by `ts/packages/sdl-core/src/runner-usage.ts`.
+  - Moved the shared runner-subagent usage JSONL parser/totals primitives from `@sdl/pi/runner-subagents/usage` to the neutral `@sdl/core/runner-usage` export backed by `ts/packages/infra/core/src/runner-usage.ts`.
   - Repointed `@sdl/objective` and Pi runtime usage code to import the parser/totals from `@sdl/core/runner-usage`; `@sdl/pi/runner-subagents/usage` remains only as a compatibility re-export.
-  - Moved/adapted parser/totals tests from `ts/packages/pi/test/runner-subagents/usage.test.ts` to `ts/packages/sdl-core/test/runner-usage.test.ts` so core owns the primitive.
+  - Moved/adapted parser/totals tests from `ts/packages/hosts/pi/test/runner-subagents/usage.test.ts` to `ts/packages/infra/core/test/runner-usage.test.ts` so core owns the primitive.
   - Removed `@sdl/pi` from `ts/packages/objective/package.json` after `ts/packages/objective/src/operations/runner-subagent-usage.ts` stopped importing the Presentation Host.
   - Evidence: `rg "@sdl/pi" ts/packages/objective/src ts/packages/objective/package.json` produced no matches. Parent-side validation passed: `pnpm --dir ts --filter @sdl/core test`, `pnpm --dir ts --filter @sdl/pi test`, `pnpm --dir ts --filter @sdl/objective test`, `pnpm --dir ts run check`, `just ts-deps-check`, and `just ts-guard`.
 
@@ -23,17 +23,17 @@
 
 - [ ] Consumer repoint slice.
   - Repoint `ts/packages/ccc/src/objective-stack-impl.ts` and `ts/packages/ccc/src/cmux/sidebar.ts` from `@sdl/pi/objectives/selection` to `@sdl/objective/api` for Objective selection helpers/specs.
-  - Repoint `ts/packages/sdlcc/src/objective-tab.ts` and `ts/packages/sdlcc/test/unit/objective-tab.test.ts` from `@sdl/pi/objectives/list` to `@sdl/objective/api`.
+  - Repoint `ts/packages/hosts/sdlcc/src/objective-tab.ts` and `ts/packages/hosts/sdlcc/test/unit/objective-tab.test.ts` from `@sdl/pi/objectives/list` to `@sdl/objective/api`.
   - Adjust package manifests: add `@sdl/objective` to consumers that now import it, keep `@sdl/pi` in `@sdl/ccc` for neutral helper subpaths, and remove `@sdl/pi` from `sdlcc` if no non-Objective imports remain.
   - Gate: `rg "@sdl/pi/objectives" ts/packages` should show no production consumer imports; run relevant ccc/sdlcc/Pi/Objective tests and typecheck.
   - Policy: execute only after `@sdl/objective/api` exposes the selection/list helpers needed by CCC and SDLCC. Keep Pi→CCC cycle-break work out of this branch unless an import must move only to preserve the consumer repoint.
   - Evidence: record every production/test consumer import changed, manifest dependency updates, stale `@sdl/pi/objectives` grep output, and validation commands/results.
 
 - [ ] Separate risky slice: Pi→CCC cycle break.
-  - Execute the chosen direction: `@sdl/ccc` may depend on neutral `@sdl/pi` helper subpaths, but `@sdl/pi` must stop importing `@sdl/ccc` and must remove `@sdl/ccc` from `ts/packages/pi/package.json`.
+  - Execute the chosen direction: `@sdl/ccc` may depend on neutral `@sdl/pi` helper subpaths, but `@sdl/pi` must stop importing `@sdl/ccc` and must remove `@sdl/ccc` from `ts/packages/hosts/pi/package.json`.
   - Move/remove Pi imports of CCC by relocating registration/orchestration ownership for `objective:stack-impl`, worktree-status, handoff-tab, branch-context upstack implementation, cmux focused-terminal-tab, old flow wrappers (`land`, `trunk-pull`), and parity records.
   - Preserve existing user-visible command names and behaviors; only ownership and dependency direction should change. Project-local `.pi/extensions/*.ts` adapters may import CCC directly where they are the discovery/registration surface.
-  - Gate: `rg "@sdl/ccc" ts/packages/pi/src ts/packages/pi/package.json` should have no matches; run Pi/CCC tests, `.pi/extensions` import smoke checks for changed adapters, and the TypeScript baseline.
+  - Gate: `rg "@sdl/ccc" ts/packages/hosts/pi/src ts/packages/hosts/pi/package.json` should have no matches; run Pi/CCC tests, `.pi/extensions` import smoke checks for changed adapters, and the TypeScript baseline.
   - Policy: treat this as a separate high-risk `objective-stack-impl` preview after the Objective relocation and consumer-repoint slices. Stop before renaming/removing user-visible commands or moving neutral Pi helper subpaths contrary to the chosen CCC→Pi-helper direction.
   - Evidence: record each Pi→CCC edge removed, where registration/orchestration moved, package manifest/lockfile updates, adapter import-smoke results, stale `@sdl/ccc` grep output, and validation commands/results.
 

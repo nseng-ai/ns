@@ -13,7 +13,7 @@ describe("pathMatchesPattern", () => {
 		["**/*.py", "packages/pkg/src/app.py"],
 		["**/tests/**/*.py", "tests/test_x.py"],
 		["**/tests/**/*.py", "packages/pkg/tests/unit/test_x.py"],
-		["**/*.ts", "ts/packages/pi/test/planned-branch-extension.test.ts"],
+		["**/*.ts", "ts/packages/hosts/pi/test/planned-branch-extension.test.ts"],
 	])("matches %s against %s", (pattern, path) => {
 		expect(pathMatchesPattern(path, pattern)).toBe(true);
 	});
@@ -57,7 +57,7 @@ describe("reviewAppliesToPaths", () => {
 
 		expect(
 			reviewAppliesToPaths(applicability, [
-				"packages/sdl-core/tests/unit/prompts/test_resolver.py",
+				"packages/infra/core/tests/unit/prompts/test_resolver.py",
 			]),
 		).toBe(false);
 	});
@@ -69,7 +69,7 @@ describe("reviewAppliesToPaths", () => {
 		};
 
 		expect(
-			reviewAppliesToPaths(applicability, ["packages/sdl-core/src/sdl_core/project_config.py"]),
+			reviewAppliesToPaths(applicability, ["packages/infra/core/src/sdl_core/project_config.py"]),
 		).toBe(true);
 	});
 
@@ -81,8 +81,8 @@ describe("reviewAppliesToPaths", () => {
 
 		expect(
 			reviewAppliesToPaths(applicability, [
-				"packages/sdl-core/tests/unit/prompts/test_resolver.py",
-				"packages/sdl-core/src/sdl_core/project_config.py",
+				"packages/infra/core/tests/unit/prompts/test_resolver.py",
+				"packages/infra/core/src/sdl_core/project_config.py",
 			]),
 		).toBe(true);
 	});

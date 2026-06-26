@@ -13,7 +13,7 @@ This is a child Objective of `sdl-extension-architecture` (Phase 2, roadmap step
 - Refactor the relocated domain logic into a gateway-injected Domain Core (no raw `SdlExtensionApi`/`ctx`), so it is unit-testable with in-memory gateways; `ctx`→gateway conversion stays at the command/presentation edge via `@sdl/capability-kit`.
 - Repoint in-process sibling consumers from `@sdl/pi/objectives/*` to `@sdl/objective/api`:
   - `ccc`: `ts/packages/ccc/src/objective-stack-impl.ts` and `ts/packages/ccc/src/cmux/sidebar.ts` (both import `@sdl/pi/objectives/selection`).
-  - `sdlcc`: `ts/packages/sdlcc/src/objective-tab.ts` (imports `@sdl/pi/objectives/list`).
+  - `sdlcc`: `ts/packages/hosts/sdlcc/src/objective-tab.ts` (imports `@sdl/pi/objectives/list`).
 - Resolve the reverse `@sdl/objective` → `@sdl/pi` entanglement: `@sdl/objective` currently declares `@sdl/pi` as a dependency and imports `@sdl/pi/runner-subagents/usage` from `src/operations/runner-subagent-usage.ts`. Decide the correct home for that runner-subagent-usage seam so the capability does not depend back into the Presentation Host.
 - Execute the chosen Pi/CCC delegation direction as its own risky slice: `@sdl/ccc` may continue depending on neutral `@sdl/pi` helper subpaths, while `@sdl/pi` must stop importing `@sdl/ccc` and must drop the `@sdl/ccc` package dependency. Current Pi→CCC imports include `worktree-status`, `cmux/focused-terminal-tab`, `trunk-pull`, `objective-stack-impl`, `land`, `handoff-tab`, and `branch-context-up-and-impl`; CCC→Pi neutral-helper imports such as `commands/ack` and `terminal/presentation` may remain.
 - After the real package graph is acyclic, land a topological acyclicity check for the Extension Dependency Graph wired into `just ts-guard` (alongside `ts/scripts/guard-typescript-style.mjs`), with self-tests for an acyclic graph passing and a synthetic cycle failing.
@@ -55,7 +55,7 @@ Do not keep changes that:
 
 Useful evidence includes:
 
-- Stale-edge grep output for the relevant slice, especially `rg "@sdl/pi" ts/packages/objective/src ts/packages/objective/package.json`, `rg "@sdl/pi/objectives" ts/packages`, and `rg "@sdl/ccc" ts/packages/pi/src ts/packages/pi/package.json`.
+- Stale-edge grep output for the relevant slice, especially `rg "@sdl/pi" ts/packages/objective/src ts/packages/objective/package.json`, `rg "@sdl/pi/objectives" ts/packages`, and `rg "@sdl/ccc" ts/packages/hosts/pi/src ts/packages/hosts/pi/package.json`.
 - Package-level tests for touched packages and `pnpm --dir ts run check`/`just ts-check` when practical.
 - `git diff --name-status` and package manifest review showing dependency-direction changes are intentional.
 - Import smoke checks for changed `.pi/extensions/*.ts` adapters during the Pi→CCC cycle-break slice.

@@ -12,7 +12,7 @@ Current known documentation surface:
 
 The list below is the current known context inventory to keep fresh, not a frozen final inventory. When tracked packages, extension surfaces, or substantial repo-local domain-language surfaces change, the Objective should update the relevant context/map/docs rather than treating the old inventory as authoritative.
 
-The repo is an all-TypeScript pnpm workspace. The former first-party Python `packages/*` tree has been fully ported to TypeScript, retired, or deleted as migration reference — there are no tracked Python workspace packages (`packages/` is absent), and no Python `CONTEXT.md` targets remain. The repository namespace was renamed from `asdl` to `sdl` (landed on trunk 2026-06-20), so package names are `@sdl/*` with two unscoped exceptions: `sdlcc` (`ts/packages/sdlcc`) and `sdl-flow` (`ts/packages/extensions/flow`). Any leftover `ts/packages/asdl-core/` and `ts/packages/asdl-dev/` directories are untracked build residue (only `node_modules`, zero tracked files), not tracked packages.
+The repo is an all-TypeScript pnpm workspace. The former first-party Python `packages/*` tree has been fully ported to TypeScript, retired, or deleted as migration reference — there are no tracked Python workspace packages (`packages/` is absent), and no Python `CONTEXT.md` targets remain. The repository namespace was renamed from `asdl` to `sdl` (landed on trunk 2026-06-20), so package names are `@sdl/*` with two unscoped exceptions: `sdlcc` (`ts/packages/hosts/sdlcc`) and `sdl-flow` (`ts/packages/capabilities/flow`). Any leftover `ts/packages/asdl-core/` and `ts/packages/asdl-dev/` directories are untracked build residue (only `node_modules`, zero tracked files), not tracked packages.
 
 - Root repo context: `CONTEXT.md` — Objective-system vocabulary plus the repo-wide Architecture Boundaries (Gateway / Domain logic) section.
 - Repo map: `CONTEXT-MAP.md` as the navigation index and relationship/ambiguity rollup.
@@ -21,15 +21,15 @@ The repo is an all-TypeScript pnpm workspace. The former first-party Python `pac
 Present package contexts (ten packages, plus root and map):
 
 - `ts/packages/handoff/CONTEXT.md` — `@sdl/handoff` directed handoff artifact vocabulary over Branch Memory storage.
-- `ts/packages/brmem/CONTEXT.md` — `@sdl/brmem` Branch Memory primitive vocabulary.
+- `ts/packages/infra/brmem/CONTEXT.md` — `@sdl/brmem` Branch Memory primitive vocabulary.
 - `ts/packages/ccc/CONTEXT.md` — `@sdl/ccc` (Cmux Command and Control) orchestration-layer vocabulary.
-- `ts/packages/pi/CONTEXT.md` — `@sdl/pi` unified private Pi package vocabulary (neutral runtime helpers, project-local discovery adapters, engineered extension domains, and the CCC delegation boundary). This single package absorbed the former `pi-extension-runtime`, `pi-extensions`, and `pi-command-surfaces` packages, none of which remain as separate tracked packages.
-- `ts/packages/graphite/CONTEXT.md` — `@sdl/graphite` reusable Graphite support vocabulary (direct `gt` adapters, metadata DB parsing, topology/status/stack facts, submit support, fakes).
+- `ts/packages/hosts/pi/CONTEXT.md` — `@sdl/pi` unified private Pi package vocabulary (neutral runtime helpers, project-local discovery adapters, engineered extension domains, and the CCC delegation boundary). This single package absorbed the former `pi-extension-runtime`, `pi-extensions`, and `pi-command-surfaces` packages, none of which remain as separate tracked packages.
+- `ts/packages/infra/graphite/CONTEXT.md` — `@sdl/graphite` reusable Graphite support vocabulary (direct `gt` adapters, metadata DB parsing, topology/status/stack facts, submit support, fakes).
 - `ts/packages/sdl/CONTEXT.md` — `@sdl/sdl` Source Development Lifecycle CLI vocabulary, including `@sdl/sdl/sdk` as the public SDL extension API.
 - `ts/packages/roaster/CONTEXT.md` — `@sdl/roaster` PR-diff findings vocabulary (review definitions, Tripwires, deep reviews, findings, inline findings, Branch Memory review logs).
 - `ts/packages/plans/CONTEXT.md` — `@sdl/plans` saved-plan vocabulary (Local Plan Store, Source Branch Plan Files, Plans Command Face / Peer API / Core boundaries).
 - `ts/packages/branch-context/CONTEXT.md` — `@sdl/branch-context` branch-context vocabulary (Branch Context, Attached Plan, Command Face / Peer API / Core boundaries).
-- `ts/packages/slot/CONTEXT.md` — `@sdl/slot` worktree slot vocabulary (Slots, Slot Pool, the `sdl slot ...` Command Face, `@sdl/slot/api` Peer API, `sdl slot gt` helpers). The Slot CLI surface is now `sdl slot`; the standalone `slot` CLI was removed, but the `@sdl/slot` package remains tracked.
+- `ts/packages/capabilities/slot/CONTEXT.md` — `@sdl/slot` worktree slot vocabulary (Slots, Slot Pool, the `sdl slot ...` Command Face, `@sdl/slot/api` Peer API, `sdl slot gt` helpers). The Slot CLI surface is now `sdl slot`; the standalone `slot` CLI was removed, but the `@sdl/slot` package remains tracked.
 
 Planned package contexts (recorded as *Planned* in `CONTEXT-MAP.md`, awaiting focused domain-language sessions):
 
@@ -39,7 +39,7 @@ Planned package contexts (recorded as *Planned* in `CONTEXT-MAP.md`, awaiting fo
 - `@sdl/aretro` — deterministic branch-retrospective evidence vocabulary.
 - `@sdl/vibechk` — standalone agent-context evaluation vocabulary.
 
-Tracked packages with no recorded context decision yet — neither Present nor Planned nor Out-of-scope in the map: `@sdl/core` (dir `ts/packages/sdl-core`), `@sdl/clinkr`, `@sdl/pr-address`, the unscoped `sdlcc`, and four packages added since the last rebaseline — `@sdl/autobranch`, `@sdl/domain-primitives-transitional`, `@sdl/extension-kit`, and the unscoped `sdl-flow` (dir `ts/packages/extensions/flow`). Each needs a deliberate planned / accepted-from-adjacent / out-of-scope decision recorded in the map rather than silent absence. (`@sdl/branch-context` and `@sdl/plans` were previously undecided and are now Present; the previously undecided `@sdl/pi-command-surfaces` no longer exists.)
+Tracked packages with no recorded context decision yet — neither Present nor Planned nor Out-of-scope in the map: `@sdl/core` (dir `ts/packages/infra/core`), `@sdl/clinkr`, `@sdl/pr-address`, the unscoped `sdlcc`, and four packages added since the last rebaseline — `@sdl/autobranch`, `@sdl/domain-primitives-transitional`, `@sdl/extension-kit`, and the unscoped `sdl-flow` (dir `ts/packages/capabilities/flow`). Each needs a deliberate planned / accepted-from-adjacent / out-of-scope decision recorded in the map rather than silent absence. (`@sdl/branch-context` and `@sdl/plans` were previously undecided and are now Present; the previously undecided `@sdl/pi-command-surfaces` no longer exists.)
 
 Out of scope per the map: `sdl-initiatives` (no tracked package exists) and `sdl-reviewer` (historical identity replaced by `roaster`). Do not recreate either unless the package itself returns as a tracked package.
 
@@ -120,7 +120,7 @@ Risks:
 
 ## Open Questions
 
-- Should `/CONTEXT-MAP.md` link into `@sdl/core`'s H2 sections individually (e.g. `Clinkr → ts/packages/sdl-core/CONTEXT.md#clinkr`), or treat `@sdl/core` as a single linked context? — *Provisional answer:* keep one `@sdl/core` context entry with inline H2 anchors when it is authored; revisit during final readback.
+- Should `/CONTEXT-MAP.md` link into `@sdl/core`'s H2 sections individually (e.g. `Clinkr → ts/packages/infra/core/CONTEXT.md#clinkr`), or treat `@sdl/core` as a single linked context? — *Provisional answer:* keep one `@sdl/core` context entry with inline H2 anchors when it is authored; revisit during final readback.
 - When a cross-context ambiguity is severe, is the right response to canonicalize a single repo-wide name, or preserve package-local names with the boundary documented? — *Provisional answer:* preserve package-local names when the underlying concepts differ; use `Avoid:` aliases and map entries to prevent accidental synonym collapse.
 - Where should the four newer infrastructure packages land in the map — `@sdl/autobranch`, `@sdl/domain-primitives-transitional`, `@sdl/extension-kit`, and `sdl-flow`? Some may warrant a focused context; others may be accepted-from-adjacent or recorded as deliberately thin. Decide per package during the undecided-packages catch-up rather than defaulting all four to Planned.
 - Which additional contexts, edges, or ambiguities will future trunk changes add before closure, and should they be inserted as new package/context phases or grouped as one new surface phase?

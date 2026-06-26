@@ -29,7 +29,7 @@
   "include": [
     "packages/*/src/**/*.ts",
     "packages/*/test/**/*.ts",
-    "packages/extensions/*/src/**/*.ts",
-    "packages/extensions/*/test/**/*.ts"
+    "packages/*/*/src/**/*.ts",
+    "packages/*/*/test/**/*.ts"
   ]
 }
