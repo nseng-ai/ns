@@ -51,7 +51,6 @@ export async function createRealSlotContext(options: {
 		interaction: resolveClinkrInteraction({
 			stdin: readStdinLine,
 			stderr,
-			isInteractive: () => process.stdin.isTTY === true,
 		}),
 		stderr,
 		env,

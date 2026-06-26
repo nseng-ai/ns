@@ -164,7 +164,6 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 			interaction: resolveClinkrInteraction({
 				stdin: readStdinLine,
 				stderr: resolvedStderr,
-				isInteractive: () => process.stdin.isTTY === true,
 			}),
 			shouldWriteCdDirective: isClinkrHumanOutputInvocation(args),
 		};

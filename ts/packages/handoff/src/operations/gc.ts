@@ -1,4 +1,4 @@
-import { failure, ok, usageError } from "@sdl/clinkr";
+import { failure, ok, requireInteractiveOrUsageError } from "@sdl/clinkr";
 import { z } from "zod";
 
 import type { HandoffCliContext } from "../context.ts";
@@ -41,12 +41,12 @@ export async function runGc(ctx: HandoffCliContext, request: GcRequest) {
 	const preview = previewResult(summaries.value, request.dryRun);
 	if (request.dryRun || preview.would_delete_count === 0) return ok(preview);
 	if (request.force) return ok(await deleteDeletedBranchHandoffs(ctx, summaries.value));
-	if (!ctx.interaction.isInteractive()) {
-		return usageError("Deleting handoffs with gc requires --force when non-interactive.", {
-			missingFlag: "--force",
-			howToSupply: "Pass --force (or -f) to delete without prompting, or run --dry-run first.",
-		});
-	}
+	const gate = requireInteractiveOrUsageError(ctx.interaction, {
+		message: "Deleting handoffs with gc requires --force when non-interactive.",
+		missingFlag: "--force",
+		howToSupply: "Pass --force (or -f) to delete without prompting, or run --dry-run first.",
+	});
+	if (gate) return gate;
 
 	ctx.stderr(`${renderGc(preview)}\n`);
 	const confirmed = await ctx.interaction.confirm({

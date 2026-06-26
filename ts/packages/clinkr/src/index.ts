@@ -1,4 +1,8 @@
-export { createClinkrInteraction, resolveClinkrInteraction } from "./confirmation.ts";
+export {
+	createClinkrInteraction,
+	requireInteractiveOrUsageError,
+	resolveClinkrInteraction,
+} from "./confirmation.ts";
 export type {
 	ClinkrInteraction,
 	ConfirmationDefault,

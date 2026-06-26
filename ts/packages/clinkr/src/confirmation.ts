@@ -1,3 +1,6 @@
+import type { ClinkrUsageErrorExit } from "./exit.ts";
+import { usageError } from "./exit.ts";
+
 export type ConfirmationDefault = "yes" | "no";
 
 export interface ConfirmationRequest {
@@ -23,6 +26,7 @@ export interface CreateClinkrInteractionOptions {
 	stdin: () => Promise<string | null>;
 	stderr: (text: string) => void;
 	isInteractive?: (() => boolean) | undefined;
+	injectedStdin?: (() => Promise<string | null>) | undefined;
 }
 
 export interface ResolveClinkrInteractionOptions extends CreateClinkrInteractionOptions {
@@ -34,8 +38,21 @@ export function createClinkrInteraction(
 ): ClinkrInteraction {
 	return {
 		confirm: (request) => confirmWithLineReader(options, request),
-		isInteractive: () => options.isInteractive?.() ?? false,
+		isInteractive: () => options.isInteractive?.() ?? defaultIsInteractive(options.injectedStdin),
 	};
+}
+
+function defaultIsInteractive(injectedStdin: (() => Promise<string | null>) | undefined): boolean {
+	return injectedStdin !== undefined || process.stdin.isTTY === true;
+}
+
+export function requireInteractiveOrUsageError(
+	interaction: ClinkrInteraction,
+	opts: { message: string; missingFlag: string; howToSupply: string },
+): ClinkrUsageErrorExit | undefined {
+	return interaction.isInteractive()
+		? undefined
+		: usageError(opts.message, { missingFlag: opts.missingFlag, howToSupply: opts.howToSupply });
 }
 
 export function resolveClinkrInteraction(
