@@ -301,7 +301,7 @@ describe("ccc CLI", () => {
 		expect(output(run).stdout).toContain("New branch: latest-commit-branch");
 		expect(output(run).stdout).toContain("Moved commit: abc123d Add latest commit support");
 		expect(output(run).stdout).toContain("Source branch feature/base reset to parent9.");
-		expect(eventIndex(run.commands.events, "gt trunk")).toBeGreaterThan(-1);
+		expect(eventIndex(run.commands.events, "gt trunk")).toBe(-1);
 		expect(eventIndex(run.commands.events, "gt children")).toBeGreaterThan(-1);
 		expect(
 			eventIndex(run.commands.events, "git branch autobranch-backup/feature/base/123 abc123def456"),
