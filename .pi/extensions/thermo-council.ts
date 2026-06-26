@@ -1,3 +1,3 @@
-import thermoCouncilExtension from "../../ts/packages/pi/src/thermo-council/extension.ts";
+import thermoCouncilExtension from "../../ts/packages/hosts/pi/src/thermo-council/extension.ts";
 
 export default thermoCouncilExtension;

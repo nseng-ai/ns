@@ -76,7 +76,7 @@ importers:
         version: link:packages/branch-context
       '@sdl/brmem':
         specifier: workspace:*
-        version: link:packages/brmem
+        version: link:packages/infra/brmem
       '@sdl/capability-kit':
         specifier: workspace:*
         version: link:packages/sdl-capability-kit
@@ -85,10 +85,10 @@ importers:
         version: link:packages/ccc
       '@sdl/core':
         specifier: workspace:*
-        version: link:packages/sdl-core
+        version: link:packages/infra/core
       '@sdl/graphite':
         specifier: workspace:*
-        version: link:packages/graphite
+        version: link:packages/infra/graphite
       '@sdl/plans':
         specifier: workspace:*
         version: link:packages/plans
@@ -100,7 +100,7 @@ importers:
         version: link:packages/sdl
       '@sdl/slot':
         specifier: workspace:*
-        version: link:packages/slot
+        version: link:packages/capabilities/slot
       '@types/node':
         specifier: 'catalog:'
         version: 24.13.2
@@ -118,10 +118,10 @@ importers:
         version: 1.70.0
       sdl-flow:
         specifier: workspace:*
-        version: link:packages/extensions/flow
+        version: link:packages/capabilities/flow
       sdlcc:
         specifier: workspace:*
-        version: link:packages/sdlcc
+        version: link:packages/hosts/sdlcc
       syncpack:
         specifier: 'catalog:'
         version: 15.3.2
@@ -132,32 +132,14 @@ importers:
         specifier: 'catalog:'
         version: 4.1.9(@types/node@24.13.2)(vite@8.0.16(@types/node@24.13.2)(jiti@2.7.0)(yaml@2.9.0))
 
-  packages/areg:
-    dependencies:
-      '@sdl/clinkr':
-        specifier: workspace:*
-        version: link:../clinkr
-      '@sdl/core':
-        specifier: workspace:*
-        version: link:../sdl-core
-      '@sdl/pi':
-        specifier: workspace:*
-        version: link:../pi
-      smol-toml:
-        specifier: 'catalog:'
-        version: 1.6.1
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
-
   packages/aretro:
     dependencies:
       '@sdl/clinkr':
         specifier: workspace:*
-        version: link:../clinkr
+        version: link:../infra/clinkr
       '@sdl/core':
         specifier: workspace:*
-        version: link:../sdl-core
+        version: link:../infra/core
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -166,28 +148,28 @@ importers:
     dependencies:
       '@sdl/core':
         specifier: workspace:*
-        version: link:../sdl-core
+        version: link:../infra/core
       '@sdl/pi':
         specifier: workspace:*
-        version: link:../pi
+        version: link:../hosts/pi
 
   packages/branch-context:
     dependencies:
       '@sdl/brmem':
         specifier: workspace:*
-        version: link:../brmem
+        version: link:../infra/brmem
       '@sdl/clinkr':
         specifier: workspace:*
-        version: link:../clinkr
+        version: link:../infra/clinkr
       '@sdl/core':
         specifier: workspace:*
-        version: link:../sdl-core
+        version: link:../infra/core
       '@sdl/graphite':
         specifier: workspace:*
-        version: link:../graphite
+        version: link:../infra/graphite
       '@sdl/pi':
         specifier: workspace:*
-        version: link:../pi
+        version: link:../hosts/pi
       '@sdl/plans':
         specifier: workspace:*
         version: link:../plans
@@ -195,14 +177,41 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
 
-  packages/brmem:
+  packages/capabilities/flow:
+    dependencies:
+      '@sdl/autobranch':
+        specifier: workspace:*
+        version: link:../../autobranch
+      '@sdl/capability-kit':
+        specifier: workspace:*
+        version: link:../../sdl-capability-kit
+      '@sdl/ccc':
+        specifier: workspace:*
+        version: link:../../ccc
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../../infra/core
+      '@sdl/domain-primitives-transitional':
+        specifier: workspace:*
+        version: link:../../infra/domain-primitives-transitional
+      '@sdl/graphite':
+        specifier: workspace:*
+        version: link:../../infra/graphite
+      '@sdl/sdl':
+        specifier: workspace:*
+        version: link:../../sdl
+
+  packages/capabilities/slot:
     dependencies:
       '@sdl/clinkr':
         specifier: workspace:*
-        version: link:../clinkr
+        version: link:../../infra/clinkr
       '@sdl/core':
         specifier: workspace:*
-        version: link:../sdl-core
+        version: link:../../infra/core
+      '@sdl/graphite':
+        specifier: workspace:*
+        version: link:../../infra/graphite
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -217,19 +226,19 @@ importers:
         version: link:../branch-context
       '@sdl/clinkr':
         specifier: workspace:*
-        version: link:../clinkr
+        version: link:../infra/clinkr
       '@sdl/core':
         specifier: workspace:*
-        version: link:../sdl-core
+        version: link:../infra/core
       '@sdl/domain-primitives-transitional':
         specifier: workspace:*
-        version: link:../domain-primitives-transitional
+        version: link:../infra/domain-primitives-transitional
       '@sdl/graphite':
         specifier: workspace:*
-        version: link:../graphite
+        version: link:../infra/graphite
       '@sdl/pi':
         specifier: workspace:*
-        version: link:../pi
+        version: link:../hosts/pi
       '@sdl/plans':
         specifier: workspace:*
         version: link:../plans
@@ -238,124 +247,55 @@ importers:
         version: link:../sdl
       '@sdl/slot':
         specifier: workspace:*
-        version: link:../slot
+        version: link:../capabilities/slot
       zod:
         specifier: 'catalog:'
         version: 4.4.3
-
-  packages/clinkr:
-    dependencies:
-      commander:
-        specifier: 'catalog:'
-        version: 14.0.3
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
-
-  packages/domain-primitives-transitional:
-    dependencies:
-      '@sdl/core':
-        specifier: workspace:*
-        version: link:../sdl-core
-
-  packages/extensions/flow:
-    dependencies:
-      '@sdl/autobranch':
-        specifier: workspace:*
-        version: link:../../autobranch
-      '@sdl/capability-kit':
-        specifier: workspace:*
-        version: link:../../sdl-capability-kit
-      '@sdl/ccc':
-        specifier: workspace:*
-        version: link:../../ccc
-      '@sdl/core':
-        specifier: workspace:*
-        version: link:../../sdl-core
-      '@sdl/domain-primitives-transitional':
-        specifier: workspace:*
-        version: link:../../domain-primitives-transitional
-      '@sdl/graphite':
-        specifier: workspace:*
-        version: link:../../graphite
-      '@sdl/sdl':
-        specifier: workspace:*
-        version: link:../../sdl
-
-  packages/graphite:
-    dependencies:
-      '@sdl/core':
-        specifier: workspace:*
-        version: link:../sdl-core
 
   packages/handoff:
     dependencies:
       '@sdl/brmem':
         specifier: workspace:*
-        version: link:../brmem
+        version: link:../infra/brmem
       '@sdl/clinkr':
         specifier: workspace:*
-        version: link:../clinkr
+        version: link:../infra/clinkr
       '@sdl/core':
         specifier: workspace:*
-        version: link:../sdl-core
+        version: link:../infra/core
       zod:
         specifier: 'catalog:'
         version: 4.4.3
 
-  packages/objective:
-    dependencies:
-      '@sdl/clinkr':
-        specifier: workspace:*
-        version: link:../clinkr
-      '@sdl/core':
-        specifier: workspace:*
-        version: link:../sdl-core
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
-
-  packages/packagechk:
-    dependencies:
-      '@sdl/clinkr':
-        specifier: workspace:*
-        version: link:../clinkr
-      '@sdl/core':
-        specifier: workspace:*
-        version: link:../sdl-core
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
-
-  packages/pi:
+  packages/hosts/pi:
     dependencies:
       '@sdl/branch-context':
         specifier: workspace:*
-        version: link:../branch-context
+        version: link:../../branch-context
       '@sdl/ccc':
         specifier: workspace:*
-        version: link:../ccc
+        version: link:../../ccc
       '@sdl/core':
         specifier: workspace:*
-        version: link:../sdl-core
+        version: link:../../infra/core
       '@sdl/domain-primitives-transitional':
         specifier: workspace:*
-        version: link:../domain-primitives-transitional
+        version: link:../../infra/domain-primitives-transitional
       '@sdl/graphite':
         specifier: workspace:*
-        version: link:../graphite
+        version: link:../../infra/graphite
       '@sdl/handoff':
         specifier: workspace:*
-        version: link:../handoff
+        version: link:../../handoff
       '@sdl/objective':
         specifier: workspace:*
-        version: link:../objective
+        version: link:../../objective
       '@sdl/plans':
         specifier: workspace:*
-        version: link:../plans
+        version: link:../../plans
       '@sdl/sdl':
         specifier: workspace:*
-        version: link:../sdl
+        version: link:../../sdl
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -370,14 +310,89 @@ importers:
         specifier: 'catalog:'
         version: 0.79.1
 
-  packages/plans:
+  packages/hosts/sdlcc:
+    dependencies:
+      '@opentui/core':
+        specifier: 'catalog:'
+        version: 0.4.1(typescript@6.0.3)(web-tree-sitter@0.25.10)
+      '@sdl/clinkr':
+        specifier: workspace:*
+        version: link:../../infra/clinkr
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../../infra/core
+      '@sdl/pi':
+        specifier: workspace:*
+        version: link:../pi
+      '@sdl/slot':
+        specifier: workspace:*
+        version: link:../../capabilities/slot
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+
+  packages/infra/brmem:
     dependencies:
       '@sdl/clinkr':
         specifier: workspace:*
         version: link:../clinkr
       '@sdl/core':
         specifier: workspace:*
-        version: link:../sdl-core
+        version: link:../core
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+
+  packages/infra/clinkr:
+    dependencies:
+      commander:
+        specifier: 'catalog:'
+        version: 14.0.3
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+
+  packages/infra/core:
+    dependencies:
+      '@sdl/clinkr':
+        specifier: workspace:*
+        version: link:../clinkr
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+
+  packages/infra/domain-primitives-transitional:
+    dependencies:
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/infra/graphite:
+    dependencies:
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/objective:
+    dependencies:
+      '@sdl/clinkr':
+        specifier: workspace:*
+        version: link:../infra/clinkr
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../infra/core
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+
+  packages/plans:
+    dependencies:
+      '@sdl/clinkr':
+        specifier: workspace:*
+        version: link:../infra/clinkr
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../infra/core
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -386,10 +401,10 @@ importers:
     dependencies:
       '@sdl/clinkr':
         specifier: workspace:*
-        version: link:../clinkr
+        version: link:../infra/clinkr
       '@sdl/core':
         specifier: workspace:*
-        version: link:../sdl-core
+        version: link:../infra/core
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -401,10 +416,10 @@ importers:
         version: 1.2.11(@shikijs/themes@4.2.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@sdl/clinkr':
         specifier: workspace:*
-        version: link:../clinkr
+        version: link:../infra/clinkr
       '@sdl/core':
         specifier: workspace:*
-        version: link:../sdl-core
+        version: link:../infra/core
       smol-toml:
         specifier: 'catalog:'
         version: 1.6.1
@@ -428,22 +443,22 @@ importers:
         version: link:../autobranch
       '@sdl/clinkr':
         specifier: workspace:*
-        version: link:../clinkr
+        version: link:../infra/clinkr
       '@sdl/core':
         specifier: workspace:*
-        version: link:../sdl-core
+        version: link:../infra/core
       '@sdl/domain-primitives-transitional':
         specifier: workspace:*
-        version: link:../domain-primitives-transitional
+        version: link:../infra/domain-primitives-transitional
       '@sdl/graphite':
         specifier: workspace:*
-        version: link:../graphite
+        version: link:../infra/graphite
       '@sdl/plans':
         specifier: workspace:*
         version: link:../plans
       '@sdl/slot':
         specifier: workspace:*
-        version: link:../slot
+        version: link:../capabilities/slot
       jiti:
         specifier: 'catalog:'
         version: 2.7.0
@@ -455,64 +470,49 @@ importers:
     dependencies:
       '@sdl/core':
         specifier: workspace:*
-        version: link:../sdl-core
+        version: link:../infra/core
       '@sdl/sdl':
         specifier: workspace:*
         version: link:../sdl
 
-  packages/sdl-core:
+  packages/tools/areg:
     dependencies:
       '@sdl/clinkr':
         specifier: workspace:*
-        version: link:../clinkr
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
-
-  packages/sdlcc:
-    dependencies:
-      '@opentui/core':
-        specifier: 'catalog:'
-        version: 0.4.1(typescript@6.0.3)(web-tree-sitter@0.25.10)
-      '@sdl/clinkr':
-        specifier: workspace:*
-        version: link:../clinkr
+        version: link:../../infra/clinkr
       '@sdl/core':
         specifier: workspace:*
-        version: link:../sdl-core
+        version: link:../../infra/core
       '@sdl/pi':
         specifier: workspace:*
-        version: link:../pi
-      '@sdl/slot':
-        specifier: workspace:*
-        version: link:../slot
+        version: link:../../hosts/pi
+      smol-toml:
+        specifier: 'catalog:'
+        version: 1.6.1
       zod:
         specifier: 'catalog:'
         version: 4.4.3
 
-  packages/slot:
+  packages/tools/packagechk:
     dependencies:
       '@sdl/clinkr':
         specifier: workspace:*
-        version: link:../clinkr
+        version: link:../../infra/clinkr
       '@sdl/core':
         specifier: workspace:*
-        version: link:../sdl-core
-      '@sdl/graphite':
-        specifier: workspace:*
-        version: link:../graphite
+        version: link:../../infra/core
       zod:
         specifier: 'catalog:'
         version: 4.4.3
 
-  packages/vibechk:
+  packages/tools/vibechk:
     dependencies:
       '@sdl/clinkr':
         specifier: workspace:*
-        version: link:../clinkr
+        version: link:../../infra/clinkr
       '@sdl/core':
         specifier: workspace:*
-        version: link:../sdl-core
+        version: link:../../infra/core
       zod:
         specifier: 'catalog:'
         version: 4.4.3

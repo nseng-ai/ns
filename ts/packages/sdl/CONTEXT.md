@@ -73,11 +73,11 @@ An `@sdl/sdl` subpath shared across first-party workspace packages (`ccc`, `pi`,
 *Avoid*: internal migration export, plugin API, public SDK, command-author import path, ctx-dependent shared code.
 
 **Flow capability-area maturity ladder**:
-The documentation/readiness model for recurring project-local flow command-author seams: `raw` command-local logic, `flow-shared` helpers under `ts/packages/extensions/flow/src/shared/` in the `sdl-flow` workspace package, internal workspace exports for package-owned migration seams, transitional primitives under `@sdl/domain-primitives-transitional/*` while they remain debt, and deferred `public-sdk` promotion into `@sdl/sdl/sdk` only after a separate explicit SDK decision. For capabilities beyond flow, the Extension layering model (ADR 0009) governs: the SDK stays thin host primitives, and shared `ctx`-dependent code lives above the SDK in the Shared extension substrate rather than being promoted into `@sdl/sdl/sdk`.
+The documentation/readiness model for recurring project-local flow command-author seams: `raw` command-local logic, `flow-shared` helpers under `ts/packages/capabilities/flow/src/shared/` in the `sdl-flow` workspace package, internal workspace exports for package-owned migration seams, transitional primitives under `@sdl/domain-primitives-transitional/*` while they remain debt, and deferred `public-sdk` promotion into `@sdl/sdl/sdk` only after a separate explicit SDK decision. For capabilities beyond flow, the Extension layering model (ADR 0009) governs: the SDK stays thin host primitives, and shared `ctx`-dependent code lives above the SDK in the Shared extension substrate rather than being promoted into `@sdl/sdl/sdk`.
 *Avoid*: task status, automatic SDK promotion pipeline, proof that a helper is public author API, generic rule for all future extensions.
 
 **Flow-shared helper**:
-A helper owned by the grouped project-local flow implementation package under `ts/packages/extensions/flow/src/shared/`. It may keep repeated repo-local command authoring readable, but packages outside the implementation should use deliberate package exports rather than importing private source files, and its existence does not create public SDK surface.
+A helper owned by the grouped project-local flow implementation package under `ts/packages/capabilities/flow/src/shared/`. It may keep repeated repo-local command authoring readable, but packages outside the implementation should use deliberate package exports rather than importing private source files, and its existence does not create public SDK surface.
 *Avoid*: public SDK helper, package-owned primitive, bundled extension API, workspace dependency target.
 
 **Default SDL command**:

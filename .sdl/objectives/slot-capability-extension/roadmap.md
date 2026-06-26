@@ -16,4 +16,4 @@
   - Cleanup evidence: stale user-facing references to standalone `slot ...` were rewritten to `sdl slot ...` where the inventory found them; PR #2131 removed SDLCC's `sdl slot checkout --format json` activation subprocess and JSON parsing path.
 
 - [x] Document Slot vocabulary/context and above-SDK boundary.
-  - Evidence: `ts/packages/slot/CONTEXT.md` now defines Slot Pool/Record/Inventory, Slot Repo Context, Slot Checkout Target, Slot Command Face, Slot Peer API, checkout side-effect policy, parent-shell navigation, Slot Shell Mount, and `sdl slot gt` helper terms; `CONTEXT-MAP.md` now lists Slot as a present context and updates relationship/ambiguity wording to the current `sdl slot ...` command-face and Peer API boundary.
+  - Evidence: `ts/packages/capabilities/slot/CONTEXT.md` now defines Slot Pool/Record/Inventory, Slot Repo Context, Slot Checkout Target, Slot Command Face, Slot Peer API, checkout side-effect policy, parent-shell navigation, Slot Shell Mount, and `sdl slot gt` helper terms; `CONTEXT-MAP.md` now lists Slot as a present context and updates relationship/ambiguity wording to the current `sdl slot ...` command-face and Peer API boundary.

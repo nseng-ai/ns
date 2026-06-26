@@ -1,3 +1,3 @@
-import investigateExtension from "../../ts/packages/pi/src/investigate/extension.ts";
+import investigateExtension from "../../ts/packages/hosts/pi/src/investigate/extension.ts";
 
 export default investigateExtension;

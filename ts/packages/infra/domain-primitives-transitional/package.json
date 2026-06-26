@@ -1,0 +1,24 @@
+{
+  "name": "@sdl/domain-primitives-transitional",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "src"
+  ],
+  "exports": {
+    "./checkpoint-flow": "./src/checkpoint-flow.ts",
+    "./checkpoint-message": "./src/checkpoint-message.ts",
+    "./pending-worktree": "./src/pending-worktree.ts",
+    "./temp-files": "./src/temp-files.ts",
+    "./text-generation": "./src/text-generation.ts",
+    "./text-repair": "./src/text-repair.ts"
+  },
+  "scripts": {
+    "check": "tsgo -p tsconfig.json",
+    "test": "cd ../../.. && vitest run --config vitest.config.ts packages/infra/domain-primitives-transitional/test"
+  },
+  "dependencies": {
+    "@sdl/core": "workspace:*"
+  }
+}

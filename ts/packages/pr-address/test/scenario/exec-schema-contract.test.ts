@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { describe, test } from "vitest";
 
-import { buildSurfacePlan } from "../../../clinkr/src/surface.ts";
+import { buildSurfacePlan } from "../../../infra/clinkr/src/surface.ts";
 import { EXEC_OPERATIONS } from "../../src/exec-commands.ts";
 
 /**

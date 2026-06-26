@@ -46,17 +46,18 @@ const FLOW_PACKAGE_NAME = "sdl-flow";
 /** Absolute path to the SDK source module, used as the `alias` resolution target. */
 const SDK_MODULE_PATH = join(SDL_SDK_DIR, "index.ts");
 const CCC_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "ccc", "src");
-const CORE_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "sdl-core", "src");
-const GRAPHITE_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "graphite", "src");
+const CORE_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "infra", "core", "src");
+const GRAPHITE_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "infra", "graphite", "src");
 const AUTOBRANCH_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "autobranch", "src");
 const DOMAIN_PRIMITIVES_TRANSITIONAL_SRC_DIR = join(
 	SDL_SRC_DIR,
 	"..",
 	"..",
+	"infra",
 	"domain-primitives-transitional",
 	"src",
 );
-const FLOW_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "extensions", "flow");
+const FLOW_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "capabilities", "flow");
 const FLOW_PACKAGE_JSON_PATH = join(FLOW_PACKAGE_DIR, "package.json");
 const CCC_AUTOSLOT_MODULE_PATH = join(CCC_SRC_DIR, "autoslot.ts");
 const CCC_LAND_MODULE_PATH = join(CCC_SRC_DIR, "land.ts");

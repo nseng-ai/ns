@@ -31,13 +31,13 @@ Slot should become an above-SDK capability extension with a curated `@sdl/slot/a
 ## Assumptions and Risks
 
 - De-risked: `@sdl/slot/api` can be consumed by `sdlcc` without introducing a package dependency cycle; PR #2131 adds the dependency and validates the workspace.
-- De-risked: Slot vocabulary/context documentation now records the durable command-face, Peer API, shell/navigation, side-effect, and `sdl slot gt` boundaries in `ts/packages/slot/CONTEXT.md` and `CONTEXT-MAP.md`.
+- De-risked: Slot vocabulary/context documentation now records the durable command-face, Peer API, shell/navigation, side-effect, and `sdl slot gt` boundaries in `ts/packages/capabilities/slot/CONTEXT.md` and `CONTEXT-MAP.md`.
 - Accepted follow-up: Slot Peer API timeout/abort semantics remain separate future design work if a concrete in-process caller needs cancellation behavior.
 
 ## Open Questions
 
-- None. Future Slot boundary changes should update `ts/packages/slot/CONTEXT.md` deliberately.
+- None. Future Slot boundary changes should update `ts/packages/capabilities/slot/CONTEXT.md` deliberately.
 
 ## Closure
 
-Completed. Slot now has an above-SDK command/Peer API architecture consistent with ADR 0009: in-process sibling consumers use the curated `@sdl/slot/api` Peer API for checkout composition, supported command usage goes through `sdl slot ...`, SDL owns the shell command mounting and parent-shell wrapper surface, and `sdl slot gt` operations have explicit command-face dispositions. The remaining durable vocabulary boundary is documented in `ts/packages/slot/CONTEXT.md` and registered in `CONTEXT-MAP.md`; deferred timeout/abort behavior is an accepted follow-up outside this Objective.
+Completed. Slot now has an above-SDK command/Peer API architecture consistent with ADR 0009: in-process sibling consumers use the curated `@sdl/slot/api` Peer API for checkout composition, supported command usage goes through `sdl slot ...`, SDL owns the shell command mounting and parent-shell wrapper surface, and `sdl slot gt` operations have explicit command-face dispositions. The remaining durable vocabulary boundary is documented in `ts/packages/capabilities/slot/CONTEXT.md` and registered in `CONTEXT-MAP.md`; deferred timeout/abort behavior is an accepted follow-up outside this Objective.
