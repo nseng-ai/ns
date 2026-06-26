@@ -124,7 +124,7 @@ the high-agreement changes, and parking the contested or large ones as backlog.
   process exit codes coarse and stable and makes the machine envelope the
   authoritative surface for detailed failure semantics through disciplined
   `error_type`/`code` plus structured `data`/details. ADR 0013 narrows Clinkr's
-  practical taxonomy to `ok=0`, `negative=1`, and `failure/usage_error=2`, and
+  practical taxonomy to `ok=0`, `negative=1`, and `failure/usageError=2`, and
   removes the redundant shell-exit opt-in surface. The ADRs preserve dissent for
   richer numeric taxonomies as useful for specialized shell-only automation but
   not Clinkr's default.
@@ -143,9 +143,11 @@ the high-agreement changes, and parking the contested or large ones as backlog.
   tiers, TTY-gated prompting, non-interactive fail-fast, dry-run as `ok(...)`, and
   the `--yes`/`-y` (Tier 2 confirm) vs `--force`/`-f` (Tier 3 precondition
   override) verb split; tiers are `sdl-cli-design` authoring discipline, not a new
-  Clinkr framework type. Authored under the `clinkr-confirmation-danger-tiers`
-  subobjective, whose Clinkr audit/conformance + handback slice is still in
-  flight.
+  Clinkr framework type. The `clinkr-confirmation-danger-tiers` subobjective has
+  landed the conformance audit and minimal implementation: handler-returned
+  `usageError(...)`, injected `ClinkrInteraction.isInteractive()`, `handoff delete`
+  as Tier 2 `--yes`/`-y`, and non-interactive missing-authorization `usageError`
+  for `handoff delete`, `handoff gc`, and `slot gc`.
 - Should the agent-ergonomics Clinkr changes proceed now or wait behind the
   `sdl-extension-architecture` endgame that currently pauses
   `ts-cli-core-structural-cleanup`?

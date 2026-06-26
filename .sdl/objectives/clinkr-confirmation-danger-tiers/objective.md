@@ -11,7 +11,7 @@ The subobjective exists to keep policy and code close together: write the confir
 - Write the next ADR for confirmation and danger tiers, preserving dissent between first-class framework tiers and command-local flexibility.
 - Define the command-authoring policy for safe operations, scoped mutations, destructive/external mutations, high-blast-radius operations, confirmations, `--yes`, `--force`, dry-run/preview behavior, and non-interactive/agent-safe execution.
 - Treat Tier 3 as the highest danger band: high blast radius, irreversible or hard-to-review effects, broad external mutation, or computed target sets where a wrong preview could cause large damage.
-- Standardize Tier 3 authorization on `--force` / `-f`: Tier 3 commands refuse the high-blast-radius operation by default and require `--force`/`-f` (the established short alias on `brmem put`, `handoff delete`, `handoff gc`, `slot gc`) to proceed; Tier 2 scoped destructive operations use `--yes` / `-y`. Individual commands may layer a typed `--confirm <value>` on top of `--force` when warranted.
+- Standardize Tier 3 authorization on `--force` / `-f`: Tier 3 commands refuse the high-blast-radius operation by default and require `--force`/`-f` (the established short alias on current Tier 3 commands such as `brmem put`, `handoff gc`, and `slot gc`) to proceed; Tier 2 scoped destructive operations such as `handoff delete` use `--yes` / `-y`. Individual commands may layer a typed `--confirm <value>` on top of `--force` when warranted.
 - Audit existing Clinkr confirmation/interaction behavior against the accepted ADR.
 - Implement the smallest appropriate Clinkr/framework changes, with tests, so framework behavior matches the accepted policy.
 - Feed the accepted policy and implementation evidence back into `agent-cli-design-discipline`, and ensure the future `sdl-cli-design` skill can encode the rule without contradicting Clinkr behavior.
@@ -39,7 +39,7 @@ Assumptions:
 
 - The parent `agent-cli-design-discipline` Objective remains the right umbrella for the broader CLI design discipline, and this record is only the focused danger-tier subobjective.
 - ADR-driven implementation is the right sequencing: policy first, then minimal framework conformance, rather than framework API design in advance.
-- Tier 3 authorization standardizes on `--force` / `-f` (revised from the earlier `--yes`-acceptable assumption): `--force` correctly names overriding the strong default guard on a high-blast-radius operation, and it matches the existing `-f`/`--force` convention on the destructive/bulk commands.
+- Tier 3 authorization standardizes on `--force` / `-f` (revised from the earlier `--yes`-acceptable assumption): `--force` correctly names overriding the strong default guard on a high-blast-radius operation, and it remains the convention on current Tier 3 destructive/bulk commands. `handoff delete` has been audited as Tier 2 scoped deletion and moved to `--yes`/`-y`.
 
 Risks:
 
@@ -50,7 +50,8 @@ Risks:
 
 ## Open Questions
 
-- Does the accepted policy require changes to `ClinkrInteraction.confirm`, rendered command options, JSON envelopes, schema output, or only authoring guidance plus tests?
-- Which existing SDL/Clinkr commands, if any, should be used as concrete evidence for framework conformance in this slice?
+Resolved: ADR 0014 (`docs/adr/0014-clinkr-confirmation-danger-tiers.md`) records the policy. The conformance audit (`references/clinkr-confirmation-conformance-audit.md`) answered the framework question: Clinkr needed a handler-reachable `usageError(...)` exit, a minimal `ClinkrInteraction.isInteractive()` seam signal, and command-local TTY-gated authorization checks for `handoff delete`, `handoff gc`, and `slot gc`. No first-class danger-tier metadata/API is needed for this slice. `brmem put` remains a precondition-override `failure(...)`, dry-run remains `ok(...)`, and no current command requires typed `--confirm`.
 
-Resolved: the decision is recorded in ADR 0014 (`docs/adr/0014-clinkr-confirmation-danger-tiers.md`). `--yes`/`-y` is Tier 2 confirmation and `--force`/`-f` is Tier 3 precondition override; the `sdl-cli-design` skill should carry that same distinction.
+## Closure
+
+This subobjective is complete. ADR 0014 is accepted, the conformance audit exists at `references/clinkr-confirmation-conformance-audit.md`, and the implementation landed the minimal Clinkr and command-local conformance surface: `usageError(...)` is handler-reachable with camelCase machine envelopes, the interaction seam exposes `isInteractive()`, `handoff delete` is Tier 2 `--yes`/`-y`, `handoff gc` and `slot gc` TTY-gate prompts and fail fast non-interactively with `usageError`, and docs/skills/tests reflect the contract. Validation evidence: `pnpm --dir ts run check`, `pnpm --dir ts run test`, and `just` pass on this branch. The remaining full `sdl-cli-design` skill authoring belongs to the parent `agent-cli-design-discipline` Objective.

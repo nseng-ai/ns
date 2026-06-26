@@ -26,7 +26,7 @@ internal consumers.
 
 The JSON machine envelope is a camelCase discriminated union with:
 
-- `status`: one of `ok`, `negative`, `failure`, or `usage_error`;
+- `status`: one of `ok`, `negative`, `failure`, or `usageError`;
 - `exitCode`: the shell-correlating numeric code;
 - optional `errorType`, `message`, and `data` where the variant needs them.
 
@@ -35,7 +35,7 @@ structured `data`. `shell-negative` remains an internal process-behavior variant
 but maps to JSON status `negative`.
 
 Rendered commands in JSON mode should envelope schema/argument validation errors
-as `usage_error` exits. Human and Markdown modes continue to use human-oriented
+as `usageError` exits. Human and Markdown modes continue to use human-oriented
 usage prose. Commander-level parse errors may be enveloped only when Clinkr can
 safely determine JSON mode from argv without parsing Commander human output or
 forking Commander internals.

@@ -161,7 +161,11 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 			env: resolvedEnv,
 			stdout: resolvedStdout,
 			stderr: resolvedStderr,
-			interaction: resolveClinkrInteraction({ stdin: readStdinLine, stderr: resolvedStderr }),
+			interaction: resolveClinkrInteraction({
+				stdin: readStdinLine,
+				stderr: resolvedStderr,
+				isInteractive: () => process.stdin.isTTY === true,
+			}),
 			shouldWriteCdDirective: isClinkrHumanOutputInvocation(args),
 		};
 		return {

@@ -36,6 +36,7 @@ export type ScenarioStdin = string | (() => Promise<string | null>) | undefined;
 export function createFakeClinkrInteraction(
 	options: {
 		confirmations?: readonly ConfirmationResult[] | undefined;
+		isInteractive?: boolean | undefined;
 	} = {},
 ): FakeClinkrInteraction {
 	const confirmations = [...(options.confirmations ?? [])];
@@ -50,6 +51,7 @@ export function createFakeClinkrInteraction(
 				}
 				return { ...result };
 			},
+			isInteractive: () => options.isInteractive ?? false,
 		},
 		requests: () => requests.map((request) => ({ ...request })),
 		assertComplete: () => {
@@ -74,6 +76,7 @@ export function createScenarioClinkrInteraction(options: {
 	hasStdin: boolean;
 	interaction?: ClinkrInteraction | undefined;
 	confirmations?: readonly ConfirmationResult[] | undefined;
+	isInteractive?: boolean | undefined;
 }): ScenarioClinkrInteraction {
 	if (options.interaction !== undefined) {
 		return {
@@ -82,8 +85,13 @@ export function createScenarioClinkrInteraction(options: {
 			assertComplete: () => {},
 		};
 	}
+	const isInteractive =
+		options.isInteractive ?? (options.hasStdin || options.confirmations !== undefined);
 	if (!options.hasStdin) {
-		const fake = createFakeClinkrInteraction({ confirmations: options.confirmations });
+		const fake = createFakeClinkrInteraction({
+			confirmations: options.confirmations,
+			isInteractive,
+		});
 		return {
 			depsInteraction: fake.interaction,
 			contextInteraction: fake.interaction,
@@ -91,7 +99,8 @@ export function createScenarioClinkrInteraction(options: {
 		};
 	}
 	return {
-		contextInteraction: createFakeClinkrInteraction({ confirmations: [] }).interaction,
+		contextInteraction: createFakeClinkrInteraction({ confirmations: [], isInteractive })
+			.interaction,
 		assertComplete: () => {},
 	};
 }

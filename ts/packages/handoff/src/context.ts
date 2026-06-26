@@ -27,7 +27,11 @@ export function createRealHandoffContext(
 		env,
 		git,
 		brmem: new RealGitBrmemGateway({ cwd, commands: execApi, git }),
-		interaction: resolveClinkrInteraction({ stdin: readStdinLine, stderr }),
+		interaction: resolveClinkrInteraction({
+			stdin: readStdinLine,
+			stderr,
+			isInteractive: () => process.stdin.isTTY === true,
+		}),
 		stderr,
 	};
 }

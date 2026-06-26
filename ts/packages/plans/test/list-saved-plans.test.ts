@@ -146,9 +146,9 @@ describe("plans list CLI", () => {
 
 		expect(exitCode).toBe(2);
 		expect(JSON.parse(output.stdoutText())).toMatchObject({
-			status: "usage_error",
+			status: "usageError",
 			exitCode: 2,
-			errorType: "usage_error",
+			errorType: "usageError",
 			message: "error: unknown option '--bogus'",
 		});
 		expect(output.stderrText()).toBe("error: unknown option '--bogus'\n");

@@ -1,4 +1,4 @@
-import { failure, negative, ok } from "@sdl/clinkr";
+import { failure, negative, ok, usageError } from "@sdl/clinkr";
 import { z } from "zod";
 
 import type { RepoSlotContext, SlotCliContext } from "../context.ts";
@@ -69,11 +69,16 @@ export async function runGc(ctx: SlotCliContext, request: GcRequest) {
 	if (plan.outcome.would_free_count === 0)
 		return ok(toGcResult(outcomeFromGcPlan(plan.outcome, { isDryRun: false })));
 	if (!request.force) {
-		if (!ctx.shouldWriteCdDirective)
-			return failure(
-				"confirmation_required",
-				"Destructive gc requires --force in JSON mode (or use --dry-run first).",
+		if (!ctx.interaction.isInteractive()) {
+			return usageError(
+				"Destructive gc requires --force when non-interactive (or run --dry-run first).",
+				{
+					missingFlag: "--force",
+					howToSupply:
+						"Pass --force (or -f) to free slots without prompting, or run --dry-run first.",
+				},
 			);
+		}
 		const cleanup = await planGcCleanup(repoCtx, plan.outcome, cleanupActions);
 		repoCtx.stderr(
 			`${renderGc(toGcResult(outcomeFromGcPlan(plan.outcome, { isDryRun: true, cleanup })))}\n`,

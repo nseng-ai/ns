@@ -9,12 +9,12 @@ import {
 } from "../support/run-scenario.ts";
 
 describe("handoff delete", () => {
-	test("force deletes current branch handoff", async () => {
+	test("yes deletes current branch handoff", async () => {
 		const gateway = new FakeBrmemGateway();
 		await putHandoffEntry(gateway, { key: "alpha.md", branch: "feat/x", content: "alpha" });
 		await putHandoffEntry(gateway, { key: "bravo.md", branch: "feat/x", content: "bravo" });
 
-		const run = runScenario(["delete", "--force", "alpha", "--format", "json"], { brmem: gateway });
+		const run = runScenario(["delete", "--yes", "alpha", "--format", "json"], { brmem: gateway });
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
@@ -38,7 +38,7 @@ describe("handoff delete", () => {
 		const gateway = new FakeBrmemGateway();
 		await putHandoffEntry(gateway, { key: "stale.md", branch: "feat/deleted", content: "stale" });
 		const run = runScenario(
-			["delete", "--branch", "feat/deleted", "--force", "stale", "--format", "json"],
+			["delete", "--branch", "feat/deleted", "--yes", "stale", "--format", "json"],
 			{
 				brmem: gateway,
 				gitState: { currentBranch: { type: "detached" }, existingBranches: [] },
@@ -100,7 +100,7 @@ describe("handoff delete", () => {
 		expect(await branch.exit).toBe(2);
 		expect(parseJsonOutput(branch)).toMatchObject({ errorType: "invalid_branch_name" });
 
-		const missing = runScenario(["delete", "--force", "missing", "--format", "json"]);
+		const missing = runScenario(["delete", "--yes", "missing", "--format", "json"]);
 		expect(await missing.exit).toBe(2);
 		expect(parseJsonOutput(missing)).toMatchObject({
 			errorType: "handoff_not_found",
@@ -112,5 +112,20 @@ describe("handoff delete", () => {
 		});
 		expect(await detached.exit).toBe(2);
 		expect(parseJsonOutput(detached)).toMatchObject({ errorType: "detached_head" });
+	});
+
+	test("non-interactive delete without --yes fails as usageError", async () => {
+		const gateway = new FakeBrmemGateway();
+		await putHandoffEntry(gateway, { key: "alpha.md", branch: "feat/x", content: "alpha" });
+		const run = runScenario(["delete", "alpha", "--format", "json"], { brmem: gateway });
+
+		expect(await run.exit).toBe(2);
+		expect(parseJsonOutput(run)).toMatchObject({
+			status: "usageError",
+			exitCode: 2,
+			errorType: "usageError",
+			data: { missingFlag: "--yes" },
+		});
+		expect(await getEntryContent(gateway, { key: "alpha.md", branch: "feat/x" })).toBe("alpha");
 	});
 });

@@ -45,9 +45,9 @@ describe("usage errors", () => {
 		const run = await runForTest(buildGroup(), ["echo", "--format", "json"], { context: null });
 		expect(run.exitCode).toBe(2);
 		expect(JSON.parse(run.stdout)).toMatchObject({
-			status: "usage_error",
+			status: "usageError",
 			exitCode: 2,
-			errorType: "usage_error",
+			errorType: "usageError",
 		});
 		expect(run.stderr).toBe("");
 	});

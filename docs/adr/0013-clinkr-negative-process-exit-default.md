@@ -33,10 +33,10 @@ markdown, and JSON rendered modes. Its JSON machine envelope remains
 Harmless empty or no-op results should not use `negative(...)`. They should return
 `ok(...)` with explicit empty data and human output that explains the no-op.
 
-`failure(...)` / `ClinkrFailure` and `usage_error` remain exit `2` for this slice.
+`failure(...)` / `ClinkrFailure` and `usageError` remain exit `2` for this slice.
 ADR 0013 narrows any ambiguous ADR 0010 prose for Clinkr's current failure
 channel: the practical taxonomy is `ok=0`, `negative=1`, and
-`failure/usage_error=2`.
+`failure/usageError=2`.
 
 Clinkr removes `--shell-exit-code`. The flag is redundant once `negative(...)`
 exits `1` by default, and keeping it would imply a compatibility mode that no

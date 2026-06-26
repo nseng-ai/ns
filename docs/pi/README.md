@@ -209,7 +209,7 @@ See [Branch Context Workflow](./branch-context-workflow.md).
 
 ## Handoff artifacts
 
-A handoff is a directed, durable work-context artifact for a specific future continuation. Use create, pick up, list, and continuation-focus language in normal user-facing copy; pickup presents a summary and waits for the user's next instruction. Branch Memory is the current technical storage layer, not the public model. The project-local Pi handoff lifecycle surface remains `/handoff:create`, `/handoff:pickup`, and `/handoff:list`; focused cmux pickup launch is `/ccc:handoff-tab`. Explicit single-handoff deletion is currently available through the standalone TypeScript CLI as `handoff delete [--branch <branch>] [-f|--force] <slug>`.
+A handoff is a directed, durable work-context artifact for a specific future continuation. Use create, pick up, list, and continuation-focus language in normal user-facing copy; pickup presents a summary and waits for the user's next instruction. Branch Memory is the current technical storage layer, not the public model. The project-local Pi handoff lifecycle surface remains `/handoff:create`, `/handoff:pickup`, and `/handoff:list`; focused cmux pickup launch is `/ccc:handoff-tab`. Explicit single-handoff deletion is currently available through the standalone TypeScript CLI as `handoff delete [--branch <branch>] [-y|--yes] <slug>`.
 
 See [Handoff Artifacts](./handoff-artifacts.md).
 

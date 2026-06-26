@@ -104,4 +104,18 @@ describe("ClinkrInteraction.confirm", () => {
 			interaction.confirm({ message: "Continue?", defaultAnswer: "no" }),
 		).resolves.toEqual({ type: "confirmed" });
 	});
+
+	test("defaults to non-interactive", () => {
+		const interaction = createClinkrInteraction({ stdin: async () => "y", stderr: () => {} });
+		expect(interaction.isInteractive()).toBe(false);
+	});
+
+	test("uses injected interactivity", () => {
+		const interaction = createClinkrInteraction({
+			stdin: async () => "y",
+			stderr: () => {},
+			isInteractive: () => true,
+		});
+		expect(interaction.isInteractive()).toBe(true);
+	});
 });

@@ -30,7 +30,7 @@ command-authoring rules now, and add framework metadata only if repeated
 commands need it.
 
 ADR 0010, 0011, and 0013 already settled the surrounding contract this ADR builds
-on. Process exit codes are coarse (`ok=0`, `negative=1`, `failure/usage_error=2`)
+on. Process exit codes are coarse (`ok=0`, `negative=1`, `failure/usageError=2`)
 and detailed semantics live in a camelCase discriminated machine envelope with
 `status`, `exitCode`, optional `errorType`, `message`, and `data`. This ADR must
 fit confirmation and danger behavior into that existing envelope rather than
@@ -72,12 +72,13 @@ authorization. By default a Tier 3 command refuses to perform a
 high-blast-radius or computed-target-set operation; `--force` is what relaxes
 that default guard, so it is the correct verb rather than a generic confirmation.
 This matches the established local convention: `-f` is already the short alias
-for `--force` on the existing destructive/bulk commands (`brmem put`,
-`handoff delete`, `handoff gc`, `slot gc`).
+for `--force` on the existing Tier 3 destructive/bulk commands (`brmem put`,
+`handoff gc`, `slot gc`). `handoff delete` was later audited as Tier 2 scoped
+deletion and moved to `--yes`/`-y`.
 
 `--force` / `-f` is the non-interactive authorization for Tier 3: when it is
 present the command proceeds without prompting; when it is absent in a
-non-interactive context the command fails fast as a `usage_error` naming the
+non-interactive context the command fails fast as a `usageError` naming the
 missing flag. Tier 3 commands should not rely on a bare interactive `y/N` prompt
 as their only guard, because a single keystroke is too weak for a computed,
 potentially large target set. Commands should still offer a dry-run/preview and
@@ -119,7 +120,7 @@ authorization:
 
 - If the missing authorization is an invocation problem — a required `--yes`
   (Tier 2), `--force`/`-f` (Tier 3), or a command-specific `--confirm` value was
-  not supplied — the command fails as a `usage_error` (exit `2`) whose machine
+  not supplied — the command fails as a `usageError` (exit `2`) whose machine
   `data` names the missing flag or confirmation value and how to supply it.
 - If the command ran with valid invocation but deliberately refused because the
   computed impact is unsafe to proceed with (for example, the target set is larger
@@ -159,13 +160,14 @@ shape is needed.
 - The verb-per-tier standard (`--yes`/`-y` for Tier 2, `--force`/`-f` for Tier 3)
   must be reflected consistently in command options and docs; commands that
   conflated confirmation with precondition override need cleanup as they are
-  touched. Existing `-f`/`--force` bulk commands (`brmem put`, `handoff delete`,
-  `handoff gc`, `slot gc`) already match the Tier 3 standard.
+  touched. Existing `-f`/`--force` Tier 3 commands (`brmem put`, `handoff gc`,
+  `slot gc`) match the Tier 3 standard; scoped deletion commands such as
+  `handoff delete` use `--yes`/`-y`.
 - Because tiers stay command-local discipline rather than framework type, tier
   correctness depends on authoring and review until repeated patterns justify a
   shared Clinkr surface.
 - Refusal-by-impact maps to `negative(...)` and missing-authorization maps to
-  `usage_error`, keeping process exit semantics consistent with ADR 0010/0013.
+  `usageError`, keeping process exit semantics consistent with ADR 0010/0013.
 
 ## Rejected Alternatives
 

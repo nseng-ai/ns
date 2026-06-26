@@ -215,9 +215,9 @@ describe("copy operation", () => {
 		]);
 		expect(await missingFrom.exit).toBe(2);
 		expect(parseJsonOutput(missingFrom)).toMatchObject({
-			status: "usage_error",
+			status: "usageError",
 			exitCode: 2,
-			errorType: "usage_error",
+			errorType: "usageError",
 			message: expect.stringContaining("--from-branch"),
 		});
 
@@ -231,9 +231,9 @@ describe("copy operation", () => {
 		]);
 		expect(await missingTo.exit).toBe(2);
 		expect(parseJsonOutput(missingTo)).toMatchObject({
-			status: "usage_error",
+			status: "usageError",
 			exitCode: 2,
-			errorType: "usage_error",
+			errorType: "usageError",
 			message: expect.stringContaining("--to-branch"),
 		});
 	});

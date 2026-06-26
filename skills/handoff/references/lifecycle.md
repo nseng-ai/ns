@@ -58,7 +58,7 @@ CLI surfaces:
 
 ```text
 handoff list [--branch <branch>|--all] [--include-deleted] --format json
-handoff delete [--branch <branch>] [-f|--force] <slug>
+handoff delete [--branch <branch>] [-y|--yes] <slug>
 handoff gc [--dry-run|-f]
 brmem get|check|put|copy|delete ... --namespace handoff
 ```

@@ -153,9 +153,9 @@ describe("branch-context CLI help, version, and dispatch pins", () => {
 		const unknownExecJson = runWithFakes(["exec", "bogus", "--format", "json"], { cwd: repoRoot });
 		expect(await unknownExecJson.exit).toBe(2);
 		expect(parseJson(unknownExecJson)).toMatchObject({
-			status: "usage_error",
+			status: "usageError",
 			exitCode: 2,
-			errorType: "usage_error",
+			errorType: "usageError",
 			message: "error: unknown command 'bogus'",
 		});
 		expect(unknownExecJson.stderr.join("")).toBe("error: unknown command 'bogus'\n");
@@ -182,9 +182,9 @@ describe("branch-context CLI parse failures", () => {
 
 		expect(await run.exit).toBe(2);
 		expect(parseJson(run)).toMatchObject({
-			status: "usage_error",
+			status: "usageError",
 			exitCode: 2,
-			errorType: "usage_error",
+			errorType: "usageError",
 			message: "error: too many arguments for 'from-plan'. Expected 0 arguments but got 1.",
 		});
 		expect(run.stderr.join("")).toBe(
@@ -222,9 +222,9 @@ describe("branch-context CLI parse failures", () => {
 		const json = runWithFakes(["exec", "load", "--format", "json", "--bogus"], { cwd: repoRoot });
 		expect(await json.exit).toBe(2);
 		expect(parseJson(json)).toMatchObject({
-			status: "usage_error",
+			status: "usageError",
 			exitCode: 2,
-			errorType: "usage_error",
+			errorType: "usageError",
 			message: "error: unknown option '--bogus'",
 		});
 		expect(json.stderr.join("")).toBe("error: unknown option '--bogus'\n");
@@ -370,9 +370,9 @@ describe("branch-context CLI surface pinning", () => {
 		);
 		expect(await json.exit).toBe(2);
 		expect(parseJson(json)).toMatchObject({
-			status: "usage_error",
+			status: "usageError",
 			exitCode: 2,
-			errorType: "usage_error",
+			errorType: "usageError",
 			message: message.trimEnd(),
 		});
 		expect(json.stderr.join("")).toBe(message);
@@ -475,9 +475,9 @@ describe("branch-context CLI surface pinning", () => {
 		});
 		expect(await duplicate.exit).toBe(2);
 		expect(parseJson(duplicate)).toMatchObject({
-			status: "usage_error",
+			status: "usageError",
 			exitCode: 2,
-			errorType: "usage_error",
+			errorType: "usageError",
 			message: "error: too many arguments for 'load'. Expected 1 argument but got 2.",
 		});
 		expect(duplicate.stderr.join("")).toBe(

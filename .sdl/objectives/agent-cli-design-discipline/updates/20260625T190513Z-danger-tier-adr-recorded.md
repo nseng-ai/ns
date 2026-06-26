@@ -30,8 +30,8 @@ slice. This ADR was authored under the focused
 
 ## Follow-Ups
 
-- Let the `clinkr-confirmation-danger-tiers` subobjective finish its Clinkr audit
-  + minimal conformance + handback so the parent's "Land high-agreement Clinkr
+- Let the `clinkr-confirmation-danger-tiers` subobjective finish its Clinkr audit,
+  minimal conformance, and handback so the parent's "Land high-agreement Clinkr
   changes" row can absorb any danger-tier deltas with evidence.
 - When authoring `sdl-cli-design`, encode the four-tier model and the
   `--yes`/`-y` vs `--force`/`-f` distinction, flagging danger-tier conformance as

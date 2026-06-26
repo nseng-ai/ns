@@ -38,14 +38,14 @@
     bounded-output guidance in `sdl-cli-design` and reopen framework extraction
     only after repeated command pressure or one severe agent-context failure.
   - ADR 0013 records the negative process-exit default decision: `ok=0`,
-    `negative=1`, and `failure/usage_error=2`; remove the redundant
+    `negative=1`, and `failure/usageError=2`; remove the redundant
     `--shell-exit-code` and `shellNegative` surfaces.
 - [ ] Author and register the `sdl-cli-design` skill.
   - Clinkr-grounded overlay; `normal`/ambient via `areg`. Sections: basics as
     hard gates, human tier (clig.dev), agent/`exec` tier (agent-era), naming,
     pre-ship checklist. Map each rule to the Clinkr API that satisfies it; flag
     current Clinkr limitations to design around. Resolve public-vs-internal first.
-- [~] Land the high-agreement Clinkr changes accepted by ADRs.
+- [x] Land the high-agreement Clinkr changes accepted by ADRs.
   - ADR 0011's high-agreement envelope reset has landed: structured failure
     `data` is preserved, JSON-mode usage errors are enveloped, machine envelope
     schemas are published, and TS package tests/consumers were migrated to the
@@ -53,9 +53,13 @@
   - ADR 0013's negative-default migration has landed in Clinkr: rendered
     `negative(...)` exits `1` by default, human/markdown negative messages go to
     stderr, JSON envelopes remain stdout with `exitCode: 1`, and the redundant
-    `--shell-exit-code` / `shellNegative` split is removed. Remaining
-    implementation work should be gated by the remaining ADRs rather than by the
-    old Python-parity concern.
+    `--shell-exit-code` / `shellNegative` split is removed.
+  - ADR 0014's confirmation/danger-tier conformance has landed: Clinkr exposes
+    handler-returned `usageError(...)` and injected `ClinkrInteraction.isInteractive()`;
+    `handoff delete` is Tier 2 `--yes`/`-y`; `handoff gc` and `slot gc` remain Tier 3
+    `--force`/`-f`; and all three prompting destructive commands fail fast
+    non-interactively with `usageError` data naming the missing flag. The remaining
+    parent work is skill authoring, not Clinkr conformance.
 
 ## Parked
 

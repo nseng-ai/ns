@@ -34,7 +34,8 @@ describe("handoff CLI shape", () => {
 		expect(await del.exit).toBe(0);
 		expect(del.stdout.join("")).toContain("Usage: handoff delete");
 		expect(del.stdout.join("")).toContain("--branch");
-		expect(del.stdout.join("")).toContain("--force");
+		expect(del.stdout.join("")).toContain("--yes");
+		expect(del.stdout.join("")).not.toContain("--force");
 
 		const gc = runScenario(["gc", "--help"]);
 		expect(await gc.exit).toBe(0);

@@ -1,4 +1,4 @@
-import { failure, ok } from "@sdl/clinkr";
+import { failure, ok, usageError } from "@sdl/clinkr";
 import { z } from "zod";
 
 import type { HandoffCliContext } from "../context.ts";
@@ -8,7 +8,7 @@ import { resolveBranch } from "./shared.ts";
 export const deleteRequestSchema = z.object({
 	slug: z.string().describe("Handoff slug."),
 	branch: z.string().optional().describe("Branch. Defaults to current branch."),
-	force: z.boolean().default(false).describe("Delete without prompting."),
+	yes: z.boolean().default(false).describe("Confirm deletion without prompting."),
 });
 
 export const deleteResultSchema = z.object({
@@ -36,7 +36,13 @@ export async function runDelete(ctx: HandoffCliContext, request: DeleteRequest) 
 	);
 	if (target.type === "error") return failure(target.error.code, target.error.message);
 
-	if (!request.force) {
+	if (!request.yes) {
+		if (!ctx.interaction.isInteractive()) {
+			return usageError("Deleting a handoff requires --yes when non-interactive.", {
+				missingFlag: "--yes",
+				howToSupply: "Pass --yes (or -y) to confirm deletion without prompting.",
+			});
+		}
 		const confirmed = await ctx.interaction.confirm({
 			message: `Delete handoff \`${target.value.slug}\` on branch \`${target.value.branch}\`?`,
 			defaultAnswer: "no",
