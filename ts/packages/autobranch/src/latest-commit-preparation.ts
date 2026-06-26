@@ -1,4 +1,3 @@
-import { runGraphiteCommand } from "@sdl/graphite/branch";
 import type { CommandResult, PendingWorktreeSnapshot } from "./shared.ts";
 import { chooseAvailableBranchName } from "./branch-name.ts";
 import {
@@ -24,7 +23,6 @@ export interface LatestCommitPreparationInput {
 
 interface LatestCommitFacts {
 	sourceBranch: string;
-	trunkBranch: string;
 	originalHeadSha: string;
 	parentSha: string;
 	commitMessage: string;
@@ -42,8 +40,6 @@ export interface LatestCommitAutobranchPlan extends LatestCommitFacts {
 
 export type LatestCommitPreparationResult =
 	| { ok: true; plan: LatestCommitAutobranchPlan }
-	| { ok: false; kind: "trunk_lookup_failed"; error: string }
-	| { ok: false; kind: "trunk_refusal"; branch: string }
 	| { ok: false; kind: "upstream_check_failed"; error: string }
 	| { ok: false; kind: "pushed_head_refusal"; upstream: string }
 	| { ok: false; kind: "child_branch_check_failed"; error: string }
@@ -60,8 +56,6 @@ type LatestCommitFactsFailure = Extract<
 	LatestCommitPreparationResult,
 	{
 		kind:
-			| "trunk_lookup_failed"
-			| "trunk_refusal"
 			| "upstream_check_failed"
 			| "pushed_head_refusal"
 			| "child_branch_check_failed"
@@ -122,28 +116,6 @@ export async function prepareLatestCommitAutobranchPlan(
 export async function loadLatestCommitFacts(
 	input: Pick<LatestCommitPreparationInput, "cwd" | "exec" | "snapshot">,
 ): Promise<LatestCommitFactsResult> {
-	const trunk = await runGraphiteCommand(
-		async (command, args, options) => {
-			const result = await input.exec(command, [...args], options?.timeout ?? GT_TIMEOUT_MS);
-			return { ...result, killed: result.killed ?? false };
-		},
-		{ cwd: input.cwd, args: ["trunk", "--no-interactive"], timeoutMs: GT_TIMEOUT_MS },
-	);
-	if (trunk.code !== 0) {
-		return { ok: false, kind: "trunk_lookup_failed", error: formatAutobranchCommandDetails(trunk) };
-	}
-	const trunkBranch = trunk.stdout
-		.trim()
-		.split("\n")
-		.find((line) => line.trim().length > 0)
-		?.trim();
-	if (!trunkBranch) {
-		return { ok: false, kind: "trunk_lookup_failed", error: "gt trunk returned no branch name." };
-	}
-	if (input.snapshot.branch === trunkBranch) {
-		return { ok: false, kind: "trunk_refusal", branch: input.snapshot.branch };
-	}
-
 	const upstream = await inspectUpstreamHeadState(input);
 	if (upstream.type === "failed") {
 		return { ok: false, kind: "upstream_check_failed", error: upstream.error };
@@ -212,7 +184,6 @@ export async function loadLatestCommitFacts(
 		ok: true,
 		facts: {
 			sourceBranch: input.snapshot.branch,
-			trunkBranch,
 			originalHeadSha: headSha,
 			parentSha: parentShas[0] as string,
 			commitMessage: message.stdout,

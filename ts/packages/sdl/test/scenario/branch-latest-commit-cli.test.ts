@@ -87,7 +87,6 @@ function cleanLatestCommitResponses(
 		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/source\n" } },
 		{ match: "git status --porcelain=v1", result: { stdout: "" } },
 		{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
-		{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 		{ match: "git branch --show-current", result: { stdout: "feature/source\n" } },
 		{
 			match: "git for-each-ref --format=%(upstream:short) refs/heads/feature/source",
@@ -204,7 +203,6 @@ describe("project-local branch-latest-commit extension", () => {
 		expect(run.stderr.join("")).toBe("");
 		expect(formattedExecCalls(run.context)).toEqual(
 			expect.arrayContaining([
-				"gt trunk --no-interactive",
 				"gt children --no-interactive",
 				`git branch autobranch-backup/feature/source/123456789 ${HEAD_SHA}`,
 				`git reset --hard ${PARENT_SHA}`,
@@ -279,7 +277,7 @@ describe("project-local branch-latest-commit extension", () => {
 			args: ["flow", "branch-latest-commit", "--slug", "extract-commit"],
 			state: {
 				exec: [
-					...cleanLatestCommitResponses().slice(0, 26),
+					...cleanLatestCommitResponses().slice(0, 25),
 					{
 						match: "gt create extract-commit --no-interactive --no-ai",
 						result: { code: 1, stderr: "fatal: cannot lock ref\n" },
@@ -311,7 +309,7 @@ describe("project-local branch-latest-commit extension", () => {
 			args: ["flow", "branch-latest-commit", "--slug", "extract-commit"],
 			state: {
 				exec: [
-					...cleanLatestCommitResponses().slice(0, 22),
+					...cleanLatestCommitResponses().slice(0, 21),
 					{
 						match: `git branch autobranch-backup/feature/source/123456789 ${HEAD_SHA}`,
 						result: { code: 128, stderr: "fatal: cannot lock ref\n" },

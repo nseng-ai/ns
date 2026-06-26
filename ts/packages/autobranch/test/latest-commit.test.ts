@@ -17,7 +17,6 @@ import { buildSlugModelArgs } from "@sdl/core/model-slug";
 
 interface PreparationHarnessOptions {
 	slug?: string;
-	shouldTrunkFail?: boolean;
 	currentBranch?: string;
 	upstreamMode?: UpstreamMode;
 	parentsLine?: string;
@@ -49,9 +48,6 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 		snapshot,
 		exec: async (command: string, args: string[]) => {
 			calls.push({ command, args });
-			if (command === "gt" && args[0] === "trunk") {
-				return options.shouldTrunkFail ? fail("gt trunk failed") : ok("master\n");
-			}
 			if (command === "git" && args[0] === "branch" && args[1] === "--show-current") {
 				return ok(`${snapshot.branch}\n`);
 			}
@@ -107,7 +103,6 @@ function piPrompt(calls: Array<{ command: string; args: string[] }>): string {
 function basePlan(overrides: Partial<LatestCommitAutobranchPlan> = {}): LatestCommitAutobranchPlan {
 	return {
 		sourceBranch: "feature/base",
-		trunkBranch: "master",
 		originalHeadSha: "abc123def456",
 		parentSha: "parent987654",
 		commitMessage: "Add latest commit support\n",
@@ -268,23 +263,29 @@ describe("prepareLatestCommitAutobranchPlan", () => {
 		expect(prompt).toContain("## git diff HEAD^ HEAD\ndiff --git");
 	});
 
-	test("invalid explicit slug fails before trunk lookup", async () => {
+	test("invalid explicit slug fails before reading commit evidence", async () => {
 		const harness = createPreparationHarness({ slug: "---", currentBranch: "master" });
 
 		const result = await prepareLatestCommitAutobranchPlan(harness.input);
 
 		expect(result).toEqual({ ok: false, kind: "invalid_requested_slug", requestedSlug: "---" });
-		expect(harness.calls.some((call) => call.command === "gt" && call.args[0] === "trunk")).toBe(
-			false,
-		);
+		expect(
+			harness.calls.some((call) => call.command === "git" && call.args[0] === "rev-list"),
+		).toBe(false);
 	});
 
-	test("refuses trunk, pushed commits, root commits, and merge commits before branch checks", async () => {
-		const trunk = await prepareLatestCommitAutobranchPlan(
-			createPreparationHarness({ currentBranch: "master" }).input,
-		);
-		expect(trunk).toEqual({ ok: false, kind: "trunk_refusal", branch: "master" });
+	test("accepts moving the latest commit when on the Graphite trunk branch", async () => {
+		const harness = createPreparationHarness({ currentBranch: "master", upstreamMode: "none" });
 
+		const result = await prepareLatestCommitAutobranchPlan(harness.input);
+
+		expect(result.ok).toBe(true);
+		if (result.ok) {
+			expect(result.plan.sourceBranch).toBe("master");
+		}
+	});
+
+	test("refuses pushed commits, root commits, and merge commits before branch checks", async () => {
 		const pushed = await prepareLatestCommitAutobranchPlan(
 			createPreparationHarness({ upstreamMode: "contains" }).input,
 		);
