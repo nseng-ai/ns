@@ -2,12 +2,12 @@ import { registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
 import {
 	buildObjectiveSkillPrompt,
 	chooseActiveObjectiveSlug,
-	objectiveSelectionContextFromCommandContext,
 	type ObjectiveSelectionContext,
 	type ObjectiveSelectionHost,
 	type ObjectiveSelectionSpec,
-} from "@sdl/pi/objectives/selection";
+} from "@sdl/objective/api";
 import { invokeRepoSkillPromptTurn } from "@sdl/pi/skills/expansion";
+import { objectiveSelectionContextFromCommandContext } from "./objective-selection-context.ts";
 import type { CommandDefinition } from "./cmux/types.ts";
 
 interface ObjectiveStackImplCommandSpec extends ObjectiveSelectionSpec {

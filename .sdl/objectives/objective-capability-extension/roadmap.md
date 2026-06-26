@@ -21,13 +21,11 @@
   - Moved pure/domain tests from Pi to Objective and retained Pi tests for envelope parsing and Pi behavior. `sdlcc` test fixtures were updated for the Objective list record shape while production consumer repoint remains for the next slice.
   - Evidence: `rg "@sdl/pi" ts/packages/objective/src ts/packages/objective/package.json` produced no matches; no machine-envelope module was moved into Objective. Parent-side validation passed: `pnpm --dir ts --filter @sdl/objective test`, `pnpm --dir ts --filter @sdl/pi test`, `pnpm --dir ts --filter sdlcc test`, `pnpm --dir ts --filter @sdl/ccc test`, `pnpm --dir ts run check`, `just ts-format-check`, `just ts-lint`, `just ts-deps-check`, `just ts-guard`, and `just ts-test`.
 
-- [ ] Consumer repoint slice.
-  - Repoint `ts/packages/ccc/src/objective-stack-impl.ts` and `ts/packages/ccc/src/cmux/sidebar.ts` from `@sdl/pi/objectives/selection` to `@sdl/objective/api` for Objective selection helpers/specs.
-  - Repoint `ts/packages/hosts/sdlcc/src/objective-tab.ts` and `ts/packages/hosts/sdlcc/test/unit/objective-tab.test.ts` from `@sdl/pi/objectives/list` to `@sdl/objective/api`.
-  - Adjust package manifests: add `@sdl/objective` to consumers that now import it, keep `@sdl/pi` in `@sdl/ccc` for neutral helper subpaths, and remove `@sdl/pi` from `sdlcc` if no non-Objective imports remain.
-  - Gate: `rg "@sdl/pi/objectives" ts/packages` should show no production consumer imports; run relevant ccc/sdlcc/Pi/Objective tests and typecheck.
-  - Policy: execute only after `@sdl/objective/api` exposes the selection/list helpers needed by CCC and SDLCC. Keep Pi→CCC cycle-break work out of this branch unless an import must move only to preserve the consumer repoint.
-  - Evidence: record every production/test consumer import changed, manifest dependency updates, stale `@sdl/pi/objectives` grep output, and validation commands/results.
+- [x] Consumer repoint slice.
+  - Repointed `ts/packages/ccc/src/objective-stack-impl.ts` and `ts/packages/ccc/src/cmux/sidebar.ts` from `@sdl/pi/objectives/selection` to `@sdl/objective/api` for Objective selection helpers/specs, with `ts/packages/ccc/src/objective-selection-context.ts` adapting CCC/Pi command contexts at the edge.
+  - Repointed `ts/packages/sdlcc/src/objective-tab.ts` and `ts/packages/sdlcc/test/unit/objective-tab.test.ts` from `@sdl/pi/objectives/list` to `@sdl/objective/api`; `sdlcc` now unwraps the CLI machine envelope locally before feeding Objective data to the Capability API parser.
+  - Adjusted package manifests: `@sdl/ccc` and `sdlcc` now declare `@sdl/objective`; `sdlcc` no longer declares `@sdl/pi`; `@sdl/ccc` keeps `@sdl/pi` for neutral helper subpaths.
+  - Evidence: `rg "@sdl/pi/objectives" ts/packages` produced no matches, and `rg "@sdl/pi" ts/packages/objective/src ts/packages/objective/package.json` produced no matches. Parent-side validation passed: `pnpm --dir ts --filter @sdl/ccc test`, `pnpm --dir ts --filter sdlcc test`, `pnpm --dir ts --filter @sdl/pi test`, `pnpm --dir ts --filter @sdl/objective test`, `pnpm --dir ts run check`, `just ts-format-check`, `just ts-lint`, `just ts-deps-check`, `just ts-guard`, and `just ts-test`.
 
 - [ ] Separate risky slice: Pi→CCC cycle break.
   - Execute the chosen direction: `@sdl/ccc` may depend on neutral `@sdl/pi` helper subpaths, but `@sdl/pi` must stop importing `@sdl/ccc` and must remove `@sdl/ccc` from `ts/packages/hosts/pi/package.json`.

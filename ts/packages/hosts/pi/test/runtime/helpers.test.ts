@@ -83,7 +83,7 @@ describe("pi extension runtime helpers", () => {
 		};
 
 		const objectiveCtx = objectiveSelectionContextFromCommandContext(ctx);
-		objectiveCtx.ui.notify("still visible");
+		objectiveCtx.ui.notify("still visible", "info");
 
 		expect(objectiveCtx.hasUI).toBe(true);
 		expect(objectiveCtx.ui.select).toBeUndefined();

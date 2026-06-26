@@ -144,7 +144,6 @@ describe("cmux Objective sidebar", () => {
 			},
 		]);
 		expect(pi.execCalls.map((call) => [call.command, call.args])).toEqual([
-			["objective", ["list", "--minimal", "--format", "json"]],
 			["git", ["diff", "--name-status", "-M", "master...HEAD", "--", ".sdl/objectives"]],
 			["git", ["status", "--porcelain=v1", "-z", "--", ".sdl/objectives"]],
 			["objective", ["exec", "read-objective", slug, "--format", "json"]],
@@ -275,7 +274,7 @@ describe("cmux Objective sidebar", () => {
 		await pi.commands.get("ccc:sidebar:objective-summary")?.handler("", ctx);
 
 		pi.assertDone();
-		expect(pi.execCalls).toHaveLength(3);
+		expect(pi.execCalls).toHaveLength(2);
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(ctx.notifications.at(-1)).toEqual({
 			message: "Objective selection cancelled.",

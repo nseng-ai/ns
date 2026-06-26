@@ -21,6 +21,13 @@ import type {
 	ThinkingLevel,
 } from "../src/cmux/types.ts";
 import type { SkillCommandInfo } from "@sdl/pi/skills/expansion";
+import {
+	parseObjectiveListData,
+	type ObjectiveListParseResult,
+	type ObjectiveSelectionContext,
+	type ObjectiveSelectionListLoadResult,
+	type ObjectiveSelectionSpec,
+} from "@sdl/objective/api";
 
 import { ScriptedQueue } from "@sdl/core/testing";
 
@@ -135,6 +142,33 @@ export class FakePi implements ExtensionAPI {
 			this.script.recordError(errorMessage);
 		}
 		return result;
+	}
+
+	async loadObjectiveList(
+		_ctx: ObjectiveSelectionContext,
+		_spec: ObjectiveSelectionSpec,
+	): Promise<ObjectiveSelectionListLoadResult> {
+		const missingStepMessage = "unexpected objective list load";
+		const expected = this.script.shiftOrRecordError(missingStepMessage);
+		if (expected === undefined) {
+			return { type: "failed", message: missingStepMessage };
+		}
+		if (
+			expected.command !== "objective" ||
+			!sameArgs(expected.args ?? [], ["list", "--minimal", "--format", "json"])
+		) {
+			const message = `expected objective list step, got ${expected.command} ${(expected.args ?? []).join(" ")}`;
+			this.script.recordError(message);
+			return { type: "failed", message };
+		}
+		const stdout = expected.result?.stdout ?? "";
+		const parsed = parseObjectiveListStdout(stdout);
+		if (parsed.type === "invalid") {
+			const message = parsed.message;
+			this.script.recordError(message);
+			return { type: "failed", message };
+		}
+		return { type: "loaded", list: parsed.list };
 	}
 
 	getCommands(): readonly SkillCommandInfo[] {
@@ -398,6 +432,67 @@ export function objectiveStatusStep(
 		stdout,
 		...result,
 	});
+}
+
+interface ObjectiveListEnvelopeValid {
+	type: "valid";
+	data: Record<string, unknown>;
+}
+
+interface ObjectiveListEnvelopeInvalid {
+	type: "invalid";
+	message: string;
+}
+
+type ObjectiveListEnvelopeResult = ObjectiveListEnvelopeValid | ObjectiveListEnvelopeInvalid;
+
+function parseObjectiveListStdout(stdout: string): ObjectiveListParseResult {
+	const envelope = parseObjectiveListEnvelope(stdout);
+	if (envelope.type === "invalid") {
+		return envelope;
+	}
+	return parseObjectiveListData(envelope.data);
+}
+
+function parseObjectiveListEnvelope(stdout: string): ObjectiveListEnvelopeResult {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(stdout);
+	} catch (error) {
+		return invalidObjectiveListEnvelope(`invalid JSON: ${formatObjectiveListError(error)}`);
+	}
+
+	if (!isRecord(parsed)) {
+		return invalidObjectiveListEnvelope("expected an envelope object");
+	}
+
+	const exitCode = parsed.exitCode;
+	if (typeof exitCode !== "number" || !Number.isFinite(exitCode)) {
+		return invalidObjectiveListEnvelope("expected numeric exitCode 0");
+	}
+
+	if (exitCode !== 0) {
+		return invalidObjectiveListEnvelope(`reported failure with exitCode ${exitCode}`);
+	}
+
+	const data = parsed.data;
+	if (!isRecord(data)) {
+		return invalidObjectiveListEnvelope("expected a data object");
+	}
+
+	return { type: "valid", data };
+}
+
+function invalidObjectiveListEnvelope(reason: string): ObjectiveListEnvelopeInvalid {
+	return { type: "invalid", message: `Invalid objective list JSON: ${reason}.` };
+}
+
+function formatObjectiveListError(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
 }
 
 export function cmuxSummaryStep(title: string, description: string): ScriptedExec {

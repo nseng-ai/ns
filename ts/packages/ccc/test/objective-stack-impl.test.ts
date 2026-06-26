@@ -78,12 +78,23 @@ async function runObjectiveStackImpl(options: RunObjectiveStackImplOptions): Pro
 	};
 }
 
-function expectListActiveObjectivesCall(result: { host: FakePi }): void {
+function expectSelectionEvidenceCalls(result: { host: FakePi }): void {
 	expect(result.host.execCalls[0]).toEqual({
-		command: "objective",
-		args: ["list", "--minimal", "--format", "json"],
+		command: "git",
+		args: ["diff", "--name-status", "-M", "master...HEAD", "--", ".sdl/objectives"],
 		options: { cwd: ROOT, timeout: 30_000 },
 	});
+	expect(result.host.execCalls[1]).toEqual({
+		command: "git",
+		args: ["status", "--porcelain=v1", "-z", "--", ".sdl/objectives"],
+		options: { cwd: ROOT, timeout: 30_000 },
+	});
+	expect(
+		result.host.execCalls.some(
+			(call) =>
+				call.command === "objective" && call.args[0] === "list" && call.args[1] === "--minimal",
+		),
+	).toBe(false);
 }
 
 describe("objective stack impl CCC orchestration", () => {
@@ -151,17 +162,7 @@ describe("objective stack impl CCC orchestration", () => {
 		});
 
 		result.host.assertDone();
-		expectListActiveObjectivesCall(result);
-		expect(result.host.execCalls[1]).toEqual({
-			command: "git",
-			args: ["diff", "--name-status", "-M", "master...HEAD", "--", ".sdl/objectives"],
-			options: { cwd: ROOT, timeout: 30_000 },
-		});
-		expect(result.host.execCalls[2]).toEqual({
-			command: "git",
-			args: ["status", "--porcelain=v1", "-z", "--", ".sdl/objectives"],
-			options: { cwd: ROOT, timeout: 30_000 },
-		});
+		expectSelectionEvidenceCalls(result);
 		expect(result.waitForIdleCalls()).toBe(2);
 		expect(result.host.sentUserMessages[0]).toContain("```text\nalpha\n```");
 	});

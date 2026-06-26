@@ -236,6 +236,9 @@ importers:
       '@sdl/graphite':
         specifier: workspace:*
         version: link:../infra/graphite
+      '@sdl/objective':
+        specifier: workspace:*
+        version: link:../objective
       '@sdl/pi':
         specifier: workspace:*
         version: link:../hosts/pi
@@ -321,9 +324,9 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../../infra/core
-      '@sdl/pi':
+      '@sdl/objective':
         specifier: workspace:*
-        version: link:../pi
+        version: link:../../objective
       '@sdl/slot':
         specifier: workspace:*
         version: link:../../capabilities/slot
