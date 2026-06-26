@@ -1,6 +1,6 @@
 import { createCommandIo, type CommandIo } from "@sdl/core/command-io";
 
-import type { SdlExtensionApi } from "./execution.ts";
+import type { SdlExtensionApi } from "sdl-sdk";
 
 export interface SdlExtensionCommandIoOptions {
 	statusKey?: string;

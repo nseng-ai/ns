@@ -49,7 +49,7 @@ Capabilities  (first-party Extensions, above the Capability Kit)   <- most domai
         |  built on
 Capability Kit  (@sdl/capability-kit, thin)                  <- ctx->gateway adapter
         |                                                       + shared result/error shapes
-SDK  (@sdl/sdl kernel + @sdl/sdl/sdk)
+SDK  (SDL kernel @sdl/sdl + sdl-sdk package)
         |
 Neutral Infra  (@sdl/core, @sdl/clinkr, @sdl/graphite, @sdl/brmem)
 ```

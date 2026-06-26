@@ -5,7 +5,7 @@ import {
 	type ExecOptions,
 } from "@sdl/core/exec";
 import { SdlCommandExecApi } from "@sdl/capability-kit/command-runner";
-import { failed, ok, type ExecResult, type SdlExtensionApi, type SdlResult } from "@sdl/sdl/sdk";
+import { failed, ok, type ExecResult, type SdlExtensionApi, type SdlResult } from "sdl-sdk";
 
 export interface FlowCccCliExecOptions {
 	cwd?: string | undefined;

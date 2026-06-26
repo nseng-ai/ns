@@ -5,7 +5,7 @@ import {
 	prepareCheckpointMessage,
 	type CommandResult,
 } from "@sdl/domain-primitives-transitional/checkpoint-flow";
-import type { SdlExtensionApi } from "@sdl/sdl/sdk";
+import type { SdlExtensionApi } from "sdl-sdk";
 import {
 	formatPendingWorktreeCommandDetails,
 	loadPendingWorktreeSnapshot,

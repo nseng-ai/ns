@@ -10,7 +10,7 @@ import {
 	type SubmitFailureTranscript,
 } from "@sdl/graphite/submit";
 
-import type { SdlExtensionApi } from "@sdl/sdl/sdk";
+import type { SdlExtensionApi } from "sdl-sdk";
 
 export { RealGithubPrGateway, RealSubmitGateway, RealSubmitMetadataGateway, runSubmitCommand };
 export type { RunSubmitCommandOptions, SubmitCommandResult, SubmitFailureTranscript };
@@ -22,7 +22,7 @@ export interface SdlSubmitRuntime {
 	prDescription: RunSubmitCommandOptions["prDescription"];
 }
 
-/** Temporary internal migration seam; not exported from `@sdl/sdl/sdk`. */
+/** Temporary internal migration seam; not exported from `sdl-sdk`. */
 export function createSdlSubmitRuntime(ctx: SdlExtensionApi): SdlSubmitRuntime {
 	const commandRunner = createSdlCommandRunner(ctx);
 	return {

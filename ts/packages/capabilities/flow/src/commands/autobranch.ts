@@ -2,14 +2,7 @@ import { runDirtyAutobranchFlow, type ParsedAutobranchArgs } from "@sdl/autobran
 import { runWithCommandIo, type CommandIo } from "@sdl/core/command-io";
 import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@sdl/core/model-slug";
 import { commandIoFromSdlExtensionApi } from "@sdl/sdl/command-io";
-import {
-	defineExtension,
-	failed,
-	ok,
-	z,
-	type SdlCommand,
-	type SdlExtensionApi,
-} from "@sdl/sdl/sdk";
+import { defineExtension, failed, ok, z, type SdlCommand, type SdlExtensionApi } from "sdl-sdk";
 
 import { prepareFlowCheckpointMessage } from "../shared/model-generation.ts";
 import {

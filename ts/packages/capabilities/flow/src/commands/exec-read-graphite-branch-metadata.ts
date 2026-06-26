@@ -11,7 +11,7 @@ import {
 	type SdlCommand,
 	type SdlExtensionApi,
 	type SdlResult,
-} from "@sdl/sdl/sdk";
+} from "sdl-sdk";
 
 const execReadGraphiteBranchMetadataSchema = z.object({
 	dbPath: z.string().describe("Absolute path to Graphite's .graphite_metadata.db file."),

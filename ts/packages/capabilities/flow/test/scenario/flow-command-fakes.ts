@@ -4,8 +4,8 @@ import { flowChangesCommand } from "../../src/commands/changes.ts";
 import { flowCpCommand } from "../../src/commands/cp.ts";
 import { flowRegeneratePrCommand } from "../../src/commands/regenerate-pr.ts";
 import { flowSubmitCommand } from "../../src/commands/submit.ts";
-import type { SdlCommand, SdlExtensionApi, SdlResult } from "@sdl/sdl/sdk";
-import { failed } from "@sdl/sdl/sdk";
+import type { SdlCommand, SdlExtensionApi, SdlResult } from "sdl-sdk";
+import { failed } from "sdl-sdk";
 
 import {
 	ScriptedSdlTestContext,

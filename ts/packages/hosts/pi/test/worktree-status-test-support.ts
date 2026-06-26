@@ -1,6 +1,6 @@
 import { expect } from "vitest";
 
-import { githubWorktreePrStatusQuery } from "@sdl/core/github-status";
+import { githubWorktreePrStatusQuery } from "@sdl/core/github-pr-status";
 import type {
 	ExecResult,
 	GtStatus,

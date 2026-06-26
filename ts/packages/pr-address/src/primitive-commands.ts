@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { failure, ok, type ClinkrExit } from "@sdl/clinkr";
-import type { GithubPrFeedbackFailure, GithubPrSummary } from "@sdl/core/github-pr-feedback";
+import type { GithubPrFeedbackFailure, GithubPrSummary } from "./api.ts";
 import type { Result } from "@sdl/core/result";
 
 import {

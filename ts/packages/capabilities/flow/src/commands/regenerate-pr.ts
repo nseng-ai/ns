@@ -5,14 +5,7 @@ import {
 	prepareRegeneratedPrDescriptionForCurrentBranch,
 	type RegeneratedPrDescription,
 } from "../shared/pr-description.ts";
-import {
-	defineExtension,
-	failed,
-	ok,
-	z,
-	type SdlCommand,
-	type SdlExtensionApi,
-} from "@sdl/sdl/sdk";
+import { defineExtension, failed, ok, z, type SdlCommand, type SdlExtensionApi } from "sdl-sdk";
 
 const PR_DESCRIPTION_MODEL_ENV = "SDL_DEV_PR_DESCRIPTION_MODEL";
 const PR_DESCRIPTION_PROMPT_ENV = "SDL_DEV_PR_DESCRIPTION_PROMPT";

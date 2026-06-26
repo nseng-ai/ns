@@ -7,7 +7,7 @@ Accepted
 ## Context
 
 SDL is moving its domain capabilities to live *above* the thin SDL extension API
-(`@sdl/sdl/sdk`). Today much of that domain logic is tangled inside the `@sdl/sdl`
+(`sdl-sdk`). Today much of that domain logic is tangled inside the `@sdl/sdl`
 kernel package and shared through internal subpaths consumed by `ccc`, `flow`, and
 `pi-extensions`. The kernel glossary says the kernel "should not own repository
 workflow policy," so this tangling is a known misplacement.
@@ -25,8 +25,9 @@ command syntax rather than behavior.
 - **Below the SDK — neutral infra (never domain):** `@sdl/core` (git/exec
   gateways), `@sdl/clinkr` (command framework), `@sdl/graphite` (gt adapters),
   `@sdl/brmem` (Branch Memory storage primitive).
-- **The SDK:** the `@sdl/sdl` kernel plus `@sdl/sdl/sdk`, a thin SDL extension API of
-  host primitives (`exec`, `env`, `textGenerator`, `confirm`, IO streams).
+- **The SDK:** the SDL kernel (`@sdl/sdl`) plus the `sdl-sdk` package as the SDK layer,
+  a thin SDL extension API of host primitives (`exec`, `env`, `textGenerator`,
+  `confirm`, IO streams).
 - **Above the SDK — capability extensions:** flow, handoff, objective,
   branch-context, plans, pr-address, slot, roaster, aretro.
 

@@ -33,6 +33,7 @@
     "@sdl/objective": "workspace:*",
     "@sdl/plans": "workspace:*",
     "@sdl/sdl": "workspace:*",
+    "sdl-sdk": "workspace:*",
     "zod": "catalog:"
   },
   "peerDependencies": {

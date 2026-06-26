@@ -8,7 +8,7 @@ import type {
 	SdlExtensionApi,
 	TextGenerationRequest,
 	TextGenerationResult,
-} from "@sdl/sdl/sdk";
+} from "sdl-sdk";
 
 export type ScriptedTextGenerationResult = TextGenerationResult | Promise<TextGenerationResult>;
 

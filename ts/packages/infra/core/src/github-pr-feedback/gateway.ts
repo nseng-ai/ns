@@ -1,6 +1,6 @@
 import type { z } from "zod";
 
-import { normalizeGithubStatusChecks, type GithubStatusChecks } from "../github-status.ts";
+import { normalizeGithubStatusChecks, type GithubStatusChecks } from "../github-pr-status.ts";
 import { runCommand, type CommandRunner, type ExecResult } from "../exec.ts";
 import { GITHUB_CLI_TIMEOUT_MS, runGitHubCli, type RunGitHubCliResult } from "../github-cli.ts";
 import type { MaybePromise } from "../primitives.ts";
@@ -49,7 +49,6 @@ import {
 import type {
 	GithubPrDiscussionComment,
 	GithubPrFeedbackFailure,
-	GithubPrFeedbackGateway,
 	GithubPrFeedbackOperation,
 	GithubPrFeedbackOptions,
 	GithubPrLookupOutcome,
@@ -111,7 +110,7 @@ interface CollectGraphqlPagesOptions<TResponse, TNode, TOutput> {
 	readonly mapNode: (node: TNode) => MaybePromise<Result<TOutput, GithubPrFeedbackFailure>>;
 }
 
-export class RealGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
+export class RealGithubPrFeedbackGateway {
 	private readonly runner: CommandRunner;
 
 	constructor(runner: CommandRunner = runCommand) {

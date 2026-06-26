@@ -5,8 +5,8 @@ import {
 	formatCommandEvidence,
 	ok,
 	type SdlCommand,
-} from "@sdl/sdl/sdk";
-import type { ExecResult, SdlExtensionApi } from "@sdl/sdl/sdk";
+} from "sdl-sdk";
+import type { ExecResult, SdlExtensionApi } from "sdl-sdk";
 import type { GitErrorInfo, GitGateway } from "@sdl/core/git";
 
 import { execFlowGit, readFlowGitPorcelainStatus } from "../shared/git.ts";

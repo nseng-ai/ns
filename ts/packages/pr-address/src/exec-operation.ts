@@ -2,7 +2,7 @@ import type { z } from "zod";
 
 import { failure, type ClinkrCommandSpec, type ClinkrGroup, type ClinkrHandler } from "@sdl/clinkr";
 import type { GitResult } from "@sdl/core/git";
-import type { GithubPrFeedbackFailure } from "@sdl/core/github-pr-feedback";
+import type { GithubPrFeedbackFailure } from "./api.ts";
 import { errorDetailText } from "@sdl/core/result";
 
 import type { PrAddressContext } from "./context.ts";

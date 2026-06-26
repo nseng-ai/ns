@@ -6,7 +6,7 @@ import {
 	type SdlCommandSchema,
 	type SdlExtensionApi,
 	type SdlResult,
-} from "./sdk/index.ts";
+} from "sdl-sdk";
 
 export type SdlCommandSourceLevel = "built-in" | "global" | "project";
 
@@ -216,7 +216,7 @@ function formatSdlCommandEntryIssue(issue: z.core.$ZodIssue): string {
 		return "command description must be a string";
 	}
 	if (field === "schema") {
-		return "command schema must be a Zod object schema from @sdl/sdl/sdk";
+		return "command schema must be a Zod object schema from sdl-sdk";
 	}
 	if (field === "run") {
 		return "command run must be a function";

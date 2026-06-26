@@ -4,7 +4,6 @@ export type {
 	GithubPrFeedbackFailure,
 	GithubPrFeedbackFailureCode,
 	GithubPrFeedbackFailureDetails,
-	GithubPrFeedbackGateway,
 	GithubPrFeedbackOperation,
 	GithubPrFeedbackOptions,
 	GithubPrLookupMiss,

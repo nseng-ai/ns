@@ -8,7 +8,7 @@ Accepted
 
 SDL lets users and checked-in migration extensions author command entries in TypeScript under `.sdl/extensions`. The installed `sdl` CLI must transpile and import those `.ts` modules at runtime — there is no build step on the user's side between writing an extension and running it.
 
-Beyond transpilation, extension code imports the SDK via `@sdl/sdl/sdk` (for example `defineExtension`, `z`). For the extension contract to work, those imports must resolve to the *same* SDK objects the host process already holds, not to a separate dependency copy resolved out of `.sdl/extensions`. Without shared identity, Zod schema checks and `instanceof`-style boundary checks across the host/extension seam fail.
+Beyond transpilation, extension code imports the SDK via `sdl-sdk` (for example `defineExtension`, `z`). For the extension contract to work, those imports must resolve to the *same* SDK objects the host process already holds, not to a separate dependency copy resolved out of `.sdl/extensions`. Without shared identity, Zod schema checks and `instanceof`-style boundary checks across the host/extension seam fail.
 
 jiti is used at exactly one site, `ts/packages/sdl/src/sdk/module-loader.ts` (called from `extension-loader.ts`). It is **not** the dev runner for the CLI itself, and live reload is not a requirement.
 
@@ -16,7 +16,7 @@ jiti is used at exactly one site, `ts/packages/sdl/src/sdk/module-loader.ts` (ca
 
 Use jiti's static API (`jiti/static`) as the runtime loader for user-authored extension modules, configured in `createSdlJiti()` with:
 
-- `virtualModules` — binds `@sdl/sdl/sdk` to the exact SDK object in the host process, giving extensions host SDK identity instead of a resolved dependency copy.
+- `virtualModules` — binds `sdl-sdk` to the exact SDK object in the host process, giving extensions host SDK identity instead of a resolved dependency copy.
 - `alias` — redirects internal migration subpaths (e.g. `@sdl/sdl/context`) to this source tree for checked-in migration extensions, without exposing them in the public SDK virtual module.
 - `moduleCache: false` — each load gets a fresh evaluation.
 

@@ -78,13 +78,13 @@ Deterministic code that consumes one or more **Gateways** to produce or transfor
 
 ### Extension Layering
 
-The SDL extension stack, bottom to top: **Neutral Infra** below the SDK (`@sdl/core`, `@sdl/clinkr`, `@sdl/graphite`, `@sdl/brmem`), the SDK (`@sdl/sdl` kernel + `@sdl/sdl/sdk`), the **Capability Kit**, and the **Capabilities** (first-party **Extensions**) built on it. Those first-party extensions form an **Extension Dependency Graph** that must stay acyclic. ADR 0012 holds the layering diagram and the rule that capability domain lives in the capabilities and never in the `@sdl/pi` runtime host or kernel; ADR 0009 holds the dependency-graph invariant. The SDK boundary is permeable downward only to concepts that prove general worth (opinionated patterns such as gateways stay above the SDK). These terms name its parts.
+The SDL extension stack, bottom to top: **Neutral Infra** below the SDK (`@sdl/core`, `@sdl/clinkr`, `@sdl/graphite`, `@sdl/brmem`), the SDK (SDL kernel `@sdl/sdl` + the `sdl-sdk` package), the **Capability Kit**, and the **Capabilities** (first-party **Extensions**) built on it. Those first-party extensions form an **Extension Dependency Graph** that must stay acyclic. ADR 0012 holds the layering diagram and the rule that capability domain lives in the capabilities and never in the `@sdl/pi` runtime host or kernel; ADR 0009 holds the dependency-graph invariant. The SDK boundary is permeable downward only to concepts that prove general worth (opinionated patterns such as gateways stay above the SDK). These terms name its parts.
 
 The two leading nouns are orthogonal, not synonyms: an **Extension** is the technical construct; a **Capability** is a feature area implemented as one.
 
 **Extension**:
 The technical construct — a package that plugs into the SDK via `defineExtension()`. General and third-party-buildable: a first-party extension implements a **Capability**, but the construct is open to third-party extensions that are not SDL capabilities.
-*Avoid*: plugin, built-in, bundled command, "extension API" (bare — write `@sdl/sdl/sdk` "SDL extension API" or "Pi runtime extension API")
+*Avoid*: plugin, built-in, bundled command, "extension API" (bare — write `sdl-sdk` "SDL extension API" or "Pi runtime extension API")
 
 **Capability**:
 A first-party SDL feature area (objectives, handoff, slot, flow, …) — a set of domain capabilities packaged as an **Extension** built on the **Capability Kit**. It exposes kernel-loaded CLI/Pi commands, and adds a **Capability API** only when a **consumer** extension depends on it in-process.

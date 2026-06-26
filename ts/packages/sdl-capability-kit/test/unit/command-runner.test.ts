@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { ExecResult } from "@sdl/core/exec";
-import type { SdlExecOptions, SdlExtensionApi } from "@sdl/sdl/sdk";
+import type { SdlExecOptions, SdlExtensionApi } from "sdl-sdk";
 
 import { createSdlCommandRunner, SdlCommandExecApi } from "@sdl/capability-kit/command-runner";
 import { execSdlGit, readSdlGitPorcelainStatus } from "@sdl/capability-kit/git";

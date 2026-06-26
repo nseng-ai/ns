@@ -34,12 +34,7 @@ import {
 	loadSdlCommandCatalog,
 	loadSelectedSdlCommand,
 } from "./extension-registry.ts";
-import type {
-	SdlCommand,
-	SdlConfirmPrompt,
-	SdlExtensionApi,
-	SdlOutputStream,
-} from "./sdk/index.ts";
+import type { SdlCommand, SdlConfirmPrompt, SdlExtensionApi, SdlOutputStream } from "sdl-sdk";
 import {
 	renderSdlShellInstall,
 	renderSdlShellShow,

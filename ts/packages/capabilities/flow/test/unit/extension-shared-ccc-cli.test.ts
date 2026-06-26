@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
 import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/exec";
-import type { SdlExecOptions, SdlExtensionApi, SdlResult } from "@sdl/sdl/sdk";
+import type { SdlExecOptions, SdlExtensionApi, SdlResult } from "sdl-sdk";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../../..");
 const SHARED_CCC_CLI_HELPER_PATH = join(
