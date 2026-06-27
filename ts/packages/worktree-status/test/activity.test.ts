@@ -11,12 +11,12 @@ import {
 	localStatus,
 	queued,
 	TEST_THEME,
-} from "./worktree-status-test-support.ts";
+} from "./test-support.ts";
 import worktreeStatusExtension, {
 	WORKTREE_STATUS_REFRESH_COMMAND_NAME,
 	type ExtensionAPI,
 	type ExtensionContext,
-} from "../src/worktree-status/extension.ts";
+} from "../src/extension.ts";
 
 describe("worktree status activity lifecycle", () => {
 	test("worktree status enters dormant mode after two minutes of idle session time", async () => {

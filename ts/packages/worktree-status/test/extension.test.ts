@@ -8,7 +8,7 @@ import { visibleWidth } from "@earendil-works/pi-tui";
 
 import { stripTerminalEscapes } from "@sdl/core/exec";
 import { createManualTimerHarness } from "@sdl/core/testing";
-import type { WorktreeGhStatus } from "@sdl/ccc/worktree-status";
+import type { WorktreeGhStatus } from "@sdl/worktree-status";
 import {
 	deferred,
 	fakeWorktreeStatusLoaders,
@@ -20,12 +20,12 @@ import {
 	RegistrationFakePi,
 	TEST_THEME,
 	worktreeIdentity,
-} from "./worktree-status-test-support.ts";
+} from "./test-support.ts";
 import worktreeStatusExtension, {
 	WORKTREE_STATUS_REFRESH_COMMAND_NAME,
 	type ExtensionAPI,
 	type ExtensionContext,
-} from "../src/worktree-status/extension.ts";
+} from "../src/extension.ts";
 
 describe("worktree status extension registration and rendering", () => {
 	test("registers startup/shutdown hooks and a manual refresh command", () => {

@@ -23,7 +23,7 @@ import {
 	type StatusTheme,
 	type WorktreeStatus,
 	type WorktreeStatusIdentity,
-} from "@sdl/ccc/worktree-status";
+} from "@sdl/worktree-status";
 import type { GraphiteMetadataStatus } from "@sdl/graphite/status";
 
 const ROOT = "/repo";

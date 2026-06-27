@@ -1,1 +1,1 @@
-export { default } from "../../ts/packages/hosts/pi/src/worktree-status/extension.ts";
+export { default } from "../../ts/packages/worktree-status/src/extension.ts";

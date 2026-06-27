@@ -2,12 +2,12 @@ import { describe, expect, test } from "vitest";
 
 import { stripTerminalEscapes } from "@sdl/core/exec";
 import { createManualTimerHarness } from "@sdl/core/testing";
-import type { LocalWorktreeStatus } from "@sdl/ccc/worktree-status";
+import type { LocalWorktreeStatus } from "@sdl/worktree-status";
 import {
 	PI_EXTENSION_COMMAND_FINISHED_EVENT,
 	type PiExtensionCommandEventHandler,
 	type PiExtensionCommandFinishedEvent,
-} from "../src/commands/events.ts";
+} from "@sdl/pi/commands/events";
 import {
 	deferred,
 	fakeWorktreeStatusLoaders,
@@ -17,13 +17,13 @@ import {
 	localStatus,
 	queued,
 	testContext,
-} from "./worktree-status-test-support.ts";
+} from "./test-support.ts";
 import worktreeStatusExtension, {
 	requestWorktreeStatusRefresh,
 	WORKTREE_STATUS_REFRESH_COMMAND_NAME,
 	type ExtensionAPI,
-} from "../src/worktree-status/extension.ts";
-import { WORKTREE_STATUS_DORMANT_AFTER_MS } from "../src/worktree-status/activity.ts";
+} from "../src/extension.ts";
+import { WORKTREE_STATUS_DORMANT_AFTER_MS } from "../src/activity.ts";
 
 describe("worktree status refresh lifecycle", () => {
 	test("background timer refreshes local status without polling GitHub", async () => {

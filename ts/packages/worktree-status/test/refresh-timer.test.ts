@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { stripTerminalEscapes } from "@sdl/core/exec";
 import { createManualTimerHarness } from "@sdl/core/testing";
-import type { LocalWorktreeStatus } from "@sdl/ccc/worktree-status";
+import type { LocalWorktreeStatus } from "@sdl/worktree-status";
 import {
 	deferred,
 	fakeWorktreeStatusLoaders,
@@ -13,11 +13,11 @@ import {
 	queued,
 	testContext,
 	worktreeIdentity,
-} from "./worktree-status-test-support.ts";
+} from "./test-support.ts";
 import worktreeStatusExtension, {
 	WORKTREE_STATUS_REFRESH_COMMAND_NAME,
 	type ExtensionAPI,
-} from "../src/worktree-status/extension.ts";
+} from "../src/extension.ts";
 
 describe("worktree status refresh timer", () => {
 	test("startup refreshes immediately and timer refreshes after the active interval", async () => {

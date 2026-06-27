@@ -8,8 +8,8 @@ import type {
 	StatusTheme,
 	WorktreeGhStatus,
 	WorktreeStatusIdentity,
-} from "@sdl/ccc/worktree-status";
-import type { ExtensionContext, WorktreeStatusLoaders } from "../src/worktree-status/extension.ts";
+} from "@sdl/worktree-status";
+import type { ExtensionContext, WorktreeStatusLoaders } from "../src/extension.ts";
 
 export interface ExecCall {
 	command: string;

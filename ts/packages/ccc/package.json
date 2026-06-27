@@ -15,8 +15,7 @@
     "./land": "./src/land.ts",
     "./trunk-pull": "./src/trunk-pull.ts",
     "./objective-stack-impl": "./src/objective-stack-impl.ts",
-    "./branch-context-up-and-impl": "./src/branch-context-up-and-impl.ts",
-    "./worktree-status": "./src/worktree-status.ts"
+    "./branch-context-up-and-impl": "./src/branch-context-up-and-impl.ts"
   },
   "scripts": {
     "check": "tsgo -p tsconfig.json",
