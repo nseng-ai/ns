@@ -9,6 +9,7 @@ import {
 } from "@sdl/core/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
 
+// Neutral cmux command runner: keep process execution behind CommandExecApi for package extraction.
 export const CMUX_STARTUP_FAILURE_EXIT_CODE = 127;
 
 export interface CmuxCommandFailure {

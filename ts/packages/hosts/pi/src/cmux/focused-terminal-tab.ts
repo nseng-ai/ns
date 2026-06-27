@@ -8,6 +8,7 @@ import {
 	type CmuxGateway,
 } from "./gateway.ts";
 
+// Neutral focused-tab orchestration: depend only on cmux command/gateway seams, not Pi host APIs.
 export type CmuxExecHost = CmuxCommandExecHost;
 export type { CmuxCallerContext, CmuxCreatedSurface };
 export { parseCmuxCallerContext, parseCreatedCmuxSurface };
