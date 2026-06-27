@@ -1,5 +1,7 @@
-import { defineExtension, failed, ok, z, type SdlCommand } from "sdl-sdk";
+import { runWithCommandIo } from "@sdl/core/command-io";
 import type { TextGenerator } from "@sdl/domain-primitives-transitional/text-generation";
+import { commandIoFromSdlExtensionApi } from "@sdl/sdl/command-io";
+import { defineExtension, failed, ok, z, type SdlCommand } from "sdl-sdk";
 import {
 	CHECKPOINT_MODEL_ENV,
 	DEFAULT_CHECKPOINT_MODEL_REF,
@@ -12,7 +14,6 @@ import {
 	type CheckpointGateway,
 	type CheckpointWorkflowResult,
 } from "../shared/checkpoint.ts";
-import { createFlowLiveOutput, emitFlowProgress } from "../shared/live-output.ts";
 
 const CP_COMMAND_DESCRIPTION = `Create a checkpoint commit for the current diff.
 
@@ -39,19 +40,19 @@ export const flowCpCommand: SdlCommand<typeof cpRequestSchema> = {
 	schema: cpRequestSchema,
 	async run(ctx, request: CpRequest) {
 		const runtime = createSdlCheckpointRuntime(ctx);
-		const liveOutput = createFlowLiveOutput(ctx);
-		emitFlowProgress(liveOutput, "sdl flow cp");
-		const result = await runCpCore({
-			cwd: ctx.cwd,
-			env: ctx.env,
-			textGenerator: ctx.textGenerator,
-			isDryRun: request.dryRun,
-			checkpointGateway: runtime.checkpointGateway,
-			...(liveOutput === undefined
-				? {}
-				: { onProgress: (message: string) => emitFlowProgress(liveOutput, message) }),
+		const io = commandIoFromSdlExtensionApi(ctx);
+		return await runWithCommandIo(io, async (io) => {
+			io.phase("sdl flow cp");
+			const result = await runCpCore({
+				cwd: ctx.cwd,
+				env: ctx.env,
+				textGenerator: ctx.textGenerator,
+				isDryRun: request.dryRun,
+				checkpointGateway: runtime.checkpointGateway,
+				onProgress: (message: string) => io.phase(message),
+			});
+			return toCommandResult(result);
 		});
-		return toCommandResult(result);
 	},
 };
 
