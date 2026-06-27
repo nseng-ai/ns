@@ -22,16 +22,18 @@ the system is the explicit follow-on, not part of this Objective.
   so the palette ladder can be felt rather than guessed.
 - **Decide the palette ladder approach by feel:** A = full capability ladder
   (truecolor → 256 → 16 → mono → ascii) vs B = modern-only (truecolor/256 → straight to mono).
-- **The house visual language** (already largely settled): minimal/gh chrome for list/tabular
+- **The house visual language** (signed off/settled by feel): minimal/gh chrome for list/tabular
   surfaces; richness budget spent on color + motion, not boxes; glyph set `✓ ● ✗ – •` with the
   glyph colored and text default; semantic palette (success green / warn yellow / error red /
-  accent cyan / muted dim); both append-only and in-place streaming variants; `log-tail` of the
-  latest subprocess line during streaming phases.
-- **The real clinkr foundations:** widen `Caps` (`{ isTty, colorDepth, columns, unicode }`) and
-  add `resolveCaps()` in clinkr **core**; opt-in `@sdl/clinkr/theme` (ansis) and
-  `@sdl/clinkr/stream` (log-update) **subpaths**; buffered + streaming machine/human emit;
-  an import-boundary lint that keeps display strictly opt-in. `SdlExtensionApi` stays frozen
-  (caps from `process.*`; UI-bridge override deferred to at most one optional field).
+  accent cyan / muted dim); in-place-only streaming for TTYs, with a settled non-TTY frame;
+  `log-tail` of the latest subprocess line during streaming phases.
+- **The real clinkr foundations:** widen `Caps` (`{ isTty, colorDepth, columns,
+  supportsUnicode }`) and add `resolveCaps()` in clinkr **core**; opt-in
+  `@sdl/clinkr/theme` (ansis) and `@sdl/clinkr/stream` (log-update) **subpaths**; buffered +
+  streaming human/machine emit; and import-boundary lint/guardrails that keep display strictly
+  opt-in. Process caps are used only for the real stdout path; hosted/callback/pipe/test and
+  in-process host sinks get settled or host-supplied caps through the clinkr IO / host-extension
+  seam, not independent `process.*` sniffing.
 - **Rebuild** `objective list` and `flow submit` for real on those foundations to match the
   signed-off north star, preserving machine mode for `objective list`.
 
@@ -64,28 +66,32 @@ the system is the explicit follow-on, not part of this Objective.
 **Assumptions**
 
 - The human/machine split lets human output be richly styled without harming agents, because
-  agents read `--format json`. If `objective list` migrates to an sdl-sdk extension, machine
-  mode must be preserved via core emit + a self-declared `--format` flag — an assumption to
-  validate at rebuild, since the extension surface today has neither caps nor a format path.
-- caps resolved from `process.*` is correct for the common attached-terminal case; non-attached
-  UI-bridge hosts are the only exception and are deferred.
-- Most users run modern terminals (this is what makes approach B plausibly sufficient).
+  agents read `--format json`. The representative `objective list` rebuild preserved that machine
+  path in the objective package while using the clinkr theme only for human rendering.
+- Caps resolved from `process.*` are correct only for the common attached-terminal case; hosted,
+  callback, Pi, pipe, test, redirected, and in-process host sinks must receive settled or
+  host-supplied caps through the clinkr IO / host-extension seam.
+- Most users run modern terminals, but the chosen ladder A means 16-color / mono / ASCII degradation
+  remains intentionally supported as part of the real renderer contract.
 - `ansis` (truecolor/hex) and `log-update` (in-place) are the right libraries; latitude to
   experiment was explicitly granted.
 
 **Risks**
 
-- In-place streaming owns the cursor and fights raw subprocess (`gt submit`) passthrough.
-  The `log-tail` choice mitigates it, but the real reconciliation is deferred to rebuild and
-  could prove awkward. **Not yet de-risked.**
-- The full capability ladder (A) is more machinery; risk of over-engineering if B suffices.
-  The prototype is the de-risking instrument for exactly this call.
-- Degradation correctness (mono / no-unicode / non-TTY / narrow width) is where rich CLIs
-  break; it must be felt, not assumed — hence the capability knobs.
+- In-place streaming owns the cursor and can fight raw subprocess (`gt submit`) passthrough.
+  The representative `flow submit` rebuild de-risked this by routing the TTY transcript through the
+  live-region tail (`stream.note`) so `log-update` remains the sole writer, and by routing non-TTY
+  output through the context / `onOutput` path; broader rollout should preserve that invariant.
+- The full capability ladder (A) is more machinery, but that risk was accepted by feel and covered
+  by caps-aware tests over the real ladder primitives rather than only the throwaway harness.
+- Degradation correctness (mono / no-unicode / non-TTY / narrow width) is where rich CLIs break;
+  it remains a regression risk for future rollout even though the representative surfaces now have
+  focused coverage.
 - "Apply to the rest of the system" can pull the open-ended rollout into this Objective;
   mitigated by parking rollout under the roadmap.
-- Keeping `SdlExtensionApi` frozen while delivering caps + machine mode through clinkr is an
-  architectural bet; it could force the deferred optional caps field sooner than hoped.
+- Keeping `SdlExtensionApi` narrow while delivering caps through clinkr was de-risked with the
+  existing generic `extensions` seam (`sdl.clinkr.caps`), avoiding a dedicated new caps field;
+  the broader streaming machine-output contract is still unsettled.
 
 ## Open Questions
 
@@ -95,6 +101,13 @@ the system is the explicit follow-on, not part of this Objective.
   candidate gallery of sky/cyan/teal/blue/indigo/violet/magenta). Semantic intents also set:
   success `#3fb950` / warn `#d29922` / error `#f85149` / muted `#8b949e` (GitHub-derived).
 - Whether `objective list` becomes a full sdl-sdk extension now or keeps a clinkr-shaped data
-  path at rebuild — this determines how machine mode is preserved.
-- The exact widened `Caps` shape — confirm fields (`isTty`, `colorDepth`, `columns`, `unicode`)
-  at rebuild.
+  path at rebuild — **decided by implementation (2026-06-27): keep the objective CLI's
+  clinkr-shaped data path for now**, preserving `--format json` while adding the pretty human
+  renderer.
+- The exact widened `Caps` shape — **decided by implementation (2026-06-27):** `{ isTty,
+  colorDepth, columns, supportsUnicode }`.
+- What the durable streaming machine-output contract should be (for example JSONL on stdout) now that
+  `flow submit` has a polished human stream but still explicitly has no `--format` path; equivalently,
+  whether the roadmap should narrow away from a standalone streaming JSONL primitive before closure.
+- Whether the early core import-isolation canary should become a formal repo-wide lint rule, and what
+  command owns that enforcement.
