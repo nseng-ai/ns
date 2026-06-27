@@ -29,7 +29,7 @@ Required shape:
 - `updates/<timestamp>-<slug>.md`: `# <Update Title>`, `## Summary`, `## Objective Impact`, `## Follow-Ups`.
 - `closed.md`: minimal Closure Marker; existence means closed, but closure meaning belongs in `objective.md` under `## Closure`.
 
-Objective records are Markdown: read/edit them directly, using `objective exec` only for deterministic reads such as candidate listing, inventory, and closed-marker detection.
+Objective records are Markdown: read/edit them directly, using `sdl objective exec` only for deterministic reads such as candidate listing, inventory, and closed-marker detection.
 
 Mutation boundary:
 
@@ -42,7 +42,7 @@ Mutation boundary:
 1. Resolve ambiguous invocation intent first.
 2. Use an explicit user-provided slug/path under `.sdl/objectives/<slug>/` when present.
 3. If the selected path is under `.sdl/objective-archive/`, stop and ask whether to unarchive before updating Objective tracking.
-4. Otherwise run `objective list --minimal --format md` immediately.
+4. Otherwise run `sdl objective list --minimal --format md` immediately.
 5. If exactly one active Objective exists and update intent is explicit, ask before evidence or mutation: `Only one active Objective exists: <slug>. Run objective-update for this Objective?`
 6. If multiple active Objectives exist, present the command output and ask for one slug/path; do not ask a generic question before showing options.
 7. If none exist, say so and suggest `objective-create` when appropriate.
@@ -61,7 +61,7 @@ Write the selected Objective as if the current git changes or current-branch PR 
 
 ## Read and collect evidence after selection
 
-First run `objective exec read-objective <slug> --format md` to confirm path, state, inventory, raw Markdown, and closed-marker presence. If `closed.md` exists, stop unless the user explicitly asked to amend the closed record; v1 has no reopen workflow.
+First run `sdl objective exec read-objective <slug> --format md` to confirm path, state, inventory, raw Markdown, and closed-marker presence. If `closed.md` exists, stop unless the user explicitly asked to amend the closed record; v1 has no reopen workflow.
 
 For large Objectives, use the inventory/closed-state output, then focus on `objective.md`, `roadmap.md`, and recent updates only when needed. Do not spend context on old updates unless they materially affect the current change; old updates are historical evidence, not editable targets.
 
@@ -145,7 +145,7 @@ If closure readiness, outcome, or rationale is ambiguous, leave `closed.md` abse
 ## Workflow
 
 1. Resolve exactly one active Objective.
-2. Run `objective exec read-objective <slug> --format md`; stop if closed unless explicit amend-closed-record intent is present.
+2. Run `sdl objective exec read-objective <slug> --format md`; stop if closed unless explicit amend-closed-record intent is present.
 3. Collect post-selection repo evidence and perform the path-integrity check.
 4. Compare request, evidence, and Objective files to identify durable tracking changes.
 5. Edit `objective.md` if narrative, boundaries, criteria, assumptions, risks, open questions, or closure-adjacent context changed.
@@ -157,7 +157,7 @@ If closure readiness, outcome, or rationale is ambiguous, leave `closed.md` abse
 
 ## Stop / ask
 
-Stop or ask when selection is ambiguous/absent after presenting `objective list --minimal --format md`; the selected path is archived; update intent is still ambiguous; only-open confirmation is pending; the request would update multiple Objectives; the selected Objective is closed without amend intent; closure outcome/rationale is unclear; slug-directory mutation would occur; an existing Semantic Update would be modified; the user asks for ceremonial status ping, branch changelog, registry, YAML/frontmatter, UUID, hidden metadata, or state-machine behavior; or information is insufficient for accurate durable narrative, assumptions/risks, or Semantic Update content.
+Stop or ask when selection is ambiguous/absent after presenting `sdl objective list --minimal --format md`; the selected path is archived; update intent is still ambiguous; only-open confirmation is pending; the request would update multiple Objectives; the selected Objective is closed without amend intent; closure outcome/rationale is unclear; slug-directory mutation would occur; an existing Semantic Update would be modified; the user asks for ceremonial status ping, branch changelog, registry, YAML/frontmatter, UUID, hidden metadata, or state-machine behavior; or information is insufficient for accurate durable narrative, assumptions/risks, or Semantic Update content.
 
 For archived paths, ask whether to unarchive before updating Objective tracking. For existing update mutation, explain that updates are immutable and offer to write a new corrective update when appropriate. For unclear closure, leave the Objective open unless the user clarifies.
 

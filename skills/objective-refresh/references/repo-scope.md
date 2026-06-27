@@ -58,7 +58,7 @@ Per-Objective unsafe cases degrade to recommendations and do not stop the whole 
 ### 1. Inventory
 
 ```bash
-objective list --status open --format json
+sdl objective list --status open --format json
 ```
 
 The current CLI contract returns `.data.trunkBranch` and `.data.records[]`; records include `slug` and `updatedBranches`. If this JSON shape has drifted, inspect the live command output and update the skill text to match rather than guessing.

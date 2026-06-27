@@ -83,8 +83,8 @@ describe("objectiveTabModule.loadModel", () => {
 		]);
 		expect(calls).toEqual([
 			{
-				command: "objective",
-				args: ["list", "--minimal", "--format", "json"],
+				command: "sdl",
+				args: ["objective", "list", "--minimal", "--format", "json"],
 				options: { cwd: "/repo", timeout: 10_000 },
 			},
 		]);
@@ -98,7 +98,7 @@ describe("objectiveTabModule.loadModel", () => {
 			killed: false,
 		});
 		await expect(objectiveTabModule.loadModel(depsWith(runCommand))).rejects.toThrow(
-			/objective list failed with exit code 3.*not in a repo/,
+			/sdl objective list failed with exit code 3.*not in a repo/,
 		);
 	});
 

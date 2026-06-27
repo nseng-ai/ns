@@ -1,6 +1,6 @@
 ---
 name: objective
-description: "Conceptual questions about sdl Objectives, objective list, explicit Objective consolidation/subsumption guidance, and shared grounding with Objective command skills. Read-only."
+description: "Conceptual questions about sdl Objectives, sdl objective list, explicit Objective consolidation/subsumption guidance, and shared grounding with Objective command skills. Read-only."
 ---
 
 # objective
@@ -24,7 +24,7 @@ Active root:
 
 The archive root mirrors this layout under `.sdl/objective-archive/<slug>/`; the `closed.md` marker is preserved when present. Do not use `docs/objectives/`.
 
-Archive state is represented by location. `objective archive <slug>` moves the whole record out of active discovery; `objective archive <slug> --unarchive` moves it back. Open and closed Objectives can both be archived. Archive/unarchive preserve the slug and every file in the record directory.
+Archive state is represented by location. `sdl objective archive <slug>` moves the whole record out of active discovery; `sdl objective archive <slug> --unarchive` moves it back. Open and closed Objectives can both be archived. Archive/unarchive preserve the slug and every file in the record directory.
 
 ## Objective skill family
 
@@ -118,18 +118,18 @@ Optional branch names, URLs, or explicit status words may be included only when 
 ## Selection
 
 1. Use an explicit user-provided slug or path under `.sdl/objectives/<slug>/`.
-2. If no slug or path is explicit, run `objective list --minimal --format md` to enumerate active checkout-local Objectives (`open` records in `.sdl/objectives/`) and ask the user to choose. Use `objective list --names` only for machine-readable active-slug extraction.
+2. If no slug or path is explicit, run `sdl objective list --minimal --format md` to enumerate active checkout-local Objectives (`open` records in `.sdl/objectives/`) and ask the user to choose. Use `sdl objective list --names` only for machine-readable active-slug extraction.
 3. If no candidates exist, say so and suggest `objective-create` when appropriate.
 
 `objective-update` has one narrow exception: when the user explicitly requests an Objective update, no slug/path is explicit, and exactly one active Objective exists, it may present that Objective as the only candidate. It must ask for confirmation before continuing to repo evidence or mutation. If update intent is ambiguous or multiple active Objectives exist, ask instead.
 
 A picker UI may use deterministic git facts to group changed active Objectives first when direct changes under `.sdl/objectives/<slug>/` are present compared with repository trunk. If exactly one active Objective is the only Objective slug changed, the picker may label it as suggested. If multiple active Objectives changed, the picker may show those changed active Objectives in the first menu and offer a separate option to view the remaining active Objectives. The user must still confirm a changed Objective or choose another Objective. If the diff is unavailable, empty, or contains no changed slugs that are active Objectives, show the normal ordering with no suggestion.
 
-Do not silently auto-select from candidate count or changed/touched files. Never infer from branch name, PR, package, roadmap keyword, or hidden attachment metadata. Objective selection must come from an explicit slug/path or checkout-local `objective list` inventory. Changed-path, branch, stack, or PR evidence belongs only to operation-specific checks after an Objective is selected.
+Do not silently auto-select from candidate count or changed/touched files. Never infer from branch name, PR, package, roadmap keyword, or hidden attachment metadata. Objective selection must come from an explicit slug/path or checkout-local `sdl objective list` inventory. Changed-path, branch, stack, or PR evidence belongs only to operation-specific checks after an Objective is selected.
 
 ## Repository status
 
-Use `objective list` for the default checkout-local Objective status inventory, filtered to active open records in `.sdl/objectives/`, with local branch attribution included. Archived records under `.sdl/objective-archive/` are physically outside active discovery. `objective list --status all` means all statuses in the active root only, not archived records. Closed Objectives display as `✓ closed` only when included with `--status closed` or `--status all`. The default list command has local branch attribution, but no Graphite branch projection, current-branch mode, detail view, or third active status. Do not treat listed branch names as Objective selection. Use `objective list --minimal` when you need the compact Objective/status/latest-update view without branch attribution. Use `objective list --names` to emit filtered active-root slugs, one per line. It does not parse Objective prose or infer status from branches.
+Use `sdl objective list` for the default checkout-local Objective status inventory, filtered to active open records in `.sdl/objectives/`, with local branch attribution included. Archived records under `.sdl/objective-archive/` are physically outside active discovery. `sdl objective list --status all` means all statuses in the active root only, not archived records. Closed Objectives display as `✓ closed` only when included with `--status closed` or `--status all`. The default list command has local branch attribution, but no Graphite branch projection, current-branch mode, detail view, or third active status. Do not treat listed branch names as Objective selection. Use `sdl objective list --minimal` when you need the compact Objective/status/latest-update view without branch attribution. Use `sdl objective list --names` to emit filtered active-root slugs, one per line. It does not parse Objective prose or infer status from branches.
 
 ## Tracking Gate
 
@@ -139,4 +139,4 @@ Before `objective-next` recommends work or offers confirmed execution, check rea
 
 - Not a task database, workflow controller, or branch attachment system.
 - No YAML/frontmatter, UUIDs, registries, hidden state, or state machine.
-- V1 keeps Objective *meaning* in Markdown; CLI tooling (`objective list`, `objective exec read-objective`) owns only deterministic facts such as record inventory, file presence, and closed-marker presence. Do not parse Markdown headings, roadmap checkboxes, execution policy, or prose meaning in CLI code.
+- V1 keeps Objective *meaning* in Markdown; CLI tooling (`sdl objective list`, `sdl objective exec read-objective`) owns only deterministic facts such as record inventory, file presence, and closed-marker presence. Do not parse Markdown headings, roadmap checkboxes, execution policy, or prose meaning in CLI code.

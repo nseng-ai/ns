@@ -15,7 +15,7 @@ This is part of the Objective skill family. Use the `objective` umbrella for sha
 ## Boundaries
 
 - **Read-only on Objective records.** Read `.sdl/objectives/<slug>/` and `.sdl/objective-archive/<slug>/`; never edit, create, move, archive, close, or update Objective files.
-- **No formal tooling changes.** Do not add `objective exec` operations, TypeScript, Graphite/GitHub gateways, or package code.
+- **No formal tooling changes.** Do not add `sdl objective exec` operations, TypeScript, Graphite/GitHub gateways, or package code.
 - **No roaster/handoff coupling.** Do not store in roaster or handoff namespaces and do not depend on their retention, runner, diff cap, review log, or artifact formats.
 - **Producer only.** Store a briefing that another review prompt can consume later. Do not turn the briefing into a finding set, approval gate, or merge gate.
 - **Advisory archaeology.** Post-merge git rarely preserves an Objective boundary. Report confidence and gaps instead of fabricating completeness.
@@ -43,7 +43,7 @@ Do not store full diff bytes in brmem. The durable basis stores the reconstructi
 Require an explicit Objective slug or a path under `.sdl/objectives/<slug>/` or `.sdl/objective-archive/<slug>/`. If none is explicit, run:
 
 ```bash
-objective list --minimal --format md
+sdl objective list --minimal --format md
 ```
 
 Ask the user to choose. Never infer the Objective from branch name, PR, changed files, or hidden attachment metadata.
@@ -53,7 +53,7 @@ Ask the user to choose. Never infer the Objective from branch name, PR, changed 
 Read the selected record before looking at repository history:
 
 ```bash
-objective exec read-objective <slug>
+sdl objective exec read-objective <slug>
 ```
 
 Then inspect the relevant Markdown directly, including:

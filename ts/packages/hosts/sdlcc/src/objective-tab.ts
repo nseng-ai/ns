@@ -38,13 +38,14 @@ export const objectiveTabModule: ObjectiveTabModule = {
 };
 
 async function loadModel(deps: TabModuleDeps): Promise<ObjectiveList> {
-	const result = await deps.runCommand("objective", ["list", "--minimal", "--format", "json"], {
+	const args = ["objective", "list", "--minimal", "--format", "json"];
+	const result = await deps.runCommand("sdl", args, {
 		cwd: deps.cwd,
 		timeout: COMMAND_TIMEOUT_MS,
 	});
 	if (result.code !== 0) {
 		throw new Error(
-			`objective list failed with exit code ${result.code}. ${result.stderr.trim() || result.stdout.trim() || "(no output)"}`,
+			`sdl objective list failed with exit code ${result.code}. ${result.stderr.trim() || result.stdout.trim() || "(no output)"}`,
 		);
 	}
 	const parsed = parseObjectiveListStdout(result.stdout);

@@ -80,7 +80,7 @@ Use a quick pass first, then deepen only where relevance is ambiguous or the sho
 7. Read open Active Objectives:
 
    ```bash
-   objective list --format json
+   sdl objective list --format json
    ```
 
    Use `data.records[].updatedBranches` as deterministic branch↔Objective evidence.
@@ -88,7 +88,7 @@ Use a quick pass first, then deepen only where relevance is ambiguous or the sho
 8. When Objective JSON is insufficient for semantic linking, read selected Objective prose:
 
    ```bash
-   objective exec read-objective <slug> --format md
+   sdl objective exec read-objective <slug> --format md
    ```
 
    Use this only for read-only evidence; do not edit Objective files.
@@ -214,7 +214,7 @@ From the current repo checkout:
 gt trunk || true
 git symbolic-ref --short refs/remotes/origin/HEAD | sed 's#^origin/##' || true
 git for-each-ref --sort=-committerdate --format='%(refname:short)%09%(objectname:short)%09%(committerdate:iso8601)%09%(upstream:short)' refs/heads
-objective list --format json
+sdl objective list --format json
 ```
 
 When useful from current or open worktree directories:
@@ -226,7 +226,7 @@ sdl slot gt exec stack-branches --format json
 For selected Objectives or shortlist branches only:
 
 ```bash
-objective exec read-objective <slug> --format md
+sdl objective exec read-objective <slug> --format md
 gh pr list --head <branch> --state all --json number,state,title,url,isDraft,updatedAt,closedAt,mergedAt,mergeStateStatus
 git log --oneline <trunk>..<branch>
 git diff --stat <trunk>...<branch>

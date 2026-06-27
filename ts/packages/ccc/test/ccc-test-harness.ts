@@ -407,7 +407,7 @@ export function objectiveListStep(slugs: string[]): ScriptedExec {
 }
 
 export function objectiveReadStep(slug: string): ScriptedExec {
-	return step("objective", ["exec", "read-objective", slug, "--format", "json"], {
+	return step("sdl", ["objective", "exec", "read-objective", slug, "--format", "json"], {
 		stdout: JSON.stringify({
 			exitCode: 0,
 			data: {

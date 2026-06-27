@@ -47,8 +47,8 @@ describe("cmux Objective sidebar", () => {
 		expect(ctx.waitCount).toBe(1);
 		expect(pi.execCalls).toEqual([
 			{
-				command: "objective",
-				args: ["exec", "read-objective", slug, "--format", "json"],
+				command: "sdl",
+				args: ["objective", "exec", "read-objective", slug, "--format", "json"],
 				options: { cwd: repoRoot, timeout: 30_000 },
 			},
 			{
@@ -104,8 +104,8 @@ describe("cmux Objective sidebar", () => {
 
 		pi.assertDone();
 		expect(pi.execCalls[0]).toMatchObject({
-			command: "objective",
-			args: ["exec", "read-objective", slug, "--format", "json"],
+			command: "sdl",
+			args: ["objective", "exec", "read-objective", slug, "--format", "json"],
 		});
 		expect(pi.sentUserMessages).toEqual([]);
 	});
@@ -146,7 +146,7 @@ describe("cmux Objective sidebar", () => {
 		expect(pi.execCalls.map((call) => [call.command, call.args])).toEqual([
 			["git", ["diff", "--name-status", "-M", "master...HEAD", "--", ".sdl/objectives"]],
 			["git", ["status", "--porcelain=v1", "-z", "--", ".sdl/objectives"]],
-			["objective", ["exec", "read-objective", slug, "--format", "json"]],
+			["sdl", ["objective", "exec", "read-objective", slug, "--format", "json"]],
 			["git", ["branch", "--show-current"]],
 			[
 				"ccc",
@@ -321,7 +321,7 @@ describe("cmux Objective sidebar", () => {
 		const slug = "ghost-objective";
 		const pi = new FakePi({
 			script: [
-				step("objective", ["exec", "read-objective", slug, "--format", "json"], {
+				step("sdl", ["objective", "exec", "read-objective", slug, "--format", "json"], {
 					code: 1,
 					stdout: JSON.stringify({
 						exitCode: 1,
@@ -349,7 +349,7 @@ describe("cmux Objective sidebar", () => {
 		const slug = "requested-objective";
 		const pi = new FakePi({
 			script: [
-				step("objective", ["exec", "read-objective", slug, "--format", "json"], {
+				step("sdl", ["objective", "exec", "read-objective", slug, "--format", "json"], {
 					stdout: JSON.stringify({ exitCode: 0, data: { status: "ok", slug: "other-objective" } }),
 				}),
 			],

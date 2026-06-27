@@ -20,6 +20,7 @@ import {
 	commandPathMatches,
 	executeSdlCommand,
 	listStaticSdlCommandInfos,
+	validateSdlClinkrExit,
 	type SdlCommandInfo,
 	type SdlCommandCliInfo,
 	type SdlCommandPath,
@@ -186,15 +187,35 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 					? buildState.selectedCommand
 					: undefined;
 			const schema = selectedCommand?.schema ?? z.object({});
+			const commandOptions = {
+				name: cliLeafCommandName(commandInfo),
+				description: commandInfo.fullDescription,
+				summary: commandInfo.description,
+				schema,
+				...(selectedCommand?.positionals === undefined
+					? {}
+					: { positionals: selectedCommand.positionals }),
+			};
+			if (selectedCommand?.resultSchema !== undefined) {
+				parent.command({
+					...commandOptions,
+					resultSchema: selectedCommand.resultSchema,
+					...(selectedCommand.renderHuman === undefined
+						? {}
+						: { renderHuman: selectedCommand.renderHuman }),
+					...(selectedCommand.renderMarkdown === undefined
+						? {}
+						: { renderMarkdown: selectedCommand.renderMarkdown }),
+					handler: async (ctx, request) => {
+						const result = await selectedCommand.run(ctx.context, request);
+						return validateSdlClinkrExit(result, selectedCommand.name);
+					},
+				});
+				continue;
+			}
 			parent.command(
 				rawCommand({
-					name: cliLeafCommandName(commandInfo),
-					description: commandInfo.fullDescription,
-					summary: commandInfo.description,
-					schema,
-					...(selectedCommand?.positionals === undefined
-						? {}
-						: { positionals: selectedCommand.positionals }),
+					...commandOptions,
 					run: async (ctx, request) => {
 						const result =
 							selectedCommand === undefined

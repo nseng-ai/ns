@@ -4,20 +4,20 @@ This context captures domain language for the `objective` capability package: th
 
 ## Language
 
-**`objective` command surface**:
-The public `objective` CLI — mounted as `bin.objective` and exported at `@sdl/objective/command-face` — whose commands `archive`, `check`, and `list` view and mutate checked-in Objective records.
-*Avoid*: Objective Capability API, hidden `exec` group, Objective record database, Pi command adapter
+**`sdl objective` command surface**:
+The public SDL-grouped Objective CLI surface — `sdl objective ...` — whose commands `archive`, `check`, and `list` view and mutate checked-in Objective records. The former top-level `bin.objective` executable is retired; `@sdl/objective/command-face` remains a package command-face export for adapters/tests, not the canonical installed command.
+*Avoid*: Objective Capability API, hidden `exec` group, top-level `objective` binary, Objective record database, Pi command adapter
 
-**Checkout-local `objective list`**:
-The `objective list` behavior that inventories Objective records under the root-defined **Active Objective Root** in the current checkout, attributing each record from Git path-touch facts rather than a Graphite stack projection.
+**Checkout-local `sdl objective list`**:
+The `sdl objective list` behavior that inventories Objective records under the root-defined **Active Objective Root** in the current checkout, attributing each record from Git path-touch facts rather than a Graphite stack projection.
 *Avoid*: Graphite stack projection, archived-record discovery, Objective selection authority, cross-worktree inventory
 
-**Hidden `objective exec`**:
-The hidden `objective exec ...` command group of deterministic skill- and agent-facing fact helpers (`list-candidates`, `read-objective`, `runner-subagent-usage`), kept out of the public human command surface and out of the Capability API.
+**Hidden `sdl objective exec`**:
+The hidden `sdl objective exec ...` command group of deterministic skill- and agent-facing fact helpers (`list-candidates`, `read-objective`, `runner-subagent-usage`), kept out of the public human command surface and out of the Capability API.
 *Avoid*: public human command, Objective Capability API, Markdown-meaning interpreter, stable scripting contract
 
 **Checked-in Objective record storage**:
-The rule that the `objective` CLI reads and writes Objective records only as checked-in Markdown under the root-defined **Active Objective Root** / **Objective Archive Root**, including `objective archive` / `--unarchive` directory moves; it is a view-and-mutation surface over those root system terms, not a separate store.
+The rule that the `sdl objective` CLI reads and writes Objective records only as checked-in Markdown under the root-defined **Active Objective Root** / **Objective Archive Root**, including `sdl objective archive` / `--unarchive` directory moves; it is a view-and-mutation surface over those root system terms, not a separate store.
 *Avoid*: hidden database, Branch Memory storage, redefining Objective or Objective Archive, Graphite-derived record set
 
 **Objective Capability API**:
@@ -29,7 +29,7 @@ The `ObjectiveClient` facade returned by `createObjectiveClient`, exposing `list
 *Avoid*: command-face `ClinkrExit` types, raw storage gateway, parsed CLI JSON, host `ctx` object
 
 **Objective Domain Core**:
-The gateway-injected logic that runs over the `ObjectiveCliContext` seam (its Git and Objective-storage **Gateways**) with no dependency on a raw host `ctx` or the Pi runtime; the **Objective Capability API** and the `objective` command surface are thin edges over it.
+The gateway-injected logic that runs over the `ObjectiveCliContext` seam (its Git and Objective-storage **Gateways**) with no dependency on a raw host `ctx` or the Pi runtime; the **Objective Capability API** and the `sdl objective` command surface are thin edges over it.
 *Avoid*: presentation-host logic, command-face-coupled logic, raw `ctx`/`SdlExtensionApi` dependency, `…Loader` collaborator
 
 **Objective Capability Dependency Boundary**:

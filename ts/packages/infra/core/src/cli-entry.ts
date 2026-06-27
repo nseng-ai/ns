@@ -126,7 +126,7 @@ export interface DefinedCli<TContext, TDeps extends CliEntrypointDeps, TBuildSta
 const packageJsonSchema = z.object({
 	name: z.string(),
 	version: z.string(),
-	bin: z.record(z.string(), z.string()),
+	bin: z.record(z.string(), z.string()).optional(),
 });
 
 /**
@@ -257,22 +257,22 @@ function readCliPackageMetadata(metaUrl: string): CliPackageMetadata {
 			`Invalid CLI package metadata in ${packageJsonPath}: ${parsed.error.issues.map(formatZodIssue).join("; ")}`,
 		);
 	}
-	const binEntries = Object.entries(parsed.data.bin);
-	if (binEntries.length !== 1) {
+	const binEntries = Object.entries(parsed.data.bin ?? {});
+	if (binEntries.length > 1) {
 		throw new Error(
-			`Invalid CLI package metadata in ${packageJsonPath}: expected exactly one bin entry, found ${binEntries.length}`,
+			`Invalid CLI package metadata in ${packageJsonPath}: expected at most one bin entry, found ${binEntries.length}`,
 		);
 	}
 	const [binEntry] = binEntries;
-	if (binEntry === undefined) {
-		throw new Error(`Invalid CLI package metadata in ${packageJsonPath}: expected one bin entry`);
-	}
-	const [binName, packageBinPath] = binEntry;
+	const [binName, binPath] =
+		binEntry === undefined
+			? [cliNameFromPackageName(parsed.data.name), "(no package bin)"]
+			: [binEntry[0], normalizeBinPathForDisplay(binEntry[1])];
 	return {
 		packageName: parsed.data.name,
 		packagePath: packagePathForDisplay(packageJsonPath),
 		binName,
-		binPath: normalizeBinPathForDisplay(packageBinPath),
+		binPath,
 		version: parsed.data.version,
 	};
 }
@@ -290,6 +290,10 @@ function packagePathForDisplay(packageJsonPath: string): string {
 
 function normalizeBinPathForDisplay(binPath: string): string {
 	return binPath.startsWith("./") ? binPath.slice(2) : binPath;
+}
+
+function cliNameFromPackageName(packageName: string): string {
+	return packageName.split("/").at(-1) ?? packageName;
 }
 
 function formatZodIssue(issue: z.core.$ZodIssue): string {

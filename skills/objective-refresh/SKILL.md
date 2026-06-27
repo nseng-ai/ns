@@ -41,7 +41,7 @@ Process exactly one active Objective slug/path and exactly one target context at
 git -C "$WT" symbolic-ref --quiet --short HEAD
 ```
 
-If no slug/path is explicit in standalone one-objective mode, run `objective list --minimal --format md` and ask the user to choose one. Do not auto-select from branch name, PR title, roadmap text, changed files, hidden attachments, or candidate count.
+If no slug/path is explicit in standalone one-objective mode, run `sdl objective list --minimal --format md` and ask the user to choose one. Do not auto-select from branch name, PR title, roadmap text, changed files, hidden attachments, or candidate count.
 
 Branch/context and repo scopes must supply the one-objective workflow with:
 
@@ -65,7 +65,7 @@ Material claims include source paths, symbols, commands, packages, workflows, PR
 
 Objective PR evidence bullets and closure PR summaries are material claims. Verify PR numbers, review/CI status, and merge-state wording before carrying them forward or writing them as refreshed durable prose. Use `merged` wording only when PR evidence confirms merge state; if merge state cannot be verified cheaply, weaken to status-neutral PR evidence, an explicit current/open status, an assumption/open question, or `skipped-unverified` rather than asserting a merge.
 
-For every material claim that the refresh writes, carries forward from the old record, or relies on while extracting the refreshed contract, collect evidence first. Evidence may be repository probes (`test -e`, `find`, `rg`, `git grep`, `git diff`, `git log`), deterministic CLI inventory (`objective exec read-objective`, package help/schema output), or PR/CI evidence when the claim is about PR/CI state. Negative claims need scoped absence evidence; "no X" requires a scoped search showing X is absent.
+For every material claim that the refresh writes, carries forward from the old record, or relies on while extracting the refreshed contract, collect evidence first. Evidence may be repository probes (`test -e`, `find`, `rg`, `git grep`, `git diff`, `git log`), deterministic CLI inventory (`sdl objective exec read-objective`, package help/schema output), or PR/CI evidence when the claim is about PR/CI state. Negative claims need scoped absence evidence; "no X" requires a scoped search showing X is absent.
 
 If a claim cannot be verified cheaply, do not leave it as fact. Convert it to an explicit assumption/open question with the missing-evidence scope, park or narrow the roadmap item, or report `skipped-unverified`. If verified evidence contradicts the Objective, correct the extracted contract before rewriting and add a Semantic Update explaining the correction. Never add a Semantic Update that vouches for unverified draft prose.
 
@@ -125,7 +125,7 @@ If a selected Objective appears to require closure rather than refresh, report i
 
 For each due, clean slug, run a full refresh loop:
 
-1. **Read the old record as source material.** Use `objective exec read-objective <slug> --format md` when available for deterministic inventory and closed-marker state, then focus on `objective.md`, `roadmap.md`, and recent `updates/` only when needed for context.
+1. **Read the old record as source material.** Use `sdl objective exec read-objective <slug> --format md` when available for deterministic inventory and closed-marker state, then focus on `objective.md`, `roadmap.md`, and recent `updates/` only when needed for context.
 2. **Gather target evidence** from the baseline to the target `HEAD`/ref:
 
    ```bash

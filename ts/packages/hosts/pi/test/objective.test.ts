@@ -479,7 +479,7 @@ function objectiveCandidatesFromRecords(records: Array<{ slug: string; status: s
 }
 
 function candidateStep(slugs: string[]): ScriptedExec {
-	return step("objective", ["exec", "list-candidates", "--format", "json"], {
+	return step("sdl", ["objective", "exec", "list-candidates", "--format", "json"], {
 		stdout: objectiveCandidatesFromRecords(slugs.map((slug) => ({ slug, status: "open" }))),
 	});
 }
@@ -1126,7 +1126,7 @@ describe("objective command shared selection policy", () => {
 
 	test("objective:next completions return fast active Objective slug candidates", async () => {
 		const { pi, items } = await objectiveCommandCompletions("objective:next", "", [
-			step("objective", ["exec", "list-candidates", "--format", "json"], {
+			step("sdl", ["objective", "exec", "list-candidates", "--format", "json"], {
 				stdout: objectiveCandidatesFromRecords([
 					{ slug: "alpha", status: "open" },
 					{ slug: "bravo", status: "open" },
@@ -1136,8 +1136,8 @@ describe("objective command shared selection policy", () => {
 
 		pi.assertDone();
 		expect(pi.execCalls[0]).toEqual({
-			command: "objective",
-			args: ["exec", "list-candidates", "--format", "json"],
+			command: "sdl",
+			args: ["objective", "exec", "list-candidates", "--format", "json"],
 			options: { cwd: ROOT, timeout: 30_000 },
 		});
 		expect(items).toEqual([
@@ -1171,7 +1171,7 @@ describe("objective command shared selection policy", () => {
 
 	test("slug completions fail quietly for candidate command failures", async () => {
 		const { pi, items } = await objectiveCommandCompletions("objective:next", "", [
-			step("objective", ["exec", "list-candidates", "--format", "json"], {
+			step("sdl", ["objective", "exec", "list-candidates", "--format", "json"], {
 				code: 1,
 				stderr: "failed",
 			}),
@@ -1185,7 +1185,7 @@ describe("objective command shared selection policy", () => {
 
 	test("slug completions fail quietly for malformed objective candidate JSON", async () => {
 		const { pi, items } = await objectiveCommandCompletions("objective:next", "", [
-			step("objective", ["exec", "list-candidates", "--format", "json"], { stdout: "{" }),
+			step("sdl", ["objective", "exec", "list-candidates", "--format", "json"], { stdout: "{" }),
 		]);
 
 		pi.assertDone();

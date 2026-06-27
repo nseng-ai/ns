@@ -5,21 +5,26 @@
   "exports": {
     ".": "./src/index.ts",
     "./api": "./src/api.ts",
-    "./command-face": "./src/cli.ts"
+    "./command-face": "./src/cli.ts",
+    "./sdl/commands/archive": "./src/sdl/commands/archive.ts",
+    "./sdl/commands/check": "./src/sdl/commands/check.ts",
+    "./sdl/commands/exec-list-candidates": "./src/sdl/commands/exec-list-candidates.ts",
+    "./sdl/commands/exec-read-objective": "./src/sdl/commands/exec-read-objective.ts",
+    "./sdl/commands/exec-runner-subagent-usage": "./src/sdl/commands/exec-runner-subagent-usage.ts",
+    "./sdl/commands/list": "./src/sdl/commands/list.ts"
   },
   "files": [
     "src"
   ],
-  "bin": {
-    "objective": "./src/cli.ts"
-  },
   "scripts": {
     "check": "tsgo -p tsconfig.json",
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/objective/test"
   },
   "dependencies": {
+    "@sdl/capability-kit": "workspace:*",
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
+    "sdl-sdk": "workspace:*",
     "zod": "catalog:"
   }
 }
