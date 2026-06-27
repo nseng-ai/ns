@@ -4,7 +4,10 @@ import { join } from "node:path";
 
 import { formatShellArg } from "@sdl/core/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
-import { launchFocusedCmuxTab, type FocusedCmuxTabLaunchResult } from "./focused-terminal-tab.ts";
+import {
+	launchFocusedCmuxTab,
+	type FocusedCmuxTabLaunchResult,
+} from "@sdl/pi/cmux/focused-terminal-tab";
 import { isRecord, stringField } from "./primitives.ts";
 import {
 	resolvePromptFileOptions,
