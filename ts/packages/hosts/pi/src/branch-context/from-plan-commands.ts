@@ -1,8 +1,8 @@
 import { sendCommandProgressOrNotify, registerCommandWithImmediateAck } from "../commands/ack.ts";
 import {
-	formatBranchContextUpAndImplFollowUpFlow,
-	runBranchContextUpAndImplLaunch,
-} from "@sdl/ccc/branch-context-up-and-impl";
+	formatBranchContextGtUpstackImplFollowUpFlow,
+	runBranchContextGtUpstackImplLaunch,
+} from "./gt/upstack-impl-launch.ts";
 import {
 	BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
 	BRANCH_CONTEXT_UPSTACK_IMPL_FROM_PLAN_COMMAND_NAME,
@@ -47,9 +47,9 @@ import type {
 } from "./host-types.ts";
 
 export const CREATE_BRANCH_CONTEXT_COMMAND_NAME = BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME;
-export const UP_AND_IMPL_COMMAND_NAME = BRANCH_CONTEXT_UPSTACK_IMPL_FROM_PLAN_COMMAND_NAME;
+export const GT_UPSTACK_IMPL_COMMAND_NAME = BRANCH_CONTEXT_UPSTACK_IMPL_FROM_PLAN_COMMAND_NAME;
 const BRANCH_CONTEXT_STATUS_KEY = CREATE_BRANCH_CONTEXT_COMMAND_NAME;
-const UP_AND_IMPL_STATUS_KEY = UP_AND_IMPL_COMMAND_NAME;
+const GT_UPSTACK_IMPL_STATUS_KEY = GT_UPSTACK_IMPL_COMMAND_NAME;
 const IMPL_BRANCH_CONTEXT_STATUS_KEY = IMPL_BRANCH_CONTEXT_COMMAND_NAME;
 
 export const CREATE_BRANCH_CONTEXT_USAGE = `Usage: /${CREATE_BRANCH_CONTEXT_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
@@ -68,7 +68,7 @@ With no file path, the command prefers the most recent saved plan created in the
 An explicit file path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute with a .md filename.
 The saved-plan filename is only a locator. If the model cannot derive and validate a content slug, the command fails without falling back to the filename.`;
 
-export const UP_AND_IMPL_USAGE = `Usage: /${UP_AND_IMPL_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
+export const GT_UPSTACK_IMPL_USAGE = `Usage: /${GT_UPSTACK_IMPL_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
 
 Stack a branch context on the current branch with Graphite, attach the saved plan, check out that branch with exact git checkout <branch>, start a fresh Pi session, and run /${IMPL_BRANCH_CONTEXT_COMMAND_NAME} <attached-key> for the attached plan in that new session.
 
@@ -471,7 +471,7 @@ export async function handleCreateBranchContextCommand(
 	}
 }
 
-export async function handleUpAndImplCommand(
+export async function handleGtUpstackImplCommand(
 	pi: ExtensionAPI,
 	rawArgs: string,
 	ctx: CommandContext,
@@ -485,7 +485,7 @@ export async function handleUpAndImplCommand(
 			presentBranchContextMessage(
 				pi,
 				ctx,
-				`Usage error: ${error.message}\n\n${UP_AND_IMPL_USAGE}`,
+				`Usage error: ${error.message}\n\n${GT_UPSTACK_IMPL_USAGE}`,
 				{ status: "usage" },
 				"error",
 			);
@@ -496,7 +496,7 @@ export async function handleUpAndImplCommand(
 
 	if (args.help) {
 		await ctx.waitForIdle();
-		presentBranchContextMessage(pi, ctx, UP_AND_IMPL_USAGE, { status: "usage" }, "info");
+		presentBranchContextMessage(pi, ctx, GT_UPSTACK_IMPL_USAGE, { status: "usage" }, "info");
 		return;
 	}
 
@@ -512,11 +512,11 @@ export async function handleUpAndImplCommand(
 		branchContextDefaultCreation: "graphite",
 	};
 	let selected: SelectedSavedPlanFile;
-	ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, "finding saved plan…");
+	ctx.ui.setStatus(GT_UPSTACK_IMPL_STATUS_KEY, "finding saved plan…");
 	try {
 		selected = await resolveCreateBranchContextPlanFile(pi, args, ctx, previewOptions);
 	} catch (error) {
-		ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, undefined);
+		ctx.ui.setStatus(GT_UPSTACK_IMPL_STATUS_KEY, undefined);
 		if (!(error instanceof NoSavedPlanAvailableError)) {
 			presentBranchContextFailure(
 				pi,
@@ -526,7 +526,7 @@ export async function handleUpAndImplCommand(
 			);
 			return;
 		}
-		await handleUpAndImplExistingReuse({
+		await handleGtUpstackImplExistingReuse({
 			pi,
 			args,
 			ctx,
@@ -537,11 +537,11 @@ export async function handleUpAndImplCommand(
 	}
 
 	let preview: CreateBranchContextPreview;
-	ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, "deriving branch slug from plan content…");
+	ctx.ui.setStatus(GT_UPSTACK_IMPL_STATUS_KEY, "deriving branch slug from plan content…");
 	try {
 		preview = await deriveCreateBranchContextPreview(pi, args, ctx, selected, previewOptions);
 	} catch (error) {
-		ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, undefined);
+		ctx.ui.setStatus(GT_UPSTACK_IMPL_STATUS_KEY, undefined);
 		presentBranchContextFailure(
 			pi,
 			ctx,
@@ -550,14 +550,14 @@ export async function handleUpAndImplCommand(
 		);
 		return;
 	} finally {
-		ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, undefined);
+		ctx.ui.setStatus(GT_UPSTACK_IMPL_STATUS_KEY, undefined);
 	}
 
 	if (args.dryRun) {
 		presentBranchContextMessage(
 			pi,
 			ctx,
-			formatUpAndImplDryRunMessage(
+			formatGtUpstackImplDryRunMessage(
 				formatCreateBranchContextPreview(preview),
 				preview.targetBranch,
 				preview.planKey,
@@ -568,7 +568,7 @@ export async function handleUpAndImplCommand(
 		return;
 	}
 
-	ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, "creating branch and attaching plan…");
+	ctx.ui.setStatus(GT_UPSTACK_IMPL_STATUS_KEY, "creating branch and attaching plan…");
 	let evidence: BranchContextEvidence;
 	try {
 		evidence = await createBranchContextFromPreview({
@@ -579,7 +579,7 @@ export async function handleUpAndImplCommand(
 			extensionOptions: options,
 		});
 	} catch (error) {
-		ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, undefined);
+		ctx.ui.setStatus(GT_UPSTACK_IMPL_STATUS_KEY, undefined);
 		presentBranchContextFailure(
 			pi,
 			ctx,
@@ -589,7 +589,7 @@ export async function handleUpAndImplCommand(
 		return;
 	}
 
-	await runUpAndImplLaunchTail({
+	await runGtUpstackImplLaunchTail({
 		pi,
 		ctx,
 		mode: "created",
@@ -607,7 +607,7 @@ interface CreateBranchContextFromPreviewOptions {
 	extensionOptions: BranchContextExtensionOptions;
 }
 
-interface HandleUpAndImplExistingReuseOptions {
+interface HandleGtUpstackImplExistingReuseOptions {
 	pi: ExtensionAPI;
 	args: CreateBranchContextArgs;
 	ctx: CommandContext;
@@ -615,12 +615,12 @@ interface HandleUpAndImplExistingReuseOptions {
 	extensionOptions: BranchContextExtensionOptions;
 }
 
-async function handleUpAndImplExistingReuse(
-	options: HandleUpAndImplExistingReuseOptions,
+async function handleGtUpstackImplExistingReuse(
+	options: HandleGtUpstackImplExistingReuseOptions,
 ): Promise<void> {
 	const { pi, args, ctx, originalError, extensionOptions } = options;
 	let reuse: ExistingBranchContextReuse;
-	ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, "finding existing branch context…");
+	ctx.ui.setStatus(GT_UPSTACK_IMPL_STATUS_KEY, "finding existing branch context…");
 	try {
 		const sessionEntries = ctx.sessionManager?.getBranch?.() ?? [];
 		reuse = await resolveExistingBranchContextReuse(
@@ -640,14 +640,14 @@ async function handleUpAndImplExistingReuse(
 		);
 		return;
 	} finally {
-		ctx.ui.setStatus(UP_AND_IMPL_STATUS_KEY, undefined);
+		ctx.ui.setStatus(GT_UPSTACK_IMPL_STATUS_KEY, undefined);
 	}
 
 	if (args.dryRun) {
 		presentBranchContextMessage(
 			pi,
 			ctx,
-			formatUpAndImplDryRunMessage(
+			formatGtUpstackImplDryRunMessage(
 				formatExistingBranchContextReuse(reuse),
 				reuse.branch,
 				reuse.key,
@@ -658,7 +658,7 @@ async function handleUpAndImplExistingReuse(
 		return;
 	}
 
-	await runUpAndImplLaunchTail({
+	await runGtUpstackImplLaunchTail({
 		pi,
 		ctx,
 		mode: "reused",
@@ -711,25 +711,25 @@ function formatExistingReuseFailureMessage(originalError: unknown, reuseError: u
 	].join("\n");
 }
 
-type UpAndImplMode = "created" | "reused";
+type GtUpstackImplMode = "created" | "reused";
 
-interface UpAndImplLaunchTailOptions {
+interface GtUpstackImplLaunchTailOptions {
 	pi: ExtensionAPI;
 	ctx: CommandContext;
-	mode: UpAndImplMode;
+	mode: GtUpstackImplMode;
 	target: Pick<BranchContextEvidence, "branch" | "key">;
 	successBody: string;
 	outputDetails: BranchContextOutputDetails;
 }
 
-async function runUpAndImplLaunchTail(options: UpAndImplLaunchTailOptions): Promise<void> {
+async function runGtUpstackImplLaunchTail(options: GtUpstackImplLaunchTailOptions): Promise<void> {
 	const { pi, ctx, mode, target } = options;
 	presentBranchContextMessage(pi, ctx, options.successBody, options.outputDetails, "info");
 
-	const launchResult = await runBranchContextUpAndImplLaunch({
+	const launchResult = await runBranchContextGtUpstackImplLaunch({
 		host: pi,
 		ctx,
-		statusKey: UP_AND_IMPL_STATUS_KEY,
+		statusKey: GT_UPSTACK_IMPL_STATUS_KEY,
 		target,
 	});
 	if (launchResult.type === "launched") {
@@ -739,7 +739,7 @@ async function runUpAndImplLaunchTail(options: UpAndImplLaunchTailOptions): Prom
 		presentBranchContextMessage(
 			pi,
 			ctx,
-			formatUpAndImplCancelledMessage(mode, launchResult.branch, launchResult.key),
+			formatGtUpstackImplCancelledMessage(mode, launchResult.branch, launchResult.key),
 			{ status: "cancelled" },
 			"warning",
 		);
@@ -749,17 +749,17 @@ async function runUpAndImplLaunchTail(options: UpAndImplLaunchTailOptions): Prom
 	presentBranchContextFailure(
 		pi,
 		ctx,
-		formatUpAndImplLaunchFailureTitle(mode, launchResult.phase),
+		formatGtUpstackImplLaunchFailureTitle(mode, launchResult.phase),
 		launchResult.message,
 	);
 }
 
-function formatUpAndImplDryRunMessage(body: string, branch: string, key: string): string {
-	return `Dry run: no branch would be created, no plan would be attached, no checkout would happen, no new session would be started, and no implementation prompt would be sent.\n\n${body}\n\nNew-session implementation flow:\n${formatBranchContextUpAndImplFollowUpFlow(branch, key)}`;
+function formatGtUpstackImplDryRunMessage(body: string, branch: string, key: string): string {
+	return `Dry run: no branch would be created, no plan would be attached, no checkout would happen, no new session would be started, and no implementation prompt would be sent.\n\n${body}\n\nNew-session implementation flow:\n${formatBranchContextGtUpstackImplFollowUpFlow(branch, key)}`;
 }
 
-function formatUpAndImplLaunchFailureTitle(
-	mode: UpAndImplMode,
+function formatGtUpstackImplLaunchFailureTitle(
+	mode: GtUpstackImplMode,
 	phase: "checkout" | "new-session",
 ): string {
 	if (mode === "created") {
@@ -772,7 +772,11 @@ function formatUpAndImplLaunchFailureTitle(
 		: "Reused existing branch context, verified the attached plan, and checked out the branch context, but failed to start the implementation session.";
 }
 
-function formatUpAndImplCancelledMessage(mode: UpAndImplMode, branch: string, key: string): string {
+function formatGtUpstackImplCancelledMessage(
+	mode: GtUpstackImplMode,
+	branch: string,
+	key: string,
+): string {
 	const command = formatImplBranchContextCommand(key);
 	if (mode === "created") {
 		return `Created branch context, attached the plan, and checked out ${branch}, but starting the implementation session was cancelled. Run ${command} to continue.`;
@@ -881,11 +885,11 @@ export function registerBranchContextCommands(
 
 	registerCommandWithImmediateAck({
 		host: pi,
-		commandName: UP_AND_IMPL_COMMAND_NAME,
+		commandName: GT_UPSTACK_IMPL_COMMAND_NAME,
 		commandDefinition: {
 			description:
 				"Stack a branch context on the current branch with Graphite, check it out, and implement the attached plan in a fresh Pi session.",
-			handler: async (args, ctx) => handleUpAndImplCommand(pi, args, ctx, options),
+			handler: async (args, ctx) => handleGtUpstackImplCommand(pi, args, ctx, options),
 		},
 	});
 

@@ -79,7 +79,7 @@ Assumptions:
 - The objectives domain in `@sdl/pi/objectives/*` is separable from genuine Pi presentation concerns; `extension.ts` (~860 lines) likely mixes domain selection/listing logic with Pi-specific presentation that should stay behind a thin shell.
 - The current broad implementation plan is too large for one pass; the durable path is four separate slices with independent gates: runner-usage neutralization, Objective API relocation, consumer repoint, and Pi→CCC cycle break.
 - The runner-subagent usage JSONL parser/totals seam belongs in neutral `@sdl/core/runner-usage`, so `@sdl/objective` can consume it without importing the Pi Presentation Host.
-- The chosen Pi/CCC direction is settled for this Objective: `@sdl/ccc` may continue to import neutral `@sdl/pi` helper subpaths, while `@sdl/pi` must remove all imports of `@sdl/ccc` and its `@sdl/ccc` dependency. The worktree-status edge is partially reduced on the current branch because Pi now owns host lifecycle/refresh wiring and host-local status types, but `@sdl/pi` still imports `@sdl/ccc/worktree-status` helpers and retains multiple other CCC imports plus the manifest dependency.
+- The chosen Pi/CCC direction is settled for this Objective: `@sdl/ccc` may continue to import neutral `@sdl/pi` helper subpaths, while `@sdl/pi` must remove all imports of `@sdl/ccc` and its `@sdl/ccc` dependency. Current stacked progress has removed the worktree-status, land/trunk-pull flow-wrapper, Objective stack registration, focused cmux terminal-tab, handoff-tab, and branch-context upstack source-import edges; after the branch-context upstack move, stale-edge grep still reports the Pi package manifest dependency and parity prose/accounting, not a Pi source import of `@sdl/ccc`.
 - The topological acyclicity guard should not be implemented until after the real graph is acyclic; use stale-edge greps and TypeScript validation as interim gates.
 
 Risks:
@@ -92,5 +92,5 @@ Risks:
 ## Open Questions
 
 - How much of `@sdl/pi/objectives/extension.ts` is genuine Pi presentation that should remain as a thin Pi shell versus domain logic that belongs in the `@sdl/objective` Domain Core?
-- During the Pi→CCC cycle-break slice, can every current `/objective:stack-impl`, worktree-status, handoff-tab, branch-context upstack, cmux focused-terminal-tab, land, and trunk-pull behavior be preserved by moving registration/orchestration ownership without renaming user-visible commands?
+- During final Pi→CCC cleanup, can the remaining package-manifest removal and parity/accounting cleanup be completed without regressing the registered user-visible commands now that the individual source-import edges for worktree-status, land/trunk-pull, Objective stack registration, focused cmux terminal-tab, handoff-tab, and branch-context upstack have moved?
 - Should the later acyclicity check derive the Extension Dependency Graph from `package.json` `workspace:*` edges, from actual import specifiers, or both, to avoid false greens where a `package.json` edge exists without imports (or vice versa)?
