@@ -5,7 +5,7 @@
 ## Language
 
 **Unified Pi package**:
-The private workspace package at `ts/packages/pi/` named `@sdl/pi`. It replaces the former split between Pi command constants, neutral runtime helpers, and engineered project-local extension modules.
+The private workspace package at `ts/packages/hosts/pi/` named `@sdl/pi`. It replaces the former split between Pi command constants, neutral runtime helpers, and engineered project-local extension modules.
 *Avoid*: compatibility shim, old package facade, published npm API.
 
 **Project-local Pi extension surface**:
@@ -13,11 +13,11 @@ The checked-in `.pi/extensions/*.ts` files that Pi auto-discovers for this repos
 *Avoid*: global extension, npm package entry point, CLI plugin.
 
 **Discovery adapter**:
-A thin project-local extension file whose job is to register Pi commands or tools by importing implementation code from `ts/packages/pi/src/`.
+A thin project-local extension file whose job is to register Pi commands or tools by importing implementation code from `ts/packages/hosts/pi/src/` or from another owning package when the Pi implementation has been extracted.
 *Avoid*: package export, shim as implementation, generated extension.
 
 **Engineered Pi implementation domain**:
-A tested implementation area under `ts/packages/pi/src/<domain>/` for project-local Pi behavior such as Branch Context, Handoff, Objective commands, runner subagents, grill UI, PR views, worktree status, SDL flow mirrors, terminal presentation, and command registration helpers.
+A tested implementation area under `ts/packages/hosts/pi/src/<domain>/` for project-local Pi behavior such as Branch Context, Handoff, Objective commands, runner subagents, grill UI, PR views, worktree status, SDL flow mirrors, terminal presentation, and command registration helpers.
 *Avoid*: old package boundary, leaf package, one root barrel.
 
 **Neutral Pi helper subpath**:
@@ -25,7 +25,7 @@ A curated `@sdl/pi/...` package export for helper code intentionally reusable by
 *Avoid*: project-local extension entrypoint, CCC orchestration, private source deep import.
 
 **Project-local extension entrypoint**:
-An implementation module under `ts/packages/pi/src/` that registers a Pi command family or model-visible tool through the Pi host. Lower packages should not import these entrypoints as helpers; use neutral helper subpaths or a lower package API instead.
+An implementation module under `ts/packages/hosts/pi/src/` or another owning package that registers a Pi command family or model-visible tool through the Pi host. Lower packages should not import these entrypoints as helpers; use neutral helper subpaths or a lower package API instead.
 *Avoid*: neutral helper, package facade, public npm API.
 
 **CCC orchestration layer**:

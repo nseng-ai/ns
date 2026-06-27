@@ -2,10 +2,10 @@
 
 ## Work
 
-- [ ] Inventory the `@sdl/pi` host boundary and classify every feature area into a decomposition lane.
+- [x] Inventory the `@sdl/pi` host boundary and classify every feature area into a decomposition lane.
   - Build the current map from `ts/packages/hosts/pi/src/`, `ts/packages/hosts/pi/test/`, package exports, package dependencies, `.pi/extensions/*.ts` discovery adapters, and reverse imports.
   - Classify each area as Pi runtime/neutral helper, Pi-native standalone tool, or vertically integrated capability mirror.
-  - Evidence: an updated roadmap note or Semantic Update records the classification, candidate order, known reverse imports, and any package-location convention needed before extraction.
+  - Evidence: `updates/2026-06-27-pi-host-boundary-inventory.md` records every current top-level source-area classification, package export/dependency and discovery-adapter cross-checks, known `context-profiler` reverse-import seam types, candidate order, and a tentative package-location convention.
 
 - [ ] Extract `context-profiler` as the reference Pi-native package slice.
   - Decide the package name/location and the exact `@sdl/pi` helper/runtime export surface it consumes.
