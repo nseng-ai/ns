@@ -1,12 +1,14 @@
 import { describe, expect, test, vi } from "vitest";
 import type { TextGenerationResult } from "sdl-sdk";
 
-import { resolveProcessCaps } from "@sdl/clinkr";
+import { resolveSettledNonInteractiveCaps } from "@sdl/clinkr";
 import { bold, statusLine, type PhaseState } from "@sdl/clinkr/theme";
 
 import { runFlowCpCommandWithFakes } from "./flow-command-fakes.ts";
 import { formattedExecCalls, type ScriptedExecResponse } from "./sdl-cli-fakes.ts";
 import { CP_PHASES } from "../../src/shared/phase-stream.ts";
+
+const ANSI_ESCAPE_RE = /\x1b\[[0-?]*[ -/]*[@-~]/g;
 
 // A non-tty transient line, as routed to onOutput (the Pi widget path / captured liveOutput).
 function transient(text: string): { stream: "stderr"; text: string } {
@@ -19,12 +21,12 @@ function settledFrame(
 	title: string,
 	states: readonly PhaseState[],
 ): { stream: "stderr"; text: string } {
-	const caps = resolveProcessCaps();
+	const caps = resolveSettledNonInteractiveCaps();
 	const lines = [
 		bold(title),
 		...CP_PHASES.map((spec, index) => statusLine(caps, spec.item, states[index] ?? "pending")),
 	];
-	return { stream: "stderr", text: `${lines.join("\n")}\n` };
+	return { stream: "stderr", text: `${lines.join("\n").replace(ANSI_ESCAPE_RE, "")}\n` };
 }
 
 function defaultCpMessage(): string {

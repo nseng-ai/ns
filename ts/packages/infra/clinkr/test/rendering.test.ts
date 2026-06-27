@@ -2,6 +2,7 @@ import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
 import { ClinkrFailure, ClinkrGroup, negative, ok, type ClinkrExit } from "../src/index.ts";
+import type { Caps } from "../src/caps.ts";
 import { runForTest } from "../src/testing/index.ts";
 
 interface Payload {
@@ -85,6 +86,31 @@ describe("renderHuman", () => {
 		expect(run.exitCode).toBe(0);
 		expect(JSON.parse(run.stdout)).toEqual({ status: "ok", exitCode: 0, data: { count: 2 } });
 		expect(renderCalls()).toBe(0);
+	});
+
+	test("receives the resolved sink caps", async () => {
+		const sinkCaps: Caps = { isTty: false, colorDepth: "none", columns: 72, unicode: false };
+		const group = new ClinkrGroup<null>({ name: "probe" });
+		group.command({
+			name: "act",
+			schema: z.object({}),
+			handler: async () => ok({ count: 2 }),
+			renderHuman: (_data, caps) => `${caps.caps?.columns}:${caps.caps?.unicode}`,
+		});
+		const stdout: string[] = [];
+		const stderr: string[] = [];
+		const exitCode = await group.run(["act"], {
+			context: null,
+			io: {
+				stdout: (text) => stdout.push(text),
+				stderr: (text) => stderr.push(text),
+				canEmitAnsi: false,
+				caps: sinkCaps,
+			},
+		});
+		expect(exitCode).toBe(0);
+		expect(stdout.join("")).toBe("72:false\n");
+		expect(stderr).toEqual([]);
 	});
 
 	test("default human rendering is indented JSON when absent", async () => {

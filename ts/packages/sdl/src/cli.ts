@@ -81,7 +81,7 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 	metaUrl: import.meta.url,
 	runtime: "typescript",
 	description: "Source Development Lifecycle tools.",
-	prepareRun: async ({ args, deps, cwd, env, stdout, stderr }) => {
+	prepareRun: async ({ args, deps, cwd, env, stdout, stderr, io }) => {
 		const injectedContext = deps.context;
 		const resolvedStdout = deps.stdout ?? injectedContext?.stdout ?? stdout;
 		const resolvedStderr = deps.stderr ?? injectedContext?.stderr ?? stderr;
@@ -138,6 +138,10 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 			injectedContext ?? createRealSdlCommandContext({ cwd: resolvedCwd, env: resolvedEnv });
 		const onOutput = deps.onOutput ?? baseContext.onOutput;
 		const confirm = deps.confirm ?? baseContext.confirm;
+		const contextExtensions = {
+			...(baseContext.extensions ?? {}),
+			"sdl.clinkr.caps": io.caps,
+		};
 		const context: SdlExtensionApi = {
 			cwd: resolvedCwd,
 			env: resolvedEnv,
@@ -147,7 +151,7 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 			stderr: resolvedStderr,
 			...(onOutput === undefined ? {} : { onOutput }),
 			...(confirm === undefined ? {} : { confirm }),
-			...(baseContext.extensions === undefined ? {} : { extensions: baseContext.extensions }),
+			extensions: contextExtensions,
 		};
 		const slotContext = await createRealSlotContext({ cwd: resolvedCwd, env: resolvedEnv });
 		const contextWithIO: SdlCliContext = {

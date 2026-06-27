@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
+import { DEFAULT_COLUMNS } from "../src/caps.ts";
 import { resolveIo } from "../src/io.ts";
 
 afterEach(() => {
@@ -57,6 +58,53 @@ describe("resolveIo", () => {
 
 	test("an explicit ANSI override wins over sink detection", () => {
 		expect(resolveIo({ stdout: () => {}, canEmitAnsi: true }).canEmitAnsi).toBe(true);
+	});
+
+	test("a stdout override gets settled non-interactive caps by default", () => {
+		vi.stubEnv("FORCE_COLOR", "3");
+		const originalIsTty = process.stdout.isTTY;
+		const originalColumns = process.stdout.columns;
+		Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
+		Object.defineProperty(process.stdout, "columns", { value: 24, configurable: true });
+		try {
+			const io = resolveIo({ stdout: () => {} });
+			expect(io.caps).toEqual({
+				isTty: false,
+				colorDepth: "none",
+				columns: DEFAULT_COLUMNS,
+				unicode: true,
+			});
+		} finally {
+			Object.defineProperty(process.stdout, "isTTY", { value: originalIsTty, configurable: true });
+			Object.defineProperty(process.stdout, "columns", {
+				value: originalColumns,
+				configurable: true,
+			});
+		}
+	});
+
+	test("direct process io preserves process terminal caps", () => {
+		vi.stubEnv("TERM", "xterm-256color");
+		vi.stubEnv("COLORTERM", "");
+		const originalIsTty = process.stdout.isTTY;
+		const originalColumns = process.stdout.columns;
+		Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
+		Object.defineProperty(process.stdout, "columns", { value: 123, configurable: true });
+		try {
+			const io = resolveIo();
+			const ioCaps = io.caps;
+			expect(ioCaps).toBeDefined();
+			if (ioCaps === undefined) return;
+			expect(ioCaps.isTty).toBe(true);
+			expect(ioCaps.columns).toBe(123);
+			expect(ioCaps.colorDepth).toBe("ansi256");
+		} finally {
+			Object.defineProperty(process.stdout, "isTTY", { value: originalIsTty, configurable: true });
+			Object.defineProperty(process.stdout, "columns", {
+				value: originalColumns,
+				configurable: true,
+			});
+		}
 	});
 
 	test("NO_COLOR disables ANSI output even on a TTY", () => {

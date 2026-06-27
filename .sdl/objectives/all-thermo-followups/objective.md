@@ -42,9 +42,9 @@ Assumptions:
 
 Risks:
 
-- Capability resolution is duplicated across flow, objective, and clinkr; a narrow fix in only one command could leave hosted output drift in the other.
-- Stream cleanup bugs are user-hostile because they can leave cursors hidden or spinner pumps alive after errors.
-- Refactoring `phase-stream.ts` before the caps/cleanup fixes could expand the diff and obscure the functional blockers.
+- Capability resolution was de-risked for flow streaming and objective list rendering by a shared `@sdl/clinkr` settled non-interactive caps policy plus host/IO-threaded caps; watch future commands for reintroducing process-global rendering decisions.
+- Stream cleanup was de-risked for `flow submit` and `flow cp` by `runPhaseStream(...)` finally-owned cleanup; future stream changes should preserve that ownership boundary.
+- Refactoring `phase-stream.ts` is now safer after the caps/cleanup fixes, but the remaining split should still avoid obscuring functional behavior.
 - Exact-frame command tests may reject legitimate theme changes unless rendering semantics are separated from command behavior assertions.
 - Removing scratch code without preserving still-relevant design rationale could lose context for future UI work.
 

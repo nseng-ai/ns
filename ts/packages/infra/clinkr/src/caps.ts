@@ -52,6 +52,22 @@ export function resolveProcessCaps(): Caps {
 	return resolveCaps(readProcessCapsEnv());
 }
 
+/**
+ * Stable caps for callback, override, and hosted sinks whose terminal affordances are unknown. This
+ * deliberately ignores FORCE_COLOR and process TTY/columns so a parent terminal cannot leak ANSI or
+ * cursor-control behavior into a captured sink.
+ */
+export function resolveSettledNonInteractiveCaps(
+	env: Readonly<Record<string, string | undefined>> = {},
+): Caps {
+	return {
+		isTty: false,
+		colorDepth: "none",
+		columns: DEFAULT_COLUMNS,
+		unicode: detectUnicode(env),
+	};
+}
+
 function resolveColorDepth(snapshot: CapsEnv): ColorDepth {
 	const env = snapshot.env;
 	// NO_COLOR (defined at any value, even empty) disables color outright; it outranks FORCE_COLOR to

@@ -16,6 +16,7 @@ import { setTimeout as delay } from "node:timers/promises";
 
 import { createLogUpdate } from "log-update";
 
+import { stripAnsi } from "../ansi.ts";
 import type { Caps } from "../caps.ts";
 
 /** Spinner repaint cadence, independent of how long a step actually takes. */
@@ -191,9 +192,9 @@ export function createStreamSink(caps: Caps, deps: StreamSinkDeps): StreamSink {
 			if (finalLines.length > 0) writer.write(`${finalLines.join("\n")}\n`);
 			return;
 		}
-		// Non-tty: the settled frame plus the final block, emitted as exactly one write.
+		// Non-tty: the settled frame plus the final block, emitted as exactly one plain write.
 		const settled = currentFrame(0);
-		writer.write(`${[...settled, ...finalLines].join("\n")}\n`);
+		writer.write(`${stripAnsi([...settled, ...finalLines].join("\n"))}\n`);
 	}
 
 	function stop(): void {

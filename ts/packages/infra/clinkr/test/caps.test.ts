@@ -4,6 +4,7 @@ import {
 	readProcessCapsEnv,
 	resolveCaps,
 	resolveProcessCaps,
+	resolveSettledNonInteractiveCaps,
 	type CapsEnv,
 } from "../src/caps.ts";
 
@@ -126,6 +127,17 @@ describe("resolveCaps unicode", () => {
 
 	test("defaults on when no locale is configured", () => {
 		expect(resolveCaps(capsEnv({ env: {} })).unicode).toBe(true);
+	});
+});
+
+describe("resolveSettledNonInteractiveCaps", () => {
+	test("ignores TTY-only color forcing and process columns for hosted sinks", () => {
+		expect(resolveSettledNonInteractiveCaps({ FORCE_COLOR: "3", LANG: "C" })).toEqual({
+			isTty: false,
+			colorDepth: "none",
+			columns: DEFAULT_COLUMNS,
+			unicode: false,
+		});
 	});
 });
 

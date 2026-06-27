@@ -1,13 +1,26 @@
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
+import { DEFAULT_COLUMNS } from "@sdl/clinkr";
 import type { Caps, ColorDepth } from "@sdl/clinkr";
 import type { StreamClock, StreamSinkDeps, StreamWriter } from "@sdl/clinkr/stream";
 import { spinnerFrame } from "@sdl/clinkr/theme";
 
-import { createPhaseStream, type PhaseSpec } from "../../src/shared/phase-stream.ts";
+import type { SdlExtensionApi } from "sdl-sdk";
+
+import {
+	createPhaseStream,
+	resolveFlowStreamCaps,
+	runPhaseStream,
+	type PhaseSpec,
+} from "../../src/shared/phase-stream.ts";
 
 const CURSOR_HIDE = "\x1b[?25l";
 const CURSOR_SHOW = "\x1b[?25h";
+
+afterEach(() => {
+	vi.restoreAllMocks();
+	vi.unstubAllEnvs();
+});
 
 const SPECS: readonly PhaseSpec[] = [
 	{ key: "a", item: { name: "Alpha", detail: "alpha done", label: "alpha working…" } },
@@ -21,6 +34,16 @@ function caps(parts: { isTty?: boolean; colorDepth?: ColorDepth; unicode?: boole
 		colorDepth: parts.colorDepth ?? "truecolor",
 		columns: 80,
 		unicode: parts.unicode ?? true,
+	};
+}
+
+function ctx(overrides: Partial<SdlExtensionApi> = {}): SdlExtensionApi {
+	return {
+		cwd: "/work",
+		env: {},
+		exec: async () => ({ code: 0, stdout: "", stderr: "", killed: false }),
+		textGenerator: { generateText: async () => ({ ok: true, text: "" }) },
+		...overrides,
 	};
 }
 
@@ -100,6 +123,60 @@ async function flush(times: number): Promise<void> {
 	for (let i = 0; i < times; i += 1) await Promise.resolve();
 }
 
+describe("resolveFlowStreamCaps", () => {
+	test("callback sinks resolve to settled non-interactive caps", () => {
+		vi.stubEnv("FORCE_COLOR", "3");
+		const resolved = resolveFlowStreamCaps(
+			ctx({ env: { FORCE_COLOR: "3", LANG: "C" }, onOutput: () => undefined }),
+		);
+
+		expect(resolved).toEqual({
+			isTty: false,
+			colorDepth: "none",
+			columns: DEFAULT_COLUMNS,
+			unicode: false,
+		});
+	});
+
+	test("stdout or stderr override sinks also resolve to settled non-interactive caps", () => {
+		const resolved = resolveFlowStreamCaps(
+			ctx({ env: { FORCE_COLOR: "3" }, stdout: () => undefined }),
+		);
+
+		expect(resolved.isTty).toBe(false);
+		expect(resolved.colorDepth).toBe("none");
+		expect(resolved.columns).toBe(DEFAULT_COLUMNS);
+	});
+
+	test("host-provided caps win for override sinks", () => {
+		const injected = caps({ isTty: false, colorDepth: "none", unicode: false });
+		expect(resolveFlowStreamCaps(ctx({ extensions: { "sdl.clinkr.caps": injected } }))).toEqual(
+			injected,
+		);
+	});
+
+	test("direct command execution falls back to process caps", () => {
+		vi.stubEnv("TERM", "xterm-256color");
+		vi.stubEnv("COLORTERM", "");
+		const originalIsTty = process.stdout.isTTY;
+		const originalColumns = process.stdout.columns;
+		Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
+		Object.defineProperty(process.stdout, "columns", { value: 111, configurable: true });
+		try {
+			const resolved = resolveFlowStreamCaps(ctx());
+			expect(resolved.isTty).toBe(true);
+			expect(resolved.columns).toBe(111);
+			expect(resolved.colorDepth).toBe("ansi256");
+		} finally {
+			Object.defineProperty(process.stdout, "isTTY", { value: originalIsTty, configurable: true });
+			Object.defineProperty(process.stdout, "columns", {
+				value: originalColumns,
+				configurable: true,
+			});
+		}
+	});
+});
+
 describe("non-tty settle path", () => {
 	test("routes one transient per started/progress to onOutput and emits one settled all-done frame", async () => {
 		const c = caps({ isTty: false, colorDepth: "none" });
@@ -165,6 +242,25 @@ describe("inferred completion", () => {
 		expect(settled).toContain("alpha done");
 		expect(settled).toContain("beta done"); // inferred, never explicitly started
 		expect(settled).toContain("gamma done");
+	});
+});
+
+describe("runPhaseStream lifecycle", () => {
+	test("restores the cursor and stops the pump when core work throws", async () => {
+		const c = caps();
+		const { deps, writes } = harness();
+
+		await expect(
+			runPhaseStream(c, SPECS, deps, "title", async (stream) => {
+				stream.emit({ type: "phase-started", phaseKey: "a" });
+				throw new Error("mid-stream failure");
+			}),
+		).rejects.toThrow("mid-stream failure");
+
+		const hideIdx = writes.indexOf(CURSOR_HIDE);
+		const showIdx = writes.indexOf(CURSOR_SHOW);
+		expect(hideIdx).toBeGreaterThanOrEqual(0);
+		expect(showIdx).toBeGreaterThan(hideIdx);
 	});
 });
 

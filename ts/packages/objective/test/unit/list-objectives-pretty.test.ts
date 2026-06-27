@@ -1,7 +1,8 @@
 import type { Caps, ColorDepth } from "@sdl/clinkr";
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
 import type { ObjectiveListResult } from "../../src/operations/list-objectives.ts";
+import { objectiveListSdlCommand } from "../../src/sdl/commands/list.ts";
 import {
 	relativeTime,
 	renderObjectiveListPretty,
@@ -9,6 +10,11 @@ import {
 
 const ESC = String.fromCharCode(0x1b);
 const NOW = Date.parse("2026-06-27T18:00:00Z");
+
+afterEach(() => {
+	vi.restoreAllMocks();
+	vi.unstubAllEnvs();
+});
 
 function caps(parts: { colorDepth?: ColorDepth; columns?: number; unicode?: boolean } = {}): Caps {
 	return {
@@ -135,6 +141,39 @@ describe("renderObjectiveListPretty layout", () => {
 		});
 		const out = renderObjectiveListPretty(wide, caps({ colorDepth: "none", columns: 40 }), NOW);
 		expect(out).toContain("…");
+	});
+
+	test("SDL renderHuman uses settled caps instead of process TTY state", () => {
+		vi.stubEnv("FORCE_COLOR", "3");
+		const originalIsTty = process.stdout.isTTY;
+		const originalColumns = process.stdout.columns;
+		Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
+		Object.defineProperty(process.stdout, "columns", { value: 36, configurable: true });
+		try {
+			const out =
+				objectiveListSdlCommand.renderHuman?.(
+					result({
+						records: [
+							{
+								slug: "long-slug-that-fits-default-hosted-width",
+								status: "open",
+								latestUpdateIso: null,
+								hasOutstandingChanges: false,
+							},
+						],
+					}),
+					{ canEmitAnsi: false },
+				) ?? "";
+
+			expect(out).toContain("long-slug-that-fits-default-hosted-width");
+			expect(out).not.toContain("…");
+		} finally {
+			Object.defineProperty(process.stdout, "isTTY", { value: originalIsTty, configurable: true });
+			Object.defineProperty(process.stdout, "columns", {
+				value: originalColumns,
+				configurable: true,
+			});
+		}
 	});
 
 	test("legend appears only when a record has outstanding changes", () => {

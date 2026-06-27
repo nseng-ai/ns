@@ -5,6 +5,8 @@ import {
 	type ClinkrExit,
 	type ClinkrOkExit,
 } from "./exit.ts";
+import { stripAnsi } from "./ansi.ts";
+import type { Caps } from "./caps.ts";
 import type { ClinkrIo } from "./io.ts";
 
 export type ClinkrFormat = "human" | "json" | "markdown";
@@ -13,6 +15,8 @@ export type ClinkrFormat = "human" | "json" | "markdown";
 export interface RenderCapabilities {
 	/** Whether the renderer may emit ANSI styling. */
 	canEmitAnsi: boolean;
+	/** Full terminal capabilities for the resolved output sink. */
+	caps?: Caps | undefined;
 }
 
 export interface EmitExitOptions<T> {
@@ -48,7 +52,19 @@ export function emitExit<T>(exit: ClinkrExit<T>, options: EmitExitOptions<T>): n
 }
 
 function renderOkExit<T>(exit: ClinkrOkExit<T>, options: EmitExitOptions<T>): string {
-	const caps: RenderCapabilities = { canEmitAnsi: options.io.canEmitAnsi === true };
+	const caps: RenderCapabilities = {
+		canEmitAnsi: options.io.canEmitAnsi === true,
+		caps: options.io.caps,
+	};
+	const rendered = renderOkExitText(exit, options, caps);
+	return caps.canEmitAnsi ? rendered : stripAnsi(rendered);
+}
+
+function renderOkExitText<T>(
+	exit: ClinkrOkExit<T>,
+	options: EmitExitOptions<T>,
+	caps: RenderCapabilities,
+): string {
 	if (options.format === "human") return renderHumanChain(exit, options, caps);
 	if (exit.markdown !== undefined) return exit.markdown;
 	if (options.renderMarkdown !== undefined) return options.renderMarkdown(exit.data, caps);

@@ -8,10 +8,10 @@
 // This is the one new `flow → clinkr` edge. The event type lives in `@sdl/core` (graphite already
 // depends on it), so clinkr stays free of any `@sdl/*` dependency and is never imported by graphite.
 //
-// Interim bridge: flow resolves its own `Caps` via `resolveProcessCaps()` — streaming is a side
-// channel, NOT routed through clinkr's `emitExit`. A later pass retires that bridge.
+// Flow resolves streaming `Caps` from its command host context when present; direct command execution
+// falls back to the real process terminal.
 
-import { resolveProcessCaps, type Caps } from "@sdl/clinkr";
+import { resolveProcessCaps, resolveSettledNonInteractiveCaps, type Caps } from "@sdl/clinkr";
 import {
 	createStdoutStreamWriter,
 	createStreamSink,
@@ -56,6 +56,8 @@ export interface PhaseStream {
 	fail(): void;
 	/** Settle the remaining phases, persist the region, and restore the cursor. */
 	finish(finalLines?: readonly string[]): Promise<void>;
+	/** Stop the spinner pump and restore the cursor without emitting a settled frame. Idempotent. */
+	stop(): Promise<void>;
 }
 
 /** Ordered phase list for `flow submit`. Keys match what the submit driver and graphite emit. */
@@ -140,6 +142,7 @@ export function createPhaseStream(
 	let activeIndex = -1;
 	let running = false;
 	let pumpPromise: Promise<void> | undefined;
+	let stopped = false;
 	// The freshest raw-transcript line and the buffer of bytes not yet terminated by a newline / CR.
 	let tail: string | undefined;
 	let tailBuffer = "";
@@ -261,6 +264,14 @@ export function createPhaseStream(
 		repaint();
 	}
 
+	async function stop(): Promise<void> {
+		if (stopped) return;
+		stopped = true;
+		running = false;
+		if (pumpPromise !== undefined) await pumpPromise;
+		sink.stop();
+	}
+
 	async function finish(finalLines: readonly string[] = []): Promise<void> {
 		running = false;
 		if (pumpPromise !== undefined) await pumpPromise;
@@ -276,15 +287,58 @@ export function createPhaseStream(
 		clearTail();
 		repaint();
 		sink.finish(finalLines);
-		sink.stop();
+		await stop();
 	}
 
-	return { begin, emit, note, fail, finish };
+	return { begin, emit, note, fail, finish, stop };
 }
 
-/** The interim caps bridge: resolve straight from the process (not via clinkr's `emitExit`). */
-export function resolveFlowStreamCaps(): Caps {
+export async function runPhaseStream<T>(
+	caps: Caps,
+	specs: readonly PhaseSpec[],
+	deps: StreamSinkDeps,
+	title: string,
+	body: (stream: PhaseStream) => Promise<T>,
+): Promise<T> {
+	const stream = createPhaseStream(caps, specs, deps);
+	stream.begin(title);
+	try {
+		return await body(stream);
+	} finally {
+		await stream.stop();
+	}
+}
+
+/** Resolve flow streaming caps from the command host context, falling back only for direct CLI runs. */
+export function resolveFlowStreamCaps(ctx: SdlExtensionApi): Caps {
+	const hostCaps = capsFromHostExtension(ctx.extensions?.["sdl.clinkr.caps"]);
+	if (hostCaps !== undefined) return hostCaps;
+	if (ctx.onOutput !== undefined || ctx.stdout !== undefined || ctx.stderr !== undefined) {
+		return resolveSettledNonInteractiveCaps(ctx.env);
+	}
 	return resolveProcessCaps();
+}
+
+function capsFromHostExtension(value: unknown): Caps | undefined {
+	if (typeof value !== "object" || value === null) return undefined;
+	const candidate = value as Partial<Caps>;
+	if (
+		typeof candidate.isTty === "boolean" &&
+		(candidate.colorDepth === "truecolor" ||
+			candidate.colorDepth === "ansi256" ||
+			candidate.colorDepth === "ansi16" ||
+			candidate.colorDepth === "none") &&
+		typeof candidate.columns === "number" &&
+		typeof candidate.unicode === "boolean"
+	) {
+		return {
+			isTty: candidate.isTty,
+			colorDepth: candidate.colorDepth,
+			columns: candidate.columns,
+			unicode: candidate.unicode,
+		};
+	}
+	return undefined;
 }
 
 /**
