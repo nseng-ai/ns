@@ -3,7 +3,7 @@ import { join } from "node:path";
 import process from "node:process";
 
 import { RealCheckpointGateway, runCheckpointIfPending } from "../shared/checkpoint.ts";
-import { createFlowLiveOutput } from "../shared/live-output.ts";
+import { createFlowLiveOutput, type FlowLiveOutput } from "../shared/live-output.ts";
 import {
 	checkpointEventLabel,
 	createPhaseStream,
@@ -93,8 +93,14 @@ export const flowSubmitCommand: SdlCommand<typeof submitSchema> = {
 		}
 
 		// The raw `gt submit` transcript streams on its own channel (live + --verbose), separate from
-		// the typed phase events that drive the live region.
+		// the typed phase events that drive the live region. In a TTY it must ride INSIDE the live
+		// region as a tail line (via `stream.note`) so the sink's writer stays the sole owner of stdout;
+		// writing it straight to the context desynced log-update and duplicated/scrolled the region.
+		// Non-TTY (Pi / pipe) keeps streaming the transcript to the context as before.
 		const rawTranscript = createFlowLiveOutput(ctx);
+		const onOutput: FlowLiveOutput | undefined = caps.isTty
+			? (_stream, text) => stream.note(text)
+			: rawTranscript;
 		const result = await runSubmitCommand({
 			cwd: ctx.cwd,
 			gateway: runtime.submitGateway,
@@ -104,7 +110,7 @@ export const flowSubmitCommand: SdlCommand<typeof submitSchema> = {
 			shouldForwardCommandOutput: request.verbose,
 			prDescription: runtime.prDescription,
 			onPhase: stream.emit,
-			...(rawTranscript === undefined ? {} : { onOutput: rawTranscript }),
+			...(onOutput === undefined ? {} : { onOutput }),
 		});
 		if (result.exitCode !== 0) stream.fail();
 		await stream.finish();

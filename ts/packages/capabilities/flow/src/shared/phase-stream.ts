@@ -20,7 +20,15 @@ import {
 	type FrameRenderer,
 	type StreamSinkDeps,
 } from "@sdl/clinkr/stream";
-import { bold, statusLine, type PhaseState, type StatusLineItem } from "@sdl/clinkr/theme";
+import {
+	bold,
+	dim,
+	ellipsisFor,
+	statusLine,
+	truncatePlain,
+	type PhaseState,
+	type StatusLineItem,
+} from "@sdl/clinkr/theme";
 import type { ProgressPhaseEvent } from "@sdl/core/progress-phase";
 import type { SdlExtensionApi } from "sdl-sdk";
 
@@ -38,6 +46,12 @@ export interface PhaseStream {
 	begin(title: string): void;
 	/** The `onPhase` listener: advance the phase list and repaint / emit a transient. */
 	emit(event: ProgressPhaseEvent): void;
+	/**
+	 * Feed a raw subprocess transcript chunk into the live region's tail line (TTY only; a no-op
+	 * otherwise). Routing the transcript THROUGH the sink keeps `log-update` the sole writer, so its
+	 * line accounting never desyncs — writing it straight to stdout duplicated and scrolled the region.
+	 */
+	note(text: string): void;
 	/** Mark the currently active phase as failed (call before `finish` on a non-zero exit). */
 	fail(): void;
 	/** Settle the remaining phases, persist the region, and restore the cursor. */
@@ -126,16 +140,34 @@ export function createPhaseStream(
 	let activeIndex = -1;
 	let running = false;
 	let pumpPromise: Promise<void> | undefined;
+	// The freshest raw-transcript line and the buffer of bytes not yet terminated by a newline / CR.
+	let tail: string | undefined;
+	let tailBuffer = "";
 
 	// Every frame re-reads the mutable arrays, so spinner ticks and event mutations compose in one place.
-	const frame: FrameRenderer = (tick) => [
-		bold(header),
-		...specs.map((spec, index) => {
-			const label = labels[index];
-			const item: StatusLineItem = label === undefined ? spec.item : { ...spec.item, label };
-			return statusLine(caps, item, states[index] ?? "pending", tick);
-		}),
-	];
+	// The raw subprocess transcript, when present, rides as a dimmed tail line INSIDE the frame so the
+	// sink's writer owns every byte (mirrors the north star; no direct stdout writes alongside it).
+	const frame: FrameRenderer = (tick) => {
+		const lines = [
+			bold(header),
+			...specs.map((spec, index) => {
+				const label = labels[index];
+				const item: StatusLineItem = label === undefined ? spec.item : { ...spec.item, label };
+				return statusLine(caps, item, states[index] ?? "pending", tick);
+			}),
+		];
+		if (tail !== undefined) {
+			lines.push(
+				`       ${dim(truncatePlain(tail, Math.max(0, caps.columns - 7), ellipsisFor(caps)))}`,
+			);
+		}
+		return lines;
+	};
+
+	function clearTail(): void {
+		tail = undefined;
+		tailBuffer = "";
+	}
 
 	function repaint(): void {
 		if (caps.isTty) sink.render(frame);
@@ -172,6 +204,18 @@ export function createPhaseStream(
 		if (line !== undefined) void sink.hold({ tickMs: SPINNER_FRAME_MS, transient: line });
 	}
 
+	// TTY only: accumulate transcript bytes, take the freshest non-empty line (CR-aware, so Graphite's
+	// in-place spinner progress shows), and repaint. Non-tty routes its transcript straight to ctx.
+	function note(text: string): void {
+		if (!caps.isTty) return;
+		tailBuffer += text;
+		const segments = tailBuffer.split(/\r\n|\r|\n/);
+		tailBuffer = segments.pop() ?? "";
+		const latest = [tailBuffer, ...segments.reverse()].find((segment) => segment.trim() !== "");
+		if (latest !== undefined) tail = latest.trim();
+		sink.render(frame);
+	}
+
 	function begin(title: string): void {
 		header = title;
 		sink.start();
@@ -200,11 +244,13 @@ export function createPhaseStream(
 				break;
 			case "phase-done":
 				states[index] = "done";
+				clearTail();
 				repaint();
 				break;
 			case "phase-failed":
 				states[index] = "failed";
 				labels[index] = event.detail;
+				clearTail();
 				repaint();
 				break;
 		}
@@ -226,12 +272,14 @@ export function createPhaseStream(
 				if (state === "pending" || state === "active") states[i] = "done";
 			}
 		}
+		// The persisted region must not carry a transient transcript line; the settled phases stand alone.
+		clearTail();
 		repaint();
 		sink.finish(finalLines);
 		sink.stop();
 	}
 
-	return { begin, emit, fail, finish };
+	return { begin, emit, note, fail, finish };
 }
 
 /** The interim caps bridge: resolve straight from the process (not via clinkr's `emitExit`). */

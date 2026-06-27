@@ -199,6 +199,64 @@ describe("tty live region", () => {
 		expect(showIdx).toBeGreaterThan(hideIdx);
 	});
 
+	test("a raw transcript chunk rides inside the live region as a dimmed tail, never a direct write", async () => {
+		const c = caps();
+		const { deps, writes, redraws } = harness();
+		const stream = createPhaseStream(c, SPECS, deps);
+
+		stream.begin("title");
+		stream.emit({ type: "phase-started", phaseKey: "a" });
+		const writesBeforeNote = writes.length;
+
+		// The freshest transcript line shows; a CR-updated progress line replaces the prior one in place.
+		stream.note("Pushing branch…\n");
+		expect(redraws[redraws.length - 1]).toContain("Pushing branch…");
+		stream.note("Submitting…25%\rSubmitting…80%");
+		const afterNote = redraws[redraws.length - 1] ?? "";
+		expect(afterNote).toContain("Submitting…80%");
+		expect(afterNote).not.toContain("25%"); // CR overwrote the earlier progress, it is not appended
+
+		// The transcript reached the region ONLY through the writer's redraws — nothing bypassed it to
+		// a raw stdout write. This is the regression guard: the old path wrote straight to stdout.
+		expect(writes.length).toBe(writesBeforeNote);
+
+		await stream.finish();
+
+		// The persisted settled frame is clean: the transient transcript tail is gone once phases settle.
+		const settled = redraws[redraws.length - 1] ?? "";
+		expect(settled).not.toContain("Submitting…80%");
+	});
+
+	test("a phase-done clears the transcript tail so it does not bleed into the next phase", async () => {
+		const c = caps();
+		const { deps, redraws } = harness();
+		const stream = createPhaseStream(c, SPECS, deps);
+
+		stream.begin("title");
+		stream.emit({ type: "phase-started", phaseKey: "a" });
+		stream.note("creating PR…\n");
+		expect(redraws[redraws.length - 1]).toContain("creating PR…");
+
+		stream.emit({ type: "phase-done", phaseKey: "a" });
+		expect(redraws[redraws.length - 1]).not.toContain("creating PR…");
+
+		await stream.finish(); // stop the spinner pump (the fake clock resolves synchronously)
+	});
+
+	test("note is a no-op in a non-tty: the transcript routes to the context instead", async () => {
+		const c = caps({ isTty: false, colorDepth: "none" });
+		const { deps, writes, redraws, outputs } = harness();
+		const stream = createPhaseStream(c, SPECS, deps);
+
+		stream.begin("title");
+		stream.note("Pushing branch…\n");
+
+		// Non-tty owns no live region, so note neither redraws nor writes nor surfaces a transient.
+		expect(redraws).toHaveLength(0);
+		expect(writes).toHaveLength(0);
+		expect(outputs).toHaveLength(0);
+	});
+
 	test("fail marks the active phase and the final repaint shows it failed", async () => {
 		const c = caps();
 		const { deps, writes, redraws } = harness();
