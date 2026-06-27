@@ -16,12 +16,14 @@ import {
 const CURSOR_HIDE = "\x1b[?25l";
 const CURSOR_SHOW = "\x1b[?25h";
 
-function caps(parts: { isTty?: boolean; colorDepth?: ColorDepth; unicode?: boolean } = {}): Caps {
+function caps(
+	parts: { isTty?: boolean; colorDepth?: ColorDepth; supportsUnicode?: boolean } = {},
+): Caps {
 	return {
 		isTty: parts.isTty ?? true,
 		colorDepth: parts.colorDepth ?? "truecolor",
 		columns: 80,
-		unicode: parts.unicode ?? true,
+		supportsUnicode: parts.supportsUnicode ?? true,
 	};
 }
 
@@ -124,10 +126,10 @@ describe("non-tty settle path (Pi correctness)", () => {
 		const sink = createStreamSink(c, deps);
 
 		sink.start();
-		sink.render(() => [statusLine(c, item, "active", 0)]);
+		sink.render(() => [statusLine({ caps: c, item: item, state: "active", tick: 0 })]);
 		await sink.hold({ tickMs: 100, transient: "Pushing to origin" });
 		await sink.hold({ tickMs: 100, transient: "Validating locally" });
-		sink.render(() => [statusLine(c, item, "done")]);
+		sink.render(() => [statusLine({ caps: c, item: item, state: "done" })]);
 		sink.finish(["", bold("Submitted")]);
 		sink.stop();
 
@@ -182,7 +184,9 @@ describe("tty live region", () => {
 		const sink = createStreamSink(c, deps);
 
 		sink.start();
-		sink.render((tick: number) => [statusLine(c, item, "active", tick)]);
+		sink.render((tick: number) => [
+			statusLine({ caps: c, item: item, state: "active", tick: tick }),
+		]);
 		await sink.hold({ tickMs: 900, transient: "Pushing to origin" });
 
 		// Many redraws (initial + one per tick); the spinner glyph advances frame to frame.
@@ -202,9 +206,11 @@ describe("tty live region", () => {
 		const sink = createStreamSink(c, deps);
 
 		sink.start();
-		sink.render((tick: number) => [statusLine(c, item, "active", tick)]);
+		sink.render((tick: number) => [
+			statusLine({ caps: c, item: item, state: "active", tick: tick }),
+		]);
 		await sink.hold({ tickMs: 90, transient: "Validating locally" });
-		sink.render(() => [statusLine(c, item, "done")]);
+		sink.render(() => [statusLine({ caps: c, item: item, state: "done" })]);
 		sink.finish(["", bold("Submitted")]);
 		sink.stop();
 
@@ -219,12 +225,16 @@ describe("dwell math under the fake clock", () => {
 
 		const net = harness();
 		const netSink = createStreamSink(c, net.deps);
-		netSink.render((tick: number) => [statusLine(c, item, "active", tick)]);
+		netSink.render((tick: number) => [
+			statusLine({ caps: c, item: item, state: "active", tick: tick }),
+		]);
 		await netSink.hold({ tickMs: 900, transient: "Pushing to origin" });
 
 		const local = harness();
 		const localSink = createStreamSink(c, local.deps);
-		localSink.render((tick: number) => [statusLine(c, item, "active", tick)]);
+		localSink.render((tick: number) => [
+			statusLine({ caps: c, item: item, state: "active", tick: tick }),
+		]);
 		await localSink.hold({ tickMs: 900, transient: "Validating locally" });
 
 		const netTotal = net.clock.sleeps.reduce((a, b) => a + b, 0);
@@ -240,7 +250,9 @@ describe("dwell math under the fake clock", () => {
 		const c = caps();
 		const { deps, clock } = harness();
 		const sink = createStreamSink(c, deps);
-		sink.render((tick: number) => [statusLine(c, item, "active", tick)]);
+		sink.render((tick: number) => [
+			statusLine({ caps: c, item: item, state: "active", tick: tick }),
+		]);
 		await sink.hold({ tickMs: 900 });
 
 		// round(900*1.4) = 1260 -> round(1260/90) = 14 ticks of 90ms.
@@ -256,7 +268,7 @@ describe("runStream cursor lifetime", () => {
 
 		await expect(
 			runStream(c, deps, async (sink) => {
-				sink.render(() => [statusLine(c, item, "active", 0)]);
+				sink.render(() => [statusLine({ caps: c, item: item, state: "active", tick: 0 })]);
 				throw new Error("boom");
 			}),
 		).rejects.toThrow("boom");
@@ -272,7 +284,7 @@ describe("runStream cursor lifetime", () => {
 		const { deps, writes, dones } = harness();
 
 		await runStream(c, deps, async (sink) => {
-			sink.render(() => [statusLine(c, item, "failed")]);
+			sink.render(() => [statusLine({ caps: c, item: item, state: "failed" })]);
 			sink.finish(["", paint(c, "error", bold("submit failed: rejected"))]);
 		});
 

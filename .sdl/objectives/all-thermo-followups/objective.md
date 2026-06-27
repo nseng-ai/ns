@@ -57,3 +57,11 @@ Prefer the shared capability policy in `@sdl/clinkr` when it can remain backend-
 ## Open Questions
 
 None that should block stack execution. The non-TTY default is minimal append-only output; intentionally emitting a title/header line should require implementation evidence from Pi callback/widget behavior and should be recorded as an Objective update if chosen.
+
+## Closure
+
+Outcome: completed.
+
+Evidence: the three planned Thermo follow-up slices are complete and recorded in `roadmap.md` and Semantic Updates. Flow and objective command rendering use host-aware capability resolution with settled non-interactive caps for hosted/callback sinks; `runPhaseStream(...)` owns submit/cp stream cleanup through failure paths; non-TTY output is codified as minimal append-only output; `ts/scratch/cli-northstar` was removed from live source; phase-stream responsibilities and checkpoint specs were split/consolidated; and flow command scenario tests now assert progress/event and hosted-output semantics while exact formatting coverage lives in clinkr/theme/stream layers.
+
+Validation evidence was recorded with the implementation updates: targeted flow/objective/clinkr suites passed for each slice, and `just ts-check` passed after the functional and structural slices. The parked progress-destination, import-boundary enforcement, and possible Thermo product Objective notes remain intentionally outside this Objective unless a future implementation touches those seams. PR submission or stack landing was not performed as part of Objective closure.

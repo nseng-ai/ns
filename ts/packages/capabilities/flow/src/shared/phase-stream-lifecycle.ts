@@ -9,12 +9,12 @@ export interface PhaseStreamLifecycle {
 }
 
 export function createPhaseStreamLifecycle(caps: Caps, sink: StreamSink): PhaseStreamLifecycle {
-	let running = false;
+	let isRunning = false;
 	let pumpPromise: Promise<void> | undefined;
-	let stopped = false;
+	let isStopped = false;
 
 	async function pump(): Promise<void> {
-		while (running) {
+		while (isRunning) {
 			await sink.hold({ tickMs: SPINNER_FRAME_MS });
 		}
 	}
@@ -25,18 +25,18 @@ export function createPhaseStreamLifecycle(caps: Caps, sink: StreamSink): PhaseS
 
 	function startPump(): void {
 		if (!caps.isTty || pumpPromise !== undefined) return;
-		running = true;
+		isRunning = true;
 		pumpPromise = pump();
 	}
 
 	async function drainPump(): Promise<void> {
-		running = false;
+		isRunning = false;
 		if (pumpPromise !== undefined) await pumpPromise;
 	}
 
 	async function stop(): Promise<void> {
-		if (stopped) return;
-		stopped = true;
+		if (isStopped) return;
+		isStopped = true;
 		await drainPump();
 		sink.stop();
 	}

@@ -154,13 +154,13 @@ function capsFromHostExtension(value: unknown): Caps | undefined {
 			candidate.colorDepth === "ansi16" ||
 			candidate.colorDepth === "none") &&
 		typeof candidate.columns === "number" &&
-		typeof candidate.unicode === "boolean"
+		typeof candidate.supportsUnicode === "boolean"
 	) {
 		return {
 			isTty: candidate.isTty,
 			colorDepth: candidate.colorDepth,
 			columns: candidate.columns,
-			unicode: candidate.unicode,
+			supportsUnicode: candidate.supportsUnicode,
 		};
 	}
 	return undefined;

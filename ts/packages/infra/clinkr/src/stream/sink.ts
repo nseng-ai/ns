@@ -145,32 +145,32 @@ const EMPTY_FRAME: FrameRenderer = () => [];
 
 export function createStreamSink(caps: Caps, deps: StreamSinkDeps): StreamSink {
 	const { clock, writer, onOutput } = resolveDeps(deps);
-	const motion = caps.isTty;
+	const canAnimate = caps.isTty;
 
 	let currentFrame: FrameRenderer = EMPTY_FRAME;
 	let tick = 0;
-	let hidden = false;
-	let restored = false;
-	let finished = false;
+	let isHidden = false;
+	let isRestored = false;
+	let isFinished = false;
 
 	function draw(): void {
 		writer.redraw(currentFrame(tick).join("\n"));
 	}
 
 	function start(): void {
-		if (!motion || hidden) return;
+		if (!canAnimate || isHidden) return;
 		writer.write(CURSOR_HIDE);
-		hidden = true;
+		isHidden = true;
 	}
 
 	function render(frame: FrameRenderer): void {
 		currentFrame = frame;
 		// Non-tty buffers silently; only the settled frame is emitted, at finish.
-		if (motion) draw();
+		if (canAnimate) draw();
 	}
 
 	async function hold(options: HoldOptions): Promise<void> {
-		if (!motion) {
+		if (!canAnimate) {
 			// No animation: surface the per-phase transient through the widget path and return at once.
 			if (options.transient !== undefined) onOutput(options.transient);
 			return;
@@ -184,9 +184,9 @@ export function createStreamSink(caps: Caps, deps: StreamSinkDeps): StreamSink {
 	}
 
 	function finish(finalLines: readonly string[]): void {
-		if (finished) return;
-		finished = true;
-		if (motion) {
+		if (isFinished) return;
+		isFinished = true;
+		if (canAnimate) {
 			// Persist the settled live region, then write the final block beneath it as scrollback.
 			writer.done();
 			if (finalLines.length > 0) writer.write(`${finalLines.join("\n")}\n`);
@@ -198,9 +198,9 @@ export function createStreamSink(caps: Caps, deps: StreamSinkDeps): StreamSink {
 	}
 
 	function stop(): void {
-		if (!motion || !hidden || restored) return;
+		if (!canAnimate || !isHidden || isRestored) return;
 		writer.write(CURSOR_SHOW);
-		restored = true;
+		isRestored = true;
 	}
 
 	return { start, render, hold, finish, stop };

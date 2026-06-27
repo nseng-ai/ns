@@ -9,8 +9,8 @@ import {
 	treeMarkers,
 } from "../../src/theme/glyphs.ts";
 
-function caps(unicode: boolean): Caps {
-	return { isTty: true, colorDepth: "truecolor", columns: 80, unicode };
+function caps(supportsUnicode: boolean): Caps {
+	return { isTty: true, colorDepth: "truecolor", columns: 80, supportsUnicode };
 }
 
 const uni = caps(true);

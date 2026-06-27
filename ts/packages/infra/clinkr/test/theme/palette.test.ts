@@ -6,12 +6,12 @@ const RESET = "\x1b[0m";
 const DIM = "\x1b[2m";
 const BOLD = "\x1b[1m";
 
-function caps(parts: { colorDepth?: ColorDepth; unicode?: boolean } = {}): Caps {
+function caps(parts: { colorDepth?: ColorDepth; supportsUnicode?: boolean } = {}): Caps {
 	return {
 		isTty: true,
 		colorDepth: parts.colorDepth ?? "truecolor",
 		columns: 80,
-		unicode: parts.unicode ?? true,
+		supportsUnicode: parts.supportsUnicode ?? true,
 	};
 }
 

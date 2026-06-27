@@ -30,11 +30,20 @@ export interface StatusLineItem {
 	label?: string;
 }
 
+export interface StatusLineOptions {
+	caps: Caps;
+	item: StatusLineItem;
+	state: PhaseState;
+	/** Selects the spinner frame for the active state; ignored otherwise. */
+	tick?: number;
+}
+
 /**
  * Render the status line for `item` in `state`. `tick` selects the spinner frame for the active state
  * (ignored otherwise) and defaults to the first frame. Pure: returns the composed line, writes nothing.
  */
-export function statusLine(caps: Caps, item: StatusLineItem, state: PhaseState, tick = 0): string {
+export function statusLine(options: StatusLineOptions): string {
+	const { caps, item, state, tick = 0 } = options;
 	const name = padPlain(item.name, PHASE_NAME_WIDTH);
 	// In-flight/failure text falls back to the settled detail when no distinct label is supplied.
 	const label = item.label ?? item.detail;
