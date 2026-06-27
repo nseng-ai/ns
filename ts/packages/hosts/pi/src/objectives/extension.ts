@@ -1,4 +1,3 @@
-import { registerObjectiveStackImplCommand } from "@sdl/ccc/objective-stack-impl";
 import { registerCommandWithImmediateAck } from "../commands/ack.ts";
 import {
 	registerCliCommandExtension,
@@ -10,7 +9,6 @@ import {
 	buildObjectiveSkillPrompt,
 	chooseActiveObjectiveSlug,
 	objectiveSelectionContextFromCommandContext,
-	withObjectiveCliSelectionHost,
 } from "./selection.ts";
 
 import { type ExecResult } from "@sdl/core/exec";
@@ -55,6 +53,18 @@ const OBJECTIVE_SELECTOR_ARGUMENT_HINT = "[objective-slug-or-path]";
 const OBJECTIVE_CREATE_ARGUMENT_HINT = "[objective-slug-title-or-context]";
 const OBJECTIVE_COMPLETION_CACHE_TTL_MS = 10_000;
 const ACTIVE_OBJECTIVE_CANDIDATES_ARGS = ["exec", "list-candidates", "--format", "json"] as const;
+const OBJECTIVE_STACK_IMPL_COMMAND = {
+	commandName: "objective:stack-impl",
+	skillName: "objective-stack-impl",
+	description:
+		"Pick an active Objective, then invoke the portable Objective stack implementation skill for the selected slug.",
+	statusKey: "objective:stack-impl",
+	selectionTitle: "Select an active Objective for stack implementation",
+	shouldCompactDiffSuggestion: true,
+	fallbackPrompt:
+		"The objective-stack-impl skill was not found among loaded Pi skills. Follow the repository's Objective stack implementation workflow anyway: orchestrate implementation of one explicit Objective as a small Graphite stack from this session. Require user confirmation before execution, run at most one runner subagent at a time, record Objective updates for material progress, and do not submit PRs automatically.",
+	actionPrompt: "Run objective-stack-impl for this explicitly selected Objective slug or path:",
+} as const;
 
 interface InvokeObjectiveCreateSkillOptions {
 	pi: ObjectiveExtensionAPI;
@@ -184,6 +194,67 @@ async function handleObjectiveCommand(
 			ctx.ui.notify(message, "error");
 		}
 	}
+}
+
+function registerObjectiveStackImplementationCommand(pi: ObjectiveExtensionAPI): void {
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: OBJECTIVE_STACK_IMPL_COMMAND.commandName,
+		commandDefinition: {
+			description: OBJECTIVE_STACK_IMPL_COMMAND.description,
+			handler: async (args, ctx) => handleObjectiveStackImplCommand(pi, args, ctx),
+		},
+	});
+}
+
+async function handleObjectiveStackImplCommand(
+	pi: ObjectiveExtensionAPI,
+	args: string,
+	ctx: CommandContext,
+): Promise<void> {
+	const explicitObjective = args.trim();
+	try {
+		if (explicitObjective) {
+			await invokeObjectiveStackImplSkill(pi, ctx, explicitObjective);
+			return;
+		}
+
+		const slug = await chooseActiveObjectiveSlug(
+			pi,
+			objectiveSelectionContextFromCommandContext(ctx),
+			OBJECTIVE_STACK_IMPL_COMMAND,
+		);
+		if (!slug) {
+			return;
+		}
+
+		await invokeObjectiveStackImplSkill(pi, ctx, slug);
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		if (ctx.hasUI) {
+			ctx.ui.notify(message, "error");
+		}
+	}
+}
+
+async function invokeObjectiveStackImplSkill(
+	pi: ObjectiveExtensionAPI,
+	ctx: CommandContext,
+	objective: string,
+): Promise<void> {
+	await invokeRepoSkillPromptTurn({
+		host: pi,
+		ctx,
+		skillName: OBJECTIVE_STACK_IMPL_COMMAND.skillName,
+		successMessage: `Invoking ${OBJECTIVE_STACK_IMPL_COMMAND.commandName} for ${objective}.`,
+		fallbackMessage: `${OBJECTIVE_STACK_IMPL_COMMAND.skillName} skill was not found; using fallback prompt.`,
+		buildPrompt: (skillBlock) =>
+			buildObjectiveSkillPrompt({
+				spec: OBJECTIVE_STACK_IMPL_COMMAND,
+				skillBlock,
+				objective,
+			}),
+	});
 }
 
 function createObjectiveCommandCompleter(
@@ -359,7 +430,7 @@ export const objectiveParity = definePiSurfaceParity([
 		sourcePackage: "@sdl/pi",
 		sourceModule: "objective",
 		notes:
-			"The public command is registered through @sdl/ccc, but exposed by the @sdl/pi Objective adapter.",
+			"Pi registers the skill-backed Objective stack implementation command directly while reusing Objective-owned selection/prompt helpers.",
 	},
 ] as const);
 
@@ -410,5 +481,5 @@ export default function objectiveExtension(pi: ObjectiveExtensionAPI): void {
 		});
 	}
 
-	registerObjectiveStackImplCommand(withObjectiveCliSelectionHost(pi));
+	registerObjectiveStackImplementationCommand(pi);
 }
