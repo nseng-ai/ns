@@ -101,13 +101,6 @@ install-areg: (_install-ts-shim "areg" "ts/packages/tools/areg/src/cli.ts" "just
 # inside an sdl checkout, this checkout's sources everywhere else.
 install-aretro: (_install-ts-shim "aretro" "ts/packages/aretro/src/cli.ts" "just install-aretro")
 
-# Install the objective shim to ~/.local/bin so `objective` on PATH runs the
-# TypeScript CLI from source: the enclosing checkout's sources when invoked
-# inside an sdl checkout, this checkout's sources everywhere else.
-install-objective: (_install-ts-shim "objective" "ts/packages/objective/src/cli.ts" "just install-objective or just install-tools")
-    rm -f "{{justfile_directory()}}/.venv/bin/objective"
-    @echo "removed stale project venv objective script if present"
-
 # Install the vibechk shim to ~/.local/bin so `vibechk` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
 # inside an sdl checkout, this checkout's sources everywhere else.
@@ -148,8 +141,8 @@ refresh-skills: ts-install
     node {{justfile_directory()}}/ts/packages/tools/areg/src/cli.ts update-skills --path {{justfile_directory()}}
 
 # Install public tools via TypeScript source shims.
-install-tools: install-sdl install-brmem install-handoff install-areg install-objective
-    @echo "installed: sdl, brmem, handoff, areg, and objective (TypeScript shims)"
+install-tools: install-sdl install-brmem install-handoff install-areg
+    @echo "installed: sdl, brmem, handoff, and areg (TypeScript shims)"
 
 clean:
     rm -rf dist/*.whl dist/*.tar.gz

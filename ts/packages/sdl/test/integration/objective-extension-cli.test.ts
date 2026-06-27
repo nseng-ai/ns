@@ -87,6 +87,49 @@ describe("checked-in Objective SDL extension loading", () => {
 		expect(usageHelp.stdout.join("")).toContain(
 			"Usage: sdl objective exec runner-subagent-usage [options] [session-files...]",
 		);
+
+		const orientationsHelp = runWithRealObjectiveExtension({
+			args: ["objective", "exec", "load-orientations", "--help"],
+			cwd,
+		});
+		expect(await orientationsHelp.exit).toBe(0);
+		expect(orientationsHelp.stdout.join("")).toContain(
+			"Usage: sdl objective exec load-orientations",
+		);
+		expect(orientationsHelp.stdout.join("")).toContain("Load active Objective orientation files");
+	});
+
+	test("exec commands without dedicated coverage preserve their behavior", async () => {
+		const cwd = await createObjectiveProject();
+
+		const check = runWithRealObjectiveExtension({
+			args: ["objective", "check", "demo-objective"],
+			cwd,
+		});
+		expect(await check.exit).toBe(0);
+		const checkOutput = check.stdout.join("");
+		expect(checkOutput).toContain("Objective check `demo-objective`");
+		expect(checkOutput).toContain("Files:");
+
+		const orientations = runWithRealObjectiveExtension({
+			args: ["objective", "exec", "load-orientations", "--format", "md"],
+			cwd,
+		});
+		expect(await orientations.exit).toBe(0);
+		const orientationsOutput = orientations.stdout.join("");
+		expect(orientationsOutput).toContain("orientation.md");
+		expect(orientationsOutput).toContain("Demo orientation direction.");
+
+		const orientationsJson = runWithRealObjectiveExtension({
+			args: ["objective", "exec", "load-orientations", "--format", "json"],
+			cwd,
+		});
+		expect(await orientationsJson.exit).toBe(0);
+		expect(parseJsonOutput(orientationsJson)).toMatchObject({
+			status: "ok",
+			exitCode: 0,
+			data: { recordCount: 1, records: [{ slug: "demo-objective" }] },
+		});
 	});
 
 	test("representative commands preserve Objective human, JSON, and markdown outputs", async () => {
@@ -160,6 +203,11 @@ async function writeObjectiveRecord(projectRoot: string, slug: string): Promise<
 	await writeFile(
 		join(recordRoot, "roadmap.md"),
 		["# Roadmap", "", "## Work", "", "- Demo work.", "", "## Parked", "", "None.", ""].join("\n"),
+		"utf8",
+	);
+	await writeFile(
+		join(recordRoot, "orientation.md"),
+		["# Orientation", "", "Demo orientation direction.", ""].join("\n"),
 		"utf8",
 	);
 	await writeFile(
