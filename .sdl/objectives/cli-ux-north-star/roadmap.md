@@ -57,12 +57,14 @@
       non-TTY `onOutput` routing. **Resolved 2026-06-27:** do not add a `flow submit` JSONL/`--format`
       contract in this Objective. Side-effecting streaming machine output needs a cross-command
       protocol decision, so it is parked as follow-on work.
-- [~] Add the import-boundary lint that enforces opt-in display (core / raw / completion / testing
-  never import `theme`/`stream`; `ansis`/`log-update` importable only from those subpaths).
-  An early `core-import-isolation` canary test now walks the core import graph and proves it does
-  not import `ansis` or `log-update`; it is useful but narrower than the promised boundary lint
-  because it does not yet cover raw/completion/testing import paths or general forbidden subpath
-  imports, and the formal lint/guard location remains open.
+- [x] Add the import-boundary lint that enforces opt-in display (core / raw / completion / testing
+      never import `theme`/`stream`; `ansis`/`log-update` importable only from those subpaths).
+      **Done 2026-06-27.** The early `core-import-isolation` canary is now a formal clinkr-owned Vitest
+      production source-boundary guard. It scans `src/**`, walks the root / raw / completion / testing
+      public entrypoint graphs, forbids relative or package imports of `theme`/`stream` from non-display
+      graphs, and enforces `ansis` only under `src/theme/**` plus `log-update` only under `src/stream/**`.
+      Tests remain free to use display dependencies as assertion helpers. Targeted validation passed for
+      the focused guard test, full clinkr test suite, TS check, format check, and lint.
 - [x] Rebuild `objective list` and `flow submit` from scratch on the foundations to match the
       signed-off north star, preserving `--format json` for `objective list`.
       **Done 2026-06-27 on the current stack.** `objective list` renders the house-style human surface

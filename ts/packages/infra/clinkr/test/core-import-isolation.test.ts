@@ -1,60 +1,211 @@
-// EARLY CANARY (not the enforcement): the clinkr CORE entrypoint (`@sdl/clinkr`, i.e. src/index.ts)
-// must stay free of the heavy display deps `ansis` and `log-update`. Those belong only to the opt-in
-// `@sdl/clinkr/theme` and `@sdl/clinkr/stream` subpaths, which are SEPARATE export paths and are NOT
-// re-exported from core. Pulling either into the core module graph would silently make every `sdl`
-// command pay for them. The formal import-boundary LINT is a later row; this test is the cheap canary
-// that fails the moment a core module grows such an import.
-//
-// It works by statically walking the import graph: starting at src/index.ts it follows every relative
-// `.ts` import (resolving them on disk), collecting the transitive core graph, then asserts no reachable
-// file imports `ansis`/`log-update`. It deliberately does NOT descend into the `./theme` or `./stream`
-// subtrees — core never imports them, and they are allowed to use those deps. A static scan is chosen
-// over runtime module-registry inspection because Vitest's ESM isolation makes cache inspection
-// unreliable, whereas the source graph is deterministic.
+// Formal clinkr display import boundary: production core and non-display subpaths must stay display-free.
+// The root export (`@sdl/clinkr`) plus `raw`, `completion`, and `testing` are non-display surfaces.
+// Rich display stays opt-in through `@sdl/clinkr/theme` (the only production owner of `ansis`) and
+// `@sdl/clinkr/stream` (the only production owner of `log-update`). This guard scans production source
+// import/export literals directly so future re-exports, side-effect imports, and lazy imports cannot
+// silently pull display bytes into non-display consumers.
 
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { dirname, extname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
 
-const SRC_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "../src");
-const CORE_ENTRYPOINT = resolve(SRC_DIR, "index.ts");
+const TEST_DIR = dirname(fileURLToPath(import.meta.url));
+const PACKAGE_DIR = resolve(TEST_DIR, "..");
+const PACKAGE_JSON = resolve(PACKAGE_DIR, "package.json");
+const SRC_DIR = resolve(PACKAGE_DIR, "src");
+const THEME_DIR = resolve(SRC_DIR, "theme");
+const STREAM_DIR = resolve(SRC_DIR, "stream");
 
-// The display deps that core must never transitively import (bare specifier or any subpath).
-const FORBIDDEN_DEPS = ["ansis", "log-update"];
+interface NonDisplayEntrypoint {
+	label: string;
+	exportPath: string;
+	packageTarget: string;
+	file: string;
+}
 
-// Subtrees that are intentionally OUTSIDE the core `.` graph (their own subpath exports). Core never
-// imports them; we still refuse to descend in case a future edit wires one in by mistake.
-const NON_CORE_SUBTREES = [resolve(SRC_DIR, "theme"), resolve(SRC_DIR, "stream")];
+interface DisplayDependencyRule {
+	packageName: string;
+	ownerDir: string;
+	ownerLabel: string;
+}
 
-/** Relative module specifiers (`./x.ts`, `../y.ts`) imported or re-exported by a source file. */
-function relativeImportsOf(source: string): string[] {
-	const specifiers: string[] = [];
-	// Matches `import ... from "..."`, `export ... from "..."`, and bare `import "..."`.
-	const pattern = /(?:from|import)\s+["'](\.[^"']*)["']/g;
-	for (const match of source.matchAll(pattern)) {
+interface LiteralSpecifierUse {
+	specifier: string;
+	kind: "static-import" | "re-export" | "dynamic-import";
+}
+
+interface BoundaryOffender {
+	file: string;
+	specifier: string;
+	reason: string;
+}
+
+const NON_DISPLAY_ENTRYPOINTS: readonly NonDisplayEntrypoint[] = [
+	{
+		label: "@sdl/clinkr",
+		exportPath: ".",
+		packageTarget: "./src/index.ts",
+		file: resolve(SRC_DIR, "index.ts"),
+	},
+	{
+		label: "@sdl/clinkr/completion",
+		exportPath: "./completion",
+		packageTarget: "./src/completion.ts",
+		file: resolve(SRC_DIR, "completion.ts"),
+	},
+	{
+		label: "@sdl/clinkr/raw",
+		exportPath: "./raw",
+		packageTarget: "./src/raw/index.ts",
+		file: resolve(SRC_DIR, "raw/index.ts"),
+	},
+	{
+		label: "@sdl/clinkr/testing",
+		exportPath: "./testing",
+		packageTarget: "./src/testing/index.ts",
+		file: resolve(SRC_DIR, "testing/index.ts"),
+	},
+];
+
+const DISPLAY_SUBPATHS = ["@sdl/clinkr/theme", "@sdl/clinkr/stream"];
+const DISPLAY_DIRS = [THEME_DIR, STREAM_DIR];
+const DISPLAY_DEPENDENCY_RULES: readonly DisplayDependencyRule[] = [
+	{ packageName: "ansis", ownerDir: THEME_DIR, ownerLabel: "src/theme/**" },
+	{ packageName: "log-update", ownerDir: STREAM_DIR, ownerLabel: "src/stream/**" },
+];
+
+function literalSpecifiersOf(source: string): readonly LiteralSpecifierUse[] {
+	const specifiers: LiteralSpecifierUse[] = [];
+	const importFromPattern = /\bimport\s+(?:type\s+)?[^;]*?\s+from\s+["']([^"']+)["']/g;
+	const sideEffectImportPattern = /\bimport\s+["']([^"']+)["']/g;
+	const exportPattern = /\bexport\s+(?:type\s+)?[^;]*?\s+from\s+["']([^"']+)["']/g;
+	const dynamicImportPattern = /\bimport\s*\(\s*["']([^"']+)["']\s*\)/g;
+
+	for (const match of source.matchAll(importFromPattern)) {
 		const specifier = match[1];
-		if (specifier !== undefined) specifiers.push(specifier);
+		if (specifier !== undefined) specifiers.push({ specifier, kind: "static-import" });
+	}
+	for (const match of source.matchAll(sideEffectImportPattern)) {
+		const specifier = match[1];
+		if (specifier !== undefined) specifiers.push({ specifier, kind: "static-import" });
+	}
+	for (const match of source.matchAll(exportPattern)) {
+		const specifier = match[1];
+		if (specifier !== undefined) specifiers.push({ specifier, kind: "re-export" });
+	}
+	for (const match of source.matchAll(dynamicImportPattern)) {
+		const specifier = match[1];
+		if (specifier !== undefined) specifiers.push({ specifier, kind: "dynamic-import" });
 	}
 	return specifiers;
 }
 
-/** True when `source` imports (or re-exports from) one of the forbidden display deps. */
-function importsForbiddenDep(source: string): string | undefined {
-	for (const dep of FORBIDDEN_DEPS) {
-		const pattern = new RegExp(`(?:from|import)\\s+["']${dep}(?:/[^"']*)?["']`);
-		if (pattern.test(source)) return dep;
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readPackageExports(): Record<string, string> {
+	const packageJson: unknown = JSON.parse(readFileSync(PACKAGE_JSON, "utf8"));
+	if (!isRecord(packageJson) || !isRecord(packageJson.exports)) {
+		throw new Error("clinkr package.json must define a string exports object");
 	}
-	return undefined;
+	const exports: Record<string, string> = {};
+	for (const [key, value] of Object.entries(packageJson.exports)) {
+		if (typeof value === "string") exports[key] = value;
+	}
+	return exports;
 }
 
-function isUnderNonCoreSubtree(file: string): boolean {
-	return NON_CORE_SUBTREES.some((subtree) => file === subtree || file.startsWith(`${subtree}/`));
+function isRelativeSpecifier(specifier: string): boolean {
+	return (
+		specifier === "." ||
+		specifier === ".." ||
+		specifier.startsWith("./") ||
+		specifier.startsWith("../")
+	);
 }
 
-/** Walk the transitive core graph from `entrypoint`, following relative `.ts` imports only. */
-function collectCoreGraph(entrypoint: string): string[] {
+function isPackageOrSubpathSpecifier(specifier: string, packageName: string): boolean {
+	return specifier === packageName || specifier.startsWith(`${packageName}/`);
+}
+
+function isUnderDirectory(file: string, directory: string): boolean {
+	return file === directory || file.startsWith(`${directory}${sep}`);
+}
+
+function isUnderDisplayDir(file: string): boolean {
+	return DISPLAY_DIRS.some((directory) => isUnderDirectory(file, directory));
+}
+
+function sourceFilesUnder(directory: string): readonly string[] {
+	const files: string[] = [];
+	const entries = readdirSync(directory, { withFileTypes: true }).sort((left, right) =>
+		left.name.localeCompare(right.name),
+	);
+	for (const entry of entries) {
+		const path = resolve(directory, entry.name);
+		if (entry.isDirectory()) files.push(...sourceFilesUnder(path));
+		if (entry.isFile() && entry.name.endsWith(".ts")) files.push(path);
+	}
+	return files;
+}
+
+function resolveRelativeTsSourceFile(importingFile: string, specifier: string): string | undefined {
+	const target = resolve(dirname(importingFile), specifier);
+	const candidates =
+		extname(target) === "" ? [`${target}.ts`, resolve(target, "index.ts")] : [target];
+	return candidates.find((candidate) => candidate.endsWith(".ts") && isExistingFile(candidate));
+}
+
+function isExistingFile(file: string): boolean {
+	return existsSync(file) && statSync(file).isFile();
+}
+
+function fileForReport(file: string): string {
+	return relative(process.cwd(), file) || file;
+}
+
+function displaySubpathOffender(file: string, specifier: string): BoundaryOffender | undefined {
+	const displaySubpath = DISPLAY_SUBPATHS.find((subpath) =>
+		isPackageOrSubpathSpecifier(specifier, subpath),
+	);
+	if (displaySubpath === undefined) return undefined;
+	return {
+		file: fileForReport(file),
+		specifier,
+		reason: `non-display production graph must not import opt-in display subpath ${displaySubpath}`,
+	};
+}
+
+function displayDependencyOffender(file: string, specifier: string): BoundaryOffender | undefined {
+	const rule = DISPLAY_DEPENDENCY_RULES.find((candidate) =>
+		isPackageOrSubpathSpecifier(specifier, candidate.packageName),
+	);
+	if (rule === undefined) return undefined;
+	return {
+		file: fileForReport(file),
+		specifier,
+		reason: `non-display production graph must not import display dependency ${rule.packageName}`,
+	};
+}
+
+function relativeDisplayOffender(
+	file: string,
+	specifier: string,
+	resolvedFile: string,
+): BoundaryOffender | undefined {
+	if (!isUnderDisplayDir(resolvedFile)) return undefined;
+	return {
+		file: fileForReport(file),
+		specifier,
+		reason: `non-display production graph must not import display source ${fileForReport(resolvedFile)}`,
+	};
+}
+
+function nonDisplayGraphOffenders(entrypoint: string): readonly BoundaryOffender[] {
+	const offenders: BoundaryOffender[] = [];
 	const visited = new Set<string>();
 	const queue = [entrypoint];
 	while (queue.length > 0) {
@@ -62,25 +213,104 @@ function collectCoreGraph(entrypoint: string): string[] {
 		if (file === undefined || visited.has(file)) continue;
 		visited.add(file);
 		const source = readFileSync(file, "utf8");
-		for (const specifier of relativeImportsOf(source)) {
-			const target = resolve(dirname(file), specifier);
-			if (isUnderNonCoreSubtree(target)) continue;
-			if (!visited.has(target)) queue.push(target);
+		for (const { specifier } of literalSpecifiersOf(source)) {
+			const subpathOffender = displaySubpathOffender(file, specifier);
+			if (subpathOffender !== undefined) offenders.push(subpathOffender);
+			const dependencyOffender = displayDependencyOffender(file, specifier);
+			if (dependencyOffender !== undefined) offenders.push(dependencyOffender);
+			if (!isRelativeSpecifier(specifier)) continue;
+			const resolvedFile = resolveRelativeTsSourceFile(file, specifier);
+			if (resolvedFile === undefined) continue;
+			const displayOffender = relativeDisplayOffender(file, specifier, resolvedFile);
+			if (displayOffender !== undefined) {
+				offenders.push(displayOffender);
+				continue;
+			}
+			if (!visited.has(resolvedFile)) queue.push(resolvedFile);
 		}
 	}
-	return [...visited];
+	return offenders;
 }
 
-describe("clinkr core import isolation", () => {
-	test("no core module transitively imports ansis or log-update", () => {
-		const graph = collectCoreGraph(CORE_ENTRYPOINT);
-		// Sanity: the walk actually reached more than just the barrel.
-		expect(graph.length).toBeGreaterThan(1);
+function productionDisplayDependencyOffenders(): readonly BoundaryOffender[] {
+	const offenders: BoundaryOffender[] = [];
+	for (const file of sourceFilesUnder(SRC_DIR)) {
+		const source = readFileSync(file, "utf8");
+		for (const { specifier } of literalSpecifiersOf(source)) {
+			for (const rule of DISPLAY_DEPENDENCY_RULES) {
+				if (!isPackageOrSubpathSpecifier(specifier, rule.packageName)) continue;
+				if (isUnderDirectory(file, rule.ownerDir)) continue;
+				offenders.push({
+					file: fileForReport(file),
+					specifier,
+					reason: `${rule.packageName} is production-source importable only from ${rule.ownerLabel}`,
+				});
+			}
+		}
+	}
+	return offenders;
+}
 
-		const offenders = graph
-			.map((file) => ({ file, dep: importsForbiddenDep(readFileSync(file, "utf8")) }))
-			.filter((entry): entry is { file: string; dep: string } => entry.dep !== undefined);
+describe("clinkr display import boundary", () => {
+	test("literal scanner sees static imports, re-exports, side-effect imports, and dynamic imports", () => {
+		const source = `
+			import ansis from "ansis";
+			import type { Caps } from "./caps.ts";
+			import "@sdl/clinkr/theme";
+			export { streamSink } from "@sdl/clinkr/stream";
+			await import("log-update");
+		`;
+
+		expect(literalSpecifiersOf(source)).toEqual([
+			{ specifier: "ansis", kind: "static-import" },
+			{ specifier: "./caps.ts", kind: "static-import" },
+			{ specifier: "@sdl/clinkr/theme", kind: "static-import" },
+			{ specifier: "@sdl/clinkr/stream", kind: "re-export" },
+			{ specifier: "log-update", kind: "dynamic-import" },
+		]);
+	});
+
+	test("guarded non-display entrypoints still match package exports", () => {
+		const packageExports = readPackageExports();
+		for (const entrypoint of NON_DISPLAY_ENTRYPOINTS) {
+			expect(packageExports[entrypoint.exportPath]).toBe(entrypoint.packageTarget);
+			expect(isExistingFile(entrypoint.file)).toBe(true);
+		}
+		expect(packageExports["./theme"]).toBe("./src/theme/index.ts");
+		expect(packageExports["./stream"]).toBe("./src/stream/index.ts");
+	});
+
+	test("non-display public entrypoint graphs stay display-free", () => {
+		const offenders = NON_DISPLAY_ENTRYPOINTS.flatMap((entrypoint) =>
+			nonDisplayGraphOffenders(entrypoint.file).map((offender) => ({
+				entrypoint: entrypoint.label,
+				...offender,
+			})),
+		);
 
 		expect(offenders).toEqual([]);
+	});
+
+	test("display dependencies are imported only from their owning production subpaths", () => {
+		expect(productionDisplayDependencyOffenders()).toEqual([]);
+	});
+
+	test("core barrel does not directly re-export display subpaths", () => {
+		const coreEntrypoint = NON_DISPLAY_ENTRYPOINTS.find(
+			(entrypoint) => entrypoint.exportPath === ".",
+		);
+		if (coreEntrypoint === undefined) throw new Error("missing clinkr core entrypoint guard");
+		const directOffenders = literalSpecifiersOf(readFileSync(coreEntrypoint.file, "utf8"))
+			.map(({ specifier }) => {
+				if (!isRelativeSpecifier(specifier))
+					return displaySubpathOffender(coreEntrypoint.file, specifier);
+				const resolvedFile = resolveRelativeTsSourceFile(coreEntrypoint.file, specifier);
+				return resolvedFile === undefined
+					? undefined
+					: relativeDisplayOffender(coreEntrypoint.file, specifier, resolvedFile);
+			})
+			.filter((offender): offender is BoundaryOffender => offender !== undefined);
+
+		expect(directOffenders).toEqual([]);
 	});
 });
