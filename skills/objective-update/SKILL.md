@@ -33,7 +33,7 @@ Objective records are Markdown: read/edit them directly, using `objective exec` 
 
 Mutation boundary:
 
-- Edit only the selected Objective's `objective.md`, `roadmap.md`, `closed.md` when closing, and new files under `updates/`.
+- Edit only the selected Objective's `objective.md`, `roadmap.md`, `orientation.md` (optional; only when not closing), `closed.md` when closing, and new files under `updates/`.
 - Never move, delete, recreate, or normalize Objective slug directories during an update. The slug directory is durable identity; explicit slug migration is separate.
 - Never edit, rewrite, amend, normalize, delete, move, or recreate an existing file under `updates/`. Existing Semantic Updates are immutable historical records.
 
@@ -152,7 +152,8 @@ If closure readiness, outcome, or rationale is ambiguous, leave `closed.md` abse
 6. Edit `roadmap.md` if ordered guidance, checkbox state, evidence, or parked work changed.
 7. Create a new Semantic Update only when semantically warranted; otherwise say no update was written.
 8. Apply the Closure Gate.
-9. Report per Verify.
+9. If not closing and `orientation.md` exists, re-derive it against the now-current state: shrink or remove the `What you see now`/`Avoid` lines as the migration lands, and keep the durable `Direction`/`Getting to` lines accurate. If the Objective has become cross-cutting and lacks one, add `orientation.md` using the `objective` umbrella skill's format. Do not author or re-derive `orientation.md` when closing — `closed.md` drops it from the load set.
+10. Report per Verify.
 
 ## Stop / ask
 
@@ -167,4 +168,5 @@ For archived paths, ask whether to unarchive before updating Objective tracking.
 - No existing file under the selected Objective's `updates/` directory was edited, deleted, moved, normalized, or recreated.
 - Required headings remain present in edited durable files, including `## Assumptions and Risks`.
 - If closure was performed, confirm `objective.md` contains `## Closure` and `closed.md` exists; if not, confirm no `closed.md` was created by this invocation.
+- If `orientation.md` was re-derived or newly added, confirm it was done only because the Objective is cross-cutting and not closing, and that it follows the format; `orientation.md` remains optional.
 - Final response includes: selected Objective slug/path; durable files edited; whether a new Semantic Update was created or intentionally not written; confirmation that existing Semantic Updates were not modified; local uncommitted changes considered; local committed branch diff considered with base branch if known; PR evidence considered/unavailable/irrelevant; Graphite parent considered/unavailable/irrelevant; Closure Gate result (`not evaluated`, `not ready`, `auto-closed`, or `skipped-unclear`) and whether `closed.md` was written; verification run or skipped.

@@ -18,6 +18,7 @@ Active root only for newly created records:
 .sdl/objectives/<slug>/
   objective.md
   roadmap.md
+  orientation.md  # optional; cross-cutting Objectives only
   updates/
 ```
 
@@ -89,7 +90,8 @@ Roadmap item quality:
    - Continue until shared understanding is sufficient to avoid generic or invented durable content, or until the user chooses to stop questioning and write the Objective.
 4. Create `.sdl/objectives/<slug>/`, `.sdl/objectives/<slug>/updates/`, `objective.md`, and `roadmap.md`.
 5. Write concise, human-readable narrative content, including a concrete `## Assumptions and Risks` section and execution-friendly sections only when requested or made relevant by the interview.
-6. Do not create an initial update file. Do not create `closed.md`.
+6. If the Objective is cross-cutting — an agent doing unrelated work must obey its direction — write `orientation.md` (≈8 lines, agent-facing) using the `orientation.md` format from the `objective` umbrella skill: `Direction`, `Getting to` (with ADR/CONTEXT pointers), `What you see now`, `Avoid`, and `Active slice: see this objective's roadmap.md`. Otherwise skip it; presence of the file is the opt-in flag. Keep lifecycle/graduation metadata in `roadmap.md`, never in `orientation.md`.
+7. Do not create an initial update file. Do not create `closed.md`.
 
 ## Stop / ask
 
@@ -103,6 +105,7 @@ Roadmap item quality:
 
 - Confirm the directory contains `objective.md`, `roadmap.md`, and `updates/`.
 - Confirm `objective.md` contains `## Assumptions and Risks`.
+- If the Objective is cross-cutting, confirm `orientation.md` exists and follows the format; otherwise confirm it is absent. `orientation.md` is optional, never required.
 - If the Objective is execution-friendly, verify it against `references/execution-friendly-create.md`.
 - If the Objective is planning-only, confirm execution policy sections are absent unless the user explicitly asked to include them.
 - Confirm there is no initial file under `updates/` and no `closed.md`.

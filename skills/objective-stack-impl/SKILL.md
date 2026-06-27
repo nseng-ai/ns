@@ -31,7 +31,7 @@ Before planning, write a concise prose compaction of the conversation: user inte
 
 ## Inspect Objective and repository state
 
-Read `objective.md`, `roadmap.md`, and the relevant `updates/` files under `.sdl/objectives/<slug>/`. Then inspect repository state: `git status --short`, the current branch, a diff against the trunk or Graphite parent when useful, and the source/test/skill/prompt/doc files relevant to the next slice.
+Read `objective.md`, `roadmap.md`, `orientation.md` (if present), and the relevant `updates/` files under `.sdl/objectives/<slug>/`. Then inspect repository state: `git status --short`, the current branch, a diff against the trunk or Graphite parent when useful, and the source/test/skill/prompt/doc files relevant to the next slice.
 
 **Tracking gate:** if material implementation progress is present but unrecorded in the Objective, stop and ask the user to run `objective-update` before continuing. If evidence is absent, ambiguous, or unrelated, proceed with a short note.
 

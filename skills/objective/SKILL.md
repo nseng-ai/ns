@@ -17,6 +17,7 @@ Active root:
 .sdl/objectives/<slug>/
   objective.md
   roadmap.md
+  orientation.md  # optional; open Objectives only
   updates/
   closed.md  # optional marker
 ```
@@ -109,6 +110,8 @@ Detailed PR evidence belongs in new Semantic Updates, and closure-relevant PR ev
 ```
 
 Optional branch names, URLs, or explicit status words may be included only when useful as evidence or breadcrumbs. Use `merged` wording only when merge state has been confirmed by PR evidence; otherwise use status-aware wording such as current PR, open PR, draft PR, or PR evidence. PR evidence is not a separate ledger, `prs.md`, machine-readable registry, schema, hidden state, or workflow driver.
+
+`orientation.md` is an optional, agent-facing standing rule (≈8 lines) stating where this part of the system is going vs. what an agent sees in the code now, and what to avoid. It is present only for cross-cutting Objectives whose direction an unrelated agent must respect — presence of the file is the opt-in flag, not a list. Durable `Direction`/`Getting to` lines are positionally separate from the temporary `What you see now`/`Avoid` lines; lifecycle/graduation metadata stays in `roadmap.md`, never here. AGENTS.md always-loads the `orientation.md` of every active (non-`closed.md`) Objective, so it drops from the load set automatically on close.
 
 `closed.md` is a minimal Closure Marker. Its existence means closed; closure meaning belongs in `objective.md`.
 
