@@ -39,6 +39,22 @@ The Objective is aligned with `sdl-extension-architecture`: domain logic belongs
 - Relevant package context or roadmap documentation records the final decomposition convention so future agents know how to choose between Pi-native tool packages and Capability packages.
 - Existing Pi user-facing behavior for affected commands/tools is preserved or intentionally changed with explicit documentation and tests.
 
+## Definition of Progress
+
+For implementation sessions, meaningful progress is a reviewable repository slice that either removes a concrete `@sdl/pi` host coupling, proves an extraction/disposition decision with tests and dependency evidence, or records a package-boundary convention future agents can apply. Routine validation is evidence for those slices, not standalone progress.
+
+For the current `objective-stack-impl` path, the highest-value executable stack is the `context-profiler` reference extraction. It should proceed in this order unless implementation evidence forces a smaller stop:
+
+1. Rehome the neutral reverse-import seams: display-width/scroll helpers used by PR preview views, and LM JSON parsing used by `thermo-council`, into intentional `@sdl/pi` helper subpaths or another explicitly justified neutral home.
+2. Extract `context-profiler` into the provisional Pi-tool package tier, expected as `ts/packages/pi-tools/context-profiler/` with package name `@sdl/pi-context-profiler`, preserving tests, command registration, and parity metadata without making `@sdl/pi` import the extracted package.
+3. Record the reference extraction recipe and update package/context language only after the package graph and focused behavior tests prove the convention.
+
+## Runner Policy
+
+A future `objective-stack-impl` runner is authorized, after its normal preview and confirmation, to implement as much of the current executable stack as can be validated locally in one sequential Graphite stack. Default branch shape: one branch for neutral helper seams, one branch for the `context-profiler` package extraction, and one branch for the recipe/context rebaseline if extraction succeeds. It may split further when a branch would mix unrelated decisions, but should not combine capability-mirror thinning or runner/terminal disposition into the same stack.
+
+Allowed actions are local repository edits, focused and broad local validation, Objective updates for meaningful evidence, and Graphite branch creation/amend/restack. Do not submit PRs, push, resolve GitHub threads, create hidden ledgers, use Branch Memory as stack state, or perform external write-capable actions unless the user separately asks. Stop and ask if the extraction would require `@sdl/pi` to depend on an extracted Pi-tool package, if package workspace placement conflicts with existing dependency policy, if parity registration cannot stay acyclic, if validation fails for reasons that are not mechanical fixes, or if implementation evidence suggests moving capability domain logic into a Pi-tool package.
+
 ## Assumptions and Risks
 
 Assumptions:
