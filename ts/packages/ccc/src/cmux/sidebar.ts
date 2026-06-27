@@ -22,7 +22,7 @@ import type {
 	ModelInfo,
 	NotifyLevel,
 	ThinkingLevel,
-} from "./types.ts";
+} from "@sdl/cmux/types";
 
 const SESSION_SIDEBAR_COMMAND_NAME = "ccc:sidebar:session-summary";
 const BRANCH_STATE_SIDEBAR_COMMAND_NAME = "ccc:sidebar:branch-state-summary";

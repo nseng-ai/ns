@@ -3,7 +3,7 @@ import { basename, isAbsolute, posix, relative, resolve, sep } from "node:path";
 import { formatCommand, formatOutputSection, tailText, type ExecResult } from "@sdl/core/exec";
 import { parseMachineEnvelopeData } from "@sdl/pi/runtime/machine-envelope";
 import { formatErrorMessage } from "@sdl/core/primitives";
-import type { ExtensionAPI } from "./types.ts";
+import type { ExtensionAPI } from "@sdl/cmux/types";
 
 const OBJECTIVE_READ_TIMEOUT_MS = 30_000;
 export const CMUX_WORKSPACE_SUMMARY_TIMEOUT_MS = 30_000;

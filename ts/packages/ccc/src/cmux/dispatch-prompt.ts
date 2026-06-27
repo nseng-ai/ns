@@ -26,12 +26,12 @@ import {
 	sanitizeBranchName,
 	trimBranchSlugToLength,
 } from "./branch-slug.ts";
-import { getPiLaunchOptions, type PiLaunchOptions } from "./pi-launch.ts";
-import type { TextResult } from "./primitives.ts";
+import { getPiLaunchOptions, type PiLaunchOptions } from "@sdl/cmux/pi-launch";
+import type { TextResult } from "@sdl/core/primitives";
 import { openBranchInCmuxSlot } from "./slot.ts";
 import { createCccSlotClient } from "../slot-checkout.ts";
 import type { SlotClient } from "@sdl/slot/api";
-import type { CommandContext, ExtensionAPI } from "./types.ts";
+import type { CommandContext, ExtensionAPI } from "@sdl/cmux/types";
 
 const COMMAND_NAME = "ccc:workspace:dispatch-prompt";
 const DISPATCH_PROMPT_NAMESPACE = "ccc-dispatch";

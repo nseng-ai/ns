@@ -1,5 +1,5 @@
 import type { CommandExecApi } from "@sdl/core/exec";
-import { isRecord } from "@sdl/core/primitives";
+import { isRecord, stringField } from "@sdl/core/primitives";
 import { formatCmuxCommandFailure, runCmuxCommand, type CmuxCommandFailure } from "./command.ts";
 
 // Neutral cmux substrate: keep this file free of Pi host/runtime dependencies so it can move
@@ -303,11 +303,6 @@ export function parseCreatedCmuxSurface(stdout: string): CmuxCreatedSurface | un
 	}
 	const workspaceId = stringField(parsed, "workspace_id") ?? stringField(parsed, "workspace_ref");
 	return workspaceId === undefined ? { surfaceId } : { surfaceId, workspaceId };
-}
-
-function stringField(record: Record<string, unknown> | undefined, key: string): string | undefined {
-	const value = record?.[key];
-	return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
 function commandFailure(operation: CmuxOperation, failure: CmuxCommandFailure): CmuxGatewayFailure {

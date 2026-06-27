@@ -19,7 +19,7 @@ import type {
 	NotifyLevel,
 	SessionStartContext,
 	ThinkingLevel,
-} from "../src/cmux/types.ts";
+} from "@sdl/cmux/types";
 import type { SkillCommandInfo } from "@sdl/pi/skills/expansion";
 import { parseMachineEnvelopeData } from "@sdl/core/machine-envelope";
 import {

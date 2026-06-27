@@ -4,8 +4,8 @@ import {
 	sanitizeBranchName,
 	trimBranchSlugToLength,
 } from "@sdl/pi/branches/slug";
-import type { TextResult } from "./primitives.ts";
-import type { ExtensionAPI } from "./types.ts";
+import type { TextResult } from "@sdl/core/primitives";
+import type { ExtensionAPI } from "@sdl/cmux/types";
 
 export { finalizeBranchSlug, MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName, trimBranchSlugToLength };
 

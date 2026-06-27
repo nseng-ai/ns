@@ -13,7 +13,7 @@ import type {
 	AutocompleteSuggestions,
 	CommandContext,
 	ExtensionAPI,
-} from "./types.ts";
+} from "@sdl/cmux/types";
 
 interface BranchCandidate {
 	name: string;

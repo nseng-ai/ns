@@ -21,11 +21,11 @@ import {
 	type BranchCreateResult,
 	type DispatchPromptPayloadOptions,
 } from "./dispatch-prompt.ts";
-import { getPiLaunchOptions } from "./pi-launch.ts";
+import { getPiLaunchOptions } from "@sdl/cmux/pi-launch";
 import { openBranchInCmuxSlot } from "./slot.ts";
 import { createCccSlotClient } from "../slot-checkout.ts";
 import type { SlotClient } from "@sdl/slot/api";
-import type { CommandContext, ExtensionAPI } from "./types.ts";
+import type { CommandContext, ExtensionAPI } from "@sdl/cmux/types";
 
 const COMMAND_NAME = "ccc:workspace:dispatch-from-trunk";
 const GIT_TRUNK_REFRESH_TIMEOUT_MS = 2 * 60 * 1000;

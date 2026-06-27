@@ -8,14 +8,14 @@ import {
 	launchFocusedCmuxTab,
 	type FocusedCmuxTabLaunchResult,
 } from "@sdl/cmux/focused-terminal-tab";
-import { isRecord, stringField } from "./primitives.ts";
+import { isRecord, stringField } from "@sdl/core/primitives";
 import {
 	resolvePromptFileOptions,
 	writeTimestampedPromptFile,
 	type PromptFileOptions,
 	type ResolvedPromptFileOptions,
 } from "./prompt-file.ts";
-import type { CommandContext, ExtensionAPI } from "./types.ts";
+import type { CommandContext, ExtensionAPI } from "@sdl/cmux/types";
 
 const COMMAND_NAME = "ccc:claude-plan-tab";
 const PROMPT_DIR = join(homedir(), ".pi", "agent", "ccc-claude-plan-tab-prompts");
