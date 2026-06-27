@@ -13,6 +13,7 @@ export interface FakeObjectiveRecordOptions {
 	slug: string;
 	objectiveMd?: string | null | undefined;
 	roadmapMd?: string | null | undefined;
+	orientationMd?: string | null | undefined;
 	updates?: Readonly<Record<string, string>> | undefined;
 	isClosed?: boolean | undefined;
 }
@@ -160,6 +161,9 @@ export class FakeObjectiveStorageGateway implements ObjectiveStorageGateway {
 			this.addFile(`${root}/objective.md`, record.objectiveMd ?? `# ${record.slug}\n`);
 		if (record.roadmapMd !== null)
 			this.addFile(`${root}/roadmap.md`, record.roadmapMd ?? "# Roadmap\n");
+		if (record.orientationMd !== undefined && record.orientationMd !== null) {
+			this.addFile(`${root}/orientation.md`, record.orientationMd);
+		}
 		this.addDirectory(`${root}/updates`);
 		for (const [name, content] of Object.entries(record.updates ?? {})) {
 			this.addFile(`${root}/updates/${name}`, content);

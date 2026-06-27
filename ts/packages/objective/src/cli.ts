@@ -23,6 +23,12 @@ import {
 	runListCandidates,
 } from "./operations/list-candidates.ts";
 import {
+	loadOrientationsRequestSchema,
+	loadOrientationsResultSchema,
+	renderLoadOrientationsMarkdown,
+	runLoadOrientations,
+} from "./operations/load-orientations.ts";
+import {
 	listObjectivesRequestSchema,
 	objectiveListResultSchema,
 	renderObjectiveListHuman,
@@ -90,6 +96,15 @@ const entry = defineCli<ObjectiveCliContext, CliDeps, undefined>({
 			resultSchema: listCandidatesResultSchema,
 			handler: runListCandidates,
 			renderHuman: renderListCandidates,
+		});
+		execGroup.command({
+			name: "load-orientations",
+			description: "Load active Objective orientation files for agent onboarding.",
+			schema: loadOrientationsRequestSchema,
+			resultSchema: loadOrientationsResultSchema,
+			handler: runLoadOrientations,
+			renderHuman: renderLoadOrientationsMarkdown,
+			renderMarkdown: renderLoadOrientationsMarkdown,
 		});
 		execGroup.command({
 			name: "read-objective",

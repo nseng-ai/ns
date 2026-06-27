@@ -35,8 +35,15 @@ describe("objective CLI shape", () => {
 		expect(execOutput).toContain("Usage: objective exec");
 		expect(execOutput).toContain("Commands for use by objective skills.");
 		expect(execOutput).toContain("list-candidates");
+		expect(execOutput).toContain("load-orientations");
 		expect(execOutput).toContain("read-objective");
 		expect(execOutput).toContain("runner-subagent-usage");
+
+		const orientationHelp = runScenario(["exec", "load-orientations", "--help"]);
+		expect(await orientationHelp.exit).toBe(0);
+		expect(orientationHelp.stderr.join("")).toBe("");
+		expect(orientationHelp.stdout.join("")).toContain("Usage: objective exec load-orientations");
+		expect(orientationHelp.stdout.join("")).toContain("Load active Objective orientation files");
 
 		const readHelp = runScenario(["exec", "read-objective", "--help"]);
 		expect(await readHelp.exit).toBe(0);

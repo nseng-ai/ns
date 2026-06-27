@@ -152,7 +152,7 @@ If closure readiness, outcome, or rationale is ambiguous, leave `closed.md` abse
 6. Edit `roadmap.md` if ordered guidance, checkbox state, evidence, or parked work changed.
 7. Create a new Semantic Update only when semantically warranted; otherwise say no update was written.
 8. Apply the Closure Gate.
-9. If not closing and `orientation.md` exists, re-derive it against the now-current state: shrink or remove the `What you see now`/`Avoid` lines as the migration lands, and keep the durable `Direction`/`Getting to` lines accurate. If the Objective has become cross-cutting and lacks one, add `orientation.md` using the `objective` umbrella skill's format. Do not author or re-derive `orientation.md` when closing — `closed.md` drops it from the load set.
+9. If not closing and `orientation.md` exists, re-derive it against the now-current state using the umbrella `objective` skill's orientation re-derivation rule. If the Objective has become cross-cutting and lacks one, add `orientation.md` using the umbrella format. Do not author or re-derive `orientation.md` when closing — `closed.md` drops it from the load set.
 10. Report per Verify.
 
 ## Stop / ask
