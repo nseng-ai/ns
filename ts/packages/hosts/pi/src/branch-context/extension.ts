@@ -6,7 +6,7 @@ import {
 } from "./enriched-plan-save.ts";
 import {
 	CREATE_BRANCH_CONTEXT_COMMAND_NAME,
-	UP_AND_IMPL_COMMAND_NAME,
+	GT_UPSTACK_IMPL_COMMAND_NAME,
 	registerBranchContextCommands,
 } from "./from-plan-commands.ts";
 import type { BranchContextExtensionOptions, ExtensionAPI } from "./host-types.ts";
@@ -54,7 +54,7 @@ export const branchContextExtensionParity = definePiSurfaceParity([
 	},
 	{
 		kind: "command",
-		surface: UP_AND_IMPL_COMMAND_NAME,
+		surface: GT_UPSTACK_IMPL_COMMAND_NAME,
 		workflow: "Create an upstack branch context and launch a fresh implementation session",
 		parity: "WAIVED",
 		fallback:
@@ -93,13 +93,13 @@ export {
 export {
 	CREATE_BRANCH_CONTEXT_COMMAND_NAME,
 	CREATE_BRANCH_CONTEXT_USAGE,
-	UP_AND_IMPL_COMMAND_NAME,
-	UP_AND_IMPL_USAGE,
+	GT_UPSTACK_IMPL_COMMAND_NAME,
+	GT_UPSTACK_IMPL_USAGE,
 	deriveCreateBranchContextPreview,
 	formatCreateBranchContextPreview,
 	handleCreateBranchContextCommand,
 	handleImplBranchContextCommand,
-	handleUpAndImplCommand,
+	handleGtUpstackImplCommand,
 	parseCreateBranchContextArgs,
 	resolveCreateBranchContextPlanFile,
 	resolveCreateBranchContextPreview,

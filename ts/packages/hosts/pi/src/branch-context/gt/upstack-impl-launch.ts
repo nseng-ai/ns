@@ -4,26 +4,29 @@ import {
 } from "@sdl/branch-context/api";
 import type { ExecResult } from "@sdl/core/exec";
 import type {
-	SessionReplacementContext,
-	SessionReplacementOptions,
-	SessionReplacementResult,
-} from "@sdl/pi/sessions/replacement";
-import { setLaunchStatus, type LaunchStatusUi, type LaunchStatusUpdater } from "./launch-status.ts";
+	ExtensionAPI,
+	NewSessionOptions,
+	NewSessionResult,
+	ReplacedSessionContext,
+} from "../host-types.ts";
 
-export interface BranchContextUpAndImplHost {
-	exec(
-		command: string,
-		args: string[],
-		options?: { cwd?: string; timeout?: number; signal?: AbortSignal },
-	): Promise<ExecResult>;
+export type BranchContextGtUpstackImplHost = Pick<ExtensionAPI, "exec">;
+
+export type BranchContextGtUpstackImplNewSessionContext = ReplacedSessionContext;
+export type BranchContextGtUpstackImplNewSessionOptions = NewSessionOptions;
+export type BranchContextGtUpstackImplNewSessionResult = NewSessionResult;
+
+interface LaunchStatusUi {
+	setStatus?(key: string, value: string | undefined): void;
 }
 
-export type BranchContextUpAndImplNewSessionContext = SessionReplacementContext;
-export type BranchContextUpAndImplNewSessionOptions =
-	SessionReplacementOptions<BranchContextUpAndImplNewSessionContext>;
-export type BranchContextUpAndImplNewSessionResult = SessionReplacementResult;
+interface LaunchStatusUpdater {
+	hasUI: boolean;
+	ui: LaunchStatusUi;
+	statusKey: string;
+}
 
-export interface BranchContextUpAndImplContext {
+export interface BranchContextGtUpstackImplContext {
 	cwd: string;
 	hasUI: boolean;
 	ui: LaunchStatusUi;
@@ -31,41 +34,41 @@ export interface BranchContextUpAndImplContext {
 		getSessionFile?(): string | undefined;
 	};
 	newSession(
-		options?: BranchContextUpAndImplNewSessionOptions,
-	): Promise<BranchContextUpAndImplNewSessionResult>;
+		options?: BranchContextGtUpstackImplNewSessionOptions,
+	): Promise<BranchContextGtUpstackImplNewSessionResult>;
 }
 
-export interface BranchContextUpAndImplLaunchOptions {
-	host: BranchContextUpAndImplHost;
-	ctx: BranchContextUpAndImplContext;
+export interface BranchContextGtUpstackImplLaunchOptions {
+	host: BranchContextGtUpstackImplHost;
+	ctx: BranchContextGtUpstackImplContext;
 	statusKey: string;
 	target: Pick<BranchContextEvidence, "branch" | "key">;
 	signal?: AbortSignal;
 }
 
-export type BranchContextUpAndImplLaunchPhase = "checkout" | "new-session";
+export type BranchContextGtUpstackImplLaunchPhase = "checkout" | "new-session";
 
-export type BranchContextUpAndImplLaunchResult =
+export type BranchContextGtUpstackImplLaunchResult =
 	| { type: "launched"; branch: string; key: string; parentSession?: string }
 	| { type: "cancelled"; branch: string; key: string; parentSession?: string }
 	| {
 			type: "failed";
 			branch: string;
 			key: string;
-			phase: BranchContextUpAndImplLaunchPhase;
+			phase: BranchContextGtUpstackImplLaunchPhase;
 			message: string;
 			parentSession?: string;
 	  };
 
 const CHECKOUT_TIMEOUT_MS = 30_000;
 
-export async function runBranchContextUpAndImplLaunch(
-	options: BranchContextUpAndImplLaunchOptions,
-): Promise<BranchContextUpAndImplLaunchResult> {
+export async function runBranchContextGtUpstackImplLaunch(
+	options: BranchContextGtUpstackImplLaunchOptions,
+): Promise<BranchContextGtUpstackImplLaunchResult> {
 	const { branch, key } = options.target;
 	const statusUpdater = buildStatusUpdater(options);
 	let isReplacementSessionActive = false;
-	let phase: BranchContextUpAndImplLaunchPhase = "checkout";
+	let phase: BranchContextGtUpstackImplLaunchPhase = "checkout";
 	let parentSession: string | undefined;
 
 	try {
@@ -84,7 +87,7 @@ export async function runBranchContextUpAndImplLaunch(
 		setLaunchStatus(statusUpdater, "starting implementation session…");
 		parentSession = options.ctx.sessionManager?.getSessionFile?.();
 		const parentSessionPart = parentSession === undefined ? {} : { parentSession };
-		const newSessionOptions: BranchContextUpAndImplNewSessionOptions = {
+		const newSessionOptions: BranchContextGtUpstackImplNewSessionOptions = {
 			withSession: async (newCtx) => {
 				isReplacementSessionActive = true;
 				await newCtx.sendUserMessage(formatImplBranchContextCommand(key));
@@ -117,7 +120,7 @@ export async function runBranchContextUpAndImplLaunch(
 	}
 }
 
-export function formatBranchContextUpAndImplFollowUpFlow(
+export function formatBranchContextGtUpstackImplFollowUpFlow(
 	targetBranch: string,
 	key: string,
 ): string {
@@ -127,7 +130,7 @@ export function formatBranchContextUpAndImplFollowUpFlow(
 type CheckoutResult = { type: "ok" } | { type: "failed"; message: string };
 
 interface CheckoutBranchContextOptions {
-	host: BranchContextUpAndImplHost;
+	host: BranchContextGtUpstackImplHost;
 	cwd: string;
 	targetBranch: string;
 	signal: AbortSignal | undefined;
@@ -162,10 +165,16 @@ function formatCheckoutFailureOutput(result: ExecResult): string {
 	return "(no output)";
 }
 
-function buildStatusUpdater(options: BranchContextUpAndImplLaunchOptions): LaunchStatusUpdater {
+function buildStatusUpdater(options: BranchContextGtUpstackImplLaunchOptions): LaunchStatusUpdater {
 	return {
 		hasUI: options.ctx.hasUI,
 		ui: options.ctx.ui,
 		statusKey: options.statusKey,
 	};
+}
+
+function setLaunchStatus(updater: LaunchStatusUpdater, value: string | undefined): void {
+	if (updater.hasUI) {
+		updater.ui.setStatus?.(updater.statusKey, value);
+	}
 }

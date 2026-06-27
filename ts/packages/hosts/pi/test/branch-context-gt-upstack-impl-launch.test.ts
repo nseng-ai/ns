@@ -5,18 +5,18 @@ import {
 	formatImplBranchContextCommand,
 } from "@sdl/branch-context/api";
 import {
-	formatBranchContextUpAndImplFollowUpFlow,
-	runBranchContextUpAndImplLaunch,
-	type BranchContextUpAndImplContext,
-	type BranchContextUpAndImplNewSessionOptions,
-} from "../src/branch-context-up-and-impl.ts";
-import { FakePi, ROOT, step } from "./ccc-test-harness.ts";
+	formatBranchContextGtUpstackImplFollowUpFlow,
+	runBranchContextGtUpstackImplLaunch,
+	type BranchContextGtUpstackImplContext,
+	type BranchContextGtUpstackImplNewSessionOptions,
+} from "../src/branch-context/gt/upstack-impl-launch.ts";
+import { FakePi, ROOT, step } from "./branch-context-extension-support.ts";
 
 const BRANCH = "branch-contexts/widget-flow";
 const KEY = "widget-flow.md";
 const STATUS_KEY = "sdl:branch-context:upstack-impl-from-plan";
 
-class FakeUpAndImplContext implements BranchContextUpAndImplContext {
+class FakeGtUpstackImplContext implements BranchContextGtUpstackImplContext {
 	readonly cwd = ROOT;
 	readonly hasUI = true;
 	readonly statuses: Array<{ key: string; value: string | undefined }> = [];
@@ -39,7 +39,7 @@ class FakeUpAndImplContext implements BranchContextUpAndImplContext {
 	}
 
 	async newSession(
-		options?: BranchContextUpAndImplNewSessionOptions,
+		options?: BranchContextGtUpstackImplNewSessionOptions,
 	): Promise<{ cancelled: boolean }> {
 		this.newSessionParentSessions.push(options?.parentSession);
 		if (this.shouldThrowBeforeReplacement) {
@@ -49,6 +49,15 @@ class FakeUpAndImplContext implements BranchContextUpAndImplContext {
 			return { cancelled: true };
 		}
 		await options?.withSession?.({
+			cwd: this.cwd,
+			hasUI: this.hasUI,
+			ui: {
+				notify() {},
+				setStatus() {},
+			},
+			async waitForIdle(): Promise<void> {},
+			newSession: (newSessionOptions) => this.newSession(newSessionOptions),
+			sendMessage() {},
 			sendUserMessage: async (content: string) => {
 				if (this.shouldThrowDuringReplacementSend) {
 					throw new Error("replacement send failed");
@@ -64,12 +73,12 @@ function checkoutStep(result: Parameters<typeof step>[2] = {}): ReturnType<typeo
 	return step("git", ["checkout", BRANCH], result);
 }
 
-describe("branch-context up-and-impl CCC launch orchestration", () => {
+describe("branch-context Gt upstack impl Pi launch orchestration", () => {
 	test("checks out the branch and dispatches impl in a new session", async () => {
-		const pi = new FakePi({ script: [checkoutStep()] });
-		const ctx = new FakeUpAndImplContext({ parentSession: "/sessions/source.jsonl" });
+		const pi = new FakePi([checkoutStep()]);
+		const ctx = new FakeGtUpstackImplContext({ parentSession: "/sessions/source.jsonl" });
 
-		const result = await runBranchContextUpAndImplLaunch({
+		const result = await runBranchContextGtUpstackImplLaunch({
 			host: pi,
 			ctx,
 			statusKey: STATUS_KEY,
@@ -103,19 +112,19 @@ describe("branch-context up-and-impl CCC launch orchestration", () => {
 	});
 
 	test("formats the manual follow-up flow", () => {
-		expect(formatBranchContextUpAndImplFollowUpFlow(BRANCH, "branch-scoped-plan.md")).toBe(
+		expect(formatBranchContextGtUpstackImplFollowUpFlow(BRANCH, "branch-scoped-plan.md")).toBe(
 			`git checkout ${BRANCH}\n/new\n${formatImplBranchContextCommand("branch-scoped-plan.md")}`,
 		);
-		expect(formatBranchContextUpAndImplFollowUpFlow(BRANCH, KEY)).toBe(
+		expect(formatBranchContextGtUpstackImplFollowUpFlow(BRANCH, KEY)).toBe(
 			`git checkout ${BRANCH}\n/new\n${formatImplBranchContextCommand(KEY)}`,
 		);
 	});
 
 	test("returns checkout failure without starting a new session", async () => {
-		const pi = new FakePi({ script: [checkoutStep({ code: 2, stderr: "checkout failed" })] });
-		const ctx = new FakeUpAndImplContext();
+		const pi = new FakePi([checkoutStep({ code: 2, stderr: "checkout failed" })]);
+		const ctx = new FakeGtUpstackImplContext();
 
-		const result = await runBranchContextUpAndImplLaunch({
+		const result = await runBranchContextGtUpstackImplLaunch({
 			host: pi,
 			ctx,
 			statusKey: STATUS_KEY,
@@ -135,14 +144,14 @@ describe("branch-context up-and-impl CCC launch orchestration", () => {
 	});
 
 	test("reports checkout startup errors as checkout failures", async () => {
-		const ctx = new FakeUpAndImplContext();
+		const ctx = new FakeGtUpstackImplContext();
 		const host = {
 			async exec(): Promise<never> {
 				throw new Error("git is unavailable");
 			},
 		};
 
-		const result = await runBranchContextUpAndImplLaunch({
+		const result = await runBranchContextGtUpstackImplLaunch({
 			host,
 			ctx,
 			statusKey: STATUS_KEY,
@@ -160,11 +169,11 @@ describe("branch-context up-and-impl CCC launch orchestration", () => {
 	});
 
 	test("returns cancellation facts for the caller to format", async () => {
-		const pi = new FakePi({ script: [checkoutStep()] });
-		const ctx = new FakeUpAndImplContext();
+		const pi = new FakePi([checkoutStep()]);
+		const ctx = new FakeGtUpstackImplContext();
 		ctx.shouldCancelNewSession = true;
 
-		const result = await runBranchContextUpAndImplLaunch({
+		const result = await runBranchContextGtUpstackImplLaunch({
 			host: pi,
 			ctx,
 			statusKey: STATUS_KEY,
@@ -177,11 +186,11 @@ describe("branch-context up-and-impl CCC launch orchestration", () => {
 	});
 
 	test("returns new-session failure before replacement activation", async () => {
-		const pi = new FakePi({ script: [checkoutStep()] });
-		const ctx = new FakeUpAndImplContext();
+		const pi = new FakePi([checkoutStep()]);
+		const ctx = new FakeGtUpstackImplContext();
 		ctx.shouldThrowBeforeReplacement = true;
 
-		const result = await runBranchContextUpAndImplLaunch({
+		const result = await runBranchContextGtUpstackImplLaunch({
 			host: pi,
 			ctx,
 			statusKey: STATUS_KEY,
@@ -200,12 +209,12 @@ describe("branch-context up-and-impl CCC launch orchestration", () => {
 	});
 
 	test("rethrows replacement-session failures after activation", async () => {
-		const pi = new FakePi({ script: [checkoutStep()] });
-		const ctx = new FakeUpAndImplContext();
+		const pi = new FakePi([checkoutStep()]);
+		const ctx = new FakeGtUpstackImplContext();
 		ctx.shouldThrowDuringReplacementSend = true;
 
 		await expect(
-			runBranchContextUpAndImplLaunch({
+			runBranchContextGtUpstackImplLaunch({
 				host: pi,
 				ctx,
 				statusKey: STATUS_KEY,
