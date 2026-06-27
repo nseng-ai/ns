@@ -106,7 +106,8 @@ function parseArgs(argv: readonly string[]): ParsedArgs | { error: string } {
 			}
 			case "--width": {
 				const next = Number(argv[(index += 1)]);
-				if (!Number.isInteger(next) || next < 20) return { error: "invalid --width (need integer >= 20)" };
+				if (!Number.isInteger(next) || next < 20)
+					return { error: "invalid --width (need integer >= 20)" };
 				parsed.width = next;
 				break;
 			}
@@ -147,7 +148,8 @@ function parseArgs(argv: readonly string[]): ParsedArgs | { error: string } {
 				break;
 			case "--speed": {
 				const next = Number(argv[(index += 1)]);
-				if (!Number.isInteger(next) || next < 0) return { error: "invalid --speed (need integer >= 0)" };
+				if (!Number.isInteger(next) || next < 0)
+					return { error: "invalid --speed (need integer >= 0)" };
 				parsed.speed = next;
 				break;
 			}

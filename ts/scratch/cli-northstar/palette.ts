@@ -42,7 +42,12 @@ interface IntentRow {
 
 const INTENT_ROWS: readonly IntentRow[] = [
 	{ intent: "success", glyphName: "done", hex: "#3fb950", usage: "closed objective, PR created" },
-	{ intent: "accent", glyphName: "open", hex: "#22d3ee", usage: "status dot, PR #2201, active spinner" },
+	{
+		intent: "accent",
+		glyphName: "open",
+		hex: "#22d3ee",
+		usage: "status dot, PR #2201, active spinner",
+	},
 	{ intent: "warn", glyphName: "open", hex: "#d29922", usage: "x outstanding-changes marker" },
 	{ intent: "error", glyphName: "fail", hex: "#f85149", usage: "failed submit summary" },
 	{ intent: "muted", glyphName: "skip", hex: "#8b949e", usage: "timestamps, secondary text" },
@@ -69,7 +74,9 @@ export function renderPalette(caps: Caps): string {
 export function renderAccents(caps: Caps): string {
 	const lines: string[] = [
 		bold("Accent candidates"),
-		dim("preview live in context:  objective-list --accent <name>   ·   flow-submit --accent <name>"),
+		dim(
+			"preview live in context:  objective-list --accent <name>   ·   flow-submit --accent <name>",
+		),
 		"",
 	];
 	const nameW = Math.max(...ACCENT_CANDIDATES.map((c) => c.name.length));
@@ -82,7 +89,9 @@ export function renderAccents(caps: Caps): string {
 			paintSwatch(caps, sw, "https://github.com/…/pull/2201"),
 		].join("  ");
 		const tag = isDefaultAccent(sw) ? dim("  (default)") : "";
-		lines.push(`  ${paintSwatch(caps, sw, candidate.name.padEnd(nameW))}  ${dim(candidate.hex)}   ${sample}${tag}`);
+		lines.push(
+			`  ${paintSwatch(caps, sw, candidate.name.padEnd(nameW))}  ${dim(candidate.hex)}   ${sample}${tag}`,
+		);
 	}
 	return lines.join("\n") + "\n";
 }

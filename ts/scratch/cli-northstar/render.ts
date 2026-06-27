@@ -124,7 +124,9 @@ export function renderObjectiveList(
 	lines.push("");
 	// "LATEST UPDATE" sits above the dates, not the flag gutter; the flag column header is blank.
 	lines.push(
-		dim(`${padPlain("OBJECTIVE", slugW)}  ${padPlain("STATUS", statusW)}  ${" ".repeat(flagW)}  LATEST UPDATE`),
+		dim(
+			`${padPlain("OBJECTIVE", slugW)}  ${padPlain("STATUS", statusW)}  ${" ".repeat(flagW)}  LATEST UPDATE`,
+		),
 	);
 
 	for (const row of rows) {
@@ -137,7 +139,8 @@ export function renderObjectiveList(
 		const statusPlain = `${statusGlyph} ${status.word}`;
 		const statusCell = padCell(statusColored, statusPlain, statusW);
 
-		const stamp = row.latestUpdateIso === null ? "—" : relativeTime(row.latestUpdateIso, Date.parse(NOW_ISO));
+		const stamp =
+			row.latestUpdateIso === null ? "—" : relativeTime(row.latestUpdateIso, Date.parse(NOW_ISO));
 		// The outstanding-changes flag is its own fixed-width column with gaps on both sides, so it
 		// reads as a separate marker and the dates stay column-aligned beneath the header.
 		const flagCell = markerCell(caps, style, row.hasOutstandingChanges);
@@ -193,7 +196,9 @@ const SPINNER_FRAME_MS = 90;
 // Realistic dwell per subprocess line: network round-trips (push / create / update / fetch) linger
 // noticeably; local validation is quick. Keeps the stream from flashing past faster than real work.
 function lineDwellMs(line: string, tickMs: number): number {
-	return /^(?:Pushing|Creating|Updating|Fetching|Submitting)\b/.test(line) ? Math.round(tickMs * 2.6) : tickMs;
+	return /^(?:Pushing|Creating|Updating|Fetching|Submitting)\b/.test(line)
+		? Math.round(tickMs * 2.6)
+		: tickMs;
 }
 
 function phaseDisplayName(phase: SubmitPhase): string {
@@ -245,7 +250,10 @@ function failureBlockLines(caps: Caps, failure: SubmitFailure): string[] {
 	// bold (bold survives mono, so it still stands out when color is gone). Within the transcript,
 	// the salient cause lines render at normal foreground weight so they read clearly without piling
 	// on more red; only the plumbing noise dims to supporting detail.
-	const lines: string[] = ["", paint(caps, "error", bold(`${glyph(caps, "fail")} ${failure.summary}`))];
+	const lines: string[] = [
+		"",
+		paint(caps, "error", bold(`${glyph(caps, "fail")} ${failure.summary}`)),
+	];
 	for (const line of failure.transcriptTail) {
 		const clipped = clip(caps, line, caps.columns - 4);
 		lines.push(`    ${isSalientTranscriptLine(line) ? clipped : dim(clipped)}`);
@@ -259,14 +267,20 @@ interface FlowSubmitOptions {
 	tickMs: number;
 }
 
-async function renderInPlace(caps: Caps, phases: readonly SubmitPhase[], opts: FlowSubmitOptions): Promise<void> {
+async function renderInPlace(
+	caps: Caps,
+	phases: readonly SubmitPhase[],
+	opts: FlowSubmitOptions,
+): Promise<void> {
 	const states: PhaseState[] = phases.map((p) => (p.skipped ? "skipped" : "pending"));
 	let tail: string | null = null;
 	let tick = 0;
 	let prevLines = 0;
 
 	function frame(): string[] {
-		const lines = phases.map((phase, index) => inPlacePhaseLine(caps, phase, states[index] ?? "pending", tick));
+		const lines = phases.map((phase, index) =>
+			inPlacePhaseLine(caps, phase, states[index] ?? "pending", tick),
+		);
 		if (tail !== null) lines.push(`       ${dim(clip(caps, tail, caps.columns - 7))}`);
 		return lines;
 	}

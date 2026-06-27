@@ -47,7 +47,7 @@ export function paintSwatch(caps: Caps, swatch: Swatch, text: string): string {
 }
 
 function swatchFor(caps: Caps, intent: Intent): Swatch {
-	return intent === "accent" ? caps.accent ?? PALETTE.accent : PALETTE[intent];
+	return intent === "accent" ? (caps.accent ?? PALETTE.accent) : PALETTE[intent];
 }
 
 export function paint(caps: Caps, intent: Intent, text: string): string {

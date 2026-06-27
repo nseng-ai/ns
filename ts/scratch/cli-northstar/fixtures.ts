@@ -25,22 +25,42 @@ export const OBJECTIVE_ROWS: readonly ObjectiveRow[] = [
 		updatedBranches: ["1/2 add-cli-ux-north-star-objective", "1/2 cli-northstar-proto"],
 		hasOutstandingChanges: true,
 	},
-	{ slug: "cli-surface-conformance-remediation", status: "open", latestUpdateIso: null, hasOutstandingChanges: false },
-	{ slug: "clinkr-shell-completion", status: "open", latestUpdateIso: null, hasOutstandingChanges: false },
+	{
+		slug: "cli-surface-conformance-remediation",
+		status: "open",
+		latestUpdateIso: null,
+		hasOutstandingChanges: false,
+	},
+	{
+		slug: "clinkr-shell-completion",
+		status: "open",
+		latestUpdateIso: null,
+		hasOutstandingChanges: false,
+	},
 	{
 		slug: "cross-harness-parity",
 		status: "open",
 		latestUpdateIso: "2026-06-13T09:10:00Z",
 		hasOutstandingChanges: false,
 	},
-	{ slug: "repo-ontology", status: "open", latestUpdateIso: "2026-06-26T12:27:25Z", hasOutstandingChanges: true },
+	{
+		slug: "repo-ontology",
+		status: "open",
+		latestUpdateIso: "2026-06-26T12:27:25Z",
+		hasOutstandingChanges: true,
+	},
 	{
 		slug: "ts-cli-core-structural-cleanup",
 		status: "open",
 		latestUpdateIso: "2026-06-24T17:00:00Z",
 		hasOutstandingChanges: false,
 	},
-	{ slug: "vibechk-v1", status: "closed", latestUpdateIso: "2026-06-18T17:53:00Z", hasOutstandingChanges: false },
+	{
+		slug: "vibechk-v1",
+		status: "closed",
+		latestUpdateIso: "2026-06-18T17:53:00Z",
+		hasOutstandingChanges: false,
+	},
 ];
 
 export interface SubmitPhase {
@@ -55,9 +75,22 @@ export interface SubmitPhase {
 }
 
 export const SUBMIT_PHASES: readonly SubmitPhase[] = [
-	{ key: "preflight", label: "Preflight: checking Graphite submit readiness…", done: "Graphite submit readiness" },
-	{ key: "restack", label: "Preflight: running gt restack…", done: "restack not required", skipped: true },
-	{ key: "metadata", label: "Metadata: preparing PR metadata before submit…", done: "PR metadata prepared" },
+	{
+		key: "preflight",
+		label: "Preflight: checking Graphite submit readiness…",
+		done: "Graphite submit readiness",
+	},
+	{
+		key: "restack",
+		label: "Preflight: running gt restack…",
+		done: "restack not required",
+		skipped: true,
+	},
+	{
+		key: "metadata",
+		label: "Metadata: preparing PR metadata before submit…",
+		done: "PR metadata prepared",
+	},
 	{
 		key: "submit",
 		label: "Submit: running gt submit…",
@@ -113,7 +146,7 @@ export const SUBMIT_FAILURE: SubmitFailure = {
 	logPath: ".sdl/logs/flow-submit-20260627T0507.log",
 	transcriptTail: [
 		"remote: error: GH006: Protected branch update failed for refs/heads/master.",
-		"remote: error: Required status check \"ci/build\" is expected.",
+		'remote: error: Required status check "ci/build" is expected.',
 		"To github.com:example/sdl-tools.git",
 		"! [remote rejected] master -> master (protected branch hook declined)",
 	],
