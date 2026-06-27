@@ -25,7 +25,10 @@ import {
 import { formatCommand, formatShellArg } from "@sdl/core/exec";
 import { checkoutBranchCmuxSlot, openBranchInCmuxSlot } from "./slot.ts";
 import { createCccSlotClient } from "../slot-checkout.ts";
-import { launchFocusedCmuxTab, type FocusedCmuxTabLaunchResult } from "./focused-terminal-tab.ts";
+import {
+	launchFocusedCmuxTab,
+	type FocusedCmuxTabLaunchResult,
+} from "@sdl/pi/cmux/focused-terminal-tab";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
 import type { PiLaunchOptions } from "./pi-launch.ts";
 import type { SlotCheckoutTarget, SlotClient } from "@sdl/slot/api";
