@@ -51,6 +51,33 @@ describe("RealSubmitGateway", () => {
 		runner.assertDone();
 	});
 
+	test("forced readiness checks pass --force before --dry-run", async () => {
+		const runner = new ScriptedCommandRunner([
+			step(
+				"gt",
+				[
+					"submit",
+					"--no-edit",
+					"--publish",
+					"--no-stack",
+					"--no-ai",
+					"--no-interactive",
+					"--no-view",
+					"--no-web",
+					"--force",
+					"--dry-run",
+				],
+				{ stdout: "ok\n" },
+			),
+		]);
+		const gateway = new RealSubmitGateway(runner.runner);
+
+		expect(await gateway.checkSubmitReadiness({ cwd: "/repo", force: true })).toMatchObject({
+			kind: "ready",
+		});
+		runner.assertDone();
+	});
+
 	test("Graphite command output is streamed to the optional listener", async () => {
 		const runner = new ScriptedCommandRunner([
 			step(
@@ -187,6 +214,34 @@ describe("RealSubmitGateway", () => {
 			kind: "success",
 			prLinks: [{ label: "#456", url: "https://github.com/acme/project/pull/456" }],
 		});
+		runner.assertDone();
+	});
+
+	test("forced submit passes --force to Graphite", async () => {
+		const runner = new ScriptedCommandRunner([
+			step(
+				"gt",
+				[
+					"submit",
+					"--no-edit",
+					"--publish",
+					"--no-stack",
+					"--no-ai",
+					"--no-interactive",
+					"--no-view",
+					"--no-web",
+					"--force",
+				],
+				{
+					stdout: "Created https://github.com/acme/project/pull/456\n",
+				},
+			),
+		]);
+		const gateway = new RealSubmitGateway(runner.runner);
+
+		const result = await gateway.submitCurrentStack({ cwd: "/repo", force: true });
+
+		expect(result).toMatchObject({ kind: "success" });
 		runner.assertDone();
 	});
 

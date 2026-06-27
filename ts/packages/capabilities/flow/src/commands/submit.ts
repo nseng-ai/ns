@@ -20,6 +20,10 @@ const submitSchema = z.object({
 		.boolean()
 		.default(true)
 		.describe("Automatically run gt restack before submitting when Graphite requires it."),
+	force: z
+		.boolean()
+		.default(false)
+		.describe("Pass --force to Graphite submit readiness checks and the submit run."),
 	verbose: z
 		.boolean()
 		.default(false)
@@ -82,6 +86,7 @@ export const flowSubmitCommand: SdlCommand<typeof submitSchema> = {
 			gateway: runtime.submitGateway,
 			metadataGateway: runtime.metadataGateway,
 			restack: request.restack,
+			force: request.force,
 			shouldForwardCommandOutput: request.verbose,
 			prDescription: runtime.prDescription,
 			...(liveOutput === undefined ? {} : { onOutput: liveOutput }),

@@ -95,17 +95,20 @@ function formatSubmitOutputTail(stdout: string, stderr: string): string {
 	return tail;
 }
 
-export function formatPreflightFailureOutput(output: SubmitCommandOutput): string {
+export function formatPreflightFailureOutput(
+	output: SubmitCommandOutput,
+	submitDryRunCommandDisplay: string,
+): string {
 	const reason = output.startupError
-		? `gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run could not start: ${output.startupError}. Submission was not attempted.`
+		? `${submitDryRunCommandDisplay} could not start: ${output.startupError}. Submission was not attempted.`
 		: output.killed
-			? `gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run timed out after ${CURRENT_PR_TIMEOUT_MS / 1000}s. Submission was not attempted.`
-			: `gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run failed with exit code ${output.exitCode}. Submission was not attempted.`;
+			? `${submitDryRunCommandDisplay} timed out after ${CURRENT_PR_TIMEOUT_MS / 1000}s. Submission was not attempted.`
+			: `${submitDryRunCommandDisplay} failed with exit code ${output.exitCode}. Submission was not attempted.`;
 
 	return [
 		reason,
 		"",
-		"$ gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run",
+		`$ ${submitDryRunCommandDisplay}`,
 		"",
 		formatOutputSection("stdout", output.stdout),
 		formatOutputSection("stderr", output.stderr),
@@ -114,7 +117,10 @@ export function formatPreflightFailureOutput(output: SubmitCommandOutput): strin
 		.join("\n");
 }
 
-export function formatTrunkOutOfDatePreflightOutput(_output: SubmitCommandOutput): string {
+export function formatTrunkOutOfDatePreflightOutput(
+	_output: SubmitCommandOutput,
+	submitDryRunCommandDisplay: string,
+): string {
 	return [
 		"Graphite could not update the trunk branch before submit.",
 		"Submission was not attempted.",
@@ -122,18 +128,21 @@ export function formatTrunkOutOfDatePreflightOutput(_output: SubmitCommandOutput
 		"What to do next:",
 		"- Update or repair your local Graphite trunk checkout, then rerun `sdl flow submit`.",
 		"- If Graphite reports a specific trunk-update problem, resolve that first.",
-		"- To inspect the raw Graphite dry-run output, rerun with `sdl flow submit --verbose` or run `gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run` manually.",
+		`- To inspect the raw Graphite dry-run output, rerun with \`sdl flow submit --verbose\` or run \`${submitDryRunCommandDisplay}\` manually.`,
 	].join("\n");
 }
 
-export function formatRestackRequiredOutput(output: SubmitCommandOutput): string {
+export function formatRestackRequiredOutput(
+	output: SubmitCommandOutput,
+	submitDryRunCommandDisplay: string,
+): string {
 	return [
 		"Graphite requires a restack before submission.",
 		"Plain `sdl flow submit` normally runs `gt restack --downstack --no-interactive` automatically when required; this output means automatic restack was disabled or unavailable.",
 		"Run `gt restack --downstack`, resolve any conflicts, then run `sdl flow submit` again.",
 		"Submission was not attempted.",
 		"",
-		"$ gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run",
+		`$ ${submitDryRunCommandDisplay}`,
 		"",
 		formatOutputSection("stdout", output.stdout),
 		formatOutputSection("stderr", output.stderr),
@@ -144,6 +153,7 @@ export function formatRestackRequiredOutput(output: SubmitCommandOutput): string
 
 export function formatRestackConfirmationPrompt(
 	output: SubmitCommandOutput,
+	commands: { submitCommandDisplay: string; submitDryRunCommandDisplay: string },
 ): SubmitRestackConfirmationPrompt {
 	return {
 		title: "Run gt restack before submit?",
@@ -153,11 +163,11 @@ export function formatRestackConfirmationPrompt(
 			"",
 			"If confirmed, sdl flow submit will run:",
 			"$ gt restack --downstack --no-interactive",
-			"$ gt submit --no-edit --publish --no-stack --no-ai --no-interactive",
+			`$ ${commands.submitCommandDisplay}`,
 			"",
 			"If restack hits conflicts or fails, submission will stop before `gt submit`.",
 			"",
-			"$ gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run",
+			`$ ${commands.submitDryRunCommandDisplay}`,
 			"",
 			formatOutputSection("stdout", output.stdout),
 			formatOutputSection("stderr", output.stderr),
@@ -167,12 +177,15 @@ export function formatRestackConfirmationPrompt(
 	};
 }
 
-export function formatRestackDeclinedOutput(output: SubmitCommandOutput): string {
+export function formatRestackDeclinedOutput(
+	output: SubmitCommandOutput,
+	submitDryRunCommandDisplay: string,
+): string {
 	return [
 		"Restack was not run. Submission was not attempted.",
 		"Run `gt restack --downstack`, resolve any conflicts, then run `sdl flow submit` again.",
 		"",
-		"$ gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run",
+		`$ ${submitDryRunCommandDisplay}`,
 		"",
 		formatOutputSection("stdout", output.stdout),
 		formatOutputSection("stderr", output.stderr),
@@ -205,7 +218,10 @@ export function formatRestackConflictOutput(
 		.join("\n");
 }
 
-export function formatReadinessRecheckFailureOutput(output: SubmitCommandOutput): string {
+export function formatReadinessRecheckFailureOutput(
+	output: SubmitCommandOutput,
+	submitDryRunCommandDisplay: string,
+): string {
 	return [
 		[
 			"Graphite still requires restack after `sdl flow submit` already ran `gt restack --downstack --no-interactive`.",
@@ -215,7 +231,7 @@ export function formatReadinessRecheckFailureOutput(output: SubmitCommandOutput)
 		[
 			"Next steps:",
 			"- Run `gt restack --downstack` manually and resolve any conflicts, skipped branches, or stale branch state Graphite reports.",
-			"- Verify readiness: `gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run`",
+			`- Verify readiness: \`${submitDryRunCommandDisplay}\``,
 			"- Then rerun: `sdl flow submit`",
 		].join("\n"),
 		formatIndentedOutputBlock("Additional dry-run stdout:", output.stdout),
@@ -264,12 +280,13 @@ export function formatPrewriteFailureOutput(
 export function formatSubmitFailureOutput(
 	output: SubmitCommandOutput,
 	prewrittenMetadata: readonly PrewrittenPrMetadata[],
+	submitCommandDisplay: string,
 ): string {
 	const reason = output.startupError
-		? `gt submit --no-edit --publish --no-stack --no-ai --no-interactive could not start: ${output.startupError}.`
+		? `${submitCommandDisplay} could not start: ${output.startupError}.`
 		: output.killed
-			? "gt submit --no-edit --publish --no-stack --no-ai --no-interactive timed out and was killed."
-			: `gt submit --no-edit --publish --no-stack --no-ai --no-interactive failed with exit code ${output.exitCode}.`;
+			? `${submitCommandDisplay} timed out and was killed.`
+			: `${submitCommandDisplay} failed with exit code ${output.exitCode}.`;
 	return [
 		reason,
 		...(prewrittenMetadata.length === 0
@@ -278,7 +295,7 @@ export function formatSubmitFailureOutput(
 					"Local PR metadata commit messages were prepared before submit; rerun sdl flow submit after resolving the Graphite failure.",
 				]),
 		"",
-		"$ gt submit --no-edit --publish --no-stack --no-ai --no-interactive",
+		`$ ${submitCommandDisplay}`,
 		"",
 		formatOutputSection("stdout", output.stdout),
 		formatOutputSection("stderr", output.stderr),
@@ -290,14 +307,16 @@ export function formatSubmitFailureOutput(
 export function formatPostSubmitFailureOutput({
 	submitted,
 	currentPr,
+	submitCommandDisplay,
 }: {
 	submitted: Extract<SubmitRunResult, { kind: "success" }>;
 	currentPr: CurrentPrVerificationResult;
+	submitCommandDisplay: string;
 }): string {
 	return [
 		formatPostSubmitFailureReason(submitted.semanticFailureCause, currentPr),
 		"",
-		"$ gt submit --no-edit --publish --no-stack --no-ai --no-interactive",
+		`$ ${submitCommandDisplay}`,
 		"",
 		formatOutputSection("stdout", submitted.output.stdout),
 		formatOutputSection("stderr", submitted.output.stderr),

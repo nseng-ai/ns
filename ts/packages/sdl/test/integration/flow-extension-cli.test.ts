@@ -105,6 +105,7 @@ describe("checked-in flow SDL extension loading", () => {
 		const output = help.stdout.join("");
 		expect(output).toContain("Usage: sdl flow submit");
 		expect(output).toContain("--no-restack");
+		expect(output).toContain("--force");
 		expect(output).toContain("--verbose");
 		expect(output).toContain("SDL_DEV_PR_DESCRIPTION_MODEL");
 		expect(output).toContain("SDL_SUBMIT_FAILURE_LOG_DIR");

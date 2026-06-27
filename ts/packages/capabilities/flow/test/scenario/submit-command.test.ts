@@ -63,12 +63,15 @@ function dirtyCheckpointResponses(): ScriptedExecResponse[] {
 	];
 }
 
-function successfulSubmitResponses(): ScriptedExecResponse[] {
+function successfulSubmitResponses(options: { force?: boolean } = {}): ScriptedExecResponse[] {
+	const submitCommand = options.force
+		? "gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --force"
+		: "gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web";
+	const submitDryRunCommand = `${submitCommand} --dry-run`;
 	return [
 		...cleanCheckpointResponses(),
 		{
-			match:
-				"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
+			match: submitDryRunCommand,
 			result: { stdout: "ready\n" },
 		},
 		{
@@ -81,7 +84,7 @@ function successfulSubmitResponses(): ScriptedExecResponse[] {
 			result: { stdout: `Parent: main\nPR: ${PR_URL}\n` },
 		},
 		{
-			match: "gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
+			match: submitCommand,
 			result: { stdout: `Submitted ${PR_URL}\n` },
 		},
 		{ match: "gt branch info --no-interactive", result: { stdout: `Current PR: ${PR_URL}\n` } },
@@ -183,6 +186,21 @@ describe("project-local submit extension", () => {
 				{ stream: "stderr", text: "• Submit: running gt submit…\n" },
 				{ stream: "stdout", text: `Submitted ${PR_URL}\n` },
 			]),
+		);
+	});
+
+	test("--force passes --force to Graphite submit readiness and submit", async () => {
+		const run = runWithFakes({
+			request: { force: true },
+			state: { exec: successfulSubmitResponses({ force: true }) },
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(formattedExecCalls(run.context)).toContain(
+			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --force --dry-run",
+		);
+		expect(formattedExecCalls(run.context)).toContain(
+			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --force",
 		);
 	});
 
