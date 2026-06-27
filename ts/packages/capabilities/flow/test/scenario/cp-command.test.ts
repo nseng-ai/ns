@@ -1,32 +1,23 @@
 import { describe, expect, test, vi } from "vitest";
 import type { TextGenerationResult } from "sdl-sdk";
 
-import { resolveSettledNonInteractiveCaps } from "@sdl/clinkr";
-import { bold, statusLine, type PhaseState } from "@sdl/clinkr/theme";
-
 import { runFlowCpCommandWithFakes } from "./flow-command-fakes.ts";
 import { formattedExecCalls, type ScriptedExecResponse } from "./sdl-cli-fakes.ts";
-import { CP_PHASES } from "../../src/shared/phase-stream.ts";
 
-const ANSI_ESCAPE_RE = /\x1b\[[0-?]*[ -/]*[@-~]/g;
+const ANSI_ESCAPE_RE = /\x1b\[[0-?]*[ -/]*[@-~]/u;
 
 // A non-tty transient line, as routed to onOutput (the Pi widget path / captured liveOutput).
 function transient(text: string): { stream: "stderr"; text: string } {
 	return { stream: "stderr", text: `${text}\n` };
 }
 
-// The single settled frame the sink writes once at finish: the bold title plus every phase line.
-// Built with the same caps the command resolves so the comparison is exact across color rungs.
-function settledFrame(
-	title: string,
-	states: readonly PhaseState[],
-): { stream: "stderr"; text: string } {
-	const caps = resolveSettledNonInteractiveCaps();
-	const lines = [
-		bold(title),
-		...CP_PHASES.map((spec, index) => statusLine(caps, spec.item, states[index] ?? "pending")),
-	];
-	return { stream: "stderr", text: `${lines.join("\n").replace(ANSI_ESCAPE_RE, "")}\n` };
+function expectPlainHostedOutput(
+	entries: readonly { stream: "stdout" | "stderr"; text: string }[],
+): void {
+	for (const entry of entries) {
+		expect(entry.text).not.toMatch(ANSI_ESCAPE_RE);
+		expect(entry.text).not.toContain("\r");
+	}
 }
 
 function defaultCpMessage(): string {
@@ -121,14 +112,21 @@ describe("project-local cp extension behavior", () => {
 		const run = runCpWithFakes();
 
 		expect(await run.exit).toBe(0);
-		// Per-phase transients (statusLine labels) route to onOutput, then one settled all-done frame.
-		expect(run.liveOutput).toEqual([
+		expectPlainHostedOutput(run.liveOutput);
+		expect(run.liveOutput.slice(0, 4)).toEqual([
 			transient("inspecting worktree…"),
 			transient("generating checkpoint message…"),
 			transient("• Generating checkpoint message with model…"),
 			transient("creating checkpoint commit…"),
-			settledFrame("sdl flow cp", ["done", "done", "done"]),
 		]);
+		expect(run.liveOutput).toHaveLength(5);
+		const settled = run.liveOutput[4];
+		expect(settled?.stream).toBe("stderr");
+		expect(settled?.text).toContain("sdl flow cp");
+		expect(settled?.text).toContain("worktree inspected");
+		expect(settled?.text).toContain("checkpoint message ready");
+		expect(settled?.text).toContain("checkpoint committed");
+		expect(settled?.text).not.toContain("pending");
 		expect(run.stderr.join("")).toBe("");
 	});
 

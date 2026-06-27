@@ -35,6 +35,7 @@ export interface ScenarioRunOptions {
 	repo?: RepoContext | { type: "no_repo"; errorType: "not_in_repo"; message: string } | undefined;
 	clipboardResult?: ClipboardCopyResult | undefined;
 	command?: FakeSlotCommandGatewayOptions | undefined;
+	canEmitAnsi?: boolean | undefined;
 }
 
 export interface ScenarioRun {
@@ -97,7 +98,7 @@ export function runScenario(
 			io: {
 				stdout: (text) => stdout.push(text),
 				stderr: (text) => stderr.push(text),
-				canEmitAnsi: false,
+				canEmitAnsi: options.canEmitAnsi ?? false,
 			},
 		})
 		.then((code) => {
