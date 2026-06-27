@@ -587,6 +587,7 @@ export function createContext(
 	statuses: Array<{ key: string; value: string | undefined }>;
 	replacementUserMessages: string[];
 	newSessionParentSessions: Array<string | undefined>;
+	wasSessionReplaced: () => boolean;
 	waits: () => number;
 } {
 	const replacementUserMessages: string[] = [];
@@ -594,18 +595,29 @@ export function createContext(
 	const notifications: Notification[] = [];
 	const statuses: Array<{ key: string; value: string | undefined }> = [];
 	let waitCount = 0;
+	let isSessionReplaced = false;
+	function assertActiveSession(): void {
+		if (isSessionReplaced) {
+			throw new Error(
+				"stale extension context after session replacement; use withSession for post-replacement work",
+			);
+		}
+	}
 	const ui: CommandContext["ui"] = {
 		notify(message, level): void {
+			assertActiveSession();
 			events.push("notify");
 			notifications.push({ message, level });
 		},
 		setStatus(key, value): void {
+			assertActiveSession();
 			events.push("status");
 			statuses.push({ key, value });
 		},
 	};
 	if (options.confirm !== undefined) {
 		ui.confirm = async (title, message) => {
+			assertActiveSession();
 			events.push("confirm");
 			return options.confirm?.(title, message) ?? false;
 		};
@@ -616,17 +628,41 @@ export function createContext(
 		hasUI: options.hasUI ?? true,
 		ui,
 		async waitForIdle(): Promise<void> {
+			assertActiveSession();
 			events.push("wait");
 			waitCount += 1;
 		},
 		async newSession(newSessionOptions): Promise<{ cancelled: boolean }> {
+			assertActiveSession();
 			events.push("new-session");
 			newSessionParentSessions.push(newSessionOptions?.parentSession);
 			if (options.shouldCancelNewSession === true) {
 				return { cancelled: true };
 			}
+			isSessionReplaced = true;
 			await newSessionOptions?.withSession?.({
 				...ctx,
+				ui: {
+					notify(message, level): void {
+						events.push("replacement-notify");
+						notifications.push({ message, level });
+					},
+					setStatus(key, value): void {
+						events.push("replacement-status");
+						statuses.push({ key, value });
+					},
+				},
+				...(sessionEntries === undefined && options.sessionFile === undefined
+					? {}
+					: {
+							sessionManager: {
+								getBranch: () => [...(sessionEntries ?? [])],
+								getSessionFile: () => options.sessionFile,
+							},
+						}),
+				async waitForIdle(): Promise<void> {
+					events.push("replacement-wait");
+				},
 				async sendMessage(): Promise<void> {
 					events.push("replacement-message");
 				},
@@ -641,8 +677,14 @@ export function createContext(
 	const sessionEntries = options.sessionEntries;
 	if (sessionEntries !== undefined || options.sessionFile !== undefined) {
 		ctx.sessionManager = {
-			getBranch: () => [...(sessionEntries ?? [])],
-			getSessionFile: () => options.sessionFile,
+			getBranch: () => {
+				assertActiveSession();
+				return [...(sessionEntries ?? [])];
+			},
+			getSessionFile: () => {
+				assertActiveSession();
+				return options.sessionFile;
+			},
 		};
 	}
 	return {
@@ -651,6 +693,7 @@ export function createContext(
 		statuses,
 		replacementUserMessages,
 		newSessionParentSessions,
+		wasSessionReplaced: () => isSessionReplaced,
 		waits: () => waitCount,
 	};
 }
