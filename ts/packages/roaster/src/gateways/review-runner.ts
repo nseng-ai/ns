@@ -5,6 +5,7 @@ import {
 	type ExecOptions,
 	type ExecResult,
 } from "@sdl/core/exec";
+import { isClaudeCodeSupportedModelPattern } from "@sdl/core/model-slug";
 import { formatErrorMessage, mapFromRecordOrMap } from "@sdl/core/primitives";
 
 import type { RoasterResult } from "../failures.ts";
@@ -106,7 +107,7 @@ export class ClaudeCodeProcessReviewRunner implements ReviewRunnerGateway {
 				message: "A Claude Code model must be provided.",
 			});
 		}
-		if (!isClaudeCodeSupportedModel(request.model)) {
+		if (!isClaudeCodeSupportedModelPattern(request.model)) {
 			return runnerError({
 				type: "model_not_supported_by_harness",
 				message: `Model is not supported by the Claude Code harness: ${request.model}`,
@@ -168,16 +169,6 @@ export class ClaudeCodeProcessReviewRunner implements ReviewRunnerGateway {
 			inputCoverage: assembled.inputCoverage,
 		});
 	}
-}
-
-export function isClaudeCodeSupportedModel(model: string): boolean {
-	const normalized = model.trim();
-	return (
-		normalized === "sonnet" ||
-		normalized === "opus" ||
-		normalized === "haiku" ||
-		normalized.startsWith("claude-")
-	);
 }
 
 function runnerExecutionMessage(result: ExecResult): string {
