@@ -77,10 +77,6 @@ type WorktreeStatusActivityEvent =
 	| "model_select"
 	| "thinking_level_select";
 
-export interface WorktreeStatusExtensionHandle {
-	requestRefresh(options?: WorktreeStatusRefreshOptions): Promise<void>;
-}
-
 interface ExecOptions {
 	cwd?: string;
 	timeout?: number;
@@ -298,7 +294,7 @@ interface RefreshRemoteOptions extends WorktreeStatusRefreshOptions {
 export default function worktreeStatusExtension(
 	pi: ExtensionAPI,
 	dependencies: WorktreeStatusExtensionDependencies = {},
-): WorktreeStatusExtensionHandle {
+): void {
 	pi.registerMessageRenderer?.(WORKTREE_STATUS_UI_KEY, renderWorktreeStatusMessage);
 
 	const loaders: WorktreeStatusLoaders = {
@@ -638,12 +634,6 @@ export default function worktreeStatusExtension(
 		return refreshSession(session, options);
 	}
 
-	const handle: WorktreeStatusExtensionHandle = {
-		requestRefresh(options) {
-			return refreshActiveSession(options ?? { remoteRefresh: "cached" });
-		},
-	};
-
 	function refreshActiveSessionAfterToolExecution(event: unknown): void {
 		if (!shouldRefreshAfterToolExecution(event)) return;
 		void refreshActiveSession();
@@ -737,7 +727,6 @@ export default function worktreeStatusExtension(
 		closeActiveSession();
 	});
 
-	return handle;
 }
 
 function hasCommandRegistration(pi: ExtensionAPI): pi is CommandRegistrationExtensionAPI {
