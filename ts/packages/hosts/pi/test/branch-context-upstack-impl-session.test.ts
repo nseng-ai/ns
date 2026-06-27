@@ -83,9 +83,10 @@ describe("branch-context-upstack-impl-session", () => {
 		expect(context.newSessionParentSessions).toEqual(["/sessions/source.jsonl"]);
 		expect(events.indexOf("new-session")).toBeGreaterThan(events.indexOf("status"));
 		expect(events.indexOf("replacement-send")).toBeGreaterThan(events.indexOf("new-session"));
+		expect(context.wasSessionReplaced()).toBe(true);
 		expect(context.statuses.at(-1)).toEqual({
 			key: "sdl:branch-context:upstack-impl-from-plan",
-			value: undefined,
+			value: "starting implementation session…",
 		});
 	});
 

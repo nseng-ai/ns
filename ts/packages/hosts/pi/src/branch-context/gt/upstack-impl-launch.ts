@@ -110,7 +110,9 @@ export async function runBranchContextGtUpstackImplLaunch(
 			...(parentSession === undefined ? {} : { parentSession }),
 		};
 	} finally {
-		setRuntimeStatus(options.ctx, options.statusKey, undefined);
+		if (!isReplacementSessionActive) {
+			setRuntimeStatus(options.ctx, options.statusKey, undefined);
+		}
 	}
 }
 

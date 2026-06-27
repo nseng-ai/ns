@@ -22,8 +22,10 @@ class FakeGtUpstackImplContext implements BranchContextGtUpstackImplContext {
 	readonly statuses: Array<{ key: string; value: string | undefined }> = [];
 	readonly replacementUserMessages: string[] = [];
 	readonly newSessionParentSessions: Array<string | undefined> = [];
+	private isSessionReplaced = false;
 	readonly ui = {
 		setStatus: (key: string, value: string | undefined): void => {
+			this.assertActiveSession();
 			this.statuses.push({ key, value });
 		},
 	};
@@ -41,6 +43,7 @@ class FakeGtUpstackImplContext implements BranchContextGtUpstackImplContext {
 	async newSession(
 		options?: BranchContextGtUpstackImplNewSessionOptions,
 	): Promise<{ cancelled: boolean }> {
+		this.assertActiveSession();
 		this.newSessionParentSessions.push(options?.parentSession);
 		if (this.shouldThrowBeforeReplacement) {
 			throw new Error("new session failed");
@@ -48,6 +51,7 @@ class FakeGtUpstackImplContext implements BranchContextGtUpstackImplContext {
 		if (this.shouldCancelNewSession) {
 			return { cancelled: true };
 		}
+		this.isSessionReplaced = true;
 		await options?.withSession?.({
 			cwd: this.cwd,
 			hasUI: this.hasUI,
@@ -66,6 +70,18 @@ class FakeGtUpstackImplContext implements BranchContextGtUpstackImplContext {
 			},
 		});
 		return { cancelled: false };
+	}
+
+	wasSessionReplaced(): boolean {
+		return this.isSessionReplaced;
+	}
+
+	private assertActiveSession(): void {
+		if (this.isSessionReplaced) {
+			throw new Error(
+				"stale extension context after session replacement; use withSession for post-replacement work",
+			);
+		}
 	}
 }
 
@@ -94,8 +110,8 @@ describe("branch-context Gt upstack impl Pi launch orchestration", () => {
 		expect(ctx.statuses).toEqual([
 			{ key: STATUS_KEY, value: "checking out branch context…" },
 			{ key: STATUS_KEY, value: "starting implementation session…" },
-			{ key: STATUS_KEY, value: undefined },
 		]);
+		expect(ctx.wasSessionReplaced()).toBe(true);
 		expect(result).toEqual({
 			type: "launched",
 			branch: BRANCH,
@@ -223,6 +239,10 @@ describe("branch-context Gt upstack impl Pi launch orchestration", () => {
 		).rejects.toThrow("replacement send failed");
 
 		pi.assertDone();
-		expect(ctx.statuses.at(-1)).toEqual({ key: STATUS_KEY, value: undefined });
+		expect(ctx.statuses).toEqual([
+			{ key: STATUS_KEY, value: "checking out branch context…" },
+			{ key: STATUS_KEY, value: "starting implementation session…" },
+		]);
+		expect(ctx.wasSessionReplaced()).toBe(true);
 	});
 });
