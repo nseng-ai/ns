@@ -1,6 +1,14 @@
 import { describe, expect, test } from "vitest";
 
-import { DEFAULT_FAST_MODEL_REF, parseModelRef, resolveModelRef } from "../src/model-slug.ts";
+import {
+	DEFAULT_FAST_MODEL_REF,
+	inferModelProviderFamily,
+	isClaudeCodeSupportedModelPattern,
+	modelIdFromModelPattern,
+	parseModelRef,
+	providerMatchesModelProviderFamily,
+	resolveModelRef,
+} from "../src/model-slug.ts";
 
 const ENV_VAR = "SDL_TEST_MODEL";
 
@@ -24,6 +32,45 @@ describe("parseModelRef", () => {
 		expect(parseModelRef("/gpt-5.4-mini")).toBeUndefined();
 		expect(parseModelRef("openai-codex/")).toBeUndefined();
 		expect(parseModelRef("")).toBeUndefined();
+	});
+});
+
+describe("model provider families", () => {
+	test("normalizes model patterns before family inference", () => {
+		expect(modelIdFromModelPattern("  GPT-5.4-mini:medium  ")).toBe("gpt-5.4-mini");
+	});
+
+	test.each([
+		["sonnet", "anthropic"],
+		["fable", "anthropic"],
+		["claude-3-5-sonnet", "anthropic"],
+		["gemini-2.5-flash", "google"],
+		["gpt-5.4-mini:medium", "openai"],
+		["o1-preview", "openai"],
+		["openai-codex/custom-mini", "openai"],
+		["google/custom-model", "google"],
+	] as const)("infers %s as %s", (modelPattern, family) => {
+		expect(inferModelProviderFamily(modelPattern)).toBe(family);
+	});
+
+	test("returns undefined for unknown model patterns", () => {
+		expect(inferModelProviderFamily("llama-3")).toBeUndefined();
+		expect(inferModelProviderFamily("   ")).toBeUndefined();
+	});
+
+	test("matches provider aliases against families", () => {
+		expect(providerMatchesModelProviderFamily("anthropic", "anthropic")).toBe(true);
+		expect(providerMatchesModelProviderFamily("gemini", "google")).toBe(true);
+		expect(providerMatchesModelProviderFamily("openai-codex", "openai")).toBe(true);
+		expect(providerMatchesModelProviderFamily("anthropic", "openai")).toBe(false);
+	});
+
+	test("keeps Claude Code harness shorthand support narrower than Anthropic family inference", () => {
+		expect(isClaudeCodeSupportedModelPattern("sonnet")).toBe(true);
+		expect(isClaudeCodeSupportedModelPattern("claude-3-5-sonnet")).toBe(true);
+		expect(isClaudeCodeSupportedModelPattern("SONNET")).toBe(false);
+		expect(isClaudeCodeSupportedModelPattern("fable")).toBe(false);
+		expect(isClaudeCodeSupportedModelPattern("gpt-4")).toBe(false);
 	});
 });
 

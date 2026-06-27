@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { isClaudeCodeSupportedModel } from "../../src/gateways/review-runner.ts";
+import { isClaudeCodeSupportedModelPattern } from "@sdl/core/model-slug";
+
 import { buildClaudeDiffFindingsJsonSchema } from "../../src/gateways/claude-code-review-runner.ts";
 import {
 	assembleReviewPrompt,
@@ -108,12 +109,13 @@ describe("Claude Code harness schema and model support", () => {
 	test.each(["sonnet", "opus", "haiku", "claude-3-5-sonnet"])(
 		"accepts supported model %s",
 		(model) => {
-			expect(isClaudeCodeSupportedModel(model)).toBe(true);
+			expect(isClaudeCodeSupportedModelPattern(model)).toBe(true);
 		},
 	);
 
 	test("rejects unsupported model names", () => {
-		expect(isClaudeCodeSupportedModel("gpt-4")).toBe(false);
+		expect(isClaudeCodeSupportedModelPattern("gpt-4")).toBe(false);
+		expect(isClaudeCodeSupportedModelPattern("fable")).toBe(false);
 	});
 
 	test("builds a ref-free findings JSON schema", () => {

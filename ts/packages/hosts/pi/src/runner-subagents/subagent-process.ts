@@ -8,7 +8,12 @@ import { basename, join } from "node:path";
 import { systemClock, type Clock } from "@sdl/core/clock";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { systemTimerScheduler, type ScheduledTimer, type TimerScheduler } from "@sdl/core/timers";
-import { parseModelRef } from "@sdl/core/model-slug";
+import {
+	inferModelProviderFamily,
+	MODEL_PROVIDER_FAMILY_INFO,
+	parseModelRef,
+	providerMatchesModelProviderFamily,
+} from "@sdl/core/model-slug";
 
 import type { ModelInfo } from "../cmux/types.ts";
 import type {
@@ -635,20 +640,6 @@ function hasExplicitProviderInModelPattern(model: string): boolean {
 	return parseModelRef(model) !== undefined;
 }
 
-type ModelProviderFamily = "anthropic" | "google" | "openai";
-
-interface ModelProviderFamilyInfo {
-	label: string;
-	exampleProvider: string;
-	article: "a" | "an";
-}
-
-const MODEL_PROVIDER_FAMILY_INFO: Record<ModelProviderFamily, ModelProviderFamilyInfo> = {
-	anthropic: { label: "Anthropic", exampleProvider: "anthropic", article: "an" },
-	google: { label: "Google", exampleProvider: "google", article: "a" },
-	openai: { label: "OpenAI", exampleProvider: "openai-codex", article: "an" },
-};
-
 function invalidRequestedModelDiagnostic(
 	requestedModel: string | undefined,
 	inheritedModel: ModelInfo | undefined,
@@ -665,40 +656,6 @@ function invalidRequestedModelDiagnostic(
 		`Invalid runner subagent model override: unqualified model ${JSON.stringify(requestedModel)} looks like ${info.article} ${info.label} model shorthand, but the current session provider is ${JSON.stringify(inheritedModel.provider)}.`,
 		`Use a fully qualified model such as ${JSON.stringify(`${info.exampleProvider}/${requestedModel}`)} to switch providers, or omit dispatch_runner_subagent.model to inherit the current session model.`,
 	].join(" ");
-}
-
-function inferModelProviderFamily(modelPattern: string): ModelProviderFamily | undefined {
-	const modelId = modelPattern.trim().toLowerCase().split(":", 1)[0] ?? "";
-	if (
-		modelId === "sonnet" ||
-		modelId === "opus" ||
-		modelId === "haiku" ||
-		modelId === "fable" ||
-		modelId.startsWith("claude-")
-	) {
-		return "anthropic";
-	}
-	if (modelId.startsWith("gemini-")) return "google";
-	if (modelId.startsWith("gpt-") || /^o[134](?:-|$)/.test(modelId)) return "openai";
-	return undefined;
-}
-
-function providerMatchesModelProviderFamily(
-	provider: string,
-	family: ModelProviderFamily,
-): boolean {
-	switch (family) {
-		case "anthropic":
-			return provider === "anthropic";
-		case "google":
-			return provider === "google" || provider === "gemini";
-		case "openai":
-			return provider === "openai" || provider === "openai-codex";
-		default: {
-			const exhaustive: never = family;
-			return exhaustive;
-		}
-	}
 }
 
 function createUpdateEmitter(onProgress: ((update: RunnerSubagentUpdate) => void) | undefined): {
