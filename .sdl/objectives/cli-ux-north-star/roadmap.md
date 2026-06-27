@@ -52,18 +52,18 @@
       and cursor restore; non-TTY emits a single settled frame and routes per-phase transients through
       `onOutput`/the host live channel without cursor escapes.
 - [~] Add machine/human emit: preserve the buffered `--format json` path and add a streaming
-      emit primitive (human frames via `onOutput`, JSONL via `stdout`). Buffered clinkr emit now passes
-      resolved `Caps` into human renderers while preserving `objective list --format json`; flow has a
-      human stream over `@sdl/clinkr/stream` with non-TTY `onOutput` routing. The remaining semantic
-      decision is the streaming machine contract: `flow submit` still explicitly has no `--format` /
-      JSONL path, so decide whether this Objective still requires JSONL streaming or should narrow
-      this row before closure.
+  emit primitive (human frames via `onOutput`, JSONL via `stdout`). Buffered clinkr emit now passes
+  resolved `Caps` into human renderers while preserving `objective list --format json`; flow has a
+  human stream over `@sdl/clinkr/stream` with non-TTY `onOutput` routing. The remaining semantic
+  decision is the streaming machine contract: `flow submit` still explicitly has no `--format` /
+  JSONL path, so decide whether this Objective still requires JSONL streaming or should narrow
+  this row before closure.
 - [~] Add the import-boundary lint that enforces opt-in display (core / raw / completion / testing
-      never import `theme`/`stream`; `ansis`/`log-update` importable only from those subpaths).
-      An early `core-import-isolation` canary test now walks the core import graph and proves it does
-      not import `ansis` or `log-update`; it is useful but narrower than the promised boundary lint
-      because it does not yet cover raw/completion/testing import paths or general forbidden subpath
-      imports, and the formal lint/guard location remains open.
+  never import `theme`/`stream`; `ansis`/`log-update` importable only from those subpaths).
+  An early `core-import-isolation` canary test now walks the core import graph and proves it does
+  not import `ansis` or `log-update`; it is useful but narrower than the promised boundary lint
+  because it does not yet cover raw/completion/testing import paths or general forbidden subpath
+  imports, and the formal lint/guard location remains open.
 - [x] Rebuild `objective list` and `flow submit` from scratch on the foundations to match the
       signed-off north star, preserving `--format json` for `objective list`.
       **Done 2026-06-27 on the current stack.** `objective list` renders the house-style human surface
