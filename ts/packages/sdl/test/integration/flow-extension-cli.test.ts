@@ -128,7 +128,7 @@ describe("checked-in flow SDL extension loading", () => {
 		expect(run.stdout.join("")).toContain(`✓ #123 ${PR_URL}`);
 		expect(run.liveOutput).toContainEqual({
 			stream: "stderr",
-			text: "running gt submit…\n",
+			text: "gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web\n",
 		});
 		expect(
 			run.liveOutput.some(
