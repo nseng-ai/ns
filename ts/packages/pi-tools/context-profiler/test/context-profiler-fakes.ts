@@ -4,28 +4,28 @@
  * already has answers (or a deferred gate), rather than scripting ordered calls.
  */
 
-import type { BundleSnapshot } from "../src/context-profiler/bundle.ts";
+import type { BundleSnapshot } from "../src/bundle.ts";
 import type {
 	BundleStore,
 	PersistBundleResult,
 	WriteEpisodesFileResult,
-} from "../src/context-profiler/bundle-store.ts";
+} from "../src/bundle-store.ts";
 import type {
 	InterrogationSession,
 	InterrogationSessionFactory,
 	InterrogationEvent,
 	AskResult,
 	CreateInterrogationSessionResult,
-} from "../src/context-profiler/interrogation-session.ts";
-import type { LiveTurn, ProfileSnapshot } from "../src/context-profiler/model.ts";
-import { normalizeMessage } from "../src/context-profiler/model.ts";
+} from "../src/interrogation-session.ts";
+import type { LiveTurn, ProfileSnapshot } from "../src/model.ts";
+import { normalizeMessage } from "../src/model.ts";
 import type {
 	AnalysisModelGateway,
 	EpisodeAnalysisCallResult,
 	EpisodeAnalysisRequest,
 	SegmentationCallResult,
 	SegmentationRequest,
-} from "../src/context-profiler/analysis-model-gateway.ts";
+} from "../src/analysis-model-gateway.ts";
 
 export function makeTurn(index: number, overrides: Partial<LiveTurn> = {}): LiveTurn {
 	return {

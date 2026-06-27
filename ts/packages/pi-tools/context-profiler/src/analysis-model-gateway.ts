@@ -10,7 +10,7 @@ import {
 	callPiModelText,
 	type CompleteSimpleFunction,
 	type PiModelRegistryLike,
-} from "../models/call.ts";
+} from "@sdl/pi/models/call";
 import {
 	EPISODE_ANALYSIS_SYSTEM_PROMPT,
 	parseEpisodeAnalysisResponseText,
@@ -24,7 +24,7 @@ import {
 	type LmSegmentation,
 } from "./segmentation.ts";
 
-export type { PiModelRegistryLike as AnalysisModelRegistry } from "../models/call.ts";
+export type { PiModelRegistryLike as AnalysisModelRegistry } from "@sdl/pi/models/call";
 
 /** Fixed analysis model — never the session's main model. */
 export const ANALYSIS_MODEL_PROVIDER = SEGMENTATION_PROVIDER;

@@ -6,19 +6,16 @@ import {
 	type AgentSessionEvent,
 } from "@earendil-works/pi-coding-agent";
 
-import { InterrogationController } from "../src/context-profiler/interrogation-controller.ts";
+import { InterrogationController } from "../src/interrogation-controller.ts";
 import {
 	buildInterrogationSystemPrompt,
 	buildInterrogationUserMessage,
 	scopeForRegion,
-} from "../src/context-profiler/interrogation-prompt.ts";
-import { chatFrameMeta, chatHint } from "../src/context-profiler/interrogation-render.ts";
-import { mapAgentSessionEvent } from "../src/context-profiler/interrogation-session.ts";
-import {
-	applyInterrogationEvent,
-	type TranscriptState,
-} from "../src/context-profiler/interrogation-transcript.ts";
-import type { LiveRegion } from "../src/context-profiler/model.ts";
+} from "../src/interrogation-prompt.ts";
+import { chatFrameMeta, chatHint } from "../src/interrogation-render.ts";
+import { mapAgentSessionEvent } from "../src/interrogation-session.ts";
+import { applyInterrogationEvent, type TranscriptState } from "../src/interrogation-transcript.ts";
+import type { LiveRegion } from "../src/model.ts";
 import {
 	FakeInterrogationSession,
 	FakeInterrogationSessionFactory,

@@ -26,7 +26,7 @@ import {
 	type ProfileSnapshot,
 	type TurnRange,
 } from "./model.ts";
-import { parseLmJson } from "../shared/lm-json.ts";
+import { parseLmJson } from "@sdl/pi/shared/lm-json";
 
 /** Fixed analysis model — never the session's main model. */
 export const SEGMENTATION_PROVIDER = "openai-codex";

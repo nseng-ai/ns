@@ -4,7 +4,7 @@ import {
 	buildBundleSnapshot,
 	buildEpisodesFileJson,
 	computeBundleContentHash,
-} from "../src/context-profiler/bundle.ts";
+} from "../src/bundle.ts";
 import {
 	captureCurrentState,
 	createProfilerState,
@@ -12,7 +12,7 @@ import {
 	startBundlePersist,
 	startProfilerWork,
 	type ProfilerState,
-} from "../src/context-profiler/runtime.ts";
+} from "../src/runtime.ts";
 import {
 	FakeBundleStore,
 	FakeSegmentationGateway,

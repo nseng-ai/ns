@@ -6,7 +6,7 @@
  */
 
 import type { ContextUsage } from "@earendil-works/pi-coding-agent";
-import { clamp, fitToWidth } from "../shared/render-helpers.ts";
+import { clamp, fitToWidth } from "@sdl/pi/shared/render-helpers";
 import { renderNormalizedMessageText } from "./model.ts";
 import type {
 	BaseMember,
@@ -23,7 +23,7 @@ import type {
 import type { BundlePersistenceState } from "./bundle.ts";
 import type { SegmentationState } from "./segmentation.ts";
 
-export { clamp, fitToWidth, padRight, reconcileScroll } from "../shared/render-helpers.ts";
+export { clamp, fitToWidth, padRight, reconcileScroll } from "@sdl/pi/shared/render-helpers";
 
 export const BAR_WIDTH = 14;
 export const TOKENS_COLUMN_WIDTH = 8;
