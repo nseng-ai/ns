@@ -871,7 +871,7 @@ function formatLiveOutputLine(line: LiveOutputLine): string {
 	return truncateDisplayLine(`${line.stream}: ${line.text}`, LIVE_PROGRESS_MAX_LINE_CHARS);
 }
 
-function emitCliCommandOutput(
+export function emitCliCommandOutput(
 	pi: CliCommandExtensionAPI,
 	ctx: CommandContext,
 	details: CliCommandOutputDetails,

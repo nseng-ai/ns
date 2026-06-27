@@ -1,9 +1,17 @@
 import { describe, expect, test } from "vitest";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { ScriptedQueue } from "@sdl/core/testing";
+import type {
+	ObjectiveListResult,
+	ObjectiveSelectionContext,
+	ObjectiveSelectionListLoadResult,
+	ObjectiveSelectionSpec,
+} from "@sdl/objective/api";
 import { CLI_COMMAND_OUTPUT_MESSAGE_TYPE } from "../src/commands/cli-extension.ts";
 import objectiveExtension, {
 	type CommandContext,
@@ -12,6 +20,8 @@ import objectiveExtension, {
 	type NotifyLevel,
 } from "../src/objectives/extension.ts";
 import type { AgentEndContext, ExecOptions, SessionStartContext } from "../src/runtime/types.ts";
+
+const execFileAsync = promisify(execFile);
 
 const ROOT = "/repo";
 const TRUNK = "master";
@@ -123,6 +133,35 @@ class FakePi implements ObjectiveExtensionAPI {
 		}
 
 		return execResult(expected.result);
+	}
+
+	async loadObjectiveList(
+		_ctx: ObjectiveSelectionContext,
+		_spec: ObjectiveSelectionSpec,
+	): Promise<ObjectiveSelectionListLoadResult> {
+		const missingStepMessage = "unexpected objective list load";
+		const expected = this.script.shiftOrRecordError(missingStepMessage);
+		if (expected === undefined) {
+			return { type: "failed", message: missingStepMessage };
+		}
+		if (
+			expected.command !== "objective" ||
+			!sameArgs(expected.args, ["list", "--minimal", "--format", "json"])
+		) {
+			const message = `expected objective list step, got ${expected.command} ${expected.args.join(" ")}`;
+			this.script.recordError(message);
+			return { type: "failed", message };
+		}
+		if (expected.error) {
+			return { type: "failed", message: String(expected.error) };
+		}
+		try {
+			const envelope = JSON.parse(expected.result?.stdout ?? "");
+			return { type: "loaded", list: envelope.data as ObjectiveListResult };
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			return { type: "failed", message: `Malformed objective list JSON: ${message}` };
+		}
 	}
 
 	getCommands(): ReturnType<ObjectiveExtensionAPI["getCommands"]> {
@@ -244,6 +283,24 @@ async function withTempSkill<T>(
 	}
 }
 
+async function withTempObjectiveRepo<T>(callback: (cwd: string) => Promise<T>): Promise<T> {
+	const repoDir = await mkdtemp(join(tmpdir(), "objective-list-"));
+	try {
+		await execFileAsync("git", ["init", "-b", "main"], { cwd: repoDir });
+		const objectiveDir = join(repoDir, ".sdl", "objectives", "alpha", "updates");
+		await mkdir(objectiveDir, { recursive: true });
+		await writeFile(
+			join(repoDir, ".sdl", "objectives", "alpha", "objective.md"),
+			"# Alpha\n",
+			"utf8",
+		);
+		await writeFile(join(objectiveDir, "2026-05-20T10:00:00Z-progress.md"), "progress\n", "utf8");
+		return await callback(repoDir);
+	} finally {
+		await rm(repoDir, { recursive: true, force: true });
+	}
+}
+
 type ObjectiveCommandContextOptions = {
 	cancelSelect?: boolean;
 	selectIndex?: number;
@@ -322,6 +379,7 @@ async function runObjectiveCommand(
 async function runObjectiveList(
 	args: string,
 	script: ScriptedExec[] = [],
+	contextOptions: ObjectiveCommandContextOptions = {},
 ): Promise<{
 	pi: FakePi;
 	notifications: Notification[];
@@ -336,17 +394,15 @@ async function runObjectiveList(
 		throw new Error("objective:list was not registered");
 	}
 
-	const context = createContext();
+	const context = createContext(contextOptions);
 	await command.handler(args, context.ctx);
 	return { pi, ...context };
 }
 
-function expectListActiveObjectivesCall(result: { pi: FakePi }): void {
-	expect(result.pi.execCalls[0]).toEqual({
-		command: "objective",
-		args: ["list", "--minimal", "--format", "json"],
-		options: { cwd: ROOT, timeout: 30_000 },
-	});
+function expectNoObjectiveListExec(result: { pi: FakePi }): void {
+	expect(
+		result.pi.execCalls.some((call) => call.command === "objective" && call.args[0] === "list"),
+	).toBe(false);
 }
 
 function expectPromptSelectsObjective(
@@ -451,46 +507,32 @@ async function objectiveCommandCompletions(
 }
 
 describe("objective:list command", () => {
-	test("forwards accepted status arguments with markdown format controlled by the extension", async () => {
-		const result = await runObjectiveList("--names --minimal --status all", [
-			step(
-				"objective",
-				["list", "--names", "--minimal", "--status", "all", "--format", "markdown"],
-				{ stdout: "alpha\n" },
-			),
-		]);
+	test("renders accepted status arguments through the Objective Capability API", async () => {
+		await withTempObjectiveRepo(async (cwd) => {
+			const result = await runObjectiveList("--names --minimal --status all", [], { cwd });
 
-		result.pi.assertDone();
-		expect(result.pi.execCalls[0]).toEqual({
-			command: "objective",
-			args: ["list", "--names", "--minimal", "--status", "all", "--format", "markdown"],
-			options: { cwd: ROOT, timeout: 30_000 },
-		});
-		expect(result.pi.messageRenderers.has(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(true);
-		expect(result.pi.sentMessages[0]).toMatchObject({
-			customType: CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
-			content: "alpha\n",
-			details: {
-				argv: ["list", "--names", "--minimal", "--status", "all", "--format", "markdown"],
-			},
+			result.pi.assertDone();
+			expect(result.pi.execCalls).toEqual([]);
+			expect(result.pi.messageRenderers.has(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(true);
+			expect(result.pi.sentMessages[0]).toMatchObject({
+				customType: CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
+				content: "alpha\n",
+				details: {
+					argv: ["list", "--names", "--minimal", "--status", "all"],
+				},
+			});
 		});
 	});
 
-	test("forwards help without forcing markdown format", async () => {
-		const result = await runObjectiveList("--help", [
-			step("objective", ["list", "--help"], { stdout: "usage\n" }),
-		]);
+	test("renders help without invoking objective list", async () => {
+		const result = await runObjectiveList("--help");
 
 		result.pi.assertDone();
-		expect(result.pi.execCalls[0]).toEqual({
-			command: "objective",
-			args: ["list", "--help"],
-			options: { cwd: ROOT, timeout: 30_000 },
-		});
+		expect(result.pi.execCalls).toEqual([]);
 		expect(result.pi.sentMessages[0]).toMatchObject({
 			customType: CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
-			content: "usage\n",
 		});
+		expect(result.pi.sentMessages[0]?.content).toContain("Usage: /objective:list");
 	});
 
 	test("rejects removed and adapter-owned flags before invoking objective list", async () => {
@@ -603,13 +645,13 @@ describe("objective:stack-impl command", () => {
 				);
 
 				result.pi.assertDone();
-				expectListActiveObjectivesCall(result);
-				expect(result.pi.execCalls[1]).toEqual({
+				expectNoObjectiveListExec(result);
+				expect(result.pi.execCalls[0]).toEqual({
 					command: "git",
 					args: ["diff", "--name-status", "-M", "master...HEAD", "--", ".sdl/objectives"],
 					options: { cwd: ROOT, timeout: 30_000 },
 				});
-				expect(result.pi.execCalls[2]).toEqual({
+				expect(result.pi.execCalls[1]).toEqual({
 					command: "git",
 					args: ["status", "--porcelain=v1", "-z", "--", ".sdl/objectives"],
 					options: { cwd: ROOT, timeout: 30_000 },
@@ -757,7 +799,7 @@ describe("objective picker suggestion", () => {
 		]);
 
 		result.pi.assertDone();
-		expect(result.pi.execCalls.map((call) => call.args[0])).toEqual(["list", "status"]);
+		expect(result.pi.execCalls.map((call) => call.args[0])).toEqual(["status"]);
 		expect(result.selections[0]).toEqual({
 			title:
 				"Select an active Objective for next work or execution preview (only Objective changed in checkout)",
@@ -1145,15 +1187,13 @@ describe("objective command shared selection policy", () => {
 			const result = await runObjectiveCommand(commandName, "", [listStep([])]);
 
 			result.pi.assertDone();
-			expect(result.pi.execCalls[0]?.args).toEqual(["list", "--minimal", "--format", "json"]);
-			expect(result.pi.execCalls[0]?.args).not.toContain("--current");
+			expectNoObjectiveListExec(result);
 		}
 
 		const stackResult = await runObjectiveStackImpl("", [listStep([])]);
 
 		stackResult.pi.assertDone();
-		expect(stackResult.pi.execCalls[0]?.args).toEqual(["list", "--minimal", "--format", "json"]);
-		expect(stackResult.pi.execCalls[0]?.args).not.toContain("--current");
+		expectNoObjectiveListExec(stackResult);
 	});
 
 	for (const commandName of OBJECTIVE_COMMAND_NAMES) {
@@ -1186,7 +1226,7 @@ describe("objective command shared selection policy", () => {
 				);
 
 				result.pi.assertDone();
-				expectListActiveObjectivesCall(result);
+				expectNoObjectiveListExec(result);
 				expect(result.selections).toHaveLength(1);
 				expect(result.pi.sentUserMessages).toEqual([]);
 			});
@@ -1195,8 +1235,8 @@ describe("objective command shared selection policy", () => {
 				const result = await runObjectiveCommand(commandName, "", [listStep([])]);
 
 				result.pi.assertDone();
-				expect(result.pi.execCalls).toHaveLength(1);
-				expectListActiveObjectivesCall(result);
+				expect(result.pi.execCalls).toHaveLength(0);
+				expectNoObjectiveListExec(result);
 				expect(result.notifications).toEqual([
 					{ message: "No active Objectives. Create one with /objective:create.", level: "info" },
 				]);
@@ -1210,8 +1250,8 @@ describe("objective command shared selection policy", () => {
 				]);
 
 				result.pi.assertDone();
-				expect(result.pi.execCalls).toHaveLength(1);
-				expectListActiveObjectivesCall(result);
+				expect(result.pi.execCalls).toHaveLength(0);
+				expectNoObjectiveListExec(result);
 				expect(result.notifications[0]?.message).toContain("Malformed objective list JSON");
 				expect(result.notifications[0]?.level).toBe("error");
 				expect(result.selections).toEqual([]);
