@@ -1,5 +1,5 @@
 // The glyph set for clinkr's theme: status marks, spinner frames, rule/tree characters, and the
-// ellipsis. Every helper switches on `caps.unicode` so an ASCII-only terminal still reads correctly.
+// ellipsis. Every helper switches on `caps.supportsUnicode` so an ASCII-only terminal still reads correctly.
 
 import type { Caps } from "../caps.ts";
 
@@ -15,20 +15,20 @@ const GLYPHS: Record<GlyphName, { unicode: string; ascii: string }> = {
 
 export function glyph(caps: Caps, name: GlyphName): string {
 	const g = GLYPHS[name];
-	return caps.unicode ? g.unicode : g.ascii;
+	return caps.supportsUnicode ? g.unicode : g.ascii;
 }
 
 const SPINNER_UNICODE = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const SPINNER_ASCII = ["|", "/", "-", "\\"];
 
 export function spinnerFrame(caps: Caps, tick: number): string {
-	const frames = caps.unicode ? SPINNER_UNICODE : SPINNER_ASCII;
+	const frames = caps.supportsUnicode ? SPINNER_UNICODE : SPINNER_ASCII;
 	const frame = frames[tick % frames.length];
 	return frame === undefined ? "" : frame;
 }
 
 export function ruleChar(caps: Caps): string {
-	return caps.unicode ? "─" : "-";
+	return caps.supportsUnicode ? "─" : "-";
 }
 
 export interface TreeMarkers {
@@ -37,9 +37,9 @@ export interface TreeMarkers {
 }
 
 export function treeMarkers(caps: Caps): TreeMarkers {
-	return caps.unicode ? { tee: "├", last: "└" } : { tee: "|-", last: "`-" };
+	return caps.supportsUnicode ? { tee: "├", last: "└" } : { tee: "|-", last: "`-" };
 }
 
 export function ellipsisFor(caps: Caps): string {
-	return caps.unicode ? "…" : "...";
+	return caps.supportsUnicode ? "…" : "...";
 }

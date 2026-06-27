@@ -16,12 +16,14 @@ afterEach(() => {
 	vi.unstubAllEnvs();
 });
 
-function caps(parts: { colorDepth?: ColorDepth; columns?: number; unicode?: boolean } = {}): Caps {
+function caps(
+	parts: { colorDepth?: ColorDepth; columns?: number; supportsUnicode?: boolean } = {},
+): Caps {
 	return {
 		isTty: true,
 		colorDepth: parts.colorDepth ?? "truecolor",
 		columns: parts.columns ?? 80,
-		unicode: parts.unicode ?? true,
+		supportsUnicode: parts.supportsUnicode ?? true,
 	};
 }
 
@@ -85,7 +87,7 @@ describe("renderObjectiveListPretty colors", () => {
 	test("ascii mode swaps glyphs and tree markers", () => {
 		const out = renderObjectiveListPretty(
 			TWO_RECORDS,
-			caps({ colorDepth: "none", unicode: false }),
+			caps({ colorDepth: "none", supportsUnicode: false }),
 			NOW,
 		);
 		expect(out).toContain("o open"); // open glyph

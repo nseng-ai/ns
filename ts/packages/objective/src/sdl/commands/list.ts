@@ -11,8 +11,7 @@ import {
 import { renderObjectiveListPretty } from "../../operations/list-objectives-pretty.ts";
 
 function capsForHumanRender(renderCaps: RenderCapabilities): Caps {
-	const base = renderCaps.caps ?? resolveSettledNonInteractiveCaps();
-	return renderCaps.canEmitAnsi ? base : { ...base, colorDepth: "none" };
+	return renderCaps.caps ?? resolveSettledNonInteractiveCaps();
 }
 
 export const objectiveListSdlCommand = objectiveSdlCommand({

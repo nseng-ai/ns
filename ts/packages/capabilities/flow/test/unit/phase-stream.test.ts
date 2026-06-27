@@ -28,12 +28,14 @@ const SPECS: readonly PhaseSpec[] = [
 	{ key: "c", item: { name: "Gamma", detail: "gamma done", label: "gamma working…" } },
 ];
 
-function caps(parts: { isTty?: boolean; colorDepth?: ColorDepth; unicode?: boolean } = {}): Caps {
+function caps(
+	parts: { isTty?: boolean; colorDepth?: ColorDepth; supportsUnicode?: boolean } = {},
+): Caps {
 	return {
 		isTty: parts.isTty ?? true,
 		colorDepth: parts.colorDepth ?? "truecolor",
 		columns: 80,
-		unicode: parts.unicode ?? true,
+		supportsUnicode: parts.supportsUnicode ?? true,
 	};
 }
 
@@ -134,7 +136,7 @@ describe("resolveFlowStreamCaps", () => {
 			isTty: false,
 			colorDepth: "none",
 			columns: DEFAULT_COLUMNS,
-			unicode: false,
+			supportsUnicode: false,
 		});
 	});
 
@@ -149,7 +151,7 @@ describe("resolveFlowStreamCaps", () => {
 	});
 
 	test("host-provided caps win for override sinks", () => {
-		const injected = caps({ isTty: false, colorDepth: "none", unicode: false });
+		const injected = caps({ isTty: false, colorDepth: "none", supportsUnicode: false });
 		expect(resolveFlowStreamCaps(ctx({ extensions: { "sdl.clinkr.caps": injected } }))).toEqual(
 			injected,
 		);

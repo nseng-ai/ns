@@ -4,7 +4,7 @@ import { paint } from "../../src/theme/palette.ts";
 import { padCell, padPlain, truncatePlain, visibleWidth } from "../../src/theme/text.ts";
 
 function caps(): Caps {
-	return { isTty: true, colorDepth: "truecolor", columns: 80, unicode: true };
+	return { isTty: true, colorDepth: "truecolor", columns: 80, supportsUnicode: true };
 }
 
 describe("visibleWidth", () => {

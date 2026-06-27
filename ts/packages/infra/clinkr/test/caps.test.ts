@@ -108,25 +108,27 @@ describe("resolveCaps isTty", () => {
 
 describe("resolveCaps unicode", () => {
 	test("UTF-8 locale enables unicode", () => {
-		expect(resolveCaps(capsEnv({ env: { LANG: "en_US.UTF-8" } })).unicode).toBe(true);
+		expect(resolveCaps(capsEnv({ env: { LANG: "en_US.UTF-8" } })).supportsUnicode).toBe(true);
 	});
 
 	test("non-UTF-8 locale disables unicode", () => {
-		expect(resolveCaps(capsEnv({ env: { LANG: "C" } })).unicode).toBe(false);
+		expect(resolveCaps(capsEnv({ env: { LANG: "C" } })).supportsUnicode).toBe(false);
 	});
 
 	test("LC_ALL overrides LANG", () => {
-		expect(resolveCaps(capsEnv({ env: { LC_ALL: "C", LANG: "en_US.UTF-8" } })).unicode).toBe(false);
+		expect(
+			resolveCaps(capsEnv({ env: { LC_ALL: "C", LANG: "en_US.UTF-8" } })).supportsUnicode,
+		).toBe(false);
 	});
 
 	test("LC_CTYPE overrides LANG when LC_ALL is absent", () => {
-		expect(resolveCaps(capsEnv({ env: { LC_CTYPE: "en_US.UTF-8", LANG: "C" } })).unicode).toBe(
-			true,
-		);
+		expect(
+			resolveCaps(capsEnv({ env: { LC_CTYPE: "en_US.UTF-8", LANG: "C" } })).supportsUnicode,
+		).toBe(true);
 	});
 
 	test("defaults on when no locale is configured", () => {
-		expect(resolveCaps(capsEnv({ env: {} })).unicode).toBe(true);
+		expect(resolveCaps(capsEnv({ env: {} })).supportsUnicode).toBe(true);
 	});
 });
 
@@ -136,7 +138,7 @@ describe("resolveSettledNonInteractiveCaps", () => {
 			isTty: false,
 			colorDepth: "none",
 			columns: DEFAULT_COLUMNS,
-			unicode: false,
+			supportsUnicode: false,
 		});
 	});
 });

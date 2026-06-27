@@ -7,8 +7,7 @@
 // by min/max), and `fill` (split the leftover terminal width) — and cells clip to their column width
 // with a caps-aware ellipsis.
 
-import ansis from "ansis";
-
+import { stripAnsi } from "../ansi.ts";
 import type { Caps } from "../caps.ts";
 import { ellipsisFor } from "./glyphs.ts";
 import { dim, paint } from "./palette.ts";
@@ -43,11 +42,37 @@ export interface Column {
 }
 
 /** Options for {@link renderTable}. */
-export interface TableOptions {
+export interface RenderTableOptions {
+	caps: Caps;
+	columns: readonly Column[];
+	rows: readonly (readonly Cell[])[];
 	/** Optional dim footer line rendered after a blank separator (e.g. a marker legend). */
 	legend?: string;
 	/** Spaces between columns; defaults to {@link DEFAULT_GAP}. */
 	gap?: number;
+}
+
+interface ComputeWidthsOptions {
+	caps: Caps;
+	columns: readonly Column[];
+	rows: readonly (readonly Cell[])[];
+	gap: number;
+}
+
+interface RenderRowOptions {
+	caps: Caps;
+	columns: readonly Column[];
+	widths: readonly number[];
+	cells: readonly Cell[];
+	gap: number;
+}
+
+interface RenderCellOptions {
+	caps: Caps;
+	value: Cell;
+	width: number;
+	align: "left" | "right";
+	isLast: boolean;
 }
 
 /**
@@ -55,7 +80,7 @@ export interface TableOptions {
  * which is correct for fully-wrapped styled text; pass `plain` explicitly when the two differ in length.
  */
 export function cell(styled: string, plain?: string): Cell {
-	return { styled, plain: plain ?? ansis.strip(styled) };
+	return { styled, plain: plain ?? stripAnsi(styled) };
 }
 
 /**
@@ -70,21 +95,17 @@ export function kv(caps: Caps, key: string, value: string): string {
  * Lay out `rows` under `columns` for the given caps. Returns the lines: a dim header row, one line per
  * row with cells padded/clipped to their resolved column widths, and an optional dim legend footer.
  */
-export function renderTable(
-	caps: Caps,
-	columns: readonly Column[],
-	rows: readonly (readonly Cell[])[],
-	options: TableOptions = {},
-): string[] {
+export function renderTable(options: RenderTableOptions): string[] {
+	const { caps, columns, rows } = options;
 	const gap = options.gap ?? DEFAULT_GAP;
-	const widths = computeWidths(caps, columns, rows, gap);
+	const widths = computeWidths({ caps, columns, rows, gap });
 
 	const lines: string[] = [];
 	const headerCells = columns.map(
 		(column): Cell => ({ styled: dim(column.header), plain: column.header }),
 	);
-	lines.push(renderRow(caps, columns, widths, headerCells, gap));
-	for (const row of rows) lines.push(renderRow(caps, columns, widths, row, gap));
+	lines.push(renderRow({ caps, columns, widths, cells: headerCells, gap }));
+	for (const row of rows) lines.push(renderRow({ caps, columns, widths, cells: row, gap }));
 
 	if (options.legend !== undefined) {
 		lines.push("");
@@ -108,12 +129,8 @@ function contentWidth(column: Column, index: number, rows: readonly (readonly Ce
  * the available budget); the remaining width is split evenly across the fill columns, each kept at or
  * above its min. The budget is the terminal width minus the inter-column gaps.
  */
-function computeWidths(
-	caps: Caps,
-	columns: readonly Column[],
-	rows: readonly (readonly Cell[])[],
-	gap: number,
-): number[] {
+function computeWidths(options: ComputeWidthsOptions): number[] {
+	const { caps, columns, rows, gap } = options;
 	const separators = gap * Math.max(0, columns.length - 1);
 	const budget = Math.max(0, caps.columns - separators);
 
@@ -144,19 +161,14 @@ function computeWidths(
 }
 
 /** Render one row of cells against the resolved column widths. */
-function renderRow(
-	caps: Caps,
-	columns: readonly Column[],
-	widths: readonly number[],
-	cells: readonly Cell[],
-	gap: number,
-): string {
+function renderRow(options: RenderRowOptions): string {
+	const { caps, columns, widths, cells, gap } = options;
 	const parts = columns.map((column, index) => {
 		const width = widths[index] ?? 0;
 		const value = cells[index] ?? { styled: "", plain: "" };
 		// The last left-aligned column is never right-padded, so lines carry no trailing whitespace.
 		const isLast = index === columns.length - 1;
-		return renderCell(caps, value, width, column.align ?? "left", isLast);
+		return renderCell({ caps, value, width, align: column.align ?? "left", isLast });
 	});
 	return parts.join(" ".repeat(gap));
 }
@@ -166,13 +178,8 @@ function renderRow(
  * that overflows is clipped on its plain text with a caps-aware ellipsis (styling is dropped on the
  * clipped remainder, which is the rare path). Right-aligned cells pad on the left.
  */
-function renderCell(
-	caps: Caps,
-	value: Cell,
-	width: number,
-	align: "left" | "right",
-	isLast: boolean,
-): string {
+function renderCell(options: RenderCellOptions): string {
+	const { caps, value, width, align, isLast } = options;
 	if (value.plain.length > width) {
 		const clipped = truncatePlain(value.plain, width, ellipsisFor(caps));
 		return align === "right" ? padLeftPlain(clipped, width) : clipped;

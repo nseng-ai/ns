@@ -8,12 +8,14 @@ import { visibleWidth } from "../../src/theme/text.ts";
 
 const DIM = "\x1b[2m";
 
-function caps(parts: { colorDepth?: ColorDepth; columns?: number; unicode?: boolean } = {}): Caps {
+function caps(
+	parts: { colorDepth?: ColorDepth; columns?: number; supportsUnicode?: boolean } = {},
+): Caps {
 	return {
 		isTty: true,
 		colorDepth: parts.colorDepth ?? "truecolor",
 		columns: parts.columns ?? 80,
-		unicode: parts.unicode ?? true,
+		supportsUnicode: parts.supportsUnicode ?? true,
 	};
 }
 
@@ -37,7 +39,7 @@ describe("renderTable column alignment", () => {
 			[cell("alpha", "alpha"), statusCell(c, "open"), cell(token, token)],
 			[cell("beta-objective", "beta-objective"), statusCell(c, "closed"), cell(token, token)],
 		];
-		const lines = renderTable(c, columns, rows);
+		const lines = renderTable({ caps: c, columns, rows });
 		const data = lines.slice(1); // drop header row
 
 		const offsets = data.map((line) => ansis.strip(line).indexOf(token));
@@ -49,7 +51,7 @@ describe("renderTable column alignment", () => {
 		const rows: readonly Cell[][] = [
 			[cell("alpha", "alpha"), statusCell(c, "open"), cell("now", "now")],
 		];
-		const lines = renderTable(c, columns, rows);
+		const lines = renderTable({ caps: c, columns, rows });
 		expect(lines[0]).toContain(DIM);
 		expect(ansis.strip(lines[0] ?? "").startsWith("OBJECTIVE")).toBe(true);
 	});
@@ -60,17 +62,17 @@ describe("renderTable truncation at caps.columns", () => {
 		const c = caps({ columns: 20 });
 		const columns: readonly Column[] = [{ header: "NAME", width: "fill", min: 4 }];
 		const long = "this-is-a-very-long-objective-slug";
-		const lines = renderTable(c, columns, [[cell(long, long)]]);
+		const lines = renderTable({ caps: c, columns, rows: [[cell(long, long)]] });
 		const dataLine = lines[1] ?? "";
 		expect(visibleWidth(dataLine)).toBeLessThanOrEqual(20);
 		expect(ansis.strip(dataLine).endsWith("…")).toBe(true);
 	});
 
 	test("ascii caps degrade the ellipsis to dots", () => {
-		const c = caps({ columns: 20, unicode: false });
+		const c = caps({ columns: 20, supportsUnicode: false });
 		const columns: readonly Column[] = [{ header: "NAME", width: "fill", min: 4 }];
 		const long = "this-is-a-very-long-objective-slug";
-		const lines = renderTable(c, columns, [[cell(long, long)]]);
+		const lines = renderTable({ caps: c, columns, rows: [[cell(long, long)]] });
 		expect(ansis.strip(lines[1] ?? "").endsWith("...")).toBe(true);
 	});
 });
@@ -82,7 +84,7 @@ describe("renderTable right alignment", () => {
 			{ header: "N", width: 5, align: "right" },
 			{ header: "X", width: "fill", min: 3 },
 		];
-		const lines = renderTable(c, columns, [[cell("7", "7"), cell("end", "end")]]);
+		const lines = renderTable({ caps: c, columns, rows: [[cell("7", "7"), cell("end", "end")]] });
 		const data = ansis.strip(lines[1] ?? "");
 		expect(data.startsWith("    7")).toBe(true); // 4 spaces then the digit
 	});
@@ -94,13 +96,13 @@ describe("renderTable legend footer", () => {
 	const rows: readonly Cell[][] = [[cell("alpha", "alpha")]];
 
 	test("renders a dim legend line after a blank when provided", () => {
-		const lines = renderTable(c, columns, rows, { legend: "x = uncommitted changes" });
+		const lines = renderTable({ caps: c, columns, rows, legend: "x = uncommitted changes" });
 		expect(lines.at(-2)).toBe("");
 		expect(lines.at(-1)).toBe(dim("x = uncommitted changes"));
 	});
 
 	test("omits the legend when not provided", () => {
-		const lines = renderTable(c, columns, rows);
+		const lines = renderTable({ caps: c, columns, rows });
 		expect(lines).toHaveLength(2); // header + one row, no footer
 		expect(lines.some((line) => line === "")).toBe(false);
 	});

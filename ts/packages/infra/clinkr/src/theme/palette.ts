@@ -4,8 +4,8 @@
 // Design decision (approved 2026-06-27): emit the dialed-in SGR strings DIRECTLY rather than letting
 // `ansis` auto-quantize. The fallback codes below are hand-tuned per rung, and tests assert on the
 // literal escapes; routing through ansis risks re-quantization that would silently change the output.
-// We drive the rung explicitly off `caps.colorDepth` (already resolved by caps.ts — never ansis auto-
-// detection). `ansis` is still the package dependency, used for SGR stripping in text.ts.
+// We drive the rung explicitly off `caps.colorDepth` (already resolved by caps.ts), with no auto-
+// detection from a styling library.
 
 import type { Caps } from "../caps.ts";
 

@@ -72,7 +72,7 @@ describe("resolveIo", () => {
 				isTty: false,
 				colorDepth: "none",
 				columns: DEFAULT_COLUMNS,
-				unicode: true,
+				supportsUnicode: true,
 			});
 		} finally {
 			Object.defineProperty(process.stdout, "isTTY", { value: originalIsTty, configurable: true });

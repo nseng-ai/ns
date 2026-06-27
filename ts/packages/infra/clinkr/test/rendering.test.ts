@@ -89,13 +89,18 @@ describe("renderHuman", () => {
 	});
 
 	test("receives the resolved sink caps", async () => {
-		const sinkCaps: Caps = { isTty: false, colorDepth: "none", columns: 72, unicode: false };
+		const sinkCaps: Caps = {
+			isTty: false,
+			colorDepth: "none",
+			columns: 72,
+			supportsUnicode: false,
+		};
 		const group = new ClinkrGroup<null>({ name: "probe" });
 		group.command({
 			name: "act",
 			schema: z.object({}),
 			handler: async () => ok({ count: 2 }),
-			renderHuman: (_data, caps) => `${caps.caps?.columns}:${caps.caps?.unicode}`,
+			renderHuman: (_data, caps) => `${caps.caps?.columns}:${caps.caps?.supportsUnicode}`,
 		});
 		const stdout: string[] = [];
 		const stderr: string[] = [];

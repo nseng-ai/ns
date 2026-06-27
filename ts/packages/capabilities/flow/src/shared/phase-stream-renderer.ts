@@ -27,7 +27,7 @@ export function createPhaseStreamRenderer(
 			bold(header),
 			...options.views().map((view) => {
 				const item = view.label === undefined ? view.item : { ...view.item, label: view.label };
-				return statusLine(options.caps, item, view.state, tick);
+				return statusLine({ caps: options.caps, item: item, state: view.state, tick: tick });
 			}),
 		];
 		const tail = options.tailLine();
@@ -44,10 +44,6 @@ export function createPhaseStreamRenderer(
 	}
 
 	function render(): void {
-		if (options.caps.isTty) {
-			options.sink.render(frame);
-			return;
-		}
 		options.sink.render(frame);
 	}
 
