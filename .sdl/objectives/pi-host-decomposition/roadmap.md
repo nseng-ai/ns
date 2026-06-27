@@ -7,19 +7,16 @@
   - Classify each area as Pi runtime/neutral helper, Pi-native standalone tool, or vertically integrated capability mirror.
   - Evidence: `updates/2026-06-27-pi-host-boundary-inventory.md` records every current top-level source-area classification, package export/dependency and discovery-adapter cross-checks, known `context-profiler` reverse-import seam types, candidate order, and a tentative package-location convention.
 
-- [~] Extract `context-profiler` as the reference Pi-native package slice.
-  - Execute as one sequential Graphite stack when possible, defaulting to these independently reviewable branches:
-    1. `pi-host-decomp/helper-seams`: complete in local branch evidence — neutral display-width/scroll helpers and LM JSON parsing now live behind intentional `@sdl/pi/shared/render-helpers` and `@sdl/pi/shared/lm-json` helper subpaths, with PR preview, context-profiler, and thermo-council imports repointed and focused tests passing.
-    2. `pi-host-decomp/context-profiler-package`: complete in local branch evidence — `context-profiler` source and focused tests moved to provisional `ts/packages/pi-tools/context-profiler/` as `@sdl/pi-context-profiler`; the project-local adapter imports the new package source; package imports use curated `@sdl/pi/...` helper/runtime subpaths; focused parity coverage moved with the package; and `@sdl/pi` source no longer imports the extracted package.
-    3. `pi-host-decomp/context-profiler-recipe`: if the extraction validates, record the package recipe and final reference-slice convention in relevant package context/Objective prose; if the extraction disproves the provisional convention, record the safer disposition instead.
-  - Resolve known reverse imports before the package move: PR preview views consume render helpers, `thermo-council` consumes LM JSON parsing, and Pi parity registration consumes the context-profiler parity record.
-  - The parity seam must stay acyclic. Prefer moving extracted-package parity contribution to the project-local discovery adapter or another contribution point where `@sdl/pi` does not import `@sdl/pi-context-profiler`; keep `parity.test.ts` or an equivalent focused test proving live registrations and metadata still match.
-  - Move source and tests using the repo's separate `test/` directory convention; preserve Pi command registration/parity behavior through a dependency direction that keeps the extracted package stacked on `@sdl/pi`.
-  - Evidence: no non-context-profiler host source imports `src/context-profiler/*`; focused tests for context-profiler, helper seams, affected PR/thermo views, and parity behavior pass; `just ts-check` and `just ts-guard` confirm no type or package-cycle regression.
+- [x] Extract `context-profiler` as the reference Pi-native package slice.
+  - The reference slice landed as a sequential local Graphite stack:
+    1. `pi-host-decomp/helper-seams`: neutral display-width/scroll helpers and LM JSON parsing now live behind intentional `@sdl/pi/shared/render-helpers` and `@sdl/pi/shared/lm-json` helper subpaths, with PR preview, context-profiler, and thermo-council imports repointed and focused tests passing.
+    2. `pi-host-decomp/context-profiler-package`: `context-profiler` source and focused tests moved to provisional `ts/packages/pi-tools/context-profiler/` as `@sdl/pi-context-profiler`; the project-local adapter imports the new package source; package imports use curated `@sdl/pi/...` helper/runtime subpaths; focused parity coverage moved with the package; and `@sdl/pi` source no longer imports the extracted package.
+    3. `pi-host-decomp/context-profiler-recipe`: `ts/packages/hosts/pi/CONTEXT.md` and `CONTEXT-MAP.md` now record the Pi Presentation Host, Pi-native tool package, discovery-adapter, and parity-ownership conventions proven by the extraction.
+  - Evidence: `updates/2026-06-27-helper-seams-rehomed.md`, `updates/2026-06-27-context-profiler-package-extracted.md`, and `updates/2026-06-27-context-profiler-recipe-recorded.md` record the helper-seam, package-extraction, and recipe/context slices. Focused context-profiler/helper/parity tests, `just ts-check`, `just ts-guard`, `just ts-format-check`, `sdl objective check pi-host-decomposition`, and `just dprint-check` passed during the local stack.
 
-- [ ] Record the reference extraction recipe and apply it to the next obvious Pi-native tool candidates.
-  - Use the `context-profiler` result to document how Pi-native tool packages should consume host helpers, own tests, expose registration or parity surfaces, and avoid host→tool dependency inversion.
-  - Apply the recipe to `grill` and `thermo-council` unless inventory evidence shows a different first follow-on candidate.
+- [~] Record the reference extraction recipe and apply it to the next obvious Pi-native tool candidates.
+  - The `context-profiler` result now documents how Pi-native tool packages should consume host helpers, own tests, expose registration and parity surfaces, and avoid host→tool dependency inversion.
+  - Still pending: apply or adapt the recipe for `grill` and `thermo-council` unless inventory evidence shows a different first follow-on candidate.
   - Evidence: each moved or dispositioned tool has a clear package-boundary decision and preserved user-visible Pi behavior.
 
 - [ ] Disposition `runner-subagents` and `terminal` with runtime-boundary evidence.
