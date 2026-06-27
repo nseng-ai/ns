@@ -19,7 +19,6 @@ import {
 	testContext,
 } from "./test-support.ts";
 import worktreeStatusExtension, {
-	requestWorktreeStatusRefresh,
 	WORKTREE_STATUS_REFRESH_COMMAND_NAME,
 	type ExtensionAPI,
 } from "../src/extension.ts";
@@ -281,7 +280,7 @@ describe("worktree status refresh lifecycle", () => {
 		await pi.sessionShutdown?.();
 	});
 
-	test("requestWorktreeStatusRefresh uses cached GitHub policy instead of forcing remote status", async () => {
+	test("extension handle requestRefresh uses cached GitHub policy instead of forcing remote status", async () => {
 		const harness = createManualTimerHarness();
 		const pi = new LifecycleFakePi([]);
 		const loaders = fakeWorktreeStatusLoaders({
@@ -303,7 +302,7 @@ describe("worktree status refresh lifecycle", () => {
 		const statuses = new Map<string, string | undefined>();
 		const ctx = testContext(statuses);
 
-		worktreeStatusExtension(pi as ExtensionAPI, {
+		const handle = worktreeStatusExtension(pi as ExtensionAPI, {
 			loaders,
 			timers: harness.timers,
 			clock: harness.clock,
@@ -314,7 +313,7 @@ describe("worktree status refresh lifecycle", () => {
 			"[gt] ↓ main · ↑ - · 1 commit\n[gh] no PR",
 		);
 
-		await requestWorktreeStatusRefresh();
+		await handle.requestRefresh();
 		expect(loaders.localCalls).toHaveLength(2);
 		expect(loaders.ghCalls).toHaveLength(1);
 		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
@@ -322,7 +321,7 @@ describe("worktree status refresh lifecycle", () => {
 		);
 
 		harness.advanceMs(30_000);
-		await requestWorktreeStatusRefresh();
+		await handle.requestRefresh();
 
 		pi.assertDone();
 		expect(loaders.localCalls).toHaveLength(3);
@@ -330,6 +329,42 @@ describe("worktree status refresh lifecycle", () => {
 		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
 			"[gt] ↓ main · ↑ - · 3 commits · ✗\n[gh] no PR",
 		);
+		await pi.sessionShutdown?.();
+	});
+
+	test("extension handle requestRefresh targets the latest active session", async () => {
+		const pi = new LifecycleFakePi([]);
+		const identityA = localStatus({
+			identity: { ...localStatus().identity, cwd: "/repo-a" },
+		}).identity;
+		const identityB = localStatus({
+			identity: { ...localStatus().identity, cwd: "/repo-b" },
+		}).identity;
+		const loaders = fakeWorktreeStatusLoaders({
+			identities: [queued(identityA), queued(identityB), queued(identityB)],
+			localStatuses: [
+				queued(localStatus({ identity: identityA })),
+				queued(localStatus({ identity: identityB })),
+				queued(
+					localStatus({
+						identity: identityB,
+						gt: gtStatus({ commits: { type: "count", count: 2 } }),
+					}),
+				),
+			],
+			ghStatuses: [queued({ type: "no-pr" }), queued({ type: "no-pr" })],
+		});
+		const handle = worktreeStatusExtension(pi as ExtensionAPI, { loaders });
+		const ctxA = { ...testContext(), cwd: "/repo-a" };
+		const ctxB = { ...testContext(), cwd: "/repo-b" };
+
+		await pi.sessionStart?.({}, ctxA);
+		await pi.sessionStart?.({}, ctxB);
+		await handle.requestRefresh();
+
+		pi.assertDone();
+		expect(loaders.localCalls.map((call) => call.cwd)).toEqual(["/repo-a", "/repo-b", "/repo-b"]);
+		expect(loaders.localCalls.at(-1)?.cwd).toBe("/repo-b");
 		await pi.sessionShutdown?.();
 	});
 

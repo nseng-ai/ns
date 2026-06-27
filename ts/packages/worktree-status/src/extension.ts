@@ -77,13 +77,8 @@ type WorktreeStatusActivityEvent =
 	| "model_select"
 	| "thinking_level_select";
 
-let activeWorktreeStatusRefresh: (() => Promise<void>) | undefined;
-
-// Pi emits tool_execution_end for model tool calls, while extension slash-command
-// handlers complete through the command event bus registered below. This exported
-// seam remains for focused tests and direct project-local adapters.
-export function requestWorktreeStatusRefresh(): Promise<void> {
-	return activeWorktreeStatusRefresh?.() ?? Promise.resolve();
+export interface WorktreeStatusExtensionHandle {
+	requestRefresh(options?: WorktreeStatusRefreshOptions): Promise<void>;
 }
 
 interface ExecOptions {
@@ -303,7 +298,7 @@ interface RefreshRemoteOptions extends WorktreeStatusRefreshOptions {
 export default function worktreeStatusExtension(
 	pi: ExtensionAPI,
 	dependencies: WorktreeStatusExtensionDependencies = {},
-) {
+): WorktreeStatusExtensionHandle {
 	pi.registerMessageRenderer?.(WORKTREE_STATUS_UI_KEY, renderWorktreeStatusMessage);
 
 	const loaders: WorktreeStatusLoaders = {
@@ -643,7 +638,11 @@ export default function worktreeStatusExtension(
 		return refreshSession(session, options);
 	}
 
-	activeWorktreeStatusRefresh = () => refreshActiveSession({ remoteRefresh: "cached" });
+	const handle: WorktreeStatusExtensionHandle = {
+		requestRefresh(options) {
+			return refreshActiveSession(options ?? { remoteRefresh: "cached" });
+		},
+	};
 
 	function refreshActiveSessionAfterToolExecution(event: unknown): void {
 		if (!shouldRefreshAfterToolExecution(event)) return;
@@ -737,6 +736,8 @@ export default function worktreeStatusExtension(
 	pi.on("session_shutdown", async () => {
 		closeActiveSession();
 	});
+
+	return handle;
 }
 
 function hasCommandRegistration(pi: ExtensionAPI): pi is CommandRegistrationExtensionAPI {
