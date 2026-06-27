@@ -3,21 +3,14 @@ import { join } from "node:path";
 import process from "node:process";
 
 import { RealCheckpointGateway, runCheckpointIfPending } from "../shared/checkpoint.ts";
+import { createFlowLiveOutput, emitFlowProgress } from "../shared/live-output.ts";
 import {
 	createSdlSubmitRuntime,
 	runSubmitCommand,
 	type SubmitCommandResult,
 } from "../shared/submit.ts";
 import { selectSubmitFailureModelRef } from "../shared/text-generation.ts";
-import {
-	defineExtension,
-	failed,
-	ok,
-	z,
-	type SdlCommand,
-	type SdlExtensionApi,
-	type SdlOutputStream,
-} from "sdl-sdk";
+import { defineExtension, failed, ok, z, type SdlCommand, type SdlExtensionApi } from "sdl-sdk";
 
 const SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS = 12_000;
 const SUBMIT_FAILURE_LOG_DIR_ENV = "SDL_SUBMIT_FAILURE_LOG_DIR";
@@ -46,7 +39,6 @@ Environment:
 The command owns its output and exit code. It does not support --format.`;
 
 type SubmitRequest = z.output<typeof submitSchema>;
-type SubmitLiveOutput = (stream: SdlOutputStream, text: string) => void;
 
 export const flowSubmitCommand: SdlCommand<typeof submitSchema> = {
 	name: "submit",
@@ -55,9 +47,9 @@ export const flowSubmitCommand: SdlCommand<typeof submitSchema> = {
 	schema: submitSchema,
 	async run(ctx: SdlExtensionApi, request: SubmitRequest) {
 		const runtime = createSdlSubmitRuntime(ctx);
-		const liveOutput = createSubmitLiveOutput(ctx);
-		emitSubmitProgress(liveOutput, "sdl flow submit");
-		emitSubmitProgress(
+		const liveOutput = createFlowLiveOutput(ctx);
+		emitFlowProgress(liveOutput, "sdl flow submit");
+		emitFlowProgress(
 			liveOutput,
 			"• Checking worktree and checkpointing pending changes if needed…",
 		);
@@ -84,7 +76,7 @@ export const flowSubmitCommand: SdlCommand<typeof submitSchema> = {
 			writeCommandResultOutput(checkpoint.output, ctx);
 		}
 
-		emitSubmitProgress(liveOutput, "✓ Checkpoint phase complete");
+		emitFlowProgress(liveOutput, "✓ Checkpoint phase complete");
 		const result = await runSubmitCommand({
 			cwd: ctx.cwd,
 			gateway: runtime.submitGateway,
@@ -103,22 +95,6 @@ export const flowSubmitCommand: SdlCommand<typeof submitSchema> = {
 export default defineExtension({
 	commands: [flowSubmitCommand],
 });
-
-function createSubmitLiveOutput(ctx: SdlExtensionApi): SubmitLiveOutput | undefined {
-	if (ctx.onOutput !== undefined) return ctx.onOutput;
-	if (ctx.stdout === undefined && ctx.stderr === undefined) return undefined;
-	return (stream, text) => {
-		if (stream === "stdout") {
-			ctx.stdout?.(text);
-			return;
-		}
-		ctx.stderr?.(text);
-	};
-}
-
-function emitSubmitProgress(liveOutput: SubmitLiveOutput | undefined, message: string): void {
-	liveOutput?.("stderr", `${message}\n`);
-}
 
 function writeCommandResultOutput(
 	result: Pick<SubmitCommandResult, "stdout" | "stderr">,

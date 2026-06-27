@@ -1,5 +1,7 @@
-import { defineExtension, failed, ok, z, type SdlCommand } from "sdl-sdk";
+import { runWithCommandIo } from "@sdl/core/command-io";
 import type { TextGenerator } from "@sdl/domain-primitives-transitional/text-generation";
+import { commandIoFromSdlExtensionApi } from "@sdl/sdl/command-io";
+import { defineExtension, failed, ok, z, type SdlCommand } from "sdl-sdk";
 import {
 	CHECKPOINT_MODEL_ENV,
 	DEFAULT_CHECKPOINT_MODEL_REF,
@@ -38,14 +40,19 @@ export const flowCpCommand: SdlCommand<typeof cpRequestSchema> = {
 	schema: cpRequestSchema,
 	async run(ctx, request: CpRequest) {
 		const runtime = createSdlCheckpointRuntime(ctx);
-		const result = await runCpCore({
-			cwd: ctx.cwd,
-			env: ctx.env,
-			textGenerator: ctx.textGenerator,
-			isDryRun: request.dryRun,
-			checkpointGateway: runtime.checkpointGateway,
+		const io = commandIoFromSdlExtensionApi(ctx);
+		return await runWithCommandIo(io, async (io) => {
+			io.phase("sdl flow cp");
+			const result = await runCpCore({
+				cwd: ctx.cwd,
+				env: ctx.env,
+				textGenerator: ctx.textGenerator,
+				isDryRun: request.dryRun,
+				checkpointGateway: runtime.checkpointGateway,
+				onProgress: (message: string) => io.phase(message),
+			});
+			return toCommandResult(result);
 		});
-		return toCommandResult(result);
 	},
 };
 
@@ -61,6 +68,7 @@ export interface RunCpCoreOptions {
 	textGenerator: TextGenerator;
 	isDryRun: boolean;
 	checkpointGateway: CheckpointGateway;
+	onProgress?: ((message: string) => void) | undefined;
 }
 
 export async function runCpCore(options: RunCpCoreOptions): Promise<RunCpCoreResult> {
@@ -70,6 +78,7 @@ export async function runCpCore(options: RunCpCoreOptions): Promise<RunCpCoreRes
 		gateway: options.checkpointGateway,
 		textGenerator: options.textGenerator,
 		dryRun: options.isDryRun,
+		...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
 	});
 }
 
