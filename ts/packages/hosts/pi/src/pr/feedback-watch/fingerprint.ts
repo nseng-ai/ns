@@ -1,5 +1,5 @@
 import type { PrFeedbackDownloadData } from "../feedback-download.ts";
-import { isRecord, stringField } from "../../cmux/primitives.ts";
+import { isRecord, stringField } from "../../runtime/primitives.ts";
 
 import { TOP_LEVEL_BOT_DISCUSSION_AUTHORS } from "./constants.ts";
 import type {

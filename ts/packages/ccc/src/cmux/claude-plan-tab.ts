@@ -7,7 +7,7 @@ import { formatErrorMessage } from "@sdl/core/primitives";
 import {
 	launchFocusedCmuxTab,
 	type FocusedCmuxTabLaunchResult,
-} from "@sdl/pi/cmux/focused-terminal-tab";
+} from "@sdl/cmux/focused-terminal-tab";
 import { isRecord, stringField } from "./primitives.ts";
 import {
 	resolvePromptFileOptions,

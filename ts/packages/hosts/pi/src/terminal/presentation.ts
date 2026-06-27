@@ -1,4 +1,4 @@
-import { isRecord } from "../cmux/primitives.ts";
+import { isRecord } from "../runtime/primitives.ts";
 
 export { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 

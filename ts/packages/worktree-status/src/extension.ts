@@ -1,7 +1,7 @@
 import { basename, resolve } from "node:path";
 
 import { registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
-import { isRecord } from "@sdl/pi/cmux/primitives";
+import { isRecord } from "@sdl/core/primitives";
 import {
 	PI_EXTENSION_COMMAND_FINISHED_EVENT,
 	type PiExtensionCommandEventBus,

@@ -1,4 +1,4 @@
-import { isRecord } from "../cmux/primitives.ts";
+import { isRecord } from "../runtime/primitives.ts";
 import { truncateDisplayLine } from "../terminal/presentation.ts";
 import { PICKUP_HANDOFF_COMMAND_NAME } from "./shared.ts";
 import type { CustomMessage, RenderComponent, RenderTheme } from "./runtime-types.ts";

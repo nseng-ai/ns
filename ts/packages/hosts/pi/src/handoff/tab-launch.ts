@@ -1,5 +1,5 @@
-import { buildPiLaunchCommand, getPiLaunchOptions } from "../cmux/pi-launch.ts";
-import { launchFocusedCmuxTab, type CmuxTabLaunchStage } from "../cmux/focused-terminal-tab.ts";
+import { buildPiLaunchCommand, getPiLaunchOptions } from "@sdl/cmux/pi-launch";
+import { launchFocusedCmuxTab, type CmuxTabLaunchStage } from "@sdl/cmux/focused-terminal-tab";
 import type { ExecResult, ModelInfo, ThinkingLevel } from "./runtime-types.ts";
 
 export interface HandoffTabLaunchParams {

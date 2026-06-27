@@ -230,6 +230,9 @@ importers:
       '@sdl/clinkr':
         specifier: workspace:*
         version: link:../infra/clinkr
+      '@sdl/cmux':
+        specifier: workspace:*
+        version: link:../cmux
       '@sdl/core':
         specifier: workspace:*
         version: link:../infra/core
@@ -258,6 +261,12 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
 
+  packages/cmux:
+    dependencies:
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../infra/core
+
   packages/handoff:
     dependencies:
       '@sdl/brmem':
@@ -278,6 +287,9 @@ importers:
       '@sdl/branch-context':
         specifier: workspace:*
         version: link:../../branch-context
+      '@sdl/cmux':
+        specifier: workspace:*
+        version: link:../../cmux
       '@sdl/core':
         specifier: workspace:*
         version: link:../../infra/core

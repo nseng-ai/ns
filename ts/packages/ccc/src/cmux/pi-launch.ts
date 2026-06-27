@@ -1,2 +1,2 @@
-export { buildPiLaunchCommand, getPiLaunchOptions } from "@sdl/pi/cmux/pi-launch";
-export type { PiLaunchOptions } from "@sdl/pi/cmux/pi-launch";
+export { buildPiLaunchCommand, getPiLaunchOptions } from "@sdl/cmux/pi-launch";
+export type { PiLaunchOptions } from "@sdl/cmux/pi-launch";

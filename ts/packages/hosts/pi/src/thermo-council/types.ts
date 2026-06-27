@@ -1,4 +1,4 @@
-import type { ModelInfo } from "../cmux/types.ts";
+import type { ModelInfo } from "../runtime/types.ts";
 import type { RunnerSubagentPi } from "../runner-subagents/extension-api.ts";
 import type {
 	FindingConfidence,

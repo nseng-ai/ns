@@ -1,4 +1,4 @@
-import { isRecord, stringField } from "../../cmux/primitives.ts";
+import { isRecord, stringField } from "../../runtime/primitives.ts";
 
 import type { WatchEventEntry } from "./model.ts";
 
