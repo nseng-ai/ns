@@ -90,7 +90,7 @@ Roadmap item quality:
    - Continue until shared understanding is sufficient to avoid generic or invented durable content, or until the user chooses to stop questioning and write the Objective.
 4. Create `.sdl/objectives/<slug>/`, `.sdl/objectives/<slug>/updates/`, `objective.md`, and `roadmap.md`.
 5. Write concise, human-readable narrative content, including a concrete `## Assumptions and Risks` section and execution-friendly sections only when requested or made relevant by the interview.
-6. If the Objective is cross-cutting — an agent doing unrelated work must obey its direction — write `orientation.md` (≈8 lines, agent-facing) using the `orientation.md` format from the `objective` umbrella skill: `Direction`, `Getting to` (with ADR/CONTEXT pointers), `What you see now`, `Avoid`, and `Active slice: see this objective's roadmap.md`. Otherwise skip it; presence of the file is the opt-in flag. Keep lifecycle/graduation metadata in `roadmap.md`, never in `orientation.md`.
+6. If the Objective is cross-cutting — an agent doing unrelated work must obey its direction — write `orientation.md` (≈8 content lines, agent-facing) using the `orientation.md` format from the `objective` umbrella skill: `Direction`, `Getting to` (with ADR/CONTEXT pointers), `What you see now`, `Avoid`, and `Active slice: see this objective's roadmap.md`. Otherwise skip it; presence of the file is the opt-in flag. Keep lifecycle/graduation metadata in `roadmap.md`, never in `orientation.md`.
 7. Do not create an initial update file. Do not create `closed.md`.
 
 ## Stop / ask

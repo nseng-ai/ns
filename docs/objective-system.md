@@ -29,6 +29,7 @@ Each objective is keyed by its directory slug. Active records use this shape:
 .sdl/objectives/<slug>/
   objective.md
   roadmap.md
+  orientation.md   # optional; cross-cutting active Objectives only
   updates/
   closed.md        # optional; existence means closed
 ```
@@ -124,6 +125,10 @@ Roadmap rows are semantic work guidance: deliverables, decisions, de-risking, im
 
 Do not add task IDs, owners, priority fields, due dates, lifecycle metadata, or automation semantics.
 
+### `orientation.md`
+
+`orientation.md` is an optional agent-facing standing rule for cross-cutting active Objectives whose direction unrelated agents must respect. Presence of a direct `.sdl/objectives/<slug>/orientation.md` file is the opt-in flag; there is no separate registry. Direct `.sdl/objectives/<slug>/closed.md` removes the orientation from the always-load set automatically. The file should keep durable `Direction` / `Getting to` guidance separate from temporary `What you see now` / `Avoid` guidance and leave lifecycle/graduation metadata in `roadmap.md`.
+
 ### `updates/`
 
 `updates/` contains **Semantic Updates**. An update file records meaningful information such as a finding, decision, blocker, assumption invalidation, risk de-risking or surfacing, completion evidence, changed plan, or follow-up.
@@ -185,7 +190,7 @@ Do not silently auto-select from candidate count or changed/touched files. Never
 
 ## Operations
 
-V1 keeps Objective meaning in Markdown. Small CLI surfaces (`objective list`, `objective archive`, `objective exec read-objective`, and `objective exec runner-subagent-usage`) ship deterministic mechanics that the skills delegate to. Narrative mutations remain direct Markdown edits; archive/unarchive is a shipped directory-move mutation that does not edit Objective prose.
+V1 keeps Objective meaning in Markdown. Small CLI surfaces (`objective list`, `objective archive`, `objective exec read-objective`, `objective exec load-orientations`, and `objective exec runner-subagent-usage`) ship deterministic mechanics that the skills delegate to. Narrative mutations remain direct Markdown edits; archive/unarchive is a shipped directory-move mutation that does not edit Objective prose.
 
 ### `objective list`
 
@@ -220,6 +225,29 @@ Shipped CLI:
 - Run `objective list --status all --format md` for a Markdown table with local branch attribution.
 - Run `objective list --minimal --status closed --format json` for machine-readable closed records without branch attribution.
 - Run `objective list --names` to print active slugs, one per line.
+
+### `objective exec load-orientations`
+
+Loads active Objective orientation files for agent onboarding.
+
+Contract:
+
+- Read active Objective records only from `.sdl/objectives/` in the current working tree.
+- Include only open records with a direct `orientation.md` file.
+- Exclude records with direct `closed.md`; closure automatically removes them from the load set.
+- Exclude archived records under `.sdl/objective-archive/`.
+- Sort deterministically by slug.
+- Do not parse Objective prose or orientation Markdown; emit headers and raw file contents.
+- Markdown/default output is suitable for AGENTS.md onboarding: each record renders as `### .sdl/objectives/<slug>/orientation.md` followed by the raw file content with trailing newlines normalized.
+- JSON emits a Clinkr envelope whose `data` contains `rootPath`, `records`, and `recordCount`. Each record contains `slug`, `path`, and `content`.
+- A missing active orientation set is `ok` with an empty `records` array.
+- An unreadable detected orientation file fails the command rather than silently skipping a rule file.
+
+Shipped CLI:
+
+- Run `objective exec load-orientations` for default Markdown-compatible output.
+- Run `objective exec load-orientations --format md` for explicit Markdown output.
+- Run `objective exec load-orientations --format json` for the machine envelope.
 
 ### `objective-create`
 
@@ -410,7 +438,8 @@ Good CLI responsibilities:
 
 - Validate slugs and paths. *(partially shipped: `objective exec read-objective` rejects empty, `.`, `..`, and slash-bearing slugs.)*
 - List candidate objectives from checkout-local active-root records. *(shipped: `objective list`.)*
-- Detect closed markers. *(shipped for active-root records: `objective list` and `objective exec read-objective` both report closed state.)*
+- Detect closed markers. *(shipped for active-root records: `objective list`, `objective exec read-objective`, and `objective exec load-orientations` use direct `closed.md` presence.)*
+- Load active Objective orientation files for agent onboarding. *(shipped: `objective exec load-orientations`.)*
 - Move Objective records between active and archived roots without editing prose. *(shipped: `objective archive`.)*
 - Summarize runner-subagent session usage for Objective stack digestion. *(shipped: `objective exec runner-subagent-usage`.)*
 - Scaffold required files and headings. *(future.)*
