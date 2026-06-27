@@ -1,11 +1,13 @@
+import type { GraphiteMetadataWorkerDiagnostic } from "@sdl/graphite/status";
+
 import type { CustomMessageContent } from "../terminal/presentation.ts";
 
-export type ExecResult = {
+export interface ExecResult {
 	stdout: string;
 	stderr: string;
 	code: number;
 	killed: boolean;
-};
+}
 
 export interface WorktreeStatusGitPaths {
 	repoDir: string;
@@ -70,7 +72,7 @@ export interface LocalWorktreeStatus {
 	identity: WorktreeStatusIdentity;
 	brmem: string | undefined;
 	gt: GtStatus;
-	gtMetadataDiagnostic?: unknown;
+	gtMetadataDiagnostic?: GraphiteMetadataWorkerDiagnostic | undefined;
 }
 
 export interface WorktreeStatus extends LocalWorktreeStatus {
