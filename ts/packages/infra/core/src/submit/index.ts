@@ -45,7 +45,8 @@ export {
 	DEFAULT_PR_DESCRIPTION_MODEL_REF,
 	PR_DESCRIPTION_MODEL_ENV,
 	selectPrDescriptionModelRef,
-	type TextGenerator,
 	type TextGenerationRequest,
 	type TextGenerationResult,
+	type TextGenerationUsage,
+	type TextGenerator,
 } from "./text-generation.ts";

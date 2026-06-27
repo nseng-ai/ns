@@ -88,6 +88,9 @@ export async function orchestratePrDescription(
 		parsedRegion.type === "found" &&
 		fingerprintsMatch(parsedRegion.metadata, metadata)
 	) {
+		options.onProgress?.(
+			`skipping PR #${pr.number} description; generated fingerprint is unchanged`,
+		);
 		return {
 			type: "skipped",
 			pr,
@@ -95,6 +98,9 @@ export async function orchestratePrDescription(
 		};
 	}
 
+	options.onProgress?.(
+		`recomputing PR #${pr.number} description (${formatFingerprintMismatchReason(parsedRegion.type)})`,
+	);
 	const commits = await options.githubPr.getPrCommitMessages({
 		cwd: options.cwd,
 		number: pr.number,
@@ -168,6 +174,19 @@ async function reconcilePrewrittenPr(params: {
 		pr: params.pr,
 		reason: `Generated initial metadata, but failed to update PR #${params.pr.number} after Graphite created mismatched metadata.\n${edited.error.message}`,
 	};
+}
+
+function formatFingerprintMismatchReason(
+	type: ReturnType<typeof parseManagedGeneratedRegion>["type"],
+): string {
+	switch (type) {
+		case "missing":
+			return "no generated fingerprint found";
+		case "malformed":
+			return "generated fingerprint is malformed";
+		case "found":
+			return "generated fingerprint changed";
+	}
 }
 
 function prMetadataMatches(title: string, body: string, metadata: PrewrittenPrMetadata): boolean {

@@ -1,7 +1,14 @@
 const MAX_ATTEMPTS = 2;
 const DEFAULT_ATTEMPT_PROGRESS_HEARTBEAT_MS = 5_000;
 
-export type TextGenerationResult = { ok: true; text: string } | { ok: false; error: string };
+export interface TextGenerationUsage {
+	inputTokens: number;
+	outputTokens: number;
+}
+
+export type TextGenerationResult =
+	| { ok: true; text: string; usage?: TextGenerationUsage }
+	| { ok: false; error: string };
 
 export type TextRepairProgressEvent =
 	| { type: "attempt_started"; attempt: number; maxAttempts: number }

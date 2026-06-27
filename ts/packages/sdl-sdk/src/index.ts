@@ -41,7 +41,8 @@ export { failed, ok } from "./result.ts";
 export type { SdlResult } from "./result.ts";
 export { z } from "./schema.ts";
 export type {
-	TextGenerator,
 	TextGenerationRequest,
 	TextGenerationResult,
+	TextGenerationUsage,
+	TextGenerator,
 } from "@sdl/domain-primitives-transitional/text-generation";

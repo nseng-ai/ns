@@ -451,7 +451,11 @@ export async function runSubmitCommand(
 		});
 	}
 
-	emitPhase(options, { type: "phase-started", phaseKey: "submit" });
+	emitPhase(options, {
+		type: "phase-started",
+		phaseKey: "submit",
+		label: submitCommandDisplay,
+	});
 	const submitted = await options.gateway.submitCurrentStack(submitStreamingCommandParams(options));
 	if (submitted.kind === "failed") {
 		return failure(
@@ -496,7 +500,11 @@ export async function runSubmitCommand(
 		currentPr.kind === "present"
 			? mergePrLinks(submitted.prLinks, currentPr.prLinks)
 			: mergePrLinks(submitted.prLinks, []);
-	emitPhase(options, { type: "phase-started", phaseKey: "descriptions" });
+	emitPhase(options, {
+		type: "phase-started",
+		phaseKey: "descriptions",
+		label: formatDescriptionPhaseStart(prLinks.length),
+	});
 	const descriptionResult = await generateSubmitPrDescriptions({
 		cwd: options.cwd,
 		prDescription: options.prDescription,
@@ -526,6 +534,11 @@ export async function runSubmitCommand(
 }
 
 type RestackDecision = "run" | "declined" | "unavailable";
+
+function formatDescriptionPhaseStart(prCount: number): string {
+	if (prCount === 0) return "checking PR descriptions; no PR links detected yet";
+	return `checking ${prCount} ${prCount === 1 ? "PR description" : "PR descriptions"} for skip or regeneration`;
+}
 
 async function shouldRunRestack(
 	options: Pick<RunSubmitCommandOptions, "restack" | "force" | "confirmRestack">,

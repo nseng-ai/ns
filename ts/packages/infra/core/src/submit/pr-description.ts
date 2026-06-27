@@ -15,7 +15,12 @@ import { prepareRepairedText } from "../text-repair.ts";
 import { formatElapsedMs } from "../time-format.ts";
 
 import type { PrCommitMessage } from "./github-pr-gateway.ts";
-import { selectPrDescriptionModelRef, type TextGenerator } from "./text-generation.ts";
+import {
+	selectPrDescriptionModelRef,
+	type TextGenerationResult,
+	type TextGenerationUsage,
+	type TextGenerator,
+} from "./text-generation.ts";
 
 export const PR_DESCRIPTION_PROMPT_ENV = "SDL_DEV_PR_DESCRIPTION_PROMPT";
 export const REPO_PR_DESCRIPTION_PROMPT_PATH = ".sdl/prompts/pr-description.md";
@@ -393,8 +398,18 @@ export async function preparePrDescription(input: {
 	const prepared = await prepareRepairedText({
 		noun: "PR description",
 		initialPrompt: firstPrompt,
-		generate: (prompt) =>
-			generatePrDescriptionText(input.textGenerator, input.modelRef, input.promptText, prompt),
+		generate: async (prompt) => {
+			const generated = await generatePrDescriptionText(
+				input.textGenerator,
+				input.modelRef,
+				input.promptText,
+				prompt,
+			);
+			if (generated.ok) {
+				input.onProgress?.(`PR metadata generated (${formatTextGenerationUsage(generated.usage)})`);
+			}
+			return generated;
+		},
 		validate: (text) => {
 			const validation = parsePrDescriptionOutput(text);
 			if (validation.ok) return { ok: true, value: validation.description };
@@ -442,6 +457,11 @@ export function truncateDiff(diff: string, maxChars = MAX_DIFF_CHARS): string {
 		headRatio: 0.7,
 		buildMarker: (omittedChars) => `\n[... TRUNCATED ${omittedChars} chars ...]\n`,
 	});
+}
+
+function formatTextGenerationUsage(usage: TextGenerationUsage | undefined): string {
+	if (usage === undefined) return "token usage unavailable";
+	return `tokens in ${usage.inputTokens}, out ${usage.outputTokens}`;
 }
 
 function formatPrContextLines(input: PrDescriptionPromptContext): string[] {
@@ -529,7 +549,7 @@ async function generatePrDescriptionText(
 	modelRef: string,
 	system: string,
 	prompt: string,
-): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
+): Promise<TextGenerationResult> {
 	return textGenerator.generateText({
 		modelRef,
 		system,

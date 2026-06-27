@@ -9,7 +9,14 @@ export interface TextGenerationRequest {
 	operation?: string;
 }
 
-export type TextGenerationResult = { ok: true; text: string } | { ok: false; error: string };
+export interface TextGenerationUsage {
+	inputTokens: number;
+	outputTokens: number;
+}
+
+export type TextGenerationResult =
+	| { ok: true; text: string; usage?: TextGenerationUsage }
+	| { ok: false; error: string };
 
 export interface TextGenerator {
 	generateText(request: TextGenerationRequest): Promise<TextGenerationResult>;
