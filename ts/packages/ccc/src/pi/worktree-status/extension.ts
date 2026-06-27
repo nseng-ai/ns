@@ -3,6 +3,28 @@ import { basename, resolve } from "node:path";
 import { registerCommandWithImmediateAck } from "../commands/ack.ts";
 import type { CustomMessageContent } from "../terminal/presentation.ts";
 
+import {
+	combineWorktreeStatus,
+	currentWorktreeStatusBranchName,
+	findWorktreeStatusGitPaths,
+	formatWorktreeStatus,
+	isWorktreeStatusIdentityStillCurrent,
+	loadLocalWorktreeStatus,
+	loadWorktreeGhStatus,
+	loadWorktreeStatusIdentity,
+	renderWorktreeStatusMessage,
+	repoNameFromWorktreeStatusGitPaths,
+	sameWorktreeStatusIdentity,
+	WORKTREE_STATUS_UI_KEY,
+	type ExecResult,
+	type LoadLocalWorktreeStatusOptions,
+	type LoadWorktreeGhStatusOptions,
+	type LocalWorktreeStatus,
+	type StatusTheme,
+	type WorktreeGhStatus,
+	type WorktreeStatus,
+	type WorktreeStatusIdentity,
+} from "@sdl/ccc/worktree-status";
 import { shutdownGraphiteMetadataWorker } from "@sdl/graphite/status";
 
 import { systemClock, type Clock } from "@sdl/core/clock";
@@ -32,21 +54,8 @@ import {
 	type WorktreeStatusRefreshTimer,
 } from "./refresh-timer.ts";
 import { renderStatusFooter } from "./footer-format.ts";
-import type {
-	ExecResult,
-	LoadLocalWorktreeStatusOptions,
-	LoadWorktreeGhStatusOptions,
-	LocalWorktreeStatus,
-	StatusTheme,
-	WorktreeGhStatus,
-	WorktreeStatus,
-	WorktreeStatusGitPaths,
-	WorktreeStatusIdentity,
-	WorktreeStatusMessageRenderer,
-} from "./types.ts";
 
 export const WORKTREE_STATUS_REFRESH_COMMAND_NAME = "pi:worktree-status-refresh";
-export const WORKTREE_STATUS_UI_KEY = "worktree-status";
 
 const GH_STATUS_BACKGROUND_REFRESH_MIN_INTERVAL_MS = 30_000;
 const GH_STATUS_FRESHNESS_RENDER_INTERVAL_MS = 1_000;
@@ -280,25 +289,10 @@ export interface WorktreeStatusLoaders {
 	readFooterBranch: WorktreeStatusFooterBranchReader;
 }
 
-export interface WorktreeStatusBindings extends WorktreeStatusLoaders {
-	combineStatus(local: LocalWorktreeStatus, gh: WorktreeGhStatus): WorktreeStatus;
-	sameIdentity(left: WorktreeStatusIdentity, right: WorktreeStatusIdentity): boolean;
-	formatStatus(status: WorktreeStatus, options?: { theme?: StatusTheme; isDormant?: boolean }): string[];
-	formatStatusForFooter(
-		status: WorktreeStatus,
-		options?: { theme?: StatusTheme; isDormant?: boolean; ghRefreshAgeMs?: number },
-	): string[];
-	renderMessage: WorktreeStatusMessageRenderer;
-	findGitPaths(cwd: string): WorktreeStatusGitPaths | undefined;
-	repoNameFromGitPaths(gitPaths: WorktreeStatusGitPaths): string | undefined;
-	currentBranchName(gitPaths: WorktreeStatusGitPaths): string | undefined;
-}
-
 export interface WorktreeStatusExtensionDependencies {
 	timers?: TimerScheduler | undefined;
 	clock?: Clock | undefined;
 	refreshIntervalMs?: number | undefined;
-	bindings?: WorktreeStatusBindings | undefined;
 	loaders?: Partial<WorktreeStatusLoaders> | undefined;
 }
 
@@ -325,15 +319,15 @@ export default function worktreeStatusExtension(
 	pi: ExtensionAPI,
 	dependencies: WorktreeStatusExtensionDependencies = {},
 ) {
-	const bindings = resolveWorktreeStatusBindings(dependencies);
-	pi.registerMessageRenderer?.(WORKTREE_STATUS_UI_KEY, bindings.renderMessage);
+	pi.registerMessageRenderer?.(WORKTREE_STATUS_UI_KEY, renderWorktreeStatusMessage);
 
 	const loaders: WorktreeStatusLoaders = {
-		loadIdentity: dependencies.loaders?.loadIdentity ?? bindings.loadIdentity,
-		loadLocalStatus: dependencies.loaders?.loadLocalStatus ?? bindings.loadLocalStatus,
-		loadGhStatus: dependencies.loaders?.loadGhStatus ?? bindings.loadGhStatus,
-		isIdentityCurrent: dependencies.loaders?.isIdentityCurrent ?? bindings.isIdentityCurrent,
-		readFooterBranch: dependencies.loaders?.readFooterBranch ?? bindings.readFooterBranch,
+		loadIdentity: dependencies.loaders?.loadIdentity ?? loadWorktreeStatusIdentity,
+		loadLocalStatus: dependencies.loaders?.loadLocalStatus ?? loadLocalWorktreeStatus,
+		loadGhStatus: dependencies.loaders?.loadGhStatus ?? loadWorktreeGhStatus,
+		isIdentityCurrent:
+			dependencies.loaders?.isIdentityCurrent ?? isWorktreeStatusIdentityStillCurrent,
+		readFooterBranch: dependencies.loaders?.readFooterBranch ?? currentFooterBranch,
 	};
 	const timers = dependencies.timers ?? unrefTimerScheduler;
 	const clock = dependencies.clock ?? systemClock;
@@ -415,7 +409,7 @@ export default function worktreeStatusExtension(
 		const localIdentity = session.localStatus?.identity;
 		const snapshot = session.ghStatusSnapshot;
 		if (localIdentity === undefined || snapshot === undefined) return undefined;
-		if (!bindings.sameIdentity(localIdentity, snapshot.identity)) return undefined;
+		if (!sameWorktreeStatusIdentity(localIdentity, snapshot.identity)) return undefined;
 		return Math.max(0, clock.nowMs() - snapshot.fetchedAtMs);
 	}
 
@@ -449,9 +443,9 @@ export default function worktreeStatusExtension(
 			ghSnapshot === undefined ||
 			!sameWorktreeStatusIdentity(localStatus.identity, ghSnapshot.identity)
 		) {
-			return bindings.combineStatus(localStatus, { type: "pending" });
+			return combineWorktreeStatus(localStatus, { type: "pending" });
 		}
-		return bindings.combineStatus(localStatus, ghSnapshot.status);
+		return combineWorktreeStatus(localStatus, ghSnapshot.status);
 	}
 
 	function renderSessionStatus(session: ActiveSession): void {
@@ -467,7 +461,7 @@ export default function worktreeStatusExtension(
 		const status = combinedSessionStatus(session);
 		return status === undefined
 			? []
-			: bindings.formatStatus(status, {
+			: formatWorktreeStatus(status, {
 					theme: session.ctx.ui.theme,
 					...(session.isDormant ? { isDormant: true } : {}),
 				});
@@ -497,7 +491,7 @@ export default function worktreeStatusExtension(
 
 		const identityChanged =
 			previousIdentity !== undefined &&
-			!bindings.sameIdentity(previousIdentity, status.identity);
+			!sameWorktreeStatusIdentity(previousIdentity, status.identity);
 		session.localStatus = status;
 		if (identityChanged || sharedIdentityStale) session.ghStatusSnapshot = undefined;
 		renderSessionStatus(session);
@@ -524,7 +518,7 @@ export default function worktreeStatusExtension(
 		const currentIdentity = session.localStatus?.identity;
 		if (
 			currentIdentity !== undefined &&
-			!bindings.sameIdentity(currentIdentity, fetchIdentity)
+			!sameWorktreeStatusIdentity(currentIdentity, fetchIdentity)
 		) {
 			renderSessionStatus(session);
 			return;
@@ -543,7 +537,7 @@ export default function worktreeStatusExtension(
 		if (mode === "force") return true;
 		const snapshot = session.ghStatusSnapshot;
 		if (snapshot === undefined) return true;
-		if (!bindings.sameIdentity(snapshot.identity, identity)) return true;
+		if (!sameWorktreeStatusIdentity(snapshot.identity, identity)) return true;
 		return clock.nowMs() - snapshot.fetchedAtMs >= GH_STATUS_BACKGROUND_REFRESH_MIN_INTERVAL_MS;
 	}
 
@@ -615,8 +609,7 @@ export default function worktreeStatusExtension(
 								width,
 								cwd,
 								branch,
-								fallbackRepo: fallbackRepoName(cwd, bindings),
-								bindings,
+								fallbackRepo: fallbackRepoName(cwd),
 								worktreeStatus: combinedSessionStatus(session),
 								...(session.isDormant ? { isWorktreeStatusDormant: true } : {}),
 								...(ghRefreshAge === undefined ? {} : { ghRefreshAgeMs: ghRefreshAge }),
@@ -755,82 +748,18 @@ function hasCommandRegistration(pi: ExtensionAPI): pi is CommandRegistrationExte
 	return pi.registerCommand !== undefined;
 }
 
-function resolveWorktreeStatusBindings(
-	dependencies: WorktreeStatusExtensionDependencies,
-): WorktreeStatusBindings {
-	const bindings = dependencies.bindings ?? bindingsFromLoaders(dependencies.loaders);
-	if (bindings !== undefined) return bindings;
-	return missingWorktreeStatusBindings();
-}
-
-function bindingsFromLoaders(
-	loaders: Partial<WorktreeStatusLoaders> | undefined,
-): WorktreeStatusBindings | undefined {
-	if (loaders === undefined) return undefined;
-	if (!isWorktreeStatusBindings(loaders)) return undefined;
-	return loaders;
-}
-
-function isWorktreeStatusBindings(value: unknown): value is WorktreeStatusBindings {
-	if (!isRecord(value)) return false;
-	return (
-		typeof value.loadIdentity === "function" &&
-		typeof value.loadLocalStatus === "function" &&
-		typeof value.loadGhStatus === "function" &&
-		typeof value.isIdentityCurrent === "function" &&
-		typeof value.readFooterBranch === "function" &&
-		typeof value.combineStatus === "function" &&
-		typeof value.sameIdentity === "function" &&
-		typeof value.formatStatus === "function" &&
-		typeof value.formatStatusForFooter === "function" &&
-		typeof value.renderMessage === "function" &&
-		typeof value.findGitPaths === "function" &&
-		typeof value.repoNameFromGitPaths === "function" &&
-		typeof value.currentBranchName === "function"
-	);
-}
-
-function missingWorktreeStatusBindings(): WorktreeStatusBindings {
-	function fail(): never {
-		throw new Error(
-			"Worktree status bindings are not configured in this Pi extension bundle.",
-		);
-	}
-	return {
-		loadIdentity: fail,
-		loadLocalStatus: fail,
-		loadGhStatus: fail,
-		isIdentityCurrent: fail,
-		readFooterBranch: fail,
-		combineStatus: fail,
-		sameIdentity: fail,
-		formatStatus: fail,
-		formatStatusForFooter: fail,
-		renderMessage() {
-			return { render: () => [], invalidate() {} };
-		},
-		findGitPaths: fail,
-		repoNameFromGitPaths: fail,
-		currentBranchName: fail,
-	};
-}
-
-function currentFooterBranch(
-	cwd: string,
-	footerData: StatusFooterData,
-	bindings: WorktreeStatusBindings,
-): string | null {
-	const gitPaths = bindings.findGitPaths(cwd);
+function currentFooterBranch(cwd: string, footerData: StatusFooterData): string | null {
+	const gitPaths = findWorktreeStatusGitPaths(cwd);
 	if (gitPaths !== undefined) {
-		const branch = bindings.currentBranchName(gitPaths);
+		const branch = currentWorktreeStatusBranchName(gitPaths);
 		if (branch !== undefined) return branch;
 	}
 	return footerData.getGitBranch();
 }
 
-function fallbackRepoName(cwd: string, bindings: WorktreeStatusBindings): string {
-	const gitPaths = bindings.findGitPaths(cwd);
-	if (gitPaths !== undefined) return bindings.repoNameFromGitPaths(gitPaths) ?? "unknown";
+function fallbackRepoName(cwd: string): string {
+	const gitPaths = findWorktreeStatusGitPaths(cwd);
+	if (gitPaths !== undefined) return repoNameFromWorktreeStatusGitPaths(gitPaths) ?? "unknown";
 	return basename(resolve(cwd)) || "unknown";
 }
 
