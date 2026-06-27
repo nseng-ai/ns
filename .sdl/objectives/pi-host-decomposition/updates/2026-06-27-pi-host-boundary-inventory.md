@@ -1,0 +1,71 @@
+# Pi Host Boundary Inventory
+
+## Summary
+
+The first decomposition slice inventoried the current `@sdl/pi` host boundary from `ts/packages/hosts/pi/src/`, `ts/packages/hosts/pi/test/`, `ts/packages/hosts/pi/package.json`, `.pi/extensions/*.ts`, reverse imports, and current package consumers of `@sdl/pi/...` exports.
+
+Classification is complete enough to close the first roadmap row: every current top-level source area is assigned a lane, exported helper subpaths and package dependencies were cross-checked, discovery adapters were mapped, and the known `context-profiler` reverse imports were typed as explicit extraction seams.
+
+## Objective Impact
+
+### Source-area classification
+
+| Unit | Lane | Evidence / disposition |
+| --- | --- | --- |
+| `src/branch-context/` | Vertically integrated capability mirror | Pi shell over `@sdl/branch-context/api` and `@sdl/plans/api`, plus Pi-only upstack/session launch behavior. Shallow status: capability-owned core with Pi presentation/session residue. |
+| `src/branches/` | Pi runtime / neutral helper | Exported as `@sdl/pi/branches/slug`; consumed by `autobranch` and `ccc` for branch slug normalization. |
+| `src/claude/` | Needs split/disposition evidence | `claude:handoff` combines Handoff artifact semantics from `@sdl/handoff` with a Pi-native interactive Claude Code launch. Treat as Handoff-adjacent Pi session bridge, not a standalone capability package by default. |
+| `src/commands/` | Pi runtime / neutral helper | Exported command acknowledgement, command I/O/events, command-surface constants, and generic CLI-command registration. Consumed by `ccc`, `worktree-status`, `areg`, and `branch-context`. |
+| `src/command-helpers.ts` | Pi runtime / neutral helper | Shared command output formatting and UI notification helpers; source-local today, not a feature domain. |
+| `src/context-profiler/` | Pi-native standalone tool candidate | Reference extraction candidate. Owns analysis/model/runtime/bundle/interrogation/view code and many focused tests. Reverse-import seams listed below must be resolved before extraction. |
+| `src/extensions/` | Pi runtime / project-local presentation glue | `backing-skill-commands` maps skills to Pi command replacements using host command helpers. Not a domain package candidate. |
+| `src/flow/` | Needs split/disposition evidence | Mixed SDL CLI mirror plus Graphite/code workflow commands (`sdl-extension`, `smart-restack`, `stack-squash`, `code-workflows`). Likely belongs with SDL/CCC/Graphite orchestration decisions, not a Pi-native tool package. |
+| `src/grill/` | Pi-native standalone tool candidate | Structured grill UI commands and `grill_ask` model-visible tool are Pi-native interaction primitives with no owning capability package. Candidate after the reference extraction. |
+| `src/handoff/` | Vertically integrated capability mirror | Pi shell over `@sdl/handoff` identity/artifact semantics with Pi-specific tab/self/session tools and cmux launch integration. Shallow status: capability-owned lifecycle plus Pi-native session presentation. |
+| `src/investigate/` | Pi-native standalone tool candidate | Pi-specific investigator agent loader/renderer over runtime agent definitions and runner-subagent title helpers. Lower priority than named candidates but not a capability mirror. |
+| `src/models/` | Pi runtime / neutral helper with presentation residue | Model call helper plus model shortcut command registration. `call.ts` is a neutral host integration seam; shortcuts are Pi presentation/config affordances. |
+| `src/objectives/` | Vertically integrated capability mirror | Objective Pi commands and picker/selection helpers consume `@sdl/objective/api`. Shallow status: already points at owning Capability API, but exported `@sdl/pi/objectives/*` helper subpaths should be rechecked during final export rebaseline. |
+| `src/parity/` | Pi runtime / neutral helper with registration seam | Defines parity records/checks and central registry. Current registry imports feature parity records directly, including `context-profiler`; extraction needs a registration/discovery seam that avoids `@sdl/pi` importing extracted tools. |
+| `src/pr/` | Vertically integrated capability mirror | PR feedback/checks/watch views and commands bridge GitHub/`pr-address`/model-preview behavior in Pi. Shallow status: capability/workflow ownership should be clarified before thinning; it currently imports `context-profiler` render helpers. |
+| `src/runner-subagents/` | Needs split/disposition evidence | Named candidate but mixed: exported usage helpers, runtime/process/JSON-event primitives, terminal capture support, dispatch tool, widgets, and presentation. Requires runtime-boundary disposition before extraction. |
+| `src/runtime/` | Pi runtime / neutral helper | Agent definition loading, command host types, machine-envelope parsing, primitives, status, and cmux/Pi runtime types. Exported neutral subpaths are intentional host surface. |
+| `src/sessions/` | Pi runtime / neutral helper | Session replacement and harness-session event capture are host/session infrastructure. `sessions/replacement` is exported neutral surface; harness-session is a project-local adapter. |
+| `src/shared/` | Pi runtime / neutral helper | Exec gateway, message delivery, text/timer helpers, and fast text drafting support. Note: `fast-text-draft.ts` is the only observed `@sdl/domain-primitives-transitional` use in the host and should be revisited with architecture cleanup, but it is not a Pi-native tool package. |
+| `src/skills/` | Pi runtime / neutral helper | Skill expansion helper exported as `@sdl/pi/skills/expansion` and consumed by CCC tests/commands. |
+| `src/terminal/` | Pi runtime / neutral helper; disposition needed for named candidate | Current file is exported `@sdl/pi/terminal/presentation` and consumed by CCC/worktree-status/host views. Inventory favors keeping presentation primitives in the host unless a later split finds feature-specific terminal behavior. |
+| `src/thermo-council/` | Pi-native standalone tool candidate | Pi-specific multi-runner review council over runner-subagents, terminal capture, model refs, and local presentation. Candidate after `context-profiler`/`grill`; currently imports `context-profiler/lm-json.ts`. |
+
+### Package exports and dependencies
+
+Current `@sdl/pi` exports are mostly neutral helper/runtime subpaths: command surfaces/ack/events/io, branch slug helpers, machine-envelope/runtime types, runner-subagent usage, session replacement, skill expansion, terminal presentation, and shared timers. The notable straddlers are `./objectives/picker` and `./objectives/selection`: they now consume `@sdl/objective/api`, so they are capability-mirror helper exports rather than independent Pi domain logic and should be revalidated during the final export rebaseline.
+
+Current first-party dependencies show the host still composes several capability/orchestration packages: `@sdl/branch-context`, `@sdl/plans`, `@sdl/handoff`, `@sdl/objective`, `@sdl/sdl`, `@sdl/graphite`, and `@sdl/cmux`. This is acceptable for thin Pi shells and host session bridges, but extracted Pi-native tool packages must depend on `@sdl/pi`; `@sdl/pi` must not import those extracted packages.
+
+### Discovery adapters
+
+`.pi/extensions/*.ts` currently uses three patterns:
+
+- Host source adapters: `backing-skill-commands`, `branch-context`, `claude`, `code-workflows`, `context-profiler`, `dispatch-runner-subagent`, `grill-ui`, `handoff`, `harness-session`, `investigate`, `model-shortcuts`, `objective`, `pr`, `sdl`, and `thermo-council` import `ts/packages/hosts/pi/src/...` entrypoints directly.
+- Already-extracted/non-host adapters: `ccc.ts` imports `ts/packages/ccc/src/index.ts`; `worktree-status.ts` imports `ts/packages/worktree-status/src/extension.ts`.
+- Local/project adapters: `home-directory-guard.ts`, `just-fix.ts`, and `inspector.{js,ts}` are project-local extensions that use host helpers or local code rather than defining `@sdl/pi` feature domains.
+
+This adapter shape supports extraction if a moved Pi-native package exposes its own registration/parity entrypoint and the `.pi/extensions/<tool>.ts` adapter imports that package directly, leaving `@sdl/pi` as the dependency of the extracted package rather than its consumer.
+
+### Known `context-profiler` reverse-import seams
+
+- `src/pr/preview-feedback-view.ts`, `src/pr/preview-checks-view.ts`, and `src/pr/preview-view-utilities.ts` import `clamp`, `fitToWidth`, and `reconcileScroll` from `src/context-profiler/render.ts`. Seam type: neutral Pi TUI/presentation helper candidate; extraction should move or rehome these helpers before moving `context-profiler`.
+- `src/thermo-council/orchestrator.ts` imports `parseLmJson` from `src/context-profiler/lm-json.ts`. Seam type: neutral model-output JSON parsing helper candidate; extraction should move or rehome it before moving either tool.
+- `src/parity/registry.ts` imports `contextProfilerParity` from `src/context-profiler/extension.ts`. Seam type: registration/discovery seam; extraction should avoid central host registry imports from extracted packages, likely by direct adapter-owned registration or another acyclic contribution mechanism.
+
+### Tentative package-location convention
+
+Provisional convention for the next slice: extracted Pi-native tools should live in a host-adjacent tool tier under `ts/packages/pi-tools/<tool>/` with package names like `@sdl/pi-context-profiler`, `@sdl/pi-grill`, and `@sdl/pi-thermo-council`. These packages would depend on neutral `@sdl/pi/...` helper/runtime subpaths, own their source/tests, and expose registration/parity surfaces for `.pi/extensions/*.ts` adapters to import directly. This remains tentative until the `context-profiler` reference extraction proves or revises it.
+
+## Follow-Ups
+
+- Extract or otherwise disposition `context-profiler` next, after resolving the three reverse-import seams above.
+- During the reference extraction, decide whether render/scroll/width helpers and LM JSON parsing stay as neutral `@sdl/pi` helper subpaths or move to a smaller Pi support package.
+- Use `grill` and `thermo-council` as the likely next Pi-native candidates after the reference recipe exists.
+- Treat `runner-subagents` and `terminal` as runtime-boundary disposition work, not ordinary extraction candidates, until their runtime primitives are separated from feature presentation.
+- Later mirror-thinning work should inspect Branch Context/Plans, Handoff, Objective, PR, and SDL/flow surfaces for remaining host-resident capability or orchestration decisions.
+- Revisit `src/shared/fast-text-draft.ts` using `@sdl/domain-primitives-transitional` during architecture cleanup; it is inventory evidence, not a blocker for the first extraction slice.
