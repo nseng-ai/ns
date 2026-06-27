@@ -181,6 +181,41 @@ export interface ObjectiveSelectionContext {
 	ui: ObjectiveSelectionUi;
 }
 
+export interface ObjectiveSelectionCommandUi {
+	notify(message: string, level?: ObjectiveSelectionNotifyLevel): void;
+	select?(title: string, options: string[]): Promise<string | undefined>;
+	setStatus?(key: string, value: string | undefined): void;
+}
+
+export interface ObjectiveSelectionCommandContext {
+	cwd: string;
+	waitForIdle(): Promise<void>;
+	hasUI?: boolean | undefined;
+	ui: ObjectiveSelectionCommandUi;
+}
+
+export function objectiveSelectionContextFromCommandContext(
+	ctx: ObjectiveSelectionCommandContext,
+): ObjectiveSelectionContext {
+	const selectSource = ctx.ui.select;
+	const select: ObjectiveSelectionContext["ui"]["select"] | undefined =
+		selectSource === undefined
+			? undefined
+			: (title, options) => selectSource.call(ctx.ui, title, [...options]);
+	const setStatus: ObjectiveSelectionContext["ui"]["setStatus"] | undefined =
+		ctx.ui.setStatus?.bind(ctx.ui);
+	return {
+		cwd: ctx.cwd,
+		hasUI: ctx.hasUI === true,
+		ui: {
+			notify: ctx.ui.notify.bind(ctx.ui),
+			...(select === undefined ? {} : { select }),
+			...(setStatus === undefined ? {} : { setStatus }),
+		},
+		waitForIdle: ctx.waitForIdle.bind(ctx),
+	};
+}
+
 interface ObjectivePickerUi extends ObjectiveSelectionUi {
 	select: NonNullable<ObjectiveSelectionUi["select"]>;
 }

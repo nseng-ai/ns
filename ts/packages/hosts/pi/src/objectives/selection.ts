@@ -1,6 +1,7 @@
 import {
 	buildObjectiveSkillPrompt,
 	chooseActiveObjectiveSlug,
+	objectiveSelectionContextFromCommandContext,
 	type BuildObjectiveSkillPromptOptions,
 	type ObjectiveSelectionContext,
 	type ObjectiveSelectionHost,
@@ -12,7 +13,6 @@ import {
 } from "@sdl/objective/api";
 import { formatCommand, formatCommandFailure, formatCommandStartupFailure } from "@sdl/core/exec";
 import { parseObjectiveList } from "./list.ts";
-import type { CommandContext } from "../cmux/types.ts";
 
 const OBJECTIVE_COMMAND_TIMEOUT_MS = 30_000;
 const chooseActiveObjectiveSlugFromApi = chooseActiveObjectiveSlug;
@@ -90,7 +90,11 @@ async function listActiveObjectivesViaCli(
 	}
 }
 
-export { buildObjectiveSkillPrompt, chooseActiveObjectiveSlugWithCli as chooseActiveObjectiveSlug };
+export {
+	buildObjectiveSkillPrompt,
+	chooseActiveObjectiveSlugWithCli as chooseActiveObjectiveSlug,
+	objectiveSelectionContextFromCommandContext,
+};
 
 export type {
 	BuildObjectiveSkillPromptOptions,
@@ -102,25 +106,3 @@ export type {
 	ObjectiveSelectionUi,
 	ObjectiveSkillPromptSpec,
 };
-
-export function objectiveSelectionContextFromCommandContext(
-	ctx: CommandContext,
-): ObjectiveSelectionContext {
-	const selectSource = ctx.ui.select;
-	const select: ObjectiveSelectionContext["ui"]["select"] | undefined =
-		selectSource === undefined
-			? undefined
-			: (title, options) => selectSource.call(ctx.ui, title, [...options]);
-	const setStatus: ObjectiveSelectionContext["ui"]["setStatus"] | undefined =
-		ctx.ui.setStatus?.bind(ctx.ui);
-	return {
-		cwd: ctx.cwd,
-		hasUI: ctx.hasUI === true,
-		ui: {
-			notify: ctx.ui.notify.bind(ctx.ui),
-			...(select === undefined ? {} : { select }),
-			...(setStatus === undefined ? {} : { setStatus }),
-		},
-		waitForIdle: ctx.waitForIdle.bind(ctx),
-	};
-}

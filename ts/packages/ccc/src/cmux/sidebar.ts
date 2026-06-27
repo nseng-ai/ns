@@ -1,7 +1,10 @@
 import { DEFAULT_FAST_MODEL_REF, resolveModelRef } from "@sdl/core/model-slug";
+import {
+	chooseActiveObjectiveSlug,
+	objectiveSelectionContextFromCommandContext,
+	type ObjectiveSelectionSpec,
+} from "@sdl/objective/api";
 import { registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
-import { objectiveSelectionContextFromCommandContext } from "../objective-selection-context.ts";
-import { chooseActiveObjectiveSlug, type ObjectiveSelectionSpec } from "@sdl/objective/api";
 import { expandRepoSkillBlock } from "@sdl/pi/skills/expansion";
 import {
 	applyObjectiveSidebarFields,

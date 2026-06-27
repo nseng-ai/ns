@@ -16,14 +16,6 @@ import {
 	repoNameFromWorktreeStatusGitPaths,
 	sameWorktreeStatusIdentity,
 	WORKTREE_STATUS_UI_KEY,
-	type ExecResult,
-	type LoadLocalWorktreeStatusOptions,
-	type LoadWorktreeGhStatusOptions,
-	type LocalWorktreeStatus,
-	type StatusTheme,
-	type WorktreeGhStatus,
-	type WorktreeStatus,
-	type WorktreeStatusIdentity,
 } from "@sdl/ccc/worktree-status";
 import { shutdownGraphiteMetadataWorker } from "@sdl/graphite/status";
 
@@ -54,8 +46,19 @@ import {
 	type WorktreeStatusRefreshTimer,
 } from "./refresh-timer.ts";
 import { renderStatusFooter } from "./footer-format.ts";
+import type {
+	ExecResult,
+	LoadLocalWorktreeStatusOptions,
+	LoadWorktreeGhStatusOptions,
+	LocalWorktreeStatus,
+	StatusTheme,
+	WorktreeGhStatus,
+	WorktreeStatus,
+	WorktreeStatusIdentity,
+} from "./types.ts";
 
 export const WORKTREE_STATUS_REFRESH_COMMAND_NAME = "pi:worktree-status-refresh";
+export { WORKTREE_STATUS_UI_KEY };
 
 const GH_STATUS_BACKGROUND_REFRESH_MIN_INTERVAL_MS = 30_000;
 const GH_STATUS_FRESHNESS_RENDER_INTERVAL_MS = 1_000;
@@ -302,7 +305,7 @@ interface ActiveSession {
 	cwd: string;
 	hasUI: boolean;
 	abortController: AbortController;
-	closed: boolean;
+	isClosed: boolean;
 	isDormant: boolean;
 	activityUnsubscribe?: (() => void) | undefined;
 	activityController?: WorktreeStatusActivityController | undefined;
@@ -339,7 +342,9 @@ export default function worktreeStatusExtension(
 	let requestFooterRender: (() => void) | undefined;
 
 	function isActiveSession(session: ActiveSession): boolean {
-		return activeSession === session && !session.closed && !session.abortController.signal.aborted;
+		return (
+			activeSession === session && !session.isClosed && !session.abortController.signal.aborted
+		);
 	}
 
 	const fullRefreshChannel = createWorktreeStatusRefreshChannel<ActiveSession>({
@@ -356,32 +361,39 @@ export default function worktreeStatusExtension(
 			cwd: ctx.cwd,
 			hasUI: ctx.hasUI,
 			abortController: new AbortController(),
-			closed: false,
+			isClosed: false,
 			isDormant: false,
 		};
 		activeSession = session;
 		lastLinesKey = undefined;
-		installSessionControllers(session);
+		const controllers = createSessionControllers(session);
+		session.refreshTimer = controllers.refreshTimer;
+		session.activityController = controllers.activityController;
+		freshnessRenderTimer = controllers.freshnessRenderTimer;
 		return session;
 	}
 
-	function installSessionControllers(session: ActiveSession): void {
-		session.refreshTimer = createWorktreeStatusRefreshTimer({
+	function createSessionControllers(session: ActiveSession): {
+		refreshTimer: WorktreeStatusRefreshTimer;
+		activityController: WorktreeStatusActivityController;
+		freshnessRenderTimer: WorktreeStatusRefreshTimer;
+	} {
+		const refreshTimer = createWorktreeStatusRefreshTimer({
 			timers,
 			clock,
 			isActive: () => isActiveSession(session),
 			onTick: () => refreshSession(session),
 			intervalMs: dependencies.refreshIntervalMs ?? WORKTREE_STATUS_ACTIVE_REFRESH_INTERVAL_MS,
 		});
-		session.activityController = createWorktreeStatusActivityController({
+		const activityController = createWorktreeStatusActivityController({
 			timers,
 			clock,
 			isActive: () => isActiveSession(session),
 			isBusy: () => isSessionBusy(session),
 			onDormantChange: (isDormant) => {
 				session.isDormant = isDormant;
-				if (isDormant) session.refreshTimer?.pause();
-				else session.refreshTimer?.resume();
+				if (isDormant) refreshTimer.pause();
+				else refreshTimer.resume();
 				requestFooterRender?.();
 				renderSessionStatus(session);
 			},
@@ -389,7 +401,7 @@ export default function worktreeStatusExtension(
 				void refreshSession(session, { remoteRefresh: "cached" });
 			},
 		});
-		freshnessRenderTimer = createWorktreeStatusRefreshTimer({
+		const nextFreshnessRenderTimer = createWorktreeStatusRefreshTimer({
 			timers,
 			clock,
 			isActive: () => isActiveSession(session),
@@ -398,6 +410,7 @@ export default function worktreeStatusExtension(
 			},
 			intervalMs: GH_STATUS_FRESHNESS_RENDER_INTERVAL_MS,
 		});
+		return { refreshTimer, activityController, freshnessRenderTimer: nextFreshnessRenderTimer };
 	}
 
 	function clearFreshnessRenderTimer(): void {
@@ -416,7 +429,7 @@ export default function worktreeStatusExtension(
 	function closeActiveSession(): void {
 		const session = activeSession;
 		if (session !== undefined) {
-			session.closed = true;
+			session.isClosed = true;
 			session.abortController.abort();
 			clearFreshnessRenderTimer();
 			session.refreshTimer?.close();
