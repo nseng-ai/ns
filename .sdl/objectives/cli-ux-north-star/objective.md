@@ -29,9 +29,9 @@ the system is the explicit follow-on, not part of this Objective.
   `log-tail` of the latest subprocess line during streaming phases.
 - **The real clinkr foundations:** widen `Caps` (`{ isTty, colorDepth, columns,
   supportsUnicode }`) and add `resolveCaps()` in clinkr **core**; opt-in
-  `@sdl/clinkr/theme` (ansis) and `@sdl/clinkr/stream` (log-update) **subpaths**; buffered +
-  streaming human/machine emit; and import-boundary lint/guardrails that keep display strictly
-  opt-in. Process caps are used only for the real stdout path; hosted/callback/pipe/test and
+  `@sdl/clinkr/theme` (ansis) and `@sdl/clinkr/stream` (log-update) **subpaths**; buffered
+  machine/human emit plus human streaming emit; and import-boundary lint/guardrails that keep display
+  strictly opt-in. Process caps are used only for the real stdout path; hosted/callback/pipe/test and
   in-process host sinks get settled or host-supplied caps through the clinkr IO / host-extension
   seam, not independent `process.*` sniffing.
 - **Rebuild** `objective list` and `flow submit` for real on those foundations to match the
@@ -54,8 +54,8 @@ the system is the explicit follow-on, not part of this Objective.
   UX (chrome, glyph set, palette intents, streaming behavior) **and** a decision between
   ladder approach A vs B.
 - clinkr foundations built: `Caps` + `resolveCaps()` in core; opt-in `theme` + `stream`
-  subpaths; buffered + streaming emit; import-boundary lint enforcing that core / raw /
-  completion / testing never import the display layer.
+  subpaths; buffered machine/human emit and human streaming emit; import-boundary lint enforcing
+  that core / raw / completion / testing never import the display layer.
 - `objective list` and `flow submit` rebuilt on the foundations and matching the north star,
   with `--format json` machine mode preserved for `objective list`.
 - Evidence: targeted tests and relevant repo checks (`just`) pass; the opt-in property is
@@ -91,7 +91,8 @@ the system is the explicit follow-on, not part of this Objective.
   mitigated by parking rollout under the roadmap.
 - Keeping `SdlExtensionApi` narrow while delivering caps through clinkr was de-risked with the
   existing generic `extensions` seam (`sdl.clinkr.caps`), avoiding a dedicated new caps field;
-  the broader streaming machine-output contract is still unsettled.
+  the broader streaming machine-output contract is explicitly parked as a follow-on instead of being
+  rushed into this UX Objective.
 
 ## Open Questions
 
@@ -107,7 +108,9 @@ the system is the explicit follow-on, not part of this Objective.
 - The exact widened `Caps` shape — **decided by implementation (2026-06-27):** `{ isTty,
   colorDepth, columns, supportsUnicode }`.
 - What the durable streaming machine-output contract should be (for example JSONL on stdout) now that
-  `flow submit` has a polished human stream but still explicitly has no `--format` path; equivalently,
-  whether the roadmap should narrow away from a standalone streaming JSONL primitive before closure.
+  `flow submit` has a polished human stream but still explicitly has no `--format` path — **decided
+  for this Objective (2026-06-27): park it as a follow-on.** `flow submit` is a side-effecting human
+  streaming command here; defining a cross-command JSONL/event protocol is outside this north-star UX
+  slice.
 - Whether the early core import-isolation canary should become a formal repo-wide lint rule, and what
   command owns that enforcement.

@@ -51,13 +51,12 @@
       non-TTY settling. The stream sink branches on `caps.isTty`: TTY gets a `log-update` live region
       and cursor restore; non-TTY emits a single settled frame and routes per-phase transients through
       `onOutput`/the host live channel without cursor escapes.
-- [~] Add machine/human emit: preserve the buffered `--format json` path and add a streaming
-  emit primitive (human frames via `onOutput`, JSONL via `stdout`). Buffered clinkr emit now passes
-  resolved `Caps` into human renderers while preserving `objective list --format json`; flow has a
-  human stream over `@sdl/clinkr/stream` with non-TTY `onOutput` routing. The remaining semantic
-  decision is the streaming machine contract: `flow submit` still explicitly has no `--format` /
-  JSONL path, so decide whether this Objective still requires JSONL streaming or should narrow
-  this row before closure.
+- [x] Add machine/human emit for this UX slice: preserve the buffered `--format json` path and add
+      human streaming emit. Buffered clinkr emit now passes resolved `Caps` into human renderers while
+      preserving `objective list --format json`; flow has a human stream over `@sdl/clinkr/stream` with
+      non-TTY `onOutput` routing. **Resolved 2026-06-27:** do not add a `flow submit` JSONL/`--format`
+      contract in this Objective. Side-effecting streaming machine output needs a cross-command
+      protocol decision, so it is parked as follow-on work.
 - [~] Add the import-boundary lint that enforces opt-in display (core / raw / completion / testing
   never import `theme`/`stream`; `ansis`/`log-update` importable only from those subpaths).
   An early `core-import-isolation` canary test now walks the core import graph and proves it does
@@ -87,3 +86,6 @@
       optional field — `SdlExtensionApi` is not otherwise grown.
 - [ ] Reconcile the in-place live region against raw subprocess passthrough for streaming
       commands, beyond the faked prototype handling.
+- [ ] Define a cross-command streaming machine-output contract (`--format jsonl` or equivalent) for
+      side-effecting flow commands, including event schema, stdout/stderr split, transcript policy,
+      final envelope, and Pi/onOutput consumption.
