@@ -89,8 +89,11 @@ the system is the explicit follow-on, not part of this Objective.
 
 ## Open Questions
 
-- Approach A (full ladder) vs B (modern-only) — to be decided by feel from the prototypes.
-- The branded accent color value (dialed in the harness).
+- Approach A (full ladder) vs B (modern-only) — **decided by feel (2026-06-27): A, the full
+  ladder.** Accepts the extra degradation machinery as worth it for the look across rungs.
+- The branded accent color value — **decided by feel (2026-06-27): cyan `#22d3ee`** (chosen from a
+  candidate gallery of sky/cyan/teal/blue/indigo/violet/magenta). Semantic intents also set:
+  success `#3fb950` / warn `#d29922` / error `#f85149` / muted `#8b949e` (GitHub-derived).
 - Whether `objective list` becomes a full sdl-sdk extension now or keeps a clinkr-shaped data
   path at rebuild — this determines how machine mode is preserved.
 - The exact widened `Caps` shape — confirm fields (`isTty`, `colorDepth`, `columns`, `unicode`)
