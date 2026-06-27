@@ -1,5 +1,5 @@
 import { registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
-import { objectiveSelectionContextFromCommandContext } from "@sdl/pi/objectives/selection";
+import { objectiveSelectionContextFromCommandContext } from "./objective-selection-context.ts";
 import {
 	buildObjectiveSkillPrompt,
 	chooseActiveObjectiveSlug,
