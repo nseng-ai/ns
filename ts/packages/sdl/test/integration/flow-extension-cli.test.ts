@@ -128,8 +128,16 @@ describe("checked-in flow SDL extension loading", () => {
 		expect(run.stdout.join("")).toContain(`✓ #123 ${PR_URL}`);
 		expect(run.liveOutput).toContainEqual({
 			stream: "stderr",
-			text: "sdl flow submit\n",
+			text: "running gt submit…\n",
 		});
+		expect(
+			run.liveOutput.some(
+				(entry) =>
+					entry.stream === "stderr" &&
+					entry.text.includes("sdl flow submit") &&
+					entry.text.includes("Descriptions"),
+			),
+		).toBe(true);
 		expect(formattedExecCalls(run.context)).toContain(
 			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
 		);
