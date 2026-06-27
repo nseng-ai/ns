@@ -75,11 +75,11 @@ This Objective is execution-friendly for `objective-stack-impl` under the bounda
 
 Assumptions:
 
-- The `@sdl/<cap>/api` convention and gateway-injected-core rule ratified for Slot/Branch-Context/Plans apply cleanly to objective for the implemented API/Domain Core and `sdlcc` direct-consumer path. Current ground truth only partly validates the `ccc` path: `ccc` consumes Objective helper exports from `@sdl/objective/api`, but still imports the Pi selection-context adapter from `@sdl/pi/objectives/selection` until the remaining consumer-repoint work removes that compatibility edge.
+- The `@sdl/<cap>/api` convention and gateway-injected-core rule ratified for Slot/Branch-Context/Plans apply cleanly to objective for the implemented API/Domain Core and direct `sdlcc`/`ccc` consumer paths. Current ground truth validates the `ccc` path through `@sdl/objective/api`: CCC imports the Objective selection helpers, including `objectiveSelectionContextFromCommandContext`, from the Capability API instead of from `@sdl/pi/objectives/*` or a CCC-local adapter.
 - The objectives domain in `@sdl/pi/objectives/*` is separable from genuine Pi presentation concerns; `extension.ts` (~860 lines) likely mixes domain selection/listing logic with Pi-specific presentation that should stay behind a thin shell.
 - The current broad implementation plan is too large for one pass; the durable path is four separate slices with independent gates: runner-usage neutralization, Objective API relocation, consumer repoint, and Pi→CCC cycle break.
 - The runner-subagent usage JSONL parser/totals seam belongs in neutral `@sdl/core/runner-usage`, so `@sdl/objective` can consume it without importing the Pi Presentation Host.
-- The chosen Pi/CCC direction is settled for this Objective: `@sdl/ccc` may continue to import neutral `@sdl/pi` helper subpaths, while `@sdl/pi` must remove all imports of `@sdl/ccc` and its `@sdl/ccc` dependency.
+- The chosen Pi/CCC direction is settled for this Objective: `@sdl/ccc` may continue to import neutral `@sdl/pi` helper subpaths, while `@sdl/pi` must remove all imports of `@sdl/ccc` and its `@sdl/ccc` dependency. The worktree-status edge is partially reduced on the current branch because Pi now owns host lifecycle/refresh wiring and host-local status types, but `@sdl/pi` still imports `@sdl/ccc/worktree-status` helpers and retains multiple other CCC imports plus the manifest dependency.
 - The topological acyclicity guard should not be implemented until after the real graph is acyclic; use stale-edge greps and TypeScript validation as interim gates.
 
 Risks:
