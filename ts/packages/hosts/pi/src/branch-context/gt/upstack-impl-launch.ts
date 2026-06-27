@@ -3,6 +3,7 @@ import {
 	type BranchContextEvidence,
 } from "@sdl/branch-context/api";
 import type { ExecResult } from "@sdl/core/exec";
+import { setRuntimeStatus } from "../../runtime/status.ts";
 import type {
 	ExtensionAPI,
 	NewSessionOptions,
@@ -18,12 +19,6 @@ export type BranchContextGtUpstackImplNewSessionResult = NewSessionResult;
 
 interface LaunchStatusUi {
 	setStatus?(key: string, value: string | undefined): void;
-}
-
-interface LaunchStatusUpdater {
-	hasUI: boolean;
-	ui: LaunchStatusUi;
-	statusKey: string;
 }
 
 export interface BranchContextGtUpstackImplContext {
@@ -66,13 +61,12 @@ export async function runBranchContextGtUpstackImplLaunch(
 	options: BranchContextGtUpstackImplLaunchOptions,
 ): Promise<BranchContextGtUpstackImplLaunchResult> {
 	const { branch, key } = options.target;
-	const statusUpdater = buildStatusUpdater(options);
 	let isReplacementSessionActive = false;
 	let phase: BranchContextGtUpstackImplLaunchPhase = "checkout";
 	let parentSession: string | undefined;
 
 	try {
-		setLaunchStatus(statusUpdater, "checking out branch context…");
+		setRuntimeStatus(options.ctx, options.statusKey, "checking out branch context…");
 		const checkout = await checkoutBranchContext({
 			host: options.host,
 			cwd: options.ctx.cwd,
@@ -84,7 +78,7 @@ export async function runBranchContextGtUpstackImplLaunch(
 		}
 
 		phase = "new-session";
-		setLaunchStatus(statusUpdater, "starting implementation session…");
+		setRuntimeStatus(options.ctx, options.statusKey, "starting implementation session…");
 		parentSession = options.ctx.sessionManager?.getSessionFile?.();
 		const parentSessionPart = parentSession === undefined ? {} : { parentSession };
 		const newSessionOptions: BranchContextGtUpstackImplNewSessionOptions = {
@@ -116,7 +110,7 @@ export async function runBranchContextGtUpstackImplLaunch(
 			...(parentSession === undefined ? {} : { parentSession }),
 		};
 	} finally {
-		setLaunchStatus(statusUpdater, undefined);
+		setRuntimeStatus(options.ctx, options.statusKey, undefined);
 	}
 }
 
@@ -163,18 +157,4 @@ function formatCheckoutFailureOutput(result: ExecResult): string {
 		return result.stdout;
 	}
 	return "(no output)";
-}
-
-function buildStatusUpdater(options: BranchContextGtUpstackImplLaunchOptions): LaunchStatusUpdater {
-	return {
-		hasUI: options.ctx.hasUI,
-		ui: options.ctx.ui,
-		statusKey: options.statusKey,
-	};
-}
-
-function setLaunchStatus(updater: LaunchStatusUpdater, value: string | undefined): void {
-	if (updater.hasUI) {
-		updater.ui.setStatus?.(updater.statusKey, value);
-	}
 }

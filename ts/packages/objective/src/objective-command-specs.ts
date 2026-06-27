@@ -1,8 +1,8 @@
 import type { ObjectiveSelectionSpec } from "./objective-selection.ts";
 
 export interface ObjectiveCommandSpec extends ObjectiveSelectionSpec {
-	commandName: "objective:next" | "objective:update" | "objective:close";
-	skillName: "objective-next" | "objective-update" | "objective-close";
+	commandName: "objective:next" | "objective:update" | "objective:close" | "objective:stack-impl";
+	skillName: "objective-next" | "objective-update" | "objective-close" | "objective-stack-impl";
 	description: string;
 	fallbackPrompt: string;
 	actionPrompt: string;
@@ -62,5 +62,17 @@ export const objectiveCommandSpecs: ObjectiveCommandSpec[] = [
 		actionPrompt: "Run objective-close for this explicitly selected Objective slug or path:",
 		postSelectionReminder:
 			"\nAfter this explicit selection, follow objective-close's normal closure confirmation workflow before mutating Objective files.",
+	},
+	{
+		commandName: "objective:stack-impl",
+		skillName: "objective-stack-impl",
+		description:
+			"Pick an active Objective, then invoke the portable Objective stack implementation skill for the selected slug.",
+		statusKey: "objective:stack-impl",
+		selectionTitle: "Select an active Objective for stack implementation",
+		fallbackPrompt:
+			"The objective-stack-impl skill was not found among loaded Pi skills. Follow the repository's Objective stack implementation workflow anyway: orchestrate implementation of one explicit Objective as a small Graphite stack from this session. Require user confirmation before execution, run at most one runner subagent at a time, record Objective updates for material progress, and do not submit PRs automatically.",
+		actionPrompt: "Run objective-stack-impl for this explicitly selected Objective slug or path:",
+		shouldCompactDiffSuggestion: true,
 	},
 ];

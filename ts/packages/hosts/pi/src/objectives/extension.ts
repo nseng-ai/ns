@@ -1,10 +1,10 @@
 import { registerCommandWithImmediateAck } from "../commands/ack.ts";
 import {
-	CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
-	emitCliCommandOutput,
-	parseCliCommandArgs,
-	renderCliCommandOutputMessage,
+	registerCliCommandExtension,
 	type CliCommandExtensionAPI,
+	type CliCommandInfo,
+	type CliCommandRunDeps,
+	type ParsedCliCommandArgs,
 } from "../commands/cli-extension.ts";
 import { parseMachineEnvelopeData } from "../runtime/machine-envelope.ts";
 import {
@@ -63,18 +63,13 @@ const OBJECTIVE_SELECTOR_ARGUMENT_HINT = "[objective-slug-or-path]";
 const OBJECTIVE_CREATE_ARGUMENT_HINT = "[objective-slug-title-or-context]";
 const OBJECTIVE_COMPLETION_CACHE_TTL_MS = 10_000;
 const ACTIVE_OBJECTIVE_CANDIDATES_ARGS = ["exec", "list-candidates", "--format", "json"] as const;
-const OBJECTIVE_STACK_IMPL_COMMAND = {
-	commandName: "objective:stack-impl",
-	skillName: "objective-stack-impl",
-	description:
-		"Pick an active Objective, then invoke the portable Objective stack implementation skill for the selected slug.",
-	statusKey: "objective:stack-impl",
-	selectionTitle: "Select an active Objective for stack implementation",
-	shouldCompactDiffSuggestion: true,
-	fallbackPrompt:
-		"The objective-stack-impl skill was not found among loaded Pi skills. Follow the repository's Objective stack implementation workflow anyway: orchestrate implementation of one explicit Objective as a small Graphite stack from this session. Require user confirmation before execution, run at most one runner subagent at a time, record Objective updates for material progress, and do not submit PRs automatically.",
-	actionPrompt: "Run objective-stack-impl for this explicitly selected Objective slug or path:",
-} as const;
+const OBJECTIVE_LIST_COMMAND = {
+	name: "list",
+	description: "List active Objectives in this repository without invoking the agent.",
+	argumentHint: OBJECTIVE_LIST_ARGUMENT_HINT,
+	getArgumentCompletions: completeObjectiveListArgs,
+	mapParsedArgs: mapObjectiveListParsedArgs,
+} satisfies CliCommandInfo;
 
 interface InvokeObjectiveCreateSkillOptions {
 	pi: ObjectiveExtensionAPI;
@@ -206,67 +201,6 @@ async function handleObjectiveCommand(
 	}
 }
 
-function registerObjectiveStackImplementationCommand(pi: ObjectiveExtensionAPI): void {
-	registerCommandWithImmediateAck({
-		host: pi,
-		commandName: OBJECTIVE_STACK_IMPL_COMMAND.commandName,
-		commandDefinition: {
-			description: OBJECTIVE_STACK_IMPL_COMMAND.description,
-			handler: async (args, ctx) => handleObjectiveStackImplCommand(pi, args, ctx),
-		},
-	});
-}
-
-async function handleObjectiveStackImplCommand(
-	pi: ObjectiveExtensionAPI,
-	args: string,
-	ctx: CommandContext,
-): Promise<void> {
-	const explicitObjective = args.trim();
-	try {
-		if (explicitObjective) {
-			await invokeObjectiveStackImplSkill(pi, ctx, explicitObjective);
-			return;
-		}
-
-		const slug = await chooseActiveObjectiveSlug(
-			pi,
-			objectiveSelectionContextFromCommandContext(ctx),
-			OBJECTIVE_STACK_IMPL_COMMAND,
-		);
-		if (!slug) {
-			return;
-		}
-
-		await invokeObjectiveStackImplSkill(pi, ctx, slug);
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		if (ctx.hasUI) {
-			ctx.ui.notify(message, "error");
-		}
-	}
-}
-
-async function invokeObjectiveStackImplSkill(
-	pi: ObjectiveExtensionAPI,
-	ctx: CommandContext,
-	objective: string,
-): Promise<void> {
-	await invokeRepoSkillPromptTurn({
-		host: pi,
-		ctx,
-		skillName: OBJECTIVE_STACK_IMPL_COMMAND.skillName,
-		successMessage: `Invoking ${OBJECTIVE_STACK_IMPL_COMMAND.commandName} for ${objective}.`,
-		fallbackMessage: `${OBJECTIVE_STACK_IMPL_COMMAND.skillName} skill was not found; using fallback prompt.`,
-		buildPrompt: (skillBlock) =>
-			buildObjectiveSkillPrompt({
-				spec: OBJECTIVE_STACK_IMPL_COMMAND,
-				skillBlock,
-				objective,
-			}),
-	});
-}
-
 function createObjectiveCommandCompleter(
 	pi: ObjectiveExtensionAPI,
 ): (prefix: string) => Promise<AutocompleteItem[] | null> {
@@ -363,63 +297,63 @@ function parseObjectiveCandidates(stdout: string): ObjectiveCandidatesParseResul
 	return parseObjectiveCandidatesData(envelope.data);
 }
 
+const OBJECTIVE_LIST_STATUS_VALUES = ["all", "active", "open", "closed"] as const;
+type ObjectiveListStatus = (typeof OBJECTIVE_LIST_STATUS_VALUES)[number];
+
 interface ObjectiveListRequestShape {
 	names: boolean;
 	minimal: boolean;
-	status: "all" | "active" | "open" | "closed";
+	status: ObjectiveListStatus;
 }
 
-async function handleObjectiveListCommand(
-	pi: ObjectiveExtensionAPI,
-	rawArgs: string,
-	ctx: CommandContext,
-): Promise<void> {
-	const parsedTokens = parseCliCommandArgs(rawArgs);
-	if (!parsedTokens.ok) {
-		emitObjectiveListOutput(pi, ctx, rawArgs, [], {
-			exitCode: 2,
-			stdout: "",
-			stderr: `Error: ${parsedTokens.error}\n`,
-		});
-		return;
+function mapObjectiveListParsedArgs(args: readonly string[]): ParsedCliCommandArgs {
+	const parsed = parseObjectiveListArgTokens(args);
+	if (parsed.type === "invalid") {
+		return { ok: false, error: parsed.message };
+	}
+	if (parsed.args.isHelpRequested) {
+		return { ok: true, args: ["--help"] };
+	}
+	return { ok: true, args: parsed.args.args };
+}
+
+async function runObjectiveCliCommand(
+	argv: readonly string[],
+	deps: CliCommandRunDeps,
+): Promise<number> {
+	const commandName = argv[0];
+	if (commandName !== "list") {
+		deps.stderr(`Error: unsupported objective command: ${commandName ?? "(missing)"}\n`);
+		return 2;
 	}
 
-	const parsed = parseObjectiveListArgTokens(parsedTokens.args);
+	return await runObjectiveListCommand(argv.slice(1), deps);
+}
+
+async function runObjectiveListCommand(
+	args: readonly string[],
+	deps: CliCommandRunDeps,
+): Promise<number> {
+	const parsed = parseObjectiveListArgTokens(args);
 	if (parsed.type === "invalid") {
-		emitObjectiveListOutput(pi, ctx, rawArgs, parsedTokens.args, {
-			exitCode: 2,
-			stdout: "",
-			stderr: `Error: ${parsed.message}\n`,
-		});
-		return;
+		deps.stderr(`Error: ${parsed.message}\n`);
+		return 2;
 	}
 
 	if (parsed.args.isHelpRequested) {
-		emitObjectiveListOutput(pi, ctx, rawArgs, parsed.args.args, {
-			exitCode: 0,
-			stdout: renderObjectiveListHelp(),
-			stderr: "",
-		});
-		return;
+		deps.stdout(renderObjectiveListHelp());
+		return 0;
 	}
 
-	await ctx.waitForIdle();
 	const request = objectiveListRequestFromParsedArgs(parsed.args);
-	const listing = await createObjectiveClient({ cwd: ctx.cwd }).listObjectives(request);
+	const listing = await createObjectiveClient({ cwd: deps.cwd }).listObjectives(request);
 	if (!listing.ok) {
-		emitObjectiveListOutput(pi, ctx, rawArgs, parsed.args.args, {
-			exitCode: 1,
-			stdout: "",
-			stderr: `Error: ${listing.failure.message}\n`,
-		});
-		return;
+		deps.stderr(`Error: ${listing.failure.message}\n`);
+		return 1;
 	}
 
-	emitObjectiveListOutput(pi, ctx, rawArgs, parsed.args.args, {
-		exitCode: 0,
-		stdout: `${renderObjectiveListMarkdown(listing.result)}\n`,
-		stderr: "",
-	});
+	deps.stdout(`${renderObjectiveListMarkdown(listing.result)}\n`);
+	return 0;
 }
 
 function objectiveListRequestFromParsedArgs(
@@ -437,37 +371,30 @@ function objectiveListRequestFromParsedArgs(
 			continue;
 		}
 		if (arg === "--status") {
-			request.status = parsed.args[index + 1] as ObjectiveListRequestShape["status"];
-			index += 1;
+			const value = parsed.args[index + 1];
+			if (isObjectiveListStatus(value)) {
+				request.status = value;
+				index += 1;
+			}
 		}
 	}
 	return request;
 }
 
-function renderObjectiveListHelp(): string {
-	return `Usage: /objective:list ${OBJECTIVE_LIST_ARGUMENT_HINT}\n\nList checkout-local Objective records without shelling out through the objective CLI.\n\nOptions:\n  --names                         Output Objective slugs only, one per line.\n  --minimal                       Hide local branch attribution.\n  --status all|active|open|closed Filter Objective records by checkout-local status.\n  --help, -h                      Show this help.\n`;
+function isObjectiveListStatus(value: string | undefined): value is ObjectiveListStatus {
+	switch (value) {
+		case "all":
+		case "active":
+		case "open":
+		case "closed":
+			return true;
+		default:
+			return false;
+	}
 }
 
-function emitObjectiveListOutput(
-	pi: ObjectiveExtensionAPI,
-	ctx: CommandContext,
-	rawArgs: string,
-	args: readonly string[],
-	result: { exitCode: number; stdout: string; stderr: string },
-): void {
-	emitCliCommandOutput(pi, ctx, {
-		cliName: "objective",
-		commandName: "list",
-		piCommandName: OBJECTIVE_LIST_COMMAND_NAME,
-		rawArgs,
-		args: [...args],
-		argv: ["list", ...args],
-		cwd: ctx.cwd,
-		exitCode: result.exitCode,
-		stdout: result.stdout,
-		stderr: result.stderr,
-		level: result.exitCode === 0 ? "info" : "error",
-	});
+function renderObjectiveListHelp(): string {
+	return `Usage: /objective:list ${OBJECTIVE_LIST_ARGUMENT_HINT}\n\nList checkout-local Objective records without shelling out through the objective CLI.\n\nOptions:\n  --names                         Output Objective slugs only, one per line.\n  --minimal                       Hide local branch attribution.\n  --status all|active|open|closed Filter Objective records by checkout-local status.\n  --help, -h                      Show this help.\n`;
 }
 
 export const objectiveParity = definePiSurfaceParity([
@@ -513,37 +440,17 @@ export const objectiveParity = definePiSurfaceParity([
 					"Pi command selects an explicit Objective and then expands the matching portable Objective skill.",
 			}) as const,
 	),
-	{
-		kind: "command",
-		surface: "objective:stack-impl",
-		workflow:
-			"Pick an active Objective, then invoke the portable Objective stack implementation skill",
-		parity: "FULL",
-		cli: "objective list-candidates plus explicit objective-stack-impl skill invocation",
-		skill: "objective-stack-impl",
-		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl/pi",
-		sourceModule: "objective",
-		notes:
-			"Pi registers the skill-backed Objective stack implementation command directly while reusing Objective-owned selection/prompt helpers.",
-	},
 ] as const);
 
 export default function objectiveExtension(pi: ObjectiveExtensionAPI): void {
 	const objectiveCommandCompleter = createObjectiveCommandCompleter(pi);
 
-	pi.registerMessageRenderer?.(CLI_COMMAND_OUTPUT_MESSAGE_TYPE, renderCliCommandOutputMessage);
-	registerCommandWithImmediateAck({
-		host: pi,
-		commandName: OBJECTIVE_LIST_COMMAND_NAME,
-		commandDefinition: {
-			description:
-				"objective list: List active Objectives in this repository without invoking the agent.",
-			argumentHint: OBJECTIVE_LIST_ARGUMENT_HINT,
-			getArgumentCompletions: completeObjectiveListArgs,
-			handler: async (args, ctx) => handleObjectiveListCommand(pi, args, ctx),
-		},
-		options: { delivery: "none" },
+	registerCliCommandExtension(pi, {
+		cliName: "objective",
+		piNamespace: "objective",
+		commands: [OBJECTIVE_LIST_COMMAND],
+		piCommandAliases: { list: OBJECTIVE_LIST_COMMAND_NAME },
+		runCli: runObjectiveCliCommand,
 	});
 
 	registerCommandWithImmediateAck({
@@ -574,6 +481,4 @@ export default function objectiveExtension(pi: ObjectiveExtensionAPI): void {
 			},
 		});
 	}
-
-	registerObjectiveStackImplementationCommand(pi);
 }
