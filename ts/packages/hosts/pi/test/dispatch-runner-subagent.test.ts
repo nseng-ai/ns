@@ -589,6 +589,33 @@ describe("dispatch_runner_subagent extension", () => {
 		expect(details.requestedModel).toBe("gpt-5");
 	});
 
+	test("rejects bare cross-provider model shorthands instead of launching provider/model mismatches", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE });
+		const pi = new FakePi(runner.dependencies, { thinkingLevel: "high" });
+		const tool = registerTool({ pi });
+
+		const result = await tool.execute(
+			"tool-1",
+			{ title: "Anthropic reviewer", prompt: "Review the change.", model: "sonnet" },
+			undefined,
+			undefined,
+			toolContext({ model: { provider: "openai-codex", id: "gpt-5.5" } }),
+		);
+
+		expect(runner.calls).toEqual([]);
+		const text = result.content[0]?.text ?? "";
+		const details = result.details as Record<string, unknown>;
+		expect(text).toContain("Status: error");
+		expect(text).toContain('unqualified model "sonnet"');
+		expect(text).toContain('current session provider is "openai-codex"');
+		expect(text).toContain("anthropic/sonnet");
+		expect(text).not.toContain("openai-codex/sonnet");
+		expect(details.status).toBe("error");
+		expect(details.diagnostic).toBe(
+			'Invalid runner subagent model override: unqualified model "sonnet" looks like an Anthropic model shorthand, but the current session provider is "openai-codex". Use a fully qualified model such as "anthropic/sonnet" to switch providers, or omit dispatch_runner_subagent.model to inherit the current session model.',
+		);
+	});
+
 	test("streams parsed subagent progress through partial updates and UI without changing final result", async () => {
 		const manualClock = createManualClock(1_000);
 		const runner = createFakeRunnerSubagentDispatcher({

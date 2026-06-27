@@ -9,7 +9,7 @@ promptGuidelines:
   - Use dispatch_runner_subagent only for a focused delegated task where the forked Pi process prompt includes all necessary context.
   - Treat dispatch_runner_subagent as a completely separate Pi process with its own session file, context, and tool loop; it is not an in-process helper.
   - Use dispatch_runner_subagent sequentially in a shared worktree; inspect the returned status and sessionFile before deciding that work is complete.
-  - When setting dispatch_runner_subagent.model, use a fully qualified provider/model pattern to switch providers; unqualified model patterns inherit the current Pi session provider.
+  - When setting dispatch_runner_subagent.model, use a fully qualified provider/model pattern to switch providers; unqualified model patterns inherit the current Pi session provider, so never pass bare cross-provider shorthands such as `sonnet` from a Codex/OpenAI session.
   - Do not treat non-final-text statuses from dispatch_runner_subagent as completion; inspect diagnostics and the forked Pi session file first.
 ---
 
