@@ -22,6 +22,7 @@ const BAN_AS_UNKNOWN_AS = "SDL_TS_BAN_AS_UNKNOWN_AS";
 const BAN_IMPORT_ALIAS_FOR_FIRST_PARTY = "SDL_TS_BAN_IMPORT_ALIAS_FOR_FIRST_PARTY";
 const BAN_EMPTY_INTERFACE_EXTENDS = "SDL_TS_BAN_EMPTY_INTERFACE_EXTENDS";
 const BAN_CAPABILITY_PRIVATE_PEER_IMPORT = "SDL_TS_BAN_CAPABILITY_PRIVATE_PEER_IMPORT";
+const BAN_EXTENSION_DEPENDENCY_CYCLE = "SDL_TS_BAN_EXTENSION_DEPENDENCY_CYCLE";
 
 const capabilityPackageNames = new Set([
   "@sdl/aretro",
@@ -42,17 +43,42 @@ const neutralPeerPackageNames = new Set([
   "@sdl/capability-kit",
   "@sdl/graphite",
 ]);
+const manifestDependencyFields = ["dependencies", "optionalDependencies", "peerDependencies"];
+const extensionGraphPackageNames = new Set([
+  ...capabilityPackageNames,
+  "@sdl/autobranch",
+  "@sdl/pi",
+  "@sdl/sdl",
+  "@sdl/worktree-status",
+  "sdlcc",
+]);
+// Deferred by the objective-capability-extension slice: this known package cycle is real,
+// but breaking it belongs to separate graph cleanup work, not this guard addition.
+const deferredExtensionCycleEdges = new Set([
+  "@sdl/autobranch->@sdl/pi",
+  "@sdl/branch-context->@sdl/pi",
+  "@sdl/pi->@sdl/branch-context",
+  "@sdl/pi->@sdl/sdl",
+  "@sdl/sdl->@sdl/autobranch",
+]);
 const packageMetadataByName = loadPackageMetadata();
 
 /** @type {Array<{ rule: string; path: string; line: number; column: number; text: string }>} */
 const matches = [];
 
 runAdversarialReview();
+matches.push(
+  ...collectExtensionDependencyCycleViolations(
+    packageMetadataByName,
+    extensionGraphPackageNames,
+    deferredExtensionCycleEdges,
+  ),
+);
 scanDirectory(repoRoot);
 
 if (matches.length === 0) {
   console.log(
-    "OK: TypeScript style guard found no banned double-casts, first-party import aliases, empty interface-extension aliases, or private capability peer imports.",
+    "OK: TypeScript style guard found no banned double-casts, first-party import aliases, empty interface-extension aliases, private capability peer imports, or non-deferred extension dependency cycles.",
   );
   process.exit(0);
 }
@@ -67,6 +93,9 @@ console.error(
 );
 console.error(
   `${BAN_CAPABILITY_PRIVATE_PEER_IMPORT}: capability packages may import sibling capabilities through curated package exports such as \`@sdl/<cap>/api\`, but not private/deep \`src\`, \`internal\`, or undeclared capability subpaths.`,
+);
+console.error(
+  `${BAN_EXTENSION_DEPENDENCY_CYCLE}: Objective-scoped extension packages must not form non-deferred cycles through \`workspace:*\` edges in package manifests under \`ts/packages/**/package.json\`. Remove or relocate manifest dependencies, or move shared code to neutral packages/API subpaths. The existing autobranch/branch-context/pi/sdl cycle is an explicit deferred follow-up, not a silent graph exclusion.`,
 );
 console.error("");
 for (const match of matches) {
@@ -201,16 +230,19 @@ function isPrivateCapabilitySubpath(subpath) {
 }
 
 function loadPackageMetadata() {
-  /** @type {Map<string, { name: string; packageDir: string; packageJsonPath: string; exportSubpaths: Set<string> }>} */
+  /** @type {Map<string, { name: string; packageDir: string; packageJsonPath: string; manifest: Record<string, unknown>; manifestContent: string; exportSubpaths: Set<string> }>} */
   const metadataByName = new Map();
   for (const packageJsonPath of findPackageJsonFiles(join(repoRoot, "ts", "packages"))) {
     const packageDir = packageJsonPath.slice(0, -"/package.json".length);
-    const parsed = JSON.parse(readFileSync(packageJsonPath, "utf8"));
+    const manifestContent = readFileSync(packageJsonPath, "utf8");
+    const parsed = JSON.parse(manifestContent);
     if (typeof parsed.name !== "string") continue;
     metadataByName.set(parsed.name, {
       name: parsed.name,
       packageDir: relative(repoRoot, packageDir),
       packageJsonPath: relative(repoRoot, packageJsonPath),
+      manifest: parsed,
+      manifestContent,
       exportSubpaths: collectExportSubpaths(parsed.exports),
     });
   }
@@ -285,11 +317,154 @@ function buildViolation(rule, path, sourceFile, node) {
   };
 }
 
+function collectExtensionDependencyCycleViolations(metadataByName, graphPackageNames, deferredEdges) {
+  const edges = collectExtensionManifestWorkspaceEdges(metadataByName, graphPackageNames);
+  const cycleComponents = findCycleComponents([...graphPackageNames].sort(), edges);
+  /** @type {Array<{ rule: string; path: string; line: number; column: number; text: string }>} */
+  const violations = [];
+
+  for (const component of cycleComponents) {
+    const componentPackages = new Set(component);
+    const componentEdges = edges.filter((edge) => componentPackages.has(edge.from) && componentPackages.has(edge.to));
+    const nonDeferredEdges = componentEdges.filter((edge) => !deferredEdges.has(extensionEdgeKey(edge.from, edge.to)));
+    if (nonDeferredEdges.length === 0) continue;
+
+    const packagesText = [...component].sort().join(", ");
+    const deferredEdgeCount = componentEdges.length - nonDeferredEdges.length;
+    const deferredText = deferredEdgeCount > 0 ? `; ${deferredEdgeCount} known edge(s) in this component are explicitly deferred` : "";
+    for (const edge of nonDeferredEdges) {
+      violations.push({
+        rule: BAN_EXTENSION_DEPENDENCY_CYCLE,
+        path: edge.path,
+        line: edge.line,
+        column: edge.column,
+        text: `non-deferred manifest workspace cycle among ${packagesText}; edge ${edge.from} -> ${edge.to} in ${edge.field} participates${deferredText}`,
+      });
+    }
+  }
+
+  return violations;
+}
+
+function collectExtensionManifestWorkspaceEdges(metadataByName, graphPackageNames) {
+  /** @type {Array<{ from: string; to: string; field: string; path: string; line: number; column: number }>} */
+  const edges = [];
+  for (const from of [...graphPackageNames].sort()) {
+    const metadata = metadataByName.get(from);
+    if (metadata === undefined) continue;
+
+    for (const field of manifestDependencyFields) {
+      const dependencies = metadata.manifest[field];
+      if (!isDependencyMap(dependencies)) continue;
+
+      for (const [to, versionSpecifier] of Object.entries(dependencies).sort(([left], [right]) => left.localeCompare(right))) {
+        if (!graphPackageNames.has(to)) continue;
+        if (typeof versionSpecifier !== "string" || !versionSpecifier.startsWith("workspace:")) continue;
+        const position = findManifestDependencyPosition(metadata.manifestContent, to);
+        edges.push({
+          from,
+          to,
+          field,
+          path: metadata.packageJsonPath,
+          line: position.line,
+          column: position.column,
+        });
+      }
+    }
+  }
+  return edges;
+}
+
+function isDependencyMap(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function findManifestDependencyPosition(content, dependencyName) {
+  const offset = content.indexOf(`"${dependencyName}"`);
+  if (offset < 0) return { line: 1, column: 1 };
+  return lineAndColumnForOffset(content, offset);
+}
+
+function lineAndColumnForOffset(content, offset) {
+  let line = 1;
+  let column = 1;
+  for (let index = 0; index < offset; index += 1) {
+    if (content[index] === "\n") {
+      line += 1;
+      column = 1;
+    } else {
+      column += 1;
+    }
+  }
+  return { line, column };
+}
+
+function findCycleComponents(packageNames, edges) {
+  const adjacency = new Map(packageNames.map((packageName) => [packageName, []]));
+  for (const edge of edges) {
+    if (!adjacency.has(edge.from)) adjacency.set(edge.from, []);
+    if (!adjacency.has(edge.to)) adjacency.set(edge.to, []);
+    adjacency.get(edge.from).push(edge.to);
+  }
+  for (const neighbors of adjacency.values()) neighbors.sort();
+
+  let nextIndex = 0;
+  const stack = [];
+  const stackMembers = new Set();
+  const indices = new Map();
+  const lowlinks = new Map();
+  /** @type {string[][]} */
+  const components = [];
+
+  function strongConnect(packageName) {
+    indices.set(packageName, nextIndex);
+    lowlinks.set(packageName, nextIndex);
+    nextIndex += 1;
+    stack.push(packageName);
+    stackMembers.add(packageName);
+
+    for (const neighbor of adjacency.get(packageName) ?? []) {
+      if (!indices.has(neighbor)) {
+        strongConnect(neighbor);
+        lowlinks.set(packageName, Math.min(lowlinks.get(packageName), lowlinks.get(neighbor)));
+      } else if (stackMembers.has(neighbor)) {
+        lowlinks.set(packageName, Math.min(lowlinks.get(packageName), indices.get(neighbor)));
+      }
+    }
+
+    if (lowlinks.get(packageName) !== indices.get(packageName)) return;
+
+    const component = [];
+    while (stack.length > 0) {
+      const member = stack.pop();
+      stackMembers.delete(member);
+      component.push(member);
+      if (member === packageName) break;
+    }
+
+    const componentMembers = new Set(component);
+    const hasSelfEdge = edges.some((edge) => edge.from === edge.to && componentMembers.has(edge.from));
+    if (component.length > 1 || hasSelfEdge) components.push(component.sort());
+  }
+
+  for (const packageName of [...adjacency.keys()].sort()) {
+    if (!indices.has(packageName)) strongConnect(packageName);
+  }
+
+  return components.sort((left, right) => left.join("\0").localeCompare(right.join("\0")));
+}
+
+function extensionEdgeKey(from, to) {
+  return `${from}->${to}`;
+}
+
 function singleLine(text) {
   return text.replace(/\s+/g, " ").trim();
 }
 
 function runAdversarialReview() {
+  runExtensionDependencyGraphAdversarialReview();
+
   const cases = [
     {
       name: "first-party named import alias is rejected",
@@ -416,11 +591,97 @@ function runAdversarialReview() {
     const expected = [...testCase.expectedRules].sort();
     const actual = [...actualRules].sort();
     if (expected.join("\n") !== actual.join("\n")) {
-      console.error("TypeScript style guard adversarial review failed.");
-      console.error(`Case: ${testCase.name}`);
-      console.error(`Expected rules: ${expected.join(", ") || "(none)"}`);
-      console.error(`Actual rules: ${actual.join(", ") || "(none)"}`);
-      process.exit(2);
+      reportAdversarialReviewFailure(testCase.name, expected, actual);
     }
   }
+}
+
+function runExtensionDependencyGraphAdversarialReview() {
+  const syntheticPackages = new Set([
+    "@sdl/autobranch",
+    "@sdl/branch-context",
+    "@sdl/ccc",
+    "@sdl/pi",
+    "@sdl/sdl",
+  ]);
+  const deferredEdges = [...deferredExtensionCycleEdges].map((key) => {
+    const [from, to] = key.split("->");
+    return { from, to };
+  });
+  const cases = [
+    {
+      name: "acyclic extension manifest graph is allowed",
+      edges: [{ from: "@sdl/pi", to: "@sdl/ccc" }],
+      expectedHasCycle: false,
+    },
+    {
+      name: "synthetic extension manifest cycle is rejected",
+      edges: [
+        { from: "@sdl/pi", to: "@sdl/ccc" },
+        { from: "@sdl/ccc", to: "@sdl/pi" },
+      ],
+      expectedHasCycle: true,
+    },
+    {
+      name: "exact deferred extension manifest cycle is allowed",
+      edges: deferredEdges,
+      expectedHasCycle: false,
+    },
+    {
+      name: "new non-deferred cycle involving a deferred package is rejected",
+      edges: [
+        ...deferredEdges,
+        { from: "@sdl/pi", to: "@sdl/ccc" },
+        { from: "@sdl/ccc", to: "@sdl/pi" },
+      ],
+      expectedHasCycle: true,
+    },
+  ];
+
+  for (const testCase of cases) {
+    const metadataByName = buildSyntheticPackageMetadata(syntheticPackages, testCase.edges);
+    const actualRules = collectExtensionDependencyCycleViolations(
+      metadataByName,
+      syntheticPackages,
+      deferredExtensionCycleEdges,
+    ).map((violation) => violation.rule);
+    const actualHasCycle = actualRules.includes(BAN_EXTENSION_DEPENDENCY_CYCLE);
+    if (actualHasCycle !== testCase.expectedHasCycle) {
+      const expected = testCase.expectedHasCycle ? [BAN_EXTENSION_DEPENDENCY_CYCLE] : [];
+      const actual = [...new Set(actualRules)].sort();
+      reportAdversarialReviewFailure(testCase.name, expected, actual);
+    }
+  }
+}
+
+function buildSyntheticPackageMetadata(packageNames, edges) {
+  const dependenciesByPackage = new Map([...packageNames].map((packageName) => [packageName, {}]));
+  for (const edge of edges) {
+    dependenciesByPackage.get(edge.from)[edge.to] = "workspace:*";
+  }
+
+  const metadataByName = new Map();
+  for (const packageName of [...packageNames].sort()) {
+    const manifest = {
+      name: packageName,
+      dependencies: dependenciesByPackage.get(packageName),
+    };
+    metadataByName.set(packageName, {
+      name: packageName,
+      packageDir: `synthetic/${packageName}`,
+      packageJsonPath: `synthetic/${packageName}/package.json`,
+      manifest,
+      manifestContent: JSON.stringify(manifest, null, 2),
+      exportSubpaths: new Set(["."]),
+    });
+  }
+  return metadataByName;
+}
+
+function reportAdversarialReviewFailure(caseName, expected, actual) {
+  console.error("TypeScript style guard adversarial review failed.");
+  console.error(`Case: ${caseName}`);
+  console.error(`Expected rules: ${expected.join(", ") || "(none)"}`);
+  console.error(`Actual rules: ${actual.join(", ") || "(none)"}`);
+  process.exit(2);
 }
