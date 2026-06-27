@@ -1,4 +1,5 @@
 import {
+	formatCommand,
 	outputListenerToExecCallbacks,
 	runCommand,
 	stripTerminalEscapes,
@@ -38,7 +39,7 @@ import {
 import { prNumberFromLink } from "./submit-pr-link.ts";
 import type { TextGenerator } from "@sdl/core/submit";
 
-const SUBMIT_ARGS = [
+const SUBMIT_BASE_ARGS = [
 	"submit",
 	"--no-edit",
 	"--publish",
@@ -47,23 +48,9 @@ const SUBMIT_ARGS = [
 	"--no-interactive",
 	"--no-view",
 	"--no-web",
-] as const;
-const SUBMIT_DRY_RUN_ARGS = [
-	"submit",
-	"--no-edit",
-	"--publish",
-	"--no-stack",
-	"--no-ai",
-	"--no-interactive",
-	"--no-view",
-	"--no-web",
-	"--dry-run",
 ] as const;
 const RESTACK_ARGS = ["restack", "--downstack", "--no-interactive"] as const;
 const CURRENT_PR_ARGS = ["branch", "info", "--no-interactive"] as const;
-const SUBMIT_COMMAND_DISPLAY = "gt submit --no-edit --publish --no-stack --no-ai --no-interactive";
-const SUBMIT_DRY_RUN_COMMAND_DISPLAY =
-	"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --dry-run";
 const RESTACK_COMMAND_DISPLAY = "gt restack --downstack --no-interactive";
 const CURRENT_PR_COMMAND_DISPLAY = "gt branch info --no-interactive";
 const GIT_UNMERGED_ARGS = ["diff", "--name-only", "--diff-filter=U"] as const;
@@ -72,6 +59,18 @@ const SUBMIT_TIMEOUT_MS = 600_000;
 const RESTACK_TIMEOUT_MS = 600_000;
 const CURRENT_PR_TIMEOUT_MS = 60_000;
 const GIT_CHECK_TIMEOUT_MS = 30_000;
+
+function buildSubmitArgs(options: { dryRun: boolean; force: boolean }): string[] {
+	return [
+		...SUBMIT_BASE_ARGS,
+		...(options.force ? ["--force"] : []),
+		...(options.dryRun ? ["--dry-run"] : []),
+	];
+}
+
+function formatSubmitCommandDisplay(options: { dryRun: boolean; force: boolean }): string {
+	return formatCommand("gt", buildSubmitArgs(options));
+}
 
 export interface SubmitCommandOutput {
 	stdout: string;
@@ -96,6 +95,7 @@ export type SubmitRestackConfirmation = (
 export interface SubmitCommandParams {
 	cwd: string;
 	onOutput?: SubmitOutputListener;
+	force?: boolean;
 }
 
 interface RunGtOptions {
@@ -215,6 +215,7 @@ export interface RunSubmitCommandOptions {
 	gateway: SubmitGateway;
 	metadataGateway: SubmitMetadataGateway;
 	restack: boolean;
+	force: boolean;
 	shouldForwardCommandOutput?: boolean;
 	onOutput?: SubmitOutputListener;
 	confirmRestack?: SubmitRestackConfirmation;
@@ -230,7 +231,7 @@ export class RealSubmitGateway implements SubmitGateway {
 
 	async checkSubmitReadiness(params: SubmitCommandParams): Promise<SubmitPreflightResult> {
 		const output = await this.runGt({
-			args: SUBMIT_DRY_RUN_ARGS,
+			args: buildSubmitArgs({ dryRun: true, force: params.force === true }),
 			cwd: params.cwd,
 			timeoutMs: CURRENT_PR_TIMEOUT_MS,
 			...optionalOutputListenerParam(params.onOutput),
@@ -268,7 +269,7 @@ export class RealSubmitGateway implements SubmitGateway {
 
 	async submitCurrentStack(params: SubmitCommandParams): Promise<SubmitRunResult> {
 		const output = await this.runGt({
-			args: SUBMIT_ARGS,
+			args: buildSubmitArgs({ dryRun: false, force: params.force === true }),
 			cwd: params.cwd,
 			timeoutMs: SUBMIT_TIMEOUT_MS,
 			...optionalOutputListenerParam(params.onOutput),
@@ -351,17 +352,25 @@ export class RealSubmitGateway implements SubmitGateway {
 export async function runSubmitCommand(
 	options: RunSubmitCommandOptions,
 ): Promise<SubmitCommandResult> {
+	const submitCommandDisplay = formatSubmitCommandDisplay({ dryRun: false, force: options.force });
+	const submitDryRunCommandDisplay = formatSubmitCommandDisplay({
+		dryRun: true,
+		force: options.force,
+	});
 	const commandParams = submitCommandParams(options);
 	emitSubmitProgress(options, "checking Graphite submit readiness");
 	const readiness = await options.gateway.checkSubmitReadiness(commandParams);
 	if (readiness.kind === "failed") {
 		if (readiness.cause === "trunk_out_of_date") {
-			const stderr = formatTrunkOutOfDatePreflightOutput(readiness.output);
+			const stderr = formatTrunkOutOfDatePreflightOutput(
+				readiness.output,
+				submitDryRunCommandDisplay,
+			);
 			return failure(normalizedFailureExitCode(readiness.output), stderr, {
 				failurePresentation: "deterministic",
 				rawFailureTranscript: commandFailureTranscript(
 					"preflight",
-					SUBMIT_DRY_RUN_COMMAND_DISPLAY,
+					submitDryRunCommandDisplay,
 					readiness.output,
 					stderr,
 				),
@@ -369,12 +378,12 @@ export async function runSubmitCommand(
 		}
 		return failure(
 			normalizedFailureExitCode(readiness.output),
-			formatPreflightFailureOutput(readiness.output),
+			formatPreflightFailureOutput(readiness.output, submitDryRunCommandDisplay),
 			{
 				failurePresentation: "unknown",
 				rawFailureTranscript: commandFailureTranscript(
 					"preflight",
-					SUBMIT_DRY_RUN_COMMAND_DISPLAY,
+					submitDryRunCommandDisplay,
 					readiness.output,
 				),
 			},
@@ -384,12 +393,12 @@ export async function runSubmitCommand(
 		emitSubmitProgress(options, "Graphite requires a restack before submit");
 		const restackDecision = await shouldRunRestack(options, readiness.output);
 		if (restackDecision === "unavailable") {
-			return failure(1, formatRestackRequiredOutput(readiness.output), {
+			return failure(1, formatRestackRequiredOutput(readiness.output, submitDryRunCommandDisplay), {
 				failurePresentation: "deterministic",
 			});
 		}
 		if (restackDecision === "declined") {
-			return failure(1, formatRestackDeclinedOutput(readiness.output), {
+			return failure(1, formatRestackDeclinedOutput(readiness.output, submitDryRunCommandDisplay), {
 				failurePresentation: "deterministic",
 			});
 		}
@@ -401,12 +410,15 @@ export async function runSubmitCommand(
 
 		const rechecked = await options.gateway.checkSubmitReadiness(commandParams);
 		if (rechecked.kind !== "ready") {
-			const stderr = formatReadinessRecheckFailureOutput(rechecked.output);
+			const stderr = formatReadinessRecheckFailureOutput(
+				rechecked.output,
+				submitDryRunCommandDisplay,
+			);
 			return failure(normalizedFailureExitCode(rechecked.output), stderr, {
 				failurePresentation: "deterministic",
 				rawFailureTranscript: commandFailureTranscript(
 					"readiness recheck",
-					SUBMIT_DRY_RUN_COMMAND_DISPLAY,
+					submitDryRunCommandDisplay,
 					rechecked.output,
 					stderr,
 				),
@@ -436,12 +448,12 @@ export async function runSubmitCommand(
 	if (submitted.kind === "failed") {
 		return failure(
 			normalizedFailureExitCode(submitted.output),
-			formatSubmitFailureOutput(submitted.output, prewrite.prepared),
+			formatSubmitFailureOutput(submitted.output, prewrite.prepared, submitCommandDisplay),
 			{
 				failurePresentation: "unknown",
 				rawFailureTranscript: commandFailureTranscript(
 					"submit",
-					SUBMIT_COMMAND_DISPLAY,
+					submitCommandDisplay,
 					submitted.output,
 				),
 			},
@@ -457,12 +469,18 @@ export async function runSubmitCommand(
 		const stderr = formatPostSubmitFailureOutput({
 			submitted,
 			currentPr,
+			submitCommandDisplay,
 		});
 		return failure(1, stderr, {
 			failurePresentation: isDeterministicPostSubmitFailure(submitted, currentPr)
 				? "deterministic"
 				: "unknown",
-			rawFailureTranscript: postSubmitFailureTranscript(stderr, submitted, currentPr),
+			rawFailureTranscript: postSubmitFailureTranscript(
+				stderr,
+				submitted,
+				currentPr,
+				submitCommandDisplay,
+			),
 		});
 	}
 
@@ -501,13 +519,21 @@ export async function runSubmitCommand(
 type RestackDecision = "run" | "declined" | "unavailable";
 
 async function shouldRunRestack(
-	options: Pick<RunSubmitCommandOptions, "restack" | "confirmRestack">,
+	options: Pick<RunSubmitCommandOptions, "restack" | "force" | "confirmRestack">,
 	output: SubmitCommandOutput,
 ): Promise<RestackDecision> {
 	if (options.restack) return "run";
 	if (options.confirmRestack === undefined) return "unavailable";
 
-	const confirmed = await options.confirmRestack(formatRestackConfirmationPrompt(output));
+	const confirmed = await options.confirmRestack(
+		formatRestackConfirmationPrompt(output, {
+			submitCommandDisplay: formatSubmitCommandDisplay({ dryRun: false, force: options.force }),
+			submitDryRunCommandDisplay: formatSubmitCommandDisplay({
+				dryRun: true,
+				force: options.force,
+			}),
+		}),
+	);
 	return confirmed ? "run" : "declined";
 }
 
@@ -547,10 +573,14 @@ async function runRestackBeforeSubmit(
 }
 
 function submitCommandParams(
-	options: Pick<RunSubmitCommandOptions, "cwd" | "shouldForwardCommandOutput" | "onOutput">,
+	options: Pick<
+		RunSubmitCommandOptions,
+		"cwd" | "force" | "shouldForwardCommandOutput" | "onOutput"
+	>,
 ): SubmitCommandParams {
 	return {
 		cwd: options.cwd,
+		...(options.force ? { force: true } : {}),
 		...optionalOutputListenerParam(
 			options.shouldForwardCommandOutput === false ? undefined : options.onOutput,
 		),
@@ -562,10 +592,11 @@ function submitCommandParams(
 // phases (preflight dry-run, restack, verification) remain gated by --verbose via
 // submitCommandParams to keep default output concise.
 function submitStreamingCommandParams(
-	options: Pick<RunSubmitCommandOptions, "cwd" | "onOutput">,
+	options: Pick<RunSubmitCommandOptions, "cwd" | "force" | "onOutput">,
 ): SubmitCommandParams {
 	return {
 		cwd: options.cwd,
+		...(options.force ? { force: true } : {}),
 		...optionalOutputListenerParam(options.onOutput),
 	};
 }
@@ -707,13 +738,14 @@ function postSubmitFailureTranscript(
 	summary: string,
 	submitted: Extract<SubmitRunResult, { kind: "success" }>,
 	currentPr: CurrentPrVerificationResult,
+	submitCommandDisplay: string,
 ): SubmitFailureTranscript {
 	return {
 		phase: "post-submit verification",
 		summary,
 		commands: [
 			{
-				commandDisplay: SUBMIT_COMMAND_DISPLAY,
+				commandDisplay: submitCommandDisplay,
 				stdout: submitted.output.stdout,
 				stderr: submitted.output.stderr,
 				exitCode: submitted.output.exitCode,
