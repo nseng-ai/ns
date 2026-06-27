@@ -30,7 +30,6 @@
   },
   "dependencies": {
     "@sdl/branch-context": "workspace:*",
-    "@sdl/ccc": "workspace:*",
     "@sdl/core": "workspace:*",
     "@sdl/domain-primitives-transitional": "workspace:*",
     "@sdl/graphite": "workspace:*",

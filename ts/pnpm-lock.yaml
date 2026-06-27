@@ -278,9 +278,6 @@ importers:
       '@sdl/branch-context':
         specifier: workspace:*
         version: link:../../branch-context
-      '@sdl/ccc':
-        specifier: workspace:*
-        version: link:../../ccc
       '@sdl/core':
         specifier: workspace:*
         version: link:../../infra/core

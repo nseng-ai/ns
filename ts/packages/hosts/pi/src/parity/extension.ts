@@ -21,8 +21,8 @@
  *
  * Scope is intentionally narrow for v1: package modules in @sdl/pi plus
  * checked-in project-local adapters whose metadata must remain Pi-local to avoid
- * package cycles. Direct @sdl/ccc command surfaces are not enforced here unless
- * they are exposed through this package.
+ * package cycles. Direct command surfaces owned by other orchestration packages
+ * are not enforced here unless they are exposed through this package.
  */
 export const PI_SURFACE_KINDS = ["command"] as const;
 export type PiSurfaceKind = (typeof PI_SURFACE_KINDS)[number];
