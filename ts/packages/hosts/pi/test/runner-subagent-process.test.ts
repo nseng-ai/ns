@@ -579,6 +579,26 @@ describe("runner subagent process dispatcher", () => {
 		});
 	});
 
+	test("rejects bare provider-specific model shorthands before spawning with the wrong provider", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({
+			sessionFile: "/tmp/runner-subagent.jsonl",
+		});
+		const result = await dispatchRunnerSubagentProcess(
+			{ getThinkingLevel: () => "high" },
+			{ cwd: "/repo", model: { provider: "openai-codex", id: "gpt-5.5" } },
+			finalTextOptions({ title: "Anthropic reviewer", model: "sonnet" }),
+			runner.dependencies,
+		);
+
+		expect(runner.calls).toEqual([]);
+		expect(result.status).toBe("error");
+		if (result.status !== "error") return;
+		expect(result.diagnostic).toContain('unqualified model "sonnet"');
+		expect(result.diagnostic).toContain('current session provider is "openai-codex"');
+		expect(result.diagnostic).toContain("anthropic/sonnet");
+		expect(result.progress.launch).toBeUndefined();
+	});
+
 	test("does not inherit parent thinking when caller provides a model pattern", async () => {
 		const runner = createFakeRunnerSubagentDispatcher({
 			sessionFile: "/tmp/runner-subagent.jsonl",

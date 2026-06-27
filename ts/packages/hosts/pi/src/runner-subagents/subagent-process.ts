@@ -136,9 +136,18 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 	const startTimeMs = clock.nowMs();
 	const cwd = options.cwd ?? ctx.cwd;
 	const title = options.title;
+	const updateEmitter = createUpdateEmitter(options.onProgress);
+	const invalidModelDiagnostic = invalidRequestedModelDiagnostic(
+		options.model,
+		options.launch?.model ?? options.preResolvedLaunch?.model ?? ctx.model,
+	);
+	if (invalidModelDiagnostic !== undefined) {
+		const progress = stoppedProgress({ title, clock, startTimeMs });
+		updateEmitter.emit(updateFromProgress(progress), { force: true });
+		return errorResult(title, progress, invalidModelDiagnostic);
+	}
 	const launch = options.preResolvedLaunch ?? resolveRunnerSubagentLaunch(pi, ctx, options);
 	const abortSignals = uniqueAbortSignals(ctx.signal, options.signal);
-	const updateEmitter = createUpdateEmitter(options.onProgress);
 
 	if (abortSignals.some((signal) => signal.aborted)) {
 		const progress = stoppedProgress({
@@ -617,11 +626,79 @@ function inheritedProviderModelForRequestedModel(
 ): ModelInfo | undefined {
 	if (inheritedModel === undefined || hasExplicitProviderInModelPattern(requestedModel))
 		return undefined;
+	if (invalidRequestedModelDiagnostic(requestedModel, inheritedModel) !== undefined)
+		return undefined;
 	return { provider: inheritedModel.provider, id: requestedModel };
 }
 
 function hasExplicitProviderInModelPattern(model: string): boolean {
 	return parseModelRef(model) !== undefined;
+}
+
+type ModelProviderFamily = "anthropic" | "google" | "openai";
+
+interface ModelProviderFamilyInfo {
+	label: string;
+	exampleProvider: string;
+	article: "a" | "an";
+}
+
+const MODEL_PROVIDER_FAMILY_INFO: Record<ModelProviderFamily, ModelProviderFamilyInfo> = {
+	anthropic: { label: "Anthropic", exampleProvider: "anthropic", article: "an" },
+	google: { label: "Google", exampleProvider: "google", article: "a" },
+	openai: { label: "OpenAI", exampleProvider: "openai-codex", article: "an" },
+};
+
+function invalidRequestedModelDiagnostic(
+	requestedModel: string | undefined,
+	inheritedModel: ModelInfo | undefined,
+): string | undefined {
+	if (requestedModel === undefined || hasExplicitProviderInModelPattern(requestedModel)) {
+		return undefined;
+	}
+	const family = inferModelProviderFamily(requestedModel);
+	if (family === undefined || inheritedModel === undefined) return undefined;
+	if (providerMatchesModelProviderFamily(inheritedModel.provider, family)) return undefined;
+
+	const info = MODEL_PROVIDER_FAMILY_INFO[family];
+	return [
+		`Invalid runner subagent model override: unqualified model ${JSON.stringify(requestedModel)} looks like ${info.article} ${info.label} model shorthand, but the current session provider is ${JSON.stringify(inheritedModel.provider)}.`,
+		`Use a fully qualified model such as ${JSON.stringify(`${info.exampleProvider}/${requestedModel}`)} to switch providers, or omit dispatch_runner_subagent.model to inherit the current session model.`,
+	].join(" ");
+}
+
+function inferModelProviderFamily(modelPattern: string): ModelProviderFamily | undefined {
+	const modelId = modelPattern.trim().toLowerCase().split(":", 1)[0] ?? "";
+	if (
+		modelId === "sonnet" ||
+		modelId === "opus" ||
+		modelId === "haiku" ||
+		modelId === "fable" ||
+		modelId.startsWith("claude-")
+	) {
+		return "anthropic";
+	}
+	if (modelId.startsWith("gemini-")) return "google";
+	if (modelId.startsWith("gpt-") || /^o[134](?:-|$)/.test(modelId)) return "openai";
+	return undefined;
+}
+
+function providerMatchesModelProviderFamily(
+	provider: string,
+	family: ModelProviderFamily,
+): boolean {
+	switch (family) {
+		case "anthropic":
+			return provider === "anthropic";
+		case "google":
+			return provider === "google" || provider === "gemini";
+		case "openai":
+			return provider === "openai" || provider === "openai-codex";
+		default: {
+			const exhaustive: never = family;
+			return exhaustive;
+		}
+	}
 }
 
 function createUpdateEmitter(onProgress: ((update: RunnerSubagentUpdate) => void) | undefined): {

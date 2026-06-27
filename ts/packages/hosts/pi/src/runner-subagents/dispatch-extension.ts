@@ -82,7 +82,7 @@ export const DISPATCH_RUNNER_SUBAGENT_PARAMETERS = {
 		model: {
 			type: "string",
 			description:
-				"Optional Pi --model pattern for the forked Pi process. Unqualified patterns inherit the current session provider. Use only when the delegated task is safe for that model.",
+				"Optional Pi --model pattern for the forked Pi process. Unqualified patterns inherit the current session provider, and provider-specific shorthands that do not match that provider are rejected. Use fully qualified provider/model strings when switching providers.",
 		},
 	},
 	required: ["title", "prompt"],
