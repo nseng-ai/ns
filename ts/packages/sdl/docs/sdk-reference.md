@@ -664,10 +664,17 @@ interface TextGenerationRequest {
 ### `TextGenerationResult`
 
 ```ts
-type TextGenerationResult = { ok: true; text: string } | { ok: false; error: string };
+interface TextGenerationUsage {
+  inputTokens: number;
+  outputTokens: number;
+}
+
+type TextGenerationResult =
+  | { ok: true; text: string; usage?: TextGenerationUsage }
+  | { ok: false; error: string };
 ```
 
-A discriminated union on `ok`: either the generated `text` or an `error` message.
+A discriminated union on `ok`: either the generated `text` plus optional token `usage`, or an `error` message.
 
 **Example.**
 

@@ -92,9 +92,6 @@ export async function generateSubmitPrDescriptions(input: {
 		switch (result.type) {
 			case "skipped":
 				skipped.push(link);
-				input.onProgress?.(
-					`skipping PR #${number} description; generated fingerprint is unchanged`,
-				);
 				break;
 			case "matched_prewritten":
 				prewritten.push(link);

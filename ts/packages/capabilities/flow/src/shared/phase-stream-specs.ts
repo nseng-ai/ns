@@ -46,11 +46,19 @@ export const SUBMIT_PHASES: readonly PhaseSpec[] = [
 	},
 	{
 		key: "metadata",
-		item: { name: "Metadata", detail: "metadata prepared", label: "preparing PR metadata…" },
+		item: {
+			name: "Metadata",
+			detail: "metadata prepared",
+			label: "inspecting stack and preparing PR metadata if needed…",
+		},
 	},
 	{
 		key: "submit",
-		item: { name: "Submit", detail: "stack submitted", label: "running gt submit…" },
+		item: {
+			name: "Submit",
+			detail: "stack submitted",
+			label: "running gt submit --no-edit --publish --no-stack --no-ai…",
+		},
 	},
 	{
 		key: "verification",
@@ -61,7 +69,7 @@ export const SUBMIT_PHASES: readonly PhaseSpec[] = [
 		item: {
 			name: "Descriptions",
 			detail: "descriptions ready",
-			label: "generating PR descriptions…",
+			label: "checking PR descriptions for skip or regeneration…",
 		},
 	},
 ];

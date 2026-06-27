@@ -435,6 +435,7 @@ async function generateMetadataForBranches(input: {
 		};
 	}
 
+	input.onProgress?.(`resolved PR metadata model ${generation.modelRef}`);
 	const prepared: PrewrittenPrMetadata[] = [];
 	for (const [index, branch] of input.branches.entries()) {
 		input.onProgress?.(

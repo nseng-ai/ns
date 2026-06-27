@@ -3,9 +3,10 @@ import type { Api, completeSimple, Model } from "@earendil-works/pi-ai";
 import { formatErrorMessage } from "@sdl/core/primitives";
 
 import type {
-	TextGenerator,
 	TextGenerationRequest,
 	TextGenerationResult,
+	TextGenerationUsage,
+	TextGenerator,
 } from "@sdl/domain-primitives-transitional/text-generation";
 
 const DEFAULT_MAX_TOKENS = 512;
@@ -104,7 +105,12 @@ export class PiTextGenerator implements TextGenerator {
 				return { ok: false, error: `Pi model ${request.modelRef} returned empty text.` };
 			}
 
-			return { ok: true, text };
+			const usage = textGenerationUsageFromResponse(response.usage);
+			return {
+				ok: true,
+				text,
+				...(usage === undefined ? {} : { usage }),
+			};
 		} catch (error) {
 			return {
 				ok: false,
@@ -112,6 +118,17 @@ export class PiTextGenerator implements TextGenerator {
 			};
 		}
 	}
+}
+
+function textGenerationUsageFromResponse(usage: {
+	input: number;
+	output: number;
+}): TextGenerationUsage | undefined {
+	if (!Number.isFinite(usage.input) || !Number.isFinite(usage.output)) return undefined;
+	return {
+		inputTokens: usage.input,
+		outputTokens: usage.output,
+	};
 }
 
 type ParsedPiModelRef =

@@ -150,7 +150,17 @@ function defaultPrDescriptionText(): string {
 
 describe("project-local submit extension", () => {
 	test("clean success submits, verifies current PR, prints quiet progress, and rewrites PR bodies", async () => {
-		const run = runWithFakes();
+		const run = runWithFakes({
+			state: {
+				textGeneration: [
+					{
+						ok: true,
+						text: defaultPrDescriptionText(),
+						usage: { inputTokens: 1234, outputTokens: 56 },
+					},
+				],
+			},
+		});
 
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
@@ -167,15 +177,17 @@ describe("project-local submit extension", () => {
 				transient("checkpointing pending changes…"),
 				transient("inspecting worktree…"),
 				transient("checking submit readiness…"),
-				transient("preparing PR metadata…"),
-				transient("running gt submit…"),
+				transient("inspecting stack and preparing PR metadata if needed…"),
+				transient("gt submit --no-edit --publish --no-stack --no-ai --no-interactive"),
 				transient("checking submitted PRs…"),
-				transient("generating PR descriptions…"),
+				transient("checking 1 PR description for skip or regeneration"),
 				transient("preparing descriptions for 1 PR"),
 				transient("loading PR #123 metadata (1/1)"),
 				transient("resolving PR description prompt and model"),
 				transient("checking PR #123 description fingerprint"),
+				transient("recomputing PR #123 description (no generated fingerprint found)"),
 				transient("generating PR metadata (attempt 1/2)"),
+				transient("PR metadata generated (tokens in 1234, out 56)"),
 				transient("updating PR #123 description"),
 				transient("finished PR #123 description"),
 			]),
@@ -210,7 +222,7 @@ describe("project-local submit extension", () => {
 			expect.arrayContaining([
 				transient("checking submit readiness…"),
 				{ stream: "stdout", text: "ready\n" },
-				transient("running gt submit…"),
+				transient("gt submit --no-edit --publish --no-stack --no-ai --no-interactive"),
 				{ stream: "stdout", text: `Submitted ${PR_URL}\n` },
 			]),
 		);
@@ -282,6 +294,9 @@ describe("project-local submit extension", () => {
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("Skipped unchanged PR descriptions");
 		expect(run.context.textGeneratorCalls).toEqual([]);
+		expect(run.liveOutput).toContainEqual(
+			transient("skipping PR #123 description; generated fingerprint is unchanged"),
+		);
 		expect(formattedExecCalls(run.context)).not.toContain("gh pr view 123 --json commits");
 		expect(formattedExecCalls(run.context).some((call) => call.startsWith("gh pr edit 123"))).toBe(
 			false,
