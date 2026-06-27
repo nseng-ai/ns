@@ -190,9 +190,9 @@ Do not silently auto-select from candidate count or changed/touched files. Never
 
 ## Operations
 
-V1 keeps Objective meaning in Markdown. Small CLI surfaces (`objective list`, `objective archive`, `objective exec read-objective`, `objective exec load-orientations`, and `objective exec runner-subagent-usage`) ship deterministic mechanics that the skills delegate to. Narrative mutations remain direct Markdown edits; archive/unarchive is a shipped directory-move mutation that does not edit Objective prose.
+V1 keeps Objective meaning in Markdown. Small CLI surfaces (`sdl objective list`, `sdl objective archive`, `sdl objective exec read-objective`, `sdl objective exec load-orientations`, and `sdl objective exec runner-subagent-usage`) ship deterministic mechanics that the skills delegate to. Narrative mutations remain direct Markdown edits; archive/unarchive is a shipped directory-move mutation that does not edit Objective prose.
 
-### `objective list`
+### `sdl objective list`
 
 Lists Objective records in the current checkout.
 
@@ -216,17 +216,17 @@ Contract:
 
 Shipped CLI:
 
-- Run `objective list` for the default active/open Objective inventory with local branch attribution.
-- Run `objective list --format md` for markdown output with local branch attribution.
-- Run `objective list --format json` for the machine envelope with local branch attribution.
-- Run `objective list --minimal` for the compact active/open Objective inventory without local branch attribution.
-- Run `objective list --status all` to include open and closed active-root Objective records.
-- Run `objective list --status closed` for closed active-root Objective records.
-- Run `objective list --status all --format md` for a Markdown table with local branch attribution.
-- Run `objective list --minimal --status closed --format json` for machine-readable closed records without branch attribution.
-- Run `objective list --names` to print active slugs, one per line.
+- Run `sdl objective list` for the default active/open Objective inventory with local branch attribution.
+- Run `sdl objective list --format md` for markdown output with local branch attribution.
+- Run `sdl objective list --format json` for the machine envelope with local branch attribution.
+- Run `sdl objective list --minimal` for the compact active/open Objective inventory without local branch attribution.
+- Run `sdl objective list --status all` to include open and closed active-root Objective records.
+- Run `sdl objective list --status closed` for closed active-root Objective records.
+- Run `sdl objective list --status all --format md` for a Markdown table with local branch attribution.
+- Run `sdl objective list --minimal --status closed --format json` for machine-readable closed records without branch attribution.
+- Run `sdl objective list --names` to print active slugs, one per line.
 
-### `objective exec load-orientations`
+### `sdl objective exec load-orientations`
 
 Loads active Objective orientation files for agent onboarding.
 
@@ -245,9 +245,9 @@ Contract:
 
 Shipped CLI:
 
-- Run `objective exec load-orientations` for default Markdown-compatible output.
-- Run `objective exec load-orientations --format md` for explicit Markdown output.
-- Run `objective exec load-orientations --format json` for the machine envelope.
+- Run `sdl objective exec load-orientations` for default Markdown-compatible output.
+- Run `sdl objective exec load-orientations --format md` for explicit Markdown output.
+- Run `sdl objective exec load-orientations --format json` for the machine envelope.
 
 ### `objective-create`
 
@@ -279,7 +279,7 @@ User interview:
 
 Shipped CLI:
 
-- Active-root duplicate detection: `objective exec read-objective <slug>` returns a `not_found` envelope when the slug has no active-root record, and otherwise emits the existing active record. Archived records should still be checked before reusing a slug.
+- Active-root duplicate detection: `sdl objective exec read-objective <slug>` returns a `not_found` envelope when the slug has no active-root record, and otherwise emits the existing active record. Archived records should still be checked before reusing a slug.
 
 Future CLI pushdown candidates:
 
@@ -301,8 +301,8 @@ Contract:
 
 Shipped CLI:
 
-- Candidate objective listing: `objective list` (active root only).
-- Closed-marker detection and structured inventory: `objective list` (per-record) and `objective exec read-objective <slug>` (active-root per-record raw Markdown plus closed state and missing-file notes).
+- Candidate objective listing: `sdl objective list` (active root only).
+- Closed-marker detection and structured inventory: `sdl objective list` (per-record) and `sdl objective exec read-objective <slug>` (active-root per-record raw Markdown plus closed state and missing-file notes).
 
 ### `objective-next`
 
@@ -328,7 +328,7 @@ Contract:
 
 Shipped CLI:
 
-- Active candidate filtering: `objective list` lists active-root open candidates by default; `objective list --status all` reports active-root closed records too.
+- Active candidate filtering: `sdl objective list` lists active-root open candidates by default; `sdl objective list --status all` reports active-root closed records too.
 
 Future CLI pushdown candidates:
 
@@ -369,7 +369,7 @@ Contract:
 - Update `objective.md` with `## Closure` context, including remaining assumptions, risks, caveats, and follow-ups when relevant.
 - Write `closed.md` as an existence-only Closure Marker.
 - Leave the objective directory in its current root.
-- Do not delete the objective or archive it implicitly; use `objective archive` separately when the user wants the record outside active discovery.
+- Do not delete the objective or archive it implicitly; use `sdl objective archive` separately when the user wants the record outside active discovery.
 - Do not create a reopen mechanism in v1.
 
 Future CLI pushdown candidates:
@@ -378,14 +378,14 @@ Future CLI pushdown candidates:
 - Refusal when already closed unless the user asks to amend closure context.
 - Verification that `objective.md` contains a `## Closure` section.
 
-### `objective archive`
+### `sdl objective archive`
 
 Moves an Objective record between active and archived roots without editing Objective Markdown.
 
 Contract:
 
-- `objective archive <slug>` moves `.sdl/objectives/<slug>/` to `.sdl/objective-archive/<slug>/`.
-- `objective archive <slug> --unarchive` moves `.sdl/objective-archive/<slug>/` back to `.sdl/objectives/<slug>/`.
+- `sdl objective archive <slug>` moves `.sdl/objectives/<slug>/` to `.sdl/objective-archive/<slug>/`.
+- `sdl objective archive <slug> --unarchive` moves `.sdl/objective-archive/<slug>/` back to `.sdl/objectives/<slug>/`.
 - Preserve the slug and all files, including `closed.md` when present.
 - Refuse invalid slugs, missing source directories, non-directory sources, and existing destinations.
 - Do not infer closure from archive state and do not infer archive state from closure.
@@ -393,10 +393,10 @@ Contract:
 
 Shipped CLI:
 
-- Run `objective archive <slug>` to remove a record from normal active discovery.
-- Run `objective archive <slug> --unarchive` to make an archived record active again.
+- Run `sdl objective archive <slug>` to remove a record from normal active discovery.
+- Run `sdl objective archive <slug> --unarchive` to make an archived record active again.
 
-### `objective exec runner-subagent-usage`
+### `sdl objective exec runner-subagent-usage`
 
 Summarizes Pi runner-subagent JSONL session files for Objective stack digest workflows.
 
@@ -436,12 +436,12 @@ Future CLI tooling should own deterministic mechanics and facts, not objective m
 
 Good CLI responsibilities:
 
-- Validate slugs and paths. *(partially shipped: `objective exec read-objective` rejects empty, `.`, `..`, and slash-bearing slugs.)*
-- List candidate objectives from checkout-local active-root records. *(shipped: `objective list`.)*
-- Detect closed markers. *(shipped for active-root records: `objective list`, `objective exec read-objective`, and `objective exec load-orientations` use direct `closed.md` presence.)*
-- Load active Objective orientation files for agent onboarding. *(shipped: `objective exec load-orientations`.)*
-- Move Objective records between active and archived roots without editing prose. *(shipped: `objective archive`.)*
-- Summarize runner-subagent session usage for Objective stack digestion. *(shipped: `objective exec runner-subagent-usage`.)*
+- Validate slugs and paths. *(partially shipped: `sdl objective exec read-objective` rejects empty, `.`, `..`, and slash-bearing slugs.)*
+- List candidate objectives from checkout-local active-root records. *(shipped: `sdl objective list`.)*
+- Detect closed markers. *(shipped for active-root records: `sdl objective list`, `sdl objective exec read-objective`, and `sdl objective exec load-orientations` use direct `closed.md` presence.)*
+- Load active Objective orientation files for agent onboarding. *(shipped: `sdl objective exec load-orientations`.)*
+- Move Objective records between active and archived roots without editing prose. *(shipped: `sdl objective archive`.)*
+- Summarize runner-subagent session usage for Objective stack digestion. *(shipped: `sdl objective exec runner-subagent-usage`.)*
 - Scaffold required files and headings. *(future.)*
 - Detect missing `## Assumptions and Risks` sections. *(future.)*
 - Generate timestamped update filenames. *(future.)*

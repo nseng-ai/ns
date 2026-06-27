@@ -5,10 +5,10 @@
   "exports": {
     ".": "./src/index.ts",
     "./api": "./src/api.ts",
-    "./command-face": "./src/cli.ts",
     "./sdl/commands/archive": "./src/sdl/commands/archive.ts",
     "./sdl/commands/check": "./src/sdl/commands/check.ts",
     "./sdl/commands/exec-list-candidates": "./src/sdl/commands/exec-list-candidates.ts",
+    "./sdl/commands/exec-load-orientations": "./src/sdl/commands/exec-load-orientations.ts",
     "./sdl/commands/exec-read-objective": "./src/sdl/commands/exec-read-objective.ts",
     "./sdl/commands/exec-runner-subagent-usage": "./src/sdl/commands/exec-runner-subagent-usage.ts",
     "./sdl/commands/list": "./src/sdl/commands/list.ts"

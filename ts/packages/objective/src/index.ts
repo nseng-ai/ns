@@ -1,4 +1,3 @@
-export { buildCli, runCli, VERSION, type CliDeps } from "./cli.ts";
 export { createRealObjectiveContext, type ObjectiveCliContext } from "./context.ts";
 export {
 	FakeObjectiveStorageGateway,

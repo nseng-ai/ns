@@ -23,6 +23,11 @@
 				"entry": "./src/commands/exec-list-candidates.ts"
 			},
 			{
+				"name": "exec-load-orientations",
+				"description": "Load active Objective orientation files for agent onboarding.",
+				"entry": "./src/commands/exec-load-orientations.ts"
+			},
+			{
 				"name": "exec-read-objective",
 				"description": "Read one Objective record by explicit slug as filesystem facts or raw Markdown.",
 				"entry": "./src/commands/exec-read-objective.ts"

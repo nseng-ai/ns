@@ -2,7 +2,7 @@
 
 ## What SDL is
 
-SDL (Source Development Lifecycle) is private, unreleased, agent-first tooling for running multi-session, multi-branch software work in a git-native way. It gives agents and humans a shared set of capabilities — durable planning **Objectives**, worktree **slots**, **branch-context** and branch memory, directed **handoffs**, and Graphite-based PR stacking — surfaced both as CLIs (`sdl`, `slot`, `objective`, `brmem`, …) and as Pi `/sdl:*` slash-commands. Assume you are one of many agents starting cold on this repo: orient yourself with the docs below before acting.
+SDL (Source Development Lifecycle) is private, unreleased, agent-first tooling for running multi-session, multi-branch software work in a git-native way. It gives agents and humans a shared set of capabilities — durable planning **Objectives**, worktree **slots**, **branch-context** and branch memory, directed **handoffs**, and Graphite-based PR stacking — surfaced both as CLIs (`sdl`, `slot`, `brmem`, …) and as Pi `/sdl:*` slash-commands. Assume you are one of many agents starting cold on this repo: orient yourself with the docs below before acting.
 
 ## Scope
 
@@ -28,7 +28,7 @@ This root `AGENTS.md` contains only repo-wide rules needed before choosing a dir
 Before starting non-trivial work, load every active initiative orientation and treat
 each as a repo rule while present:
 
-    objective exec load-orientations --format md
+    sdl objective exec load-orientations --format md
 
 Each `orientation.md` is the standing, agent-facing rule for an in-flight cross-cutting
 initiative — it states where that part of the system is going vs. what you see in the
