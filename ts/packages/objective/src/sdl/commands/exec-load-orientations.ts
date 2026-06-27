@@ -14,6 +14,7 @@ export const objectiveExecLoadOrientationsSdlCommand = objectiveSdlCommand({
 	description: "Load active Objective orientation files for agent onboarding.",
 	schema: loadOrientationsRequestSchema,
 	resultSchema: loadOrientationsResultSchema,
+	handler: runLoadOrientations,
 	renderHuman: renderLoadOrientationsMarkdown,
 	renderMarkdown: renderLoadOrientationsMarkdown,
 });
