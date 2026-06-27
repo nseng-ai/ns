@@ -135,6 +135,63 @@ describe("extension discovery", () => {
 		expect(result.diagnostics[0]?.commandName).toBeUndefined();
 	});
 
+	test("package-level groups apply to manifest commands", async () => {
+		const root = await createTempDir();
+		writeFile(
+			join(root, "handoff", "package.json"),
+			JSON.stringify({
+				sdl: {
+					group: "handoff",
+					commands: [{ name: "list", description: "List handoffs.", entry: "./src/list.ts" }],
+				},
+			}),
+		);
+		writeFile(join(root, "handoff", "src", "list.ts"));
+
+		const result = discoverExtensionsInRoot(root);
+
+		expect(result.diagnostics).toEqual([]);
+		expect(result.commands).toEqual([
+			expect.objectContaining({
+				group: "handoff",
+				name: "list",
+				description: "List handoffs.",
+				fullDescription: "List handoffs.",
+			}),
+		]);
+	});
+
+	test("manifest entry groups override the package-level group", async () => {
+		const root = await createTempDir();
+		writeFile(
+			join(root, "handoff", "package.json"),
+			JSON.stringify({
+				sdl: {
+					group: "handoff",
+					commands: [
+						{
+							name: "exec-clear",
+							description: "Clear state.",
+							group: "handoff-exec",
+							entry: "./src/exec-clear.ts",
+						},
+					],
+				},
+			}),
+		);
+		writeFile(join(root, "handoff", "src", "exec-clear.ts"));
+
+		const result = discoverExtensionsInRoot(root);
+
+		expect(result.diagnostics).toEqual([]);
+		expect(result.commands).toEqual([
+			expect.objectContaining({
+				group: "handoff-exec",
+				name: "exec-clear",
+			}),
+		]);
+	});
+
 	test("manifest sdl.commands must be an array", async () => {
 		const root = await createTempDir();
 		writeFile(

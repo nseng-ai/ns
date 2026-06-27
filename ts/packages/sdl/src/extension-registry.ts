@@ -138,9 +138,12 @@ export async function loadSdlCommandCatalog(
 	const sortedCandidates = [...merged.values()].sort((left, right) =>
 		commandKey(left).localeCompare(commandKey(right)),
 	);
+	const collisionFilter = filterGroupCommandCollisions(sortedCandidates);
+	diagnostics.push(...collisionFilter.diagnostics);
+	const finalCandidates = collisionFilter.candidates;
 	return {
-		candidates: new Map(sortedCandidates.map((candidate) => [commandKey(candidate), candidate])),
-		commandInfos: sortedCandidates.map((candidate) => ({
+		candidates: new Map(finalCandidates.map((candidate) => [commandKey(candidate), candidate])),
+		commandInfos: finalCandidates.map((candidate) => ({
 			...(candidate.group === undefined ? {} : { group: candidate.group }),
 			name: candidate.name,
 			description: candidate.description,
@@ -380,6 +383,47 @@ function validateSourceCandidates(
 	}
 	return {
 		candidates: validated.filter((candidate) => !duplicateNames.has(commandKey(candidate))),
+		diagnostics,
+	};
+}
+
+function filterGroupCommandCollisions(candidates: readonly ExtensionCommandCandidate[]): {
+	candidates: readonly ExtensionCommandCandidate[];
+	diagnostics: readonly ExtensionErrorDiagnostic[];
+} {
+	const topLevelByName = new Map<string, ExtensionCommandCandidate>();
+	for (const candidate of candidates) {
+		if (candidate.group !== undefined) continue;
+		topLevelByName.set(candidate.name, candidate);
+	}
+	if (topLevelByName.size === 0) {
+		return { candidates, diagnostics: [] };
+	}
+
+	const collidingGroups = new Set<string>();
+	const diagnostics: ExtensionErrorDiagnostic[] = [];
+	for (const candidate of candidates) {
+		if (candidate.group === undefined) continue;
+		const topLevel = topLevelByName.get(candidate.group);
+		if (topLevel === undefined) continue;
+		collidingGroups.add(candidate.group);
+		diagnostics.push({
+			severity: "error",
+			code: "extension_command_group_collision",
+			message: `SDL command ${commandKey(candidate)} from ${formatSource(candidate.source)} cannot load because top-level command ${candidate.group} from ${formatSource(topLevel.source)} already exists.`,
+			...(candidate.entryPath === undefined ? {} : { path: candidate.entryPath }),
+			sourceLevel: candidate.source.level,
+			commandName: commandKey(candidate),
+		});
+	}
+	if (collidingGroups.size === 0) {
+		return { candidates, diagnostics: [] };
+	}
+
+	return {
+		candidates: candidates.filter(
+			(candidate) => candidate.group === undefined || !collidingGroups.has(candidate.group),
+		),
 		diagnostics,
 	};
 }
