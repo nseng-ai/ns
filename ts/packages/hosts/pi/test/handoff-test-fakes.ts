@@ -12,6 +12,7 @@ import type {
 	NewSessionOptions,
 	RenderComponent,
 	SendUserMessageOptions,
+	ThinkingLevel,
 	TuiHandle,
 } from "../src/handoff/runtime-types.ts";
 
@@ -75,6 +76,7 @@ export class FakePi implements ExtensionAPI {
 	readonly registerTool?: (tool: RegisteredTool) => void;
 	private readonly script: ScriptedQueue<ScriptedExec>;
 	private readonly commandInfos: CommandInfo[];
+	private thinkingLevel: ThinkingLevel = "medium";
 
 	constructor(
 		script: ScriptedExec[] = [],
@@ -140,8 +142,12 @@ export class FakePi implements ExtensionAPI {
 		return this.commandInfos;
 	}
 
-	getThinkingLevel(): "medium" {
-		return "medium";
+	getThinkingLevel(): ThinkingLevel {
+		return this.thinkingLevel;
+	}
+
+	setThinkingLevel(level: ThinkingLevel): void {
+		this.thinkingLevel = level;
 	}
 
 	sendUserMessage(content: string, options?: SendUserMessageOptions): void {

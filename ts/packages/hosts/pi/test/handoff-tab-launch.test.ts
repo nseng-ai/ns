@@ -1,7 +1,15 @@
 import { describe, expect, test } from "vitest";
 
-import { launchHandoffTab, type HandoffTabLaunchHost } from "../src/handoff-tab.ts";
-import { FakeCommandContext, FakePi, step } from "./ccc-test-harness.ts";
+import { launchHandoffTab, type HandoffTabLaunchHost } from "../src/handoff/tab-launch.ts";
+import {
+	cmuxCreateSurfaceRefStep,
+	cmuxCreateSurfaceStep,
+	cmuxIdentifyStep,
+	createContext,
+	FakePi,
+	step,
+	type ScriptedExec,
+} from "./handoff-test-fakes.ts";
 
 const BRANCH = "feature/handoff";
 const SLUG = "finish-widget";
@@ -13,65 +21,7 @@ function params(): { branch: string; slug: string; key: string; pickupCommand: s
 	return { branch: BRANCH, slug: SLUG, key: KEY, pickupCommand: PICKUP_COMMAND };
 }
 
-function cmuxIdentifyStep(): ReturnType<typeof step> {
-	return step("cmux", ["identify", "--json", "--id-format", "both"], {
-		stdout: JSON.stringify({
-			caller: { workspace_id: "workspace-1", pane_id: "pane-1", window_id: "window-1" },
-		}),
-	});
-}
-
-function cmuxCreateSurfaceStep(): ReturnType<typeof step> {
-	return step(
-		"cmux",
-		[
-			"--json",
-			"new-surface",
-			"--type",
-			"terminal",
-			"--workspace",
-			"workspace-1",
-			"--pane",
-			"pane-1",
-			"--focus",
-			"true",
-			"--window",
-			"window-1",
-		],
-		{ stdout: JSON.stringify({ surface_id: "surface-1", workspace_id: "workspace-1" }) },
-	);
-}
-
-function cmuxCreateSurfaceRefStep(): ReturnType<typeof step> {
-	return step(
-		"cmux",
-		[
-			"--json",
-			"new-surface",
-			"--type",
-			"terminal",
-			"--workspace",
-			"workspace-1",
-			"--pane",
-			"pane-1",
-			"--focus",
-			"true",
-			"--window",
-			"window-1",
-		],
-		{
-			stdout: JSON.stringify({
-				pane_ref: "pane:1",
-				surface_ref: "surface:1",
-				type: "terminal",
-				window_ref: "window:1",
-				workspace_ref: "workspace:1",
-			}),
-		},
-	);
-}
-
-function renameStep(surfaceId = "surface-1", workspaceId = "workspace-1"): ReturnType<typeof step> {
+function renameStep(surfaceId = "surface-1", workspaceId = "workspace-1"): ScriptedExec {
 	return step(
 		"cmux",
 		[
@@ -93,7 +43,7 @@ function sendStep(
 	command: string,
 	surfaceId = "surface-1",
 	workspaceId = "workspace-1",
-): ReturnType<typeof step> {
+): ScriptedExec {
 	return step(
 		"cmux",
 		[
@@ -115,20 +65,22 @@ describe("handoff-tab launch orchestration", () => {
 	test("launches a focused pickup tab", async () => {
 		const command =
 			"pi --provider anthropic --model claude-sonnet-4-5 --thinking medium '/handoff:pickup --branch feature/handoff finish-widget'";
-		const pi = new FakePi({
-			script: [cmuxIdentifyStep(), cmuxCreateSurfaceStep(), renameStep(), sendStep(command)],
-		});
-		const ctx = new FakeCommandContext({
-			model: { provider: "anthropic", id: "claude-sonnet-4-5" },
-		});
+		const pi = new FakePi([
+			cmuxIdentifyStep(),
+			cmuxCreateSurfaceStep(),
+			renameStep(),
+			sendStep(command),
+		]);
+		const context = createContext();
+		context.ctx.model = { provider: "anthropic", id: "claude-sonnet-4-5" };
 		const updates: unknown[] = [];
 
 		const result = await launchHandoffTab({
 			host: pi,
-			cwd: ctx.cwd,
-			model: ctx.model,
-			hasUI: ctx.hasUI,
-			ui: ctx.ui,
+			cwd: context.ctx.cwd,
+			model: context.ctx.model,
+			hasUI: context.ctx.hasUI,
+			ui: context.ctx.ui,
 			statusKey: STATUS_KEY,
 			params: params(),
 			signal: undefined,
@@ -151,7 +103,7 @@ describe("handoff-tab launch orchestration", () => {
 			{ content: [{ type: "text", text: "Naming cmux tab…" }] },
 			{ content: [{ type: "text", text: "Launching pickup Pi…" }] },
 		]);
-		expect(ctx.statuses.map((status) => status.value)).toEqual([
+		expect(context.statuses).toEqual([
 			"resolving cmux caller…",
 			"creating cmux tab…",
 			"naming cmux tab…",
@@ -162,22 +114,20 @@ describe("handoff-tab launch orchestration", () => {
 
 	test("accepts surface_ref and workspace_ref output from cmux new-surface", async () => {
 		const command = "pi --thinking medium '/handoff:pickup --branch feature/handoff finish-widget'";
-		const pi = new FakePi({
-			script: [
-				cmuxIdentifyStep(),
-				cmuxCreateSurfaceRefStep(),
-				renameStep("surface:1", "workspace:1"),
-				sendStep(command, "surface:1", "workspace:1"),
-			],
-		});
-		const ctx = new FakeCommandContext();
+		const pi = new FakePi([
+			cmuxIdentifyStep(),
+			cmuxCreateSurfaceRefStep(),
+			renameStep("surface:1", "workspace:1"),
+			sendStep(command, "surface:1", "workspace:1"),
+		]);
+		const context = createContext();
 
 		const result = await launchHandoffTab({
 			host: pi,
-			cwd: ctx.cwd,
+			cwd: context.ctx.cwd,
 			model: undefined,
-			hasUI: ctx.hasUI,
-			ui: ctx.ui,
+			hasUI: context.ctx.hasUI,
+			ui: context.ctx.ui,
 			statusKey: STATUS_KEY,
 			params: params(),
 			signal: undefined,
@@ -195,38 +145,36 @@ describe("handoff-tab launch orchestration", () => {
 
 	test("reports manual recovery when rename fails after surface creation", async () => {
 		const command = "pi --thinking medium '/handoff:pickup --branch feature/handoff finish-widget'";
-		const pi = new FakePi({
-			script: [
-				cmuxIdentifyStep(),
-				cmuxCreateSurfaceStep(),
-				step(
-					"cmux",
-					[
-						"rename-tab",
-						"--workspace",
-						"workspace-1",
-						"--surface",
-						"surface-1",
-						"--title",
-						`handoff: ${SLUG}`,
-						"--window",
-						"window-1",
-					],
-					{
-						code: 2,
-						stderr: "rename failed",
-					},
-				),
-			],
-		});
-		const ctx = new FakeCommandContext();
+		const pi = new FakePi([
+			cmuxIdentifyStep(),
+			cmuxCreateSurfaceStep(),
+			step(
+				"cmux",
+				[
+					"rename-tab",
+					"--workspace",
+					"workspace-1",
+					"--surface",
+					"surface-1",
+					"--title",
+					`handoff: ${SLUG}`,
+					"--window",
+					"window-1",
+				],
+				{
+					code: 2,
+					stderr: "rename failed",
+				},
+			),
+		]);
+		const context = createContext();
 
 		const result = await launchHandoffTab({
 			host: pi,
-			cwd: ctx.cwd,
+			cwd: context.ctx.cwd,
 			model: undefined,
-			hasUI: ctx.hasUI,
-			ui: ctx.ui,
+			hasUI: context.ctx.hasUI,
+			ui: context.ctx.ui,
 			statusKey: STATUS_KEY,
 			params: params(),
 			signal: undefined,
@@ -244,42 +192,40 @@ describe("handoff-tab launch orchestration", () => {
 
 	test("reports manual recovery when sending the launch command fails", async () => {
 		const command = "pi --thinking medium '/handoff:pickup --branch feature/handoff finish-widget'";
-		const pi = new FakePi({
-			script: [
-				cmuxIdentifyStep(),
-				cmuxCreateSurfaceStep(),
-				renameStep(),
-				step(
-					"cmux",
-					[
-						"send",
-						"--workspace",
-						"workspace-1",
-						"--surface",
-						"surface-1",
-						"--window",
-						"window-1",
-						"--",
-						`${command}\n`,
-					],
-					{
-						code: 2,
-						stderr: "send failed",
-					},
-				),
-			],
-		});
+		const pi = new FakePi([
+			cmuxIdentifyStep(),
+			cmuxCreateSurfaceStep(),
+			renameStep(),
+			step(
+				"cmux",
+				[
+					"send",
+					"--workspace",
+					"workspace-1",
+					"--surface",
+					"surface-1",
+					"--window",
+					"window-1",
+					"--",
+					`${command}\n`,
+				],
+				{
+					code: 2,
+					stderr: "send failed",
+				},
+			),
+		]);
 		const hostWithoutThinking: HandoffTabLaunchHost = {
 			exec: (cmd, args, options) => pi.exec(cmd, args, options),
 		};
-		const ctx = new FakeCommandContext();
+		const context = createContext();
 
 		const result = await launchHandoffTab({
 			host: hostWithoutThinking,
-			cwd: ctx.cwd,
+			cwd: context.ctx.cwd,
 			model: undefined,
-			hasUI: ctx.hasUI,
-			ui: ctx.ui,
+			hasUI: context.ctx.hasUI,
+			ui: context.ctx.ui,
 			statusKey: STATUS_KEY,
 			params: params(),
 			signal: undefined,
@@ -298,18 +244,22 @@ describe("handoff-tab launch orchestration", () => {
 	test("preserves provider, model, and explicit thinking options in the generated Pi command", async () => {
 		const command =
 			"pi --provider openai-codex --model gpt-5.4-mini --thinking high '/handoff:pickup --branch feature/handoff finish-widget'";
-		const pi = new FakePi({
-			script: [cmuxIdentifyStep(), cmuxCreateSurfaceStep(), renameStep(), sendStep(command)],
-		});
+		const pi = new FakePi([
+			cmuxIdentifyStep(),
+			cmuxCreateSurfaceStep(),
+			renameStep(),
+			sendStep(command),
+		]);
 		pi.setThinkingLevel("high");
-		const ctx = new FakeCommandContext({ model: { provider: "openai-codex", id: "gpt-5.4-mini" } });
+		const context = createContext();
+		context.ctx.model = { provider: "openai-codex", id: "gpt-5.4-mini" };
 
 		const result = await launchHandoffTab({
 			host: pi,
-			cwd: ctx.cwd,
-			model: ctx.model,
-			hasUI: ctx.hasUI,
-			ui: ctx.ui,
+			cwd: context.ctx.cwd,
+			model: context.ctx.model,
+			hasUI: context.ctx.hasUI,
+			ui: context.ctx.ui,
 			statusKey: STATUS_KEY,
 			params: params(),
 			signal: undefined,
