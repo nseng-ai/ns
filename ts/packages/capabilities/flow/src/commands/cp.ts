@@ -58,12 +58,12 @@ export const flowCpCommand: SdlCommand<typeof cpRequestSchema> = {
 		}
 
 		const caps = resolveFlowStreamCaps(ctx);
-		return await runPhaseStream(
+		return await runPhaseStream({
 			caps,
-			CP_PHASES,
-			flowStreamDeps(ctx, caps),
-			"sdl flow cp",
-			async (stream) => {
+			specs: CP_PHASES,
+			deps: flowStreamDeps(ctx, caps),
+			title: "sdl flow cp",
+			body: async (stream) => {
 				const result = await runCpCore({
 					cwd: ctx.cwd,
 					env: ctx.env,
@@ -77,7 +77,7 @@ export const flowCpCommand: SdlCommand<typeof cpRequestSchema> = {
 				await stream.finish();
 				return command;
 			},
-		);
+		});
 	},
 };
 

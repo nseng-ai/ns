@@ -93,14 +93,14 @@ describe("renderHuman", () => {
 			isTty: false,
 			colorDepth: "none",
 			columns: 72,
-			supportsUnicode: false,
+			canRenderUnicode: false,
 		};
 		const group = new ClinkrGroup<null>({ name: "probe" });
 		group.command({
 			name: "act",
 			schema: z.object({}),
 			handler: async () => ok({ count: 2 }),
-			renderHuman: (_data, caps) => `${caps.caps?.columns}:${caps.caps?.supportsUnicode}`,
+			renderHuman: (_data, caps) => `${caps.caps?.columns}:${caps.caps?.canRenderUnicode}`,
 		});
 		const stdout: string[] = [];
 		const stderr: string[] = [];

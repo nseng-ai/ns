@@ -11,7 +11,7 @@ import {
 import type { GitGateway } from "@sdl/core/git";
 import { runGraphiteCommand } from "../branch.ts";
 
-import type { GithubPrGateway } from "@sdl/core/submit";
+import { formatItemCount, type GithubPrGateway, type TextGenerator } from "@sdl/core/submit";
 import { extractPrLinks, type SubmitPrLink } from "./gt-output.ts";
 import {
 	formatPostSubmitFailureOutput,
@@ -38,7 +38,6 @@ import {
 	generateSubmitPrDescriptions,
 } from "./submit-pr-descriptions.ts";
 import { prNumberFromLink } from "./submit-pr-link.ts";
-import type { TextGenerator } from "@sdl/core/submit";
 import type { ProgressPhaseEvent, ProgressPhaseListener } from "@sdl/core/progress-phase";
 
 const SUBMIT_BASE_ARGS = [
@@ -556,7 +555,7 @@ type RestackDecision = "run" | "declined" | "unavailable";
 
 function formatDescriptionPhaseStart(prCount: number): string {
 	if (prCount === 0) return "checking PR descriptions; no PR links detected yet";
-	return `checking ${prCount} ${prCount === 1 ? "PR description" : "PR descriptions"} for skip or regeneration`;
+	return `checking ${formatItemCount(prCount, "PR description", "PR descriptions")} for skip or regeneration`;
 }
 
 async function shouldRunRestack(

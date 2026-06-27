@@ -29,13 +29,13 @@ const SPECS: readonly PhaseSpec[] = [
 ];
 
 function caps(
-	parts: { isTty?: boolean; colorDepth?: ColorDepth; supportsUnicode?: boolean } = {},
+	parts: { isTty?: boolean; colorDepth?: ColorDepth; canRenderUnicode?: boolean } = {},
 ): Caps {
 	return {
 		isTty: parts.isTty ?? true,
 		colorDepth: parts.colorDepth ?? "truecolor",
 		columns: 80,
-		supportsUnicode: parts.supportsUnicode ?? true,
+		canRenderUnicode: parts.canRenderUnicode ?? true,
 	};
 }
 
@@ -136,7 +136,7 @@ describe("resolveFlowStreamCaps", () => {
 			isTty: false,
 			colorDepth: "none",
 			columns: DEFAULT_COLUMNS,
-			supportsUnicode: false,
+			canRenderUnicode: false,
 		});
 	});
 
@@ -151,7 +151,7 @@ describe("resolveFlowStreamCaps", () => {
 	});
 
 	test("host-provided caps win for override sinks", () => {
-		const injected = caps({ isTty: false, colorDepth: "none", supportsUnicode: false });
+		const injected = caps({ isTty: false, colorDepth: "none", canRenderUnicode: false });
 		expect(resolveFlowStreamCaps(ctx({ extensions: { "sdl.clinkr.caps": injected } }))).toEqual(
 			injected,
 		);
@@ -253,9 +253,15 @@ describe("runPhaseStream lifecycle", () => {
 		const { deps, writes } = harness();
 
 		await expect(
-			runPhaseStream(c, SPECS, deps, "title", async (stream) => {
-				stream.emit({ type: "phase-started", phaseKey: "a" });
-				throw new Error("mid-stream failure");
+			runPhaseStream({
+				caps: c,
+				specs: SPECS,
+				deps,
+				title: "title",
+				body: async (stream) => {
+					stream.emit({ type: "phase-started", phaseKey: "a" });
+					throw new Error("mid-stream failure");
+				},
 			}),
 		).rejects.toThrow("mid-stream failure");
 

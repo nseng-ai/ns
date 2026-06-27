@@ -59,12 +59,12 @@ export const flowSubmitCommand: SdlCommand<typeof submitSchema> = {
 	async run(ctx: SdlExtensionApi, request: SubmitRequest) {
 		const runtime = createSdlSubmitRuntime(ctx);
 		const caps = resolveFlowStreamCaps(ctx);
-		return await runPhaseStream(
+		return await runPhaseStream({
 			caps,
-			SUBMIT_PHASES,
-			flowStreamDeps(ctx, caps),
-			"sdl flow submit",
-			async (stream) => {
+			specs: SUBMIT_PHASES,
+			deps: flowStreamDeps(ctx, caps),
+			title: "sdl flow submit",
+			body: async (stream) => {
 				// The checkpoint workflow emits keyed inspect/generate/commit events; fold them into the single
 				// "Checkpoint" submit phase via their presentational labels.
 				stream.emit({ type: "phase-started", phaseKey: "checkpoint" });
@@ -127,7 +127,7 @@ export const flowSubmitCommand: SdlCommand<typeof submitSchema> = {
 				writeCommandResultOutput(interpretedResult, ctx);
 				return interpretedResult.exitCode === 0 ? ok("") : failed("", interpretedResult.exitCode);
 			},
-		);
+		});
 	},
 };
 

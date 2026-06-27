@@ -5,6 +5,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, test, vi } from "vitest";
 
+import { stripAnsi } from "@sdl/clinkr/testing";
 import {
 	DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT,
 	PR_DESCRIPTION_GENERATOR_VERSION,
@@ -16,8 +17,6 @@ import type { TextGenerationResult } from "sdl-sdk";
 import { runFlowSubmitCommandWithFakes } from "./flow-command-fakes.ts";
 import { formattedExecCalls, type ScriptedExecResponse } from "./sdl-cli-fakes.ts";
 
-const ANSI_ESCAPE_RE = /\x1b\[[0-?]*[ -/]*[@-~]/u;
-
 // A non-tty transient progress line, as routed to onOutput (the Pi widget path / captured liveOutput).
 function transient(text: string): { stream: "stderr"; text: string } {
 	return { stream: "stderr", text: `${text}\n` };
@@ -27,7 +26,7 @@ function expectPlainHostedOutput(
 	entries: readonly { stream: "stdout" | "stderr"; text: string }[],
 ): void {
 	for (const entry of entries) {
-		expect(entry.text).not.toMatch(ANSI_ESCAPE_RE);
+		expect(entry.text).toBe(stripAnsi(entry.text));
 		expect(entry.text).not.toContain("\r");
 	}
 }

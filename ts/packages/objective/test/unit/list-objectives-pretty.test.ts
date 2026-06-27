@@ -17,13 +17,13 @@ afterEach(() => {
 });
 
 function caps(
-	parts: { colorDepth?: ColorDepth; columns?: number; supportsUnicode?: boolean } = {},
+	parts: { colorDepth?: ColorDepth; columns?: number; canRenderUnicode?: boolean } = {},
 ): Caps {
 	return {
 		isTty: true,
 		colorDepth: parts.colorDepth ?? "truecolor",
 		columns: parts.columns ?? 80,
-		supportsUnicode: parts.supportsUnicode ?? true,
+		canRenderUnicode: parts.canRenderUnicode ?? true,
 	};
 }
 
@@ -87,7 +87,7 @@ describe("renderObjectiveListPretty colors", () => {
 	test("ascii mode swaps glyphs and tree markers", () => {
 		const out = renderObjectiveListPretty(
 			TWO_RECORDS,
-			caps({ colorDepth: "none", supportsUnicode: false }),
+			caps({ colorDepth: "none", canRenderUnicode: false }),
 			NOW,
 		);
 		expect(out).toContain("o open"); // open glyph

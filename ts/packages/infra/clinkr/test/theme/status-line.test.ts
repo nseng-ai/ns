@@ -7,12 +7,12 @@ import { padPlain } from "../../src/theme/text.ts";
 
 const BOLD = "\x1b[1m";
 
-function caps(parts: { colorDepth?: ColorDepth; supportsUnicode?: boolean } = {}): Caps {
+function caps(parts: { colorDepth?: ColorDepth; canRenderUnicode?: boolean } = {}): Caps {
 	return {
 		isTty: true,
 		colorDepth: parts.colorDepth ?? "truecolor",
 		columns: 80,
-		supportsUnicode: parts.supportsUnicode ?? true,
+		canRenderUnicode: parts.canRenderUnicode ?? true,
 	};
 }
 
@@ -109,7 +109,7 @@ describe("statusLine mono honesty", () => {
 
 describe("statusLine ascii glyphs", () => {
 	test("non-unicode caps degrade the glyph set", () => {
-		const ascii = caps({ supportsUnicode: false });
+		const ascii = caps({ canRenderUnicode: false });
 		const name = padPlain(item.name, PHASE_NAME_WIDTH);
 		expect(statusLine({ caps: ascii, item: item, state: "done" })).toBe(
 			`  ${paint(ascii, "success", "v")} ${name} ${dim(item.detail)}`,

@@ -34,7 +34,7 @@
       Palette dialed in: semantic intents are GitHub-derived (success/warn/error/muted) and the
       brand **accent is cyan `#22d3ee`**, chosen by feel from a candidate gallery.
 - [x] Build clinkr core capability foundation: widen `Caps` to `{ isTty, colorDepth, columns,
-      supportsUnicode }` and add `resolveCaps()` (pure snapshot resolver plus process reader), keeping
+      canRenderUnicode }` and add `resolveCaps()` (pure snapshot resolver plus process reader), keeping
       it dependency-free in core.
       **Done 2026-06-27.** Landed `packages/infra/clinkr/src/caps.ts`: pure `resolveCaps(snapshot)`
       over an injected `CapsEnv`, with the impure `readProcessCapsEnv()` reader and a

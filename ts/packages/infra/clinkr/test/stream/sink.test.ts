@@ -17,13 +17,13 @@ const CURSOR_HIDE = "\x1b[?25l";
 const CURSOR_SHOW = "\x1b[?25h";
 
 function caps(
-	parts: { isTty?: boolean; colorDepth?: ColorDepth; supportsUnicode?: boolean } = {},
+	parts: { isTty?: boolean; colorDepth?: ColorDepth; canRenderUnicode?: boolean } = {},
 ): Caps {
 	return {
 		isTty: parts.isTty ?? true,
 		colorDepth: parts.colorDepth ?? "truecolor",
 		columns: 80,
-		supportsUnicode: parts.supportsUnicode ?? true,
+		canRenderUnicode: parts.canRenderUnicode ?? true,
 	};
 }
 
