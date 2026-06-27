@@ -75,11 +75,30 @@
       progress/usage reporting. Targeted validation passed for clinkr, objective-list, flow
       phase-stream, submit/cp scenarios, and SDL flow-extension integration; full `just` remains
       closure evidence, not a separate work row.
+- [x] Audit all remaining first-party TypeScript CLI surfaces and turn the result into a prioritized
+      migration backlog. **Done 2026-06-27.** Inventory lives in `cli-surface-audit.md`; it classifies
+      each surface as done, feature-building, mechanical, or exempt. Front-of-queue feature blockers are:
+      side-effect workflow/progress, destructive preview/confirmation, actionable shell/navigation
+      output, registry/agent-run reporting, and generalized list/detail/report primitives. Hidden
+      `exec`/LM payload/full-screen TUI surfaces stay exempt by default.
+- [ ] Stabilize reusable side-effect workflow/progress primitives beyond `flow submit`/`flow cp`, then
+      migrate the P0 flow/workflow commands called out in `cli-surface-audit.md` (`flow land`,
+      `regenerate-pr`, `autobranch`, `autoslot`, `branch-latest-commit`, `push`, `pull-trunk`, plus
+      `vibechk run` / `roaster review run` if their runner UX needs the same primitive).
+- [ ] Stabilize actionable shell/navigation rendering, then migrate `sdl slot checkout/co/goto`,
+      `sdl slot gt up/down`, and `sdl shell show/install`.
+- [ ] Stabilize destructive preview/confirmation/result rendering, then migrate slot/brmem/handoff/areg
+      mutation surfaces marked P0 in `cli-surface-audit.md`.
+- [ ] Stabilize registry/agent-run report cards, then migrate `packagechk NAME`, `packagechk claim-pypi`,
+      `packagechk claim-npm`, `vibechk run`, and `roaster review run` as needed.
+- [ ] Stabilize generalized buffered list/detail/report primitives, then mechanically migrate the P1
+      batches in `cli-surface-audit.md` (list/table, status/check, simple mutation summaries,
+      detail/report views, and remaining destructive/preview surfaces).
+- [ ] Keep `cli-surface-audit.md` current as migrations land: move surfaces to Done, keep exemptions
+      explicit, and avoid adding new human-facing CLI output outside the house-style primitives.
 
 ## Parked
 
-- [ ] Roll the house style out to the rest of the CLI surface (slot, other objective commands,
-      handoff, brmem, …).
 - [ ] Themed `--help` output.
 - [ ] UI-bridge caps override — the at-most-one optional caps hint on the command seam
       (`CliCommandRunDeps` / `SdlExtensionApi`) so the in-process Pi path can be precise (unicode-rich
