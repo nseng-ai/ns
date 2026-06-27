@@ -94,13 +94,16 @@ export default defineExtension({});
 One flat command contribution inside an extension's `commands` array. Direct extension entries appear as `sdl <name>`; manifest-grouped packages can present the same flat command name under a group such as `sdl flow <name>`.
 
 ```ts
-interface SdlCommand<S extends SdlCommandSchema = z.ZodObject> {
+interface SdlCommand<S extends SdlCommandSchema = z.ZodObject, T = unknown> {
   name: string;
   summary: string;
   description: string;
   schema?: S | undefined;
   positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>> | undefined;
-  run(ctx: SdlExtensionApi, request: z.output<S>): Promise<SdlResult> | SdlResult;
+  resultSchema?: z.ZodType<T> | undefined;
+  renderHuman?: ((data: unknown, caps: RenderCapabilities) => string) | undefined;
+  renderMarkdown?: ((data: unknown, caps: RenderCapabilities) => string) | undefined;
+  run(ctx: SdlExtensionApi, request: z.output<S>): Promise<SdlResult | ClinkrExit<T>> | SdlResult | ClinkrExit<T>;
 }
 ```
 
@@ -111,7 +114,9 @@ interface SdlCommand<S extends SdlCommandSchema = z.ZodObject> {
 - `description` — full help text shown in `sdl <cmd> --help`.
 - `schema?` — a Zod object schema (`SdlCommandSchema`) describing the command's options. Omit for a command with no parsed arguments.
 - `positionals?` — maps schema field names to positional slots (`PositionalSpec`). Only keys present in the schema are valid.
-- `run(ctx, request)` — the command body. Receives the execution context and the parsed request (`z.output<schema>`), and returns an `SdlResult` (sync or async).
+- `resultSchema?` — opt into Clinkr-rendered command execution by declaring the successful data schema. Rendered commands get `--format human|json|markdown|md` and publish the schema through `--json-schema`.
+- `renderHuman?` / `renderMarkdown?` — optional renderers for successful rendered-command data. These receive `unknown` because the SDL kernel stores extension commands heterogeneously; command modules that know `T` should validate or wrap their typed renderer at the package boundary.
+- `run(ctx, request)` — the command body. Receives the execution context and the parsed request (`z.output<schema>`). Message-only commands return `SdlResult`; rendered commands that set `resultSchema` return a `ClinkrExit<T>`.
 
 **Example.** Declared inline so `request` is inferred from `schema`:
 

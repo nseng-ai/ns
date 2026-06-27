@@ -135,8 +135,15 @@ async function runFlowCommand(input: {
 		return 2;
 	}
 	const result = await input.command.run(input.context, parsedRequest.data);
+	if (!isSdlResult(result)) {
+		throw new Error(`Flow test command ${input.command.name} returned a rendered result.`);
+	}
 	writeSdlResultOutput(result, input);
 	return result.ok ? 0 : result.exitCode;
+}
+
+function isSdlResult(result: unknown): result is SdlResult {
+	return typeof result === "object" && result !== null && "ok" in result;
 }
 
 function writeSdlResultOutput(

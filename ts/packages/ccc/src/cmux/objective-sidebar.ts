@@ -93,18 +93,18 @@ export async function validateObjectiveSidebarSlug(
 	cwd: string,
 	slug: string,
 ): Promise<ObjectiveSidebarValidationResult> {
-	const args = ["exec", "read-objective", slug, "--format", "json"];
+	const args = ["objective", "exec", "read-objective", slug, "--format", "json"];
 	let result: ExecResult;
 	try {
-		result = await pi.exec("objective", args, { cwd, timeout: OBJECTIVE_READ_TIMEOUT_MS });
+		result = await pi.exec("sdl", args, { cwd, timeout: OBJECTIVE_READ_TIMEOUT_MS });
 	} catch (error) {
 		return {
 			type: "failed",
-			message: formatStartupFailure("Could not read Objective.", "objective", args, error),
+			message: formatStartupFailure("Could not read Objective.", "sdl", args, error),
 		};
 	}
 
-	const commandDisplay = formatCommand("objective", args);
+	const commandDisplay = formatCommand("sdl", args);
 	if (result.killed || result.code !== 0) {
 		return {
 			type: "failed",

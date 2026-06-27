@@ -1,21 +1,28 @@
+import type { ClinkrExit, RenderCapabilities } from "@sdl/clinkr";
 import type { PositionalSpec } from "@sdl/clinkr/raw";
 import type { z } from "zod";
 
 import type { SdlExtensionApi } from "./execution.ts";
 import type { SdlResult } from "./result.ts";
 
-export type { PositionalSpec } from "@sdl/clinkr/raw";
+export type { ClinkrExit, PositionalSpec, RenderCapabilities } from "@sdl/clinkr";
 
 export type SdlCommandSchema = z.ZodObject;
 export type SdlCommandRequest<S extends SdlCommandSchema> = z.output<S>;
 
-export interface SdlCommand<S extends SdlCommandSchema = z.ZodObject> {
+export interface SdlCommand<S extends SdlCommandSchema = z.ZodObject, T = unknown> {
 	name: string;
 	summary: string;
 	description: string;
 	schema?: S | undefined;
 	positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>> | undefined;
-	run(ctx: SdlExtensionApi, request: z.output<S>): Promise<SdlResult> | SdlResult;
+	resultSchema?: z.ZodType<T> | undefined;
+	renderHuman?: ((data: unknown, caps: RenderCapabilities) => string) | undefined;
+	renderMarkdown?: ((data: unknown, caps: RenderCapabilities) => string) | undefined;
+	run(
+		ctx: SdlExtensionApi,
+		request: z.output<S>,
+	): Promise<SdlResult | ClinkrExit<T>> | SdlResult | ClinkrExit<T>;
 }
 
 export interface SdlExtension<TCommands extends readonly SdlCommand[] = readonly SdlCommand[]> {

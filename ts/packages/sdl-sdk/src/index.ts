@@ -2,7 +2,9 @@
 // Keep ts/packages/sdl/docs/sdk-reference.md in sync when changing these exports.
 export { defineExtension } from "./command.ts";
 export type {
+	ClinkrExit,
 	PositionalSpec,
+	RenderCapabilities,
 	SdlCommand,
 	SdlCommandRequest,
 	SdlCommandSchema,

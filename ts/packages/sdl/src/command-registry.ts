@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import {
 	failed,
+	type ClinkrExit,
 	type SdlCommand,
 	type SdlCommandSchema,
 	type SdlExtensionApi,
@@ -56,6 +57,13 @@ const sdlCommandSchema = z.object({
 	description: z.string(),
 	schema: z.custom<SdlCommandSchema>(isZodObjectSchema).optional(),
 	positionals: z.custom<SdlCommand["positionals"]>(isRecord).optional(),
+	resultSchema: z.custom<SdlCommand["resultSchema"]>(isZodSchema).optional(),
+	renderHuman: z
+		.custom<SdlCommand["renderHuman"]>((value) => typeof value === "function")
+		.optional(),
+	renderMarkdown: z
+		.custom<SdlCommand["renderMarkdown"]>((value) => typeof value === "function")
+		.optional(),
 	run: z.custom<SdlCommand["run"]>((value) => typeof value === "function"),
 });
 
@@ -180,6 +188,15 @@ export function validateSdlResult(result: unknown, commandName: string): SdlResu
 	return failed(`Command ${commandName} returned an invalid result.`, 2);
 }
 
+export function validateSdlClinkrExit(result: unknown, commandName: string): ClinkrExit<unknown> {
+	if (isSdlClinkrExit(result)) return result;
+	return {
+		type: "failure",
+		errorType: "invalid_extension_result",
+		message: `Command ${commandName} returned an invalid rendered result.`,
+	};
+}
+
 export function formatUnknownError(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }
@@ -229,6 +246,26 @@ function isZodObjectSchema(value: unknown): value is SdlCommandSchema {
 	if (!isRecord(value)) return false;
 	const candidate = value as { safeParse?: unknown; _zod?: { def?: { type?: unknown } } };
 	return typeof candidate.safeParse === "function" && candidate._zod?.def?.type === "object";
+}
+
+function isZodSchema(value: unknown): value is z.ZodType {
+	if (value instanceof z.ZodType) return true;
+	if (!isRecord(value)) return false;
+	const candidate = value as { safeParse?: unknown; _zod?: { def?: unknown } };
+	return typeof candidate.safeParse === "function" && candidate._zod?.def !== undefined;
+}
+
+function isSdlClinkrExit(value: unknown): value is ClinkrExit<unknown> {
+	if (!isRecord(value)) return false;
+	if (value.type === "ok") return "data" in value;
+	if (value.type === "negative") return typeof value.message === "string";
+	if (value.type === "failure") {
+		return typeof value.errorType === "string" && typeof value.message === "string";
+	}
+	if (value.type === "usageError") {
+		return value.errorType === "usageError" && typeof value.message === "string";
+	}
+	return false;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -1,0 +1,24 @@
+import { defineExtension } from "sdl-sdk";
+
+import { objectiveSdlCommand } from "../command.ts";
+import {
+	archiveObjectiveRequestSchema,
+	archiveObjectiveResultSchema,
+	renderArchiveObjective,
+	runArchiveObjective,
+} from "../../operations/archive-objective.ts";
+
+export const objectiveArchiveSdlCommand = objectiveSdlCommand({
+	name: "archive",
+	summary: "Archive or unarchive an Objective record by moving its directory.",
+	description: "Archive or unarchive an Objective record by moving its directory.",
+	schema: archiveObjectiveRequestSchema,
+	resultSchema: archiveObjectiveResultSchema,
+	positionals: { slug: { position: 0 } },
+	handler: runArchiveObjective,
+	renderHuman: renderArchiveObjective,
+});
+
+export default defineExtension({
+	commands: [objectiveArchiveSdlCommand],
+});

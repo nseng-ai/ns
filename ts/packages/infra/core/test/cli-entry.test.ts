@@ -280,9 +280,18 @@ describe("defineCli", () => {
 		expect(() => defineNoopCli(root)).toThrow(/Invalid CLI package metadata.*version/);
 	});
 
-	test("fails loudly when package metadata has no bin", () => {
+	test("uses the package name when package metadata has no bin", () => {
 		const root = makePackage({ name: "@sdl/example", version: "1.2.3" });
-		expect(() => defineNoopCli(root)).toThrow(/Invalid CLI package metadata.*bin/);
+		const cli = defineCli<TestContext, TestDeps, undefined>({
+			metaUrl: packageMetaUrl(root),
+			runtime: "typescript",
+			description: "Example CLI.",
+			prepareRun: () => ({ type: "handled", exitCode: 0 }),
+			buildCli: ({ name, description, version, runtimeInfo }) =>
+				new ClinkrGroup<TestContext>({ name, description, version, runtimeInfo }),
+		});
+		expect(cli.metadata.binName).toBe("example");
+		expect(cli.metadata.binPath).toBe("(no package bin)");
 	});
 
 	test("fails loudly when package metadata has multiple bin entries", () => {
@@ -291,7 +300,7 @@ describe("defineCli", () => {
 			version: "1.2.3",
 			bin: { first: "./src/first.ts", second: "./src/second.ts" },
 		});
-		expect(() => defineNoopCli(root)).toThrow(/expected exactly one bin entry, found 2/);
+		expect(() => defineNoopCli(root)).toThrow(/expected at most one bin entry, found 2/);
 	});
 });
 
