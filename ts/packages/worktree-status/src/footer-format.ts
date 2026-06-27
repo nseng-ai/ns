@@ -13,7 +13,7 @@ import {
 	type StatusTheme,
 	type WorktreeStatus,
 	type WorktreeStatusGitPaths,
-} from "@sdl/ccc/worktree-status";
+} from "./status.ts";
 
 interface StatusFooterData {
 	getExtensionStatuses(): ReadonlyMap<string, string>;

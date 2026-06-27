@@ -19,9 +19,10 @@
  * names: use `sdl:changes`, not `/sdl:flow:changes`. The unique machine key is
  * `kind:surface`.
  *
- * Scope is intentionally narrow for v1: package modules in @sdl/pi.
- * Ad hoc checked-in `.pi/extensions/*.ts` adapters and direct @sdl/ccc command
- * surfaces are not enforced here unless they are exposed through this package.
+ * Scope is intentionally narrow for v1: package modules in @sdl/pi plus
+ * checked-in project-local adapters whose metadata must remain Pi-local to avoid
+ * package cycles. Direct @sdl/ccc command surfaces are not enforced here unless
+ * they are exposed through this package.
  */
 export const PI_SURFACE_KINDS = ["command"] as const;
 export type PiSurfaceKind = (typeof PI_SURFACE_KINDS)[number];
@@ -47,9 +48,9 @@ export interface BasePiSurfaceParity {
 	readonly workflow: string;
 	/** The Objective that owns semantic review of this parity verdict. */
 	readonly ownerObjective: "cross-harness-parity";
-	/** Guardrail that keeps this v1 registry scoped to @sdl/pi. */
-	readonly sourcePackage: "@sdl/pi";
-	/** Co-located source module that owns the registration and this record. */
+	/** Guardrail that keeps this v1 registry scoped to Pi-owned/accounted surfaces. */
+	readonly sourcePackage: "@sdl/pi" | "@sdl/worktree-status";
+	/** Source module that owns the registration or the Pi-local parity adapter. */
 	readonly sourceModule: string;
 	/** Short rationale/provenance for reviewers; not used for machine equality. */
 	readonly notes: string;

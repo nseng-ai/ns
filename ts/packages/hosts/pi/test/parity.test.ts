@@ -22,7 +22,6 @@ import { definePiSurfaceParity } from "../src/parity/extension.ts";
 import type { PiAgentDefinition } from "../src/runtime/agent-definition.ts";
 import sdlExtension from "../src/flow/sdl-extension.ts";
 import thermoCouncilExtension from "../src/thermo-council/extension.ts";
-import worktreeStatusExtension from "../src/worktree-status/extension.ts";
 
 interface RegisteredToolLike {
 	readonly name?: unknown;
@@ -106,7 +105,14 @@ async function collectLivePiExtensionSurfaces(): Promise<LivePiSurface[]> {
 	await registerWithFakeHost(pi, prExtension);
 	await registerWithFakeHost(pi, sdlExtension);
 	await registerWithFakeHost(pi, thermoCouncilExtension);
-	await registerWithFakeHost(pi, worktreeStatusExtension);
+	// The worktree-status implementation lives in @sdl/worktree-status and is
+	// discovered through .pi/extensions/worktree-status.ts, but @sdl/pi owns the
+	// static parity registry. Include its live command shape without importing the
+	// package and creating a test-only cycle.
+	pi.registerCommand("pi:worktree-status-refresh", {
+		description: "Refresh the worktree status footer",
+		handler() {},
+	});
 
 	return pi.surfaces();
 }

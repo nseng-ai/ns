@@ -1,7 +1,17 @@
 import { basename, resolve } from "node:path";
 
-import { registerCommandWithImmediateAck } from "../commands/ack.ts";
-import type { CustomMessageContent } from "../terminal/presentation.ts";
+import { registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
+import { isRecord } from "@sdl/pi/cmux/primitives";
+import {
+	PI_EXTENSION_COMMAND_FINISHED_EVENT,
+	type PiExtensionCommandEventBus,
+} from "@sdl/pi/commands/events";
+import { unrefTimerScheduler } from "@sdl/pi/shared/timers";
+import type { CustomMessageContent } from "@sdl/pi/terminal/presentation";
+
+import { systemClock, type Clock } from "@sdl/core/clock";
+import type { TimerScheduler } from "@sdl/core/timers";
+import { shutdownGraphiteMetadataWorker } from "@sdl/graphite/status";
 
 import {
 	combineWorktreeStatus,
@@ -16,19 +26,7 @@ import {
 	repoNameFromWorktreeStatusGitPaths,
 	sameWorktreeStatusIdentity,
 	WORKTREE_STATUS_UI_KEY,
-} from "@sdl/ccc/worktree-status";
-import { shutdownGraphiteMetadataWorker } from "@sdl/graphite/status";
-
-import { systemClock, type Clock } from "@sdl/core/clock";
-import type { TimerScheduler } from "@sdl/core/timers";
-
-import { isRecord } from "../cmux/primitives.ts";
-import {
-	PI_EXTENSION_COMMAND_FINISHED_EVENT,
-	type PiExtensionCommandEventBus,
-} from "../commands/events.ts";
-import { definePiSurfaceParity } from "../parity/extension.ts";
-import { unrefTimerScheduler } from "../shared/timers.ts";
+} from "./status.ts";
 import {
 	createWorktreeStatusActivityController,
 	type WorktreeStatusActivityController,
@@ -81,28 +79,12 @@ type WorktreeStatusActivityEvent =
 
 let activeWorktreeStatusRefresh: (() => Promise<void>) | undefined;
 
-// Pi emits tool_execution_end for model tool calls, but extension slash-command
-// handlers complete outside the tool lifecycle. CLI-backed command adapters use
-// this explicit request through their command-completion hook.
+// Pi emits tool_execution_end for model tool calls, while extension slash-command
+// handlers complete through the command event bus registered below. This exported
+// seam remains for focused tests and direct project-local adapters.
 export function requestWorktreeStatusRefresh(): Promise<void> {
 	return activeWorktreeStatusRefresh?.() ?? Promise.resolve();
 }
-
-export const worktreeStatusParity = definePiSurfaceParity([
-	{
-		kind: "command",
-		surface: WORKTREE_STATUS_REFRESH_COMMAND_NAME,
-		workflow: "Manually refresh the Pi worktree status footer",
-		parity: "WAIVED",
-		fallback:
-			"Outside Pi, run the underlying Git, Graphite, GitHub, and Branch Memory fact commands directly or rely on the harness's own status surface.",
-		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl/pi",
-		sourceModule: "worktree-status",
-		notes:
-			"This command is Pi-native status UI over CCC-owned observability loaders, not a portable workflow surface.",
-	},
-] as const);
 
 interface ExecOptions {
 	cwd?: string;

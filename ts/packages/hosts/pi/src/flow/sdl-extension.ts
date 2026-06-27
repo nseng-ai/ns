@@ -4,7 +4,6 @@ import {
 	registerCliCommandExtension,
 	type CliCommandExtensionAPI,
 } from "../commands/cli-extension.ts";
-import { requestWorktreeStatusRefresh } from "../worktree-status/extension.ts";
 import { definePiSurfaceParity } from "../parity/extension.ts";
 
 export type SdlExtensionAPI = CliCommandExtensionAPI;
@@ -75,7 +74,6 @@ export default function sdlExtension(pi: SdlExtensionAPI, options: SdlExtensionO
 		cliName: "sdl",
 		piNamespace: "sdl:flow",
 		commands: SDL_FLOW_COMMANDS,
-		afterCommandComplete: requestWorktreeStatusRefresh,
 		runCli: options.runCli ?? runCli,
 	});
 }
