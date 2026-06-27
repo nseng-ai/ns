@@ -47,6 +47,7 @@ describe("slot gc CLI", () => {
 
 	it("colorizes human dry-run output", async () => {
 		const run = runScenario(["gc", "--dry-run"], {
+			canEmitAnsi: true,
 			git: {
 				worktrees: [
 					slotWorktree("slot-01", "feature/merged"),

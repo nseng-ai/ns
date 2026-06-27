@@ -16,10 +16,11 @@ Default stack shape for `objective-stack-impl`: keep this to one planned stack u
   - Consolidated checkpoint phase specs between submit and cp via shared checkpoint phase definitions.
   - Evidence: parent validation passed `pnpm --dir ts exec vitest run --config vitest.config.ts packages/capabilities/flow/test/unit/phase-stream.test.ts packages/capabilities/flow/test/scenario/cp-command.test.ts packages/capabilities/flow/test/scenario/submit-command.test.ts` and `just ts-check`.
 
-- [ ] Slice 3: move exact rendering assertions to the rendering layer.
-  - Command scenarios should assert progress/event semantics and meaningful output facts.
-  - Clinkr theme/status-line tests should own exact glyph, spacing, color, and frame expectations.
-  - Decide whether the parked progress-destination and import-boundary notes should be addressed immediately or remain parked.
+- [x] Slice 3: move exact rendering assertions to the rendering layer.
+  - Flow command scenarios assert progress/event semantics, settled-output facts, and hosted-output plainness rather than exact glyph/color/spacing frames.
+  - Exact glyph, spacing, color, and frame expectations remain owned by clinkr/theme/stream and focused phase-stream tests.
+  - The parked progress-destination and import-boundary notes remain parked: this slice touched assertions, not the progress routing/API seam or clinkr boundary structure.
+  - Evidence: parent validation passed `pnpm --dir ts exec vitest run --config vitest.config.ts packages/capabilities/flow/test packages/infra/clinkr/test` and `just ts-check`.
 
 ## Parked
 

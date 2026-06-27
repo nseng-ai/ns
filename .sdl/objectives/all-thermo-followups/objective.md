@@ -45,7 +45,7 @@ Risks:
 - Capability resolution was de-risked for flow streaming and objective list rendering by a shared `@sdl/clinkr` settled non-interactive caps policy plus host/IO-threaded caps; watch future commands for reintroducing process-global rendering decisions.
 - Stream cleanup was de-risked for `flow submit` and `flow cp` by `runPhaseStream(...)` finally-owned cleanup; future stream changes should preserve that ownership boundary.
 - Refactoring `phase-stream.ts` is now safer after the caps/cleanup fixes, but the remaining split should still avoid obscuring functional behavior.
-- Exact-frame command tests may reject legitimate theme changes unless rendering semantics are separated from command behavior assertions.
+- Exact-frame command-test brittleness was de-risked in Slice 3 by moving flow command scenarios toward progress/event semantics and hosted-output facts while leaving exact rendering coverage in lower rendering layers.
 - Scratch-code removal did not reveal separate durable design rationale that needed preservation; future UI work should use the shipped clinkr/flow seams and tests as the source of truth.
 
 ## Implementation Guidance
