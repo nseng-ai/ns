@@ -87,7 +87,7 @@ Assumptions:
 - The topological acyclicity guard's graph source is settled as package-level `workspace:*` manifest edges under `ts/packages/**/package.json`; source-import scanning is deliberately out of scope for this slice.
 - The existing `@sdl/autobranch` / `@sdl/branch-context` / `@sdl/pi` / `@sdl/sdl` manifest cycle is real but explicitly deferred by edge in the guard; later graph cleanup outside this Objective should remove that deferral.
 - Final context documentation for the capability/cycle-break slices is complete: current PR evidence adds `ts/packages/objective/CONTEXT.md` and refreshes `CONTEXT-MAP.md`, `ts/packages/hosts/pi/CONTEXT.md`, and `ts/packages/ccc/CONTEXT.md` with the finalized Objective capability boundary, one-way Pi/CCC direction, and acyclicity invariant.
-- Current CLI surface evidence shows the Objective is not yet fully hooked into the SDL command system: `objective --help` works, but `sdl objective --help` falls back to generic `sdl` help and does not expose Objective subcommands.
+- SDL command-system integration is complete: `sdl objective ...` exposes the Objective command family through the checked-in extension, and the previous top-level `objective` binary / raw run-from-source CLI surface has been deliberately retired.
 
 Risks:
 
@@ -96,10 +96,20 @@ Risks:
 - The `@sdl/objective` → `@sdl/pi/runner-subagents/usage` dependency risk is de-risked for the runner-usage seam: the parser/totals primitive now lives in `@sdl/core/runner-usage`, `@sdl/objective` no longer imports or declares `@sdl/pi`, and Pi keeps only a compatibility re-export for remaining callers. Continue to guard against reintroducing `@sdl/objective` → `@sdl/pi` during Objective API relocation.
 - The manifest-only topological acyclicity guard will not catch source imports that lack package manifest dependencies. This is accepted for the current Objective slice; mitigate future drift with a separate source-import/manifest parity guard only if the need appears.
 - The deferred autobranch/branch-context/pi/sdl cycle can become stale or mask architectural debt if left indefinitely. Mitigate by keeping it named in code and Objective tracking, and by assigning cleanup to later graph work before treating the entire package graph as clean.
-- The late-stage cleanup false-completion risk is de-risked for the capability/cycle-break slices by the thermonuclear review/remediation pass: package graph, Pi/CCC stale edges, command/parity surfaces, project-local Pi adapter imports, and Objective/worktree-status seams were reviewed after the acyclicity guard. The pass removed the worktree-status imperative refresh-handle seam, final context documentation now records the settled boundary, and the only accepted graph follow-up is the separately tracked deferred autobranch/branch-context/pi/sdl manifest cycle. A new false-completion risk is now active for the SDL command-system integration: the package/API architecture can look complete while `sdl objective` is still not wired as a vanilla SDL execution.
+- The late-stage cleanup false-completion risk is de-risked by the thermonuclear review/remediation pass and the final SDL command-system integration slices: package graph, Pi/CCC stale edges, command/parity surfaces, project-local Pi adapter imports, Objective/worktree-status seams, context documentation, and the `sdl objective ...` command surface were reviewed or completed. The pass removed the worktree-status imperative refresh-handle seam, final context documentation records the settled boundary, `sdl objective ...` is wired as the vanilla SDL execution surface, and the only accepted graph follow-up is the separately tracked deferred autobranch/branch-context/pi/sdl manifest cycle.
 
 ## Open Questions
 
 - Resolved for this Objective: `@sdl/pi/objectives/extension.ts` keeps genuine Pi presentation/runtime responsibilities as a thin shell while Objective-specific list, picker, selection prompt/policy, candidate, and command-spec helpers live in `@sdl/objective/api`.
-- Decide in the SDL execution integration slice whether the top-level `objective` binary remains as a backwards-compatible delegator to `sdl objective`, remains temporarily supported with explicit documentation, or is retired once `sdl objective` works.
+- Resolved for this Objective: the top-level `objective` binary and raw run-from-source CLI were deliberately retired; `sdl objective ...` is the sole Objective command surface.
 - Accepted follow-up outside this Objective: cleanup of the deferred `@sdl/autobranch` / `@sdl/branch-context` / `@sdl/pi` / `@sdl/sdl` manifest cycle belongs to later graph cleanup or the parent architecture stream, not this completed Pi↔CCC/Objectives cycle-break slice.
+
+## Closure
+
+Outcome: completed.
+
+The Objective closed on 2026-06-27 after the Objective command family was integrated into the SDL extension/command system and the previous top-level `objective` CLI surface was retired. The completed state satisfies the owned scope: Objective domain behavior lives behind `@sdl/objective/api` with a gateway-injected core boundary; `ccc` and `sdlcc` consume that Capability API instead of `@sdl/pi/objectives/*`; `@sdl/objective` no longer depends on `@sdl/pi`; `@sdl/pi` no longer imports or declares `@sdl/ccc`; `just ts-guard` enforces the Objective-scoped manifest acyclicity invariant; thermonuclear review/remediation and final context documentation are complete; and `sdl objective ...` is the sole Objective command surface.
+
+Closure evidence includes the completed roadmap rows and Semantic Updates through `2026-06-27T140000Z-raw-objective-cli-eliminated.md`: `sdl objective --help` exposes Objective subcommands, `sdl objective exec load-orientations` works, the package no longer declares `bin.objective`, `ts/packages/objective/src/cli.ts` no longer exists, and stale-edge gates for `@sdl/ccc` in Pi, `@sdl/pi/objectives` consumers, and `@sdl/pi` in Objective are clean.
+
+Accepted follow-ups remain outside this Objective: parent `sdl-extension-architecture` owns broader capability-consumer conversion work, later graph cleanup owns the deferred `@sdl/autobranch` / `@sdl/branch-context` / `@sdl/pi` / `@sdl/sdl` manifest cycle, and Objective Domain Core timeout/abort/cancellation semantics remain deferred until a concrete consumer needs them.
