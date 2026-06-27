@@ -3,9 +3,9 @@ import type { TextGenerator } from "@sdl/domain-primitives-transitional/text-gen
 import { defineExtension, failed, ok, z, type SdlCommand } from "sdl-sdk";
 import {
 	CP_PHASES,
-	createPhaseStream,
 	flowStreamDeps,
 	resolveFlowStreamCaps,
+	runPhaseStream,
 } from "../shared/phase-stream.ts";
 import {
 	CHECKPOINT_MODEL_ENV,
@@ -57,21 +57,27 @@ export const flowCpCommand: SdlCommand<typeof cpRequestSchema> = {
 			return toCommandResult(result);
 		}
 
-		const caps = resolveFlowStreamCaps();
-		const stream = createPhaseStream(caps, CP_PHASES, flowStreamDeps(ctx, caps));
-		stream.begin("sdl flow cp");
-		const result = await runCpCore({
-			cwd: ctx.cwd,
-			env: ctx.env,
-			textGenerator: ctx.textGenerator,
-			isDryRun: false,
-			checkpointGateway: runtime.checkpointGateway,
-			onPhase: stream.emit,
-		});
-		const command = toCommandResult(result);
-		if (!command.ok) stream.fail();
-		await stream.finish();
-		return command;
+		const caps = resolveFlowStreamCaps(ctx);
+		return await runPhaseStream(
+			caps,
+			CP_PHASES,
+			flowStreamDeps(ctx, caps),
+			"sdl flow cp",
+			async (stream) => {
+				const result = await runCpCore({
+					cwd: ctx.cwd,
+					env: ctx.env,
+					textGenerator: ctx.textGenerator,
+					isDryRun: false,
+					checkpointGateway: runtime.checkpointGateway,
+					onPhase: stream.emit,
+				});
+				const command = toCommandResult(result);
+				if (!command.ok) stream.fail();
+				await stream.finish();
+				return command;
+			},
+		);
 	},
 };
 

@@ -4,11 +4,11 @@
 
 Default stack shape for `objective-stack-impl`: keep this to one planned stack unless the first slice exposes a broader host API change. Use three reviewable slices by thesis: capability/lifecycle contract, phase-stream/scratch cleanup, then command-test hardening and parked follow-up decisions. Each slice should record Objective evidence if it lands meaningful progress; PR submission remains a separate explicit user action.
 
-- [ ] Slice 1: restore hosted capability resolution and stream lifecycle safety.
-  - Flow submit/cp and objective list should resolve `Caps` from the command host/IO context, treating callback or override sinks as non-interactive, and falling back to `resolveProcessCaps()` only for direct terminal CLI execution.
-  - Introduce `runPhaseStream(...)`/`runStream(...)` ownership or wrap the current submit/cp streaming sections so sink stop and cursor restore happen in `finally` when core work throws.
-  - Codify the non-TTY title/header contract, defaulting to minimal append-only output unless implementation evidence requires a title line.
-  - Evidence: targeted flow, objective, and clinkr capability tests cover Pi-style callback sinks and direct CLI fallback; a forced-throw test proves stream cleanup happens after a mid-stream failure.
+- [x] Slice 1: restore hosted capability resolution and stream lifecycle safety.
+  - Flow submit/cp and objective list resolve `Caps` from command host/IO context, treating callback or override sinks as non-interactive, and falling back to `resolveProcessCaps()` only for direct terminal CLI execution.
+  - `runPhaseStream(...)` owns submit/cp streaming lifecycle so sink stop and cursor restore happen in `finally` when core work throws.
+  - Non-TTY behavior is codified as minimal append-only output, with no new title/header line required.
+  - Evidence: targeted flow, objective, and clinkr capability tests cover Pi-style callback sinks and direct CLI fallback; a forced-throw test proves stream cleanup happens after a mid-stream failure; parent validation passed `pnpm --dir ts exec vitest run --config vitest.config.ts packages/infra/clinkr/test packages/capabilities/flow/test/unit/phase-stream.test.ts packages/objective/test/unit/list-objectives.test.ts packages/objective/test/scenario/list-objectives-cli.test.ts packages/capabilities/flow/test/scenario/cp-command.test.ts` and `just ts-check`.
 
 - [ ] Slice 2: simplify stream implementation and remove disposable scratch surface.
   - Delete `ts/scratch/cli-northstar` from live source unless there is an active named reason to keep it; preserve durable design decisions in prose only if needed.

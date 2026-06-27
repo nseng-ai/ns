@@ -1,11 +1,16 @@
+import { resolveProcessCaps, resolveSettledNonInteractiveCaps, type Caps } from "./caps.ts";
+
 export interface ClinkrIo {
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
-	/** Whether human renderers may emit ANSI styling. Resolved from the real stdout sink. */
+	/** Full terminal capabilities for the resolved stdout sink. */
+	caps?: Caps | undefined;
+	/** Whether human renderers may emit ANSI styling. Resolved from the stdout sink caps. */
 	canEmitAnsi?: boolean;
 }
 
 export function createProcessIo(): ClinkrIo {
+	const caps = resolveProcessCaps();
 	return {
 		stdout: (text) => {
 			process.stdout.write(text);
@@ -13,7 +18,8 @@ export function createProcessIo(): ClinkrIo {
 		stderr: (text) => {
 			process.stderr.write(text);
 		},
-		canEmitAnsi: resolveProcessColor(),
+		caps,
+		canEmitAnsi: caps.colorDepth !== "none",
 	};
 }
 
@@ -21,6 +27,7 @@ export interface ClinkrIoOverrides {
 	stdout?: ((text: string) => void) | undefined;
 	stderr?: ((text: string) => void) | undefined;
 	canEmitAnsi?: boolean | undefined;
+	caps?: Caps | undefined;
 }
 
 /** Process io with per-stream overrides; the seam CLIs hand their deps to. */
@@ -30,17 +37,24 @@ export function resolveIo(overrides: ClinkrIoOverrides = {}): ClinkrIo {
 	// off unless the caller asks for it. With no override we are writing to the real terminal.
 	const canEmitAnsi =
 		overrides.canEmitAnsi ?? (overrides.stdout === undefined ? base.canEmitAnsi === true : false);
+	const caps =
+		overrides.caps ??
+		(overrides.stdout === undefined
+			? base.caps
+			: capsForOverrideSink({ env: process.env, canEmitAnsi }));
 	return {
 		stdout: overrides.stdout ?? base.stdout,
 		stderr: overrides.stderr ?? base.stderr,
+		caps,
 		canEmitAnsi,
 	};
 }
 
-function resolveProcessColor(): boolean {
-	const env = process.env;
-	if (env["NO_COLOR"] !== undefined) return false;
-	const forceColor = env["FORCE_COLOR"];
-	if (forceColor !== undefined && forceColor !== "" && forceColor !== "0") return true;
-	return process.stdout.isTTY === true;
+function capsForOverrideSink(input: {
+	env: Readonly<Record<string, string | undefined>>;
+	canEmitAnsi: boolean;
+}): Caps {
+	const settled = resolveSettledNonInteractiveCaps(input.env);
+	if (!input.canEmitAnsi) return settled;
+	return { ...settled, colorDepth: "ansi16" };
 }

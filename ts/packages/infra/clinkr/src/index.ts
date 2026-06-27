@@ -11,7 +11,13 @@ export type {
 	CreateClinkrInteractionOptions,
 	ResolveClinkrInteractionOptions,
 } from "./confirmation.ts";
-export { DEFAULT_COLUMNS, readProcessCapsEnv, resolveCaps, resolveProcessCaps } from "./caps.ts";
+export {
+	DEFAULT_COLUMNS,
+	readProcessCapsEnv,
+	resolveCaps,
+	resolveProcessCaps,
+	resolveSettledNonInteractiveCaps,
+} from "./caps.ts";
 export type { Caps, CapsEnv, ColorDepth } from "./caps.ts";
 export { completeClinkrWords } from "./completion.ts";
 export type {

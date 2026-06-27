@@ -1,3 +1,4 @@
+import { resolveSettledNonInteractiveCaps } from "../caps.ts";
 import type {
 	ClinkrInteraction,
 	ConfirmationRequest,
@@ -116,6 +117,8 @@ export function createCaptureIo(): CaptureIo {
 			stderr: (text) => {
 				errChunks.push(text);
 			},
+			caps: resolveSettledNonInteractiveCaps(),
+			canEmitAnsi: false,
 		},
 		stdout: () => outChunks.join(""),
 		stderr: () => errChunks.join(""),
@@ -126,10 +129,11 @@ export function createCaptureIo(): CaptureIo {
 export async function runForTest<TContext>(
 	group: ClinkrGroup<TContext>,
 	argv: readonly string[],
-	options: { context: TContext },
+	options: { context: TContext; io?: ClinkrIo | undefined },
 ): Promise<CapturedRun> {
 	const capture = createCaptureIo();
-	const exitCode = await group.run(argv, { context: options.context, io: capture.io });
+	const io = options.io ?? capture.io;
+	const exitCode = await group.run(argv, { context: options.context, io });
 	return { exitCode, stdout: capture.stdout(), stderr: capture.stderr() };
 }
 
