@@ -1,6 +1,6 @@
 import { wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
-import { clamp } from "../context-profiler/render.ts";
+import { clamp } from "../shared/render-helpers.ts";
 
 /**
  * Overlay sizing shared by PR preview modals. The host overlay clips rendered

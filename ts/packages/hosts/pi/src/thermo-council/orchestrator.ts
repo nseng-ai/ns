@@ -30,7 +30,7 @@ import {
 	type RunnerSubagentResult,
 	type RunnerSubagentUpdate,
 } from "../runner-subagents/extension-api.ts";
-import { parseLmJson } from "../context-profiler/lm-json.ts";
+import { parseLmJson } from "../shared/lm-json.ts";
 import { extractRunnerSubagentToolCallPayloadsFromSessionJsonl } from "../runner-subagents/json-events.ts";
 import { THERMO_COUNCIL_COMMAND_NAME, THERMO_COUNCIL_MESSAGE_TYPE } from "./constants.ts";
 import { synthesizeThermoCouncilFinalReport } from "./final-synthesis.ts";

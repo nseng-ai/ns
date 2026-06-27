@@ -9,7 +9,7 @@ import {
 	type PrPreviewCheck,
 	type PrPreviewChecksViewModel,
 } from "./preview-checks-model.ts";
-import { clamp, fitToWidth, reconcileScroll } from "../context-profiler/render.ts";
+import { clamp, fitToWidth, reconcileScroll } from "../shared/render-helpers.ts";
 import { sliceWrappedDetailLinesForViewport, wrapDetailLines } from "./preview-view-utilities.ts";
 import type {
 	WrappedDetailViewport,

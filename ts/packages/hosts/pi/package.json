@@ -15,6 +15,8 @@
     "./sessions/replacement": "./src/sessions/replacement.ts",
     "./skills/expansion": "./src/skills/expansion.ts",
     "./terminal/presentation": "./src/terminal/presentation.ts",
+    "./shared/lm-json": "./src/shared/lm-json.ts",
+    "./shared/render-helpers": "./src/shared/render-helpers.ts",
     "./shared/timers": "./src/shared/timers.ts",
     "./runtime/types": "./src/runtime/types.ts"
   },
