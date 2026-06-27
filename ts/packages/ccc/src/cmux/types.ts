@@ -17,4 +17,4 @@ export type {
 	SessionStartContext,
 	ThinkingLevel,
 	UiLike,
-} from "@sdl/pi/cmux/types";
+} from "@sdl/pi/runtime/types";

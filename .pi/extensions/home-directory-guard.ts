@@ -1,4 +1,4 @@
-import { isRecord } from "../../ts/packages/hosts/pi/src/cmux/primitives.ts";
+import { isRecord } from "../../ts/packages/hosts/pi/src/runtime/primitives.ts";
 
 const HOME_ROOT = "/Users/schrockn";
 const BLOCK_REASON = "Blocked by home-directory-guard extension: home-directory root target is forbidden. Scope to a repo or explicit subfolder.";

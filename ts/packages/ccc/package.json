@@ -21,6 +21,7 @@
     "@sdl/autobranch": "workspace:*",
     "@sdl/branch-context": "workspace:*",
     "@sdl/clinkr": "workspace:*",
+    "@sdl/cmux": "workspace:*",
     "@sdl/core": "workspace:*",
     "@sdl/domain-primitives-transitional": "workspace:*",
     "@sdl/graphite": "workspace:*",

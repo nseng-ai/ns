@@ -29,9 +29,14 @@ import {
 	expandRepoSkillBlock,
 	invokeRepoSkillPromptTurn,
 } from "../skills/expansion.ts";
-import type { AutocompleteItem, CommandContext, ExecOptions, ExtensionAPI } from "../cmux/types.ts";
+import type {
+	AutocompleteItem,
+	CommandContext,
+	ExecOptions,
+	ExtensionAPI,
+} from "../runtime/types.ts";
 
-export type { CommandContext, NotifyLevel, SessionStartContext } from "../cmux/types.ts";
+export type { CommandContext, NotifyLevel, SessionStartContext } from "../runtime/types.ts";
 export type { ExecResult } from "@sdl/core/exec";
 export {
 	completeObjectiveListArgs,

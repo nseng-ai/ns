@@ -12,7 +12,7 @@ import {
 	chooseActiveObjectiveSlug,
 	objectiveSelectionContextFromCommandContext,
 } from "../../src/objectives/selection.ts";
-import type { CommandContext, ExecResult } from "../../src/cmux/types.ts";
+import type { CommandContext, ExecResult } from "../../src/runtime/types.ts";
 
 describe("pi extension runtime helpers", () => {
 	test("formats command displays with shell quoting", () => {

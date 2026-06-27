@@ -1,14 +1,28 @@
 import { formatShellArg } from "@sdl/core/exec";
-import type { CommandContext, ExtensionAPI, ModelInfo, ThinkingLevel } from "./types.ts";
+
+export type PiLaunchThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+
+export interface PiLaunchModelInfo {
+	provider: string;
+	id: string;
+}
 
 export interface PiLaunchOptions {
-	model?: ModelInfo;
-	thinkingLevel: ThinkingLevel;
+	model?: PiLaunchModelInfo;
+	thinkingLevel: PiLaunchThinkingLevel;
+}
+
+export interface PiLaunchThinkingHost {
+	getThinkingLevel(): PiLaunchThinkingLevel;
+}
+
+export interface PiLaunchCommandContext {
+	model?: PiLaunchModelInfo;
 }
 
 export function getPiLaunchOptions(
-	pi: Pick<ExtensionAPI, "getThinkingLevel">,
-	ctx: Pick<CommandContext, "model">,
+	pi: PiLaunchThinkingHost,
+	ctx: PiLaunchCommandContext,
 ): PiLaunchOptions {
 	const thinkingLevel = pi.getThinkingLevel();
 	if (ctx.model === undefined) {

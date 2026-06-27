@@ -1,6 +1,6 @@
 import { githubPrIdentityFromUrl } from "@sdl/core/github-identity";
 
-import { isRecord, stringField } from "../../cmux/primitives.ts";
+import { isRecord, stringField } from "../../runtime/primitives.ts";
 import { loadGhCommand } from "../gh-command.ts";
 
 import { GIT_TIMEOUT_MS, REST_FINGERPRINT_SKEW_MS } from "./constants.ts";

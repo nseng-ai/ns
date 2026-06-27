@@ -15,7 +15,7 @@ import {
 	providerMatchesModelProviderFamily,
 } from "@sdl/core/model-slug";
 
-import type { ModelInfo } from "../cmux/types.ts";
+import type { ModelInfo } from "../runtime/types.ts";
 import type {
 	RunnerSubagentBlockedResult,
 	RunnerSubagentCancelledResult,

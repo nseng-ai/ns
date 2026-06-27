@@ -7,7 +7,7 @@ import { describe, expect, test } from "vitest";
 import type { ExecOptions, ExecResult } from "@sdl/core/exec";
 import { createManualClock } from "@sdl/core/testing";
 
-import type { ThinkingLevel } from "../src/cmux/types.ts";
+import type { ThinkingLevel } from "../src/runtime/types.ts";
 import {
 	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,
 	type RunnerSubagentPi,

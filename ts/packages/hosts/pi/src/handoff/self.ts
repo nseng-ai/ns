@@ -1,5 +1,5 @@
 import { formatErrorMessage } from "@sdl/core/primitives";
-import { isRecord, stringField } from "../cmux/primitives.ts";
+import { isRecord, stringField } from "../runtime/primitives.ts";
 import {
 	buildHandoffLaunchPrompt,
 	buildHandoffLaunchTool,

@@ -5,10 +5,10 @@ import type {
 	SessionReplacementResult,
 	SessionUserMessageOptions,
 } from "../sessions/replacement.ts";
-import type { ModelInfo, ThinkingLevel } from "../cmux/types.ts";
+import type { ModelInfo, ThinkingLevel } from "../runtime/types.ts";
 
 export type { ExecResult } from "@sdl/core/exec";
-export type { ModelInfo, ThinkingLevel } from "../cmux/types.ts";
+export type { ModelInfo, ThinkingLevel } from "../runtime/types.ts";
 
 export type NotifyLevel = "info" | "warning" | "error";
 export type ExtensionMode = "tui" | "rpc" | "json" | "print";

@@ -7,7 +7,7 @@ import {
 	isHandoffKey,
 } from "@sdl/handoff/identity";
 
-import { isRecord } from "../cmux/primitives.ts";
+import { isRecord } from "../runtime/primitives.ts";
 import {
 	BRMEM_TIMEOUT_MS,
 	HANDOFF_TIMEOUT_MS,

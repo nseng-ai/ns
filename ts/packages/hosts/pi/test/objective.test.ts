@@ -11,7 +11,7 @@ import objectiveExtension, {
 	type ObjectiveExtensionAPI,
 	type NotifyLevel,
 } from "../src/objectives/extension.ts";
-import type { AgentEndContext, ExecOptions, SessionStartContext } from "../src/cmux/types.ts";
+import type { AgentEndContext, ExecOptions, SessionStartContext } from "../src/runtime/types.ts";
 
 const ROOT = "/repo";
 const TRUNK = "master";

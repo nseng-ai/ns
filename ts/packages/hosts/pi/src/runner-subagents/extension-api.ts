@@ -1,4 +1,4 @@
-import type { ModelInfo, ThinkingLevel } from "../cmux/types.ts";
+import type { ModelInfo, ThinkingLevel } from "../runtime/types.ts";
 import type { RunnerSubagentUpdate } from "./activity.ts";
 import {
 	dispatchRunnerSubagentProcess,

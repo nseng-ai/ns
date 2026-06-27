@@ -16,13 +16,8 @@
     "./sessions/replacement": "./src/sessions/replacement.ts",
     "./skills/expansion": "./src/skills/expansion.ts",
     "./terminal/presentation": "./src/terminal/presentation.ts",
-    "./cmux/command": "./src/cmux/command.ts",
-    "./cmux/gateway": "./src/cmux/gateway.ts",
-    "./cmux/focused-terminal-tab": "./src/cmux/focused-terminal-tab.ts",
-    "./cmux/pi-launch": "./src/cmux/pi-launch.ts",
-    "./cmux/primitives": "./src/cmux/primitives.ts",
-    "./cmux/types": "./src/cmux/types.ts",
-    "./shared/timers": "./src/shared/timers.ts"
+    "./shared/timers": "./src/shared/timers.ts",
+    "./runtime/types": "./src/runtime/types.ts"
   },
   "scripts": {
     "check": "tsgo -p tsconfig.json",
@@ -30,6 +25,7 @@
   },
   "dependencies": {
     "@sdl/branch-context": "workspace:*",
+    "@sdl/cmux": "workspace:*",
     "@sdl/core": "workspace:*",
     "@sdl/domain-primitives-transitional": "workspace:*",
     "@sdl/graphite": "workspace:*",

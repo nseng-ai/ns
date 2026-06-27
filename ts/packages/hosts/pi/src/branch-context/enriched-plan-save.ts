@@ -16,7 +16,7 @@ import {
 	type SavedPlanContentSlugEvidence,
 	type SavedPlanFileEvidence,
 } from "@sdl/plans/api";
-import { isRecord } from "../cmux/primitives.ts";
+import { isRecord } from "../runtime/primitives.ts";
 import { GRILL_ASK_TOOL_NAME } from "../grill/extension.ts";
 import { resolveBranchContextOperations, resolvePlanStoreRootOption } from "./options.ts";
 import type {

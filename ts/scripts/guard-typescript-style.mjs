@@ -39,6 +39,7 @@ const capabilityPackageNames = new Set([
 const neutralPeerPackageNames = new Set([
   "@sdl/brmem",
   "@sdl/clinkr",
+  "@sdl/cmux",
   "@sdl/core",
   "@sdl/capability-kit",
   "@sdl/graphite",
@@ -53,14 +54,15 @@ const extensionGraphPackageNames = new Set([
   "sdlcc",
 ]);
 // Deferred by the objective-capability-extension slice: this known package cycle is real,
-// but breaking it belongs to separate graph cleanup work, not this guard addition.
-const deferredExtensionCycleEdges = new Set([
-  "@sdl/autobranch->@sdl/pi",
-  "@sdl/branch-context->@sdl/pi",
-  "@sdl/pi->@sdl/branch-context",
-  "@sdl/pi->@sdl/sdl",
-  "@sdl/sdl->@sdl/autobranch",
-]);
+// but breaking it belongs to separate graph cleanup work, not this manifest-scoped guard addition.
+const deferredExtensionCycleComponents = [
+  {
+    name: "legacy-autobranch-branch-context-pi-sdl-cycle",
+    packages: new Set(["@sdl/autobranch", "@sdl/branch-context", "@sdl/pi", "@sdl/sdl"]),
+    reason:
+      "Known legacy extension package cycle deferred from the objective-capability-extension stack; do not add packages to this component without separate graph cleanup review.",
+  },
+];
 const packageMetadataByName = loadPackageMetadata();
 
 /** @type {Array<{ rule: string; path: string; line: number; column: number; text: string }>} */
@@ -71,7 +73,7 @@ matches.push(
   ...collectExtensionDependencyCycleViolations(
     packageMetadataByName,
     extensionGraphPackageNames,
-    deferredExtensionCycleEdges,
+    deferredExtensionCycleComponents,
   ),
 );
 scanDirectory(repoRoot);
@@ -95,7 +97,7 @@ console.error(
   `${BAN_CAPABILITY_PRIVATE_PEER_IMPORT}: capability packages may import sibling capabilities through curated package exports such as \`@sdl/<cap>/api\`, but not private/deep \`src\`, \`internal\`, or undeclared capability subpaths.`,
 );
 console.error(
-  `${BAN_EXTENSION_DEPENDENCY_CYCLE}: Objective-scoped extension packages must not form non-deferred cycles through \`workspace:*\` edges in package manifests under \`ts/packages/**/package.json\`. Remove or relocate manifest dependencies, or move shared code to neutral packages/API subpaths. The existing autobranch/branch-context/pi/sdl cycle is an explicit deferred follow-up, not a silent graph exclusion.`,
+  `${BAN_EXTENSION_DEPENDENCY_CYCLE}: Objective-scoped extension packages must not form non-deferred cycles through manifest-scoped \`workspace:*\` edges in dependencies, optionalDependencies, or peerDependencies under \`ts/packages/**/package.json\`. devDependencies and source-import parity are intentionally out of scope. Remove or relocate manifest dependencies, or move shared code to neutral packages/API subpaths. The known deferred component is legacy-autobranch-branch-context-pi-sdl-cycle; it is explicit follow-up debt, not a silent graph exclusion.`,
 );
 console.error("");
 for (const match of matches) {
@@ -317,28 +319,27 @@ function buildViolation(rule, path, sourceFile, node) {
   };
 }
 
-function collectExtensionDependencyCycleViolations(metadataByName, graphPackageNames, deferredEdges) {
+function collectExtensionDependencyCycleViolations(metadataByName, graphPackageNames, deferredComponents) {
   const edges = collectExtensionManifestWorkspaceEdges(metadataByName, graphPackageNames);
   const cycleComponents = findCycleComponents([...graphPackageNames].sort(), edges);
   /** @type {Array<{ rule: string; path: string; line: number; column: number; text: string }>} */
   const violations = [];
 
   for (const component of cycleComponents) {
+    const deferredComponent = findContainingDeferredComponent(component, deferredComponents);
+    if (deferredComponent !== undefined) continue;
+
     const componentPackages = new Set(component);
     const componentEdges = edges.filter((edge) => componentPackages.has(edge.from) && componentPackages.has(edge.to));
-    const nonDeferredEdges = componentEdges.filter((edge) => !deferredEdges.has(extensionEdgeKey(edge.from, edge.to)));
-    if (nonDeferredEdges.length === 0) continue;
-
     const packagesText = [...component].sort().join(", ");
-    const deferredEdgeCount = componentEdges.length - nonDeferredEdges.length;
-    const deferredText = deferredEdgeCount > 0 ? `; ${deferredEdgeCount} known edge(s) in this component are explicitly deferred` : "";
-    for (const edge of nonDeferredEdges) {
+    const overlapText = formatDeferredComponentOverlap(component, deferredComponents);
+    for (const edge of componentEdges) {
       violations.push({
         rule: BAN_EXTENSION_DEPENDENCY_CYCLE,
         path: edge.path,
         line: edge.line,
         column: edge.column,
-        text: `non-deferred manifest workspace cycle among ${packagesText}; edge ${edge.from} -> ${edge.to} in ${edge.field} participates${deferredText}`,
+        text: `non-deferred manifest-scoped workspace cycle among ${packagesText}; edge ${edge.from} -> ${edge.to} at ${edge.manifestPath} participates${overlapText}. Guard scope: dependencies, optionalDependencies, and peerDependencies only; devDependencies and source imports are intentionally out of scope.`,
       });
     }
   }
@@ -346,8 +347,22 @@ function collectExtensionDependencyCycleViolations(metadataByName, graphPackageN
   return violations;
 }
 
+function findContainingDeferredComponent(component, deferredComponents) {
+  return deferredComponents.find((deferredComponent) =>
+    component.every((packageName) => deferredComponent.packages.has(packageName)),
+  );
+}
+
+function formatDeferredComponentOverlap(component, deferredComponents) {
+  const overlappingNames = deferredComponents
+    .filter((deferredComponent) => component.some((packageName) => deferredComponent.packages.has(packageName)))
+    .map((deferredComponent) => deferredComponent.name)
+    .sort();
+  return overlappingNames.length === 0 ? "" : `; overlaps deferred component(s): ${overlappingNames.join(", ")}`;
+}
+
 function collectExtensionManifestWorkspaceEdges(metadataByName, graphPackageNames) {
-  /** @type {Array<{ from: string; to: string; field: string; path: string; line: number; column: number }>} */
+  /** @type {Array<{ from: string; to: string; field: string; manifestPath: string; path: string; line: number; column: number }>} */
   const edges = [];
   for (const from of [...graphPackageNames].sort()) {
     const metadata = metadataByName.get(from);
@@ -360,11 +375,12 @@ function collectExtensionManifestWorkspaceEdges(metadataByName, graphPackageName
       for (const [to, versionSpecifier] of Object.entries(dependencies).sort(([left], [right]) => left.localeCompare(right))) {
         if (!graphPackageNames.has(to)) continue;
         if (typeof versionSpecifier !== "string" || !versionSpecifier.startsWith("workspace:")) continue;
-        const position = findManifestDependencyPosition(metadata.manifestContent, to);
+        const position = findManifestDependencyPosition(metadata.manifestContent, field, to);
         edges.push({
           from,
           to,
           field,
+          manifestPath: `${field}.${to}`,
           path: metadata.packageJsonPath,
           line: position.line,
           column: position.column,
@@ -379,10 +395,49 @@ function isDependencyMap(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function findManifestDependencyPosition(content, dependencyName) {
+function findManifestDependencyPosition(content, field, dependencyName) {
+  const fieldOffset = content.indexOf(`"${field}"`);
+  if (fieldOffset >= 0) {
+    const objectStart = content.indexOf("{", fieldOffset);
+    const objectEnd = objectStart >= 0 ? findJsonObjectEnd(content, objectStart) : -1;
+    const fieldDependencyOffset = objectStart >= 0 ? content.indexOf(`"${dependencyName}"`, objectStart) : -1;
+    if (fieldDependencyOffset >= 0 && (objectEnd < 0 || fieldDependencyOffset < objectEnd)) {
+      return lineAndColumnForOffset(content, fieldDependencyOffset);
+    }
+  }
+
   const offset = content.indexOf(`"${dependencyName}"`);
   if (offset < 0) return { line: 1, column: 1 };
   return lineAndColumnForOffset(content, offset);
+}
+
+function findJsonObjectEnd(content, objectStart) {
+  let depth = 0;
+  let isInString = false;
+  let isEscaped = false;
+  for (let index = objectStart; index < content.length; index += 1) {
+    const character = content[index];
+    if (isInString) {
+      if (isEscaped) {
+        isEscaped = false;
+      } else if (character === "\\") {
+        isEscaped = true;
+      } else if (character === '"') {
+        isInString = false;
+      }
+      continue;
+    }
+
+    if (character === '"') {
+      isInString = true;
+    } else if (character === "{") {
+      depth += 1;
+    } else if (character === "}") {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  return -1;
 }
 
 function lineAndColumnForOffset(content, offset) {
@@ -452,10 +507,6 @@ function findCycleComponents(packageNames, edges) {
   }
 
   return components.sort((left, right) => left.join("\0").localeCompare(right.join("\0")));
-}
-
-function extensionEdgeKey(from, to) {
-  return `${from}->${to}`;
 }
 
 function singleLine(text) {
@@ -604,10 +655,13 @@ function runExtensionDependencyGraphAdversarialReview() {
     "@sdl/pi",
     "@sdl/sdl",
   ]);
-  const deferredEdges = [...deferredExtensionCycleEdges].map((key) => {
-    const [from, to] = key.split("->");
-    return { from, to };
-  });
+  const legacyDeferredCycleEdges = [
+    { from: "@sdl/autobranch", to: "@sdl/pi" },
+    { from: "@sdl/branch-context", to: "@sdl/pi" },
+    { from: "@sdl/pi", to: "@sdl/branch-context" },
+    { from: "@sdl/pi", to: "@sdl/sdl" },
+    { from: "@sdl/sdl", to: "@sdl/autobranch" },
+  ];
   const cases = [
     {
       name: "acyclic extension manifest graph is allowed",
@@ -621,50 +675,97 @@ function runExtensionDependencyGraphAdversarialReview() {
         { from: "@sdl/ccc", to: "@sdl/pi" },
       ],
       expectedHasCycle: true,
+      expectedTextIncludes: "dependencies.@sdl/pi",
     },
     {
-      name: "exact deferred extension manifest cycle is allowed",
-      edges: deferredEdges,
+      name: "known deferred extension manifest SCC is allowed",
+      edges: legacyDeferredCycleEdges,
       expectedHasCycle: false,
     },
     {
-      name: "new non-deferred cycle involving a deferred package is rejected",
+      name: "new cycle wholly inside deferred package set is allowed",
       edges: [
-        ...deferredEdges,
+        { from: "@sdl/autobranch", to: "@sdl/branch-context" },
+        { from: "@sdl/branch-context", to: "@sdl/autobranch" },
+      ],
+      expectedHasCycle: false,
+    },
+    {
+      name: "expanded deferred SCC is rejected",
+      edges: [
+        ...legacyDeferredCycleEdges,
         { from: "@sdl/pi", to: "@sdl/ccc" },
-        { from: "@sdl/ccc", to: "@sdl/pi" },
+        { from: "@sdl/ccc", to: "@sdl/autobranch" },
       ],
       expectedHasCycle: true,
+      expectedTextIncludes: "legacy-autobranch-branch-context-pi-sdl-cycle",
+    },
+    {
+      name: "devDependencies-only cycle is ignored",
+      edges: [
+        { from: "@sdl/pi", to: "@sdl/ccc", field: "devDependencies" },
+        { from: "@sdl/ccc", to: "@sdl/pi", field: "devDependencies" },
+      ],
+      expectedHasCycle: false,
+    },
+    {
+      name: "field-aware manifest dependency diagnostics point at the participating field",
+      metadataByName: buildFieldAwareDiagnosticMetadata(),
+      expectedHasCycle: true,
+      expectedTextIncludes: "dependencies.@sdl/ccc",
+      expectedLine: 7,
     },
   ];
 
   for (const testCase of cases) {
-    const metadataByName = buildSyntheticPackageMetadata(syntheticPackages, testCase.edges);
-    const actualRules = collectExtensionDependencyCycleViolations(
+    const metadataByName = testCase.metadataByName ?? buildSyntheticPackageMetadata(syntheticPackages, testCase.edges);
+    const violations = collectExtensionDependencyCycleViolations(
       metadataByName,
       syntheticPackages,
-      deferredExtensionCycleEdges,
-    ).map((violation) => violation.rule);
+      deferredExtensionCycleComponents,
+    );
+    const actualRules = violations.map((violation) => violation.rule);
     const actualHasCycle = actualRules.includes(BAN_EXTENSION_DEPENDENCY_CYCLE);
     if (actualHasCycle !== testCase.expectedHasCycle) {
       const expected = testCase.expectedHasCycle ? [BAN_EXTENSION_DEPENDENCY_CYCLE] : [];
       const actual = [...new Set(actualRules)].sort();
       reportAdversarialReviewFailure(testCase.name, expected, actual);
     }
+    if (testCase.expectedTextIncludes !== undefined && !violations.some((violation) => violation.text.includes(testCase.expectedTextIncludes))) {
+      reportAdversarialReviewFailure(testCase.name, [`text includes ${testCase.expectedTextIncludes}`], violations.map((violation) => violation.text));
+    }
+    if (testCase.expectedLine !== undefined && !violations.some((violation) => violation.line === testCase.expectedLine)) {
+      reportAdversarialReviewFailure(testCase.name, [`line ${testCase.expectedLine}`], violations.map((violation) => `line ${violation.line}`));
+    }
   }
 }
 
-function buildSyntheticPackageMetadata(packageNames, edges) {
-  const dependenciesByPackage = new Map([...packageNames].map((packageName) => [packageName, {}]));
+function buildSyntheticPackageMetadata(packageNames, edges = []) {
+  const dependenciesByPackage = new Map(
+    [...packageNames].map((packageName) => [
+      packageName,
+      {
+        dependencies: {},
+        optionalDependencies: {},
+        peerDependencies: {},
+        devDependencies: {},
+      },
+    ]),
+  );
   for (const edge of edges) {
-    dependenciesByPackage.get(edge.from)[edge.to] = "workspace:*";
+    const field = edge.field ?? "dependencies";
+    dependenciesByPackage.get(edge.from)[field][edge.to] = "workspace:*";
   }
 
   const metadataByName = new Map();
   for (const packageName of [...packageNames].sort()) {
+    const fields = dependenciesByPackage.get(packageName);
     const manifest = {
       name: packageName,
-      dependencies: dependenciesByPackage.get(packageName),
+      ...(Object.keys(fields.devDependencies).length === 0 ? {} : { devDependencies: fields.devDependencies }),
+      ...(Object.keys(fields.dependencies).length === 0 ? {} : { dependencies: fields.dependencies }),
+      ...(Object.keys(fields.optionalDependencies).length === 0 ? {} : { optionalDependencies: fields.optionalDependencies }),
+      ...(Object.keys(fields.peerDependencies).length === 0 ? {} : { peerDependencies: fields.peerDependencies }),
     };
     metadataByName.set(packageName, {
       name: packageName,
@@ -675,6 +776,27 @@ function buildSyntheticPackageMetadata(packageNames, edges) {
       exportSubpaths: new Set(["."]),
     });
   }
+  return metadataByName;
+}
+
+function buildFieldAwareDiagnosticMetadata() {
+  const packageNames = new Set(["@sdl/ccc", "@sdl/pi"]);
+  const metadataByName = buildSyntheticPackageMetadata(packageNames, [
+    { from: "@sdl/pi", to: "@sdl/ccc", field: "dependencies" },
+    { from: "@sdl/ccc", to: "@sdl/pi", field: "dependencies" },
+  ]);
+  const piMetadata = metadataByName.get("@sdl/pi");
+  const manifest = {
+    name: "@sdl/pi",
+    devDependencies: {
+      "@sdl/ccc": "workspace:*",
+    },
+    dependencies: {
+      "@sdl/ccc": "workspace:*",
+    },
+  };
+  piMetadata.manifest = manifest;
+  piMetadata.manifestContent = JSON.stringify(manifest, null, 2);
   return metadataByName;
 }
 
