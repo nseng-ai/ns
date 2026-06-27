@@ -8,10 +8,14 @@
   - Evidence: `updates/2026-06-27-pi-host-boundary-inventory.md` records every current top-level source-area classification, package export/dependency and discovery-adapter cross-checks, known `context-profiler` reverse-import seam types, candidate order, and a tentative package-location convention.
 
 - [ ] Extract `context-profiler` as the reference Pi-native package slice.
-  - Decide the package name/location and the exact `@sdl/pi` helper/runtime export surface it consumes.
-  - Resolve known reverse imports first: PR preview views consume render helpers, `thermo-council` consumes LM JSON parsing, and Pi parity registration consumes the context-profiler parity record.
+  - Execute as one sequential Graphite stack when possible, defaulting to these independently reviewable branches:
+    1. `pi-host-decomp/helper-seams`: move only neutral display-width/scroll helpers and LM JSON parsing out of `src/context-profiler/`, expose them through intentional `@sdl/pi` helper subpaths or another justified neutral host home, and update PR preview/context-profiler/thermo-council imports plus focused tests.
+    2. `pi-host-decomp/context-profiler-package`: create the provisional `ts/packages/pi-tools/context-profiler/` workspace package named `@sdl/pi-context-profiler`, move context-profiler source and tests, update `.pi/extensions/context-profiler.ts`, keep implementation imports on curated `@sdl/pi/...` helper/runtime subpaths, and prove `@sdl/pi` does not import the extracted package.
+    3. `pi-host-decomp/context-profiler-recipe`: if the extraction validates, record the package recipe and final reference-slice convention in relevant package context/Objective prose; if the extraction disproves the provisional convention, record the safer disposition instead.
+  - Resolve known reverse imports before the package move: PR preview views consume render helpers, `thermo-council` consumes LM JSON parsing, and Pi parity registration consumes the context-profiler parity record.
+  - The parity seam must stay acyclic. Prefer moving extracted-package parity contribution to the project-local discovery adapter or another contribution point where `@sdl/pi` does not import `@sdl/pi-context-profiler`; keep `parity.test.ts` or an equivalent focused test proving live registrations and metadata still match.
   - Move source and tests using the repo's separate `test/` directory convention; preserve Pi command registration/parity behavior through a dependency direction that keeps the extracted package stacked on `@sdl/pi`.
-  - Evidence: focused tests for context-profiler and affected Pi registration/parity behavior pass, and `just ts-guard` confirms no package cycle was introduced.
+  - Evidence: no non-context-profiler host source imports `src/context-profiler/*`; focused tests for context-profiler, helper seams, affected PR/thermo views, and parity behavior pass; `just ts-check` and `just ts-guard` confirm no type or package-cycle regression.
 
 - [ ] Record the reference extraction recipe and apply it to the next obvious Pi-native tool candidates.
   - Use the `context-profiler` result to document how Pi-native tool packages should consume host helpers, own tests, expose registration or parity surfaces, and avoid host→tool dependency inversion.
