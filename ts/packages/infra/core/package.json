@@ -35,7 +35,8 @@
     "./submit": "./src/submit/index.ts",
     "./runner-usage": "./src/runner-usage.ts",
     "./machine-envelope": "./src/machine-envelope.ts",
-    "./text-repair": "./src/text-repair.ts"
+    "./text-repair": "./src/text-repair.ts",
+    "./progress-phase": "./src/progress-phase.ts"
   },
   "files": [
     "src"

@@ -38,6 +38,7 @@ import {
 } from "./submit-pr-descriptions.ts";
 import { prNumberFromLink } from "./submit-pr-link.ts";
 import type { TextGenerator } from "@sdl/core/submit";
+import type { ProgressPhaseEvent, ProgressPhaseListener } from "@sdl/core/progress-phase";
 
 const SUBMIT_BASE_ARGS = [
 	"submit",
@@ -218,6 +219,8 @@ export interface RunSubmitCommandOptions {
 	force: boolean;
 	shouldForwardCommandOutput?: boolean;
 	onOutput?: SubmitOutputListener;
+	/** Typed phase sequencing for a presentation driver. Separate channel from the raw `onOutput`. */
+	onPhase?: ProgressPhaseListener;
 	confirmRestack?: SubmitRestackConfirmation;
 	prDescription: SubmitPrDescriptionOptions;
 }
@@ -358,7 +361,7 @@ export async function runSubmitCommand(
 		force: options.force,
 	});
 	const commandParams = submitCommandParams(options);
-	emitSubmitProgress(options, "checking Graphite submit readiness");
+	emitPhase(options, { type: "phase-started", phaseKey: "preflight" });
 	const readiness = await options.gateway.checkSubmitReadiness(commandParams);
 	if (readiness.kind === "failed") {
 		if (readiness.cause === "trunk_out_of_date") {
@@ -390,7 +393,11 @@ export async function runSubmitCommand(
 		);
 	}
 	if (readiness.kind === "restack_required") {
-		emitSubmitProgress(options, "Graphite requires a restack before submit");
+		emitPhase(options, {
+			type: "phase-progress",
+			phaseKey: "preflight",
+			label: "Graphite requires a restack before submit",
+		});
 		const restackDecision = await shouldRunRestack(options, readiness.output);
 		if (restackDecision === "unavailable") {
 			return failure(1, formatRestackRequiredOutput(readiness.output, submitDryRunCommandDisplay), {
@@ -426,14 +433,15 @@ export async function runSubmitCommand(
 		}
 	}
 
-	emitSubmitProgress(options, "preparing PR metadata before submit");
+	emitPhase(options, { type: "phase-started", phaseKey: "metadata" });
 	const prewrite = await prepareSubmitPrMetadata({
 		cwd: options.cwd,
 		env: options.prDescription.env,
 		gateway: options.metadataGateway,
 		git: options.prDescription.git,
 		textGenerator: options.prDescription.textGenerator,
-		onProgress: (message) => emitSubmitProgress(options, message),
+		onProgress: (message) =>
+			emitPhase(options, { type: "phase-progress", phaseKey: "metadata", label: message }),
 	});
 	if (prewrite.kind === "failed") {
 		const stderr = formatPrewriteFailureOutput(prewrite.error, prewrite.amendedBranches);
@@ -443,7 +451,7 @@ export async function runSubmitCommand(
 		});
 	}
 
-	emitSubmitProgress(options, "running gt submit");
+	emitPhase(options, { type: "phase-started", phaseKey: "submit" });
 	const submitted = await options.gateway.submitCurrentStack(submitStreamingCommandParams(options));
 	if (submitted.kind === "failed") {
 		return failure(
@@ -460,7 +468,7 @@ export async function runSubmitCommand(
 		);
 	}
 
-	emitSubmitProgress(options, "verifying submitted PRs");
+	emitPhase(options, { type: "phase-started", phaseKey: "verification" });
 	const currentPr = await options.gateway.verifyCurrentPr(commandParams);
 	if (
 		submitted.semanticFailureCause !== undefined ||
@@ -488,13 +496,14 @@ export async function runSubmitCommand(
 		currentPr.kind === "present"
 			? mergePrLinks(submitted.prLinks, currentPr.prLinks)
 			: mergePrLinks(submitted.prLinks, []);
-	emitSubmitProgress(options, "generating or validating PR descriptions");
+	emitPhase(options, { type: "phase-started", phaseKey: "descriptions" });
 	const descriptionResult = await generateSubmitPrDescriptions({
 		cwd: options.cwd,
 		prDescription: options.prDescription,
 		prLinks,
 		prewrittenMetadata: prewrite.prepared,
-		onProgress: (message) => emitSubmitProgress(options, message),
+		onProgress: (message) =>
+			emitPhase(options, { type: "phase-progress", phaseKey: "descriptions", label: message }),
 	});
 	if (!descriptionResult.ok) {
 		const stderr = formatPrDescriptionFailureText(prLinks, descriptionResult.failures);
@@ -538,10 +547,14 @@ async function shouldRunRestack(
 }
 
 async function runRestackBeforeSubmit(
-	options: Pick<RunSubmitCommandOptions, "gateway" | "onOutput">,
+	options: Pick<RunSubmitCommandOptions, "gateway" | "onOutput" | "onPhase">,
 	commandParams: SubmitCommandParams,
 ): Promise<SubmitCommandResult | undefined> {
-	emitSubmitProgress(options, "running gt restack");
+	emitPhase(options, {
+		type: "phase-progress",
+		phaseKey: "preflight",
+		label: "running gt restack",
+	});
 	const restack = await options.gateway.restackCurrentStack(commandParams);
 	if (restack.kind === "conflict") {
 		const stderr = formatRestackConflictOutput(restack.output, restack.conflictedFiles);
@@ -607,38 +620,11 @@ function optionalOutputListenerParam(
 	return onOutput === undefined ? {} : { onOutput };
 }
 
-function emitSubmitProgress(
-	options: Pick<RunSubmitCommandOptions, "onOutput">,
-	message: string,
+function emitPhase(
+	options: Pick<RunSubmitCommandOptions, "onPhase">,
+	event: ProgressPhaseEvent,
 ): void {
-	options.onOutput?.("stderr", formatSubmitProgressLine(message));
-}
-
-function formatSubmitProgressLine(message: string): string {
-	const normalized = message.replace(/\.\.\.$/, "…");
-	const line = formatSubmitProgressMessage(normalized);
-	return `${line}\n`;
-}
-
-function formatSubmitProgressMessage(message: string): string {
-	switch (message) {
-		case "checking Graphite submit readiness":
-			return "• Preflight: checking Graphite submit readiness…";
-		case "Graphite requires a restack before submit":
-			return "• Preflight: Graphite requires a restack before submit";
-		case "running gt restack":
-			return "• Preflight: running gt restack…";
-		case "preparing PR metadata before submit":
-			return "• Metadata: preparing PR metadata before submit…";
-		case "running gt submit":
-			return "• Submit: running gt submit…";
-		case "verifying submitted PRs":
-			return "• Verification: checking submitted PR…";
-		case "generating or validating PR descriptions":
-			return "• Descriptions: generating or validating PR descriptions…";
-		default:
-			return `  … ${message}`;
-	}
+	options.onPhase?.(event);
 }
 
 function shouldFailPostSubmitVerification(
