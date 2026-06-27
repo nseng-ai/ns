@@ -1,8 +1,6 @@
-import { buildPiLaunchCommand, getPiLaunchOptions } from "./cmux/pi-launch.ts";
-import { launchFocusedCmuxTab, type CmuxTabLaunchStage } from "@sdl/pi/cmux/focused-terminal-tab";
-import { setLaunchStatus, type LaunchStatusUi } from "./launch-status.ts";
-import type { ExecResult } from "@sdl/core/exec";
-import type { ModelInfo, ThinkingLevel } from "./cmux/types.ts";
+import { buildPiLaunchCommand, getPiLaunchOptions } from "../cmux/pi-launch.ts";
+import { launchFocusedCmuxTab, type CmuxTabLaunchStage } from "../cmux/focused-terminal-tab.ts";
+import type { ExecResult, ModelInfo, ThinkingLevel } from "./runtime-types.ts";
 
 export interface HandoffTabLaunchParams {
 	branch: string;
@@ -43,12 +41,16 @@ export interface HandoffTabLaunchUpdate {
 	content: Array<{ type: "text"; text: string }>;
 }
 
+export interface HandoffTabLaunchUi {
+	setStatus?(key: string, value: string | undefined): void;
+}
+
 export interface HandoffTabLaunchOptions {
 	host: HandoffTabLaunchHost;
 	cwd: string;
 	model: ModelInfo | undefined;
 	hasUI: boolean;
-	ui: LaunchStatusUi;
+	ui: HandoffTabLaunchUi;
 	statusKey: string;
 	params: HandoffTabLaunchParams;
 	signal: AbortSignal | undefined;
@@ -133,4 +135,13 @@ const HANDOFF_STAGE_PROGRESS: Record<CmuxTabLaunchStage, { text: string; status:
 function updateProgress(options: HandoffTabLaunchOptions, text: string, status: string): void {
 	options.onUpdate?.({ content: [{ type: "text", text }] });
 	setLaunchStatus(options, status);
+}
+
+function setLaunchStatus(
+	options: Pick<HandoffTabLaunchOptions, "hasUI" | "ui" | "statusKey">,
+	value: string | undefined,
+): void {
+	if (options.hasUI) {
+		options.ui.setStatus?.(options.statusKey, value);
+	}
 }

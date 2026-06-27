@@ -2,7 +2,7 @@ import {
 	formatHandoffTabLaunchSuccess,
 	launchHandoffTab,
 	type HandoffTabLaunchResult,
-} from "@sdl/ccc/handoff-tab";
+} from "./tab-launch.ts";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { handoffSlugToKey } from "@sdl/handoff/identity";
 import { identifyCmuxCaller } from "../cmux/focused-terminal-tab.ts";

@@ -10,7 +10,6 @@
     ".": "./src/index.ts",
     "./autoslot": "./src/autoslot.ts",
     "./cli": "./src/cli.ts",
-    "./handoff-tab": "./src/handoff-tab.ts",
     "./land": "./src/land.ts",
     "./trunk-pull": "./src/trunk-pull.ts",
     "./branch-context-up-and-impl": "./src/branch-context-up-and-impl.ts"
