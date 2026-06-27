@@ -726,7 +726,6 @@ export default function worktreeStatusExtension(
 	pi.on("session_shutdown", async () => {
 		closeActiveSession();
 	});
-
 }
 
 function hasCommandRegistration(pi: ExtensionAPI): pi is CommandRegistrationExtensionAPI {
