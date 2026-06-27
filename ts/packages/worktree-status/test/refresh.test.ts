@@ -280,7 +280,7 @@ describe("worktree status refresh lifecycle", () => {
 		await pi.sessionShutdown?.();
 	});
 
-	test("extension handle requestRefresh uses cached GitHub policy instead of forcing remote status", async () => {
+	test("user message completion uses cached GitHub policy instead of forcing remote status", async () => {
 		const harness = createManualTimerHarness();
 		const pi = new LifecycleFakePi([]);
 		const loaders = fakeWorktreeStatusLoaders({
@@ -302,7 +302,7 @@ describe("worktree status refresh lifecycle", () => {
 		const statuses = new Map<string, string | undefined>();
 		const ctx = testContext(statuses);
 
-		const handle = worktreeStatusExtension(pi as ExtensionAPI, {
+		worktreeStatusExtension(pi as ExtensionAPI, {
 			loaders,
 			timers: harness.timers,
 			clock: harness.clock,
@@ -313,7 +313,12 @@ describe("worktree status refresh lifecycle", () => {
 			"[gt] ↓ main · ↑ - · 1 commit\n[gh] no PR",
 		);
 
-		await handle.requestRefresh();
+		await pi.emit(
+			"message_end",
+			{ type: "message_end", message: { role: "user", content: "committed changes" } },
+			ctx,
+		);
+		await flushPromises();
 		expect(loaders.localCalls).toHaveLength(2);
 		expect(loaders.ghCalls).toHaveLength(1);
 		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
@@ -321,7 +326,12 @@ describe("worktree status refresh lifecycle", () => {
 		);
 
 		harness.advanceMs(30_000);
-		await handle.requestRefresh();
+		await pi.emit(
+			"message_end",
+			{ type: "message_end", message: { role: "user", content: "check status" } },
+			ctx,
+		);
+		await flushPromises();
 
 		pi.assertDone();
 		expect(loaders.localCalls).toHaveLength(3);
@@ -332,7 +342,7 @@ describe("worktree status refresh lifecycle", () => {
 		await pi.sessionShutdown?.();
 	});
 
-	test("extension handle requestRefresh targets the latest active session", async () => {
+	test("manual refresh targets the latest active session", async () => {
 		const pi = new LifecycleFakePi([]);
 		const identityA = localStatus({
 			identity: { ...localStatus().identity, cwd: "/repo-a" },
@@ -354,13 +364,16 @@ describe("worktree status refresh lifecycle", () => {
 			],
 			ghStatuses: [queued({ type: "no-pr" }), queued({ type: "no-pr" })],
 		});
-		const handle = worktreeStatusExtension(pi as ExtensionAPI, { loaders });
+		worktreeStatusExtension(pi as ExtensionAPI, { loaders });
+		const command = pi.commands.get(WORKTREE_STATUS_REFRESH_COMMAND_NAME);
+		expect(command).toBeDefined();
+		if (command === undefined) throw new Error("expected manual refresh command");
 		const ctxA = { ...testContext(), cwd: "/repo-a" };
 		const ctxB = { ...testContext(), cwd: "/repo-b" };
 
 		await pi.sessionStart?.({}, ctxA);
 		await pi.sessionStart?.({}, ctxB);
-		await handle.requestRefresh();
+		await command.handler("", ctxB);
 
 		pi.assertDone();
 		expect(loaders.localCalls.map((call) => call.cwd)).toEqual(["/repo-a", "/repo-b", "/repo-b"]);
