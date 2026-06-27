@@ -19,7 +19,7 @@ The Thermo Council report on the current flow/clinkr/objective rendering work sh
 - Do not add a separate `/thermo-council` product feature for stateful follow-up review rounds under this Objective.
 - Do not make Thermo Council reports durable repo artifacts or Branch Memory entries as part of this remediation.
 - Do not redesign the whole clinkr rendering system beyond the seams needed to resolve the report findings.
-- Do not require an execution policy, runner policy, or cross-cutting `orientation.md`; this is a planning Objective for a bounded remediation bundle.
+- Do not add a standing Runner Policy or cross-cutting `orientation.md`; this is a bounded remediation bundle that `objective-stack-impl` should execute only through its normal preview-and-confirm stack workflow.
 
 ## Completion Criteria
 
@@ -48,7 +48,12 @@ Risks:
 - Exact-frame command tests may reject legitimate theme changes unless rendering semantics are separated from command behavior assertions.
 - Removing scratch code without preserving still-relevant design rationale could lose context for future UI work.
 
+## Implementation Guidance
+
+`objective-stack-impl` should treat this Objective as executable with the normal parent-preview workflow. A good default stack is three independently reviewable slices: first fix hosted caps plus stream cleanup/non-TTY contract, then remove scratch code and split phase-stream responsibilities, then de-brittle command tests and decide whether parked import-boundary/destination-policy follow-ups should move into scope. Stop and re-preview if the first slice reveals that capability resolution needs a broader host API change than expected.
+
+Prefer the shared capability policy in `@sdl/clinkr` when it can remain backend-neutral. If host-specific command context is required, keep clinkr's primitive policy small and put the SDL/Pi adapter at the command host seam rather than letting flow/objective commands read global `process.*` directly.
+
 ## Open Questions
 
-- When codifying non-TTY output, should the final implementation keep the recommended minimal append-only behavior, or intentionally emit a title/header line for widget-style callback UIs?
-- Will the shared capability policy belong directly in `@sdl/clinkr`, or should clinkr expose primitives while SDL host packages provide the command-context adapter?
+None that should block stack execution. The non-TTY default is minimal append-only output; intentionally emitting a title/header line should require implementation evidence from Pi callback/widget behavior and should be recorded as an Objective update if chosen.
