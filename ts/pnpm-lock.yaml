@@ -200,6 +200,9 @@ importers:
       '@sdl/ccc':
         specifier: workspace:*
         version: link:../../ccc
+      '@sdl/clinkr':
+        specifier: workspace:*
+        version: link:../../infra/clinkr
       '@sdl/core':
         specifier: workspace:*
         version: link:../../infra/core

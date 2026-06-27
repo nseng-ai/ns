@@ -1,4 +1,5 @@
 import { runCommand, type CommandRunner, type ExecResult } from "@sdl/core/exec";
+import type { ProgressPhaseListener } from "@sdl/core/progress-phase";
 import { formatElapsedMs } from "@sdl/core/time-format";
 import { createSdlCommandRunner } from "@sdl/capability-kit/command-runner";
 import type { TextRepairProgressEvent } from "@sdl/domain-primitives-transitional/text-repair";
@@ -57,12 +58,12 @@ export interface RunCheckpointCommandOptions {
 	env: Record<string, string | undefined>;
 	gateway: CheckpointGateway;
 	textGenerator: TextGenerator;
+	/** Typed phase sequencing for a presentation driver (inspect → generate → commit). */
+	onPhase?: ProgressPhaseListener | undefined;
 }
 
 export interface RunCheckpointWorkflowOptions extends RunCheckpointCommandOptions {
 	dryRun: boolean;
-	/** Optional transient progress reporter for long-running checkpoint phases. */
-	onProgress?: ((message: string) => void) | undefined;
 }
 
 export type CheckpointWorkflowResult =
@@ -170,8 +171,8 @@ export async function runCheckpointIfPending(
 export async function runCheckpointWorkflow(
 	options: RunCheckpointWorkflowOptions,
 ): Promise<CheckpointWorkflowResult> {
-	const reportProgress = options.onProgress;
-	reportProgress?.("\u2022 Inspecting worktree\u2026");
+	const onPhase = options.onPhase;
+	onPhase?.({ type: "phase-started", phaseKey: "inspect" });
 	const loaded = await options.gateway.loadPendingWorktreeSnapshot({ cwd: options.cwd });
 	if (!loaded.ok) return { type: "snapshot-failed", error: loaded.error };
 
@@ -181,14 +182,22 @@ export async function runCheckpointWorkflow(
 	}
 	if (snapshot.clean) return { type: "clean" };
 
+	onPhase?.({ type: "phase-started", phaseKey: "generate" });
 	const prepared = await prepareCheckpointMessage({
 		status: snapshot.status,
 		diff: snapshot.diff,
 		textGenerator: options.textGenerator,
 		modelRef: selectCheckpointModelRef(options.env),
-		...(reportProgress === undefined
+		...(onPhase === undefined
 			? {}
-			: { onProgress: (event) => reportProgress(formatCheckpointProgressEvent(event)) }),
+			: {
+					onProgress: (event) =>
+						onPhase({
+							type: "phase-progress",
+							phaseKey: "generate",
+							label: formatCheckpointProgressEvent(event),
+						}),
+				}),
 	});
 	if (!prepared.ok) return { type: "message-failed", error: prepared.error };
 
@@ -196,7 +205,7 @@ export async function runCheckpointWorkflow(
 		return { type: "dry-run", branch: snapshot.branch, message: prepared.message };
 	}
 
-	reportProgress?.("\u2022 Creating checkpoint commit\u2026");
+	onPhase?.({ type: "phase-started", phaseKey: "commit" });
 	const committed = await options.gateway.createCommitWithPreparedMessage({
 		cwd: options.cwd,
 		message: prepared.message,

@@ -26,6 +26,7 @@
   "dependencies": {
     "@sdl/autobranch": "workspace:*",
     "@sdl/ccc": "workspace:*",
+    "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
     "@sdl/domain-primitives-transitional": "workspace:*",
     "@sdl/capability-kit": "workspace:*",

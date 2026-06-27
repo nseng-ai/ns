@@ -3,7 +3,14 @@ import { join } from "node:path";
 import process from "node:process";
 
 import { RealCheckpointGateway, runCheckpointIfPending } from "../shared/checkpoint.ts";
-import { createFlowLiveOutput, emitFlowProgress } from "../shared/live-output.ts";
+import { createFlowLiveOutput, type FlowLiveOutput } from "../shared/live-output.ts";
+import {
+	checkpointEventLabel,
+	createPhaseStream,
+	flowStreamDeps,
+	resolveFlowStreamCaps,
+	SUBMIT_PHASES,
+} from "../shared/phase-stream.ts";
 import {
 	createSdlSubmitRuntime,
 	runSubmitCommand,
@@ -51,20 +58,28 @@ export const flowSubmitCommand: SdlCommand<typeof submitSchema> = {
 	schema: submitSchema,
 	async run(ctx: SdlExtensionApi, request: SubmitRequest) {
 		const runtime = createSdlSubmitRuntime(ctx);
-		const liveOutput = createFlowLiveOutput(ctx);
-		emitFlowProgress(liveOutput, "sdl flow submit");
-		emitFlowProgress(
-			liveOutput,
-			"• Checking worktree and checkpointing pending changes if needed…",
-		);
+		const caps = resolveFlowStreamCaps();
+		const stream = createPhaseStream(caps, SUBMIT_PHASES, flowStreamDeps(ctx, caps));
+		stream.begin("sdl flow submit");
 
+		// The checkpoint workflow emits keyed inspect/generate/commit events; fold them into the single
+		// "Checkpoint" submit phase via their presentational labels.
+		stream.emit({ type: "phase-started", phaseKey: "checkpoint" });
 		const checkpoint = await runCheckpointIfPending({
 			cwd: ctx.cwd,
 			env: ctx.env,
 			gateway: new RealCheckpointGateway(runtime.commandRunner),
 			textGenerator: ctx.textGenerator,
+			onPhase: (event) => {
+				const label = checkpointEventLabel(event);
+				if (label !== undefined) {
+					stream.emit({ type: "phase-progress", phaseKey: "checkpoint", label });
+				}
+			},
 		});
 		if (checkpoint.kind === "failed") {
+			stream.fail();
+			await stream.finish();
 			const checkpointFailure = await maybeFormatSubmitFailureWithModel(
 				{
 					stdout: "",
@@ -76,11 +91,16 @@ export const flowSubmitCommand: SdlCommand<typeof submitSchema> = {
 			ctx.stderr?.(checkpointFailure.stderr);
 			return failed("", checkpoint.output.exitCode);
 		}
-		if (checkpoint.kind === "checkpointed") {
-			writeCommandResultOutput(checkpoint.output, ctx);
-		}
 
-		emitFlowProgress(liveOutput, "✓ Checkpoint phase complete");
+		// The raw `gt submit` transcript streams on its own channel (live + --verbose), separate from
+		// the typed phase events that drive the live region. In a TTY it must ride INSIDE the live
+		// region as a tail line (via `stream.note`) so the sink's writer stays the sole owner of stdout;
+		// writing it straight to the context desynced log-update and duplicated/scrolled the region.
+		// Non-TTY (Pi / pipe) keeps streaming the transcript to the context as before.
+		const rawTranscript = createFlowLiveOutput(ctx);
+		const onOutput: FlowLiveOutput | undefined = caps.isTty
+			? (_stream, text) => stream.note(text)
+			: rawTranscript;
 		const result = await runSubmitCommand({
 			cwd: ctx.cwd,
 			gateway: runtime.submitGateway,
@@ -89,8 +109,17 @@ export const flowSubmitCommand: SdlCommand<typeof submitSchema> = {
 			force: request.force,
 			shouldForwardCommandOutput: request.verbose,
 			prDescription: runtime.prDescription,
-			...(liveOutput === undefined ? {} : { onOutput: liveOutput }),
+			onPhase: stream.emit,
+			...(onOutput === undefined ? {} : { onOutput }),
 		});
+		if (result.exitCode !== 0) stream.fail();
+		await stream.finish();
+
+		// Result payloads print as scrollback below the settled region: the checkpoint commit summary
+		// (if any) first, then the submit success text or interpreted failure.
+		if (checkpoint.kind === "checkpointed") {
+			writeCommandResultOutput(checkpoint.output, ctx);
+		}
 		const interpretedResult = await maybeFormatSubmitFailureWithModel(result, ctx);
 		writeCommandResultOutput(interpretedResult, ctx);
 		return interpretedResult.exitCode === 0 ? ok("") : failed("", interpretedResult.exitCode);

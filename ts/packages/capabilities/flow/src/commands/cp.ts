@@ -1,7 +1,12 @@
-import { runWithCommandIo } from "@sdl/core/command-io";
+import type { ProgressPhaseListener } from "@sdl/core/progress-phase";
 import type { TextGenerator } from "@sdl/domain-primitives-transitional/text-generation";
-import { commandIoFromSdlExtensionApi } from "@sdl/sdl/command-io";
 import { defineExtension, failed, ok, z, type SdlCommand } from "sdl-sdk";
+import {
+	CP_PHASES,
+	createPhaseStream,
+	flowStreamDeps,
+	resolveFlowStreamCaps,
+} from "../shared/phase-stream.ts";
 import {
 	CHECKPOINT_MODEL_ENV,
 	DEFAULT_CHECKPOINT_MODEL_REF,
@@ -40,19 +45,33 @@ export const flowCpCommand: SdlCommand<typeof cpRequestSchema> = {
 	schema: cpRequestSchema,
 	async run(ctx, request: CpRequest) {
 		const runtime = createSdlCheckpointRuntime(ctx);
-		const io = commandIoFromSdlExtensionApi(ctx);
-		return await runWithCommandIo(io, async (io) => {
-			io.phase("sdl flow cp");
+		// A dry run just previews the model-authored message; skip the live region (no commit phase runs).
+		if (request.dryRun) {
 			const result = await runCpCore({
 				cwd: ctx.cwd,
 				env: ctx.env,
 				textGenerator: ctx.textGenerator,
-				isDryRun: request.dryRun,
+				isDryRun: true,
 				checkpointGateway: runtime.checkpointGateway,
-				onProgress: (message: string) => io.phase(message),
 			});
 			return toCommandResult(result);
+		}
+
+		const caps = resolveFlowStreamCaps();
+		const stream = createPhaseStream(caps, CP_PHASES, flowStreamDeps(ctx, caps));
+		stream.begin("sdl flow cp");
+		const result = await runCpCore({
+			cwd: ctx.cwd,
+			env: ctx.env,
+			textGenerator: ctx.textGenerator,
+			isDryRun: false,
+			checkpointGateway: runtime.checkpointGateway,
+			onPhase: stream.emit,
 		});
+		const command = toCommandResult(result);
+		if (!command.ok) stream.fail();
+		await stream.finish();
+		return command;
 	},
 };
 
@@ -68,7 +87,7 @@ export interface RunCpCoreOptions {
 	textGenerator: TextGenerator;
 	isDryRun: boolean;
 	checkpointGateway: CheckpointGateway;
-	onProgress?: ((message: string) => void) | undefined;
+	onPhase?: ProgressPhaseListener | undefined;
 }
 
 export async function runCpCore(options: RunCpCoreOptions): Promise<RunCpCoreResult> {
@@ -78,7 +97,7 @@ export async function runCpCore(options: RunCpCoreOptions): Promise<RunCpCoreRes
 		gateway: options.checkpointGateway,
 		textGenerator: options.textGenerator,
 		dryRun: options.isDryRun,
-		...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
+		...(options.onPhase === undefined ? {} : { onPhase: options.onPhase }),
 	});
 }
 

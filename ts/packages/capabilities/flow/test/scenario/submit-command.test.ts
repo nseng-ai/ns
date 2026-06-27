@@ -16,6 +16,11 @@ import type { TextGenerationResult } from "sdl-sdk";
 import { runFlowSubmitCommandWithFakes } from "./flow-command-fakes.ts";
 import { formattedExecCalls, type ScriptedExecResponse } from "./sdl-cli-fakes.ts";
 
+// A non-tty transient progress line, as routed to onOutput (the Pi widget path / captured liveOutput).
+function transient(text: string): { stream: "stderr"; text: string } {
+	return { stream: "stderr", text: `${text}\n` };
+}
+
 const PR_URL = "https://github.com/acme/repo/pull/123";
 const GRAPHITE_PR_URL = "https://app.graphite.com/github/pr/acme/repo/123";
 const LAGGING_VERIFICATION_PR_URL = "https://app.graphite.com/github/pr/dagster-io/sdl-tools/1517";
@@ -141,24 +146,20 @@ describe("project-local submit extension", () => {
 		expect(run.stderr.join("")).toBe("");
 		expect(run.liveOutput).toEqual(
 			expect.arrayContaining([
-				{ stream: "stderr", text: "sdl flow submit\n" },
-				{
-					stream: "stderr",
-					text: "• Checking worktree and checkpointing pending changes if needed…\n",
-				},
-				{ stream: "stderr", text: "✓ Checkpoint phase complete\n" },
-				{ stream: "stderr", text: "• Preflight: checking Graphite submit readiness…\n" },
-				{ stream: "stderr", text: "• Metadata: preparing PR metadata before submit…\n" },
-				{ stream: "stderr", text: "• Submit: running gt submit…\n" },
-				{ stream: "stderr", text: "• Verification: checking submitted PR…\n" },
-				{ stream: "stderr", text: "• Descriptions: generating or validating PR descriptions…\n" },
-				{ stream: "stderr", text: "  … preparing descriptions for 1 PR\n" },
-				{ stream: "stderr", text: "  … loading PR #123 metadata (1/1)\n" },
-				{ stream: "stderr", text: "  … resolving PR description prompt and model\n" },
-				{ stream: "stderr", text: "  … checking PR #123 description fingerprint\n" },
-				{ stream: "stderr", text: "  … generating PR metadata (attempt 1/2)\n" },
-				{ stream: "stderr", text: "  … updating PR #123 description\n" },
-				{ stream: "stderr", text: "  … finished PR #123 description\n" },
+				transient("checkpointing pending changes…"),
+				transient("inspecting worktree…"),
+				transient("checking submit readiness…"),
+				transient("preparing PR metadata…"),
+				transient("running gt submit…"),
+				transient("checking submitted PRs…"),
+				transient("generating PR descriptions…"),
+				transient("preparing descriptions for 1 PR"),
+				transient("loading PR #123 metadata (1/1)"),
+				transient("resolving PR description prompt and model"),
+				transient("checking PR #123 description fingerprint"),
+				transient("generating PR metadata (attempt 1/2)"),
+				transient("updating PR #123 description"),
+				transient("finished PR #123 description"),
 			]),
 		);
 		// The gt submit phase streams its raw output live even without --verbose.
@@ -181,9 +182,9 @@ describe("project-local submit extension", () => {
 		expect(await run.exit).toBe(0);
 		expect(run.liveOutput).toEqual(
 			expect.arrayContaining([
-				{ stream: "stderr", text: "• Preflight: checking Graphite submit readiness…\n" },
+				transient("checking submit readiness…"),
 				{ stream: "stdout", text: "ready\n" },
-				{ stream: "stderr", text: "• Submit: running gt submit…\n" },
+				transient("running gt submit…"),
 				{ stream: "stdout", text: `Submitted ${PR_URL}\n` },
 			]),
 		);
@@ -277,22 +278,13 @@ describe("project-local submit extension", () => {
 			},
 			{ timeout: 10_000 },
 		);
-		expect(run.liveOutput).toContainEqual({
-			stream: "stderr",
-			text: "  … generating PR metadata (attempt 1/2)\n",
-		});
+		expect(run.liveOutput).toContainEqual(transient("generating PR metadata (attempt 1/2)"));
 
 		await vi.advanceTimersByTimeAsync(5_000);
-		expect(run.liveOutput).toContainEqual({
-			stream: "stderr",
-			text: "  … still generating PR metadata (5s elapsed)\n",
-		});
+		expect(run.liveOutput).toContainEqual(transient("still generating PR metadata (5s elapsed)"));
 
 		await vi.advanceTimersByTimeAsync(5_000);
-		expect(run.liveOutput).toContainEqual({
-			stream: "stderr",
-			text: "  … still generating PR metadata (10s elapsed)\n",
-		});
+		expect(run.liveOutput).toContainEqual(transient("still generating PR metadata (10s elapsed)"));
 
 		resolveModel?.({ ok: true, text: defaultPrDescriptionText() });
 		expect(await run.exit).toBe(0);
@@ -363,25 +355,16 @@ describe("project-local submit extension", () => {
 		expect(output).not.toContain("Prepared initial PR metadata:");
 		expect(run.liveOutput).toEqual(
 			expect.arrayContaining([
-				{
-					stream: "stderr",
-					text: "  … inspecting Graphite submit scope before metadata preparation\n",
-				},
-				{
-					stream: "stderr",
-					text: "  … inspecting Graphite submit branch metadata for 2 branches\n",
-				},
-				{ stream: "stderr", text: "  … inspecting PR metadata for feature/base (1/2)\n" },
-				{ stream: "stderr", text: "  … inspecting PR metadata for feature/top (2/2)\n" },
-				{ stream: "stderr", text: "  … reading local commits and diff for feature/top\n" },
-				{
-					stream: "stderr",
-					text: "  … found 2 submit branches; 1 new single-commit branch needs initial PR metadata\n",
-				},
-				{ stream: "stderr", text: "  … generating initial PR metadata for feature/top (1/1)\n" },
-				{ stream: "stderr", text: "  … checking clean worktree before metadata amendment\n" },
-				{ stream: "stderr", text: "  … amending local PR metadata commit for feature/top (1/1)\n" },
-				{ stream: "stderr", text: "  … prepared pre-submit PR metadata for 1 branch\n" },
+				transient("inspecting Graphite submit scope before metadata preparation"),
+				transient("inspecting Graphite submit branch metadata for 2 branches"),
+				transient("inspecting PR metadata for feature/base (1/2)"),
+				transient("inspecting PR metadata for feature/top (2/2)"),
+				transient("reading local commits and diff for feature/top"),
+				transient("found 2 submit branches; 1 new single-commit branch needs initial PR metadata"),
+				transient("generating initial PR metadata for feature/top (1/1)"),
+				transient("checking clean worktree before metadata amendment"),
+				transient("amending local PR metadata commit for feature/top (1/1)"),
+				transient("prepared pre-submit PR metadata for 1 branch"),
 			]),
 		);
 		expect(formattedExecCalls(run.context)).not.toContain(
