@@ -1,6 +1,6 @@
 # @sdl/pi
 
-`@sdl/pi` is the unified private TypeScript workspace package for this repository's Pi runtime integration. It contains both neutral Pi helper subpaths consumed by other workspace packages and engineered project-local Pi extension implementations used by `.pi/extensions/*.ts` discovery adapters. CCC (`@sdl/ccc`) remains the separate orchestration layer for repo-opinionated command-and-control workflows; after the single-package cutover CCC may consume neutral `@sdl/pi/...` helper subpaths, while `@sdl/pi` adapters may delegate selected public command implementations to CCC-owned orchestration.
+`@sdl/pi` is the unified private TypeScript workspace package for this repository's Pi runtime integration. It contains both neutral Pi helper subpaths consumed by other workspace packages and engineered project-local Pi extension implementations used by `.pi/extensions/*.ts` discovery adapters. CCC (`@sdl/ccc`) remains the separate orchestration layer for repo-opinionated command-and-control workflows; after the single-package cutover CCC may consume neutral `@sdl/pi/...` helper subpaths, while `@sdl/pi` no longer imports or declares `@sdl/ccc`, so the dependency runs one way (CCC → neutral Pi helpers).
 
 ## Language
 
@@ -57,5 +57,5 @@ A runner-subagent return mode where the parent accepts the child assistant's fin
 *Avoid*: terminal capture, transcript import, custom message.
 
 **Worktree status adapter**:
-The Pi lifecycle module behind `.pi/extensions/worktree-status.ts`: registers the `worktree-status` renderer, reacts to session/tool/agent/shutdown events, manages active-session cancellation, watches Git/Branch Memory/worktree paths, installs the custom footer, and renders generic cwd/session/model/context/token/cost footer lines while delegating repo-operational status facts and presentation to CCC.
+The Pi lifecycle module behind `.pi/extensions/worktree-status.ts`: registers the `worktree-status` renderer, reacts to session/tool/agent/shutdown events, manages active-session cancellation, watches Git/Branch Memory/worktree paths, installs the custom footer, and renders generic cwd/session/model/context/token/cost footer lines, while the repo-operational status facts and their presentation are owned by CCC's worktree-status observability model and consumed through neutral seams, not by `@sdl/pi` importing `@sdl/ccc`.
 *Avoid*: CCC observability fact owner, Graphite metadata parser owner, Branch Memory storage owner.
