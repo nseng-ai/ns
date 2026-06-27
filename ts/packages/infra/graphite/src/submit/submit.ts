@@ -454,7 +454,7 @@ export async function runSubmitCommand(
 	emitPhase(options, {
 		type: "phase-started",
 		phaseKey: "submit",
-		label: SUBMIT_COMMAND_DISPLAY,
+		label: submitCommandDisplay,
 	});
 	const submitted = await options.gateway.submitCurrentStack(submitStreamingCommandParams(options));
 	if (submitted.kind === "failed") {

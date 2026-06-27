@@ -178,7 +178,9 @@ describe("project-local submit extension", () => {
 				transient("inspecting worktree…"),
 				transient("checking submit readiness…"),
 				transient("inspecting stack and preparing PR metadata if needed…"),
-				transient("gt submit --no-edit --publish --no-stack --no-ai --no-interactive"),
+				transient(
+					"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
+				),
 				transient("checking submitted PRs…"),
 				transient("checking 1 PR description for skip or regeneration"),
 				transient("preparing descriptions for 1 PR"),
@@ -222,7 +224,9 @@ describe("project-local submit extension", () => {
 			expect.arrayContaining([
 				transient("checking submit readiness…"),
 				{ stream: "stdout", text: "ready\n" },
-				transient("gt submit --no-edit --publish --no-stack --no-ai --no-interactive"),
+				transient(
+					"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
+				),
 				{ stream: "stdout", text: `Submitted ${PR_URL}\n` },
 			]),
 		);
