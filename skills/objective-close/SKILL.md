@@ -44,8 +44,9 @@ Do not auto-select from candidate count or changed/touched files. Never infer Ob
    ```
 
    Closure PR evidence is not a broad PR ledger and should not trigger historical backfill. Use `merged` wording only when merge state has been confirmed by PR evidence; otherwise use status-aware wording such as current PR, open PR, draft PR, or PR evidence.
-6. Write `closed.md` as a minimal Closure Marker. Put closure meaning in `objective.md`, not in `closed.md`.
-7. Leave `.sdl/objectives/<slug>/` in place. Do not archive as part of close, delete the record, or implement a reopen workflow. If the user explicitly wants retirement from active discovery, use `objective archive <slug>` after or instead of closure, depending on intent.
+6. If the Objective has an `orientation.md`, consult `roadmap.md`'s completion section and the durable `Direction`/`Getting to` lines of `orientation.md`. If a durable rule should survive the initiative, note it in `## Closure` (or to the user) as a candidate to graduate into AGENTS.md "Architecture rules". Do not delete `orientation.md`: writing `closed.md` drops it from the always-load set automatically.
+7. Write `closed.md` as a minimal Closure Marker. Put closure meaning in `objective.md`, not in `closed.md`.
+8. Leave `.sdl/objectives/<slug>/` in place. Do not archive as part of close, delete the record, or implement a reopen workflow. If the user explicitly wants retirement from active discovery, use `objective archive <slug>` after or instead of closure, depending on intent.
 
 ## Closure timing
 
@@ -66,4 +67,5 @@ Do not create a duplicate Semantic Update solely for closure. Create one only wh
 - Confirm `objective.md` contains `## Closure`.
 - Confirm `closed.md` exists under the selected Objective directory.
 - Confirm the Objective directory remains under `.sdl/objectives/<slug>/`.
+- If an `orientation.md` was present, confirm it was left in place (not deleted) and any durable-rule graduation candidate was noted.
 - Summarize the closure outcome and note that closed Objectives are no longer eligible for `objective-next` by default.

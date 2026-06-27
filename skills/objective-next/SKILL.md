@@ -17,6 +17,7 @@ Active root: `.sdl/objectives/<slug>/`. Archived records under `.sdl/objective-a
 - `objective.md`: `# <Title>`, `## Thesis`, `## Scope`, `## Non-Goals`, `## Completion Criteria`, `## Assumptions and Risks`, `## Open Questions`; optional execution policy; `## Closure` when closed.
 - `roadmap.md`: `# Roadmap`, `## Work`, `## Parked`; statuses `[ ]`, `[~]`, `[x]` only; semantic rows may include indented prose guidance.
 - `updates/`: Semantic Updates with `# <Update Title>`, `## Summary`, `## Objective Impact`, `## Follow-Ups`.
+- `orientation.md`: optional, agent-facing standing rule; present only for cross-cutting Objectives.
 - `closed.md`: optional Closure Marker; existence means closed.
 
 Objective records are Markdown; read `objective.md`, `roadmap.md`, and `updates/` directly. Use `objective exec` for deterministic mechanics like candidate listing, file inventory, and closed-marker detection.
@@ -69,7 +70,7 @@ If any condition is missing or ambiguous, do not execute yet: reread the Objecti
 ## Workflow
 
 1. Exclude closed Objectives by default. If `closed.md` exists, stop and say it is closed.
-2. Read `objective.md`, `roadmap.md`, and relevant `updates/` files.
+2. Read `objective.md`, `roadmap.md`, `orientation.md` (if present), and relevant `updates/` files.
 3. Apply the Tracking Gate. If it finds clear unrecorded current-branch progress for the selected Objective, perform the `objective-update` workflow for this same Objective, then restart from step 2 with refreshed files/evidence. If the gate is ambiguous and the user confirms update-and-continue, do the same.
 4. Load conditional references only when their routing conditions apply.
 5. Choose the smallest coherent next semantic step grounded in the Objective narrative, roadmap, active assumptions, and risks.
