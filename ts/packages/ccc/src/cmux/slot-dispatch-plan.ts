@@ -29,11 +29,11 @@ import {
 	launchFocusedCmuxTab,
 	type FocusedCmuxTabLaunchResult,
 } from "@sdl/cmux/focused-terminal-tab";
-import { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
-import type { PiLaunchOptions } from "./pi-launch.ts";
+import { buildPiLaunchCommand, getPiLaunchOptions } from "@sdl/cmux/pi-launch";
+import type { PiLaunchOptions } from "@sdl/cmux/pi-launch";
 import type { SlotCheckoutTarget, SlotClient } from "@sdl/slot/api";
 import { formatErrorMessage } from "@sdl/core/primitives";
-import type { CommandContext, ExtensionAPI, NotifyLevel } from "./types.ts";
+import type { CommandContext, ExtensionAPI, NotifyLevel } from "@sdl/cmux/types";
 
 const WORKSPACE_COMMAND_NAME = "ccc:workspace:dispatch-plan";
 const SURFACE_COMMAND_NAME = "ccc:surface:dispatch-plan";

@@ -7,7 +7,7 @@ import {
 	registerCccSurfaceDispatchPlanCommand,
 } from "./cmux/slot-dispatch-plan.ts";
 import { registerCccSlotOpenBranchCommand } from "./cmux/slot-open-branch.ts";
-import type { ExtensionAPI } from "./cmux/types.ts";
+import type { ExtensionAPI } from "@sdl/cmux/types";
 
 export default function registerCccExtension(pi: ExtensionAPI): void {
 	const sidebarController = createCccSidebarController(pi);

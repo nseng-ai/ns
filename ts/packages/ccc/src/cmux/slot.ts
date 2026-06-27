@@ -3,7 +3,7 @@ import type { SlotCheckoutTarget, SlotClient } from "@sdl/slot/api";
 import { checkoutSlot, formatSlotCheckoutFailureCause } from "../slot-checkout.ts";
 import { RealCmuxGateway, type CmuxGatewayFailure } from "@sdl/cmux/gateway";
 import { getWorktreeDescription } from "./worktree-description.ts";
-import type { ExtensionAPI, NotifyLevel } from "./types.ts";
+import type { ExtensionAPI, NotifyLevel } from "@sdl/cmux/types";
 
 export interface BranchCmuxSlotCheckoutOptions {
 	pi: Pick<ExtensionAPI, "exec">;

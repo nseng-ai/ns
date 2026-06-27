@@ -56,3 +56,24 @@ export type {
 	PiLaunchThinkingLevel,
 } from "./pi-launch.ts";
 export { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
+export type {
+	AgentEndContext,
+	AutocompleteItem,
+	AutocompleteOptions,
+	AutocompleteProvider,
+	AutocompleteSuggestions,
+	BaseContext,
+	CommandContext,
+	CommandDefinition,
+	CustomMessage,
+	ExecOptions,
+	ExecResult,
+	ExtensionAPI,
+	ModelInfo,
+	ModelRegistry,
+	NotifyLevel,
+	SessionStartContext,
+	SkillCommandInfoLike,
+	ThinkingLevel,
+	UiLike,
+} from "./types.ts";

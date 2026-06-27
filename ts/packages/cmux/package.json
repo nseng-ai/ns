@@ -8,7 +8,8 @@
     "./command": "./src/command.ts",
     "./gateway": "./src/gateway.ts",
     "./focused-terminal-tab": "./src/focused-terminal-tab.ts",
-    "./pi-launch": "./src/pi-launch.ts"
+    "./pi-launch": "./src/pi-launch.ts",
+    "./types": "./src/types.ts"
   },
   "files": [
     "src"
