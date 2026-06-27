@@ -18,6 +18,7 @@ This is a child Objective of `sdl-extension-architecture` (Phase 2, roadmap step
 - Execute the chosen Pi/CCC delegation direction as its own risky slice: `@sdl/ccc` may continue depending on neutral `@sdl/pi` helper subpaths, while `@sdl/pi` must stop importing `@sdl/ccc` and must drop the `@sdl/ccc` package dependency. Current Pi→CCC imports include `worktree-status`, `cmux/focused-terminal-tab`, `trunk-pull`, `objective-stack-impl`, `land`, `handoff-tab`, and `branch-context-up-and-impl`; CCC→Pi neutral-helper imports such as `commands/ack` and `terminal/presentation` may remain.
 - Land a topological acyclicity check for the Extension Dependency Graph wired into `just ts-guard` (alongside `ts/scripts/guard-typescript-style.mjs`), using package-level `workspace:*` manifest edges under `ts/packages/**/package.json`; the current guard explicitly defers the existing autobranch/branch-context/pi/sdl cycle while still failing non-deferred cycles, including a reintroduced Pi↔CCC manifest cycle.
 - Document the objective capability boundary and the acyclicity invariant in `ts/packages/objective/CONTEXT.md` and register it in `CONTEXT-MAP.md` after the relocation and cycle-break seams have landed.
+- Structure Objective as an SDL execution / vanilla SDL extension surface so `sdl objective ...` works as the integrated command family instead of leaving Objective reachable only through the standalone top-level `objective` binary and Pi slash-command wrappers. Decide and document whether the top-level `objective` binary remains as a compatibility shim/delegator or is retired in favor of `sdl objective`.
 
 ## Non-Goals
 
@@ -25,7 +26,7 @@ This is a child Objective of `sdl-extension-architecture` (Phase 2, roadmap step
 - Do not make sibling packages deep-import `@sdl/objective/src/...` internals or treat CLI JSON invocation as the Capability API.
 - Do not widen `@sdl/sdl/sdk` with objective-specific surface; the Capability API is `@sdl/objective/api`, not new public author SDK.
 - Do not take on the rest of parent step 5's "ccc consumes every provider Capability API" work for capabilities other than objective; that depends on the remaining step-4 migrations and stays with the parent.
-- Do not migrate the standalone tools or change Pi mirror taxonomy as part of this Objective.
+- Do not migrate unrelated standalone tools or unrelated Pi mirror taxonomy as part of this Objective. Objective CLI integration is now in scope: `sdl objective ...` must work through the SDL system, while any remaining top-level `objective` binary must have an explicit compatibility/delegation policy rather than being the only functional command surface.
 
 ## Completion Criteria
 
@@ -37,6 +38,7 @@ This is a child Objective of `sdl-extension-architecture` (Phase 2, roadmap step
 - `just ts-guard` enforces a topological acyclicity check over the Extension Dependency Graph, with self-tests covering an acyclic pass and a synthetic-cycle fail; `just` is green.
 - A final thermonuclear review pass after the acyclicity guard scrutinizes the package graph, remaining Pi/CCC seams, command registration/parity behavior, and Objective boundary documentation assumptions; any discovered hazards are either fixed or recorded as explicit accepted follow-ups before closure.
 - `ts/packages/objective/CONTEXT.md` documents the durable capability/Domain-Core/Capability-API and acyclicity boundary and is registered in `CONTEXT-MAP.md`.
+- `sdl objective ...` exposes the Objective command family through the SDL execution/extension system; `sdl objective --help` shows Objective subcommands rather than generic `sdl` help, and top-level `objective` is either a documented compatibility shim/delegator or is intentionally retired.
 
 ## Definition of Progress
 
@@ -60,6 +62,7 @@ Useful evidence includes:
 - Package-level tests for touched packages and `pnpm --dir ts run check`/`just ts-check` when practical.
 - `git diff --name-status` and package manifest review showing dependency-direction changes are intentional.
 - Import smoke checks for changed `.pi/extensions/*.ts` adapters during the Pi→CCC cycle-break slice.
+- CLI surface checks for the integration slice, especially `sdl objective --help`, representative `sdl objective list --help` / `sdl objective exec read-objective --help` behavior if those subcommands are exposed, and the documented top-level `objective` compatibility/retirement behavior.
 
 ## Runner Policy
 
@@ -77,12 +80,14 @@ This Objective is execution-friendly for `objective-stack-impl` under the bounda
 Assumptions:
 
 - The `@sdl/<cap>/api` convention and gateway-injected-core rule ratified for Slot/Branch-Context/Plans apply cleanly to objective for the implemented API/Domain Core and direct `sdlcc`/`ccc` consumer paths. Current ground truth validates the `ccc` path through `@sdl/objective/api`: CCC imports the Objective selection helpers, including `objectiveSelectionContextFromCommandContext`, from the Capability API instead of from `@sdl/pi/objectives/*` or a CCC-local adapter.
-- The objectives domain in `@sdl/pi/objectives/*` is separable from genuine Pi presentation concerns; `extension.ts` (~860 lines) likely mixes domain selection/listing logic with Pi-specific presentation that should stay behind a thin shell.
+- The objectives domain in `@sdl/pi/objectives/*` is separable from genuine Pi presentation concerns. Current ground truth keeps Pi command registration, acknowledgement, notifications, skill expansion, autocomplete wiring, and presentation in the Pi shell while Objective-owned selection/list/picker/spec helpers and the `@sdl/objective/api` facade live in `@sdl/objective`.
 - The current broad implementation plan is too large for one pass; the durable path is four separate slices with independent gates: runner-usage neutralization, Objective API relocation, consumer repoint, and Pi→CCC cycle break.
 - The runner-subagent usage JSONL parser/totals seam belongs in neutral `@sdl/core/runner-usage`, so `@sdl/objective` can consume it without importing the Pi Presentation Host.
 - The chosen Pi/CCC direction is settled for this Objective: `@sdl/ccc` may continue to import neutral `@sdl/pi` helper subpaths, while `@sdl/pi` must remove all imports of `@sdl/ccc` and its `@sdl/ccc` dependency. Current stacked progress has removed the worktree-status, land/trunk-pull flow-wrapper, Objective stack registration, focused cmux terminal-tab, handoff-tab, branch-context upstack source-import, Pi package manifest, and parity-prose Pi→CCC edges; the scoped stale-edge grep for `ts/packages/hosts/pi/src` and `ts/packages/hosts/pi/package.json` is clean.
 - The topological acyclicity guard's graph source is settled as package-level `workspace:*` manifest edges under `ts/packages/**/package.json`; source-import scanning is deliberately out of scope for this slice.
-- The existing `@sdl/autobranch` / `@sdl/branch-context` / `@sdl/pi` / `@sdl/sdl` manifest cycle is real but explicitly deferred by edge in the guard; a later graph cleanup should remove that deferral.
+- The existing `@sdl/autobranch` / `@sdl/branch-context` / `@sdl/pi` / `@sdl/sdl` manifest cycle is real but explicitly deferred by edge in the guard; later graph cleanup outside this Objective should remove that deferral.
+- Final context documentation for the capability/cycle-break slices is complete: current PR evidence adds `ts/packages/objective/CONTEXT.md` and refreshes `CONTEXT-MAP.md`, `ts/packages/hosts/pi/CONTEXT.md`, and `ts/packages/ccc/CONTEXT.md` with the finalized Objective capability boundary, one-way Pi/CCC direction, and acyclicity invariant.
+- Current CLI surface evidence shows the Objective is not yet fully hooked into the SDL command system: `objective --help` works, but `sdl objective --help` falls back to generic `sdl` help and does not expose Objective subcommands.
 
 Risks:
 
@@ -91,9 +96,10 @@ Risks:
 - The `@sdl/objective` → `@sdl/pi/runner-subagents/usage` dependency risk is de-risked for the runner-usage seam: the parser/totals primitive now lives in `@sdl/core/runner-usage`, `@sdl/objective` no longer imports or declares `@sdl/pi`, and Pi keeps only a compatibility re-export for remaining callers. Continue to guard against reintroducing `@sdl/objective` → `@sdl/pi` during Objective API relocation.
 - The manifest-only topological acyclicity guard will not catch source imports that lack package manifest dependencies. This is accepted for the current Objective slice; mitigate future drift with a separate source-import/manifest parity guard only if the need appears.
 - The deferred autobranch/branch-context/pi/sdl cycle can become stale or mask architectural debt if left indefinitely. Mitigate by keeping it named in code and Objective tracking, and by assigning cleanup to later graph work before treating the entire package graph as clean.
-- The late-stage cleanup false-completion risk is de-risked by the thermonuclear review/remediation pass: package graph, Pi/CCC stale edges, command/parity surfaces, project-local Pi adapter imports, and Objective/worktree-status seams were reviewed after the acyclicity guard. The pass removed the worktree-status imperative refresh-handle seam and accepted only the separately tracked deferred autobranch/branch-context/pi/sdl manifest cycle plus final context documentation as follow-ups.
+- The late-stage cleanup false-completion risk is de-risked for the capability/cycle-break slices by the thermonuclear review/remediation pass: package graph, Pi/CCC stale edges, command/parity surfaces, project-local Pi adapter imports, and Objective/worktree-status seams were reviewed after the acyclicity guard. The pass removed the worktree-status imperative refresh-handle seam, final context documentation now records the settled boundary, and the only accepted graph follow-up is the separately tracked deferred autobranch/branch-context/pi/sdl manifest cycle. A new false-completion risk is now active for the SDL command-system integration: the package/API architecture can look complete while `sdl objective` is still not wired as a vanilla SDL execution.
 
 ## Open Questions
 
-- How much of `@sdl/pi/objectives/extension.ts` is genuine Pi presentation that should remain as a thin Pi shell versus domain logic that belongs in the `@sdl/objective` Domain Core?
-- Which later Objective or parent architecture work should own cleanup of the deferred `@sdl/autobranch` / `@sdl/branch-context` / `@sdl/pi` / `@sdl/sdl` manifest cycle?
+- Resolved for this Objective: `@sdl/pi/objectives/extension.ts` keeps genuine Pi presentation/runtime responsibilities as a thin shell while Objective-specific list, picker, selection prompt/policy, candidate, and command-spec helpers live in `@sdl/objective/api`.
+- Decide in the SDL execution integration slice whether the top-level `objective` binary remains as a backwards-compatible delegator to `sdl objective`, remains temporarily supported with explicit documentation, or is retired once `sdl objective` works.
+- Accepted follow-up outside this Objective: cleanup of the deferred `@sdl/autobranch` / `@sdl/branch-context` / `@sdl/pi` / `@sdl/sdl` manifest cycle belongs to later graph cleanup or the parent architecture stream, not this completed Pi↔CCC/Objectives cycle-break slice.

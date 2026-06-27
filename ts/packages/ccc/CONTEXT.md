@@ -1,6 +1,6 @@
 # @sdl/ccc
 
-`@sdl/ccc` is CCC — Cmux Command and Control — the private TypeScript workspace layer for repo-opinionated orchestration across Pi, cmux, Graphite, Objectives, handoffs, branch-context workflows, and worktree flows. CCC composes lower-level capabilities and neutral `@sdl/pi/...` helpers; the unified `@sdl/pi` package may also delegate selected project-local Pi adapters to CCC orchestration.
+`@sdl/ccc` is CCC — Cmux Command and Control — the private TypeScript workspace layer for repo-opinionated orchestration across Pi, cmux, Graphite, Objectives, handoffs, branch-context workflows, and worktree flows. CCC composes lower-level capabilities and neutral `@sdl/pi/...` helpers; the unified `@sdl/pi` package no longer imports or declares `@sdl/ccc`, so the dependency runs one way (CCC → neutral Pi helpers).
 
 ## Language
 
@@ -17,7 +17,7 @@ The package-level implementation home for workflows that must compose multiple l
 *Avoid*: primitive gateway, storage backend, UI adapter, one-off script.
 
 **CCC boundary**:
-The dependency direction rule: CCC may depend on lower-level packages, CLIs, and neutral `@sdl/pi/...` helper subpaths that expose primitive operations. Most lower capability packages must not import `@sdl/ccc`; the exception is the unified `@sdl/pi` package, whose project-local extension entrypoints may delegate public Pi adapters to CCC-owned orchestration. CCC-owned Pi command surfaces use the `ccc` slash-command prefix; cmux wording is reserved for the external tool/workspace domain.
+The dependency direction rule: CCC may depend on lower-level packages, CLIs, and neutral `@sdl/pi/...` helper subpaths that expose primitive operations. Most lower capability packages, including the unified `@sdl/pi` package, must not import `@sdl/ccc`; CCC depends on them and on neutral `@sdl/pi/...` helper subpaths, not the reverse. Checked-in `.pi/extensions/*.ts` project-local adapters at the repo root may still register CCC-owned commands, since they are not part of the `@sdl/pi` package. CCC-owned Pi command surfaces use the `ccc` slash-command prefix; cmux wording is reserved for the external tool/workspace domain.
 *Avoid*: circular helper import, public API promise, compatibility alias.
 
 **Lower capability**:
