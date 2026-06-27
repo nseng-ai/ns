@@ -21,7 +21,13 @@ function params(): { branch: string; slug: string; key: string; pickupCommand: s
 	return { branch: BRANCH, slug: SLUG, key: KEY, pickupCommand: PICKUP_COMMAND };
 }
 
-function renameStep(surfaceId = "surface-1", workspaceId = "workspace-1"): ScriptedExec {
+interface CmuxLocationOptions {
+	surfaceId?: string;
+	workspaceId?: string;
+}
+
+function renameStep(options: CmuxLocationOptions = {}): ScriptedExec {
+	const { surfaceId = "surface-1", workspaceId = "workspace-1" } = options;
 	return step(
 		"cmux",
 		[
@@ -39,11 +45,8 @@ function renameStep(surfaceId = "surface-1", workspaceId = "workspace-1"): Scrip
 	);
 }
 
-function sendStep(
-	command: string,
-	surfaceId = "surface-1",
-	workspaceId = "workspace-1",
-): ScriptedExec {
+function sendStep(command: string, options: CmuxLocationOptions = {}): ScriptedExec {
+	const { surfaceId = "surface-1", workspaceId = "workspace-1" } = options;
 	return step(
 		"cmux",
 		[
@@ -117,8 +120,8 @@ describe("handoff-tab launch orchestration", () => {
 		const pi = new FakePi([
 			cmuxIdentifyStep(),
 			cmuxCreateSurfaceRefStep(),
-			renameStep("surface:1", "workspace:1"),
-			sendStep(command, "surface:1", "workspace:1"),
+			renameStep({ surfaceId: "surface:1", workspaceId: "workspace:1" }),
+			sendStep(command, { surfaceId: "surface:1", workspaceId: "workspace:1" }),
 		]);
 		const context = createContext();
 

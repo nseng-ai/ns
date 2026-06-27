@@ -26,20 +26,32 @@ const execFileAsync = promisify(execFile);
 const ROOT = "/repo";
 const TRUNK = "master";
 
-const OBJECTIVE_COMMAND_NAMES = ["objective:next", "objective:update", "objective:close"] as const;
+const OBJECTIVE_COMMAND_NAMES = [
+	"objective:next",
+	"objective:update",
+	"objective:close",
+	"objective:stack-impl",
+] as const;
 type ObjectiveCommandName = (typeof OBJECTIVE_COMMAND_NAMES)[number];
-type ObjectiveSkillName = "objective-next" | "objective-update" | "objective-close";
+type ObjectiveSkillName =
+	| "objective-next"
+	| "objective-update"
+	| "objective-close"
+	| "objective-stack-impl";
 
 const OBJECTIVE_SKILLS_BY_COMMAND: Record<ObjectiveCommandName, ObjectiveSkillName> = {
 	"objective:next": "objective-next",
 	"objective:update": "objective-update",
 	"objective:close": "objective-close",
+	"objective:stack-impl": "objective-stack-impl",
 };
 
 const ACTION_PROMPTS: Record<ObjectiveCommandName, string> = {
 	"objective:next": "Run objective-next for this explicitly selected Objective slug or path:",
 	"objective:update": "Run objective-update for this explicitly selected Objective slug or path:",
 	"objective:close": "Run objective-close for this explicitly selected Objective slug or path:",
+	"objective:stack-impl":
+		"Run objective-stack-impl for this explicitly selected Objective slug or path:",
 };
 
 type RegisteredCommand = Parameters<ObjectiveExtensionAPI["registerCommand"]>[1];
@@ -610,7 +622,7 @@ describe("objective:stack-impl command", () => {
 				expect(result.pi.sentUserMessages[0]).toContain("```text\nbravo\n```");
 				expect(result.pi.sentUserMessages[0]?.startsWith("/objective:stack-impl")).toBe(false);
 				expect(result.notifications).toContainEqual({
-					message: "Invoking objective:stack-impl for bravo.",
+					message: "Invoking objective-stack-impl for bravo.",
 					level: "info",
 				});
 			},
