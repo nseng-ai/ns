@@ -35,6 +35,7 @@ This is a child Objective of `sdl-extension-architecture` (Phase 2, roadmap step
 - `@sdl/objective` no longer depends on `@sdl/pi`; the runner-subagent-usage seam has a documented non-Presentation-Host home.
 - The `@sdl/pi` ↔ `@sdl/ccc` bidirectional package cycle is gone under the chosen direction: `@sdl/ccc` may import neutral `@sdl/pi` helpers, but `@sdl/pi` imports no `@sdl/ccc` subpaths and does not declare `@sdl/ccc`.
 - `just ts-guard` enforces a topological acyclicity check over the Extension Dependency Graph, with self-tests covering an acyclic pass and a synthetic-cycle fail; `just` is green.
+- A final thermonuclear review pass after the acyclicity guard scrutinizes the package graph, remaining Pi/CCC seams, command registration/parity behavior, and Objective boundary documentation assumptions; any discovered hazards are either fixed or recorded as explicit accepted follow-ups before closure.
 - `ts/packages/objective/CONTEXT.md` documents the durable capability/Domain-Core/Capability-API and acyclicity boundary and is registered in `CONTEXT-MAP.md`.
 
 ## Definition of Progress
@@ -79,7 +80,7 @@ Assumptions:
 - The objectives domain in `@sdl/pi/objectives/*` is separable from genuine Pi presentation concerns; `extension.ts` (~860 lines) likely mixes domain selection/listing logic with Pi-specific presentation that should stay behind a thin shell.
 - The current broad implementation plan is too large for one pass; the durable path is four separate slices with independent gates: runner-usage neutralization, Objective API relocation, consumer repoint, and Pi→CCC cycle break.
 - The runner-subagent usage JSONL parser/totals seam belongs in neutral `@sdl/core/runner-usage`, so `@sdl/objective` can consume it without importing the Pi Presentation Host.
-- The chosen Pi/CCC direction is settled for this Objective: `@sdl/ccc` may continue to import neutral `@sdl/pi` helper subpaths, while `@sdl/pi` must remove all imports of `@sdl/ccc` and its `@sdl/ccc` dependency. Current stacked progress has removed the worktree-status, land/trunk-pull flow-wrapper, Objective stack registration, focused cmux terminal-tab, handoff-tab, and branch-context upstack source-import edges; after the branch-context upstack move, stale-edge grep still reports the Pi package manifest dependency and parity prose/accounting, not a Pi source import of `@sdl/ccc`.
+- The chosen Pi/CCC direction is settled for this Objective: `@sdl/ccc` may continue to import neutral `@sdl/pi` helper subpaths, while `@sdl/pi` must remove all imports of `@sdl/ccc` and its `@sdl/ccc` dependency. Current stacked progress has removed the worktree-status, land/trunk-pull flow-wrapper, Objective stack registration, focused cmux terminal-tab, handoff-tab, branch-context upstack source-import, Pi package manifest, and parity-prose Pi→CCC edges; the scoped stale-edge grep for `ts/packages/hosts/pi/src` and `ts/packages/hosts/pi/package.json` is clean.
 - The topological acyclicity guard should not be implemented until after the real graph is acyclic; use stale-edge greps and TypeScript validation as interim gates.
 
 Risks:
@@ -88,9 +89,9 @@ Risks:
 - The `@sdl/pi/objectives/extension.ts` presentation/domain entanglement is partly de-risked: Objective-owned command specs, list-argument policy, candidate parsing, picker policy, list JSON parsing, and prompt helpers now live behind `@sdl/objective/api`, while Pi retains command registration, acknowledgement, notifications, `sendMessage`, skill expansion, autocomplete wiring, and presentation. Continue to keep production consumer repoints separate from Pi→CCC ownership changes.
 - The `@sdl/objective` → `@sdl/pi/runner-subagents/usage` dependency risk is de-risked for the runner-usage seam: the parser/totals primitive now lives in `@sdl/core/runner-usage`, `@sdl/objective` no longer imports or declares `@sdl/pi`, and Pi keeps only a compatibility re-export for remaining callers. Continue to guard against reintroducing `@sdl/objective` → `@sdl/pi` during Objective API relocation.
 - The topological acyclicity guard could be over- or under-strict (false greens/reds) if it parses the wrong edge set. Mitigate with explicit acyclic-pass and synthetic-cycle-fail self-tests, mirroring the `SDL_TS_BAN_CAPABILITY_PRIVATE_PEER_IMPORT` self-test pattern.
+- Late-stage cleanup can produce a false sense of completion if package edges are green but command registration, parity metadata, or documentation assumptions still hide boundary drift. Mitigate with a thermonuclear review pass after the acyclicity guard and before final context documentation/closure.
 
 ## Open Questions
 
 - How much of `@sdl/pi/objectives/extension.ts` is genuine Pi presentation that should remain as a thin Pi shell versus domain logic that belongs in the `@sdl/objective` Domain Core?
-- During final Pi→CCC cleanup, can the remaining package-manifest removal and parity/accounting cleanup be completed without regressing the registered user-visible commands now that the individual source-import edges for worktree-status, land/trunk-pull, Objective stack registration, focused cmux terminal-tab, handoff-tab, and branch-context upstack have moved?
 - Should the later acyclicity check derive the Extension Dependency Graph from `package.json` `workspace:*` edges, from actual import specifiers, or both, to avoid false greens where a `package.json` edge exists without imports (or vice versa)?
