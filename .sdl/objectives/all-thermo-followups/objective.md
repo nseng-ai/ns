@@ -38,7 +38,7 @@ Assumptions:
 - The Thermo Council findings are directionally correct: the main functional risk is process-global capability resolution bypassing the Pi host IO seam.
 - `SdlExtensionApi` command context and/or existing render context can provide enough information to distinguish direct terminal CLI execution from callback/override sinks.
 - Minimal non-TTY append-only output is acceptable unless product evidence from Pi callback UIs says a first title line is required.
-- The scratch north-star harness is disposable and not a runtime dependency; any useful ideas can be preserved as prose instead of live code.
+- Confirmed in Slice 2: the scratch north-star harness was disposable and not a runtime dependency; retained behavior is now embodied in clinkr/flow implementation and tests rather than separate live scratch code.
 
 Risks:
 
@@ -46,7 +46,7 @@ Risks:
 - Stream cleanup was de-risked for `flow submit` and `flow cp` by `runPhaseStream(...)` finally-owned cleanup; future stream changes should preserve that ownership boundary.
 - Refactoring `phase-stream.ts` is now safer after the caps/cleanup fixes, but the remaining split should still avoid obscuring functional behavior.
 - Exact-frame command tests may reject legitimate theme changes unless rendering semantics are separated from command behavior assertions.
-- Removing scratch code without preserving still-relevant design rationale could lose context for future UI work.
+- Scratch-code removal did not reveal separate durable design rationale that needed preservation; future UI work should use the shipped clinkr/flow seams and tests as the source of truth.
 
 ## Implementation Guidance
 

@@ -10,10 +10,11 @@ Default stack shape for `objective-stack-impl`: keep this to one planned stack u
   - Non-TTY behavior is codified as minimal append-only output, with no new title/header line required.
   - Evidence: targeted flow, objective, and clinkr capability tests cover Pi-style callback sinks and direct CLI fallback; a forced-throw test proves stream cleanup happens after a mid-stream failure; parent validation passed `pnpm --dir ts exec vitest run --config vitest.config.ts packages/infra/clinkr/test packages/capabilities/flow/test/unit/phase-stream.test.ts packages/objective/test/unit/list-objectives.test.ts packages/objective/test/scenario/list-objectives-cli.test.ts packages/capabilities/flow/test/scenario/cp-command.test.ts` and `just ts-check`.
 
-- [ ] Slice 2: simplify stream implementation and remove disposable scratch surface.
-  - Delete `ts/scratch/cli-northstar` from live source unless there is an active named reason to keep it; preserve durable design decisions in prose only if needed.
-  - Split `phase-stream.ts` responsibilities across phase-state transitions, lifecycle start/stop, transcript/tail buffering, and TTY/non-TTY renderer strategy.
-  - Consolidate duplicated checkpoint phase specs between submit and cp where practical.
+- [x] Slice 2: simplify stream implementation and remove disposable scratch surface.
+  - Deleted `ts/scratch/cli-northstar` from live source; no separate durable prose was needed because retained behavior is covered by clinkr/flow implementation and tests.
+  - Split `phase-stream.ts` responsibilities across phase-state transitions, lifecycle start/stop, transcript/tail buffering, TTY/non-TTY rendering strategy, and shared phase specs.
+  - Consolidated checkpoint phase specs between submit and cp via shared checkpoint phase definitions.
+  - Evidence: parent validation passed `pnpm --dir ts exec vitest run --config vitest.config.ts packages/capabilities/flow/test/unit/phase-stream.test.ts packages/capabilities/flow/test/scenario/cp-command.test.ts packages/capabilities/flow/test/scenario/submit-command.test.ts` and `just ts-check`.
 
 - [ ] Slice 3: move exact rendering assertions to the rendering layer.
   - Command scenarios should assert progress/event semantics and meaningful output facts.

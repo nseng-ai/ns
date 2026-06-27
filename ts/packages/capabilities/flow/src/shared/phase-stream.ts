@@ -1,12 +1,12 @@
 // The flow-side presentation driver for live, multi-phase progress (`flow submit` / `flow cp`).
 //
-// It owns the ordered phase list, the per-phase state/label arrays, and the spinner pump; it RENDERS
-// frames via the `@sdl/clinkr/theme` `statusLine` grammar and drives a `@sdl/clinkr/stream` sink.
-// The lower layers (graphite submit, the checkpoint workflow) stay domain-pure: they emit typed
-// `ProgressPhaseEvent`s keyed by a stable `phaseKey`; this driver switches on that key.
+// Flow owns the ordered phase list and typed progress events. This module wires the small stream seams
+// together: phase-state transitions, transcript tail buffering, lifecycle cleanup, and clinkr-backed
+// TTY/non-TTY rendering. Lower layers stay domain-pure and emit `ProgressPhaseEvent`s keyed by stable
+// `phaseKey`s.
 //
-// This is the one new `flow → clinkr` edge. The event type lives in `@sdl/core` (graphite already
-// depends on it), so clinkr stays free of any `@sdl/*` dependency and is never imported by graphite.
+// This is the one `flow → clinkr` edge. The event type lives in `@sdl/core` (graphite already depends
+// on it), so clinkr stays free of any `@sdl/*` dependency and is never imported by graphite.
 //
 // Flow resolves streaming `Caps` from its command host context when present; direct command execution
 // falls back to the real process terminal.
@@ -15,30 +15,21 @@ import { resolveProcessCaps, resolveSettledNonInteractiveCaps, type Caps } from 
 import {
 	createStdoutStreamWriter,
 	createStreamSink,
-	SPINNER_FRAME_MS,
 	systemStreamClock,
-	type FrameRenderer,
 	type StreamSinkDeps,
 } from "@sdl/clinkr/stream";
-import {
-	bold,
-	dim,
-	ellipsisFor,
-	statusLine,
-	truncatePlain,
-	type PhaseState,
-	type StatusLineItem,
-} from "@sdl/clinkr/theme";
 import type { ProgressPhaseEvent } from "@sdl/core/progress-phase";
 import type { SdlExtensionApi } from "sdl-sdk";
 
 import { createFlowLiveOutput } from "./live-output.ts";
+import { createPhaseStreamLifecycle } from "./phase-stream-lifecycle.ts";
+import { createPhaseStreamRenderer } from "./phase-stream-renderer.ts";
+import type { PhaseSpec } from "./phase-stream-specs.ts";
+import { createPhaseStateStore } from "./phase-stream-state.ts";
+import { createTranscriptTail } from "./phase-stream-tail.ts";
 
-/** One declared phase: a stable sequencing `key` plus its presentational status-line payload. */
-export interface PhaseSpec {
-	key: string;
-	item: StatusLineItem;
-}
+export { checkpointEventLabel, CP_PHASES, SUBMIT_PHASES } from "./phase-stream-specs.ts";
+export type { PhaseSpec } from "./phase-stream-specs.ts";
 
 /** The driver surface a command drives: title once, feed events, finalize. */
 export interface PhaseStream {
@@ -60,234 +51,68 @@ export interface PhaseStream {
 	stop(): Promise<void>;
 }
 
-/** Ordered phase list for `flow submit`. Keys match what the submit driver and graphite emit. */
-export const SUBMIT_PHASES: readonly PhaseSpec[] = [
-	{
-		key: "checkpoint",
-		item: {
-			name: "Checkpoint",
-			detail: "checkpoint complete",
-			label: "checkpointing pending changes…",
-		},
-	},
-	{
-		key: "preflight",
-		item: { name: "Preflight", detail: "ready to submit", label: "checking submit readiness…" },
-	},
-	{
-		key: "metadata",
-		item: { name: "Metadata", detail: "metadata prepared", label: "preparing PR metadata…" },
-	},
-	{
-		key: "submit",
-		item: { name: "Submit", detail: "stack submitted", label: "running gt submit…" },
-	},
-	{
-		key: "verification",
-		item: { name: "Verification", detail: "PRs verified", label: "checking submitted PRs…" },
-	},
-	{
-		key: "descriptions",
-		item: {
-			name: "Descriptions",
-			detail: "descriptions ready",
-			label: "generating PR descriptions…",
-		},
-	},
-];
-
-/** Ordered phase list for `flow cp`. Keys match what the checkpoint workflow emits. */
-export const CP_PHASES: readonly PhaseSpec[] = [
-	{
-		key: "inspect",
-		item: { name: "Inspect", detail: "worktree inspected", label: "inspecting worktree…" },
-	},
-	{
-		key: "generate",
-		item: {
-			name: "Generate",
-			detail: "checkpoint message ready",
-			label: "generating checkpoint message…",
-		},
-	},
-	{
-		key: "commit",
-		item: { name: "Commit", detail: "checkpoint committed", label: "creating checkpoint commit…" },
-	},
-];
-
-/**
- * Translate a checkpoint-workflow event (keyed inspect/generate/commit) into a single presentational
- * label, so `flow submit` can fold the whole checkpoint into its one "Checkpoint" phase.
- */
-export function checkpointEventLabel(event: ProgressPhaseEvent): string | undefined {
-	if (event.type === "phase-progress") return event.label;
-	if (event.type === "phase-started") {
-		if (event.label !== undefined) return event.label;
-		return CP_PHASES.find((spec) => spec.key === event.phaseKey)?.item.label;
-	}
-	return undefined;
-}
-
 export function createPhaseStream(
 	caps: Caps,
 	specs: readonly PhaseSpec[],
 	deps: StreamSinkDeps,
 ): PhaseStream {
 	const sink = createStreamSink(caps, deps);
-	const states: PhaseState[] = specs.map(() => "pending");
-	const labels: (string | undefined)[] = specs.map((spec) => spec.item.label);
-	const indexByKey = new Map(specs.map((spec, index) => [spec.key, index] as const));
-	let header = "";
-	let activeIndex = -1;
-	let running = false;
-	let pumpPromise: Promise<void> | undefined;
-	let stopped = false;
-	// The freshest raw-transcript line and the buffer of bytes not yet terminated by a newline / CR.
-	let tail: string | undefined;
-	let tailBuffer = "";
-
-	// Every frame re-reads the mutable arrays, so spinner ticks and event mutations compose in one place.
-	// The raw subprocess transcript, when present, rides as a dimmed tail line INSIDE the frame so the
-	// sink's writer owns every byte (mirrors the north star; no direct stdout writes alongside it).
-	const frame: FrameRenderer = (tick) => {
-		const lines = [
-			bold(header),
-			...specs.map((spec, index) => {
-				const label = labels[index];
-				const item: StatusLineItem = label === undefined ? spec.item : { ...spec.item, label };
-				return statusLine(caps, item, states[index] ?? "pending", tick);
-			}),
-		];
-		if (tail !== undefined) {
-			lines.push(
-				`       ${dim(truncatePlain(tail, Math.max(0, caps.columns - 7), ellipsisFor(caps)))}`,
-			);
-		}
-		return lines;
-	};
-
-	function clearTail(): void {
-		tail = undefined;
-		tailBuffer = "";
-	}
-
-	function repaint(): void {
-		if (caps.isTty) sink.render(frame);
-	}
-
-	// The real waits happen inside the lower-layer awaits, so spinner motion can't be caller-driven
-	// between phases: pump concurrently and let its clock.sleep timers interleave with the real I/O.
-	async function pump(): Promise<void> {
-		while (running) {
-			await sink.hold({ tickMs: SPINNER_FRAME_MS });
-		}
-	}
-
-	function markEarlierDone(index: number): void {
-		for (let i = 0; i < index; i += 1) {
-			const state = states[i];
-			if (state === "pending" || state === "active") states[i] = "done";
-		}
-	}
-
-	function setActive(index: number): void {
-		markEarlierDone(index);
-		states[index] = "active";
-		activeIndex = index;
-	}
-
-	// TTY: repaint immediately so the event shows at once. Non-tty: route the transient to onOutput
-	// (the spinner pump never runs there — its `hold` would busy-loop without sleeping).
-	function surface(line: string | undefined): void {
-		if (caps.isTty) {
-			sink.render(frame);
-			return;
-		}
-		if (line !== undefined) void sink.hold({ tickMs: SPINNER_FRAME_MS, transient: line });
-	}
-
-	// TTY only: accumulate transcript bytes, take the freshest non-empty line (CR-aware, so Graphite's
-	// in-place spinner progress shows), and repaint. Non-tty routes its transcript straight to ctx.
-	function note(text: string): void {
-		if (!caps.isTty) return;
-		tailBuffer += text;
-		const segments = tailBuffer.split(/\r\n|\r|\n/);
-		tailBuffer = segments.pop() ?? "";
-		const latest = [tailBuffer, ...segments.reverse()].find((segment) => segment.trim() !== "");
-		if (latest !== undefined) tail = latest.trim();
-		sink.render(frame);
-	}
+	const phases = createPhaseStateStore(specs);
+	const tail = createTranscriptTail();
+	const lifecycle = createPhaseStreamLifecycle(caps, sink);
+	const renderer = createPhaseStreamRenderer({
+		caps,
+		sink,
+		views: phases.views,
+		tailLine: tail.line,
+	});
 
 	function begin(title: string): void {
-		header = title;
-		sink.start();
-		sink.render(frame);
-		if (caps.isTty) {
-			running = true;
-			pumpPromise = pump();
-		}
+		renderer.setTitle(title);
+		lifecycle.startLiveRegion();
+		renderer.render();
+		lifecycle.startPump();
 	}
 
 	function emit(event: ProgressPhaseEvent): void {
-		const index = indexByKey.get(event.phaseKey);
-		if (index === undefined) return;
-		const spec = specs[index];
-		if (spec === undefined) return;
-		switch (event.type) {
-			case "phase-started":
-				setActive(index);
-				labels[index] = event.label ?? spec.item.label;
-				surface(labels[index]);
-				break;
-			case "phase-progress":
-				if (states[index] === "pending") setActive(index);
-				labels[index] = event.label;
-				surface(event.label);
-				break;
-			case "phase-done":
-				states[index] = "done";
-				clearTail();
-				repaint();
-				break;
-			case "phase-failed":
-				states[index] = "failed";
-				labels[index] = event.detail;
-				clearTail();
-				repaint();
-				break;
+		const transition = phases.apply(event);
+		switch (transition.type) {
+			case "ignored":
+				return;
+			case "surface":
+				renderer.surface(transition.line);
+				return;
+			case "render":
+				if (transition.clearTranscript) tail.clear();
+				renderer.render();
+				return;
 		}
+	}
+
+	function note(text: string): void {
+		if (!caps.isTty) return;
+		tail.note(text);
+		renderer.render();
 	}
 
 	function fail(): void {
-		if (activeIndex >= 0) states[activeIndex] = "failed";
-		repaint();
+		phases.failActive();
+		renderer.render();
 	}
 
 	async function stop(): Promise<void> {
-		if (stopped) return;
-		stopped = true;
-		running = false;
-		if (pumpPromise !== undefined) await pumpPromise;
-		sink.stop();
+		await lifecycle.stop();
 	}
 
 	async function finish(finalLines: readonly string[] = []): Promise<void> {
-		running = false;
-		if (pumpPromise !== undefined) await pumpPromise;
+		await lifecycle.drainPump();
 		// On overall success, settle every still-open phase; a failure leaves its red row standing.
-		const hasFailure = states.some((state) => state === "failed");
-		if (!hasFailure) {
-			for (let i = 0; i < states.length; i += 1) {
-				const state = states[i];
-				if (state === "pending" || state === "active") states[i] = "done";
-			}
-		}
+		phases.settleOpenPhases();
 		// The persisted region must not carry a transient transcript line; the settled phases stand alone.
-		clearTail();
-		repaint();
+		tail.clear();
+		renderer.render();
 		sink.finish(finalLines);
-		await stop();
+		await lifecycle.stop();
 	}
 
 	return { begin, emit, note, fail, finish, stop };
