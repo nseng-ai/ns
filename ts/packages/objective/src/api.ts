@@ -14,6 +14,7 @@ import { createRealObjectiveContext } from "./context.ts";
 import {
 	buildObjectiveListResult,
 	matchesStatusFilter,
+	renderObjectiveListMarkdown,
 	type ListObjectivesRequest,
 	type ObjectiveListResult,
 	type ObjectiveListRecord,
@@ -533,6 +534,7 @@ export {
 	parseObjectiveListArgs,
 	objectiveCompletionItem,
 	parseObjectiveCandidatesData,
+	renderObjectiveListMarkdown,
 	objectiveCommandSpecs,
 	objectiveCreateCommandSpec,
 };

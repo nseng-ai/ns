@@ -138,9 +138,7 @@ describe("pi extension runtime helpers", () => {
 		);
 
 		expect(slug).toBeUndefined();
-		expect(calls).toEqual([
-			{ command: "objective", args: ["list", "--minimal", "--format", "json"] },
-		]);
+		expect(calls).toEqual([]);
 		expect(notifications).toEqual([]);
 	});
 

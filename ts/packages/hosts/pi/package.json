@@ -9,7 +9,6 @@
     "./commands/io": "./src/commands/io.ts",
     "./runtime/machine-envelope": "./src/runtime/machine-envelope.ts",
     "./branches/slug": "./src/branches/slug.ts",
-    "./objectives/list": "./src/objectives/list.ts",
     "./objectives/picker": "./src/objectives/picker.ts",
     "./objectives/selection": "./src/objectives/selection.ts",
     "./runner-subagents/usage": "./src/runner-subagents/usage.ts",

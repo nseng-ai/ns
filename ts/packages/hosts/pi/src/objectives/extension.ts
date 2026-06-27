@@ -1,8 +1,10 @@
 import { registerCommandWithImmediateAck } from "../commands/ack.ts";
 import {
-	registerCliCommandExtension,
+	CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
+	emitCliCommandOutput,
+	parseCliCommandArgs,
+	renderCliCommandOutputMessage,
 	type CliCommandExtensionAPI,
-	type ParsedCliCommandArgs,
 } from "../commands/cli-extension.ts";
 import { parseMachineEnvelopeData } from "../runtime/machine-envelope.ts";
 import {
@@ -14,14 +16,17 @@ import {
 import { type ExecResult } from "@sdl/core/exec";
 import {
 	completeObjectiveListArgs,
+	createObjectiveClient,
 	objectiveCommandSpecs,
 	objectiveCompletionItem,
 	objectiveCreateCommandSpec,
 	parseObjectiveCandidatesData,
 	parseObjectiveListArgTokens,
+	renderObjectiveListMarkdown,
 	type ObjectiveCandidatesParseResult,
 	type ObjectiveCommandSpec,
 	type ObjectiveCreateCommandSpec,
+	type ObjectiveListParsedArgs,
 } from "@sdl/objective/api";
 import { definePiSurfaceParity } from "../parity/extension.ts";
 import {
@@ -358,26 +363,111 @@ function parseObjectiveCandidates(stdout: string): ObjectiveCandidatesParseResul
 	return parseObjectiveCandidatesData(envelope.data);
 }
 
-const OBJECTIVE_LIST_COMMAND = {
-	name: "list",
-	description: "List active Objectives in this repository without invoking the agent.",
-	displayName: "list",
-	argumentHint: OBJECTIVE_LIST_ARGUMENT_HINT,
-	getArgumentCompletions: completeObjectiveListArgs,
-	mapParsedArgs: mapObjectiveListBridgeArgs,
-} as const;
+interface ObjectiveListRequestShape {
+	names: boolean;
+	minimal: boolean;
+	status: "all" | "active" | "open" | "closed";
+}
 
-function mapObjectiveListBridgeArgs(args: readonly string[]): ParsedCliCommandArgs {
-	const parsed = parseObjectiveListArgTokens(args);
+async function handleObjectiveListCommand(
+	pi: ObjectiveExtensionAPI,
+	rawArgs: string,
+	ctx: CommandContext,
+): Promise<void> {
+	const parsedTokens = parseCliCommandArgs(rawArgs);
+	if (!parsedTokens.ok) {
+		emitObjectiveListOutput(pi, ctx, rawArgs, [], {
+			exitCode: 2,
+			stdout: "",
+			stderr: `Error: ${parsedTokens.error}\n`,
+		});
+		return;
+	}
+
+	const parsed = parseObjectiveListArgTokens(parsedTokens.args);
 	if (parsed.type === "invalid") {
-		return { ok: false, error: parsed.message };
+		emitObjectiveListOutput(pi, ctx, rawArgs, parsedTokens.args, {
+			exitCode: 2,
+			stdout: "",
+			stderr: `Error: ${parsed.message}\n`,
+		});
+		return;
 	}
 
 	if (parsed.args.isHelpRequested) {
-		return { ok: true, args: ["--help"] };
+		emitObjectiveListOutput(pi, ctx, rawArgs, parsed.args.args, {
+			exitCode: 0,
+			stdout: renderObjectiveListHelp(),
+			stderr: "",
+		});
+		return;
 	}
 
-	return { ok: true, args: [...parsed.args.args, "--format", "markdown"] };
+	await ctx.waitForIdle();
+	const request = objectiveListRequestFromParsedArgs(parsed.args);
+	const listing = await createObjectiveClient({ cwd: ctx.cwd }).listObjectives(request);
+	if (!listing.ok) {
+		emitObjectiveListOutput(pi, ctx, rawArgs, parsed.args.args, {
+			exitCode: 1,
+			stdout: "",
+			stderr: `Error: ${listing.failure.message}\n`,
+		});
+		return;
+	}
+
+	emitObjectiveListOutput(pi, ctx, rawArgs, parsed.args.args, {
+		exitCode: 0,
+		stdout: `${renderObjectiveListMarkdown(listing.result)}\n`,
+		stderr: "",
+	});
+}
+
+function objectiveListRequestFromParsedArgs(
+	parsed: ObjectiveListParsedArgs,
+): ObjectiveListRequestShape {
+	const request: ObjectiveListRequestShape = { names: false, minimal: false, status: "active" };
+	for (let index = 0; index < parsed.args.length; index += 1) {
+		const arg = parsed.args[index];
+		if (arg === "--names") {
+			request.names = true;
+			continue;
+		}
+		if (arg === "--minimal") {
+			request.minimal = true;
+			continue;
+		}
+		if (arg === "--status") {
+			request.status = parsed.args[index + 1] as ObjectiveListRequestShape["status"];
+			index += 1;
+		}
+	}
+	return request;
+}
+
+function renderObjectiveListHelp(): string {
+	return `Usage: /objective:list ${OBJECTIVE_LIST_ARGUMENT_HINT}\n\nList checkout-local Objective records without shelling out through the objective CLI.\n\nOptions:\n  --names                         Output Objective slugs only, one per line.\n  --minimal                       Hide local branch attribution.\n  --status all|active|open|closed Filter Objective records by checkout-local status.\n  --help, -h                      Show this help.\n`;
+}
+
+function emitObjectiveListOutput(
+	pi: ObjectiveExtensionAPI,
+	ctx: CommandContext,
+	rawArgs: string,
+	args: readonly string[],
+	result: { exitCode: number; stdout: string; stderr: string },
+): void {
+	emitCliCommandOutput(pi, ctx, {
+		cliName: "objective",
+		commandName: "list",
+		piCommandName: OBJECTIVE_LIST_COMMAND_NAME,
+		rawArgs,
+		args: [...args],
+		argv: ["list", ...args],
+		cwd: ctx.cwd,
+		exitCode: result.exitCode,
+		stdout: result.stdout,
+		stderr: result.stderr,
+		level: result.exitCode === 0 ? "info" : "error",
+	});
 }
 
 export const objectiveParity = definePiSurfaceParity([
@@ -392,7 +482,7 @@ export const objectiveParity = definePiSurfaceParity([
 		sourcePackage: "@sdl/pi",
 		sourceModule: "objective",
 		notes:
-			"Pi command delegates through registerCliCommandExtension and keeps output format controlled by the Objective Pi adapter.",
+			"Pi command uses the Objective Capability API in-process and keeps output format controlled by the Objective Pi adapter.",
 	},
 	{
 		kind: "command",
@@ -442,19 +532,18 @@ export const objectiveParity = definePiSurfaceParity([
 export default function objectiveExtension(pi: ObjectiveExtensionAPI): void {
 	const objectiveCommandCompleter = createObjectiveCommandCompleter(pi);
 
-	registerCliCommandExtension(pi, {
-		cliName: "objective",
-		piNamespace: "objective",
-		commands: [OBJECTIVE_LIST_COMMAND],
-		runCli: async (argv, deps) => {
-			const result = await pi.exec("objective", [...argv], {
-				cwd: deps.cwd,
-				timeout: OBJECTIVE_LIST_TIMEOUT_MS,
-			});
-			deps.stdout(result.stdout);
-			deps.stderr(result.stderr);
-			return result.killed ? 124 : result.code;
+	pi.registerMessageRenderer?.(CLI_COMMAND_OUTPUT_MESSAGE_TYPE, renderCliCommandOutputMessage);
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: OBJECTIVE_LIST_COMMAND_NAME,
+		commandDefinition: {
+			description:
+				"objective list: List active Objectives in this repository without invoking the agent.",
+			argumentHint: OBJECTIVE_LIST_ARGUMENT_HINT,
+			getArgumentCompletions: completeObjectiveListArgs,
+			handler: async (args, ctx) => handleObjectiveListCommand(pi, args, ctx),
 		},
+		options: { delivery: "none" },
 	});
 
 	registerCommandWithImmediateAck({
