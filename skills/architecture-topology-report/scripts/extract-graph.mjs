@@ -2,11 +2,9 @@
 // Extract the package dependency topology of a pnpm/npm workspace and emit
 // the structural facts an architecture-topology report is built from.
 //
-// Pure structural analysis — it reports facts (edges, cycles, fan-in/out,
-// exports, named-package consumers). It does NOT classify layers or judge
-// against a target; that mapping is the agent's job (see SKILL.md), because
-// the target architecture lives in prose (an objective, an ADR) that only
-// the agent reads.
+// Structural analysis plus declared tier policy facts — it reports edges,
+// cycles, fan-in/out, exports, named-package consumers, manifest-declared
+// package tiers, and machine-computed tier-policy violations.
 //
 // Usage:
 //   node extract-graph.mjs [--root ts/packages] [--kit @sdl/capability-kit]
@@ -42,6 +40,26 @@ const TRANSITIONAL = arg("transitional", "@sdl/domain-primitives-transitional");
 const API_NEEDLE = arg("api-needle", "api");
 const SRC_DIR = arg("src-dir", "src");
 const PRETTY = arg("pretty", false);
+
+const TIERS = [
+  "capability",
+  "capability-kit",
+  "sdk",
+  "transitional",
+  "neutral-infra",
+  "host",
+  "tool",
+];
+const TIER_SET = new Set(TIERS);
+const TIER_POLICY = {
+  capability: new Set(["capability", "capability-kit", "sdk", "neutral-infra", "transitional"]),
+  "capability-kit": new Set(["sdk", "neutral-infra", "transitional"]),
+  sdk: new Set(["sdk", "neutral-infra", "transitional"]),
+  transitional: new Set(["neutral-infra"]),
+  "neutral-infra": new Set(["neutral-infra"]),
+  host: new Set(["capability", "sdk", "capability-kit", "neutral-infra", "transitional"]),
+  tool: new Set(["tool", "host", "capability", "capability-kit", "sdk", "neutral-infra", "transitional"]),
+};
 
 // Approximate source size per package: meaningful lines of TypeScript under
 // <pkg>/<SRC_DIR>, excluding tests and blank/`//`-only lines. Used by the report
@@ -96,7 +114,8 @@ try {
   process.exit(1);
 }
 
-const pkgs = {}; // name -> { path, exports, deps:{name:[kinds]} }
+const pkgs = {}; // name -> { path, exports, tier, deps:{name:[kinds]} }
+const manifestErrors = [];
 for (const f of files) {
   let d;
   try {
@@ -105,6 +124,12 @@ for (const f of files) {
     continue;
   }
   if (!d.name) continue;
+  const tier = d.sdl?.tier;
+  if (typeof tier !== "string") {
+    manifestErrors.push(`${d.name} (${f}) is missing sdl.tier; known tiers: ${TIERS.join(", ")}`);
+  } else if (!TIER_SET.has(tier)) {
+    manifestErrors.push(`${d.name} (${f}) has unknown sdl.tier ${JSON.stringify(tier)}; known tiers: ${TIERS.join(", ")}`);
+  }
   const deps = {};
   for (const k of ["dependencies", "peerDependencies", "devDependencies"]) {
     for (const dep of Object.keys(d[k] || {})) {
@@ -117,9 +142,15 @@ for (const f of files) {
   pkgs[d.name] = {
     path,
     exports: Object.keys(d.exports || {}),
+    tier,
     deps,
     loc: countLoc(join(path, SRC_DIR)),
   };
+}
+
+if (manifestErrors.length) {
+  console.error(`Package tier declaration errors:\n${manifestErrors.map((error) => `  - ${error}`).join("\n")}`);
+  process.exit(1);
 }
 
 const names = new Set(Object.keys(pkgs));
@@ -179,6 +210,39 @@ for (const [n, outs] of Object.entries(graph)) {
   for (const t of outs) fanIn[t] = (fanIn[t] || 0) + 1;
 }
 
+function tierViolationForEdge(from, to) {
+  const fromTier = pkgs[from]?.tier;
+  const toTier = pkgs[to]?.tier;
+  if (fromTier === undefined || toTier === undefined) return undefined;
+  if (toTier === "transitional" && fromTier !== "transitional") {
+    return {
+      from,
+      to,
+      fromTier,
+      toTier,
+      severity: "debt",
+      policy: "depends-on-transitional",
+    };
+  }
+  if (TIER_POLICY[fromTier]?.has(toTier)) return undefined;
+  return {
+    from,
+    to,
+    fromTier,
+    toTier,
+    severity: "hard",
+    policy: `${fromTier}-must-not-depend-on-${toTier}`,
+  };
+}
+
+const tierViolations = [];
+for (const [from, deps] of Object.entries(graph)) {
+  for (const to of deps) {
+    const violation = tierViolationForEdge(from, to);
+    if (violation !== undefined) tierViolations.push(violation);
+  }
+}
+
 // Per-package facts the report leans on.
 const exposesApi = {}; // name -> [api-ish export subpaths]
 const apiOnly = []; // packages whose ONLY exports look like /api (no command/main face)
@@ -209,13 +273,16 @@ const out = {
     apiNeedle: API_NEEDLE,
     packageCount: names.size,
     edgeKinds: "runtime (dependencies + peerDependencies)",
+    tiers: TIERS,
+    tierPolicy: Object.fromEntries(Object.entries(TIER_POLICY).map(([tier, allowed]) => [tier, [...allowed].sort()])),
   },
   packages: Object.fromEntries(
     Object.entries(pkgs)
       .sort()
-      .map(([n, p]) => [n, { path: p.path, exports: p.exports, runtimeDeps: graph[n], loc: p.loc }]),
+      .map(([n, p]) => [n, { path: p.path, tier: p.tier, exports: p.exports, runtimeDeps: graph[n], loc: p.loc }]),
   ),
   graph,
+  tierViolations,
   cycles, // [] means acyclic
   fanOut: ranked(fanOut),
   fanIn: ranked(fanIn),

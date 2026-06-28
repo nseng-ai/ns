@@ -606,9 +606,6 @@ importers:
       '@sdl/graphite':
         specifier: workspace:*
         version: link:../infra/graphite
-      '@sdl/plans':
-        specifier: workspace:*
-        version: link:../plans
       '@sdl/slot':
         specifier: workspace:*
         version: link:../capabilities/slot

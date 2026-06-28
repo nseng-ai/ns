@@ -20,5 +20,8 @@
     "commander": "catalog:",
     "log-update": "catalog:",
     "zod": "catalog:"
+  },
+  "sdl": {
+    "tier": "neutral-infra"
   }
 }

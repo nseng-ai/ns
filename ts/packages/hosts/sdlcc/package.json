@@ -19,5 +19,8 @@
     "@sdl/objective": "workspace:*",
     "@sdl/slot": "workspace:*",
     "zod": "catalog:"
+  },
+  "sdl": {
+    "tier": "host"
   }
 }

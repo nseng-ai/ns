@@ -16,6 +16,67 @@ export const BAN_IMPORT_ALIAS_FOR_FIRST_PARTY = "SDL_TS_BAN_IMPORT_ALIAS_FOR_FIR
 export const BAN_EMPTY_INTERFACE_EXTENDS = "SDL_TS_BAN_EMPTY_INTERFACE_EXTENDS";
 export const BAN_CAPABILITY_PRIVATE_PEER_IMPORT = "SDL_TS_BAN_CAPABILITY_PRIVATE_PEER_IMPORT";
 export const BAN_EXTENSION_DEPENDENCY_CYCLE = "SDL_TS_BAN_EXTENSION_DEPENDENCY_CYCLE";
+export const BAN_PACKAGE_TIER_LAYERING = "SDL_TS_PACKAGE_TIER_LAYERING";
+
+export const packageTierValues = [
+	"capability",
+	"capability-kit",
+	"sdk",
+	"transitional",
+	"neutral-infra",
+	"host",
+	"tool",
+] as const;
+
+export type PackageTier = (typeof packageTierValues)[number];
+
+export const packageTierSet = new Set<string>(packageTierValues);
+
+export const packageTierAllowedTargets: Readonly<Record<PackageTier, ReadonlySet<PackageTier>>> = {
+	capability: new Set(["capability", "capability-kit", "sdk", "neutral-infra", "transitional"]),
+	"capability-kit": new Set(["sdk", "neutral-infra", "transitional"]),
+	sdk: new Set(["sdk", "neutral-infra", "transitional"]),
+	transitional: new Set(["neutral-infra"]),
+	"neutral-infra": new Set(["neutral-infra"]),
+	host: new Set(["capability", "sdk", "capability-kit", "neutral-infra", "transitional"]),
+	tool: new Set([
+		"tool",
+		"host",
+		"capability",
+		"capability-kit",
+		"sdk",
+		"neutral-infra",
+		"transitional",
+	]),
+};
+
+export const allowedPackageTierDebtEdges = new Map<string, string>([
+	[
+		"@sdl/ccc\0@sdl/pi",
+		"CCC clean-consumer debt tracked by the sdl-extension-architecture objective step 5.",
+	],
+	["@sdl/sdl\0@sdl/slot", "SDK-to-capability CLI mount debt: @sdl/sdl still mounts Slot directly."],
+	[
+		"sdl-flow\0@sdl/domain-primitives-transitional",
+		"Current transitional-domain consumer; new consumers must not be added.",
+	],
+	[
+		"sdl-sdk\0@sdl/domain-primitives-transitional",
+		"Current transitional-domain consumer; new consumers must not be added.",
+	],
+	[
+		"@sdl/ccc\0@sdl/domain-primitives-transitional",
+		"Current transitional-domain consumer; new consumers must not be added.",
+	],
+	[
+		"@sdl/sdl\0@sdl/domain-primitives-transitional",
+		"Current transitional-domain consumer; new consumers must not be added.",
+	],
+	[
+		"@sdl/pi\0@sdl/domain-primitives-transitional",
+		"Current transitional-domain consumer; new consumers must not be added.",
+	],
+]);
 
 export const capabilityPackageNames = new Set([
 	"@sdl/aretro",

@@ -20,5 +20,8 @@
   },
   "dependencies": {
     "@sdl/core": "workspace:*"
+  },
+  "sdl": {
+    "tier": "transitional"
   }
 }

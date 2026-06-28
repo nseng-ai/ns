@@ -1,5 +1,5 @@
 // Validated example spec: reproduces the sdl-extension-architecture report.
-// This is ALL the agent authors per run — tier map + editorial judgement.
+// This is ALL the agent authors per run — optional tier overrides + editorial judgement.
 export default {
   repo: "sdl-tools",
   targetName: "the SDL Extension Architecture target",
@@ -9,24 +9,8 @@ export default {
      end-state in <span class="font-mono text-sm">.sdl/objectives/sdl-extension-architecture</span> (ADR 0009 · 0012 · 0016).
      The question is not "find refactors" — it is <em>how well are we tracking toward the architecture we said we wanted.</em>`,
 
-  // The one mechanical-looking input that still needs the target model: tier per package.
-  // Seed it with `--tiers-template`, then re-tag sdk/host/cons/util from the model.
-  tiers: {
-    "@sdl/core": "infra", "@sdl/clinkr": "infra", "@sdl/graphite": "infra",
-    "@sdl/brmem": "infra", "@sdl/cmux": "infra",
-    "@sdl/domain-primitives-transitional": "trans",
-    "@sdl/sdl": "sdk", "sdl-sdk": "sdk", "@sdl/capability-kit": "sdk",
-    "@sdl/autobranch": "util", "@sdl/worktree-status": "util",
-    "sdl-flow": "cap", "@sdl/handoff": "cap", "@sdl/objective": "cap",
-    "@sdl/branch-context": "cap", "@sdl/plans": "cap", "@sdl/pr-address": "cap",
-    "@sdl/slot": "cap", "@sdl/roaster": "cap", "@sdl/aretro": "cap",
-    "@sdl/ccc": "cons",
-    "@sdl/pi": "host", "sdlcc": "host",
-    "@sdl/areg": "tool", "@sdl/vibechk": "tool", "@sdl/packagechk": "tool",
-    "@local-pi-tools/backing-skill-commands": "tool", "@local-pi-tools/context-profiler": "tool",
-    "@local-pi-tools/grill": "tool", "@local-pi-tools/pr-previews": "tool",
-    "@local-pi-tools/runner-subagents": "tool", "@local-pi-tools/thermo-council": "tool",
-  },
+  // Package color comes from declared package.json `sdl.tier` values. Add a `tiers` object
+  // only when a report needs explicit presentation overrides.
 
   verdict: {
     headline: "This is migration distance, not architectural drift.",
@@ -82,9 +66,9 @@ export default {
      <span class="font-mono">sdl-sdk</span> (171 LOC) and <span class="font-mono">capability-kit</span> (180 LOC) — are the smallest nodes on purpose.`,
 
   scorecard: [
-    { invariant: `Extension Dependency Graph is acyclic and enforced in <span class="font-mono text-xs">ts-guard</span>`,
+    { invariant: `Extension Dependency Graph is acyclic and enforced by the <span class="font-mono text-xs">TypeScript style guard</span>`,
       status: "partial", statusKind: "partial",
-      evidence: `Headline <span class="font-mono text-xs">pi ↔ ccc</span> cycle broken; a topological <span class="font-mono text-xs">ts-guard</span> check is live. One deferred SCC remains: <span class="font-mono text-xs text-red-600">autobranch → pi → sdl → autobranch</span>.` },
+      evidence: `Headline <span class="font-mono text-xs">pi ↔ ccc</span> cycle broken; a topological TypeScript style guard check is live. One deferred SCC remains: <span class="font-mono text-xs text-red-600">autobranch → pi → sdl → autobranch</span>.` },
     { invariant: `Capability Kit owns the <span class="font-mono text-xs">ctx</span>→gateway adapter + result/error shapes; flow domain tested against <span class="font-mono text-xs">InMemoryGitGateway</span>`,
       status: "holds", statusKind: "holds",
       evidence: `<span class="font-mono text-xs">@sdl/capability-kit</span> exists (180 LOC); consumed by <span class="font-mono text-xs">flow, handoff, objective</span>. <span class="font-mono text-xs">runPushCore</span>/<span class="font-mono text-xs">runCpCore</span> are gateway-injected with fake-gateway unit coverage.` },
@@ -124,7 +108,7 @@ export default {
       },
       problem: `A 1.5k-LOC branch-naming utility (<span class="font-mono text-sm">@sdl/autobranch</span>) imports <span class="font-mono text-sm">@sdl/pi/branches/slug</span> — reaching <em>up</em> into the 11.7k-LOC presentation host — while <span class="font-mono text-sm">sdl</span> imports <span class="font-mono text-sm">autobranch</span> and <span class="font-mono text-sm">pi</span> imports <span class="font-mono text-sm">sdl</span>, closing the loop.`,
       solution: `Relocate the branch-slug primitive down into neutral infra (<span class="font-mono text-sm">@sdl/core</span>); <span class="font-mono text-sm">autobranch</span> then depends on <span class="font-mono text-sm">core</span>, not the host.`,
-      wins: ["graph goes fully acyclic", "removes an inverted edge", "slug primitive gains locality", "unblocks ts-guard hard-fail"],
+      wins: ["graph goes fully acyclic", "removes an inverted edge", "slug primitive gains locality", "unblocks guard hard-fail"],
       debtNote: `Acknowledged debt, not a surprise: this is the explicitly deferred manifest cycle (objective <span class="font-mono text-xs">rescue/core-branch-slug-manifest-cycle-deferral</span> branch). The fix is scoped and waiting.` },
 
     { title: "The transitional holding-pen still has five consumers",
@@ -166,7 +150,7 @@ export default {
   keystone: {
     title: `Move the branch-slug primitive from <span class="font-mono text-xl text-rose-300">@sdl/pi/branches/slug</span> down into <span class="font-mono text-xl text-emerald-300">@sdl/core</span>.`,
     paras: [
-      `This is the single edge that keeps the graph cyclic. <span class="font-mono text-sm text-rose-200">@sdl/autobranch</span> imports a slug helper that lives — wrongly — inside the presentation host, which is the only reason a low utility points up at <span class="font-mono text-sm">pi</span>. Cut that edge and the <span class="font-mono text-sm">autobranch → pi → sdl → autobranch</span> SCC dissolves: the Extension Dependency Graph becomes fully acyclic, the deferred manifest cycle is retired, and the <span class="font-mono text-sm">ts-guard</span> acyclicity check can hard-fail instead of carrying an allow-listed exception. It is small, scoped, and already staged on the <span class="font-mono text-sm">rescue/core-branch-slug-manifest-cycle-deferral</span> branch.`,
+      `This is the single edge that keeps the graph cyclic. <span class="font-mono text-sm text-rose-200">@sdl/autobranch</span> imports a slug helper that lives — wrongly — inside the presentation host, which is the only reason a low utility points up at <span class="font-mono text-sm">pi</span>. Cut that edge and the <span class="font-mono text-sm">autobranch → pi → sdl → autobranch</span> SCC dissolves: the Extension Dependency Graph becomes fully acyclic, the deferred manifest cycle is retired, and the TypeScript style guard acyclicity check can hard-fail instead of carrying an allow-listed exception. It is small, scoped, and already staged on the <span class="font-mono text-sm">rescue/core-branch-slug-manifest-cycle-deferral</span> branch.`,
       `It is the keystone because acyclicity is the one invariant every other endgame step is measured against, and because untangling <span class="font-mono text-sm">autobranch/sdl/pi</span> clears the lower spine that <span class="font-mono text-sm">ccc</span>'s clean-consumer conversion and the transitional deletion both sit on top of.`,
     ],
     sequence: [

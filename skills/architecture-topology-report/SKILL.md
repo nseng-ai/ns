@@ -66,12 +66,13 @@ flags for a different workspace. The script reports, over **runtime edges only**
   package's `src`, tests/blank/`//` excluded). The report sizes graph nodes by this so a
   package's visual weight matches its heft. Override the source folder with `--src-dir`.
 
-The script is purely structural by design — it does **not** classify layers or judge
-anything, because the layer definitions and the verdict live in the target prose that only
-you read. When you need finer detail than package-level edges (e.g. "does ccc import a
-capability through `/api` or through internals?"), grep the consumer's `src` for the
-import subpaths — package-level edges tell you *that* an edge exists, subpath grep tells you
-*whether it is clean*.
+The script reads each workspace package's declared `sdl.tier`, validates it against the
+canonical seven-tier taxonomy, emits `packages[name].tier`, and reports computed
+`tierViolations` over runtime package edges. It still does not write the editorial verdict:
+map the measured facts to the target's invariants yourself. When you need finer detail than
+package-level edges (e.g. "does ccc import a capability through `/api` or through
+internals?"), grep the consumer's `src` for the import subpaths — package-level edges tell
+you *that* an edge exists, subpath grep tells you *whether it is clean*.
 
 ### 3. Map facts to invariants
 
@@ -96,30 +97,30 @@ Look specifically for:
 
 **Use the bundled generator — do not hand-build the HTML.** `scripts/build-report.mjs`
 owns everything mechanical and repeated (the D3 renderer, the HTML scaffold, every
-section's markup, the `{nodes, links}` assembly, cycle-edge marking, fan-in/out). You
-author only a compact **content spec** — the tier map plus the editorial judgement (verdict,
-scorecard rows, finding cards, keystone) — and the script renders the page, writes it to the
-OS temp dir, and (with `--open`) opens it.
+section's markup, the `{nodes, links}` assembly, declared-tier lookup, cycle-edge marking,
+fan-in/out). You author only a compact **content spec** — optional tier overrides plus the
+editorial judgement (verdict, scorecard rows, finding cards, keystone) — and the script
+renders the page, writes it to the OS temp dir, and (with `--open`) opens it.
 
 ```bash
-# (a) seed the tier map from structural facts, then re-tag sdk/host/cons/util by the model:
-node <skill-dir>/scripts/build-report.mjs --tiers-template            # prints a {pkg: tier} seed
+# (a) inspect the declared tier map, or copy entries only when you need overrides:
+node <skill-dir>/scripts/build-report.mjs --tiers-template            # prints declared {pkg: tier}
 # (b) write a spec module (see references/HTML-REPORT.md "Spec contract"), then render:
 node <skill-dir>/scripts/build-report.mjs --spec /abs/path/report-spec.mjs --open
 ```
 
 The generator re-runs `extract-graph.mjs` itself (pass through `--root`/`--kit`/… for a
 different workspace), or accepts a cached `--graph <json>`. It prints the absolute output
-path; relay it to the user. The only per-run thinking is the spec: tier per package (one
-seed away) and the invariant analysis from step 3.
+path; relay it to the user. The only per-run thinking is the spec: whether any package tier
+needs an explicit report-only override, and the invariant analysis from step 3.
 
 The spec contract, every field, and the full section sequence live in
 [references/HTML-REPORT.md](references/HTML-REPORT.md). The report mixes three visual
 registers so it reads as editorial, not as a generic dashboard: the interactive **D3 graph**
 (node area ∝ LOC, layered-DAG ⇄ force toggle, drag/zoom/hover-trace/tier-filter), **Mermaid**
 before/after cycle diagrams in finding cards, and **hand-built Tailwind** for the tier stack,
-verdict strip, and scorecard. You assign each node its tier (the extractor does not classify
-layers); the generator marks an edge `cycle: true` when both endpoints sit in a `cycles` SCC.
+verdict strip, and scorecard. Package color comes from declared `sdl.tier` by default; the
+generator marks an edge `cycle: true` when both endpoints sit in a `cycles` SCC.
 
 Only drop to a hand-built page (the raw scaffold is still in the reference) if a report needs
 a register the spec does not express — and prefer extending `build-report.mjs` over a one-off.

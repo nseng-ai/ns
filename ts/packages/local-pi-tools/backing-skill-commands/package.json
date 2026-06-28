@@ -13,5 +13,8 @@
   "dependencies": {
     "@sdl/pi": "workspace:*"
   },
-  "devDependencies": {}
+  "devDependencies": {},
+  "sdl": {
+    "tier": "tool"
+  }
 }

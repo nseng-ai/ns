@@ -9,14 +9,15 @@
 
 ## Spec contract (`--spec <module.mjs>`)
 
-An ESM module with a `default` export. The generator looks up each package's tier, computes
-fan-in/out, marks cycle edges, and renders. You provide:
+An ESM module with a `default` export. The generator reads each package's declared
+`sdl.tier`, applies any report-only tier overrides, computes fan-in/out, marks cycle edges,
+and renders. You provide:
 
 | Field                          | Shape                                                                                              | Notes                                                                                                                                                                                                              |
 | ------------------------------ | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `repo`, `targetName`, `date`   | string                                                                                             | header identity                                                                                                                                                                                                    |
 | `intro`                        | html string                                                                                        | one paragraph under the title                                                                                                                                                                                      |
-| `tiers`                        | `{ "<pkg>": "<tierId>" }`                                                                          | tier ids: `cons host cap util sdk trans infra tool`. Seed with `--tiers-template`, then re-tag. Any package missing here defaults to `tool` and prints a warning.                                                  |
+| `tiers?`                       | `{ "<pkg>": "<tierId>" }`                                                                          | optional report-only overrides. Canonical tier ids: `capability capability-kit sdk transitional neutral-infra host tool`. Omit this field to use declared package tiers. Invalid override values fail fast.        |
 | `verdict`                      | `{ headline, drift:bool, stats:[{value,total?,label,sub,health}], read }`                          | `health`: `green\|amber\|red`. `drift:false` ⇒ the green "distance not drift" framing.                                                                                                                             |
 | `northStar`                    | `{ rule, bands:[{label,bg,labelBg,chipBorder,noteColor,packages,note}], offAxis? }`                | `packages` items are strings or `{name,dashed}` (dashed = "delete to zero").                                                                                                                                       |
 | `graphIntro?`, `graphCaption?` | html string                                                                                        | the LOC-reading prose under the graph                                                                                                                                                                              |
@@ -87,9 +88,9 @@ This report has a fixed spine. Follow the section order; it tells a story —
 ## 1. Header + legend
 
 Repo name, the target doc it is measured against (with the ADR refs), date, and a compact
-legend mapping every visual encoding used in the graph: one swatch per layer, plus
-`red line = cycle edge` and `node area ∝ LOC`. State the scope: package count and that
-edges are runtime (`dependencies` + `peerDependencies`) only.
+legend mapping every visual encoding used in the graph: one swatch per declared package
+tier, plus `red line = cycle edge` and `node area ∝ LOC`. State the scope: package count and
+that edges are runtime (`dependencies` + `peerDependencies`) only.
 
 ## 2. Verdict strip
 
@@ -106,8 +107,9 @@ opposite things.
 A hand-built layered stack (NOT Mermaid) showing the intended tiers as horizontal bands
 with a vertical `.tier-label`, each band listing its packages as `font-mono` chips. This is
 the editorial centrepiece — it shows the architecture *as designed*, so the reader has the
-ideal in their eye before seeing reality. Color bands by tier (slate = infra, indigo = SDK,
-emerald = capabilities). Flag any package destined for deletion with a dashed amber chip and
+ideal in their eye before seeing reality. Color bands by canonical tier (neutral infra,
+SDK, capability kit, capabilities, hosts, tools, transitional). Flag any package destined for
+deletion with a dashed amber chip and
 a "must delete to zero" note. One sentence above it states the governing rule (e.g. "edges
 point down; the graph must be acyclic").
 
@@ -123,9 +125,9 @@ What it must do:
 - **Node area ∝ LOC.** Radius via `d3.scaleSqrt().domain([0, maxLoc]).range([0, ~50])`, so
   *area* (not radius) tracks `loc` — the visual heft of a package matches its real heft.
   `loc` comes straight from the script's `packages[name].loc`.
-- **Color = tier**, swatches matching the north-star bands. The script does not classify
-  tiers (by design); **you** assign each node a tier from the target model when you build
-  the data array (see the data-prep step below).
+- **Color = tier**, swatches matching the north-star bands. The extractor reads declared
+  `sdl.tier` from package manifests; the spec may override individual packages only when a
+  report needs a deliberate presentation exception.
 - **Cycle edges in red** with an arrowhead, drawn against the layout flow. Mark a link
   `cycle: true` when its `source→target` pair appears inside any SCC from the script's
   `cycles`. In the layered view a red edge visibly points *upward* — that *is* the violation.
@@ -138,11 +140,11 @@ What it must do:
   fan-in/out), clickable tier chips to toggle whole layers, and a reset.
 - A **caption** spells out the cycle path in words so it survives if the script fails to run.
 
-**Data prep.** Build a `{nodes, links}` object from the script JSON and embed it in a
-`<script type="application/json" id="graphdata">`. For each package emit
-`{id, label, loc, tier, fanIn, fanOut}` (`loc` from `packages[].loc`; `tier` you assign;
-`fanIn`/`fanOut` from the ranked lists or recomputed). For each runtime edge emit
-`{source, target, cycle}`. Shorten labels for readability (strip the scope prefix).
+**Data prep.** `build-report.mjs` builds the `{nodes, links}` object from the script JSON
+and embeds it in `<script type="application/json" id="graphdata">`. For each package it
+emits `{id, label, loc, tier, fanIn, fanOut}` (`loc` and declared `tier` from
+`packages[]`; `fanIn`/`fanOut` recomputed from the graph). For each runtime edge it emits
+`{source, target, cycle}`. Labels are shortened for readability (scope prefix stripped).
 
 The full, self-contained renderer — drop it in after the `#graphdata` script tag:
 
@@ -160,13 +162,12 @@ The full, self-contained renderer — drop it in after the `#graphdata` script t
   const DATA = JSON.parse(document.getElementById("graphdata").textContent);
   // Order tiers top→bottom; colors match the north-star bands.
   const TIERS = {
-    cons:{fill:"#1e293b",stroke:"#0f172a",name:"consumer"},
-    host:{fill:"#334155",stroke:"#0f172a",name:"host"},
-    cap:{fill:"#bbf7d0",stroke:"#10b981",name:"capability"},
-    util:{fill:"#fbcfe8",stroke:"#db2777",name:"utility"},
-    sdk:{fill:"#c7d2fe",stroke:"#6366f1",name:"SDK / kernel"},
-    trans:{fill:"#fef3c7",stroke:"#d97706",name:"transitional"},
-    infra:{fill:"#cbd5e1",stroke:"#64748b",name:"neutral infra"},
+    capability:{fill:"#bbf7d0",stroke:"#10b981",name:"capability"},
+    "capability-kit":{fill:"#d9f99d",stroke:"#65a30d",name:"capability kit"},
+    sdk:{fill:"#c7d2fe",stroke:"#6366f1",name:"SDK"},
+    transitional:{fill:"#fef3c7",stroke:"#d97706",name:"transitional"},
+    "neutral-infra":{fill:"#cbd5e1",stroke:"#64748b",name:"neutral infra"},
+    host:{fill:"#475569",stroke:"#0f172a",name:"presentation host"},
     tool:{fill:"#f1f5f9",stroke:"#94a3b8",name:"off-axis tool"},
   };
   const svg = d3.select("#depgraph"), el = svg.node();
@@ -199,7 +200,7 @@ The full, self-contained renderer — drop it in after the `#graphdata` script t
     .attr("marker-end",d=>d.cycle?"url(#arrow-cy)":"url(#arrow)");
   const nodeG=root.append("g").selectAll("g").data(DATA.nodes).join("g").style("cursor","pointer").call(drag());
   nodeG.append("circle").attr("r",d=>d.r).attr("fill",d=>TIERS[d.tier].fill).attr("stroke",d=>TIERS[d.tier].stroke)
-    .attr("stroke-width",1.4).attr("stroke-dasharray",d=>d.tier==="trans"?"4 3":null);
+    .attr("stroke-width",1.4).attr("stroke-dasharray",d=>d.tier==="transitional"?"4 3":null);
   nodeG.append("text").text(d=>d.label).attr("text-anchor","middle").attr("dy",d=>d.r+11)
     .attr("font-size",d=>Math.max(9,Math.min(13,8+d.r/6))).attr("fill","#334155")
     .attr("paint-order","stroke").attr("stroke","#f8fafc").attr("stroke-width",3);

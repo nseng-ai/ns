@@ -19,5 +19,8 @@
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
     "zod": "catalog:"
+  },
+  "sdl": {
+    "tier": "capability"
   }
 }

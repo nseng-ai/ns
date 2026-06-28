@@ -12,7 +12,9 @@
     "./submit": "./src/submit/index.ts",
     "./testing": "./src/testing/index.ts"
   },
-  "files": ["src"],
+  "files": [
+    "src"
+  ],
   "scripts": {
     "check": "tsgo -p tsconfig.json",
     "test": "cd ../../.. && vitest run --config vitest.config.ts packages/infra/graphite/test"
@@ -20,5 +22,8 @@
   "dependencies": {
     "@sdl/core": "workspace:*"
   },
-  "devDependencies": {}
+  "devDependencies": {},
+  "sdl": {
+    "tier": "neutral-infra"
+  }
 }

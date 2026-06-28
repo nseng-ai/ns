@@ -21,5 +21,8 @@
     "@sdl/pi": "workspace:*",
     "smol-toml": "catalog:",
     "zod": "catalog:"
+  },
+  "sdl": {
+    "tier": "tool"
   }
 }

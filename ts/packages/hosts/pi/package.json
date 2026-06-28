@@ -56,5 +56,8 @@
     "@earendil-works/pi-ai": "catalog:",
     "@earendil-works/pi-coding-agent": "catalog:",
     "@earendil-works/pi-tui": "catalog:"
+  },
+  "sdl": {
+    "tier": "host"
   }
 }

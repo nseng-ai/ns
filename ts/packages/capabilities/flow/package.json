@@ -35,5 +35,8 @@
     "@sdl/sdl": "workspace:*",
     "sdl-sdk": "workspace:*"
   },
-  "devDependencies": {}
+  "devDependencies": {},
+  "sdl": {
+    "tier": "capability"
+  }
 }

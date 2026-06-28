@@ -1,25 +1,28 @@
 {
-	"name": "@sdl/capability-kit",
-	"version": "0.1.0",
-	"private": true,
-	"files": [
-		"src"
-	],
-	"type": "module",
-	"exports": {
-		".": "./src/index.ts",
-		"./command-runner": "./src/command-runner.ts",
-		"./git": "./src/git.ts",
-		"./sdl-command": "./src/sdl-command.ts"
-	},
-	"scripts": {
-		"check": "tsgo -p tsconfig.json",
-		"test": "cd ../.. && vitest run --config vitest.config.ts packages/sdl-capability-kit/test"
-	},
-	"dependencies": {
-		"@sdl/core": "workspace:*",
-		"sdl-sdk": "workspace:*",
-		"zod": "catalog:"
-	},
-	"devDependencies": {}
+  "name": "@sdl/capability-kit",
+  "version": "0.1.0",
+  "private": true,
+  "files": [
+    "src"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./command-runner": "./src/command-runner.ts",
+    "./git": "./src/git.ts",
+    "./sdl-command": "./src/sdl-command.ts"
+  },
+  "scripts": {
+    "check": "tsgo -p tsconfig.json",
+    "test": "cd ../.. && vitest run --config vitest.config.ts packages/sdl-capability-kit/test"
+  },
+  "dependencies": {
+    "@sdl/core": "workspace:*",
+    "sdl-sdk": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {},
+  "sdl": {
+    "tier": "capability-kit"
+  }
 }

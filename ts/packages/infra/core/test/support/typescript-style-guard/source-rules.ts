@@ -5,8 +5,6 @@ import {
 	BAN_CAPABILITY_PRIVATE_PEER_IMPORT,
 	BAN_EMPTY_INTERFACE_EXTENDS,
 	BAN_IMPORT_ALIAS_FOR_FIRST_PARTY,
-	capabilityPackageNames,
-	neutralPeerPackageNames,
 } from "./config.ts";
 import { moduleSpecifierText, parseTypeScriptSource } from "./module-specifiers.ts";
 import {
@@ -92,22 +90,23 @@ function isPrivateCapabilityPeerImport(
 
 	const importerPackageName = packageNameForPath(path, packageMetadataByName);
 	if (importerPackageName === undefined) return false;
-	if (!capabilityPackageNames.has(importerPackageName)) return false;
+	const importerPackageMetadata = packageMetadataByName.get(importerPackageName);
+	if (importerPackageMetadata?.sdlTier !== "capability") return false;
 
 	const importedPackageName = packageNameForSpecifier(specifier);
 	if (importedPackageName === undefined) return false;
 	if (importedPackageName === importerPackageName) return false;
-	if (neutralPeerPackageNames.has(importedPackageName)) return false;
+	const importedPackageMetadata = packageMetadataByName.get(importedPackageName);
+	if (importedPackageMetadata?.sdlTier === "neutral-infra") return false;
+	if (importedPackageMetadata?.sdlTier === "capability-kit") return false;
 	if (importedPackageName === "@sdl/sdl") return false;
-	if (!capabilityPackageNames.has(importedPackageName)) return false;
+	if (importedPackageMetadata?.sdlTier !== "capability") return false;
 
 	const importedSubpath = packageSubpathForSpecifier(specifier, importedPackageName);
 	if (importedSubpath === ".") return false;
 	if (importedSubpath === "./api") return false;
 	if (isPrivateCapabilitySubpath(importedSubpath)) return true;
 
-	const importedPackageMetadata = packageMetadataByName.get(importedPackageName);
-	if (importedPackageMetadata === undefined) return true;
 	return !importedPackageMetadata.exportSubpaths.has(importedSubpath);
 }
 

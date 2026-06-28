@@ -10,9 +10,11 @@ import {
 	BAN_EMPTY_INTERFACE_EXTENDS,
 	BAN_EXTENSION_DEPENDENCY_CYCLE,
 	BAN_IMPORT_ALIAS_FOR_FIRST_PARTY,
+	BAN_PACKAGE_TIER_LAYERING,
 	deferredExtensionCycleComponents,
 	extensionGraphPackageNames,
 	type ManifestDependencyField,
+	type PackageTier,
 } from "../support/typescript-style-guard/config.ts";
 import { collectExtensionDependencyCycleViolations } from "../support/typescript-style-guard/dependency-graph.ts";
 import { findTypeScriptSourceFiles } from "../support/typescript-style-guard/file-discovery.ts";
@@ -25,6 +27,7 @@ import {
 	collectViolations,
 	type SourceRuleViolation,
 } from "../support/typescript-style-guard/source-rules.ts";
+import { collectPackageTierLayeringViolations } from "../support/typescript-style-guard/tier-layering.ts";
 
 const TEST_FILE = fileURLToPath(import.meta.url);
 const REPO_ROOT = resolve(dirname(TEST_FILE), "../../../../../..");
@@ -246,6 +249,95 @@ describe("TypeScript style guard documentation references", () => {
 	});
 });
 
+describe("TypeScript style guard package tier layering rules", () => {
+	const syntheticPackages = new Set([
+		"@sdl/ccc",
+		"@sdl/domain-primitives-transitional",
+		"@sdl/handoff",
+		"@sdl/pi",
+		"@sdl/sdl",
+		"@sdl/slot",
+	]);
+	const baseTiers = new Map<string, SyntheticTier>([
+		["@sdl/ccc", "capability"],
+		["@sdl/domain-primitives-transitional", "transitional"],
+		["@sdl/handoff", "capability"],
+		["@sdl/pi", "host"],
+		["@sdl/sdl", "sdk"],
+		["@sdl/slot", "capability"],
+	]);
+	const cases: readonly TierLayeringCase[] = [
+		{
+			name: "missing tier is rejected",
+			tiers: new Map([...baseTiers, ["@sdl/ccc", undefined]]),
+			expectedTextIncludes: "missing sdl.tier",
+		},
+		{
+			name: "unknown tier is rejected",
+			tiers: new Map([...baseTiers, ["@sdl/ccc", "mystery-tier"]]),
+			expectedTextIncludes: "unknown sdl.tier",
+		},
+		{
+			name: "capability to host is rejected",
+			edges: [{ from: "@sdl/handoff", to: "@sdl/pi" }],
+			expectedTextIncludes: "capability-must-not-depend-on-host",
+		},
+		{
+			name: "allowlisted capability to host debt is accepted",
+			edges: [{ from: "@sdl/ccc", to: "@sdl/pi" }],
+			expectedViolation: false,
+		},
+		{
+			name: "sdk to capability is rejected",
+			edges: [{ from: "@sdl/sdl", to: "@sdl/handoff" }],
+			expectedTextIncludes: "sdk-must-not-depend-on-capability",
+		},
+		{
+			name: "allowlisted sdk to capability debt is accepted",
+			edges: [{ from: "@sdl/sdl", to: "@sdl/slot" }],
+			expectedViolation: false,
+		},
+		{
+			name: "capability to capability is allowed",
+			edges: [{ from: "@sdl/ccc", to: "@sdl/handoff" }],
+			expectedViolation: false,
+		},
+		{
+			name: "new transitional consumer is rejected",
+			edges: [{ from: "@sdl/handoff", to: "@sdl/domain-primitives-transitional" }],
+			expectedTextIncludes: "depends-on-transitional",
+		},
+		{
+			name: "allowlisted transitional consumer debt is accepted",
+			edges: [{ from: "@sdl/ccc", to: "@sdl/domain-primitives-transitional" }],
+			expectedViolation: false,
+		},
+	];
+
+	test.each(cases)("$name", (testCase) => {
+		const violations = collectPackageTierLayeringViolations(
+			buildSyntheticPackageMetadata(syntheticPackages, testCase.edges, testCase.tiers ?? baseTiers),
+		);
+		const actualHasViolation = violations.some(
+			(violation) => violation.rule === BAN_PACKAGE_TIER_LAYERING,
+		);
+
+		expect(actualHasViolation).toBe(testCase.expectedViolation ?? true);
+		const expectedTextIncludes = testCase.expectedTextIncludes;
+		if (expectedTextIncludes !== undefined) {
+			expect(violations.some((violation) => violation.text.includes(expectedTextIncludes))).toBe(
+				true,
+			);
+		}
+	});
+
+	test("real repo package manifests satisfy declared tier policy through explicit debt allowlists", () => {
+		const violations = collectPackageTierLayeringViolations(loadPackageMetadata(REPO_ROOT));
+
+		expect(formatViolations(violations)).toBe("");
+	});
+});
+
 describe("TypeScript style guard extension dependency graph rules", () => {
 	const syntheticPackages = new Set([
 		"@sdl/autobranch",
@@ -360,6 +452,16 @@ interface SyntheticEdge {
 	readonly field?: SyntheticDependencyField;
 }
 
+interface TierLayeringCase {
+	readonly name: string;
+	readonly edges?: readonly SyntheticEdge[];
+	readonly tiers?: ReadonlyMap<string, SyntheticTier>;
+	readonly expectedViolation?: boolean;
+	readonly expectedTextIncludes?: string;
+}
+
+type SyntheticTier = PackageTier | string | undefined;
+
 interface DependencyGraphCase {
 	readonly name: string;
 	readonly edges?: readonly SyntheticEdge[];
@@ -372,6 +474,7 @@ interface DependencyGraphCase {
 function buildSyntheticPackageMetadata(
 	packageNames: ReadonlySet<string>,
 	edges: readonly SyntheticEdge[] = [],
+	tiersByPackage: ReadonlyMap<string, SyntheticTier> = new Map(),
 ): Map<string, PackageMetadata> {
 	const dependenciesByPackage = new Map<string, SyntheticDependencyFields>();
 	for (const packageName of packageNames)
@@ -388,13 +491,18 @@ function buildSyntheticPackageMetadata(
 	for (const packageName of [...packageNames].sort()) {
 		const fields = dependenciesByPackage.get(packageName);
 		if (fields === undefined) throw new Error(`Unknown synthetic package ${packageName}`);
-		const manifest = buildSyntheticManifest(packageName, fields);
+		const rawSdlTier = tiersByPackage.has(packageName)
+			? tiersByPackage.get(packageName)
+			: "capability";
+		const manifest = buildSyntheticManifest(packageName, fields, rawSdlTier);
 		metadataByName.set(packageName, {
 			name: packageName,
 			packageDir: `synthetic/${packageName}`,
 			packageJsonPath: `synthetic/${packageName}/package.json`,
 			manifest,
 			manifestContent: JSON.stringify(manifest, null, 2),
+			sdlTier: isSyntheticPackageTier(rawSdlTier) ? rawSdlTier : undefined,
+			rawSdlTier,
 			exportSubpaths: new Set(["."]),
 		});
 	}
@@ -437,9 +545,11 @@ function emptySyntheticDependencyFields(): SyntheticDependencyFields {
 function buildSyntheticManifest(
 	packageName: string,
 	fields: SyntheticDependencyFields,
+	rawSdlTier: SyntheticTier,
 ): PackageManifest {
 	return {
 		name: packageName,
+		...(rawSdlTier === undefined ? {} : { sdl: { tier: rawSdlTier } }),
 		...(Object.keys(fields.devDependencies).length === 0
 			? {}
 			: { devDependencies: fields.devDependencies }),
@@ -451,6 +561,18 @@ function buildSyntheticManifest(
 			? {}
 			: { peerDependencies: fields.peerDependencies }),
 	};
+}
+
+function isSyntheticPackageTier(value: SyntheticTier): value is PackageTier {
+	return (
+		value === "capability" ||
+		value === "capability-kit" ||
+		value === "sdk" ||
+		value === "transitional" ||
+		value === "neutral-infra" ||
+		value === "host" ||
+		value === "tool"
+	);
 }
 
 function collectTypeScriptSourcePaths(root: string): readonly string[] {
