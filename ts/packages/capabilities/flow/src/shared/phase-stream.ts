@@ -15,7 +15,13 @@
 // Flow resolves streaming `Caps` from its command host context when present; direct command execution
 // falls back to the real process terminal.
 
-import { resolveProcessCaps, resolveSettledNonInteractiveCaps, type Caps } from "@sdl/clinkr";
+import {
+	CLINKR_CAPS_EXTENSION_KEY,
+	readCapsFromHostExtension,
+	resolveProcessCaps,
+	resolveSettledNonInteractiveCaps,
+	type Caps,
+} from "@sdl/clinkr";
 import {
 	createStdoutStreamWriter,
 	createStreamSink,
@@ -142,34 +148,12 @@ export async function runPhaseStream<T>(options: RunPhaseStreamOptions<T>): Prom
 
 /** Resolve flow streaming caps from the command host context, falling back only for direct CLI runs. */
 export function resolveFlowStreamCaps(ctx: SdlExtensionApi): Caps {
-	const hostCaps = capsFromHostExtension(ctx.extensions?.["sdl.clinkr.caps"]);
+	const hostCaps = readCapsFromHostExtension(ctx.extensions?.[CLINKR_CAPS_EXTENSION_KEY]);
 	if (hostCaps !== undefined) return hostCaps;
 	if (ctx.onOutput !== undefined || ctx.stdout !== undefined || ctx.stderr !== undefined) {
 		return resolveSettledNonInteractiveCaps(ctx.env);
 	}
 	return resolveProcessCaps();
-}
-
-function capsFromHostExtension(value: unknown): Caps | undefined {
-	if (typeof value !== "object" || value === null) return undefined;
-	const candidate = value as Partial<Caps>;
-	if (
-		typeof candidate.isTty === "boolean" &&
-		(candidate.colorDepth === "truecolor" ||
-			candidate.colorDepth === "ansi256" ||
-			candidate.colorDepth === "ansi16" ||
-			candidate.colorDepth === "none") &&
-		typeof candidate.columns === "number" &&
-		typeof candidate.canRenderUnicode === "boolean"
-	) {
-		return {
-			isTty: candidate.isTty,
-			colorDepth: candidate.colorDepth,
-			columns: candidate.columns,
-			canRenderUnicode: candidate.canRenderUnicode,
-		};
-	}
-	return undefined;
 }
 
 /**

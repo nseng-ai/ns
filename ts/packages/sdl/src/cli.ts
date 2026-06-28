@@ -3,6 +3,7 @@
 import { z } from "zod";
 
 import {
+	CLINKR_CAPS_EXTENSION_KEY,
 	ClinkrGroup,
 	isClinkrHumanOutputInvocation,
 	resolveClinkrInteraction,
@@ -140,7 +141,7 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 		const confirm = deps.confirm ?? baseContext.confirm;
 		const contextExtensions = {
 			...(baseContext.extensions ?? {}),
-			...(io.caps === undefined ? {} : { "sdl.clinkr.caps": io.caps }),
+			...(io.caps === undefined ? {} : { [CLINKR_CAPS_EXTENSION_KEY]: io.caps }),
 		};
 		const context: SdlExtensionApi = {
 			cwd: resolvedCwd,

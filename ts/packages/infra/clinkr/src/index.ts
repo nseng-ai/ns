@@ -19,6 +19,7 @@ export {
 	resolveSettledNonInteractiveCaps,
 } from "./caps.ts";
 export type { Caps, CapsEnv, ColorDepth } from "./caps.ts";
+export { CLINKR_CAPS_EXTENSION_KEY, readCapsFromHostExtension } from "./host-extension.ts";
 export { completeClinkrWords } from "./completion.ts";
 export type {
 	ClinkrCompletionCandidate,
