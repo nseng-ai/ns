@@ -179,9 +179,6 @@ importers:
       '@sdl/graphite':
         specifier: workspace:*
         version: link:../infra/graphite
-      '@sdl/pi':
-        specifier: workspace:*
-        version: link:../hosts/pi
       '@sdl/plans':
         specifier: workspace:*
         version: link:../plans
