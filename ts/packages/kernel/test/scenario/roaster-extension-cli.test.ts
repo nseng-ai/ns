@@ -20,11 +20,15 @@ function repoRoot(): string {
 }
 
 function repoRootResponses(root: string) {
-	return Array.from({ length: 20 }, () => gitRootResponse(root));
+	return [gitRootResponse(root)];
 }
 
 function gitRootResponse(root: string) {
-	return { match: "git rev-parse --show-toplevel", result: { stdout: `${root}\n` } };
+	return {
+		match: "git rev-parse --show-toplevel",
+		result: { stdout: `${root}\n` },
+		repeatable: true,
+	};
 }
 
 function brmemListResponse() {
