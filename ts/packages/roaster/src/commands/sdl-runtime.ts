@@ -9,7 +9,7 @@ export function createSdlRoasterRuntime(ctx: SdlExtensionApi): RoasterRuntime {
 		createRealRoasterContext({
 			cwd: ctx.cwd,
 			env: ctx.env,
-			stdin: async () => "",
+			stdin: ctx.stdin ?? (async () => ""),
 			stdout: ctx.stdout ?? (() => undefined),
 			stderr: ctx.stderr ?? (() => undefined),
 			execApi,

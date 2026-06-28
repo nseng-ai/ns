@@ -36,6 +36,8 @@ export interface SdlExtensionApi {
 	stdout?: ((text: string) => void) | undefined;
 	/** Durable error output for commands that need to stream multiple chunks before returning. */
 	stderr?: ((text: string) => void) | undefined;
+	/** Optional full stdin reader for commands that consume a finite payload. */
+	stdin?: (() => Promise<string>) | undefined;
 	/** Transient live-progress output for UI bridges. */
 	onOutput?: ((stream: SdlOutputStream, text: string) => void) | undefined;
 	/** Optional UI confirmation hook for interactive SDL commands. */

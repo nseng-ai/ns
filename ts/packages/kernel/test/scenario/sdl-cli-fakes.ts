@@ -27,6 +27,7 @@ export interface TestState {
 	exec?: readonly ScriptedExecResponse[];
 	textGeneration?: readonly ScriptedTextGenerationResult[];
 	confirm?: SdlConfirmPrompt | undefined;
+	stdin?: string | undefined;
 	extensions?: Readonly<Record<string, unknown>> | undefined;
 }
 
@@ -58,6 +59,7 @@ export class ScriptedSdlTestContext implements SdlExtensionApi {
 	stderr?: ((text: string) => void) | undefined;
 	onOutput?: ((stream: "stdout" | "stderr", text: string) => void) | undefined;
 	confirm?: SdlConfirmPrompt | undefined;
+	stdin?: (() => Promise<string>) | undefined;
 	extensions?: Readonly<Record<string, unknown>> | undefined;
 	private readonly execResponses: ScriptedExecResponse[];
 	private readonly textGenerationResults: ScriptedTextGenerationResult[];
@@ -70,6 +72,7 @@ export class ScriptedSdlTestContext implements SdlExtensionApi {
 		this.textGenerationResults = [...(state.textGeneration ?? options.textGenerationResults())];
 		this.missingTextGenerationResult = options.missingTextGenerationResult;
 		this.confirm = state.confirm;
+		this.stdin = async () => state.stdin ?? "";
 		this.extensions = state.extensions;
 	}
 

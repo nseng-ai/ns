@@ -18,6 +18,16 @@
         "entry": "./src/commands/review-log.ts"
       },
       {
+        "path": ["review", "run"],
+        "description": "Run a configured Roaster review over the current diff.",
+        "entry": "./src/commands/review-run.ts"
+      },
+      {
+        "name": "exec-record-findings",
+        "description": "Record same-session Roaster findings from stdin.",
+        "entry": "./src/commands/exec-record-findings.ts"
+      },
+      {
         "path": ["roast", "list"],
         "description": "List Roaster review-skill commands.",
         "entry": "./src/commands/roast-list.ts"

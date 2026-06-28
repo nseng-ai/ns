@@ -20,6 +20,9 @@ import {
 	buildReviewListResult,
 	buildReviewLogResult,
 	buildRoastSkillListResult,
+	recordSameSessionFindings,
+	type RecordFindingsOutcome,
+	type RecordFindingsRequest,
 	type ReviewListRequest,
 	type ReviewListResult,
 	type ReviewLogRequest,
@@ -46,6 +49,8 @@ export type {
 	ReviewListResult,
 	ReviewLogEntry,
 	ReviewLogRequest,
+	RecordFindingsOutcome,
+	RecordFindingsRequest,
 	ReviewLogResult,
 	ReviewRunResult,
 	ReviewUsage,
@@ -88,6 +93,8 @@ export interface RoasterClient {
 	listReviewLogs(request?: Partial<ReviewLogRequest>): Promise<RoasterApiResult<ReviewLogResult>>;
 	/** Runs a review and writes a Roaster review log through the configured review log gateway. */
 	runReview(request: RunRoasterReviewRequest): Promise<RunRoasterReviewOutcome>;
+	/** Records same-session findings from stdin and writes a Roaster review log. */
+	recordFindings(request: RecordFindingsRequest): Promise<RecordFindingsOutcome>;
 }
 
 export function createRoasterClient(options: RoasterClientOptions): RoasterClient {
@@ -112,6 +119,9 @@ export function createRoasterClient(options: RoasterClientOptions): RoasterClien
 		},
 		async runReview(request) {
 			return await runRoasterReview(getRuntime(), request);
+		},
+		async recordFindings(request) {
+			return await recordSameSessionFindings(getRuntime(), request);
 		},
 	};
 }
