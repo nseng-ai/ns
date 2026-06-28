@@ -17,6 +17,7 @@ export type { BranchState, HandoffSummary } from "./inventory.ts";
 export {
 	listHandoffSummaries,
 	readHandoffArtifact,
+	checkHandoffArtifact,
 	prepareHandoffCreation,
 	createHandoffArtifact,
 	prepareHandoffDeletion,
@@ -25,12 +26,22 @@ export {
 export type {
 	CreateHandoffArtifactResult,
 	DeleteHandoffArtifactResult,
+	HandoffArtifactCheck,
 	HandoffBrmemGateway,
+	HandoffCheckBrmemGateway,
+	HandoffCheckStorageDeps,
+	HandoffCreateBrmemGateway,
+	HandoffCreateStorageDeps,
 	HandoffCreationTarget,
+	HandoffDeleteBrmemGateway,
+	HandoffDeleteStorageDeps,
 	HandoffDeletionTarget,
 	HandoffGitGateway,
+	HandoffReadBrmemGateway,
+	HandoffReadStorageDeps,
 	HandoffReadTarget,
 	HandoffStorageDeps,
+	HandoffTarget,
 	ListHandoffSummariesOptions,
 	ReadHandoffArtifactResult,
 } from "./artifact-storage.ts";
@@ -43,7 +54,5 @@ export type {
 	DeletedBranchGarbageCollectionAction,
 	DeletedBranchGarbageCollectionCounts,
 	DeletedBranchGarbageCollectionEntry,
-	DeletedBranchGarbageCollectionPlan,
 	DeletedBranchGarbageCollectionReport,
-	DeletedBranchGarbageCollectionResult,
 } from "./gc-core.ts";

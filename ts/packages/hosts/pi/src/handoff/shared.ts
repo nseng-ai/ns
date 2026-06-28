@@ -8,8 +8,8 @@ import { formatErrorMessage } from "@sdl/core/primitives";
 import {
 	HANDOFF_KEY_SUFFIX,
 	HANDOFF_NAMESPACE,
+	checkHandoffArtifact,
 	handoffKeyToSlug,
-	prepareHandoffCreation,
 } from "@sdl/handoff/api";
 import { expandRepoSkillBlock, type ExpandedSkillBlock } from "../skills/expansion.ts";
 import { createPiHandoffStorageDeps } from "./api-context.ts";
@@ -151,17 +151,14 @@ export async function checkHandoffExists(
 	branch: string,
 	key: string,
 ): Promise<HandoffExistsResult> {
-	const result = await prepareHandoffCreation(createPiHandoffStorageDeps(pi, cwd), {
+	const result = await checkHandoffArtifact(createPiHandoffStorageDeps(pi, cwd), {
 		branch,
 		slug: handoffKeyToSlug(key),
 	});
-	if (result.type === "ok") {
-		return { type: "missing" };
+	if (result.type === "error") {
+		return { type: "failed", message: result.error.message };
 	}
-	if (result.error.code === "handoff_already_exists") {
-		return { type: "exists" };
-	}
-	return { type: "failed", message: result.error.message };
+	return result.value.exists ? { type: "exists" } : { type: "missing" };
 }
 
 export function setStatus(ctx: BaseRuntimeContext, key: string, value: string | undefined): void {

@@ -38,7 +38,7 @@ export async function runCreate(ctx: HandoffCliContext, request: CreateRequest) 
 	if (branch.type !== "resolved") return branch;
 
 	const target = await prepareHandoffCreation(
-		{ brmem: ctx.brmem, git: ctx.git, cwd: ctx.cwd },
+		{ brmem: ctx.brmem },
 		{ branch: branch.value, slug: request.slug },
 	);
 	if (target.type === "error") return failure(target.error.code, target.error.message);
@@ -53,7 +53,7 @@ export async function runCreate(ctx: HandoffCliContext, request: CreateRequest) 
 	if (prepared.type === "error") return failure(prepared.error.code, prepared.error.message);
 
 	const created = await createHandoffArtifact(
-		{ brmem: ctx.brmem, git: ctx.git, cwd: ctx.cwd },
+		{ brmem: ctx.brmem },
 		{ branch: target.value.branch, key: target.value.key, content: prepared.value.content },
 	);
 	if (created.type === "error") return failure(created.error.code, created.error.message);

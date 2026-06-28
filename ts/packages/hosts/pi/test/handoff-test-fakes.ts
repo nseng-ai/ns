@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { encodeBranchName } from "@sdl/brmem";
 import { ScriptedQueue } from "@sdl/core/testing";
 import handoffExtension, {
 	type CommandContext,
@@ -185,20 +186,21 @@ export function branchPresenceStep(branch = BRANCH, exists = true): ScriptedExec
 	});
 }
 
-export function checkStep(branch: string, key: string, exists: boolean): ScriptedExec {
-	const payload = {
-		status: "ok",
-		exitCode: 0,
-		data: { key, namespace: "handoff", branch, present: exists },
-	};
-	return step(
-		"brmem",
-		["check", key, "--namespace", "handoff", "--branch", branch, "--format", "json"],
-		{
-			code: 0,
-			stdout: `${JSON.stringify(payload)}\n`,
-		},
-	);
+export function checkStep(branch: string, key: string, exists: boolean): ScriptedExec[] {
+	const snapshotRef = handoffSnapshotRef(branch);
+	return [
+		branchRefFormatStep(branch),
+		step("git", ["cat-file", "-e", `${snapshotRef}:${key}`], { code: exists ? 0 : 1 }),
+		...(exists
+			? [
+					step("git", ["rev-parse", `${snapshotRef}:${key}`], { stdout: "blob-sha\n" }),
+					step("git", ["cat-file", "-s", `${snapshotRef}:${key}`], { stdout: "42\n" }),
+					step("git", ["log", "-1", "--format=%H%x09%cI", snapshotRef], {
+						stdout: "commit-sha\t2026-06-05T00:00:00Z\n",
+					}),
+				]
+			: []),
+	];
 }
 
 export function cmuxIdentifyStep(): ScriptedExec {
@@ -275,22 +277,19 @@ export function cmuxCreateSurfaceRefStep(): ScriptedExec {
 	);
 }
 
-export function listStep(branch: string, keys: string[]): ScriptedExec {
-	return step("brmem", ["list", "--namespace", "handoff", "--branch", branch, "--format", "json"], {
-		stdout: brmemListJson(keys, branch),
-	});
+export function listStep(branch: string, keys: string[]): ScriptedExec[] {
+	return listEntriesSteps(keys.map((key) => ({ key, branch })));
 }
 
-export function listAllStep(entries: Array<{ key: string; branch: string }>): ScriptedExec {
-	return step("brmem", ["list", "--namespace", "handoff", "--all-branches", "--format", "json"], {
-		stdout: brmemListJson(entries, null),
-	});
+export function listAllStep(entries: Array<{ key: string; branch: string }>): ScriptedExec[] {
+	return listEntriesSteps(entries);
 }
 
-export function getStep(branch: string, key: string, artifact: string): ScriptedExec {
-	return step("brmem", ["get", key, "--namespace", "handoff", "--branch", branch], {
-		stdout: artifact,
-	});
+export function getStep(branch: string, key: string, artifact: string): ScriptedExec[] {
+	return [
+		branchRefFormatStep(branch),
+		step("git", ["show", `${handoffSnapshotRef(branch)}:${key}`], { stdout: artifact }),
+	];
 }
 
 export function createContext(
@@ -552,6 +551,36 @@ export function listJson(
 			}),
 		},
 	});
+}
+
+function branchRefFormatStep(branch: string): ScriptedExec {
+	return step("git", ["check-ref-format", "--branch", branch], { stdout: `${branch}\n` });
+}
+
+function handoffSnapshotRef(branch: string): string {
+	const encoded = encodeBranchName(branch);
+	if (encoded.type === "error") throw new Error(encoded.error.message);
+	return `refs/brmem/ns/handoff/${encoded.value}`;
+}
+
+function listEntriesSteps(entries: Array<{ key: string; branch: string }>): ScriptedExec[] {
+	const refs = [...new Set(entries.map((entry) => handoffSnapshotRef(entry.branch)))];
+	return [
+		step("git", ["for-each-ref", "--format=%(refname)", "refs/brmem/base/", "refs/brmem/ns/"], {
+			stdout: refs.map((ref) => `${ref}\n`).join(""),
+		}),
+		...refs.flatMap((ref) => {
+			const refEntries = entries.filter((entry) => handoffSnapshotRef(entry.branch) === ref);
+			return [
+				step("git", ["ls-tree", "-r", "--full-tree", "--format=%(path)%x09%(objectname)", ref], {
+					stdout: refEntries.map((entry) => `${entry.key}\tblob-sha\n`).join(""),
+				}),
+				step("git", ["log", "--format=%cI", "--name-status", ref], {
+					stdout: refEntries.map((entry) => `2026-06-05T00:00:00Z\nA\t${entry.key}\n`).join("\n"),
+				}),
+			];
+		}),
+	];
 }
 
 export function brmemListJson(

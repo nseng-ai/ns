@@ -3,7 +3,7 @@ import type { BrmemResult } from "@sdl/brmem";
 import {
 	deleteHandoffArtifact,
 	type DeleteHandoffArtifactResult,
-	type HandoffStorageDeps,
+	type HandoffDeleteStorageDeps,
 } from "./artifact-storage.ts";
 import type { HandoffSummary } from "./inventory.ts";
 
@@ -31,12 +31,9 @@ export interface DeletedBranchGarbageCollectionReport {
 	counts: DeletedBranchGarbageCollectionCounts;
 }
 
-export type DeletedBranchGarbageCollectionPlan = DeletedBranchGarbageCollectionReport;
-export type DeletedBranchGarbageCollectionResult = DeletedBranchGarbageCollectionReport;
-
 export function planDeletedBranchGarbageCollection(options: {
 	summaries: readonly HandoffSummary[];
-}): DeletedBranchGarbageCollectionPlan {
+}): DeletedBranchGarbageCollectionReport {
 	const entries = options.summaries.map((summary) =>
 		createEntry(summary, summary.branch_state === "deleted" ? "would_delete" : "kept_active"),
 	);
@@ -47,9 +44,9 @@ export function planDeletedBranchGarbageCollection(options: {
 }
 
 export async function executeDeletedBranchGarbageCollection(
-	deps: HandoffStorageDeps,
-	plan: DeletedBranchGarbageCollectionPlan,
-): Promise<DeletedBranchGarbageCollectionResult> {
+	deps: HandoffDeleteStorageDeps,
+	plan: DeletedBranchGarbageCollectionReport,
+): Promise<DeletedBranchGarbageCollectionReport> {
 	const entries: DeletedBranchGarbageCollectionEntry[] = [];
 	for (const entry of plan.entries) {
 		if (entry.action !== "would_delete") {
