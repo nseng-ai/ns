@@ -2,10 +2,10 @@
 
 ## Work
 
-- [ ] Inventory Roaster surfaces, consumers, and compatibility-sensitive behavior.
+- [x] Inventory Roaster surfaces, consumers, and compatibility-sensitive behavior.
   - Policy: direct execution after preview.
   - Guidance: inspect `ts/packages/roaster/**`, `.sdl/reviews/**`, Roaster public skills, Pi command-surface metadata, docs/ADRs, install/shim references, package exports, and source imports of `@sdl/roaster`. Classify the current standalone CLI commands (`review list`/`ls`, `review run`, `review log`, `roast list`, hidden `exec record-findings`, hidden `exec publish-findings`), Branch Memory review-log semantics, GitHub publication boundary, and any current package-root consumers.
-  - Evidence: a Semantic Update records exact surfaces, call-site categories, compatibility constraints, and recommended first implementation slice.
+  - Evidence: completed by `updates/2026-06-28T193338Z-roaster-surface-inventory.md`, which records command/API/doc/skill/storage surfaces, call-site categories, compatibility constraints, and recommends the next slice as adding a narrow `@sdl/roaster/api` plus SDL command-face discovery for low-risk read/list operations.
 
 - [ ] Define and implement the initial `@sdl/roaster/api` Capability API boundary.
   - Policy: direct execution after preview for additive/narrowing API work; steer first before removing package-root exports or exposing broad internals.
