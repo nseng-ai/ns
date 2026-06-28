@@ -45,7 +45,7 @@ describe("slot gc CLI", () => {
 		expect(run.git.operations()).toEqual([]);
 	});
 
-	it("colorizes human dry-run output", async () => {
+	it("renders human dry-run output through the destructive result block", async () => {
 		const run = runScenario(["gc", "--dry-run"], {
 			canEmitAnsi: true,
 			git: {
@@ -66,13 +66,11 @@ describe("slot gc CLI", () => {
 		expect(await run.exit).toBe(0);
 		const rendered = run.stdout.join("");
 		expect(rendered).toContain("\u001b[");
-		expect(stripTerminalEscapes(rendered)).toContain(
-			"→ would free slot-01 (feature/merged) PR #1 MERGED",
-		);
-		expect(stripTerminalEscapes(rendered)).toContain(
-			"• kept (open PR) slot-02 (feature/open) PR #2 OPEN",
-		);
-		expect(stripTerminalEscapes(rendered)).toContain("• kept (no PR) slot-03 (feature/no-pr)");
+		const stripped = stripTerminalEscapes(rendered);
+		expect(stripped).toContain("Would free 1 slot(s).");
+		expect(stripped).toContain("Would free slot-01 -> feature/merged (PR #1 MERGED)");
+		expect(stripped).toContain("Kept (open PR) slot-02 -> feature/open (PR #2 OPEN)");
+		expect(stripped).toContain("Kept (no PR) slot-03 -> feature/no-pr");
 	});
 
 	it("fails the command when batch PR lookup fails", async () => {
@@ -122,8 +120,9 @@ describe("slot gc CLI", () => {
 			pr: { prsByBranch: { "feature/closed": { number: 1, state: "CLOSED" } } },
 		});
 		expect(await accepted.exit).toBe(0);
+		expect(stripTerminalEscapes(accepted.stderr.join(""))).toContain("Would free 1 slot(s).");
 		expect(stripTerminalEscapes(accepted.stderr.join(""))).toContain(
-			"→ would free slot-01 (feature/closed) PR #1 CLOSED",
+			"Would free slot-01 -> feature/closed (PR #1 CLOSED)",
 		);
 		expect(accepted.stderr.join("")).toContain("Free 1 slot(s)? [Y/n]");
 		expect(accepted.git.operations()).toEqual([
@@ -139,7 +138,7 @@ describe("slot gc CLI", () => {
 			pr: { prsByBranch: { "feature/closed": { number: 1, state: "CLOSED" } } },
 		});
 		expect(await declined.exit).toBe(0);
-		expect(stripTerminalEscapes(declined.stdout.join(""))).toContain("Cancelled — no slots freed.");
+		expect(stripTerminalEscapes(declined.stdout.join(""))).toContain("Cancelled slot gc.");
 		expect(declined.git.operations()).toEqual([]);
 	});
 
@@ -153,12 +152,13 @@ describe("slot gc CLI", () => {
 			pr: { prsByBranch: { "feature/closed": { number: 1, state: "CLOSED" } } },
 		});
 		expect(await declined.exit).toBe(0);
+		expect(stripTerminalEscapes(declined.stderr.join(""))).toContain("Would free 1 slot(s).");
 		expect(stripTerminalEscapes(declined.stderr.join(""))).toContain(
-			"→ would free slot-01 (feature/closed) PR #1 CLOSED",
+			"Would free slot-01 -> feature/closed (PR #1 CLOSED)",
 		);
 		expect(declined.stderr.join("")).toContain("local branch: force-delete feature/closed");
 		expect(declined.stderr.join("")).toContain("Free 1 slot(s) and delete local branches? [Y/n]");
-		expect(stripTerminalEscapes(declined.stdout.join(""))).toContain("Cancelled — no slots freed.");
+		expect(stripTerminalEscapes(declined.stdout.join(""))).toContain("Cancelled slot gc.");
 		expect(declined.git.operations()).toEqual([]);
 	});
 
@@ -194,6 +194,47 @@ describe("slot gc CLI", () => {
 			{ type: "detach-head", path: "/slots/repos/repo/worktrees/slot-01", ref: "master" },
 			{ type: "delete-local-branch", branch: "feature/closed", shouldForce: true },
 		]);
+	});
+
+	it("renders cleanup failures as destructive errors while preserving negative JSON", async () => {
+		const json = runScenario(["gc", "--force", "--delete-branches", "--format", "json"], {
+			git: {
+				worktrees: [slotWorktree("slot-01", "feature/closed")],
+				localBranches: ["master", "feature/closed"],
+				deleteBranchFailures: {
+					"feature/closed": { message: "permission denied" },
+				},
+			},
+			pr: { prsByBranch: { "feature/closed": { number: 1, state: "CLOSED" } } },
+		});
+		expect(await json.exit).toBe(1);
+		expect(parseJsonOutput(json)).toMatchObject({
+			message: "Slot gc completed with cleanup errors.",
+			data: {
+				cleanup_error_count: 1,
+				entries: [
+					{ cleanup: [{ action: "local_branch", status: "error", message: "permission denied" }] },
+				],
+			},
+		});
+
+		const human = runScenario(["gc", "--force", "--delete-branches"], {
+			git: {
+				worktrees: [slotWorktree("slot-01", "feature/closed")],
+				localBranches: ["master", "feature/closed"],
+				deleteBranchFailures: {
+					"feature/closed": { message: "permission denied" },
+				},
+			},
+			pr: { prsByBranch: { "feature/closed": { number: 1, state: "CLOSED" } } },
+		});
+		expect(await human.exit).toBe(1);
+		expect(human.stdout.join("")).toBe("");
+		const stderr = human.stderr.join("");
+		expect(stderr).toContain("Slot gc completed with cleanup errors.");
+		expect(stderr).toContain(
+			"✗ Failed to force-delete local branch feature/closed: permission denied",
+		);
 	});
 
 	it("--dry-run conflicts with --force", async () => {
