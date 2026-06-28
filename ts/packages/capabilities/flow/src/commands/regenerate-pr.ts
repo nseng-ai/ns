@@ -1,5 +1,4 @@
-import type { Caps } from "@sdl/clinkr";
-import { renderResultBlock } from "@sdl/clinkr/theme";
+import { renderResultBlock, renderResultBlockFromMessage } from "@sdl/clinkr/theme";
 import { defineExtension, failed, ok, z, type SdlCommand, type SdlExtensionApi } from "sdl-sdk";
 
 import {
@@ -59,7 +58,11 @@ export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
 			// summary sentence, so route its first line to the bold headline and the rest to the body
 			// (house-style §7.1 "direct domain message"). The cause stays visible; GitHub was not edited.
 			return failed(
-				renderDomainFailureBlock(caps, ctx.cwd, prepared.error),
+				renderResultBlockFromMessage(caps, {
+					kind: "failure",
+					message: prepared.error === "" ? "Could not regenerate the PR." : prepared.error,
+					cwd: ctx.cwd,
+				}),
 				prepared.exitCode ?? 1,
 			);
 		}
@@ -131,19 +134,6 @@ export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
 export default defineExtension({
 	commands: [flowRegeneratePrCommand],
 });
-
-// Render a domain-authored failure string as a house-style failure block: the leading summary line
-// becomes the bold error headline and any remaining lines become the normal-weight cause body.
-function renderDomainFailureBlock(caps: Caps, cwd: string, error: string): string {
-	const [headline, ...rest] = error.split("\n");
-	const body = rest.join("\n").trimEnd();
-	return renderResultBlock(caps, {
-		kind: "failure",
-		headline: headline ?? "Could not regenerate the PR.",
-		cwd,
-		body: body === "" ? undefined : body,
-	});
-}
 
 function formatConfirmationMessage(input: {
 	generated: RegeneratedPrDescription;

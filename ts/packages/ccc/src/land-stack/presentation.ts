@@ -463,28 +463,39 @@ export function landFailureKind(failure: LandStackFailure): LandResultKind {
 	return failure.outcome === "refusal" ? "refusal" : "failure";
 }
 
-export function present(
-	ctx: LandStackCommandContext,
-	message: string,
-	level: NotifyLevel,
-	kind?: LandResultKind,
-): void {
-	presentBrief(ctx, message, level, message, kind);
+interface PresentOptions {
+	ctx: LandStackCommandContext;
+	message: string;
+	level: NotifyLevel;
+	kind?: LandResultKind;
 }
 
-export function presentBrief(
-	ctx: LandStackCommandContext,
-	fullMessage: string,
-	level: NotifyLevel,
-	uiMessage: string,
-	kind?: LandResultKind,
-): void {
+export function present(options: PresentOptions): void {
+	presentBrief({
+		ctx: options.ctx,
+		fullMessage: options.message,
+		level: options.level,
+		uiMessage: options.message,
+		...(options.kind === undefined ? {} : { kind: options.kind }),
+	});
+}
+
+interface PresentBriefOptions {
+	ctx: LandStackCommandContext;
+	fullMessage: string;
+	level: NotifyLevel;
+	uiMessage: string;
+	kind?: LandResultKind;
+}
+
+export function presentBrief(options: PresentBriefOptions): void {
+	const { ctx, fullMessage, level, uiMessage } = options;
 	const shown = ctx.hasUI ? uiMessage : fullMessage;
 	// House-style ANSI is applied only when the CLI edge wired `renderResultBlock`; the Pi
 	// command-stream context leaves it undefined, so the shared notify text stays plain there.
 	const rendered =
-		kind !== undefined && ctx.renderResultBlock !== undefined
-			? ctx.renderResultBlock(kind, shown)
+		options.kind !== undefined && ctx.renderResultBlock !== undefined
+			? ctx.renderResultBlock(options.kind, shown)
 			: shown;
 	ctx.ui.notify(rendered, level);
 }

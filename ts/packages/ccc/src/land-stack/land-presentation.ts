@@ -6,7 +6,7 @@
 // and domain-specific land facts stay in CCC.
 
 import type { Caps } from "@sdl/clinkr";
-import { renderResultBlock } from "@sdl/clinkr/theme";
+import { renderResultBlock, renderResultBlockFromMessage } from "@sdl/clinkr/theme";
 import type { LandResultKind } from "./types.ts";
 
 /**
@@ -38,7 +38,25 @@ export interface LandResultBlock {
 	cwd?: string | undefined;
 }
 
+export interface LandResultMessageBlock {
+	kind: LandResultKind;
+	/** Domain-authored message whose first line becomes the headline and rest becomes the body. */
+	message: string;
+	/** Optional normal-weight "what to do next" line (e.g. a suggested recovery command). */
+	guidance?: string | undefined;
+	/** Optional working directory / repo root, shown as dimmed plumbing evidence when present. */
+	cwd?: string | undefined;
+}
+
 /** Render a land result block to a string, styled and degraded for `caps`. */
 export function renderLandResultBlock(caps: Caps, input: LandResultBlock): string {
 	return renderResultBlock(caps, input);
+}
+
+/** Render a domain-authored land message using the shared first-line headline grammar. */
+export function renderLandResultBlockFromMessage(
+	caps: Caps,
+	input: LandResultMessageBlock,
+): string {
+	return renderResultBlockFromMessage(caps, input);
 }

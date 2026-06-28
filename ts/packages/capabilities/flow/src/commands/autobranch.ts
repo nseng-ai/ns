@@ -9,6 +9,7 @@ import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@sdl/core/model-slug";
 import { commandIoFromSdlExtensionApi } from "@sdl/sdl/command-io";
 import { defineExtension, failed, ok, z, type SdlCommand, type SdlExtensionApi } from "sdl-sdk";
 
+import { renderAutobranchFailureResultBlock } from "../shared/autobranch-result-block.ts";
 import { prepareFlowCheckpointMessage } from "../shared/model-generation.ts";
 import { renderPendingWorktreeFailure } from "../shared/pending-worktree-result.ts";
 import { resolveFlowStreamCaps } from "../shared/phase-stream.ts";
@@ -97,19 +98,14 @@ export const flowAutobranchCommand: SdlCommand<typeof autobranchRequestSchema> =
 			}
 
 			return failed(
-				result.outcome === "refusal"
-					? renderResultBlock(caps, {
-							kind: "refusal",
-							headline: "Did not create a Graphite branch from dirty worktree changes.",
-							cwd: result.root,
-							body: result.error.trimEnd(),
-						})
-					: renderResultBlock(caps, {
-							kind: "failure",
-							headline: "Could not create a Graphite branch from dirty worktree changes.",
-							cwd: result.root,
-							body: result.error.trimEnd(),
-						}),
+				renderAutobranchFailureResultBlock({
+					caps,
+					outcome: result.outcome,
+					cwd: result.root,
+					error: result.error,
+					refusalHeadline: "Did not create a Graphite branch from dirty worktree changes.",
+					failureHeadline: "Could not create a Graphite branch from dirty worktree changes.",
+				}),
 				1,
 			);
 		});
