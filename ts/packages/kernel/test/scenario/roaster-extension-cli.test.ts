@@ -242,9 +242,7 @@ describe("Roaster SDL command face", () => {
 			homeDir: await isolatedHome(),
 			state: {
 				exec: [
-					gitRootResponse(root),
-					gitRootResponse(root),
-					gitRootResponse(root),
+					...repoRootResponses(root),
 					{
 						match: /git -c diff\.noprefix=false .* diff --no-ext-diff origin\/main\.\.\.HEAD/u,
 						result: { stdout: diffText() },
