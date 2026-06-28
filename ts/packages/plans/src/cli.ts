@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import { ClinkrGroup, ok, type ClinkrExit } from "@sdl/clinkr";
@@ -15,6 +14,7 @@ import {
 	resolvePlanSourceFile,
 	validatePlanSlug,
 } from "./plan-persistence.ts";
+import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-gateway.ts";
 import {
 	findLatestSavedPlanFile,
 	formatSavedPlanFileEvidence,
@@ -70,6 +70,7 @@ export interface CliDeps {
 	stderr?: ((text: string) => void) | undefined;
 	stdin?: (() => Promise<string>) | undefined;
 	planStoreRoot?: string | undefined;
+	planStoreGateway?: PlanStoreGateway | undefined;
 }
 
 export interface PlansCliContext {
@@ -78,6 +79,7 @@ export interface PlansCliContext {
 	cwd: string;
 	stdin: () => Promise<string>;
 	planStoreRoot?: string;
+	planStoreGateway: PlanStoreGateway;
 }
 
 const entry = defineCli<PlansCliContext, CliDeps, undefined>({
@@ -91,6 +93,7 @@ const entry = defineCli<PlansCliContext, CliDeps, undefined>({
 			git: deps.git ?? new RealGitGateway(commands),
 			cwd,
 			stdin: deps.stdin ?? readStdin,
+			planStoreGateway: deps.planStoreGateway ?? createRealPlanStoreGateway(),
 			...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }),
 		};
 		return { type: "run", context, buildState: undefined };
@@ -150,6 +153,7 @@ async function handleList(
 		const plans = await listSavedPlans(ctx.commands, {
 			cwd: ctx.cwd,
 			git: ctx.git,
+			planStoreGateway: ctx.planStoreGateway,
 			...(planStoreRoot === undefined ? {} : { planStoreRoot }),
 		});
 		return ok(savedPlanListJson(plans));
@@ -175,7 +179,7 @@ async function handleSave(
 			if (contentFile === undefined) {
 				throw new Error("Save input validation invariant failed.");
 			}
-			content = await readFile(normalizePlanFilePath(contentFile), "utf8");
+			content = await ctx.planStoreGateway.readTextFile(normalizePlanFilePath(contentFile));
 		}
 		const evidence = await writeSavedPlanFile(
 			ctx.commands,
@@ -187,6 +191,7 @@ async function handleSave(
 			{
 				cwd: ctx.cwd,
 				git: ctx.git,
+				planStoreGateway: ctx.planStoreGateway,
 				...(ctx.planStoreRoot === undefined ? {} : { planStoreRoot: ctx.planStoreRoot }),
 			},
 		);
@@ -217,12 +222,14 @@ async function resolvePlanEvidence(
 			cwd: ctx.cwd,
 			rawFilePath: args.path,
 			git: ctx.git,
+			planStoreGateway: ctx.planStoreGateway,
 		});
 		return { source: "explicit", filePath };
 	}
 	const latest = await findLatestSavedPlanFile(ctx.commands, {
 		cwd: ctx.cwd,
 		git: ctx.git,
+		planStoreGateway: ctx.planStoreGateway,
 		...(ctx.planStoreRoot === undefined ? {} : { planStoreRoot: ctx.planStoreRoot }),
 	});
 	return { source: "latest", ...latest };

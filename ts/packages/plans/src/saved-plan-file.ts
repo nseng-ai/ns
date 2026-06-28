@@ -1,5 +1,3 @@
-import type { Dirent } from "node:fs";
-import { open, readdir, realpath, stat } from "node:fs/promises";
 import process from "node:process";
 import { basename, join, resolve } from "node:path";
 
@@ -10,8 +8,9 @@ import {
 	normalizeGitRemoteUrl,
 } from "@sdl/core/github-identity";
 import { normalizeSummary, validatePlanSlug } from "./plan-persistence.ts";
+import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-gateway.ts";
 import { isRecord } from "@sdl/core/primitives";
-import { ensurePrivateParentDirectory, requireXdgPath, resolveSdlXdgPath } from "@sdl/core/xdg";
+import { requireXdgPath, resolveSdlXdgPath } from "@sdl/core/xdg";
 
 const MAX_SEGMENT_LENGTH = 120;
 const PLAN_FILE_SUFFIX = ".md";
@@ -31,6 +30,7 @@ export interface PlanStoreOptions {
 	planStoreRoot?: string | undefined;
 	env?: Record<string, string | undefined> | undefined;
 	git?: GitGateway | undefined;
+	planStoreGateway?: PlanStoreGateway | undefined;
 }
 
 export interface PlanStoreRepoEvidence {
@@ -183,11 +183,18 @@ export async function resolvePlanStoreRepoDirectory(
 	options: PlanStoreOptions,
 ): Promise<PlanStoreRepoEvidence> {
 	const git = options.git ?? new RealGitGateway(pi);
-	const repoRoot = await resolveRequiredGitRepoRoot(git, options.cwd, options.signal);
+	const planStoreGateway = resolvePlanStoreGateway(options);
+	const repoRoot = await resolveRequiredGitRepoRoot(
+		git,
+		options.cwd,
+		options.signal,
+		planStoreGateway,
+	);
 	const repoIdentity = await resolveRepoIdentity(git, {
 		cwd: options.cwd,
 		repoRoot,
 		signal: options.signal,
+		planStoreGateway,
 	});
 	const repoKey = buildRepoPlanStoreKey(repoRoot, repoIdentity.identity);
 	const planStoreRoot = resolvePrimaryPlanStoreRoot(options);
@@ -206,12 +213,19 @@ export async function resolvePlanStoreDirectory(
 	options: PlanStoreOptions,
 ): Promise<PlanStoreDirectoryEvidence> {
 	const git = options.git ?? new RealGitGateway(pi);
-	const repoRoot = await resolveRequiredGitRepoRoot(git, options.cwd, options.signal);
+	const planStoreGateway = resolvePlanStoreGateway(options);
+	const repoRoot = await resolveRequiredGitRepoRoot(
+		git,
+		options.cwd,
+		options.signal,
+		planStoreGateway,
+	);
 	const sourceBranch = await resolveCurrentBranch(git, options.cwd, options.signal);
 	const repoIdentity = await resolveRepoIdentity(git, {
 		cwd: options.cwd,
 		repoRoot,
 		signal: options.signal,
+		planStoreGateway,
 	});
 	const repoKey = buildRepoPlanStoreKey(repoRoot, repoIdentity.identity);
 	const branchKey = encodeBranchForPlanPath(sourceBranch);
@@ -235,24 +249,28 @@ export async function listSavedPlans(
 	options: PlanStoreOptions,
 ): Promise<SavedPlanListItem[]> {
 	const repoDirectory = await resolvePlanStoreRepoDirectory(pi, options);
+	const planStoreGateway = resolvePlanStoreGateway(options);
 	const plans: SavedPlanListItem[] = [];
 
-	const branchEntries = await readDirectoryIfExists(repoDirectory.repoDirectoryPath);
+	const branchEntries = await listDirectoryEntriesIfPresent(
+		planStoreGateway,
+		repoDirectory.repoDirectoryPath,
+	);
 	for (const branchEntry of branchEntries) {
-		if (!branchEntry.isDirectory()) {
+		if (branchEntry.type !== "directory") {
 			continue;
 		}
 
 		const branchKey = branchEntry.name;
 		const branchDirectoryPath = join(repoDirectory.repoDirectoryPath, branchKey);
-		const planEntries = await readDirectoryIfExists(branchDirectoryPath);
+		const planEntries = await listDirectoryEntriesIfPresent(planStoreGateway, branchDirectoryPath);
 		for (const planEntry of planEntries) {
-			if (!planEntry.isFile() || !planEntry.name.endsWith(PLAN_FILE_SUFFIX)) {
+			if (planEntry.type !== "file" || !planEntry.name.endsWith(PLAN_FILE_SUFFIX)) {
 				continue;
 			}
 
 			const filePath = join(branchDirectoryPath, planEntry.name);
-			const fileStat = await statFileIfRegular(filePath);
+			const fileStat = await statFileIfRegular(planStoreGateway, filePath);
 			if (fileStat === undefined) {
 				continue;
 			}
@@ -276,21 +294,23 @@ export async function findLatestSavedPlanFile(
 	options: PlanStoreOptions,
 ): Promise<LatestSavedPlanFileEvidence> {
 	const directory = await resolvePlanStoreDirectory(pi, options);
+	const planStoreGateway = resolvePlanStoreGateway(options);
 	const candidates: Array<{
 		directory: PlanStoreDirectoryEvidence;
 		fileName: string;
 		filePath: string;
 		modifiedTimeMs: number;
 	}> = [];
-	const directoryRead = await readDirectoryIfExistsWithPresence(directory.directoryPath);
-	for (const entry of directoryRead.entries) {
-		if (!entry.isFile() || !entry.name.endsWith(PLAN_FILE_SUFFIX)) {
+	const directoryRead = await planStoreGateway.listDirectory(directory.directoryPath);
+	const entries = directoryRead.type === "present" ? directoryRead.entries : [];
+	for (const entry of entries) {
+		if (entry.type !== "file" || !entry.name.endsWith(PLAN_FILE_SUFFIX)) {
 			continue;
 		}
 
 		const filePath = join(directory.directoryPath, entry.name);
-		const fileStat = await stat(filePath);
-		if (!fileStat.isFile()) {
+		const fileStat = await planStoreGateway.statPath(filePath);
+		if (fileStat?.type !== "file") {
 			continue;
 		}
 		candidates.push({
@@ -301,7 +321,7 @@ export async function findLatestSavedPlanFile(
 		});
 	}
 
-	if (!directoryRead.isPresent) {
+	if (directoryRead.type === "missing") {
 		throw new NoSavedPlanAvailableError({
 			reason: "missing-directory",
 			directoryPath: directory.directoryPath,
@@ -357,10 +377,11 @@ export async function writeSavedPlanFile(
 	}
 
 	const directory = await resolvePlanStoreDirectory(pi, options);
+	const planStoreGateway = resolvePlanStoreGateway(options);
 	const fileName = buildPlanFileName(slug);
 	const filePath = join(directory.directoryPath, fileName);
 
-	await writeExclusiveFile(filePath, params.content);
+	await planStoreGateway.writeTextFileExclusive(filePath, params.content);
 
 	const evidence = {
 		slug,
@@ -380,6 +401,10 @@ export async function writeSavedPlanFile(
 
 function resolvePrimaryPlanStoreRoot(options: PlanStoreOptions): string {
 	return options.planStoreRoot ?? defaultPlanStoreRoot(options.env ?? process.env);
+}
+
+function resolvePlanStoreGateway(options: PlanStoreOptions): PlanStoreGateway {
+	return options.planStoreGateway ?? createRealPlanStoreGateway();
 }
 
 function parseSavedPlanFileParams(params: unknown): SavedPlanFileParams {
@@ -410,12 +435,13 @@ async function resolveRequiredGitRepoRoot(
 	git: GitGateway,
 	cwd: string,
 	signal: AbortSignal | undefined,
+	planStoreGateway: PlanStoreGateway,
 ): Promise<string> {
 	const root = await git.repoRoot({ cwd, signal });
 	if (!root.ok) {
 		throw new Error(root.error.message);
 	}
-	return realpathIfPossible(root.value);
+	return await planStoreGateway.realpathOrResolve(root.value);
 }
 
 async function resolveCurrentBranch(
@@ -437,6 +463,7 @@ interface RepoIdentityOptions {
 	cwd: string;
 	repoRoot: string;
 	signal?: AbortSignal | undefined;
+	planStoreGateway: PlanStoreGateway;
 }
 
 async function resolveRepoIdentity(
@@ -455,43 +482,26 @@ async function resolveRepoIdentity(
 		}
 	}
 
-	return { source: "repo-root", identity: await realpathIfPossible(options.repoRoot) };
+	return {
+		source: "repo-root",
+		identity: await options.planStoreGateway.realpathOrResolve(options.repoRoot),
+	};
 }
 
-async function readDirectoryIfExists(path: string): Promise<Dirent[]> {
-	try {
-		return await readdir(path, { withFileTypes: true });
-	} catch (error) {
-		if (isNodeError(error) && error.code === "ENOENT") {
-			return [];
-		}
-		throw error;
-	}
-}
-
-async function readDirectoryIfExistsWithPresence(
+async function listDirectoryEntriesIfPresent(
+	planStoreGateway: PlanStoreGateway,
 	path: string,
-): Promise<{ isPresent: boolean; entries: Dirent[] }> {
-	try {
-		return { isPresent: true, entries: await readdir(path, { withFileTypes: true }) };
-	} catch (error) {
-		if (isNodeError(error) && error.code === "ENOENT") {
-			return { isPresent: false, entries: [] };
-		}
-		throw error;
-	}
+): Promise<readonly { name: string; type: "file" | "directory" | "other" }[]> {
+	const read = await planStoreGateway.listDirectory(path);
+	return read.type === "present" ? read.entries : [];
 }
 
-async function statFileIfRegular(path: string): Promise<{ mtimeMs: number } | undefined> {
-	try {
-		const fileStat = await stat(path);
-		return fileStat.isFile() ? { mtimeMs: fileStat.mtimeMs } : undefined;
-	} catch (error) {
-		if (isNodeError(error) && error.code === "ENOENT") {
-			return undefined;
-		}
-		throw error;
-	}
+async function statFileIfRegular(
+	planStoreGateway: PlanStoreGateway,
+	path: string,
+): Promise<{ mtimeMs: number } | undefined> {
+	const fileStat = await planStoreGateway.statPath(path);
+	return fileStat?.type === "file" ? { mtimeMs: fileStat.mtimeMs } : undefined;
 }
 
 function compareSavedPlanListItems(left: SavedPlanListItem, right: SavedPlanListItem): number {
@@ -513,35 +523,4 @@ function compareLatestSavedPlanCandidates(
 		return right.modifiedTimeMs - left.modifiedTimeMs;
 	}
 	return right.filePath.localeCompare(left.filePath);
-}
-
-async function writeExclusiveFile(filePath: string, content: string): Promise<void> {
-	await ensurePrivateParentDirectory(filePath);
-
-	let file: Awaited<ReturnType<typeof open>> | undefined;
-	try {
-		file = await open(filePath, "wx");
-		await file.writeFile(content, "utf8");
-	} catch (error) {
-		if (isNodeError(error) && error.code === "EEXIST") {
-			throw new Error(
-				`Saved plan file already exists in the local plan store; refusing to overwrite.\nPath: ${filePath}`,
-			);
-		}
-		throw error;
-	} finally {
-		await file?.close();
-	}
-}
-
-async function realpathIfPossible(path: string): Promise<string> {
-	try {
-		return await realpath(path);
-	} catch {
-		return resolve(path);
-	}
-}
-
-function isNodeError(error: unknown): error is NodeJS.ErrnoException {
-	return typeof error === "object" && error !== null && "code" in error;
 }

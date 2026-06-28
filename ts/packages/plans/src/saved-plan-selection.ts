@@ -1,5 +1,4 @@
-import { realpath, stat } from "node:fs/promises";
-import { basename, isAbsolute, resolve } from "node:path";
+import { basename, isAbsolute } from "node:path";
 import { z } from "zod";
 
 import {
@@ -13,6 +12,7 @@ import {
 	type SavedPlanFileEvidence,
 	type PlanStoreOptions,
 } from "./saved-plan-file.ts";
+import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-gateway.ts";
 import type { CommandExecApi } from "@sdl/core/exec";
 import { isPathInside, normalizePlanFilePath, validatePlanSlug } from "./plan-persistence.ts";
 
@@ -59,6 +59,7 @@ export interface ResolveSelectedSavedPlanFileOptions extends PlanStoreOptions {
 
 export interface ValidateSessionSavedPlanCandidateOptions {
 	shouldAllowSourceBranchMismatch?: boolean | undefined;
+	planStoreGateway?: PlanStoreGateway | undefined;
 }
 
 const repoIdentitySourceSchema = z.enum(["origin-url", "repo-root"]);
@@ -135,6 +136,7 @@ export async function validateSessionSavedPlanCandidate(
 		);
 	}
 
+	const planStoreGateway = options.planStoreGateway ?? createRealPlanStoreGateway();
 	const metadata = validateDirectoryMetadata(evidence, directory, options);
 	if (metadata.type === "invalid") {
 		return unsafe(metadata.message);
@@ -151,21 +153,19 @@ export async function validateSessionSavedPlanCandidate(
 		);
 	}
 
-	let fileStat: Awaited<ReturnType<typeof stat>>;
-	try {
-		fileStat = await stat(evidence.filePath);
-	} catch {
+	const fileStat = await planStoreGateway.statPath(evidence.filePath);
+	if (fileStat === undefined) {
 		return {
 			type: "stale",
 			reason: `Saved plan file no longer exists or is not accessible: ${evidence.filePath}`,
 		};
 	}
-	if (!fileStat.isFile()) {
+	if (fileStat.type !== "file") {
 		return unsafe(`Session saved-plan evidence path is not a regular file: ${evidence.filePath}`);
 	}
 
-	const realDirectoryPath = await realpathIfPossible(expectedDirectoryPath);
-	const realFilePath = await realpathIfPossible(evidence.filePath);
+	const realDirectoryPath = await planStoreGateway.realpathOrResolve(expectedDirectoryPath);
+	const realFilePath = await planStoreGateway.realpathOrResolve(evidence.filePath);
 	if (!isPathInside(realDirectoryPath, realFilePath)) {
 		return unsafe(
 			[
@@ -248,6 +248,9 @@ export async function resolveSelectedSavedPlanFile(
 		const directory = await resolvePlanStoreDirectory(pi, options);
 		const sessionResult = await findLatestSessionSavedPlanFile(sessionEntries, directory, {
 			shouldAllowSourceBranchMismatch: options.shouldAllowSessionSourceBranchMismatch ?? false,
+			...(options.planStoreGateway === undefined
+				? {}
+				: { planStoreGateway: options.planStoreGateway }),
 		});
 		switch (sessionResult.type) {
 			case "found":
@@ -355,12 +358,4 @@ function formatOutsidePlanStoreDirectoryMessage(
 
 function unsafe(message: string): SessionSavedPlanValidation {
 	return { type: "unsafe", message };
-}
-
-async function realpathIfPossible(path: string): Promise<string> {
-	try {
-		return await realpath(path);
-	} catch {
-		return resolve(path);
-	}
 }

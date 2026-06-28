@@ -10,6 +10,15 @@ export {
 	type DeriveContentSlugInput,
 } from "./content-slug-derivation.ts";
 export {
+	createRealPlanStoreGateway,
+	RealPlanStoreGateway,
+	type PlanStoreDirectoryEntry,
+	type PlanStoreDirectoryRead,
+	type PlanStoreGateway,
+	type PlanStorePathStat,
+	type PlanStorePathType,
+} from "./plan-store-gateway.ts";
+export {
 	isPathInside,
 	normalizePlanFilePath,
 	normalizeSummary,

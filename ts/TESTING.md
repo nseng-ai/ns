@@ -52,6 +52,7 @@ Default-path tests should prefer small fake-driven seams:
 
 - Inject gateways instead of shelling out to real commands.
 - Use in-memory fakes for package-owned storage or process boundaries when possible.
+- When abstracting filesystem-backed behavior, inject a domain-specific storage gateway (for example, Objective storage or the plan store) rather than a pure/shared `FileSystemGateway`; keep path policy and persistence semantics in the domain seam, with raw `fs` only inside the real adapter.
 - Use temporary directories only for inert local fixtures, path-shape checks, file parsing, or extension
   metadata/discovery parsing that does not dynamically import modules through the real CLI loader.
 - Keep real Git, Graphite/sqlite, network, host-tool discovery, cold Node runtime, subprocess, and

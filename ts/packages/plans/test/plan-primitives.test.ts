@@ -1,6 +1,5 @@
-import { afterEach, describe, expect, test } from "vitest";
-import { mkdir, mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
+import { describe, expect, test } from "vitest";
+import { homedir } from "node:os";
 import { join } from "node:path";
 
 import { InMemoryGitGateway } from "@sdl/core/git/testing";
@@ -15,16 +14,10 @@ import {
 	normalizeRepoOriginUrl,
 	validatePlanSlug,
 } from "../src/index.ts";
+import { InMemoryPlanStoreGateway } from "../src/testing.ts";
 
 const ROOT = "/repo";
 const PLAN_SLUG = "branch-scoped-plan-extension";
-const tempDirs: string[] = [];
-
-afterEach(async () => {
-	const dirs = tempDirs.splice(0);
-	await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
-});
-
 describe("validatePlanSlug", () => {
 	test("accepts specific 3-7 word kebab slugs", () => {
 		for (const slug of [
@@ -108,23 +101,40 @@ describe("source branch plan path helpers", () => {
 	});
 
 	test("finds the newest saved Markdown plan file", async () => {
-		const planStoreRoot = await makeTempDir("source-plan-store-");
+		const planStoreRoot = makeTempDir("source-plan-store-");
+		const planStoreGateway = new InMemoryPlanStoreGateway();
 		const sourceBranch = "branch-contexts/add-widget";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
-		await writePlanStoreFile(directoryPath, "older-source-plan.md", 1_700_000_000_000);
+		await writePlanStoreFile(
+			planStoreGateway,
+			directoryPath,
+			"older-source-plan.md",
+			1_700_000_000_000,
+		);
 		const newestPath = await writePlanStoreFile(
+			planStoreGateway,
 			directoryPath,
 			"newer-source-plan.md",
 			1_800_000_000_000,
 		);
-		await writePlanStoreFile(directoryPath, "ignored-source-plan.txt", 1_900_000_000_000);
+		await writePlanStoreFile(
+			planStoreGateway,
+			directoryPath,
+			"ignored-source-plan.txt",
+			1_900_000_000_000,
+		);
 		const git = new InMemoryGitGateway({
 			currentBranch: sourceBranch,
 			originUrl: "git@github.com:owner/repo.git",
 			trunkBranch: { type: "missing" },
 		});
 
-		const evidence = await findLatestSavedPlanFile(unusedPi, { cwd: ROOT, planStoreRoot, git });
+		const evidence = await findLatestSavedPlanFile(unusedPi, {
+			cwd: ROOT,
+			planStoreRoot,
+			git,
+			planStoreGateway,
+		});
 
 		expect(evidence).toMatchObject({
 			slug: "newer-source-plan",
@@ -138,11 +148,17 @@ describe("source branch plan path helpers", () => {
 	});
 
 	test("ignores legacy saved plans when the XDG store is absent", async () => {
-		const tempHome = await makeTempDir("source-plan-home-");
+		const tempHome = makeTempDir("source-plan-home-");
+		const planStoreGateway = new InMemoryPlanStoreGateway();
 		const sourceBranch = "branch-contexts/add-widget";
 		const legacyRoot = join(tempHome, ".sdl", "enriched-plan");
 		const legacyDirectory = planStoreDirectory(legacyRoot, sourceBranch);
-		await writePlanStoreFile(legacyDirectory, "legacy-source-plan.md", 1_800_000_000_000);
+		await writePlanStoreFile(
+			planStoreGateway,
+			legacyDirectory,
+			"legacy-source-plan.md",
+			1_800_000_000_000,
+		);
 		const git = new InMemoryGitGateway({
 			currentBranch: sourceBranch,
 			originUrl: "git@github.com:owner/repo.git",
@@ -153,6 +169,7 @@ describe("source branch plan path helpers", () => {
 			cwd: ROOT,
 			env: { HOME: tempHome },
 			git,
+			planStoreGateway,
 		});
 
 		await expect(promise).rejects.toThrow("No local plan store directory exists");
@@ -160,14 +177,20 @@ describe("source branch plan path helpers", () => {
 	});
 
 	test("reports a typed error when the local plan store directory is missing", async () => {
-		const planStoreRoot = await makeTempDir("source-plan-store-");
+		const planStoreRoot = makeTempDir("source-plan-store-");
+		const planStoreGateway = new InMemoryPlanStoreGateway();
 		const git = new InMemoryGitGateway({
 			currentBranch: "main",
 			originUrl: "git@github.com:owner/repo.git",
 			trunkBranch: { type: "missing" },
 		});
 
-		const promise = findLatestSavedPlanFile(unusedPi, { cwd: ROOT, planStoreRoot, git });
+		const promise = findLatestSavedPlanFile(unusedPi, {
+			cwd: ROOT,
+			planStoreRoot,
+			git,
+			planStoreGateway,
+		});
 		await expect(promise).rejects.toThrow(
 			/No local plan store directory exists[\s\S]*Create a saved plan first/,
 		);
@@ -176,18 +199,23 @@ describe("source branch plan path helpers", () => {
 	});
 
 	test("reports a typed error when no Markdown saved plans exist", async () => {
-		const planStoreRoot = await makeTempDir("source-plan-store-");
+		const planStoreRoot = makeTempDir("source-plan-store-");
+		const planStoreGateway = new InMemoryPlanStoreGateway();
 		const sourceBranch = "main";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
-		await mkdir(directoryPath, { recursive: true });
-		await writeFile(join(directoryPath, "notes.txt"), "not a plan", "utf8");
+		planStoreGateway.writeFile(join(directoryPath, "notes.txt"), "not a plan");
 		const git = new InMemoryGitGateway({
 			currentBranch: sourceBranch,
 			originUrl: "git@github.com:owner/repo.git",
 			trunkBranch: { type: "missing" },
 		});
 
-		const promise = findLatestSavedPlanFile(unusedPi, { cwd: ROOT, planStoreRoot, git });
+		const promise = findLatestSavedPlanFile(unusedPi, {
+			cwd: ROOT,
+			planStoreRoot,
+			git,
+			planStoreGateway,
+		});
 		await expect(promise).rejects.toThrow(
 			/No Markdown saved plan files exist[\s\S]*Create a saved plan first/,
 		);
@@ -196,29 +224,52 @@ describe("source branch plan path helpers", () => {
 	});
 
 	test("treats the latest filename stem as a locator even when it is not a valid branch slug", async () => {
-		const planStoreRoot = await makeTempDir("source-plan-store-");
+		const planStoreRoot = makeTempDir("source-plan-store-");
+		const planStoreGateway = new InMemoryPlanStoreGateway();
 		const sourceBranch = "main";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
-		await writePlanStoreFile(directoryPath, "valid-source-plan.md", 1_700_000_000_000);
-		const latestPath = await writePlanStoreFile(directoryPath, "bad.md", 1_800_000_000_000);
+		await writePlanStoreFile(
+			planStoreGateway,
+			directoryPath,
+			"valid-source-plan.md",
+			1_700_000_000_000,
+		);
+		const latestPath = await writePlanStoreFile(
+			planStoreGateway,
+			directoryPath,
+			"bad.md",
+			1_800_000_000_000,
+		);
 		const git = new InMemoryGitGateway({
 			currentBranch: sourceBranch,
 			originUrl: "git@github.com:owner/repo.git",
 			trunkBranch: { type: "missing" },
 		});
 
-		const evidence = await findLatestSavedPlanFile(unusedPi, { cwd: ROOT, planStoreRoot, git });
+		const evidence = await findLatestSavedPlanFile(unusedPi, {
+			cwd: ROOT,
+			planStoreRoot,
+			git,
+			planStoreGateway,
+		});
 
 		expect(evidence.slug).toBe("bad");
 		expect(evidence.filePath).toBe(latestPath);
 	});
 
 	test("tie-breaks exact matching mtimes by filename path", async () => {
-		const planStoreRoot = await makeTempDir("source-plan-store-");
+		const planStoreRoot = makeTempDir("source-plan-store-");
+		const planStoreGateway = new InMemoryPlanStoreGateway();
 		const sourceBranch = "main";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
-		await writePlanStoreFile(directoryPath, "alpha-source-plan.md", 1_800_000_000_000);
+		await writePlanStoreFile(
+			planStoreGateway,
+			directoryPath,
+			"alpha-source-plan.md",
+			1_800_000_000_000,
+		);
 		const expectedPath = await writePlanStoreFile(
+			planStoreGateway,
 			directoryPath,
 			"zeta-source-plan.md",
 			1_800_000_000_000,
@@ -229,7 +280,12 @@ describe("source branch plan path helpers", () => {
 			trunkBranch: { type: "missing" },
 		});
 
-		const evidence = await findLatestSavedPlanFile(unusedPi, { cwd: ROOT, planStoreRoot, git });
+		const evidence = await findLatestSavedPlanFile(unusedPi, {
+			cwd: ROOT,
+			planStoreRoot,
+			git,
+			planStoreGateway,
+		});
 
 		expect(evidence.slug).toBe("zeta-source-plan");
 		expect(evidence.filePath).toBe(expectedPath);
@@ -296,10 +352,10 @@ describe("normalizePlanFilePath", () => {
 
 const unusedPi = { exec: async () => ({ stdout: "", stderr: "", code: 0, killed: false }) };
 
-async function makeTempDir(prefix: string): Promise<string> {
-	const dir = await mkdtemp(join(tmpdir(), prefix));
-	tempDirs.push(dir);
-	return dir;
+let tempDirCounter = 0;
+function makeTempDir(prefix: string): string {
+	tempDirCounter += 1;
+	return `/${prefix}${tempDirCounter}`;
 }
 
 function planStoreDirectory(planStoreRoot: string, sourceBranch: string): string {
@@ -307,14 +363,12 @@ function planStoreDirectory(planStoreRoot: string, sourceBranch: string): string
 }
 
 async function writePlanStoreFile(
+	planStoreGateway: InMemoryPlanStoreGateway,
 	directoryPath: string,
 	fileName: string,
 	modifiedTimeMs: number,
 ): Promise<string> {
-	await mkdir(directoryPath, { recursive: true });
 	const filePath = join(directoryPath, fileName);
-	await writeFile(filePath, `# ${fileName}\n`, "utf8");
-	const modified = new Date(modifiedTimeMs);
-	await utimes(filePath, modified, modified);
+	planStoreGateway.writeFile(filePath, `# ${fileName}\n`, { mtimeMs: modifiedTimeMs });
 	return filePath;
 }

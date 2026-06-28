@@ -1,7 +1,5 @@
-import { afterEach, describe, expect, test } from "vitest";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { describe, expect, test } from "vitest";
+import { join } from "node:path";
 
 import type {
 	GitBranchParams,
@@ -24,16 +22,10 @@ import {
 	normalizeRepoOriginUrl,
 	writeSavedPlanFile,
 } from "../src/index.ts";
+import { InMemoryPlanStoreGateway } from "../src/testing.ts";
 
 const PLAN_SLUG = "branch-scoped-plan-extension";
 const ROOT = "/repo";
-const tempDirs: string[] = [];
-
-afterEach(async () => {
-	const dirs = tempDirs.splice(0);
-	await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
-});
-
 describe("defaultPlanStoreRoot", () => {
 	test("uses XDG state root and ignores relative XDG values", () => {
 		expect(defaultPlanStoreRoot({ HOME: "/home/tester", XDG_STATE_HOME: "/state" })).toBe(
@@ -47,7 +39,8 @@ describe("defaultPlanStoreRoot", () => {
 
 describe("writeSavedPlanFile", () => {
 	test("writes a source branch saved plan file with origin identity evidence", async () => {
-		const planStoreRoot = await makeTempDir("source-plan-store-");
+		const planStoreRoot = makeTempDir("source-plan-store-");
+		const planStoreGateway = new InMemoryPlanStoreGateway();
 		const sourceBranch = "branch-contexts/add-widget";
 		const origin = "git@github.com:owner/repo.git";
 		const git = new FakeGitGateway({ currentBranch: sourceBranch, originUrl: origin });
@@ -59,7 +52,7 @@ describe("writeSavedPlanFile", () => {
 				content: "# Test Plan\n\nDo the work.\n",
 				summary: "Plan the local plan store file.",
 			},
-			{ cwd: ROOT, planStoreRoot, git },
+			{ cwd: ROOT, planStoreRoot, git, planStoreGateway },
 		);
 
 		const repoKey = buildRepoPlanStoreKey(ROOT, normalizeRepoOriginUrl(origin));
@@ -77,49 +70,51 @@ describe("writeSavedPlanFile", () => {
 			filePath: expectedPath,
 			summary: "Plan the local plan store file.",
 		});
-		expect(await readFile(expectedPath, "utf8")).toBe("# Test Plan\n\nDo the work.\n");
+		expect(planStoreGateway.readFile(expectedPath)).toBe("# Test Plan\n\nDo the work.\n");
 	});
 
 	test("falls back to real repo root identity when origin is absent", async () => {
-		const planStoreRoot = await makeTempDir("source-plan-store-");
+		const planStoreRoot = makeTempDir("source-plan-store-");
+		const planStoreGateway = new InMemoryPlanStoreGateway();
 		const sourceBranch = "main";
 		const git = new FakeGitGateway({ currentBranch: sourceBranch, originUrl: undefined });
 
 		const evidence = await writeSavedPlanFile(
 			unusedPi,
 			{ slug: PLAN_SLUG, content: "# Test Plan\n" },
-			{ cwd: ROOT, planStoreRoot, git },
+			{ cwd: ROOT, planStoreRoot, git, planStoreGateway },
 		);
 
 		expect(evidence.repoIdentitySource).toBe("repo-root");
 		expect(evidence.repoKey).toBe(buildRepoPlanStoreKey(ROOT, ROOT));
-		expect(await readFile(evidence.filePath, "utf8")).toBe("# Test Plan\n");
+		expect(planStoreGateway.readFile(evidence.filePath)).toBe("# Test Plan\n");
 	});
 
 	test("refuses to overwrite an existing local plan store file", async () => {
-		const planStoreRoot = await makeTempDir("source-plan-store-");
+		const planStoreRoot = makeTempDir("source-plan-store-");
+		const planStoreGateway = new InMemoryPlanStoreGateway();
 		const sourceBranch = "branch-contexts/add-widget";
 		const origin = "git@github.com:owner/repo.git";
 		const repoKey = buildRepoPlanStoreKey(ROOT, normalizeRepoOriginUrl(origin));
 		const branchKey = encodeBranchForPlanPath(sourceBranch);
 		const filePath = join(planStoreRoot, repoKey, branchKey, `${PLAN_SLUG}.md`);
-		await mkdir(dirname(filePath), { recursive: true });
-		await writeFile(filePath, "# Existing Plan\n", "utf8");
+		planStoreGateway.writeFile(filePath, "# Existing Plan\n");
 		const git = new FakeGitGateway({ currentBranch: sourceBranch, originUrl: origin });
 
 		await expect(
 			writeSavedPlanFile(
 				unusedPi,
 				{ slug: PLAN_SLUG, content: "# New Plan\n" },
-				{ cwd: ROOT, planStoreRoot, git },
+				{ cwd: ROOT, planStoreRoot, git, planStoreGateway },
 			),
 		).rejects.toThrow("refusing to overwrite");
 
-		expect(await readFile(filePath, "utf8")).toBe("# Existing Plan\n");
+		expect(planStoreGateway.readFile(filePath)).toBe("# Existing Plan\n");
 	});
 
 	test("uses the XDG state root by default", async () => {
-		const tempHome = await makeTempDir("source-plan-home-");
+		const tempHome = makeTempDir("source-plan-home-");
+		const planStoreGateway = new InMemoryPlanStoreGateway();
 		const sourceBranch = "branch-contexts/add-widget";
 		const origin = "git@github.com:owner/repo.git";
 		const git = new FakeGitGateway({ currentBranch: sourceBranch, originUrl: origin });
@@ -127,7 +122,7 @@ describe("writeSavedPlanFile", () => {
 		const evidence = await writeSavedPlanFile(
 			unusedPi,
 			{ slug: PLAN_SLUG, content: "# Test Plan\n" },
-			{ cwd: ROOT, env: { HOME: tempHome }, git },
+			{ cwd: ROOT, env: { HOME: tempHome }, git, planStoreGateway },
 		);
 
 		expect(evidence.filePath).toBe(
@@ -142,11 +137,12 @@ describe("writeSavedPlanFile", () => {
 				`${PLAN_SLUG}.md`,
 			),
 		);
-		expect(await readFile(evidence.filePath, "utf8")).toBe("# Test Plan\n");
+		expect(planStoreGateway.readFile(evidence.filePath)).toBe("# Test Plan\n");
 	});
 
 	test("ignores legacy same-slug files when writing to the default XDG root", async () => {
-		const tempHome = await makeTempDir("source-plan-home-");
+		const tempHome = makeTempDir("source-plan-home-");
+		const planStoreGateway = new InMemoryPlanStoreGateway();
 		const sourceBranch = "branch-contexts/add-widget";
 		const branchKey = encodeBranchForPlanPath(sourceBranch);
 		const legacyPath = join(
@@ -157,8 +153,7 @@ describe("writeSavedPlanFile", () => {
 			branchKey,
 			`${PLAN_SLUG}.md`,
 		);
-		await mkdir(dirname(legacyPath), { recursive: true });
-		await writeFile(legacyPath, "# Legacy Plan\n", "utf8");
+		planStoreGateway.writeFile(legacyPath, "# Legacy Plan\n");
 		const git = new FakeGitGateway({
 			currentBranch: sourceBranch,
 			originUrl: "git@github.com:owner/repo.git",
@@ -167,7 +162,7 @@ describe("writeSavedPlanFile", () => {
 		const evidence = await writeSavedPlanFile(
 			unusedPi,
 			{ slug: PLAN_SLUG, content: "# New Plan\n" },
-			{ cwd: ROOT, env: { HOME: tempHome }, git },
+			{ cwd: ROOT, env: { HOME: tempHome }, git, planStoreGateway },
 		);
 
 		expect(evidence.filePath).toBe(
@@ -182,33 +177,35 @@ describe("writeSavedPlanFile", () => {
 				`${PLAN_SLUG}.md`,
 			),
 		);
-		expect(await readFile(evidence.filePath, "utf8")).toBe("# New Plan\n");
-		expect(await readFile(legacyPath, "utf8")).toBe("# Legacy Plan\n");
+		expect(planStoreGateway.readFile(evidence.filePath)).toBe("# New Plan\n");
+		expect(planStoreGateway.readFile(legacyPath)).toBe("# Legacy Plan\n");
 	});
 
 	test("rejects invalid slug before git commands or filesystem writes", async () => {
-		const planStoreRoot = await makeTempDir("source-plan-store-");
+		const planStoreRoot = makeTempDir("source-plan-store-");
+		const planStoreGateway = new InMemoryPlanStoreGateway();
 		const git = new FakeGitGateway();
 
 		await expect(
 			writeSavedPlanFile(
 				unusedPi,
 				{ slug: "Bad Slug", content: "# Test Plan\n" },
-				{ cwd: ROOT, planStoreRoot, git },
+				{ cwd: ROOT, planStoreRoot, git, planStoreGateway },
 			),
 		).rejects.toThrow("Invalid saved plan slug");
 		expect(git.calls).toEqual([]);
 	});
 
 	test("rejects detached HEAD with a clear named-branch message", async () => {
-		const planStoreRoot = await makeTempDir("source-plan-store-");
+		const planStoreRoot = makeTempDir("source-plan-store-");
+		const planStoreGateway = new InMemoryPlanStoreGateway();
 		const git = new FakeGitGateway({ currentBranch: undefined });
 
 		await expect(
 			writeSavedPlanFile(
 				unusedPi,
 				{ slug: PLAN_SLUG, content: "# Test Plan\n" },
-				{ cwd: ROOT, planStoreRoot, git },
+				{ cwd: ROOT, planStoreRoot, git, planStoreGateway },
 			),
 		).rejects.toThrow("check out a named branch");
 
@@ -326,8 +323,8 @@ class FakeGitGateway implements GitGateway {
 	}
 }
 
-async function makeTempDir(prefix: string): Promise<string> {
-	const dir = await mkdtemp(join(tmpdir(), prefix));
-	tempDirs.push(dir);
-	return dir;
+let tempDirCounter = 0;
+function makeTempDir(prefix: string): string {
+	tempDirCounter += 1;
+	return `/${prefix}${tempDirCounter}`;
 }

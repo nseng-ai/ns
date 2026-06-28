@@ -1,14 +1,12 @@
-import { afterEach, describe, expect, test } from "vitest";
-import { mkdir, readFile, realpath, utimes, writeFile } from "node:fs/promises";
+import { describe, expect, test } from "vitest";
 import { homedir } from "node:os";
 import { join, relative } from "node:path";
 
 import { type CommandExecApi, type ExecOptions } from "@sdl/core/exec";
 import type { GitGateway } from "@sdl/core/git";
 import { InMemoryGitGateway } from "@sdl/core/git/testing";
-import { createTempDirTracker } from "@sdl/core/testing";
-
 import { buildRepoPlanStoreKey, encodeBranchForPlanPath, runCli } from "../../src/index.ts";
+import { InMemoryPlanStoreGateway } from "../../src/testing.ts";
 
 const ORIGIN = "git@github.com:Owner/Repo.git";
 const SOURCE_BRANCH = "feature/source-plan";
@@ -93,12 +91,6 @@ const RESOLVE_HELP = [
 	"",
 ].join("\n");
 
-const tempDirs = createTempDirTracker();
-
-afterEach(async () => {
-	await tempDirs.cleanup();
-});
-
 interface CliRun {
 	exit: Promise<number>;
 	stdout: string[];
@@ -111,6 +103,7 @@ interface Fixture {
 	repoKey: string;
 	branchKey: string;
 	git: GitGateway;
+	planStoreGateway: InMemoryPlanStoreGateway;
 }
 
 interface RunWithFakesOptions {
@@ -118,13 +111,14 @@ interface RunWithFakesOptions {
 	planStoreRoot?: string;
 	stdin?: () => Promise<string>;
 	git?: GitGateway;
+	planStoreGateway?: InMemoryPlanStoreGateway;
 }
 
 async function runWithFakes(
 	args: readonly string[],
 	options: RunWithFakesOptions = {},
 ): Promise<CliRun> {
-	const cwd = options.cwd ?? (await makeTempDir());
+	const cwd = options.cwd ?? makeTempDir();
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	return {
@@ -139,31 +133,37 @@ async function runWithFakes(
 			stdin: options.stdin,
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),
+			planStoreGateway: options.planStoreGateway ?? new InMemoryPlanStoreGateway(),
 			...(options.planStoreRoot === undefined ? {} : { planStoreRoot: options.planStoreRoot }),
 		}),
 	};
 }
 
 async function makeFixture(): Promise<Fixture> {
-	const repoRoot = await makeTempDir();
-	const planStoreRoot = await makeTempDir();
+	const repoRoot = makeTempDir();
+	const planStoreRoot = makeTempDir();
 	const repoKey = buildRepoPlanStoreKey(repoRoot, ORIGIN);
 	const branchKey = encodeBranchForPlanPath(SOURCE_BRANCH);
+	const planStoreGateway = new InMemoryPlanStoreGateway();
+	planStoreGateway.mkdir(repoRoot);
 	return {
 		repoRoot,
 		planStoreRoot,
 		repoKey,
 		branchKey,
 		git: new InMemoryGitGateway({ repoRoot, originUrl: ORIGIN, currentBranch: SOURCE_BRANCH }),
+		planStoreGateway,
 	};
 }
 
-async function makeTempDir(prefix = "plans-cli-scenario-"): Promise<string> {
-	return tempDirs.makeTempDir(prefix);
+let tempDirCounter = 0;
+function makeTempDir(prefix = "plans-cli-scenario-"): string {
+	tempDirCounter += 1;
+	return `/${prefix}${tempDirCounter}`;
 }
 
-async function makeHomeTempDir(): Promise<string> {
-	return tempDirs.makeHomeTempDir(".plans-cli-scenario-");
+function makeHomeTempDir(): string {
+	return homedir();
 }
 
 async function writePlanFile(
@@ -172,11 +172,8 @@ async function writePlanFile(
 	modifiedTimeMs = MODIFIED_TIME_MS,
 ): Promise<string> {
 	const directory = join(fixture.planStoreRoot, fixture.repoKey, fixture.branchKey);
-	await mkdir(directory, { recursive: true });
 	const filePath = join(directory, fileName);
-	await writeFile(filePath, `# ${fileName}\n`, "utf8");
-	const modified = new Date(modifiedTimeMs);
-	await utimes(filePath, modified, modified);
+	fixture.planStoreGateway.writeFile(filePath, `# ${fileName}\n`, { mtimeMs: modifiedTimeMs });
 	return filePath;
 }
 
@@ -317,7 +314,7 @@ describe("plans list CLI pins", () => {
 		const filePath = await writePlanFile(fixture, "first-useful-saved-plan.md");
 		const json = await runWithFakes(
 			["list", "--format", "json", "--plan-store-root", fixture.planStoreRoot],
-			{ cwd: fixture.repoRoot, git: fixture.git },
+			{ cwd: fixture.repoRoot, git: fixture.git, planStoreGateway: fixture.planStoreGateway },
 		);
 
 		expect(await json.exit).toBe(0);
@@ -344,6 +341,7 @@ describe("plans list CLI pins", () => {
 		const human = await runWithFakes(["list", "--plan-store-root", fixture.planStoreRoot], {
 			cwd: fixture.repoRoot,
 			git: fixture.git,
+			planStoreGateway: fixture.planStoreGateway,
 		});
 		expect(await human.exit).toBe(0);
 		expect(human.stdout.join("")).toBe(
@@ -369,7 +367,7 @@ describe("plans list CLI pins", () => {
 
 		const run = await runWithFakes(
 			["list", "--format", "json", "--plan-store-root", relativeRoot],
-			{ cwd: fixture.repoRoot, git: fixture.git },
+			{ cwd: fixture.repoRoot, git: fixture.git, planStoreGateway: fixture.planStoreGateway },
 		);
 
 		expect(await run.exit).toBe(0);
@@ -503,6 +501,7 @@ describe("plans exec save pins", () => {
 				cwd: fixture.repoRoot,
 				git: fixture.git,
 				planStoreRoot: fixture.planStoreRoot,
+				planStoreGateway: fixture.planStoreGateway,
 				stdin: async () => "# Plan\n\nDo it.\n",
 			},
 		);
@@ -520,7 +519,7 @@ describe("plans exec save pins", () => {
 				summary: "Save it",
 			}),
 		);
-		expect(await readFile(expectedPath, "utf8")).toBe("# Plan\n\nDo it.\n");
+		expect(fixture.planStoreGateway.readFile(expectedPath)).toBe("# Plan\n\nDo it.\n");
 
 		const noSummaryFixture = await makeFixture();
 		const noSummary = await runWithFakes(
@@ -529,6 +528,7 @@ describe("plans exec save pins", () => {
 				cwd: noSummaryFixture.repoRoot,
 				git: noSummaryFixture.git,
 				planStoreRoot: noSummaryFixture.planStoreRoot,
+				planStoreGateway: noSummaryFixture.planStoreGateway,
 				stdin: async () => "# Plan\n",
 			},
 		);
@@ -571,7 +571,7 @@ describe("plans exec save pins", () => {
 	test("writes content-file input and reports missing files", async () => {
 		const fixture = await makeFixture();
 		const contentFile = join(await makeTempDir(), "input.md");
-		await writeFile(contentFile, "# From file\n", "utf8");
+		fixture.planStoreGateway.writeFile(contentFile, "# From file\n");
 		const run = await runWithFakes(
 			[
 				"exec",
@@ -587,11 +587,12 @@ describe("plans exec save pins", () => {
 				cwd: fixture.repoRoot,
 				git: fixture.git,
 				planStoreRoot: fixture.planStoreRoot,
+				planStoreGateway: fixture.planStoreGateway,
 			},
 		);
 		expect(await run.exit).toBe(0);
 		const data = parseJson(run).data as Record<string, unknown>;
-		expect(await readFile(String(data.file_path), "utf8")).toBe("# From file\n");
+		expect(fixture.planStoreGateway.readFile(String(data.file_path))).toBe("# From file\n");
 
 		const missingHuman = await runWithFakes(
 			[
@@ -606,6 +607,7 @@ describe("plans exec save pins", () => {
 				cwd: fixture.repoRoot,
 				git: fixture.git,
 				planStoreRoot: fixture.planStoreRoot,
+				planStoreGateway: fixture.planStoreGateway,
 			},
 		);
 		expect(await missingHuman.exit).toBe(2);
@@ -626,6 +628,7 @@ describe("plans exec save pins", () => {
 				cwd: fixture.repoRoot,
 				git: fixture.git,
 				planStoreRoot: fixture.planStoreRoot,
+				planStoreGateway: fixture.planStoreGateway,
 			},
 		);
 		expect(await missingJson.exit).toBe(2);
@@ -642,7 +645,7 @@ describe("plans exec resolve pins", () => {
 		const fixture = await makeFixture();
 		const twoPositionals = await runWithFakes(
 			["exec", "resolve", "/tmp/one.md", "/tmp/two.md", "--format", "json"],
-			{ cwd: fixture.repoRoot, git: fixture.git },
+			{ cwd: fixture.repoRoot, git: fixture.git, planStoreGateway: fixture.planStoreGateway },
 		);
 		expect(await twoPositionals.exit).toBe(2);
 		expect(parseJson(twoPositionals)).toMatchObject({
@@ -658,13 +661,14 @@ describe("plans exec resolve pins", () => {
 		const unknown = await runWithFakes(["exec", "resolve", "--bogus"], {
 			cwd: fixture.repoRoot,
 			git: fixture.git,
+			planStoreGateway: fixture.planStoreGateway,
 		});
 		expect(await unknown.exit).toBe(2);
 		expect(unknown.stderr.join("")).toBe("error: unknown option '--bogus'\n");
 
 		const relativePath = await runWithFakes(
 			["exec", "resolve", "relative-plan.md", "--format", "json"],
-			{ cwd: fixture.repoRoot, git: fixture.git },
+			{ cwd: fixture.repoRoot, git: fixture.git, planStoreGateway: fixture.planStoreGateway },
 		);
 		expect(await relativePath.exit).toBe(2);
 		expect(relativePath.stdout.join("")).toBe(
@@ -673,7 +677,7 @@ describe("plans exec resolve pins", () => {
 
 		const missing = await runWithFakes(
 			["exec", "resolve", join(fixture.repoRoot, "missing.md"), "--format", "json"],
-			{ cwd: fixture.repoRoot, git: fixture.git },
+			{ cwd: fixture.repoRoot, git: fixture.git, planStoreGateway: fixture.planStoreGateway },
 		);
 		expect(await missing.exit).toBe(2);
 		expect(missing.stdout.join("")).toBe(
@@ -684,7 +688,7 @@ describe("plans exec resolve pins", () => {
 
 		const directory = await runWithFakes(
 			["exec", "resolve", fixture.repoRoot, "--format", "json"],
-			{ cwd: fixture.repoRoot, git: fixture.git },
+			{ cwd: fixture.repoRoot, git: fixture.git, planStoreGateway: fixture.planStoreGateway },
 		);
 		expect(await directory.exit).toBe(2);
 		expect(directory.stdout.join("")).toBe(
@@ -692,10 +696,11 @@ describe("plans exec resolve pins", () => {
 		);
 
 		const insidePath = join(fixture.repoRoot, "inside-plan.md");
-		await writeFile(insidePath, "# Inside\n", "utf8");
+		fixture.planStoreGateway.writeFile(insidePath, "# Inside\n");
 		const inside = await runWithFakes(["exec", "resolve", insidePath, "--format", "json"], {
 			cwd: fixture.repoRoot,
 			git: fixture.git,
+			planStoreGateway: fixture.planStoreGateway,
 		});
 		expect(await inside.exit).toBe(2);
 		expect(inside.stdout.join("")).toBe(
@@ -707,14 +712,15 @@ describe("plans exec resolve pins", () => {
 
 	test("resolves explicit absolute, @-prefixed, and home-relative paths", async () => {
 		const fixture = await makeFixture();
-		const outsideDir = await makeTempDir();
+		const outsideDir = makeTempDir();
 		const explicitPlan = join(outsideDir, "explicit.md");
-		await writeFile(explicitPlan, "# Explicit\n", "utf8");
-		const realExplicit = await realpath(explicitPlan);
+		fixture.planStoreGateway.writeFile(explicitPlan, "# Explicit\n");
+		const realExplicit = explicitPlan;
 
 		const explicitJson = await runWithFakes(["exec", "resolve", explicitPlan, "--format", "json"], {
 			cwd: fixture.repoRoot,
 			git: fixture.git,
+			planStoreGateway: fixture.planStoreGateway,
 		});
 		expect(await explicitJson.exit).toBe(0);
 		expect(explicitJson.stdout.join("")).toBe(
@@ -724,6 +730,7 @@ describe("plans exec resolve pins", () => {
 		const explicitHuman = await runWithFakes(["exec", "resolve", explicitPlan], {
 			cwd: fixture.repoRoot,
 			git: fixture.git,
+			planStoreGateway: fixture.planStoreGateway,
 		});
 		expect(await explicitHuman.exit).toBe(0);
 		expect(explicitHuman.stdout.join("")).toBe(
@@ -733,6 +740,7 @@ describe("plans exec resolve pins", () => {
 		const atPath = await runWithFakes(["exec", "resolve", `@${explicitPlan}`, "--format", "json"], {
 			cwd: fixture.repoRoot,
 			git: fixture.git,
+			planStoreGateway: fixture.planStoreGateway,
 		});
 		expect(await atPath.exit).toBe(0);
 		expect(parseJson(atPath)).toEqual({
@@ -744,13 +752,14 @@ describe("plans exec resolve pins", () => {
 			},
 		});
 
-		const homeDir = await makeHomeTempDir();
+		const homeDir = makeHomeTempDir();
 		const homePlan = join(homeDir, "home-relative.md");
-		await writeFile(homePlan, "# Home\n", "utf8");
+		fixture.planStoreGateway.writeFile(homePlan, "# Home\n");
 		const homeArg = `~/${relative(homedir(), homePlan)}`;
 		const homePath = await runWithFakes(["exec", "resolve", homeArg, "--format", "json"], {
 			cwd: fixture.repoRoot,
 			git: fixture.git,
+			planStoreGateway: fixture.planStoreGateway,
 		});
 		expect(await homePath.exit).toBe(0);
 		expect(parseJson(homePath)).toEqual({
@@ -758,7 +767,7 @@ describe("plans exec resolve pins", () => {
 			exitCode: 0,
 			data: {
 				source: "explicit",
-				file_path: await realpath(homePlan),
+				file_path: homePlan,
 			},
 		});
 	});
@@ -771,6 +780,7 @@ describe("plans exec resolve pins", () => {
 			cwd: fixture.repoRoot,
 			git: fixture.git,
 			planStoreRoot: fixture.planStoreRoot,
+			planStoreGateway: fixture.planStoreGateway,
 		});
 
 		expect(await json.exit).toBe(0);
@@ -794,6 +804,7 @@ describe("plans exec resolve pins", () => {
 			cwd: fixture.repoRoot,
 			git: fixture.git,
 			planStoreRoot: fixture.planStoreRoot,
+			planStoreGateway: fixture.planStoreGateway,
 		});
 		expect(await human.exit).toBe(0);
 		expect(human.stdout.join("")).toBe(
@@ -818,6 +829,7 @@ describe("plans exec resolve pins", () => {
 			cwd: fixture.repoRoot,
 			git: fixture.git,
 			planStoreRoot: fixture.planStoreRoot,
+			planStoreGateway: fixture.planStoreGateway,
 		});
 		const directory = join(fixture.planStoreRoot, fixture.repoKey, fixture.branchKey);
 
