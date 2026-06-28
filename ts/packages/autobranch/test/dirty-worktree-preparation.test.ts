@@ -3,7 +3,7 @@ import {
 	prepareAutobranchPlan,
 	type AutobranchPreparationInput,
 } from "@sdl/autobranch/dirty-worktree";
-import { MAX_BRANCH_SLUG_LENGTH } from "@sdl/pi/branches/slug";
+import { MAX_BRANCH_SLUG_LENGTH } from "@sdl/core/branch-slug";
 import { buildSlugModelArgs } from "@sdl/core/model-slug";
 import { buildBranchSlugPrompt } from "@sdl/autobranch/slug";
 import {

@@ -161,9 +161,6 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../infra/core
-      '@sdl/pi':
-        specifier: workspace:*
-        version: link:../hosts/pi
 
   packages/branch-context:
     dependencies:

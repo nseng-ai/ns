@@ -173,17 +173,10 @@ function runExtensionDependencyGraphAdversarialReview() {
       expectedTextIncludes: "dependencies.@sdl/pi",
     },
     {
-      name: "known deferred extension manifest SCC is allowed",
+      name: "former autobranch pi sdl manifest cycle is rejected",
       edges: legacyDeferredCycleEdges,
-      expectedHasCycle: false,
-    },
-    {
-      name: "cycle wholly inside legacy deferred package set is allowed",
-      edges: [
-        { from: "@sdl/autobranch", to: "@sdl/pi" },
-        { from: "@sdl/pi", to: "@sdl/autobranch" },
-      ],
-      expectedHasCycle: false,
+      expectedHasCycle: true,
+      expectedTextIncludes: "dependencies.@sdl/pi",
     },
     {
       name: "branch-context pi manifest cycle is rejected",
@@ -192,17 +185,7 @@ function runExtensionDependencyGraphAdversarialReview() {
         { from: "@sdl/pi", to: "@sdl/branch-context" },
       ],
       expectedHasCycle: true,
-      expectedTextIncludes: "legacy-autobranch-pi-sdl-cycle",
-    },
-    {
-      name: "branch-context expansion of deferred SCC is rejected",
-      edges: [
-        ...legacyDeferredCycleEdges,
-        { from: "@sdl/pi", to: "@sdl/branch-context" },
-        { from: "@sdl/branch-context", to: "@sdl/autobranch" },
-      ],
-      expectedHasCycle: true,
-      expectedTextIncludes: "legacy-autobranch-pi-sdl-cycle",
+      expectedTextIncludes: "dependencies.@sdl/pi",
     },
     {
       name: "devDependencies-only cycle is ignored",

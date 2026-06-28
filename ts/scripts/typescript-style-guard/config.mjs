@@ -52,13 +52,4 @@ export const extensionGraphPackageNames = new Set([
   "sdlcc",
 ]);
 
-// Deferred by the objective-capability-extension slice: this known package cycle is real,
-// but breaking it belongs to separate graph cleanup work, not this manifest-scoped guard addition.
-export const deferredExtensionCycleComponents = [
-  {
-    name: "legacy-autobranch-pi-sdl-cycle",
-    packages: new Set(["@sdl/autobranch", "@sdl/pi", "@sdl/sdl"]),
-    reason:
-      "Known legacy extension package cycle deferred from the objective-capability-extension stack; do not add packages to this component without separate graph cleanup review.",
-  },
-];
+export const deferredExtensionCycleComponents = [];

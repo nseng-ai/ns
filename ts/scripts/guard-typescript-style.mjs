@@ -34,7 +34,7 @@ scanDirectory(repoRoot);
 
 if (matches.length === 0) {
   console.log(
-    "OK: TypeScript style guard found no banned double-casts, first-party import aliases, empty interface-extension aliases, private capability peer imports, or non-deferred extension dependency cycles.",
+    "OK: TypeScript style guard found no banned double-casts, first-party import aliases, empty interface-extension aliases, private capability peer imports, or extension dependency cycles.",
   );
   process.exit(0);
 }
@@ -51,7 +51,7 @@ console.error(
   `${BAN_CAPABILITY_PRIVATE_PEER_IMPORT}: capability packages may import sibling capabilities through curated package exports such as \`@sdl/<cap>/api\`, but not private/deep \`src\`, \`internal\`, or undeclared capability subpaths.`,
 );
 console.error(
-  `${BAN_EXTENSION_DEPENDENCY_CYCLE}: Objective-scoped extension packages must not form non-deferred cycles through manifest-scoped \`workspace:*\` edges in dependencies, optionalDependencies, or peerDependencies under \`ts/packages/**/package.json\`. devDependencies and source-import parity are intentionally out of scope. Remove or relocate manifest dependencies, or move shared code to neutral packages/API subpaths. The known deferred component is legacy-autobranch-branch-context-pi-sdl-cycle; it is explicit follow-up debt, not a silent graph exclusion.`,
+  `${BAN_EXTENSION_DEPENDENCY_CYCLE}: Objective-scoped extension packages must not form cycles through manifest-scoped \`workspace:*\` edges in dependencies, optionalDependencies, or peerDependencies under \`ts/packages/**/package.json\`. devDependencies and source-import parity are intentionally out of scope. Remove or relocate manifest dependencies, or move shared code to neutral packages/API subpaths. No extension dependency cycle is currently deferred.`,
 );
 console.error("");
 for (const match of matches) {
