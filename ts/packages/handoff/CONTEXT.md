@@ -1,6 +1,6 @@
 # @sdl/handoff
 
-`@sdl/handoff` owns directed Handoff Artifact vocabulary and user-facing handoff inventory over Branch Memory storage for the TypeScript standalone `handoff` CLI.
+`@sdl/handoff` owns directed Handoff Artifact vocabulary, Handoff Domain Core behavior, the curated Handoff Capability API, and the portable `sdl handoff ...` Command Face over Branch Memory storage.
 
 ## Language
 
@@ -57,9 +57,21 @@ A handoff listing across branches that groups Handoff Summaries by branch and ca
 *Avoid*: global registry, hidden index, remote branch scan.
 
 **Delete a Handoff**:
-The public CLI-only action that removes one named Handoff Artifact from the current handoff inventory by exact Handoff Slug.
+The public command-face action that removes one named Handoff Artifact from the current handoff inventory by exact Handoff Slug.
 *Avoid*: fuzzy pickup selection, archive, tombstone, soft delete, garbage collection.
 
 **Handoff Garbage Collection**:
 The explicit operation that previews or deletes Handoff Artifacts whose local branch is deleted.
 *Avoid*: automatic cleanup, archive, Objective Close.
+
+**Handoff Command Face**:
+The portable SDL command surface `sdl handoff list|pickup|create|delete|gc` for deterministic Handoff lifecycle operations.
+*Avoid*: standalone `handoff` binary as durable public surface, Pi-only lifecycle, raw Branch Memory as default UX.
+
+**Handoff Capability API**:
+The curated in-process `@sdl/handoff/api` surface consumed by SDL command leaves and Pi adapters for Handoff lifecycle behavior.
+*Avoid*: package-root imports for domain composition, Pi presentation/session launch behavior, raw storage recipes in consumers.
+
+**Handoff Domain Core**:
+Gateway-injected Handoff behavior for storage-compatible list, read/pickup, create, delete, and garbage-collection operations.
+*Avoid*: subprocess-only behavior, Pi UI/session continuation, hidden registries, alternate storage layout.

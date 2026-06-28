@@ -134,8 +134,10 @@ Cross-cutting rules:
 - `--dry-run` is a successful inspection: return `ok(...)` with the computed
   plan/impact, never `negative(...)`.
 
-Mirror existing conformance: `handoff delete` is Tier 2 (`--yes`/`-y`);
-`handoff gc`, `slot gc`, `brmem put` are Tier 3 (`--force`/`-f`).
+Mirror existing conformance: `sdl handoff delete` is Tier 2 (`--yes`;
+its missing `-y` is a cutover exception, not a pattern for new commands);
+`sdl handoff gc`, `slot gc`, `brmem put` are Tier 3 (`--force`; apply `-f`
+for new human-facing Tier 3 commands unless a steered exception says otherwise).
 
 ## Naming and exec placement
 

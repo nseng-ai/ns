@@ -141,10 +141,10 @@ export function buildHandoffLaunchPrompt(
 		"Compose the final Markdown handoff artifact content first, using the existing handoff-create workflow.",
 		`Call ${DERIVE_HANDOFF_SLUG_TOOL_NAME} with exactly that final Markdown content.`,
 		"Use the returned slug/key. Do not derive the entry name from the raw continuation focus.",
-		`Check for an existing artifact with \`brmem check <returned-key> --namespace ${HANDOFF_NAMESPACE} --branch ${request.branch}\`. If it exists, stop; do not overwrite and ${copy.abortClause}.`,
-		`If missing, store the exact final Markdown content directly through /dev/stdin with \`brmem put <returned-key> --namespace ${HANDOFF_NAMESPACE} --branch ${request.branch} --file /dev/stdin\`. Do not create a temporary artifact file.`,
+		`Store the exact final Markdown content through /dev/stdin with \`sdl handoff create --slug <returned-slug> --branch ${request.branch} --file /dev/stdin\`. Do not create a temporary artifact file.`,
+		`If \`sdl handoff create\` reports an existing artifact, stop; do not overwrite and ${copy.abortClause}.`,
 		options.toolCallInstruction ??
-			`After \`brmem put\` succeeds, call ${copy.toolName} with \`branch\` set to \`${request.branch}\` and \`slug\` set to the slug returned by ${DERIVE_HANDOFF_SLUG_TOOL_NAME}.`,
+			`After \`sdl handoff create\` succeeds, call ${copy.toolName} with \`branch\` set to \`${request.branch}\` and \`slug\` set to the slug returned by ${DERIVE_HANDOFF_SLUG_TOOL_NAME}.`,
 		`Do not call ${copy.toolName} before the handoff is saved successfully.`,
 		...(options.extraRequirements ?? []),
 	];

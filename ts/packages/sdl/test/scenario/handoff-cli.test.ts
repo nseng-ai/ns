@@ -31,6 +31,7 @@ describe("sdl handoff commands", () => {
 		expect(output).toContain("delete");
 		expect(output).toContain("gc");
 		expect(output).toContain("create");
+		expect(output).toContain("pickup");
 		expect(help.stderr.join("")).toBe("");
 	});
 
@@ -228,6 +229,109 @@ describe("sdl handoff commands", () => {
 		expect(
 			await getHandoffContent(brmem, { key: "file-alpha.md", branch: "feat/x" }),
 		).toBeUndefined();
+	});
+
+	test("handoff pickup returns content and metadata for the current branch", async () => {
+		const cwd = await createHandoffProject();
+		const brmem = new FakeBrmemGateway();
+		await putHandoffEntry(brmem, { key: "alpha.md", branch: "feat/x", content: "# Alpha\n" });
+		const git = new InMemoryGitGateway({ currentBranch: "feat/x", existingBranches: ["feat/x"] });
+
+		const run = runHandoffCli({
+			args: ["handoff", "pickup", "alpha", "--format", "json"],
+			cwd,
+			state: { extensions: handoffExtensionOverrides({ brmem, git }) },
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({
+			status: "ok",
+			data: {
+				namespace: "handoff",
+				branch: "feat/x",
+				slug: "alpha",
+				key: "alpha.md",
+				entry_locator: "refs/brmem/ns/handoff/feat---x:alpha.md",
+				content: "# Alpha\n",
+				summary: expect.objectContaining({
+					branch: "feat/x",
+					branch_state: "active",
+					slug: "alpha",
+				}),
+			},
+		});
+	});
+
+	test("handoff pickup reads an explicit branch", async () => {
+		const cwd = await createHandoffProject();
+		const brmem = new FakeBrmemGateway();
+		await putHandoffEntry(brmem, { key: "alpha.md", branch: "feat/x", content: "wrong" });
+		await putHandoffEntry(brmem, { key: "alpha.md", branch: "feat/y", content: "right" });
+		const git = new InMemoryGitGateway({
+			currentBranch: "feat/x",
+			existingBranches: ["feat/x", "feat/y"],
+		});
+
+		const run = runHandoffCli({
+			args: ["handoff", "pickup", "alpha", "--branch", "feat/y", "--format", "json"],
+			cwd,
+			state: { extensions: handoffExtensionOverrides({ brmem, git }) },
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({
+			status: "ok",
+			data: { branch: "feat/y", slug: "alpha", content: "right" },
+		});
+	});
+
+	test("handoff pickup reports usage, missing artifacts, and detached HEAD without mutation", async () => {
+		const cwd = await createHandoffProject();
+		const brmem = new FakeBrmemGateway();
+		await putHandoffEntry(brmem, { key: "alpha.md", branch: "feat/x", content: "alpha" });
+		const git = new InMemoryGitGateway({ currentBranch: "feat/x", existingBranches: ["feat/x"] });
+
+		const missingSlug = runHandoffCli({
+			args: ["handoff", "pickup", "--format", "json"],
+			cwd,
+			state: { extensions: handoffExtensionOverrides({ brmem, git }) },
+		});
+		expect(await missingSlug.exit).toBe(2);
+		expect(parseJsonOutput(missingSlug)).toMatchObject({ status: "usageError" });
+
+		const missingHandoff = runHandoffCli({
+			args: ["handoff", "pickup", "missing", "--format", "json"],
+			cwd,
+			state: { extensions: handoffExtensionOverrides({ brmem, git }) },
+		});
+		expect(await missingHandoff.exit).toBe(2);
+		expect(parseJsonOutput(missingHandoff)).toMatchObject({
+			status: "failure",
+			errorType: "handoff_not_found",
+		});
+		expect(await getHandoffContent(brmem, { key: "alpha.md", branch: "feat/x" })).toBe("alpha");
+
+		const detachedGit = new InMemoryGitGateway({ currentBranch: { type: "detached" } });
+		const detached = runHandoffCli({
+			args: ["handoff", "pickup", "alpha", "--format", "json"],
+			cwd,
+			state: { extensions: handoffExtensionOverrides({ brmem, git: detachedGit }) },
+		});
+		expect(await detached.exit).toBe(2);
+		expect(parseJsonOutput(detached)).toMatchObject({
+			status: "failure",
+			errorType: "detached_head",
+		});
+	});
+
+	test("handoff pickup publishes its JSON schema", async () => {
+		const cwd = await createHandoffProject();
+
+		const run = runHandoffCli({ args: ["handoff", "pickup", "--json-schema"], cwd });
+
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toHaveProperty("inputJsonSchema");
+		expect(run.stderr.join("")).toBe("");
 	});
 
 	test("handoff gc dry-run previews deletions and --force is required for mutation", async () => {

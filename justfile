@@ -82,13 +82,6 @@ install-roaster: (_install-ts-shim "roaster" "ts/packages/roaster/src/cli.ts" "j
 # inside an sdl checkout, this checkout's sources everywhere else.
 install-brmem: (_install-ts-shim "brmem" "ts/packages/infra/brmem/src/cli.ts" "just install-brmem or just install-tools")
 
-# Install the handoff shim to ~/.local/bin so `handoff` on PATH runs the
-# TypeScript CLI from source: the enclosing checkout's sources when invoked
-# inside an sdl checkout, this checkout's sources everywhere else.
-install-handoff: (_install-ts-shim "handoff" "ts/packages/handoff/src/cli.ts" "just install-handoff or just install-tools")
-    rm -f "{{justfile_directory()}}/.venv/bin/handoff"
-    @echo "removed stale project venv handoff script if present"
-
 # Install the areg shim to ~/.local/bin so `areg` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
 # inside an sdl checkout, this checkout's sources everywhere else.
@@ -141,8 +134,8 @@ refresh-skills: ts-install
     node {{justfile_directory()}}/ts/packages/tools/areg/src/cli.ts update-skills --path {{justfile_directory()}}
 
 # Install public tools via TypeScript source shims.
-install-tools: install-sdl install-brmem install-handoff install-areg
-    @echo "installed: sdl, brmem, handoff, and areg (TypeScript shims)"
+install-tools: install-sdl install-brmem install-areg
+    @echo "installed: sdl, brmem, and areg (TypeScript shims)"
 
 clean:
     rm -rf dist/*.whl dist/*.tar.gz

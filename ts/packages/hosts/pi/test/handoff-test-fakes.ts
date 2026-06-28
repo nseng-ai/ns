@@ -177,6 +177,14 @@ export function branchStep(branch = BRANCH): ScriptedExec {
 	return step("git", ["branch", "--show-current"], { stdout: `${branch}\n` });
 }
 
+export function branchPresenceStep(branch = BRANCH, exists = true): ScriptedExec {
+	return step("git", ["rev-parse", "--verify", `refs/heads/${branch}`], {
+		code: exists ? 0 : 1,
+		stdout: exists ? `refs/heads/${branch}\n` : "",
+		stderr: exists ? "" : "fatal: Needed a single revision\n",
+	});
+}
+
 export function checkStep(branch: string, key: string, exists: boolean): ScriptedExec {
 	const payload = {
 		status: "ok",
@@ -268,14 +276,14 @@ export function cmuxCreateSurfaceRefStep(): ScriptedExec {
 }
 
 export function listStep(branch: string, keys: string[]): ScriptedExec {
-	return step("handoff", ["list", "--branch", branch, "--format", "json"], {
-		stdout: listJson(keys, branch),
+	return step("brmem", ["list", "--namespace", "handoff", "--branch", branch, "--format", "json"], {
+		stdout: brmemListJson(keys, branch),
 	});
 }
 
 export function listAllStep(entries: Array<{ key: string; branch: string }>): ScriptedExec {
-	return step("handoff", ["list", "--all", "--format", "json"], {
-		stdout: listJson(entries, null),
+	return step("brmem", ["list", "--namespace", "handoff", "--all-branches", "--format", "json"], {
+		stdout: brmemListJson(entries, null),
 	});
 }
 

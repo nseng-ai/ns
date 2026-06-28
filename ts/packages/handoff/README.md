@@ -1,5 +1,15 @@
 # @sdl/handoff
 
-TypeScript implementation of the standalone `handoff` CLI for listing, deleting, and garbage-collecting directed Handoff Artifacts stored in Branch Memory.
+Handoff Capability package for directed Handoff Artifacts stored in Branch Memory.
 
-Create and pickup remain Pi/skill workflows; this package owns inventory and cleanup commands only.
+`@sdl/handoff` owns the Handoff Domain Core, the curated `@sdl/handoff/api` Capability API, and SDL command leaves exposed through the portable command face:
+
+```text
+sdl handoff list [--branch <branch>|--all] [--include-deleted]
+sdl handoff pickup [--branch <branch>] <slug>
+sdl handoff create --slug <slug> [--branch <branch>] [--file <path>]
+sdl handoff delete [--branch <branch>] [--yes] <slug>
+sdl handoff gc [--dry-run|--force]
+```
+
+Pi commands and skills remain presentation/authoring adapters over this capability; Branch Memory details are technical storage evidence, not the default user model.

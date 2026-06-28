@@ -20,11 +20,11 @@ Use this skill for the shared model the step skills assume, and for diagnostics,
 
 ## Admin operations
 
-Beyond create/pickup/list, the deterministic `handoff` CLI covers inventory and cleanup directly — these have no step skill:
+Beyond create/pickup/list, the deterministic `sdl handoff ...` command face covers inventory and cleanup directly — these have no step skill:
 
-- `handoff list [--branch <branch>|--all] [--include-deleted] --format json` — inventory.
-- `handoff delete [--branch <branch>] [-y|--yes] <slug>` — remove one exact-slug handoff (pass the slug without `.md`). CLI-only; there is no `/handoff:delete` Pi command.
-- `handoff gc [--dry-run|-f]` — clean up handoffs whose local branch is deleted.
+- `sdl handoff list [--branch <branch>|--all] [--include-deleted] --format json` — inventory.
+- `sdl handoff delete [--branch <branch>] [--yes] <slug>` — remove one exact-slug handoff (pass the slug without `.md`). CLI-only; there is no `/handoff:delete` Pi command.
+- `sdl handoff gc [--dry-run|--force]` — clean up handoffs whose local branch is deleted.
 
 See `references/diagnostics-admin.md` for copy/move, collision handling, and storage-layer (`brmem`) fallbacks.
 
@@ -40,7 +40,7 @@ See `references/diagnostics-admin.md` for copy/move, collision handling, and sto
 - Inspect before mutating.
 - Use handoff vocabulary first; mention Branch Memory locators only as technical evidence, diagnostics, or recovery detail.
 - Refuse collisions, overwrites, and destructive changes unless the user gives explicit replacement/destructive intent.
-- Prefer deterministic `handoff` CLI and Pi surfaces when they exist; use direct `brmem --namespace handoff` only as the storage/recovery/admin layer.
+- Prefer deterministic `sdl handoff ...` commands and Pi surfaces when they exist; use direct `brmem --namespace handoff` only as the storage/recovery/admin layer.
 - Verify stale artifacts against current repo state only after the user asks to proceed from the pickup summary.
 - Do not create nested keys, indexes, manifests, or old temp-directory handoff artifacts.
 

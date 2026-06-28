@@ -1,5 +1,3 @@
-import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE } from "@sdl/handoff/identity";
-
 import {
 	CREATE_HANDOFF_FALLBACK,
 	createHandoffStartMessage,
@@ -27,17 +25,16 @@ ${fencedBlock("text", focusText)}
 
 Treat this as an explicit request to run the handoff create workflow. The handoff must be directed toward the supplied continuation focus. Compose the final Markdown handoff artifact first, then derive a semantic slug from that final content unless the user explicitly supplied one. Avoid overwriting an existing artifact unless replacement was explicitly requested, and keep normal copy focused on creating/picking up a handoff.
 
-Before writing, confirm the branch unless the user explicitly named one, derive the slug from the final artifact content, and check for an existing key. Do not create a temporary Markdown file; store final Markdown directly through /dev/stdin:
+Before writing, confirm the branch unless the user explicitly named one and derive the slug from the final artifact content. Do not create a temporary Markdown file; store final Markdown directly through /dev/stdin with the Handoff command:
 
 ${fencedBlock(
 	"bash",
-	`brmem check <semantic-slug>${HANDOFF_KEY_SUFFIX} --namespace ${HANDOFF_NAMESPACE} --branch <branch>
-brmem put <semantic-slug>${HANDOFF_KEY_SUFFIX} --namespace ${HANDOFF_NAMESPACE} --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'
+	`sdl handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'
 <final Markdown handoff content>
 HANDOFF_EOF`,
 )}
 
-Report the created handoff first. Include Branch Memory details only as technical storage evidence.`;
+The command refuses existing artifacts by default; if it reports a collision, stop and ask before replacing anything. Report the created handoff first. Include Branch Memory details only as technical storage evidence.`;
 }
 
 export async function handleCreateHandoffCommand(

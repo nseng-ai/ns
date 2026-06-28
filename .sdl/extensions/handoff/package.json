@@ -21,6 +21,11 @@
 				"name": "create",
 				"description": "Create one handoff artifact from final Markdown supplied on stdin or with --file.",
 				"entry": "./src/commands/create.ts"
+			},
+			{
+				"name": "pickup",
+				"description": "Read one handoff artifact by exact slug.",
+				"entry": "./src/commands/pickup.ts"
 			}
 		]
 	}

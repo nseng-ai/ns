@@ -1,24 +1,23 @@
-import { formatCommand, type ExecResult } from "@sdl/core/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import {
 	HANDOFF_KEY_SUFFIX,
 	HANDOFF_NAMESPACE,
 	handoffKeyToSlug,
 	isHandoffKey,
-} from "@sdl/handoff/identity";
+	listHandoffSummaries,
+	readHandoffArtifact,
+	type HandoffSummary,
+} from "@sdl/handoff/api";
 
 import { isRecord } from "../runtime/primitives.ts";
 import {
-	BRMEM_TIMEOUT_MS,
-	HANDOFF_TIMEOUT_MS,
 	LIST_HANDOFF_COMMAND_NAME,
 	PICKUP_HANDOFF_COMMAND_NAME,
 	currentBranch,
 	fencedBlock,
-	formatExecFailure,
-	formatStartupFailure,
 	setStatus,
 } from "./shared.ts";
+import { createPiHandoffStorageDeps } from "./api-context.ts";
 import { HANDOFF_LIST_MESSAGE_TYPE, formatHandoffListPlain } from "./list-rendering.ts";
 import type { CommandContext, ExtensionAPI } from "./runtime-types.ts";
 import type {
@@ -526,30 +525,15 @@ async function listHandoffItems(
 	ctx: CommandContext,
 	options: { branch: string } | { allBranches: true },
 ): Promise<HandoffItemsLoadResult> {
-	const commandArgs =
-		"allBranches" in options
-			? ["list", "--all", "--format", "json"]
-			: ["list", "--branch", options.branch, "--format", "json"];
-	let result: ExecResult;
-	try {
-		result = await pi.exec("handoff", commandArgs, { cwd: ctx.cwd, timeout: HANDOFF_TIMEOUT_MS });
-	} catch (error) {
-		return {
-			type: "failed",
-			message: formatStartupFailure(formatCommand("handoff", commandArgs), error),
-		};
+	const deps = createPiHandoffStorageDeps(pi, ctx.cwd);
+	const summaries = await listHandoffSummaries(deps, {
+		...("allBranches" in options ? {} : { branch: options.branch }),
+		shouldIncludeDeleted: false,
+	});
+	if (summaries.type === "error") {
+		return { type: "failed", message: summaries.error.message };
 	}
-	if (result.code !== 0 || result.killed) {
-		return {
-			type: "failed",
-			message: formatExecFailure(formatCommand("handoff", commandArgs), result),
-		};
-	}
-	const parsedItems = parseHandoffItemsFromBrmemList(result.stdout);
-	if (parsedItems.type === "invalid") {
-		return { type: "failed", message: parsedItems.message };
-	}
-	return { type: "loaded", items: parsedItems.items };
+	return { type: "loaded", items: summaries.value.map(handoffSummaryToListItem) };
 }
 
 async function readHandoff(
@@ -558,17 +542,12 @@ async function readHandoff(
 	branch: string,
 	key: string,
 ): Promise<string> {
-	const commandArgs = ["get", key, "--namespace", HANDOFF_NAMESPACE, "--branch", branch];
-	let result: ExecResult;
-	try {
-		result = await pi.exec("brmem", commandArgs, { cwd: ctx.cwd, timeout: BRMEM_TIMEOUT_MS });
-	} catch (error) {
-		throw new Error(formatStartupFailure(formatCommand("brmem", commandArgs), error));
+	const deps = createPiHandoffStorageDeps(pi, ctx.cwd);
+	const result = await readHandoffArtifact(deps, { branch, slug: handoffKeyToSlug(key) });
+	if (result.type === "error") {
+		throw new Error(result.error.message);
 	}
-	if (result.code !== 0 || result.killed) {
-		throw new Error(formatExecFailure(formatCommand("brmem", commandArgs), result));
-	}
-	return result.stdout;
+	return result.value.content;
 }
 
 async function chooseHandoff(
@@ -610,6 +589,10 @@ async function previewHandoffItems(
 		}
 	}
 	return previewedItems;
+}
+
+function handoffSummaryToListItem(summary: HandoffSummary): HandoffListItem {
+	return { branch: summary.branch, key: summary.key, slug: summary.slug };
 }
 
 function itemsForKeys(items: HandoffListItem[], keys: string[]): HandoffListItem[] {

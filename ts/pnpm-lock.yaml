@@ -305,6 +305,9 @@ importers:
       '@sdl/branch-context':
         specifier: workspace:*
         version: link:../../branch-context
+      '@sdl/brmem':
+        specifier: workspace:*
+        version: link:../../infra/brmem
       '@sdl/cmux':
         specifier: workspace:*
         version: link:../../cmux

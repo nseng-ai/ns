@@ -43,9 +43,11 @@ flags with these distinct meanings.
 
 From the `clinkr-confirmation-danger-tiers` subobjective (ADR 0014 conformance):
 
-- `handoff delete` — Tier 2, `--yes`/`-y`.
-- `handoff gc`, `slot gc` — Tier 3, `--force`/`-f`.
-- All three fail fast non-interactively with `usageError` data naming the flag.
+- `sdl handoff delete` — Tier 2, `--yes`; its missing `-y` is a cutover
+  exception, not a pattern for new commands.
+- `sdl handoff gc`, `slot gc` — Tier 3, `--force`; apply `-f` for new
+  human-facing Tier 3 commands unless a steered exception says otherwise.
+- These examples fail fast non-interactively with `usageError` data naming the flag.
 - `brmem put` remains a `failure(...)` precondition override; dry-runs remain
   `ok(...)`; typed `--confirm` phrases stay parked until a concrete command needs
   one.

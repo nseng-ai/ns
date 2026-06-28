@@ -101,9 +101,11 @@ describe("handoff-tab extension", () => {
 			expect(prompt).toContain("derive_handoff_slug_from_content");
 			expect(prompt).not.toContain("finish-handoff-tab-implementation.md");
 			expect(prompt).toContain("Do not derive the entry name from the raw continuation focus.");
-			expect(prompt).toContain(`brmem check <returned-key> --namespace handoff --branch ${BRANCH}`);
 			expect(prompt).toContain(
-				"After `brmem put` succeeds, call handoff_tab_launch with `branch` set",
+				`sdl handoff create --slug <returned-slug> --branch ${BRANCH} --file /dev/stdin`,
+			);
+			expect(prompt).toContain(
+				"After `sdl handoff create` succeeds, call handoff_tab_launch with `branch` set",
 			);
 			expect(prompt).toContain(`/handoff:pickup --branch ${BRANCH} <returned-slug>`);
 		});
@@ -126,10 +128,8 @@ describe("handoff-tab extension", () => {
 		]);
 		expect(result.pi.sentUserMessages).toHaveLength(1);
 		const prompt = result.pi.sentUserMessages[0] ?? "";
-		expect(prompt).toContain(
-			"Check for an existing artifact with `brmem check <returned-key> --namespace handoff",
-		);
-		expect(prompt).toContain("If it exists, stop; do not overwrite and do not open a cmux tab.");
+		expect(prompt).toContain("If `sdl handoff create` reports an existing artifact");
+		expect(prompt).toContain("do not overwrite and do not open a cmux tab.");
 	});
 
 	test("handoff-tab command fails clearly outside cmux before create prompt", async () => {
@@ -653,9 +653,11 @@ describe("handoff-tab pure helpers", () => {
 			"- Entry: derive from the final Markdown handoff content with derive_handoff_slug_from_content",
 		);
 		expect(prompt).toContain("Do not derive the entry name from the raw continuation focus.");
-		expect(prompt).toContain("If it exists, stop; do not overwrite and do not open a cmux tab.");
 		expect(prompt).toContain(
-			"After `brmem put` succeeds, call handoff_tab_launch with `branch` set",
+			"If `sdl handoff create` reports an existing artifact, stop; do not overwrite and do not open a cmux tab.",
+		);
+		expect(prompt).toContain(
+			"After `sdl handoff create` succeeds, call handoff_tab_launch with `branch` set",
 		);
 		expect(prompt).toContain("`slug` set to the slug returned by derive_handoff_slug_from_content");
 		expect(prompt).toContain(`/handoff:pickup --branch ${BRANCH} <returned-slug>`);

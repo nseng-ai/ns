@@ -4,7 +4,7 @@ disable-model-invocation: true
 description: "Pick up, choose, or list handoff artifacts, present a handoff summary, and wait for user direction. Use when the user says pick up handoff, resume handoff, continue from handoff, choose a handoff, or list handoffs; use brmem only as storage/recovery machinery."
 allowed-tools:
   - "Bash(git branch *)"
-  - "Bash(handoff *)"
+  - "Bash(sdl handoff *)"
   - "Bash(brmem *)"
 ---
 
@@ -41,25 +41,25 @@ Stop if the repo is in detached HEAD and the user did not provide a branch. If t
 Current branch:
 
 ```bash
-handoff list --format json
+sdl handoff list --format json
 ```
 
 Explicit branch:
 
 ```bash
-handoff list --branch <branch> --format json
+sdl handoff list --branch <branch> --format json
 ```
 
 All active local branches:
 
 ```bash
-handoff list --all --format json
+sdl handoff list --all --format json
 ```
 
 All branch states, including deleted local branches:
 
 ```bash
-handoff list --all --include-deleted --format json
+sdl handoff list --all --include-deleted --format json
 ```
 
 Use `--include-deleted` for recovery, cleanup, or when the user explicitly asks for deleted or stale branch handoffs.
@@ -84,7 +84,7 @@ or, when using `--include-deleted`:
 No handoffs found across branches.
 ```
 
-For explicit removal of one stale or unneeded handoff, use `handoff delete [--branch <branch>] <slug>` with the user-facing slug (no `.md`). Use `handoff gc` for bulk cleanup of handoffs on deleted local branches. Use raw `brmem delete` only for storage diagnostics/recovery.
+For explicit removal of one stale or unneeded handoff, use `sdl handoff delete [--branch <branch>] [--yes] <slug>` with the user-facing slug (no `.md`). Use `sdl handoff gc` for bulk cleanup of handoffs on deleted local branches. Use raw `brmem delete` only for storage diagnostics/recovery.
 
 ## Select the handoff
 
@@ -116,13 +116,13 @@ Which handoff should I pick up?
 
 ## Read and present summary
 
-Read the selected artifact:
+Read the selected artifact through the portable command face:
 
 ```bash
-brmem get <semantic-slug>.md --namespace handoff --branch <branch>
+sdl handoff pickup <semantic-slug> --branch <branch> --format json
 ```
 
-Treat the handoff content as active context for summarization. Present a concise handoff summary, then stop and wait for the user's explicit instruction before running commands, editing files, or continuing implementation.
+Use the JSON envelope's `data.content` as active context for summarization, with `data.branch`, `data.slug`, `data.key`, `data.entry_locator`, and `data.summary` as technical evidence. Present a concise handoff summary, then stop and wait for the user's explicit instruction before running commands, editing files, or continuing implementation. Use raw `brmem get <semantic-slug>.md --namespace handoff --branch <branch>` only for storage diagnostics/recovery.
 
 Report in handoff vocabulary first:
 

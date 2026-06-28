@@ -101,3 +101,13 @@ No open question should block `objective-stack-impl` from continuing through the
 - Create slug default: require explicit validated `--slug` for `sdl handoff create`; content-derived/model-derived slugging remains a Pi/skill authoring responsibility unless a later explicit decision adds a deterministic API helper.
 - Call-site inventory default: start from `updates/2026-06-27T230253Z-handoff-surface-inventory-baseline.md`, then rerun source searches before Pi adapter migration and standalone CLI removal.
 - Standalone cutover evidence default: require passing SDL command scenario tests for all five leaves, Handoff storage compatibility tests, Pi adapter tests where touched, docs/skill updates, and import/search evidence that no durable public call site still depends on the standalone binary.
+
+## Closure
+
+Closed as completed. The Handoff capability migration now has its durable command face, domain boundary, and cutover evidence in place: `@sdl/handoff/api` is the curated Capability API; Handoff lifecycle behavior for list/read/create/delete/gc and deleted-branch garbage collection is gateway-injected and fake-backed; `sdl handoff list`, `sdl handoff delete`, `sdl handoff gc`, `sdl handoff create`, and `sdl handoff pickup` are present as the portable grouped SDL command face; and Pi Handoff adapters keep their public names while delegating deterministic storage, inventory, read, and admin behavior to Handoff-owned API/core seams.
+
+Key completion evidence is recorded in `updates/2026-06-28T013500Z-standalone-cutover-pr3.md`: the standalone `handoff` binary/shim and obsolete standalone CLI tests were removed after call-site inventory; active docs, skills, Pi metadata, and Handoff context/README surfaces were migrated to `sdl handoff ...`; and validation covered TypeScript dependency/format/type/guard checks plus targeted Handoff, SDL Handoff command, and Pi adapter tests.
+
+The closure preserves the Objective's compatibility constraints: the Branch Memory namespace remains `handoff`, keys remain flat `<slug>.md`, slug validation and branch-scoped storage remain unchanged, deleted-branch GC semantics remain intentional, and `sdl handoff pickup` stays mechanical selection/read/metadata rather than automatic continuation. Parked items remain out of scope for this completed child Objective: dynamic arbitrary Pi mirrors, extension-owned skill/resource installation, automatic pickup continuation, storage-layout changes, and unrelated capability migrations.
+
+Parent Objective `sdl-extension-architecture` already records Handoff as materially completed in Phase 2 step 4; if future parent tracking needs stricter child-closure evidence, record a parent Semantic Update rather than reopening this child.

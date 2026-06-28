@@ -5,6 +5,7 @@ description: "Create a directed handoff artifact for a future continuation. Use 
 allowed-tools:
   - "Bash(git branch *)"
   - "Bash(git status *)"
+  - "Bash(sdl handoff *)"
   - "Bash(brmem *)"
 ---
 
@@ -91,27 +92,17 @@ Do not create hidden temp/draft files for handoff-create. If the user needs revi
 
 ## Store safely
 
-Before writing, check for an existing artifact:
+Store the final artifact directly through the portable SDL command face without an intermediate file. Use a quoted here-doc delimiter that does not appear in the handoff content:
 
 ```bash
-brmem check <semantic-slug>.md --namespace handoff --branch <branch>
-```
-
-Interpret the result:
-
-- Exit `0`: an artifact already exists. Stop unless the user explicitly asked to replace it.
-- Exit `1`: no artifact exists. Continue.
-- Exit `2`: the request is invalid or the command failed. Surface the error and stop.
-
-Store the final artifact directly from stdin without an intermediate file. Use a quoted here-doc delimiter that does not appear in the handoff content:
-
-```bash
-brmem put <semantic-slug>.md --namespace handoff --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'
+sdl handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'
 <final Markdown handoff content>
 HANDOFF_EOF
 ```
 
-Only overwrite when replacement intent is explicit, then use the same `brmem put` command.
+`sdl handoff create` refuses an existing artifact by default. If it reports a collision, stop unless the user explicitly asked to replace it. Do not fall back to raw Branch Memory for normal creation.
+
+Raw `brmem` is recovery-only. If `sdl handoff create` is unavailable or a storage-layer diagnostic requires it, preflight with `brmem check <semantic-slug>.md --namespace handoff --branch <branch>`, then use `brmem put <semantic-slug>.md --namespace handoff --branch <branch> --file /dev/stdin` only after preserving the same collision safety.
 
 ## Report and route follow-up
 

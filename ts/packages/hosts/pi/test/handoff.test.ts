@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+
 import { describe, expect, test } from "vitest";
 
 import handoffExtension, {
@@ -20,7 +22,7 @@ import handoffExtension, {
 import {
 	BRANCH,
 	FakePi,
-	ROOT,
+	branchPresenceStep,
 	branchStep,
 	brmemListJson,
 	getStep,
@@ -131,11 +133,9 @@ describe("handoff extension", () => {
 		expect(result.pi.sentUserMessages[0]).toContain("Storage contract:");
 		expect(result.pi.sentUserMessages[0]).toContain("Namespace: `handoff`");
 		expect(result.pi.sentUserMessages[0]).toContain(
-			"brmem check <semantic-slug>.md --namespace handoff --branch <branch>",
+			"sdl handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin",
 		);
-		expect(result.pi.sentUserMessages[0]).toContain(
-			"brmem put <semantic-slug>.md --namespace handoff --branch <branch> --file /dev/stdin",
-		);
+		expect(result.pi.sentUserMessages[0]).toContain("Branch Memory recovery path");
 		expect(result.pi.sentUserMessages[0]).toContain("do not create a temporary artifact file");
 		expect(result.pi.sentUserMessages[0]).toContain("HANDOFF_EOF");
 		expect(result.pi.sentUserMessages[0]).toContain("handoff focus");
@@ -197,27 +197,24 @@ describe("handoff extension", () => {
 		const result = await runCommand("handoff:pickup", "continue-tests", [
 			branchStep(),
 			listStep(BRANCH, ["continue-tests.md"]),
+			branchPresenceStep(BRANCH),
+			listStep(BRANCH, ["continue-tests.md"]),
+			branchPresenceStep(BRANCH),
 			getStep(BRANCH, "continue-tests.md", artifact),
 		]);
 
 		result.pi.assertDone();
-		expect(result.pi.execCalls).toEqual([
-			{
-				command: "git",
-				args: ["branch", "--show-current"],
-				options: { cwd: ROOT, timeout: 10_000 },
-			},
-			{
-				command: "handoff",
-				args: ["list", "--branch", BRANCH, "--format", "json"],
-				options: { cwd: ROOT, timeout: 30_000 },
-			},
-			{
+		expect(result.pi.execCalls[0]).toMatchObject({
+			command: "git",
+			args: ["branch", "--show-current"],
+		});
+		expect(result.pi.execCalls).toContainEqual(
+			expect.objectContaining({
 				command: "brmem",
-				args: ["get", "continue-tests.md", "--namespace", "handoff", "--branch", BRANCH],
-				options: { cwd: ROOT, timeout: 30_000 },
-			},
-		]);
+				args: ["list", "--namespace", "handoff", "--branch", BRANCH, "--format", "json"],
+			}),
+		);
+		expect(result.pi.execCalls.some((call) => call.command === "handoff")).toBe(false);
 		expect(result.selections).toEqual([]);
 		expect(result.notifications.at(-1)).toEqual({
 			message: `Picked up handoff continue-tests from branch ${BRANCH}.`,
@@ -236,11 +233,20 @@ describe("handoff extension", () => {
 	test("pickup command uses an explicit branch and key without reading current branch", async () => {
 		const result = await runCommand("handoff:pickup", "--branch other/branch foo.md", [
 			listStep("other/branch", ["foo.md"]),
+			branchPresenceStep("other/branch"),
+			listStep("other/branch", ["foo.md"]),
+			branchPresenceStep("other/branch"),
 			getStep("other/branch", "foo.md", "# Handoff"),
 		]);
 
 		result.pi.assertDone();
-		expect(result.pi.execCalls.map((call) => call.command)).toEqual(["handoff", "brmem"]);
+		expect(result.pi.execCalls.map((call) => call.command)).toEqual([
+			"brmem",
+			"git",
+			"brmem",
+			"git",
+			"brmem",
+		]);
 		expect(result.pi.sentUserMessages[0]).toContain("Branch: other/branch");
 		expect(result.pi.sentUserMessages[0]).toContain("Entry: foo.md");
 	});
@@ -252,8 +258,15 @@ describe("handoff extension", () => {
 			[
 				branchStep(),
 				listStep(BRANCH, ["alpha.md", "bravo.md"]),
+				branchPresenceStep(BRANCH),
+				listStep(BRANCH, ["alpha.md", "bravo.md"]),
+				branchPresenceStep(BRANCH),
 				getStep(BRANCH, "alpha.md", "Continuation focus: Alpha next step\n"),
+				listStep(BRANCH, ["alpha.md", "bravo.md"]),
+				branchPresenceStep(BRANCH),
 				getStep(BRANCH, "bravo.md", "# Bravo title\n\nBody"),
+				listStep(BRANCH, ["alpha.md", "bravo.md"]),
+				branchPresenceStep(BRANCH),
 				getStep(BRANCH, "bravo.md", "# Bravo title\n\nBody"),
 			],
 			{ selectIndex: 1 },
@@ -273,7 +286,7 @@ describe("handoff extension", () => {
 		const result = await runCommand(
 			"handoff:pickup",
 			"",
-			[branchStep(), listStep(BRANCH, ["alpha.md", "bravo.md"])],
+			[branchStep(), listStep(BRANCH, ["alpha.md", "bravo.md"]), branchPresenceStep(BRANCH)],
 			{ hasUI: false },
 		);
 
@@ -291,6 +304,9 @@ describe("handoff extension", () => {
 		const result = await runCommand("handoff:list", "", [
 			branchStep(),
 			listStep(BRANCH, ["address-review-feedback.md"]),
+			branchPresenceStep(BRANCH),
+			listStep(BRANCH, ["address-review-feedback.md"]),
+			branchPresenceStep(BRANCH),
 			getStep(
 				BRANCH,
 				"address-review-feedback.md",
@@ -299,14 +315,17 @@ describe("handoff extension", () => {
 		]);
 
 		result.pi.assertDone();
-		expect(result.pi.execCalls.map((call) => [call.command, call.args])).toEqual([
-			["git", ["branch", "--show-current"]],
-			["handoff", ["list", "--branch", BRANCH, "--format", "json"]],
-			[
-				"brmem",
-				["get", "address-review-feedback.md", "--namespace", "handoff", "--branch", BRANCH],
-			],
-		]);
+		expect(result.pi.execCalls[0]).toMatchObject({
+			command: "git",
+			args: ["branch", "--show-current"],
+		});
+		expect(result.pi.execCalls).toContainEqual(
+			expect.objectContaining({
+				command: "brmem",
+				args: ["list", "--namespace", "handoff", "--branch", BRANCH, "--format", "json"],
+			}),
+		);
+		expect(result.pi.execCalls.some((call) => call.command === "handoff")).toBe(false);
 		expect(result.notifications).toEqual([]);
 		expect(result.pi.sentMessages).toHaveLength(1);
 
@@ -347,12 +366,28 @@ describe("handoff extension", () => {
 				{ key: "alpha.md", branch: "feat/a" },
 				{ key: "bravo.md", branch: "feat/b" },
 			]),
+			branchPresenceStep("feat/a"),
+			branchPresenceStep("feat/b"),
+			listStep("feat/a", ["alpha.md"]),
+			branchPresenceStep("feat/a"),
 			getStep("feat/a", "alpha.md", "# Alpha handoff\n"),
+			listStep("feat/b", ["bravo.md"]),
+			branchPresenceStep("feat/b"),
 			getStep("feat/b", "bravo.md", "Continuation focus: Bravo work\n"),
 		]);
 
 		result.pi.assertDone();
-		expect(result.pi.execCalls.map((call) => call.command)).toEqual(["handoff", "brmem", "brmem"]);
+		expect(result.pi.execCalls.map((call) => call.command)).toEqual([
+			"brmem",
+			"git",
+			"git",
+			"brmem",
+			"git",
+			"brmem",
+			"brmem",
+			"git",
+			"brmem",
+		]);
 		expect(result.notifications).toEqual([]);
 		expect(result.pi.sentMessages).toHaveLength(1);
 
@@ -385,6 +420,9 @@ describe("handoff extension", () => {
 			[
 				branchStep(),
 				listStep(BRANCH, ["address-review-feedback.md"]),
+				branchPresenceStep(BRANCH),
+				listStep(BRANCH, ["address-review-feedback.md"]),
+				branchPresenceStep(BRANCH),
 				getStep(
 					BRANCH,
 					"address-review-feedback.md",
@@ -470,6 +508,18 @@ describe("handoff pure helpers", () => {
 		);
 	});
 
+	test("pickup-list adapter calls Handoff API instead of standalone handoff or raw brmem get", async () => {
+		const source = await readFile(
+			new URL("../src/handoff/pickup-list.ts", import.meta.url),
+			"utf8",
+		);
+
+		expect(source).toContain("listHandoffSummaries");
+		expect(source).toContain("readHandoffArtifact");
+		expect(source).not.toContain('pi.exec("handoff"');
+		expect(source).not.toContain('["get", key, "--namespace"');
+	});
+
 	test("filters brmem list output to flat handoff markdown keys", () => {
 		expect(
 			parseHandoffKeysFromBrmemList(
@@ -526,11 +576,9 @@ describe("handoff pure helpers", () => {
 		expect(prompt).toContain("Storage contract:");
 		expect(prompt).toContain("ship the frontend command");
 		expect(prompt).toContain(
-			"brmem check <semantic-slug>.md --namespace handoff --branch <branch>",
+			"sdl handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin",
 		);
-		expect(prompt).toContain(
-			"brmem put <semantic-slug>.md --namespace handoff --branch <branch> --file /dev/stdin",
-		);
+		expect(prompt).toContain("refuses existing artifacts by default");
 		expect(prompt).toContain("HANDOFF_EOF");
 		expect(prompt).not.toContain("--file <artifact.md>");
 		expect(prompt).not.toContain("Create a temporary Markdown file");
