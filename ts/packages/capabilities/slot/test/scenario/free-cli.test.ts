@@ -92,7 +92,7 @@ describe("slot free CLI", () => {
 		expect(run.git.operations()).toEqual([]);
 	});
 
-	it("requires --yes for destructive --all in JSON mode", async () => {
+	it("requires --yes for destructive --all when non-interactive", async () => {
 		const run = runScenario(["free", "--wt", "slot-01", "--all", "--format", "json"], {
 			git: {
 				worktrees: [slotWorktree("slot-01", "feature/a")],
@@ -101,7 +101,11 @@ describe("slot free CLI", () => {
 			pr: { prsByBranch: { "feature/a": { number: 12, state: "OPEN" } } },
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ errorType: "confirmation_required" });
+		expect(parseJsonOutput(run)).toMatchObject({
+			status: "usageError",
+			errorType: "usageError",
+			data: { missingFlag: "--yes" },
+		});
 		expect(run.git.operations()).toEqual([]);
 	});
 

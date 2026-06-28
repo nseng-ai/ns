@@ -1,3 +1,4 @@
+import { createFakeClinkrInteraction } from "@sdl/clinkr/testing";
 import { InMemoryGitGateway } from "@sdl/core/git/testing";
 import { describe, expect, test } from "vitest";
 
@@ -259,6 +260,7 @@ function skillxContext(workspace: FakeAregSkillxWorkspaceGateway): AregCliContex
 		git: new InMemoryGitGateway(),
 		npxSkills: new FakeAregNpxSkillsGateway(),
 		prompt: new FakeAregPromptGateway(),
+		interaction: createFakeClinkrInteraction().interaction,
 		cwd: "/repo",
 		env: { PATH: "/fake/bin" },
 	};

@@ -34,7 +34,7 @@ export const claimRequestSchema = z.object({
 		.describe("Package description. Defaults to a generic claim description."),
 	version: z.string().default(DEFAULT_CLAIM_VERSION).describe("Version to publish."),
 	dryRun: z.boolean().optional().describe("Show planned operations without effects."),
-	skipConfirmation: z.boolean().optional().describe("Skip confirmation prompt."),
+	yes: z.boolean().default(false).describe("Confirm real package publishing without prompting."),
 	skipCheck: z.boolean().optional().describe("Skip registry availability pre-check."),
 });
 
@@ -120,17 +120,22 @@ export async function runClaimCommand(options: {
 		io.stderr(`${toolsError}\n`);
 		return 2;
 	}
-	if (
-		!(request.skipConfirmation === true) &&
-		!(await confirmRealPublish({
-			registryLabel: policy.label,
-			packageName: request.name,
-			version: request.version,
-			io,
-			interaction,
-		}))
-	) {
-		return 1;
+	if (request.yes !== true) {
+		if (!interaction.isInteractive()) {
+			io.stderr("Publishing a real package requires --yes (or -y) when non-interactive.\n");
+			return 2;
+		}
+		if (
+			!(await confirmRealPublish({
+				registryLabel: policy.label,
+				packageName: request.name,
+				version: request.version,
+				io,
+				interaction,
+			}))
+		) {
+			return 1;
+		}
 	}
 	const projectDir = mkdtempSync(join(tmpdir(), policy.tempDirPrefix));
 	try {

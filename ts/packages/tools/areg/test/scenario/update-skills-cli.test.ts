@@ -1,3 +1,4 @@
+import { createFakeClinkrInteraction } from "@sdl/clinkr/testing";
 import { InMemoryGitGateway } from "@sdl/core/git/testing";
 import { describe, expect, test } from "vitest";
 
@@ -55,6 +56,7 @@ function runUpdate(args: readonly string[], options: UpdateHarnessOptions = {}):
 		git: new InMemoryGitGateway(),
 		npxSkills,
 		prompt: new FakeAregPromptGateway(),
+		interaction: createFakeClinkrInteraction().interaction,
 		cwd: "/repo",
 		env: { PATH: "/fake/bin" },
 	};

@@ -52,6 +52,7 @@ const entry = defineCli<BrmemCliContext, CliDeps, undefined>({
 			env: deps.env ?? context.env,
 			stdin: deps.stdin ?? context.stdin,
 			sourceReader: deps.sourceReader ?? context.sourceReader,
+			interaction: deps.interaction ?? context.interaction,
 		};
 		return { type: "run", context: runContext, buildState: undefined };
 	},
@@ -80,6 +81,7 @@ const entry = defineCli<BrmemCliContext, CliDeps, undefined>({
 			description: "Delete a Branch Memory Entry.",
 			schema: deleteRequestSchema,
 			positionals: { key: { position: 0 } },
+			options: { yes: { short: "-y" } },
 			resultSchema: deleteResultSchema,
 			handler: runDelete,
 			renderHuman: renderDelete,
@@ -152,6 +154,7 @@ export interface CliDeps {
 	env?: NodeJS.ProcessEnv | undefined;
 	stdin?: (() => Promise<string>) | undefined;
 	sourceReader?: BrmemSourceReader | undefined;
+	interaction?: BrmemCliContext["interaction"] | undefined;
 	stdout?: ((text: string) => void) | undefined;
 	stderr?: ((text: string) => void) | undefined;
 }

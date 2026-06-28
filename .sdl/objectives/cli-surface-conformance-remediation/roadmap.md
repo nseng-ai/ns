@@ -10,12 +10,12 @@
 
 - [~] **Current-source reconciliation before remediation:** remap audit rows from historical package/file locators to current tracked locations and reclassify rows whose code changed after the audit. Verified drift includes package topology moves into `tools/`, `infra/`, `capabilities/`, `hosts/`, `@sdl/kernel`, and `@sdl/address`; Aretro also now has SDL extension command-face wiring plus `maxSessions`/payload-mode behavior that must be checked before applying the old area (b) row.
 
-- [ ] **Area (a) — danger-tier safety remediation (land-now after current-source check).** Add or correct confirmation gating only for unblocked human-facing destructive/user-environment commands. Keep hidden `exec` destructive/external writes prompt-free under ADR 0015 #2. Current probes still show representative open gaps:
-  - `brmem delete`: no `--yes`/`-y` in `ts/packages/infra/brmem/src/operations/delete.ts` / CLI registration.
-  - `sdl shell install`: installs a marker block through `ts/packages/kernel/src/operations/shell.ts` with no confirm option.
-  - `areg init` and `areg skill apply`: expose `yes`, but prompt through the private prompt gateway rather than a verified non-interactive `usageError` path.
-  - `packagechk claim-pypi`/`claim-npm`: still uses `skipConfirmation` in `ts/packages/tools/packagechk/src/claim-command.ts`; rename/compatibility policy needs implementation.
-  - `slot free --all`: still keys confirmation behavior on `ctx.shouldWriteCdDirective` and emits `confirmation_required` failure in `ts/packages/capabilities/slot/src/operations/free.ts`.
+- [x] **Area (a) — danger-tier safety remediation (landed for currently listed human-facing gaps).** Human-facing destructive/user-environment commands now use canonical confirmation behavior, while hidden `exec` destructive/external writes remain prompt-free under ADR 0015 #2. Landed evidence:
+  - `brmem delete`: added `--yes`/`-y`, `ClinkrInteraction` plumbing, non-interactive `usageError` with `missingFlag: "--yes"`, interactive confirm/decline/abort handling, and explicit cancelled result data.
+  - `sdl shell install`: added `--yes`/`-y`, Tier 2 gating before rc-file writes, and cancelled result data for declined prompts.
+  - `areg init` and `areg skill apply`: migrated the in-scope confirmation seams from the private prompt gateway to `ClinkrInteraction`, with non-interactive `usageError` and `--yes`/`-y` bypasses.
+  - `packagechk claim-pypi`/`claim-npm`: replaced `--skip-confirmation` with canonical `--yes`/`-y`; raw-exit mode now returns exit 2 and stderr naming `--yes` when non-interactive confirmation is missing.
+  - `slot free --all`: replaced `ctx.shouldWriteCdDirective` authorization with `requireInteractiveOrUsageError(repoCtx.interaction, ...)` while preserving presentation/progress coupling for human output.
 
 - [ ] **Area (d) — exit-semantics remediation.** Re-verify the flagged commands against current source, then apply the decision table: requested-target/action miss → `negative`; bad/missing arg → `usageError`; operational error → `failure`; harmless empty/predicate miss → `ok`. Do not carry old path evidence forward without a fresh probe.
 

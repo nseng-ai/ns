@@ -1,6 +1,13 @@
 import path from "node:path";
 
-import { failure, ok, negative, type ClinkrExit } from "@sdl/clinkr";
+import {
+	failure,
+	ok,
+	negative,
+	requireInteractiveOrUsageError,
+	usageError,
+	type ClinkrExit,
+} from "@sdl/clinkr";
 import { managedRegionBounds } from "@sdl/core/managed-region";
 import { resultErr, type Result } from "@sdl/core/result";
 import { z } from "zod";
@@ -195,7 +202,17 @@ export async function runInit(
 		yes: request.yes,
 		noAppend,
 	});
-	if (!planResult.ok) return failure("write_plan_failed", planResult.error.message);
+	if (!planResult.ok) {
+		if (planResult.error.code === "confirmation_required") {
+			return usageError(planResult.error.message, {
+				missingFlag: "--yes",
+				howToSupply:
+					"Pass --yes (or -y) to approve managed instruction block changes without prompting.",
+			});
+		}
+		if (planResult.error.code === "aborted") return failure("aborted", "Aborted!");
+		return failure("write_plan_failed", planResult.error.message);
+	}
 	const textPlan = planResult.value;
 
 	const preflight = await applyProjectMutationPlan({
@@ -452,14 +469,15 @@ async function planManagedBlock(
 					reason: "--no-append skips existing file without managed block",
 				},
 			};
-		if (
-			!input.yes &&
-			!(await ctx.prompt.confirm({ message: input.appendPrompt, defaultValue: false }))
-		) {
-			return {
-				ok: true,
-				value: { path: input.path, reason: "user declined adding managed block" },
-			};
+		if (!input.yes) {
+			const confirmation = await confirmManagedBlockChange(ctx, input.appendPrompt);
+			if (confirmation.type === "error") return resultErr(confirmation.error);
+			if (confirmation.type === "declined") {
+				return {
+					ok: true,
+					value: { path: input.path, reason: "user declined adding managed block" },
+				};
+			}
 		}
 		return {
 			ok: true,
@@ -474,14 +492,15 @@ async function planManagedBlock(
 			ok: true,
 			value: { path: input.path, reason: "--no-append skips existing managed block replacement" },
 		};
-	if (
-		!input.yes &&
-		!(await ctx.prompt.confirm({ message: input.updatePrompt, defaultValue: false }))
-	) {
-		return {
-			ok: true,
-			value: { path: input.path, reason: "user declined replacing managed block" },
-		};
+	if (!input.yes) {
+		const confirmation = await confirmManagedBlockChange(ctx, input.updatePrompt);
+		if (confirmation.type === "error") return resultErr(confirmation.error);
+		if (confirmation.type === "declined") {
+			return {
+				ok: true,
+				value: { path: input.path, reason: "user declined replacing managed block" },
+			};
+		}
 	}
 	return {
 		ok: true,
@@ -491,6 +510,36 @@ async function planManagedBlock(
 			input.path,
 		),
 	};
+}
+
+async function confirmManagedBlockChange(
+	ctx: AregCliContext,
+	message: string,
+): Promise<
+	| { type: "confirmed" }
+	| { type: "declined" }
+	| { type: "error"; error: { code: string; message: string } }
+> {
+	const gate = requireInteractiveOrUsageError(ctx.interaction, {
+		message: "Changing areg-managed instruction blocks requires --yes when non-interactive.",
+		missingFlag: "--yes",
+		howToSupply:
+			"Pass --yes (or -y) to approve managed instruction block changes without prompting.",
+	});
+	if (gate) {
+		return {
+			type: "error",
+			error: {
+				code: "confirmation_required",
+				message: gate.message,
+			},
+		};
+	}
+	const confirmed = await ctx.interaction.confirm({ message, defaultAnswer: "no" });
+	if (confirmed.type === "aborted") {
+		return { type: "error", error: { code: "aborted", message: "Aborted!" } };
+	}
+	return confirmed.type === "confirmed" ? { type: "confirmed" } : { type: "declined" };
 }
 
 function contentWithoutManagedBlock(

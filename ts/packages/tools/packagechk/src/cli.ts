@@ -59,6 +59,7 @@ const entry = defineCli<PackagechkCliContext, CliDeps, undefined>({
 				description: "Claim a PyPI package name by publishing a minimal placeholder package.",
 				schema: claimRequestSchema,
 				positionals: { name: { position: 0 } },
+				options: { yes: { short: "-y" } },
 				run: async (ctx, request) =>
 					runClaimCommand({
 						request,
@@ -76,6 +77,7 @@ const entry = defineCli<PackagechkCliContext, CliDeps, undefined>({
 					"Claim an npm package name by publishing a minimal placeholder package. Requires `~/.npmrc` with a `_authToken` line (granular token with publish + bypass-2FA scopes) or equivalent auth picked up by `npm publish`.",
 				schema: claimRequestSchema,
 				positionals: { name: { position: 0 } },
+				options: { yes: { short: "-y" } },
 				run: async (ctx, request) =>
 					runClaimCommand({
 						request,

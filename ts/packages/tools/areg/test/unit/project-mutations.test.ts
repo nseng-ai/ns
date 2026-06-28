@@ -1,3 +1,4 @@
+import { createFakeClinkrInteraction } from "@sdl/clinkr/testing";
 import { InMemoryGitGateway } from "@sdl/core/git/testing";
 import { describe, expect, test } from "vitest";
 
@@ -21,6 +22,7 @@ function context(project: FakeAregProjectGateway): AregCliContext {
 		git: new InMemoryGitGateway(),
 		npxSkills: new FakeAregNpxSkillsGateway(),
 		prompt: new FakeAregPromptGateway(),
+		interaction: createFakeClinkrInteraction().interaction,
 		cwd: "/repo",
 		env: {},
 	};

@@ -32,13 +32,16 @@ describe("sdl shell CLI", () => {
 	it("installs idempotently without disturbing unrelated rc content", async () => {
 		const home = await makeHome();
 		await writeFile(join(home, ".zshrc"), "existing", "utf8");
-		const first = runScenario(["shell", "install", "--shell", "zsh", "--format", "json"], {
+		const first = runScenario(["shell", "install", "--shell", "zsh", "--yes", "--format", "json"], {
 			env: { HOME: home, PATH: "/fake/bin" },
 		});
 		expect(await first.exit).toBe(0);
-		const second = runScenario(["shell", "install", "--shell", "zsh", "--format", "json"], {
-			env: { HOME: home, PATH: "/fake/bin" },
-		});
+		const second = runScenario(
+			["shell", "install", "--shell", "zsh", "--yes", "--format", "json"],
+			{
+				env: { HOME: home, PATH: "/fake/bin" },
+			},
+		);
 		expect(await second.exit).toBe(0);
 		const rc = await readFile(join(home, ".zshrc"), "utf8");
 		expect(rc).toMatch(/^existing\n\n# >>> sdl shell integration >>>/);
@@ -46,6 +49,20 @@ describe("sdl shell CLI", () => {
 		expect(rc).toContain(sdlShellIntegrationEndMarker);
 		expect(countOccurrences(rc, sdlShellIntegrationBeginMarker)).toBe(1);
 		expect(second.stdout.join("")).toContain('"is_already_installed": true');
+	});
+
+	it("requires --yes before non-interactive install", async () => {
+		const home = await makeHome();
+		await writeFile(join(home, ".zshrc"), "existing", "utf8");
+		const run = runScenario(["shell", "install", "--shell", "zsh", "--format", "json"], {
+			env: { HOME: home, PATH: "/fake/bin" },
+		});
+		expect(await run.exit).toBe(2);
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
+			status: "usageError",
+			data: { missingFlag: "--yes" },
+		});
+		expect(await readFile(join(home, ".zshrc"), "utf8")).toBe("existing");
 	});
 });
 

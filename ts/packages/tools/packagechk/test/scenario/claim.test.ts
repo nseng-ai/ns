@@ -16,7 +16,9 @@ describe("packagechk claim commands", () => {
 		const help = await runPackagechk(["claim-pypi", "--help"]);
 
 		expect(help.code).toBe(0);
-		expect(help.stdout).toContain("--skip-confirmation");
+		expect(help.stdout).toContain("--yes");
+		expect(help.stdout).toContain("-y");
+		expect(help.stdout).not.toContain("--skip-confirmation");
 		expect(help.stdout).not.toContain("--force");
 	});
 
@@ -50,7 +52,7 @@ describe("packagechk claim commands", () => {
 		const registry = new FakePackageRegistryGateway();
 		const publisher = new FakePypiPublishGateway({ artifacts: ["dist/sample.tar.gz"] });
 
-		const run = await runPackagechk(["claim-pypi", "bad!name", "--skip-confirmation"], {
+		const run = await runPackagechk(["claim-pypi", "bad!name", "--yes"], {
 			registryGateway: registry,
 			pypiPublishGateway: publisher,
 		});
@@ -75,7 +77,7 @@ describe("packagechk claim commands", () => {
 		});
 		const publisher = new FakePypiPublishGateway({ artifacts: ["dist/sample.tar.gz"] });
 
-		const run = await runPackagechk(["claim-pypi", SAMPLE, "--skip-confirmation"], {
+		const run = await runPackagechk(["claim-pypi", SAMPLE, "--yes"], {
 			registryGateway: registry,
 			pypiPublishGateway: publisher,
 		});
@@ -96,7 +98,7 @@ describe("packagechk claim commands", () => {
 		const artifacts = ["dist/sample-0.0.1.tar.gz", "dist/sample-0.0.1-py3-none-any.whl"];
 		const publisher = new FakePypiPublishGateway({ artifacts });
 
-		const run = await runPackagechk(["claim-pypi", SAMPLE, "--skip-confirmation"], {
+		const run = await runPackagechk(["claim-pypi", SAMPLE, "--yes"], {
 			registryGateway: registry,
 			pypiPublishGateway: publisher,
 		});
@@ -107,6 +109,26 @@ describe("packagechk claim commands", () => {
 		expect(publisher.toolChecks).toBe(1);
 		expect(publisher.builtProjectDirs).toHaveLength(1);
 		expect(publisher.publishedArtifacts).toEqual([artifacts]);
+	});
+
+	test("claim-pypi requires --yes when non-interactive", async () => {
+		const registry = new FakePackageRegistryGateway({
+			results: {
+				[`pypi:${SAMPLE}`]: availableResult("pypi", { inputName: SAMPLE, lookupName: SAMPLE }),
+			},
+		});
+		const publisher = new FakePypiPublishGateway({ artifacts: ["dist/sample.tar.gz"] });
+
+		const run = await runPackagechk(["claim-pypi", SAMPLE], {
+			registryGateway: registry,
+			pypiPublishGateway: publisher,
+		});
+
+		expect(run.code).toBe(2);
+		expect(run.stderr).toContain("requires --yes (or -y)");
+		expect(publisher.toolChecks).toBe(1);
+		expect(publisher.builtProjectDirs).toEqual([]);
+		expect(publisher.publishedArtifacts).toEqual([]);
 	});
 
 	test("claim-pypi confirmation decline aborts before build", async () => {
@@ -154,7 +176,7 @@ describe("packagechk claim commands", () => {
 		const registry = new FakePackageRegistryGateway();
 		const publisher = new FakeNpmPublishGateway();
 
-		const run = await runPackagechk(["claim-npm", "bad!name", "--skip-confirmation"], {
+		const run = await runPackagechk(["claim-npm", "bad!name", "--yes"], {
 			registryGateway: registry,
 			npmPublishGateway: publisher,
 		});
@@ -178,7 +200,7 @@ describe("packagechk claim commands", () => {
 		});
 		const publisher = new FakeNpmPublishGateway();
 
-		const run = await runPackagechk(["claim-npm", SAMPLE, "--skip-confirmation"], {
+		const run = await runPackagechk(["claim-npm", SAMPLE, "--yes"], {
 			registryGateway: registry,
 			npmPublishGateway: publisher,
 		});
@@ -214,7 +236,7 @@ describe("packagechk claim commands", () => {
 		expect(dryRun.stderr).toContain("npm URL: https://www.npmjs.com/package/@sdl-io/aretro");
 		expect(publisher.toolChecks).toBe(0);
 
-		const published = await runPackagechk(["claim-npm", "@sdl-io/aretro", "--skip-confirmation"], {
+		const published = await runPackagechk(["claim-npm", "@sdl-io/aretro", "--yes"], {
 			registryGateway: registry,
 			npmPublishGateway: publisher,
 		});

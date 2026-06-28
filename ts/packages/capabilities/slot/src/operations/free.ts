@@ -2,6 +2,7 @@ import {
 	failure,
 	negative,
 	ok,
+	requireInteractiveOrUsageError,
 	resolveRenderCapabilities,
 	type RenderCapabilities,
 } from "@sdl/clinkr";
@@ -95,11 +96,13 @@ export async function runFree(ctx: SlotCliContext, request: FreeRequest) {
 			}),
 		);
 	if (request.all && plan.outcome.targets.length > 0 && !request.yes) {
-		if (!ctx.shouldWriteCdDirective)
-			return failure(
-				"confirmation_required",
-				"Destructive free --all requires --yes in JSON mode (or use --dry-run first).",
-			);
+		const gate = requireInteractiveOrUsageError(repoCtx.interaction, {
+			message:
+				"Destructive free --all requires --yes when non-interactive (or use --dry-run first).",
+			missingFlag: "--yes",
+			howToSupply: "Pass --yes (or -y) to free slots without prompting, or run --dry-run first.",
+		});
+		if (gate) return gate;
 		const confirmed = await repoCtx.interaction.confirm({
 			message: `Free ${plan.outcome.targets.length} slot(s), close matching PRs, and delete local branches?`,
 			defaultAnswer: "no",
