@@ -146,6 +146,19 @@
       `--force` is still a compatibility no-op that does not bypass it, and human-authored body text
       outside the SDL-managed region is preserved. Next: `flow land` (PR 5a discovery/seams, 5b full
       redesign) is the last and largest flow side-effect surface.
+      Follow-up landed with `flow land` PR 5a (seam/discovery complete; final redesign next): the full
+      user-visible land state inventory is recorded (see
+      `updates/2026-06-27-flow-land-seam-discovery.md`) and the CCC-local CLI-edge house-style renderer
+      is isolated at `ts/packages/ccc/src/land-stack/land-presentation.ts` (the land twin of
+      `autoslot-presentation.ts`) with unit coverage, without rerouting live land output. Key
+      discovery vs. autoslot: `land` is dual-surface (Pi slash-command command-stream renderer AND the
+      SDL CLI) and both share the plain-string formatters in `land-stack/presentation.ts`, so
+      house-style ANSI must be confined to the CLI edge (`runLandCli`) and must NOT leak into Pi's
+      `notify`/command-stream path. PR 5b threads resolved `caps` (`resolveFlowStreamCaps` →
+      `LandCliInput`) to that edge and routes the inventoried states through the renderer while
+      preserving all safety semantics (confirmation gates, `--yes`/`--force`/dry-run, partial-success
+      and recovery guidance, post-landing `--free` cleanup, no hidden auto-merge) and the untouched Pi
+      surface. `flow land` is NOT marked Done until PR 5b.
 - [ ] Stabilize actionable shell/navigation rendering, then migrate `sdl slot checkout/co/goto`,
       `sdl slot gt up/down`, and `sdl shell show/install`.
 - [ ] Stabilize destructive preview/confirmation/result rendering, then migrate slot/brmem/handoff/areg
