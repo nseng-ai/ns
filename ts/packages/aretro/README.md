@@ -1,34 +1,32 @@
 # @sdl/aretro
 
-TypeScript port of the `aretro` retrospective evidence operations CLI.
+Deterministic branch-retrospective evidence collection for `branch-retro` and other model-backed workflows.
 
-## Status
+## Command face
 
-Contract-only shell implementation (slice 1). Exposes the durable command surface for:
+Aretro is exposed through the SDL extension command face:
 
-- `aretro exec collect-evidence` — placeholder evidence collection with JSON envelope
-- `aretro exec read-evidence-detail` — placeholder detail reader (not yet implemented)
+- `sdl aretro exec collect-evidence` — collect compact factual session evidence in a Clinkr envelope.
+- `sdl aretro exec read-evidence-detail` — read one targeted value from a sanitized payload artifact.
 
-Real evidence aggregation and payload detail work are deferred to later slices.
+The standalone `aretro` binary is retired. This package intentionally does not expose `@sdl/aretro/api`; there is no current in-process Capability API consumer.
 
 ## Usage
 
 ```bash
-# Collect evidence (placeholder)
-aretro exec collect-evidence --repo /path/to/repo --branch feat/x --format json
+sdl aretro exec collect-evidence --repo /path/to/repo --branch feat/x --format json
 
-# Read detail pointer (not yet implemented)
-aretro exec read-evidence-detail <pointer>
+sdl aretro exec read-evidence-detail \
+  --payload-path /path/to/payload.raw.json \
+  --json-pointer /data/evidence_items/0 \
+  --format json
 ```
+
+Aretro emits factual observations only. Semantic diagnoses and recommendations belong in `branch-retro` or another model-backed workflow.
 
 ## Testing
 
 ```bash
-pnpm --filter @sdl/aretro run test
-```
-
-## Type checking
-
-```bash
-pnpm --filter @sdl/aretro run check
+pnpm --dir ts --filter @sdl/aretro run test
+pnpm --dir ts --filter @sdl/aretro run check
 ```

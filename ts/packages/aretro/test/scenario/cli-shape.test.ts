@@ -15,7 +15,7 @@ describe("aretro CLI shape", () => {
 		const runtime = runScenario(["--runtime"]);
 		expect(await runtime.exit).toBe(0);
 		expect(runtime.stdout.join("")).toContain("runtime: typescript");
-		expect(runtime.stdout.join("")).toContain("ts/packages/aretro/src/cli.ts");
+		expect(runtime.stdout.join("")).toContain("(no package bin)");
 	});
 
 	it("shows exec subgroup hidden from top-level help", async () => {
