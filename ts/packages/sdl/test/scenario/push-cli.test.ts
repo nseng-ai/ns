@@ -126,7 +126,8 @@ describe("sdl flow push CLI", () => {
 		const output = run.stdout.join("");
 		expect(output).toContain("`git push` completed successfully.");
 		expect(output).toContain("Command: git push");
-		expect(output).toContain("Everything up-to-date");
+		expect(output).not.toContain("Everything up-to-date");
+		expect(output).not.toContain("stdout:");
 		expect(run.stderr.join("")).toBe("");
 		expect(formattedExecCalls(run.context)).toEqual(["git status --porcelain", "git push"]);
 		expect(run.context.execCalls[1]?.options).toEqual({ timeoutMs: PUSH_TIMEOUT_MS });

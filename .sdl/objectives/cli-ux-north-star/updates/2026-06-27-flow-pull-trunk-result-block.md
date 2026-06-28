@@ -10,6 +10,7 @@ What changed:
 - `sdl flow pull-trunk` renders success and failure through the flow-local `git-result-block.ts`, returning success on stdout and failures on stderr through the normal `ok(...)` / `failed(...)` path.
 - The flow CCC bridge now has `runFlowCccOperation(...)` so commands can reuse the scoped/trusted exec boundary without forcing stdout/stderr text formatting.
 - The result block is now a git/Graphite subprocess block and has targeted cause-line promotion for `not fast-forward` / `denied` in addition to the original push markers.
+- Live review of the happy path refined the generalized recommendation: successful side-effect blocks should stay concise (headline, human guidance, dimmed command/cwd evidence). Exit/killed facts and stdout/stderr transcripts are failure/debug evidence, not routine success UI.
 
 ## Objective impact
 

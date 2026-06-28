@@ -92,7 +92,10 @@
       `rejected` cause lines at normal weight, dimmed plumbing + transcript). Follow-up semantic update:
       `flow pull-trunk` is now the second consumer, using the same buffered finite result block for
       Graphite trunk resolution and git update success/failure, with cause promotion extended only for
-      observed pull-trunk needs (`not fast-forward`, `denied`). The renderer should still remain
+      observed pull-trunk needs (`not fast-forward`, `denied`). Live review refined the generalized
+      side-effect grammar: successful result blocks stay concise (headline, human guidance, dimmed
+      command/cwd evidence), while exit/killed facts and stdout/stderr transcripts are reserved for
+      failures/debug evidence. The renderer should still remain
       flow-local for another command before extraction; this second consumer proves the shape is useful
       but not yet broad enough for clinkr/core promotion. `flow push` and `flow pull-trunk` deliberately
       ship **no live phase-stream region** (their buffered subprocess evidence is sufficient); the

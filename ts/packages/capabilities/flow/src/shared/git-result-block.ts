@@ -11,9 +11,10 @@
 //
 // Three-tier styling (house-style sign-off):
 //   - headline: bold + intent-painted, with a leading status glyph;
-//   - salient transcript cause lines (error: / fatal: / rejected / not fast-forward / denied) at normal
+//   - successful side effects stay concise: headline, human guidance, and dimmed command/cwd evidence;
+//   - failure transcript cause lines (error: / fatal: / rejected / not fast-forward / denied) at normal
 //     foreground weight;
-//   - git plumbing (command / cwd / exit / killed) and the full stdout/stderr transcripts dimmed.
+//   - failure plumbing (command / cwd / exit / killed) and full stdout/stderr transcripts dimmed.
 
 import type { Caps } from "@sdl/clinkr";
 import { bold, dim, glyph, paint } from "@sdl/clinkr/theme";
@@ -26,12 +27,12 @@ interface GitResultFacts {
 	command: string;
 	/** The working directory, shown as dimmed plumbing. */
 	cwd: string;
-	/** Optional "what to do next" line, rendered at normal weight after the cause/detail. */
+	/** Optional detail or "what to do next" line, rendered at normal weight after the cause/detail. */
 	guidance?: string | undefined;
 }
 
 export type GitResultBlockInput =
-	/** The git/Graphite subprocess succeeded; show the green headline plus concise transcript evidence. */
+	/** The git/Graphite subprocess succeeded; show a concise green headline plus command/cwd evidence. */
 	| ({ kind: "success"; result: ExecResult } & GitResultFacts)
 	/** The git/Graphite subprocess (or a preflight command) failed; surface cause lines + transcript. */
 	| ({ kind: "failure"; result: ExecResult } & GitResultFacts)
@@ -55,7 +56,7 @@ export function renderGitResultBlock(caps: Caps, input: GitResultBlockInput): st
 		lines.push(input.guidance);
 	}
 	lines.push(...plumbingLines(input));
-	if (input.kind !== "refusal") {
+	if (input.kind === "failure") {
 		lines.push(...transcriptLines(input.result));
 	}
 
@@ -92,7 +93,7 @@ function causeLines(result: ExecResult): string[] {
 
 function plumbingLines(input: GitResultBlockInput): string[] {
 	const facts = [`Command: ${input.command}`, `Cwd: ${input.cwd}`];
-	if (input.kind !== "refusal") {
+	if (input.kind === "failure") {
 		facts.push(`Exit: ${input.result.code}`, `Killed: ${input.result.killed}`);
 	}
 	return facts.map((fact) => dim(fact));
