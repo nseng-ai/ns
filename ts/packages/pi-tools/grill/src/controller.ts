@@ -1,3 +1,5 @@
+import { clamp } from "@sdl/pi/terminal/layout";
+
 import type { NormalizedGrillAskInput } from "./extension.ts";
 import {
 	buildGrillAskRows,
@@ -97,8 +99,4 @@ export class GrillAskController {
 		}
 		return { action: "cancelled" };
 	}
-}
-
-function clamp(value: number, min: number, max: number): number {
-	return Math.max(min, Math.min(max, value));
 }

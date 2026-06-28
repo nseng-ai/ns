@@ -31,6 +31,7 @@ import {
 	type RunnerSubagentUpdate,
 } from "@sdl/pi-runner-subagents";
 import { parseLmJson } from "@sdl/pi/models/lm-json";
+import { errorMessage } from "@sdl/pi/shared/errors";
 import { extractRunnerSubagentToolCallPayloadsFromSessionJsonl } from "@sdl/pi-runner-subagents";
 import { THERMO_COUNCIL_COMMAND_NAME, THERMO_COUNCIL_MESSAGE_TYPE } from "./constants.ts";
 import { synthesizeThermoCouncilFinalReport } from "./final-synthesis.ts";
@@ -621,8 +622,4 @@ function setStatus(ctx: ThermoCouncilCommandContext, value: string | undefined):
 
 function processEnvReader(): EnvReader {
 	return { get: (name) => process.env[name] };
-}
-
-function errorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }

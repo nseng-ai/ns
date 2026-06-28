@@ -65,3 +65,10 @@ export class FakePiSurfaceHost {
 		this.registeredSurfaces.push(surface);
 	}
 }
+
+export async function registerWithFakeHost<TPi>(
+	pi: FakePiSurfaceHost,
+	register: (pi: TPi) => void | Promise<void>,
+): Promise<void> {
+	await register(pi as TPi);
+}

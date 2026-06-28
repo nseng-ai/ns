@@ -1,3 +1,5 @@
+import type { WidgetRuntimeContext } from "@sdl/pi/runtime/tool-types";
+
 import {
 	emptyRunnerSubagentActivity,
 	type RunnerSubagentLaunchMetadata,
@@ -12,16 +14,7 @@ import {
 	runnerSubagentSessionFile,
 } from "@sdl/pi/runner-subagents/presentation";
 
-export interface WidgetRuntimeContext {
-	hasUI?: boolean;
-	ui?: {
-		setWidget?: (
-			key: string,
-			content: string[] | undefined,
-			options?: { placement?: "aboveEditor" | "belowEditor" },
-		) => void;
-	};
-}
+export type { WidgetRuntimeContext } from "@sdl/pi/runtime/tool-types";
 
 export interface RunnerSubagentWidgetOptions {
 	fallbackTitle?: string;

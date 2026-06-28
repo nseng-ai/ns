@@ -15,6 +15,7 @@
     "./parity/testing": "./src/parity/testing.ts",
     "./runtime/agent-definition": "./src/runtime/agent-definition.ts",
     "./runtime/machine-envelope": "./src/runtime/machine-envelope.ts",
+    "./runtime/tool-types": "./src/runtime/tool-types.ts",
     "./objectives/picker": "./src/objectives/picker.ts",
     "./objectives/selection": "./src/objectives/selection.ts",
     "./runner-subagents": "./src/runner-subagents/extension-api.ts",
@@ -27,6 +28,7 @@
     "./skills/expansion": "./src/skills/expansion.ts",
     "./terminal/layout": "./src/terminal/layout.ts",
     "./terminal/presentation": "./src/terminal/presentation.ts",
+    "./shared/errors": "./src/shared/errors.ts",
     "./shared/timers": "./src/shared/timers.ts",
     "./runtime/types": "./src/runtime/types.ts"
   },

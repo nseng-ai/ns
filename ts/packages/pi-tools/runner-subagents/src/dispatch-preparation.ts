@@ -15,11 +15,8 @@ import {
 	type CuratedRunnerSubagentContext,
 } from "./curated-context.ts";
 import { resolveRunnerSubagentLaunch } from "@sdl/pi/runner-subagents/process";
-import {
-	buildInitialRunnerSubagentUpdate,
-	withRunnerSubagentWidget,
-	type WidgetRuntimeContext,
-} from "./widget.ts";
+import type { WidgetRuntimeContext } from "@sdl/pi/runtime/tool-types";
+import { buildInitialRunnerSubagentUpdate, withRunnerSubagentWidget } from "./widget.ts";
 
 interface PrepareRunnerSubagentFinalTextDispatchInput {
 	pi: RunnerSubagentPi & {

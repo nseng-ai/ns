@@ -16,7 +16,7 @@ import {
 } from "../src/parity/check.ts";
 import { loadPiExtensionParityRecords } from "../src/parity/registry.ts";
 import { definePiSurfaceParity } from "../src/parity/extension.ts";
-import { FakePiSurfaceHost } from "@sdl/pi/parity/testing";
+import { FakePiSurfaceHost, registerWithFakeHost } from "@sdl/pi/parity/testing";
 import type { PiAgentDefinition } from "../src/runtime/agent-definition.ts";
 import sdlExtension from "../src/flow/sdl-extension.ts";
 
@@ -43,13 +43,6 @@ async function collectLivePiExtensionSurfaces(): Promise<LivePiSurface[]> {
 	});
 
 	return pi.surfaces();
-}
-
-async function registerWithFakeHost<TPi>(
-	pi: FakePiSurfaceHost,
-	register: (pi: TPi) => void | Promise<void>,
-): Promise<void> {
-	await register(pi as TPi);
 }
 
 function registerBranchContextWithFakeHostOptions(

@@ -18,9 +18,9 @@ import {
 } from "./shared.ts";
 import type { ExpandedSkillBlock } from "../skills/expansion.ts";
 import type {
-	BaseRuntimeContext,
 	CommandContext,
 	ExtensionAPI,
+	ToolContext,
 	ToolDefinition,
 	ToolResult,
 } from "./runtime-types.ts";
@@ -93,10 +93,10 @@ export interface HandoffLaunchToolSpec<P extends HandoffLaunchParams = HandoffLa
 	verifyFailureDetails?(message: string, params: P): unknown;
 	extraParameters?: { properties: Record<string, unknown>; required?: string[] };
 	parseParams?(params: unknown): HandoffLaunchParamsParseResult<P>;
-	gate?(ctx: BaseRuntimeContext, params: P, signal: AbortSignal | undefined): string | undefined;
+	gate?(ctx: ToolContext, params: P, signal: AbortSignal | undefined): string | undefined;
 	launch(options: {
 		params: P;
-		ctx: BaseRuntimeContext;
+		ctx: ToolContext;
 		signal: AbortSignal | undefined;
 		onUpdate: ((update: Partial<ToolResult>) => void) | undefined;
 	}): Promise<ToolResult> | ToolResult;
@@ -241,7 +241,7 @@ export async function runHandoffCreateCommand(
 
 export async function verifyHandoffLaunchTarget<P extends HandoffLaunchParams>(
 	pi: ExtensionAPI,
-	ctx: BaseRuntimeContext,
+	ctx: ToolContext,
 	options: VerifyHandoffLaunchOptions<P>,
 ): Promise<VerifyHandoffLaunchResult> {
 	if (options.verifyUpdate !== undefined) {

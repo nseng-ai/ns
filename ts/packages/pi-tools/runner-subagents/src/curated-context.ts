@@ -3,6 +3,7 @@ import { isAbsolute, relative, resolve, sep } from "node:path";
 
 import type { ExecResult } from "@sdl/core/exec";
 import { isPathInside } from "@sdl/core/primitives";
+import { errorMessage } from "@sdl/pi/shared/errors";
 
 export type CuratedContextExecGit = (
 	args: readonly string[],
@@ -460,10 +461,4 @@ function escapeFence(value: string): string {
 
 function toPosixPath(value: string): string {
 	return sep === "/" ? value : value.split(sep).join("/");
-}
-
-function errorMessage(error: unknown): string {
-	if (error instanceof Error) return error.message;
-	if (typeof error === "string") return error;
-	return "unknown error";
 }
