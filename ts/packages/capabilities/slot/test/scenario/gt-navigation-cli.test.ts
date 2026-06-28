@@ -1,3 +1,4 @@
+import { stripAnsi } from "@sdl/clinkr/testing";
 import { describe, expect, it } from "vitest";
 
 import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";
@@ -81,6 +82,24 @@ describe("slot gt navigation CLI", () => {
 				path: "/slots/repos/repo/worktrees/slot-01",
 				branch: "feature/parent",
 			},
+		]);
+	});
+
+	it("renders house-style human navigation output", async () => {
+		const run = runScenario(["gt", "up"], {
+			git: {
+				worktrees: [
+					{ path: "/repo", branch: "feature/current" },
+					slotWorktree("slot-01", "feature/child"),
+				],
+			},
+			gt: { children: { type: "children", branches: ["feature/child"] } },
+		});
+		expect(await run.exit).toBe(0);
+		expect(stripAnsi(run.stdout.join("")).trimEnd().split("\n")).toEqual([
+			"✓ slot-01 -> feature/child",
+			"cd /slots/repos/repo/worktrees/slot-01",
+			"Copied cd command to clipboard.",
 		]);
 	});
 

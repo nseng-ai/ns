@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
-import type { Caps, ColorDepth } from "../../src/caps.ts";
-import { bold, dim, PALETTE, paint, paintSwatch, type Swatch } from "../../src/theme/palette.ts";
+import type { Caps, ColorDepth } from "@sdl/clinkr";
+import { bold, dim, PALETTE, paint, paintSwatch, type Swatch } from "../src/palette.ts";
 
 const RESET = "\x1b[0m";
 const DIM = "\x1b[2m";

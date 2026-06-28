@@ -20,6 +20,7 @@
   "dependencies": {
     "@sdl/autobranch": "workspace:*",
     "@sdl/branch-context": "workspace:*",
+    "@sdl/cli-theme": "workspace:*",
     "@sdl/clinkr": "workspace:*",
     "@sdl/cmux": "workspace:*",
     "@sdl/core": "workspace:*",

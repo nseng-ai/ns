@@ -1,5 +1,5 @@
 import type { ProgressPhaseEvent } from "@sdl/core/progress-phase";
-import type { StatusLineItem } from "@sdl/clinkr/theme";
+import type { StatusLineItem } from "@sdl/cli-theme";
 
 /** One declared phase: a stable sequencing `key` plus its presentational status-line payload. */
 export interface PhaseSpec {

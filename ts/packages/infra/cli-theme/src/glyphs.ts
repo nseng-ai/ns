@@ -1,7 +1,7 @@
-// The glyph set for clinkr's theme: status marks, spinner frames, rule/tree characters, and the
+// The glyph set for SDL CLI theme: status marks, spinner frames, rule/tree characters, and the
 // ellipsis. Every helper switches on `caps.canRenderUnicode` so an ASCII-only terminal still reads correctly.
 
-import type { Caps } from "../caps.ts";
+import type { Caps } from "@sdl/clinkr";
 
 export type GlyphName = "done" | "open" | "fail" | "skip" | "bullet";
 

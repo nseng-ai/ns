@@ -1,6 +1,6 @@
 import type { AutobranchFlowOutcome } from "@sdl/autobranch/dirty-worktree";
 import type { Caps } from "@sdl/clinkr";
-import { renderResultBlock } from "@sdl/clinkr/theme";
+import { renderResultBlock } from "@sdl/cli-theme";
 
 interface RenderAutobranchFailureResultBlockOptions {
 	caps: Caps;

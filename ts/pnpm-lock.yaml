@@ -30,9 +30,6 @@ catalogs:
     '@withgraphite/graphite-cli':
       specifier: ^1.8.6
       version: 1.8.6
-    ansis:
-      specifier: ^4.3.1
-      version: 4.3.1
     commander:
       specifier: ^14.0.0
       version: 14.0.3
@@ -194,6 +191,9 @@ importers:
       '@sdl/ccc':
         specifier: workspace:*
         version: link:../../ccc
+      '@sdl/cli-theme':
+        specifier: workspace:*
+        version: link:../../infra/cli-theme
       '@sdl/clinkr':
         specifier: workspace:*
         version: link:../../infra/clinkr
@@ -215,6 +215,9 @@ importers:
 
   packages/capabilities/slot:
     dependencies:
+      '@sdl/cli-theme':
+        specifier: workspace:*
+        version: link:../../infra/cli-theme
       '@sdl/clinkr':
         specifier: workspace:*
         version: link:../../infra/clinkr
@@ -236,6 +239,9 @@ importers:
       '@sdl/branch-context':
         specifier: workspace:*
         version: link:../branch-context
+      '@sdl/cli-theme':
+        specifier: workspace:*
+        version: link:../infra/cli-theme
       '@sdl/clinkr':
         specifier: workspace:*
         version: link:../infra/clinkr
@@ -379,11 +385,17 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
 
+  packages/infra/cli-theme:
+    dependencies:
+      '@sdl/clinkr':
+        specifier: workspace:*
+        version: link:../clinkr
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/infra/clinkr:
     dependencies:
-      ansis:
-        specifier: 'catalog:'
-        version: 4.3.1
       commander:
         specifier: 'catalog:'
         version: 14.0.3
@@ -501,6 +513,9 @@ importers:
       '@sdl/capability-kit':
         specifier: workspace:*
         version: link:../sdl-capability-kit
+      '@sdl/cli-theme':
+        specifier: workspace:*
+        version: link:../infra/cli-theme
       '@sdl/clinkr':
         specifier: workspace:*
         version: link:../infra/clinkr
@@ -1610,10 +1625,6 @@ packages:
   ansi-styles@6.2.3:
     resolution: {integrity: sha512-4Dj6M28JB+oAH8kFkTLUo+a2jwOFkuqb3yucU0CANcRRUbxS0cP0nZYCGjcc3BNXwRIsUVmDGgzawme7zvJHvg==}
     engines: {node: '>=12'}
-
-  ansis@4.3.1:
-    resolution: {integrity: sha512-BJ8/l4R5LRE7hW9WdSuGYrLSHi2ynxeFpDFbH0K/CgNeY/tyhk+vO6TYxXC5r5CpUhNVX310xzPsN/H9lCdfOA==}
-    engines: {node: '>=14'}
 
   anynum@1.0.0:
     resolution: {integrity: sha512-xjR9/zBVnUOP6ztMIIgShjsxui80nQUQH+5xJnvrYLs+90bF25/KJqaAi8mk+B4RDtX1Nspi6fmp4YTEts8SfA==}
@@ -3365,8 +3376,6 @@ snapshots:
   ansi-regex@6.2.2: {}
 
   ansi-styles@6.2.3: {}
-
-  ansis@4.3.1: {}
 
   anynum@1.0.0: {}
 

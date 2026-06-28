@@ -2,10 +2,10 @@
 
 ## Work
 
-- [ ] Establish the new SDL house-style CLI theme package. Move the current `@sdl/clinkr/theme` primitives, exports, and tests into the new package with minimal behavior change; keep Clinkr focused on generic command/runtime substrate.
-- [ ] Rewire existing theme consumers to the new package and remove the `@sdl/clinkr/theme` export. Preserve current human output snapshots/expectations except for intentional package/import changes.
-- [ ] Add or update import-boundary tests so `@sdl/clinkr` cannot import the SDL theme package and display dependencies stay outside Clinkr's generic core graph.
-- [ ] Document the new boundary in the relevant package/context docs: Clinkr owns command/runtime/caps/IO/stream mechanics; the SDL CLI theme package owns house-style presentation primitives.
+- [x] Establish the new SDL house-style CLI theme package. `@sdl/cli-theme` now owns the former Clinkr theme primitives and focused tests under `ts/packages/infra/cli-theme/`; Clinkr retains generic command/runtime substrate code.
+- [x] Rewire existing theme consumers to the new package and remove the `@sdl/clinkr/theme` export. Live TypeScript imports now use `@sdl/cli-theme`, consumer manifests depend on it, and `@sdl/clinkr` no longer exports `./theme`.
+- [x] Add or update import-boundary tests so `@sdl/clinkr` cannot import the SDL theme package and display dependencies stay outside Clinkr's generic core graph. `core-import-isolation` now rejects Clinkr production imports of `@sdl/cli-theme`; `@sdl/cli-theme` has a package-boundary test against capability imports, Clinkr private subpaths, `process.*`, and command exit primitives.
+- [x] Document the new boundary in the relevant package/context docs: Clinkr owns command/runtime/caps/IO/stream mechanics; the SDL CLI theme package owns house-style presentation primitives. Current CLI UX guidance now points to `@sdl/cli-theme`; a package-specific `CONTEXT.md` and full context-map rebaseline are deferred to repo-ontology/package-context work rather than folded into this extraction.
 - [ ] Rebaseline the migrated-command duplication analysis after the package move so follow-up decisions are based on the new boundary, not stale `@sdl/clinkr/theme` paths.
 - [ ] Assess outcome/result discriminator to result-block mapping across Flow commands. Decide whether to prototype flow-local first, promote to the theme package, or leave command-specific; include exit-code/refusal/warn guardrail implications in the decision.
 - [ ] Assess success-with-warnings rendering. Decide whether it is a tiny shared helper in the theme package, a command-face helper, or not worth extracting beyond local cleanup.
@@ -13,7 +13,7 @@
 - [ ] Finish assessing Slot navigation footer migration. Generalize `navigation-presentation.ts` if appropriate, move checkout and `gt up/down` to the new presentation path, and delete the legacy plain footer when no consumers remain.
 - [ ] Assess table rendering. Decide whether `@sdl/core/text-table` and the moved theme table are intentionally distinct, should consolidate, or need a lower terminal-text primitive; add a Markdown table composer if repeated Markdown boilerplate warrants it.
 - [ ] Assess status-to-intent mapping helpers. Promote only mappings that are presentation grammar rather than domain status policy.
-- [ ] Close or update overlapping roadmap rows in `cli-ux-north-star` as appropriate so UX rollout tracking and this package-boundary Objective do not drift.
+- [x] Close or update overlapping roadmap rows in `cli-ux-north-star` as appropriate so UX rollout tracking and this package-boundary Objective do not drift. Current CLI UX house-style, audit, objective, and roadmap guidance now names `@sdl/cli-theme` for house-style primitives while preserving historical update provenance.
 
 ## Parked
 

@@ -1,9 +1,10 @@
-import { failure, ok } from "@sdl/clinkr";
+import { failure, ok, type RenderCapabilities } from "@sdl/clinkr";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../context.ts";
 import { checkoutBranch, checkoutCurrent } from "../lifecycle/checkout.ts";
-import { prepareNavigation, renderNavigationFooter } from "../navigation-result.ts";
+import { prepareNavigation } from "../navigation-result.ts";
+import { renderSlotNavigationSuccess } from "../navigation-presentation.ts";
 import { extractSlotNumber } from "../naming.ts";
 
 export const checkoutRequestSchema = z.object({
@@ -59,20 +60,24 @@ export async function runCheckout(ctx: SlotCliContext, request: CheckoutRequest)
 	return ok({ ...lifecycleResult.outcome, ...navigation });
 }
 
-export function renderCheckout(result: CheckoutResult): string {
-	const lines: string[] = [];
-	if (result.current_wt_note !== null) lines.push(result.current_wt_note);
-	if (result.already_assigned) {
-		if (extractSlotNumber(result.slot_name) === null) {
-			lines.push(
-				`${result.branch_name} is already checked out in the main worktree at ${result.worktree_path}`,
-			);
-		} else {
-			lines.push(`${result.branch_name} is already assigned to ${result.slot_name}`);
-		}
-	} else {
-		lines.push(`Checked out ${result.slot_name} -> ${result.branch_name}`);
+export function renderCheckout(
+	result: CheckoutResult,
+	caps: RenderCapabilities = { canEmitAnsi: false },
+): string {
+	return renderSlotNavigationSuccess(
+		{
+			...result,
+			headline: renderCheckoutHeadline(result),
+			...(result.current_wt_note === null ? {} : { details: [result.current_wt_note] }),
+		},
+		caps,
+	);
+}
+
+function renderCheckoutHeadline(result: CheckoutResult): string {
+	if (!result.already_assigned) return `Checked out ${result.slot_name} -> ${result.branch_name}`;
+	if (extractSlotNumber(result.slot_name) === null) {
+		return `${result.branch_name} is already checked out in the main worktree at ${result.worktree_path}`;
 	}
-	lines.push(...renderNavigationFooter(result));
-	return lines.join("\n");
+	return `${result.branch_name} is already assigned to ${result.slot_name}`;
 }

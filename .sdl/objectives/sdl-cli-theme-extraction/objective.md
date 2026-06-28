@@ -44,22 +44,22 @@ This Objective starts with the package boundary change, then deliberately reasse
 
 **Assumptions**
 
-- The current `@sdl/clinkr/theme` code is already the right implementation seed; the problem is package ownership and conceptual boundary, not renderer quality.
-- The new theme package can depend on Clinkr for `Caps`/render-capability types without making Clinkr depend back on SDL-specific presentation.
+- The current `@sdl/clinkr/theme` code is already the right implementation seed; the problem is package ownership and conceptual boundary, not renderer quality. The first extraction preserved that implementation shape under `@sdl/cli-theme`.
+- The new theme package can depend on Clinkr for `Caps`/render-capability types without making Clinkr depend back on SDL-specific presentation; this is the implemented first-slice seam.
 - A mechanical extraction first will reduce risk and make later consolidation assessments clearer.
 - The CLI UX north-star Objective remains the source of the signed-off house style; this Objective owns package placement and consolidation follow-through.
 
 **Risks**
 
-- A broad extraction could accidentally move generic terminal mechanics, especially caps or stream sink code, into an SDL-specific package and make Clinkr less reusable.
-- A theme package can become a dumping ground for command-domain policy if outcome classification and exit-code decisions are promoted too aggressively.
-- `@sdl/core/text-table` and `@sdl/clinkr/theme/table` may appear redundant but serve different historical consumers; consolidating them without understanding multiline, width, ANSI, and Markdown requirements could regress list surfaces.
-- Rewiring many imports can produce noisy diffs; the first slice should stay mostly mechanical and heavily test-backed.
-- This Objective overlaps with `cli-ux-north-star`; coordination is needed so UX rollout tracking and package-boundary cleanup do not contradict each other.
+- The first extraction kept generic terminal mechanics in Clinkr: `@sdl/clinkr/stream`, caps detection/resolution, IO, exit envelopes, confirmations, raw support, and command/runtime code did not move into the SDL-specific theme package.
+- A theme package can become a dumping ground for command-domain policy if outcome classification and exit-code decisions are promoted too aggressively; the extraction added package-boundary tests but follow-on consolidation assessments must keep this risk active.
+- `@sdl/core/text-table` and the moved theme table may appear redundant but serve different historical consumers; consolidating them without understanding multiline, width, ANSI, and Markdown requirements could regress list surfaces.
+- Rewiring many imports can produce noisy diffs; the first slice was intentionally mechanical and test-backed.
+- This Objective overlaps with `cli-ux-north-star`; current guidance was updated with the new package name, while historical Semantic Updates remain immutable provenance.
 
 ## Open Questions
 
-- Final package name: `@sdl/sdl-cli-theme`, `@sdl/cli-theme`, or another name? The working name for this Objective is the user-requested SDL CLI theme package.
-- Should the new theme package depend directly on `@sdl/clinkr` for `Caps`, or should a smaller shared render-capability type move lower?
-- Should `@sdl/clinkr/stream` remain in Clinkr permanently, or should any SDL-specific streaming presentation move later?
-- Which consolidation candidates belong in the new theme package versus Flow/Slot-local helpers or a different CLI presentation utility layer?
+- Resolved for the extraction slice: the package name is `@sdl/cli-theme`.
+- Resolved for the extraction slice: `@sdl/cli-theme` depends on public `@sdl/clinkr` for `Caps`/render-capability types and `@sdl/core/terminal-escapes` for escape stripping; Clinkr does not depend back on `@sdl/cli-theme`.
+- Still open/parked: whether `@sdl/clinkr/stream` should remain in Clinkr permanently, or whether any SDL-specific streaming presentation should move later.
+- Still open: which consolidation candidates belong in the theme package versus Flow/Slot-local helpers or a different CLI presentation utility layer.

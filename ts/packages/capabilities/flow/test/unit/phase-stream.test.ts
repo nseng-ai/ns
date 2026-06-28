@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { CLINKR_CAPS_EXTENSION_KEY, DEFAULT_COLUMNS } from "@sdl/clinkr";
 import type { Caps, ColorDepth } from "@sdl/clinkr";
 import type { StreamClock, StreamSinkDeps, StreamWriter } from "@sdl/clinkr/stream";
-import { spinnerFrame } from "@sdl/clinkr/theme";
+import { spinnerFrame } from "@sdl/cli-theme";
 
 import type { SdlExtensionApi } from "sdl-sdk";
 

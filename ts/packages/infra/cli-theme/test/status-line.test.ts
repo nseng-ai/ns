@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest";
-import type { Caps, ColorDepth } from "../../src/caps.ts";
-import { glyph, spinnerFrame } from "../../src/theme/glyphs.ts";
-import { bold, dim, paint } from "../../src/theme/palette.ts";
-import { PHASE_NAME_WIDTH, type StatusLineItem, statusLine } from "../../src/theme/status-line.ts";
-import { padPlain } from "../../src/theme/text.ts";
+import type { Caps, ColorDepth } from "@sdl/clinkr";
+import { glyph, spinnerFrame } from "../src/glyphs.ts";
+import { bold, dim, paint } from "../src/palette.ts";
+import { PHASE_NAME_WIDTH, type StatusLineItem, statusLine } from "../src/status-line.ts";
+import { padPlain } from "../src/text.ts";
 
 const BOLD = "\x1b[1m";
 

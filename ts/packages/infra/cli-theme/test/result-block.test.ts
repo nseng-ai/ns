@@ -1,12 +1,12 @@
 import { describe, expect, test } from "vitest";
 
-import type { Caps, ColorDepth } from "../../src/caps.ts";
+import type { Caps, ColorDepth } from "@sdl/clinkr";
 import {
 	renderResultBlock,
 	renderResultBlockFromMessage,
 	resultBlockHeadline,
-} from "../../src/theme/result-block.ts";
-import { stripAnsi } from "../../src/testing/index.ts";
+} from "../src/result-block.ts";
+import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 
 const RESET = "\x1b[0m";
 const BOLD = "\x1b[1m";
@@ -58,8 +58,8 @@ describe("renderResultBlock", () => {
 			cwd: "/repo",
 		});
 
-		expect(stripAnsi(block)).toContain("New branch: demo");
-		expect(stripAnsi(block)).toContain("sdl slot co demo");
+		expect(stripTerminalEscapes(block)).toContain("New branch: demo");
+		expect(stripTerminalEscapes(block)).toContain("sdl slot co demo");
 		expect(block).toContain(`${DIM}Cwd: /repo${RESET}`);
 		expect(block).not.toContain(`${DIM}New branch: demo`);
 		expect(block).not.toContain(`${DIM}sdl slot co demo`);
@@ -74,7 +74,7 @@ describe("renderResultBlock", () => {
 			cwd: "",
 		});
 
-		expect(stripAnsi(block).split("\n")).toEqual(["✓ done"]);
+		expect(stripTerminalEscapes(block).split("\n")).toEqual(["✓ done"]);
 	});
 
 	test("trims trailing whitespace from body and guidance", () => {
@@ -85,7 +85,7 @@ describe("renderResultBlock", () => {
 			guidance: "retry   ",
 		});
 
-		expect(stripAnsi(block).split("\n")).toEqual(["✗ failed", "cause", "retry"]);
+		expect(stripTerminalEscapes(block).split("\n")).toEqual(["✗ failed", "cause", "retry"]);
 	});
 
 	test("renders a domain-authored message by splitting the first line as headline", () => {
@@ -95,7 +95,7 @@ describe("renderResultBlock", () => {
 			cwd: "/repo",
 		});
 
-		expect(stripAnsi(block).split("\n")).toEqual([
+		expect(stripTerminalEscapes(block).split("\n")).toEqual([
 			"✗ Could not regenerate the PR.",
 			"missing prompt",
 			"try again",
@@ -109,7 +109,7 @@ describe("renderResultBlock", () => {
 			message: "Cancelled.\n",
 		});
 
-		expect(stripAnsi(block).split("\n")).toEqual(["✗ Cancelled."]);
+		expect(stripTerminalEscapes(block).split("\n")).toEqual(["✗ Cancelled."]);
 	});
 
 	test("mono caps drop color but keep bold and dim", () => {
@@ -136,7 +136,7 @@ describe("renderResultBlock", () => {
 			headline: "failed",
 		});
 
-		expect(stripAnsi(success).split("\n")[0]).toBe("v done");
-		expect(stripAnsi(failure).split("\n")[0]).toBe("x failed");
+		expect(stripTerminalEscapes(success).split("\n")[0]).toBe("v done");
+		expect(stripTerminalEscapes(failure).split("\n")[0]).toBe("x failed");
 	});
 });

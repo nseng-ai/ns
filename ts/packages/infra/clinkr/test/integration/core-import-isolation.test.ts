@@ -1,9 +1,9 @@
 // Formal clinkr display import boundary: production core and non-display subpaths must stay display-free.
 // The root export (`@sdl/clinkr`) plus `raw`, `completion`, and `testing` are non-display surfaces.
-// Rich display stays opt-in through `@sdl/clinkr/theme` (the only production owner of `ansis`) and
-// `@sdl/clinkr/stream` (the only production owner of `log-update`). This guard scans production source
-// import/export literals directly so future re-exports, side-effect imports, and lazy imports cannot
-// silently pull display bytes into non-display consumers.
+// SDL house-style display now lives outside Clinkr in `@sdl/cli-theme`; Clinkr's only display-adjacent
+// production subpath is `@sdl/clinkr/stream`, the owner of `log-update`. This guard scans production
+// source import/export literals directly so future re-exports, side-effect imports, and lazy imports
+// cannot silently pull display bytes into non-display consumers.
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, extname, relative, resolve, sep } from "node:path";
@@ -15,7 +15,6 @@ const TEST_DIR = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_DIR = resolve(TEST_DIR, "../..");
 const PACKAGE_JSON = resolve(PACKAGE_DIR, "package.json");
 const SRC_DIR = resolve(PACKAGE_DIR, "src");
-const THEME_DIR = resolve(SRC_DIR, "theme");
 const STREAM_DIR = resolve(SRC_DIR, "stream");
 
 interface NonDisplayEntrypoint {
@@ -69,10 +68,9 @@ const NON_DISPLAY_ENTRYPOINTS: readonly NonDisplayEntrypoint[] = [
 	},
 ];
 
-const DISPLAY_SUBPATHS = ["@sdl/clinkr/theme", "@sdl/clinkr/stream"];
-const DISPLAY_DIRS = [THEME_DIR, STREAM_DIR];
+const DISPLAY_SUBPATHS = ["@sdl/cli-theme", "@sdl/clinkr/stream"];
+const DISPLAY_DIRS = [STREAM_DIR];
 const DISPLAY_DEPENDENCY_RULES: readonly DisplayDependencyRule[] = [
-	{ packageName: "ansis", ownerDir: THEME_DIR, ownerLabel: "src/theme/**" },
 	{ packageName: "log-update", ownerDir: STREAM_DIR, ownerLabel: "src/stream/**" },
 ];
 
@@ -251,12 +249,28 @@ function productionDisplayDependencyOffenders(): readonly BoundaryOffender[] {
 	return offenders;
 }
 
+function productionCliThemeImportOffenders(): readonly BoundaryOffender[] {
+	const offenders: BoundaryOffender[] = [];
+	for (const file of sourceFilesUnder(SRC_DIR)) {
+		const source = readFileSync(file, "utf8");
+		for (const { specifier } of literalSpecifiersOf(source)) {
+			if (!isPackageOrSubpathSpecifier(specifier, "@sdl/cli-theme")) continue;
+			offenders.push({
+				file: fileForReport(file),
+				specifier,
+				reason: "Clinkr production source must not import the SDL CLI theme package",
+			});
+		}
+	}
+	return offenders;
+}
+
 describe("clinkr display import boundary", () => {
 	test("literal scanner sees static imports, re-exports, side-effect imports, and dynamic imports", () => {
 		const source = `
 			import ansis from "ansis";
 			import type { Caps } from "./caps.ts";
-			import "@sdl/clinkr/theme";
+			import "@sdl/cli-theme";
 			export { streamSink } from "@sdl/clinkr/stream";
 			await import("log-update");
 		`;
@@ -264,7 +278,7 @@ describe("clinkr display import boundary", () => {
 		expect(literalSpecifiersOf(source)).toEqual([
 			{ specifier: "ansis", kind: "static-import" },
 			{ specifier: "./caps.ts", kind: "static-import" },
-			{ specifier: "@sdl/clinkr/theme", kind: "static-import" },
+			{ specifier: "@sdl/cli-theme", kind: "static-import" },
 			{ specifier: "@sdl/clinkr/stream", kind: "re-export" },
 			{ specifier: "log-update", kind: "dynamic-import" },
 		]);
@@ -276,7 +290,7 @@ describe("clinkr display import boundary", () => {
 			expect(packageExports[entrypoint.exportPath]).toBe(entrypoint.packageTarget);
 			expect(isExistingFile(entrypoint.file)).toBe(true);
 		}
-		expect(packageExports["./theme"]).toBe("./src/theme/index.ts");
+		expect(packageExports["./theme"]).toBeUndefined();
 		expect(packageExports["./stream"]).toBe("./src/stream/index.ts");
 	});
 
@@ -293,6 +307,10 @@ describe("clinkr display import boundary", () => {
 
 	test("display dependencies are imported only from their owning production subpaths", () => {
 		expect(productionDisplayDependencyOffenders()).toEqual([]);
+	});
+
+	test("clinkr production source does not import the SDL CLI theme package", () => {
+		expect(productionCliThemeImportOffenders()).toEqual([]);
 	});
 
 	test("core barrel does not directly re-export display subpaths", () => {
