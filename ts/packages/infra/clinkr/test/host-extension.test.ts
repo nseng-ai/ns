@@ -24,6 +24,8 @@ describe("clinkr host extensions", () => {
 		expect(readCapsFromHostExtension(undefined)).toBeUndefined();
 		expect(readCapsFromHostExtension(null)).toBeUndefined();
 		expect(readCapsFromHostExtension("not-caps")).toBeUndefined();
+		expect(readCapsFromHostExtension(1)).toBeUndefined();
+		expect(readCapsFromHostExtension(true)).toBeUndefined();
 	});
 
 	test("returns undefined for invalid caps fields", () => {

@@ -30,12 +30,13 @@ export default defineExtension({
 });
 
 function renderTrunkPullBlock(caps: Caps, result: TrunkPullResult): string {
+	const command = formatCommand(result.command, result.args);
 	switch (result.outcome.kind) {
 		case "success":
 			return renderGitResultBlock(caps, {
 				kind: "success",
 				headline: `Pulled local Graphite trunk branch \`${result.outcome.trunk}\` only.`,
-				command: formatCommand(result.command, result.args),
+				command,
 				cwd: result.cwd,
 				result: result.execResult,
 				guidance: "No full `gt sync` was run.",
@@ -44,7 +45,7 @@ function renderTrunkPullBlock(caps: Caps, result: TrunkPullResult): string {
 			return renderGitResultBlock(caps, {
 				kind: "failure",
 				headline: "Could not resolve Graphite trunk. Local trunk was not updated.",
-				command: formatCommand(result.command, result.args),
+				command,
 				cwd: result.cwd,
 				result: result.execResult,
 			});
@@ -52,7 +53,7 @@ function renderTrunkPullBlock(caps: Caps, result: TrunkPullResult): string {
 			return renderGitResultBlock(caps, {
 				kind: "failure",
 				headline: "gt trunk --no-interactive returned no branch. Local trunk was not updated.",
-				command: formatCommand(result.command, result.args),
+				command,
 				cwd: result.cwd,
 				result: result.execResult,
 			});
@@ -60,7 +61,7 @@ function renderTrunkPullBlock(caps: Caps, result: TrunkPullResult): string {
 			return renderGitResultBlock(caps, {
 				kind: "failure",
 				headline: "Could not inspect Git worktrees. Local trunk was not updated.",
-				command: formatCommand(result.command, result.args),
+				command,
 				cwd: result.cwd,
 				result: result.execResult,
 			});
@@ -68,7 +69,7 @@ function renderTrunkPullBlock(caps: Caps, result: TrunkPullResult): string {
 			return renderGitResultBlock(caps, {
 				kind: "failure",
 				headline: `Could not update local trunk branch \`${result.outcome.trunk}\`.`,
-				command: formatCommand(result.command, result.args),
+				command,
 				cwd: result.cwd,
 				result: result.execResult,
 			});

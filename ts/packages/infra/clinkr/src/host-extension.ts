@@ -2,13 +2,6 @@ import type { Caps, ColorDepth } from "./caps.ts";
 
 export const CLINKR_CAPS_EXTENSION_KEY = "sdl.clinkr.caps";
 
-const COLOR_DEPTHS = [
-	"truecolor",
-	"ansi256",
-	"ansi16",
-	"none",
-] as const satisfies readonly ColorDepth[];
-
 export function readCapsFromHostExtension(value: unknown): Caps | undefined {
 	if (!isRecord(value)) return undefined;
 	const { isTty, colorDepth, columns, canRenderUnicode } = value;
@@ -25,5 +18,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isColorDepth(value: unknown): value is ColorDepth {
-	return typeof value === "string" && COLOR_DEPTHS.includes(value as ColorDepth);
+	switch (value) {
+		case "truecolor":
+		case "ansi256":
+		case "ansi16":
+		case "none":
+			return true;
+		default:
+			return false;
+	}
 }
