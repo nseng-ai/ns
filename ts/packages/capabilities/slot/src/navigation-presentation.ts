@@ -1,4 +1,4 @@
-import { resolveSettledNonInteractiveCaps, type RenderCapabilities } from "@sdl/clinkr";
+import { resolveRenderCapabilities, type Caps, type RenderCapabilities } from "@sdl/clinkr";
 import { dim, paint, renderResultBlock } from "@sdl/cli-theme";
 
 import type { NavigationResultFields } from "./navigation-result.ts";
@@ -12,7 +12,7 @@ export function renderSlotNavigationSuccess(
 	input: SlotNavigationPresentationInput,
 	renderCapabilities: RenderCapabilities = { canEmitAnsi: false },
 ): string {
-	const caps = renderCapabilities.caps ?? resolveSettledNonInteractiveCaps();
+	const caps = resolveRenderCapabilities(renderCapabilities);
 	const clipboardLine = renderClipboardLine(input, caps);
 	return renderResultBlock(caps, {
 		kind: "success",
@@ -22,10 +22,7 @@ export function renderSlotNavigationSuccess(
 	});
 }
 
-function renderClipboardLine(
-	input: NavigationResultFields,
-	caps: ReturnType<typeof resolveSettledNonInteractiveCaps>,
-): string | undefined {
+function renderClipboardLine(input: NavigationResultFields, caps: Caps): string | undefined {
 	if (input.clipboard_skipped) return undefined;
 	if (input.clipboard_copied) return dim("Copied cd command to clipboard.");
 	return paint(

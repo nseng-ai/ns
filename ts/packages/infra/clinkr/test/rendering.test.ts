@@ -1,7 +1,14 @@
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
-import { ClinkrFailure, ClinkrGroup, negative, ok, type ClinkrExit } from "../src/index.ts";
+import {
+	ClinkrFailure,
+	ClinkrGroup,
+	negative,
+	ok,
+	resolveRenderCapabilities,
+	type ClinkrExit,
+} from "../src/index.ts";
 import type { Caps } from "../src/caps.ts";
 import { runForTest } from "../src/testing/index.ts";
 
@@ -62,6 +69,25 @@ function buildMarkdownGroup(
 	});
 	return { group, humanCalls: () => humanCalls, markdownCalls: () => markdownCalls };
 }
+
+describe("resolveRenderCapabilities", () => {
+	test("uses sink caps when present", () => {
+		const caps: Caps = {
+			isTty: false,
+			colorDepth: "none",
+			columns: 72,
+			canRenderUnicode: false,
+		};
+		expect(resolveRenderCapabilities({ canEmitAnsi: false, caps })).toBe(caps);
+	});
+
+	test("falls back to settled non-interactive caps", () => {
+		expect(resolveRenderCapabilities({ canEmitAnsi: false })).toMatchObject({
+			isTty: false,
+			colorDepth: "none",
+		});
+	});
+});
 
 describe("renderHuman", () => {
 	test("renders the ok data as a string the dispatcher writes", async () => {

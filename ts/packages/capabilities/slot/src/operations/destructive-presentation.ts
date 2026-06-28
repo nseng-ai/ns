@@ -1,4 +1,4 @@
-import { resolveSettledNonInteractiveCaps, type RenderCapabilities } from "@sdl/clinkr";
+import { resolveRenderCapabilities, type RenderCapabilities } from "@sdl/clinkr";
 import { renderResultBlock, type ResultBlockKind } from "@sdl/cli-theme";
 
 export type SlotDestructiveResultKind = ResultBlockKind;
@@ -14,5 +14,5 @@ export function renderSlotDestructiveResultBlock(
 	renderCapabilities: RenderCapabilities,
 	input: SlotDestructiveResultBlock,
 ): string {
-	return renderResultBlock(renderCapabilities.caps ?? resolveSettledNonInteractiveCaps(), input);
+	return renderResultBlock(resolveRenderCapabilities(renderCapabilities), input);
 }

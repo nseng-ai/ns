@@ -1,4 +1,4 @@
-import { resolveSettledNonInteractiveCaps, type Caps, type RenderCapabilities } from "@sdl/clinkr";
+import { resolveRenderCapabilities } from "@sdl/clinkr";
 import { defineExtension } from "sdl-sdk";
 
 import { objectiveSdlCommand } from "../command.ts";
@@ -10,10 +10,6 @@ import {
 } from "../../operations/list-objectives.ts";
 import { renderObjectiveListPretty } from "../../operations/list-objectives-pretty.ts";
 
-function capsForHumanRender(renderCaps: RenderCapabilities): Caps {
-	return renderCaps.caps ?? resolveSettledNonInteractiveCaps();
-}
-
 export const objectiveListSdlCommand = objectiveSdlCommand({
 	name: "list",
 	summary: "List Objective records in the current checkout.",
@@ -22,7 +18,7 @@ export const objectiveListSdlCommand = objectiveSdlCommand({
 	resultSchema: objectiveListResultSchema,
 	handler: runListObjectives,
 	renderHuman: (data, caps) =>
-		renderObjectiveListPretty(data, capsForHumanRender(caps), Date.now()),
+		renderObjectiveListPretty(data, resolveRenderCapabilities(caps), Date.now()),
 	renderMarkdown: renderObjectiveListMarkdown,
 });
 

@@ -7,7 +7,7 @@ import {
 	type ClinkrOkExit,
 } from "./exit.ts";
 import { stripAnsi } from "./ansi.ts";
-import type { Caps } from "./caps.ts";
+import { resolveSettledNonInteractiveCaps, type Caps } from "./caps.ts";
 import type { ClinkrIo } from "./io.ts";
 
 export type ClinkrFormat = "human" | "json" | "markdown";
@@ -18,6 +18,10 @@ export interface RenderCapabilities {
 	canEmitAnsi: boolean;
 	/** Full terminal capabilities for the resolved output sink. */
 	caps?: Caps | undefined;
+}
+
+export function resolveRenderCapabilities(renderCapabilities: RenderCapabilities): Caps {
+	return renderCapabilities.caps ?? resolveSettledNonInteractiveCaps();
 }
 
 export interface EmitExitOptions<T> {
