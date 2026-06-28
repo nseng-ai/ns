@@ -1,8 +1,5 @@
-import { createRequire } from "node:module";
+import { importTypeScriptWorkspaceDefault } from "../lib/workspace-packages.ts";
 
-const requireFromTypeScriptWorkspace = createRequire(new URL("../../ts/package.json", import.meta.url));
-const { default: objectiveExtension } = await import(
-	requireFromTypeScriptWorkspace.resolve("@sdl/objective-pi/extension"),
-);
+const objectiveExtension = await importTypeScriptWorkspaceDefault("@sdl/objective-pi/extension");
 
 export default objectiveExtension;
