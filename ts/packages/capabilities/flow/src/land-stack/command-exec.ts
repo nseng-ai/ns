@@ -20,25 +20,27 @@ export interface CheckedOutElsewhere {
 	path: string;
 }
 
-export async function exec(
-	pi: LandStackExtensionAPI,
-	command: string,
-	args: string[],
-	cwd: string,
-	timeout: number,
-): Promise<ExecResult> {
-	const result = await execRaw(pi, command, args, cwd, timeout);
-	return normalizeCommandFinish(command, args, result).result;
+export interface ExecOptions {
+	pi: LandStackExtensionAPI;
+	command: string;
+	args: string[];
+	cwd: string;
+	timeoutMs: number;
 }
 
-export async function execRaw(
-	pi: LandStackExtensionAPI,
-	command: string,
-	args: string[],
-	cwd: string,
-	timeout: number,
-): Promise<ExecResult> {
-	return runNormalizedExecResult(async () => await pi.exec(command, args, { cwd, timeout }));
+export async function exec(options: ExecOptions): Promise<ExecResult> {
+	const result = await execRaw(options);
+	return normalizeCommandFinish(options.command, options.args, result).result;
+}
+
+export async function execRaw(options: ExecOptions): Promise<ExecResult> {
+	return runNormalizedExecResult(
+		async () =>
+			await options.pi.exec(options.command, options.args, {
+				cwd: options.cwd,
+				timeout: options.timeoutMs,
+			}),
+	);
 }
 
 export interface ExecGraphiteOptions {

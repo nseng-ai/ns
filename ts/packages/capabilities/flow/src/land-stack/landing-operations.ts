@@ -321,7 +321,13 @@ export async function confirmAndFreeManagedSlots(
 	}
 
 	setStatus(ctx, "freeing landing slots...");
-	const result = await exec(pi, "sdl", ["slot", ...freeArgs], plan.repoRoot, SLOT_TIMEOUT_MS);
+	const result = await exec({
+		pi,
+		command: "sdl",
+		args: ["slot", ...freeArgs],
+		cwd: plan.repoRoot,
+		timeoutMs: SLOT_TIMEOUT_MS,
+	});
 	if (result.code !== 0) {
 		return failure(
 			landStackFailure("Targeted slot cleanup failed before any PRs were landed.", {
@@ -401,39 +407,47 @@ function squashMergeArgs(pr: PullRequestSnapshot): string[] {
 	];
 }
 
+export interface PrepareMergeLoopStateOptions {
+	pi: LandStackExtensionAPI;
+	repoRoot: string;
+	branches: readonly string[];
+	warnings: LandingWarning[];
+}
+
 export async function prepareMergeLoopState(
-	pi: LandStackExtensionAPI,
-	repoRoot: string,
-	branches: readonly string[],
-	warnings: LandingWarning[],
+	options: PrepareMergeLoopStateOptions,
 ): Promise<LandStackResult<MergeLoopState>> {
-	const backupRefs = await writeLandBackupRefs(pi, repoRoot, [...branches]);
+	const backupRefs = await writeLandBackupRefs(options.pi, options.repoRoot, [...options.branches]);
 	if (backupRefs.type === "failure") return backupRefs;
 	return success({
 		expectedShas: new Map(backupRefs.value),
 		deletedBranches: new Set(),
-		warnings,
+		warnings: options.warnings,
 		cleanup: { retainedLocalBranches: [] },
 	});
 }
 
+export interface RunMergeLoopOptions extends GraphiteMaintenanceOptions {
+	pi: LandStackExtensionAPI;
+	ctx: LandStackCommandContext;
+	plan: LandingPlan;
+	landed: LandedPr[];
+	warnings: LandingWarning[];
+}
+
 export async function runMergeLoop(
-	pi: LandStackExtensionAPI,
-	ctx: LandStackCommandContext,
-	plan: LandingPlan,
-	landed: LandedPr[],
-	warnings: LandingWarning[],
-	options: GraphiteMaintenanceOptions = {},
+	options: RunMergeLoopOptions,
 ): Promise<LandStackResult<RemainingCleanup>> {
+	const { pi, ctx, plan, landed, warnings } = options;
 	const { repoRoot, stack } = plan;
 	let state = options.mergeState;
 	if (!state) {
-		const preparedState = await prepareMergeLoopState(
+		const preparedState = await prepareMergeLoopState({
 			pi,
 			repoRoot,
-			[...stack.landingBranches, ...stack.descendantBranches],
+			branches: [...stack.landingBranches, ...stack.descendantBranches],
 			warnings,
-		);
+		});
 		if (preparedState.type === "failure") return preparedState;
 		state = preparedState.value;
 	}
@@ -455,7 +469,13 @@ export async function runMergeLoop(
 		options.commandStream?.note(`Merging PR #${currentPr.number} ${branch}...`);
 		setStatus(ctx, `merging #${currentPr.number} ${branch} with PR title/body...`);
 		const mergeArgs = squashMergeArgs(currentPr);
-		const merge = await exec(pi, "gh", mergeArgs, repoRoot, GH_MERGE_TIMEOUT_MS);
+		const merge = await exec({
+			pi,
+			command: "gh",
+			args: mergeArgs,
+			cwd: repoRoot,
+			timeoutMs: GH_MERGE_TIMEOUT_MS,
+		});
 		if (merge.code !== 0) {
 			return failure(
 				landStackFailure("Merge rejected; stopping stack landing immediately.", {

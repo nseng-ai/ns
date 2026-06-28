@@ -96,7 +96,7 @@ export async function executeStackLanding(
 	});
 	const runtimePi = withCommandStreaming(pi, commandStream);
 	try {
-		if (parsedArgs.help) {
+		if (parsedArgs.shouldShowHelp) {
 			present({ ctx, message: usage(), level: "info" });
 			return completed();
 		}
@@ -190,7 +190,7 @@ async function executeSinglePlanLanding(
 	} = singleOptions;
 	const planText = formatPlan(plan);
 
-	if (parsedArgs.dryRun) {
+	if (parsedArgs.isDryRun) {
 		commandStream.finishSuccess("Dry run only; no PRs or local refs were changed.");
 		present({
 			ctx,
@@ -201,7 +201,7 @@ async function executeSinglePlanLanding(
 		return success(undefined);
 	}
 
-	if (!parsedArgs.yes && !options.skipMainConfirmation) {
+	if (!parsedArgs.shouldSkipConfirmation && !options.skipMainConfirmation) {
 		if (!ctx.hasUI) {
 			const landFailure = landStackFailure(
 				`Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.\n\n${planText}`,
@@ -232,7 +232,12 @@ async function executeSinglePlanLanding(
 	});
 	if (readyPlan.type === "failure") return readyPlan;
 
-	const mergeOutcome = await runMergeLoop(runtimePi, ctx, readyPlan.value, landed, warnings, {
+	const mergeOutcome = await runMergeLoop({
+		pi: runtimePi,
+		ctx,
+		plan: readyPlan.value,
+		landed,
+		warnings,
 		commandStream,
 		unstreamedPi: pi,
 	});
@@ -315,7 +320,7 @@ async function executeChunkedStackLanding(
 	}
 
 	const chunkPlanText = formatChunkedPlan(initialPlan.value, AUTO_CHUNK_LANDING_SIZE);
-	if (parsedArgs.dryRun) {
+	if (parsedArgs.isDryRun) {
 		commandStream.finishSuccess("Dry run only; no PRs or local refs were changed.");
 		present({
 			ctx,
@@ -326,7 +331,7 @@ async function executeChunkedStackLanding(
 		return completed();
 	}
 
-	if (!parsedArgs.yes && !options.skipMainConfirmation) {
+	if (!parsedArgs.shouldSkipConfirmation && !options.skipMainConfirmation) {
 		if (!ctx.hasUI) {
 			const landFailure = landStackFailure(
 				`Refusing to land a chunked stack without confirmation in non-interactive mode. Re-run with --yes.\n\n${chunkPlanText}`,
@@ -399,12 +404,12 @@ async function executeChunkedStackLanding(
 				...initialShape.stack.landingBranches,
 				...initialShape.stack.descendantBranches,
 			];
-			const prepared = await prepareMergeLoopState(
-				runtimePi,
-				readyPlan.value.repoRoot,
-				backupBranches,
+			const prepared = await prepareMergeLoopState({
+				pi: runtimePi,
+				repoRoot: readyPlan.value.repoRoot,
+				branches: backupBranches,
 				warnings,
-			);
+			});
 			if (prepared.type === "failure") {
 				presentLandStackFailure({
 					ctx,
@@ -419,7 +424,12 @@ async function executeChunkedStackLanding(
 		}
 
 		const landedStart = landed.length;
-		const mergeOutcome = await runMergeLoop(runtimePi, ctx, readyPlan.value, landed, warnings, {
+		const mergeOutcome = await runMergeLoop({
+			pi: runtimePi,
+			ctx,
+			plan: readyPlan.value,
+			landed,
+			warnings,
 			commandStream,
 			unstreamedPi: pi,
 			mergeState,
@@ -592,25 +602,25 @@ function presentLandStackFailure(options: PresentLandStackFailureOptions): void 
 
 export function parseArgs(argsText: string): LandStackResult<ParsedArgs> {
 	const parsed: ParsedArgs = {
-		yes: false,
-		dryRun: false,
-		free: false,
-		force: false,
-		help: false,
+		shouldSkipConfirmation: false,
+		isDryRun: false,
+		shouldFreeSlot: false,
+		shouldForceCleanup: false,
+		shouldShowHelp: false,
 	};
 	const parts = argsText.trim().split(/\s+/).filter(Boolean);
 
 	for (const part of parts) {
 		if (part === "--yes" || part === "-y") {
-			parsed.yes = true;
+			parsed.shouldSkipConfirmation = true;
 		} else if (part === "--dry-run") {
-			parsed.dryRun = true;
+			parsed.isDryRun = true;
 		} else if (part === "--free") {
-			parsed.free = true;
+			parsed.shouldFreeSlot = true;
 		} else if (part === "--force" || part === "-f") {
-			parsed.force = true;
+			parsed.shouldForceCleanup = true;
 		} else if (part === "--help" || part === "-h") {
-			parsed.help = true;
+			parsed.shouldShowHelp = true;
 		} else {
 			return failure(landStackFailure(`Unknown /${COMMAND_NAME} argument: ${part}\n\n${usage()}`));
 		}

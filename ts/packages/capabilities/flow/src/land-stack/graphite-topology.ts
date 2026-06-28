@@ -30,7 +30,7 @@ export async function resolveMetadataDbPath(
 	repoRoot: string,
 ): Promise<LandStackResult<string>> {
 	const args = ["rev-parse", "--path-format=absolute", "--git-common-dir"];
-	const result = await exec(pi, "git", args, repoRoot, GIT_TIMEOUT_MS);
+	const result = await exec({ pi, command: "git", args, cwd: repoRoot, timeoutMs: GIT_TIMEOUT_MS });
 	if (result.code !== 0) {
 		return failure(
 			landStackFailure(
@@ -51,7 +51,13 @@ export async function loadGraphiteTopology(
 	dbPath: string,
 ): Promise<LandStackResult<GraphiteTopology>> {
 	const args = ["flow", "exec", "read-graphite-branch-metadata", "--db-path", dbPath];
-	const result = await exec(pi, "sdl", args, repoRoot, SQLITE_TIMEOUT_MS);
+	const result = await exec({
+		pi,
+		command: "sdl",
+		args,
+		cwd: repoRoot,
+		timeoutMs: SQLITE_TIMEOUT_MS,
+	});
 	if (result.code !== 0) {
 		return failure(
 			landStackFailure(classifyTopologyReadFailure(result.stderr, dbPath), {

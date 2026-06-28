@@ -1046,18 +1046,18 @@ async function captureConsole<T>(run: () => Promise<T>): Promise<T> {
 describe("land-stack pure helpers", () => {
 	test("parses supported command arguments", () => {
 		expect(expectSuccess(parseArgs("--yes --dry-run --free --force --help"))).toEqual({
-			yes: true,
-			dryRun: true,
-			free: true,
-			force: true,
-			help: true,
+			shouldSkipConfirmation: true,
+			isDryRun: true,
+			shouldFreeSlot: true,
+			shouldForceCleanup: true,
+			shouldShowHelp: true,
 		});
 		expect(expectSuccess(parseArgs("-y --free -f -h"))).toEqual({
-			yes: true,
-			dryRun: false,
-			free: true,
-			force: true,
-			help: true,
+			shouldSkipConfirmation: true,
+			isDryRun: false,
+			shouldFreeSlot: true,
+			shouldForceCleanup: true,
+			shouldShowHelp: true,
 		});
 		expect(expectFailure(parseArgs("--wat")).message).toContain(
 			"Unknown /sdl:flow:land argument: --wat",
