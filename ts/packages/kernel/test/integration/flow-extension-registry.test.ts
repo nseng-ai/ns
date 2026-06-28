@@ -7,6 +7,7 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import { loadSdlCommandCatalog, loadSelectedSdlCommand } from "../../src/extension-registry.ts";
 import { installCheckedInFlowExtension } from "../helpers/flow-extension.ts";
+import { runCliWithFakes } from "../scenario/sdl-cli-fakes.ts";
 
 const tempDirs: string[] = [];
 
@@ -47,5 +48,27 @@ describe("checked-in flow SDL extension registry loading", () => {
 			if (!loaded.ok) failures.push(`${key}: ${loaded.diagnostic.message}`);
 		}
 		expect(failures).toEqual([]);
+	});
+
+	test("checked-in flow exec operation is hidden from flow help but invocable through exec help", async () => {
+		const directory = await mkdtemp(join(tmpdir(), "sdl-flow-extension-help-"));
+		tempDirs.push(directory);
+		const cwd = join(directory, "project");
+		installCheckedInFlowExtension(cwd);
+
+		const flowHelp = runCliWithFakes(
+			{ args: ["flow", "--help"], state: { exec: [] }, cwd },
+			{ execResponses: () => [], textGenerationResults: () => [] },
+		);
+		expect(await flowHelp.exit).toBe(0);
+		expect(flowHelp.stdout.join("")).not.toContain("exec");
+		expect(flowHelp.stdout.join("")).not.toContain("read-graphite-branch-metadata");
+
+		const execHelp = runCliWithFakes(
+			{ args: ["flow", "exec", "--help"], state: { exec: [] }, cwd },
+			{ execResponses: () => [], textGenerationResults: () => [] },
+		);
+		expect(await execHelp.exit).toBe(0);
+		expect(execHelp.stdout.join("")).toContain("read-graphite-branch-metadata");
 	});
 });
