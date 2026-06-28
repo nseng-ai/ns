@@ -5,6 +5,7 @@ import {
 	type RoasterRunScope,
 } from "./context.ts";
 import type { RoasterFailure, RoasterResult } from "./failures.ts";
+import type { PublishFindingsResult } from "./findings-publication.ts";
 import { ROASTER_REVIEW_LOG_NAMESPACE, type ReviewLogEntry } from "./gateways/review-log.ts";
 import type {
 	LocalDiff,
@@ -20,7 +21,7 @@ import {
 	buildReviewListResult,
 	buildReviewLogResult,
 	buildRoastSkillListResult,
-	publishFindingsFromStdin,
+	publishFindingsFromRequest,
 	recordSameSessionFindings,
 	type PublishFindingsRequest,
 	type RecordFindingsOutcome,
@@ -38,7 +39,6 @@ import {
 	type RunRoasterReviewProgress,
 	type RunRoasterReviewRequest,
 } from "./operations/review-run.ts";
-import type { PublishFindingsResult } from "./findings-publication.ts";
 
 export { ROASTER_REVIEW_LOG_NAMESPACE };
 export type {
@@ -48,11 +48,12 @@ export type {
 	ReviewFinding,
 	ReviewFindingsPayload,
 	ReviewInputCoverage,
+	PublishFindingsRequest,
+	PublishFindingsResult,
 	ReviewListRequest,
 	ReviewListResult,
 	ReviewLogEntry,
 	ReviewLogRequest,
-	PublishFindingsRequest,
 	RecordFindingsOutcome,
 	RecordFindingsRequest,
 	ReviewLogResult,
@@ -68,7 +69,6 @@ export type {
 	RunRoasterReviewProgress,
 	RunRoasterReviewRequest,
 };
-export type { PublishFindingsResult };
 
 export interface RoasterApiFailure {
 	readonly errorType: string;
@@ -100,7 +100,7 @@ export interface RoasterClient {
 	runReview(request: RunRoasterReviewRequest): Promise<RunRoasterReviewOutcome>;
 	/** Records same-session findings from stdin and writes a Roaster review log. */
 	recordFindings(request: RecordFindingsRequest): Promise<RecordFindingsOutcome>;
-	/** Publishes inline and summary findings from a review-run envelope on stdin. */
+	/** Publishes a Roaster review-run envelope from stdin to GitHub. */
 	publishFindings(request: PublishFindingsRequest): Promise<PublishFindingsResult>;
 }
 
@@ -131,7 +131,7 @@ export function createRoasterClient(options: RoasterClientOptions): RoasterClien
 			return await recordSameSessionFindings(getRuntime(), request);
 		},
 		async publishFindings(request) {
-			return await publishFindingsFromStdin(getRuntime(), request);
+			return await publishFindingsFromRequest(getRuntime(), request);
 		},
 	};
 }

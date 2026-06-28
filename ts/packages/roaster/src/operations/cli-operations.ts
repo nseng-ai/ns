@@ -459,7 +459,43 @@ export function renderReviewLog(result: ReviewLogResult): string {
 	return lines.join("\n");
 }
 
-export async function publishFindingsFromStdin(
+export async function runPublishFindings(
+	ctx: RoasterRuntime,
+	request: PublishFindingsRequest,
+): Promise<number> {
+	const result = await publishFindingsFromRequest(ctx, request);
+	if (result.type === "error")
+		return stderrFailure(ctx, `publish-findings: ${result.error.message}\n`);
+
+	ctx.stderr(renderPublishFindingsDiagnostics(result.value));
+	return 0;
+}
+
+export async function runPublishFindingsCommand(
+	ctx: RoasterRuntime,
+	request: PublishFindingsRequest,
+): Promise<ClinkrExit<PublishFindingsCommandResult>> {
+	return clinkrExitFromPublishFindingsResult(ctx, await publishFindingsFromRequest(ctx, request));
+}
+
+export function clinkrExitFromPublishFindingsResult(
+	ctx: Pick<RoasterRuntime, "stderr">,
+	result: PublishFindingsResult,
+): ClinkrExit<PublishFindingsCommandResult> {
+	if (result.type === "error") return failureFromPublicationError(result.error);
+
+	ctx.stderr(renderPublishFindingsDiagnostics(result.value));
+	return ok(publishFindingsResultSchema.parse(result.value));
+}
+
+export function renderPublishFindingsResult(result: PublishFindingsCommandResult): string {
+	return [
+		`${result.summaryStatus.type} findings comment`,
+		renderInlineFindingsSummary(result),
+	].join("\n");
+}
+
+export async function publishFindingsFromRequest(
 	ctx: RoasterRuntime,
 	request: PublishFindingsRequest,
 ): Promise<PublishFindingsResult> {
@@ -471,20 +507,6 @@ export async function publishFindingsFromStdin(
 		...(request.reviewName === undefined ? {} : { fallbackReviewName: request.reviewName }),
 		...(request.baseRef === undefined ? {} : { fallbackBaseRef: request.baseRef }),
 	});
-}
-
-export function clinkrExitFromPublishFindingsOutcome(
-	outcome: PublishFindingsResult,
-): ClinkrExit<PublishFindingsCliResult> {
-	if (outcome.type === "error") return failureFromPublicationError(outcome.error);
-	return ok(publishFindingsCliResult(outcome.value));
-}
-
-export async function runPublishFindings(
-	ctx: RoasterRuntime,
-	request: PublishFindingsRequest,
-): Promise<ClinkrExit<PublishFindingsCliResult>> {
-	return clinkrExitFromPublishFindingsOutcome(await publishFindingsFromStdin(ctx, request));
 }
 
 interface LoadedDefinition {
@@ -559,11 +581,9 @@ function loadDiffFromRequest(
 	});
 }
 
-export function renderPublishFindings(result: PublishFindingsCommandResult): string {
-	return renderPublishFindingsDiagnostics(result);
-}
-
-export function renderPublishFindingsDiagnostics(result: PublishFindingsCliResult): string {
+function renderPublishFindingsDiagnostics(
+	result: Extract<PublishFindingsResult, { readonly type: "ok" }>["value"],
+): string {
 	return [
 		renderInlineFindingsSummary(result),
 		`${result.summaryStatus.type} findings comment`,
@@ -571,13 +591,12 @@ export function renderPublishFindingsDiagnostics(result: PublishFindingsCliResul
 	].join("\n");
 }
 
-function publishFindingsCliResult(
-	result: Extract<PublishFindingsResult, { readonly type: "ok" }>["value"],
-): PublishFindingsCliResult {
-	return publishFindingsResultSchema.parse(result);
-}
-
-function renderInlineFindingsSummary(result: PublishFindingsCliResult): string {
+function renderInlineFindingsSummary(result: PublishFindingsCommandResult): string {
 	const apiError = result.inlineStatus.apiError?.replace(/\s+/gu, " ") ?? "none";
 	return `inline findings: posted=${result.inlineStatus.postedCount} skipped_duplicate=${result.inlineStatus.skippedDuplicateCount} fallback_only=${result.inlineStatus.fallbackOnlyCount} api_error=${apiError}`;
+}
+
+function stderrFailure(ctx: RoasterRuntime, message: string): number {
+	ctx.stderr(message);
+	return 1;
 }

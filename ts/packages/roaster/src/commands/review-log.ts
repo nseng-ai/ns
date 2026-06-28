@@ -1,5 +1,4 @@
 import { failure, ok } from "@sdl/clinkr";
-import { createSdlDomainCommand } from "@sdl/capability-kit/sdl-command";
 import { defineExtension } from "sdl-sdk";
 
 import { createRoasterClient } from "../api.ts";
@@ -9,11 +8,11 @@ import {
 	reviewLogResultSchema,
 	type ReviewLogRequest,
 } from "../operations/cli-operations.ts";
-import { createSdlRoasterRuntime } from "./sdl-runtime.ts";
+import { roasterSdlCommand } from "../sdl/command.ts";
 
 const REVIEW_LOG_DESCRIPTION = `List Branch Memory review log entries for this branch, optionally filtered by review key.`;
 
-export const roasterReviewLogCommand = createSdlDomainCommand({
+export const roasterReviewLogCommand = roasterSdlCommand({
 	name: "log",
 	summary: "List Roaster review logs for this branch.",
 	description: REVIEW_LOG_DESCRIPTION,
@@ -21,7 +20,6 @@ export const roasterReviewLogCommand = createSdlDomainCommand({
 	positionals: { key: { position: 0 } },
 	resultSchema: reviewLogResultSchema,
 	renderHuman: (data, _caps) => renderReviewLog(data),
-	createContext: createSdlRoasterRuntime,
 	async handler(runtime, request) {
 		const result = await createRoasterClient({
 			cwd: runtime.runScope.cwd,
