@@ -1,14 +1,14 @@
 ---
 name: branch-retro
 disable-model-invocation: true
-description: "Use when the user asks for a branch/session retrospective, wants to know what would have made branch work faster/smaller/higher quality, or asks to run/interpret `aretro` evidence. Collects deterministic evidence with `aretro exec collect-evidence` and turns it into semantic recommendations without editing files unless requested."
+description: "Use when the user asks for a branch/session retrospective, wants to know what would have made branch work faster/smaller/higher quality, or asks to run/interpret Aretro evidence. Collects deterministic evidence with `sdl aretro exec collect-evidence` and turns it into semantic recommendations without editing files unless requested."
 allowed-tools:
-  - "Bash(*aretro-run *)"
-  - "Bash(*aretro-run)"
+  - "Bash(sdl aretro exec collect-evidence*)"
+  - "Bash(sdl aretro exec read-evidence-detail*)"
   - "Bash(git status*)"
   - "Bash(git branch*)"
   - "Bash(git rev-parse*)"
-  - "Bash(test -x*)"
+  - "Bash(command -v sdl*)"
   - "Read"
 ---
 
@@ -17,45 +17,45 @@ allowed-tools:
 # branch-retro
 
 Produce a compact retrospective for a branch or session set. The skill collects
-factual evidence with `aretro`, then uses model judgment to write source-backed
+factual evidence with `sdl aretro`, then uses model judgment to write source-backed
 findings and actionable recommendations. Default mode is read-only.
 
 ## When to use
 
 Use this skill when the user asks for a branch retro, branch/session
 retrospective, what slowed a branch down, what should improve after branch work,
-or how to interpret `aretro` evidence.
+or how to interpret Aretro evidence.
 
 If the user asks to implement recommendations, produce the retrospective first,
 then ask for confirmation and scope before editing anything.
 
-## How `aretro` is invoked
+## How Aretro is invoked
 
-Resolve `<skill-dir>` as the directory containing this `SKILL.md`. Define
-`<aretro-runner>` as `<skill-dir>/scripts/aretro-run`.
-
-Substitute `<aretro-runner>` for literal `aretro` examples. The command boundary
-is the standalone `aretro exec collect-evidence`; do not use `sdl aretro`.
+The command boundary is `sdl aretro exec collect-evidence` for compact evidence and
+`sdl aretro exec read-evidence-detail` for targeted payload detail reads. The
+standalone `aretro` command and the old skill-local `aretro-run` source runner are
+retired.
 
 ## Preflight
 
-1. Verify `test -x <aretro-runner>`.
+1. Verify `command -v sdl` succeeds in an SDL checkout with the Aretro extension
+   available.
 2. Resolve the repository root with `git rev-parse --show-toplevel`.
 3. Resolve the branch with `git branch --show-current`, unless the user supplied
    a branch.
 4. Choose one safe payload session id for this invocation, using only lowercase
    letters, digits, dots, underscores, and hyphens. Examples:
    `aretro-20260604t120000z-a1` or `aretro-branch-retro-a1`.
-5. If not in a git repository, or the branch is detached and the user did not
-   provide one, stop and report the prerequisite failure. Ask for `--repo` and
-   `--branch` when needed.
+5. If `sdl` is unavailable, not in a git repository, or the branch is detached and
+   the user did not provide one, stop and report the prerequisite failure. Ask for
+   `--repo` and `--branch` when needed.
 
 ## Evidence collection
 
 Run payload mode by default:
 
 ```bash
-<aretro-runner> exec collect-evidence \
+sdl aretro exec collect-evidence \
   --repo <repo-root> \
   --branch <branch> \
   --max-sessions 20 \
@@ -81,7 +81,7 @@ When compact evidence is insufficient to make or validate a recommendation, read
 one targeted detail value from the payload artifact:
 
 ```bash
-<aretro-runner> exec read-evidence-detail \
+sdl aretro exec read-evidence-detail \
   --payload-path <payload-reference.payload_path> \
   --json-pointer <detail-pointer-under-/data> \
   --format json

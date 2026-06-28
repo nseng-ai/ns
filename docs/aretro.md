@@ -1,6 +1,6 @@
 # Branch Retrospective Evidence
 
-`aretro` collects compact, factual observations from local agent session logs so the `branch-retro` skill or another language-model workflow can write human-facing guidance for a branch.
+`sdl aretro` collects compact, factual observations from local agent session logs so the `branch-retro` skill or another language-model workflow can write human-facing guidance for a branch. The standalone `aretro` command is retired; use `sdl aretro exec ...`.
 
 ## Boundary
 
@@ -54,5 +54,5 @@ These kinds are observations, not recommendations.
 
 - `@sdl/aretro` package-local session adapters parse harness-specific logs into normalized session facts without retaining raw transcript content.
 - `@sdl/aretro` evidence aggregation turns normalized session facts into deterministic observations.
-- `aretro` exposes the branch-facing TypeScript CLI and renders the `aretro exec collect-evidence --format json` envelope.
-- `branch-retro` is the first skill consumer of that standalone evidence command: it consumes the JSON envelope, applies semantic judgment, weighs cost, drift, and discoverability, and writes the final retrospective recommendations.
+- `sdl aretro exec collect-evidence --format json` is the supported branch-facing command envelope; `sdl aretro exec read-evidence-detail` reads targeted sanitized payload details.
+- `branch-retro` is the first skill consumer of that SDL command face: it consumes the JSON envelope, applies semantic judgment, weighs cost, drift, and discoverability, and writes the final retrospective recommendations.

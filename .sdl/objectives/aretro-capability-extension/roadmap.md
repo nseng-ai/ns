@@ -6,21 +6,21 @@
   - Policy: direct execution after preview for read-only inventory and tracking updates.
   - Evidence to collect: package exports/bin in `ts/packages/aretro/package.json`; command implementation in `src/cli.ts`; injectable seams in `src/context.ts`, operations, sessions, and payload modules; tests; docs in `docs/aretro.md`; `branch-retro` skill/runner usage; and repo-wide imports/invocations of `@sdl/aretro`, `aretro exec`, or any SDL/Pi/CCC Aretro surface.
 
-- [ ] Decide the supported command-face strategy.
+- [x] Decide the supported command-face strategy.
   - Policy: steer-first before changing public command naming or compatibility.
-  - Decision needed: keep standalone `aretro exec ...`, mount an SDL command face such as `sdl aretro ...`, or use a documented transition. The decision must preserve the `branch-retro` evidence boundary and keep Aretro domain out of the SDL kernel.
+  - Decision: hard-cutover to the SDL command face. `sdl aretro exec collect-evidence` and `sdl aretro exec read-evidence-detail` are mounted through the project-local Aretro SDL extension; the standalone `aretro` bin/shim and `just install-aretro` recipe are retired. The `branch-retro` skill now calls the SDL command face, while Aretro domain logic remains package-owned.
 
-- [ ] Decide and implement the Capability API disposition.
+- [x] Decide and implement the Capability API disposition.
   - Policy: steer-first for the durable API decision; direct execution after preview for mechanical export/test updates once decided.
-  - Decision needed: add curated `@sdl/aretro/api` only if a concrete in-process consumer needs typed Aretro behavior. Otherwise record command-face-only as the current disposition and avoid presenting broad package-root exports as a peer API.
+  - Decision: command-face-only. No `@sdl/aretro/api` subpath was added because no in-process consumer exists. The package export map exposes only explicit SDL command module subpaths and no broad root export.
 
-- [ ] Align Aretro domain core and tests with gateway-/source-injected capability rules.
+- [x] Align Aretro domain core and tests with gateway-/source-injected capability rules.
   - Policy: direct execution after preview for fake-driven refactors that do not change evidence semantics.
-  - Target: command shells build real gateways/sources at the edge; core evidence/payload/session behavior accepts injected dependencies; ordinary tests use fakes and do not read real operator logs or external services.
+  - Evidence: SDL command modules create real gateways/sources at the command edge through `@sdl/capability-kit`, then reuse the existing injected Aretro operation context. Package tests still use in-memory git/session fakes, and the kernel integration test proves SDL extension mounting without reading real operator session logs.
 
-- [ ] Refresh docs/context and parent Objective tracking.
+- [x] Refresh docs/context and parent Objective tracking.
   - Policy: direct execution after preview for docs/tracking; steer first for terminology that changes public product meaning.
-  - Evidence: Aretro docs/context state the final command/API boundary, the evidence-vs-judgment split remains clear, and `sdl-extension-architecture` records Aretro as completed or deliberately dispositioned.
+  - Evidence: Aretro docs, package README, `branch-retro`, Pi cleanup docs, `CONTEXT-MAP.md`, this child roadmap, and the parent `sdl-extension-architecture` roadmap now state the final command/API boundary and preserve the evidence-vs-judgment split.
 
 ## Parked
 

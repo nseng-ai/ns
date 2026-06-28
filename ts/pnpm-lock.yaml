@@ -179,12 +179,18 @@ importers:
 
   packages/aretro:
     dependencies:
+      '@sdl/capability-kit':
+        specifier: workspace:*
+        version: link:../sdl-capability-kit
       '@sdl/clinkr':
         specifier: workspace:*
         version: link:../infra/clinkr
       '@sdl/core':
         specifier: workspace:*
         version: link:../infra/core
+      sdl-sdk:
+        specifier: workspace:*
+        version: link:../sdl-sdk
       zod:
         specifier: 'catalog:'
         version: 4.4.3
