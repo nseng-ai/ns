@@ -64,6 +64,9 @@ const sdlCommandSchema = z.object({
 	renderMarkdown: z
 		.custom<SdlCommand["renderMarkdown"]>((value) => typeof value === "function")
 		.optional(),
+	completionProvider: z
+		.custom<SdlCommand["completionProvider"]>((value) => typeof value === "function")
+		.optional(),
 	run: z.custom<SdlCommand["run"]>((value) => typeof value === "function"),
 });
 
@@ -234,6 +237,9 @@ function formatSdlCommandEntryIssue(issue: z.core.$ZodIssue): string {
 	}
 	if (field === "schema") {
 		return "command schema must be a Zod object schema from sdl-sdk";
+	}
+	if (field === "completionProvider") {
+		return "command completionProvider must be a function";
 	}
 	if (field === "run") {
 		return "command run must be a function";

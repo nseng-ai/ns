@@ -1,7 +1,12 @@
 import { stripAnsi } from "@sdl/clinkr/testing";
 import { describe, expect, it } from "vitest";
 
-import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";
+import {
+	completeScenario,
+	parseJsonOutput,
+	runScenario,
+	slotWorktree,
+} from "../support/run-scenario.ts";
 
 describe("slot checkout CLI", () => {
 	it("appears in root help with co alias", async () => {
@@ -170,5 +175,41 @@ describe("slot checkout CLI", () => {
 		const run = runScenario(["checkout", "feature/a", "base", "--format", "json"]);
 		expect(await run.exit).toBe(2);
 		expect(parseJsonOutput(run)).toMatchObject({ errorType: "base_without_new" });
+	});
+
+	it("completes local branches for checkout branch and base positionals", async () => {
+		const branchRun = completeScenario(["checkout", "f"], {
+			git: { localBranches: ["master", "feature/a", "feature/b", "topic/a"] },
+		});
+		expect(await branchRun.values).toEqual(["feature/a", "feature/b"]);
+		expect(branchRun.git.operations()).toEqual([]);
+
+		const baseRun = completeScenario(["checkout", "-b", "new-branch", "m"], {
+			git: { localBranches: ["master", "main", "feature/a"] },
+		});
+		expect(await baseRun.values).toEqual(["master", "main"]);
+		expect(baseRun.git.operations()).toEqual([]);
+	});
+
+	it("completes local branches for co alias", async () => {
+		const run = completeScenario(["co", "f"], {
+			git: { localBranches: ["master", "feature/a", "topic/a"] },
+		});
+
+		expect(await run.values).toEqual(["feature/a"]);
+		expect(run.git.operations()).toEqual([]);
+	});
+
+	it("keeps static options available during checkout completion", async () => {
+		const run = completeScenario(["checkout", "--"], {
+			git: { localBranches: ["master", "feature/a"] },
+		});
+
+		const values = await run.values;
+		expect(values).toContain("--help");
+		expect(values).toContain("--new");
+		expect(values).toContain("--format");
+		expect(values).toContain("--json-schema");
+		expect(run.git.operations()).toEqual([]);
 	});
 });

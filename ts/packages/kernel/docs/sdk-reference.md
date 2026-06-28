@@ -103,6 +103,7 @@ interface SdlCommand<S extends SdlCommandSchema = z.ZodObject, T = unknown> {
   resultSchema?: z.ZodType<T> | undefined;
   renderHuman?: ((data: unknown, caps: RenderCapabilities) => string) | undefined;
   renderMarkdown?: ((data: unknown, caps: RenderCapabilities) => string) | undefined;
+  completionProvider?: SdlCommandCompletionProvider | undefined;
   run(ctx: SdlExtensionApi, request: z.output<S>): Promise<SdlResult | ClinkrExit<T>> | SdlResult | ClinkrExit<T>;
 }
 ```
@@ -116,6 +117,7 @@ interface SdlCommand<S extends SdlCommandSchema = z.ZodObject, T = unknown> {
 - `positionals?` — maps schema field names to positional slots (`PositionalSpec`). Only keys present in the schema are valid.
 - `resultSchema?` — opt into Clinkr-rendered command execution by declaring the successful data schema. Rendered commands get `--format human|json|markdown|md` and publish the schema through `--json-schema`.
 - `renderHuman?` / `renderMarkdown?` — optional renderers for successful rendered-command data. These receive `unknown` because the SDL kernel stores extension commands heterogeneously; command modules that know `T` should validate or wrap their typed renderer at the package boundary.
+- `completionProvider?` — optional shell-completion hook for dynamic values. It receives the `SdlExtensionApi` and a Clinkr completion request (`current`, `previous`, command `args`, and `positionalIndex`). Its candidates are appended to static command/option/enum candidates and deduped. Completion stdout remains candidate-only; provider failures are omitted from stdout, keep resolver exit code `0`, and may be reported concisely on stderr.
 - `run(ctx, request)` — the command body. Receives the execution context and the parsed request (`z.output<schema>`). Message-only commands return `SdlResult`; rendered commands that set `resultSchema` return a `ClinkrExit<T>`.
 
 **Example.** Declared inline so `request` is inferred from `schema`:
@@ -135,6 +137,20 @@ export default defineExtension({
   ],
 });
 ```
+
+### `SdlCommandCompletionProvider`
+
+```ts
+type SdlCommandCompletionProvider = (
+  ctx: SdlExtensionApi,
+  request: ClinkrDynamicCompletionRequest,
+) =>
+  | Promise<ClinkrCompletionResult | readonly ClinkrCompletionCandidate[]>
+  | ClinkrCompletionResult
+  | readonly ClinkrCompletionCandidate[];
+```
+
+Provides dynamic completion candidates for the selected command without invoking `run`. Use it for cheap, read-only lookups such as branch names. Return either a candidate array or `{ candidates }`; candidate values are newline-rendered by the shell resolver, while descriptions are currently ignored by the newline renderer.
 
 ### `SdlCommandSchema`
 

@@ -22,6 +22,7 @@ export type { Caps, CapsEnv, ColorDepth } from "./caps.ts";
 export { CLINKR_CAPS_EXTENSION_KEY, readCapsFromHostExtension } from "./host-extension.ts";
 export {
 	completeClinkrWords,
+	completeClinkrWordsAsync,
 	renderClinkrCompletionScript,
 	renderCompletionCandidatesNewline,
 } from "./completion.ts";
@@ -34,11 +35,15 @@ export type {
 	ClinkrCompletionRequest,
 	ClinkrCompletionResult,
 	ClinkrCompletionShell,
+	ClinkrDynamicCompletionProvider,
+	ClinkrDynamicCompletionRequest,
+	CompleteClinkrWordsAsyncOptions,
 	RenderClinkrCompletionScriptOptions,
 } from "./completion.ts";
 export { ClinkrGroup } from "./group.ts";
 export type {
 	ClinkrCommandSpec,
+	ClinkrCompleteAsyncOptions,
 	ClinkrGroupOptions,
 	ClinkrHandler,
 	ClinkrRunOptions,

@@ -5,11 +5,13 @@ import {
 	CLINKR_JSON_SCHEMA_OPTION,
 	CLINKR_RENDERED_COMMAND_OPTIONS,
 	completeClinkrWords,
+	completeClinkrWordsAsync,
 	completionOptionFromSurface,
 	type ClinkrCompletionCommandPlan,
 	type ClinkrCompletionGroupPlan,
 	type ClinkrCompletionRequest,
 	type ClinkrCompletionResult,
+	type ClinkrDynamicCompletionProvider,
 } from "./completion.ts";
 import { emitExit, type RenderCapabilities } from "./emit.ts";
 import { envelopeJsonText, type ClinkrExit, usageErrorMachineEnvelope } from "./exit.ts";
@@ -54,6 +56,7 @@ export interface ClinkrCommandSpec<TContext, S extends z.ZodObject, T> {
 	isRawExit?: never;
 	positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>>;
 	options?: Partial<Record<keyof z.infer<S> & string, OptionSpec>>;
+	completionProvider?: ClinkrDynamicCompletionProvider<TContext>;
 }
 
 export interface RawCommandSpec<TContext, S extends z.ZodObject> {
@@ -66,6 +69,7 @@ export interface RawCommandSpec<TContext, S extends z.ZodObject> {
 	run: (ctx: TContext, request: z.output<S>) => Promise<number>;
 	positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>>;
 	options?: Partial<Record<keyof z.infer<S> & string, OptionSpec>>;
+	completionProvider?: ClinkrDynamicCompletionProvider<TContext>;
 	handler?: never;
 	resultSchema?: never;
 	renderHuman?: never;
@@ -98,6 +102,11 @@ export interface ClinkrRunOptions<TContext> {
 	io?: ClinkrIo;
 }
 
+export interface ClinkrCompleteAsyncOptions<TContext> {
+	context: TContext;
+	onDynamicCompletionError?: (error: unknown) => void;
+}
+
 interface RegisteredCommand<TContext> {
 	name: string;
 	description?: string;
@@ -106,6 +115,7 @@ interface RegisteredCommand<TContext> {
 	schemaDocument?: () => JsonSchemaDocument;
 	execution: RenderedExecution<TContext> | RawExecution<TContext>;
 	plan: SurfacePlan;
+	completionProvider: ClinkrDynamicCompletionProvider<TContext> | undefined;
 }
 
 interface RenderedExecution<TContext> {
@@ -183,6 +193,7 @@ export class ClinkrGroup<TContext> {
 			...(spec.schemaDocument === undefined ? {} : { schemaDocument: spec.schemaDocument }),
 			execution: executionOf(spec),
 			plan,
+			completionProvider: spec.completionProvider,
 		});
 		return this;
 	}
@@ -202,6 +213,7 @@ export class ClinkrGroup<TContext> {
 			schema: spec.schema,
 			execution: rawExecutionOf(spec),
 			plan,
+			completionProvider: spec.completionProvider,
 		};
 		return this;
 	}
@@ -219,6 +231,13 @@ export class ClinkrGroup<TContext> {
 	/** Build static completion candidates without invoking command handlers. */
 	complete(request: ClinkrCompletionRequest): ClinkrCompletionResult {
 		return completeClinkrWords(this.buildCompletionPlan(true), request);
+	}
+
+	async completeAsync(
+		request: ClinkrCompletionRequest,
+		options: ClinkrCompleteAsyncOptions<TContext>,
+	): Promise<ClinkrCompletionResult> {
+		return await completeClinkrWordsAsync(this.buildCompletionPlan(true), request, options);
 	}
 
 	async run(argv: readonly string[], options: ClinkrRunOptions<TContext>): Promise<number> {
@@ -251,7 +270,7 @@ export class ClinkrGroup<TContext> {
 		}
 	}
 
-	private buildCompletionPlan(isRoot: boolean): ClinkrCompletionGroupPlan {
+	private buildCompletionPlan(isRoot: boolean): ClinkrCompletionGroupPlan<TContext> {
 		return {
 			name: this.name,
 			...(this.description === undefined ? {} : { description: this.description }),
@@ -330,7 +349,7 @@ function executionOf<TContext, S extends z.ZodObject, T>(
 
 function completionCommandPlan<TContext>(
 	registered: RegisteredCommand<TContext>,
-): ClinkrCompletionCommandPlan {
+): ClinkrCompletionCommandPlan<TContext> {
 	const frameworkOptions =
 		registered.execution.type === "rendered"
 			? [...CLINKR_RENDERED_COMMAND_OPTIONS, CLINKR_JSON_SCHEMA_OPTION]
@@ -345,6 +364,9 @@ function completionCommandPlan<TContext>(
 			...frameworkOptions,
 		],
 		positionals: registered.plan.positionals,
+		...(registered.completionProvider === undefined
+			? {}
+			: { completionProvider: registered.completionProvider }),
 	};
 }
 

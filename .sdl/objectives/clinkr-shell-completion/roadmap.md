@@ -23,10 +23,11 @@
   - Top-level completion should use side-effect-light command catalog discovery; selected-command flag completion should import only the selected command.
   - Ensure malformed unrelated SDL extensions do not corrupt shell completion output.
 
-- [ ] Research and decide dynamic/custom completion hooks.
-  - Compare yargs default-completion fallback, tabtab/Omelette callback models, Carapace specs/macros, and oclif manifest/cache patterns against Clinkr’s goals.
-  - Produce a decision: implement a small provider API, park with blockers, or split follow-up work into a new Objective.
-  - If implemented here, keep providers command-owned and explicitly fallible so runtime I/O does not leak into static completion planning.
+- [x] Research and decide dynamic/custom completion hooks.
+  - Decision: implement a small command-owned provider API in Clinkr, bridge it through `sdl-sdk`, and prove it with `sdl slot checkout` / `sdl slot co` local-branch completion.
+  - Providers run only on the async completion path for selected command contexts; sync completion remains static.
+  - Provider failures are explicitly captured so static candidates remain available and shell stdout remains candidate-only.
+  - Evidence: `20260628T232011Z-dynamic-completion-hooks-slot-branches.md` plus Clinkr/kernel/Slot tests.
 
 - [ ] Document the completion feature and its boundaries.
   - Explain supported shells, installation examples, resolver behavior, limitations, and how extension authors should think about completion metadata.
