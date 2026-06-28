@@ -71,13 +71,32 @@ describe("renderHuman", () => {
 		expect(run.stdout).toBe("plans: 2\n");
 	});
 
-	test("is not called for the negative channel", async () => {
+	test("is not called for the negative channel when no data is attached", async () => {
 		const { group, renderCalls } = buildGroup("negative");
 		const run = await runForTest(group, ["act"], { context: null });
 		expect(run.exitCode).toBe(1);
 		expect(run.stdout).toBe("");
 		expect(run.stderr).toBe("none\n");
 		expect(renderCalls()).toBe(0);
+	});
+
+	test("renders attached negative data to stderr in human mode", async () => {
+		let renderCalls = 0;
+		const group = new ClinkrGroup<null>({ name: "probe" });
+		group.command({
+			name: "act",
+			schema: z.object({}),
+			handler: async () => negative("none", { count: 2 }),
+			renderHuman: (data) => {
+				renderCalls += 1;
+				return `plans: ${data.count}`;
+			},
+		});
+		const run = await runForTest(group, ["act"], { context: null });
+		expect(run.exitCode).toBe(1);
+		expect(run.stdout).toBe("");
+		expect(run.stderr).toBe("plans: 2\n");
+		expect(renderCalls).toBe(1);
 	});
 
 	test("is not called in json mode", async () => {

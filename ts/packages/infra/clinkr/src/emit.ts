@@ -3,6 +3,7 @@ import {
 	exitCodeForExit,
 	toMachineEnvelope,
 	type ClinkrExit,
+	type ClinkrNegativeExit,
 	type ClinkrOkExit,
 } from "./exit.ts";
 import { stripAnsi } from "./ansi.ts";
@@ -39,9 +40,11 @@ export function emitExit<T>(exit: ClinkrExit<T>, options: EmitExitOptions<T>): n
 			options.io.stdout(`${renderOkExit(exit, options)}\n`);
 			return 0;
 		}
-		case "negative":
-			options.io.stderr(`${exit.message}\n`);
+		case "negative": {
+			const rendered = renderNegativeExit(exit, options);
+			options.io.stderr(`${rendered}\n`);
 			return 1;
+		}
 		case "failure":
 			options.io.stderr(`error: ${exit.message}\n`);
 			return 2;
@@ -52,12 +55,23 @@ export function emitExit<T>(exit: ClinkrExit<T>, options: EmitExitOptions<T>): n
 }
 
 function renderOkExit<T>(exit: ClinkrOkExit<T>, options: EmitExitOptions<T>): string {
-	const caps: RenderCapabilities = {
+	const caps = renderCapabilities(options);
+	const rendered = renderOkExitText(exit, options, caps);
+	return caps.canEmitAnsi ? rendered : stripAnsi(rendered);
+}
+
+function renderNegativeExit<T>(exit: ClinkrNegativeExit<T>, options: EmitExitOptions<T>): string {
+	if (exit.data === undefined || options.renderHuman === undefined) return exit.message;
+	const caps = renderCapabilities(options);
+	const rendered = options.renderHuman(exit.data, caps);
+	return caps.canEmitAnsi ? rendered : stripAnsi(rendered);
+}
+
+function renderCapabilities<T>(options: EmitExitOptions<T>): RenderCapabilities {
+	return {
 		canEmitAnsi: options.io.canEmitAnsi === true,
 		caps: options.io.caps,
 	};
-	const rendered = renderOkExitText(exit, options, caps);
-	return caps.canEmitAnsi ? rendered : stripAnsi(rendered);
 }
 
 function renderOkExitText<T>(
