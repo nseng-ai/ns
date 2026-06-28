@@ -21,9 +21,7 @@ export interface SourceScanShard {
 }
 
 export function findFilesUnder(options: FileDiscoveryOptions): readonly string[] {
-	const paths: string[] = [];
-	collectFilesUnder(options.root, options, paths);
-	return paths.sort();
+	return collectFilesUnder(options.root, options).sort();
 }
 
 export function findTypeScriptSourceFiles(root: string): readonly string[] {
@@ -66,24 +64,23 @@ export function createPathShards(
 	return shards;
 }
 
-function collectFilesUnder(
-	directory: string,
-	options: FileDiscoveryOptions,
-	paths: string[],
-): void {
+function collectFilesUnder(directory: string, options: FileDiscoveryOptions): string[] {
 	const skippedDirectories = options.skippedDirectories ?? skippedDirectoryNames;
 	const entries = readdirSync(directory, { withFileTypes: true }).sort((left, right) =>
 		left.name.localeCompare(right.name),
 	);
+	const paths: string[] = [];
 
 	for (const entry of entries) {
 		const fullPath = join(directory, entry.name);
 		if (entry.isDirectory()) {
-			if (!skippedDirectories.has(entry.name)) collectFilesUnder(fullPath, options, paths);
+			if (!skippedDirectories.has(entry.name)) paths.push(...collectFilesUnder(fullPath, options));
 			continue;
 		}
 
 		if (!entry.isFile()) continue;
 		if (options.shouldIncludeFile({ name: entry.name, path: fullPath })) paths.push(fullPath);
 	}
+
+	return paths;
 }
