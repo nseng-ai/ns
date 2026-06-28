@@ -1,10 +1,18 @@
 # HTML Report Format — Topology Scorecard
 
-A single self-contained HTML file in the OS temp dir. Tailwind and Mermaid both via CDN.
-Mermaid handles the graph-shaped visuals (the actual dependency graph, cycle subgraphs);
-hand-built Tailwind divs handle the editorial visuals (the layered north-star stack, the
-verdict strip, the scorecard table). Mix the two — a report that is all Mermaid reads as a
-generic dependency dump, which is exactly what this is not.
+A single self-contained HTML file in the OS temp dir. Tailwind, D3, and Mermaid via CDN.
+Three visual registers, each for what it does best:
+
+- **D3 force/DAG graph** (section 4) — the *actual* full dependency graph, interactive:
+  node area ∝ source LOC, drag/zoom/hover-trace/tier-filter, and a layered-DAG ⇄ force
+  layout toggle. This is the centrepiece "reality" view.
+- **Mermaid** (section 6 finding cards only) — the small before/after cycle diagrams,
+  where a fixed two-node-cut schematic reads better than a physics sim.
+- **Hand-built Tailwind divs** — the editorial visuals: the layered north-star stack, the
+  verdict strip, the scorecard table.
+
+Mix the three — a report that is all one register reads as a generic dependency dump,
+which is exactly what this is not.
 
 This report has a fixed spine. Follow the section order; it tells a story —
 *here is the target → here is reality → here is the gap → here is what to do first.*
@@ -18,6 +26,7 @@ This report has a fixed spine. Follow the section order; it tells a story —
     <meta charset="utf-8" />
     <title>Package topology — {{repo}} vs. {{target name}}</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
     <script type="module">
       import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
       mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose", flowchart: { curve: "basis" } });
@@ -47,8 +56,8 @@ This report has a fixed spine. Follow the section order; it tells a story —
 
 Repo name, the target doc it is measured against (with the ADR refs), date, and a compact
 legend mapping every visual encoding used in the graph: one swatch per layer, plus
-`red line = cycle edge`, `dashed amber = debt / transitional edge`. State the scope:
-package count and that edges are runtime (`dependencies` + `peerDependencies`) only.
+`red line = cycle edge` and `node area ∝ LOC`. State the scope: package count and that
+edges are runtime (`dependencies` + `peerDependencies`) only.
 
 ## 2. Verdict strip
 
@@ -70,40 +79,171 @@ emerald = capabilities). Flag any package destined for deletion with a dashed am
 a "must delete to zero" note. One sentence above it states the governing rule (e.g. "edges
 point down; the graph must be acyclic").
 
-## 4. The graph as it stands — Mermaid
+## 4. The graph as it stands — interactive D3 force/DAG graph
 
-The actual dependency graph, **curated** to the architecturally load-bearing nodes and
-edges — omit off-axis tooling, name it in the caption. This is where Mermaid earns its
-place. Conventions:
+The actual dependency graph, rendered live with D3 (not Mermaid). Unlike a static diagram,
+the interactive graph can hold **every** node — zoom, hover-trace, and tier-filter handle
+the clutter, so you do not have to curate down to a hand-picked subgraph. Name the off-axis
+tools in the caption rather than deleting them; the tier filter lets the reader drop them.
 
-- `classDef` per layer, colors matching the north-star bands.
-- Node shapes encode role: `[infra]`, `([capability])`, `{{consumer/host}}`, dashed for the
-  transitional package.
-- **Cycle edges in red** via `linkStyle <indices> stroke:#dc2626,stroke-width:2.5px`. Count
-  the link declarations in order to get the indices right (Mermaid numbers links 0..n in
-  source order). Label each debt edge with *why* it is debt (`-.->|internals|`,
-  `-.->|"@sdl/sdl/context"|`).
-- Caption below spells out the cycle path in words so it survives a Mermaid render failure.
+What it must do:
+
+- **Node area ∝ LOC.** Radius via `d3.scaleSqrt().domain([0, maxLoc]).range([0, ~50])`, so
+  *area* (not radius) tracks `loc` — the visual heft of a package matches its real heft.
+  `loc` comes straight from the script's `packages[name].loc`.
+- **Color = tier**, swatches matching the north-star bands. The script does not classify
+  tiers (by design); **you** assign each node a tier from the target model when you build
+  the data array (see the data-prep step below).
+- **Cycle edges in red** with an arrowhead, drawn against the layout flow. Mark a link
+  `cycle: true` when its `source→target` pair appears inside any SCC from the script's
+  `cycles`. In the layered view a red edge visibly points *upward* — that *is* the violation.
+- **Layered-DAG ⇄ Force toggle.** Default to **Layered**: rank each node by longest
+  dependency path (cycle edges excluded from ranking so it stays a DAG), pin `forceY` to the
+  rank — consumers on top, neutral infra at the bottom, mirroring the north-star tiers. The
+  **Force** mode is the organic spring layout for comparison.
+- **Interactions:** drag (pins a node), scroll-zoom + background-pan, hover a node to trace
+  its direct dependencies/dependents (fade the rest, tooltip with tier · LOC · rank ·
+  fan-in/out), clickable tier chips to toggle whole layers, and a reset.
+- A **caption** spells out the cycle path in words so it survives if the script fails to run.
+
+**Data prep.** Build a `{nodes, links}` object from the script JSON and embed it in a
+`<script type="application/json" id="graphdata">`. For each package emit
+`{id, label, loc, tier, fanIn, fanOut}` (`loc` from `packages[].loc`; `tier` you assign;
+`fanIn`/`fanOut` from the ranked lists or recomputed). For each runtime edge emit
+`{source, target, cycle}`. Shorten labels for readability (strip the scope prefix).
+
+The full, self-contained renderer — drop it in after the `#graphdata` script tag:
 
 ```html
-<div class="rounded-lg border border-slate-200 bg-white p-4">
-  <pre class="mermaid">
-    flowchart TD
-      sdl["@sdl/sdl (kernel)"]:::sdk
-      bctx([branch-context]):::cap
-      pi{{pi · host}}:::cons
-      sdl --> autobranch
-      autobranch --> pi
-      pi --> sdl
-      pi --> bctx
-      bctx --> pi
-      classDef sdk fill:#c7d2fe,stroke:#6366f1;
-      classDef cap fill:#bbf7d0,stroke:#10b981;
-      classDef cons fill:#1e293b,stroke:#0f172a,color:#f8fafc;
-      linkStyle 0,1,2,3,4 stroke:#dc2626,stroke-width:2.5px;
-  </pre>
+<div class="flex flex-wrap items-center gap-3">
+  <div id="layout-toolbar" class="flex items-center gap-1 text-xs"></div>
+  <div id="tier-toolbar" class="flex flex-wrap items-center gap-2 text-xs"></div>
 </div>
+<div class="relative rounded-lg border border-slate-200 bg-white">
+  <svg id="depgraph" class="w-full" style="height:680px; display:block; cursor:grab;"></svg>
+  <div id="g-tip" class="pointer-events-none absolute hidden rounded-md bg-slate-900/95 text-slate-100 text-xs px-3 py-2 shadow-lg leading-relaxed" style="max-width:260px"></div>
+</div>
+<script>
+(function(){
+  const DATA = JSON.parse(document.getElementById("graphdata").textContent);
+  // Order tiers top→bottom; colors match the north-star bands.
+  const TIERS = {
+    cons:{fill:"#1e293b",stroke:"#0f172a",name:"consumer"},
+    host:{fill:"#334155",stroke:"#0f172a",name:"host"},
+    cap:{fill:"#bbf7d0",stroke:"#10b981",name:"capability"},
+    util:{fill:"#fbcfe8",stroke:"#db2777",name:"utility"},
+    sdk:{fill:"#c7d2fe",stroke:"#6366f1",name:"SDK / kernel"},
+    trans:{fill:"#fef3c7",stroke:"#d97706",name:"transitional"},
+    infra:{fill:"#cbd5e1",stroke:"#64748b",name:"neutral infra"},
+    tool:{fill:"#f1f5f9",stroke:"#94a3b8",name:"off-axis tool"},
+  };
+  const svg = d3.select("#depgraph"), el = svg.node();
+  let W = el.clientWidth || 900, H = 680;
+  svg.attr("viewBox", [0,0,W,H]);
+
+  const maxLoc = d3.max(DATA.nodes, d=>d.loc);
+  const r = d3.scaleSqrt().domain([0,maxLoc]).range([0,50]);   // area ∝ loc
+  DATA.nodes.forEach(n=>n.r=Math.max(4,r(n.loc)));
+
+  // layered ranks: longest path, cycle edges excluded so it's a DAG
+  const parents = new Map(DATA.nodes.map(n=>[n.id,[]]));
+  DATA.links.forEach(l=>{ if(!l.cycle){ const s=l.source.id||l.source, t=l.target.id||l.target; parents.get(t).push(s);} });
+  const memo=new Map();
+  function depthOf(id){ if(memo.has(id))return memo.get(id); let d=0; for(const p of parents.get(id)) d=Math.max(d,depthOf(p)+1); memo.set(id,d); return d; }
+  DATA.nodes.forEach(n=>n.depth=depthOf(n.id));
+  const maxDepth=d3.max(DATA.nodes,d=>d.depth)||1;
+  const layerY=d=>50+(d.depth/maxDepth)*(H-100);
+  DATA.nodes.forEach(n=>{ n.y=layerY(n); n.x=W/2+(Math.random()-0.5)*W*0.6; });
+
+  const defs=svg.append("defs");
+  [["arrow","#94a3b8"],["arrow-cy","#dc2626"]].forEach(([id,col])=>{
+    defs.append("marker").attr("id",id).attr("viewBox","0 -5 10 10").attr("refX",9).attr("refY",0)
+      .attr("markerWidth",6).attr("markerHeight",6).attr("orient","auto")
+      .append("path").attr("d","M0,-5L10,0L0,5").attr("fill",col);
+  });
+  const root=svg.append("g");
+  const linkSel=root.append("g").attr("fill","none").selectAll("line").data(DATA.links).join("line")
+    .attr("stroke",d=>d.cycle?"#dc2626":"#cbd5e1").attr("stroke-width",d=>d.cycle?2.4:1)
+    .attr("marker-end",d=>d.cycle?"url(#arrow-cy)":"url(#arrow)");
+  const nodeG=root.append("g").selectAll("g").data(DATA.nodes).join("g").style("cursor","pointer").call(drag());
+  nodeG.append("circle").attr("r",d=>d.r).attr("fill",d=>TIERS[d.tier].fill).attr("stroke",d=>TIERS[d.tier].stroke)
+    .attr("stroke-width",1.4).attr("stroke-dasharray",d=>d.tier==="trans"?"4 3":null);
+  nodeG.append("text").text(d=>d.label).attr("text-anchor","middle").attr("dy",d=>d.r+11)
+    .attr("font-size",d=>Math.max(9,Math.min(13,8+d.r/6))).attr("fill","#334155")
+    .attr("paint-order","stroke").attr("stroke","#f8fafc").attr("stroke-width",3);
+
+  const sim=d3.forceSimulation(DATA.nodes).on("tick",tick);
+  function tick(){
+    linkSel.each(function(d){
+      const dx=d.target.x-d.source.x, dy=d.target.y-d.source.y, dist=Math.hypot(dx,dy)||1, ux=dx/dist, uy=dy/dist;
+      d.x1=d.source.x+ux*d.source.r; d.y1=d.source.y+uy*d.source.r;
+      d.x2=d.target.x-ux*(d.target.r+5); d.y2=d.target.y-uy*(d.target.r+5);
+    });
+    linkSel.attr("x1",d=>d.x1).attr("y1",d=>d.y1).attr("x2",d=>d.x2).attr("y2",d=>d.y2);
+    nodeG.attr("transform",d=>`translate(${d.x},${d.y})`);
+  }
+
+  let mode="layered";
+  function setLayout(m){
+    mode=m;
+    d3.selectAll(".layout-btn").style("opacity",function(){return this.dataset.mode===m?1:0.4;})
+      .style("font-weight",function(){return this.dataset.mode===m?600:400;});
+    sim.force("link",d3.forceLink(DATA.links).id(d=>d.id)
+         .distance(d=>m==="layered"?70:(r(d.source.loc)+r(d.target.loc)+46)).strength(m==="layered"?0.05:0.35))
+       .force("collide",d3.forceCollide().radius(d=>d.r+7).strength(0.92));
+    if(m==="layered") sim.force("charge",d3.forceManyBody().strength(d=>-90-d.r*5))
+                         .force("x",d3.forceX(W/2).strength(0.05)).force("y",d3.forceY(d=>layerY(d)).strength(1.0));
+    else              sim.force("charge",d3.forceManyBody().strength(d=>-170-d.r*9))
+                         .force("x",d3.forceX(W/2).strength(0.05)).force("y",d3.forceY(H/2).strength(0.07));
+    sim.alpha(0.9).restart();
+  }
+  const zoom=d3.zoom().scaleExtent([0.3,4]).on("zoom",e=>root.attr("transform",e.transform));
+  svg.call(zoom);
+
+  const nbr=new Map(DATA.nodes.map(n=>[n.id,new Set([n.id])]));
+  DATA.links.forEach(l=>{ const s=l.source.id||l.source,t=l.target.id||l.target; nbr.get(s).add(t); nbr.get(t).add(s); });
+  const tip=d3.select("#g-tip"), active=new Set(Object.keys(TIERS));
+  const vis=d=>active.has(d.tier), lvis=l=>active.has(l.source.tier)&&active.has(l.target.tier);
+  nodeG.on("mouseover",(e,d)=>{
+      const near=nbr.get(d.id);
+      nodeG.style("opacity",n=>vis(n)?(near.has(n.id)?1:0.12):0);
+      linkSel.style("opacity",l=>lvis(l)&&(l.source.id===d.id||l.target.id===d.id)?1:(lvis(l)?0.05:0))
+             .attr("stroke",l=>(l.source.id===d.id||l.target.id===d.id)?(l.cycle?"#dc2626":"#475569"):(l.cycle?"#dc2626":"#cbd5e1"))
+             .attr("stroke-width",l=>(l.source.id===d.id||l.target.id===d.id)?(l.cycle?2.6:1.8):(l.cycle?2.4:1));
+      tip.html(`<div class="font-semibold">${d.id}</div><div class="text-slate-300">${TIERS[d.tier].name} · <span class="font-mono">${d.loc.toLocaleString()}</span> LOC · rank ${d.depth}</div><div class="text-slate-400 mt-1">fan-out ${d.fanOut} → · fan-in ← ${d.fanIn}</div>`).classed("hidden",false);
+    })
+    .on("mousemove",e=>{ const b=el.getBoundingClientRect(); tip.style("left",(e.clientX-b.left+14)+"px").style("top",(e.clientY-b.top+10)+"px"); })
+    .on("mouseout",()=>{ tip.classed("hidden",true); applyFilter(); });
+
+  const lt=d3.select("#layout-toolbar");
+  lt.append("span").attr("class","uppercase tracking-wider text-slate-400 mr-1").text("layout:");
+  [["layered","Layered (DAG)"],["force","Force"]].forEach(([m,label])=>
+    lt.append("button").attr("class","layout-btn rounded-full border border-slate-300 px-2.5 py-0.5").attr("data-mode",m).text(label).on("click",()=>setLayout(m)));
+  const tb=d3.select("#tier-toolbar");
+  tb.append("span").attr("class","uppercase tracking-wider text-slate-400 mr-1").text("tiers:");
+  Object.entries(TIERS).forEach(([k,v])=>{
+    const b=tb.append("button").attr("data-tier",k).attr("class","inline-flex items-center gap-1 rounded-full border px-2 py-0.5").style("border-color",v.stroke);
+    b.append("span").style("width","9px").style("height","9px").style("border-radius","2px").style("background",v.fill).style("border","1px solid "+v.stroke);
+    b.append("span").text(v.name);
+    b.on("click",function(){ active.has(k)?active.delete(k):active.add(k); d3.select(this).style("opacity",active.has(k)?1:0.35); applyFilter(); });
+  });
+  function applyFilter(){
+    nodeG.style("opacity",d=>vis(d)?1:0.06).style("pointer-events",d=>vis(d)?"all":"none");
+    linkSel.style("opacity",l=>lvis(l)?(l.cycle?0.95:0.5):0.02).attr("stroke",l=>l.cycle?"#dc2626":"#cbd5e1").attr("stroke-width",l=>l.cycle?2.4:1);
+  }
+  function drag(){ return d3.drag()
+    .on("start",(e,d)=>{ if(!e.active) sim.alphaTarget(0.3).restart(); d.fx=d.x; d.fy=d.y; })
+    .on("drag",(e,d)=>{ d.fx=e.x; d.fy=e.y; })
+    .on("end",(e,d)=>{ if(!e.active) sim.alphaTarget(0); d.fx=null; d.fy=null; }); }
+  window.addEventListener("resize",()=>{ W=el.clientWidth||W; svg.attr("viewBox",[0,0,W,H]); setLayout(mode); });
+  setLayout("layered"); applyFilter();
+})();
+</script>
 ```
+
+Add a small `area ∝ LOC` size key (three nested circles) and a one-line "what the sizes
+say" caption that calls out the heaviest package and any deliberately-tiny seam — the LOC
+encoding earns its keep only if the prose reads it.
 
 ## 5. Scorecard table
 
@@ -142,7 +282,9 @@ it; no second recommendation competing for the slot.
   stone/slate, one accent plus red (cycles/blockers) and amber (debt/warnings).
 - `text-xs uppercase tracking-wider` for tier and module labels — schematic, not UI.
 - Keep before/after Mermaid pairs short so they sit side by side without scrolling.
-- The only scripts are the two CDNs. No app code, no interactivity beyond Mermaid.
+- Scripts are the three CDNs (Tailwind, D3, Mermaid) plus the self-contained D3 renderer in
+  section 4 and the embedded `#graphdata`. No build step, no external data file — it opens
+  straight from disk.
 
 ## Tone and vocabulary
 

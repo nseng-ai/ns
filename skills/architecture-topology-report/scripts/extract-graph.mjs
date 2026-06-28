@@ -11,7 +11,11 @@
 // Usage:
 //   node extract-graph.mjs [--root ts/packages] [--kit @sdl/capability-kit]
 //                          [--transitional @sdl/domain-primitives-transitional]
-//                          [--api-needle api] [--pretty]
+//                          [--api-needle api] [--src-dir src] [--pretty]
+//
+// Each package carries an approximate `loc` (meaningful TypeScript lines under
+// <pkg>/<src-dir>, tests/blank/`//` excluded) so the report can size graph nodes
+// by source heft (node area ∝ loc).
 //
 // Defaults are tuned for sdl-tools but every knob is a flag, so this runs
 // against any workspace. Membership in the graph = "is a workspace package"
@@ -21,8 +25,9 @@
 // devDependencies are excluded because they are not part of the shipped
 // Extension Dependency Graph.
 
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { execSync } from "node:child_process";
+import { join } from "node:path";
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`);
@@ -35,7 +40,46 @@ const ROOT = arg("root", "ts/packages");
 const KIT = arg("kit", "@sdl/capability-kit");
 const TRANSITIONAL = arg("transitional", "@sdl/domain-primitives-transitional");
 const API_NEEDLE = arg("api-needle", "api");
+const SRC_DIR = arg("src-dir", "src");
 const PRETTY = arg("pretty", false);
+
+// Approximate source size per package: meaningful lines of TypeScript under
+// <pkg>/<SRC_DIR>, excluding tests and blank/`//`-only lines. Used by the report
+// to size graph nodes by LOC (node area ∝ loc), so the visual weight of a package
+// matches its actual heft. Cheap and good-enough — not a SLOC tool.
+function countLoc(dir) {
+  let loc = 0;
+  let entries;
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return 0;
+  }
+  for (const e of entries) {
+    const p = join(dir, e.name);
+    if (e.isDirectory()) {
+      if (e.name === "node_modules") continue;
+      loc += countLoc(p);
+    } else if (
+      e.isFile() &&
+      /\.(ts|tsx)$/.test(e.name) &&
+      !/\.(test|spec)\.tsx?$/.test(e.name) &&
+      !e.name.endsWith(".d.ts")
+    ) {
+      let text;
+      try {
+        text = readFileSync(p, "utf8");
+      } catch {
+        continue;
+      }
+      for (const line of text.split("\n")) {
+        const t = line.trim();
+        if (t && !t.startsWith("//")) loc++;
+      }
+    }
+  }
+  return loc;
+}
 
 // Discover every package.json under ROOT, excluding node_modules.
 let files;
@@ -69,10 +113,12 @@ for (const f of files) {
       );
     }
   }
+  const path = f.replace(/\/package\.json$/, "");
   pkgs[d.name] = {
-    path: f.replace(/\/package\.json$/, ""),
+    path,
     exports: Object.keys(d.exports || {}),
     deps,
+    loc: countLoc(join(path, SRC_DIR)),
   };
 }
 
@@ -167,7 +213,7 @@ const out = {
   packages: Object.fromEntries(
     Object.entries(pkgs)
       .sort()
-      .map(([n, p]) => [n, { path: p.path, exports: p.exports, runtimeDeps: graph[n] }]),
+      .map(([n, p]) => [n, { path: p.path, exports: p.exports, runtimeDeps: graph[n], loc: p.loc }]),
   ),
   graph,
   cycles, // [] means acyclic
