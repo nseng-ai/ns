@@ -138,7 +138,7 @@ describe("@sdl/roaster/api", () => {
 		if (!result.ok) throw new Error(result.failure.message);
 		expect(result.result.keys).toEqual([REVIEW_KEY]);
 		expect(result.result.count).toBe(1);
-		expect(result.result.reviews[0]?.local_only).toBe(false);
+		expect(result.result.reviews[0]?.localOnly).toBe(false);
 	});
 
 	test("listReviewLogs preserves review log namespace and entries", async () => {
@@ -197,7 +197,7 @@ describe("@sdl/roaster/api", () => {
 			runtime: runtimeWithFakes({
 				reviewCatalog: new FakeReviewCatalogGateway({
 					listReviewKeysFailure: {
-						type: "reviews_dir_missing",
+						type: "reviews-dir-missing",
 						message: "No reviews directory at /repo/.sdl/reviews.",
 					},
 				}),
@@ -209,7 +209,7 @@ describe("@sdl/roaster/api", () => {
 		expect(result).toEqual({
 			ok: false,
 			failure: {
-				errorType: "reviews_dir_missing",
+				errorType: "reviews-dir-missing",
 				message: "No reviews directory at /repo/.sdl/reviews.",
 			},
 		});

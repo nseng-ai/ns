@@ -19,7 +19,7 @@
 
 - [ ] Migrate low-risk read/list surfaces to the SDL command face.
   - Policy: direct execution after preview for implementation and tests.
-  - Guidance: start with `review list`, `review ls`, `review log`, and `roast list` because they exercise catalog/log rendering without model execution or GitHub publication. Preserve JSON/Markdown behavior, finite counts where applicable, and review-log namespace/key semantics.
+  - Guidance: start with `review list`, `review ls`, `review log`, and `roast list` because they exercise catalog/log rendering without model execution or GitHub publication. Preserve JSON/Markdown behavior, finite counts where applicable, and review-log namespace/key semantics. While doing this row, split read/list/log builders into domain-result operations before CLI/API wrapping, following the Objective `buildObjectiveListResult()` precedent; the initial API boundary intentionally kept a transitional `ClinkrExit` conversion and parked that cleanup here.
   - Evidence: command scenarios and fake-backed tests prove parity with current behavior; public docs/skills no longer teach stale standalone-only invocations for these surfaces once parity exists.
 
 - [ ] Migrate review execution and same-session findings recording.

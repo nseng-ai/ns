@@ -107,7 +107,7 @@ describe("Roaster SDL command face", () => {
 		expect(envelope.status).toBe("ok");
 		expect(envelope.exitCode).toBe(0);
 		expect(envelope.data).toMatchObject({
-			reviews_dir: `${root}/.sdl/reviews`,
+			reviewsDir: `${root}/.sdl/reviews`,
 			count: expect.any(Number),
 		});
 		expect(run.stderr.join("")).toBe("");
