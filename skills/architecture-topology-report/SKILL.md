@@ -149,7 +149,7 @@ plus the "Spec contract" table in
 generator-owned D3 scaffold and design rationale, which you don't need to read to write a spec.
 The full field list and section sequence live there if you need them. The report mixes three visual
 registers so it reads as editorial, not as a generic dashboard: the interactive **D3 graph**
-(node area ∝ LOC, layered-DAG ⇄ force toggle, drag/zoom/hover-trace/tier-filter), **Mermaid**
+(node area ∝ LOC, layered-DAG / tier-clustered / force layout toggle, drag/zoom/hover-trace/tier-filter), **Mermaid**
 before/after cycle diagrams in finding cards, and **hand-built Tailwind** for the tier stack,
 verdict strip, and scorecard. Package color comes from declared `sdl.tier` by default; the
 generator marks an edge `cycle: true` when both endpoints sit in a `cycles` SCC.

@@ -146,7 +146,7 @@ function GRAPH_RENDERER() {
   const DATA = JSON.parse(document.getElementById("graphdata").textContent);
   const TIERS = window.__TIERS__;
   const svg = d3.select("#depgraph"), el = svg.node();
-  let W = el.clientWidth || 900, H = 680;
+  let W = el.clientWidth || 900, H = 820;
   svg.attr("viewBox", [0, 0, W, H]);
   const maxLoc = d3.max(DATA.nodes, (d) => d.loc);
   const r = d3.scaleSqrt().domain([0, maxLoc]).range([0, 50]); // area ∝ loc
@@ -175,6 +175,21 @@ function GRAPH_RENDERER() {
   // so a normal consumer→provider edge points DOWN and a cycle back-edge points UP.
   const layerY = (d) => 50 + (d.depth / maxDepth) * (H - 100);
   DATA.nodes.forEach((n) => { n.y = layerY(n); n.x = W / 2 + (Math.random() - 0.5) * W * 0.6; });
+  // tier clustering stacked in DAG order: order tiers by mean dependency depth
+  // (consumers shallow → top band, neutral infra deep → bottom band) and give each
+  // tier a horizontal swimlane, so same-tier nodes cluster and clusters broadly stack.
+  const tierDepthSum = new Map(), tierCount = new Map();
+  DATA.nodes.forEach((n) => {
+    tierDepthSum.set(n.tier, (tierDepthSum.get(n.tier) || 0) + n.depth);
+    tierCount.set(n.tier, (tierCount.get(n.tier) || 0) + 1);
+  });
+  const meanDepth = (t) => tierDepthSum.get(t) / tierCount.get(t);
+  const presentTiers = [...tierCount.keys()].sort((a, b) => meanDepth(a) - meanDepth(b));
+  const tierBand = new Map(presentTiers.map((t, i) => [t, i]));
+  const nBands = Math.max(1, presentTiers.length);
+  const bandSpan = () => (H - 120) / nBands;
+  const bandY = (tier) => 60 + (tierBand.get(tier) + 0.5) * bandSpan();
+  function anchorOf(tier) { return { x: W / 2, y: bandY(tier) }; }
   const defs = svg.append("defs");
   [["arrow", "#94a3b8"], ["arrow-cy", "#dc2626"]].forEach(([id, col]) => {
     defs.append("marker").attr("id", id).attr("viewBox", "0 -5 10 10").attr("refX", 9).attr("refY", 0)
@@ -191,6 +206,12 @@ function GRAPH_RENDERER() {
   nodeG.append("text").text((d) => d.label).attr("text-anchor", "middle").attr("dy", (d) => d.r + 11)
     .attr("font-size", (d) => Math.max(9, Math.min(13, 8 + d.r / 6))).attr("fill", "#334155")
     .attr("paint-order", "stroke").attr("stroke", "#f8fafc").attr("stroke-width", 3);
+  // per-tier cluster captions, shown only in the clustered layout
+  const clusterLabels = rootG.append("g").attr("pointer-events", "none").style("display", "none");
+  const clusterText = clusterLabels.selectAll("text").data(presentTiers).join("text")
+    .attr("text-anchor", "middle").attr("font-size", 12).attr("font-weight", 700)
+    .attr("fill", (t) => TIERS[t].stroke).attr("paint-order", "stroke").attr("stroke", "#f8fafc").attr("stroke-width", 4)
+    .style("text-transform", "uppercase").style("letter-spacing", "0.08em").text((t) => TIERS[t].name);
   const sim = d3.forceSimulation(DATA.nodes).on("tick", tick);
   function tick() {
     linkSel.each(function (d) {
@@ -207,12 +228,17 @@ function GRAPH_RENDERER() {
     d3.selectAll(".layout-btn").style("opacity", function () { return this.dataset.mode === m ? 1 : 0.4; })
       .style("font-weight", function () { return this.dataset.mode === m ? 600 : 400; });
     sim.force("link", d3.forceLink(DATA.links).id((d) => d.id)
-      .distance((d) => m === "layered" ? 70 : (r(d.source.loc) + r(d.target.loc) + 46)).strength(m === "layered" ? 0.05 : 0.35))
+      .distance((d) => m === "force" ? (r(d.source.loc) + r(d.target.loc) + 46) : (m === "clustered" ? 46 : 70))
+      .strength(m === "clustered" ? 0.02 : (m === "layered" ? 0.05 : 0.35)))
       .force("collide", d3.forceCollide().radius((d) => d.r + 7).strength(0.92));
     if (m === "layered") sim.force("charge", d3.forceManyBody().strength((d) => -90 - d.r * 5))
       .force("x", d3.forceX(W / 2).strength(0.05)).force("y", d3.forceY((d) => layerY(d)).strength(1.0));
+    else if (m === "clustered") sim.force("charge", d3.forceManyBody().strength((d) => -70 - d.r * 4))
+      .force("x", d3.forceX(W / 2).strength(0.12)).force("y", d3.forceY((d) => bandY(d.tier)).strength(0.94));
     else sim.force("charge", d3.forceManyBody().strength((d) => -170 - d.r * 9))
       .force("x", d3.forceX(W / 2).strength(0.05)).force("y", d3.forceY(H / 2).strength(0.07));
+    clusterLabels.style("display", m === "clustered" ? null : "none");
+    if (m === "clustered") clusterText.attr("x", W / 2).attr("y", (t) => Math.max(16, bandY(t) - bandSpan() * 0.5 + 13));
     sim.alpha(0.9).restart();
   }
   const zoom = d3.zoom().scaleExtent([0.3, 4]).on("zoom", (e) => rootG.attr("transform", e.transform));
@@ -233,7 +259,7 @@ function GRAPH_RENDERER() {
     .on("mouseout", () => { tip.classed("hidden", true); applyFilter(); });
   const lt = d3.select("#layout-toolbar");
   lt.append("span").attr("class", "uppercase tracking-wider text-slate-400 mr-1").text("layout:");
-  [["layered", "Layered (DAG)"], ["force", "Force"]].forEach(([m, lab]) =>
+  [["layered", "Layered (DAG)"], ["clustered", "Clustered (tiers)"], ["force", "Force"]].forEach(([m, lab]) =>
     lt.append("button").attr("class", "layout-btn rounded-full border border-slate-300 px-2.5 py-0.5").attr("data-mode", m).text(lab).on("click", () => setLayout(m)));
   const tb = d3.select("#tier-toolbar");
   tb.append("span").attr("class", "uppercase tracking-wider text-slate-400 mr-1").text("tiers:");
@@ -334,7 +360,7 @@ function renderGraphSection(s, graphData) {
       <div id="tier-toolbar" class="flex flex-wrap items-center gap-2 text-xs"></div>
     </div>
     <div class="relative rounded-lg border border-slate-200 bg-white">
-      <svg id="depgraph" class="w-full" style="height:680px; display:block; cursor:grab;"></svg>
+      <svg id="depgraph" class="w-full" style="height:820px; display:block; cursor:grab;"></svg>
       <div id="g-tip" class="pointer-events-none absolute hidden rounded-md bg-slate-900/95 text-slate-100 text-xs px-3 py-2 shadow-lg leading-relaxed" style="max-width:260px"></div>
       <div class="absolute bottom-3 right-3 flex items-end gap-3 text-[10px] text-slate-400 bg-white/80 rounded px-3 py-2">
         <span class="uppercase tracking-wider">area ∝ LOC</span>
