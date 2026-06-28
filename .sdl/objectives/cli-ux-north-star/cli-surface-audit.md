@@ -4,6 +4,7 @@ This audit is the migration backlog for applying the signed-off clinkr house sty
 
 ## Migration policy
 
+- **House style spec:** the normative side-effect result/progress grammar is consolidated in `house-style.md`. Cite it when porting a side-effect command instead of re-deriving the style from the ported renderers.
 - **Already migrated:** `sdl objective list`, `sdl flow cp`, and `sdl flow submit` are the reference implementations.
 - **Migrate:** human-facing command output that people read in a terminal.
 - **Usually exempt:** hidden `exec`/skill primitives, JSON/Markdown payload readers, and full-screen TUI surfaces. Keep these machine-first unless they also expose a durable human-facing mode.
