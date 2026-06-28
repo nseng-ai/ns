@@ -1,4 +1,4 @@
-import { importTypeScriptWorkspaceDefault } from "./workspace-packages.ts";
+import { importTypeScriptWorkspaceDefault } from "../lib/workspace-packages.ts";
 
 const objectiveExtension = await importTypeScriptWorkspaceDefault("@sdl/objective-pi/extension");
 
