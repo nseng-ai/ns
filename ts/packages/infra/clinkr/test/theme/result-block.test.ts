@@ -1,7 +1,11 @@
 import { describe, expect, test } from "vitest";
 
 import type { Caps, ColorDepth } from "../../src/caps.ts";
-import { renderResultBlock, resultBlockHeadline } from "../../src/theme/result-block.ts";
+import {
+	renderResultBlock,
+	renderResultBlockFromMessage,
+	resultBlockHeadline,
+} from "../../src/theme/result-block.ts";
 import { stripAnsi } from "../../src/testing/index.ts";
 
 const RESET = "\x1b[0m";
@@ -82,6 +86,30 @@ describe("renderResultBlock", () => {
 		});
 
 		expect(stripAnsi(block).split("\n")).toEqual(["✗ failed", "cause", "retry"]);
+	});
+
+	test("renders a domain-authored message by splitting the first line as headline", () => {
+		const block = renderResultBlockFromMessage(caps(), {
+			kind: "failure",
+			message: "Could not regenerate the PR.\nmissing prompt\ntry again",
+			cwd: "/repo",
+		});
+
+		expect(stripAnsi(block).split("\n")).toEqual([
+			"✗ Could not regenerate the PR.",
+			"missing prompt",
+			"try again",
+			"Cwd: /repo",
+		]);
+	});
+
+	test("message rendering omits an empty body after the first newline", () => {
+		const block = renderResultBlockFromMessage(caps(), {
+			kind: "refusal",
+			message: "Cancelled.\n",
+		});
+
+		expect(stripAnsi(block).split("\n")).toEqual(["✗ Cancelled."]);
 	});
 
 	test("mono caps drop color but keep bold and dim", () => {

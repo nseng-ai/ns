@@ -97,7 +97,7 @@ export async function executeStackLanding(
 	const runtimePi = withCommandStreaming(pi, commandStream);
 	try {
 		if (parsedArgs.help) {
-			present(ctx, usage(), "info");
+			present({ ctx, message: usage(), level: "info" });
 			return completed();
 		}
 
@@ -192,12 +192,12 @@ async function executeSinglePlanLanding(
 
 	if (parsedArgs.dryRun) {
 		commandStream.finishSuccess("Dry run only; no PRs or local refs were changed.");
-		present(
+		present({
 			ctx,
-			`Dry run only; no PRs or local refs were changed.\n\n${planText}`,
-			"info",
-			"success",
-		);
+			message: `Dry run only; no PRs or local refs were changed.\n\n${planText}`,
+			level: "info",
+			kind: "success",
+		});
 		return success(undefined);
 	}
 
@@ -257,13 +257,16 @@ async function executeSinglePlanLanding(
 	const completionLevel = hasWarnings ? "warning" : "success";
 	const commandStreamDetails = commandStreamDetailsForLanded(landed);
 	commandStream.finishSuccess(successSummary, commandStreamDetails);
-	presentBrief(
+	presentBrief({
 		ctx,
-		successSummary,
-		completionLevel,
-		formatSuccessNotification(successSummary, { details: commandStreamDetails, warnings }),
-		"success",
-	);
+		fullMessage: successSummary,
+		level: completionLevel,
+		uiMessage: formatSuccessNotification(successSummary, {
+			details: commandStreamDetails,
+			warnings,
+		}),
+		kind: "success",
+	});
 	return success(undefined);
 }
 
@@ -314,12 +317,12 @@ async function executeChunkedStackLanding(
 	const chunkPlanText = formatChunkedPlan(initialPlan.value, AUTO_CHUNK_LANDING_SIZE);
 	if (parsedArgs.dryRun) {
 		commandStream.finishSuccess("Dry run only; no PRs or local refs were changed.");
-		present(
+		present({
 			ctx,
-			`Dry run only; no PRs or local refs were changed.\n\n${chunkPlanText}`,
-			"info",
-			"success",
-		);
+			message: `Dry run only; no PRs or local refs were changed.\n\n${chunkPlanText}`,
+			level: "info",
+			kind: "success",
+		});
 		return completed();
 	}
 
@@ -455,13 +458,16 @@ async function executeChunkedStackLanding(
 	const completionLevel = hasWarnings ? "warning" : "success";
 	const commandStreamDetails = commandStreamDetailsForLanded(landed);
 	commandStream.finishSuccess(successSummary, commandStreamDetails);
-	presentBrief(
+	presentBrief({
 		ctx,
-		successSummary,
-		completionLevel,
-		formatSuccessNotification(successSummary, { details: commandStreamDetails, warnings }),
-		"success",
-	);
+		fullMessage: successSummary,
+		level: completionLevel,
+		uiMessage: formatSuccessNotification(successSummary, {
+			details: commandStreamDetails,
+			warnings,
+		}),
+		kind: "success",
+	});
 	return completed();
 }
 
@@ -575,13 +581,13 @@ function presentLandStackFailure(options: PresentLandStackFailureOptions): void 
 	const { ctx, commandStream, landed, landedChunks, failure } = options;
 	const formatted = formatFailure(failure, landed, landedChunks);
 	commandStream.finishFailure(formatted);
-	presentBrief(
+	presentBrief({
 		ctx,
-		formatted,
-		failure.level,
-		formatFailureNotification(failure),
-		landFailureKind(failure),
-	);
+		fullMessage: formatted,
+		level: failure.level,
+		uiMessage: formatFailureNotification(failure),
+		kind: landFailureKind(failure),
+	});
 }
 
 export function parseArgs(argsText: string): LandStackResult<ParsedArgs> {

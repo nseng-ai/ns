@@ -6,6 +6,7 @@ import { renderResultBlock } from "@sdl/clinkr/theme";
 import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@sdl/core/model-slug";
 import { defineExtension, failed, ok, z, type SdlCommand } from "sdl-sdk";
 
+import { renderAutobranchFailureResultBlock } from "../shared/autobranch-result-block.ts";
 import { renderGitResultBlock } from "../shared/git-result-block.ts";
 import { renderPendingWorktreeFailure } from "../shared/pending-worktree-result.ts";
 import { resolveFlowStreamCaps } from "../shared/phase-stream.ts";
@@ -76,19 +77,14 @@ export const flowBranchLatestCommitCommand: SdlCommand<typeof branchLatestCommit
 			// A declined eligibility guardrail (already-pushed HEAD, Graphite children, root/merge commit)
 			// is a first-class warn refusal, not a red failure (house-style §7.3).
 			return failed(
-				result.outcome === "refusal"
-					? renderResultBlock(caps, {
-							kind: "refusal",
-							headline: "Did not move the latest commit to a new Graphite branch.",
-							cwd: snapshot.root,
-							body: result.error.trimEnd(),
-						})
-					: renderResultBlock(caps, {
-							kind: "failure",
-							headline: "Could not move the latest commit to a new Graphite branch.",
-							cwd: snapshot.root,
-							body: result.error.trimEnd(),
-						}),
+				renderAutobranchFailureResultBlock({
+					caps,
+					outcome: result.outcome,
+					cwd: snapshot.root,
+					error: result.error,
+					refusalHeadline: "Did not move the latest commit to a new Graphite branch.",
+					failureHeadline: "Could not move the latest commit to a new Graphite branch.",
+				}),
 			);
 		}
 

@@ -18,6 +18,14 @@ export interface ResultBlockInput {
 	cwd?: string | undefined;
 }
 
+export interface ResultBlockMessageInput {
+	kind: ResultBlockKind;
+	/** Domain-authored message whose first line is the headline and remaining lines are the body. */
+	message: string;
+	guidance?: string | undefined;
+	cwd?: string | undefined;
+}
+
 export function resultBlockHeadline(
 	caps: Caps,
 	input: Pick<ResultBlockInput, "kind" | "headline">,
@@ -36,6 +44,27 @@ export function renderResultBlock(caps: Caps, input: ResultBlockInput): string {
 		lines.push(dim(`Cwd: ${input.cwd}`));
 	}
 	return lines.join("\n");
+}
+
+export function renderResultBlockFromMessage(caps: Caps, input: ResultBlockMessageInput): string {
+	const split = splitResultBlockMessage(input.message);
+	return renderResultBlock(caps, {
+		kind: input.kind,
+		headline: split.headline,
+		...(split.body === undefined ? {} : { body: split.body }),
+		...(input.guidance === undefined ? {} : { guidance: input.guidance }),
+		...(input.cwd === undefined ? {} : { cwd: input.cwd }),
+	});
+}
+
+function splitResultBlockMessage(message: string): { headline: string; body?: string } {
+	const newlineIndex = message.indexOf("\n");
+	if (newlineIndex === -1) return { headline: message };
+	const body = message.slice(newlineIndex + 1);
+	return {
+		headline: message.slice(0, newlineIndex),
+		...(body === "" ? {} : { body }),
+	};
 }
 
 function resultBlockHeadlineStyle(kind: ResultBlockKind): {
