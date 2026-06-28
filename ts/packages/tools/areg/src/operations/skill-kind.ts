@@ -223,10 +223,9 @@ export async function runSkillKindShow(
 		);
 	const record = records.value.find((candidate) => candidate.skill === resolvedSkill.skillName);
 	if (record === undefined) {
-		return negative(
-			`Managed skill not found: ${request.skill}`,
-			emptyShowResult(resolved.value.projectDir, resolvedSkill.skillName),
-		);
+		return negative(`Managed skill not found: ${request.skill}`, {
+			data: emptyShowResult(resolved.value.projectDir, resolvedSkill.skillName),
+		});
 	}
 	return ok({ project_dir: resolved.value.projectDir, skill: toSkillKindRecordResult(record) });
 }
@@ -294,15 +293,17 @@ export async function runSkillKindApply(
 	});
 	if (!applyResult.ok) {
 		return negative(applyResult.error.message, {
-			project_dir: projectDir,
-			kind: request.kind,
-			dry_run: false,
-			mutation_failed: true,
-			operations: [...applyResult.operationStatuses],
-			skills: operationStatusesForPlans(plans, applyResult.operationStatuses).map((skill) => ({
-				skill: skill.skill,
-				operations: [...skill.operations],
-			})),
+			data: {
+				project_dir: projectDir,
+				kind: request.kind,
+				dry_run: false,
+				mutation_failed: true,
+				operations: [...applyResult.operationStatuses],
+				skills: operationStatusesForPlans(plans, applyResult.operationStatuses).map((skill) => ({
+					skill: skill.skill,
+					operations: [...skill.operations],
+				})),
+			},
 		});
 	}
 	return ok({
@@ -326,7 +327,7 @@ function skillKindRecordsFailure<T>(
 	error: { code: string; message: string },
 	negativeData: T,
 ): ClinkrExit<T> {
-	if (isPathStateError(error)) return negative(error.message, negativeData);
+	if (isPathStateError(error)) return negative(error.message, { data: negativeData });
 	return failure("skill_records_invalid", error.message);
 }
 

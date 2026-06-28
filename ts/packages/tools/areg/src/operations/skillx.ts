@@ -172,7 +172,7 @@ export async function runSkillxParse(
 ): Promise<ClinkrExit<SkillxParseResult>> {
 	const result = parseSkillInput(request.inputText);
 	if (result.success) return ok(result);
-	return negative(result.error, result);
+	return negative(result.error, { data: result });
 }
 
 export async function runSkillxList(
@@ -188,9 +188,11 @@ export async function runSkillxList(
 	if (result.type === "missing") {
 		const error = `No skills directory found in ${request.repo}`;
 		return negative(error, {
-			success: false,
-			error,
-			hint: "Check that the repo exists and has a skills/ directory",
+			data: {
+				success: false,
+				error,
+				hint: "Check that the repo exists and has a skills/ directory",
+			},
 		});
 	}
 	if (result.type === "auth-error") {
@@ -290,7 +292,7 @@ function parseError(error: string): SkillxParseResult {
 }
 
 function fetchNegative(error: string): ClinkrExit<SkillxFetchResult> {
-	return negative(error, { success: false, error, tmp_dir: null });
+	return negative(error, { data: { success: false, error, tmp_dir: null } });
 }
 
 function sortedInstalledSkills(

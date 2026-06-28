@@ -129,7 +129,8 @@ export async function runFree(ctx: SlotCliContext, request: FreeRequest) {
 		isCancelled: false,
 	});
 	if (cleanupErrorCount(result.cleanup) > 0)
-		return negative("Slot free completed with cleanup errors.", result, {
+		return negative("Slot free completed with cleanup errors.", {
+			data: result,
 			human: renderFree(result),
 		});
 	return ok(result);

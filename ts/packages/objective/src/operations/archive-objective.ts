@@ -64,19 +64,19 @@ export async function runArchiveObjective(
 				result.value.direction,
 				result.value.sourcePath,
 			),
-			result.value,
+			{ data: result.value },
 		);
 	}
 	if (result.value.status === "source_not_directory") {
 		return negative(
 			`Objective source path for slug ${pythonStringRepr(result.value.slug ?? "")} is not a directory: ${result.value.sourcePath}.`,
-			result.value,
+			{ data: result.value },
 		);
 	}
 	if (result.value.status === "destination_exists") {
 		return negative(
 			`Destination already exists for slug ${pythonStringRepr(result.value.slug ?? "")}: ${result.value.destinationPath}. Refusing to merge or overwrite.`,
-			result.value,
+			{ data: result.value },
 		);
 	}
 	return ok(result.value);

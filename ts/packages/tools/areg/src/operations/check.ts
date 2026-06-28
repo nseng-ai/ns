@@ -110,11 +110,11 @@ export async function runCheck(
 		if (!isPathStateError(piSettings.error))
 			return failure("pi_settings_invalid", piSettings.error.message);
 		const report = piSettingsPathFailureReport(inspection.projectDir, piSettings.error.message);
-		return negative(formatCheckReport(report), report);
+		return negative(formatCheckReport(report), { data: report });
 	}
 	const report = buildCheckReport(inspection, lockfileResult.value, piSettings.value.exclusions);
 	if (report.ok) return ok(report);
-	return negative(formatCheckReport(report), report);
+	return negative(formatCheckReport(report), { data: report });
 }
 
 export function renderCheck(report: CheckReport): string {

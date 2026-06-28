@@ -234,7 +234,7 @@ function collectFailure(
 		error: options.error,
 		warnings: [...options.warnings],
 	});
-	return negative(options.error.message, result);
+	return negative(options.error.message, { data: result });
 }
 
 interface ResolvedBranch {

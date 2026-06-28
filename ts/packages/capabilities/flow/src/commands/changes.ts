@@ -1,4 +1,4 @@
-import { paint } from "@sdl/cli-theme";
+import { renderBufferedReport } from "@sdl/cli-theme";
 import type { Caps } from "@sdl/clinkr";
 import { defineExtension, failed, ok, type SdlCommand } from "sdl-sdk";
 import { prepareFlowChangesSummary } from "../shared/model-generation.ts";
@@ -61,17 +61,21 @@ function formatOutstandingChangesMessage(
 	snapshot: PendingWorktreeSnapshot,
 	summaryText: string,
 ): string {
-	const lines = [paint(caps, "accent", `Outstanding changes on ${snapshot.branch}`), ""];
-	lines.push("Summary");
-	lines.push(
-		...summaryText
-			.trim()
-			.split(/\r?\n/)
-			.filter((line) => line.trim().length > 0),
-	);
-	lines.push("", "Files");
-	lines.push(...displayFileLines(statusFileLines(snapshot.status)));
-	return lines.join("\n");
+	return renderBufferedReport({
+		caps: { canEmitAnsi: caps.colorDepth !== "none", caps },
+		title: `Outstanding changes on ${snapshot.branch}`,
+		sections: [
+			{ title: "Summary", lines: summaryLines(summaryText) },
+			{ title: "Files", lines: displayFileLines(statusFileLines(snapshot.status)) },
+		],
+	});
+}
+
+function summaryLines(summaryText: string): string[] {
+	return summaryText
+		.trim()
+		.split(/\r?\n/)
+		.filter((line) => line.trim().length > 0);
 }
 
 function statusFileLines(status: string): string[] {
