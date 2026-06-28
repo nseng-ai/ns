@@ -669,12 +669,18 @@ importers:
       '@pierre/diffs':
         specifier: 'catalog:'
         version: 1.2.11(@shikijs/themes@4.2.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@sdl/capability-kit':
+        specifier: workspace:*
+        version: link:../sdl-capability-kit
       '@sdl/clinkr':
         specifier: workspace:*
         version: link:../infra/clinkr
       '@sdl/core':
         specifier: workspace:*
         version: link:../infra/core
+      sdl-sdk:
+        specifier: workspace:*
+        version: link:../sdl-sdk
       smol-toml:
         specifier: 'catalog:'
         version: 1.6.1

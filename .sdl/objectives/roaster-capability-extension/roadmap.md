@@ -12,10 +12,10 @@
   - Guidance: start from concrete consumers discovered by inventory. Prefer a curated API over review definitions, review execution request/result types, review-log summaries, publication request/result types, and gateway-injected operation entrypoints only when needed. Keep command parsing, presentation, prompt resources, and private adapters out of the API.
   - Evidence: completed by `updates/2026-06-28T204400Z-roaster-api-boundary.md`; package exports now include `./api`, the API is a narrow fake-testable client facade over gateway-injected runtime/real context options, and tests import `@sdl/roaster/api` without exposing CLI renderers, prompt resources, adapter classes, fake helpers, raw command machinery, or GitHub publication.
 
-- [ ] Prove Roaster's SDL Command Face and selected command loading.
+- [x] Prove Roaster's SDL Command Face and selected command loading.
   - Policy: direct execution after preview using existing SDL grouped-command mechanics by default; steer first before command taxonomy changes or public SDK expansion.
   - Guidance: model Roaster as an SDL extension command group while preserving current review/roast/exec semantics unless the inventory records a better taxonomy. Discovery/help should be side-effect-light and should not eagerly run model, git, Branch Memory, or GitHub operations.
-  - Evidence: SDL command scenario tests cover discovery/help and selected leaf loading for representative Roaster commands without eager-loading unrelated leaves.
+  - Evidence: completed by `updates/2026-06-28T205700Z-roaster-sdl-command-face-proof.md`; SDL command scenario tests cover top-level manifest discovery, selected help/schema loading, and a fake-exec representative `sdl roaster review-list --format json` command without eager model, Branch Memory, or GitHub work.
 
 - [ ] Migrate low-risk read/list surfaces to the SDL command face.
   - Policy: direct execution after preview for implementation and tests.

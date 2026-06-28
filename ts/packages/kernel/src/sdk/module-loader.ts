@@ -38,12 +38,15 @@ const CORE_PRIMITIVES_SPECIFIER = "@sdl/core/primitives";
 const CORE_GIT_SPECIFIER = "@sdl/core/git";
 const CORE_TEXT_NORMALIZATION_SPECIFIER = "@sdl/core/text-normalization";
 const FLOW_PACKAGE_NAME = "sdl-flow";
+const ROASTER_PACKAGE_NAME = "@sdl/roaster";
 
 const CCC_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "ccc", "src");
 const CORE_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "infra", "core", "src");
 const CAPABILITY_KIT_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "sdl-capability-kit", "src");
 const FLOW_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "capabilities", "flow");
 const FLOW_PACKAGE_JSON_PATH = join(FLOW_PACKAGE_DIR, "package.json");
+const ROASTER_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "roaster");
+const ROASTER_PACKAGE_JSON_PATH = join(ROASTER_PACKAGE_DIR, "package.json");
 const CCC_AUTOSLOT_MODULE_PATH = join(CCC_SRC_DIR, "autoslot.ts");
 const CCC_LAND_MODULE_PATH = join(CCC_SRC_DIR, "land.ts");
 const CCC_TRUNK_PULL_MODULE_PATH = join(CCC_SRC_DIR, "trunk-pull.ts");
@@ -88,10 +91,30 @@ function buildModuleAliasMap(
 }
 
 function buildFlowCommandAliases(): Record<string, string> {
-	const packageJson = readFlowPackageJson();
-	if (packageJson.name !== FLOW_PACKAGE_NAME) {
+	return buildPackageCommandAliases({
+		packageName: FLOW_PACKAGE_NAME,
+		packageDir: FLOW_PACKAGE_DIR,
+		packageJsonPath: FLOW_PACKAGE_JSON_PATH,
+	});
+}
+
+function buildRoasterCommandAliases(): Record<string, string> {
+	return buildPackageCommandAliases({
+		packageName: ROASTER_PACKAGE_NAME,
+		packageDir: ROASTER_PACKAGE_DIR,
+		packageJsonPath: ROASTER_PACKAGE_JSON_PATH,
+	});
+}
+
+function buildPackageCommandAliases(options: {
+	packageName: string;
+	packageDir: string;
+	packageJsonPath: string;
+}): Record<string, string> {
+	const packageJson = readCommandPackageJson(options.packageJsonPath, options.packageName);
+	if (packageJson.name !== options.packageName) {
 		throw new Error(
-			`Expected flow extension package name ${FLOW_PACKAGE_NAME}, found ${packageJson.name}.`,
+			`Expected extension package name ${options.packageName}, found ${packageJson.name}.`,
 		);
 	}
 
@@ -99,26 +122,26 @@ function buildFlowCommandAliases(): Record<string, string> {
 		Object.entries(packageJson.exports)
 			.filter(([subpath]) => subpath.startsWith("./commands/"))
 			.map(([subpath, target]) => [
-				`${FLOW_PACKAGE_NAME}/${subpath.slice("./".length)}`,
-				join(FLOW_PACKAGE_DIR, stripLeadingDotSlash(target)),
+				`${options.packageName}/${subpath.slice("./".length)}`,
+				join(options.packageDir, stripLeadingDotSlash(target)),
 			]),
 	);
 }
 
-function readFlowPackageJson(): FlowPackageJson {
-	const parsed: unknown = JSON.parse(readFileSync(FLOW_PACKAGE_JSON_PATH, "utf8"));
-	if (!isFlowPackageJson(parsed)) {
-		throw new Error(`Invalid ${FLOW_PACKAGE_NAME} package.json exports.`);
+function readCommandPackageJson(path: string, packageName: string): CommandPackageJson {
+	const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
+	if (!isCommandPackageJson(parsed)) {
+		throw new Error(`Invalid ${packageName} package.json exports.`);
 	}
 	return parsed;
 }
 
-interface FlowPackageJson {
+interface CommandPackageJson {
 	name: string;
 	exports: Record<string, string>;
 }
 
-function isFlowPackageJson(value: unknown): value is FlowPackageJson {
+function isCommandPackageJson(value: unknown): value is CommandPackageJson {
 	if (!isRecord(value)) return false;
 	if (typeof value.name !== "string") return false;
 	if (!isRecord(value.exports)) return false;
@@ -169,6 +192,7 @@ export function createSdlJiti(): ReturnType<typeof createJiti> {
 		alias: {
 			...buildInternalWorkspaceAliases(),
 			...buildFlowCommandAliases(),
+			...buildRoasterCommandAliases(),
 			[CCC_AUTOSLOT_SPECIFIER]: CCC_AUTOSLOT_MODULE_PATH,
 			[CCC_LAND_SPECIFIER]: CCC_LAND_MODULE_PATH,
 			[CCC_TRUNK_PULL_SPECIFIER]: CCC_TRUNK_PULL_MODULE_PATH,
