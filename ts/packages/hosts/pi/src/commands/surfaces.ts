@@ -2,6 +2,11 @@ export const BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME = "sdl:branch-context:from-pl
 export const BRANCH_CONTEXT_UPSTACK_IMPL_FROM_PLAN_COMMAND_NAME =
 	"sdl:branch-context:upstack-impl-from-plan";
 export const IMPL_BRANCH_CONTEXT_COMMAND_NAME = "sdl:branch-context:impl-attached-plan";
+
+export function formatImplBranchContextCommand(key: string): string {
+	return `/${IMPL_BRANCH_CONTEXT_COMMAND_NAME} ${key}`;
+}
+
 export const WRITE_PLAN_COMMAND_NAME = "sdl:plan:save";
 export const WRITE_GRILLED_PLAN_COMMAND_NAME = "sdl:plan:grill-and-save";
 

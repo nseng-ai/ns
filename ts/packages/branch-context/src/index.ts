@@ -33,10 +33,6 @@ export {
 	type BranchContextOutputMessage,
 } from "./session-artifact.ts";
 export {
-	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
-	formatImplBranchContextCommand,
-} from "./impl-command.ts";
-export {
 	formatExistingBranchContextReuse,
 	resolveExistingBranchContextReuse,
 	type ExistingBranchContextReuse,

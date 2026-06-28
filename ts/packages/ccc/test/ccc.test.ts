@@ -2,11 +2,8 @@ import { afterEach, describe, expect, test } from "vitest";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import {
-	buildPlanContentSlugPrompt,
-	createBranchContextContext,
-	formatImplBranchContextCommand,
-} from "@sdl/branch-context/api";
+import { buildPlanContentSlugPrompt, createBranchContextContext } from "@sdl/branch-context/api";
+import { formatImplBranchContextCommand } from "@sdl/pi/commands";
 import { InMemoryBranchMemoryGateway } from "@sdl/branch-context/testing";
 import type { StdinCapableCommandExecApi } from "@sdl/core/exec";
 import { withTempRepoSkill } from "@sdl/core/testing";

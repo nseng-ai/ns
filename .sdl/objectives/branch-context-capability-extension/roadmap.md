@@ -2,12 +2,12 @@
 
 ## Work
 
-- [ ] Reconfirm the Branch Context → Pi edge inventory before implementation.
+- [x] Reconfirm the Branch Context → Pi edge inventory before implementation.
   - Policy: direct execution after `objective-stack-impl` preview; this is read-only and should be the first parent/subagent check.
   - Target: verify the current `@sdl/branch-context` package dependency on `@sdl/pi`, the `src/impl-command.ts` import/re-export, API/root exports, current CCC/Pi consumers, Pi command registration surfaces, and style-guard deferred-cycle references.
   - Evidence: before-change search output for `@sdl/pi`, `IMPL_BRANCH_CONTEXT_COMMAND_NAME`, and `formatImplBranchContextCommand` across `ts/packages/branch-context`, `ts/packages/ccc`, `ts/packages/hosts/pi`, and `ts/scripts/typescript-style-guard`; confirmation that there is no material implementation progress already present but unrecorded.
 
-- [ ] Move implementation slash-command ownership to Pi/CCC presentation code.
+- [x] Move implementation slash-command ownership to Pi/CCC presentation code.
   - Policy: direct execution after preview; steer first only if preserving the current command names conflicts with the package boundary.
   - Target: `@sdl/branch-context/api` and the Branch Context package root stop exporting `IMPL_BRANCH_CONTEXT_COMMAND_NAME` and the Pi-specific `formatImplBranchContextCommand`. Pi-owned code keeps `IMPL_BRANCH_CONTEXT_COMMAND_NAME = "sdl:branch-context:impl-attached-plan"` and owns formatting for `/${command} <attached-key>` either in `@sdl/pi/commands` or a Pi branch-context-local helper. CCC cmux launch code uses presentation-owned formatting when constructing Pi launch commands. Branch Context continues to export attached-plan loading, implementation-prompt content, branch-context creation/attachment, evidence, and existing-branch reuse helpers.
   - Likely files: `ts/packages/branch-context/src/api.ts`, `ts/packages/branch-context/src/index.ts`, `ts/packages/branch-context/src/impl-command.ts` or its deletion, `ts/packages/hosts/pi/src/commands/surfaces.ts`, `ts/packages/hosts/pi/src/branch-context/from-plan-commands.ts`, `ts/packages/hosts/pi/src/branch-context/gt/upstack-impl-launch.ts`, `ts/packages/ccc/src/cmux/slot-dispatch-plan.ts`, and their tests.
