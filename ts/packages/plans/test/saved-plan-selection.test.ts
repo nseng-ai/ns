@@ -1,6 +1,4 @@
-import { afterEach, describe, expect, test } from "vitest";
-import { mkdir, mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { describe, expect, test } from "vitest";
 import { join } from "node:path";
 
 import {
@@ -13,28 +11,23 @@ import {
 	type PlanStoreDirectoryEvidence,
 	type SavedPlanFileEvidence,
 } from "../src/index.ts";
+import { InMemoryPlanStoreGateway } from "../src/testing.ts";
 
 const SOURCE_BRANCH = "feature/source-plan";
 const PLAN_SLUG = "canonical-saved-plan";
 const PLAN_KEY = `${PLAN_SLUG}.md`;
 const ORIGIN = "git@github.com:owner/repo.git";
 
-const tempDirs: string[] = [];
-
-afterEach(async () => {
-	const dirs = tempDirs.splice(0);
-	await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
-});
-
 describe("saved plan session selection", () => {
 	test("returns the newest valid session evidence and preserves summary", async () => {
 		const fixture = await makeFixture();
 		const olderPath = await writePlanFile(
+			fixture,
 			fixture.directory,
 			"older-valid-saved-plan.md",
 			1_700_000_000_000,
 		);
-		const newerPath = await writePlanFile(fixture.directory, PLAN_KEY, 1_800_000_000_000);
+		const newerPath = await writePlanFile(fixture, fixture.directory, PLAN_KEY, 1_800_000_000_000);
 		const entries = [
 			{ type: "message", message: { role: "assistant", content: "ignore me" } },
 			savedPlanEntry(
@@ -45,7 +38,9 @@ describe("saved plan session selection", () => {
 			),
 		];
 
-		const result = await findLatestSessionSavedPlanFile(entries, fixture.directory);
+		const result = await findLatestSessionSavedPlanFile(entries, fixture.directory, {
+			planStoreGateway: fixture.planStoreGateway,
+		});
 
 		expect(result).toMatchObject({
 			type: "found",
@@ -81,7 +76,11 @@ describe("saved plan session selection", () => {
 		];
 
 		expect(extractSavedPlanFileEvidenceFromSessionEntry(entries[0])).toBeUndefined();
-		expect(await findLatestSessionSavedPlanFile(entries, fixture.directory)).toEqual({
+		expect(
+			await findLatestSessionSavedPlanFile(entries, fixture.directory, {
+				planStoreGateway: fixture.planStoreGateway,
+			}),
+		).toEqual({
 			type: "not-found",
 		});
 	});
@@ -159,6 +158,7 @@ describe("saved plan session selection", () => {
 	test("treats a missing session file as stale and continues to older valid evidence", async () => {
 		const fixture = await makeFixture();
 		const olderPath = await writePlanFile(
+			fixture,
 			fixture.directory,
 			"older-valid-saved-plan.md",
 			1_700_000_000_000,
@@ -171,7 +171,9 @@ describe("saved plan session selection", () => {
 			savedPlanEntry(evidence(fixture.directory, { filePath: missingPath })),
 		];
 
-		const result = await findLatestSessionSavedPlanFile(entries, fixture.directory);
+		const result = await findLatestSessionSavedPlanFile(entries, fixture.directory, {
+			planStoreGateway: fixture.planStoreGateway,
+		});
 
 		expect(result).toMatchObject({
 			type: "found",
@@ -248,12 +250,13 @@ describe("saved plan session selection", () => {
 			const fixture = await makeFixture();
 			const filePath =
 				unsafeCase.name === "outside plan store path"
-					? await writeOutsidePlanFile()
-					: await writePlanFile(fixture.directory, PLAN_KEY, 1_800_000_000_000);
+					? await writeOutsidePlanFile(fixture)
+					: await writePlanFile(fixture, fixture.directory, PLAN_KEY, 1_800_000_000_000);
 
 			const result = await validateSessionSavedPlanCandidate(
 				unsafeCase.mutate(fixture, filePath),
 				fixture.directory,
+				{ planStoreGateway: fixture.planStoreGateway },
 			);
 
 			expect(result.type).toBe("unsafe");
@@ -272,12 +275,15 @@ describe("saved plan session selection", () => {
 			branchKey,
 		});
 		const sourceDirectory = { ...fixture.directory, sourceBranch, branchKey, directoryPath };
-		const filePath = await writePlanFile(sourceDirectory, PLAN_KEY, 1_800_000_000_000);
+		const filePath = await writePlanFile(fixture, sourceDirectory, PLAN_KEY, 1_800_000_000_000);
 
 		const result = await validateSessionSavedPlanCandidate(
 			evidence(sourceDirectory, { filePath }),
 			fixture.directory,
-			{ shouldAllowSourceBranchMismatch: true },
+			{
+				shouldAllowSourceBranchMismatch: true,
+				planStoreGateway: fixture.planStoreGateway,
+			},
 		);
 
 		expect(result).toMatchObject({
@@ -295,16 +301,18 @@ describe("saved plan session selection", () => {
 interface Fixture {
 	root: string;
 	directory: PlanStoreDirectoryEvidence;
+	planStoreGateway: InMemoryPlanStoreGateway;
 }
 
 async function makeFixture(): Promise<Fixture> {
-	const root = await makeTempDir();
-	const planStoreRoot = await makeTempDir();
+	const root = makeTempDir();
+	const planStoreRoot = makeTempDir();
 	const repoKey = buildRepoPlanStoreKey(root, ORIGIN);
 	const branchKey = encodeBranchForPlanPath(SOURCE_BRANCH);
 	const repoDirectoryPath = join(planStoreRoot, repoKey);
 	return {
 		root,
+		planStoreGateway: new InMemoryPlanStoreGateway(),
 		directory: {
 			repoRoot: root,
 			repoKey,
@@ -317,29 +325,27 @@ async function makeFixture(): Promise<Fixture> {
 	};
 }
 
-async function makeTempDir(): Promise<string> {
-	const dir = await mkdtemp(join(tmpdir(), "saved-plan-selection-test-"));
-	tempDirs.push(dir);
-	return dir;
+let tempDirCounter = 0;
+function makeTempDir(): string {
+	tempDirCounter += 1;
+	return `/saved-plan-selection-test-${tempDirCounter}`;
 }
 
 async function writePlanFile(
+	fixture: Fixture,
 	directory: PlanStoreDirectoryEvidence,
 	fileName: string,
 	modifiedTimeMs: number,
 ): Promise<string> {
-	await mkdir(directory.directoryPath, { recursive: true });
 	const filePath = join(directory.directoryPath, fileName);
-	await writeFile(filePath, `# ${fileName}\n`, "utf8");
-	const modified = new Date(modifiedTimeMs);
-	await utimes(filePath, modified, modified);
+	fixture.planStoreGateway.writeFile(filePath, `# ${fileName}\n`, { mtimeMs: modifiedTimeMs });
 	return filePath;
 }
 
-async function writeOutsidePlanFile(): Promise<string> {
-	const dir = await makeTempDir();
+async function writeOutsidePlanFile(fixture: Fixture): Promise<string> {
+	const dir = makeTempDir();
 	const filePath = join(dir, PLAN_KEY);
-	await writeFile(filePath, "# Outside\n", "utf8");
+	fixture.planStoreGateway.writeFile(filePath, "# Outside\n");
 	return filePath;
 }
 

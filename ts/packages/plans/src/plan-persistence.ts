@@ -1,10 +1,10 @@
-import { realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 
 import type { CommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@sdl/core/git";
 import { isPathInside } from "@sdl/core/primitives";
+import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-gateway.ts";
 
 export { isPathInside } from "@sdl/core/primitives";
 
@@ -75,6 +75,7 @@ export interface ResolvePlanSourceFileOptions {
 	rawFilePath: string;
 	signal?: AbortSignal | undefined;
 	git?: GitGateway | undefined;
+	planStoreGateway?: PlanStoreGateway | undefined;
 }
 
 export interface ResolveGitRepoRootOptions {
@@ -88,6 +89,7 @@ export async function resolvePlanSourceFile(
 	options: ResolvePlanSourceFileOptions,
 ): Promise<string> {
 	const git = options.git ?? new RealGitGateway(pi);
+	const planStoreGateway = options.planStoreGateway ?? createRealPlanStoreGateway();
 	const normalizedPath = normalizePlanFilePath(options.rawFilePath);
 	if (!isAbsolute(normalizedPath)) {
 		throw new Error(
@@ -95,20 +97,18 @@ export async function resolvePlanSourceFile(
 		);
 	}
 
-	let fileStat: Awaited<ReturnType<typeof stat>>;
-	try {
-		fileStat = await stat(normalizedPath);
-	} catch {
+	const fileStat = await planStoreGateway.statPath(normalizedPath);
+	if (fileStat === undefined) {
 		throw new Error(`Plan file does not exist or is not accessible: ${normalizedPath}`);
 	}
-	if (!fileStat.isFile()) {
+	if (fileStat.type !== "file") {
 		throw new Error(`Plan file must be a regular file: ${normalizedPath}`);
 	}
 
-	const realFilePath = await realpathIfPossible(normalizedPath);
+	const realFilePath = await planStoreGateway.realpathOrResolve(normalizedPath);
 	const repoRoot = await resolveGitRepoRoot(pi, { cwd: options.cwd, signal: options.signal, git });
 	if (repoRoot !== undefined) {
-		const realRepoRoot = await realpathIfPossible(repoRoot);
+		const realRepoRoot = await planStoreGateway.realpathOrResolve(repoRoot);
 		if (isPathInside(realRepoRoot, realFilePath)) {
 			throw new Error(
 				`Plan file must be outside the repository; got ${realFilePath} inside ${realRepoRoot}.`,
@@ -138,12 +138,4 @@ export function normalizeSummary(summary: string | undefined): string | undefine
 
 function displayNonEmpty(value: string): string {
 	return value.length > 0 ? value : "(empty)";
-}
-
-async function realpathIfPossible(path: string): Promise<string> {
-	try {
-		return await realpath(path);
-	} catch {
-		return resolve(path);
-	}
 }

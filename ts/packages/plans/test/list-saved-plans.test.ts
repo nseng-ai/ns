@@ -1,6 +1,4 @@
-import { afterEach, describe, expect, test } from "vitest";
-import { mkdir, mkdtemp, readFile, realpath, rm, utimes, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { describe, expect, test } from "vitest";
 import { join } from "node:path";
 
 import type { CommandExecApi, ExecOptions } from "@sdl/core/exec";
@@ -14,16 +12,10 @@ import {
 	runCli,
 	sanitizePlanPathSegment,
 } from "../src/index.ts";
+import { InMemoryPlanStoreGateway } from "../src/testing.ts";
 
 const ORIGIN = "git@github.com:Owner/Repo.git";
 const SOURCE_BRANCH = "feature/source-plan";
-const tempDirs: string[] = [];
-
-afterEach(async () => {
-	const dirs = tempDirs.splice(0);
-	await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
-});
-
 describe("plan-store key helpers", () => {
 	test("normalizes GitHub SSH remotes into stable repo store keys", async () => {
 		const repoRoot = await makeTempDir();
@@ -61,7 +53,7 @@ describe("listSavedPlans", () => {
 			fileName: "ignore.txt",
 			modifiedTimeMs: 1_900_000_000_000,
 		});
-		await mkdir(
+		fixture.planStoreGateway.mkdir(
 			join(fixture.planStoreRoot, fixture.repoKey, otherBranchKey, "directory-saved-plan.md"),
 		);
 
@@ -69,6 +61,7 @@ describe("listSavedPlans", () => {
 			cwd: fixture.repoRoot,
 			git: fixture.git,
 			planStoreRoot: fixture.planStoreRoot,
+			planStoreGateway: fixture.planStoreGateway,
 		});
 
 		expect(plans).toMatchObject([
@@ -96,6 +89,7 @@ describe("plans list CLI", () => {
 			cwd: fixture.repoRoot,
 			git: fixture.git,
 			commands: unusedCommands,
+			planStoreGateway: fixture.planStoreGateway,
 			stdout: help.stdout,
 			stderr: help.stderr,
 		});
@@ -108,6 +102,7 @@ describe("plans list CLI", () => {
 			cwd: fixture.repoRoot,
 			git: fixture.git,
 			commands: unusedCommands,
+			planStoreGateway: fixture.planStoreGateway,
 			stdout: version.stdout,
 			stderr: version.stderr,
 		});
@@ -123,6 +118,7 @@ describe("plans list CLI", () => {
 			cwd: fixture.repoRoot,
 			git: fixture.git,
 			commands: unusedCommands,
+			planStoreGateway: fixture.planStoreGateway,
 			stdout: output.stdout,
 			stderr: output.stderr,
 		});
@@ -140,6 +136,7 @@ describe("plans list CLI", () => {
 			cwd: fixture.repoRoot,
 			git: fixture.git,
 			commands: unusedCommands,
+			planStoreGateway: fixture.planStoreGateway,
 			stdout: output.stdout,
 			stderr: output.stderr,
 		});
@@ -162,6 +159,7 @@ describe("plans list CLI", () => {
 			cwd: fixture.repoRoot,
 			git: fixture.git,
 			commands: unusedCommands,
+			planStoreGateway: fixture.planStoreGateway,
 			stdout: output.stdout,
 			stderr: output.stderr,
 		});
@@ -186,6 +184,7 @@ describe("plans list CLI", () => {
 			cwd: fixture.repoRoot,
 			git: fixture.git,
 			commands: unusedCommands,
+			planStoreGateway: fixture.planStoreGateway,
 			stdout: output.stdout,
 			stderr: output.stderr,
 		});
@@ -216,6 +215,7 @@ describe("plans list CLI", () => {
 				cwd: fixture.repoRoot,
 				git: fixture.git,
 				commands: unusedCommands,
+				planStoreGateway: fixture.planStoreGateway,
 				stdout: output.stdout,
 				stderr: output.stderr,
 			},
@@ -269,6 +269,7 @@ describe("plans exec CLI", () => {
 				stdout: output.stdout,
 				stderr: output.stderr,
 				planStoreRoot: fixture.planStoreRoot,
+				planStoreGateway: fixture.planStoreGateway,
 			},
 		);
 
@@ -288,20 +289,23 @@ describe("plans exec CLI", () => {
 		expect(String(payload.data.file_path)).toContain(
 			`${fixture.planStoreRoot}/gh--owner--repo/${encodeBranchForPlanPath("feature/source-plan")}/branch-scoped-plan.md`,
 		);
-		expect(await readFile(String(payload.data.file_path), "utf8")).toBe("# Plan\n\nDo it.\n");
+		expect(fixture.planStoreGateway.readFile(String(payload.data.file_path))).toBe(
+			"# Plan\n\nDo it.\n",
+		);
 	});
 
 	test("resolve returns explicit paths and the latest saved source-branch plan", async () => {
 		const fixture = await makeFixture();
-		const outsideDir = await makeTempDir();
+		const outsideDir = makeTempDir();
 		const explicitPlan = join(outsideDir, "explicit.md");
-		await writeFile(explicitPlan, "# Explicit\n", "utf8");
+		fixture.planStoreGateway.writeFile(explicitPlan, "# Explicit\n");
 
 		const explicitOutput = createOutputCapture();
 		const explicitExitCode = await runCli(["exec", "resolve", explicitPlan, "--format", "json"], {
 			cwd: fixture.repoRoot,
 			git: fixture.git,
 			commands: unusedCommands,
+			planStoreGateway: fixture.planStoreGateway,
 			stdout: explicitOutput.stdout,
 			stderr: explicitOutput.stderr,
 		});
@@ -310,7 +314,7 @@ describe("plans exec CLI", () => {
 			exitCode: 0,
 			data: {
 				source: "explicit",
-				file_path: await realpath(explicitPlan),
+				file_path: explicitPlan,
 			},
 		});
 
@@ -334,6 +338,7 @@ describe("plans exec CLI", () => {
 			cwd: fixture.repoRoot,
 			git: fixture.git,
 			commands: unusedCommands,
+			planStoreGateway: fixture.planStoreGateway,
 			stdout: latestOutput.stdout,
 			stderr: latestOutput.stderr,
 			planStoreRoot: fixture.planStoreRoot,
@@ -355,6 +360,7 @@ interface Fixture {
 	planStoreRoot: string;
 	repoKey: string;
 	git: GitGateway;
+	planStoreGateway: InMemoryPlanStoreGateway;
 }
 
 interface JsonListPayload {
@@ -393,21 +399,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 async function makeFixture(): Promise<Fixture> {
-	const repoRoot = await makeTempDir();
-	const planStoreRoot = await makeTempDir();
+	const repoRoot = makeTempDir();
+	const planStoreRoot = makeTempDir();
 	const repoKey = buildRepoPlanStoreKey(repoRoot, ORIGIN);
 	return {
 		repoRoot,
 		planStoreRoot,
 		repoKey,
 		git: new InMemoryGitGateway({ repoRoot, originUrl: ORIGIN, currentBranch: SOURCE_BRANCH }),
+		planStoreGateway: new InMemoryPlanStoreGateway(),
 	};
 }
 
-async function makeTempDir(): Promise<string> {
-	const dir = await mkdtemp(join(tmpdir(), "plans-list-test-"));
-	tempDirs.push(dir);
-	return dir;
+let tempDirCounter = 0;
+function makeTempDir(): string {
+	tempDirCounter += 1;
+	return `/plans-list-test-${tempDirCounter}`;
 }
 
 interface WritePlanFileOptions {
@@ -419,11 +426,10 @@ interface WritePlanFileOptions {
 
 async function writePlanFile(options: WritePlanFileOptions): Promise<string> {
 	const directory = join(options.fixture.planStoreRoot, options.fixture.repoKey, options.branchKey);
-	await mkdir(directory, { recursive: true });
 	const filePath = join(directory, options.fileName);
-	await writeFile(filePath, `# ${options.fileName}\n`, "utf8");
-	const modified = new Date(options.modifiedTimeMs);
-	await utimes(filePath, modified, modified);
+	options.fixture.planStoreGateway.writeFile(filePath, `# ${options.fileName}\n`, {
+		mtimeMs: options.modifiedTimeMs,
+	});
 	return filePath;
 }
 
