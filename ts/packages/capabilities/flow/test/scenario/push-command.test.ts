@@ -4,6 +4,8 @@ import { stripAnsi } from "@sdl/clinkr/testing";
 import { runFlowPushCommandWithFakes } from "./flow-command-fakes.ts";
 import { formattedExecCalls, type ScriptedExecResponse } from "./sdl-cli-fakes.ts";
 
+const PUSH_TIMEOUT_MS = 120_000;
+
 // Each outcome asserts the rendered house-style block: which headline, the exit code, and the
 // stdout(success) / stderr(failure) routing that `ok`/`failed` drive. The block styling itself is
 // covered by the git-result-block unit test; here we prove the command wires the right kind/exit.
@@ -14,8 +16,14 @@ describe("flow push command outcomes", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.stderr.join("")).toBe("");
-		expect(stripAnsi(run.stdout.join(""))).toContain("`git push` completed successfully.");
+		const stdout = stripAnsi(run.stdout.join(""));
+		expect(stdout).toContain("`git push` completed successfully.");
+		expect(stdout).toContain("Command: git push");
+		expect(stdout).not.toContain("Everything up-to-date");
+		expect(stdout).not.toContain("stdout:");
 		expect(formattedExecCalls(run.context)).toEqual(["git status --porcelain", "git push"]);
+		expect(run.context.execCalls[1]?.options).toEqual({ timeoutMs: PUSH_TIMEOUT_MS });
+		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
 	test("dirty worktree refuses with exit 1 on stderr and does not push", async () => {
@@ -27,16 +35,21 @@ describe("flow push command outcomes", () => {
 		expect(await run.exit).toBe(1);
 		expect(run.stdout.join("")).toBe("");
 		const stderr = stripAnsi(run.stderr.join(""));
-		expect(stderr).toContain("requires a clean worktree and did not run `git push`");
+		expect(stderr).toContain("requires a clean worktree");
+		expect(stderr).toContain("did not run `git push`");
 		expect(stderr).toContain(" M src/app.ts");
+		expect(stderr).toContain("?? notes.md");
+		expect(stderr).toContain("sdl flow submit");
+		expect(stderr).toContain("/sdl:flow:submit");
 		expect(formattedExecCalls(run.context)).toEqual(["git status --porcelain"]);
+		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
 	test("status failure exits 1 on stderr and does not push", async () => {
 		const exec: ScriptedExecResponse[] = [
 			{
 				match: "git status --porcelain",
-				result: { code: 1, stderr: "fatal: not a git repository\n" },
+				result: { code: 128, stderr: "fatal: not a git repository\n" },
 			},
 		];
 		const run = runFlowPushCommandWithFakes({ state: { exec } });
@@ -44,19 +57,23 @@ describe("flow push command outcomes", () => {
 		expect(await run.exit).toBe(1);
 		expect(run.stdout.join("")).toBe("");
 		const stderr = stripAnsi(run.stderr.join(""));
-		expect(stderr).toContain("Could not inspect the worktree status.");
+		expect(stderr).toContain("Could not inspect the worktree status");
+		expect(stderr).toContain("Command: git status --porcelain");
+		expect(stderr).toContain("Exit: 128");
 		expect(stderr).toContain("fatal: not a git repository");
 		expect(formattedExecCalls(run.context)).toEqual(["git status --porcelain"]);
+		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
-	test("push failure exits 1 on stderr and surfaces cause lines", async () => {
+	test("push failure exits 1 on stderr and surfaces stdout stderr evidence", async () => {
 		const exec: ScriptedExecResponse[] = [
 			{ match: "git status --porcelain", result: { stdout: "" } },
 			{
 				match: "git push",
 				result: {
 					code: 1,
-					stderr: " ! [rejected] main -> main (fetch first)\nerror: failed to push some refs\n",
+					stdout: "rejected update\n",
+					stderr: "non-fast-forward\n",
 				},
 			},
 		];
@@ -65,9 +82,34 @@ describe("flow push command outcomes", () => {
 		expect(await run.exit).toBe(1);
 		expect(run.stdout.join("")).toBe("");
 		const stderr = stripAnsi(run.stderr.join(""));
-		expect(stderr).toContain("`git push` failed.");
-		expect(stderr).toContain("[rejected] main -> main");
-		expect(stderr).toContain("error: failed to push some refs");
+		expect(stderr).toContain("`git push` failed");
+		expect(stderr).toContain("Command: git push");
+		expect(stderr).toContain("Exit: 1");
+		expect(stderr).toContain("rejected update");
+		expect(stderr).toContain("non-fast-forward");
+		expect(stderr).toContain("sdl flow submit");
+		expect(stderr).toContain("/sdl:flow:submit");
 		expect(formattedExecCalls(run.context)).toEqual(["git status --porcelain", "git push"]);
+		expect(run.context.execCalls[1]?.options).toEqual({ timeoutMs: PUSH_TIMEOUT_MS });
+		expect(run.context.textGeneratorCalls).toEqual([]);
+	});
+
+	test("killed git push is a failure even with exit code zero", async () => {
+		const exec: ScriptedExecResponse[] = [
+			{ match: "git status --porcelain", result: { stdout: "" } },
+			{ match: "git push", result: { code: 0, killed: true, stderr: "timed out\n" } },
+		];
+		const run = runFlowPushCommandWithFakes({ state: { exec } });
+
+		expect(await run.exit).toBe(1);
+		expect(run.stdout.join("")).toBe("");
+		const stderr = stripAnsi(run.stderr.join(""));
+		expect(stderr).toContain("`git push` failed");
+		expect(stderr).toContain("Exit: 0");
+		expect(stderr).toContain("Killed: true");
+		expect(stderr).toContain("timed out");
+		expect(formattedExecCalls(run.context)).toEqual(["git status --porcelain", "git push"]);
+		expect(run.context.execCalls[1]?.options).toEqual({ timeoutMs: PUSH_TIMEOUT_MS });
+		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 });
