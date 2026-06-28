@@ -169,6 +169,37 @@ describe("RealSubmitGateway", () => {
 		runner.assertDone();
 	});
 
+	test("checkSubmitReadiness classifies merged PR not contained in trunk dry-run output", async () => {
+		const runner = new ScriptedCommandRunner([
+			step(
+				"gt",
+				[
+					"submit",
+					"--no-edit",
+					"--publish",
+					"--no-stack",
+					"--no-ai",
+					"--no-interactive",
+					"--no-view",
+					"--no-web",
+					"--dry-run",
+				],
+				{
+					exitCode: 1,
+					stdout: "▸ handoff-capability/stack-feedback-remediation - PR #2257 (merged)\n",
+					stderr:
+						"WARNING: PR for the following branch has already been merged but the merged commits are not contained in the latest trunk branch master.\nERROR: Aborting dry run.\n",
+				},
+			),
+		]);
+		const gateway = new RealSubmitGateway(runner.runner);
+
+		const result = await gateway.checkSubmitReadiness({ cwd: "/repo" });
+
+		expect(result).toMatchObject({ kind: "failed", cause: "merged_pr_not_in_trunk" });
+		runner.assertDone();
+	});
+
 	test("restackCurrentStack reports conflicts from git conflict facts", async () => {
 		const runner = new ScriptedCommandRunner([
 			step("gt", ["restack", "--downstack", "--no-interactive"], {

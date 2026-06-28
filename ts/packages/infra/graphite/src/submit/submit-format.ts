@@ -132,6 +132,69 @@ export function formatTrunkOutOfDatePreflightOutput(
 	].join("\n");
 }
 
+export function formatMergedPrNotInTrunkPreflightOutput(
+	output: SubmitCommandOutput,
+	submitDryRunCommandDisplay: string,
+): string {
+	const details = parseMergedPrNotInTrunkDetails(output);
+	const affectedBranch = details.branch ?? "the affected branch";
+	return [
+		"Graphite found a merged PR in the submit stack whose commits are not in the current trunk branch.",
+		details.branch === undefined ? undefined : `Branch: ${formatMergedPrBranchDetails(details)}`,
+		details.trunk === undefined ? undefined : `Trunk: ${details.trunk}`,
+		"Submission was not attempted.",
+		"",
+		"What succeeded:",
+		`- ${submitDryRunCommandDisplay} started and validated the stack in dry-run mode.`,
+		"",
+		"Next step:",
+		details.trunk === undefined
+			? `- Ensure the trunk branch contains the merged PR's commits, or move/reparent ${affectedBranch} onto a trunk that already contains them.`
+			: `- Ensure ${details.trunk} contains the merged PR's commits, or move/reparent ${affectedBranch} onto a trunk that already contains them.`,
+		"- Then rerun `sdl flow submit`.",
+		"",
+		"Details:",
+		"- Graphite will not submit a stack containing this branch until trunk contains the merged PR's commits.",
+	]
+		.filter((line): line is string => line !== undefined)
+		.join("\n");
+}
+
+interface MergedPrNotInTrunkDetails {
+	branch?: string | undefined;
+	prNumber?: string | undefined;
+	prState?: string | undefined;
+	trunk?: string | undefined;
+}
+
+function parseMergedPrNotInTrunkDetails(output: SubmitCommandOutput): MergedPrNotInTrunkDetails {
+	const text = stripTerminalEscapes(`${output.stdout}\n${output.stderr}`).replace(/\r/g, "\n");
+	const branchMatch = text.match(
+		/^\s*▸\s*(?<branch>\S+)(?:\s+-\s+PR\s+#(?<prNumber>\d+)\s+\((?<prState>[^)]+)\))?/mu,
+	);
+	const trunkMatch = text.match(/latest trunk branch (?<trunk>[^\s.]+)\./iu);
+	return {
+		...(branchMatch?.groups?.branch === undefined ? {} : { branch: branchMatch.groups.branch }),
+		...(branchMatch?.groups?.prNumber === undefined
+			? {}
+			: { prNumber: branchMatch.groups.prNumber }),
+		...(branchMatch?.groups?.prState === undefined ? {} : { prState: branchMatch.groups.prState }),
+		...(trunkMatch?.groups?.trunk === undefined ? {} : { trunk: trunkMatch.groups.trunk }),
+	};
+}
+
+function formatMergedPrBranchDetails(details: MergedPrNotInTrunkDetails): string {
+	const prSuffix =
+		details.prNumber === undefined
+			? ""
+			: ` (PR #${details.prNumber}${formatPrState(details.prState)})`;
+	return `${details.branch ?? "unknown"}${prSuffix}`;
+}
+
+function formatPrState(prState: string | undefined): string {
+	return prState === undefined || prState.trim() === "" ? "" : `, ${prState.trim()}`;
+}
+
 export function formatRestackRequiredOutput(
 	output: SubmitCommandOutput,
 	submitDryRunCommandDisplay: string,
