@@ -17,7 +17,7 @@ and renders. You provide:
 | ------------------------------ | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `repo`, `targetName`, `date`   | string                                                                                             | header identity                                                                                                                                                                                                    |
 | `intro`                        | html string                                                                                        | one paragraph under the title                                                                                                                                                                                      |
-| `tiers?`                       | `{ "<pkg>": "<tierId>" }`                                                                          | optional report-only overrides. Canonical tier ids: `capability capability-kit sdk transitional neutral-infra host tool`. Omit this field to use declared package tiers. Invalid override values fail fast.        |
+| `tiers?`                       | `{ "<pkg>": "<tierId>" }`                                                                          | optional report-only overrides. Canonical tier ids: `capability capability-kit sdk transitional neutral-infra host standalone-tool local-pi-tool`. Omit this field to use declared package tiers. Invalid override values fail fast.        |
 | `verdict`                      | `{ headline, drift:bool, stats:[{value,total?,label,sub,health}], read }`                          | `health`: `green\|amber\|red`. `drift:false` ⇒ the green "distance not drift" framing.                                                                                                                             |
 | `northStar`                    | `{ rule, bands:[{label,bg,labelBg,chipBorder,noteColor,packages,note}], offAxis? }`                | `packages` items are strings or `{name,dashed}` (dashed = "delete to zero").                                                                                                                                       |
 | `graphIntro?`, `graphCaption?` | html string                                                                                        | the LOC-reading prose under the graph                                                                                                                                                                              |
@@ -171,7 +171,8 @@ The full, self-contained renderer — drop it in after the `#graphdata` script t
     transitional:{fill:"#fef3c7",stroke:"#d97706",name:"transitional"},
     "neutral-infra":{fill:"#cbd5e1",stroke:"#64748b",name:"neutral infra"},
     host:{fill:"#475569",stroke:"#0f172a",name:"presentation host"},
-    tool:{fill:"#f1f5f9",stroke:"#94a3b8",name:"off-axis tool"},
+    "standalone-tool":{fill:"#f1f5f9",stroke:"#94a3b8",name:"standalone tool"},
+    "local-pi-tool":{fill:"#e7e5e4",stroke:"#a8a29e",name:"local pi tool"},
   };
   const svg = d3.select("#depgraph"), el = svg.node();
   let W = el.clientWidth || 900, H = 820;
