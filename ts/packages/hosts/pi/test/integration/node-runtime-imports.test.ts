@@ -60,9 +60,11 @@ describe("Node runtime import smoke", () => {
 		);
 		expect(PROJECT_EXTENSION_ADAPTERS).toEqual(
 			expect.arrayContaining([
+				".pi/extensions/backing-skill-commands.ts",
 				".pi/extensions/context-profiler.ts",
 				".pi/extensions/dispatch-runner-subagent.ts",
 				".pi/extensions/grill-ui.ts",
+				".pi/extensions/pr.ts",
 				".pi/extensions/thermo-council.ts",
 			]),
 		);
