@@ -1,4 +1,6 @@
-import type { ExecResult, ExtensionAPI } from "./extension.ts";
+import type { ExecResult } from "@sdl/core/exec";
+
+import type { ExtensionAPI } from "./extension.ts";
 
 export interface LoadGhCommandOptions {
 	pi: Pick<ExtensionAPI, "exec">;

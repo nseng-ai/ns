@@ -2,6 +2,7 @@ import { appendFileSync } from "node:fs";
 import process from "node:process";
 
 import { registerCommandWithImmediateAck } from "./ack.ts";
+import { parseCliCommandArgs, type ParsedCliCommandArgs } from "./args.ts";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { formatElapsedMs } from "@sdl/core/time-format";
 import { ensurePrivateParentDirectorySync, requireSdlStatePath } from "@sdl/core/xdg";
@@ -145,15 +146,8 @@ export interface CliCommandExtensionAPI {
 	sendMessage?(message: CustomMessage): void;
 }
 
-export type ParsedCliCommandArgs =
-	| {
-			ok: true;
-			args: string[];
-	  }
-	| {
-			ok: false;
-			error: string;
-	  };
+export { parseCliCommandArgs } from "./args.ts";
+export type { ParsedCliCommandArgs } from "./args.ts";
 
 export interface CliCommandOutputDetails {
 	cliName: string;
@@ -229,93 +223,6 @@ export function registerCliCommandExtension(
 			options: { delivery: "none" },
 		});
 	}
-}
-
-export function parseCliCommandArgs(rawArgs: string): ParsedCliCommandArgs {
-	const args: string[] = [];
-	let current = "";
-	let quote: "single" | "double" | undefined;
-	let escaping = false;
-	let tokenStarted = false;
-
-	for (let index = 0; index < rawArgs.length; index += 1) {
-		const char = rawArgs.charAt(index);
-
-		if (escaping) {
-			current += char;
-			escaping = false;
-			tokenStarted = true;
-			continue;
-		}
-
-		if (quote === "single") {
-			if (char === "'") {
-				quote = undefined;
-			} else {
-				current += char;
-			}
-			tokenStarted = true;
-			continue;
-		}
-
-		if (quote === "double") {
-			if (char === "\\") {
-				escaping = true;
-				tokenStarted = true;
-				continue;
-			}
-			if (char === '"') {
-				quote = undefined;
-				tokenStarted = true;
-				continue;
-			}
-			current += char;
-			tokenStarted = true;
-			continue;
-		}
-
-		if (char === "\\") {
-			escaping = true;
-			tokenStarted = true;
-			continue;
-		}
-		if (char === "'") {
-			quote = "single";
-			tokenStarted = true;
-			continue;
-		}
-		if (char === '"') {
-			quote = "double";
-			tokenStarted = true;
-			continue;
-		}
-		if (/\s/.test(char)) {
-			if (tokenStarted) {
-				args.push(current);
-				current = "";
-				tokenStarted = false;
-			}
-			continue;
-		}
-
-		current += char;
-		tokenStarted = true;
-	}
-
-	if (escaping) {
-		return { ok: false, error: "Trailing backslash escape." };
-	}
-	if (quote === "single") {
-		return { ok: false, error: "Unterminated single quote." };
-	}
-	if (quote === "double") {
-		return { ok: false, error: "Unterminated double quote." };
-	}
-	if (tokenStarted) {
-		args.push(current);
-	}
-
-	return { ok: true, args };
 }
 
 export function formatCliCommandOutput(details: CliCommandOutputDetails): string {

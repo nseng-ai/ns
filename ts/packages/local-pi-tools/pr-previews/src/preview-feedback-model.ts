@@ -2,9 +2,8 @@ import { posix } from "node:path";
 
 import { truncateToWidth } from "@earendil-works/pi-tui";
 
+import { splitTextLines } from "@sdl/pi/shared/text-lines";
 import { stripTerminalEscapes } from "@sdl/pi/terminal/presentation";
-
-import { splitTextLines } from "./text-lines.ts";
 
 const ROW_SUMMARY_WIDTH_COLUMNS = 46;
 const FEEDBACK_SEVERITY_LEVELS = ["info", "warning", "error"] as const;

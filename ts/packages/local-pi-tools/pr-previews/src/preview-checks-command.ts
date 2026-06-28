@@ -2,9 +2,9 @@ import { DEFAULT_FAST_MODEL } from "@sdl/core/model-slug";
 import { z } from "zod";
 
 import { callPiModelText } from "@sdl/pi/models/call";
+import { splitTextLines } from "@sdl/pi/shared/text-lines";
 
 import { loadGhCommand } from "./gh-command.ts";
-import { splitTextLines } from "./text-lines.ts";
 import {
 	PrPreviewChecksView,
 	type PrPreviewCheckLogLoadOptions,

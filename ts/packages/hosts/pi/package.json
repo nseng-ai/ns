@@ -5,6 +5,7 @@
   "exports": {
     "./commands": "./src/commands/surfaces.ts",
     "./commands/ack": "./src/commands/ack.ts",
+    "./commands/args": "./src/commands/args.ts",
     "./commands/events": "./src/commands/events.ts",
     "./commands/io": "./src/commands/io.ts",
     "./grill/surfaces": "./src/grill/surfaces.ts",
@@ -14,6 +15,7 @@
     "./parity/extension": "./src/parity/extension.ts",
     "./parity/testing": "./src/parity/testing.ts",
     "./runtime/agent-definition": "./src/runtime/agent-definition.ts",
+    "./runtime/command-host": "./src/runtime/command-host.ts",
     "./runtime/machine-envelope": "./src/runtime/machine-envelope.ts",
     "./runtime/tool-types": "./src/runtime/tool-types.ts",
     "./objectives/picker": "./src/objectives/picker.ts",
@@ -23,6 +25,7 @@
     "./terminal/layout": "./src/terminal/layout.ts",
     "./terminal/presentation": "./src/terminal/presentation.ts",
     "./shared/errors": "./src/shared/errors.ts",
+    "./shared/text-lines": "./src/shared/text-lines.ts",
     "./shared/timers": "./src/shared/timers.ts",
     "./runtime/types": "./src/runtime/types.ts"
   },

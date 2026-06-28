@@ -1,15 +1,23 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Component, TUI } from "@earendil-works/pi-tui";
+import type { ExecOptions, ExecResult } from "@sdl/core/exec";
 import { formatZodError } from "@sdl/core/primitives";
 import { registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
+import { parseCliCommandArgs } from "@sdl/pi/commands/args";
+import type { PiModelRegistryLike } from "@sdl/pi/models/call";
 import { definePiSurfaceParity } from "@sdl/pi/parity/extension";
+import type {
+	PiCommandContext,
+	PiCommandHost,
+	PiCommandRegistration,
+} from "@sdl/pi/runtime/command-host";
 import { parseMachineEnvelopeDataWithFailureData } from "@sdl/pi/runtime/machine-envelope";
 import { z } from "zod";
 
-import { parseCliCommandArgs } from "./args.ts";
 import { createPrPreviewChecksCommand } from "./preview-checks-command.ts";
 import { createPrPreviewFeedbackCommand } from "./preview-feedback-command.ts";
-import type { PiModelRegistryLike } from "@sdl/pi/models/call";
+
+export type { ExecOptions, ExecResult } from "@sdl/core/exec";
 
 export const PR_PREVIEW_FEEDBACK_COMMAND_NAME = "pr:preview-feedback";
 export const PR_PREVIEW_CHECKS_COMMAND_NAME = "pr:preview-checks";
@@ -45,13 +53,9 @@ export const prPreviewsExtensionParity = definePiSurfaceParity([
 	},
 ] as const);
 
-export interface ExtensionContext {
-	cwd: string;
+export interface ExtensionContext extends PiCommandContext {
 	modelRegistry?: PiModelRegistryLike | undefined;
-	hasUI?: boolean;
-	ui?: {
-		notify?(message: string, level?: "info" | "warning" | "error"): void;
-		setStatus?(key: string, value: string | undefined): void;
+	ui: PiCommandContext["ui"] & {
 		custom?<T>(
 			factory: (
 				tui: TUI,
@@ -62,30 +66,18 @@ export interface ExtensionContext {
 			options?: unknown,
 		): Promise<T>;
 	};
-	waitForIdle?(): Promise<void>;
 	isIdle?(): boolean;
 }
 
-export interface RegisteredCommand {
-	description?: string;
+export type RegisteredCommand = Omit<PiCommandRegistration, "handler"> & {
 	handler(args: string, ctx: ExtensionContext): Promise<void> | void;
-}
-
-export interface ExecOptions {
-	cwd?: string;
-	timeout?: number;
-	signal?: AbortSignal | undefined;
-}
-
-export interface ExecResult {
-	stdout: string;
-	stderr: string;
-	code: number;
-	killed?: boolean | undefined;
-}
+};
 
 export interface ExtensionAPI {
-	registerCommand(name: string, command: RegisteredCommand): void;
+	registerCommand(
+		name: string,
+		command: RegisteredCommand,
+	): ReturnType<PiCommandHost["registerCommand"]>;
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
 }
 
