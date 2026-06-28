@@ -11,8 +11,8 @@ export interface SlotDestructiveResultBlock {
 }
 
 export function renderSlotDestructiveResultBlock(
-	renderCaps: RenderCapabilities | undefined,
+	renderCapabilities: RenderCapabilities,
 	input: SlotDestructiveResultBlock,
 ): string {
-	return renderResultBlock(renderCaps?.caps ?? resolveSettledNonInteractiveCaps(), input);
+	return renderResultBlock(renderCapabilities.caps ?? resolveSettledNonInteractiveCaps(), input);
 }

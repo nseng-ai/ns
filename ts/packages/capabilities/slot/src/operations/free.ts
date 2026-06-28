@@ -135,7 +135,10 @@ export async function runFree(ctx: SlotCliContext, request: FreeRequest) {
 	return ok(result);
 }
 
-export function renderFree(result: FreeResult, caps?: RenderCapabilities): string {
+export function renderFree(
+	result: FreeResult,
+	caps: RenderCapabilities = { canEmitAnsi: false },
+): string {
 	const targets = result.dry_run ? result.would_free : result.freed;
 	if (result.cancelled) {
 		return renderSlotDestructiveResultBlock(caps, {
