@@ -1,4 +1,4 @@
-import { runCli, type SdlCommandInfo } from "@sdl/sdl/cli";
+import { runCli, type SdlCommandInfo } from "@sdl/kernel/cli";
 
 import {
 	registerCliCommandExtension,

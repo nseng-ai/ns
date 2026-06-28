@@ -69,7 +69,7 @@ framework does not enforce:
 | slot group     | `list/ls`, `checkout/co`, `goto`, `claim`, `free`, `gc`, `init`, `resize`, `gt up/down/free-stack`, `gt exec stack-branches/stack-map-branches`                               | mounted under `sdl slot`; **reference** Tier 3 (`gc`)                       |
 | vibechk        | `runs`, `show`, `diff`, `run`                                                                                                                                                 | `run` is raw-exit; no failure envelope anywhere                             |
 
-`sdl` umbrella note: the only commands physically defined under `ts/packages/sdl/src/`
+`sdl` umbrella note: the only commands physically defined under `ts/packages/kernel/src/`
 are `shell show`/`shell install`. All other `sdl ...` commands are either the
 `@sdl/slot` group (audited under **slot**) or runtime extension contributions
 (loaded from project/global extensions; not statically present in this repo).
@@ -495,7 +495,7 @@ group and runtime extension commands. One concrete command-local gap: missing st
 danger tier of `shell install` is resolved to **Tier 2** by ADR 0015 #6 (it mutates a
 user dotfile outside the repo), so it needs `--yes`/`-y` + non-interactive fail-fast
 (`land-now-fix` (a)), distinct from explicit `--output <path>` writes which stay Tier 1. Command tree is
-complete for code physically under `ts/packages/sdl/src/`; runtime extension commands are
+complete for code physically under `ts/packages/kernel/src/`; runtime extension commands are
 by design not present in this repo. (Aside: extension-contributed commands run through the
 legacy `{ok, exitCode, message}` SdlResult path, not the Clinkr envelope — a separate
 extension-SDK concern.)

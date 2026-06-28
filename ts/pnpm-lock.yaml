@@ -107,6 +107,9 @@ importers:
       '@sdl/handoff-pi':
         specifier: workspace:*
         version: link:packages/capability-pi/handoff
+      '@sdl/kernel':
+        specifier: workspace:*
+        version: link:packages/kernel
       '@sdl/objective-pi':
         specifier: workspace:*
         version: link:packages/capability-pi/objective
@@ -116,9 +119,6 @@ importers:
       '@sdl/roaster':
         specifier: workspace:*
         version: link:packages/roaster
-      '@sdl/sdl':
-        specifier: workspace:*
-        version: link:packages/sdl
       '@sdl/slot':
         specifier: workspace:*
         version: link:packages/capabilities/slot
@@ -239,9 +239,9 @@ importers:
       '@sdl/graphite':
         specifier: workspace:*
         version: link:../../infra/graphite
-      '@sdl/sdl':
+      '@sdl/kernel':
         specifier: workspace:*
-        version: link:../../sdl
+        version: link:../../kernel
       sdl-sdk:
         specifier: workspace:*
         version: link:../../sdl-sdk
@@ -344,6 +344,9 @@ importers:
       '@sdl/graphite':
         specifier: workspace:*
         version: link:../infra/graphite
+      '@sdl/kernel':
+        specifier: workspace:*
+        version: link:../kernel
       '@sdl/objective':
         specifier: workspace:*
         version: link:../objective
@@ -353,9 +356,6 @@ importers:
       '@sdl/plans':
         specifier: workspace:*
         version: link:../plans
-      '@sdl/sdl':
-        specifier: workspace:*
-        version: link:../sdl
       '@sdl/slot':
         specifier: workspace:*
         version: link:../capabilities/slot
@@ -404,9 +404,9 @@ importers:
       '@sdl/graphite':
         specifier: workspace:*
         version: link:../../infra/graphite
-      '@sdl/sdl':
+      '@sdl/kernel':
         specifier: workspace:*
-        version: link:../../sdl
+        version: link:../../kernel
       sdl-sdk:
         specifier: workspace:*
         version: link:../../sdl-sdk
@@ -498,6 +498,42 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../core
+
+  packages/kernel:
+    dependencies:
+      '@earendil-works/pi-ai':
+        specifier: 'catalog:'
+        version: 0.79.1(patch_hash=464bde19e27c06a4f54137e1983d61b217fbfa75a3ede0d5c90acf43071cebdd)(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-coding-agent':
+        specifier: 'catalog:'
+        version: 0.79.1(ws@8.21.0)(zod@4.4.3)
+      '@sdl/autobranch':
+        specifier: workspace:*
+        version: link:../autobranch
+      '@sdl/clinkr':
+        specifier: workspace:*
+        version: link:../infra/clinkr
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../infra/core
+      '@sdl/domain-primitives-transitional':
+        specifier: workspace:*
+        version: link:../infra/domain-primitives-transitional
+      '@sdl/graphite':
+        specifier: workspace:*
+        version: link:../infra/graphite
+      '@sdl/slot':
+        specifier: workspace:*
+        version: link:../capabilities/slot
+      jiti:
+        specifier: 'catalog:'
+        version: 2.7.0
+      sdl-sdk:
+        specifier: workspace:*
+        version: link:../sdl-sdk
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
 
   packages/local-pi-tools/backing-skill-commands:
     dependencies:
@@ -642,42 +678,6 @@ importers:
       yaml:
         specifier: 'catalog:'
         version: 2.9.0
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
-
-  packages/sdl:
-    dependencies:
-      '@earendil-works/pi-ai':
-        specifier: 'catalog:'
-        version: 0.79.1(patch_hash=464bde19e27c06a4f54137e1983d61b217fbfa75a3ede0d5c90acf43071cebdd)(ws@8.21.0)(zod@4.4.3)
-      '@earendil-works/pi-coding-agent':
-        specifier: 'catalog:'
-        version: 0.79.1(ws@8.21.0)(zod@4.4.3)
-      '@sdl/autobranch':
-        specifier: workspace:*
-        version: link:../autobranch
-      '@sdl/clinkr':
-        specifier: workspace:*
-        version: link:../infra/clinkr
-      '@sdl/core':
-        specifier: workspace:*
-        version: link:../infra/core
-      '@sdl/domain-primitives-transitional':
-        specifier: workspace:*
-        version: link:../infra/domain-primitives-transitional
-      '@sdl/graphite':
-        specifier: workspace:*
-        version: link:../infra/graphite
-      '@sdl/slot':
-        specifier: workspace:*
-        version: link:../capabilities/slot
-      jiti:
-        specifier: 'catalog:'
-        version: 2.7.0
-      sdl-sdk:
-        specifier: workspace:*
-        version: link:../sdl-sdk
       zod:
         specifier: 'catalog:'
         version: 4.4.3

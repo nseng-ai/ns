@@ -67,7 +67,10 @@ export const allowedPackageTierDebtEdges = new Map<string, string>([
 		"@sdl/ccc\0@sdl/pi",
 		"CCC clean-consumer debt tracked by the sdl-extension-architecture objective step 5.",
 	],
-	["@sdl/sdl\0@sdl/slot", "SDK-to-capability CLI mount debt: @sdl/sdl still mounts Slot directly."],
+	[
+		"@sdl/kernel\0@sdl/slot",
+		"SDK-to-capability CLI mount debt: @sdl/kernel still mounts Slot directly.",
+	],
 	[
 		"sdl-flow\0@sdl/domain-primitives-transitional",
 		"Current transitional-domain consumer; new consumers must not be added.",
@@ -81,7 +84,7 @@ export const allowedPackageTierDebtEdges = new Map<string, string>([
 		"Current transitional-domain consumer; new consumers must not be added.",
 	],
 	[
-		"@sdl/sdl\0@sdl/domain-primitives-transitional",
+		"@sdl/kernel\0@sdl/domain-primitives-transitional",
 		"Current transitional-domain consumer; new consumers must not be added.",
 	],
 	[
@@ -122,7 +125,7 @@ export const extensionGraphPackageNames = new Set([
 	...capabilityPackageNames,
 	"@sdl/autobranch",
 	"@sdl/pi",
-	"@sdl/sdl",
+	"@sdl/kernel",
 	"@sdl/worktree-status",
 	"sdlcc",
 ]);

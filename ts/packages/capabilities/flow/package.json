@@ -32,7 +32,7 @@
     "@sdl/domain-primitives-transitional": "workspace:*",
     "@sdl/capability-kit": "workspace:*",
     "@sdl/graphite": "workspace:*",
-    "@sdl/sdl": "workspace:*",
+    "@sdl/kernel": "workspace:*",
     "sdl-sdk": "workspace:*"
   },
   "devDependencies": {},

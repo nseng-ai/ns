@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { runCli } from "@sdl/sdl/cli";
+import { runCli } from "@sdl/kernel/cli";
 
 import {
 	sdlShellIntegrationBeginMarker,

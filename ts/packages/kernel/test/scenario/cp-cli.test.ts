@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { listSdlCommands } from "@sdl/sdl/cli";
+import { listSdlCommands } from "@sdl/kernel/cli";
 
 import {
 	formattedExecCalls,
@@ -121,7 +121,7 @@ describe("empty SDL kernel CLI help and parsing", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe(
-			"runtime: typescript\nentry_point: @sdl/sdl bin sdl -> ts/packages/sdl/src/cli.ts\n",
+			"runtime: typescript\nentry_point: @sdl/kernel bin sdl -> ts/packages/kernel/src/cli.ts\n",
 		);
 		expect(run.stderr.join("")).toBe("");
 	});

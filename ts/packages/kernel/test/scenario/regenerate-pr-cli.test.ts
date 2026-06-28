@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { listSdlCommands } from "@sdl/sdl/cli";
+import { listSdlCommands } from "@sdl/kernel/cli";
 
 import { runCliWithFakes } from "./sdl-cli-fakes.ts";
 

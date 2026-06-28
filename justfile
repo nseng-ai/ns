@@ -60,7 +60,7 @@ js-test: ts-test
 # Install the sdl shim to ~/.local/bin so `sdl` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
 # inside an sdl checkout, this checkout's sources everywhere else.
-install-sdl: (_install-ts-shim "sdl" "ts/packages/sdl/src/cli.ts" "just install-sdl or just install-tools")
+install-sdl: (_install-ts-shim "sdl" "ts/packages/kernel/src/cli.ts" "just install-sdl or just install-tools")
     rm -f "{{justfile_directory()}}/.venv/bin/sdl"
     @echo "removed stale project venv sdl script if present"
 

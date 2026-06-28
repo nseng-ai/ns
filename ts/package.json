@@ -33,7 +33,7 @@
     "@sdl/objective-pi": "workspace:*",
     "@sdl/plans": "workspace:*",
     "@sdl/roaster": "workspace:*",
-    "@sdl/sdl": "workspace:*",
+    "@sdl/kernel": "workspace:*",
     "@sdl/slot": "workspace:*",
     "@types/node": "catalog:",
     "@typescript/native-preview": "catalog:",

@@ -71,9 +71,9 @@ const AUTOBRANCH_DIRTY_WORKTREE_MODULE_PATH = join(AUTOBRANCH_SRC_DIR, "dirty-wo
 const AUTOBRANCH_LATEST_COMMIT_MODULE_PATH = join(AUTOBRANCH_SRC_DIR, "latest-commit.ts");
 
 const SDL_INTERNAL_WORKSPACE_MODULE_PATHS = {
-	"@sdl/sdl/cli": "cli.ts",
-	"@sdl/sdl/context": "context.ts",
-	"@sdl/sdl/pi-text-generation": "sdk/pi-text-generation.ts",
+	"@sdl/kernel/cli": "cli.ts",
+	"@sdl/kernel/context": "context.ts",
+	"@sdl/kernel/pi-text-generation": "sdk/pi-text-generation.ts",
 } as const;
 
 const DOMAIN_PRIMITIVES_TRANSITIONAL_MODULE_PATHS = {

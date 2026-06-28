@@ -7,7 +7,7 @@ Accepted
 ## Context
 
 SDL is moving its domain capabilities to live *above* the thin SDL extension API
-(`sdl-sdk`). Today much of that domain logic is tangled inside the `@sdl/sdl`
+(`sdl-sdk`). Today much of that domain logic is tangled inside the `@sdl/kernel`
 kernel package and shared through internal subpaths consumed by `ccc`, `flow`, and
 `pi-extensions`. The kernel glossary says the kernel "should not own repository
 workflow policy," so this tangling is a known misplacement.
@@ -25,7 +25,7 @@ command syntax rather than behavior.
 - **Below the SDK — neutral infra (never domain):** `@sdl/core` (git/exec
   gateways), `@sdl/clinkr` (command framework), `@sdl/graphite` (gt adapters),
   `@sdl/brmem` (Branch Memory storage primitive).
-- **The SDK:** the SDL kernel (`@sdl/sdl`) plus the `sdl-sdk` package as the SDK layer,
+- **The SDK:** the SDL kernel (`@sdl/kernel`) plus the `sdl-sdk` package as the SDK layer,
   a thin SDL extension API of host primitives (`exec`, `env`, `textGenerator`,
   `confirm`, IO streams).
 - **Above the SDK — capability extensions:** flow, handoff, objective,
@@ -71,9 +71,9 @@ gateways the same way and calls provider cores.
   the name "Extension Kit" is reserved for a future general all-extensions substrate.)
 - `@sdl/domain-primitives-transitional` — the **transitional below-SDK
   domain-primitives package**. Holds the SDK-independent domain primitives currently
-  tangled in `@sdl/sdl` (pending-worktree, checkpoint-flow). Explicitly disposable:
+  tangled in `@sdl/kernel` (pending-worktree, checkpoint-flow). Explicitly disposable:
   it shrinks to zero once every capability is an above-SDK extension and
-  `ccc`/`pi-extensions` consume Capability APIs instead of `@sdl/sdl/*` internal subpaths.
+  `ccc`/`pi-extensions` consume Capability APIs instead of `@sdl/kernel/*` internal subpaths.
   The `-transitional` suffix is deliberate — it flags the dependency as debt at every
   import site rather than relying on docs to convey disposability.
 
@@ -102,7 +102,7 @@ belongs above the SDK in the substrate; SDK-independent primitives stay below.
   topological cycle analysis in `just ts-guard` enforces this invariant as migrations
   create concrete consumer→provider edges.
 - Open follow-up, not decided here: the sequencing of extracting domain logic out
-  of `@sdl/sdl`.
+  of `@sdl/kernel`.
 
 ## Rejected Alternatives
 

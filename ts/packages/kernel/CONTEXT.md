@@ -1,11 +1,11 @@
-# @sdl/sdl
+# @sdl/kernel
 
-`@sdl/sdl` uses SDL to mean **Source Development Lifecycle**, not Software Development Lifecycle. It owns the public command boundary for software-development-lifecycle workflows that have migrated into SDL. Generic extension commands may appear as `sdl <name>`, while this repository's current grouped flow lifecycle commands appear as `sdl flow <name>` with static Pi mirrors at `/sdl:flow:<name>`. Project-specific SDL behavior is allowed when it belongs to that lifecycle, and authors use only the public SDL extension API.
+`@sdl/kernel` uses SDL to mean **Source Development Lifecycle**, not Software Development Lifecycle. It owns the public command boundary for software-development-lifecycle workflows that have migrated into SDL. Generic extension commands may appear as `sdl <name>`, while this repository's current grouped flow lifecycle commands appear as `sdl flow <name>` with static Pi mirrors at `/sdl:flow:<name>`. Project-specific SDL behavior is allowed when it belongs to that lifecycle, and authors use only the public SDL extension API.
 
 ## Language
 
 **SDL**:
-The `@sdl/sdl` package and `sdl` CLI. SDL is the public lifecycle command boundary for migrated software-development workflows.
+The `@sdl/kernel` package and `sdl` CLI. SDL is the public lifecycle command boundary for migrated software-development workflows.
 *Avoid*: repo-internal developer CLI, generic SDL namespace, lower orchestration implementation.
 
 **Source Development Lifecycle CLI**:
@@ -57,7 +57,7 @@ A single-segment SDL command name such as `submit`, `changes`, `autobranch`, `au
 *Avoid*: `sdl pr regen`, `sdl slot auto`, command taxonomy churn.
 
 **SDL extension API**:
-The concrete `sdl-sdk` package used by SDL extension authors — the live instance that fills the Public author API slot today. `sdl-sdk` is the SDK layer; `@sdl/sdl` is the host/kernel that loads extensions. It exposes the SDL extension authoring surface: `defineExtension()`, the command and result types and helpers, `SdlExtensionApi` execution capabilities (including text generation), schema builder `z`, and a deliberately curated set of lower-package re-exports owned as first-party SDK vocabulary. `ts/packages/sdl/docs/sdk-reference.md` is the authoritative, complete export inventory; do not maintain a parallel hand-enumeration of exports here. Single-file SDL extensions should use this API rather than SDL implementation modules; packages must never depend on single-file extensions.
+The concrete `sdl-sdk` package used by SDL extension authors — the live instance that fills the Public author API slot today. `sdl-sdk` is the SDK layer; `@sdl/kernel` is the host/kernel that loads extensions. It exposes the SDL extension authoring surface: `defineExtension()`, the command and result types and helpers, `SdlExtensionApi` execution capabilities (including text generation), schema builder `z`, and a deliberately curated set of lower-package re-exports owned as first-party SDK vocabulary. `ts/packages/kernel/docs/sdk-reference.md` is the authoritative, complete export inventory; do not maintain a parallel hand-enumeration of exports here. Single-file SDL extensions should use this API rather than SDL implementation modules; packages must never depend on single-file extensions.
 *Avoid*: Public SDL extension API (third label for the same referent), Pi runtime extension API, importing implementation modules, copying SDK types, resolving SDK through project-local internals, importing from single-file extensions, factory-registration API, direct `zod` dependency for command schemas when the SDK `z` export is available.
 
 **Public author API**:
@@ -69,7 +69,7 @@ The evidence rule for moving behavior into the SDL extension API: one command ma
 *Avoid*: one-command convenience export, importing implementation modules from extensions, treating duplication as automatically bad, hidden migration registry.
 
 **Internal workspace export**:
-An `@sdl/sdl` subpath shared across first-party workspace packages (`ccc`, `pi`, flow) but not promised through the Public author API. It carries SDK-independent primitives — code that takes explicit callbacks (`execGit`, a text generator) rather than `SdlExtensionApi`. The dividing rule between sharing mechanisms is SDK-dependence: `ctx`-dependent shared code belongs above the SDK in the Shared extension substrate; SDK-independent primitives stay here, below the SDK. Package metadata records these subpaths under `sdl.internalWorkspaceExports`.
+An `@sdl/kernel` subpath shared across first-party workspace packages (`ccc`, `pi`, flow) but not promised through the Public author API. It carries SDK-independent primitives — code that takes explicit callbacks (`execGit`, a text generator) rather than `SdlExtensionApi`. The dividing rule between sharing mechanisms is SDK-dependence: `ctx`-dependent shared code belongs above the SDK in the Shared extension substrate; SDK-independent primitives stay here, below the SDK. Package metadata records these subpaths under `sdl.internalWorkspaceExports`.
 *Avoid*: internal migration export, plugin API, public SDK, command-author import path, ctx-dependent shared code.
 
 **Flow capability-area maturity ladder**:
@@ -102,7 +102,7 @@ An internal package such as `@sdl/ccc` that may own implementation orchestration
 
 ## Extension layering
 
-The end-state architecture for SDL capabilities relative to the SDL extension API (`sdl-sdk`). Defined in ADR 0009. Below the SDK: neutral infra (`@sdl/core`, `@sdl/clinkr`, `@sdl/graphite`, `@sdl/brmem`). The SDK: the SDL kernel (`@sdl/sdl`) plus the `sdl-sdk` package. Above the SDK: the Capability Kit plus the Capabilities (first-party extensions) built on it.
+The end-state architecture for SDL capabilities relative to the SDL extension API (`sdl-sdk`). Defined in ADR 0009. Below the SDK: neutral infra (`@sdl/core`, `@sdl/clinkr`, `@sdl/graphite`, `@sdl/brmem`). The SDK: the SDL kernel (`@sdl/kernel`) plus the `sdl-sdk` package. Above the SDK: the Capability Kit plus the Capabilities (first-party extensions) built on it.
 
 **Capability extension**:
 An above-SDK extension that contributes one Source Development Lifecycle capability — flow, handoff, objective, branch-context, plans, address, slot, roaster, or aretro — depending only on host primitives, neutral infra, and curated provider Capability APIs. `ccc` is the highest-fan-out consumer in the Extension Dependency Graph, not a privileged tier.
@@ -127,5 +127,5 @@ The above-SDK package holding cross-cutting, capability-agnostic code shared amo
 *Avoid*: Extension Kit (reserved name), capability-specific home, below-SDK package, public author API, kitchen-sink utilities, `@sdl/core`.
 
 **Transitional domain-primitives package** (`@sdl/domain-primitives-transitional`):
-A below-SDK package that temporarily holds SDK-independent domain primitives extracted out of `@sdl/sdl` (checkpoint-flow/message, pending-worktree, temp-files, text-generation, text-repair). Explicitly disposable: it deletes to zero once every capability is an above-SDK extension and `ccc`/`pi` consume Capability APIs instead of transitional primitive subpaths. The `-transitional` suffix is deliberate — it marks the dependency as debt at every import site.
+A below-SDK package that temporarily holds SDK-independent domain primitives extracted out of `@sdl/kernel` (checkpoint-flow/message, pending-worktree, temp-files, text-generation, text-repair). Explicitly disposable: it deletes to zero once every capability is an above-SDK extension and `ccc`/`pi` consume Capability APIs instead of transitional primitive subpaths. The `-transitional` suffix is deliberate — it marks the dependency as debt at every import site.
 *Avoid*: permanent shared library, `@sdl/core` neutral infra, Shared extension substrate, forever-home.

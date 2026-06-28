@@ -22,7 +22,7 @@ GitHub. That framing is wrong: most of this code is reusable protocol mechanics
 infra. There is no shared GitHub *domain* to justify a capability.
 
 **2. Where does the SDL author SDK live?** The author SDK was exported as a subpath of
-the host package, `@sdl/sdl/sdk`. That conflated two roles in one package: `@sdl/sdl`
+the host package, `@sdl/kernel/sdk`. That conflated two roles in one package: `@sdl/kernel`
 is the host/kernel (module loader, text generation, command IO, `./cli`, `./context`),
 while the author SDK is a distinct layer that extension authors import. Carrying the SDK
 as a host subpath blurred the SDK boundary that ADR 0009 defines and made the SDK's
@@ -65,19 +65,19 @@ Applying it:
 
 ### `sdl-sdk` author package
 
-**Hard-cut the SDL author SDK out of `@sdl/sdl` into a dedicated workspace package.**
+**Hard-cut the SDL author SDK out of `@sdl/kernel` into a dedicated workspace package.**
 
-- The author SDK implementation moves from the `@sdl/sdl/sdk` host subpath into a new
+- The author SDK implementation moves from the `@sdl/kernel/sdk` host subpath into a new
   top-level workspace package named and imported as the **unscoped** specifier
-  `sdl-sdk` (path `ts/packages/sdl-sdk`). It depends only on `@sdl/clinkr`,
+  `sdl-sdk` (path `ts/packages/kernel-sdk`). It depends only on `@sdl/clinkr`,
   `@sdl/core`, `@sdl/domain-primitives-transitional`, and `zod`.
 
 - `sdl-sdk` is the **only** SDL author import specifier — in code, tests, error
-  messages, and the jiti virtual-module binding. The old `@sdl/sdl/sdk` author
+  messages, and the jiti virtual-module binding. The old `@sdl/kernel/sdk` author
   export/import path is **removed with no compatibility shim** (private, unreleased
   repo; a deliberate contract break).
 
-- `@sdl/sdl` remains the **host/kernel**. It still owns `module-loader.ts`,
+- `@sdl/kernel` remains the **host/kernel**. It still owns `module-loader.ts`,
   `pi-text-generation.ts`, `command-io.ts`, `./cli`, `./context`, and the rest of the
   kernel surface. The jiti virtual module in `module-loader.ts` now binds `sdl-sdk`,
   preserving shared SDK/Zod object identity for selected extension modules across the
@@ -85,7 +85,7 @@ Applying it:
 
 - **Layering:** `sdl-sdk` *is* the SDK layer. It is not neutral infra (which sits below
   the SDK) and not host/capability domain (which sits above the SDK). In ADR 0009's
-  terms, the SDK tier is now the SDL kernel (`@sdl/sdl`) plus the `sdl-sdk` package.
+  terms, the SDK tier is now the SDL kernel (`@sdl/kernel`) plus the `sdl-sdk` package.
 
 ## Consequences
 
@@ -116,9 +116,9 @@ Applying it:
 - **Push the PR-feedback gateway seam down into `@sdl/core`.** Rejected: the seam is a
   capability-facing interface; owning it in `@sdl/core` would either invert the
   dependency direction or strand pr-address policy below the SDK.
-- **Keep the author SDK as the `@sdl/sdl/sdk` host subpath.** Rejected: it blurs the
+- **Keep the author SDK as the `@sdl/kernel/sdk` host subpath.** Rejected: it blurs the
   host/kernel versus SDK-layer boundary and leaves the SDK's dependency surface
   implicit.
-- **Provide a `@sdl/sdl/sdk` compatibility shim during the cutover.** Rejected: the repo
+- **Provide a `@sdl/kernel/sdk` compatibility shim during the cutover.** Rejected: the repo
   is private and unreleased, so a single hard cutover is cheaper than carrying a
   deprecated alias.

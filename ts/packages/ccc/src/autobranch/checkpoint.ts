@@ -4,7 +4,7 @@ import {
 	type CommandResult,
 	type PreparedCheckpointMessage,
 } from "@sdl/domain-primitives-transitional/checkpoint-flow";
-import { createTextGenerator } from "@sdl/sdl/context";
+import { createTextGenerator } from "@sdl/kernel/context";
 import type { PendingWorktreeSnapshot } from "@sdl/domain-primitives-transitional/pending-worktree";
 import { selectCheckpointModelRef } from "@sdl/domain-primitives-transitional/text-generation";
 

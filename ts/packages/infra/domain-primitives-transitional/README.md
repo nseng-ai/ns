@@ -7,12 +7,12 @@ Disposable below-SDK holding pen for SDL domain primitives that are shared by cu
 SDL is being split into clear layers:
 
 1. **Below SDK:** neutral infrastructure such as `@sdl/core`, `@sdl/clinkr`, `@sdl/graphite`, and `@sdl/brmem`.
-2. **SDK/kernel:** the SDL kernel (`@sdl/sdl`) plus the `sdl-sdk` package, the small public host API used by SDL extension authors.
+2. **SDK/kernel:** the SDL kernel (`@sdl/kernel`) plus the `sdl-sdk` package, the small public host API used by SDL extension authors.
 3. **Above SDK:** product capabilities such as flow, handoff, objectives, branch-context, plans, PR address, slots, roaster, aretro, and CCC orchestration.
 
-Before this package existed, some SDK-independent domain primitives lived in `@sdl/sdl` and were consumed through internal workspace subpaths such as `@sdl/sdl/pending-worktree` and `@sdl/sdl/checkpoint-flow`. That made the SDL kernel look like the owner of workflow policy and shared product-domain helpers.
+Before this package existed, some SDK-independent domain primitives lived in `@sdl/kernel` and were consumed through internal workspace subpaths such as `@sdl/kernel/pending-worktree` and `@sdl/kernel/checkpoint-flow`. That made the SDL kernel look like the owner of workflow policy and shared product-domain helpers.
 
-This package makes that debt explicit. It extracts those shared primitives out of `@sdl/sdl` without pretending they are permanent neutral infrastructure or public SDK author API.
+This package makes that debt explicit. It extracts those shared primitives out of `@sdl/kernel` without pretending they are permanent neutral infrastructure or public SDK author API.
 
 ## What belongs here
 
@@ -42,9 +42,9 @@ Do not add:
 - `ctx`-dependent extension helper code — shared capability substrate belongs above the SDK, usually in `@sdl/capability-kit` or the owning capability package;
 - command faces, CLI registration, Pi mirrors, or presentation policy;
 - Capability APIs — use the `@sdl/<cap>/api` convention in the owning capability package;
-- dependencies on `@sdl/sdl`.
+- dependencies on `@sdl/kernel`.
 
-The dependency direction is important: this package is below the SDL SDK/kernel. If a helper needs to import `@sdl/sdl`, it does not belong here.
+The dependency direction is important: this package is below the SDL SDK/kernel. If a helper needs to import `@sdl/kernel`, it does not belong here.
 
 ## How consumers should think about this package
 

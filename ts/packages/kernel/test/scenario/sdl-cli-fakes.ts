@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { runCli } from "@sdl/sdl/cli";
+import { runCli } from "@sdl/kernel/cli";
 import type {
 	SdlExecOptions,
 	ExecResult,
