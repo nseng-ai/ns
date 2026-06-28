@@ -2,29 +2,38 @@
 
 ## Work
 
-- [ ] Inventory the current Branch Context Pi edge and consumer expectations.
-  - Evidence to gather: `@sdl/branch-context` package dependencies, `@sdl/pi/*` imports in Branch Context source/tests, consumers of `IMPL_BRANCH_CONTEXT_COMMAND_NAME` and `formatImplBranchContextCommand`, current Pi command registration locations, and current CCC/Pi uses of `@sdl/branch-context/api`.
+- [ ] Reconfirm the Branch Context → Pi edge inventory before implementation.
+  - Policy: direct execution after `objective-stack-impl` preview; this is read-only and should be the first parent/subagent check.
+  - Target: verify the current `@sdl/branch-context` package dependency on `@sdl/pi`, the `src/impl-command.ts` import/re-export, API/root exports, current CCC/Pi consumers, Pi command registration surfaces, and style-guard deferred-cycle references.
+  - Evidence: before-change search output for `@sdl/pi`, `IMPL_BRANCH_CONTEXT_COMMAND_NAME`, and `formatImplBranchContextCommand` across `ts/packages/branch-context`, `ts/packages/ccc`, `ts/packages/hosts/pi`, and `ts/scripts/typescript-style-guard`; confirmation that there is no material implementation progress already present but unrecorded.
 
-- [ ] Decide and implement the command-surface ownership boundary.
-  - Target: Branch Context no longer imports Pi command-name constants. Pi/CCC presentation edges own or inject concrete slash command strings, while Branch Context keeps presentation-neutral attached-plan loading, prompt content, and evidence helpers. Preserve `/sdl:branch-context:impl-attached-plan` unless a separate steer-first decision changes it.
-  - Evidence: targeted tests or source checks showing implementation prompts/launch flows still use the intended command surface without a Branch Context → Pi import.
+- [ ] Move implementation slash-command ownership to Pi/CCC presentation code.
+  - Policy: direct execution after preview; steer first only if preserving the current command names conflicts with the package boundary.
+  - Target: `@sdl/branch-context/api` and the Branch Context package root stop exporting `IMPL_BRANCH_CONTEXT_COMMAND_NAME` and the Pi-specific `formatImplBranchContextCommand`. Pi-owned code keeps `IMPL_BRANCH_CONTEXT_COMMAND_NAME = "sdl:branch-context:impl-attached-plan"` and owns formatting for `/${command} <attached-key>` either in `@sdl/pi/commands` or a Pi branch-context-local helper. CCC cmux launch code uses presentation-owned formatting when constructing Pi launch commands. Branch Context continues to export attached-plan loading, implementation-prompt content, branch-context creation/attachment, evidence, and existing-branch reuse helpers.
+  - Likely files: `ts/packages/branch-context/src/api.ts`, `ts/packages/branch-context/src/index.ts`, `ts/packages/branch-context/src/impl-command.ts` or its deletion, `ts/packages/hosts/pi/src/commands/surfaces.ts`, `ts/packages/hosts/pi/src/branch-context/from-plan-commands.ts`, `ts/packages/hosts/pi/src/branch-context/gt/upstack-impl-launch.ts`, `ts/packages/ccc/src/cmux/slot-dispatch-plan.ts`, and their tests.
+  - Evidence: targeted unit tests/assertions still prove `/sdl:branch-context:impl-attached-plan <key>` appears in usage text, follow-up flow text, replacement-session messages, and cmux Pi launch commands; Branch Context package tests no longer assert Pi command-surface ownership.
 
-- [ ] Remove the `@sdl/branch-context` → `@sdl/pi` package edge.
-  - Target: delete the `@sdl/pi` dependency from `ts/packages/branch-context/package.json`; keep Branch Context imports limited to its intentional lower/provider dependencies such as `@sdl/brmem`, `@sdl/core`, `@sdl/graphite`, and `@sdl/plans`.
-  - Evidence: package check/typecheck for Branch Context and stale-edge search for `@sdl/pi` under `ts/packages/branch-context`.
+- [ ] Remove the `@sdl/branch-context` → `@sdl/pi` package edge and lock it with guard evidence.
+  - Policy: direct execution after preview for source/package/test changes.
+  - Target: delete `@sdl/pi` from `ts/packages/branch-context/package.json`; update `ts/pnpm-lock.yaml` if needed; ensure Branch Context source/tests have no `@sdl/pi/*` imports; narrow the `ts-guard` deferred legacy cycle so Branch Context is no longer included in the autobranch/pi/sdl tolerated component.
+  - Likely files: `ts/packages/branch-context/package.json`, `ts/pnpm-lock.yaml`, `ts/scripts/typescript-style-guard/config.mjs`, and `ts/scripts/typescript-style-guard/adversarial-review.mjs`.
+  - Evidence: clean `rg -n "@sdl/pi" ts/packages/branch-context ts/packages/branch-context/package.json`; clean `just ts-guard`; package check/test for Branch Context; style-guard adversarial tests updated so a new Branch Context cycle is rejected rather than grandfathered.
 
-- [ ] Preserve and document the Capability API boundary.
-  - Target: `@sdl/branch-context/api` remains the curated consumer surface for CCC/Pi composition, with any removal or signature change of Pi-specific exports documented. `@sdl/plans/api` and saved-plan storage behavior remain out of scope unless directly affected by the command-surface cleanup.
-  - Evidence: consumer import-boundary search over CCC/Pi branch-context consumers and package/context documentation that states the final Branch Context command-face/API/domain boundary.
+- [ ] Preserve and document the final Branch Context Capability API boundary.
+  - Policy: direct execution after preview; steer first before introducing a new public SDK surface or changing saved-plan/Branch Memory compatibility language.
+  - Target: `ts/packages/branch-context/CONTEXT.md` (and README if useful) records that Branch Context owns domain/API behavior, while Pi/CCC presentation code owns concrete slash-command surfaces and launch formatting. If Pi docs/context need a small note for the moved formatter, update the nearest applicable context doc. Keep `@sdl/plans/api` and saved-plan storage behavior out of scope unless directly affected by the command-surface cleanup.
+  - Evidence: docs explain why Branch Context must not depend on the Pi Presentation Host; consumer import-boundary search shows CCC/Pi still use `@sdl/branch-context/api` for domain behavior and presentation-owned code for command surfaces.
 
 - [ ] Record completion and parent tracking.
-  - Target: write the completion evidence needed for this child and update `sdl-extension-architecture` Phase 2 step 4 to record the Branch Context child spawn/progress/closure as appropriate.
-  - Evidence: clean stale-edge gates for Branch Context → Pi, preserved command names/prompt behavior, and parent Objective update once the child has material progress or closure evidence.
+  - Policy: direct execution after validation passes; use normal Objective update semantics and do not create stack ledgers or Branch Memory state.
+  - Target: create a Semantic Update under this Objective with the final API/export decision, validation/stale-edge evidence, and any remaining parked work; update `sdl-extension-architecture` Phase 2 step 4/progress or an update file so the parent can treat Branch Context's de-Pi boundary as complete once the child closes or is ready to close.
+  - Evidence: final stale-edge searches for Branch Context → Pi, preserved command names/prompt/launch behavior, `just ts-check`, `just ts-test`, `just ts-guard` (or documented narrower validation plus reason), and parent Objective tracking.
 
 ## Parked
 
-- Reworking saved-plan storage, Branch Memory namespace/key compatibility, branch naming, slug derivation, or attached-plan selection.
+- Reworking saved-plan storage, Branch Memory namespace/key compatibility, branch naming, slug derivation, attached-plan selection, or implementation prompt contract content.
 - Re-opening the broader Branch Context + Plans API migration already completed by `branch-context-plans-extension`.
 - Dynamic arbitrary Pi mirroring for Branch Context commands.
-- Full autobranch/branch-context/pi/sdl manifest-cycle cleanup unless it directly blocks removing Branch Context's Pi dependency.
+- Full autobranch/pi/sdl manifest-cycle cleanup after Branch Context is removed from the deferred component.
 - Broader CCC clean-consumer conversion across remaining capabilities; this stays with the parent `sdl-extension-architecture` Objective and other child Objectives.
+- PR submission, landing, external mutation, or real Branch Memory / branch-context creation validation without explicit user confirmation.
