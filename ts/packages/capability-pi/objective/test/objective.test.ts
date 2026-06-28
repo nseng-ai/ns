@@ -299,6 +299,12 @@ type ObjectiveCommandContextOptions = {
 	cwd?: string;
 };
 
+interface RunObjectiveListOptions {
+	script?: ScriptedExec[];
+	contextOptions?: ObjectiveCommandContextOptions;
+	objectiveClient?: ObjectiveClient;
+}
+
 async function runObjectiveStackImpl(
 	args: string,
 	script: ScriptedExec[] = [],
@@ -369,16 +375,15 @@ async function runObjectiveCommand(
 
 async function runObjectiveList(
 	args: string,
-	script: ScriptedExec[] = [],
-	contextOptions: ObjectiveCommandContextOptions = {},
-	objectiveClient: ObjectiveClient | undefined = undefined,
+	options: RunObjectiveListOptions = {},
 ): Promise<{
 	pi: FakePi;
 	notifications: Notification[];
 	selections: Selection[];
 	waitForIdleCalls: () => number;
 }> {
-	const pi = new FakePi(script);
+	const pi = new FakePi(options.script ?? []);
+	const { objectiveClient } = options;
 	objectiveExtension(
 		pi,
 		objectiveClient === undefined ? {} : { createObjectiveClient: () => objectiveClient },
@@ -389,7 +394,7 @@ async function runObjectiveList(
 		throw new Error("objective:list was not registered");
 	}
 
-	const context = createContext(contextOptions);
+	const context = createContext(options.contextOptions ?? {});
 	await command.handler(args, context.ctx);
 	return { pi, ...context };
 }
@@ -538,12 +543,7 @@ describe("objective:list command", () => {
 				},
 			};
 		});
-		const result = await runObjectiveList(
-			"--names --minimal --status all",
-			[],
-			{},
-			objectiveClient,
-		);
+		const result = await runObjectiveList("--names --minimal --status all", { objectiveClient });
 
 		result.pi.assertDone();
 		expect(listRequests).toEqual([{ names: true, minimal: true, status: "all" }]);
